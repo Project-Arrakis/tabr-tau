@@ -1,0 +1,36 @@
+name: Audit / security finding
+description: A defect or risk found by an audit, review or test. Never attach saves, snapshots, logs or screenshots that contain account IDs.
+labels: ["audit"]
+body:
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options: [Critical, High, Medium, Low]
+    validations: {required: true}
+  - type: dropdown
+    id: stride
+    attributes:
+      label: STRIDE category
+      options: [Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege, N/A]
+    validations: {required: true}
+  - type: textarea
+    id: finding
+    attributes:
+      label: Finding
+      description: One-sentence statement, then evidence (file:line or exact command and output). Redact IDs.
+    validations: {required: true}
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Failure scenario
+      description: Concrete input or state, and the wrong result.
+  - type: textarea
+    id: recommendation
+    attributes:
+      label: Recommendation
+  - type: input
+    id: verified
+    attributes:
+      label: Independently verified?
+      description: yes / no / partly, and how.

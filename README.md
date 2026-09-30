@@ -11,6 +11,14 @@ features (containers, autoscaler, map/Sietche/Deep Desert instances, backups of 
 
 > Unofficial. Not affiliated with or endorsed by Funcom. Editing saves can corrupt them; tabr-tau makes a
 > backup before every write, but keep your own copy of anything you care about.
+> For **single-player saves on your own PC only**. It is not for online-server characters, and editing a save
+> may conflict with the game's terms of service or anti-cheat: that is your own risk. No warranty beyond the MIT licence.
+
+> **Known security limits (a design audit found these; fixes are scheduled, not done):** keep `--addr` on a
+> loopback address, and do not open a save file you got from someone else. Status: [issue #24](https://github.com/Project-Arrakis/tabr-tau/issues/24).
+
+**Documentation:** [docs/README.md](docs/README.md) (design, audit findings, single-player file reference,
+live-test protocol). Do not attach saves, `Game.ini`, snapshots or logs to issues: they contain account IDs.
 
 ## What it does
 

@@ -15,3 +15,25 @@ tabr-tau-backups/
 .vscode/
 .idea/
 .DS_Store
+
+# Privacy: game artifacts that carry account/platform IDs or player data (audit finding F-11).
+# Never commit saves, snapshots, logs, crash dumps or screenshots. Redacted evidence goes in docs/evidence/.
+*.data
+*.meta
+*.dmp
+*.nv-gpudmp
+*.vdf
+*.log
+*.zip
+game.crash.db
+LastCharacter.json
+WornItems.json
+ClothedAppearance.json
+manifest.json
+snapshots/
+tabr-tau-snapshots/
+docs/evidence/screenshots/
+docs/evidence/raw/
+*dump*.sql
+# Local tool output
+coverage.out

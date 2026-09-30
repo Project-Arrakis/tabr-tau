@@ -1,0 +1,29 @@
+name: Bug
+description: Something does not work. Do not attach saves, snapshots, Game.ini or logs; they contain account IDs.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations: {required: true}
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+  - type: input
+    id: version
+    attributes:
+      label: tabr-tau version or commit
+  - type: input
+    id: game
+    attributes:
+      label: Game build / patch (from applied_patches, if known)
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Data safety
+      options:
+        - label: The game was fully closed when I saved
+        - label: I kept a backup and can restore it
+        - label: I removed account IDs from anything I pasted here
