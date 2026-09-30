@@ -2,14 +2,14 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
-	"net"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
@@ -36,10 +36,17 @@ Flags:
 func main() {
 	savePath := flag.String("save", "", "save file or folder (default: auto-detect game.db)")
 	cfgDir := flag.String("config", config.DefaultDir(), "game config folder containing the .ini files")
-	addr := flag.String("addr", "127.0.0.1:8090", "listen address (keep it on localhost)")
+	addr := flag.String("addr", "127.0.0.1:8090", "listen address (must be loopback unless --allow-remote)")
+	allowRemote := flag.Bool("allow-remote", false, "DANGEROUS: allow a non-loopback --addr and connections from other machines (no login exists)")
 	noOpen := flag.Bool("no-browser", false, "do not open the browser")
 	flag.Usage = usage
 	flag.Parse()
+	addrExplicit := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "addr" {
+			addrExplicit = true
+		}
+	})
 
 	if args := flag.Args(); len(args) > 0 {
 		if err := runCommand(args); err != nil {
@@ -88,7 +95,23 @@ func main() {
 		}
 	}
 
-	ln, err := net.Listen("tcp", *addr)
+	if err := web.CheckListenAddr(*addr, *allowRemote); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+	remoteOK := false
+	if *allowRemote {
+		fmt.Fprintln(os.Stderr, "WARNING: --allow-remote lets other machines connect to an editor with NO login that can rewrite your save and config.")
+		fmt.Fprint(os.Stderr, "Type I UNDERSTAND to continue: ")
+		line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+		if strings.TrimSpace(line) != "I UNDERSTAND" {
+			fmt.Fprintln(os.Stderr, "not confirmed; exiting")
+			os.Exit(1)
+		}
+		remoteOK = true
+	}
+
+	ln, err := web.Listen(*addr, addrExplicit)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
@@ -98,7 +121,9 @@ func main() {
 	if !*noOpen {
 		go func() { time.Sleep(300 * time.Millisecond); openBrowser(url) }()
 	}
-	srv := &http.Server{Handler: web.New(s, config.Dir{Path: *cfgDir}).Handler(), ReadHeaderTimeout: 10 * time.Second}
+	ws := web.New(s, config.Dir{Path: *cfgDir})
+	ws.AllowRemote = remoteOK
+	srv := web.NewHTTPServer(ws.Handler())
 	if err := srv.Serve(ln); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)

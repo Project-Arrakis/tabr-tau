@@ -14,8 +14,9 @@ features (containers, autoscaler, map/Sietche/Deep Desert instances, backups of 
 > For **single-player saves on your own PC only**. It is not for online-server characters, and editing a save
 > may conflict with the game's terms of service or anti-cheat: that is your own risk. No warranty beyond the MIT licence.
 
-> **Known security limits (a design audit found these; fixes are scheduled, not done):** keep `--addr` on a
-> loopback address, and do not open a save file you got from someone else. Status: [issue #24](https://github.com/Project-Arrakis/tabr-tau/issues/24).
+> **Known security limits (a design audit found these; some are fixed, the rest are scheduled):** the editor now refuses
+> connections from other machines and non-loopback `--addr` values. Still open: a hostile save file can attack the
+> editor's UI and SQL console, so **do not open a save file you got from someone else**. Status: [issue #24](https://github.com/Project-Arrakis/tabr-tau/issues/24).
 
 **Documentation:** [docs/README.md](docs/README.md) (design, audit findings, single-player file reference,
 live-test protocol). Do not attach saves, `Game.ini`, snapshots or logs to issues: they contain account IDs.
@@ -54,7 +55,7 @@ go run ./cmd/tabr-tau            # auto-detects %LOCALAPPDATA%\DuneSandbox\...\g
 go run ./cmd/tabr-tau --save "C:\path\to\game.db" --config "%LOCALAPPDATA%\DuneSandbox\Saved\Config\Windows"
 ```
 
-Flags: `--save`, `--config`, `--addr` (default `127.0.0.1:8090`), `--no-browser`.
+Flags: `--save`, `--config`, `--addr` (default `127.0.0.1:8090`; must be a loopback address), `--allow-remote` (dangerous, see the security note), `--no-browser`.
 
 Helper commands: `tabr-tau find`, `tabr-tau decode <save> <out.sqlite>`, `tabr-tau encode <in.sqlite> <out.db>`.
 
