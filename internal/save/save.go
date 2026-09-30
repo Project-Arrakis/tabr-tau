@@ -36,6 +36,20 @@ type Save struct {
 	pending  []string
 }
 
+// sqlErrorHook, when set, is called for every statement that fails. It exists so tests can notice SQL errors that
+// the code under test swallows (for example a query naming a column the real game schema does not have).
+// Not safe for concurrent use: set it once at the start of a test that does not run in parallel.
+var sqlErrorHook func(q string, err error)
+
+// SetSQLErrorHook installs (or, with nil, removes) the test hook described on sqlErrorHook.
+func SetSQLErrorHook(f func(q string, err error)) { sqlErrorHook = f }
+
+func noteSQLError(q string, err error) {
+	if err != nil && sqlErrorHook != nil {
+		sqlErrorHook(q, err)
+	}
+}
+
 // Open decodes path (a save file, or the folder containing game.db).
 func Open(path string) (*Save, error) {
 	if st, err := os.Stat(path); err == nil && st.IsDir() {
@@ -118,6 +132,7 @@ func (s *Save) Exec(q string, args ...any) (sql.Result, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	res, err := s.db.Exec(q, args...)
+	noteSQLError(q, err)
 	if err == nil {
 		if n, _ := res.RowsAffected(); n > 0 {
 			s.dirty = true
@@ -158,6 +173,7 @@ func (s *Save) ExecScript(script string) (int64, error) {
 	var before, after int64
 	tx.QueryRow("select total_changes()").Scan(&before)
 	if _, err := tx.Exec(script); err != nil {
+		noteSQLError(script, err)
 		tx.Rollback()
 		return 0, err
 	}
@@ -201,7 +217,9 @@ func (s *Save) One(q string, args ...any) (Row, error) {
 func (s *Save) Table(q string, args ...any) ([]string, [][]any, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return queryTable(s.db, q, args...)
+	cols, rows, err := queryTable(s.db, q, args...)
+	noteSQLError(q, err)
+	return cols, rows, err
 }
 
 type querier interface {
@@ -242,6 +260,7 @@ func queryTable(db querier, q string, args ...any) ([]string, [][]any, error) {
 // TxQuery is Query inside a transaction.
 func TxQuery(tx *sql.Tx, q string, args ...any) ([]Row, error) {
 	cols, rows, err := queryTable(tx, q, args...)
+	noteSQLError(q, err)
 	if err != nil {
 		return nil, err
 	}

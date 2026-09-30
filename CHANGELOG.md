@@ -14,6 +14,11 @@ Versioning: [Semantic Versioning](https://semver.org/), tags `v0.x` until the fi
 - Governance: CI (gofmt, go vet, staticcheck, race tests, govulncheck, PSScriptAnalyzer, shellcheck, commit-message
   policy, shared security scan), `.gitleaks.toml` with identifier rules, PR and issue templates, `CODEOWNERS`, Dependabot.
 
+### Added (tests)
+- `internal/testsave`: builds test saves from the REAL game schema (94 tables, STRICT, CHECKs, foreign keys, the game's trigger): empty, filled, hostile (every TEXT column holds markup/quote/CSV/SQL breakout text) and a consistent one-player world that mirrors the game's controller/pawn/player-state linkage. A drift test keeps the embedded DDL identical to `docs/evidence/single-player-schema.ddl.sql` (F-02 / #3).
+- Contract test: every read path in `ops` runs against a populated real-schema save and any SQL error, even one the code swallows, fails the test (new `save.SetSQLErrorHook`, test-only). A self-test proves the hook sees errors.
+- Give-item, full-backpack and Solari tests on the real schema, each ending with `integrity_check`, `foreign_key_check` and the sequencer invariant.
+
 ### Changed
 - `tools/snapshot.ps1` lists accounts and accepts `-SteamId` when several exist.
 
