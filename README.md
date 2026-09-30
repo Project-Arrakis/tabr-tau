@@ -67,3 +67,7 @@ go vet ./... && go test ./...
 ```
 
 Tests use synthetic saves built in a temp folder; no real save data is needed.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
