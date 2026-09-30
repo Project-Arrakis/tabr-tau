@@ -27,7 +27,7 @@ foreach ($exe in 'scp.exe', 'ssh.exe') {
   }
 }
 $dir = (Resolve-Path $SnapshotDir).Path
-if (-not (Test-Path (Join-Path $dir 'manifest.json'))) { throw "No manifest.json in $dir: snapshot incomplete or not a snapshot folder." }
+if (-not (Test-Path (Join-Path $dir 'manifest.json'))) { throw "No manifest.json in ${dir}: snapshot incomplete or not a snapshot folder." }
 $m = Get-Content (Join-Path $dir 'manifest.json') -Raw | ConvertFrom-Json
 if ($m.gameRunning) { Write-Warning "This snapshot was taken while the game was RUNNING (manifest says so). Prefer a fresh snapshot with the game closed." }
 
