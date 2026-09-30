@@ -11,21 +11,35 @@
       Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .EXAMPLE
   .\snapshot.ps1 -Label A0-baseline
+  .\snapshot.ps1 -Label A0-baseline -SteamId 12345678901234567   # when several accounts exist
   .\snapshot.ps1 -Label B1-ingame-literjon -Zip
 #>
 param(
   [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9._-]{1,64}$')][string]$Label,
   [string]$Dest = (Join-Path $env:USERPROFILE 'tabr-tau-snapshots'),
   [switch]$Zip,
-  [switch]$IncludeConfig   # copies ServerCustomSettings.ini only (never Game.ini)
+  [switch]$IncludeConfig,  # copies ServerCustomSettings.ini only (never Game.ini)
+  [ValidatePattern('^\d{17}$')][string]$SteamId   # required when several Steam accounts have saves on this PC
 )
 $ErrorActionPreference = 'Stop'
 if (-not $env:LOCALAPPDATA) { throw 'LOCALAPPDATA is not set: run this on the Windows PC that has the game.' }
 $saved = Join-Path $env:LOCALAPPDATA 'DuneSandbox\Saved'
 $fls = Join-Path $saved 'Cloud\PlayerClientStorage\FLS_retail'
 if (-not (Test-Path $fls)) { throw "Not found: $fls" }
-$acct = @(Get-ChildItem $fls -Directory | Where-Object Name -Match '^\d{17}$')
-if ($acct.Count -ne 1) { throw "Expected exactly one Steam-id folder under $fls, found $($acct.Count)" }
+$cands = @(Get-ChildItem $fls -Directory | Where-Object Name -Match '^\d{17}$')
+if ($SteamId) {
+  $acct = @($cands | Where-Object Name -eq $SteamId)
+  if ($acct.Count -ne 1) { throw "No folder named $SteamId under $fls" }
+} elseif ($cands.Count -eq 1) {
+  $acct = $cands
+} else {
+  Write-Host "Found $($cands.Count) Steam-id folders under $fls :"
+  $cands | ForEach-Object {
+    $db = Join-Path $_.FullName 'game.db'
+    [pscustomobject]@{ SteamId = $_.Name; GameDb = (Test-Path $db); GameDbModified = $(if (Test-Path $db) { (Get-Item $db).LastWriteTime } else { $null }); GameDbBytes = $(if (Test-Path $db) { (Get-Item $db).Length } else { $null }) }
+  } | Format-Table -AutoSize | Out-String | Write-Host
+  throw 'Several accounts found. Re-run with -SteamId <id> (usually the one whose game.db was modified most recently).'
+}
 if (-not (Test-Path (Join-Path $acct[0].FullName 'game.db'))) { throw 'game.db not found in the account folder.' }
 New-Item -ItemType Directory -Path $Dest -Force | Out-Null
 $out = Join-Path $Dest $Label

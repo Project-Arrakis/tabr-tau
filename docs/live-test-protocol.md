@@ -15,6 +15,7 @@ argued after the fact.
 - Steam Cloud: note whether it is on for this game (Steam > game > Properties > General). If on, note that
   Steam may restore a synced `game.db` at launch; this is one of the questions under test.
 - `tools\snapshot.ps1` and `tools\snapdiff.py` from this repo.
+- If several Steam accounts have saves on the PC, `snapshot.ps1` lists them (with `game.db` modified times) and stops; re-run with `-SteamId <id>` for the account you play (usually the most recently modified).
 
 ## Rules
 
