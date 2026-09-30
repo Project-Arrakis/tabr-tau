@@ -21,6 +21,7 @@ Versioning: [Semantic Versioning](https://semver.org/), tags `v0.x` until the fi
 - `tools/send-snapshot.ps1` parse error (`"$dir:"` read as a drive-qualified variable).
 
 ### Security
+- Go toolchain raised to 1.26.6 (six reachable standard-library vulnerabilities found by govulncheck: GO-2026-5037, 5039, 5856, 5972, 6089, 6090).
 - Findings from the Layer 1 audit are tracked in issue #24. **None of the application-code findings (F-03, F-04,
   F-05..F-08) are fixed yet**; they are scheduled as phases S0 and S1 in the plan. Until then, do not run tabr-tau
   with `--addr` set to anything other than a loopback address, and do not open saves from untrusted sources.
