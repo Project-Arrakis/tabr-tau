@@ -1,0 +1,861 @@
+                                        ?column?                                        
+----------------------------------------------------------------------------------------
+ account_removal_log|event_time|timestamp with time zone|NO
+ account_removal_log|fls_id|text|NO
+ account_removal_log|account_id|bigint|NO
+ account_removal_log|reason|text|NO
+ accounts|id|bigint|YES
+ accounts|user|text|YES
+ accounts|funcom_id|text|YES
+ accounts|takeoverable|boolean|YES
+ accounts|platform_id|text|YES
+ accounts|platform_name|text|YES
+ active_server_ids|server_id|text|YES
+ actor_audit|id|bigint|NO
+ actor_audit|class|text|YES
+ actor_fgl_entities|actor_id|bigint|YES
+ actor_fgl_entities|entity_id|bigint|YES
+ actor_fgl_entities|slot_name|text|NO
+ actor_inventories|inventory_id|bigint|NO
+ actor_inventories|component_name_hash|bigint|NO
+ actor_spawner_actors|spawner_id|bigint|NO
+ actor_spawner_actors|actor_id|bigint|YES
+ actor_spawners|id|bigint|NO
+ actor_spawners|map|text|NO
+ actor_spawners|name|text|NO
+ actor_spawners|dimension_index|integer|NO
+ actors|id|bigint|NO
+ actors|class|text|YES
+ actors|map|text|YES
+ actors|transform|USER-DEFINED|YES
+ actors|partition_id|bigint|YES
+ actors|dimension_index|integer|NO
+ actors|gas_attributes|jsonb|NO
+ actors|properties|jsonb|NO
+ actors|owner_account_id|bigint|YES
+ actors|serial|bigint|NO
+ actors|state|USER-DEFINED|NO
+ admin_choam_terminals|trade_center_key|text|NO
+ admin_choam_terminals|trade_center_name|text|NO
+ admin_choam_terminals|dimension_index|integer|NO
+ admin_choam_terminals|partition_id|bigint|NO
+ admin_choam_terminals|actor_id|bigint|NO
+ admin_choam_terminals|source_player_id|bigint|YES
+ admin_choam_terminals|created_at|timestamp with time zone|NO
+ applied_patches|name|text|NO
+ applied_patches|date|timestamp without time zone|NO
+ backup_vehicles|vehicle_id|bigint|NO
+ backup_vehicles|customization_id|text|YES
+ backup_vehicles|character_id|bigint|NO
+ base_backup_linked_actors|id|bigint|NO
+ base_backup_linked_actors|actor_id|bigint|YES
+ base_backups|id|bigint|NO
+ base_backups|player_id|bigint|YES
+ base_backups|base_backup_name|text|YES
+ base_backups|last_edited_by_player_id|bigint|NO
+ building_blueprint_instances|building_blueprint_id|bigint|NO
+ building_blueprint_instances|instance_id|integer|NO
+ building_blueprint_instances|building_type|text|NO
+ building_blueprint_instances|transform|ARRAY|YES
+ building_blueprint_instances|provides_stability|boolean|YES
+ building_blueprint_instances|health|real|YES
+ building_blueprint_instances|hologram|boolean|YES
+ building_blueprint_pentashields|building_blueprint_id|bigint|NO
+ building_blueprint_pentashields|placeable_id|integer|NO
+ building_blueprint_pentashields|scale|ARRAY|YES
+ building_blueprint_placeables|building_blueprint_id|bigint|NO
+ building_blueprint_placeables|placeable_id|integer|NO
+ building_blueprint_placeables|building_type|text|NO
+ building_blueprint_placeables|transform|ARRAY|YES
+ building_blueprint_placeables|hologram|boolean|YES
+ building_blueprints|id|bigint|NO
+ building_blueprints|item_id|bigint|NO
+ building_blueprints|player_id|bigint|YES
+ building_blueprints|building_blueprint_map|text|YES
+ building_favorites|building_types|ARRAY|YES
+ building_favorites|character_id|bigint|NO
+ building_instances|building_id|bigint|NO
+ building_instances|instance_id|integer|NO
+ building_instances|building_type|text|NO
+ building_instances|transform|ARRAY|YES
+ building_instances|owner_entity_id|bigint|YES
+ building_instances|building_flags|integer|YES
+ building_instances|health|real|NO
+ building_instances|shelter|smallint|NO
+ building_instances|sand_buildup|smallint|NO
+ building_instances|last_placed_by_player_id|bigint|NO
+ building_progression|learned_building_sets|ARRAY|YES
+ building_progression|new_buildable_pieces|ARRAY|YES
+ building_progression|character_id|bigint|NO
+ buildings|id|bigint|NO
+ buildings|owner_id|bigint|YES
+ character_transfer_imports|fls_id|text|NO
+ character_transfer_imports|last_update|timestamp with time zone|NO
+ character_transfer_imports|transfer_state|USER-DEFINED|NO
+ cheater_tracking|id|integer|NO
+ cheater_tracking|event_time|timestamp with time zone|NO
+ cheater_tracking|fls_id|text|NO
+ cheater_tracking|cheat_type|USER-DEFINED|NO
+ console_player_playtime|account_id|bigint|NO
+ console_player_playtime|total_seconds|bigint|NO
+ console_player_playtime|session_started_at|timestamp with time zone|YES
+ console_player_playtime|session_login_at|timestamp with time zone|YES
+ console_player_playtime|last_observed_at|timestamp with time zone|YES
+ console_player_playtime|updated_at|timestamp with time zone|NO
+ consumed_per_player_lore|actor_id|bigint|NO
+ consumed_per_player_lore|consumed_bit_array|bit|NO
+ consumed_temporary_per_player_lore|actor_id|bigint|NO
+ consumed_temporary_per_player_lore|consumed_bit_array|bit|NO
+ da_12319_faction_rank_backup|account_id|bigint|YES
+ da_12319_faction_rank_backup|player_controller_id|bigint|YES
+ da_12319_faction_rank_backup|backup_properties|jsonb|YES
+ da_6358_broken_players_12400|account_id|bigint|YES
+ da_6358_broken_players_12400|player_controller_id|bigint|YES
+ da_6358_broken_players_12400|backup_properties|jsonb|YES
+ da_6358_broken_players_1300|account_id|bigint|YES
+ da_6358_broken_players_1300|player_controller_id|bigint|YES
+ da_6358_broken_players_1300|backup_properties|jsonb|YES
+ da_6358_pre_broken_players|account_id|bigint|YES
+ debug_test_table|entry|text|YES
+ demo_users|fls_id|text|NO
+ demo_users|demo_playtime|interval|YES
+ demo_users|demo_state|USER-DEFINED|YES
+ dialogue_met_npcs|player_id|bigint|YES
+ dialogue_met_npcs|npc_name|text|NO
+ dialogue_taken_nodes|player_id|bigint|YES
+ dialogue_taken_nodes|node_id|integer|YES
+ discord_pending_links|code|text|NO
+ discord_pending_links|discord_user_id|text|NO
+ discord_pending_links|player_controller_id|text|NO
+ discord_pending_links|character_name|text|NO
+ discord_pending_links|created_at|timestamp with time zone|NO
+ discord_pending_links|expires_at|timestamp with time zone|NO
+ discord_player_links|discord_user_id|text|NO
+ discord_player_links|player_controller_id|text|NO
+ discord_player_links|linked_at|timestamp with time zone|NO
+ dune_exchange_accesspoints|id|bigint|NO
+ dune_exchange_accesspoints|exchange_id|bigint|NO
+ dune_exchange_accesspoints|name|text|NO
+ dune_exchange_categories_hash|id|integer|NO
+ dune_exchange_categories_hash|hash|integer|YES
+ dune_exchange_fulfilled_orders|order_id|bigint|NO
+ dune_exchange_fulfilled_orders|completion_type|integer|NO
+ dune_exchange_fulfilled_orders|stack_size|bigint|NO
+ dune_exchange_fulfilled_orders|source_order_id|bigint|YES
+ dune_exchange_fulfilled_orders|original_order_id|bigint|YES
+ dune_exchange_orders|id|bigint|NO
+ dune_exchange_orders|revision|bigint|NO
+ dune_exchange_orders|exchange_id|bigint|NO
+ dune_exchange_orders|owner_id|bigint|NO
+ dune_exchange_orders|item_id|bigint|YES
+ dune_exchange_orders|template_id|text|NO
+ dune_exchange_orders|category_mask|integer|NO
+ dune_exchange_orders|category_depth|smallint|NO
+ dune_exchange_orders|access_point_id|bigint|NO
+ dune_exchange_orders|is_npc_order|boolean|NO
+ dune_exchange_orders|item_price|bigint|NO
+ dune_exchange_orders|expiration_time|bigint|YES
+ dune_exchange_orders|durability_cur|real|NO
+ dune_exchange_orders|durability_max|real|NO
+ dune_exchange_orders|quality_level|bigint|NO
+ dune_exchange_sell_orders|order_id|bigint|NO
+ dune_exchange_sell_orders|initial_stack_size|bigint|NO
+ dune_exchange_sell_orders|wear_normalized_price|bigint|NO
+ dune_exchange_users|id|bigint|NO
+ dune_exchange_users|owner_id|bigint|NO
+ dune_exchange_users|solari_balance|bigint|NO
+ dune_exchanges|id|bigint|NO
+ dune_exchanges|exchange_name|text|NO
+ dune_exchanges|inventory_id|bigint|YES
+ dungeon_completion|completion_id|bigint|NO
+ dungeon_completion|dungeon_id|text|NO
+ dungeon_completion|difficulty|integer|NO
+ dungeon_completion|duration_ms|integer|NO
+ dungeon_completion|players_num|smallint|NO
+ dungeon_completion_players|player_id|bigint|NO
+ dungeon_completion_players|completion_id|bigint|NO
+ encounters_static|map_name|text|NO
+ encounters_static|package_name|text|NO
+ encounters_static|actor_name|text|NO
+ encounters_static|encounter_name|text|NO
+ encounters_static|waiting_for_reset|boolean|NO
+ encrypted_accounts|id|bigint|NO
+ encrypted_accounts|user|text|NO
+ encrypted_accounts|encrypted_funcom_id|bytea|YES
+ encrypted_accounts|takeoverable|boolean|YES
+ encrypted_accounts|platform_name|text|YES
+ encrypted_accounts|encrypted_platform_id|bytea|YES
+ encrypted_player_state|account_id|bigint|NO
+ encrypted_player_state|encrypted_character_name|bytea|NO
+ encrypted_player_state|last_avatar_activity|timestamp with time zone|YES
+ encrypted_player_state|server_id|text|YES
+ encrypted_player_state|player_controller_id|bigint|YES
+ encrypted_player_state|player_pawn_id|bigint|YES
+ encrypted_player_state|player_state_id|bigint|YES
+ encrypted_player_state|pending_respawn_location_id|uuid|YES
+ encrypted_player_state|life_state|USER-DEFINED|NO
+ encrypted_player_state|online_status|USER-DEFINED|NO
+ encrypted_player_state|reconnect_grace_period_end|timestamp without time zone|YES
+ encrypted_player_state|previous_server_partition_id|bigint|YES
+ encrypted_player_state|is_coriolis_processed|boolean|NO
+ encrypted_player_state|return_dimension_index|integer|YES
+ encrypted_player_state|death_location|USER-DEFINED|YES
+ encrypted_player_state|home_dimension_index|integer|YES
+ encrypted_player_state|logoff_persistence_end_time|timestamp without time zone|YES
+ encrypted_player_state|last_login_time|timestamp with time zone|YES
+ encrypted_player_state|last_returning_player_event_time|timestamp with time zone|YES
+ encrypted_player_state|last_returning_player_awarded_time|timestamp with time zone|YES
+ encrypted_player_state|id|bigint|NO
+ encrypted_player_state|character_state|USER-DEFINED|NO
+ encrypted_player_state|last_character_state_change|timestamp without time zone|NO
+ encrypted_player_state|transfer_count|integer|NO
+ event_log|id|bigint|NO
+ event_log|partition_id|bigint|NO
+ event_log|category|USER-DEFINED|NO
+ event_log|message|USER-DEFINED|NO
+ event_log|function_name|USER-DEFINED|NO
+ event_log|event_time|timestamp with time zone|NO
+ event_log|meta|jsonb|NO
+ event_log_default|id|bigint|NO
+ event_log_default|partition_id|bigint|NO
+ event_log_default|category|USER-DEFINED|NO
+ event_log_default|message|USER-DEFINED|NO
+ event_log_default|function_name|USER-DEFINED|NO
+ event_log_default|event_time|timestamp with time zone|NO
+ event_log_default|meta|jsonb|NO
+ event_log_maintanence|onerow_id|boolean|NO
+ event_log_maintanence|last_cleanup|timestamp with time zone|NO
+ event_log_p1|id|bigint|NO
+ event_log_p1|partition_id|bigint|NO
+ event_log_p1|category|USER-DEFINED|NO
+ event_log_p1|message|USER-DEFINED|NO
+ event_log_p1|function_name|USER-DEFINED|NO
+ event_log_p1|event_time|timestamp with time zone|NO
+ event_log_p1|meta|jsonb|NO
+ event_log_p10|id|bigint|NO
+ event_log_p10|partition_id|bigint|NO
+ event_log_p10|category|USER-DEFINED|NO
+ event_log_p10|message|USER-DEFINED|NO
+ event_log_p10|function_name|USER-DEFINED|NO
+ event_log_p10|event_time|timestamp with time zone|NO
+ event_log_p10|meta|jsonb|NO
+ event_log_p11|id|bigint|NO
+ event_log_p11|partition_id|bigint|NO
+ event_log_p11|category|USER-DEFINED|NO
+ event_log_p11|message|USER-DEFINED|NO
+ event_log_p11|function_name|USER-DEFINED|NO
+ event_log_p11|event_time|timestamp with time zone|NO
+ event_log_p11|meta|jsonb|NO
+ event_log_p12|id|bigint|NO
+ event_log_p12|partition_id|bigint|NO
+ event_log_p12|category|USER-DEFINED|NO
+ event_log_p12|message|USER-DEFINED|NO
+ event_log_p12|function_name|USER-DEFINED|NO
+ event_log_p12|event_time|timestamp with time zone|NO
+ event_log_p12|meta|jsonb|NO
+ event_log_p13|id|bigint|NO
+ event_log_p13|partition_id|bigint|NO
+ event_log_p13|category|USER-DEFINED|NO
+ event_log_p13|message|USER-DEFINED|NO
+ event_log_p13|function_name|USER-DEFINED|NO
+ event_log_p13|event_time|timestamp with time zone|NO
+ event_log_p13|meta|jsonb|NO
+ event_log_p14|id|bigint|NO
+ event_log_p14|partition_id|bigint|NO
+ event_log_p14|category|USER-DEFINED|NO
+ event_log_p14|message|USER-DEFINED|NO
+ event_log_p14|function_name|USER-DEFINED|NO
+ event_log_p14|event_time|timestamp with time zone|NO
+ event_log_p14|meta|jsonb|NO
+ event_log_p15|id|bigint|NO
+ event_log_p15|partition_id|bigint|NO
+ event_log_p15|category|USER-DEFINED|NO
+ event_log_p15|message|USER-DEFINED|NO
+ event_log_p15|function_name|USER-DEFINED|NO
+ event_log_p15|event_time|timestamp with time zone|NO
+ event_log_p15|meta|jsonb|NO
+ event_log_p16|id|bigint|NO
+ event_log_p16|partition_id|bigint|NO
+ event_log_p16|category|USER-DEFINED|NO
+ event_log_p16|message|USER-DEFINED|NO
+ event_log_p16|function_name|USER-DEFINED|NO
+ event_log_p16|event_time|timestamp with time zone|NO
+ event_log_p16|meta|jsonb|NO
+ event_log_p17|id|bigint|NO
+ event_log_p17|partition_id|bigint|NO
+ event_log_p17|category|USER-DEFINED|NO
+ event_log_p17|message|USER-DEFINED|NO
+ event_log_p17|function_name|USER-DEFINED|NO
+ event_log_p17|event_time|timestamp with time zone|NO
+ event_log_p17|meta|jsonb|NO
+ event_log_p18|id|bigint|NO
+ event_log_p18|partition_id|bigint|NO
+ event_log_p18|category|USER-DEFINED|NO
+ event_log_p18|message|USER-DEFINED|NO
+ event_log_p18|function_name|USER-DEFINED|NO
+ event_log_p18|event_time|timestamp with time zone|NO
+ event_log_p18|meta|jsonb|NO
+ event_log_p19|id|bigint|NO
+ event_log_p19|partition_id|bigint|NO
+ event_log_p19|category|USER-DEFINED|NO
+ event_log_p19|message|USER-DEFINED|NO
+ event_log_p19|function_name|USER-DEFINED|NO
+ event_log_p19|event_time|timestamp with time zone|NO
+ event_log_p19|meta|jsonb|NO
+ event_log_p2|id|bigint|NO
+ event_log_p2|partition_id|bigint|NO
+ event_log_p2|category|USER-DEFINED|NO
+ event_log_p2|message|USER-DEFINED|NO
+ event_log_p2|function_name|USER-DEFINED|NO
+ event_log_p2|event_time|timestamp with time zone|NO
+ event_log_p2|meta|jsonb|NO
+ event_log_p20|id|bigint|NO
+ event_log_p20|partition_id|bigint|NO
+ event_log_p20|category|USER-DEFINED|NO
+ event_log_p20|message|USER-DEFINED|NO
+ event_log_p20|function_name|USER-DEFINED|NO
+ event_log_p20|event_time|timestamp with time zone|NO
+ event_log_p20|meta|jsonb|NO
+ event_log_p21|id|bigint|NO
+ event_log_p21|partition_id|bigint|NO
+ event_log_p21|category|USER-DEFINED|NO
+ event_log_p21|message|USER-DEFINED|NO
+ event_log_p21|function_name|USER-DEFINED|NO
+ event_log_p21|event_time|timestamp with time zone|NO
+ event_log_p21|meta|jsonb|NO
+ event_log_p22|id|bigint|NO
+ event_log_p22|partition_id|bigint|NO
+ event_log_p22|category|USER-DEFINED|NO
+ event_log_p22|message|USER-DEFINED|NO
+ event_log_p22|function_name|USER-DEFINED|NO
+ event_log_p22|event_time|timestamp with time zone|NO
+ event_log_p22|meta|jsonb|NO
+ event_log_p23|id|bigint|NO
+ event_log_p23|partition_id|bigint|NO
+ event_log_p23|category|USER-DEFINED|NO
+ event_log_p23|message|USER-DEFINED|NO
+ event_log_p23|function_name|USER-DEFINED|NO
+ event_log_p23|event_time|timestamp with time zone|NO
+ event_log_p23|meta|jsonb|NO
+ event_log_p24|id|bigint|NO
+ event_log_p24|partition_id|bigint|NO
+ event_log_p24|category|USER-DEFINED|NO
+ event_log_p24|message|USER-DEFINED|NO
+ event_log_p24|function_name|USER-DEFINED|NO
+ event_log_p24|event_time|timestamp with time zone|NO
+ event_log_p24|meta|jsonb|NO
+ event_log_p25|id|bigint|NO
+ event_log_p25|partition_id|bigint|NO
+ event_log_p25|category|USER-DEFINED|NO
+ event_log_p25|message|USER-DEFINED|NO
+ event_log_p25|function_name|USER-DEFINED|NO
+ event_log_p25|event_time|timestamp with time zone|NO
+ event_log_p25|meta|jsonb|NO
+ event_log_p26|id|bigint|NO
+ event_log_p26|partition_id|bigint|NO
+ event_log_p26|category|USER-DEFINED|NO
+ event_log_p26|message|USER-DEFINED|NO
+ event_log_p26|function_name|USER-DEFINED|NO
+ event_log_p26|event_time|timestamp with time zone|NO
+ event_log_p26|meta|jsonb|NO
+ event_log_p27|id|bigint|NO
+ event_log_p27|partition_id|bigint|NO
+ event_log_p27|category|USER-DEFINED|NO
+ event_log_p27|message|USER-DEFINED|NO
+ event_log_p27|function_name|USER-DEFINED|NO
+ event_log_p27|event_time|timestamp with time zone|NO
+ event_log_p27|meta|jsonb|NO
+ event_log_p28|id|bigint|NO
+ event_log_p28|partition_id|bigint|NO
+ event_log_p28|category|USER-DEFINED|NO
+ event_log_p28|message|USER-DEFINED|NO
+ event_log_p28|function_name|USER-DEFINED|NO
+ event_log_p28|event_time|timestamp with time zone|NO
+ event_log_p28|meta|jsonb|NO
+ event_log_p29|id|bigint|NO
+ event_log_p29|partition_id|bigint|NO
+ event_log_p29|category|USER-DEFINED|NO
+ event_log_p29|message|USER-DEFINED|NO
+ event_log_p29|function_name|USER-DEFINED|NO
+ event_log_p29|event_time|timestamp with time zone|NO
+ event_log_p29|meta|jsonb|NO
+ event_log_p3|id|bigint|NO
+ event_log_p3|partition_id|bigint|NO
+ event_log_p3|category|USER-DEFINED|NO
+ event_log_p3|message|USER-DEFINED|NO
+ event_log_p3|function_name|USER-DEFINED|NO
+ event_log_p3|event_time|timestamp with time zone|NO
+ event_log_p3|meta|jsonb|NO
+ event_log_p30|id|bigint|NO
+ event_log_p30|partition_id|bigint|NO
+ event_log_p30|category|USER-DEFINED|NO
+ event_log_p30|message|USER-DEFINED|NO
+ event_log_p30|function_name|USER-DEFINED|NO
+ event_log_p30|event_time|timestamp with time zone|NO
+ event_log_p30|meta|jsonb|NO
+ event_log_p31|id|bigint|NO
+ event_log_p31|partition_id|bigint|NO
+ event_log_p31|category|USER-DEFINED|NO
+ event_log_p31|message|USER-DEFINED|NO
+ event_log_p31|function_name|USER-DEFINED|NO
+ event_log_p31|event_time|timestamp with time zone|NO
+ event_log_p31|meta|jsonb|NO
+ event_log_p32|id|bigint|NO
+ event_log_p32|partition_id|bigint|NO
+ event_log_p32|category|USER-DEFINED|NO
+ event_log_p32|message|USER-DEFINED|NO
+ event_log_p32|function_name|USER-DEFINED|NO
+ event_log_p32|event_time|timestamp with time zone|NO
+ event_log_p32|meta|jsonb|NO
+ event_log_p33|id|bigint|NO
+ event_log_p33|partition_id|bigint|NO
+ event_log_p33|category|USER-DEFINED|NO
+ event_log_p33|message|USER-DEFINED|NO
+ event_log_p33|function_name|USER-DEFINED|NO
+ event_log_p33|event_time|timestamp with time zone|NO
+ event_log_p33|meta|jsonb|NO
+ event_log_p34|id|bigint|NO
+ event_log_p34|partition_id|bigint|NO
+ event_log_p34|category|USER-DEFINED|NO
+ event_log_p34|message|USER-DEFINED|NO
+ event_log_p34|function_name|USER-DEFINED|NO
+ event_log_p34|event_time|timestamp with time zone|NO
+ event_log_p34|meta|jsonb|NO
+ event_log_p35|id|bigint|NO
+ event_log_p35|partition_id|bigint|NO
+ event_log_p35|category|USER-DEFINED|NO
+ event_log_p35|message|USER-DEFINED|NO
+ event_log_p35|function_name|USER-DEFINED|NO
+ event_log_p35|event_time|timestamp with time zone|NO
+ event_log_p35|meta|jsonb|NO
+ event_log_p4|id|bigint|NO
+ event_log_p4|partition_id|bigint|NO
+ event_log_p4|category|USER-DEFINED|NO
+ event_log_p4|message|USER-DEFINED|NO
+ event_log_p4|function_name|USER-DEFINED|NO
+ event_log_p4|event_time|timestamp with time zone|NO
+ event_log_p4|meta|jsonb|NO
+ event_log_p5|id|bigint|NO
+ event_log_p5|partition_id|bigint|NO
+ event_log_p5|category|USER-DEFINED|NO
+ event_log_p5|message|USER-DEFINED|NO
+ event_log_p5|function_name|USER-DEFINED|NO
+ event_log_p5|event_time|timestamp with time zone|NO
+ event_log_p5|meta|jsonb|NO
+ event_log_p6|id|bigint|NO
+ event_log_p6|partition_id|bigint|NO
+ event_log_p6|category|USER-DEFINED|NO
+ event_log_p6|message|USER-DEFINED|NO
+ event_log_p6|function_name|USER-DEFINED|NO
+ event_log_p6|event_time|timestamp with time zone|NO
+ event_log_p6|meta|jsonb|NO
+ event_log_p7|id|bigint|NO
+ event_log_p7|partition_id|bigint|NO
+ event_log_p7|category|USER-DEFINED|NO
+ event_log_p7|message|USER-DEFINED|NO
+ event_log_p7|function_name|USER-DEFINED|NO
+ event_log_p7|event_time|timestamp with time zone|NO
+ event_log_p7|meta|jsonb|NO
+ event_log_p8|id|bigint|NO
+ event_log_p8|partition_id|bigint|NO
+ event_log_p8|category|USER-DEFINED|NO
+ event_log_p8|message|USER-DEFINED|NO
+ event_log_p8|function_name|USER-DEFINED|NO
+ event_log_p8|event_time|timestamp with time zone|NO
+ event_log_p8|meta|jsonb|NO
+ event_log_p9|id|bigint|NO
+ event_log_p9|partition_id|bigint|NO
+ event_log_p9|category|USER-DEFINED|NO
+ event_log_p9|message|USER-DEFINED|NO
+ event_log_p9|function_name|USER-DEFINED|NO
+ event_log_p9|event_time|timestamp with time zone|NO
+ event_log_p9|meta|jsonb|NO
+ factions|id|smallint|NO
+ factions|name|text|NO
+ farm_state|server_id|text|NO
+ farm_state|outgoing_s2s_connections|integer|NO
+ farm_state|incoming_s2s_connections|integer|NO
+ farm_state|connected_players|integer|NO
+ farm_state|farm_id|text|YES
+ farm_state|igw_addr|inet|NO
+ farm_state|igw_port|integer|NO
+ farm_state|ready|boolean|YES
+ farm_state|alive|boolean|YES
+ farm_state|game_addr|inet|NO
+ farm_state|game_port|integer|NO
+ farm_state|map|text|NO
+ farm_state|revision|integer|NO
+ farm_variables|universe_time_timestamp|timestamp without time zone|YES
+ farm_variables|farm_id|text|YES
+ farm_variables|universe_lastactive_timestamp|timestamp without time zone|YES
+ farm_variables|down_time_accumulation|bigint|YES
+ farm_variables|one_row|boolean|NO
+ farm_variables|battlegroup_close_date|timestamp without time zone|YES
+ fgl_entities|entity_id|bigint|NO
+ fgl_entities|components|jsonb|YES
+ game_events|actor_id|bigint|NO
+ game_events|universe_time|timestamp with time zone|NO
+ game_events|map|text|NO
+ game_events|partition_id|bigint|NO
+ game_events|event_type|integer|NO
+ game_events|x|double precision|NO
+ game_events|y|double precision|NO
+ game_events|z|double precision|NO
+ game_events|custom_data|jsonb|YES
+ game_events|player_facing_event|boolean|NO
+ guild_invites|invite_id|bigint|NO
+ guild_invites|guild_id|bigint|NO
+ guild_invites|player_id|bigint|NO
+ guild_invites|sender_player_id|bigint|NO
+ guild_invites|invite_sent_timespan|bigint|YES
+ guild_members|player_id|bigint|NO
+ guild_members|guild_id|bigint|NO
+ guild_members|role_id|smallint|YES
+ guilds|guild_id|bigint|NO
+ guilds|guild_name|text|YES
+ guilds|guild_description|text|YES
+ guilds|guild_faction|smallint|NO
+ guilds|guild_description_edited_by|bigint|YES
+ guilds|guild_creator|bigint|NO
+ inventories|id|bigint|NO
+ inventories|actor_id|bigint|YES
+ inventories|exchange_id|bigint|YES
+ inventories|item_id|bigint|YES
+ inventories|vehicle_module_id|bigint|YES
+ inventories|inventory_type|integer|YES
+ inventories|max_item_count|integer|YES
+ inventories|max_item_volume|real|YES
+ item_audit_log|audit_id|bigint|NO
+ item_audit_log|logged_at|timestamp with time zone|NO
+ item_audit_log|op|text|NO
+ item_audit_log|item_id|bigint|YES
+ item_audit_log|inventory_id|bigint|YES
+ item_audit_log|template_id|text|YES
+ item_audit_log|stack_size|bigint|YES
+ item_audit_log|position_index|bigint|YES
+ item_audit_log|quality_level|bigint|YES
+ item_audit_log|volume_override|real|YES
+ item_audit_log|is_new|boolean|YES
+ item_audit_log|stats|jsonb|YES
+ item_operations_staging_table|id|bigint|NO
+ item_operations_staging_table|function_name|USER-DEFINED|NO
+ item_operations_staging_table|item_id|bigint|NO
+ item_operations_staging_table|account_id|bigint|YES
+ item_operations_staging_table|inventory_id|bigint|YES
+ item_operations_staging_table|template_id|text|YES
+ item_operations_staging_table|event_time|timestamp with time zone|NO
+ item_operations_staging_table|position_index|bigint|YES
+ items|id|bigint|NO
+ items|inventory_id|bigint|YES
+ items|stack_size|bigint|NO
+ items|position_index|bigint|NO
+ items|template_id|text|NO
+ items|is_new|boolean|YES
+ items|acquisition_time|bigint|NO
+ items|stats|jsonb|NO
+ items|quality_level|bigint|NO
+ items|volume_override|real|YES
+ journey_story_node|story_node_id|text|NO
+ journey_story_node|override_reward_block|boolean|NO
+ journey_story_node|complete_condition_state|jsonb|YES
+ journey_story_node|reveal_condition_state|jsonb|YES
+ journey_story_node|has_pending_reward|boolean|NO
+ journey_story_node|metadata_state|jsonb|YES
+ journey_story_node|reset_group|USER-DEFINED|NO
+ journey_story_node|fail_condition_state|jsonb|YES
+ journey_story_node|character_id|bigint|NO
+ journey_story_node_cooldown|story_node_id|text|NO
+ journey_story_node_cooldown|time_to_expire|timestamp without time zone|YES
+ journey_story_node_cooldown|character_id|bigint|NO
+ journey_tracked_cards|player_id|bigint|NO
+ journey_tracked_cards|tracked_journey_card|text|YES
+ journey_tracked_cards|tracked_landsraad_card|text|YES
+ landclaim_segments|totem_id|bigint|YES
+ landclaim_segments|grid_location_x|bigint|NO
+ landclaim_segments|grid_location_y|bigint|NO
+ landsraad_decree_rotation|decree_id|bigint|NO
+ landsraad_decree_term|term_id|bigint|NO
+ landsraad_decree_term|start_time|timestamp with time zone|NO
+ landsraad_decree_term|end_time|timestamp with time zone|NO
+ landsraad_decree_term|reigning_faction_id|smallint|YES
+ landsraad_decree_term|active_decree_id|bigint|YES
+ landsraad_decree_term|winning_faction_id|smallint|YES
+ landsraad_decree_term|elected_decree_id|bigint|YES
+ landsraad_decree_term|test_term|boolean|NO
+ landsraad_decree_term|last_processed_reveal_day|integer|YES
+ landsraad_decree_votes|decree_id|bigint|NO
+ landsraad_decree_votes|guild_id|bigint|YES
+ landsraad_decree_votes|player_id|bigint|YES
+ landsraad_decree_votes|influence|integer|NO
+ landsraad_decrees|id|bigint|NO
+ landsraad_decrees|decree_name|text|NO
+ landsraad_decrees|version|integer|NO
+ landsraad_decrees|disabled|boolean|NO
+ landsraad_decrees|weight|real|NO
+ landsraad_house_rewards|player_id|bigint|NO
+ landsraad_house_rewards|house_name|text|NO
+ landsraad_house_rewards|amount|integer|NO
+ landsraad_house_rewards|template_id|text|NO
+ landsraad_house_rewards|last_updated|timestamp with time zone|NO
+ landsraad_task_faction_contributions|faction_id|smallint|NO
+ landsraad_task_faction_contributions|task_id|bigint|NO
+ landsraad_task_faction_contributions|amount|integer|NO
+ landsraad_task_guild_contributions|guild_id|bigint|YES
+ landsraad_task_guild_contributions|faction_id|smallint|NO
+ landsraad_task_guild_contributions|task_id|bigint|NO
+ landsraad_task_guild_contributions|amount|real|NO
+ landsraad_task_player_contributions|player_id|bigint|YES
+ landsraad_task_player_contributions|faction_id|smallint|NO
+ landsraad_task_player_contributions|task_id|bigint|NO
+ landsraad_task_player_contributions|amount|real|NO
+ landsraad_task_progress|id|bigint|NO
+ landsraad_task_progress|faction_id|smallint|NO
+ landsraad_task_progress|task_id|bigint|NO
+ landsraad_task_progress|faction_progress|integer|NO
+ landsraad_task_progress|guild_progress|real|NO
+ landsraad_task_progress|player_progress|real|NO
+ landsraad_task_progress|timestamp|timestamp with time zone|NO
+ landsraad_task_progress_guild|progress_id|bigint|NO
+ landsraad_task_progress_guild|guild_id|bigint|YES
+ landsraad_task_progress_player|progress_id|bigint|NO
+ landsraad_task_progress_player|player_id|bigint|YES
+ landsraad_task_progress_processed|id|smallint|NO
+ landsraad_task_progress_processed|last_processed_id|bigint|NO
+ landsraad_task_reveal_state|task_id|bigint|NO
+ landsraad_task_reveal_state|faction_id|smallint|NO
+ landsraad_task_reveal_state|revealed|boolean|NO
+ landsraad_task_reveal_state|timestamp|timestamp with time zone|NO
+ landsraad_task_rewards|task_id|bigint|NO
+ landsraad_task_rewards|threshold|integer|NO
+ landsraad_task_rewards|template_id|text|NO
+ landsraad_task_rewards|amount|integer|NO
+ landsraad_tasks|id|bigint|NO
+ landsraad_tasks|term_id|bigint|NO
+ landsraad_tasks|board_index|smallint|NO
+ landsraad_tasks|house_name|text|NO
+ landsraad_tasks|completed|boolean|NO
+ landsraad_tasks|winning_faction_id|smallint|YES
+ landsraad_tasks|sysselraad|boolean|NO
+ landsraad_tasks|goal_amount|integer|NO
+ landsraad_tasks|completion_time|timestamp with time zone|YES
+ lore_pickups|incremental_id|smallint|NO
+ lore_pickups|lore_pickup_id|text|NO
+ lore_pickups_temporary|incremental_id|smallint|NO
+ lore_pickups_temporary|lore_pickup_id|text|NO
+ map_areas|area_id|smallint|NO
+ map_areas|time_discovered|timestamp without time zone|YES
+ map_areas|time_first_entered|timestamp without time zone|YES
+ map_areas|survey_point_marker_id|bigint|YES
+ map_areas|map_name|text|NO
+ map_areas|items_surveyed_target|jsonb|YES
+ map_areas|items_surveyed_progress|jsonb|YES
+ map_areas|character_id|bigint|NO
+ map_names|map_name_id|smallint|NO
+ map_names|map_name|text|NO
+ markers|marker_hash_id|integer|NO
+ markers|dimension_index|integer|NO
+ markers|marker_type|text|NO
+ markers|position|USER-DEFINED|NO
+ markers|payload_type|USER-DEFINED|NO
+ markers|area_id|smallint|YES
+ markers|area_radius|real|YES
+ markers|long_range|boolean|YES
+ markers|payload|jsonb|YES
+ markers|map_name_id|smallint|NO
+ mnemonic_recall|id|bigint|NO
+ mnemonic_recall|lesson_id|text|NO
+ mnemonic_recall|lesson_state|bigint|NO
+ mnemonic_recall|lesson_progress|integer|NO
+ mnemonic_recall|is_new|boolean|NO
+ mnemonic_recall|character_id|bigint|NO
+ network_address_config|key|text|NO
+ network_address_config|value|text|NO
+ network_address_config|updated_at|timestamp with time zone|NO
+ overmap_players|player_id|bigint|NO
+ overmap_players|overmap_location|USER-DEFINED|YES
+ overmap_players|has_polar_psu|boolean|YES
+ parties|party_id|bigint|NO
+ parties|party_leader_id|bigint|NO
+ parties|party_object_server_id|text|YES
+ party_invites|invite_id|bigint|NO
+ party_invites|party_id|bigint|YES
+ party_invites|player_id|bigint|NO
+ party_invites|sender_player_id|bigint|NO
+ party_invites|invite_sent_timespan|bigint|YES
+ party_invites|sender_platform_name|text|YES
+ party_invites|sender_platform_session_id|text|YES
+ party_members|player_id|bigint|NO
+ party_members|party_id|bigint|NO
+ permission_actor|actor_id|bigint|NO
+ permission_actor|actor_name|text|YES
+ permission_actor|actor_type|smallint|NO
+ permission_actor|access_level|smallint|NO
+ permission_actor|is_child|boolean|NO
+ permission_actor|edited_by_player_id|bigint|YES
+ permission_actor_rank|permission_actor_id|bigint|NO
+ permission_actor_rank|player_id|bigint|NO
+ permission_actor_rank|rank|smallint|NO
+ placeables|id|bigint|NO
+ placeables|owner_entity_id|bigint|YES
+ placeables|health|real|YES
+ placeables|building_type|text|YES
+ placeables|has_hit_ground|boolean|NO
+ placeables|has_buildable_support|boolean|NO
+ placeables|is_hologram|boolean|NO
+ placeables|last_placed_by_player_id|bigint|NO
+ platform_parties_mapping|platform_session_id|text|YES
+ platform_parties_mapping|platform_name|text|YES
+ platform_parties_mapping|dune_party_id|bigint|NO
+ platform_parties_mapping|num_of_players|integer|YES
+ player_access_codes|access_code|integer|NO
+ player_access_codes|access_code_type|USER-DEFINED|NO
+ player_access_codes|is_resettable|boolean|NO
+ player_access_codes|character_id|bigint|NO
+ player_faction|actor_id|bigint|NO
+ player_faction|faction_id|smallint|NO
+ player_faction|utc_time_faction_change|timestamp without time zone|NO
+ player_faction_reputation|actor_id|bigint|NO
+ player_faction_reputation|faction_id|smallint|NO
+ player_faction_reputation|reputation_amount|integer|NO
+ player_markers|player_id|bigint|NO
+ player_markers|marker_hash_id|integer|NO
+ player_markers|dimension_index|integer|NO
+ player_markers|discovery_level|USER-DEFINED|NO
+ player_markers|discovery_method|USER-DEFINED|NO
+ player_markers|payload|jsonb|YES
+ player_markers|map_name_id|smallint|NO
+ player_respawn_locations|id|uuid|NO
+ player_respawn_locations|group|text|NO
+ player_respawn_locations|locator_transform|USER-DEFINED|YES
+ player_respawn_locations|locator_actor_id|bigint|YES
+ player_respawn_locations|locator_name|text|YES
+ player_respawn_locations|map|text|NO
+ player_respawn_locations|dimension|integer|NO
+ player_respawn_locations|last_used_timestamp|bigint|YES
+ player_respawn_locations|locator_name_index|integer|YES
+ player_respawn_locations|character_id|bigint|NO
+ player_state|account_id|bigint|YES
+ player_state|character_name|text|YES
+ player_state|last_avatar_activity|timestamp with time zone|YES
+ player_state|server_id|text|YES
+ player_state|player_controller_id|bigint|YES
+ player_state|player_pawn_id|bigint|YES
+ player_state|player_state_id|bigint|YES
+ player_state|pending_respawn_location_id|uuid|YES
+ player_state|life_state|USER-DEFINED|YES
+ player_state|online_status|USER-DEFINED|YES
+ player_state|reconnect_grace_period_end|timestamp without time zone|YES
+ player_state|previous_server_partition_id|bigint|YES
+ player_state|is_coriolis_processed|boolean|YES
+ player_state|return_dimension_index|integer|YES
+ player_state|death_location|USER-DEFINED|YES
+ player_state|home_dimension_index|integer|YES
+ player_state|logoff_persistence_end_time|timestamp without time zone|YES
+ player_state|last_login_time|timestamp with time zone|YES
+ player_state|last_returning_player_event_time|timestamp with time zone|YES
+ player_state|last_returning_player_awarded_time|timestamp with time zone|YES
+ player_state|id|bigint|YES
+ player_state|character_state|USER-DEFINED|YES
+ player_state|last_character_state_change|timestamp without time zone|YES
+ player_state|transfer_count|integer|YES
+ player_tags|tag|text|NO
+ player_tags|character_id|bigint|NO
+ player_travel_state|fls_id|text|NO
+ player_travel_state|login_target_dimension_index|integer|YES
+ player_virtual_currency_balances|player_controller_id|bigint|NO
+ player_virtual_currency_balances|currency_id|USER-DEFINED|NO
+ player_virtual_currency_balances|balance|bigint|NO
+ purchased_specialization_keystones|player_id|bigint|NO
+ purchased_specialization_keystones|keystone_id|smallint|NO
+ recovered_vehicles|vehicle_id|bigint|NO
+ recovered_vehicles|time_stored|timestamp with time zone|NO
+ recovered_vehicles|chassis_durability|real|NO
+ recovered_vehicles|vehicle_name|text|YES
+ recovered_vehicles|customization_id|text|YES
+ recovered_vehicles|reason|USER-DEFINED|NO
+ recovered_vehicles|character_id|bigint|NO
+ recovered_vehicles|edited_by_player_id|bigint|YES
+ resourcefield_state|field_id|bigint|NO
+ resourcefield_state|map|text|NO
+ resourcefield_state|dimension_index|integer|NO
+ resourcefield_state|spawn_time|double precision|NO
+ resourcefield_state|value_remaining|bigint|NO
+ shiftingsands_data|id|text|NO
+ shiftingsands_data|alpha|double precision|NO
+ shiftingsands_data|x|double precision|NO
+ shiftingsands_data|y|double precision|NO
+ shiftingsands_data|last_modified_time|timestamp with time zone|NO
+ sinkcharts|item_id|bigint|NO
+ sinkcharts|marker_hash_ids|ARRAY|NO
+ specialization_keystones_map|id|smallint|NO
+ specialization_keystones_map|name|text|NO
+ specialization_refund_id|player_id|bigint|NO
+ specialization_refund_id|refund_id|smallint|YES
+ specialization_tracks|player_id|bigint|NO
+ specialization_tracks|track_type|USER-DEFINED|NO
+ specialization_tracks|xp_amount|integer|NO
+ specialization_tracks|level|real|NO
+ tax_invoice|id|bigint|NO
+ tax_invoice|totem_id|bigint|NO
+ tax_invoice|reference_timespan|bigint|YES
+ tax_invoice|invoice_status|smallint|NO
+ tax_invoice|amount|integer|NO
+ temp_contract_tags_backup_164545|account_id|bigint|YES
+ temp_contract_tags_backup_164545|tag|text|YES
+ temp_items_dune_161802|account_id|bigint|YES
+ temp_items_dune_161802|id|bigint|YES
+ temp_items_dune_161802|inventory_id|bigint|YES
+ temp_items_dune_161802|stack_size|bigint|YES
+ temp_items_dune_161802|position_index|bigint|YES
+ temp_items_dune_161802|template_id|text|YES
+ temp_items_dune_161802|is_new|boolean|YES
+ temp_items_dune_161802|acquisition_time|bigint|YES
+ temp_items_dune_161802|stats|jsonb|YES
+ temp_items_dune_161802|item_id|bigint|YES
+ temp_items_dune_161802|backpack_id|bigint|YES
+ temp_items_dune_161802|target_index|bigint|YES
+ totems|id|bigint|NO
+ totems|landclaim_vertical_level|integer|YES
+ totems|last_backup_timestamp|bigint|YES
+ totems|landclaim_original_global_location|ARRAY|YES
+ totems|landclaim_original_global_yaw_rotation|real|YES
+ travel_actor_parent|id|bigint|NO
+ travel_actor_parent|parent_id|bigint|NO
+ travel_actor_parent|is_instigator|boolean|NO
+ travel_return_info|player_controller_id|bigint|NO
+ travel_return_info|map|text|YES
+ travel_return_info|transform|USER-DEFINED|YES
+ tutorial_per_player|player_id|bigint|NO
+ tutorial_per_player|tutorial_id|smallint|NO
+ tutorial_per_player|tutorial_state|USER-DEFINED|NO
+ tutorials|id|smallint|NO
+ tutorials|name|text|NO
+ vehicle_module_inventories|inventory_id|bigint|NO
+ vehicle_module_inventories|vehicle_module_inventory_type|smallint|NO
+ vehicle_modules|id|bigint|NO
+ vehicle_modules|vehicle_id|bigint|YES
+ vehicle_modules|template_id|text|NO
+ vehicle_modules|stats|jsonb|NO
+ vehicles|id|bigint|NO
+ vendor_stock_cycle|vendor_id|text|NO
+ vendor_stock_cycle|player_id|bigint|NO
+ vendor_stock_cycle|last_interacted_timestamp|bigint|YES
+ vendor_stock_state|vendor_id|text|NO
+ vendor_stock_state|player_id|bigint|NO
+ vendor_stock_state|template_id|text|NO
+ vendor_stock_state|amount_bought|integer|YES
+ world_farm_reset_seed|onerow_id|boolean|NO
+ world_farm_reset_seed|world_reset_seed|integer|YES
+ world_map_reset_seed|map|text|NO
+ world_map_reset_seed|world_reset_seed|integer|YES
+ world_partition|partition_id|bigint|NO
+ world_partition|server_id|text|YES
+ world_partition|map|text|NO
+ world_partition|partition_definition|jsonb|NO
+ world_partition|dimension_index|integer|NO
+ world_partition|blocked|boolean|NO
+ world_partition|label|text|YES
+ world_partition_reset_seed|partition_id|integer|NO
+ world_partition_reset_seed|world_reset_seed|integer|YES
+(857 rows)
+

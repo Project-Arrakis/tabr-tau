@@ -1,0 +1,1158 @@
+{
+ "generated": "2026-09-30",
+ "note": "per dune-docker duneDb.js function: tables referenced (regex static analysis) and which are missing from the single-player save. Regex-based; can miss dynamic SQL.",
+ "functions": {
+  "listSpicefieldTypes": {
+   "exported": true,
+   "tables": [
+    "resourcefield_state"
+   ],
+   "missing": []
+  },
+  "landsraadOverview": {
+   "exported": true,
+   "tables": [
+    "landsraad_decree_term",
+    "landsraad_tasks"
+   ],
+   "missing": []
+  },
+  "updateLandsraadTaskGoal": {
+   "exported": true,
+   "tables": [
+    "landsraad_tasks"
+   ],
+   "missing": []
+  },
+  "updateLandsraadTermTaskGoals": {
+   "exported": true,
+   "tables": [
+    "landsraad_tasks"
+   ],
+   "missing": []
+  },
+  "applyLandsraadMilestonePreset": {
+   "exported": true,
+   "tables": [
+    "landsraad_task_rewards",
+    "landsraad_tasks"
+   ],
+   "missing": []
+  },
+  "updateLandsraadRewardTier": {
+   "exported": true,
+   "tables": [
+    "landsraad_task_rewards"
+   ],
+   "missing": []
+  },
+  "setLandsraadPlayerContribution": {
+   "exported": true,
+   "tables": [
+    "landsraad_task_faction_contributions",
+    "landsraad_task_player_contributions"
+   ],
+   "missing": []
+  },
+  "trackPlayerPlaytime": {
+   "exported": true,
+   "tables": [
+    "console_player_playtime"
+   ],
+   "missing": [
+    "console_player_playtime"
+   ]
+  },
+  "listPlayers": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "player_state"
+   ],
+   "missing": []
+  },
+  "listAllPlayers": {
+   "exported": true,
+   "tables": [
+    "player_state"
+   ],
+   "missing": []
+  },
+  "countOnlinePlayers": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "world_partition"
+   ],
+   "missing": [
+    "world_partition"
+   ]
+  },
+  "listGuilds": {
+   "exported": true,
+   "tables": [
+    "guilds"
+   ],
+   "missing": [
+    "guilds"
+   ]
+  },
+  "guildMembers": {
+   "exported": true,
+   "tables": [
+    "guild_members",
+    "guilds"
+   ],
+   "missing": [
+    "guild_members",
+    "guilds"
+   ]
+  },
+  "promoteGuildMember": {
+   "exported": true,
+   "tables": [
+    "guild_members",
+    "guilds"
+   ],
+   "missing": [
+    "guild_members",
+    "guilds"
+   ]
+  },
+  "demoteGuildMember": {
+   "exported": true,
+   "tables": [
+    "guild_members",
+    "guilds"
+   ],
+   "missing": [
+    "guild_members",
+    "guilds"
+   ]
+  },
+  "addGuildMember": {
+   "exported": true,
+   "tables": [
+    "guild_members",
+    "guilds"
+   ],
+   "missing": [
+    "guild_members",
+    "guilds"
+   ]
+  },
+  "removeGuildMember": {
+   "exported": true,
+   "tables": [
+    "guild_members",
+    "guilds"
+   ],
+   "missing": [
+    "guild_members",
+    "guilds"
+   ]
+  },
+  "disbandGuild": {
+   "exported": true,
+   "tables": [
+    "guilds"
+   ],
+   "missing": [
+    "guilds"
+   ]
+  },
+  "playerProfile": {
+   "exported": true,
+   "tables": [
+    "inventories"
+   ],
+   "missing": []
+  },
+  "playerInventory": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "items"
+   ],
+   "missing": []
+  },
+  "playerInventoryAll": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "items"
+   ],
+   "missing": []
+  },
+  "playerCurrency": {
+   "exported": true,
+   "tables": [
+    "player_virtual_currency_balances"
+   ],
+   "missing": []
+  },
+  "playerSolarisCoinTotal": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "items"
+   ],
+   "missing": []
+  },
+  "playerFactions": {
+   "exported": true,
+   "tables": [
+    "player_faction_reputation"
+   ],
+   "missing": []
+  },
+  "playerProgression": {
+   "exported": true,
+   "tables": [
+    "actor_fgl_entities",
+    "fgl_entities",
+    "player_state"
+   ],
+   "missing": []
+  },
+  "playerIntel": {
+   "exported": true,
+   "tables": [
+    "actors"
+   ],
+   "missing": []
+  },
+  "playerVitals": {
+   "exported": true,
+   "tables": [
+    "actor_fgl_entities",
+    "actors",
+    "fgl_entities",
+    "player_state",
+    "specialization_keystones_map"
+   ],
+   "missing": []
+  },
+  "specializationKeystoneCounts": {
+   "exported": false,
+   "tables": [
+    "accounts",
+    "actors",
+    "cheater_tracking",
+    "player_state"
+   ],
+   "missing": [
+    "cheater_tracking"
+   ]
+  },
+  "playerCheaterTracking": {
+   "exported": true,
+   "tables": [
+    "cheater_tracking",
+    "item_audit_log"
+   ],
+   "missing": [
+    "cheater_tracking",
+    "item_audit_log"
+   ]
+  },
+  "ensureItemAuditLogIndexes": {
+   "exported": false,
+   "tables": [
+    "item_audit_log"
+   ],
+   "missing": [
+    "item_audit_log"
+   ]
+  },
+  "_resetItemAuditLogIndexesEnsuredForTests": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "item_audit_log"
+   ],
+   "missing": [
+    "item_audit_log"
+   ]
+  },
+  "playerItemAuditLog": {
+   "exported": true,
+   "tables": [
+    "item_audit_log"
+   ],
+   "missing": [
+    "item_audit_log"
+   ]
+  },
+  "playerSpecs": {
+   "exported": true,
+   "tables": [
+    "specialization_tracks"
+   ],
+   "missing": []
+  },
+  "addSpecializationXp": {
+   "exported": true,
+   "tables": [
+    "specialization_tracks"
+   ],
+   "missing": []
+  },
+  "grantMaxSpecialization": {
+   "exported": true,
+   "tables": [
+    "specialization_tracks"
+   ],
+   "missing": []
+  },
+  "resetSpecialization": {
+   "exported": true,
+   "tables": [
+    "specialization_tracks"
+   ],
+   "missing": []
+  },
+  "grantAllSpecializationKeystones": {
+   "exported": true,
+   "tables": [
+    "purchased_specialization_keystones",
+    "specialization_keystones_map"
+   ],
+   "missing": []
+  },
+  "resetAllSpecializationKeystones": {
+   "exported": true,
+   "tables": [
+    "purchased_specialization_keystones"
+   ],
+   "missing": []
+  },
+  "playerPosition": {
+   "exported": true,
+   "tables": [
+    "actors"
+   ],
+   "missing": []
+  },
+  "liveMapCapabilities": {
+   "exported": true,
+   "tables": [
+    "actors"
+   ],
+   "missing": []
+  },
+  "liveMapPartitions": {
+   "exported": true,
+   "tables": [
+    "world_partition"
+   ],
+   "missing": [
+    "world_partition"
+   ]
+  },
+  "liveMapPlayers": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "player_state"
+   ],
+   "missing": []
+  },
+  "teleportPlayer": {
+   "exported": true,
+   "tables": [
+    "actors"
+   ],
+   "missing": []
+  },
+  "liveMapVehicles": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "permission_actor",
+    "permission_actor_rank",
+    "vehicles"
+   ],
+   "missing": []
+  },
+  "liveMapStorage": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "placeables"
+   ],
+   "missing": []
+  },
+  "liveMapBases": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "buildings"
+   ],
+   "missing": []
+  },
+  "liveMapServices": {
+   "exported": true,
+   "tables": [
+    "world_partition"
+   ],
+   "missing": [
+    "world_partition"
+   ]
+  },
+  "mapCombatPartitionRows": {
+   "exported": true,
+   "tables": [
+    "markers",
+    "resourcefield_state",
+    "world_partition"
+   ],
+   "missing": [
+    "world_partition"
+   ]
+  },
+  "liveMapSpiceFieldRows": {
+   "exported": true,
+   "tables": [
+    "resourcefield_state",
+    "world_partition"
+   ],
+   "missing": [
+    "world_partition"
+   ]
+  },
+  "liveMapFlourSandFieldRows": {
+   "exported": true,
+   "tables": [
+    "markers",
+    "resourcefield_state",
+    "world_partition"
+   ],
+   "missing": [
+    "world_partition"
+   ]
+  },
+  "liveMapPoiMarkers": {
+   "exported": true,
+   "tables": [
+    "map_names",
+    "markers"
+   ],
+   "missing": [
+    "map_names"
+   ]
+  },
+  "vehiclePermissionsSupported": {
+   "exported": true,
+   "tables": [
+    "map_names"
+   ],
+   "missing": [
+    "map_names"
+   ]
+  },
+  "basePermissionActor": {
+   "exported": true,
+   "tables": [
+    "permission_actor"
+   ],
+   "missing": []
+  },
+  "permissionActorClaimed": {
+   "exported": false,
+   "tables": [
+    "permission_actor"
+   ],
+   "missing": []
+  },
+  "listBasePermissions": {
+   "exported": true,
+   "tables": [
+    "map_names",
+    "permission_actor_rank"
+   ],
+   "missing": [
+    "map_names"
+   ]
+  },
+  "baseChildAccessSupported": {
+   "exported": false,
+   "tables": [
+    "inventories"
+   ],
+   "missing": []
+  },
+  "flushBaseChildAccess": {
+   "exported": true,
+   "tables": [
+    "world_partition"
+   ],
+   "missing": [
+    "world_partition"
+   ]
+  },
+  "basePermissionCandidates": {
+   "exported": true,
+   "tables": [
+    "map_names",
+    "permission_actor_rank"
+   ],
+   "missing": [
+    "map_names"
+   ]
+  },
+  "vehiclePermissionCandidates": {
+   "exported": true,
+   "tables": [
+    "map_names",
+    "permission_actor_rank"
+   ],
+   "missing": [
+    "map_names"
+   ]
+  },
+  "mutatePermissionRoster": {
+   "exported": false,
+   "tables": [
+    "map_names"
+   ],
+   "missing": [
+    "map_names"
+   ]
+  },
+  "setBasePermissions": {
+   "exported": true,
+   "tables": [
+    "map_names",
+    "permission_actor_rank"
+   ],
+   "missing": [
+    "map_names"
+   ]
+  },
+  "transferBaseToSystemCustodian": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "map_names",
+    "permission_actor",
+    "permission_actor_rank",
+    "vehicles"
+   ],
+   "missing": [
+    "map_names"
+   ]
+  },
+  "listVehiclePermissions": {
+   "exported": true,
+   "tables": [
+    "map_names",
+    "permission_actor_rank"
+   ],
+   "missing": [
+    "map_names"
+   ]
+  },
+  "setVehiclePermissions": {
+   "exported": true,
+   "tables": [
+    "map_names",
+    "permission_actor_rank"
+   ],
+   "missing": [
+    "map_names"
+   ]
+  },
+  "transferVehicleToSystemCustodian": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "map_names",
+    "permission_actor_rank",
+    "vehicles"
+   ],
+   "missing": [
+    "map_names"
+   ]
+  },
+  "supportsVehicleDelete": {
+   "exported": false,
+   "tables": [
+    "world_partition"
+   ],
+   "missing": [
+    "world_partition"
+   ]
+  },
+  "deleteVehicleCompletely": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "vehicle_modules",
+    "vehicles"
+   ],
+   "missing": []
+  },
+  "getBaseLandClaim": {
+   "exported": true,
+   "tables": [
+    "buildings"
+   ],
+   "missing": []
+  },
+  "updateBaseLandClaim": {
+   "exported": true,
+   "tables": [
+    "buildings"
+   ],
+   "missing": []
+  },
+  "supportsBaseDelete": {
+   "exported": false,
+   "tables": [
+    "world_partition"
+   ],
+   "missing": [
+    "world_partition"
+   ]
+  },
+  "supportsBaseDeleteQueue": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "building_instances",
+    "buildings"
+   ],
+   "missing": []
+  },
+  "deleteBaseCompletely": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "buildings",
+    "map_names"
+   ],
+   "missing": [
+    "map_names"
+   ]
+  },
+  "listStorage": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "inventories",
+    "player_state",
+    "vehicle_module_inventories"
+   ],
+   "missing": []
+  },
+  "storageItems": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "items"
+   ],
+   "missing": []
+  },
+  "addCurrency": {
+   "exported": true,
+   "tables": [
+    "player_virtual_currency_balances"
+   ],
+   "missing": []
+  },
+  "addFactionReputation": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "player_faction_reputation"
+   ],
+   "missing": []
+  },
+  "repairFactionReputation": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "player_faction",
+    "player_faction_reputation"
+   ],
+   "missing": []
+  },
+  "requireLandsraadQuestRepairCapability": {
+   "exported": false,
+   "tables": [
+    "journey_story_node",
+    "journey_story_node_cooldown"
+   ],
+   "missing": []
+  },
+  "setPlayerFaction": {
+   "exported": true,
+   "tables": [
+    "player_faction"
+   ],
+   "missing": []
+  },
+  "addIntel": {
+   "exported": true,
+   "tables": [
+    "actors"
+   ],
+   "missing": []
+  },
+  "playerCraftingRecipes": {
+   "exported": true,
+   "tables": [
+    "actors"
+   ],
+   "missing": []
+  },
+  "unlockCraftingRecipe": {
+   "exported": true,
+   "tables": [
+    "actors"
+   ],
+   "missing": []
+  },
+  "adminVehicleMetadata": {
+   "exported": true,
+   "tables": [
+    "placeables"
+   ],
+   "missing": []
+  },
+  "resolveBuildingDisplayName": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "markers"
+   ],
+   "missing": []
+  },
+  "playerResearchItems": {
+   "exported": true,
+   "tables": [
+    "actors"
+   ],
+   "missing": []
+  },
+  "unlockResearchItem": {
+   "exported": true,
+   "tables": [
+    "actors"
+   ],
+   "missing": []
+  },
+  "listVehicles": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "inventories",
+    "vehicle_module_inventories",
+    "vehicles"
+   ],
+   "missing": []
+  },
+  "vehicleStorage": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "vehicles"
+   ],
+   "missing": []
+  },
+  "vehicleStorageDeleteSafety": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "items",
+    "vehicles"
+   ],
+   "missing": []
+  },
+  "resolveVehicleCargoHold": {
+   "exported": false,
+   "tables": [
+    "inventories",
+    "items",
+    "vehicles"
+   ],
+   "missing": []
+  },
+  "generatorUptimePolicy": {
+   "exported": true,
+   "tables": [
+    "items"
+   ],
+   "missing": []
+  },
+  "completeTutorial": {
+   "exported": true,
+   "tables": [
+    "tutorial_per_player",
+    "tutorials"
+   ],
+   "missing": []
+  },
+  "resetTutorial": {
+   "exported": true,
+   "tables": [
+    "tutorial_per_player",
+    "tutorials"
+   ],
+   "missing": []
+  },
+  "deleteInventoryItem": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "items"
+   ],
+   "missing": []
+  },
+  "updateInventoryItem": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "items"
+   ],
+   "missing": []
+  },
+  "ensureAugmentSlotKeystones": {
+   "exported": false,
+   "tables": [
+    "specialization_tracks"
+   ],
+   "missing": []
+  },
+  "itemInsertShape": {
+   "exported": false,
+   "tables": [
+    "items"
+   ],
+   "missing": []
+  },
+  "augmentInventoryItem": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "items"
+   ],
+   "missing": []
+  },
+  "playerItemAugmentState": {
+   "exported": true,
+   "tables": [
+    "items"
+   ],
+   "missing": []
+  },
+  "stackOutcomeMessage": {
+   "exported": false,
+   "tables": [
+    "items"
+   ],
+   "missing": []
+  },
+  "giveItemToStorage": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "items"
+   ],
+   "missing": []
+  },
+  "giveItemToBaseContainer": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "items"
+   ],
+   "missing": []
+  },
+  "fillItemToStorage": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "items",
+    "vehicle_module_inventories"
+   ],
+   "missing": []
+  },
+  "fillItemToBaseContainer": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "items"
+   ],
+   "missing": []
+  },
+  "giveMultipleItemsToBaseContainer": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "items"
+   ],
+   "missing": []
+  },
+  "removeItemsFromStorage": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "items"
+   ],
+   "missing": []
+  },
+  "refillBaseGenerators": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "items",
+    "placeables"
+   ],
+   "missing": []
+  },
+  "_resetRefillPartitionDwellForTests": {
+   "exported": true,
+   "tables": [
+    "active_server_ids",
+    "farm_state",
+    "world_partition"
+   ],
+   "missing": [
+    "active_server_ids",
+    "farm_state",
+    "world_partition"
+   ]
+  },
+  "supportsGeneratorRefillQueue": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "world_partition"
+   ],
+   "missing": [
+    "world_partition"
+   ]
+  },
+  "baseRefillTarget": {
+   "exported": true,
+   "tables": [
+    "actors"
+   ],
+   "missing": []
+  },
+  "reconcileQueuedVehicleDeletes": {
+   "exported": false,
+   "tables": [
+    "actors"
+   ],
+   "missing": []
+  },
+  "supportsWaterRefillQueue": {
+   "exported": true,
+   "tables": [
+    "actors"
+   ],
+   "missing": []
+  },
+  "refillBaseWater": {
+   "exported": true,
+   "tables": [
+    "actor_fgl_entities",
+    "fgl_entities",
+    "placeables"
+   ],
+   "missing": []
+  },
+  "baseWaterFuelLevels": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "permission_actor"
+   ],
+   "missing": []
+  },
+  "baseInventoryTypeParams": {
+   "exported": false,
+   "tables": [
+    "inventories",
+    "items"
+   ],
+   "missing": []
+  },
+  "baseInventory": {
+   "exported": true,
+   "tables": [
+    "actor_inventories"
+   ],
+   "missing": []
+  },
+  "baseContainerSlots": {
+   "exported": true,
+   "tables": [
+    "items"
+   ],
+   "missing": []
+  },
+  "deleteBaseContainerItem": {
+   "exported": true,
+   "tables": [
+    "actor_fgl_entities",
+    "building_instances",
+    "buildings",
+    "inventories",
+    "items",
+    "placeables"
+   ],
+   "missing": []
+  },
+  "addBaseContainerItem": {
+   "exported": true,
+   "tables": [
+    "actor_fgl_entities",
+    "building_instances",
+    "buildings",
+    "inventories",
+    "items",
+    "placeables"
+   ],
+   "missing": []
+  },
+  "resolveOwnedStorageContainer": {
+   "exported": false,
+   "tables": [
+    "inventories"
+   ],
+   "missing": []
+  },
+  "deleteMultipleBaseContainerItems": {
+   "exported": true,
+   "tables": [
+    "actor_fgl_entities",
+    "building_instances",
+    "buildings",
+    "inventories",
+    "items",
+    "placeables"
+   ],
+   "missing": []
+  },
+  "deleteAllBaseContainerItems": {
+   "exported": true,
+   "tables": [
+    "actor_fgl_entities",
+    "building_instances",
+    "buildings",
+    "inventories",
+    "items",
+    "placeables"
+   ],
+   "missing": []
+  },
+  "giveItemToPlayer": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "items"
+   ],
+   "missing": []
+  },
+  "repairGear": {
+   "exported": true,
+   "tables": [
+    "inventories",
+    "items"
+   ],
+   "missing": []
+  },
+  "inspectVehicleDecayRepair": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "vehicle_modules"
+   ],
+   "missing": []
+  },
+  "repairVehicleDecay": {
+   "exported": true,
+   "tables": [
+    "actors",
+    "vehicle_modules"
+   ],
+   "missing": []
+  },
+  "refuelVehicle": {
+   "exported": true,
+   "tables": [
+    "actors"
+   ],
+   "missing": []
+  },
+  "dismissActiveContracts": {
+   "exported": false,
+   "tables": [
+    "inventories"
+   ],
+   "missing": []
+  },
+  "emptyActivitySummary": {
+   "exported": false,
+   "tables": [
+    "resourcefield_state",
+    "world_partition"
+   ],
+   "missing": [
+    "world_partition"
+   ]
+  },
+  "resourcesSectionForDisplayMap": {
+   "exported": false,
+   "tables": [
+    "markers"
+   ],
+   "missing": []
+  },
+  "emptyEconomySummary": {
+   "exported": false,
+   "tables": [
+    "items"
+   ],
+   "missing": []
+  },
+  "resolvePlayerByName": {
+   "exported": true,
+   "tables": [
+    "accounts",
+    "player_state"
+   ],
+   "missing": []
+  },
+  "getAllLinkedPlayers": {
+   "exported": true,
+   "tables": [
+    "player_faction"
+   ],
+   "missing": []
+  },
+  "getPlayerRealFaction": {
+   "exported": true,
+   "tables": [
+    "guild_members",
+    "guilds",
+    "player_faction"
+   ],
+   "missing": [
+    "guild_members",
+    "guilds"
+   ]
+  },
+  "consumePendingAccountLink": {
+   "exported": true,
+   "tables": [
+    "inventories"
+   ],
+   "missing": []
+  }
+ }
+}
