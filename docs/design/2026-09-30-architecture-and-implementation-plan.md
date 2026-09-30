@@ -176,7 +176,7 @@ Sequence matters (an ordering mistake makes required checks unsatisfiable):
 3. Add CI (workflows with `permissions: contents: read`, SHA-pinned actions, `sha_pinning_required`), then branch protection with `<job> / <inner>` check names.
 4. `meta` PR: repo added to Directory Layout, Repo-by-Repo Notes, Requirement 15 board list, Requirement 28 watched repos and the CI-adoption list; add the repo to the Project Arrakis board.
 5. File the findings register as issues plus a tracking issue with the STRIDE table (Requirement 20); replace this interim file's status column with issue links.
-6. Operator decisions F-01 (OneDrive token) and F-12 (history rewrite).
+6. Operator decisions F-01 (credential exposure; details withheld) and F-12 (history rewrite).
 Acceptance: green CI on `main`; protection on; scanners on; CHANGELOG; findings issues filed; README PR merged.
 
 ### S0 Security hardening of the existing code (F-03, F-04; before any new feature)
@@ -213,7 +213,7 @@ Layer 2 audit at the end of S1, S3, P4 and P5; Layer 3 before each tagged releas
 | R8 | Unverifiable features without matching save data | high | low | operator test save; experimental badge |
 | R9 | ToS/anti-cheat exposure | low | med | expanded disclaimer; single-player only; **built and tested** refusal of online-server folders |
 | R10 | Tests pass but prove nothing about the real game | high | high | real-DDL contract fixture (F-02) |
-| R11 | Credential exposure through the transfer path (OneDrive token, Funcom token) | realized | high | F-01: revoke, token-free transfer, data-lifecycle rule |
+| R11 | Credential exposure through the test-data transfer path (details withheld) | realized | high | F-01: revoke, token-free transfer, data-lifecycle rule |
 | R12 | Governance gaps on a public repo (no protection, no scanning) | realized | med | P0 first |
 
 ## 7. Open questions (unchanged questions are answered only by P1 evidence)

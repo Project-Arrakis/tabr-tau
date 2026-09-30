@@ -29,10 +29,7 @@ before asserting (12).
   unescaped save values into the UI. These are audit findings F-03/F-04/F-08, **not yet fixed**.
 
 ## Do next, in this order (the plan's phase order)
-1. **Operator decisions (ask, do not assume):** F-01 (revoke the OneDrive token that was pasted in the earlier session and
-   stored in an rclone config on the Proxmox host; move `.env` and `funcom-token.txt` out of the synced tree; rotate the
-   Funcom token if reachable); F-12 (rewrite the 2 commits that carry AI co-author trailers: force-push, ask first);
-   approval to file issues, push, and open the `meta` PR.
+1. **Operator decisions (ask, do not assume):** F-01 (credential exposure in the transfer path: details are withheld from this public repo and tracked privately by the operator; do not ask for or handle the credential); F-12 is done (history rewritten) if the register says so; approval to open the `meta` PR.
 2. **P0 governance**, in order: secret scanning + push protection, then `.gitignore`/gitleaks/PR template/CHANGELOG,
    then CI, then branch protection with `<job> / <inner>` check names, then the `meta` README PR (repo missing from
    its layout, repo notes, Requirement 15 list and Requirement 28 list), then file F-01..F-22 as issues with the STRIDE table.

@@ -52,7 +52,7 @@ All are display/UI state, not gameplay state. None duplicates what `game.db` hol
 The other `FLS_retail\<steamid>\<battlegroup-id>` folders are the same client-side caches for online
 characters. They have no bearing on single-player editing.
 
-## 3. Schema diff: SQLite save vs Postgres `dune` schema (dune-dev, read-only)
+## 3. Schema diff: SQLite save vs Postgres `dune` schema (a dev server, read-only)
 
 Postgres `dune` schema: 167 tables. SQLite save: 96 tables (80 shared).
 
@@ -189,7 +189,7 @@ and some progression is needed to verify those paths.
 ## 7. Reproducing the diff
 
 ```
-ssh dune-dev "dune database sql \"select table_name||'|'||column_name||'|'||data_type||'|'||is_nullable from information_schema.columns where table_schema='dune' order by table_name, ordinal_position\""
+ssh <dev-server> "dune database sql \"select table_name||'|'||column_name||'|'||data_type||'|'||is_nullable from information_schema.columns where table_schema='dune' order by table_name, ordinal_position\""
 ```
 
 Decode the save (header + zlib) and compare `pragma table_info` per table. Read-only on both
