@@ -1,0 +1,346 @@
+{
+ "actorClasses": {
+  "/Game/DLC/B1C4/Placeables/Props/BP_B1C4_MTX_WaterS_Carpet_Placeable.BP_B1C4_MTX_WaterS_Carpet_Placeable_C": 1,
+  "/Game/DLC/B1C4/Placeables/Props/BP_B1C4_MTX_WaterS_LightWall_02_Placeable.BP_B1C4_MTX_WaterS_LightWall_02_Placeable_C": 6,
+  "/Game/DLC/B1C5/Placeables/Props/BP_B1C5_MTX_ReverendMother_Carpet_Placeable.BP_B1C5_MTX_ReverendMother_Carpet_Placeable_C": 1,
+  "/Game/DLC/B1C5/Placeables/Props/BP_B1C5_MTX_ReverendMother_TableRound_Placeable.BP_B1C5_MTX_ReverendMother_TableRound_Placeable_C": 1,
+  "/Game/DLC/B1C5/Placeables/Props/BP_B1C5_MTX_Sardaukar_Books_01_Placeable.BP_B1C5_MTX_Sardaukar_Books_01_Placeable_C": 1,
+  "/Game/DLC/B1C5/Placeables/Props/BP_B1C5_MTX_Sardaukar_Couch_Corner_In_Placeable.BP_B1C5_MTX_Sardaukar_Couch_Corner_In_Placeable_C": 2,
+  "/Game/DLC/B1C5/Placeables/Props/BP_B1C5_MTX_Sardaukar_Couch_Placeable.BP_B1C5_MTX_Sardaukar_Couch_Placeable_C": 1,
+  "/Game/DLC/B1C5/Placeables/Props/BP_B1C5_MTX_Sardaukar_Glowglobe_Placeable.BP_B1C5_MTX_Sardaukar_Glowglobe_Placeable_C": 3,
+  "/Game/DLC/B1C5/Placeables/Props/BP_B1C5_MTX_Sardaukar_Trophy_Placeable.BP_B1C5_MTX_Sardaukar_Trophy_Placeable_C": 1,
+  "/Game/DLC/B1C5/Player/PlayerBuilt/Sard/Blueprints/Doors/BP_MTX_Sardaukar_DoorTall_Placeable.BP_MTX_Sardaukar_DoorTall_Placeable_C": 2,
+  "/Game/DLC/MTX/Environment/Props/Atre/BreakfastRoom/Blueprints/BP_MTX_Atre_BreakfastRoom_DecorativeWineBottle_Placeable.BP_MTX_Atre_BreakfastRoom_DecorativeWineBottle_Placeable_C": 1,
+  "/Game/DLC/MTX/Environment/Props/Atre/Misc/Hologram/Blueprints/BP_MTX_Atre_Hologram_CaladanEmblem_Placeable.BP_MTX_Atre_Hologram_CaladanEmblem_Placeable_C": 4,
+  "/Game/Dune/Characters/Player/BP_DunePlayerCharacter.BP_DunePlayerCharacter_C": 1,
+  "/Game/Dune/Characters/Player/BP_DunePlayerController.BP_DunePlayerController_C": 1,
+  "/Game/Dune/Environment/Props/Interactables/BP_SpiceSiloContainer.BP_SpiceSiloContainer_C": 2,
+  "/Game/Dune/Systems/Building/Pieces/BP_BloodWaterExtractor.BP_BloodWaterExtractor_C": 3,
+  "/Game/Dune/Systems/Building/Pieces/BP_DuneBuildingBase.BP_DuneBuildingBase_C": 1,
+  "/Game/Dune/Systems/Building/Pieces/BP_Generator_Placeable.BP_Generator_Placeable_C": 4,
+  "/Game/Dune/Systems/Building/Pieces/BP_TotemSmall.BP_TotemSmall_C": 1,
+  "/Game/Dune/Systems/Crafting/BP_Fabricator.BP_Fabricator_C": 1,
+  "/Game/Dune/Systems/Crafting/BP_SmallOreRefinery.BP_SmallOreRefinery_C": 3,
+  "/Script/DuneSandbox.DunePlayerState": 1,
+  "LandsraadSimulatedGuild": 60
+ },
+ "appliedPatches": [
+  "DA_10405_Coriolis_Singleplayer_DBI",
+  "DA_10555_LootContent",
+  "DA_10767_RenameWatershippersGarageDoorFrame",
+  "DA_11966_RemoveBuildingStabilization",
+  "DA_12490_LandsraadRewardDataFix",
+  "DA_12491_LandsraadSingleplayerPatch",
+  "DA_12500_LandsraadSimulatedGuilds",
+  "DA_12506_LandsraadDecreeRerolls",
+  "DA_15751_AddCheckpointsTable",
+  "DA_15776_Sandstorm",
+  "DA_15777_ResourceNodes",
+  "DA_17757_ResourceFieldsActivationTimeUpdate",
+  "DA_18319_InitialPatchForTestingPatch",
+  "DA_18658_SpawnerNullActorMarker",
+  "DA_19392_StoreEditedByPlayerId",
+  "DA_20198_FixReturnTypeValidationFailures",
+  "DA_20874_StoreLastEditedByPlayerIdForBaseBackups",
+  "DA_20874_StoreLastPlacedByPlayerId",
+  "DA_23565_SandstormSchedule",
+  "DA_23978_ClearOrphanedSubFiefMarkers",
+  "DA_23978_ClearOrphanedSubFiefMarkersBasedOnLocation",
+  "DA_25872_CleanupOrphanedFglEntities",
+  "DA_2783_SoftAccountDelete",
+  "DA_7043_InitialPatch",
+  "DA_9644_AddTotemLastFuelUpdateTimes"
+ ],
+ "decodedBytes": 1765376,
+ "decodedDbSha256": "a1e128f1a94e40e11bd7b1c1ba5222ab633d91bf8d3ce356d87d6080e7a80ad9",
+ "itemTemplates": {
+  "Ammo": {
+   "rows": 16,
+   "totalStack": 630
+  },
+  "BasicBuildingTool": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Bloodsack_01": {
+   "rows": 2,
+   "totalStack": 2
+  },
+  "BodyFluidExtractor": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "ChoamSda1": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Combat_Nati_SandtroutLeathers01_Boots": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Combat_Nati_SandtroutLeathers01_Bottom": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Combat_Nati_SandtroutLeathers01_Gloves": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Combat_Nati_SandtroutLeathers01_Helmet": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Combat_Nati_SandtroutLeathers01_Top": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "CopperBar": {
+   "rows": 2,
+   "totalStack": 100
+  },
+  "Emote_Bow_01": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_Clap_01": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_ExamineGround": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_Follow_01": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_KaitanBow_01": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_No_01": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_Point_01": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_Sardaukar_BloodWipe": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_Sardaukar_Kneel": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_ScanHorizon": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_ShakeOffSand_01": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_Sit_01": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_Threaten_01": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_ThumperBack": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_ThumperForward": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_ThumperLeft": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_ThumperRight": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_WatershipperFreeze": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_WatershipperSalute": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_WormSign": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Emote_Yes_01": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "HealthPack_Channeled": {
+   "rows": 1,
+   "totalStack": 11
+  },
+  "MiningTool_1h_Standard": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Oil": {
+   "rows": 4,
+   "totalStack": 156
+  },
+  "PlantFiber": {
+   "rows": 1,
+   "totalStack": 389
+  },
+  "PowerPack": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "ScrapMetal": {
+   "rows": 1,
+   "totalStack": 57
+  },
+  "ScrapMetalKnife": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Social_Choam_MaulaCastOffs01_Bottom": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Social_Choam_MaulaCastOffs01_Gloves": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Social_Choam_MaulaCastOffs01_Shoes": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "Social_Choam_MaulaCastOffs01_Top_Fremkit": {
+   "rows": 1,
+   "totalStack": 1
+  },
+  "SolarisCoin": {
+   "rows": 1,
+   "totalStack": 123
+  },
+  "Stone": {
+   "rows": 1,
+   "totalStack": 346
+  }
+ },
+ "label": "sample-2026-09-30-baseline",
+ "progression": {
+  "KeystoneBonusSkillPoints": 0,
+  "TotalSkillPoints": 6,
+  "TotalXPEarned": 2833,
+  "UnspentSkillPoints": 6,
+  "health": 52.125022,
+  "hydration": 27.949619,
+  "spice": 1000.0
+ },
+ "schemaHash": "eea30bbae1cbd5adeafe679a38f98bd08f4f1a9d70346bb61d261b3a97b18d0d",
+ "sqliteVersionUsed": "3.46.1",
+ "tableRowCounts": {
+  "accounts": 1,
+  "actor_fgl_entities": 63,
+  "actor_inventories": 29,
+  "actor_spawner_actors": 0,
+  "actor_spawners": 0,
+  "actors": 102,
+  "applied_patches": 25,
+  "backup_vehicles": 0,
+  "base_backup_linked_actors": 0,
+  "base_backups": 0,
+  "building_blueprint_instances": 0,
+  "building_blueprint_pentashields": 0,
+  "building_blueprint_placeables": 0,
+  "building_blueprints": 0,
+  "building_favorites": 10,
+  "building_instances": 141,
+  "building_progression_learned_building_sets": 114,
+  "building_progression_new_buildable_pieces": 208,
+  "buildings": 1,
+  "checkpoints": 0,
+  "communinet_player": 0,
+  "communinet_player_channels": 0,
+  "consumed_per_player_lore": 0,
+  "consumed_temporary_per_player_lore": 0,
+  "coriolis_cycle": 1,
+  "dialogue_met_npcs": 0,
+  "dialogue_taken_nodes": 0,
+  "dungeon_completion": 0,
+  "dungeon_completion_players": 0,
+  "encounters_static": 0,
+  "factions": 4,
+  "farm_variables": 1,
+  "fgl_entities": 63,
+  "game_events": 4,
+  "inventories": 32,
+  "items": 65,
+  "items_id_sequencer": 1,
+  "journey_story_node": 2221,
+  "journey_story_node_cooldown": 0,
+  "journey_tracked_cards": 1,
+  "landclaim_segments": 0,
+  "landsraad_decree_rotation": 3,
+  "landsraad_decree_term": 1,
+  "landsraad_decree_votes": 0,
+  "landsraad_decrees": 11,
+  "landsraad_house_rewards": 0,
+  "landsraad_simulated_guilds": 60,
+  "landsraad_task_faction_contributions": 4,
+  "landsraad_task_player_contributions": 7,
+  "landsraad_task_progress": 7,
+  "landsraad_task_progress_player": 7,
+  "landsraad_task_progress_processed": 1,
+  "landsraad_task_reveal_state": 50,
+  "landsraad_task_rewards": 125,
+  "landsraad_tasks": 25,
+  "loot_container_items": 0,
+  "loot_container_timestamps": 3,
+  "lore_pickups": 74,
+  "lore_pickups_temporary": 0,
+  "map_areas": 1,
+  "markers": 399,
+  "overmap_players": 0,
+  "permission_actor": 16,
+  "permission_actor_rank": 1,
+  "placeables": 38,
+  "player_access_codes": 0,
+  "player_faction": 60,
+  "player_faction_reputation": 0,
+  "player_markers": 389,
+  "player_respawn_locations": 2,
+  "player_state": 1,
+  "player_tags": 6,
+  "player_travel_state": 0,
+  "player_virtual_currency_balances": 0,
+  "purchased_specialization_keystones": 0,
+  "recovered_vehicles": 0,
+  "resource_nodes": 41,
+  "resourcefield_state": 11,
+  "sandstorm_data": 1,
+  "sandstorm_schedule": 1,
+  "specialization_keystones_map": 205,
+  "specialization_refund_id": 0,
+  "specialization_tracks": 0,
+  "totem_fuel_update_times": 1,
+  "totems": 1,
+  "travel_actor_parent": 0,
+  "travel_return_info": 0,
+  "tutorial_per_player": 16,
+  "tutorials": 118,
+  "vehicle_module_inventories": 0,
+  "vehicle_modules": 0,
+  "vehicles": 0,
+  "vendor_stock_cycle": 0,
+  "vendor_stock_state": 0
+ }
+}
