@@ -21,15 +21,35 @@ argued after the fact.
 1. **Game fully closed for every snapshot** (quit to desktop, wait until the process is gone).
 2. **One action per snapshot.** Snapshot labels are never reused (the script refuses).
 3. **Snapshots contain your IDs.** They default to a local folder (`%USERPROFILE%\tabr-tau-snapshots`),
-   `Game.ini` is not copied. Do not commit, post or share them. Transfer for analysis: zip (`-Zip`) and give
-   the zip to the analyst by a route the operator chooses (see the token-free transfer note in the audit
-   register). Delete snapshots after the experiment.
+   `Game.ini` is not copied. Do not commit, post or share them. Never put raw snapshots in git (including `meta`):
+   git history is permanent. Transfer for analysis with `tools\send-snapshot.ps1` (below). Commit only the
+   redacted `tools/snapsummary.py` output. Delete snapshots on both machines after the experiment.
 4. **Do not edit files by hand.** Only tabr-tau edits, and only when a step says so.
 5. Each step: take the snapshot, then write one line in `docs/evidence/RESULTS.md` (label, what you did,
    screenshot file name, any error). Screenshots must not show account names or IDs.
 6. If anything crashes or a step fails: stop, snapshot as `X-<what-happened>`, do not continue.
 7. **Consume only complete snapshots:** a snapshot folder is valid only if `manifest.json` exists (written
    last). Re-hash any transferred file against the manifest before use.
+
+## Transfer (token-free) and comparing copies
+
+```
+# on the PC, after `snapshot.ps1 -Label A0-baseline`
+.\tools\send-snapshot.ps1 -SnapshotDir "$env:USERPROFILE\tabr-tau-snapshots\A0-baseline" `
+    -Target <user>@<host>:/<dir> [-IdentityFile <path-to-private-key>]
+```
+It refuses a snapshot without `manifest.json`, zips it, hashes it, `scp`s it, has the host hash it again, and
+fails on any mismatch. Key authentication only (no password prompts). Use an **unprivileged** account on the
+receiving host, not root. Requires the Windows "OpenSSH Client" optional feature (built in on Windows 10/11).
+
+Compare copies without moving IDs: on the analysis host run
+`python tools/snapsummary.py <snapshot> --label <label> --out docs/evidence/summaries/<label>.json`.
+The summary is redacted (file hashes, table row counts, patch set, item-template tally, XP/hydration/health)
+and refuses to emit if it finds a 15+ digit number. Summaries can be committed and diffed across copies and over time.
+
+Optional (WSL users only; not needed for ~2 MB snapshots): `rsync -a --checksum --partial --ignore-existing -e ssh
+/mnt/c/Users/<you>/tabr-tau-snapshots/<label>/ <user>@<host>:/<dir>/<label>/` then re-run with `-n` added;
+empty output means the copies are identical. `--ignore-existing` keeps a delivered snapshot immutable.
 
 ## Phase A: baseline and noise (measures what changes with no intended action)
 

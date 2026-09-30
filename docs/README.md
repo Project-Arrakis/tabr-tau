@@ -10,10 +10,12 @@ beyond the original editor. Nothing in `docs/` contains account or platform IDs.
 | [`audit/2026-09-30-L1-findings-register.md`](audit/2026-09-30-L1-findings-register.md) | The Layer 1 eight-hat audit: 22 merged findings, severities, STRIDE table, what needs an operator decision |
 | [`single-player-files.md`](single-player-files.md) | Every file the single-player game keeps, its format and contents, and whether it is safe to edit |
 | [`live-test-protocol.md`](live-test-protocol.md) | The pre-registered live experiment (literjon give/fill/drink, XP, hydration, foreign keys, id allocation) |
+| [`continuation-prompt.md`](continuation-prompt.md) | Paste into a new session to resume: state, verified facts, next steps in order, and what not to do |
 | [`evidence/`](evidence/) | Schema-only evidence: the real save DDL (no rows), SQLite-vs-Postgres schema diff, dune-docker function-to-table map |
 
-Tools: [`../tools/snapshot.ps1`](../tools/snapshot.ps1) (Windows snapshot of a save) and
-[`../tools/snapdiff.py`](../tools/snapdiff.py) (redacted row and JSON-path diff of two saves; Python >= 3.11).
+Tools: [`snapshot.ps1`](../tools/snapshot.ps1) (Windows snapshot of a save), [`send-snapshot.ps1`](../tools/send-snapshot.ps1)
+(hash-verified scp transfer), [`snapdiff.py`](../tools/snapdiff.py) (redacted row and JSON-path diff of two saves) and
+[`snapsummary.py`](../tools/snapsummary.py) (redacted, committable fingerprint of a snapshot). Python >= 3.11. The two `.ps1` scripts have **not been run yet** (no PowerShell on the authoring host).
 
 ## Evidence tags used in the design docs
 **[V]** verified against a real sample save, log, or code. **[I]** inferred. **[T]** needs a live test.
