@@ -65,7 +65,7 @@ def blob_columns(c, t, names):
     out = {}
     for n in names:
         try:
-            r = c.execute(f"select count(*), sum(json_valid({qi(n)},8)) from {qi(t)} where typeof({qi(n)})='blob'").fetchone()
+            r = c.execute(f"select count(*), sum(json_valid({qi(n)},8)) from {qi(t)} where typeof({qi(n)})='blob'").fetchone()  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query, python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query  (identifiers cannot be bound parameters; every name goes through qi(), which doubles quotes)
         except sqlite3.Error:
             continue
         if r[0]:
@@ -84,13 +84,13 @@ def redact(name, v, on):
 
 
 def rows(c, t, redact_on):
-    cinfo = list(c.execute(f"pragma table_info({qi(t)})"))
+    cinfo = list(c.execute(f"pragma table_info({qi(t)})"))  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query, python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query  (identifiers cannot be bound parameters; every name goes through qi(), which doubles quotes)
     names = [r[1] for r in cinfo]
     pk = [r[1] for r in sorted(cinfo, key=lambda r: r[5]) if r[5]]
     kinds = blob_columns(c, t, names)
     sel = ", ".join((f"json({qi(n)})" if kinds.get(n) == "jsonb" else (f"hex({qi(n)})" if kinds.get(n) == "opaque" else qi(n))) for n in names)
     out, multiset = {}, {}
-    for r in c.execute(f"select {sel} from {qi(t)}"):
+    for r in c.execute(f"select {sel} from {qi(t)}"):  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query, python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query  (identifiers cannot be bound parameters; every name goes through qi(), which doubles quotes)
         d = {}
         for n, v in zip(names, r):
             if kinds.get(n) == "jsonb" and isinstance(v, str):
@@ -102,7 +102,7 @@ def rows(c, t, redact_on):
         if pk:
             out[tuple(d[k] for k in pk)] = d
         else:  # no primary key: identity is the full row content (multiset)
-            h = hashlib.sha1(json.dumps(d, sort_keys=True, default=str).encode()).hexdigest()[:12]
+            h = hashlib.sha256(json.dumps(d, sort_keys=True, default=str).encode()).hexdigest()[:12]
             multiset.setdefault(h, []).append(d)
     if not pk:
         for h, lst in multiset.items():

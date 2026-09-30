@@ -102,7 +102,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		b, _ := static.ReadFile("static/index.html")
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(strings.Replace(string(b), "__TOKEN__", s.token, 1)))
+		// Token is 128-bit crypto/rand hex (no HTML metacharacters). Serving it in the page is itself finding F-04 (#5); S0 replaces this with a bootstrap cookie. Remove this nosemgrep when #5 lands.
+		w.Write([]byte(strings.Replace(string(b), "__TOKEN__", s.token, 1))) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
 	})
 
 	s.get("/api/overview", func(r *http.Request) (any, error) { return o.Overview() })
@@ -165,7 +166,8 @@ func (s *Server) routes() {
 		}
 		w.Header().Set("Content-Type", ct)
 		w.Header().Set("Content-Disposition", `attachment; filename="`+strings.NewReplacer(`"`, "").Replace(r.URL.Query().Get("name"))+`.`+map[bool]string{true: "json", false: "csv"}[ct == "application/json"]+`"`)
-		w.Write(b)
+		// CSV/JSON export of save data, not HTML. Content sniffing and CSV formula injection are tracked in F-03 (#4); S0 adds nosniff and cell escaping. Remove this nosemgrep when #4 lands.
+		w.Write(b) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
 	})
 
 	// save file lifecycle
