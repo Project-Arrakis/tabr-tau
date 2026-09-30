@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tabr Tau</title>
+<style>
+:root{--bg:#14110d;--panel:#1e1913;--panel2:#26200f;--line:#3a3022;--fg:#eadfc8;--mut:#9a8d75;--acc:#d9902f;--acc2:#f0b45a;--ok:#6fbf73;--bad:#e0604f;--in:#100d09}
+@media (prefers-color-scheme:light){:root{--bg:#f6f1e6;--panel:#fffaf0;--panel2:#f0e6d0;--line:#d8ccb2;--fg:#2b2416;--mut:#7a6d55;--acc:#b56d10;--acc2:#8c5208;--ok:#2f8a3a;--bad:#b83a2a;--in:#fff}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,Segoe UI,sans-serif}
+header{display:flex;gap:12px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+header h1{font-size:16px;margin:0;color:var(--acc2);letter-spacing:.5px}
+header .path{color:var(--mut);font-size:12px;flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+nav{display:flex;gap:2px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto}
+nav button{background:none;border:0;color:var(--mut);padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent;font:inherit}
+nav button.on{color:var(--acc2);border-color:var(--acc)}
+main{padding:16px;max-width:1300px;margin:0 auto}
+.sub{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.sub button{background:var(--panel);border:1px solid var(--line);color:var(--fg);padding:5px 12px;border-radius:14px;cursor:pointer;font:inherit}
+.sub button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:14px}
+.card h3{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.kv{background:var(--panel2);border-radius:6px;padding:8px 10px}.kv b{display:block;font-size:11px;color:var(--mut);font-weight:500;text-transform:uppercase}
+.kv span{font-size:16px;word-break:break-all}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11px;text-transform:uppercase;color:var(--mut);position:sticky;top:0;background:var(--panel)}
+tr:hover td{background:var(--panel2)}
+.scroll{max-height:60vh;overflow:auto;border:1px solid var(--line);border-radius:6px}
+input,select,textarea{background:var(--in);color:var(--fg);border:1px solid var(--line);border-radius:5px;padding:5px 8px;font:inherit}
+input[type=number]{width:110px}textarea{width:100%;font:12px/1.4 Consolas,monospace}
+button.b{background:var(--acc);color:#fff;border:0;border-radius:5px;padding:6px 12px;cursor:pointer;font:inherit}
+button.b.sec{background:var(--panel2);color:var(--fg);border:1px solid var(--line)}
+button.b.bad{background:var(--bad)}button.b.sm{padding:2px 8px;font-size:12px}
+button:disabled{opacity:.4;cursor:default}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
+.mut{color:var(--mut)}.ok{color:var(--ok)}.bad{color:var(--bad)}.mono{font-family:Consolas,monospace;font-size:12px}
+#toast{position:fixed;bottom:16px;right:16px;display:flex;flex-direction:column;gap:6px;z-index:10}
+#toast div{background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--ok);padding:8px 12px;border-radius:6px;max-width:420px}
+#toast div.err{border-left-color:var(--bad)}
+.tag{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:1px 8px;margin:2px;font-size:12px}
+.warn{background:#4a2f10;color:#ffd9a0;padding:8px 12px;border-radius:6px;margin-bottom:12px}
+details summary{cursor:pointer;color:var(--acc2)}
+</style>
+</head>
+<body>
+<header>
+  <h1>TABR TAU</h1><span class="path" id="path"></span>
+  <span id="pending" class="mut"></span>
+  <button class="b" id="btnSave" disabled>Save to game</button>
+  <button class="b sec" id="btnDiscard" disabled>Discard</button>
+</header>
+<nav id="nav"></nav>
+<main id="main"></main>
+<div id="toast"></div>
+<script>
+const TOKEN="__TOKEN__";
+const $=(s,r=document)=>r.querySelector(s);
+const esc=v=>v==null?'':String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(path,body){
+  const opt={headers:{'X-Tabr-Token':TOKEN}};
+  if(body!==undefined){opt.method='POST';opt.headers['Content-Type']='application/json';opt.body=JSON.stringify(body)}
+  const r=await fetch(path,opt);const j=await r.json().catch(()=>({error:r.statusText}));
+  if(!r.ok||j.error)throw new Error(j.error||r.statusText);return j;
+}
+function toast(msg,err){const d=document.createElement('div');if(err)d.className='err';d.textContent=msg;$('#toast').append(d);setTimeout(()=>d.remove(),err?7000:3500)}
+async function act(fn,okMsg,refresh=true){try{const r=await fn();if(okMsg)toast(okMsg);await status();if(refresh)await render();return r}catch(e){toast(e.message,true)}}
+const val=id=>$('#'+id).value;
+
+// ---------- tabs
+const TABS={player:'Player',bases:'Bases',vehicles:'Vehicles',exchange:'Exchange',landsraad:'Landsraad',config:'Config',db:'Database'};
+let tab=localStorage.tab||'player', sub={player:'overview',db:'browse'};
+function drawNav(){$('#nav').innerHTML=Object.entries(TABS).map(([k,v])=>`<button data-tab="${k}" class="${k==tab?'on':''}">${v}</button>`).join('')}
+function subNav(group,items){return `<div class="sub">${items.map(([k,v])=>`<button data-sub="${group}:${k}" class="${sub[group]==k?'on':''}">${v}</button>`).join('')}</div>`}
+
+// ---------- generic renderers
+function tbl(cols,rows,{actions}={}){
+  if(!rows||!rows.length)return '<p class="mut">Nothing here.</p>';
+  return `<div class="scroll"><table><thead><tr>${cols.map(c=>`<th>${esc(c.label||c.k)}</th>`).join('')}${actions?'<th></th>':''}</tr></thead><tbody>${
+    rows.map(r=>`<tr>${cols.map(c=>`<td class="${c.cls||''}">${c.f?c.f(r):esc(r[c.k])}</td>`).join('')}${actions?`<td>${actions(r)}</td>`:''}</tr>`).join('')}</tbody></table></div>`}
+const kv=(k,v)=>`<div class="kv"><b>${esc(k)}</b><span>${esc(v)}</span></div>`;
+const fix=n=>n==null?'':Math.round(n).toLocaleString();
+
+// ---------- status bar
+async function status(){
+  const o=await api('/api/overview');
+  $('#path').textContent=o.path+(o.gameRunning?'  —  GAME IS RUNNING':'');
+  const n=o.pending.length;$('#pending').textContent=n?`${n} unsaved change${n>1?'s':''}`:'';
+  $('#btnSave').disabled=$('#btnDiscard').disabled=!o.dirty;
+  $('#btnSave').title=o.pending.join('\n');return o}
+$('#btnSave').onclick=()=>act(async()=>{const r=await api('/api/save/commit',{});toast('Saved. Backup: '+r.backup);},null);
+$('#btnDiscard').onclick=()=>{if(confirm('Discard all unsaved changes?'))act(()=>api('/api/save/discard',{}),'Discarded')};
+
+// ---------- PLAYER
+let P=null;
+async function playerView(){
+  const s=sub.player;let h=subNav('player',[['overview','Overview'],['inventory','Inventory'],['progress','Progression'],['journey','Journey'],['recipes','Recipes']]);
+  if(s=='overview'){
+    P=await api('/api/player');const a=P.actor||{},st=P.state||{},acc=P.account||{},j=P.journey||{};
+    h+=`<div class="card"><h3>${esc(P.name)}</h3><div class="grid">${kv('Solari',P.solari.toLocaleString())}${kv('Map',a.map)}${kv('Position',`${fix(a.x)}, ${fix(a.y)}, ${fix(a.z)}`)}${kv('Account',acc.funcom_id)}${kv('Platform',(acc.platform_name||'')+' '+(acc.platform_id||''))}${kv('Journey',`${j.done||0} / ${j.total||0} nodes done`)}${kv('Pawn / controller',P.pawnId+' / '+P.controllerId)}</div></div>
+    <div class="card"><h3>Solari</h3><div class="row"><input id="solari" type="number" value="10000"><button class="b" data-act="solari">Add / remove</button><span class="mut">Negative removes. Solari is an item stack in your backpack.</span></div></div>
+    <div class="card"><h3>Teleport</h3><div class="row">X<input id="tx" type="number" value="${Math.round(a.x)}">Y<input id="ty" type="number" value="${Math.round(a.y)}">Z<input id="tz" type="number" value="${Math.round(a.z)}"><button class="b" data-act="teleport">Teleport</button></div>
+    <p class="mut">Moves the character in the save (applied on next load). Stay above the terrain (Z) or you may fall through.</p></div>
+    <div class="card"><h3>Respawn points</h3>${tbl([{k:'group'},{k:'locator_name'},{k:'locator_actor_id'},{k:'map'}],P.respawns)}</div>`;
+  }else if(s=='inventory'){
+    const d=await api('/api/player/inventory');
+    h+=`<div class="card"><h3>Give item</h3><div class="row"><input id="gt" list="tpl" placeholder="template id, e.g. Spice" size="34"><datalist id="tpl">${d.templates.map(t=>`<option value="${esc(t)}">`).join('')}</datalist>
+    Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0,1,2,3,4,5].map(n=>`<option>${n}</option>`).join('')}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="repair">Repair all gear</button></div>
+    <p class="mut">Template ids come from items already in your save; any valid game template id works.</p></div>
+    <div class="card"><h3>Items (${d.items.length})</h3>${tbl([{k:'inventory_name',label:'Inventory'},{k:'position_index',label:'Slot'},{k:'template_id',label:'Item'},
+      {k:'stack_size',label:'Stack',f:r=>`<input type="number" value="${r.stack_size}" min="1" data-item="${r.id}" data-field="stack_size" style="width:90px">`},
+      {k:'quality_level',label:'Grade',f:r=>`<select data-item="${r.id}" data-field="quality">${[0,1,2,3,4,5].map(n=>`<option ${n==r.quality_level?'selected':''}>${n}</option>`).join('')}</select>`},
+      {k:'durability',label:'Durability',f:r=>r.durability==null?'':Number(r.durability).toFixed(1)+(r.max_durability?' / '+Number(r.max_durability).toFixed(0):'')}],d.items,
+      {actions:r=>`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${esc(r.template_id)}">Delete</button>`})}</div>`;
+  }else if(s=='progress'){
+    const [f,sp,tu,tg]=await Promise.all(['factions','specs','tutorials','tags'].map(x=>api('/api/player/'+x)));
+    h+=`<div class="card"><h3>Faction reputation</h3>${tbl([{k:'name',label:'Faction'},{k:'reputation',label:'Reputation',f:r=>`<input type="number" min="0" max="12474" value="${r.reputation}" data-faction="${r.faction_id}" style="width:100px">`}],f)}<p class="mut">Range 0–12474. Edit and press Tab/Enter.</p></div>
+    <div class="card"><h3>Specialization tracks</h3>${tbl([{k:'track_type',label:'Track'},{k:'xp_amount',label:'XP'},{k:'level'}],sp,{actions:r=>`<button class="b sec sm" data-act="spec" data-t="${r.track_type}" data-xp="${r.xp_amount}" data-lv="${r.level}">Edit</button>`})}<div class="row"><span class="mut">Add/overwrite:</span>Track<input id="st" type="number" value="0" style="width:70px">XP<input id="sx" type="number" value="0">Level<input id="sl" type="number" step="0.1" value="1" style="width:80px"><button class="b" data-act="specSet">Set</button></div></div>
+    <div class="card"><h3>Tutorials</h3>${tbl([{k:'id'},{k:'name'},{k:'state',label:'State',f:r=>r.state==2?'<span class="ok">done</span>':'<span class="mut">not done</span>'}],tu,{actions:r=>r.state==2?`<button class="b sec sm" data-act="tut" data-id="${r.id}" data-c="0">Reset</button>`:`<button class="b sm" data-act="tut" data-id="${r.id}" data-c="1">Complete</button>`})}</div>
+    <div class="card"><h3>Player tags</h3>${tg.map(t=>`<span class="tag">${esc(t.tag)} <a href="#" data-act="tagDel" data-tag="${esc(t.tag)}">×</a></span>`).join('')||'<span class="mut">none</span>'}<div class="row"><input id="tag" placeholder="Tag.Name" size="40"><button class="b" data-act="tagAdd">Add tag</button></div></div>`;
+  }else if(s=='journey'){
+    h+=`<div class="card"><h3>Journey nodes</h3><div class="row"><input id="jq" placeholder="filter (e.g. DA_MQ)" size="30" value="${esc(window.jq||'')}"><button class="b sec" data-act="jfilter">Filter</button><span class="mut">Completing a node also completes its children.</span></div><div id="jout"></div></div>`;
+  }else if(s=='recipes'){
+    const r=await api('/api/player/recipes');
+    h+=`<div class="card"><h3>Learned building sets (${r.learnedSets.length})</h3>${r.learnedSets.map(x=>`<span class="tag">${esc(x.name)}</span>`).join('')}</div><div class="card"><h3>New buildable pieces (${r.newPieces.length})</h3>${r.newPieces.map(x=>`<span class="tag">${esc(x.name)}</span>`).join('')}</div>`;
+  }
+  $('#main').innerHTML=h;
+  if(s=='journey')journeyList();
+}
+async function journeyList(){
+  const rows=await api('/api/player/journey?q='+encodeURIComponent(window.jq||''));
+  $('#jout').innerHTML=`<p class="mut">${rows.length} nodes${rows.length>500?' (showing first 500)':''}</p>`+tbl([{k:'id',label:'Node'},{k:'complete',label:'State',f:r=>r.complete?'<span class="ok">complete</span>':'<span class="mut">open</span>'}],rows.slice(0,500),
+    {actions:r=>r.complete?`<button class="b sec sm" data-act="jset" data-id="${esc(r.id)}" data-c="0">Reset</button>`:`<button class="b sm" data-act="jset" data-id="${esc(r.id)}" data-c="1">Complete</button>`});
+}
+
+// ---------- BASES
+async function basesView(){
+  const s=sub.bases||'overview';let h=subNav('bases',[['overview','Overview'],['storage','Storage'],['parts','Pieces & placeables']]);
+  if(s=='overview'){
+    const b=await api('/api/bases');const p=b.pieces||{};
+    h+=`<div class="card"><h3>Bases (land claims)</h3>${tbl([{k:'totem_id',label:'Totem'},{k:'map'},{k:'x',f:r=>fix(r.x)},{k:'y',f:r=>fix(r.y)},{k:'z',f:r=>fix(r.z)},{k:'level'}],b.totems,{actions:r=>`<button class="b sec sm" data-act="tpTo" data-x="${r.x}" data-y="${r.y}" data-z="${r.z+300}">Teleport here</button>`})}</div>
+    <div class="card"><h3>Structure health</h3><div class="grid">${kv('Building pieces',p.n)}${kv('Lowest health',fix(p.minh))}${kv('Average health',fix(p.avgh))}${kv('Total sand buildup',fix(p.sand))}</div>
+    <div class="row"><button class="b" data-act="repairB">Repair all to max</button><button class="b sec" data-act="sand">Clear sand buildup</button><span class="mut">Repair sets each piece to the highest health seen for its type.</span></div></div>
+    <div class="card"><h3>Permissions</h3>${tbl([{k:'actor_id'},{k:'actor_name'},{k:'actor_type'},{k:'access_level'},{k:'is_child'}],b.permissions)}</div>`;
+  }else if(s=='storage'){
+    const st=await api('/api/bases/storage');
+    h+=`<div class="card"><h3>Containers, machines &amp; vehicles</h3>${tbl([{k:'name',label:'Object'},{k:'actor_id',label:'Actor'},{k:'inventory_id',label:'Inv'},{k:'inventory_type',label:'Type'},{k:'items'},{k:'total',label:'Total units'},{k:'max_item_count',label:'Slots'}],st,
+      {actions:r=>`<button class="b sec sm" data-act="openInv" data-id="${r.inventory_id}">Open</button>`})}</div><div id="inv"></div>`;
+  }else{
+    const b=await api('/api/bases');
+    h+=`<div class="card"><h3>Placeables (${b.placeables.length})</h3>${tbl([{k:'id'},{k:'building_type',label:'Type'},{k:'health',f:r=>`<input type="number" value="${r.health}" data-hp="placeable" data-id="${r.id}" style="width:90px">`}],b.placeables)}</div>
+    <div class="card"><h3>Building piece types</h3>${tbl([{k:'building_type',label:'Type'},{k:'n',label:'Count'},{k:'minh',label:'Min health'},{k:'maxh',label:'Max health'},{k:'avgh',label:'Avg'}],b.types)}</div>`;
+  }
+  $('#main').innerHTML=h;
+}
+
+// ---------- VEHICLES
+async function vehiclesView(){
+  const v=await api('/api/vehicles');
+  let h=`<div class="card"><h3>Vehicles in the world (${v.vehicles.length})</h3>${tbl([{k:'name',label:'Vehicle'},{k:'id'},{k:'map'},{k:'x',f:r=>fix(r.x)},{k:'y',f:r=>fix(r.y)},{k:'z',f:r=>fix(r.z)},
+    {k:'modules',label:'Modules',f:r=>(r.modules||[]).map(m=>`<span class="tag">${esc(m.template_id)}</span>`).join('')}],v.vehicles,
+    {actions:r=>`<button class="b sm" data-act="bring" data-id="${r.id}">Bring to me</button>`})}</div>
+  <div class="card"><h3>Recovered / stored vehicles (${v.recovered.length})</h3>${tbl([{k:'vehicle_id',label:'Id'},{k:'vehicle_name',label:'Name'},{k:'chassis_durability',label:'Chassis durability'},{k:'time_stored'},{k:'reason'}],v.recovered,
+    {actions:r=>`<button class="b sec sm" data-act="dur" data-id="${r.vehicle_id}" data-v="${r.chassis_durability}">Set durability</button>`})}</div>`;
+  if(!v.vehicles.length&&!v.recovered.length)h+=`<p class="mut">No vehicles in this save yet. Vehicle fuel is stored in an opaque binary blob and is not editable.</p>`;
+  $('#main').innerHTML=h;
+}
+
+// ---------- EXCHANGE
+async function exchangeView(){
+  const e=await api('/api/exchange');
+  $('#main').innerHTML=`<div class="card"><h3>Solari</h3><div class="grid">${kv('Balance',e.solari.toLocaleString())}</div><div class="row"><input id="solari" type="number" value="10000"><button class="b" data-act="solari">Add / remove</button></div></div>
+  <div class="card"><h3>Vendor purchase limits</h3><p class="mut">Vendors limit how much you can buy per restock cycle. Resetting clears those counters.</p><div class="row"><button class="b" data-act="vreset" data-v="">Reset all vendors</button></div>
+  ${tbl([{k:'vendor_id',label:'Vendor'},{k:'template_id',label:'Item'},{k:'amount_bought',label:'Bought'}],e.stock,{actions:r=>`<button class="b sec sm" data-act="vreset" data-v="${esc(r.vendor_id)}">Reset vendor</button>`})}
+  <h3 style="margin-top:14px">Restock cycles</h3>${tbl([{k:'vendor_id'},{k:'last_interacted_timestamp',label:'Last interaction',f:r=>new Date(r.last_interacted_timestamp*1000).toLocaleString()}],e.cycles)}</div>`;
+}
+
+// ---------- LANDSRAAD
+async function landsraadView(){
+  const l=await api('/api/landsraad');const t=l.term||{};const fname=id=>(l.factions.find(f=>f.id==id)||{}).name||id||'—';
+  const facOpts=sel=>l.factions.map(f=>`<option value="${f.id}" ${f.id==sel?'selected':''}>${esc(f.name)}</option>`).join('');
+  const dec=l.decrees;
+  $('#main').innerHTML=`<div class="card"><h3>Current term ${esc(t.term_id)}</h3><div class="grid">${kv('Start',t.start_time)}${kv('End',t.end_time)}${kv('Reigning faction',fname(t.reigning_faction_id))}${kv('Active decree',(dec.find(d=>d.id==t.active_decree_id)||{}).decree_name||'—')}${kv('Elected decree',(dec.find(d=>d.id==t.elected_decree_id)||{}).decree_name||'—')}</div>
+  <div class="row">Active decree<select id="ad"><option value="">none</option>${dec.map(d=>`<option value="${d.id}" ${d.id==t.active_decree_id?'selected':''}>${esc(d.decree_name)}</option>`).join('')}</select>
+  Reigning<select id="rf"><option value="">none</option>${facOpts(t.reigning_faction_id)}</select><button class="b" data-act="term">Apply</button></div></div>
+  <div class="card"><h3>Decree pool</h3>${tbl([{k:'id'},{k:'decree_name',label:'Decree'},{k:'disabled',label:'State',f:r=>r.disabled?'<span class="mut">disabled</span>':'<span class="ok">enabled</span>'}],dec,{actions:r=>`<button class="b sec sm" data-act="decree" data-id="${r.id}" data-d="${r.disabled?0:1}">${r.disabled?'Enable':'Disable'}</button>`})}</div>
+  <div class="card"><h3>Task board (${l.tasks.length})</h3><div class="row">Faction<select id="lf">${facOpts()}</select><span class="mut">used by the buttons below</span></div>${tbl([{k:'board_index',label:'#'},{k:'house_name',label:'House',f:r=>esc(r.house_name.replace('DA_House',''))},{k:'goal_amount',label:'Goal'},
+    {k:'contributions',label:'Progress',f:r=>(r.contributions||[]).map(c=>`<span class="tag">${esc(fname(c.faction_id))}: ${fix(c.amount)}</span>`).join('')||'<span class="mut">0</span>'},
+    {k:'completed',label:'Status',f:r=>r.completed?`<span class="ok">done (${esc(fname(r.winning_faction_id))})</span>`:'open'},
+    {k:'rewards',label:'Rewards',f:r=>`<details><summary>${(r.rewards||[]).length}</summary>${(r.rewards||[]).map(x=>`<div class="mono">${x.threshold}: ${x.amount}× ${esc(x.template_id)}</div>`).join('')}</details>`}],l.tasks,
+    {actions:r=>`<button class="b sm" data-act="tfill" data-id="${r.id}" data-goal="${r.goal_amount}">Fill goal</button> <button class="b sm" data-act="tdone" data-id="${r.id}" data-r="${r.completed?1:0}">${r.completed?'Reopen':'Complete'}</button>`})}</div>`;
+}
+
+// ---------- CONFIG (.ini)
+let cfgFile=null;
+async function configView(){
+  const val_=await api('/api/config/validate');
+  if(!val_.dirExists){$('#main').innerHTML=`<div class="warn">${esc(val_.error)}<br>Start the game once so it creates its config, or pass <code>--config &lt;folder&gt;</code>.</div>`;return}
+  const problems=val_.files.filter(f=>!f.exists||(f.missingSections||[]).length);
+  const files=await api('/api/config/files');if(!cfgFile)cfgFile=(files.find(f=>f.name=='ServerCustomSettings.ini')||files[0]||{}).name;
+  let h=problems.length?`<div class="warn"><b>Config check:</b><ul style="margin:6px 0">${problems.map(f=>`<li><code>${esc(f.name)}</code> — ${f.exists?'missing sections: '+esc(f.missingSections.join(', ')):'file not found'} <button class="b sm" data-act="cfgcreate" data-n="${esc(f.name)}">${f.exists?'Add sections':'Create'}</button></li>`).join('')}</ul>Missing files are normally created by the game on first run or when a setting is changed in-game.</div>`:`<div class="mut" style="margin-bottom:8px">✓ All expected config files present: ${val_.files.map(f=>esc(f.name)).join(', ')}</div>`;
+  h+=`<div class="warn">The game rewrites its config files when it exits. Close Dune before saving changes here. Each save keeps a backup in a <code>tabr-tau-backups</code> folder next to the file.</div>
+  <div class="row"><select id="cfgsel">${files.map(f=>`<option value="${esc(f.name)}" ${f.name==cfgFile?'selected':''}>${esc(f.name)}${f.empty?' (empty)':''}</option>`).join('')}</select></div>`;
+  if(cfgFile){
+    const c=await api('/api/config/file?name='+encodeURIComponent(cfgFile));const bk=await api('/api/config/backups?name='+encodeURIComponent(cfgFile));
+    let last=null;
+    h+=`<div class="card"><h3>${esc(cfgFile)}</h3>${c.entries.length?`<div class="scroll"><table><thead><tr><th>Section</th><th>Key</th><th>Value</th><th></th></tr></thead><tbody>${c.entries.map(e=>{const sec=e.section!==last?esc(e.section):'';last=e.section;
+      return `<tr><td class="mut mono">${sec}</td><td class="mono">${esc(e.key)}</td><td><input class="cfgv" style="width:100%;min-width:220px" value="${esc(e.value)}" data-line="${e.line}" data-key="${esc(e.key)}" data-section="${esc(e.section)}"></td><td><a href="#" data-act="cfgdel" data-line="${e.line}" data-key="${esc(e.key)}" class="bad">delete</a></td></tr>`}).join('')}</tbody></table></div>`:'<p class="mut">This file is empty.</p>'}
+    <div class="row" style="margin-top:12px"><b>Add key</b><input id="cs" placeholder="[Section]" list="secs"><datalist id="secs">${[...new Set(c.entries.map(e=>e.section))].map(s=>`<option value="${esc(s)}">`).join('')}</datalist><input id="ck" placeholder="Key"><input id="cv" placeholder="Value"><button class="b" data-act="cfgadd">Add</button></div></div>
+    <div class="card"><details><summary>Edit raw text</summary><textarea id="raw" rows="18" spellcheck="false">${esc(c.text)}</textarea><div class="row"><button class="b" data-act="cfgraw">Save raw text</button></div></details></div>
+    <div class="card"><details><summary>Backups (${bk.length})</summary>${tbl([{k:'name'},{k:'size'}],bk,{actions:r=>`<button class="b sec sm" data-act="cfgrestore" data-b="${esc(r.name)}">Restore</button>`})}</details></div>`;
+  }
+  $('#main').innerHTML=h;
+}
+
+// ---------- DATABASE
+let dbTable=null,dbOff=0,dbQ='';
+async function dbView(){
+  const s=sub.db||'browse';let h=subNav('db',[['browse','Tables'],['sql','SQL'],['backups','Save backups']]);
+  if(s=='browse'){
+    const t=await api('/api/db/tables');if(!dbTable)dbTable=t[0].name;
+    h+=`<div class="row"><select id="dbsel">${t.map(x=>`<option value="${esc(x.name)}" ${x.name==dbTable?'selected':''}>${esc(x.name)} (${x.rows})</option>`).join('')}</select><input id="dbq" placeholder="search" value="${esc(dbQ)}"><button class="b sec" data-act="dbgo">Search</button>
+      <a href="/api/db/export?name=${encodeURIComponent(dbTable)}&format=csv" data-export="csv">CSV</a><a href="/api/db/export?name=${encodeURIComponent(dbTable)}&format=json" data-export="json">JSON</a></div><div id="dbout"></div>`;
+    $('#main').innerHTML=h;const d=await api(`/api/db/table?name=${encodeURIComponent(dbTable)}&q=${encodeURIComponent(dbQ)}&offset=${dbOff}&limit=100`);
+    const cols=d.columns.slice(1);
+    $('#dbout').innerHTML=`<p class="mut">${d.total} rows — showing ${dbOff+1}–${Math.min(dbOff+100,d.total)}</p><div class="scroll"><table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${d.rows.map(r=>`<tr>${r.slice(1).map((v,i)=>{const b=typeof v==='string'&&v.startsWith('<blob');return `<td>${b?`<span class="mut mono">${esc(v)}</span>`:`<input class="dbc" value="${esc(v)}" data-rowid="${r[0]}" data-col="${esc(cols[i])}" data-orig="${esc(v)}" style="min-width:60px;width:${Math.max(60,Math.min(300,String(v??'').length*9+20))}px">`}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>
+      <div class="row"><button class="b sec" data-act="dbprev" ${dbOff<=0?'disabled':''}>Previous</button><button class="b sec" data-act="dbnext" ${dbOff+100>=d.total?'disabled':''}>Next</button></div>`;
+    return;
+  }else if(s=='sql'){
+    h+=`<div class="card"><h3>SQL</h3><textarea id="sql" rows="5" placeholder="select * from items limit 20">${esc(window.lastSql||'select name from sqlite_master')}</textarea><div class="row"><button class="b" data-act="runsql">Run (read-only)</button><button class="b bad" data-act="execsql">Run as write</button><span class="mut">Write mode runs one or more statements atomically on your working copy. Nothing reaches game.db until you press <b>Save to game</b>, which backs up first.</span></div><div id="sqlout"></div></div>`;
+  }else{
+    const b=await api('/api/save/backups');
+    h+=`<div class="card"><h3>Save backups</h3><p class="mut">A backup of game.db is made every time you save from here. Restore requires the game to be closed.</p>${tbl([{k:'name'},{k:'size'},{k:'modified'}],b,{actions:r=>`<button class="b sec sm" data-act="restore" data-n="${esc(r.name)}">Restore</button>`})}</div>`;
+  }
+  $('#main').innerHTML=h;
+}
+
+// ---------- render + events
+async function render(){drawNav();
+  try{await ({player:playerView,bases:basesView,vehicles:vehiclesView,exchange:exchangeView,landsraad:landsraadView,config:configView,db:dbView})[tab]()}
+  catch(e){$('#main').innerHTML=`<div class="card bad">${esc(e.message)}</div>`}}
+
+const D=(e)=>e.target.closest('[data-act]');
+const A={
+  solari:()=>act(()=>api('/api/player/solari',{amount:+val('solari')}),'Solari updated'),
+  teleport:()=>act(()=>api('/api/player/teleport',{x:+val('tx'),y:+val('ty'),z:+val('tz')}),'Teleport queued'),
+  tpTo:d=>act(()=>api('/api/player/teleport',{x:+d.x,y:+d.y,z:+d.z}),'Teleport queued'),
+  give:()=>act(()=>api('/api/player/give',{template_id:val('gt').trim(),quantity:+val('gq'),quality:+val('gg')}),'Item added'),
+  repair:()=>act(async()=>{const r=await api('/api/player/repair',{});toast(`Repaired ${r.repaired} items`)},null),
+  delItem:d=>confirm('Delete '+d.name+'?')&&act(()=>api('/api/items/delete',{id:+d.id}),'Deleted'),
+  spec:d=>{$('#st').value=d.t;$('#sx').value=d.xp;$('#sl').value=d.lv},
+  specSet:()=>act(()=>api('/api/player/specs',{track_type:+val('st'),xp:+val('sx'),level:+val('sl')}),'Specialization set'),
+  tut:d=>act(()=>api('/api/player/tutorials',{id:+d.id,complete:d.c=='1'}),'Tutorial updated'),
+  tagAdd:()=>act(()=>api('/api/player/tags',{tag:val('tag').trim(),add:true}),'Tag added'),
+  tagDel:d=>act(()=>api('/api/player/tags',{tag:d.tag,add:false}),'Tag removed'),
+  jfilter:()=>{window.jq=val('jq');journeyList()},
+  jset:d=>act(()=>api('/api/player/journey',{node_id:d.id,complete:d.c=='1'}),'Journey updated',false).then(journeyList),
+  repairB:()=>act(async()=>{const r=await api('/api/bases/repair',{});toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables`)},null),
+  sand:()=>act(async()=>{const r=await api('/api/bases/clear-sand',{});toast(`Cleared ${r.pieces} pieces`)},null),
+  openInv:async d=>{const it=await api('/api/bases/storage/items?inventory='+d.id);
+    $('#inv').innerHTML=`<div class="card"><h3>Inventory ${d.id}</h3>${tbl([{k:'position_index',label:'Slot'},{k:'template_id',label:'Item'},{k:'stack_size',label:'Stack',f:r=>`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" style="width:90px">`}],it,{actions:r=>`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${esc(r.template_id)}">Delete</button>`})}
+    <div class="row"><input id="bt" list="tpl2" placeholder="template id" size="30"><datalist id="tpl2"></datalist>Qty<input id="bq" type="number" value="1" min="1"><button class="b" data-act="giveInv" data-id="${d.id}">Add item</button></div></div>`},
+  giveInv:d=>act(async()=>{await api('/api/bases/give',{inventory_id:+d.id,template_id:val('bt').trim(),quantity:+val('bq')});toast('Item added');await A.openInv(d)},null,false),
+  bring:d=>act(()=>api('/api/vehicles/bring',{id:+d.id}),'Vehicle moved next to you'),
+  dur:d=>{const v=prompt('Chassis durability',d.v);if(v!==null)act(()=>api('/api/vehicles/durability',{vehicle_id:+d.id,chassis_durability:+v}),'Updated')},
+  vreset:d=>act(()=>api('/api/exchange/reset',{vendor_id:d.v}),'Purchase limits reset'),
+  term:()=>act(async()=>{await api('/api/landsraad/term',{active_decree_id:val('ad'),reigning_faction_id:val('rf')})},'Term updated'),
+  decree:d=>act(()=>api('/api/landsraad/decree',{id:+d.id,disabled:d.d=='1'}),'Decree updated'),
+  tfill:d=>act(()=>api('/api/landsraad/progress',{task_id:+d.id,faction_id:+val('lf'),amount:+d.goal}),'Progress set'),
+  tdone:d=>act(()=>api('/api/landsraad/complete',{task_id:+d.id,faction_id:+val('lf'),reset:d.r=='1'}),'Task updated'),
+  cfgcreate:d=>act(()=>api('/api/config/create',{name:d.n}),'Created '+d.n),
+  cfgadd:()=>act(()=>api('/api/config/set',{name:cfgFile,section:val('cs').replace(/^\[|\]$/g,''),key:val('ck').trim(),value:val('cv')}),'Added',true),
+  cfgdel:d=>confirm('Delete '+d.key+'?')&&act(()=>api('/api/config/delete',{name:cfgFile,line:+d.line,key:d.key}),'Deleted'),
+  cfgraw:()=>act(()=>api('/api/config/raw',{name:cfgFile,text:val('raw')}),'File written'),
+  cfgrestore:d=>confirm('Restore '+d.b+'?')&&act(()=>api('/api/config/restore',{name:cfgFile,backup:d.b}),'Restored'),
+  dbgo:()=>{dbQ=val('dbq');dbOff=0;render()},dbprev:()=>{dbOff=Math.max(0,dbOff-100);render()},dbnext:()=>{dbOff+=100;render()},
+  runsql:async()=>{window.lastSql=val('sql');try{const r=await api('/api/db/sql',{sql:window.lastSql});
+    $('#sqlout').innerHTML=`<p class="mut">${r.rows.length} rows</p><div class="scroll"><table><thead><tr>${r.columns.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${r.rows.map(x=>`<tr>${x.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`}catch(e){toast(e.message,true)}},
+  execsql:async()=>{window.lastSql=val('sql');if(!confirm('Run this SQL as a WRITE against the save? '+window.lastSql.slice(0,400)))return;
+    try{const r=await api('/api/db/exec',{sql:window.lastSql});toast(r.changes+' row(s) changed');await status();$('#sqlout').innerHTML=`<p class="ok">${r.changes} row(s) changed. Press "Save to game" to write them to game.db.</p>`}catch(e){toast(e.message,true)}},
+  restore:d=>confirm('Restore '+d.n+'? Close the game first.')&&act(()=>api('/api/save/restore',{name:d.n}),'Restored'),
+};
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-tab]');if(t){tab=t.dataset.tab;localStorage.tab=tab;render();return}
+  const s=e.target.closest('[data-sub]');if(s){const[g,k]=s.dataset.sub.split(':');sub[g]=k;render();return}
+  const a=D(e);if(a){e.preventDefault();A[a.dataset.act]?.(a.dataset)}
+  const x=e.target.closest('[data-export]');if(x){e.preventDefault();fetch(x.href,{headers:{'X-Tabr-Token':TOKEN}}).then(r=>r.blob()).then(b=>{const u=URL.createObjectURL(b),l=document.createElement('a');l.href=u;l.download=dbTable+'.'+x.dataset.export;l.click();URL.revokeObjectURL(u)})}
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.dataset.item)act(()=>api('/api/items/update',{id:+t.dataset.item,[t.dataset.field]:+t.value}),'Item updated',false);
+  else if(t.dataset.faction)act(()=>api('/api/player/factions',{faction_id:+t.dataset.faction,amount:+t.value}),'Reputation set',false);
+  else if(t.dataset.hp)act(()=>api('/api/bases/health',{kind:'placeable',id:+t.dataset.id,health:+t.value}),'Health set',false);
+  else if(t.classList.contains('cfgv'))act(()=>api('/api/config/set',{name:cfgFile,section:t.dataset.section,key:t.dataset.key,value:t.value,line:+t.dataset.line}),'Saved '+t.dataset.key,false);
+  else if(t.classList.contains('dbc'))act(()=>api('/api/db/update',{table:dbTable,rowid:+t.dataset.rowid,column:t.dataset.col,value:t.value===''&&t.dataset.orig===''?null:t.value}),'Cell updated',false);
+  else if(t.id=='cfgsel'){cfgFile=t.value;render()}
+  else if(t.id=='dbsel'){dbTable=t.value;dbOff=0;dbQ='';render()}
+});
+status().then(render);
+</script>
+</body>
+</html>

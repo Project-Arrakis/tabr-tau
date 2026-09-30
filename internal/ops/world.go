@@ -1,0 +1,194 @@
+package ops
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
+
+func shortClass(c any) string {
+	s := fmt.Sprint(c)
+	if i := strings.LastIndex(s, "."); i >= 0 {
+		s = s[i+1:]
+	}
+	return strings.TrimSuffix(s, "_C")
+}
+
+// ---------------------------------------------------------------- bases
+
+// Bases summarises claimed bases (totems), building pieces, placeables and permissions.
+func (o *Ops) Bases() (any, error) {
+	totems, err := o.S.Query(`select t.id totem_id, a.map, t.landclaim_original_global_location_x x, t.landclaim_original_global_location_y y,
+		t.landclaim_original_global_location_z z, t.landclaim_vertical_level level from totems t join actors a on a.id=t.id`)
+	if err != nil {
+		return nil, err
+	}
+	pieces, _ := o.S.One(`select count(*) n, coalesce(min(health),0) minh, coalesce(avg(health),0) avgh, coalesce(sum(sand_buildup),0) sand from building_instances`)
+	types, _ := o.S.Query(`select building_type, count(*) n, min(health) minh, max(health) maxh, round(avg(health)) avgh
+		from building_instances group by building_type order by n desc`)
+	placeables, _ := o.S.Query(`select p.id, a.class, p.building_type, p.health, a.location_x x, a.location_y y, a.location_z z
+		from placeables p join actors a on a.id=p.id order by p.building_type`)
+	perms, _ := o.S.Query(`select actor_id, actor_name, actor_type, access_level, is_child from permission_actor order by actor_id`)
+	return map[string]any{"totems": totems, "pieces": pieces, "types": types, "placeables": placeables, "permissions": perms}, nil
+}
+
+// Storage lists every non-player inventory (containers, machines, vehicles) that holds items.
+func (o *Ops) Storage() (any, error) {
+	rows, err := o.S.Query(`select v.id inventory_id, v.actor_id, a.class, a.map, v.inventory_type, v.max_item_count,
+		count(i.id) items, coalesce(sum(i.stack_size),0) total
+		from inventories v join actors a on a.id=v.actor_id left join items i on i.inventory_id=v.id
+		where a.class not like '%PlayerCharacter%' group by v.id order by a.id, v.id`)
+	for _, r := range rows {
+		r["name"] = shortClass(r["class"])
+		delete(r, "class")
+	}
+	return rows, err
+}
+
+func (o *Ops) StorageItems(inv int64) (any, error) {
+	return o.S.Query(`select id, template_id, stack_size, quality_level, position_index from items where inventory_id=? order by position_index`, inv)
+}
+
+// RepairBuildings sets every building piece to the highest health seen for its type.
+func (o *Ops) RepairBuildings() (any, error) {
+	res, err := o.S.Exec(`update building_instances set health=(select max(b.health) from building_instances b
+		where b.building_type=building_instances.building_type) where health < (select max(b.health) from building_instances b
+		where b.building_type=building_instances.building_type)`)
+	if err != nil {
+		return nil, err
+	}
+	n, _ := res.RowsAffected()
+	res2, _ := o.S.Exec(`update placeables set health=(select max(b.health) from placeables b where b.building_type=placeables.building_type)
+		where health < (select max(b.health) from placeables b where b.building_type=placeables.building_type)`)
+	m, _ := res2.RowsAffected()
+	o.S.Log("repair buildings: %d pieces, %d placeables", n, m)
+	return map[string]any{"ok": true, "pieces": n, "placeables": m}, nil
+}
+
+func (o *Ops) ClearSand() (any, error) {
+	res, err := o.S.Exec(`update building_instances set sand_buildup=0 where sand_buildup<>0`)
+	if err != nil {
+		return nil, err
+	}
+	n, _ := res.RowsAffected()
+	o.S.Log("cleared sand buildup on %d pieces", n)
+	return map[string]any{"ok": true, "pieces": n}, nil
+}
+
+func (o *Ops) SetPieceHealth(a Args) (any, error) {
+	table := "building_instances"
+	idCol := "instance_id"
+	if a.Str("kind") == "placeable" {
+		table, idCol = "placeables", "id"
+	}
+	id, e1 := a.Int("id")
+	h, e2 := a.Float("health")
+	if err := errors.Join(e1, e2); err != nil {
+		return nil, err
+	}
+	if _, err := o.S.Exec(`update `+table+` set health=? where `+idCol+`=?`, h, id); err != nil {
+		return nil, err
+	}
+	o.S.Log("%s %d health = %g", table, id, h)
+	return ok(), nil
+}
+
+// ---------------------------------------------------------------- vehicles
+
+func (o *Ops) Vehicles() (any, error) {
+	live, err := o.S.Query(`select a.id, a.class, a.map, a.location_x x, a.location_y y, a.location_z z, a.owner_account_id owner
+		from vehicles v join actors a on a.id=v.id order by a.id`)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range live {
+		v["name"] = shortClass(v["class"])
+		mods, _ := o.S.Query(`select id, template_id from vehicle_modules where vehicle_id=?`, v["id"])
+		v["modules"] = mods
+		inv, _ := o.S.Query(`select id inventory_id, inventory_type from inventories where actor_id=?`, v["id"])
+		v["inventories"] = inv
+	}
+	rec, _ := o.S.Query(`select vehicle_id, vehicle_name, time_stored, chassis_durability, customization_id, reason from recovered_vehicles order by time_stored`)
+	bak, _ := o.S.Query(`select vehicle_id, customization_id from backup_vehicles`)
+	return map[string]any{"vehicles": live, "recovered": rec, "backups": bak}, nil
+}
+
+// BringVehicle moves a vehicle next to the player.
+func (o *Ops) BringVehicle(a Args) (any, error) {
+	p, err := o.player()
+	if err != nil {
+		return nil, err
+	}
+	id, err := a.Int("id")
+	if err != nil {
+		return nil, err
+	}
+	me, _ := o.S.One(`select map, location_x x, location_y y, location_z z from actors where id=?`, p.Pawn)
+	if me == nil {
+		return nil, errors.New("player position unknown")
+	}
+	res, err := o.S.Exec(`update actors set map=?, location_x=?+800, location_y=?, location_z=?+150 where id=? and id in (select id from vehicles)`,
+		me["map"], me["x"], me["y"], me["z"], id)
+	if err != nil {
+		return nil, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return nil, errors.New("vehicle not found")
+	}
+	o.S.Log("moved vehicle %d next to player", id)
+	return ok(), nil
+}
+
+func (o *Ops) SetRecoveredDurability(a Args) (any, error) {
+	id, e1 := a.Int("vehicle_id")
+	d, e2 := a.Float("chassis_durability")
+	if err := errors.Join(e1, e2); err != nil {
+		return nil, err
+	}
+	res, err := o.S.Exec(`update recovered_vehicles set chassis_durability=? where vehicle_id=?`, d, id)
+	if err != nil {
+		return nil, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return nil, errors.New("recovered vehicle not found")
+	}
+	o.S.Log("recovered vehicle %d chassis durability = %g", id, d)
+	return ok(), nil
+}
+
+// ---------------------------------------------------------------- exchange
+
+// Exchange covers what the single-player save stores about vendors: per-vendor
+// purchase counters and restock cycles, plus the player's Solari.
+func (o *Ops) Exchange() (any, error) {
+	p, err := o.player()
+	if err != nil {
+		return nil, err
+	}
+	stock, _ := o.S.Query(`select vendor_id, template_id, amount_bought from vendor_stock_state where player_id=? order by vendor_id, template_id`, p.Controller)
+	cycle, _ := o.S.Query(`select vendor_id, last_interacted_timestamp from vendor_stock_cycle where player_id=? order by vendor_id`, p.Controller)
+	return map[string]any{"solari": o.solari(p), "stock": stock, "cycles": cycle}, nil
+}
+
+// ResetVendors clears purchase limits (all vendors, or one when vendor_id is set).
+func (o *Ops) ResetVendors(a Args) (any, error) {
+	p, err := o.player()
+	if err != nil {
+		return nil, err
+	}
+	v := a.Str("vendor_id")
+	q1, q2, args := `delete from vendor_stock_state where player_id=?`, `delete from vendor_stock_cycle where player_id=?`, []any{p.Controller}
+	if v != "" {
+		q1 += ` and vendor_id=?`
+		q2 += ` and vendor_id=?`
+		args = append(args, v)
+	}
+	r1, err := o.S.Exec(q1, args...)
+	if err != nil {
+		return nil, err
+	}
+	o.S.Exec(q2, args...)
+	n, _ := r1.RowsAffected()
+	o.S.Log("reset vendor purchase limits (%d rows)", n)
+	return map[string]any{"ok": true, "rows": n}, nil
+}

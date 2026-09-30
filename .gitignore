@@ -1,0 +1,17 @@
+# build output
+/tabr-tau
+*.exe
+
+# never commit game data: saves, configs and backups contain account identifiers
+*.db
+*.sqlite
+*.sqlite3
+*.bak
+*.ini
+tabr-tau-backups/
+*.tmp
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
