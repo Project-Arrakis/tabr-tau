@@ -15,6 +15,13 @@ Two client sessions with no online play (`DuneSandbox-backup-2026.09.29-23.37.40
 - Zero `LogRmq` lines. Online sessions in the same log set produce RMQ traffic
   (`Getting GAME RMQ connection info`, `Sending RMQ login`, queue declare/delete).
 
+Independent corroboration: Manuel Vortex, "We Opened a Dune: Awakening Solo Save"
+(themetalvortex.com, 2026-09-21) reports the same wrapper (`uint32 1`, `uint32 size`, zlib), 94 application
+tables, 60 simulated Landsraad guilds (30 Atreides / 30 Harkonnen), and that health/skills/research/machine
+state are JSONB in actor/component entities readable with `json()`. It is read-only analysis and gives
+no write procedure. Our sample matches: 96 tables incl. `sqlite_sequence`/`sqlite_stat1` = 94 application
+tables; 60 rows in `landsraad_simulated_guilds`.
+
 Conclusion: single-player has no RMQ, no gateway, no battlegroup director. Items are given
 by writing to the save database. There is no message bus to reproduce.
 
@@ -101,7 +108,8 @@ is unavailable:
 | `TeleportTo`, `SpawnVehicleAt` | direct `actors.location_*` edit (tabr-tau `Teleport`, `BringVehicle`) |
 | `CleanPlayerInventory` | delete `items` rows for the player's inventories |
 | `KickPlayer`, `ServiceBroadcast` | not applicable (no other players / no service) |
-| `AwardXP`, `SkillsSetUnspentSkillPoints`, `SkillsSetModuleLevel`, `UpdateAllWaterFillables`, `ResetProgression` | **unresolved.** No column in the SQLite save holds character XP, unspent skill points, module level or water. `player_state` has none. This state is most likely inside `fgl_entities.components` (opaque blobs, 63 rows, 345-803 bytes) or `ClientPersistence/*.data`. Treat as read-only/unavailable until a blob decoder exists. `specialization_tracks(player_id, track_type, xp_amount, level)` IS a real table but is empty in the sample save |
+| `AwardXP`, `SkillsSetUnspentSkillPoints`, `SkillsSetModuleLevel`, `ResetProgression` | **Editable in the save (corrected 2026-09-30).** Character progression lives in `fgl_entities.components`, which is SQLite JSONB, not an opaque blob (`json(components)` decodes it; needs SQLite >= 3.45, tabr-tau uses `modernc.org/sqlite` v1.60.1). The character is the entity linked from `actor_fgl_entities` with `slot_name = 'DuneCharacter'`. Path `FLevelComponent[1]`: `TotalXPEarned`, `TotalSkillPoints`, `UnspentSkillPoints`, `KeystoneBonusSkillPoints`, and `ModuleData["(TagName=\"Skills.<Kind>.<Name>\")"].SkillPointsSpent` per skill (tags such as `Skills.Perk.*`, `Skills.Ability.*`, `Skills.Key.*`, `Skills.Attribute.*`, `Skills.Spice.*`). Health: `FHealthComponent[1].m_CurrentHealth`. Write test on a scratch copy: `jsonb_set(components,'$.FLevelComponent[1].UnspentSkillPoints',99)` applied, `integrity_check` ok, blob stays valid JSONB. NOT tested: whether the game accepts the edited save |
+| `UpdateAllWaterFillables` | Water for machines is in their entity components (`ItemCraftingStation` entity has water fields). Personal water/vitals location not yet found |
 
 ## 6. Feature table: what works in single-player
 
@@ -177,6 +185,6 @@ sides.
 
 1. Live-test give-item into a decoded copy and load in game (single-player only, game closed).
 2. Decide the item catalog source (dune-docker `adminCatalog.js` / `console/web/public/images/items`).
-3. Locate XP / skill-point / water storage: diff `fgl_entities.components` blobs before and after a known change in game.
+3. Implement XP / skill-point / skill-module / health edits via `jsonb_set` on the `DuneCharacter` entity, then load an edited copy in game to confirm the game accepts it. Locate personal water and vitals (only machine water found so far). README's claim that vehicle fuel and similar data are opaque read-only blobs should be re-checked: it may be the same JSONB.
 4. Add `CHANGELOG.md`, CI (`go vet`, `go test`, shared security scan), and `docs/` conventions to
    satisfy the org requirements.
