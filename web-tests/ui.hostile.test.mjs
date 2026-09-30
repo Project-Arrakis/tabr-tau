@@ -1,0 +1,154 @@
+// Renders every tab and sub-view of the real UI code in a browser engine (jsdom), fed the REAL API responses produced
+// over a save whose every TEXT column holds attack strings (internal/web/fixtures_test.go). Fails if any of it becomes
+// markup, an attribute, an event handler, or a new element. Run: UI_FIXTURES_DIR=... go test ./internal/web -run
+// TestDumpUIFixtures, then `npm test` here.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { JSDOM } from 'jsdom';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const static_ = path.join(here, '..', 'internal', 'web', 'static');
+const FIX = process.env.UI_FIXTURES_FILE || path.join(process.env.UI_FIXTURES_DIR || path.join(here, 'fixtures'), 'ui-fixtures.json');
+const MARK = 'onerror=window.__pwned=1'; // the full attack string (used for values the server passes through untouched)
+const SEEN = '__pwned=1'; // survives server-side display-name truncation (class names are cut after the last '.')
+
+if (!fs.existsSync(FIX)) {
+  throw new Error(`UI fixtures not found at ${FIX}. Generate them first:\n  UI_FIXTURES_DIR=${path.dirname(FIX)} go test ./internal/web -run TestDumpUIFixtures`);
+}
+const baseFixtures = JSON.parse(fs.readFileSync(FIX, 'utf8'));
+const ATTACK = `"><img src=x ${'onerror=window.__pwned=1'}>`;
+// Type confusion: the real schema is STRICT, so a numeric column cannot hold text today. A game patch, a non-strict
+// table or a hand-edited database could change that, so the UI must be safe even when every number is an attack string.
+const confuse = (v) => (typeof v === 'number' ? ATTACK : Array.isArray(v) ? v.map(confuse) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, confuse(x)])) : v);
+const confusedFixtures = Object.fromEntries(Object.entries(baseFixtures).map(([k, f]) => [k, { status: f.status, body: confuse(f.body) }]));
+let fixtures = baseFixtures;
+const read = (n) => fs.readFileSync(path.join(static_, n), 'utf8');
+
+// Allowlists: anything else appearing in the rendered DOM is an injection.
+const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h3 ul li code table thead tbody tr th td input select option datalist button details summary textarea br'.split(' '));
+const SCRIPTS = new Set(['/html.js', '/app.js']); // the only scripts the page may contain, both same-origin files
+const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download'.split(' '));
+
+export function assertClean(doc, label) {
+  const bad = [];
+  for (const el of doc.querySelectorAll('*')) {
+    const tag = el.tagName.toLowerCase();
+    if (!TAGS.has(tag)) bad.push(`unexpected <${tag}>`);
+    if (tag === 'script' && !SCRIPTS.has(el.getAttribute('src'))) bad.push(`<script> that is not one of the two bundled files: ${el.getAttribute('src') ?? 'inline'}`);
+    for (const a of el.attributes) {
+      const n = a.name.toLowerCase();
+      if (n.startsWith('on')) bad.push(`event handler attribute ${n}`);
+      if (!(ATTRS.has(n) || n.startsWith('data-'))) bad.push(`unexpected attribute ${n} on <${tag}>`);
+      if (/[<>"'=\s]/.test(n)) bad.push(`malformed attribute name ${JSON.stringify(n)}`);
+    }
+  }
+  if (doc.defaultView.__pwned !== undefined) bad.push('window.__pwned was set');
+  if (bad.length) assert.fail(`${label}: ${[...new Set(bad)].slice(0, 8).join('; ')}`);
+}
+
+function haystack(doc) {
+  let h = doc.body.textContent;
+  for (const el of doc.querySelectorAll('*')) for (const a of el.attributes) h += ' ' + a.value;
+  for (const el of doc.querySelectorAll('input,textarea,option')) h += ' ' + (el.value ?? '');
+  return h;
+}
+
+async function boot({ post = {}, confused = false } = {}) {
+  const dom = new JSDOM(read('index.html'), { url: 'http://127.0.0.1:8090/', runScripts: 'dangerously', pretendToBeVisual: true });
+  const w = dom.window;
+  let inflight = 0;
+  w.fetch = async (p, opt = {}) => {
+    inflight++;
+    try {
+      await Promise.resolve();
+      const u = new URL(p, 'http://127.0.0.1:8090');
+      if ((opt.method || 'GET') === 'POST') {
+        const b = post[u.pathname] ?? { ok: true };
+        return { ok: true, status: 200, statusText: 'OK', json: async () => b };
+      }
+      const f = (confused ? confusedFixtures : baseFixtures)[u.pathname];
+      const status = f ? f.status : 404;
+      return { ok: status < 400, status, statusText: f ? 'OK' : 'Not Found', json: async () => (f ? f.body : { error: 'not in fixtures: ' + u.pathname }), blob: async () => new w.Blob(['x']) };
+    } finally { inflight--; }
+  };
+  w.confirm = () => true; w.prompt = () => '1';
+  w.eval(read('html.js'));
+  w.eval(read('app.js'));
+  const settle = async () => { for (let i = 0; i < 40; i++) { await new Promise((r) => w.setTimeout(r, 0)); if (inflight === 0 && i > 4) return; } };
+  await settle();
+  return { dom, w, doc: w.document, settle, click: (sel) => { const el = w.document.querySelector(sel); assert.ok(el, `no element for ${sel}`); el.dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true })); } };
+}
+
+const VIEWS = [
+  ['player', 'player:overview'], ['player', 'player:inventory'], ['player', 'player:progress'], ['player', 'player:journey'], ['player', 'player:recipes'],
+  ['bases', 'bases:overview'], ['bases', 'bases:storage'], ['bases', 'bases:parts'],
+  ['vehicles'], ['exchange'], ['landsraad'], ['config'],
+  ['db', 'db:browse'], ['db', 'db:sql'], ['db', 'db:backups'],
+];
+
+for (const confused of [false, true]) for (const [tabName, sub] of VIEWS) {
+  test(`${confused ? 'type-confused numbers' : 'hostile data'} stay data: ${tabName}${sub ? ' / ' + sub.split(':')[1] : ''}`, async () => {
+    const ui = await boot({ confused });
+    ui.click(`[data-tab="${tabName}"]`);
+    await ui.settle();
+    if (sub) { ui.click(`[data-sub="${sub}"]`); await ui.settle(); }
+    assertClean(ui.doc, `${tabName} ${sub || ''}`);
+    const main = ui.doc.querySelector('#main').textContent;
+    if (!confused) assert.ok(!main.includes('TypeError') && !main.includes('is not a function') && !main.includes('Cannot read'), `UI threw while rendering: ${main.slice(0, 200)}`);
+    if (!confused && !['db:sql', 'db:backups'].includes(sub) && tabName !== 'vehicles') {
+      assert.ok(haystack(ui.doc).includes(SEEN), `${tabName} ${sub || ''}: the hostile text should be visible as plain data, but it is not in the rendered page at all (fixture or view not exercised)`);
+    }
+    ui.dom.window.close();
+  });
+}
+
+test('interactions that render results also stay clean (storage inventory, journey filter, SQL result)', async () => {
+  const hostile = `"><img src=x ${MARK}>`;
+  const ui = await boot({ post: { '/api/db/sql': { columns: [hostile], rows: [[hostile], [hostile + "'"]] }, '/api/db/exec': { changes: 3 } } });
+  ui.click('[data-tab="bases"]'); await ui.settle();
+  ui.click('[data-sub="bases:storage"]'); await ui.settle();
+  ui.click('[data-act="openInv"]'); await ui.settle();
+  assertClean(ui.doc, 'open inventory');
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:journey"]'); await ui.settle();
+  ui.click('[data-act="jfilter"]'); await ui.settle();
+  assertClean(ui.doc, 'journey filter');
+  ui.click('[data-tab="db"]'); await ui.settle();
+  ui.click('[data-sub="db:sql"]'); await ui.settle();
+  ui.click('[data-act="runsql"]'); await ui.settle();
+  assertClean(ui.doc, 'sql result');
+  assert.ok(ui.doc.querySelector('#sqlout').textContent.includes(MARK));
+  ui.dom.window.close();
+});
+
+test('prototype-key and forged dataset values cannot reach handlers or navigation', async () => {
+  const ui = await boot();
+  const before = ui.doc.querySelector('#main').innerHTML;
+  const b = ui.doc.createElement('button');
+  b.dataset.act = '__proto__'; ui.doc.body.append(b); b.click(); await ui.settle();
+  const c = ui.doc.createElement('button');
+  c.dataset.act = 'constructor'; ui.doc.body.append(c); c.click(); await ui.settle();
+  const d = ui.doc.createElement('button');
+  d.dataset.tab = '__proto__'; ui.doc.body.append(d); d.click(); await ui.settle();
+  const e = ui.doc.createElement('button');
+  e.dataset.sub = '__proto__:x'; ui.doc.body.append(e); e.click(); await ui.settle();
+  assert.equal(ui.doc.querySelector('#main').innerHTML, before, 'forged data-* values must not change the UI');
+  ui.dom.window.close();
+});
+
+// NEGATIVE CONTROL: the detector must fail on a renderer that concatenates hostile data into innerHTML.
+test('the detector catches a vulnerable renderer (proves this suite can fail)', () => {
+  const dom = new JSDOM('<main id="m"></main>', { runScripts: 'dangerously', url: 'http://127.0.0.1/' });
+  const hostile = `"><img src=x ${MARK}>`;
+  dom.window.document.querySelector('#m').innerHTML = `<input value="${hostile}"><button data-act="${hostile}">x</button>`;
+  assert.throws(() => assertClean(dom.window.document, 'vulnerable'), /unexpected <img>|unexpected attribute|malformed attribute/);
+});
+
+test('the detector also catches handler-attribute injection', () => {
+  const dom = new JSDOM('<main id="m"></main>', { url: 'http://127.0.0.1/' });
+  dom.window.document.querySelector('#m').innerHTML = `<div class="x" onclick="alert(1)">x</div>`;
+  assert.throws(() => assertClean(dom.window.document, 'handler'), /event handler attribute onclick/);
+});

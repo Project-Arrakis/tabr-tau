@@ -74,7 +74,7 @@ func TestHostHeader(t *testing.T) {
 		{"evil.com", false}, {"127.0.0.1.evil.com", false}, {"localhost.evil.com", false}, {"evil.com:8090", false},
 		{"", false}, {"0.0.0.0:8090", false}, {"192.168.1.5:8090", false},
 	} {
-		w := do(t, s, "GET", "http://x/", loop, map[string]string{"Host": c.host}, nil)
+		w := do(t, s, "GET", "http://x/", loop, map[string]string{"Host": c.host, "Cookie": "tabr_session=" + s.token}, nil)
 		if (w.Code == 200) != c.ok {
 			t.Errorf("Host %q: got %d, want ok=%v", c.host, w.Code, c.ok)
 		}
@@ -94,7 +94,7 @@ func TestRemotePeerRefusedAndNeverSeesToken(t *testing.T) {
 		}
 	}
 	for _, remote := range []string{"127.0.0.1:1234", "[::1]:1234"} {
-		if w := do(t, s, "GET", "http://localhost/", remote, map[string]string{"Host": "localhost:8090"}, nil); w.Code != 200 {
+		if w := do(t, s, "GET", "http://localhost/", remote, map[string]string{"Host": "localhost:8090", "Cookie": "tabr_session=" + s.token}, nil); w.Code != 200 {
 			t.Errorf("loopback %s: got %d, want 200", remote, w.Code)
 		}
 	}
@@ -106,7 +106,7 @@ func TestAllowRemoteStillNeedsToken(t *testing.T) {
 	if w := do(t, s, "GET", "http://localhost/api/save/backups", "192.168.1.5:5555", map[string]string{"Host": "localhost:8090"}, nil); w.Code != 403 {
 		t.Errorf("no token: got %d", w.Code)
 	}
-	if w := do(t, s, "GET", "http://localhost/api/save/backups", "192.168.1.5:5555", map[string]string{"Host": "localhost:8090", "X-Tabr-Token": s.token}, nil); w.Code != 200 {
+	if w := do(t, s, "GET", "http://localhost/api/save/backups", "192.168.1.5:5555", map[string]string{"Host": "localhost:8090", "Cookie": "tabr_session=" + s.token}, nil); w.Code != 200 {
 		t.Errorf("with token and AllowRemote: got %d", w.Code)
 	}
 }
@@ -116,20 +116,20 @@ func TestTokenRequired(t *testing.T) {
 	for _, tok := range []string{"", "wrong", s.token[:len(s.token)-1], s.token + "x", strings.ToUpper(s.token)} {
 		h := map[string]string{"Host": "127.0.0.1:8090"}
 		if tok != "" {
-			h["X-Tabr-Token"] = tok
+			h["Cookie"] = "tabr_session=" + tok
 		}
 		if w := do(t, s, "GET", "http://127.0.0.1/api/save/backups", loop, h, nil); w.Code != 403 {
-			t.Errorf("token %q: got %d, want 403", tok, w.Code)
+			t.Errorf("session %q: got %d, want 403", tok, w.Code)
 		}
 	}
-	if w := do(t, s, "GET", "http://127.0.0.1/api/save/backups", loop, map[string]string{"Host": "127.0.0.1:8090", "X-Tabr-Token": s.token}, nil); w.Code != 200 {
-		t.Errorf("valid token: got %d", w.Code)
+	if w := do(t, s, "GET", "http://127.0.0.1/api/save/backups", loop, map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}, nil); w.Code != 200 {
+		t.Errorf("valid session: got %d", w.Code)
 	}
 }
 
 func TestPostRequiresJSONContentType(t *testing.T) {
 	s := newTestServer(t)
-	base := map[string]string{"Host": "127.0.0.1:8090", "X-Tabr-Token": s.token}
+	base := map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}
 	cases := []struct {
 		ct   string
 		want int
@@ -155,7 +155,7 @@ func TestPostRequiresJSONContentType(t *testing.T) {
 func TestOriginAndFetchSite(t *testing.T) {
 	s := newTestServer(t)
 	post := func(extra map[string]string) int {
-		h := map[string]string{"Host": "127.0.0.1:8090", "X-Tabr-Token": s.token, "Content-Type": "application/json"}
+		h := map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token, "Content-Type": "application/json"}
 		for k, v := range extra {
 			h[k] = v
 		}
@@ -182,7 +182,7 @@ func TestOriginAndFetchSite(t *testing.T) {
 
 func TestSecurityHeadersOnEveryResponseClass(t *testing.T) {
 	s := newTestServer(t)
-	tok := map[string]string{"Host": "127.0.0.1:8090", "X-Tabr-Token": s.token}
+	tok := map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}
 	responses := map[string]*httptest.ResponseRecorder{
 		"index":     do(t, s, "GET", "http://127.0.0.1/", loop, map[string]string{"Host": "127.0.0.1:8090"}, nil),
 		"api ok":    do(t, s, "GET", "http://127.0.0.1/api/save/backups", loop, tok, nil),
@@ -226,7 +226,7 @@ func TestNoCORSAndPreflightRefused(t *testing.T) {
 
 func TestMethodNotAllowed(t *testing.T) {
 	s := newTestServer(t)
-	h := map[string]string{"Host": "127.0.0.1:8090", "X-Tabr-Token": s.token}
+	h := map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}
 	if w := do(t, s, "GET", "http://127.0.0.1/api/db/exec", loop, h, nil); w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("GET on a mutating route: got %d, want 405", w.Code)
 	}
@@ -234,7 +234,7 @@ func TestMethodNotAllowed(t *testing.T) {
 
 func TestOversizeBodyRejected(t *testing.T) {
 	s := newTestServer(t)
-	h := map[string]string{"Host": "127.0.0.1:8090", "X-Tabr-Token": s.token, "Content-Type": "application/json"}
+	h := map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token, "Content-Type": "application/json"}
 	big := []byte(`{"sql":"` + strings.Repeat("a", 5<<20) + `"}`)
 	if w := do(t, s, "POST", "http://127.0.0.1/api/db/sql", loop, h, big); w.Code == 200 {
 		t.Errorf("5 MiB body accepted")
@@ -253,7 +253,7 @@ func TestSafeFilename(t *testing.T) {
 
 func TestExportDispositionIsSafe(t *testing.T) {
 	s := newTestServer(t)
-	h := map[string]string{"Host": "127.0.0.1:8090", "X-Tabr-Token": s.token}
+	h := map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}
 	w := do(t, s, "GET", "http://127.0.0.1/api/db/export?name=things&format=csv", loop, h, nil)
 	if w.Code != 200 {
 		t.Fatalf("export got %d: %s", w.Code, w.Body.String())

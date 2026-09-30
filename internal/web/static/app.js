@@ -1,0 +1,323 @@
+// Tabr Tau UI. All HTML is built with html`...` (escaped by construction, see html.js) and written with setHTML.
+// Nothing here knows about the session: it is an HttpOnly cookie the browser sends on its own.
+const { html, setHTML } = window.TabrHTML;
+const $ = (s, r = document) => r.querySelector(s);
+
+async function api(path, body) {
+  const opt = { credentials: 'same-origin' };
+  if (body !== undefined) {
+    opt.method = 'POST';
+    opt.headers = { 'Content-Type': 'application/json' };
+    opt.body = JSON.stringify(body);
+  }
+  const r = await fetch(path, opt);
+  const j = await r.json().catch(() => ({ error: r.statusText }));
+  if (r.status === 403 && !j.error) throw new Error('This browser is no longer signed in. Close tabr-tau and start it again, then open the new link from the terminal.');
+  if (!r.ok || j.error) throw new Error(j.error || r.statusText);
+  return j;
+}
+function toast(msg, err) {
+  const d = document.createElement('div');
+  if (err) d.className = 'err';
+  d.textContent = msg;
+  $('#toast').append(d);
+  setTimeout(() => d.remove(), err ? 7000 : 3500);
+}
+async function act(fn, okMsg, refresh = true) {
+  try { const r = await fn(); if (okMsg) toast(okMsg); await status(); if (refresh) await render(); return r; }
+  catch (e) { toast(e.message, true); }
+}
+const val = (id) => $('#' + id).value;
+
+// ---------- tabs
+const TABS = { player: 'Player', bases: 'Bases', vehicles: 'Vehicles', exchange: 'Exchange', landsraad: 'Landsraad', config: 'Config', db: 'Database' };
+let tab = Object.hasOwn(TABS, localStorage.tab) ? localStorage.tab : 'player';
+const sub = { player: 'overview', db: 'browse' };
+const GROUPS = ['player', 'bases', 'db'];
+function drawNav() {
+  setHTML($('#nav'), html`${Object.entries(TABS).map(([k, v]) => html`<button data-tab="${k}" class="${k == tab ? 'on' : ''}">${v}</button>`)}`);
+}
+function subNav(group, items) {
+  return html`<div class="sub">${items.map(([k, v]) => html`<button data-sub="${group}:${k}" class="${sub[group] == k ? 'on' : ''}">${v}</button>`)}</div>`;
+}
+
+// ---------- generic renderers
+function tbl(cols, rows, { actions } = {}) {
+  if (!rows || !rows.length) return html`<p class="mut">Nothing here.</p>`;
+  return html`<div class="scroll"><table><thead><tr>${cols.map((c) => html`<th>${c.label || c.k}</th>`)}${actions ? html`<th></th>` : ''}</tr></thead><tbody>${
+    rows.map((r) => html`<tr>${cols.map((c) => html`<td class="${c.cls || ''}">${c.f ? c.f(r) : r[c.k]}</td>`)}${actions ? html`<td>${actions(r)}</td>` : ''}</tr>`)}</tbody></table></div>`;
+}
+const kv = (k, v) => html`<div class="kv"><b>${k}</b><span>${v}</span></div>`;
+const fix = (n) => (n == null ? '' : Math.round(n).toLocaleString());
+
+// ---------- status bar
+async function status() {
+  const o = await api('/api/overview');
+  $('#path').textContent = o.path + (o.gameRunning ? '  —  GAME IS RUNNING' : '');
+  const n = o.pending.length;
+  $('#pending').textContent = n ? `${n} unsaved change${n > 1 ? 's' : ''}` : '';
+  $('#btnSave').disabled = $('#btnDiscard').disabled = !o.dirty;
+  $('#btnSave').title = o.pending.join('\n');
+  return o;
+}
+$('#btnSave').onclick = () => act(async () => { const r = await api('/api/save/commit', {}); toast('Saved. Backup: ' + r.backup); }, null);
+$('#btnDiscard').onclick = () => { if (confirm('Discard all unsaved changes?')) act(() => api('/api/save/discard', {}), 'Discarded'); };
+
+// ---------- PLAYER
+let P = null;
+async function playerView() {
+  const s = sub.player;
+  const h = [subNav('player', [['overview', 'Overview'], ['inventory', 'Inventory'], ['progress', 'Progression'], ['journey', 'Journey'], ['recipes', 'Recipes']])];
+  if (s == 'overview') {
+    P = await api('/api/player');
+    const a = P.actor || {}, acc = P.account || {}, j = P.journey || {};
+    h.push(html`<div class="card"><h3>${P.name}</h3><div class="grid">${kv('Solari', P.solari.toLocaleString())}${kv('Map', a.map)}${kv('Position', `${fix(a.x)}, ${fix(a.y)}, ${fix(a.z)}`)}${kv('Account', acc.funcom_id)}${kv('Platform', (acc.platform_name || '') + ' ' + (acc.platform_id || ''))}${kv('Journey', `${j.done || 0} / ${j.total || 0} nodes done`)}${kv('Pawn / controller', P.pawnId + ' / ' + P.controllerId)}</div></div>
+    <div class="card"><h3>Solari</h3><div class="row"><input id="solari" type="number" value="10000"><button class="b" data-act="solari">Add / remove</button><span class="mut">Negative removes. Solari is an item stack in your backpack.</span></div></div>
+    <div class="card"><h3>Teleport</h3><div class="row">X<input id="tx" type="number" value="${Math.round(a.x)}">Y<input id="ty" type="number" value="${Math.round(a.y)}">Z<input id="tz" type="number" value="${Math.round(a.z)}"><button class="b" data-act="teleport">Teleport</button></div>
+    <p class="mut">Moves the character in the save (applied on next load). Stay above the terrain (Z) or you may fall through.</p></div>
+    <div class="card"><h3>Respawn points</h3>${tbl([{ k: 'group' }, { k: 'locator_name' }, { k: 'locator_actor_id' }, { k: 'map' }], P.respawns)}</div>`);
+  } else if (s == 'inventory') {
+    const d = await api('/api/player/inventory');
+    h.push(html`<div class="card"><h3>Give item</h3><div class="row"><input id="gt" list="tpl" placeholder="template id, e.g. Spice" size="34"><datalist id="tpl">${d.templates.map((t) => html`<option value="${t}">`)}</datalist>
+    Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="repair">Repair all gear</button></div>
+    <p class="mut">Template ids come from items already in your save; any valid game template id works.</p></div>
+    <div class="card"><h3>Items (${d.items.length})</h3>${tbl([{ k: 'inventory_name', label: 'Inventory' }, { k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item' },
+      { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" value="${r.stack_size}" min="1" data-item="${r.id}" data-field="stack_size" class="w90">` },
+      { k: 'quality_level', label: 'Grade', f: (r) => html`<select data-item="${r.id}" data-field="quality">${[0, 1, 2, 3, 4, 5].map((n) => html`<option ${n == r.quality_level ? 'selected' : ''}>${n}</option>`)}</select>` },
+      { k: 'durability', label: 'Durability', f: (r) => (r.durability == null ? '' : Number(r.durability).toFixed(1) + (r.max_durability ? ' / ' + Number(r.max_durability).toFixed(0) : '')) }], d.items,
+      { actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${r.template_id}">Delete</button>` })}</div>`);
+  } else if (s == 'progress') {
+    const [f, sp, tu, tg] = await Promise.all(['factions', 'specs', 'tutorials', 'tags'].map((x) => api('/api/player/' + x)));
+    h.push(html`<div class="card"><h3>Faction reputation</h3>${tbl([{ k: 'name', label: 'Faction' }, { k: 'reputation', label: 'Reputation', f: (r) => html`<input type="number" min="0" max="12474" value="${r.reputation}" data-faction="${r.faction_id}" class="w100">` }], f)}<p class="mut">Range 0–12474. Edit and press Tab/Enter.</p></div>
+    <div class="card"><h3>Specialization tracks</h3>${tbl([{ k: 'track_type', label: 'Track' }, { k: 'xp_amount', label: 'XP' }, { k: 'level' }], sp, { actions: (r) => html`<button class="b sec sm" data-act="spec" data-t="${r.track_type}" data-xp="${r.xp_amount}" data-lv="${r.level}">Edit</button>` })}<div class="row"><span class="mut">Add/overwrite:</span>Track<input id="st" type="number" value="0" class="w70">XP<input id="sx" type="number" value="0">Level<input id="sl" type="number" step="0.1" value="1" class="w80"><button class="b" data-act="specSet">Set</button></div></div>
+    <div class="card"><h3>Tutorials</h3>${tbl([{ k: 'id' }, { k: 'name' }, { k: 'state', label: 'State', f: (r) => (r.state == 2 ? html`<span class="ok">done</span>` : html`<span class="mut">not done</span>`) }], tu, { actions: (r) => (r.state == 2 ? html`<button class="b sec sm" data-act="tut" data-id="${r.id}" data-c="0">Reset</button>` : html`<button class="b sm" data-act="tut" data-id="${r.id}" data-c="1">Complete</button>`) })}</div>
+    <div class="card"><h3>Player tags</h3>${tg.length ? tg.map((t) => html`<span class="tag">${t.tag} <a href="#" data-act="tagDel" data-tag="${t.tag}">×</a></span>`) : html`<span class="mut">none</span>`}<div class="row"><input id="tag" placeholder="Tag.Name" size="40"><button class="b" data-act="tagAdd">Add tag</button></div></div>`);
+  } else if (s == 'journey') {
+    h.push(html`<div class="card"><h3>Journey nodes</h3><div class="row"><input id="jq" placeholder="filter (e.g. DA_MQ)" size="30" value="${window.jq || ''}"><button class="b sec" data-act="jfilter">Filter</button><span class="mut">Completing a node also completes its children.</span></div><div id="jout"></div></div>`);
+  } else if (s == 'recipes') {
+    const r = await api('/api/player/recipes');
+    h.push(html`<div class="card"><h3>Learned building sets (${r.learnedSets.length})</h3>${r.learnedSets.map((x) => html`<span class="tag">${x.name}</span>`)}</div><div class="card"><h3>New buildable pieces (${r.newPieces.length})</h3>${r.newPieces.map((x) => html`<span class="tag">${x.name}</span>`)}</div>`);
+  }
+  setHTML($('#main'), html`${h}`);
+  if (s == 'journey') journeyList();
+}
+async function journeyList() {
+  const rows = await api('/api/player/journey?q=' + encodeURIComponent(window.jq || ''));
+  setHTML($('#jout'), html`<p class="mut">${rows.length} nodes${rows.length > 500 ? ' (showing first 500)' : ''}</p>${tbl([{ k: 'id', label: 'Node' }, { k: 'complete', label: 'State', f: (r) => (r.complete ? html`<span class="ok">complete</span>` : html`<span class="mut">open</span>`) }], rows.slice(0, 500),
+    { actions: (r) => (r.complete ? html`<button class="b sec sm" data-act="jset" data-id="${r.id}" data-c="0">Reset</button>` : html`<button class="b sm" data-act="jset" data-id="${r.id}" data-c="1">Complete</button>`) })}`);
+}
+
+// ---------- BASES
+async function basesView() {
+  const s = sub.bases || 'overview';
+  const h = [subNav('bases', [['overview', 'Overview'], ['storage', 'Storage'], ['parts', 'Pieces & placeables']])];
+  if (s == 'overview') {
+    const b = await api('/api/bases');
+    const p = b.pieces || {};
+    h.push(html`<div class="card"><h3>Bases (land claims)</h3>${tbl([{ k: 'totem_id', label: 'Totem' }, { k: 'map' }, { k: 'x', f: (r) => fix(r.x) }, { k: 'y', f: (r) => fix(r.y) }, { k: 'z', f: (r) => fix(r.z) }, { k: 'level' }], b.totems, { actions: (r) => html`<button class="b sec sm" data-act="tpTo" data-x="${r.x}" data-y="${r.y}" data-z="${r.z + 300}">Teleport here</button>` })}</div>
+    <div class="card"><h3>Structure health</h3><div class="grid">${kv('Building pieces', p.n)}${kv('Lowest health', fix(p.minh))}${kv('Average health', fix(p.avgh))}${kv('Total sand buildup', fix(p.sand))}</div>
+    <div class="row"><button class="b" data-act="repairB">Repair all to max</button><button class="b sec" data-act="sand">Clear sand buildup</button><span class="mut">Repair sets each piece to the highest health seen for its type.</span></div></div>
+    <div class="card"><h3>Permissions</h3>${tbl([{ k: 'actor_id' }, { k: 'actor_name' }, { k: 'actor_type' }, { k: 'access_level' }, { k: 'is_child' }], b.permissions)}</div>`);
+  } else if (s == 'storage') {
+    const st = await api('/api/bases/storage');
+    h.push(html`<div class="card"><h3>Containers, machines &amp; vehicles</h3>${tbl([{ k: 'name', label: 'Object' }, { k: 'actor_id', label: 'Actor' }, { k: 'inventory_id', label: 'Inv' }, { k: 'inventory_type', label: 'Type' }, { k: 'items' }, { k: 'total', label: 'Total units' }, { k: 'max_item_count', label: 'Slots' }], st,
+      { actions: (r) => html`<button class="b sec sm" data-act="openInv" data-id="${r.inventory_id}">Open</button>` })}</div><div id="inv"></div>`);
+  } else {
+    const b = await api('/api/bases');
+    h.push(html`<div class="card"><h3>Placeables (${b.placeables.length})</h3>${tbl([{ k: 'id' }, { k: 'building_type', label: 'Type' }, { k: 'health', f: (r) => html`<input type="number" value="${r.health}" data-hp="placeable" data-id="${r.id}" class="w90">` }], b.placeables)}</div>
+    <div class="card"><h3>Building piece types</h3>${tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], b.types)}</div>`);
+  }
+  setHTML($('#main'), html`${h}`);
+}
+
+// ---------- VEHICLES
+async function vehiclesView() {
+  const v = await api('/api/vehicles');
+  const h = [html`<div class="card"><h3>Vehicles in the world (${v.vehicles.length})</h3>${tbl([{ k: 'name', label: 'Vehicle' }, { k: 'id' }, { k: 'map' }, { k: 'x', f: (r) => fix(r.x) }, { k: 'y', f: (r) => fix(r.y) }, { k: 'z', f: (r) => fix(r.z) },
+    { k: 'modules', label: 'Modules', f: (r) => (r.modules || []).map((m) => html`<span class="tag">${m.template_id}</span>`) }], v.vehicles,
+    { actions: (r) => html`<button class="b sm" data-act="bring" data-id="${r.id}">Bring to me</button>` })}</div>
+  <div class="card"><h3>Recovered / stored vehicles (${v.recovered.length})</h3>${tbl([{ k: 'vehicle_id', label: 'Id' }, { k: 'vehicle_name', label: 'Name' }, { k: 'chassis_durability', label: 'Chassis durability' }, { k: 'time_stored' }, { k: 'reason' }], v.recovered,
+    { actions: (r) => html`<button class="b sec sm" data-act="dur" data-id="${r.vehicle_id}" data-v="${r.chassis_durability}">Set durability</button>` })}</div>`];
+  if (!v.vehicles.length && !v.recovered.length) h.push(html`<p class="mut">No vehicles in this save yet. Vehicle fuel is stored in an opaque binary blob and is not editable.</p>`);
+  setHTML($('#main'), html`${h}`);
+}
+
+// ---------- EXCHANGE
+async function exchangeView() {
+  const e = await api('/api/exchange');
+  setHTML($('#main'), html`<div class="card"><h3>Solari</h3><div class="grid">${kv('Balance', e.solari.toLocaleString())}</div><div class="row"><input id="solari" type="number" value="10000"><button class="b" data-act="solari">Add / remove</button></div></div>
+  <div class="card"><h3>Vendor purchase limits</h3><p class="mut">Vendors limit how much you can buy per restock cycle. Resetting clears those counters.</p><div class="row"><button class="b" data-act="vreset" data-v="">Reset all vendors</button></div>
+  ${tbl([{ k: 'vendor_id', label: 'Vendor' }, { k: 'template_id', label: 'Item' }, { k: 'amount_bought', label: 'Bought' }], e.stock, { actions: (r) => html`<button class="b sec sm" data-act="vreset" data-v="${r.vendor_id}">Reset vendor</button>` })}
+  <h3 class="mt14">Restock cycles</h3>${tbl([{ k: 'vendor_id' }, { k: 'last_interacted_timestamp', label: 'Last interaction', f: (r) => new Date(r.last_interacted_timestamp * 1000).toLocaleString() }], e.cycles)}</div>`);
+}
+
+// ---------- LANDSRAAD
+async function landsraadView() {
+  const l = await api('/api/landsraad');
+  const t = l.term || {};
+  const fname = (id) => (l.factions.find((f) => f.id == id) || {}).name || id || '—';
+  const facOpts = (sel) => l.factions.map((f) => html`<option value="${f.id}" ${f.id == sel ? 'selected' : ''}>${f.name}</option>`);
+  const dec = l.decrees;
+  setHTML($('#main'), html`<div class="card"><h3>Current term ${t.term_id}</h3><div class="grid">${kv('Start', t.start_time)}${kv('End', t.end_time)}${kv('Reigning faction', fname(t.reigning_faction_id))}${kv('Active decree', (dec.find((d) => d.id == t.active_decree_id) || {}).decree_name || '—')}${kv('Elected decree', (dec.find((d) => d.id == t.elected_decree_id) || {}).decree_name || '—')}</div>
+  <div class="row">Active decree<select id="ad"><option value="">none</option>${dec.map((d) => html`<option value="${d.id}" ${d.id == t.active_decree_id ? 'selected' : ''}>${d.decree_name}</option>`)}</select>
+  Reigning<select id="rf"><option value="">none</option>${facOpts(t.reigning_faction_id)}</select><button class="b" data-act="term">Apply</button></div></div>
+  <div class="card"><h3>Decree pool</h3>${tbl([{ k: 'id' }, { k: 'decree_name', label: 'Decree' }, { k: 'disabled', label: 'State', f: (r) => (r.disabled ? html`<span class="mut">disabled</span>` : html`<span class="ok">enabled</span>`) }], dec, { actions: (r) => html`<button class="b sec sm" data-act="decree" data-id="${r.id}" data-d="${r.disabled ? 0 : 1}">${r.disabled ? 'Enable' : 'Disable'}</button>` })}</div>
+  <div class="card"><h3>Task board (${l.tasks.length})</h3><div class="row">Faction<select id="lf">${facOpts()}</select><span class="mut">used by the buttons below</span></div>${tbl([{ k: 'board_index', label: '#' }, { k: 'house_name', label: 'House', f: (r) => String(r.house_name || '').replace('DA_House', '') }, { k: 'goal_amount', label: 'Goal' },
+    { k: 'contributions', label: 'Progress', f: (r) => ((r.contributions || []).length ? (r.contributions || []).map((c) => html`<span class="tag">${fname(c.faction_id)}: ${fix(c.amount)}</span>`) : html`<span class="mut">0</span>`) },
+    { k: 'completed', label: 'Status', f: (r) => (r.completed ? html`<span class="ok">done (${fname(r.winning_faction_id)})</span>` : 'open') },
+    { k: 'rewards', label: 'Rewards', f: (r) => html`<details><summary>${(r.rewards || []).length}</summary>${(r.rewards || []).map((x) => html`<div class="mono">${x.threshold}: ${x.amount}× ${x.template_id}</div>`)}</details>` }], l.tasks,
+    { actions: (r) => html`<button class="b sm" data-act="tfill" data-id="${r.id}" data-goal="${r.goal_amount}">Fill goal</button> <button class="b sm" data-act="tdone" data-id="${r.id}" data-r="${r.completed ? 1 : 0}">${r.completed ? 'Reopen' : 'Complete'}</button>` })}</div>`);
+}
+
+// ---------- CONFIG (.ini)
+let cfgFile = null;
+async function configView() {
+  const val_ = await api('/api/config/validate');
+  if (!val_.dirExists) {
+    setHTML($('#main'), html`<div class="warn">${val_.error}<br>Start the game once so it creates its config, or pass <code>--config &lt;folder&gt;</code>.</div>`);
+    return;
+  }
+  const problems = val_.files.filter((f) => !f.exists || (f.missingSections || []).length);
+  const files = await api('/api/config/files');
+  if (!cfgFile) cfgFile = (files.find((f) => f.name == 'ServerCustomSettings.ini') || files[0] || {}).name;
+  const h = [problems.length
+    ? html`<div class="warn"><b>Config check:</b><ul class="tight">${problems.map((f) => html`<li><code>${f.name}</code> — ${f.exists ? 'missing sections: ' + (f.missingSections || []).join(', ') : 'file not found'} <button class="b sm" data-act="cfgcreate" data-n="${f.name}">${f.exists ? 'Add sections' : 'Create'}</button></li>`)}</ul>Missing files are normally created by the game on first run or when a setting is changed in-game.</div>`
+    : html`<div class="mut mb8">✓ All expected config files present: ${val_.files.map((f) => f.name).join(', ')}</div>`];
+  h.push(html`<div class="warn">The game rewrites its config files when it exits. Close Dune before saving changes here. Each save keeps a backup in a <code>tabr-tau-backups</code> folder next to the file.</div>
+  <div class="row"><select id="cfgsel">${files.map((f) => html`<option value="${f.name}" ${f.name == cfgFile ? 'selected' : ''}>${f.name}${f.empty ? ' (empty)' : ''}</option>`)}</select></div>`);
+  if (cfgFile) {
+    const c = await api('/api/config/file?name=' + encodeURIComponent(cfgFile));
+    const bk = await api('/api/config/backups?name=' + encodeURIComponent(cfgFile));
+    let last = null;
+    const entryRows = c.entries.map((e) => {
+      const sec = e.section !== last ? e.section : '';
+      last = e.section;
+      return html`<tr><td class="mut mono">${sec}</td><td class="mono">${e.key}</td><td><input class="cfgv" value="${e.value}" data-line="${e.line}" data-key="${e.key}" data-section="${e.section}"></td><td><a href="#" data-act="cfgdel" data-line="${e.line}" data-key="${e.key}" class="bad">delete</a></td></tr>`;
+    });
+    h.push(html`<div class="card"><h3>${cfgFile}</h3>${c.entries.length ? html`<div class="scroll"><table><thead><tr><th>Section</th><th>Key</th><th>Value</th><th></th></tr></thead><tbody>${entryRows}</tbody></table></div>` : html`<p class="mut">This file is empty.</p>`}
+    <div class="row mt12"><b>Add key</b><input id="cs" placeholder="[Section]" list="secs"><datalist id="secs">${[...new Set(c.entries.map((e) => e.section))].map((s) => html`<option value="${s}">`)}</datalist><input id="ck" placeholder="Key"><input id="cv" placeholder="Value"><button class="b" data-act="cfgadd">Add</button></div></div>
+    <div class="card"><details><summary>Edit raw text</summary><textarea id="raw" rows="18" spellcheck="false">${c.text}</textarea><div class="row"><button class="b" data-act="cfgraw">Save raw text</button></div></details></div>
+    <div class="card"><details><summary>Backups (${bk.length})</summary>${tbl([{ k: 'name' }, { k: 'size' }], bk, { actions: (r) => html`<button class="b sec sm" data-act="cfgrestore" data-b="${r.name}">Restore</button>` })}</details></div>`);
+  }
+  setHTML($('#main'), html`${h}`);
+}
+
+// ---------- DATABASE
+let dbTable = null, dbOff = 0, dbQ = '';
+async function dbView() {
+  const s = sub.db || 'browse';
+  const h = [subNav('db', [['browse', 'Tables'], ['sql', 'SQL'], ['backups', 'Save backups']])];
+  if (s == 'browse') {
+    const t = await api('/api/db/tables');
+    if (!dbTable) dbTable = t[0].name;
+    h.push(html`<div class="row"><select id="dbsel">${t.map((x) => html`<option value="${x.name}" ${x.name == dbTable ? 'selected' : ''}>${x.name} (${x.rows})</option>`)}</select><input id="dbq" placeholder="search" value="${dbQ}"><button class="b sec" data-act="dbgo">Search</button>
+      <a href="/api/db/export?name=${encodeURIComponent(dbTable)}&amp;format=csv" data-export="csv">CSV</a><a href="/api/db/export?name=${encodeURIComponent(dbTable)}&amp;format=json" data-export="json">JSON</a></div><div id="dbout"></div>`);
+    setHTML($('#main'), html`${h}`);
+    const d = await api(`/api/db/table?name=${encodeURIComponent(dbTable)}&q=${encodeURIComponent(dbQ)}&offset=${dbOff}&limit=100`);
+    const cols = d.columns.slice(1);
+    setHTML($('#dbout'), html`<p class="mut">${d.total} rows — showing ${dbOff + 1}–${Math.min(dbOff + 100, d.total)}</p><div class="scroll"><table><thead><tr>${cols.map((c) => html`<th>${c}</th>`)}</tr></thead><tbody>${d.rows.map((r) => html`<tr>${r.slice(1).map((v, i) => {
+      const b = typeof v === 'string' && v.startsWith('<blob');
+      return html`<td>${b ? html`<span class="mut mono">${v}</span>` : html`<input class="dbc" value="${v}" data-rowid="${r[0]}" data-col="${cols[i]}" data-orig="${v}" size="${Math.max(6, Math.min(40, String(v ?? '').length + 2))}">`}</td>`;
+    })}</tr>`)}</tbody></table></div>
+      <div class="row"><button class="b sec" data-act="dbprev" ${dbOff <= 0 ? 'disabled' : ''}>Previous</button><button class="b sec" data-act="dbnext" ${dbOff + 100 >= d.total ? 'disabled' : ''}>Next</button></div>`);
+    return;
+  } else if (s == 'sql') {
+    h.push(html`<div class="card"><h3>SQL</h3><textarea id="sql" rows="5" placeholder="select * from items limit 20">${window.lastSql || 'select name from sqlite_master'}</textarea><div class="row"><button class="b" data-act="runsql">Run (read-only)</button><button class="b bad" data-act="execsql">Run as write</button><span class="mut">Write mode runs one or more statements atomically on your working copy. Nothing reaches game.db until you press <b>Save to game</b>, which backs up first.</span></div><div id="sqlout"></div></div>`);
+  } else {
+    const b = await api('/api/save/backups');
+    h.push(html`<div class="card"><h3>Save backups</h3><p class="mut">A backup of game.db is made every time you save from here. Restore requires the game to be closed.</p>${tbl([{ k: 'name' }, { k: 'size' }, { k: 'modified' }], b, { actions: (r) => html`<button class="b sec sm" data-act="restore" data-n="${r.name}">Restore</button>` })}</div>`);
+  }
+  setHTML($('#main'), html`${h}`);
+}
+
+// ---------- render + events
+async function render() {
+  drawNav();
+  try {
+    await ({ player: playerView, bases: basesView, vehicles: vehiclesView, exchange: exchangeView, landsraad: landsraadView, config: configView, db: dbView })[tab]();
+  } catch (e) {
+    setHTML($('#main'), html`<div class="card bad">${e.message}</div>`);
+  }
+}
+
+const D = (e) => e.target.closest('[data-act]');
+const A = {
+  solari: () => act(() => api('/api/player/solari', { amount: +val('solari') }), 'Solari updated'),
+  teleport: () => act(() => api('/api/player/teleport', { x: +val('tx'), y: +val('ty'), z: +val('tz') }), 'Teleport queued'),
+  tpTo: (d) => act(() => api('/api/player/teleport', { x: +d.x, y: +d.y, z: +d.z }), 'Teleport queued'),
+  give: () => act(() => api('/api/player/give', { template_id: val('gt').trim(), quantity: +val('gq'), quality: +val('gg') }), 'Item added'),
+  repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(`Repaired ${r.repaired} items`); }, null),
+  delItem: (d) => confirm('Delete ' + d.name + '?') && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
+  spec: (d) => { $('#st').value = d.t; $('#sx').value = d.xp; $('#sl').value = d.lv; },
+  specSet: () => act(() => api('/api/player/specs', { track_type: +val('st'), xp: +val('sx'), level: +val('sl') }), 'Specialization set'),
+  tut: (d) => act(() => api('/api/player/tutorials', { id: +d.id, complete: d.c == '1' }), 'Tutorial updated'),
+  tagAdd: () => act(() => api('/api/player/tags', { tag: val('tag').trim(), add: true }), 'Tag added'),
+  tagDel: (d) => act(() => api('/api/player/tags', { tag: d.tag, add: false }), 'Tag removed'),
+  jfilter: () => { window.jq = val('jq'); journeyList(); },
+  jset: (d) => act(() => api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }), 'Journey updated', false).then(journeyList),
+  repairB: () => act(async () => { const r = await api('/api/bases/repair', {}); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables`); }, null),
+  sand: () => act(async () => { const r = await api('/api/bases/clear-sand', {}); toast(`Cleared ${r.pieces} pieces`); }, null),
+  openInv: async (d) => {
+    const it = await api('/api/bases/storage/items?inventory=' + encodeURIComponent(d.id));
+    setHTML($('#inv'), html`<div class="card"><h3>Inventory ${d.id}</h3>${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item' }, { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" class="w90">` }], it, { actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${r.template_id}">Delete</button>` })}
+    <div class="row"><input id="bt" list="tpl2" placeholder="template id" size="30"><datalist id="tpl2"></datalist>Qty<input id="bq" type="number" value="1" min="1"><button class="b" data-act="giveInv" data-id="${d.id}">Add item</button></div></div>`);
+  },
+  giveInv: (d) => act(async () => { await api('/api/bases/give', { inventory_id: +d.id, template_id: val('bt').trim(), quantity: +val('bq') }); toast('Item added'); await A.openInv(d); }, null, false),
+  bring: (d) => act(() => api('/api/vehicles/bring', { id: +d.id }), 'Vehicle moved next to you'),
+  dur: (d) => { const v = prompt('Chassis durability', d.v); if (v !== null) act(() => api('/api/vehicles/durability', { vehicle_id: +d.id, chassis_durability: +v }), 'Updated'); },
+  vreset: (d) => act(() => api('/api/exchange/reset', { vendor_id: d.v }), 'Purchase limits reset'),
+  term: () => act(async () => { await api('/api/landsraad/term', { active_decree_id: val('ad'), reigning_faction_id: val('rf') }); }, 'Term updated'),
+  decree: (d) => act(() => api('/api/landsraad/decree', { id: +d.id, disabled: d.d == '1' }), 'Decree updated'),
+  tfill: (d) => act(() => api('/api/landsraad/progress', { task_id: +d.id, faction_id: +val('lf'), amount: +d.goal }), 'Progress set'),
+  tdone: (d) => act(() => api('/api/landsraad/complete', { task_id: +d.id, faction_id: +val('lf'), reset: d.r == '1' }), 'Task updated'),
+  cfgcreate: (d) => act(() => api('/api/config/create', { name: d.n }), 'Created ' + d.n),
+  cfgadd: () => act(() => api('/api/config/set', { name: cfgFile, section: val('cs').replace(/^\[|\]$/g, ''), key: val('ck').trim(), value: val('cv') }), 'Added', true),
+  cfgdel: (d) => confirm('Delete ' + d.key + '?') && act(() => api('/api/config/delete', { name: cfgFile, line: +d.line, key: d.key }), 'Deleted'),
+  cfgraw: () => act(() => api('/api/config/raw', { name: cfgFile, text: val('raw') }), 'File written'),
+  cfgrestore: (d) => confirm('Restore ' + d.b + '?') && act(() => api('/api/config/restore', { name: cfgFile, backup: d.b }), 'Restored'),
+  dbgo: () => { dbQ = val('dbq'); dbOff = 0; render(); },
+  dbprev: () => { dbOff = Math.max(0, dbOff - 100); render(); },
+  dbnext: () => { dbOff += 100; render(); },
+  runsql: async () => {
+    window.lastSql = val('sql');
+    try {
+      const r = await api('/api/db/sql', { sql: window.lastSql });
+      setHTML($('#sqlout'), html`<p class="mut">${r.rows.length} rows</p><div class="scroll"><table><thead><tr>${r.columns.map((c) => html`<th>${c}</th>`)}</tr></thead><tbody>${r.rows.map((x) => html`<tr>${x.map((v) => html`<td>${v}</td>`)}</tr>`)}</tbody></table></div>`);
+    } catch (e) { toast(e.message, true); }
+  },
+  execsql: async () => {
+    window.lastSql = val('sql');
+    if (!confirm('Run this SQL as a WRITE against the save? ' + window.lastSql.slice(0, 400))) return;
+    try {
+      const r = await api('/api/db/exec', { sql: window.lastSql });
+      toast(r.changes + ' row(s) changed');
+      await status();
+      setHTML($('#sqlout'), html`<p class="ok">${r.changes} row(s) changed. Press "Save to game" to write them to game.db.</p>`);
+    } catch (e) { toast(e.message, true); }
+  },
+  restore: (d) => confirm('Restore ' + d.n + '? Close the game first.') && act(() => api('/api/save/restore', { name: d.n }), 'Restored'),
+};
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-tab]');
+  if (t) { if (Object.hasOwn(TABS, t.dataset.tab)) { tab = t.dataset.tab; localStorage.tab = tab; render(); } return; }
+  const s = e.target.closest('[data-sub]');
+  if (s) { const [g, k] = s.dataset.sub.split(':'); if (GROUPS.includes(g)) { sub[g] = k; render(); } return; }
+  const a = D(e);
+  if (a) { e.preventDefault(); if (Object.hasOwn(A, a.dataset.act)) A[a.dataset.act](a.dataset); }
+  const x = e.target.closest('[data-export]');
+  if (x) {
+    e.preventDefault();
+    fetch(x.href, { credentials: 'same-origin' }).then((r) => r.blob()).then((b) => { const u = URL.createObjectURL(b), l = document.createElement('a'); l.href = u; l.download = dbTable + '.' + x.dataset.export; l.click(); URL.revokeObjectURL(u); });
+  }
+});
+document.addEventListener('change', (e) => {
+  const t = e.target;
+  if (t.dataset.item) act(() => api('/api/items/update', { id: +t.dataset.item, [t.dataset.field]: +t.value }), 'Item updated', false);
+  else if (t.dataset.faction) act(() => api('/api/player/factions', { faction_id: +t.dataset.faction, amount: +t.value }), 'Reputation set', false);
+  else if (t.dataset.hp) act(() => api('/api/bases/health', { kind: 'placeable', id: +t.dataset.id, health: +t.value }), 'Health set', false);
+  else if (t.classList.contains('cfgv')) act(() => api('/api/config/set', { name: cfgFile, section: t.dataset.section, key: t.dataset.key, value: t.value, line: +t.dataset.line }), 'Saved ' + t.dataset.key, false);
+  else if (t.classList.contains('dbc')) act(() => api('/api/db/update', { table: dbTable, rowid: +t.dataset.rowid, column: t.dataset.col, value: t.value === '' && t.dataset.orig === '' ? null : t.value }), 'Cell updated', false);
+  else if (t.id == 'cfgsel') { cfgFile = t.value; render(); }
+  else if (t.id == 'dbsel') { dbTable = t.value; dbOff = 0; dbQ = ''; render(); }
+});
+status().then(render);

@@ -71,6 +71,25 @@ jobs:
           }
           if ($r.Count -gt 0 -or $bad -gt 0) { exit 1 }
 
+  ui:
+    name: ui
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+      - name: Generate hostile UI fixtures from the real handlers over a real-schema save
+        run: UI_FIXTURES_DIR="$PWD/web-tests/fixtures" go test ./internal/web -run TestDumpUIFixtures -count=1 -v
+      - name: Browser-engine tests (jsdom pinned by lockfile, install scripts disabled)
+        working-directory: web-tests
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          UI_FIXTURES_DIR="$PWD/fixtures" node --test
+
   python-tools:
     name: python-tools
     runs-on: ubuntu-latest
