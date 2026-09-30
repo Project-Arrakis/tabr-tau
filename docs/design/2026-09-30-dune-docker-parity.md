@@ -38,6 +38,20 @@ SQLite 3 database. Sample decoded to 1,765,376 bytes, 96 tables. Also present:
 (`sh-...`, `xrealm-...`, `prd-...`) from online play. Those are client-side caches of online
 characters, not editable saves.
 
+## 2b. Client-side files beside game.db (reviewed 2026-09-30)
+
+All are display/UI state, not gameplay state. None duplicates what `game.db` holds.
+
+| File | Format | Contents |
+|---|---|---|
+| `ClientPersistence/*.data` (3) and `SOLO/ClientPersistence/*.data` (1) | `uint32 LE length` + zlib -> JSON (`DataVersion: 1`) | per-battlegroup last-played date/location/faction (incl. a `SOLO` entry, `m_LastLocation` "Hagga Basin South"); already-seen popups; closing-server warnings; new-keystone popup flags |
+| `SOLO/FogOfWar/<Map>_FogOfWarTrail.data` | raw zlib (no prefix) -> 262,144 bytes, a bitmap; 60,568 bits set in `HaggaBasin` | map-reveal trail. Editable in principle (reveal/reset map); cell layout not yet mapped |
+| `SOLO/Level.json`, `FactionId.json`, `CurrentDimension`, `MostRecentDimension`, `CcAndPbeCheckpoint.json` | plain text, 1-4 bytes | character-select display values (`Level.json` = `7`, faction `None`). Do not treat as source of truth: real XP is in `game.db` |
+| `SOLO/WornItems.json`, `ClothedAppearance.json` | JSON | cosmetic equipped-item list for the character-select screen |
+
+The other `FLS_retail\<steamid>\<battlegroup-id>` folders are the same client-side caches for online
+characters. They have no bearing on single-player editing.
+
 ## 3. Schema diff: SQLite save vs Postgres `dune` schema (dune-dev, read-only)
 
 Postgres `dune` schema: 167 tables. SQLite save: 96 tables (80 shared).
