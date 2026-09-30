@@ -1,6 +1,6 @@
 {
  "generated": "2026-09-30",
- "note": "SQLite save vs Postgres dune schema (dune-dev). identical=column sets equal; differing=list of [table, sqlite-only cols, pg-only cols]; pg_only=tables absent from the save",
+ "note": "SQLite save vs Postgres dune schema (a dev server). identical=column sets equal; differing=list of [table, sqlite-only cols, pg-only cols]; pg_only=tables absent from the save",
  "pg_only": [
   "account_removal_log",
   "active_server_ids",
