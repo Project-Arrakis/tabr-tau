@@ -3,12 +3,15 @@ package web
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"mime"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -26,33 +29,103 @@ type Server struct {
 	Cfg   config.Dir
 	token string
 	mux   *http.ServeMux
+
+	// AllowRemote permits non-loopback peers. Off by default; only set by an explicit operator flag.
+	AllowRemote bool
 }
 
 func New(s *save.Save, cfg config.Dir) *Server {
 	b := make([]byte, 16)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		panic("crypto/rand failed; refusing to start without an unpredictable token: " + err.Error())
+	}
 	srv := &Server{Save: s, Ops: &ops.Ops{S: s}, Cfg: cfg, token: hex.EncodeToString(b), mux: http.NewServeMux()}
 	srv.routes()
 	return srv
 }
 
+// Handler enforces, in order: response security headers, loopback Host, loopback peer (unless AllowRemote),
+// the per-run token on /api/, and for /api/ requests: same-origin fetch metadata / Origin, and a JSON
+// Content-Type on anything that changes state. See docs/design (section 4.4) and findings F-04 / #5.
 func (s *Server) Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		host, _, err := net.SplitHostPort(r.Host)
-		if err != nil {
-			host = r.Host
-		}
-		if host != "127.0.0.1" && host != "localhost" && host != "[::1]" && host != "::1" {
+		setSecurityHeaders(w)
+		if !hostAllowed(r.Host) {
 			http.Error(w, "forbidden host", http.StatusForbidden)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/api/") && r.Header.Get("X-Tabr-Token") != s.token {
-			http.Error(w, "missing or invalid token", http.StatusForbidden)
+		if !s.AllowRemote && !isLoopbackPeer(r.RemoteAddr) {
+			http.Error(w, "forbidden: this editor only accepts connections from this computer", http.StatusForbidden)
 			return
 		}
-		w.Header().Set("Cache-Control", "no-store")
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Tabr-Token")), []byte(s.token)) != 1 {
+				http.Error(w, "missing or invalid token", http.StatusForbidden)
+				return
+			}
+			if !sameOriginRequest(r) {
+				http.Error(w, "forbidden: cross-origin request", http.StatusForbidden)
+				return
+			}
+			if r.Method != http.MethodGet && r.Method != http.MethodHead {
+				if mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mt != "application/json" {
+					http.Error(w, "Content-Type must be application/json", http.StatusUnsupportedMediaType)
+					return
+				}
+			}
+		}
 		s.mux.ServeHTTP(w, r)
 	})
+}
+
+// setSecurityHeaders applies to every response, including errors. The CSP here covers framing and plugins only;
+// script restrictions arrive with the inline-script removal in the UI step of S0.
+func setSecurityHeaders(w http.ResponseWriter) {
+	h := w.Header()
+	h.Set("Cache-Control", "no-store")
+	h.Set("X-Frame-Options", "DENY")
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("Referrer-Policy", "no-referrer")
+	h.Set("Cross-Origin-Resource-Policy", "same-origin")
+	h.Set("Content-Security-Policy", "frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'")
+}
+
+func hostAllowed(hostport string) bool {
+	host, _, err := net.SplitHostPort(hostport)
+	if err != nil {
+		host = hostport
+	}
+	switch host {
+	case "127.0.0.1", "localhost", "[::1]", "::1":
+		return true
+	}
+	return false
+}
+
+func isLoopbackPeer(remote string) bool {
+	host, _, err := net.SplitHostPort(remote)
+	if err != nil {
+		return false
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+// sameOriginRequest rejects browser requests that originate from another site. Requests without Origin and
+// Sec-Fetch-Site headers (curl, the address bar) are allowed; the token still gates them.
+func sameOriginRequest(r *http.Request) bool {
+	switch r.Header.Get("Sec-Fetch-Site") {
+	case "", "same-origin", "none":
+	default:
+		return false
+	}
+	if o := r.Header.Get("Origin"); o != "" {
+		u, err := url.Parse(o)
+		if err != nil || u.Scheme != "http" || !strings.EqualFold(u.Host, r.Host) {
+			return false
+		}
+	}
+	return true
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -165,7 +238,11 @@ func (s *Server) routes() {
 			return
 		}
 		w.Header().Set("Content-Type", ct)
-		w.Header().Set("Content-Disposition", `attachment; filename="`+strings.NewReplacer(`"`, "").Replace(r.URL.Query().Get("name"))+`.`+map[bool]string{true: "json", false: "csv"}[ct == "application/json"]+`"`)
+		ext := "csv"
+		if ct == "application/json" {
+			ext = "json"
+		}
+		w.Header().Set("Content-Disposition", `attachment; filename="`+safeFilename(r.URL.Query().Get("name"))+"."+ext+`"`)
 		// CSV/JSON export of save data, not HTML. Content sniffing and CSV formula injection are tracked in F-03 (#4); S0 adds nosniff and cell escaping. Remove this nosemgrep when #4 lands.
 		w.Write(b) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
 	})
