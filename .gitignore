@@ -37,3 +37,7 @@ docs/evidence/raw/
 *dump*.sql
 # Local tool output
 coverage.out
+
+# Python bytecode from the dev tools
+__pycache__/
+*.pyc

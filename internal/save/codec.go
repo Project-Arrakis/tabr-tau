@@ -18,9 +18,20 @@ var sqliteMagic = []byte("SQLite format 3\x00")
 
 const flagZlib = 1
 
+// maxDecoded is the largest save (compressed or decoded) that Decode accepts.
+// Real saves decode to ~2 MB; the cap only exists to stop hostile files.
+var maxDecoded = int64(256 << 20)
+
 // Decode returns the SQLite bytes contained in a save container. A file that is
 // already a plain SQLite database is returned unchanged.
+//
+// The input is untrusted (users share saves): the declared size is checked against
+// maxDecoded before any decompression, and the stream is read through a limit of
+// declared size + 1, so a small file can never expand into unbounded memory.
 func Decode(blob []byte) ([]byte, error) {
+	if int64(len(blob)) > maxDecoded {
+		return nil, fmt.Errorf("file is %d bytes, over the %d byte limit", len(blob), maxDecoded)
+	}
 	if bytes.HasPrefix(blob, sqliteMagic) {
 		return blob, nil
 	}
@@ -32,17 +43,20 @@ func Decode(blob []byte) ([]byte, error) {
 	if flag != flagZlib {
 		return nil, fmt.Errorf("unknown container flag %d", flag)
 	}
+	if int64(size) > maxDecoded {
+		return nil, fmt.Errorf("declared size %d exceeds the %d byte limit", size, maxDecoded)
+	}
 	zr, err := zlib.NewReader(bytes.NewReader(blob[8:]))
 	if err != nil {
 		return nil, fmt.Errorf("zlib: %w", err)
 	}
 	defer zr.Close()
-	raw, err := io.ReadAll(zr)
+	raw, err := io.ReadAll(io.LimitReader(zr, int64(size)+1))
 	if err != nil {
 		return nil, fmt.Errorf("zlib: %w", err)
 	}
-	if uint32(len(raw)) != size {
-		return nil, fmt.Errorf("size mismatch: header says %d, got %d", size, len(raw))
+	if int64(len(raw)) != int64(size) {
+		return nil, fmt.Errorf("size mismatch: header says %d, stream has %s", size, streamLen(len(raw), int64(size)))
 	}
 	if !bytes.HasPrefix(raw, sqliteMagic) {
 		return nil, errors.New("payload is not a SQLite database")
@@ -50,10 +64,20 @@ func Decode(blob []byte) ([]byte, error) {
 	return raw, nil
 }
 
+func streamLen(got int, declared int64) string {
+	if int64(got) > declared {
+		return "more"
+	}
+	return fmt.Sprint(got)
+}
+
 // Encode wraps SQLite bytes in the save container.
 func Encode(raw []byte) ([]byte, error) {
 	if !bytes.HasPrefix(raw, sqliteMagic) {
 		return nil, errors.New("refusing to encode a non-SQLite payload")
+	}
+	if int64(len(raw)) > maxDecoded {
+		return nil, fmt.Errorf("payload is %d bytes, over the %d byte limit", len(raw), maxDecoded)
 	}
 	var buf bytes.Buffer
 	hdr := make([]byte, 8)

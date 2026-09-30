@@ -21,6 +21,7 @@ Versioning: [Semantic Versioning](https://semver.org/), tags `v0.x` until the fi
 - `tools/send-snapshot.ps1` parse error (`"$dir:"` read as a drive-qualified variable).
 
 ### Security
+- Save decoder is bounded (F-03 / SEC-1, #4): the declared size is checked against a 256 MiB cap before decompression and the stream is read through a limit, so a ~65 KB hostile file no longer allocates ~165 MB. Tests: bomb with a lying header, over-cap header, over-cap file, truncation, size mismatch both ways, wrong flag, non-SQLite payload, round trip at real size, fuzz seeds.
 - Go toolchain raised to 1.26.6 (six reachable standard-library vulnerabilities found by govulncheck: GO-2026-5037, 5039, 5856, 5972, 6089, 6090).
 - Findings from the Layer 1 audit are tracked in issue #24. **None of the application-code findings (F-03, F-04,
   F-05..F-08) are fixed yet**; they are scheduled as phases S0 and S1 in the plan. Until then, do not run tabr-tau
