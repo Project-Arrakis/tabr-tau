@@ -1,0 +1,12 @@
+{
+  "name": "tabr-tau-web-tests",
+  "private": true,
+  "description": "Browser-engine tests for the UI (hostile data, no network). Dev only; never shipped.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "jsdom": "30.1.1"
+  }
+}

@@ -14,6 +14,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
 	"github.com/Project-Arrakis/tabr-tau/internal/ops"
@@ -27,8 +29,12 @@ type Server struct {
 	Save  *save.Save
 	Ops   *ops.Ops
 	Cfg   config.Dir
-	token string
+	token string // session token: the value of the HttpOnly session cookie. Never sent to a script or placed in a page.
 	mux   *http.ServeMux
+
+	now    func() time.Time // injectable for tests
+	bootMu sync.Mutex
+	boots  map[string]time.Time // one-time bootstrap tokens -> expiry
 
 	// AllowRemote permits non-loopback peers. Off by default; only set by an explicit operator flag.
 	AllowRemote bool
@@ -39,13 +45,57 @@ func New(s *save.Save, cfg config.Dir) *Server {
 	if _, err := rand.Read(b); err != nil {
 		panic("crypto/rand failed; refusing to start without an unpredictable token: " + err.Error())
 	}
-	srv := &Server{Save: s, Ops: &ops.Ops{S: s}, Cfg: cfg, token: hex.EncodeToString(b), mux: http.NewServeMux()}
+	srv := &Server{Save: s, Ops: &ops.Ops{S: s}, Cfg: cfg, token: hex.EncodeToString(b), mux: http.NewServeMux(), now: time.Now, boots: map[string]time.Time{}}
 	srv.routes()
 	return srv
 }
 
+const (
+	cookieName = "tabr_session"
+	bootTTL    = 10 * time.Minute
+)
+
+// NewBootToken returns a single-use token, valid for bootTTL, that a browser can exchange for the session cookie
+// by opening /?boot=<token>. The process prints it (and opens the browser with it) at startup.
+func (s *Server) NewBootToken() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		panic("crypto/rand failed; refusing to issue a bootstrap token: " + err.Error())
+	}
+	tok := hex.EncodeToString(b)
+	s.bootMu.Lock()
+	defer s.bootMu.Unlock()
+	now := s.now()
+	for k, exp := range s.boots { // drop expired entries
+		if now.After(exp) {
+			delete(s.boots, k)
+		}
+	}
+	s.boots[tok] = now.Add(bootTTL)
+	return tok
+}
+
+// BootURL is base (for example http://127.0.0.1:8090) plus a fresh one-time bootstrap query.
+func (s *Server) BootURL(base string) string { return base + "/?boot=" + s.NewBootToken() }
+
+func (s *Server) consumeBoot(tok string) bool {
+	if tok == "" {
+		return false
+	}
+	s.bootMu.Lock()
+	defer s.bootMu.Unlock()
+	exp, ok := s.boots[tok]
+	delete(s.boots, tok) // single use, even if expired
+	return ok && !s.now().After(exp)
+}
+
+func (s *Server) hasSession(r *http.Request) bool {
+	c, err := r.Cookie(cookieName)
+	return err == nil && subtle.ConstantTimeCompare([]byte(c.Value), []byte(s.token)) == 1
+}
+
 // Handler enforces, in order: response security headers, loopback Host, loopback peer (unless AllowRemote),
-// the per-run token on /api/, and for /api/ requests: same-origin fetch metadata / Origin, and a JSON
+// the session cookie on /api/, and for /api/ requests: same-origin fetch metadata / Origin, and a JSON
 // Content-Type on anything that changes state. See docs/design (section 4.4) and findings F-04 / #5.
 func (s *Server) Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -59,8 +109,8 @@ func (s *Server) Handler() http.Handler {
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/") {
-			if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Tabr-Token")), []byte(s.token)) != 1 {
-				http.Error(w, "missing or invalid token", http.StatusForbidden)
+			if !s.hasSession(r) {
+				http.Error(w, "not signed in: open the link printed in the terminal", http.StatusForbidden)
 				return
 			}
 			if !sameOriginRequest(r) {
@@ -78,8 +128,8 @@ func (s *Server) Handler() http.Handler {
 	})
 }
 
-// setSecurityHeaders applies to every response, including errors. The CSP here covers framing and plugins only;
-// script restrictions arrive with the inline-script removal in the UI step of S0.
+// setSecurityHeaders applies to every response, including errors. The CSP allows only same-origin scripts and
+// styles (no inline code, no eval), same-origin connections, and forbids framing, base tags, plugins and forms.
 func setSecurityHeaders(w http.ResponseWriter) {
 	h := w.Header()
 	h.Set("Cache-Control", "no-store")
@@ -87,7 +137,8 @@ func setSecurityHeaders(w http.ResponseWriter) {
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Referrer-Policy", "no-referrer")
 	h.Set("Cross-Origin-Resource-Policy", "same-origin")
-	h.Set("Content-Security-Policy", "frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'")
+	h.Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'; "+
+		"frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'none'")
 }
 
 func hostAllowed(hostport string) bool {
@@ -171,12 +222,39 @@ func qint(r *http.Request, k string, def int) int {
 
 func (s *Server) routes() {
 	o := s.Ops
-	// index (token injected)
+	// Static UI: three fixed asset paths, nothing else from the embedded folder is reachable.
+	for path, ct := range map[string]string{"/app.css": "text/css; charset=utf-8", "/app.js": "text/javascript; charset=utf-8", "/html.js": "text/javascript; charset=utf-8"} {
+		file, ctype := "static"+path, ct
+		s.mux.HandleFunc("GET "+path, func(w http.ResponseWriter, r *http.Request) {
+			b, err := static.ReadFile(file)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", ctype)
+			w.Write(b) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter (embedded, fixed, non-HTML asset; nosniff + CSP set)
+		})
+	}
+
+	// Index: served only to a browser that holds the session cookie. A valid one-time boot token is exchanged for the
+	// cookie and the URL is cleaned by redirect. Anyone else gets a static page that contains no secret.
 	s.mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		b, _ := static.ReadFile("static/index.html")
+		if boot := r.URL.Query().Get("boot"); boot != "" {
+			if s.consumeBoot(boot) {
+				http.SetCookie(w, &http.Cookie{Name: cookieName, Value: s.token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode})
+				http.Redirect(w, r, "/", http.StatusSeeOther)
+				return
+			}
+		} else if s.hasSession(r) {
+			b, _ := static.ReadFile("static/index.html")
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write(b) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter (embedded, fixed page with no dynamic content)
+			return
+		}
+		b, _ := static.ReadFile("static/locked.html")
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		// Token is 128-bit crypto/rand hex (no HTML metacharacters). Serving it in the page is itself finding F-04 (#5); S0 replaces this with a bootstrap cookie. Remove this nosemgrep when #5 lands.
-		w.Write([]byte(strings.Replace(string(b), "__TOKEN__", s.token, 1))) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write(b) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter (embedded, fixed page with no dynamic content)
 	})
 
 	s.get("/api/overview", func(r *http.Request) (any, error) { return o.Overview() })

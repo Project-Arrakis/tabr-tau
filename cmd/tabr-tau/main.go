@@ -116,13 +116,15 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
-	url := "http://" + ln.Addr().String() + "/"
-	fmt.Printf("tabr-tau %s\n  save:   %s\n  config: %s\n  ui:     %s\n", version, s.Path, *cfgDir, url)
-	if !*noOpen {
-		go func() { time.Sleep(300 * time.Millisecond); openBrowser(url) }()
-	}
+	base := "http://" + ln.Addr().String()
 	ws := web.New(s, config.Dir{Path: *cfgDir})
 	ws.AllowRemote = remoteOK
+	bootURL := ws.BootURL(base) // single use, valid for 10 minutes; sets this browser's session cookie
+	fmt.Printf("tabr-tau %s\n  save:   %s\n  config: %s\n  ui:     %s\n", version, s.Path, *cfgDir, bootURL)
+	fmt.Println("  (open the ui link above; it works once, for 10 minutes)")
+	if !*noOpen {
+		go func() { time.Sleep(300 * time.Millisecond); openBrowser(bootURL) }()
+	}
 	srv := web.NewHTTPServer(ws.Handler())
 	if err := srv.Serve(ln); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
