@@ -211,7 +211,7 @@ func TestUIFilesContainNoInlineCodeOrRawSinks(t *testing.T) {
 	}
 	// whitespace + attribute name + =${ is an UNQUOTED attribute value: attribute injection. (?name=${x} inside a
 	// quoted URL is fine and does not match.)
-	if m := regexp.MustCompile("\\s[\\w:-]+=\\$\\{").FindString(app); m != "" {
+	if m := regexp.MustCompile(`\s[\w:-]+=\$\{`).FindString(app); m != "" {
 		t.Errorf("app.js has an unquoted attribute interpolation near %q; always quote attribute values", m)
 	}
 	if regexp.MustCompile(`style\s*=\s*"`).MatchString(app) {

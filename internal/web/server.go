@@ -241,7 +241,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		if boot := r.URL.Query().Get("boot"); boot != "" {
 			if s.consumeBoot(boot) {
-				http.SetCookie(w, &http.Cookie{Name: cookieName, Value: s.token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode})
+				// Deliberately no Secure flag: the editor speaks plain HTTP on loopback, where there is no network path to sniff,
+				// and some browsers refuse to store Secure cookies from an http origin, which would lock every user out.
+				// The cookie is HttpOnly, SameSite=Strict and session-scoped.
+				http.SetCookie(w, &http.Cookie{Name: cookieName, Value: s.token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode}) // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
 				http.Redirect(w, r, "/", http.StatusSeeOther)
 				return
 			}
