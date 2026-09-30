@@ -1,0 +1,7 @@
+# Default reviewer for everything. Security-sensitive paths are listed explicitly so a future
+# second reviewer can be added per path without touching this line.
+*                          @yacketrj
+/internal/save/            @yacketrj
+/internal/web/             @yacketrj
+/.github/                  @yacketrj
+/tools/                    @yacketrj

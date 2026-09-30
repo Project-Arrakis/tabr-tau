@@ -1,0 +1,115 @@
+name: CI
+
+# Least privilege: every job gets read-only contents. Actions are pinned to full commit SHAs
+# (Dependabot keeps them current). Tool versions are pinned. See docs/audit findings F-09, F-11.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then echo "Not gofmt-formatted:"; echo "$unformatted"; exit 1; fi
+      - name: go mod verify
+        run: go mod verify
+      - name: go vet
+        run: go vet ./...
+      - name: staticcheck
+        run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.1 ./...
+      - name: go test (race, coverage)
+        run: go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+      - name: coverage summary
+        run: go tool cover -func=coverage.out | tail -1
+
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+
+  powershell:
+    name: powershell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - name: PSScriptAnalyzer (Error and Warning fail the build)
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -RequiredVersion 1.25.0 -Force -Scope CurrentUser -Repository PSGallery
+          # Write-Host is intentional: these are interactive operator scripts, not pipeline cmdlets.
+          $r = Invoke-ScriptAnalyzer -Path tools -Recurse -Severity Error,Warning -ExcludeRule PSAvoidUsingWriteHost
+          $r | Format-Table RuleName, Severity, ScriptName, Line, Message -AutoSize -Wrap | Out-String -Width 200 | Write-Host
+          # Parse check: catches errors like an interpolated "$var:" that PSScriptAnalyzer may not flag.
+          $bad = 0
+          Get-ChildItem tools -Filter *.ps1 -Recurse | ForEach-Object {
+            $t = $null; $e = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$t, [ref]$e) | Out-Null
+            if ($e.Count) { $e | ForEach-Object { Write-Host "PARSE ERROR $($_.Extent.File):$($_.Extent.StartLineNumber): $($_.Message)" }; $bad++ }
+          }
+          if ($r.Count -gt 0 -or $bad -gt 0) { exit 1 }
+
+  python-tools:
+    name: python-tools
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Syntax check and --help smoke test (Python >= 3.11 required by the tools)
+        run: |
+          python -m py_compile tools/snapdiff.py tools/snapsummary.py
+          python tools/snapdiff.py --help > /dev/null
+          python tools/snapsummary.py --help > /dev/null
+
+  commit-messages:
+    name: commit-messages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          fetch-depth: 0
+      - name: No AI co-author trailers or attribution lines (operator policy, F-12)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: bash scripts/check-commit-messages.sh
+
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - name: shellcheck (-S warning, as Requirement 9)
+        run: shellcheck -S warning scripts/*.sh
+
+  security-scan:
+    name: security-scan
+    uses: Project-Arrakis/.github/.github/workflows/reusable-security-scan.yml@main
+    permissions:
+      contents: read
+    secrets:
+      SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}

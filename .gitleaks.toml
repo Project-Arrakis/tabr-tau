@@ -1,0 +1,24 @@
+# gitleaks config (v8.24.3, the version pinned org-wide). Singular [allowlist] on purpose:
+# v8.24.3 ignores the plural [[allowlists]] form at the top level (see the org CI audit).
+title = "tabr-tau"
+
+[extend]
+useDefault = true
+
+# A save, Game.ini or a log contains platform/account identifiers of a real person. They are not
+# credentials, so the default rules miss them; these rules stop them reaching git (finding F-11).
+[[rules]]
+id = "steamid64"
+description = "SteamID64 (17 digits starting 7656119): a real person's platform identifier"
+regex = '''\b7656119\d{10}\b'''
+tags = ["identifier", "privacy"]
+
+[[rules]]
+id = "funcom-or-platform-id-field"
+description = "Account or platform identifier fields as they appear in a save, Game.ini or a snapshot manifest"
+regex = '''(?i)(platform_?id|funcom_?id|MasterAccountId|TitlePlayerId|PlatformId)["'\s:=]+["']?[0-9A-Fa-f]{12,}'''
+tags = ["identifier", "privacy"]
+
+[allowlist]
+description = "Synthetic test data lives under testdata/ and is generated with identifiers replaced."
+paths = ['''(^|/)testdata/''']
