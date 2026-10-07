@@ -41,3 +41,11 @@ input.cfgv{width:100%;min-width:220px}
 .row.mt12{margin-top:12px}.card h3.mt14{margin-top:14px}.mut.mb8{margin-bottom:8px}
 ul.tight{margin:6px 0}
 .locked{max-width:560px;margin:15vh auto;padding:0 16px}
+
+#gamewarn.warn{margin:0;border-radius:0;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:4}
+#toast div{display:flex;gap:8px;align-items:flex-start}#toast div span{flex:1}
+#toast button.x{background:none;border:0;color:var(--fg);cursor:pointer;font-size:18px;line-height:1;padding:0 2px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:8;overflow:auto;padding:4vh 16px}
+.mbox{background:var(--panel);border:1px solid var(--line);border-radius:8px;max-width:860px;margin:0 auto;padding:16px}
+.mbox h3.big{margin:0 0 8px;font-size:18px;color:var(--acc2);text-transform:none;letter-spacing:0}.mbox h3{margin:14px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut)}
+body.noscroll{overflow:hidden}

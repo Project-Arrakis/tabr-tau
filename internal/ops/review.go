@@ -13,9 +13,10 @@ func (o *Ops) Review(unredacted bool, maxRows int) (any, error) {
 	var res *diff.Result
 	var dirty bool
 	var ops []save.Op
-	err := o.S.WithBaselineState(func(orig, cur *sql.DB, d bool, recorded []save.Op) error {
+	var token string
+	err := o.S.WithReview(func(orig, cur *sql.DB, d bool, recorded []save.Op, tok string) error {
 		var err error
-		dirty, ops = d, recorded
+		dirty, ops, token = d, recorded, tok
 		res, err = diff.Compare(orig, cur, diff.Options{MaxRows: maxRows, NoRedact: unredacted})
 		return err
 	})
@@ -27,5 +28,5 @@ func (o *Ops) Review(unredacted bool, maxRows int) (any, error) {
 			ops[i].Desc = diff.RedactText(ops[i].Desc)
 		}
 	}
-	return map[string]any{"dirty": dirty, "ops": ops, "diff": res}, nil
+	return map[string]any{"dirty": dirty, "ops": ops, "diff": res, "token": token}, nil
 }

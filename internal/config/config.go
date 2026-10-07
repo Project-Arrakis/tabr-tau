@@ -266,7 +266,7 @@ func cleanValue(v string) (string, error) {
 func (d Dir) backupDir() string { return filepath.Join(d.Path, "tabr-tau-backups") }
 
 func (d Dir) write(name, text string) error {
-	if save.GameRunning() {
+	if save.GameRunningNow() {
 		return fmt.Errorf("%s is running and rewrites its config on exit; close the game first", save.GameProcess)
 	}
 	p, err := d.file(name)

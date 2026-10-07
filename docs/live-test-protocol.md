@@ -85,7 +85,7 @@ Start from the state after B3.
 
 | Label | Do |
 |---|---|
-| `C1-tabr-give` | With the game closed, use tabr-tau **Give item** with the `template_id` found in B1, quantity 1. Press Save to game. Snapshot. |
+| `C1-tabr-give` | With the game closed, use tabr-tau **Give item** with the `template_id` found in B1, quantity 1. Press Review & save, then Save to game. Snapshot. |
 | `C2-game-loads` | Launch, load. Screenshot inventory. Quit. Snapshot. |
 
 ## Phase D: other write paths

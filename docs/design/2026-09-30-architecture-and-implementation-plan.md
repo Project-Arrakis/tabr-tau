@@ -106,7 +106,7 @@ save lives in `ops`, not `catalog`. There is no `savex` package.
 | `internal/save` | temp file on disk (not memory), single connection, `foreign_keys(0)` explicit, `Commit` with integrity check, hash check, backup, tmp+rename, `force` skips two checks, `Restore` truncates in place (as audited 2026-09-30; **since fixed**, see the 4.2 implementation status) | S1: see 4.2 and F-05..F-08 |
 | `internal/ops` | 32 write sites, 22 outside any Tx, errors ignored in multi-step ops, `Exec`/`ExecScript` reachable from the SQL console with a regex denylist (as audited; **since fixed**: `save.Mutate` only, tokenizer-based vetting) | S1: `save.Mutate(desc, fn(tx))` is the only write path; migrate all sites; lint test forbids `S.Exec` from `ops` |
 | `internal/web` | Host check, per-run token (128-bit), 4 MiB POST cap, no CORS; **`GET /` is token-exempt and serves the token; no CSP; no Content-Type check; `--addr` unrestricted** | S0: see 4.4 |
-| `internal/web/static/index.html` | many unescaped interpolations of save values (stored XSS); no review pane; bare `confirm()`; no `beforeunload` | S0 escape + CSP; S2 review pane, confirmations, banners |
+| `internal/web/static/index.html` | many unescaped interpolations of save values (stored XSS); review pane built (S2 slice 1, #50); bare `confirm()` remains; no `beforeunload` | S0 escape + CSP; S2 review pane, confirmations, banners |
 | **`internal/diff`** (new, leaf) | Python prototype `tools/snapdiff.py` (fixed in v0.2) | S1: Go port with redaction on by default; used by CLI, review pane, tests |
 | **`internal/component`** (new, leaf) | n/a | S3: typed JSONB editor; path is `[]string`, never a concatenated string (F-18) |
 | **`internal/catalog`** (new, leaf) | n/a | S3: data only (embedded MIT JSON with attribution, conditional on provenance check) |
@@ -142,8 +142,10 @@ instead of hand-written child deletes. This departs from the earlier wording ("e
 after T4") because explicit deletes would re-implement the schema's cascade by hand and miss references; the default
 connection setting stays `foreign_keys=0` and the global decision still waits on T4.
 Step 5 data side done (F-06): pristine baseline kept at load, structured op record, `internal/diff`, review endpoint and
-`diff` CLI. **Not built yet:** the review pane in the UI and making Save reachable only from it (S2), the typed reason for
-`force` (S2), JSON/JSONB invariants, post-write verification against the baseline, process polling in the UI.
+`diff` CLI. Step 5 UI side done (S2 slice 1, PR #50): the review pane, Save reachable only from it (the commit route requires the
+review token, a hash of the pending edits), a polled game-running banner, sticky errors, and Reload from disk after a
+changed-on-disk failure. **Not built yet:** the typed reason for `force` (the UI never sends `force`), tiered
+confirmations for destructive actions (S2), JSON/JSONB invariants, post-write verification against the baseline.
 
 ### 4.3 Compatibility strategy
 - **Capability probe:** each feature declares required tables, columns and JSON paths; unavailable features are shown disabled with the reason (F-21), and their writes are refused.

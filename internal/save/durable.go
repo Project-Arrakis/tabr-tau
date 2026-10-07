@@ -96,7 +96,7 @@ func (s *Save) installBlob(blob []byte) error {
 	}
 	if hashOf(cur) != s.diskHash {
 		os.Remove(tmp)
-		return errChangedOnDisk
+		return ErrChangedOnDisk
 	}
 	if err := renameRetry(tmp, s.Path); err != nil {
 		os.Remove(tmp)
@@ -116,7 +116,8 @@ func (s *Save) installBlob(blob []byte) error {
 	return nil
 }
 
-var errChangedOnDisk = errors.New("the save changed on disk since it was loaded (game autosave?); discard and redo the edits")
+// ErrChangedOnDisk is returned when the file on disk is no longer the one this session loaded.
+var ErrChangedOnDisk = errors.New("the save changed on disk since it was loaded (game autosave?); discard and redo the edits")
 
 // inspect checks a decoded save is a sound SQLite database and returns its applied_patches names.
 func inspect(raw []byte) (map[string]bool, error) {
