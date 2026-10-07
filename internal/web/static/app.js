@@ -13,10 +13,10 @@ async function api(path, body) {
   const r = await fetch(path, opt);
   const j = await r.json().catch(() => ({ error: r.statusText }));
   if (r.status === 403 && !j.error) throw new Error('This browser is no longer signed in. Close tabr-tau and start it again, then open the new link from the terminal.');
-  if (!r.ok || j.error) throw new Error(j.error || r.statusText);
+  if (!r.ok || j.error) { const e = new Error(j.error || r.statusText); e.code = j.code; throw e; }
   return j;
 }
-function toast(msg, err) {
+function toast(msg, err, ms = 3500) {
   const d = document.createElement('div');
   if (err) d.className = 'err';
   const t = document.createElement('span');
@@ -29,7 +29,7 @@ function toast(msg, err) {
     x.title = 'Dismiss';
     x.onclick = () => d.remove();
     d.append(x);
-  } else setTimeout(() => d.remove(), 3500);
+  } else setTimeout(() => d.remove(), ms);
   $('#toast').append(d);
 }
 async function act(fn, okMsg, refresh = true) {
@@ -60,9 +60,10 @@ const kv = (k, v) => html`<div class="kv"><b>${k}</b><span>${v}</span></div>`;
 const fix = (n) => (n == null ? '' : Math.round(n).toLocaleString());
 
 // ---------- status bar
-let gameRunning = false;
+let gameRunning = false, offline = false;
 async function status() {
-  const o = await api('/api/overview');
+  const o = await api('/api/save/state');
+  offline = false;
   gameRunning = !!o.gameRunning;
   $('#path').textContent = o.path;
   const gw = $('#gamewarn');
@@ -85,33 +86,42 @@ let R = null; // the open review: { token, ops, diff, error }
 const val1 = (v) => { const t = v === undefined ? 'undefined' : JSON.stringify(v); return t.length > 120 ? t.slice(0, 117) + '...' : t; };
 function reviewBody() {
   const d = R.diff, tabs = d.tables || [];
-  return html`<div class="mbox"><h3 class="big">Review changes</h3>
+  const cut = tabs.some((t) => (t.modified || []).length < t.numModified);
+  return html`<div class="mbox" role="dialog" aria-modal="true"><h3 class="big" id="mtitle" tabindex="-1">Review changes</h3>
     <div id="mmsg">${R.error ? (R.stale ? html`<div class="warn"><b>The save changed on disk.</b> ${R.error}<br>The game (or another program) rewrote game.db after you opened it, so these edits cannot be applied on top of it. Reload the file, then redo the edits listed below.<div class="row"><button class="b" data-act="reload">Reload from disk (discards these edits)</button></div></div>` : html`<div class="warn">${R.error}</div>`) : ''}</div>
     <h3>Edits you made (${R.ops.length})</h3>
     ${R.ops.length ? html`<ul class="tight">${R.ops.map((o) => html`<li>${o.desc}</li>`)}</ul>` : html`<p class="mut">No edits.</p>`}
     <h3>What changes inside game.db</h3>
     ${tabs.length ? html`<div class="scroll"><table><thead><tr><th>Table</th><th>Added</th><th>Removed</th><th>Changed</th></tr></thead><tbody>${tabs.map((t) => html`<tr><td>${t.name}</td><td>${t.numAdded}</td><td>${t.numRemoved}</td><td>${t.numModified}</td></tr>`)}</tbody></table></div>
-      <details><summary>Show changed values</summary>${tabs.map((t) => (t.modified || []).length ? html`<p class="mono"><b>${t.name}</b></p>${t.modified.map((m) => html`<div class="mono">row ${val1(m.key)}: ${m.changes.map((c) => html`<div>${c.path}: ${val1(c.before)} \u2192 ${val1(c.after)}</div>`)}</div>`)}` : '')}</details>
+      <details><summary>Show changed values</summary>${cut ? html`<p class="mut">Only the first changed rows of each table are listed here; the counts above are complete.</p>` : ''}${tabs.map((t) => (t.modified || []).length ? html`<p class="mono"><b>${t.name}</b></p>${t.modified.map((m) => html`<div class="mono">row ${val1(m.key)}: ${m.changes.map((c) => html`<div>${c.path}: ${val1(c.before)} \u2192 ${val1(c.after)}</div>`)}</div>`)}` : '')}</details>
       ${d.redacted ? html`<p class="mut">Account and character identifiers are hidden in this view.</p>` : ''}`
       : html`<p class="mut">The working copy is identical to the file on disk.</p>`}
     <div class="row mt12"><button class="b" data-act="doSave" id="btnDoSave">Save to game</button><button class="b sec" data-act="closeReview">Back</button><span id="savewhy" class="mut"></span></div></div>`;
 }
 function syncReview() {
   const m = $('#modal');
-  if (!R) { m.className = 'hide'; return; }
+  if (!R) { m.className = 'hide'; document.body.classList.remove('noscroll'); return; }
   m.className = 'modal';
+  document.body.classList.toggle('noscroll', true);
   const b = $('#btnDoSave');
   if (!b) return;
-  b.disabled = gameRunning || !R.ops.length || !!R.stale;
-  $('#savewhy').textContent = gameRunning ? 'Close the game first.' : R.stale ? 'Reload the file first.' : !R.ops.length ? 'Nothing to save.' : '';
+  b.disabled = offline || gameRunning || !R.ops.length || !!R.stale;
+  $('#savewhy').textContent = offline ? 'Lost contact with the editor.' : gameRunning ? 'Close the game first.' : R.stale ? 'Reload the file first.' : !R.ops.length ? 'Nothing to save.' : '';
 }
-function drawReview() { setHTML($('#modal'), R ? reviewBody() : html``); syncReview(); }
+function drawReview(focus) {
+  setHTML($('#modal'), R ? reviewBody() : html``);
+  syncReview();
+  if (R && focus) $('#mtitle').focus(); // keyboard users land in the pane
+}
+let opening = false;
 async function openReview() {
+  if (opening) return;
+  opening = true;
   try {
     const r = await api('/api/save/review');
     R = { token: r.token, ops: r.ops || [], diff: r.diff || { tables: [] } };
-  } catch (e) { toast(e.message, true); return; }
-  drawReview();
+  } catch (e) { toast(e.message, true); return; } finally { opening = false; }
+  drawReview(true);
 }
 $('#btnSave').onclick = openReview;
 $('#btnDiscard').onclick = () => { if (confirm('Discard all unsaved changes?')) act(() => api('/api/save/discard', {}), 'Discarded'); };
@@ -296,20 +306,27 @@ async function render() {
 const D = (e) => e.target.closest('[data-act]');
 const A = {
   closeReview: () => { R = null; drawReview(); },
-  reload: () => act(async () => { await api('/api/save/discard', {}); R = null; drawReview(); }, 'Reloaded from disk. Redo your edits.'),
+  reload: () => confirm('Discard your edits and reload the file from disk?') && act(async () => { await api('/api/save/discard', {}); R = null; drawReview(); }, 'Reloaded from disk. Redo your edits.'),
   doSave: async () => {
     if (!R) return;
+    let r;
     try {
-      const r = await api('/api/save/commit', { reviewed: R.token });
-      R = null; drawReview();
-      toast(r.saved ? 'Saved. Backup: ' + r.backup : 'Nothing to save');
-      if (r.warning) toast(r.warning, true);
-      await status(); await render();
+      r = await api('/api/save/commit', { reviewed: R.token });
     } catch (e) {
+      if (e.code === 'review_changed') { // the edits moved on since this pane was drawn: show the current ones
+        await openReview();
+        if (R) { R.error = e.message; drawReview(true); }
+        return;
+      }
       R.error = e.message;
-      R.stale = /changed on disk/.test(e.message);
-      drawReview();
+      R.stale = e.code === 'changed_on_disk';
+      drawReview(true);
+      return;
     }
+    R = null; drawReview();
+    toast(r.saved ? 'Saved. Backup: ' + r.backup : 'Nothing to save', false, 15000);
+    if (r.warning) toast(r.warning, true);
+    try { await status(); await render(); } catch (e) { toast('Saved, but the screen could not refresh: ' + e.message, true); }
   },
   solari: () => act(() => api('/api/player/solari', { amount: +val('solari') }), 'Solari updated'),
   teleport: () => act(() => api('/api/player/teleport', { x: +val('tx'), y: +val('ty'), z: +val('tz') }), 'Teleport queued'),
@@ -390,4 +407,16 @@ document.addEventListener('change', (e) => {
   else if (t.id == 'dbsel') { dbTable = t.value; dbOff = 0; dbQ = ''; render(); }
 });
 status().then(render);
-setInterval(() => status().catch(() => {}), 5000); // keeps the game-running warning current
+// Keeps the game-running warning current. A failed poll is shown, not hidden: Save stays off until contact returns.
+setInterval(async () => {
+  if (document.hidden) return;
+  try { await status(); } catch (e) {
+    offline = true;
+    const gw = $('#gamewarn');
+    gw.className = 'warn';
+    setHTML(gw, html`<b>Lost contact with the editor.</b> Saving is off until it answers again. If you closed the editor, nothing more will be written.`);
+    syncReview();
+  }
+}, 5000);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && R) A.closeReview(); });
+document.addEventListener('mousedown', (e) => { if (R && e.target === $('#modal')) A.closeReview(); });

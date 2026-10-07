@@ -125,7 +125,7 @@ func TestCommitRequiresTheReviewedToken(t *testing.T) {
 	if again := reviewToken(t, s); again != tok {
 		t.Fatalf("the token must be stable for unchanged edits: %s vs %s", tok, again)
 	}
-	for name, body := range map[string]string{"missing": `{}`, "empty": `{"reviewed":""}`, "wrong": `{"reviewed":"0000"}`} {
+	for name, body := range map[string]string{"missing": `{}`, "empty": `{"reviewed":""}`, "wrong": `{"reviewed":"0000"}`, "force is ignored": `{"force":true}`} {
 		if code, out := commitPost(t, s, body); code == 200 || !strings.Contains(out, "review") {
 			t.Errorf("%s: want a refusal mentioning the review, got %d %s", name, code, out)
 		}
@@ -137,7 +137,7 @@ func TestCommitRequiresTheReviewedToken(t *testing.T) {
 	if _, err := s.Save.Mutate("one more edit", func(m *save.Mut) error { _, err := m.Exec(`update items set stack_size=6 where id=10`); return err }); err != nil {
 		t.Fatal(err)
 	}
-	if code, out := commitPost(t, s, `{"reviewed":"`+tok+`"}`); code == 200 || !strings.Contains(out, "different from the ones you reviewed") {
+	if code, out := commitPost(t, s, `{"reviewed":"`+tok+`"}`); code == 200 || !strings.Contains(out, "different from the ones you reviewed") || !strings.Contains(out, `"code":"review_changed"`) {
 		t.Fatalf("a stale token must be refused, got %d %s", code, out)
 	}
 }
@@ -168,5 +168,28 @@ func TestCommitWithTheReviewedTokenSaves(t *testing.T) {
 	}
 	if len(s.Save.Ops()) != 0 {
 		t.Error("the pending edits must be cleared after a save")
+	}
+}
+
+// The poll endpoint is cheap and complete: it carries everything the header and the save pane need.
+func TestSaveStateEndpoint(t *testing.T) {
+	s := reviewServer(t)
+	h := map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}
+	w := do(t, s, "GET", "http://127.0.0.1/api/save/state", loop, h, nil)
+	if w.Code != 200 {
+		t.Fatalf("status %d %s", w.Code, w.Body.String())
+	}
+	var st struct {
+		Path        string   `json:"path"`
+		Dirty       bool     `json:"dirty"`
+		Pending     []string `json:"pending"`
+		GameRunning bool     `json:"gameRunning"`
+		ReadOnly    string   `json:"readOnly"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &st); err != nil || !st.Dirty || len(st.Pending) != 2 || st.Path == "" {
+		t.Fatalf("unexpected state: %v %+v", err, st)
+	}
+	if strings.Contains(w.Body.String(), `"tables"`) {
+		t.Error("the poll must not scan the tables")
 	}
 }

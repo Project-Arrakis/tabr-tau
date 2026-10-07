@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/subtle"
 	"database/sql"
 	_ "embed"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -288,6 +290,33 @@ func (s *Save) Ops() []Op {
 
 // WithBaseline calls fn with read-only handles on the pristine copy of the save as loaded and on the working copy
 // as edited so far. fn runs with the save locked, so it must not call back into the Save.
+// ErrReviewChanged is returned when the pending changes are not the ones that were reviewed.
+var ErrReviewChanged = errors.New("the pending changes are different from the ones you reviewed; review them again")
+
+// reviewTokenLocked names the exact state a person reviews: the file this session loaded, the recorded edits and the
+// content of the working copy (so an edit with no description, or two edits with the same description, still differ).
+func (s *Save) reviewTokenLocked() (string, error) {
+	raw, err := os.ReadFile(s.work)
+	if err != nil {
+		return "", err
+	}
+	h := sha256.New()
+	h.Write(s.diskHash[:])
+	fmt.Fprintf(h, "%d\n", len(s.ops))
+	for _, o := range s.ops {
+		fmt.Fprintf(h, "%d:%s\n", len(o.Desc), o.Desc)
+	}
+	h.Write(raw)
+	return hex.EncodeToString(h.Sum(nil))[:32], nil
+}
+
+// ReviewToken returns the token for the current state.
+func (s *Save) ReviewToken() (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.reviewTokenLocked()
+}
+
 func (s *Save) WithBaseline(fn func(orig, current *sql.DB) error) error {
 	return s.WithBaselineState(func(orig, current *sql.DB, _ bool, _ []Op) error { return fn(orig, current) })
 }
@@ -295,12 +324,23 @@ func (s *Save) WithBaseline(fn func(orig, current *sql.DB) error) error {
 // WithBaselineState is WithBaseline that also hands fn the dirty flag and the recorded ops as they are at the same
 // instant as the databases, so a review is internally consistent.
 func (s *Save) WithBaselineState(fn func(orig, current *sql.DB, dirty bool, ops []Op) error) error {
+	return s.WithReview(func(orig, current *sql.DB, dirty bool, ops []Op, _ string) error {
+		return fn(orig, current, dirty, ops)
+	})
+}
+
+// WithReview is WithBaselineState that also hands fn the review token of that same instant.
+func (s *Save) WithReview(fn func(orig, current *sql.DB, dirty bool, ops []Op, token string) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.odb == nil || s.rdb == nil {
 		return errors.New("no save is loaded")
 	}
-	return fn(s.odb, s.rdb, s.dirty, append([]Op{}, s.ops...))
+	tok, err := s.reviewTokenLocked()
+	if err != nil {
+		return err
+	}
+	return fn(s.odb, s.rdb, s.dirty, append([]Op{}, s.ops...), tok)
 }
 
 func (s *Save) Dirty() bool {
@@ -472,11 +512,32 @@ func (s *Save) backup() (string, error) {
 
 // Commit backs up the original file, then atomically writes the edited save. force skips only the check that the
 // game is running; it never skips the changed-on-disk check.
-func (s *Save) Commit(force bool) (map[string]any, error) {
+func (s *Save) Commit(force bool) (map[string]any, error) { return s.commit(force, "", false) }
+
+// CommitReviewed is Commit for a save the person reviewed: token must be the one ReviewToken/WithReview returned for
+// exactly the state being written. The comparison happens under the same lock as the write, so an edit that lands
+// after the review cannot be saved unseen.
+func (s *Save) CommitReviewed(token string, force bool) (map[string]any, error) {
+	return s.commit(force, token, true)
+}
+
+func (s *Save) commit(force bool, token string, needToken bool) (map[string]any, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.dirty {
 		return map[string]any{"saved": false, "reason": "no changes"}, nil
+	}
+	if needToken {
+		if token == "" {
+			return nil, errors.New("review the changes before saving")
+		}
+		want, err := s.reviewTokenLocked()
+		if err != nil {
+			return nil, err
+		}
+		if subtle.ConstantTimeCompare([]byte(token), []byte(want)) != 1 {
+			return nil, ErrReviewChanged
+		}
 	}
 	if s.blocked != "" {
 		return nil, errReadOnly(s.blocked)
@@ -492,7 +553,7 @@ func (s *Save) Commit(force bool) (map[string]any, error) {
 		return nil, err
 	}
 	if hashOf(cur) != s.diskHash {
-		return nil, errChangedOnDisk
+		return nil, ErrChangedOnDisk
 	}
 	var chk string
 	if err := s.db.QueryRow("PRAGMA integrity_check").Scan(&chk); err != nil || chk != "ok" {
@@ -559,6 +620,9 @@ func (s *Save) Restore(name string) error {
 	if GameRunning() {
 		return fmt.Errorf("%s is running; close the game first", GameProcess)
 	}
+	if s.dirty { // restoring reloads the file and would silently drop the pending edits
+		return errors.New("you have unsaved edits; save or discard them first (restoring a backup would lose them)")
+	}
 	if err := s.requirePlainFile(); err != nil {
 		return err
 	}
@@ -583,7 +647,7 @@ func (s *Save) Restore(name string) error {
 		return err
 	}
 	if hashOf(cur) != s.diskHash {
-		return errChangedOnDisk
+		return ErrChangedOnDisk
 	}
 	curRaw, err := Decode(cur)
 	if err != nil {

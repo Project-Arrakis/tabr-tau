@@ -21,7 +21,7 @@ mutation checks in a scratch copy. Tracking issue: #24. Fixes below landed in PR
 | D1 | DBA | HIGH | Tampering | Deleting a container item leaves its child inventory, items and references behind (`NOT IN` with NULLs, empty-only cleanup, FKs off) | **Fixed in PR #42** (F-08): cascading item delete via `MutateCascade`, so a bag takes its inventories and contents with it; pre-existing behaviour, not introduced by #38 |
 | UX-1 | UI/UX | HIGH | N/A | No read-only banner: edits looked live and failed one toast at a time | **Fixed** (`readOnly` in Overview, persistent banner with the reason) |
 | UX-2 | UI/UX | HIGH | Repudiation | Commit result: `warning` ignored, `saved:false` shown as "Saved. Backup: undefined" | **Fixed** |
-| UX-3 | UI/UX | HIGH | Tampering, DoS | "Changed on disk" has no recovery path in the UI; `force` is never sent | **Deferred** to S2 (F-10, #11): needs the review pane and sticky errors designed together; the toast already names Discard |
+| UX-3 | UI/UX | HIGH | Tampering, DoS | "Changed on disk" has no recovery path in the UI; `force` is never sent | **Fixed** in S2 slice 1 (PR #50): a changed-on-disk failure keeps the review open, lists the edits to redo and offers Reload from disk (UI test "a save error stays in the review ... offers reload"). `force` is still never sent |
 | G-1 | GRC | HIGH | Repudiation | CHANGELOG said F-03..F-08 "not fixed yet" | **Fixed** |
 | G-2 | GRC | HIGH | Repudiation | Findings register had no record of S0/S1 progress or of this audit | **Fixed** (progress log, this file) |
 | G-3 | GRC | HIGH | Repudiation | Plan section 4.2 and the current-state table asserted the old behaviour | **Fixed** (implementation-status block) |
@@ -88,3 +88,36 @@ No CRITICAL. Every finding below was fixed in the PR unless a link says otherwis
 | P12 | LOW | DoS | `Compare` holds the save lock for the whole diff and loads full tables in memory (UI stalls on a very large save) | Filed on #40 |
 | P13 | LOW | N/A | PR said "Closes #7" though #7's disposition lists the review pane (S2) | **Fixed** (PR says "Refs #7"; #7 stays open for the pane) |
 Tests added for the endpoint (shape, redaction, gating, limit bounds), composite and typed keys, table-set differences, text output, malformed/opaque blobs, read-only handle, failed-reload behaviour. QA mutation checks: 13 of 14 mutations caught; the survivor (OpenReadOnly made writable) now has a test.
+
+## Layer 2: S2 slice 1 (review pane, PR #50), 2026-10-07
+
+Eight read-only reviewers (Architect, Security, GRC, Network+Cloud, UI/UX, DBA, QA) read the diff. No CRITICAL. Findings and dispositions:
+
+| ID | Hat | Sev | STRIDE | Finding | Disposition |
+|---|---|---|---|---|---|
+| S2-1 | Arch, Sec, DBA | HIGH | Tampering | Token checked in the route, commit takes the lock later: an edit landing between them is saved unseen | **Fixed**: `Save.CommitReviewed` compares under the commit lock (`TestCommitReviewedRefusesStaleAndMissingTokens`) |
+| S2-2 | Sec, DBA, Arch | HIGH | Tampering | Token hashed only descriptions (truncated SQL text, undescribed edits) and not the data | **Fixed**: token = loaded-file hash + edits + working-copy content (`TestReviewTokenBindsTheData`) |
+| S2-3 | Sec, DBA | HIGH | Tampering | Restore bypasses the review and drops pending edits | **Fixed in part**: Restore refuses while edits are pending (`TestRestoreRefusesWithPendingEdits`). Restore itself stays a separate path by design (backs up first, verifies, asks for confirmation); the token is a consistency control, not a defence against a holder of the session cookie (the cookie, SameSite, Host/Origin checks are those controls) |
+| S2-4 | Sec, Arch | LOW | Tampering | `force` accepted over HTTP skips the game-running check | **Fixed**: route ignores it (`force is ignored` case) |
+| S2-5 | Arch | MEDIUM | N/A | A refresh error after a successful save threw on `R=null` | **Fixed**: refresh errors are caught and reported |
+| S2-6 | Arch, QA, UI | MEDIUM | N/A | Stale-token error left Save enabled in a loop; stale detection matched message text | **Fixed**: server sends `code` (`changed_on_disk`, `review_changed`); a stale token refetches the review (UI test) |
+| S2-7 | Net | MEDIUM | DoS | The 5 s poll ran the table-count Overview and an uncached tasklist | **Fixed**: light `/api/save/state`; `GameRunning` cached 3 s with a 3 s timeout; poll skips hidden tabs |
+| S2-8 | Net, UI | LOW | DoS | A failed poll was swallowed, leaving a stale "game closed" and Save enabled | **Fixed**: banner "Lost contact with the editor", Save off |
+| S2-9 | UI | HIGH | N/A | Pane not a dialog: no focus, no Escape/backdrop close, background scrolls | **Fixed**: role=dialog, focus, Escape, backdrop, scroll lock. Full focus trap deferred to the UI/UX overhaul (#46) |
+| S2-10 | UI | MEDIUM | N/A | Truncated diff rows not announced | **Fixed** (note when listed rows < counted) |
+| S2-11 | UI | LOW | N/A | Success toast vanished in 3.5 s; reload had no confirm; double-click opened two reviews | **Fixed** (15 s, confirm, guard) |
+| S2-12 | GRC | MEDIUM | Repudiation | README, plan status block, L1/L2 registers, live-test protocol, CHANGELOG stale | **Fixed** in this PR |
+| S2-13 | QA | MEDIUM | N/A | Tests could not tell a description-only token from a data token; UI stub ignored the token | **Fixed**: data-binding and same-count tests; UI test asserts the token sent; code values in stubs match the server |
+| S2-14 | UI | LOW | N/A | Mobile layout, sticky action row, light-theme warn colours | **Deferred** to the UI/UX overhaul (#46, #48) |
+| S2-15 | Sec | LOW | Spoofing | Token is deterministic and any cookie holder can fetch it; requests without Origin/Sec-Fetch-Site are allowed | **Accepted, documented**: HttpOnly session cookie is the control; not a hostile-process defence |
+| S2-16 | Net | LOW | Info disclosure | `pending` descriptions in the state poll are not redacted | **Accepted**: same-origin, no-store, local user's own edits; review view redacts by default |
+
+### STRIDE
+| Category | Findings | Status |
+|---|---|---|
+| Spoofing | S2-15 | Accepted, documented |
+| Tampering | S2-1, S2-2, S2-3, S2-4 | Fixed |
+| Repudiation | S2-12 (stale docs), S2-3 (silent loss of edits) | Fixed |
+| Information disclosure | S2-16 | Accepted |
+| Denial of service | S2-7, S2-8 | Fixed |
+| Elevation of privilege | N/A | None found |

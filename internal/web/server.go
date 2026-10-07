@@ -187,7 +187,14 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func respond(w http.ResponseWriter, v any, err error) {
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		body := map[string]any{"error": err.Error()}
+		switch { // a stable code, so the page never has to match message wording
+		case errors.Is(err, save.ErrChangedOnDisk):
+			body["code"] = "changed_on_disk"
+		case errors.Is(err, save.ErrReviewChanged):
+			body["code"] = "review_changed"
+		}
+		writeJSON(w, http.StatusBadRequest, body)
 		return
 	}
 	writeJSON(w, http.StatusOK, v)
@@ -261,6 +268,7 @@ func (s *Server) routes() {
 	})
 
 	s.get("/api/overview", func(r *http.Request) (any, error) { return o.Overview() })
+	s.get("/api/save/state", func(r *http.Request) (any, error) { return o.State() })
 
 	// players
 	s.get("/api/player", func(r *http.Request) (any, error) { return o.Player() })
@@ -329,13 +337,9 @@ func (s *Server) routes() {
 	})
 
 	// save file lifecycle
-	s.post("/api/save/commit", func(a ops.Args) (any, error) {
-		// Saving is only reachable from the review: the request must quote the token of the edits that were shown.
-		if err := o.CheckReviewed(a.Str("reviewed")); err != nil {
-			return nil, err
-		}
-		return s.Save.Commit(a.Bool("force", false))
-	})
+	// Saving is only reachable from the review: the request must quote the token of the state that was shown, and the
+	// save checks it under its own lock. The game-running check cannot be switched off from here.
+	s.post("/api/save/commit", func(a ops.Args) (any, error) { return s.Save.CommitReviewed(a.Str("reviewed"), false) })
 	s.post("/api/save/discard", func(ops.Args) (any, error) { return map[string]any{"ok": true}, s.Save.Discard() })
 	s.get("/api/save/review", func(r *http.Request) (any, error) {
 		return o.Review(r.URL.Query().Get("unredacted") == "1", qint(r, "limit", 40))

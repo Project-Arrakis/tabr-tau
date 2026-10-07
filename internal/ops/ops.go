@@ -101,6 +101,14 @@ func (o *Ops) player() (player, error) {
 
 // ---------------------------------------------------------------- overview
 
+// State is the small, cheap status the UI polls: no table scans, only what the header and the save pane need.
+func (o *Ops) State() (any, error) {
+	return map[string]any{
+		"path": o.S.Path, "dirty": o.S.Dirty(), "pending": o.S.Pending(),
+		"gameRunning": save.GameRunning(), "readOnly": o.S.WriteBlocked(),
+	}, nil
+}
+
 func (o *Ops) Overview() (any, error) {
 	tabs, err := o.S.Query(`select name from sqlite_master where type='table' and name not like 'sqlite_%' order by name`)
 	if err != nil {

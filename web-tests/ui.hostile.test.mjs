@@ -30,7 +30,7 @@ const read = (n) => fs.readFileSync(path.join(static_, n), 'utf8');
 // Allowlists: anything else appearing in the rendered DOM is an injection.
 const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h3 ul li code table thead tbody tr th td input select option datalist button details summary textarea br'.split(' '));
 const SCRIPTS = new Set(['/html.js', '/app.js']); // the only scripts the page may contain, both same-origin files
-const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download'.split(' '));
+const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role aria-modal tabindex'.split(' '));
 
 export function assertClean(doc, label) {
   const bad = [];
@@ -69,7 +69,7 @@ async function boot({ post = {}, get = {}, confused = false } = {}) {
       if ((opt.method || 'GET') === 'POST') {
         const b = post[u.pathname] ?? { ok: true };
         posted.push({ path: u.pathname, body: opt.body ? JSON.parse(opt.body) : null });
-        if (b.__fail) return { ok: false, status: 500, statusText: 'Error', json: async () => ({ error: b.__fail }) };
+        if (b.__fail) return { ok: false, status: 400, statusText: 'Bad Request', json: async () => ({ error: b.__fail, code: b.__code }) };
         return { ok: true, status: 200, statusText: 'OK', json: async () => b };
       }
       if (get[u.pathname]) return { ok: true, status: 200, statusText: 'OK', json: async () => get[u.pathname] };
@@ -195,7 +195,7 @@ test('Save is inside the review, sends the reviewed token, and closes the review
 
 test('a save error stays in the review with a way forward; a changed-on-disk save offers reload', async () => {
   const stale = 'the save changed on disk since it was loaded (game autosave?); discard and redo the edits';
-  const ui = await openReviewUI({ post: { '/api/save/commit': { __fail: stale } } });
+  const ui = await openReviewUI({ post: { '/api/save/commit': { __fail: stale, __code: 'changed_on_disk' } } });
   ui.click('[data-act="doSave"]'); await ui.settle();
   const m = ui.doc.querySelector('#modal');
   assert.ok(!m.classList.contains('hide'), 'the review must stay open on an error');
@@ -222,12 +222,43 @@ test('an error toast stays until dismissed', async () => {
 });
 
 test('the game-running warning is persistent and blocks Save inside the review', async () => {
-  const ov = JSON.parse(JSON.stringify(baseFixtures['/api/overview'].body)); ov.gameRunning = true; ov.dirty = true;
-  const ui = await boot({ get: { '/api/overview': ov, '/api/save/review': hostileReview() } });
+  const ov = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)); ov.gameRunning = true; ov.dirty = true;
+  const ui = await boot({ get: { '/api/save/state': ov, '/api/save/review': hostileReview() } });
   assert.ok(!ui.doc.querySelector('#gamewarn').classList.contains('hide'));
   assert.ok(ui.doc.querySelector('#gamewarn').textContent.includes('Close the game'));
   ui.click('#btnSave'); await ui.settle();
   assert.equal(ui.doc.querySelector('#btnDoSave').disabled, true);
   assert.ok(ui.doc.querySelector('#savewhy').textContent.includes('Close the game'));
+  ui.dom.window.close();
+});
+
+test('a stale review token refetches the review and says why, instead of looping', async () => {
+  let n = 0;
+  const reviews = [{ ...hostileReview(), token: 'old' }, { ...hostileReview(), token: 'new' }];
+  const ui = await boot({ get: {}, post: { '/api/save/commit': { __fail: 'the pending changes are different from the ones you reviewed; review them again', __code: 'review_changed' } } });
+  ui.w.fetch = ((orig) => async (p, o) => (new URL(p, 'http://x').pathname === '/api/save/review' ? { ok: true, status: 200, json: async () => reviews[Math.min(n++, 1)] } : orig(p, o)))(ui.w.fetch);
+  ui.doc.querySelector('#btnSave').disabled = false;
+  ui.click('#btnSave'); await ui.settle();
+  ui.click('[data-act="doSave"]'); await ui.settle();
+  const m = ui.doc.querySelector('#modal');
+  assert.ok(m.textContent.includes('different from the ones you reviewed'));
+  assert.equal(n, 2, 'the review must be fetched again');
+  ui.dom.window.close();
+});
+
+test('the review pane is a labelled dialog, takes focus, and closes on Escape', async () => {
+  const ui = await openReviewUI();
+  assert.equal(ui.doc.querySelector('.mbox').getAttribute('role'), 'dialog');
+  assert.equal(ui.doc.activeElement.id, 'mtitle');
+  ui.doc.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  assert.ok(ui.doc.querySelector('#modal').classList.contains('hide'));
+  assert.ok(!ui.doc.body.classList.contains('noscroll'));
+  ui.dom.window.close();
+});
+
+test('a table with more changed rows than listed says the list is partial', async () => {
+  const r = hostileReview(); r.diff.tables[0].numModified = 500;
+  const ui = await openReviewUI({ review: r });
+  assert.ok(ui.doc.querySelector('#modal').textContent.includes('counts above are complete'));
   ui.dom.window.close();
 });
