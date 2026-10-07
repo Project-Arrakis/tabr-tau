@@ -57,12 +57,16 @@ go run ./cmd/tabr-tau            # auto-detects %LOCALAPPDATA%\DuneSandbox\...\g
 go run ./cmd/tabr-tau --save "C:\path\to\game.db" --config "%LOCALAPPDATA%\DuneSandbox\Saved\Config\Windows"
 ```
 
-Flags: `--save`, `--config`, `--addr` (default `127.0.0.1:8090`; must be a loopback address), `--allow-remote` (dangerous, see the security note), `--no-browser`.
+**On Windows the editor opens in its own window** (it uses the Microsoft Edge WebView2 component that ships with Windows 11 and current Windows 10). Double-click the exe: if it cannot find your save it shows an Open dialog, and errors appear in message boxes. If WebView2 is missing it tells you and opens the browser instead. Pass `--web` to use the browser. Closing the window ends the program and asks first when there are unsaved edits. Subcommands (`diff`, `decode`, ...) still work from a terminal.
+
+Flags: `--save`, `--config`, `--web` (browser instead of the window), `--addr` (default `127.0.0.1:8090`; must be a loopback address), `--allow-remote` (dangerous, needs `--web`, see the security note), `--no-browser`.
 
 Helper commands: `tabr-tau find`, `tabr-tau decode <save> <out.sqlite>`, `tabr-tau encode <in.sqlite> <out.db>`.
 
-Build a binary with `go build -o tabr-tau.exe ./cmd/tabr-tau` (Windows Application Control may block unsigned
-binaries; `go run` works around that).
+Build the Windows app (from any OS, no C compiler needed) with
+`GOOS=windows CGO_ENABLED=0 go build -trimpath -ldflags "-H=windowsgui -s -w" -o tabr-tau.exe ./cmd/tabr-tau`
+(`-H=windowsgui` removes the console window; the exe re-attaches to the terminal it was started from, so subcommands still
+print). Windows Application Control may block unsigned binaries; `go run` works around that.
 
 ## Safety notes
 

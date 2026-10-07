@@ -3,6 +3,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
 	"github.com/Project-Arrakis/tabr-tau/internal/diff"
+	"github.com/Project-Arrakis/tabr-tau/internal/gui"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/web"
 )
@@ -42,7 +44,9 @@ func main() {
 	addr := flag.String("addr", "127.0.0.1:8090", "listen address (must be loopback unless --allow-remote)")
 	allowRemote := flag.Bool("allow-remote", false, "DANGEROUS: allow a non-loopback --addr and connections from other machines (no login exists)")
 	noOpen := flag.Bool("no-browser", false, "do not open the browser")
+	forceWeb := flag.Bool("web", false, "use the browser instead of the built-in window (Windows opens its own window by default)")
 	flag.Usage = usage
+	gui.AttachConsole() // a GUI-subsystem exe has no console of its own; reattach to the parent's so CLI output shows
 	flag.Parse()
 	addrExplicit := false
 	flag.Visit(func(f *flag.Flag) {
@@ -58,16 +62,34 @@ func main() {
 		}
 		return
 	}
+	window := gui.WantWindow(runtime.GOOS, gui.Supported(), *forceWeb, false)
+	// die reports a startup problem on stderr and, in window mode (where there may be no console), in a message box.
+	die := func(format string, a ...any) {
+		msg := fmt.Sprintf(format, a...)
+		fmt.Fprintln(os.Stderr, msg)
+		if window {
+			gui.MessageBox("TABR TAU", msg)
+		}
+		os.Exit(1)
+	}
 
 	path := *savePath
 	if path == "" {
 		found := save.Discover()
-		switch len(found) {
-		case 0:
-			fmt.Fprintln(os.Stderr, "No game.db found automatically; pass --save <path>.")
-			os.Exit(1)
-		case 1:
+		switch {
+		case len(found) == 1:
 			path = found[0]
+		case window:
+			picked, err := gui.PickFile("Choose the save to edit (game.db)")
+			if err != nil {
+				die("error: %v", err)
+			}
+			if picked == "" {
+				return // cancelled
+			}
+			path = picked
+		case len(found) == 0:
+			die("No game.db found automatically; pass --save <path>.")
 		default:
 			fmt.Fprintln(os.Stderr, "Several saves found; pass --save <path> with one of:")
 			for _, f := range found {
@@ -78,8 +100,7 @@ func main() {
 	}
 	s, err := save.Open(path)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
+		die("error: %v", err)
 	}
 	defer s.Close()
 
@@ -98,9 +119,11 @@ func main() {
 		}
 	}
 
+	if window && (*allowRemote) {
+		die("--allow-remote needs the browser mode: add --web")
+	}
 	if err := web.CheckListenAddr(*addr, *allowRemote); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
+		die("error: %v", err)
 	}
 	remoteOK := false
 	if *allowRemote {
@@ -116,19 +139,34 @@ func main() {
 
 	ln, err := web.Listen(*addr, addrExplicit)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
+		die("error: %v", err)
 	}
 	base := "http://" + ln.Addr().String()
 	ws := web.New(s, config.Dir{Path: *cfgDir})
 	ws.AllowRemote = remoteOK
 	bootURL := ws.BootURL(base) // single use, valid for 10 minutes; sets this browser's session cookie
 	fmt.Printf("tabr-tau %s\n  save:   %s\n  config: %s\n  ui:     %s\n", version, s.Path, *cfgDir, bootURL)
+	srv := web.NewHTTPServer(ws.Handler())
+	if window {
+		// Serve in the background and show the editor in its own window; closing the window ends the program.
+		// Unsaved edits are guarded by the page's beforeunload prompt.
+		go srv.Serve(ln)
+		err := gui.Run(bootURL, "TABR TAU - Dune: Awakening save editor", 1280, 860)
+		if err == nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			srv.Shutdown(ctx)
+			return
+		}
+		// No WebView2 runtime (or the window could not be created): fall back to the browser rather than fail.
+		gui.MessageBox("TABR TAU", fmt.Sprintf("%v\n\nOpening the editor in your browser instead.", err))
+		openBrowser(bootURL)
+		select {} // keep serving until the process is killed, as in browser mode
+	}
 	fmt.Println("  (open the ui link above; it works once, for 10 minutes)")
 	if !*noOpen {
 		go func() { time.Sleep(300 * time.Millisecond); openBrowser(bootURL) }()
 	}
-	srv := web.NewHTTPServer(ws.Handler())
 	if err := srv.Serve(ln); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)

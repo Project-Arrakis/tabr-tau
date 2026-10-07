@@ -2,11 +2,15 @@ module github.com/Project-Arrakis/tabr-tau
 
 go 1.26.6
 
-require modernc.org/sqlite v1.60.1
+require (
+	github.com/jchv/go-webview2 v0.0.0-20260205173254-56598839c808
+	modernc.org/sqlite v1.60.1
+)
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/jchv/go-winloader v0.0.0-20250406163304-c1995be93bd1 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect

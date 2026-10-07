@@ -34,6 +34,10 @@ jobs:
         run: go vet ./...
       - name: staticcheck
         run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.1 ./...
+      - name: cross-compile for Windows (the native window code only builds there)
+        run: |
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-H=windowsgui -s -w" -o /dev/null ./cmd/tabr-tau
       - name: go test (race, coverage)
         run: go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
       - name: coverage summary
@@ -49,6 +53,8 @@ jobs:
           go-version-file: go.mod
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+      - name: govulncheck (Windows build)
+        run: GOOS=windows go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 
   powershell:
     name: powershell
