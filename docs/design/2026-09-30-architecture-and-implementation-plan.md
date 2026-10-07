@@ -130,13 +130,19 @@ Steps marked **(exists)** are in the code today; **(new)** are not.
 9. **Restore** uses the same pipeline (tmp+sync+rename, integrity check, patch-set subset check, hash check); it never truncates the live file in place.
 
 **Implementation status (2026-10-07).** Done: step 2 (hash re-checked immediately before the rename; `force` never skips it);
-step 3 (`save.Mutate` is the only write path, `Exec`/`ExecScript`/`Tx` removed so the compiler enforces it); step 6 partly (unique
-fsynced read-back-verified 0600 backups; sidecar JSON and retention not built); step 7 (exclusive 0600 temp, fsync, rename retry,
-read-back compare, stale-temp cleanup); step 8 partly (a read-back mismatch restores the previous bytes; reopening and re-running
-invariants is not built; a reload failure after a successful write is a warning); step 9 (Restore through the same pipeline, no
-in-place truncation, integrity and patch-subset checks). Fingerprint (4.3) is checked at load and refuses all writes. **Not built
-yet:** the typed reason for `force` (S2), `foreign_key_check` before/after (F-08, #9), JSON/JSONB invariants, the pristine `orig`
-copy and review pane (F-06, #7), process polling in the UI.
+step 3 (`save.Mutate` is the only write path, `Exec`/`ExecScript`/`Tx` removed so the compiler enforces it); step 4 partly
+(fingerprint checked at load and refuses all writes; `foreign_key_check` gate with a per-row baseline diff on every edit);
+step 6 partly (unique fsynced read-back-verified 0600 backups; sidecar JSON and retention not built); step 7 (exclusive 0600
+temp, fsync, rename retry, read-back compare, stale-temp cleanup); step 8 partly (a read-back mismatch restores the previous
+bytes; reopening and re-running invariants is not built; a reload failure after a successful write is a warning); step 9
+(Restore through the same pipeline, no in-place truncation, integrity and patch-subset checks).
+**Decision recorded 2026-10-07 (F-08):** item deletes use `MutateCascade`, which switches `foreign_keys=ON` for that one
+edit so the delete cascades exactly as the schema declares (every FK on `items`/`inventories` is `ON DELETE CASCADE`),
+instead of hand-written child deletes. This departs from the earlier wording ("explicit child deletes, decide `foreign_keys`
+after T4") because explicit deletes would re-implement the schema's cascade by hand and miss references; the default
+connection setting stays `foreign_keys=0` and the global decision still waits on T4.
+**Not built yet:** the typed reason for `force` (S2), JSON/JSONB invariants, the pristine `orig` copy and review pane
+(F-06, #7), process polling in the UI.
 
 ### 4.3 Compatibility strategy
 - **Capability probe:** each feature declares required tables, columns and JSON paths; unavailable features are shown disabled with the reason (F-21), and their writes are refused.
@@ -192,7 +198,7 @@ Acceptance: green CI on `main`; protection on; scanners on; CHANGELOG; findings 
 Tasks: 4.4 items 1-10. Acceptance: each item has a failing-first test; `TestHostileSaveXSS`, `TestDecodeBomb`, `TestRemoteAddrRefused`, `TestReadOnlyConsoleCannotWrite`, `TestUnknownTriggerRefusesWrites` pass; manual check that `--addr 0.0.0.0` is refused.
 
 ### S1 Write pipeline (F-05..F-08)
-`save.Mutate`, pending-op record, retained `orig`, Go `internal/diff`, invariants, durable Commit/Restore, `foreign_key_check` gate, explicit child deletes for container items, unique backups, retention, `snapshot`/`diff`/`verify` CLI. Acceptance: fault-injection tests pass; a lint test forbids `S.Exec` from `ops`; the existing ops tests migrated onto the real-DDL fixture (F-02).
+`save.Mutate`, pending-op record, retained `orig`, Go `internal/diff`, invariants, durable Commit/Restore, `foreign_key_check` gate, cascading deletes for container items (see the 2026-10-07 decision in 4.2), unique backups, retention, `snapshot`/`diff`/`verify` CLI. Acceptance: fault-injection tests pass; a lint test forbids `S.Exec` from `ops`; the existing ops tests migrated onto the real-DDL fixture (F-02).
 
 ### S2 UX safety (F-10, F-21)
 Review pane (Save only from it), tiered confirmations (typed for destructive/bulk), persistent game-running banner with polling, `beforeunload`, sticky commit errors with "reload and re-apply", in-browser save picker, error taxonomy and status codes, toast wording "Queued (not in game yet)", Backups and history page, "not available in single-player" catalog, accessibility pass, ID masking. Acceptance: a written flow for each state (first launch, multiple saves, game running, stale save, capability degraded) with a screenshot or scripted UI test.
@@ -215,7 +221,7 @@ Layer 2 audit at the end of S1, S3, P4 and P5; Layer 3 before each tagged releas
 | R1 | Game rejects/normalizes our JSONB or rows | med | high | P1 gate (T1-T3), automatic restore, small edits |
 | R2 | Patch changes schema; silent corruption | med | high | fingerprint + read-only degrade + restore patch-subset check |
 | R3 | Game/Steam Cloud/autosave overwrites edits | med | med | game-running check, hash check, T5 experiment, Steam Cloud noted in protocol |
-| R4 | Cascade/trigger side effects on deletes | med | high | explicit child deletes + `foreign_key_check` gate now; `foreign_keys` decision from T4 |
+| R4 | Cascade/trigger side effects on deletes | med | high | `foreign_key_check` gate + per-edit cascading deletes (`MutateCascade`) now; global `foreign_keys` decision from T4 |
 | R5 | **Hostile shared save (memory bomb, XSS, hostile triggers)** | **med** (raised from low: audit chained SEC-1..4) | high | S0 |
 | R6 | Privacy leak of IDs (git, cloud, screenshots, diffs) | med | med | F-11 controls; masking by default |
 | R7 | Catalog names stale/unlicensed | high | low | show raw IDs; provenance check; fallback to names from own save |

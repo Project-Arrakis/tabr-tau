@@ -33,8 +33,9 @@ type Save struct {
 	mu       sync.Mutex
 	work     string // decoded working copy on disk
 	db       *sql.DB
-	rdb      *sql.DB // separate read-only connection for the SQL console
-	blocked  string  // why writes are refused (unknown database objects), or ""
+	rdb      *sql.DB        // separate read-only connection for the SQL console
+	blocked  string         // why writes are refused (unknown database objects), or ""
+	fkBase   map[string]int // dangling references present before the current edit (see Mutate)
 	diskHash [32]byte
 	dirty    bool
 	pending  []string
@@ -205,6 +206,11 @@ func (s *Save) load() error {
 	rdb.SetConnMaxLifetime(0)
 	s.rdb = rdb
 	s.blocked = fingerprint(db)
+	if base, err := fkCounts(db); err == nil {
+		s.fkBase = base
+	} else if s.blocked == "" { // never hide a more specific reason (unknown database objects)
+		s.blocked = "the save's foreign-key state could not be read: " + err.Error()
+	}
 	s.diskHash = sha256.Sum256(blob)
 	s.dirty = false
 	s.pending = nil

@@ -398,7 +398,9 @@ func (o *Ops) DeleteItem(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = o.S.Mutate(fmt.Sprintf("delete item %d", id), func(m *save.Mut) error {
+	// Cascading delete: an item that owns an inventory takes that inventory and everything in it with it, as the
+	// game's schema declares (ON DELETE CASCADE), instead of leaving them dangling.
+	_, err = o.S.MutateCascade(fmt.Sprintf("delete item %d", id), func(m *save.Mut) error {
 		res, err := m.Exec(`delete from items where id=?`, id)
 		if err != nil {
 			return err
@@ -406,8 +408,7 @@ func (o *Ops) DeleteItem(a Args) (any, error) {
 		if n, _ := res.RowsAffected(); n == 0 {
 			return errors.New("item not found")
 		}
-		_, err = m.Exec(`delete from inventories where item_id=? and id not in (select inventory_id from items)`, id)
-		return err
+		return nil
 	})
 	if err != nil {
 		return nil, err
