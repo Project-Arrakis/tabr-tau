@@ -230,9 +230,7 @@ func TestCSVExportNeutralizesFormulaCells(t *testing.T) {
 		{"=HYPERLINK(\"http://x\")", "'=HYPERLINK"}, {"+1+1", "'+1+1"}, {"-2+3", "'-2+3"}, {"@SUM(A1)", "'@SUM"},
 		{"\tTAB", "'\tTAB"}, {"\rCR", "'\rCR"}, {"plain", "plain"}, {"a=b", "a=b"},
 	} {
-		if _, err := o.S.Exec(`update items set template_id=? where id=11`, tc.in); err != nil {
-			t.Fatal(err)
-		}
+		testsave.Exec(t, o.S, `update items set template_id=? where id=11`, tc.in)
 		b, ct, err := o.Export("items", "csv")
 		if err != nil || ct != "text/csv" {
 			t.Fatalf("export: %v %s", err, ct)
@@ -248,11 +246,44 @@ func TestCSVExportNeutralizesFormulaCells(t *testing.T) {
 		}
 	}
 	// numbers are not text and must not be touched: a negative integer stays -5
-	if _, err := o.S.Exec(`update items set acquisition_time=-5 where id=11`); err != nil {
-		t.Fatal(err)
-	}
+	testsave.Exec(t, o.S, `update items set acquisition_time=-5 where id=11`)
 	b, _, _ := o.Export("items", "csv")
 	if !strings.Contains(string(b), ",-5,") {
 		t.Errorf("a numeric cell must stay numeric in CSV: %s", b)
+	}
+}
+
+// ---- single write path (F-05)
+
+func TestSetItemReportsMissingItemAndValidatesBeforeWriting(t *testing.T) {
+	o := newPlayerOps(t)
+	if _, err := o.SetItem(Args{"id": float64(99999), "stack_size": float64(5)}); err == nil {
+		t.Fatal("editing a nonexistent item must be an error, not ok")
+	}
+	// an out-of-range second field is rejected before anything is written, so the first must not be applied either
+	// (transaction rollback itself is covered in internal/save/mutate_test.go)
+	before := stackOf(t, o, 10)
+	_, err := o.SetItem(Args{"id": float64(10), "stack_size": float64(5), "quality": float64(99)})
+	if err == nil {
+		t.Fatal("quality 99 is out of range")
+	}
+	if got := stackOf(t, o, 10); got != before {
+		t.Fatalf("a rejected edit changed data: %d -> %d", before, got)
+	}
+}
+
+func TestDeleteItemMissingIsAnErrorAndLeavesNoPendingEntry(t *testing.T) {
+	o := newPlayerOps(t)
+	if _, err := o.DeleteItem(Args{"id": float64(99999)}); err == nil {
+		t.Fatal("expected not found")
+	}
+	if o.S.Dirty() || len(o.S.Pending()) != 0 {
+		t.Fatal("nothing changed, nothing should be pending")
+	}
+	if _, err := o.DeleteItem(Args{"id": float64(11)}); err != nil {
+		t.Fatal(err)
+	}
+	if p := o.S.Pending(); len(p) != 1 || !strings.Contains(p[0], "delete item 11") {
+		t.Fatalf("pending = %v", p)
 	}
 }

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
 func shortClass(c any) string {
@@ -51,27 +53,44 @@ func (o *Ops) StorageItems(inv int64) (any, error) {
 
 // RepairBuildings sets every building piece to the highest health seen for its type.
 func (o *Ops) RepairBuildings() (any, error) {
-	res, err := o.S.Exec(`update building_instances set health=(select max(b.health) from building_instances b
-		where b.building_type=building_instances.building_type) where health < (select max(b.health) from building_instances b
-		where b.building_type=building_instances.building_type)`)
+	var n, mm int64
+	_, err := o.S.Mutate("", func(m *save.Mut) error {
+		res, err := m.Exec(`update building_instances set health=(select max(b.health) from building_instances b
+			where b.building_type=building_instances.building_type) where health < (select max(b.health) from building_instances b
+			where b.building_type=building_instances.building_type)`)
+		if err != nil {
+			return err
+		}
+		n, _ = res.RowsAffected()
+		res2, err := m.Exec(`update placeables set health=(select max(b.health) from placeables b where b.building_type=placeables.building_type)
+			where health < (select max(b.health) from placeables b where b.building_type=placeables.building_type)`)
+		if err != nil {
+			return err
+		}
+		mm, _ = res2.RowsAffected()
+		m.Desc = fmt.Sprintf("repair buildings: %d pieces, %d placeables", n, mm)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	n, _ := res.RowsAffected()
-	res2, _ := o.S.Exec(`update placeables set health=(select max(b.health) from placeables b where b.building_type=placeables.building_type)
-		where health < (select max(b.health) from placeables b where b.building_type=placeables.building_type)`)
-	m, _ := res2.RowsAffected()
-	o.S.Log("repair buildings: %d pieces, %d placeables", n, m)
-	return map[string]any{"ok": true, "pieces": n, "placeables": m}, nil
+	return map[string]any{"ok": true, "pieces": n, "placeables": mm}, nil
 }
 
 func (o *Ops) ClearSand() (any, error) {
-	res, err := o.S.Exec(`update building_instances set sand_buildup=0 where sand_buildup<>0`)
+	var n int64
+	_, err := o.S.Mutate("", func(m *save.Mut) error {
+		res, err := m.Exec(`update building_instances set sand_buildup=0 where sand_buildup<>0`)
+		if err != nil {
+			return err
+		}
+		n, _ = res.RowsAffected()
+		m.Desc = fmt.Sprintf("cleared sand buildup on %d pieces", n)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	n, _ := res.RowsAffected()
-	o.S.Log("cleared sand buildup on %d pieces", n)
 	return map[string]any{"ok": true, "pieces": n}, nil
 }
 
@@ -86,10 +105,9 @@ func (o *Ops) SetPieceHealth(a Args) (any, error) {
 	if err := errors.Join(e1, e2); err != nil {
 		return nil, err
 	}
-	if _, err := o.S.Exec(`update `+table+` set health=? where `+idCol+`=?`, h, id); err != nil {
+	if _, err := o.run(fmt.Sprintf("%s %d health = %g", table, id, h), `update `+table+` set health=? where `+idCol+`=?`, h, id); err != nil {
 		return nil, err
 	}
-	o.S.Log("%s %d health = %g", table, id, h)
 	return ok(), nil
 }
 
@@ -127,15 +145,14 @@ func (o *Ops) BringVehicle(a Args) (any, error) {
 	if me == nil {
 		return nil, errors.New("player position unknown")
 	}
-	res, err := o.S.Exec(`update actors set map=?, location_x=?+800, location_y=?, location_z=?+150 where id=? and id in (select id from vehicles)`,
+	n, err := o.run(fmt.Sprintf("moved vehicle %d next to player", id), `update actors set map=?, location_x=?+800, location_y=?, location_z=?+150 where id=? and id in (select id from vehicles)`,
 		me["map"], me["x"], me["y"], me["z"], id)
 	if err != nil {
 		return nil, err
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	if n == 0 {
 		return nil, errors.New("vehicle not found")
 	}
-	o.S.Log("moved vehicle %d next to player", id)
 	return ok(), nil
 }
 
@@ -145,14 +162,13 @@ func (o *Ops) SetRecoveredDurability(a Args) (any, error) {
 	if err := errors.Join(e1, e2); err != nil {
 		return nil, err
 	}
-	res, err := o.S.Exec(`update recovered_vehicles set chassis_durability=? where vehicle_id=?`, d, id)
+	n, err := o.run(fmt.Sprintf("recovered vehicle %d chassis durability = %g", id, d), `update recovered_vehicles set chassis_durability=? where vehicle_id=?`, d, id)
 	if err != nil {
 		return nil, err
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	if n == 0 {
 		return nil, errors.New("recovered vehicle not found")
 	}
-	o.S.Log("recovered vehicle %d chassis durability = %g", id, d)
 	return ok(), nil
 }
 
@@ -183,12 +199,21 @@ func (o *Ops) ResetVendors(a Args) (any, error) {
 		q2 += ` and vendor_id=?`
 		args = append(args, v)
 	}
-	r1, err := o.S.Exec(q1, args...)
+	var n int64
+	_, err = o.S.Mutate("", func(m *save.Mut) error {
+		r1, err := m.Exec(q1, args...)
+		if err != nil {
+			return err
+		}
+		n, _ = r1.RowsAffected()
+		if _, err := m.Exec(q2, args...); err != nil {
+			return err
+		}
+		m.Desc = fmt.Sprintf("reset vendor purchase limits (%d rows)", n)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	o.S.Exec(q2, args...)
-	n, _ := r1.RowsAffected()
-	o.S.Log("reset vendor purchase limits (%d rows)", n)
 	return map[string]any{"ok": true, "rows": n}, nil
 }

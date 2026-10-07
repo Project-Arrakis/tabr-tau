@@ -5,7 +5,6 @@
 package ops
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -159,14 +158,28 @@ func (o *Ops) Teleport(a Args) (any, error) {
 	if err := errors.Join(e1, e2, e3); err != nil {
 		return nil, err
 	}
-	if _, err := o.S.Exec(`update actors set location_x=?, location_y=?, location_z=? where id=?`, x, y, z, p.Pawn); err != nil {
+	if _, err := o.run(fmt.Sprintf("teleport player to %.0f, %.0f, %.0f", x, y, z),
+		`update actors set location_x=?, location_y=?, location_z=? where id=?`, x, y, z, p.Pawn); err != nil {
 		return nil, err
 	}
-	o.S.Log("teleport player to %.0f, %.0f, %.0f", x, y, z)
 	return ok(), nil
 }
 
 func ok() map[string]any { return map[string]any{"ok": true} }
+
+// run is a one-statement edit through the single write path. It returns the rows the statement affected.
+func (o *Ops) run(desc, q string, args ...any) (int64, error) {
+	var n int64
+	_, err := o.S.Mutate(desc, func(m *save.Mut) error {
+		res, err := m.Exec(q, args...)
+		if err != nil {
+			return err
+		}
+		n, _ = res.RowsAffected()
+		return nil
+	})
+	return n, err
+}
 
 // ---------------------------------------------------------------- inventory
 
@@ -221,14 +234,14 @@ func (o *Ops) Inventory() (any, error) {
 
 // giveInTx inserts an item into inventoryID, using the next free slot and the
 // game's own id sequencer.
-func giveInTx(tx *sql.Tx, inventoryID int64, template string, qty, quality int64) (int64, error) {
-	rows, err := save.TxQuery(tx, `select id, coalesce(max_item_count,0) cap from inventories where id=?`, inventoryID)
+func giveInTx(m *save.Mut, inventoryID int64, template string, qty, quality int64) (int64, error) {
+	rows, err := m.Query(`select id, coalesce(max_item_count,0) cap from inventories where id=?`, inventoryID)
 	if err != nil || len(rows) == 0 {
 		return 0, errors.New("inventory not found")
 	}
 	capacity := rows[0]["cap"].(int64)
 	used := map[int64]bool{}
-	pos, _ := save.TxQuery(tx, `select position_index p from items where inventory_id=?`, inventoryID)
+	pos, _ := m.Query(`select position_index p from items where inventory_id=?`, inventoryID)
 	for _, r := range pos {
 		if p, ok := r["p"].(int64); ok {
 			used[p] = true
@@ -242,25 +255,25 @@ func giveInTx(tx *sql.Tx, inventoryID int64, template string, qty, quality int64
 		slot++
 	}
 	stats := `{"FCustomizationStats":[[],{}],"FItemStackAndDurabilityStats":[[],{}]}`
-	if k, _ := save.TxQuery(tx, `select stats from items where template_id=? and stats is not null limit 1`, template); len(k) > 0 {
+	if k, _ := m.Query(`select stats from items where template_id=? and stats is not null limit 1`, template); len(k) > 0 {
 		stats = fmt.Sprint(k[0]["stats"])
 	}
 	var next, maxID int64
-	seq, _ := save.TxQuery(tx, `select next_id from items_id_sequencer`)
-	m, _ := save.TxQuery(tx, `select coalesce(max(id),0) m from items`)
-	maxID = m[0]["m"].(int64)
+	seq, _ := m.Query(`select next_id from items_id_sequencer`)
+	mx, _ := m.Query(`select coalesce(max(id),0) m from items`)
+	maxID = mx[0]["m"].(int64)
 	next = maxID + 1
 	if len(seq) > 0 {
 		if n := seq[0]["next_id"].(int64); n > next {
 			next = n
 		}
-		if _, err := tx.Exec(`update items_id_sequencer set next_id=?`, next+1); err != nil {
+		if _, err := m.Exec(`update items_id_sequencer set next_id=?`, next+1); err != nil {
 			return 0, err
 		}
-	} else if _, err := tx.Exec(`insert into items_id_sequencer(next_id) values(?)`, next+1); err != nil {
+	} else if _, err := m.Exec(`insert into items_id_sequencer(next_id) values(?)`, next+1); err != nil {
 		return 0, err
 	}
-	_, err = tx.Exec(`insert into items(id, inventory_id, stack_size, position_index, template_id, is_new, acquisition_time, stats, quality_level)
+	_, err = m.Exec(`insert into items(id, inventory_id, stack_size, position_index, template_id, is_new, acquisition_time, stats, quality_level)
 		values(?,?,?,?,?,1,strftime('%s','now'),?,?)`, next, inventoryID, qty, slot, template, stats, quality)
 	return next, err
 }
@@ -304,10 +317,9 @@ func (o *Ops) GiveItem(a Args) (any, error) {
 		return nil, errors.New("that inventory does not belong to the player")
 	}
 	var id int64
-	if err := o.S.Tx(func(tx *sql.Tx) (e error) { id, e = giveInTx(tx, inv, tmpl, qty, q); return }); err != nil {
+	if _, err := o.S.Mutate(fmt.Sprintf("give %dx %s (grade %d)", qty, tmpl, q), func(m *save.Mut) (e error) { id, e = giveInTx(m, inv, tmpl, qty, q); return }); err != nil {
 		return nil, err
 	}
-	o.S.Log("give %dx %s (grade %d)", qty, tmpl, q)
 	return map[string]any{"ok": true, "itemId": id}, nil
 }
 
@@ -321,10 +333,9 @@ func (o *Ops) GiveToInventory(a Args) (any, error) {
 		return nil, errors.New("inventory_id is required")
 	}
 	var id int64
-	if err := o.S.Tx(func(tx *sql.Tx) (e error) { id, e = giveInTx(tx, inv, tmpl, qty, q); return }); err != nil {
+	if _, err := o.S.Mutate(fmt.Sprintf("give %dx %s to inventory %d", qty, tmpl, inv), func(m *save.Mut) (e error) { id, e = giveInTx(m, inv, tmpl, qty, q); return }); err != nil {
 		return nil, err
 	}
-	o.S.Log("give %dx %s to inventory %d", qty, tmpl, inv)
 	return map[string]any{"ok": true, "itemId": id}, nil
 }
 
@@ -333,21 +344,43 @@ func (o *Ops) SetItem(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	type edit struct {
+		col string
+		val int64
+	}
+	var edits []edit
 	if _, has := a["stack_size"]; has {
 		n, err := a.IntRange("stack_size", 1, 10_000_000)
 		if err != nil {
 			return nil, err
 		}
-		o.S.Exec(`update items set stack_size=? where id=?`, n, id)
+		edits = append(edits, edit{"stack_size", n})
 	}
 	if _, has := a["quality"]; has {
 		n, err := a.IntRange("quality", 0, 5)
 		if err != nil {
 			return nil, err
 		}
-		o.S.Exec(`update items set quality_level=? where id=?`, n, id)
+		edits = append(edits, edit{"quality_level", n})
 	}
-	o.S.Log("edit item %d", id)
+	if len(edits) == 0 {
+		return ok(), nil
+	}
+	_, err = o.S.Mutate(fmt.Sprintf("edit item %d", id), func(m *save.Mut) error {
+		for _, e := range edits {
+			res, err := m.Exec(`update items set `+e.col+`=? where id=?`, e.val, id)
+			if err != nil {
+				return err
+			}
+			if n, _ := res.RowsAffected(); n == 0 {
+				return errors.New("item not found")
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
 	return ok(), nil
 }
 
@@ -356,15 +389,20 @@ func (o *Ops) DeleteItem(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	res, err := o.S.Exec(`delete from items where id=?`, id)
+	_, err = o.S.Mutate(fmt.Sprintf("delete item %d", id), func(m *save.Mut) error {
+		res, err := m.Exec(`delete from items where id=?`, id)
+		if err != nil {
+			return err
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return errors.New("item not found")
+		}
+		_, err = m.Exec(`delete from inventories where item_id=? and id not in (select inventory_id from items)`, id)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return nil, errors.New("item not found")
-	}
-	o.S.Exec(`delete from inventories where item_id=? and id not in (select inventory_id from items)`, id)
-	o.S.Log("delete item %d", id)
 	return ok(), nil
 }
 
@@ -380,33 +418,40 @@ func (o *Ops) RepairGear() (any, error) {
 		return nil, err
 	}
 	repaired := 0
-	for _, r := range rows {
-		var st map[string][]any
-		if json.Unmarshal([]byte(fmt.Sprint(r["stats"])), &st) != nil {
-			continue
-		}
-		pair := st["FItemStackAndDurabilityStats"]
-		if len(pair) < 2 {
-			continue
-		}
-		d, isMap := pair[1].(map[string]any)
-		if !isMap {
-			continue
-		}
-		if _, has := d["CurrentDurability"]; !has {
-			continue
-		}
-		target := 100.0
-		if m, ok := d["MaxDurability"].(float64); ok && m > 0 {
-			target = m
-		}
-		d["CurrentDurability"] = target
-		b, _ := json.Marshal(st)
-		if _, err := o.S.Exec(`update items set stats=? where id=?`, string(b), r["id"]); err == nil {
+	_, err = o.S.Mutate("repair gear", func(m *save.Mut) error {
+		for _, r := range rows {
+			var st map[string][]any
+			if json.Unmarshal([]byte(fmt.Sprint(r["stats"])), &st) != nil {
+				continue
+			}
+			pair := st["FItemStackAndDurabilityStats"]
+			if len(pair) < 2 {
+				continue
+			}
+			d, isMap := pair[1].(map[string]any)
+			if !isMap {
+				continue
+			}
+			if _, has := d["CurrentDurability"]; !has {
+				continue
+			}
+			target := 100.0
+			if mx, ok := d["MaxDurability"].(float64); ok && mx > 0 {
+				target = mx
+			}
+			d["CurrentDurability"] = target
+			b, _ := json.Marshal(st)
+			if _, err := m.Exec(`update items set stats=? where id=?`, string(b), r["id"]); err != nil {
+				return err
+			}
 			repaired++
 		}
+		m.Desc = fmt.Sprintf("repair gear: %d items", repaired)
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
-	o.S.Log("repair gear: %d items", repaired)
 	return map[string]any{"ok": true, "scanned": len(rows), "repaired": repaired}, nil
 }
 
@@ -420,32 +465,31 @@ func (o *Ops) AddSolari(a Args) (any, error) {
 	if err != nil || delta == 0 {
 		return nil, errors.New("amount must be a non-zero integer")
 	}
-	err = o.S.Tx(func(tx *sql.Tx) error {
-		rows, _ := save.TxQuery(tx, `select i.id, i.stack_size from items i join inventories v on v.id=i.inventory_id
+	_, err = o.S.Mutate(fmt.Sprintf("solari %+d", delta), func(m *save.Mut) error {
+		rows, _ := m.Query(`select i.id, i.stack_size from items i join inventories v on v.id=i.inventory_id
 			where v.actor_id=? and v.inventory_type=0 and i.template_id=? order by i.id limit 1`, p.Pawn, solariTemplate)
 		if len(rows) > 0 {
 			n := rows[0]["stack_size"].(int64) + delta
 			if n <= 0 {
-				_, err := tx.Exec(`delete from items where id=?`, rows[0]["id"])
+				_, err := m.Exec(`delete from items where id=?`, rows[0]["id"])
 				return err
 			}
-			_, err := tx.Exec(`update items set stack_size=? where id=?`, n, rows[0]["id"])
+			_, err := m.Exec(`update items set stack_size=? where id=?`, n, rows[0]["id"])
 			return err
 		}
 		if delta < 0 {
 			return errors.New("player has no Solari")
 		}
-		inv, _ := save.TxQuery(tx, `select id from inventories where actor_id=? and inventory_type=0 order by id limit 1`, p.Pawn)
+		inv, _ := m.Query(`select id from inventories where actor_id=? and inventory_type=0 order by id limit 1`, p.Pawn)
 		if len(inv) == 0 {
 			return errors.New("backpack not found")
 		}
-		_, err := giveInTx(tx, inv[0]["id"].(int64), solariTemplate, delta, 0)
+		_, err := giveInTx(m, inv[0]["id"].(int64), solariTemplate, delta, 0)
 		return err
 	})
 	if err != nil {
 		return nil, err
 	}
-	o.S.Log("solari %+d", delta)
 	return map[string]any{"ok": true, "solari": o.solari(p)}, nil
 }
 
@@ -474,11 +518,10 @@ func (o *Ops) SetReputation(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := o.S.Exec(`insert into player_faction_reputation(actor_id, faction_id, reputation_amount) values(?,?,?)
+	if _, err := o.run(fmt.Sprintf("faction %d reputation = %d", f, v), `insert into player_faction_reputation(actor_id, faction_id, reputation_amount) values(?,?,?)
 		on conflict(actor_id, faction_id) do update set reputation_amount=excluded.reputation_amount`, p.Controller, f, v); err != nil {
 		return nil, err
 	}
-	o.S.Log("faction %d reputation = %d", f, v)
 	return ok(), nil
 }
 
@@ -501,11 +544,10 @@ func (o *Ops) SetSpec(a Args) (any, error) {
 	if err := errors.Join(e1, e2, e3); err != nil {
 		return nil, err
 	}
-	if _, err := o.S.Exec(`insert into specialization_tracks(player_id, track_type, xp_amount, level) values(?,?,?,?)
+	if _, err := o.run(fmt.Sprintf("specialization %d: xp=%d level=%g", t, xp, lvl), `insert into specialization_tracks(player_id, track_type, xp_amount, level) values(?,?,?,?)
 		on conflict(player_id, track_type) do update set xp_amount=excluded.xp_amount, level=excluded.level`, p.Controller, t, xp, lvl); err != nil {
 		return nil, err
 	}
-	o.S.Log("specialization %d: xp=%d level=%g", t, xp, lvl)
 	return ok(), nil
 }
 
@@ -533,21 +575,28 @@ func (o *Ops) JourneySet(a Args) (any, error) {
 	if complete {
 		state = jsonTrue
 	}
-	res, err := o.S.Exec(`update journey_story_node set complete_condition_state=?, reveal_condition_state=?
-		where character_id=? and (story_node_id=? or story_node_id like ? || '.%')`, state, jsonTrue, p.Controller, id, id)
+	var n int64
+	_, err = o.S.Mutate("", func(m *save.Mut) error {
+		res, err := m.Exec(`update journey_story_node set complete_condition_state=?, reveal_condition_state=?
+			where character_id=? and (story_node_id=? or story_node_id like ? || '.%')`, state, jsonTrue, p.Controller, id, id)
+		if err != nil {
+			return err
+		}
+		n, _ = res.RowsAffected()
+		if n == 0 && complete {
+			if _, err := m.Exec(`insert into journey_story_node(character_id, story_node_id, has_pending_reward, complete_condition_state,
+				reveal_condition_state, fail_condition_state, metadata_state, reset_group) values(?,?,0,?,?,?,?,0)`,
+				p.Controller, id, jsonTrue, jsonTrue, jsonEmptyObj, jsonEmptyObj); err != nil {
+				return err
+			}
+			n = 1
+		}
+		m.Desc = fmt.Sprintf("journey %s %s (%d rows)", id, map[bool]string{true: "completed", false: "reset"}[complete], n)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	n, _ := res.RowsAffected()
-	if n == 0 && complete {
-		if _, err := o.S.Exec(`insert into journey_story_node(character_id, story_node_id, has_pending_reward, complete_condition_state,
-			reveal_condition_state, fail_condition_state, metadata_state, reset_group) values(?,?,0,?,?,?,?,0)`,
-			p.Controller, id, jsonTrue, jsonTrue, jsonEmptyObj, jsonEmptyObj); err != nil {
-			return nil, err
-		}
-		n = 1
-	}
-	o.S.Log("journey %s %s (%d rows)", id, map[bool]string{true: "completed", false: "reset"}[complete], n)
 	return map[string]any{"ok": true, "rows": n}, nil
 }
 
@@ -569,16 +618,16 @@ func (o *Ops) TutorialSet(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	desc := fmt.Sprintf("tutorial %d updated", id)
 	if a.Bool("complete", true) {
-		_, err = o.S.Exec(`insert into tutorial_per_player(player_id, tutorial_id, tutorial_state) values(?,?,2)
+		_, err = o.run(desc, `insert into tutorial_per_player(player_id, tutorial_id, tutorial_state) values(?,?,2)
 			on conflict(player_id, tutorial_id) do update set tutorial_state=2`, p.Controller, id)
 	} else {
-		_, err = o.S.Exec(`delete from tutorial_per_player where player_id=? and tutorial_id=?`, p.Controller, id)
+		_, err = o.run(desc, `delete from tutorial_per_player where player_id=? and tutorial_id=?`, p.Controller, id)
 	}
 	if err != nil {
 		return nil, err
 	}
-	o.S.Log("tutorial %d updated", id)
 	return ok(), nil
 }
 
@@ -599,15 +648,15 @@ func (o *Ops) TagSet(a Args) (any, error) {
 	if !nodeRe.MatchString(tag) {
 		return nil, errors.New("invalid tag")
 	}
+	desc := fmt.Sprintf("tag %s updated", tag)
 	if a.Bool("add", true) {
-		_, err = o.S.Exec(`insert or ignore into player_tags(character_id, tag) values(?,?)`, p.Controller, tag)
+		_, err = o.run(desc, `insert or ignore into player_tags(character_id, tag) values(?,?)`, p.Controller, tag)
 	} else {
-		_, err = o.S.Exec(`delete from player_tags where character_id=? and tag=?`, p.Controller, tag)
+		_, err = o.run(desc, `delete from player_tags where character_id=? and tag=?`, p.Controller, tag)
 	}
 	if err != nil {
 		return nil, err
 	}
-	o.S.Log("tag %s updated", tag)
 	return ok(), nil
 }
 

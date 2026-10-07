@@ -257,3 +257,11 @@ func fill1(t testing.TB, db *sql.DB, table string, set map[string]any) {
 		t.Fatalf("fixture insert into %s: %v", table, err)
 	}
 }
+
+// Exec runs one edit statement on s through the editor's only write path (Mutate) and fails the test on error.
+func Exec(t testing.TB, s *save.Save, q string, args ...any) {
+	t.Helper()
+	if _, err := s.Mutate("test edit", func(m *save.Mut) error { _, err := m.Exec(q, args...); return err }); err != nil {
+		t.Fatalf("test edit failed: %v\n%s", err, q)
+	}
+}

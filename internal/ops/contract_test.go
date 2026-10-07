@@ -45,10 +45,10 @@ func TestSQLErrorHookSeesFailures(t *testing.T) {
 	save.SetSQLErrorHook(func(q string, err error) { seen = append(seen, err.Error()) })
 	t.Cleanup(func() { save.SetSQLErrorHook(nil) })
 
-	s.Query(`select no_such_column from items`)          // swallowed by the caller on purpose
-	s.One(`select 1 from no_such_table`)                 // One -> Query -> Table
-	s.Exec(`update items set no_such_column = 1`)        // Exec
-	s.ExecScript(`insert into no_such_table values (1)`) // ExecScript
+	s.Query(`select no_such_column from items`) // swallowed by the caller on purpose
+	s.One(`select 1 from no_such_table`)        // One -> Query -> Table
+	s.Mutate("x", func(m *save.Mut) error { _, err := m.Exec(`update items set no_such_column = 1`); return err })
+	s.Mutate("x", func(m *save.Mut) error { _, err := m.Exec(`insert into no_such_table values (1)`); return err })
 	if len(seen) != 4 {
 		t.Fatalf("hook saw %d errors, want 4: %v", len(seen), seen)
 	}

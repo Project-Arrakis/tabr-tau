@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
 func (o *Ops) tableInfo(name string) ([]string, []string, error) {
@@ -83,10 +85,13 @@ func (o *Ops) UpdateRow(a Args) (any, error) {
 			if types[i] == "BLOB" {
 				return nil, errors.New("BLOB columns cannot be edited here")
 			}
-			if _, err := o.S.Exec(`update "`+table+`" set "`+col+`"=? where rowid=?`, a["value"], rowid); err != nil {
+			n, err := o.run(fmt.Sprintf("update %s[%d].%s", table, rowid, col), `update "`+table+`" set "`+col+`"=? where rowid=?`, a["value"], rowid)
+			if err != nil {
 				return nil, err
 			}
-			o.S.Log("update %s[%d].%s", table, rowid, col)
+			if n == 0 {
+				return nil, errors.New("no such row, or the value is unchanged")
+			}
 			return ok(), nil
 		}
 	}
@@ -111,16 +116,13 @@ func (o *Ops) ExecSQL(q string) (any, error) {
 	if err := vetWrite(q); err != nil {
 		return nil, err
 	}
-	n, err := o.S.ExecScript(q)
+	short := strings.Join(strings.Fields(q), " ")
+	if len(short) > 100 {
+		short = short[:100] + "…"
+	}
+	n, err := o.S.Mutate("sql: "+short, func(m *save.Mut) error { _, err := m.Exec(q); return err })
 	if err != nil {
 		return nil, err
-	}
-	if n > 0 {
-		short := strings.Join(strings.Fields(q), " ")
-		if len(short) > 100 {
-			short = short[:100] + "…"
-		}
-		o.S.Log("sql (%d rows): %s", n, short)
 	}
 	return map[string]any{"ok": true, "changes": n}, nil
 }

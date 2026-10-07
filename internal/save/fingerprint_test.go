@@ -1,10 +1,10 @@
 package save_test
 
 import (
-	"database/sql"
 	"strings"
 	"testing"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
@@ -47,8 +47,8 @@ func TestUnknownDatabaseObjectsMakeTheSaveReadOnly(t *testing.T) {
 			t.Errorf("%s: ExecScript must refuse", name)
 		}
 		ran := false
-		if err := s.Tx(func(tx *sql.Tx) error { ran = true; return nil }); err == nil || ran {
-			t.Errorf("%s: Tx must refuse without running its function (err=%v ran=%v)", name, err, ran)
+		if _, err := s.Mutate("x", func(m *save.Mut) error { ran = true; return nil }); err == nil || ran {
+			t.Errorf("%s: Mutate must refuse without running its function (err=%v ran=%v)", name, err, ran)
 		}
 		// reads still work
 		if rows, err := s.Query(`select count(*) c from items`); err != nil || len(rows) != 1 {
