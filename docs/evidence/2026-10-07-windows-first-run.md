@@ -9,7 +9,7 @@ the claim "the editor runs on a real Windows machine" has a dated source.
 | Build | `main` at `01d77a3`, cross-compiled from Linux with `GOOS=windows CGO_ENABLED=0 go build -trimpath` (static exe, no installer) |
 | SHA-256 of the exe tested | `c2d3b09511ef651a260f24ac3dc855306ae726860bba646f0fdfdf6f1587604c` |
 | Run by | the operator, on their own Windows PC, against a game save |
-| Game state | the operator was told to close the game and test on a copy of `game.db`; whether they did is not recorded |
+| Game state | the operator was told to close the game and test on a copy of `game.db`; whether they tested the copy or the live file, and how the result reached the game, is not recorded |
 
 ## What was exercised (as reported by the operator)
 - Started the exe and opened the UI in the browser.
@@ -17,12 +17,14 @@ the claim "the editor runs on a real Windows machine" has a dated source.
 - Browsed every tab.
 
 ## Result
-Reported as working. Whether the effects were then confirmed inside the game is not recorded.
+Reported as working, and confirmed inside the game: the operator loaded the game afterwards and the repaired
+equipment and the added Solari were correct ("all is fine"). This is an informal confirmation without stored evidence.
 Missing features the operator noticed were the known, expected gaps (see issues #11, #17, #22 and the plan's S2/S3).
 
 ## What this does and does not show
-- It shows the Windows build starts, serves the UI and performs two write paths (`RepairGear`, `AddSolari`) on a real save.
-- It does **not** show that the game accepts the written save, that Windows-specific code paths behave (running-game
+- It shows the Windows build starts, serves the UI and performs two write paths (`RepairGear`, `AddSolari`) on a real save,
+  and that the game loaded the saved result with the expected effect.
+- It does **not** show (with stored evidence) that Windows-specific code paths behave (running-game
   detection via `tasklist`, rename retry with OneDrive/antivirus, auto-discovery under `%LOCALAPPDATA%`), or anything about
   item give (T1/T1b), JSONB edits (T2), vitals (T3), cascading deletes (T4), file authority (T5) or id allocation (T6).
 
