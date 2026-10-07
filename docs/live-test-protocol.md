@@ -99,6 +99,31 @@ Start from the state after B3.
 | `D5-ingame-delete-container` | In game, put items inside a container item (bag/literjon with contents if applicable) and drop/destroy the container. Quit. Snapshot. | T4: does the game remove the child inventory and items itself? |
 | `D6-ids` | After C2: launch, pick up or craft two items, quit. Snapshot. | T6: does the game reuse or collide with ids tabr-tau allocated? |
 
+## Phase E: a worn armor set (reference gear taken from a multiplayer character)
+
+Purpose: find out whether tabr-tau can place worn equipment, and whether item augments survive, before S3 builds
+a feature on either. The reference set comes from a read-only query of a real multiplayer character on the
+operator's own server (2026-10-07); only template ids and stat key names are recorded here, no character name,
+account id or other identifier. Worn gear lives in the `inventories` row with `inventory_type = 1` (backpack is 0,
+held weapons and tools are 15). Run only on a copy of the save, game closed, with a snapshot taken first.
+
+Reference set (template ids, worn container, positions 0-4 armor, 6-9 utility):
+`Combat_Heavy_Unique_Reinforced_Helmet_06`, `Combat_Heavy_Unique_PowerIncrease_Top_06`,
+`Combat_Heavy_Unique_Reinforced_Bottom_06`, `Combat_Heavy_Unique_PowerEfficient_Gloves_06`,
+`Combat_Heavy_Unique_Reinforced_Boots_06` (all `quality_level` 5, each with two `T6_Augment_Armor*` entries under
+`stats.FAugmentedItemStats`), then `PortableLight`, `FullSuspensorBelt_Unique_Durability`, `PowerPack_Unique_Regen_06`,
+`HoltzmanShieldActiveDrain_Unique_01` (no augments, `stats.FItemStackAndDurabilityStats` only).
+
+| Label | Do | Answers |
+|---|---|---|
+| `E0-ingame-worn` | In game, wear any one armor piece the character can obtain. Quit. Snapshot. Record the `inventory_type`, `position_index`, `quality_level` and `stats` key set of its row. | the game's own row for worn gear (reference for T7/T8) |
+| `E1-tabr-give-backpack` | Game closed. tabr-tau **Give item** `Combat_Heavy_Unique_Reinforced_Helmet_06` x1 to the backpack. Save to game. Snapshot. | T7 |
+| `E2-game-loads-backpack` | Launch, load. Screenshot inventory, equip the helmet in game, quit. Snapshot. | T7 |
+| `E3-tabr-give-worn` | Game closed. Insert the same item directly into the worn container (type 1) at a free armor position (manual `insert` on a copy for the first run). Snapshot. | T8 |
+| `E4-game-loads-worn` | Launch, load. Screenshot the equipment screen, quit. Snapshot. | T8 |
+| `E5-augment-stats` | Game closed. Copy the `stats.FAugmentedItemStats` entry from the `E0` row (or from a reference row obtained in game) onto the E1 item. Snapshot. | T9 |
+| `E6-game-augment` | Launch, inspect the item, screenshot augments and stats, quit. Snapshot. | T9 |
+
 ## Decision table (fixed in advance)
 
 | ID | Question | PASS if | FAIL if | If FAIL |
@@ -110,6 +135,9 @@ Start from the state after B3.
 | T4 | Does the game cascade deletes (FK behavior)? | After D5, the child `inventories` row (and its items) for the destroyed container is gone **and** `foreign_key_check` is clean | orphans remain | the editor still cascades deletes itself (`MutateCascade`), so no change is needed for safety; keep `foreign_keys=0` as the default connection setting; if the game removed the children, adopt `foreign_keys=ON` globally |
 | T5 | Which file is authoritative? | Q5 answered from hashes (recorded, not inferred) | inconsistent between runs | record and document both cases |
 | T6 | Id allocation safe? | D6 shows the game's new item ids all `> ` tabr-tau's id and no duplicate `items.id`, and `items_id_sequencer.next_id > max(items.id)` | duplicate id, or game overwrote our row | change allocation (use a higher reserved block) |
+| T7 | Is a tabr-tau-given armor piece usable? | In E2 the item is visible in the backpack, can be equipped in game, and the row survives with the same `template_id` | item missing, cannot be equipped, row deleted, or a newer crash log | armor give stays plain-item only; record the diff against the E0 row |
+| T8 | Can worn gear be written directly into the worn container? | In E4 the item shows as equipped and the row remains in `inventory_type = 1` | item moved, dropped, or crash | worn-set give is unsupported; give to the backpack only |
+| T9 | Do copied augments survive and apply? | In E6 the augments are listed and the stat bonuses show, and the `stats` JSON is unchanged after load | augments stripped, item reset to plain, or load error | S3 gives plain items only; augment copying stays disabled |
 
 A result is "recorded" only when a snapshot pair, the `snapdiff` output (redacted) and one screenshot
 are stored in `docs/evidence/` (redacted) with a PASS/FAIL line. "Kept but changed by the game" is a
