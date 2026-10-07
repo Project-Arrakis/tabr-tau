@@ -1,7 +1,7 @@
 # tabr-tau
 
 A small Go app for editing a **single-player Dune: Awakening** save and its local game configs.
-It is a browser UI served from one binary on `127.0.0.1`. There are no containers, servers, maps to
+It is one binary that serves its UI on `127.0.0.1` only; on Windows it shows that UI in its own window, elsewhere in your browser. There are no containers, servers, maps to
 start or stop, or anything to host: it works on the files the game already keeps on your PC.
 
 The player and database tooling follows the ideas in
@@ -57,15 +57,20 @@ go run ./cmd/tabr-tau            # auto-detects %LOCALAPPDATA%\DuneSandbox\...\g
 go run ./cmd/tabr-tau --save "C:\path\to\game.db" --config "%LOCALAPPDATA%\DuneSandbox\Saved\Config\Windows"
 ```
 
-Flags: `--save`, `--config`, `--addr` (default `127.0.0.1:8090`; must be a loopback address), `--allow-remote` (dangerous, see the security note), `--no-browser`.
+**On Windows the editor opens in its own window** (it uses the Microsoft Edge WebView2 component that ships with Windows 11 and current Windows 10). Double-click the exe: if it cannot find your save it shows an Open dialog, and errors appear in message boxes. If WebView2 is missing it says so in a message box (install the runtime, or start from a terminal with `--web` to use the browser instead). Pass `--web` to use the browser. Closing the window ends the program and asks first when there are unsaved edits (Yes/No, default No). Subcommands (`diff`, `decode`, `licenses`, ...) still work from a terminal. The Windows exe is a GUI-subsystem program, so `cmd.exe` does not wait for it: in scripts use `start /wait tabr-tau.exe ...` or PowerShell `Start-Process -Wait` (or build a console exe by leaving out `-H=windowsgui`).
+
+Flags: `--save`, `--config`, `--web` (browser instead of the window), `--addr` (default `127.0.0.1:8090`; must be a loopback address), `--allow-remote` (dangerous, needs `--web`, see the security note), `--no-browser`.
 
 Helper commands: `tabr-tau find`, `tabr-tau decode <save> <out.sqlite>`, `tabr-tau encode <in.sqlite> <out.db>`.
 
-Build a binary with `go build -o tabr-tau.exe ./cmd/tabr-tau` (Windows Application Control may block unsigned
-binaries; `go run` works around that).
+Build the Windows app (from any OS, no C compiler needed) with
+`GOOS=windows CGO_ENABLED=0 go build -trimpath -ldflags "-H=windowsgui -s -w" -o tabr-tau.exe ./cmd/tabr-tau`
+(`-H=windowsgui` removes the console window; the exe re-attaches to the terminal it was started from, so subcommands still
+print). Windows Application Control may block unsigned binaries; `go run` works around that.
 
 ## Safety notes
 
+- tabr-tau's own code makes no outbound network connections (no telemetry, no update check). On Windows the editor window is the Microsoft Edge WebView2 runtime, a Windows component with its own update and diagnostics settings that tabr-tau does not control; it only ever loads the editor's own `127.0.0.1` address.
 - The server only listens on localhost, rejects other `Host` headers, and requires a per-run token on every API call.
 - Vehicle fuel and other data stored in opaque binary blobs are read-only.
 - Do **not** commit real saves. `.gitignore` excludes `*.db`, `*.sqlite`, `*.bak`, `*.ini` and backup folders.
