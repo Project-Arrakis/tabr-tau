@@ -8,7 +8,6 @@ package testsave
 
 import (
 	"database/sql"
-	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,8 +19,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
-//go:embed schema.sql
-var schemaSQL string
+var schemaSQL = save.KnownSchema
 
 // Hostile is a string for every TEXT column of Hostile(): HTML and attribute breakout, quotes, markup, and
 // characters that matter in CSV, SQL and JSON contexts.
@@ -105,6 +103,21 @@ func build(t testing.TB, fn func(db *sql.DB)) *save.Save {
 // Empty is the real schema with no rows.
 func Empty(t testing.TB) *save.Save { return build(t, nil) }
 
+// WithSQL is the real schema plus extra statements run before the save is sealed. Use it to build hostile saves:
+// extra triggers, views, virtual tables, oddly named tables, altered game objects.
+func WithSQL(t testing.TB, extra string) *save.Save {
+	return build(t, func(db *sql.DB) {
+		if _, err := db.Exec(extra); err != nil {
+			t.Fatalf("extra SQL failed: %v\n%s", err, extra)
+		}
+	})
+}
+
+// PlayerWithSQL is Player() plus extra statements.
+func PlayerWithSQL(t testing.TB, extra string) *save.Save {
+	return buildPlayer(t, extra)
+}
+
 // fill inserts exactly one row into every table, choosing values by declared column type. text is used for
 // every TEXT column. Constraint failures abort the test: the real schema is the authority.
 func fill(t testing.TB, db *sql.DB, text string) {
@@ -169,7 +182,9 @@ func Filled(t testing.TB) *save.Save {
 // Player is the real schema with a small, consistent single-player world that mirrors how the game links a
 // character (verified against a real save): three actors owned by the account (controller, pawn, player
 // state), a player_state row pointing at them, a backpack with Solari and a knife, and the item-id sequencer.
-func Player(t testing.TB) *save.Save {
+func Player(t testing.TB) *save.Save { return buildPlayer(t, "") }
+
+func buildPlayer(t testing.TB, extra string) *save.Save {
 	return build(t, func(db *sql.DB) {
 		fill1(t, db, "accounts", map[string]any{"id": 1, "user": "u", "funcom_id": "FUNCOM-TEST", "takeoverable": 0, "platform_id": "PLATFORM-TEST", "platform_name": "Tester"})
 		const pc, pawn, pstate = 1, 2, 3
@@ -189,6 +204,11 @@ func Player(t testing.TB) *save.Save {
 		fill1(t, db, "items", map[string]any{"id": 11, "inventory_id": 1, "stack_size": 1, "position_index": 1, "template_id": "Knife", "is_new": 0,
 			"acquisition_time": 1790000000, "stats": `{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":10.0}],"FCustomizationStats":[[],{}]}`, "quality_level": 0})
 		fill1(t, db, "items_id_sequencer", map[string]any{"next_id": 500})
+		if extra != "" {
+			if _, err := db.Exec(extra); err != nil {
+				t.Fatalf("extra SQL failed: %v\n%s", err, extra)
+			}
+		}
 	})
 }
 

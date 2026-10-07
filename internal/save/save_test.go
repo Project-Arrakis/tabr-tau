@@ -8,7 +8,8 @@ import (
 	"testing"
 )
 
-// makeSave writes a container holding a tiny SQLite database and returns its path.
+// makeSave writes a container holding the real game schema plus ddl (a toy table "t") and returns its path.
+// The real schema is needed because a save with a different set of triggers is deliberately read-only.
 func makeSave(t *testing.T, ddl string) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -17,7 +18,7 @@ func makeSave(t *testing.T, ddl string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(ddl); err != nil {
+	if _, err := db.Exec(KnownSchema + ddl); err != nil {
 		t.Fatal(err)
 	}
 	db.Close()
