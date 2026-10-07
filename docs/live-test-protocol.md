@@ -124,6 +124,23 @@ Reference set (template ids, worn container, positions 0-4 armor, 6-9 utility):
 | `E5-augment-stats` | Game closed. Copy the `stats.FAugmentedItemStats` entry from the `E0` row (or from a reference row obtained in game) onto the E1 item. Snapshot. | T9 |
 | `E6-game-augment` | Launch, inspect the item, screenshot augments and stats, quit. Snapshot. | T9 |
 
+### Phase E results (2026-10-07, one run, operator's own save)
+
+Done by direct SQL on a decoded copy, using the multiplayer row layout (full `stats` JSON, `quality_level`, ids from
+`items_id_sequencer`), not by tabr-tau's Give item. Existing worn and loadout items were moved to free backpack
+slots, not deleted. The edited file was written back with the game closed, after a backup and a stability check.
+
+| ID | Result | Evidence |
+|---|---|---|
+| T7 | PASS (direct SQL route) | Items present and usable after a game load. |
+| T8 | PASS | Nine rows inserted into the worn container (`inventory_type = 1`) at positions 0-4 and 6-9. After the game loaded and re-saved the file, all nine rows were still there with the same ids, `template_id`, `quality_level` and augment data; the operator confirmed the set shows as worn. |
+| T9 | PASS | `FAugmentedItemStats` (two `T6_Augment_Armor*` entries per armor piece) survived the game's own load and save, and the operator confirmed the gear. |
+| Loadout | PASS (not a pre-registered test) | Eight rows inserted into the loadout container (`inventory_type = 15`), including two augmented weapons; the operator confirmed the loadout worked in game. |
+
+Not shown by this run: that tabr-tau's own Give item produces the same rows (T1/T1b still open), a crash-log check,
+and any template whose name differs between the multiplayer and single-player builds. Foreign-key checks were clean
+before writing; the game's own re-save was not diffed beyond the worn container.
+
 ## Decision table (fixed in advance)
 
 | ID | Question | PASS if | FAIL if | If FAIL |
