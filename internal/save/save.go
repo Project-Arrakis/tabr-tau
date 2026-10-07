@@ -151,6 +151,7 @@ func Open(path string) (*Save, error) {
 		path = filepath.Join(path, "game.db")
 	}
 	s := &Save{Path: path}
+	cleanStaleTemps(path)
 	if err := s.load(); err != nil {
 		return nil, err
 	}
@@ -438,26 +439,44 @@ func GameRunning() bool {
 
 func (s *Save) backupDir() string { return filepath.Join(filepath.Dir(s.Path), "tabr-tau-backups") }
 
+func hashOf(b []byte) [32]byte { return sha256.Sum256(b) }
+
+// backup copies the current file into the backup folder under a unique name, flushes it, and reads it back to
+// prove the copy is identical. A backup that cannot be verified is an error, so no edit proceeds on a bad one.
 func (s *Save) backup() (string, error) {
-	if err := os.MkdirAll(s.backupDir(), 0o755); err != nil {
+	if err := os.MkdirAll(s.backupDir(), 0o700); err != nil {
 		return "", err
 	}
 	ext := filepath.Ext(s.Path)
 	base := strings.TrimSuffix(filepath.Base(s.Path), ext)
-	dest := filepath.Join(s.backupDir(), base+"-"+time.Now().Format("20060102-150405")+ext)
 	b, err := os.ReadFile(s.Path)
 	if err != nil {
 		return "", err
 	}
-	return dest, os.WriteFile(dest, b, 0o644)
+	dest := filepath.Join(s.backupDir(), fmt.Sprintf("%s-%s-%d%s", base, time.Now().Format("20060102-150405"), time.Now().UnixNano()%1_000_000_000, ext))
+	if err := writeDurable(dest, b, 0o600); err != nil {
+		return "", err
+	}
+	if back, err := os.ReadFile(dest); err != nil || !bytes.Equal(back, b) {
+		os.Remove(dest)
+		return "", errors.New("backup verification failed; nothing was changed")
+	}
+	return dest, nil
 }
 
-// Commit backs up the original file, then atomically writes the edited save.
+// Commit backs up the original file, then atomically writes the edited save. force skips only the check that the
+// game is running; it never skips the changed-on-disk check.
 func (s *Save) Commit(force bool) (map[string]any, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.dirty {
 		return map[string]any{"saved": false, "reason": "no changes"}, nil
+	}
+	if s.blocked != "" {
+		return nil, errReadOnly(s.blocked)
+	}
+	if err := s.requirePlainFile(); err != nil {
+		return nil, err
 	}
 	if !force && GameRunning() {
 		return nil, fmt.Errorf("%s is running; close the game first", GameProcess)
@@ -466,8 +485,8 @@ func (s *Save) Commit(force bool) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !force && sha256.Sum256(cur) != s.diskHash {
-		return nil, errors.New("the save changed on disk since it was loaded (game autosave?); discard and redo the edits")
+	if hashOf(cur) != s.diskHash {
+		return nil, errChangedOnDisk
 	}
 	var chk string
 	if err := s.db.QueryRow("PRAGMA integrity_check").Scan(&chk); err != nil || chk != "ok" {
@@ -488,18 +507,19 @@ func (s *Save) Commit(force bool) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	tmp := s.Path + ".tmp"
-	if err := os.WriteFile(tmp, blob, 0o644); err != nil {
-		return nil, err
-	}
-	if err := os.Rename(tmp, s.Path); err != nil {
+	if err := s.installBlob(blob); err != nil {
 		return nil, err
 	}
 	ops := s.pending
-	if err := s.load(); err != nil {
-		return nil, err
+	// The file is written. From here a problem is a warning, not a failed save.
+	s.diskHash = hashOf(blob)
+	s.dirty = false
+	s.pending = nil
+	res := map[string]any{"saved": true, "backup": bak, "ops": ops}
+	if err := reloadAfterCommit(s); err != nil {
+		res["warning"] = "saved, but reloading the file failed: " + err.Error() + " (restart the editor before further edits)"
 	}
-	return map[string]any{"saved": true, "backup": bak, "ops": ops}, nil
+	return res, nil
 }
 
 // Backups lists backups, newest first.
@@ -515,26 +535,64 @@ func (s *Save) Backups() []Row {
 	return out
 }
 
-// Restore replaces the save with a backup (the current file is backed up first).
+// Restore replaces the save with a backup through the same durable path as Commit: the backup must decode, pass
+// an integrity check and carry no applied patch the current save lacks (it would come from a newer game); the
+// current file is backed up first and is never truncated in place.
 func (s *Save) Restore(name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if name == "" || name != filepath.Base(name) || name == "." || name == ".." {
+		return errors.New("invalid backup name")
+	}
 	if GameRunning() {
 		return fmt.Errorf("%s is running; close the game first", GameProcess)
 	}
-	b, err := os.ReadFile(filepath.Join(s.backupDir(), filepath.Base(name)))
+	if err := s.requirePlainFile(); err != nil {
+		return err
+	}
+	bp := filepath.Join(s.backupDir(), name)
+	if st, err := os.Lstat(bp); err != nil || !st.Mode().IsRegular() {
+		return errors.New("no such backup")
+	}
+	b, err := os.ReadFile(bp)
 	if err != nil {
 		return err
 	}
-	if _, err := Decode(b); err != nil {
+	raw, err := Decode(b)
+	if err != nil {
 		return err
+	}
+	want, err := inspect(raw)
+	if err != nil {
+		return fmt.Errorf("backup is not a sound save: %w", err)
+	}
+	cur, err := os.ReadFile(s.Path)
+	if err != nil {
+		return err
+	}
+	if hashOf(cur) != s.diskHash {
+		return errChangedOnDisk
+	}
+	curRaw, err := Decode(cur)
+	if err != nil {
+		return err
+	}
+	have, err := inspect(curRaw)
+	if err != nil {
+		return err
+	}
+	for p := range want {
+		if !have[p] {
+			return fmt.Errorf("backup has applied patch %q that the current save lacks (it is from a newer game version)", p)
+		}
 	}
 	if _, err := s.backup(); err != nil {
 		return err
 	}
-	if err := os.WriteFile(s.Path, b, 0o644); err != nil {
+	if err := s.installBlob(b); err != nil {
 		return err
 	}
+	s.diskHash = hashOf(b)
 	return s.load()
 }
 
