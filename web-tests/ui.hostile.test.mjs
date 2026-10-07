@@ -203,6 +203,9 @@ test('a save error stays in the review with a way forward; a changed-on-disk sav
   assert.ok(m.textContent.includes('second edit'), 'the edits to redo must still be listed');
   assert.equal(ui.doc.querySelector('#btnDoSave').disabled, true, 'saving is blocked until the file is reloaded');
   ui.click('[data-act="reload"]'); await ui.settle();
+  assert.ok(!ui.doc.querySelector('#ask').classList.contains('hide'), 'reloading asks first');
+  assert.ok(!ui.posted.some((p) => p.path === '/api/save/discard'), 'nothing is discarded before the answer');
+  ui.click('[data-act="askOk"]'); await ui.settle();
   assert.ok(ui.posted.some((p) => p.path === '/api/save/discard'));
   assert.ok(ui.doc.querySelector('#modal').classList.contains('hide'));
   ui.dom.window.close();
@@ -214,6 +217,7 @@ test('an error toast stays until dismissed', async () => {
   ui.doc.querySelector('#btnDiscard').disabled = false;
   ui.dom.window.confirm = () => true;
   ui.click('#btnDiscard'); await ui.settle();
+  ui.click('[data-act="askOk"]'); await ui.settle();
   const err = ui.doc.querySelector('#toast .err');
   assert.ok(err && err.textContent.includes('boom'));
   err.querySelector('button.x').click();
@@ -260,5 +264,58 @@ test('a table with more changed rows than listed says the list is partial', asyn
   const r = hostileReview(); r.diff.tables[0].numModified = 500;
   const ui = await openReviewUI({ review: r });
   assert.ok(ui.doc.querySelector('#modal').textContent.includes('counts above are complete'));
+  ui.dom.window.close();
+});
+
+// ---------- confirmations
+async function inventoryUI(post) {
+  const ui = await boot({ post });
+  ui.click('[data-tab="bases"]'); await ui.settle();
+  ui.click('[data-sub="bases:storage"]'); await ui.settle();
+  ui.click('[data-act="openInv"]'); await ui.settle();
+  return ui;
+}
+
+test('deleting an item asks first, shows the item as data, and Cancel sends nothing', async () => {
+  const ui = await inventoryUI();
+  ui.click('[data-act="delItem"]'); await ui.settle();
+  const a = ui.doc.querySelector('#ask');
+  assert.ok(!a.classList.contains('hide'), 'a question must be shown');
+  assertClean(ui.doc, 'delete confirmation');
+  assert.equal(ui.posted.filter((p) => p.path === '/api/items/delete').length, 0, 'nothing is sent before the answer');
+  ui.click('[data-act="askNo"]'); await ui.settle();
+  assert.ok(a.classList.contains('hide'));
+  assert.equal(ui.posted.filter((p) => p.path === '/api/items/delete').length, 0);
+  ui.click('[data-act="delItem"]'); await ui.settle();
+  ui.click('[data-act="askOk"]'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/items/delete').length, 1);
+  ui.dom.window.close();
+});
+
+test('a far-reaching action needs the word typed, and Escape cancels', async () => {
+  const ui = await boot();
+  ui.click('[data-tab="bases"]'); await ui.settle();
+  const btn = ui.doc.querySelector('[data-act="sand"]');
+  assert.ok(btn, 'the clear-sand button must exist in the bases view');
+  ui.click('[data-act="sand"]'); await ui.settle();
+  const ok = ui.doc.querySelector('#aok');
+  assert.equal(ok.disabled, true, 'OK is off until the word is typed');
+  const inp = ui.doc.querySelector('#atype');
+  inp.value = 'nope'; inp.dispatchEvent(new ui.w.Event('input', { bubbles: true }));
+  assert.equal(ui.doc.querySelector('#aok').disabled, true);
+  inp.value = ' Clear '; inp.dispatchEvent(new ui.w.Event('input', { bubbles: true }));
+  assert.equal(ui.doc.querySelector('#aok').disabled, false, 'the right word (any case) enables it');
+  ui.doc.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'));
+  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 0, 'Escape must not run the action');
+  ui.dom.window.close();
+});
+
+test('a successful edit says it is not in the game yet', async () => {
+  const ov = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)); ov.dirty = true;
+  const ui = await boot({ get: { '/api/save/state': ov } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-act="solari"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('not saved yet'));
   ui.dom.window.close();
 });

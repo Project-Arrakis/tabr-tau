@@ -33,7 +33,7 @@ function toast(msg, err, ms = 3500) {
   $('#toast').append(d);
 }
 async function act(fn, okMsg, refresh = true) {
-  try { const r = await fn(); if (okMsg) toast(okMsg); await status(); if (refresh) await render(); return r; }
+  try { const r = await fn(); const o = await status(); if (okMsg) toast(okMsg + (o.dirty ? ' (not saved yet)' : '')); if (refresh) await render(); return r; }
   catch (e) { toast(e.message, true); }
 }
 const val = (id) => $('#' + id).value;
@@ -81,6 +81,27 @@ async function status() {
   setHTML(ro, o.readOnly ? html`<b>This save is read-only.</b> ${o.readOnly}<br>You can browse it, but every edit is refused. This usually means the file contains database objects the real game does not create (for example extra triggers) - do not edit a save from an untrusted source.` : html``);
   return o;
 }
+// ---------- confirmations
+// Tiers: reversible edits need nothing (they are pending, listed in the review, and Discard undoes them). A hard-to-undo
+// or far-reaching action asks first with its consequence in words. The far-reaching ones (bulk changes, raw SQL
+// writes, restoring a backup over the save) also make the person type a word, so a stray click cannot start them.
+let askState = null;
+function ask({ title, body, ok = 'Confirm', typed = '', danger = false }) {
+  return new Promise((resolve) => { if (askState) askState.resolve(false); askState = { title, body, ok, typed, danger, resolve }; drawAsk(); });
+}
+function drawAsk() {
+  const el = $('#ask');
+  if (!askState) { el.className = 'hide'; setHTML(el, html``); return; }
+  const a = askState;
+  el.className = 'modal top';
+  setHTML(el, html`<div class="mbox small" role="dialog" aria-modal="true"><h3 class="big" id="atitle" tabindex="-1">${a.title}</h3><p>${a.body}</p>
+    ${a.typed ? html`<p class="mut">Type <b>${a.typed}</b> to continue.</p><input id="atype" spellcheck="false" size="20">` : ''}
+    <div class="row mt12"><button class="b ${a.danger ? 'bad' : ''}" id="aok" data-act="askOk" ${a.typed ? 'disabled' : ''}>${a.ok}</button><button class="b sec" data-act="askNo">Cancel</button></div></div>`);
+  (a.typed ? $('#atype') : $('#atitle')).focus();
+}
+function endAsk(v) { const a = askState; askState = null; drawAsk(); if (a) a.resolve(v); }
+document.addEventListener('input', (e) => { if (askState && e.target.id === 'atype') $('#aok').disabled = e.target.value.trim().toLowerCase() !== askState.typed.toLowerCase(); });
+
 // ---------- review pane: the only way to write the save
 let R = null; // the open review: { token, ops, diff, error }
 const val1 = (v) => { const t = v === undefined ? 'undefined' : JSON.stringify(v); return t.length > 120 ? t.slice(0, 117) + '...' : t; };
@@ -124,7 +145,7 @@ async function openReview() {
   drawReview(true);
 }
 $('#btnSave').onclick = openReview;
-$('#btnDiscard').onclick = () => { if (confirm('Discard all unsaved changes?')) act(() => api('/api/save/discard', {}), 'Discarded'); };
+$('#btnDiscard').onclick = async () => { if (await ask({ title: 'Discard all unsaved changes?', body: 'Every edit since the file was loaded or last saved is dropped. The file on disk is not touched.', ok: 'Discard', danger: true })) act(() => api('/api/save/discard', {}), 'Discarded'); };
 
 // ---------- PLAYER
 let P = null;
@@ -306,7 +327,9 @@ async function render() {
 const D = (e) => e.target.closest('[data-act]');
 const A = {
   closeReview: () => { R = null; drawReview(); },
-  reload: () => confirm('Discard your edits and reload the file from disk?') && act(async () => { await api('/api/save/discard', {}); R = null; drawReview(); }, 'Reloaded from disk. Redo your edits.'),
+  askOk: () => endAsk(true),
+  askNo: () => endAsk(false),
+  reload: async () => (await ask({ title: 'Reload from disk?', body: 'Your edits are dropped and the file is read again. The edits listed in the review are the ones to redo.', ok: 'Reload', danger: true })) && act(async () => { await api('/api/save/discard', {}); R = null; drawReview(); }, 'Reloaded from disk. Redo your edits.'),
   doSave: async () => {
     if (!R) return;
     let r;
@@ -333,7 +356,7 @@ const A = {
   tpTo: (d) => act(() => api('/api/player/teleport', { x: +d.x, y: +d.y, z: +d.z }), 'Teleport queued'),
   give: () => act(() => api('/api/player/give', { template_id: val('gt').trim(), quantity: +val('gq'), quality: +val('gg') }), 'Item added'),
   repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(`Repaired ${r.repaired} items`); }, null),
-  delItem: (d) => confirm('Delete ' + d.name + '?') && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
+  delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). Discard undoes it until you save.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
   spec: (d) => { $('#st').value = d.t; $('#sx').value = d.xp; $('#sl').value = d.lv; },
   specSet: () => act(() => api('/api/player/specs', { track_type: +val('st'), xp: +val('sx'), level: +val('sl') }), 'Specialization set'),
   tut: (d) => act(() => api('/api/player/tutorials', { id: +d.id, complete: d.c == '1' }), 'Tutorial updated'),
@@ -341,8 +364,8 @@ const A = {
   tagDel: (d) => act(() => api('/api/player/tags', { tag: d.tag, add: false }), 'Tag removed'),
   jfilter: () => { window.jq = val('jq'); journeyList(); },
   jset: (d) => act(() => api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }), 'Journey updated', false).then(journeyList),
-  repairB: () => act(async () => { const r = await api('/api/bases/repair', {}); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables`); }, null),
-  sand: () => act(async () => { const r = await api('/api/bases/clear-sand', {}); toast(`Cleared ${r.pieces} pieces`); }, null),
+  repairB: async () => (await ask({ title: 'Repair every base piece?', body: 'Sets the health of all building pieces and placeables in the save to full.', ok: 'Repair all', typed: 'repair', danger: true })) && act(async () => { const r = await api('/api/bases/repair', {}); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables`); }, null),
+  sand: async () => (await ask({ title: 'Clear sand build-up?', body: 'Removes the sand coverage from every building piece in the save.', ok: 'Clear sand', typed: 'clear', danger: true })) && act(async () => { const r = await api('/api/bases/clear-sand', {}); toast(`Cleared ${r.pieces} pieces`); }, null),
   openInv: async (d) => {
     const it = await api('/api/bases/storage/items?inventory=' + encodeURIComponent(d.id));
     setHTML($('#inv'), html`<div class="card"><h3>Inventory ${d.id}</h3>${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item' }, { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" class="w90">` }], it, { actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${r.template_id}">Delete</button>` })}
@@ -351,16 +374,16 @@ const A = {
   giveInv: (d) => act(async () => { await api('/api/bases/give', { inventory_id: +d.id, template_id: val('bt').trim(), quantity: +val('bq') }); toast('Item added'); await A.openInv(d); }, null, false),
   bring: (d) => act(() => api('/api/vehicles/bring', { id: +d.id }), 'Vehicle moved next to you'),
   dur: (d) => { const v = prompt('Chassis durability', d.v); if (v !== null) act(() => api('/api/vehicles/durability', { vehicle_id: +d.id, chassis_durability: +v }), 'Updated'); },
-  vreset: (d) => act(() => api('/api/exchange/reset', { vendor_id: d.v }), 'Purchase limits reset'),
+  vreset: async (d) => (await ask({ title: 'Reset purchase limits?', body: 'Resets the purchase limits of this vendor.', ok: 'Reset' })) && act(() => api('/api/exchange/reset', { vendor_id: d.v }), 'Purchase limits reset'),
   term: () => act(async () => { await api('/api/landsraad/term', { active_decree_id: val('ad'), reigning_faction_id: val('rf') }); }, 'Term updated'),
   decree: (d) => act(() => api('/api/landsraad/decree', { id: +d.id, disabled: d.d == '1' }), 'Decree updated'),
   tfill: (d) => act(() => api('/api/landsraad/progress', { task_id: +d.id, faction_id: +val('lf'), amount: +d.goal }), 'Progress set'),
-  tdone: (d) => act(() => api('/api/landsraad/complete', { task_id: +d.id, faction_id: +val('lf'), reset: d.r == '1' }), 'Task updated'),
+  tdone: async (d) => (await ask({ title: d.r == '1' ? 'Reset this task?' : 'Complete this task?', body: 'Changes the Landsraad task for the chosen faction.', ok: d.r == '1' ? 'Reset' : 'Complete' })) && act(() => api('/api/landsraad/complete', { task_id: +d.id, faction_id: +val('lf'), reset: d.r == '1' }), 'Task updated'),
   cfgcreate: (d) => act(() => api('/api/config/create', { name: d.n }), 'Created ' + d.n),
   cfgadd: () => act(() => api('/api/config/set', { name: cfgFile, section: val('cs').replace(/^\[|\]$/g, ''), key: val('ck').trim(), value: val('cv') }), 'Added', true),
-  cfgdel: (d) => confirm('Delete ' + d.key + '?') && act(() => api('/api/config/delete', { name: cfgFile, line: +d.line, key: d.key }), 'Deleted'),
+  cfgdel: async (d) => (await ask({ title: 'Delete config line?', body: 'Delete ' + d.key + ' from ' + cfgFile + '. A backup of the file is made first.', ok: 'Delete', danger: true })) && act(() => api('/api/config/delete', { name: cfgFile, line: +d.line, key: d.key }), 'Deleted'),
   cfgraw: () => act(() => api('/api/config/raw', { name: cfgFile, text: val('raw') }), 'File written'),
-  cfgrestore: (d) => confirm('Restore ' + d.b + '?') && act(() => api('/api/config/restore', { name: cfgFile, backup: d.b }), 'Restored'),
+  cfgrestore: async (d) => (await ask({ title: 'Restore config backup?', body: 'Replace ' + cfgFile + ' with ' + d.b + '. Close the game first.', ok: 'Restore', danger: true })) && act(() => api('/api/config/restore', { name: cfgFile, backup: d.b }), 'Restored'),
   dbgo: () => { dbQ = val('dbq'); dbOff = 0; render(); },
   dbprev: () => { dbOff = Math.max(0, dbOff - 100); render(); },
   dbnext: () => { dbOff += 100; render(); },
@@ -373,7 +396,7 @@ const A = {
   },
   execsql: async () => {
     window.lastSql = val('sql');
-    if (!confirm('Run this SQL as a WRITE against the save? ' + window.lastSql.slice(0, 400))) return;
+    if (!(await ask({ title: 'Run this SQL as a write?', body: window.lastSql.slice(0, 400), ok: 'Run', typed: 'write', danger: true }))) return;
     try {
       const r = await api('/api/db/exec', { sql: window.lastSql });
       toast(r.changes + ' row(s) changed');
@@ -381,7 +404,7 @@ const A = {
       setHTML($('#sqlout'), html`<p class="ok">${r.changes} row(s) changed. Press "Review &amp; save" to write them to game.db.</p>`);
     } catch (e) { toast(e.message, true); }
   },
-  restore: (d) => confirm('Restore ' + d.n + '? Close the game first.') && act(() => api('/api/save/restore', { name: d.n }), 'Restored'),
+  restore: async (d) => (await ask({ title: 'Restore this backup over the save?', body: 'Replace game.db with ' + d.n + '. The current file is backed up first. Close the game first.', ok: 'Restore', typed: 'restore', danger: true })) && act(() => api('/api/save/restore', { name: d.n }), 'Restored'),
 };
 document.addEventListener('click', (e) => {
   const t = e.target.closest('[data-tab]');
@@ -418,5 +441,5 @@ setInterval(async () => {
     syncReview();
   }
 }, 5000);
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && R) A.closeReview(); });
-document.addEventListener('mousedown', (e) => { if (R && e.target === $('#modal')) A.closeReview(); });
+document.addEventListener('keydown', (e) => { if (e.key !== 'Escape') return; if (askState) endAsk(false); else if (R) A.closeReview(); });
+document.addEventListener('mousedown', (e) => { if (askState && e.target === $('#ask')) endAsk(false); else if (R && !askState && e.target === $('#modal')) A.closeReview(); });

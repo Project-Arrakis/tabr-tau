@@ -81,5 +81,6 @@ SEC-3 `VACUUM INTO` (the hat could not confirm it under `query_only`), DBA-1 Win
 | 2026-10-07 | S1 slice 3 (F-08, #9): `foreign_key_check` gate on every edit (baseline diff), cascading item delete, acceptance tests from the #9 comment added. Open: `foreign_keys=ON` decision after T4. |
 | 2026-10-07 | S1 slice 4 (F-06, #7): pristine baseline, structured op record, `internal/diff` (Go port), `/api/save/review`, `tabr-tau diff`. The review pane in the UI is S2 (#11). |
 | 2026-10-07 | S2 slice 1 (F-10 #11, F-06 #7, PR #50): review pane, Save only from it (server requires the review token), polled game-running banner, sticky errors, Reload from disk. Remaining S2: typed confirmations, error taxonomy, typed `force` reason. |
+| 2026-10-07 | S2 slice 2 (F-10 #11): tiered in-app confirmations replace the bare `confirm()`; typed word for bulk changes, raw SQL writes and restore; success messages say "not saved yet". Remaining S2: typed `force` reason, error taxonomy. |
 | next | S0 (security hardening of existing code: #4, #5), then S1, S2 in parallel with live tests (P1). |
 
