@@ -26,12 +26,15 @@ func TestStubsOffWindows(t *testing.T) {
 	if Supported() {
 		t.Skip("the Windows implementation is exercised by hand on a Windows PC")
 	}
-	if err := Run("http://127.0.0.1:1/", "t", 100, 100); err != ErrUnsupported {
+	if err := Run("http://127.0.0.1:1/", "t", 100, 100, nil); err != ErrUnsupported {
 		t.Errorf("Run = %v", err)
 	}
 	if p, err := PickFile("t"); p != "" || err != ErrUnsupported {
 		t.Errorf("PickFile = %q, %v", p, err)
 	}
 	MessageBox("t", "x") // must not panic
+	if !Confirm("t", "x") {
+		t.Error("the stub must agree so callers never block")
+	}
 	AttachConsole()
 }

@@ -59,7 +59,7 @@ async function status() {
   $('#btnSave').disabled = $('#btnDiscard').disabled = !o.dirty;
   $('#btnSave').title = o.pending.join('\n');
   const ro = $('#rowarn');
-  // Ask before the window or tab is closed with unsaved edits (the native window shows the same prompt).
+  // Ask before the browser tab is closed with unsaved edits (the native window asks through its own close handler).
   window.onbeforeunload = o.dirty ? (e) => { e.preventDefault(); e.returnValue = ''; } : null;
   ro.className = o.readOnly ? 'warn' : 'hide';
   setHTML(ro, o.readOnly ? html`<b>This save is read-only.</b> ${o.readOnly}<br>You can browse it, but every edit is refused. This usually means the file contains database objects the real game does not create (for example extra triggers) - do not edit a save from an untrusted source.` : html``);

@@ -6,7 +6,12 @@ package gui
 func Supported() bool { return false }
 
 // Run is not available off Windows.
-func Run(url, title string, width, height uint) error { return ErrUnsupported }
+func Run(url, title string, width, height uint, confirmClose func() bool) error {
+	return ErrUnsupported
+}
+
+// Confirm is not available off Windows; it agrees so callers never block.
+func Confirm(title, text string) bool { return true }
 
 // MessageBox prints nothing off Windows; callers also write to stderr.
 func MessageBox(title, text string) {}
