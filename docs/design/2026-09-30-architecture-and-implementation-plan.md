@@ -141,8 +141,9 @@ edit so the delete cascades exactly as the schema declares (every FK on `items`/
 instead of hand-written child deletes. This departs from the earlier wording ("explicit child deletes, decide `foreign_keys`
 after T4") because explicit deletes would re-implement the schema's cascade by hand and miss references; the default
 connection setting stays `foreign_keys=0` and the global decision still waits on T4.
-**Not built yet:** the typed reason for `force` (S2), JSON/JSONB invariants, the pristine `orig` copy and review pane
-(F-06, #7), process polling in the UI.
+Step 5 data side done (F-06): pristine baseline kept at load, structured op record, `internal/diff`, review endpoint and
+`diff` CLI. **Not built yet:** the review pane in the UI and making Save reachable only from it (S2), the typed reason for
+`force` (S2), JSON/JSONB invariants, post-write verification against the baseline, process polling in the UI.
 
 ### 4.3 Compatibility strategy
 - **Capability probe:** each feature declares required tables, columns and JSON paths; unavailable features are shown disabled with the reason (F-21), and their writes are refused.

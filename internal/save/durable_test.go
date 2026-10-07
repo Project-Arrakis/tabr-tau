@@ -307,3 +307,50 @@ func TestRestoreRefusesWhenTheFileChangedOnDisk(t *testing.T) {
 		t.Fatal("a refused restore must leave the file alone")
 	}
 }
+
+func TestOpenReadOnlyRefusesWritesAndNeverTouchesTheInput(t *testing.T) {
+	_, p := openToy(t)
+	before, _ := os.ReadFile(p)
+	db, closeFn, err := OpenReadOnly(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`insert into t values (99)`); err == nil {
+		t.Fatal("a read-only handle accepted a write")
+	}
+	closeFn()
+	after, _ := os.ReadFile(p)
+	if !bytes.Equal(before, after) {
+		t.Fatal("OpenReadOnly changed its input")
+	}
+}
+
+func TestFailedReloadLeavesThePreviousStateUsable(t *testing.T) {
+	s, p := openToy(t)
+	s.ExecScript(`insert into t values (2)`)
+	os.Remove(p) // the file vanished: Discard cannot reload
+	if err := s.Discard(); err == nil {
+		t.Fatal("expected a reload error")
+	}
+	// nothing was closed or leaked: the previous working copy still reads and still edits
+	if r, err := s.One(`select count(*) c from t`); err != nil || r["c"].(int64) != 2 {
+		t.Fatalf("previous state lost after a failed reload: %v %v", r, err)
+	}
+	if _, err := s.ExecScript(`insert into t values (3)`); err != nil {
+		t.Fatalf("edits must still work: %v", err)
+	}
+}
+
+func TestCommitReloadFailureBlocksFurtherEdits(t *testing.T) {
+	s, _ := openToy(t)
+	s.ExecScript(`insert into t values (2)`)
+	old := reloadAfterCommit
+	reloadAfterCommit = func(*Save) error { return errors.New("boom") }
+	t.Cleanup(func() { reloadAfterCommit = old })
+	if _, err := s.Commit(false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ExecScript(`insert into t values (3)`); err == nil || !strings.Contains(err.Error(), "read-only") {
+		t.Fatalf("after a failed reload the stale baseline must not be edited further, got %v", err)
+	}
+}

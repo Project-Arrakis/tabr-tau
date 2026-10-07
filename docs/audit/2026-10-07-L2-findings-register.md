@@ -67,3 +67,24 @@ Reviewer reports were produced by read-only agents against branch `issue/6-mutat
 7 of 11 mutations were caught; the 4 survivors (QA-1..3 and a timeout hang) are now covered or filed. After the fixes:
 `go vet`, staticcheck, `go test ./...` and the 41 browser-engine UI tests pass locally; the new fingerprint was checked against
 the real baseline save (not falsely blocked).
+
+## Slice 4 (PR #43: baseline, op record, `internal/diff`, review endpoint)
+Audited the same day with a Security/privacy hat, a QA/Architect hat and a five-agent code review (reports on PR #43 / #24).
+No CRITICAL. Every finding below was fixed in the PR unless a link says otherwise.
+
+| ID | Sev | STRIDE | Finding | Disposition |
+|---|---|---|---|---|
+| P1 | HIGH | Tampering, Repudiation | Redaction ran before comparison and before key building: an edited `funcom_id`/`platform_id`/name, or one 15+ digit id changed to another, vanished from the diff | **Fixed**: compare raw, mask only in output (test: identity edit still reported as `<redacted>` -> `<redacted>`) |
+| P2 | HIGH | Information disclosure | Redaction missed integer and float ids, JSON numbers, JSON keys, short-digit ids and other personal columns | **Fixed**: type-independent 15+ digit masking incl. JSON keys, column-name rules, edit descriptions masked; `TestEveryColumnIsClassified` fails on a new unclassified personal-looking column |
+| P3 | MED | Tampering | Row keys built from masked, untyped text: redacted primary keys collided, `1` and `'1'` and NULL and `'<nil>'` merged, rows silently dropped | **Fixed**: raw typed keys |
+| P4 | MED | Tampering | JSON integers compared with a relative float tolerance (2,000,000 -> 2,000,001 hidden); int64 compared through float64 | **Fixed**: integers decode as int64 and compare exactly |
+| P5 | MED | DoS | `MaxRows` unclamped; one blob scan per column; blob-kind errors swallowed | **Fixed**: clamped 1..1000, one scan per table, errors returned |
+| P6 | MED | Repudiation, DoS | `load()` failure part-way leaked the decoded copy and left a closed handle; a reload failure after Commit left a stale baseline editable | **Fixed**: build-then-swap `load()`; reload failure after Commit/Restore disables edits |
+| P7 | MED | Information disclosure | Edit descriptions (`sql: ...`) unmasked in the review | **Fixed** (`diff.RedactText`) |
+| P8 | LOW | N/A | Review read dirty, ops and diff at different moments | **Fixed** (`WithBaselineState`) |
+| P9 | LOW | Tampering | `Change.before/after` had `omitempty` (a change from 0 lost its before) | **Fixed** |
+| P10 | LOW | Information disclosure | Control characters from a hostile save reached the terminal via table names | **Fixed** (`clean`) |
+| P11 | LOW | N/A | CLI lacked `--ignore-tables/--ignore-columns/--float-eps`; stale doc comment | **Fixed** |
+| P12 | LOW | DoS | `Compare` holds the save lock for the whole diff and loads full tables in memory (UI stalls on a very large save) | Filed on #40 |
+| P13 | LOW | N/A | PR said "Closes #7" though #7's disposition lists the review pane (S2) | **Fixed** (PR says "Refs #7"; #7 stays open for the pane) |
+Tests added for the endpoint (shape, redaction, gating, limit bounds), composite and typed keys, table-set differences, text output, malformed/opaque blobs, read-only handle, failed-reload behaviour. QA mutation checks: 13 of 14 mutations caught; the survivor (OpenReadOnly made writable) now has a test.

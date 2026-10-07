@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/diff"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
@@ -513,5 +514,29 @@ func TestDiscardResetsTheForeignKeyBaseline(t *testing.T) {
 	}
 	if v := fkViolations(t, o); v != 0 {
 		t.Fatalf("%d violations", v)
+	}
+}
+
+// ---- review (F-06)
+
+func TestReviewListsEditsAndRedactedDiff(t *testing.T) {
+	o := newPlayerOps(t)
+	if _, err := o.SetItem(Args{"id": float64(10), "stack_size": float64(7)}); err != nil {
+		t.Fatal(err)
+	}
+	res, err := o.Review(false, 40)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := res.(map[string]any)
+	if m["dirty"] != true {
+		t.Error("review must report dirty")
+	}
+	if ops := m["ops"].([]save.Op); len(ops) != 1 || !strings.Contains(ops[0].Desc, "edit item 10") {
+		t.Errorf("ops = %+v", ops)
+	}
+	d := m["diff"].(*diff.Result)
+	if d.Empty() || !d.Redacted {
+		t.Errorf("diff should show the edit and be redacted: %+v", d)
 	}
 }
