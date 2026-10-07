@@ -19,9 +19,18 @@ async function api(path, body) {
 function toast(msg, err) {
   const d = document.createElement('div');
   if (err) d.className = 'err';
-  d.textContent = msg;
+  const t = document.createElement('span');
+  t.textContent = msg;
+  d.append(t);
+  if (err) { // an error stays until it is dismissed: a message that vanishes in seconds is easy to miss
+    const x = document.createElement('button');
+    x.className = 'x';
+    x.textContent = '\u00d7';
+    x.title = 'Dismiss';
+    x.onclick = () => d.remove();
+    d.append(x);
+  } else setTimeout(() => d.remove(), 3500);
   $('#toast').append(d);
-  setTimeout(() => d.remove(), err ? 7000 : 3500);
 }
 async function act(fn, okMsg, refresh = true) {
   try { const r = await fn(); if (okMsg) toast(okMsg); await status(); if (refresh) await render(); return r; }
@@ -51,9 +60,15 @@ const kv = (k, v) => html`<div class="kv"><b>${k}</b><span>${v}</span></div>`;
 const fix = (n) => (n == null ? '' : Math.round(n).toLocaleString());
 
 // ---------- status bar
+let gameRunning = false;
 async function status() {
   const o = await api('/api/overview');
-  $('#path').textContent = o.path + (o.gameRunning ? '  —  GAME IS RUNNING' : '');
+  gameRunning = !!o.gameRunning;
+  $('#path').textContent = o.path;
+  const gw = $('#gamewarn');
+  gw.className = gameRunning ? 'warn' : 'hide';
+  setHTML(gw, gameRunning ? html`<b>Dune: Awakening is running.</b> Close the game completely before saving. It rewrites game.db on its own, so a save made now would conflict with it or be overwritten. You can keep editing.` : html``);
+  syncReview();
   const n = o.pending.length;
   $('#pending').textContent = n ? `${n} unsaved change${n > 1 ? 's' : ''}` : '';
   $('#btnSave').disabled = $('#btnDiscard').disabled = !o.dirty;
@@ -65,12 +80,40 @@ async function status() {
   setHTML(ro, o.readOnly ? html`<b>This save is read-only.</b> ${o.readOnly}<br>You can browse it, but every edit is refused. This usually means the file contains database objects the real game does not create (for example extra triggers) - do not edit a save from an untrusted source.` : html``);
   return o;
 }
-$('#btnSave').onclick = () => act(async () => {
-  const r = await api('/api/save/commit', {});
-  if (!r.saved) { toast('Nothing to save' + (r.reason ? ' (' + r.reason + ')' : '')); return; }
-  toast('Saved. Backup: ' + r.backup);
-  if (r.warning) toast(r.warning, true);
-}, null);
+// ---------- review pane: the only way to write the save
+let R = null; // the open review: { token, ops, diff, error }
+const val1 = (v) => { const t = v === undefined ? 'undefined' : JSON.stringify(v); return t.length > 120 ? t.slice(0, 117) + '...' : t; };
+function reviewBody() {
+  const d = R.diff, tabs = d.tables || [];
+  return html`<div class="mbox"><h3 class="big">Review changes</h3>
+    <div id="mmsg">${R.error ? (R.stale ? html`<div class="warn"><b>The save changed on disk.</b> ${R.error}<br>The game (or another program) rewrote game.db after you opened it, so these edits cannot be applied on top of it. Reload the file, then redo the edits listed below.<div class="row"><button class="b" data-act="reload">Reload from disk (discards these edits)</button></div></div>` : html`<div class="warn">${R.error}</div>`) : ''}</div>
+    <h3>Edits you made (${R.ops.length})</h3>
+    ${R.ops.length ? html`<ul class="tight">${R.ops.map((o) => html`<li>${o.desc}</li>`)}</ul>` : html`<p class="mut">No edits.</p>`}
+    <h3>What changes inside game.db</h3>
+    ${tabs.length ? html`<div class="scroll"><table><thead><tr><th>Table</th><th>Added</th><th>Removed</th><th>Changed</th></tr></thead><tbody>${tabs.map((t) => html`<tr><td>${t.name}</td><td>${t.numAdded}</td><td>${t.numRemoved}</td><td>${t.numModified}</td></tr>`)}</tbody></table></div>
+      <details><summary>Show changed values</summary>${tabs.map((t) => (t.modified || []).length ? html`<p class="mono"><b>${t.name}</b></p>${t.modified.map((m) => html`<div class="mono">row ${val1(m.key)}: ${m.changes.map((c) => html`<div>${c.path}: ${val1(c.before)} \u2192 ${val1(c.after)}</div>`)}</div>`)}` : '')}</details>
+      ${d.redacted ? html`<p class="mut">Account and character identifiers are hidden in this view.</p>` : ''}`
+      : html`<p class="mut">The working copy is identical to the file on disk.</p>`}
+    <div class="row mt12"><button class="b" data-act="doSave" id="btnDoSave">Save to game</button><button class="b sec" data-act="closeReview">Back</button><span id="savewhy" class="mut"></span></div></div>`;
+}
+function syncReview() {
+  const m = $('#modal');
+  if (!R) { m.className = 'hide'; return; }
+  m.className = 'modal';
+  const b = $('#btnDoSave');
+  if (!b) return;
+  b.disabled = gameRunning || !R.ops.length || !!R.stale;
+  $('#savewhy').textContent = gameRunning ? 'Close the game first.' : R.stale ? 'Reload the file first.' : !R.ops.length ? 'Nothing to save.' : '';
+}
+function drawReview() { setHTML($('#modal'), R ? reviewBody() : html``); syncReview(); }
+async function openReview() {
+  try {
+    const r = await api('/api/save/review');
+    R = { token: r.token, ops: r.ops || [], diff: r.diff || { tables: [] } };
+  } catch (e) { toast(e.message, true); return; }
+  drawReview();
+}
+$('#btnSave').onclick = openReview;
 $('#btnDiscard').onclick = () => { if (confirm('Discard all unsaved changes?')) act(() => api('/api/save/discard', {}), 'Discarded'); };
 
 // ---------- PLAYER
@@ -252,6 +295,22 @@ async function render() {
 
 const D = (e) => e.target.closest('[data-act]');
 const A = {
+  closeReview: () => { R = null; drawReview(); },
+  reload: () => act(async () => { await api('/api/save/discard', {}); R = null; drawReview(); }, 'Reloaded from disk. Redo your edits.'),
+  doSave: async () => {
+    if (!R) return;
+    try {
+      const r = await api('/api/save/commit', { reviewed: R.token });
+      R = null; drawReview();
+      toast(r.saved ? 'Saved. Backup: ' + r.backup : 'Nothing to save');
+      if (r.warning) toast(r.warning, true);
+      await status(); await render();
+    } catch (e) {
+      R.error = e.message;
+      R.stale = /changed on disk/.test(e.message);
+      drawReview();
+    }
+  },
   solari: () => act(() => api('/api/player/solari', { amount: +val('solari') }), 'Solari updated'),
   teleport: () => act(() => api('/api/player/teleport', { x: +val('tx'), y: +val('ty'), z: +val('tz') }), 'Teleport queued'),
   tpTo: (d) => act(() => api('/api/player/teleport', { x: +d.x, y: +d.y, z: +d.z }), 'Teleport queued'),
@@ -302,7 +361,7 @@ const A = {
       const r = await api('/api/db/exec', { sql: window.lastSql });
       toast(r.changes + ' row(s) changed');
       await status();
-      setHTML($('#sqlout'), html`<p class="ok">${r.changes} row(s) changed. Press "Save to game" to write them to game.db.</p>`);
+      setHTML($('#sqlout'), html`<p class="ok">${r.changes} row(s) changed. Press "Review &amp; save" to write them to game.db.</p>`);
     } catch (e) { toast(e.message, true); }
   },
   restore: (d) => confirm('Restore ' + d.n + '? Close the game first.') && act(() => api('/api/save/restore', { name: d.n }), 'Restored'),
@@ -331,3 +390,4 @@ document.addEventListener('change', (e) => {
   else if (t.id == 'dbsel') { dbTable = t.value; dbOff = 0; dbQ = ''; render(); }
 });
 status().then(render);
+setInterval(() => status().catch(() => {}), 5000); // keeps the game-running warning current

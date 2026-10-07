@@ -39,7 +39,8 @@ live-test protocol). Do not attach saves, `Game.ini`, snapshots or logs to issue
 
 `game.db` (and `game_prepatch.db`, `autosave/*.bak`) is an 8-byte header (`uint32 1`, `uint32 size`) followed
 by a zlib stream containing a plain SQLite 3 database. tabr-tau decodes it into a private working copy, and
-**nothing is written until you press "Save to game"**. Saving:
+**nothing is written until you press "Review & save" and then "Save to game" inside the review**, which lists
+every edit and what changes inside the file. Saving:
 
 1. refuses to run while `DuneSandbox-Win64-Shipping.exe` is running,
 2. refuses if the file changed on disk since it was loaded,
