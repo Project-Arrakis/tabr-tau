@@ -49,3 +49,4 @@ ul.tight{margin:6px 0}
 .mbox{background:var(--panel);border:1px solid var(--line);border-radius:8px;max-width:860px;margin:0 auto;padding:16px}
 .mbox h3.big{margin:0 0 8px;font-size:18px;color:var(--acc2);text-transform:none;letter-spacing:0}.mbox h3{margin:14px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut)}
 body.noscroll{overflow:hidden}
+.modal.top{z-index:9}.mbox.small{max-width:480px;margin-top:12vh}

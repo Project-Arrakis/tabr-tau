@@ -144,8 +144,7 @@ connection setting stays `foreign_keys=0` and the global decision still waits on
 Step 5 data side done (F-06): pristine baseline kept at load, structured op record, `internal/diff`, review endpoint and
 `diff` CLI. Step 5 UI side done (S2 slice 1, PR #50): the review pane, Save reachable only from it (the commit route requires the
 review token, a hash of the pending edits), a polled game-running banner, sticky errors, and Reload from disk after a
-changed-on-disk failure. **Not built yet:** the typed reason for `force` (the UI never sends `force`), tiered
-confirmations for destructive actions (S2), JSON/JSONB invariants, post-write verification against the baseline.
+changed-on-disk failure. S2 slice 2 adds tiered in-app confirmations (typed word for bulk, raw SQL write and restore). **Not built yet:** the typed reason for `force` (the UI never sends `force`), JSON/JSONB invariants, post-write verification against the baseline.
 
 ### 4.3 Compatibility strategy
 - **Capability probe:** each feature declares required tables, columns and JSON paths; unavailable features are shown disabled with the reason (F-21), and their writes are refused.

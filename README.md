@@ -17,8 +17,8 @@ features (containers, autoscaler, map/Sietche/Deep Desert instances, backups of 
 > **Known security limits (a design audit found these; most are now fixed, the rest are scheduled):** the editor refuses
 > connections from other machines and non-loopback `--addr` values, bounds the save decoder, escapes everything it renders,
 > vets both SQL consoles and opens a save with unknown triggers/views read-only. Saving now goes through a review pane
-> that lists every edit and what changes in the file. Still open: checks after the write, confirmations for destructive
-> actions, and a recovery tool, so **do not open a save file you got from someone else** (the review shows
+> that lists every edit and what changes in the file. Destructive and bulk actions ask first. Still open: checks after the write
+> and a recovery tool, so **do not open a save file you got from someone else** (the review shows
 > what you changed, it does not make a hostile file safe) and keep the automatic backups. Status: [issue #24](https://github.com/Project-Arrakis/tabr-tau/issues/24).
 
 **Documentation:** [docs/README.md](docs/README.md) (design, audit findings, single-player file reference,
