@@ -105,8 +105,8 @@ function syncReview() {
   document.body.classList.toggle('noscroll', true);
   const b = $('#btnDoSave');
   if (!b) return;
-  b.disabled = offline || gameRunning || !R.ops.length || !!R.stale;
-  $('#savewhy').textContent = offline ? 'Lost contact with the editor.' : gameRunning ? 'Close the game first.' : R.stale ? 'Reload the file first.' : !R.ops.length ? 'Nothing to save.' : '';
+  b.disabled = offline || gameRunning || !R.dirty || !!R.stale;
+  $('#savewhy').textContent = offline ? 'Lost contact with the editor.' : gameRunning ? 'Close the game first.' : R.stale ? 'Reload the file first.' : !R.dirty ? 'Nothing to save.' : '';
 }
 function drawReview(focus) {
   setHTML($('#modal'), R ? reviewBody() : html``);
@@ -119,7 +119,7 @@ async function openReview() {
   opening = true;
   try {
     const r = await api('/api/save/review');
-    R = { token: r.token, ops: r.ops || [], diff: r.diff || { tables: [] } };
+    R = { token: r.token, dirty: !!r.dirty, ops: r.ops || [], diff: r.diff || { tables: [] } };
   } catch (e) { toast(e.message, true); return; } finally { opening = false; }
   drawReview(true);
 }

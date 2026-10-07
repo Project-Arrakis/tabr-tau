@@ -31,15 +31,21 @@ var gameCache struct {
 
 const gameCacheTTL = 3 * time.Second
 
-// GameRunning reports whether the Dune client process is alive (Windows only). The answer is cached for a few
-// seconds (the UI polls it) and the check cannot hang: a stuck tasklist is abandoned after three seconds.
-func GameRunning() bool {
+// GameRunning reports whether the Dune client process is alive (Windows only). It is for display and polling: the
+// answer may be up to three seconds old. Anything that decides whether to write must use GameRunningNow.
+func GameRunning() bool { return gameRunning(true) }
+
+// GameRunningNow is GameRunning without the cache, for the checks that gate a write.
+func GameRunningNow() bool { return gameRunning(false) }
+
+// gameRunning asks tasklist. The check cannot hang: a stuck tasklist is abandoned after three seconds.
+func gameRunning(useCache bool) bool {
 	if runtime.GOOS != "windows" {
 		return false
 	}
 	gameCache.Lock()
 	defer gameCache.Unlock()
-	if !gameCache.at.IsZero() && time.Since(gameCache.at) < gameCacheTTL {
+	if useCache && !gameCache.at.IsZero() && time.Since(gameCache.at) < gameCacheTTL {
 		return gameCache.running
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

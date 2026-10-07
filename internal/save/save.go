@@ -288,8 +288,6 @@ func (s *Save) Ops() []Op {
 	return append([]Op{}, s.ops...)
 }
 
-// WithBaseline calls fn with read-only handles on the pristine copy of the save as loaded and on the working copy
-// as edited so far. fn runs with the save locked, so it must not call back into the Save.
 // ErrReviewChanged is returned when the pending changes are not the ones that were reviewed.
 var ErrReviewChanged = errors.New("the pending changes are different from the ones you reviewed; review them again")
 
@@ -317,6 +315,8 @@ func (s *Save) ReviewToken() (string, error) {
 	return s.reviewTokenLocked()
 }
 
+// WithBaseline calls fn with read-only handles on the pristine copy of the save as loaded and on the working copy
+// as edited so far. fn runs with the save locked, so it must not call back into the Save.
 func (s *Save) WithBaseline(fn func(orig, current *sql.DB) error) error {
 	return s.WithBaselineState(func(orig, current *sql.DB, _ bool, _ []Op) error { return fn(orig, current) })
 }
@@ -329,7 +329,8 @@ func (s *Save) WithBaselineState(fn func(orig, current *sql.DB, dirty bool, ops 
 	})
 }
 
-// WithReview is WithBaselineState that also hands fn the review token of that same instant.
+// WithReview is WithBaselineState that also hands fn the review token of that same instant. Like the others, fn runs
+// with the save locked and must not call back into the Save.
 func (s *Save) WithReview(fn func(orig, current *sql.DB, dirty bool, ops []Op, token string) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -511,10 +512,11 @@ func (s *Save) backup() (string, error) {
 }
 
 // Commit backs up the original file, then atomically writes the edited save. force skips only the check that the
-// game is running; it never skips the changed-on-disk check.
+// game is running; it never skips the changed-on-disk check. Commit does not require a review: the web route uses
+// CommitReviewed, so a save from the UI is always one the person was shown.
 func (s *Save) Commit(force bool) (map[string]any, error) { return s.commit(force, "", false) }
 
-// CommitReviewed is Commit for a save the person reviewed: token must be the one ReviewToken/WithReview returned for
+// CommitReviewed is Commit for a save the person reviewed (force has the same meaning as for Commit): token must be the one ReviewToken/WithReview returned for
 // exactly the state being written. The comparison happens under the same lock as the write, so an edit that lands
 // after the review cannot be saved unseen.
 func (s *Save) CommitReviewed(token string, force bool) (map[string]any, error) {
@@ -545,7 +547,7 @@ func (s *Save) commit(force bool, token string, needToken bool) (map[string]any,
 	if err := s.requirePlainFile(); err != nil {
 		return nil, err
 	}
-	if !force && GameRunning() {
+	if !force && GameRunningNow() {
 		return nil, fmt.Errorf("%s is running; close the game first", GameProcess)
 	}
 	cur, err := os.ReadFile(s.Path)
@@ -608,7 +610,7 @@ func (s *Save) Backups() []Row {
 	return out
 }
 
-// Restore replaces the save with a backup through the same durable path as Commit: the backup must decode, pass
+// Restore replaces the save with a backup through the same durable path as Commit (and, because a restore reloads the file, only when no edits are pending): the backup must decode, pass
 // an integrity check and carry no applied patch the current save lacks (it would come from a newer game); the
 // current file is backed up first and is never truncated in place.
 func (s *Save) Restore(name string) error {
@@ -617,7 +619,7 @@ func (s *Save) Restore(name string) error {
 	if name == "" || name != filepath.Base(name) || name == "." || name == ".." {
 		return errors.New("invalid backup name")
 	}
-	if GameRunning() {
+	if GameRunningNow() {
 		return fmt.Errorf("%s is running; close the game first", GameProcess)
 	}
 	if s.dirty { // restoring reloads the file and would silently drop the pending edits
