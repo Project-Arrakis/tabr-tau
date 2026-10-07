@@ -72,11 +72,14 @@ func errReadOnly(reason string) error {
 	return fmt.Errorf("this save is read-only: %s", reason)
 }
 
-// codeObjects returns the database objects that can carry logic, keyed by "type name", with normalised SQL.
+// codeObjects returns the database objects that can carry logic, keyed by "type name", with their exact SQL.
+// Triggers and views are always included; a virtual table is recognised by rootpage 0 (not by its SQL text, which
+// comments can disguise). Only SQLite's own internal tables (sqlite_sequence, sqlite_stat1, ...) are skipped, and
+// only when they are tables: a trigger or view named sqlite_* is still reported.
 func codeObjects(q interface {
 	Query(q string, args ...any) (*sql.Rows, error)
 }) (map[string]string, error) {
-	rs, err := q.Query(`select type, name, coalesce(sql,'') from sqlite_master where name not like 'sqlite\_%' escape '\'`)
+	rs, err := q.Query(`select type, name, coalesce(sql,''), rootpage from sqlite_master`)
 	if err != nil {
 		return nil, err
 	}
@@ -84,13 +87,16 @@ func codeObjects(q interface {
 	out := map[string]string{}
 	for rs.Next() {
 		var typ, name, def string
-		if err := rs.Scan(&typ, &name, &def); err != nil {
+		var root sql.NullInt64
+		if err := rs.Scan(&typ, &name, &def, &root); err != nil {
 			return nil, err
 		}
-		def = strings.ToLower(strings.Join(strings.Fields(def), " "))
 		switch {
 		case typ == "trigger" || typ == "view":
-		case typ == "table" && strings.HasPrefix(def, "create virtual"):
+		case typ == "table" && root.Valid && root.Int64 == 0:
+			if strings.HasPrefix(strings.ToLower(name), "sqlite_") {
+				continue
+			}
 		default:
 			continue
 		}
@@ -230,82 +236,6 @@ func (s *Save) Pending() []string {
 	return append([]string{}, s.pending...)
 }
 
-// Log records a human-readable description of an edit.
-func (s *Save) Log(format string, a ...any) {
-	s.mu.Lock()
-	s.pending = append(s.pending, fmt.Sprintf(format, a...))
-	s.mu.Unlock()
-}
-
-// Exec runs one write statement against the working copy.
-func (s *Save) Exec(q string, args ...any) (sql.Result, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.blocked != "" {
-		return nil, errReadOnly(s.blocked)
-	}
-	res, err := s.db.Exec(q, args...)
-	noteSQLError(q, err)
-	if err == nil {
-		if n, _ := res.RowsAffected(); n > 0 {
-			s.dirty = true
-		}
-	}
-	return res, err
-}
-
-// Tx runs fn in a transaction; any error rolls it back. Reads inside fn must
-// use the tx (the pool holds a single connection).
-func (s *Save) Tx(fn func(tx *sql.Tx) error) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.blocked != "" {
-		return errReadOnly(s.blocked)
-	}
-	tx, err := s.db.Begin()
-	if err != nil {
-		return err
-	}
-	if err := fn(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-	s.dirty = true
-	return nil
-}
-
-// ExecScript runs one or more write statements atomically. Nothing is kept if
-// any statement fails. It returns the number of rows changed.
-func (s *Save) ExecScript(script string) (int64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.blocked != "" {
-		return 0, errReadOnly(s.blocked)
-	}
-	tx, err := s.db.Begin()
-	if err != nil {
-		return 0, err
-	}
-	var before, after int64
-	tx.QueryRow("select total_changes()").Scan(&before)
-	if _, err := tx.Exec(script); err != nil {
-		noteSQLError(script, err)
-		tx.Rollback()
-		return 0, err
-	}
-	tx.QueryRow("select total_changes()").Scan(&after)
-	if err := tx.Commit(); err != nil {
-		return 0, err
-	}
-	if after > before {
-		s.dirty = true
-	}
-	return after - before, nil
-}
-
 // Query returns rows as maps. BLOBs become "<blob NB> hex" strings.
 func (s *Save) Query(q string, args ...any) ([]Row, error) {
 	cols, rows, err := s.Table(q, args...)
@@ -336,7 +266,9 @@ func (s *Save) One(q string, args ...any) (Row, error) {
 func (s *Save) Table(q string, args ...any) ([]string, [][]any, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	cols, rows, err := queryTable(s.db, q, args...)
+	// Reads use the read-only connection, so a statement that writes cannot slip in through Query/Table/One and
+	// bypass Mutate (it fails with "attempt to write a readonly database").
+	cols, rows, err := queryTable(s.rdb, q, args...)
 	noteSQLError(q, err)
 	return cols, rows, err
 }
@@ -593,7 +525,13 @@ func (s *Save) Restore(name string) error {
 		return err
 	}
 	s.diskHash = hashOf(b)
-	return s.load()
+	if err := reloadAfterCommit(s); err != nil {
+		// The file on disk is the restored backup but the working copy is stale: refuse further edits so the
+		// stale copy can never be saved over the restore.
+		s.blocked = "the backup was restored but reloading it failed (" + err.Error() + "); restart the editor"
+		return errors.New(s.blocked)
+	}
+	return nil
 }
 
 // Discover finds game.db under the default Dune client storage location.

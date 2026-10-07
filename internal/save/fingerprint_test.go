@@ -1,10 +1,10 @@
 package save_test
 
 import (
-	"database/sql"
 	"strings"
 	"testing"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
@@ -47,8 +47,8 @@ func TestUnknownDatabaseObjectsMakeTheSaveReadOnly(t *testing.T) {
 			t.Errorf("%s: ExecScript must refuse", name)
 		}
 		ran := false
-		if err := s.Tx(func(tx *sql.Tx) error { ran = true; return nil }); err == nil || ran {
-			t.Errorf("%s: Tx must refuse without running its function (err=%v ran=%v)", name, err, ran)
+		if _, err := s.Mutate("x", func(m *save.Mut) error { ran = true; return nil }); err == nil || ran {
+			t.Errorf("%s: Mutate must refuse without running its function (err=%v ran=%v)", name, err, ran)
 		}
 		// reads still work
 		if rows, err := s.Query(`select count(*) c from items`); err != nil || len(rows) != 1 {
@@ -71,5 +71,32 @@ func TestDiscardRecomputesTheFingerprint(t *testing.T) {
 	}
 	if s.WriteBlocked() != "" {
 		t.Fatal("still writable after discard")
+	}
+}
+
+// A hand-crafted file can carry objects SQLite would refuse to create through SQL. The fingerprint reads
+// sqlite_master directly, so these must still be caught (security review S2, S4).
+func TestFingerprintCatchesDisguisedObjects(t *testing.T) {
+	cases := map[string]string{
+		"virtual table with a comment between the words": `create /*x*/ virtual /*y*/ table sneaky_rt using rtree(id, a, b);`,
+		"trigger named sqlite_*": `pragma writable_schema=on;
+			insert into sqlite_master(type,name,tbl_name,rootpage,sql) values ('trigger','sqlite_evil','items',0,
+			'CREATE TRIGGER sqlite_evil AFTER UPDATE ON items BEGIN UPDATE items SET stack_size=stack_size; END');`,
+		"game trigger changed only inside a string literal": `drop trigger actor_fgl_entities_cleanup_orphaned_entities;
+			create trigger actor_fgl_entities_cleanup_orphaned_entities AFTER DELETE ON actor_fgl_entities FOR EACH ROW
+			BEGIN DELETE FROM fgl_entities WHERE entity_id = OLD.entity_id AND 'A' = 'A'; END;`,
+	}
+	for name, ddl := range cases {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Logf("%s: fixture could not be built by this SQLite (%v); skipped", name, r)
+				}
+			}()
+			s := testsave.PlayerWithSQL(t, ddl)
+			if s.WriteBlocked() == "" {
+				t.Errorf("%s: must make the save read-only", name)
+			}
+		}()
 	}
 }

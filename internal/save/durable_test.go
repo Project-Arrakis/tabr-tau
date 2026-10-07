@@ -261,3 +261,49 @@ func TestReloadFailureAfterRenameIsAWarningNotAnError(t *testing.T) {
 		t.Fatal("file not written")
 	}
 }
+
+func TestReadBackMismatchRestoresThePreviousBytes(t *testing.T) {
+	s, p := openToy(t)
+	orig, _ := os.ReadFile(p)
+	s.ExecScript(`insert into t values (2)`)
+	old := fsRename
+	first := true
+	fsRename = func(a, b string) error {
+		if err := os.Rename(a, b); err != nil {
+			return err
+		}
+		if first { // simulate a filesystem or scanner that hands back different bytes than were written
+			first = false
+			return os.WriteFile(b, []byte("garbage"), 0o600)
+		}
+		return nil
+	}
+	oldWait := renameBackoff
+	renameBackoff = 0
+	t.Cleanup(func() { fsRename = old; renameBackoff = oldWait })
+	_, err := s.Commit(false)
+	if err == nil || !strings.Contains(err.Error(), "read back") {
+		t.Fatalf("want a read-back error, got %v", err)
+	}
+	if got, _ := os.ReadFile(p); !bytes.Equal(got, orig) {
+		t.Fatal("the previous file contents must be restored after a bad write")
+	}
+}
+
+func TestRestoreRefusesWhenTheFileChangedOnDisk(t *testing.T) {
+	s, p := openToy(t)
+	s.ExecScript(`insert into t values (2)`)
+	r, err := s.Commit(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other := makeSave(t, `create table t(a integer); insert into t values (9);`)
+	b, _ := os.ReadFile(other)
+	os.WriteFile(p, b, 0o600) // the game autosaved after we loaded
+	if err := s.Restore(filepath.Base(r["backup"].(string))); err == nil {
+		t.Fatal("Restore must not overwrite a save that changed on disk")
+	}
+	if got, _ := os.ReadFile(p); !bytes.Equal(got, b) {
+		t.Fatal("a refused restore must leave the file alone")
+	}
+}

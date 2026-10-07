@@ -103,8 +103,8 @@ save lives in `ops`, not `catalog`. There is no `savex` package.
 | Package | Verified today | Change |
 |---|---|---|
 | `internal/save/codec.go` | wrapper; flag check exists (`codec.go:33`); **`io.ReadAll` unbounded** (`:40`) so a 1 MB file can expand about 1000:1 | S0: `io.LimitReader(zr, min(header size, 128 MiB)+1)`, reject header over cap before decompress, cap compressed input; fuzz target; tests for bomb, truncation, size mismatch, wrong flag |
-| `internal/save` | temp file on disk (not memory), single connection, `foreign_keys(0)` explicit, `Commit` with integrity check, hash check, backup, tmp+rename, `force` skips two checks, `Restore` truncates in place | S1: see 4.2 and F-05..F-08 |
-| `internal/ops` | 32 write sites, 22 outside any Tx, errors ignored in multi-step ops, `Exec`/`ExecScript` reachable from the SQL console with a regex denylist | S1: `save.Mutate(desc, fn(tx))` is the only write path; migrate all sites; lint test forbids `S.Exec` from `ops` |
+| `internal/save` | temp file on disk (not memory), single connection, `foreign_keys(0)` explicit, `Commit` with integrity check, hash check, backup, tmp+rename, `force` skips two checks, `Restore` truncates in place (as audited 2026-09-30; **since fixed**, see the 4.2 implementation status) | S1: see 4.2 and F-05..F-08 |
+| `internal/ops` | 32 write sites, 22 outside any Tx, errors ignored in multi-step ops, `Exec`/`ExecScript` reachable from the SQL console with a regex denylist (as audited; **since fixed**: `save.Mutate` only, tokenizer-based vetting) | S1: `save.Mutate(desc, fn(tx))` is the only write path; migrate all sites; lint test forbids `S.Exec` from `ops` |
 | `internal/web` | Host check, per-run token (128-bit), 4 MiB POST cap, no CORS; **`GET /` is token-exempt and serves the token; no CSP; no Content-Type check; `--addr` unrestricted** | S0: see 4.4 |
 | `internal/web/static/index.html` | many unescaped interpolations of save values (stored XSS); no review pane; bare `confirm()`; no `beforeunload` | S0 escape + CSP; S2 review pane, confirmations, banners |
 | **`internal/diff`** (new, leaf) | Python prototype `tools/snapdiff.py` (fixed in v0.2) | S1: Go port with redaction on by default; used by CLI, review pane, tests |
@@ -128,6 +128,15 @@ Steps marked **(exists)** are in the code today; **(new)** are not.
    Honest claim: rename is crash-safe against **process** death; power-loss safety requires the `fsync`.
 8. **(new)** Reopen the written file and re-run invariants. On failure restore the verified backup automatically and report. A reload error after a successful rename is non-fatal and reported as a warning.
 9. **Restore** uses the same pipeline (tmp+sync+rename, integrity check, patch-set subset check, hash check); it never truncates the live file in place.
+
+**Implementation status (2026-10-07).** Done: step 2 (hash re-checked immediately before the rename; `force` never skips it);
+step 3 (`save.Mutate` is the only write path, `Exec`/`ExecScript`/`Tx` removed so the compiler enforces it); step 6 partly (unique
+fsynced read-back-verified 0600 backups; sidecar JSON and retention not built); step 7 (exclusive 0600 temp, fsync, rename retry,
+read-back compare, stale-temp cleanup); step 8 partly (a read-back mismatch restores the previous bytes; reopening and re-running
+invariants is not built; a reload failure after a successful write is a warning); step 9 (Restore through the same pipeline, no
+in-place truncation, integrity and patch-subset checks). Fingerprint (4.3) is checked at load and refuses all writes. **Not built
+yet:** the typed reason for `force` (S2), `foreign_key_check` before/after (F-08, #9), JSON/JSONB invariants, the pristine `orig`
+copy and review pane (F-06, #7), process polling in the UI.
 
 ### 4.3 Compatibility strategy
 - **Capability probe:** each feature declares required tables, columns and JSON paths; unavailable features are shown disabled with the reason (F-21), and their writes are refused.

@@ -32,6 +32,7 @@ button:disabled{opacity:.4;cursor:default}
 #toast div{background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--ok);padding:8px 12px;border-radius:6px;max-width:420px}
 #toast div.err{border-left-color:var(--bad)}
 .tag{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:1px 8px;margin:2px;font-size:12px}
+.hide{display:none}
 .warn{background:#4a2f10;color:#ffd9a0;padding:8px 12px;border-radius:6px;margin-bottom:12px}
 details summary{cursor:pointer;color:var(--acc2)}
 /* replaces the former inline styles; selectors are as specific as the rules they must beat */

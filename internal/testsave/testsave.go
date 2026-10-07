@@ -1,4 +1,4 @@
-// Package testsave builds test saves from the REAL single-player schema (schema.sql is the DDL extracted
+// Package testsave builds test saves from the REAL single-player schema (internal/save/schema.sql, exposed as save.KnownSchema, is the DDL extracted
 // from a real save: 94 tables, STRICT typing, CHECK constraints, foreign keys, the game's trigger).
 //
 // Why: the original tests used hand-written tables that silently diverged from the game's schema, so a
@@ -255,5 +255,13 @@ func fill1(t testing.TB, db *sql.DB, table string, set map[string]any) {
 	q := fmt.Sprintf(`insert into "%s"(%s) values(%s)`, table, strings.Join(cols, ","), strings.Join(marks, ",")) // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query, go.lang.security.audit.sqli.gosql-sqli.gosql-sqli (test-only; table and column names come from the embedded DDL and identifiers cannot be bound parameters; names are quoted)
 	if _, err := db.Exec(q, args...); err != nil {                                                                // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query, go.lang.security.audit.sqli.gosql-sqli.gosql-sqli
 		t.Fatalf("fixture insert into %s: %v", table, err)
+	}
+}
+
+// Exec runs one edit statement on s through the editor's only write path (Mutate) and fails the test on error.
+func Exec(t testing.TB, s *save.Save, q string, args ...any) {
+	t.Helper()
+	if _, err := s.Mutate("test edit", func(m *save.Mut) error { _, err := m.Exec(q, args...); return err }); err != nil {
+		t.Fatalf("test edit failed: %v\n%s", err, q)
 	}
 }

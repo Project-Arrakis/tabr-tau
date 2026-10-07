@@ -2,7 +2,11 @@ package ops
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"time"
+
+	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
 // Landsraad returns the current term, the task board with faction progress and
@@ -48,11 +52,10 @@ func (o *Ops) SetTaskProgress(a Args) (any, error) {
 	if amt < 0 {
 		return nil, errors.New("amount must be >= 0")
 	}
-	if _, err := o.S.Exec(`insert into landsraad_task_faction_contributions(faction_id, task_id, amount) values(?,?,?)
+	if _, err := o.run(fmt.Sprintf("landsraad task %d faction %d progress = %g", t, f, amt), `insert into landsraad_task_faction_contributions(faction_id, task_id, amount) values(?,?,?)
 		on conflict(faction_id, task_id) do update set amount=excluded.amount`, f, t, amt); err != nil {
 		return nil, err
 	}
-	o.S.Log("landsraad task %d faction %d progress = %g", t, f, amt)
 	return ok(), nil
 }
 
@@ -62,19 +65,21 @@ func (o *Ops) CompleteTask(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	var n int64
 	if a.Bool("reset", false) {
-		_, err = o.S.Exec(`update landsraad_tasks set completed=0, winning_faction_id=null, completion_time=null where id=?`, t)
-		o.S.Log("landsraad task %d reopened", t)
+		n, err = o.run(fmt.Sprintf("landsraad task %d reopened", t), `update landsraad_tasks set completed=0, winning_faction_id=null, completion_time=null where id=?`, t)
 	} else {
 		f, ferr := a.Int("faction_id")
 		if ferr != nil {
 			return nil, ferr
 		}
-		_, err = o.S.Exec(`update landsraad_tasks set completed=1, winning_faction_id=?, completion_time=? where id=?`, f, time.Now().Unix(), t)
-		o.S.Log("landsraad task %d completed for faction %d", t, f)
+		n, err = o.run(fmt.Sprintf("landsraad task %d completed for faction %d", t, f), `update landsraad_tasks set completed=1, winning_faction_id=?, completion_time=? where id=?`, f, time.Now().Unix(), t)
 	}
 	if err != nil {
 		return nil, err
+	}
+	if n == 0 {
+		return nil, errors.New("task not found")
 	}
 	return ok(), nil
 }
@@ -89,10 +94,13 @@ func (o *Ops) SetDecree(a Args) (any, error) {
 	if a.Bool("disabled", false) {
 		dis = 1
 	}
-	if _, err := o.S.Exec(`update landsraad_decrees set disabled=? where id=?`, dis, id); err != nil {
+	n, err := o.run(fmt.Sprintf("decree %d disabled=%d", id, dis), `update landsraad_decrees set disabled=? where id=?`, dis, id)
+	if err != nil {
 		return nil, err
 	}
-	o.S.Log("decree %d disabled=%d", id, dis)
+	if n == 0 {
+		return nil, errors.New("decree not found")
+	}
 	return ok(), nil
 }
 
@@ -102,6 +110,11 @@ func (o *Ops) SetTerm(a Args) (any, error) {
 	if err != nil || term == nil {
 		return nil, errors.New("no Landsraad term in this save")
 	}
+	type edit struct {
+		col string
+		val any
+	}
+	var edits []edit
 	for _, k := range []string{"active_decree_id", "elected_decree_id", "reigning_faction_id", "end_time"} {
 		v, has := a[k]
 		if !has {
@@ -113,10 +126,25 @@ func (o *Ops) SetTerm(a Args) (any, error) {
 		} else if val, err = a.Int(k); err != nil {
 			return nil, err
 		}
-		if _, err := o.S.Exec(`update landsraad_decree_term set `+k+`=? where term_id=?`, val, term["term_id"]); err != nil {
-			return nil, err
+		edits = append(edits, edit{k, val})
+	}
+	if len(edits) == 0 {
+		return ok(), nil
+	}
+	var parts []string
+	for _, e := range edits {
+		parts = append(parts, fmt.Sprintf("%s = %v", e.col, e.val))
+	}
+	_, err = o.S.Mutate(fmt.Sprintf("landsraad term %v: %s", term["term_id"], strings.Join(parts, ", ")), func(m *save.Mut) error {
+		for _, e := range edits {
+			if _, err := m.Exec(`update landsraad_decree_term set `+e.col+`=? where term_id=?`, e.val, term["term_id"]); err != nil {
+				return err
+			}
 		}
-		o.S.Log("landsraad term %v %s = %v", term["term_id"], k, val)
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return ok(), nil
 }
