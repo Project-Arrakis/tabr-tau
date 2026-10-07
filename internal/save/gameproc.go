@@ -2,6 +2,7 @@ package save
 
 import (
 	"context"
+	"encoding/csv"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -9,51 +10,84 @@ import (
 	"time"
 )
 
-// tasklist cuts the image name in its table to 25 characters, so a 30-character name such as GameProcess never
-// appears whole in its output. Matching on this prefix works with the cut and the uncut form alike.
-const tasklistNameLen = 25
+// gamePrefix is the start of every Dune client process name. The exact image name was never verified on a real
+// machine, so the check matches the prefix instead of one guessed name; a false match only blocks a save, and the
+// message names the process so a wrong match is visible.
+const gamePrefix = "dune"
 
-// listedInTasklist reports whether tasklist output names the game. The "no tasks" notice carries no process name,
-// so it can never match.
-func listedInTasklist(out string) bool {
-	want := strings.ToLower(GameProcess)
-	if len(want) > tasklistNameLen {
-		want = want[:tasklistNameLen]
+// parseTasklist returns the process names in `tasklist /FO CSV /NH` output that look like the Dune client. The
+// "no tasks" notice is not CSV and never matches. tasklist cuts image names to 25 characters; that is fine for a prefix
+// match and for display.
+func parseTasklist(out string) []string {
+	var names []string
+	seen := map[string]bool{}
+	r := csv.NewReader(strings.NewReader(out))
+	r.FieldsPerRecord = -1
+	r.LazyQuotes = true
+	recs, _ := r.ReadAll()
+	for _, rec := range recs {
+		if len(rec) == 0 {
+			continue
+		}
+		n := strings.TrimSpace(rec[0])
+		if strings.HasPrefix(strings.ToLower(n), gamePrefix) && !seen[n] {
+			seen[n] = true
+			names = append(names, n)
+		}
 	}
-	return strings.Contains(strings.ToLower(out), want)
+	return names
 }
 
 var gameCache struct {
 	sync.Mutex
-	at      time.Time
-	running bool
+	at    time.Time
+	names []string
 }
 
 const gameCacheTTL = 3 * time.Second
 
-// GameRunning reports whether the Dune client process is alive (Windows only). It is for display and polling: the
-// answer may be up to three seconds old. Anything that decides whether to write must use GameRunningNow.
-func GameRunning() bool { return gameRunning(true) }
+// GameProcesses lists the running Dune client processes (Windows only). It is for display and polling: the answer
+// may be up to three seconds old. Anything that decides whether to write must use GameProcessesNow.
+func GameProcesses() []string { return gameProcesses(true) }
 
-// GameRunningNow is GameRunning without the cache, for the checks that gate a write.
-func GameRunningNow() bool { return gameRunning(false) }
+// GameProcessesNow is GameProcesses without the cache, for the checks that gate a write.
+func GameProcessesNow() []string { return gameProcesses(false) }
 
-// gameRunning asks tasklist. The check cannot hang: a stuck tasklist is abandoned after three seconds.
-func gameRunning(useCache bool) bool {
+// GameRunning reports whether a Dune client process is alive (cached, for display).
+func GameRunning() bool { return len(GameProcesses()) > 0 }
+
+// GameRunningNow reports it without the cache, for checks that gate a write.
+func GameRunningNow() bool { return len(GameProcessesNow()) > 0 }
+
+// runningMessage names what was found, for the refusal shown when a write is blocked.
+func runningMessage() string {
+	n := GameProcessesNow()
+	if len(n) == 0 {
+		return "the game is running"
+	}
+	return strings.Join(n, ", ") + " is running"
+}
+
+// gameProcesses asks tasklist. The check cannot hang: a stuck tasklist is abandoned after three seconds.
+func gameProcesses(useCache bool) []string {
 	if runtime.GOOS != "windows" {
-		return false
+		return nil
 	}
 	gameCache.Lock()
 	defer gameCache.Unlock()
 	if useCache && !gameCache.at.IsZero() && time.Since(gameCache.at) < gameCacheTTL {
-		return gameCache.running
+		return gameCache.names
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "tasklist", "/FI", "IMAGENAME eq "+GameProcess, "/NH", "/FO", "CSV")
+	cmd := exec.CommandContext(ctx, "tasklist", "/FI", "IMAGENAME eq "+gamePrefix+"*", "/NH", "/FO", "CSV")
 	hideWindow(cmd)
 	out, err := cmd.Output()
-	gameCache.running = err == nil && listedInTasklist(string(out))
+	if err != nil {
+		gameCache.names = nil
+	} else {
+		gameCache.names = parseTasklist(string(out))
+	}
 	gameCache.at = time.Now()
-	return gameCache.running
+	return gameCache.names
 }

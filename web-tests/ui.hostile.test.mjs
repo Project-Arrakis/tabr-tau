@@ -225,10 +225,11 @@ test('an error toast stays until dismissed', async () => {
 });
 
 test('the game-running warning is persistent and blocks Save inside the review', async () => {
-  const ov = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)); ov.gameRunning = true; ov.dirty = true;
+  const ov = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)); ov.gameRunning = true; ov.dirty = true; ov.gameProcesses = ['DuneTest.exe'];
   const ui = await boot({ get: { '/api/save/state': ov, '/api/save/review': hostileReview() } });
   assert.ok(!ui.doc.querySelector('#gamewarn').classList.contains('hide'));
   assert.ok(ui.doc.querySelector('#gamewarn').textContent.includes('Close the game'));
+  assert.ok(ui.doc.querySelector('#gamewarn').textContent.includes('DuneTest.exe'), 'the banner names the process it found');
   ui.click('#btnSave'); await ui.settle();
   assert.equal(ui.doc.querySelector('#btnDoSave').disabled, true);
   assert.ok(ui.doc.querySelector('#savewhy').textContent.includes('Close the game'));

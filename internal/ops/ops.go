@@ -126,7 +126,7 @@ func (o *Ops) Overview() (any, error) {
 	p, _ := o.player()
 	return map[string]any{
 		"path": o.S.Path, "dirty": o.S.Dirty(), "pending": o.S.Pending(), "tables": counts,
-		"player": p.Name, "gameRunning": save.GameRunning(), "readOnly": o.S.WriteBlocked(),
+		"player": p.Name, "gameRunning": save.GameRunning(), "gameProcesses": save.GameProcesses(), "readOnly": o.S.WriteBlocked(),
 	}, nil
 }
 

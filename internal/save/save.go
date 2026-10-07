@@ -20,8 +20,6 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const GameProcess = "DuneSandbox-Win64-Shipping.exe"
-
 // Row is one result row keyed by column name.
 type Row = map[string]any
 
@@ -548,7 +546,7 @@ func (s *Save) commit(force bool, token string, needToken bool) (map[string]any,
 		return nil, err
 	}
 	if !force && GameRunningNow() {
-		return nil, fmt.Errorf("%s is running; close the game first", GameProcess)
+		return nil, fmt.Errorf("%s; close the game first", runningMessage())
 	}
 	cur, err := os.ReadFile(s.Path)
 	if err != nil {
@@ -620,7 +618,7 @@ func (s *Save) Restore(name string) error {
 		return errors.New("invalid backup name")
 	}
 	if GameRunningNow() {
-		return fmt.Errorf("%s is running; close the game first", GameProcess)
+		return fmt.Errorf("%s; close the game first", runningMessage())
 	}
 	if s.dirty { // restoring reloads the file and would silently drop the pending edits
 		return errors.New("you have unsaved edits; save or discard them first (restoring a backup would lose them)")
