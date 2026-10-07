@@ -475,7 +475,7 @@ func (o *Ops) AddSolari(a Args) (any, error) {
 	if err != nil || delta == 0 {
 		return nil, errors.New("amount must be a non-zero integer")
 	}
-	_, err = o.S.MutateCascade(fmt.Sprintf("solari %+d", delta), func(m *save.Mut) error {
+	_, err = o.S.Mutate(fmt.Sprintf("solari %+d", delta), func(m *save.Mut) error {
 		rows, _ := m.Query(`select i.id, i.stack_size from items i join inventories v on v.id=i.inventory_id
 			where v.actor_id=? and v.inventory_type=0 and i.template_id=? order by i.id limit 1`, p.Pawn, solariTemplate)
 		if len(rows) > 0 {

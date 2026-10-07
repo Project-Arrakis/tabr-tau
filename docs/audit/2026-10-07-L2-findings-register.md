@@ -9,7 +9,7 @@ mutation checks in a scratch copy. Tracking issue: #24. Fixes below landed in PR
 
 ## Disposition summary
 - CRITICAL: none.
-- HIGH: 9 raised, 8 fixed in #38, 1 deferred with justification (container child deletes, scheduled as F-08 / #9).
+- HIGH: 9 raised; 7 fixed in #38, D1 (container child deletes) fixed in #42, UX-3 deferred to S2 (#11).
 - MEDIUM and LOW: fixed where cheap and safe, otherwise filed (see "Filed").
 
 ## Findings
@@ -18,7 +18,7 @@ mutation checks in a scratch copy. Tracking issue: #24. Fixes below landed in PR
 | ARCH-1 | Architect | HIGH | DoS | A panic inside a `Mutate` edit left the transaction open on the single-connection pool, wedging the editor | **Fixed** (deferred rollback; test `TestMutatePanicDoesNotWedgeTheSave`) |
 | S1 / ARCH-3 | Security, Architect | HIGH | Tampering, EoP | Column names read from a hostile save were spliced into SQL unescaped (search and cell edit) | **Fixed** (`quoteIdent`; Overview skips non-identifier table names; test `TestColumnNamesFromTheSaveCannotInjectSQL`) |
 | S2 | Security | HIGH | Tampering, EoP | Fingerprint ignored every object named `sqlite_*` | **Fixed** (only internal TABLES skipped; test `TestFingerprintCatchesDisguisedObjects`) |
-| D1 | DBA | HIGH | Tampering | Deleting a container item leaves its child inventory, items and references behind (`NOT IN` with NULLs, empty-only cleanup, FKs off) | **Deferred**: is exactly F-08 (#9), next S1 slice, together with the `foreign_key_check` gate (D2). Pre-existing behaviour, not introduced by #38; README and CHANGELOG now state it |
+| D1 | DBA | HIGH | Tampering | Deleting a container item leaves its child inventory, items and references behind (`NOT IN` with NULLs, empty-only cleanup, FKs off) | **Fixed in PR #42** (F-08): cascading item delete via `MutateCascade`, so a bag takes its inventories and contents with it; pre-existing behaviour, not introduced by #38 |
 | UX-1 | UI/UX | HIGH | N/A | No read-only banner: edits looked live and failed one toast at a time | **Fixed** (`readOnly` in Overview, persistent banner with the reason) |
 | UX-2 | UI/UX | HIGH | Repudiation | Commit result: `warning` ignored, `saved:false` shown as "Saved. Backup: undefined" | **Fixed** |
 | UX-3 | UI/UX | HIGH | Tampering, DoS | "Changed on disk" has no recovery path in the UI; `force` is never sent | **Deferred** to S2 (F-10, #11): needs the review pane and sticky errors designed together; the toast already names Discard |
@@ -31,10 +31,10 @@ mutation checks in a scratch copy. Tracking issue: #24. Fixes below landed in PR
 | ARCH-2 | Architect | MED | Tampering, Repudiation | `Query/Table/One` ran on the read-write connection, so a stray write bypassed `Mutate` | **Fixed** (they use the read-only connection; test `TestQueryCannotWriteBypassingMutate`) |
 | ARCH-4 | Architect | MED | Tampering, Repudiation | A failed reload after Restore left a stale working copy that could later overwrite the restore | **Fixed** (writes refused with a restart message) |
 | D3 | DBA | MED | Tampering, EoP | `applied_patches` / `sqlite_*` editable from the cell editor and console | **Fixed** |
-| D2 | DBA | MED | Tampering | No `foreign_key_check` gate | Deferred: F-08 (#9) |
+| D2 | DBA | MED | Tampering | No `foreign_key_check` gate | **Fixed in PR #42** (per-row baseline diff, refuses any new dangling reference) |
 | D4, D5, ARCH-7 | DBA, Architect | MED/LOW | N/A | "value is unchanged" message wrong (SQLite counts matched rows) | **Fixed** (message corrected). The `total_changes` over-count on no-op/savepoint edits is harmless (an extra dirty flag) |
 | D6 | DBA | MED | Tampering | `giveInTx`: id sequencing ignores `sqlite_sequence`, no volume/stack-cap/template checks | Filed on F-17 (#18); query errors in `giveInTx` no longer swallowed (fixed) |
-| D7 | DBA | LOW | Tampering | Write console can orphan rows with FKs off | Deferred: F-08 (#9) |
+| D7 | DBA | LOW | Tampering | Write console can orphan rows with FKs off | **Fixed in PR #42** (the gate refuses the edit; the console is gated, not cascaded) |
 | D8 | DBA | MED | DoS, Repudiation | Restore silently discards pending edits; no backup retention or free-space handling | Filed: #39 |
 | D9, ARCH-5, ARCH-6 | DBA, Architect | LOW | Tampering, DoS | Hash/rename TOCTOU window; `load()` not atomic; ownership pre-checks outside the transaction | Filed: #39 |
 | QA-1..3 | QA | MED | Tampering, EoP | Untested branches: Restore changed-on-disk, read-back-mismatch restore, `with ... delete` classification | **Fixed** (three tests added) |
@@ -55,7 +55,7 @@ mutation checks in a scratch copy. Tracking issue: #24. Fixes below landed in PR
 | Category | Findings | Highest | Status |
 |---|---|---|---|
 | Spoofing | C-2 | LOW | Filed |
-| Tampering | S1, S2, S3, S4, S5, S6, D1, D2, D3, D6, D7, ARCH-2, ARCH-4, UX-3, C-1, QA-1..3 | HIGH | All but D1/D2/D7 (F-08, #9), UX-3 (S2, #11) and D6 (#18) fixed |
+| Tampering | S1, S2, S3, S4, S5, S6, D1, D2, D3, D6, D7, ARCH-2, ARCH-4, UX-3, C-1, QA-1..3 | HIGH | All but UX-3 (S2, #11) and D6 (#18) fixed (D1/D2/D7 fixed in #42) |
 | Repudiation | UX-2, ARCH-2, ARCH-4, D8, G-1..G-3 | HIGH | Fixed except D8 (filed) |
 | Information disclosure | S6, S8, N-2 | LOW | S6 fixed; others filed |
 | Denial of service | ARCH-1, S4, S7, D8, QA-7 | HIGH | ARCH-1, S4 fixed; others filed |

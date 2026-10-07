@@ -208,7 +208,7 @@ func (s *Save) load() error {
 	s.blocked = fingerprint(db)
 	if base, err := fkCounts(db); err == nil {
 		s.fkBase = base
-	} else {
+	} else if s.blocked == "" { // never hide a more specific reason (unknown database objects)
 		s.blocked = "the save's foreign-key state could not be read: " + err.Error()
 	}
 	s.diskHash = sha256.Sum256(blob)

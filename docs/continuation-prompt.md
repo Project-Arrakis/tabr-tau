@@ -26,7 +26,7 @@ before asserting (12).
 - dune-docker uses RMQ only for live commands (give-item, XP, skill points, water, kick, broadcast, teleport, vehicle spawn).
   Single-player equivalents are direct save edits. Multiplayer-only tables (guilds, exchange, world_partition) do not exist.
 - The existing code sets `foreign_keys(0)`, has an unbounded zlib read, serves the API token at `GET /`, and inserts
-  unescaped save values into the UI. These are audit findings F-03/F-04/F-08, **not yet fixed**.
+  unescaped save values into the UI. These are audit findings F-03/F-04/F-08, **fixed as of 2026-10-07 (see the changelog)**.
 
 ## Do next, in this order (the plan's phase order)
 1. **Operator decisions (ask, do not assume):** F-01 (credential exposure in the transfer path: details are withheld from this public repo and tracked privately by the operator; do not ask for or handle the credential); F-12 is done (history rewritten) if the register says so; approval to open the `meta` PR.

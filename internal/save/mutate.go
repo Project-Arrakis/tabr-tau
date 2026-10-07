@@ -8,8 +8,9 @@ import (
 	"strings"
 )
 
-// fkCounts runs PRAGMA foreign_key_check and returns the number of dangling references per
-// "child table -> parent table (fk id)". It works whatever the connection's foreign_keys setting is.
+// fkCounts runs PRAGMA foreign_key_check and returns the dangling references, keyed per child row
+// ("child table #rowid -> parent table (fk id)"); rows of WITHOUT ROWID tables, which report no rowid, are counted per
+// "child table -> parent table (fk id)" group instead. It works whatever the connection's foreign_keys setting is.
 func fkCounts(q interface {
 	Query(q string, args ...any) (*sql.Rows, error)
 }) (map[string]int, error) {
@@ -26,17 +27,22 @@ func fkCounts(q interface {
 		if err := rs.Scan(&table, &rowid, &parent, &fkid); err != nil {
 			return nil, err
 		}
-		out[fmt.Sprintf("%s -> %s (fk %d)", table, parent, fkid)]++
+		if rowid.Valid {
+			out[fmt.Sprintf("%s #%d -> %s (fk %d)", table, rowid.Int64, parent, fkid)]++
+		} else {
+			out[fmt.Sprintf("%s -> %s (fk %d)", table, parent, fkid)]++
+		}
 	}
 	return out, rs.Err()
 }
 
-// worse lists the dangling-reference groups that grew between before and after.
+// worse lists the dangling references that exist after an edit but not before it. Per-row keys mean an edit that
+// repairs one orphan and creates a different one is still refused.
 func worse(before, after map[string]int) []string {
 	var bad []string
 	for k, n := range after {
 		if n > before[k] {
-			bad = append(bad, fmt.Sprintf("%d new in %s", n-before[k], k))
+			bad = append(bad, k)
 		}
 	}
 	sort.Strings(bad)
@@ -93,16 +99,21 @@ func (s *Save) mutate(desc string, cascade bool, fn func(m *Mut) error) (int64, 
 	if s.blocked != "" {
 		return 0, errReadOnly(s.blocked)
 	}
+	if fn == nil {
+		return 0, errors.New("no edit given")
+	}
 	if cascade {
 		// The pragma cannot change inside a transaction. The pool has one connection, so this applies to the
 		// transaction below, and is switched back off however the edit ends.
 		if _, err := s.db.Exec("PRAGMA foreign_keys=ON"); err != nil {
 			return 0, err
 		}
-		defer s.db.Exec("PRAGMA foreign_keys=OFF")
-	}
-	if fn == nil {
-		return 0, errors.New("no edit given")
+		defer func() {
+			// If enforcement cannot be switched back off, later edits would run with it on; refuse them instead.
+			if _, err := s.db.Exec("PRAGMA foreign_keys=OFF"); err != nil {
+				s.blocked = "could not restore the connection's foreign-key setting: " + err.Error() + "; restart the editor"
+			}
+		}()
 	}
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -132,12 +143,21 @@ func (s *Save) mutate(desc string, cascade bool, fn func(m *Mut) error) (int64, 
 	}
 	// Gate: an edit may not leave more dangling references than the save had before it (audit F-08). Existing
 	// violations in the file are tolerated (the game wrote them); only new ones refuse the edit.
-	fk, err := fkCounts(tx)
-	if err != nil {
-		return 0, err
-	}
-	if bad := worse(s.fkBase, fk); len(bad) > 0 {
-		return 0, fmt.Errorf("this edit would leave dangling references (%s); nothing was changed", strings.Join(bad, "; "))
+	// A scan is O(save size), so it is skipped when the edit changed no rows (nothing can have been broken).
+	fk := s.fkBase
+	if after > before {
+		var err error
+		if fk, err = fkCounts(tx); err != nil {
+			return 0, err
+		}
+		if bad := worse(s.fkBase, fk); len(bad) > 0 {
+			more := ""
+			if len(bad) > 5 {
+				more = fmt.Sprintf(" and %d more", len(bad)-5)
+				bad = bad[:5]
+			}
+			return 0, fmt.Errorf("this edit would leave dangling references (%s%s); nothing was changed", strings.Join(bad, "; "), more)
+		}
 	}
 	finished = true
 	if err := tx.Commit(); err != nil {

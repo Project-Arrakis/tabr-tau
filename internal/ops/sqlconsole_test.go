@@ -427,8 +427,8 @@ func TestEditsThatWouldLeaveDanglingReferencesAreRefused(t *testing.T) {
 	if _, err := o.ExecSQL(`delete from inventories where id=30`); err == nil || !strings.Contains(err.Error(), "dangling") {
 		t.Fatalf("want a dangling-reference refusal, got %v", err)
 	}
-	if _, err := o.ExecSQL(`insert into items(id, inventory_id, stack_size, position_index, template_id, stats) values (90, 4242, 1, 0, 'X', '{}')`); err == nil {
-		t.Fatal("inserting an item into a nonexistent inventory must be refused")
+	if _, err := o.ExecSQL(`insert into items(id, inventory_id, stack_size, position_index, template_id, stats) values (90, 4242, 1, 0, 'X', '{}')`); err == nil || !strings.Contains(err.Error(), "dangling") {
+		t.Fatalf("inserting an item into a nonexistent inventory must be refused by the gate, got %v", err)
 	}
 	if after := countWhere(t, o, `select count(*) n from items`); after != before || o.S.Dirty() {
 		t.Fatalf("a refused edit changed data: %d -> %d dirty=%v", before, after, o.S.Dirty())
@@ -451,6 +451,10 @@ func TestPreExistingViolationsAreToleratedButNeverIncreased(t *testing.T) {
 	if _, err := o.ExecSQL(`insert into items(id, inventory_id, stack_size, position_index, template_id, stats) values (51, 9998, 1, 0, 'Orphan2', '{}')`); err == nil {
 		t.Fatal("a second orphan must be refused")
 	}
+	// repairing the old orphan while creating a different one in the same edit must not net out to "no change"
+	if _, err := o.ExecSQL(`delete from items where id=50; insert into items(id, inventory_id, stack_size, position_index, template_id, stats) values (53, 9996, 1, 0, 'Swap', '{}')`); err == nil {
+		t.Fatal("fixing one orphan and creating another in one edit must be refused")
+	}
 	if _, err := o.ExecSQL(`delete from items where id=50`); err != nil {
 		t.Fatalf("removing the pre-existing violation must be allowed: %v", err)
 	}
@@ -460,5 +464,54 @@ func TestPreExistingViolationsAreToleratedButNeverIncreased(t *testing.T) {
 	// and the baseline moved down: a new orphan is now refused from a clean state too
 	if _, err := o.ExecSQL(`insert into items(id, inventory_id, stack_size, position_index, template_id, stats) values (52, 9997, 1, 0, 'Orphan3', '{}')`); err == nil {
 		t.Fatal("orphan after cleanup must be refused")
+	}
+}
+
+func TestForeignKeysAreOffAgainAfterAFailedCascadeEdit(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, containerSQL)}
+	// a cascading edit that fails inside (second statement invalid) must still restore enforcement to OFF
+	_, err := o.S.MutateCascade("failing", func(m *save.Mut) error {
+		if _, err := m.Exec(`delete from items where id=20`); err != nil {
+			return err
+		}
+		_, err := m.Exec(`delete from no_such_table`)
+		return err
+	})
+	if err == nil {
+		t.Fatal("expected failure")
+	}
+	if r := mustOne(t, o, `pragma foreign_keys`); r["foreign_keys"].(int64) != 0 {
+		t.Fatal("foreign_keys left ON after a failed cascading edit")
+	}
+	if n := countWhere(t, o, `select count(*) n from items where id in (20,21,22)`); n != 3 {
+		t.Fatalf("the failed edit must be rolled back completely, %d of 3 remain", n)
+	}
+	// and a panic inside the edit
+	func() {
+		defer func() { _ = recover() }()
+		o.S.MutateCascade("panic", func(m *save.Mut) error { panic("x") })
+	}()
+	if r := mustOne(t, o, `pragma foreign_keys`); r["foreign_keys"].(int64) != 0 {
+		t.Fatal("foreign_keys left ON after a panic in a cascading edit")
+	}
+}
+
+func TestDiscardResetsTheForeignKeyBaseline(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, containerSQL)}
+	// delete a bag (clean), then discard: the original rows return and a further bag delete must work again
+	if _, err := o.DeleteItem(Args{"id": float64(20)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.S.Discard(); err != nil {
+		t.Fatal(err)
+	}
+	if n := countWhere(t, o, `select count(*) n from items where id in (20,21,22)`); n != 3 {
+		t.Fatalf("discard must bring the bag back, %d of 3 present", n)
+	}
+	if _, err := o.DeleteItem(Args{"id": float64(20)}); err != nil {
+		t.Fatalf("delete after discard: %v", err)
+	}
+	if v := fkViolations(t, o); v != 0 {
+		t.Fatalf("%d violations", v)
 	}
 }
