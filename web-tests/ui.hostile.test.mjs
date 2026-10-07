@@ -215,7 +215,6 @@ test('an error toast stays until dismissed', async () => {
   const ui = await openReviewUI({ post: { '/api/save/discard': { __fail: 'boom' } } });
   ui.click('[data-act="closeReview"]');
   ui.doc.querySelector('#btnDiscard').disabled = false;
-  ui.dom.window.confirm = () => true;
   ui.click('#btnDiscard'); await ui.settle();
   ui.click('[data-act="askOk"]'); await ui.settle();
   const err = ui.doc.querySelector('#toast .err');
@@ -317,5 +316,79 @@ test('a successful edit says it is not in the game yet', async () => {
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-act="solari"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('not saved yet'));
+  ui.dom.window.close();
+});
+
+test('the question text is data even when the item name is an attack string', async () => {
+  const ui = await boot({ get: { '/api/bases/storage/items?inventory=1': [{ id: 5, position_index: 0, template_id: `"><img src=x ${MARK}>`, stack_size: 1 }] } });
+  ui.click('[data-tab="bases"]'); await ui.settle();
+  ui.click('[data-sub="bases:storage"]'); await ui.settle();
+  ui.click('[data-act="openInv"]'); await ui.settle();
+  ui.click('[data-act="delItem"]'); await ui.settle();
+  assertClean(ui.doc, 'hostile ask body');
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes(MARK));
+  ui.dom.window.close();
+});
+
+test('typing the word completes the action; Enter in the box does too; the disabled button does nothing', async () => {
+  const ui = await boot();
+  ui.click('[data-tab="bases"]'); await ui.settle();
+  ui.click('[data-act="sand"]'); await ui.settle();
+  ui.click('#aok'); await ui.settle(); // disabled: a click must do nothing
+  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 0);
+  assert.ok(!ui.doc.querySelector('#ask').classList.contains('hide'));
+  const inp = ui.doc.querySelector('#atype');
+  inp.value = 'clear'; inp.dispatchEvent(new ui.w.Event('input', { bubbles: true }));
+  inp.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 1);
+  assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'));
+  ui.dom.window.close();
+});
+
+test('Escape closes only the question when the review is open underneath, and focus returns', async () => {
+  const ui = await openReviewUI();
+  const trigger = ui.doc.querySelector('[data-act="reload"]') || ui.doc.querySelector('#btnDoSave');
+  trigger.focus();
+  ui.click('[data-act="closeReview"]'); await ui.settle();
+  const ui2 = await openReviewUI({ post: { '/api/save/commit': { __fail: 'the save changed on disk since it was loaded (game autosave?); discard and redo the edits', __code: 'changed_on_disk' } } });
+  ui2.click('[data-act="doSave"]'); await ui2.settle();
+  const reload = ui2.doc.querySelector('[data-act="reload"]');
+  reload.focus();
+  ui2.click('[data-act="reload"]'); await ui2.settle();
+  assert.ok(!ui2.doc.querySelector('#ask').classList.contains('hide'));
+  ui2.doc.dispatchEvent(new ui2.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await ui2.settle();
+  assert.ok(ui2.doc.querySelector('#ask').classList.contains('hide'));
+  assert.ok(!ui2.doc.querySelector('#modal').classList.contains('hide'), 'the review must stay open');
+  assert.equal(ui2.doc.activeElement, reload, 'focus returns to the button that asked');
+  ui.dom.window.close(); ui2.dom.window.close();
+});
+
+test('a second question replaces the first, which counts as cancelled', async () => {
+  const ui = await boot();
+  ui.click('[data-tab="bases"]'); await ui.settle();
+  ui.click('[data-act="sand"]'); await ui.settle();
+  ui.click('[data-act="repairB"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes('Repair every base piece'));
+  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 0);
+  ui.dom.window.close();
+});
+
+test('no "not saved yet" hint when nothing is pending', async () => {
+  const ov = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)); ov.dirty = false;
+  const ui = await boot({ get: { '/api/save/state': ov } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-act="solari"]'); await ui.settle();
+  const t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.includes('Solari updated') && !t.includes('not saved yet'), t);
+  ui.dom.window.close();
+});
+
+test('a failed status refresh after a successful edit still shows the success message', async () => {
+  const ui = await boot();
+  ui.click('[data-tab="player"]'); await ui.settle();
+  const f = ui.w.fetch;
+  ui.w.fetch = async (p, o) => { if (new URL(p, 'http://x').pathname === '/api/save/state') throw new Error('network down'); return f(p, o); };
+  ui.click('[data-act="solari"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Solari updated'));
   ui.dom.window.close();
 });

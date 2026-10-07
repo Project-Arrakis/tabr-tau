@@ -32,8 +32,16 @@ function toast(msg, err, ms = 3500) {
   } else setTimeout(() => d.remove(), ms);
   $('#toast').append(d);
 }
+const NOT_SAVED = ' (not saved yet)';
 async function act(fn, okMsg, refresh = true) {
-  try { const r = await fn(); const o = await status(); if (okMsg) toast(okMsg + (o.dirty ? ' (not saved yet)' : '')); if (refresh) await render(); return r; }
+  try {
+    const r = await fn();
+    let dirty = false;
+    try { dirty = (await status()).dirty; } catch (e) { /* the poll reports a lost connection; the edit itself succeeded */ }
+    if (okMsg) toast(okMsg + (dirty ? NOT_SAVED : ''));
+    if (refresh) await render();
+    return r;
+  }
   catch (e) { toast(e.message, true); }
 }
 const val = (id) => $('#' + id).value;
@@ -85,9 +93,9 @@ async function status() {
 // Tiers: reversible edits need nothing (they are pending, listed in the review, and Discard undoes them). A hard-to-undo
 // or far-reaching action asks first with its consequence in words. The far-reaching ones (bulk changes, raw SQL
 // writes, restoring a backup over the save) also make the person type a word, so a stray click cannot start them.
-let askState = null;
+let askState = null, askFrom = null;
 function ask({ title, body, ok = 'Confirm', typed = '', danger = false }) {
-  return new Promise((resolve) => { if (askState) askState.resolve(false); askState = { title, body, ok, typed, danger, resolve }; drawAsk(); });
+  return new Promise((resolve) => { if (askState) askState.resolve(false); askFrom = askFrom || document.activeElement; askState = { title, body, ok, typed, danger, resolve }; drawAsk(); });
 }
 function drawAsk() {
   const el = $('#ask');
@@ -99,7 +107,13 @@ function drawAsk() {
     <div class="row mt12"><button class="b ${a.danger ? 'bad' : ''}" id="aok" data-act="askOk" ${a.typed ? 'disabled' : ''}>${a.ok}</button><button class="b sec" data-act="askNo">Cancel</button></div></div>`);
   (a.typed ? $('#atype') : $('#atitle')).focus();
 }
-function endAsk(v) { const a = askState; askState = null; drawAsk(); if (a) a.resolve(v); }
+function endAsk(v) {
+  const a = askState, back = askFrom;
+  askState = null; askFrom = null;
+  drawAsk();
+  if (back && back.isConnected && typeof back.focus === 'function') back.focus(); // return to where the person was
+  if (a) a.resolve(v);
+}
 document.addEventListener('input', (e) => { if (askState && e.target.id === 'atype') $('#aok').disabled = e.target.value.trim().toLowerCase() !== askState.typed.toLowerCase(); });
 
 // ---------- review pane: the only way to write the save
@@ -327,7 +341,7 @@ async function render() {
 const D = (e) => e.target.closest('[data-act]');
 const A = {
   closeReview: () => { R = null; drawReview(); },
-  askOk: () => endAsk(true),
+  askOk: () => { if (askState && askState.typed && $('#atype').value.trim().toLowerCase() !== askState.typed.toLowerCase()) return; endAsk(true); }, // the typed word is checked here too, not only by the disabled button
   askNo: () => endAsk(false),
   reload: async () => (await ask({ title: 'Reload from disk?', body: 'Your edits are dropped and the file is read again. The edits listed in the review are the ones to redo.', ok: 'Reload', danger: true })) && act(async () => { await api('/api/save/discard', {}); R = null; drawReview(); }, 'Reloaded from disk. Redo your edits.'),
   doSave: async () => {
@@ -355,7 +369,7 @@ const A = {
   teleport: () => act(() => api('/api/player/teleport', { x: +val('tx'), y: +val('ty'), z: +val('tz') }), 'Teleport queued'),
   tpTo: (d) => act(() => api('/api/player/teleport', { x: +d.x, y: +d.y, z: +d.z }), 'Teleport queued'),
   give: () => act(() => api('/api/player/give', { template_id: val('gt').trim(), quantity: +val('gq'), quality: +val('gg') }), 'Item added'),
-  repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(`Repaired ${r.repaired} items`); }, null),
+  repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(`Repaired ${r.repaired} items` + NOT_SAVED); }, null),
   delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). Discard undoes it until you save.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
   spec: (d) => { $('#st').value = d.t; $('#sx').value = d.xp; $('#sl').value = d.lv; },
   specSet: () => act(() => api('/api/player/specs', { track_type: +val('st'), xp: +val('sx'), level: +val('sl') }), 'Specialization set'),
@@ -364,14 +378,14 @@ const A = {
   tagDel: (d) => act(() => api('/api/player/tags', { tag: d.tag, add: false }), 'Tag removed'),
   jfilter: () => { window.jq = val('jq'); journeyList(); },
   jset: (d) => act(() => api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }), 'Journey updated', false).then(journeyList),
-  repairB: async () => (await ask({ title: 'Repair every base piece?', body: 'Sets the health of all building pieces and placeables in the save to full.', ok: 'Repair all', typed: 'repair', danger: true })) && act(async () => { const r = await api('/api/bases/repair', {}); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables`); }, null),
-  sand: async () => (await ask({ title: 'Clear sand build-up?', body: 'Removes the sand coverage from every building piece in the save.', ok: 'Clear sand', typed: 'clear', danger: true })) && act(async () => { const r = await api('/api/bases/clear-sand', {}); toast(`Cleared ${r.pieces} pieces`); }, null),
+  repairB: async () => (await ask({ title: 'Repair every base piece?', body: 'Sets the health of all building pieces and placeables in the save to full.', ok: 'Repair all', typed: 'repair', danger: true })) && act(async () => { const r = await api('/api/bases/repair', {}); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables` + NOT_SAVED); }, null),
+  sand: async () => (await ask({ title: 'Clear sand build-up?', body: 'Removes the sand coverage from every building piece in the save.', ok: 'Clear sand', typed: 'clear', danger: true })) && act(async () => { const r = await api('/api/bases/clear-sand', {}); toast(`Cleared ${r.pieces} pieces` + NOT_SAVED); }, null),
   openInv: async (d) => {
     const it = await api('/api/bases/storage/items?inventory=' + encodeURIComponent(d.id));
     setHTML($('#inv'), html`<div class="card"><h3>Inventory ${d.id}</h3>${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item' }, { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" class="w90">` }], it, { actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${r.template_id}">Delete</button>` })}
     <div class="row"><input id="bt" list="tpl2" placeholder="template id" size="30"><datalist id="tpl2"></datalist>Qty<input id="bq" type="number" value="1" min="1"><button class="b" data-act="giveInv" data-id="${d.id}">Add item</button></div></div>`);
   },
-  giveInv: (d) => act(async () => { await api('/api/bases/give', { inventory_id: +d.id, template_id: val('bt').trim(), quantity: +val('bq') }); toast('Item added'); await A.openInv(d); }, null, false),
+  giveInv: (d) => act(async () => { await api('/api/bases/give', { inventory_id: +d.id, template_id: val('bt').trim(), quantity: +val('bq') }); toast('Item added' + NOT_SAVED); await A.openInv(d); }, null, false),
   bring: (d) => act(() => api('/api/vehicles/bring', { id: +d.id }), 'Vehicle moved next to you'),
   dur: (d) => { const v = prompt('Chassis durability', d.v); if (v !== null) act(() => api('/api/vehicles/durability', { vehicle_id: +d.id, chassis_durability: +v }), 'Updated'); },
   vreset: async (d) => (await ask({ title: 'Reset purchase limits?', body: 'Resets the purchase limits of this vendor.', ok: 'Reset' })) && act(() => api('/api/exchange/reset', { vendor_id: d.v }), 'Purchase limits reset'),
@@ -412,7 +426,7 @@ document.addEventListener('click', (e) => {
   const s = e.target.closest('[data-sub]');
   if (s) { const [g, k] = s.dataset.sub.split(':'); if (GROUPS.includes(g)) { sub[g] = k; render(); } return; }
   const a = D(e);
-  if (a) { e.preventDefault(); if (Object.hasOwn(A, a.dataset.act)) A[a.dataset.act](a.dataset); }
+  if (a) { e.preventDefault(); if (Object.hasOwn(A, a.dataset.act)) Promise.resolve().then(() => A[a.dataset.act](a.dataset)).catch((err) => toast(err.message, true)); }
   const x = e.target.closest('[data-export]');
   if (x) {
     e.preventDefault();
@@ -441,5 +455,20 @@ setInterval(async () => {
     syncReview();
   }
 }, 5000);
-document.addEventListener('keydown', (e) => { if (e.key !== 'Escape') return; if (askState) endAsk(false); else if (R) A.closeReview(); });
+document.addEventListener('keydown', (e) => {
+  if (askState) { // the question owns the keyboard: Tab stays inside it, Enter completes a typed answer, Escape cancels
+    if (e.key === 'Escape') endAsk(false);
+    else if (e.key === 'Enter' && e.target.id === 'atype' && !$('#aok').disabled) endAsk(true);
+    else if (e.key === 'Tab') {
+      const f = [...$('#ask').querySelectorAll('input,button')].filter((x) => !x.disabled);
+      if (!f.length) return;
+      const i = f.indexOf(document.activeElement);
+      const n = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i === f.length - 1 ? 0 : i + 1);
+      e.preventDefault();
+      f[n].focus();
+    }
+    return;
+  }
+  if (e.key === 'Escape' && R) A.closeReview();
+});
 document.addEventListener('mousedown', (e) => { if (askState && e.target === $('#ask')) endAsk(false); else if (R && !askState && e.target === $('#modal')) A.closeReview(); });
