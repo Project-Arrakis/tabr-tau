@@ -78,5 +78,6 @@ SEC-3 `VACUUM INTO` (the hat could not confirm it under `query_only`), DBA-1 Win
 | 2026-09-30 | P0: secret scanning, push protection, Dependabot enabled; CI merged and green on `main` (9 checks); branch protection applied with those check names. |
 | 2026-09-30 | First real CI run found what reading could not: six reachable Go standard-library vulnerabilities (fixed by Go 1.26.6) and nine semgrep findings (six false positives suppressed with reasons, SHA-1 replaced, two real findings suppressed narrowly pending S0 fixes #4/#5). |
 | 2026-10-07 | S0 steps 1-4 merged (#30, #31, #34, #36: bounded decoder, loopback-only server, session cookie and CSP, read-only console and schema fingerprint) and S1 slices 1-2 (#37 durable Commit/Restore = F-07, #38 `save.Mutate` = F-05). Layer 2 audit of S0 step 4 + S1 run the same day: see `docs/audit/2026-10-07-L2-findings-register.md`. F-06 and F-08 remain open. |
+| 2026-10-07 | S1 slice 3 (F-08, #9): `foreign_key_check` gate on every edit (baseline diff), cascading item delete, acceptance tests from the #9 comment added. Open: `foreign_keys=ON` decision after T4. |
 | next | S0 (security hardening of existing code: #4, #5), then S1, S2 in parallel with live tests (P1). |
 

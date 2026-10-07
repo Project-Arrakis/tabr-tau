@@ -367,3 +367,98 @@ func TestMissingTargetsAreErrors(t *testing.T) {
 		t.Error("failed edits must leave the save clean")
 	}
 }
+
+// ---- foreign keys (F-08)
+
+const containerSQL = `
+insert into items(id, inventory_id, stack_size, position_index, template_id, stats) values (20, 1, 1, 5, 'Bag', '{}');
+insert into inventories(id, item_id, inventory_type, max_item_count) values (30, 20, 3, 10);
+insert into items(id, inventory_id, stack_size, position_index, template_id, stats) values (21, 30, 1, 0, 'InnerBag', '{}');
+insert into inventories(id, item_id, inventory_type, max_item_count) values (31, 21, 3, 10);
+insert into items(id, inventory_id, stack_size, position_index, template_id, stats) values (22, 31, 5, 0, 'Spice', '{}');
+insert into items(id, inventory_id, stack_size, position_index, template_id, stats) values (23, NULL, 1, 9, 'LooseItem', '{}');
+`
+
+func fkViolations(t *testing.T, o *Ops) int {
+	t.Helper()
+	rows, err := o.S.Query(`pragma foreign_key_check`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return len(rows)
+}
+
+func countWhere(t *testing.T, o *Ops, q string) int64 {
+	t.Helper()
+	return mustOne(t, o, q)["n"].(int64)
+}
+
+func TestDeletingAContainerItemRemovesItsContentsAndLeavesNothingDangling(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, containerSQL)}
+	if v := fkViolations(t, o); v != 0 {
+		t.Fatalf("fixture itself has %d violations", v)
+	}
+	if _, err := o.DeleteItem(Args{"id": float64(20)}); err != nil {
+		t.Fatal(err)
+	}
+	if n := countWhere(t, o, `select count(*) n from items where id in (20,21,22)`); n != 0 {
+		t.Errorf("the container and everything nested in it must be gone, %d items remain", n)
+	}
+	if n := countWhere(t, o, `select count(*) n from inventories where id in (30,31)`); n != 0 {
+		t.Errorf("the container's inventories must be gone, %d remain", n)
+	}
+	// a NULL inventory_id item must not stop the cleanup (the old NOT IN query deleted nothing then) nor be deleted
+	if n := countWhere(t, o, `select count(*) n from items where id in (10,11,23)`); n != 3 {
+		t.Errorf("unrelated items must survive, %d of 3 remain", n)
+	}
+	if v := fkViolations(t, o); v != 0 {
+		t.Errorf("%d dangling references after the delete", v)
+	}
+	if r := mustOne(t, o, `pragma foreign_keys`); r["foreign_keys"].(int64) != 0 {
+		t.Error("foreign_keys must be switched back off after the cascading edit")
+	}
+	assertDBSound(t, o)
+}
+
+func TestEditsThatWouldLeaveDanglingReferencesAreRefused(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, containerSQL)}
+	before := countWhere(t, o, `select count(*) n from items`)
+	// the write console runs with enforcement off, so a delete that orphans rows must be caught by the gate
+	if _, err := o.ExecSQL(`delete from inventories where id=30`); err == nil || !strings.Contains(err.Error(), "dangling") {
+		t.Fatalf("want a dangling-reference refusal, got %v", err)
+	}
+	if _, err := o.ExecSQL(`insert into items(id, inventory_id, stack_size, position_index, template_id, stats) values (90, 4242, 1, 0, 'X', '{}')`); err == nil {
+		t.Fatal("inserting an item into a nonexistent inventory must be refused")
+	}
+	if after := countWhere(t, o, `select count(*) n from items`); after != before || o.S.Dirty() {
+		t.Fatalf("a refused edit changed data: %d -> %d dirty=%v", before, after, o.S.Dirty())
+	}
+	if v := fkViolations(t, o); v != 0 {
+		t.Fatalf("%d violations after refused edits", v)
+	}
+}
+
+func TestPreExistingViolationsAreToleratedButNeverIncreased(t *testing.T) {
+	// the game wrote an orphan; the editor must still work on the rest of the save, must allow fixing it,
+	// and must refuse to add another
+	o := &Ops{S: testsave.PlayerWithSQL(t, `insert into items(id, inventory_id, stack_size, position_index, template_id, stats) values (50, 9999, 1, 0, 'Orphan', '{}');`)}
+	if v := fkViolations(t, o); v != 1 {
+		t.Fatalf("fixture should start with exactly one violation, has %d", v)
+	}
+	if _, err := o.SetItem(Args{"id": float64(10), "stack_size": float64(7)}); err != nil {
+		t.Fatalf("an unrelated edit must work on a save that already had a violation: %v", err)
+	}
+	if _, err := o.ExecSQL(`insert into items(id, inventory_id, stack_size, position_index, template_id, stats) values (51, 9998, 1, 0, 'Orphan2', '{}')`); err == nil {
+		t.Fatal("a second orphan must be refused")
+	}
+	if _, err := o.ExecSQL(`delete from items where id=50`); err != nil {
+		t.Fatalf("removing the pre-existing violation must be allowed: %v", err)
+	}
+	if v := fkViolations(t, o); v != 0 {
+		t.Fatalf("violation not cleared: %d", v)
+	}
+	// and the baseline moved down: a new orphan is now refused from a clean state too
+	if _, err := o.ExecSQL(`insert into items(id, inventory_id, stack_size, position_index, template_id, stats) values (52, 9997, 1, 0, 'Orphan3', '{}')`); err == nil {
+		t.Fatal("orphan after cleanup must be refused")
+	}
+}

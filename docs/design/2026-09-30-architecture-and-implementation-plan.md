@@ -134,8 +134,9 @@ step 3 (`save.Mutate` is the only write path, `Exec`/`ExecScript`/`Tx` removed s
 fsynced read-back-verified 0600 backups; sidecar JSON and retention not built); step 7 (exclusive 0600 temp, fsync, rename retry,
 read-back compare, stale-temp cleanup); step 8 partly (a read-back mismatch restores the previous bytes; reopening and re-running
 invariants is not built; a reload failure after a successful write is a warning); step 9 (Restore through the same pipeline, no
-in-place truncation, integrity and patch-subset checks). Fingerprint (4.3) is checked at load and refuses all writes. **Not built
-yet:** the typed reason for `force` (S2), `foreign_key_check` before/after (F-08, #9), JSON/JSONB invariants, the pristine `orig`
+in-place truncation, integrity and patch-subset checks). Fingerprint (4.3) is checked at load and refuses all writes. **Step 4 partly:
+`foreign_key_check` gate with a baseline diff (F-08), cascading deletes via `MutateCascade`. **Not built
+yet:** the typed reason for `force` (S2), JSON/JSONB invariants, the pristine `orig`
 copy and review pane (F-06, #7), process polling in the UI.
 
 ### 4.3 Compatibility strategy
