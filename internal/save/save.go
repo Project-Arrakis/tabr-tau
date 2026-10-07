@@ -2,8 +2,10 @@ package save
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"database/sql"
+	_ "embed"
 	"errors"
 	"fmt"
 	"os"
@@ -31,6 +33,8 @@ type Save struct {
 	mu       sync.Mutex
 	work     string // decoded working copy on disk
 	db       *sql.DB
+	rdb      *sql.DB // separate read-only connection for the SQL console
+	blocked  string  // why writes are refused (unknown database objects), or ""
 	diskHash [32]byte
 	dirty    bool
 	pending  []string
@@ -49,6 +53,97 @@ func noteSQLError(q string, err error) {
 		sqlErrorHook(q, err)
 	}
 }
+
+// KnownSchema is the DDL of the real single-player game database (tables, indexes and the game's one trigger).
+//
+//go:embed schema.sql
+var KnownSchema string
+
+// WriteBlocked reports why this save is read-only, or "" when edits are allowed. A save carrying triggers, views
+// or virtual tables the editor does not know could run hidden logic whenever an ordinary edit touches a table, and
+// the editor's diff would never show it (audit SEC-4).
+func (s *Save) WriteBlocked() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.blocked
+}
+
+func errReadOnly(reason string) error {
+	return fmt.Errorf("this save is read-only: %s", reason)
+}
+
+// codeObjects returns the database objects that can carry logic, keyed by "type name", with normalised SQL.
+func codeObjects(q interface {
+	Query(q string, args ...any) (*sql.Rows, error)
+}) (map[string]string, error) {
+	rs, err := q.Query(`select type, name, coalesce(sql,'') from sqlite_master where name not like 'sqlite\_%' escape '\'`)
+	if err != nil {
+		return nil, err
+	}
+	defer rs.Close()
+	out := map[string]string{}
+	for rs.Next() {
+		var typ, name, def string
+		if err := rs.Scan(&typ, &name, &def); err != nil {
+			return nil, err
+		}
+		def = strings.ToLower(strings.Join(strings.Fields(def), " "))
+		switch {
+		case typ == "trigger" || typ == "view":
+		case typ == "table" && strings.HasPrefix(def, "create virtual"):
+		default:
+			continue
+		}
+		out[typ+" "+name] = def
+	}
+	return out, rs.Err()
+}
+
+var knownCode = sync.OnceValues(func() (map[string]string, error) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	if _, err := db.Exec(KnownSchema); err != nil {
+		return nil, err
+	}
+	return codeObjects(db)
+})
+
+// fingerprint compares the code-carrying objects of db with the real game schema.
+func fingerprint(db *sql.DB) string {
+	want, err := knownCode()
+	if err != nil {
+		return "the built-in game schema could not be loaded: " + err.Error()
+	}
+	got, err := codeObjects(db)
+	if err != nil {
+		return "the save's schema could not be read: " + err.Error()
+	}
+	var bad []string
+	for k, v := range got {
+		if w, ok := want[k]; !ok {
+			bad = append(bad, "unknown "+k)
+		} else if w != v {
+			bad = append(bad, "modified "+k)
+		}
+	}
+	for k := range want {
+		if _, ok := got[k]; !ok {
+			bad = append(bad, "missing "+k)
+		}
+	}
+	if len(bad) == 0 {
+		return ""
+	}
+	sort.Strings(bad)
+	return strings.Join(bad, "; ")
+}
+
+// ReadTimeout bounds every read-only console query.
+var ReadTimeout = 5 * time.Second
 
 // Open decodes path (a save file, or the folder containing game.db).
 func Open(path string) (*Save, error) {
@@ -92,6 +187,17 @@ func (s *Save) load() error {
 	db.SetMaxOpenConns(1) // one connection keeps PRAGMAs and read-only mode consistent
 	db.SetConnMaxLifetime(0)
 	s.db = db
+	if s.rdb != nil {
+		s.rdb.Close()
+	}
+	rdb, err := sql.Open("sqlite", "file:"+filepath.ToSlash(s.work)+"?mode=ro&_pragma=busy_timeout(2000)&_pragma=query_only(1)")
+	if err != nil {
+		return err
+	}
+	rdb.SetMaxOpenConns(1)
+	rdb.SetConnMaxLifetime(0)
+	s.rdb = rdb
+	s.blocked = fingerprint(db)
 	s.diskHash = sha256.Sum256(blob)
 	s.dirty = false
 	s.pending = nil
@@ -102,6 +208,9 @@ func (s *Save) load() error {
 func (s *Save) Close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.rdb != nil {
+		s.rdb.Close()
+	}
 	if s.db != nil {
 		s.db.Close()
 		os.Remove(s.work)
@@ -131,6 +240,9 @@ func (s *Save) Log(format string, a ...any) {
 func (s *Save) Exec(q string, args ...any) (sql.Result, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.blocked != "" {
+		return nil, errReadOnly(s.blocked)
+	}
 	res, err := s.db.Exec(q, args...)
 	noteSQLError(q, err)
 	if err == nil {
@@ -146,6 +258,9 @@ func (s *Save) Exec(q string, args ...any) (sql.Result, error) {
 func (s *Save) Tx(fn func(tx *sql.Tx) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.blocked != "" {
+		return errReadOnly(s.blocked)
+	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -166,6 +281,9 @@ func (s *Save) Tx(fn func(tx *sql.Tx) error) error {
 func (s *Save) ExecScript(script string) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.blocked != "" {
+		return 0, errReadOnly(s.blocked)
+	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return 0, err
@@ -223,11 +341,20 @@ func (s *Save) Table(q string, args ...any) ([]string, [][]any, error) {
 }
 
 type querier interface {
+	QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error)
 	Query(q string, args ...any) (*sql.Rows, error)
 }
 
 func queryTable(db querier, q string, args ...any) ([]string, [][]any, error) {
-	rs, err := db.Query(q, args...)
+	return queryTableCtx(context.Background(), db, 0, q, args...)
+}
+
+// queryTableCtx is queryTable with a context and a row cap (limit <= 0 means no cap). Reaching the cap stops
+// reading and returns the rows so far without an error.
+func queryTableCtx(ctx context.Context, db interface {
+	QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error)
+}, limit int, q string, args ...any) ([]string, [][]any, error) {
+	rs, err := db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -235,6 +362,9 @@ func queryTable(db querier, q string, args ...any) ([]string, [][]any, error) {
 	cols, _ := rs.Columns()
 	out := [][]any{}
 	for rs.Next() {
+		if limit > 0 && len(out) >= limit {
+			break
+		}
 		vals := make([]any, len(cols))
 		ptrs := make([]any, len(cols))
 		for i := range vals {
@@ -275,15 +405,17 @@ func TxQuery(tx *sql.Tx, q string, args ...any) ([]Row, error) {
 	return out, nil
 }
 
-// ReadOnlyTable runs an arbitrary query with PRAGMA query_only enabled.
+// ReadOnlyTable runs an arbitrary query on a dedicated read-only connection (opened with mode=ro and
+// query_only), so even a statement the caller failed to vet cannot write. It sees every committed edit of the
+// working copy. At most limit rows are returned and the query is interrupted after ReadTimeout.
 func (s *Save) ReadOnlyTable(q string, limit int) ([]string, [][]any, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.db.Exec("PRAGMA query_only=ON")
-	defer s.db.Exec("PRAGMA query_only=OFF")
-	cols, rows, err := queryTable(s.db, q)
-	if err == nil && len(rows) > limit {
-		rows = rows[:limit]
+	ctx, cancel := context.WithTimeout(context.Background(), ReadTimeout)
+	defer cancel()
+	cols, rows, err := queryTableCtx(ctx, s.rdb, limit, q)
+	if err != nil && ctx.Err() != nil {
+		err = fmt.Errorf("query stopped after %s: %w", ReadTimeout, err)
 	}
 	return cols, rows, err
 }

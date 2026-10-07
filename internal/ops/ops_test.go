@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
@@ -33,7 +34,13 @@ func newOps(t *testing.T) *Ops {
 	dir := t.TempDir()
 	plain := filepath.Join(dir, "p.sqlite")
 	db, _ := sql.Open("sqlite", plain)
-	if _, err := db.Exec(schema); err != nil {
+	// The toy tables below predate the real-schema fixtures (audit F-02). A save whose triggers differ from the
+	// game's is deliberately read-only, so give the toy save the game's own trigger (and the table it hangs on).
+	trigger := regexp.MustCompile(`(?s)CREATE TRIGGER actor_fgl_entities_cleanup_orphaned_entities.*?\nEND;`).FindString(save.KnownSchema)
+	if trigger == "" {
+		t.Fatal("game trigger not found in the known schema")
+	}
+	if _, err := db.Exec(schema + "create table actor_fgl_entities(actor_id integer, entity_id integer, slot_name text);" + trigger); err != nil {
 		t.Fatal(err)
 	}
 	db.Close()

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 )
 
@@ -34,6 +33,9 @@ func (o *Ops) Tables() (any, error) {
 	out := []map[string]any{}
 	for _, t := range tabs {
 		n := t["name"].(string)
+		if !identRe.MatchString(n) { // a save-controlled name is never spliced into SQL text
+			continue
+		}
 		cols, types, _ := o.tableInfo(n)
 		c, _ := o.S.One(`select count(*) c from "` + n + `"`)
 		out = append(out, map[string]any{"name": n, "rows": c["c"], "columns": cols, "types": types})
@@ -93,8 +95,8 @@ func (o *Ops) UpdateRow(a Args) (any, error) {
 
 // SQL runs a read-only query.
 func (o *Ops) SQL(q string) (any, error) {
-	if strings.TrimSpace(q) == "" {
-		return nil, errors.New("SQL is required")
+	if err := vetRead(q); err != nil {
+		return nil, err
 	}
 	cols, rows, err := o.S.ReadOnlyTable(q, 1000)
 	if err != nil {
@@ -103,16 +105,11 @@ func (o *Ops) SQL(q string) (any, error) {
 	return map[string]any{"columns": cols, "rows": rows}, nil
 }
 
-var blockedSQL = regexp.MustCompile(`(?i)\b(attach|detach|load_extension|writable_schema)\b`)
-
 // ExecSQL runs write statements against the working copy. Changes stay pending
 // until the save is committed (which backs up the original first).
 func (o *Ops) ExecSQL(q string) (any, error) {
-	if strings.TrimSpace(q) == "" {
-		return nil, errors.New("SQL is required")
-	}
-	if blockedSQL.MatchString(q) {
-		return nil, errors.New("ATTACH, DETACH, load_extension and writable_schema are not allowed")
+	if err := vetWrite(q); err != nil {
+		return nil, err
 	}
 	n, err := o.S.ExecScript(q)
 	if err != nil {
@@ -156,11 +153,21 @@ func (o *Ops) Export(name, format string) ([]byte, string, error) {
 		rec := make([]string, len(r))
 		for i, v := range r {
 			if v != nil {
-				rec[i] = fmt.Sprint(v)
+				rec[i] = csvCell(v)
 			}
 		}
 		w.Write(rec)
 	}
 	w.Flush()
 	return buf.Bytes(), "text/csv", nil
+}
+
+// csvCell renders one cell. Text that a spreadsheet would run as a formula (leading = + - @ tab or CR) gets a
+// leading apostrophe; numbers are not text and stay as they are.
+func csvCell(v any) string {
+	str, ok := v.(string)
+	if ok && str != "" && strings.ContainsRune("=+-@\t\r", rune(str[0])) {
+		return "'" + str
+	}
+	return fmt.Sprint(v)
 }
