@@ -9,9 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -443,15 +441,6 @@ func (s *Save) Discard() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.load()
-}
-
-// GameRunning reports whether the Dune client process is alive (Windows only).
-func GameRunning() bool {
-	if runtime.GOOS != "windows" {
-		return false
-	}
-	out, err := exec.Command("tasklist", "/FI", "IMAGENAME eq "+GameProcess, "/NH").Output()
-	return err == nil && strings.Contains(strings.ToLower(string(out)), strings.ToLower(GameProcess))
 }
 
 func (s *Save) backupDir() string { return filepath.Join(filepath.Dir(s.Path), "tabr-tau-backups") }
