@@ -125,7 +125,6 @@ func TestReadConsoleBoundsRowsAndTime(t *testing.T) {
 // ---- write console (ARCH-7)
 
 func TestWriteConsoleAllowlist(t *testing.T) {
-	o := newPlayerOps(t)
 	ok := []string{
 		"update items set stack_size=101 where id=10",
 		"update items set stack_size=102 where id=10; update items set stack_size=103 where id=10;",
@@ -137,7 +136,7 @@ func TestWriteConsoleAllowlist(t *testing.T) {
 		"-- change a stack\nupdate items set stack_size=5 where id=10",
 	}
 	for _, q := range ok {
-		o = newPlayerOps(t)
+		o := newPlayerOps(t)
 		if _, err := o.ExecSQL(q); err != nil {
 			t.Errorf("should be allowed: %q -> %v", q, err)
 		}
@@ -155,7 +154,7 @@ func TestWriteConsoleAllowlist(t *testing.T) {
 		"select load_extension('x')", "update sqlite_master set sql=''",
 	}
 	for _, q := range bad {
-		o = newPlayerOps(t)
+		o := newPlayerOps(t)
 		before := stackOf(t, o, 10)
 		if _, err := o.ExecSQL(q); err == nil {
 			t.Errorf("must be refused: %q", q)
