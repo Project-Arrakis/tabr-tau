@@ -65,17 +65,21 @@ func (o *Ops) CompleteTask(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	var n int64
 	if a.Bool("reset", false) {
-		_, err = o.run(fmt.Sprintf("landsraad task %d reopened", t), `update landsraad_tasks set completed=0, winning_faction_id=null, completion_time=null where id=?`, t)
+		n, err = o.run(fmt.Sprintf("landsraad task %d reopened", t), `update landsraad_tasks set completed=0, winning_faction_id=null, completion_time=null where id=?`, t)
 	} else {
 		f, ferr := a.Int("faction_id")
 		if ferr != nil {
 			return nil, ferr
 		}
-		_, err = o.run(fmt.Sprintf("landsraad task %d completed for faction %d", t, f), `update landsraad_tasks set completed=1, winning_faction_id=?, completion_time=? where id=?`, f, time.Now().Unix(), t)
+		n, err = o.run(fmt.Sprintf("landsraad task %d completed for faction %d", t, f), `update landsraad_tasks set completed=1, winning_faction_id=?, completion_time=? where id=?`, f, time.Now().Unix(), t)
 	}
 	if err != nil {
 		return nil, err
+	}
+	if n == 0 {
+		return nil, errors.New("task not found")
 	}
 	return ok(), nil
 }
@@ -90,8 +94,12 @@ func (o *Ops) SetDecree(a Args) (any, error) {
 	if a.Bool("disabled", false) {
 		dis = 1
 	}
-	if _, err := o.run(fmt.Sprintf("decree %d disabled=%d", id, dis), `update landsraad_decrees set disabled=? where id=?`, dis, id); err != nil {
+	n, err := o.run(fmt.Sprintf("decree %d disabled=%d", id, dis), `update landsraad_decrees set disabled=? where id=?`, dis, id)
+	if err != nil {
 		return nil, err
+	}
+	if n == 0 {
+		return nil, errors.New("decree not found")
 	}
 	return ok(), nil
 }

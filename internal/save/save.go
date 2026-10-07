@@ -72,11 +72,14 @@ func errReadOnly(reason string) error {
 	return fmt.Errorf("this save is read-only: %s", reason)
 }
 
-// codeObjects returns the database objects that can carry logic, keyed by "type name", with normalised SQL.
+// codeObjects returns the database objects that can carry logic, keyed by "type name", with their exact SQL.
+// Triggers and views are always included; a virtual table is recognised by rootpage 0 (not by its SQL text, which
+// comments can disguise). Only SQLite's own internal tables (sqlite_sequence, sqlite_stat1, ...) are skipped, and
+// only when they are tables: a trigger or view named sqlite_* is still reported.
 func codeObjects(q interface {
 	Query(q string, args ...any) (*sql.Rows, error)
 }) (map[string]string, error) {
-	rs, err := q.Query(`select type, name, coalesce(sql,'') from sqlite_master where name not like 'sqlite\_%' escape '\'`)
+	rs, err := q.Query(`select type, name, coalesce(sql,''), rootpage from sqlite_master`)
 	if err != nil {
 		return nil, err
 	}
@@ -84,13 +87,16 @@ func codeObjects(q interface {
 	out := map[string]string{}
 	for rs.Next() {
 		var typ, name, def string
-		if err := rs.Scan(&typ, &name, &def); err != nil {
+		var root sql.NullInt64
+		if err := rs.Scan(&typ, &name, &def, &root); err != nil {
 			return nil, err
 		}
-		def = strings.ToLower(strings.Join(strings.Fields(def), " "))
 		switch {
 		case typ == "trigger" || typ == "view":
-		case typ == "table" && strings.HasPrefix(def, "create virtual"):
+		case typ == "table" && root.Valid && root.Int64 == 0:
+			if strings.HasPrefix(strings.ToLower(name), "sqlite_") {
+				continue
+			}
 		default:
 			continue
 		}
@@ -260,7 +266,9 @@ func (s *Save) One(q string, args ...any) (Row, error) {
 func (s *Save) Table(q string, args ...any) ([]string, [][]any, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	cols, rows, err := queryTable(s.db, q, args...)
+	// Reads use the read-only connection, so a statement that writes cannot slip in through Query/Table/One and
+	// bypass Mutate (it fails with "attempt to write a readonly database").
+	cols, rows, err := queryTable(s.rdb, q, args...)
 	noteSQLError(q, err)
 	return cols, rows, err
 }
@@ -517,7 +525,13 @@ func (s *Save) Restore(name string) error {
 		return err
 	}
 	s.diskHash = hashOf(b)
-	return s.load()
+	if err := reloadAfterCommit(s); err != nil {
+		// The file on disk is the restored backup but the working copy is stale: refuse further edits so the
+		// stale copy can never be saved over the restore.
+		s.blocked = "the backup was restored but reloading it failed (" + err.Error() + "); restart the editor"
+		return errors.New(s.blocked)
+	}
+	return nil
 }
 
 // Discover finds game.db under the default Dune client storage location.

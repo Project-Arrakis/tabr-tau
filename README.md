@@ -14,9 +14,11 @@ features (containers, autoscaler, map/Sietche/Deep Desert instances, backups of 
 > For **single-player saves on your own PC only**. It is not for online-server characters, and editing a save
 > may conflict with the game's terms of service or anti-cheat: that is your own risk. No warranty beyond the MIT licence.
 
-> **Known security limits (a design audit found these; some are fixed, the rest are scheduled):** the editor now refuses
-> connections from other machines and non-loopback `--addr` values. Still open: a hostile save file can attack the
-> editor's UI and SQL console, so **do not open a save file you got from someone else**. Status: [issue #24](https://github.com/Project-Arrakis/tabr-tau/issues/24).
+> **Known security limits (a design audit found these; most are now fixed, the rest are scheduled):** the editor refuses
+> connections from other machines and non-loopback `--addr` values, bounds the save decoder, escapes everything it renders,
+> vets both SQL consoles and opens a save with unknown triggers/views read-only. Still open: deleting a container item can
+> leave its contents behind (#9) and the review-before-save screen is not built yet (#7), so **do not open a save file you got
+> from someone else** and keep the automatic backups. Status: [issue #24](https://github.com/Project-Arrakis/tabr-tau/issues/24).
 
 **Documentation:** [docs/README.md](docs/README.md) (design, audit findings, single-player file reference,
 live-test protocol). Do not attach saves, `Game.ini`, snapshots or logs to issues: they contain account IDs.
@@ -31,7 +33,7 @@ live-test protocol). Do not attach saves, `Game.ini`, snapshots or logs to issue
 | **Exchange** | Solari balance, vendor purchase limits and restock cycles (reset) |
 | **Landsraad** | Current term, decree pool, active decree, task board (fill progress, complete / reopen), rewards |
 | **Config** | Edit the game's `.ini` files (`ServerCustomSettings.ini`, `Game.ini`, `GameUserSettings.ini`, `Engine.ini`, `Input.ini`, ...) with backups; validates that the expected files and sections exist |
-| **Database** | Browse and edit any table, CSV/JSON export, read-only SQL, and **write SQL** (atomic, applied to your working copy) |
+| **Database** | Browse and edit any table, CSV/JSON export, read-only SQL (one SELECT), and **write SQL** (INSERT/UPDATE/DELETE/REPLACE only; atomic, applied to your working copy) |
 
 ## How saving works
 

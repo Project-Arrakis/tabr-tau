@@ -11,6 +11,10 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
+// quoteIdent quotes a SQL identifier, doubling embedded quotes, so a column name taken from a save can never
+// change the shape of a statement.
+func quoteIdent(name string) string { return `"` + strings.ReplaceAll(name, `"`, `""`) + `"` }
+
 func (o *Ops) tableInfo(name string) ([]string, []string, error) {
 	if !identRe.MatchString(name) {
 		return nil, nil, errors.New("invalid table name")
@@ -57,7 +61,7 @@ func (o *Ops) TableRows(name, q string, limit, offset int) (any, error) {
 	if q != "" {
 		var parts []string
 		for _, c := range cols {
-			parts = append(parts, `cast("`+c+`" as text) like ?`)
+			parts = append(parts, `cast(`+quoteIdent(c)+` as text) like ?`)
 			args = append(args, "%"+q+"%")
 		}
 		where = " where " + strings.Join(parts, " or ")
@@ -72,6 +76,9 @@ func (o *Ops) TableRows(name, q string, limit, offset int) (any, error) {
 
 func (o *Ops) UpdateRow(a Args) (any, error) {
 	table, col := a.Str("table"), a.Str("column")
+	if lt := strings.ToLower(table); strings.HasPrefix(lt, "sqlite_") || lt == "applied_patches" {
+		return nil, errors.New("this table cannot be edited here")
+	}
 	cols, types, err := o.tableInfo(table)
 	if err != nil {
 		return nil, err
@@ -85,12 +92,12 @@ func (o *Ops) UpdateRow(a Args) (any, error) {
 			if types[i] == "BLOB" {
 				return nil, errors.New("BLOB columns cannot be edited here")
 			}
-			n, err := o.run(fmt.Sprintf("update %s[%d].%s", table, rowid, col), `update "`+table+`" set "`+col+`"=? where rowid=?`, a["value"], rowid)
+			n, err := o.run(fmt.Sprintf("update %s[%d].%s", table, rowid, col), `update `+quoteIdent(table)+` set `+quoteIdent(col)+`=? where rowid=?`, a["value"], rowid)
 			if err != nil {
 				return nil, err
 			}
 			if n == 0 {
-				return nil, errors.New("no such row, or the value is unchanged")
+				return nil, errors.New("no such row")
 			}
 			return ok(), nil
 		}

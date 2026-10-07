@@ -13,7 +13,7 @@ func TestEmbeddedSchemaMatchesEvidenceFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	if string(want) != Schema() {
-		t.Fatal("internal/testsave/schema.sql differs from docs/evidence/single-player-schema.ddl.sql; copy one over the other")
+		t.Fatal("internal/save/schema.sql differs from docs/evidence/single-player-schema.ddl.sql; copy one over the other")
 	}
 }
 

@@ -105,8 +105,12 @@ func (o *Ops) SetPieceHealth(a Args) (any, error) {
 	if err := errors.Join(e1, e2); err != nil {
 		return nil, err
 	}
-	if _, err := o.run(fmt.Sprintf("%s %d health = %g", table, id, h), `update `+table+` set health=? where `+idCol+`=?`, h, id); err != nil {
+	n, err := o.run(fmt.Sprintf("%s %d health = %g", table, id, h), `update `+table+` set health=? where `+idCol+`=?`, h, id)
+	if err != nil {
 		return nil, err
+	}
+	if n == 0 {
+		return nil, errors.New("piece not found")
 	}
 	return ok(), nil
 }

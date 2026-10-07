@@ -61,11 +61,9 @@ func splitSQL(script string) ([]sqlStatement, error) {
 				}
 				j++
 			}
-			if c != '\'' { // a quoted identifier still counts as a word for the sqlite_ check, never as a keyword
-				cur.all = append(cur.all, "\x00"+strings.ToLower(script[i+1:j]))
-			} else {
-				cur.all = append(cur.all, "\x00") // a string literal: present, but not a word
-			}
+			// Quoted identifiers AND string literals are recorded by content (SQLite accepts a string literal where a
+			// table name is expected), marked with \x00 so they can never be mistaken for a keyword.
+			cur.all = append(cur.all, "\x00"+strings.ToLower(script[i+1:j]))
 			if depth == 0 {
 				cur.top = append(cur.top, "\x00")
 			}
@@ -122,17 +120,33 @@ func (s sqlStatement) mainVerb() string {
 	return "with"
 }
 
-// forbiddenWords are refused anywhere in a statement, in either console.
-func (s sqlStatement) forbidden() error {
+// introspection lists the pragma table-valued functions the read console may call: they only describe the schema.
+var introspection = map[string]bool{
+	"pragma_table_info": true, "pragma_table_xinfo": true, "pragma_table_list": true, "pragma_index_list": true,
+	"pragma_index_info": true, "pragma_index_xinfo": true, "pragma_foreign_key_list": true,
+}
+
+// forbidden refuses, in either console, anything that could reach SQLite internals: load_extension, pragma_*
+// table-valued functions (they accept arguments and can change settings; only the schema-describing ones above
+// are allowed, and only when reading), and sqlite_* objects other than
+// the read-only catalogue views sqlite_master / sqlite_schema. Quoted names and string literals are checked by
+// content too. A literal containing a % wildcard (a LIKE pattern such as 'sqlite_%') is not a table name.
+func (s sqlStatement) forbidden(reading bool) error {
 	for _, w := range s.all {
+		name := strings.TrimPrefix(w, "\x00")
+		quoted := name != w
 		switch {
-		case w == "load_extension":
+		case name == "load_extension":
 			return errors.New("load_extension is not allowed")
-		case strings.HasPrefix(w, "sqlite_") || strings.HasPrefix(w, "\x00sqlite_"):
-			if !strings.HasPrefix(w, "sqlite_master") && !strings.HasPrefix(w, "\x00sqlite_master") &&
-				!strings.HasPrefix(w, "sqlite_schema") && !strings.HasPrefix(w, "\x00sqlite_schema") {
-				return fmt.Errorf("%s is not available", strings.TrimPrefix(w, "\x00"))
+		case strings.HasPrefix(name, "pragma_"):
+			if !reading || quoted || !introspection[name] {
+				return errors.New("pragma functions are not allowed")
 			}
+		case strings.HasPrefix(name, "sqlite_"):
+			if name == "sqlite_master" || name == "sqlite_schema" || (quoted && strings.Contains(name, "%")) {
+				continue
+			}
+			return fmt.Errorf("%s is not available", name)
 		}
 	}
 	return nil
@@ -150,7 +164,7 @@ func vetRead(q string) error {
 	if len(stmts) > 1 {
 		return errors.New("only one statement can be run at a time")
 	}
-	if err := stmts[0].forbidden(); err != nil {
+	if err := stmts[0].forbidden(true); err != nil {
 		return err
 	}
 	if v := stmts[0].mainVerb(); v != "select" {
@@ -170,8 +184,16 @@ func vetWrite(q string) error {
 		return errors.New("SQL is required")
 	}
 	for _, st := range stmts {
-		if err := st.forbidden(); err != nil {
+		if err := st.forbidden(false); err != nil {
 			return err
+		}
+		for _, w := range st.all {
+			switch strings.TrimPrefix(w, "\x00") {
+			case "sqlite_master", "sqlite_schema":
+				return errors.New("the schema catalogue cannot be edited")
+			case "applied_patches":
+				return errors.New("applied_patches records the game's version history and cannot be edited here")
+			}
 		}
 		switch v := st.mainVerb(); v {
 		case "insert", "update", "delete", "replace":

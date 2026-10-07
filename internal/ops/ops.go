@@ -109,13 +109,16 @@ func (o *Ops) Overview() (any, error) {
 	counts := map[string]any{}
 	for _, t := range tabs {
 		n := t["name"].(string)
+		if !identRe.MatchString(n) { // a save-controlled name is never spliced into SQL text
+			continue
+		}
 		r, _ := o.S.One(`select count(*) c from "` + n + `"`)
 		counts[n] = r["c"]
 	}
 	p, _ := o.player()
 	return map[string]any{
 		"path": o.S.Path, "dirty": o.S.Dirty(), "pending": o.S.Pending(), "tables": counts,
-		"player": p.Name, "gameRunning": save.GameRunning(),
+		"player": p.Name, "gameRunning": save.GameRunning(), "readOnly": o.S.WriteBlocked(),
 	}, nil
 }
 
@@ -259,8 +262,14 @@ func giveInTx(m *save.Mut, inventoryID int64, template string, qty, quality int6
 		stats = fmt.Sprint(k[0]["stats"])
 	}
 	var next, maxID int64
-	seq, _ := m.Query(`select next_id from items_id_sequencer`)
-	mx, _ := m.Query(`select coalesce(max(id),0) m from items`)
+	seq, err := m.Query(`select next_id from items_id_sequencer`)
+	if err != nil {
+		return 0, err
+	}
+	mx, err := m.Query(`select coalesce(max(id),0) m from items`)
+	if err != nil || len(mx) == 0 {
+		return 0, errors.New("could not read the item id counter")
+	}
 	maxID = mx[0]["m"].(int64)
 	next = maxID + 1
 	if len(seq) > 0 {

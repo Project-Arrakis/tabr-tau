@@ -58,9 +58,17 @@ async function status() {
   $('#pending').textContent = n ? `${n} unsaved change${n > 1 ? 's' : ''}` : '';
   $('#btnSave').disabled = $('#btnDiscard').disabled = !o.dirty;
   $('#btnSave').title = o.pending.join('\n');
+  const ro = $('#rowarn');
+  ro.className = o.readOnly ? 'warn' : 'hide';
+  setHTML(ro, o.readOnly ? html`<b>This save is read-only.</b> ${o.readOnly}<br>You can browse it, but every edit is refused. This usually means the file contains database objects the real game does not create (for example extra triggers) - do not edit a save from an untrusted source.` : html``);
   return o;
 }
-$('#btnSave').onclick = () => act(async () => { const r = await api('/api/save/commit', {}); toast('Saved. Backup: ' + r.backup); }, null);
+$('#btnSave').onclick = () => act(async () => {
+  const r = await api('/api/save/commit', {});
+  if (!r.saved) { toast('Nothing to save' + (r.reason ? ' (' + r.reason + ')' : '')); return; }
+  toast('Saved. Backup: ' + r.backup);
+  if (r.warning) toast(r.warning, true);
+}, null);
 $('#btnDiscard').onclick = () => { if (confirm('Discard all unsaved changes?')) act(() => api('/api/save/discard', {}), 'Discarded'); };
 
 // ---------- PLAYER

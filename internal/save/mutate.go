@@ -50,6 +50,14 @@ func (s *Save) Mutate(desc string, fn func(m *Mut) error) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	// A panic inside fn must not leave the transaction open: the pool has one connection, so an open transaction
+	// would block every later call until the editor is restarted.
+	finished := false
+	defer func() {
+		if !finished {
+			tx.Rollback()
+		}
+	}()
 	var before, after int64
 	if err := tx.QueryRow("select total_changes()").Scan(&before); err != nil {
 		tx.Rollback()
@@ -64,6 +72,7 @@ func (s *Save) Mutate(desc string, fn func(m *Mut) error) (int64, error) {
 		tx.Rollback()
 		return 0, err
 	}
+	finished = true
 	if err := tx.Commit(); err != nil {
 		return 0, err
 	}

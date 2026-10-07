@@ -41,6 +41,7 @@ func TestReadConsoleAllowsOnlySingleSelectOrWith(t *testing.T) {
 		"/* select */ attach database ':memory:' as z", "-- select\nvacuum",
 		"", "   ", ";", "select 'unterminated", "select 1 /* unterminated",
 		"select load_extension('x')", "with x as (select 1) insert into items(id) select 1 from x",
+		"with x as (select 1) delete from items",
 	}
 	for _, q := range bad {
 		if _, err := o.SQL(q); err == nil {
@@ -134,6 +135,7 @@ func TestWriteConsoleAllowlist(t *testing.T) {
 		"with c as (select 7 v) update items set stack_size=(select v from c) where id=10",
 		"update items set template_id='a;b' where id=10", // a semicolon inside a string literal is not a statement break
 		"-- change a stack\nupdate items set stack_size=5 where id=10",
+		"with c as (select 11 v) delete from items where id=(select v from c)",
 	}
 	for _, q := range ok {
 		o := newPlayerOps(t)
@@ -285,5 +287,83 @@ func TestDeleteItemMissingIsAnErrorAndLeavesNoPendingEntry(t *testing.T) {
 	}
 	if p := o.S.Pending(); len(p) != 1 || !strings.Contains(p[0], "delete item 11") {
 		t.Fatalf("pending = %v", p)
+	}
+}
+
+// ---- review fixes
+
+func TestVetRefusesInternalsAndPragmaFunctions(t *testing.T) {
+	o := newPlayerOps(t)
+	for _, q := range []string{
+		`select "load_extension"('x')`, `select * from 'sqlite_stat1'`, `select * from pragma_database_list`,
+		`select * from pragma_writable_schema(1)`, `select * from "pragma_table_info"('items')`,
+	} {
+		if _, err := o.SQL(q); err == nil {
+			t.Errorf("read console must refuse %q", q)
+		}
+	}
+	for _, q := range []string{
+		`update items set stack_size=(select 1 from pragma_table_info('items') limit 1) where id=11`,
+		`update sqlite_master set sql=''`, `delete from 'sqlite_sequence'`, `update applied_patches set name='x'`,
+		`delete from "applied_patches"`,
+	} {
+		if _, err := o.ExecSQL(q); err == nil {
+			t.Errorf("write console must refuse %q", q)
+		}
+	}
+	// LIKE patterns and the catalogue views still work
+	for _, q := range []string{`select name from sqlite_master where name not like 'sqlite_%'`, `select * from pragma_table_info('items')`} {
+		if _, err := o.SQL(q); err != nil {
+			t.Errorf("should be allowed: %q -> %v", q, err)
+		}
+	}
+}
+
+func TestColumnNamesFromTheSaveCannotInjectSQL(t *testing.T) {
+	s := testsave.PlayerWithSQL(t, `create table t_inj ("a""=1,""b" text, c text); insert into t_inj values ('x','y'),('p','q');`)
+	o := &Ops{S: s}
+	if _, err := o.TableRows("t_inj", "x", 50, 0); err != nil {
+		t.Fatalf("browsing and searching a table with a hostile column name must work safely: %v", err)
+	}
+	res, err := o.UpdateRow(Args{"table": "t_inj", "column": `a"=1,"b`, "rowid": float64(1), "value": "z"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = res
+	r := mustOne(t, o, `select count(*) n from t_inj where c is not null`)
+	if r["n"].(int64) != 2 {
+		t.Fatalf("a hostile column name changed other columns or rows: %v", r)
+	}
+	rows, _ := s.Query(`select * from t_inj order by rowid`)
+	if rows[1]["a\"=1,\"b"] != "p" {
+		t.Fatalf("only the targeted cell may change: %v", rows)
+	}
+}
+
+func TestUpdateRowRefusesInternalTablesAndMissingRows(t *testing.T) {
+	o := newPlayerOps(t)
+	for _, tab := range []string{"applied_patches", "sqlite_sequence"} {
+		if _, err := o.UpdateRow(Args{"table": tab, "column": "name", "rowid": float64(1), "value": "x"}); err == nil {
+			t.Errorf("%s must not be editable here", tab)
+		}
+	}
+	if _, err := o.UpdateRow(Args{"table": "items", "column": "template_id", "rowid": float64(99999), "value": "x"}); err == nil {
+		t.Error("editing a missing row must be an error")
+	}
+}
+
+func TestMissingTargetsAreErrors(t *testing.T) {
+	o := newPlayerOps(t)
+	if _, err := o.SetPieceHealth(Args{"id": float64(99999), "health": float64(5)}); err == nil {
+		t.Error("SetPieceHealth on a missing piece must fail")
+	}
+	if _, err := o.CompleteTask(Args{"task_id": float64(99999), "faction_id": float64(1)}); err == nil {
+		t.Error("CompleteTask on a missing task must fail")
+	}
+	if _, err := o.SetDecree(Args{"id": float64(99999)}); err == nil {
+		t.Error("SetDecree on a missing decree must fail")
+	}
+	if o.S.Dirty() {
+		t.Error("failed edits must leave the save clean")
 	}
 }
