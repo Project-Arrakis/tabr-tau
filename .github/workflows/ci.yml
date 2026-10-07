@@ -38,6 +38,7 @@ jobs:
         run: |
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-H=windowsgui -s -w" -o /dev/null ./cmd/tabr-tau
+          GOOS=windows GOARCH=386 CGO_ENABLED=0 go vet ./internal/gui/ ./cmd/...
       - name: go test (race, coverage)
         run: go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
       - name: coverage summary
@@ -54,7 +55,10 @@ jobs:
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
       - name: govulncheck (Windows build)
-        run: GOOS=windows go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+        run: |
+          # install the scanner for the runner, then point it at the Windows build (GOOS applies to the target only)
+          GOBIN="$RUNNER_TEMP/bin" go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
+          GOOS=windows "$RUNNER_TEMP/bin/govulncheck" ./...
 
   powershell:
     name: powershell

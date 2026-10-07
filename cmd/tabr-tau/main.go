@@ -65,6 +65,14 @@ func main() {
 		return
 	}
 	window := gui.WantWindow(runtime.GOOS, gui.Supported(), *forceWeb, false)
+	if window { // a GUI-subsystem exe has no console: report a crash in a box instead of vanishing
+		defer func() {
+			if r := recover(); r != nil {
+				gui.MessageBox("TABR TAU", fmt.Sprintf("Unexpected internal error: %v\n\nNothing was written to your save unless you pressed Save.", r))
+				os.Exit(2)
+			}
+		}()
+	}
 	// die reports a startup problem on stderr and, in window mode (where there may be no console), in a message box.
 	die := func(format string, a ...any) {
 		msg := fmt.Sprintf(format, a...)
@@ -163,7 +171,8 @@ func main() {
 		// Serve in the background and show the editor in its own window; closing the window ends the program.
 		// Closing with unsaved edits asks first (the window host destroys the window directly on close, so the
 		// page's own beforeunload prompt, which still guards browser mode, would never run).
-		go srv.Serve(ln)
+		serveErr := make(chan error, 1)
+		go func() { serveErr <- srv.Serve(ln) }()
 		confirmClose := func() bool {
 			return !s.Dirty() || gui.Confirm("TABR TAU", "You have unsaved changes that have not been written to your save.\n\nClose without saving?")
 		}
@@ -174,13 +183,15 @@ func main() {
 			srv.Shutdown(ctx)
 			return
 		}
-		// No WebView2 runtime (or the window could not be created): fall back to the browser rather than fail.
-		if *noOpen {
-			die("%v\n\n--no-browser is set, so the editor was not opened anywhere.", err)
+		// No window could be created (typically the WebView2 runtime is missing). Do not fall back silently to a
+		// browser: this exe has no console or tray icon, so an invisible background server could only be stopped from
+		// Task Manager. Say what to do instead.
+		select {
+		case e := <-serveErr:
+			die("the local server stopped: %v", e)
+		default:
 		}
-		gui.MessageBox("TABR TAU", fmt.Sprintf("%v\n\nOpening the editor in your browser instead.", err))
-		openBrowser(bootURL)
-		select {} // keep serving until the process is killed, as in browser mode
+		die("%v\n\nInstall the WebView2 runtime, or start from a terminal with:\n  tabr-tau.exe --web", err)
 	}
 	fmt.Println("  (open the ui link above; it works once, for 10 minutes)")
 	if !*noOpen {

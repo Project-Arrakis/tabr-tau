@@ -3,9 +3,12 @@
 package gui
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"syscall"
+	"unicode/utf16"
 	"unsafe"
 
 	"github.com/jchv/go-webview2"
@@ -20,7 +23,11 @@ func Supported() bool { return true }
 // %LOCALAPPDATA%\tabr-tau\webview2, never next to the exe (which may sit in the game's save folder). Developer tools
 // and the context menu are off. It returns ErrNoRuntime when WebView2 is not installed.
 func Run(url, title string, width, height uint, confirmClose func() bool) error {
-	data := filepath.Join(os.Getenv("LOCALAPPDATA"), "tabr-tau", "webview2")
+	base := os.Getenv("LOCALAPPDATA")
+	if base == "" { // never fall back to a relative path (the working directory may be the save folder)
+		return errors.New("LOCALAPPDATA is not set; cannot place the WebView2 profile")
+	}
+	data := filepath.Join(base, "tabr-tau", "webview2")
 	if err := os.MkdirAll(data, 0o700); err != nil {
 		return err
 	}
@@ -37,6 +44,16 @@ func Run(url, title string, width, height uint, confirmClose func() bool) error 
 	}
 	defer w.Destroy()
 	guardClose(uintptr(w.Window()), confirmClose)
+	// Defence in depth for a window with no address bar: the page has no external links and its CSP forbids foreign
+	// scripts, but top-level navigation is not covered by CSP, and go-webview2 offers no navigation hook. Refuse
+	// window.open and any click on a link that leaves the editor's own origin.
+	w.Init(`(function () {
+  window.open = function () { return null; };
+  document.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest && e.target.closest('a[href]');
+    if (a && a.origin && a.origin !== location.origin) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
+})();`)
 	w.Navigate(url)
 	w.Run()
 	return nil
@@ -86,6 +103,7 @@ var (
 	kernel32         = syscall.NewLazyDLL("kernel32.dll")
 	procMessageBoxW  = user32.NewProc("MessageBoxW")
 	procGetOpenFile  = comdlg32.NewProc("GetOpenFileNameW")
+	procCommDlgError = comdlg32.NewProc("CommDlgExtendedError")
 	procAttach       = kernel32.NewProc("AttachConsole")
 	procGetStdHandle = kernel32.NewProc("GetStdHandle")
 	procGetFileType  = kernel32.NewProc("GetFileType")
@@ -108,8 +126,8 @@ func MessageBox(title, text string) {
 // when the process did not inherit a usable one, so `tabr-tau diff a b > out.txt` and pipes keep working. It does
 // nothing when started by double-click (there is no parent console).
 func AttachConsole() {
-	const attachParentProcess = ^uint32(0) // (DWORD)-1
-	if r, _, _ := procAttach.Call(uintptr(attachParentProcess)); r == 0 {
+	const attachParentProcess = 0xFFFFFFFF // ATTACH_PARENT_PROCESS = (DWORD)-1
+	if r, _, _ := procAttach.Call(attachParentProcess); r == 0 {
 		return
 	}
 	if !stdHandleUsable(stdOutput) {
@@ -197,16 +215,13 @@ func PickFile(title string) (string, error) {
 	ofn.lStructSize = uint32(unsafe.Sizeof(ofn))
 	r, _, _ := procGetOpenFile.Call(uintptr(unsafe.Pointer(&ofn)))
 	if r == 0 {
-		return "", nil // cancelled (CommDlgExtendedError would be 0); other failures also read as "no file chosen"
+		if code, _, _ := procCommDlgError.Call(); code != 0 { // 0 means the user cancelled
+			return "", fmt.Errorf("the Open dialog failed (CommDlgExtendedError 0x%x)", code)
+		}
+		return "", nil
 	}
 	return syscall.UTF16ToString(buf), nil
 }
 
 // utf16Z converts s, which may contain NULs, to UTF-16 without truncating at the first NUL, and appends the final NUL.
-func utf16Z(s string) []uint16 {
-	out := make([]uint16, 0, len(s)+1)
-	for _, r := range s {
-		out = append(out, uint16(r))
-	}
-	return append(out, 0)
-}
+func utf16Z(s string) []uint16 { return append(utf16.Encode([]rune(s)), 0) }

@@ -25,7 +25,7 @@ func TestEveryModuleHasItsLicenceText(t *testing.T) {
 	if found < 5 {
 		t.Fatalf("parsed only %d modules from go.mod; the pattern is wrong", found)
 	}
-	for _, must := range []string{"MIT License", "ISC License", "Redistribution and use in source and binary forms"} {
+	for _, must := range []string{"MIT License", "ISC License", "Redistribution and use in source and binary forms", "Microsoft WebView2 loader"} {
 		if !strings.Contains(Text, must) {
 			t.Errorf("expected licence text %q in the notices", must)
 		}
