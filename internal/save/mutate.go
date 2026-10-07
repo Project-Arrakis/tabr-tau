@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 )
 
 // fkCounts runs PRAGMA foreign_key_check and returns the dangling references, keyed per child row
@@ -79,7 +80,7 @@ func (m *Mut) One(q string, args ...any) (Row, error) {
 
 // Mutate is the single write path. It runs fn in one transaction on the working copy: any error rolls everything
 // back and nothing is recorded; on success the save becomes dirty if rows changed and the edit's description is
-// added to the pending list. It returns the number of rows the transaction changed (SQLite total_changes, so rows
+// recorded in the op list (Ops; Pending is derived from it). It returns the number of rows the transaction changed (SQLite total_changes, so rows
 // changed by triggers count too). A save that is read-only (unknown database objects) refuses the edit.
 func (s *Save) Mutate(desc string, fn func(m *Mut) error) (int64, error) {
 	return s.mutate(desc, false, fn)
@@ -168,7 +169,7 @@ func (s *Save) mutate(desc string, cascade bool, fn func(m *Mut) error) (int64, 
 	if n > 0 {
 		s.dirty = true
 		if m.Desc != "" {
-			s.pending = append(s.pending, m.Desc)
+			s.ops = append(s.ops, Op{Desc: m.Desc, Rows: n, At: time.Now()})
 		}
 	}
 	return n, nil

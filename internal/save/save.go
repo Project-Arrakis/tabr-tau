@@ -38,7 +38,9 @@ type Save struct {
 	fkBase   map[string]int // dangling references present before the current edit (see Mutate)
 	diskHash [32]byte
 	dirty    bool
-	pending  []string
+	ops      []Op    // structured record of the edits applied since load
+	orig     string  // pristine decoded copy of the file as loaded; never written
+	odb      *sql.DB // read-only handle on orig
 }
 
 // sqlErrorHook, when set, is called for every statement that fails. It exists so tests can notice SQL errors that
@@ -53,6 +55,13 @@ func noteSQLError(q string, err error) {
 	if err != nil && sqlErrorHook != nil {
 		sqlErrorHook(q, err)
 	}
+}
+
+// Op is one recorded edit: what it was, how many rows it changed, and when.
+type Op struct {
+	Desc string    `json:"desc"`
+	Rows int64     `json:"rows"`
+	At   time.Time `json:"at"`
 }
 
 // KnownSchema is the DDL of the real single-player game database (tables, indexes and the game's one trigger).
@@ -165,6 +174,36 @@ func Open(path string) (*Save, error) {
 	return s, nil
 }
 
+// openCopy writes raw to a new private temp file and opens it with the given DSN options. On any error nothing is
+// left behind.
+func openCopy(raw []byte, pattern, opts string) (path string, db *sql.DB, err error) {
+	f, err := os.CreateTemp("", pattern)
+	if err != nil {
+		return "", nil, err
+	}
+	path = f.Name()
+	if _, err := f.Write(raw); err != nil {
+		f.Close()
+		os.Remove(path)
+		return "", nil, err
+	}
+	if err := f.Close(); err != nil {
+		os.Remove(path)
+		return "", nil, err
+	}
+	db, err = sql.Open("sqlite", "file:"+filepath.ToSlash(path)+"?"+opts)
+	if err != nil {
+		os.Remove(path)
+		return "", nil, err
+	}
+	db.SetMaxOpenConns(1) // one connection keeps PRAGMAs and read-only mode consistent
+	db.SetConnMaxLifetime(0)
+	return path, db, nil
+}
+
+// load (re)reads the file on disk into a fresh working copy, read-only handle and pristine baseline. The new copies
+// are built first and swapped in only when all of them succeeded, so a failure leaves the previous state intact and
+// leaks no temp files.
 func (s *Save) load() error {
 	blob, err := os.ReadFile(s.Path)
 	if err != nil {
@@ -174,46 +213,52 @@ func (s *Save) load() error {
 	if err != nil {
 		return err
 	}
-	if s.db != nil {
-		s.db.Close()
-		os.Remove(s.work)
-	}
-	f, err := os.CreateTemp("", "tabr-tau-*.sqlite")
+	work, db, err := openCopy(raw, "tabr-tau-*.sqlite", "_pragma=journal_mode(delete)&_pragma=foreign_keys(0)")
 	if err != nil {
 		return err
 	}
-	s.work = f.Name()
-	if _, err := f.Write(raw); err != nil {
-		f.Close()
-		return err
-	}
-	f.Close()
-	db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(s.work)+"?_pragma=journal_mode(delete)&_pragma=foreign_keys(0)")
+	rdb, err := sql.Open("sqlite", "file:"+filepath.ToSlash(work)+"?mode=ro&_pragma=busy_timeout(2000)&_pragma=query_only(1)")
 	if err != nil {
-		return err
-	}
-	db.SetMaxOpenConns(1) // one connection keeps PRAGMAs and read-only mode consistent
-	db.SetConnMaxLifetime(0)
-	s.db = db
-	if s.rdb != nil {
-		s.rdb.Close()
-	}
-	rdb, err := sql.Open("sqlite", "file:"+filepath.ToSlash(s.work)+"?mode=ro&_pragma=busy_timeout(2000)&_pragma=query_only(1)")
-	if err != nil {
+		db.Close()
+		os.Remove(work)
 		return err
 	}
 	rdb.SetMaxOpenConns(1)
 	rdb.SetConnMaxLifetime(0)
-	s.rdb = rdb
-	s.blocked = fingerprint(db)
-	if base, err := fkCounts(db); err == nil {
-		s.fkBase = base
-	} else if s.blocked == "" { // never hide a more specific reason (unknown database objects)
-		s.blocked = "the save's foreign-key state could not be read: " + err.Error()
+	// The pristine baseline: an immutable copy of what was loaded, kept so the editor can show exactly what changed
+	// (review before save) and prove afterwards that only the intended changes were written.
+	orig, odb, err := openCopy(raw, "tabr-tau-orig-*.sqlite", "mode=ro&_pragma=query_only(1)")
+	if err != nil {
+		rdb.Close()
+		db.Close()
+		os.Remove(work)
+		return err
 	}
+	blocked := fingerprint(db)
+	base, fkErr := fkCounts(db)
+	if fkErr != nil && blocked == "" { // never hide a more specific reason (unknown database objects)
+		blocked = "the save's foreign-key state could not be read: " + fkErr.Error()
+	}
+	// swap
+	if s.rdb != nil {
+		s.rdb.Close()
+	}
+	if s.db != nil {
+		s.db.Close()
+		os.Remove(s.work)
+	}
+	if s.odb != nil {
+		s.odb.Close()
+	}
+	if s.orig != "" {
+		os.Remove(s.orig)
+	}
+	s.work, s.db, s.rdb = work, db, rdb
+	s.orig, s.odb = orig, odb
+	s.blocked, s.fkBase = blocked, base
 	s.diskHash = sha256.Sum256(blob)
 	s.dirty = false
-	s.pending = nil
+	s.ops = nil
 	return nil
 }
 
@@ -224,10 +269,40 @@ func (s *Save) Close() {
 	if s.rdb != nil {
 		s.rdb.Close()
 	}
+	if s.odb != nil {
+		s.odb.Close()
+	}
+	if s.orig != "" {
+		os.Remove(s.orig)
+	}
 	if s.db != nil {
 		s.db.Close()
 		os.Remove(s.work)
 	}
+}
+
+// Ops returns the structured record of edits applied since the save was loaded (or last saved).
+func (s *Save) Ops() []Op {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]Op{}, s.ops...)
+}
+
+// WithBaseline calls fn with read-only handles on the pristine copy of the save as loaded and on the working copy
+// as edited so far. fn runs with the save locked, so it must not call back into the Save.
+func (s *Save) WithBaseline(fn func(orig, current *sql.DB) error) error {
+	return s.WithBaselineState(func(orig, current *sql.DB, _ bool, _ []Op) error { return fn(orig, current) })
+}
+
+// WithBaselineState is WithBaseline that also hands fn the dirty flag and the recorded ops as they are at the same
+// instant as the databases, so a review is internally consistent.
+func (s *Save) WithBaselineState(fn func(orig, current *sql.DB, dirty bool, ops []Op) error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.odb == nil || s.rdb == nil {
+		return errors.New("no save is loaded")
+	}
+	return fn(s.odb, s.rdb, s.dirty, append([]Op{}, s.ops...))
 }
 
 func (s *Save) Dirty() bool {
@@ -239,7 +314,11 @@ func (s *Save) Dirty() bool {
 func (s *Save) Pending() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return append([]string{}, s.pending...)
+	out := make([]string, len(s.ops))
+	for i, o := range s.ops {
+		out[i] = o.Desc
+	}
+	return out
 }
 
 // Query returns rows as maps. BLOBs become "<blob NB> hex" strings.
@@ -448,14 +527,20 @@ func (s *Save) Commit(force bool) (map[string]any, error) {
 	if err := s.installBlob(blob); err != nil {
 		return nil, err
 	}
-	ops := s.pending
+	ops := make([]string, len(s.ops))
+	for i, o := range s.ops {
+		ops[i] = o.Desc
+	}
 	// The file is written. From here a problem is a warning, not a failed save.
 	s.diskHash = hashOf(blob)
 	s.dirty = false
-	s.pending = nil
+	s.ops = nil
 	res := map[string]any{"saved": true, "backup": bak, "ops": ops}
 	if err := reloadAfterCommit(s); err != nil {
-		res["warning"] = "saved, but reloading the file failed: " + err.Error() + " (restart the editor before further edits)"
+		// The baseline and recorded state no longer match the file just written; refuse further edits rather than
+		// let a stale baseline mislead the review.
+		s.blocked = "the save was written but reloading it failed (" + err.Error() + "); restart the editor"
+		res["warning"] = "saved, but reloading the file failed: " + err.Error() + " (further edits are disabled; restart the editor)"
 	}
 	return res, nil
 }

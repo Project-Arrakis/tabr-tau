@@ -1,6 +1,7 @@
 package save_test
 
 import (
+	"database/sql"
 	"errors"
 	"strings"
 	"testing"
@@ -120,5 +121,82 @@ func TestQueryCannotWriteBypassingMutate(t *testing.T) {
 	}
 	if r, _ := s.One(`select stack_size n from items where id=11`); r["n"].(int64) != 1 || s.Dirty() {
 		t.Fatal("data or dirty state changed through a read path")
+	}
+}
+
+func baselineCount(t *testing.T, s *save.Save, q string) int64 {
+	t.Helper()
+	var n int64
+	err := s.WithBaseline(func(orig, cur *sql.DB) error { return orig.QueryRow(q).Scan(&n) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestBaselineStaysPristineWhileEditing(t *testing.T) {
+	s := testsave.Player(t)
+	testsave.Exec(t, s, `delete from items where id=11`)
+	testsave.Exec(t, s, `update items set stack_size=9 where id=10`)
+	if n := baselineCount(t, s, `select count(*) from items`); n != 2 {
+		t.Fatalf("baseline must still hold both original items, has %d", n)
+	}
+	if n := baselineCount(t, s, `select stack_size from items where id=10`); n != 100 {
+		t.Fatalf("baseline stack is %d, want the original 100", n)
+	}
+	// the baseline handle cannot write
+	err := s.WithBaseline(func(orig, cur *sql.DB) error {
+		if _, e := orig.Exec(`update items set stack_size=1`); e == nil {
+			return errors.New("the baseline accepted a write")
+		}
+		if _, e := cur.Exec(`update items set stack_size=1`); e == nil {
+			return errors.New("the current-state handle accepted a write")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Discard(); err != nil {
+		t.Fatal(err)
+	}
+	if n := baselineCount(t, s, `select count(*) from items`); n != 2 {
+		t.Fatalf("baseline after discard: %d", n)
+	}
+}
+
+func TestOpsRecordDescriptionRowsAndTime(t *testing.T) {
+	s := testsave.Player(t)
+	before := time.Now().Add(-time.Second)
+	if _, err := s.Mutate("set two stacks", func(m *save.Mut) error {
+		_, err := m.Exec(`update items set stack_size=stack_size+1`)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	ops := s.Ops()
+	if len(ops) != 1 || ops[0].Desc != "set two stacks" || ops[0].Rows != 2 || ops[0].At.Before(before) {
+		t.Fatalf("ops = %+v", ops)
+	}
+	if p := s.Pending(); len(p) != 1 || p[0] != "set two stacks" {
+		t.Fatalf("pending strings must still be derived from ops: %v", p)
+	}
+	s.Discard()
+	if len(s.Ops()) != 0 {
+		t.Fatal("discard clears the op record")
+	}
+}
+
+func TestCommitMakesTheWrittenFileTheNewBaseline(t *testing.T) {
+	s := testsave.Player(t)
+	testsave.Exec(t, s, `update items set stack_size=5 where id=10`)
+	if _, err := s.Commit(true); err != nil {
+		t.Fatal(err)
+	}
+	if n := baselineCount(t, s, `select stack_size from items where id=10`); n != 5 {
+		t.Fatalf("after a save the baseline is the saved state, got %d", n)
+	}
+	if len(s.Ops()) != 0 {
+		t.Fatal("ops cleared after save")
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
+	"github.com/Project-Arrakis/tabr-tau/internal/diff"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/web"
 )
@@ -27,6 +28,8 @@ Usage:
   tabr-tau decode <save> <out.sqlite>   unpack a save (game.db / *.bak) to plain SQLite
   tabr-tau encode <in.sqlite> <out.db>  pack a SQLite file into the game's save format
   tabr-tau find                         list saves found on this machine
+  tabr-tau diff <before> <after> [--tables a,b] [--ignore-tables a,b] [--ignore-columns t.c,c] [--noise] [--float-eps E] [--max-rows N] [--no-redact]
+                                        row- and JSON-path-level diff of two saves (read-only; ids redacted by default)
 
 Flags:
 `, version)
@@ -164,6 +167,8 @@ func runCommand(args []string) error {
 			return err
 		}
 		return os.WriteFile(args[2], blob, 0o644)
+	case "diff":
+		return runDiff(args[1:])
 	default:
 		usage()
 		return fmt.Errorf("unknown command %q", args[0])
@@ -183,4 +188,59 @@ func openBrowser(url string) {
 	}
 	_ = cmd.Start()
 	_ = filepath.Separator
+}
+
+func runDiff(args []string) error {
+	fs := flag.NewFlagSet("diff", flag.ContinueOnError)
+	tables := fs.String("tables", "", "only these tables (comma separated)")
+	noise := fs.Bool("noise", false, "hide columns that change without player action")
+	maxRows := fs.Int("max-rows", 40, "rows listed per table and kind")
+	noRedact := fs.Bool("no-redact", false, "show identifiers (private local analysis only)")
+	ignoreTables := fs.String("ignore-tables", "", "skip these tables (comma separated)")
+	ignoreCols := fs.String("ignore-columns", "", "skip these columns: name or table.name (comma separated)")
+	eps := fs.Float64("float-eps", 1e-6, "relative tolerance for fractional numbers (integers always compare exactly)")
+	// accept flags after the two paths as well as before them
+	var paths []string
+	for len(args) > 0 {
+		if err := fs.Parse(args); err != nil {
+			return err
+		}
+		args = fs.Args()
+		if len(args) > 0 {
+			paths = append(paths, args[0])
+			args = args[1:]
+		}
+	}
+	if len(paths) != 2 {
+		return fmt.Errorf("usage: diff <before> <after> [flags]")
+	}
+	a, closeA, err := save.OpenReadOnly(paths[0])
+	if err != nil {
+		return err
+	}
+	defer closeA()
+	b, closeB, err := save.OpenReadOnly(paths[1])
+	if err != nil {
+		return err
+	}
+	defer closeB()
+	opt := diff.Options{Noise: *noise, MaxRows: *maxRows, NoRedact: *noRedact, FloatEps: *eps}
+	if *ignoreTables != "" {
+		opt.IgnoreTables = strings.Split(*ignoreTables, ",")
+	}
+	if *ignoreCols != "" {
+		opt.IgnoreColumns = map[string]bool{}
+		for _, c := range strings.Split(*ignoreCols, ",") {
+			opt.IgnoreColumns[c] = true
+		}
+	}
+	if *tables != "" {
+		opt.Tables = strings.Split(*tables, ",")
+	}
+	res, err := diff.Compare(a, b, opt)
+	if err != nil {
+		return err
+	}
+	res.WriteText(os.Stdout)
+	return nil
 }

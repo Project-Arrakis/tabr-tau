@@ -265,3 +265,6 @@ func Exec(t testing.TB, s *save.Save, q string, args ...any) {
 		t.Fatalf("test edit failed: %v\n%s", err, q)
 	}
 }
+
+// OpenSchemaOnly returns an in-memory database holding the real schema and no rows, for tests that inspect structure.
+func OpenSchemaOnly(t testing.TB) *sql.DB { return mem(t) }

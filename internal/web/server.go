@@ -331,6 +331,9 @@ func (s *Server) routes() {
 	// save file lifecycle
 	s.post("/api/save/commit", func(a ops.Args) (any, error) { return s.Save.Commit(a.Bool("force", false)) })
 	s.post("/api/save/discard", func(ops.Args) (any, error) { return map[string]any{"ok": true}, s.Save.Discard() })
+	s.get("/api/save/review", func(r *http.Request) (any, error) {
+		return o.Review(r.URL.Query().Get("unredacted") == "1", qint(r, "limit", 40))
+	})
 	s.get("/api/save/backups", func(r *http.Request) (any, error) { return s.Save.Backups(), nil })
 	s.post("/api/save/restore", func(a ops.Args) (any, error) { return map[string]any{"ok": true}, s.Save.Restore(a.Str("name")) })
 
