@@ -271,8 +271,9 @@ async function basesView() {
     <div class="row"><button class="b" data-act="repairB">Repair all to max</button><button class="b sec" data-act="sand">Clear sand buildup</button><button class="b sec" data-act="refillWater">Refill base water</button><button class="b sec" data-act="refillGen">Refill generators</button><span class="mut">Repair sets each piece to the highest health seen for its type.</span></div></div>`);
   } else if (s == 'storage') {
     const st = await api('/api/bases/storage');
-    h.push(html`<div class="card"><h3>Containers, machines &amp; vehicles</h3>${tbl([{ k: 'name', label: 'Object' }, { k: 'actor_id', label: 'Actor' }, { k: 'inventory_id', label: 'Inv' }, { k: 'inventory_type', label: 'Type' }, { k: 'items' }, { k: 'total', label: 'Total units' }, { k: 'max_item_count', label: 'Slots' }], st,
-      { actions: (r) => html`<button class="b sec sm" data-act="openInv" data-id="${r.inventory_id}">Open</button>` })}</div><div id="inv"></div>`);
+    h.push(html`<div class="card"><h3>Storage containers in your base (${st.length})</h3>${tbl([{ k: 'name', label: 'Container' }, { k: 'type', label: 'Type' }, { k: 'items', label: 'Items' }, { k: 'max_item_count', label: 'Slots', f: (r) => `${r.items} / ${r.max_item_count}` }], st,
+      { actions: (r) => html`<button class="b sec sm" data-act="openInv" data-id="${r.inventory_id}">Open</button>` })}
+      <p class="mut">Only storage containers that belong to your base are listed (not generators, refineries, vehicles or containers in the world). Slots shows items held out of the container's capacity.</p></div><div id="inv"></div>`);
   } else {
     const b = await api('/api/bases');
     h.push(html`<div class="card"><h3>Placeables (${b.placeables.length})</h3>${tbl([{ k: 'id' }, { k: 'building_type', label: 'Type' }, { k: 'health', f: (r) => html`<input type="number" value="${r.health}" data-hp="placeable" data-id="${r.id}" class="w90">` }], b.placeables)}</div>

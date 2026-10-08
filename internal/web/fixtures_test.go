@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
+	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
@@ -37,7 +38,9 @@ func TestDumpUIFixtures(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	s := New(testsave.Hostile(t), config.Dir{Path: cfgDir})
+	sv := testsave.Hostile(t)
+	addHostileStorage(t, sv)
+	s := New(sv, config.Dir{Path: cfgDir})
 	cookie := map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}
 
 	out := map[string]any{}
@@ -95,4 +98,22 @@ func mustJSON(t *testing.T, v any) string {
 		t.Fatal(err)
 	}
 	return string(b)
+}
+
+// addHostileStorage gives the hostile save what the Storage view needs to list anything: a base (a totem with its entity), and
+// a real storage container in it whose own name is the hostile text. It reuses inventory 1, so the items route the UI calls
+// (inventory=1) returns the hostile items. Without this the base-linked storage list is empty and the view is not exercised.
+func addHostileStorage(t *testing.T, sv *save.Save) {
+	t.Helper()
+	for _, q := range []string{
+		`insert into actors(id,class,map) values (900001,'/Game/BP_Totem.BP_Totem_C','HaggaBasin'),(900002,'/Game/Container.Container_C','HaggaBasin')`,
+		`insert into totems(id) values (900001)`,
+		`insert into fgl_entities(entity_id,components) values (-900001, jsonb('{}'))`,
+		`insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (900001,-900001,'Actor')`,
+		`insert into placeables(id,owner_entity_id,building_type,last_placed_by_player_id) values (900002,-900001,'GenericContainer_Placeable',1)`,
+		`update inventories set actor_id=900002, max_item_count=20 where id=1`,
+	} {
+		testsave.Exec(t, sv, q)
+	}
+	testsave.Exec(t, sv, `insert into permission_actor(actor_id,actor_name,actor_type,access_level,is_child) values (900002,?,1,3,1)`, testsave.HostileText)
 }
