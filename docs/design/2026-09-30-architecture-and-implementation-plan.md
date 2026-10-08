@@ -46,7 +46,7 @@ Class: **WORKS** identical schema, **ADAPT** SQL changes, **NEW** needs a JSONB/
 | P5 | Solari / currency | SQL | `items` (Solari item) | WORKS | [V] | ✅ |
 | P6 | XP, skill points, per-skill points | RMQ `AwardXP` etc. | JSONB `FLevelComponent` via `jsonb_set` | NEW | [V] read; [V] scratch write; [T] game accepts | ◻ P3 (gated by T1) |
 | P7 | Reset progression / skill modules | RMQ | JSONB edit + table edits | NEW | [I] | ◻ P3 |
-| P8 | Hydration, spice, health; **Refill Container** (find where a canteen, literjon or stillsuit keeps its water, then fill it) | RMQ `UpdateAllWaterFillables` | `actors.gas_attributes` JSONB, `FHealthComponent`, item `stats` (location of fill level unknown) | NEW | [V] read; [T] write; fill-level location needs an in-game before/after test (#55) | ◻ P3 |
+| P8 | Hydration, spice, health; **Refill Container** | RMQ `UpdateAllWaterFillables` (sends 1,000,000; the game fills each fillable to capacity) | Container fill: item `stats` `FFillableItemStats.CurrentAmount` (absent when empty); capacity per template; health/vitals in `actors.gas_attributes` JSONB, `FHealthComponent` | NEW | Container fill [V] live PASS 2026-10-08 (#55, PR #62); vitals [V] read, [T] write | ✅ containers (Literjon family); ◻ P3 vitals |
 | P9 | Teleport | RMQ / SQL | `actors.location_*` | ADAPT | [V] | ✅ |
 | P10 | Faction, reputation | SQL | `player_faction*` | WORKS | [V] | ✅ |
 | P11 | Specializations, keystones | SQL | `specialization_tracks`, keystones | WORKS | [V] schema; tracks empty in sample | ✅ partial |
@@ -262,6 +262,5 @@ Docker console layout; B6 blueprints wait for a save that has some; P6 typed con
 applies to diff and CLI output, not the UI; the in-browser save picker serves `--web` only; the error taxonomy covers only
 what the UI shows; W2 and W3 are parked behind P1.
 
-**Kept, with new tasks:** Refill Container stays (P8, tracked in #55: the Docker console sends a live RMQ command, so the save-side
-location of water in a container has to be found first). Bases and vehicles get full repair (B8, V2, #56), base chests
+**Kept, with new tasks:** Refill Container stays (P8, #55). Done 2026-10-08: the fill is the item's own `FFillableItemStats.CurrentAmount`, written at the template's capacity (live PASS). Bases and vehicles get full repair (B8, V2, #56), base chests
 get items (B9, done as B2), and the land claim can grow (B10, #57). Code and doc removal of the cut items is tracked in #58.

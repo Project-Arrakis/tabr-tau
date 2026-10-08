@@ -405,3 +405,17 @@ test('a failed status refresh after a successful edit still shows the success me
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Solari updated'));
   ui.dom.window.close();
 });
+
+test('Refill containers reports what it filled and shows a container it could not size as plain text', async () => {
+  const hostile = '<img src=x onerror=1> x1';
+  const ui = await boot({ post: { '/api/player/refill': { ok: true, filled: 3, alreadyFull: 1, skippedUnknown: [hostile] } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:inventory"]'); await ui.settle();
+  ui.click('[data-act="refill"]'); await ui.settle();
+  const toast = ui.doc.querySelector('#toast');
+  assert.ok(toast.textContent.includes('Filled 3 containers (1 already full)'), toast.textContent);
+  assert.ok(toast.textContent.includes(hostile), 'the name is shown as text');
+  assert.equal(toast.querySelector('img'), null, 'and never becomes markup');
+  assert.equal(ui.posted.filter((p) => p.path === '/api/player/refill').length, 1);
+  ui.dom.window.close();
+});
