@@ -213,8 +213,7 @@ test('a save error stays in the review with a way forward; a changed-on-disk sav
 
 test('a game check that cannot run blocks Save and shows why, as plain text', async () => {
   const why = '<img src=x onerror=1> tasklist missing';
-  const ov = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body));
-  Object.assign(ov, { gameRunning: false, dirty: true, gameCheckError: why, saveBlocked: true, blockReason: 'could not check whether the game is running (' + why + ')', gameMode: 'unknown' });
+  const ov = { ...JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)), gameRunning: false, dirty: true, gameCheckError: why, saveBlocked: true, blockReason: 'could not check whether the game is running (' + why + ')', gameMode: 'unknown' };
   const ui = await boot({ get: { '/api/save/state': ov, '/api/save/review': hostileReview() } });
   const gw = ui.doc.querySelector('#gamewarn');
   assert.ok(gw.textContent.includes('Saving is blocked'));
@@ -226,9 +225,8 @@ test('a game check that cannot run blocks Save and shows why, as plain text', as
 });
 
 test('an active single-player session blocks Save inside the review and the banner says why', async () => {
-  const ov = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body));
-  Object.assign(ov, { gameRunning: true, dirty: true, gameProcesses: ['DuneTest.exe'], saveBlocked: true, gameMode: 'single_player',
-    blockReason: 'a single-player session is active (DuneTest.exe); go to the menu or multiplayer, or quit the game, then save' });
+  const ov = { ...JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)), gameRunning: true, dirty: true, gameProcesses: ['DuneTest.exe'], saveBlocked: true, gameMode: 'single_player',
+    blockReason: 'a single-player session is active (DuneTest.exe); go to the menu or multiplayer, or quit the game, then save' };
   const ui = await boot({ get: { '/api/save/state': ov, '/api/save/review': hostileReview() } });
   const gw = ui.doc.querySelector('#gamewarn');
   assert.ok(gw.classList.contains('warn') && !gw.classList.contains('hide'));
@@ -240,8 +238,7 @@ test('an active single-player session blocks Save inside the review and the bann
 });
 
 test('the game open in multiplayer or at the menu shows a note and does not block Save', async () => {
-  const ov = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body));
-  Object.assign(ov, { gameRunning: true, dirty: true, gameProcesses: ['DuneTest.exe'], saveBlocked: false, gameMode: 'menu_or_multiplayer', blockReason: 'DuneTest.exe is running but not in single-player; saving is allowed' });
+  const ov = { ...JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)), gameRunning: true, dirty: true, gameProcesses: ['DuneTest.exe'], saveBlocked: false, gameMode: 'menu_or_multiplayer', blockReason: 'DuneTest.exe is running but not in single-player; saving is allowed' };
   const ui = await boot({ get: { '/api/save/state': ov, '/api/save/review': hostileReview() } });
   const gw = ui.doc.querySelector('#gamewarn');
   assert.ok(gw.classList.contains('info') && !gw.classList.contains('warn'), gw.className);
