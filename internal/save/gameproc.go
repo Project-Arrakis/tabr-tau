@@ -81,9 +81,19 @@ func RunningMessage() string {
 	return strings.Join(n, ", ") + " is running"
 }
 
+// goos and tasklistOutput are variables so a test can make the check fail on any OS.
+var (
+	goos           = runtime.GOOS
+	tasklistOutput = func(ctx context.Context) ([]byte, error) {
+		cmd := exec.CommandContext(ctx, "tasklist", "/FI", "IMAGENAME eq "+gamePrefix+"*", "/NH", "/FO", "CSV")
+		hideWindow(cmd)
+		return cmd.Output()
+	}
+)
+
 // gameProcesses asks tasklist. The check cannot hang: a stuck tasklist is abandoned after three seconds.
 func gameProcesses(useCache bool) []string {
-	if runtime.GOOS != "windows" {
+	if goos != "windows" {
 		return nil
 	}
 	gameCache.Lock()
@@ -93,9 +103,7 @@ func gameProcesses(useCache bool) []string {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "tasklist", "/FI", "IMAGENAME eq "+gamePrefix+"*", "/NH", "/FO", "CSV")
-	hideWindow(cmd)
-	out, err := cmd.Output()
+	out, err := tasklistOutput(ctx)
 	if err != nil {
 		gameCache.names, gameCache.err = nil, err.Error()
 		if ee, ok := err.(*exec.ExitError); ok && len(ee.Stderr) > 0 {

@@ -1,9 +1,12 @@
 package save
 
 import (
+	"context"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseTasklist(t *testing.T) {
@@ -28,12 +31,21 @@ func TestParseTasklist(t *testing.T) {
 	}
 }
 
-// A check that cannot run must block writes and say why, not pass as "game closed".
+// A check that cannot run must block writes and say why, not pass as "game closed". The failure is injected (on every
+// OS), so this does not depend on whether the real tasklist works.
 func TestFailedGameCheckBlocks(t *testing.T) {
+	oldOS, oldRun := goos, tasklistOutput
+	goos = "windows"
+	tasklistOutput = func(context.Context) ([]byte, error) { return nil, errors.New("exec: tasklist: not found") }
 	gameCache.Lock()
-	gameCache.err = "exec: tasklist: not found"
+	gameCache.at, gameCache.names, gameCache.err = time.Time{}, nil, ""
 	gameCache.Unlock()
-	defer func() { gameCache.Lock(); gameCache.err = ""; gameCache.Unlock() }()
+	defer func() {
+		goos, tasklistOutput = oldOS, oldRun
+		gameCache.Lock()
+		gameCache.at, gameCache.names, gameCache.err = time.Time{}, nil, ""
+		gameCache.Unlock()
+	}()
 	if !GameRunningNow() || !GameRunning() {
 		t.Fatal("a failed check must count as the game running")
 	}
