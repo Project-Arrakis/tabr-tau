@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"database/sql"
+	"encoding/json"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
 func newTestServer(t *testing.T) *Server {
@@ -312,5 +314,18 @@ func TestHTTPServerHasTimeouts(t *testing.T) {
 	srv := NewHTTPServer(http.NewServeMux())
 	if srv.ReadHeaderTimeout == 0 || srv.ReadTimeout == 0 || srv.WriteTimeout == 0 || srv.IdleTimeout == 0 || srv.MaxHeaderBytes == 0 {
 		t.Errorf("missing limits: %+v", srv)
+	}
+}
+
+func TestCatalogRouteListsItems(t *testing.T) {
+	s := New(testsave.Empty(t), config.Dir{Path: t.TempDir()})
+	cookie := map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}
+	w := do(t, s, "GET", "http://127.0.0.1/api/catalog/items", loop, cookie, nil)
+	if w.Code != 200 {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	var items []struct{ ID, Name, Category string }
+	if err := json.Unmarshal(w.Body.Bytes(), &items); err != nil || len(items) < 2000 {
+		t.Fatalf("%v, %d items", err, len(items))
 	}
 }

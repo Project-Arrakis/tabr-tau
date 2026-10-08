@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 	"mime"
 	"net"
 	"net/http"
@@ -268,6 +269,7 @@ func (s *Server) routes() {
 	})
 
 	s.get("/api/overview", func(r *http.Request) (any, error) { return o.Overview() })
+	s.get("/api/catalog/items", func(r *http.Request) (any, error) { return catalog.All(), nil })
 	s.get("/api/save/state", func(r *http.Request) (any, error) { return o.State() })
 
 	// players
