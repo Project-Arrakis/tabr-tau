@@ -68,15 +68,17 @@ const kv = (k, v) => html`<div class="kv"><b>${k}</b><span>${v}</span></div>`;
 const fix = (n) => (n == null ? '' : Math.round(n).toLocaleString());
 
 // ---------- status bar
-let gameRunning = false, offline = false;
+let saveBlocked = false, saveBlockWhy = '', offline = false;
 async function status() {
   const o = await api('/api/save/state');
   offline = false;
-  gameRunning = !!o.gameRunning;
+  saveBlocked = !!o.saveBlocked;
+  saveBlockWhy = o.blockReason || '';
   $('#path').textContent = o.path;
   const gw = $('#gamewarn');
-  gw.className = gameRunning ? 'warn' : 'hide';
-  setHTML(gw, o.gameCheckError ? html`<b>Cannot tell whether the game is running (${o.gameCheckError}).</b> Saving is blocked until the check works. Close the game and restart the editor, then report this text.` : gameRunning ? html`<b>Dune: Awakening is running${(o.gameProcesses || []).length ? ' (' + o.gameProcesses.join(', ') + ')' : ''}.</b> Close the game completely before saving. It rewrites game.db on its own, so a save made now would conflict with it or be overwritten. You can keep editing.` : html``);
+  const note = o.gameMode === 'menu_or_multiplayer';
+  gw.className = saveBlocked ? 'warn' : note ? 'info' : 'hide';
+  setHTML(gw, o.gameCheckError && saveBlocked ? html`<b>Saving is blocked.</b> ${saveBlockWhy}. You can keep editing; if this keeps happening, report this text.` : saveBlocked ? html`<b>Saving is blocked.</b> ${saveBlockWhy}. You can keep editing; a save made during a single-player session would be overwritten by the game's own autosave.` : note ? html`Dune: Awakening is open (${(o.gameProcesses || []).join(', ')}) but not in single-player, so saving is allowed.` : html``);
   syncReview();
   const n = o.pending.length;
   $('#pending').textContent = n ? `${n} unsaved change${n > 1 ? 's' : ''}` : '';
@@ -140,8 +142,8 @@ function syncReview() {
   document.body.classList.toggle('noscroll', true);
   const b = $('#btnDoSave');
   if (!b) return;
-  b.disabled = offline || gameRunning || !R.dirty || !!R.stale;
-  $('#savewhy').textContent = offline ? 'Lost contact with the editor.' : gameRunning ? 'Close the game first.' : R.stale ? 'Reload the file first.' : !R.dirty ? 'Nothing to save.' : '';
+  b.disabled = offline || saveBlocked || !R.dirty || !!R.stale;
+  $('#savewhy').textContent = offline ? 'Lost contact with the editor.' : saveBlocked ? 'Saving is blocked: ' + saveBlockWhy + '.' : R.stale ? 'Reload the file first.' : !R.dirty ? 'Nothing to save.' : '';
 }
 function drawReview(focus) {
   setHTML($('#modal'), R ? reviewBody() : html``);
