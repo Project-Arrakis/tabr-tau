@@ -40,7 +40,7 @@ Class: **WORKS** identical schema, **ADAPT** SQL changes, **NEW** needs a JSONB/
 | ID | Feature | dune-docker mechanism | SP mechanism | Class | Evidence | Status |
 |---|---|---|---|---|---|---|
 | P1 | Give item (by template) | RMQ `AddItemToInventory` or SQL insert | `items`+`inventories` insert, `items_id_sequencer` | ADAPT | [V] insert; [T] game accepts and fill-level stats | ✅ partial (no stats/catalog) |
-| P2 | Item catalog/search | `admin-items.json` | reuse MIT catalog (attribution) + derive from save | NEW | [V] license MIT | ◻ P3 |
+| P2 | Item catalog/search | `admin-items.json` | embedded snapshot of the Dune Docker catalog (id, name, category; MIT, RedBlink) used by one shared picker; ids in the save the catalog lacks stay selectable by id | NEW | [V] 2,551 items, 82 of the 85 templates in the sample save are covered; licence in the notices | ✅ (names); stack sizes and volumes ◻ |
 | P3 | Edit/delete/repair item | SQL | same | ADAPT | [V] | ✅ |
 | P4 | Augment / pre-augmented gear | SQL + `augment-compatibility.json` | `items.stats` text JSON | ADAPT | [I] | ◻ P4 |
 | P5 | Solari / currency | SQL | `items` (Solari item) | WORKS | [V] | ✅ |

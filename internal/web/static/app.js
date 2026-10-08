@@ -46,6 +46,40 @@ async function act(fn, okMsg, refresh = true) {
 }
 const val = (id) => $('#' + id).value;
 
+// ---------- item names: one catalog, one picker, used by every place that asks for or shows an item
+let CATALOG = null; // { list: [{ id, label }], byLabel: Map(lower label -> id), byId: Map(id -> name) }
+let EXTRA_IDS = new Set(); // ids in this save that the catalog lacks
+async function loadCatalog(extraIds = []) {
+  if (!CATALOG) {
+    const items = await api('/api/catalog/items');
+    const count = new Map();
+    const idsLower = new Map(items.map((it) => [it.id.toLowerCase(), it.id]));
+    for (const it of items) count.set(it.name, (count.get(it.name) || 0) + 1);
+    // A name is ambiguous when several items share it, or when it spells another item's id (a typed id must win).
+    const ambiguous = (it) => count.get(it.name) > 1 || (idsLower.has(it.name.toLowerCase()) && idsLower.get(it.name.toLowerCase()) !== it.id);
+    const list = items.map((it) => ({ id: it.id, name: it.name, label: ambiguous(it) ? `${it.name} (${it.id})` : it.name }));
+    CATALOG = { list, byLabel: new Map(list.map((e) => [e.label.toLowerCase(), e.id])), byId: new Map(list.map((e) => [e.id, e.name])) };
+  }
+  // ids that exist in this save but not in the catalog stay selectable by their id
+  const extra = extraIds.filter((id) => id && !CATALOG.byId.has(id)).map((id) => ({ id, label: id }));
+  EXTRA_IDS = new Set(extra.map((e) => e.id));
+  return { list: extra.length ? CATALOG.list.concat(extra) : CATALOG.list };
+}
+const itemName = (id) => (CATALOG && CATALOG.byId.get(id)) || id;
+// An item cell: the in-game name, with the template id on hover.
+const itemCell = (id) => html`<span title="${id}">${itemName(id)}</span>`;
+// The picker: a text box with a drop-down of in-game names. Each option also carries its template id as its label, so
+// typing either the name or the id finds it; a name, a label or a raw template id are all accepted.
+function itemPicker(inputId, cat, placeholder = 'Item name, e.g. Spice') {
+  return html`<input id="${inputId}" list="${inputId}-dl" placeholder="${placeholder}" size="34"><datalist id="${inputId}-dl">${cat.list.map((e) => html`<option value="${e.label}" label="${e.id}"></option>`)}</datalist>`;
+}
+// What the picker holds -> the template id to send. An exact template id always wins; otherwise a shown label.
+function pickedItemId(inputId) {
+  const v = val(inputId).trim();
+  if (!CATALOG || CATALOG.byId.has(v) || EXTRA_IDS.has(v)) return v;
+  return CATALOG.byLabel.get(v.toLowerCase()) || v;
+}
+
 // ---------- tabs
 const TABS = { player: 'Player', bases: 'Bases', vehicles: 'Vehicles', exchange: 'Exchange', landsraad: 'Landsraad', config: 'Config', db: 'Database' };
 let tab = Object.hasOwn(TABS, localStorage.tab) ? localStorage.tab : 'player';
@@ -178,14 +212,15 @@ async function playerView() {
     <div class="card"><h3>Respawn points</h3>${tbl([{ k: 'group' }, { k: 'locator_name' }, { k: 'locator_actor_id' }, { k: 'map' }], P.respawns)}</div>`);
   } else if (s == 'inventory') {
     const d = await api('/api/player/inventory');
-    h.push(html`<div class="card"><h3>Give item</h3><div class="row"><input id="gt" list="tpl" placeholder="template id, e.g. Spice" size="34"><datalist id="tpl">${d.templates.map((t) => html`<option value="${t}">`)}</datalist>
+    const cat = await loadCatalog(d.templates);
+    h.push(html`<div class="card"><h3>Give item</h3><div class="row">${itemPicker("gt", cat)}
     Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="repair">Repair all gear</button><button class="b sec" data-act="refill">Refill containers</button></div>
-    <p class="mut">Template ids come from items already in your save; any valid game template id works.</p></div>
-    <div class="card"><h3>Items (${d.items.length})</h3>${tbl([{ k: 'inventory_name', label: 'Inventory' }, { k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item' },
+    <p class="mut">Pick an item by its in-game name. Items already in your save that the catalog does not know are listed by their template id; any valid template id can also be typed.</p></div>
+    <div class="card"><h3>Items (${d.items.length})</h3>${tbl([{ k: 'inventory_name', label: 'Inventory' }, { k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) },
       { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" value="${r.stack_size}" min="1" data-item="${r.id}" data-field="stack_size" class="w90">` },
       { k: 'quality_level', label: 'Grade', f: (r) => html`<select data-item="${r.id}" data-field="quality">${[0, 1, 2, 3, 4, 5].map((n) => html`<option ${n == r.quality_level ? 'selected' : ''}>${n}</option>`)}</select>` },
       { k: 'durability', label: 'Durability', f: (r) => (r.durability == null ? '' : Number(r.durability).toFixed(1) + (r.max_durability ? ' / ' + Number(r.max_durability).toFixed(0) : '')) }], d.items,
-      { actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${r.template_id}">Delete</button>` })}</div>`);
+      { actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` })}</div>`);
   } else if (s == 'progress') {
     const [f, sp, tu, tg] = await Promise.all(['factions', 'specs', 'tutorials', 'tags'].map((x) => api('/api/player/' + x)));
     h.push(html`<div class="card"><h3>Faction reputation</h3>${tbl([{ k: 'name', label: 'Faction' }, { k: 'reputation', label: 'Reputation', f: (r) => html`<input type="number" min="0" max="12474" value="${r.reputation}" data-faction="${r.faction_id}" class="w100">` }], f)}<p class="mut">Range 0–12474. Edit and press Tab/Enter.</p></div>
@@ -254,7 +289,7 @@ async function exchangeView() {
   const e = await api('/api/exchange');
   setHTML($('#main'), html`<div class="card"><h3>Solari</h3><div class="grid">${kv('Balance', e.solari.toLocaleString())}</div><div class="row"><input id="solari" type="number" value="10000"><button class="b" data-act="solari">Add / remove</button></div></div>
   <div class="card"><h3>Vendor purchase limits</h3><p class="mut">Vendors limit how much you can buy per restock cycle. Resetting clears those counters.</p><div class="row"><button class="b" data-act="vreset" data-v="">Reset all vendors</button></div>
-  ${tbl([{ k: 'vendor_id', label: 'Vendor' }, { k: 'template_id', label: 'Item' }, { k: 'amount_bought', label: 'Bought' }], e.stock, { actions: (r) => html`<button class="b sec sm" data-act="vreset" data-v="${r.vendor_id}">Reset vendor</button>` })}
+  ${tbl([{ k: 'vendor_id', label: 'Vendor' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'amount_bought', label: 'Bought' }], e.stock, { actions: (r) => html`<button class="b sec sm" data-act="vreset" data-v="${r.vendor_id}">Reset vendor</button>` })}
   <h3 class="mt14">Restock cycles</h3>${tbl([{ k: 'vendor_id' }, { k: 'last_interacted_timestamp', label: 'Last interaction', f: (r) => new Date(r.last_interacted_timestamp * 1000).toLocaleString() }], e.cycles)}</div>`);
 }
 
@@ -377,7 +412,7 @@ const A = {
   solari: () => act(() => api('/api/player/solari', { amount: +val('solari') }), 'Solari updated'),
   teleport: () => act(() => api('/api/player/teleport', { x: +val('tx'), y: +val('ty'), z: +val('tz') }), 'Teleport queued'),
   tpTo: (d) => act(() => api('/api/player/teleport', { x: +d.x, y: +d.y, z: +d.z }), 'Teleport queued'),
-  give: () => act(() => api('/api/player/give', { template_id: val('gt').trim(), quantity: +val('gq'), quality: +val('gg') }), 'Item added'),
+  give: () => act(() => api('/api/player/give', { template_id: pickedItemId('gt'), quantity: +val('gq'), quality: +val('gg') }), 'Item added'),
   repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(`Repaired ${r.repaired} items` + NOT_SAVED); }, null),
   refill: () => act(async () => { const r = await api('/api/player/refill', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} containers (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
   delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). Discard undoes it until you save.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
@@ -405,10 +440,11 @@ const A = {
   sand: async () => (await ask({ title: 'Clear sand build-up?', body: 'Removes the sand coverage from every building piece in the save.', ok: 'Clear sand', typed: 'clear', danger: true })) && act(async () => { const r = await api('/api/bases/clear-sand', {}); toast(`Cleared ${r.pieces} pieces` + NOT_SAVED); }, null),
   openInv: async (d) => {
     const it = await api('/api/bases/storage/items?inventory=' + encodeURIComponent(d.id));
-    setHTML($('#inv'), html`<div class="card"><h3>Inventory ${d.id}</h3>${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item' }, { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" class="w90">` }], it, { actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${r.template_id}">Delete</button>` })}
-    <div class="row"><input id="bt" list="tpl2" placeholder="template id" size="30"><datalist id="tpl2"></datalist>Qty<input id="bq" type="number" value="1" min="1"><button class="b" data-act="giveInv" data-id="${d.id}">Add item</button></div></div>`);
+    const cat = await loadCatalog(it.map((r) => r.template_id));
+    setHTML($('#inv'), html`<div class="card"><h3>Inventory ${d.id}</h3>${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" class="w90">` }], it, { actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` })}
+    <div class="row">${itemPicker("bt", cat)}Qty<input id="bq" type="number" value="1" min="1"><button class="b" data-act="giveInv" data-id="${d.id}">Add item</button></div></div>`);
   },
-  giveInv: (d) => act(async () => { await api('/api/bases/give', { inventory_id: +d.id, template_id: val('bt').trim(), quantity: +val('bq') }); toast('Item added' + NOT_SAVED); await A.openInv(d); }, null, false),
+  giveInv: (d) => act(async () => { await api('/api/bases/give', { inventory_id: +d.id, template_id: pickedItemId('bt'), quantity: +val('bq') }); toast('Item added' + NOT_SAVED); await A.openInv(d); }, null, false),
   bring: (d) => act(() => api('/api/vehicles/bring', { id: +d.id }), 'Vehicle moved next to you'),
   dur: (d) => { const v = prompt('Chassis durability', d.v); if (v !== null) act(() => api('/api/vehicles/durability', { vehicle_id: +d.id, chassis_durability: +v }), 'Updated'); },
   vreset: async (d) => (await ask({ title: 'Reset purchase limits?', body: 'Resets the purchase limits of this vendor.', ok: 'Reset' })) && act(() => api('/api/exchange/reset', { vendor_id: d.v }), 'Purchase limits reset'),
