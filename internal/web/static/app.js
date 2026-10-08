@@ -254,7 +254,10 @@ async function basesView() {
     ${claims.length ? html`<div class="card"><h3>Land claim size</h3>${claims.map((c) => html`<div class="row"><b>${c.name} ${c.totem_id}</b><span>${c.cells} cell${c.cells == 1 ? '' : 's'}${c.irregular ? ' (irregular shape)' : ` (${2 * c.rings + 1} x ${2 * c.rings + 1} square)`}, vertical level ${c.level}</span>
       Grow to <select id="cr${c.totem_id}"><option value="0">no change</option>${Array.from({ length: c.maxRings }, (_, i) => i + 1).filter((n) => n > c.rings).map((n) => html`<option value="${n}">${2 * n + 1} x ${2 * n + 1}</option>`)}</select>
       Level <select id="cv${c.totem_id}">${Array.from({ length: c.maxLevel + 1 }, (_, i) => i).filter((n) => n >= c.level).map((n) => html`<option value="${n}" ${n == c.level ? 'selected' : ''}>${n}</option>`)}</select>
-      <button class="b" data-act="claimGrow" data-id="${c.totem_id}" data-level="${c.level}">Expand claim</button></div>`)}
+      <button class="b" data-act="claimGrow" data-id="${c.totem_id}" data-level="${c.level}">Expand claim</button></div>
+      ${c.cells > 1 ? html`<div class="row"><span class="mut">${c.piecesInClaim == null ? '' : `${c.piecesInClaim} pieces inside the claim, ${c.piecesOutside} outside.`}</span>
+        Shrink to <select id="cs${c.totem_id}"><option value="0">the totem's own cell only</option>${Array.from({ length: c.maxRings }, (_, i) => i + 1).filter((n) => n < Math.max(c.rings, 1) + 4 && n <= c.maxRings).map((n) => html`<option value="${n}">${2 * n + 1} x ${2 * n + 1} square</option>`)}</select>
+        <button class="b sec" data-act="claimShrink" data-id="${c.totem_id}">Shrink claim</button><span class="mut">Cells that hold building pieces are never removed.</span></div>` : html``}`)}
     <p class="mut">One cell is 10 x 10 foundations, around the totem. Expanding only adds cells and never removes them, and the vertical level can only go up. Applied when the game next loads the save.</p></div>` : html``}
     <div class="card"><h3>Structure health</h3><div class="grid">${kv('Building pieces', p.n)}${kv('Lowest health', fix(p.minh))}${kv('Average health', fix(p.avgh))}${kv('Total sand buildup', fix(p.sand))}</div>
     <div class="row"><button class="b" data-act="repairB">Repair all to max</button><button class="b sec" data-act="sand">Clear sand buildup</button><button class="b sec" data-act="refillWater">Refill base water</button><button class="b sec" data-act="refillGen">Refill generators</button><span class="mut">Repair sets each piece to the highest health seen for its type.</span></div></div>
@@ -423,6 +426,12 @@ const A = {
   tagDel: (d) => act(() => api('/api/player/tags', { tag: d.tag, add: false }), 'Tag removed'),
   jfilter: () => { window.jq = val('jq'); journeyList(); },
   jset: (d) => act(() => api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }), 'Journey updated', false).then(journeyList),
+  claimShrink: async (d) => {
+    const rings = +val('cs' + d.id);
+    const size = rings ? `${2 * rings + 1} x ${2 * rings + 1}` : 'the totem\'s own cell';
+    if (!(await ask({ title: 'Shrink this land claim?', body: `Removes every stored cell outside ${size}. A cell that holds building pieces is never removed. This cannot be undone from here (restore a backup to go back).`, ok: 'Shrink claim' }))) return;
+    act(async () => { const r = await api('/api/bases/claim/shrink', { totem_id: +d.id, rings }); toast(`Removed ${r.removed} cells; the claim now has ${r.remaining}` + NOT_SAVED); });
+  },
   claimGrow: async (d) => {
     const rings = +val('cr' + d.id), level = +val('cv' + d.id);
     const body = { totem_id: +d.id };
