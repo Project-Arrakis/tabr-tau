@@ -104,14 +104,58 @@ missing; **Cut** = deliberately dropped (operator decision); **N/A** = server-on
 | Broadcasts, MOTD, map chat, shutdown notices | n/a | N/A | |
 | Confirmation phrases for dangerous actions | Tiered confirmations | Done | |
 
-## 7. Ranked gaps worth doing (single-player only)
+## 7. Vehicles and base storage in depth
+
+Checked against a real single-player save (read-only) on 2026-10-08, and against the console's `vehicle-storage.md` and
+`base-inventory.md`. The console's data model holds in the SQLite save, so its rules can be reused.
+
+### Base storage
+
+How the game stores it (same tables in the save): a placeable (`placeables.building_type`) owns rows in `inventories` (`actor_id` =
+the placeable), and `items` hang off those. `inventory_type` tells the kinds apart: **4** storage containers, **12** refinery and
+fabricator inputs, **3** fuel and module slots (generators, wind turbines, windtraps, and also Recycler and the totem).
+
+| Console behaviour | tabr-tau today | Gap |
+|---|---|---|
+| Lists only real storage, grouped Storage / Refining / Crafting / Other, from an explicit `building_type` allowlist with player-facing names (a `GenericContainer` is a "Chest", a `SpiceSilo` is a "Small Storage Container") | Lists **every** inventory of every non-player actor: in the real save that is 120 rows, of which 13 are storage containers; the rest are generator and turbine fuel slots, refineries, vehicle holds and per-component holds | **Yes (#75).** Filter by the allowlist; show the label, not the class name |
+| Shows capacity as slots used / slots available (`max_item_count`; the second refinery inventory has `-1` and is hidden) | Shows "Total units" = sum of stack sizes (#74); no slots-used column beyond "Slots" | **Yes (#74).** Show items / slots, and volume where the save has it |
+| Container overlay: slot grid with grade, durability, augments | Open storage: item table | Partial: no slot number, grade or augment |
+| Add item to a plain Storage container (new row at the next free slot) | Add item box | Partial: its list differs from the Give-item picker (#73) |
+| Delete a stack, or part of one (`count`) | Remove item | Done; partial-stack remove to be confirmed |
+| Base inventory roll-up by item template | Not provided | Gap (low): a per-item total across the base |
+| Generator fuel and windtrap filters kept separate from storage | Refill generators / water are buttons; their inventories still appear in the storage list | Fixed by the filter above |
+
+### Vehicles
+
+The real save has 13 vehicles. Each owns **one** inventory with `inventory_type = 0` (the cargo hold; 15 slots at most here) and
+**23** further inventories with `inventory_type` NULL (per-component holds with no capacity). `inventories.vehicle_module_id` is
+empty (0 rows), exactly as the console documents, so the cargo hold must be found through `actor_id` and `inventory_type = 0`,
+never through the module link. Taking any inventory of the vehicle without the `inventory_type = 0` filter can report an empty hold.
+
+| Console behaviour | tabr-tau today | Gap |
+|---|---|---|
+| Vehicle list with owner, condition (lowest module %), fuel %, map | Vehicles in the world and recovered vehicles, position, modules, raw inventories | Partial: no condition % or fuel column |
+| Cargo hold read slot by slot, with capacity | Lists the vehicle's inventories (ids and types) but no contents | **Gap.** Show the `inventory_type = 0` hold |
+| Delete one stack, a chosen set, or empty the hold | Not offered | Gap (needs the review pane) |
+| Repair vehicle decay (modules to max) | Repair all vehicles; per-module durability | Done; does not undo wear that lowered the decayed maximum |
+| Refuel | Not offered | Gap: fuel is an item or stat in a module, location to confirm |
+| Bring vehicle to the player (teleport) | Bring a vehicle to you | Done |
+| Recovered (stored) vehicles: set durability | Set chassis durability | Done; delete-a-stored-vehicle is Cut (#58) |
+| Spawn a new vehicle | Not offered | Gap, hard: needs the game to create the vehicle correctly |
+| Permissions, ownership transfer, delete a vehicle | n/a | Cut (#58): single owner |
+
+Suggested work, in order: (1) fix the storage list (#75, #74, #73) using the allowlist and `max_item_count`; (2) read-only vehicle
+cargo view and condition / fuel columns; (3) cargo delete and add after the review pane covers them; (4) refuel, once the field is
+located in a real save.
+
+## 8. Ranked gaps worth doing (single-player only)
 
 1. **XP, level and skill points** (P6) and **health / vitals** (P8): the most used player edits in the console; JSONB entities, so they
    need the review pane and a live check.
 2. **Quality, grade and augments on give-item**, and the missing catalog items (#72): the picker is the first thing people use.
 3. **Specializations and keystones** completion (P11) and **research / crafting recipes** (P12).
 4. **Base backups** and **blueprints** import / export: valuable and testable, but the file formats need to be mapped first.
-5. **Vehicle cargo hold** and **fuel**.
+5. **Storage list fix** (#75, #74, #73), then **vehicle cargo hold**, condition and **fuel** (section 7).
 6. Small: faction assignment, intel, other currencies, give several items, clean invalid items.
 
 Each of these needs a verification in game and an entry in CHANGELOG, like the existing features. Items marked "Gap?" need a check of
