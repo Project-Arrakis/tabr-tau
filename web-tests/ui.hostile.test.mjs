@@ -420,6 +420,25 @@ test('Refill containers reports what it filled and shows a container it could no
   ui.dom.window.close();
 });
 
+test('Expand claim asks first, posts the chosen size and level, and the totem name stays plain text', async () => {
+  const claim = [{ totem_id: 7, name: '<img src=x onerror=1> Totem', cells: 1, rings: 0, level: 0, maxRings: 5, maxLevel: 5 }];
+  const ui = await boot({ get: { '/api/bases/claim': claim }, post: { '/api/bases/claim/expand': { ok: true, added: 24, totalCells: 25, level: 2 } } });
+  ui.click('[data-tab="bases"]'); await ui.settle();
+  const card = [...ui.doc.querySelectorAll('.card')].find((c) => c.textContent.includes('Land claim size'));
+  assert.ok(card, 'the land claim card is shown');
+  assert.equal(card.querySelector('img'), null, 'the totem name is data, not markup');
+  ui.doc.querySelector('#cr7').value = '2'; ui.doc.querySelector('#cv7').value = '2';
+  ui.click('[data-act="claimGrow"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes('5 x 5'), 'the question states the resulting size');
+  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/claim/expand').length, 0, 'nothing is sent before confirming');
+  ui.click('[data-act="askOk"]'); await ui.settle();
+  const sent = ui.posted.filter((p) => p.path === '/api/bases/claim/expand');
+  assert.equal(sent.length, 1);
+  assert.deepEqual([sent[0].body.totem_id, sent[0].body.rings, sent[0].body.level], [7, 2, 2]);
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Claim now 25 cells'));
+  ui.dom.window.close();
+});
+
 test('item pickers list in-game names, send the template id, and item tables show names', async () => {
   const catalog = [
     { id: 'Literjon_T6', name: 'Literjon Mk6', category: 'consumables' },
@@ -480,5 +499,22 @@ test('base and vehicle upkeep buttons post, and unknown device names stay plain 
   ui.click('[data-act="repairV"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Repaired 7 vehicle modules'));
   for (const p of ['/api/bases/refill-water', '/api/bases/refill-generators', '/api/vehicles/repair']) assert.equal(ui.posted.filter((x) => x.path === p).length, 1, p);
+  ui.dom.window.close();
+});
+
+test('Expand claim with "no change" size sends only the level, and nothing at all when nothing is chosen', async () => {
+  const claim = [{ totem_id: 7, name: 'Totem', cells: 1, rings: 0, level: 1, irregular: false, maxRings: 5, maxLevel: 5 }];
+  const ui = await boot({ get: { '/api/bases/claim': claim }, post: { '/api/bases/claim/expand': { ok: true, added: 0, totalCells: 1, level: 3 } } });
+  ui.click('[data-tab="bases"]'); await ui.settle();
+  assert.deepEqual([...ui.doc.querySelectorAll('#cv7 option')].map((o) => o.value), ['1', '2', '3', '4', '5'], 'a lower level is not offered');
+  ui.click('[data-act="claimGrow"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Nothing to change'), 'defaults change nothing');
+  assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'and no question is asked');
+  ui.doc.querySelector('#cv7').value = '3';
+  ui.click('[data-act="claimGrow"]'); await ui.settle();
+  assert.ok(!ui.doc.querySelector('#ask').textContent.includes('square'), 'a level-only change does not talk about size');
+  ui.click('[data-act="askOk"]'); await ui.settle();
+  const sent = ui.posted.filter((p) => p.path === '/api/bases/claim/expand');
+  assert.deepEqual(sent[0].body, { totem_id: 7, level: 3 });
   ui.dom.window.close();
 });

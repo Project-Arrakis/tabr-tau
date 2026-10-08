@@ -17,7 +17,7 @@ import (
 var uiRoutes = []string{
 	"/api/overview", "/api/save/state", "/api/player", "/api/player/inventory", "/api/player/factions", "/api/player/specs",
 	"/api/player/tutorials", "/api/player/tags", "/api/player/recipes", "/api/player/journey",
-	"/api/catalog/items", "/api/bases", "/api/bases/storage", "/api/bases/storage/items?inventory=1", "/api/vehicles", "/api/exchange", "/api/landsraad",
+	"/api/catalog/items", "/api/bases", "/api/bases/claim", "/api/bases/storage", "/api/bases/storage/items?inventory=1", "/api/vehicles", "/api/exchange", "/api/landsraad",
 	"/api/db/tables", "/api/save/backups",
 	"/api/config/validate", "/api/config/files",
 }
