@@ -249,6 +249,7 @@ async function basesView() {
   if (s == 'overview') {
     const b = await api('/api/bases');
     const claims = await api('/api/bases/claim');
+    const prefs = await api('/api/settings');
     const p = b.pieces || {};
     h.push(html`<div class="card"><h3>Bases (land claims)</h3>${tbl([{ k: 'totem_id', label: 'Totem' }, { k: 'map' }, { k: 'x', f: (r) => fix(r.x) }, { k: 'y', f: (r) => fix(r.y) }, { k: 'z', f: (r) => fix(r.z) }, { k: 'level' }], b.totems, { actions: (r) => html`<button class="b sec sm" data-act="tpTo" data-x="${r.x}" data-y="${r.y}" data-z="${r.z + 300}">Teleport here</button>` })}</div>
     ${claims.length ? html`<div class="card"><h3>Land claim size</h3>${claims.map((c) => html`<div class="row"><b>${c.name} ${c.totem_id}</b><span>${c.cells} cell${c.cells == 1 ? '' : 's'}${c.irregular ? ' (irregular shape)' : ` (${2 * c.rings + 1} x ${2 * c.rings + 1} square)`}, vertical level ${c.level}</span>
@@ -259,6 +260,8 @@ async function basesView() {
         Shrink to <select id="cs${c.totem_id}"><option value="0">the totem's own cell only</option>${Array.from({ length: c.maxRings }, (_, i) => i + 1).filter((n) => (c.irregular ? n <= c.rings : n < c.rings)).map((n) => html`<option value="${n}">${2 * n + 1} x ${2 * n + 1} square</option>`)}</select>
         <button class="b sec" data-act="claimShrink" data-id="${c.totem_id}">Shrink claim</button><span class="mut">Cells that hold building pieces are never removed.</span></div>` : html``}`)}
     <p class="mut">One cell is 10 x 10 foundations, around the totem. Expanding only adds cells and never removes them, and the vertical level can only go up. Applied when the game next loads the save.</p></div>` : html``}
+    <div class="card"><h3>Automatic refill</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
+    <p class="mut">When on, opening the editor refills base water and generators and <b>saves straight away</b>, without the review step, so it applies the next time the game loads. It is skipped while a single-player session is running. The previous file is backed up first. Remembered between runs.</p></div>
     <div class="card"><h3>Structure health</h3><div class="grid">${kv('Building pieces', p.n)}${kv('Lowest health', fix(p.minh))}${kv('Average health', fix(p.avgh))}${kv('Total sand buildup', fix(p.sand))}</div>
     <div class="row"><button class="b" data-act="repairB">Repair all to max</button><button class="b sec" data-act="sand">Clear sand buildup</button><button class="b sec" data-act="refillWater">Refill base water</button><button class="b sec" data-act="refillGen">Refill generators</button><span class="mut">Repair sets each piece to the highest health seen for its type.</span></div></div>
     <div class="card"><h3>Permissions</h3>${tbl([{ k: 'actor_id' }, { k: 'actor_name' }, { k: 'actor_type' }, { k: 'access_level' }, { k: 'is_child' }], b.permissions)}</div>`);
@@ -426,6 +429,10 @@ const A = {
   tagDel: (d) => act(() => api('/api/player/tags', { tag: d.tag, add: false }), 'Tag removed'),
   jfilter: () => { window.jq = val('jq'); journeyList(); },
   jset: (d) => act(() => api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }), 'Journey updated', false).then(journeyList),
+  autoref: async (d) => {
+    if (!d.on && !(await ask({ title: 'Turn on automatic refill?', body: 'From now on, opening the editor refills base water and generators and saves to your game file immediately, without the Review & save step. The previous file is backed up each time, and nothing happens while a single-player session is running. It applies to whichever save file the editor opens.', ok: 'Turn on' }))) return;
+    act(async () => { const r = await api('/api/settings', { autoRefillOnOpen: !d.on }); toast('Automatic refill when the editor opens is now ' + (r.autoRefillOnOpen ? 'on' : 'off')); }, null);
+  },
   claimShrink: async (d) => {
     const rings = +val('cs' + d.id);
     const size = rings ? `${2 * rings + 1} x ${2 * rings + 1}` : 'the totem\'s own cell';
@@ -511,7 +518,9 @@ document.addEventListener('change', (e) => {
   else if (t.id == 'cfgsel') { cfgFile = t.value; render(); }
   else if (t.id == 'dbsel') { dbTable = t.value; dbOff = 0; dbQ = ''; render(); }
 });
-status().then(render);
+status().then(render).then(async () => {
+  try { const r = await api('/api/startup'); if (r.note) toast(r.note, !!r.warn); } catch (e) { /* the note is optional */ }
+});
 // Keeps the game-running warning current. A failed poll is shown, not hidden: Save stays off until contact returns.
 setInterval(async () => {
   if (document.hidden) return;

@@ -8,11 +8,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
+	"github.com/Project-Arrakis/tabr-tau/internal/settings"
 	"mime"
 	"net"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -37,6 +40,13 @@ type Server struct {
 	bootMu sync.Mutex
 	boots  map[string]time.Time // one-time bootstrap tokens -> expiry
 
+	// SettingsPath is the editor's own preferences file (see internal/settings); tests point it at a temp folder.
+	SettingsPath string
+	startupMu    sync.Mutex
+	startupNote  string // what the open-time refill did, shown once by the UI
+	startupWarn  bool   // the note is a problem or a skip, so the UI keeps it on screen
+	lastAuto     string // the last automatic save, kept for the Automatic refill card
+
 	// AllowRemote permits non-loopback peers. Off by default; only set by an explicit operator flag.
 	AllowRemote bool
 }
@@ -46,7 +56,7 @@ func New(s *save.Save, cfg config.Dir) *Server {
 	if _, err := rand.Read(b); err != nil {
 		panic("crypto/rand failed; refusing to start without an unpredictable token: " + err.Error())
 	}
-	srv := &Server{Save: s, Ops: &ops.Ops{S: s}, Cfg: cfg, token: hex.EncodeToString(b), mux: http.NewServeMux(), now: time.Now, boots: map[string]time.Time{}}
+	srv := &Server{Save: s, Ops: &ops.Ops{S: s}, Cfg: cfg, token: hex.EncodeToString(b), mux: http.NewServeMux(), now: time.Now, boots: map[string]time.Time{}, SettingsPath: settings.Path()}
 	srv.routes()
 	return srv
 }
@@ -269,6 +279,30 @@ func (s *Server) routes() {
 	})
 
 	s.get("/api/overview", func(r *http.Request) (any, error) { return o.Overview() })
+	s.get("/api/settings", func(r *http.Request) (any, error) {
+		cur := settings.Load(s.SettingsPath)
+		s.startupMu.Lock()
+		defer s.startupMu.Unlock()
+		return map[string]any{"autoRefillOnOpen": cur.AutoRefillOnOpen, "last": s.lastAuto}, nil
+	})
+	s.post("/api/settings", func(a ops.Args) (any, error) {
+		v, isBool := a["autoRefillOnOpen"].(bool)
+		if !isBool {
+			return nil, errors.New("autoRefillOnOpen must be true or false")
+		}
+		next := settings.Load(s.SettingsPath)
+		next.AutoRefillOnOpen = v
+		if err := settings.Save(s.SettingsPath, next); err != nil {
+			return nil, err
+		}
+		s.startupMu.Lock()
+		defer s.startupMu.Unlock()
+		return map[string]any{"autoRefillOnOpen": next.AutoRefillOnOpen, "last": s.lastAuto}, nil
+	})
+	s.get("/api/startup", func(r *http.Request) (any, error) {
+		note, warn := s.takeStartup()
+		return map[string]any{"note": note, "warn": warn}, nil
+	})
 	s.get("/api/catalog/items", func(r *http.Request) (any, error) { return catalog.All(), nil })
 	s.get("/api/save/state", func(r *http.Request) (any, error) { return o.State() })
 
@@ -389,3 +423,73 @@ func (s *Server) routes() {
 		return map[string]any{"ok": true}, s.Cfg.Restore(a.Str("name"), a.Str("backup"))
 	})
 }
+
+// RunStartupTasks does what the editor's settings ask for when it opens. Today that is the optional refill of base
+// water and generators. This is a deliberate exception to "Save only from the review pane" (operator decision,
+// 2026-10-08), for this opt-in setting only: the refill is applied and written straight away so it takes effect the
+// next time the game loads, without a manual review, save, exit and reload. The write still goes through the whole
+// pipeline (single-player check, changed-on-disk check, integrity check, backup first, read-back verification), and
+// it is skipped when a single-player session is running. If the write is refused, the edits stay pending so the
+// person can see and review them.
+func (s *Server) RunStartupTasks() {
+	if !settings.Load(s.SettingsPath).AutoRefillOnOpen {
+		return
+	}
+	set := func(note string, warn bool) {
+		s.startupMu.Lock()
+		s.startupNote, s.startupWarn = note, warn
+		s.startupMu.Unlock()
+	}
+	if g := save.GameStateFor(s.Save.Path, true); g.Blocked {
+		set("Automatic refill skipped: "+g.Reason+".", true)
+		return
+	}
+	if len(s.Save.Pending()) > 0 { // never fold someone else's pending edits into an unreviewed save
+		set("Automatic refill skipped: there are unsaved edits.", true)
+		return
+	}
+	w, err1 := s.Ops.RefillBaseWater()
+	g, err2 := s.Ops.RefillGenerators()
+	if err1 != nil || err2 != nil {
+		queued := ""
+		if n := len(s.Save.Pending()); n > 0 {
+			queued = fmt.Sprintf(" %d prepared edit(s) are waiting under Review & save; nothing was written.", n)
+		}
+		set("Automatic refill could not finish: "+errors.Join(err1, err2).Error()+"."+queued, true)
+		return
+	}
+	nw, ng := w.(map[string]any)["filled"].(int), g.(map[string]any)["filled"].(int)
+	if nw+ng == 0 {
+		set("Automatic refill: base water and generators were already full.", false)
+		return
+	}
+	res, err := s.Save.Commit(false)
+	if err != nil {
+		set(fmt.Sprintf("Automatic refill prepared %d water devices and %d generators but could not save them: %v. They are waiting under Review & save.", nw, ng, err), true)
+		return
+	}
+	backup := ""
+	if b, ok := res["backup"].(string); ok {
+		backup = filepath.Base(b)
+	}
+	msg := fmt.Sprintf("Automatic refill saved %d water devices and %d generators to the game (the previous file is backed up as %s).", nw, ng, backup)
+	warn := false
+	if w, ok := res["warning"].(string); ok && w != "" { // written, but the editor could not reload the file
+		msg += " Warning: " + w
+		warn = true
+	}
+	s.startupMu.Lock()
+	s.lastAuto = time.Now().Format("2006-01-02 15:04") + ": " + strings.TrimSuffix(msg, ".")
+	s.startupMu.Unlock()
+	set(msg, warn)
+}
+
+func (s *Server) takeStartup() (string, bool) {
+	s.startupMu.Lock()
+	defer s.startupMu.Unlock()
+	n, w := s.startupNote, s.startupWarn
+	s.startupNote, s.startupWarn = "", false
+	return n, w
+}
+
+func (s *Server) takeStartupNote() string { n, _ := s.takeStartup(); return n }

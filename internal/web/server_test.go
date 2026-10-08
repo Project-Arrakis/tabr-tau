@@ -14,6 +14,7 @@ import (
 
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/internal/settings"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
@@ -327,5 +328,100 @@ func TestCatalogRouteListsItems(t *testing.T) {
 	var items []struct{ ID, Name, Category string }
 	if err := json.Unmarshal(w.Body.Bytes(), &items); err != nil || len(items) < 2000 {
 		t.Fatalf("%v, %d items", err, len(items))
+	}
+}
+
+const cisternSQL = `
+insert into actors(id,class,map) values (901,'c','HaggaBasin');
+insert into fgl_entities(entity_id,components) values (-901, jsonb('{"FWaterStorageComponent":[0,{"m_WaterStored":0}]}'));
+insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (901,-901,'a');
+insert into placeables(id,health,building_type) values (901,1,'WaterCistern_Placeable');`
+
+func TestSettingsEndpointsAndOpenTimeRefill(t *testing.T) {
+	s := New(testsave.PlayerWithSQL(t, cisternSQL), config.Dir{Path: t.TempDir()})
+	s.SettingsPath = filepath.Join(t.TempDir(), "tabr-tau", "settings.json")
+	cookie := map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}
+	call := func(method, route, body string) *httptest.ResponseRecorder {
+		hdr := map[string]string{"Host": cookie["Host"], "Cookie": cookie["Cookie"]}
+		var b []byte
+		if body != "" {
+			hdr["Content-Type"] = "application/json"
+			b = []byte(body)
+		}
+		return do(t, s, method, "http://127.0.0.1"+route, loop, hdr, b)
+	}
+
+	// default: off, nothing happens on open
+	if w := call("GET", "/api/settings", ""); !strings.Contains(w.Body.String(), `"autoRefillOnOpen":false`) {
+		t.Fatalf("%s", w.Body.String())
+	}
+	s.RunStartupTasks()
+	if len(s.Save.Pending()) != 0 || s.takeStartupNote() != "" {
+		t.Fatal("with the setting off the editor must queue nothing")
+	}
+
+	// a non-boolean is refused and changes nothing
+	if w := call("POST", "/api/settings", `{"autoRefillOnOpen":"yes"}`); w.Code == 200 {
+		t.Fatal("a non-boolean must be refused")
+	}
+	if w := call("POST", "/api/settings", `{"autoRefillOnOpen":true}`); w.Code != 200 {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	if !settings.Load(s.SettingsPath).AutoRefillOnOpen {
+		t.Fatal("the setting must be written to disk")
+	}
+
+	// on: opening refills and saves straight away, with a backup, and tells the UI once
+	s.RunStartupTasks()
+	if len(s.Save.Pending()) != 0 {
+		t.Fatalf("the refill must be written, not left pending: %d pending", len(s.Save.Pending()))
+	}
+	w := call("GET", "/api/startup", "")
+	if !strings.Contains(w.Body.String(), "saved 1 water devices") {
+		t.Fatalf("%s", w.Body.String())
+	}
+	if w := call("GET", "/api/startup", ""); !strings.Contains(w.Body.String(), `"note":""`) {
+		t.Fatalf("the note must be shown only once: %s", w.Body.String())
+	}
+	if w := call("GET", "/api/settings", ""); !strings.Contains(w.Body.String(), "Automatic refill saved 1 water devices") || !strings.Contains(w.Body.String(), "backed up as") {
+		t.Fatalf("the last automatic save must stay visible with its backup name: %s", w.Body.String())
+	}
+	if backups, _ := filepath.Glob(filepath.Join(filepath.Dir(s.Save.Path), "tabr-tau-backups", "*.db")); len(backups) != 1 {
+		t.Fatalf("expected one backup of the previous file, found %v", backups)
+	}
+	reopened, err := save.Open(s.Save.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	row, _ := reopened.One(`select json_extract(components,'$.FWaterStorageComponent[1].m_WaterStored') w from fgl_entities where entity_id=-901`)
+	reopened.Close()
+	if row["w"].(int64) != 5000 {
+		t.Fatalf("the cistern in the written file is %v, want 5000", row["w"])
+	}
+
+	// opening again with everything full does nothing and writes nothing
+	s.RunStartupTasks()
+	if len(s.Save.Pending()) != 0 || !strings.Contains(s.takeStartupNote(), "already full") {
+		t.Fatal("a second open must find nothing to do")
+	}
+}
+
+// If the write is refused (here: the file changed on disk after it was loaded), the edits stay pending and the note says so.
+func TestOpenTimeRefillThatCannotSaveLeavesTheEditsPending(t *testing.T) {
+	s := New(testsave.PlayerWithSQL(t, cisternSQL), config.Dir{Path: t.TempDir()})
+	s.SettingsPath = filepath.Join(t.TempDir(), "settings.json")
+	if err := settings.Save(s.SettingsPath, settings.Settings{AutoRefillOnOpen: true}); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.OpenFile(s.Save.Path, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Write([]byte{0})
+	f.Close()
+	s.RunStartupTasks()
+	note, warn := s.takeStartup()
+	if !strings.Contains(note, "could not save them") || !strings.Contains(note, "waiting under Review & save") || !warn || len(s.Save.Pending()) != 1 {
+		t.Fatalf("note %q, warn %v, pending %d", note, warn, len(s.Save.Pending()))
 	}
 }

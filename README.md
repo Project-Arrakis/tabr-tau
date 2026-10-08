@@ -29,7 +29,7 @@ live-test protocol). Do not attach saves, `Game.ini`, snapshots or logs to issue
 | Tab | Features |
 |---|---|
 | **Player** | Profile, Solari, give / edit / delete items, repair gear, refill water containers, teleport, faction reputation, specialization tracks, tutorials, tags, Journey nodes (complete / reset), learned building recipes |
-| **Bases** | Land claims (totems), expand or shrink a claim's size, raise its vertical level, teleport to base, structure health, repair all, clear sand buildup, refill base water and generator fuel, storage containers and machines (view / add / remove items), placeables, permissions |
+| **Bases** | Land claims (totems), expand or shrink a claim's size, raise its vertical level, teleport to base, structure health, repair all, clear sand buildup, refill base water and generator fuel (optionally when the editor opens), storage containers and machines (view / add / remove items), placeables, permissions |
 | **Vehicles** | Vehicles in the world and recovered vehicles, bring a vehicle to you, repair module durability, set chassis durability |
 | **Exchange** | Solari balance, vendor purchase limits and restock cycles (reset) |
 | **Landsraad** | Current term, decree pool, active decree, task board (fill progress, complete / reopen), rewards |
@@ -69,6 +69,10 @@ Build the Windows app (from any OS, no C compiler needed) with
 `GOOS=windows CGO_ENABLED=0 go build -trimpath -ldflags "-H=windowsgui -s -w" -o tabr-tau.exe ./cmd/tabr-tau`
 (`-H=windowsgui` removes the console window; the exe re-attaches to the terminal it was started from, so subcommands still
 print). Windows Application Control may block unsigned binaries; `go run` works around that.
+
+## Automatic refill
+
+The Bases tab has an **Automatic refill** switch (off by default, remembered in `%APPDATA%\tabr-tau\settings.json`). When on, opening the editor refills base water and generators and **saves straight away**, without the Review & save step, so it applies the next time single-player loads. It is skipped while a single-player session is running or when there are unsaved edits; the previous file is backed up every time; a refused write leaves the edits pending with the reason. The card shows the last automatic save and its backup name. It applies to whichever save the editor opens.
 
 ## Safety notes
 

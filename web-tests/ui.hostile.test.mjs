@@ -519,6 +519,31 @@ test('Expand claim with "no change" size sends only the level, and nothing at al
   ui.dom.window.close();
 });
 
+test('Automatic refill setting shows its state, toggles through the API, and the start-up note is shown once as text', async () => {
+  const hostile = '<img src=x onerror=1> note';
+  const ui = await boot({ get: { '/api/settings': { autoRefillOnOpen: false }, '/api/startup': { note: hostile } }, post: { '/api/settings': { autoRefillOnOpen: true } } });
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes(hostile), 'the note is shown');
+  assert.equal(ui.doc.querySelector('#toast img'), null, 'as text, never markup');
+  ui.click('[data-tab="bases"]'); await ui.settle();
+  const card = [...ui.doc.querySelectorAll('.card')].find((c) => c.textContent.includes('Automatic refill'));
+  assert.ok(card && card.textContent.includes('off'), 'the card shows the setting is off');
+  ui.click('[data-act="autoref"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes('without the Review & save step'), 'turning it on says it saves immediately');
+  assert.equal(ui.posted.filter((p) => p.path === '/api/settings').length, 0, 'nothing is sent before confirming');
+  ui.click('[data-act="askOk"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/settings')[0].body, { autoRefillOnOpen: true }, 'turning on sends true');
+  ui.dom.window.close();
+});
+
+test('A start-up note that reports a problem stays on screen as an error, and the last automatic save is shown on the card', async () => {
+  const ui = await boot({ get: { '/api/startup': { note: 'Automatic refill skipped: a single-player session is active.', warn: true }, '/api/settings': { autoRefillOnOpen: true, last: '2026-10-08 13:00: Automatic refill saved 2 water devices (backed up as x.db)' } } });
+  assert.ok(ui.doc.querySelector('#toast .err'), 'a problem note uses the error toast, which stays until dismissed');
+  assert.ok(ui.doc.querySelector('#toast .err').textContent.includes('skipped'));
+  ui.click('[data-tab="bases"]'); await ui.settle();
+  assert.ok(ui.doc.body.textContent.includes('Last automatic save: 2026-10-08 13:00'), 'the card keeps the last automatic save');
+  ui.dom.window.close();
+});
+
 test('Shrink claim asks first, posts the chosen size, and is offered only when extra cells exist', async () => {
   const claims = [
     { totem_id: 7, name: 'Totem', cells: 9, rings: 1, level: 0, irregular: false, maxRings: 5, maxLevel: 5, piecesInClaim: 486, piecesOutside: 0 },
