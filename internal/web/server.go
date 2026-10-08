@@ -299,6 +299,8 @@ func (s *Server) routes() {
 	s.post("/api/bases/give", o.GiveToInventory)
 	s.post("/api/bases/repair", func(ops.Args) (any, error) { return o.RepairBuildings() })
 	s.post("/api/bases/clear-sand", func(ops.Args) (any, error) { return o.ClearSand() })
+	s.get("/api/bases/claim", func(r *http.Request) (any, error) { return o.LandClaims() })
+	s.post("/api/bases/claim/expand", o.ExpandLandClaim)
 	s.post("/api/bases/health", o.SetPieceHealth)
 
 	// vehicles / exchange / landsraad

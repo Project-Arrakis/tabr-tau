@@ -67,7 +67,7 @@ Class: **WORKS** identical schema, **ADAPT** SQL changes, **NEW** needs a JSONB/
 | B7 | Delete base completely | cascades + trigger | ADAPT, **high risk** | [I] | **cut 2026-10-07** (demolish in game; pieces stay editable in the Database tab) |
 | B8 | Fully repair a base | `building_instances.health`, `placeables.health` | ADAPT | [V] column; [T] what "full" is (today: highest health seen for the type) (#56) | ✅ partial; ◻ P4 |
 | B9 | Give items to base chests | `inventories`/`items` (same as B2) | ADAPT | [V] | ✅ (full stats follow S3) |
-| B10 | Increase land-claim size | `totems`, `landclaim_segments` (empty in the sample) | NEW | [I] storage unknown; [T] needs a save with a claim and an in-game before/after (#57) | ◻ P4 |
+| B10 | Increase land-claim size | `landclaim_segments` (one row per extra 10x10-foundation cell, the totem's own cell (0,0) is implicit), `totems.landclaim_vertical_level` | ADAPT | [V] same tables and constants as the Dune Docker Land Claim Editor; the sample save has 1 totem, 0 extra cells; [T] write pending the in-game check (#57) | ✅ built, unverified |
 | V1 | Vehicles list/bring/durability/refuel | `vehicles`, `actors` | ADAPT | [I] 0 vehicles in sample | ✅ partial (untested) |
 | V2 | Fully repair a vehicle (chassis and modules) | `recovered_vehicles.chassis_durability` for stored ones; live vehicle durability location unknown | NEW | [T] needs a save with a vehicle (#56) | ◻ P4 |
 | W1 | Resource/spice fields | `resource_nodes`, `resourcefield_state` | ADAPT | [V] rows exist | ◻ P5 |

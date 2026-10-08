@@ -419,3 +419,22 @@ test('Refill containers reports what it filled and shows a container it could no
   assert.equal(ui.posted.filter((p) => p.path === '/api/player/refill').length, 1);
   ui.dom.window.close();
 });
+
+test('Expand claim asks first, posts the chosen size and level, and the totem name stays plain text', async () => {
+  const claim = [{ totem_id: 7, name: '<img src=x onerror=1> Totem', cells: 1, rings: 0, level: 0, maxRings: 5, maxLevel: 5 }];
+  const ui = await boot({ get: { '/api/bases/claim': claim }, post: { '/api/bases/claim/expand': { ok: true, added: 24, totalCells: 25, level: 2 } } });
+  ui.click('[data-tab="bases"]'); await ui.settle();
+  const card = [...ui.doc.querySelectorAll('.card')].find((c) => c.textContent.includes('Land claim size'));
+  assert.ok(card, 'the land claim card is shown');
+  assert.equal(card.querySelector('img'), null, 'the totem name is data, not markup');
+  ui.doc.querySelector('#cr7').value = '2'; ui.doc.querySelector('#cv7').value = '2';
+  ui.click('[data-act="claimGrow"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes('5 x 5'), 'the question states the resulting size');
+  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/claim/expand').length, 0, 'nothing is sent before confirming');
+  ui.click('[data-act="askOk"]'); await ui.settle();
+  const sent = ui.posted.filter((p) => p.path === '/api/bases/claim/expand');
+  assert.equal(sent.length, 1);
+  assert.deepEqual([sent[0].body.totem_id, sent[0].body.rings, sent[0].body.level], [7, 2, 2]);
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Claim now 25 cells'));
+  ui.dom.window.close();
+});
