@@ -46,7 +46,7 @@ Class: **WORKS** identical schema, **ADAPT** SQL changes, **NEW** needs a JSONB/
 | P5 | Solari / currency | SQL | `items` (Solari item) | WORKS | [V] | ✅ |
 | P6 | XP, skill points, per-skill points | RMQ `AwardXP` etc. | JSONB `FLevelComponent` via `jsonb_set` | NEW | [V] read; [V] scratch write; [T] game accepts | ◻ P3 (gated by T1) |
 | P7 | Reset progression / skill modules | RMQ | JSONB edit + table edits | NEW | [I] | ◻ P3 |
-| P8 | Hydration, spice, health | RMQ `UpdateAllWaterFillables` | `actors.gas_attributes` JSONB, `FHealthComponent` | NEW | [V] read; [T] write | ◻ P3 |
+| P8 | Hydration, spice, health; **Refill Container** (find where a canteen, literjon or stillsuit keeps its water, then fill it) | RMQ `UpdateAllWaterFillables` | `actors.gas_attributes` JSONB, `FHealthComponent`, item `stats` (location of fill level unknown) | NEW | [V] read; [T] write; fill-level location needs an in-game before/after test (#55) | ◻ P3 |
 | P9 | Teleport | RMQ / SQL | `actors.location_*` | ADAPT | [V] | ✅ |
 | P10 | Faction, reputation | SQL | `player_faction*` | WORKS | [V] | ✅ |
 | P11 | Specializations, keystones | SQL | `specialization_tracks`, keystones | WORKS | [V] schema; tracks empty in sample | ✅ partial |
@@ -62,23 +62,27 @@ Class: **WORKS** identical schema, **ADAPT** SQL changes, **NEW** needs a JSONB/
 | B2 | Storage contents give/fill/remove | `inventories`/`items` | ADAPT | [V] | ✅ |
 | B3 | Repair buildings, clear sand | `building_instances.health`, sand fields | ADAPT | [V] | ✅ |
 | B4 | Machine water/fuel/power refill | JSONB machine components | NEW | [V] structure seen; [T] write | ◻ P4 |
-| B5 | Base/vehicle permissions | `permission_actor*` (dune-docker joins missing `map_names`) | ADAPT | [V] tables, 16 rows | ◻ P4 |
-| B6 | Blueprints import/export | `building_blueprints` and related (`building_blueprint_*`; all empty in sample) | ADAPT | [I] | ◻ P4 (needs test save) |
-| B7 | Delete base completely | cascades + trigger | ADAPT, **high risk** | [I] | ◻ P5 |
+| B5 | Base/vehicle permissions | `permission_actor*` | N/A | multiplayer concept, **cut 2026-10-07** | never |
+| B6 | Blueprints import/export | `building_blueprints` and related (`building_blueprint_*`; all empty in sample) | ADAPT | [I] | deferred: needs a save that has blueprints; low SP value (**2026-10-07**) |
+| B7 | Delete base completely | cascades + trigger | ADAPT, **high risk** | [I] | **cut 2026-10-07** (demolish in game; pieces stay editable in the Database tab) |
+| B8 | Fully repair a base | `building_instances.health`, `placeables.health` | ADAPT | [V] column; [T] what "full" is (today: highest health seen for the type) (#56) | ✅ partial; ◻ P4 |
+| B9 | Give items to base chests | `inventories`/`items` (same as B2) | ADAPT | [V] | ✅ (full stats follow S3) |
+| B10 | Increase land-claim size | `totems`, `landclaim_segments` (empty in the sample) | NEW | [I] storage unknown; [T] needs a save with a claim and an in-game before/after (#57) | ◻ P4 |
 | V1 | Vehicles list/bring/durability/refuel | `vehicles`, `actors` | ADAPT | [I] 0 vehicles in sample | ✅ partial (untested) |
+| V2 | Fully repair a vehicle (chassis and modules) | `recovered_vehicles.chassis_durability` for stored ones; live vehicle durability location unknown | NEW | [T] needs a save with a vehicle (#56) | ◻ P4 |
 | W1 | Resource/spice fields | `resource_nodes`, `resourcefield_state` | ADAPT | [V] rows exist | ◻ P5 |
-| W2 | Sandstorm / Coriolis schedule | SQLite-only tables | NEW | [V] tables exist | ◻ P5 |
-| W3 | Map fog reveal | `FogOfWar/*.data` bitmap | NEW | [V] format; [I] layout | ◻ P5 |
+| W2 | Sandstorm / Coriolis schedule | SQLite-only tables | NEW | [V] tables exist | parked behind P1 (**2026-10-07**) |
+| W3 | Map fog reveal | `FogOfWar/*.data` bitmap | NEW | [V] format; [I] layout | parked behind P1 (**2026-10-07**) |
 | W4 | Live map / partitions / autoscaler / Deep Desert instances | needs `world_partition` | N/A | [V] | never |
 
 ### Landsraad, vendors, config
 | ID | Feature | SP mechanism | Class | Evidence | Status |
 |---|---|---|---|---|---|
 | L1 | Landsraad term/decree/tasks/rewards | `landsraad_*` | WORKS/ADAPT | [V] | ✅ |
-| L2 | Simulated-guild contributions | `landsraad_task_*_contributions`, `landsraad_simulated_guilds` (60) | NEW | [V] | ◻ P5 |
+| L2 | Simulated-guild contributions | `landsraad_task_*_contributions`, `landsraad_simulated_guilds` (60) | NEW | [V] | **cut 2026-10-07** (edits numbers the game invents) |
 | E1 | Vendor stock/limits/restock | `vendor_stock_*` (empty in sample) | WORKS | [V] schema | ✅ |
 | E2 | Dune Exchange market | none | N/A | [V] | never |
-| C1 | Difficulty/rate multipliers | `Config\Windows\ServerCustomSettings.ini` | NEW | [V] present with custom values; [T] game applies changes | ✅ raw editor; ◻ P6 typed |
+| C1 | Difficulty/rate multipliers | `Config\Windows\ServerCustomSettings.ini` | NEW | [V] present with custom values; [T] game applies changes | ✅ raw editor; typed editor only if the P6 live test shows SP applies the file (**2026-10-07**) |
 | G1 | Guilds, parties, permissions to guild | none | N/A | [V] | never |
 | A1 | Audit log, playtime, cheater tracking, Discord links | console-owned | N/A | [V] | never |
 
@@ -123,7 +127,7 @@ Steps marked **(exists)** are in the code today; **(new)** are not.
    `PRAGMA foreign_key_check` before/after with a violation-count diff (fail on any new violation) (F-08);
    touched JSON paths still parse and `typeof='blob' AND json_valid(col,8)` for JSONB columns; `items_id_sequencer.next_id > max(items.id)`.
 5. **(new)** Show the diff between the retained pristine `orig` copy and the working copy in a review pane. Save is reachable only from that pane (F-06).
-6. **(exists, hardened)** Backup the original: **(new)** unique nanosecond name, `fsync`, decode-and-compare verify, sidecar JSON with the `applied_patches` set and `sqlite_master` hash, retention (default keep 20, pinned backups exempt).
+6. **(exists, hardened)** Backup the original: **(new)** unique nanosecond name, `fsync`, decode-and-compare verify, retention (default keep 20). Sidecar JSON and pinned backups were **cut 2026-10-07**.
 7. **(exists, hardened)** Encode; round-trip decode-compare; write `.tmp` mode 0600 with exclusive create; **(new)** `fsync`; rename with retry/backoff (Windows holds by AV/OneDrive/game); clean stale `.tmp` at open.
    Honest claim: rename is crash-safe against **process** death; power-loss safety requires the `fsync`.
 8. **(new)** Reopen the written file and re-run invariants. On failure restore the verified backup automatically and report. A reload error after a successful rename is non-fatal and reported as a warning.
@@ -162,7 +166,7 @@ Current state (verified by the audit):
 - Backups/temps are 0644; no symlink checks; the decoded save sits in the OS temp dir (0644 by default on some systems).
 
 Target (Phase S0, before any new feature):
-1. Refuse a non-loopback `--addr` unless `--allow-remote` **and** an interactive typed confirmation; additionally reject requests whose `RemoteAddr` is not loopback; never serve the token to a non-loopback peer. Default to a random free port (fallback), IPv4 loopback only (documented: `[::1]` is not bound).
+1. Refuse a non-loopback `--addr` (the `--allow-remote` override is **cut 2026-10-07**: remove the flag, see the scope-cut section);  additionally reject requests whose `RemoteAddr` is not loopback; never serve the token to a non-loopback peer. Default to a random free port (fallback), IPv4 loopback only (documented: `[::1]` is not bound).
 2. Headers on every response: `Content-Security-Policy: default-src 'self'; script-src 'self'; frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cross-Origin-Resource-Policy: same-origin`. The token is delivered once via an HttpOnly, SameSite=Strict cookie set at bootstrap, not embedded in inline script; inline JS moves to a file.
 3. POST requires `Content-Type: application/json`; constant-time token compare; check `Origin`/`Sec-Fetch-Site`; handle `rand.Read` errors; Read/Write/Idle timeouts.
 4. Output encoding: every interpolated value goes through `esc()` or DOM `textContent`; a test loads a hostile-string fixture.
@@ -215,7 +219,7 @@ Run `docs/live-test-protocol.md` v2: T1, T1b, T2, T3, T4, T5, T6. Each ends with
 As in v0.1 section 3. P4 entry gate: the operator provides a test save with vehicles, blueprints and permissions (audit ARCH-8). B7 (delete base) requires the dry-run diff and typed confirmation.
 
 ### Release gate (Requirement 20)
-Layer 2 audit at the end of S1, S3, P4 and P5; Layer 3 before each tagged release. Semver `v0.x`; CI builds with `-trimpath`, publishes `SHA256SUMS` and build-provenance attestation; the binary is Authenticode-signed or the README states it is unsigned.
+Layer 2 audit at the end of S1, S3, P4 and P5; Layer 3 before each tagged release. Semver `v0.x`; CI builds with `-trimpath`, publishes `SHA256SUMS`; the README states the binary is unsigned (attestation and Authenticode signing **cut 2026-10-07**).
 
 ## 6. Risks
 | ID | Risk | L | I | Mitigation |
@@ -243,3 +247,21 @@ Layer 2 audit at the end of S1, S3, P4 and P5; Layer 3 before each tagged releas
 7. Catalog provenance and per-file licence/attribution; is Funcom-derived content present? (GRC-5)
 8. ~~Does `modernc.org/sqlite` v1.60.1 bundle SQLite >= 3.45?~~ **Answered [V, inferred from the cached older v1.56.0 whose CHANGELOG states SQLite 3.53.3; v1.60.1 is newer].** Still add a startup/test assertion on `select sqlite_version()` >= 3.45, because the scratch JSONB write test used Python's SQLite 3.46.1, not the Go driver.
 9. Does `player()` resolve the pawn the way the game links it (`player_state.id` is the controller id, not the pawn id)? (QA-2d)
+
+## 8. Scope cuts for single-player (decided 2026-10-07)
+
+The operator reviewed the roadmap for items that make no sense without a server. Decisions:
+
+**Cut:** B5 permissions; B7 delete base; L2 simulated-guild contributions; the `--allow-remote` flag; the Exchange tab
+(Solari stays on Player, vendor restock moves into Player or World); the typed `force` reason (the API no longer takes
+`force`); sidecar backup JSON, pinned backups and retention tiers (keep the last N, restore one); Authenticode signing and
+build-provenance attestation; the codec fuzz target and `-race` matrix.
+
+**Shrunk:** #48 keeps the current Bases and Vehicles tabs and fixes only real usability problems instead of copying the
+Docker console layout; B6 blueprints wait for a save that has some; P6 typed config waits for the live test; ID masking
+applies to diff and CLI output, not the UI; the in-browser save picker serves `--web` only; the error taxonomy covers only
+what the UI shows; W2 and W3 are parked behind P1.
+
+**Kept, with new tasks:** Refill Container stays (P8, tracked in #55: the Docker console sends a live RMQ command, so the save-side
+location of water in a container has to be found first). Bases and vehicles get full repair (B8, V2, #56), base chests
+get items (B9, done as B2), and the land claim can grow (B10, #57). Code and doc removal of the cut items is tracked in #58.
