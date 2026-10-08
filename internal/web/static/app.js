@@ -257,7 +257,7 @@ async function basesView() {
       Level <select id="cv${c.totem_id}">${Array.from({ length: c.maxLevel + 1 }, (_, i) => i).filter((n) => n >= c.level).map((n) => html`<option value="${n}" ${n == c.level ? 'selected' : ''}>${n}</option>`)}</select>
       <button class="b" data-act="claimGrow" data-id="${c.totem_id}" data-level="${c.level}">Expand claim</button></div>`)}
     <p class="mut">One cell is 10 x 10 foundations, around the totem. Expanding only adds cells and never removes them, and the vertical level can only go up. Applied when the game next loads the save.</p></div>` : html``}
-    <div class="card"><h3>Automatic refill</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>
+    <div class="card"><h3>Automatic refill</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
     <p class="mut">When on, opening the editor refills base water and generators and <b>saves straight away</b>, without the review step, so it applies the next time the game loads. It is skipped while a single-player session is running. The previous file is backed up first. Remembered between runs.</p></div>
     <div class="card"><h3>Structure health</h3><div class="grid">${kv('Building pieces', p.n)}${kv('Lowest health', fix(p.minh))}${kv('Average health', fix(p.avgh))}${kv('Total sand buildup', fix(p.sand))}</div>
     <div class="row"><button class="b" data-act="repairB">Repair all to max</button><button class="b sec" data-act="sand">Clear sand buildup</button><button class="b sec" data-act="refillWater">Refill base water</button><button class="b sec" data-act="refillGen">Refill generators</button><span class="mut">Repair sets each piece to the highest health seen for its type.</span></div></div>
@@ -427,7 +427,7 @@ const A = {
   jfilter: () => { window.jq = val('jq'); journeyList(); },
   jset: (d) => act(() => api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }), 'Journey updated', false).then(journeyList),
   autoref: async (d) => {
-    if (!d.on && !(await ask({ title: 'Turn on automatic refill?', body: 'From now on, opening the editor refills base water and generators and saves to your game file immediately, without the Review & save step. The previous file is backed up each time, and nothing happens while a single-player session is running.', ok: 'Turn on' }))) return;
+    if (!d.on && !(await ask({ title: 'Turn on automatic refill?', body: 'From now on, opening the editor refills base water and generators and saves to your game file immediately, without the Review & save step. The previous file is backed up each time, and nothing happens while a single-player session is running. It applies to whichever save file the editor opens.', ok: 'Turn on' }))) return;
     act(async () => { const r = await api('/api/settings', { autoRefillOnOpen: !d.on }); toast('Automatic refill when the editor opens is now ' + (r.autoRefillOnOpen ? 'on' : 'off')); }, null);
   },
   claimGrow: async (d) => {
@@ -510,7 +510,7 @@ document.addEventListener('change', (e) => {
   else if (t.id == 'dbsel') { dbTable = t.value; dbOff = 0; dbQ = ''; render(); }
 });
 status().then(render).then(async () => {
-  try { const n = (await api('/api/startup')).note; if (n) toast(n); } catch (e) { /* the note is optional */ }
+  try { const r = await api('/api/startup'); if (r.note) toast(r.note, !!r.warn); } catch (e) { /* the note is optional */ }
 });
 // Keeps the game-running warning current. A failed poll is shown, not hidden: Save stays off until contact returns.
 setInterval(async () => {

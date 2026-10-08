@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -43,6 +44,8 @@ type Server struct {
 	SettingsPath string
 	startupMu    sync.Mutex
 	startupNote  string // what the open-time refill did, shown once by the UI
+	startupWarn  bool   // the note is a problem or a skip, so the UI keeps it on screen
+	lastAuto     string // the last automatic save, kept for the Automatic refill card
 
 	// AllowRemote permits non-loopback peers. Off by default; only set by an explicit operator flag.
 	AllowRemote bool
@@ -276,7 +279,12 @@ func (s *Server) routes() {
 	})
 
 	s.get("/api/overview", func(r *http.Request) (any, error) { return o.Overview() })
-	s.get("/api/settings", func(r *http.Request) (any, error) { return settings.Load(s.SettingsPath), nil })
+	s.get("/api/settings", func(r *http.Request) (any, error) {
+		cur := settings.Load(s.SettingsPath)
+		s.startupMu.Lock()
+		defer s.startupMu.Unlock()
+		return map[string]any{"autoRefillOnOpen": cur.AutoRefillOnOpen, "last": s.lastAuto}, nil
+	})
 	s.post("/api/settings", func(a ops.Args) (any, error) {
 		v, isBool := a["autoRefillOnOpen"].(bool)
 		if !isBool {
@@ -287,9 +295,14 @@ func (s *Server) routes() {
 		if err := settings.Save(s.SettingsPath, next); err != nil {
 			return nil, err
 		}
-		return next, nil
+		s.startupMu.Lock()
+		defer s.startupMu.Unlock()
+		return map[string]any{"autoRefillOnOpen": next.AutoRefillOnOpen, "last": s.lastAuto}, nil
 	})
-	s.get("/api/startup", func(r *http.Request) (any, error) { return map[string]any{"note": s.takeStartupNote()}, nil })
+	s.get("/api/startup", func(r *http.Request) (any, error) {
+		note, warn := s.takeStartup()
+		return map[string]any{"note": note, "warn": warn}, nil
+	})
 	s.get("/api/catalog/items", func(r *http.Request) (any, error) { return catalog.All(), nil })
 	s.get("/api/save/state", func(r *http.Request) (any, error) { return o.State() })
 
@@ -421,37 +434,61 @@ func (s *Server) RunStartupTasks() {
 	if !settings.Load(s.SettingsPath).AutoRefillOnOpen {
 		return
 	}
-	set := func(note string) { s.startupMu.Lock(); s.startupNote = note; s.startupMu.Unlock() }
+	set := func(note string, warn bool) {
+		s.startupMu.Lock()
+		s.startupNote, s.startupWarn = note, warn
+		s.startupMu.Unlock()
+	}
 	if g := save.GameStateFor(s.Save.Path, true); g.Blocked {
-		set("Automatic refill skipped: " + g.Reason + ".")
+		set("Automatic refill skipped: "+g.Reason+".", true)
 		return
 	}
 	if len(s.Save.Pending()) > 0 { // never fold someone else's pending edits into an unreviewed save
-		set("Automatic refill skipped: there are unsaved edits.")
+		set("Automatic refill skipped: there are unsaved edits.", true)
 		return
 	}
 	w, err1 := s.Ops.RefillBaseWater()
 	g, err2 := s.Ops.RefillGenerators()
 	if err1 != nil || err2 != nil {
-		set("Automatic refill could not finish: " + errors.Join(err1, err2).Error())
+		queued := ""
+		if n := len(s.Save.Pending()); n > 0 {
+			queued = fmt.Sprintf(" %d prepared edit(s) are waiting under Review & save; nothing was written.", n)
+		}
+		set("Automatic refill could not finish: "+errors.Join(err1, err2).Error()+"."+queued, true)
 		return
 	}
 	nw, ng := w.(map[string]any)["filled"].(int), g.(map[string]any)["filled"].(int)
 	if nw+ng == 0 {
-		set("Automatic refill: base water and generators were already full.")
+		set("Automatic refill: base water and generators were already full.", false)
 		return
 	}
-	if _, err := s.Save.Commit(false); err != nil {
-		set(fmt.Sprintf("Automatic refill prepared %d water devices and %d generators but could not save them: %v. They are waiting under Review & save.", nw, ng, err))
+	res, err := s.Save.Commit(false)
+	if err != nil {
+		set(fmt.Sprintf("Automatic refill prepared %d water devices and %d generators but could not save them: %v. They are waiting under Review & save.", nw, ng, err), true)
 		return
 	}
-	set(fmt.Sprintf("Automatic refill saved %d water devices and %d generators to the game (the previous file is backed up).", nw, ng))
+	backup := ""
+	if b, ok := res["backup"].(string); ok {
+		backup = filepath.Base(b)
+	}
+	msg := fmt.Sprintf("Automatic refill saved %d water devices and %d generators to the game (the previous file is backed up as %s).", nw, ng, backup)
+	warn := false
+	if w, ok := res["warning"].(string); ok && w != "" { // written, but the editor could not reload the file
+		msg += " Warning: " + w
+		warn = true
+	}
+	s.startupMu.Lock()
+	s.lastAuto = time.Now().Format("2006-01-02 15:04") + ": " + strings.TrimSuffix(msg, ".")
+	s.startupMu.Unlock()
+	set(msg, warn)
 }
 
-func (s *Server) takeStartupNote() string {
+func (s *Server) takeStartup() (string, bool) {
 	s.startupMu.Lock()
 	defer s.startupMu.Unlock()
-	n := s.startupNote
-	s.startupNote = ""
-	return n
+	n, w := s.startupNote, s.startupWarn
+	s.startupNote, s.startupWarn = "", false
+	return n, w
 }
+
+func (s *Server) takeStartupNote() string { n, _ := s.takeStartup(); return n }

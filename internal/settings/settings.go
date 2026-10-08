@@ -12,8 +12,9 @@ import (
 
 // Settings is everything the editor remembers between runs.
 type Settings struct {
-	// AutoRefillOnOpen queues the base water and generator refills as pending edits when the editor opens, if no
-	// single-player session is running. Off by default; the edits still need Review & save.
+	// AutoRefillOnOpen refills base water and generators when the editor opens and saves them straight away (no review
+	// step; an explicit, opt-in exception), unless a single-player session is running. Off by default. It applies to
+	// whichever save the editor opens.
 	AutoRefillOnOpen bool `json:"autoRefillOnOpen"`
 }
 

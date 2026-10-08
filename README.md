@@ -70,6 +70,10 @@ Build the Windows app (from any OS, no C compiler needed) with
 (`-H=windowsgui` removes the console window; the exe re-attaches to the terminal it was started from, so subcommands still
 print). Windows Application Control may block unsigned binaries; `go run` works around that.
 
+## Automatic refill
+
+The Bases tab has an **Automatic refill** switch (off by default, remembered in `%APPDATA%\tabr-tau\settings.json`). When on, opening the editor refills base water and generators and **saves straight away**, without the Review & save step, so it applies the next time single-player loads. It is skipped while a single-player session is running or when there are unsaved edits; the previous file is backed up every time; a refused write leaves the edits pending with the reason. The card shows the last automatic save and its backup name. It applies to whichever save the editor opens.
+
 ## Safety notes
 
 - tabr-tau's own code makes no outbound network connections (no telemetry, no update check). On Windows the editor window is the Microsoft Edge WebView2 runtime, a Windows component with its own update and diagnostics settings that tabr-tau does not control; it only ever loads the editor's own `127.0.0.1` address.

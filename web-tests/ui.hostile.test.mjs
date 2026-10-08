@@ -534,3 +534,12 @@ test('Automatic refill setting shows its state, toggles through the API, and the
   assert.deepEqual(ui.posted.filter((p) => p.path === '/api/settings')[0].body, { autoRefillOnOpen: true }, 'turning on sends true');
   ui.dom.window.close();
 });
+
+test('A start-up note that reports a problem stays on screen as an error, and the last automatic save is shown on the card', async () => {
+  const ui = await boot({ get: { '/api/startup': { note: 'Automatic refill skipped: a single-player session is active.', warn: true }, '/api/settings': { autoRefillOnOpen: true, last: '2026-10-08 13:00: Automatic refill saved 2 water devices (backed up as x.db)' } } });
+  assert.ok(ui.doc.querySelector('#toast .err'), 'a problem note uses the error toast, which stays until dismissed');
+  assert.ok(ui.doc.querySelector('#toast .err').textContent.includes('skipped'));
+  ui.click('[data-tab="bases"]'); await ui.settle();
+  assert.ok(ui.doc.body.textContent.includes('Last automatic save: 2026-10-08 13:00'), 'the card keeps the last automatic save');
+  ui.dom.window.close();
+});
