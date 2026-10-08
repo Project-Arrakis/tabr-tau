@@ -419,3 +419,33 @@ test('Refill containers reports what it filled and shows a container it could no
   assert.equal(ui.posted.filter((p) => p.path === '/api/player/refill').length, 1);
   ui.dom.window.close();
 });
+
+test('item pickers list in-game names, send the template id, and item tables show names', async () => {
+  const catalog = [
+    { id: 'Literjon_T6', name: 'Literjon Mk6', category: 'consumables' },
+    { id: 'Oil', name: 'Fuel Cell', category: 'consumables' },
+    { id: 'DupA', name: 'Twin Name', category: 'x' }, { id: 'DupB', name: 'Twin Name', category: 'x' },
+  ];
+  const inv = JSON.parse(JSON.stringify(baseFixtures['/api/player/inventory'].body));
+  inv.templates = ['Literjon_T6', 'Emote_Unlisted'];
+  inv.items = [{ id: 1, inventory_id: 1, inventory_name: 'Backpack', position_index: 0, template_id: 'Literjon_T6', stack_size: 1, quality_level: 0, durability: null, max_durability: null, stats: '{}' }];
+  const ui = await boot({ get: { '/api/catalog/items': catalog, '/api/player/inventory': inv }, post: { '/api/player/give': { ok: true, itemId: 9 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:inventory"]'); await ui.settle();
+  const opts = [...ui.doc.querySelectorAll('#gt-dl option')].map((o) => o.value);
+  assert.ok(opts.includes('Literjon Mk6') && opts.includes('Fuel Cell'), 'in-game names are offered');
+  assert.ok(!opts.includes('Literjon_T6') && !opts.includes('Oil'), 'template ids are not the labels');
+  assert.ok(opts.includes('Twin Name (DupA)') && opts.includes('Twin Name (DupB)'), 'a shared name is told apart by its id');
+  assert.ok(opts.includes('Emote_Unlisted'), 'an id the catalog does not know stays selectable');
+  assert.ok(ui.doc.querySelector('table').textContent.includes('Literjon Mk6'), 'the item table shows the name');
+  assert.equal(ui.doc.querySelector('span[title="Literjon_T6"]').textContent, 'Literjon Mk6', 'and keeps the id on hover');
+  ui.doc.querySelector('#gt').value = 'fuel cell';
+  ui.click('[data-act="give"]'); await ui.settle();
+  const give = ui.posted.filter((p) => p.path === '/api/player/give');
+  assert.equal(give.length, 1);
+  assert.equal(give[0].body.template_id, 'Oil', 'the name is turned back into the template id');
+  ui.doc.querySelector('#gt').value = 'Some_Raw_Id';
+  ui.click('[data-act="give"]'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/player/give')[1].body.template_id, 'Some_Raw_Id', 'a typed id is sent as is');
+  ui.dom.window.close();
+});
