@@ -47,8 +47,6 @@ type Server struct {
 	startupWarn  bool   // the note is a problem or a skip, so the UI keeps it on screen
 	lastAuto     string // the last automatic save, kept for the Automatic refill card
 
-	// AllowRemote permits non-loopback peers. Off by default; only set by an explicit operator flag.
-	AllowRemote bool
 }
 
 func New(s *save.Save, cfg config.Dir) *Server {
@@ -105,7 +103,7 @@ func (s *Server) hasSession(r *http.Request) bool {
 	return err == nil && subtle.ConstantTimeCompare([]byte(c.Value), []byte(s.token)) == 1
 }
 
-// Handler enforces, in order: response security headers, loopback Host, loopback peer (unless AllowRemote),
+// Handler enforces, in order: response security headers, loopback Host, loopback peer,
 // the session cookie on /api/, and for /api/ requests: same-origin fetch metadata / Origin, and a JSON
 // Content-Type on anything that changes state. See docs/design (section 4.4) and findings F-04 / #5.
 func (s *Server) Handler() http.Handler {
@@ -115,7 +113,7 @@ func (s *Server) Handler() http.Handler {
 			http.Error(w, "forbidden host", http.StatusForbidden)
 			return
 		}
-		if !s.AllowRemote && !isLoopbackPeer(r.RemoteAddr) {
+		if !isLoopbackPeer(r.RemoteAddr) {
 			http.Error(w, "forbidden: this editor only accepts connections from this computer", http.StatusForbidden)
 			return
 		}

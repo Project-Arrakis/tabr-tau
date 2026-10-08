@@ -103,17 +103,6 @@ func TestRemotePeerRefusedAndNeverSeesToken(t *testing.T) {
 	}
 }
 
-func TestAllowRemoteStillNeedsToken(t *testing.T) {
-	s := newTestServer(t)
-	s.AllowRemote = true
-	if w := do(t, s, "GET", "http://localhost/api/save/backups", "192.168.1.5:5555", map[string]string{"Host": "localhost:8090"}, nil); w.Code != 403 {
-		t.Errorf("no token: got %d", w.Code)
-	}
-	if w := do(t, s, "GET", "http://localhost/api/save/backups", "192.168.1.5:5555", map[string]string{"Host": "localhost:8090", "Cookie": "tabr_session=" + s.token}, nil); w.Code != 200 {
-		t.Errorf("with token and AllowRemote: got %d", w.Code)
-	}
-}
-
 func TestTokenRequired(t *testing.T) {
 	s := newTestServer(t)
 	for _, tok := range []string{"", "wrong", s.token[:len(s.token)-1], s.token + "x", strings.ToUpper(s.token)} {
@@ -270,20 +259,19 @@ func TestCheckListenAddrPolicy(t *testing.T) {
 	ok := []string{"127.0.0.1:8090", "localhost:8090", "[::1]:8090", "127.0.0.1:0", "127.5.5.5:1"}
 	bad := []string{":8090", "0.0.0.0:8090", "[::]:8090", "192.168.1.5:8090", "10.0.0.1:1", "example.com:80", "8090", ""}
 	for _, a := range ok {
-		if err := CheckListenAddr(a, false); err != nil {
+		if err := CheckListenAddr(a); err != nil {
 			t.Errorf("%q should be allowed: %v", a, err)
 		}
 	}
 	for _, a := range bad {
-		if err := CheckListenAddr(a, false); err == nil {
-			t.Errorf("%q must be refused without the remote flag", a)
+		if err := CheckListenAddr(a); err == nil {
+			t.Errorf("%q must be refused: the editor only listens on this computer", a)
 		}
 	}
-	if err := CheckListenAddr("0.0.0.0:8090", true); err != nil {
-		t.Errorf("explicit remote flag should allow a routable bind: %v", err)
-	}
-	if err := CheckListenAddr("8090", true); err == nil {
-		t.Errorf("a malformed address is refused even with the remote flag")
+	for _, a := range []string{"0.0.0.0:8090", ":8090", "192.168.1.5:8090", "8090"} {
+		if err := CheckListenAddr(a); err == nil {
+			t.Errorf("%q must be refused: there is no longer any way to listen beyond this computer", a)
+		}
 	}
 }
 

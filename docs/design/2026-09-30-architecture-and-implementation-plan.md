@@ -166,7 +166,7 @@ Current state (verified by the audit):
 - Backups/temps are 0644; no symlink checks; the decoded save sits in the OS temp dir (0644 by default on some systems).
 
 Target (Phase S0, before any new feature):
-1. Refuse a non-loopback `--addr` (the `--allow-remote` override is **cut 2026-10-07**: remove the flag, see the scope-cut section);  additionally reject requests whose `RemoteAddr` is not loopback; never serve the token to a non-loopback peer. Default to a random free port (fallback), IPv4 loopback only (documented: `[::1]` is not bound).
+1. Refuse a non-loopback `--addr` (the `--allow-remote` override was cut 2026-10-07 and **removed 2026-10-08**, #58);  additionally reject requests whose `RemoteAddr` is not loopback; never serve the token to a non-loopback peer. Default to a random free port (fallback), IPv4 loopback only (documented: `[::1]` is not bound).
 2. Headers on every response: `Content-Security-Policy: default-src 'self'; script-src 'self'; frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cross-Origin-Resource-Policy: same-origin`. The token is delivered once via an HttpOnly, SameSite=Strict cookie set at bootstrap, not embedded in inline script; inline JS moves to a file.
 3. POST requires `Content-Type: application/json`; constant-time token compare; check `Origin`/`Sec-Fetch-Site`; handle `rand.Read` errors; Read/Write/Idle timeouts.
 4. Output encoding: every interpolated value goes through `esc()` or DOM `textContent`; a test loads a hostile-string fixture.
