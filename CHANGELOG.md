@@ -6,6 +6,7 @@ Versioning: [Semantic Versioning](https://semver.org/), tags `v0.x` until the fi
 ## [Unreleased]
 
 ### Fixed
+- Saving is blocked only while a single-player session is active, not whenever the game is open (#65). The game process stays up in multiplayer and at the menu, and only a single-player session holds the save. The editor reads the game's log (`Saved/Logs/DuneSandbox.log`): a local `...Survival_1?listen` map starts a session; a `?closed` or remote `ip:port` browse, `RequestExit` or `Log file closed` ends it; the game's final write lands about 3 s later, so Save also waits 15 s. Checked against 11 real logs: every start pairs with an end. Failing closed is unchanged: if the game runs and the log cannot be read, Save is blocked and the banner says why. Config edits still refuse while any Dune process runs, because the game rewrites its configs on exit.
 - The running-game check matched one guessed process name that was never verified, so on a real machine it could say "not running" while the game was open and Save then failed late with "changed on disk" (#52). It now matches any process whose name starts with `Dune`, and the banner and refusals name what was found. If the check itself cannot run, Save is blocked and the banner says why, instead of assuming the game is closed. Verified on a real machine: the game runs as `DuneSandbox.exe`, `DuneSandbox_BE.exe` and `DuneSandbox-Win64-Shipping.exe`; the launcher (`GT.Launcher`) does not match, and leaving single-player does not end the game process.
 
 ### Added

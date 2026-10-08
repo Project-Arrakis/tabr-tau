@@ -119,7 +119,7 @@ save lives in `ops`, not `catalog`. There is no `savex` package.
 
 ### 4.2 Data-safety pipeline (every write): target design
 Steps marked **(exists)** are in the code today; **(new)** are not.
-1. **(exists)** Refuse if the game process is running (Windows only). **(new)** poll it in the UI and disable Save with a reason.
+1. **(done, #52/#54/#65)** Refuse while a single-player session is active: the game process alone is not enough (it stays up in multiplayer and at the menu), so the editor reads the game's log for the session start and end markers (see `docs/design` issue #65), plus a 15 s wait after the end for the game's last write; if it cannot tell, it blocks. The UI polls and disables Save with the reason.
 2. **(exists)** Refuse if `game.db` changed on disk since load (hash). **(new)** re-check immediately before the rename.
    `force` skips **only** the process check and requires a typed reason that is logged; it never skips the hash check (F-07).
 3. **(new)** Edits happen only inside `save.Mutate(desc, fn(tx))` on the working copy, recorded as structured pending ops.

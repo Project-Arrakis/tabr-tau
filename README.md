@@ -43,7 +43,7 @@ by a zlib stream containing a plain SQLite 3 database. tabr-tau decodes it into 
 **nothing is written until you press "Review & save" and then "Save to game" inside the review**, which lists
 every edit and what changes inside the file. Saving:
 
-1. refuses to run while any `Dune*` process is running (the game, its starter and BattlEye; the launcher does not count), or if that check cannot run. Leaving single-player to the menu does not end the game: quit it completely,
+1. refuses to run while a **single-player session is active** (it reads the game's own log, `DuneSandbox.log`: a local `Survival_1?listen` map until you go to the menu or multiplayer, or quit). The game being open in multiplayer or at the menu does not block saving. Saving also waits about 15 seconds after the session ends, because the game writes the save one last time then. If the editor cannot tell (the game runs and its log cannot be read), it blocks and says why,
 2. refuses if the file changed on disk since it was loaded,
 3. runs `PRAGMA integrity_check` and verifies the re-encoded file decodes back to the same bytes,
 4. copies the original to `tabr-tau-backups/` next to it,

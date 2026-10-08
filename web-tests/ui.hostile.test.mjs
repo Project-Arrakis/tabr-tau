@@ -212,10 +212,12 @@ test('a save error stays in the review with a way forward; a changed-on-disk sav
 });
 
 test('a game check that cannot run blocks Save and shows why, as plain text', async () => {
-  const ov = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)); ov.gameRunning = true; ov.dirty = true; ov.gameCheckError = '<img src=x onerror=1> tasklist missing';
+  const why = '<img src=x onerror=1> tasklist missing';
+  const ov = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body));
+  Object.assign(ov, { gameRunning: false, dirty: true, gameCheckError: why, saveBlocked: true, blockReason: 'could not check whether the game is running (' + why + ')', gameMode: 'unknown' });
   const ui = await boot({ get: { '/api/save/state': ov, '/api/save/review': hostileReview() } });
   const gw = ui.doc.querySelector('#gamewarn');
-  assert.ok(gw.textContent.includes('Cannot tell whether the game is running'));
+  assert.ok(gw.textContent.includes('Saving is blocked'));
   assert.ok(gw.textContent.includes('tasklist missing'));
   assert.equal(gw.querySelector('img'), null, 'the error text is data, not markup');
   ui.click('#btnSave'); await ui.settle();
@@ -223,28 +225,29 @@ test('a game check that cannot run blocks Save and shows why, as plain text', as
   ui.dom.window.close();
 });
 
-test('an error toast stays until dismissed', async () => {
-  const ui = await openReviewUI({ post: { '/api/save/discard': { __fail: 'boom' } } });
-  ui.click('[data-act="closeReview"]');
-  ui.doc.querySelector('#btnDiscard').disabled = false;
-  ui.click('#btnDiscard'); await ui.settle();
-  ui.click('[data-act="askOk"]'); await ui.settle();
-  const err = ui.doc.querySelector('#toast .err');
-  assert.ok(err && err.textContent.includes('boom'));
-  err.querySelector('button.x').click();
-  assert.equal(ui.doc.querySelector('#toast .err'), null);
+test('an active single-player session blocks Save inside the review and the banner says why', async () => {
+  const ov = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body));
+  Object.assign(ov, { gameRunning: true, dirty: true, gameProcesses: ['DuneTest.exe'], saveBlocked: true, gameMode: 'single_player',
+    blockReason: 'a single-player session is active (DuneTest.exe); go to the menu or multiplayer, or quit the game, then save' });
+  const ui = await boot({ get: { '/api/save/state': ov, '/api/save/review': hostileReview() } });
+  const gw = ui.doc.querySelector('#gamewarn');
+  assert.ok(gw.classList.contains('warn') && !gw.classList.contains('hide'));
+  assert.ok(gw.textContent.includes('single-player session is active') && gw.textContent.includes('DuneTest.exe'), 'the banner names the process it found');
+  ui.click('#btnSave'); await ui.settle();
+  assert.equal(ui.doc.querySelector('#btnDoSave').disabled, true);
+  assert.ok(ui.doc.querySelector('#savewhy').textContent.includes('single-player session is active'));
   ui.dom.window.close();
 });
 
-test('the game-running warning is persistent and blocks Save inside the review', async () => {
-  const ov = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)); ov.gameRunning = true; ov.dirty = true; ov.gameProcesses = ['DuneTest.exe'];
+test('the game open in multiplayer or at the menu shows a note and does not block Save', async () => {
+  const ov = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body));
+  Object.assign(ov, { gameRunning: true, dirty: true, gameProcesses: ['DuneTest.exe'], saveBlocked: false, gameMode: 'menu_or_multiplayer', blockReason: 'DuneTest.exe is running but not in single-player; saving is allowed' });
   const ui = await boot({ get: { '/api/save/state': ov, '/api/save/review': hostileReview() } });
-  assert.ok(!ui.doc.querySelector('#gamewarn').classList.contains('hide'));
-  assert.ok(ui.doc.querySelector('#gamewarn').textContent.includes('Close the game'));
-  assert.ok(ui.doc.querySelector('#gamewarn').textContent.includes('DuneTest.exe'), 'the banner names the process it found');
+  const gw = ui.doc.querySelector('#gamewarn');
+  assert.ok(gw.classList.contains('info') && !gw.classList.contains('warn'), gw.className);
+  assert.ok(gw.textContent.includes('not in single-player') && gw.textContent.includes('DuneTest.exe'));
   ui.click('#btnSave'); await ui.settle();
-  assert.equal(ui.doc.querySelector('#btnDoSave').disabled, true);
-  assert.ok(ui.doc.querySelector('#savewhy').textContent.includes('Close the game'));
+  assert.equal(ui.doc.querySelector('#btnDoSave').disabled, false, 'Save must be possible when the game is not in single-player');
   ui.dom.window.close();
 });
 

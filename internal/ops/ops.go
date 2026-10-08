@@ -103,9 +103,11 @@ func (o *Ops) player() (player, error) {
 
 // State is the small, cheap status the UI polls: no table scans, only what the header and the save pane need.
 func (o *Ops) State() (any, error) {
+	g := save.GameStateFor(o.S.Path, false)
 	return map[string]any{
 		"path": o.S.Path, "dirty": o.S.Dirty(), "pending": o.S.Pending(),
-		"gameRunning": save.GameRunning(), "gameProcesses": save.GameProcesses(), "gameCheckError": save.GameCheckError(),
+		"gameRunning": len(g.Processes) > 0, "gameProcesses": g.Processes, "gameCheckError": g.CheckError,
+		"saveBlocked": g.Blocked, "blockReason": g.Reason, "gameMode": g.Mode,
 		"readOnly": o.S.WriteBlocked(),
 	}, nil
 }
@@ -125,9 +127,11 @@ func (o *Ops) Overview() (any, error) {
 		counts[n] = r["c"]
 	}
 	p, _ := o.player()
+	g := save.GameStateFor(o.S.Path, false)
 	return map[string]any{
 		"path": o.S.Path, "dirty": o.S.Dirty(), "pending": o.S.Pending(), "tables": counts,
-		"player": p.Name, "gameRunning": save.GameRunning(), "gameProcesses": save.GameProcesses(), "readOnly": o.S.WriteBlocked(),
+		"player": p.Name, "gameRunning": len(g.Processes) > 0, "gameProcesses": g.Processes, "saveBlocked": g.Blocked, "blockReason": g.Reason,
+		"gameMode": g.Mode, "readOnly": o.S.WriteBlocked(),
 	}, nil
 }
 
