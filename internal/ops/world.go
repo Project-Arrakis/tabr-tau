@@ -34,18 +34,6 @@ func (o *Ops) Bases() (any, error) {
 }
 
 // Storage lists every non-player inventory (containers, machines, vehicles) that holds items.
-func (o *Ops) Storage() (any, error) {
-	rows, err := o.S.Query(`select v.id inventory_id, v.actor_id, a.class, a.map, v.inventory_type, v.max_item_count,
-		count(i.id) items, coalesce(sum(i.stack_size),0) total
-		from inventories v join actors a on a.id=v.actor_id left join items i on i.inventory_id=v.id
-		where a.class not like '%PlayerCharacter%' group by v.id order by a.id, v.id`)
-	for _, r := range rows {
-		r["name"] = shortClass(r["class"])
-		delete(r, "class")
-	}
-	return rows, err
-}
-
 func (o *Ops) StorageItems(inv int64) (any, error) {
 	return o.S.Query(`select id, template_id, stack_size, quality_level, position_index from items where inventory_id=? order by position_index`, inv)
 }
