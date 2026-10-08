@@ -301,11 +301,14 @@ func (s *Server) routes() {
 	s.post("/api/bases/give", o.GiveToInventory)
 	s.post("/api/bases/repair", func(ops.Args) (any, error) { return o.RepairBuildings() })
 	s.post("/api/bases/clear-sand", func(ops.Args) (any, error) { return o.ClearSand() })
+	s.post("/api/bases/refill-water", func(ops.Args) (any, error) { return o.RefillBaseWater() })
+	s.post("/api/bases/refill-generators", func(ops.Args) (any, error) { return o.RefillGenerators() })
 	s.post("/api/bases/health", o.SetPieceHealth)
 
 	// vehicles / exchange / landsraad
 	s.get("/api/vehicles", func(r *http.Request) (any, error) { return o.Vehicles() })
 	s.post("/api/vehicles/bring", o.BringVehicle)
+	s.post("/api/vehicles/repair", func(ops.Args) (any, error) { return o.RepairVehicles() })
 	s.post("/api/vehicles/durability", o.SetRecoveredDurability)
 	s.get("/api/exchange", func(r *http.Request) (any, error) { return o.Exchange() })
 	s.post("/api/exchange/reset", o.ResetVendors)

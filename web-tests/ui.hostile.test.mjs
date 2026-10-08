@@ -461,3 +461,24 @@ test('item pickers list in-game names, send the template id, and item tables sho
   assert.equal(ui.posted.filter((p) => p.path === '/api/player/give')[4].body.template_id, 'Some_Raw_Id', 'a typed id is sent as is');
   ui.dom.window.close();
 });
+
+test('base and vehicle upkeep buttons post, and unknown device names stay plain text', async () => {
+  const hostile = '<img src=x onerror=1> x1';
+  const ui = await boot({ post: {
+    '/api/bases/refill-water': { ok: true, filled: 2, alreadyFull: 1, skippedUnknown: [hostile] },
+    '/api/bases/refill-generators': { ok: true, filled: 3, alreadyFull: 0 },
+    '/api/vehicles/repair': { ok: true, modules: 9, repaired: 7, withoutKnownMax: 2 },
+  } });
+  ui.click('[data-tab="bases"]'); await ui.settle();
+  ui.click('[data-act="refillWater"]'); await ui.settle();
+  let toast = ui.doc.querySelector('#toast');
+  assert.ok(toast.textContent.includes('Filled 2 water devices (1 already full)') && toast.textContent.includes(hostile), toast.textContent);
+  assert.equal(toast.querySelector('img'), null);
+  ui.click('[data-act="refillGen"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Filled 3 generators'));
+  ui.click('[data-tab="vehicles"]'); await ui.settle();
+  ui.click('[data-act="repairV"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Repaired 7 vehicle modules'));
+  for (const p of ['/api/bases/refill-water', '/api/bases/refill-generators', '/api/vehicles/repair']) assert.equal(ui.posted.filter((x) => x.path === p).length, 1, p);
+  ui.dom.window.close();
+});
