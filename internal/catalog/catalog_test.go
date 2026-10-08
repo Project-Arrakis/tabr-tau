@@ -44,3 +44,12 @@ func TestKnownNames(t *testing.T) {
 		t.Error("an unknown id must not be found")
 	}
 }
+
+func TestFirstEntryWinsAndNamesResolve(t *testing.T) {
+	// items.json has no duplicate ids, but Name must still be deterministic if one is ever added.
+	for _, e := range All() {
+		if n, ok := Name(e.ID); !ok || n != e.Name {
+			t.Fatalf("%s: %q %v", e.ID, n, ok)
+		}
+	}
+}

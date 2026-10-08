@@ -34,7 +34,9 @@ func init() {
 	}
 	byID = make(map[string]Entry, len(entries))
 	for _, e := range entries {
-		byID[e.ID] = e
+		if _, dup := byID[e.ID]; !dup { // the first entry for an id wins
+			byID[e.ID] = e
+		}
 	}
 	sort.SliceStable(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name })
 }

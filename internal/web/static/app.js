@@ -48,30 +48,36 @@ const val = (id) => $('#' + id).value;
 
 // ---------- item names: one catalog, one picker, used by every place that asks for or shows an item
 let CATALOG = null; // { list: [{ id, label }], byLabel: Map(lower label -> id), byId: Map(id -> name) }
+let EXTRA_IDS = new Set(); // ids in this save that the catalog lacks
 async function loadCatalog(extraIds = []) {
   if (!CATALOG) {
     const items = await api('/api/catalog/items');
     const count = new Map();
+    const idsLower = new Map(items.map((it) => [it.id.toLowerCase(), it.id]));
     for (const it of items) count.set(it.name, (count.get(it.name) || 0) + 1);
-    const list = items.map((it) => ({ id: it.id, name: it.name, label: count.get(it.name) > 1 ? `${it.name} (${it.id})` : it.name }));
+    // A name is ambiguous when several items share it, or when it spells another item's id (a typed id must win).
+    const ambiguous = (it) => count.get(it.name) > 1 || (idsLower.has(it.name.toLowerCase()) && idsLower.get(it.name.toLowerCase()) !== it.id);
+    const list = items.map((it) => ({ id: it.id, name: it.name, label: ambiguous(it) ? `${it.name} (${it.id})` : it.name }));
     CATALOG = { list, byLabel: new Map(list.map((e) => [e.label.toLowerCase(), e.id])), byId: new Map(list.map((e) => [e.id, e.name])) };
   }
   // ids that exist in this save but not in the catalog stay selectable by their id
   const extra = extraIds.filter((id) => id && !CATALOG.byId.has(id)).map((id) => ({ id, label: id }));
+  EXTRA_IDS = new Set(extra.map((e) => e.id));
   return { list: extra.length ? CATALOG.list.concat(extra) : CATALOG.list };
 }
 const itemName = (id) => (CATALOG && CATALOG.byId.get(id)) || id;
 // An item cell: the in-game name, with the template id on hover.
 const itemCell = (id) => html`<span title="${id}">${itemName(id)}</span>`;
-// The picker: a text box with a drop-down of in-game names. Typing a name, a label or a raw template id all work.
+// The picker: a text box with a drop-down of in-game names. Each option also carries its template id as its label, so
+// typing either the name or the id finds it; a name, a label or a raw template id are all accepted.
 function itemPicker(inputId, cat, placeholder = 'Item name, e.g. Spice') {
-  return html`<input id="${inputId}" list="${inputId}-dl" placeholder="${placeholder}" size="34"><datalist id="${inputId}-dl">${cat.list.map((e) => html`<option value="${e.label}"></option>`)}</datalist>`;
+  return html`<input id="${inputId}" list="${inputId}-dl" placeholder="${placeholder}" size="34"><datalist id="${inputId}-dl">${cat.list.map((e) => html`<option value="${e.label}" label="${e.id}"></option>`)}</datalist>`;
 }
-// What the picker holds -> the template id to send.
+// What the picker holds -> the template id to send. An exact template id always wins; otherwise a shown label.
 function pickedItemId(inputId) {
   const v = val(inputId).trim();
-  if (!CATALOG) return v;
-  return CATALOG.byLabel.get(v.toLowerCase()) || (CATALOG.byId.has(v) ? v : v);
+  if (!CATALOG || CATALOG.byId.has(v) || EXTRA_IDS.has(v)) return v;
+  return CATALOG.byLabel.get(v.toLowerCase()) || v;
 }
 
 // ---------- tabs
