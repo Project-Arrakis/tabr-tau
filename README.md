@@ -29,8 +29,8 @@ live-test protocol). Do not attach saves, `Game.ini`, snapshots or logs to issue
 | Tab | Features |
 |---|---|
 | **Player** | Profile, Solari, give / edit / delete items, repair gear, refill water containers, teleport, faction reputation, specialization tracks, tutorials, tags, Journey nodes (complete / reset), learned building recipes |
-| **Bases** | Land claims (totems), teleport to base, structure health, repair all, clear sand buildup, storage containers and machines (view / add / remove items), placeables, permissions |
-| **Vehicles** | Vehicles in the world and recovered vehicles, bring a vehicle to you, set chassis durability |
+| **Bases** | Land claims (totems), teleport to base, structure health, repair all, clear sand buildup, refill base water and generator fuel, storage containers and machines (view / add / remove items), placeables, permissions |
+| **Vehicles** | Vehicles in the world and recovered vehicles, bring a vehicle to you, repair module durability, set chassis durability |
 | **Exchange** | Solari balance, vendor purchase limits and restock cycles (reset) |
 | **Landsraad** | Current term, decree pool, active decree, task board (fill progress, complete / reopen), rewards |
 | **Config** | Edit the game's `.ini` files (`ServerCustomSettings.ini`, `Game.ini`, `GameUserSettings.ini`, `Engine.ini`, `Input.ini`, ...) with backups; validates that the expected files and sections exist |
