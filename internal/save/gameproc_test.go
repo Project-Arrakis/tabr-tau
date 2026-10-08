@@ -1,23 +1,43 @@
 package save
 
-import "testing"
+import (
+	"reflect"
+	"strings"
+	"testing"
+)
 
-func TestListedInTasklist(t *testing.T) {
+func TestParseTasklist(t *testing.T) {
 	cases := []struct {
 		name, out string
-		want      bool
+		want      []string
 	}{
-		{"csv cut to 25", `"DuneSandbox-Win64-Shippin","4242","Console","1","1,234,567 K"`, true},
-		{"table cut to 25", "DuneSandbox-Win64-Shippin     4242 Console   1  1,234,567 K", true},
-		{"full name", `"DuneSandbox-Win64-Shipping.exe","4242"`, true},
-		{"mixed case", `"dunesandbox-win64-shipping.exe"`, true},
-		{"no match notice", "INFO: No tasks are running which match the specified criteria.", false},
-		{"other process", `"notepad.exe","1"`, false},
-		{"empty", "", false},
+		{"csv cut to 25", `"DuneSandbox-Win64-Shippin","4242","Console","1","1,234,567 K"`, []string{"DuneSandbox-Win64-Shippin"}},
+		{"full name", `"DuneSandbox-Win64-Shipping.exe","4242","Console","1","9 K"`, []string{"DuneSandbox-Win64-Shipping.exe"}},
+		{"a different dune process", `"DuneAwakening.exe","1","Console","1","9 K"`, []string{"DuneAwakening.exe"}},
+		{"mixed case", `"dunesandbox.exe","1"`, []string{"dunesandbox.exe"}},
+		{"two processes, one repeated", "\"DuneA.exe\",\"1\"\r\n\"DuneB.exe\",\"2\"\r\n\"DuneA.exe\",\"3\"\r\n", []string{"DuneA.exe", "DuneB.exe"}},
+		{"no match notice", "INFO: No tasks are running which match the specified criteria.", nil},
+		{"other process", `"notepad.exe","1"`, nil},
+		{"our own program is not the game", `"tabr-tau-window.exe","1"`, nil},
+		{"empty", "", nil},
 	}
 	for _, c := range cases {
-		if got := listedInTasklist(c.out); got != c.want {
+		if got := parseTasklist(c.out); !reflect.DeepEqual(got, c.want) {
 			t.Errorf("%s: got %v want %v", c.name, got, c.want)
 		}
+	}
+}
+
+// A check that cannot run must block writes and say why, not pass as "game closed".
+func TestFailedGameCheckBlocks(t *testing.T) {
+	gameCache.Lock()
+	gameCache.err = "exec: tasklist: not found"
+	gameCache.Unlock()
+	defer func() { gameCache.Lock(); gameCache.err = ""; gameCache.Unlock() }()
+	if !GameRunningNow() || !GameRunning() {
+		t.Fatal("a failed check must count as the game running")
+	}
+	if m := RunningMessage(); !strings.Contains(m, "could not check") || !strings.Contains(m, "tasklist") {
+		t.Fatalf("message does not say the check failed: %q", m)
 	}
 }
