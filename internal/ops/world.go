@@ -18,7 +18,7 @@ func shortClass(c any) string {
 
 // ---------------------------------------------------------------- bases
 
-// Bases summarises claimed bases (totems), building pieces, placeables and permissions.
+// Bases summarises claimed bases (totems), building pieces and placeables.
 func (o *Ops) Bases() (any, error) {
 	totems, err := o.S.Query(`select t.id totem_id, a.map, t.landclaim_original_global_location_x x, t.landclaim_original_global_location_y y,
 		t.landclaim_original_global_location_z z, t.landclaim_vertical_level level from totems t join actors a on a.id=t.id`)
@@ -30,8 +30,7 @@ func (o *Ops) Bases() (any, error) {
 		from building_instances group by building_type order by n desc`)
 	placeables, _ := o.S.Query(`select p.id, a.class, p.building_type, p.health, a.location_x x, a.location_y y, a.location_z z
 		from placeables p join actors a on a.id=p.id order by p.building_type`)
-	perms, _ := o.S.Query(`select actor_id, actor_name, actor_type, access_level, is_child from permission_actor order by actor_id`)
-	return map[string]any{"totems": totems, "pieces": pieces, "types": types, "placeables": placeables, "permissions": perms}, nil
+	return map[string]any{"totems": totems, "pieces": pieces, "types": types, "placeables": placeables}, nil
 }
 
 // Storage lists every non-player inventory (containers, machines, vehicles) that holds items.
