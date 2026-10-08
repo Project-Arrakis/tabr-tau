@@ -249,6 +249,7 @@ async function basesView() {
   if (s == 'overview') {
     const b = await api('/api/bases');
     const claims = await api('/api/bases/claim');
+    const prefs = await api('/api/settings');
     const p = b.pieces || {};
     h.push(html`<div class="card"><h3>Bases (land claims)</h3>${tbl([{ k: 'totem_id', label: 'Totem' }, { k: 'map' }, { k: 'x', f: (r) => fix(r.x) }, { k: 'y', f: (r) => fix(r.y) }, { k: 'z', f: (r) => fix(r.z) }, { k: 'level' }], b.totems, { actions: (r) => html`<button class="b sec sm" data-act="tpTo" data-x="${r.x}" data-y="${r.y}" data-z="${r.z + 300}">Teleport here</button>` })}</div>
     ${claims.length ? html`<div class="card"><h3>Land claim size</h3>${claims.map((c) => html`<div class="row"><b>${c.name} ${c.totem_id}</b><span>${c.cells} cell${c.cells == 1 ? '' : 's'}${c.irregular ? ' (irregular shape)' : ` (${2 * c.rings + 1} x ${2 * c.rings + 1} square)`}, vertical level ${c.level}</span>
@@ -256,6 +257,8 @@ async function basesView() {
       Level <select id="cv${c.totem_id}">${Array.from({ length: c.maxLevel + 1 }, (_, i) => i).filter((n) => n >= c.level).map((n) => html`<option value="${n}" ${n == c.level ? 'selected' : ''}>${n}</option>`)}</select>
       <button class="b" data-act="claimGrow" data-id="${c.totem_id}" data-level="${c.level}">Expand claim</button></div>`)}
     <p class="mut">One cell is 10 x 10 foundations, around the totem. Expanding only adds cells and never removes them, and the vertical level can only go up. Applied when the game next loads the save.</p></div>` : html``}
+    <div class="card"><h3>Automatic refill</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>
+    <p class="mut">When on, opening the editor queues a refill of base water and generators if single-player is not running. It only adds pending edits: nothing is written to the game until you press Review &amp; save. Remembered between runs.</p></div>
     <div class="card"><h3>Structure health</h3><div class="grid">${kv('Building pieces', p.n)}${kv('Lowest health', fix(p.minh))}${kv('Average health', fix(p.avgh))}${kv('Total sand buildup', fix(p.sand))}</div>
     <div class="row"><button class="b" data-act="repairB">Repair all to max</button><button class="b sec" data-act="sand">Clear sand buildup</button><button class="b sec" data-act="refillWater">Refill base water</button><button class="b sec" data-act="refillGen">Refill generators</button><span class="mut">Repair sets each piece to the highest health seen for its type.</span></div></div>
     <div class="card"><h3>Permissions</h3>${tbl([{ k: 'actor_id' }, { k: 'actor_name' }, { k: 'actor_type' }, { k: 'access_level' }, { k: 'is_child' }], b.permissions)}</div>`);
@@ -423,6 +426,7 @@ const A = {
   tagDel: (d) => act(() => api('/api/player/tags', { tag: d.tag, add: false }), 'Tag removed'),
   jfilter: () => { window.jq = val('jq'); journeyList(); },
   jset: (d) => act(() => api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }), 'Journey updated', false).then(journeyList),
+  autoref: (d) => act(async () => { const r = await api('/api/settings', { autoRefillOnOpen: !d.on }); toast('Automatic refill when the editor opens is now ' + (r.autoRefillOnOpen ? 'on' : 'off')); }, null),
   claimGrow: async (d) => {
     const rings = +val('cr' + d.id), level = +val('cv' + d.id);
     const body = { totem_id: +d.id };
@@ -502,7 +506,9 @@ document.addEventListener('change', (e) => {
   else if (t.id == 'cfgsel') { cfgFile = t.value; render(); }
   else if (t.id == 'dbsel') { dbTable = t.value; dbOff = 0; dbQ = ''; render(); }
 });
-status().then(render);
+status().then(render).then(async () => {
+  try { const n = (await api('/api/startup')).note; if (n) toast(n); } catch (e) { /* the note is optional */ }
+});
 // Keeps the game-running warning current. A failed poll is shown, not hidden: Save stays off until contact returns.
 setInterval(async () => {
   if (document.hidden) return;

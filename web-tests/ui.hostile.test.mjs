@@ -518,3 +518,16 @@ test('Expand claim with "no change" size sends only the level, and nothing at al
   assert.deepEqual(sent[0].body, { totem_id: 7, level: 3 });
   ui.dom.window.close();
 });
+
+test('Automatic refill setting shows its state, toggles through the API, and the start-up note is shown once as text', async () => {
+  const hostile = '<img src=x onerror=1> note';
+  const ui = await boot({ get: { '/api/settings': { autoRefillOnOpen: false }, '/api/startup': { note: hostile } }, post: { '/api/settings': { autoRefillOnOpen: true } } });
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes(hostile), 'the note is shown');
+  assert.equal(ui.doc.querySelector('#toast img'), null, 'as text, never markup');
+  ui.click('[data-tab="bases"]'); await ui.settle();
+  const card = [...ui.doc.querySelectorAll('.card')].find((c) => c.textContent.includes('Automatic refill'));
+  assert.ok(card && card.textContent.includes('off'), 'the card shows the setting is off');
+  ui.click('[data-act="autoref"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/settings')[0].body, { autoRefillOnOpen: true }, 'turning on sends true');
+  ui.dom.window.close();
+});

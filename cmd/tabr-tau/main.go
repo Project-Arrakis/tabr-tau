@@ -164,6 +164,7 @@ func main() {
 	base := "http://" + ln.Addr().String()
 	ws := web.New(s, config.Dir{Path: *cfgDir})
 	ws.AllowRemote = remoteOK
+	ws.RunStartupTasks()
 	bootURL := ws.BootURL(base) // single use, valid for 10 minutes; sets this browser's session cookie
 	fmt.Printf("tabr-tau %s\n  save:   %s\n  config: %s\n  ui:     %s\n", version, s.Path, *cfgDir, bootURL)
 	srv := web.NewHTTPServer(ws.Handler())

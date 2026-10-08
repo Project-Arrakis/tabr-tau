@@ -8,7 +8,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
+	"github.com/Project-Arrakis/tabr-tau/internal/settings"
 	"mime"
 	"net"
 	"net/http"
@@ -37,6 +39,11 @@ type Server struct {
 	bootMu sync.Mutex
 	boots  map[string]time.Time // one-time bootstrap tokens -> expiry
 
+	// SettingsPath is the editor's own preferences file (see internal/settings); tests point it at a temp folder.
+	SettingsPath string
+	startupMu    sync.Mutex
+	startupNote  string // what the open-time refill did, shown once by the UI
+
 	// AllowRemote permits non-loopback peers. Off by default; only set by an explicit operator flag.
 	AllowRemote bool
 }
@@ -46,7 +53,7 @@ func New(s *save.Save, cfg config.Dir) *Server {
 	if _, err := rand.Read(b); err != nil {
 		panic("crypto/rand failed; refusing to start without an unpredictable token: " + err.Error())
 	}
-	srv := &Server{Save: s, Ops: &ops.Ops{S: s}, Cfg: cfg, token: hex.EncodeToString(b), mux: http.NewServeMux(), now: time.Now, boots: map[string]time.Time{}}
+	srv := &Server{Save: s, Ops: &ops.Ops{S: s}, Cfg: cfg, token: hex.EncodeToString(b), mux: http.NewServeMux(), now: time.Now, boots: map[string]time.Time{}, SettingsPath: settings.Path()}
 	srv.routes()
 	return srv
 }
@@ -269,6 +276,20 @@ func (s *Server) routes() {
 	})
 
 	s.get("/api/overview", func(r *http.Request) (any, error) { return o.Overview() })
+	s.get("/api/settings", func(r *http.Request) (any, error) { return settings.Load(s.SettingsPath), nil })
+	s.post("/api/settings", func(a ops.Args) (any, error) {
+		v, isBool := a["autoRefillOnOpen"].(bool)
+		if !isBool {
+			return nil, errors.New("autoRefillOnOpen must be true or false")
+		}
+		next := settings.Load(s.SettingsPath)
+		next.AutoRefillOnOpen = v
+		if err := settings.Save(s.SettingsPath, next); err != nil {
+			return nil, err
+		}
+		return next, nil
+	})
+	s.get("/api/startup", func(r *http.Request) (any, error) { return map[string]any{"note": s.takeStartupNote()}, nil })
 	s.get("/api/catalog/items", func(r *http.Request) (any, error) { return catalog.All(), nil })
 	s.get("/api/save/state", func(r *http.Request) (any, error) { return o.State() })
 
@@ -387,4 +408,38 @@ func (s *Server) routes() {
 	s.post("/api/config/restore", func(a ops.Args) (any, error) {
 		return map[string]any{"ok": true}, s.Cfg.Restore(a.Str("name"), a.Str("backup"))
 	})
+}
+
+// RunStartupTasks does what the editor's settings ask for when it opens. Today that is the optional refill of base
+// water and generators: it queues the edits in the working copy (nothing is written to the game until Review & save)
+// and only when no single-player session is running, because a save loaded during a session is about to be replaced.
+func (s *Server) RunStartupTasks() {
+	if !settings.Load(s.SettingsPath).AutoRefillOnOpen {
+		return
+	}
+	set := func(note string) { s.startupMu.Lock(); s.startupNote = note; s.startupMu.Unlock() }
+	if g := save.GameStateFor(s.Save.Path, true); g.Blocked {
+		set("Automatic refill skipped: " + g.Reason + ".")
+		return
+	}
+	w, err1 := s.Ops.RefillBaseWater()
+	g, err2 := s.Ops.RefillGenerators()
+	if err1 != nil || err2 != nil {
+		set("Automatic refill could not finish: " + errors.Join(err1, err2).Error())
+		return
+	}
+	nw, ng := w.(map[string]any)["filled"].(int), g.(map[string]any)["filled"].(int)
+	if nw+ng == 0 {
+		set("Automatic refill: base water and generators were already full.")
+		return
+	}
+	set(fmt.Sprintf("Automatic refill queued %d water devices and %d generators (not saved yet; use Review & save).", nw, ng))
+}
+
+func (s *Server) takeStartupNote() string {
+	s.startupMu.Lock()
+	defer s.startupMu.Unlock()
+	n := s.startupNote
+	s.startupNote = ""
+	return n
 }

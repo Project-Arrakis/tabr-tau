@@ -177,3 +177,24 @@ insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,a
 		t.Fatalf("the full generator must be left alone, has %d items", n)
 	}
 }
+
+// Nothing to fill must leave no pending edit behind (the open-time refill relies on this).
+func TestRefillsWithNothingToDoLeaveNoPendingEdit(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, baseFixture)}
+	if _, err := o.RefillBaseWater(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.RefillGenerators(); err != nil {
+		t.Fatal(err)
+	}
+	before := len(o.S.Pending())
+	if r, _ := o.RefillBaseWater(); r.(map[string]any)["filled"].(int) != 0 {
+		t.Fatalf("%v", r)
+	}
+	if r, _ := o.RefillGenerators(); r.(map[string]any)["filled"].(int) != 0 {
+		t.Fatalf("%v", r)
+	}
+	if after := len(o.S.Pending()); after != before {
+		t.Fatalf("a refill that did nothing added %d pending edits", after-before)
+	}
+}

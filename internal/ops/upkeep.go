@@ -54,17 +54,19 @@ func (o *Ops) RefillBaseWater() (any, error) {
 		}
 		todo = append(todo, target{r["entity"], capacity})
 	}
-	_, err = o.S.Mutate("refill base water", func(m *save.Mut) error {
-		for _, t := range todo {
-			if _, err := m.Exec(`update fgl_entities set components=jsonb_set(components,'$.FWaterStorageComponent[1].m_WaterStored',?) where entity_id=?`, t.cap, t.entity); err != nil {
-				return err
+	if len(todo) > 0 { // nothing to fill must not leave an empty pending edit behind
+		_, err = o.S.Mutate("refill base water", func(m *save.Mut) error {
+			for _, t := range todo {
+				if _, err := m.Exec(`update fgl_entities set components=jsonb_set(components,'$.FWaterStorageComponent[1].m_WaterStored',?) where entity_id=?`, t.cap, t.entity); err != nil {
+					return err
+				}
 			}
+			m.Desc = fmt.Sprintf("refill base water: %d devices", len(todo))
+			return nil
+		})
+		if err != nil {
+			return nil, err
 		}
-		m.Desc = fmt.Sprintf("refill base water: %d devices", len(todo))
-		return nil
-	})
-	if err != nil {
-		return nil, err
 	}
 	return map[string]any{"ok": true, "filled": len(todo), "alreadyFull": full, "skippedUnknown": sortedCounts(unknown)}, nil
 }
@@ -88,53 +90,61 @@ func (o *Ops) RefillGenerators() (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	filled, full := 0, 0
+	type job struct {
+		actor, inv any
+		fuel       string
+		full       int64
+		stack      any // existing stack to top up; nil when the generator has none
+	}
+	var jobs []job
+	full := 0
+	for _, r := range rows {
+		spec, known := generatorFuel[fmt.Sprint(r["kind"])]
+		if !known {
+			continue
+		}
+		cur, err := o.S.Query(`select id, stack_size from items where inventory_id=? and template_id=? order by stack_size desc limit 1`, r["inv"], spec.template)
+		if err != nil {
+			return nil, err
+		}
+		switch {
+		case len(cur) == 0:
+			jobs = append(jobs, job{r["actor"], r["inv"], spec.template, spec.full, nil})
+		case cur[0]["stack_size"].(int64) >= spec.full:
+			full++
+		default:
+			jobs = append(jobs, job{r["actor"], r["inv"], spec.template, spec.full, cur[0]["id"]})
+		}
+	}
+	filled := 0
 	var skipped []string
-	_, err = o.S.Mutate("refill generators", func(m *save.Mut) error {
-		for _, r := range rows {
-			spec, known := generatorFuel[fmt.Sprint(r["kind"])]
-			if !known {
-				continue
-			}
-			cur, err := m.Query(`select id, stack_size from items where inventory_id=? and template_id=? order by stack_size desc limit 1`, r["inv"], spec.template)
-			if err != nil {
-				return err
-			}
-			switch {
-			case len(cur) == 0:
-				if _, err := giveInTx(m, r["inv"].(int64), spec.template, spec.full, 0); err != nil {
+	if len(jobs) > 0 { // nothing to fill must not leave an empty pending edit behind
+		_, err = o.S.Mutate("refill generators", func(m *save.Mut) error {
+			for _, j := range jobs {
+				if j.stack != nil {
+					if _, err := m.Exec(`update items set stack_size=? where id=?`, j.full, j.stack); err != nil {
+						return err
+					}
+					filled++
+					continue
+				}
+				if _, err := giveInTx(m, j.inv.(int64), j.fuel, j.full, 0); err != nil {
 					if err.Error() == "inventory is full" { // other items fill its slots: leave this one, keep going
-						skipped = append(skipped, fmt.Sprintf("generator %v (no free slot)", r["actor"]))
+						skipped = append(skipped, fmt.Sprintf("generator %v (no free slot)", j.actor))
 						continue
 					}
-					return fmt.Errorf("generator %v: %w", r["actor"], err)
-				}
-				filled++
-			case cur[0]["stack_size"].(int64) >= spec.full:
-				full++
-			default:
-				if _, err := m.Exec(`update items set stack_size=? where id=?`, spec.full, cur[0]["id"]); err != nil {
-					return err
+					return fmt.Errorf("generator %v: %w", j.actor, err)
 				}
 				filled++
 			}
+			m.Desc = fmt.Sprintf("refill generators: %d filled", filled)
+			return nil
+		})
+		if err != nil {
+			return nil, err
 		}
-		m.Desc = fmt.Sprintf("refill generators: %d filled", filled)
-		return nil
-	})
-	if err != nil {
-		return nil, err
 	}
 	return map[string]any{"ok": true, "filled": filled, "alreadyFull": full, "skipped": skipped}, nil
-}
-
-func sortedCounts(m map[string]int) []string {
-	out := make([]string, 0, len(m))
-	for k, n := range m {
-		out = append(out, fmt.Sprintf("%s x%d", strings.TrimSuffix(k, "_placeable"), n))
-	}
-	sort.Strings(out)
-	return out
 }
 
 // RepairVehicles restores every vehicle module to the in-game repair level: CurrentDurability is raised to the
@@ -168,4 +178,13 @@ func (o *Ops) RepairVehicles() (any, error) {
 		return nil, err
 	}
 	return map[string]any{"ok": true, "modules": rows[0]["total"], "repaired": n, "withoutKnownMax": rows[0]["nomax"]}, nil
+}
+
+func sortedCounts(m map[string]int) []string {
+	out := make([]string, 0, len(m))
+	for k, n := range m {
+		out = append(out, fmt.Sprintf("%s x%d", strings.TrimSuffix(k, "_placeable"), n))
+	}
+	sort.Strings(out)
+	return out
 }
