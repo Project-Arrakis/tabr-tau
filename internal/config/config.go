@@ -267,7 +267,7 @@ func (d Dir) backupDir() string { return filepath.Join(d.Path, "tabr-tau-backups
 
 func (d Dir) write(name, text string) error {
 	if save.GameRunningNow() {
-		return fmt.Errorf("the game is running (%s) and rewrites its config on exit; close the game first", strings.Join(save.GameProcessesNow(), ", "))
+		return fmt.Errorf("%s (the game rewrites its config on exit); close the game first", save.RunningMessage())
 	}
 	p, err := d.file(name)
 	if err != nil {

@@ -546,7 +546,7 @@ func (s *Save) commit(force bool, token string, needToken bool) (map[string]any,
 		return nil, err
 	}
 	if !force && GameRunningNow() {
-		return nil, fmt.Errorf("%s; close the game first", runningMessage())
+		return nil, fmt.Errorf("%s; close the game first", RunningMessage())
 	}
 	cur, err := os.ReadFile(s.Path)
 	if err != nil {
@@ -618,7 +618,7 @@ func (s *Save) Restore(name string) error {
 		return errors.New("invalid backup name")
 	}
 	if GameRunningNow() {
-		return fmt.Errorf("%s; close the game first", runningMessage())
+		return fmt.Errorf("%s; close the game first", RunningMessage())
 	}
 	if s.dirty { // restoring reloads the file and would silently drop the pending edits
 		return errors.New("you have unsaved edits; save or discard them first (restoring a backup would lose them)")

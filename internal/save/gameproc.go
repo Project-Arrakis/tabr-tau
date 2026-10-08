@@ -69,8 +69,8 @@ func GameRunning() bool { return len(GameProcesses()) > 0 || GameCheckError() !=
 // GameRunningNow reports it without the cache, for checks that gate a write.
 func GameRunningNow() bool { return len(GameProcessesNow()) > 0 || GameCheckError() != "" }
 
-// runningMessage names what was found, for the refusal shown when a write is blocked.
-func runningMessage() string {
+// RunningMessage names what was found (or why the check failed), for the refusal shown when a write is blocked.
+func RunningMessage() string {
 	n := GameProcessesNow()
 	if e := GameCheckError(); len(n) == 0 && e != "" {
 		return "could not check whether the game is running (" + e + ")"

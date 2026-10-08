@@ -211,6 +211,18 @@ test('a save error stays in the review with a way forward; a changed-on-disk sav
   ui.dom.window.close();
 });
 
+test('a game check that cannot run blocks Save and shows why, as plain text', async () => {
+  const ov = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)); ov.gameRunning = true; ov.dirty = true; ov.gameCheckError = '<img src=x onerror=1> tasklist missing';
+  const ui = await boot({ get: { '/api/save/state': ov, '/api/save/review': hostileReview() } });
+  const gw = ui.doc.querySelector('#gamewarn');
+  assert.ok(gw.textContent.includes('Cannot tell whether the game is running'));
+  assert.ok(gw.textContent.includes('tasklist missing'));
+  assert.equal(gw.querySelector('img'), null, 'the error text is data, not markup');
+  ui.click('#btnSave'); await ui.settle();
+  assert.equal(ui.doc.querySelector('#btnDoSave').disabled, true);
+  ui.dom.window.close();
+});
+
 test('an error toast stays until dismissed', async () => {
   const ui = await openReviewUI({ post: { '/api/save/discard': { __fail: 'boom' } } });
   ui.click('[data-act="closeReview"]');

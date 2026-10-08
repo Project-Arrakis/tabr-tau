@@ -2,6 +2,7 @@ package save
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -24,5 +25,19 @@ func TestParseTasklist(t *testing.T) {
 		if got := parseTasklist(c.out); !reflect.DeepEqual(got, c.want) {
 			t.Errorf("%s: got %v want %v", c.name, got, c.want)
 		}
+	}
+}
+
+// A check that cannot run must block writes and say why, not pass as "game closed".
+func TestFailedGameCheckBlocks(t *testing.T) {
+	gameCache.Lock()
+	gameCache.err = "exec: tasklist: not found"
+	gameCache.Unlock()
+	defer func() { gameCache.Lock(); gameCache.err = ""; gameCache.Unlock() }()
+	if !GameRunningNow() || !GameRunning() {
+		t.Fatal("a failed check must count as the game running")
+	}
+	if m := RunningMessage(); !strings.Contains(m, "could not check") || !strings.Contains(m, "tasklist") {
+		t.Fatalf("message does not say the check failed: %q", m)
 	}
 }
