@@ -35,7 +35,7 @@ live-test protocol). Do not attach saves, `Game.ini`, snapshots or logs to issue
 | **Config** | Edit the game's `.ini` files (`ServerCustomSettings.ini`, `Game.ini`, `GameUserSettings.ini`, `Engine.ini`, `Input.ini`, ...) with backups; validates that the expected files and sections exist |
 | **Database** | Browse and edit any table, CSV/JSON export, read-only SQL (one SELECT), and **write SQL** (INSERT/UPDATE/DELETE/REPLACE only; atomic, applied to your working copy) |
 
-The **Player** tab mirrors the Dune Docker console's Players > Player Name view: Character, Crafting, Research, Building Sets, Customizations, Skills, Specialization, Journey, Blueprints, Bases, Vehicles and Admin. Crafting, Research, Customizations, Skills and Blueprints say "not in tabr-tau yet" until they are built (#96). Landsraad, Config and Database stay top-level tabs.
+The **Player** tab mirrors the Dune Docker console's Players > Player Name view: Character, Crafting, Research, Building Sets, Customizations, Skills, Specialization, Journey, Blueprints, Bases, Vehicles and Admin. Crafting, Research, Customizations, Skills and Blueprints say "not in tabr-tau yet" until they are built (#96). Each Player tab holds what the console's tab holds; features the console does not have (vendor purchase limits) are on the **Extras** tab. Landsraad, Config and Database stay top-level tabs.
 
 ## How saving works
 
