@@ -93,6 +93,8 @@ func TestRepairVehicles(t *testing.T) {
 	o := &Ops{S: testsave.PlayerWithSQL(t, `
 insert into actors(id,class,map) values (201,'c','HaggaBasin');
 insert into vehicles(id) values (201);
+insert into permission_actor(actor_id,actor_name,actor_type,access_level,is_child) values (201,'mine',2,3,0);
+insert into permission_actor_rank(permission_actor_id,player_id,rank) values (201,1,1);
 insert into vehicle_modules(id,vehicle_id,template_id,stats) values
   (1,201,'Engine_0',jsonb('{"FVehicleModuleDurabilityStats":[[],{"DecayedMaxDurability":300.5,"LastDeteriorationCause":"x"}],"FCustomizationStats":[[],{}]}')),
   (2,201,'Hull_0',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":100.0,"DecayedMaxDurability":250.0}]}')),
