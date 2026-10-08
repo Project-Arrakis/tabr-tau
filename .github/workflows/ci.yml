@@ -47,6 +47,7 @@ jobs:
   windows:
     name: windows
     runs-on: windows-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -56,7 +57,9 @@ jobs:
       - name: go vet
         run: go vet ./...
       - name: go test
-        run: go test -count=1 ./...
+        # The hosted Windows disk is ~10x slower than a desktop for the tests that build real-schema saves (the default
+        # 10 minute package limit was hit); #89 tracks making the suite cheaper.
+        run: go test -count=1 -timeout 40m ./...
 
   govulncheck:
     name: govulncheck
