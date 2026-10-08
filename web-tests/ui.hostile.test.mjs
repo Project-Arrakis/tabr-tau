@@ -91,11 +91,11 @@ const VIEWS = [
   ['player', 'player:buildingsets'], ['player', 'player:admin'],
   ['player', 'player:crafting'], ['player', 'player:research'], ['player', 'player:customizations'], ['player', 'player:skills'], ['player', 'player:blueprints'],
   ['player', 'player:bases', 'bases:overview'], ['player', 'player:bases', 'bases:storage'], ['player', 'player:bases', 'bases:parts'],
-  ['player', 'player:vehicles'], ['landsraad'], ['config'],
+  ['player', 'player:vehicles'], ['landsraad'], ['config'], ['extras'],
   ['db', 'db:browse'], ['db', 'db:sql'], ['db', 'db:backups'],
 ];
 // tabs that only say "not in tabr-tau yet", or whose rows are all numbers (specialization tracks), have no text to show
-const NO_DATA = new Set(['player:specialization', 'player:crafting', 'player:research', 'player:customizations', 'player:skills', 'player:blueprints', 'player:vehicles', 'db:sql', 'db:backups']);
+const NO_DATA = new Set(['player:admin', 'player:specialization', 'player:crafting', 'player:research', 'player:customizations', 'player:skills', 'player:blueprints', 'player:vehicles', 'db:sql', 'db:backups']);
 
 for (const confused of [false, true]) for (const [tabName, ...subs] of VIEWS) {
   const label = [tabName, ...subs].join(' > ');
@@ -113,6 +113,25 @@ for (const confused of [false, true]) for (const [tabName, ...subs] of VIEWS) {
     ui.dom.window.close();
   });
 }
+
+test('Admin mirrors the console: the actions tabr-tau has post, the ones it lacks are disabled, server-only ones are absent', async () => {
+  const ui = await boot({});
+  ui.click('[data-tab="player"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('[data-act="teleport"]'), null, 'Teleport is on Admin, not on Character > Overview');
+  assert.equal(ui.doc.querySelector('[data-act="repair"]'), null, 'Repair gear is on Admin, not on the inventory');
+  ui.click('[data-sub="player:admin"]'); await ui.settle();
+  for (const act of ['teleport', 'repair', 'repairV']) assert.ok(ui.doc.querySelector(`[data-act="${act}"]`), `Admin has ${act}`);
+  const text = ui.doc.querySelector('#main').textContent;
+  for (const lacks of ['Change Faction', 'Repair Faction', 'Repair Quests', 'Wipe Inventory', 'Reset Progression', 'Spawn']) {
+    const b = [...ui.doc.querySelectorAll('button')].find((x) => x.textContent.trim() == lacks);
+    assert.ok(b && b.disabled, `${lacks} is shown disabled`);
+  }
+  for (const serverOnly of ['Kick Player', 'Ban Player', 'Repair Login Queue', 'Recover Character']) assert.ok(!text.includes(serverOnly), `${serverOnly} does not apply to single-player`);
+  ui.click('[data-act="repair"]'); await ui.settle();
+  ui.click('[data-act="teleport"]'); await ui.settle();
+  for (const path of ['/api/player/repair', '/api/player/teleport']) assert.equal(ui.posted.filter((x) => x.path === path).length, 1, path);
+  ui.dom.window.close();
+});
 
 test('interactions that render results also stay clean (storage inventory, journey filter, SQL result)', async () => {
   const hostile = `"><img src=x ${MARK}>`;
@@ -509,7 +528,7 @@ test('base and vehicle upkeep buttons post, and unknown device names stay plain 
   ui.click('[data-act="refillGen"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Filled 3 generators'));
   ui.click('[data-tab=\"player\"]'); await ui.settle();
-  ui.click('[data-sub=\"player:vehicles\"]'); await ui.settle();
+  ui.click('[data-sub=\"player:admin\"]'); await ui.settle();
   ui.click('[data-act="repairV"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Repaired 7 vehicle modules'));
   for (const p of ['/api/bases/refill-water', '/api/bases/refill-generators', '/api/vehicles/repair']) assert.equal(ui.posted.filter((x) => x.path === p).length, 1, p);

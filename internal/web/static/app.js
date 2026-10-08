@@ -81,7 +81,7 @@ function pickedItemId(inputId) {
 }
 
 // ---------- tabs
-const TABS = { player: 'Player', landsraad: 'Landsraad', config: 'Config', db: 'Database' };
+const TABS = { player: 'Player', landsraad: 'Landsraad', config: 'Config', db: 'Database', extras: 'Extras' };
 // The Player tab mirrors the Dune Docker console's Players > Player Name view: the same tabs in the same order (#96). Bases and
 // Vehicles used to be top-level tabs and are two of these.
 const PTABS = [['character', 'Character'], ['crafting', 'Crafting'], ['research', 'Research'], ['buildingsets', 'Building Sets'], ['customizations', 'Customizations'],
@@ -220,14 +220,12 @@ async function playerSection(s) {
     const a = P.actor || {}, acc = P.account || {}, j = P.journey || {};
     h.push(html`<div class="card"><h3>${P.name}</h3><div class="grid">${kv('Solari', P.solari.toLocaleString())}${kv('Map', a.map)}${kv('Position', `${fix(a.x)}, ${fix(a.y)}, ${fix(a.z)}`)}${kv('Account', acc.funcom_id)}${kv('Platform', (acc.platform_name || '') + ' ' + (acc.platform_id || ''))}${kv('Journey', `${j.done || 0} / ${j.total || 0} nodes done`)}${kv('Pawn / controller', P.pawnId + ' / ' + P.controllerId)}</div></div>
     <div class="card"><h3>Solari</h3><div class="row"><input id="solari" type="number" value="10000"><button class="b" data-act="solari">Add / remove</button><span class="mut">Negative removes. Solari is an item stack in your backpack.</span></div></div>
-    <div class="card"><h3>Teleport</h3><div class="row">X<input id="tx" type="number" value="${Math.round(a.x)}">Y<input id="ty" type="number" value="${Math.round(a.y)}">Z<input id="tz" type="number" value="${Math.round(a.z)}"><button class="b" data-act="teleport">Teleport</button></div>
-    <p class="mut">Moves the character in the save (applied on next load). Stay above the terrain (Z) or you may fall through.</p></div>
     <div class="card"><h3>Respawn points</h3>${tbl([{ k: 'group' }, { k: 'locator_name' }, { k: 'locator_actor_id' }, { k: 'map' }], P.respawns)}</div>`);
   } else if (c == 'inventory') {
     const d = await api('/api/player/inventory');
     const cat = await loadCatalog(d.templates);
     h.push(html`<div class="card"><h3>Give item</h3><div class="row">${itemPicker("gt", cat)}
-    Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="repair">Repair all gear</button><button class="b sec" data-act="refill">Refill containers</button></div>
+    Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="refill">Refill containers</button></div>
     <p class="mut">Pick an item by its in-game name. Items already in your save that the catalog does not know are listed by their template id; any valid template id can also be typed.</p></div>
     <div class="card"><h3>Items (${d.items.length})</h3>${tbl([{ k: 'inventory_name', label: 'Inventory' }, { k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) },
       { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" value="${r.stack_size}" min="1" data-item="${r.id}" data-field="stack_size" class="w90">` },
@@ -249,15 +247,34 @@ async function playerSection(s) {
     const r = await api('/api/player/recipes');
     h.push(html`<div class="card"><h3>Learned building sets (${r.learnedSets.length})</h3>${r.learnedSets.map((x) => html`<span class="tag">${x.name}</span>`)}</div><div class="card"><h3>New buildable pieces (${r.newPieces.length})</h3>${r.newPieces.map((x) => html`<span class="tag">${x.name}</span>`)}</div>`);
   } else if (s == 'admin') {
-    const e = await api('/api/vendors');
-    h.push(html`<div class="card"><h3>Vendor purchase limits</h3><p class="mut">Vendors limit how much you can buy per restock cycle. Resetting clears those counters.</p><div class="row"><button class="b" data-act="vreset" data-v="">Reset all vendors</button></div>
-    ${tbl([{ k: 'vendor_id', label: 'Vendor' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'amount_bought', label: 'Bought' }], e.stock, { actions: (r) => html`<button class="b sec sm" data-act="vreset" data-v="${r.vendor_id}">Reset vendor</button>` })}
-    <h3 class="mt14">Restock cycles</h3>${tbl([{ k: 'vendor_id' }, { k: 'last_interacted_timestamp', label: 'Last interaction', f: (r) => new Date(r.last_interacted_timestamp * 1000).toLocaleString() }], e.cycles)}</div>`);
+    P = await api('/api/player');
+    const a = P.actor || {};
+    const na = (what) => html`<button class="b" disabled title="Not in tabr-tau yet">${what}</button>`;
+    h.push(html`<div class="card"><h3>Player Admin Actions</h3><p class="mut">The console's Admin tab. Actions the save file cannot do, or that only make sense on a server (kick, ban, login queue, recovering a deleted character), are left out; the others that tabr-tau does not have yet are shown disabled.</p></div>
+    <div class="card"><h3>Faction Assignment</h3><div class="row">${na('Change Faction')}<span class="mut">Not in tabr-tau yet. Reputation is under Character &gt; Reputation.</span></div></div>
+    <div class="card"><h3>Repair</h3>
+      <div class="row"><b>Repair Faction</b>${na('Repair Faction')}<span class="mut">Not in tabr-tau yet.</span></div>
+      <div class="row"><b>Repair Landsraad Quests</b>${na('Repair Quests')}<span class="mut">Not in tabr-tau yet.</span></div>
+      <div class="row"><b>Repair Gear</b><button class="b" data-act="repair">Repair Gear</button><span class="mut">Equipped and carried gear durability.</span></div>
+      <div class="row"><b>Repair Vehicle Durability</b><button class="b" data-act="repairV">Repair Vehicles</button><span class="mut">Raises every module of your vehicles to its current maximum. Wear that lowered the maximum itself is not undone. No "repair below %" threshold yet.</span></div></div>
+    <div class="card"><h3>Danger Zone</h3><div class="row">${na('Wipe Inventory')}${na('Reset Progression')}<span class="mut">Not in tabr-tau yet.</span></div></div>
+    <div class="card"><h3>Movement / Vehicles</h3><div class="row"><b>Teleport To</b>X<input id="tx" type="number" value="${Math.round(a.x)}">Y<input id="ty" type="number" value="${Math.round(a.y)}">Z<input id="tz" type="number" value="${Math.round(a.z)}"><button class="b" data-act="teleport">Teleport</button></div>
+    <p class="mut">Moves the character in the save (applied on next load). Stay above the terrain (Z) or you may fall through.</p>
+    <div class="row"><b>Spawn Vehicle</b>${na('Spawn')}<span class="mut">Not in tabr-tau yet.</span></div></div>`);
   } else {
     h.push(html`<div class="card"><h3>${SOON[s] || s}</h3><p class="mut">Not in tabr-tau yet. The console has this tab; it is planned (#96).</p></div>`);
   }
   setHTML(host(), html`${h}`);
   if (s == 'journey') journeyList();
+}
+// tabr-tau-only features that have no tab in the console's player view live here, so the Player tabs can match the console (#96).
+async function extrasView() {
+  const h = [];
+  const e = await api('/api/vendors');
+  h.push(html`<div class="card"><h3>Vendor purchase limits</h3><p class="mut">Vendors limit how much you can buy per restock cycle. Resetting clears those counters.</p><div class="row"><button class="b" data-act="vreset" data-v="">Reset all vendors</button></div>
+  ${tbl([{ k: 'vendor_id', label: 'Vendor' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'amount_bought', label: 'Bought' }], e.stock, { actions: (r) => html`<button class="b sec sm" data-act="vreset" data-v="${r.vendor_id}">Reset vendor</button>` })}
+  <h3 class="mt14">Restock cycles</h3>${tbl([{ k: 'vendor_id' }, { k: 'last_interacted_timestamp', label: 'Last interaction', f: (r) => new Date(r.last_interacted_timestamp * 1000).toLocaleString() }], e.cycles)}</div>`);
+  setHTML($('#main'), html`${h}`);
 }
 async function journeyList() {
   const rows = await api('/api/player/journey?q=' + encodeURIComponent(window.jq || ''));
@@ -308,7 +325,6 @@ async function vehiclesView() {
     { actions: (r) => html`<button class="b sm" data-act="bring" data-id="${r.id}">Bring to me</button>` })}</div>
   <div class="card"><h3>Recovered / stored vehicles (${v.recovered.length})</h3>${tbl([{ k: 'vehicle_id', label: 'Id' }, { k: 'vehicle_name', label: 'Name' }, { k: 'chassis_durability', label: 'Chassis durability' }, { k: 'time_stored' }, { k: 'reason' }], v.recovered,
     { actions: (r) => html`<button class="b sec sm" data-act="dur" data-id="${r.vehicle_id}" data-v="${r.chassis_durability}">Set durability</button>` })}</div>`];
-  if (v.vehicles.length) h.unshift(html`<div class="card"><div class="row"><button class="b" data-act="repairV">Repair all vehicles</button><span class="mut">Raises every module of your vehicles to its current maximum. Wear that lowered the maximum itself is not undone.</span></div></div>`);
   if (v.hidden) h.push(html`<p class="mut">${v.hidden} other vehicle${v.hidden == 1 ? '' : 's'} in the world (not yours) ${v.hidden == 1 ? 'is' : 'are'} not shown.</p>`);
   if (!v.vehicles.length && !v.recovered.length) h.push(html`<p class="mut">None of your vehicles are in this save yet. Vehicle fuel is stored in an opaque binary blob and is not editable.</p>`);
   setHTML(host(), html`${h}`);
@@ -397,7 +413,7 @@ async function dbView() {
 async function render() {
   drawNav();
   try {
-    await ({ player: playerView, landsraad: landsraadView, config: configView, db: dbView })[tab]();
+    await ({ player: playerView, landsraad: landsraadView, config: configView, db: dbView, extras: extrasView })[tab]();
   } catch (e) {
     setHTML($('#main'), html`<div class="card bad">${e.message}</div>`);
   }
