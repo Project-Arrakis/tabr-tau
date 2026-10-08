@@ -527,6 +527,7 @@ test('Shrink claim asks first, posts the chosen size, and is offered only when e
   const ui = await boot({ get: { '/api/bases/claim': claims }, post: { '/api/bases/claim/shrink': { ok: true, removed: 8, remaining: 1 } } });
   ui.click('[data-tab="bases"]'); await ui.settle();
   assert.equal(ui.doc.querySelectorAll('[data-act="claimShrink"]').length, 1, 'only a claim with extra cells can shrink');
+  assert.deepEqual([...ui.doc.querySelectorAll('#cs7 option')].map((o) => o.value), ['0'], 'a 3x3 claim can only shrink to its own cell, not to sizes it does not exceed');
   assert.ok(ui.doc.body.textContent.includes('486 pieces inside the claim'));
   ui.click('[data-act="claimShrink"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#ask').textContent.includes("the totem's own cell"), 'the question names the result');

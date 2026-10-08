@@ -164,6 +164,8 @@ func (o *Ops) ExpandLandClaim(a Args) (any, error) {
 // minus the claim yaw, divided by the cell size and rounded, so cell (0,0) is centred on the origin. No axis flips.
 const claimCellSize = 5120.0
 
+// A piece exactly on a cell boundary (offset +-2560) is placed by rounding half away from zero; the game's own rule for
+// that edge is not known, which can only make the count differ by the pieces on the boundary.
 // pieceCells counts the building pieces and placeables of one claim per cell, so a cell is never removed from under a base.
 func (o *Ops) pieceCells(totemID int64) (map[[2]int64]int64, error) {
 	t, err := o.S.One(`select landclaim_original_global_location_x ox, landclaim_original_global_location_y oy, landclaim_original_global_yaw_rotation yaw from totems where id=?`, totemID)
@@ -176,8 +178,14 @@ func (o *Ops) pieceCells(totemID int64) (map[[2]int64]int64, error) {
 	if t == nil || !okx || !oky || !okyaw {
 		return nil, errors.New("this claim has no recorded origin, so its cells cannot be matched to pieces; nothing was removed")
 	}
-	rows, err := o.S.Query(`select location_x x, location_y y from building_instances where location_x is not null and location_y is not null
-		union all select a.location_x, a.location_y from placeables p join actors a on a.id=p.id where a.location_x is not null and a.location_y is not null`)
+	// A piece belongs to this claim when its owner entity is linked to the totem's actor. A piece with no owner link is
+	// counted for every claim: removing a cell must err on the side of keeping it.
+	rows, err := o.S.Query(`select bi.location_x x, bi.location_y y from building_instances bi
+			left join actor_fgl_entities afe on afe.entity_id=bi.owner_entity_id
+			where bi.location_x is not null and bi.location_y is not null and (afe.actor_id is null or afe.actor_id=?)
+		union all select a.location_x, a.location_y from placeables p join actors a on a.id=p.id
+			left join actor_fgl_entities afe on afe.entity_id=p.owner_entity_id
+			where a.location_x is not null and a.location_y is not null and (afe.actor_id is null or afe.actor_id=?)`, totemID, totemID)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +260,15 @@ func (o *Ops) ShrinkLandClaim(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"ok": true, "removed": len(drop), "remaining": len(rows) - len(drop) + 1}, nil
+	left := map[[2]int64]bool{{0, 0}: true}
+	for _, r := range rows {
+		x, okx := r["x"].(int64)
+		y, oky := r["y"].(int64)
+		if okx && oky && max(x, -x, y, -y) <= keep {
+			left[[2]int64{x, y}] = true
+		}
+	}
+	return map[string]any{"ok": true, "removed": len(drop), "remaining": len(left)}, nil
 }
 
 func totalPieces(pc map[[2]int64]int64) int64 {
