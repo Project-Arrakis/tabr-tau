@@ -80,6 +80,7 @@ func logTime(line string) time.Time {
 var spLog struct {
 	sync.Mutex
 	path   string
+	head   string // first bytes of the log: unique per game run, so a rotated log is noticed even when it is longer
 	offset int64
 	tr     spTracker
 	rest   string // an unfinished last line
@@ -121,13 +122,20 @@ func singlePlayerStatus(savePath string) (spStatus, error) {
 	if err != nil {
 		return spStatus{}, fmt.Errorf("cannot read the game log: %w", err)
 	}
-	if lp != spLog.path || st.Size() < spLog.offset { // another file, or the game started a new log
-		spLog.path, spLog.offset, spLog.tr, spLog.rest = lp, 0, spTracker{}, ""
+	const maxLog = 256 << 20
+	if st.Size() > maxLog {
+		return spStatus{}, fmt.Errorf("the game log is larger than %d MiB", maxLog>>20)
+	}
+	hb := make([]byte, 160)
+	hn, _ := f.ReadAt(hb, 0)
+	head := string(hb[:hn])
+	if lp != spLog.path || st.Size() < spLog.offset || head != spLog.head { // another file, a shorter one, or a new game run
+		spLog.path, spLog.head, spLog.offset, spLog.tr, spLog.rest = lp, head, 0, spTracker{}, ""
 	}
 	if _, err := f.Seek(spLog.offset, io.SeekStart); err != nil {
 		return spStatus{}, fmt.Errorf("cannot read the game log: %w", err)
 	}
-	b, err := io.ReadAll(io.LimitReader(f, 64<<20))
+	b, err := io.ReadAll(io.LimitReader(f, maxLog))
 	if err != nil {
 		return spStatus{}, fmt.Errorf("cannot read the game log: %w", err)
 	}

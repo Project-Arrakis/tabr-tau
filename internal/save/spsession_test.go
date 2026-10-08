@@ -118,6 +118,17 @@ func TestSinglePlayerStatusFollowsTheLog(t *testing.T) {
 	if st, _ = singlePlayerStatus(save); st.Active || !st.EndedAt.IsZero() {
 		t.Fatalf("a new log starts clean: %+v", st)
 	}
+	// a rotated log that is already longer than the old offset must still be read from its start
+	os.WriteFile(lp, []byte("\xef\xbb\xbfLog: Log file open, 10/08/26 09:20:16\r\n"+strings.Repeat(lnNoise+"\r\n", 50)), 0o644)
+	singlePlayerStatus(save)
+	old, _ := os.Stat(lp)
+	os.WriteFile(lp, []byte("\xef\xbb\xbfLog: Log file open, 10/08/26 11:00:00\r\n"+lnStart+"\r\n"+strings.Repeat(lnNoise+"\r\n", 80)), 0o644)
+	if now, _ := os.Stat(lp); now.Size() <= old.Size() {
+		t.Fatal("test setup: the new log must be longer than the old one")
+	}
+	if st, _ = singlePlayerStatus(save); !st.Active {
+		t.Fatal("a longer, rotated log must be read from its start, so its single-player start is seen")
+	}
 	if _, err := singlePlayerStatus(filepath.Join(t.TempDir(), "elsewhere", "game.db")); err == nil {
 		t.Fatal("an unknown log location must be an error")
 	}
