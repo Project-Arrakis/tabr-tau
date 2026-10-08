@@ -43,7 +43,7 @@ by a zlib stream containing a plain SQLite 3 database. tabr-tau decodes it into 
 **nothing is written until you press "Review & save" and then "Save to game" inside the review**, which lists
 every edit and what changes inside the file. Saving:
 
-1. refuses to run while `DuneSandbox-Win64-Shipping.exe` is running,
+1. refuses to run while any `Dune*` process is running (the game, its starter and BattlEye; the launcher does not count), or if that check cannot run. Leaving single-player to the menu does not end the game: quit it completely,
 2. refuses if the file changed on disk since it was loaded,
 3. runs `PRAGMA integrity_check` and verifies the re-encoded file decodes back to the same bytes,
 4. copies the original to `tabr-tau-backups/` next to it,
