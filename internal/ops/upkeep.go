@@ -152,11 +152,15 @@ func (o *Ops) RefillGenerators() (any, error) {
 // is not undone, because the original maximum of each module template is not stored in the save; modules with no
 // DecayedMaxDurability are counted and left alone rather than guessed.
 func (o *Ops) RepairVehicles() (any, error) {
+	p, err := o.player()
+	if err != nil {
+		return nil, err
+	}
 	rows, err := o.S.Query(`select count(*) total,
 		coalesce(sum(case when json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') is not null
 			and coalesce(json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability'),0) < json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') then 1 else 0 end),0) repairable,
 		coalesce(sum(case when json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') is null then 1 else 0 end),0) nomax
-		from vehicle_modules where json_valid(stats,8) and json_type(stats,'$.FVehicleModuleDurabilityStats') is not null`)
+		from vehicle_modules where vehicle_id in (`+ownedVehicleSQL+`) and json_valid(stats,8) and json_type(stats,'$.FVehicleModuleDurabilityStats') is not null`, p.Controller)
 	if err != nil {
 		return nil, err
 	}
@@ -164,9 +168,9 @@ func (o *Ops) RepairVehicles() (any, error) {
 	_, err = o.S.Mutate("repair vehicles", func(m *save.Mut) error {
 		res, err := m.Exec(`update vehicle_modules set stats=jsonb_set(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability',
 				json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability'))
-			where json_valid(stats,8) and json_type(stats,'$.FVehicleModuleDurabilityStats') is not null
+			where vehicle_id in (`+ownedVehicleSQL+`) and json_valid(stats,8) and json_type(stats,'$.FVehicleModuleDurabilityStats') is not null
 			and json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') is not null
-			and coalesce(json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability'),0) < json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability')`)
+			and coalesce(json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability'),0) < json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability')`, p.Controller)
 		if err != nil {
 			return err
 		}
