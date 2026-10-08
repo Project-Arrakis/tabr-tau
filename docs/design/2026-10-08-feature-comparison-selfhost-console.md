@@ -155,6 +155,7 @@ the game scatters around the world. Ownership is in the permission tables, as in
 - A player vehicle has a `permission_actor` row with `actor_type = 2` and a `permission_actor_rank` row (`rank = 1`, the owner) that
   names the player's character (`player_state.id`). In this save exactly **1** of the 13 vehicles has them; it also has a
   `backup_vehicles` row and grade-1 modules (`SandbikeChassis_1`, `SandbikeEngine_1`, ...).
+  Operator-confirmed (2026-10-08): the player owns exactly one vehicle, a Sandbike, and the other 12 are world vehicles.
 - The other **12** have no permission row and no `owner_account_id`: they are the random world vehicles, with grade-0 modules
   (`SandbikeChassis_0`, ...). They are unowned, and the game may despawn or respawn them.
 
