@@ -76,7 +76,7 @@ async function status() {
   $('#path').textContent = o.path;
   const gw = $('#gamewarn');
   gw.className = gameRunning ? 'warn' : 'hide';
-  setHTML(gw, gameRunning ? html`<b>Dune: Awakening is running${(o.gameProcesses || []).length ? ' (' + o.gameProcesses.join(', ') + ')' : ''}.</b> Close the game completely before saving. It rewrites game.db on its own, so a save made now would conflict with it or be overwritten. You can keep editing.` : html``);
+  setHTML(gw, o.gameCheckError ? html`<b>Cannot tell whether the game is running (${o.gameCheckError}).</b> Saving is blocked until the check works. Close the game and restart the editor, then report this text.` : gameRunning ? html`<b>Dune: Awakening is running${(o.gameProcesses || []).length ? ' (' + o.gameProcesses.join(', ') + ')' : ''}.</b> Close the game completely before saving. It rewrites game.db on its own, so a save made now would conflict with it or be overwritten. You can keep editing.` : html``);
   syncReview();
   const n = o.pending.length;
   $('#pending').textContent = n ? `${n} unsaved change${n > 1 ? 's' : ''}` : '';

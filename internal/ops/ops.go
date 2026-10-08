@@ -105,7 +105,8 @@ func (o *Ops) player() (player, error) {
 func (o *Ops) State() (any, error) {
 	return map[string]any{
 		"path": o.S.Path, "dirty": o.S.Dirty(), "pending": o.S.Pending(),
-		"gameRunning": save.GameRunning(), "readOnly": o.S.WriteBlocked(),
+		"gameRunning": save.GameRunning(), "gameProcesses": save.GameProcesses(), "gameCheckError": save.GameCheckError(),
+		"readOnly": o.S.WriteBlocked(),
 	}, nil
 }
 
