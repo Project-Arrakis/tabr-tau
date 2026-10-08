@@ -61,15 +61,15 @@ Class: **WORKS** identical schema, **ADAPT** SQL changes, **NEW** needs a JSONB/
 | B1 | List bases, land claim, totems | `totems`, `buildings` | WORKS | [V] | ✅ |
 | B2 | Storage contents give/fill/remove | `inventories`/`items` | ADAPT | [V] | ✅ |
 | B3 | Repair buildings, clear sand | `building_instances.health`, sand fields | ADAPT | [V] | ✅ |
-| B4 | Machine water/fuel/power refill | JSONB machine components | NEW | [V] structure seen; [T] write | ◻ P4 |
+| B4 | Machine water/fuel refill (cisterns, generators; #63) | JSONB `FWaterStorageComponent.m_WaterStored`; generator fuel items | NEW | [V] structure in the sample (16 cisterns, 5 generators); [V] live PASS 2026-10-08 (#63, PR #64) | ✅ verified; wind turbines ◻ |
 | B5 | Base/vehicle permissions | `permission_actor*` | N/A | multiplayer concept, **cut 2026-10-07** | never |
 | B6 | Blueprints import/export | `building_blueprints` and related (`building_blueprint_*`; all empty in sample) | ADAPT | [I] | deferred: needs a save that has blueprints; low SP value (**2026-10-07**) |
 | B7 | Delete base completely | cascades + trigger | ADAPT, **high risk** | [I] | **cut 2026-10-07** (demolish in game; pieces stay editable in the Database tab) |
-| B8 | Fully repair a base | `building_instances.health`, `placeables.health` | ADAPT | [V] column; [T] what "full" is (today: highest health seen for the type) (#56) | ✅ partial; ◻ P4 |
+| B8 | Fully repair a base | `building_instances.health`, `placeables.health` | ADAPT | [V] column; "full" = highest health seen for the type (in the sample every type shares one max, so this holds); [T] a type with every piece damaged has no reference | ✅ (#56) |
 | B9 | Give items to base chests | `inventories`/`items` (same as B2) | ADAPT | [V] | ✅ (full stats follow S3) |
 | B10 | Increase land-claim size | `landclaim_segments` (one row per extra 10x10-foundation cell, the totem's own cell (0,0) is implicit), `totems.landclaim_vertical_level` | ADAPT | [V] same tables and constants as the Dune Docker Land Claim Editor; the sample save has 1 totem, 0 extra cells; [T] write pending the in-game check (#57) | ✅ built, unverified |
 | V1 | Vehicles list/bring/durability/refuel | `vehicles`, `actors` | ADAPT | [I] 0 vehicles in sample | ✅ partial (untested) |
-| V2 | Fully repair a vehicle (chassis and modules) | `recovered_vehicles.chassis_durability` for stored ones; live vehicle durability location unknown | NEW | [T] needs a save with a vehicle (#56) | ◻ P4 |
+| V2 | Repair a vehicle (modules) | `vehicle_modules.stats` JSONB `FVehicleModuleDurabilityStats` (`CurrentDurability` to `DecayedMaxDurability`) | NEW | [V] structure (9 vehicles, 75 modules); the original per-template maximum is not in the save, so decay is not undone; [V] live PASS 2026-10-08 (#56, PR #64) | ✅ verified; chassis health/wrecks ◻ |
 | W1 | Resource/spice fields | `resource_nodes`, `resourcefield_state` | ADAPT | [V] rows exist | ◻ P5 |
 | W2 | Sandstorm / Coriolis schedule | SQLite-only tables | NEW | [V] tables exist | parked behind P1 (**2026-10-07**) |
 | W3 | Map fog reveal | `FogOfWar/*.data` bitmap | NEW | [V] format; [I] layout | parked behind P1 (**2026-10-07**) |

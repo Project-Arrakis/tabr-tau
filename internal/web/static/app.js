@@ -222,7 +222,7 @@ async function basesView() {
       <button class="b" data-act="claimGrow" data-id="${c.totem_id}">Expand claim</button></div>`)}
     <p class="mut">One cell is 10 x 10 foundations, around the totem. Expanding only adds cells and never removes them, and the vertical level can only go up. Applied when the game next loads the save.</p></div>` : html``}
     <div class="card"><h3>Structure health</h3><div class="grid">${kv('Building pieces', p.n)}${kv('Lowest health', fix(p.minh))}${kv('Average health', fix(p.avgh))}${kv('Total sand buildup', fix(p.sand))}</div>
-    <div class="row"><button class="b" data-act="repairB">Repair all to max</button><button class="b sec" data-act="sand">Clear sand buildup</button><span class="mut">Repair sets each piece to the highest health seen for its type.</span></div></div>
+    <div class="row"><button class="b" data-act="repairB">Repair all to max</button><button class="b sec" data-act="sand">Clear sand buildup</button><button class="b sec" data-act="refillWater">Refill base water</button><button class="b sec" data-act="refillGen">Refill generators</button><span class="mut">Repair sets each piece to the highest health seen for its type.</span></div></div>
     <div class="card"><h3>Permissions</h3>${tbl([{ k: 'actor_id' }, { k: 'actor_name' }, { k: 'actor_type' }, { k: 'access_level' }, { k: 'is_child' }], b.permissions)}</div>`);
   } else if (s == 'storage') {
     const st = await api('/api/bases/storage');
@@ -244,6 +244,7 @@ async function vehiclesView() {
     { actions: (r) => html`<button class="b sm" data-act="bring" data-id="${r.id}">Bring to me</button>` })}</div>
   <div class="card"><h3>Recovered / stored vehicles (${v.recovered.length})</h3>${tbl([{ k: 'vehicle_id', label: 'Id' }, { k: 'vehicle_name', label: 'Name' }, { k: 'chassis_durability', label: 'Chassis durability' }, { k: 'time_stored' }, { k: 'reason' }], v.recovered,
     { actions: (r) => html`<button class="b sec sm" data-act="dur" data-id="${r.vehicle_id}" data-v="${r.chassis_durability}">Set durability</button>` })}</div>`];
+  if (v.vehicles.length) h.unshift(html`<div class="card"><div class="row"><button class="b" data-act="repairV">Repair all vehicles</button><span class="mut">Raises every module to its current maximum. Wear that lowered the maximum itself is not undone.</span></div></div>`);
   if (!v.vehicles.length && !v.recovered.length) h.push(html`<p class="mut">No vehicles in this save yet. Vehicle fuel is stored in an opaque binary blob and is not editable.</p>`);
   setHTML($('#main'), html`${h}`);
 }
@@ -392,6 +393,9 @@ const A = {
     if (!(await ask({ title: 'Expand this land claim?', body: `Adds every missing cell up to a ${2 * rings + 1} x ${2 * rings + 1} square around the totem and sets the vertical level to at least ${level}. This cannot be undone from here (restore a backup to go back).`, ok: 'Expand claim' }))) return;
     act(async () => { const r = await api('/api/bases/claim/expand', { totem_id: +d.id, rings, level }); toast(`Claim now ${r.totalCells} cells, level ${r.level} (+${r.added} cells)` + NOT_SAVED); });
   },
+  refillWater: () => act(async () => { const r = await api('/api/bases/refill-water', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} water devices (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
+  refillGen: () => act(async () => { const r = await api('/api/bases/refill-generators', {}); toast(`Filled ${r.filled} generators (${r.alreadyFull} already full)` + NOT_SAVED); }, null),
+  repairV: () => act(async () => { const r = await api('/api/vehicles/repair', {}); toast(`Repaired ${r.repaired} vehicle modules.` + (r.withoutKnownMax ? ` ${r.withoutKnownMax} modules have no recorded maximum and were left alone.` : '') + NOT_SAVED); }, null),
   repairB: async () => (await ask({ title: 'Repair every base piece?', body: 'Sets the health of all building pieces and placeables in the save to full.', ok: 'Repair all', typed: 'repair', danger: true })) && act(async () => { const r = await api('/api/bases/repair', {}); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables` + NOT_SAVED); }, null),
   sand: async () => (await ask({ title: 'Clear sand build-up?', body: 'Removes the sand coverage from every building piece in the save.', ok: 'Clear sand', typed: 'clear', danger: true })) && act(async () => { const r = await api('/api/bases/clear-sand', {}); toast(`Cleared ${r.pieces} pieces` + NOT_SAVED); }, null),
   openInv: async (d) => {
