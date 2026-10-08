@@ -81,10 +81,16 @@ function pickedItemId(inputId) {
 }
 
 // ---------- tabs
-const TABS = { player: 'Player', bases: 'Bases', vehicles: 'Vehicles', landsraad: 'Landsraad', config: 'Config', db: 'Database' };
+const TABS = { player: 'Player', landsraad: 'Landsraad', config: 'Config', db: 'Database' };
+// The Player tab mirrors the Dune Docker console's Players > Player Name view: the same tabs in the same order (#96). Bases and
+// Vehicles used to be top-level tabs and are two of these.
+const PTABS = [['character', 'Character'], ['crafting', 'Crafting'], ['research', 'Research'], ['buildingsets', 'Building Sets'], ['customizations', 'Customizations'],
+  ['skills', 'Skills'], ['specialization', 'Specialization'], ['journey', 'Journey'], ['blueprints', 'Blueprints'], ['bases', 'Bases'], ['vehicles', 'Vehicles'], ['admin', 'Admin']];
+// The console tabs tabr-tau does not have yet; each says so instead of being left out.
+const SOON = { crafting: 'Crafting recipes', research: 'Research', customizations: 'Customizations', skills: 'Skill points and modules', blueprints: 'Blueprints' };
 let tab = Object.hasOwn(TABS, localStorage.tab) ? localStorage.tab : 'player';
-const sub = { player: 'overview', db: 'browse' };
-const GROUPS = ['player', 'bases', 'db'];
+const sub = { player: ['bases', 'vehicles'].includes(localStorage.tab) ? localStorage.tab : 'character', char: 'overview', db: 'browse' };
+const GROUPS = ['player', 'char', 'bases', 'db'];
 function drawNav() {
   setHTML($('#nav'), html`${Object.entries(TABS).map(([k, v]) => html`<button data-tab="${k}" class="${k == tab ? 'on' : ''}">${v}</button>`)}`);
 }
@@ -199,10 +205,17 @@ $('#btnDiscard').onclick = async () => { if (await ask({ title: 'Discard all uns
 
 // ---------- PLAYER
 let P = null;
+function host() { return $('#pbody') || $('#main'); }
 async function playerView() {
-  const s = sub.player;
-  const h = [subNav('player', [['overview', 'Overview'], ['inventory', 'Inventory'], ['progress', 'Progression'], ['journey', 'Journey'], ['recipes', 'Recipes'], ['vendors', 'Vendors']])];
-  if (s == 'overview') {
+  setHTML($('#main'), html`${subNav('player', PTABS)}<div id="pbody"></div>`);
+  if (sub.player == 'bases') return basesView();
+  if (sub.player == 'vehicles') return vehiclesView();
+  return playerSection(sub.player);
+}
+async function playerSection(s) {
+  const h = s == 'character' ? [subNav('char', [['overview', 'Overview'], ['inventory', 'Inventory'], ['reputation', 'Reputation']])] : [];
+  const c = s == 'character' ? sub.char || 'overview' : s;
+  if (c == 'overview') {
     P = await api('/api/player');
     const a = P.actor || {}, acc = P.account || {}, j = P.journey || {};
     h.push(html`<div class="card"><h3>${P.name}</h3><div class="grid">${kv('Solari', P.solari.toLocaleString())}${kv('Map', a.map)}${kv('Position', `${fix(a.x)}, ${fix(a.y)}, ${fix(a.z)}`)}${kv('Account', acc.funcom_id)}${kv('Platform', (acc.platform_name || '') + ' ' + (acc.platform_id || ''))}${kv('Journey', `${j.done || 0} / ${j.total || 0} nodes done`)}${kv('Pawn / controller', P.pawnId + ' / ' + P.controllerId)}</div></div>
@@ -210,7 +223,7 @@ async function playerView() {
     <div class="card"><h3>Teleport</h3><div class="row">X<input id="tx" type="number" value="${Math.round(a.x)}">Y<input id="ty" type="number" value="${Math.round(a.y)}">Z<input id="tz" type="number" value="${Math.round(a.z)}"><button class="b" data-act="teleport">Teleport</button></div>
     <p class="mut">Moves the character in the save (applied on next load). Stay above the terrain (Z) or you may fall through.</p></div>
     <div class="card"><h3>Respawn points</h3>${tbl([{ k: 'group' }, { k: 'locator_name' }, { k: 'locator_actor_id' }, { k: 'map' }], P.respawns)}</div>`);
-  } else if (s == 'inventory') {
+  } else if (c == 'inventory') {
     const d = await api('/api/player/inventory');
     const cat = await loadCatalog(d.templates);
     h.push(html`<div class="card"><h3>Give item</h3><div class="row">${itemPicker("gt", cat)}
@@ -221,24 +234,29 @@ async function playerView() {
       { k: 'quality_level', label: 'Grade', f: (r) => html`<select data-item="${r.id}" data-field="quality">${[0, 1, 2, 3, 4, 5].map((n) => html`<option ${n == r.quality_level ? 'selected' : ''}>${n}</option>`)}</select>` },
       { k: 'durability', label: 'Durability', f: (r) => (r.durability == null ? '' : Number(r.durability).toFixed(1) + (r.max_durability ? ' / ' + Number(r.max_durability).toFixed(0) : '')) }], d.items,
       { actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` })}</div>`);
-  } else if (s == 'progress') {
-    const [f, sp, tu, tg] = await Promise.all(['factions', 'specs', 'tutorials', 'tags'].map((x) => api('/api/player/' + x)));
-    h.push(html`<div class="card"><h3>Faction reputation</h3>${tbl([{ k: 'name', label: 'Faction' }, { k: 'reputation', label: 'Reputation', f: (r) => html`<input type="number" min="0" max="12474" value="${r.reputation}" data-faction="${r.faction_id}" class="w100">` }], f)}<p class="mut">Range 0–12474. Edit and press Tab/Enter.</p></div>
-    <div class="card"><h3>Specialization tracks</h3>${tbl([{ k: 'track_type', label: 'Track' }, { k: 'xp_amount', label: 'XP' }, { k: 'level' }], sp, { actions: (r) => html`<button class="b sec sm" data-act="spec" data-t="${r.track_type}" data-xp="${r.xp_amount}" data-lv="${r.level}">Edit</button>` })}<div class="row"><span class="mut">Add/overwrite:</span>Track<input id="st" type="number" value="0" class="w70">XP<input id="sx" type="number" value="0">Level<input id="sl" type="number" step="0.1" value="1" class="w80"><button class="b" data-act="specSet">Set</button></div></div>
-    <div class="card"><h3>Tutorials</h3>${tbl([{ k: 'id' }, { k: 'name' }, { k: 'state', label: 'State', f: (r) => (r.state == 2 ? html`<span class="ok">done</span>` : html`<span class="mut">not done</span>`) }], tu, { actions: (r) => (r.state == 2 ? html`<button class="b sec sm" data-act="tut" data-id="${r.id}" data-c="0">Reset</button>` : html`<button class="b sm" data-act="tut" data-id="${r.id}" data-c="1">Complete</button>`) })}</div>
-    <div class="card"><h3>Player tags</h3>${tg.length ? tg.map((t) => html`<span class="tag">${t.tag} <a href="#" data-act="tagDel" data-tag="${t.tag}">×</a></span>`) : html`<span class="mut">none</span>`}<div class="row"><input id="tag" placeholder="Tag.Name" size="40"><button class="b" data-act="tagAdd">Add tag</button></div></div>`);
+  } else if (c == 'reputation') {
+    const f = await api('/api/player/factions');
+    h.push(html`<div class="card"><h3>Faction reputation</h3>${tbl([{ k: 'name', label: 'Faction' }, { k: 'reputation', label: 'Reputation', f: (r) => html`<input type="number" min="0" max="12474" value="${r.reputation}" data-faction="${r.faction_id}" class="w100">` }], f)}<p class="mut">Range 0–12474. Edit and press Tab/Enter.</p></div>`);
+  } else if (s == 'specialization') {
+    const sp = await api('/api/player/specs');
+    h.push(html`<div class="card"><h3>Specialization tracks</h3>${tbl([{ k: 'track_type', label: 'Track' }, { k: 'xp_amount', label: 'XP' }, { k: 'level' }], sp, { actions: (r) => html`<button class="b sec sm" data-act="spec" data-t="${r.track_type}" data-xp="${r.xp_amount}" data-lv="${r.level}">Edit</button>` })}<div class="row"><span class="mut">Add/overwrite:</span>Track<input id="st" type="number" value="0" class="w70">XP<input id="sx" type="number" value="0">Level<input id="sl" type="number" step="0.1" value="1" class="w80"><button class="b" data-act="specSet">Set</button></div></div>`);
   } else if (s == 'journey') {
+    const [tu, tg] = await Promise.all(['tutorials', 'tags'].map((x) => api('/api/player/' + x)));
     h.push(html`<div class="card"><h3>Journey nodes</h3><div class="row"><input id="jq" placeholder="filter (e.g. DA_MQ)" size="30" value="${window.jq || ''}"><button class="b sec" data-act="jfilter">Filter</button><span class="mut">Completing a node also completes its children.</span></div><div id="jout"></div></div>`);
-  } else if (s == 'recipes') {
+    h.push(html`<div class="card"><h3>Tutorials</h3>${tbl([{ k: 'id' }, { k: 'name' }, { k: 'state', label: 'State', f: (r) => (r.state == 2 ? html`<span class="ok">done</span>` : html`<span class="mut">not done</span>`) }], tu, { actions: (r) => (r.state == 2 ? html`<button class="b sec sm" data-act="tut" data-id="${r.id}" data-c="0">Reset</button>` : html`<button class="b sm" data-act="tut" data-id="${r.id}" data-c="1">Complete</button>`) })}</div>
+    <div class="card"><h3>Player tags</h3>${tg.length ? tg.map((t) => html`<span class="tag">${t.tag} <a href="#" data-act="tagDel" data-tag="${t.tag}">×</a></span>`) : html`<span class="mut">none</span>`}<div class="row"><input id="tag" placeholder="Tag.Name" size="40"><button class="b" data-act="tagAdd">Add tag</button></div></div>`);
+  } else if (s == 'buildingsets') {
     const r = await api('/api/player/recipes');
     h.push(html`<div class="card"><h3>Learned building sets (${r.learnedSets.length})</h3>${r.learnedSets.map((x) => html`<span class="tag">${x.name}</span>`)}</div><div class="card"><h3>New buildable pieces (${r.newPieces.length})</h3>${r.newPieces.map((x) => html`<span class="tag">${x.name}</span>`)}</div>`);
-  } else if (s == 'vendors') {
+  } else if (s == 'admin') {
     const e = await api('/api/vendors');
     h.push(html`<div class="card"><h3>Vendor purchase limits</h3><p class="mut">Vendors limit how much you can buy per restock cycle. Resetting clears those counters.</p><div class="row"><button class="b" data-act="vreset" data-v="">Reset all vendors</button></div>
     ${tbl([{ k: 'vendor_id', label: 'Vendor' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'amount_bought', label: 'Bought' }], e.stock, { actions: (r) => html`<button class="b sec sm" data-act="vreset" data-v="${r.vendor_id}">Reset vendor</button>` })}
     <h3 class="mt14">Restock cycles</h3>${tbl([{ k: 'vendor_id' }, { k: 'last_interacted_timestamp', label: 'Last interaction', f: (r) => new Date(r.last_interacted_timestamp * 1000).toLocaleString() }], e.cycles)}</div>`);
+  } else {
+    h.push(html`<div class="card"><h3>${SOON[s] || s}</h3><p class="mut">Not in tabr-tau yet. The console has this tab; it is planned (#96).</p></div>`);
   }
-  setHTML($('#main'), html`${h}`);
+  setHTML(host(), html`${h}`);
   if (s == 'journey') journeyList();
 }
 async function journeyList() {
@@ -279,7 +297,7 @@ async function basesView() {
     h.push(html`<div class="card"><h3>Placeables (${b.placeables.length})</h3>${tbl([{ k: 'id' }, { k: 'building_type', label: 'Type' }, { k: 'health', f: (r) => html`<input type="number" value="${r.health}" data-hp="placeable" data-id="${r.id}" class="w90">` }], b.placeables)}</div>
     <div class="card"><h3>Building piece types</h3>${tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], b.types)}</div>`);
   }
-  setHTML($('#main'), html`${h}`);
+  setHTML(host(), html`${h}`);
 }
 
 // ---------- VEHICLES
@@ -293,7 +311,7 @@ async function vehiclesView() {
   if (v.vehicles.length) h.unshift(html`<div class="card"><div class="row"><button class="b" data-act="repairV">Repair all vehicles</button><span class="mut">Raises every module of your vehicles to its current maximum. Wear that lowered the maximum itself is not undone.</span></div></div>`);
   if (v.hidden) h.push(html`<p class="mut">${v.hidden} other vehicle${v.hidden == 1 ? '' : 's'} in the world (not yours) ${v.hidden == 1 ? 'is' : 'are'} not shown.</p>`);
   if (!v.vehicles.length && !v.recovered.length) h.push(html`<p class="mut">None of your vehicles are in this save yet. Vehicle fuel is stored in an opaque binary blob and is not editable.</p>`);
-  setHTML($('#main'), html`${h}`);
+  setHTML(host(), html`${h}`);
 }
 
 // ---------- LANDSRAAD
@@ -379,7 +397,7 @@ async function dbView() {
 async function render() {
   drawNav();
   try {
-    await ({ player: playerView, bases: basesView, vehicles: vehiclesView, landsraad: landsraadView, config: configView, db: dbView })[tab]();
+    await ({ player: playerView, landsraad: landsraadView, config: configView, db: dbView })[tab]();
   } catch (e) {
     setHTML($('#main'), html`<div class="card bad">${e.message}</div>`);
   }

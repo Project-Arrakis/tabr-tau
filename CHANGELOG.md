@@ -5,6 +5,9 @@ Versioning: [Semantic Versioning](https://semver.org/), tags `v0.x` until the fi
 
 ## [Unreleased]
 
+### Changed
+- The Player tab now mirrors the Dune Docker console's Players > Player Name view and its tabs (#96): Character (Overview, Inventory, Reputation), Crafting, Research, Building Sets, Customizations, Skills, Specialization, Journey (with tutorials and player tags), Blueprints, Bases, Vehicles and Admin (vendor purchase limits). Bases and Vehicles are no longer top-level tabs; the top-level tabs are Player, Landsraad, Config and Database. The tabs the console has and tabr-tau does not yet (Crafting, Research, Customizations, Skills, Blueprints) say so instead of being left out. Nothing that worked before was removed; features moved: Faction reputation to Character > Reputation, specialization tracks to Specialization, tutorials and tags to Journey, learned building sets to Building Sets, vendor limits to Admin. A saved browser tab of Bases or Vehicles opens the matching Player tab.
+
 ### Removed
 - The read-only Permissions card on the Bases tab (#58) and the `permissions` field of `GET /api/bases`: it was multiplayer scaffolding; in single-player every row has the same access level and the only ranks are the owner.
 - Support for non-Windows systems is now stated plainly (#87): the game runs only on Windows and the save lives on the same PC, so the README says Windows 10/11 (64-bit) only, and the macOS/Linux branches that opened the browser are gone. `--web` still opens the browser on Windows (for example when WebView2 is missing).
