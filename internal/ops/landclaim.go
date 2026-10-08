@@ -63,13 +63,6 @@ func squareComplete(have map[[2]int64]bool, n int64) bool {
 	return true
 }
 
-func abs64(n int64) int64 {
-	if n < 0 {
-		return -n
-	}
-	return n
-}
-
 // ExpandLandClaim grows a totem's claim to a square of the given number of rings around its own cell, and/or raises
 // its vertical level. Cells already stored are kept; the square is always connected edge to edge, which the game requires.
 func (o *Ops) ExpandLandClaim(a Args) (any, error) {
