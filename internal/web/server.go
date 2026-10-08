@@ -340,13 +340,13 @@ func (s *Server) routes() {
 	s.post("/api/bases/refill-generators", func(ops.Args) (any, error) { return o.RefillGenerators() })
 	s.post("/api/bases/health", o.SetPieceHealth)
 
-	// vehicles / exchange / landsraad
+	// vehicles / vendors / landsraad
 	s.get("/api/vehicles", func(r *http.Request) (any, error) { return o.Vehicles() })
 	s.post("/api/vehicles/bring", o.BringVehicle)
 	s.post("/api/vehicles/repair", func(ops.Args) (any, error) { return o.RepairVehicles() })
 	s.post("/api/vehicles/durability", o.SetRecoveredDurability)
-	s.get("/api/exchange", func(r *http.Request) (any, error) { return o.Exchange() })
-	s.post("/api/exchange/reset", o.ResetVendors)
+	s.get("/api/vendors", func(r *http.Request) (any, error) { return o.Vendors() })
+	s.post("/api/vendors/reset", o.ResetVendors)
 	s.get("/api/landsraad", func(r *http.Request) (any, error) { return o.Landsraad() })
 	s.post("/api/landsraad/progress", o.SetTaskProgress)
 	s.post("/api/landsraad/complete", o.CompleteTask)

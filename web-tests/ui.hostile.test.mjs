@@ -87,9 +87,9 @@ async function boot({ post = {}, get = {}, confused = false } = {}) {
 }
 
 const VIEWS = [
-  ['player', 'player:overview'], ['player', 'player:inventory'], ['player', 'player:progress'], ['player', 'player:journey'], ['player', 'player:recipes'],
+  ['player', 'player:overview'], ['player', 'player:inventory'], ['player', 'player:progress'], ['player', 'player:journey'], ['player', 'player:recipes'], ['player', 'player:vendors'],
   ['bases', 'bases:overview'], ['bases', 'bases:storage'], ['bases', 'bases:parts'],
-  ['vehicles'], ['exchange'], ['landsraad'], ['config'],
+  ['vehicles'], ['landsraad'], ['config'],
   ['db', 'db:browse'], ['db', 'db:sql'], ['db', 'db:backups'],
 ];
 

@@ -255,7 +255,7 @@ Layer 2 audit at the end of S1, S3, P4 and P5; Layer 3 before each tagged releas
 The operator reviewed the roadmap for items that make no sense without a server. Decisions:
 
 **Cut:** B5 permissions; B7 delete base; L2 simulated-guild contributions; the `--allow-remote` flag; the Exchange tab
-(Solari stays on Player, vendor restock moves into Player or World); the typed `force` reason (the API no longer takes
+(Solari stays on Player, vendor limits moved to Player > Vendors, 2026-10-08); the typed `force` reason (the API no longer takes
 `force`); sidecar backup JSON, pinned backups and retention tiers (keep the last N, restore one); Authenticode signing and
 build-provenance attestation; the codec fuzz target and `-race` matrix.
 
