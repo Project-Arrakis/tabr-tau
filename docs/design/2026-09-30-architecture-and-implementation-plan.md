@@ -209,6 +209,8 @@ Tasks: 4.4 items 1-10. Acceptance: each item has a failing-first test; `TestHost
 ### S2 UX safety (F-10, F-21)
 Review pane (Save only from it), tiered confirmations (typed for destructive/bulk), persistent game-running banner with polling, `beforeunload`, sticky commit errors with "reload and re-apply", in-browser save picker, error taxonomy and status codes, toast wording "Queued (not in game yet)", Backups and history page, "not available in single-player" catalog, accessibility pass, ID masking. Acceptance: a written flow for each state (first launch, multiple saves, game running, stale save, capability degraded) with a screenshot or scripted UI test.
 
+**Exception to "Save only from the review pane" (operator decision, 2026-10-08):** the opt-in *Automatic refill when the editor opens* setting (#63) applies and saves at start-up without a review, so the refill takes effect on the next game load. It keeps every other protection of the write pipeline (single-player check, changed-on-disk check, integrity check, backup first, read-back) and is off by default.
+
 ### P1 Verify by experiment (runs in parallel with S0-S2; gates S3)
 Run `docs/live-test-protocol.md` v2: T1, T1b, T2, T3, T4, T5, T6. Each ends with a PASS/FAIL/PARTIAL line and redacted evidence.
 

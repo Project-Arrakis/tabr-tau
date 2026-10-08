@@ -411,8 +411,12 @@ func (s *Server) routes() {
 }
 
 // RunStartupTasks does what the editor's settings ask for when it opens. Today that is the optional refill of base
-// water and generators: it queues the edits in the working copy (nothing is written to the game until Review & save)
-// and only when no single-player session is running, because a save loaded during a session is about to be replaced.
+// water and generators. This is a deliberate exception to "Save only from the review pane" (operator decision,
+// 2026-10-08), for this opt-in setting only: the refill is applied and written straight away so it takes effect the
+// next time the game loads, without a manual review, save, exit and reload. The write still goes through the whole
+// pipeline (single-player check, changed-on-disk check, integrity check, backup first, read-back verification), and
+// it is skipped when a single-player session is running. If the write is refused, the edits stay pending so the
+// person can see and review them.
 func (s *Server) RunStartupTasks() {
 	if !settings.Load(s.SettingsPath).AutoRefillOnOpen {
 		return
@@ -420,6 +424,10 @@ func (s *Server) RunStartupTasks() {
 	set := func(note string) { s.startupMu.Lock(); s.startupNote = note; s.startupMu.Unlock() }
 	if g := save.GameStateFor(s.Save.Path, true); g.Blocked {
 		set("Automatic refill skipped: " + g.Reason + ".")
+		return
+	}
+	if len(s.Save.Pending()) > 0 { // never fold someone else's pending edits into an unreviewed save
+		set("Automatic refill skipped: there are unsaved edits.")
 		return
 	}
 	w, err1 := s.Ops.RefillBaseWater()
@@ -433,7 +441,11 @@ func (s *Server) RunStartupTasks() {
 		set("Automatic refill: base water and generators were already full.")
 		return
 	}
-	set(fmt.Sprintf("Automatic refill queued %d water devices and %d generators (not saved yet; use Review & save).", nw, ng))
+	if _, err := s.Save.Commit(false); err != nil {
+		set(fmt.Sprintf("Automatic refill prepared %d water devices and %d generators but could not save them: %v. They are waiting under Review & save.", nw, ng, err))
+		return
+	}
+	set(fmt.Sprintf("Automatic refill saved %d water devices and %d generators to the game (the previous file is backed up).", nw, ng))
 }
 
 func (s *Server) takeStartupNote() string {

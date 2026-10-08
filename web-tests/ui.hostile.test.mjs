@@ -528,6 +528,9 @@ test('Automatic refill setting shows its state, toggles through the API, and the
   const card = [...ui.doc.querySelectorAll('.card')].find((c) => c.textContent.includes('Automatic refill'));
   assert.ok(card && card.textContent.includes('off'), 'the card shows the setting is off');
   ui.click('[data-act="autoref"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes('without the Review & save step'), 'turning it on says it saves immediately');
+  assert.equal(ui.posted.filter((p) => p.path === '/api/settings').length, 0, 'nothing is sent before confirming');
+  ui.click('[data-act="askOk"]'); await ui.settle();
   assert.deepEqual(ui.posted.filter((p) => p.path === '/api/settings')[0].body, { autoRefillOnOpen: true }, 'turning on sends true');
   ui.dom.window.close();
 });

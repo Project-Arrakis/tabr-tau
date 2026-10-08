@@ -371,23 +371,54 @@ func TestSettingsEndpointsAndOpenTimeRefill(t *testing.T) {
 		t.Fatal("the setting must be written to disk")
 	}
 
-	// on: opening queues the refill as pending edits, and tells the UI once
+	// on: opening refills and saves straight away, with a backup, and tells the UI once
 	s.RunStartupTasks()
-	if len(s.Save.Pending()) != 1 {
-		t.Fatalf("expected one pending refill, got %d", len(s.Save.Pending()))
+	if len(s.Save.Pending()) != 0 {
+		t.Fatalf("the refill must be written, not left pending: %d pending", len(s.Save.Pending()))
 	}
 	w := call("GET", "/api/startup", "")
-	if !strings.Contains(w.Body.String(), "queued 1 water devices") {
+	if !strings.Contains(w.Body.String(), "saved 1 water devices") {
 		t.Fatalf("%s", w.Body.String())
 	}
 	if w := call("GET", "/api/startup", ""); !strings.Contains(w.Body.String(), `"note":""`) {
 		t.Fatalf("the note must be shown only once: %s", w.Body.String())
 	}
+	if backups, _ := filepath.Glob(filepath.Join(filepath.Dir(s.Save.Path), "tabr-tau-backups", "*.db")); len(backups) != 1 {
+		t.Fatalf("expected one backup of the previous file, found %v", backups)
+	}
+	reopened, err := save.Open(s.Save.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	row, _ := reopened.One(`select json_extract(components,'$.FWaterStorageComponent[1].m_WaterStored') w from fgl_entities where entity_id=-901`)
+	reopened.Close()
+	if row["w"].(int64) != 5000 {
+		t.Fatalf("the cistern in the written file is %v, want 5000", row["w"])
+	}
 
-	// opening again with everything full queues nothing more
-	before := len(s.Save.Pending())
+	// opening again with everything full does nothing and writes nothing
 	s.RunStartupTasks()
-	if len(s.Save.Pending()) != before || !strings.Contains(s.takeStartupNote(), "already full") {
+	if len(s.Save.Pending()) != 0 || !strings.Contains(s.takeStartupNote(), "already full") {
 		t.Fatal("a second open must find nothing to do")
+	}
+}
+
+// If the write is refused (here: the file changed on disk after it was loaded), the edits stay pending and the note says so.
+func TestOpenTimeRefillThatCannotSaveLeavesTheEditsPending(t *testing.T) {
+	s := New(testsave.PlayerWithSQL(t, cisternSQL), config.Dir{Path: t.TempDir()})
+	s.SettingsPath = filepath.Join(t.TempDir(), "settings.json")
+	if err := settings.Save(s.SettingsPath, settings.Settings{AutoRefillOnOpen: true}); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.OpenFile(s.Save.Path, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Write([]byte{0})
+	f.Close()
+	s.RunStartupTasks()
+	note := s.takeStartupNote()
+	if !strings.Contains(note, "could not save them") || len(s.Save.Pending()) != 1 {
+		t.Fatalf("note %q, pending %d", note, len(s.Save.Pending()))
 	}
 }
