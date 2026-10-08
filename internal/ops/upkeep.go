@@ -30,7 +30,7 @@ func (o *Ops) RefillBaseWater() (any, error) {
 		from placeables p
 		join actor_fgl_entities afe on afe.actor_id=p.id
 		join fgl_entities fe on fe.entity_id=afe.entity_id
-		where json_type(fe.components,'$.FWaterStorageComponent') is not null order by p.id`)
+		where json_valid(fe.components,8) and json_type(fe.components,'$.FWaterStorageComponent') is not null order by p.id`)
 	if err != nil {
 		return nil, err
 	}
@@ -89,6 +89,7 @@ func (o *Ops) RefillGenerators() (any, error) {
 		return nil, err
 	}
 	filled, full := 0, 0
+	var skipped []string
 	_, err = o.S.Mutate("refill generators", func(m *save.Mut) error {
 		for _, r := range rows {
 			spec, known := generatorFuel[fmt.Sprint(r["kind"])]
@@ -102,6 +103,10 @@ func (o *Ops) RefillGenerators() (any, error) {
 			switch {
 			case len(cur) == 0:
 				if _, err := giveInTx(m, r["inv"].(int64), spec.template, spec.full, 0); err != nil {
+					if err.Error() == "inventory is full" { // other items fill its slots: leave this one, keep going
+						skipped = append(skipped, fmt.Sprintf("generator %v (no free slot)", r["actor"]))
+						continue
+					}
 					return fmt.Errorf("generator %v: %w", r["actor"], err)
 				}
 				filled++
@@ -120,7 +125,7 @@ func (o *Ops) RefillGenerators() (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"ok": true, "filled": filled, "alreadyFull": full}, nil
+	return map[string]any{"ok": true, "filled": filled, "alreadyFull": full, "skipped": skipped}, nil
 }
 
 func sortedCounts(m map[string]int) []string {

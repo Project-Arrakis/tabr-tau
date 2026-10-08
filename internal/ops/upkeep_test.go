@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -116,4 +117,63 @@ insert into vehicle_modules(id,vehicle_id,template_id,stats) values
 		t.Fatalf("other keys or blob type damaged: %v", row)
 	}
 	assertDBSound(t, o)
+}
+
+// Every listed water device type must reach its own capacity, and a damaged component must not stop the others.
+func TestRefillBaseWaterEveryTypeAndDamagedComponent(t *testing.T) {
+	caps := map[string]int64{"WaterCistern_Placeable": 5000, "MediumWaterCistern_Placeable": 25000, "LargeWaterCistern_Placeable": 100000,
+		"WindTrap_Placeable": 500, "LargeWindTrap_Placeable": 500, "BloodWaterExtractor_Placeable": 1000, "BloodWaterExtractionAdvanced_Placeable": 1000}
+	sql := ""
+	id := 700
+	var ids = map[string]int{}
+	for typ := range caps {
+		id++
+		ids[typ] = id
+		sql += fmt.Sprintf(`insert into actors(id,class,map) values (%d,'c','HaggaBasin');
+			insert into fgl_entities(entity_id,components) values (-%d, jsonb('{"FWaterStorageComponent":[0,{"m_WaterStored":0.0}]}'));
+			insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (%d,-%d,'a');
+			insert into placeables(id,health,building_type) values (%d,1,'%s');`, id, id, id, id, id, typ)
+	}
+	sql += `insert into actors(id,class,map) values (790,'c','HaggaBasin');
+		insert into fgl_entities(entity_id,components) values (-790, x'ff00ff');
+		insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (790,-790,'a');
+		insert into placeables(id,health,building_type) values (790,1,'WaterCistern_Placeable');`
+	o := &Ops{S: testsave.PlayerWithSQL(t, sql)}
+	r, err := o.RefillBaseWater()
+	if err != nil {
+		t.Fatalf("a damaged component must be skipped, not abort: %v", err)
+	}
+	if r.(map[string]any)["filled"].(int) != len(caps) {
+		t.Fatalf("%v", r)
+	}
+	for typ, want := range caps {
+		if got := water(t, o, -ids[typ]); got != want {
+			t.Errorf("%s: %d want %d", typ, got, want)
+		}
+	}
+}
+
+// A spice generator takes Spice-infused Fuel Cells; a generator whose slots are all taken is skipped and reported
+// while the others are still filled.
+func TestRefillGeneratorsSpiceAndFullInventory(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, `
+insert into actors(id,class,map) values (801,'c','HaggaBasin'),(802,'c','HaggaBasin'),(803,'c','HaggaBasin');
+insert into placeables(id,health,building_type) values (801,1,'SpiceGenerator_Placeable'),(802,1,'Generator_Placeable'),(803,1,'Generator_Placeable');
+insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (811,801,3,5,100.0),(812,802,3,1,100.0),(813,803,3,5,100.0);
+insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values
+  (821,812,1,0,'Junk',0,0,'{"FItemStackAndDurabilityStats":[[],{}]}',0);`)}
+	r, err := o.RefillGenerators()
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := r.(map[string]any)
+	if res["filled"].(int) != 2 || len(res["skipped"].([]string)) != 1 {
+		t.Fatalf("%v", res)
+	}
+	if mustOne(t, o, `select template_id t from items where inventory_id=811`)["t"] != "SpicedFuelCell" || mustOne(t, o, `select template_id t from items where inventory_id=813`)["t"] != "Oil" {
+		t.Fatal("wrong fuel for the generator type")
+	}
+	if n := mustOne(t, o, `select count(*) n from items where inventory_id=812`)["n"].(int64); n != 1 {
+		t.Fatalf("the full generator must be left alone, has %d items", n)
+	}
 }
