@@ -543,3 +543,22 @@ test('A start-up note that reports a problem stays on screen as an error, and th
   assert.ok(ui.doc.body.textContent.includes('Last automatic save: 2026-10-08 13:00'), 'the card keeps the last automatic save');
   ui.dom.window.close();
 });
+
+test('Shrink claim asks first, posts the chosen size, and is offered only when extra cells exist', async () => {
+  const claims = [
+    { totem_id: 7, name: 'Totem', cells: 9, rings: 1, level: 0, irregular: false, maxRings: 5, maxLevel: 5, piecesInClaim: 486, piecesOutside: 0 },
+    { totem_id: 8, name: 'Other', cells: 1, rings: 0, level: 0, irregular: false, maxRings: 5, maxLevel: 5 },
+  ];
+  const ui = await boot({ get: { '/api/bases/claim': claims }, post: { '/api/bases/claim/shrink': { ok: true, removed: 8, remaining: 1 } } });
+  ui.click('[data-tab="bases"]'); await ui.settle();
+  assert.equal(ui.doc.querySelectorAll('[data-act="claimShrink"]').length, 1, 'only a claim with extra cells can shrink');
+  assert.deepEqual([...ui.doc.querySelectorAll('#cs7 option')].map((o) => o.value), ['0'], 'a 3x3 claim can only shrink to its own cell, not to sizes it does not exceed');
+  assert.ok(ui.doc.body.textContent.includes('486 pieces inside the claim'));
+  ui.click('[data-act="claimShrink"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes("the totem's own cell"), 'the question names the result');
+  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/claim/shrink').length, 0, 'nothing is sent before confirming');
+  ui.click('[data-act="askOk"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/bases/claim/shrink')[0].body, { totem_id: 7, rings: 0 });
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Removed 8 cells'));
+  ui.dom.window.close();
+});

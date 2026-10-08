@@ -3,6 +3,7 @@ package ops
 import (
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
@@ -43,6 +44,16 @@ func (o *Ops) LandClaims() (any, error) {
 		}
 		t["name"] = shortClass(t["class"])
 		delete(t, "class")
+		if pc, err := o.pieceCells(t["totem_id"].(int64)); err == nil {
+			var inside int64
+			for c, n := range pc {
+				if have[c] {
+					inside += n
+				}
+			}
+			t["piecesInClaim"] = inside
+			t["piecesOutside"] = totalPieces(pc) - inside
+		}
 		t["cells"] = int64(len(have))
 		t["rings"] = rings
 		t["irregular"] = int64(len(have)) != (2*rings+1)*(2*rings+1)
@@ -146,4 +157,124 @@ func (o *Ops) ExpandLandClaim(a Args) (any, error) {
 		return nil, err
 	}
 	return map[string]any{"ok": true, "added": len(add), "totalCells": len(have) + len(add), "level": max(level, curLevel)}, nil
+}
+
+// claimCellSize is the width of one claim cell in world units (10 x 10 foundations of 512, verified on the
+// dedicated server). A piece's cell is found in the claim's own frame: its offset from the claim origin, turned by
+// minus the claim yaw, divided by the cell size and rounded, so cell (0,0) is centred on the origin. No axis flips.
+const claimCellSize = 5120.0
+
+// A piece exactly on a cell boundary (offset +-2560) is placed by rounding half away from zero; the game's own rule for
+// that edge is not known, which can only make the count differ by the pieces on the boundary.
+// pieceCells counts the building pieces and placeables of one claim per cell, so a cell is never removed from under a base.
+func (o *Ops) pieceCells(totemID int64) (map[[2]int64]int64, error) {
+	t, err := o.S.One(`select landclaim_original_global_location_x ox, landclaim_original_global_location_y oy, landclaim_original_global_yaw_rotation yaw from totems where id=?`, totemID)
+	if err != nil {
+		return nil, err
+	}
+	ox, okx := t["ox"].(float64)
+	oy, oky := t["oy"].(float64)
+	yaw, okyaw := t["yaw"].(float64)
+	if t == nil || !okx || !oky || !okyaw {
+		return nil, errors.New("this claim has no recorded origin, so its cells cannot be matched to pieces; nothing was removed")
+	}
+	// A piece belongs to this claim when its owner entity is linked to the totem's actor. A piece with no owner link is
+	// counted for every claim: removing a cell must err on the side of keeping it.
+	rows, err := o.S.Query(`select bi.location_x x, bi.location_y y from building_instances bi
+			left join actor_fgl_entities afe on afe.entity_id=bi.owner_entity_id
+			where bi.location_x is not null and bi.location_y is not null and (afe.actor_id is null or afe.actor_id=?)
+		union all select a.location_x, a.location_y from placeables p join actors a on a.id=p.id
+			left join actor_fgl_entities afe on afe.entity_id=p.owner_entity_id
+			where a.location_x is not null and a.location_y is not null and (afe.actor_id is null or afe.actor_id=?)`, totemID, totemID)
+	if err != nil {
+		return nil, err
+	}
+	sin, cos := math.Sincos(-yaw * math.Pi / 180)
+	out := map[[2]int64]int64{}
+	for _, r := range rows {
+		x, okx := r["x"].(float64)
+		y, oky := r["y"].(float64)
+		if !okx || !oky {
+			continue
+		}
+		dx, dy := x-ox, y-oy
+		lx, ly := dx*cos-dy*sin, dx*sin+dy*cos
+		out[[2]int64{int64(math.Round(lx / claimCellSize)), int64(math.Round(ly / claimCellSize))}]++
+	}
+	return out, nil
+}
+
+// ShrinkLandClaim removes every stored cell outside a square of the given number of rings around the totem's own cell
+// (rings 0 removes all stored cells; the totem's own cell is implicit and always stays). A cell that holds building
+// pieces or placeables is never removed: the request is refused and says how many pieces block it.
+func (o *Ops) ShrinkLandClaim(a Args) (any, error) {
+	id, err := a.Int("totem_id")
+	if err != nil {
+		return nil, err
+	}
+	keep, err := a.IntRange("rings", 0, maxClaimRings)
+	if err != nil {
+		return nil, err
+	}
+	if t, err := o.S.One(`select 1 x from totems where id=?`, id); err != nil || t == nil {
+		return nil, errors.New("land claim (totem) not found")
+	}
+	rows, err := o.S.Query(`select grid_location_x x, grid_location_y y from landclaim_segments where totem_id=?`, id)
+	if err != nil {
+		return nil, err
+	}
+	var drop [][2]int64
+	for _, r := range rows {
+		x, okx := r["x"].(int64)
+		y, oky := r["y"].(int64)
+		if okx && oky && max(x, -x, y, -y) > keep {
+			drop = append(drop, [2]int64{x, y})
+		}
+	}
+	if len(drop) == 0 {
+		return nil, errors.New("there are no stored cells outside that size")
+	}
+	pieces, err := o.pieceCells(id)
+	if err != nil {
+		return nil, err
+	}
+	blocked, blockers := 0, int64(0)
+	for _, c := range drop {
+		if n := pieces[c]; n > 0 {
+			blocked++
+			blockers += n
+		}
+	}
+	if blocked > 0 {
+		return nil, fmt.Errorf("%d of the cells to remove hold %d building pieces or placeables; nothing was removed", blocked, blockers)
+	}
+	_, err = o.S.Mutate("", func(m *save.Mut) error {
+		for _, c := range drop {
+			if _, err := m.Exec(`delete from landclaim_segments where totem_id=? and grid_location_x=? and grid_location_y=?`, id, c[0], c[1]); err != nil {
+				return err
+			}
+		}
+		m.Desc = fmt.Sprintf("shrink land claim %d: -%d cells (keep %d rings)", id, len(drop), keep)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	left := map[[2]int64]bool{{0, 0}: true}
+	for _, r := range rows {
+		x, okx := r["x"].(int64)
+		y, oky := r["y"].(int64)
+		if okx && oky && max(x, -x, y, -y) <= keep {
+			left[[2]int64{x, y}] = true
+		}
+	}
+	return map[string]any{"ok": true, "removed": len(drop), "remaining": len(left)}, nil
+}
+
+func totalPieces(pc map[[2]int64]int64) int64 {
+	var n int64
+	for _, v := range pc {
+		n += v
+	}
+	return n
 }

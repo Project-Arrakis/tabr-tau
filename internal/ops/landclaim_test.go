@@ -2,6 +2,7 @@ package ops
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
@@ -125,4 +126,112 @@ insert into totems(id,landclaim_vertical_level) values (601,NULL),(602,2);`)}
 		t.Fatalf("got %v", err)
 	}
 	assertDBSound(t, o)
+}
+
+// A claim with its origin at (1000, 2000) turned 90 degrees: a piece 5120 units along world +Y from the origin sits in
+// claim cell (1, 0), because local = R(-yaw)(offset).
+const shrinkFixture = `
+insert into actors(id,class,map,location_x,location_y) values (601,'/Game/BP_Totem.BP_Totem_C','HaggaBasin',1000.0,2000.0),
+  (701,'c','HaggaBasin',1000.0,2000.0),(702,'c','HaggaBasin',1000.0,7120.0);
+insert into totems(id,landclaim_vertical_level,landclaim_original_global_location_x,landclaim_original_global_location_y,landclaim_original_global_location_z,landclaim_original_global_yaw_rotation) values (601,0,1000.0,2000.0,0.0,90.0);
+insert into building_instances(building_id,instance_id,building_type,location_x,location_y,location_z) values (701,1,'Floor',1000.0,2000.0,0.0),(702,1,'Floor',1000.0,7120.0,0.0);
+insert into landclaim_segments(totem_id,grid_location_x,grid_location_y) values (601,-1,0),(601,0,-1),(601,1,0),(601,2,2);`
+
+func TestShrinkLandClaimRemovesEmptyCellsOutsideTheSquare(t *testing.T) {
+	// piece 702 is in cell (1,0); every other stored cell is empty
+	o := &Ops{S: testsave.PlayerWithSQL(t, shrinkFixture)}
+	r, err := o.ShrinkLandClaim(Args{"totem_id": 601.0, "rings": 1.0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res := r.(map[string]any); res["removed"].(int) != 1 || res["remaining"].(int) != 4 {
+		t.Fatalf("%v", res)
+	}
+	left := mustOne(t, o, `select count(*) n from landclaim_segments where totem_id=601 and grid_location_x=2`)["n"].(int64)
+	if left != 0 {
+		t.Fatal("the cell outside the square must be gone")
+	}
+	if mustOne(t, o, `select count(*) n from landclaim_segments where totem_id=601`)["n"].(int64) != 3 {
+		t.Fatal("cells inside the square must stay")
+	}
+	assertDBSound(t, o)
+}
+
+func TestShrinkLandClaimNeverRemovesACellThatHoldsPieces(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, shrinkFixture)}
+	_, err := o.ShrinkLandClaim(Args{"totem_id": 601.0, "rings": 0.0})
+	if err == nil || !strings.Contains(err.Error(), "hold 1 building pieces") {
+		t.Fatalf("a cell with a piece in it must block the request: %v", err)
+	}
+	if mustOne(t, o, `select count(*) n from landclaim_segments where totem_id=601`)["n"].(int64) != 4 {
+		t.Fatal("a refused request must remove nothing")
+	}
+	// move that piece into the totem's own cell and everything can go
+	testsave.Exec(t, o.S, `update building_instances set location_y=2000.0 where building_id=702`)
+	r, err := o.ShrinkLandClaim(Args{"totem_id": 601.0, "rings": 0.0})
+	if err != nil || r.(map[string]any)["removed"].(int) != 4 || r.(map[string]any)["remaining"].(int) != 1 {
+		t.Fatalf("%v %v", r, err)
+	}
+	if _, err := o.ShrinkLandClaim(Args{"totem_id": 601.0, "rings": 0.0}); err == nil {
+		t.Fatal("nothing left to remove must be reported, not silently succeed")
+	}
+}
+
+func TestShrinkLandClaimRefusesWithoutAnOriginAndBadInput(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, claimFixture)} // totem 601 has an origin of 0,0 yaw 0: fine; make one with none
+	testsave.Exec(t, o.S, `update totems set landclaim_original_global_location_x=NULL where id=601`)
+	if _, err := o.ShrinkLandClaim(Args{"totem_id": 601.0, "rings": 0.0}); err == nil || !strings.Contains(err.Error(), "no recorded origin") {
+		t.Fatalf("a claim without an origin cannot be matched to pieces: %v", err)
+	}
+	for name, a := range map[string]Args{"unknown totem": {"totem_id": 999.0, "rings": 0.0}, "no rings": {"totem_id": 601.0}, "too many": {"totem_id": 601.0, "rings": 9.0}} {
+		if _, err := o.ShrinkLandClaim(a); err == nil {
+			t.Errorf("%s must be refused", name)
+		}
+	}
+	if cellCount(t, o) != 2 {
+		t.Fatal("refused requests must not write")
+	}
+}
+
+func TestLandClaimsCountsPiecesInsideAndOutsideTheClaim(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, shrinkFixture)}
+	testsave.Exec(t, o.S, `insert into actors(id,class,map) values (703,'c','HaggaBasin'); insert into building_instances(building_id,instance_id,building_type,location_x,location_y,location_z) values (703,1,'Floor',1000.0,20000.0,0.0)`)
+	r, _ := o.LandClaims()
+	row := r.([]map[string]any)[0]
+	if row["piecesInClaim"].(int64) != 2 || row["piecesOutside"].(int64) != 1 {
+		t.Fatalf("%v", row)
+	}
+}
+
+func TestShrinkLandClaimCountsRemainingWithAStoredCentreRow(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, `insert into actors(id,class,map) values (601,'/Game/BP_Totem.BP_Totem_C','HaggaBasin');
+insert into totems(id,landclaim_original_global_location_x,landclaim_original_global_location_y,landclaim_original_global_location_z,landclaim_original_global_yaw_rotation) values (601,0.0,0.0,0.0,0.0);
+insert into landclaim_segments(totem_id,grid_location_x,grid_location_y) values (601,0,0),(601,2,2)`)}
+	r, err := o.ShrinkLandClaim(Args{"totem_id": 601.0, "rings": 1.0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.(map[string]any)["remaining"].(int) != 1 {
+		t.Fatalf("only the centre is left: %v", r)
+	}
+}
+
+// Pieces are counted against the claim that owns them; a piece with no owner link counts for every claim.
+func TestShrinkLandClaimOnlyCountsThisClaimsPieces(t *testing.T) {
+	sql := `insert into actors(id,class,map,location_x,location_y) values (601,'/Game/BP_Totem.BP_Totem_C','HaggaBasin',0.0,0.0),(602,'/Game/BP_Totem.BP_Totem_C','HaggaBasin',0.0,0.0),(701,'c','HaggaBasin',0.0,0.0);
+insert into totems(id,landclaim_original_global_location_x,landclaim_original_global_location_y,landclaim_original_global_location_z,landclaim_original_global_yaw_rotation) values (601,0.0,0.0,0.0,0.0),(602,0.0,0.0,0.0,0.0);
+insert into fgl_entities(entity_id,components) values (-601, jsonb('{}')), (-602, jsonb('{}'));
+insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (601,-601,'a'),(602,-602,'a');
+insert into building_instances(building_id,instance_id,building_type,location_x,location_y,location_z,owner_entity_id) values (701,1,'Floor',5120.0,0.0,0.0,-602);
+insert into landclaim_segments(totem_id,grid_location_x,grid_location_y) values (601,1,0)`
+	o := &Ops{S: testsave.PlayerWithSQL(t, sql)}
+	// the only piece in cell (1,0) belongs to the other totem (602): claim 601 may shrink
+	if _, err := o.ShrinkLandClaim(Args{"totem_id": 601.0, "rings": 0.0}); err != nil {
+		t.Fatalf("another claim's piece must not block this claim: %v", err)
+	}
+	// with no owner link the same piece counts for every claim and blocks
+	testsave.Exec(t, o.S, `insert into landclaim_segments(totem_id,grid_location_x,grid_location_y) values (601,1,0); update building_instances set owner_entity_id=NULL`)
+	if _, err := o.ShrinkLandClaim(Args{"totem_id": 601.0, "rings": 0.0}); err == nil {
+		t.Fatal("a piece with no owner link must block")
+	}
 }
