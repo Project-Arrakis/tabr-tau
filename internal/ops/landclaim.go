@@ -16,7 +16,9 @@ const (
 	maxVerticalLevel = 5
 )
 
-// LandClaims lists every totem with its stored cells, the size of its square (rings) and its vertical level.
+// LandClaims lists every totem with its stored cells, the size of its full square (rings) and its vertical level.
+// rings is the largest n for which every cell of the (2n+1) x (2n+1) square is part of the claim; cells that stick out
+// of that square make the claim irregular (irregular is true).
 func (o *Ops) LandClaims() (any, error) {
 	totems, err := o.S.Query(`select t.id totem_id, a.class, coalesce(t.landclaim_vertical_level,0) level from totems t join actors a on a.id=t.id order by t.id`)
 	if err != nil {
@@ -27,18 +29,38 @@ func (o *Ops) LandClaims() (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		rings := int64(0)
+		have := map[[2]int64]bool{{0, 0}: true}
 		for _, c := range cells {
-			rings = max(rings, abs64(c["x"].(int64)), abs64(c["y"].(int64)))
+			x, okx := c["x"].(int64)
+			y, oky := c["y"].(int64)
+			if okx && oky {
+				have[[2]int64{x, y}] = true
+			}
+		}
+		rings := int64(0)
+		for n := int64(1); n <= maxClaimRings+10 && squareComplete(have, n); n++ {
+			rings = n
 		}
 		t["name"] = shortClass(t["class"])
 		delete(t, "class")
-		t["cells"] = int64(len(cells)) + 1 // the totem's own cell counts
+		t["cells"] = int64(len(have))
 		t["rings"] = rings
+		t["irregular"] = int64(len(have)) != (2*rings+1)*(2*rings+1)
 		t["maxRings"] = int64(maxClaimRings)
 		t["maxLevel"] = int64(maxVerticalLevel)
 	}
 	return totems, nil
+}
+
+func squareComplete(have map[[2]int64]bool, n int64) bool {
+	for y := -n; y <= n; y++ {
+		for x := -n; x <= n; x++ {
+			if !have[[2]int64{x, y}] {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func abs64(n int64) int64 {
@@ -88,7 +110,11 @@ func (o *Ops) ExpandLandClaim(a Args) (any, error) {
 		return nil, err
 	}
 	for _, r := range rows {
-		have[[2]int64{r["x"].(int64), r["y"].(int64)}] = true
+		x, okx := r["x"].(int64)
+		y, oky := r["y"].(int64)
+		if okx && oky {
+			have[[2]int64{x, y}] = true
+		}
 	}
 	var add [][2]int64
 	for y := -rings; y <= rings; y++ {
@@ -100,7 +126,14 @@ func (o *Ops) ExpandLandClaim(a Args) (any, error) {
 	}
 	raise := hasLevel && level > curLevel
 	if len(add) == 0 && !raise {
-		return nil, errors.New("the claim already covers that size")
+		switch {
+		case hasRings && hasLevel:
+			return nil, errors.New("the claim already covers that size and has that vertical level")
+		case hasRings:
+			return nil, errors.New("the claim already covers that size")
+		default:
+			return nil, fmt.Errorf("the vertical level is already %d", curLevel)
+		}
 	}
 	_, err = o.S.Mutate("", func(m *save.Mut) error {
 		for _, c := range add {
