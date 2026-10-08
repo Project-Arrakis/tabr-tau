@@ -1,4 +1,4 @@
-// Package ops implements the player, base, vehicle, exchange and Landsraad
+// Package ops implements the player, base, vehicle, vendor and Landsraad
 // operations. It is modelled on console/api/src/duneDb.js from
 // dune-awakening-selfhost-docker, translated from Postgres stored procedures to
 // plain SQL against the single-player SQLite save.

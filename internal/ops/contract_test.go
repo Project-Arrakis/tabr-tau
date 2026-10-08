@@ -23,7 +23,7 @@ func TestReadPathsMatchRealSchema(t *testing.T) {
 	reads := map[string]func() (any, error){
 		"Overview": o.Overview, "Player": o.Player, "Inventory": o.Inventory, "Factions": o.Factions, "Specs": o.Specs,
 		"Tutorials": o.Tutorials, "Tags": o.Tags, "Recipes": o.Recipes, "Bases": o.Bases, "Storage": o.Storage,
-		"Vehicles": o.Vehicles, "Exchange": o.Exchange, "Landsraad": o.Landsraad, "Tables": o.Tables,
+		"Vehicles": o.Vehicles, "Vendors": o.Vendors, "Landsraad": o.Landsraad, "Tables": o.Tables,
 		"Journey":      func() (any, error) { return o.Journey("") },
 		"StorageItems": func() (any, error) { return o.StorageItems(1) },
 		"TableRows":    func() (any, error) { return o.TableRows("items", "", 10, 0) },

@@ -81,7 +81,7 @@ function pickedItemId(inputId) {
 }
 
 // ---------- tabs
-const TABS = { player: 'Player', bases: 'Bases', vehicles: 'Vehicles', exchange: 'Exchange', landsraad: 'Landsraad', config: 'Config', db: 'Database' };
+const TABS = { player: 'Player', bases: 'Bases', vehicles: 'Vehicles', landsraad: 'Landsraad', config: 'Config', db: 'Database' };
 let tab = Object.hasOwn(TABS, localStorage.tab) ? localStorage.tab : 'player';
 const sub = { player: 'overview', db: 'browse' };
 const GROUPS = ['player', 'bases', 'db'];
@@ -201,7 +201,7 @@ $('#btnDiscard').onclick = async () => { if (await ask({ title: 'Discard all uns
 let P = null;
 async function playerView() {
   const s = sub.player;
-  const h = [subNav('player', [['overview', 'Overview'], ['inventory', 'Inventory'], ['progress', 'Progression'], ['journey', 'Journey'], ['recipes', 'Recipes']])];
+  const h = [subNav('player', [['overview', 'Overview'], ['inventory', 'Inventory'], ['progress', 'Progression'], ['journey', 'Journey'], ['recipes', 'Recipes'], ['vendors', 'Vendors']])];
   if (s == 'overview') {
     P = await api('/api/player');
     const a = P.actor || {}, acc = P.account || {}, j = P.journey || {};
@@ -232,6 +232,11 @@ async function playerView() {
   } else if (s == 'recipes') {
     const r = await api('/api/player/recipes');
     h.push(html`<div class="card"><h3>Learned building sets (${r.learnedSets.length})</h3>${r.learnedSets.map((x) => html`<span class="tag">${x.name}</span>`)}</div><div class="card"><h3>New buildable pieces (${r.newPieces.length})</h3>${r.newPieces.map((x) => html`<span class="tag">${x.name}</span>`)}</div>`);
+  } else if (s == 'vendors') {
+    const e = await api('/api/vendors');
+    h.push(html`<div class="card"><h3>Vendor purchase limits</h3><p class="mut">Vendors limit how much you can buy per restock cycle. Resetting clears those counters.</p><div class="row"><button class="b" data-act="vreset" data-v="">Reset all vendors</button></div>
+    ${tbl([{ k: 'vendor_id', label: 'Vendor' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'amount_bought', label: 'Bought' }], e.stock, { actions: (r) => html`<button class="b sec sm" data-act="vreset" data-v="${r.vendor_id}">Reset vendor</button>` })}
+    <h3 class="mt14">Restock cycles</h3>${tbl([{ k: 'vendor_id' }, { k: 'last_interacted_timestamp', label: 'Last interaction', f: (r) => new Date(r.last_interacted_timestamp * 1000).toLocaleString() }], e.cycles)}</div>`);
   }
   setHTML($('#main'), html`${h}`);
   if (s == 'journey') journeyList();
@@ -288,15 +293,6 @@ async function vehiclesView() {
   if (v.vehicles.length) h.unshift(html`<div class="card"><div class="row"><button class="b" data-act="repairV">Repair all vehicles</button><span class="mut">Raises every module to its current maximum. Wear that lowered the maximum itself is not undone.</span></div></div>`);
   if (!v.vehicles.length && !v.recovered.length) h.push(html`<p class="mut">No vehicles in this save yet. Vehicle fuel is stored in an opaque binary blob and is not editable.</p>`);
   setHTML($('#main'), html`${h}`);
-}
-
-// ---------- EXCHANGE
-async function exchangeView() {
-  const e = await api('/api/exchange');
-  setHTML($('#main'), html`<div class="card"><h3>Solari</h3><div class="grid">${kv('Balance', e.solari.toLocaleString())}</div><div class="row"><input id="solari" type="number" value="10000"><button class="b" data-act="solari">Add / remove</button></div></div>
-  <div class="card"><h3>Vendor purchase limits</h3><p class="mut">Vendors limit how much you can buy per restock cycle. Resetting clears those counters.</p><div class="row"><button class="b" data-act="vreset" data-v="">Reset all vendors</button></div>
-  ${tbl([{ k: 'vendor_id', label: 'Vendor' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'amount_bought', label: 'Bought' }], e.stock, { actions: (r) => html`<button class="b sec sm" data-act="vreset" data-v="${r.vendor_id}">Reset vendor</button>` })}
-  <h3 class="mt14">Restock cycles</h3>${tbl([{ k: 'vendor_id' }, { k: 'last_interacted_timestamp', label: 'Last interaction', f: (r) => new Date(r.last_interacted_timestamp * 1000).toLocaleString() }], e.cycles)}</div>`);
 }
 
 // ---------- LANDSRAAD
@@ -382,7 +378,7 @@ async function dbView() {
 async function render() {
   drawNav();
   try {
-    await ({ player: playerView, bases: basesView, vehicles: vehiclesView, exchange: exchangeView, landsraad: landsraadView, config: configView, db: dbView })[tab]();
+    await ({ player: playerView, bases: basesView, vehicles: vehiclesView, landsraad: landsraadView, config: configView, db: dbView })[tab]();
   } catch (e) {
     setHTML($('#main'), html`<div class="card bad">${e.message}</div>`);
   }
@@ -463,7 +459,7 @@ const A = {
   giveInv: (d) => act(async () => { await api('/api/bases/give', { inventory_id: +d.id, template_id: pickedItemId('bt'), quantity: +val('bq') }); toast('Item added' + NOT_SAVED); await A.openInv(d); }, null, false),
   bring: (d) => act(() => api('/api/vehicles/bring', { id: +d.id }), 'Vehicle moved next to you'),
   dur: (d) => { const v = prompt('Chassis durability', d.v); if (v !== null) act(() => api('/api/vehicles/durability', { vehicle_id: +d.id, chassis_durability: +v }), 'Updated'); },
-  vreset: async (d) => (await ask({ title: 'Reset purchase limits?', body: 'Resets the purchase limits of this vendor.', ok: 'Reset' })) && act(() => api('/api/exchange/reset', { vendor_id: d.v }), 'Purchase limits reset'),
+  vreset: async (d) => (await ask({ title: 'Reset purchase limits?', body: 'Resets the purchase limits of this vendor.', ok: 'Reset' })) && act(() => api('/api/vendors/reset', { vendor_id: d.v }), 'Purchase limits reset'),
   term: () => act(async () => { await api('/api/landsraad/term', { active_decree_id: val('ad'), reigning_faction_id: val('rf') }); }, 'Term updated'),
   decree: (d) => act(() => api('/api/landsraad/decree', { id: +d.id, disabled: d.d == '1' }), 'Decree updated'),
   tfill: (d) => act(() => api('/api/landsraad/progress', { task_id: +d.id, faction_id: +val('lf'), amount: +d.goal }), 'Progress set'),

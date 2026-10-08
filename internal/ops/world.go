@@ -176,18 +176,18 @@ func (o *Ops) SetRecoveredDurability(a Args) (any, error) {
 	return ok(), nil
 }
 
-// ---------------------------------------------------------------- exchange
+// ---------------------------------------------------------------- vendors
 
-// Exchange covers what the single-player save stores about vendors: per-vendor
-// purchase counters and restock cycles, plus the player's Solari.
-func (o *Ops) Exchange() (any, error) {
+// Vendors covers what the single-player save stores about vendors: per-vendor
+// purchase counters and restock cycles. (The Solari balance lives on the Player tab.)
+func (o *Ops) Vendors() (any, error) {
 	p, err := o.player()
 	if err != nil {
 		return nil, err
 	}
 	stock, _ := o.S.Query(`select vendor_id, template_id, amount_bought from vendor_stock_state where player_id=? order by vendor_id, template_id`, p.Controller)
 	cycle, _ := o.S.Query(`select vendor_id, last_interacted_timestamp from vendor_stock_cycle where player_id=? order by vendor_id`, p.Controller)
-	return map[string]any{"solari": o.solari(p), "stock": stock, "cycles": cycle}, nil
+	return map[string]any{"stock": stock, "cycles": cycle}, nil
 }
 
 // ResetVendors clears purchase limits (all vendors, or one when vendor_id is set).
