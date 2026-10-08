@@ -284,13 +284,14 @@ async function basesView() {
 // ---------- VEHICLES
 async function vehiclesView() {
   const v = await api('/api/vehicles');
-  const h = [html`<div class="card"><h3>Vehicles in the world (${v.vehicles.length})</h3>${tbl([{ k: 'name', label: 'Vehicle' }, { k: 'id' }, { k: 'map' }, { k: 'x', f: (r) => fix(r.x) }, { k: 'y', f: (r) => fix(r.y) }, { k: 'z', f: (r) => fix(r.z) },
+  const h = [html`<div class="card"><h3>Your vehicles (${v.vehicles.length})</h3>${tbl([{ k: 'name', label: 'Vehicle' }, { k: 'id' }, { k: 'map' }, { k: 'x', f: (r) => fix(r.x) }, { k: 'y', f: (r) => fix(r.y) }, { k: 'z', f: (r) => fix(r.z) },
     { k: 'modules', label: 'Modules', f: (r) => (r.modules || []).map((m) => html`<span class="tag">${m.template_id}</span>`) }], v.vehicles,
     { actions: (r) => html`<button class="b sm" data-act="bring" data-id="${r.id}">Bring to me</button>` })}</div>
   <div class="card"><h3>Recovered / stored vehicles (${v.recovered.length})</h3>${tbl([{ k: 'vehicle_id', label: 'Id' }, { k: 'vehicle_name', label: 'Name' }, { k: 'chassis_durability', label: 'Chassis durability' }, { k: 'time_stored' }, { k: 'reason' }], v.recovered,
     { actions: (r) => html`<button class="b sec sm" data-act="dur" data-id="${r.vehicle_id}" data-v="${r.chassis_durability}">Set durability</button>` })}</div>`];
-  if (v.vehicles.length) h.unshift(html`<div class="card"><div class="row"><button class="b" data-act="repairV">Repair all vehicles</button><span class="mut">Raises every module to its current maximum. Wear that lowered the maximum itself is not undone.</span></div></div>`);
-  if (!v.vehicles.length && !v.recovered.length) h.push(html`<p class="mut">No vehicles in this save yet. Vehicle fuel is stored in an opaque binary blob and is not editable.</p>`);
+  if (v.vehicles.length) h.unshift(html`<div class="card"><div class="row"><button class="b" data-act="repairV">Repair all vehicles</button><span class="mut">Raises every module of your vehicles to its current maximum. Wear that lowered the maximum itself is not undone.</span></div></div>`);
+  if (v.hidden) h.push(html`<p class="mut">${v.hidden} other vehicle${v.hidden == 1 ? '' : 's'} in the world (not yours) ${v.hidden == 1 ? 'is' : 'are'} not shown.</p>`);
+  if (!v.vehicles.length && !v.recovered.length) h.push(html`<p class="mut">None of your vehicles are in this save yet. Vehicle fuel is stored in an opaque binary blob and is not editable.</p>`);
   setHTML($('#main'), html`${h}`);
 }
 
