@@ -7,6 +7,7 @@ Versioning: [Semantic Versioning](https://semver.org/), tags `v0.x` until the fi
 
 ### Removed
 - The read-only Permissions card on the Bases tab (#58) and the `permissions` field of `GET /api/bases`: it was multiplayer scaffolding; in single-player every row has the same access level and the only ranks are the owner.
+- Support for non-Windows systems is now stated plainly (#87): the game runs only on Windows and the save lives on the same PC, so the README says Windows 10/11 (64-bit) only, and the macOS/Linux branches that opened the browser are gone. `--web` still opens the browser on Windows (for example when WebView2 is missing).
 - The Exchange tab (#58): it only held a second copy of the Solari box (still on Player > Overview) and the vendor purchase limits. The vendor limits and restock cycles moved to **Player > Vendors**; the API paths are now `/api/vendors` and `/api/vendors/reset`.
 - The `--allow-remote` flag (#58): the editor has no login and can rewrite your save, and nothing needs it to be reachable from another machine, so it now only ever listens on this computer and only accepts connections from it. A non-loopback `--addr` is refused outright.
 

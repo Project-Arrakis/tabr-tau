@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -231,17 +230,8 @@ func runCommand(args []string) error {
 }
 
 func openBrowser(url string) {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-	case "darwin":
-		cmd = exec.Command("open", url)
-	default:
-		cmd = exec.Command("xdg-open", url)
-	}
-	_ = cmd.Start()
-	_ = filepath.Separator
+	// Windows only (the game runs only on Windows, #87).
+	_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
 }
 
 func runDiff(args []string) error {
