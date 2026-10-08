@@ -5,6 +5,9 @@ Versioning: [Semantic Versioning](https://semver.org/), tags `v0.x` until the fi
 
 ## [Unreleased]
 
+### Changed
+- The Player tab now mirrors the Dune Docker console's Players > Player Name view and its tabs (#96): Character (Overview, Inventory, Reputation), Crafting, Research, Building Sets, Customizations, Skills, Specialization, Journey (with tutorials and player tags), Blueprints, Bases, Vehicles and Admin (vendor purchase limits). Bases and Vehicles are no longer top-level tabs; the top-level tabs are Player, Landsraad, Config and Database. The tabs the console has and tabr-tau does not yet (Crafting, Research, Customizations, Skills, Blueprints) say so instead of being left out. Nothing that worked before was removed; features moved: Faction reputation to Character > Reputation, specialization tracks to Specialization, tutorials and tags to Journey, learned building sets to Building Sets, vendor limits to Admin. A saved browser tab of Bases or Vehicles opens the matching Player tab.
+
 ### Removed
 - The read-only Permissions card on the Bases tab (#58) and the `permissions` field of `GET /api/bases`: it was multiplayer scaffolding; in single-player every row has the same access level and the only ranks are the owner.
 - The Exchange tab (#58): it only held a second copy of the Solari box (still on Player > Overview) and the vendor purchase limits. The vendor limits and restock cycles moved to **Player > Vendors**; the API paths are now `/api/vendors` and `/api/vendors/reset`.
