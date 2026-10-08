@@ -14,7 +14,8 @@ import (
 // Source: read in game by the operator and cross-checked against the item pages of dune.gaming.tools
 // (stat "fillableCapacity"), 2026-10-08. The numbers are game facts; no site content is copied. The site's
 // terms require permission for bulk scraping, so this table is grown one verified item at a time.
-// An item that holds water but is not listed here is skipped and reported, never guessed.
+// A container with a fill record that is not listed here is skipped and reported, never guessed. An empty
+// container that is not listed has no record to recognise it by, so it is left alone without a report.
 var waterCapacity = map[string]float64{
 	"Literjon":                1000,
 	"Literjon_T6":             20000,
@@ -36,11 +37,11 @@ func (o *Ops) RefillContainers() (any, error) {
 		return nil, err
 	}
 	rows, err := o.S.Query(`select i.id, i.template_id,
-		json_extract(i.stats,'$.FFillableItemStats[1].CurrentAmount') amount,
+		cast(json_extract(i.stats,'$.FFillableItemStats[1].CurrentAmount') as real) amount,
 		json_extract(i.stats,'$.FFillableItemStats[1].FillableType') kind,
 		json_extract(i.stats,'$.FFillableItemStats') has
 		from items i join inventories v on v.id=i.inventory_id
-		where v.actor_id=? order by i.id`, p.Pawn)
+		where v.actor_id=? and json_valid(i.stats) order by i.id`, p.Pawn)
 	if err != nil {
 		return nil, err
 	}
