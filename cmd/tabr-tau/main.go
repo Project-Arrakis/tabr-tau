@@ -2,7 +2,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"flag"
 	"fmt"
@@ -43,8 +42,7 @@ Flags:
 func main() {
 	savePath := flag.String("save", "", "save file or folder (default: auto-detect game.db)")
 	cfgDir := flag.String("config", config.DefaultDir(), "game config folder containing the .ini files")
-	addr := flag.String("addr", "127.0.0.1:8090", "listen address (must be loopback unless --allow-remote)")
-	allowRemote := flag.Bool("allow-remote", false, "DANGEROUS: allow a non-loopback --addr and connections from other machines (no login exists)")
+	addr := flag.String("addr", "127.0.0.1:8090", "listen address (must be a loopback address: the editor has no login)")
 	noOpen := flag.Bool("no-browser", false, "do not open the browser")
 	forceWeb := flag.Bool("web", false, "use the browser instead of the built-in window (Windows opens its own window by default)")
 	flag.Usage = usage
@@ -140,21 +138,8 @@ func main() {
 		}
 	}
 
-	if window && (*allowRemote) {
-		die("--allow-remote needs the browser mode: add --web")
-	}
-	if err := web.CheckListenAddr(*addr, *allowRemote); err != nil {
+	if err := web.CheckListenAddr(*addr); err != nil {
 		die("error: %v", err)
-	}
-	remoteOK := false
-	if *allowRemote {
-		fmt.Fprintln(os.Stderr, "WARNING: --allow-remote lets other machines connect to an editor with NO login that can rewrite your save and config.")
-		fmt.Fprint(os.Stderr, "Type I UNDERSTAND to continue: ")
-		line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-		if strings.TrimSpace(line) != "I UNDERSTAND" {
-			die("not confirmed; exiting")
-		}
-		remoteOK = true
 	}
 
 	ln, err := web.Listen(*addr, addrExplicit)
@@ -163,7 +148,6 @@ func main() {
 	}
 	base := "http://" + ln.Addr().String()
 	ws := web.New(s, config.Dir{Path: *cfgDir})
-	ws.AllowRemote = remoteOK
 	ws.RunStartupTasks()
 	bootURL := ws.BootURL(base) // single use, valid for 10 minutes; sets this browser's session cookie
 	fmt.Printf("tabr-tau %s\n  save:   %s\n  config: %s\n  ui:     %s\n", version, s.Path, *cfgDir, bootURL)

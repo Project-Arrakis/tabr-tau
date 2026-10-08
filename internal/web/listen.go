@@ -24,10 +24,11 @@ func safeFilename(s string) string {
 	return string(out)
 }
 
-// CheckListenAddr refuses any bind address that is not loopback unless the operator passed the explicit
-// remote flag. The address must always be a well-formed host:port. An empty host (":8090") means every
-// interface and is treated as non-loopback (finding F-04 / NET-1).
-func CheckListenAddr(addr string, allowRemote bool) error {
+// CheckListenAddr refuses any bind address that is not loopback: the editor has no login and can rewrite the save, so
+// it never listens beyond this computer (the old --allow-remote override was removed, 2026-10-08). The address must
+// always be a well-formed host:port. An empty host (":8090") means every interface and is treated as non-loopback
+// (finding F-04 / NET-1).
+func CheckListenAddr(addr string) error {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return fmt.Errorf("invalid listen address %q (want host:port): %w", addr, err)
@@ -35,10 +36,10 @@ func CheckListenAddr(addr string, allowRemote bool) error {
 	if n, err := strconv.Atoi(port); err != nil || n < 0 || n > 65535 {
 		return fmt.Errorf("invalid port %q in listen address", port)
 	}
-	if isLoopbackHost(host) || allowRemote {
+	if isLoopbackHost(host) {
 		return nil
 	}
-	return errors.New("refusing to listen on " + addr + ": this editor has no login and can rewrite your save, so it only binds to this computer (127.0.0.1). Pass --allow-remote only if you understand that anyone who can reach that address can edit your files")
+	return errors.New("refusing to listen on " + addr + ": this editor has no login and can rewrite your save, so it only binds to this computer (127.0.0.1)")
 }
 
 func isLoopbackHost(host string) bool {
