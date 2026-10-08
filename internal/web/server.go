@@ -276,6 +276,7 @@ func (s *Server) routes() {
 	s.get("/api/player/inventory", func(r *http.Request) (any, error) { return o.Inventory() })
 	s.post("/api/player/give", o.GiveItem)
 	s.post("/api/player/repair", func(ops.Args) (any, error) { return o.RepairGear() })
+	s.post("/api/player/refill", func(ops.Args) (any, error) { return o.RefillContainers() })
 	s.post("/api/player/solari", o.AddSolari)
 	s.post("/api/items/update", o.SetItem)
 	s.post("/api/items/delete", o.DeleteItem)

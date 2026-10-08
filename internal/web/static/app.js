@@ -177,7 +177,7 @@ async function playerView() {
   } else if (s == 'inventory') {
     const d = await api('/api/player/inventory');
     h.push(html`<div class="card"><h3>Give item</h3><div class="row"><input id="gt" list="tpl" placeholder="template id, e.g. Spice" size="34"><datalist id="tpl">${d.templates.map((t) => html`<option value="${t}">`)}</datalist>
-    Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="repair">Repair all gear</button></div>
+    Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="repair">Repair all gear</button><button class="b sec" data-act="refill">Refill containers</button></div>
     <p class="mut">Template ids come from items already in your save; any valid game template id works.</p></div>
     <div class="card"><h3>Items (${d.items.length})</h3>${tbl([{ k: 'inventory_name', label: 'Inventory' }, { k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item' },
       { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" value="${r.stack_size}" min="1" data-item="${r.id}" data-field="stack_size" class="w90">` },
@@ -370,6 +370,7 @@ const A = {
   tpTo: (d) => act(() => api('/api/player/teleport', { x: +d.x, y: +d.y, z: +d.z }), 'Teleport queued'),
   give: () => act(() => api('/api/player/give', { template_id: val('gt').trim(), quantity: +val('gq'), quality: +val('gg') }), 'Item added'),
   repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(`Repaired ${r.repaired} items` + NOT_SAVED); }, null),
+  refill: () => act(async () => { const r = await api('/api/player/refill', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} containers (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
   delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). Discard undoes it until you save.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
   spec: (d) => { $('#st').value = d.t; $('#sx').value = d.xp; $('#sl').value = d.lv; },
   specSet: () => act(() => api('/api/player/specs', { track_type: +val('st'), xp: +val('sx'), level: +val('sl') }), 'Specialization set'),
