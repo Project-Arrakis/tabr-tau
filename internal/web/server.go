@@ -375,6 +375,8 @@ func (s *Server) routes() {
 	s.post("/api/player/research/unlock", o.UnlockResearch)
 	s.get("/api/player/crafting", func(r *http.Request) (any, error) { return o.Crafting() })
 	s.post("/api/player/crafting/unlock", o.UnlockRecipe)
+	s.get("/api/player/building-sets", func(r *http.Request) (any, error) { return o.BuildingSets() })
+	s.get("/api/player/customizations", func(r *http.Request) (any, error) { return o.Customizations() })
 	s.post("/api/vehicles/durability", o.SetRecoveredDurability)
 	s.get("/api/vendors", func(r *http.Request) (any, error) { return o.Vendors() })
 	s.post("/api/vendors/reset", o.ResetVendors)

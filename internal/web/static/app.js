@@ -108,7 +108,7 @@ const TABS = { player: 'Player', landsraad: 'Landsraad', config: 'Config', db: '
 const PTABS = [['character', 'Character'], ['crafting', 'Crafting'], ['research', 'Research'], ['buildingsets', 'Building Sets'], ['customizations', 'Customizations'],
   ['skills', 'Skills'], ['specialization', 'Specialization'], ['journey', 'Journey'], ['blueprints', 'Blueprints'], ['bases', 'Bases'], ['vehicles', 'Vehicles'], ['admin', 'Admin']];
 // The console tabs tabr-tau does not have yet; each says so instead of being left out.
-const SOON = { customizations: 'Customizations', blueprints: 'Blueprints' };
+const SOON = { blueprints: 'Blueprints' };
 let tab = Object.hasOwn(TABS, localStorage.tab) ? localStorage.tab : 'player';
 const sub = { player: ['bases', 'vehicles'].includes(localStorage.tab) ? localStorage.tab : 'character', char: 'overview', db: 'browse' };
 const GROUPS = ['player', 'char', 'bases', 'db'];
@@ -319,8 +319,14 @@ async function playerSection(s) {
     CR = (await api('/api/player/crafting')).rows;
     h.push(html`<div class="card"><h3>Crafting recipes</h3><div id="crhead"></div><div id="crout"></div></div>`);
   } else if (s == 'buildingsets') {
-    const r = await api('/api/player/recipes');
-    h.push(html`<div class="card"><h3>Learned building sets (${r.learnedSets.length})</h3>${r.learnedSets.map((x) => html`<span class="tag">${x.name}</span>`)}</div><div class="card"><h3>New buildable pieces (${r.newPieces.length})</h3>${r.newPieces.map((x) => html`<span class="tag">${x.name}</span>`)}</div>`);
+    CT = await api('/api/player/building-sets');
+    CT.kind = 'bs';
+    h.push(html`<div class="card"><h3>Building Sets</h3><div id="cthead"></div><div id="ctout"></div></div>
+      <div class="card"><h3>New buildable pieces (${CT.newPieces.length})</h3>${CT.newPieces.map((x) => html`<span class="tag">${x.name}</span>`)}</div>`);
+  } else if (s == 'customizations') {
+    CT = await api('/api/player/customizations');
+    CT.kind = 'cu';
+    h.push(html`<div class="card"><h3>Customizations</h3><div id="cthead"></div><div id="ctout"></div></div>`);
   } else if (s == 'admin') {
     P = await api('/api/player');
     const a = P.actor || {};
@@ -346,6 +352,7 @@ async function playerSection(s) {
   if (s == 'journey') journeyList();
   if (s == 'skills') skillsList();
   if (s == 'research') researchList();
+  if (s == 'buildingsets' || s == 'customizations') catalogList();
   if (s == 'crafting') craftingList();
 }
 // tabr-tau-only features that have no tab in the console's player view live here, so the Player tabs can match the console (#96).
@@ -442,6 +449,24 @@ function craftingList() {
   setHTML($('#crout'), tbl([{ k: 'name', label: 'Recipe', f: (r) => html`<span title="${r.recipeId}">${r.name}</span>${r.limited ? html` <span class="tag">limited use (${r.uses})</span>` : ''}` }, { k: 'recipeId', label: 'Recipe id', cls: 'mut' },
     { k: 'category', label: 'Category' }, { k: 'source', label: 'Source' }, { k: 'known', label: 'State', f: (r) => (r.known ? html`<span class="ok">Known</span>` : html`<span class="mut">Not known</span>`) }], rows.slice(0, LISTMAX),
     { actions: (r) => (r.known ? '' : html`<button class="b sm" data-act="crUnlock" data-id="${r.recipeId}">Unlock</button>`) }));
+}
+
+// Building Sets and Customizations, as the console's tabs: the catalog's items with what the save says you have, and a Give that puts the
+// item in the backpack (the game teaches the set or unlocks the cosmetic when it is used). The save keeps no list of owned customizations
+// that tabr-tau can read, so those show only whether the item is in an inventory.
+let CT = null, ctFilter = 'all', ctQ = '';
+function catalogList() {
+  if (!CT || !$('#ctout')) return;
+  const bs = CT.kind == 'bs';
+  const have = (r) => r.learned || r.inInventory;
+  const rows = CT.rows.filter((r) => (ctFilter == 'all' || (ctFilter == 'have' ? have(r) : !have(r))) && ctQ.split(/\s+/).filter(Boolean).every((w) => (r.name + ' ' + r.id).toLowerCase().includes(w.toLowerCase())));
+  const nHave = CT.rows.filter(have).length;
+  setHTML($('#cthead'), html`<div class="sub">${[['all', 'All', CT.rows.length], ['have', bs ? 'Learned or in inventory' : 'In inventory', nHave], ['missing', 'Not owned', CT.rows.length - nHave]].map(([k, v, n]) => html`<button data-ctf="${k}" class="${ctFilter == k ? 'on' : ''}">${v} (${n})</button>`)}</div>
+    <div class="row"><input id="ctq" placeholder="Filter by name or item id" size="34" value="${ctQ}"><button class="b sec" data-act="ctfilter">Filter</button><button class="b sec" data-act="ctclear">Clear</button>
+    <span class="mut">${rows.length} of ${CT.rows.length}${rows.length > LISTMAX ? `, showing the first ${LISTMAX}` : ''}. Give adds the item to your backpack.${bs ? '' : ' The save does not list owned customizations, so only items in an inventory are marked.'}</span></div>`);
+  setHTML($('#ctout'), tbl([{ k: 'name', label: bs ? 'Building set' : 'Customization', f: (r) => html`<span title="${r.id}">${r.name}</span>` }, { k: 'id', label: 'Item id', cls: 'mut' },
+    { k: 'learned', label: 'State', f: (r) => (r.learned ? html`<span class="ok">Learned</span>` : r.inInventory ? html`<span class="warn">In inventory</span>` : html`<span class="mut">Not owned</span>`) }], rows.slice(0, LISTMAX),
+    { actions: (r) => (r.inCatalog ? html`<button class="b sm" data-act="ctGive" data-id="${r.id}">Give</button>` : '') }));
 }
 
 // ---------- BASES
@@ -673,6 +698,9 @@ const A = {
   invclear: () => { invQ = ''; render(); },
   skPoints: () => act(async () => { const r = await api('/api/player/skills/points', { points: +val('skPts') }); toast(`Unspent skill points ${r.before} to ${r.after}` + NOT_SAVED); }, null),
   skStarter: () => act(async () => { const r = await api('/api/player/skills/starter', { school: skSchool }); toast(r.changed ? `Restored ${r.changed} starter skills` + NOT_SAVED : 'The starter skills are already learned.'); }, null),
+  ctfilter: () => { ctQ = val('ctq'); catalogList(); },
+  ctclear: () => { ctQ = ''; catalogList(); },
+  ctGive: (d) => act(async () => { await api('/api/player/give-items', { items: [{ template_id: d.id, quantity: 1, quality: 0 }] }); toast('Item added to your backpack' + NOT_SAVED); }, null),
   rsfilter: () => { rsQ = val('rsq'); researchList(); },
   rsclear: () => { rsQ = ''; rsGroup = ''; researchList(); },
   rsUnlock: (d) => act(async () => { const r = await api('/api/player/research/unlock', { item_key: d.key }); toast((r.repaired ? 'Unlock repaired' : r.alreadyPurchased ? 'Already purchased' : 'Research unlocked') + NOT_SAVED); }, null),
@@ -751,6 +779,8 @@ const A = {
 document.addEventListener('click', (e) => {
   const t = e.target.closest('[data-tab]');
   if (t) { if (Object.hasOwn(TABS, t.dataset.tab)) { tab = t.dataset.tab; localStorage.tab = tab; render(); } return; }
+  const cf = e.target.closest('[data-ctf]');
+  if (cf) { ctFilter = cf.dataset.ctf; catalogList(); return; }
   const rc = e.target.closest('[data-rscat]');
   if (rc) { rsCat = rc.dataset.rscat; rsGroup = ''; researchList(); return; }
   const cc = e.target.closest('[data-crcat]');

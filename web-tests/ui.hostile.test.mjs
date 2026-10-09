@@ -800,6 +800,29 @@ test('Research and Crafting: categories, filter, hostile names as text, and Unlo
   ui.dom.window.close();
 });
 
+test('Building Sets and Customizations: states, filters, hostile names as text, and Give posts one item', async () => {
+  const hostile = '<img src=x onerror=1>';
+  const row = (o) => ({ id: 'X', name: 'X', learned: false, inInventory: false, inCatalog: true, ...o });
+  const sets = { rows: [row({ id: 'AtreidesSet', name: 'Atreides ' + hostile, learned: true }), row({ id: 'HarkSet', name: 'Harkonnen', inInventory: true }), row({ id: 'Free_Patent', name: 'Free' }), row({ id: 'MTX_Pack', name: 'Pack', learned: true, inCatalog: false })], newPieces: [{ name: 'Piece_' + hostile }] };
+  const cust = { rows: [row({ id: 'Skin_A', name: 'Skin A', inInventory: true }), row({ id: 'Skin_B', name: 'Skin B' })] };
+  const ui = await boot({ get: { '/api/player/building-sets': sets, '/api/player/customizations': cust }, post: { '/api/player/give-items': { ok: true, count: 1, itemIds: [5] } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:buildingsets"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('img'), null, 'hostile names are text, not markup');
+  assert.equal(ui.doc.querySelector('[data-ctf="have"]').textContent, 'Learned or in inventory (3)');
+  assert.equal(ui.doc.querySelectorAll('[data-act="ctGive"]').length, 3, 'a set the catalog does not list cannot be given');
+  ui.click('[data-ctf="missing"]'); await ui.settle();
+  assert.equal(ui.doc.querySelectorAll('#ctout tbody tr').length, 1);
+  ui.click('[data-act="ctGive"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/give-items').map((p) => p.body), [{ items: [{ template_id: 'Free_Patent', quantity: 1, quality: 0 }] }]);
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:customizations"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('[data-ctf="have"]').textContent, 'In inventory (1)');
+  ui.doc.querySelector('#ctq').value = 'skin b'; ui.click('[data-act="ctfilter"]'); await ui.settle();
+  assert.equal(ui.doc.querySelectorAll('#ctout tbody tr').length, 1);
+  ui.dom.window.close();
+});
+
 test('base and vehicle upkeep buttons post, and unknown device names stay plain text', async () => {
   const hostile = '<img src=x onerror=1> x1';
   const ui = await boot({ post: {
