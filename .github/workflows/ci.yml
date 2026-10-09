@@ -127,7 +127,7 @@ jobs:
           python-version: '3.12'
       - name: Syntax check and --help smoke test (Python >= 3.11 required by the tools)
         run: |
-          python -m py_compile tools/snapdiff.py tools/snapsummary.py
+          python -m py_compile tools/snapdiff.py tools/snapsummary.py tools/featureinv.py
           python tools/snapdiff.py --help > /dev/null
           python tools/snapsummary.py --help > /dev/null
 
