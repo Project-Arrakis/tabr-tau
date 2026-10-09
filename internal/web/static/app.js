@@ -313,19 +313,21 @@ async function playerSection(s) {
     <div class="card"><h3>Skill Browser</h3><div id="skhead"></div><div id="skout"></div></div>`);
   } else if (s == 'research') {
     RS = (await api('/api/player/research')).rows;
-    h.push(html`<div class="card"><h3>Research</h3><div id="rshead"></div><div id="rsout"></div></div>`);
+    h.push(html`<div class="card"><h3>Research</h3><div class="row"><button class="b" data-act="rsAll">Unlock all research</button><span class="mut">Buys every entry that unlocks a recipe or a building set and adds what it unlocks.</span></div><div id="rshead"></div><div id="rsout"></div></div>`);
   } else if (s == 'crafting') {
     CR = (await api('/api/player/crafting')).rows;
-    h.push(html`<div class="card"><h3>Crafting recipes</h3><div id="crhead"></div><div id="crout"></div></div>`);
+    h.push(html`<div class="card"><h3>Crafting recipes</h3><div class="row"><button class="b" data-act="crAll">Unlock all recipes</button><span class="mut">Adds every recipe your research tree offers that you do not know yet.</span></div><div id="crhead"></div><div id="crout"></div></div>`);
   } else if (s == 'buildingsets') {
     CT = await api('/api/player/building-sets');
     CT.kind = 'bs';
-    h.push(html`<div class="card"><h3>Building Sets</h3><div id="cthead"></div><div id="ctout"></div></div>
+    ctGroup = '';
+    h.push(html`<div class="card"><h3>Building Sets</h3><div class="row"><button class="b" data-act="bsAll">Unlock all building sets</button><span class="mut">Teaches every set below except the experimental ones, without putting the items in your backpack.</span></div><div id="cthead"></div><div id="ctout"></div></div>
       <div class="card"><h3>New buildable pieces (${CT.newPieces.length})</h3>${CT.newPieces.map((x) => html`<span class="tag">${x.name}</span>`)}</div>`);
   } else if (s == 'customizations') {
     CT = await api('/api/player/customizations');
     CT.kind = 'cu';
-    h.push(html`<div class="card"><h3>Customizations</h3><div id="cthead"></div><div id="ctout"></div></div>`);
+    ctGroup = '';
+    h.push(html`<div class="card"><h3>Customizations</h3><div class="row"><button class="b" data-act="ctGrantSet" data-id="all" data-name="all five sets">Grant all sets</button><span class="mut">Puts one of each cosmetic of the five sets in your backpack, all or nothing (it needs room for them).</span></div><div id="cthead"></div><div id="ctout"></div></div>`);
   } else if (s == 'admin') {
     P = await api('/api/player');
     const a = P.actor || {};
@@ -406,6 +408,7 @@ function skillsList() {
   setHTML($('#skhead'), html`<div class="sub">${groups.map(([k, v]) => html`<button data-skgrp="${k}" class="${skSchool == k ? 'on' : ''}">${v} (${count(k)})</button>`)}</div>
     <div class="row"><label><input type="checkbox" id="skCharge" ${skCharge ? 'checked' : ''}> Pay for changes from the unspent points (and give them back when lowering)</label>
     ${skSchool != 'Other' ? html`<button class="b sec" data-act="skStarter">Restore starter skills</button>` : ''}
+    ${skSchool != 'Other' ? html`<button class="b" data-act="skMax" data-school="${skSchool}">Max all ${groups.find(([k]) => k == skSchool)[1]} skills</button>` : ''}<button class="b" data-act="skMax" data-school="all">Max all skills of all schools</button>
     <span class="mut">${rows.length} skills; ${rows.filter((m) => m.rank > 0).length} learned.</span></div>`);
   const bar = (m) => (m.known ? html`<span class="rankbar" title="rank ${m.rank} of ${m.max}">${'●'.repeat(m.rank)}${'○'.repeat(Math.max(0, m.max - m.rank))}</span>` : html`<span class="mut" title="not in the catalog: ${m.spent} points spent">?</span>`);
   setHTML($('#skout'), tbl([{ k: 'name', label: 'Skill', f: (m) => html`<span title="${m.id}">${m.name}</span>` }, { k: 'kind', label: 'Type' }, { k: 'rank', label: 'Rank', f: bar },
@@ -453,17 +456,24 @@ function craftingList() {
 // Building Sets and Customizations, as the console's tabs: the catalog's items with what the save says you have, and a Give that puts the
 // item in the backpack (the game teaches the set or unlocks the cosmetic when it is used). The save keeps no list of owned customizations
 // that tabr-tau can read, so those show only whether the item is in an inventory.
-let CT = null, ctFilter = 'all', ctQ = '';
+let CT = null, ctFilter = 'all', ctQ = '', ctGroup = '', ctExp = true;
 function catalogList() {
   if (!CT || !$('#ctout')) return;
   const bs = CT.kind == 'bs';
   const have = (r) => r.learned || r.inInventory;
-  const rows = CT.rows.filter((r) => (ctFilter == 'all' || (ctFilter == 'have' ? have(r) : !have(r))) && ctQ.split(/\s+/).filter(Boolean).every((w) => (r.name + ' ' + r.id).toLowerCase().includes(w.toLowerCase())));
-  const nHave = CT.rows.filter(have).length;
-  setHTML($('#cthead'), html`<div class="sub">${[['all', 'All', CT.rows.length], ['have', bs ? 'Learned or in inventory' : 'In inventory', nHave], ['missing', 'Not owned', CT.rows.length - nHave]].map(([k, v, n]) => html`<button data-ctf="${k}" class="${ctFilter == k ? 'on' : ''}">${v} (${n})</button>`)}</div>
-    <div class="row"><input id="ctq" placeholder="Filter by name or item id" size="34" value="${ctQ}"><button class="b sec" data-act="ctfilter">Filter</button><button class="b sec" data-act="ctclear">Clear</button>
-    <span class="mut">${rows.length} of ${CT.rows.length}${rows.length > LISTMAX ? `, showing the first ${LISTMAX}` : ''}. Give adds the item to your backpack.${bs ? '' : ' The save does not list owned customizations, so only items in an inventory are marked.'}</span></div>`);
-  setHTML($('#ctout'), tbl([{ k: 'name', label: bs ? 'Building set' : 'Customization', f: (r) => html`<span title="${r.id}">${r.name}</span>` }, { k: 'id', label: 'Item id', cls: 'mut' },
+  const visible = CT.rows.filter((r) => bs ? (ctExp || !r.experimental) : true);
+  const groupNames = bs ? [...new Set(visible.map((r) => r.group))].sort() : [];
+  const rows = visible.filter((r) => (ctFilter == 'all' || (ctFilter == 'have' ? have(r) : !have(r))) && (!ctGroup || (bs ? r.group == ctGroup : r.groupId == ctGroup))
+    && ctQ.split(/\s+/).filter(Boolean).every((w) => (r.name + ' ' + r.id + ' ' + r.group).toLowerCase().includes(w.toLowerCase())));
+  const nHave = visible.filter(have).length;
+  const cards = bs ? '' : html`<div class="row">${CT.groups.map((g) => html`<div class="card setcard ${ctGroup == g.id ? 'on' : ''}"><button class="b sec sm" data-ctg="${g.id}">${g.name}</button>
+      <div class="mut">${g.count} cosmetics${g.requirement ? ' · ' + g.requirement : ''}</div><button class="b sm" data-act="ctGrantSet" data-id="${g.id}" data-name="${g.name}">Grant set</button></div>`)}</div>`;
+  setHTML($('#cthead'), html`${cards}<div class="sub">${[['all', 'All', visible.length], ['have', bs ? 'Learned or in inventory' : 'In inventory', nHave], ['missing', 'Not owned', visible.length - nHave]].map(([k, v, n]) => html`<button data-ctf="${k}" class="${ctFilter == k ? 'on' : ''}">${v} (${n})</button>`)}</div>
+    <div class="row"><input id="ctq" placeholder="Filter by name, item id or group" size="34" value="${ctQ}"><button class="b sec" data-act="ctfilter">Filter</button><button class="b sec" data-act="ctclear">Clear</button>
+    ${bs ? html`<select id="ctgrp"><option value="">All groups</option>${groupNames.map((g) => html`<option ${g == ctGroup ? 'selected' : ''}>${g}</option>`)}</select><label><input type="checkbox" id="ctexp" ${ctExp ? 'checked' : ''}> Show experimental</label>` : (ctGroup ? html`<button class="b sec" data-ctg="">All sets</button>` : '')}
+    <span class="mut">${rows.length} of ${visible.length}${rows.length > LISTMAX ? `, showing the first ${LISTMAX}` : ''}. Give adds the item to your backpack.${bs ? '' : ' The save does not list owned customizations, so only items in an inventory are marked. Granting does not grant a DLC or account entitlement.'}</span></div>`);
+  setHTML($('#ctout'), tbl([{ k: 'name', label: bs ? 'Building set' : 'Customization', f: (r) => html`<span title="${r.id}">${r.name}</span>${r.experimental ? html` <span class="tag">experimental</span>` : ''}` }, { k: 'id', label: 'Item id', cls: 'mut' },
+    { k: 'group', label: bs ? 'Group' : 'Set' }, { k: 'requiredDlc', label: 'Requires', f: (r) => r.requiredDlc || (r.entitlement ? 'Account entitlement' : '') },
     { k: 'learned', label: 'State', f: (r) => (r.learned ? html`<span class="ok">Learned</span>` : r.inInventory ? html`<span class="warn">In inventory</span>` : html`<span class="mut">Not owned</span>`) }], rows.slice(0, LISTMAX),
     { actions: (r) => (r.inCatalog ? html`<button class="b sm" data-act="ctGive" data-id="${r.id}">Give</button>` : '') }));
 }
@@ -705,6 +715,11 @@ const A = {
   ctfilter: () => { ctQ = val('ctq'); catalogList(); },
   ctclear: () => { ctQ = ''; catalogList(); },
   ctGive: (d) => act(async () => { await api('/api/player/give-items', { items: [{ template_id: d.id, quantity: 1, quality: 0 }] }); toast('Item added to your backpack' + NOT_SAVED); }, null),
+  bsAll: async () => (await ask({ title: 'Unlock all building sets?', body: 'Every building set in the list below, except the experimental ones, is added to the sets you have learned. This is one edit in the review pane.', ok: 'Unlock all' })) && act(async () => { const r = await api('/api/player/building-sets/unlock-all', {}); toast(r.added ? `Learned ${r.added} building sets` + NOT_SAVED : 'All building sets are already learned.'); }, null),
+  rsAll: async () => (await ask({ title: 'Unlock all research?', body: 'Every research entry that unlocks a recipe or a building set is bought, and the recipes and sets they unlock are added. One edit in the review pane.', ok: 'Unlock all' })) && act(async () => { const r = await api('/api/player/research/unlock-all', {}); toast(r.bought || r.repaired ? `Research: ${r.bought} bought, ${r.repaired} repaired, ${r.unlocksAdded} recipes or sets added` + NOT_SAVED : 'All research is already unlocked.'); }, null),
+  crAll: async () => (await ask({ title: 'Unlock all recipes?', body: 'Every crafting recipe your research tree offers that you do not know yet is added to your known recipes. One edit in the review pane.', ok: 'Unlock all' })) && act(async () => { const r = await api('/api/player/crafting/unlock-all', {}); toast(r.added ? `Added ${r.added} recipes` + NOT_SAVED : 'You already know every recipe.'); }, null),
+  skMax: async (d) => (await ask({ title: 'Max skills?', body: d.school == 'all' ? 'Every skill of the five schools is set to its highest rank. The unspent points are not changed. One edit in the review pane.' : 'Every skill of this school is set to its highest rank. The unspent points are not changed.', ok: 'Max skills' })) && act(async () => { const r = await api('/api/player/skills/max', { school: d.school }); toast(r.changed ? `${r.changed} skills raised to their highest rank` + NOT_SAVED : 'Those skills are already at their highest rank.'); }, null),
+  ctGrantSet: async (d) => (await ask({ title: 'Grant ' + d.name + '?', body: 'One of each cosmetic that is not already in your inventory goes into your backpack, all or nothing. This does not grant a DLC or an account entitlement a set may need.', ok: 'Grant' })) && act(async () => { const r = await api('/api/player/customizations/grant', { group: d.id }); toast(r.granted ? `Added ${r.granted} cosmetics to your backpack` + NOT_SAVED : 'All of that set is already in your inventory.'); }, null),
   rsfilter: () => { rsQ = val('rsq'); researchList(); },
   rsclear: () => { rsQ = ''; rsGroup = ''; researchList(); },
   rsUnlock: (d) => act(async () => { const r = await api('/api/player/research/unlock', { item_key: d.key }); toast((r.repaired ? 'Unlock repaired' : r.alreadyPurchased ? 'Already purchased' : 'Research unlocked') + NOT_SAVED); }, null),
@@ -783,6 +798,8 @@ const A = {
 document.addEventListener('click', (e) => {
   const t = e.target.closest('[data-tab]');
   if (t) { if (Object.hasOwn(TABS, t.dataset.tab)) { tab = t.dataset.tab; localStorage.tab = tab; render(); } return; }
+  const cg = e.target.closest('[data-ctg]');
+  if (cg) { ctGroup = cg.dataset.ctg; catalogList(); return; }
   const cf = e.target.closest('[data-ctf]');
   if (cf) { ctFilter = cf.dataset.ctf; catalogList(); return; }
   const rc = e.target.closest('[data-rscat]');
@@ -818,6 +835,8 @@ document.addEventListener('change', (e) => {
   if (t.id == 'gt') { showGiveAugments(); return; }
   if (t.id == 'skCharge') { skCharge = t.checked; return; }
   if (t.id == 'rsGrp') { rsGroup = t.value; researchList(); return; }
+  if (t.id == 'ctgrp') { ctGroup = t.value; catalogList(); return; }
+  if (t.id == 'ctexp') { ctExp = t.checked; if (!ctExp && CT.rows.some((r) => r.experimental && r.group == ctGroup)) ctGroup = ''; catalogList(); return; }
   if (t.dataset.skill) { act(async () => { const r = await api('/api/player/skills/module', { module: t.dataset.skill, level: +t.value, charge: skCharge }); toast(`Skill set: ${r.pointsBefore} to ${r.pointsAfter} points` + NOT_SAVED); }, null); return; }
   if (t.dataset.item) act(() => api('/api/items/update', { id: +t.dataset.item, [t.dataset.field]: +t.value }), 'Item updated', false);
   else if (t.dataset.faction) act(() => api('/api/player/factions', { faction_id: +t.dataset.faction, amount: +t.value }), 'Reputation set', false);

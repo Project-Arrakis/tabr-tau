@@ -2,7 +2,7 @@
 // It is data only: it never imports the save, so it can be used by any layer.
 //
 // The names come from the item catalog of the Dune Awakening Docker console (runtime/data/admin-items.json, MIT
-// licence, copyright RedBlink; imported at commit db5d7f40). Only the id, the name and the category are kept, not the
+// licence, copyright RedBlink; synced 2026-10-09 with blob 1bde840c). Only the id, the name, the category, the source and the required DLC are kept, not the
 // stack sizes or volumes. The licence text is reproduced in internal/notices/THIRD-PARTY-NOTICES.md. Seven ids appear
 // twice in the source (the same item listed under two categories); the first entry wins.
 package catalog
@@ -16,11 +16,14 @@ import (
 //go:embed items.json
 var raw []byte
 
-// Entry is one item: its template id, in-game name and category.
+// Entry is one item: its template id, in-game name and category, where the console files it (Source, for example "BuildingSets" or
+// "Customizations") and the DLC it needs, if any.
 type Entry struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Category string `json:"category"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Category    string `json:"category"`
+	Source      string `json:"source,omitempty"`
+	RequiredDLC string `json:"requiredDlc,omitempty"`
 }
 
 var (
