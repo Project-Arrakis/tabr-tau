@@ -91,7 +91,7 @@ const SOON = { crafting: 'Crafting recipes', research: 'Research', customization
 let tab = Object.hasOwn(TABS, localStorage.tab) ? localStorage.tab : 'player';
 const sub = { player: ['bases', 'vehicles'].includes(localStorage.tab) ? localStorage.tab : 'character', char: 'overview', db: 'browse' };
 const GROUPS = ['player', 'char', 'bases', 'db'];
-let invG = null, invQ = ''; // Character > Inventory: the chosen group (null: the first one with items) and the filter text
+let invG = null, invQ = ''; let giveQueue = []; // Character > Inventory: the chosen group (null: the first one with items) and the filter text
 function drawNav() {
   setHTML($('#nav'), html`${Object.entries(TABS).map(([k, v]) => html`<button data-tab="${k}" class="${k == tab ? 'on' : ''}">${v}</button>`)}`);
 }
@@ -262,7 +262,8 @@ async function playerSection(s) {
         { k: 'augments', label: 'Augments', f: (r) => (r.augments || []).map((a) => html`<span class="tag" title="${a.name}${a.quality == null ? '' : ' (quality ' + a.quality + ')'}">${itemName(a.name)}</span>`) }], rows,
         { actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` })}</div>`;
     h.push(html`<div class="card"><h3>Give item</h3><div class="row">${itemPicker("gt", cat)}
-    Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="refill">Refill containers</button></div>
+    Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="queueAdd">Add to queue</button><button class="b sec" data-act="refill">Refill containers</button></div>
+    ${giveQueue.length ? html`<div class="row"><b>Queue (${giveQueue.length})</b>${giveQueue.map((q, i) => html`<span class="tag">${q.quantity} x ${itemName(q.template_id)}${q.quality ? ' (grade ' + q.quality + ')' : ''} <button class="b sec sm" data-act="queueDel" data-id="${i}" title="Remove from the queue">x</button></span>`)}<button class="b" data-act="queueGive">Give queued items</button><button class="b sec" data-act="queueClear">Clear</button></div>` : ''}
     <p class="mut">Pick an item by its in-game name. Items already in your save that the catalog does not know are listed by their template id; any valid template id can also be typed.</p></div>
     ${invCard}`);
   } else if (c == 'reputation') {
@@ -524,6 +525,10 @@ const A = {
   intel: () => act(async () => { const r = await api('/api/player/intel', { amount: +val('intelAmt') }); toast(r.applied ? `Intel ${Number(r.before).toLocaleString()} to ${Number(r.after).toLocaleString()}` + (r.capped ? ' (capped at 2,779)' : '') + NOT_SAVED : 'Intel is already at the cap (2,779).'); }, null),
   teleport: () => act(() => api('/api/player/teleport', { x: +val('tx'), y: +val('ty'), z: +val('tz') }), 'Teleport queued'),
   tpTo: (d) => act(() => api('/api/player/teleport', { x: +d.x, y: +d.y, z: +d.z }), 'Teleport queued'),
+  queueAdd: () => { const t = pickedItemId('gt'); if (!t) return toast('Pick an item first', 'err'); giveQueue.push({ template_id: t, quantity: Math.max(1, +val('gq') || 1), quality: +val('gg') }); render(); },
+  queueDel: (d) => { giveQueue.splice(+d.id, 1); render(); },
+  queueClear: () => { giveQueue = []; render(); },
+  queueGive: () => act(async () => { const r = await api('/api/player/give-items', { items: giveQueue }); giveQueue = []; toast(`Added ${r.count} items` + NOT_SAVED); }, null),
   give: () => act(() => api('/api/player/give', { template_id: pickedItemId('gt'), quantity: +val('gq'), quality: +val('gg') }), 'Item added'),
   repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(`Repaired ${r.repaired} items` + NOT_SAVED); }, null),
   refill: () => act(async () => { const r = await api('/api/player/refill', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} containers (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),

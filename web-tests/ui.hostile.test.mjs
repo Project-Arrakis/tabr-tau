@@ -628,6 +628,29 @@ test('item pickers list in-game names, send the template id, and item tables sho
   ui.dom.window.close();
 });
 
+test('Give Items queue: items are queued, listed with hostile names as text, removed, and given in one post', async () => {
+  const inv = JSON.parse(JSON.stringify(baseFixtures['/api/player/inventory'].body));
+  const ui = await boot({ get: { '/api/player/inventory': inv }, post: { '/api/player/give-items': { ok: true, count: 2, itemIds: [1, 2] } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="char:inventory"]'); await ui.settle();
+  assert.ok(!ui.doc.querySelector('[data-act="queueGive"]'), 'no queue until something is added');
+  ui.doc.querySelector('#gt').value = '<img src=x onerror=1>'; ui.doc.querySelector('#gq').value = '3'; ui.doc.querySelector('#gg').value = '2';
+  ui.click('[data-act="queueAdd"]'); await ui.settle();
+  ui.doc.querySelector('#gt').value = 'Spice'; ui.doc.querySelector('#gq').value = '0';
+  ui.click('[data-act="queueAdd"]'); await ui.settle();
+  assert.equal(ui.doc.querySelectorAll('[data-act="queueDel"]').length, 2);
+  assert.equal(ui.doc.querySelector('img'), null, 'a hostile item name is text, not markup');
+  ui.click('[data-act="queueDel"][data-id="1"]'); await ui.settle();
+  ui.doc.querySelector('#gt').value = 'Spice'; ui.doc.querySelector('#gq').value = '5'; ui.doc.querySelector('#gg').value = '0';
+  ui.click('[data-act="queueAdd"]'); await ui.settle();
+  ui.click('[data-act="queueGive"]'); await ui.settle();
+  const post = ui.posted.filter((p) => p.path === '/api/player/give-items');
+  assert.equal(post.length, 1, 'one request for the whole queue');
+  assert.deepEqual(post[0].body.items, [{ template_id: '<img src=x onerror=1>', quantity: 3, quality: 2 }, { template_id: 'Spice', quantity: 5, quality: 0 }]);
+  assert.ok(!ui.doc.querySelector('[data-act="queueGive"]'), 'the queue is cleared after giving');
+  ui.dom.window.close();
+});
+
 test('base and vehicle upkeep buttons post, and unknown device names stay plain text', async () => {
   const hostile = '<img src=x onerror=1> x1';
   const ui = await boot({ post: {

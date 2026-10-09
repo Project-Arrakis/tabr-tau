@@ -378,6 +378,60 @@ func (o *Ops) GiveItem(a Args) (any, error) {
 	return map[string]any{"ok": true, "itemId": id}, nil
 }
 
+// maxGiveBatch caps one Give Items queue; the console's queue is a handful of lines, and a typo cannot flood the backpack.
+const maxGiveBatch = 50
+
+// GiveItems gives a queue of items to the player's backpack in one edit, all or nothing: args "items" is a list of
+// {template_id, quantity, quality}. One review entry and one undo cover the whole queue.
+func (o *Ops) GiveItems(a Args) (any, error) {
+	p, err := o.player()
+	if err != nil {
+		return nil, err
+	}
+	list, _ := a["items"].([]any)
+	if len(list) == 0 {
+		return nil, errors.New("the queue is empty")
+	}
+	if len(list) > maxGiveBatch {
+		return nil, fmt.Errorf("at most %d items at a time", maxGiveBatch)
+	}
+	type line struct {
+		tmpl   string
+		qty, q int64
+	}
+	lines := make([]line, 0, len(list))
+	for i, e := range list {
+		m, ok := e.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("item %d is not an object", i+1)
+		}
+		_, tmpl, qty, q, err := o.giveArgs(Args(m))
+		if err != nil {
+			return nil, fmt.Errorf("item %d: %w", i+1, err)
+		}
+		lines = append(lines, line{tmpl, qty, q})
+	}
+	r, _ := o.S.One(`select id from inventories where actor_id=? and inventory_type=0 order by id limit 1`, p.Pawn)
+	if r == nil {
+		return nil, errors.New("player backpack not found")
+	}
+	inv := r["id"].(int64)
+	ids := make([]int64, 0, len(lines))
+	if _, err := o.S.Mutate(fmt.Sprintf("give %d queued items", len(lines)), func(m *save.Mut) error {
+		for i, l := range lines {
+			id, e := giveInTx(m, inv, l.tmpl, l.qty, l.q)
+			if e != nil {
+				return fmt.Errorf("item %d (%s): %w", i+1, l.tmpl, e)
+			}
+			ids = append(ids, id)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return map[string]any{"ok": true, "itemIds": ids, "count": len(ids)}, nil
+}
+
 // GiveToInventory adds an item to any storage inventory (bases tab).
 func (o *Ops) GiveToInventory(a Args) (any, error) {
 	inv, tmpl, qty, q, err := o.giveArgs(a)

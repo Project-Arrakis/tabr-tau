@@ -78,6 +78,45 @@ func TestGiveItemUsesSequencerAndFreeSlot(t *testing.T) {
 	}
 }
 
+func TestGiveItemsQueueIsAtomicAndUsesDistinctSlots(t *testing.T) {
+	o := newOps(t) // backpack of 3 slots, 2 used (slots 0 and 1 are taken, the sequencer starts at 500)
+	r, err := o.GiveItems(Args{"items": []any{map[string]any{"template_id": "Spice", "quantity": 5.0, "quality": 2.0}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ids := r.(map[string]any)["itemIds"].([]int64); len(ids) != 1 || ids[0] != 500 {
+		t.Fatalf("ids: %v", r)
+	}
+	// the backpack now has one free slot less than the queue needs: nothing from the queue may stay behind
+	o2 := newOps(t)
+	_, err = o2.GiveItems(Args{"items": []any{map[string]any{"template_id": "A", "quantity": 1.0}, map[string]any{"template_id": "B", "quantity": 1.0}}})
+	if err == nil {
+		t.Fatal("two items do not fit one free slot")
+	}
+	if n, _ := o2.S.One(`select count(*) c from items where template_id in ('A','B')`); n["c"].(int64) != 0 {
+		t.Fatalf("a failed queue must leave nothing behind: %v", n)
+	}
+}
+
+func TestGiveItemsRejectsBadQueues(t *testing.T) {
+	o := newOps(t)
+	big := make([]any, maxGiveBatch+1)
+	for i := range big {
+		big[i] = map[string]any{"template_id": "X", "quantity": 1.0}
+	}
+	for _, a := range []Args{{}, {"items": []any{}}, {"items": big}, {"items": []any{"Spice"}},
+		{"items": []any{map[string]any{"template_id": "a b", "quantity": 1.0}}},
+		{"items": []any{map[string]any{"template_id": "X", "quantity": 0.0}}},
+		{"items": []any{map[string]any{"template_id": "X", "quantity": 1.0, "quality": 9.0}}}} {
+		if _, err := o.GiveItems(a); err == nil {
+			t.Fatalf("expected rejection for %v", a)
+		}
+	}
+	if o.S.Dirty() {
+		t.Fatal("rejected input must not dirty the save")
+	}
+}
+
 func TestGiveItemRejectsBadInput(t *testing.T) {
 	o := newOps(t)
 	for _, a := range []Args{{"template_id": "a b", "quantity": 1.0}, {"template_id": "X", "quantity": 0.0}, {"template_id": "X", "quantity": 1.0, "quality": 9.0}, {"template_id": "x; drop table items;--", "quantity": 1.0}} {
