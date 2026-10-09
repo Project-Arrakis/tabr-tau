@@ -28,7 +28,7 @@ let fixtures = baseFixtures;
 const read = (n) => fs.readFileSync(path.join(static_, n), 'utf8');
 
 // Allowlists: anything else appearing in the rendered DOM is an injection.
-const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h3 ul li code table thead tbody tr th td input select option datalist button details summary textarea br'.split(' '));
+const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h3 ul li code table thead tbody tr th td input select option datalist button details summary textarea br label'.split(' '));
 const SCRIPTS = new Set(['/html.js', '/app.js']); // the only scripts the page may contain, both same-origin files
 const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role aria-modal tabindex label'.split(' '));
 
@@ -235,9 +235,9 @@ test('Admin mirrors the console: the actions tabr-tau has post, the ones it lack
   assert.equal(ui.doc.querySelector('[data-act="teleport"]'), null, 'Teleport is on Admin, not on Character > Overview');
   assert.equal(ui.doc.querySelector('[data-act="repair"]'), null, 'Repair gear is on Admin, not on the inventory');
   ui.click('[data-sub="player:admin"]'); await ui.settle();
-  for (const act of ['teleport', 'repair', 'repairV']) assert.ok(ui.doc.querySelector(`[data-act="${act}"]`), `Admin has ${act}`);
+  for (const act of ['teleport', 'repair', 'repairV', 'faction']) assert.ok(ui.doc.querySelector(`[data-act="${act}"]`), `Admin has ${act}`);
   const text = ui.doc.querySelector('#main').textContent;
-  for (const lacks of ['Change Faction', 'Repair Faction', 'Repair Quests', 'Wipe Inventory', 'Reset Progression', 'Spawn']) {
+  for (const lacks of ['Repair Faction', 'Repair Quests', 'Wipe Inventory', 'Reset Progression', 'Spawn']) {
     const b = [...ui.doc.querySelectorAll('button')].find((x) => x.textContent.trim() == lacks);
     assert.ok(b && b.disabled, `${lacks} is shown disabled`);
   }
@@ -683,6 +683,25 @@ test('Augments: the editor lists the fitting augments as text, applies the picke
   const gi = ui.posted.filter((p) => p.path === '/api/player/give-items');
   assert.equal(gi.length, 1);
   assert.deepEqual(gi[0].body.items, [{ template_id: 'Helm_1', quantity: 1, quality: 0, augments: ['Aug_A'], grade: 2 }]);
+  ui.dom.window.close();
+});
+
+test('Admin: Faction Assignment posts the chosen faction, Repair Below posts its threshold, and a hostile faction name is text', async () => {
+  const hostile = '<img src=x onerror=1>';
+  const fac = { current: { id: 2, name: 'Harkonnen' }, options: [{ id: 3, name: 'Neutral' }, { id: 1, name: 'Atreides' }, { id: 2, name: hostile }] };
+  const ui = await boot({ get: { '/api/player/faction': fac }, post: { '/api/player/faction': { ok: true, faction: 'Atreides' }, '/api/vehicles/repair': { ok: true, modules: 3, repaired: 1, withoutKnownMax: 0 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:admin"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('img'), null, 'a hostile faction name is text, not markup');
+  assert.equal(ui.doc.querySelector('#facSel').value, '2', 'the current faction is preselected');
+  ui.doc.querySelector('#facSel').value = '1';
+  ui.click('[data-act="faction"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/faction').map((p) => p.body), [{ faction_id: 1 }]);
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Faction set to Atreides'));
+  assert.equal(ui.doc.querySelector('#rvPct').value, '50', 'the console defaults to 50 %');
+  ui.doc.querySelector('#rvPct').value = '75';
+  ui.click('[data-act="repairV"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/vehicles/repair').map((p) => p.body), [{ threshold: 75 }]);
   ui.dom.window.close();
 });
 

@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -151,16 +152,23 @@ func (o *Ops) RefillGenerators() (any, error) {
 // module's DecayedMaxDurability (what a repair at a workbench does). Wear that lowered the decayed maximum itself
 // is not undone, because the original maximum of each module template is not stored in the save; modules with no
 // DecayedMaxDurability are counted and left alone rather than guessed.
-func (o *Ops) RepairVehicles() (any, error) {
+func (o *Ops) RepairVehicles() (any, error) { return o.RepairVehiclesBelow(100) }
+
+// RepairVehiclesBelow raises the modules of the player's own vehicles whose durability is below pct percent of their current
+// maximum (1 to 100, the console's "Repair Below") up to that maximum. Modules with no recorded maximum are left alone.
+func (o *Ops) RepairVehiclesBelow(pct int64) (any, error) {
+	if pct < 1 || pct > 100 {
+		return nil, errors.New("the repair threshold must be between 1 and 100 percent")
+	}
 	p, err := o.player()
 	if err != nil {
 		return nil, err
 	}
 	rows, err := o.S.Query(`select count(*) total,
 		coalesce(sum(case when json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') is not null
-			and coalesce(json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability'),0) < json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') then 1 else 0 end),0) repairable,
+			and coalesce(json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability'),0) < json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') * ?/100.0 then 1 else 0 end),0) repairable,
 		coalesce(sum(case when json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') is null then 1 else 0 end),0) nomax
-		from vehicle_modules where vehicle_id in (`+ownedVehicleSQL+`) and json_valid(stats,8) and json_type(stats,'$.FVehicleModuleDurabilityStats') is not null`, p.Controller)
+		from vehicle_modules where vehicle_id in (`+ownedVehicleSQL+`) and json_valid(stats,8) and json_type(stats,'$.FVehicleModuleDurabilityStats') is not null`, pct, p.Controller)
 	if err != nil {
 		return nil, err
 	}
@@ -170,12 +178,12 @@ func (o *Ops) RepairVehicles() (any, error) {
 				json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability'))
 			where vehicle_id in (`+ownedVehicleSQL+`) and json_valid(stats,8) and json_type(stats,'$.FVehicleModuleDurabilityStats') is not null
 			and json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') is not null
-			and coalesce(json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability'),0) < json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability')`, p.Controller)
+			and coalesce(json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability'),0) < json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') * ?/100.0`, p.Controller, pct)
 		if err != nil {
 			return err
 		}
 		n, _ = res.RowsAffected()
-		m.Desc = fmt.Sprintf("repair vehicles: %d modules", n)
+		m.Desc = fmt.Sprintf("repair vehicles below %d%%: %d modules", pct, n)
 		return nil
 	})
 	if err != nil {
