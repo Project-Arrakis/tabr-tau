@@ -132,6 +132,24 @@ test('the Player Summary shows what the save holds, above the Player tabs', asyn
   ui.dom.window.close();
 });
 
+test('Give XP and Give currency post their amounts and report the result', async () => {
+  const ui = await boot({ post: {
+    '/api/player/xp': { ok: true, before: 41221, after: 42221, applied: 1000, levelBefore: 71, levelAfter: 72, skillPointsGained: 1, capped: false },
+    '/api/player/currency': { ok: true, currency: 1, before: 0, after: 250 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.doc.querySelector('#xpAmt').value = '1000';
+  ui.click('[data-act="xp"]'); await ui.settle();
+  let toast = ui.doc.querySelector('#toast').textContent;
+  assert.ok(toast.includes('41,221') && toast.includes('42,221') && toast.includes('level 71 to 72') && toast.includes('+1 skill points'), toast);
+  ui.doc.querySelector('#curSel').value = '1'; ui.doc.querySelector('#curAmt').value = '250';
+  ui.click('[data-act="currency"]'); await ui.settle();
+  toast = ui.doc.querySelector('#toast').textContent;
+  assert.ok(toast.includes('House Credit') && toast.includes('250'), toast);
+  assert.deepEqual(ui.posted.filter((x) => x.path === '/api/player/xp').map((x) => x.body), [{ amount: 1000 }]);
+  assert.deepEqual(ui.posted.filter((x) => x.path === '/api/player/currency').map((x) => x.body), [{ currency: 1, amount: 250 }]);
+  ui.dom.window.close();
+});
+
 test('Give Intel posts the amount and reports what was applied, including the cap', async () => {
   const ui = await boot({ post: { '/api/player/intel': { ok: true, before: 2750, after: 2779, applied: 29, capped: true } } });
   ui.click('[data-tab="player"]'); await ui.settle();
