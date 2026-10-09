@@ -354,7 +354,18 @@ func (s *Server) routes() {
 	// vehicles / vendors / landsraad
 	s.get("/api/vehicles", func(r *http.Request) (any, error) { return o.Vehicles() })
 	s.post("/api/vehicles/bring", o.BringVehicle)
-	s.post("/api/vehicles/repair", func(ops.Args) (any, error) { return o.RepairVehicles() })
+	s.post("/api/vehicles/repair", func(a ops.Args) (any, error) {
+		if _, has := a["threshold"]; !has {
+			return o.RepairVehicles()
+		}
+		n, err := a.IntRange("threshold", 1, 100)
+		if err != nil {
+			return nil, err
+		}
+		return o.RepairVehiclesBelow(n)
+	})
+	s.get("/api/player/faction", func(r *http.Request) (any, error) { return o.Faction() })
+	s.post("/api/player/faction", o.SetFaction)
 	s.post("/api/vehicles/durability", o.SetRecoveredDurability)
 	s.get("/api/vendors", func(r *http.Request) (any, error) { return o.Vendors() })
 	s.post("/api/vendors/reset", o.ResetVendors)

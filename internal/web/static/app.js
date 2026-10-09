@@ -311,14 +311,17 @@ async function playerSection(s) {
   } else if (s == 'admin') {
     P = await api('/api/player');
     const a = P.actor || {};
+    const fa = await api('/api/player/faction');
     const na = (what) => html`<button class="b" disabled title="Not in tabr-tau yet">${what}</button>`;
     h.push(html`<div class="card"><h3>Player Admin Actions</h3><p class="mut">The console's Admin tab. Actions the save file cannot do, or that only make sense on a server (kick, ban, login queue, recovering a deleted character), are left out; the others that tabr-tau does not have yet are shown disabled.</p></div>
-    <div class="card"><h3>Faction Assignment</h3><div class="row">${na('Change Faction')}<span class="mut">Not in tabr-tau yet. Reputation is under Character &gt; Reputation.</span></div></div>
+    <div class="card"><h3>Faction Assignment</h3><div class="row"><b>Current</b><span>${fa.current ? fa.current.name : 'none recorded'}</span>
+      <select id="facSel">${fa.options.map((o) => html`<option value="${o.id}" ${fa.current && fa.current.id == o.id ? 'selected' : ''}>${o.name}</option>`)}</select><button class="b" data-act="faction">Change Faction</button>
+      <span class="mut">Changes which faction the character belongs to. Reputation is under Character &gt; Reputation.</span></div></div>
     <div class="card"><h3>Repair</h3>
       <div class="row"><b>Repair Faction</b>${na('Repair Faction')}<span class="mut">Not in tabr-tau yet.</span></div>
       <div class="row"><b>Repair Landsraad Quests</b>${na('Repair Quests')}<span class="mut">Not in tabr-tau yet.</span></div>
       <div class="row"><b>Repair Gear</b><button class="b" data-act="repair">Repair Gear</button><span class="mut">Equipped and carried gear durability.</span></div>
-      <div class="row"><b>Repair Vehicle Durability</b><button class="b" data-act="repairV">Repair Vehicles</button><span class="mut">Raises every module of your vehicles to its current maximum. Wear that lowered the maximum itself is not undone. No "repair below %" threshold yet.</span></div></div>
+      <div class="row"><b>Repair Vehicle Durability</b><button class="b" data-act="repairV">Repair Vehicles</button><label>Repair Below <input id="rvPct" type="number" min="1" max="100" value="50" class="w70"> %</label><span class="mut">Raises the modules of your vehicles whose durability is below this share of their current maximum back to that maximum. Wear that lowered the maximum itself is not undone, and modules with no recorded maximum are skipped.</span></div></div>
     <div class="card"><h3>Danger Zone</h3><div class="row">${na('Wipe Inventory')}${na('Reset Progression')}<span class="mut">Not in tabr-tau yet.</span></div></div>
     <div class="card"><h3>Movement / Vehicles</h3><div class="row"><b>Teleport To</b>X<input id="tx" type="number" value="${Math.round(a.x)}">Y<input id="ty" type="number" value="${Math.round(a.y)}">Z<input id="tz" type="number" value="${Math.round(a.z)}"><button class="b" data-act="teleport">Teleport</button></div>
     <p class="mut">Moves the character in the save (applied on next load). Stay above the terrain (Z) or you may fall through.</p>
@@ -566,6 +569,7 @@ const A = {
     else await api('/api/player/give', { template_id: pickedItemId('gt'), quantity: +val('gq'), quality: +val('gg') });
     toast('Item added' + NOT_SAVED);
   }, null),
+  faction: () => act(async () => { const r = await api('/api/player/faction', { faction_id: +val('facSel') }); toast(`Faction set to ${r.faction}` + NOT_SAVED); }, null),
   repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(`Repaired ${r.repaired} items` + NOT_SAVED); }, null),
   refill: () => act(async () => { const r = await api('/api/player/refill', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} containers (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
   delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). Discard undoes it until you save.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
@@ -600,7 +604,7 @@ const A = {
   },
   refillWater: () => act(async () => { const r = await api('/api/bases/refill-water', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} water devices (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
   refillGen: () => act(async () => { const r = await api('/api/bases/refill-generators', {}); toast(`Filled ${r.filled} generators (${r.alreadyFull} already full)` + NOT_SAVED); }, null),
-  repairV: () => act(async () => { const r = await api('/api/vehicles/repair', {}); toast(`Repaired ${r.repaired} vehicle modules.` + (r.withoutKnownMax ? ` ${r.withoutKnownMax} modules have no recorded maximum and were left alone.` : '') + NOT_SAVED); }, null),
+  repairV: () => act(async () => { const r = await api('/api/vehicles/repair', { threshold: +val('rvPct') }); toast(`Repaired ${r.repaired} vehicle modules.` + (r.withoutKnownMax ? ` ${r.withoutKnownMax} modules have no recorded maximum and were left alone.` : '') + NOT_SAVED); }, null),
   repairB: async () => (await ask({ title: 'Repair every base piece?', body: 'Sets the health of all building pieces and placeables in the save to full.', ok: 'Repair all', typed: 'repair', danger: true })) && act(async () => { const r = await api('/api/bases/repair', {}); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables` + NOT_SAVED); }, null),
   sand: async () => (await ask({ title: 'Clear sand build-up?', body: 'Removes the sand coverage from every building piece in the save.', ok: 'Clear sand', typed: 'clear', danger: true })) && act(async () => { const r = await api('/api/bases/clear-sand', {}); toast(`Cleared ${r.pieces} pieces` + NOT_SAVED); }, null),
   openInv: async (d) => {
