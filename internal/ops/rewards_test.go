@@ -74,3 +74,54 @@ func TestAddIntelRefusesBadInput(t *testing.T) {
 		t.Error("a save with no Intel component must be refused")
 	}
 }
+
+func balance(t *testing.T, o *Ops, id int) any {
+	t.Helper()
+	rows, err := o.S.Query(`select balance from player_virtual_currency_balances where player_controller_id=1 and currency_id=?`, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	return rows[0]["balance"]
+}
+
+func TestAddCurrencyAddsToTheBalanceAndCreatesAMissingWallet(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, `insert into player_virtual_currency_balances(player_controller_id,currency_id,balance) values (1,0,591227);`)}
+	r, err := o.AddCurrency(Args{"currency": 0.0, "amount": 1000.0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res := r.(map[string]any); res["before"].(int64) != 591227 || res["after"].(int64) != 592227 {
+		t.Fatalf("result: %v", res)
+	}
+	if balance(t, o, 0).(int64) != 592227 {
+		t.Fatal("the balance was not changed")
+	}
+	if balance(t, o, 1) != nil {
+		t.Fatal("the other wallet must not exist yet")
+	}
+	if _, err := o.AddCurrency(Args{"currency": 1.0, "amount": 50.0}); err != nil {
+		t.Fatal(err)
+	}
+	if balance(t, o, 1).(int64) != 50 || balance(t, o, 0).(int64) != 592227 {
+		t.Fatalf("wallets: %v %v", balance(t, o, 0), balance(t, o, 1))
+	}
+	assertDBSound(t, o)
+}
+
+func TestAddCurrencyRefusesBadInput(t *testing.T) {
+	o := &Ops{S: testsave.Player(t)}
+	for name, a := range map[string]Args{
+		"zero amount": {"currency": 0.0, "amount": 0.0}, "negative": {"currency": 0.0, "amount": -5.0}, "too large": {"currency": 0.0, "amount": 1e13},
+		"unknown wallet": {"currency": 2.0, "amount": 5.0}, "negative wallet": {"currency": -1.0, "amount": 5.0}, "missing amount": {"currency": 0.0},
+	} {
+		if _, err := o.AddCurrency(a); err == nil {
+			t.Errorf("%s must be refused", name)
+		}
+	}
+	if balance(t, o, 0) != nil || balance(t, o, 1) != nil {
+		t.Fatal("a refused request must not create a balance")
+	}
+}
