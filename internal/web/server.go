@@ -381,14 +381,23 @@ func (s *Server) routes() {
 	s.get("/api/vehicles", func(r *http.Request) (any, error) { return o.Vehicles() })
 	s.post("/api/vehicles/bring", o.BringVehicle)
 	s.post("/api/vehicles/repair", func(a ops.Args) (any, error) {
-		if _, has := a["threshold"]; !has {
-			return o.RepairVehicles()
+		pct := int64(100)
+		if _, has := a["threshold"]; has {
+			n, err := a.IntRange("threshold", 1, 100)
+			if err != nil {
+				return nil, err
+			}
+			pct = n
 		}
-		n, err := a.IntRange("threshold", 1, 100)
-		if err != nil {
-			return nil, err
+		var vehicle int64
+		if _, has := a["vehicle_id"]; has {
+			v, err := a.Int("vehicle_id")
+			if err != nil {
+				return nil, err
+			}
+			vehicle = v
 		}
-		return o.RepairVehiclesBelow(n)
+		return o.RepairVehiclesWhere(pct, vehicle)
 	})
 	s.get("/api/player/faction", func(r *http.Request) (any, error) { return o.Faction() })
 	s.post("/api/player/faction", o.SetFaction)

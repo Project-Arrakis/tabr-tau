@@ -93,7 +93,7 @@ const VIEWS = [
   ['player', 'player:buildingsets'], ['player', 'player:admin'],
   ['player', 'player:crafting'], ['player', 'player:research'], ['player', 'player:customizations'], ['player', 'player:skills'], ['player', 'player:blueprints'],
   ['player', 'player:bases'], ['player', 'player:bases', '[data-bstab="water"]'], ['player', 'player:bases', '[data-bstab="inventory"]'], ['player', 'player:bases', '[data-bstab="claim"]'],
-  ['player', 'player:vehicles'], ['livemap'], ['landsraad'], ['config'], ['extras'],
+  ['player', 'player:vehicles'], ['livemap'], ['landsraad'], ['config'],
   ['db', 'db:browse'], ['db', 'db:sql'], ['db', 'db:backups'],
 ];
 // tabs that only say "not in tabr-tau yet", or whose rows are all numbers (specialization tracks), have no text to show
@@ -164,7 +164,7 @@ test('Player > Bases lists the bases and shows Power, Water and Inventory for th
   ui.click('[data-sub="player:bases"]'); await ui.settle();
   const main = () => ui.doc.querySelector('#main').textContent;
   for (const want of ['Bases (1)', 'Advanced Sub-Fief Console', 'Advanced Sub-Fief', 'Tester', 'Building Pieces', '486', '-67,159, -211,307, 12', 'Generator', '2,484', '2,500', 'Windtrap', 'Refill generators']) assert.ok(main().includes(want), `the Power tab should show ${want}`);
-  assert.deepEqual([...ui.doc.querySelectorAll('[data-bstab]')].map((b) => b.textContent.trim()), ['Power', 'Water', 'Inventory', 'Land Claim Editor']);
+  assert.deepEqual([...ui.doc.querySelectorAll('[data-bstab]')].map((b) => b.textContent.trim()), ['Power', 'Water', 'Inventory', 'Land Claim Editor', 'Structures']);
   assert.ok(!main().includes('Permissions'), 'the permission tabs are not mirrored');
   ui.click('[data-bstab="water"]'); await ui.settle();
   for (const want of ['Water Cistern', '16', '80,000', '100%', 'Refill base water']) assert.ok(main().includes(want), `the Water tab should show ${want}`);
@@ -449,7 +449,8 @@ test('deleting an item asks first, shows the item as data, and Cancel sends noth
 test('a far-reaching action needs the word typed, and Escape cancels', async () => {
   const ui = await boot();
   ui.click('[data-tab=\"player\"]'); await ui.settle();
-  ui.click('[data-tab="extras"]'); await ui.settle();
+  ui.click('[data-sub="player:bases"]'); await ui.settle();
+  ui.click('[data-bstab="structures"]'); await ui.settle();
   const btn = ui.doc.querySelector('[data-act="sand"]');
   assert.ok(btn, 'the clear-sand button must exist in the bases view');
   ui.click('[data-act="sand"]'); await ui.settle();
@@ -490,7 +491,8 @@ test('the question text is data even when the item name is an attack string', as
 test('typing the word completes the action; Enter in the box does too; the disabled button does nothing', async () => {
   const ui = await boot();
   ui.click('[data-tab=\"player\"]'); await ui.settle();
-  ui.click('[data-tab="extras"]'); await ui.settle();
+  ui.click('[data-sub="player:bases"]'); await ui.settle();
+  ui.click('[data-bstab="structures"]'); await ui.settle();
   ui.click('[data-act="sand"]'); await ui.settle();
   ui.click('#aok'); await ui.settle(); // disabled: a click must do nothing
   assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 0);
@@ -524,7 +526,8 @@ test('Escape closes only the question when the review is open underneath, and fo
 test('a second question replaces the first, which counts as cancelled', async () => {
   const ui = await boot();
   ui.click('[data-tab=\"player\"]'); await ui.settle();
-  ui.click('[data-tab="extras"]'); await ui.settle();
+  ui.click('[data-sub="player:bases"]'); await ui.settle();
+  ui.click('[data-bstab="structures"]'); await ui.settle();
   ui.click('[data-act="sand"]'); await ui.settle();
   ui.click('[data-act="repairB"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#ask').textContent.includes('Repair every base piece'));
@@ -860,6 +863,38 @@ test('No Guild or Respawn points in the Player view; Bases: the open base is lab
   assert.ok(ui.doc.querySelector('[data-act="autoref"]'), 'and on the Water tab');
   ui.click('[data-bsopen="8"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#main').textContent.includes('Outpost (#8)'), 'Open switches to that base');
+  ui.dom.window.close();
+});
+
+test('Repair all worn items and loadouts on the Inventory tab; Vehicles Repair one and all; claim cells drawn as a grid; Structures and vendors moved', async () => {
+  const claim = [{ totem_id: 7, name: 'Totem', cells: 3, rings: 0, level: 1, irregular: true, maxRings: 5, maxLevel: 5, piecesInClaim: 2, piecesOutside: 1,
+    grid: [{ x: -1, y: 0, in: true, n: 0 }, { x: 0, y: 0, in: true, n: 2 }, { x: 1, y: 0, in: true, n: 0 }, { x: 3, y: 1, in: false, n: 1 }] }];
+  const veh = { vehicles: [{ id: 41, name: 'BP_Sandbike', type: 'Sandbike', map: 'HaggaBasin', condition: 60, fuel: 10, x: 1, y: 2, components: [], cargo: null }], hidden: 0, recovered: [], backups: [] };
+  const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/claim': claim, '/api/vehicles': veh }, post: { '/api/player/repair': { ok: true, repaired: 4 }, '/api/vehicles/repair': { ok: true, repaired: 1, modules: 3, withoutKnownMax: 0 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="char:inventory"]'); await ui.settle();
+  ui.click('[data-act="repair"]'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/player/repair').length, 1, 'one request');
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Repaired 4 items'));
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:vehicles"]'); await ui.settle();
+  ui.click('[data-act="repairOne"]'); await ui.settle();
+  ui.click('[data-act="repairV"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/vehicles/repair').map((p) => p.body), [{ vehicle_id: 41 }, {}], 'one vehicle, then all of them with no threshold');
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:bases"]'); await ui.settle();
+  ui.click('[data-bstab="claim"]'); await ui.settle();
+  const tds = [...ui.doc.querySelectorAll('table.cgrid td.cg')];
+  assert.ok(tds.length >= 12, 'a padded grid of cells: ' + tds.length);
+  assert.equal(ui.doc.querySelectorAll('td.cg-t').length, 1, 'the totem cell');
+  assert.equal(ui.doc.querySelectorAll('td.cg-o').length, 1, 'a cell outside the claim that holds pieces');
+  assert.equal(ui.doc.querySelectorAll('td.cg-c').length, 2, 'claim cells without pieces');
+  ui.click('[data-bstab="structures"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('[data-act="repairB"]') && ui.doc.querySelector('[data-act="sand"]'), 'structure tools are on the base');
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:admin"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('[data-act="vreset"]'), 'vendor limits are on Admin');
+  assert.equal(ui.doc.querySelector('[data-tab="extras"]'), null, 'no Extras tab any more');
   ui.dom.window.close();
 });
 
