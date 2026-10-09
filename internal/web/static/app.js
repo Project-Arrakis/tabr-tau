@@ -91,6 +91,7 @@ const SOON = { crafting: 'Crafting recipes', research: 'Research', customization
 let tab = Object.hasOwn(TABS, localStorage.tab) ? localStorage.tab : 'player';
 const sub = { player: ['bases', 'vehicles'].includes(localStorage.tab) ? localStorage.tab : 'character', char: 'overview', db: 'browse' };
 const GROUPS = ['player', 'char', 'bases', 'db'];
+let invG = null, invQ = ''; // Character > Inventory: the chosen group (null: the first one with items) and the filter text
 function drawNav() {
   setHTML($('#nav'), html`${Object.entries(TABS).map(([k, v]) => html`<button data-tab="${k}" class="${k == tab ? 'on' : ''}">${v}</button>`)}`);
 }
@@ -242,14 +243,28 @@ async function playerSection(s) {
   } else if (c == 'inventory') {
     const d = await api('/api/player/inventory');
     const cat = await loadCatalog(d.templates);
+    // The console's four groups of the character's carried inventories, with a filter over name, item id, template and slot.
+    const G = [['backpack', 'Backpack'], ['character', 'Character'], ['loadout', 'Loadout'], ['schematics', 'Unique schematics']];
+    const groupOf = (r) => (r.inventory_type == 1 ? 'character' : r.inventory_type == 15 ? 'loadout' : r.inventory_type == 30 ? 'schematics' : 'backpack');
+    const counts = Object.fromEntries(G.map(([k]) => [k, d.items.filter((r) => groupOf(r) == k).length]));
+    const grp = invG || (G.find(([k]) => counts[k]) || G[0])[0];
+    const terms = invQ.toLowerCase().split(' ').filter(Boolean);
+    const rows = d.items.filter((r) => groupOf(r) == grp && terms.every((t) => `${itemName(r.template_id)} ${r.template_id} ${r.id} ${r.position_index}`.toLowerCase().includes(t)));
+    const cap = (d.inventories || []).find((i) => groupOf(i) == grp);
+    const slots = cap && cap.max_item_count > 0 ? ` - ${counts[grp]} / ${cap.max_item_count} slots used` : '';
+    const invCard = html`<div class="card"><h3>Inventory (${d.items.length})</h3>
+      <div class="sub">${G.map(([k, v]) => html`<button data-invg="${k}" class="${grp == k ? 'on' : ''}">${v} (${counts[k]})</button>`)}</div>
+      <div class="row"><input id="invq" placeholder="Filter by name, item ID, or template" size="34" value="${invQ}"><button class="b sec" data-act="invfilter">Filter</button><button class="b sec" data-act="invclear">Clear</button><span class="mut">${rows.length} of ${counts[grp]}${slots}</span></div>
+      ${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) },
+        { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" value="${r.stack_size}" min="1" data-item="${r.id}" data-field="stack_size" class="w90">` },
+        { k: 'quality_level', label: 'Grade', f: (r) => html`<select data-item="${r.id}" data-field="quality">${[0, 1, 2, 3, 4, 5].map((n) => html`<option ${n == r.quality_level ? 'selected' : ''}>${n}</option>`)}</select>` },
+        { k: 'durability', label: 'Durability', f: (r) => (r.durability == null ? '' : Number(r.durability).toFixed(1) + (r.max_durability ? ' / ' + Number(r.max_durability).toFixed(0) : '')) },
+        { k: 'augments', label: 'Augments', f: (r) => (r.augments || []).map((a) => html`<span class="tag" title="${a.name}${a.quality == null ? '' : ' (quality ' + a.quality + ')'}">${itemName(a.name)}</span>`) }], rows,
+        { actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` })}</div>`;
     h.push(html`<div class="card"><h3>Give item</h3><div class="row">${itemPicker("gt", cat)}
     Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="refill">Refill containers</button></div>
     <p class="mut">Pick an item by its in-game name. Items already in your save that the catalog does not know are listed by their template id; any valid template id can also be typed.</p></div>
-    <div class="card"><h3>Items (${d.items.length})</h3>${tbl([{ k: 'inventory_name', label: 'Inventory' }, { k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) },
-      { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" value="${r.stack_size}" min="1" data-item="${r.id}" data-field="stack_size" class="w90">` },
-      { k: 'quality_level', label: 'Grade', f: (r) => html`<select data-item="${r.id}" data-field="quality">${[0, 1, 2, 3, 4, 5].map((n) => html`<option ${n == r.quality_level ? 'selected' : ''}>${n}</option>`)}</select>` },
-      { k: 'durability', label: 'Durability', f: (r) => (r.durability == null ? '' : Number(r.durability).toFixed(1) + (r.max_durability ? ' / ' + Number(r.max_durability).toFixed(0) : '')) }], d.items,
-      { actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` })}</div>`);
+    ${invCard}`);
   } else if (c == 'reputation') {
     const f = await api('/api/player/factions');
     h.push(html`<div class="card"><h3>Faction reputation</h3>${tbl([{ k: 'name', label: 'Faction' }, { k: 'reputation', label: 'Reputation', f: (r) => html`<input type="number" min="0" max="12474" value="${r.reputation}" data-faction="${r.faction_id}" class="w100">` }], f)}<p class="mut">Range 0–12474. Edit and press Tab/Enter.</p></div>`);
@@ -479,6 +494,8 @@ const A = {
   tut: (d) => act(() => api('/api/player/tutorials', { id: +d.id, complete: d.c == '1' }), 'Tutorial updated'),
   tagAdd: () => act(() => api('/api/player/tags', { tag: val('tag').trim(), add: true }), 'Tag added'),
   tagDel: (d) => act(() => api('/api/player/tags', { tag: d.tag, add: false }), 'Tag removed'),
+  invfilter: () => { invQ = val('invq'); render(); },
+  invclear: () => { invQ = ''; render(); },
   jfilter: () => { window.jq = val('jq'); journeyList(); },
   jset: (d) => act(() => api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }), 'Journey updated', false).then(journeyList),
   autoref: async (d) => {
@@ -550,6 +567,8 @@ const A = {
 document.addEventListener('click', (e) => {
   const t = e.target.closest('[data-tab]');
   if (t) { if (Object.hasOwn(TABS, t.dataset.tab)) { tab = t.dataset.tab; localStorage.tab = tab; render(); } return; }
+  const ig = e.target.closest('[data-invg]');
+  if (ig) { invG = ig.dataset.invg; render(); return; }
   const s = e.target.closest('[data-sub]');
   if (s) { const [g, k] = s.dataset.sub.split(':'); if (GROUPS.includes(g)) { sub[g] = k; render(); } return; }
   const a = D(e);
