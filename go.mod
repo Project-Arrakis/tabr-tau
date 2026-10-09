@@ -1,6 +1,6 @@
 module github.com/Project-Arrakis/tabr-tau
 
-go 1.26.6
+go 1.26.9
 
 require (
 	github.com/jchv/go-webview2 v0.0.0-20260205173254-56598839c808
