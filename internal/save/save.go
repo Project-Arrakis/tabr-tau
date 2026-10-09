@@ -108,7 +108,8 @@ func codeObjects(q interface {
 		default:
 			continue
 		}
-		out[typ+" "+name] = def
+		// Line endings are not logic: a real game save stores LF, the embedded schema file may be CRLF on a Windows checkout.
+		out[typ+" "+name] = strings.ReplaceAll(def, "\r\n", "\n")
 	}
 	return out, rs.Err()
 }

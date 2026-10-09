@@ -1,0 +1,2 @@
+# The embedded game schema is compared with the game's own saves, which use LF; keep it LF in every checkout (#104).
+internal/save/schema.sql text eol=lf
