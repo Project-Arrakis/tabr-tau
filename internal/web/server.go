@@ -312,6 +312,7 @@ func (s *Server) routes() {
 	s.post("/api/player/repair", func(ops.Args) (any, error) { return o.RepairGear() })
 	s.post("/api/player/refill", func(ops.Args) (any, error) { return o.RefillContainers() })
 	s.post("/api/player/solari", o.AddSolari)
+	s.post("/api/player/intel", o.AddIntel)
 	s.post("/api/items/update", o.SetItem)
 	s.post("/api/items/delete", o.DeleteItem)
 	s.get("/api/player/factions", func(r *http.Request) (any, error) { return o.Factions() })
