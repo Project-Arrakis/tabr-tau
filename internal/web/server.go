@@ -372,6 +372,7 @@ func (s *Server) routes() {
 	s.get("/api/bases/inventory", func(r *http.Request) (any, error) { return o.BaseInventory(int64(qint(r, "base", 0))) })
 	s.get("/api/livemap", func(r *http.Request) (any, error) { return o.LiveMap(r.URL.Query().Get("map")) })
 	s.post("/api/bases/claim/expand", o.ExpandLandClaim)
+	s.post("/api/bases/claim/apply", o.ApplyLandClaim)
 	s.post("/api/bases/claim/shrink", o.ShrinkLandClaim)
 	s.post("/api/bases/refill-water", func(ops.Args) (any, error) { return o.RefillBaseWater() })
 	s.post("/api/bases/refill-generators", func(ops.Args) (any, error) { return o.RefillGenerators() })

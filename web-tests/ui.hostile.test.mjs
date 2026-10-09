@@ -28,9 +28,9 @@ let fixtures = baseFixtures;
 const read = (n) => fs.readFileSync(path.join(static_, n), 'utf8');
 
 // Allowlists: anything else appearing in the rendered DOM is an injection.
-const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h3 ul li code table thead tbody tr th td input select option datalist button details summary textarea br label canvas'.split(' '));
+const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h3 ul li code table thead tbody tr th td input select option datalist button details summary textarea br label canvas svg g rect text'.split(' '));
 const SCRIPTS = new Set(['/html.js', '/livemap.js', '/app.js']); // the only scripts the page may contain, both same-origin files
-const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal tabindex label checked'.split(' '));
+const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal tabindex label checked viewbox x y rx transform'.split(' '));
 
 export function assertClean(doc, label) {
   const bad = [];
@@ -575,7 +575,7 @@ test('Expand claim asks first, posts the chosen size and level, and the totem na
   ui.click('[data-tab=\"player\"]'); await ui.settle();
   ui.click('[data-sub=\"player:bases\"]'); await ui.settle();
   ui.click('[data-bstab="claim"]'); await ui.settle();
-  const card = [...ui.doc.querySelectorAll('.card')].find((c) => c.textContent.includes('Land claim size'));
+  const card = [...ui.doc.querySelectorAll('.card')].find((c) => c.textContent.includes('Resize by square'));
   assert.ok(card, 'the land claim card is shown');
   assert.equal(card.querySelector('img'), null, 'the totem name is data, not markup');
   ui.doc.querySelector('#cr7').value = '2'; ui.doc.querySelector('#cv7').value = '2';
@@ -926,7 +926,7 @@ test('Tables sort by any clicked header: text, numbers as numbers, descending on
 });
 
 test('Repair all worn items and loadouts on the Inventory tab; Vehicles Repair one and all; claim cells drawn as a grid; Structures and vendors moved', async () => {
-  const claim = [{ totem_id: 7, name: 'Totem', cells: 3, rings: 0, level: 1, irregular: true, maxRings: 5, maxLevel: 5, piecesInClaim: 2, piecesOutside: 1,
+  const claim = [{ totem_id: 7, name: 'Totem', cells: 3, rings: 0, level: 1, irregular: true, maxRings: 5, maxLevel: 5, piecesInClaim: 2, piecesOutside: 1, yaw: 0, segments: [{ x: -1, y: 0 }, { x: 1, y: 0 }],
     grid: [{ x: -1, y: 0, in: true, n: 0 }, { x: 0, y: 0, in: true, n: 2 }, { x: 1, y: 0, in: true, n: 0 }, { x: 3, y: 1, in: false, n: 1 }] }];
   const veh = { vehicles: [{ id: 41, name: 'BP_Sandbike', type: 'Sandbike', map: 'HaggaBasin', condition: 60, fuel: 10, x: 1, y: 2, components: [], cargo: null }], hidden: 0, recovered: [], backups: [] };
   const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/claim': claim, '/api/vehicles': veh }, post: { '/api/player/repair': { ok: true, repaired: 4 }, '/api/vehicles/repair': { ok: true, repaired: 1, modules: 3, withoutKnownMax: 0 } } });
@@ -943,17 +943,46 @@ test('Repair all worn items and loadouts on the Inventory tab; Vehicles Repair o
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:bases"]'); await ui.settle();
   ui.click('[data-bstab="claim"]'); await ui.settle();
-  const tds = [...ui.doc.querySelectorAll('table.cgrid td.cg')];
-  assert.ok(tds.length >= 12, 'a padded grid of cells: ' + tds.length);
-  assert.equal(ui.doc.querySelectorAll('td.cg-t').length, 1, 'the totem cell');
-  assert.equal(ui.doc.querySelectorAll('td.cg-o').length, 1, 'a cell outside the claim that holds pieces');
-  assert.equal(ui.doc.querySelectorAll('td.cg-c').length, 2, 'claim cells without pieces');
+  assert.equal(ui.doc.querySelectorAll('svg.lc-svg rect.lc-o').length, 1, 'the totem cell');
+  assert.equal(ui.doc.querySelectorAll('svg.lc-svg rect.lc-x').length, 2, 'the cells the claim has');
+  assert.ok(ui.doc.querySelectorAll('svg.lc-svg rect.lc-a').length >= 6, 'dotted cells next to the claim that can be added');
   ui.click('[data-bstab="structures"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('[data-act="repairB"]') && ui.doc.querySelector('[data-act="sand"]'), 'structure tools are on the base');
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:admin"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('[data-act="vreset"]'), 'vendor limits are on Admin');
   assert.equal(ui.doc.querySelector('[data-tab="extras"]'), null, 'no Extras tab any more');
+  ui.dom.window.close();
+});
+
+test('Land Claim Editor: click available cells to add them, click again to take back, keep them connected, level, Apply posts', async () => {
+  const claim = [{ totem_id: 7, name: 'Totem', cells: 2, rings: 0, level: 1, irregular: true, maxRings: 5, maxLevel: 5, yaw: 90, segments: [{ x: 1, y: 0 }], grid: [{ x: 0, y: 0, in: true, n: 0 }, { x: 1, y: 0, in: true, n: 3 }] }];
+  const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/claim': claim }, post: { '/api/bases/claim/apply': { ok: true, added: 2, level: 3, levelRaised: true } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:bases"]'); await ui.settle();
+  ui.click('[data-bstab="claim"]'); await ui.settle();
+  const cell = (k) => ui.doc.querySelector(`[data-cell="${k}"]`);
+  assert.ok(ui.doc.querySelector('#main').textContent.includes('Original yaw') && ui.doc.querySelector('#main').textContent.includes('90°'));
+  assert.ok(ui.doc.querySelector('svg.lc-svg g').getAttribute('transform').startsWith('rotate(90'), 'the grid is turned by the base yaw');
+  assert.equal(cell('0,0'), null, 'the totem cell is not clickable');
+  assert.equal(cell('1,0'), null, 'an existing cell is not clickable');
+  assert.ok(cell('2,0') && cell('0,1') && cell('-1,0'), 'cells next to the claim are available');
+  assert.equal(cell('5,5'), null, 'a cell touching nothing is not offered');
+  assert.equal(ui.doc.querySelector('[data-act="lcApply"]').disabled, true, 'nothing to apply yet');
+  ui.click('[data-cell="2,0"]'); await ui.settle();
+  assert.ok(cell('3,0'), 'a chosen cell opens the cells next to it');
+  ui.click('[data-cell="3,0"]'); await ui.settle();
+  assert.equal(ui.doc.querySelectorAll('rect.lc-s').length, 2);
+  ui.click('[data-cell="2,0"]'); await ui.settle(); // taking back the first one drops the one that hung from it
+  assert.equal(ui.doc.querySelectorAll('rect.lc-s').length, 0, 'what hung from a removed cell goes with it');
+  ui.click('[data-cell="2,0"]'); await ui.settle();
+  ui.click('[data-cell="3,0"]'); await ui.settle();
+  ui.doc.querySelector('#lcLvl').value = '3'; ui.doc.querySelector('#lcLvl').dispatchEvent(new ui.dom.window.Event('change', { bubbles: true })); await ui.settle();
+  assert.ok(ui.doc.querySelector('#main').textContent.includes('1 → 3'));
+  ui.click('[data-act="lcApply"]'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/claim/apply').length, 0, 'asks first');
+  ui.click('#aok'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/bases/claim/apply').map((p) => p.body), [{ totem_id: 7, cells: [{ x: 2, y: 0 }, { x: 3, y: 0 }], level: 3 }]);
   ui.dom.window.close();
 });
 
