@@ -139,3 +139,6 @@ canvas.lm:active { cursor: grabbing; }
 .lm-i-treadwheelvehicle{background-image:url("/maps/icons/treadwheelvehicle.webp")}
 .lm-c-spice { background: #e8871e; } .lm-c-flour { background: #e8d9a8; }
 .setcard{display:inline-block;min-width:170px;margin:0 8px 8px 0;padding:8px 10px}.setcard.on{border-color:var(--acc)}
+th{cursor:pointer;user-select:none}
+th.sa::after{content:" \25B2";font-size:9px}
+th.sd::after{content:" \25BC";font-size:9px}
