@@ -57,6 +57,16 @@ func (o *Ops) LandClaims() (any, error) {
 			t["piecesOutside"] = totalPieces(pc) - inside
 		}
 		t["grid"] = claimGrid(have, pc)
+		yaw := 0.0
+		if y, _ := o.S.One(`select landclaim_original_global_yaw_rotation yaw from totems where id=?`, t["totem_id"]); y != nil {
+			yaw, _ = y["yaw"].(float64)
+		}
+		t["yaw"] = yaw
+		segs := make([]map[string]any, 0, len(cells))
+		for _, c := range cells {
+			segs = append(segs, map[string]any{"x": c["x"], "y": c["y"]})
+		}
+		t["segments"] = segs
 		t["cells"] = int64(len(have))
 		t["rings"] = rings
 		t["irregular"] = int64(len(have)) != (2*rings+1)*(2*rings+1)
@@ -309,4 +319,126 @@ func totalPieces(pc map[[2]int64]int64) int64 {
 		n += v
 	}
 	return n
+}
+
+// claimNeighbours are the four cells that share an edge with a cell.
+func claimNeighbours(c [2]int64) [][2]int64 {
+	return [][2]int64{{c[0] + 1, c[1]}, {c[0] - 1, c[1]}, {c[0], c[1] + 1}, {c[0], c[1] - 1}}
+}
+
+const (
+	maxClaimCoord   = 128 // the console's editor offers cells up to this far from the totem
+	maxCellsPerEdit = 500
+)
+
+// ApplyLandClaim is the console's land claim editor: add the chosen cells (args cells, a list of {x, y}) and/or raise the vertical level
+// (args level). Every new cell must share an edge with the claim or with another new cell that does, back to the totem's own cell (0,0),
+// because the game needs the claim connected. A cell already in the claim is refused (the console never offers one), and the level can only
+// go up, to 5.
+func (o *Ops) ApplyLandClaim(a Args) (any, error) {
+	id, err := a.Int("totem_id")
+	if err != nil {
+		return nil, err
+	}
+	raw, _ := a["cells"].([]any)
+	_, hasLevel := a["level"]
+	if len(raw) == 0 && !hasLevel {
+		return nil, errors.New("nothing to change: choose cells and/or a vertical level")
+	}
+	if len(raw) > maxCellsPerEdit {
+		return nil, fmt.Errorf("at most %d cells in one edit", maxCellsPerEdit)
+	}
+	t, err := o.S.One(`select coalesce(landclaim_vertical_level,0) level from totems where id=?`, id)
+	if err != nil {
+		return nil, err
+	}
+	if t == nil {
+		return nil, errors.New("land claim (totem) not found")
+	}
+	curLevel := t["level"].(int64)
+	level := curLevel
+	if hasLevel {
+		if level, err = a.IntRange("level", 0, maxVerticalLevel); err != nil {
+			return nil, err
+		}
+		if level < curLevel {
+			return nil, fmt.Errorf("the vertical level is %d; lowering it is not supported", curLevel)
+		}
+	}
+	have := map[[2]int64]bool{{0, 0}: true}
+	rows, err := o.S.Query(`select grid_location_x x, grid_location_y y from landclaim_segments where totem_id=?`, id)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		x, okx := r["x"].(int64)
+		y, oky := r["y"].(int64)
+		if okx && oky {
+			have[[2]int64{x, y}] = true
+		}
+	}
+	var add [][2]int64
+	adding := map[[2]int64]bool{}
+	for i, e := range raw {
+		m, ok := e.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("cell %d is not {x, y}", i+1)
+		}
+		x, errx := Args(m).IntRange("x", -maxClaimCoord, maxClaimCoord)
+		y, erry := Args(m).IntRange("y", -maxClaimCoord, maxClaimCoord)
+		if errx != nil || erry != nil {
+			return nil, fmt.Errorf("cell %d: x and y must be whole numbers from -%d to %d", i+1, maxClaimCoord, maxClaimCoord)
+		}
+		c := [2]int64{x, y}
+		if have[c] {
+			return nil, fmt.Errorf("cell %d, %d is already in the claim", x, y)
+		}
+		if adding[c] {
+			return nil, fmt.Errorf("cell %d, %d is listed twice", x, y)
+		}
+		adding[c] = true
+		add = append(add, c)
+	}
+	// every new cell must be reachable from the claim through new cells
+	reached := map[[2]int64]bool{}
+	queue := [][2]int64{}
+	for c := range have {
+		queue = append(queue, c)
+	}
+	for len(queue) > 0 {
+		c := queue[0]
+		queue = queue[1:]
+		for _, n := range claimNeighbours(c) {
+			if adding[n] && !reached[n] {
+				reached[n] = true
+				queue = append(queue, n)
+			}
+		}
+	}
+	for _, c := range add {
+		if !reached[c] {
+			return nil, fmt.Errorf("cell %d, %d is not connected to the claim edge to edge", c[0], c[1])
+		}
+	}
+	raise := level > curLevel
+	if len(add) == 0 && !raise {
+		return nil, fmt.Errorf("the vertical level is already %d and no cells were chosen", curLevel)
+	}
+	if _, err := o.S.Mutate("", func(m *save.Mut) error {
+		for _, c := range add {
+			if _, err := m.Exec(`insert into landclaim_segments(totem_id, grid_location_x, grid_location_y) values(?,?,?)`, id, c[0], c[1]); err != nil {
+				return err
+			}
+		}
+		if raise {
+			if _, err := m.Exec(`update totems set landclaim_vertical_level=? where id=?`, level, id); err != nil {
+				return err
+			}
+		}
+		m.Desc = fmt.Sprintf("land claim %d: +%d cells, vertical level %d", id, len(add), level)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return map[string]any{"ok": true, "added": len(add), "level": level, "levelRaised": raise}, nil
 }

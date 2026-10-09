@@ -522,28 +522,70 @@ function autoRefillCard(prefs) {
   return html`<div class="card"><h3>Automatic refill of water and power</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
     <p class="mut">When on, opening the editor refills base water and generators and <b>saves straight away</b>, without the review step, so it applies the next time the game loads. It is skipped while a single-player session is running. The previous file is backed up first. Remembered between runs. The same switch is on the Power and Water tabs.</p></div>`;
 }
-// The land claim as a grid of cells, as in the console: the totem's own cell, the cells of the claim (with how many building pieces each
-// holds) and any cells outside the claim that hold pieces. Columns run with x, rows with y.
-function claimGridCard(c) {
-  const g = c.grid || [];
-  if (!g.length) return '';
-  const xs = g.map((k) => k.x), ys = g.map((k) => k.y);
-  const x0 = Math.min(...xs) - 1, x1 = Math.max(...xs) + 1, y0 = Math.min(...ys) - 1, y1 = Math.max(...ys) + 1;
-  const by = new Map(g.map((k) => [k.x + ',' + k.y, k]));
-  const rows = [];
-  for (let y = y0; y <= y1; y++) {
-    const cells = [];
-    for (let x = x0; x <= x1; x++) {
-      const k = by.get(x + ',' + y);
-      const kind = !k ? 'e' : (k.x === 0 && k.y === 0) ? 't' : !k.in ? 'o' : k.n > 0 ? 'p' : 'c';
-      const tip = !k ? `cell ${x}, ${y}: not in the claim` : `cell ${x}, ${y}: ${k.in ? (kind === 't' ? 'the totem' : 'in the claim') : 'outside the claim'}, ${k.n || 0} building pieces`;
-      cells.push(html`<td class="cg cg-${kind}" title="${tip}">${k && k.n > 0 ? k.n : (kind === 't' ? 'T' : '')}</td>`);
-    }
-    rows.push(html`<tr>${cells}</tr>`);
+// The console's Land Claim Editor: the claim as a grid of cells turned by the base's own yaw (north at the top), with the totem's cell,
+// the cells it has, and dotted "available" cells next to it. Click an available cell to add it, a chosen one to take it back (what is
+// chosen must stay connected edge to edge), pick a vertical level, then Apply. Existing cells are never removed here.
+let LC = null; // { claim, sel: Set of "x,y", level }
+const lcKey = (x, y) => `${x},${y}`;
+const lcNeighbours = (x, y) => [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]];
+const lcCoords = (k) => k.split(',').map(Number);
+function lcReachable(cells) {
+  const seen = new Set(['0,0']), queue = [[0, 0]];
+  while (queue.length) {
+    const [x, y] = queue.shift();
+    for (const [nx, ny] of lcNeighbours(x, y)) { const k = lcKey(nx, ny); if (cells.has(k) && !seen.has(k)) { seen.add(k); queue.push([nx, ny]); } }
   }
-  return html`<div class="card"><h3>Claim cells</h3><div class="scroll"><table class="cgrid"><tbody>${rows}</tbody></table></div>
-    <p class="mut"><span class="cg-key cg-t"></span> the totem <span class="cg-key cg-c"></span> in the claim <span class="cg-key cg-p"></span> in the claim with building pieces (the number) <span class="cg-key cg-o"></span> outside the claim, with pieces <span class="cg-key cg-e"></span> not in the claim. Each cell is 10 x 10 foundations.</p></div>`;
+  return seen;
 }
+function lcToggle(k) {
+  const c = LC.claim, existing = new Set(['0,0', ...(c.segments || []).map((s) => lcKey(s.x, s.y))]);
+  if (!LC.sel.has(k)) { LC.sel.add(k); return; }
+  LC.sel.delete(k);
+  const reached = lcReachable(new Set([...existing, ...LC.sel]));
+  LC.sel = new Set([...LC.sel].filter((e) => reached.has(e))); // taking a cell back also drops the chosen cells that hung from it
+}
+function claimEditorDraw() {
+  const host = $('#lced');
+  if (!host || !LC) return;
+  const c = LC.claim, yaw = Number(c.yaw) || 0;
+  const existing = new Set(['0,0', ...(c.segments || []).map((s) => lcKey(s.x, s.y))]);
+  const pieces = new Map((c.grid || []).map((g) => [lcKey(g.x, g.y), g.n]));
+  const occupied = new Set([...existing, ...LC.sel]);
+  const frontier = new Set();
+  for (const k of occupied) {
+    const [x, y] = lcCoords(k);
+    for (const [nx, ny] of lcNeighbours(x, y)) { const nk = lcKey(nx, ny); if (!occupied.has(nk) && Math.abs(nx) <= 128 && Math.abs(ny) <= 128) frontier.add(nk); }
+  }
+  const plotted = [...new Set([...occupied, ...frontier])].map(lcCoords);
+  const rad = (yaw * Math.PI) / 180;
+  const world = plotted.map(([x, y]) => [x * Math.cos(rad) - y * Math.sin(rad), x * Math.sin(rad) + y * Math.cos(rad)]);
+  const xs = world.map((w) => w[0]), ys = world.map((w) => w[1]);
+  const minX = Math.min(...xs) - 0.7, minY = Math.min(...ys) - 0.7;
+  const width = Math.max(2, Math.max(...xs) + 0.7 - minX), height = Math.max(2, Math.max(...ys) + 0.7 - minY);
+  const maxLevel = Math.max(c.level, c.maxLevel);
+  const dirty = LC.sel.size > 0 || LC.level !== c.level;
+  const cells = plotted.map(([x, y]) => {
+    const k = lcKey(x, y), origin = k === '0,0', sel = LC.sel.has(k), have = existing.has(k) && !origin, avail = frontier.has(k);
+    const kind = origin ? 'lc-o' : sel ? 'lc-s' : have ? 'lc-x' : 'lc-a';
+    const label = origin ? 'T' : sel ? '+' : have && pieces.get(k) ? pieces.get(k) : '';
+    return html`<rect x="${x - 0.44}" y="${y - 0.44}" width="0.88" height="0.88" rx="0.08" class="lc-cell ${kind}" ${avail || sel ? html`data-cell="${k}"` : ''}></rect>${label !== '' ? html`<text x="${x}" y="${y + 0.09}" transform="rotate(${-yaw} ${x} ${y})" class="lc-label">${label}</text>` : ''}`;
+  });
+  setHTML(host, html`<div class="card"><h3>Land Claim Editor</h3>
+    <div class="grid">${kv('Totem ID', c.totem_id)}${kv('Original yaw', Math.round(yaw * 10) / 10 + '°')}${kv('Horizontal segments', c.cells - 1)}${kv('Vertical level', c.level + ' / ' + c.maxLevel)}</div>
+    <div class="lc-work"><div class="lc-gridcard"><b>Horizontal claim</b><p class="mut">Click a dotted cell to add it. New cells must stay connected edge to edge. A number is how many building pieces a cell holds.</p>
+      <div class="lc-north">&#9650; North</div>
+      <svg class="lc-svg" viewBox="${minX} ${minY} ${width} ${height}"><g transform="rotate(${yaw} 0 0)">${cells}</g></svg>
+      <p class="mut"><span class="lc-key lc-o"></span>Totem <span class="lc-key lc-x"></span>Existing <span class="lc-key lc-s"></span>New <span class="lc-key lc-a"></span>Available</p>
+      <p class="mut">World-oriented view: north stays at the top and the grid is turned by the base's original yaw; the saved cell coordinates are not changed.</p></div>
+    <div class="lc-side"><b>Expansion</b>
+      <label>Vertical level <select id="lcLvl">${Array.from({ length: maxLevel - c.level + 1 }, (_, i) => c.level + i).map((n) => html`<option ${n === LC.level ? 'selected' : ''}>${n}</option>`)}</select></label>
+      <p class="mut">Vertical expansion grows equally up and down. The game caps it at level ${c.maxLevel}.</p>
+      <div class="kv"><b>Pending horizontal</b><span>${LC.sel.size}</span></div><div class="kv"><b>Pending vertical</b><span>${LC.level === c.level ? 'No change' : c.level + ' → ' + LC.level}</span></div>
+      <div class="row"><button class="b" data-act="lcApply" ${dirty ? '' : 'disabled'}>Apply changes</button>${LC.sel.size ? html`<button class="b sec" data-act="lcClear">Clear selection</button>` : ''}</div>
+      <p class="mut">The edit goes through the review pane and the usual backup. Applied when the game next loads the save.</p></div></div>
+    <p class="mut">This editor bypasses the game's normal staking checks. Claiming a protected area does not guarantee that the game lets you build there.</p></div>`);
+}
+
 let bsTab = 'power', bsOpen = null, bsGroup = 'storage';
 async function basesView() {
   const list = await api('/api/bases/list');
@@ -588,7 +630,9 @@ async function basesView() {
         <div class="card"><h3>Building piece types</h3>${tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], b.types)}</div>`);
     } else {
       const claims = (await api('/api/bases/claim')).filter((c) => c.totem_id == id);
-      h.push(html`${claims.length ? html`<div class="card"><h3>Land claim size</h3>${claims.map((c) => html`<div class="row"><b>${c.name} ${c.totem_id}</b><span>${c.cells} cell${c.cells == 1 ? '' : 's'}${c.irregular ? ' (irregular shape)' : ` (${2 * c.rings + 1} x ${2 * c.rings + 1} square)`}, vertical level ${c.level}</span>
+      LC = claims.length ? { claim: claims[0], sel: new Set(), level: claims[0].level } : null;
+      if (LC) h.push(html`<div id="lced"></div>`);
+      h.push(html`${claims.length ? html`<div class="card"><h3>Resize by square</h3>${claims.map((c) => html`<div class="row"><b>${c.name} ${c.totem_id}</b><span>${c.cells} cell${c.cells == 1 ? '' : 's'}${c.irregular ? ' (irregular shape)' : ` (${2 * c.rings + 1} x ${2 * c.rings + 1} square)`}, vertical level ${c.level}</span>
       Grow to <select id="cr${c.totem_id}"><option value="0">no change</option>${Array.from({ length: c.maxRings }, (_, i) => i + 1).filter((n) => n > c.rings).map((n) => html`<option value="${n}">${2 * n + 1} x ${2 * n + 1}</option>`)}</select>
       Level <select id="cv${c.totem_id}">${Array.from({ length: c.maxLevel + 1 }, (_, i) => i).filter((n) => n >= c.level).map((n) => html`<option value="${n}" ${n == c.level ? 'selected' : ''}>${n}</option>`)}</select>
       <button class="b" data-act="claimGrow" data-id="${c.totem_id}" data-level="${c.level}">Expand claim</button></div>
@@ -596,11 +640,12 @@ async function basesView() {
         Shrink to <select id="cs${c.totem_id}"><option value="0">the totem's own cell only</option>${Array.from({ length: c.maxRings }, (_, i) => i + 1).filter((n) => (c.irregular ? n <= c.rings : n < c.rings)).map((n) => html`<option value="${n}">${2 * n + 1} x ${2 * n + 1} square</option>`)}</select>
         <button class="b sec" data-act="claimShrink" data-id="${c.totem_id}">Shrink claim</button><span class="mut">Cells that hold building pieces are never removed.</span></div>` : html``}`)}
     <p class="mut">One cell is 10 x 10 foundations, around the totem. Expanding only adds cells and never removes them, and the vertical level can only go up. Applied when the game next loads the save.</p></div>` : html``}
-      ${claims.map((c) => claimGridCard(c))}`);
+`);
       if (!claims.length) h.push(html`<p class="mut">This base has no land claim data in the save.</p>`);
     }
   }
   setHTML(host(), html`${h}`);
+  if (bsTab == 'claim') claimEditorDraw();
 }
 
 // ---------- VEHICLES
@@ -789,6 +834,14 @@ const A = {
   crAll: async () => (await ask({ title: 'Unlock all recipes?', body: 'Every crafting recipe your research tree offers that you do not know yet is added to your known recipes. One edit in the review pane.', ok: 'Unlock all' })) && act(async () => { const r = await api('/api/player/crafting/unlock-all', {}); toast(r.added ? `Added ${r.added} recipes` + NOT_SAVED : 'You already know every recipe.'); }, null),
   skMax: async (d) => (await ask({ title: 'Max skills?', body: d.school == 'all' ? 'Every skill of the five schools is set to its highest rank. The unspent points are not changed. One edit in the review pane.' : 'Every skill of this school is set to its highest rank. The unspent points are not changed.', ok: 'Max skills' })) && act(async () => { const r = await api('/api/player/skills/max', { school: d.school }); toast(r.changed ? `${r.changed} skills raised to their highest rank` + NOT_SAVED : 'Those skills are already at their highest rank.'); }, null),
   ctGrantSet: async (d) => (await ask({ title: 'Grant ' + d.name + '?', body: 'One of each cosmetic that is not already in your inventory goes into your backpack, all or nothing. This does not grant a DLC or an account entitlement a set may need.', ok: 'Grant' })) && act(async () => { const r = await api('/api/player/customizations/grant', { group: d.id }); toast(r.granted ? `Added ${r.granted} cosmetics to your backpack` + NOT_SAVED : 'All of that set is already in your inventory.'); }, null),
+  lcClear: () => { LC.sel = new Set(); claimEditorDraw(); },
+  lcApply: async () => {
+    const c = LC.claim, cells = [...LC.sel].map(lcCoords).sort((p, q) => p[1] - q[1] || p[0] - q[0]).map(([x, y]) => ({ x, y }));
+    const body = { totem_id: c.totem_id, cells };
+    if (LC.level !== c.level) body.level = LC.level;
+    if (!(await ask({ title: 'Edit land claim?', body: `Add ${cells.length} horizontal cell${cells.length === 1 ? '' : 's'}${LC.level !== c.level ? ` and raise the vertical level from ${c.level} to ${LC.level}` : ''}. It goes through the review pane and the usual backup; the game loads it next time.`, ok: 'Apply changes' }))) return;
+    act(async () => { const r = await api('/api/bases/claim/apply', body); LC = null; toast(`Land claim: ${r.added} cell${r.added === 1 ? '' : 's'} added` + (r.levelRaised ? `, vertical level ${r.level}` : '') + NOT_SAVED); }, null);
+  },
   rsfilter: () => { rsQ = val('rsq'); researchList(); },
   rsclear: () => { rsQ = ''; rsGroup = ''; researchList(); },
   rsUnlock: (d) => act(async () => { const r = await api('/api/player/research/unlock', { item_key: d.key }); toast((r.repaired ? 'Unlock repaired' : r.alreadyPurchased ? 'Already purchased' : 'Research unlocked') + NOT_SAVED); }, null),
@@ -872,6 +925,8 @@ document.addEventListener('click', (e) => {
   if (t) { if (Object.hasOwn(TABS, t.dataset.tab)) { tab = t.dataset.tab; localStorage.tab = tab; render(); } return; }
   const cg = e.target.closest('[data-ctg]');
   if (cg) { ctGroup = cg.dataset.ctg; catalogList(); return; }
+  const lcc = e.target.closest('[data-cell]');
+  if (lcc && LC) { lcToggle(lcc.getAttribute('data-cell')); claimEditorDraw(); return; }
   const cf = e.target.closest('[data-ctf]');
   if (cf) { ctFilter = cf.dataset.ctf; catalogList(); return; }
   const rc = e.target.closest('[data-rscat]');
@@ -907,6 +962,7 @@ document.addEventListener('change', (e) => {
   if (t.id == 'gt') { showGiveAugments(); return; }
   if (t.id == 'skCharge') { skCharge = t.checked; return; }
   if (t.id == 'rsGrp') { rsGroup = t.value; researchList(); return; }
+  if (t.id == 'lcLvl' && LC) { LC.level = +t.value; claimEditorDraw(); return; }
   if (t.id == 'ctgrp') { ctGroup = t.value; catalogList(); return; }
   if (t.id == 'ctexp') { ctExp = t.checked; if (!ctExp && CT.rows.some((r) => r.experimental && r.group == ctGroup)) ctGroup = ''; catalogList(); return; }
   if (t.dataset.skill) { act(async () => { const r = await api('/api/player/skills/module', { module: t.dataset.skill, level: +t.value, charge: skCharge }); toast(`Skill set: ${r.pointsBefore} to ${r.pointsAfter} points` + NOT_SAVED); }, null); return; }

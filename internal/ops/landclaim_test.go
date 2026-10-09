@@ -286,3 +286,70 @@ insert into building_instances(building_id,instance_id,building_type,location_x,
 		t.Fatalf("one outside cell with a piece: %v", r)
 	}
 }
+
+func cells(cs ...[2]float64) []any {
+	out := make([]any, 0, len(cs))
+	for _, c := range cs {
+		out = append(out, map[string]any{"x": c[0], "y": c[1]})
+	}
+	return out
+}
+
+func TestApplyLandClaimAddsConnectedCellsAndRaisesTheLevel(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, claimFixture)} // cells (-1,0) and (-1,-1) plus the totem's own (0,0); level 1
+	r, err := o.ApplyLandClaim(Args{"totem_id": 601.0, "cells": cells([2]float64{1, 0}, [2]float64{2, 0}), "level": 3.0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res := r.(map[string]any); res["added"].(int) != 2 || res["level"].(int64) != 3 || res["levelRaised"] != true {
+		t.Fatalf("%v", res)
+	}
+	if cellCount(t, o) != 4 {
+		t.Fatalf("two stored cells plus two new ones: %d", cellCount(t, o))
+	}
+	if mustOne(t, o, `select landclaim_vertical_level l from totems where id=601`)["l"].(int64) != 3 {
+		t.Fatal("level not raised")
+	}
+	lc, _ := o.LandClaims()
+	row := lc.([]map[string]any)[0]
+	if row["yaw"].(float64) != 0 || len(row["segments"].([]map[string]any)) != 4 {
+		t.Fatalf("the editor gets the yaw and the stored cells: %v", row)
+	}
+}
+
+func TestApplyLandClaimOnlyTheLevel(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, claimFixture)}
+	if r, err := o.ApplyLandClaim(Args{"totem_id": 601.0, "level": 2.0}); err != nil || r.(map[string]any)["added"].(int) != 0 {
+		t.Fatalf("%v %v", r, err)
+	}
+	if cellCount(t, o) != 2 {
+		t.Fatal("no cells were chosen, none are added")
+	}
+}
+
+func TestApplyLandClaimRefusals(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, claimFixture)}
+	for name, a := range map[string]Args{
+		"a cell that touches nothing":    {"totem_id": 601.0, "cells": cells([2]float64{5, 5})},
+		"a gap in a chain":               {"totem_id": 601.0, "cells": cells([2]float64{1, 0}, [2]float64{3, 0})},
+		"a diagonal neighbour only":      {"totem_id": 601.0, "cells": cells([2]float64{1, 1})},
+		"a cell already in the claim":    {"totem_id": 601.0, "cells": cells([2]float64{-1, 0})},
+		"the totem's own cell":           {"totem_id": 601.0, "cells": cells([2]float64{0, 0})},
+		"the same cell twice":            {"totem_id": 601.0, "cells": cells([2]float64{1, 0}, [2]float64{1, 0})},
+		"a cell too far out":             {"totem_id": 601.0, "cells": cells([2]float64{129, 0})},
+		"a fractional cell":              {"totem_id": 601.0, "cells": cells([2]float64{0.5, 0})},
+		"lowering the level":             {"totem_id": 601.0, "level": 0.0},
+		"a level above the game's limit": {"totem_id": 601.0, "level": 6.0},
+		"nothing to do":                  {"totem_id": 601.0},
+		"the same level and no cells":    {"totem_id": 601.0, "level": 1.0},
+		"a totem that does not exist":    {"totem_id": 999.0, "cells": cells([2]float64{1, 0})},
+		"a cell that is not an object":   {"totem_id": 601.0, "cells": []any{"1,0"}},
+	} {
+		if _, err := o.ApplyLandClaim(a); err == nil {
+			t.Errorf("%s must be refused", name)
+		}
+	}
+	if o.S.Dirty() || cellCount(t, o) != 2 {
+		t.Fatal("refused requests must not change the save")
+	}
+}
