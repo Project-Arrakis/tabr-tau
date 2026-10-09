@@ -1,2 +1,4 @@
 # The embedded game schema is compared with the game's own saves, which use LF; keep it LF in every checkout (#104).
 internal/save/schema.sql text eol=lf
+# Its evidence copy is compared with it byte for byte by a test, so it is LF in every checkout too (#131).
+docs/evidence/single-player-schema.ddl.sql text eol=lf
