@@ -100,3 +100,17 @@ func TestFingerprintCatchesDisguisedObjects(t *testing.T) {
 		}()
 	}
 }
+
+// A real game save stores its triggers with LF line endings, while the built-in schema file is embedded as checked out: CRLF
+// on a Windows checkout with autocrlf. The fingerprint must compare the text, not the line endings, or every real save is
+// reported as modified and opened read-only (issue #104). Both endings are tried so the test fails on any platform.
+func TestLineEndingsDoNotMakeTheGameTriggerLookModified(t *testing.T) {
+	const trigger = "CREATE TRIGGER actor_fgl_entities_cleanup_orphaned_entities AFTER DELETE ON actor_fgl_entities FOR EACH ROW\nBEGIN\n\tDELETE FROM fgl_entities WHERE entity_id = OLD.entity_id;\nEND;"
+	for name, eol := range map[string]string{"LF": "\n", "CRLF": "\r\n"} {
+		ddl := "DROP TRIGGER actor_fgl_entities_cleanup_orphaned_entities;\n" + strings.ReplaceAll(trigger, "\n", eol)
+		s := testsave.PlayerWithSQL(t, ddl)
+		if r := s.WriteBlocked(); r != "" {
+			t.Errorf("%s line endings: the game's own trigger must not make the save read-only, got %q", name, r)
+		}
+	}
+}
