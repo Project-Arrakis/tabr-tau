@@ -824,6 +824,27 @@ test('Building Sets and Customizations: states, filters, hostile names as text, 
   ui.dom.window.close();
 });
 
+test('Live Map: marker types that name inherited properties find no picture, known types get their icon class, nothing breaks', async () => {
+  const hostile = '<img src=x onerror=1>';
+  const data = { config: { key: 'HaggaBasin', label: 'Hagga Basin', image: '/maps/hagga-basin.png', width: 4096, height: 4096, minX: -456752, maxX: 354547, minY: -450630, maxY: 353821 },
+    maps: [{ key: 'HaggaBasin', label: 'Hagga Basin' }], character: { name: 'Me', x: 0, y: 0, z: 0 },
+    vehicles: [{ id: 1, name: 'Sandbike', class: '/Game/BP_Sandbike_CHOAM.BP_Sandbike_CHOAM_C', x: 10, y: 10 }], bases: [], storage: [],
+    resourceFields: [{ kind: 'spice', size: 'Small', x: 5, y: 5, left: 5000 }, { kind: 'flour', size: '', x: 6, y: 6, left: 60000 }],
+    markers: [{ t: '__proto__', x: 1, y: 1, d: 1 }, { t: 'constructor', x: 2, y: 2, d: 0 }, { t: 'toString', x: 3, y: 3, d: 1 }, { t: 'AzuriteOre', x: 4, y: 4, d: 1 }, { t: hostile, x: 5, y: 5, d: 1 }] };
+  const ui = await boot({ get: { '/api/livemap': data } });
+  ui.click('[data-tab="livemap"]'); await ui.settle();
+  const main = ui.doc.querySelector('#main');
+  assert.ok(main.textContent.includes('__proto__') && main.textContent.includes('constructor'), 'every type is listed: ' + main.textContent.slice(0, 300));
+  assert.ok(!main.textContent.includes('TypeError') && !main.textContent.includes('is not a function'), main.textContent.slice(0, 200));
+  assert.equal(ui.doc.querySelector('img'), null, 'a hostile type is text, not markup');
+  assert.ok([...main.querySelectorAll('.lm-layer')].some((b) => b.textContent.includes('Spice fields (1)')) && [...main.querySelectorAll('.lm-layer')].some((b) => b.textContent.includes('Flour sand (1)')), 'the spice and flour sand layers are listed with their counts');
+  assert.ok(main.textContent.includes('placed by decoding their ids'), 'the decoded-position note is shown');
+  assert.equal(main.querySelectorAll('.lm-i-azuriteore').length, 1, 'a known type gets its icon class, the inherited names do not');
+  assert.equal(main.querySelectorAll('#lmc ~ * .lm-ic, .lm-ic').length >= 2, true, 'the character legend entry has its picture');
+  ui.dom.window.close();
+});
+
+
 test('base and vehicle upkeep buttons post, and unknown device names stay plain text', async () => {
   const hostile = '<img src=x onerror=1> x1';
   const ui = await boot({ post: {
