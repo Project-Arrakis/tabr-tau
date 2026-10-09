@@ -132,6 +132,17 @@ test('the Player Summary shows what the save holds, above the Player tabs', asyn
   ui.dom.window.close();
 });
 
+test('Give Intel posts the amount and reports what was applied, including the cap', async () => {
+  const ui = await boot({ post: { '/api/player/intel': { ok: true, before: 2750, after: 2779, applied: 29, capped: true } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.doc.querySelector('#intelAmt').value = '100';
+  ui.click('[data-act="intel"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((x) => x.path === '/api/player/intel').map((x) => x.body), [{ amount: 100 }]);
+  const toast = ui.doc.querySelector('#toast').textContent;
+  assert.ok(toast.includes('2,750') && toast.includes('2,779') && toast.includes('capped'), toast);
+  ui.dom.window.close();
+});
+
 test('Admin mirrors the console: the actions tabr-tau has post, the ones it lacks are disabled, server-only ones are absent', async () => {
   const ui = await boot({});
   ui.click('[data-tab="player"]'); await ui.settle();

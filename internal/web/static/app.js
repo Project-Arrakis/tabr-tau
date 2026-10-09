@@ -237,6 +237,7 @@ async function playerSection(s) {
     const a = P.actor || {}, acc = P.account || {}, j = P.journey || {};
     h.push(html`<div class="card"><h3>${P.name}</h3><div class="grid">${kv('Solari', P.solari.toLocaleString())}${kv('Map', a.map)}${kv('Position', `${fix(a.x)}, ${fix(a.y)}, ${fix(a.z)}`)}${kv('Account', acc.funcom_id)}${kv('Platform', (acc.platform_name || '') + ' ' + (acc.platform_id || ''))}${kv('Journey', `${j.done || 0} / ${j.total || 0} nodes done`)}${kv('Pawn / controller', P.pawnId + ' / ' + P.controllerId)}</div></div>
     <div class="card"><h3>Solari</h3><div class="row"><input id="solari" type="number" value="10000"><button class="b" data-act="solari">Add / remove</button><span class="mut">Negative removes. Solari is an item stack in your backpack.</span></div></div>
+    <div class="card"><h3>Quick rewards</h3><div class="row"><b>Give Intel</b><input id="intelAmt" type="number" value="100" min="1"><button class="b" data-act="intel">Give</button><span class="mut">Adds Intel for the research tree, never past 2,779. Applied when the game next loads the save.</span></div></div>
     <div class="card"><h3>Respawn points</h3>${tbl([{ k: 'group' }, { k: 'locator_name' }, { k: 'locator_actor_id' }, { k: 'map' }], P.respawns)}</div>`);
   } else if (c == 'inventory') {
     const d = await api('/api/player/inventory');
@@ -464,6 +465,7 @@ const A = {
     try { await status(); await render(); } catch (e) { toast('Saved, but the screen could not refresh: ' + e.message, true); }
   },
   solari: () => act(() => api('/api/player/solari', { amount: +val('solari') }), 'Solari updated'),
+  intel: () => act(async () => { const r = await api('/api/player/intel', { amount: +val('intelAmt') }); toast(r.applied ? `Intel ${Number(r.before).toLocaleString()} to ${Number(r.after).toLocaleString()}` + (r.capped ? ' (capped at 2,779)' : '') + NOT_SAVED : 'Intel is already at the cap (2,779).'); }, null),
   teleport: () => act(() => api('/api/player/teleport', { x: +val('tx'), y: +val('ty'), z: +val('tz') }), 'Teleport queued'),
   tpTo: (d) => act(() => api('/api/player/teleport', { x: +d.x, y: +d.y, z: +d.z }), 'Teleport queued'),
   give: () => act(() => api('/api/player/give', { template_id: pickedItemId('gt'), quantity: +val('gq'), quality: +val('gg') }), 'Item added'),

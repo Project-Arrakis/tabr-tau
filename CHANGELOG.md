@@ -6,6 +6,7 @@ Versioning: [Semantic Versioning](https://semver.org/), tags `v0.x` until the fi
 ## [Unreleased]
 
 ### Added
+- Give Intel (#96): a **Quick rewards** card on Character > Overview adds Intel for the research tree, never past 2,779 (the console's cap); the result says what was applied when the cap cut it short. It edits the plain `m_TechKnowledgePoints` number in the character's record and leaves the rest of that record alone; a save without the record is refused. Goes through the review pane like every edit.
 - Player Summary (#96): the header above the Player tabs, as in the console, read from the save: character, status, map, faction alignment, level and XP (levels from the console's XP table, up to 200), skill points (unspent / total), Intel (of 2,779), health, hydration and spice addiction, platform, Funcom and FLS ids, the database ids, and the currency balances. Solari Credit (the virtual currency) and Solari Coin (the item stacks in your inventory) are shown separately, as in the console. Health shows the current value and "max at least", because the save does not store the maximum. Read-only.
 
 ### Changed
