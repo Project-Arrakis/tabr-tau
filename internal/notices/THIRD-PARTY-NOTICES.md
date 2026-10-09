@@ -452,7 +452,7 @@ belong to their owners; this project is unofficial and not affiliated with or en
 follows the console's `rankFromSkillPoints` (`console/api/src/duneDb.js`).
 ## Live Map: map pictures and coordinate conversion (dune-awakening-selfhost-docker, RedBlink)
 
-The Live Map tab uses two map pictures (`internal/web/static/maps/hagga-basin.png`, `deep-desert.png`) copied from
+The Live Map tab uses two map pictures (`internal/web/static/maps/hagga-basin.png`, `deep-desert.png`) and 62 marker pictures (`internal/web/static/maps/icons/`, the ones the console draws for the player, base, storage, vehicles, ores, wreckage, camps, trainers, House representatives and places) copied from
 `console/web/public/images/maps/` of https://github.com/Red-Blink/dune-awakening-selfhost-docker, and the per-map world to
 picture coordinate bounds from that project's `LIVE_MAP_CONFIGS` and `liveMapGeometry.ts`. The code and numbers are MIT-licensed
 (licence reproduced in the previous section). **The pictures are Dune: Awakening game art, which belongs to Funcom; they are not
