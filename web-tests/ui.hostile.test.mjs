@@ -768,6 +768,38 @@ test('Skills: schools, rank bars, set rank (with and without paying), starter sk
   ui.dom.window.close();
 });
 
+test('Research and Crafting: categories, filter, hostile names as text, and Unlock posts the right key', async () => {
+  const hostile = '<img src=x onerror=1>';
+  const rr = (o) => ({ itemKey: 'RCP_X', name: 'X', category: 'Combat', productGroup: 'Iron Products', type: 'Recipe', state: 'NotPurchased', isNew: false, unlockKind: 'recipe', unlockId: 'X', purchased: false, materialized: false, unlocked: false, needsRepair: false, actionable: true, ...o });
+  const research = { rows: [rr({ itemKey: 'RCP_Rifle', name: 'Rifle ' + hostile }), rr({ itemKey: 'RCP_Done', name: 'Done', purchased: true, materialized: true, unlocked: true, state: 'Purchased' }),
+    rr({ itemKey: 'RCP_Sand', name: 'Sandbike', category: 'Vehicles', productGroup: 'Copper Products', purchased: true, needsRepair: true, state: 'Purchased' }), rr({ itemKey: 'DA_GRP_W', name: 'Water', category: 'Water Discipline', type: 'Group', actionable: false, unlockKind: 'group', unlockId: '' })] };
+  const crafting = { rows: [{ recipeId: 'HealthPackRecipe', name: 'Health Pack', category: 'Essentials', source: 'SchematicPickup', known: true, limited: true, uses: 1 }, { recipeId: 'T4_Rifle_Recipe', name: 'Rifle ' + hostile, category: 'Combat', source: 'Research', known: false, limited: false, uses: 0 }] };
+  const ui = await boot({ get: { '/api/player/research': research, '/api/player/crafting': crafting }, post: { '/api/player/research/unlock': { ok: true, alreadyPurchased: false }, '/api/player/crafting/unlock': { ok: true, alreadyKnown: false } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:research"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('img'), null, 'a hostile research name is text, not markup');
+  assert.equal(ui.doc.querySelector('[data-rscat=""]').textContent, 'All (4)');
+  assert.equal(ui.doc.querySelectorAll('[data-act="rsUnlock"]').length, 2, 'Unlock only where something is missing');
+  assert.ok([...ui.doc.querySelectorAll('[data-act="rsUnlock"]')].some((b) => b.textContent == 'Repair unlock'), 'a purchased entry with its recipe missing offers a repair');
+  assert.ok(ui.doc.querySelector('button[disabled]').textContent == 'Group', 'a group marker has a disabled button');
+  ui.click('[data-rscat="Vehicles"]'); await ui.settle();
+  assert.equal(ui.doc.querySelectorAll('#rsout tbody tr').length, 1);
+  assert.ok(ui.doc.querySelector('#rsGrp'), 'product groups appear once a category is chosen');
+  ui.click('[data-rscat=""]'); await ui.settle();
+  ui.doc.querySelector('#rsq').value = 'rifle'; ui.click('[data-act="rsfilter"]'); await ui.settle();
+  assert.equal(ui.doc.querySelectorAll('#rsout tbody tr').length, 1);
+  ui.click('[data-act="rsUnlock"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/research/unlock').map((p) => p.body), [{ item_key: 'RCP_Rifle' }]);
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:crafting"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('img'), null);
+  assert.ok(ui.doc.querySelector('#crout').textContent.includes('limited use (1)'));
+  assert.equal(ui.doc.querySelectorAll('[data-act="crUnlock"]').length, 1, 'Unlock only for recipes not known');
+  ui.click('[data-act="crUnlock"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/crafting/unlock').map((p) => p.body), [{ recipe_id: 'T4_Rifle_Recipe' }]);
+  ui.dom.window.close();
+});
+
 test('base and vehicle upkeep buttons post, and unknown device names stay plain text', async () => {
   const hostile = '<img src=x onerror=1> x1';
   const ui = await boot({ post: {

@@ -108,7 +108,7 @@ const TABS = { player: 'Player', landsraad: 'Landsraad', config: 'Config', db: '
 const PTABS = [['character', 'Character'], ['crafting', 'Crafting'], ['research', 'Research'], ['buildingsets', 'Building Sets'], ['customizations', 'Customizations'],
   ['skills', 'Skills'], ['specialization', 'Specialization'], ['journey', 'Journey'], ['blueprints', 'Blueprints'], ['bases', 'Bases'], ['vehicles', 'Vehicles'], ['admin', 'Admin']];
 // The console tabs tabr-tau does not have yet; each says so instead of being left out.
-const SOON = { crafting: 'Crafting recipes', research: 'Research', customizations: 'Customizations', blueprints: 'Blueprints' };
+const SOON = { customizations: 'Customizations', blueprints: 'Blueprints' };
 let tab = Object.hasOwn(TABS, localStorage.tab) ? localStorage.tab : 'player';
 const sub = { player: ['bases', 'vehicles'].includes(localStorage.tab) ? localStorage.tab : 'character', char: 'overview', db: 'browse' };
 const GROUPS = ['player', 'char', 'bases', 'db'];
@@ -312,6 +312,12 @@ async function playerSection(s) {
       <div class="row">Unspent points<input id="skPts" type="number" min="0" max="100000" value="${SK.unspent}" class="w90"><button class="b" data-act="skPoints">Set unspent points</button></div>
       <p class="mut">The save does not keep spent plus unspent equal to the total (some skills are granted free), so these three numbers are shown as stored and not worked out from each other.</p></div>
     <div class="card"><h3>Skill Browser</h3><div id="skhead"></div><div id="skout"></div></div>`);
+  } else if (s == 'research') {
+    RS = (await api('/api/player/research')).rows;
+    h.push(html`<div class="card"><h3>Research</h3><div id="rshead"></div><div id="rsout"></div></div>`);
+  } else if (s == 'crafting') {
+    CR = (await api('/api/player/crafting')).rows;
+    h.push(html`<div class="card"><h3>Crafting recipes</h3><div id="crhead"></div><div id="crout"></div></div>`);
   } else if (s == 'buildingsets') {
     const r = await api('/api/player/recipes');
     h.push(html`<div class="card"><h3>Learned building sets (${r.learnedSets.length})</h3>${r.learnedSets.map((x) => html`<span class="tag">${x.name}</span>`)}</div><div class="card"><h3>New buildable pieces (${r.newPieces.length})</h3>${r.newPieces.map((x) => html`<span class="tag">${x.name}</span>`)}</div>`);
@@ -339,6 +345,8 @@ async function playerSection(s) {
   setHTML(host(), html`${h}`);
   if (s == 'journey') journeyList();
   if (s == 'skills') skillsList();
+  if (s == 'research') researchList();
+  if (s == 'crafting') craftingList();
 }
 // tabr-tau-only features that have no tab in the console's player view live here, so the Player tabs can match the console (#96).
 async function extrasView() {
@@ -397,6 +405,43 @@ function skillsList() {
   setHTML($('#skout'), tbl([{ k: 'name', label: 'Skill', f: (m) => html`<span title="${m.id}">${m.name}</span>` }, { k: 'kind', label: 'Type' }, { k: 'rank', label: 'Rank', f: bar },
     { k: 'spent', label: 'Points', f: (m) => m.spent },
     { k: 'max', label: 'Set rank', f: (m) => (m.known ? html`<select data-skill="${m.id}">${Array.from({ length: m.max + 1 }, (_, i) => html`<option ${i == m.rank ? 'selected' : ''}>${i}</option>`)}</select>` : html`<span class="mut">catalog does not know its ranks</span>`) }], rows));
+}
+
+// Research and crafting recipes, as the console's Research and Crafting tabs: a category, a filter, and an Unlock on each entry that is not
+// there yet. Unlocking research marks it purchased and adds the recipe or building set it unlocks; a purchased entry whose recipe or set is
+// missing shows Repair unlock.
+let RS = null, CR = null, rsCat = '', rsGroup = '', rsQ = '', crCat = '', crQ = '';
+const RCATS = ['Water Discipline', 'Combat', 'Construction', 'Exploration', 'Vehicles', 'Augmentations', 'Uniques', 'Essentials'];
+const LISTMAX = 400;
+function researchList() {
+  if (!RS || !$('#rsout')) return;
+  const inCat = RS.filter((r) => !rsCat || r.category == rsCat);
+  const groups = [...new Set(inCat.map((r) => r.productGroup))].sort();
+  const words = rsQ.toLowerCase().split(/\s+/).filter(Boolean);
+  const rows = inCat.filter((r) => (!rsGroup || r.productGroup == rsGroup) && words.every((w) => [r.name, r.itemKey, r.type, r.productGroup].join(' ').toLowerCase().includes(w)));
+  const done = RS.filter((r) => r.unlocked).length;
+  setHTML($('#rshead'), html`<div class="sub"><button data-rscat="" class="${rsCat == '' ? 'on' : ''}">All (${RS.length})</button>${RCATS.map((c) => html`<button data-rscat="${c}" class="${rsCat == c ? 'on' : ''}">${c} (${RS.filter((r) => r.category == c).length})</button>`)}</div>
+    <div class="row">${rsCat ? html`<select id="rsGrp"><option value="">All product groups</option>${groups.map((g) => html`<option ${g == rsGroup ? 'selected' : ''}>${g}</option>`)}</select>` : ''}
+    <input id="rsq" placeholder="Filter by name, key, type or group" size="34" value="${rsQ}"><button class="b sec" data-act="rsfilter">Filter</button><button class="b sec" data-act="rsclear">Clear</button>
+    <span class="mut">${rows.length} of ${inCat.length}${rows.length > LISTMAX ? `, showing the first ${LISTMAX}` : ''}; ${done} of ${RS.length} unlocked. Unlocking adds the linked recipe or building set; group markers cannot be unlocked as one entry.</span></div>`);
+  const state = (r) => (r.unlocked ? html`<span class="ok">Unlocked</span>` : r.purchased ? html`<span class="warn">Purchased, ${r.unlockKind} missing</span>` : html`<span class="mut">Not purchased</span>`);
+  const act = (r) => (!r.actionable ? html`<button class="b sec sm" disabled title="A group marker; unlock its individual entries">Group</button>` : r.unlocked ? '' :
+    html`<button class="b sm" data-act="rsUnlock" data-key="${r.itemKey}">${r.needsRepair ? 'Repair unlock' : 'Unlock'}</button>`);
+  setHTML($('#rsout'), tbl([{ k: 'name', label: 'Research', f: (r) => html`<span title="${r.itemKey}">${r.name}</span>` }, { k: 'itemKey', label: 'Key', cls: 'mut' }, { k: 'type', label: 'Type' },
+    { k: 'productGroup', label: 'Product group' }, { k: 'state', label: 'State', f: state }], rows.slice(0, LISTMAX), { actions: act }));
+}
+function craftingList() {
+  if (!CR || !$('#crout')) return;
+  const inCat = CR.filter((r) => !crCat || r.category == crCat);
+  const words = crQ.toLowerCase().split(/\s+/).filter(Boolean);
+  const rows = inCat.filter((r) => words.every((w) => [r.name, r.recipeId, r.category, r.source].join(' ').toLowerCase().includes(w)));
+  const known = CR.filter((r) => r.known).length;
+  setHTML($('#crhead'), html`<div class="sub"><button data-crcat="" class="${crCat == '' ? 'on' : ''}">All (${CR.length})</button>${RCATS.filter((c) => c != 'Augmentations' && c != 'Uniques').map((c) => html`<button data-crcat="${c}" class="${crCat == c ? 'on' : ''}">${c} (${CR.filter((r) => r.category == c).length})</button>`)}</div>
+    <div class="row"><input id="crq" placeholder="Filter by name, recipe id or source" size="34" value="${crQ}"><button class="b sec" data-act="crfilter">Filter</button><button class="b sec" data-act="crclear">Clear</button>
+    <span class="mut">${rows.length} of ${inCat.length}${rows.length > LISTMAX ? `, showing the first ${LISTMAX}` : ''}; ${known} known. The recipes listed are the ones you know plus the ones your research tree can still give.</span></div>`);
+  setHTML($('#crout'), tbl([{ k: 'name', label: 'Recipe', f: (r) => html`<span title="${r.recipeId}">${r.name}</span>${r.limited ? html` <span class="tag">limited use (${r.uses})</span>` : ''}` }, { k: 'recipeId', label: 'Recipe id', cls: 'mut' },
+    { k: 'category', label: 'Category' }, { k: 'source', label: 'Source' }, { k: 'known', label: 'State', f: (r) => (r.known ? html`<span class="ok">Known</span>` : html`<span class="mut">Not known</span>`) }], rows.slice(0, LISTMAX),
+    { actions: (r) => (r.known ? '' : html`<button class="b sm" data-act="crUnlock" data-id="${r.recipeId}">Unlock</button>`) }));
 }
 
 // ---------- BASES
@@ -628,6 +673,12 @@ const A = {
   invclear: () => { invQ = ''; render(); },
   skPoints: () => act(async () => { const r = await api('/api/player/skills/points', { points: +val('skPts') }); toast(`Unspent skill points ${r.before} to ${r.after}` + NOT_SAVED); }, null),
   skStarter: () => act(async () => { const r = await api('/api/player/skills/starter', { school: skSchool }); toast(r.changed ? `Restored ${r.changed} starter skills` + NOT_SAVED : 'The starter skills are already learned.'); }, null),
+  rsfilter: () => { rsQ = val('rsq'); researchList(); },
+  rsclear: () => { rsQ = ''; rsGroup = ''; researchList(); },
+  rsUnlock: (d) => act(async () => { const r = await api('/api/player/research/unlock', { item_key: d.key }); toast((r.repaired ? 'Unlock repaired' : r.alreadyPurchased ? 'Already purchased' : 'Research unlocked') + NOT_SAVED); }, null),
+  crfilter: () => { crQ = val('crq'); craftingList(); },
+  crclear: () => { crQ = ''; craftingList(); },
+  crUnlock: (d) => act(async () => { const r = await api('/api/player/crafting/unlock', { recipe_id: d.id }); toast((r.alreadyKnown ? 'Already known' : 'Recipe unlocked') + NOT_SAVED); }, null),
   jfilter: () => { window.jq = val('jq'); journeyList(); },
   jclear: () => { window.jq = ''; journeyList(); },
   jset: (d) => act(async () => { await api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }); JB = await api('/api/player/journey/browse'); journeyList(); toast('Journey updated' + NOT_SAVED); }, null),
@@ -700,6 +751,10 @@ const A = {
 document.addEventListener('click', (e) => {
   const t = e.target.closest('[data-tab]');
   if (t) { if (Object.hasOwn(TABS, t.dataset.tab)) { tab = t.dataset.tab; localStorage.tab = tab; render(); } return; }
+  const rc = e.target.closest('[data-rscat]');
+  if (rc) { rsCat = rc.dataset.rscat; rsGroup = ''; researchList(); return; }
+  const cc = e.target.closest('[data-crcat]');
+  if (cc) { crCat = cc.dataset.crcat; craftingList(); return; }
   const sg = e.target.closest('[data-skgrp]');
   if (sg) { skSchool = sg.dataset.skgrp; skillsList(); return; }
   const jg = e.target.closest('[data-jgrp]');
@@ -728,6 +783,7 @@ document.addEventListener('change', (e) => {
   const t = e.target;
   if (t.id == 'gt') { showGiveAugments(); return; }
   if (t.id == 'skCharge') { skCharge = t.checked; return; }
+  if (t.id == 'rsGrp') { rsGroup = t.value; researchList(); return; }
   if (t.dataset.skill) { act(async () => { const r = await api('/api/player/skills/module', { module: t.dataset.skill, level: +t.value, charge: skCharge }); toast(`Skill set: ${r.pointsBefore} to ${r.pointsAfter} points` + NOT_SAVED); }, null); return; }
   if (t.dataset.item) act(() => api('/api/items/update', { id: +t.dataset.item, [t.dataset.field]: +t.value }), 'Item updated', false);
   else if (t.dataset.faction) act(() => api('/api/player/factions', { faction_id: +t.dataset.faction, amount: +t.value }), 'Reputation set', false);
