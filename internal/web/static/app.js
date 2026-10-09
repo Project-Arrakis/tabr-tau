@@ -108,7 +108,7 @@ const TABS = { player: 'Player', landsraad: 'Landsraad', config: 'Config', db: '
 const PTABS = [['character', 'Character'], ['crafting', 'Crafting'], ['research', 'Research'], ['buildingsets', 'Building Sets'], ['customizations', 'Customizations'],
   ['skills', 'Skills'], ['specialization', 'Specialization'], ['journey', 'Journey'], ['blueprints', 'Blueprints'], ['bases', 'Bases'], ['vehicles', 'Vehicles'], ['admin', 'Admin']];
 // The console tabs tabr-tau does not have yet; each says so instead of being left out.
-const SOON = { crafting: 'Crafting recipes', research: 'Research', customizations: 'Customizations', skills: 'Skill points and modules', blueprints: 'Blueprints' };
+const SOON = { crafting: 'Crafting recipes', research: 'Research', customizations: 'Customizations', blueprints: 'Blueprints' };
 let tab = Object.hasOwn(TABS, localStorage.tab) ? localStorage.tab : 'player';
 const sub = { player: ['bases', 'vehicles'].includes(localStorage.tab) ? localStorage.tab : 'character', char: 'overview', db: 'browse' };
 const GROUPS = ['player', 'char', 'bases', 'db'];
@@ -305,6 +305,13 @@ async function playerSection(s) {
     const tg = await api('/api/player/tags');
     h.push(html`<div class="card"><h3>Journey Browser</h3><div id="jhead"></div><div id="jout"></div></div>`);
     h.push(html`<div class="card"><h3>Player tags</h3>${tg.length ? tg.map((t) => html`<span class="tag">${t.tag} <a href="#" data-act="tagDel" data-tag="${t.tag}">×</a></span>`) : html`<span class="mut">none</span>`}<div class="row"><input id="tag" placeholder="Tag.Name" size="40"><button class="b" data-act="tagAdd">Add tag</button></div></div>`);
+  } else if (s == 'skills') {
+    SK = await api('/api/player/skills');
+    h.push(html`<div class="card"><h3>Skill Point Controls</h3>
+      <div class="row"><span>Earned in total <b>${SK.total}</b></span><span>Spent in skills <b>${SK.spent}</b></span><span>Unspent <b>${SK.unspent}</b></span></div>
+      <div class="row">Unspent points<input id="skPts" type="number" min="0" max="100000" value="${SK.unspent}" class="w90"><button class="b" data-act="skPoints">Set unspent points</button></div>
+      <p class="mut">The save does not keep spent plus unspent equal to the total (some skills are granted free), so these three numbers are shown as stored and not worked out from each other.</p></div>
+    <div class="card"><h3>Skill Browser</h3><div id="skhead"></div><div id="skout"></div></div>`);
   } else if (s == 'buildingsets') {
     const r = await api('/api/player/recipes');
     h.push(html`<div class="card"><h3>Learned building sets (${r.learnedSets.length})</h3>${r.learnedSets.map((x) => html`<span class="tag">${x.name}</span>`)}</div><div class="card"><h3>New buildable pieces (${r.newPieces.length})</h3>${r.newPieces.map((x) => html`<span class="tag">${x.name}</span>`)}</div>`);
@@ -331,6 +338,7 @@ async function playerSection(s) {
   }
   setHTML(host(), html`${h}`);
   if (s == 'journey') journeyList();
+  if (s == 'skills') skillsList();
 }
 // tabr-tau-only features that have no tab in the console's player view live here, so the Player tabs can match the console (#96).
 async function extrasView() {
@@ -368,6 +376,27 @@ function journeyList() {
   };
   setHTML($('#jout'), tbl([{ k: 'name', label: 'Name', f: (r) => html`<span class="ind${Math.min(r.depth || 0, 8)}" title="${r.id}">${r.name}</span>${r.pendingReward ? html` <span class="tag">reward pending</span>` : ''}` },
     { k: 'status', label: 'Status', f: stat }, { k: 'tags', label: 'Tags', f: (r) => (r.tags ? r.tags : '') }], rows.slice(0, JMAX), { actions: act }));
+}
+
+// The Skill Browser, as the console's: a school at a time, each skill with a rank bar and a rank control. A change is one edit in the
+// review pane. By default it sets the skill only, as the console's control does; "Pay for it" also takes the points from, or gives them
+// back to, the unspent points.
+let SK = null, skSchool = 'Trooper', skCharge = false;
+const SKOTHER = ['Hidden', 'Other'];
+function skillsList() {
+  if (!SK || !$('#skout')) return;
+  const groups = [...SK.schools.map((x) => [x.key, x.label]), ['Other', 'Other']];
+  const inGroup = (m) => (skSchool == 'Other' ? SKOTHER.includes(m.school) : m.school == skSchool);
+  const rows = SK.modules.filter(inGroup);
+  const count = (k) => SK.modules.filter((m) => (k == 'Other' ? SKOTHER.includes(m.school) : m.school == k) && m.rank > 0).length;
+  setHTML($('#skhead'), html`<div class="sub">${groups.map(([k, v]) => html`<button data-skgrp="${k}" class="${skSchool == k ? 'on' : ''}">${v} (${count(k)})</button>`)}</div>
+    <div class="row"><label><input type="checkbox" id="skCharge" ${skCharge ? 'checked' : ''}> Pay for changes from the unspent points (and give them back when lowering)</label>
+    ${skSchool != 'Other' ? html`<button class="b sec" data-act="skStarter">Restore starter skills</button>` : ''}
+    <span class="mut">${rows.length} skills; ${rows.filter((m) => m.rank > 0).length} learned.</span></div>`);
+  const bar = (m) => (m.known ? html`<span class="rankbar" title="rank ${m.rank} of ${m.max}">${'●'.repeat(m.rank)}${'○'.repeat(Math.max(0, m.max - m.rank))}</span>` : html`<span class="mut" title="not in the catalog: ${m.spent} points spent">?</span>`);
+  setHTML($('#skout'), tbl([{ k: 'name', label: 'Skill', f: (m) => html`<span title="${m.id}">${m.name}</span>` }, { k: 'kind', label: 'Type' }, { k: 'rank', label: 'Rank', f: bar },
+    { k: 'spent', label: 'Points', f: (m) => m.spent },
+    { k: 'max', label: 'Set rank', f: (m) => (m.known ? html`<select data-skill="${m.id}">${Array.from({ length: m.max + 1 }, (_, i) => html`<option ${i == m.rank ? 'selected' : ''}>${i}</option>`)}</select>` : html`<span class="mut">catalog does not know its ranks</span>`) }], rows));
 }
 
 // ---------- BASES
@@ -597,6 +626,8 @@ const A = {
   tagDel: (d) => act(() => api('/api/player/tags', { tag: d.tag, add: false }), 'Tag removed'),
   invfilter: () => { invQ = val('invq'); render(); },
   invclear: () => { invQ = ''; render(); },
+  skPoints: () => act(async () => { const r = await api('/api/player/skills/points', { points: +val('skPts') }); toast(`Unspent skill points ${r.before} to ${r.after}` + NOT_SAVED); }, null),
+  skStarter: () => act(async () => { const r = await api('/api/player/skills/starter', { school: skSchool }); toast(r.changed ? `Restored ${r.changed} starter skills` + NOT_SAVED : 'The starter skills are already learned.'); }, null),
   jfilter: () => { window.jq = val('jq'); journeyList(); },
   jclear: () => { window.jq = ''; journeyList(); },
   jset: (d) => act(async () => { await api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }); JB = await api('/api/player/journey/browse'); journeyList(); toast('Journey updated' + NOT_SAVED); }, null),
@@ -669,6 +700,8 @@ const A = {
 document.addEventListener('click', (e) => {
   const t = e.target.closest('[data-tab]');
   if (t) { if (Object.hasOwn(TABS, t.dataset.tab)) { tab = t.dataset.tab; localStorage.tab = tab; render(); } return; }
+  const sg = e.target.closest('[data-skgrp]');
+  if (sg) { skSchool = sg.dataset.skgrp; skillsList(); return; }
   const jg = e.target.closest('[data-jgrp]');
   if (jg) { if (JGROUPS.some(([k]) => k == jg.dataset.jgrp)) { jgrp = jg.dataset.jgrp; journeyList(); } return; }
   const vo = e.target.closest('[data-vhopen]');
@@ -694,6 +727,8 @@ document.addEventListener('click', (e) => {
 document.addEventListener('change', (e) => {
   const t = e.target;
   if (t.id == 'gt') { showGiveAugments(); return; }
+  if (t.id == 'skCharge') { skCharge = t.checked; return; }
+  if (t.dataset.skill) { act(async () => { const r = await api('/api/player/skills/module', { module: t.dataset.skill, level: +t.value, charge: skCharge }); toast(`Skill set: ${r.pointsBefore} to ${r.pointsAfter} points` + NOT_SAVED); }, null); return; }
   if (t.dataset.item) act(() => api('/api/items/update', { id: +t.dataset.item, [t.dataset.field]: +t.value }), 'Item updated', false);
   else if (t.dataset.faction) act(() => api('/api/player/factions', { faction_id: +t.dataset.faction, amount: +t.value }), 'Reputation set', false);
   else if (t.dataset.hp) act(() => api('/api/bases/health', { kind: 'placeable', id: +t.dataset.id, health: +t.value }), 'Health set', false);
