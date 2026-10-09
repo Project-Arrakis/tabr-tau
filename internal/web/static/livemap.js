@@ -15,6 +15,8 @@
     { id: 'vehicles', label: 'Your vehicles', color: '#4ec9ff' },
     { id: 'bases', label: 'Your base', color: '#ff7a45' },
     { id: 'storage', label: 'Storage containers', color: '#d6a45a' },
+    { id: 'spice', label: 'Spice fields', color: '#e8871e' },
+    { id: 'flour', label: 'Flour sand', color: '#e8d9a8' },
     { id: 'ore', label: 'Ore and minerals', color: '#c58bff' },
     { id: 'salvage', label: 'Salvage', color: '#9aa4b2' },
     { id: 'flora', label: 'Plants', color: '#6fd36f' },
@@ -101,8 +103,9 @@
     transportornithopter: 'ornithoptervehicle.webp',
     treadwheel: 'treadwheelvehicle.webp',
   };
-  const LM_GROUP_ICON = { character: 'Characters.webp', bases: 'Base.webp', storage: 'storage.png' };
-  const LM_ICON_SIZE = { character: 36, bases: 36, vehicles: 32, storage: 20 }; // screen pixels, as the console sizes them; other markers 22
+  const LM_GROUP_ICON = { character: 'Characters.webp', bases: 'Base.webp', storage: 'storage.png', spice: 'spicefieldlarge.webp', flour: 'floursand.webp' };
+  const LM_ICON_SIZE = { character: 36, bases: 36, vehicles: 32, storage: 20, flour: 24 };
+  const LM_SPICE_SIZE = { Large: 48, Medium: 34, Small: 24 }; // spice by the size of the field, as the console sizes them // screen pixels, as the console sizes them; other markers 22
   // A picture by marker type. The type comes from the save, so it is looked up as an own key only ("__proto__" or "constructor" must
   // not find anything).
   function lmIconByType(type) {
@@ -151,6 +154,11 @@
     for (const v of d.vehicles || []) add('vehicles', v.x, v.y, v.name, { cls: String(v.class ?? '') });
     for (const b of d.bases || []) add('bases', b.x, b.y, 'Your base');
     for (const s of d.storage || []) add('storage', s.x, s.y, s.name);
+    // Spice and flour sand fields: their positions are decoded from their ids (see the notice under the map).
+    for (const f of d.resourceFields || []) {
+      const left = Number(f.left).toLocaleString();
+      add(f.kind === 'spice' ? 'spice' : 'flour', f.x, f.y, f.kind === 'spice' ? `Spice field, ${String(f.size)} (${left} left)` : `Flour sand (${left} left)`, { size: String(f.size || '') });
+    }
     for (const m of d.markers || []) add(lmGroupOf(m.t), m.x, m.y, m.t, { d: Number(m.d) || 0, type: String(m.t ?? '') });
     return pts;
   }
@@ -193,7 +201,7 @@
       const img = file ? lmImage(file) : null;
       if (img) { // a picture, drawn at a fixed size on screen whatever the zoom
         // your own things keep their size; the thousands of map markers shrink when the whole map is in view, so they do not hide it
-        const size = LM_ICON_SIZE[p.g] || Math.min(22, Math.max(10, 60 * lm.scale + 6));
+        const size = p.g === 'spice' ? (LM_SPICE_SIZE[p.size] || 24) : LM_ICON_SIZE[p.g] || Math.min(22, Math.max(10, 60 * lm.scale + 6));
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.globalAlpha = p.d > 0 ? 1 : 0.4;
@@ -278,6 +286,7 @@
         <p class="mut">The map as of your last save, not the running game. Markers you have not discovered yet are shown faded.</p>
         <div class="lm-wrap"><canvas id="lmc" class="lm"></canvas></div>
         <p class="mut" id="lminfo">Hover a marker for details. Drag to move, scroll to zoom.</p>
+        ${counts.spice || counts.flour ? html`<p class="mut">Spice and flour sand fields are placed by decoding their ids, because the save keeps no coordinates for them; the positions have not been checked against the game for this map.</p>` : ''}
         <div class="row">${groups.map((g) => html`<button class="lm-layer ${lm.hidden.has(g.id) ? 'off' : 'on'}" data-lmg="${g.id}">${LM_GROUP_ICON[g.id] ? html`<span class="lm-ic lm-i-${LM_GROUP_ICON[g.id].replace(/\.[a-z]+$/, '').toLowerCase()}"></span>` : html`<span class="lm-sw lm-c-${g.id}"></span>`}${g.label} (${counts[g.id]})</button>`)}</div></div>
       <div class="card"><h3>Markers on this map (${types.length} types)</h3>${tbl([{ k: 'type', label: 'Type', f: (r) => { const f = lmIconByType(r.type); return f ? html`<span class="lm-ic lm-i-${f.replace(/\.[a-z]+$/, '').toLowerCase()}"></span>${r.type}` : r.type; } }, { k: 'group', label: 'Group', f: (r) => (LM_GROUPS.find((g) => g.id == r.group) || {}).label || r.group }, { k: 'n', label: 'Markers' }, { k: 'found', label: 'Discovered' }], types)}</div>`);
     lmMount();

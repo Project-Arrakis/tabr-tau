@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
@@ -96,5 +97,49 @@ func TestLiveMapWorksWithAnEmptySave(t *testing.T) {
 	o := &Ops{S: testsave.Player(t)}
 	if _, err := o.LiveMap("HaggaBasin"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// packField builds a resource field id the way the game packs one: x, y and z as 21-bit two's-complement fields, low to high.
+func packField(x, y, z int64) int64 {
+	m := int64(1<<21 - 1)
+	return (x & m) | (y&m)<<21 | (z&m)<<42
+}
+
+func TestDecodeFieldPositionRoundTripsPositiveAndNegative(t *testing.T) {
+	for _, c := range [][3]int64{{0, 0, 0}, {-413944, 195656, 90}, {283763, 118663, 1732}, {-1, -1, -1}, {1048575, -1048576, 5}} {
+		x, y, z := decodeFieldPosition(packField(c[0], c[1], c[2]))
+		if x != c[0] || y != c[1] || z != c[2] {
+			t.Errorf("%v decoded as %d %d %d", c, x, y, z)
+		}
+	}
+}
+
+func TestLiveMapShowsDecodedSpiceAndFlourSandFieldsInsideTheMap(t *testing.T) {
+	sql := mapWorld + `
+insert into resourcefield_state(field_id,map,dimension_index,spawn_time,value_remaining) values
+  (` + strconv.FormatInt(packField(-413944, 195656, 90), 10) + `,'HaggaBasin',0,1.0,5000),
+  (` + strconv.FormatInt(packField(283763, 118663, 1732), 10) + `,'HaggaBasin',0,1.0,60000),
+  (` + strconv.FormatInt(packField(-240112, -36912, 294), 10) + `,'HaggaBasin',0,1.0,200000),
+  (` + strconv.FormatInt(packField(1000000, 1000000, 5), 10) + `,'HaggaBasin',0,1.0,60000),
+  (` + strconv.FormatInt(packField(10, 10, 5), 10) + `,'DeepDesert',0,1.0,60000);`
+	o := &Ops{S: testsave.PlayerWithSQL(t, sql)}
+	r, err := o.LiveMap("HaggaBasin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fields := r.(map[string]any)["resourceFields"].([]map[string]any)
+	if len(fields) != 3 {
+		t.Fatalf("a field outside the map's bounds and one on another map are not shown: %v", fields)
+	}
+	by := map[string]map[string]any{}
+	for _, f := range fields {
+		by[f["kind"].(string)+"/"+f["size"].(string)] = f
+	}
+	if f := by["spice/Small"]; f == nil || f["x"].(int64) != -413944 || f["y"].(int64) != 195656 {
+		t.Fatalf("a 5,000 field is Small spice at its decoded place: %v", by)
+	}
+	if by["spice/Large"] == nil || by["flour/"] == nil {
+		t.Fatalf("200,000 is Large spice and 60,000 is flour sand: %v", by)
 	}
 }
