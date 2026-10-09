@@ -434,3 +434,11 @@ header says it was compiled from the augmentation database of method.gg (https:/
 July 2026); that site and the game's names and effects belong to their owners, and this project is unofficial and not affiliated
 with or endorsed by Funcom or method.gg. The matching rules in `internal/augments` follow the console's
 `console/web/src/lib/augmentEligibility.ts`.
+
+## Journey names and tags: dune-awakening-selfhost-docker (RedBlink)
+
+`internal/journey/journey-tags.json` is a copy, unchanged, of `runtime/data/journey-tags.json` of
+https://github.com/Red-Blink/dune-awakening-selfhost-docker (git blob 62bd7f08), MIT-licensed under the licence reproduced in the item
+catalog section above. It gives readable names for Journey story nodes and contracts, the order of sibling nodes, and the gameplay tags
+that nodes and contracts set. The game's names belong to their owners; this project is unofficial and not affiliated with or endorsed by
+Funcom. The naming, parent and ordering rules in `internal/journey` follow the console's `console/api/src/duneDb/presentation.js`.

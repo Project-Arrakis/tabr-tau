@@ -301,10 +301,10 @@ async function playerSection(s) {
     const sp = await api('/api/player/specs');
     h.push(html`<div class="card"><h3>Specialization tracks</h3>${tbl([{ k: 'track_type', label: 'Track' }, { k: 'xp_amount', label: 'XP' }, { k: 'level' }], sp, { actions: (r) => html`<button class="b sec sm" data-act="spec" data-t="${r.track_type}" data-xp="${r.xp_amount}" data-lv="${r.level}">Edit</button>` })}<div class="row"><span class="mut">Add/overwrite:</span>Track<input id="st" type="number" value="0" class="w70">XP<input id="sx" type="number" value="0">Level<input id="sl" type="number" step="0.1" value="1" class="w80"><button class="b" data-act="specSet">Set</button></div></div>`);
   } else if (s == 'journey') {
-    const [tu, tg] = await Promise.all(['tutorials', 'tags'].map((x) => api('/api/player/' + x)));
-    h.push(html`<div class="card"><h3>Journey nodes</h3><div class="row"><input id="jq" placeholder="filter (e.g. DA_MQ)" size="30" value="${window.jq || ''}"><button class="b sec" data-act="jfilter">Filter</button><span class="mut">Completing a node also completes its children.</span></div><div id="jout"></div></div>`);
-    h.push(html`<div class="card"><h3>Tutorials</h3>${tbl([{ k: 'id' }, { k: 'name' }, { k: 'state', label: 'State', f: (r) => (r.state == 2 ? html`<span class="ok">done</span>` : html`<span class="mut">not done</span>`) }], tu, { actions: (r) => (r.state == 2 ? html`<button class="b sec sm" data-act="tut" data-id="${r.id}" data-c="0">Reset</button>` : html`<button class="b sm" data-act="tut" data-id="${r.id}" data-c="1">Complete</button>`) })}</div>
-    <div class="card"><h3>Player tags</h3>${tg.length ? tg.map((t) => html`<span class="tag">${t.tag} <a href="#" data-act="tagDel" data-tag="${t.tag}">×</a></span>`) : html`<span class="mut">none</span>`}<div class="row"><input id="tag" placeholder="Tag.Name" size="40"><button class="b" data-act="tagAdd">Add tag</button></div></div>`);
+    JB = await api('/api/player/journey/browse');
+    const tg = await api('/api/player/tags');
+    h.push(html`<div class="card"><h3>Journey Browser</h3><div id="jhead"></div><div id="jout"></div></div>`);
+    h.push(html`<div class="card"><h3>Player tags</h3>${tg.length ? tg.map((t) => html`<span class="tag">${t.tag} <a href="#" data-act="tagDel" data-tag="${t.tag}">×</a></span>`) : html`<span class="mut">none</span>`}<div class="row"><input id="tag" placeholder="Tag.Name" size="40"><button class="b" data-act="tagAdd">Add tag</button></div></div>`);
   } else if (s == 'buildingsets') {
     const r = await api('/api/player/recipes');
     h.push(html`<div class="card"><h3>Learned building sets (${r.learnedSets.length})</h3>${r.learnedSets.map((x) => html`<span class="tag">${x.name}</span>`)}</div><div class="card"><h3>New buildable pieces (${r.newPieces.length})</h3>${r.newPieces.map((x) => html`<span class="tag">${x.name}</span>`)}</div>`);
@@ -347,10 +347,27 @@ async function extrasView() {
   <h3 class="mt14">Restock cycles</h3>${tbl([{ k: 'vendor_id' }, { k: 'last_interacted_timestamp', label: 'Last interaction', f: (r) => new Date(r.last_interacted_timestamp * 1000).toLocaleString() }], e.cycles)}</div>`);
   setHTML($('#main'), html`${h}`);
 }
-async function journeyList() {
-  const rows = await api('/api/player/journey?q=' + encodeURIComponent(window.jq || ''));
-  setHTML($('#jout'), html`<p class="mut">${rows.length} nodes${rows.length > 500 ? ' (showing first 500)' : ''}</p>${tbl([{ k: 'id', label: 'Node' }, { k: 'complete', label: 'State', f: (r) => (r.complete ? html`<span class="ok">complete</span>` : html`<span class="mut">open</span>`) }], rows.slice(0, 500),
-    { actions: (r) => (r.complete ? html`<button class="b sec sm" data-act="jset" data-id="${r.id}" data-c="0">Reset</button>` : html`<button class="b sm" data-act="jset" data-id="${r.id}" data-c="1">Complete</button>`) })}`);
+// The Journey browser, as the console's: Story, Contract, Codex and Tutorial lists with readable names, the tree depth, and status.
+// Story, Codex and Tutorial rows can be completed or reset (a story or codex node takes its children with it); contracts are read-only here.
+let JB = null, jgrp = 'story'; // JB: the last browse result
+const JGROUPS = [['story', 'Story'], ['contract', 'Contract'], ['codex', 'Codex'], ['tutorial', 'Tutorial']];
+const JMAX = 400;
+function journeyList() {
+  if (!JB || !$('#jout')) return;
+  const q = (window.jq || '').trim().toLowerCase();
+  const all = JB[jgrp] || [];
+  const rows = q ? all.filter((r) => r.name.toLowerCase().includes(q) || r.id.toLowerCase().includes(q)) : all;
+  setHTML($('#jhead'), html`<div class="sub">${JGROUPS.map(([k, v]) => html`<button data-jgrp="${k}" class="${jgrp == k ? 'on' : ''}">${v} (${(JB[k] || []).length})</button>`)}</div>
+    <div class="row"><input id="jq" placeholder="Filter by name or node id" size="34" value="${window.jq || ''}"><button class="b sec" data-act="jfilter">Filter</button><button class="b sec" data-act="jclear">Clear</button>
+    <span class="mut">${rows.length} of ${all.length}${rows.length > JMAX ? ` (showing the first ${JMAX}, narrow the filter)` : ''}. ${jgrp == 'contract' ? 'Contracts are shown read-only; a contract is complete when all its tags are on the character.' : 'Completing a node completes its children; resetting clears it and its children.'}</span></div>`);
+  const stat = (r) => (r.status == 'Complete' ? html`<span class="ok">Complete</span>` : r.status == 'Revealed' || r.status == 'Started' ? html`<span class="warn">${r.status}</span>` : html`<span class="mut">${r.status}</span>`);
+  const act = (r) => {
+    if (!r.actionable) return '';
+    const kind = jgrp == 'tutorial' ? 'tut' : 'jset';
+    return r.complete ? html`<button class="b sec sm" data-act="${kind}" data-id="${r.id}" data-c="0">Reset</button>` : html`<button class="b sm" data-act="${kind}" data-id="${r.id}" data-c="1">Complete</button>`;
+  };
+  setHTML($('#jout'), tbl([{ k: 'name', label: 'Name', f: (r) => html`<span class="ind${Math.min(r.depth || 0, 8)}" title="${r.id}">${r.name}</span>${r.pendingReward ? html` <span class="tag">reward pending</span>` : ''}` },
+    { k: 'status', label: 'Status', f: stat }, { k: 'tags', label: 'Tags', f: (r) => (r.tags ? r.tags : '') }], rows.slice(0, JMAX), { actions: act }));
 }
 
 // ---------- BASES
@@ -575,13 +592,14 @@ const A = {
   delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). Discard undoes it until you save.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
   spec: (d) => { $('#st').value = d.t; $('#sx').value = d.xp; $('#sl').value = d.lv; },
   specSet: () => act(() => api('/api/player/specs', { track_type: +val('st'), xp: +val('sx'), level: +val('sl') }), 'Specialization set'),
-  tut: (d) => act(() => api('/api/player/tutorials', { id: +d.id, complete: d.c == '1' }), 'Tutorial updated'),
+  tut: (d) => act(async () => { await api('/api/player/tutorials', { id: +d.id, complete: d.c == '1' }); JB = await api('/api/player/journey/browse'); journeyList(); toast('Tutorial updated' + NOT_SAVED); }, null),
   tagAdd: () => act(() => api('/api/player/tags', { tag: val('tag').trim(), add: true }), 'Tag added'),
   tagDel: (d) => act(() => api('/api/player/tags', { tag: d.tag, add: false }), 'Tag removed'),
   invfilter: () => { invQ = val('invq'); render(); },
   invclear: () => { invQ = ''; render(); },
   jfilter: () => { window.jq = val('jq'); journeyList(); },
-  jset: (d) => act(() => api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }), 'Journey updated', false).then(journeyList),
+  jclear: () => { window.jq = ''; journeyList(); },
+  jset: (d) => act(async () => { await api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }); JB = await api('/api/player/journey/browse'); journeyList(); toast('Journey updated' + NOT_SAVED); }, null),
   autoref: async (d) => {
     if (!d.on && !(await ask({ title: 'Turn on automatic refill?', body: 'From now on, opening the editor refills base water and generators and saves to your game file immediately, without the Review & save step. The previous file is backed up each time, and nothing happens while a single-player session is running. It applies to whichever save file the editor opens.', ok: 'Turn on' }))) return;
     act(async () => { const r = await api('/api/settings', { autoRefillOnOpen: !d.on }); toast('Automatic refill when the editor opens is now ' + (r.autoRefillOnOpen ? 'on' : 'off')); }, null);
@@ -651,6 +669,8 @@ const A = {
 document.addEventListener('click', (e) => {
   const t = e.target.closest('[data-tab]');
   if (t) { if (Object.hasOwn(TABS, t.dataset.tab)) { tab = t.dataset.tab; localStorage.tab = tab; render(); } return; }
+  const jg = e.target.closest('[data-jgrp]');
+  if (jg) { if (JGROUPS.some(([k]) => k == jg.dataset.jgrp)) { jgrp = jg.dataset.jgrp; journeyList(); } return; }
   const vo = e.target.closest('[data-vhopen]');
   if (vo) { vhOpen = +vo.dataset.vhopen; render(); return; }
   const bo = e.target.closest('[data-bsopen]');

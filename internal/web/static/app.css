@@ -52,3 +52,11 @@ ul.tight{margin:6px 0}
 .mbox h3.big{margin:0 0 8px;font-size:18px;color:var(--acc2);text-transform:none;letter-spacing:0}.mbox h3{margin:14px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut)}
 body.noscroll{overflow:hidden}
 .modal.top{z-index:9}.mbox.small{max-width:480px;margin-top:12vh}
+.ind1{margin-left:16px}
+.ind2{margin-left:32px}
+.ind3{margin-left:48px}
+.ind4{margin-left:64px}
+.ind5{margin-left:80px}
+.ind6{margin-left:96px}
+.ind7{margin-left:112px}
+.ind8{margin-left:128px}

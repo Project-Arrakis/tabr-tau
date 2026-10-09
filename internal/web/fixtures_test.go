@@ -16,7 +16,7 @@ import (
 // uiRoutes are the GET endpoints the UI reads. Responses are produced by the REAL handlers over a real-schema
 // save in which every TEXT column holds testsave.HostileText, then replayed by web-tests/ in a browser engine.
 var uiRoutes = []string{
-	"/api/overview", "/api/save/state", "/api/player", "/api/player/summary", "/api/player/inventory", "/api/player/factions", "/api/player/faction", "/api/player/specs",
+	"/api/overview", "/api/save/state", "/api/player", "/api/player/summary", "/api/player/inventory", "/api/player/factions", "/api/player/journey/browse", "/api/player/faction", "/api/player/specs",
 	"/api/player/tutorials", "/api/player/tags", "/api/player/recipes", "/api/player/journey",
 	"/api/catalog/items", "/api/settings", "/api/bases", "/api/bases/list", "/api/bases/power?base=900001", "/api/bases/water?base=900001", "/api/bases/inventory?base=900001", "/api/bases/claim", "/api/bases/storage", "/api/bases/storage/items?inventory=1", "/api/vehicles", "/api/vendors", "/api/landsraad",
 	"/api/db/tables", "/api/save/backups",
