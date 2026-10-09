@@ -651,6 +651,41 @@ test('Give Items queue: items are queued, listed with hostile names as text, rem
   ui.dom.window.close();
 });
 
+test('Augments: the editor lists the fitting augments as text, applies the picked ones, and Give carries augments', async () => {
+  const hostile = '<img src=x onerror=1>';
+  const fit = { template_id: 'Helm_1', kind: 'clothing', limit: 2, options: [
+    { id: 'Aug_A', name: 'Plate ' + hostile, effects: ['Armor +5%', 'Weight -1%'] }, { id: 'Aug_B', name: 'Weave', effects: [] }], applied: [{ id: 'Aug_B', name: 'Weave', quality: '3' }] };
+  const inv = JSON.parse(JSON.stringify(baseFixtures['/api/player/inventory'].body));
+  inv.items = [{ id: 7, inventory_id: 1, inventory_name: 'Backpack', position_index: 0, template_id: 'Helm_1', stack_size: 1, quality_level: 5, durability: null, max_durability: null, augments: [{ name: 'Aug_B', quality: 3 }], aug_limit: 2 },
+    { id: 8, inventory_id: 1, inventory_name: 'Backpack', position_index: 1, template_id: 'Ore_1', stack_size: 5, quality_level: 0, durability: null, max_durability: null, augments: [], aug_limit: 0 }];
+  const ui = await boot({ get: { '/api/player/inventory': inv }, post: { '/api/items/augment-options': fit, '/api/items/augment': { ok: true, augments: 1, slotsUnlocked: 2 }, '/api/player/give-items': { ok: true, count: 1, itemIds: [9] } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="char:inventory"]'); await ui.settle();
+  assert.equal(ui.doc.querySelectorAll('[data-act="augEdit"]').length, 1, 'only an item that takes augments gets the button');
+  ui.click('[data-act="augEdit"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('img'), null, 'a hostile augment name is text, not markup');
+  assert.equal(ui.doc.querySelectorAll('#au0 option').length, 3, 'none plus the two fitting augments');
+  assert.equal(ui.doc.querySelector('#au0').value, 'Aug_B', 'the applied augment is preselected');
+  assert.ok(ui.doc.querySelector('#au0 option[value="Aug_A"]').textContent.includes('Armor +5%; Weight -1%'), 'effects are shown');
+  assert.ok(!ui.doc.querySelector('#au2'), 'only as many slots as the item holds');
+  ui.doc.querySelector('#au1').value = 'Aug_A'; ui.doc.querySelector('#augG').value = '4';
+  ui.click('[data-act="augApply"]'); await ui.settle();
+  const ap = ui.posted.filter((p) => p.path === '/api/items/augment');
+  assert.equal(ap.length, 1);
+  assert.deepEqual(ap[0].body, { item_id: 7, augments: ['Aug_B', 'Aug_A'], grade: 4, unlock_slots: true });
+  assert.ok(!ui.doc.querySelector('#au0'), 'the editor closes after applying');
+  // Give: picking an item that takes augments shows the slots; the queue line carries them
+  ui.doc.querySelector('#gt').value = 'Helm_1';
+  ui.doc.querySelector('#gt').dispatchEvent(new ui.dom.window.Event('change', { bubbles: true })); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ga1'), 'augment slots appear for the picked item');
+  ui.doc.querySelector('#ga0').value = 'Aug_A'; ui.doc.querySelector('#gag').value = '2';
+  ui.click('[data-act="give"]'); await ui.settle();
+  const gi = ui.posted.filter((p) => p.path === '/api/player/give-items');
+  assert.equal(gi.length, 1);
+  assert.deepEqual(gi[0].body.items, [{ template_id: 'Helm_1', quantity: 1, quality: 0, augments: ['Aug_A'], grade: 2 }]);
+  ui.dom.window.close();
+});
+
 test('base and vehicle upkeep buttons post, and unknown device names stay plain text', async () => {
   const hostile = '<img src=x onerror=1> x1';
   const ui = await boot({ post: {

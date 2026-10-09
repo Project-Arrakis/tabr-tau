@@ -49,3 +49,6 @@ func Name(id string) (string, bool) {
 	e, ok := byID[id]
 	return e.Name, ok
 }
+
+// Category returns the category of a template id ("clothing", "weapons", ...), or "" when the id is not in the catalog.
+func Category(id string) string { return byID[id].Category }

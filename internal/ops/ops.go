@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/augments"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
@@ -270,6 +271,7 @@ func (o *Ops) Inventory() (any, error) {
 		it["inventory_name"] = n
 		it["durability"], it["max_durability"] = durability(fmt.Sprint(it["stats"]))
 		it["augments"] = augmentsOf(fmt.Sprint(it["stats"]))
+		it["aug_limit"] = fitOf(fmt.Sprint(it["template_id"])).Limit
 		delete(it, "stats")
 	}
 	invs, _ := o.S.Query(`select id, inventory_type, max_item_count, max_item_volume from inventories where actor_id=? and inventory_type in (0, 1, 15, 30) order by id`, p.Pawn)
@@ -306,6 +308,9 @@ func giveInTx(m *save.Mut, inventoryID int64, template string, qty, quality int6
 	stats := `{"FCustomizationStats":[[],{}],"FItemStackAndDurabilityStats":[[],{}]}`
 	if k, _ := m.Query(`select stats from items where template_id=? and stats is not null limit 1`, template); len(k) > 0 {
 		stats = fmt.Sprint(k[0]["stats"])
+		if plain, err := augments.Stats(stats, nil); err == nil { // the copied item's augments are its own, not the new item's
+			stats = plain
+		}
 	}
 	var next, maxID int64
 	seq, err := m.Query(`select next_id from items_id_sequencer`)
@@ -398,6 +403,8 @@ func (o *Ops) GiveItems(a Args) (any, error) {
 	type line struct {
 		tmpl   string
 		qty, q int64
+		aug    []string
+		grade  int
 	}
 	lines := make([]line, 0, len(list))
 	for i, e := range list {
@@ -409,7 +416,18 @@ func (o *Ops) GiveItems(a Args) (any, error) {
 		if err != nil {
 			return nil, fmt.Errorf("item %d: %w", i+1, err)
 		}
-		lines = append(lines, line{tmpl, qty, q})
+		ids, err := augmentIDs(Args(m))
+		if err != nil {
+			return nil, fmt.Errorf("item %d: %w", i+1, err)
+		}
+		grade, err := augmentGrade(Args(m))
+		if err != nil {
+			return nil, fmt.Errorf("item %d: %w", i+1, err)
+		}
+		if err := checkAugments(tmpl, ids); err != nil {
+			return nil, fmt.Errorf("item %d: %w", i+1, err)
+		}
+		lines = append(lines, line{tmpl, qty, q, ids, grade})
 	}
 	r, _ := o.S.One(`select id from inventories where actor_id=? and inventory_type=0 order by id limit 1`, p.Pawn)
 	if r == nil {
@@ -422,6 +440,11 @@ func (o *Ops) GiveItems(a Args) (any, error) {
 			id, e := giveInTx(m, inv, l.tmpl, l.qty, l.q)
 			if e != nil {
 				return fmt.Errorf("item %d (%s): %w", i+1, l.tmpl, e)
+			}
+			if len(l.aug) > 0 {
+				if _, e := setAugmentsTx(m, id, l.aug, l.grade); e != nil {
+					return fmt.Errorf("item %d (%s): %w", i+1, l.tmpl, e)
+				}
 			}
 			ids = append(ids, id)
 		}
