@@ -133,6 +133,25 @@ test('the Player Summary shows what the save holds, above the Player tabs', asyn
   ui.dom.window.close();
 });
 
+test('Player > Vehicles shows type, condition, fuel, components and the cargo hold of the open vehicle', async () => {
+  const vehicle = (id, name, extra) => ({ id, name, type: name.replace('BP_', '').split('_')[0], map: 'HaggaBasin', x: 5228, y: -408425, z: 0, condition: 40, fuel: 90.5, modules: [], inventories: [], components: [], cargo: null, ...extra });
+  const v1 = vehicle(152, 'BP_Sandbike_CHOAM', {
+    components: [{ template_id: 'SandbikeEngine_1', current: 900, max: 1000, percent: 90 }, { template_id: 'SandbikeChassis_1', current: 2000, max: null, percent: null }],
+    cargo: { inventory_id: 59, slots: 15, items: [{ id: 1, template_id: 'CopperOre', stack_size: 40, quality_level: 0, position_index: 2 }] } });
+  const v2 = vehicle(153, 'BP_Buggy_CHOAM', { condition: 85, fuel: null, cargo: { inventory_id: 60, slots: 20, items: [] } });
+  const ui = await boot({ get: { '/api/vehicles': { vehicles: [v1, v2], recovered: [], backups: [], hidden: 12 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:vehicles"]'); await ui.settle();
+  const main = () => ui.doc.querySelector('#main').textContent;
+  for (const want of ['Your vehicles (2)', 'Sandbike', 'Buggy', '40%', '85%', '90.5', '5,228, -408,425', 'Sandbike: 2 components', 'Sandbike Engine', '90%', '900 / 1000', 'Sandbike Chassis', '2000', 'Cargo hold', '1 / 15 slots used', 'CopperOre', '12 other vehicles']) {
+    assert.ok(main().includes(want), `the vehicles tab should show ${want}`);
+  }
+  ui.click('[data-vhopen="153"]'); await ui.settle();
+  assert.ok(main().includes('Buggy: 0 components') && main().includes('0 / 20 slots used') && main().includes('The cargo hold is empty.') && !main().includes('CopperOre'), 'the second vehicle has its own details');
+  assert.ok(ui.doc.querySelector('[data-act="bring"]'), 'Bring to me is still offered');
+  ui.dom.window.close();
+});
+
 test('Player > Bases lists the bases and shows Power, Water and Inventory for the open one', async () => {
   const ui = await boot({ get: {
     '/api/bases/list': [{ base_id: 164, name: 'Advanced Sub-Fief Console', base_type: 'Advanced Sub-Fief', owner: 'Tester', map: 'HaggaBasin', generators: 11, pieces: 486, placeables: 90, x: -67159, y: -211307, z: 12 }],
