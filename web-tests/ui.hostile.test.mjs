@@ -132,6 +132,31 @@ test('the Player Summary shows what the save holds, above the Player tabs', asyn
   ui.dom.window.close();
 });
 
+test('Character > Inventory shows the console groups, a filter, slot usage and augments', async () => {
+  const it = (id, tmpl, type, slot, extra = {}) => ({ id, template_id: tmpl, stack_size: 1, quality_level: 0, position_index: slot, inventory_id: type, inventory_type: type, inventory_name: 'x', durability: null, max_durability: null, augments: [], ...extra });
+  const inventory = {
+    items: [it(1, 'CopperOre', 0, 0), it(2, 'Literjon_T1', 0, 1), it(3, 'Combat_Heavy_Helmet_06', 1, 0, { augments: [{ name: 'T6_Augment_Armor16', quality: 5 }] }), it(4, 'Knife', 15, 0)],
+    inventories: [{ id: 1, inventory_type: 0, max_item_count: 35 }, { id: 2, inventory_type: 1, max_item_count: 10 }, { id: 3, inventory_type: 15, max_item_count: 8 }],
+    templates: ['CopperOre', 'Literjon_T1', 'Combat_Heavy_Helmet_06', 'Knife'],
+  };
+  const ui = await boot({ get: { '/api/player/inventory': inventory } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="char:inventory"]'); await ui.settle();
+  const names = () => [...ui.doc.querySelectorAll('[data-invg]')].map((b) => b.textContent.trim());
+  assert.deepEqual(names(), ['Backpack (2)', 'Character (1)', 'Loadout (1)', 'Unique schematics (0)']);
+  const main = () => ui.doc.querySelector('#main').textContent;
+  assert.ok(main().includes('2 of 2 - 2 / 35 slots used') && main().includes('CopperOre') && !main().includes('Knife'), 'the backpack is the first group with items');
+  ui.click('[data-invg="character"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('[title^="T6_Augment_Armor16"]') && main().includes('Combat_Heavy_Helmet_06') && !main().includes('CopperOre'), 'the character group lists the helmet with its augment');
+  ui.click('[data-invg="backpack"]'); await ui.settle();
+  ui.doc.querySelector('#invq').value = 'liter';
+  ui.click('[data-act="invfilter"]'); await ui.settle();
+  assert.ok(main().includes('1 of 2') && main().includes('Literjon_T1') && !main().includes('CopperOre'), 'the filter narrows the group');
+  ui.click('[data-act="invclear"]'); await ui.settle();
+  assert.ok(main().includes('2 of 2'), 'Clear shows the group again');
+  ui.dom.window.close();
+});
+
 test('Give XP and Give currency post their amounts and report the result', async () => {
   const ui = await boot({ post: {
     '/api/player/xp': { ok: true, before: 41221, after: 42221, applied: 1000, levelBefore: 71, levelAfter: 72, skillPointsGained: 1, capped: false },

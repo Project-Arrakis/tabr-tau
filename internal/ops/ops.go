@@ -199,8 +199,40 @@ func (o *Ops) run(desc, q string, args ...any) (int64, error) {
 
 // ---------------------------------------------------------------- inventory
 
-var invTypeNames = map[int64]string{0: "Backpack", 1: "Equipment", 3: "Container", 4: "Container (large)", 12: "Machine",
-	14: "Armor / clothing", 15: "Weapons / tools", 20: "Misc", 27: "Quickbar", 30: "Storage"}
+// The player's carried inventories the console shows, and its names for them (console playerAdminUtils.ts): the backpack, the worn
+// character gear, the loadout (weapons and tools) and the unique-gear schematics. The character's other inventories (emotes,
+// contract items, machine slots, ...) are not part of this view; the Database tab shows them.
+var invTypeNames = map[int64]string{0: "Backpack", 1: "Character", 15: "Loadout", 30: "Unique schematics"}
+
+// augmentsOf lists the augments applied to an item (its FAugmentedItemStats), each with the quality it was applied at.
+func augmentsOf(stats string) []map[string]any {
+	var m map[string][]json.RawMessage
+	if json.Unmarshal([]byte(stats), &m) != nil {
+		return nil
+	}
+	pair := m["FAugmentedItemStats"]
+	if len(pair) < 2 {
+		return nil
+	}
+	var d struct {
+		Applied []struct {
+			Name string `json:"Name"`
+		} `json:"AppliedAugments"`
+		Qualities []float64 `json:"AppliedAugmentQualities"`
+	}
+	if json.Unmarshal(pair[1], &d) != nil {
+		return nil
+	}
+	var out []map[string]any
+	for i, a := range d.Applied {
+		e := map[string]any{"name": a.Name}
+		if i < len(d.Qualities) {
+			e["quality"] = d.Qualities[i]
+		}
+		out = append(out, e)
+	}
+	return out
+}
 
 func durability(stats string) (cur, max any) {
 	var m map[string][]json.RawMessage
@@ -225,7 +257,7 @@ func (o *Ops) Inventory() (any, error) {
 	}
 	items, err := o.S.Query(`select i.id, i.template_id, i.stack_size, i.quality_level, i.position_index, i.inventory_id,
 		v.inventory_type, i.stats from items i join inventories v on v.id=i.inventory_id
-		where v.actor_id=? order by v.inventory_type, i.position_index`, p.Pawn)
+		where v.actor_id=? and v.inventory_type in (0, 1, 15, 30) order by v.inventory_type, i.position_index`, p.Pawn)
 	if err != nil {
 		return nil, err
 	}
@@ -237,9 +269,10 @@ func (o *Ops) Inventory() (any, error) {
 		}
 		it["inventory_name"] = n
 		it["durability"], it["max_durability"] = durability(fmt.Sprint(it["stats"]))
+		it["augments"] = augmentsOf(fmt.Sprint(it["stats"]))
 		delete(it, "stats")
 	}
-	invs, _ := o.S.Query(`select id, inventory_type, max_item_count, max_item_volume from inventories where actor_id=? and inventory_type is not null order by id`, p.Pawn)
+	invs, _ := o.S.Query(`select id, inventory_type, max_item_count, max_item_volume from inventories where actor_id=? and inventory_type in (0, 1, 15, 30) order by id`, p.Pawn)
 	tmpl, _ := o.S.Query(`select distinct template_id from items order by 1`)
 	names := []any{}
 	for _, t := range tmpl {
