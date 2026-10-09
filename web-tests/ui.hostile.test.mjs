@@ -863,6 +863,36 @@ test('No Guild or Respawn points in the Player view; Bases: the open base is lab
   ui.dom.window.close();
 });
 
+test('Tables sort by any clicked header: text, numbers as numbers, descending on the second click, original order on the third, kept after a redraw', async () => {
+  const row = (o) => ({ id: 'X', name: 'X', learned: false, inInventory: false, inCatalog: true, ...o });
+  const sets = { rows: [row({ id: 'b', name: 'Beta' }), row({ id: 'a', name: 'alpha' }), row({ id: 'c', name: 'Charlie', learned: true })], newPieces: [] };
+  const m = (o) => ({ id: 'Skills.Ability.X', name: 'X', school: 'Trooper', kind: 'Ability', rank: 0, max: 3, spent: 0, ladder: [1, 3, 6], known: true, ...o });
+  const sk = { total: 100, unspent: 5, spent: 21, schools: [{ key: 'Trooper', label: 'Trooper' }], modules: [m({ id: 'Skills.Ability.A', name: 'A', spent: 9 }), m({ id: 'Skills.Ability.B', name: 'B', spent: 10 }), m({ id: 'Skills.Ability.C', name: 'C', spent: 2 })] };
+  const ui = await boot({ get: { '/api/player/building-sets': sets, '/api/player/skills': sk } });
+  const names = () => [...ui.doc.querySelectorAll('#ctout tbody tr td:first-child')].map((td) => td.textContent.trim());
+  const th = (label) => [...ui.doc.querySelectorAll('thead th')].find((x) => x.textContent.trim().startsWith(label));
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:buildingsets"]'); await ui.settle();
+  assert.deepEqual(names(), ['Beta', 'alpha', 'Charlie'], 'the rows come in the order the server gave');
+  th('Item id').click(); await ui.settle();
+  assert.deepEqual(names(), ['alpha', 'Beta', 'Charlie'], 'ids a, b, c');
+  th('Item id').click(); await ui.settle();
+  assert.deepEqual(names(), ['Charlie', 'Beta', 'alpha'], 'descending on the second click');
+  assert.ok(th('Item id').classList.contains('sd'), 'the arrow shows the direction');
+  th('Item id').click(); await ui.settle();
+  assert.deepEqual(names(), ['Beta', 'alpha', 'Charlie'], 'a third click restores the original order');
+  th('State').click(); await ui.settle(); // Learned, Not owned, Not owned: text sort, ties keep their order
+  assert.deepEqual(names(), ['Charlie', 'Beta', 'alpha']);
+  ui.doc.querySelector('#ctq').value = ''; ui.click('[data-act="ctfilter"]'); await ui.settle(); // a redraw of the same table
+  assert.deepEqual(names(), ['Charlie', 'Beta', 'alpha'], 'the sort survives a redraw');
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:skills"]'); await ui.settle();
+  const pts = () => [...ui.doc.querySelectorAll('#skout tbody tr')].map((tr) => tr.cells[3].textContent.trim());
+  th('Points').click(); await ui.settle();
+  assert.deepEqual(pts(), ['2', '9', '10'], 'numbers sort as numbers, not as text (10 after 9)');
+  ui.dom.window.close();
+});
+
 test('base and vehicle upkeep buttons post, and unknown device names stay plain text', async () => {
   const hostile = '<img src=x onerror=1> x1';
   const ui = await boot({ post: {

@@ -121,6 +121,53 @@ function subNav(group, items) {
 }
 
 // ---------- generic renderers
+// Every table sorts by the header that is clicked: once ascending, again descending, a third time back to the original order. The rows
+// already on screen are sorted by what each cell shows (a number sorts as a number, an editable cell by its value, other text naturally),
+// so it works for every table without each view knowing about it, and the choice is kept for a table with the same headers when it is
+// drawn again after an edit. The Database viewer shows a page at a time, so it sorts that page.
+const SORTS = new Map(); // header names joined -> { col, dir }
+const sortKey = (t) => [...t.tHead.rows[0].cells].map((th) => th.textContent.trim()).join('|');
+function cellValue(td) {
+  if (!td) return '';
+  const f = td.querySelector('input, select');
+  if (f) return f.tagName === 'SELECT' ? (f.selectedIndex >= 0 ? f.options[f.selectedIndex].text : '') : f.value;
+  return td.textContent.trim();
+}
+const leadingNumber = (s) => { const m = String(s).replace(/,/g, '').match(/^\s*(-?\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : NaN; };
+function compareCells(a, b) {
+  if (a === '' || b === '') return a === b ? 0 : a === '' ? 1 : -1; // empty cells go last
+  const na = leadingNumber(a), nb = leadingNumber(b);
+  if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+}
+function sortTable(t, col, dir) {
+  const body = t.tBodies[0];
+  if (!body) return;
+  const rows = [...body.rows];
+  rows.forEach((r, i) => { if (r.sortOrder === undefined) r.sortOrder = i; });
+  rows.sort((a, b) => (dir ? compareCells(cellValue(a.cells[col]), cellValue(b.cells[col])) * (dir === 'asc' ? 1 : -1) : 0) || a.sortOrder - b.sortOrder);
+  for (const r of rows) body.appendChild(r);
+  [...t.tHead.rows[0].cells].forEach((th, i) => { th.classList.toggle('sa', i === col && dir === 'asc'); th.classList.toggle('sd', i === col && dir === 'desc'); });
+}
+function headerClick(th) {
+  const t = th.closest('table');
+  if (!t || !t.tHead || !t.tBodies[0] || !th.textContent.trim()) return false;
+  const key = sortKey(t), col = th.cellIndex, cur = SORTS.get(key);
+  const dir = cur && cur.col === col ? (cur.dir === 'asc' ? 'desc' : null) : 'asc';
+  if (dir) SORTS.set(key, { col, dir }); else SORTS.delete(key);
+  sortTable(t, col, dir);
+  return true;
+}
+// A table that has just been drawn gets the sort remembered for its headers.
+function applySorts() {
+  for (const t of document.querySelectorAll('table')) {
+    if (t.classList.contains('sortd') || !t.tHead || !t.tHead.rows[0]) continue;
+    t.classList.add('sortd');
+    const s = SORTS.get(sortKey(t));
+    if (s) sortTable(t, s.col, s.dir);
+  }
+}
+if (typeof MutationObserver !== 'undefined') new MutationObserver(applySorts).observe(document.body, { childList: true, subtree: true });
 function tbl(cols, rows, { actions } = {}) {
   if (!rows || !rows.length) return html`<p class="mut">Nothing here.</p>`;
   return html`<div class="scroll"><table><thead><tr>${cols.map((c) => html`<th>${c.label || c.k}</th>`)}${actions ? html`<th></th>` : ''}</tr></thead><tbody>${
@@ -781,6 +828,8 @@ const A = {
   restore: async (d) => (await ask({ title: 'Restore this backup over the save?', body: 'Replace game.db with ' + d.n + '. The current file is backed up first. Close the game first.', ok: 'Restore', typed: 'restore', danger: true })) && act(() => api('/api/save/restore', { name: d.n }), 'Restored'),
 };
 document.addEventListener('click', (e) => {
+  const hth = e.target.closest('thead th');
+  if (hth && !e.target.closest('button, a, input, select') && headerClick(hth)) return;
   const t = e.target.closest('[data-tab]');
   if (t) { if (Object.hasOwn(TABS, t.dataset.tab)) { tab = t.dataset.tab; localStorage.tab = tab; render(); } return; }
   const cf = e.target.closest('[data-ctf]');
