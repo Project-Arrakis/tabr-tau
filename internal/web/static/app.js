@@ -102,7 +102,7 @@ const augSlots = (prefix, fit, applied) => html`${Array.from({ length: fit.limit
 const augPicked = (prefix, n) => Array.from({ length: n }, (_, i) => { const e = $('#' + prefix + i); return e ? e.value : ''; }).filter(Boolean);
 const augGradeSel = (id) => html`<label>Grade of added augments <select id="${id}">${[1, 2, 3, 4, 5].map((n) => html`<option ${n == 5 ? 'selected' : ''}>${n}</option>`)}</select></label>`;
 // ---------- tabs
-const TABS = { player: 'Player', landsraad: 'Landsraad', config: 'Config', db: 'Database', extras: 'Extras' };
+const TABS = { player: 'Player', livemap: 'Live Map', landsraad: 'Landsraad', config: 'Config', db: 'Database', extras: 'Extras' };
 // The Player tab mirrors the Dune Docker console's Players > Player Name view: the same tabs in the same order (#96). Bases and
 // Vehicles used to be top-level tabs and are two of these.
 const PTABS = [['character', 'Character'], ['crafting', 'Crafting'], ['research', 'Research'], ['buildingsets', 'Building Sets'], ['customizations', 'Customizations'],
@@ -633,7 +633,7 @@ async function dbView() {
 async function render() {
   drawNav();
   try {
-    await ({ player: playerView, landsraad: landsraadView, config: configView, db: dbView, extras: extrasView })[tab]();
+    await ({ player: playerView, livemap: liveMapView, landsraad: landsraadView, config: configView, db: dbView, extras: extrasView })[tab]();
   } catch (e) {
     setHTML($('#main'), html`<div class="card bad">${e.message}</div>`);
   }
