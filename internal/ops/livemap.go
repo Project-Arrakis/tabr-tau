@@ -102,5 +102,60 @@ func (o *Ops) LiveMap(key string) (any, error) {
 	out["markers"], _ = o.S.Query(`select m.marker_type t, m.x, m.y, coalesce(pm.discovery_level,0) d from markers m
 		left join player_markers pm on pm.marker_hash_id=m.marker_hash_id and pm.dimension_index=m.dimension_index and pm.player_id=?
 		where m.map_name=? and m.x is not null and m.y is not null order by m.marker_type, m.marker_hash_id`, p.Controller, cfg.Key)
+	out["resourceFields"] = o.resourceFields(cfg)
 	return out, nil
+}
+
+// decodeFieldPosition unpacks a resource field id into the position the game packed in it: three 21-bit two's-complement numbers,
+// low to high, x (bits 0-20), y (21-41) and z (42-62). The console checked this against 350 known positions (84% exactly right, the
+// rest are coordinates beyond +-1,048,575 that wrap, which only the outer edge of the Deep Desert reaches).
+func decodeFieldPosition(id int64) (x, y, z int64) {
+	axis := func(shift uint) int64 {
+		v := (id >> shift) & (1<<21 - 1)
+		if v >= 1<<20 {
+			v -= 1 << 21
+		}
+		return v
+	}
+	return axis(0), axis(21), axis(42)
+}
+
+// resourceFields are the spice and flour-sand fields that are up in the save, placed by decoding their ids (the save has no
+// coordinates for them). A field with 60,000 left is flour sand (the console's rule); anything else is spice, whose size is by what
+// is left: over 150,000 Large, over 5,000 Medium, else Small. A position outside the map's own bounds is dropped, not shown wrong.
+func (o *Ops) resourceFields(cfg mapConfig) []map[string]any {
+	rows, _ := o.S.Query(`select field_id, value_remaining from resourcefield_state where map=? order by field_id`, cfg.Key)
+	out := make([]map[string]any, 0, len(rows))
+	for _, r := range rows {
+		id, ok1 := fieldInt(r["field_id"])
+		left, ok2 := fieldInt(r["value_remaining"])
+		if !ok1 || !ok2 {
+			continue
+		}
+		x, y, _ := decodeFieldPosition(id)
+		if float64(x) < cfg.MinX || float64(x) > cfg.MaxX || float64(y) < cfg.MinY || float64(y) > cfg.MaxY {
+			continue
+		}
+		kind, size := "spice", "Small"
+		switch {
+		case left == 60000:
+			kind, size = "flour", ""
+		case left > 150000:
+			size = "Large"
+		case left > 5000:
+			size = "Medium"
+		}
+		out = append(out, map[string]any{"kind": kind, "size": size, "x": x, "y": y, "left": left})
+	}
+	return out
+}
+
+func fieldInt(v any) (int64, bool) {
+	switch n := v.(type) {
+	case int64:
+		return n, true
+	case float64:
+		return int64(n), true
+	}
+	return 0, false
 }
