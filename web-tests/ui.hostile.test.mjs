@@ -97,7 +97,7 @@ const VIEWS = [
   ['db', 'db:browse'], ['db', 'db:sql'], ['db', 'db:backups'],
 ];
 // tabs that only say "not in tabr-tau yet", or whose rows are all numbers (specialization tracks), have no text to show
-const NO_DATA = new Set(['player:admin', 'player:specialization', 'player:crafting', 'player:research', 'player:customizations', 'player:skills', 'player:blueprints', 'player:vehicles', 'db:sql', 'db:backups']);
+const NO_DATA = new Set(['player:admin', 'player:crafting', 'player:research', 'player:customizations', 'player:skills', 'player:blueprints', 'player:vehicles', 'db:sql', 'db:backups']);
 
 for (const confused of [false, true]) for (const [tabName, ...subs] of VIEWS) {
   const label = [tabName, ...subs].join(' > ');
@@ -892,6 +892,37 @@ test('Unlock all: Crafting, Research and Skills each ask first and post one requ
   ui.click('[data-act="skMax"][data-school="all"]'); await ui.settle();
   ui.click('#aok'); await ui.settle();
   assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/skills/max').map((p) => p.body).at(-1), { school: 'all' });
+  ui.dom.window.close();
+});
+
+test('Specialization: every track is listed, unknown numbers disable XP actions, Assign and the keystone and XP buttons post the right requests', async () => {
+  const hostile = '<img src=x onerror=1>';
+  const row = (o) => ({ track: 'Combat', number: null, xp: 0, level: 0, keystoneOwned: 0, keystoneTotal: 41, granted: false, ...o });
+  const specs = { rows: [row({ track: 'Combat', number: 2, xp: 3000, level: 22.9, keystoneOwned: 41, granted: true }), row({ track: 'Crafting', keystoneOwned: 3 }), row({ track: 'Exploration' }), row({ track: 'Gathering' }), row({ track: 'Sabotage' })],
+    unassigned: [{ number: 7, xp: 500, level: 4.2 }], maxXp: 44182, tracks: ['Combat', 'Crafting', 'Exploration', 'Gathering', 'Sabotage'] };
+  const ui = await boot({ get: { '/api/player/specs': specs }, post: { '/api/player/specs/keystones/grant': { ok: true, granted: 5 }, '/api/player/specs/keystones/reset': { ok: true, removed: 5 }, '/api/player/specs/xp': { ok: true, before: 3000, after: 4000, level: 26 }, '/api/player/specs/max': { ok: true }, '/api/player/specs/reset': { ok: true, removed: 1 }, '/api/player/specs/assign': { ok: true } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:specialization"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('img'), null);
+  assert.equal(ui.doc.querySelectorAll('tbody tr').length, 5, 'all five tracks are listed, even with no XP, as in the console');
+  assert.equal(ui.doc.querySelectorAll('[data-act="spAdd"]:not([disabled])').length, 1, 'only the track whose number is known can take XP');
+  assert.ok(ui.doc.body.textContent.includes('Granted'));
+  ui.click('[data-act="spKeyAll"]'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/player/specs/keystones/grant').length, 0, 'nothing is sent before the question is answered');
+  ui.click('#aok'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/player/specs/keystones/grant').length, 1);
+  ui.click('[data-act="spKeyReset"]'); await ui.settle(); ui.click('#aok'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/player/specs/keystones/reset').length, 1);
+  ui.doc.querySelector('#spxCombat').value = '1000';
+  ui.click('[data-act="spAdd"][data-t="Combat"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/specs/xp').map((p) => p.body), [{ track: 'Combat', amount: 1000 }]);
+  ui.click('[data-act="spMax"][data-t="Combat"]'); await ui.settle(); ui.click('#aok'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/specs/max').map((p) => p.body), [{ track: 'Combat' }]);
+  ui.click('[data-act="spReset"][data-t="Combat"]'); await ui.settle(); ui.click('#aok'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/specs/reset').map((p) => p.body), [{ track: 'Combat' }]);
+  ui.doc.querySelector('#spa7').value = 'Gathering';
+  ui.click('[data-act="spAssign"][data-n="7"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/specs/assign').map((p) => p.body), [{ track: 'Gathering', number: 7 }]);
   ui.dom.window.close();
 });
 

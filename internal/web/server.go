@@ -346,7 +346,28 @@ func (s *Server) routes() {
 	s.post("/api/items/delete", o.DeleteItem)
 	s.get("/api/player/factions", func(r *http.Request) (any, error) { return o.Factions() })
 	s.post("/api/player/factions", o.SetReputation)
-	s.get("/api/player/specs", func(r *http.Request) (any, error) { return o.Specs() })
+	s.get("/api/player/specs", func(r *http.Request) (any, error) { return o.Specs(settings.Load(s.SettingsPath).TrackNumbers) })
+	s.post("/api/player/specs/xp", func(a ops.Args) (any, error) { return o.AddSpecXP(settings.Load(s.SettingsPath).TrackNumbers, a) })
+	s.post("/api/player/specs/max", func(a ops.Args) (any, error) { return o.GrantMaxSpec(settings.Load(s.SettingsPath).TrackNumbers, a) })
+	s.post("/api/player/specs/reset", func(a ops.Args) (any, error) { return o.ResetSpec(settings.Load(s.SettingsPath).TrackNumbers, a) })
+	s.post("/api/player/specs/keystones/grant", func(ops.Args) (any, error) { return o.GrantAllKeystones() })
+	s.post("/api/player/specs/keystones/reset", func(ops.Args) (any, error) { return o.ResetAllKeystones() })
+	s.post("/api/player/specs/assign", func(a ops.Args) (any, error) {
+		n, err := a.Int("number")
+		if err != nil {
+			return nil, err
+		}
+		cur := settings.Load(s.SettingsPath)
+		next, err := ops.CheckAssign(cur.TrackNumbers, a.Str("track"), n)
+		if err != nil {
+			return nil, err
+		}
+		cur.TrackNumbers = next
+		if err := settings.Save(s.SettingsPath, cur); err != nil {
+			return nil, err
+		}
+		return map[string]any{"ok": true, "track": a.Str("track"), "number": n}, nil
+	})
 	s.post("/api/player/specs", o.SetSpec)
 	s.get("/api/player/journey", func(r *http.Request) (any, error) { return o.Journey(r.URL.Query().Get("q")) })
 	s.get("/api/player/journey/browse", func(r *http.Request) (any, error) { return o.JourneyBrowse() })

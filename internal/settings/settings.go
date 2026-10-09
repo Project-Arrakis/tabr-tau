@@ -16,6 +16,9 @@ type Settings struct {
 	// step; an explicit, opt-in exception), unless a single-player session is running. Off by default. It applies to
 	// whichever save the editor opens.
 	AutoRefillOnOpen bool `json:"autoRefillOnOpen"`
+	// TrackNumbers is which number the game uses for each specialization track in specialization_tracks (the save stores a bare number
+	// and does not say which track it is). Learned from the character's own rows with Assign on the Specialization tab.
+	TrackNumbers map[string]int64 `json:"trackNumbers,omitempty"`
 }
 
 // Path is the settings file. It is empty when the OS has no user config folder.
