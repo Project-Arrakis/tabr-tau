@@ -303,6 +303,12 @@ async function playerSection(s) {
 // tabr-tau-only features that have no tab in the console's player view live here, so the Player tabs can match the console (#96).
 async function extrasView() {
   const h = [];
+  const b = await api('/api/bases');
+  const p = b.pieces || {};
+  h.push(html`<div class="card"><h3>Structure health</h3><div class="grid">${kv('Building pieces', p.n)}${kv('Lowest health', fix(p.minh))}${kv('Average health', fix(p.avgh))}${kv('Total sand buildup', fix(p.sand))}</div>
+    <div class="row"><button class="b" data-act="repairB">Repair all to max</button><button class="b sec" data-act="sand">Clear sand buildup</button><button class="b sec" data-act="refillWater">Refill base water</button><button class="b sec" data-act="refillGen">Refill generators</button><span class="mut">Repair sets each piece to the highest health seen for its type.</span></div></div>`);
+  h.push(html`<div class="card"><h3>Placeables (${b.placeables.length})</h3>${tbl([{ k: 'id' }, { k: 'building_type', label: 'Type' }, { k: 'health', f: (r) => html`<input type="number" value="${r.health}" data-hp="placeable" data-id="${r.id}" class="w90">` }], b.placeables)}</div>
+    <div class="card"><h3>Building piece types</h3>${tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], b.types)}</div>`);
   const e = await api('/api/vendors');
   h.push(html`<div class="card"><h3>Vendor purchase limits</h3><p class="mut">Vendors limit how much you can buy per restock cycle. Resetting clears those counters.</p><div class="row"><button class="b" data-act="vreset" data-v="">Reset all vendors</button></div>
   ${tbl([{ k: 'vendor_id', label: 'Vendor' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'amount_bought', label: 'Bought' }], e.stock, { actions: (r) => html`<button class="b sec sm" data-act="vreset" data-v="${r.vendor_id}">Reset vendor</button>` })}
@@ -316,36 +322,53 @@ async function journeyList() {
 }
 
 // ---------- BASES
+// ---------- BASES (the console's Bases panel inside Player > Bases: the base list, and for one base Power, Water, Inventory and Land Claim Editor)
+let bsTab = 'power', bsOpen = null, bsGroup = 'storage';
 async function basesView() {
-  const s = sub.bases || 'overview';
-  const h = [subNav('bases', [['overview', 'Overview'], ['storage', 'Storage'], ['parts', 'Pieces & placeables']])];
-  if (s == 'overview') {
-    const b = await api('/api/bases');
-    const claims = await api('/api/bases/claim');
-    const prefs = await api('/api/settings');
-    const p = b.pieces || {};
-    h.push(html`<div class="card"><h3>Bases (land claims)</h3>${tbl([{ k: 'totem_id', label: 'Totem' }, { k: 'map' }, { k: 'x', f: (r) => fix(r.x) }, { k: 'y', f: (r) => fix(r.y) }, { k: 'z', f: (r) => fix(r.z) }, { k: 'level' }], b.totems, { actions: (r) => html`<button class="b sec sm" data-act="tpTo" data-x="${r.x}" data-y="${r.y}" data-z="${r.z + 300}">Teleport here</button>` })}</div>
-    ${claims.length ? html`<div class="card"><h3>Land claim size</h3>${claims.map((c) => html`<div class="row"><b>${c.name} ${c.totem_id}</b><span>${c.cells} cell${c.cells == 1 ? '' : 's'}${c.irregular ? ' (irregular shape)' : ` (${2 * c.rings + 1} x ${2 * c.rings + 1} square)`}, vertical level ${c.level}</span>
+  const list = await api('/api/bases/list');
+  const id = list.some((x) => x.base_id == bsOpen) ? bsOpen : (list[0] ? list[0].base_id : null);
+  const base = list.find((x) => x.base_id == id);
+  const h = [html`<div class="card"><h3>Bases (${list.length})</h3>${tbl([{ k: 'base_id', label: 'ID' }, { k: 'name', label: 'Base Name' }, { k: 'base_type', label: 'Base Type' }, { k: 'owner', label: 'Owner' }, { k: 'map', label: 'Map' },
+    { k: 'generators', label: 'Generators' }, { k: 'pieces', label: 'Building Pieces' }, { k: 'placeables', label: 'Placeables' }, { k: 'x', label: 'Coordinates', f: (r) => `${fix(r.x)}, ${fix(r.y)}, ${fix(r.z)}` }], list,
+    { actions: (r) => html`<button class="b ${r.base_id == id ? '' : 'sec'} sm" data-bsopen="${r.base_id}">${r.base_id == id ? 'Open' : 'Details'}</button>` })}</div>`];
+  if (!base) {
+    h.push(html`<p class="mut">No base in this save yet.</p>`);
+  } else {
+    const tabs = [['power', 'Power'], ['water', 'Water'], ['inventory', 'Inventory'], ['claim', 'Land Claim Editor']];
+    h.push(html`<div class="card"><h3>${base.name} (#${base.base_id})</h3><div class="sub">${tabs.map(([k, v]) => html`<button data-bstab="${k}" class="${bsTab == k ? 'on' : ''}">${v}</button>`)}</div></div>`);
+    if (bsTab == 'power') {
+      const pw = await api('/api/bases/power?base=' + id);
+      const prefs = await api('/api/settings');
+      h.push(html`<div class="card"><h3>Power</h3>${pw.types.length ? tbl([{ k: 'name', label: 'Type' }, { k: 'devices', label: 'Devices' },
+        { k: 'queued', label: 'Holds', f: (r) => Number(r.queued).toLocaleString() + (r.fuel ? ' ' + itemName(r.fuel) : '') }, { k: 'capacity', label: 'Full', f: (r) => (r.capacity ? Number(r.capacity).toLocaleString() : '-') }, { k: 'empty', label: 'Empty' }], pw.types) : html`<p class="mut">No generators or windtraps built at this base.</p>`}
+        <div class="row"><button class="b" data-act="refillGen">Refill generators</button><span class="mut">Tops fuel and spice generators up to a full stack. Wind turbines (lubricant) and windtrap filters are shown but not refilled.</span></div></div>
+    <div class="card"><h3>Automatic refill</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
+    <p class="mut">When on, opening the editor refills base water and generators and <b>saves straight away</b>, without the review step, so it applies the next time the game loads. It is skipped while a single-player session is running. The previous file is backed up first. Remembered between runs.</p></div>`);
+    } else if (bsTab == 'water') {
+      const w = await api('/api/bases/water?base=' + id);
+      h.push(html`<div class="card"><h3>Water</h3>${w.types.length ? tbl([{ k: 'name', label: 'Type' }, { k: 'devices', label: 'Containers' }, { k: 'stored', label: 'Water stored', f: (r) => Number(r.stored).toLocaleString() },
+        { k: 'capacity', label: 'Capacity', f: (r) => (r.capacity ? Number(r.capacity).toLocaleString() : '-') }, { k: 'fillPercent', label: 'Fill', f: (r) => (r.fillPercent == null ? '-' : Math.round(r.fillPercent) + '%') }], w.types) : html`<p class="mut">No water storage at this base.</p>`}
+        <div class="row"><button class="b" data-act="refillWater">Refill base water</button><span class="mut">Fills every water device to its capacity.</span></div></div>`);
+    } else if (bsTab == 'inventory') {
+      const inv = await api('/api/bases/inventory?base=' + id);
+      const grp = inv.groups.some((g) => g.id == bsGroup && g.count) ? bsGroup : (inv.groups.find((g) => g.count) || inv.groups[0]).id;
+      const rows = inv.containers.filter((c) => c.group == grp);
+      h.push(html`<div class="card"><h3>Inventory</h3><div class="sub">${inv.groups.map((g) => html`<button data-bsgrp="${g.id}" class="${grp == g.id ? 'on' : ''}">${g.label} (${g.count})</button>`)}</div>
+        ${tbl([{ k: 'name', label: 'Container' }, { k: 'type', label: 'Type' }, { k: 'items', label: 'Items' }, { k: 'max_item_count', label: 'Slots', f: (r) => `${r.items} / ${r.max_item_count}` }], rows,
+        { actions: (r) => html`<button class="b sec sm" data-act="openInv" data-id="${r.inventory_id}">Open</button>` })}
+        <p class="mut">Slots shows items held out of the container's capacity. Only containers that belong to this base are listed.</p></div><div id="inv"></div>`);
+    } else {
+      const claims = (await api('/api/bases/claim')).filter((c) => c.totem_id == id);
+      h.push(html`${claims.length ? html`<div class="card"><h3>Land claim size</h3>${claims.map((c) => html`<div class="row"><b>${c.name} ${c.totem_id}</b><span>${c.cells} cell${c.cells == 1 ? '' : 's'}${c.irregular ? ' (irregular shape)' : ` (${2 * c.rings + 1} x ${2 * c.rings + 1} square)`}, vertical level ${c.level}</span>
       Grow to <select id="cr${c.totem_id}"><option value="0">no change</option>${Array.from({ length: c.maxRings }, (_, i) => i + 1).filter((n) => n > c.rings).map((n) => html`<option value="${n}">${2 * n + 1} x ${2 * n + 1}</option>`)}</select>
       Level <select id="cv${c.totem_id}">${Array.from({ length: c.maxLevel + 1 }, (_, i) => i).filter((n) => n >= c.level).map((n) => html`<option value="${n}" ${n == c.level ? 'selected' : ''}>${n}</option>`)}</select>
       <button class="b" data-act="claimGrow" data-id="${c.totem_id}" data-level="${c.level}">Expand claim</button></div>
       ${c.cells > 1 ? html`<div class="row"><span class="mut">${c.piecesInClaim == null ? '' : `${c.piecesInClaim} pieces inside the claim, ${c.piecesOutside} outside.`}</span>
         Shrink to <select id="cs${c.totem_id}"><option value="0">the totem's own cell only</option>${Array.from({ length: c.maxRings }, (_, i) => i + 1).filter((n) => (c.irregular ? n <= c.rings : n < c.rings)).map((n) => html`<option value="${n}">${2 * n + 1} x ${2 * n + 1} square</option>`)}</select>
         <button class="b sec" data-act="claimShrink" data-id="${c.totem_id}">Shrink claim</button><span class="mut">Cells that hold building pieces are never removed.</span></div>` : html``}`)}
-    <p class="mut">One cell is 10 x 10 foundations, around the totem. Expanding only adds cells and never removes them, and the vertical level can only go up. Applied when the game next loads the save.</p></div>` : html``}
-    <div class="card"><h3>Automatic refill</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
-    <p class="mut">When on, opening the editor refills base water and generators and <b>saves straight away</b>, without the review step, so it applies the next time the game loads. It is skipped while a single-player session is running. The previous file is backed up first. Remembered between runs.</p></div>
-    <div class="card"><h3>Structure health</h3><div class="grid">${kv('Building pieces', p.n)}${kv('Lowest health', fix(p.minh))}${kv('Average health', fix(p.avgh))}${kv('Total sand buildup', fix(p.sand))}</div>
-    <div class="row"><button class="b" data-act="repairB">Repair all to max</button><button class="b sec" data-act="sand">Clear sand buildup</button><button class="b sec" data-act="refillWater">Refill base water</button><button class="b sec" data-act="refillGen">Refill generators</button><span class="mut">Repair sets each piece to the highest health seen for its type.</span></div></div>`);
-  } else if (s == 'storage') {
-    const st = await api('/api/bases/storage');
-    h.push(html`<div class="card"><h3>Storage containers in your base (${st.length})</h3>${tbl([{ k: 'name', label: 'Container' }, { k: 'type', label: 'Type' }, { k: 'items', label: 'Items' }, { k: 'max_item_count', label: 'Slots', f: (r) => `${r.items} / ${r.max_item_count}` }], st,
-      { actions: (r) => html`<button class="b sec sm" data-act="openInv" data-id="${r.inventory_id}">Open</button>` })}
-      <p class="mut">Only storage containers that belong to your base are listed (not generators, refineries, vehicles or containers in the world). Slots shows items held out of the container's capacity.</p></div><div id="inv"></div>`);
-  } else {
-    const b = await api('/api/bases');
-    h.push(html`<div class="card"><h3>Placeables (${b.placeables.length})</h3>${tbl([{ k: 'id' }, { k: 'building_type', label: 'Type' }, { k: 'health', f: (r) => html`<input type="number" value="${r.health}" data-hp="placeable" data-id="${r.id}" class="w90">` }], b.placeables)}</div>
-    <div class="card"><h3>Building piece types</h3>${tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], b.types)}</div>`);
+    <p class="mut">One cell is 10 x 10 foundations, around the totem. Expanding only adds cells and never removes them, and the vertical level can only go up. Applied when the game next loads the save.</p></div>` : html``}`);
+      if (!claims.length) h.push(html`<p class="mut">This base has no land claim data in the save.</p>`);
+    }
   }
   setHTML(host(), html`${h}`);
 }
@@ -567,6 +590,12 @@ const A = {
 document.addEventListener('click', (e) => {
   const t = e.target.closest('[data-tab]');
   if (t) { if (Object.hasOwn(TABS, t.dataset.tab)) { tab = t.dataset.tab; localStorage.tab = tab; render(); } return; }
+  const bo = e.target.closest('[data-bsopen]');
+  if (bo) { bsOpen = +bo.dataset.bsopen; render(); return; }
+  const bt = e.target.closest('[data-bstab]');
+  if (bt) { bsTab = bt.dataset.bstab; render(); return; }
+  const bg = e.target.closest('[data-bsgrp]');
+  if (bg) { bsGroup = bg.dataset.bsgrp; render(); return; }
   const ig = e.target.closest('[data-invg]');
   if (ig) { invG = ig.dataset.invg; render(); return; }
   const s = e.target.closest('[data-sub]');
