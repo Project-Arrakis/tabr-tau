@@ -80,6 +80,27 @@ function pickedItemId(inputId) {
   return CATALOG.byLabel.get(v.toLowerCase()) || v;
 }
 
+// Augments (#96). The slots are one drop-down each, with the augments that fit the item (from the console's compatibility data) and their
+// best-grade effects; "applied" are the ids already on the item.
+let augSeq = 0; // the newest request wins when the picker changes quickly
+async function showGiveAugments() {
+  const box = $('#gaug'), t = pickedItemId('gt'), seq = ++augSeq;
+  if (!box) return;
+  setHTML(box, html``);
+  if (!t) return;
+  try {
+    const fit = await api('/api/items/augment-options', { template_id: t });
+    fit.options.forEach((o) => AUG_NAMES.set(o.id, o.name));
+    if (seq !== augSeq || !fit.limit || !$('#gaug')) return;
+    setHTML($('#gaug'), html`<b>Augments</b> ${augSlots('ga', fit, [])}${augGradeSel('gag')}`);
+  } catch (e) { /* an unknown item simply has no augment slots */ }
+}
+const augName = (id) => (AUG_NAMES.get(id) || id);
+const AUG_NAMES = new Map(); // augment id -> name, filled from the options the server sent
+const augLabel = (o) => (o.effects && o.effects.length ? `${o.name} (${o.effects.join('; ')})` : o.name);
+const augSlots = (prefix, fit, applied) => html`${Array.from({ length: fit.limit }, (_, i) => html`<label>Slot ${i + 1} <select id="${prefix}${i}"><option value="">(none)</option>${fit.options.map((o) => html`<option value="${o.id}" ${applied[i] === o.id ? 'selected' : ''}>${augLabel(o)}</option>`)}</select></label> `)}`;
+const augPicked = (prefix, n) => Array.from({ length: n }, (_, i) => { const e = $('#' + prefix + i); return e ? e.value : ''; }).filter(Boolean);
+const augGradeSel = (id) => html`<label>Grade of added augments <select id="${id}">${[1, 2, 3, 4, 5].map((n) => html`<option ${n == 5 ? 'selected' : ''}>${n}</option>`)}</select></label>`;
 // ---------- tabs
 const TABS = { player: 'Player', landsraad: 'Landsraad', config: 'Config', db: 'Database', extras: 'Extras' };
 // The Player tab mirrors the Dune Docker console's Players > Player Name view: the same tabs in the same order (#96). Bases and
@@ -91,7 +112,7 @@ const SOON = { crafting: 'Crafting recipes', research: 'Research', customization
 let tab = Object.hasOwn(TABS, localStorage.tab) ? localStorage.tab : 'player';
 const sub = { player: ['bases', 'vehicles'].includes(localStorage.tab) ? localStorage.tab : 'character', char: 'overview', db: 'browse' };
 const GROUPS = ['player', 'char', 'bases', 'db'];
-let invG = null, invQ = ''; let giveQueue = []; // Character > Inventory: the chosen group (null: the first one with items) and the filter text
+let invG = null, invQ = ''; let giveQueue = []; let augItem = null; // augItem: the inventory item whose augments are open for editing // Character > Inventory: the chosen group (null: the first one with items) and the filter text
 function drawNav() {
   setHTML($('#nav'), html`${Object.entries(TABS).map(([k, v]) => html`<button data-tab="${k}" class="${k == tab ? 'on' : ''}">${v}</button>`)}`);
 }
@@ -260,10 +281,17 @@ async function playerSection(s) {
         { k: 'quality_level', label: 'Grade', f: (r) => html`<select data-item="${r.id}" data-field="quality">${[0, 1, 2, 3, 4, 5].map((n) => html`<option ${n == r.quality_level ? 'selected' : ''}>${n}</option>`)}</select>` },
         { k: 'durability', label: 'Durability', f: (r) => (r.durability == null ? '' : Number(r.durability).toFixed(1) + (r.max_durability ? ' / ' + Number(r.max_durability).toFixed(0) : '')) },
         { k: 'augments', label: 'Augments', f: (r) => (r.augments || []).map((a) => html`<span class="tag" title="${a.name}${a.quality == null ? '' : ' (quality ' + a.quality + ')'}">${itemName(a.name)}</span>`) }], rows,
-        { actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` })}</div>`;
+        { actions: (r) => html`${r.aug_limit ? html`<button class="b sec sm" data-act="augEdit" data-id="${r.id}">Augments</button>` : ''}<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` })}</div>`;
+    const augCard = augItem ? html`<div class="card"><h3>Augments: ${itemName(augItem.template_id)}</h3>
+      <p class="mut">Holds up to ${augItem.limit}. Pick what to apply; an augment already on the item keeps its grade, new ones get the grade below. Choose (none) in every slot to remove them all.</p>
+      <div class="row">${augSlots('au', augItem, augItem.applied.map((a) => a.id))}</div>
+      <div class="row">${augGradeSel('augG')}<label><input type="checkbox" id="augU" checked> Also unlock the augment slots (specialization keystones), as the console does</label>
+      <button class="b" data-act="augApply" data-id="${augItem.item_id}">Apply</button><button class="b sec" data-act="augCancel">Cancel</button></div></div>` : '';
+    h.push(augCard);
     h.push(html`<div class="card"><h3>Give item</h3><div class="row">${itemPicker("gt", cat)}
     Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="queueAdd">Add to queue</button><button class="b sec" data-act="refill">Refill containers</button></div>
-    ${giveQueue.length ? html`<div class="row"><b>Queue (${giveQueue.length})</b>${giveQueue.map((q, i) => html`<span class="tag">${q.quantity} x ${itemName(q.template_id)}${q.quality ? ' (grade ' + q.quality + ')' : ''} <button class="b sec sm" data-act="queueDel" data-id="${i}" title="Remove from the queue">x</button></span>`)}<button class="b" data-act="queueGive">Give queued items</button><button class="b sec" data-act="queueClear">Clear</button></div>` : ''}
+    <div class="row" id="gaug"></div>
+    ${giveQueue.length ? html`<div class="row"><b>Queue (${giveQueue.length})</b>${giveQueue.map((q, i) => html`<span class="tag">${q.quantity} x ${itemName(q.template_id)}${q.quality ? ' (grade ' + q.quality + ')' : ''}${q.augments && q.augments.length ? ' + ' + q.augments.map((a) => augName(a)).join(', ') : ''} <button class="b sec sm" data-act="queueDel" data-id="${i}" title="Remove from the queue">x</button></span>`)}<button class="b" data-act="queueGive">Give queued items</button><button class="b sec" data-act="queueClear">Clear</button></div>` : ''}
     <p class="mut">Pick an item by its in-game name. Items already in your save that the catalog does not know are listed by their template id; any valid template id can also be typed.</p></div>
     ${invCard}`);
   } else if (c == 'reputation') {
@@ -525,11 +553,19 @@ const A = {
   intel: () => act(async () => { const r = await api('/api/player/intel', { amount: +val('intelAmt') }); toast(r.applied ? `Intel ${Number(r.before).toLocaleString()} to ${Number(r.after).toLocaleString()}` + (r.capped ? ' (capped at 2,779)' : '') + NOT_SAVED : 'Intel is already at the cap (2,779).'); }, null),
   teleport: () => act(() => api('/api/player/teleport', { x: +val('tx'), y: +val('ty'), z: +val('tz') }), 'Teleport queued'),
   tpTo: (d) => act(() => api('/api/player/teleport', { x: +d.x, y: +d.y, z: +d.z }), 'Teleport queued'),
-  queueAdd: () => { const t = pickedItemId('gt'); if (!t) return toast('Pick an item first', 'err'); giveQueue.push({ template_id: t, quantity: Math.max(1, +val('gq') || 1), quality: +val('gg') }); render(); },
+  augEdit: (d) => act(async () => { const r = await api('/api/items/augment-options', { item_id: +d.id }); r.options.forEach((o) => AUG_NAMES.set(o.id, o.name)); augItem = { ...r, item_id: +d.id }; render(); }, null, false),
+  augCancel: () => { augItem = null; render(); },
+  augApply: (d) => act(async () => { const r = await api('/api/items/augment', { item_id: +d.id, augments: augPicked('au', augItem.limit), grade: +val('augG'), unlock_slots: $('#augU').checked }); augItem = null; toast(`Augments set (${r.augments})` + (r.slotsUnlocked ? `, ${r.slotsUnlocked} slot keystones unlocked` : '') + NOT_SAVED); }, null),
+  queueAdd: () => { const t = pickedItemId('gt'); if (!t) return toast('Pick an item first', 'err'); const e = { template_id: t, quantity: Math.max(1, +val('gq') || 1), quality: +val('gg') }; const ids = augPicked('ga', 3); if (ids.length) { e.augments = ids; e.grade = +val('gag'); } giveQueue.push(e); render(); },
   queueDel: (d) => { giveQueue.splice(+d.id, 1); render(); },
   queueClear: () => { giveQueue = []; render(); },
   queueGive: () => act(async () => { const r = await api('/api/player/give-items', { items: giveQueue }); giveQueue = []; toast(`Added ${r.count} items` + NOT_SAVED); }, null),
-  give: () => act(() => api('/api/player/give', { template_id: pickedItemId('gt'), quantity: +val('gq'), quality: +val('gg') }), 'Item added'),
+  give: () => act(async () => {
+    const ids = augPicked('ga', 3);
+    if (ids.length) await api('/api/player/give-items', { items: [{ template_id: pickedItemId('gt'), quantity: +val('gq'), quality: +val('gg'), augments: ids, grade: +val('gag') }] });
+    else await api('/api/player/give', { template_id: pickedItemId('gt'), quantity: +val('gq'), quality: +val('gg') });
+    toast('Item added' + NOT_SAVED);
+  }, null),
   repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(`Repaired ${r.repaired} items` + NOT_SAVED); }, null),
   refill: () => act(async () => { const r = await api('/api/player/refill', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} containers (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
   delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). Discard undoes it until you save.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
@@ -633,6 +669,7 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('change', (e) => {
   const t = e.target;
+  if (t.id == 'gt') { showGiveAugments(); return; }
   if (t.dataset.item) act(() => api('/api/items/update', { id: +t.dataset.item, [t.dataset.field]: +t.value }), 'Item updated', false);
   else if (t.dataset.faction) act(() => api('/api/player/factions', { faction_id: +t.dataset.faction, amount: +t.value }), 'Reputation set', false);
   else if (t.dataset.hp) act(() => api('/api/bases/health', { kind: 'placeable', id: +t.dataset.id, health: +t.value }), 'Health set', false);

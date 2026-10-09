@@ -424,3 +424,13 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Augment compatibility data: dune-awakening-selfhost-docker (RedBlink)
+
+`internal/augments/augment-compatibility.json` is a copy, unchanged, of `runtime/data/augment-compatibility.json` of
+https://github.com/Red-Blink/dune-awakening-selfhost-docker (git blob 0c2bd7cf), MIT-licensed under the licence reproduced in the
+item catalog section above. It lists which augments fit which kinds of items and each augment's effects per grade. The file's own
+header says it was compiled from the augmentation database of method.gg (https://www.method.gg/dune-awakening/augmentations-database,
+July 2026); that site and the game's names and effects belong to their owners, and this project is unofficial and not affiliated
+with or endorsed by Funcom or method.gg. The matching rules in `internal/augments` follow the console's
+`console/web/src/lib/augmentEligibility.ts`.
