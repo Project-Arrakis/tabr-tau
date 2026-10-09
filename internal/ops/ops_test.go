@@ -2,12 +2,15 @@ package ops
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
 const schema = `
@@ -145,16 +148,37 @@ func TestSolariAddRemove(t *testing.T) {
 	}
 }
 
-func TestRepairGear(t *testing.T) {
-	o := newOps(t)
-	r, _ := o.RepairGear()
-	if r.(map[string]any)["repaired"].(int) != 1 {
-		t.Fatalf("%v", r)
+func TestRepairGearRepairsWornItemsAndLoadoutsOnly(t *testing.T) {
+	dur := func(cur float64) string {
+		return fmt.Sprintf(`{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":%.1f,"MaxDurability":100.0}]}`, cur)
 	}
-	row, _ := o.S.One(`select stats from items where id=11`)
-	cur, _ := durability(row["stats"].(string))
-	if cur.(float64) != 100 {
-		t.Fatalf("durability %v", cur)
+	o := &Ops{S: testsave.PlayerWithSQL(t, `
+insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (21,2,1,10,1000.0),(23,2,15,8,1000.0),(25,2,30,50,1000.0);
+insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values
+  (201,21,1,0,'Helmet',0,1790000000,'`+dur(10)+`',0),(203,23,1,0,'Sword',0,1790000000,'`+dur(20)+`',0),
+  (205,25,1,0,'Schematic',0,1790000000,'`+dur(30)+`',0),(206,1,1,5,'BackpackTool',0,1790000000,'`+dur(40)+`',0),
+  (207,21,1,1,'Cloak',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":50.0,"MaxDurability":100.0}],"FAugmentedItemStats":[[],{"AppliedAugments":[{"Name":"X"}]}]}',0);`)}
+	r, err := o.RepairGear()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.(map[string]any)["repaired"].(int) != 3 {
+		t.Fatalf("worn (201, 207) and loadout (203) items: %v", r)
+	}
+	cur := func(id int) float64 {
+		row, _ := o.S.One(`select stats from items where id=?`, id)
+		c, _ := durability(row["stats"].(string))
+		return c.(float64)
+	}
+	if cur(201) != 100 || cur(203) != 100 || cur(207) != 100 {
+		t.Fatalf("worn and loadout items are at full durability: %v %v %v", cur(201), cur(203), cur(207))
+	}
+	if cur(205) != 30 || cur(206) != 40 {
+		t.Fatalf("items outside types 1 and 15 are left alone: %v %v", cur(205), cur(206))
+	}
+	row, _ := o.S.One(`select stats from items where id=207`)
+	if !strings.Contains(row["stats"].(string), "AppliedAugments") {
+		t.Fatalf("a repair must not lose the item's other stats: %v", row["stats"])
 	}
 }
 

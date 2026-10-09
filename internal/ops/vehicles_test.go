@@ -110,3 +110,25 @@ insert into recovered_vehicles(character_id,vehicle_id,chassis_durability,vehicl
 		t.Fatalf("durability = %v", d)
 	}
 }
+
+func TestRepairOneVehicleOnlyRepairsThatOwnedVehicle(t *testing.T) {
+	o := vehicleOps(t)
+	cur := func(id int) float64 {
+		return mustOne(t, o, `select json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability') c from vehicle_modules where id=?`, id)["c"].(float64)
+	}
+	for _, id := range []int64{202, 203, 204, 999} {
+		if _, err := o.RepairVehiclesWhere(100, id); err == nil {
+			t.Errorf("vehicle %d is not the player's and must not be repaired", id)
+		}
+	}
+	if o.S.Dirty() {
+		t.Fatal("refused requests must not change the save")
+	}
+	r, err := o.RepairVehiclesWhere(100, 201)
+	if err != nil || r.(map[string]any)["repaired"].(int64) != 1 {
+		t.Fatalf("%v %v", r, err)
+	}
+	if cur(1) != 250 || cur(2) != 100 || cur(3) != 100 || cur(4) != 100 {
+		t.Fatalf("only vehicle 201's module is raised: %v %v %v %v", cur(1), cur(2), cur(3), cur(4))
+	}
+}

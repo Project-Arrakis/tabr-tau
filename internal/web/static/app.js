@@ -102,7 +102,7 @@ const augSlots = (prefix, fit, applied) => html`${Array.from({ length: fit.limit
 const augPicked = (prefix, n) => Array.from({ length: n }, (_, i) => { const e = $('#' + prefix + i); return e ? e.value : ''; }).filter(Boolean);
 const augGradeSel = (id) => html`<label>Grade of added augments <select id="${id}">${[1, 2, 3, 4, 5].map((n) => html`<option ${n == 5 ? 'selected' : ''}>${n}</option>`)}</select></label>`;
 // ---------- tabs
-const TABS = { player: 'Player', livemap: 'Live Map', landsraad: 'Landsraad', config: 'Config', db: 'Database', extras: 'Extras' };
+const TABS = { player: 'Player', livemap: 'Live Map', landsraad: 'Landsraad', config: 'Config', db: 'Database' };
 // The Player tab mirrors the Dune Docker console's Players > Player Name view: the same tabs in the same order (#96). Bases and
 // Vehicles used to be top-level tabs and are two of these.
 const PTABS = [['character', 'Character'], ['crafting', 'Crafting'], ['research', 'Research'], ['buildingsets', 'Building Sets'], ['customizations', 'Customizations'],
@@ -334,6 +334,7 @@ async function playerSection(s) {
       <div class="row">${augGradeSel('augG')}<label><input type="checkbox" id="augU" checked> Also unlock the augment slots (specialization keystones), as the console does</label>
       <button class="b" data-act="augApply" data-id="${augItem.item_id}">Apply</button><button class="b sec" data-act="augCancel">Cancel</button></div></div>` : '';
     h.push(augCard);
+    h.push(html`<div class="card"><h3>Repair</h3><div class="row"><button class="b" data-act="repair">Repair all worn items and loadouts</button><span class="mut">Everything you wear and everything in your loadout goes to full durability. The backpack is not touched.</span></div></div>`);
     h.push(html`<div class="card"><h3>Give item</h3><div class="row">${itemPicker("gt", cat)}
     Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="queueAdd">Add to queue</button><button class="b sec" data-act="refill">Refill containers</button></div>
     <div class="row" id="gaug"></div>
@@ -387,12 +388,16 @@ async function playerSection(s) {
     <div class="card"><h3>Repair</h3>
       <div class="row"><b>Repair Faction</b>${na('Repair Faction')}<span class="mut">Not in tabr-tau yet.</span></div>
       <div class="row"><b>Repair Landsraad Quests</b>${na('Repair Quests')}<span class="mut">Not in tabr-tau yet.</span></div>
-      <div class="row"><b>Repair Gear</b><button class="b" data-act="repair">Repair Gear</button><span class="mut">Equipped and carried gear durability.</span></div>
+      <div class="row"><b>Repair Gear</b><button class="b" data-act="repair">Repair Gear</button><span class="mut">Worn items and loadouts, to full durability.</span></div>
       <div class="row"><b>Repair Vehicle Durability</b><button class="b" data-act="repairV">Repair Vehicles</button><label>Repair Below <input id="rvPct" type="number" min="1" max="100" value="50" class="w70"> %</label><span class="mut">Raises the modules of your vehicles whose durability is below this share of their current maximum back to that maximum. Wear that lowered the maximum itself is not undone, and modules with no recorded maximum are skipped.</span></div></div>
     <div class="card"><h3>Danger Zone</h3><div class="row">${na('Wipe Inventory')}${na('Reset Progression')}<span class="mut">Not in tabr-tau yet.</span></div></div>
     <div class="card"><h3>Movement / Vehicles</h3><div class="row"><b>Teleport To</b>X<input id="tx" type="number" value="${Math.round(a.x)}">Y<input id="ty" type="number" value="${Math.round(a.y)}">Z<input id="tz" type="number" value="${Math.round(a.z)}"><button class="b" data-act="teleport">Teleport</button></div>
     <p class="mut">Moves the character in the save (applied on next load). Stay above the terrain (Z) or you may fall through.</p>
     <div class="row"><b>Spawn Vehicle</b>${na('Spawn')}<span class="mut">Not in tabr-tau yet.</span></div></div>`);
+    const ve = await api('/api/vendors');
+    h.push(html`<div class="card"><h3>Vendor purchase limits</h3><p class="mut">tabr-tau's own tool (the console has none). Vendors limit how much you can buy per restock cycle. Resetting clears those counters.</p><div class="row"><button class="b" data-act="vreset" data-v="">Reset all vendors</button></div>
+      ${tbl([{ k: 'vendor_id', label: 'Vendor' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'amount_bought', label: 'Bought' }], ve.stock, { actions: (r) => html`<button class="b sec sm" data-act="vreset" data-v="${r.vendor_id}">Reset vendor</button>` })}
+      <h3 class="mt14">Restock cycles</h3>${tbl([{ k: 'vendor_id' }, { k: 'last_interacted_timestamp', label: 'Last interaction', f: (r) => new Date(r.last_interacted_timestamp * 1000).toLocaleString() }], ve.cycles)}</div>`);
   } else {
     h.push(html`<div class="card"><h3>${SOON[s] || s}</h3><p class="mut">Not in tabr-tau yet. The console has this tab; it is planned (#96).</p></div>`);
   }
@@ -402,21 +407,6 @@ async function playerSection(s) {
   if (s == 'research') researchList();
   if (s == 'buildingsets' || s == 'customizations') catalogList();
   if (s == 'crafting') craftingList();
-}
-// tabr-tau-only features that have no tab in the console's player view live here, so the Player tabs can match the console (#96).
-async function extrasView() {
-  const h = [];
-  const b = await api('/api/bases');
-  const p = b.pieces || {};
-  h.push(html`<div class="card"><h3>Structure health</h3><div class="grid">${kv('Building pieces', p.n)}${kv('Lowest health', fix(p.minh))}${kv('Average health', fix(p.avgh))}${kv('Total sand buildup', fix(p.sand))}</div>
-    <div class="row"><button class="b" data-act="repairB">Repair all to max</button><button class="b sec" data-act="sand">Clear sand buildup</button><button class="b sec" data-act="refillWater">Refill base water</button><button class="b sec" data-act="refillGen">Refill generators</button><span class="mut">Repair sets each piece to the highest health seen for its type.</span></div></div>`);
-  h.push(html`<div class="card"><h3>Placeables (${b.placeables.length})</h3>${tbl([{ k: 'id' }, { k: 'building_type', label: 'Type' }, { k: 'health', f: (r) => html`<input type="number" value="${r.health}" data-hp="placeable" data-id="${r.id}" class="w90">` }], b.placeables)}</div>
-    <div class="card"><h3>Building piece types</h3>${tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], b.types)}</div>`);
-  const e = await api('/api/vendors');
-  h.push(html`<div class="card"><h3>Vendor purchase limits</h3><p class="mut">Vendors limit how much you can buy per restock cycle. Resetting clears those counters.</p><div class="row"><button class="b" data-act="vreset" data-v="">Reset all vendors</button></div>
-  ${tbl([{ k: 'vendor_id', label: 'Vendor' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'amount_bought', label: 'Bought' }], e.stock, { actions: (r) => html`<button class="b sec sm" data-act="vreset" data-v="${r.vendor_id}">Reset vendor</button>` })}
-  <h3 class="mt14">Restock cycles</h3>${tbl([{ k: 'vendor_id' }, { k: 'last_interacted_timestamp', label: 'Last interaction', f: (r) => new Date(r.last_interacted_timestamp * 1000).toLocaleString() }], e.cycles)}</div>`);
-  setHTML($('#main'), html`${h}`);
 }
 // The Journey browser, as the console's: Story, Contract, Codex and Tutorial lists with readable names, the tree depth, and status.
 // Story, Codex and Tutorial rows can be completed or reset (a story or codex node takes its children with it); contracts are read-only here.
@@ -532,6 +522,28 @@ function autoRefillCard(prefs) {
   return html`<div class="card"><h3>Automatic refill of water and power</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
     <p class="mut">When on, opening the editor refills base water and generators and <b>saves straight away</b>, without the review step, so it applies the next time the game loads. It is skipped while a single-player session is running. The previous file is backed up first. Remembered between runs. The same switch is on the Power and Water tabs.</p></div>`;
 }
+// The land claim as a grid of cells, as in the console: the totem's own cell, the cells of the claim (with how many building pieces each
+// holds) and any cells outside the claim that hold pieces. Columns run with x, rows with y.
+function claimGridCard(c) {
+  const g = c.grid || [];
+  if (!g.length) return '';
+  const xs = g.map((k) => k.x), ys = g.map((k) => k.y);
+  const x0 = Math.min(...xs) - 1, x1 = Math.max(...xs) + 1, y0 = Math.min(...ys) - 1, y1 = Math.max(...ys) + 1;
+  const by = new Map(g.map((k) => [k.x + ',' + k.y, k]));
+  const rows = [];
+  for (let y = y0; y <= y1; y++) {
+    const cells = [];
+    for (let x = x0; x <= x1; x++) {
+      const k = by.get(x + ',' + y);
+      const kind = !k ? 'e' : (k.x === 0 && k.y === 0) ? 't' : !k.in ? 'o' : k.n > 0 ? 'p' : 'c';
+      const tip = !k ? `cell ${x}, ${y}: not in the claim` : `cell ${x}, ${y}: ${k.in ? (kind === 't' ? 'the totem' : 'in the claim') : 'outside the claim'}, ${k.n || 0} building pieces`;
+      cells.push(html`<td class="cg cg-${kind}" title="${tip}">${k && k.n > 0 ? k.n : (kind === 't' ? 'T' : '')}</td>`);
+    }
+    rows.push(html`<tr>${cells}</tr>`);
+  }
+  return html`<div class="card"><h3>Claim cells</h3><div class="scroll"><table class="cgrid"><tbody>${rows}</tbody></table></div>
+    <p class="mut"><span class="cg-key cg-t"></span> the totem <span class="cg-key cg-c"></span> in the claim <span class="cg-key cg-p"></span> in the claim with building pieces (the number) <span class="cg-key cg-o"></span> outside the claim, with pieces <span class="cg-key cg-e"></span> not in the claim. Each cell is 10 x 10 foundations.</p></div>`;
+}
 let bsTab = 'power', bsOpen = null, bsGroup = 'storage';
 async function basesView() {
   const list = await api('/api/bases/list');
@@ -543,7 +555,7 @@ async function basesView() {
   if (!base) {
     h.push(html`<p class="mut">No base in this save yet.</p>`);
   } else {
-    const tabs = [['power', 'Power'], ['water', 'Water'], ['inventory', 'Inventory'], ['claim', 'Land Claim Editor']];
+    const tabs = [['power', 'Power'], ['water', 'Water'], ['inventory', 'Inventory'], ['claim', 'Land Claim Editor'], ['structures', 'Structures']];
     h.push(html`<div class="card"><h3>${base.name} (#${base.base_id})</h3><div class="sub">${tabs.map(([k, v]) => html`<button data-bstab="${k}" class="${bsTab == k ? 'on' : ''}">${v}</button>`)}</div></div>`);
     if (bsTab == 'power') {
       const pw = await api('/api/bases/power?base=' + id);
@@ -566,6 +578,14 @@ async function basesView() {
         ${tbl([{ k: 'name', label: 'Container' }, { k: 'type', label: 'Type' }, { k: 'items', label: 'Items' }, { k: 'max_item_count', label: 'Slots', f: (r) => `${r.items} / ${r.max_item_count}` }], rows,
         { actions: (r) => html`<button class="b sec sm" data-act="openInv" data-id="${r.inventory_id}">Open</button>` })}
         <p class="mut">Slots shows items held out of the container's capacity. Only containers that belong to this base are listed.</p></div><div id="inv"></div>`);
+    } else if (bsTab == 'structures') {
+      // tabr-tau's own base tools (the console's base view has no equivalent): structure health, repair all, sand, placeables, piece types.
+      const b = await api('/api/bases');
+      const p = b.pieces || {};
+      h.push(html`<div class="card"><h3>Structure health</h3><div class="grid">${kv('Building pieces', p.n)}${kv('Lowest health', fix(p.minh))}${kv('Average health', fix(p.avgh))}${kv('Total sand buildup', fix(p.sand))}</div>
+        <div class="row"><button class="b" data-act="repairB">Repair all to max</button><button class="b sec" data-act="sand">Clear sand buildup</button><span class="mut">Repair sets each piece to the highest health seen for its type.</span></div></div>`);
+      h.push(html`<div class="card"><h3>Placeables (${b.placeables.length})</h3>${tbl([{ k: 'id' }, { k: 'building_type', label: 'Type' }, { k: 'health', f: (r) => html`<input type="number" value="${r.health}" data-hp="placeable" data-id="${r.id}" class="w90">` }], b.placeables)}</div>
+        <div class="card"><h3>Building piece types</h3>${tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], b.types)}</div>`);
     } else {
       const claims = (await api('/api/bases/claim')).filter((c) => c.totem_id == id);
       h.push(html`${claims.length ? html`<div class="card"><h3>Land claim size</h3>${claims.map((c) => html`<div class="row"><b>${c.name} ${c.totem_id}</b><span>${c.cells} cell${c.cells == 1 ? '' : 's'}${c.irregular ? ' (irregular shape)' : ` (${2 * c.rings + 1} x ${2 * c.rings + 1} square)`}, vertical level ${c.level}</span>
@@ -575,7 +595,8 @@ async function basesView() {
       ${c.cells > 1 ? html`<div class="row"><span class="mut">${c.piecesInClaim == null ? '' : `${c.piecesInClaim} pieces inside the claim, ${c.piecesOutside} outside.`}</span>
         Shrink to <select id="cs${c.totem_id}"><option value="0">the totem's own cell only</option>${Array.from({ length: c.maxRings }, (_, i) => i + 1).filter((n) => (c.irregular ? n <= c.rings : n < c.rings)).map((n) => html`<option value="${n}">${2 * n + 1} x ${2 * n + 1} square</option>`)}</select>
         <button class="b sec" data-act="claimShrink" data-id="${c.totem_id}">Shrink claim</button><span class="mut">Cells that hold building pieces are never removed.</span></div>` : html``}`)}
-    <p class="mut">One cell is 10 x 10 foundations, around the totem. Expanding only adds cells and never removes them, and the vertical level can only go up. Applied when the game next loads the save.</p></div>` : html``}`);
+    <p class="mut">One cell is 10 x 10 foundations, around the totem. Expanding only adds cells and never removes them, and the vertical level can only go up. Applied when the game next loads the save.</p></div>` : html``}
+      ${claims.map((c) => claimGridCard(c))}`);
       if (!claims.length) h.push(html`<p class="mut">This base has no land claim data in the save.</p>`);
     }
   }
@@ -595,7 +616,8 @@ async function vehiclesView() {
   const h = [html`<div class="card"><h3>Your vehicles (${v.vehicles.length})</h3>${tbl([{ k: 'name', label: 'Vehicle', f: (r) => html`<b title="${r.name}">${r.type || r.name}</b> <span class="mut">${r.map}</span>` }, { k: 'type', label: 'Type' },
     { k: 'condition', label: 'Lowest condition', f: (r) => pctCell(r.condition) }, { k: 'fuel', label: 'Fuel', f: (r) => (r.fuel == null ? '-' : Number(r.fuel).toFixed(1)) },
     { k: 'x', label: 'Location', f: (r) => `${fix(r.x)}, ${fix(r.y)}` }], v.vehicles,
-    { actions: (r) => html`<button class="b ${open && open.id == r.id ? '' : 'sec'} sm" data-vhopen="${r.id}">Details</button><button class="b sm" data-act="bring" data-id="${r.id}">Bring to me</button>` })}</div>`];
+    { actions: (r) => html`<button class="b ${open && open.id == r.id ? '' : 'sec'} sm" data-vhopen="${r.id}">Details</button><button class="b sm" data-act="repairOne" data-id="${r.id}">Repair</button><button class="b sm" data-act="bring" data-id="${r.id}">Bring to me</button>` })}
+    <div class="row"><button class="b" data-act="repairV">Repair all my vehicles</button><span class="mut">Raises every module of your vehicles to its current maximum. For a "repair below %" threshold use Admin.</span></div></div>`];
   if (open) {
     const cargo = open.cargo;
     h.push(html`<div class="card"><h3>${open.type || open.name}: ${(open.components || []).length} components</h3>${tbl([{ k: 'template_id', label: 'Component', f: (r) => html`<span title="${r.template_id}">${compName(r.template_id)}</span>` },
@@ -694,7 +716,7 @@ async function dbView() {
 async function render() {
   drawNav();
   try {
-    await ({ player: playerView, livemap: liveMapView, landsraad: landsraadView, config: configView, db: dbView, extras: extrasView })[tab]();
+    await ({ player: playerView, livemap: liveMapView, landsraad: landsraadView, config: configView, db: dbView })[tab]();
   } catch (e) {
     setHTML($('#main'), html`<div class="card bad">${e.message}</div>`);
   }
@@ -798,7 +820,8 @@ const A = {
   },
   refillWater: () => act(async () => { const r = await api('/api/bases/refill-water', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} water devices (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
   refillGen: () => act(async () => { const r = await api('/api/bases/refill-generators', {}); toast(`Filled ${r.filled} generators (${r.alreadyFull} already full)` + NOT_SAVED); }, null),
-  repairV: () => act(async () => { const r = await api('/api/vehicles/repair', { threshold: +val('rvPct') }); toast(`Repaired ${r.repaired} vehicle modules.` + (r.withoutKnownMax ? ` ${r.withoutKnownMax} modules have no recorded maximum and were left alone.` : '') + NOT_SAVED); }, null),
+  repairOne: (d) => act(async () => { const r = await api('/api/vehicles/repair', { vehicle_id: +d.id }); toast(`Repaired ${r.repaired} modules of this vehicle.` + (r.withoutKnownMax ? ` ${r.withoutKnownMax} modules have no recorded maximum and were left alone.` : '') + NOT_SAVED); }, null),
+  repairV: () => act(async () => { const pct = $('#rvPct'); const r = await api('/api/vehicles/repair', pct ? { threshold: +pct.value } : {}); toast(`Repaired ${r.repaired} vehicle modules.` + (r.withoutKnownMax ? ` ${r.withoutKnownMax} modules have no recorded maximum and were left alone.` : '') + NOT_SAVED); }, null),
   repairB: async () => (await ask({ title: 'Repair every base piece?', body: 'Sets the health of all building pieces and placeables in the save to full.', ok: 'Repair all', typed: 'repair', danger: true })) && act(async () => { const r = await api('/api/bases/repair', {}); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables` + NOT_SAVED); }, null),
   sand: async () => (await ask({ title: 'Clear sand build-up?', body: 'Removes the sand coverage from every building piece in the save.', ok: 'Clear sand', typed: 'clear', danger: true })) && act(async () => { const r = await api('/api/bases/clear-sand', {}); toast(`Cleared ${r.pieces} pieces` + NOT_SAVED); }, null),
   openInv: async (d) => {

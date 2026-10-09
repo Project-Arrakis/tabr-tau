@@ -142,3 +142,7 @@ canvas.lm:active { cursor: grabbing; }
 th{cursor:pointer;user-select:none}
 th.sa::after{content:" \25B2";font-size:9px}
 th.sd::after{content:" \25BC";font-size:9px}
+.cgrid{border-collapse:collapse}
+.cgrid td.cg{width:34px;height:34px;min-width:34px;padding:0;text-align:center;font-size:12px;border:1px solid var(--line)}
+.cg-e{background:transparent;opacity:.45}.cg-c{background:var(--panel2)}.cg-p{background:var(--acc);color:#fff;font-weight:600}.cg-t{background:var(--acc2);color:#fff;font-weight:700}.cg-o{background:var(--bad);color:#fff;font-weight:600}
+.cg-key{display:inline-block;width:12px;height:12px;border:1px solid var(--line);vertical-align:middle;margin:0 3px 0 10px}

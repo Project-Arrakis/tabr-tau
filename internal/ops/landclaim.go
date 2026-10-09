@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
@@ -44,7 +45,8 @@ func (o *Ops) LandClaims() (any, error) {
 		}
 		t["name"] = shortClass(t["class"])
 		delete(t, "class")
-		if pc, err := o.pieceCells(t["totem_id"].(int64)); err == nil {
+		pc, err := o.pieceCells(t["totem_id"].(int64))
+		if err == nil {
 			var inside int64
 			for c, n := range pc {
 				if have[c] {
@@ -54,6 +56,7 @@ func (o *Ops) LandClaims() (any, error) {
 			t["piecesInClaim"] = inside
 			t["piecesOutside"] = totalPieces(pc) - inside
 		}
+		t["grid"] = claimGrid(have, pc)
 		t["cells"] = int64(len(have))
 		t["rings"] = rings
 		t["irregular"] = int64(len(have)) != (2*rings+1)*(2*rings+1)
@@ -61,6 +64,35 @@ func (o *Ops) LandClaims() (any, error) {
 		t["maxLevel"] = int64(maxVerticalLevel)
 	}
 	return totems, nil
+}
+
+// claimGrid lists the cells to draw: every cell of the claim (the totem's own cell is 0,0) and every cell outside it that holds
+// building pieces, each with its piece count (0 when pieces could not be matched to cells), in row order.
+func claimGrid(have map[[2]int64]bool, pieces map[[2]int64]int64) []map[string]any {
+	cells := map[[2]int64]bool{}
+	for c := range have {
+		cells[c] = true
+	}
+	for c, n := range pieces {
+		if n > 0 {
+			cells[c] = true
+		}
+	}
+	keys := make([][2]int64, 0, len(cells))
+	for c := range cells {
+		keys = append(keys, c)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i][1] != keys[j][1] {
+			return keys[i][1] < keys[j][1]
+		}
+		return keys[i][0] < keys[j][0]
+	})
+	out := make([]map[string]any, 0, len(keys))
+	for _, c := range keys {
+		out = append(out, map[string]any{"x": c[0], "y": c[1], "in": have[c], "n": pieces[c]})
+	}
+	return out
 }
 
 func squareComplete(have map[[2]int64]bool, n int64) bool {
