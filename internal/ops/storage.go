@@ -48,9 +48,6 @@ var containerGroups = []struct {
 	}},
 }
 
-// storageTypes is the "Storage" group: plain storage containers (the Bases > Storage list and the map's storage markers).
-var storageTypes = containerGroups[0].Types
-
 // baseContainers lists the containers of the given groups that belong to a base: placeables of one of those building types whose
 // owner entity is a totem's entity (the same link the building pieces use), not holograms, with a real capacity (the second,
 // uncapped inventory every refinery and fabricator carries is skipped). baseID 0 means every base. One row per container
