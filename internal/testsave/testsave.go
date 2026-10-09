@@ -21,6 +21,10 @@ import (
 
 var schemaSQL = save.KnownSchema
 
+// Every test binary that builds saves here is independent of whether the developer has the game open (issue #102): the process
+// check reports no game unless a test says otherwise.
+func init() { save.NoGameRunningForTests() }
+
 // Hostile is a string for every TEXT column of Hostile(): HTML and attribute breakout, quotes, markup, and
 // characters that matter in CSV, SQL and JSON contexts.
 const HostileText = `"><img src=x onerror=window.__pwned=1>'&<b>x</b>=cmd|' /c calc'!A1   ${7*7}`
