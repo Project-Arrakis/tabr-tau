@@ -540,13 +540,15 @@ func (o *Ops) DeleteItem(a Args) (any, error) {
 }
 
 // RepairGear restores durability on equipped gear, armor, weapons and backpack.
+// RepairGear raises the durability of everything the character wears (inventory type 1) and carries as a loadout (type 15) to
+// its maximum. The backpack and the other inventories are left alone.
 func (o *Ops) RepairGear() (any, error) {
 	p, err := o.player()
 	if err != nil {
 		return nil, err
 	}
 	rows, err := o.S.Query(`select i.id, i.stats from items i join inventories v on v.id=i.inventory_id
-		where v.actor_id=? and v.inventory_type in (0,1,14,15,27,30)`, p.Pawn)
+		where v.actor_id=? and v.inventory_type in (1,15)`, p.Pawn)
 	if err != nil {
 		return nil, err
 	}

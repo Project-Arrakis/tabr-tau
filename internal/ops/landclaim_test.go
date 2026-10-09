@@ -235,3 +235,54 @@ insert into landclaim_segments(totem_id,grid_location_x,grid_location_y) values 
 		t.Fatal("a piece with no owner link must block")
 	}
 }
+
+func TestLandClaimsGridHasEveryCellWithItsPieceCount(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, shrinkFixture)} // cells (-1,0) (0,-1) (1,0) (2,2) plus the totem's own; piece 702 sits in (1,0), 701 in (0,0)
+	r, err := o.LandClaims()
+	if err != nil {
+		t.Fatal(err)
+	}
+	grid := r.([]map[string]any)[0]["grid"].([]map[string]any)
+	by := map[[2]int64]map[string]any{}
+	for _, c := range grid {
+		by[[2]int64{c["x"].(int64), c["y"].(int64)}] = c
+	}
+	if len(by) != 5 {
+		t.Fatalf("five cells: %v", grid)
+	}
+	for _, k := range [][2]int64{{0, 0}, {-1, 0}, {0, -1}, {1, 0}, {2, 2}} {
+		if c := by[k]; c == nil || c["in"] != true {
+			t.Fatalf("cell %v must be in the claim: %v", k, c)
+		}
+	}
+	if by[[2]int64{1, 0}]["n"].(int64) != 1 || by[[2]int64{0, 0}]["n"].(int64) != 1 || by[[2]int64{2, 2}]["n"].(int64) != 0 {
+		t.Fatalf("piece counts: %v", grid)
+	}
+	// rows come in order, so the picture can be drawn straight from the list
+	for i := 1; i < len(grid); i++ {
+		a, b := grid[i-1], grid[i]
+		if a["y"].(int64) > b["y"].(int64) || (a["y"].(int64) == b["y"].(int64) && a["x"].(int64) >= b["x"].(int64)) {
+			t.Fatalf("grid not in row order: %v", grid)
+		}
+	}
+}
+
+func TestLandClaimsGridShowsPiecesOutsideTheClaim(t *testing.T) {
+	// a piece one cell beyond the claim (cell (3,0)): shown as outside the claim
+	o := &Ops{S: testsave.PlayerWithSQL(t, claimFixture+`
+insert into actors(id,class,map,location_x,location_y) values (701,'c','HaggaBasin',15360.0,0.0);
+insert into building_instances(building_id,instance_id,building_type,location_x,location_y,location_z) values (701,1,'Floor',15360.0,0.0,0.0);`)}
+	r, err := o.LandClaims()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var outside int
+	for _, c := range r.([]map[string]any)[0]["grid"].([]map[string]any) {
+		if c["in"] == false && c["n"].(int64) > 0 {
+			outside++
+		}
+	}
+	if outside != 1 {
+		t.Fatalf("one outside cell with a piece: %v", r)
+	}
+}

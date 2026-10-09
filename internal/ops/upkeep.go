@@ -156,7 +156,11 @@ func (o *Ops) RepairVehicles() (any, error) { return o.RepairVehiclesBelow(100) 
 
 // RepairVehiclesBelow raises the modules of the player's own vehicles whose durability is below pct percent of their current
 // maximum (1 to 100, the console's "Repair Below") up to that maximum. Modules with no recorded maximum are left alone.
-func (o *Ops) RepairVehiclesBelow(pct int64) (any, error) {
+func (o *Ops) RepairVehiclesBelow(pct int64) (any, error) { return o.RepairVehiclesWhere(pct, 0) }
+
+// RepairVehiclesWhere is RepairVehiclesBelow limited to one vehicle (vehicleID, which must be one of the player's own); 0 means all
+// of them.
+func (o *Ops) RepairVehiclesWhere(pct, vehicleID int64) (any, error) {
 	if pct < 1 || pct > 100 {
 		return nil, errors.New("the repair threshold must be between 1 and 100 percent")
 	}
@@ -164,11 +168,16 @@ func (o *Ops) RepairVehiclesBelow(pct int64) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	if vehicleID != 0 {
+		if own, _ := o.S.One(`select 1 x from vehicles where id=? and id in (`+ownedVehicleSQL+`)`, vehicleID, p.Controller); own == nil {
+			return nil, errors.New("that vehicle is not one of yours")
+		}
+	}
 	rows, err := o.S.Query(`select count(*) total,
 		coalesce(sum(case when json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') is not null
 			and coalesce(json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability'),0) < json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') * ?/100.0 then 1 else 0 end),0) repairable,
 		coalesce(sum(case when json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') is null then 1 else 0 end),0) nomax
-		from vehicle_modules where vehicle_id in (`+ownedVehicleSQL+`) and json_valid(stats,8) and json_type(stats,'$.FVehicleModuleDurabilityStats') is not null`, pct, p.Controller)
+		from vehicle_modules where vehicle_id in (`+ownedVehicleSQL+`) and json_valid(stats,8) and json_type(stats,'$.FVehicleModuleDurabilityStats') is not null and (? = 0 or vehicle_id = ?)`, pct, p.Controller, vehicleID, vehicleID)
 	if err != nil {
 		return nil, err
 	}
@@ -178,12 +187,15 @@ func (o *Ops) RepairVehiclesBelow(pct int64) (any, error) {
 				json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability'))
 			where vehicle_id in (`+ownedVehicleSQL+`) and json_valid(stats,8) and json_type(stats,'$.FVehicleModuleDurabilityStats') is not null
 			and json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') is not null
-			and coalesce(json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability'),0) < json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') * ?/100.0`, p.Controller, pct)
+			and coalesce(json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability'),0) < json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') * ?/100.0 and (? = 0 or vehicle_id = ?)`, p.Controller, pct, vehicleID, vehicleID)
 		if err != nil {
 			return err
 		}
 		n, _ = res.RowsAffected()
 		m.Desc = fmt.Sprintf("repair vehicles below %d%%: %d modules", pct, n)
+		if vehicleID != 0 {
+			m.Desc = fmt.Sprintf("repair vehicle %d below %d%%: %d modules", vehicleID, pct, n)
+		}
 		return nil
 	})
 	if err != nil {
