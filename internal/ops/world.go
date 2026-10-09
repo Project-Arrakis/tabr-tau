@@ -124,6 +124,8 @@ func (o *Ops) Vehicles() (any, error) {
 	}
 	for _, v := range live {
 		v["name"] = shortClass(v["class"])
+		v["type"] = vehicleType(fmt.Sprint(v["name"]))
+		o.vehicleDetails(v)
 		mods, _ := o.S.Query(`select id, template_id from vehicle_modules where vehicle_id=?`, v["id"])
 		v["modules"] = mods
 		inv, _ := o.S.Query(`select id inventory_id, inventory_type from inventories where actor_id=?`, v["id"])

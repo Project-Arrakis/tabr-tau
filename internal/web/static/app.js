@@ -374,13 +374,29 @@ async function basesView() {
 }
 
 // ---------- VEHICLES
+// The player's own vehicles as in the console's Vehicles tab: type, lowest condition, fuel and location per vehicle, and for the open
+// one its components with their condition and its cargo hold (read-only here; removing cargo comes later).
+let vhOpen = null;
+const pctCell = (v) => (v == null ? html`<span class="mut">-</span>` : html`<span class="${v < 30 ? 'bad' : v < 60 ? 'warn' : 'ok'}">${Math.round(v)}%</span>`);
+const compName = (t) => String(t || '').replace(/_\d+$/, '').replace(/([a-z])([A-Z])/g, '$1 $2');
 async function vehiclesView() {
   const v = await api('/api/vehicles');
-  const h = [html`<div class="card"><h3>Your vehicles (${v.vehicles.length})</h3>${tbl([{ k: 'name', label: 'Vehicle' }, { k: 'id' }, { k: 'map' }, { k: 'x', f: (r) => fix(r.x) }, { k: 'y', f: (r) => fix(r.y) }, { k: 'z', f: (r) => fix(r.z) },
-    { k: 'modules', label: 'Modules', f: (r) => (r.modules || []).map((m) => html`<span class="tag">${m.template_id}</span>`) }], v.vehicles,
-    { actions: (r) => html`<button class="b sm" data-act="bring" data-id="${r.id}">Bring to me</button>` })}</div>
-  <div class="card"><h3>Recovered / stored vehicles (${v.recovered.length})</h3>${tbl([{ k: 'vehicle_id', label: 'Id' }, { k: 'vehicle_name', label: 'Name' }, { k: 'chassis_durability', label: 'Chassis durability' }, { k: 'time_stored' }, { k: 'reason' }], v.recovered,
-    { actions: (r) => html`<button class="b sec sm" data-act="dur" data-id="${r.vehicle_id}" data-v="${r.chassis_durability}">Set durability</button>` })}</div>`];
+  const open = v.vehicles.find((r) => r.id == vhOpen) || v.vehicles[0];
+  if (open && open.cargo && open.cargo.items.length) await loadCatalog(open.cargo.items.map((i) => i.template_id));
+  const h = [html`<div class="card"><h3>Your vehicles (${v.vehicles.length})</h3>${tbl([{ k: 'name', label: 'Vehicle', f: (r) => html`<b title="${r.name}">${r.type || r.name}</b> <span class="mut">${r.map}</span>` }, { k: 'type', label: 'Type' },
+    { k: 'condition', label: 'Lowest condition', f: (r) => pctCell(r.condition) }, { k: 'fuel', label: 'Fuel', f: (r) => (r.fuel == null ? '-' : Number(r.fuel).toFixed(1)) },
+    { k: 'x', label: 'Location', f: (r) => `${fix(r.x)}, ${fix(r.y)}` }], v.vehicles,
+    { actions: (r) => html`<button class="b ${open && open.id == r.id ? '' : 'sec'} sm" data-vhopen="${r.id}">Details</button><button class="b sm" data-act="bring" data-id="${r.id}">Bring to me</button>` })}</div>`];
+  if (open) {
+    const cargo = open.cargo;
+    h.push(html`<div class="card"><h3>${open.type || open.name}: ${(open.components || []).length} components</h3>${tbl([{ k: 'template_id', label: 'Component', f: (r) => html`<span title="${r.template_id}">${compName(r.template_id)}</span>` },
+      { k: 'percent', label: 'Condition', f: (r) => pctCell(r.percent) }, { k: 'current', label: 'Durability', f: (r) => (r.current == null ? '-' : Number(r.current).toFixed(0) + (r.max ? ' / ' + Number(r.max).toFixed(0) : '')) }], open.components || [])}
+      <p class="mut">Condition is each module's durability against its current maximum; a module with no stored maximum shows only its value. The fuel tank size is not stored in the save, so fuel is the current amount.</p></div>`);
+    h.push(html`<div class="card"><h3>Cargo hold</h3>${cargo ? html`<p class="mut">${cargo.items.length} / ${cargo.slots == null ? '?' : cargo.slots} slots used</p>${cargo.items.length ? tbl([{ k: 'position_index', label: 'Slot' },
+      { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Quantity' }, { k: 'quality_level', label: 'Grade' }], cargo.items) : html`<p class="mut">The cargo hold is empty.</p>`}` : html`<p class="mut">This vehicle has no cargo hold.</p>`}</div>`);
+  }
+  h.push(html`<div class="card"><h3>Recovered / stored vehicles (${v.recovered.length})</h3>${tbl([{ k: 'vehicle_id', label: 'Id' }, { k: 'vehicle_name', label: 'Name' }, { k: 'chassis_durability', label: 'Chassis durability' }, { k: 'time_stored' }, { k: 'reason' }], v.recovered,
+    { actions: (r) => html`<button class="b sec sm" data-act="dur" data-id="${r.vehicle_id}" data-v="${r.chassis_durability}">Set durability</button>` })}</div>`);
   if (v.hidden) h.push(html`<p class="mut">${v.hidden} other vehicle${v.hidden == 1 ? '' : 's'} in the world (not yours) ${v.hidden == 1 ? 'is' : 'are'} not shown.</p>`);
   if (!v.vehicles.length && !v.recovered.length) h.push(html`<p class="mut">None of your vehicles are in this save yet. Vehicle fuel is stored in an opaque binary blob and is not editable.</p>`);
   setHTML(host(), html`${h}`);
@@ -590,6 +606,8 @@ const A = {
 document.addEventListener('click', (e) => {
   const t = e.target.closest('[data-tab]');
   if (t) { if (Object.hasOwn(TABS, t.dataset.tab)) { tab = t.dataset.tab; localStorage.tab = tab; render(); } return; }
+  const vo = e.target.closest('[data-vhopen]');
+  if (vo) { vhOpen = +vo.dataset.vhopen; render(); return; }
   const bo = e.target.closest('[data-bsopen]');
   if (bo) { bsOpen = +bo.dataset.bsopen; render(); return; }
   const bt = e.target.closest('[data-bstab]');
