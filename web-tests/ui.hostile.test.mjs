@@ -114,6 +114,24 @@ for (const confused of [false, true]) for (const [tabName, ...subs] of VIEWS) {
   });
 }
 
+test('the Player Summary shows what the save holds, above the Player tabs', async () => {
+  const summary = {
+    name: 'Tester', status: 'Offline', map: 'HaggaBasin', faction: 'Harkonnen', guild: null, level: 71, xp: 41221,
+    skillPoints: { unspent: 9, total: 70 }, intel: { points: 333, max: 2779 },
+    vitals: { health: 112.5, healthMinMax: 150, hydration: 52.5, maxHydration: 100, spiceAddiction: 0, maxSpiceAddiction: 10 },
+    identity: { platform: 'Steam', platformId: 'P1', funcomId: 'F1', flsId: 'L1' }, ids: { actor: 2, account: 1, controller: 1, playerState: 3 },
+    currency: [{ label: 'Solari Credit', balance: 591227 }, { label: 'Solari Coin', balance: 95470 }, { label: 'House Credit', balance: 0 }],
+  };
+  const ui = await boot({ get: { '/api/player/summary': summary } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  const text = ui.doc.querySelector('#main').textContent;
+  for (const want of ['Player Summary', 'Harkonnen', '71', '41,221', '9 / 70', '333 / 2,779', '112.5 (max at least 150)', '52.5 / 100', 'Steam ID', 'Solari Credit', '591,227', 'Solari Coin', '95,470', 'House Credit']) {
+    assert.ok(text.includes(want), `the summary should show ${want}`);
+  }
+  assert.ok(ui.doc.querySelector('[data-sub="player:bases"]'), 'the Player tabs are still there');
+  ui.dom.window.close();
+});
+
 test('Admin mirrors the console: the actions tabr-tau has post, the ones it lacks are disabled, server-only ones are absent', async () => {
   const ui = await boot({});
   ui.click('[data-tab="player"]'); await ui.settle();

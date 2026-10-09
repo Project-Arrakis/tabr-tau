@@ -334,6 +334,7 @@ func (s *Server) routes() {
 	s.post("/api/bases/repair", func(ops.Args) (any, error) { return o.RepairBuildings() })
 	s.post("/api/bases/clear-sand", func(ops.Args) (any, error) { return o.ClearSand() })
 	s.get("/api/bases/claim", func(r *http.Request) (any, error) { return o.LandClaims() })
+	s.get("/api/player/summary", func(r *http.Request) (any, error) { return o.Summary() })
 	s.post("/api/bases/claim/expand", o.ExpandLandClaim)
 	s.post("/api/bases/claim/shrink", o.ShrinkLandClaim)
 	s.post("/api/bases/refill-water", func(ops.Args) (any, error) { return o.RefillBaseWater() })
