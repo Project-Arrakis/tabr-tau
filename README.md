@@ -1,7 +1,7 @@
 # tabr-tau
 
 A small Go app for editing a **single-player Dune: Awakening** save and its local game configs.
-It is one binary that serves its UI on `127.0.0.1` only; on Windows it shows that UI in its own window, elsewhere in your browser. There are no containers, servers, maps to
+It is one binary that serves its UI on `127.0.0.1` only; it shows that UI in its own window (or in your browser with `--web`). **Windows 10/11 (64-bit) only**: the game runs only on Windows and the save lives on the same PC, so other systems are not supported. There are no containers, servers, maps to
 start or stop, or anything to host: it works on the files the game already keeps on your PC.
 
 The player and database tooling follows the ideas in
@@ -64,7 +64,7 @@ Flags: `--save`, `--config`, `--web` (browser instead of the window), `--addr` (
 
 Helper commands: `tabr-tau find`, `tabr-tau decode <save> <out.sqlite>`, `tabr-tau encode <in.sqlite> <out.db>`.
 
-Build the Windows app (from any OS, no C compiler needed) with
+Build the app (no C compiler needed; it can be cross-built from another OS, but only Windows is supported) with
 `GOOS=windows CGO_ENABLED=0 go build -trimpath -ldflags "-H=windowsgui -s -w" -o tabr-tau.exe ./cmd/tabr-tau`
 (`-H=windowsgui` removes the console window; the exe re-attaches to the terminal it was started from, so subcommands still
 print). Windows Application Control may block unsigned binaries; `go run` works around that.
