@@ -736,6 +736,38 @@ test('Journey browser: groups, filter, indented names as text, and Complete / Re
   ui.dom.window.close();
 });
 
+test('Skills: schools, rank bars, set rank (with and without paying), starter skills and unspent points', async () => {
+  const hostile = '<img src=x onerror=1>';
+  const m = (o) => ({ id: 'Skills.Ability.X', name: 'X', school: 'Trooper', kind: 'Ability', rank: 0, max: 3, spent: 0, ladder: [1, 3, 6], known: true, ...o });
+  const sk = { total: 106, unspent: 45, spent: 14, schools: [{ key: 'Trooper', label: 'Trooper' }, { key: 'Mentat', label: 'Mentat' }], modules: [
+    m({ id: 'Skills.Ability.Sprint', name: 'Sprint ' + hostile, rank: 2, spent: 3 }), m({ id: 'Skills.Perk.Aim', name: 'Aim', kind: 'Perk', max: 1, ladder: [2] }),
+    m({ id: 'Skills.Ability.Mind', name: 'Mind', school: 'Mentat' }), m({ id: 'Skills.Attribute.Odd', name: 'Odd', school: 'Other', known: false, rank: 1, spent: 9, max: 0, ladder: [] })] };
+  const ui = await boot({ get: { '/api/player/skills': sk }, post: { '/api/player/skills/module': { ok: true, pointsBefore: 3, pointsAfter: 6 }, '/api/player/skills/points': { ok: true, before: 45, after: 90 }, '/api/player/skills/starter': { ok: true, changed: 2 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:skills"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('img'), null, 'a hostile skill name is text, not markup');
+  assert.ok(ui.doc.querySelector('#main').textContent.includes('Earned in total') && ui.doc.querySelector('#main').textContent.includes('106'));
+  assert.equal(ui.doc.querySelector('[data-skgrp="Trooper"]').textContent, 'Trooper (1)', 'the school chip counts learned skills');
+  assert.equal(ui.doc.querySelectorAll('select[data-skill]').length, 2, 'only the chosen school skills are listed');
+  assert.equal(ui.doc.querySelector('.rankbar').textContent, '●●○', 'rank 2 of 3');
+  ui.doc.querySelector('select[data-skill="Skills.Ability.Sprint"]').value = '3';
+  ui.doc.querySelector('select[data-skill="Skills.Ability.Sprint"]').dispatchEvent(new ui.dom.window.Event('change', { bubbles: true })); await ui.settle();
+  ui.doc.querySelector('#skCharge').checked = true;
+  ui.doc.querySelector('#skCharge').dispatchEvent(new ui.dom.window.Event('change', { bubbles: true })); await ui.settle();
+  const sel = ui.doc.querySelector('select[data-skill="Skills.Perk.Aim"]'); sel.value = '1';
+  sel.dispatchEvent(new ui.dom.window.Event('change', { bubbles: true })); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/skills/module').map((p) => p.body), [
+    { module: 'Skills.Ability.Sprint', level: 3, charge: false }, { module: 'Skills.Perk.Aim', level: 1, charge: true }]);
+  ui.click('[data-act="skStarter"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/skills/starter').map((p) => p.body), [{ school: 'Trooper' }]);
+  ui.doc.querySelector('#skPts').value = '90'; ui.click('[data-act="skPoints"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/skills/points').map((p) => p.body), [{ points: 90 }]);
+  ui.click('[data-skgrp="Other"]'); await ui.settle();
+  assert.equal(ui.doc.querySelectorAll('select[data-skill]').length, 0, 'a skill the catalog does not know cannot be given a rank');
+  assert.ok(ui.doc.querySelector('#skout').textContent.includes('catalog does not know its ranks'));
+  ui.dom.window.close();
+});
+
 test('base and vehicle upkeep buttons post, and unknown device names stay plain text', async () => {
   const hostile = '<img src=x onerror=1> x1';
   const ui = await boot({ post: {

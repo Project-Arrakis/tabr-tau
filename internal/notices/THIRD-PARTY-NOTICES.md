@@ -442,3 +442,11 @@ https://github.com/Red-Blink/dune-awakening-selfhost-docker (git blob 62bd7f08),
 catalog section above. It gives readable names for Journey story nodes and contracts, the order of sibling nodes, and the gameplay tags
 that nodes and contracts set. The game's names belong to their owners; this project is unofficial and not affiliated with or endorsed by
 Funcom. The naming, parent and ordering rules in `internal/journey` follow the console's `console/api/src/duneDb/presentation.js`.
+
+## Skill modules: dune-awakening-selfhost-docker (RedBlink)
+
+`internal/skills/admin-skill-modules.json` is a copy, unchanged, of `runtime/data/admin-skill-modules.json` of
+https://github.com/Red-Blink/dune-awakening-selfhost-docker (git blob 555e587d), MIT-licensed under the licence reproduced in the item
+catalog section above. It lists the skill modules with their school, number of ranks and the points each rank costs. The game's names
+belong to their owners; this project is unofficial and not affiliated with or endorsed by Funcom. The rank rule in `internal/skills`
+follows the console's `rankFromSkillPoints` (`console/api/src/duneDb.js`).
