@@ -845,6 +845,24 @@ test('Live Map: marker types that name inherited properties find no picture, kno
 });
 
 
+test('No Guild or Respawn points in the Player view; Bases: the open base is labelled, others get Open, automatic refill is on Power and Water', async () => {
+  const two = [{ base_id: 7, name: 'Base', base_type: 'Advanced Sub-Fief', owner: 'Owner', map: 'HaggaBasin', generators: 0, pieces: 0, placeables: 0, x: 0, y: 0, z: 0 },
+    { base_id: 8, name: 'Outpost', base_type: 'Sub-Fief', owner: 'Owner', map: 'HaggaBasin', generators: 0, pieces: 0, placeables: 0, x: 1, y: 1, z: 1 }];
+  const ui = await boot({ get: { '/api/bases/list': two, '/api/settings': { autoRefillOnOpen: false } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  assert.ok(!ui.doc.querySelector('#main').textContent.includes('Guild'), 'a single-player game has no guild');
+  assert.ok(!ui.doc.querySelector('#main').textContent.includes('Respawn points'), 'the respawn points card is gone');
+  ui.click('[data-sub="player:bases"]'); await ui.settle();
+  assert.equal(ui.doc.querySelectorAll('[data-bsopen]').length, 1, 'only the base that is not open gets an Open button');
+  assert.ok(ui.doc.querySelector('#main').textContent.includes('Open below'), 'the open base says so');
+  assert.ok(ui.doc.querySelector('[data-act="autoref"]'), 'automatic refill is on the Power tab');
+  ui.click('[data-bstab="water"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('[data-act="autoref"]'), 'and on the Water tab');
+  ui.click('[data-bsopen="8"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#main').textContent.includes('Outpost (#8)'), 'Open switches to that base');
+  ui.dom.window.close();
+});
+
 test('base and vehicle upkeep buttons post, and unknown device names stay plain text', async () => {
   const hostile = '<img src=x onerror=1> x1';
   const ui = await boot({ post: {

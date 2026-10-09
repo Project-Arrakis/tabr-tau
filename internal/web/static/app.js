@@ -236,7 +236,7 @@ function summaryCard(m) {
   const f1 = (v) => (v == null ? '-' : Number(v).toFixed(1));
   const id = m.identity || {}, ids = m.ids || {}, v = m.vitals || {}, sp = m.skillPoints, it = m.intel;
   return html`<div class="card"><h3>Player Summary</h3><div class="grid">
-    ${kv('Character', m.name)}${kv('Status', m.status)}${kv('Map', m.map)}${kv('Faction', m.faction || 'Neutral')}${kv('Guild', '-')}
+    ${kv('Character', m.name)}${kv('Status', m.status)}${kv('Map', m.map)}${kv('Faction', m.faction || 'Neutral')}
     ${kv('Level', m.level)}${kv('XP', num(m.xp))}${kv('Skill points', sp ? `${num(sp.unspent)} / ${num(sp.total)}` : '-')}${kv('Intel', it ? `${num(it.points)} / ${num(it.max)}` : '-')}
     ${kv('Health', v.health == null ? '-' : `${f1(v.health)} (max at least ${Math.ceil(Math.max(v.healthMinMax, v.health))})`)}${kv('Hydration', v.hydration == null ? '-' : `${f1(v.hydration)} / ${v.maxHydration}`)}${kv('Spice addiction', v.spiceAddiction == null ? '-' : `${f1(v.spiceAddiction)} / ${v.maxSpiceAddiction}`)}
     ${kv((id.platform || 'Platform') + ' ID', id.platformId)}${kv('Funcom ID', id.funcomId)}${kv('FLS ID', id.flsId)}
@@ -259,8 +259,7 @@ async function playerSection(s) {
     const a = P.actor || {}, j = P.journey || {};
     h.push(html`<div class="card"><h3>${P.name}</h3><div class="grid">${kv('Solari in backpack', P.solari.toLocaleString())}${kv('Position', `${fix(a.x)}, ${fix(a.y)}, ${fix(a.z)}`)}${kv('Journey', `${j.done || 0} / ${j.total || 0} nodes done`)}</div><p class="mut">Map, account, platform and the database ids are in the summary above.</p></div>
     <div class="card"><h3>Solari</h3><div class="row"><input id="solari" type="number" value="10000"><button class="b" data-act="solari">Add / remove</button><span class="mut">Negative removes. Solari is an item stack in your backpack.</span></div></div>
-    <div class="card"><h3>Quick rewards</h3><div class="row"><b>Give XP</b><input id="xpAmt" type="number" value="1000" min="1"><button class="b" data-act="xp">Give</button><span class="mut">Raises the level as the XP grows and adds one skill point per level gained; stops at level 200.</span></div><div class="row"><b>Give currency</b><select id="curSel"><option value="0">Solari Credit</option><option value="1">House Credit</option></select><input id="curAmt" type="number" value="100" min="1"><button class="b" data-act="currency">Give</button><span class="mut">The virtual wallets, not the Solari in your backpack (that is the Solari card above).</span></div><div class="row"><b>Give Intel</b><input id="intelAmt" type="number" value="100" min="1"><button class="b" data-act="intel">Give</button><span class="mut">Adds Intel for the research tree, never past 2,779. All of these apply when the game next loads the save.</span></div></div>
-    <div class="card"><h3>Respawn points</h3>${tbl([{ k: 'group' }, { k: 'locator_name' }, { k: 'locator_actor_id' }, { k: 'map' }], P.respawns)}</div>`);
+    <div class="card"><h3>Quick rewards</h3><div class="row"><b>Give XP</b><input id="xpAmt" type="number" value="1000" min="1"><button class="b" data-act="xp">Give</button><span class="mut">Raises the level as the XP grows and adds one skill point per level gained; stops at level 200.</span></div><div class="row"><b>Give currency</b><select id="curSel"><option value="0">Solari Credit</option><option value="1">House Credit</option></select><input id="curAmt" type="number" value="100" min="1"><button class="b" data-act="currency">Give</button><span class="mut">The virtual wallets, not the Solari in your backpack (that is the Solari card above).</span></div><div class="row"><b>Give Intel</b><input id="intelAmt" type="number" value="100" min="1"><button class="b" data-act="intel">Give</button><span class="mut">Adds Intel for the research tree, never past 2,779. All of these apply when the game next loads the save.</span></div></div>`);
   } else if (c == 'inventory') {
     const d = await api('/api/player/inventory');
     const cat = await loadCatalog(d.templates);
@@ -471,6 +470,11 @@ function catalogList() {
 
 // ---------- BASES
 // ---------- BASES (the console's Bases panel inside Player > Bases: the base list, and for one base Power, Water, Inventory and Land Claim Editor)
+// The automatic refill switch, shown on both the Power and the Water tab because it refills both: the water devices and the generators.
+function autoRefillCard(prefs) {
+  return html`<div class="card"><h3>Automatic refill of water and power</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
+    <p class="mut">When on, opening the editor refills base water and generators and <b>saves straight away</b>, without the review step, so it applies the next time the game loads. It is skipped while a single-player session is running. The previous file is backed up first. Remembered between runs. The same switch is on the Power and Water tabs.</p></div>`;
+}
 let bsTab = 'power', bsOpen = null, bsGroup = 'storage';
 async function basesView() {
   const list = await api('/api/bases/list');
@@ -478,7 +482,7 @@ async function basesView() {
   const base = list.find((x) => x.base_id == id);
   const h = [html`<div class="card"><h3>Bases (${list.length})</h3>${tbl([{ k: 'base_id', label: 'ID' }, { k: 'name', label: 'Base Name' }, { k: 'base_type', label: 'Base Type' }, { k: 'owner', label: 'Owner' }, { k: 'map', label: 'Map' },
     { k: 'generators', label: 'Generators' }, { k: 'pieces', label: 'Building Pieces' }, { k: 'placeables', label: 'Placeables' }, { k: 'x', label: 'Coordinates', f: (r) => `${fix(r.x)}, ${fix(r.y)}, ${fix(r.z)}` }], list,
-    { actions: (r) => html`<button class="b ${r.base_id == id ? '' : 'sec'} sm" data-bsopen="${r.base_id}">${r.base_id == id ? 'Open' : 'Details'}</button>` })}</div>`];
+    { actions: (r) => (r.base_id == id ? html`<span class="tag">Open below</span>` : html`<button class="b sec sm" data-bsopen="${r.base_id}">Open</button>`) })}</div>`];
   if (!base) {
     h.push(html`<p class="mut">No base in this save yet.</p>`);
   } else {
@@ -490,13 +494,13 @@ async function basesView() {
       h.push(html`<div class="card"><h3>Power</h3>${pw.types.length ? tbl([{ k: 'name', label: 'Type' }, { k: 'devices', label: 'Devices' },
         { k: 'queued', label: 'Holds', f: (r) => Number(r.queued).toLocaleString() + (r.fuel ? ' ' + itemName(r.fuel) : '') }, { k: 'capacity', label: 'Full', f: (r) => (r.capacity ? Number(r.capacity).toLocaleString() : '-') }, { k: 'empty', label: 'Empty' }], pw.types) : html`<p class="mut">No generators or windtraps built at this base.</p>`}
         <div class="row"><button class="b" data-act="refillGen">Refill generators</button><span class="mut">Tops fuel and spice generators up to a full stack. Wind turbines (lubricant) and windtrap filters are shown but not refilled.</span></div></div>
-    <div class="card"><h3>Automatic refill</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
-    <p class="mut">When on, opening the editor refills base water and generators and <b>saves straight away</b>, without the review step, so it applies the next time the game loads. It is skipped while a single-player session is running. The previous file is backed up first. Remembered between runs.</p></div>`);
+    ${autoRefillCard(prefs)}`);
     } else if (bsTab == 'water') {
       const w = await api('/api/bases/water?base=' + id);
       h.push(html`<div class="card"><h3>Water</h3>${w.types.length ? tbl([{ k: 'name', label: 'Type' }, { k: 'devices', label: 'Containers' }, { k: 'stored', label: 'Water stored', f: (r) => Number(r.stored).toLocaleString() },
         { k: 'capacity', label: 'Capacity', f: (r) => (r.capacity ? Number(r.capacity).toLocaleString() : '-') }, { k: 'fillPercent', label: 'Fill', f: (r) => (r.fillPercent == null ? '-' : Math.round(r.fillPercent) + '%') }], w.types) : html`<p class="mut">No water storage at this base.</p>`}
-        <div class="row"><button class="b" data-act="refillWater">Refill base water</button><span class="mut">Fills every water device to its capacity.</span></div></div>`);
+        <div class="row"><button class="b" data-act="refillWater">Refill base water</button><span class="mut">Fills every water device to its capacity.</span></div></div>
+    ${autoRefillCard(await api('/api/settings'))}`);
     } else if (bsTab == 'inventory') {
       const inv = await api('/api/bases/inventory?base=' + id);
       const grp = inv.groups.some((g) => g.id == bsGroup && g.count) ? bsGroup : (inv.groups.find((g) => g.count) || inv.groups[0]).id;
