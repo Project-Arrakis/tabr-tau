@@ -206,8 +206,25 @@ $('#btnDiscard').onclick = async () => { if (await ask({ title: 'Discard all uns
 // ---------- PLAYER
 let P = null;
 function host() { return $('#pbody') || $('#main'); }
+// The Player Summary above the Player tabs, as in the console's player view: identity, level, XP, skill points, Intel, vitals,
+// faction, database ids and the currency balances. Everything comes from the save.
+function summaryCard(m) {
+  if (!m) return html``;
+  const num = (v) => (v == null ? '-' : Number(v).toLocaleString());
+  const f1 = (v) => (v == null ? '-' : Number(v).toFixed(1));
+  const id = m.identity || {}, ids = m.ids || {}, v = m.vitals || {}, sp = m.skillPoints, it = m.intel;
+  return html`<div class="card"><h3>Player Summary</h3><div class="grid">
+    ${kv('Character', m.name)}${kv('Status', m.status)}${kv('Map', m.map)}${kv('Faction', m.faction || 'Neutral')}${kv('Guild', '-')}
+    ${kv('Level', m.level)}${kv('XP', num(m.xp))}${kv('Skill points', sp ? `${num(sp.unspent)} / ${num(sp.total)}` : '-')}${kv('Intel', it ? `${num(it.points)} / ${num(it.max)}` : '-')}
+    ${kv('Health', v.health == null ? '-' : `${f1(v.health)} (max at least ${Math.ceil(Math.max(v.healthMinMax, v.health))})`)}${kv('Hydration', v.hydration == null ? '-' : `${f1(v.hydration)} / ${v.maxHydration}`)}${kv('Spice addiction', v.spiceAddiction == null ? '-' : `${f1(v.spiceAddiction)} / ${v.maxSpiceAddiction}`)}
+    ${kv((id.platform || 'Platform') + ' ID', id.platformId)}${kv('Funcom ID', id.funcomId)}${kv('FLS ID', id.flsId)}
+    ${kv('DB player', ids.actor)}${kv('Account', ids.account)}${kv('Player controller', ids.controller)}${kv('Player state', ids.playerState)}
+    ${(m.currency || []).map((c) => kv(c.label, num(c.balance)))}</div></div>`;
+}
 async function playerView() {
-  setHTML($('#main'), html`${subNav('player', PTABS)}<div id="pbody"></div>`);
+  let sm = null;
+  try { sm = await api('/api/player/summary'); } catch (e) { sm = null; } // the tabs still work without it
+  setHTML($('#main'), html`${summaryCard(sm)}${subNav('player', PTABS)}<div id="pbody"></div>`);
   if (sub.player == 'bases') return basesView();
   if (sub.player == 'vehicles') return vehiclesView();
   return playerSection(sub.player);
