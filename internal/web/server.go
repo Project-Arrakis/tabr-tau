@@ -325,6 +325,7 @@ func (s *Server) routes() {
 	s.get("/api/player/specs", func(r *http.Request) (any, error) { return o.Specs() })
 	s.post("/api/player/specs", o.SetSpec)
 	s.get("/api/player/journey", func(r *http.Request) (any, error) { return o.Journey(r.URL.Query().Get("q")) })
+	s.get("/api/player/journey/browse", func(r *http.Request) (any, error) { return o.JourneyBrowse() })
 	s.post("/api/player/journey", o.JourneySet)
 	s.get("/api/player/tutorials", func(r *http.Request) (any, error) { return o.Tutorials() })
 	s.post("/api/player/tutorials", o.TutorialSet)

@@ -705,6 +705,37 @@ test('Admin: Faction Assignment posts the chosen faction, Repair Below posts its
   ui.dom.window.close();
 });
 
+test('Journey browser: groups, filter, indented names as text, and Complete / Reset post the right requests', async () => {
+  const hostile = '<img src=x onerror=1>';
+  const row = (o) => ({ id: 'X', name: 'X', category: 'Story', depth: 0, parent: '', status: 'Incomplete', complete: false, revealed: false, pendingReward: false, tags: 0, actionable: true, ...o });
+  const browse = {
+    story: [row({ id: 'DA_MQ_A', name: 'A New Beginning', status: 'Complete', complete: true }), row({ id: 'DA_MQ_A.Wake', name: 'Wake ' + hostile, depth: 1, parent: 'DA_MQ_A', status: 'Revealed', revealed: true, pendingReward: true, tags: 2 }), row({ id: 'DA_MQ_A.Run', name: 'Run', depth: 1, parent: 'DA_MQ_A' })],
+    contract: [row({ id: 'DA_CT_X', name: 'A Contract', category: 'Contract', actionable: false, tags: 1 })],
+    codex: [row({ id: 'DA_Dunipedia_K', name: 'Known Universe', category: 'Codex', status: 'Complete', complete: true })],
+    tutorial: [row({ id: '4', name: 'Move', category: 'Tutorial', status: 'Started' })],
+  };
+  const ui = await boot({ get: { '/api/player/journey/browse': browse }, post: { '/api/player/journey': { ok: true, rows: 3 }, '/api/player/tutorials': { ok: true } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:journey"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('img'), null, 'a hostile node name is text, not markup');
+  assert.equal(ui.doc.querySelectorAll('[data-jgrp]').length, 4);
+  assert.equal(ui.doc.querySelector('[data-jgrp="story"]').textContent, 'Story (3)');
+  assert.ok(ui.doc.querySelector('span.ind1[title="DA_MQ_A.Wake"]'), 'a child is indented by its depth and keeps its id on hover');
+  assert.ok(ui.doc.querySelector('#jout').textContent.includes('reward pending'));
+  assert.equal(ui.doc.querySelectorAll('[data-act="jset"]').length, 3);
+  ui.doc.querySelector('#jq').value = 'run'; ui.click('[data-act="jfilter"]'); await ui.settle();
+  assert.equal(ui.doc.querySelectorAll('#jout tbody tr').length, 1, 'the filter matches names');
+  ui.click('[data-act="jset"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/journey').map((p) => p.body), [{ node_id: 'DA_MQ_A.Run', complete: true }]);
+  ui.click('[data-act="jclear"]'); await ui.settle();
+  ui.click('[data-jgrp="contract"]'); await ui.settle();
+  assert.equal(ui.doc.querySelectorAll('[data-act="jset"]').length, 0, 'contracts are read-only');
+  ui.click('[data-jgrp="tutorial"]'); await ui.settle();
+  ui.click('[data-act="tut"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/tutorials').map((p) => p.body), [{ id: 4, complete: true }]);
+  ui.dom.window.close();
+});
+
 test('base and vehicle upkeep buttons post, and unknown device names stay plain text', async () => {
   const hostile = '<img src=x onerror=1> x1';
   const ui = await boot({ post: {
