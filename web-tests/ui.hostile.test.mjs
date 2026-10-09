@@ -86,11 +86,12 @@ async function boot({ post = {}, get = {}, confused = false } = {}) {
   return { dom, w, doc: w.document, settle, posted, click: (sel) => { const el = w.document.querySelector(sel); assert.ok(el, `no element for ${sel}`); el.dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true })); } };
 }
 
+const BASE7 = [{ base_id: 7, name: 'Base', base_type: 'Advanced Sub-Fief', owner: 'Owner', map: 'HaggaBasin', generators: 0, pieces: 0, placeables: 0, x: 0, y: 0, z: 0 }];
 const VIEWS = [
   ['player', 'char:overview'], ['player', 'char:inventory'], ['player', 'char:reputation'], ['player', 'player:specialization'], ['player', 'player:journey'],
   ['player', 'player:buildingsets'], ['player', 'player:admin'],
   ['player', 'player:crafting'], ['player', 'player:research'], ['player', 'player:customizations'], ['player', 'player:skills'], ['player', 'player:blueprints'],
-  ['player', 'player:bases', 'bases:overview'], ['player', 'player:bases', 'bases:storage'], ['player', 'player:bases', 'bases:parts'],
+  ['player', 'player:bases'], ['player', 'player:bases', '[data-bstab="water"]'], ['player', 'player:bases', '[data-bstab="inventory"]'], ['player', 'player:bases', '[data-bstab="claim"]'],
   ['player', 'player:vehicles'], ['landsraad'], ['config'], ['extras'],
   ['db', 'db:browse'], ['db', 'db:sql'], ['db', 'db:backups'],
 ];
@@ -103,7 +104,7 @@ for (const confused of [false, true]) for (const [tabName, ...subs] of VIEWS) {
     const ui = await boot({ confused });
     ui.click(`[data-tab="${tabName}"]`);
     await ui.settle();
-    for (const x of subs) { ui.click(`[data-sub="${x}"]`); await ui.settle(); }
+    for (const x of subs) { ui.click(x.startsWith('[') ? x : `[data-sub="${x}"]`); await ui.settle(); }
     assertClean(ui.doc, label);
     const main = ui.doc.querySelector('#main').textContent;
     if (!confused) assert.ok(!main.includes('TypeError') && !main.includes('is not a function') && !main.includes('Cannot read'), `UI threw while rendering: ${main.slice(0, 200)}`);
@@ -129,6 +130,29 @@ test('the Player Summary shows what the save holds, above the Player tabs', asyn
     assert.ok(text.includes(want), `the summary should show ${want}`);
   }
   assert.ok(ui.doc.querySelector('[data-sub="player:bases"]'), 'the Player tabs are still there');
+  ui.dom.window.close();
+});
+
+test('Player > Bases lists the bases and shows Power, Water and Inventory for the open one', async () => {
+  const ui = await boot({ get: {
+    '/api/bases/list': [{ base_id: 164, name: 'Advanced Sub-Fief Console', base_type: 'Advanced Sub-Fief', owner: 'Tester', map: 'HaggaBasin', generators: 11, pieces: 486, placeables: 90, x: -67159, y: -211307, z: 12 }],
+    '/api/bases/power': { types: [{ kind: 'generator_placeable', name: 'Generator', fuel: 'Oil', devices: 5, queued: 2484, capacity: 2500, empty: 0, refillable: true }, { kind: 'windtrap_placeable', name: 'Windtrap', fuel: '', devices: 6, queued: 0, capacity: 0, empty: 6, refillable: false }] },
+    '/api/bases/water': { types: [{ kind: 'watercistern_placeable', name: 'Water Cistern', devices: 16, stored: 80000, capacity: 80000, fillPercent: 100, known: true }] },
+    '/api/bases/inventory': { groups: [{ id: 'storage', label: 'Storage', count: 1 }, { id: 'refining', label: 'Refining', count: 1 }, { id: 'crafting', label: 'Crafting', count: 0 }, { id: 'other', label: 'Other', count: 0 }],
+      containers: [{ inventory_id: 1, actor_id: 9, base_id: 164, group: 'storage', type: 'Chest', name: 'Ore Out', items: 3, max_item_count: 20 }, { inventory_id: 2, actor_id: 10, base_id: 164, group: 'refining', type: 'Small Ore Refinery', name: 'Small Ore Refinery', items: 1, max_item_count: 5 }] } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:bases"]'); await ui.settle();
+  const main = () => ui.doc.querySelector('#main').textContent;
+  for (const want of ['Bases (1)', 'Advanced Sub-Fief Console', 'Advanced Sub-Fief', 'Tester', 'Building Pieces', '486', '-67,159, -211,307, 12', 'Generator', '2,484', '2,500', 'Windtrap', 'Refill generators']) assert.ok(main().includes(want), `the Power tab should show ${want}`);
+  assert.deepEqual([...ui.doc.querySelectorAll('[data-bstab]')].map((b) => b.textContent.trim()), ['Power', 'Water', 'Inventory', 'Land Claim Editor']);
+  assert.ok(!main().includes('Permissions'), 'the permission tabs are not mirrored');
+  ui.click('[data-bstab="water"]'); await ui.settle();
+  for (const want of ['Water Cistern', '16', '80,000', '100%', 'Refill base water']) assert.ok(main().includes(want), `the Water tab should show ${want}`);
+  ui.click('[data-bstab="inventory"]'); await ui.settle();
+  assert.deepEqual([...ui.doc.querySelectorAll('[data-bsgrp]')].map((b) => b.textContent.trim()), ['Storage (1)', 'Refining (1)', 'Crafting (0)', 'Other (0)']);
+  assert.ok(main().includes('Ore Out') && main().includes('3 / 20') && !main().includes('Small Ore Refinery'), 'the first group with containers is shown');
+  ui.click('[data-bsgrp="refining"]'); await ui.settle();
+  assert.ok(main().includes('Small Ore Refinery') && main().includes('1 / 5') && !main().includes('Ore Out'), 'another group');
   ui.dom.window.close();
 });
 
@@ -210,7 +234,7 @@ test('interactions that render results also stay clean (storage inventory, journ
   const ui = await boot({ post: { '/api/db/sql': { columns: [hostile], rows: [[hostile], [hostile + "'"]] }, '/api/db/exec': { changes: 3 } } });
   ui.click('[data-tab=\"player\"]'); await ui.settle();
   ui.click('[data-sub=\"player:bases\"]'); await ui.settle();
-  ui.click('[data-sub="bases:storage"]'); await ui.settle();
+  ui.click('[data-bstab="inventory"]'); await ui.settle();
   ui.click('[data-act="openInv"]'); await ui.settle();
   assertClean(ui.doc, 'open inventory');
   ui.click('[data-tab="player"]'); await ui.settle();
@@ -381,7 +405,7 @@ async function inventoryUI(post) {
   const ui = await boot({ post });
   ui.click('[data-tab=\"player\"]'); await ui.settle();
   ui.click('[data-sub=\"player:bases\"]'); await ui.settle();
-  ui.click('[data-sub="bases:storage"]'); await ui.settle();
+  ui.click('[data-bstab="inventory"]'); await ui.settle();
   ui.click('[data-act="openInv"]'); await ui.settle();
   return ui;
 }
@@ -405,7 +429,7 @@ test('deleting an item asks first, shows the item as data, and Cancel sends noth
 test('a far-reaching action needs the word typed, and Escape cancels', async () => {
   const ui = await boot();
   ui.click('[data-tab=\"player\"]'); await ui.settle();
-  ui.click('[data-sub=\"player:bases\"]'); await ui.settle();
+  ui.click('[data-tab="extras"]'); await ui.settle();
   const btn = ui.doc.querySelector('[data-act="sand"]');
   assert.ok(btn, 'the clear-sand button must exist in the bases view');
   ui.click('[data-act="sand"]'); await ui.settle();
@@ -435,7 +459,7 @@ test('the question text is data even when the item name is an attack string', as
   const ui = await boot({ get: { '/api/bases/storage/items?inventory=1': [{ id: 5, position_index: 0, template_id: `"><img src=x ${MARK}>`, stack_size: 1 }] } });
   ui.click('[data-tab=\"player\"]'); await ui.settle();
   ui.click('[data-sub=\"player:bases\"]'); await ui.settle();
-  ui.click('[data-sub="bases:storage"]'); await ui.settle();
+  ui.click('[data-bstab="inventory"]'); await ui.settle();
   ui.click('[data-act="openInv"]'); await ui.settle();
   ui.click('[data-act="delItem"]'); await ui.settle();
   assertClean(ui.doc, 'hostile ask body');
@@ -446,7 +470,7 @@ test('the question text is data even when the item name is an attack string', as
 test('typing the word completes the action; Enter in the box does too; the disabled button does nothing', async () => {
   const ui = await boot();
   ui.click('[data-tab=\"player\"]'); await ui.settle();
-  ui.click('[data-sub=\"player:bases\"]'); await ui.settle();
+  ui.click('[data-tab="extras"]'); await ui.settle();
   ui.click('[data-act="sand"]'); await ui.settle();
   ui.click('#aok'); await ui.settle(); // disabled: a click must do nothing
   assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 0);
@@ -480,7 +504,7 @@ test('Escape closes only the question when the review is open underneath, and fo
 test('a second question replaces the first, which counts as cancelled', async () => {
   const ui = await boot();
   ui.click('[data-tab=\"player\"]'); await ui.settle();
-  ui.click('[data-sub=\"player:bases\"]'); await ui.settle();
+  ui.click('[data-tab="extras"]'); await ui.settle();
   ui.click('[data-act="sand"]'); await ui.settle();
   ui.click('[data-act="repairB"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#ask').textContent.includes('Repair every base piece'));
@@ -524,9 +548,10 @@ test('Refill containers reports what it filled and shows a container it could no
 
 test('Expand claim asks first, posts the chosen size and level, and the totem name stays plain text', async () => {
   const claim = [{ totem_id: 7, name: '<img src=x onerror=1> Totem', cells: 1, rings: 0, level: 0, maxRings: 5, maxLevel: 5 }];
-  const ui = await boot({ get: { '/api/bases/claim': claim }, post: { '/api/bases/claim/expand': { ok: true, added: 24, totalCells: 25, level: 2 } } });
+  const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/claim': claim }, post: { '/api/bases/claim/expand': { ok: true, added: 24, totalCells: 25, level: 2 } } });
   ui.click('[data-tab=\"player\"]'); await ui.settle();
   ui.click('[data-sub=\"player:bases\"]'); await ui.settle();
+  ui.click('[data-bstab="claim"]'); await ui.settle();
   const card = [...ui.doc.querySelectorAll('.card')].find((c) => c.textContent.includes('Land claim size'));
   assert.ok(card, 'the land claim card is shown');
   assert.equal(card.querySelector('img'), null, 'the totem name is data, not markup');
@@ -593,10 +618,12 @@ test('base and vehicle upkeep buttons post, and unknown device names stay plain 
   } });
   ui.click('[data-tab=\"player\"]'); await ui.settle();
   ui.click('[data-sub=\"player:bases\"]'); await ui.settle();
+  ui.click('[data-bstab="water"]'); await ui.settle();
   ui.click('[data-act="refillWater"]'); await ui.settle();
   let toast = ui.doc.querySelector('#toast');
   assert.ok(toast.textContent.includes('Filled 2 water devices (1 already full)') && toast.textContent.includes(hostile), toast.textContent);
   assert.equal(toast.querySelector('img'), null);
+  ui.click('[data-bstab="power"]'); await ui.settle();
   ui.click('[data-act="refillGen"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Filled 3 generators'));
   ui.click('[data-tab=\"player\"]'); await ui.settle();
@@ -609,9 +636,10 @@ test('base and vehicle upkeep buttons post, and unknown device names stay plain 
 
 test('Expand claim with "no change" size sends only the level, and nothing at all when nothing is chosen', async () => {
   const claim = [{ totem_id: 7, name: 'Totem', cells: 1, rings: 0, level: 1, irregular: false, maxRings: 5, maxLevel: 5 }];
-  const ui = await boot({ get: { '/api/bases/claim': claim }, post: { '/api/bases/claim/expand': { ok: true, added: 0, totalCells: 1, level: 3 } } });
+  const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/claim': claim }, post: { '/api/bases/claim/expand': { ok: true, added: 0, totalCells: 1, level: 3 } } });
   ui.click('[data-tab=\"player\"]'); await ui.settle();
   ui.click('[data-sub=\"player:bases\"]'); await ui.settle();
+  ui.click('[data-bstab="claim"]'); await ui.settle();
   assert.deepEqual([...ui.doc.querySelectorAll('#cv7 option')].map((o) => o.value), ['1', '2', '3', '4', '5'], 'a lower level is not offered');
   ui.click('[data-act="claimGrow"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Nothing to change'), 'defaults change nothing');
@@ -657,9 +685,10 @@ test('Shrink claim asks first, posts the chosen size, and is offered only when e
     { totem_id: 7, name: 'Totem', cells: 9, rings: 1, level: 0, irregular: false, maxRings: 5, maxLevel: 5, piecesInClaim: 486, piecesOutside: 0 },
     { totem_id: 8, name: 'Other', cells: 1, rings: 0, level: 0, irregular: false, maxRings: 5, maxLevel: 5 },
   ];
-  const ui = await boot({ get: { '/api/bases/claim': claims }, post: { '/api/bases/claim/shrink': { ok: true, removed: 8, remaining: 1 } } });
+  const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/claim': claims }, post: { '/api/bases/claim/shrink': { ok: true, removed: 8, remaining: 1 } } });
   ui.click('[data-tab=\"player\"]'); await ui.settle();
   ui.click('[data-sub=\"player:bases\"]'); await ui.settle();
+  ui.click('[data-bstab="claim"]'); await ui.settle();
   assert.equal(ui.doc.querySelectorAll('[data-act="claimShrink"]').length, 1, 'only a claim with extra cells can shrink');
   assert.deepEqual([...ui.doc.querySelectorAll('#cs7 option')].map((o) => o.value), ['0'], 'a 3x3 claim can only shrink to its own cell, not to sizes it does not exceed');
   assert.ok(ui.doc.body.textContent.includes('486 pieces inside the claim'));
