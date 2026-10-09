@@ -26,6 +26,106 @@
   ];
   const LM_COLOR = Object.fromEntries(LM_GROUPS.map((g) => [g.id, g.color]));
 
+  // Marker pictures: the console's, by marker subtype (lower case). A type with no picture keeps its coloured dot. The files are
+  // the ones in maps/icons (see the notices); the names below are fixed here, never taken from the save.
+  const LM_ICONS = {
+    assaultornithopter: 'assaultornivehicle.webp',
+    atreidesfortress: 'atreidesfortress.webp',
+    azuriteore: 'azuriteore.webp',
+    azuritepickup: 'azuriteore.webp',
+    basaltore: 'basaltore.webp',
+    basaltpickup: 'basaltore.webp',
+    bauxiteore: 'bauxiteore.webp',
+    bauxitepickup: 'bauxiteore.webp',
+    buggy: 'buggyvehicle.webp',
+    cave: 'cave.webp',
+    containervehicle: 'cargocontainervehicle.webp',
+    dolomitepickup: 'dolomiterock.webp',
+    dolomiterock: 'dolomiterock.webp',
+    ecolab: 'ecolab.webp',
+    enemycamp: 'enemycamp.webp',
+    enemylaboroutpost: 'enemylaboroutpost.webp',
+    enemyoutpost: 'enemyoutpost.webp',
+    erythriteore: 'erythriteore.webp',
+    erythritepickup: 'erythriteore.webp',
+    fuelcellpart: 'fuelcellwreckage.webp',
+    fuelcellwreckage: 'fuelcellwreckage.webp',
+    harkonnenfortress: 'harkonnenfortress.webp',
+    houserepresentativeargosaz: 'houserepresentativeargosaz.webp',
+    houserepresentativedyvetz: 'houserepresentativedyvetz.webp',
+    houserepresentativeecaz: 'houserepresentativeecaz.webp',
+    houserepresentativehagal: 'houserepresentativehagal.webp',
+    houserepresentativehurata: 'houserepresentativehurata.webp',
+    houserepresentativeimota: 'houserepresentativeimota.webp',
+    houserepresentativekenola: 'houserepresentativekenola.webp',
+    houserepresentativelindaren: 'houserepresentativelindaren.webp',
+    houserepresentativemaros: 'houserepresentativemaros.webp',
+    houserepresentativemikarrol: 'houserepresentativemikarrol.webp',
+    houserepresentativemoritani: 'houserepresentativemoritani.webp',
+    houserepresentativenovebruns: 'houserepresentativenovebruns.webp',
+    houserepresentativerichese: 'houserepresentativerichese.webp',
+    houserepresentativesor: 'houserepresentativesor.webp',
+    houserepresentativetaligari: 'houserepresentativetaligari.webp',
+    houserepresentativethorvald: 'houserepresentativethorvald.webp',
+    houserepresentativevernius: 'houserepresentativevernius.webp',
+    houserepresentativewayku: 'houserepresentativewayku.webp',
+    houserepresentativewydras: 'houserepresentativewydras.webp',
+    jasmiumore: 'jasmiumore.webp',
+    jasmiumpickup: 'jasmiumore.webp',
+    lightornithopter: 'ornithoptervehicle.webp',
+    magnetiteore: 'magnetiteore.webp',
+    magnetitepickup: 'magnetiteore.webp',
+    mediumornithopter: 'ornithoptervehicle.webp',
+    ornithopter: 'ornithoptervehicle.webp',
+    primrosefield: 'PrimroseField.png',
+    rhyoliteore: 'rhyoliteore.webp',
+    rhyolitepickup: 'rhyoliteore.webp',
+    saguaroseed: 'resourcesaguarorawr.webp',
+    sandbike: 'sandbikevehicle.webp',
+    sandcrawler: 'sandcrawlervehicle.webp',
+    scrapmetalpart: 'scrapmetalwreckage.webp',
+    scrapmetalwreckage: 'scrapmetalwreckage.webp',
+    shipwreck: 'shipwreck.webp',
+    sietch: 'sietch.webp',
+    stravidiumore: 'stravidiumore.webp',
+    stravidiumpickup: 'stravidiumore.webp',
+    taxiservice: 'taxiservice.webp',
+    titaniumore: 'titaniumore.webp',
+    titaniumpickup: 'titaniumore.webp',
+    tradingpost: 'tradingpost.webp',
+    trainerbenegesserit: 'trainerbenegesserit.webp',
+    trainermentat: 'trainermentat.webp',
+    trainerplanetologist: 'trainerplanetologist.webp',
+    trainerswordmaster: 'trainerswordmaster.webp',
+    trainertrooper: 'trainertrooper.webp',
+    transportornithopter: 'ornithoptervehicle.webp',
+    treadwheel: 'treadwheelvehicle.webp',
+  };
+  const LM_GROUP_ICON = { character: 'Characters.webp', bases: 'Base.webp', storage: 'storage.png' };
+  const LM_ICON_SIZE = { character: 36, bases: 36, vehicles: 32, storage: 20 }; // screen pixels, as the console sizes them; other markers 22
+  // A picture by marker type. The type comes from the save, so it is looked up as an own key only ("__proto__" or "constructor" must
+  // not find anything).
+  function lmIconByType(type) {
+    const k = String(type || '').toLowerCase();
+    return Object.hasOwn(LM_ICONS, k) ? LM_ICONS[k] : '';
+  }
+  const lmImgs = new Map();
+  function lmImage(file) {
+    let i = lmImgs.get(file);
+    if (!i) { i = new Image(); i.onload = lmDraw; i.src = '/maps/icons/' + file; lmImgs.set(file, i); }
+    return i.complete && i.naturalWidth ? i : null;
+  }
+  // Which picture a point gets, or '' for none. A vehicle's picture follows its blueprint name.
+  function lmIconFile(p) {
+    if (LM_GROUP_ICON[p.g]) return LM_GROUP_ICON[p.g];
+    if (p.g === 'vehicles') {
+      const c = String(p.cls || '').toLowerCase();
+      for (const k of ['assaultornithopter', 'ornithopter', 'sandcrawler', 'treadwheel', 'buggy', 'sandbike']) if (c.includes(k)) return LM_ICONS[k];
+      return LM_ICONS.sandbike;
+    }
+    return lmIconByType(p.type);
+  }
+
   const lm = { map: 'HaggaBasin', data: null, points: [], hidden: new Set(), showUndiscovered: true, scale: 1, ox: 0, oy: 0, img: null, hover: null };
 
   // Marker type (as the game names it) to a group.
@@ -48,7 +148,7 @@
       if (Number.isFinite(px) && Number.isFinite(py)) pts.push({ g, x: px, y: py, label: String(label ?? ''), d: 3, ...extra });
     };
     if (d.character) add('character', d.character.x, d.character.y, d.character.name || 'Character');
-    for (const v of d.vehicles || []) add('vehicles', v.x, v.y, v.name);
+    for (const v of d.vehicles || []) add('vehicles', v.x, v.y, v.name, { cls: String(v.class ?? '') });
     for (const b of d.bases || []) add('bases', b.x, b.y, 'Your base');
     for (const s of d.storage || []) add('storage', s.x, s.y, s.name);
     for (const m of d.markers || []) add(lmGroupOf(m.t), m.x, m.y, m.t, { d: Number(m.d) || 0, type: String(m.t ?? '') });
@@ -89,6 +189,18 @@
     for (const p of [...lm.points.filter((q) => !isMine(q)), ...lm.points.filter(isMine).sort((a, b) => MINE[a.g] - MINE[b.g])]) {
       if (!lmVisible(p)) continue;
       const { px, py } = lmToPixel(cfg, p.x, p.y);
+      const file = lmIconFile(p);
+      const img = file ? lmImage(file) : null;
+      if (img) { // a picture, drawn at a fixed size on screen whatever the zoom
+        // your own things keep their size; the thousands of map markers shrink when the whole map is in view, so they do not hide it
+        const size = LM_ICON_SIZE[p.g] || Math.min(22, Math.max(10, 60 * lm.scale + 6));
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = p.d > 0 ? 1 : 0.4;
+        ctx.drawImage(img, px * lm.scale + lm.ox - size / 2, py * lm.scale + lm.oy - size / 2, size, size);
+        ctx.restore();
+        continue;
+      }
       ctx.beginPath();
       const big = isMine(p);
       ctx.arc(px, py, big ? r * (p.g === 'bases' ? 2.4 : 1.8) : r, 0, Math.PI * 2);
@@ -155,9 +267,9 @@
     lm.points = lmBuildPoints(d);
     const counts = {};
     for (const p of lm.points) counts[p.g] = (counts[p.g] || 0) + 1;
-    const byType = {};
-    for (const p of lm.points) if (p.type) { const t = byType[p.type] || (byType[p.type] = { type: p.type, group: p.g, n: 0, found: 0 }); t.n++; if (p.d > 0) t.found++; }
-    const types = Object.values(byType).sort((a, b) => b.n - a.n);
+    const byType = new Map(); // a Map: the type comes from the save, and a plain object would lose a type named "__proto__"
+    for (const p of lm.points) if (p.type) { let t = byType.get(p.type); if (!t) { t = { type: p.type, group: p.g, n: 0, found: 0 }; byType.set(p.type, t); } t.n++; if (p.d > 0) t.found++; }
+    const types = [...byType.values()].sort((a, b) => b.n - a.n);
     const groups = LM_GROUPS.filter((g) => counts[g.id]);
     setHTML($('#main'), html`
       <div class="card"><h3>Live Map</h3>
@@ -166,8 +278,8 @@
         <p class="mut">The map as of your last save, not the running game. Markers you have not discovered yet are shown faded.</p>
         <div class="lm-wrap"><canvas id="lmc" class="lm"></canvas></div>
         <p class="mut" id="lminfo">Hover a marker for details. Drag to move, scroll to zoom.</p>
-        <div class="row">${groups.map((g) => html`<button class="lm-layer ${lm.hidden.has(g.id) ? 'off' : 'on'}" data-lmg="${g.id}"><span class="lm-sw lm-c-${g.id}"></span>${g.label} (${counts[g.id]})</button>`)}</div></div>
-      <div class="card"><h3>Markers on this map (${types.length} types)</h3>${tbl([{ k: 'type', label: 'Type' }, { k: 'group', label: 'Group', f: (r) => (LM_GROUPS.find((g) => g.id == r.group) || {}).label || r.group }, { k: 'n', label: 'Markers' }, { k: 'found', label: 'Discovered' }], types)}</div>`);
+        <div class="row">${groups.map((g) => html`<button class="lm-layer ${lm.hidden.has(g.id) ? 'off' : 'on'}" data-lmg="${g.id}">${LM_GROUP_ICON[g.id] ? html`<span class="lm-ic lm-i-${LM_GROUP_ICON[g.id].replace(/\.[a-z]+$/, '').toLowerCase()}"></span>` : html`<span class="lm-sw lm-c-${g.id}"></span>`}${g.label} (${counts[g.id]})</button>`)}</div></div>
+      <div class="card"><h3>Markers on this map (${types.length} types)</h3>${tbl([{ k: 'type', label: 'Type', f: (r) => { const f = lmIconByType(r.type); return f ? html`<span class="lm-ic lm-i-${f.replace(/\.[a-z]+$/, '').toLowerCase()}"></span>${r.type}` : r.type; } }, { k: 'group', label: 'Group', f: (r) => (LM_GROUPS.find((g) => g.id == r.group) || {}).label || r.group }, { k: 'n', label: 'Markers' }, { k: 'found', label: 'Discovered' }], types)}</div>`);
     lmMount();
   }
 
