@@ -30,7 +30,7 @@ const read = (n) => fs.readFileSync(path.join(static_, n), 'utf8');
 // Allowlists: anything else appearing in the rendered DOM is an injection.
 const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h3 ul li code table thead tbody tr th td input select option datalist button details summary textarea br label canvas'.split(' '));
 const SCRIPTS = new Set(['/html.js', '/livemap.js', '/app.js']); // the only scripts the page may contain, both same-origin files
-const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal tabindex label'.split(' '));
+const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal tabindex label checked'.split(' '));
 
 export function assertClean(doc, label) {
   const bad = [];
@@ -801,26 +801,37 @@ test('Research and Crafting: categories, filter, hostile names as text, and Unlo
   ui.dom.window.close();
 });
 
-test('Building Sets and Customizations: states, filters, hostile names as text, and Give posts one item', async () => {
+test('Building Sets (groups, experimental toggle) and Customizations (sets, grant set) and the unlock-all buttons', async () => {
   const hostile = '<img src=x onerror=1>';
-  const row = (o) => ({ id: 'X', name: 'X', learned: false, inInventory: false, inCatalog: true, ...o });
-  const sets = { rows: [row({ id: 'AtreidesSet', name: 'Atreides ' + hostile, learned: true }), row({ id: 'HarkSet', name: 'Harkonnen', inInventory: true }), row({ id: 'Free_Patent', name: 'Free' }), row({ id: 'MTX_Pack', name: 'Pack', learned: true, inCatalog: false })], newPieces: [{ name: 'Piece_' + hostile }] };
-  const cust = { rows: [row({ id: 'Skin_A', name: 'Skin A', inInventory: true }), row({ id: 'Skin_B', name: 'Skin B' })] };
-  const ui = await boot({ get: { '/api/player/building-sets': sets, '/api/player/customizations': cust }, post: { '/api/player/give-items': { ok: true, count: 1, itemIds: [5] } } });
+  const row = (o) => ({ id: 'X', name: 'X', group: 'Structures & Building Sets', learned: false, inInventory: false, inCatalog: true, ...o });
+  const sets = { rows: [row({ id: 'AtreidesSet', name: 'Atreides ' + hostile, group: 'Faction & House Sets', learned: true }), row({ id: 'HarkSet', name: 'Harkonnen', group: 'Faction & House Sets', inInventory: true }),
+    row({ id: 'Free_Patent', name: 'Free' }), row({ id: 'Dev_Patent', name: 'Dev', group: 'Experimental', experimental: true }), row({ id: 'MTX_Pack', name: 'Pack', group: 'Learned, not in the catalog', learned: true, inCatalog: false })], newPieces: [{ name: 'Piece_' + hostile }] };
+  const cust = { rows: [row({ id: 'B1C3_Atre_A', name: 'Skin A', group: 'Atreides', groupId: 'atreides', inInventory: true }), row({ id: 'MTX_B1C2_DuneMan_B', name: 'Skin B', group: 'Dune Man', groupId: 'dune-man', requiredDlc: 'Lost Harvest', entitlement: true })],
+    groups: [{ id: 'atreides', name: 'Atreides', count: 1, requirement: '' }, { id: 'dune-man', name: 'Dune Man', count: 1, requirement: 'Requires Lost Harvest' }] };
+  const ui = await boot({ get: { '/api/player/building-sets': sets, '/api/player/customizations': cust }, post: { '/api/player/give-items': { ok: true, count: 1, itemIds: [5] }, '/api/player/building-sets/unlock-all': { ok: true, added: 4 }, '/api/player/customizations/grant': { ok: true, granted: 1 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:buildingsets"]'); await ui.settle();
   assert.equal(ui.doc.querySelector('img'), null, 'hostile names are text, not markup');
   assert.equal(ui.doc.querySelector('[data-ctf="have"]').textContent, 'Learned or in inventory (3)');
-  assert.equal(ui.doc.querySelectorAll('[data-act="ctGive"]').length, 3, 'a set the catalog does not list cannot be given');
-  ui.click('[data-ctf="missing"]'); await ui.settle();
-  assert.equal(ui.doc.querySelectorAll('#ctout tbody tr').length, 1);
-  ui.click('[data-act="ctGive"]'); await ui.settle();
-  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/give-items').map((p) => p.body), [{ items: [{ template_id: 'Free_Patent', quantity: 1, quality: 0 }] }]);
+  assert.ok([...ui.doc.querySelectorAll('#ctgrp option')].some((o) => o.textContent == 'Experimental'), 'the Experimental group is listed');
+  ui.doc.querySelector('#ctexp').checked = false; ui.doc.querySelector('#ctexp').dispatchEvent(new ui.dom.window.Event('change', { bubbles: true })); await ui.settle();
+  assert.ok(![...ui.doc.querySelectorAll('#ctgrp option')].some((o) => o.textContent == 'Experimental'), 'hidden with the toggle off');
+  assert.equal(ui.doc.querySelectorAll('#ctout tbody tr').length, 4, 'the experimental set is not listed');
+  ui.doc.querySelector('#ctgrp').value = 'Faction & House Sets'; ui.doc.querySelector('#ctgrp').dispatchEvent(new ui.dom.window.Event('change', { bubbles: true })); await ui.settle();
+  assert.equal(ui.doc.querySelectorAll('#ctout tbody tr').length, 2);
+  assert.equal(ui.doc.querySelectorAll('[data-act="ctGive"]').length, 2);
+  ui.click('[data-act="bsAll"]'); await ui.settle();
+  ui.click('#aok'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/player/building-sets/unlock-all').length, 1, 'one request after the question is answered');
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:customizations"]'); await ui.settle();
-  assert.equal(ui.doc.querySelector('[data-ctf="have"]').textContent, 'In inventory (1)');
-  ui.doc.querySelector('#ctq').value = 'skin b'; ui.click('[data-act="ctfilter"]'); await ui.settle();
-  assert.equal(ui.doc.querySelectorAll('#ctout tbody tr').length, 1);
+  assert.equal(ui.doc.querySelectorAll('.setcard').length, 2, 'a card for each set');
+  assert.ok(ui.doc.querySelector('#cthead').textContent.includes('Requires Lost Harvest'), 'the DLC a set needs is shown');
+  ui.click('.setcard [data-act="ctGrantSet"][data-id="dune-man"]'); await ui.settle();
+  ui.click('#aok'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/customizations/grant').map((p) => p.body), [{ group: 'dune-man' }]);
+  ui.click('[data-ctg="atreides"]'); await ui.settle();
+  assert.equal(ui.doc.querySelectorAll('#ctout tbody tr').length, 1, 'clicking a set shows only its cosmetics');
   ui.dom.window.close();
 });
 
@@ -860,6 +871,24 @@ test('No Guild or Respawn points in the Player view; Bases: the open base is lab
   assert.ok(ui.doc.querySelector('[data-act="autoref"]'), 'and on the Water tab');
   ui.click('[data-bsopen="8"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#main').textContent.includes('Outpost (#8)'), 'Open switches to that base');
+  ui.dom.window.close();
+});
+
+test('Unlock all: Crafting, Research and Skills each ask first and post one request', async () => {
+  const m = (o) => ({ id: 'Skills.Ability.X', name: 'X', school: 'Trooper', kind: 'Ability', rank: 0, max: 3, spent: 0, ladder: [1, 3, 6], known: true, ...o });
+  const sk = { total: 10, unspent: 5, spent: 0, schools: [{ key: 'Trooper', label: 'Trooper' }], modules: [m({})] };
+  const ui = await boot({ get: { '/api/player/skills': sk }, post: { '/api/player/crafting/unlock-all': { ok: true, added: 3 }, '/api/player/research/unlock-all': { ok: true, bought: 2, repaired: 0, unlocksAdded: 2 }, '/api/player/skills/max': { ok: true, changed: 1 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  for (const [sub, act, path, body] of [['player:crafting', 'crAll', '/api/player/crafting/unlock-all', {}], ['player:research', 'rsAll', '/api/player/research/unlock-all', {}], ['player:skills', 'skMax', '/api/player/skills/max', { school: 'Trooper' }]]) {
+    ui.click(`[data-sub="${sub}"]`); await ui.settle();
+    ui.click(`[data-act="${act}"]`); await ui.settle();
+    assert.equal(ui.posted.filter((p) => p.path === path).length, 0, 'nothing is sent before the question is answered');
+    ui.click('#aok'); await ui.settle();
+    assert.deepEqual(ui.posted.filter((p) => p.path === path).map((p) => p.body), [body], path);
+  }
+  ui.click('[data-act="skMax"][data-school="all"]'); await ui.settle();
+  ui.click('#aok'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/skills/max').map((p) => p.body).at(-1), { school: 'all' });
   ui.dom.window.close();
 });
 
