@@ -28,9 +28,9 @@ let fixtures = baseFixtures;
 const read = (n) => fs.readFileSync(path.join(static_, n), 'utf8');
 
 // Allowlists: anything else appearing in the rendered DOM is an injection.
-const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h3 ul li code table thead tbody tr th td input select option datalist button details summary textarea br label'.split(' '));
-const SCRIPTS = new Set(['/html.js', '/app.js']); // the only scripts the page may contain, both same-origin files
-const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role aria-modal tabindex label'.split(' '));
+const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h3 ul li code table thead tbody tr th td input select option datalist button details summary textarea br label canvas'.split(' '));
+const SCRIPTS = new Set(['/html.js', '/livemap.js', '/app.js']); // the only scripts the page may contain, both same-origin files
+const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal tabindex label'.split(' '));
 
 export function assertClean(doc, label) {
   const bad = [];
@@ -80,6 +80,7 @@ async function boot({ post = {}, get = {}, confused = false } = {}) {
   };
   w.confirm = () => true; w.prompt = () => '1';
   w.eval(read('html.js'));
+  w.eval(read('livemap.js'));
   w.eval(read('app.js'));
   const settle = async () => { for (let i = 0; i < 40; i++) { await new Promise((r) => w.setTimeout(r, 0)); if (inflight === 0 && i > 4) return; } };
   await settle();
@@ -92,7 +93,7 @@ const VIEWS = [
   ['player', 'player:buildingsets'], ['player', 'player:admin'],
   ['player', 'player:crafting'], ['player', 'player:research'], ['player', 'player:customizations'], ['player', 'player:skills'], ['player', 'player:blueprints'],
   ['player', 'player:bases'], ['player', 'player:bases', '[data-bstab="water"]'], ['player', 'player:bases', '[data-bstab="inventory"]'], ['player', 'player:bases', '[data-bstab="claim"]'],
-  ['player', 'player:vehicles'], ['landsraad'], ['config'], ['extras'],
+  ['player', 'player:vehicles'], ['livemap'], ['landsraad'], ['config'], ['extras'],
   ['db', 'db:browse'], ['db', 'db:sql'], ['db', 'db:backups'],
 ];
 // tabs that only say "not in tabr-tau yet", or whose rows are all numbers (specialization tracks), have no text to show

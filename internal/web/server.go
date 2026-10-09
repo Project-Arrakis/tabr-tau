@@ -238,8 +238,10 @@ func qint(r *http.Request, k string, def int) int {
 
 func (s *Server) routes() {
 	o := s.Ops
-	// Static UI: three fixed asset paths, nothing else from the embedded folder is reachable.
-	for path, ct := range map[string]string{"/app.css": "text/css; charset=utf-8", "/app.js": "text/javascript; charset=utf-8", "/html.js": "text/javascript; charset=utf-8"} {
+	// Static UI: a fixed list of asset paths, nothing else from the embedded folder is reachable.
+	for path, ct := range map[string]string{
+		"/app.css": "text/css; charset=utf-8", "/app.js": "text/javascript; charset=utf-8", "/html.js": "text/javascript; charset=utf-8",
+		"/livemap.js": "text/javascript; charset=utf-8", "/maps/hagga-basin.png": "image/png", "/maps/deep-desert.png": "image/png"} {
 		file, ctype := "static"+path, ct
 		s.mux.HandleFunc("GET "+path, func(w http.ResponseWriter, r *http.Request) {
 			b, err := static.ReadFile(file)
@@ -346,6 +348,7 @@ func (s *Server) routes() {
 	s.get("/api/bases/power", func(r *http.Request) (any, error) { return o.BasePower(int64(qint(r, "base", 0))) })
 	s.get("/api/bases/water", func(r *http.Request) (any, error) { return o.BaseWater(int64(qint(r, "base", 0))) })
 	s.get("/api/bases/inventory", func(r *http.Request) (any, error) { return o.BaseInventory(int64(qint(r, "base", 0))) })
+	s.get("/api/livemap", func(r *http.Request) (any, error) { return o.LiveMap(r.URL.Query().Get("map")) })
 	s.post("/api/bases/claim/expand", o.ExpandLandClaim)
 	s.post("/api/bases/claim/shrink", o.ShrinkLandClaim)
 	s.post("/api/bases/refill-water", func(ops.Args) (any, error) { return o.RefillBaseWater() })
