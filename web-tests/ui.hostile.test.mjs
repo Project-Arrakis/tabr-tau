@@ -936,6 +936,24 @@ test('Specialization: every track is listed, unknown numbers disable XP actions,
   ui.dom.window.close();
 });
 
+test('Database > Tables: primary keys, links and account identity are plain text with the reason, other cells stay editable, a hostile column name is only a key', async () => {
+  const hostile = '__proto__';
+  const tbl = { columns: ['_rowid_', 'id', 'inventory_id', 'template_id', hostile], rows: [[5, 10, 3, 'Spice', 'x']], total: 1, tableLocked: '', locked: { id: 'primary key', inventory_id: 'link to another table' } };
+  const ui = await boot({ get: { '/api/db/tables': [{ name: 'items', rows: 1, columns: ['id'], types: ['INTEGER'] }], '/api/db/table': tbl } });
+  ui.click('[data-tab="db"]'); await ui.settle();
+  const inputs = [...ui.doc.querySelectorAll('input.dbc')].map((i) => i.getAttribute('data-col'));
+  assert.deepEqual(inputs, ['template_id', hostile], 'only plain columns are inputs');
+  assert.equal(ui.doc.querySelector('span.mono[title="primary key"]').textContent, '10');
+  assert.equal(ui.doc.querySelector('span.mono[title="link to another table"]').textContent, '3');
+  assert.ok(ui.doc.querySelector('#dbout').textContent.includes('Plain text columns are read-only'));
+  const lockedTable = { columns: ['_rowid_', 'user'], rows: [[1, 'u']], total: 1, tableLocked: 'account identity', locked: null };
+  const ui2 = await boot({ get: { '/api/db/tables': [{ name: 'accounts', rows: 1, columns: ['user'], types: ['TEXT'] }], '/api/db/table': lockedTable } });
+  ui2.click('[data-tab="db"]'); await ui2.settle();
+  assert.equal(ui2.doc.querySelectorAll('input.dbc').length, 0, 'a locked table has no inputs');
+  assert.ok(ui2.doc.querySelector('#dbout').textContent.includes('Read-only: account identity'));
+  ui.dom.window.close(); ui2.dom.window.close();
+});
+
 test('Tables sort by any clicked header: text, numbers as numbers, descending on the second click, original order on the third, kept after a redraw', async () => {
   const row = (o) => ({ id: 'X', name: 'X', learned: false, inInventory: false, inCatalog: true, ...o });
   const sets = { rows: [row({ id: 'b', name: 'Beta' }), row({ id: 'a', name: 'alpha' }), row({ id: 'c', name: 'Charlie', learned: true })], newPieces: [] };

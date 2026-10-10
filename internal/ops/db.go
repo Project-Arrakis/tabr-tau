@@ -31,6 +31,50 @@ func (o *Ops) tableInfo(name string) ([]string, []string, error) {
 	return cols, types, nil
 }
 
+// lockedTables cannot be edited from the Tables view or by a SQL write, whatever the column: they identify the account or
+// belong to the game's own bookkeeping.
+var lockedTables = map[string]string{
+	"accounts":           "account identity: changing it can stop the game recognising the character",
+	"applied_patches":    "the game's version history",
+	"items_id_sequencer": "the game's item id counter",
+	"sqlite_sequence":    "SQLite's own counters",
+}
+
+// identityColumns name the account in any table.
+var identityColumns = map[string]bool{"account_id": true, "owner_account_id": true, "platform_id": true, "funcom_id": true, "platform_name": true, "user": true}
+
+// lockedColumns says why each column of a table cannot be edited by hand: it is part of the primary key, it links to another
+// table, or it identifies the account. Editing those through the review pane would still be possible, and could break the
+// links the game follows. The first return value is the reason for the whole table when it is locked.
+func (o *Ops) lockedColumns(table string, cols []string) (string, map[string]string) {
+	lt := strings.ToLower(table)
+	if why, ok := lockedTables[lt]; ok {
+		return why, nil
+	}
+	if strings.HasPrefix(lt, "sqlite_") {
+		return "SQLite's own table", nil
+	}
+	locked := map[string]string{}
+	if pk, err := o.S.Query(`select name from pragma_table_info(?) where pk > 0`, table); err == nil {
+		for _, r := range pk {
+			locked[fmt.Sprint(r["name"])] = "primary key"
+		}
+	}
+	if fk, err := o.S.Query(`select "from" f from pragma_foreign_key_list(?)`, table); err == nil {
+		for _, r := range fk {
+			if _, dup := locked[fmt.Sprint(r["f"])]; !dup {
+				locked[fmt.Sprint(r["f"])] = "link to another table"
+			}
+		}
+	}
+	for _, c := range cols {
+		if identityColumns[strings.ToLower(c)] {
+			locked[c] = "identifies the account"
+		}
+	}
+	return "", locked
+}
+
 func (o *Ops) Tables() (any, error) {
 	tabs, err := o.S.Query(`select name from sqlite_master where type='table' and name not like 'sqlite_%' order by name`)
 	if err != nil {
@@ -71,17 +115,22 @@ func (o *Ops) TableRows(name, q string, limit, offset int) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"columns": c, "rows": rows, "total": tot["c"]}, nil
+	whole, locked := o.lockedColumns(name, cols)
+	return map[string]any{"columns": c, "rows": rows, "total": tot["c"], "tableLocked": whole, "locked": locked}, nil
 }
 
 func (o *Ops) UpdateRow(a Args) (any, error) {
 	table, col := a.Str("table"), a.Str("column")
-	if lt := strings.ToLower(table); strings.HasPrefix(lt, "sqlite_") || lt == "applied_patches" {
-		return nil, errors.New("this table cannot be edited here")
-	}
 	cols, types, err := o.tableInfo(table)
 	if err != nil {
 		return nil, err
+	}
+	whole, locked := o.lockedColumns(table, cols)
+	if whole != "" {
+		return nil, fmt.Errorf("%s cannot be edited here: %s", table, whole)
+	}
+	if why, bad := locked[col]; bad {
+		return nil, fmt.Errorf("%s.%s cannot be edited here: %s", table, col, why)
 	}
 	rowid, err := a.Int("rowid")
 	if err != nil {
