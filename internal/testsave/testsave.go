@@ -75,6 +75,11 @@ func build(t testing.TB, fn func(db *sql.DB)) *save.Save {
 		t.Fatal(err)
 	}
 	db.SetMaxOpenConns(1)
+	// The working file is thrown away after it is read back, so it does not need to survive a crash: without these two
+	// pragmas every one of the schema's statements waits for the disk, which cost most of a second per save (#89).
+	if _, err := db.Exec(`pragma synchronous=off; pragma journal_mode=off`); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := db.Exec(schemaSQL); err != nil {
 		t.Fatalf("real schema failed to load: %v", err)
 	}
