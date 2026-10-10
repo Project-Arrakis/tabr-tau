@@ -660,14 +660,6 @@ func (o *Ops) SetReputation(a Args) (any, error) {
 	return ok(), nil
 }
 
-func (o *Ops) Specs() (any, error) {
-	p, err := o.player()
-	if err != nil {
-		return nil, err
-	}
-	return o.S.Query(`select track_type, xp_amount, level from specialization_tracks where player_id=? order by track_type`, p.Controller)
-}
-
 func (o *Ops) SetSpec(a Args) (any, error) {
 	p, err := o.player()
 	if err != nil {
