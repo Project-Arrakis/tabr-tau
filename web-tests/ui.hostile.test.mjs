@@ -963,6 +963,32 @@ test('Give water gives ten Cups of Water in one post', async () => {
   ui.dom.window.close();
 });
 
+test('Teleport: Find lists places as text, choosing one fills X Y Z, Facing is sent only when typed', async () => {
+  const hostile = '<img src=x onerror=1>';
+  const dest = { map: 'HaggaBasin', kind: 'marker', total: 3, destinations: [{ kind: 'marker', label: 'Cave ' + hostile, x: 400.4, y: 500.6, z: 20, distance: 52000 }, { kind: 'marker', label: 'EnemyCamp', x: 9000, y: 9000, z: 30, distance: 900000 }] };
+  const ui = await boot({ get: { '/api/player/destinations': dest }, post: { '/api/player/teleport': { ok: true } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:admin"]'); await ui.settle();
+  ui.doc.querySelector('#tdkind').value = 'marker'; ui.doc.querySelector('#tdq').value = 'cave';
+  ui.click('[data-act="tdFind"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('#tdout img'), null, 'a hostile label is text');
+  const sel = ui.doc.querySelector('#tdsel');
+  assert.ok(sel.options[0].textContent.includes('nearest 2 of 3'), sel.options[0].textContent);
+  assert.ok(sel.options[1].textContent.includes('520 m away'), sel.options[1].textContent);
+  sel.value = '0'; sel.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
+  assert.deepEqual(['tx', 'ty', 'tz'].map((id) => ui.doc.querySelector('#' + id).value), ['400', '501', '20']);
+  ui.click('[data-act="teleport"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/teleport').map((p) => p.body), [{ x: 400, y: 501, z: 20 }], 'no facing typed, none sent');
+  ui.click('[data-act="tdFind"]'); await ui.settle(); // the page redrew after the move
+  const sel2 = ui.doc.querySelector('#tdsel');
+  sel2.value = '0'; sel2.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
+  ui.doc.querySelector('#tdyaw').value = '90';
+  ui.click('[data-act="teleport"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/teleport').at(-1).body, { x: 400, y: 501, z: 20, yaw: 90 });
+  assert.ok(ui.doc.body.textContent.includes('next enter single-player'), 'the page says when the move shows');
+  ui.dom.window.close();
+});
+
 test('Tables sort by any clicked header: text, numbers as numbers, descending on the second click, original order on the third, kept after a redraw', async () => {
   const row = (o) => ({ id: 'X', name: 'X', learned: false, inInventory: false, inCatalog: true, ...o });
   const sets = { rows: [row({ id: 'b', name: 'Beta' }), row({ id: 'a', name: 'alpha' }), row({ id: 'c', name: 'Charlie', learned: true })], newPieces: [] };

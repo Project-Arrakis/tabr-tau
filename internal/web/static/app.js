@@ -406,8 +406,9 @@ async function playerSection(s) {
       <div class="row"><b>Repair Gear</b><button class="b" data-act="repair">Repair Gear</button><span class="mut">Worn items and loadouts, to full durability.</span></div>
       <div class="row"><b>Repair Vehicle Durability</b><button class="b" data-act="repairV">Repair Vehicles</button><label>Repair Below <input id="rvPct" type="number" min="1" max="100" value="50" class="w70"> %</label><span class="mut">Raises the modules of your vehicles whose durability is below this share of their current maximum back to that maximum. Wear that lowered the maximum itself is not undone, and modules with no recorded maximum are skipped.</span></div></div>
     <div class="card"><h3>Danger Zone</h3><div class="row">${na('Wipe Inventory')}${na('Reset Progression')}<span class="mut">Not in tabr-tau yet.</span></div></div>
-    <div class="card"><h3>Movement / Vehicles</h3><div class="row"><b>Teleport To</b>X<input id="tx" type="number" value="${Math.round(a.x)}">Y<input id="ty" type="number" value="${Math.round(a.y)}">Z<input id="tz" type="number" value="${Math.round(a.z)}"><button class="b" data-act="teleport">Teleport</button></div>
-    <p class="mut">Moves the character in the save (applied on next load). Stay above the terrain (Z) or you may fall through.</p>
+    <div class="card"><h3>Movement / Vehicles</h3><div class="row"><b>Teleport To</b>X<input id="tx" type="number" value="${Math.round(a.x)}">Y<input id="ty" type="number" value="${Math.round(a.y)}">Z<input id="tz" type="number" value="${Math.round(a.z)}">Facing <input id="tdyaw" type="number" step="1" placeholder="degrees" class="w90"><button class="b" data-act="teleport">Teleport</button></div>
+    <div class="row"><b>Go to a place</b><select id="tdkind"><option value="base">Base</option><option value="respawn">Respawn point</option><option value="vehicle">My vehicle</option><option value="marker">Discovered map marker</option></select><input id="tdq" placeholder="filter, e.g. cave" class="w150"><button class="b sec" data-act="tdFind">Find</button><span id="tdout" class="mut"></span></div>
+    <p class="mut">Moves the character in the save. The game keeps its own copy of the save in memory while single-player runs and overwrites the file, so the move shows when you next enter single-player. Choosing a place fills X, Y and Z. Places are on the map the character is on now. Facing is optional: 0 looks along +X; leave it empty to keep the way the character faces. If you type a Z yourself, stay above the terrain or you may fall through.</p>
     <div class="row"><b>Spawn Vehicle</b>${na('Spawn')}<span class="mut">Not in tabr-tau yet.</span></div></div>`);
     const ve = await api('/api/vendors');
     h.push(html`<div class="card"><h3>Vendor purchase limits</h3><p class="mut">tabr-tau's own tool (the console has none). Vendors limit how much you can buy per restock cycle. Resetting clears those counters.</p><div class="row"><button class="b" data-act="vreset" data-v="">Reset all vendors</button></div>
@@ -541,6 +542,7 @@ function autoRefillCard(prefs) {
 // the cells it has, and dotted "available" cells next to it. Click an available cell to add it, a chosen one to take it back (what is
 // chosen must stay connected edge to edge), pick a vertical level, then Apply. Existing cells are never removed here.
 let LC = null; // { claim, sel: Set of "x,y", level }
+let TD = []; // the places the last Find returned
 const lcKey = (x, y) => `${x},${y}`;
 const lcNeighbours = (x, y) => [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]];
 const lcCoords = (k) => k.split(',').map(Number);
@@ -815,7 +817,15 @@ const A = {
   xp: () => act(async () => { const r = await api('/api/player/xp', { amount: +val('xpAmt') }); toast(r.applied ? `XP ${Number(r.before).toLocaleString()} to ${Number(r.after).toLocaleString()}, level ${r.levelBefore} to ${r.levelAfter}` + (r.skillPointsGained ? `, +${r.skillPointsGained} skill points` : '') + (r.capped ? ' (stopped at level 200)' : '') + NOT_SAVED : 'Already at the last level (200).'); }, null),
   currency: () => act(async () => { const r = await api('/api/player/currency', { currency: +val('curSel'), amount: +val('curAmt') }); toast(`${r.currency == 0 ? 'Solari Credit' : 'House Credit'} ${Number(r.before).toLocaleString()} to ${Number(r.after).toLocaleString()}` + NOT_SAVED); }, null),
   intel: () => act(async () => { const r = await api('/api/player/intel', { amount: +val('intelAmt') }); toast(r.applied ? `Intel ${Number(r.before).toLocaleString()} to ${Number(r.after).toLocaleString()}` + (r.capped ? ' (capped at 2,779)' : '') + NOT_SAVED : 'Intel is already at the cap (2,779).'); }, null),
-  teleport: () => act(() => api('/api/player/teleport', { x: +val('tx'), y: +val('ty'), z: +val('tz') }), 'Teleport queued'),
+  teleport: () => act(() => { const body = { x: +val('tx'), y: +val('ty'), z: +val('tz') }; if (val('tdyaw') !== '') body.yaw = +val('tdyaw'); return api('/api/player/teleport', body); }, 'Teleport queued'),
+  tdFind: async () => {
+    try {
+      const r = await api(`/api/player/destinations?kind=${encodeURIComponent(val('tdkind'))}&q=${encodeURIComponent(val('tdq'))}`);
+      TD = r.destinations;
+      const more = r.total > TD.length ? ` (nearest ${TD.length} of ${r.total}; filter to narrow)` : '';
+      setHTML($('#tdout'), TD.length ? html`<select id="tdsel"><option value="">${TD.length} place${TD.length == 1 ? '' : 's'} on ${r.map}, nearest first${more}</option>${TD.map((d, i) => html`<option value="${i}">${d.label} - ${Math.round(d.distance / 100).toLocaleString()} m away</option>`)}</select>` : html`None on ${r.map}.`);
+    } catch (e) { toast(e.message, true); }
+  },
   tpTo: (d) => act(() => api('/api/player/teleport', { x: +d.x, y: +d.y, z: +d.z }), 'Teleport queued'),
   augEdit: (d) => act(async () => { const r = await api('/api/items/augment-options', { item_id: +d.id }); r.options.forEach((o) => AUG_NAMES.set(o.id, o.name)); augItem = { ...r, item_id: +d.id }; render(); }, null, false),
   augCancel: () => { augItem = null; render(); },
@@ -987,6 +997,7 @@ document.addEventListener('change', (e) => {
   if (t.id == 'gt') { showGiveAugments(); return; }
   if (t.id == 'skCharge') { skCharge = t.checked; return; }
   if (t.id == 'rsGrp') { rsGroup = t.value; researchList(); return; }
+  if (t.id == 'tdsel') { const d = TD[+t.value]; if (d) { $('#tx').value = Math.round(d.x); $('#ty').value = Math.round(d.y); $('#tz').value = Math.round(d.z); } return; }
   if (t.id == 'lcLvl' && LC) { LC.level = +t.value; claimEditorDraw(); return; }
   if (t.id == 'ctgrp') { ctGroup = t.value; catalogList(); return; }
   if (t.id == 'ctexp') { ctExp = t.checked; if (!ctExp && CT.rows.some((r) => r.experimental && r.group == ctGroup)) ctGroup = ''; catalogList(); return; }
