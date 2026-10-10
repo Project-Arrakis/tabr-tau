@@ -447,23 +447,34 @@ test('deleting an item asks first, shows the item as data, and Cancel sends noth
 });
 
 test('a far-reaching action needs the word typed, and Escape cancels', async () => {
-  const ui = await boot();
-  ui.click('[data-tab=\"player\"]'); await ui.settle();
-  ui.click('[data-sub="player:bases"]'); await ui.settle();
-  ui.click('[data-bstab="structures"]'); await ui.settle();
-  const btn = ui.doc.querySelector('[data-act="sand"]');
-  assert.ok(btn, 'the clear-sand button must exist in the bases view');
-  ui.click('[data-act="sand"]'); await ui.settle();
+  const ui = await boot({ get: { '/api/save/backups': [{ name: 'a.db', size: 1, modified: 'x' }, { name: 'b.db', size: 2, modified: 'y' }] } });
+  ui.click('[data-tab="db"]'); await ui.settle();
+  ui.click('[data-sub="db:backups"]'); await ui.settle();
+  ui.click('[data-act="restore"][data-n="a.db"]'); await ui.settle();
   const ok = ui.doc.querySelector('#aok');
   assert.equal(ok.disabled, true, 'OK is off until the word is typed');
   const inp = ui.doc.querySelector('#atype');
   inp.value = 'nope'; inp.dispatchEvent(new ui.w.Event('input', { bubbles: true }));
   assert.equal(ui.doc.querySelector('#aok').disabled, true);
-  inp.value = ' Clear '; inp.dispatchEvent(new ui.w.Event('input', { bubbles: true }));
+  inp.value = ' Restore '; inp.dispatchEvent(new ui.w.Event('input', { bubbles: true }));
   assert.equal(ui.doc.querySelector('#aok').disabled, false, 'the right word (any case) enables it');
   ui.doc.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await ui.settle();
   assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'));
-  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 0, 'Escape must not run the action');
+  assert.equal(ui.posted.filter((p) => p.path === '/api/save/restore').length, 0, 'Escape must not run the action');
+  ui.dom.window.close();
+});
+
+test('the Bases upkeep buttons run at once: the review pane is the confirmation', async () => {
+  const ui = await boot({ post: { '/api/bases/repair': { ok: true, pieces: 3, placeables: 1 }, '/api/bases/clear-sand': { ok: true, pieces: 2 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:bases"]'); await ui.settle();
+  ui.click('[data-bstab="structures"]'); await ui.settle();
+  ui.click('[data-act="repairB"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'no question');
+  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/repair').length, 1);
+  ui.click('[data-act="sand"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'no question');
+  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 1);
   ui.dom.window.close();
 });
 
@@ -489,18 +500,17 @@ test('the question text is data even when the item name is an attack string', as
 });
 
 test('typing the word completes the action; Enter in the box does too; the disabled button does nothing', async () => {
-  const ui = await boot();
-  ui.click('[data-tab=\"player\"]'); await ui.settle();
-  ui.click('[data-sub="player:bases"]'); await ui.settle();
-  ui.click('[data-bstab="structures"]'); await ui.settle();
-  ui.click('[data-act="sand"]'); await ui.settle();
+  const ui = await boot({ get: { '/api/save/backups': [{ name: 'a.db', size: 1, modified: 'x' }, { name: 'b.db', size: 2, modified: 'y' }] } });
+  ui.click('[data-tab="db"]'); await ui.settle();
+  ui.click('[data-sub="db:backups"]'); await ui.settle();
+  ui.click('[data-act="restore"][data-n="a.db"]'); await ui.settle();
   ui.click('#aok'); await ui.settle(); // disabled: a click must do nothing
-  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 0);
+  assert.equal(ui.posted.filter((p) => p.path === '/api/save/restore').length, 0);
   assert.ok(!ui.doc.querySelector('#ask').classList.contains('hide'));
   const inp = ui.doc.querySelector('#atype');
-  inp.value = 'clear'; inp.dispatchEvent(new ui.w.Event('input', { bubbles: true }));
+  inp.value = 'restore'; inp.dispatchEvent(new ui.w.Event('input', { bubbles: true }));
   inp.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await ui.settle();
-  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 1);
+  assert.equal(ui.posted.filter((p) => p.path === '/api/save/restore').length, 1);
   assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'));
   ui.dom.window.close();
 });
@@ -524,14 +534,14 @@ test('Escape closes only the question when the review is open underneath, and fo
 });
 
 test('a second question replaces the first, which counts as cancelled', async () => {
-  const ui = await boot();
-  ui.click('[data-tab=\"player\"]'); await ui.settle();
-  ui.click('[data-sub="player:bases"]'); await ui.settle();
-  ui.click('[data-bstab="structures"]'); await ui.settle();
-  ui.click('[data-act="sand"]'); await ui.settle();
-  ui.click('[data-act="repairB"]'); await ui.settle();
-  assert.ok(ui.doc.querySelector('#ask').textContent.includes('Repair every base piece'));
-  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 0);
+  const ui = await boot({ get: { '/api/save/backups': [{ name: 'a.db', size: 1, modified: 'x' }, { name: 'b.db', size: 2, modified: 'y' }] } });
+  ui.click('[data-tab="db"]'); await ui.settle();
+  ui.click('[data-sub="db:backups"]'); await ui.settle();
+  ui.click('[data-act="restore"][data-n="a.db"]'); await ui.settle();
+  ui.click('[data-act="restore"][data-n="b.db"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes('b.db'));
+  assert.ok(!ui.doc.querySelector('#ask').textContent.includes('a.db'));
+  assert.equal(ui.posted.filter((p) => p.path === '/api/save/restore').length, 0);
   ui.dom.window.close();
 });
 

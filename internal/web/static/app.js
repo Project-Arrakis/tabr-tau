@@ -897,8 +897,8 @@ const A = {
   refillGen: () => act(async () => { const r = await api('/api/bases/refill-generators', {}); toast(`Filled ${r.filled} generators (${r.alreadyFull} already full)` + NOT_SAVED); }, null),
   repairOne: (d) => act(async () => { const r = await api('/api/vehicles/repair', { vehicle_id: +d.id }); toast(`Repaired ${r.repaired} modules of this vehicle.` + (r.withoutKnownMax ? ` ${r.withoutKnownMax} modules have no recorded maximum and were left alone.` : '') + NOT_SAVED); }, null),
   repairV: () => act(async () => { const pct = $('#rvPct'); const r = await api('/api/vehicles/repair', pct ? { threshold: +pct.value } : {}); toast(`Repaired ${r.repaired} vehicle modules.` + (r.withoutKnownMax ? ` ${r.withoutKnownMax} modules have no recorded maximum and were left alone.` : '') + NOT_SAVED); }, null),
-  repairB: async () => (await ask({ title: 'Repair every base piece?', body: 'Sets the health of all building pieces and placeables in the save to full.', ok: 'Repair all', typed: 'repair', danger: true })) && act(async () => { const r = await api('/api/bases/repair', {}); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables` + NOT_SAVED); }, null),
-  sand: async () => (await ask({ title: 'Clear sand build-up?', body: 'Removes the sand coverage from every building piece in the save.', ok: 'Clear sand', typed: 'clear', danger: true })) && act(async () => { const r = await api('/api/bases/clear-sand', {}); toast(`Cleared ${r.pieces} pieces` + NOT_SAVED); }, null),
+  repairB: () => act(async () => { const r = await api('/api/bases/repair', {}); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables` + NOT_SAVED); }, null),
+  sand: () => act(async () => { const r = await api('/api/bases/clear-sand', {}); toast(`Cleared ${r.pieces} pieces` + NOT_SAVED); }, null),
   openInv: async (d) => {
     const it = await api('/api/bases/storage/items?inventory=' + encodeURIComponent(d.id));
     const cat = await loadCatalog(it.map((r) => r.template_id));
