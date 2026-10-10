@@ -193,6 +193,8 @@ func vetWrite(q string) error {
 				return errors.New("the schema catalogue cannot be edited")
 			case "applied_patches":
 				return errors.New("applied_patches records the game's version history and cannot be edited here")
+			case "accounts":
+				return errors.New("accounts identifies the character to the game and cannot be edited here")
 			}
 		}
 		switch v := st.mainVerb(); v {

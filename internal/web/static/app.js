@@ -757,9 +757,11 @@ async function dbView() {
     setHTML($('#main'), html`${h}`);
     const d = await api(`/api/db/table?name=${encodeURIComponent(dbTable)}&q=${encodeURIComponent(dbQ)}&offset=${dbOff}&limit=100`);
     const cols = d.columns.slice(1);
-    setHTML($('#dbout'), html`<p class="mut">${d.total} rows — showing ${dbOff + 1}–${Math.min(dbOff + 100, d.total)}</p><div class="scroll"><table><thead><tr>${cols.map((c) => html`<th>${c}</th>`)}</tr></thead><tbody>${d.rows.map((r) => html`<tr>${r.slice(1).map((v, i) => {
+    const locked = new Map(Object.entries(d.locked || {})); // a column name from the save is only ever a Map key
+    setHTML($('#dbout'), html`<p class="mut">${d.total} rows — showing ${dbOff + 1}–${Math.min(dbOff + 100, d.total)}${d.tableLocked ? html`. Read-only: ${d.tableLocked}.` : locked.size ? html`. Plain text columns are read-only (primary keys, links to other tables and account identity); hover for the reason.` : ''}</p><div class="scroll"><table><thead><tr>${cols.map((c) => html`<th>${c}</th>`)}</tr></thead><tbody>${d.rows.map((r) => html`<tr>${r.slice(1).map((v, i) => {
       const b = typeof v === 'string' && v.startsWith('<blob');
-      return html`<td>${b ? html`<span class="mut mono">${v}</span>` : html`<input class="dbc" value="${v}" data-rowid="${r[0]}" data-col="${cols[i]}" data-orig="${v}" size="${Math.max(6, Math.min(40, String(v ?? '').length + 2))}">`}</td>`;
+      const why = d.tableLocked || locked.get(cols[i]);
+      return html`<td>${b ? html`<span class="mut mono">${v}</span>` : why ? html`<span class="mono" title="${why}">${v}</span>` : html`<input class="dbc" value="${v}" data-rowid="${r[0]}" data-col="${cols[i]}" data-orig="${v}" size="${Math.max(6, Math.min(40, String(v ?? '').length + 2))}">`}</td>`;
     })}</tr>`)}</tbody></table></div>
       <div class="row"><button class="b sec" data-act="dbprev" ${dbOff <= 0 ? 'disabled' : ''}>Previous</button><button class="b sec" data-act="dbnext" ${dbOff + 100 >= d.total ? 'disabled' : ''}>Next</button></div>`);
     return;
