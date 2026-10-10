@@ -954,6 +954,15 @@ test('Database > Tables: primary keys, links and account identity are plain text
   ui.dom.window.close(); ui2.dom.window.close();
 });
 
+test('Give water gives ten Cups of Water in one post', async () => {
+  const ui = await boot({ post: { '/api/player/give': { ok: true, itemId: 9 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="char:inventory"]'); await ui.settle();
+  ui.click('[data-act="giveWater"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/give').map((p) => p.body), [{ template_id: 'WaterPack_Consumable', quantity: 10, quality: 0 }]);
+  ui.dom.window.close();
+});
+
 test('Tables sort by any clicked header: text, numbers as numbers, descending on the second click, original order on the third, kept after a redraw', async () => {
   const row = (o) => ({ id: 'X', name: 'X', learned: false, inInventory: false, inCatalog: true, ...o });
   const sets = { rows: [row({ id: 'b', name: 'Beta' }), row({ id: 'a', name: 'alpha' }), row({ id: 'c', name: 'Charlie', learned: true })], newPieces: [] };
