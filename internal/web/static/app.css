@@ -38,7 +38,7 @@ button:disabled{opacity:.4;cursor:default}
 .warn{background:#4a2f10;color:#ffd9a0;padding:8px 12px;border-radius:6px;margin-bottom:12px}
 details summary{cursor:pointer;color:var(--acc2)}
 /* replaces the former inline styles; selectors are as specific as the rules they must beat */
-input.w70{width:70px}input.w80{width:80px}input.w90{width:90px}input.w100{width:100px}
+input.w70{width:70px}input.w80{width:80px}input.w90{width:90px}input.w100{width:100px}input.w150{width:150px}
 input.cfgv{width:100%;min-width:220px}
 .row.mt12{margin-top:12px}.card h3.mt14{margin-top:14px}.mut.mb8{margin-bottom:8px}
 ul.tight{margin:6px 0}

@@ -164,24 +164,6 @@ func (o *Ops) solari(p player) int64 {
 	return n
 }
 
-func (o *Ops) Teleport(a Args) (any, error) {
-	p, err := o.player()
-	if err != nil {
-		return nil, err
-	}
-	x, e1 := a.Float("x")
-	y, e2 := a.Float("y")
-	z, e3 := a.Float("z")
-	if err := errors.Join(e1, e2, e3); err != nil {
-		return nil, err
-	}
-	if _, err := o.run(fmt.Sprintf("teleport player to %.0f, %.0f, %.0f", x, y, z),
-		`update actors set location_x=?, location_y=?, location_z=? where id=?`, x, y, z, p.Pawn); err != nil {
-		return nil, err
-	}
-	return ok(), nil
-}
-
 func ok() map[string]any { return map[string]any{"ok": true} }
 
 // run is a one-statement edit through the single write path. It returns the rows the statement affected.
