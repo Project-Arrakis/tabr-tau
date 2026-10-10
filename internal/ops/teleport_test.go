@@ -29,8 +29,6 @@ insert into markers(marker_hash_id,dimension_index,map_name,marker_type,x,y,z) v
 insert into player_markers(player_id,marker_hash_id,dimension_index,map_name,discovery_level,discovery_method) values
   (1,1,0,'HaggaBasin',3,1),(1,2,0,'HaggaBasin',1,1),(1,4,0,'Arrakeen',3,1);`
 
-type dest = map[string]any
-
 func listDestinations(t *testing.T, o *Ops, kind, q string) []Destination {
 	t.Helper()
 	res, err := o.Destinations(kind, q)
