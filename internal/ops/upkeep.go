@@ -12,7 +12,7 @@ import (
 // waterDeviceCapacity is how much water each base device stores when full (FWaterStorageComponent.m_WaterStored),
 // keyed by the lower-case building_type. Same values as the Dune Docker console's refill table
 // (dune-awakening-selfhost-docker, console/api/src/duneDb.js WATER_TYPES, MIT, RedBlink).
-// A device with a water component that is not listed is skipped and reported.
+// A building with a water component that is not listed is skipped and reported.
 var waterDeviceCapacity = map[string]int64{
 	"watercistern_placeable":                 5000,
 	"mediumwatercistern_placeable":           25000,
@@ -23,7 +23,7 @@ var waterDeviceCapacity = map[string]int64{
 	"bloodwaterextractionadvanced_placeable": 1000,
 }
 
-// RefillBaseWater fills every water device in the save (cisterns, windtraps, blood purifiers) to its capacity.
+// RefillBaseWater fills every built Water Cistern, Windtrap, Large Windtrap and Blood Purifier in the save to its capacity.
 // Single-player has one world and no per-base ownership worth splitting on, so it works on the whole save.
 func (o *Ops) RefillBaseWater() (any, error) {
 	rows, err := o.S.Query(`select p.id, lower(p.building_type) kind, fe.entity_id entity,
@@ -38,6 +38,7 @@ func (o *Ops) RefillBaseWater() (any, error) {
 	type target struct {
 		entity any
 		cap    int64
+		name   string
 	}
 	var todo []target
 	full := 0
@@ -53,23 +54,31 @@ func (o *Ops) RefillBaseWater() (any, error) {
 			full++
 			continue
 		}
-		todo = append(todo, target{r["entity"], capacity})
+		todo = append(todo, target{r["entity"], capacity, waterName(kind)})
 	}
 	if len(todo) > 0 { // nothing to fill must not leave an empty pending edit behind
+		counts := map[string]int{}
+		for _, t := range todo {
+			counts[t.name]++
+		}
 		_, err = o.S.Mutate("refill base water", func(m *save.Mut) error {
 			for _, t := range todo {
 				if _, err := m.Exec(`update fgl_entities set components=jsonb_set(components,'$.FWaterStorageComponent[1].m_WaterStored',?) where entity_id=?`, t.cap, t.entity); err != nil {
 					return err
 				}
 			}
-			m.Desc = fmt.Sprintf("refill base water: %d devices", len(todo))
+			m.Desc = "refill base water: " + countSummary(counts)
 			return nil
 		})
 		if err != nil {
 			return nil, err
 		}
 	}
-	return map[string]any{"ok": true, "filled": len(todo), "alreadyFull": full, "skippedUnknown": sortedCounts(unknown)}, nil
+	names := map[string]int{}
+	for _, t := range todo {
+		names[t.name]++
+	}
+	return map[string]any{"ok": true, "filled": len(todo), "alreadyFull": full, "skippedUnknown": sortedCounts(unknown), "summary": countSummary(names)}, nil
 }
 
 // fuelSpec is what a power device burns and how full it can be, taken from the Dune Docker console (console/api/src/duneDb.js
@@ -113,6 +122,7 @@ func (o *Ops) RefillGenerators() (any, error) {
 	type stackRow struct{ id, size int64 }
 	type job struct {
 		actor, inv int64
+		name       string
 		fuel       string
 		spec       fuelSpec
 		have       []stackRow // stacks of the chosen fuel, in slot order
@@ -141,7 +151,7 @@ func (o *Ops) RefillGenerators() (any, error) {
 				}
 			}
 		}
-		j := job{actor: actor, inv: inv, fuel: fuel, spec: spec}
+		j := job{actor: actor, inv: inv, name: powerName(fmt.Sprint(r["kind"])), fuel: fuel, spec: spec}
 		var lower []stackRow
 		for _, s := range stocked {
 			t := fmt.Sprint(s["template_id"])
@@ -170,6 +180,7 @@ func (o *Ops) RefillGenerators() (any, error) {
 	}
 	filled := 0
 	var skipped []string
+	byName := map[string]int{}
 	if len(jobs) > 0 { // nothing to fill must not leave an empty pending edit behind
 		_, err = o.S.Mutate("refill generators", func(m *save.Mut) error {
 			for _, j := range jobs {
@@ -198,26 +209,27 @@ func (o *Ops) RefillGenerators() (any, error) {
 					qty := min(need, j.spec.stack)
 					if _, err := giveInTx(m, j.inv, j.fuel, qty, 0); err != nil {
 						if err.Error() == "inventory is full" { // other items fill its slots: leave the rest, keep going
-							skipped = append(skipped, fmt.Sprintf("device %v (no free slot)", j.actor))
+							skipped = append(skipped, fmt.Sprintf("%s #%v (no free slot)", j.name, j.actor))
 							break
 						}
-						return fmt.Errorf("device %v: %w", j.actor, err)
+						return fmt.Errorf("%s #%v: %w", j.name, j.actor, err)
 					}
 					need -= qty
 					rowsNow++
 				}
-				if need < start || j.retemplate != 0 { // a device that got nothing (no free slot) is not counted
+				if need < start || j.retemplate != 0 { // one that got nothing (no free slot) is not counted
 					filled++
+					byName[j.name]++
 				}
 			}
-			m.Desc = fmt.Sprintf("refill generators: %d filled", filled)
+			m.Desc = "refill power: " + countSummary(byName)
 			return nil
 		})
 		if err != nil {
 			return nil, err
 		}
 	}
-	return map[string]any{"ok": true, "filled": filled, "alreadyFull": full, "skipped": skipped}, nil
+	return map[string]any{"ok": true, "filled": filled, "alreadyFull": full, "skipped": skipped, "summary": countSummary(byName)}, nil
 }
 
 func containsFold(list []string, s string) bool {
@@ -292,4 +304,48 @@ func sortedCounts(m map[string]int) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// plural is the plural of an in-game building name ("Windtrap" -> "Windtraps").
+func plural(name string) string { return name + "s" }
+
+// countSummary lists what a refill changed by in-game name, most numerous first ("2 Medium Water Cisterns, 1 Windtrap").
+func countSummary(counts map[string]int) string {
+	names := make([]string, 0, len(counts))
+	for n := range counts {
+		names = append(names, n)
+	}
+	sort.Slice(names, func(i, j int) bool {
+		if counts[names[i]] != counts[names[j]] {
+			return counts[names[i]] > counts[names[j]]
+		}
+		return names[i] < names[j]
+	})
+	parts := make([]string, 0, len(names))
+	for _, n := range names {
+		if counts[n] == 1 {
+			parts = append(parts, "1 "+n)
+		} else {
+			parts = append(parts, fmt.Sprintf("%d %s", counts[n], plural(n)))
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
+// powerName is the in-game name of a power building by its building_type (lower case).
+func powerName(kind string) string {
+	for _, k := range powerKinds {
+		if k.Kind == kind {
+			return k.Name
+		}
+	}
+	return kind
+}
+
+// waterName is the in-game name of a water building by its building_type (lower case).
+func waterName(kind string) string {
+	if n, ok := waterNames[kind]; ok {
+		return n
+	}
+	return kind
 }

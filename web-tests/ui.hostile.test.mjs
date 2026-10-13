@@ -163,7 +163,7 @@ test('Player > Bases lists the bases and shows Power, Water and Inventory for th
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:bases"]'); await ui.settle();
   const main = () => ui.doc.querySelector('#main').textContent;
-  for (const want of ['Bases (1)', 'Advanced Sub-Fief Console', 'Advanced Sub-Fief', 'Tester', 'Building Pieces', '486', '-67,159, -211,307, 12', 'Generator', '2,484', '2,500', 'Windtrap', 'Refill generators']) assert.ok(main().includes(want), `the Power tab should show ${want}`);
+  for (const want of ['Bases (1)', 'Advanced Sub-Fief Console', 'Advanced Sub-Fief', 'Tester', 'Building Pieces', '486', '-67,159, -211,307, 12', 'Generator', '2,484', '2,500', 'Windtrap', 'Refill power']) assert.ok(main().includes(want), `the Power tab should show ${want}`);
   assert.deepEqual([...ui.doc.querySelectorAll('[data-bstab]')].map((b) => b.textContent.trim()), ['Power', 'Water', 'Inventory', 'Land Claim Editor', 'Structures']);
   assert.ok(!main().includes('Permissions'), 'the permission tabs are not mirrored');
   ui.click('[data-bstab="water"]'); await ui.settle();
@@ -565,14 +565,14 @@ test('a failed status refresh after a successful edit still shows the success me
   ui.dom.window.close();
 });
 
-test('Refill containers reports what it filled and shows a container it could not size as plain text', async () => {
+test('Refill Literjons reports what it filled and shows a container it could not size as plain text', async () => {
   const hostile = '<img src=x onerror=1> x1';
   const ui = await boot({ post: { '/api/player/refill': { ok: true, filled: 3, alreadyFull: 1, skippedUnknown: [hostile] } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="char:inventory"]'); await ui.settle();
   ui.click('[data-act="refill"]'); await ui.settle();
   const toast = ui.doc.querySelector('#toast');
-  assert.ok(toast.textContent.includes('Filled 3 containers (1 already full)'), toast.textContent);
+  assert.ok(toast.textContent.includes('Filled 3 Literjons (1 already full)'), toast.textContent);
   assert.ok(toast.textContent.includes(hostile), 'the name is shown as text');
   assert.equal(toast.querySelector('img'), null, 'and never becomes markup');
   assert.equal(ui.posted.filter((p) => p.path === '/api/player/refill').length, 1);
@@ -1080,11 +1080,11 @@ test('Land Claim Editor: click available cells to add them, click again to take 
   ui.dom.window.close();
 });
 
-test('base and vehicle upkeep buttons post, and unknown device names stay plain text', async () => {
+test('base and vehicle upkeep buttons post, and unknown building names stay plain text', async () => {
   const hostile = '<img src=x onerror=1> x1';
   const ui = await boot({ post: {
-    '/api/bases/refill-water': { ok: true, filled: 2, alreadyFull: 1, skippedUnknown: [hostile] },
-    '/api/bases/refill-generators': { ok: true, filled: 3, alreadyFull: 0 },
+    '/api/bases/refill-water': { ok: true, filled: 2, alreadyFull: 1, skippedUnknown: [hostile], summary: '2 Medium Water Cisterns' },
+    '/api/bases/refill-generators': { ok: true, filled: 3, alreadyFull: 0, summary: '2 Omnidirectional Wind Turbines, 1 Windtrap' },
     '/api/vehicles/repair': { ok: true, modules: 9, repaired: 7, withoutKnownMax: 2 },
   } });
   ui.click('[data-tab=\"player\"]'); await ui.settle();
@@ -1092,11 +1092,11 @@ test('base and vehicle upkeep buttons post, and unknown device names stay plain 
   ui.click('[data-bstab="water"]'); await ui.settle();
   ui.click('[data-act="refillWater"]'); await ui.settle();
   let toast = ui.doc.querySelector('#toast');
-  assert.ok(toast.textContent.includes('Filled 2 water devices (1 already full)') && toast.textContent.includes(hostile), toast.textContent);
+  assert.ok(toast.textContent.includes('Refilled 2 Medium Water Cisterns (1 already full)') && toast.textContent.includes(hostile), toast.textContent);
   assert.equal(toast.querySelector('img'), null);
   ui.click('[data-bstab="power"]'); await ui.settle();
   ui.click('[data-act="refillGen"]'); await ui.settle();
-  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Filled 3 generators'));
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Refilled 2 Omnidirectional Wind Turbines, 1 Windtrap'));
   ui.click('[data-tab=\"player\"]'); await ui.settle();
   ui.click('[data-sub=\"player:admin\"]'); await ui.settle();
   ui.click('[data-act="repairV"]'); await ui.settle();

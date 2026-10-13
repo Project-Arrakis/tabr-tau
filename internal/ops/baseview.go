@@ -15,23 +15,23 @@ var powerKinds = []struct {
 	Kind, Name, Fuel string
 	Full             int64
 }{
-	{"generator_placeable", "Generator", "Oil", 499},
-	{"spicegenerator_placeable", "Spice Generator", "SpicedFuelCell", 499},
+	{"generator_placeable", "Fuel-Powered Generator", "Oil", 499},
+	{"spicegenerator_placeable", "Spice-Powered Generator", "SpicedFuelCell", 499},
 	{"windtrap_placeable", "Windtrap", "", 5},
 	{"largewindtrap_placeable", "Large Windtrap", "", 5},
 	{"windturbineomnidirectional_placeable", "Omnidirectional Wind Turbine", "WindTurbineLubricant1", 499},
 	{"windturbinedirectional_placeable", "Directional Wind Turbine", "WindTurbineLubricant2", 499},
 }
 
-// waterNames are the names of the devices that hold water (the keys are waterDeviceCapacity's).
+// waterNames are the in-game names of the buildings that hold water (the keys are waterDeviceCapacity's).
 var waterNames = map[string]string{
 	"watercistern_placeable":                 "Water Cistern",
 	"mediumwatercistern_placeable":           "Medium Water Cistern",
 	"largewatercistern_placeable":            "Large Water Cistern",
 	"windtrap_placeable":                     "Windtrap",
 	"largewindtrap_placeable":                "Large Windtrap",
-	"bloodwaterextractor_placeable":          "Blood Water Extractor",
-	"bloodwaterextractionadvanced_placeable": "Advanced Blood Water Extractor",
+	"bloodwaterextractor_placeable":          "Blood Purifier",
+	"bloodwaterextractionadvanced_placeable": "Improved Blood Purifier",
 }
 
 // totemTypes names the base by its claim structure.
@@ -128,7 +128,7 @@ func (o *Ops) BasePower(baseID int64) (any, error) {
 	return map[string]any{"types": types}, nil
 }
 
-// BaseWater is the Water tab of one base: for each kind of water device, how many there are, the water stored and the capacity.
+// BaseWater is the Water tab of one base: for each kind of water building, how many there are, the water stored and the capacity.
 func (o *Ops) BaseWater(baseID int64) (any, error) {
 	rows, err := o.S.Query(`select lower(p.building_type) kind, cast(json_extract(fe.components,'$.FWaterStorageComponent[1].m_WaterStored') as integer) stored
 		from placeables p
