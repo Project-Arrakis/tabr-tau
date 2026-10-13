@@ -145,7 +145,7 @@ th.sd::after{content:" \25BC";font-size:9px}
 .lc-work{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}.lc-gridcard{flex:1 1 420px;min-width:300px}.lc-side{flex:0 0 260px}
 .lc-north{display:inline-block;margin:4px 0;padding:2px 8px;border:1px solid var(--line);border-radius:10px;font-size:12px;color:var(--mut)}
 .lc-svg{width:100%;max-width:560px;height:auto;background:var(--panel2);border:1px solid var(--line);border-radius:6px}
-.lc-cell{stroke-width:.04;stroke:var(--line)}.lc-cell[data-cell]{cursor:pointer}
+.lc-cell{stroke-width:.04;stroke:var(--line)}.lc-cell[data-cell]{cursor:pointer;pointer-events:all}
 .lc-o{fill:var(--acc2);background:var(--acc2)}.lc-x{fill:var(--panel);background:var(--panel)}.lc-s{fill:var(--ok);background:var(--ok)}.lc-a{fill:none;stroke:var(--mut);stroke-dasharray:.12 .12;background:transparent}
 .lc-label{font-size:.5px;text-anchor:middle;fill:var(--fg);pointer-events:none}
 .lc-key{display:inline-block;width:12px;height:12px;border:1px solid var(--line);vertical-align:middle;margin:0 3px 0 10px}
