@@ -989,6 +989,15 @@ test('Teleport: Find lists places as text, choosing one fills X Y Z, Facing is s
   ui.dom.window.close();
 });
 
+test('Land Claim Editor: the clickable cells take clicks anywhere inside them, also the unfilled dotted ones', () => {
+  // jsdom has no hit-testing: an unfilled SVG shape only receives clicks on its outline unless pointer-events is all, which is what made the
+  // dotted cells look dead (#145). Pin the rule that makes them clickable.
+  const rule = /\.lc-cell\[data-cell\]\{([^}]*)\}/.exec(read('app.css'));
+  assert.ok(rule, 'the clickable cell rule exists');
+  assert.ok(/pointer-events:\s*all/.test(rule[1]), 'cells must have pointer-events:all, got: ' + rule[1]);
+  assert.ok(/\.lc-a\{[^}]*fill:none/.test(read('app.css')), 'the available cells are unfilled, which is why the rule above is needed');
+});
+
 test('Tables sort by any clicked header: text, numbers as numbers, descending on the second click, original order on the third, kept after a redraw', async () => {
   const row = (o) => ({ id: 'X', name: 'X', learned: false, inInventory: false, inCatalog: true, ...o });
   const sets = { rows: [row({ id: 'b', name: 'Beta' }), row({ id: 'a', name: 'alpha' }), row({ id: 'c', name: 'Charlie', learned: true })], newPieces: [] };
