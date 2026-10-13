@@ -365,13 +365,13 @@ func TestSettingsEndpointsAndOpenTimeRefill(t *testing.T) {
 		t.Fatalf("the refill must be written, not left pending: %d pending", len(s.Save.Pending()))
 	}
 	w := call("GET", "/api/startup", "")
-	if !strings.Contains(w.Body.String(), "saved 1 water devices") {
+	if !strings.Contains(w.Body.String(), "saved 1 Water Cistern") {
 		t.Fatalf("%s", w.Body.String())
 	}
 	if w := call("GET", "/api/startup", ""); !strings.Contains(w.Body.String(), `"note":""`) {
 		t.Fatalf("the note must be shown only once: %s", w.Body.String())
 	}
-	if w := call("GET", "/api/settings", ""); !strings.Contains(w.Body.String(), "Automatic refill saved 1 water devices") || !strings.Contains(w.Body.String(), "backed up as") {
+	if w := call("GET", "/api/settings", ""); !strings.Contains(w.Body.String(), "Automatic refill saved 1 Water Cistern") || !strings.Contains(w.Body.String(), "backed up as") {
 		t.Fatalf("the last automatic save must stay visible with its backup name: %s", w.Body.String())
 	}
 	if backups, _ := filepath.Glob(filepath.Join(filepath.Dir(s.Save.Path), "tabr-tau-backups", "*.db")); len(backups) != 1 {
@@ -409,7 +409,7 @@ func TestOpenTimeRefillThatCannotSaveLeavesTheEditsPending(t *testing.T) {
 	f.Close()
 	s.RunStartupTasks()
 	note, warn := s.takeStartup()
-	if !strings.Contains(note, "could not save them") || !strings.Contains(note, "waiting under Review & save") || !warn || len(s.Save.Pending()) != 1 {
+	if !strings.Contains(note, "could not save it") || !strings.Contains(note, "waiting under Review & save") || !warn || len(s.Save.Pending()) != 1 {
 		t.Fatalf("note %q, warn %v, pending %d", note, warn, len(s.Save.Pending()))
 	}
 }

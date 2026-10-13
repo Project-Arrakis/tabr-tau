@@ -520,7 +520,7 @@ func (s *Server) routes() {
 }
 
 // RunStartupTasks does what the editor's settings ask for when it opens. Today that is the optional refill of base
-// water and generators. This is a deliberate exception to "Save only from the review pane" (operator decision,
+// water storage and power buildings. This is a deliberate exception to "Save only from the review pane" (operator decision,
 // 2026-10-08), for this opt-in setting only: the refill is applied and written straight away so it takes effect the
 // next time the game loads, without a manual review, save, exit and reload. The write still goes through the whole
 // pipeline (single-player check, changed-on-disk check, integrity check, backup first, read-back verification), and
@@ -555,19 +555,26 @@ func (s *Server) RunStartupTasks() {
 	}
 	nw, ng := w.(map[string]any)["filled"].(int), g.(map[string]any)["filled"].(int)
 	if nw+ng == 0 {
-		set("Automatic refill: base water and generators were already full.", false)
+		set("Automatic refill: water storage, generators, wind turbines and windtraps were already full.", false)
 		return
 	}
+	var what []string
+	for _, part := range []string{w.(map[string]any)["summary"].(string), g.(map[string]any)["summary"].(string)} {
+		if part != "" {
+			what = append(what, part)
+		}
+	}
+	filledText := strings.Join(what, "; ")
 	res, err := s.Save.Commit(false)
 	if err != nil {
-		set(fmt.Sprintf("Automatic refill prepared %d water devices and %d generators but could not save them: %v. They are waiting under Review & save.", nw, ng, err), true)
+		set(fmt.Sprintf("Automatic refill prepared %s but could not save it: %v. It is waiting under Review & save.", filledText, err), true)
 		return
 	}
 	backup := ""
 	if b, ok := res["backup"].(string); ok {
 		backup = filepath.Base(b)
 	}
-	msg := fmt.Sprintf("Automatic refill saved %d water devices and %d generators to the game (the previous file is backed up as %s).", nw, ng, backup)
+	msg := fmt.Sprintf("Automatic refill saved %s to the game (the previous file is backed up as %s).", filledText, backup)
 	warn := false
 	if w, ok := res["warning"].(string); ok && w != "" { // written, but the editor could not reload the file
 		msg += " Warning: " + w

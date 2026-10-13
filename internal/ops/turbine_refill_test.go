@@ -97,3 +97,25 @@ func TestRefillWaterSkipsPlaceholders(t *testing.T) {
 		t.Fatal("a placeholder cistern must not be filled")
 	}
 }
+
+// The summary and the pending-edit description name what was filled by its in-game name.
+func TestRefillSaysWhatItFilledByInGameName(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, turbineWorld)}
+	r, err := o.RefillGenerators()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "2 Omnidirectional Wind Turbines, 2 Windtraps, 1 Directional Wind Turbine, 1 Large Windtrap"
+	if got := r.(map[string]any)["summary"]; got != want {
+		t.Fatalf("summary %q, want %q", got, want)
+	}
+	if p := o.S.Pending(); len(p) != 1 || p[0] != "refill power: "+want {
+		t.Fatalf("pending edit %v", p)
+	}
+	if got := countSummary(map[string]int{"Medium Water Cistern": 2, "Blood Purifier": 1}); got != "2 Medium Water Cisterns, 1 Blood Purifier" {
+		t.Fatalf("water summary %q", got)
+	}
+	if powerName("generator_placeable") != "Fuel-Powered Generator" || waterName("bloodwaterextractionadvanced_placeable") != "Improved Blood Purifier" {
+		t.Fatal("building names must be the in-game names")
+	}
+}
