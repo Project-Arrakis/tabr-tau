@@ -31,7 +31,7 @@ func (o *Ops) RefillBaseWater() (any, error) {
 		from placeables p
 		join actor_fgl_entities afe on afe.actor_id=p.id
 		join fgl_entities fe on fe.entity_id=afe.entity_id
-		where json_valid(fe.components,8) and json_type(fe.components,'$.FWaterStorageComponent') is not null order by p.id`)
+		where p.is_hologram=0 and json_valid(fe.components,8) and json_type(fe.components,'$.FWaterStorageComponent') is not null order by p.id`)
 	if err != nil {
 		return nil, err
 	}
@@ -72,71 +72,143 @@ func (o *Ops) RefillBaseWater() (any, error) {
 	return map[string]any{"ok": true, "filled": len(todo), "alreadyFull": full, "skippedUnknown": sortedCounts(unknown)}, nil
 }
 
-// generatorFuel is the fuel a generator burns and how much a full tank is (one stack; the stack limit is from
-// the game's item data and 500 x 0.2 volume fills the generator's 100 volume exactly).
-// Wind turbines take lubricant in up to five stacks and are not handled until verified in game.
-var generatorFuel = map[string]struct {
-	template string
-	full     int64
-}{
-	"generator_placeable":      {"Oil", 500},
-	"spicegenerator_placeable": {"SpicedFuelCell", 500},
+// fuelSpec is what a power device burns and how full it can be, taken from the Dune Docker console (console/api/src/duneDb.js
+// GENERATOR_TYPES and refillBaseGenerators, MIT, RedBlink): topUp are the fuels a refill writes (the first stocked one, else def),
+// count are the fuels that count toward the total (a windtrap's four filter tiers all take up its volume), stack is the most the game
+// keeps in one row, maxStacks the most rows, and total what the device is filled to. A fuel or spice generator is one stack of 499;
+// an omnidirectional wind turbine takes Low-grade lubricant and a directional one Industrial-grade, five stacks of 100 filled to 499;
+// a windtrap takes one stack of 5 filters. Unlike the console, which keeps whichever filter tier a windtrap holds, a windtrap here is
+// always filled with the best filter for its kind (upgrade): the Standard Filter in a Windtrap, the Advanced Particulate Filter in a
+// Large Windtrap, and a lower-grade filter already inside is changed to it.
+type fuelSpec struct {
+	topUp, count []string
+	def          string
+	stack        int64
+	maxStacks    int
+	total        int64
+	upgrade      bool
 }
 
-// RefillGenerators tops the fuel of every fuel and spice generator up to a full stack, adding the stack when the
-// generator is empty.
+var windtrapFilters = []string{"WindTrapFilter1", "WindTrapFilter2", "WindTrapFilter3", "WindTrapFilter4"}
+
+var generatorFuel = map[string]fuelSpec{
+	"generator_placeable":                  {[]string{"Oil"}, []string{"Oil"}, "Oil", 499, 1, 499, false},
+	"spicegenerator_placeable":             {[]string{"SpicedFuelCell"}, []string{"SpicedFuelCell"}, "SpicedFuelCell", 499, 1, 499, false},
+	"windturbineomnidirectional_placeable": {[]string{"WindTurbineLubricant1"}, []string{"WindTurbineLubricant1"}, "WindTurbineLubricant1", 100, 5, 499, false},
+	"windturbinedirectional_placeable":     {[]string{"WindTurbineLubricant2"}, []string{"WindTurbineLubricant2"}, "WindTurbineLubricant2", 100, 5, 499, false},
+	"windtrap_placeable":                   {[]string{"WindTrapFilter1", "WindTrapFilter2"}, windtrapFilters, "WindTrapFilter2", 5, 1, 5, true},
+	"largewindtrap_placeable":              {[]string{"WindTrapFilter3", "WindTrapFilter4"}, windtrapFilters, "WindTrapFilter4", 5, 1, 5, true},
+}
+
+// RefillGenerators tops every built power device (generators, wind turbines, windtraps; placeholders that are not built yet are left
+// alone) up to full, the way the console's refill does: partial stacks are filled before new rows are added, so a device never ends
+// up with more rows than the game would have made itself. Nothing is removed.
 func (o *Ops) RefillGenerators() (any, error) {
-	rows, err := o.S.Query(`select p.id actor, lower(p.building_type) kind, v.id inv
-		from placeables p join inventories v on v.actor_id=p.id and v.inventory_type=3 order by p.id`)
+	rows, err := o.S.Query(`select p.id actor, lower(p.building_type) kind,
+		(select v.id from inventories v where v.actor_id=p.id order by v.id limit 1) inv
+		from placeables p where p.is_hologram=0 order by p.id`)
 	if err != nil {
 		return nil, err
 	}
+	type stackRow struct{ id, size int64 }
 	type job struct {
-		actor, inv any
+		actor, inv int64
 		fuel       string
-		full       int64
-		stack      any // existing stack to top up; nil when the generator has none
+		spec       fuelSpec
+		have       []stackRow // stacks of the chosen fuel, in slot order
+		held       int64      // everything that counts toward the total
+		retemplate int64      // a lower-grade filter row to change to the best one (0: none)
 	}
 	var jobs []job
 	full := 0
 	for _, r := range rows {
 		spec, known := generatorFuel[fmt.Sprint(r["kind"])]
-		if !known {
+		if !known || r["inv"] == nil {
 			continue
 		}
-		cur, err := o.S.Query(`select id, stack_size from items where inventory_id=? and template_id=? order by stack_size desc limit 1`, r["inv"], spec.template)
+		actor, _ := toInt(r["actor"])
+		inv, _ := toInt(r["inv"])
+		stocked, err := o.S.Query(`select id, stack_size, template_id from items where inventory_id=? order by position_index, id`, inv)
 		if err != nil {
 			return nil, err
 		}
-		switch {
-		case len(cur) == 0:
-			jobs = append(jobs, job{r["actor"], r["inv"], spec.template, spec.full, nil})
-		case cur[0]["stack_size"].(int64) >= spec.full:
-			full++
-		default:
-			jobs = append(jobs, job{r["actor"], r["inv"], spec.template, spec.full, cur[0]["id"]})
+		fuel := spec.def
+		if !spec.upgrade { // the first stocked fuel the device accepts is the one that is topped up
+			for _, s := range stocked {
+				if t := fmt.Sprint(s["template_id"]); containsFold(spec.topUp, t) {
+					fuel = t
+					break
+				}
+			}
 		}
+		j := job{actor: actor, inv: inv, fuel: fuel, spec: spec}
+		var lower []stackRow
+		for _, s := range stocked {
+			t := fmt.Sprint(s["template_id"])
+			id, _ := toInt(s["id"])
+			sz, _ := toInt(s["stack_size"])
+			switch {
+			case strings.EqualFold(t, fuel):
+				j.have = append(j.have, stackRow{id, sz})
+				j.held += sz
+			case spec.upgrade && containsFold(spec.topUp, t): // a lower grade of the same kind of filter
+				lower = append(lower, stackRow{id, sz})
+			case containsFold(spec.count, t): // takes up room but is never topped up
+				j.held += sz
+			}
+		}
+		if len(j.have) == 0 && len(lower) > 0 { // change the lower-grade filter to the best one instead of adding a second row
+			j.retemplate = lower[0].id
+			j.have = []stackRow{lower[0]}
+			j.held += lower[0].size
+		}
+		if j.held >= spec.total && j.retemplate == 0 {
+			full++
+			continue
+		}
+		jobs = append(jobs, j)
 	}
 	filled := 0
 	var skipped []string
 	if len(jobs) > 0 { // nothing to fill must not leave an empty pending edit behind
 		_, err = o.S.Mutate("refill generators", func(m *save.Mut) error {
 			for _, j := range jobs {
-				if j.stack != nil {
-					if _, err := m.Exec(`update items set stack_size=? where id=?`, j.full, j.stack); err != nil {
+				if j.retemplate != 0 {
+					if _, err := m.Exec(`update items set template_id=? where id=?`, j.fuel, j.retemplate); err != nil {
 						return err
 					}
-					filled++
-					continue
 				}
-				if _, err := giveInTx(m, j.inv.(int64), j.fuel, j.full, 0); err != nil {
-					if err.Error() == "inventory is full" { // other items fill its slots: leave this one, keep going
-						skipped = append(skipped, fmt.Sprintf("generator %v (no free slot)", j.actor))
+				need := j.spec.total - j.held
+				start := need
+				for _, s := range j.have { // top up what is there
+					if need <= 0 {
+						break
+					}
+					add := min(need, max(j.spec.stack-s.size, 0))
+					if add == 0 {
 						continue
 					}
-					return fmt.Errorf("generator %v: %w", j.actor, err)
+					if _, err := m.Exec(`update items set stack_size=? where id=?`, s.size+add, s.id); err != nil {
+						return err
+					}
+					need -= add
 				}
-				filled++
+				rowsNow := len(j.have)
+				for need > 0 && rowsNow < j.spec.maxStacks { // then add stacks
+					qty := min(need, j.spec.stack)
+					if _, err := giveInTx(m, j.inv, j.fuel, qty, 0); err != nil {
+						if err.Error() == "inventory is full" { // other items fill its slots: leave the rest, keep going
+							skipped = append(skipped, fmt.Sprintf("device %v (no free slot)", j.actor))
+							break
+						}
+						return fmt.Errorf("device %v: %w", j.actor, err)
+					}
+					need -= qty
+					rowsNow++
+				}
+				if need < start || j.retemplate != 0 { // a device that got nothing (no free slot) is not counted
+					filled++
+				}
 			}
 			m.Desc = fmt.Sprintf("refill generators: %d filled", filled)
 			return nil
@@ -146,6 +218,15 @@ func (o *Ops) RefillGenerators() (any, error) {
 		}
 	}
 	return map[string]any{"ok": true, "filled": filled, "alreadyFull": full, "skipped": skipped}, nil
+}
+
+func containsFold(list []string, s string) bool {
+	for _, x := range list {
+		if strings.EqualFold(x, s) {
+			return true
+		}
+	}
+	return false
 }
 
 // RepairVehicles restores every vehicle module to the in-game repair level: CurrentDurability is raised to the

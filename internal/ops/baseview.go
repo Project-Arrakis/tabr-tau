@@ -9,17 +9,18 @@ import (
 const ownedByBase = `owner_entity_id in (select entity_id from actor_fgl_entities where actor_id=?)`
 
 // powerKinds are the base devices on the Power tab. Fuel is what a generator burns (Oil and spiced fuel cells; a full tank is one
-// stack of 500, see generatorFuel); a windtrap takes filters, which the save does not name, so any item in it counts; a wind
-// turbine takes lubricant, shown but not refilled because its refill is not verified in game.
+// stack of 499, see generatorFuel); a windtrap takes filters (a full one is 5); a wind turbine takes lubricant (Low-grade in an
+// omnidirectional one, Industrial-grade in a directional one: five stacks of 100, full at 499). The numbers are the console's.
 var powerKinds = []struct {
 	Kind, Name, Fuel string
 	Full             int64
 }{
-	{"generator_placeable", "Generator", "Oil", 500},
-	{"spicegenerator_placeable", "Spice Generator", "SpicedFuelCell", 500},
-	{"windtrap_placeable", "Windtrap", "", 0},
-	{"largewindtrap_placeable", "Large Windtrap", "", 0},
-	{"windturbineomnidirectional_placeable", "Wind Turbine", "WindTurbineLubricant1", 0},
+	{"generator_placeable", "Generator", "Oil", 499},
+	{"spicegenerator_placeable", "Spice Generator", "SpicedFuelCell", 499},
+	{"windtrap_placeable", "Windtrap", "", 5},
+	{"largewindtrap_placeable", "Large Windtrap", "", 5},
+	{"windturbineomnidirectional_placeable", "Omnidirectional Wind Turbine", "WindTurbineLubricant1", 499},
+	{"windturbinedirectional_placeable", "Directional Wind Turbine", "WindTurbineLubricant2", 499},
 }
 
 // waterNames are the names of the devices that hold water (the keys are waterDeviceCapacity's).

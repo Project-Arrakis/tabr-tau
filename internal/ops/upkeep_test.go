@@ -70,11 +70,11 @@ func TestRefillGenerators(t *testing.T) {
 	if res["filled"].(int) != 2 || res["alreadyFull"].(int) != 1 {
 		t.Fatalf("counts wrong: %v", res)
 	}
-	if mustOne(t, o, `select stack_size s from items where id=401`)["s"].(int64) != 500 {
-		t.Fatal("low generator not topped up to 500")
+	if mustOne(t, o, `select stack_size s from items where id=401`)["s"].(int64) != 499 {
+		t.Fatal("low generator not topped up to 499 (the console's full)")
 	}
 	empty := mustOne(t, o, `select template_id t, stack_size s, position_index p from items where inventory_id=303`)
-	if empty["t"] != "Oil" || empty["s"].(int64) != 500 || empty["p"].(int64) != 0 {
+	if empty["t"] != "Oil" || empty["s"].(int64) != 499 || empty["p"].(int64) != 0 {
 		t.Fatalf("empty generator not given a full stack: %v", empty)
 	}
 	if n := mustOne(t, o, `select count(*) n from items where inventory_id in (301,302,303)`)["n"].(int64); n != 3 {
