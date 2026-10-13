@@ -67,15 +67,15 @@ func TestBasePowerGroupsDevicesAndCountsWhatTheyHold(t *testing.T) {
 		by[ty["kind"].(string)] = ty
 	}
 	g := by["generator_placeable"]
-	// two generators (the hologram and the other base's do not count), one holds 200 oil, one is empty; full is 500 each
-	if g["devices"].(int64) != 2 || g["queued"].(int64) != 200 || g["empty"].(int64) != 1 || g["capacity"].(int64) != 1000 || g["fuel"] != "Oil" || g["refillable"] != true {
+	// two generators (the hologram and the other base's do not count), one holds 200 oil, one is empty; full is 499 each
+	if g["devices"].(int64) != 2 || g["queued"].(int64) != 200 || g["empty"].(int64) != 1 || g["capacity"].(int64) != 998 || g["fuel"] != "Oil" || g["refillable"] != true {
 		t.Fatalf("generators: %v", g)
 	}
 	if w := by["windtrap_placeable"]; w["devices"].(int64) != 1 || w["empty"].(int64) != 1 {
 		t.Fatalf("windtrap: %v", w)
 	}
-	if tb := by["windturbineomnidirectional_placeable"]; tb["queued"].(int64) != 50 || tb["refillable"] != false {
-		t.Fatalf("wind turbine is shown but not refillable: %v", tb)
+	if tb := by["windturbineomnidirectional_placeable"]; tb["queued"].(int64) != 50 || tb["refillable"] != true || tb["capacity"].(int64) != 499 {
+		t.Fatalf("wind turbine holds 50 of 499 and is refillable: %v", tb)
 	}
 	if _, has := by["spicegenerator_placeable"]; has {
 		t.Fatal("a kind the base does not have is not listed")

@@ -621,7 +621,7 @@ async function basesView() {
       const prefs = await api('/api/settings');
       h.push(html`<div class="card"><h3>Power</h3>${pw.types.length ? tbl([{ k: 'name', label: 'Type' }, { k: 'devices', label: 'Devices' },
         { k: 'queued', label: 'Holds', f: (r) => Number(r.queued).toLocaleString() + (r.fuel ? ' ' + itemName(r.fuel) : '') }, { k: 'capacity', label: 'Full', f: (r) => (r.capacity ? Number(r.capacity).toLocaleString() : '-') }, { k: 'empty', label: 'Empty' }], pw.types) : html`<p class="mut">No generators or windtraps built at this base.</p>`}
-        <div class="row"><button class="b" data-act="refillGen">Refill generators</button><span class="mut">Tops fuel and spice generators up to a full stack. Wind turbines (lubricant) and windtrap filters are shown but not refilled.</span></div></div>
+        <div class="row"><button class="b" data-act="refillGen">Refill generators</button><span class="mut">Tops up fuel and spice generators (499), wind turbines (five stacks of lubricant, 499 in all: Low-grade in an omnidirectional one, Industrial-grade in a directional one) and windtraps (5 filters, always the best filter for the machine). Placeholders that are not built yet are left alone. The numbers are the console's.</span></div></div>
     ${autoRefillCard(prefs)}`);
     } else if (bsTab == 'water') {
       const w = await api('/api/bases/water?base=' + id);
