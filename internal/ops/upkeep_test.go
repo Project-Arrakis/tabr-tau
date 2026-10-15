@@ -235,9 +235,13 @@ insert into vehicle_modules(id,vehicle_id,template_id,stats) values
 	cur := func(id int) float64 {
 		return mustOne(t, o, `select json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability') c from vehicle_modules where id=?`, id)["c"].(float64)
 	}
-	// full chassis untouched; generator and engine to the template's 1000; the module with a recorded maximum goes to that, not the template's
-	if cur(1) != 2000 || cur(2) != 1000 || cur(3) != 1000 || cur(4) != 900 || cur(5) != 50 || cur(6) != 1000 || cur(7) != 1500 || cur(8) != 3500 || cur(9) != 4500 || cur(10) != 2500 || cur(11) != 100 || cur(12) != 100 {
+	// full chassis untouched; generator and engine to the template's 1000; the module whose maximum a workbench repair wore down to 900 is
+	// restored to 1000 and so is its recorded maximum
+	if cur(1) != 2000 || cur(2) != 1000 || cur(3) != 1000 || cur(4) != 1000 || cur(5) != 50 || cur(6) != 1000 || cur(7) != 1500 || cur(8) != 3500 || cur(9) != 4500 || cur(10) != 2500 || cur(11) != 100 || cur(12) != 100 {
 		t.Fatalf("durability wrong: %v %v %v %v %v %v %v %v %v %v %v %v", cur(1), cur(2), cur(3), cur(4), cur(5), cur(6), cur(7), cur(8), cur(9), cur(10), cur(11), cur(12))
+	}
+	if d := mustOne(t, o, `select json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') d from vehicle_modules where id=4`)["d"]; d != 1000.0 {
+		t.Fatalf("the worn-down maximum is reset to the template's full value: %v", d)
 	}
 	// the repair adds no recorded maximum of its own, and keeps the other keys
 	row := mustOne(t, o, `select json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') d, json_extract(stats,'$.FVehicleModuleDurabilityStats[1].LastDeteriorationCause') c from vehicle_modules where id=2`)
