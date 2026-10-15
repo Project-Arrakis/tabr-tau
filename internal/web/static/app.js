@@ -669,13 +669,13 @@ async function basesView() {
       const prefs = await api('/api/settings');
       h.push(html`<div class="card"><h3>Power</h3>${pw.types.length ? tbl([{ k: 'name', label: 'Building' }, { k: 'devices', label: 'Built' },
         { k: 'queued', label: 'Holds', f: (r) => Number(r.queued).toLocaleString() + (r.fuel ? ' ' + itemName(r.fuel) : '') }, { k: 'capacity', label: 'Full', f: (r) => (r.capacity ? Number(r.capacity).toLocaleString() : '-') }, { k: 'empty', label: 'Empty' }], pw.types) : html`<p class="mut">No generators, wind turbines or windtraps built at this base.</p>`}
-        <div class="row"><button class="b" data-act="refillGen">Refill power</button><span class="mut">Tops up Fuel-Powered and Spice-Powered Generators (499), Omnidirectional Wind Turbines (Low-grade Lubricant) and Directional Wind Turbines (Industrial-grade Lubricant), five stacks of 100 and 499 in all, and Windtraps and Large Windtraps (5 filters, always the best filter for the machine). Buildings that are only placeholders are left alone. The numbers are the console's.</span></div></div>
+        <div class="row"><button class="b" data-act="refillGen">Refill power (every base)</button><span class="mut">Tops up Fuel-Powered and Spice-Powered Generators (499), Omnidirectional Wind Turbines (Low-grade Lubricant) and Directional Wind Turbines (Industrial-grade Lubricant), five stacks of 100 and 499 in all, and Windtraps and Large Windtraps (5 filters, always the best filter for the machine). Buildings that are only placeholders are left alone. The numbers are the console's.</span></div></div>
     ${autoRefillCard(prefs)}`);
     } else if (bsTab == 'water') {
       const w = await api('/api/bases/water?base=' + id);
       h.push(html`<div class="card"><h3>Water</h3>${w.types.length ? tbl([{ k: 'name', label: 'Building' }, { k: 'devices', label: 'Built' }, { k: 'stored', label: 'Water stored', f: (r) => Number(r.stored).toLocaleString() },
         { k: 'capacity', label: 'Capacity', f: (r) => (r.capacity ? Number(r.capacity).toLocaleString() : '-') }, { k: 'fillPercent', label: 'Fill', f: (r) => (r.fillPercent == null ? '-' : Math.round(r.fillPercent) + '%') }], w.types) : html`<p class="mut">No water storage at this base.</p>`}
-        <div class="row"><button class="b" data-act="refillWater">Refill base water</button><span class="mut">Fills every Water Cistern, Medium Water Cistern, Large Water Cistern, Windtrap, Large Windtrap and Blood Purifier to its capacity. The blood in a Blood Purifier is not touched, and a building that is only a placeholder is left alone.</span></div></div>
+        <div class="row"><button class="b" data-act="refillWater">Refill base water (every base)</button><span class="mut">Fills every Water Cistern, Medium Water Cistern, Large Water Cistern, Windtrap, Large Windtrap and Blood Purifier to its capacity. The blood in a Blood Purifier is not touched, and a building that is only a placeholder is left alone.</span></div></div>
     ${autoRefillCard(await api('/api/settings'))}`);
     } else if (bsTab == 'inventory') {
       const inv = await api('/api/bases/inventory?base=' + id);
@@ -1071,7 +1071,7 @@ document.addEventListener('change', (e) => {
   else if (t.id == 'dbsel') { dbTable = t.value; dbOff = 0; dbQ = ''; render(); }
 });
 status().then(render).then(async () => {
-  try { const r = await api('/api/startup'); if (r.note) toast(r.note, !!r.warn); } catch (e) { /* the note is optional */ }
+  try { const r = await api('/api/startup'); if (r.note) toast(r.note, !!r.warn, 15000); } catch (e) { /* the note is optional */ }
 });
 // Keeps the game-running warning current. A failed poll is shown, not hidden: Save stays off until contact returns.
 setInterval(async () => {
