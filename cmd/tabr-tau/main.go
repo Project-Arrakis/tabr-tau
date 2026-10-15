@@ -245,7 +245,7 @@ func openBrowser(url string) {
 // browserCommand hands the link to the default browser through rundll32, started by its full path in the Windows system folder and not
 // found through PATH (SEC-8 of the 2026-10-15 audit).
 func browserCommand(url string) *exec.Cmd {
-	return exec.Command(winpath.System32("rundll32.exe"), "url.dll,FileProtocolHandler", url)
+	return exec.Command(winpath.System32("rundll32.exe"), "url.dll,FileProtocolHandler", url) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command (the program is a fixed name under the Windows system folder; the arguments are fixed or the editor's own loopback link)
 }
 
 func runDiff(args []string) error {

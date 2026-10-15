@@ -97,7 +97,7 @@ var (
 // search could otherwise answer "no game is running" and let a write through (SEC-8 of the 2026-10-15 audit). If the real one is missing the
 // start fails, and a check that cannot run blocks the write.
 func tasklistCommand(ctx context.Context) *exec.Cmd {
-	return exec.CommandContext(ctx, winpath.System32("tasklist.exe"), "/FI", "IMAGENAME eq "+gamePrefix+"*", "/NH", "/FO", "CSV")
+	return exec.CommandContext(ctx, winpath.System32("tasklist.exe"), "/FI", "IMAGENAME eq "+gamePrefix+"*", "/NH", "/FO", "CSV") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command (the program is a fixed name under the Windows system folder; the arguments are fixed or the editor's own loopback link)
 }
 
 // gameProcesses asks tasklist. The check cannot hang: a stuck tasklist is abandoned after three seconds.
