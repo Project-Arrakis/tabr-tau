@@ -132,3 +132,43 @@ func TestRepairOneVehicleOnlyRepairsThatOwnedVehicle(t *testing.T) {
 		t.Fatalf("only vehicle 201's module is raised: %v %v %v %v", cur(1), cur(2), cur(3), cur(4))
 	}
 }
+
+// Two vehicles of the player's own, each with a worn module: repairing one must leave the other alone. (With only one owned vehicle the
+// ownership clause hides a missing vehicle scope: QA-2 of the 2026-10-15 audit.)
+const twoOwnedVehicles = `
+insert into actors(id,class,map) values (211,'/Game/BP_Sandbike_CHOAM.BP_Sandbike_CHOAM_C','HaggaBasin'),(212,'/Game/BP_Buggy_CHOAM.BP_Buggy_CHOAM_C','HaggaBasin');
+insert into vehicles(id) values (211),(212);
+insert into permission_actor(actor_id,actor_name,actor_type,access_level,is_child) values (211,'a',2,3,0),(212,'b',2,3,0);
+insert into permission_actor_rank(permission_actor_id,player_id,rank) values (211,1,1),(212,1,1);
+insert into vehicle_modules(id,vehicle_id,template_id,stats) values
+  (11,211,'Hull_0',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":100.0,"DecayedMaxDurability":250.0}]}')),
+  (12,212,'Hull_0',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":100.0,"DecayedMaxDurability":250.0}]}')),
+  (13,212,'Gen_0',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":240.0,"DecayedMaxDurability":250.0}]}'));`
+
+func durabilityOf(t *testing.T, o *Ops, id int) float64 {
+	t.Helper()
+	return mustOne(t, o, `select json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability') c from vehicle_modules where id=?`, id)["c"].(float64)
+}
+
+func TestRepairOneVehicleLeavesTheOtherOwnedVehicleAlone(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, twoOwnedVehicles)}
+	r, err := o.RepairVehiclesWhere(100, 211)
+	if err != nil || r.(map[string]any)["repaired"].(int64) != 1 {
+		t.Fatalf("%v %v", r, err)
+	}
+	if durabilityOf(t, o, 11) != 250 || durabilityOf(t, o, 12) != 100 || durabilityOf(t, o, 13) != 240 {
+		t.Fatalf("only vehicle 211 may change: %v %v %v", durabilityOf(t, o, 11), durabilityOf(t, o, 12), durabilityOf(t, o, 13))
+	}
+	// no vehicle given: every owned vehicle
+	o2 := &Ops{S: testsave.PlayerWithSQL(t, twoOwnedVehicles)}
+	r, _ = o2.RepairVehiclesWhere(100, 0)
+	if r.(map[string]any)["repaired"].(int64) != 3 || durabilityOf(t, o2, 12) != 250 || durabilityOf(t, o2, 13) != 250 {
+		t.Fatalf("0 means all of the player's vehicles: %v", r)
+	}
+	// the threshold: 240/250 is 96 %, above 50 %
+	o3 := &Ops{S: testsave.PlayerWithSQL(t, twoOwnedVehicles)}
+	r, _ = o3.RepairVehiclesWhere(50, 0)
+	if r.(map[string]any)["repaired"].(int64) != 2 || durabilityOf(t, o3, 13) != 240 {
+		t.Fatalf("only modules below 50 %% are repaired: %v", r)
+	}
+}
