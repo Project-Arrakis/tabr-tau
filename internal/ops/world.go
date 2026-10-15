@@ -39,18 +39,23 @@ func (o *Ops) StorageItems(inv int64) (any, error) {
 }
 
 // RepairBuildings sets every building piece to the highest health seen for its type.
+//
+// The best health of each type is worked out once, by one grouped scan, and the pieces are joined to it. The statement used to look the
+// maximum up again for every piece with a correlated subquery over the whole table (and again in its own WHERE), so it grew with the square
+// of the piece count: 4.0 s at 5,000 pieces and 66 s at 20,000, with the save locked for all of it (audit L2 G13).
 func (o *Ops) RepairBuildings() (any, error) {
 	var n, mm int64
 	_, err := o.S.Mutate("", func(m *save.Mut) error {
-		res, err := m.Exec(`update building_instances set health=(select max(b.health) from building_instances b
-			where b.building_type=building_instances.building_type) where health < (select max(b.health) from building_instances b
-			where b.building_type=building_instances.building_type)`)
+		res, err := m.Exec(`update building_instances set health=best.top
+			from (select building_type bt, max(health) top from building_instances where building_type is not null group by building_type) best
+			where building_instances.building_type=best.bt and building_instances.health < best.top`)
 		if err != nil {
 			return err
 		}
 		n, _ = res.RowsAffected()
-		res2, err := m.Exec(`update placeables set health=(select max(b.health) from placeables b where b.building_type=placeables.building_type)
-			where health < (select max(b.health) from placeables b where b.building_type=placeables.building_type)`)
+		res2, err := m.Exec(`update placeables set health=best.top
+			from (select building_type bt, max(health) top from placeables where building_type is not null group by building_type) best
+			where placeables.building_type=best.bt and placeables.health < best.top`)
 		if err != nil {
 			return err
 		}
