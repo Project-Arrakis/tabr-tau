@@ -723,11 +723,98 @@ test('Admin: Faction Assignment posts the chosen faction, Repair Below posts its
   ui.click('[data-act="faction"]'); await ui.settle();
   assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/faction').map((p) => p.body), [{ faction_id: 1 }]);
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Faction set to Atreides'));
-  assert.equal(ui.doc.querySelector('#rvPct').value, '50', 'the console defaults to 50 %');
+  assert.equal(ui.doc.querySelector('#rvPct').value, '100', 'Admin repairs everything by default, like the Vehicles tab (UX-03)');
   ui.doc.querySelector('#rvPct').value = '75';
   ui.click('[data-act="repairV"]'); await ui.settle();
   assert.deepEqual(ui.posted.filter((p) => p.path === '/api/vehicles/repair').map((p) => p.body), [{ threshold: 75 }]);
   ui.dom.window.close();
+});
+
+test('a vehicle repair that repaired nothing says why: nothing below the threshold, or nothing to repair (UX-03)', async () => {
+  const ui = await boot({ post: { '/api/vehicles/repair': { ok: true, modules: 4, repaired: 0, withoutKnownMax: 0 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:admin"]'); await ui.settle();
+  ui.doc.querySelector('#rvPct').value = '75';
+  ui.click('[data-act="repairV"]'); await ui.settle();
+  let t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.includes('none of the 4 modules is below 75% of its full durability') && !t.includes('Repaired 0') && !t.includes('not saved yet'), t);
+  ui.doc.querySelector('#rvPct').value = '100';
+  ui.click('[data-act="repairV"]'); await ui.settle();
+  t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.includes('all 4 modules are already as good as new'), t);
+  ui.dom.window.close();
+  const none = await boot({ post: { '/api/vehicles/repair': { ok: true, modules: 0, repaired: 0, withoutKnownMax: 0 } } });
+  none.click('[data-tab="player"]'); await none.settle();
+  none.click('[data-sub="player:admin"]'); await none.settle();
+  none.click('[data-act="repairV"]'); await none.settle();
+  assert.ok(none.doc.querySelector('#toast').textContent.includes('no vehicle modules were found'), none.doc.querySelector('#toast').textContent);
+  none.dom.window.close();
+});
+
+test('config edits are written at once and never say "not saved yet"; Save raw text asks first (UX-05)', async () => {
+  const ov = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)); ov.dirty = true; ov.pending = ['edit something']; // the save has edits waiting
+  const ui = await boot({ get: { '/api/save/state': ov }, post: { '/api/config/set': { ok: true }, '/api/config/raw': { ok: true }, '/api/config/delete': { ok: true } } });
+  ui.click('[data-tab="config"]'); await ui.settle();
+  const box = ui.doc.querySelector('input.cfgv');
+  assert.ok(box, 'the config fixture has a value box');
+  box.value = 'changed';
+  box.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  let t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.includes('config file now') && !t.includes('not saved yet'), t);
+  ui.click('[data-act="cfgraw"]'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/config/raw').length, 0, 'nothing is sent before the question is answered');
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes('Everything in'), 'the question says the whole file is replaced');
+  ui.click('[data-act="askNo"]'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/config/raw').length, 0, 'Cancel sends nothing');
+  ui.click('[data-act="cfgraw"]'); await ui.settle(); ui.click('#aok'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/config/raw').length, 1);
+  t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.includes('File written now') && !t.includes('not saved yet'), t);
+  ui.dom.window.close();
+});
+
+test('a view that fails to load shows why and a Try again button, and a signed-out page gets the editor own sentence (UX-10)', async () => {
+  const saved = baseFixtures['/api/landsraad'];
+  baseFixtures['/api/landsraad'] = { status: 403, body: { error: 'This window is no longer signed in to the editor, usually because the editor was closed and started again.', code: 'not_signed_in' } };
+  let ui;
+  try {
+    ui = await boot();
+    ui.click('[data-tab="landsraad"]'); await ui.settle();
+    assert.ok(ui.doc.querySelector('#main').textContent.includes('no longer signed in to the editor'), ui.doc.querySelector('#main').textContent);
+    assert.ok(ui.doc.querySelector('[data-act="retry"]'), 'a failed view offers Try again');
+    baseFixtures['/api/landsraad'] = saved; // the problem is fixed
+    ui.click('[data-act="retry"]'); await ui.settle();
+    assert.ok(!ui.doc.querySelector('[data-act="retry"]') && ui.doc.querySelector('#main').textContent.includes('Task board'), 'Try again draws the view');
+  } finally {
+    baseFixtures['/api/landsraad'] = saved;
+    if (ui) ui.dom.window.close();
+  }
+});
+
+test('an inline edit the server refuses goes back to the value the box had; an accepted one becomes the new value to go back to (UX-14)', async () => {
+  const inv = baseFixtures['/api/player/inventory'].body;
+  const first = inv.items.find((r) => r.inventory_type == 0) || inv.items[0];
+  const ui = await boot({ post: { '/api/items/update': { __fail: 'stack out of range' } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="char:inventory"]'); await ui.settle();
+  const box = ui.doc.querySelector(`input[data-item="${first.id}"][data-field="stack_size"]`);
+  assert.ok(box, 'the stack box of the first item');
+  const was = box.value;
+  box.value = '999999999';
+  box.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('stack out of range'), 'the refusal is shown');
+  assert.equal(box.value, was, 'the refused value is not left in the box');
+  ui.dom.window.close();
+
+  const ok = await boot({ post: { '/api/items/update': { ok: true } } });
+  ok.click('[data-tab="player"]'); await ok.settle();
+  ok.click('[data-sub="char:inventory"]'); await ok.settle();
+  const b2 = ok.doc.querySelector(`input[data-item="${first.id}"][data-field="stack_size"]`);
+  b2.value = '77';
+  b2.dispatchEvent(new ok.w.Event('change', { bubbles: true })); await ok.settle();
+  assert.equal(b2.value, '77', 'an accepted value stays');
+  assert.equal(b2.defaultValue, '77', 'and is what a later refusal goes back to');
+  ok.dom.window.close();
 });
 
 test('Journey browser: groups, filter, indented names as text, and Complete / Reset post the right requests', async () => {
@@ -1234,6 +1321,23 @@ test('Shrink claim asks first, posts the chosen size, and is offered only when e
   ui.click('[data-act="askOk"]'); await ui.settle();
   assert.deepEqual(ui.posted.filter((p) => p.path === '/api/bases/claim/shrink')[0].body, { totem_id: 7, rings: 0 });
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Removed 8 cells'));
+  ui.dom.window.close();
+});
+
+test('the land claim questions say that Discard undoes the change, not that it cannot be undone (UX-12)', async () => {
+  const claims = [{ totem_id: 7, name: 'Totem', cells: 9, rings: 1, level: 0, irregular: false, maxRings: 5, maxLevel: 5, piecesInClaim: 0, piecesOutside: 0 }];
+  const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/claim': claims } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:bases"]'); await ui.settle();
+  ui.click('[data-bstab="claim"]'); await ui.settle();
+  ui.click('[data-act="claimShrink"]'); await ui.settle();
+  let q = ui.doc.querySelector('#ask').textContent;
+  assert.ok(q.includes('Discard undoes it until you save') && !q.includes('cannot be undone'), q);
+  ui.click('[data-act="askNo"]'); await ui.settle();
+  ui.doc.querySelector('#cr7').value = '2';
+  ui.click('[data-act="claimGrow"]'); await ui.settle();
+  q = ui.doc.querySelector('#ask').textContent;
+  assert.ok(q.includes('Discard undoes it until you save') && !q.includes('cannot be undone'), q);
   ui.dom.window.close();
 });
 

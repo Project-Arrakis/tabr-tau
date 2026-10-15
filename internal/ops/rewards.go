@@ -128,6 +128,7 @@ func (o *Ops) AddCurrency(a Args) (any, error) {
 		}
 		_, err = m.Exec(`insert into player_virtual_currency_balances(player_controller_id, currency_id, balance) values (?,?,?)
 			on conflict(player_controller_id, currency_id) do update set balance=excluded.balance`, p.Controller, id, before+amount)
+		m.Desc = fmt.Sprintf("%s +%s (%s)", currencyName(id), commas(amount), change(before, before+amount))
 		return err
 	})
 	if err != nil {

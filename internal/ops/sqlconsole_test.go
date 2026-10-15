@@ -286,7 +286,7 @@ func TestDeleteItemMissingIsAnErrorAndLeavesNoPendingEntry(t *testing.T) {
 	if _, err := o.DeleteItem(Args{"id": float64(11)}); err != nil {
 		t.Fatal(err)
 	}
-	if p := o.S.Pending(); len(p) != 1 || !strings.Contains(p[0], "delete item 11") {
+	if p := o.S.Pending(); len(p) != 1 || !strings.Contains(p[0], "Delete 1 x Knife (item 11)") {
 		t.Fatalf("pending = %v", p)
 	}
 }
@@ -532,7 +532,7 @@ func TestReviewListsEditsAndRedactedDiff(t *testing.T) {
 	if m["dirty"] != true {
 		t.Error("review must report dirty")
 	}
-	if ops := m["ops"].([]save.Op); len(ops) != 1 || !strings.Contains(ops[0].Desc, "edit item 10") {
+	if ops := m["ops"].([]save.Op); len(ops) != 1 || !strings.Contains(ops[0].Desc, "(item 10): stack 100 → 7") {
 		t.Errorf("ops = %+v", ops)
 	}
 	d := m["diff"].(*diff.Result)
