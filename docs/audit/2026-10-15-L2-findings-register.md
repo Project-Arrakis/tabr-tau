@@ -15,31 +15,31 @@ No hat contradicted another on a fact. Overlaps resolved in the merge: the unrev
 ## Issue groups
 | Group | Issue | Severity | STRIDE | Plan | Status | Title |
 |---|---|---|---|---|---|---|
-| G01 | #158 | HIGH | Tampering, Denial of Service | fix | Open | Save-write safety gates are not pinned by any test |
-| G02 | #159 | HIGH | Tampering | fix | Open | Single-vehicle repair scope and the whole-save one-click ops are untested |
-| G03 | #160 | HIGH | Repudiation | fix | Open | The editor invites editing while the game runs, then rejects the save |
-| G04 | #161 | HIGH | Tampering | fix | Open | Free text in the item box is sent as a template id |
-| G05 | #162 | HIGH | Repudiation | fix | Open | Master docs describe a project that no longer exists, and contradict the code |
-| G07 | #164 | HIGH | N/A | operator | Open | Funcom game art ships in the MIT repository and the executable |
-| G06 | #163 | MEDIUM | Repudiation | fix | Open | Which write features are verified in game is not recorded or shown |
-| G08 | #165 | MEDIUM | Tampering, Repudiation | fix | Open | The start-up auto-refill commits unreviewed, saves the whole world, and grew without a recorded decision |
-| G09 | #166 | MEDIUM | Tampering | fix | Open | Refills and repairs plan outside the transaction; a double-click over-fills |
-| G10 | #167 | MEDIUM | Tampering | fix | Open | Repair Gear rewrites the whole stats document through float64 |
-| G11 | #168 | MEDIUM | Denial of Service, Tampering | fix | Open | Non-finite and out-of-range numbers are accepted, and a JSON encode error is swallowed |
-| G12 | #169 | MEDIUM | Tampering, Elevation of Privilege | fix | Open | Unscoped or dead write routes remain after the UI boxes were removed |
-| G13 | #170 | MEDIUM | Denial of Service | fix | Open | RepairBuildings is quadratic and holds the save lock |
-| G14 | #171 | MEDIUM | Tampering | fix | Open | Vehicle repair can lower a recorded maximum; the durability table is thinly tested |
-| G15 | #172 | MEDIUM | Tampering | fix | Open | Land-claim shrink can strand cells; two expand paths drifted |
-| G16 | #173 | MEDIUM | N/A | fix | Open | The Tables view and cell editor fail on 61 of the 94 tables |
-| G17 | #174 | MEDIUM | Denial of Service, Information Disclosure, Tampering | fix | Open | Hostile-save robustness and identifier exposure: panics, size cap after read, CSV header, path leaks, unmasked ids |
-| G18 | #175 | MEDIUM | Denial of Service, Information Disclosure, Spoofing | fix | Open | A silent port fallback and a port-agnostic session cookie |
-| G19 | #176 | MEDIUM | Tampering | fix | Open | The game-running guard assumes the save is on this machine |
-| G20 | #177 | MEDIUM | Tampering, Information Disclosure, Elevation of Privilege | fix | Open | Smaller hardening, supply chain and disclosure channel |
-| G21 | #178 | MEDIUM | Tampering, Elevation of Privilege | operator | Open | CI trust: the reusable security workflow is referenced at @main and required checks are incomplete |
-| G22 | #179 | MEDIUM | Repudiation | fix | Open | Messages that misreport state, and dead ends |
-| G23 | #180 | MEDIUM | N/A | defer | Open | Accessibility and polish backlog |
-| G24 | #181 | MEDIUM | N/A | fix | Open | Test hardening |
-| G25 | #182 | LOW | Tampering | fix | Open | Smaller correctness items |
+| G01 | #158 | HIGH | Tampering, Denial of Service | fix | Fixed (#184) | Save-write safety gates are not pinned by any test |
+| G02 | #159 | HIGH | Tampering | fix | Fixed (#184) | Single-vehicle repair scope and the whole-save one-click ops are untested |
+| G03 | #160 | HIGH | Repudiation | fix | Fixed (#185) | The editor invites editing while the game runs, then rejects the save |
+| G04 | #161 | HIGH | Tampering | fix | Fixed (#185) | Free text in the item box is sent as a template id |
+| G05 | #162 | HIGH | Repudiation | fix | Fixed (#186) | Master docs describe a project that no longer exists, and contradict the code |
+| G07 | #164 | HIGH | N/A | operator | Fixed (#196, owner decision 2026-10-15) | Funcom game art ships in the MIT repository and the executable |
+| G06 | #163 | MEDIUM | Repudiation | fix | Fixed (#199); plan note about the waived S3 gate needs the owner | Which write features are verified in game is not recorded or shown |
+| G08 | #165 | MEDIUM | Tampering, Repudiation | fix | Partly fixed (#188, #205); unreviewed auto-commit kept by owner exception 2026-10-08 | The start-up auto-refill commits unreviewed, saves the whole world, and grew without a recorded decision |
+| G09 | #166 | MEDIUM | Tampering | fix | Fixed (#188) | Refills and repairs plan outside the transaction; a double-click over-fills |
+| G10 | #167 | MEDIUM | Tampering | fix | Fixed (#188) | Repair Gear rewrites the whole stats document through float64 |
+| G11 | #168 | MEDIUM | Denial of Service, Tampering | fix | Fixed (#190) | Non-finite and out-of-range numbers are accepted, and a JSON encode error is swallowed |
+| G12 | #169 | MEDIUM | Tampering, Elevation of Privilege | fix | Fixed (#195); DBA-10 open as #194 | Unscoped or dead write routes remain after the UI boxes were removed |
+| G13 | #170 | MEDIUM | Denial of Service | fix | Fixed (#189) | RepairBuildings is quadratic and holds the save lock |
+| G14 | #171 | MEDIUM | Tampering | fix | Fixed (#191) | Vehicle repair can lower a recorded maximum; the durability table is thinly tested |
+| G15 | #172 | MEDIUM | Tampering | fix | Fixed (#192, #207) | Land-claim shrink can strand cells; two expand paths drifted |
+| G16 | #173 | MEDIUM | N/A | fix | Fixed (#187) | The Tables view and cell editor fail on 61 of the 94 tables |
+| G17 | #174 | MEDIUM | Denial of Service, Information Disclosure, Tampering | fix | Fixed (#197) | Hostile-save robustness and identifier exposure: panics, size cap after read, CSV header, path leaks, unmasked ids |
+| G18 | #175 | MEDIUM | Denial of Service, Information Disclosure, Spoofing | fix | Fixed (#200) | A silent port fallback and a port-agnostic session cookie |
+| G19 | #176 | MEDIUM | Tampering | fix | Fixed (#202) | The game-running guard assumes the save is on this machine |
+| G20 | #177 | MEDIUM | Tampering, Information Disclosure, Elevation of Privilege | fix | Fixed (#203); owner-only settings open | Smaller hardening, supply chain and disclosure channel |
+| G21 | #178 | MEDIUM | Tampering, Elevation of Privilege | operator | Open: owner (repository settings, org workflow) | CI trust: the reusable security workflow is referenced at @main and required checks are incomplete |
+| G22 | #179 | MEDIUM | Repudiation | fix | Fixed (#204) | Messages that misreport state, and dead ends |
+| G23 | #180 | MEDIUM | N/A | defer | Deferred: accessibility and polish backlog | Accessibility and polish backlog |
+| G24 | #181 | MEDIUM | N/A | fix | Fixed (#193) | Test hardening |
+| G25 | #182 | LOW | Tampering | fix | Fixed (#198); trackNumbers per save needs a design decision | Smaller correctness items |
 
 ## Findings by hat
 
@@ -173,12 +173,12 @@ Mapped by issue group (each hat also mapped its own findings; group categories a
 
 | Category | Groups | Highest | Status |
 |---|---|---|---|
-| Spoofing | G18 (#175) | MEDIUM | 0 of 1 groups fixed |
-| Tampering | G01 (#158), G02 (#159), G04 (#161), G08 (#165), G09 (#166), G10 (#167), G11 (#168), G12 (#169), G14 (#171), G15 (#172), G17 (#174), G19 (#176), G20 (#177), G21 (#178), G25 (#182) | HIGH | 0 of 15 groups fixed |
-| Repudiation | G03 (#160), G05 (#162), G06 (#163), G08 (#165), G22 (#179) | HIGH | 0 of 5 groups fixed |
-| Information Disclosure | G17 (#174), G18 (#175), G20 (#177) | MEDIUM | 0 of 3 groups fixed |
-| Denial of Service | G01 (#158), G11 (#168), G13 (#170), G17 (#174), G18 (#175) | HIGH | 0 of 5 groups fixed |
-| Elevation of Privilege | G12 (#169), G20 (#177), G21 (#178) | MEDIUM | 0 of 3 groups fixed |
+| Spoofing | G18 (#175) | MEDIUM | 1 of 1 groups fixed |
+| Tampering | G01 (#158), G02 (#159), G04 (#161), G08 (#165), G09 (#166), G10 (#167), G11 (#168), G12 (#169), G14 (#171), G15 (#172), G17 (#174), G19 (#176), G20 (#177), G21 (#178), G25 (#182) | HIGH | 13 of 15 groups fixed |
+| Repudiation | G03 (#160), G05 (#162), G06 (#163), G08 (#165), G22 (#179) | HIGH | 4 of 5 groups fixed |
+| Information Disclosure | G17 (#174), G18 (#175), G20 (#177) | MEDIUM | 3 of 3 groups fixed |
+| Denial of Service | G01 (#158), G11 (#168), G13 (#170), G17 (#174), G18 (#175) | HIGH | 5 of 5 groups fixed |
+| Elevation of Privilege | G12 (#169), G20 (#177), G21 (#178) | MEDIUM | 2 of 3 groups fixed |
 | N/A | G07, G16, G23, G24 | | stale docs, test gaps and a licence question do not map to STRIDE |
 
 ## Checked and found fine (summary from the hats)
@@ -191,4 +191,6 @@ Mapped by issue group (each hat also mapped its own findings; group categories a
 - QA: `go vet` clean; `go test -count=1 ./...` 14/14 packages ok (301 pass, 3 skip); `cd web-tests && node --test` 110/110; shuffle runs ok; coverage ops 83%, save 78%, web 73%. Mutation: 49 of 105 Go mutants killed, 12 of 14 UI mutants killed (the survivors are the findings in G01, G02, G14, G24).
 
 ## Progress log
-- 2026-10-15: audit run, 93 raw findings consolidated into 25 issues (#158-#182), register committed. Remediation and the Layer 3 `/code-review high` pass follow; their dispositions are recorded in the Status column and appended below.
+- 2026-10-15: audit run, 93 raw findings consolidated into 25 issues (#158-#182), register committed.
+- 2026-10-15: remediation. Merged: #184-#186 (G01-G05), #187-#193 and #195-#204 (G06, G08-G20, G22, G24, G25), #196 (G07, owner decision: keep the Funcom art under a not-MIT notice). Still open: G21 and the owner-only items of G20 (repository settings, the org workflow), the S3-gate waiver note of G06, DBA-10 (#194), G23 (deferred backlog), and the per-save track numbers of G25 (a design decision). The start-up auto-refill commit (G08) stays as the owner exception of 2026-10-08.
+- 2026-10-15: Layer 3 `/code-review high` of the remediation diff (`8b7aa17..origin/main`): 8 findings (tracking issue #206), 6 fixed in PR #207, 2 deferred with reasons (L3-7 per-edit scope query, L3-8 duplicated identifier quoting).
