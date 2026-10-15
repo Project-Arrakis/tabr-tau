@@ -210,7 +210,13 @@ func (o *Ops) UpdateRow(a Args) (any, error) {
 		}
 		conds := make([]string, len(rk.pk))
 		for i, c := range rk.pk {
-			conds[i] = keyText(c, rk.blob[i], "") + "=?"
+			// compared as the column's own type (the bound text takes the column's affinity), not as text, so a REAL or large integer key
+			// matches exactly and the primary-key index is used; only a BLOB is compared through its hex
+			if rk.blob[i] {
+				conds[i] = keyText(c, true, "") + "=?"
+			} else {
+				conds[i] = quoteIdent(c) + "=?"
+			}
 			whereArgs = append(whereArgs, vals[i])
 		}
 		where, label = strings.Join(conds, " and "), "["+strings.Join(vals, ",")+"]"

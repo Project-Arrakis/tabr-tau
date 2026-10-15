@@ -29,6 +29,15 @@ func resetGameCache() {
 	gameCache.Unlock()
 }
 
+// UntrustedLocationForTests makes the editor believe the save is on a network share, so a test in another package can check the confirm-location
+// route and the banner. Test code calls it; production code never does (the guard test fails if it does). It returns a function that puts
+// the real check back.
+func UntrustedLocationForTests() (restore func()) {
+	old := locationFor
+	locationFor = func(string) string { return "the save is on a network share" }
+	return func() { locationFor = old }
+}
+
 // ActiveSessionForTests makes the editor believe a Dune process is running with a single-player session active, so a test in another
 // package can check that a write path refuses. Test code calls it; production code never does (TestTestHooksAreNotCalledByProductionCode
 // fails if it does). It returns a function that puts the real check back.
