@@ -35,7 +35,7 @@ type Save struct {
 	blocked  string         // why writes are refused (unknown database objects), or ""
 	fkBase   map[string]int // dangling references present before the current edit (see Mutate)
 	diskHash [32]byte
-	diskSize int64     // size and modification time of the file when diskHash was taken: a cheap first test for "changed on disk"
+	diskSize int64 // size and modification time of the file when diskHash was taken: a cheap first test for "changed on disk"
 	diskMod  time.Time
 	dirty    bool
 	ops      []Op    // structured record of the edits applied since load
