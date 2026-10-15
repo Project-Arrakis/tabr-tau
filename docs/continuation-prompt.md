@@ -1,46 +1,48 @@
 # Continuation prompt: tabr-tau
 
-Paste this into a new Claude Code session (or read it yourself) to resume. Written 2026-09-30.
+Paste this into a new Claude Code session (or read it yourself) to resume. Written 2026-09-30, rewritten 2026-10-15 to the current state.
 Contains no credentials and no account IDs. Verify anything time-sensitive before relying on it.
 
 ## Who and what
 `tabr-tau` (`Project-Arrakis/tabr-tau`, Go, MIT) is a local-web-UI editor for a **single-player Dune: Awakening
-save** on a Windows PC. Operator: the repo owner. Operating rules: `~/projects/meta/Project-Arrakis/README.md`
-(re-read it first; Requirement 17). Key rules here: work on branches and PRs (21), findings as issues and a STRIDE
-table (20), no secrets or IDs in the repo (5, 24), no AI co-author trailers in commits (operator rule), verify
-before asserting (12).
+save** on a Windows PC (Windows 10/11 only; one exe that serves `127.0.0.1` and shows the UI in a WebView2 window or the browser).
+Operator: the repo owner. Operating rules: the Project Arrakis `meta` README (re-read it first; Requirement 17). Key rules here:
+work on branches and PRs (21), every finding filed as an issue with a STRIDE table (20), no secrets or IDs in the repo (5, 24),
+no AI co-author trailers in commits (operator rule), verify before asserting (12), documentation drift is a defect (14).
 
-## State (2026-09-30)
-- Design and Layer 1 audit are done and on PR #1 (`docs/dune-docker-parity-design`). **Read `docs/README.md` first.**
-  Then `docs/design/2026-09-30-architecture-and-implementation-plan.md` (v0.2) and
-  `docs/audit/2026-09-30-L1-findings-register.md` (F-01..F-22).
-- Application code is unchanged from the original editor. **Nothing from the plan is implemented.**
-- Not done: GitHub issues for the findings, branch protection, CI, secret scanning, the `meta` README entry.
+## State (2026-10-15)
+- Done and merged: governance and CI (P0), security hardening of the original code (S0), the single write path `save.Mutate` with a
+  review pane, durable Commit/Restore and a foreign-key gate (S1, S2), the Player tabs mirrored from the console (S3) including
+  specialization, skills, research, crafting, Journey, augments, building sets and customizations, bases (power, water, inventory,
+  land-claim editor), vehicles, teleport, faction, the Live Map drawn from the save, config and database tabs, and the automatic refill.
+  The full list is in `CHANGELOG.md` and `README.md`.
+- Audits on record: Layer 1 (design) 2026-09-30, Layer 2 2026-10-07 (write pipeline), Layer 2 2026-10-15 (everything since;
+  tracking issue #157, register `docs/audit/2026-10-15-L2-findings-register.md`, issues #158-#182). Open findings are in those issues.
+- Open work: see the open issues (`gh issue list`). Notable: #67 teleport map change and Live Map click, #111 Blueprints (needs a save
+  that has blueprints), #110 and #109 (Deep Desert and Landsraad, waiting on the owner reaching them), #77 (ServerCustomSettings.ini), #39/#40/#41.
+- Which write features have been checked in the game and which only by tests: the verification matrix in `README.md`.
 
 ## Verified facts (evidence in `docs/`)
 - Single-player is an in-process listen server (`Survival_1?listen`) with SQLite persistence. **No RMQ.**
-- Save = `game.db` = `uint32 1`, `uint32 size`, zlib(SQLite). 96 tables (94 application). 92 are STRICT.
+- Save = `game.db` = `uint32 1`, `uint32 size`, zlib(SQLite). 96 tables (94 application). 92 are STRICT; 61 are WITHOUT ROWID.
 - State lives in relational columns, JSONB (`fgl_entities.components`, `actors.gas_attributes`, `actors.properties`) and text
   JSON (`items.stats`). Character XP and skill points: `FLevelComponent[1]` of the `DuneCharacter` entity. Hydration:
   `actors.gas_attributes.DuneHydrationAttributeSet.CurrentHydration`.
 - dune-docker uses RMQ only for live commands (give-item, XP, skill points, water, kick, broadcast, teleport, vehicle spawn).
   Single-player equivalents are direct save edits. Multiplayer-only tables (guilds, exchange, world_partition) do not exist.
-- The existing code sets `foreign_keys(0)`, has an unbounded zlib read, serves the API token at `GET /`, and inserts
-  unescaped save values into the UI. These are audit findings F-03/F-04/F-08, **fixed as of 2026-10-07 (see the changelog)**.
+- The game rewrites game.db about every five minutes while a single-player session runs and again when it ends; a save onto a changed
+  file is refused (`ErrChangedOnDisk`). Close the game, or go to its menu, before editing.
+- Vehicle module durability is absolute and set by the vehicle family and the part (`internal/ops/upkeep.go`); weapons, armor and tools
+  use a 0 to 100 scale.
 
-## Do next, in this order (the plan's phase order)
-1. **Operator decisions (ask, do not assume):** F-01 (credential exposure in the transfer path: details are withheld from this public repo and tracked privately by the operator; do not ask for or handle the credential); F-12 is done (history rewritten) if the register says so; approval to open the `meta` PR.
-2. **P0 governance**, in order: secret scanning + push protection, then `.gitignore`/gitleaks/PR template/CHANGELOG,
-   then CI, then branch protection with `<job> / <inner>` check names, then the `meta` README PR (repo missing from
-   its layout, repo notes, Requirement 15 list and Requirement 28 list), then file F-01..F-22 as issues with the STRIDE table.
-3. **S0 security hardening of existing code**, failing-test-first: bounded decode, output escaping + CSP, refuse non-loopback `--addr`,
-   separate read-only connection with an authorizer, schema fingerprint. (Plan section 4.4.)
-4. **S1 write pipeline** (single `save.Mutate`, retained original, Go diff engine, durable Commit/Restore, `foreign_key_check`),
-   **S2 UX safety**, in parallel **P1 live tests** (`docs/live-test-protocol.md` v2). **S3 features only after P1 passes.**
+## How to work
+1. `git pull`, read `README.md`, `CHANGELOG.md`, `docs/README.md`, then the open issues.
+2. Issue first, then a branch from `main` (`fix/<n>-slug`, `feat/<n>-slug`, `docs/<n>-slug`), then a PR that says which docs were reviewed.
+3. Run the real checks before saying done: `go vet ./...`, `go run honnef.co/go/tools/cmd/staticcheck@v0.8.1 ./...`,
+   `go test -count=1 ./...`, and `cd web-tests && node --test --test-timeout=120000` (always with a timeout: a failing UI test can hang).
+4. After pushing, read the CI run (Requirement 11). Squash-merge; do not delete a branch that another open PR is based on (GitHub closes that PR).
 
 ## Live testing
-Transfer a snapshot with `tools/send-snapshot.ps1` (scp, key auth, hash-verified, unprivileged account). Compare copies with the redacted
-`tools/snapsummary.py` output (committable under `docs/evidence/summaries/`). Never commit raw snapshots anywhere, including `meta`.
 Run on the Windows PC with the game closed. `tools/snapshot.ps1 -Label <label>`; analyse with
 `python tools/snapdiff.py <before> <after> --noise` (Python >= 3.11, redacts IDs by default). Each snapshot contains account IDs:
 keep it local and private, delete when done. Never commit saves, snapshots, `Game.ini`, logs or screenshots with IDs.
@@ -48,8 +50,9 @@ keep it local and private, delete when done. Never commit saves, snapshots, `Gam
 ## Do not
 - Do not run tests or installers that write outside a scratch directory on a shared or production host, and never use `/tmp`.
 - Do not edit a live save while the game runs, and do not touch `autosave/`, `game_prepatch.db` or `game.crash.db`.
-- Do not trust `[I]` or `[T]` claims. Do not treat the audit's "not confirmed" items (register footer) as facts.
-- Do not merge PRs or file issues on the public repo without operator approval.
+- Do not trust `[I]` or `[T]` claims. Do not treat the audit's "not confirmed" items as facts.
+- Do not merge PRs or file issues on the public repo without operator approval (the operator has approved the routine PR flow in this
+  repository; anything outward-facing beyond it still needs a yes).
 
 ## Where the analysis inputs went
 The real sample save is **not** in git (contains IDs). The schema-only extract is `docs/evidence/`. The operator has the

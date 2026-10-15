@@ -17,8 +17,8 @@ features (containers, autoscaler, map/Sietche/Deep Desert instances, backups of 
 > **Known security limits (a design audit found these; most are now fixed, the rest are scheduled):** the editor refuses
 > connections from other machines and non-loopback `--addr` values, bounds the save decoder, escapes everything it renders,
 > vets both SQL consoles and opens a save with unknown triggers/views read-only. Saving now goes through a review pane
-> that lists every edit and what changes in the file. Destructive and bulk actions ask first. Still open: checks after the write
-> and a recovery tool, so **do not open a save file you got from someone else** (the review shows
+> that lists every edit and what changes in the file. Destructive and bulk actions ask first. Every save is read back and verified before it replaces the file, and
+> Database > Save backups restores a backup (see Restoring a backup below). The one thing it cannot do is make a hostile file safe, so **do not open a save file you got from someone else** (the review shows
 > what you changed, it does not make a hostile file safe) and keep the automatic backups. Status: [issue #24](https://github.com/Project-Arrakis/tabr-tau/issues/24).
 
 **Documentation:** [docs/README.md](docs/README.md) (design, audit findings, single-player file reference,
@@ -30,13 +30,13 @@ live-test protocol). Do not attach saves, `Game.ini`, snapshots or logs to issue
 |---|---|
 | **Player** | Profile, Solari, give / edit / delete items, repair gear, refill water containers, teleport, faction reputation, specialization tracks, tutorials, tags, Journey nodes (complete / reset), learned building recipes, vendor purchase limits and restock cycles (reset) |
 | **Player > Bases** | The console's Bases panel: your bases with Power, Water, Inventory (Storage, Refining, Crafting, Other) and Land Claim Editor tabs. Also:  Land claims (totems), expand or shrink a claim's size, raise its vertical level, teleport to base, structure health, repair all, clear sand buildup, refill base water and generator fuel (optionally when the editor opens), your base's storage containers (view / add / remove items), placeables |
-| **Player > Vehicles** | Your own vehicles (the world's vehicles are hidden) and recovered vehicles, bring a vehicle to you, repair module durability, set chassis durability |
+| **Player > Vehicles** | Your own vehicles (the world's vehicles are hidden) and recovered vehicles, bring a vehicle to you, repair module durability (each module is made as good as new) |
 | **Live Map** | Hagga Basin and the Deep Desert as in the Dune Docker console, drawn from your save (as of its last write, not live): your character, vehicles, base, storage containers and the game's own map markers (ore, salvage, plants, enemy camps, places, trainers, hazards), with layers, pan, zoom and hover details |
 | **Landsraad** | Current term, decree pool, active decree, task board (fill progress, complete / reopen), rewards |
 | **Config** | Edit the game's `.ini` files (`ServerCustomSettings.ini`, `Game.ini`, `GameUserSettings.ini`, `Engine.ini`, `Input.ini`, ...) with backups; validates that the expected files and sections exist |
 | **Database** | Browse and edit any table, CSV/JSON export, read-only SQL (one SELECT), and **write SQL** (INSERT/UPDATE/DELETE/REPLACE only; atomic, applied to your working copy) |
 
-The **Player** tab mirrors the Dune Docker console's Players > Player Name view: Character, Crafting, Research, Building Sets, Customizations, Skills, Specialization, Journey, Blueprints, Bases, Vehicles and Admin. Blueprints is not built yet (it waits for game data, #111). Specialization needs one step in game before the XP buttons work (see the tab). Each Player tab holds what the console's tab holds; tabr-tau's own base tools (structure health, repair all, clear sand, placeables, piece types) are on the base's **Structures** tab, and the vendor purchase limits are on **Admin**. Landsraad, Config and Database stay top-level tabs.
+The **Player** tab mirrors the Dune Docker console's Players > Player Name view: Character, Crafting, Research, Building Sets, Customizations, Skills, Specialization, Journey, Blueprints, Bases, Vehicles and Admin. Blueprints is not built yet (it waits for game data, #111). Specialization needs one step in game before the XP buttons work (see the tab). Each Player tab holds what the console's tab holds; tabr-tau's own base tools (structure health, repair all, clear sand, placeables, piece types) are on the base's **Structures** tab, and the vendor purchase limits are on **Admin**. Live Map, Landsraad, Config and Database stay top-level tabs.
 
 ## How saving works
 
@@ -72,9 +72,21 @@ Build the app (no C compiler needed; it can be cross-built from another OS, but 
 (`-H=windowsgui` removes the console window; the exe re-attaches to the terminal it was started from, so subcommands still
 print). Windows Application Control may block unsigned binaries; `go run` works around that.
 
+## Restoring a backup
+
+Every save from the editor first copies the file it replaces into `tabr-tau-backups` next to `game.db` (for a typical install:
+`%LOCALAPPDATA%\DuneSandbox\Saved\Cloud\PlayerClientStorage\FLS_retail\<your id>\tabr-tau-backups`). To go back:
+
+1. Close the game, or go to its menu, and make sure the editor shows no unsaved changes (restoring reloads the file and would drop them).
+2. Open **Database**, find **Save backups**, pick the backup and press Restore; you are asked to type a word to confirm.
+3. The backup must decode, pass the integrity check and carry no database patch the current save lacks (a backup from a newer game is refused). The file being replaced is backed up first, so a restore can itself be undone, and the file is never truncated in place.
+4. Start the game and check the character. Config backups work the same way on the **Config** tab.
+
+Restore uses the same guard as saving: it refuses while a single-player session is active, just ended, or cannot be checked. Whether the game's own cloud sync touches the `tabr-tau-backups` folder has not been tested.
+
 ## Automatic refill
 
-The Bases tab has an **Automatic refill** switch (off by default, remembered in `%APPDATA%\tabr-tau\settings.json`). When on, opening the editor refills base water and generators and **saves straight away**, without the Review & save step, so it applies the next time single-player loads. It is skipped while a single-player session is running or when there are unsaved edits; the previous file is backed up every time; a refused write leaves the edits pending with the reason. The card shows the last automatic save and its backup name. It applies to whichever save the editor opens.
+The Bases tab has an **Automatic refill** switch (off by default, remembered in `%APPDATA%\tabr-tau\settings.json`, which also keeps the specialization track numbers you assign). When on, opening the editor refills base water and generators and **saves straight away**, without the Review & save step, so it applies the next time single-player loads. It is skipped while a single-player session is running or when there are unsaved edits; the previous file is backed up every time; a refused write leaves the edits pending with the reason. The card shows the last automatic save and its backup name. It applies to whichever save the editor opens.
 
 ## Safety notes
 
