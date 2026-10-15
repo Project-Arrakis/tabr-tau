@@ -123,6 +123,9 @@ Read-only views are not listed. One of them has a recorded gap: the Live Map's s
 - tabr-tau's own code makes no outbound network connections (no telemetry, no update check). On Windows the editor window is the Microsoft Edge WebView2 runtime, a Windows component with its own update and diagnostics settings that tabr-tau does not control; it only ever loads the editor's own `127.0.0.1` address.
 - The server only listens on localhost, rejects other `Host` headers, and requires a per-run token on every API call.
 - Vehicle fuel and other data stored in opaque binary blobs are read-only.
+- Only one editor can have a save open at a time (a second one is refused). If the default port is busy the editor says it picked another.
+- A save outside the game's own folder (`Saved\Cloud\PlayerClientStorage`), on a network share or on a removable drive asks for one confirmation before it can be written, because the game-running check only sees this computer.
+- Reporting a security problem: see [SECURITY.md](SECURITY.md).
 - Do **not** commit real saves. `.gitignore` excludes `*.db`, `*.sqlite`, `*.bak`, `*.ini` and backup folders.
   Saves and `Game.ini` contain your platform ID and account details.
 
