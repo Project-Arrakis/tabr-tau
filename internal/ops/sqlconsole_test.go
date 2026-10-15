@@ -132,7 +132,6 @@ func TestWriteConsoleAllowlist(t *testing.T) {
 		"update items set stack_size=102 where id=10; update items set stack_size=103 where id=10;",
 		"delete from items where id=11",
 		"insert into items(id, inventory_id, stack_size, position_index, template_id, is_new, acquisition_time, stats, quality_level) values (900,1,1,2,'X',0,0,'{}',0)",
-		"replace into items_id_sequencer(next_id) values(901)",
 		"with c as (select 7 v) update items set stack_size=(select v from c) where id=10",
 		"update items set template_id='a;b' where id=10", // a semicolon inside a string literal is not a statement break
 		"-- change a stack\nupdate items set stack_size=5 where id=10",
@@ -355,9 +354,6 @@ func TestUpdateRowRefusesInternalTablesAndMissingRows(t *testing.T) {
 
 func TestMissingTargetsAreErrors(t *testing.T) {
 	o := newPlayerOps(t)
-	if _, err := o.SetPieceHealth(Args{"id": float64(99999), "health": float64(5)}); err == nil {
-		t.Error("SetPieceHealth on a missing piece must fail")
-	}
 	if _, err := o.CompleteTask(Args{"task_id": float64(99999), "faction_id": float64(1)}); err == nil {
 		t.Error("CompleteTask on a missing task must fail")
 	}

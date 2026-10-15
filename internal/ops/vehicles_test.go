@@ -100,15 +100,6 @@ insert into recovered_vehicles(character_id,vehicle_id,chassis_durability,vehicl
 	if rec := r.(map[string]any)["recovered"].([]map[string]any); len(rec) != 1 || rec[0]["vehicle_name"] != "Mine" {
 		t.Fatalf("recovered = %v", rec)
 	}
-	if _, err := o.SetRecoveredDurability(Args{"vehicle_id": 201.0, "chassis_durability": 75.0}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := o.SetRecoveredDurability(Args{"vehicle_id": 202.0, "chassis_durability": 75.0}); err == nil {
-		t.Fatal("a vehicle that is not the character's recovered vehicle must be refused")
-	}
-	if d := mustOne(t, o, `select chassis_durability d from recovered_vehicles where vehicle_id=201`)["d"].(float64); d != 75 {
-		t.Fatalf("durability = %v", d)
-	}
 }
 
 func TestRepairOneVehicleOnlyRepairsThatOwnedVehicle(t *testing.T) {

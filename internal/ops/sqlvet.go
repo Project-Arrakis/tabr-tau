@@ -188,13 +188,13 @@ func vetWrite(q string) error {
 			return err
 		}
 		for _, w := range st.all {
-			switch strings.TrimPrefix(w, "\x00") {
-			case "sqlite_master", "sqlite_schema":
+			name := strings.TrimPrefix(w, "\x00")
+			if name == "sqlite_master" || name == "sqlite_schema" {
 				return errors.New("the schema catalogue cannot be edited")
-			case "applied_patches":
-				return errors.New("applied_patches records the game's version history and cannot be edited here")
-			case "accounts":
-				return errors.New("accounts identifies the character to the game and cannot be edited here")
+			}
+			// the same list the Tables view uses, so a table locked there is locked for a SQL write as well (ARCH-7)
+			if why, locked := lockedTables[name]; locked {
+				return fmt.Errorf("%s cannot be edited here: %s", name, why)
 			}
 		}
 		switch v := st.mainVerb(); v {

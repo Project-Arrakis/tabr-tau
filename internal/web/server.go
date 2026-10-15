@@ -404,7 +404,6 @@ func (s *Server) routes() {
 	s.post("/api/bases/claim/shrink", o.ShrinkLandClaim)
 	s.post("/api/bases/refill-water", func(ops.Args) (any, error) { return o.RefillBaseWater() })
 	s.post("/api/bases/refill-generators", func(ops.Args) (any, error) { return o.RefillGenerators() })
-	s.post("/api/bases/health", o.SetPieceHealth)
 
 	// vehicles / vendors / landsraad
 	s.get("/api/vehicles", func(r *http.Request) (any, error) { return o.Vehicles() })
@@ -445,7 +444,6 @@ func (s *Server) routes() {
 	s.post("/api/player/research/unlock-all", func(ops.Args) (any, error) { return o.UnlockAllResearch() })
 	s.post("/api/player/crafting/unlock-all", func(ops.Args) (any, error) { return o.UnlockAllRecipes() })
 	s.post("/api/player/skills/max", o.MaxSkills)
-	s.post("/api/vehicles/durability", o.SetRecoveredDurability)
 	s.get("/api/vendors", func(r *http.Request) (any, error) { return o.Vendors() })
 	s.post("/api/vendors/reset", o.ResetVendors)
 	s.get("/api/landsraad", func(r *http.Request) (any, error) { return o.Landsraad() })

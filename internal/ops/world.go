@@ -86,27 +86,6 @@ func (o *Ops) ClearSand() (any, error) {
 	return map[string]any{"ok": true, "pieces": n}, nil
 }
 
-func (o *Ops) SetPieceHealth(a Args) (any, error) {
-	table := "building_instances"
-	idCol := "instance_id"
-	if a.Str("kind") == "placeable" {
-		table, idCol = "placeables", "id"
-	}
-	id, e1 := a.Int("id")
-	h, e2 := a.Float("health")
-	if err := errors.Join(e1, e2); err != nil {
-		return nil, err
-	}
-	n, err := o.run(fmt.Sprintf("%s %d health = %g", table, id, h), `update `+table+` set health=? where `+idCol+`=?`, h, id)
-	if err != nil {
-		return nil, err
-	}
-	if n == 0 {
-		return nil, errors.New("piece not found")
-	}
-	return ok(), nil
-}
-
 // ---------------------------------------------------------------- vehicles
 
 // ownedVehicleSQL selects the vehicle actors a character owns: the owner rank (1) of the vehicle's permission record. A vehicle's
@@ -165,26 +144,6 @@ func (o *Ops) BringVehicle(a Args) (any, error) {
 	}
 	if n == 0 {
 		return nil, errors.New("vehicle not found among your vehicles")
-	}
-	return ok(), nil
-}
-
-func (o *Ops) SetRecoveredDurability(a Args) (any, error) {
-	p, err := o.player()
-	if err != nil {
-		return nil, err
-	}
-	id, e1 := a.Int("vehicle_id")
-	d, e2 := a.Float("chassis_durability")
-	if err := errors.Join(e1, e2); err != nil {
-		return nil, err
-	}
-	n, err := o.run(fmt.Sprintf("recovered vehicle %d chassis durability = %g", id, d), `update recovered_vehicles set chassis_durability=? where vehicle_id=? and character_id=?`, d, id, p.Controller)
-	if err != nil {
-		return nil, err
-	}
-	if n == 0 {
-		return nil, errors.New("recovered vehicle not found")
 	}
 	return ok(), nil
 }
