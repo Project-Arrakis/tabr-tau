@@ -553,6 +553,7 @@ function catalogList() {
 // The automatic refill switch, shown on both the Power and the Water tab because it refills both: water storage (cisterns, windtraps, Blood Purifiers) and power (generators, wind turbines, windtraps).
 function autoRefillCard(prefs) {
   return html`<div class="card"><h3>Automatic refill of water and power</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
+    ${prefs.problem ? html`<p class="bad">${prefs.problem}</p>` : ''}
     <p class="mut">When on, opening the editor refills water storage (Water Cisterns, Windtraps, Blood Purifiers) and power (generators, wind turbines, windtraps) and <b>saves straight away</b>, without the review step, so it applies the next time the game loads. It is skipped while a single-player session is running. The previous file is backed up first. Remembered between runs. The same switch is on the Power and Water tabs.</p></div>`;
 }
 // The console's Land Claim Editor: the claim as a grid of cells turned by the base's own yaw (north at the top), with the totem's cell,
