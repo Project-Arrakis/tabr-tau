@@ -134,6 +134,32 @@ test('the Player Summary shows what the save holds, above the Player tabs', asyn
   ui.dom.window.close();
 });
 
+test('the Player Summary hides the account identifiers until Show is pressed, per identifier, and shows them as plain text (GRC-5)', async () => {
+  const hostile = '<img src=x onerror=1>';
+  const summary = {
+    name: 'Tester', status: 'Offline', map: 'HaggaBasin', faction: null, level: 5, xp: 10,
+    identity: { platform: 'Steam', platformId: 'PLATFORM-ID-1', funcomId: 'FUNCOM-ID-2', flsId: hostile }, ids: { actor: 2, account: 1, controller: 1, playerState: 3 }, currency: [],
+  };
+  const ui = await boot({ get: { '/api/player/summary': summary } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  const page = () => ui.doc.querySelector('#main').textContent;
+  const everything = () => ui.doc.documentElement.outerHTML;
+  assert.ok(!everything().includes('PLATFORM-ID-1') && !everything().includes('FUNCOM-ID-2') && !everything().includes(hostile) && !everything().includes('onerror=1'), 'no identifier is in the page before Show is pressed');
+  assert.ok(page().includes('Steam ID') && page().includes('Funcom ID') && page().includes('FLS ID'), 'the labels are there');
+  assert.equal(ui.doc.querySelectorAll('[data-reveal]').length, 3);
+  ui.click('[data-reveal="funcomId"]'); await ui.settle();
+  assert.ok(page().includes('FUNCOM-ID-2'), 'the pressed one is shown');
+  assert.ok(!page().includes('PLATFORM-ID-1'), 'the others stay hidden');
+  ui.click('[data-reveal="flsId"]'); await ui.settle();
+  assert.ok(page().includes(hostile) && ui.doc.querySelector('#main img') === null, 'a hostile value is text, not markup');
+  ui.click('[data-reveal="funcomId"]'); await ui.settle();
+  assert.ok(!page().includes('FUNCOM-ID-2'), 'Hide hides it again');
+  ui.click('[data-tab="landsraad"]'); await ui.settle();
+  ui.click('[data-tab="player"]'); await ui.settle();
+  assert.ok(!page().includes(hostile), 'drawing the view again hides every identifier again');
+  ui.dom.window.close();
+});
+
 test('Player > Vehicles shows type, condition, fuel, components and the cargo hold of the open vehicle', async () => {
   const vehicle = (id, name, extra) => ({ id, name, type: name.replace('BP_', '').split('_')[0], map: 'HaggaBasin', x: 5228, y: -408425, z: 0, condition: 40, fuel: 90.5, modules: [], inventories: [], components: [], cargo: null, ...extra });
   const v1 = vehicle(152, 'BP_Sandbike_CHOAM', {

@@ -11,11 +11,16 @@ import (
 	"fmt"
 	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 	"github.com/Project-Arrakis/tabr-tau/internal/settings"
+	"io/fs"
+	"log"
 	"mime"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
+	"regexp"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -107,7 +112,7 @@ func (s *Server) hasSession(r *http.Request) bool {
 // the session cookie on /api/, and for /api/ requests: same-origin fetch metadata / Origin, and a JSON
 // Content-Type on anything that changes state. See docs/design (section 4.4) and findings F-04 / #5.
 func (s *Server) Handler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return recoverPanic(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		setSecurityHeaders(w)
 		if !hostAllowed(r.Host) {
 			http.Error(w, "forbidden host", http.StatusForbidden)
@@ -134,6 +139,27 @@ func (s *Server) Handler() http.Handler {
 			}
 		}
 		s.mux.ServeHTTP(w, r)
+	}))
+}
+
+// recoverPanic turns a panic in any handler into a JSON 500. net/http would recover it too, but by closing the connection, and the page
+// would see a reset instead of a message (SEC-5 of the 2026-10-15 audit: a hostile save with a NULL where the code expected text).
+// The panic and its stack go to the terminal log; the page gets a sentence that carries no detail from the save.
+func recoverPanic(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			rec := recover()
+			if rec == nil {
+				return
+			}
+			if rec == http.ErrAbortHandler {
+				panic(rec)
+			}
+			log.Printf("tabr-tau: %s %s panicked: %v\n%s", r.Method, r.URL.Path, rec, debug.Stack())
+			setSecurityHeaders(w)
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "The editor hit an internal error while answering this request. Nothing was changed. If it keeps happening, the save may hold a value the editor does not expect; the details are in the terminal window."})
+		}()
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -201,9 +227,48 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Write(append(b, '\n')) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter (JSON built by encoding/json; nosniff and CSP set)
 }
 
+// publicError is err's message with the places a person's name hides taken out: a file path in an operating-system error
+// is cut to its file name, and the user's home folder anywhere in the text becomes "~" (SEC-10 of the 2026-10-15 audit). Text copied from
+// the page into a bug report then does not carry the Windows user name.
+func publicError(err error) string {
+	msg := err.Error()
+	var paths []string
+	collectPaths(err, &paths)
+	for _, p := range paths {
+		if p != "" {
+			msg = strings.ReplaceAll(msg, p, p[strings.LastIndexAny(p, `/\`)+1:]) // either separator, whatever system the editor runs on
+		}
+	}
+	if home, e := os.UserHomeDir(); e == nil && len(home) > 3 {
+		for _, h := range []string{home, filepath.ToSlash(home)} {
+			msg = regexp.MustCompile(`(?i)`+regexp.QuoteMeta(h)).ReplaceAllString(msg, "~")
+		}
+	}
+	return msg
+}
+
+func collectPaths(err error, out *[]string) {
+	switch e := err.(type) {
+	case nil:
+		return
+	case *fs.PathError:
+		*out = append(*out, e.Path)
+	case *os.LinkError:
+		*out = append(*out, e.Old, e.New)
+	}
+	switch u := err.(type) {
+	case interface{ Unwrap() error }:
+		collectPaths(u.Unwrap(), out)
+	case interface{ Unwrap() []error }:
+		for _, e := range u.Unwrap() {
+			collectPaths(e, out)
+		}
+	}
+}
+
 func respond(w http.ResponseWriter, v any, err error) {
 	if err != nil {
-		body := map[string]any{"error": err.Error()}
+		body := map[string]any{"error": publicError(err)}
 		switch { // a stable code, so the page never has to match message wording
 		case errors.Is(err, save.ErrChangedOnDisk):
 			body["code"] = "changed_on_disk"

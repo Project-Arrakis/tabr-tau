@@ -207,7 +207,7 @@ func openCopy(raw []byte, pattern, opts string) (path string, db *sql.DB, err er
 // are built first and swapped in only when all of them succeeded, so a failure leaves the previous state intact and
 // leaks no temp files.
 func (s *Save) load() error {
-	blob, err := os.ReadFile(s.Path)
+	blob, err := readCapped(s.Path)
 	if err != nil {
 		return err
 	}
@@ -287,7 +287,7 @@ func (s *Save) ChangedOnDisk() bool {
 	if st.Size() == s.diskSize && st.ModTime().Equal(s.diskMod) {
 		return false
 	}
-	b, err := os.ReadFile(s.Path)
+	b, err := readCapped(s.Path)
 	if err != nil {
 		return true
 	}
@@ -537,7 +537,7 @@ func (s *Save) backup() (string, error) {
 	}
 	ext := filepath.Ext(s.Path)
 	base := strings.TrimSuffix(filepath.Base(s.Path), ext)
-	b, err := os.ReadFile(s.Path)
+	b, err := readCapped(s.Path)
 	if err != nil {
 		return "", err
 	}
@@ -545,7 +545,7 @@ func (s *Save) backup() (string, error) {
 	if err := writeDurable(dest, b, 0o600); err != nil {
 		return "", err
 	}
-	if back, err := os.ReadFile(dest); err != nil || !bytes.Equal(back, b) {
+	if back, err := readCapped(dest); err != nil || !bytes.Equal(back, b) {
 		os.Remove(dest)
 		return "", errors.New("backup verification failed; nothing was changed")
 	}
@@ -591,7 +591,7 @@ func (s *Save) commit(force bool, token string, needToken bool) (map[string]any,
 	if blocked, why := SaveBlocked(s.Path); !force && blocked {
 		return nil, errors.New(why)
 	}
-	cur, err := os.ReadFile(s.Path)
+	cur, err := readCapped(s.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -673,7 +673,7 @@ func (s *Save) Restore(name string) error {
 	if st, err := os.Lstat(bp); err != nil || !st.Mode().IsRegular() {
 		return errors.New("no such backup")
 	}
-	b, err := os.ReadFile(bp)
+	b, err := readCapped(bp)
 	if err != nil {
 		return err
 	}
@@ -685,7 +685,7 @@ func (s *Save) Restore(name string) error {
 	if err != nil {
 		return fmt.Errorf("backup is not a sound save: %w", err)
 	}
-	cur, err := os.ReadFile(s.Path)
+	cur, err := readCapped(s.Path)
 	if err != nil {
 		return err
 	}
