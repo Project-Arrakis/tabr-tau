@@ -977,6 +977,18 @@ test('Specialization: every track is listed, unknown numbers disable XP actions,
   ui.dom.window.close();
 });
 
+test('Resetting a specialization track that holds nothing says nothing changed, not that it was reset (ARCH-4)', async () => {
+  const row = (o) => ({ track: 'Combat', number: 2, xp: 0, level: 0, keystoneOwned: 0, keystoneTotal: 41, granted: false, ...o });
+  const specs = { rows: [row({})], unassigned: [], maxXp: 44182, tracks: ['Combat'] };
+  const ui = await boot({ get: { '/api/player/specs': specs }, post: { '/api/player/specs/reset': { ok: true, removed: 0 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:specialization"]'); await ui.settle();
+  ui.click('[data-act="spReset"][data-t="Combat"]'); await ui.settle(); ui.click('#aok'); await ui.settle();
+  const t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.includes('had no XP to reset') && !t.includes('not saved yet'), t);
+  ui.dom.window.close();
+});
+
 test('Database > Tables: primary keys, links and account identity are plain text with the reason, other cells stay editable, a hostile column name is only a key', async () => {
   const hostile = '__proto__';
   const tbl = { columns: ['_rowid_', 'id', 'inventory_id', 'template_id', hostile], rows: [[5, 10, 3, 'Spice', 'x']], total: 1, tableLocked: '', locked: { id: 'primary key', inventory_id: 'link to another table' } };

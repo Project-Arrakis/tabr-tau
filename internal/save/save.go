@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -466,12 +467,17 @@ func queryTableCtx(ctx context.Context, db interface {
 			return nil, nil, err
 		}
 		for i, v := range vals {
-			if b, ok := v.([]byte); ok {
-				n := len(b)
+			switch x := v.(type) {
+			case []byte:
+				n := len(x)
 				if n > 24 {
-					b = b[:24]
+					x = x[:24]
 				}
-				vals[i] = fmt.Sprintf("<blob %dB> %x", n, b)
+				vals[i] = fmt.Sprintf("<blob %dB> %x", n, x)
+			case float64:
+				if math.IsNaN(x) || math.IsInf(x, 0) { // JSON cannot carry these; one such cell must not blank a whole view (SEC-1)
+					vals[i] = nil
+				}
 			}
 		}
 		out = append(out, vals)
