@@ -200,3 +200,62 @@ func TestRefillsWithNothingToDoLeaveNoPendingEdit(t *testing.T) {
 		t.Fatalf("a refill that did nothing added %d pending edits", after-before)
 	}
 }
+
+// A module that was never repaired at a workbench has no recorded maximum; the repair uses its template's full durability.
+func TestRepairVehiclesUsesTheTemplateMaximumWhenNoneIsRecorded(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, `
+insert into actors(id,class,map) values (201,'c','HaggaBasin');
+insert into vehicles(id) values (201);
+insert into permission_actor(actor_id,actor_name,actor_type,access_level,is_child) values (201,'mine',2,3,0);
+insert into permission_actor_rank(permission_actor_id,player_id,rank) values (201,1,1);
+insert into vehicle_modules(id,vehicle_id,template_id,stats) values
+  (1,201,'SandbikeChassis_1',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":2000.0}]}')),
+  (2,201,'SandbikeGenerator_1',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":844.276672,"LastDeteriorationCause":"active"}]}')),
+  (3,201,'SandbikeEngine_1',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":688.631774}]}')),
+  (4,201,'SandbikeLocomotionFrontLeft_1',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":573.924987,"DecayedMaxDurability":900.0}]}')),
+  (6,201,'SandbikeLocomotionBackCenter_1',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":573.924987}]}')),
+  (7,201,'SandbikeHull_2',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":700.0}]}')),
+  (8,201,'BuggyChassis_5',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":100.0}]}')),
+  (9,201,'OrnithopterTransportHullFront_6',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":100.0}]}')),
+  (10,201,'SandcrawlerEngine_Unique_Speed_06',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":100.0}]}')),
+  (11,201,'SandbikeEngine_0',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":100.0}]}')),
+  (12,201,'BuggyGenerator_PolarCap_6',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":100.0}]}')),
+  (5,201,'Mystery_9',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":50.0}]}'));`)}
+	r, err := o.RepairVehicles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := r.(map[string]any)
+	if res["repaired"].(int64) != 8 || res["withoutKnownMax"].(int64) != 3 || res["modules"].(int64) != 12 {
+		t.Fatalf("counts wrong: %v", res)
+	}
+	if tpl, _ := res["withoutKnownMaxTemplates"].([]string); len(tpl) != 3 || tpl[0] != "BuggyGenerator_PolarCap_6" || tpl[1] != "Mystery_9" || tpl[2] != "SandbikeEngine_0" {
+		t.Fatalf("the template with no maximum is named: %v", res["withoutKnownMaxTemplates"])
+	}
+	cur := func(id int) float64 {
+		return mustOne(t, o, `select json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability') c from vehicle_modules where id=?`, id)["c"].(float64)
+	}
+	// full chassis untouched; generator and engine to the template's 1000; the module with a recorded maximum goes to that, not the template's
+	if cur(1) != 2000 || cur(2) != 1000 || cur(3) != 1000 || cur(4) != 900 || cur(5) != 50 || cur(6) != 1000 || cur(7) != 1500 || cur(8) != 3500 || cur(9) != 4500 || cur(10) != 2500 || cur(11) != 100 || cur(12) != 100 {
+		t.Fatalf("durability wrong: %v %v %v %v %v %v %v %v %v %v %v %v", cur(1), cur(2), cur(3), cur(4), cur(5), cur(6), cur(7), cur(8), cur(9), cur(10), cur(11), cur(12))
+	}
+	// the repair adds no recorded maximum of its own, and keeps the other keys
+	row := mustOne(t, o, `select json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') d, json_extract(stats,'$.FVehicleModuleDurabilityStats[1].LastDeteriorationCause') c from vehicle_modules where id=2`)
+	if row["d"] != nil || row["c"] != "active" {
+		t.Fatalf("other keys damaged: %v", row)
+	}
+	assertDBSound(t, o)
+
+	// the threshold applies to the template maximum too
+	o2 := &Ops{S: testsave.PlayerWithSQL(t, `
+insert into actors(id,class,map) values (201,'c','HaggaBasin');
+insert into vehicles(id) values (201);
+insert into permission_actor(actor_id,actor_name,actor_type,access_level,is_child) values (201,'mine',2,3,0);
+insert into permission_actor_rank(permission_actor_id,player_id,rank) values (201,1,1);
+insert into vehicle_modules(id,vehicle_id,template_id,stats) values
+  (1,201,'SandbikeEngine_1',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":600.0}]}')),
+  (2,201,'SandbikeGenerator_1',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":400.0}]}'));`)}
+	if r, err := o2.RepairVehiclesBelow(50); err != nil || r.(map[string]any)["repaired"].(int64) != 1 {
+		t.Fatalf("40%% of 1000 is below 50%%, 60%% is not: %v %v", r, err)
+	}
+}
