@@ -98,8 +98,7 @@ func (o *Ops) BasePower(baseID int64) (any, error) {
 		marks = append(marks, "?")
 		args = append(args, k.Kind)
 	}
-	rows, err := o.S.Query(`select lower(p.building_type) kind, p.id, coalesce((select sum(i.stack_size) from items i join inventories v on v.id=i.inventory_id
-			where v.actor_id=p.id and v.inventory_type=3),0) held
+	rows, err := o.S.Query(`select lower(p.building_type) kind, p.id, coalesce((select sum(i.stack_size) from items i where i.inventory_id=(`+powerInventorySQL+`)),0) held
 		from placeables p where p.is_hologram=0 and p.`+ownedByBase+` and lower(p.building_type) in (`+strings.Join(marks, ",")+`) order by p.id`, args...)
 	if err != nil {
 		return nil, err

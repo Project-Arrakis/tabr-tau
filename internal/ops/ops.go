@@ -544,58 +544,91 @@ func (o *Ops) DeleteItem(a Args) (any, error) {
 	return ok(), nil
 }
 
+// gearDurability is the part of an item's FItemStackAndDurabilityStats the repair decides on. Absent or non-numeric values stay at their zero
+// value with their has flag false.
+type gearDurability struct {
+	cur, max, decayed          float64
+	hasCur, hasMax, hasDecayed bool
+}
+
+// readGearDurability reads the durability record out of an item's stats text. ok is false when the item has no such record or no
+// CurrentDurability (nothing to repair). Nothing decoded here is ever written back: the repair patches the stored text in place.
+func readGearDurability(stats string) (d gearDurability, ok bool) {
+	var doc map[string][]json.RawMessage
+	if json.Unmarshal([]byte(stats), &doc) != nil {
+		return d, false
+	}
+	pair := doc["FItemStackAndDurabilityStats"]
+	if len(pair) < 2 {
+		return d, false
+	}
+	var rec map[string]json.RawMessage
+	if json.Unmarshal(pair[1], &rec) != nil {
+		return d, false
+	}
+	num := func(key string) (float64, bool) {
+		var f float64
+		raw, has := rec[key]
+		if !has || json.Unmarshal(raw, &f) != nil {
+			return 0, false
+		}
+		return f, true
+	}
+	d.cur, d.hasCur = num("CurrentDurability")
+	d.max, d.hasMax = num("MaxDurability")
+	d.decayed, d.hasDecayed = num("DecayedMaxDurability")
+	return d, d.hasCur
+}
+
 // RepairGear restores durability on equipped gear, armor, weapons and backpack.
 // RepairGear raises the durability of everything the character wears (inventory type 1) and carries as a loadout (type 15) to
 // its maximum. The backpack and the other inventories are left alone.
+//
+// The items are read and repaired in one transaction (audit L2 G09), and only the durability keys that change are written, each with
+// json_set on the item's own text (audit L2 G10): every other part of the stats document, its key order, 64-bit integers and floats such
+// as 100.0 keep exactly the text the game wrote.
 func (o *Ops) RepairGear() (any, error) {
 	p, err := o.player()
 	if err != nil {
 		return nil, err
 	}
-	rows, err := o.S.Query(`select i.id, i.stats from items i join inventories v on v.id=i.inventory_id
-		where v.actor_id=? and v.inventory_type in (1,15)`, p.Pawn)
-	if err != nil {
-		return nil, err
-	}
-	repaired := 0
+	scanned, repaired := 0, 0
+	const rec = `$.FItemStackAndDurabilityStats[1].`
 	_, err = o.S.Mutate("repair gear", func(m *save.Mut) error {
+		scanned, repaired = 0, 0
+		rows, err := m.Query(`select i.id, i.stats from items i join inventories v on v.id=i.inventory_id
+			where v.actor_id=? and v.inventory_type in (1,15)`, p.Pawn)
+		if err != nil {
+			return err
+		}
+		scanned = len(rows)
 		for _, r := range rows {
-			var st map[string][]any
-			if json.Unmarshal([]byte(fmt.Sprint(r["stats"])), &st) != nil {
-				continue
-			}
-			pair := st["FItemStackAndDurabilityStats"]
-			if len(pair) < 2 {
-				continue
-			}
-			d, isMap := pair[1].(map[string]any)
-			if !isMap {
-				continue
-			}
-			cur, has := d["CurrentDurability"].(float64)
-			if !has {
+			d, ok := readGearDurability(fmt.Sprint(r["stats"]))
+			if !ok {
 				continue
 			}
 			// as good as new: the item's full durability is its MaxDurability when it records one, else 100, the scale of worn gear.
 			// A recorded DecayedMaxDurability (what repairs at a workbench wear down) goes back to it too. A repair only raises an item;
 			// it never lowers one that is already above.
 			target := 100.0
-			if mx, ok := d["MaxDurability"].(float64); ok && mx > 0 {
-				target = mx
+			if d.hasMax && d.max > 0 {
+				target = d.max
 			}
-			dm, hasDecayed := d["DecayedMaxDurability"].(float64)
-			wornMax := hasDecayed && dm > 0 && dm < target // a decayed maximum of 0 means none was recorded
-			if cur >= target && !wornMax {
+			wornMax := d.hasDecayed && d.decayed > 0 && d.decayed < target // a decayed maximum of 0 means none was recorded
+			if d.cur >= target && !wornMax {
 				continue
 			}
-			if cur < target {
-				d["CurrentDurability"] = target
+			var q string
+			var args []any
+			switch {
+			case d.cur < target && wornMax:
+				q, args = `update items set stats=json_set(stats,'`+rec+`CurrentDurability',?,'`+rec+`DecayedMaxDurability',?) where id=?`, []any{target, target, r["id"]}
+			case d.cur < target:
+				q, args = `update items set stats=json_set(stats,'`+rec+`CurrentDurability',?) where id=?`, []any{target, r["id"]}
+			default:
+				q, args = `update items set stats=json_set(stats,'`+rec+`DecayedMaxDurability',?) where id=?`, []any{target, r["id"]}
 			}
-			if wornMax {
-				d["DecayedMaxDurability"] = target
-			}
-			b, _ := json.Marshal(st)
-			if _, err := m.Exec(`update items set stats=? where id=?`, string(b), r["id"]); err != nil {
+			if _, err := m.Exec(q, args...); err != nil {
 				return err
 			}
 			repaired++
@@ -606,7 +639,7 @@ func (o *Ops) RepairGear() (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"ok": true, "scanned": len(rows), "repaired": repaired}, nil
+	return map[string]any{"ok": true, "scanned": scanned, "repaired": repaired}, nil
 }
 
 // AddSolari adjusts the player's Solari (an item stack in this game version).
