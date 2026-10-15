@@ -302,7 +302,11 @@ func (o *Ops) Export(name, format string) ([]byte, string, error) {
 	}
 	var buf bytes.Buffer
 	w := csv.NewWriter(&buf)
-	w.Write(cols)
+	head := make([]string, len(cols)) // a column name comes from the save too: a name that starts with = is a formula to a spreadsheet
+	for i, c := range cols {
+		head[i] = csvCell(c)
+	}
+	w.Write(head)
 	for _, r := range rows {
 		rec := make([]string, len(r))
 		for i, v := range r {

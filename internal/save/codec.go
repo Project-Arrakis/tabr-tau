@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 )
 
 var sqliteMagic = []byte("SQLite format 3\x00")
@@ -21,6 +22,28 @@ const flagZlib = 1
 // maxDecoded is the largest save (compressed or decoded) that Decode accepts.
 // Real saves decode to ~2 MB; the cap only exists to stop hostile files.
 var maxDecoded = int64(256 << 20)
+
+// readCapped reads a file the user pointed the editor at, refusing one over maxDecoded from its size before any byte is read, and never
+// reading more than maxDecoded+1 bytes even when the size changes under it. os.ReadFile would read a multi-gigabyte file in full and only
+// then let Decode say it is too big (SEC-6 of the 2026-10-15 audit).
+func readCapped(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	if st, err := f.Stat(); err == nil && st.Size() > maxDecoded {
+		return nil, fmt.Errorf("file is %d bytes, over the %d byte limit", st.Size(), maxDecoded)
+	}
+	b, err := io.ReadAll(io.LimitReader(f, maxDecoded+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(b)) > maxDecoded {
+		return nil, fmt.Errorf("file is over the %d byte limit", maxDecoded)
+	}
+	return b, nil
+}
 
 // Decode returns the SQLite bytes contained in a save container. A file that is
 // already a plain SQLite database is returned unchanged.

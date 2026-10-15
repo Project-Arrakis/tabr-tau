@@ -77,7 +77,7 @@ func (s *Save) requirePlainFile() error {
 		return err
 	}
 	if !st.Mode().IsRegular() {
-		return fmt.Errorf("%s is not a regular file (symlinks are refused)", s.Path)
+		return fmt.Errorf("%s is not a regular file (symlinks are refused)", filepath.Base(s.Path))
 	}
 	return nil
 }
@@ -89,7 +89,7 @@ func (s *Save) installBlob(blob []byte) error {
 	if err := writeDurable(tmp, blob, 0o600); err != nil {
 		return err
 	}
-	cur, err := os.ReadFile(s.Path)
+	cur, err := readCapped(s.Path)
 	if err != nil {
 		os.Remove(tmp)
 		return err
@@ -102,7 +102,7 @@ func (s *Save) installBlob(blob []byte) error {
 		os.Remove(tmp)
 		return err
 	}
-	back, err := os.ReadFile(s.Path)
+	back, err := readCapped(s.Path)
 	if err != nil || !bytes.Equal(back, blob) {
 		// The new file is not what we wrote: put the previous content back the same way and say so.
 		rb := s.tmpPath()

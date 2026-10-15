@@ -104,7 +104,11 @@ func (o *Ops) BasePower(baseID int64) (any, error) {
 		return nil, err
 	}
 	for _, r := range rows {
-		t := byKind[r["kind"].(string)]
+		kind, _ := r["kind"].(string)
+		t, known := byKind[kind]
+		if !known {
+			continue
+		}
 		held, _ := toInt(r["held"])
 		t["devices"] = t["devices"].(int64) + 1
 		t["queued"] = t["queued"].(int64) + held
@@ -141,7 +145,10 @@ func (o *Ops) BaseWater(baseID int64) (any, error) {
 	order := []string{}
 	agg := map[string]map[string]any{}
 	for _, r := range rows {
-		kind := r["kind"].(string)
+		kind, isText := r["kind"].(string)
+		if !isText { // a building with no type recorded cannot be named or counted (SEC-5)
+			continue
+		}
 		t, ok := agg[kind]
 		if !ok {
 			name := waterNames[kind]

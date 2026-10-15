@@ -294,7 +294,17 @@ let P = null;
 function host() { return $('#pbody') || $('#main'); }
 // The Player Summary above the Player tabs, as in the console's player view: identity, level, XP, skill points, Intel, vitals,
 // faction, database ids and the currency balances. Everything comes from the save.
+// The identifiers that name the account (platform, Funcom and FLS ids) stay hidden until their Show button is pressed, so a screenshot taken
+// for a bug report does not carry them (GRC-5). The value is only drawn while it is shown; the review pane masks the same ids.
+let SUMMARY = null;
+const SHOWN = new Set();
+const SECRET_IDS = ['platformId', 'funcomId', 'flsId'];
+const idKv = (key, label, v) => (v == null || v === '' ? kv(label, '-')
+  : html`<div class="kv"><b>${label}</b><span>${SHOWN.has(key) ? v : '••••••••'} <button class="b sec sm" data-reveal="${key}" title="Account identifiers are hidden so a screenshot does not share them">${SHOWN.has(key) ? 'Hide' : 'Show'}</button></span></div>`);
 function summaryCard(m) {
+  return html`<div id="sumcard">${summaryBody(m)}</div>`;
+}
+function summaryBody(m) {
   if (!m) return html``;
   const num = (v) => (v == null ? '-' : Number(v).toLocaleString());
   const f1 = (v) => (v == null ? '-' : Number(v).toFixed(1));
@@ -303,13 +313,15 @@ function summaryCard(m) {
     ${kv('Character', m.name)}${kv('Status', m.status)}${kv('Map', m.map)}${kv('Faction', m.faction || 'Neutral')}
     ${kv('Level', m.level)}${kv('XP', num(m.xp))}${kv('Skill points', sp ? `${num(sp.unspent)} / ${num(sp.total)}` : '-')}${kv('Intel', it ? `${num(it.points)} / ${num(it.max)}` : '-')}
     ${kv('Health', v.health == null ? '-' : `${f1(v.health)} (max at least ${Math.ceil(Math.max(v.healthMinMax, v.health))})`)}${kv('Hydration', v.hydration == null ? '-' : `${f1(v.hydration)} / ${v.maxHydration}`)}${kv('Spice addiction', v.spiceAddiction == null ? '-' : `${f1(v.spiceAddiction)} / ${v.maxSpiceAddiction}`)}
-    ${kv((id.platform || 'Platform') + ' ID', id.platformId)}${kv('Funcom ID', id.funcomId)}${kv('FLS ID', id.flsId)}
+    ${idKv('platformId', (id.platform || 'Platform') + ' ID', id.platformId)}${idKv('funcomId', 'Funcom ID', id.funcomId)}${idKv('flsId', 'FLS ID', id.flsId)}
     ${kv('DB player', ids.actor)}${kv('Account', ids.account)}${kv('Player controller', ids.controller)}${kv('Player state', ids.playerState)}
     ${(m.currency || []).map((c) => kv(c.label, num(c.balance)))}</div></div>`;
 }
 async function playerView() {
   let sm = null;
   try { sm = await api('/api/player/summary'); } catch (e) { sm = null; } // the tabs still work without it
+  SUMMARY = sm;
+  SHOWN.clear(); // hidden again every time the view is drawn
   setHTML($('#main'), html`${summaryCard(sm)}${subNav('player', PTABS)}<div id="pbody"></div>`);
   if (sub.player == 'bases') return basesView();
   if (sub.player == 'vehicles') return vehiclesView();
@@ -974,6 +986,12 @@ document.addEventListener('click', (e) => {
   if (hth && !e.target.closest('button, a, input, select') && headerClick(hth)) return;
   const t = e.target.closest('[data-tab]');
   if (t) { if (Object.hasOwn(TABS, t.dataset.tab)) { tab = t.dataset.tab; localStorage.tab = tab; render(); } return; }
+  const rv = e.target.closest('[data-reveal]');
+  if (rv) {
+    const k = rv.dataset.reveal;
+    if (SECRET_IDS.includes(k) && $('#sumcard')) { if (SHOWN.has(k)) SHOWN.delete(k); else SHOWN.add(k); setHTML($('#sumcard'), summaryBody(SUMMARY)); }
+    return;
+  }
   const cg = e.target.closest('[data-ctg]');
   if (cg) { ctGroup = cg.dataset.ctg; catalogList(); return; }
   const lcc = e.target.closest('[data-cell]');

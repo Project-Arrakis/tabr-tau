@@ -14,7 +14,7 @@ func OpenReadOnly(path string) (*sql.DB, func(), error) {
 	if st, err := os.Stat(path); err == nil && st.IsDir() {
 		path = filepath.Join(path, "game.db")
 	}
-	b, err := os.ReadFile(path)
+	b, err := readCapped(path)
 	if err != nil {
 		return nil, nil, err
 	}
