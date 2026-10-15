@@ -188,10 +188,17 @@ func sameOriginRequest(r *http.Request) bool {
 	return true
 }
 
+// writeJSON marshals first and only then writes the status line, so a value JSON cannot carry (a NaN or infinite number that
+// came out of a hostile save, say) answers a clear JSON 500 and not a 200 with an empty body (SEC-1 of the 2026-10-15 audit).
 func writeJSON(w http.ResponseWriter, status int, v any) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		status = http.StatusInternalServerError
+		b = []byte(`{"error":"The editor could not encode this answer. A value in the save is not representable (for example a number that is not finite)."}`)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	w.Write(append(b, '\n')) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter (JSON built by encoding/json; nosniff and CSP set)
 }
 
 func respond(w http.ResponseWriter, v any, err error) {

@@ -152,6 +152,9 @@ func (o *Ops) Teleport(a Args) (any, error) {
 	if err := errors.Join(e1, e2, e3); err != nil {
 		return nil, err
 	}
+	if p.Pawn == 0 { // no body to move: say so instead of reporting a move that changed nothing (ARCH-4)
+		return nil, errors.New("this save has no character body to move")
+	}
 	for _, v := range []float64{x, y, z} {
 		if math.IsNaN(v) || math.IsInf(v, 0) || math.Abs(v) > 1e7 {
 			return nil, errors.New("x, y and z must be ordinary numbers (game units)")

@@ -8,8 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/augments"
 	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
@@ -46,20 +48,43 @@ func (a Args) Str(k string) string {
 	return ""
 }
 
+// Float reads a finite number. A request can spell NaN or Inf as text ("NaN", "Inf", "1e999"), which strconv accepts, and a
+// non-finite number stored in a REAL column breaks every view that reads it back (SEC-2 of the 2026-10-15 audit).
 func (a Args) Float(k string) (float64, error) {
+	var f float64
 	switch v := a[k].(type) {
 	case float64:
-		return v, nil
+		f = v
 	case string:
-		return strconv.ParseFloat(v, 64)
+		var err error
+		if f, err = strconv.ParseFloat(strings.TrimSpace(v), 64); err != nil {
+			return 0, fmt.Errorf("%s must be a number", k)
+		}
+	default:
+		return 0, fmt.Errorf("%s must be a number", k)
 	}
-	return 0, fmt.Errorf("%s must be a number", k)
+	if math.IsNaN(f) || math.IsInf(f, 0) {
+		return 0, fmt.Errorf("%s must be an ordinary number, not NaN or infinity", k)
+	}
+	return f, nil
 }
 
+// maxExactInt is the largest integer a JSON number carries exactly (2^53). A larger id would address a different row than
+// the one typed, and a conversion of a huge float to int64 does not fail, it wraps (SEC-3).
+const maxExactInt = 1 << 53
+
+// Int reads a whole number that is exactly representable. A fraction, or a magnitude above 2^53, is refused instead of
+// being truncated or wrapped to some other value.
 func (a Args) Int(k string) (int64, error) {
 	f, err := a.Float(k)
 	if err != nil {
 		return 0, err
+	}
+	if f != math.Trunc(f) {
+		return 0, fmt.Errorf("%s must be a whole number", k)
+	}
+	if f < -maxExactInt || f > maxExactInt {
+		return 0, fmt.Errorf("%s is too large", k)
 	}
 	return int64(f), nil
 }
@@ -718,10 +743,13 @@ func (o *Ops) SetSpec(a Args) (any, error) {
 		return nil, err
 	}
 	t, e1 := a.IntRange("track_type", 0, 255)
-	xp, e2 := a.IntRange("xp", 0, 1_000_000_000)
+	xp, e2 := a.IntRange("xp", 0, maxSpecXP) // a track never holds more than the XP of its last level (DBA-7)
 	lvl, e3 := a.Float("level")
 	if err := errors.Join(e1, e2, e3); err != nil {
 		return nil, err
+	}
+	if lvl < 0 || lvl > 100 {
+		return nil, errors.New("level out of range (0..100)")
 	}
 	if _, err := o.run(fmt.Sprintf("specialization %d: xp=%d level=%g", t, xp, lvl), `insert into specialization_tracks(player_id, track_type, xp_amount, level) values(?,?,?,?)
 		on conflict(player_id, track_type) do update set xp_amount=excluded.xp_amount, level=excluded.level`, p.Controller, t, xp, lvl); err != nil {
