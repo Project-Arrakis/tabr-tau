@@ -549,14 +549,28 @@ func (o *Ops) RepairGear() (any, error) {
 			if !isMap {
 				continue
 			}
-			if _, has := d["CurrentDurability"]; !has {
+			cur, has := d["CurrentDurability"].(float64)
+			if !has {
 				continue
 			}
+			// as good as new: the item's full durability is its MaxDurability when it records one, else 100, the scale of worn gear.
+			// A recorded DecayedMaxDurability (what repairs at a workbench wear down) goes back to it too. A repair only raises an item;
+			// it never lowers one that is already above.
 			target := 100.0
 			if mx, ok := d["MaxDurability"].(float64); ok && mx > 0 {
 				target = mx
 			}
-			d["CurrentDurability"] = target
+			dm, hasDecayed := d["DecayedMaxDurability"].(float64)
+			wornMax := hasDecayed && dm > 0 && dm < target // a decayed maximum of 0 means none was recorded
+			if cur >= target && !wornMax {
+				continue
+			}
+			if cur < target {
+				d["CurrentDurability"] = target
+			}
+			if wornMax {
+				d["DecayedMaxDurability"] = target
+			}
 			b, _ := json.Marshal(st)
 			if _, err := m.Exec(`update items set stats=? where id=?`, string(b), r["id"]); err != nil {
 				return err
