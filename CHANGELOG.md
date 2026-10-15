@@ -53,6 +53,7 @@ Versioning: [Semantic Versioning](https://semver.org/), tags `v0.x` until the fi
 - Tests: Give-item, full-backpack and Solari tests on the real schema, each ending with `integrity_check`, `foreign_key_check` and the sequencer invariant.
 
 ### Changed
+- Licence statement for the game art (#164, owner decision 2026-10-15): the README now says the MIT licence covers the code, not the Funcom map pictures and icons in the Live Map, which are kept under a not-MIT notice with a removal-on-request contact (an issue on this repository); a `NOTICE.md` sits in the art folder, and the third-party notices record where the ported tables and the game-data numbers came from.
 - Dependencies and toolchain: the Go version is 1.26.9 (#100, GO-2026-6617 reported by govulncheck, #99); `actions/checkout` is 7.0.1 (#28) and the `jsdom` test dependency 30.1.2 (#53).
 - CI: the Windows job's limits are 12 minutes for the tests and 20 for the job (were 40 and 60), now that the suite takes about three minutes there (#89).
 - Land Claim Editor: clicking inside a dotted (available) cell now works (#145). The cells are unfilled, and an unfilled SVG shape only receives clicks on its thin outline, so a click in the middle of a square did nothing. They now take clicks anywhere inside.

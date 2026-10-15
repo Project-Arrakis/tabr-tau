@@ -457,5 +457,14 @@ The Live Map tab uses two map pictures (`internal/web/static/maps/hagga-basin.pn
 picture coordinate bounds from that project's `LIVE_MAP_CONFIGS` and `liveMapGeometry.ts`. The code and numbers are MIT-licensed
 (licence reproduced in the previous section). **The pictures are Dune: Awakening game art, which belongs to Funcom; they are not
 covered by that licence and not licensed by this project.** They are included only as the console includes them, for the same
-use (showing where things are on the map), and will be removed on request. This project is unofficial and not affiliated with or
+use (showing where things are on the map), and will be removed on request (open an issue on the repository). The owner decided on 2026-10-15 to keep them with this notice. This project is unofficial and not affiliated with or
 endorsed by Funcom.
+
+## Other data and rules taken from the console and from game-data sites
+
+Besides the files named above, some tables and rules in `internal/ops`, `internal/skills`, `internal/journey` and `internal/augments`
+follow the Dune Docker console (MIT, RedBlink; licence reproduced above): the XP table, the water-device capacities, the generator and
+filter amounts, the building-set groups and the research unlock logic. The vehicle-module durability values were read from the item
+pages of dune.gaming.tools and checked against every module of those templates in a real save; the augment compatibility data was
+compiled in the console from method.gg. Those sites are not affiliated with this project; only numbers and names of game items are
+used, no text or images. This project is unofficial and not affiliated with or endorsed by Funcom.
