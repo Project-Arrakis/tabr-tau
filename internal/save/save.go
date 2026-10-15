@@ -35,6 +35,8 @@ type Save struct {
 	blocked  string         // why writes are refused (unknown database objects), or ""
 	fkBase   map[string]int // dangling references present before the current edit (see Mutate)
 	diskHash [32]byte
+	diskSize int64     // size and modification time of the file when diskHash was taken: a cheap first test for "changed on disk"
+	diskMod  time.Time
 	dirty    bool
 	ops      []Op    // structured record of the edits applied since load
 	orig     string  // pristine decoded copy of the file as loaded; never written
@@ -255,10 +257,44 @@ func (s *Save) load() error {
 	s.work, s.db, s.rdb = work, db, rdb
 	s.orig, s.odb = orig, odb
 	s.blocked, s.fkBase = blocked, base
-	s.diskHash = sha256.Sum256(blob)
+	s.noteDisk(blob)
 	s.dirty = false
 	s.ops = nil
 	return nil
+}
+
+// noteDisk records the file as it now is (its content hash, size and modification time) as the baseline the editor works from.
+func (s *Save) noteDisk(blob []byte) {
+	s.diskHash = hashOf(blob)
+	s.diskSize, s.diskMod = 0, time.Time{}
+	if st, err := os.Stat(s.Path); err == nil {
+		s.diskSize, s.diskMod = st.Size(), st.ModTime()
+	}
+}
+
+// ChangedOnDisk says whether the file has been rewritten since this editor loaded or last wrote it. The game saves about every five minutes
+// while a single-player session runs and again when it ends, and a save onto a file that changed is refused (ErrChangedOnDisk), so the
+// editor says so as soon as it happens, not when Save is pressed. It compares size and modification time first and reads the file only
+// when they differ, which keeps the status poll cheap.
+func (s *Save) ChangedOnDisk() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	st, err := os.Stat(s.Path)
+	if err != nil {
+		return true
+	}
+	if st.Size() == s.diskSize && st.ModTime().Equal(s.diskMod) {
+		return false
+	}
+	b, err := os.ReadFile(s.Path)
+	if err != nil {
+		return true
+	}
+	if hashOf(b) == s.diskHash { // touched, not changed
+		s.diskSize, s.diskMod = st.Size(), st.ModTime()
+		return false
+	}
+	return true
 }
 
 // Close releases the working copy.
@@ -583,7 +619,7 @@ func (s *Save) commit(force bool, token string, needToken bool) (map[string]any,
 		ops[i] = o.Desc
 	}
 	// The file is written. From here a problem is a warning, not a failed save.
-	s.diskHash = hashOf(blob)
+	s.noteDisk(blob)
 	s.dirty = false
 	s.ops = nil
 	res := map[string]any{"saved": true, "backup": bak, "ops": ops}
@@ -669,7 +705,7 @@ func (s *Save) Restore(name string) error {
 	if err := s.installBlob(b); err != nil {
 		return err
 	}
-	s.diskHash = hashOf(b)
+	s.noteDisk(b)
 	if err := reloadAfterCommit(s); err != nil {
 		// The file on disk is the restored backup but the working copy is stale: refuse further edits so the
 		// stale copy can never be saved over the restore.

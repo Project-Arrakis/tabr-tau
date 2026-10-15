@@ -61,7 +61,7 @@ func newOps(t *testing.T) *Ops {
 
 func TestGiveItemUsesSequencerAndFreeSlot(t *testing.T) {
 	o := newOps(t)
-	r, err := o.GiveItem(Args{"template_id": "Spice", "quantity": 5.0, "quality": 2.0})
+	r, err := o.GiveItem(Args{"template_id": "MelangeSpice", "quantity": 5.0, "quality": 2.0})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestGiveItemUsesSequencerAndFreeSlot(t *testing.T) {
 
 func TestGiveItemsQueueIsAtomicAndUsesDistinctSlots(t *testing.T) {
 	o := newOps(t) // backpack of 3 slots, 2 used (slots 0 and 1 are taken, the sequencer starts at 500)
-	r, err := o.GiveItems(Args{"items": []any{map[string]any{"template_id": "Spice", "quantity": 5.0, "quality": 2.0}}})
+	r, err := o.GiveItems(Args{"items": []any{map[string]any{"template_id": "MelangeSpice", "quantity": 5.0, "quality": 2.0}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,5 +277,37 @@ func TestSQLModes(t *testing.T) {
 	}
 	if _, err := o.UpdateRow(Args{"table": "items; drop table items", "column": "a", "rowid": 1.0}); err == nil {
 		t.Fatal("identifier injection must be rejected")
+	}
+}
+
+// Free text is not an item (UX-02 of the 2026-10-15 audit): typing "Spice" gave an item no game has. An id must be in the catalog or already
+// on an item in the save; everything else is refused with a sentence that says what to do, and nothing is written.
+func TestGiveRefusesAnIdThatIsNotAnItem(t *testing.T) {
+	o := newOps(t)
+	for _, bad := range []string{"Spice", "spice melange", "NotAnItem_99", "melangespice"} { // wrong name, a name with a space, a typo, wrong case
+		if _, err := o.GiveItem(Args{"template_id": bad, "quantity": 1.0}); err == nil || !strings.Contains(err.Error(), "pick an item from the list") {
+			t.Errorf("%q must be refused with advice: %v", bad, err)
+		}
+		if _, err := o.GiveItems(Args{"items": []any{map[string]any{"template_id": bad, "quantity": 1.0}}}); err == nil {
+			t.Errorf("%q must be refused in the queue as well", bad)
+		}
+	}
+	if o.S.Dirty() {
+		t.Fatal("a refused give must not change the save")
+	}
+	if _, err := o.GiveItem(Args{"template_id": "MelangeSpice", "quantity": 1.0}); err != nil {
+		t.Fatalf("a catalog id is fine: %v", err)
+	}
+}
+
+// An id the catalog lacks but the save already holds (a new game item) can still be given.
+func TestGiveAcceptsAnIdAlreadyInTheSave(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, `insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (901,2,30,10,1000.0);
+insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values (9001,901,1,0,'BrandNewGameItem_X',0,1790000000,'{}',0);`)}
+	if _, err := o.GiveItem(Args{"template_id": "BrandNewGameItem_X", "quantity": 1.0}); err != nil {
+		t.Fatalf("an id that is on an item in the save must be accepted: %v", err)
+	}
+	if _, err := o.GiveItem(Args{"template_id": "BrandNewGameItem_Y", "quantity": 1.0}); err == nil {
+		t.Fatal("an id that is neither in the catalog nor in the save must be refused")
 	}
 }

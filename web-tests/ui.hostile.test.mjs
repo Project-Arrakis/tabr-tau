@@ -636,31 +636,41 @@ test('item pickers list in-game names, send the template id, and item tables sho
   ui.doc.querySelector('#gt').value = 'Emote_Unlisted';
   ui.click('[data-act="give"]'); await ui.settle();
   assert.equal(ui.posted.filter((p) => p.path === '/api/player/give')[3].body.template_id, 'Emote_Unlisted');
-  ui.doc.querySelector('#gt').value = 'Some_Raw_Id';
+  // text that is not an item is never sent on as an id (#161): neither a raw id the catalog and the save do not hold, nor a half-name
+  for (const bad of ['Some_Raw_Id', 'Spice', 'fuel']) {
+    ui.doc.querySelector('#gt').value = bad;
+    ui.click('[data-act="give"]'); await ui.settle();
+    assert.equal(ui.posted.filter((p) => p.path === '/api/player/give').length, 4, `"${bad}" must not be posted`);
+    assert.ok(ui.doc.querySelector('#toast').textContent.includes(`"${bad}" is not an item`), `the toast says so for "${bad}": ${ui.doc.querySelector('#toast').textContent}`);
+  }
+  ui.doc.querySelector('#gt').value = '';
   ui.click('[data-act="give"]'); await ui.settle();
-  assert.equal(ui.posted.filter((p) => p.path === '/api/player/give')[4].body.template_id, 'Some_Raw_Id', 'a typed id is sent as is');
+  assert.equal(ui.posted.filter((p) => p.path === '/api/player/give').length, 4, 'an empty box posts nothing');
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Pick an item first'));
   ui.dom.window.close();
 });
 
 test('Give Items queue: items are queued, listed with hostile names as text, removed, and given in one post', async () => {
   const inv = JSON.parse(JSON.stringify(baseFixtures['/api/player/inventory'].body));
-  const ui = await boot({ get: { '/api/player/inventory': inv }, post: { '/api/player/give-items': { ok: true, count: 2, itemIds: [1, 2] } } });
+  const hostileName = '<img src=x onerror=1>';
+  const catalog = [{ id: 'Hostile_1', name: hostileName, category: 'misc' }, { id: 'MelangeSpice', name: 'Spice Melange', category: 'resources' }];
+  const ui = await boot({ get: { '/api/catalog/items': catalog, '/api/player/inventory': inv }, post: { '/api/player/give-items': { ok: true, count: 2, itemIds: [1, 2] } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="char:inventory"]'); await ui.settle();
   assert.ok(!ui.doc.querySelector('[data-act="queueGive"]'), 'no queue until something is added');
-  ui.doc.querySelector('#gt').value = '<img src=x onerror=1>'; ui.doc.querySelector('#gq').value = '3'; ui.doc.querySelector('#gg').value = '2';
+  ui.doc.querySelector('#gt').value = hostileName; ui.doc.querySelector('#gq').value = '3'; ui.doc.querySelector('#gg').value = '2';
   ui.click('[data-act="queueAdd"]'); await ui.settle();
-  ui.doc.querySelector('#gt').value = 'Spice'; ui.doc.querySelector('#gq').value = '0';
+  ui.doc.querySelector('#gt').value = 'Spice Melange'; ui.doc.querySelector('#gq').value = '0';
   ui.click('[data-act="queueAdd"]'); await ui.settle();
   assert.equal(ui.doc.querySelectorAll('[data-act="queueDel"]').length, 2);
   assert.equal(ui.doc.querySelector('img'), null, 'a hostile item name is text, not markup');
   ui.click('[data-act="queueDel"][data-id="1"]'); await ui.settle();
-  ui.doc.querySelector('#gt').value = 'Spice'; ui.doc.querySelector('#gq').value = '5'; ui.doc.querySelector('#gg').value = '0';
+  ui.doc.querySelector('#gt').value = 'Spice Melange'; ui.doc.querySelector('#gq').value = '5'; ui.doc.querySelector('#gg').value = '0';
   ui.click('[data-act="queueAdd"]'); await ui.settle();
   ui.click('[data-act="queueGive"]'); await ui.settle();
   const post = ui.posted.filter((p) => p.path === '/api/player/give-items');
   assert.equal(post.length, 1, 'one request for the whole queue');
-  assert.deepEqual(post[0].body.items, [{ template_id: '<img src=x onerror=1>', quantity: 3, quality: 2 }, { template_id: 'Spice', quantity: 5, quality: 0 }]);
+  assert.deepEqual(post[0].body.items, [{ template_id: 'Hostile_1', quantity: 3, quality: 2 }, { template_id: 'MelangeSpice', quantity: 5, quality: 0 }], 'the names were turned into ids');
   assert.ok(!ui.doc.querySelector('[data-act="queueGive"]'), 'the queue is cleared after giving');
   ui.dom.window.close();
 });
@@ -672,6 +682,7 @@ test('Augments: the editor lists the fitting augments as text, applies the picke
   const inv = JSON.parse(JSON.stringify(baseFixtures['/api/player/inventory'].body));
   inv.items = [{ id: 7, inventory_id: 1, inventory_name: 'Backpack', position_index: 0, template_id: 'Helm_1', stack_size: 1, quality_level: 5, durability: null, max_durability: null, augments: [{ name: 'Aug_B', quality: 3 }], aug_limit: 2 },
     { id: 8, inventory_id: 1, inventory_name: 'Backpack', position_index: 1, template_id: 'Ore_1', stack_size: 5, quality_level: 0, durability: null, max_durability: null, augments: [], aug_limit: 0 }];
+  inv.templates = ['Helm_1', 'Ore_1']; // the ids the save holds, which the item box accepts
   const ui = await boot({ get: { '/api/player/inventory': inv }, post: { '/api/items/augment-options': fit, '/api/items/augment': { ok: true, augments: 1, slotsUnlocked: 2 }, '/api/player/give-items': { ok: true, count: 1, itemIds: [9] } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="char:inventory"]'); await ui.settle();
@@ -1198,5 +1209,30 @@ test('Structures and Vehicles have no edit boxes on single pieces or vehicles (#
   assert.ok(main().textContent.includes('Recovered / stored vehicles (1)') && main().textContent.includes('Sandbike'), 'the stored vehicle is listed');
   assert.equal(main().querySelector('[data-act="dur"]'), null, 'no Set durability on a vehicle');
   assert.ok(!main().textContent.includes('Set durability'), 'and no text for it');
+  ui.dom.window.close();
+});
+
+test('the banner says at once when the game saved since the editor opened, and offers Reload (#160)', async () => {
+  const ov = { ...JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)), dirty: true, pending: ['edit 1', 'edit 2'], saveBlocked: false, changedOnDisk: true };
+  const ui = await boot({ get: { '/api/save/state': ov } });
+  const gw = ui.doc.querySelector('#gamewarn');
+  assert.ok(gw.classList.contains('warn') && !gw.classList.contains('hide'), 'the banner is showing');
+  assert.ok(gw.textContent.includes('The game saved since this editor opened') && gw.textContent.includes('2 unsaved changes'), gw.textContent);
+  assert.ok(gw.querySelector('[data-act="reload"]'), 'it offers Reload now');
+  // and with nothing changed the banner stays out of the way
+  const ok = { ...JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)), changedOnDisk: false, saveBlocked: false, gameMode: 'none' };
+  const ui2 = await boot({ get: { '/api/save/state': ok } });
+  assert.ok(ui2.doc.querySelector('#gamewarn').classList.contains('hide'));
+  ui.dom.window.close();
+  ui2.dom.window.close();
+});
+
+test('the single-player banner tells the player to close the game before editing, not that editing is fine (#160)', async () => {
+  const ov = { ...JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)), gameRunning: true, gameProcesses: ['DuneTest.exe'], saveBlocked: true, gameMode: 'single_player',
+    blockReason: 'a single-player session is active (DuneTest.exe)' };
+  const ui = await boot({ get: { '/api/save/state': ov } });
+  const text = ui.doc.querySelector('#gamewarn').textContent;
+  assert.ok(text.includes('Close the game or go to its menu before you edit'), text);
+  assert.ok(!text.includes('You can keep editing'), 'the old advice is gone');
   ui.dom.window.close();
 });
