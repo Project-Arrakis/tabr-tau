@@ -73,6 +73,11 @@ const (
 	bootTTL    = 10 * time.Minute
 )
 
+// notSignedIn is what a page is told when its session is gone (the editor was restarted, or the cookie was cleared). It is right for both
+// ways of running: the editor's own window has no terminal, and a browser tab needs the new link.
+const notSignedIn = "This window is no longer signed in to the editor, usually because the editor was closed and started again. " +
+	"Close tabr-tau completely and start it again: the editor's own window opens signed in; in a browser, open the new link printed in the terminal."
+
 // NewBootToken returns a single-use token, valid for bootTTL, that a browser can exchange for the session cookie
 // by opening /?boot=<token>. The process prints it (and opens the browser with it) at startup.
 func (s *Server) NewBootToken() string {
@@ -166,7 +171,8 @@ func (s *Server) Handler() http.Handler {
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			if !s.hasSession(r) {
-				http.Error(w, "not signed in: open the link printed in the terminal", http.StatusForbidden)
+				// JSON, so the page can show this sentence: a plain-text body made the page fall back to a generic message (UX-10).
+				writeJSON(w, http.StatusForbidden, map[string]any{"error": notSignedIn, "code": "not_signed_in"})
 				return
 			}
 			if !sameOriginRequest(r) {

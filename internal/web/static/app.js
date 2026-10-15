@@ -12,7 +12,8 @@ async function api(path, body) {
   }
   const r = await fetch(path, opt);
   const j = await r.json().catch(() => ({ error: r.statusText }));
-  if (r.status === 403 && !j.error) throw new Error('This browser is no longer signed in. Close tabr-tau and start it again, then open the new link from the terminal.');
+  // The editor answers a signed-out page with a sentence of its own (code not_signed_in). This is only the fallback for a 403 that carries none.
+  if (r.status === 403 && !j.error) throw new Error('This window is no longer signed in to the editor. Close tabr-tau completely and start it again: the editor\'s own window opens signed in; in a browser, open the new link printed in the terminal.');
   if (!r.ok || j.error) { const e = new Error(j.error || r.statusText); e.code = j.code; throw e; }
   return j;
 }
@@ -33,16 +34,33 @@ function toast(msg, err, ms = 3500) {
   $('#toast').append(d);
 }
 const NOT_SAVED = ' (not saved yet)';
-async function act(fn, okMsg, refresh = true) {
+// immediate: the change is written at once (a config file, a setting), not queued for Review & save, so it never gets the "not saved yet" hint
+// that belongs to edits of the save (UX-05).
+async function act(fn, okMsg, refresh = true, immediate = false) {
   try {
     const r = await fn();
     let dirty = false;
-    try { dirty = (await status()).dirty; } catch (e) { /* the poll reports a lost connection; the edit itself succeeded */ }
+    if (!immediate) try { dirty = (await status()).dirty; } catch (e) { /* the poll reports a lost connection; the edit itself succeeded */ }
     if (okMsg) toast(okMsg + (dirty ? NOT_SAVED : ''));
     if (refresh) await render();
     return r;
   }
   catch (e) { toast(e.message, true); }
+}
+// A box edited in place keeps what was typed until the server answers. If the edit is refused the box goes back to the value it had, so the
+// page never shows a value the save does not hold (UX-14); if it is accepted, that value is the one to go back to next time.
+async function editInput(t, fn, okMsg, immediate = false) {
+  let failed = false;
+  await act(async () => { try { return await fn(); } catch (e) { failed = true; throw e; } }, okMsg, false, immediate);
+  if (failed) {
+    if (t.tagName === 'SELECT') { const i = [...t.options].findIndex((o) => o.defaultSelected); if (i >= 0) t.selectedIndex = i; }
+    else t.value = t.dataset.orig !== undefined ? t.dataset.orig : t.defaultValue;
+  } else if (t.tagName === 'SELECT') {
+    [...t.options].forEach((o) => { o.defaultSelected = o.selected; });
+  } else {
+    t.defaultValue = t.value;
+    if (t.dataset.orig !== undefined) t.dataset.orig = t.value;
+  }
 }
 const val = (id) => $('#' + id).value;
 
@@ -433,7 +451,7 @@ async function playerSection(s) {
       <div class="row"><b>Repair Faction</b>${na('Repair Faction')}<span class="mut">Not in tabr-tau yet.</span></div>
       <div class="row"><b>Repair Landsraad Quests</b>${na('Repair Quests')}<span class="mut">Not in tabr-tau yet.</span></div>
       <div class="row"><b>Repair Gear</b><button class="b" data-act="repair">Repair Gear</button><span class="mut">Worn items and loadouts, as good as new (full durability, and a maximum that repairs wore down restored).</span></div>
-      <div class="row"><b>Repair Vehicle Durability</b><button class="b" data-act="repairV">Repair Vehicles</button><label>Repair Below <input id="rvPct" type="number" min="1" max="100" value="50" class="w70"> %</label><span class="mut">Makes the modules of your vehicles whose durability is below this share of their full durability as good as new: full durability, with the maximum that repairs wore down restored too. A module whose full durability is not known is raised to the maximum it records, or skipped when it records none.</span></div></div>
+      <div class="row"><b>Repair Vehicle Durability</b><button class="b" data-act="repairV">Repair Vehicles</button><label>Repair Below <input id="rvPct" type="number" min="1" max="100" value="100" class="w70"> %</label><span class="mut">100 repairs every module that is not already as good as new (the same as the Vehicles tab). A lower number repairs only the modules below that share of their full durability, and says when there were none. Each repaired module is made as good as new: full durability, with the maximum that repairs wore down restored too. A module whose full durability is not known is raised to the maximum it records, or skipped when it records none.</span></div></div>
     <div class="card"><h3>Danger Zone</h3><div class="row">${na('Wipe Inventory')}${na('Reset Progression')}<span class="mut">Not in tabr-tau yet.</span></div></div>
     <div class="card"><h3>Movement / Vehicles</h3><div class="row"><b>Teleport To</b>X<input id="tx" type="number" value="${Math.round(a.x)}">Y<input id="ty" type="number" value="${Math.round(a.y)}">Z<input id="tz" type="number" value="${Math.round(a.z)}">Facing <input id="tdyaw" type="number" step="1" placeholder="degrees" class="w90"><button class="b" data-act="teleport">Teleport</button></div>
     <div class="row"><b>Go to a place</b><select id="tdkind"><option value="base">Base</option><option value="respawn">Respawn point</option><option value="vehicle">My vehicle</option><option value="marker">Discovered map marker</option></select><input id="tdq" placeholder="filter, e.g. cave" class="w150"><button class="b sec" data-act="tdFind">Find</button><span id="tdout" class="mut"></span></div>
@@ -672,7 +690,7 @@ async function basesView() {
       const b = await api('/api/bases');
       const p = b.pieces || {};
       h.push(html`<div class="card"><h3>Structure health</h3><div class="grid">${kv('Building pieces', p.n)}${kv('Lowest health', fix(p.minh))}${kv('Average health', fix(p.avgh))}${kv('Total sand buildup', fix(p.sand))}</div>
-        <div class="row"><button class="b" data-act="repairB">Repair all to max</button><button class="b sec" data-act="sand">Clear sand buildup</button><span class="mut">Repair sets each piece to the highest health seen for its type.</span></div></div>`);
+        <div class="row"><button class="b" data-act="repairB">Repair every base to max</button><button class="b sec" data-act="sand">Clear sand on every base</button><span class="mut">These two act on all of your bases, not only the one open above. Repair sets each piece to the highest health seen for its type.</span></div></div>`);
       h.push(html`<div class="card"><h3>Placeables (${b.placeables.length})</h3>${tbl([{ k: 'id' }, { k: 'building_type', label: 'Type' }, { k: 'health', label: 'Health', f: (r) => (r.health == null ? '' : fix(r.health)) }], b.placeables)}</div>
         <div class="card"><h3>Building piece types</h3>${tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], b.types)}</div>`);
     } else {
@@ -806,17 +824,25 @@ async function dbView() {
 }
 
 // ---------- render + events
+// What a vehicle repair says. "Repaired 0" alone does not tell whether nothing was below the threshold or nothing could be repaired (UX-03).
+function repairMsg(r, scope, pct) {
+  const skipped = r.withoutKnownMax ? ` ${r.withoutKnownMax} modules have no known maximum and were left alone${(r.withoutKnownMaxTemplates || []).length ? ' (' + r.withoutKnownMaxTemplates.join(', ') + ')' : ''}.` : '';
+  if (r.repaired) return `Repaired ${r.repaired} ${scope}.` + skipped;
+  if (!r.modules) return 'Nothing to repair: no vehicle modules were found.' + skipped;
+  return (pct && pct < 100 ? `Nothing to repair: none of the ${r.modules} modules is below ${pct}% of its full durability.` : `Nothing to repair: all ${r.modules} modules are already as good as new.`) + skipped;
+}
 async function render() {
   drawNav();
   try {
     await ({ player: playerView, livemap: liveMapView, landsraad: landsraadView, config: configView, db: dbView })[tab]();
   } catch (e) {
-    setHTML($('#main'), html`<div class="card bad">${e.message}</div>`);
+    setHTML($('#main'), html`<div class="card bad">${e.message}</div><div class="row mt12"><button class="b" data-act="retry">Try again</button></div>`);
   }
 }
 
 const D = (e) => e.target.closest('[data-act]');
 const A = {
+  retry: () => render(),
   closeReview: () => { R = null; drawReview(); },
   askOk: () => { if (askState && askState.typed && $('#atype').value.trim().toLowerCase() !== askState.typed.toLowerCase()) return; endAsk(true); }, // the typed word is checked here too, not only by the disabled button
   askNo: () => endAsk(false),
@@ -923,7 +949,7 @@ const A = {
   claimShrink: async (d) => {
     const rings = +val('cs' + d.id);
     const size = rings ? `${2 * rings + 1} x ${2 * rings + 1}` : 'the totem\'s own cell';
-    if (!(await ask({ title: 'Shrink this land claim?', body: `Removes every stored cell outside ${size}. A cell that holds building pieces is never removed. This cannot be undone from here (restore a backup to go back).`, ok: 'Shrink claim' }))) return;
+    if (!(await ask({ title: 'Shrink this land claim?', body: `Removes every stored cell outside ${size}. A cell that holds building pieces is never removed. It goes through the review pane, and Discard undoes it until you save.`, ok: 'Shrink claim' }))) return;
     act(async () => { const r = await api('/api/bases/claim/shrink', { totem_id: +d.id, rings }); toast(`Removed ${r.removed} cells; the claim now has ${r.remaining}` + NOT_SAVED); });
   },
   claimGrow: async (d) => {
@@ -933,13 +959,13 @@ const A = {
     if (level > +d.level) body.level = level;
     if (body.rings === undefined && body.level === undefined) { toast('Nothing to change: pick a bigger size or a higher level', true); return; }
     const what = [body.rings ? `every missing cell up to a ${2 * rings + 1} x ${2 * rings + 1} square around the totem` : '', body.level !== undefined ? `the vertical level raised to ${level}` : ''].filter(Boolean).join(' and ');
-    if (!(await ask({ title: 'Expand this land claim?', body: `Adds ${what}. This cannot be undone from here (restore a backup to go back).`, ok: 'Expand claim' }))) return;
+    if (!(await ask({ title: 'Expand this land claim?', body: `Adds ${what}. It goes through the review pane, and Discard undoes it until you save.`, ok: 'Expand claim' }))) return;
     act(async () => { const r = await api('/api/bases/claim/expand', body); toast(`Claim now ${r.totalCells} cells, level ${r.level} (+${r.added} cells)` + NOT_SAVED); });
   },
   refillWater: () => act(async () => { const r = await api('/api/bases/refill-water', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast((r.filled ? `Refilled ${r.summary} (${r.alreadyFull} already full).` : `All ${r.alreadyFull} water buildings were already full.`) + sk + NOT_SAVED); }, null),
   refillGen: () => act(async () => { const r = await api('/api/bases/refill-generators', {}); toast((r.filled ? `Refilled ${r.summary} (${r.alreadyFull} already full).` : `All ${r.alreadyFull} power buildings were already full.`) + ((r.skipped || []).length ? ` No free slot: ${r.skipped.join(', ')}.` : '') + NOT_SAVED); }, null),
-  repairOne: (d) => act(async () => { const r = await api('/api/vehicles/repair', { vehicle_id: +d.id }); toast(`Repaired ${r.repaired} modules of this vehicle.` + (r.withoutKnownMax ? ` ${r.withoutKnownMax} modules have no known maximum and were left alone${(r.withoutKnownMaxTemplates || []).length ? ' (' + r.withoutKnownMaxTemplates.join(', ') + ')' : ''}.` : '') + NOT_SAVED); }, null),
-  repairV: () => act(async () => { const pct = $('#rvPct'); const r = await api('/api/vehicles/repair', pct ? { threshold: +pct.value } : {}); toast(`Repaired ${r.repaired} vehicle modules.` + (r.withoutKnownMax ? ` ${r.withoutKnownMax} modules have no known maximum and were left alone${(r.withoutKnownMaxTemplates || []).length ? ' (' + r.withoutKnownMaxTemplates.join(', ') + ')' : ''}.` : '') + NOT_SAVED); }, null),
+  repairOne: (d) => act(async () => { const r = await api('/api/vehicles/repair', { vehicle_id: +d.id }); toast(repairMsg(r, 'modules of this vehicle') + (r.repaired ? NOT_SAVED : '')); }, null),
+  repairV: () => act(async () => { const pct = $('#rvPct'); const n = pct ? +pct.value : 100; const r = await api('/api/vehicles/repair', pct ? { threshold: n } : {}); toast(repairMsg(r, 'vehicle modules', n) + (r.repaired ? NOT_SAVED : '')); }, null),
   repairB: () => act(async () => { const r = await api('/api/bases/repair', {}); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables` + NOT_SAVED); }, null),
   sand: () => act(async () => { const r = await api('/api/bases/clear-sand', {}); toast(`Cleared ${r.pieces} pieces` + NOT_SAVED); }, null),
   openInv: async (d) => {
@@ -955,11 +981,11 @@ const A = {
   decree: (d) => act(() => api('/api/landsraad/decree', { id: +d.id, disabled: d.d == '1' }), 'Decree updated'),
   tfill: (d) => act(() => api('/api/landsraad/progress', { task_id: +d.id, faction_id: +val('lf'), amount: +d.goal }), 'Progress set'),
   tdone: async (d) => (await ask({ title: d.r == '1' ? 'Reset this task?' : 'Complete this task?', body: 'Changes the Landsraad task for the chosen faction.', ok: d.r == '1' ? 'Reset' : 'Complete' })) && act(() => api('/api/landsraad/complete', { task_id: +d.id, faction_id: +val('lf'), reset: d.r == '1' }), 'Task updated'),
-  cfgcreate: (d) => act(() => api('/api/config/create', { name: d.n }), 'Created ' + d.n),
-  cfgadd: () => act(() => api('/api/config/set', { name: cfgFile, section: val('cs').replace(/^\[|\]$/g, ''), key: val('ck').trim(), value: val('cv') }), 'Added', true),
-  cfgdel: async (d) => (await ask({ title: 'Delete config line?', body: 'Delete ' + d.key + ' from ' + cfgFile + '. A backup of the file is made first.', ok: 'Delete', danger: true })) && act(() => api('/api/config/delete', { name: cfgFile, line: +d.line, key: d.key }), 'Deleted'),
-  cfgraw: () => act(() => api('/api/config/raw', { name: cfgFile, text: val('raw') }), 'File written'),
-  cfgrestore: async (d) => (await ask({ title: 'Restore config backup?', body: 'Replace ' + cfgFile + ' with ' + d.b + '. Close the game first.', ok: 'Restore', danger: true })) && act(() => api('/api/config/restore', { name: cfgFile, backup: d.b }), 'Restored'),
+  cfgcreate: (d) => act(() => api('/api/config/create', { name: d.n }), 'Created ' + d.n + ' now', true, true),
+  cfgadd: () => act(() => api('/api/config/set', { name: cfgFile, section: val('cs').replace(/^\[|\]$/g, ''), key: val('ck').trim(), value: val('cv') }), 'Added to the config file now', true, true),
+  cfgdel: async (d) => (await ask({ title: 'Delete config line?', body: 'Delete ' + d.key + ' from ' + cfgFile + '. A backup of the file is made first.', ok: 'Delete', danger: true })) && act(() => api('/api/config/delete', { name: cfgFile, line: +d.line, key: d.key }), 'Deleted from the config file now', true, true),
+  cfgraw: async () => (await ask({ title: 'Replace the whole file?', body: 'Everything in ' + cfgFile + ' is replaced by the text in the box. It is written now, not at Save, after a backup of the file is made. Close the game first.', ok: 'Replace file', danger: true })) && act(() => api('/api/config/raw', { name: cfgFile, text: val('raw') }), 'File written now (the previous text is in Backups)', true, true),
+  cfgrestore: async (d) => (await ask({ title: 'Restore config backup?', body: 'Replace ' + cfgFile + ' with ' + d.b + '. Close the game first.', ok: 'Restore', danger: true })) && act(() => api('/api/config/restore', { name: cfgFile, backup: d.b }), 'Config file restored now', true, true),
   dbgo: () => { dbQ = val('dbq'); dbOff = 0; render(); },
   dbprev: () => { dbOff = Math.max(0, dbOff - 100); render(); },
   dbnext: () => { dbOff += 100; render(); },
@@ -1037,10 +1063,10 @@ document.addEventListener('change', (e) => {
   if (t.id == 'ctgrp') { ctGroup = t.value; catalogList(); return; }
   if (t.id == 'ctexp') { ctExp = t.checked; if (!ctExp && CT.rows.some((r) => r.experimental && r.group == ctGroup)) ctGroup = ''; catalogList(); return; }
   if (t.dataset.skill) { act(async () => { const r = await api('/api/player/skills/module', { module: t.dataset.skill, level: +t.value, charge: skCharge }); toast(`Skill set: ${r.pointsBefore} to ${r.pointsAfter} points` + NOT_SAVED); }, null); return; }
-  if (t.dataset.item) act(() => api('/api/items/update', { id: +t.dataset.item, [t.dataset.field]: +t.value }), 'Item updated', false);
-  else if (t.dataset.faction) act(() => api('/api/player/factions', { faction_id: +t.dataset.faction, amount: +t.value }), 'Reputation set', false);
-  else if (t.classList.contains('cfgv')) act(() => api('/api/config/set', { name: cfgFile, section: t.dataset.section, key: t.dataset.key, value: t.value, line: +t.dataset.line }), 'Saved ' + t.dataset.key, false);
-  else if (t.classList.contains('dbc')) act(() => api('/api/db/update', { table: dbTable, ...(t.dataset.kind == '_key_' ? { key: t.dataset.rowid } : { rowid: +t.dataset.rowid }), column: t.dataset.col, value: t.value === '' && t.dataset.orig === '' ? null : t.value }), 'Cell updated', false);
+  if (t.dataset.item) editInput(t, () => api('/api/items/update', { id: +t.dataset.item, [t.dataset.field]: +t.value }), 'Item updated');
+  else if (t.dataset.faction) editInput(t, () => api('/api/player/factions', { faction_id: +t.dataset.faction, amount: +t.value }), 'Reputation set');
+  else if (t.classList.contains('cfgv')) editInput(t, () => api('/api/config/set', { name: cfgFile, section: t.dataset.section, key: t.dataset.key, value: t.value, line: +t.dataset.line }), 'Saved ' + t.dataset.key + ' to the config file now', true);
+  else if (t.classList.contains('dbc')) editInput(t, () => api('/api/db/update', { table: dbTable, ...(t.dataset.kind == '_key_' ? { key: t.dataset.rowid } : { rowid: +t.dataset.rowid }), column: t.dataset.col, value: t.value === '' && t.dataset.orig === '' ? null : t.value }), 'Cell updated');
   else if (t.id == 'cfgsel') { cfgFile = t.value; render(); }
   else if (t.id == 'dbsel') { dbTable = t.value; dbOff = 0; dbQ = ''; render(); }
 });

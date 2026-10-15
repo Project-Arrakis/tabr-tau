@@ -407,7 +407,7 @@ func (o *Ops) GiveItem(a Args) (any, error) {
 		return nil, errors.New("that inventory does not belong to the player")
 	}
 	var id int64
-	if _, err := o.S.Mutate(fmt.Sprintf("give %dx %s (grade %d)", qty, tmpl, q), func(m *save.Mut) (e error) { id, e = giveInTx(m, inv, tmpl, qty, q); return }); err != nil {
+	if _, err := o.S.Mutate(fmt.Sprintf("Give %s x %s (grade %d)", commas(qty), itemLabel(tmpl), q), func(m *save.Mut) (e error) { id, e = giveInTx(m, inv, tmpl, qty, q); return }); err != nil {
 		return nil, err
 	}
 	return map[string]any{"ok": true, "itemId": id}, nil
@@ -498,7 +498,7 @@ func (o *Ops) GiveToInventory(a Args) (any, error) {
 		return nil, err
 	}
 	var id int64
-	if _, err := o.S.Mutate(fmt.Sprintf("give %dx %s to inventory %d", qty, tmpl, inv), func(m *save.Mut) (e error) { id, e = giveInTx(m, inv, tmpl, qty, q); return }); err != nil {
+	if _, err := o.S.Mutate(fmt.Sprintf("Give %s x %s to container %d", commas(qty), itemLabel(tmpl), inv), func(m *save.Mut) (e error) { id, e = giveInTx(m, inv, tmpl, qty, q); return }); err != nil {
 		return nil, err
 	}
 	return map[string]any{"ok": true, "itemId": id}, nil
@@ -535,7 +535,15 @@ func (o *Ops) SetItem(a Args) (any, error) {
 		return nil, err
 	}
 	_, err = o.S.Mutate(fmt.Sprintf("edit item %d", id), func(m *save.Mut) error {
-		for _, e := range edits {
+		old, err := m.One(`select template_id, stack_size, quality_level from items where id=?`, id)
+		if err != nil {
+			return err
+		}
+		if old == nil {
+			return errors.New("item not found")
+		}
+		desc := fmt.Sprintf("%s (item %d):", itemLabel(fmt.Sprint(old["template_id"])), id)
+		for i, e := range edits {
 			res, err := m.Exec(`update items set `+e.col+`=? where id=?`, e.val, id)
 			if err != nil {
 				return err
@@ -543,7 +551,18 @@ func (o *Ops) SetItem(a Args) (any, error) {
 			if n, _ := res.RowsAffected(); n == 0 {
 				return errors.New("item not found")
 			}
+			was, _ := old[e.col].(int64)
+			what := "stack"
+			if e.col == "quality_level" {
+				what = "grade"
+			}
+			sep := " "
+			if i > 0 {
+				sep = ", "
+			}
+			desc += fmt.Sprintf("%s%s %s", sep, what, change(was, e.val))
 		}
+		m.Desc = desc
 		return nil
 	})
 	if err != nil {
@@ -563,6 +582,10 @@ func (o *Ops) DeleteItem(a Args) (any, error) {
 	// Cascading delete: an item that owns an inventory takes that inventory and everything in it with it, as the
 	// game's schema declares (ON DELETE CASCADE), instead of leaving them dangling.
 	_, err = o.S.MutateCascade(fmt.Sprintf("delete item %d", id), func(m *save.Mut) error {
+		if old, _ := m.One(`select template_id, stack_size from items where id=?`, id); old != nil {
+			n, _ := old["stack_size"].(int64)
+			m.Desc = fmt.Sprintf("Delete %s x %s (item %d)", commas(n), itemLabel(fmt.Sprint(old["template_id"])), id)
+		}
 		res, err := m.Exec(`delete from items where id=?`, id)
 		if err != nil {
 			return err
@@ -739,8 +762,22 @@ func (o *Ops) SetReputation(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := o.run(fmt.Sprintf("faction %d reputation = %d", f, v), `insert into player_faction_reputation(actor_id, faction_id, reputation_amount) values(?,?,?)
-		on conflict(actor_id, faction_id) do update set reputation_amount=excluded.reputation_amount`, p.Controller, f, v); err != nil {
+	if _, err := o.S.Mutate(fmt.Sprintf("faction %d reputation = %d", f, v), func(m *save.Mut) error {
+		name := fmt.Sprintf("faction %d", f)
+		if r, _ := m.One(`select name from factions where id=?`, f); r != nil {
+			name = fmt.Sprint(r["name"])
+		}
+		var was int64
+		if r, _ := m.One(`select reputation_amount from player_faction_reputation where actor_id=? and faction_id=?`, p.Controller, f); r != nil {
+			was, _ = r["reputation_amount"].(int64)
+		}
+		if _, err := m.Exec(`insert into player_faction_reputation(actor_id, faction_id, reputation_amount) values(?,?,?)
+			on conflict(actor_id, faction_id) do update set reputation_amount=excluded.reputation_amount`, p.Controller, f, v); err != nil {
+			return err
+		}
+		m.Desc = fmt.Sprintf("Reputation with %s: %s", name, change(was, v))
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 	return ok(), nil
