@@ -1,4 +1,4 @@
-# Notice: game art in this folder
+# Notice: game art in `internal/web/static/maps/`
 
 The two map pictures (`hagga-basin.png`, `deep-desert.png`) and the marker icons in `icons/` are Dune: Awakening game artwork.
 They belong to Funcom. They are **not** covered by this repository's MIT licence and this project does not license them.
