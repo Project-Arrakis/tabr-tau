@@ -154,8 +154,8 @@ func (o *Ops) AugmentOptions(a Args) (any, error) {
 		}
 	} else {
 		tmpl = a.Str("template_id")
-		if !templateRe.MatchString(tmpl) {
-			return nil, errors.New("invalid template id")
+		if err := o.requireKnownTemplate(tmpl); err != nil {
+			return nil, err
 		}
 	}
 	f := fitOf(tmpl)

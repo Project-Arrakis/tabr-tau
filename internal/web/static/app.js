@@ -70,14 +70,26 @@ const itemName = (id) => (CATALOG && CATALOG.byId.get(id)) || id;
 const itemCell = (id) => html`<span title="${id}">${itemName(id)}</span>`;
 // The picker: a text box with a drop-down of in-game names. Each option also carries its template id as its label, so
 // typing either the name or the id finds it; a name, a label or a raw template id are all accepted.
-function itemPicker(inputId, cat, placeholder = 'Item name, e.g. Spice') {
+function itemPicker(inputId, cat, placeholder = 'Item name, e.g. Spice Melange') {
   return html`<input id="${inputId}" list="${inputId}-dl" placeholder="${placeholder}" size="34"><datalist id="${inputId}-dl">${cat.list.map((e) => html`<option value="${e.label}" label="${e.id}"></option>`)}</datalist>`;
 }
 // What the picker holds -> the template id to send. An exact template id always wins; otherwise a shown label.
+// The id of the item typed or picked in an item box, or '' when the text is not an item: a catalog name, a catalog id or an id already in
+// this save. Free text is never sent on as an id (typing "Spice" is not an item; the item is Spice Melange).
 function pickedItemId(inputId) {
   const v = val(inputId).trim();
-  if (!CATALOG || CATALOG.byId.has(v) || EXTRA_IDS.has(v)) return v;
-  return CATALOG.byLabel.get(v.toLowerCase()) || v;
+  if (!CATALOG) return '';
+  if (CATALOG.byId.has(v) || EXTRA_IDS.has(v)) return v;
+  return CATALOG.byLabel.get(v.toLowerCase()) || '';
+}
+// Like pickedItemId, but says what to do when the box does not hold an item.
+function needItem(inputId) {
+  const t = pickedItemId(inputId);
+  if (!t) {
+    const v = val(inputId).trim();
+    throw new Error(v ? `"${v}" is not an item. Type part of its name and choose it from the list.` : 'Pick an item first: type part of its name and choose it from the list.');
+  }
+  return t;
 }
 
 // Augments (#96). The slots are one drop-down each, with the augments that fit the item (from the console's compatibility data) and their
@@ -186,8 +198,13 @@ async function status() {
   $('#path').textContent = o.path;
   const gw = $('#gamewarn');
   const note = o.gameMode === 'menu_or_multiplayer';
-  gw.className = saveBlocked ? 'warn' : note ? 'info' : 'hide';
-  setHTML(gw, o.gameCheckError && saveBlocked ? html`<b>Saving is blocked.</b> ${saveBlockWhy}. You can keep editing; if this keeps happening, report this text.` : saveBlocked ? html`<b>Saving is blocked.</b> ${saveBlockWhy}. You can keep editing; a save made during a single-player session would be overwritten by the game's own autosave.` : note ? html`Dune: Awakening is open (${(o.gameProcesses || []).join(', ')}) but not in single-player, so saving is allowed.` : html``);
+  const changed = !!o.changedOnDisk;
+  gw.className = saveBlocked || changed ? 'warn' : note ? 'info' : 'hide';
+  // The game rewrites game.db about every five minutes while it runs and again when a session ends, and a save onto a file that changed is
+  // refused, so say so as soon as it happens and say what to do first: close the game, then edit.
+  const changedMsg = changed ? html`<div><b>The game saved since this editor opened.</b> ${o.pending.length ? html`Your ${o.pending.length} unsaved change${o.pending.length > 1 ? 's' : ''} can no longer be saved onto the new file.` : html`What you see here is out of date.`} <button class="b sm" data-act="reload">Reload now</button></div>` : html``;
+  const blockedMsg = o.gameCheckError && saveBlocked ? html`<b>Saving is blocked.</b> ${saveBlockWhy}. If this keeps happening, report this text.` : saveBlocked ? html`<b>Saving is blocked.</b> ${saveBlockWhy}. Close the game or go to its menu before you edit: the game rewrites the save while a single-player session runs, so edits made now would be refused or overwritten.` : note ? html`Dune: Awakening is open (${(o.gameProcesses || []).join(', ')}) but not in single-player, so saving is allowed.` : html``;
+  setHTML(gw, html`${changedMsg}${blockedMsg}`);
   syncReview();
   const n = o.pending.length;
   $('#pending').textContent = n ? `${n} unsaved change${n > 1 ? 's' : ''}` : '';
@@ -829,14 +846,14 @@ const A = {
   augEdit: (d) => act(async () => { const r = await api('/api/items/augment-options', { item_id: +d.id }); r.options.forEach((o) => AUG_NAMES.set(o.id, o.name)); augItem = { ...r, item_id: +d.id }; render(); }, null, false),
   augCancel: () => { augItem = null; render(); },
   augApply: (d) => act(async () => { const r = await api('/api/items/augment', { item_id: +d.id, augments: augPicked('au', augItem.limit), grade: +val('augG'), unlock_slots: $('#augU').checked }); augItem = null; toast(`Augments set (${r.augments})` + (r.slotsUnlocked ? `, ${r.slotsUnlocked} slot keystones unlocked` : '') + NOT_SAVED); }, null),
-  queueAdd: () => { const t = pickedItemId('gt'); if (!t) return toast('Pick an item first', 'err'); const e = { template_id: t, quantity: Math.max(1, +val('gq') || 1), quality: +val('gg') }; const ids = augPicked('ga', 3); if (ids.length) { e.augments = ids; e.grade = +val('gag'); } giveQueue.push(e); render(); },
+  queueAdd: () => { let t; try { t = needItem('gt'); } catch (e) { return toast(e.message, 'err'); } const e = { template_id: t, quantity: Math.max(1, +val('gq') || 1), quality: +val('gg') }; const ids = augPicked('ga', 3); if (ids.length) { e.augments = ids; e.grade = +val('gag'); } giveQueue.push(e); render(); },
   queueDel: (d) => { giveQueue.splice(+d.id, 1); render(); },
   queueClear: () => { giveQueue = []; render(); },
   queueGive: () => act(async () => { const r = await api('/api/player/give-items', { items: giveQueue }); giveQueue = []; toast(`Added ${r.count} items` + NOT_SAVED); }, null),
   give: () => act(async () => {
     const ids = augPicked('ga', 3);
-    if (ids.length) await api('/api/player/give-items', { items: [{ template_id: pickedItemId('gt'), quantity: +val('gq'), quality: +val('gg'), augments: ids, grade: +val('gag') }] });
-    else await api('/api/player/give', { template_id: pickedItemId('gt'), quantity: +val('gq'), quality: +val('gg') });
+    if (ids.length) await api('/api/player/give-items', { items: [{ template_id: needItem('gt'), quantity: +val('gq'), quality: +val('gg'), augments: ids, grade: +val('gag') }] });
+    else await api('/api/player/give', { template_id: needItem('gt'), quantity: +val('gq'), quality: +val('gg') });
     toast('Item added' + NOT_SAVED);
   }, null),
   giveWater: () => act(async () => { await api('/api/player/give', { template_id: 'WaterPack_Consumable', quantity: 10, quality: 0 }); toast('10 x Cup of Water added' + NOT_SAVED); }, null),
@@ -917,7 +934,7 @@ const A = {
     setHTML($('#inv'), html`<div class="card"><h3>Inventory ${d.id}</h3>${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" class="w90">` }], it, { actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` })}
     <div class="row">${itemPicker("bt", cat)}Qty<input id="bq" type="number" value="1" min="1"><button class="b" data-act="giveInv" data-id="${d.id}">Add item</button></div></div>`);
   },
-  giveInv: (d) => act(async () => { await api('/api/bases/give', { inventory_id: +d.id, template_id: pickedItemId('bt'), quantity: +val('bq') }); toast('Item added' + NOT_SAVED); await A.openInv(d); }, null, false),
+  giveInv: (d) => act(async () => { await api('/api/bases/give', { inventory_id: +d.id, template_id: needItem('bt'), quantity: +val('bq') }); toast('Item added' + NOT_SAVED); await A.openInv(d); }, null, false),
   bring: (d) => act(() => api('/api/vehicles/bring', { id: +d.id }), 'Vehicle moved next to you'),
   vreset: async (d) => (await ask({ title: 'Reset purchase limits?', body: 'Resets the purchase limits of this vendor.', ok: 'Reset' })) && act(() => api('/api/vendors/reset', { vendor_id: d.v }), 'Purchase limits reset'),
   term: () => act(async () => { await api('/api/landsraad/term', { active_decree_id: val('ad'), reigning_faction_id: val('rf') }); }, 'Term updated'),

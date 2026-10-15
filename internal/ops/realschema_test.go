@@ -20,7 +20,7 @@ func mustOne(t *testing.T, o *Ops, q string, a ...any) map[string]any {
 // and leave the database structurally sound. The old fixture could not detect a violation of any of these.
 func TestGiveItemOnRealSchema(t *testing.T) {
 	o := &Ops{S: testsave.Player(t)}
-	res, err := o.GiveItem(Args{"template_id": "Spice", "quantity": 5.0, "quality": 2.0})
+	res, err := o.GiveItem(Args{"template_id": "MelangeSpice", "quantity": 5.0, "quality": 2.0})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestGiveItemOnRealSchema(t *testing.T) {
 		t.Fatalf("id should come from items_id_sequencer (500), got %d", id)
 	}
 	it := mustOne(t, o, `select * from items where id=?`, id)
-	if it["template_id"] != "Spice" || it["stack_size"].(int64) != 5 || it["quality_level"].(int64) != 2 {
+	if it["template_id"] != "MelangeSpice" || it["stack_size"].(int64) != 5 || it["quality_level"].(int64) != 2 {
 		t.Fatalf("wrong row: %v", it)
 	}
 	if it["volume_override"] != nil {
@@ -53,11 +53,11 @@ func TestGiveItemOnRealSchema(t *testing.T) {
 func TestGiveItemRefusesFullBackpackOnRealSchema(t *testing.T) {
 	o := &Ops{S: testsave.Player(t)} // 5 slots, 2 used
 	for i := 0; i < 3; i++ {
-		if _, err := o.GiveItem(Args{"template_id": "Spice", "quantity": 1.0}); err != nil {
+		if _, err := o.GiveItem(Args{"template_id": "MelangeSpice", "quantity": 1.0}); err != nil {
 			t.Fatalf("give %d: %v", i, err)
 		}
 	}
-	if _, err := o.GiveItem(Args{"template_id": "Spice", "quantity": 1.0}); err == nil {
+	if _, err := o.GiveItem(Args{"template_id": "MelangeSpice", "quantity": 1.0}); err == nil {
 		t.Fatal("a full backpack must refuse the give")
 	}
 	assertDBSound(t, o)

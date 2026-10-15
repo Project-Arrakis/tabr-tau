@@ -12,6 +12,7 @@ import (
 	"strconv"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/augments"
+	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
@@ -109,7 +110,7 @@ func (o *Ops) State() (any, error) {
 		"path": o.S.Path, "dirty": o.S.Dirty(), "pending": o.S.Pending(),
 		"gameRunning": len(g.Processes) > 0, "gameProcesses": g.Processes, "gameCheckError": g.CheckError,
 		"saveBlocked": g.Blocked, "blockReason": g.Reason, "gameMode": g.Mode,
-		"readOnly": o.S.WriteBlocked(),
+		"readOnly": o.S.WriteBlocked(), "changedOnDisk": o.S.ChangedOnDisk(),
 	}, nil
 }
 
@@ -320,10 +321,32 @@ func giveInTx(m *save.Mut, inventoryID int64, template string, qty, quality int6
 	return next, err
 }
 
+// knownTemplate says whether an item template id is one the editor may give: it is in the item catalog or already appears on an item
+// in this save (ids the catalog lacks, such as new game items). Anything else is a typo or a name that is not an id, and an unknown
+// template written into a save is something the game may refuse to load (UX-02 of the 2026-10-15 audit: typing "Spice" gave an item
+// no game has).
+func (o *Ops) knownTemplate(id string) bool {
+	if _, ok := catalog.Name(id); ok {
+		return true
+	}
+	r, err := o.S.One(`select 1 x from items where template_id=? limit 1`, id)
+	return err == nil && r != nil
+}
+
+func (o *Ops) requireKnownTemplate(id string) error {
+	if !templateRe.MatchString(id) {
+		return fmt.Errorf("invalid template id %q: pick an item from the list", id)
+	}
+	if !o.knownTemplate(id) {
+		return fmt.Errorf("%q is not an item the editor knows (not in the item catalog and not in this save): pick an item from the list", id)
+	}
+	return nil
+}
+
 func (o *Ops) giveArgs(a Args) (inv int64, tmpl string, qty, q int64, err error) {
 	tmpl = a.Str("template_id")
-	if !templateRe.MatchString(tmpl) {
-		return 0, "", 0, 0, errors.New("invalid template id")
+	if err = o.requireKnownTemplate(tmpl); err != nil {
+		return 0, "", 0, 0, err
 	}
 	if qty, err = a.IntRange("quantity", 1, 1_000_000); err != nil {
 		return
