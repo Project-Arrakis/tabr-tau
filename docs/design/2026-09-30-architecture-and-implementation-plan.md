@@ -42,16 +42,16 @@ Class: **WORKS** identical schema, **ADAPT** SQL changes, **NEW** needs a JSONB/
 | P1 | Give item (by template) | RMQ `AddItemToInventory` or SQL insert | `items`+`inventories` insert, `items_id_sequencer` | ADAPT | [V] insert; [T] game accepts and fill-level stats | ✅ partial (no stats/catalog) |
 | P2 | Item catalog/search | `admin-items.json` | embedded snapshot of the Dune Docker catalog (id, name, category; MIT, RedBlink) used by one shared picker; ids in the save the catalog lacks stay selectable by id | NEW | [V] 2,551 items, 82 of the 85 templates in the sample save are covered; licence in the notices | ✅ (names); stack sizes and volumes ◻ |
 | P3 | Edit/delete/repair item | SQL | same | ADAPT | [V] | ✅ |
-| P4 | Augment / pre-augmented gear | SQL + `augment-compatibility.json` | `items.stats` text JSON | ADAPT | [I] | ◻ P4 |
+| P4 | Augment / pre-augmented gear | SQL + `augment-compatibility.json` | `items.stats` text JSON | ADAPT | [V] augment data checked byte for byte against a real item; not yet in game | ✅ Character > Inventory Augments editor, Give item takes augments (#96) |
 | P5 | Solari / currency | SQL | `items` (Solari item) | WORKS | [V] | ✅ |
-| P6 | XP, skill points, per-skill points | RMQ `AwardXP` etc. | JSONB `FLevelComponent` via `jsonb_set` | NEW | [V] read; [V] scratch write; [T] game accepts | ◻ P3 (gated by T1) |
-| P7 | Reset progression / skill modules | RMQ | JSONB edit + table edits | NEW | [I] | ◻ P3 |
+| P6 | XP, skill points, per-skill points | RMQ `AwardXP` etc. | JSONB `FLevelComponent` via `jsonb_set` | NEW | [V] read; [V] write on a copy of a real save | ✅ Give XP, Skills (rank, unspent points), Specialization (#96); not yet checked in game |
+| P7 | Reset progression / skill modules | RMQ | JSONB edit + table edits | NEW | [I] | ◻ reset progression is not built; skill ranks are (Player > Skills) |
 | P8 | Hydration, spice, health; **Refill Container** | RMQ `UpdateAllWaterFillables` (sends 1,000,000; the game fills each fillable to capacity) | Container fill: item `stats` `FFillableItemStats.CurrentAmount` (absent when empty); capacity per template; health/vitals in `actors.gas_attributes` JSONB, `FHealthComponent` | NEW | Container fill [V] live PASS 2026-10-08 (#55, PR #62); vitals [V] read, [T] write | ✅ containers (Literjon family); ◻ P3 vitals |
 | P9 | Teleport | RMQ / SQL | `actors.location_*` | ADAPT | [V] | ✅ |
 | P10 | Faction, reputation | SQL | `player_faction*` | WORKS | [V] | ✅ |
 | P11 | Specializations, keystones | SQL | `specialization_tracks`, keystones | WORKS | [V] schema; tracks empty in sample | ✅ partial |
 | P12 | Journey, tutorials, tags, recipes | SQL | tables + `properties` JSONB recipes | WORKS/NEW | [V] | ✅ (recipes partial) |
-| P13 | Tech knowledge points / research | SQL | `properties.TechKnowledgePlayerComponent` | NEW | [V] observed changing | ◻ P3 |
+| P13 | Tech knowledge points / research | SQL | `properties.TechKnowledgePlayerComponent` | NEW | [V] observed changing | ✅ Give Intel (capped at 2,779) and Player > Research (#96) |
 | P14 | Clean inventory | RMQ | delete `items` rows | ADAPT | [I] | ◻ P3 |
 | P15 | Kick, broadcast, whisper, MOTD | RMQ | none | N/A | [V] | never |
 
