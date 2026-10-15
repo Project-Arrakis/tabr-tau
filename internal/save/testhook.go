@@ -27,3 +27,13 @@ func resetGameCache() {
 	gameCache.at, gameCache.names, gameCache.err = time.Time{}, nil, ""
 	gameCache.Unlock()
 }
+
+// ActiveSessionForTests makes the editor believe a Dune process is running with a single-player session active, so a test in another
+// package can check that a write path refuses. Test code calls it; production code never does (TestTestHooksAreNotCalledByProductionCode
+// fails if it does). It returns a function that puts the real check back.
+func ActiveSessionForTests() (restore func()) {
+	oldL, oldS := listProcs, statusFor
+	listProcs = func(bool) ([]string, string) { return []string{"DuneSandbox-Win64-Shipping.exe"}, "" }
+	statusFor = func(string) (spStatus, error) { return spStatus{Active: true}, nil }
+	return func() { listProcs, statusFor = oldL, oldS }
+}
