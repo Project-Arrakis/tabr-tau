@@ -18,10 +18,12 @@ concurrency:
 jobs:
   go:
     name: go
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
@@ -47,10 +49,12 @@ jobs:
 
   windows:
     name: windows
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
@@ -64,10 +68,12 @@ jobs:
 
   govulncheck:
     name: govulncheck
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
@@ -81,10 +87,12 @@ jobs:
 
   powershell:
     name: powershell
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: PSScriptAnalyzer (Error and Warning fail the build)
         shell: pwsh
         run: |
@@ -103,16 +111,18 @@ jobs:
 
   ui:
     name: ui
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '22'
+          node-version: '22.22.2' # an exact version: Dependabot cannot see it, bump by hand; the floor is web-tests' lockfile engines
       - name: Generate hostile UI fixtures from the real handlers over a real-schema save
         run: UI_FIXTURES_DIR="$PWD/web-tests/fixtures" go test ./internal/web -run TestDumpUIFixtures -count=1 -v
       - name: Browser-engine tests (jsdom pinned by lockfile, install scripts disabled)
@@ -123,10 +133,12 @@ jobs:
 
   python-tools:
     name: python-tools
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
@@ -138,11 +150,12 @@ jobs:
 
   commit-messages:
     name: commit-messages
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: No AI co-author trailers or attribution lines (operator policy, F-12)
         env:
@@ -152,10 +165,12 @@ jobs:
 
   shellcheck:
     name: shellcheck
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: shellcheck (-S warning, as Requirement 9)
         run: shellcheck -S warning scripts/*.sh
 

@@ -17,6 +17,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/notices"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/web"
+	"github.com/Project-Arrakis/tabr-tau/internal/winpath"
 )
 
 var version = "dev"
@@ -251,7 +252,13 @@ func runCommand(args []string) error {
 
 func openBrowser(url string) {
 	// Windows only (the game runs only on Windows, #87).
-	_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	_ = browserCommand(url).Start()
+}
+
+// browserCommand hands the link to the default browser through rundll32, started by its full path in the Windows system folder and not
+// found through PATH (SEC-8 of the 2026-10-15 audit).
+func browserCommand(url string) *exec.Cmd {
+	return exec.Command(winpath.System32("rundll32.exe"), "url.dll,FileProtocolHandler", url) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command (the program is a fixed name under the Windows system folder; the arguments are fixed or the editor's own loopback link)
 }
 
 func runDiff(args []string) error {

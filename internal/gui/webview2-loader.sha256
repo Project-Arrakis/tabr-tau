@@ -1,0 +1,8 @@
+# SHA-256 of the WebView2Loader.dll files that github.com/jchv/go-webview2 embeds in the Windows exe (CLD-6 of the 2026-10-15 audit).
+# go-winloader loads them from memory, so Windows does not check their Authenticode signature and WDAC / AppLocker do not see them.
+# TestEmbeddedWebView2LoadersAreTheReviewedOnes compares this list with the module the build uses; when a dependency bump changes a hash,
+# compare the file with Microsoft's WebView2 SDK package of the same version, then update this list in the same pull request.
+# module: github.com/jchv/go-webview2 v0.0.0-20260205173254-56598839c808
+255cad81b768fb29e68d7b1605ec64e4daeed8ad0f8e8a4547e1304e8aec505d  webviewloader/sdk/arm64/WebView2Loader.dll
+c4674acf95f0800793a4a6d61132adf5dfa694c218e482d86093494c4e84100a  webviewloader/sdk/x64/WebView2Loader.dll
+758f4003d91b3b81951d95de28e0e03f96e23922a73d7fe0abf6f607e2a89f2b  webviewloader/sdk/x86/WebView2Loader.dll
