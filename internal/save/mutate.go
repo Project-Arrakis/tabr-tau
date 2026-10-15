@@ -10,8 +10,11 @@ import (
 )
 
 // fkCounts runs PRAGMA foreign_key_check and returns the dangling references, keyed per child row
-// ("child table #rowid -> parent table (fk id)"); rows of WITHOUT ROWID tables, which report no rowid, are counted per
-// "child table -> parent table (fk id)" group instead. It works whatever the connection's foreign_keys setting is.
+// ("child table #rowid -> parent table (fk id)"). Rows of WITHOUT ROWID tables report no rowid, so they are keyed by
+// their primary-key values instead ("child table [pk] -> parent table (fk id)", see withoutRowidKeys); only if those
+// cannot be worked out do they fall back to one "child table -> parent table (fk id)" group, which cannot tell an
+// edit that repairs one orphan and creates another from no change. It works whatever the connection's foreign_keys
+// setting is.
 func fkCounts(q interface {
 	Query(q string, args ...any) (*sql.Rows, error)
 }) (map[string]int, error) {
@@ -21,6 +24,11 @@ func fkCounts(q interface {
 	}
 	defer rs.Close()
 	out := map[string]int{}
+	type group struct {
+		table, parent string
+		fkid          int
+	}
+	groups := map[group]int{} // WITHOUT ROWID violations, counted per foreign key
 	for rs.Next() {
 		var table, parent string
 		var rowid sql.NullInt64
@@ -31,10 +39,92 @@ func fkCounts(q interface {
 		if rowid.Valid {
 			out[fmt.Sprintf("%s #%d -> %s (fk %d)", table, rowid.Int64, parent, fkid)]++
 		} else {
-			out[fmt.Sprintf("%s -> %s (fk %d)", table, parent, fkid)]++
+			groups[group{table, parent, fkid}]++
 		}
 	}
-	return out, rs.Err()
+	if err := rs.Err(); err != nil {
+		return nil, err
+	}
+	rs.Close() // the single connection must be free before the keys are looked up
+	for g, n := range groups {
+		keys := withoutRowidKeys(q, g.table, g.parent, g.fkid)
+		if len(keys) != n { // could not name every row: count the group
+			out[fmt.Sprintf("%s -> %s (fk %d)", g.table, g.parent, g.fkid)] += n
+			continue
+		}
+		for _, k := range keys {
+			out[fmt.Sprintf("%s [%s] -> %s (fk %d)", g.table, k, g.parent, g.fkid)]++
+		}
+	}
+	return out, nil
+}
+
+// maxKeyedOrphans bounds the per-row keys kept for one foreign key of a WITHOUT ROWID table; a save with more
+// existing orphans than this is counted as one group.
+const maxKeyedOrphans = 20000
+
+func qIdent(name string) string { return `"` + strings.ReplaceAll(name, `"`, `""`) + `"` }
+
+// withoutRowidKeys names the rows of a WITHOUT ROWID table that break one foreign key, by the JSON array of their
+// primary-key values, by looking for children that have no matching parent. It returns nil whenever it cannot, so the
+// caller counts the group instead. Child columns that are NULL never break a key (SQLite's default MATCH SIMPLE).
+func withoutRowidKeys(q interface {
+	Query(q string, args ...any) (*sql.Rows, error)
+}, table, parent string, fkid int) []string {
+	cols := func(query string, args ...any) []string {
+		rs, err := q.Query(query, args...)
+		if err != nil {
+			return nil
+		}
+		defer rs.Close()
+		var out []string
+		for rs.Next() {
+			var c sql.NullString
+			if rs.Scan(&c) != nil {
+				return nil
+			}
+			out = append(out, c.String)
+		}
+		return out
+	}
+	from := cols(`select "from" from pragma_foreign_key_list(?) where id=? order by seq`, table, fkid)
+	to := cols(`select coalesce("to",'') from pragma_foreign_key_list(?) where id=? order by seq`, table, fkid)
+	pk := cols(`select name from pragma_table_info(?) where pk>0 order by pk`, table)
+	if len(from) == 0 || len(from) != len(to) || len(pk) == 0 {
+		return nil
+	}
+	if to[0] == "" { // the parent's primary key
+		to = cols(`select name from pragma_table_info(?) where pk>0 order by pk`, parent)
+		if len(to) != len(from) {
+			return nil
+		}
+	}
+	var present, match, key []string
+	for i := range from {
+		present = append(present, "c."+qIdent(from[i])+" is not null")
+		match = append(match, "p."+qIdent(to[i])+" = c."+qIdent(from[i]))
+	}
+	for _, c := range pk {
+		key = append(key, "cast(c."+qIdent(c)+" as text)")
+	}
+	rs, err := q.Query(`select json_array(` + strings.Join(key, ",") + `) from ` + qIdent(table) + ` c where ` +
+		strings.Join(present, " and ") + ` and not exists (select 1 from ` + qIdent(parent) + ` p where ` + strings.Join(match, " and ") + `)`)
+	if err != nil {
+		return nil
+	}
+	defer rs.Close()
+	var out []string
+	for rs.Next() {
+		var k string
+		if rs.Scan(&k) != nil || len(out) >= maxKeyedOrphans {
+			return nil
+		}
+		out = append(out, k)
+	}
+	if rs.Err() != nil {
+		return nil
+	}
+	return out
 }
 
 // worse lists the dangling references that exist after an edit but not before it. Per-row keys mean an edit that

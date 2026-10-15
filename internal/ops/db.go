@@ -93,8 +93,68 @@ func (o *Ops) Tables() (any, error) {
 	return out, nil
 }
 
+// rowKey says how the rows of a table are addressed from the Tables view. Most tables have a rowid. The game's 61
+// WITHOUT ROWID tables have none (selecting it fails with "no such column: rowid"), so their rows are addressed by
+// the values of their primary-key columns, carried as a JSON array of strings (a BLOB key as hex).
+type rowKey struct {
+	withoutRowid bool
+	pk           []string // primary-key columns in key order (WITHOUT ROWID tables only)
+	blob         []bool   // pk[i] is declared BLOB
+}
+
+// keyText is the SQL that renders one key column as the text the Tables view carries and compares.
+func keyText(col string, blob bool, prefix string) string {
+	if blob {
+		return `hex(` + prefix + quoteIdent(col) + `)`
+	}
+	return `cast(` + prefix + quoteIdent(col) + ` as text)`
+}
+
+func (o *Ops) rowKeyOf(table string, cols, types []string) (rowKey, error) {
+	r, err := o.S.One(`select wr from pragma_table_list where schema='main' and name=?`, table)
+	if err != nil {
+		return rowKey{}, err
+	}
+	if r == nil || fmt.Sprint(r["wr"]) != "1" {
+		return rowKey{}, nil
+	}
+	pk, err := o.S.Query(`select name from pragma_table_info(?) where pk>0 order by pk`, table)
+	if err != nil || len(pk) == 0 {
+		return rowKey{}, errors.New("the table has no primary key to address its rows by")
+	}
+	k := rowKey{withoutRowid: true}
+	for _, p := range pk {
+		n := fmt.Sprint(p["name"])
+		k.pk = append(k.pk, n)
+		isBlob := false
+		for i, c := range cols {
+			if c == n {
+				isBlob = types[i] == "BLOB"
+			}
+		}
+		k.blob = append(k.blob, isBlob)
+	}
+	return k, nil
+}
+
+// keyColumn is the select-list entry that addresses each row, and its name in the result (the first column).
+func (k rowKey) keyColumn() string {
+	if !k.withoutRowid {
+		return `rowid _rowid_`
+	}
+	parts := make([]string, len(k.pk))
+	for i, c := range k.pk {
+		parts[i] = keyText(c, k.blob[i], "")
+	}
+	return `json_array(` + strings.Join(parts, ",") + `) _key_`
+}
+
 func (o *Ops) TableRows(name, q string, limit, offset int) (any, error) {
-	cols, _, err := o.tableInfo(name)
+	cols, types, err := o.tableInfo(name)
+	if err != nil {
+		return nil, err
+	}
+	key, err := o.rowKeyOf(name, cols, types)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +171,7 @@ func (o *Ops) TableRows(name, q string, limit, offset int) (any, error) {
 		where = " where " + strings.Join(parts, " or ")
 	}
 	tot, _ := o.S.One(`select count(*) c from "`+name+`"`+where, args...)
-	c, rows, err := o.S.Table(`select rowid _rowid_, * from "`+name+`"`+where+` limit ? offset ?`, append(args, limit, offset)...)
+	c, rows, err := o.S.Table(`select `+key.keyColumn()+`, * from "`+name+`"`+where+` limit ? offset ?`, append(args, limit, offset)...)
 	if err != nil {
 		return nil, err
 	}
@@ -132,16 +192,52 @@ func (o *Ops) UpdateRow(a Args) (any, error) {
 	if why, bad := locked[col]; bad {
 		return nil, fmt.Errorf("%s.%s cannot be edited here: %s", table, col, why)
 	}
-	rowid, err := a.Int("rowid")
+	rk, err := o.rowKeyOf(table, cols, types)
 	if err != nil {
 		return nil, err
+	}
+	// where says which row: by rowid, or by the primary-key values of a WITHOUT ROWID table
+	where, whereArgs, label := "rowid=?", []any(nil), ""
+	if rk.withoutRowid {
+		var vals []string
+		if s, isStr := a["key"].(string); isStr {
+			if err := json.Unmarshal([]byte(s), &vals); err != nil {
+				return nil, errors.New("key must be a JSON array of the primary-key values")
+			}
+		}
+		if len(vals) != len(rk.pk) {
+			return nil, fmt.Errorf("%s is addressed by %d primary-key value(s): key is required", table, len(rk.pk))
+		}
+		conds := make([]string, len(rk.pk))
+		for i, c := range rk.pk {
+			conds[i] = keyText(c, rk.blob[i], "") + "=?"
+			whereArgs = append(whereArgs, vals[i])
+		}
+		where, label = strings.Join(conds, " and "), "["+strings.Join(vals, ",")+"]"
+	} else {
+		rowid, err := a.Int("rowid")
+		if err != nil {
+			return nil, err
+		}
+		whereArgs, label = []any{rowid}, fmt.Sprintf("[%d]", rowid)
 	}
 	for i, c := range cols {
 		if c == col {
 			if types[i] == "BLOB" {
 				return nil, errors.New("BLOB columns cannot be edited here")
 			}
-			n, err := o.run(fmt.Sprintf("update %s[%d].%s", table, rowid, col), `update `+quoteIdent(table)+` set `+quoteIdent(col)+`=? where rowid=?`, a["value"], rowid)
+			var n int64
+			_, err := o.S.Mutate(fmt.Sprintf("update %s%s.%s", table, label, col), func(m *save.Mut) error {
+				res, err := m.Exec(`update `+quoteIdent(table)+` set `+quoteIdent(col)+`=? where `+where, append([]any{a["value"]}, whereArgs...)...)
+				if err != nil {
+					return err
+				}
+				n, _ = res.RowsAffected()
+				if n > 1 { // a key must name one row; refuse and roll back rather than change several
+					return fmt.Errorf("the key matched %d rows; nothing was changed", n)
+				}
+				return nil
+			})
 			if err != nil {
 				return nil, err
 			}

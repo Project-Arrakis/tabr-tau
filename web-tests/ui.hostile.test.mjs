@@ -965,6 +965,21 @@ test('Database > Tables: primary keys, links and account identity are plain text
   ui.dom.window.close(); ui2.dom.window.close();
 });
 
+test('Database > Tables: a cell edit sends the rowid for a table with one and the primary-key array for a WITHOUT ROWID table', async () => {
+  const edit = async (columns, row) => {
+    const tbl = { columns, rows: [row], total: 1, tableLocked: '', locked: { character_id: 'primary key' } };
+    const ui = await boot({ get: { '/api/db/tables': [{ name: 'player_tags', rows: 1, columns: ['character_id', 'tag'], types: ['INTEGER', 'TEXT'] }], '/api/db/table': tbl }, post: { '/api/db/update': { ok: true } } });
+    ui.click('[data-tab="db"]'); await ui.settle();
+    const inp = ui.doc.querySelector('input.dbc');
+    inp.value = 'changed'; inp.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+    const body = ui.posted.filter((p) => p.path === '/api/db/update').map((p) => p.body);
+    ui.dom.window.close();
+    return body;
+  };
+  assert.deepEqual(await edit(['_rowid_', 'character_id', 'tag'], [5, 1, 'a']), [{ table: 'player_tags', rowid: 5, column: 'tag', value: 'changed' }]);
+  assert.deepEqual(await edit(['_key_', 'character_id', 'tag'], ['["1","a"]', 1, 'a']), [{ table: 'player_tags', key: '["1","a"]', column: 'tag', value: 'changed' }]);
+});
+
 test('Give water gives ten Cups of Water in one post', async () => {
   const ui = await boot({ post: { '/api/player/give': { ok: true, itemId: 9 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
