@@ -10,14 +10,15 @@ import (
 // init); production code never does. It returns a function that puts the real check back. A test that needs a running game
 // replaces tasklistOutput itself, as the tests in this package do.
 func NoGameRunningForTests() (restore func()) {
-	oldOS, oldRun := goos, tasklistOutput
+	oldOS, oldRun, oldLoc := goos, tasklistOutput, locationFor
 	goos = "windows"
+	locationFor = func(string) string { return "" } // a test save lives in a temp folder
 	tasklistOutput = func(context.Context) ([]byte, error) {
 		return []byte("INFO: No tasks are running which match the specified criteria."), nil
 	}
 	resetGameCache()
 	return func() {
-		goos, tasklistOutput = oldOS, oldRun
+		goos, tasklistOutput, locationFor = oldOS, oldRun, oldLoc
 		resetGameCache()
 	}
 }
