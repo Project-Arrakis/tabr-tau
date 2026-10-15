@@ -110,10 +110,18 @@ func main() {
 		die("error: %v", err)
 	}
 	defer s.Close()
+	// Only one editor at a time may have a save open: a second one used to start on another port and work on the same file.
+	releaseLock, err := save.LockSave(s.Path)
+	if err != nil {
+		s.Close()
+		die("error: %v", err)
+	}
+	defer releaseLock()
 	// os.Exit skips deferred calls, and Close deletes the decoded copies of the save from the temp folder, so every
 	// exit after this point goes through here.
 	die = func(format string, a ...any) {
 		s.Close()
+		releaseLock()
 		msg := fmt.Sprintf(format, a...)
 		fmt.Fprintln(os.Stderr, msg)
 		if window {
@@ -147,6 +155,11 @@ func main() {
 	}
 	base := "http://" + ln.Addr().String()
 	ws := newWebServer(s, *cfgDir)
+	ws.BindAddr(ln.Addr().String()) // the session cookie and the accepted Host header are per port
+	if note := web.PortChangeNote(*addr, ln); note != "" && !addrExplicit {
+		fmt.Fprintln(os.Stderr, "note: "+note)
+		ws.NoteStartup(note, true)
+	}
 	bootURL := ws.BootURL(base) // single use, valid for 10 minutes; sets this browser's session cookie
 	fmt.Printf("tabr-tau %s\n  save:   %s\n  config: %s\n  ui:     %s\n", version, s.Path, *cfgDir, bootURL)
 	srv := web.NewHTTPServer(ws.Handler())

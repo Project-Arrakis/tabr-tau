@@ -52,6 +52,10 @@ type Server struct {
 	startupWarn  bool   // the note is a problem or a skip, so the UI keeps it on screen
 	lastAuto     string // the last automatic save, kept for the Automatic refill card
 
+	// bound is the address the editor listens on, set by BindAddr once it is known ("" until then, as in most tests). It scopes the
+	// session cookie to this port and the accepted Host header to this listener (NET-1, NET-2, SEC-7 of the 2026-10-15 audit).
+	bound string
+	port  string
 }
 
 func New(s *save.Save, cfg config.Dir) *Server {
@@ -103,9 +107,47 @@ func (s *Server) consumeBoot(tok string) bool {
 	return ok && !s.now().After(exp)
 }
 
+// BindAddr tells the server the address its listener has (for example 127.0.0.1:8090). From then on the session cookie is named after
+// the port, and a request is served only when its Host header names this listener. Browsers share cookies between ports of one host,
+// so two editors on one machine (the second one starts on another port when 8090 is busy) used to overwrite each other's cookie, and
+// the cookie of one was sent to the other.
+func (s *Server) BindAddr(addr string) {
+	s.bound = addr
+	if _, p, err := net.SplitHostPort(addr); err == nil {
+		s.port = p
+	}
+}
+
+// sessionCookie is the name of this editor's session cookie: per port once the listener is known.
+func (s *Server) sessionCookie() string {
+	if s.port == "" {
+		return cookieName
+	}
+	return cookieName + "_" + s.port
+}
+
+// hasSession accepts the request when any cookie of this editor's name holds the token. A request can carry several cookies of one
+// name (another program on the same host may plant a shadow one, which a browser sends before or after the real one), so the first is
+// not the only one looked at.
 func (s *Server) hasSession(r *http.Request) bool {
-	c, err := r.Cookie(cookieName)
-	return err == nil && subtle.ConstantTimeCompare([]byte(c.Value), []byte(s.token)) == 1
+	name := s.sessionCookie()
+	for _, c := range r.Cookies() {
+		if c.Name == name && subtle.ConstantTimeCompare([]byte(c.Value), []byte(s.token)) == 1 {
+			return true
+		}
+	}
+	return false
+}
+
+// hostOK is hostAllowed once the listener is known: the Host header must be this listener's own address, or localhost with its port.
+func (s *Server) hostOK(hostport string) bool {
+	if s.bound == "" {
+		return hostAllowed(hostport)
+	}
+	if strings.EqualFold(hostport, s.bound) || strings.EqualFold(hostport, "localhost:"+s.port) {
+		return true
+	}
+	return s.port == "80" && hostAllowed(hostport) // a browser leaves the port off for the default one
 }
 
 // Handler enforces, in order: response security headers, loopback Host, loopback peer,
@@ -114,7 +156,7 @@ func (s *Server) hasSession(r *http.Request) bool {
 func (s *Server) Handler() http.Handler {
 	return recoverPanic(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		setSecurityHeaders(w)
-		if !hostAllowed(r.Host) {
+		if !s.hostOK(r.Host) {
 			http.Error(w, "forbidden host", http.StatusForbidden)
 			return
 		}
@@ -356,7 +398,7 @@ func (s *Server) routes() {
 				// Deliberately no Secure flag: the editor speaks plain HTTP on loopback, where there is no network path to sniff,
 				// and some browsers refuse to store Secure cookies from an http origin, which would lock every user out.
 				// The cookie is HttpOnly, SameSite=Strict and session-scoped.
-				http.SetCookie(w, &http.Cookie{Name: cookieName, Value: s.token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode}) // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
+				http.SetCookie(w, &http.Cookie{Name: s.sessionCookie(), Value: s.token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode}) // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
 				http.Redirect(w, r, "/", http.StatusSeeOther)
 				return
 			}
@@ -658,6 +700,19 @@ func (s *Server) RunStartupTasks() {
 	s.lastAuto = time.Now().Format("2006-01-02 15:04") + ": " + strings.TrimSuffix(msg, ".")
 	s.startupMu.Unlock()
 	set(msg, warn)
+}
+
+// NoteStartup adds a sentence to what the page shows once when it opens (after what RunStartupTasks left, if anything). warn keeps it on
+// screen until dismissed. The window has no console, so this is how a startup fact such as a changed port reaches a person who is not
+// looking at a terminal.
+func (s *Server) NoteStartup(msg string, warn bool) {
+	s.startupMu.Lock()
+	defer s.startupMu.Unlock()
+	if s.startupNote != "" {
+		s.startupNote += " "
+	}
+	s.startupNote += msg
+	s.startupWarn = s.startupWarn || warn
 }
 
 func (s *Server) takeStartup() (string, bool) {

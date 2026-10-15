@@ -60,6 +60,22 @@ func Listen(addr string, explicit bool) (net.Listener, error) {
 	return ln, err
 }
 
+// PortChangeNote says, in a sentence for a person, that the editor is not on the port that was asked for: "" when it is. Listen moves
+// to a random free port without a word when the default one is busy; a second editor then runs next to the first, and a bookmark or the
+// window of the first points at the wrong one (NET-1 of the 2026-10-15 audit).
+func PortChangeNote(requested string, ln net.Listener) string {
+	_, want, err := net.SplitHostPort(requested)
+	if err != nil {
+		return ""
+	}
+	_, got, err := net.SplitHostPort(ln.Addr().String())
+	if err != nil || want == got || want == "0" {
+		return ""
+	}
+	return "Port " + want + " is already in use, probably by another tabr-tau that is still open (look for its window or terminal), so this editor is using port " + got + " instead. " +
+		"Do not edit the same save in both: the game keeps one copy, and the second editor's save would be refused or overwrite the first's."
+}
+
 // NewHTTPServer applies connection limits so a slow or oversized request cannot hold the server open.
 func NewHTTPServer(h http.Handler) *http.Server {
 	return &http.Server{
