@@ -415,6 +415,31 @@ func TestOpenTimeRefillThatCannotSaveLeavesTheEditsPending(t *testing.T) {
 	}
 }
 
+// The status poll tells the page when the game has rewritten the file since the editor opened it.
+func TestStateReportsAFileChangedOnDisk(t *testing.T) {
+	s := New(testsave.PlayerWithSQL(t, cisternSQL), config.Dir{Path: t.TempDir()})
+	state := func() map[string]any {
+		w := do(t, s, "GET", "http://127.0.0.1/api/save/state", loop, map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}, nil)
+		var m map[string]any
+		if err := json.Unmarshal(w.Body.Bytes(), &m); err != nil {
+			t.Fatalf("%v: %s", err, w.Body.String())
+		}
+		return m
+	}
+	if state()["changedOnDisk"] != false {
+		t.Fatalf("a freshly opened save has not changed: %v", state())
+	}
+	f, err := os.OpenFile(s.Save.Path, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Write([]byte{0})
+	f.Close()
+	if state()["changedOnDisk"] != true {
+		t.Fatalf("a rewritten file must be reported: %v", state())
+	}
+}
+
 // The open-time refill is the one write that skips the review pane, so its gates are pinned (QA-1 of the 2026-10-15 audit): during a
 // single-player session it writes nothing and leaves nothing pending, and it never folds someone else's unsaved edits into a save.
 func TestOpenTimeRefillWritesNothingDuringASinglePlayerSession(t *testing.T) {

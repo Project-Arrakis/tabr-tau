@@ -25,7 +25,7 @@ func TestTestHooksAreNotCalledByProductionCode(t *testing.T) {
 		}
 		if d.IsDir() {
 			switch d.Name() {
-			case ".git", "node_modules", "web-tests":
+			case ".git", ".claude", "node_modules", "web-tests":
 				return filepath.SkipDir
 			}
 			return nil
@@ -65,7 +65,7 @@ func TestTestsaveIsImportedByTestsOnly(t *testing.T) {
 			return err
 		}
 		if d.IsDir() {
-			if d.Name() == ".git" || d.Name() == "node_modules" {
+			if d.Name() == ".git" || d.Name() == ".claude" || d.Name() == "node_modules" {
 				return filepath.SkipDir
 			}
 			return nil
