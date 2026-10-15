@@ -241,14 +241,76 @@ func containsFold(list []string, s string) bool {
 	return false
 }
 
-// RepairVehicles restores every vehicle module to the in-game repair level: CurrentDurability is raised to the
-// module's DecayedMaxDurability (what a repair at a workbench does). Wear that lowered the decayed maximum itself
-// is not undone, because the original maximum of each module template is not stored in the save; modules with no
-// DecayedMaxDurability are counted and left alone rather than guessed.
+// A vehicle module's full durability is set by its vehicle family and the kind of part, and is the same at every tier (Mk1 to Mk6, and the
+// unique variants of a part): a family has a base durability, a chassis has twice that and a hull (cabin, cockpit, tail) one and a half
+// times, and the spice container of a Sandcrawler counts as a hull. The item pages of the Dune Awakening database list these (checked on
+// every vehicle part in the game's item list), and the saved modules of the templates reached exactly these values and never passed them.
+var vehicleFamilyBase = []struct {
+	prefix string  // lower-case start of the template id
+	base   float64 // durability of an engine, PSU, wing/tread, storage, boost, launcher, scanner...
+}{
+	{"sandbike", 1000}, {"treadwheel", 1000}, {"buggy", 1750}, {"ornithopterlight", 1750},
+	{"ornithoptermedium", 2000}, {"ornithoptertransport", 3000}, {"sandcrawler", 2500},
+}
+
+// vehiclePartFactor is the part kind (the start of what follows the family in a template id) and how many times the base it lasts.
+var vehiclePartFactor = []struct {
+	part   string
+	factor float64
+}{
+	{"chassis", 2}, {"hull", 1.5}, {"spicecontainer", 1.5}, {"spiceheader", 1}, {"engine", 1}, {"generator", 1}, {"locomotion", 1},
+	{"inventory", 1}, {"boost", 1}, {"launcher", 1}, {"scanner", 1}, {"mining", 1}, {"seat", 1}, {"passenger", 1},
+}
+
+// templateMaxDurability is the rule above as one case-insensitive GLOB per family and part, with its durability.
+var templateMaxDurability = func() []struct {
+	glob string
+	max  float64
+} {
+	var out []struct {
+		glob string
+		max  float64
+	}
+	for _, f := range vehicleFamilyBase {
+		for _, p := range vehiclePartFactor {
+			out = append(out, struct {
+				glob string
+				max  float64
+			}{f.prefix + p.part + "*", f.base * p.factor})
+		}
+	}
+	return out
+}()
+
+const (
+	moduleCurrent = `json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability')`
+	moduleDecayed = `json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability')`
+)
+
+// moduleRuleSQL is a module template's full durability from the tables above, or null for a template they do not cover. The scrap tier
+// (template ids ending in _0) and the PolarCap generators are never taken from the rule: the first always records its own maximum, and the
+// second has no page in the database to check. The patterns and numbers come from the tables, never from a request.
+func moduleRuleSQL() string {
+	var b strings.Builder
+	b.WriteString("case when lower(template_id) glob '*_0' or lower(template_id) glob '*polarcap*' then null")
+	for _, t := range templateMaxDurability {
+		fmt.Fprintf(&b, " when lower(template_id) glob '%s' then %.1f", t.glob, t.max) // always a decimal: the game writes durability as a float
+	}
+	b.WriteString(" end")
+	return b.String()
+}
+
+// moduleMaxSQL is what a repair raises a module to: its template's full durability when the tables know it (a repair here makes the
+// module as good as new, so the maximum a workbench repair wore down is restored too), else the maximum recorded in its row, else null.
+func moduleMaxSQL() string { return "coalesce(" + moduleRuleSQL() + ", " + moduleDecayed + ")" }
+
+// RepairVehicles makes every vehicle module as good as new: CurrentDurability goes to the module template's full durability, and a
+// recorded DecayedMaxDurability (what repairs at a workbench wear down) goes back to it too. A template the tables do not cover keeps the
+// maximum it records and is raised to that; a module with neither is counted and left alone rather than guessed.
 func (o *Ops) RepairVehicles() (any, error) { return o.RepairVehiclesBelow(100) }
 
-// RepairVehiclesBelow raises the modules of the player's own vehicles whose durability is below pct percent of their current
-// maximum (1 to 100, the console's "Repair Below") up to that maximum. Modules with no recorded maximum are left alone.
+// RepairVehiclesBelow repairs the modules of the player's own vehicles whose durability is below pct percent of the full durability
+// (1 to 100, the console's "Repair Below"). Modules with no known full durability are left alone.
 func (o *Ops) RepairVehiclesBelow(pct int64) (any, error) { return o.RepairVehiclesWhere(pct, 0) }
 
 // RepairVehiclesWhere is RepairVehiclesBelow limited to one vehicle (vehicleID, which must be one of the player's own); 0 means all
@@ -266,21 +328,35 @@ func (o *Ops) RepairVehiclesWhere(pct, vehicleID int64) (any, error) {
 			return nil, errors.New("that vehicle is not one of yours")
 		}
 	}
+	max, rule := moduleMaxSQL(), moduleRuleSQL()
+	scope := ` from vehicle_modules where vehicle_id in (` + ownedVehicleSQL + `) and json_valid(stats,8) and json_type(stats,'$.FVehicleModuleDurabilityStats') is not null and (? = 0 or vehicle_id = ?)`
 	rows, err := o.S.Query(`select count(*) total,
-		coalesce(sum(case when json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') is not null
-			and coalesce(json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability'),0) < json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') * ?/100.0 then 1 else 0 end),0) repairable,
-		coalesce(sum(case when json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') is null then 1 else 0 end),0) nomax
-		from vehicle_modules where vehicle_id in (`+ownedVehicleSQL+`) and json_valid(stats,8) and json_type(stats,'$.FVehicleModuleDurabilityStats') is not null and (? = 0 or vehicle_id = ?)`, pct, p.Controller, vehicleID, vehicleID)
+		coalesce(sum(case when `+max+` is not null and coalesce(`+moduleCurrent+`,0) < `+max+` * ?/100.0 then 1 else 0 end),0) repairable,
+		coalesce(sum(case when `+max+` is null then 1 else 0 end),0) nomax`+scope, pct, p.Controller, vehicleID, vehicleID)
 	if err != nil {
 		return nil, err
 	}
+	unknown, err := o.S.Query(`select distinct template_id t`+scope+` and `+max+` is null order by template_id`, p.Controller, vehicleID, vehicleID)
+	if err != nil {
+		return nil, err
+	}
+	var noMax []string
+	for _, r := range unknown {
+		if t, ok := r["t"].(string); ok {
+			noMax = append(noMax, t)
+		}
+	}
 	var n int64
 	_, err = o.S.Mutate("repair vehicles", func(m *save.Mut) error {
-		res, err := m.Exec(`update vehicle_modules set stats=jsonb_set(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability',
-				json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability'))
+		// current durability goes to the full value; a recorded decayed maximum goes there too when the full value is the template's
+		// own (never when it was only that same decayed maximum, which stays as it is)
+		res, err := m.Exec(`update vehicle_modules set stats=case
+				when `+rule+` is not null and `+moduleDecayed+` is not null then
+					jsonb_set(jsonb_set(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability', `+max+`),'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability', `+max+`)
+				else jsonb_set(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability', `+max+`) end
 			where vehicle_id in (`+ownedVehicleSQL+`) and json_valid(stats,8) and json_type(stats,'$.FVehicleModuleDurabilityStats') is not null
-			and json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') is not null
-			and coalesce(json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability'),0) < json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability') * ?/100.0 and (? = 0 or vehicle_id = ?)`, p.Controller, pct, vehicleID, vehicleID)
+			and `+max+` is not null
+			and coalesce(`+moduleCurrent+`,0) < `+max+` * ?/100.0 and (? = 0 or vehicle_id = ?)`, p.Controller, pct, vehicleID, vehicleID)
 		if err != nil {
 			return err
 		}
@@ -294,7 +370,7 @@ func (o *Ops) RepairVehiclesWhere(pct, vehicleID int64) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"ok": true, "modules": rows[0]["total"], "repaired": n, "withoutKnownMax": rows[0]["nomax"]}, nil
+	return map[string]any{"ok": true, "modules": rows[0]["total"], "repaired": n, "withoutKnownMax": rows[0]["nomax"], "withoutKnownMaxTemplates": noMax}, nil
 }
 
 func sortedCounts(m map[string]int) []string {
