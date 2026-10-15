@@ -1180,3 +1180,23 @@ test('Shrink claim asks first, posts the chosen size, and is offered only when e
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Removed 8 cells'));
   ui.dom.window.close();
 });
+
+test('Structures and Vehicles have no edit boxes on single pieces or vehicles (#155)', async () => {
+  const bases = { totems: [], pieces: { n: 2, minh: 5600, avgh: 6300, sand: 0 }, types: [{ building_type: 'Sardaukar_Foundation', n: 1, minh: 7000, maxh: 7000, avgh: 7000 }],
+    placeables: [{ id: 5, class: 'c', building_type: 'Generator_Placeable', health: 2500, x: 1, y: 2, z: 3 }, { id: 6, class: 'c', building_type: 'WaterCistern_Placeable', health: 1250, x: 1, y: 2, z: 3 }] };
+  const veh = { vehicles: [], hidden: 0, backups: [], recovered: [{ vehicle_id: 77, vehicle_name: 'Sandbike', chassis_durability: 100, time_stored: 't', reason: 0 }] };
+  const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases': bases, '/api/vehicles': veh } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:bases"]'); await ui.settle();
+  ui.click('[data-bstab="structures"]'); await ui.settle();
+  const main = () => ui.doc.querySelector('#main');
+  assert.ok(main().textContent.includes('Generator_Placeable') && main().textContent.includes('2,500') && main().textContent.includes('1,250'), 'each placeable still shows its health');
+  assert.equal(main().querySelectorAll('input[type="number"]').length, 0, 'no box to type a health into');
+  assert.ok(main().querySelector('[data-act="repairB"]'), 'Repair all to max stays');
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:vehicles"]'); await ui.settle();
+  assert.ok(main().textContent.includes('Recovered / stored vehicles (1)') && main().textContent.includes('Sandbike'), 'the stored vehicle is listed');
+  assert.equal(main().querySelector('[data-act="dur"]'), null, 'no Set durability on a vehicle');
+  assert.ok(!main().textContent.includes('Set durability'), 'and no text for it');
+  ui.dom.window.close();
+});
