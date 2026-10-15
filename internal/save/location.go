@@ -2,6 +2,7 @@ package save
 
 import (
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 )
@@ -21,11 +22,13 @@ func locationProblem(savePath string) string {
 		return ""
 	}
 	p := savePath
-	if abs, err := filepath.Abs(p); err == nil {
-		p = abs
-	}
-	if real, err := filepath.EvalSymlinks(p); err == nil { // a link or junction to a share is the share
-		p = real
+	if runtime.GOOS == "windows" { // the path rules of this machine apply only where the path is a Windows path
+		if abs, err := filepath.Abs(p); err == nil {
+			p = abs
+		}
+		if real, err := filepath.EvalSymlinks(p); err == nil { // a link or junction to a share is the share
+			p = real
+		}
 	}
 	if why := pathProblem(p); why != "" {
 		return why
