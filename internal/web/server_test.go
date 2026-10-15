@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
+	"github.com/Project-Arrakis/tabr-tau/internal/ops"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/settings"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
@@ -436,5 +437,107 @@ func TestStateReportsAFileChangedOnDisk(t *testing.T) {
 	f.Close()
 	if state()["changedOnDisk"] != true {
 		t.Fatalf("a rewritten file must be reported: %v", state())
+	}
+}
+
+// The open-time refill is the one write that skips the review pane, so its gates are pinned (QA-1 of the 2026-10-15 audit): during a
+// single-player session it writes nothing and leaves nothing pending, and it never folds someone else's unsaved edits into a save.
+func TestOpenTimeRefillWritesNothingDuringASinglePlayerSession(t *testing.T) {
+	s := New(testsave.PlayerWithSQL(t, cisternSQL), config.Dir{Path: t.TempDir()})
+	s.SettingsPath = filepath.Join(t.TempDir(), "settings.json")
+	if err := settings.Save(s.SettingsPath, settings.Settings{AutoRefillOnOpen: true}); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(s.Save.Path)
+	defer save.ActiveSessionForTests()()
+	s.RunStartupTasks()
+	note, warn := s.takeStartup()
+	if !strings.Contains(note, "skipped") || !strings.Contains(note, "single-player") || !warn {
+		t.Fatalf("note %q, warn %v", note, warn)
+	}
+	after, _ := os.ReadFile(s.Save.Path)
+	if !bytes.Equal(before, after) {
+		t.Fatal("the save file changed during a single-player session")
+	}
+	if len(s.Save.Pending()) != 0 || s.Save.Dirty() {
+		t.Fatalf("nothing may be prepared either: %d pending", len(s.Save.Pending()))
+	}
+	if backups, _ := filepath.Glob(filepath.Join(filepath.Dir(s.Save.Path), "tabr-tau-backups", "*.db")); len(backups) != 0 {
+		t.Fatalf("a refused refill made a backup: %v", backups)
+	}
+}
+
+func TestOpenTimeRefillLeavesSomeoneElsesPendingEditsAlone(t *testing.T) {
+	s := New(testsave.PlayerWithSQL(t, cisternSQL), config.Dir{Path: t.TempDir()})
+	s.SettingsPath = filepath.Join(t.TempDir(), "settings.json")
+	if err := settings.Save(s.SettingsPath, settings.Settings{AutoRefillOnOpen: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Ops.AddSolari(ops.Args{"amount": 10.0}); err != nil { // an unreviewed edit already waiting
+		t.Fatal(err)
+	}
+	pending := len(s.Save.Pending())
+	if pending == 0 {
+		t.Fatal("the setup edit did not queue")
+	}
+	before, _ := os.ReadFile(s.Save.Path)
+	s.RunStartupTasks()
+	note, warn := s.takeStartup()
+	if !strings.Contains(note, "unsaved edits") || !warn {
+		t.Fatalf("note %q, warn %v", note, warn)
+	}
+	after, _ := os.ReadFile(s.Save.Path)
+	if !bytes.Equal(before, after) || len(s.Save.Pending()) != pending {
+		t.Fatalf("the refill must not write or add to the edits already waiting (pending %d, was %d)", len(s.Save.Pending()), pending)
+	}
+}
+
+const twoVehiclesSQL = `
+insert into actors(id,class,map) values (211,'/Game/BP_Sandbike_CHOAM.BP_Sandbike_CHOAM_C','HaggaBasin'),(212,'/Game/BP_Buggy_CHOAM.BP_Buggy_CHOAM_C','HaggaBasin');
+insert into vehicles(id) values (211),(212);
+insert into permission_actor(actor_id,actor_name,actor_type,access_level,is_child) values (211,'a',2,3,0),(212,'b',2,3,0);
+insert into permission_actor_rank(permission_actor_id,player_id,rank) values (211,1,1),(212,1,1);
+insert into vehicle_modules(id,vehicle_id,template_id,stats) values
+  (11,211,'Hull_0',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":100.0,"DecayedMaxDurability":250.0}]}')),
+  (12,212,'Hull_0',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":100.0,"DecayedMaxDurability":250.0}]}')),
+  (13,212,'Gen_0',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":240.0,"DecayedMaxDurability":250.0}]}'));`
+
+// The repair route must pass vehicle_id and threshold on (QA-2 of the 2026-10-15 audit: ignoring either stayed green) and refuse bad ones.
+func TestRepairRouteReadsTheVehicleAndTheThreshold(t *testing.T) {
+	newOne := func() (*Server, func(body string) *httptest.ResponseRecorder, func(id int) float64) {
+		s := New(testsave.PlayerWithSQL(t, twoVehiclesSQL), config.Dir{Path: t.TempDir()})
+		call := func(body string) *httptest.ResponseRecorder {
+			return do(t, s, "POST", "http://127.0.0.1/api/vehicles/repair", loop,
+				map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token, "Content-Type": "application/json"}, []byte(body))
+		}
+		cur := func(id int) float64 {
+			row, err := s.Save.One(`select json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability') c from vehicle_modules where id=?`, id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return row["c"].(float64)
+		}
+		return s, call, cur
+	}
+	_, call, cur := newOne()
+	if w := call(`{"vehicle_id":211}`); w.Code != 200 || cur(11) != 250 || cur(12) != 100 || cur(13) != 240 {
+		t.Fatalf("vehicle_id must pick one vehicle: %d %s; %v %v %v", w.Code, w.Body.String(), cur(11), cur(12), cur(13))
+	}
+	_, call, cur = newOne()
+	if w := call(`{"threshold":50}`); w.Code != 200 || cur(11) != 250 || cur(12) != 250 || cur(13) != 240 {
+		t.Fatalf("threshold 50 must leave the 96 %% module: %d; %v %v %v", w.Code, cur(11), cur(12), cur(13))
+	}
+	_, call, cur = newOne()
+	if w := call(`{}`); w.Code != 200 || cur(13) != 250 {
+		t.Fatalf("no arguments repairs everything: %d; %v", w.Code, cur(13))
+	}
+	_, call, cur = newOne()
+	for _, bad := range []string{`{"threshold":0}`, `{"threshold":101}`, `{"threshold":"x"}`, `{"vehicle_id":"x"}`, `{"vehicle_id":999}`} {
+		if w := call(bad); w.Code == 200 {
+			t.Errorf("%s must be refused", bad)
+		}
+	}
+	if cur(11) != 100 || cur(12) != 100 || cur(13) != 240 {
+		t.Fatal("refused requests must change nothing")
 	}
 }
