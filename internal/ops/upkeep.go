@@ -25,16 +25,11 @@ var waterDeviceCapacity = map[string]int64{
 
 // RefillBaseWater fills every built Water Cistern, Windtrap, Large Windtrap and Blood Purifier in the save to its capacity.
 // Single-player has one world and no per-base ownership worth splitting on, so it works on the whole save.
+//
+// The levels are read and the fill is written in one transaction, so two overlapping calls (a double click) cannot both plan from the
+// same stale levels: the second one finds everything full and does nothing (audit L2 G09). A call that finds nothing to fill changes no
+// rows, so it leaves no pending edit behind.
 func (o *Ops) RefillBaseWater() (any, error) {
-	rows, err := o.S.Query(`select p.id, lower(p.building_type) kind, fe.entity_id entity,
-		cast(json_extract(fe.components,'$.FWaterStorageComponent[1].m_WaterStored') as integer) stored
-		from placeables p
-		join actor_fgl_entities afe on afe.actor_id=p.id
-		join fgl_entities fe on fe.entity_id=afe.entity_id
-		where p.is_hologram=0 and json_valid(fe.components,8) and json_type(fe.components,'$.FWaterStorageComponent') is not null order by p.id`)
-	if err != nil {
-		return nil, err
-	}
 	type target struct {
 		entity any
 		cap    int64
@@ -43,36 +38,42 @@ func (o *Ops) RefillBaseWater() (any, error) {
 	var todo []target
 	full := 0
 	unknown := map[string]int{}
-	for _, r := range rows {
-		kind := fmt.Sprint(r["kind"])
-		capacity, known := waterDeviceCapacity[kind]
-		if !known {
-			unknown[kind]++
-			continue
+	_, err := o.S.Mutate("refill base water", func(m *save.Mut) error {
+		todo, full, unknown = nil, 0, map[string]int{}
+		rows, err := m.Query(`select p.id, lower(p.building_type) kind, fe.entity_id entity,
+			cast(json_extract(fe.components,'$.FWaterStorageComponent[1].m_WaterStored') as integer) stored
+			from placeables p
+			join actor_fgl_entities afe on afe.actor_id=p.id
+			join fgl_entities fe on fe.entity_id=afe.entity_id
+			where p.is_hologram=0 and json_valid(fe.components,8) and json_type(fe.components,'$.FWaterStorageComponent') is not null order by p.id`)
+		if err != nil {
+			return err
 		}
-		if cur, ok := r["stored"].(int64); ok && cur >= capacity {
-			full++
-			continue
+		for _, r := range rows {
+			kind := fmt.Sprint(r["kind"])
+			capacity, known := waterDeviceCapacity[kind]
+			if !known {
+				unknown[kind]++
+				continue
+			}
+			if cur, ok := r["stored"].(int64); ok && cur >= capacity {
+				full++
+				continue
+			}
+			todo = append(todo, target{r["entity"], capacity, waterName(kind)})
 		}
-		todo = append(todo, target{r["entity"], capacity, waterName(kind)})
-	}
-	if len(todo) > 0 { // nothing to fill must not leave an empty pending edit behind
 		counts := map[string]int{}
 		for _, t := range todo {
 			counts[t.name]++
-		}
-		_, err = o.S.Mutate("refill base water", func(m *save.Mut) error {
-			for _, t := range todo {
-				if _, err := m.Exec(`update fgl_entities set components=jsonb_set(components,'$.FWaterStorageComponent[1].m_WaterStored',?) where entity_id=?`, t.cap, t.entity); err != nil {
-					return err
-				}
+			if _, err := m.Exec(`update fgl_entities set components=jsonb_set(components,'$.FWaterStorageComponent[1].m_WaterStored',?) where entity_id=?`, t.cap, t.entity); err != nil {
+				return err
 			}
-			m.Desc = "refill base water: " + countSummary(counts)
-			return nil
-		})
-		if err != nil {
-			return nil, err
 		}
+		m.Desc = "refill base water: " + countSummary(counts)
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	names := map[string]int{}
 	for _, t := range todo {
@@ -98,6 +99,10 @@ type fuelSpec struct {
 	upgrade      bool
 }
 
+// powerInventorySQL is the fuel inventory of the placeable p: the first inventory of type 3, which is what the Power tab reads and what a
+// refill writes (audit L2 ARCH-6: the two used to find it differently). It is an expression to embed as a subquery over `placeables p`.
+const powerInventorySQL = `select v.id from inventories v where v.actor_id=p.id and v.inventory_type=3 order by v.id limit 1`
+
 var windtrapFilters = []string{"WindTrapFilter1", "WindTrapFilter2", "WindTrapFilter3", "WindTrapFilter4"}
 
 var generatorFuel = map[string]fuelSpec{
@@ -113,12 +118,6 @@ var generatorFuel = map[string]fuelSpec{
 // alone) up to full, the way the console's refill does: partial stacks are filled before new rows are added, so a device never ends
 // up with more rows than the game would have made itself. Nothing is removed.
 func (o *Ops) RefillGenerators() (any, error) {
-	rows, err := o.S.Query(`select p.id actor, lower(p.building_type) kind,
-		(select v.id from inventories v where v.actor_id=p.id order by v.id limit 1) inv
-		from placeables p where p.is_hologram=0 order by p.id`)
-	if err != nil {
-		return nil, err
-	}
 	type stackRow struct{ id, size int64 }
 	type job struct {
 		actor, inv int64
@@ -129,105 +128,111 @@ func (o *Ops) RefillGenerators() (any, error) {
 		held       int64      // everything that counts toward the total
 		retemplate int64      // a lower-grade filter row to change to the best one (0: none)
 	}
-	var jobs []job
-	full := 0
-	for _, r := range rows {
-		spec, known := generatorFuel[fmt.Sprint(r["kind"])]
-		if !known || r["inv"] == nil {
-			continue
-		}
-		actor, _ := toInt(r["actor"])
-		inv, _ := toInt(r["inv"])
-		stocked, err := o.S.Query(`select id, stack_size, template_id from items where inventory_id=? order by position_index, id`, inv)
-		if err != nil {
-			return nil, err
-		}
-		fuel := spec.def
-		if !spec.upgrade { // the first stocked fuel the device accepts is the one that is topped up
-			for _, s := range stocked {
-				if t := fmt.Sprint(s["template_id"]); containsFold(spec.topUp, t) {
-					fuel = t
-					break
-				}
-			}
-		}
-		j := job{actor: actor, inv: inv, name: powerName(fmt.Sprint(r["kind"])), fuel: fuel, spec: spec}
-		var lower []stackRow
-		for _, s := range stocked {
-			t := fmt.Sprint(s["template_id"])
-			id, _ := toInt(s["id"])
-			sz, _ := toInt(s["stack_size"])
-			switch {
-			case strings.EqualFold(t, fuel):
-				j.have = append(j.have, stackRow{id, sz})
-				j.held += sz
-			case spec.upgrade && containsFold(spec.topUp, t): // a lower grade of the same kind of filter
-				lower = append(lower, stackRow{id, sz})
-			case containsFold(spec.count, t): // takes up room but is never topped up
-				j.held += sz
-			}
-		}
-		if len(j.have) == 0 && len(lower) > 0 { // change the lower-grade filter to the best one instead of adding a second row
-			j.retemplate = lower[0].id
-			j.have = []stackRow{lower[0]}
-			j.held += lower[0].size
-		}
-		if j.held >= spec.total && j.retemplate == 0 {
-			full++
-			continue
-		}
-		jobs = append(jobs, j)
-	}
 	filled := 0
+	full := 0
 	var skipped []string
 	byName := map[string]int{}
-	if len(jobs) > 0 { // nothing to fill must not leave an empty pending edit behind
-		_, err = o.S.Mutate("refill generators", func(m *save.Mut) error {
-			for _, j := range jobs {
-				if j.retemplate != 0 {
-					if _, err := m.Exec(`update items set template_id=? where id=?`, j.fuel, j.retemplate); err != nil {
-						return err
-					}
-				}
-				need := j.spec.total - j.held
-				start := need
-				for _, s := range j.have { // top up what is there
-					if need <= 0 {
+	// The stacks are read and the fill is written in one transaction (audit L2 G09): two overlapping calls cannot both plan from the same
+	// stale stacks and put twice the fuel in. A call that finds nothing to fill changes no rows, so it leaves no pending edit behind.
+	_, err := o.S.Mutate("refill generators", func(m *save.Mut) error {
+		filled, full, skipped, byName = 0, 0, nil, map[string]int{}
+		rows, err := m.Query(`select p.id actor, lower(p.building_type) kind, (` + powerInventorySQL + `) inv
+			from placeables p where p.is_hologram=0 order by p.id`)
+		if err != nil {
+			return err
+		}
+		var jobs []job
+		for _, r := range rows {
+			spec, known := generatorFuel[fmt.Sprint(r["kind"])]
+			if !known || r["inv"] == nil {
+				continue
+			}
+			actor, _ := toInt(r["actor"])
+			inv, _ := toInt(r["inv"])
+			stocked, err := m.Query(`select id, stack_size, template_id from items where inventory_id=? order by position_index, id`, inv)
+			if err != nil {
+				return err
+			}
+			fuel := spec.def
+			if !spec.upgrade { // the first stocked fuel the device accepts is the one that is topped up
+				for _, s := range stocked {
+					if t := fmt.Sprint(s["template_id"]); containsFold(spec.topUp, t) {
+						fuel = t
 						break
 					}
-					add := min(need, max(j.spec.stack-s.size, 0))
-					if add == 0 {
-						continue
-					}
-					if _, err := m.Exec(`update items set stack_size=? where id=?`, s.size+add, s.id); err != nil {
-						return err
-					}
-					need -= add
-				}
-				rowsNow := len(j.have)
-				for need > 0 && rowsNow < j.spec.maxStacks { // then add stacks
-					qty := min(need, j.spec.stack)
-					if _, err := giveInTx(m, j.inv, j.fuel, qty, 0); err != nil {
-						if err.Error() == "inventory is full" { // other items fill its slots: leave the rest, keep going
-							skipped = append(skipped, fmt.Sprintf("%s #%v (no free slot)", j.name, j.actor))
-							break
-						}
-						return fmt.Errorf("%s #%v: %w", j.name, j.actor, err)
-					}
-					need -= qty
-					rowsNow++
-				}
-				if need < start || j.retemplate != 0 { // one that got nothing (no free slot) is not counted
-					filled++
-					byName[j.name]++
 				}
 			}
-			m.Desc = "refill power: " + countSummary(byName)
-			return nil
-		})
-		if err != nil {
-			return nil, err
+			j := job{actor: actor, inv: inv, name: powerName(fmt.Sprint(r["kind"])), fuel: fuel, spec: spec}
+			var lower []stackRow
+			for _, s := range stocked {
+				t := fmt.Sprint(s["template_id"])
+				id, _ := toInt(s["id"])
+				sz, _ := toInt(s["stack_size"])
+				switch {
+				case strings.EqualFold(t, fuel):
+					j.have = append(j.have, stackRow{id, sz})
+					j.held += sz
+				case spec.upgrade && containsFold(spec.topUp, t): // a lower grade of the same kind of filter
+					lower = append(lower, stackRow{id, sz})
+				case containsFold(spec.count, t): // takes up room but is never topped up
+					j.held += sz
+				}
+			}
+			if len(j.have) == 0 && len(lower) > 0 { // change the lower-grade filter to the best one instead of adding a second row
+				j.retemplate = lower[0].id
+				j.have = []stackRow{lower[0]}
+				j.held += lower[0].size
+			}
+			if j.held >= spec.total && j.retemplate == 0 {
+				full++
+				continue
+			}
+			jobs = append(jobs, j)
 		}
+		for _, j := range jobs {
+			if j.retemplate != 0 {
+				if _, err := m.Exec(`update items set template_id=? where id=?`, j.fuel, j.retemplate); err != nil {
+					return err
+				}
+			}
+			need := j.spec.total - j.held
+			start := need
+			for _, s := range j.have { // top up what is there
+				if need <= 0 {
+					break
+				}
+				add := min(need, max(j.spec.stack-s.size, 0))
+				if add == 0 {
+					continue
+				}
+				if _, err := m.Exec(`update items set stack_size=? where id=?`, s.size+add, s.id); err != nil {
+					return err
+				}
+				need -= add
+			}
+			rowsNow := len(j.have)
+			for need > 0 && rowsNow < j.spec.maxStacks { // then add stacks
+				qty := min(need, j.spec.stack)
+				if _, err := giveInTx(m, j.inv, j.fuel, qty, 0); err != nil {
+					if err.Error() == "inventory is full" { // other items fill its slots: leave the rest, keep going
+						skipped = append(skipped, fmt.Sprintf("%s #%v (no free slot)", j.name, j.actor))
+						break
+					}
+					return fmt.Errorf("%s #%v: %w", j.name, j.actor, err)
+				}
+				need -= qty
+				rowsNow++
+			}
+			if need < start || j.retemplate != 0 { // one that got nothing (no free slot) is not counted
+				filled++
+				byName[j.name]++
+			}
+		}
+		m.Desc = "refill power: " + countSummary(byName)
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return map[string]any{"ok": true, "filled": filled, "alreadyFull": full, "skipped": skipped, "summary": countSummary(byName)}, nil
 }

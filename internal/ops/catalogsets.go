@@ -234,34 +234,41 @@ func (o *Ops) GrantCustomizations(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	inv, err := o.inventoryTemplates(p.Pawn)
-	if err != nil {
-		return nil, err
-	}
-	var items []CatalogRow
-	valid := want == "all"
-	for _, r := range o.customizationRows(inv) {
-		if r.GroupID == want {
-			valid = true
-		}
-		if (want == "all" && r.GroupID != otherCustomizations) || r.GroupID == want {
-			if !r.InInventory {
-				items = append(items, r)
-			}
-		}
-	}
-	if !valid {
-		return nil, errors.New("unknown set")
-	}
-	if len(items) == 0 {
-		return map[string]any{"ok": true, "granted": 0, "skipped": "all of this set is already in your inventory"}, nil
-	}
 	bp, _ := o.S.One(`select id from inventories where actor_id=? and inventory_type=0 order by id limit 1`, p.Pawn)
 	if bp == nil {
 		return nil, errors.New("player backpack not found")
 	}
+	// What is already owned is read in the same transaction that adds the rest (audit L2 G09), so two overlapping calls cannot both grant
+	// the same set: the second finds it all there.
 	var ids []int64
-	if _, err := o.S.Mutate(fmt.Sprintf("grant %d customizations (%s)", len(items), want), func(m *save.Mut) error {
+	var already bool
+	if _, err := o.S.Mutate("grant customizations ("+want+")", func(m *save.Mut) error {
+		ids, already = nil, false
+		have, err := m.Query(inventoryTemplatesSQL, p.Pawn)
+		if err != nil {
+			return err
+		}
+		inv := templateSet(have)
+		var items []CatalogRow
+		valid := want == "all"
+		for _, r := range o.customizationRows(inv) {
+			if r.GroupID == want {
+				valid = true
+			}
+			if (want == "all" && r.GroupID != otherCustomizations) || r.GroupID == want {
+				if !r.InInventory {
+					items = append(items, r)
+				}
+			}
+		}
+		if !valid {
+			return errors.New("unknown set")
+		}
+		if len(items) == 0 {
+			already = true
+			return nil
+		}
+		m.Desc = fmt.Sprintf("grant %d customizations (%s)", len(items), want)
 		for i, it := range items {
 			id, e := giveInTx(m, bp["id"].(int64), it.ID, 1, 0)
 			if e != nil {
@@ -272,6 +279,9 @@ func (o *Ops) GrantCustomizations(a Args) (any, error) {
 		return nil
 	}); err != nil {
 		return nil, err
+	}
+	if already {
+		return map[string]any{"ok": true, "granted": 0, "skipped": "all of this set is already in your inventory"}, nil
 	}
 	return map[string]any{"ok": true, "granted": len(ids)}, nil
 }

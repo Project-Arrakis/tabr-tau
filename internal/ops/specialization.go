@@ -138,12 +138,14 @@ func trackNumber(nums map[string]int64, track string) (int64, error) {
 }
 
 func (o *Ops) writeSpec(desc string, controller, number, xp int64, level float64) error {
-	_, err := o.S.Mutate(desc, func(m *save.Mut) error {
-		_, e := m.Exec(`insert into specialization_tracks(player_id, track_type, xp_amount, level) values(?,?,?,?)
-			on conflict(player_id, track_type) do update set xp_amount=excluded.xp_amount, level=excluded.level`, controller, number, xp, level)
-		return e
-	})
+	_, err := o.S.Mutate(desc, func(m *save.Mut) error { return upsertSpecInTx(m, controller, number, xp, level) })
 	return err
+}
+
+func upsertSpecInTx(m *save.Mut, controller, number, xp int64, level float64) error {
+	_, e := m.Exec(`insert into specialization_tracks(player_id, track_type, xp_amount, level) values(?,?,?,?)
+		on conflict(player_id, track_type) do update set xp_amount=excluded.xp_amount, level=excluded.level`, controller, number, xp, level)
+	return e
 }
 
 // AddSpecXP adds XP to a track (args track, amount from -44182 to 44182, not 0) and sets the level to match; a track never goes below 0
@@ -162,13 +164,21 @@ func (o *Ops) AddSpecXP(nums map[string]int64, a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	cur, _ := o.S.One(`select xp_amount xp from specialization_tracks where player_id=? and track_type=?`, p.Controller, n)
-	var old int64
-	if len(cur) > 0 {
-		old, _ = toInt(cur["xp"])
-	}
-	next := min(max(old+amount, 0), maxSpecXP)
-	if err := o.writeSpec(fmt.Sprintf("specialization %s xp %+d", track, amount), p.Controller, n, next, specLevel(next)); err != nil {
+	// The current XP is read and the new total written in one transaction (audit L2 G09), so two overlapping calls add up instead of both
+	// starting from the same old value.
+	var old, next int64
+	if _, err := o.S.Mutate(fmt.Sprintf("specialization %s xp %+d", track, amount), func(m *save.Mut) error {
+		old = 0
+		cur, err := m.One(`select xp_amount xp from specialization_tracks where player_id=? and track_type=?`, p.Controller, n)
+		if err != nil {
+			return err
+		}
+		if len(cur) > 0 {
+			old, _ = toInt(cur["xp"])
+		}
+		next = min(max(old+amount, 0), maxSpecXP)
+		return upsertSpecInTx(m, p.Controller, n, next, specLevel(next))
+	}); err != nil {
 		return nil, err
 	}
 	return map[string]any{"ok": true, "before": old, "after": next, "level": specLevel(next)}, nil
