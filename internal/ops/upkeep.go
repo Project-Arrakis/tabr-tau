@@ -302,7 +302,13 @@ func moduleRuleSQL() string {
 
 // moduleMaxSQL is what a repair raises a module to: its template's full durability when the tables know it (a repair here makes the
 // module as good as new, so the maximum a workbench repair wore down is restored too), else the maximum recorded in its row, else null.
-func moduleMaxSQL() string { return "coalesce(" + moduleRuleSQL() + ", " + moduleDecayed + ")" }
+//
+// When both exist the larger one wins: a repair only raises, so a module that records a maximum above what the table says for its template
+// keeps that maximum instead of being cut down to the table's (audit L2 DBA-6: SandbikeEngine_6 with 1200 recorded became 1000).
+func moduleMaxSQL() string {
+	rule := moduleRuleSQL()
+	return "max(coalesce(" + rule + ", " + moduleDecayed + "), coalesce(" + moduleDecayed + ", " + rule + "))"
+}
 
 // RepairVehicles makes every vehicle module as good as new: CurrentDurability goes to the module template's full durability, and a
 // recorded DecayedMaxDurability (what repairs at a workbench wear down) goes back to it too. A template the tables do not cover keeps the
@@ -328,7 +334,7 @@ func (o *Ops) RepairVehiclesWhere(pct, vehicleID int64) (any, error) {
 			return nil, errors.New("that vehicle is not one of yours")
 		}
 	}
-	max, rule := moduleMaxSQL(), moduleRuleSQL()
+	max := moduleMaxSQL()
 	scope := ` from vehicle_modules where vehicle_id in (` + ownedVehicleSQL + `) and json_valid(stats,8) and json_type(stats,'$.FVehicleModuleDurabilityStats') is not null and (? = 0 or vehicle_id = ?)`
 	rows, err := o.S.Query(`select count(*) total,
 		coalesce(sum(case when `+max+` is not null and coalesce(`+moduleCurrent+`,0) < `+max+` * ?/100.0 then 1 else 0 end),0) repairable,
@@ -348,10 +354,10 @@ func (o *Ops) RepairVehiclesWhere(pct, vehicleID int64) (any, error) {
 	}
 	var n int64
 	_, err = o.S.Mutate("repair vehicles", func(m *save.Mut) error {
-		// current durability goes to the full value; a recorded decayed maximum goes there too when the full value is the template's
-		// own (never when it was only that same decayed maximum, which stays as it is)
+		// current durability goes to the full value; a recorded decayed maximum goes there too when it is below it (one that is already
+		// at or above the full value is never written, so a repair cannot lower it)
 		res, err := m.Exec(`update vehicle_modules set stats=case
-				when `+rule+` is not null and `+moduleDecayed+` is not null then
+				when `+moduleDecayed+` is not null and `+moduleDecayed+` < `+max+` then
 					jsonb_set(jsonb_set(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability', `+max+`),'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability', `+max+`)
 				else jsonb_set(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability', `+max+`) end
 			where vehicle_id in (`+ownedVehicleSQL+`) and json_valid(stats,8) and json_type(stats,'$.FVehicleModuleDurabilityStats') is not null
