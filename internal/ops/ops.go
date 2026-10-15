@@ -494,6 +494,9 @@ func (o *Ops) GiveToInventory(a Args) (any, error) {
 	if inv == 0 {
 		return nil, errors.New("inventory_id is required")
 	}
+	if err := o.requireBaseContainer(inv); err != nil {
+		return nil, err
+	}
 	var id int64
 	if _, err := o.S.Mutate(fmt.Sprintf("give %dx %s to inventory %d", qty, tmpl, inv), func(m *save.Mut) (e error) { id, e = giveInTx(m, inv, tmpl, qty, q); return }); err != nil {
 		return nil, err
@@ -528,6 +531,9 @@ func (o *Ops) SetItem(a Args) (any, error) {
 	if len(edits) == 0 {
 		return ok(), nil
 	}
+	if err := o.requireEditableItem(id); err != nil {
+		return nil, err
+	}
 	_, err = o.S.Mutate(fmt.Sprintf("edit item %d", id), func(m *save.Mut) error {
 		for _, e := range edits {
 			res, err := m.Exec(`update items set `+e.col+`=? where id=?`, e.val, id)
@@ -549,6 +555,9 @@ func (o *Ops) SetItem(a Args) (any, error) {
 func (o *Ops) DeleteItem(a Args) (any, error) {
 	id, err := a.Int("id")
 	if err != nil {
+		return nil, err
+	}
+	if err := o.requireEditableItem(id); err != nil {
 		return nil, err
 	}
 	// Cascading delete: an item that owns an inventory takes that inventory and everything in it with it, as the
