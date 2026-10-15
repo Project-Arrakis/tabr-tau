@@ -106,4 +106,4 @@ Tests use synthetic saves built in a temp folder; no real save data is needed.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). **The MIT licence covers this project's code, not the game art in it.** The Live Map's two map pictures and 62 marker icons (`internal/web/static/maps/`) are Dune: Awakening artwork that belongs to Funcom; they are not licensed by this project, are included only to show where things are on the map (as the Dune Docker console does), and are not covered by the MIT licence. If you are the rights holder and want them removed, open an issue on this repository and they will be taken out. See `internal/web/static/maps/NOTICE.md` and the third-party notices (`tabr-tau licenses`).
