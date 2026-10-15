@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Project-Arrakis/tabr-tau/internal/winpath"
 )
 
 // gamePrefix is the start of every Dune client process name. The exact image name was never verified on a real
@@ -85,11 +87,18 @@ func RunningMessage() string {
 var (
 	goos           = runtime.GOOS
 	tasklistOutput = func(ctx context.Context) ([]byte, error) {
-		cmd := exec.CommandContext(ctx, "tasklist", "/FI", "IMAGENAME eq "+gamePrefix+"*", "/NH", "/FO", "CSV")
+		cmd := tasklistCommand(ctx)
 		hideWindow(cmd)
 		return cmd.Output()
 	}
 )
+
+// tasklistCommand is tasklist started by its full path in the Windows system folder, not found through PATH: a tasklist.exe earlier in the
+// search could otherwise answer "no game is running" and let a write through (SEC-8 of the 2026-10-15 audit). If the real one is missing the
+// start fails, and a check that cannot run blocks the write.
+func tasklistCommand(ctx context.Context) *exec.Cmd {
+	return exec.CommandContext(ctx, winpath.System32("tasklist.exe"), "/FI", "IMAGENAME eq "+gamePrefix+"*", "/NH", "/FO", "CSV")
+}
 
 // gameProcesses asks tasklist. The check cannot hang: a stuck tasklist is abandoned after three seconds.
 func gameProcesses(useCache bool) []string {

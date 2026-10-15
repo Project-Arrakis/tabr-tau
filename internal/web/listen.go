@@ -36,6 +36,10 @@ func CheckListenAddr(addr string) error {
 	if n, err := strconv.Atoi(port); err != nil || n < 0 || n > 65535 {
 		return fmt.Errorf("invalid port %q in listen address", port)
 	}
+	if host == "localhost" {
+		_, err := localhostIPs()
+		return err
+	}
 	if isLoopbackHost(host) {
 		return nil
 	}
@@ -43,17 +47,58 @@ func CheckListenAddr(addr string) error {
 }
 
 func isLoopbackHost(host string) bool {
-	if host == "localhost" {
-		return true
-	}
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
+}
+
+// lookupIPs resolves a host name. It is a variable so a test can stand in for a resolver and a hosts file.
+var lookupIPs = net.LookupIP
+
+// localhostIPs resolves the name "localhost" and requires every address it gives to be loopback. The name is resolved by the operating
+// system (its hosts file, its resolver), so on a machine where that was changed "localhost" could name an address that is not this
+// computer, and an editor bound there would be reachable from the network (NET-4 of the 2026-10-15 audit).
+func localhostIPs() ([]net.IP, error) {
+	ips, err := lookupIPs("localhost")
+	if err != nil || len(ips) == 0 {
+		return nil, fmt.Errorf("cannot listen on localhost: the name does not resolve here (use 127.0.0.1)")
+	}
+	for _, ip := range ips {
+		if !ip.IsLoopback() {
+			return nil, fmt.Errorf("refusing to listen on localhost: it resolves to %s, which is not a loopback address (check the hosts file; use 127.0.0.1)", ip)
+		}
+	}
+	return ips, nil
+}
+
+// bindAddr is addr with the name "localhost" replaced by the loopback address it was just checked to be, so the address that was checked
+// is the address that is bound (the name is not resolved a second time).
+func bindAddr(addr string) (string, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil || host != "localhost" {
+		return addr, nil
+	}
+	ips, err := localhostIPs()
+	if err != nil {
+		return "", err
+	}
+	pick := ips[0]
+	for _, ip := range ips {
+		if ip.To4() != nil {
+			pick = ip
+			break
+		}
+	}
+	return net.JoinHostPort(pick.String(), port), nil
 }
 
 // Listen binds addr. If the operator did not choose the address (explicit=false) and it is busy, it falls back
 // to a random free loopback port instead of failing; an explicit address never moves silently.
 func Listen(addr string, explicit bool) (net.Listener, error) {
-	ln, err := net.Listen("tcp", addr)
+	bind, err := bindAddr(addr)
+	if err != nil {
+		return nil, err
+	}
+	ln, err := net.Listen("tcp", bind)
 	if err != nil && !explicit {
 		return net.Listen("tcp", "127.0.0.1:0")
 	}
