@@ -182,6 +182,46 @@ insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,a
 	}
 }
 
+// A repair makes an item as good as new: full durability, and a decayed maximum that workbench repairs wore down goes back to the full one.
+// An item with no maximum recorded is full at 100, and a decayed maximum of 0 (none recorded) is left as it is. (An item already above its
+// full durability is not lowered: see the first test.)
+func TestRepairGearRestoresTheDecayedMaximum(t *testing.T) {
+	st := func(body string) string {
+		return `{"FItemStackAndDurabilityStats":[[],{` + body + `}]}`
+	}
+	o := &Ops{S: testsave.PlayerWithSQL(t, `
+insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (21,2,1,10,1000.0);
+insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values
+  (301,21,1,0,'Engine',0,1790000000,'`+st(`"CurrentDurability":29.769889,"DecayedMaxDurability":79.668724`)+`',0),
+  (302,21,1,1,'Light',0,1790000000,'`+st(`"CurrentDurability":99.9,"DecayedMaxDurability":99.6`)+`',0),
+  (303,21,1,2,'Tool',0,1790000000,'`+st(`"CurrentDurability":97.2,"MaxDurability":101.0,"DecayedMaxDurability":69.388015`)+`',0),
+  (304,21,1,3,'Plain',0,1790000000,'`+st(`"CurrentDurability":12.5`)+`',0),
+  (305,21,1,4,'Zero',0,1790000000,'`+st(`"CurrentDurability":40.0,"DecayedMaxDurability":0.0`)+`',0);`)}
+	r, err := o.RepairGear()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cur := func(id int) float64 {
+		row, _ := o.S.One(`select stats from items where id=?`, id)
+		c, _ := durability(row["stats"].(string))
+		return c.(float64)
+	}
+	if got := r.(map[string]any)["repaired"].(int); got != 5 {
+		t.Fatalf("every item was below its full durability or had a worn-down maximum: %v", r)
+	}
+	if cur(301) != 100 || cur(302) != 100 || cur(303) != 101 || cur(304) != 100 || cur(305) != 100 {
+		t.Fatalf("durability wrong: %v %v %v %v %v", cur(301), cur(302), cur(303), cur(304), cur(305))
+	}
+	decayed := func(id int) any {
+		row, _ := o.S.One(`select json_extract(stats,'$.FItemStackAndDurabilityStats[1].DecayedMaxDurability') d from items where id=?`, id)
+		return row["d"]
+	}
+	// the worn-down maximums go back to full, an item that never recorded one gets none, and 0 stays 0
+	if got := fmt.Sprint(decayed(301), decayed(302), decayed(303), decayed(304), decayed(305)); got != "100 100 101 <nil> 0" {
+		t.Fatalf("decayed maximums wrong: %v", got)
+	}
+}
+
 func TestJourneyCompleteCascadesAndResets(t *testing.T) {
 	o := newOps(t)
 	o.JourneySet(Args{"node_id": "Q", "complete": true})
