@@ -88,6 +88,36 @@ Restore uses the same guard as saving: it refuses while a single-player session 
 
 The Bases tab has an **Automatic refill** switch (off by default, remembered in `%APPDATA%\tabr-tau\settings.json`, which also keeps the specialization track numbers you assign). When on, opening the editor refills base water and generators and **saves straight away**, without the Review & save step, so it applies the next time single-player loads. It is skipped while a single-player session is running or when there are unsaved edits; the previous file is backed up every time; a refused write leaves the edits pending with the reason. The card shows the last automatic save and its backup name. It applies to whichever save the editor opens.
 
+## Which write features were checked in the game
+
+Every write feature has automated tests on a synthetic save built from the game's real schema. This table says what was checked beyond that, using only what [CHANGELOG.md](CHANGELOG.md), [docs/live-test-protocol.md](docs/live-test-protocol.md) and [docs/evidence/](docs/evidence/) already record. The in-game results are the operator's reports: the evidence behind them is in issue comments, and no snapshot pair or screenshot for them is stored in `docs/evidence/` (audit finding GRC-3, [issue #163](https://github.com/Project-Arrakis/tabr-tau/issues/163)). A write feature that is not named here has no check beyond its tests on record.
+
+| Feature | Checked how | Date | Recorded in |
+|---|---|---|---|
+| Repair all equipment (first version) and add Solari | **In game**, informal report, no stored evidence | 2026-10-07 | `docs/evidence/2026-10-07-windows-first-run.md` |
+| Worn armor set, loadout items and item augments, written into a save by direct SQL (not by the editor's Give item) | **In game**, one run (live tests T7, T8, T9 and the loadout: PASS by that route) | 2026-10-07 | `docs/live-test-protocol.md`, Phase E |
+| Refill base water, Refill generators (first version) and Repair all vehicles (first version) | **In game**: the game loaded the edited save and kept the values after rewriting it | 2026-10-08 | `CHANGELOG.md` (#63, #56) |
+| Refill containers (Literjons) | **In game**: loaded, and kept after the game rewrote the save | 2026-10-08 | `CHANGELOG.md` (#55) |
+| Expand a land claim (cells and vertical level) | **In game**: the expansion loaded, allowed building outside the old claim, and was kept after the game rewrote the save | 2026-10-08 | `CHANGELOG.md` (#57) |
+| Shrink a land claim | **In game**: removing the 8 extra cells of an expanded claim worked, and the game then added its own cells when staking units were placed | 2026-10-08 | `CHANGELOG.md` (#57 follow-up) |
+| Research Unlock and Crafting Unlock | **On a copy of a real save** (each changed exactly the expected rows); not in game | not recorded | `CHANGELOG.md` (#96) |
+| Give XP | **On a copy of a real save** (+5,000 XP took level 86 to 94 and changed exactly three level fields); not in game | not recorded | `CHANGELOG.md` (#96) |
+| Augments editor on the Inventory tab | Written data compared byte for byte with an augment in a real save; not in game | not recorded | `CHANGELOG.md` (#96) |
+| Repair Vehicles (full durability of every module, #151) | The rule's values (from the game database's item pages) match every saved module of those templates in a real save; not in game | not recorded | `CHANGELOG.md` (#151) |
+| Skill rank changes and Set unspent points | Tests, with the point ladder checked against the character's own skills; not in game | not recorded | `CHANGELOG.md` (#96) |
+| Faction assignment | Tests only; stated as not yet in game | not recorded | `CHANGELOG.md` (#96) |
+| Building Sets and Customizations: Give, Grant set, Unlock all; Unlock all research and recipes; Max all skills | Tests only; stated as not checked in game | not recorded | `CHANGELOG.md` (#122, #123, #124) |
+| Give item, Give water, Give Items queue, Give Intel, Give currency, edit or delete an item | Tests only (the protocol's T1 and T1b for Give item have no recorded result) | none | `docs/live-test-protocol.md` |
+| Repair Gear (as good as new, #153) and the vehicle Repair Below % option | Tests only | none | `CHANGELOG.md` |
+| Teleport and Go to a place | Tests only | none | `CHANGELOG.md` (#67) |
+| Specialization: Add XP, Grant Max, Reset, keystones, Assign | Tests only | none | `CHANGELOG.md` (#108) |
+| Journey, Tutorial and tag changes | Tests only | none | `CHANGELOG.md` |
+| Land Claim Editor grid (Apply changes) | Tests only | none | `CHANGELOG.md` (#133) |
+| Automatic refill when the editor opens, and the refill of wind turbines and windtraps | Tests only (the first-version refill above was checked in game, the open-time save and the later changes were not) | none | `CHANGELOG.md` (#63) |
+| Structures: Repair all to max, Clear sand; Reset vendors; Landsraad edits; the Database cell editor and write SQL; Config edits; Restore a backup | Tests only | none | `CHANGELOG.md` |
+
+Read-only views are not listed. One of them has a recorded gap: the Live Map's spice and flour sand positions are decoded from field ids and have not been checked against the game for the map shown (`CHANGELOG.md`, #101).
+
 ## Safety notes
 
 - tabr-tau's own code makes no outbound network connections (no telemetry, no update check). On Windows the editor window is the Microsoft Edge WebView2 runtime, a Windows component with its own update and diagnostics settings that tabr-tau does not control; it only ever loads the editor's own `127.0.0.1` address.
