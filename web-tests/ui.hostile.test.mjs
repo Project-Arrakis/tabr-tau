@@ -880,6 +880,36 @@ test('Live Map: marker types that name inherited properties find no picture, kno
 });
 
 
+test('Live Map: drawing the map again does not add another window mouseup listener each time', async () => {
+  const data = { config: { key: 'HaggaBasin', label: 'Hagga Basin', image: '/maps/hagga-basin.png', width: 4096, height: 4096, minX: -456752, maxX: 354547, minY: -450630, maxY: 353821 },
+    maps: [{ key: 'HaggaBasin', label: 'Hagga Basin' }], character: { name: 'Me', x: 0, y: 0, z: 0 }, vehicles: [], bases: [], storage: [], resourceFields: [],
+    markers: [{ t: 'AzuriteOre', x: 4, y: 4, d: 1 }] };
+  const ui = await boot({ get: { '/api/livemap': data } });
+  const seen = [];
+  const add = ui.w.addEventListener.bind(ui.w);
+  ui.w.addEventListener = (type, ...rest) => { seen.push(type); return add(type, ...rest); };
+  ui.click('[data-tab="livemap"]'); await ui.settle();
+  for (let i = 0; i < 4; i++) { ui.click('[data-lmund]'); await ui.settle(); } // each click draws the whole view again
+  assert.ok(ui.doc.querySelector('#lmc'), 'the map is drawn');
+  assert.equal(seen.filter((t) => t === 'mouseup').length, 1, 'one window mouseup listener for the page, however often the map is drawn: ' + seen.join(','));
+  ui.dom.window.close();
+});
+
+test('A damaged settings file is shown on the automatic refill card, as text', async () => {
+  const problem = 'the settings file x is damaged (<img src=x onerror=window.__pwned=1>)';
+  const ui = await boot({ get: { '/api/settings': { autoRefillOnOpen: false, problem } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:bases"]'); await ui.settle();
+  const card = ui.doc.querySelector('[data-act="autoref"]').closest('.card');
+  assert.ok(card.querySelector('p.bad').textContent === problem, 'the problem is shown');
+  assert.equal(card.querySelector('img'), null, 'and it is text, not markup');
+  const ui2 = await boot({ get: { '/api/settings': { autoRefillOnOpen: false, problem: '' } } });
+  ui2.click('[data-tab="player"]'); await ui2.settle();
+  ui2.click('[data-sub="player:bases"]'); await ui2.settle();
+  assert.equal(ui2.doc.querySelector('[data-act="autoref"]').closest('.card').querySelector('p.bad'), null, 'no problem, nothing shown');
+  ui.dom.window.close(); ui2.dom.window.close();
+});
+
 test('No Guild or Respawn points in the Player view; Bases: the open base is labelled, others get Open, automatic refill is on Power and Water', async () => {
   const two = [{ base_id: 7, name: 'Base', base_type: 'Advanced Sub-Fief', owner: 'Owner', map: 'HaggaBasin', generators: 0, pieces: 0, placeables: 0, x: 0, y: 0, z: 0 },
     { base_id: 8, name: 'Outpost', base_type: 'Sub-Fief', owner: 'Owner', map: 'HaggaBasin', generators: 0, pieces: 0, placeables: 0, x: 1, y: 1, z: 1 }];

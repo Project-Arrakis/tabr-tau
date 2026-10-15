@@ -756,19 +756,28 @@ func (o *Ops) JourneySet(a Args) (any, error) {
 	}
 	var n int64
 	_, err = o.S.Mutate("", func(m *save.Mut) error {
+		// The children are the rows whose id starts with "<id>.". A plain prefix compare is used rather than LIKE, whose "_" matches any
+		// character (node ids hold underscores) and which ignores case.
 		res, err := m.Exec(`update journey_story_node set complete_condition_state=?, reveal_condition_state=?
-			where character_id=? and (story_node_id=? or story_node_id like ? || '.%')`, state, jsonTrue, p.Controller, id, id)
+			where character_id=? and (story_node_id=? or substr(story_node_id, 1, length(?) + 1) = ? || '.')`, state, jsonTrue, p.Controller, id, id, id)
 		if err != nil {
 			return err
 		}
 		n, _ = res.RowsAffected()
-		if n == 0 && complete {
-			if _, err := m.Exec(`insert into journey_story_node(character_id, story_node_id, has_pending_reward, complete_condition_state,
-				reveal_condition_state, fail_condition_state, metadata_state, reset_group) values(?,?,0,?,?,?,?,0)`,
-				p.Controller, id, jsonTrue, jsonTrue, jsonEmptyObj, jsonEmptyObj); err != nil {
+		if complete {
+			// The node's own row too, when only children have rows: completing a node must complete the node itself.
+			own, err := m.One(`select count(*) c from journey_story_node where character_id=? and story_node_id=?`, p.Controller, id)
+			if err != nil {
 				return err
 			}
-			n = 1
+			if c, _ := toInt(own["c"]); c == 0 {
+				if _, err := m.Exec(`insert into journey_story_node(character_id, story_node_id, has_pending_reward, complete_condition_state,
+					reveal_condition_state, fail_condition_state, metadata_state, reset_group) values(?,?,0,?,?,?,?,0)`,
+					p.Controller, id, jsonTrue, jsonTrue, jsonEmptyObj, jsonEmptyObj); err != nil {
+					return err
+				}
+				n++
+			}
 		}
 		m.Desc = fmt.Sprintf("journey %s %s (%d rows)", id, map[bool]string{true: "completed", false: "reset"}[complete], n)
 		return nil

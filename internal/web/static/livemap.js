@@ -233,6 +233,7 @@
     return best;
   }
 
+  let lmMouseUpAdded = false;
   function lmMount() {
     const c = lmCanvas();
     if (!c) return;
@@ -246,7 +247,10 @@
     const rect = (e) => { const b = c.getBoundingClientRect(); return { x: (e.clientX - b.left) * (c.width / (b.width || c.width)), y: (e.clientY - b.top) * (c.height / (b.height || c.height)) }; };
     let drag = null;
     c.addEventListener('mousedown', (e) => { drag = { x: e.clientX, y: e.clientY, ox: lm.ox, oy: lm.oy }; });
-    window.addEventListener('mouseup', () => { drag = null; });
+    // The window listener is added once for the page, not on every render (each render builds a new canvas and would pile up another
+    // listener that keeps the old canvas's drag alive); it ends the drag of whichever canvas is current.
+    lm.endDrag = () => { drag = null; };
+    if (!lmMouseUpAdded) { lmMouseUpAdded = true; window.addEventListener('mouseup', () => { if (lm.endDrag) lm.endDrag(); }); }
     c.addEventListener('mousemove', (e) => {
       if (drag) { lm.ox = drag.ox + (e.clientX - drag.x); lm.oy = drag.oy + (e.clientY - drag.y); lmDraw(); return; }
       const m = rect(e);

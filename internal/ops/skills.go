@@ -255,3 +255,57 @@ func (o *Ops) RestoreStarterSkills(a Args) (any, error) {
 	}
 	return map[string]any{"ok": true, "changed": changed}, nil
 }
+
+// MaxSkills sets every skill module of a school (args school: its key, or "all" for the five schools) to its highest rank. It does not
+// touch the unspent points.
+func (o *Ops) MaxSkills(a Args) (any, error) {
+	school := a.Str("school")
+	valid := school == "all"
+	for _, s := range skills.Schools {
+		valid = valid || s.Key == school
+	}
+	if !valid {
+		return nil, errors.New("unknown school")
+	}
+	p, err := o.player()
+	if err != nil {
+		return nil, err
+	}
+	changed := 0
+	if _, err := o.S.Mutate("max skills: "+school, func(m *save.Mut) error {
+		for _, mod := range skills.All() {
+			in := false
+			for _, s := range skills.Schools {
+				if mod.Category == s.Key && (school == "all" || school == s.Key) {
+					in = true
+				}
+			}
+			if !in {
+				continue
+			}
+			ent, _, err := characterLevel(m, p.Pawn)
+			if err != nil {
+				return err
+			}
+			cur, err := m.Query(`select json_extract(components,'`+modulePath(mod.ID)+`.SkillPointsSpent') s from fgl_entities where entity_id=?`, ent)
+			if err != nil {
+				return err
+			}
+			var spent int64
+			if len(cur) > 0 {
+				spent, _ = toInt(cur[0]["s"])
+			}
+			if skills.Rank(int(spent), mod, true) >= mod.MaxLevel {
+				continue
+			}
+			if _, _, err := setModuleTx(m, p.Pawn, mod.ID, mod.MaxLevel, false); err != nil {
+				return err
+			}
+			changed++
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return map[string]any{"ok": true, "changed": changed}, nil
+}

@@ -302,19 +302,22 @@ func (s *Server) routes() {
 
 	s.get("/api/overview", func(r *http.Request) (any, error) { return o.Overview() })
 	s.get("/api/settings", func(r *http.Request) (any, error) {
-		cur := settings.Load(s.SettingsPath)
+		cur, perr := settings.LoadStrict(s.SettingsPath)
+		problem := ""
+		if perr != nil { // reported, not hidden: changing a setting will be refused until the file is fixed or removed
+			problem, cur = perr.Error(), settings.Load(s.SettingsPath)
+		}
 		s.startupMu.Lock()
 		defer s.startupMu.Unlock()
-		return map[string]any{"autoRefillOnOpen": cur.AutoRefillOnOpen, "last": s.lastAuto}, nil
+		return map[string]any{"autoRefillOnOpen": cur.AutoRefillOnOpen, "last": s.lastAuto, "problem": problem}, nil
 	})
 	s.post("/api/settings", func(a ops.Args) (any, error) {
 		v, isBool := a["autoRefillOnOpen"].(bool)
 		if !isBool {
 			return nil, errors.New("autoRefillOnOpen must be true or false")
 		}
-		next := settings.Load(s.SettingsPath)
-		next.AutoRefillOnOpen = v
-		if err := settings.Save(s.SettingsPath, next); err != nil {
+		next, err := settings.Update(s.SettingsPath, func(cur *settings.Settings) error { cur.AutoRefillOnOpen = v; return nil })
+		if err != nil {
 			return nil, err
 		}
 		s.startupMu.Lock()
@@ -360,13 +363,14 @@ func (s *Server) routes() {
 		if err != nil {
 			return nil, err
 		}
-		cur := settings.Load(s.SettingsPath)
-		next, err := ops.CheckAssign(cur.TrackNumbers, a.Str("track"), n)
-		if err != nil {
-			return nil, err
-		}
-		cur.TrackNumbers = next
-		if err := settings.Save(s.SettingsPath, cur); err != nil {
+		if _, err := settings.Update(s.SettingsPath, func(cur *settings.Settings) error {
+			next, err := ops.CheckAssign(cur.TrackNumbers, a.Str("track"), n)
+			if err != nil {
+				return err
+			}
+			cur.TrackNumbers = next
+			return nil
+		}); err != nil {
 			return nil, err
 		}
 		return map[string]any{"ok": true, "track": a.Str("track"), "number": n}, nil

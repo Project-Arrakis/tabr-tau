@@ -29,7 +29,17 @@ var liveMaps = []mapConfig{
 }
 
 // storageTypes is the "Storage" group of containers: the plain storage containers the map shows as storage markers.
-var storageTypes = containerGroups[0].Types
+var storageTypes = containerGroupTypes("storage")
+
+// containerGroupTypes is the building types of one container group, found by the group's id, not by its place in the list.
+func containerGroupTypes(id string) map[string]string {
+	for _, g := range containerGroups {
+		if g.ID == id {
+			return g.Types
+		}
+	}
+	panic("no container group " + id) // a programming error, caught by every test that loads the package
+}
 
 func findMap(key string) mapConfig {
 	for _, m := range liveMaps {
