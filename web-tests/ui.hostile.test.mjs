@@ -96,8 +96,8 @@ const VIEWS = [
   ['player', 'player:vehicles'], ['livemap'], ['landsraad'], ['config'],
   ['db', 'db:browse'], ['db', 'db:sql'], ['db', 'db:backups'],
 ];
-// tabs that only say "not in tabr-tau yet", or whose rows are all numbers (specialization tracks), have no text to show
-const NO_DATA = new Set(['player:admin', 'player:crafting', 'player:research', 'player:customizations', 'player:skills', 'player:blueprints', 'player:vehicles', 'db:sql', 'db:backups']);
+// Only views that cannot show text from the save are listed (audit QA-9): Admin and Blueprints say "not in tabr-tau yet", Customizations lists the game's own catalog, and the SQL console and the backups list are empty until a query is run or a backup exists. Every other view must show the hostile text.
+const NO_DATA = new Set(['player:admin', 'player:customizations', 'player:blueprints', 'db:sql', 'db:backups']);
 
 for (const confused of [false, true]) for (const [tabName, ...subs] of VIEWS) {
   const label = [tabName, ...subs].join(' > ');

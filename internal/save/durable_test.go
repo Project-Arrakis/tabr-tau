@@ -162,12 +162,10 @@ func TestBackupIsVerifiedAndPrivate(t *testing.T) {
 }
 
 func TestSymlinkedSaveIsRefused(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("symlinks need privileges on windows")
-	}
 	_, p := openToy(t)
 	link := filepath.Join(t.TempDir(), "game.db")
 	if err := os.Symlink(p, link); err != nil {
+		// on Windows creating a symlink needs a privilege (or Developer Mode); try, and skip only when it cannot be created (QA-12)
 		t.Skip(err)
 	}
 	s, err := Open(link)

@@ -46,14 +46,14 @@ func TestDestinationsListPlacesOnTheCurrentMapNearestFirst(t *testing.T) {
 		t.Fatalf("bases (the one on another map is left out): %+v", bases)
 	}
 	respawns := listDestinations(t, o, "respawn", "")
-	if len(respawns) != 2 || respawns[0].Label != "BaseTotem" && respawns[0].Label != "Vehicle" {
+	if len(respawns) != 2 {
 		t.Fatalf("respawns (the one with no place is left out): %+v", respawns)
 	}
 	if respawns[0].Label != "Vehicle" || respawns[0].Z != 310 || respawns[1].Label != "BaseTotem" || respawns[1].X != 1000 {
 		t.Fatalf("respawns, nearest first, one placed by its actor: %+v", respawns)
 	}
 	vehicles := listDestinations(t, o, "vehicle", "")
-	if len(vehicles) != 1 || vehicles[0].Label != "BP_Sandbike #801" && vehicles[0].Label != "Sandbike #801" {
+	if len(vehicles) != 1 || vehicles[0].Label != "BP_Sandbike #801" {
 		t.Fatalf("only the character's own vehicle: %+v", vehicles)
 	}
 	markers := listDestinations(t, o, "marker", "")
