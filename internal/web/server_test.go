@@ -269,11 +269,6 @@ func TestCheckListenAddrPolicy(t *testing.T) {
 			t.Errorf("%q must be refused: the editor only listens on this computer", a)
 		}
 	}
-	for _, a := range []string{"0.0.0.0:8090", ":8090", "192.168.1.5:8090", "8090"} {
-		if err := CheckListenAddr(a); err == nil {
-			t.Errorf("%q must be refused: there is no longer any way to listen beyond this computer", a)
-		}
-	}
 }
 
 func TestListenFallsBackOnlyForDefaultAddr(t *testing.T) {

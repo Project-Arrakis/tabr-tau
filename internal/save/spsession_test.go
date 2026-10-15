@@ -138,6 +138,145 @@ func TestSinglePlayerStatusFollowsTheLog(t *testing.T) {
 	}
 }
 
+func appendLog(t *testing.T, lp, text string) {
+	t.Helper()
+	f, err := os.OpenFile(lp, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if _, err := f.WriteString(text); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// QA-6: the game appends while the editor reads, so a read can end in the middle of a line, also in the middle of the
+// start marker itself, or hold whole lines followed by the beginning of the next one.
+func TestSinglePlayerStatusAcrossSplitReads(t *testing.T) {
+	resetSPLog()
+	save, lp := writeLog(t, lnBOMOpen+"\r\n")
+	if st, err := singlePlayerStatus(save); err != nil || st.Active {
+		t.Fatalf("a log with only the open line is not single-player: %+v %v", st, err)
+	}
+	// the start marker "Browse (net mode" is cut in two: nothing counts until the line is finished
+	cut := strings.Index(lnStart, "Browse (net mode") + len("Browse (")
+	appendLog(t, lp, lnStart[:cut])
+	if st, _ := singlePlayerStatus(save); st.Active {
+		t.Fatal("half of the start marker must not start a session")
+	}
+	appendLog(t, lp, lnStart[cut:]) // the rest, still no newline
+	if st, _ := singlePlayerStatus(save); st.Active {
+		t.Fatal("a line without its newline must not count yet")
+	}
+	appendLog(t, lp, "\r\n")
+	if st, _ := singlePlayerStatus(save); !st.Active {
+		t.Fatal("the start marker, once complete across reads, starts the session")
+	}
+	// whole lines plus the beginning of the next one in a single read: the whole lines count, the tail waits
+	appendLog(t, lp, lnNoise+"\r\n"+lnLeave2+"\r\n"+lnStart[:70])
+	st, _ := singlePlayerStatus(save)
+	if st.Active || st.EndedAt.IsZero() {
+		t.Fatalf("the complete end line before the partial tail must end the session: %+v", st)
+	}
+	appendLog(t, lp, lnStart[70:]+"\r\n")
+	if st, _ = singlePlayerStatus(save); !st.Active || !st.EndedAt.IsZero() {
+		t.Fatalf("the tail, once finished, must be read as the line it was: %+v", st)
+	}
+	// reading again with nothing new changes nothing (no line is applied twice)
+	before := st
+	if st, _ = singlePlayerStatus(save); st != before {
+		t.Fatalf("a read with no new text changed the state: %+v then %+v", before, st)
+	}
+	// an end marker split between its timestamp and its text
+	appendLog(t, lp, lnLeave1[:30])
+	if st, _ = singlePlayerStatus(save); !st.Active {
+		t.Fatal("half an end line must not end the session")
+	}
+	appendLog(t, lp, lnLeave1[30:]+"\n")
+	if st, _ = singlePlayerStatus(save); st.Active {
+		t.Fatal("the finished end line must end the session")
+	}
+}
+
+// QA-6: the tracker's smaller rules.
+func TestTrackerEdgeRules(t *testing.T) {
+	// an end marker with no session open changes nothing, and records no end time
+	if tr := run(lnLeave2, lnExit, lnClosed); tr.active || !tr.endedAt.IsZero() {
+		t.Fatalf("an end with no session open must not record an end: %+v", tr)
+	}
+	// starting a session clears the earlier end time
+	if tr := run(lnStart, lnLeave2, lnStart); !tr.active || !tr.endedAt.IsZero() {
+		t.Fatalf("a new session has no end time: %+v", tr)
+	}
+	// a repeated end marker keeps the first end time
+	tr := run(lnStart, lnLeave1, lnLeave2)
+	if want := time.Date(2026, 10, 8, 17, 10, 51, 0, time.UTC); !tr.endedAt.Equal(want) {
+		t.Fatalf("the first end time stands, got %v", tr.endedAt)
+	}
+	// an end line without a timestamp counts as just ended
+	noStamp := "LogNet: Display: Browse (net mode 2): /Game/Dune/Maps/CharacterSelectionCave/CB_CS_Cave?closed"
+	before := time.Now()
+	tr = run(lnStart, noStamp)
+	if tr.active || tr.endedAt.Before(before.Add(-time.Second)) {
+		t.Fatalf("no timestamp: end counts as now, got %+v", tr)
+	}
+	// "?closed" only means the end when the line is a Browse line, and a Delaying Travel without ?closed (a challenge room) is no end
+	if tr := run(lnStart, "[2026.10.08-17.00.00:000]LogNet: Display: Something?closed"); !tr.active {
+		t.Fatal("?closed outside a Browse line is not an end")
+	}
+	if tr := run(lnStart, lnRoom); !tr.active {
+		t.Fatal("a challenge room is no end")
+	}
+	// a local map without ?listen changes nothing, also while a session is open
+	if tr := run(lnStart, lnCave); !tr.active {
+		t.Fatal("the character cave inside a session is not an end")
+	}
+}
+
+func TestLogTime(t *testing.T) {
+	want := time.Date(2026, 10, 8, 17, 10, 51, 0, time.UTC)
+	for _, c := range []struct {
+		line string
+		ok   bool
+	}{
+		{"[2026.10.08-17.10.51:686]rest", true},
+		{"[2026.10.08-17.10.51:686]", true},
+		{"[2026.10.08-17.10.51]", false}, // shorter than the game's prefix: not a log timestamp
+		{" [2026.10.08-17.10.51:686]rest", false},
+		{"2026.10.08-17.10.51:686]rest.....", false},
+		{"[2026.13.08-17.10.51:686]rest", false}, // month 13
+		{"[abcdefghijklmnopqrs:686]rest", false},
+		{"", false},
+	} {
+		got := logTime(c.line)
+		if c.ok && !got.Equal(want) || !c.ok && !got.IsZero() {
+			t.Errorf("logTime(%q) = %v, ok want %v", c.line, got, c.ok)
+		}
+	}
+}
+
+func TestGameStateGraceBoundary(t *testing.T) {
+	oldList, oldStatus, oldNow := listProcs, statusFor, nowFunc
+	t.Cleanup(func() { listProcs, statusFor, nowFunc = oldList, oldStatus, oldNow })
+	now := time.Date(2026, 10, 8, 17, 30, 0, 0, time.UTC)
+	nowFunc = func() time.Time { return now }
+	listProcs = func(bool) ([]string, string) { return []string{"DuneSandbox-Win64-Shipping.exe"}, "" }
+	if spEndGrace != 15*time.Second {
+		t.Fatalf("the documented grace after the end marker is 15 s, got %v", spEndGrace)
+	}
+	for _, c := range []struct {
+		ago     time.Duration
+		blocked bool
+	}{
+		{0, true}, {spEndGrace - time.Millisecond, true}, {spEndGrace, false}, {spEndGrace + time.Millisecond, false},
+	} {
+		statusFor = func(string) (spStatus, error) { return spStatus{EndedAt: now.Add(-c.ago)}, nil }
+		if g := GameStateFor("x", true); g.Blocked != c.blocked {
+			t.Errorf("ended %v ago: blocked=%v want %v", c.ago, g.Blocked, c.blocked)
+		}
+	}
+}
+
 func TestGameStateDecisions(t *testing.T) {
 	oldList, oldStatus, oldNow := listProcs, statusFor, nowFunc
 	t.Cleanup(func() { listProcs, statusFor, nowFunc = oldList, oldStatus, oldNow })

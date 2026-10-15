@@ -146,8 +146,7 @@ func main() {
 		die("error: %v", err)
 	}
 	base := "http://" + ln.Addr().String()
-	ws := web.New(s, config.Dir{Path: *cfgDir})
-	ws.RunStartupTasks()
+	ws := newWebServer(s, *cfgDir)
 	bootURL := ws.BootURL(base) // single use, valid for 10 minutes; sets this browser's session cookie
 	fmt.Printf("tabr-tau %s\n  save:   %s\n  config: %s\n  ui:     %s\n", version, s.Path, *cfgDir, bootURL)
 	srv := web.NewHTTPServer(ws.Handler())
@@ -184,6 +183,14 @@ func main() {
 	if err := srv.Serve(ln); err != nil {
 		die("error: %v", err)
 	}
+}
+
+// newWebServer builds the editor's server and runs what the settings ask for when the editor opens (the optional refill). It is
+// its own function so a test can prove main does both.
+func newWebServer(s *save.Save, cfgDir string) *web.Server {
+	ws := web.New(s, config.Dir{Path: cfgDir})
+	ws.RunStartupTasks()
+	return ws
 }
 
 func runCommand(args []string) error {

@@ -3,22 +3,40 @@ package ops
 import (
 	"strings"
 	"testing"
+
+	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
 // Issue #71: the Tables view must not let account identity, primary keys or links be edited by hand.
 
 func TestUpdateRowRefusesAccountsAndIdentityColumns(t *testing.T) {
 	o := newPlayerOps(t)
-	for _, c := range []struct{ table, col string }{
-		{"accounts", "user"}, {"accounts", "funcom_id"}, {"accounts", "platform_id"}, {"accounts", "platform_name"},
-		{"items_id_sequencer", "next_id"}, // the whole table is locked
+	// The value must be one the column accepts (the schema is STRICT, so "x" in an INTEGER column fails on its own): the lock is
+	// what has to refuse the edit, not the column type.
+	for _, c := range []struct {
+		table, col string
+		val        any
+	}{
+		{"accounts", "user", "x"}, {"accounts", "funcom_id", "x"}, {"accounts", "platform_id", "x"}, {"accounts", "platform_name", "x"},
+		{"items_id_sequencer", "next_id", float64(7)}, // the whole table is locked
 	} {
-		if _, err := o.UpdateRow(Args{"table": c.table, "column": c.col, "rowid": float64(1), "value": "x"}); err == nil {
-			t.Errorf("%s.%s must not be editable here", c.table, c.col)
+		_, err := o.UpdateRow(Args{"table": c.table, "column": c.col, "rowid": float64(1), "value": c.val})
+		if err == nil || !strings.Contains(err.Error(), "cannot be edited here") {
+			t.Errorf("%s.%s must be refused by the lock, got %v", c.table, c.col, err)
 		}
 	}
 	if o.S.Dirty() {
 		t.Fatal("a refused edit must leave no pending change")
+	}
+	if n := mustOne(t, o, `select next_id n from items_id_sequencer`)["n"].(int64); n != 500 {
+		t.Fatalf("the item id counter changed to %d", n)
+	}
+	// the value is acceptable to the column: with no lock the same edit goes through
+	if _, err := o.S.Mutate("probe", func(m *save.Mut) error {
+		_, err := m.Exec(`update items_id_sequencer set next_id=7`)
+		return err
+	}); err != nil {
+		t.Fatalf("the test value must be valid for the column: %v", err)
 	}
 }
 

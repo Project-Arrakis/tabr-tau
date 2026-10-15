@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
@@ -40,6 +41,7 @@ func TestDumpUIFixtures(t *testing.T) {
 	}
 	sv := testsave.Hostile(t)
 	addHostileStorage(t, sv)
+	addHostileCharacter(t, sv)
 	s := New(sv, config.Dir{Path: cfgDir})
 	cookie := map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}
 
@@ -72,15 +74,29 @@ func TestDumpUIFixtures(t *testing.T) {
 		get("/api/config/backups?name=" + name)
 	}
 
+	// Every route must answer 200 over the hostile save, except the ones named here with the reason. The list is empty on purpose:
+	// a route that fails or comes back empty means the browser test is rendering a view that was never fed hostile text.
+	allowedNon200 := map[string]string{}
 	ok := 0
-	for _, v := range out {
-		if v.(map[string]any)["status"].(int) == http.StatusOK {
+	for route, v := range out {
+		status := v.(map[string]any)["status"].(int)
+		if status == http.StatusOK {
 			ok++
+		} else if allowedNon200[route] == "" {
+			t.Errorf("%s answered %d over the hostile save: %v", route, status, v.(map[string]any)["body"])
 		}
 	}
 	t.Logf("fixture routes: %d, answered 200: %d", len(out), ok)
-	if ok < 10 {
-		t.Fatalf("only %d routes answered 200 over the hostile real-schema save; the UI test would not exercise enough of the UI", ok)
+	// views whose rows come from text in the save must actually carry the hostile text, or the browser test checks nothing there
+	for _, route := range []string{"/api/player/skills", "/api/player/research", "/api/player/crafting", "/api/player/inventory", "/api/bases/water", "/api/bases/inventory", "/api/vehicles"} {
+		v, found := out[route]
+		if !found || !strings.Contains(mustJSON(t, v.(map[string]any)["body"]), "__pwned") {
+			t.Errorf("%s does not carry the hostile text; the fixture is not feeding that view", route)
+		}
+	}
+	// the power tab names only known devices, so it carries no save text, but it must list the generator that was seeded
+	if body := mustJSON(t, out["/api/bases/power"].(map[string]any)["body"]); !strings.Contains(body, "Fuel-Powered Generator") {
+		t.Errorf("/api/bases/power lists no generator: %s", body)
 	}
 	b, _ := json.MarshalIndent(out, "", " ")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -88,6 +104,46 @@ func TestDumpUIFixtures(t *testing.T) {
 	}
 	if err := os.WriteFile(filepath.Join(dir, "ui-fixtures.json"), b, 0o600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// addHostileCharacter gives the hostile save what the Player views need to list anything: the character's body (found by its
+// class and owner, which the generic one-row-per-table fill cannot satisfy), its research and known recipes, its skill record
+// with a module the catalog does not know, a backpack with a hostile item, and a generator and a water building in the base
+// that addHostileStorage made. Without these the skills route answers 400 and research, crafting, power, water and inventory
+// answer empty lists, so the browser test would pass over views that were never fed hostile text (audit QA-9).
+func addHostileCharacter(t *testing.T, sv *save.Save) {
+	t.Helper()
+	h := testsave.HostileText
+	skillID := "Skills.Perk." + strings.TrimPrefix(h, `">`) // a module key cannot hold a double quote (the key is `(TagName="...")`)
+	props := mustJSON(t, map[string]any{
+		"TechKnowledgePlayerComponent": map[string]any{"m_TechKnowledge": map[string]any{"m_TechKnowledgeData": []any{
+			map[string]any{"ItemKey": "RCP_" + h, "UnlockedState": h, "bIsNewEntry": true},
+			map[string]any{"ItemKey": "BLD_" + h + "_Patent", "UnlockedState": "Purchased", "bIsNewEntry": false},
+		}}},
+		"CraftingRecipesLibraryActorComponent": map[string]any{"m_KnownItemRecipes": []any{
+			map[string]any{"BaseRecipeId": map[string]any{"Name": h}, "m_Source": h, "m_NumberOfRecipeUses": 1, "m_bIsLimitedUseRecipe": true},
+		}},
+	})
+	level := mustJSON(t, map[string]any{"FLevelComponent": []any{[]any{}, map[string]any{
+		"ModuleData":    map[string]any{`(TagName="` + skillID + `")`: map[string]any{"SkillPointsSpent": 3}},
+		"TotalXPEarned": 0, "TotalSkillPoints": 10, "UnspentSkillPoints": 2}}})
+	water := mustJSON(t, map[string]any{"FWaterStorageComponent": []any{[]any{}, map[string]any{"m_WaterStored": 100}}})
+	for _, q := range [][]any{
+		{`insert into actors(id,class,map,owner_account_id,properties) values (900010,'/Game/Dune/Characters/Player/BP_DunePlayerCharacter.BP_DunePlayerCharacter_C','HaggaBasin',1,jsonb(?))`, props},
+		{`insert into fgl_entities(entity_id,components) values (-900010, jsonb(?))`, level},
+		{`insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (900010,-900010,'DuneCharacter')`},
+		{`insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (900011,900010,0,20,1000.0)`},
+		{`insert into items(id,inventory_id,stack_size,position_index,template_id,stats) values (900012,900011,1,0,?,?)`, h, h},
+		// a generator holding fuel, and a water building of a kind the editor does not know (so its name is the save's own text)
+		{`insert into actors(id,class,map) values (900020,'/Game/Water.Water_C','HaggaBasin'),(900021,'/Game/Generator.Generator_C','HaggaBasin')`},
+		{`insert into fgl_entities(entity_id,components) values (-900020, jsonb(?))`, water},
+		{`insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (900020,-900020,'Water')`},
+		{`insert into placeables(id,owner_entity_id,building_type,last_placed_by_player_id) values (900020,-900001,?,1),(900021,-900001,'Generator_Placeable',1)`, h},
+		{`insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (900022,900021,3,5,100.0)`},
+		{`insert into items(id,inventory_id,stack_size,position_index,template_id,stats) values (900023,900022,5,0,'Oil','{}')`},
+	} {
+		testsave.Exec(t, sv, q[0].(string), q[1:]...)
 	}
 }
 

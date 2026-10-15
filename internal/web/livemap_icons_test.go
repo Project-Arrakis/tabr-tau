@@ -25,8 +25,20 @@ func TestLiveMapIconsAreServedFromAFixedList(t *testing.T) {
 			want = "image/webp"
 		}
 		code, ct, n := get("/maps/icons/" + e.Name())
-		if code != http.StatusOK || ct != want || n < 100 {
+		if code != http.StatusOK || ct != want {
 			t.Fatalf("%s: %d %q %d bytes", e.Name(), code, ct, n)
+		}
+		// the bytes are the embedded picture itself, not just something of a plausible size
+		embedded, err := static.ReadFile("static/maps/icons/" + e.Name())
+		if err != nil || n != len(embedded) || n == 0 {
+			t.Fatalf("%s: served %d bytes, embedded %d (%v)", e.Name(), n, len(embedded), err)
+		}
+		magic := "\x89PNG"
+		if want == "image/webp" {
+			magic = "RIFF"
+		}
+		if !strings.HasPrefix(string(embedded), magic) {
+			t.Fatalf("%s is not a %s picture", e.Name(), want)
 		}
 	}
 	for _, bad := range []string{"/maps/icons/nope.webp", "/maps/icons/../app.js", "/maps/icons/%2e%2e/app.js", "/maps/icons/", "/maps/icons", "/maps/icons/x.svg"} {
