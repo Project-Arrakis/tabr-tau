@@ -160,6 +160,9 @@ type GameState struct {
 	Mode       string   // none | menu_or_multiplayer | single_player | unknown
 	Processes  []string // Dune processes found
 	CheckError string   // set when we could not tell
+	// NeedsConfirm is set when the only thing blocking the write is that the save's location cannot be vouched for (a network share, a removable
+	// drive, a folder outside the game's own). ConfirmLocation lifts it.
+	NeedsConfirm bool
 }
 
 // listProcs and statusFor are variables so tests can stand in for the machine.
@@ -177,6 +180,20 @@ var (
 // GameStateFor decides for the save at savePath. fresh bypasses the three-second process cache (writes use it).
 // Anything it cannot establish blocks the write: a guess must not decide.
 func GameStateFor(savePath string, fresh bool) GameState {
+	g := processState(savePath, fresh)
+	if g.Blocked {
+		return g
+	}
+	// The process list and the log are this computer's. For a save that may be used from elsewhere, "no game here" proves nothing.
+	if why := locationFor(savePath); why != "" && !locationConfirmed(savePath) {
+		return GameState{Blocked: true, NeedsConfirm: true, Mode: "unknown", Processes: g.Processes,
+			Reason: why + ", so this computer cannot tell whether the game is using it (here or on another computer); confirm that the game is closed everywhere that can open this save to allow saving"}
+	}
+	return g
+}
+
+// processState is the part of GameStateFor that looks at the game's processes and log on this computer.
+func processState(savePath string, fresh bool) GameState {
 	procs, perr := listProcs(fresh)
 	if perr != "" {
 		return GameState{Blocked: true, Mode: "unknown", CheckError: perr, Reason: "could not check whether the game is running (" + perr + ")"}

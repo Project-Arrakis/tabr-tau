@@ -391,6 +391,26 @@ test('a game check that cannot run blocks Save and shows why, as plain text', as
   ui.dom.window.close();
 });
 
+test('a save the game check cannot vouch for blocks Save, says why, and Allow saving asks first and then posts the confirmation (NET-3)', async () => {
+  const why = 'the save is on a network share, so this computer cannot tell whether the game is using it';
+  const ov = { ...JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)), gameRunning: false, dirty: true, saveBlocked: true, blockReason: why, gameMode: 'unknown', locationUnconfirmed: true };
+  const ui = await boot({ get: { '/api/save/state': ov, '/api/save/review': hostileReview() }, post: { '/api/save/confirm-location': { ok: true } } });
+  const gw = ui.doc.querySelector('#gamewarn');
+  assert.ok(gw.textContent.includes('Saving is blocked') && gw.textContent.includes('network share'), gw.textContent);
+  assert.ok(!gw.textContent.includes('single-player session runs'), 'it is not the single-player advice');
+  ui.click('#btnSave'); await ui.settle();
+  assert.equal(ui.doc.querySelector('#btnDoSave').disabled, true, 'Save stays off until the person confirms');
+  ui.click('[data-act="closeReview"]'); await ui.settle();
+  ui.click('[data-act="confirmLocation"]'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/save/confirm-location').length, 0, 'nothing is sent before the question is answered');
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes('closed everywhere'), 'the question says what the person is vouching for');
+  ui.click('[data-act="askNo"]'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/save/confirm-location').length, 0, 'Cancel sends nothing');
+  ui.click('[data-act="confirmLocation"]'); await ui.settle(); ui.click('#aok'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/save/confirm-location').length, 1);
+  ui.dom.window.close();
+});
+
 test('an active single-player session blocks Save inside the review and the banner says why', async () => {
   const ov = { ...JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)), gameRunning: true, dirty: true, gameProcesses: ['DuneTest.exe'], saveBlocked: true, gameMode: 'single_player',
     blockReason: 'a single-player session is active (DuneTest.exe); go to the menu or multiplayer, or quit the game, then save' };

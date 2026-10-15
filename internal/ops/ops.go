@@ -135,7 +135,7 @@ func (o *Ops) State() (any, error) {
 		"path": o.S.Path, "dirty": o.S.Dirty(), "pending": o.S.Pending(),
 		"gameRunning": len(g.Processes) > 0, "gameProcesses": g.Processes, "gameCheckError": g.CheckError,
 		"saveBlocked": g.Blocked, "blockReason": g.Reason, "gameMode": g.Mode,
-		"readOnly": o.S.WriteBlocked(), "changedOnDisk": o.S.ChangedOnDisk(),
+		"readOnly": o.S.WriteBlocked(), "changedOnDisk": o.S.ChangedOnDisk(), "locationUnconfirmed": g.NeedsConfirm,
 	}, nil
 }
 

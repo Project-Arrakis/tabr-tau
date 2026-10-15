@@ -203,7 +203,7 @@ async function status() {
   // The game rewrites game.db about every five minutes while it runs and again when a session ends, and a save onto a file that changed is
   // refused, so say so as soon as it happens and say what to do first: close the game, then edit.
   const changedMsg = changed ? html`<div><b>The game saved since this editor opened.</b> ${o.pending.length ? html`Your ${o.pending.length} unsaved change${o.pending.length > 1 ? 's' : ''} can no longer be saved onto the new file.` : html`What you see here is out of date.`} <button class="b sm" data-act="reload">Reload now</button></div>` : html``;
-  const blockedMsg = o.gameCheckError && saveBlocked ? html`<b>Saving is blocked.</b> ${saveBlockWhy}. If this keeps happening, report this text.` : saveBlocked ? html`<b>Saving is blocked.</b> ${saveBlockWhy}. Close the game or go to its menu before you edit: the game rewrites the save while a single-player session runs, so edits made now would be refused or overwritten.` : note ? html`Dune: Awakening is open (${(o.gameProcesses || []).join(', ')}) but not in single-player, so saving is allowed.` : html``;
+  const blockedMsg = o.locationUnconfirmed ? html`<b>Saving is blocked.</b> ${saveBlockWhy}. You can keep editing. <button class="b sm" data-act="confirmLocation">Allow saving here</button>` : o.gameCheckError && saveBlocked ? html`<b>Saving is blocked.</b> ${saveBlockWhy}. If this keeps happening, report this text.` : saveBlocked ? html`<b>Saving is blocked.</b> ${saveBlockWhy}. Close the game or go to its menu before you edit: the game rewrites the save while a single-player session runs, so edits made now would be refused or overwritten.` : note ? html`Dune: Awakening is open (${(o.gameProcesses || []).join(', ')}) but not in single-player, so saving is allowed.` : html``;
   setHTML(gw, html`${changedMsg}${blockedMsg}`);
   syncReview();
   const n = o.pending.length;
@@ -820,6 +820,7 @@ const A = {
   closeReview: () => { R = null; drawReview(); },
   askOk: () => { if (askState && askState.typed && $('#atype').value.trim().toLowerCase() !== askState.typed.toLowerCase()) return; endAsk(true); }, // the typed word is checked here too, not only by the disabled button
   askNo: () => endAsk(false),
+  confirmLocation: async () => (await ask({ title: 'Allow saving to this location?', body: 'The editor can only see the game on this computer, and this save is somewhere it cannot vouch for (a network share, a removable drive, or a folder other than the one the game itself uses). Saving while the game, on this or another computer, has the file open can corrupt it or lose your work. Continue only if the game is closed everywhere that can open this save.', ok: 'Allow saving', danger: true })) && act(() => api('/api/save/confirm-location', {}), 'Saving is allowed for this save until the editor closes'),
   reload: async () => (await ask({ title: 'Reload from disk?', body: 'Your edits are dropped and the file is read again. The edits listed in the review are the ones to redo.', ok: 'Reload', danger: true })) && act(async () => { await api('/api/save/discard', {}); R = null; drawReview(); }, 'Reloaded from disk. Redo your edits.'),
   doSave: async () => {
     if (!R) return;

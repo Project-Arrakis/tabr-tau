@@ -595,6 +595,12 @@ func (s *Server) routes() {
 	// save checks it under its own lock. The game-running check cannot be switched off from here.
 	s.post("/api/save/commit", func(a ops.Args) (any, error) { return s.Save.CommitReviewed(a.Str("reviewed"), false) })
 	s.post("/api/save/discard", func(ops.Args) (any, error) { return map[string]any{"ok": true}, s.Save.Discard() })
+	// The game-running guard looks at this computer only. For a save on a share, a removable drive or outside the game's own folder it asks
+	// the person to say the game is closed everywhere; this is that answer, kept until the editor closes.
+	s.post("/api/save/confirm-location", func(ops.Args) (any, error) {
+		save.ConfirmLocation(s.Save.Path)
+		return map[string]any{"ok": true}, nil
+	})
 	s.get("/api/save/review", func(r *http.Request) (any, error) {
 		return o.Review(r.URL.Query().Get("unredacted") == "1", qint(r, "limit", 40))
 	})
