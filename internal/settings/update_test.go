@@ -66,8 +66,8 @@ func TestUpdateRefusesADamagedFileAndLeavesItAlone(t *testing.T) {
 		}
 		called := false
 		_, err := Update(p, func(s *Settings) error { called = true; s.AutoRefillOnOpen = true; return nil })
-		if err == nil || !strings.Contains(err.Error(), "damaged") || !strings.Contains(err.Error(), p) {
-			t.Errorf("%s: want an error naming the file as damaged, got %v", name, err)
+		if err == nil || !strings.Contains(err.Error(), "damaged") || !strings.Contains(err.Error(), name) || strings.Contains(err.Error(), dir) {
+			t.Errorf("%s: want an error naming the file (not its folder) as damaged, got %v", name, err)
 		}
 		if called {
 			t.Errorf("%s: the change must not even be attempted on a file that could not be read", name)

@@ -335,71 +335,75 @@ func (o *Ops) ShrinkLandClaim(a Args) (any, error) {
 	if t, err := o.S.One(`select 1 x from totems where id=?`, id); err != nil || t == nil {
 		return nil, errors.New("land claim (totem) not found")
 	}
-	rows, err := o.S.Query(`select grid_location_x x, grid_location_y y from landclaim_segments where totem_id=?`, id)
-	if err != nil {
-		return nil, err
-	}
-	have := claimCellSet(rows)
-	var drop []claimCell
-	left := map[claimCell]bool{{0, 0}: true}
-	for _, r := range rows {
-		x, okx := r["x"].(int64)
-		y, oky := r["y"].(int64)
-		if !okx || !oky {
-			continue
-		}
-		if max(x, -x, y, -y) > keep {
-			drop = append(drop, claimCell{x, y})
-		} else {
-			left[claimCell{x, y}] = true
-		}
-	}
-	if len(drop) == 0 {
-		return nil, errors.New("there are no stored cells outside that size")
-	}
+	// Building pieces are never moved by an edit made here, so they are read once, outside the transaction. The cells are read, checked and
+	// deleted in one transaction, so an Expand or Apply that lands in between cannot leave the check looking at a stale claim.
 	pieces, err := o.pieceCells(id)
 	if err != nil {
 		return nil, err
 	}
-	blocked, blockers := 0, int64(0)
-	for _, c := range drop {
-		if n := pieces[c]; n > 0 {
-			blocked++
-			blockers += n
-		}
-	}
-	if blocked > 0 {
-		return nil, fmt.Errorf("%d of the cells to remove hold %d building pieces or placeables; nothing was removed", blocked, blockers)
-	}
-	before, after := claimReach(have), claimReach(left)
-	var cut []claimCell
-	for c := range left {
-		if before[c] && !after[c] {
-			cut = append(cut, c)
-		}
-	}
-	if len(cut) > 0 {
-		sort.Slice(cut, func(i, j int) bool {
-			if cut[i][1] != cut[j][1] {
-				return cut[i][1] < cut[j][1]
-			}
-			return cut[i][0] < cut[j][0]
-		})
-		return nil, fmt.Errorf("removing those cells would cut %d cells that stay (the first at %d, %d) off from the totem, and the game needs the claim connected edge to edge; choose a larger size; nothing was removed", len(cut), cut[0][0], cut[0][1])
-	}
+	var dropped, remaining int
 	_, err = o.S.Mutate("", func(m *save.Mut) error {
+		rows, err := m.Query(`select grid_location_x x, grid_location_y y from landclaim_segments where totem_id=?`, id)
+		if err != nil {
+			return err
+		}
+		have := claimCellSet(rows)
+		var drop []claimCell
+		left := map[claimCell]bool{{0, 0}: true}
+		for _, r := range rows {
+			x, okx := r["x"].(int64)
+			y, oky := r["y"].(int64)
+			if !okx || !oky {
+				continue
+			}
+			if max(x, -x, y, -y) > keep {
+				drop = append(drop, claimCell{x, y})
+			} else {
+				left[claimCell{x, y}] = true
+			}
+		}
+		if len(drop) == 0 {
+			return errors.New("there are no stored cells outside that size")
+		}
+		blocked, blockers := 0, int64(0)
+		for _, c := range drop {
+			if n := pieces[c]; n > 0 {
+				blocked++
+				blockers += n
+			}
+		}
+		if blocked > 0 {
+			return fmt.Errorf("%d of the cells to remove hold %d building pieces or placeables; nothing was removed", blocked, blockers)
+		}
+		before, after := claimReach(have), claimReach(left)
+		var cut []claimCell
+		for c := range left {
+			if before[c] && !after[c] {
+				cut = append(cut, c)
+			}
+		}
+		if len(cut) > 0 {
+			sort.Slice(cut, func(i, j int) bool {
+				if cut[i][1] != cut[j][1] {
+					return cut[i][1] < cut[j][1]
+				}
+				return cut[i][0] < cut[j][0]
+			})
+			return fmt.Errorf("removing those cells would cut %d cells that stay (the first at %d, %d) off from the totem, and the game needs the claim connected edge to edge; choose a larger size; nothing was removed", len(cut), cut[0][0], cut[0][1])
+		}
 		for _, c := range drop {
 			if _, err := m.Exec(`delete from landclaim_segments where totem_id=? and grid_location_x=? and grid_location_y=?`, id, c[0], c[1]); err != nil {
 				return err
 			}
 		}
+		dropped, remaining = len(drop), len(left)
 		m.Desc = fmt.Sprintf("shrink land claim %d: -%d cells (keep %d rings)", id, len(drop), keep)
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"ok": true, "removed": len(drop), "remaining": len(left)}, nil
+	return map[string]any{"ok": true, "removed": dropped, "remaining": remaining}, nil
 }
 
 func totalPieces(pc map[claimCell]int64) int64 {

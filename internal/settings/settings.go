@@ -62,16 +62,16 @@ func loadStrict(path string) (Settings, error) {
 		return s, nil
 	}
 	if err != nil {
-		return Settings{}, fmt.Errorf("the settings file %s cannot be read: %w", path, err)
+		return Settings{}, fmt.Errorf("the settings file %s cannot be read: %w", filepath.Base(path), err)
 	}
 	if len(b) > 64<<10 {
-		return Settings{}, fmt.Errorf("the settings file %s is larger than 64 KiB", path)
+		return Settings{}, fmt.Errorf("the settings file %s is larger than 64 KiB", filepath.Base(path))
 	}
 	if len(bytes.TrimSpace(b)) == 0 { // an empty file holds nothing to lose
 		return s, nil
 	}
 	if err := json.Unmarshal(b, &s); err != nil {
-		return Settings{}, fmt.Errorf("the settings file %s is damaged (%v)", path, err)
+		return Settings{}, fmt.Errorf("the settings file %s is damaged (%v)", filepath.Base(path), err)
 	}
 	return s, nil
 }

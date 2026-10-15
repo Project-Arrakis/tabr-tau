@@ -283,16 +283,36 @@ func publicError(err error) string {
 	var paths []string
 	collectPaths(err, &paths)
 	for _, p := range paths {
-		if p != "" {
-			msg = strings.ReplaceAll(msg, p, p[strings.LastIndexAny(p, `/\`)+1:]) // either separator, whatever system the editor runs on
+		// either separator, whatever system the editor runs on; a root such as "/" or `C:\` has no file name to keep, so it is left alone
+		if base := p[strings.LastIndexAny(p, `/\`)+1:]; p != "" && base != "" {
+			msg = strings.ReplaceAll(msg, p, base)
 		}
 	}
-	if home, e := os.UserHomeDir(); e == nil && len(home) > 3 {
-		for _, h := range []string{home, filepath.ToSlash(home)} {
-			msg = regexp.MustCompile(`(?i)`+regexp.QuoteMeta(h)).ReplaceAllString(msg, "~")
-		}
+	if re := homeRe(); re != nil {
+		msg = re.ReplaceAllString(msg, "~")
 	}
 	return msg
+}
+
+// homeRe matches the user's home folder in either spelling, ignoring case; nil when the folder is not known or too short to be safe.
+func homeRe() *regexp.Regexp {
+	home, e := os.UserHomeDir()
+	if e != nil || len(home) <= 3 {
+		return nil
+	}
+	homeReCache.Lock()
+	defer homeReCache.Unlock()
+	if homeReCache.re == nil || homeReCache.home != home { // compiled once per home folder, not once per error
+		homeReCache.home = home
+		homeReCache.re = regexp.MustCompile(`(?i)` + regexp.QuoteMeta(home) + `|` + regexp.QuoteMeta(filepath.ToSlash(home)))
+	}
+	return homeReCache.re
+}
+
+var homeReCache struct {
+	sync.Mutex
+	home string
+	re   *regexp.Regexp
 }
 
 func collectPaths(err error, out *[]string) {
@@ -604,6 +624,9 @@ func (s *Server) routes() {
 	// The game-running guard looks at this computer only. For a save on a share, a removable drive or outside the game's own folder it asks
 	// the person to say the game is closed everywhere; this is that answer, kept until the editor closes.
 	s.post("/api/save/confirm-location", func(ops.Args) (any, error) {
+		if !save.GameStateFor(s.Save.Path, true).NeedsConfirm { // only a location the guard is actually refusing can be confirmed
+			return nil, errors.New("this save's location is not in question: there is nothing to confirm")
+		}
 		save.ConfirmLocation(s.Save.Path)
 		return map[string]any{"ok": true}, nil
 	})

@@ -69,6 +69,10 @@ func TestErrorsDoNotCarryAbsolutePathsOrTheHomeFolder(t *testing.T) {
 	if got := publicError(fmt.Errorf("config folder not found: %s", home+"/Saved/Config")); strings.Contains(got, home) || !strings.Contains(got, "~") {
 		t.Fatalf("home folder: %q", got)
 	}
+	// a root path has no file name to keep: the message is not stripped of its separators
+	if got := publicError(&fs.PathError{Op: "open", Path: "/", Err: errors.New("is a directory")}); !strings.Contains(got, "/") {
+		t.Fatalf("root path: %q", got)
+	}
 	if got := publicError(errors.New("item not found")); got != "item not found" {
 		t.Fatalf("an ordinary message is unchanged: %q", got)
 	}

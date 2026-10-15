@@ -3,6 +3,7 @@ package save
 import (
 	"errors"
 	"syscall"
+	"time"
 )
 
 const (
@@ -18,8 +19,17 @@ func lockFile(path string) (func(), error) {
 	if err != nil {
 		return func() {}, nil
 	}
-	h, err := syscall.CreateFile(p, syscall.GENERIC_READ|syscall.GENERIC_WRITE, 0, nil, syscall.OPEN_ALWAYS,
-		syscall.FILE_ATTRIBUTE_NORMAL|fileFlagDeleteOnClose, 0)
+	var h syscall.Handle
+	// A virus scanner or indexer can hold the file open for a moment, which looks the same as another editor holding it; a few short retries
+	// tell the two apart (a real editor keeps it for as long as it runs).
+	for try := 0; try < 6; try++ {
+		h, err = syscall.CreateFile(p, syscall.GENERIC_READ|syscall.GENERIC_WRITE, 0, nil, syscall.OPEN_ALWAYS,
+			syscall.FILE_ATTRIBUTE_NORMAL|fileFlagDeleteOnClose, 0)
+		if err == nil || !(errors.Is(err, errSharingViolation) || errors.Is(err, errLockViolation)) {
+			break
+		}
+		time.Sleep(150 * time.Millisecond)
+	}
 	if err != nil {
 		if errors.Is(err, errSharingViolation) || errors.Is(err, errLockViolation) {
 			return nil, ErrSaveInUse
