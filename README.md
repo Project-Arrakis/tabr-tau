@@ -107,7 +107,7 @@ Every write feature has automated tests on a synthetic save built from the game'
 | Skill rank changes and Set unspent points | Tests, with the point ladder checked against the character's own skills; not in game | not recorded | `CHANGELOG.md` (#96) |
 | Faction assignment | Tests only; stated as not yet in game | not recorded | `CHANGELOG.md` (#96) |
 | Building Sets and Customizations: Give, Grant set, Unlock all; Unlock all research and recipes; Max all skills | Tests only; stated as not checked in game | not recorded | `CHANGELOG.md` (#122, #123, #124) |
-| Give item, Give water, Give Items queue, Give Intel, Give currency, edit or delete an item | Tests only (the protocol's T1 and T1b for Give item have no recorded result) | none | `docs/live-test-protocol.md` |
+| Give item, Give water, Fill hydration, Give Items queue, Give Intel, Give currency, edit or delete an item | Tests only (the protocol's T1 and T1b for Give item have no recorded result) | none | `docs/live-test-protocol.md` |
 | Repair Gear (as good as new, #153) and the vehicle Repair Below % option | Tests only | none | `CHANGELOG.md` |
 | Teleport and Go to a place | Tests only | none | `CHANGELOG.md` (#67) |
 | Specialization: Add XP, Grant Max, Reset, keystones, Assign | Tests only | none | `CHANGELOG.md` (#108) |

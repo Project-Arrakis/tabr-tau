@@ -484,6 +484,7 @@ func (s *Server) routes() {
 	s.post("/api/items/augment", o.AugmentItem)
 	s.post("/api/player/repair", func(ops.Args) (any, error) { return o.RepairGear() })
 	s.post("/api/player/refill", func(ops.Args) (any, error) { return o.RefillContainers() })
+	s.post("/api/player/hydration", func(ops.Args) (any, error) { return o.FillHydration() })
 	s.post("/api/player/solari", o.AddSolari)
 	s.post("/api/player/intel", o.AddIntel)
 	s.post("/api/player/xp", o.AddXP)

@@ -60,7 +60,7 @@ func (o *Ops) Summary() (any, error) {
 		json_extract(gas_attributes,'$.DuneSpiceAddictionAttributeSet.SpiceAddictionLevel.CurrentValue') addiction from actors where id=?`, p.Pawn)
 	out["vitals"] = map[string]any{
 		"health": lv["health"], "healthMinMax": baseMaxHealth,
-		"hydration": gas["hydration"], "maxHydration": 100,
+		"hydration": gas["hydration"], "maxHydration": maxHydration,
 		"spiceAddiction": gas["addiction"], "maxSpiceAddiction": 10,
 	}
 
