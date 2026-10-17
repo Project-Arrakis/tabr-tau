@@ -6,6 +6,7 @@ Versioning: [Semantic Versioning](https://semver.org/), tags `v0.x` until the fi
 ## [Unreleased]
 
 ### Added
+- Player > Inventory has **Fill hydration** (#208): sets the character's own hydration to the maximum (the base and current value in the character's attributes, kept as text like the game's). **Give water** still adds ten Cups of Water items, as the console's Give Water does; its tooltip says so.
 - README has a verification matrix of which write features were checked in game, on a copy of a real save, or by tests only (#163).
 - Test hardening after the mutation run (#181): session-tracker split reads and grace boundary, served-asset and start-up wiring tests, boundary and golden values, hostile fixtures that now feed skills, research, crafting, power, water and inventory, hermetic settings path, CI job timeouts, and runs on main are no longer cancelled.
 - Documentation currency pass (#162): `README.md` has a "Restoring a backup" section and no longer says the safety checks are still open; the continuation prompt, the docs index and the status table of the plan describe the current state; this changelog had repeated headings and contradicting entries, which are merged.
