@@ -6,6 +6,7 @@ Versioning: [Semantic Versioning](https://semver.org/), tags `v0.x` until the fi
 ## [Unreleased]
 
 ### Added
+- **Auto-refresh** (#210): when the game saves and the editor has no unsaved changes, it reads the new file by itself and redraws the page where it was (at most every 15 seconds; not while a question or the review is open or a field is being typed in), so a building placed in the game shows up without clicking Reload. Unsaved edits keep the banner and the Reload button as before. A checkbox in the header turns it off.
 - Player > Inventory has **Fill hydration** (#208): sets the character's own hydration to the maximum (the base and current value in the character's attributes, kept as text like the game's). **Give water** still adds ten Cups of Water items, as the console's Give Water does; its tooltip says so.
 - README has a verification matrix of which write features were checked in game, on a copy of a real save, or by tests only (#163).
 - Test hardening after the mutation run (#181): session-tracker split reads and grace boundary, served-asset and start-up wiring tests, boundary and golden values, hostile fixtures that now feed skills, research, crafting, power, water and inventory, hermetic settings path, CI job timeouts, and runs on main are no longer cancelled.
