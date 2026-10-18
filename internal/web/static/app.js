@@ -208,6 +208,25 @@ const fix = (n) => (n == null ? '' : Math.round(n).toLocaleString());
 
 // ---------- status bar
 let saveBlocked = false, saveBlockWhy = '', offline = false;
+// The game rewrites game.db about every twenty seconds while a session runs. With nothing unsaved the editor reads the new file by itself and
+// redraws the page where it was, so what is on screen is what the game has (a building placed in the game shows up here without a click). It
+// waits while a question or the review is open or a field is being typed in, and never touches unsaved edits: they keep the banner and the
+// Reload button, as before. The checkbox in the header turns it off.
+let autoBusy = false, autoAt = 0;
+const autoRefreshOn = () => { try { return localStorage.autoRefresh !== '0'; } catch (e) { return true; } };
+async function autoRefresh(o) {
+  if (autoBusy || !autoRefreshOn() || !o.changedOnDisk || o.pending.length || o.dirty || askState || R || Date.now() - autoAt < 15000) return; // at most every 15 seconds
+  const a = document.activeElement;
+  if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.id !== 'autorefresh') return;
+  autoBusy = true;
+  autoAt = Date.now();
+  try {
+    const y = window.scrollY;
+    await api('/api/save/discard', {});
+    await render();
+    window.scrollTo(0, y);
+  } catch (e) { /* the next poll shows the banner and tries again */ } finally { autoBusy = false; }
+}
 async function status() {
   const o = await api('/api/save/state');
   offline = false;
@@ -216,7 +235,9 @@ async function status() {
   $('#path').textContent = o.path;
   const gw = $('#gamewarn');
   const note = o.gameMode === 'menu_or_multiplayer';
-  const changed = !!o.changedOnDisk;
+  // When the game saves and nothing here is unsaved, the editor reloads the file by itself (autoRefresh below), so the banner is only for the
+  // cases it cannot handle: unsaved edits, or automatic refresh switched off.
+  const changed = !!o.changedOnDisk && !(autoRefreshOn() && !o.pending.length && !o.dirty);
   gw.className = saveBlocked || changed ? 'warn' : note ? 'info' : 'hide';
   // The game rewrites game.db about every five minutes while it runs and again when a session ends, and a save onto a file that changed is
   // refused, so say so as soon as it happens and say what to do first: close the game, then edit.
@@ -232,6 +253,7 @@ async function status() {
   // Ask before the browser tab is closed with unsaved edits (the native window asks through its own close handler).
   window.onbeforeunload = o.dirty ? (e) => { e.preventDefault(); e.returnValue = ''; } : null;
   ro.className = o.readOnly ? 'warn' : 'hide';
+  autoRefresh(o);
   setHTML(ro, o.readOnly ? html`<b>This save is read-only.</b> ${o.readOnly}<br>You can browse it, but every edit is refused. This usually means the file contains database objects the real game does not create (for example extra triggers) - do not edit a save from an untrusted source.` : html``);
   return o;
 }
@@ -1071,6 +1093,9 @@ document.addEventListener('change', (e) => {
   else if (t.id == 'cfgsel') { cfgFile = t.value; render(); }
   else if (t.id == 'dbsel') { dbTable = t.value; dbOff = 0; dbQ = ''; render(); }
 });
+const autoBox = $('#autorefresh');
+autoBox.checked = autoRefreshOn();
+autoBox.addEventListener('change', () => { try { localStorage.autoRefresh = autoBox.checked ? '1' : '0'; } catch (e) { /* the choice lasts until the page is closed */ } status(); });
 status().then(render).then(async () => {
   try { const r = await api('/api/startup'); if (r.note) toast(r.note, !!r.warn, 15000); } catch (e) { /* the note is optional */ }
 });

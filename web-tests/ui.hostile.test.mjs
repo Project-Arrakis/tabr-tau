@@ -1434,6 +1434,31 @@ test('the banner says at once when the game saved since the editor opened, and o
   ui2.dom.window.close();
 });
 
+test('with nothing unsaved the editor reloads the file by itself when the game saved; unsaved edits or the switch off keep the banner (#210)', async () => {
+  const base = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body));
+  // nothing unsaved, the file changed: it is reloaded (discard reads the file again) and no banner is needed
+  const ui = await boot({ get: { '/api/save/state': { ...base, dirty: false, pending: [], saveBlocked: false, gameMode: 'none', changedOnDisk: true } } });
+  assert.ok(ui.posted.some((p) => p.path === '/api/save/discard'), 'the file was read again');
+  assert.ok(ui.doc.querySelector('#gamewarn').classList.contains('hide'), 'no banner for it');
+  ui.dom.window.close();
+  // unsaved edits are never dropped: the banner and the Reload button stay, and nothing is discarded
+  const ui2 = await boot({ get: { '/api/save/state': { ...base, dirty: true, pending: ['edit 1'], saveBlocked: false, changedOnDisk: true } } });
+  assert.ok(!ui2.posted.some((p) => p.path === '/api/save/discard'), 'unsaved edits were not touched');
+  assert.ok(ui2.doc.querySelector('#gamewarn [data-act="reload"]'), 'Reload is offered');
+  ui2.dom.window.close();
+  // the header switch turns it off: the banner comes back and the file is not reloaded
+  const ui3 = await boot({ get: { '/api/save/state': { ...base, dirty: false, pending: [], saveBlocked: false, gameMode: 'none', changedOnDisk: false } } });
+  const box = ui3.doc.querySelector('#autorefresh');
+  assert.ok(box && box.checked, 'the switch is on by default');
+  ui3.dom.window.fetch = (() => { const f = ui3.dom.window.fetch; return (p, o) => (String(p).includes('/api/save/state') ? Promise.resolve({ ok: true, status: 200, json: async () => ({ ...base, dirty: false, pending: [], saveBlocked: false, gameMode: 'none', changedOnDisk: true }) }) : f(p, o)); })();
+  box.checked = false;
+  box.dispatchEvent(new ui3.dom.window.Event('change', { bubbles: true }));
+  await ui3.settle();
+  assert.ok(!ui3.posted.some((p) => p.path === '/api/save/discard'), 'switched off: not reloaded');
+  assert.ok(ui3.doc.querySelector('#gamewarn [data-act="reload"]'), 'the banner offers Reload instead');
+  ui3.dom.window.close();
+});
+
 test('the single-player banner tells the player to close the game before editing, not that editing is fine (#160)', async () => {
   const ov = { ...JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)), gameRunning: true, gameProcesses: ['DuneTest.exe'], saveBlocked: true, gameMode: 'single_player',
     blockReason: 'a single-player session is active (DuneTest.exe)' };
