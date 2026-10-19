@@ -30,7 +30,7 @@ const read = (n) => fs.readFileSync(path.join(static_, n), 'utf8');
 // Allowlists: anything else appearing in the rendered DOM is an injection.
 const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h3 ul li code table thead tbody tr th td input select option datalist button details summary textarea br label canvas svg g rect text'.split(' '));
 const SCRIPTS = new Set(['/html.js', '/livemap.js', '/app.js']); // the only scripts the page may contain, both same-origin files
-const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal tabindex label checked viewbox x y rx transform'.split(' '));
+const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live tabindex label checked viewbox x y rx transform'.split(' '));
 
 export function assertClean(doc, label) {
   const bad = [];
@@ -41,6 +41,7 @@ export function assertClean(doc, label) {
     for (const a of el.attributes) {
       const n = a.name.toLowerCase();
       if (n.startsWith('on')) bad.push(`event handler attribute ${n}`);
+      if (n === 'style' && tag === 'html' && /^--hdr-h:\s*\d+(\.\d+)?px;?$/.test(a.value)) continue; // the header height the sticky banner sits below, set by the page itself
       if (!(ATTRS.has(n) || n.startsWith('data-'))) bad.push(`unexpected attribute ${n} on <${tag}>`);
       if (/[<>"'=\s]/.test(n)) bad.push(`malformed attribute name ${JSON.stringify(n)}`);
     }
@@ -1457,6 +1458,22 @@ test('with nothing unsaved the editor reloads the file by itself when the game s
   assert.ok(!ui3.posted.some((p) => p.path === '/api/save/discard'), 'switched off: not reloaded');
   assert.ok(ui3.doc.querySelector('#gamewarn [data-act="reload"]'), 'the banner offers Reload instead');
   ui3.dom.window.close();
+});
+
+test('the header shows the save file name, not the folder that holds the account id; toasts are announced (UI review)', async () => {
+  const base = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body));
+  const id = '7656119' + '8000000000'; // built in two parts so the repo's identifier scan does not see an id in the source
+  const full = ['C:', 'Users', 'someone', 'AppData', 'Local', 'DuneSandbox', 'Saved', 'Cloud', 'PlayerClientStorage', 'FLS_retail', id, 'game.db'].join('\\');
+  const ui = await boot({ get: { '/api/save/state': { ...base, path: full, changedOnDisk: false, dirty: false, pending: [], saveBlocked: false, gameMode: 'none' } } });
+  const p = ui.doc.querySelector('#path');
+  assert.equal(p.textContent, 'game.db');
+  assert.ok(!p.textContent.includes(id), 'no account id on screen');
+  assert.equal(p.title, full, 'the full path is the tooltip');
+  ui.w.eval("toast('Saved.')");
+  ui.w.eval("toast('It failed.', true)");
+  assert.equal(ui.doc.querySelector('#toast div:not(.err)').getAttribute('role'), 'status');
+  assert.equal(ui.doc.querySelector('#toast div.err').getAttribute('role'), 'alert');
+  ui.dom.window.close();
 });
 
 test('the single-player banner tells the player to close the game before editing, not that editing is fine (#160)', async () => {

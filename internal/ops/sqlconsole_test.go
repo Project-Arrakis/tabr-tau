@@ -19,6 +19,27 @@ func stackOf(t *testing.T, o *Ops, id int) int64 {
 
 // ---- read-only console (SEC-3, ARCH-7)
 
+func TestReadConsoleSaysWhenAResultWasCutAtTheRowLimit(t *testing.T) {
+	o := newPlayerOps(t)
+	for _, tc := range []struct {
+		q    string
+		rows int
+		cut  bool
+	}{
+		{"with recursive c(x) as (select 1 union all select x+1 from c where x<5) select x from c", 5, false},
+		{"with recursive c(x) as (select 1 union all select x+1 from c where x<1500) select x from c", sqlRowLimit, true},
+	} {
+		r, err := o.SQL(tc.q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := r.(map[string]any)
+		if got := len(m["rows"].([][]any)); got != tc.rows || m["truncated"] != tc.cut {
+			t.Errorf("%q: %d rows, truncated %v; want %d, %v", tc.q, got, m["truncated"], tc.rows, tc.cut)
+		}
+	}
+}
+
 func TestReadConsoleAllowsOnlySingleSelectOrWith(t *testing.T) {
 	o := newPlayerOps(t)
 	ok := []string{

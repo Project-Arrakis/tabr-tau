@@ -256,16 +256,20 @@ func (o *Ops) UpdateRow(a Args) (any, error) {
 	return nil, errors.New("no such column")
 }
 
+// sqlRowLimit is how many rows a read-only query returns.
+const sqlRowLimit = 1000
+
 // SQL runs a read-only query.
 func (o *Ops) SQL(q string) (any, error) {
 	if err := vetRead(q); err != nil {
 		return nil, err
 	}
-	cols, rows, err := o.S.ReadOnlyTable(q, 1000)
+	cols, rows, err := o.S.ReadOnlyTable(q, sqlRowLimit)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"columns": cols, "rows": rows}, nil
+	// a result of exactly the limit may have been cut: say so rather than let it look complete
+	return map[string]any{"columns": cols, "rows": rows, "truncated": len(rows) >= sqlRowLimit}, nil
 }
 
 // ExecSQL runs write statements against the working copy. Changes stay pending
