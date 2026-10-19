@@ -19,6 +19,7 @@ async function api(path, body) {
 }
 function toast(msg, err, ms = 3500) {
   const d = document.createElement('div');
+  d.setAttribute('role', err ? 'alert' : 'status');
   if (err) d.className = 'err';
   const t = document.createElement('span');
   t.textContent = msg;
@@ -205,6 +206,8 @@ function tbl(cols, rows, { actions } = {}) {
 }
 const kv = (k, v) => html`<div class="kv"><b>${k}</b><span>${v}</span></div>`;
 const fix = (n) => (n == null ? '' : Math.round(n).toLocaleString());
+const fmtBytes = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B');
+const fmtDate = (s) => { const d = new Date(s); return isNaN(d) ? String(s || '') : d.toLocaleString(); };
 
 // ---------- status bar
 let saveBlocked = false, saveBlockWhy = '', offline = false;
@@ -232,7 +235,8 @@ async function status() {
   offline = false;
   saveBlocked = !!o.saveBlocked;
   saveBlockWhy = o.blockReason || '';
-  $('#path').textContent = o.path;
+  $('#path').textContent = String(o.path || '').split(/[\\/]/).pop();
+  $('#path').title = o.path || '';
   const gw = $('#gamewarn');
   const note = o.gameMode === 'menu_or_multiplayer';
   // When the game saves and nothing here is unsaved, the editor reloads the file by itself (autoRefresh below), so the banner is only for the
@@ -262,15 +266,15 @@ async function status() {
 // or far-reaching action asks first with its consequence in words. The far-reaching ones (bulk changes, raw SQL
 // writes, restoring a backup over the save) also make the person type a word, so a stray click cannot start them.
 let askState = null, askFrom = null;
-function ask({ title, body, ok = 'Confirm', typed = '', danger = false }) {
-  return new Promise((resolve) => { if (askState) askState.resolve(false); askFrom = askFrom || document.activeElement; askState = { title, body, ok, typed, danger, resolve }; drawAsk(); });
+function ask({ title, body, pre = '', ok = 'Confirm', typed = '', danger = false }) {
+  return new Promise((resolve) => { if (askState) askState.resolve(false); askFrom = askFrom || document.activeElement; askState = { title, body, pre, ok, typed, danger, resolve }; drawAsk(); });
 }
 function drawAsk() {
   const el = $('#ask');
   if (!askState) { el.className = 'hide'; setHTML(el, html``); return; }
   const a = askState;
   el.className = 'modal top';
-  setHTML(el, html`<div class="mbox small" role="dialog" aria-modal="true"><h3 class="big" id="atitle" tabindex="-1">${a.title}</h3><p>${a.body}</p>
+  setHTML(el, html`<div class="mbox small" role="dialog" aria-modal="true"><h3 class="big" id="atitle" tabindex="-1">${a.title}</h3><p>${a.body}</p>${a.pre ? html`<pre class="sqlpre">${a.pre}</pre>` : ''}
     ${a.typed ? html`<p class="mut">Type <b>${a.typed}</b> to continue.</p><input id="atype" spellcheck="false" size="20">` : ''}
     <div class="row mt12"><button class="b ${a.danger ? 'bad' : ''}" id="aok" data-act="askOk" ${a.typed ? 'disabled' : ''}>${a.ok}</button><button class="b sec" data-act="askNo">Cancel</button></div></div>`);
   (a.typed ? $('#atype') : $('#atitle')).focus();
@@ -405,7 +409,7 @@ async function playerSection(s) {
     h.push(augCard);
     h.push(html`<div class="card"><h3>Repair</h3><div class="row"><button class="b" data-act="repair">Repair all worn items and loadouts</button><span class="mut">Everything you wear and everything in your loadout is made as good as new: full durability, with a maximum that repairs wore down restored. The backpack is not touched.</span></div></div>`);
     h.push(html`<div class="card"><h3>Give item</h3><div class="row">${itemPicker("gt", cat)}
-    Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="queueAdd">Add to queue</button><button class="b sec" data-act="giveWater" title="10 x Cup of Water items in the backpack, as the console's Give Water; it does not fill the character's own water (use Fill hydration)">Give water</button><button class="b sec" data-act="fillWater" title="Fill the character's own hydration to the maximum">Fill hydration</button><button class="b sec" data-act="refill">Refill Literjons</button></div>
+    Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="queueAdd">Add to queue</button><button class="b sec" data-act="giveWater" title="10 x Cup of Water items in the backpack, like Dune Docker's Give Water; it does not fill the character's own water (use Fill hydration)">Give water</button><button class="b sec" data-act="fillWater" title="Fill the character's own hydration to the maximum">Fill hydration</button><button class="b sec" data-act="refill">Refill Literjons</button></div>
     <div class="row" id="gaug"></div>
     ${giveQueue.length ? html`<div class="row"><b>Queue (${giveQueue.length})</b>${giveQueue.map((q, i) => html`<span class="tag">${q.quantity} x ${itemName(q.template_id)}${q.quality ? ' (grade ' + q.quality + ')' : ''}${q.augments && q.augments.length ? ' + ' + q.augments.map((a) => augName(a)).join(', ') : ''} <button class="b sec sm" data-act="queueDel" data-id="${i}" title="Remove from the queue">x</button></span>`)}<button class="b" data-act="queueGive">Give queued items</button><button class="b sec" data-act="queueClear">Clear</button></div>` : ''}
     <p class="mut">Pick an item by its in-game name. Items already in your save that the catalog does not know are listed by their template id; any valid template id can also be typed.</p></div>
@@ -465,7 +469,7 @@ async function playerSection(s) {
     const a = P.actor || {};
     const fa = await api('/api/player/faction');
     const na = (what) => html`<button class="b" disabled title="Not in tabr-tau yet">${what}</button>`;
-    h.push(html`<div class="card"><h3>Player Admin Actions</h3><p class="mut">The console's Admin tab. Actions the save file cannot do, or that only make sense on a server (kick, ban, login queue, recovering a deleted character), are left out; the others that tabr-tau does not have yet are shown disabled.</p></div>
+    h.push(html`<div class="card"><h3>Player Admin Actions</h3><p class="mut">Dune Docker's Admin tab. Actions the save file cannot do, or that only make sense on a server (kick, ban, login queue, recovering a deleted character), are left out; the others that tabr-tau does not have yet are shown disabled.</p></div>
     <div class="card"><h3>Faction Assignment</h3><div class="row"><b>Current</b><span>${fa.current ? fa.current.name : 'none recorded'}</span>
       <select id="facSel">${fa.options.map((o) => html`<option value="${o.id}" ${fa.current && fa.current.id == o.id ? 'selected' : ''}>${o.name}</option>`)}</select><button class="b" data-act="faction">Change Faction</button>
       <span class="mut">Changes which faction the character belongs to. Reputation is under Character &gt; Reputation.</span></div></div>
@@ -480,11 +484,11 @@ async function playerSection(s) {
     <p class="mut">Moves the character in the save. The game keeps its own copy of the save in memory while single-player runs and overwrites the file, so the move shows when you next enter single-player. Choosing a place fills X, Y and Z. Places are on the map the character is on now. Facing is optional: 0 looks along +X; leave it empty to keep the way the character faces. If you type a Z yourself, stay above the terrain or you may fall through.</p>
     <div class="row"><b>Spawn Vehicle</b>${na('Spawn')}<span class="mut">Not in tabr-tau yet.</span></div></div>`);
     const ve = await api('/api/vendors');
-    h.push(html`<div class="card"><h3>Vendor purchase limits</h3><p class="mut">tabr-tau's own tool (the console has none). Vendors limit how much you can buy per restock cycle. Resetting clears those counters.</p><div class="row"><button class="b" data-act="vreset" data-v="">Reset all vendors</button></div>
+    h.push(html`<div class="card"><h3>Vendor purchase limits</h3><p class="mut">tabr-tau's own tool (Dune Docker has none). Vendors limit how much you can buy per restock cycle. Resetting clears those counters.</p><div class="row"><button class="b" data-act="vreset" data-v="">Reset all vendors</button></div>
       ${tbl([{ k: 'vendor_id', label: 'Vendor' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'amount_bought', label: 'Bought' }], ve.stock, { actions: (r) => html`<button class="b sec sm" data-act="vreset" data-v="${r.vendor_id}">Reset vendor</button>` })}
       <h3 class="mt14">Restock cycles</h3>${tbl([{ k: 'vendor_id' }, { k: 'last_interacted_timestamp', label: 'Last interaction', f: (r) => new Date(r.last_interacted_timestamp * 1000).toLocaleString() }], ve.cycles)}</div>`);
   } else {
-    h.push(html`<div class="card"><h3>${SOON[s] || s}</h3><p class="mut">Not in tabr-tau yet. The console has this tab; it is planned (#96).</p></div>`);
+    h.push(html`<div class="card"><h3>${SOON[s] || s}</h3><p class="mut">Not in tabr-tau yet.</p></div>`);
   }
   setHTML(host(), html`${h}`);
   if (s == 'journey') journeyList();
@@ -517,7 +521,7 @@ function journeyList() {
 }
 
 // The Skill Browser, as the console's: a school at a time, each skill with a rank bar and a rank control. A change is one edit in the
-// review pane. By default it sets the skill only, as the console's control does; "Pay for it" also takes the points from, or gives them
+// review pane. By default it sets the skill only, as Dune Docker's control does; "Pay for it" also takes the points from, or gives them
 // back to, the unspent points.
 let SK = null, skSchool = 'Trooper', skCharge = false;
 const SKOTHER = ['Hidden', 'Other'];
@@ -538,7 +542,7 @@ function skillsList() {
     { k: 'max', label: 'Set rank', f: (m) => (m.known ? html`<select data-skill="${m.id}">${Array.from({ length: m.max + 1 }, (_, i) => html`<option ${i == m.rank ? 'selected' : ''}>${i}</option>`)}</select>` : html`<span class="mut">catalog does not know its ranks</span>`) }], rows));
 }
 
-// Research and crafting recipes, as the console's Research and Crafting tabs: a category, a filter, and an Unlock on each entry that is not
+// Research and crafting recipes, as in Dune Docker's Research and Crafting tabs: a category, a filter, and an Unlock on each entry that is not
 // there yet. Unlocking research marks it purchased and adds the recipe or building set it unlocks; a purchased entry whose recipe or set is
 // missing shows Repair unlock.
 let RS = null, CR = null, rsCat = '', rsGroup = '', rsQ = '', crCat = '', crQ = '';
@@ -575,7 +579,7 @@ function craftingList() {
     { actions: (r) => (r.known ? '' : html`<button class="b sm" data-act="crUnlock" data-id="${r.recipeId}">Unlock</button>`) }));
 }
 
-// Building Sets and Customizations, as the console's tabs: the catalog's items with what the save says you have, and a Give that puts the
+// Building Sets and Customizations, as in Dune Docker's tabs: the catalog's items with what the save says you have, and a Give that puts the
 // item in the backpack (the game teaches the set or unlocks the cosmetic when it is used). The save keeps no list of owned customizations
 // that tabr-tau can read, so those show only whether the item is in an inventory.
 let CT = null, ctFilter = 'all', ctQ = '', ctGroup = '', ctExp = true;
@@ -810,7 +814,7 @@ async function configView() {
     h.push(html`<div class="card"><h3>${cfgFile}</h3>${c.entries.length ? html`<div class="scroll"><table><thead><tr><th>Section</th><th>Key</th><th>Value</th><th></th></tr></thead><tbody>${entryRows}</tbody></table></div>` : html`<p class="mut">This file is empty.</p>`}
     <div class="row mt12"><b>Add key</b><input id="cs" placeholder="[Section]" list="secs"><datalist id="secs">${[...new Set(c.entries.map((e) => e.section))].map((s) => html`<option value="${s}">`)}</datalist><input id="ck" placeholder="Key"><input id="cv" placeholder="Value"><button class="b" data-act="cfgadd">Add</button></div></div>
     <div class="card"><details><summary>Edit raw text</summary><textarea id="raw" rows="18" spellcheck="false">${c.text}</textarea><div class="row"><button class="b" data-act="cfgraw">Save raw text</button></div></details></div>
-    <div class="card"><details><summary>Backups (${bk.length})</summary>${tbl([{ k: 'name' }, { k: 'size' }], bk, { actions: (r) => html`<button class="b sec sm" data-act="cfgrestore" data-b="${r.name}">Restore</button>` })}</details></div>`);
+    <div class="card"><details><summary>Backups (${bk.length})</summary>${tbl([{ k: 'name', label: 'Backup' }, { k: 'size', label: 'Size', f: (r) => fmtBytes(r.size) }], bk, { actions: (r) => html`<button class="b sec sm" data-act="cfgrestore" data-b="${r.name}">Restore</button>` })}</details></div>`);
   }
   setHTML($('#main'), html`${h}`);
 }
@@ -840,7 +844,7 @@ async function dbView() {
     h.push(html`<div class="card"><h3>SQL</h3><textarea id="sql" rows="5" placeholder="select * from items limit 20">${window.lastSql || 'select name from sqlite_master'}</textarea><div class="row"><button class="b" data-act="runsql">Run (read-only)</button><button class="b bad" data-act="execsql">Run as write</button><span class="mut">Write mode runs one or more statements atomically on your working copy. Nothing reaches game.db until you press <b>Save to game</b>, which backs up first.</span></div><div id="sqlout"></div></div>`);
   } else {
     const b = await api('/api/save/backups');
-    h.push(html`<div class="card"><h3>Save backups</h3><p class="mut">A backup of game.db is made every time you save from here. Restore requires the game to be closed.</p>${tbl([{ k: 'name' }, { k: 'size' }, { k: 'modified' }], b, { actions: (r) => html`<button class="b sec sm" data-act="restore" data-n="${r.name}">Restore</button>` })}</div>`);
+    h.push(html`<div class="card"><h3>Save backups</h3><p class="mut">A backup of game.db is made every time you save from here. Restore requires the game to be closed.</p>${tbl([{ k: 'name', label: 'Backup' }, { k: 'size', label: 'Size', f: (r) => fmtBytes(r.size) }, { k: 'modified', label: 'Saved', f: (r) => fmtDate(r.modified) }], b, { actions: (r) => html`<button class="b sec sm" data-act="restore" data-n="${r.name}">Restore</button>` })}</div>`);
   }
   setHTML($('#main'), html`${h}`);
 }
@@ -999,7 +1003,7 @@ const A = {
   },
   giveInv: (d) => act(async () => { await api('/api/bases/give', { inventory_id: +d.id, template_id: needItem('bt'), quantity: +val('bq') }); toast('Item added' + NOT_SAVED); await A.openInv(d); }, null, false),
   bring: (d) => act(() => api('/api/vehicles/bring', { id: +d.id }), 'Vehicle moved next to you'),
-  vreset: async (d) => (await ask({ title: 'Reset purchase limits?', body: 'Resets the purchase limits of this vendor.', ok: 'Reset' })) && act(() => api('/api/vendors/reset', { vendor_id: d.v }), 'Purchase limits reset'),
+  vreset: async (d) => (await ask({ title: d.v ? 'Reset purchase limits for this vendor?' : 'Reset purchase limits for every vendor?', body: d.v ? 'Resets the purchase counters of vendor ' + d.v + '.' : 'Resets the purchase counters of every vendor in the save, not one.', ok: 'Reset' })) && act(() => api('/api/vendors/reset', { vendor_id: d.v }), 'Purchase limits reset'),
   term: () => act(async () => { await api('/api/landsraad/term', { active_decree_id: val('ad'), reigning_faction_id: val('rf') }); }, 'Term updated'),
   decree: (d) => act(() => api('/api/landsraad/decree', { id: +d.id, disabled: d.d == '1' }), 'Decree updated'),
   tfill: (d) => act(() => api('/api/landsraad/progress', { task_id: +d.id, faction_id: +val('lf'), amount: +d.goal }), 'Progress set'),
@@ -1016,17 +1020,17 @@ const A = {
     window.lastSql = val('sql');
     try {
       const r = await api('/api/db/sql', { sql: window.lastSql });
-      setHTML($('#sqlout'), html`<p class="mut">${r.rows.length} rows</p><div class="scroll"><table><thead><tr>${r.columns.map((c) => html`<th>${c}</th>`)}</tr></thead><tbody>${r.rows.map((x) => html`<tr>${x.map((v) => html`<td>${v}</td>`)}</tr>`)}</tbody></table></div>`);
+      setHTML($('#sqlout'), html`<p class="mut">${r.rows.length.toLocaleString()} ${r.rows.length === 1 ? 'row' : 'rows'}${r.truncated ? '. Only the first 1,000 rows are shown: add LIMIT or a WHERE to see others.' : ''}</p><div class="scroll"><table><thead><tr>${r.columns.map((c) => html`<th>${c}</th>`)}</tr></thead><tbody>${r.rows.map((x) => html`<tr>${x.map((v) => html`<td>${v}</td>`)}</tr>`)}</tbody></table></div>`);
     } catch (e) { toast(e.message, true); }
   },
   execsql: async () => {
     window.lastSql = val('sql');
-    if (!(await ask({ title: 'Run this SQL as a write?', body: window.lastSql.slice(0, 400), ok: 'Run', typed: 'write', danger: true }))) return;
+    if (!(await ask({ title: 'Run this SQL as a write?', body: 'This statement changes the working copy (nothing is written to the game until you review and save):', pre: window.lastSql, ok: 'Run', typed: 'write', danger: true }))) return;
     try {
       const r = await api('/api/db/exec', { sql: window.lastSql });
-      toast(r.changes + ' row(s) changed');
+      toast(r.changes + (r.changes === 1 ? ' row changed' : ' rows changed'));
       await status();
-      setHTML($('#sqlout'), html`<p class="ok">${r.changes} row(s) changed. Press "Review &amp; save" to write them to game.db.</p>`);
+      setHTML($('#sqlout'), html`<p class="ok">${r.changes} ${r.changes === 1 ? 'row' : 'rows'} changed. Press "Review &amp; save" to write them to game.db.</p>`);
     } catch (e) { toast(e.message, true); }
   },
   restore: async (d) => (await ask({ title: 'Restore this backup over the save?', body: 'Replace game.db with ' + d.n + '. The current file is backed up first. Close the game first.', ok: 'Restore', typed: 'restore', danger: true })) && act(() => api('/api/save/restore', { name: d.n }), 'Restored'),
@@ -1093,6 +1097,10 @@ document.addEventListener('change', (e) => {
   else if (t.id == 'cfgsel') { cfgFile = t.value; render(); }
   else if (t.id == 'dbsel') { dbTable = t.value; dbOff = 0; dbQ = ''; render(); }
 });
+// keeps the sticky warning banner just below the sticky header, whatever height the header wraps to
+const hdrEl = $('header');
+const setHdrH = () => document.documentElement.style.setProperty('--hdr-h', hdrEl.offsetHeight + 'px');
+if (hdrEl) { setHdrH(); if (window.ResizeObserver) new ResizeObserver(setHdrH).observe(hdrEl); else window.addEventListener('resize', setHdrH); }
 const autoBox = $('#autorefresh');
 autoBox.checked = autoRefreshOn();
 autoBox.addEventListener('change', () => { try { localStorage.autoRefresh = autoBox.checked ? '1' : '0'; } catch (e) { /* the choice lasts until the page is closed */ } status(); });

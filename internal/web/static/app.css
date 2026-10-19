@@ -149,3 +149,17 @@ th.sd::after{content:" \25BC";font-size:9px}
 .lc-o{fill:var(--acc2);background:var(--acc2)}.lc-x{fill:var(--panel);background:var(--panel)}.lc-s{fill:var(--ok);background:var(--ok)}.lc-a{fill:none;stroke:var(--mut);stroke-dasharray:.12 .12;background:transparent}
 .lc-label{font-size:.5px;text-anchor:middle;fill:var(--fg);pointer-events:none}
 .lc-key{display:inline-block;width:12px;height:12px;border:1px solid var(--line);vertical-align:middle;margin:0 3px 0 10px}
+/* UI review round 1: tokens for contrast, visible focus, hover, a banner that sticks below the header, readable inline badges */
+:root{--on-acc:#1a0e03;--line-strong:#7d6a4e;--focus:#f0b45a;--hdr-h:56px;color-scheme:dark}
+@media (prefers-color-scheme:light){:root{--acc:#a85208;--on-acc:#fff;--line-strong:#85724f;--focus:#8c5208;color-scheme:light}}
+input,select,textarea{border-color:var(--line-strong)}
+button.b{color:var(--on-acc)}button.b.sec{color:var(--fg)}button.b.bad{color:#fff}
+.sub button.on{color:var(--on-acc)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+button.b:hover:not(:disabled){filter:brightness(1.12)}button.b:active:not(:disabled){transform:translateY(1px)}
+nav button:hover,.sub button:hover:not(.on){color:var(--fg);border-color:var(--acc)}
+.rankbar{color:var(--acc2)}
+#gamewarn.warn{top:var(--hdr-h)}
+span.warn,td .warn{display:inline-block;padding:1px 8px;margin:0;border-radius:10px;font-size:12px}
+#toast div span{overflow-wrap:anywhere}
+pre.sqlpre{max-height:30vh;overflow:auto;white-space:pre-wrap;word-break:break-word;background:var(--in);border:1px solid var(--line-strong);border-radius:5px;padding:8px;font:12px/1.4 Consolas,monospace;margin:6px 0}
