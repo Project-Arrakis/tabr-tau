@@ -313,11 +313,20 @@ func giveInTx(m *save.Mut, inventoryID int64, template string, qty, quality int6
 	for used[slot] {
 		slot++
 	}
+	if augments.IsStandalone(template) && quality < 1 { // an augment item has a grade of at least 1, as in the console
+		quality = 1
+	}
 	stats := `{"FCustomizationStats":[[],{}],"FItemStackAndDurabilityStats":[[],{}]}`
 	if k, _ := m.Query(`select stats from items where template_id=? and stats is not null limit 1`, template); len(k) > 0 {
 		stats = fmt.Sprint(k[0]["stats"])
 		if plain, err := augments.Stats(stats, nil); err == nil { // the copied item's augments are its own, not the new item's
 			stats = plain
+		}
+	}
+	if augments.IsStandalone(template) { // perfect stat rolls, not the ones of the item copied above
+		var err error
+		if stats, err = augments.StandaloneStats(stats, template); err != nil {
+			return 0, err
 		}
 	}
 	var next, maxID int64

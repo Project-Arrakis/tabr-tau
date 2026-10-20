@@ -91,3 +91,26 @@ func TestStatsKeepsOtherPartsAndRejectsGarbage(t *testing.T) {
 		t.Fatal("unreadable stats must be refused, not overwritten")
 	}
 }
+
+func TestStandaloneAugmentItemsGetPerfectRollsAndKeepTheirOtherStats(t *testing.T) {
+	for _, id := range []string{"T6_Augment_Armor16", "T9_Augment_Newer", "t6_augment_lower"} {
+		if !IsStandalone(id) {
+			t.Errorf("%s is an augment item", id)
+		}
+	}
+	for _, id := range []string{"Combat_Heavy_Unique_Reinforced_Helmet_06", "T6_Armor", "AugmentKit"} {
+		if IsStandalone(id) {
+			t.Errorf("%s is not", id)
+		}
+	}
+	got, err := StandaloneStats(`{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":5.0}],"FAugmentItemStats":[[],{"AppliedEffectIndices":[3],"StatRolls":[0.2]}]}`, "T6_Augment_Armor16")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `{"FAugmentItemStats":[[],{"AppliedEffectIndices":[3],"StatRolls":[1,1,1,1]}],"FItemStackAndDurabilityStats":[[],{"CurrentDurability":5.0}]}`; got != want {
+		t.Fatalf("%s", got)
+	}
+	if _, err := StandaloneStats(`not json`, "T6_Augment_Armor16"); err == nil {
+		t.Fatal("unreadable stats must be refused")
+	}
+}
