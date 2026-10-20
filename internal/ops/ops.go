@@ -293,6 +293,18 @@ func (o *Ops) Inventory() (any, error) {
 
 // giveInTx inserts an item into inventoryID, using the next free slot and the
 // game's own id sequencer.
+// maxAugmentGrade is the best grade of an augment item.
+const maxAugmentGrade = 5
+
+// grantGrade is the grade an item is written at. An augment item with no grade chosen gets the best one (5, with every stat roll at its
+// best), so a plain Give of one is the strongest version; a grade that was chosen is kept.
+func grantGrade(template string, q int64) int64 {
+	if q < 1 && augments.IsStandalone(template) {
+		return maxAugmentGrade
+	}
+	return q
+}
+
 func giveInTx(m *save.Mut, inventoryID int64, template string, qty, quality int64) (int64, error) {
 	rows, err := m.Query(`select id, coalesce(max_item_count,0) cap from inventories where id=?`, inventoryID)
 	if err != nil || len(rows) == 0 {
@@ -313,9 +325,7 @@ func giveInTx(m *save.Mut, inventoryID int64, template string, qty, quality int6
 	for used[slot] {
 		slot++
 	}
-	if augments.IsStandalone(template) && quality < 1 { // an augment item has a grade of at least 1, as in the console
-		quality = 1
-	}
+	quality = grantGrade(template, quality)
 	stats := `{"FCustomizationStats":[[],{}],"FItemStackAndDurabilityStats":[[],{}]}`
 	if k, _ := m.Query(`select stats from items where template_id=? and stats is not null limit 1`, template); len(k) > 0 {
 		stats = fmt.Sprint(k[0]["stats"])
@@ -416,7 +426,7 @@ func (o *Ops) GiveItem(a Args) (any, error) {
 		return nil, errors.New("that inventory does not belong to the player")
 	}
 	var id int64
-	if _, err := o.S.Mutate(fmt.Sprintf("Give %s x %s (grade %d)", commas(qty), itemLabel(tmpl), q), func(m *save.Mut) (e error) { id, e = giveInTx(m, inv, tmpl, qty, q); return }); err != nil {
+	if _, err := o.S.Mutate(fmt.Sprintf("Give %s x %s (grade %d)", commas(qty), itemLabel(tmpl), grantGrade(tmpl, q)), func(m *save.Mut) (e error) { id, e = giveInTx(m, inv, tmpl, qty, q); return }); err != nil {
 		return nil, err
 	}
 	return map[string]any{"ok": true, "itemId": id}, nil
