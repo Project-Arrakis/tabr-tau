@@ -187,8 +187,8 @@ insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,a
 		t.Fatalf("perfect rolls, the roll count of the augment, the copy's effect indices kept: %s", got)
 	}
 	row, _ := o.S.One(`select quality_level q from items where id=?`, id)
-	if row["q"].(int64) != 1 {
-		t.Fatalf("grade 0 becomes 1 for an augment item: %v", row)
+	if row["q"].(int64) != 5 {
+		t.Fatalf("a blank grade becomes the best, 5, for an augment item: %v", row)
 	}
 	// the copy in the save is untouched, and an ordinary item gets no roll data
 	if before := statsOf(t, o, 304); !strings.Contains(before, "0.42") {
