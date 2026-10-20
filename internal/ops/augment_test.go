@@ -167,3 +167,54 @@ func TestInventoryRowsSayWhetherTheyTakeAugments(t *testing.T) {
 		t.Fatalf("aug_limit: %v", got)
 	}
 }
+
+// An augment item given to the player gets every stat roll at its best and a grade of at least 1, as the console gives
+// one, not the roll of another copy of it that is in the save.
+func TestGivingAnAugmentItemWritesPerfectRollsNotTheRollOfAnotherCopy(t *testing.T) {
+	const aug = "T6_Augment_Armor16"
+	world := augmentWorld + `
+update inventories set max_item_count=20 where id=1;
+insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values
+  (304,31,1,1,'` + aug + `',0,1790000000,'{"FAugmentItemStats":[[],{"AppliedEffectIndices":[2],"StatRolls":[0.42,0.1,0.9,0.3]}]}',3);`
+	o := &Ops{S: testsave.PlayerWithSQL(t, world)}
+	r, err := o.GiveItem(Args{"template_id": aug, "quantity": 1.0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := r.(map[string]any)["itemId"].(int64)
+	got := statsOf(t, o, id)
+	if !strings.Contains(got, `"FAugmentItemStats":[[],{"AppliedEffectIndices":[2],"StatRolls":[1,1,1,1]}]`) {
+		t.Fatalf("perfect rolls, the roll count of the augment, the copy's effect indices kept: %s", got)
+	}
+	row, _ := o.S.One(`select quality_level q from items where id=?`, id)
+	if row["q"].(int64) != 1 {
+		t.Fatalf("grade 0 becomes 1 for an augment item: %v", row)
+	}
+	// the copy in the save is untouched, and an ordinary item gets no roll data
+	if before := statsOf(t, o, 304); !strings.Contains(before, "0.42") {
+		t.Fatalf("the other copy changed: %s", before)
+	}
+	r, err = o.GiveItem(Args{"template_id": helmet, "quantity": 1.0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := statsOf(t, o, r.(map[string]any)["itemId"].(int64)); strings.Contains(got, "FAugmentItemStats") {
+		t.Fatalf("gear is not an augment item: %s", got)
+	}
+	// a copy with no roll data still ends with perfect rolls; a grade given is kept
+	o2 := &Ops{S: testsave.PlayerWithSQL(t, augmentWorld+`
+update inventories set max_item_count=20 where id=1;
+insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values
+  (305,31,1,1,'`+aug+`',0,1790000000,'{}',3);`)}
+	r, err = o2.GiveItem(Args{"template_id": aug, "quantity": 1.0, "quality": 4.0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id2 := r.(map[string]any)["itemId"].(int64)
+	if got := statsOf(t, o2, id2); !strings.Contains(got, `"AppliedEffectIndices":[],"StatRolls":[1,1,1,1]`) {
+		t.Fatalf("%s", got)
+	}
+	if row, _ := o2.S.One(`select quality_level q from items where id=?`, id2); row["q"].(int64) != 4 {
+		t.Fatalf("the grade given is kept: %v", row)
+	}
+}

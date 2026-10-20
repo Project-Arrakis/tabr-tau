@@ -251,6 +251,44 @@ func Perfect(id string, grade int) Applied {
 	return Applied{ID: id, Quality: json.RawMessage(fmt.Sprint(grade)), RollData: rd}
 }
 
+var standaloneRe = regexp.MustCompile(`(?i)^T\d+_Augment_`)
+
+// IsStandalone says whether a template id is an augment item itself (T6_Augment_Armor16, ...) rather than gear that takes augments:
+// an id in the data, or one named like them (the console's rule).
+func IsStandalone(template string) bool { return Known(template) || standaloneRe.MatchString(template) }
+
+// StandaloneStats returns the item stats JSON of an augment item with every stat roll at its best (1), as the console gives one. The
+// stats given are kept otherwise, including the effect indices of a roll already there.
+func StandaloneStats(stats, template string) (string, error) {
+	doc := map[string]json.RawMessage{}
+	if strings.TrimSpace(stats) != "" {
+		if err := json.Unmarshal([]byte(stats), &doc); err != nil {
+			return "", fmt.Errorf("the item's stats are not readable: %w", err)
+		}
+	}
+	indices := json.RawMessage("[]")
+	var old []json.RawMessage
+	if json.Unmarshal(doc["FAugmentItemStats"], &old) == nil && len(old) == 2 {
+		var d struct {
+			Indices json.RawMessage `json:"AppliedEffectIndices"`
+		}
+		if json.Unmarshal(old[1], &d) == nil && len(d.Indices) > 0 && d.Indices[0] == '[' {
+			indices = d.Indices
+		}
+	}
+	rolls := make([]int, RollCount(template))
+	for i := range rolls {
+		rolls[i] = 1
+	}
+	inner, err := json.Marshal(map[string]any{"AppliedEffectIndices": indices, "StatRolls": rolls})
+	if err != nil {
+		return "", err
+	}
+	doc["FAugmentItemStats"] = json.RawMessage("[[]," + string(inner) + "]")
+	out, err := json.Marshal(doc)
+	return string(out), err
+}
+
 // Stats returns the item stats JSON with its FAugmentedItemStats set to exactly the given augments (removed when none), every
 // other part of the stats left as it was. The keys come out in the game's own (alphabetical) order.
 func Stats(stats string, applied []Applied) (string, error) {
