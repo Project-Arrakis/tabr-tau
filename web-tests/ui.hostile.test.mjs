@@ -993,6 +993,35 @@ test('Building Sets (groups, experimental toggle) and Customizations (sets, gran
   ui.dom.window.close();
 });
 
+test('Customizations: Unlock adds cosmetics to the library without an item (sets and single rows), shows what is unlocked, and says what it does not do', async () => {
+  const row = (o) => ({ id: 'X', name: 'X', group: 'Atreides', groupId: 'atreides', learned: false, inInventory: false, inCatalog: true, ...o });
+  const cust = { libraryAvailable: true, libraryCount: 5, groups: [{ id: 'atreides', name: 'Atreides', count: 3, requirement: '' }],
+    rows: [row({ id: 'B1C3_Atre_Done', name: 'Done', unlockable: true, unlocked: true }), row({ id: 'B1C3_Atre_Sword', name: 'Sword', unlockable: true }), row({ id: 'B1C3_Atre_NoData', name: 'No data' })] };
+  const ui = await boot({ get: { '/api/player/customizations': cust }, post: { '/api/player/customizations/unlock': { ok: true, added: 7 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:customizations"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('[data-act="ctUnlockSet"][data-id="all"]'), 'Unlock all sets');
+  assert.ok(ui.doc.querySelector('#cthead').textContent.includes('Unlocked or in inventory (1)'), 'what is unlocked counts as owned');
+  assert.ok(ui.doc.querySelector('#main').textContent.includes('5 unlocked now'));
+  assert.equal(ui.doc.querySelectorAll('#ctout [data-act="ctUnlock"]').length, 1, 'a row can be unlocked only when it has unlock data and is not unlocked yet');
+  assert.ok(ui.doc.querySelector('#ctout').textContent.includes('Unlocked'), 'the state column says Unlocked');
+  assert.ok(ui.doc.querySelector('#cthead').textContent.includes('may remove an unlock') || ui.doc.body.textContent.includes('may remove an unlock'), 'it says it gives no entitlement');
+  ui.click('.setcard [data-act="ctUnlockSet"][data-id="atreides"]'); await ui.settle();
+  ui.click('#aok'); await ui.settle();
+  ui.click('#ctout [data-act="ctUnlock"]'); await ui.settle();
+  ui.click('#aok'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/customizations/unlock').map((p) => p.body), [{ group: 'atreides' }, { id: 'B1C3_Atre_Sword' }]);
+  // a save with no library list: no Unlock buttons, the reason is given, giving as items is still there
+  const ui2 = await boot({ get: { '/api/player/customizations': { ...cust, libraryAvailable: false, libraryCount: 0 } } });
+  ui2.click('[data-tab="player"]'); await ui2.settle();
+  ui2.click('[data-sub="player:customizations"]'); await ui2.settle();
+  assert.equal(ui2.doc.querySelectorAll('[data-act="ctUnlockSet"], [data-act="ctUnlock"]').length, 0);
+  assert.ok(ui2.doc.body.textContent.includes('no customization library'));
+  assert.ok(ui2.doc.querySelector('[data-act="ctGrantSet"]'));
+  ui.dom.window.close();
+  ui2.dom.window.close();
+});
+
 test('Live Map: marker types that name inherited properties find no picture, known types get their icon class, nothing breaks', async () => {
   const hostile = '<img src=x onerror=1>';
   const data = { config: { key: 'HaggaBasin', label: 'Hagga Basin', image: '/maps/hagga-basin.png', width: 4096, height: 4096, minX: -456752, maxX: 354547, minY: -450630, maxY: 353821 },

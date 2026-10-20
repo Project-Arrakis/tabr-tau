@@ -106,6 +106,7 @@ Every write feature has automated tests on a synthetic save built from the game'
 | Repair Vehicles (full durability of every module, #151) | The rule's values (from the game database's item pages) match every saved module of those templates in a real save; not in game | not recorded | `CHANGELOG.md` (#151) |
 | Skill rank changes and Set unspent points | Tests, with the point ladder checked against the character's own skills; not in game | not recorded | `CHANGELOG.md` (#96) |
 | Faction assignment | Tests only; stated as not yet in game | not recorded | `CHANGELOG.md` (#96) |
+| Unlock customizations directly (set, all sets, one cosmetic; library ids) | **On a copy of a real save** (157 ids became 183, JSON valid, the rest of the save unchanged); not in game | 2026-10-20 | `CHANGELOG.md` (#215) |
 | Building Sets and Customizations: Give, Grant set, Unlock all; Unlock all research and recipes; Max all skills | Tests only; stated as not checked in game | not recorded | `CHANGELOG.md` (#122, #123, #124) |
 | Give item, Give water, Fill hydration, Give Items queue, Give Intel, Give currency, edit or delete an item | Tests only (the protocol's T1 and T1b for Give item have no recorded result) | none | `docs/live-test-protocol.md` |
 | Repair Gear (as good as new, #153) and the vehicle Repair Below % option | Tests only | none | `CHANGELOG.md` |

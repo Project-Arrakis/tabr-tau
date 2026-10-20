@@ -16,6 +16,13 @@ import (
 //go:embed items.json
 var raw []byte
 
+// customization_unlocks.json maps each cosmetic item (a token the character uses to unlock cosmetics) to the customization ids it unlocks, as the game's own
+// item table lists them (DT_ItemTableCustomizations, CustomizationItemStats.UnlockableCustomizations). It holds ids only. A character's unlocked ids are
+// kept in its CustomizationLibraryActorComponent, which is how a cosmetic can be unlocked without putting its item in an inventory.
+//
+//go:embed customization_unlocks.json
+var rawUnlocks []byte
+
 // Entry is one item: its template id, in-game name and category, where the console files it (Source, for example "BuildingSets" or
 // "Customizations") and the DLC it needs, if any.
 type Entry struct {
@@ -29,11 +36,15 @@ type Entry struct {
 var (
 	entries []Entry
 	byID    map[string]Entry
+	unlocks map[string][]string
 )
 
 func init() {
 	if err := json.Unmarshal(raw, &entries); err != nil {
 		panic("catalog: items.json is not valid: " + err.Error())
+	}
+	if err := json.Unmarshal(rawUnlocks, &unlocks); err != nil {
+		panic("catalog: customization_unlocks.json is not valid: " + err.Error())
 	}
 	byID = make(map[string]Entry, len(entries))
 	for _, e := range entries {
@@ -43,6 +54,9 @@ func init() {
 	}
 	sort.SliceStable(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name })
 }
+
+// Unlocks returns the customization ids a cosmetic item unlocks when it is used, or nil when the game's table has no entry for it. The slice must not be changed.
+func Unlocks(id string) []string { return unlocks[id] }
 
 // All returns every known item, sorted by name. The slice must not be changed.
 func All() []Entry { return entries }
