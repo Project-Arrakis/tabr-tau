@@ -996,19 +996,21 @@ test('Building Sets (groups, experimental toggle) and Customizations (sets, gran
 test('Customizations: Unlock adds cosmetics to the library without an item (sets and single rows), shows what is unlocked, and says what it does not do', async () => {
   const row = (o) => ({ id: 'X', name: 'X', group: 'Atreides', groupId: 'atreides', learned: false, inInventory: false, inCatalog: true, ...o });
   const cust = { libraryAvailable: true, libraryCount: 5, groups: [{ id: 'atreides', name: 'Atreides', count: 3, requirement: '' }],
-    rows: [row({ id: 'B1C3_Atre_Done', name: 'Done', unlockable: true, unlocked: true }), row({ id: 'B1C3_Atre_Sword', name: 'Sword', unlockable: true }), row({ id: 'B1C3_Atre_NoData', name: 'No data' })] };
-  const ui = await boot({ get: { '/api/player/customizations': cust }, post: { '/api/player/customizations/unlock': { ok: true, added: 7 } } });
+    rows: [row({ id: 'B1C3_Atre_Done', name: 'Done', unlockable: true, unlocked: true }), row({ id: 'B1C3_Atre_Sword', name: 'Sword', unlockable: true }), row({ id: 'B1C3_Atre_NoData', name: 'No data' }), row({ id: 'MTX_Atre_Rifle', name: 'Store rifle', unlockable: true, entitlement: true })] };
+  const ui = await boot({ get: { '/api/player/customizations': cust }, post: { '/api/player/customizations/unlock': { ok: true, added: 7, skippedEntitlement: 3 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:customizations"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('[data-act="ctUnlockSet"][data-id="all"]'), 'Unlock all sets');
   assert.ok(ui.doc.querySelector('#cthead').textContent.includes('Unlocked or in inventory (1)'), 'what is unlocked counts as owned');
   assert.ok(ui.doc.querySelector('#main').textContent.includes('5 unlocked now'));
-  assert.equal(ui.doc.querySelectorAll('#ctout [data-act="ctUnlock"]').length, 1, 'a row can be unlocked only when it has unlock data and is not unlocked yet');
+  assert.equal(ui.doc.querySelectorAll('#ctout [data-act="ctUnlock"]').length, 2, 'a row can be unlocked only when it has unlock data and is not unlocked yet');
+  assert.ok(ui.doc.querySelector('#ctout [data-act="ctUnlock"][data-ent="1"]').getAttribute('title').includes('entitlement'), 'an entitlement cosmetic is flagged on its button');
   assert.ok(ui.doc.querySelector('#ctout').textContent.includes('Unlocked'), 'the state column says Unlocked');
-  assert.ok(ui.doc.querySelector('#cthead').textContent.includes('may remove an unlock') || ui.doc.body.textContent.includes('may remove an unlock'), 'it says it gives no entitlement');
+  assert.ok(ui.doc.body.textContent.includes('set unlocks skip those'), 'it says set unlocks skip store cosmetics');
   ui.click('.setcard [data-act="ctUnlockSet"][data-id="atreides"]'); await ui.settle();
   ui.click('#aok'); await ui.settle();
-  ui.click('#ctout [data-act="ctUnlock"]'); await ui.settle();
+  assert.ok(ui.doc.body.textContent.includes('3 store or DLC cosmetics skipped'), 'the toast says how many were skipped');
+  ui.click('#ctout [data-act="ctUnlock"][data-ent=""]'); await ui.settle();
   ui.click('#aok'); await ui.settle();
   assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/customizations/unlock').map((p) => p.body), [{ group: 'atreides' }, { id: 'B1C3_Atre_Sword' }]);
   // a save with no library list: no Unlock buttons, the reason is given, giving as items is still there
