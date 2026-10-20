@@ -57,11 +57,17 @@ func TestUnlockingASetAddsItsIdsWithoutTouchingTheBackpackOrTheRestOfTheActor(t 
 	items := func() int64 { return mustOne(t, o, `select count(*) n from items`)["n"].(int64) }
 	before := items()
 	want := map[string]bool{}
-	for _, e := range catalog.All() {
-		if e.Category == "customizations" && e.Source == "Customizations" && strings.HasPrefix(e.ID, "B1C3_Atre") {
-			for _, id := range catalog.Unlocks(e.ID) {
-				want[id] = true
-			}
+	var skipped int
+	for _, row := range o.customizationRows(map[string]bool{}, nil) {
+		if row.GroupID != "atreides" {
+			continue
+		}
+		if row.Entitlement {
+			skipped++
+			continue
+		}
+		for _, id := range catalog.Unlocks(row.ID) {
+			want[id] = true
 		}
 	}
 	if len(want) < 10 {
@@ -73,6 +79,9 @@ func TestUnlockingASetAddsItsIdsWithoutTouchingTheBackpackOrTheRestOfTheActor(t 
 	}
 	if got := r.(map[string]any)["added"]; got != len(want) {
 		t.Fatalf("added %v, want %d", got, len(want))
+	}
+	if got, _ := r.(map[string]any)["skippedEntitlement"].(int); got != skipped {
+		t.Fatalf("skippedEntitlement %v, want %d", r.(map[string]any)["skippedEntitlement"], skipped)
 	}
 	lib := libraryIDs(t, o)
 	for id := range want {
@@ -107,6 +116,47 @@ func TestUnlockingOneCosmeticByItsItemId(t *testing.T) {
 	}
 	if !libraryIDs(t, o)["Atre_Sword"] {
 		t.Fatal("Atre_Sword is the id the game's table gives for that item")
+	}
+}
+
+// In game, a plain dye pack stayed after loading and a store (MTX_) cosmetic was removed, so a set or all skips the entitlement-controlled ones and says so,
+// while one chosen by id is still allowed, with a warning.
+func TestUnlockingASetSkipsEntitlementCosmeticsButOneByIdIsAllowedWithAWarning(t *testing.T) {
+	o := libraryOps(t)
+	var ent, plain string
+	for _, row := range o.customizationRows(map[string]bool{}, nil) {
+		if row.Unlockable && row.Entitlement && ent == "" && row.GroupID == "filmic-archive" {
+			ent = row.ID
+		}
+		if row.Unlockable && !row.Entitlement && plain == "" {
+			plain = row.ID
+		}
+	}
+	if ent == "" || plain == "" {
+		t.Fatalf("need one of each: %q %q", ent, plain)
+	}
+	r, err := o.UnlockCustomizations(Args{"group": "filmic-archive"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := r.(map[string]any)
+	if m["added"] != 0 || m["skippedEntitlement"] == nil || m["skippedEntitlement"].(int) < 1 {
+		t.Fatalf("a set of store cosmetics adds nothing and says why: %v", m)
+	}
+	if len(libraryIDs(t, o)) != 1 || o.S.Dirty() {
+		t.Fatal("nothing should have been written")
+	}
+	r, err = o.UnlockCustomizations(Args{"id": ent})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m = r.(map[string]any)
+	if n, _ := m["added"].(int); n < 1 || m["warning"] == nil {
+		t.Fatalf("one entitlement cosmetic by id is added, with a warning: %v", m)
+	}
+	r, err = o.UnlockCustomizations(Args{"id": plain})
+	if err != nil || r.(map[string]any)["warning"] != nil {
+		t.Fatalf("an ordinary cosmetic has no warning: %v %v", r, err)
 	}
 }
 

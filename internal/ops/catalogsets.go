@@ -319,8 +319,10 @@ func (o *Ops) customizationLibrary(pawn int64) (map[string]bool, bool) {
 
 // UnlockCustomizations unlocks cosmetics directly, as using their items would, without putting anything in a backpack: it adds the customization ids the
 // chosen cosmetics unlock (the game's own table, catalog.Unlocks) to the character's customization library. args group: a set id, or "all" for the
-// console's five sets; or args id: one cosmetic's item id. Ids already in the library are not added twice. It does not give an account entitlement: the
-// game may take out an id it believes the account does not own.
+// console's five sets; or args id: one cosmetic's item id. Ids already in the library are not added twice. It does not give an account entitlement, and the
+// game takes out an unlock it believes the account does not own (seen in game: a plain dye pack stayed, a store cosmetic was removed when the save was
+// loaded). So a set or "all" skips the entitlement-controlled cosmetics (MTX_ items and ones that need a DLC) and says how many; one cosmetic by id is
+// unlocked whatever it needs, with a warning, in case the account does own it.
 func (o *Ops) UnlockCustomizations(a Args) (any, error) {
 	group, item := a.Str("group"), a.Str("id")
 	if group == "" && item == "" {
@@ -330,10 +332,11 @@ func (o *Ops) UnlockCustomizations(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	var added int
+	var added, skippedEnt int
 	var already bool
+	var warning string
 	if _, err := o.S.Mutate("unlock customizations", func(m *save.Mut) error {
-		added, already = 0, false
+		added, skippedEnt, already, warning = 0, 0, false, ""
 		t, err := m.Query(`select json_type(properties,'`+customizationIDs+`') t from actors where id=?`, p.Pawn)
 		if err != nil {
 			return err
@@ -363,6 +366,13 @@ func (o *Ops) UnlockCustomizations(a Args) (any, error) {
 				continue
 			}
 			matched = true
+			if r.Entitlement {
+				if item == "" { // a set or all: the game would remove these again
+					skippedEnt++
+					continue
+				}
+				warning = "This cosmetic needs an account entitlement. If your account does not own it the game removes the unlock when it loads the save."
+			}
 			for _, c := range catalog.Unlocks(r.ID) {
 				if !lib[c] && !seen[c] {
 					seen[c] = true
@@ -396,10 +406,20 @@ func (o *Ops) UnlockCustomizations(a Args) (any, error) {
 	}); err != nil {
 		return nil, err
 	}
+	out := map[string]any{"ok": true, "added": added}
 	if already {
-		return map[string]any{"ok": true, "added": 0, "skipped": "everything in that selection is already unlocked"}, nil
+		out["skipped"] = "everything in that selection is already unlocked"
+		if skippedEnt > 0 {
+			out["skipped"] = "everything else in that selection is already unlocked"
+		}
 	}
-	return map[string]any{"ok": true, "added": added}, nil
+	if skippedEnt > 0 {
+		out["skippedEntitlement"] = skippedEnt
+	}
+	if warning != "" && added > 0 {
+		out["warning"] = warning
+	}
+	return out, nil
 }
 
 // UnlockAllBuildingSets teaches the character every building set of the catalog that is not Experimental and not yet learned, by adding
