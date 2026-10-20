@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -26,6 +27,8 @@ type CatalogRow struct {
 	Learned      bool   `json:"learned"`               // a building set the character has learned
 	InInventory  bool   `json:"inInventory"`           // the item is in one of the character's inventories
 	InCatalog    bool   `json:"inCatalog"`             // the item catalog knows it (the give action needs that)
+	Unlockable   bool   `json:"unlockable,omitempty"`  // the game's table says which customization ids this cosmetic unlocks, so it can be unlocked directly
+	Unlocked     bool   `json:"unlocked,omitempty"`    // every one of those ids is in the character's customization library
 }
 
 var (
@@ -127,7 +130,7 @@ const otherCustomizations = "other"
 
 // customizationRows is the catalog's cosmetic items in the console's sets, then the rest under "Other" (the console lists only the sets;
 // the others stay available here).
-func (o *Ops) customizationRows(inv map[string]bool) []CatalogRow {
+func (o *Ops) customizationRows(inv map[string]bool, lib map[string]bool) []CatalogRow {
 	out := []CatalogRow{}
 	seen := map[string]bool{}
 	for _, e := range catalog.All() {
@@ -147,6 +150,14 @@ func (o *Ops) customizationRows(inv map[string]bool) []CatalogRow {
 			row.RequiredDLC = "Lost Harvest"
 		}
 		row.Entitlement = row.RequiredDLC != "" || mtxRe.MatchString(e.ID)
+		if ids := catalog.Unlocks(e.ID); len(ids) > 0 {
+			row.Unlockable, row.Unlocked = true, lib != nil
+			for _, id := range ids {
+				if !lib[id] {
+					row.Unlocked = false
+				}
+			}
+		}
 		out = append(out, row)
 	}
 	sortRows(out)
@@ -162,7 +173,8 @@ type CustomizationSet struct {
 }
 
 // Customizations lists the cosmetic sets (with their counts and what they require) and every cosmetic, with whether it is already in an
-// inventory. The save keeps no list of owned customizations that tabr-tau can read, so (as in the console) only the inventory is checked.
+// inventory or already unlocked. A character's unlocked cosmetics are a list of ids in its CustomizationLibraryActorComponent (customizationLibrary); an item
+// in an inventory is a cosmetic that has been given but not used yet.
 func (o *Ops) Customizations() (any, error) {
 	p, err := o.player()
 	if err != nil {
@@ -172,7 +184,8 @@ func (o *Ops) Customizations() (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	rows := o.customizationRows(inv)
+	lib, libOK := o.customizationLibrary(p.Pawn)
+	rows := o.customizationRows(inv, lib)
 	var groups []CustomizationSet
 	for _, g := range append(customizationGroupList(), struct{ ID, Name string }{otherCustomizations, "Other (not in the console's sets)"}) {
 		gr := CustomizationSet{ID: g.ID, Name: g.Name}
@@ -200,7 +213,7 @@ func (o *Ops) Customizations() (any, error) {
 			groups = append(groups, gr)
 		}
 	}
-	return map[string]any{"rows": rows, "groups": groups}, nil
+	return map[string]any{"rows": rows, "groups": groups, "libraryAvailable": libOK, "libraryCount": len(lib)}, nil
 }
 
 func customizationGroupList() []struct{ ID, Name string } {
@@ -250,7 +263,7 @@ func (o *Ops) GrantCustomizations(a Args) (any, error) {
 		inv := templateSet(have)
 		var items []CatalogRow
 		valid := want == "all"
-		for _, r := range o.customizationRows(inv) {
+		for _, r := range o.customizationRows(inv, nil) {
 			if r.GroupID == want {
 				valid = true
 			}
@@ -283,6 +296,110 @@ func (o *Ops) GrantCustomizations(a Args) (any, error) {
 		return map[string]any{"ok": true, "granted": 0, "skipped": "all of this set is already in your inventory"}, nil
 	}
 	return map[string]any{"ok": true, "granted": len(ids)}, nil
+}
+
+// customizationIDs is where a character actor keeps the cosmetics it has unlocked: a list of {"m_CustomizationId": id}.
+const customizationIDs = "$.CustomizationLibraryActorComponent.m_UnlockedCustomizationSerializableList.m_UnlockedCustomizationIds"
+
+// customizationLibrary is the set of customization ids the character has unlocked, and whether the character has such a list at all.
+func (o *Ops) customizationLibrary(pawn int64) (map[string]bool, bool) {
+	t, _ := o.S.One(`select json_type(properties,'`+customizationIDs+`') t from actors where id=?`, pawn)
+	if t == nil || t["t"] != "array" {
+		return nil, false
+	}
+	rows, _ := o.S.Query(`select json_extract(i.value,'$.m_CustomizationId') c from actors a, json_each(a.properties,'`+customizationIDs+`') i where a.id=?`, pawn)
+	out := map[string]bool{}
+	for _, r := range rows {
+		if c, ok := r["c"].(string); ok {
+			out[c] = true
+		}
+	}
+	return out, true
+}
+
+// UnlockCustomizations unlocks cosmetics directly, as using their items would, without putting anything in a backpack: it adds the customization ids the
+// chosen cosmetics unlock (the game's own table, catalog.Unlocks) to the character's customization library. args group: a set id, or "all" for the
+// console's five sets; or args id: one cosmetic's item id. Ids already in the library are not added twice. It does not give an account entitlement: the
+// game may take out an id it believes the account does not own.
+func (o *Ops) UnlockCustomizations(a Args) (any, error) {
+	group, item := a.Str("group"), a.Str("id")
+	if group == "" && item == "" {
+		return nil, errors.New("choose a set or a cosmetic")
+	}
+	p, err := o.player()
+	if err != nil {
+		return nil, err
+	}
+	var added int
+	var already bool
+	if _, err := o.S.Mutate("unlock customizations", func(m *save.Mut) error {
+		added, already = 0, false
+		t, err := m.Query(`select json_type(properties,'`+customizationIDs+`') t from actors where id=?`, p.Pawn)
+		if err != nil {
+			return err
+		}
+		if len(t) == 0 || t[0]["t"] != "array" {
+			return errors.New("this save has no customization library for the character")
+		}
+		have, err := m.Query(`select json_extract(i.value,'$.m_CustomizationId') c from actors a, json_each(a.properties,'`+customizationIDs+`') i where a.id=?`, p.Pawn)
+		if err != nil {
+			return err
+		}
+		lib := map[string]bool{}
+		for _, r := range have {
+			if c, ok := r["c"].(string); ok {
+				lib[c] = true
+			}
+		}
+		matched := false
+		var todo []string
+		seen := map[string]bool{}
+		for _, r := range o.customizationRows(map[string]bool{}, nil) {
+			sel := r.ID == item
+			if item == "" {
+				sel = (group == "all" && r.GroupID != otherCustomizations) || r.GroupID == group
+			}
+			if !sel {
+				continue
+			}
+			matched = true
+			for _, c := range catalog.Unlocks(r.ID) {
+				if !lib[c] && !seen[c] {
+					seen[c] = true
+					todo = append(todo, c)
+				}
+			}
+		}
+		if !matched {
+			return errors.New("unknown set or cosmetic")
+		}
+		if len(todo) == 0 {
+			already = true
+			return nil
+		}
+		label := group
+		if item != "" {
+			label = item
+		}
+		m.Desc = fmt.Sprintf("unlock %d customizations (%s)", len(todo), label)
+		for _, c := range todo {
+			b, err := json.Marshal(map[string]string{"m_CustomizationId": c})
+			if err != nil {
+				return err
+			}
+			if _, err := m.Exec(`update actors set properties=jsonb_insert(properties, ?, jsonb(?)) where id=?`, customizationIDs+"[#]", string(b), p.Pawn); err != nil {
+				return err
+			}
+		}
+		added = len(todo)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if already {
+		return map[string]any{"ok": true, "added": 0, "skipped": "everything in that selection is already unlocked"}, nil
+	}
+	return map[string]any{"ok": true, "added": added}, nil
 }
 
 // UnlockAllBuildingSets teaches the character every building set of the catalog that is not Experimental and not yet learned, by adding
