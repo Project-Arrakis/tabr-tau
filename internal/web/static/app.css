@@ -148,6 +148,9 @@ th.sd::after{content:" \25BC";font-size:9px}
 .lc-cell{stroke-width:.04;stroke:var(--line)}.lc-cell[data-cell]{cursor:pointer;pointer-events:all}
 .lc-o{fill:var(--acc2);background:var(--acc2)}.lc-x{fill:var(--panel);background:var(--panel)}.lc-s{fill:var(--ok);background:var(--ok)}.lc-a{fill:none;stroke:var(--mut);stroke-dasharray:.12 .12;background:transparent}
 .lc-label{font-size:.5px;text-anchor:middle;fill:var(--fg);pointer-events:none}
+.lc-compass{font-size:.85px;font-weight:600;text-anchor:middle;fill:var(--mut);pointer-events:none}.lc-compass-n{fill:var(--acc)}
+.lc-axis{fill:none;stroke-width:.09;pointer-events:none}.lc-axis-head{pointer-events:none}.lc-axis-t{font-size:.55px;font-weight:600;text-anchor:middle;pointer-events:none}
+.lc-axis-x{stroke:var(--acc);fill:var(--acc)}.lc-axis-y{stroke:var(--acc2);fill:var(--acc2)}path.lc-axis{fill:none}
 .lc-key{display:inline-block;width:12px;height:12px;border:1px solid var(--line);vertical-align:middle;margin:0 3px 0 10px}
 /* UI review round 1: tokens for contrast, visible focus, hover, a banner that sticks below the header, readable inline badges */
 :root{--on-acc:#1a0e03;--line-strong:#7d6a4e;--focus:#f0b45a;--hdr-h:56px;color-scheme:dark}
