@@ -637,6 +637,13 @@ function lcToggle(k) {
   const reached = lcReachable(new Set([...existing, ...LC.sel]));
   LC.sel = new Set([...LC.sel].filter((e) => reached.has(e))); // taking a cell back also drops the chosen cells that hung from it
 }
+// The compass point a direction in the map's own terms points to (east to the right, south down, as the world's x and y run): the grid's cell x runs along the base's yaw,
+// the cell y a quarter turn after it.
+const COMPASS8 = ['North', 'North-east', 'East', 'South-east', 'South', 'South-west', 'West', 'North-west'];
+function lcDirection(deg) {
+  const bearing = (((deg + 90) % 360) + 360) % 360; // from north, turning clockwise
+  return COMPASS8[Math.round(bearing / 45) % 8];
+}
 function claimEditorDraw() {
   const host = $('#lced');
   if (!host || !LC) return;
@@ -655,19 +662,26 @@ function claimEditorDraw() {
   const xs = world.map((w) => w[0]), ys = world.map((w) => w[1]);
   const minX = Math.min(...xs) - 0.7, minY = Math.min(...ys) - 0.7;
   const width = Math.max(2, Math.max(...xs) + 0.7 - minX), height = Math.max(2, Math.max(...ys) + 0.7 - minY);
+  // room around the grid for the compass points, and the viewBox with it
+  const pad = 1.3, vx = minX - pad, vy = minY - pad, vw = width + 2 * pad, vh = height + 2 * pad;
+  const compass = [['N', vx + vw / 2, vy + 0.8], ['S', vx + vw / 2, vy + vh - 0.35], ['W', vx + 0.55, vy + vh / 2 + 0.3], ['E', vx + vw - 0.55, vy + vh / 2 + 0.3]]
+    .map(([t, x, y]) => html`<text x="${x}" y="${y}" class="lc-compass ${t === 'N' ? 'lc-compass-n' : ''}">${t}</text>`);
+  const dirX = lcDirection(yaw), dirY = lcDirection(yaw + 90);
   const maxLevel = Math.max(c.level, c.maxLevel);
   const dirty = LC.sel.size > 0 || LC.level !== c.level;
   const cells = plotted.map(([x, y]) => {
     const k = lcKey(x, y), origin = k === '0,0', sel = LC.sel.has(k), have = existing.has(k) && !origin, avail = frontier.has(k);
     const kind = origin ? 'lc-o' : sel ? 'lc-s' : have ? 'lc-x' : 'lc-a';
     const label = origin ? 'T' : sel ? '+' : have && pieces.get(k) ? pieces.get(k) : '';
-    return html`<rect x="${x - 0.44}" y="${y - 0.44}" width="0.88" height="0.88" rx="0.08" class="lc-cell ${kind}" ${avail || sel ? html`data-cell="${k}"` : ''}></rect>${label !== '' ? html`<text x="${x}" y="${y + 0.09}" transform="rotate(${-yaw} ${x} ${y})" class="lc-label">${label}</text>` : ''}`;
+    return html`<rect x="${x - 0.44}" y="${y - 0.44}" width="0.88" height="0.88" rx="0.08" class="lc-cell ${kind}" ${avail || sel ? html`data-cell="${k}"` : ''}><title>cell ${x}, ${y}${origin ? ' (the totem)' : ''}</title></rect>${label !== '' ? html`<text x="${x}" y="${y + 0.09}" transform="rotate(${-yaw} ${x} ${y})" class="lc-label">${label}</text>` : ''}`;
   });
   setHTML(host, html`<div class="card"><h3>Land Claim Editor</h3>
     <div class="grid">${kv('Totem ID', c.totem_id)}${kv('Original yaw', Math.round(yaw * 10) / 10 + '°')}${kv('Horizontal segments', c.cells - 1)}${kv('Vertical level', c.level + ' / ' + c.maxLevel)}</div>
     <div class="lc-work"><div class="lc-gridcard"><b>Horizontal claim</b><p class="mut">Click a dotted cell to add it. New cells must stay connected edge to edge. A number is how many building pieces a cell holds.</p>
-      <div class="lc-north">&#9650; North</div>
-      <svg class="lc-svg" viewBox="${minX} ${minY} ${width} ${height}"><g transform="rotate(${yaw} 0 0)">${cells}</g></svg>
+      <div class="lc-north">&#9650; North is up. Column <b>+x</b> runs <b>${dirX}</b>, row <b>+y</b> runs <b>${dirY}</b> (the base's yaw is ${Math.round(yaw * 10) / 10}°).</div>
+      <svg class="lc-svg" viewBox="${vx} ${vy} ${vw} ${vh}">${compass}<g transform="rotate(${yaw} 0 0)">${cells}
+        <path d="M0.5 0 H1.9" class="lc-axis lc-axis-x"></path><path d="M1.9 0 l-0.25 -0.14 v0.28 z" class="lc-axis-head lc-axis-x"></path><text x="2.35" y="0.12" transform="rotate(${-yaw} 2.35 0)" class="lc-axis-t lc-axis-x">+x</text>
+        <path d="M0 0.5 V1.9" class="lc-axis lc-axis-y"></path><path d="M0 1.9 l-0.14 -0.25 h0.28 z" class="lc-axis-head lc-axis-y"></path><text x="0" y="2.5" transform="rotate(${-yaw} 0 2.5)" class="lc-axis-t lc-axis-y">+y</text></g></svg>
       <p class="mut"><span class="lc-key lc-o"></span>Totem <span class="lc-key lc-x"></span>Existing <span class="lc-key lc-s"></span>New <span class="lc-key lc-a"></span>Available</p>
       <p class="mut">World-oriented view: north stays at the top and the grid is turned by the base's original yaw; the saved cell coordinates are not changed.</p></div>
     <div class="lc-side"><b>Expansion</b>

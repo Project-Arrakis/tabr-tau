@@ -28,9 +28,9 @@ let fixtures = baseFixtures;
 const read = (n) => fs.readFileSync(path.join(static_, n), 'utf8');
 
 // Allowlists: anything else appearing in the rendered DOM is an injection.
-const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h3 ul li code table thead tbody tr th td input select option datalist button details summary textarea br label canvas svg g rect text'.split(' '));
+const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h3 ul li code table thead tbody tr th td input select option datalist button details summary textarea br label canvas svg g rect text path'.split(' '));
 const SCRIPTS = new Set(['/html.js', '/livemap.js', '/app.js']); // the only scripts the page may contain, both same-origin files
-const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live tabindex label checked viewbox x y rx transform'.split(' '));
+const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live tabindex label checked viewbox x y rx transform d'.split(' '));
 
 export function assertClean(doc, label) {
   const bad = [];
@@ -1300,6 +1300,10 @@ test('Land Claim Editor: click available cells to add them, click again to take 
   const cell = (k) => ui.doc.querySelector(`[data-cell="${k}"]`);
   assert.ok(ui.doc.querySelector('#main').textContent.includes('Original yaw') && ui.doc.querySelector('#main').textContent.includes('90°'));
   assert.ok(ui.doc.querySelector('svg.lc-svg g').getAttribute('transform').startsWith('rotate(90'), 'the grid is turned by the base yaw');
+  assert.deepEqual([...ui.doc.querySelectorAll('svg.lc-svg text.lc-compass')].map((t) => t.textContent), ['N', 'S', 'W', 'E'], 'the compass points are on the grid');
+  const north = ui.doc.querySelector('.lc-north').textContent;
+  assert.ok(north.includes('+x runs South') && north.includes('+y runs West'), 'a base at yaw 90: the column runs south and the row west: ' + north);
+  assert.ok(ui.doc.querySelectorAll('svg.lc-svg text.lc-axis-t').length === 2 && cell('2,0').querySelector('title').textContent === 'cell 2, 0', 'the axes are marked and a cell says its coordinates');
   assert.equal(cell('0,0'), null, 'the totem cell is not clickable');
   assert.equal(cell('1,0'), null, 'an existing cell is not clickable');
   assert.ok(cell('2,0') && cell('0,1') && cell('-1,0'), 'cells next to the claim are available');
