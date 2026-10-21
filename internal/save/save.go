@@ -38,10 +38,16 @@ type Save struct {
 	diskHash [32]byte
 	diskSize int64 // size and modification time of the file when diskHash was taken: a cheap first test for "changed on disk"
 	diskMod  time.Time
-	dirty    bool
-	ops      []Op    // structured record of the edits applied since load
-	orig     string  // pristine decoded copy of the file as loaded; never written
-	odb      *sql.DB // read-only handle on orig
+
+	// the size and modification time of a file already found to differ from the one loaded: the status poll asks again every few seconds, and reading and hashing a large
+	// save each time made the answer slow, which is when a refresh decided from it could be out of date
+	changedSize int64
+	changedMod  time.Time
+
+	dirty bool
+	ops   []Op    // structured record of the edits applied since load
+	orig  string  // pristine decoded copy of the file as loaded; never written
+	odb   *sql.DB // read-only handle on orig
 }
 
 // sqlErrorHook, when set, is called for every statement that fails. It exists so tests can notice SQL errors that
@@ -268,6 +274,7 @@ func (s *Save) load() error {
 func (s *Save) noteDisk(blob []byte) {
 	s.diskHash = hashOf(blob)
 	s.diskSize, s.diskMod = 0, time.Time{}
+	s.changedSize, s.changedMod = 0, time.Time{}
 	if st, err := os.Stat(s.Path); err == nil {
 		s.diskSize, s.diskMod = st.Size(), st.ModTime()
 	}
@@ -287,6 +294,9 @@ func (s *Save) ChangedOnDisk() bool {
 	if st.Size() == s.diskSize && st.ModTime().Equal(s.diskMod) {
 		return false
 	}
+	if st.Size() == s.changedSize && st.ModTime().Equal(s.changedMod) {
+		return true // this very file was already read and found different
+	}
 	b, err := readCapped(s.Path)
 	if err != nil {
 		return true
@@ -295,6 +305,7 @@ func (s *Save) ChangedOnDisk() bool {
 		s.diskSize, s.diskMod = st.Size(), st.ModTime()
 		return false
 	}
+	s.changedSize, s.changedMod = st.Size(), st.ModTime()
 	return true
 }
 
