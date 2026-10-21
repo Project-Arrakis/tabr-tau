@@ -543,6 +543,7 @@ func (s *Server) routes() {
 	s.post("/api/bases/claim/expand", o.ExpandLandClaim)
 	s.post("/api/bases/claim/apply", o.ApplyLandClaim)
 	s.post("/api/bases/claim/shrink", o.ShrinkLandClaim)
+	s.post("/api/bases/claim/remove", o.RemoveLandClaimCells)
 	s.post("/api/bases/refill-water", func(ops.Args) (any, error) { return o.RefillBaseWater() })
 	s.post("/api/bases/refill-generators", func(ops.Args) (any, error) { return o.RefillGenerators() })
 

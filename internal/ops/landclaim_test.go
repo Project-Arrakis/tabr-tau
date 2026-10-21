@@ -353,3 +353,73 @@ func TestApplyLandClaimRefusals(t *testing.T) {
 		t.Fatal("refused requests must not change the save")
 	}
 }
+
+func TestRemoveLandClaimCellsRemovesChosenEmptyCells(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, shrinkFixture)}
+	r, err := o.RemoveLandClaimCells(Args{"totem_id": 601.0, "cells": []any{map[string]any{"x": -1.0, "y": 0.0}, map[string]any{"x": 2.0, "y": 2.0}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res := r.(map[string]any); res["removed"].(int) != 2 || res["remaining"].(int) != 3 {
+		t.Fatalf("%v", res)
+	}
+	if mustOne(t, o, `select count(*) n from landclaim_segments where totem_id=601`)["n"].(int64) != 2 {
+		t.Fatal("only the chosen cells must go")
+	}
+	if mustOne(t, o, `select count(*) n from landclaim_segments where totem_id=601 and grid_location_x=1 and grid_location_y=0`)["n"].(int64) != 1 {
+		t.Fatal("the cell that was not chosen must stay")
+	}
+	assertDBSound(t, o)
+}
+
+func TestRemoveLandClaimCellsNeverRemovesACellThatHoldsPiecesOrPlaceables(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, shrinkFixture)} // building piece 702 stands in cell (1,0)
+	cells := []any{map[string]any{"x": -1.0, "y": 0.0}, map[string]any{"x": 1.0, "y": 0.0}}
+	if _, err := o.RemoveLandClaimCells(Args{"totem_id": 601.0, "cells": cells}); err == nil || !strings.Contains(err.Error(), "hold 1 building pieces or placeables") {
+		t.Fatalf("a cell with a piece in it must block the request: %v", err)
+	}
+	if cellCount(t, o) != 4 {
+		t.Fatal("a refused request removes nothing, not even the empty cell chosen with the blocked one")
+	}
+	// a placeable (an actor with a placeables row) in cell (-1,0): 5120 units back along the claim's x axis, which at yaw 90 is world -Y
+	testsave.Exec(t, o.S, `insert into actors(id,class,map,location_x,location_y) values (704,'c','HaggaBasin',1000.0,-3120.0); insert into placeables(id) values (704)`)
+	if _, err := o.RemoveLandClaimCells(Args{"totem_id": 601.0, "cells": []any{map[string]any{"x": -1.0, "y": 0.0}}}); err == nil || !strings.Contains(err.Error(), "placeables") {
+		t.Fatalf("a placeable must block the cell it stands in: %v", err)
+	}
+	if cellCount(t, o) != 4 {
+		t.Fatal("nothing may be removed")
+	}
+	assertDBSound(t, o)
+}
+
+func TestRemoveLandClaimCellsKeepsTheClaimConnectedAndRefusesBadInput(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, shrinkFixture)}
+	testsave.Exec(t, o.S, `insert into landclaim_segments(totem_id,grid_location_x,grid_location_y) values (601,-2,0)`) // hangs off (-1,0)
+	_, err := o.RemoveLandClaimCells(Args{"totem_id": 601.0, "cells": []any{map[string]any{"x": -1.0, "y": 0.0}}})
+	if err == nil || !strings.Contains(err.Error(), "cut 1 cells") {
+		t.Fatalf("removing the only link of a cell that stays must be refused: %v", err)
+	}
+	// removing the cell and the one that hangs from it together is fine
+	if _, err := o.RemoveLandClaimCells(Args{"totem_id": 601.0, "cells": []any{map[string]any{"x": -1.0, "y": 0.0}, map[string]any{"x": -2.0, "y": 0.0}}}); err != nil {
+		t.Fatalf("a cell and what hangs from it go together: %v", err)
+	}
+	cell := func(x, y float64) map[string]any { return map[string]any{"x": x, "y": y} }
+	for name, a := range map[string]Args{
+		"the totem's cell": {"totem_id": 601.0, "cells": []any{cell(0, 0)}},
+		"not in the claim": {"totem_id": 601.0, "cells": []any{cell(9, 9)}},
+		"listed twice":     {"totem_id": 601.0, "cells": []any{cell(0, -1), cell(0, -1)}},
+		"no cells":         {"totem_id": 601.0, "cells": []any{}},
+		"not a cell":       {"totem_id": 601.0, "cells": []any{"x"}},
+		"out of range":     {"totem_id": 601.0, "cells": []any{cell(500, 0)}},
+		"unknown totem":    {"totem_id": 999.0, "cells": []any{cell(0, -1)}},
+		"no totem":         {"cells": []any{cell(0, -1)}},
+	} {
+		if _, err := o.RemoveLandClaimCells(a); err == nil {
+			t.Errorf("%s must be refused", name)
+		}
+	}
+	if cellCount(t, o) != 3 {
+		t.Fatalf("refused requests must not write: %d cells", cellCount(t, o))
+	}
+	assertDBSound(t, o)
+}

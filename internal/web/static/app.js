@@ -616,8 +616,9 @@ function autoRefillCard(prefs) {
 }
 // The console's Land Claim Editor: the claim as a grid of cells turned by the base's own yaw (north at the top), with the totem's cell,
 // the cells it has, and dotted "available" cells next to it. Click an available cell to add it, a chosen one to take it back (what is
-// chosen must stay connected edge to edge), pick a vertical level, then Apply. Existing cells are never removed here.
-let LC = null; // { claim, sel: Set of "x,y", level }
+// chosen must stay connected edge to edge), pick a vertical level, then Apply. Clicking an existing cell that holds no building piece or placeable marks it
+// for removal (shown as red), and Remove takes the marked cells out; the claim must stay connected, and the server refuses a cell with pieces in it as well.
+let LC = null; // { claim, sel: Set of "x,y" to add, rm: Set of "x,y" to remove, level }
 let TD = []; // the places the last Find returned
 const lcKey = (x, y) => `${x},${y}`;
 const lcNeighbours = (x, y) => [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]];
@@ -644,12 +645,22 @@ function lcDirection(deg) {
   const bearing = (((deg + 90) % 360) + 360) % 360; // from north, turning clockwise
   return COMPASS8[Math.round(bearing / 45) % 8];
 }
+// A click on a cell of the grid: an existing cell is marked for removal or unmarked, any other is added or taken back.
+function lcCellClick(k) {
+  const existing = new Set((LC.claim.segments || []).map((s) => lcKey(s.x, s.y)));
+  if (existing.has(k)) { if (LC.rm.has(k)) LC.rm.delete(k); else LC.rm.add(k); return; }
+  lcToggle(k);
+}
 function claimEditorDraw() {
   const host = $('#lced');
   if (!host || !LC) return;
   const c = LC.claim, yaw = Number(c.yaw) || 0;
   const existing = new Set(['0,0', ...(c.segments || []).map((s) => lcKey(s.x, s.y))]);
   const pieces = new Map((c.grid || []).map((g) => [lcKey(g.x, g.y), g.n]));
+  // the cells that stay when the marked ones go, and whether the claim stays connected to the totem
+  const kept = new Set([...existing].filter((k) => !LC.rm.has(k)));
+  const reachedBefore = lcReachable(existing), reachedAfter = lcReachable(kept);
+  const cutOff = LC.rm.size ? [...kept].filter((k) => reachedBefore.has(k) && !reachedAfter.has(k)) : [];
   const occupied = new Set([...existing, ...LC.sel]);
   const frontier = new Set();
   for (const k of occupied) {
@@ -671,9 +682,10 @@ function claimEditorDraw() {
   const dirty = LC.sel.size > 0 || LC.level !== c.level;
   const cells = plotted.map(([x, y]) => {
     const k = lcKey(x, y), origin = k === '0,0', sel = LC.sel.has(k), have = existing.has(k) && !origin, avail = frontier.has(k);
-    const kind = origin ? 'lc-o' : sel ? 'lc-s' : have ? 'lc-x' : 'lc-a';
+    const removable = have && !pieces.get(k), marked = removable && LC.rm.has(k);
+    const kind = origin ? 'lc-o' : sel ? 'lc-s' : marked ? 'lc-r' : have ? 'lc-x' : 'lc-a';
     const label = origin ? 'T' : sel ? '+' : have && pieces.get(k) ? pieces.get(k) : '';
-    return html`<rect x="${x - 0.44}" y="${y - 0.44}" width="0.88" height="0.88" rx="0.08" class="lc-cell ${kind}" ${avail || sel ? html`data-cell="${k}"` : ''}><title>cell ${x}, ${y}${origin ? ' (the totem)' : ''}</title></rect>${label !== '' ? html`<text x="${x}" y="${y + 0.09}" transform="rotate(${-yaw} ${x} ${y})" class="lc-label">${label}</text>` : ''}`;
+    return html`<rect x="${x - 0.44}" y="${y - 0.44}" width="0.88" height="0.88" rx="0.08" class="lc-cell ${kind}" ${avail || sel || removable ? html`data-cell="${k}"` : ''}><title>cell ${x}, ${y}${origin ? ' (the totem)' : have && pieces.get(k) ? ` (holds ${pieces.get(k)} building pieces or placeables: cannot be removed)` : removable ? (marked ? ' (marked for removal: click to keep it)' : ' (click to mark it for removal)') : ''}</title></rect>${label !== '' ? html`<text x="${x}" y="${y + 0.09}" transform="rotate(${-yaw} ${x} ${y})" class="lc-label">${label}</text>` : ''}`;
   });
   setHTML(host, html`<div class="card"><h3>Land Claim Editor</h3>
     <div class="grid">${kv('Totem ID', c.totem_id)}${kv('Original yaw', Math.round(yaw * 10) / 10 + '°')}${kv('Horizontal segments', c.cells - 1)}${kv('Vertical level', c.level + ' / ' + c.maxLevel)}</div>
@@ -682,13 +694,17 @@ function claimEditorDraw() {
       <svg class="lc-svg" viewBox="${vx} ${vy} ${vw} ${vh}">${compass}<g transform="rotate(${yaw} 0 0)">${cells}
         <path d="M0.5 0 H1.9" class="lc-axis lc-axis-x"></path><path d="M1.9 0 l-0.25 -0.14 v0.28 z" class="lc-axis-head lc-axis-x"></path><text x="2.35" y="0.12" transform="rotate(${-yaw} 2.35 0)" class="lc-axis-t lc-axis-x">+x</text>
         <path d="M0 0.5 V1.9" class="lc-axis lc-axis-y"></path><path d="M0 1.9 l-0.14 -0.25 h0.28 z" class="lc-axis-head lc-axis-y"></path><text x="0" y="2.5" transform="rotate(${-yaw} 0 2.5)" class="lc-axis-t lc-axis-y">+y</text></g></svg>
-      <p class="mut"><span class="lc-key lc-o"></span>Totem <span class="lc-key lc-x"></span>Existing <span class="lc-key lc-s"></span>New <span class="lc-key lc-a"></span>Available</p>
+      <p class="mut"><span class="lc-key lc-o"></span>Totem <span class="lc-key lc-x"></span>Existing <span class="lc-key lc-s"></span>New <span class="lc-key lc-a"></span>Available <span class="lc-key lc-r"></span>To remove</p>
       <p class="mut">World-oriented view: north stays at the top and the grid is turned by the base's original yaw; the saved cell coordinates are not changed.</p></div>
     <div class="lc-side"><b>Expansion</b>
       <label>Vertical level <select id="lcLvl">${Array.from({ length: maxLevel - c.level + 1 }, (_, i) => c.level + i).map((n) => html`<option ${n === LC.level ? 'selected' : ''}>${n}</option>`)}</select></label>
       <p class="mut">Vertical expansion grows equally up and down. The game caps it at level ${c.maxLevel}.</p>
       <div class="kv"><b>Pending horizontal</b><span>${LC.sel.size}</span></div><div class="kv"><b>Pending vertical</b><span>${LC.level === c.level ? 'No change' : c.level + ' → ' + LC.level}</span></div>
-      <div class="row"><button class="b" data-act="lcApply" ${dirty ? '' : 'disabled'}>Apply changes</button>${LC.sel.size ? html`<button class="b sec" data-act="lcClear">Clear selection</button>` : ''}</div>
+      <div class="row"><button class="b" data-act="lcApply" ${dirty ? '' : 'disabled'}>Apply changes</button>${LC.sel.size || LC.rm.size ? html`<button class="b sec" data-act="lcClear">Clear selection</button>` : ''}</div>
+      <div class="kv"><b>Marked for removal</b><span>${LC.rm.size}</span></div>
+      ${cutOff.length ? html`<p class="bad">Removing those would cut ${cutOff.length} cell${cutOff.length === 1 ? '' : 's'} that stay off from the totem; the game needs the claim connected edge to edge. Mark them too, or unmark a cell.</p>` : ''}
+      <div class="row"><button class="b" data-act="lcRemove" ${LC.rm.size && !cutOff.length ? '' : 'disabled'}>Remove marked cells</button></div>
+      <p class="mut">Click an existing cell to mark it. A cell with building pieces or placeables in it (its number is shown) cannot be removed, and neither can the totem's own cell.</p>
       <p class="mut">The edit goes through the review pane and the usual backup. Applied when the game next loads the save.</p></div></div>
     <p class="mut">This editor bypasses the game's normal staking checks. Claiming a protected area does not guarantee that the game lets you build there.</p></div>`);
 }
@@ -737,7 +753,7 @@ async function basesView() {
         <div class="card"><h3>Building piece types</h3>${tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], b.types)}</div>`);
     } else {
       const claims = (await api('/api/bases/claim')).filter((c) => c.totem_id == id);
-      LC = claims.length ? { claim: claims[0], sel: new Set(), level: claims[0].level } : null;
+      LC = claims.length ? { claim: claims[0], sel: new Set(), rm: new Set(), level: claims[0].level } : null;
       if (LC) h.push(html`<div id="lced"></div>`);
       h.push(html`${claims.length ? html`<div class="card"><h3>Resize by square</h3>${claims.map((c) => html`<div class="row"><b>${c.name} ${c.totem_id}</b><span>${c.cells} cell${c.cells == 1 ? '' : 's'}${c.irregular ? ' (irregular shape)' : ` (${2 * c.rings + 1} x ${2 * c.rings + 1} square)`}, vertical level ${c.level}</span>
       Grow to <select id="cr${c.totem_id}"><option value="0">no change</option>${Array.from({ length: c.maxRings }, (_, i) => i + 1).filter((n) => n > c.rings).map((n) => html`<option value="${n}">${2 * n + 1} x ${2 * n + 1}</option>`)}</select>
@@ -970,7 +986,12 @@ const A = {
   ctUnlockSet: async (d) => (await ask({ title: 'Unlock ' + d.name + '?', body: 'Every ordinary cosmetic of ' + d.name + ' that is not unlocked yet is added to your character\'s customization library, with no item in your backpack. One edit in the review pane. Store and DLC cosmetics are skipped: they need an account entitlement, and the game removes the ones your account does not own.', ok: 'Unlock' })) && act(async () => { const r = await api('/api/player/customizations/unlock', { group: d.id }); const sk = r.skippedEntitlement ? ` (${r.skippedEntitlement} store or DLC cosmetics skipped: they need an account entitlement)` : ''; toast((r.added ? `Unlocked ${r.added} customizations` + NOT_SAVED : 'Nothing new to unlock in that set') + sk); }, null),
   ctUnlock: async (d) => (await ask({ title: 'Unlock ' + d.name + '?', body: 'This cosmetic is added to your character\'s customization library, with no item in your backpack. One edit in the review pane.' + (d.ent ? ' It needs an account entitlement: if your account does not own it, the game removes the unlock when it loads the save (it did for a store cosmetic in a test).' : ''), ok: 'Unlock' })) && act(async () => { const r = await api('/api/player/customizations/unlock', { id: d.id }); toast(r.added ? `Unlocked ${r.added} customization${r.added > 1 ? 's' : ''}` + NOT_SAVED + (r.warning ? ' ' + r.warning : '') : 'That cosmetic is already unlocked.', !!r.warning, r.warning ? 9000 : 3500); }, null),
   ctGrantSet: async (d) => (await ask({ title: 'Give ' + d.name + ' as items?', body: 'One of each cosmetic item that is not already in your inventory goes into your backpack, all or nothing, so it needs room for them all. Unlock set avoids that. This does not give a DLC or an account entitlement a set may need.', ok: 'Give' })) && act(async () => { const r = await api('/api/player/customizations/grant', { group: d.id }); toast(r.granted ? `Added ${r.granted} cosmetics to your backpack` + NOT_SAVED : 'All of that set is already in your inventory.'); }, null),
-  lcClear: () => { LC.sel = new Set(); claimEditorDraw(); },
+  lcClear: () => { LC.sel = new Set(); LC.rm = new Set(); claimEditorDraw(); },
+  lcRemove: async () => {
+    const c = LC.claim, cells = [...LC.rm].map(lcCoords).sort((p, q) => p[1] - q[1] || p[0] - q[0]).map(([x, y]) => ({ x, y }));
+    if (!(await ask({ title: 'Remove land claim cells?', body: `Remove ${cells.length} cell${cells.length === 1 ? '' : 's'} from the claim. A cell that holds a building piece or a placeable is never removed, and the claim must stay connected to the totem; the request is refused whole otherwise. It goes through the review pane and the usual backup; the game loads it next time.`, ok: 'Remove cells' }))) return;
+    act(async () => { const r = await api('/api/bases/claim/remove', { totem_id: c.totem_id, cells }); LC = null; toast(`Land claim: ${r.removed} cell${r.removed === 1 ? '' : 's'} removed, ${r.remaining} left` + NOT_SAVED); }, null);
+  },
   lcApply: async () => {
     const c = LC.claim, cells = [...LC.sel].map(lcCoords).sort((p, q) => p[1] - q[1] || p[0] - q[0]).map(([x, y]) => ({ x, y }));
     const body = { totem_id: c.totem_id, cells };
@@ -1067,7 +1088,7 @@ document.addEventListener('click', (e) => {
   const cg = e.target.closest('[data-ctg]');
   if (cg) { ctGroup = cg.dataset.ctg; catalogList(); return; }
   const lcc = e.target.closest('[data-cell]');
-  if (lcc && LC) { lcToggle(lcc.getAttribute('data-cell')); claimEditorDraw(); return; }
+  if (lcc && LC) { lcCellClick(lcc.getAttribute('data-cell')); claimEditorDraw(); return; }
   const cf = e.target.closest('[data-ctf]');
   if (cf) { ctFilter = cf.dataset.ctf; catalogList(); return; }
   const rc = e.target.closest('[data-rscat]');
