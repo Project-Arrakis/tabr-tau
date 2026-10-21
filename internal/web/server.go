@@ -623,7 +623,14 @@ func (s *Server) routes() {
 	// Saving is only reachable from the review: the request must quote the token of the state that was shown, and the
 	// save checks it under its own lock. The game-running check cannot be switched off from here.
 	s.post("/api/save/commit", func(a ops.Args) (any, error) { return s.Save.CommitReviewed(a.Str("reviewed"), false) })
-	s.post("/api/save/discard", func(ops.Args) (any, error) { return map[string]any{"ok": true}, s.Save.Discard() })
+	// ifClean is what the automatic refresh sends: it was decided from a status read that can be seconds old on a large save, so an edit made since must not be
+	// thrown away with it (the page then leaves the file as it is and the next status shows the banner).
+	s.post("/api/save/discard", func(a ops.Args) (any, error) {
+		if a.Bool("ifClean", false) && s.Save.Dirty() {
+			return map[string]any{"ok": true, "kept": true}, nil
+		}
+		return map[string]any{"ok": true}, s.Save.Discard()
+	})
 	// The game-running guard looks at this computer only. For a save on a share, a removable drive or outside the game's own folder it asks
 	// the person to say the game is closed everywhere; this is that answer, kept until the editor closes.
 	s.post("/api/save/confirm-location", func(ops.Args) (any, error) {
