@@ -13,7 +13,8 @@ import (
 // One cell is 10x10 foundations (5,120 uu; verified on the dedicated server). Expanding a claim adds cells and may
 // raise totems.landclaim_vertical_level; both tables are the same in single-player and on the server, and the Dune
 // Docker console edits them the same way. Cells are added by ExpandLandClaim (a square of rings) and ApplyLandClaim (chosen cells), which
-// share one write path, and removed by ShrinkLandClaim (everything outside a square of rings, never a cell that holds pieces). The game
+// share one write path, and removed by ShrinkLandClaim (everything outside a square of rings) and RemoveLandClaimCells (chosen cells), neither of which ever
+// removes a cell that holds pieces or placeables. The game
 // needs the claim connected edge to edge from the totem's own cell, so no edit may leave a cell cut off from it (see claimReach).
 const (
 	maxClaimRings    = 5 // a (2n+1) x (2n+1) square: 5 rings is 121 cells
@@ -404,6 +405,112 @@ func (o *Ops) ShrinkLandClaim(a Args) (any, error) {
 		return nil, err
 	}
 	return map[string]any{"ok": true, "removed": dropped, "remaining": remaining}, nil
+}
+
+// RemoveLandClaimCells removes the chosen cells (args cells, a list of {x, y}) from a claim. Every cell must be one of the claim's stored cells, never
+// the totem's own cell (0,0), which the claim cannot lose. A cell that holds a building piece or a placeable is never removed: the request is refused and
+// says how many pieces block it (a piece with no owner link counts for every claim, so it errs on the side of keeping the cell). The cells that stay must
+// still be connected edge to edge to the totem's own cell, as the game needs: a request that would cut one off from it is refused. All or nothing.
+func (o *Ops) RemoveLandClaimCells(a Args) (any, error) {
+	id, err := a.Int("totem_id")
+	if err != nil {
+		return nil, err
+	}
+	raw, _ := a["cells"].([]any)
+	if len(raw) == 0 {
+		return nil, errors.New("nothing to remove: choose cells")
+	}
+	if len(raw) > maxCellsPerEdit {
+		return nil, fmt.Errorf("at most %d cells in one edit", maxCellsPerEdit)
+	}
+	drop := map[claimCell]bool{}
+	var order []claimCell
+	for i, e := range raw {
+		m, ok := e.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("cell %d is not {x, y}", i+1)
+		}
+		x, errx := Args(m).IntRange("x", -maxClaimCoord, maxClaimCoord)
+		y, erry := Args(m).IntRange("y", -maxClaimCoord, maxClaimCoord)
+		if errx != nil || erry != nil {
+			return nil, fmt.Errorf("cell %d: x and y must be whole numbers from -%d to %d", i+1, maxClaimCoord, maxClaimCoord)
+		}
+		c := claimCell{x, y}
+		if c == (claimCell{0, 0}) {
+			return nil, errors.New("the totem's own cell cannot be removed")
+		}
+		if drop[c] {
+			return nil, fmt.Errorf("cell %d, %d is listed twice", x, y)
+		}
+		drop[c] = true
+		order = append(order, c)
+	}
+	if t, err := o.S.One(`select 1 x from totems where id=?`, id); err != nil || t == nil {
+		return nil, errors.New("land claim (totem) not found")
+	}
+	// Building pieces are never moved by an edit made here, so they are read once, outside the transaction; the cells are read, checked and deleted
+	// in one, so an Expand or Apply that lands in between cannot leave the checks looking at a stale claim.
+	pieces, err := o.pieceCells(id)
+	if err != nil {
+		return nil, err
+	}
+	var remaining int
+	_, err = o.S.Mutate("", func(m *save.Mut) error {
+		rows, err := m.Query(`select grid_location_x x, grid_location_y y from landclaim_segments where totem_id=?`, id)
+		if err != nil {
+			return err
+		}
+		have := claimCellSet(rows)
+		for _, c := range order {
+			if !have[c] {
+				return fmt.Errorf("cell %d, %d is not in the claim; nothing was removed", c[0], c[1])
+			}
+		}
+		blocked, blockers := 0, int64(0)
+		for _, c := range order {
+			if n := pieces[c]; n > 0 {
+				blocked++
+				blockers += n
+			}
+		}
+		if blocked > 0 {
+			return fmt.Errorf("%d of the cells to remove hold %d building pieces or placeables; nothing was removed", blocked, blockers)
+		}
+		left := map[claimCell]bool{}
+		for c := range have {
+			if !drop[c] {
+				left[c] = true
+			}
+		}
+		before, after := claimReach(have), claimReach(left)
+		var cut []claimCell
+		for c := range left {
+			if before[c] && !after[c] {
+				cut = append(cut, c)
+			}
+		}
+		if len(cut) > 0 {
+			sort.Slice(cut, func(i, j int) bool {
+				if cut[i][1] != cut[j][1] {
+					return cut[i][1] < cut[j][1]
+				}
+				return cut[i][0] < cut[j][0]
+			})
+			return fmt.Errorf("removing those cells would cut %d cells that stay (the first at %d, %d) off from the totem, and the game needs the claim connected edge to edge; nothing was removed", len(cut), cut[0][0], cut[0][1])
+		}
+		for _, c := range order {
+			if _, err := m.Exec(`delete from landclaim_segments where totem_id=? and grid_location_x=? and grid_location_y=?`, id, c[0], c[1]); err != nil {
+				return err
+			}
+		}
+		remaining = len(left)
+		m.Desc = fmt.Sprintf("remove %d cells from land claim %d", len(order), id)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"ok": true, "removed": len(order), "remaining": remaining}, nil
 }
 
 func totalPieces(pc map[claimCell]int64) int64 {

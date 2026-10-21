@@ -1520,3 +1520,34 @@ test('the single-player banner tells the player to close the game before editing
   assert.ok(!text.includes('You can keep editing'), 'the old advice is gone');
   ui.dom.window.close();
 });
+
+test('Land Claim Editor: mark existing cells for removal, never one with pieces, keep the claim connected, Remove posts the cells', async () => {
+  // the claim has cells (1,0) with 2 pieces in it, (2,0), (3,0) and (0,-1), all empty but the first
+  const claim = [{ totem_id: 7, name: 'Totem', cells: 5, rings: 0, level: 1, irregular: true, maxRings: 5, maxLevel: 5, yaw: 0, segments: [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }, { x: 0, y: -1 }],
+    grid: [{ x: 0, y: 0, in: true, n: 0 }, { x: 1, y: 0, in: true, n: 2 }, { x: 2, y: 0, in: true, n: 0 }, { x: 3, y: 0, in: true, n: 0 }, { x: 0, y: -1, in: true, n: 0 }] }];
+  const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/claim': claim }, post: { '/api/bases/claim/remove': { ok: true, removed: 2, remaining: 3 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:bases"]'); await ui.settle();
+  ui.click('[data-bstab="claim"]'); await ui.settle();
+  const cell = (k) => ui.doc.querySelector(`[data-cell="${k}"]`);
+  assert.equal(cell('0,0'), null, 'the totem cell cannot be marked');
+  assert.equal(cell('1,0'), null, 'a cell with pieces in it cannot be marked');
+  assert.ok(cell('2,0') && cell('3,0') && cell('0,-1'), 'empty existing cells can be marked');
+  assert.equal(ui.doc.querySelector('[data-act="lcRemove"]').disabled, true, 'nothing marked yet');
+  ui.click('[data-cell="2,0"]'); await ui.settle(); // (3,0) hangs from (2,0): marking only (2,0) would cut it off
+  assert.equal(ui.doc.querySelectorAll('rect.lc-r').length, 1);
+  assert.equal(ui.doc.querySelector('[data-act="lcRemove"]').disabled, true, 'cutting a cell that stays off from the totem is refused');
+  assert.ok(ui.doc.querySelector('#lced').textContent.includes('cut 1 cell'), 'and says why');
+  ui.click('[data-cell="3,0"]'); await ui.settle();
+  assert.equal(ui.doc.querySelectorAll('rect.lc-r').length, 2);
+  assert.equal(ui.doc.querySelector('[data-act="lcRemove"]').disabled, false, 'both marked: nothing is cut');
+  ui.click('[data-cell="2,0"]'); await ui.settle(); // unmark
+  assert.equal(ui.doc.querySelectorAll('rect.lc-r').length, 1);
+  ui.click('[data-cell="2,0"]'); await ui.settle();
+  ui.click('[data-act="lcRemove"]'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/claim/remove').length, 0, 'asks first');
+  ui.click('#aok'); await ui.settle();
+  const posted = ui.posted.filter((p) => p.path === '/api/bases/claim/remove');
+  assert.deepEqual(posted.map((p) => p.body), [{ totem_id: 7, cells: [{ x: 2, y: 0 }, { x: 3, y: 0 }] }], 'the marked cells, in row order');
+  ui.dom.window.close();
+});
