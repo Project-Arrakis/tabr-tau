@@ -143,7 +143,7 @@ const SOON = { blueprints: 'Blueprints' };
 let tab = Object.hasOwn(TABS, localStorage.tab) ? localStorage.tab : 'player';
 const sub = { player: ['bases', 'vehicles'].includes(localStorage.tab) ? localStorage.tab : 'character', char: 'overview', db: 'browse' };
 const GROUPS = ['player', 'char', 'bases', 'db'];
-let invG = null, invQ = ''; let giveQueue = []; let augItem = null; // augItem: the inventory item whose augments are open for editing // Character > Inventory: the chosen group (null: the first one with items) and the filter text
+let invG = null, invQ = ''; let giveQueue = loadQueue(); let augItem = null; // augItem: the inventory item whose augments are open for editing // Character > Inventory: the chosen group (null: the first one with items) and the filter text
 function drawNav() {
   setHTML($('#nav'), html`${Object.entries(TABS).map(([k, v]) => html`<button data-tab="${k}" class="${k == tab ? 'on' : ''}">${v}</button>`)}`);
 }
@@ -209,6 +209,30 @@ const fix = (n) => (n == null ? '' : Math.round(n).toLocaleString());
 const fmtBytes = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B');
 const fmtDate = (s) => { const d = new Date(s); return isNaN(d) ? String(s || '') : d.toLocaleString(); };
 
+// ---------- the Give queue survives a refresh
+// The items queued to be given are only in the page, so a reload (the window refreshing, a restart of the page) emptied them. They are kept in the browser's local
+// storage and read back through a check of every field, as nothing in storage is trusted.
+function loadQueue() {
+  try {
+    const a = JSON.parse(localStorage.getItem('giveQueue') || '[]');
+    if (!Array.isArray(a)) return [];
+    const out = [];
+    for (const e of a.slice(0, 200)) {
+      if (!e || typeof e !== 'object' || typeof e.template_id !== 'string' || !e.template_id || e.template_id.length > 120) continue;
+      const q = { template_id: e.template_id, quantity: Math.min(1e6, Math.max(1, Math.floor(Number(e.quantity)) || 1)), quality: Math.min(5, Math.max(0, Math.floor(Number(e.quality)) || 0)) };
+      if (Array.isArray(e.augments) && e.augments.length && e.augments.length <= 3 && e.augments.every((x) => typeof x === 'string' && x.length <= 120)) {
+        q.augments = e.augments.slice();
+        q.grade = Math.min(5, Math.max(0, Math.floor(Number(e.grade)) || 0));
+      }
+      out.push(q);
+    }
+    return out;
+  } catch (e) { return []; }
+}
+function keepQueue() {
+  try { if (giveQueue.length) localStorage.setItem('giveQueue', JSON.stringify(giveQueue)); else localStorage.removeItem('giveQueue'); } catch (e) { /* storage is off: the queue lives only as long as the page */ }
+}
+
 // ---------- status bar
 let saveBlocked = false, saveBlockWhy = '', offline = false;
 // The game rewrites game.db about every twenty seconds while a session runs. With nothing unsaved the editor reads the new file by itself and
@@ -225,7 +249,8 @@ async function autoRefresh(o) {
   autoAt = Date.now();
   try {
     const y = window.scrollY;
-    await api('/api/save/discard', {});
+    const r = await api('/api/save/discard', { ifClean: true });
+    if (r && r.kept) return; // an edit was made while the status was being read: nothing is thrown away
     await render();
     window.scrollTo(0, y);
   } catch (e) { /* the next poll shows the banner and tries again */ } finally { autoBusy = false; }
@@ -944,10 +969,10 @@ const A = {
   augEdit: (d) => act(async () => { const r = await api('/api/items/augment-options', { item_id: +d.id }); r.options.forEach((o) => AUG_NAMES.set(o.id, o.name)); augItem = { ...r, item_id: +d.id }; render(); }, null, false),
   augCancel: () => { augItem = null; render(); },
   augApply: (d) => act(async () => { const r = await api('/api/items/augment', { item_id: +d.id, augments: augPicked('au', augItem.limit), grade: +val('augG'), unlock_slots: $('#augU').checked }); augItem = null; toast(`Augments set (${r.augments})` + (r.slotsUnlocked ? `, ${r.slotsUnlocked} slot keystones unlocked` : '') + NOT_SAVED); }, null),
-  queueAdd: () => { let t; try { t = needItem('gt'); } catch (e) { return toast(e.message, 'err'); } const e = { template_id: t, quantity: Math.max(1, +val('gq') || 1), quality: +val('gg') }; const ids = augPicked('ga', 3); if (ids.length) { e.augments = ids; e.grade = +val('gag'); } giveQueue.push(e); render(); },
-  queueDel: (d) => { giveQueue.splice(+d.id, 1); render(); },
-  queueClear: () => { giveQueue = []; render(); },
-  queueGive: () => act(async () => { const r = await api('/api/player/give-items', { items: giveQueue }); giveQueue = []; toast(`Added ${r.count} items` + NOT_SAVED); }, null),
+  queueAdd: () => { let t; try { t = needItem('gt'); } catch (e) { return toast(e.message, 'err'); } const e = { template_id: t, quantity: Math.max(1, +val('gq') || 1), quality: +val('gg') }; const ids = augPicked('ga', 3); if (ids.length) { e.augments = ids; e.grade = +val('gag'); } giveQueue.push(e); keepQueue(); render(); },
+  queueDel: (d) => { giveQueue.splice(+d.id, 1); keepQueue(); render(); },
+  queueClear: () => { giveQueue = []; keepQueue(); render(); },
+  queueGive: () => act(async () => { const r = await api('/api/player/give-items', { items: giveQueue }); giveQueue = []; keepQueue(); toast(`Added ${r.count} items` + NOT_SAVED); }, null),
   give: () => act(async () => {
     const ids = augPicked('ga', 3);
     if (ids.length) await api('/api/player/give-items', { items: [{ template_id: needItem('gt'), quantity: +val('gq'), quality: +val('gg'), augments: ids, grade: +val('gag') }] });

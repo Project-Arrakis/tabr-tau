@@ -536,3 +536,27 @@ func TestRepairRouteReadsTheVehicleAndTheThreshold(t *testing.T) {
 		t.Fatal("refused requests must change nothing")
 	}
 }
+
+// The automatic refresh decides from a status read that can be seconds old, so it asks for the discard only if nothing is unsaved by the time the server gets it.
+func TestDiscardIfCleanKeepsAnEditMadeSinceTheStatusWasRead(t *testing.T) {
+	s := New(testsave.Player(t), config.Dir{Path: t.TempDir()})
+	h := map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token, "Content-Type": "application/json"}
+	testsave.Exec(t, s.Save, `update actors set location_x = location_x + 1 where id = 2`)
+	if !s.Save.Dirty() {
+		t.Fatal("the edit should leave the save dirty")
+	}
+	w := do(t, s, "POST", "http://127.0.0.1/api/save/discard", loop, h, []byte(`{"ifClean":true}`))
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"kept":true`) || !s.Save.Dirty() {
+		t.Fatalf("an unsaved edit must survive an ifClean discard: %d %s dirty=%v", w.Code, w.Body.String(), s.Save.Dirty())
+	}
+	// a plain discard (the Discard button, Reload now) still throws the edit away
+	w = do(t, s, "POST", "http://127.0.0.1/api/save/discard", loop, h, []byte(`{}`))
+	if w.Code != 200 || s.Save.Dirty() {
+		t.Fatalf("a plain discard drops the edits: %d dirty=%v", w.Code, s.Save.Dirty())
+	}
+	// and with nothing unsaved the ifClean discard reads the file again
+	w = do(t, s, "POST", "http://127.0.0.1/api/save/discard", loop, h, []byte(`{"ifClean":true}`))
+	if w.Code != 200 || strings.Contains(w.Body.String(), `"kept"`) {
+		t.Fatalf("a clean save is reloaded: %d %s", w.Code, w.Body.String())
+	}
+}
