@@ -85,7 +85,7 @@ Start from the state after B3.
 
 | Label | Do |
 |---|---|
-| `C1-tabr-give` | With the game closed, use tabr-tau **Give item** with the `template_id` found in B1, quantity 1. Press Review & save, then Save to game. Snapshot. |
+| `C1-tabr-give` | With the game closed, use tabr-tau **Give item** with the `template_id` found in B1, quantity 1. The edit is written as it is made (the game closed). Snapshot. |
 | `C2-game-loads` | Launch, load. Screenshot inventory. Quit. Snapshot. |
 
 ## Phase D: other write paths
@@ -117,7 +117,7 @@ Reference set (template ids, worn container, positions 0-4 armor, 6-9 utility):
 | Label | Do | Answers |
 |---|---|---|
 | `E0-ingame-worn` | In game, wear any one armor piece the character can obtain. Quit. Snapshot. Record the `inventory_type`, `position_index`, `quality_level` and `stats` key set of its row. | the game's own row for worn gear (reference for T7/T8) |
-| `E1-tabr-give-backpack` | Game closed. tabr-tau **Give item** `Combat_Heavy_Unique_Reinforced_Helmet_06` x1 to the backpack. Save to game. Snapshot. | T7 |
+| `E1-tabr-give-backpack` | Game closed. tabr-tau **Give item** `Combat_Heavy_Unique_Reinforced_Helmet_06` x1 to the backpack. It is written as it is made. Snapshot. | T7 |
 | `E2-game-loads-backpack` | Launch, load. Screenshot inventory, equip the helmet in game, quit. Snapshot. | T7 |
 | `E3-tabr-give-worn` | Game closed. Insert the same item directly into the worn container (type 1) at a free armor position (manual `insert` on a copy for the first run). Snapshot. | T8 |
 | `E4-game-loads-worn` | Launch, load. Screenshot the equipment screen, quit. Snapshot. | T8 |
