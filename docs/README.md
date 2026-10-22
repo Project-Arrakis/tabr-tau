@@ -18,6 +18,7 @@ of the repository. Nothing in `docs/` contains account or platform IDs.
 | [`audit/2026-09-30-L1-findings-register.md`](audit/2026-09-30-L1-findings-register.md) | Layer 1 (design) eight-hat audit: 22 merged findings, STRIDE table |
 | [`audit/2026-10-07-L2-findings-register.md`](audit/2026-10-07-L2-findings-register.md) | Layer 2 audit of the write pipeline (S0, S1 slices 1-2) |
 | [`audit/2026-10-15-L2-findings-register.md`](audit/2026-10-15-L2-findings-register.md) | Layer 2 audit of everything built since: 93 findings in 25 issue groups, STRIDE report; its dispositions are updated as they are fixed |
+| [`audit/2026-10-22-L2-findings-register.md`](audit/2026-10-22-L2-findings-register.md) | Layer 2 re-audit after write-as-you-go: 14 issue groups, STRIDE per finding, issues #251-#264 |
 | [`single-player-files.md`](single-player-files.md) | Every file the single-player game keeps, its format and contents, and whether it is safe to edit |
 | [`live-test-protocol.md`](live-test-protocol.md) | The pre-registered live experiments and their recorded results |
 | [`continuation-prompt.md`](continuation-prompt.md) | Paste into a new session to resume: state, verified facts, what to do next, and what not to do |
