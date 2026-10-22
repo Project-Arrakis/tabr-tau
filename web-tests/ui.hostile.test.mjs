@@ -30,7 +30,7 @@ const read = (n) => fs.readFileSync(path.join(static_, n), 'utf8');
 // Allowlists: anything else appearing in the rendered DOM is an injection.
 const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h3 ul li code table thead tbody tr th td input select option datalist button details summary textarea br label canvas svg g rect text path'.split(' '));
 const SCRIPTS = new Set(['/html.js', '/livemap.js', '/app.js']); // the only scripts the page may contain, both same-origin files
-const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live tabindex label checked viewbox x y rx transform d'.split(' '));
+const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live tabindex label checked open viewbox x y rx transform d'.split(' '));
 
 export function assertClean(doc, label) {
   const bad = [];
@@ -1493,5 +1493,68 @@ test('edits put back after a restart are announced as data, with a button to dis
   ui.click('[data-act="dismissRestored"]');
   await ui.settle();
   assert.ok(ui.posted.some((p) => p.path === '/api/save/restored/dismiss'), 'the OK button tells the server to forget the notice');
+  ui.dom.window.close();
+});
+
+// ---------- one banner, a plain reason, and the queue listed (UX-30, UX-31)
+test('one banner gives one plain sentence for a failed game check, and the raw tool text sits under Details', async () => {
+  const raw = 'exit status 1: ERROR: Call cancelled';
+  const ui = await boot({ get: { '/api/save/state': queuedState({ gameRunning: false, gameCheckError: raw, saveBlocked: true, blockReason: `could not check whether the game is running (${raw})`, gameMode: 'unknown',
+    lastWrite: { saved: false, queued: 2, why: `could not check whether the game is running (${raw})` } }) } });
+  const gw = ui.doc.querySelector('#gamewarn');
+  const text = gw.textContent;
+  assert.equal(text.split('Could not tell whether').length - 1, 1, 'the reason is said once: ' + text);
+  assert.equal(text.split(raw).length - 1, 1, 'the tool text appears once');
+  const det = [...gw.querySelectorAll('details')].find((d) => d.textContent.includes(raw));
+  assert.ok(det, 'the tool text is inside a Details toggle');
+  assert.ok(!gw.cloneNode(true).textContent.replace(det.textContent, '').includes('exit status'), 'and nowhere else');
+  assert.ok(/Details/.test(det.querySelector('summary').textContent));
+  assert.equal(gw.querySelectorAll('[data-act="writeNow"]').length, 1, 'one Write now');
+  ui.dom.window.close();
+});
+
+test('the banner lists what is queued in sentence case, as plain text, and the list is collapsible', async () => {
+  const ui = await boot({ get: { '/api/save/state': queuedState({ ...sessionBlock, pending: ['solari +10000', 'xp +1,000'.replace(',', ''), 'Reputation with House Testing: 0 → 500', `refill base water: 3 filled ${ATK}`] }) } });
+  const gw = ui.doc.querySelector('#gamewarn');
+  const items = [...gw.querySelectorAll('details.bn-list li')].map((li) => li.textContent);
+  assert.equal(items.length, 4, items.join(' | '));
+  assert.equal(items[0], 'Add 10,000 Solari to the backpack');
+  assert.equal(items[1], 'Add 1000 XP');
+  assert.equal(items[2], 'Reputation with House Testing: 0 → 500');
+  assert.ok(items[3].startsWith('Refill base water'), 'the first letter is a capital: ' + items[3]);
+  assert.equal(gw.querySelector('details.bn-list img'), null, 'a queued description is data, not markup');
+  assert.equal(ui.doc.querySelector('#pending').title.split('\n')[0], 'Add 10,000 Solari to the backpack', 'the chip tooltip uses the same wording');
+  assertClean(ui.doc, 'queue list');
+  ui.dom.window.close();
+});
+
+test('the Discard question lists the queued changes it would drop', async () => {
+  const ui = await boot({ get: { '/api/save/state': queuedState({ ...sessionBlock, pending: ['solari +10000', 'Give 5 x Iron Bar (grade 0)'] }) }, post: { '/api/save/discard': { ok: true } } });
+  ui.click('#btnDiscard'); await ui.settle();
+  const ask = ui.doc.querySelector('#ask');
+  assert.ok(ask.textContent.includes('Discard the queued changes'));
+  assert.deepEqual([...ask.querySelectorAll('ul.qlist li')].map((li) => li.textContent), ['Add 10,000 Solari to the backpack', 'Give 5 x Iron Bar (grade 0)']);
+  assert.ok(ask.textContent.includes('2 changes'), 'the question says how many');
+  assert.equal(ui.posted.filter((p) => p.path === '/api/save/discard').length, 0);
+  ui.dom.window.close();
+});
+
+test('the banner is not redrawn when nothing in it changed, so a focused button keeps its focus and an open list stays open', async () => {
+  const ui = await boot({ get: { '/api/save/state': queuedState(sessionBlock) } });
+  const btn = ui.doc.querySelector('#gamewarn [data-act="writeNow"]');
+  btn.focus();
+  const sum = ui.doc.querySelector('#gamewarn details.bn-list summary');
+  sum.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true }));
+  await ui.w.status();
+  assert.ok(ui.doc.querySelector('#gamewarn [data-act="writeNow"]') === btn, 'the same button element');
+  assert.ok(ui.doc.activeElement === btn || ui.doc.activeElement === sum, 'focus is kept');
+  // a change in the state does redraw it, and the list the person opened is still open
+  const next = queuedState({ ...sessionBlock, pending: ['one', 'two', 'three'] });
+  const f = ui.w.fetch;
+  ui.w.fetch = (p, o) => (String(p).includes('/api/save/state') ? Promise.resolve({ ok: true, status: 200, json: async () => next }) : f(p, o));
+  await ui.w.status();
+  assert.ok(ui.doc.querySelector('#gamewarn [data-act="writeNow"]') !== btn, 'the banner was redrawn for the new state');
+  assert.equal(ui.doc.querySelector('#gamewarn details.bn-list').open, true, 'the open state of the list is remembered');
+  assert.equal(ui.doc.querySelectorAll('#gamewarn details.bn-list li').length, 3);
   ui.dom.window.close();
 });

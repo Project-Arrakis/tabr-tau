@@ -236,6 +236,37 @@ function keepQueue() {
 
 // ---------- status bar
 let saveBlocked = false, saveBlockWhy = '', offline = false;
+let gwKey = '', lastPending = []; // the banner as last drawn, and the queued changes in words
+const KEEP = { qlist: false, raw: false }; // which of the banner's toggles are open: kept across redraws
+// The reasons the editor gives for not writing, as a sentence. The wording the tools and checks use stays available under Details.
+const capFirst = (s) => String(s || '').replace(/^\s*(.)/, (m, c) => c.toUpperCase());
+const endSentence = (s) => (/[.!?]$/.test(s) ? s : s + '.');
+function humanReason(raw) {
+  const r = String(raw || '').trim();
+  const L = r.toLowerCase();
+  const map = (text) => ({ text, raw: r });
+  if (L.startsWith('could not check whether the game is running')) return map('Could not tell whether Dune: Awakening is running.');
+  if (L.includes('cannot tell whether a single-player session is active')) return map('Dune: Awakening is running and the editor cannot tell whether it is in single-player.');
+  if (L.includes('single-player session is active')) return map('A single-player session is running, and the game rewrites the save while it runs.');
+  if (L.includes('single-player session just ended')) return map('The single-player session has just ended; the game is still finishing its write of the save.');
+  if (L.includes('cannot tell whether the game is using it')) return map('This save is on a network share or a removable drive, so the editor cannot tell whether the game is using it.');
+  if (L.includes('the game saved while the edits were being written')) return map('The game saved while the changes were being written; they are put back onto its file next.');
+  return { text: endSentence(capFirst(r)), raw: '' };
+}
+// A queued change in the words of the page. Most descriptions already read well (they come from the editor); the short internal ones are spelled out.
+function queueLine(desc) {
+  const d = String(desc || '');
+  let m;
+  const num = (v) => Number(v).toLocaleString();
+  if ((m = d.match(/^solari ([+-]\d+)$/))) return +m[1] >= 0 ? `Add ${num(m[1])} Solari to the backpack` : `Remove ${num(-m[1])} Solari from the backpack`;
+  if ((m = d.match(/^xp \+(\d+)$/))) return `Add ${m[1]} XP`;
+  if ((m = d.match(/^intel \+(\d+)$/))) return `Add ${m[1]} Intel`;
+  if ((m = d.match(/^unspent skill points = (\d+)$/))) return `Set the unspent skill points to ${m[1]}`;
+  if ((m = d.match(/^decree (\d+) disabled=([01])$/))) return `${m[2] === '1' ? 'Disable' : 'Enable'} decree ${m[1]}`;
+  if ((m = d.match(/^journey (\S+) (completed|reset) \((\d+) rows?\)$/))) return `Journey step ${m[1]}: ${m[2]}`;
+  if ((m = d.match(/^moved vehicle (\d+) next to player$/))) return `Move vehicle ${m[1]} next to the character`;
+  return capFirst(d);
+}
 // The game rewrites game.db about every twenty seconds while a session runs. With nothing queued the editor reads the new file by itself and
 // redraws the page where it was, so what is on screen is what the game has (a building placed in the game shows up here without a click). It
 // waits while a question is open or a field is being typed in, and never touches queued edits (they are put back onto the new file when they are written). The checkbox in the header turns it off.
@@ -273,20 +304,34 @@ async function status() {
   const restored = o.restored && (o.restored.applied > 0 || (o.restored.conflicts || []).length > 0) ? o.restored : null;
   gw.className = saveBlocked || q || changed || restored ? 'warn' : note ? 'info' : 'hide';
   const changedMsg = changed ? html`<div><b>The game saved since this editor opened.</b> What you see here is out of date. <button class="b sm" data-act="reload">Reload now</button></div>` : html``;
+  // One banner for the whole state. The reason is said once, as a sentence; the tool's own text, when the sentence replaces it, sits under Details.
   // An edit is written as it is made. While the file cannot be written (a single-player session is running, the location is not confirmed) edits are queued, and the queue is
   // written by itself the moment the file can be.
+  const reason = why ? humanReason(why) : { text: '', raw: '' };
+  const n = (one, many) => (q === 1 ? one : many);
   // a queue the editor could not put back onto the game's newer file: none of it was written
   const heldMsg = o.held ? html`<div><b>${q} queued change${q > 1 ? 's were' : ' was'} not written.</b> The game saved changes that conflict with ${q > 1 ? 'them' : 'it'}, so the editor left the game's file as it is.
     ${(o.held.conflicts || []).map((c) => html`<div>${c.desc}: ${c.why}</div>`)} <button class="b sm" data-act="discardQueue">Discard queue</button></div>` : html``;
-  const queuedMsg = q && !o.held ? html`<div><b>${q} change${q > 1 ? 's are' : ' is'} queued.</b> ${why ? html`${why}.` : ''} ${o.locationUnconfirmed ? '' : 'They are written to the game file by themselves as soon as it can be written.'} <button class="b sm" data-act="writeNow">Write now</button></div>` : html``;
-  const blockedMsg = o.locationUnconfirmed ? html`<div><b>Changes cannot be written here yet.</b> ${saveBlockWhy}. You can keep editing: changes wait in the queue. <button class="b sm" data-act="confirmLocation">Allow writing here</button></div>` : o.gameCheckError && saveBlocked ? html`<div><b>Changes cannot be written.</b> ${saveBlockWhy}. If this keeps happening, report this text.</div>` : saveBlocked && !q ? html`<div><b>The game is in a single-player session.</b> It rewrites the save while it runs, so changes you make now are queued and written when you go to its menu or close it.</div>` : note ? html`<div>Dune: Awakening is open (${(o.gameProcesses || []).join(', ')}) but not in single-player, so changes are written at once.</div>` : html``;
+  let mainMsg = html``;
+  if (o.locationUnconfirmed) mainMsg = html`<div><b>Changes cannot be written here yet.</b> ${reason.text} You can keep editing: changes wait in the queue. <button class="b sm" data-act="confirmLocation">Allow writing here</button></div>`;
+  else if (o.gameCheckError && saveBlocked) mainMsg = html`<div><b>Changes cannot be written.</b> ${reason.text}${q ? html` ${q} ${n('change waits', 'changes wait')} in the queue and ${n('is written by itself', 'are written by themselves')} once the check works.` : ''} <button class="b sm" data-act="writeNow">Write now</button></div>`;
+  else if (q && !o.held) mainMsg = html`<div><b>${q} change${n(' is', 's are')} queued.</b> ${reason.text} ${n('It is written to the game file by itself', 'They are written to the game file by themselves')} as soon as it can be written. <button class="b sm" data-act="writeNow">Write now</button></div>`;
+  else if (saveBlocked && !q) mainMsg = html`<div><b>The game is in a single-player session.</b> It rewrites the save while it runs, so changes you make now are queued and written when you go to its menu or close it.</div>`;
+  else if (note) mainMsg = html`<div>Dune: Awakening is open (${(o.gameProcesses || []).join(', ')}) but not in single-player, so changes are written at once.</div>`;
   // what became of the edits an earlier run (or a reload) put back, and the plain fact when they are not being kept
   const restoredMsg = restored ? html`<div><b>${restored.applied} change${restored.applied === 1 ? ' was' : 's were'} put back${restored.rebased ? ' onto the newer file the game saved' : ''}.</b> They are written like any other change.
     ${(restored.conflicts || []).map((c) => html`<div>Could not put back: ${c.desc} (${c.why}). Make it again.</div>`)} <button class="b sm" data-act="dismissRestored">OK</button></div>` : html``;
   const journalMsg = o.journalOff && o.dirty ? html`<div class="mut">These queued changes are not kept if the editor is closed: ${o.journalOff}.</div>` : html``;
-  setHTML(gw, html`${changedMsg}${heldMsg}${queuedMsg}${restoredMsg}${journalMsg}${blockedMsg}`);
+  const lines = o.pending.map(queueLine);
+  const listMsg = q ? html`<details class="bn-list" ${KEEP.qlist ? 'open' : ''}><summary data-keep="qlist">What is queued (${q})</summary><ul>${lines.map((l) => html`<li>${l}</li>`)}</ul></details>` : html``;
+  const rawMsg = reason.raw ? html`<details class="bn-raw" ${KEEP.raw ? 'open' : ''}><summary data-keep="raw">Details (include this if you report a problem)</summary><div class="mono">${reason.raw}</div></details>` : html``;
+  lastPending = lines;
+  const banner = html`${changedMsg}${heldMsg}${mainMsg}${restoredMsg}${journalMsg}${listMsg}${rawMsg}`;
+  // redrawn only when it changed: a redraw every few seconds would take the keyboard focus off its buttons
+  const key = String(banner).replace(/ ?open>/g, '>').replace(/ >/g, '>'); // a toggle the person opened is already open in the page: that alone is no reason to redraw
+  if (key !== gwKey) { gwKey = key; setHTML(gw, banner); }
   $('#pending').textContent = q ? `${q} queued` : '';
-  $('#pending').title = o.pending.join('\n');
+  $('#pending').title = lines.join('\n');
   $('#btnDiscard').hidden = !o.dirty;
   const ro = $('#rowarn');
   // A queue that is not kept on disk (the journal is off) is lost when the browser tab closes: ask first (the native window asks through its own close handler).
@@ -301,15 +346,15 @@ async function status() {
 // or far-reaching action asks first with its consequence in words. The far-reaching ones (bulk changes, raw SQL
 // writes, restoring a backup over the save) also make the person type a word, so a stray click cannot start them.
 let askState = null, askFrom = null;
-function ask({ title, body, pre = '', ok = 'Confirm', typed = '', danger = false }) {
-  return new Promise((resolve) => { if (askState) askState.resolve(false); askFrom = askFrom || document.activeElement; askState = { title, body, pre, ok, typed, danger, resolve }; drawAsk(); });
+function ask({ title, body, pre = '', list = [], ok = 'Confirm', typed = '', danger = false }) {
+  return new Promise((resolve) => { if (askState) askState.resolve(false); askFrom = askFrom || document.activeElement; askState = { title, body, pre, list, ok, typed, danger, resolve }; drawAsk(); });
 }
 function drawAsk() {
   const el = $('#ask');
   if (!askState) { el.className = 'hide'; setHTML(el, html``); return; }
   const a = askState;
   el.className = 'modal top';
-  setHTML(el, html`<div class="mbox small" role="dialog" aria-modal="true"><h3 class="big" id="atitle" tabindex="-1">${a.title}</h3><p>${a.body}</p>${a.pre ? html`<pre class="sqlpre">${a.pre}</pre>` : ''}
+  setHTML(el, html`<div class="mbox small" role="dialog" aria-modal="true"><h3 class="big" id="atitle" tabindex="-1">${a.title}</h3><p>${a.body}</p>${a.list.length ? html`<ul class="qlist">${a.list.map((l) => html`<li>${l}</li>`)}</ul>` : ''}${a.pre ? html`<pre class="sqlpre">${a.pre}</pre>` : ''}
     ${a.typed ? html`<p class="mut">Type <b>${a.typed}</b> to continue.</p><input id="atype" spellcheck="false" size="20">` : ''}
     <div class="row mt12"><button class="b ${a.danger ? 'bad' : ''}" id="aok" data-act="askOk" ${a.typed ? 'disabled' : ''}>${a.ok}</button><button class="b sec" data-act="askNo">Cancel</button></div></div>`);
   (a.typed ? $('#atype') : $('#atitle')).focus();
@@ -324,7 +369,7 @@ function endAsk(v) {
 document.addEventListener('input', (e) => { if (askState && e.target.id === 'atype') $('#aok').disabled = e.target.value.trim().toLowerCase() !== askState.typed.toLowerCase(); });
 
 // ---------- the queue: an edit is written to the game's file as it is made; while the file cannot be written (the game is in a single-player session) edits wait here
-$('#btnDiscard').onclick = async () => { if (await ask({ title: 'Discard the queued changes?', body: 'The changes that are waiting for the game to close are dropped. The game file is not touched.', ok: 'Discard', danger: true })) act(() => api('/api/save/discard', {}), 'Discarded', true, true); };
+$('#btnDiscard').onclick = async () => { if (await ask({ title: 'Discard the queued changes?', body: `These ${lastPending.length} ${lastPending.length === 1 ? 'change is' : 'changes are'} waiting for the game to close and would be dropped. The game file is not touched.`, list: lastPending, ok: 'Discard', danger: true })) act(() => api('/api/save/discard', {}), 'Discarded', true, true); };
 
 // ---------- PLAYER
 let P = null;
@@ -1058,6 +1103,8 @@ const A = {
   restore: async (d) => (await ask({ title: 'Restore this backup over the save?', body: 'Replace game.db with ' + d.n + '. The current file is backed up first. Close the game first.', ok: 'Restore', typed: 'restore', danger: true })) && act(() => api('/api/save/restore', { name: d.n }), 'Restored'),
 };
 document.addEventListener('click', (e) => {
+  const keep = e.target.closest('summary[data-keep]');
+  if (keep && Object.hasOwn(KEEP, keep.dataset.keep)) KEEP[keep.dataset.keep] = !keep.parentElement.open; // the toggle is about to flip
   const hth = e.target.closest('thead th');
   if (hth && !e.target.closest('button, a, input, select') && headerClick(hth)) return;
   const t = e.target.closest('[data-tab]');
@@ -1136,6 +1183,7 @@ setInterval(async () => {
     offline = true;
     const gw = $('#gamewarn');
     gw.className = 'warn';
+    gwKey = '';
     setHTML(gw, html`<b>Lost contact with the editor.</b> Changes are not written until it answers again. If you closed the editor, nothing more will be written.`);
   }
 }, 5000);
