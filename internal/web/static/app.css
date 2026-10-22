@@ -208,3 +208,9 @@ button.b.sm{padding:3px 10px}
 .mbox{border-radius:12px;box-shadow:var(--sh)}
 span.warn,td .warn{border-left:0;background:color-mix(in srgb,var(--warn) 22%,var(--panel))}
 header .mark path{fill:currentColor}
+#gamewarn{max-height:45vh;overflow:auto}
+#gamewarn details{margin-top:6px}
+#gamewarn details summary{color:var(--fg);font-size:12px;font-weight:600}
+#gamewarn ul,.mbox ul.qlist{margin:6px 0 0;padding-left:20px}
+#gamewarn .bn-raw .mono{overflow-wrap:anywhere;margin-top:4px}
+.mbox ul.qlist{max-height:30vh;overflow:auto;margin:8px 0}
