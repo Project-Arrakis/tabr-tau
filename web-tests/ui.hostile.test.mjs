@@ -372,9 +372,10 @@ test('a save error stays in the review with a way forward; a changed-on-disk sav
   assert.equal(ui.doc.querySelector('#btnDoSave').disabled, true, 'saving is blocked until the file is reloaded');
   ui.click('[data-act="reload"]'); await ui.settle();
   assert.ok(!ui.doc.querySelector('#ask').classList.contains('hide'), 'reloading asks first');
-  assert.ok(!ui.posted.some((p) => p.path === '/api/save/discard'), 'nothing is discarded before the answer');
+  assert.ok(!ui.posted.some((p) => p.path === '/api/save/rebase' || p.path === '/api/save/discard'), 'nothing is reloaded before the answer');
   ui.click('[data-act="askOk"]'); await ui.settle();
-  assert.ok(ui.posted.some((p) => p.path === '/api/save/discard'));
+  assert.ok(ui.posted.some((p) => p.path === '/api/save/rebase'), 'Reload reads the file again and puts the edits back (rebase), it does not discard them');
+  assert.ok(!ui.posted.some((p) => p.path === '/api/save/discard'));
   assert.ok(ui.doc.querySelector('#modal').classList.contains('hide'));
   ui.dom.window.close();
 });
@@ -1549,5 +1550,20 @@ test('Land Claim Editor: mark existing cells for removal, never one with pieces,
   ui.click('#aok'); await ui.settle();
   const posted = ui.posted.filter((p) => p.path === '/api/bases/claim/remove');
   assert.deepEqual(posted.map((p) => p.body), [{ totem_id: 7, cells: [{ x: 2, y: 0 }, { x: 3, y: 0 }] }], 'the marked cells, in row order');
+  ui.dom.window.close();
+});
+
+test('edits put back after a restart are announced as data, with a button to dismiss the notice', async () => {
+  const state = { ...baseFixtures['/api/save/state'].body, dirty: true, pending: ['Give 5 x Iron Bar'],
+    restored: { applied: 1, rebased: true, conflicts: [{ desc: ATTACK, why: `it changed 0 rows now and 1 before ${ATTACK}` }] }, journalOff: ATTACK };
+  const ui = await boot({ get: { '/api/save/state': state } });
+  const gw = ui.doc.querySelector('#gamewarn');
+  assert.ok(gw.textContent.includes('1 unsaved change was put back onto the newer file the game saved'), gw.textContent);
+  assert.ok(gw.textContent.includes('Could not put back'), gw.textContent);
+  assert.ok(gw.textContent.includes(SEEN), 'the attack text from the conflict is shown as plain text');
+  assertClean(ui.doc, 'restored notice');
+  ui.click('[data-act="dismissRestored"]');
+  await ui.settle();
+  assert.ok(ui.posted.some((p) => p.path === '/api/save/restored/dismiss'), 'the OK button tells the server to forget the notice');
   ui.dom.window.close();
 });

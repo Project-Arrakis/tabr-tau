@@ -136,6 +136,7 @@ func (o *Ops) State() (any, error) {
 		"gameRunning": len(g.Processes) > 0, "gameProcesses": g.Processes, "gameCheckError": g.CheckError,
 		"saveBlocked": g.Blocked, "blockReason": g.Reason, "gameMode": g.Mode,
 		"readOnly": o.S.WriteBlocked(), "changedOnDisk": o.S.ChangedOnDisk(), "locationUnconfirmed": g.NeedsConfirm,
+		"restored": o.S.Restored(), "journalOff": o.S.JournalOff(),
 	}, nil
 }
 

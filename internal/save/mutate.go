@@ -146,13 +146,26 @@ type Mut struct {
 	tx *sql.Tx
 	// Desc is the human-readable description recorded for the edit when it changed something. Mutate sets it from
 	// its desc argument; the function may replace it once it knows the outcome (for example a row count).
-	Desc string
+	Desc  string
+	stmts []stmtRec // what the edit ran, for the journal of pending edits
+	lossy bool      // an argument could not be kept
 }
 
 // Exec runs one statement (or, with no arguments, a script of several) inside the edit's transaction.
 func (m *Mut) Exec(q string, args ...any) (sql.Result, error) {
 	res, err := m.tx.Exec(q, args...)
 	noteSQLError(q, err)
+	if err == nil {
+		rec := stmtRec{Q: q}
+		for _, a := range args {
+			j, ok := encodeArg(a)
+			if !ok {
+				m.lossy = true
+			}
+			rec.A = append(rec.A, j)
+		}
+		m.stmts = append(m.stmts, rec)
+	}
 	return res, err
 }
 
@@ -259,7 +272,15 @@ func (s *Save) mutate(desc string, cascade bool, fn func(m *Mut) error) (int64, 
 	if n > 0 {
 		s.dirty = true
 		if m.Desc != "" {
-			s.ops = append(s.ops, Op{Desc: m.Desc, Rows: n, At: time.Now()})
+			now := time.Now()
+			s.ops = append(s.ops, Op{Desc: m.Desc, Rows: n, At: now})
+			if m.lossy {
+				s.stopJournal("an edit used a value the journal cannot keep (" + m.Desc + ")")
+			} else {
+				s.recordOp(opRec{Desc: m.Desc, Rows: n, At: now, Cascade: cascade, Stmts: m.stmts})
+			}
+		} else if s.journalPath != "" {
+			s.stopJournal("an edit changed rows without a description")
 		}
 	}
 	return n, nil
