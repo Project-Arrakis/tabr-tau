@@ -311,3 +311,54 @@ insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,a
 		t.Fatal("an id that is neither in the catalog nor in the save must be refused")
 	}
 }
+
+// A slot holds no more than the item's stack size (the game's tables: Spice-infused Fuel Cell 500). Giving 1,200 makes three stacks; a stack already there is filled first.
+func TestGiveHonorsTheStackSize(t *testing.T) {
+	o := newOps(t) // backpack of 3 slots, 2 used
+	if _, err := o.S.Mutate("seed", func(m *save.Mut) error {
+		_, err := m.Exec(`update inventories set max_item_count=10 where id=1`)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.GiveItem(Args{"template_id": "SpicedFuelCell", "quantity": 120.0}); err != nil {
+		t.Fatal(err)
+	}
+	r, err := o.GiveItem(Args{"template_id": "SpicedFuelCell", "quantity": 1200.0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, _ := o.S.Query(`select stack_size from items where template_id='SpicedFuelCell' order by stack_size`)
+	var sizes []int64
+	for _, row := range rows {
+		sizes = append(sizes, row["stack_size"].(int64))
+	}
+	if fmt.Sprint(sizes) != "[320 500 500]" { // 120 + 1200 = 1320: the first stack was topped up to 500, then two more
+		t.Fatalf("stacks %v", sizes)
+	}
+	if r.(map[string]any)["stacks"].(int) != 2 {
+		t.Fatalf("two new stacks: %v", r)
+	}
+	// one that does not fit the slots left is refused whole
+	if _, err := o.GiveItem(Args{"template_id": "SpicedFuelCell", "quantity": 4000.0}); err == nil {
+		t.Fatal("8 stacks do not fit 5 free slots")
+	}
+	if n, _ := o.S.One(`select sum(stack_size) s from items where template_id='SpicedFuelCell'`); n["s"].(int64) != 1320 {
+		t.Fatalf("a refused give leaves nothing behind: %v", n)
+	}
+}
+
+func TestAStackEditCannotPassTheStackSize(t *testing.T) {
+	o := newOps(t)
+	r, err := o.GiveItem(Args{"template_id": "SpicedFuelCell", "quantity": 5.0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := float64(r.(map[string]any)["itemId"].(int64))
+	if _, err := o.SetItem(Args{"id": id, "stack_size": 5000.0}); err == nil || !strings.Contains(err.Error(), "stacks to 500") {
+		t.Fatalf("a stack of 5,000 must be refused: %v", err)
+	}
+	if _, err := o.SetItem(Args{"id": id, "stack_size": 500.0}); err != nil {
+		t.Fatal(err)
+	}
+}

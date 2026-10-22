@@ -11,15 +11,13 @@
   <svg class="mark" viewBox="0 0 24 24" role="presentation"><path d="M16.5 4.8a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 1 0 0-6.4zM1.5 18.5c3.6-5.4 7.4-5.6 10.4-2.4 2.4 2.5 5.8 2.7 10.6-1.6v7H1.5z"/></svg>
   <h1>Tabr Tau</h1><span class="path" id="path"></span>
   <span id="pending" class="mut"></span>
-  <label class="mut" title="When the game saves and you have no unsaved changes, reload the file and redraw this page"><input type="checkbox" id="autorefresh" checked> Auto-refresh</label>
-  <button class="b" id="btnSave" disabled>Review &amp; save</button>
-  <button class="b sec" id="btnDiscard" disabled>Discard</button>
+  <label class="mut" title="When the game saves and no changes are queued, reload the file and redraw this page"><input type="checkbox" id="autorefresh" checked> Auto-refresh</label>
+  <button class="b sec" id="btnDiscard" hidden title="Drop the changes that are waiting for the game to close">Discard queue</button>
 </header>
 <div id="gamewarn" class="hide"></div>
 <div id="rowarn" class="hide"></div>
 <nav id="nav"></nav>
 <main id="main"></main>
-<div id="modal" class="hide"></div>
 <div id="ask" class="hide"></div>
 <div id="toast" aria-live="polite"></div>
 <script src="/html.js"></script>

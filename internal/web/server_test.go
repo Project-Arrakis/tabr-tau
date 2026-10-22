@@ -390,7 +390,7 @@ func TestSettingsEndpointsAndOpenTimeRefill(t *testing.T) {
 	}
 }
 
-// If the write is refused (here: the file changed on disk after it was loaded), the edits stay pending and the note says so.
+// If the write is refused (here: the file changed on disk after it was loaded and the edits cannot be put back), the edits stay queued and the note says so.
 func TestOpenTimeRefillThatCannotSaveLeavesTheEditsPending(t *testing.T) {
 	s := New(testsave.PlayerWithSQL(t, cisternSQL), config.Dir{Path: t.TempDir()})
 	s.SettingsPath = filepath.Join(t.TempDir(), "settings.json")
@@ -405,7 +405,7 @@ func TestOpenTimeRefillThatCannotSaveLeavesTheEditsPending(t *testing.T) {
 	f.Close()
 	s.RunStartupTasks()
 	note, warn := s.takeStartup()
-	if !strings.Contains(note, "could not save it") || !strings.Contains(note, "waiting under Review & save") || !warn || len(s.Save.Pending()) != 1 {
+	if !strings.Contains(note, "could not save it yet") || !strings.Contains(note, "It is queued") || !warn || len(s.Save.Pending()) != 1 {
 		t.Fatalf("note %q, warn %v, pending %d", note, warn, len(s.Save.Pending()))
 	}
 }
@@ -468,7 +468,7 @@ func TestOpenTimeRefillLeavesSomeoneElsesPendingEditsAlone(t *testing.T) {
 	if err := settings.Save(s.SettingsPath, settings.Settings{AutoRefillOnOpen: true}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Ops.AddSolari(ops.Args{"amount": 10.0}); err != nil { // an unreviewed edit already waiting
+	if _, err := s.Ops.AddSolari(ops.Args{"amount": 10.0}); err != nil { // an edit from an earlier run, still waiting
 		t.Fatal(err)
 	}
 	pending := len(s.Save.Pending())
@@ -478,7 +478,7 @@ func TestOpenTimeRefillLeavesSomeoneElsesPendingEditsAlone(t *testing.T) {
 	before, _ := os.ReadFile(s.Save.Path)
 	s.RunStartupTasks()
 	note, warn := s.takeStartup()
-	if !strings.Contains(note, "unsaved edits") || !warn {
+	if !strings.Contains(note, "still waiting") || !warn {
 		t.Fatalf("note %q, warn %v", note, warn)
 	}
 	after, _ := os.ReadFile(s.Save.Path)
@@ -539,6 +539,7 @@ func TestRepairRouteReadsTheVehicleAndTheThreshold(t *testing.T) {
 
 // The automatic refresh decides from a status read that can be seconds old, so it asks for the discard only if nothing is unsaved by the time the server gets it.
 func TestDiscardIfCleanKeepsAnEditMadeSinceTheStatusWasRead(t *testing.T) {
+	defer save.ActiveSessionForTests()() // the game is running, so the edit waits instead of being written
 	s := New(testsave.Player(t), config.Dir{Path: t.TempDir()})
 	h := map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token, "Content-Type": "application/json"}
 	testsave.Exec(t, s.Save, `update actors set location_x = location_x + 1 where id = 2`)

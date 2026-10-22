@@ -28,7 +28,7 @@ func TestReviewDescriptionsNameTheItemAndShowBeforeAndAfter(t *testing.T) {
 	if _, err := o.SetItem(Args{"id": float64(id), "stack_size": 25.0, "quality": 3.0}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := o.SetItem(Args{"id": float64(id), "stack_size": 1200.0}); err != nil {
+	if _, err := o.SetItem(Args{"id": float64(id), "stack_size": 500.0}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := o.DeleteItem(Args{"id": float64(id)}); err != nil {
@@ -44,8 +44,8 @@ func TestReviewDescriptionsNameTheItemAndShowBeforeAndAfter(t *testing.T) {
 	want := []string{
 		"Give 5 x Spice Melange (grade 2)",
 		"Spice Melange (item " + itoa(id) + "): stack 5 → 25, grade 2 → 3",
-		"Spice Melange (item " + itoa(id) + "): stack 25 → 1,200",
-		"Delete 1,200 x Spice Melange (item " + itoa(id) + ")",
+		"Spice Melange (item " + itoa(id) + "): stack 25 → 500",
+		"Delete 500 x Spice Melange (item " + itoa(id) + ")",
 		"Solari Credit +1,500 (",
 		"House Credit +100 (",
 	}

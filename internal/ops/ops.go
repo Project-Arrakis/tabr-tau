@@ -137,6 +137,7 @@ func (o *Ops) State() (any, error) {
 		"saveBlocked": g.Blocked, "blockReason": g.Reason, "gameMode": g.Mode,
 		"readOnly": o.S.WriteBlocked(), "changedOnDisk": o.S.ChangedOnDisk(), "locationUnconfirmed": g.NeedsConfirm,
 		"restored": o.S.Restored(), "journalOff": o.S.JournalOff(),
+		"lastWrite": o.S.LastFlush(),
 	}, nil
 }
 
@@ -306,6 +307,50 @@ func grantGrade(template string, q int64) int64 {
 	return q
 }
 
+// giveStacksInTx gives qty of an item the way the game holds it: no slot holds more than the item's stack size (the game's own item tables, see catalog.MaxStack). Partial
+// stacks of the same item and grade that are already in the inventory are filled first, then new stacks are added, each in its own slot. The caller's transaction makes it
+// all or nothing. An item the catalog does not know has no stack size to honor and goes in as one row, as it always did. It returns the ids of the rows it added (none when
+// everything fitted on stacks that were there).
+func giveStacksInTx(m *save.Mut, inventoryID int64, template string, qty, quality int64) ([]int64, error) {
+	max, known := catalog.MaxStack(template)
+	if !known {
+		id, err := giveInTx(m, inventoryID, template, qty, quality)
+		return []int64{id}, err
+	}
+	left := qty
+	if max > 1 {
+		rows, err := m.Query(`select id, stack_size from items where inventory_id=? and template_id=? and quality_level=? and stack_size<? order by position_index, id`, inventoryID, template, quality, max)
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range rows {
+			have, _ := r["stack_size"].(int64)
+			add := min(max-have, left)
+			if add <= 0 {
+				continue
+			}
+			if _, err := m.Exec(`update items set stack_size=? where id=?`, have+add, r["id"]); err != nil {
+				return nil, err
+			}
+			left -= add
+		}
+	}
+	var ids []int64
+	for left > 0 {
+		n := min(left, max)
+		id, err := giveInTx(m, inventoryID, template, n, quality)
+		if err != nil {
+			if len(ids) > 0 && err.Error() == "inventory is full" {
+				return nil, fmt.Errorf("not enough room: %s needs %d stacks of up to %s and the inventory has no more free slots", itemLabel(template), (qty+max-1)/max, commas(max))
+			}
+			return nil, err
+		}
+		ids = append(ids, id)
+		left -= n
+	}
+	return ids, nil
+}
+
 func giveInTx(m *save.Mut, inventoryID int64, template string, qty, quality int64) (int64, error) {
 	rows, err := m.Query(`select id, coalesce(max_item_count,0) cap from inventories where id=?`, inventoryID)
 	if err != nil || len(rows) == 0 {
@@ -426,11 +471,11 @@ func (o *Ops) GiveItem(a Args) (any, error) {
 	} else if r, _ := o.S.One(`select 1 x from inventories where id=? and actor_id=?`, inv, p.Pawn); r == nil {
 		return nil, errors.New("that inventory does not belong to the player")
 	}
-	var id int64
-	if _, err := o.S.Mutate(fmt.Sprintf("Give %s x %s (grade %d)", commas(qty), itemLabel(tmpl), grantGrade(tmpl, q)), func(m *save.Mut) (e error) { id, e = giveInTx(m, inv, tmpl, qty, q); return }); err != nil {
+	var ids []int64
+	if _, err := o.S.Mutate(fmt.Sprintf("Give %s x %s (grade %d)", commas(qty), itemLabel(tmpl), grantGrade(tmpl, q)), func(m *save.Mut) (e error) { ids, e = giveStacksInTx(m, inv, tmpl, qty, q); return }); err != nil {
 		return nil, err
 	}
-	return map[string]any{"ok": true, "itemId": id}, nil
+	return giveResult(ids), nil
 }
 
 // maxGiveBatch caps one Give Items queue; the console's queue is a handful of lines, and a typo cannot flood the backpack.
@@ -487,22 +532,33 @@ func (o *Ops) GiveItems(a Args) (any, error) {
 	ids := make([]int64, 0, len(lines))
 	if _, err := o.S.Mutate(fmt.Sprintf("give %d queued items", len(lines)), func(m *save.Mut) error {
 		for i, l := range lines {
-			id, e := giveInTx(m, inv, l.tmpl, l.qty, l.q)
+			rows, e := giveStacksInTx(m, inv, l.tmpl, l.qty, l.q)
 			if e != nil {
 				return fmt.Errorf("item %d (%s): %w", i+1, l.tmpl, e)
 			}
-			if len(l.aug) > 0 {
-				if _, e := setAugmentsTx(m, id, l.aug, l.grade); e != nil {
-					return fmt.Errorf("item %d (%s): %w", i+1, l.tmpl, e)
+			for _, id := range rows {
+				if len(l.aug) > 0 {
+					if _, e := setAugmentsTx(m, id, l.aug, l.grade); e != nil {
+						return fmt.Errorf("item %d (%s): %w", i+1, l.tmpl, e)
+					}
 				}
+				ids = append(ids, id)
 			}
-			ids = append(ids, id)
 		}
 		return nil
 	}); err != nil {
 		return nil, err
 	}
 	return map[string]any{"ok": true, "itemIds": ids, "count": len(ids)}, nil
+}
+
+// giveResult is what a Give answers: the first row added (0 when everything went onto stacks that were there) and how many stacks were added.
+func giveResult(ids []int64) map[string]any {
+	var first int64
+	if len(ids) > 0 {
+		first = ids[0]
+	}
+	return map[string]any{"ok": true, "itemId": first, "stacks": len(ids)}
 }
 
 // GiveToInventory adds an item to any storage inventory (bases tab).
@@ -517,11 +573,11 @@ func (o *Ops) GiveToInventory(a Args) (any, error) {
 	if err := o.requireBaseContainer(inv); err != nil {
 		return nil, err
 	}
-	var id int64
-	if _, err := o.S.Mutate(fmt.Sprintf("Give %s x %s to container %d", commas(qty), itemLabel(tmpl), inv), func(m *save.Mut) (e error) { id, e = giveInTx(m, inv, tmpl, qty, q); return }); err != nil {
+	var ids []int64
+	if _, err := o.S.Mutate(fmt.Sprintf("Give %s x %s to container %d", commas(qty), itemLabel(tmpl), inv), func(m *save.Mut) (e error) { ids, e = giveStacksInTx(m, inv, tmpl, qty, q); return }); err != nil {
 		return nil, err
 	}
-	return map[string]any{"ok": true, "itemId": id}, nil
+	return giveResult(ids), nil
 }
 
 func (o *Ops) SetItem(a Args) (any, error) {
@@ -534,11 +590,14 @@ func (o *Ops) SetItem(a Args) (any, error) {
 		val int64
 	}
 	var edits []edit
+	var stackEdit int64
+	var wantStack bool
 	if _, has := a["stack_size"]; has {
 		n, err := a.IntRange("stack_size", 1, 10_000_000)
 		if err != nil {
 			return nil, err
 		}
+		stackEdit, wantStack = n, true
 		edits = append(edits, edit{"stack_size", n})
 	}
 	if _, has := a["quality"]; has {
@@ -561,6 +620,9 @@ func (o *Ops) SetItem(a Args) (any, error) {
 		}
 		if old == nil {
 			return errors.New("item not found")
+		}
+		if max, known := catalog.MaxStack(fmt.Sprint(old["template_id"])); wantStack && known && stackEdit > max { // a slot holds no more than the item's stack size
+			return fmt.Errorf("%s stacks to %s: a stack of %s is not possible (use Give to add stacks)", itemLabel(fmt.Sprint(old["template_id"])), commas(max), commas(stackEdit))
 		}
 		desc := fmt.Sprintf("%s (item %d):", itemLabel(fmt.Sprint(old["template_id"])), id)
 		for i, e := range edits {

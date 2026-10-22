@@ -16,10 +16,9 @@ features (containers, autoscaler, map/Sietche/Deep Desert instances, backups of 
 
 > **Known security limits (a design audit found these; most are now fixed, the rest are scheduled):** the editor refuses
 > connections from other machines and non-loopback `--addr` values, bounds the save decoder, escapes everything it renders,
-> vets both SQL consoles and opens a save with unknown triggers/views read-only. Saving now goes through a review pane
-> that lists every edit and what changes in the file. Destructive and bulk actions ask first. Every save is read back and verified before it replaces the file, and
-> Database > Save backups restores a backup (see Restoring a backup below). The one thing it cannot do is make a hostile file safe, so **do not open a save file you got from someone else** (the review shows
-> what you changed, it does not make a hostile file safe) and keep the automatic backups. Status: [issue #24](https://github.com/Project-Arrakis/tabr-tau/issues/24).
+> vets both SQL consoles and opens a save with unknown triggers/views read-only. Every edit is written to the file as it is made, after a backup, or queued while the game is in a single-player session. Destructive and bulk actions ask first. Every save is read back and verified before it replaces the file, and
+> Database > Save backups restores a backup (see Restoring a backup below). The one thing it cannot do is make a hostile file safe, so **do not open a save file you got from someone else** (the backups keep what it
+> was before you changed it, they do not make a hostile file safe) and keep the automatic backups. Status: [issue #24](https://github.com/Project-Arrakis/tabr-tau/issues/24).
 
 **Documentation:** [docs/README.md](docs/README.md) (design, audit findings, single-player file reference,
 live-test protocol). Do not attach saves, `Game.ini`, snapshots or logs to issues: they contain account IDs.
@@ -42,8 +41,7 @@ The **Player** tab mirrors the Dune Docker console's Players > Player Name view:
 
 `game.db` (and `game_prepatch.db`, `autosave/*.bak`) is an 8-byte header (`uint32 1`, `uint32 size`) followed
 by a zlib stream containing a plain SQLite 3 database. tabr-tau decodes it into a private working copy, and
-**nothing is written until you press "Review & save" and then "Save to game" inside the review**, which lists
-every edit and what changes inside the file. Saving:
+**an edit is written to the file as it is made, and queued while the file cannot be written** (the game is in a single-player session): the queue is kept in a journal and written by itself when the file can be. Writing:
 
 1. refuses to run while a **single-player session is active** (it reads the game's own log, `DuneSandbox.log`: a local `Survival_1?listen` map until you go to the menu or multiplayer, or quit). The game being open in multiplayer or at the menu does not block saving. Saving also waits about 15 seconds after the session ends, because the game writes the save one last time then. If the editor cannot tell (the game runs and its log cannot be read), it blocks and says why,
 2. refuses if the file changed on disk since it was loaded,
@@ -61,7 +59,7 @@ go run ./cmd/tabr-tau            # auto-detects %LOCALAPPDATA%\DuneSandbox\...\g
 go run ./cmd/tabr-tau --save "C:\path\to\game.db" --config "%LOCALAPPDATA%\DuneSandbox\Saved\Config\Windows"
 ```
 
-**On Windows the editor opens in its own window** (it uses the Microsoft Edge WebView2 component that ships with Windows 11 and current Windows 10). Double-click the exe: if it cannot find your save it shows an Open dialog, and errors appear in message boxes. If WebView2 is missing it says so in a message box (install the runtime, or start from a terminal with `--web` to use the browser instead). Pass `--web` to use the browser. Closing the window ends the program and asks first when there are unsaved edits (Yes/No, default No). Subcommands (`diff`, `decode`, `licenses`, ...) still work from a terminal. The Windows exe is a GUI-subsystem program, so `cmd.exe` does not wait for it: in scripts use `start /wait tabr-tau.exe ...` or PowerShell `Start-Process -Wait` (or build a console exe by leaving out `-H=windowsgui`).
+**On Windows the editor opens in its own window** (it uses the Microsoft Edge WebView2 component that ships with Windows 11 and current Windows 10). Double-click the exe: if it cannot find your save it shows an Open dialog, and errors appear in message boxes. If WebView2 is missing it says so in a message box (install the runtime, or start from a terminal with `--web` to use the browser instead). Pass `--web` to use the browser. Closing the window ends the program and asks first when changes are still queued (Yes/No, default No). Subcommands (`diff`, `decode`, `licenses`, ...) still work from a terminal. The Windows exe is a GUI-subsystem program, so `cmd.exe` does not wait for it: in scripts use `start /wait tabr-tau.exe ...` or PowerShell `Start-Process -Wait` (or build a console exe by leaving out `-H=windowsgui`).
 
 Flags: `--save`, `--config`, `--web` (browser instead of the window), `--addr` (default `127.0.0.1:8090`; must be a loopback address, the editor never listens beyond this computer), `--no-browser`.
 
@@ -77,7 +75,7 @@ print). Windows Application Control may block unsigned binaries; `go run` works 
 Every save from the editor first copies the file it replaces into `tabr-tau-backups` next to `game.db` (for a typical install:
 `%LOCALAPPDATA%\DuneSandbox\Saved\Cloud\PlayerClientStorage\FLS_retail\<your id>\tabr-tau-backups`). To go back:
 
-1. Close the game, or go to its menu, and make sure the editor shows no unsaved changes (restoring reloads the file and would drop them).
+1. Close the game, or go to its menu, and make sure the editor shows no queued changes (restoring reloads the file and would drop them).
 2. Open **Database**, find **Save backups**, pick the backup and press Restore; you are asked to type a word to confirm.
 3. The backup must decode, pass the integrity check and carry no database patch the current save lacks (a backup from a newer game is refused). The file being replaced is backed up first, so a restore can itself be undone, and the file is never truncated in place.
 4. Start the game and check the character. Config backups work the same way on the **Config** tab.
@@ -86,7 +84,7 @@ Restore uses the same guard as saving: it refuses while a single-player session 
 
 ## Automatic refill
 
-The Bases tab has an **Automatic refill** switch (off by default, remembered in `%APPDATA%\tabr-tau\settings.json`, which also keeps the specialization track numbers you assign). When on, opening the editor refills base water and generators and **saves straight away**, without the Review & save step, so it applies the next time single-player loads. It is skipped while a single-player session is running or when there are unsaved edits; the previous file is backed up every time; a refused write leaves the edits pending with the reason. The card shows the last automatic save and its backup name. It applies to whichever save the editor opens.
+The Bases tab has an **Automatic refill** switch (off by default, remembered in `%APPDATA%\tabr-tau\settings.json`, which also keeps the specialization track numbers you assign). When on, opening the editor refills base water and generators and **saves straight away**, like every other edit, so it applies the next time single-player loads. It is skipped while a single-player session is running or when edits from before are still queued; the previous file is backed up every time; a refused write leaves the edits queued with the reason. The card shows the last automatic save and its backup name. It applies to whichever save the editor opens.
 
 ## Which write features were checked in the game
 

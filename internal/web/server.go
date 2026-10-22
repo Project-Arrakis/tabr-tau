@@ -69,8 +69,8 @@ func New(s *save.Save, cfg config.Dir) *Server {
 	return srv
 }
 
-// KeepPendingEdits keeps the unsaved edits in a journal file in dir (the editor's own folder), so they survive the editor being closed, and puts back
-// the edits an earlier run left for this save. They come back as pending edits to review like any other; one that no longer applies is reported, not forced.
+// KeepPendingEdits keeps the edits that are waiting to be written in a journal file in dir (the editor's own folder), so they survive the editor being closed, and puts back
+// the edits an earlier run left for this save. They come back as waiting edits like any other (RunAutosave writes them when the file can be written); one that no longer applies is reported, not forced.
 func (s *Server) KeepPendingEdits(dir string) {
 	h := sha256.Sum256([]byte(strings.ToLower(s.Save.Path)))
 	s.Save.EnableJournal(filepath.Join(dir, "pending-"+hex.EncodeToString(h[:6])+".json"))
@@ -355,8 +355,6 @@ func respond(w http.ResponseWriter, v any, err error) {
 		switch { // a stable code, so the page never has to match message wording
 		case errors.Is(err, save.ErrChangedOnDisk):
 			body["code"] = "changed_on_disk"
-		case errors.Is(err, save.ErrReviewChanged):
-			body["code"] = "review_changed"
 		}
 		writeJSON(w, http.StatusBadRequest, body)
 		return
@@ -380,6 +378,9 @@ func (s *Server) post(path string, fn func(a ops.Args) (any, error)) {
 			return
 		}
 		v, err := fn(a)
+		if err == nil && s.Save.Dirty() {
+			s.Save.Flush() // an edit is written to the game's file as it is made, or queued when the file cannot be written (the page reads which from the state)
+		}
 		respond(w, v, err)
 	})
 }
@@ -635,9 +636,10 @@ func (s *Server) routes() {
 	})
 
 	// save file lifecycle
-	// Saving is only reachable from the review: the request must quote the token of the state that was shown, and the
-	// save checks it under its own lock. The game-running check cannot be switched off from here.
-	s.post("/api/save/commit", func(a ops.Args) (any, error) { return s.Save.CommitReviewed(a.Str("reviewed"), false) })
+	// An edit is written as it is made (see post) and waits when the file cannot be written; this asks for another attempt now. The game-running check cannot be switched off from here.
+	s.mux.HandleFunc("POST /api/save/flush", func(w http.ResponseWriter, r *http.Request) {
+		respond(w, s.Save.Flush(), nil)
+	})
 	// ifClean is what the automatic refresh sends: it was decided from a status read that can be seconds old on a large save, so an edit made since must not be
 	// thrown away with it (the page then leaves the file as it is and the next status shows the banner).
 	s.post("/api/save/discard", func(a ops.Args) (any, error) {
@@ -663,9 +665,6 @@ func (s *Server) routes() {
 		}
 		save.ConfirmLocation(s.Save.Path)
 		return map[string]any{"ok": true}, nil
-	})
-	s.get("/api/save/review", func(r *http.Request) (any, error) {
-		return o.Review(r.URL.Query().Get("unredacted") == "1", qint(r, "limit", 40))
 	})
 	s.get("/api/save/backups", func(r *http.Request) (any, error) { return s.Save.Backups(), nil })
 	s.post("/api/save/restore", func(a ops.Args) (any, error) { return map[string]any{"ok": true}, s.Save.Restore(a.Str("name")) })
@@ -704,13 +703,26 @@ func (s *Server) routes() {
 	})
 }
 
+// RunAutosave writes the edits that are waiting (the file could not be written when they were made: the game was running, or it had saved since) as soon as the file can
+// be. It looks every few seconds until stop is closed.
+func (s *Server) RunAutosave(stop <-chan struct{}) {
+	t := time.NewTicker(3 * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-t.C:
+			if s.Save.Dirty() {
+				s.Save.Flush()
+			}
+		}
+	}
+}
+
 // RunStartupTasks does what the editor's settings ask for when it opens. Today that is the optional refill of base
-// water storage and power buildings. This is a deliberate exception to "Save only from the review pane" (operator decision,
-// 2026-10-08), for this opt-in setting only: the refill is applied and written straight away so it takes effect the
-// next time the game loads, without a manual review, save, exit and reload. The write still goes through the whole
-// pipeline (single-player check, changed-on-disk check, integrity check, backup first, read-back verification), and
-// it is skipped when a single-player session is running. If the write is refused, the edits stay pending so the
-// person can see and review them.
+// water storage and power buildings. It is written straight away like every other edit, so it takes effect the next time the game loads, and it is skipped when a
+// single-player session is running. If the write is refused, the edits stay queued and are written as soon as the file can be.
 func (s *Server) RunStartupTasks() {
 	if !settings.Load(s.SettingsPath).AutoRefillOnOpen {
 		return
@@ -724,8 +736,8 @@ func (s *Server) RunStartupTasks() {
 		set("Automatic refill skipped: "+g.Reason+".", true)
 		return
 	}
-	if len(s.Save.Pending()) > 0 { // never fold someone else's pending edits into an unreviewed save
-		set("Automatic refill skipped: there are unsaved edits.", true)
+	if len(s.Save.Pending()) > 0 { // edits from an earlier run are still waiting: the refill is not mixed into them
+		set("Automatic refill skipped: edits from before are still waiting to be written.", true)
 		return
 	}
 	w, err1 := s.Ops.RefillBaseWater()
@@ -733,7 +745,7 @@ func (s *Server) RunStartupTasks() {
 	if err1 != nil || err2 != nil {
 		queued := ""
 		if n := len(s.Save.Pending()); n > 0 {
-			queued = fmt.Sprintf(" %d prepared edit(s) are waiting under Review & save; nothing was written.", n)
+			queued = fmt.Sprintf(" %d prepared edit(s) are queued and are written when the file can be.", n)
 		}
 		set("Automatic refill could not finish: "+errors.Join(err1, err2).Error()+"."+queued, true)
 		return
@@ -750,19 +762,15 @@ func (s *Server) RunStartupTasks() {
 		}
 	}
 	filledText := strings.Join(what, "; ")
-	res, err := s.Save.Commit(false)
-	if err != nil {
-		set(fmt.Sprintf("Automatic refill prepared %s but could not save it: %v. It is waiting under Review & save.", filledText, err), true)
+	res := s.Save.Flush()
+	if !res.Saved {
+		set(fmt.Sprintf("Automatic refill prepared %s but could not save it yet: %s. It is queued and is written as soon as the file can be.", filledText, res.Why), true)
 		return
 	}
-	backup := ""
-	if b, ok := res["backup"].(string); ok {
-		backup = filepath.Base(b)
-	}
-	msg := fmt.Sprintf("Automatic refill saved %s to the game (the previous file is backed up as %s).", filledText, backup)
+	msg := fmt.Sprintf("Automatic refill saved %s to the game (the previous file is backed up as %s).", filledText, filepath.Base(res.Backup))
 	warn := false
-	if w, ok := res["warning"].(string); ok && w != "" { // written, but the editor could not reload the file
-		msg += " Warning: " + w
+	if res.Warning != "" { // written, but the editor could not reload the file
+		msg += " Warning: " + res.Warning
 		warn = true
 	}
 	s.startupMu.Lock()

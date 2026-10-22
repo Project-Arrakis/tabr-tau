@@ -34,15 +34,16 @@ function toast(msg, err, ms = 3500) {
   } else setTimeout(() => d.remove(), ms);
   $('#toast').append(d);
 }
-const NOT_SAVED = ' (not saved yet)';
-// immediate: the change is written at once (a config file, a setting), not queued for Review & save, so it never gets the "not saved yet" hint
-// that belongs to edits of the save (UX-05).
+// An edit of the save is written to the game's file as it is made, so a message has nothing to add; act() adds a hint when it finds the edit queued instead (the game is
+// in a single-player session and rewrites the file).
+const NOT_SAVED = '';
+// immediate: the change is written at once (a config file, a setting) and never waits in the queue, so it never gets the hint.
 async function act(fn, okMsg, refresh = true, immediate = false) {
   try {
     const r = await fn();
     let dirty = false;
     if (!immediate) try { dirty = (await status()).dirty; } catch (e) { /* the poll reports a lost connection; the edit itself succeeded */ }
-    if (okMsg) toast(okMsg + (dirty ? NOT_SAVED : ''));
+    if (okMsg) toast(okMsg + (dirty ? ' (queued: written when the game closes)' : ''));
     if (refresh) await render();
     return r;
   }
@@ -235,14 +236,13 @@ function keepQueue() {
 
 // ---------- status bar
 let saveBlocked = false, saveBlockWhy = '', offline = false;
-// The game rewrites game.db about every twenty seconds while a session runs. With nothing unsaved the editor reads the new file by itself and
+// The game rewrites game.db about every twenty seconds while a session runs. With nothing queued the editor reads the new file by itself and
 // redraws the page where it was, so what is on screen is what the game has (a building placed in the game shows up here without a click). It
-// waits while a question or the review is open or a field is being typed in, and never touches unsaved edits: they keep the banner and the
-// Reload button, as before. The checkbox in the header turns it off.
+// waits while a question is open or a field is being typed in, and never touches queued edits (they are put back onto the new file when they are written). The checkbox in the header turns it off.
 let autoBusy = false, autoAt = 0;
 const autoRefreshOn = () => { try { return localStorage.autoRefresh !== '0'; } catch (e) { return true; } };
 async function autoRefresh(o) {
-  if (autoBusy || !autoRefreshOn() || !o.changedOnDisk || o.pending.length || o.dirty || askState || R || Date.now() - autoAt < 15000) return; // at most every 15 seconds
+  if (autoBusy || !autoRefreshOn() || !o.changedOnDisk || o.pending.length || o.dirty || askState || Date.now() - autoAt < 15000) return; // at most every 15 seconds
   const a = document.activeElement;
   if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.id !== 'autorefresh') return;
   autoBusy = true;
@@ -264,35 +264,37 @@ async function status() {
   $('#path').title = o.path || '';
   const gw = $('#gamewarn');
   const note = o.gameMode === 'menu_or_multiplayer';
-  // When the game saves and nothing here is unsaved, the editor reloads the file by itself (autoRefresh below), so the banner is only for the
-  // cases it cannot handle: unsaved edits, or automatic refresh switched off.
-  const changed = !!o.changedOnDisk && !(autoRefreshOn() && !o.pending.length && !o.dirty);
+  const q = o.pending.length;
+  const last = o.lastWrite;
+  const why = (last && !last.saved && last.why) || saveBlockWhy;
+  // When the game saves and nothing is queued, the editor reloads the file by itself (autoRefresh below), so the out-of-date banner is only for automatic refresh switched
+  // off. Queued edits are put back onto the game's newer file when they are written, so a changed file needs no word from the person.
+  const changed = !!o.changedOnDisk && !q && !autoRefreshOn();
   const restored = o.restored && (o.restored.applied > 0 || (o.restored.conflicts || []).length > 0) ? o.restored : null;
-  gw.className = saveBlocked || changed || restored ? 'warn' : note ? 'info' : 'hide';
-  // The game rewrites game.db about every five minutes while it runs and again when a session ends, and a save onto a file that changed is
-  // refused, so say so as soon as it happens and say what to do first: close the game, then edit.
-  const changedMsg = changed ? html`<div><b>The game saved since this editor opened.</b> ${o.pending.length ? html`Your ${o.pending.length} unsaved change${o.pending.length > 1 ? 's' : ''} cannot be saved onto the new file as it is. <b>Reload now</b> reads the new file and puts them back where they still apply.` : html`What you see here is out of date.`} <button class="b sm" data-act="reload">Reload now</button></div>` : html``;
-  const blockedMsg = o.locationUnconfirmed ? html`<b>Saving is blocked.</b> ${saveBlockWhy}. You can keep editing. <button class="b sm" data-act="confirmLocation">Allow saving here</button>` : o.gameCheckError && saveBlocked ? html`<b>Saving is blocked.</b> ${saveBlockWhy}. If this keeps happening, report this text.` : saveBlocked ? html`<b>Saving is blocked.</b> ${saveBlockWhy}. Close the game or go to its menu before you edit: the game rewrites the save while a single-player session runs, so edits made now would be refused or overwritten.` : note ? html`Dune: Awakening is open (${(o.gameProcesses || []).join(', ')}) but not in single-player, so saving is allowed.` : html``;
-  // what became of the unsaved edits an earlier run (or a reload) put back, and the plain fact when they are not being kept
-  const restoredMsg = restored ? html`<div><b>${restored.applied} unsaved change${restored.applied === 1 ? ' was' : 's were'} put back${restored.rebased ? ' onto the newer file the game saved' : ''}.</b> They are listed in Review &amp; save; nothing is written until you save.
+  gw.className = saveBlocked || q || changed || restored ? 'warn' : note ? 'info' : 'hide';
+  const changedMsg = changed ? html`<div><b>The game saved since this editor opened.</b> What you see here is out of date. <button class="b sm" data-act="reload">Reload now</button></div>` : html``;
+  // An edit is written as it is made. While the file cannot be written (a single-player session is running, the location is not confirmed) edits are queued, and the queue is
+  // written by itself the moment the file can be.
+  const queuedMsg = q ? html`<div><b>${q} change${q > 1 ? 's are' : ' is'} queued.</b> ${why ? html`${why}.` : ''} ${o.locationUnconfirmed ? '' : 'They are written to the game file by themselves as soon as it can be written.'} <button class="b sm" data-act="writeNow">Write now</button></div>` : html``;
+  const blockedMsg = o.locationUnconfirmed ? html`<div><b>Changes cannot be written here yet.</b> ${saveBlockWhy}. You can keep editing: changes wait in the queue. <button class="b sm" data-act="confirmLocation">Allow writing here</button></div>` : o.gameCheckError && saveBlocked ? html`<div><b>Changes cannot be written.</b> ${saveBlockWhy}. If this keeps happening, report this text.</div>` : saveBlocked && !q ? html`<div><b>The game is in a single-player session.</b> It rewrites the save while it runs, so changes you make now are queued and written when you go to its menu or close it.</div>` : note ? html`<div>Dune: Awakening is open (${(o.gameProcesses || []).join(', ')}) but not in single-player, so changes are written at once.</div>` : html``;
+  // what became of the edits an earlier run (or a reload) put back, and the plain fact when they are not being kept
+  const restoredMsg = restored ? html`<div><b>${restored.applied} change${restored.applied === 1 ? ' was' : 's were'} put back${restored.rebased ? ' onto the newer file the game saved' : ''}.</b> They are written like any other change.
     ${(restored.conflicts || []).map((c) => html`<div>Could not put back: ${c.desc} (${c.why}). Make it again.</div>`)} <button class="b sm" data-act="dismissRestored">OK</button></div>` : html``;
-  const journalMsg = o.journalOff && o.dirty ? html`<div class="mut">These unsaved changes are not kept if the editor is closed: ${o.journalOff}.</div>` : html``;
-  setHTML(gw, html`${changedMsg}${restoredMsg}${journalMsg}${blockedMsg}`);
-  syncReview();
-  const n = o.pending.length;
-  $('#pending').textContent = n ? `${n} unsaved change${n > 1 ? 's' : ''}` : '';
-  $('#btnSave').disabled = $('#btnDiscard').disabled = !o.dirty;
-  $('#btnSave').title = o.pending.join('\n');
+  const journalMsg = o.journalOff && o.dirty ? html`<div class="mut">These queued changes are not kept if the editor is closed: ${o.journalOff}.</div>` : html``;
+  setHTML(gw, html`${changedMsg}${queuedMsg}${restoredMsg}${journalMsg}${blockedMsg}`);
+  $('#pending').textContent = q ? `${q} queued` : '';
+  $('#pending').title = o.pending.join('\n');
+  $('#btnDiscard').hidden = !o.dirty;
   const ro = $('#rowarn');
-  // Ask before the browser tab is closed with unsaved edits (the native window asks through its own close handler).
-  window.onbeforeunload = o.dirty ? (e) => { e.preventDefault(); e.returnValue = ''; } : null;
+  // A queue that is not kept on disk (the journal is off) is lost when the browser tab closes: ask first (the native window asks through its own close handler).
+  window.onbeforeunload = o.dirty && o.journalOff ? (e) => { e.preventDefault(); e.returnValue = ''; } : null;
   ro.className = o.readOnly ? 'warn' : 'hide';
   autoRefresh(o);
   setHTML(ro, o.readOnly ? html`<b>This save is read-only.</b> ${o.readOnly}<br>You can browse it, but every edit is refused. This usually means the file contains database objects the real game does not create (for example extra triggers) - do not edit a save from an untrusted source.` : html``);
   return o;
 }
 // ---------- confirmations
-// Tiers: reversible edits need nothing (they are pending, listed in the review, and Discard undoes them). A hard-to-undo
+// Tiers: reversible edits need nothing (they are written as they are made, with a backup first). A hard-to-undo
 // or far-reaching action asks first with its consequence in words. The far-reaching ones (bulk changes, raw SQL
 // writes, restoring a backup over the save) also make the person type a word, so a stray click cannot start them.
 let askState = null, askFrom = null;
@@ -318,50 +320,8 @@ function endAsk(v) {
 }
 document.addEventListener('input', (e) => { if (askState && e.target.id === 'atype') $('#aok').disabled = e.target.value.trim().toLowerCase() !== askState.typed.toLowerCase(); });
 
-// ---------- review pane: the only way to write the save
-let R = null; // the open review: { token, ops, diff, error }
-const val1 = (v) => { const t = v === undefined ? 'undefined' : JSON.stringify(v); return t.length > 120 ? t.slice(0, 117) + '...' : t; };
-function reviewBody() {
-  const d = R.diff, tabs = d.tables || [];
-  const cut = tabs.some((t) => (t.modified || []).length < t.numModified);
-  return html`<div class="mbox" role="dialog" aria-modal="true"><h3 class="big" id="mtitle" tabindex="-1">Review changes</h3>
-    <div id="mmsg">${R.error ? (R.stale ? html`<div class="warn"><b>The save changed on disk.</b> ${R.error}<br>The game (or another program) rewrote game.db after you opened it, so these edits cannot be applied on top of it. Reload the file: the edits listed below are put back onto it where they still apply, and any that do not are listed so you can make them again.<div class="row"><button class="b" data-act="reload">Reload and keep my edits</button></div></div>` : html`<div class="warn">${R.error}</div>`) : ''}</div>
-    <h3>Edits you made (${R.ops.length})</h3>
-    ${R.ops.length ? html`<ul class="tight">${R.ops.map((o) => html`<li>${o.desc}</li>`)}</ul>` : html`<p class="mut">No edits.</p>`}
-    <h3>What changes inside game.db</h3>
-    ${tabs.length ? html`<div class="scroll"><table><thead><tr><th>Table</th><th>Added</th><th>Removed</th><th>Changed</th></tr></thead><tbody>${tabs.map((t) => html`<tr><td>${t.name}</td><td>${t.numAdded}</td><td>${t.numRemoved}</td><td>${t.numModified}</td></tr>`)}</tbody></table></div>
-      <details><summary>Show changed values</summary>${cut ? html`<p class="mut">Only the first changed rows of each table are listed here; the counts above are complete.</p>` : ''}${tabs.map((t) => (t.modified || []).length ? html`<p class="mono"><b>${t.name}</b></p>${t.modified.map((m) => html`<div class="mono">row ${val1(m.key)}: ${m.changes.map((c) => html`<div>${c.path}: ${val1(c.before)} \u2192 ${val1(c.after)}</div>`)}</div>`)}` : '')}</details>
-      ${d.redacted ? html`<p class="mut">Account and character identifiers are hidden in this view.</p>` : ''}`
-      : html`<p class="mut">The working copy is identical to the file on disk.</p>`}
-    <div class="row mt12"><button class="b" data-act="doSave" id="btnDoSave">Save to game</button><button class="b sec" data-act="closeReview">Back</button><span id="savewhy" class="mut"></span></div></div>`;
-}
-function syncReview() {
-  const m = $('#modal');
-  if (!R) { m.className = 'hide'; document.body.classList.remove('noscroll'); return; }
-  m.className = 'modal';
-  document.body.classList.toggle('noscroll', true);
-  const b = $('#btnDoSave');
-  if (!b) return;
-  b.disabled = offline || saveBlocked || !R.dirty || !!R.stale;
-  $('#savewhy').textContent = offline ? 'Lost contact with the editor.' : saveBlocked ? 'Saving is blocked: ' + saveBlockWhy + '.' : R.stale ? 'Reload the file first.' : !R.dirty ? 'Nothing to save.' : '';
-}
-function drawReview(focus) {
-  setHTML($('#modal'), R ? reviewBody() : html``);
-  syncReview();
-  if (R && focus) $('#mtitle').focus(); // keyboard users land in the pane
-}
-let opening = false;
-async function openReview() {
-  if (opening) return;
-  opening = true;
-  try {
-    const r = await api('/api/save/review');
-    R = { token: r.token, dirty: !!r.dirty, ops: r.ops || [], diff: r.diff || { tables: [] } };
-  } catch (e) { toast(e.message, true); return; } finally { opening = false; }
-  drawReview(true);
-}
-$('#btnSave').onclick = openReview;
-$('#btnDiscard').onclick = async () => { if (await ask({ title: 'Discard all unsaved changes?', body: 'Every edit since the file was loaded or last saved is dropped. The file on disk is not touched.', ok: 'Discard', danger: true })) act(() => api('/api/save/discard', {}), 'Discarded'); };
+// ---------- the queue: an edit is written to the game's file as it is made; while the file cannot be written (the game is in a single-player session) edits wait here
+$('#btnDiscard').onclick = async () => { if (await ask({ title: 'Discard the queued changes?', body: 'The changes that are waiting for the game to close are dropped. The game file is not touched.', ok: 'Discard', danger: true })) act(() => api('/api/save/discard', {}), 'Discarded', true, true); };
 
 // ---------- PLAYER
 let P = null;
@@ -369,7 +329,7 @@ function host() { return $('#pbody') || $('#main'); }
 // The Player Summary above the Player tabs, as in the console's player view: identity, level, XP, skill points, Intel, vitals,
 // faction, database ids and the currency balances. Everything comes from the save.
 // The identifiers that name the account (platform, Funcom and FLS ids) stay hidden until their Show button is pressed, so a screenshot taken
-// for a bug report does not carry them (GRC-5). The value is only drawn while it is shown; the review pane masks the same ids.
+// for a bug report does not carry them (GRC-5). The value is only drawn while it is shown; the page masks the same ids.
 let SUMMARY = null;
 const SHOWN = new Set();
 const SECRET_IDS = ['platformId', 'funcomId', 'flsId'];
@@ -454,7 +414,7 @@ async function playerSection(s) {
     const keystone = (r) => (r.granted ? html`<span class="ok" title="${r.keystoneOwned} of ${r.keystoneTotal} keystones">Granted</span>` : r.keystoneOwned > 0 ? html`<span title="${r.keystoneOwned} of ${r.keystoneTotal} keystones bought">${r.keystoneOwned}/${r.keystoneTotal}</span>` : html`<span class="mut">-</span>`);
     h.push(html`<div class="card"><h3>Specialization Tracks</h3>
       <div class="row"><button class="b" data-act="spKeyAll">Grant All Keystones</button><button class="b bad" data-act="spKeyReset">Reset All Keystones</button></div>
-      <p class="mut">Changes go through the review pane and show in game after the save is loaded. Max XP is ${Number(sp.maxXp).toLocaleString()}.</p>
+      <p class="mut">Changes are written to the game file as you make them and show in the game after it loads the save. Max XP is ${Number(sp.maxXp).toLocaleString()}.</p>
       ${tbl([{ k: 'track', label: 'Track' }, { k: 'xp', label: 'XP', f: (r) => (known(r) ? Number(r.xp).toLocaleString() : html`<span class="mut" title="This track's number in your save is not known yet; see below">?</span>`) },
         { k: 'level', label: 'Level', f: (r) => (known(r) ? Math.floor(r.level) : html`<span class="mut">?</span>`) }, { k: 'keystoneOwned', label: 'Keystone', f: keystone },
         { k: 'add', label: 'Add XP', f: (r) => html`<input id="spx${r.track}" type="number" value="1000" class="w90" ${known(r) ? '' : 'disabled'}><button class="b sm" data-act="spAdd" data-t="${r.track}" ${known(r) ? '' : 'disabled'}>Add XP</button>` }],
@@ -554,7 +514,7 @@ function journeyList() {
 }
 
 // The Skill Browser, as the console's: a school at a time, each skill with a rank bar and a rank control. A change is one edit in the
-// review pane. By default it sets the skill only, as Dune Docker's control does; "Pay for it" also takes the points from, or gives them
+// the queue. By default it sets the skill only, as Dune Docker's control does; "Pay for it" also takes the points from, or gives them
 // back to, the unspent points.
 let SK = null, skSchool = 'Trooper', skCharge = false;
 const SKOTHER = ['Hidden', 'Other'];
@@ -643,7 +603,7 @@ function catalogList() {
 function autoRefillCard(prefs) {
   return html`<div class="card"><h3>Automatic refill of water and power</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
     ${prefs.problem ? html`<p class="bad">${prefs.problem}</p>` : ''}
-    <p class="mut">When on, opening the editor refills water storage (Water Cisterns, Windtraps, Blood Purifiers) and power (generators, wind turbines, windtraps) and <b>saves straight away</b>, without the review step, so it applies the next time the game loads. It is skipped while a single-player session is running. The previous file is backed up first. Remembered between runs. The same switch is on the Power and Water tabs.</p></div>`;
+    <p class="mut">When on, opening the editor refills water storage (Water Cisterns, Windtraps, Blood Purifiers) and power (generators, wind turbines, windtraps) and <b>saves straight away</b>, like every other change, so it applies the next time the game loads. It is skipped while a single-player session is running. The previous file is backed up first. Remembered between runs. The same switch is on the Power and Water tabs.</p></div>`;
 }
 // The console's Land Claim Editor: the claim as a grid of cells turned by the base's own yaw (north at the top), with the totem's cell,
 // the cells it has, and dotted "available" cells next to it. Click an available cell to add it, a chosen one to take it back (what is
@@ -736,7 +696,7 @@ function claimEditorDraw() {
       ${cutOff.length ? html`<p class="bad">Removing those would cut ${cutOff.length} cell${cutOff.length === 1 ? '' : 's'} that stay off from the totem; the game needs the claim connected edge to edge. Mark them too, or unmark a cell.</p>` : ''}
       <div class="row"><button class="b" data-act="lcRemove" ${LC.rm.size && !cutOff.length ? '' : 'disabled'}>Remove marked cells</button></div>
       <p class="mut">Click an existing cell to mark it. A cell with building pieces or placeables in it (its number is shown) cannot be removed, and neither can the totem's own cell.</p>
-      <p class="mut">The edit goes through the review pane and the usual backup. Applied when the game next loads the save.</p></div></div>
+      <p class="mut">The edit is written at once, after the usual backup. Applied when the game next loads the save.</p></div></div>
     <p class="mut">This editor bypasses the game's normal staking checks. Claiming a protected area does not guarantee that the game lets you build there.</p></div>`);
 }
 
@@ -932,38 +892,20 @@ async function render() {
 const D = (e) => e.target.closest('[data-act]');
 const A = {
   retry: () => render(),
-  closeReview: () => { R = null; drawReview(); },
   askOk: () => { if (askState && askState.typed && $('#atype').value.trim().toLowerCase() !== askState.typed.toLowerCase()) return; endAsk(true); }, // the typed word is checked here too, not only by the disabled button
   askNo: () => endAsk(false),
   confirmLocation: async () => (await ask({ title: 'Allow saving to this location?', body: 'The editor can only see the game on this computer, and this save is somewhere it cannot vouch for (a network share, a removable drive, or a folder other than the one the game itself uses). Saving while the game, on this or another computer, has the file open can corrupt it or lose your work. Continue only if the game is closed everywhere that can open this save.', ok: 'Allow saving', danger: true })) && act(() => api('/api/save/confirm-location', {}), 'Saving is allowed for this save until the editor closes'),
-  reload: async () => (await ask({ title: 'Reload from disk?', body: 'The file is read again. Your unsaved edits are put back onto it where they still apply; one that no longer applies is listed so you can make it again.', ok: 'Reload' })) && act(async () => {
+  reload: async () => (await ask({ title: 'Reload from disk?', body: 'The file is read again. Any changes still queued are put back onto it where they still apply; one that no longer applies is listed so you can make it again.', ok: 'Reload' })) && act(async () => {
     const r = await api('/api/save/rebase', {});
-    R = null; drawReview();
     const x = r && r.restored;
     toast(x ? `Reloaded: ${x.applied} change${x.applied === 1 ? '' : 's'} kept` + ((x.conflicts || []).length ? `, ${x.conflicts.length} could not be put back` : '') : 'Reloaded from disk.');
   }, null),
   dismissRestored: () => act(async () => { await api('/api/save/restored/dismiss', {}); }, null),
-  doSave: async () => {
-    if (!R) return;
-    let r;
-    try {
-      r = await api('/api/save/commit', { reviewed: R.token });
-    } catch (e) {
-      if (e.code === 'review_changed') { // the edits moved on since this pane was drawn: show the current ones
-        await openReview();
-        if (R) { R.error = e.message; drawReview(true); }
-        return;
-      }
-      R.error = e.message;
-      R.stale = e.code === 'changed_on_disk';
-      drawReview(true);
-      return;
-    }
-    R = null; drawReview();
-    toast(r.saved ? 'Saved. Backup: ' + r.backup : 'Nothing to save', false, 15000);
-    if (r.warning) toast(r.warning, true);
-    try { await status(); await render(); } catch (e) { toast('Saved, but the screen could not refresh: ' + e.message, true); }
-  },
+  writeNow: () => act(async () => {
+    const r = await api('/api/save/flush', {});
+    if (r.saved) toast('Written to the game file' + (r.warning ? '. ' + r.warning : '.'), !!r.warning);
+    else toast(r.queued ? 'Still waiting: ' + (r.why || 'the file cannot be written yet') : 'Nothing was waiting.', !!r.queued);
+  }, null, true, true),
   solari: () => act(() => api('/api/player/solari', { amount: +val('solari') }), 'Solari updated'),
   xp: () => act(async () => { const r = await api('/api/player/xp', { amount: +val('xpAmt') }); toast(r.applied ? `XP ${Number(r.before).toLocaleString()} to ${Number(r.after).toLocaleString()}, level ${r.levelBefore} to ${r.levelAfter}` + (r.skillPointsGained ? `, +${r.skillPointsGained} skill points` : '') + (r.capped ? ' (stopped at level 200)' : '') + NOT_SAVED : 'Already at the last level (200).'); }, null),
   currency: () => act(async () => { const r = await api('/api/player/currency', { currency: +val('curSel'), amount: +val('curAmt') }); toast(`${r.currency == 0 ? 'Solari Credit' : 'House Credit'} ${Number(r.before).toLocaleString()} to ${Number(r.after).toLocaleString()}` + NOT_SAVED); }, null),
@@ -998,11 +940,11 @@ const A = {
   refill: () => act(async () => { const r = await api('/api/player/refill', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} Literjons (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
   delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). Discard undoes it until you save.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
   spec: (d) => { $('#st').value = d.t; $('#sx').value = d.xp; $('#sl').value = d.lv; },
-  spKeyAll: async () => (await ask({ title: 'Grant all keystones?', body: 'Every specialization keystone of every track is bought. One edit in the review pane.', ok: 'Grant all', danger: true })) && act(async () => { const r = await api('/api/player/specs/keystones/grant', {}); toast(r.granted ? `${r.granted} keystones granted` + NOT_SAVED : 'All keystones were already granted.'); }, null),
-  spKeyReset: async () => (await ask({ title: 'Reset all keystones?', body: 'Every specialization keystone you have bought is removed. One edit in the review pane.', ok: 'Reset all', danger: true })) && act(async () => { const r = await api('/api/player/specs/keystones/reset', {}); toast(r.removed ? `${r.removed} keystones reset` + NOT_SAVED : 'There were no keystones to reset.'); }, null),
+  spKeyAll: async () => (await ask({ title: 'Grant all keystones?', body: 'Every specialization keystone of every track is bought. One edit.', ok: 'Grant all', danger: true })) && act(async () => { const r = await api('/api/player/specs/keystones/grant', {}); toast(r.granted ? `${r.granted} keystones granted` + NOT_SAVED : 'All keystones were already granted.'); }, null),
+  spKeyReset: async () => (await ask({ title: 'Reset all keystones?', body: 'Every specialization keystone you have bought is removed. One edit.', ok: 'Reset all', danger: true })) && act(async () => { const r = await api('/api/player/specs/keystones/reset', {}); toast(r.removed ? `${r.removed} keystones reset` + NOT_SAVED : 'There were no keystones to reset.'); }, null),
   spAdd: (d) => act(async () => { const r = await api('/api/player/specs/xp', { track: d.t, amount: +val('spx' + d.t) }); toast(`${d.t}: ${Number(r.before).toLocaleString()} to ${Number(r.after).toLocaleString()} XP, level ${Math.floor(r.level)}` + NOT_SAVED); }, null),
-  spMax: async (d) => (await ask({ title: 'Grant max ' + d.t + '?', body: d.t + ' goes to the XP of its last level (level 100). One edit in the review pane.', ok: 'Grant max', danger: true })) && act(async () => { await api('/api/player/specs/max', { track: d.t }); toast(d.t + ' set to max' + NOT_SAVED); }, null),
-  spReset: async (d) => (await ask({ title: 'Reset ' + d.t + '?', body: d.t + " goes back to 0 XP. Its keystones are not changed. One edit in the review pane.", ok: 'Reset', danger: true })) && act(async () => { const r = await api('/api/player/specs/reset', { track: d.t }); toast(r.removed ? d.t + ' reset' + NOT_SAVED : d.t + ' had no XP to reset; nothing changed.'); }, null),
+  spMax: async (d) => (await ask({ title: 'Grant max ' + d.t + '?', body: d.t + ' goes to the XP of its last level (level 100). One edit.', ok: 'Grant max', danger: true })) && act(async () => { await api('/api/player/specs/max', { track: d.t }); toast(d.t + ' set to max' + NOT_SAVED); }, null),
+  spReset: async (d) => (await ask({ title: 'Reset ' + d.t + '?', body: d.t + " goes back to 0 XP. Its keystones are not changed. One edit.", ok: 'Reset', danger: true })) && act(async () => { const r = await api('/api/player/specs/reset', { track: d.t }); toast(r.removed ? d.t + ' reset' + NOT_SAVED : d.t + ' had no XP to reset; nothing changed.'); }, null),
   spAssign: (d) => act(async () => { const t = val('spa' + d.n); await api('/api/player/specs/assign', { track: t, number: +d.n }); toast(`Track number ${d.n} is ${t}`); }, null, false),
   spAssignHand: () => act(async () => { const t = val('spmt'), n = val('spmn'); if (n === '') throw new Error('Type the track number first.'); await api('/api/player/specs/assign', { track: t, number: +n }); toast(`${t} is track number ${n}`); }, null, false),
   specSet: () => act(() => api('/api/player/specs', { track_type: +val('st'), xp: +val('sx'), level: +val('sl') }), 'Specialization set'),
@@ -1016,24 +958,24 @@ const A = {
   ctfilter: () => { ctQ = val('ctq'); catalogList(); },
   ctclear: () => { ctQ = ''; catalogList(); },
   ctGive: (d) => act(async () => { await api('/api/player/give-items', { items: [{ template_id: d.id, quantity: 1, quality: 0 }] }); toast('Item added to your backpack' + NOT_SAVED); }, null),
-  bsAll: async () => (await ask({ title: 'Unlock all building sets?', body: 'Every building set in the list below, except the experimental ones, is added to the sets you have learned. This is one edit in the review pane.', ok: 'Unlock all' })) && act(async () => { const r = await api('/api/player/building-sets/unlock-all', {}); toast(r.added ? `Learned ${r.added} building sets` + NOT_SAVED : 'All building sets are already learned.'); }, null),
-  rsAll: async () => (await ask({ title: 'Unlock all research?', body: 'Every research entry that unlocks a recipe or a building set is bought, and the recipes and sets they unlock are added. One edit in the review pane.', ok: 'Unlock all' })) && act(async () => { const r = await api('/api/player/research/unlock-all', {}); toast(r.bought || r.repaired ? `Research: ${r.bought} bought, ${r.repaired} repaired, ${r.unlocksAdded} recipes or sets added` + NOT_SAVED : 'All research is already unlocked.'); }, null),
-  crAll: async () => (await ask({ title: 'Unlock all recipes?', body: 'Every crafting recipe your research tree offers that you do not know yet is added to your known recipes. One edit in the review pane.', ok: 'Unlock all' })) && act(async () => { const r = await api('/api/player/crafting/unlock-all', {}); toast(r.added ? `Added ${r.added} recipes` + NOT_SAVED : 'You already know every recipe.'); }, null),
-  skMax: async (d) => (await ask({ title: 'Max skills?', body: d.school == 'all' ? 'Every skill of the five schools is set to its highest rank. The unspent points are not changed. One edit in the review pane.' : 'Every skill of this school is set to its highest rank. The unspent points are not changed.', ok: 'Max skills' })) && act(async () => { const r = await api('/api/player/skills/max', { school: d.school }); toast(r.changed ? `${r.changed} skills raised to their highest rank` + NOT_SAVED : 'Those skills are already at their highest rank.'); }, null),
-  ctUnlockSet: async (d) => (await ask({ title: 'Unlock ' + d.name + '?', body: 'Every ordinary cosmetic of ' + d.name + ' that is not unlocked yet is added to your character\'s customization library, with no item in your backpack. One edit in the review pane. Store and DLC cosmetics are skipped: they need an account entitlement, and the game removes the ones your account does not own.', ok: 'Unlock' })) && act(async () => { const r = await api('/api/player/customizations/unlock', { group: d.id }); const sk = r.skippedEntitlement ? ` (${r.skippedEntitlement} store or DLC cosmetics skipped: they need an account entitlement)` : ''; toast((r.added ? `Unlocked ${r.added} customizations` + NOT_SAVED : 'Nothing new to unlock in that set') + sk); }, null),
-  ctUnlock: async (d) => (await ask({ title: 'Unlock ' + d.name + '?', body: 'This cosmetic is added to your character\'s customization library, with no item in your backpack. One edit in the review pane.' + (d.ent ? ' It needs an account entitlement: if your account does not own it, the game removes the unlock when it loads the save (it did for a store cosmetic in a test).' : ''), ok: 'Unlock' })) && act(async () => { const r = await api('/api/player/customizations/unlock', { id: d.id }); toast(r.added ? `Unlocked ${r.added} customization${r.added > 1 ? 's' : ''}` + NOT_SAVED + (r.warning ? ' ' + r.warning : '') : 'That cosmetic is already unlocked.', !!r.warning, r.warning ? 9000 : 3500); }, null),
+  bsAll: async () => (await ask({ title: 'Unlock all building sets?', body: 'Every building set in the list below, except the experimental ones, is added to the sets you have learned. This is one edit.', ok: 'Unlock all' })) && act(async () => { const r = await api('/api/player/building-sets/unlock-all', {}); toast(r.added ? `Learned ${r.added} building sets` + NOT_SAVED : 'All building sets are already learned.'); }, null),
+  rsAll: async () => (await ask({ title: 'Unlock all research?', body: 'Every research entry that unlocks a recipe or a building set is bought, and the recipes and sets they unlock are added. One edit.', ok: 'Unlock all' })) && act(async () => { const r = await api('/api/player/research/unlock-all', {}); toast(r.bought || r.repaired ? `Research: ${r.bought} bought, ${r.repaired} repaired, ${r.unlocksAdded} recipes or sets added` + NOT_SAVED : 'All research is already unlocked.'); }, null),
+  crAll: async () => (await ask({ title: 'Unlock all recipes?', body: 'Every crafting recipe your research tree offers that you do not know yet is added to your known recipes. One edit.', ok: 'Unlock all' })) && act(async () => { const r = await api('/api/player/crafting/unlock-all', {}); toast(r.added ? `Added ${r.added} recipes` + NOT_SAVED : 'You already know every recipe.'); }, null),
+  skMax: async (d) => (await ask({ title: 'Max skills?', body: d.school == 'all' ? 'Every skill of the five schools is set to its highest rank. The unspent points are not changed. One edit.' : 'Every skill of this school is set to its highest rank. The unspent points are not changed.', ok: 'Max skills' })) && act(async () => { const r = await api('/api/player/skills/max', { school: d.school }); toast(r.changed ? `${r.changed} skills raised to their highest rank` + NOT_SAVED : 'Those skills are already at their highest rank.'); }, null),
+  ctUnlockSet: async (d) => (await ask({ title: 'Unlock ' + d.name + '?', body: 'Every ordinary cosmetic of ' + d.name + ' that is not unlocked yet is added to your character\'s customization library, with no item in your backpack. One edit. Store and DLC cosmetics are skipped: they need an account entitlement, and the game removes the ones your account does not own.', ok: 'Unlock' })) && act(async () => { const r = await api('/api/player/customizations/unlock', { group: d.id }); const sk = r.skippedEntitlement ? ` (${r.skippedEntitlement} store or DLC cosmetics skipped: they need an account entitlement)` : ''; toast((r.added ? `Unlocked ${r.added} customizations` + NOT_SAVED : 'Nothing new to unlock in that set') + sk); }, null),
+  ctUnlock: async (d) => (await ask({ title: 'Unlock ' + d.name + '?', body: 'This cosmetic is added to your character\'s customization library, with no item in your backpack. One edit.' + (d.ent ? ' It needs an account entitlement: if your account does not own it, the game removes the unlock when it loads the save (it did for a store cosmetic in a test).' : ''), ok: 'Unlock' })) && act(async () => { const r = await api('/api/player/customizations/unlock', { id: d.id }); toast(r.added ? `Unlocked ${r.added} customization${r.added > 1 ? 's' : ''}` + NOT_SAVED + (r.warning ? ' ' + r.warning : '') : 'That cosmetic is already unlocked.', !!r.warning, r.warning ? 9000 : 3500); }, null),
   ctGrantSet: async (d) => (await ask({ title: 'Give ' + d.name + ' as items?', body: 'One of each cosmetic item that is not already in your inventory goes into your backpack, all or nothing, so it needs room for them all. Unlock set avoids that. This does not give a DLC or an account entitlement a set may need.', ok: 'Give' })) && act(async () => { const r = await api('/api/player/customizations/grant', { group: d.id }); toast(r.granted ? `Added ${r.granted} cosmetics to your backpack` + NOT_SAVED : 'All of that set is already in your inventory.'); }, null),
   lcClear: () => { LC.sel = new Set(); LC.rm = new Set(); claimEditorDraw(); },
   lcRemove: async () => {
     const c = LC.claim, cells = [...LC.rm].map(lcCoords).sort((p, q) => p[1] - q[1] || p[0] - q[0]).map(([x, y]) => ({ x, y }));
-    if (!(await ask({ title: 'Remove land claim cells?', body: `Remove ${cells.length} cell${cells.length === 1 ? '' : 's'} from the claim. A cell that holds a building piece or a placeable is never removed, and the claim must stay connected to the totem; the request is refused whole otherwise. It goes through the review pane and the usual backup; the game loads it next time.`, ok: 'Remove cells' }))) return;
+    if (!(await ask({ title: 'Remove land claim cells?', body: `Remove ${cells.length} cell${cells.length === 1 ? '' : 's'} from the claim. A cell that holds a building piece or a placeable is never removed, and the claim must stay connected to the totem; the request is refused whole otherwise. It is written at once, after the usual backup; the game loads it next time.`, ok: 'Remove cells' }))) return;
     act(async () => { const r = await api('/api/bases/claim/remove', { totem_id: c.totem_id, cells }); LC = null; toast(`Land claim: ${r.removed} cell${r.removed === 1 ? '' : 's'} removed, ${r.remaining} left` + NOT_SAVED); }, null);
   },
   lcApply: async () => {
     const c = LC.claim, cells = [...LC.sel].map(lcCoords).sort((p, q) => p[1] - q[1] || p[0] - q[0]).map(([x, y]) => ({ x, y }));
     const body = { totem_id: c.totem_id, cells };
     if (LC.level !== c.level) body.level = LC.level;
-    if (!(await ask({ title: 'Edit land claim?', body: `Add ${cells.length} horizontal cell${cells.length === 1 ? '' : 's'}${LC.level !== c.level ? ` and raise the vertical level from ${c.level} to ${LC.level}` : ''}. It goes through the review pane and the usual backup; the game loads it next time.`, ok: 'Apply changes' }))) return;
+    if (!(await ask({ title: 'Edit land claim?', body: `Add ${cells.length} horizontal cell${cells.length === 1 ? '' : 's'}${LC.level !== c.level ? ` and raise the vertical level from ${c.level} to ${LC.level}` : ''}. It is written at once, after the usual backup; the game loads it next time.`, ok: 'Apply changes' }))) return;
     act(async () => { const r = await api('/api/bases/claim/apply', body); LC = null; toast(`Land claim: ${r.added} cell${r.added === 1 ? '' : 's'} added` + (r.levelRaised ? `, vertical level ${r.level}` : '') + NOT_SAVED); }, null);
   },
   rsfilter: () => { rsQ = val('rsq'); researchList(); },
@@ -1046,13 +988,13 @@ const A = {
   jclear: () => { window.jq = ''; journeyList(); },
   jset: (d) => act(async () => { await api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }); JB = await api('/api/player/journey/browse'); journeyList(); toast('Journey updated' + NOT_SAVED); }, null),
   autoref: async (d) => {
-    if (!d.on && !(await ask({ title: 'Turn on automatic refill?', body: 'From now on, opening the editor refills water storage and power buildings and saves to your game file immediately, without the Review & save step. The previous file is backed up each time, and nothing happens while a single-player session is running. It applies to whichever save file the editor opens.', ok: 'Turn on' }))) return;
+    if (!d.on && !(await ask({ title: 'Turn on automatic refill?', body: 'From now on, opening the editor refills water storage and power buildings and saves to your game file immediately, like every other change. The previous file is backed up each time, and nothing happens while a single-player session is running. It applies to whichever save file the editor opens.', ok: 'Turn on' }))) return;
     act(async () => { const r = await api('/api/settings', { autoRefillOnOpen: !d.on }); toast('Automatic refill when the editor opens is now ' + (r.autoRefillOnOpen ? 'on' : 'off')); }, null);
   },
   claimShrink: async (d) => {
     const rings = +val('cs' + d.id);
     const size = rings ? `${2 * rings + 1} x ${2 * rings + 1}` : 'the totem\'s own cell';
-    if (!(await ask({ title: 'Shrink this land claim?', body: `Removes every stored cell outside ${size}. A cell that holds building pieces is never removed. It goes through the review pane, and Discard undoes it until you save.`, ok: 'Shrink claim' }))) return;
+    if (!(await ask({ title: 'Shrink this land claim?', body: `Removes every stored cell outside ${size}. A cell that holds building pieces is never removed. It is written at once, after the usual backup.`, ok: 'Shrink claim' }))) return;
     act(async () => { const r = await api('/api/bases/claim/shrink', { totem_id: +d.id, rings }); toast(`Removed ${r.removed} cells; the claim now has ${r.remaining}` + NOT_SAVED); });
   },
   claimGrow: async (d) => {
@@ -1062,7 +1004,7 @@ const A = {
     if (level > +d.level) body.level = level;
     if (body.rings === undefined && body.level === undefined) { toast('Nothing to change: pick a bigger size or a higher level', true); return; }
     const what = [body.rings ? `every missing cell up to a ${2 * rings + 1} x ${2 * rings + 1} square around the totem` : '', body.level !== undefined ? `the vertical level raised to ${level}` : ''].filter(Boolean).join(' and ');
-    if (!(await ask({ title: 'Expand this land claim?', body: `Adds ${what}. It goes through the review pane, and Discard undoes it until you save.`, ok: 'Expand claim' }))) return;
+    if (!(await ask({ title: 'Expand this land claim?', body: `Adds ${what}. It is written at once, after the usual backup.`, ok: 'Expand claim' }))) return;
     act(async () => { const r = await api('/api/bases/claim/expand', body); toast(`Claim now ${r.totalCells} cells, level ${r.level} (+${r.added} cells)` + NOT_SAVED); });
   },
   refillWater: () => act(async () => { const r = await api('/api/bases/refill-water', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast((r.filled ? `Refilled ${r.summary} (${r.alreadyFull} already full).` : `All ${r.alreadyFull} water buildings were already full.`) + sk + NOT_SAVED); }, null),
@@ -1101,12 +1043,12 @@ const A = {
   },
   execsql: async () => {
     window.lastSql = val('sql');
-    if (!(await ask({ title: 'Run this SQL as a write?', body: 'This statement changes the working copy (nothing is written to the game until you review and save):', pre: window.lastSql, ok: 'Run', typed: 'write', danger: true }))) return;
+    if (!(await ask({ title: 'Run this SQL as a write?', body: 'This statement is written to the game file at once, after the usual backup (or queued while the game is running):', pre: window.lastSql, ok: 'Run', typed: 'write', danger: true }))) return;
     try {
       const r = await api('/api/db/exec', { sql: window.lastSql });
       toast(r.changes + (r.changes === 1 ? ' row changed' : ' rows changed'));
       await status();
-      setHTML($('#sqlout'), html`<p class="ok">${r.changes} ${r.changes === 1 ? 'row' : 'rows'} changed. Press "Review &amp; save" to write them to game.db.</p>`);
+      setHTML($('#sqlout'), html`<p class="ok">${r.changes} ${r.changes === 1 ? 'row' : 'rows'} changed, and written to game.db (queued while the game is in a single-player session).</p>`);
     } catch (e) { toast(e.message, true); }
   },
   restore: async (d) => (await ask({ title: 'Restore this backup over the save?', body: 'Replace game.db with ' + d.n + '. The current file is backed up first. Close the game first.', ok: 'Restore', typed: 'restore', danger: true })) && act(() => api('/api/save/restore', { name: d.n }), 'Restored'),
@@ -1190,8 +1132,7 @@ setInterval(async () => {
     offline = true;
     const gw = $('#gamewarn');
     gw.className = 'warn';
-    setHTML(gw, html`<b>Lost contact with the editor.</b> Saving is off until it answers again. If you closed the editor, nothing more will be written.`);
-    syncReview();
+    setHTML(gw, html`<b>Lost contact with the editor.</b> Changes are not written until it answers again. If you closed the editor, nothing more will be written.`);
   }
 }, 5000);
 document.addEventListener('keydown', (e) => {
@@ -1208,6 +1149,5 @@ document.addEventListener('keydown', (e) => {
     }
     return;
   }
-  if (e.key === 'Escape' && R) A.closeReview();
 });
-document.addEventListener('mousedown', (e) => { if (askState && e.target === $('#ask')) endAsk(false); else if (R && !askState && e.target === $('#modal')) A.closeReview(); });
+document.addEventListener('mousedown', (e) => { if (askState && e.target === $('#ask')) endAsk(false); });

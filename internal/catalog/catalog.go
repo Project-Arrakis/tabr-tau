@@ -5,6 +5,9 @@
 // licence, copyright RedBlink; synced 2026-10-09 with blob 1bde840c). Only the id, the name, the category, the source and the required DLC are kept, not the
 // stack sizes or volumes. The licence text is reproduced in internal/notices/THIRD-PARTY-NOTICES.md. Seven ids appear
 // twice in the source (the same item listed under two categories); the first entry wins.
+//
+// stacks.json holds the most of an item one inventory slot can hold, as the game's own item tables list it (the base item rows, StackAndDurability.MaxStackSize). Only
+// the items that stack are listed; every other item the catalog knows holds one.
 package catalog
 
 import (
@@ -15,6 +18,9 @@ import (
 
 //go:embed items.json
 var raw []byte
+
+//go:embed stacks.json
+var rawStacks []byte
 
 // customization_unlocks.json maps each cosmetic item (a token the character uses to unlock cosmetics) to the customization ids it unlocks, as the game's own
 // item table lists them (DT_ItemTableCustomizations, CustomizationItemStats.UnlockableCustomizations). It holds ids only. A character's unlocked ids are
@@ -37,6 +43,7 @@ var (
 	entries []Entry
 	byID    map[string]Entry
 	unlocks map[string][]string
+	stacks  map[string]int64
 )
 
 func init() {
@@ -46,6 +53,13 @@ func init() {
 	if err := json.Unmarshal(rawUnlocks, &unlocks); err != nil {
 		panic("catalog: customization_unlocks.json is not valid: " + err.Error())
 	}
+	var st struct {
+		Max map[string]int64 `json:"max"`
+	}
+	if err := json.Unmarshal(rawStacks, &st); err != nil {
+		panic("catalog: stacks.json is not valid: " + err.Error())
+	}
+	stacks = st.Max
 	byID = make(map[string]Entry, len(entries))
 	for _, e := range entries {
 		if _, dup := byID[e.ID]; !dup { // the first entry for an id wins
@@ -53,6 +67,18 @@ func init() {
 		}
 	}
 	sort.SliceStable(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name })
+}
+
+// MaxStack returns the most of an item one slot holds, and whether it is known: an item the game's tables list with a stack size has it, any other item in the catalog
+// holds one (gear, schematics, vehicles), and an id the catalog does not know has no answer.
+func MaxStack(id string) (int64, bool) {
+	if n, ok := stacks[id]; ok {
+		return n, true
+	}
+	if _, ok := byID[id]; ok {
+		return 1, true
+	}
+	return 0, false
 }
 
 // Unlocks returns the customization ids a cosmetic item unlocks when it is used, or nil when the game's table has no entry for it. The slice must not be changed.
