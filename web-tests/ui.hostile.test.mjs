@@ -92,13 +92,13 @@ const BASE7 = [{ base_id: 7, name: 'Base', base_type: 'Advanced Sub-Fief', owner
 const VIEWS = [
   ['player', 'char:overview'], ['player', 'char:inventory'], ['player', 'char:reputation'], ['player', 'player:specialization'], ['player', 'player:journey'],
   ['player', 'player:buildingsets'], ['player', 'player:admin'],
-  ['player', 'player:crafting'], ['player', 'player:research'], ['player', 'player:customizations'], ['player', 'player:skills'], ['player', 'player:blueprints'],
+  ['player', 'player:crafting'], ['player', 'player:research'], ['player', 'player:customizations'], ['player', 'player:skills'],
   ['player', 'player:bases'], ['player', 'player:bases', '[data-bstab="water"]'], ['player', 'player:bases', '[data-bstab="inventory"]'], ['player', 'player:bases', '[data-bstab="claim"]'],
   ['player', 'player:vehicles'], ['livemap'], ['landsraad'], ['config'],
   ['db', 'db:browse'], ['db', 'db:sql'], ['db', 'db:backups'],
 ];
-// Only views that cannot show text from the save are listed (audit QA-9): Admin and Blueprints say "not in tabr-tau yet", Customizations lists the game's own catalog, and the SQL console and the backups list are empty until a query is run or a backup exists. Every other view must show the hostile text.
-const NO_DATA = new Set(['player:admin', 'player:customizations', 'player:blueprints', 'db:sql', 'db:backups']);
+// Only views that cannot show text from the save are listed (audit QA-9): Admin offers only controls, Customizations lists the game's own catalog, and the SQL console and the backups list are empty until a query is run or a backup exists. Every other view must show the hostile text.
+const NO_DATA = new Set(['player:admin', 'player:customizations', 'db:sql', 'db:backups']);
 
 for (const confused of [false, true]) for (const [tabName, ...subs] of VIEWS) {
   const label = [tabName, ...subs].join(' > ');
@@ -257,20 +257,25 @@ test('Give Intel posts the amount and reports what was applied, including the ca
   ui.dom.window.close();
 });
 
-test('Admin mirrors the console: the actions tabr-tau has post, the ones it lacks are disabled, server-only ones are absent', async () => {
+test('Admin: the actions tabr-tau has post, nothing is shown disabled, server-only ones are absent, repair is a link to its home', async () => {
   const ui = await boot({});
   ui.click('[data-tab="player"]'); await ui.settle();
   assert.equal(ui.doc.querySelector('[data-act="teleport"]'), null, 'Teleport is on Admin, not on Character > Overview');
-  assert.equal(ui.doc.querySelector('[data-act="repair"]'), null, 'Repair gear is on Admin, not on the inventory');
+  assert.equal(ui.doc.querySelector('[data-act="repair"]'), null, 'Repair gear is on the inventory tab, not on Overview');
   ui.click('[data-sub="player:admin"]'); await ui.settle();
-  for (const act of ['teleport', 'repair', 'repairV', 'faction']) assert.ok(ui.doc.querySelector(`[data-act="${act}"]`), `Admin has ${act}`);
+  for (const act of ['teleport', 'faction']) assert.ok(ui.doc.querySelector(`[data-act="${act}"]`), `Admin has ${act}`);
+  for (const act of ['repair', 'repairV']) assert.equal(ui.doc.querySelector(`[data-act="${act}"]`), null, `${act} has one home, which is not Admin`);
   const text = ui.doc.querySelector('#main').textContent;
-  for (const lacks of ['Repair Faction', 'Repair Quests', 'Wipe Inventory', 'Reset Progression', 'Spawn']) {
-    const b = [...ui.doc.querySelectorAll('button')].find((x) => x.textContent.trim() == lacks);
-    assert.ok(b && b.disabled, `${lacks} is shown disabled`);
-  }
+  assert.ok(!text.includes('Not in tabr-tau yet') && !text.includes('Danger'), 'no stub and no empty Danger zone');
+  assert.equal([...ui.doc.querySelectorAll('#main button')].filter((x) => x.disabled).length, 0, 'no disabled button stands in for a feature that is not built');
   for (const serverOnly of ['Kick Player', 'Ban Player', 'Repair Login Queue', 'Recover Character']) assert.ok(!text.includes(serverOnly), `${serverOnly} does not apply to single-player`);
+  ui.click('[data-goto="character:inventory"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#invq'), 'the link opens Character > Inventory');
   ui.click('[data-act="repair"]'); await ui.settle();
+  ui.click('[data-sub="player:admin"]'); await ui.settle();
+  ui.click('[data-goto="vehicles"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#rvPct'), 'the link opens Vehicles, which holds the repair-below box');
+  ui.click('[data-sub="player:admin"]'); await ui.settle();
   ui.click('[data-act="teleport"]'); await ui.settle();
   for (const path of ['/api/player/repair', '/api/player/teleport']) assert.equal(ui.posted.filter((x) => x.path === path).length, 1, path);
   ui.dom.window.close();
@@ -699,7 +704,8 @@ test('Admin: Faction Assignment posts the chosen faction, Repair Below posts its
   ui.click('[data-act="faction"]'); await ui.settle();
   assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/faction').map((p) => p.body), [{ faction_id: 1 }]);
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Faction set to Atreides'));
-  assert.equal(ui.doc.querySelector('#rvPct').value, '100', 'Admin repairs everything by default, like the Vehicles tab (UX-03)');
+  ui.click('[data-sub="player:vehicles"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('#rvPct').value, '100', 'Vehicles repairs everything by default (UX-03)');
   ui.doc.querySelector('#rvPct').value = '75';
   ui.click('[data-act="repairV"]'); await ui.settle();
   assert.deepEqual(ui.posted.filter((p) => p.path === '/api/vehicles/repair').map((p) => p.body), [{ threshold: 75 }]);
@@ -709,7 +715,7 @@ test('Admin: Faction Assignment posts the chosen faction, Repair Below posts its
 test('a vehicle repair that repaired nothing says why: nothing below the threshold, or nothing to repair (UX-03)', async () => {
   const ui = await boot({ post: { '/api/vehicles/repair': { ok: true, modules: 4, repaired: 0, withoutKnownMax: 0 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
-  ui.click('[data-sub="player:admin"]'); await ui.settle();
+  ui.click('[data-sub="player:vehicles"]'); await ui.settle();
   ui.doc.querySelector('#rvPct').value = '75';
   ui.click('[data-act="repairV"]'); await ui.settle();
   let t = ui.doc.querySelector('#toast').textContent;
@@ -721,7 +727,7 @@ test('a vehicle repair that repaired nothing says why: nothing below the thresho
   ui.dom.window.close();
   const none = await boot({ post: { '/api/vehicles/repair': { ok: true, modules: 0, repaired: 0, withoutKnownMax: 0 } } });
   none.click('[data-tab="player"]'); await none.settle();
-  none.click('[data-sub="player:admin"]'); await none.settle();
+  none.click('[data-sub="player:vehicles"]'); await none.settle();
   none.click('[data-act="repairV"]'); await none.settle();
   assert.ok(none.doc.querySelector('#toast').textContent.includes('no vehicle modules were found'), none.doc.querySelector('#toast').textContent);
   none.dom.window.close();
@@ -1273,7 +1279,7 @@ test('base and vehicle upkeep buttons post, and unknown building names stay plai
   ui.click('[data-act="refillGen"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Refilled 2 Omnidirectional Wind Turbines, 1 Windtrap'));
   ui.click('[data-tab=\"player\"]'); await ui.settle();
-  ui.click('[data-sub=\"player:admin\"]'); await ui.settle();
+  ui.click('[data-sub=\"player:vehicles\"]'); await ui.settle();
   ui.click('[data-act="repairV"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Repaired 7 vehicle modules'));
   for (const p of ['/api/bases/refill-water', '/api/bases/refill-generators', '/api/vehicles/repair']) assert.equal(ui.posted.filter((x) => x.path === p).length, 1, p);
@@ -1651,5 +1657,17 @@ test('the Player Summary labels its numbers: skill points unspent and earned, In
   const t = ui.doc.querySelector('#sumcard').textContent;
   for (const want of ['9 unspent, 70 earned', '333 of 2,779', '112.5 (max 150 or more)', '52.5 of 100']) assert.ok(t.includes(want), `${want} in ${t}`);
   assert.ok(/Level\s*-/.test(t), 'a missing level shows a dash like the other tiles: ' + t);
+  ui.dom.window.close();
+});
+
+// ---------- clutter: one Money card, no Blueprints page (UX-35, review #16 and #17)
+test('Character > Overview has one Money card for the backpack Solari and the wallets, and no Blueprints page is offered', async () => {
+  const ui = await boot();
+  ui.click('[data-tab="player"]'); await ui.settle();
+  const money = [...ui.doc.querySelectorAll('#main .card')].filter((c) => c.querySelector('h3') && c.querySelector('h3').textContent === 'Money');
+  assert.equal(money.length, 1, 'one Money card');
+  assert.ok(money[0].querySelector('#solari') && money[0].querySelector('#curSel') && money[0].querySelector('#curAmt'), 'it holds the backpack stack and the wallet controls');
+  assert.ok(![...ui.doc.querySelectorAll('#main h3')].some((h) => h.textContent === 'Quick rewards' && h.parentElement.querySelector('#curSel')), 'Quick rewards no longer holds a wallet row');
+  assert.equal(ui.doc.querySelector('[data-sub="player:blueprints"]'), null, 'the Blueprints page that only said "not yet" is gone');
   ui.dom.window.close();
 });
