@@ -147,6 +147,7 @@ type Mut struct {
 	// Desc is the human-readable description recorded for the edit when it changed something. Mutate sets it from
 	// its desc argument; the function may replace it once it knows the outcome (for example a row count).
 	Desc  string
+	keep  bool      // the journal is on, so what the edit runs is recorded
 	stmts []stmtRec // what the edit ran, for the journal of pending edits
 	lossy bool      // an argument could not be kept
 }
@@ -155,7 +156,7 @@ type Mut struct {
 func (m *Mut) Exec(q string, args ...any) (sql.Result, error) {
 	res, err := m.tx.Exec(q, args...)
 	noteSQLError(q, err)
-	if err == nil {
+	if err == nil && m.keep {
 		rec := stmtRec{Q: q}
 		for _, a := range args {
 			j, ok := encodeArg(a)
@@ -236,7 +237,7 @@ func (s *Save) mutate(desc string, cascade bool, fn func(m *Mut) error) (int64, 
 		tx.Rollback()
 		return 0, err
 	}
-	m := &Mut{tx: tx, Desc: desc}
+	m := &Mut{tx: tx, Desc: desc, keep: s.journalPath != "" && s.journalOff == ""}
 	if err := fn(m); err != nil {
 		tx.Rollback()
 		return 0, err

@@ -208,7 +208,8 @@ func (s *Save) stopJournal(why string) {
 
 // dropJournal forgets the kept edits and removes the file (the edits were saved or discarded). The caller holds s.mu.
 func (s *Save) dropJournal() {
-	s.recs, s.recStmts, s.restored = nil, 0, nil
+	// nothing is pending any more, so whatever turned the journal off (an edit it could not keep) no longer matters: the next edit is kept again
+	s.recs, s.recStmts, s.restored, s.journalOff = nil, 0, nil, ""
 	if s.journalPath != "" {
 		os.Remove(s.journalPath)
 	}
@@ -270,8 +271,12 @@ func (s *Save) Rebase() (*Restored, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	kept := append([]opRec(nil), s.recs...)
-	if s.journalOff != "" || (s.dirty && len(kept) == 0) {
-		return nil, errors.New("the pending edits were not kept (" + s.journalOff + "): they cannot be put back; use Discard to read the file again")
+	if s.dirty && len(kept) == 0 { // edits were made but not kept (the journal is off, or was never enabled): they cannot be put back
+		why := s.journalOff
+		if why == "" {
+			why = "the journal is not enabled"
+		}
+		return nil, errors.New("the pending edits were not kept (" + why + "): they cannot be put back; use Discard to read the file again")
 	}
 	if err := s.load(); err != nil {
 		return nil, err
