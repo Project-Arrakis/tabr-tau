@@ -64,8 +64,8 @@ func (o *Ops) Summary() (any, error) {
 		"spiceAddiction": gas["addiction"], "maxSpiceAddiction": 10,
 	}
 
-	// Two different balances: the virtual currency (Solari Credit is id 0, the secondary wallet id 1) and the Solari Coin item
-	// stacks in the inventory. The console shows both.
+	// Two different balances: the virtual currency (Solari in wallet is id 0, the secondary wallet id 1) and the Solari item
+	// stacks in the backpack. Both are shown, under those names everywhere on the page.
 	tiles := []map[string]any{}
 	bal := map[int64]any{}
 	rows, _ := o.S.Query(`select currency_id, balance from player_virtual_currency_balances where player_controller_id=? order by currency_id`, p.Controller)
@@ -74,7 +74,7 @@ func (o *Ops) Summary() (any, error) {
 			bal[id] = r["balance"]
 		}
 	}
-	labels := map[int64]string{0: "Solari Credit", 1: "House Credit"}
+	labels := map[int64]string{0: "Solari in wallet", 1: "House credit in wallet"}
 	for id := int64(0); id <= 1; id++ { // the two expected wallets are always shown, 0 when absent
 		b, ok := bal[id]
 		if !ok {
@@ -86,7 +86,7 @@ func (o *Ops) Summary() (any, error) {
 	for id, b := range bal {
 		tiles = append(tiles, map[string]any{"label": "Currency " + strconv.FormatInt(id, 10), "balance": b})
 	}
-	tiles = append(tiles[:1], append([]map[string]any{{"label": "Solari Coin", "balance": o.solari(p)}}, tiles[1:]...)...)
+	tiles = append(tiles[:1], append([]map[string]any{{"label": "Solari in backpack", "balance": o.solari(p)}}, tiles[1:]...)...)
 	out["currency"] = tiles
 	return out, nil
 }

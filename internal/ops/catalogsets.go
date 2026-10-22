@@ -138,7 +138,7 @@ func (o *Ops) customizationRows(inv map[string]bool, lib map[string]bool) []Cata
 			continue
 		}
 		seen[e.ID] = true
-		row := CatalogRow{ID: e.ID, Name: e.Name, GroupID: otherCustomizations, Group: "Other (not in the console's sets)", InInventory: inv[e.ID], InCatalog: true}
+		row := CatalogRow{ID: e.ID, Name: e.Name, GroupID: otherCustomizations, Group: "Other cosmetics", InInventory: inv[e.ID], InCatalog: true}
 		for _, g := range customizationGroups {
 			if g.re.MatchString(e.ID) {
 				row.GroupID, row.Group = g.ID, g.Name
@@ -187,7 +187,7 @@ func (o *Ops) Customizations() (any, error) {
 	lib, libOK := o.customizationLibrary(p.Pawn)
 	rows := o.customizationRows(inv, lib)
 	var groups []CustomizationSet
-	for _, g := range append(customizationGroupList(), struct{ ID, Name string }{otherCustomizations, "Other (not in the console's sets)"}) {
+	for _, g := range append(customizationGroupList(), struct{ ID, Name string }{otherCustomizations, "Other cosmetics"}) {
 		gr := CustomizationSet{ID: g.ID, Name: g.Name}
 		dlc := map[string]bool{}
 		ent := false

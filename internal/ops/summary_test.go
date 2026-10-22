@@ -50,12 +50,12 @@ func TestSummaryReadsTheCharacterFromTheSave(t *testing.T) {
 	if id["platform"] != "Tester" || id["platformId"] != "PLATFORM-TEST" || id["funcomId"] != "FUNCOM-TEST" || id["flsId"] != "u" {
 		t.Fatalf("identity block: %v", id)
 	}
-	// Solari Credit (virtual currency), Solari Coin (item stacks), then the secondary wallet, always shown.
+	// Solari in wallet (virtual currency), Solari in backpack (item stacks), then the secondary wallet, always shown.
 	tiles := s["currency"].([]map[string]any)
 	want := []struct {
 		label string
 		n     int64
-	}{{"Solari Credit", 591227}, {"Solari Coin", 100}, {"House Credit", 0}}
+	}{{"Solari in wallet", 591227}, {"Solari in backpack", 100}, {"House credit in wallet", 0}}
 	if len(tiles) != len(want) {
 		t.Fatalf("currency tiles: %v", tiles)
 	}

@@ -123,12 +123,12 @@ test('the Player Summary shows what the save holds, above the Player tabs', asyn
     skillPoints: { unspent: 9, total: 70 }, intel: { points: 333, max: 2779 },
     vitals: { health: 112.5, healthMinMax: 150, hydration: 52.5, maxHydration: 100, spiceAddiction: 0, maxSpiceAddiction: 10 },
     identity: { platform: 'Steam', platformId: 'P1', funcomId: 'F1', flsId: 'L1' }, ids: { actor: 2, account: 1, controller: 1, playerState: 3 },
-    currency: [{ label: 'Solari Credit', balance: 591227 }, { label: 'Solari Coin', balance: 95470 }, { label: 'House Credit', balance: 0 }],
+    currency: [{ label: 'Solari in wallet', balance: 591227 }, { label: 'Solari in backpack', balance: 95470 }, { label: 'House credit in wallet', balance: 0 }],
   };
   const ui = await boot({ get: { '/api/player/summary': summary } });
   ui.click('[data-tab="player"]'); await ui.settle();
   const text = ui.doc.querySelector('#main').textContent;
-  for (const want of ['Player Summary', 'Harkonnen', '71', '41,221', '9 / 70', '333 / 2,779', '112.5 (max at least 150)', '52.5 / 100', 'Steam ID', 'Solari Credit', '591,227', 'Solari Coin', '95,470', 'House Credit']) {
+  for (const want of ['Player summary', 'Harkonnen', '71', '41,221', '9 unspent, 70 earned', '333 of 2,779', '112.5 (max 150 or more)', '52.5 of 100', 'Steam ID', 'Solari in wallet', '591,227', 'Solari in backpack', '95,470', 'House credit in wallet']) {
     assert.ok(text.includes(want), `the summary should show ${want}`);
   }
   assert.ok(ui.doc.querySelector('[data-sub="player:bases"]'), 'the Player tabs are still there');
@@ -171,11 +171,11 @@ test('Player > Vehicles shows type, condition, fuel, components and the cargo ho
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:vehicles"]'); await ui.settle();
   const main = () => ui.doc.querySelector('#main').textContent;
-  for (const want of ['Your vehicles (2)', 'Sandbike', 'Buggy', '40%', '85%', '90.5', '5,228, -408,425', 'Sandbike: 2 components', 'Sandbike Engine', '90%', '900 / 1000', 'Sandbike Chassis', '2000', 'Cargo hold', '1 / 15 slots used', 'CopperOre', '12 other vehicles']) {
+  for (const want of ['Your vehicles (2)', 'Sandbike', 'Buggy', '40%', '85%', '90.5', '5,228, -408,425', 'Sandbike: 2 components', 'Sandbike Engine', '90%', '900 / 1000', 'Sandbike Chassis', '2000', 'Cargo hold', '1 of 15 slots used', 'CopperOre', '12 other vehicles']) {
     assert.ok(main().includes(want), `the vehicles tab should show ${want}`);
   }
   ui.click('[data-vhopen="153"]'); await ui.settle();
-  assert.ok(main().includes('Buggy: 0 components') && main().includes('0 / 20 slots used') && main().includes('The cargo hold is empty.') && !main().includes('CopperOre'), 'the second vehicle has its own details');
+  assert.ok(main().includes('Buggy: 0 components') && main().includes('0 of 20 slots used') && main().includes('The cargo hold is empty.') && !main().includes('CopperOre'), 'the second vehicle has its own details');
   assert.ok(ui.doc.querySelector('[data-act="bring"]'), 'Bring to me is still offered');
   ui.dom.window.close();
 });
@@ -190,16 +190,16 @@ test('Player > Bases lists the bases and shows Power, Water and Inventory for th
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:bases"]'); await ui.settle();
   const main = () => ui.doc.querySelector('#main').textContent;
-  for (const want of ['Bases (1)', 'Advanced Sub-Fief Console', 'Advanced Sub-Fief', 'Tester', 'Building Pieces', '486', '-67,159, -211,307, 12', 'Generator', '2,484', '2,500', 'Windtrap', 'Refill power']) assert.ok(main().includes(want), `the Power tab should show ${want}`);
-  assert.deepEqual([...ui.doc.querySelectorAll('[data-bstab]')].map((b) => b.textContent.trim()), ['Power', 'Water', 'Inventory', 'Land Claim Editor', 'Structures']);
+  for (const want of ['Bases (1)', 'Advanced Sub-Fief Console', 'Advanced Sub-Fief', 'Tester', 'Building pieces', '486', '-67,159, -211,307, 12', 'Generator', '2,484', '2,500', 'Windtrap', 'Refill power']) assert.ok(main().includes(want), `the Power tab should show ${want}`);
+  assert.deepEqual([...ui.doc.querySelectorAll('[data-bstab]')].map((b) => b.textContent.trim()), ['Power', 'Water', 'Inventory', 'Land claim editor', 'Structures']);
   assert.ok(!main().includes('Permissions'), 'the permission tabs are not mirrored');
   ui.click('[data-bstab="water"]'); await ui.settle();
   for (const want of ['Water Cistern', '16', '80,000', '100%', 'Refill base water']) assert.ok(main().includes(want), `the Water tab should show ${want}`);
   ui.click('[data-bstab="inventory"]'); await ui.settle();
   assert.deepEqual([...ui.doc.querySelectorAll('[data-bsgrp]')].map((b) => b.textContent.trim()), ['Storage (1)', 'Refining (1)', 'Crafting (0)', 'Other (0)']);
-  assert.ok(main().includes('Ore Out') && main().includes('3 / 20') && !main().includes('Small Ore Refinery'), 'the first group with containers is shown');
+  assert.ok(main().includes('Ore Out') && main().includes('3 of 20') && !main().includes('Small Ore Refinery'), 'the first group with containers is shown');
   ui.click('[data-bsgrp="refining"]'); await ui.settle();
-  assert.ok(main().includes('Small Ore Refinery') && main().includes('1 / 5') && !main().includes('Ore Out'), 'another group');
+  assert.ok(main().includes('Small Ore Refinery') && main().includes('1 of 5') && !main().includes('Ore Out'), 'another group');
   ui.dom.window.close();
 });
 
@@ -216,15 +216,15 @@ test('Character > Inventory shows the console groups, a filter, slot usage and a
   const names = () => [...ui.doc.querySelectorAll('[data-invg]')].map((b) => b.textContent.trim());
   assert.deepEqual(names(), ['Backpack (2)', 'Character (1)', 'Loadout (1)', 'Unique schematics (0)']);
   const main = () => ui.doc.querySelector('#main').textContent;
-  assert.ok(main().includes('2 of 2 - 2 / 35 slots used') && main().includes('CopperOre') && !main().includes('Knife'), 'the backpack is the first group with items');
+  assert.ok(main().includes('2 items, 2 of 35 slots used') && main().includes('CopperOre') && !main().includes('Knife'), 'the backpack is the first group with items');
   ui.click('[data-invg="character"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('[title^="T6_Augment_Armor16"]') && main().includes('Combat_Heavy_Helmet_06') && !main().includes('CopperOre'), 'the character group lists the helmet with its augment');
   ui.click('[data-invg="backpack"]'); await ui.settle();
   ui.doc.querySelector('#invq').value = 'liter';
   ui.click('[data-act="invfilter"]'); await ui.settle();
-  assert.ok(main().includes('1 of 2') && main().includes('Literjon_T1') && !main().includes('CopperOre'), 'the filter narrows the group');
+  assert.ok(main().includes('1 of 2 items match') && main().includes('Literjon_T1') && !main().includes('CopperOre'), 'the filter narrows the group');
   ui.click('[data-act="invclear"]'); await ui.settle();
-  assert.ok(main().includes('2 of 2'), 'Clear shows the group again');
+  assert.ok(main().includes('2 items') && !main().includes('2 of 2'), 'Clear shows the group again, with no "2 of 2"');
   ui.dom.window.close();
 });
 
@@ -236,11 +236,11 @@ test('Give XP and Give currency post their amounts and report the result', async
   ui.doc.querySelector('#xpAmt').value = '1000';
   ui.click('[data-act="xp"]'); await ui.settle();
   let toast = ui.doc.querySelector('#toast').textContent;
-  assert.ok(toast.includes('41,221') && toast.includes('42,221') && toast.includes('level 71 to 72') && toast.includes('+1 skill points'), toast);
+  assert.ok(toast.includes('41,221') && toast.includes('42,221') && toast.includes('level 71 → 72') && toast.includes('+1 skill points'), toast);
   ui.doc.querySelector('#curSel').value = '1'; ui.doc.querySelector('#curAmt').value = '250';
   ui.click('[data-act="currency"]'); await ui.settle();
   toast = ui.doc.querySelector('#toast').textContent;
-  assert.ok(toast.includes('House Credit') && toast.includes('250'), toast);
+  assert.ok(toast.includes('House credit in wallet') && toast.includes('250'), toast);
   assert.deepEqual(ui.posted.filter((x) => x.path === '/api/player/xp').map((x) => x.body), [{ amount: 1000 }]);
   assert.deepEqual(ui.posted.filter((x) => x.path === '/api/player/currency').map((x) => x.body), [{ currency: 1, amount: 250 }]);
   ui.dom.window.close();
@@ -1378,7 +1378,7 @@ test('Structures and Vehicles have no edit boxes on single pieces or vehicles (#
   assert.ok(main().querySelector('[data-act="repairB"]'), 'Repair all to max stays');
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:vehicles"]'); await ui.settle();
-  assert.ok(main().textContent.includes('Recovered / stored vehicles (1)') && main().textContent.includes('Sandbike'), 'the stored vehicle is listed');
+  assert.ok(main().textContent.includes('Recovered and stored vehicles (1)') && main().textContent.includes('Sandbike'), 'the stored vehicle is listed');
   assert.equal(main().querySelector('[data-act="dur"]'), null, 'no Set durability on a vehicle');
   assert.ok(!main().textContent.includes('Set durability'), 'and no text for it');
   ui.dom.window.close();
@@ -1556,5 +1556,100 @@ test('the banner is not redrawn when nothing in it changed, so a focused button 
   assert.ok(ui.doc.querySelector('#gamewarn [data-act="writeNow"]') !== btn, 'the banner was redrawn for the new state');
   assert.equal(ui.doc.querySelector('#gamewarn details.bn-list').open, true, 'the open state of the list is remembered');
   assert.equal(ui.doc.querySelectorAll('#gamewarn details.bn-list li').length, 3);
+  ui.dom.window.close();
+});
+
+// ---------- wording: words for counts, names, headers (UX-33, UX-35, UX-38, UX-39)
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const goTo = async (ui, tabName, ...subs) => { ui.click(`[data-tab="${tabName}"]`); await ui.settle(); for (const x of subs) { ui.click(x.startsWith('[') ? x : `[data-sub="${x}"]`); await ui.settle(); } };
+
+test('no visible text refers to "the console" or "Dune Docker", which the page never defines', async () => {
+  for (const [tabName, ...subs] of VIEWS) {
+    const ui = await boot();
+    await goTo(ui, tabName, ...subs);
+    const text = ui.doc.querySelector('#main').textContent + [...ui.doc.querySelectorAll('[title]')].map((e) => e.getAttribute('title')).join(' ');
+    assert.ok(!/Dune Docker|the console|console's/i.test(text), `${[tabName, ...subs].join(' > ')}: ${text.match(/.{30}(Dune Docker|the console|console's).{30}/i)}`);
+    ui.dom.window.close();
+  }
+});
+
+test('no table header is a raw column name; Database shows the save\'s own column names', async () => {
+  for (const [tabName, ...subs] of VIEWS) {
+    if (tabName === 'db') continue;
+    const ui = await boot();
+    await goTo(ui, tabName, ...subs);
+    for (const th of ui.doc.querySelectorAll('#main th')) {
+      const t = th.textContent.trim();
+      assert.ok(!/_/.test(t) && t !== 'id' && t !== 'Id' && !/^[a-z]/.test(t), `${[tabName, ...subs].join(' > ')}: header "${t}"`);
+    }
+    ui.dom.window.close();
+  }
+});
+
+test('Landsraad shows the term as dates and a reward as the item\'s name; Admin shows vendor items by name and times as dates', async () => {
+  const l = clone(baseFixtures['/api/landsraad'].body);
+  l.term.start_time = 1790000000; l.term.end_time = 1790604800;
+  l.tasks[0].rewards = [{ threshold: 25, amount: 5, template_id: 'SolarisCoin', task_id: 1 }];
+  const catalog = [{ id: 'SolarisCoin', name: 'Solari', category: 'resources', source: 'Resources' }];
+  const ui = await boot({ get: { '/api/landsraad': l, '/api/catalog/items': catalog, '/api/vendors': { stock: [{ vendor_id: 'V1', template_id: 'SolarisCoin', amount_bought: 3 }], cycles: [{ vendor_id: 'V1', last_interacted_timestamp: 1790000000 }] } } });
+  await goTo(ui, 'landsraad');
+  const t = ui.doc.querySelector('#main').textContent;
+  assert.ok(!t.includes('1790000000') && /2026|2027/.test(t), 'Start and End are dates: ' + t.slice(0, 200));
+  assert.ok(t.includes('5 × Solari') && !t.includes('SolarisCoin'), 'the reward is named, not an id');
+  await goTo(ui, 'player', 'player:admin');
+  const a = ui.doc.querySelector('#main').textContent;
+  assert.ok(a.includes('Solari') && !a.includes('SolarisCoin'), 'the vendor table shows the item name');
+  assert.ok(!a.includes('1790000000'), 'the restock time is a date');
+  ui.dom.window.close();
+});
+
+test('Database: an empty table says so instead of "showing 1-0"', async () => {
+  const ui = await boot({ get: { '/api/db/table': { columns: ['rowid', 'a'], rows: [], total: 0, locked: {} } } });
+  await goTo(ui, 'db', 'db:browse');
+  const t = ui.doc.querySelector('#dbout').textContent;
+  assert.ok(t.includes('No rows') && !t.includes('1–0'), t);
+  assert.equal(ui.doc.querySelector('#dbq').getAttribute('placeholder'), 'Search this table');
+  ui.dom.window.close();
+});
+
+test('an empty list says what is empty, not "Nothing here."', async () => {
+  const ui = await boot({ get: { '/api/bases/list': [], '/api/vehicles': { vehicles: [], recovered: [], backups: [], hidden: 0 } } });
+  await goTo(ui, 'player', 'player:bases');
+  const t = ui.doc.querySelector('#main').textContent;
+  assert.equal(t.split('No base').length - 1, 1, 'one empty message: ' + t);
+  assert.ok(!t.includes('Nothing here'));
+  ui.dom.window.close();
+});
+
+test('Give currency uses the one set of money names in its choices and its toast', async () => {
+  const ui = await boot({ post: { '/api/player/currency': { currency: 1, before: 0, after: 250 } } });
+  await goTo(ui, 'player');
+  const opts = [...ui.doc.querySelectorAll('#curSel option')].map((o) => o.textContent);
+  assert.deepEqual(opts, ['Solari in wallet', 'House credit in wallet']);
+  assert.ok(ui.doc.querySelector('#main').textContent.includes('Solari in backpack'));
+  ui.doc.querySelector('#curSel').value = '1';
+  ui.click('[data-act="currency"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('House credit in wallet 0 → 250'), ui.doc.querySelector('#toast').textContent);
+  ui.dom.window.close();
+});
+
+test('a count says what it counts, and "N of N" appears only while a filter narrows the list', async () => {
+  const ui = await boot();
+  await goTo(ui, 'player', 'player:journey');
+  const head = () => ui.doc.querySelector('#jhead').textContent;
+  assert.ok(/\d+ nodes?/.test(head()) && !/\d+ of \d+ nodes/.test(head()), head());
+  ui.doc.querySelector('#jq').value = 'zzzz-no-such-node'; ui.click('[data-act="jfilter"]'); await ui.settle();
+  assert.ok(/0 of \d+ nodes match/.test(head()), head());
+  ui.dom.window.close();
+});
+
+test('the Player Summary labels its numbers: skill points unspent and earned, Intel against its cap', async () => {
+  const summary = { name: 'T', status: 'Offline', map: 'HaggaBasin', faction: null, level: null, xp: 10, skillPoints: { unspent: 9, total: 70 }, intel: { points: 333, max: 2779 },
+    vitals: { health: 112.5, healthMinMax: 150, hydration: 52.5, maxHydration: 100, spiceAddiction: 0, maxSpiceAddiction: 10 }, identity: {}, ids: {}, currency: [] };
+  const ui = await boot({ get: { '/api/player/summary': summary } });
+  await goTo(ui, 'player');
+  const t = ui.doc.querySelector('#sumcard').textContent;
+  for (const want of ['9 unspent, 70 earned', '333 of 2,779', '112.5 (max 150 or more)', '52.5 of 100']) assert.ok(t.includes(want), `${want} in ${t}`);
+  assert.ok(/Level\s*-/.test(t), 'a missing level shows a dash like the other tiles: ' + t);
   ui.dom.window.close();
 });
