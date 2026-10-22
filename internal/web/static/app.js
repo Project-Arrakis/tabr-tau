@@ -387,9 +387,10 @@ function summaryBody(m) {
     ${kv('Character', m.name)}${kv('Status', m.status)}${kv('Map', m.map)}${kv('Faction', m.faction || 'Neutral')}
     ${kv('Level', m.level)}${kv('XP', num(m.xp))}${kv('Skill points', sp ? `${num(sp.unspent)} / ${num(sp.total)}` : '-')}${kv('Intel', it ? `${num(it.points)} / ${num(it.max)}` : '-')}
     ${kv('Health', v.health == null ? '-' : `${f1(v.health)} (max at least ${Math.ceil(Math.max(v.healthMinMax, v.health))})`)}${kv('Hydration', v.hydration == null ? '-' : `${f1(v.hydration)} / ${v.maxHydration}`)}${kv('Spice addiction', v.spiceAddiction == null ? '-' : `${f1(v.spiceAddiction)} / ${v.maxSpiceAddiction}`)}
+    ${(m.currency || []).map((c) => kv(c.label, num(c.balance)))}</div>
+    <details class="ids"><summary>Account and database ids</summary><div class="grid">
     ${idKv('platformId', (id.platform || 'Platform') + ' ID', id.platformId)}${idKv('funcomId', 'Funcom ID', id.funcomId)}${idKv('flsId', 'FLS ID', id.flsId)}
-    ${kv('DB player', ids.actor)}${kv('Account', ids.account)}${kv('Player controller', ids.controller)}${kv('Player state', ids.playerState)}
-    ${(m.currency || []).map((c) => kv(c.label, num(c.balance)))}</div></div>`;
+    ${kv('DB player', ids.actor)}${kv('Account', ids.account)}${kv('Player controller', ids.controller)}${kv('Player state', ids.playerState)}</div></details></div>`;
 }
 async function playerView() {
   let sm = null;
