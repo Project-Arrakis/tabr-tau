@@ -249,6 +249,41 @@ func TestAnEditTheJournalCannotKeepTurnsItOffInsteadOfKeepingPartOfTheEdits(t *t
 	}
 }
 
+// Turning the journal off for one edit must not outlive it: once the edits are saved or discarded, the next edit is kept again, and Reload now works.
+func TestTheJournalComesBackOnceTheEditThatTurnedItOffIsGone(t *testing.T) {
+	p := makeSave(t, journalDDL)
+	dir := t.TempDir()
+	jp := filepath.Join(dir, "pending.json")
+	s := openJournaled(t, p, dir)
+	if _, err := s.Mutate("a script", func(m *Mut) error {
+		_, err := m.Exec(`update jt set name='x' where a=1; update jt set name='y' where a=2`)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if s.JournalOff() == "" {
+		t.Fatal("a script turns the journal off")
+	}
+	if _, err := s.Rebase(); err == nil {
+		t.Fatal("with unkept edits pending, Reload now cannot put them back and must say so")
+	}
+	if err := s.Discard(); err != nil {
+		t.Fatal(err)
+	}
+	if s.JournalOff() != "" {
+		t.Fatal("nothing is pending after Discard: the journal is on again")
+	}
+	if _, err := s.Rebase(); err != nil {
+		t.Fatalf("a clean editor reloads: %v", err)
+	}
+	if _, err := s.Mutate("rename one", func(m *Mut) error { _, err := m.Exec(`update jt set name='uno' where a=1`); return err }); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(jp); err != nil {
+		t.Fatal("the next edit is journaled again")
+	}
+}
+
 func TestAJournalOfAnotherSaveOrTamperedWithIsNotUsed(t *testing.T) {
 	p := makeSave(t, journalDDL)
 	dir := t.TempDir()
