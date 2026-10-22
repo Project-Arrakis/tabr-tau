@@ -168,7 +168,7 @@ type GameState struct {
 // listProcs and statusFor are variables so tests can stand in for the machine.
 var (
 	listProcs = func(fresh bool) ([]string, string) {
-		n := gameProcesses(fresh)
+		n := gameProcesses(!fresh) // fresh asks tasklist again; the status poll (not fresh) may use the answer of the last three seconds
 		gameCache.Lock()
 		defer gameCache.Unlock()
 		return n, gameCache.err

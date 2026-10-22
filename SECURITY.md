@@ -22,7 +22,7 @@ problem is released as soon as it is ready and the report is credited unless you
 
 - The editor listening beyond this computer, or answering a request from another computer or another web page.
 - A web page, or a crafted save or config file, that makes the editor run code, write somewhere other than the save, its backups, the game
-  config folder and its own settings, or write the save without the review step and the game-running check.
+  config folder and its own settings, or write the save without the game-running check.
 - A crafted save that crashes the editor or exhausts its memory.
 - A way to read the session token, or to learn account identifiers the editor hides.
 
@@ -34,8 +34,10 @@ your computer (they can edit your save directly).
 - The editor binds to loopback only, checks the Host header and the peer address, and refuses a request from another site (fetch metadata and
   Origin). The session is an HttpOnly, SameSite=Strict cookie, handed over once through a link that works one time for ten minutes.
 - All HTML is built by an escaping template function; the page allows only its own scripts and styles.
-- A save is only written from the review pane, after a game-running check, a changed-on-disk check, an integrity check and a backup, and is
-  read back and compared afterwards.
+- Every edit is written to the save as it is made, and only after a game-running check, a changed-on-disk check, an integrity check and a
+  backup, and is read back and compared afterwards. While a single-player session is running the edits wait in a queue (kept in a journal) and
+  are written when it ends; if the game saved changes that conflict with the queue, none of it is written and the person is told. The
+  review pane was removed (#238): the guards run at every write and the backups are the way back.
 - Saves are opened from a private copy, and the container is checked (size, declared size, integrity) before anything is trusted.
 
 ## Known limits that are documented, not hidden

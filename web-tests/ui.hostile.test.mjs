@@ -367,6 +367,19 @@ test('Write now asks the server to try again and says what came of it; Discard q
   ui.dom.window.close();
 });
 
+test('a queue held because the game saved conflicting changes says so, lists the conflicts as plain text, and offers Discard queue', async () => {
+  const ui = await boot({ get: { '/api/save/state': queuedState({ held: { conflicts: [{ desc: `Give 5 x Iron ${ATK}`, why: `it changed 0 rows now and 1 before ${ATK}` }] } }) }, post: { '/api/save/discard': { ok: true } } });
+  const gw = ui.doc.querySelector('#gamewarn');
+  assert.ok(gw.textContent.includes('2 queued changes were not written') && gw.textContent.includes('left the game\'s file as it is'), gw.textContent);
+  assert.ok(gw.textContent.includes('it changed 0 rows now'), 'the conflict is listed');
+  assert.equal(gw.querySelector('img'), null, 'as text, never markup');
+  assert.ok(!gw.textContent.includes('written to the game file by themselves'), 'nothing promises a write that will not happen');
+  assertClean(ui.doc, 'held queue');
+  ui.click('[data-act="discardQueue"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes('Discard the queued changes'));
+  ui.dom.window.close();
+});
+
 test('a game check that cannot run is said as plain text and nothing offers to save', async () => {
   const why = '<img src=x onerror=1> tasklist missing';
   const ui = await boot({ get: { '/api/save/state': queuedState({ gameRunning: false, gameCheckError: why, saveBlocked: true, blockReason: 'could not check whether the game is running (' + why + ')', gameMode: 'unknown' }) } });

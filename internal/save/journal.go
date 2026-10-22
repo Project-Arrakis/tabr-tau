@@ -56,6 +56,9 @@ type journalFile struct {
 	BaseHash string    `json:"baseHash"` // the content of that file when the edits began
 	Ops      []opRec   `json:"ops"`
 	Saved    time.Time `json:"saved"`
+	// Writing is the hash of the file the edits were being written as when this was kept. If the file is that one when the editor starts again, the edits are in it already (the journal
+	// outlived the write: it could not be removed, or the editor was stopped between the two) and they are not put back a second time.
+	Writing string `json:"writing,omitempty"`
 }
 
 // Conflict is an edit that could not be put back, and why.
@@ -209,10 +212,17 @@ func (s *Save) stopJournal(why string) {
 // dropJournal forgets the kept edits and removes the file (the edits were saved or discarded). The caller holds s.mu.
 func (s *Save) dropJournal() {
 	// nothing is pending any more, so whatever turned the journal off (an edit it could not keep) no longer matters: the next edit is kept again
-	s.recs, s.recStmts, s.restored, s.journalOff = nil, 0, nil, ""
+	s.recs, s.recStmts, s.restored, s.journalOff, s.writing, s.held = nil, 0, nil, "", "", nil
 	if s.journalPath != "" {
 		os.Remove(s.journalPath)
 	}
+}
+
+// noteWriting records in the journal, before the file is replaced, which file the edits are being written as (see journalFile.Writing).
+func (s *Save) noteWriting(blob []byte) {
+	h := hashOf(blob)
+	s.writing = hex.EncodeToString(h[:])
+	s.writeJournal()
 }
 
 // writeJournal replaces the file with the edits kept so far (never in place: a crash leaves the old one). The caller holds s.mu.
@@ -224,7 +234,7 @@ func (s *Save) writeJournal() {
 		os.Remove(s.journalPath)
 		return
 	}
-	j := journalFile{Version: journalVersion, Path: s.Path, BaseHash: hex.EncodeToString(s.diskHash[:]), Ops: s.recs, Saved: time.Now().UTC()}
+	j := journalFile{Version: journalVersion, Path: s.Path, BaseHash: hex.EncodeToString(s.diskHash[:]), Ops: s.recs, Saved: time.Now().UTC(), Writing: s.writing}
 	b, err := json.Marshal(j)
 	if err != nil || len(b) > journalMaxBytes {
 		s.stopJournal("the pending edits are too large to keep")
@@ -263,11 +273,17 @@ func (s *Save) RestoreJournal() (*Restored, error) {
 	if err := json.Unmarshal(b, &j); err != nil || j.Version != journalVersion || j.Path != s.Path || len(j.Ops) == 0 {
 		return nil, nil // not ours to use: left as it is (the next edit replaces it)
 	}
+	if j.Writing != "" && j.Writing == hex.EncodeToString(s.diskHash[:]) { // the file is the one these edits were written as: they are in it
+		s.dropJournal()
+		return nil, nil
+	}
 	return s.replayLocked(j.Ops, j.BaseHash != hex.EncodeToString(s.diskHash[:])), nil
 }
 
 // Rebase reads the file again, as Discard does, and puts the pending edits back onto it where they still apply (the game saved since they were made).
 func (s *Save) Rebase() (*Restored, error) {
+	s.flushMu.Lock()
+	defer s.flushMu.Unlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	kept := append([]opRec(nil), s.recs...)
@@ -286,6 +302,61 @@ func (s *Save) Rebase() (*Restored, error) {
 		return nil, nil
 	}
 	return s.replayLocked(kept, true), nil
+}
+
+// Held is a queue that could not be put back onto the game's newer file: what it was, and which edits conflicted and why.
+type Held struct {
+	ops       []opRec
+	Conflicts []Conflict `json:"conflicts"`
+	base      [32]byte   // the file the game had when the queue was held: while it is that one, trying again would give the same answer
+}
+
+// Held says whether the queue is held, and why.
+func (s *Save) Held() *Held {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.held == nil {
+		return nil
+	}
+	h := *s.held
+	return &h
+}
+
+// rebaseAtomic is Rebase for the automatic write: all of the queue goes back onto the game's newer file or none of it is written. An edit that does not apply (it changed a
+// different number of rows, a row the game changed, an id the game used since) could leave the ones after it acting on the game's own rows, so the first conflict undoes the lot:
+// the file is read again as the game has it, the queue is held (kept in the journal, not written) and the conflicts are reported.
+func (s *Save) rebaseAtomic() (*Restored, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	kept := append([]opRec(nil), s.recs...)
+	if s.held != nil {
+		kept = append([]opRec(nil), s.held.ops...)
+	}
+	if len(kept) == 0 {
+		why := s.journalOff
+		if why == "" {
+			why = "the journal is not enabled"
+		}
+		return nil, errors.New("the pending edits were not kept (" + why + "): they cannot be put back onto the game's newer file; use Discard to read the file again")
+	}
+	s.held = nil
+	if err := s.load(); err != nil {
+		return nil, err
+	}
+	res := s.replayLocked(kept, true)
+	if len(res.Conflicts) == 0 {
+		return res, nil
+	}
+	// nothing is written: back to the file as the game has it, the queue held as it was
+	if err := s.load(); err != nil {
+		return nil, err
+	}
+	s.recs = kept
+	s.writeJournal()
+	s.recs = nil
+	s.held = &Held{ops: kept, Conflicts: res.Conflicts, base: s.diskHash}
+	s.restored = nil
+	return res, nil
 }
 
 // replayLocked runs the edits again, each in its own transaction, and keeps the result as the pending edits. The caller holds s.mu.
