@@ -162,6 +162,8 @@ func main() {
 		editorDir = filepath.Dir(p)
 	}
 	ws := newWebServer(s, *cfgDir, editorDir)
+	// edits that are waiting (the game was running) are written when the file can be, for as long as the editor runs
+	go ws.RunAutosave(nil)
 	ws.BindAddr(ln.Addr().String()) // the session cookie and the accepted Host header are per port
 	if note := web.PortChangeNote(*addr, ln); note != "" && !addrExplicit {
 		fmt.Fprintln(os.Stderr, "note: "+note)
@@ -172,12 +174,19 @@ func main() {
 	srv := web.NewHTTPServer(ws.Handler())
 	if window {
 		// Serve in the background and show the editor in its own window; closing the window ends the program.
-		// Closing with unsaved edits asks first (the window host destroys the window directly on close, so the
-		// page's own beforeunload prompt, which still guards browser mode, would never run).
+		// Closing with edits still queued asks first (the window host destroys the window directly on close, so the
+		// page's own beforeunload prompt, which still guards browser mode, would never run). Queued edits are kept in the journal and written the next
+		// time the editor runs with the file free; with no journal they would be lost, and the question says which.
 		serveErr := make(chan error, 1)
 		go func() { serveErr <- srv.Serve(ln) }()
 		confirmClose := func() bool {
-			return !s.Dirty() || gui.Confirm("TABR TAU", "You have unsaved changes that have not been written to your save.\n\nClose without saving?")
+			if !s.Dirty() {
+				return true
+			}
+			if why := s.JournalOff(); why != "" {
+				return gui.Confirm("TABR TAU", "Some changes are queued because the game is running and have not been written to your save. They are not kept if you close now ("+why+").\n\nClose anyway?")
+			}
+			return gui.Confirm("TABR TAU", "Some changes are queued because the game is running and have not been written to your save yet. They are kept and written the next time the editor runs with the game closed.\n\nClose now?")
 		}
 		err := gui.Run(bootURL, "TABR TAU - Dune: Awakening save editor", 1280, 860, confirmClose)
 		if err == nil {

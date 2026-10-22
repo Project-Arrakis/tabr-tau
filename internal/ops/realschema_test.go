@@ -52,12 +52,13 @@ func TestGiveItemOnRealSchema(t *testing.T) {
 
 func TestGiveItemRefusesFullBackpackOnRealSchema(t *testing.T) {
 	o := &Ops{S: testsave.Player(t)} // 5 slots, 2 used
+	// an item that does not stack: one slot each
 	for i := 0; i < 3; i++ {
-		if _, err := o.GiveItem(Args{"template_id": "MelangeSpice", "quantity": 1.0}); err != nil {
+		if _, err := o.GiveItem(Args{"template_id": "Literjon", "quantity": 1.0}); err != nil {
 			t.Fatalf("give %d: %v", i, err)
 		}
 	}
-	if _, err := o.GiveItem(Args{"template_id": "MelangeSpice", "quantity": 1.0}); err == nil {
+	if _, err := o.GiveItem(Args{"template_id": "Literjon", "quantity": 1.0}); err == nil {
 		t.Fatal("a full backpack must refuse the give")
 	}
 	assertDBSound(t, o)

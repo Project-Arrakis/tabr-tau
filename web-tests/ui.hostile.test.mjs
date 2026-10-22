@@ -325,84 +325,63 @@ test('the detector also catches handler-attribute injection', () => {
   assert.throws(() => assertClean(dom.window.document, 'handler'), /event handler attribute onclick/);
 });
 
-// ---------- review pane (the only way to save)
+// ---------- the queue: an edit is written as it is made; while the file cannot be written the edits wait, and the banner says so
 const ATK = `"><img src=x ${MARK}>`;
-const hostileReview = () => ({
-  dirty: true, token: 'tok-1',
-  ops: [{ desc: `edit ${ATK}`, rows: 1, at: '2026-10-07T00:00:00Z' }, { desc: 'second edit', rows: 2, at: '2026-10-07T00:00:01Z' }],
-  diff: { redacted: true, tables: [{ name: `items${ATK}`, key: ['id'], numAdded: 1, numRemoved: 0, numModified: 1,
-    modified: [{ key: [7, ATK], changes: [{ kind: 'value', path: `stack${ATK}`, before: ATK, after: { deep: ATK } }] }] }] },
-});
-async function openReviewUI(opts = {}) {
-  const ui = await boot({ get: { '/api/save/review': opts.review || hostileReview() }, post: opts.post });
-  ui.doc.querySelector('#btnSave').disabled = false; // the fixture save is clean; the button is enabled once there are edits
-  ui.click('#btnSave'); await ui.settle();
-  return ui;
-}
+const queuedState = (over = {}) => ({ ...JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)), dirty: true, pending: [`edit ${ATK}`, 'second edit'], ...over });
+const sessionBlock = { gameRunning: true, gameProcesses: ['DuneTest.exe'], saveBlocked: true, gameMode: 'single_player',
+  blockReason: 'a single-player session is active (DuneTest.exe); go to the menu or multiplayer, or quit the game, then save' };
 
-test('the review pane shows hostile edits and values as plain data', async () => {
-  const ui = await openReviewUI();
-  assertClean(ui.doc, 'review pane');
-  const m = ui.doc.querySelector('#modal');
-  assert.ok(!m.classList.contains('hide'), 'the review must be visible');
-  assert.ok(m.textContent.includes(MARK), 'the attack text should be visible as data');
-  assert.ok(m.textContent.includes('second edit'));
+test('a written edit leaves nothing queued: no chip, no Discard, no banner', async () => {
+  const ui = await boot({ get: { '/api/save/state': queuedState({ dirty: false, pending: [], lastWrite: { saved: true, queued: 0, backup: 'b.db' } }) } });
+  assert.equal(ui.doc.querySelector('#pending').textContent, '');
+  assert.equal(ui.doc.querySelector('#btnDiscard').hidden, true);
+  assert.ok(ui.doc.querySelector('#gamewarn').classList.contains('hide'));
+  assert.equal(ui.doc.querySelector('#btnSave'), null, 'there is no Review & save step');
+  assert.equal(ui.doc.querySelector('#modal'), null);
   ui.dom.window.close();
 });
 
-test('Save is inside the review, sends the reviewed token, and closes the review', async () => {
-  const ui = await openReviewUI({ post: { '/api/save/commit': { saved: true, backup: 'b.db' } } });
-  ui.click('[data-act="doSave"]'); await ui.settle();
-  const commit = ui.posted.filter((p) => p.path === '/api/save/commit');
-  assert.equal(commit.length, 1);
-  assert.deepEqual(commit[0].body, { reviewed: 'tok-1' });
-  assert.ok(ui.doc.querySelector('#modal').classList.contains('hide'));
-  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Saved'));
+test('an active single-player session queues the edits and the banner says how many and why, as plain text', async () => {
+  const why = `a single-player session is active ${ATK}`;
+  const ui = await boot({ get: { '/api/save/state': queuedState({ ...sessionBlock, lastWrite: { saved: false, queued: 2, why } }) } });
+  const gw = ui.doc.querySelector('#gamewarn');
+  assert.ok(gw.classList.contains('warn') && !gw.classList.contains('hide'));
+  assert.ok(gw.textContent.includes('2 changes are queued') && gw.textContent.includes('single-player session is active'), gw.textContent);
+  assert.equal(gw.querySelector('img'), null, 'the reason is data, not markup');
+  assertClean(ui.doc, 'queue banner');
+  assert.equal(ui.doc.querySelector('#pending').textContent, '2 queued');
+  assert.equal(ui.doc.querySelector('#btnDiscard').hidden, false);
   ui.dom.window.close();
 });
 
-test('a save error stays in the review with a way forward; a changed-on-disk save offers reload', async () => {
-  const stale = 'the save changed on disk since it was loaded (game autosave?); discard and redo the edits';
-  const ui = await openReviewUI({ post: { '/api/save/commit': { __fail: stale, __code: 'changed_on_disk' } } });
-  ui.click('[data-act="doSave"]'); await ui.settle();
-  const m = ui.doc.querySelector('#modal');
-  assert.ok(!m.classList.contains('hide'), 'the review must stay open on an error');
-  assert.ok(m.textContent.includes('The save changed on disk'));
-  assert.ok(m.textContent.includes('second edit'), 'the edits to redo must still be listed');
-  assert.equal(ui.doc.querySelector('#btnDoSave').disabled, true, 'saving is blocked until the file is reloaded');
-  ui.click('[data-act="reload"]'); await ui.settle();
-  assert.ok(!ui.doc.querySelector('#ask').classList.contains('hide'), 'reloading asks first');
-  assert.ok(!ui.posted.some((p) => p.path === '/api/save/rebase' || p.path === '/api/save/discard'), 'nothing is reloaded before the answer');
-  ui.click('[data-act="askOk"]'); await ui.settle();
-  assert.ok(ui.posted.some((p) => p.path === '/api/save/rebase'), 'Reload reads the file again and puts the edits back (rebase), it does not discard them');
-  assert.ok(!ui.posted.some((p) => p.path === '/api/save/discard'));
-  assert.ok(ui.doc.querySelector('#modal').classList.contains('hide'));
+test('Write now asks the server to try again and says what came of it; Discard queue asks first', async () => {
+  const ui = await boot({ get: { '/api/save/state': queuedState(sessionBlock) }, post: { '/api/save/flush': { saved: false, queued: 2, why: 'a single-player session is active' }, '/api/save/discard': { ok: true } } });
+  ui.click('[data-act="writeNow"]'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/save/flush').length, 1);
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Still waiting'));
+  ui.click('#btnDiscard'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/save/discard').length, 0, 'nothing is dropped before the question is answered');
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes('Discard the queued changes'));
+  ui.click('#aok'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/save/discard').length, 1);
   ui.dom.window.close();
 });
 
-test('a game check that cannot run blocks Save and shows why, as plain text', async () => {
+test('a game check that cannot run is said as plain text and nothing offers to save', async () => {
   const why = '<img src=x onerror=1> tasklist missing';
-  const ov = { ...JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)), gameRunning: false, dirty: true, gameCheckError: why, saveBlocked: true, blockReason: 'could not check whether the game is running (' + why + ')', gameMode: 'unknown' };
-  const ui = await boot({ get: { '/api/save/state': ov, '/api/save/review': hostileReview() } });
+  const ui = await boot({ get: { '/api/save/state': queuedState({ gameRunning: false, gameCheckError: why, saveBlocked: true, blockReason: 'could not check whether the game is running (' + why + ')', gameMode: 'unknown' }) } });
   const gw = ui.doc.querySelector('#gamewarn');
-  assert.ok(gw.textContent.includes('Saving is blocked'));
-  assert.ok(gw.textContent.includes('tasklist missing'));
+  assert.ok(gw.textContent.includes('Changes cannot be written') && gw.textContent.includes('tasklist missing'), gw.textContent);
   assert.equal(gw.querySelector('img'), null, 'the error text is data, not markup');
-  ui.click('#btnSave'); await ui.settle();
-  assert.equal(ui.doc.querySelector('#btnDoSave').disabled, true);
   ui.dom.window.close();
 });
 
-test('a save the game check cannot vouch for blocks Save, says why, and Allow saving asks first and then posts the confirmation (NET-3)', async () => {
+test('a save the game check cannot vouch for queues the edits, says why, and Allow writing asks first and then posts the confirmation (NET-3)', async () => {
   const why = 'the save is on a network share, so this computer cannot tell whether the game is using it';
-  const ov = { ...JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)), gameRunning: false, dirty: true, saveBlocked: true, blockReason: why, gameMode: 'unknown', locationUnconfirmed: true };
-  const ui = await boot({ get: { '/api/save/state': ov, '/api/save/review': hostileReview() }, post: { '/api/save/confirm-location': { ok: true } } });
+  const ui = await boot({ get: { '/api/save/state': queuedState({ gameRunning: false, saveBlocked: true, blockReason: why, gameMode: 'unknown', locationUnconfirmed: true }) }, post: { '/api/save/confirm-location': { ok: true } } });
   const gw = ui.doc.querySelector('#gamewarn');
-  assert.ok(gw.textContent.includes('Saving is blocked') && gw.textContent.includes('network share'), gw.textContent);
-  assert.ok(!gw.textContent.includes('single-player session runs'), 'it is not the single-player advice');
-  ui.click('#btnSave'); await ui.settle();
-  assert.equal(ui.doc.querySelector('#btnDoSave').disabled, true, 'Save stays off until the person confirms');
-  ui.click('[data-act="closeReview"]'); await ui.settle();
+  assert.ok(gw.textContent.includes('cannot be written here yet') && gw.textContent.includes('network share'), gw.textContent);
+  assert.ok(!gw.textContent.includes('written to the game file by themselves'), 'nothing promises a write the guard will refuse');
   ui.click('[data-act="confirmLocation"]'); await ui.settle();
   assert.equal(ui.posted.filter((p) => p.path === '/api/save/confirm-location').length, 0, 'nothing is sent before the question is answered');
   assert.ok(ui.doc.querySelector('#ask').textContent.includes('closed everywhere'), 'the question says what the person is vouching for');
@@ -413,60 +392,14 @@ test('a save the game check cannot vouch for blocks Save, says why, and Allow sa
   ui.dom.window.close();
 });
 
-test('an active single-player session blocks Save inside the review and the banner says why', async () => {
-  const ov = { ...JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)), gameRunning: true, dirty: true, gameProcesses: ['DuneTest.exe'], saveBlocked: true, gameMode: 'single_player',
-    blockReason: 'a single-player session is active (DuneTest.exe); go to the menu or multiplayer, or quit the game, then save' };
-  const ui = await boot({ get: { '/api/save/state': ov, '/api/save/review': hostileReview() } });
-  const gw = ui.doc.querySelector('#gamewarn');
-  assert.ok(gw.classList.contains('warn') && !gw.classList.contains('hide'));
-  assert.ok(gw.textContent.includes('single-player session is active') && gw.textContent.includes('DuneTest.exe'), 'the banner names the process it found');
-  ui.click('#btnSave'); await ui.settle();
-  assert.equal(ui.doc.querySelector('#btnDoSave').disabled, true);
-  assert.ok(ui.doc.querySelector('#savewhy').textContent.includes('single-player session is active'));
-  ui.dom.window.close();
-});
-
-test('the game open in multiplayer or at the menu shows a note and does not block Save', async () => {
-  const ov = { ...JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)), gameRunning: true, dirty: true, gameProcesses: ['DuneTest.exe'], saveBlocked: false, gameMode: 'menu_or_multiplayer', blockReason: 'DuneTest.exe is running but not in single-player; saving is allowed' };
-  const ui = await boot({ get: { '/api/save/state': ov, '/api/save/review': hostileReview() } });
+test('the game open in multiplayer or at the menu shows a note and edits are written at once', async () => {
+  const ui = await boot({ get: { '/api/save/state': queuedState({ dirty: false, pending: [], gameRunning: true, gameProcesses: ['DuneTest.exe'], saveBlocked: false, gameMode: 'menu_or_multiplayer' }) } });
   const gw = ui.doc.querySelector('#gamewarn');
   assert.ok(gw.classList.contains('info') && !gw.classList.contains('warn'), gw.className);
-  assert.ok(gw.textContent.includes('not in single-player') && gw.textContent.includes('DuneTest.exe'));
-  ui.click('#btnSave'); await ui.settle();
-  assert.equal(ui.doc.querySelector('#btnDoSave').disabled, false, 'Save must be possible when the game is not in single-player');
+  assert.ok(gw.textContent.includes('not in single-player') && gw.textContent.includes('DuneTest.exe') && gw.textContent.includes('written at once'), gw.textContent);
   ui.dom.window.close();
 });
 
-test('a stale review token refetches the review and says why, instead of looping', async () => {
-  let n = 0;
-  const reviews = [{ ...hostileReview(), token: 'old' }, { ...hostileReview(), token: 'new' }];
-  const ui = await boot({ get: {}, post: { '/api/save/commit': { __fail: 'the pending changes are different from the ones you reviewed; review them again', __code: 'review_changed' } } });
-  ui.w.fetch = ((orig) => async (p, o) => (new URL(p, 'http://x').pathname === '/api/save/review' ? { ok: true, status: 200, json: async () => reviews[Math.min(n++, 1)] } : orig(p, o)))(ui.w.fetch);
-  ui.doc.querySelector('#btnSave').disabled = false;
-  ui.click('#btnSave'); await ui.settle();
-  ui.click('[data-act="doSave"]'); await ui.settle();
-  const m = ui.doc.querySelector('#modal');
-  assert.ok(m.textContent.includes('different from the ones you reviewed'));
-  assert.equal(n, 2, 'the review must be fetched again');
-  ui.dom.window.close();
-});
-
-test('the review pane is a labelled dialog, takes focus, and closes on Escape', async () => {
-  const ui = await openReviewUI();
-  assert.equal(ui.doc.querySelector('.mbox').getAttribute('role'), 'dialog');
-  assert.equal(ui.doc.activeElement.id, 'mtitle');
-  ui.doc.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  assert.ok(ui.doc.querySelector('#modal').classList.contains('hide'));
-  assert.ok(!ui.doc.body.classList.contains('noscroll'));
-  ui.dom.window.close();
-});
-
-test('a table with more changed rows than listed says the list is partial', async () => {
-  const r = hostileReview(); r.diff.tables[0].numModified = 500;
-  const ui = await openReviewUI({ review: r });
-  assert.ok(ui.doc.querySelector('#modal').textContent.includes('counts above are complete'));
-  ui.dom.window.close();
-});
 
 // ---------- confirmations
 async function inventoryUI(post) {
@@ -512,7 +445,7 @@ test('a far-reaching action needs the word typed, and Escape cancels', async () 
   ui.dom.window.close();
 });
 
-test('the Bases upkeep buttons run at once: the review pane is the confirmation', async () => {
+test('the Bases upkeep buttons run at once: the edit is written and a backup is kept, so there is no question', async () => {
   const ui = await boot({ post: { '/api/bases/repair': { ok: true, pieces: 3, placeables: 1 }, '/api/bases/clear-sand': { ok: true, pieces: 2 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:bases"]'); await ui.settle();
@@ -526,12 +459,12 @@ test('the Bases upkeep buttons run at once: the review pane is the confirmation'
   ui.dom.window.close();
 });
 
-test('a successful edit says it is not in the game yet', async () => {
+test('an edit that is queued says so; one that is written says nothing more', async () => {
   const ov = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)); ov.dirty = true;
   const ui = await boot({ get: { '/api/save/state': ov } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-act="solari"]'); await ui.settle();
-  assert.ok(ui.doc.querySelector('#toast').textContent.includes('not saved yet'));
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('queued'));
   ui.dom.window.close();
 });
 
@@ -561,24 +494,6 @@ test('typing the word completes the action; Enter in the box does too; the disab
   assert.equal(ui.posted.filter((p) => p.path === '/api/save/restore').length, 1);
   assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'));
   ui.dom.window.close();
-});
-
-test('Escape closes only the question when the review is open underneath, and focus returns', async () => {
-  const ui = await openReviewUI();
-  const trigger = ui.doc.querySelector('[data-act="reload"]') || ui.doc.querySelector('#btnDoSave');
-  trigger.focus();
-  ui.click('[data-act="closeReview"]'); await ui.settle();
-  const ui2 = await openReviewUI({ post: { '/api/save/commit': { __fail: 'the save changed on disk since it was loaded (game autosave?); discard and redo the edits', __code: 'changed_on_disk' } } });
-  ui2.click('[data-act="doSave"]'); await ui2.settle();
-  const reload = ui2.doc.querySelector('[data-act="reload"]');
-  reload.focus();
-  ui2.click('[data-act="reload"]'); await ui2.settle();
-  assert.ok(!ui2.doc.querySelector('#ask').classList.contains('hide'));
-  ui2.doc.dispatchEvent(new ui2.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await ui2.settle();
-  assert.ok(ui2.doc.querySelector('#ask').classList.contains('hide'));
-  assert.ok(!ui2.doc.querySelector('#modal').classList.contains('hide'), 'the review must stay open');
-  assert.equal(ui2.doc.activeElement, reload, 'focus returns to the button that asked');
-  ui.dom.window.close(); ui2.dom.window.close();
 });
 
 test('a second question replaces the first, which counts as cancelled', async () => {
@@ -1381,7 +1296,7 @@ test('Automatic refill setting shows its state, toggles through the API, and the
   const card = [...ui.doc.querySelectorAll('.card')].find((c) => c.textContent.includes('Automatic refill'));
   assert.ok(card && card.textContent.includes('off'), 'the card shows the setting is off');
   ui.click('[data-act="autoref"]'); await ui.settle();
-  assert.ok(ui.doc.querySelector('#ask').textContent.includes('without the Review & save step'), 'turning it on says it saves immediately');
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes('like every other change'), 'turning it on says it saves immediately');
   assert.equal(ui.posted.filter((p) => p.path === '/api/settings').length, 0, 'nothing is sent before confirming');
   ui.click('[data-act="askOk"]'); await ui.settle();
   assert.deepEqual(ui.posted.filter((p) => p.path === '/api/settings')[0].body, { autoRefillOnOpen: true }, 'turning on sends true');
@@ -1419,7 +1334,7 @@ test('Shrink claim asks first, posts the chosen size, and is offered only when e
   ui.dom.window.close();
 });
 
-test('the land claim questions say that Discard undoes the change, not that it cannot be undone (UX-12)', async () => {
+test('the land claim questions say the change is written at once after a backup, not that it cannot be undone (UX-12)', async () => {
   const claims = [{ totem_id: 7, name: 'Totem', cells: 9, rings: 1, level: 0, irregular: false, maxRings: 5, maxLevel: 5, piecesInClaim: 0, piecesOutside: 0 }];
   const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/claim': claims } });
   ui.click('[data-tab="player"]'); await ui.settle();
@@ -1427,12 +1342,12 @@ test('the land claim questions say that Discard undoes the change, not that it c
   ui.click('[data-bstab="claim"]'); await ui.settle();
   ui.click('[data-act="claimShrink"]'); await ui.settle();
   let q = ui.doc.querySelector('#ask').textContent;
-  assert.ok(q.includes('Discard undoes it until you save') && !q.includes('cannot be undone'), q);
+  assert.ok(q.includes('written at once, after the usual backup') && !q.includes('cannot be undone'), q);
   ui.click('[data-act="askNo"]'); await ui.settle();
   ui.doc.querySelector('#cr7').value = '2';
   ui.click('[data-act="claimGrow"]'); await ui.settle();
   q = ui.doc.querySelector('#ask').textContent;
-  assert.ok(q.includes('Discard undoes it until you save') && !q.includes('cannot be undone'), q);
+  assert.ok(q.includes('written at once, after the usual backup') && !q.includes('cannot be undone'), q);
   ui.dom.window.close();
 });
 
@@ -1456,32 +1371,32 @@ test('Structures and Vehicles have no edit boxes on single pieces or vehicles (#
   ui.dom.window.close();
 });
 
-test('the banner says at once when the game saved since the editor opened, and offers Reload (#160)', async () => {
+test('queued edits are put back onto the game\'s newer file by themselves: the banner says they are queued and offers no Reload (#160)', async () => {
   const ov = { ...JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)), dirty: true, pending: ['edit 1', 'edit 2'], saveBlocked: false, changedOnDisk: true };
   const ui = await boot({ get: { '/api/save/state': ov } });
   const gw = ui.doc.querySelector('#gamewarn');
   assert.ok(gw.classList.contains('warn') && !gw.classList.contains('hide'), 'the banner is showing');
-  assert.ok(gw.textContent.includes('The game saved since this editor opened') && gw.textContent.includes('2 unsaved changes'), gw.textContent);
-  assert.ok(gw.querySelector('[data-act="reload"]'), 'it offers Reload now');
+  assert.ok(gw.textContent.includes('2 changes are queued'), gw.textContent);
+  assert.equal(gw.querySelector('[data-act="reload"]'), null, 'nothing to reload by hand: the queue is written onto the new file');
   // and with nothing changed the banner stays out of the way
-  const ok = { ...JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)), changedOnDisk: false, saveBlocked: false, gameMode: 'none' };
+  const ok = { ...JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)), dirty: false, pending: [], changedOnDisk: false, saveBlocked: false, gameMode: 'none' };
   const ui2 = await boot({ get: { '/api/save/state': ok } });
   assert.ok(ui2.doc.querySelector('#gamewarn').classList.contains('hide'));
   ui.dom.window.close();
   ui2.dom.window.close();
 });
 
-test('with nothing unsaved the editor reloads the file by itself when the game saved; unsaved edits or the switch off keep the banner (#210)', async () => {
+test('with nothing queued the editor reloads the file by itself when the game saved; queued edits or the switch off keep the banner (#210)', async () => {
   const base = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body));
   // nothing unsaved, the file changed: it is reloaded (discard reads the file again) and no banner is needed
   const ui = await boot({ get: { '/api/save/state': { ...base, dirty: false, pending: [], saveBlocked: false, gameMode: 'none', changedOnDisk: true } } });
   assert.ok(ui.posted.some((p) => p.path === '/api/save/discard'), 'the file was read again');
   assert.ok(ui.doc.querySelector('#gamewarn').classList.contains('hide'), 'no banner for it');
   ui.dom.window.close();
-  // unsaved edits are never dropped: the banner and the Reload button stay, and nothing is discarded
+  // queued edits are never dropped: nothing is discarded, and the banner says they are queued
   const ui2 = await boot({ get: { '/api/save/state': { ...base, dirty: true, pending: ['edit 1'], saveBlocked: false, changedOnDisk: true } } });
-  assert.ok(!ui2.posted.some((p) => p.path === '/api/save/discard'), 'unsaved edits were not touched');
-  assert.ok(ui2.doc.querySelector('#gamewarn [data-act="reload"]'), 'Reload is offered');
+  assert.ok(!ui2.posted.some((p) => p.path === '/api/save/discard'), 'queued edits were not touched');
+  assert.ok(ui2.doc.querySelector('#gamewarn').textContent.includes('1 change is queued'), 'the banner says so');
   ui2.dom.window.close();
   // the header switch turns it off: the banner comes back and the file is not reloaded
   const ui3 = await boot({ get: { '/api/save/state': { ...base, dirty: false, pending: [], saveBlocked: false, gameMode: 'none', changedOnDisk: false } } });
@@ -1512,12 +1427,12 @@ test('the header shows the save file name, not the folder that holds the account
   ui.dom.window.close();
 });
 
-test('the single-player banner tells the player to close the game before editing, not that editing is fine (#160)', async () => {
+test('the single-player banner tells the player that edits are queued until the game closes, not that editing is fine (#160)', async () => {
   const ov = { ...JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)), gameRunning: true, gameProcesses: ['DuneTest.exe'], saveBlocked: true, gameMode: 'single_player',
     blockReason: 'a single-player session is active (DuneTest.exe)' };
   const ui = await boot({ get: { '/api/save/state': ov } });
   const text = ui.doc.querySelector('#gamewarn').textContent;
-  assert.ok(text.includes('Close the game or go to its menu before you edit'), text);
+  assert.ok(text.includes('single-player session') && text.includes('queued') && text.includes('written to the game file by themselves'), text);
   assert.ok(!text.includes('You can keep editing'), 'the old advice is gone');
   ui.dom.window.close();
 });
@@ -1558,7 +1473,7 @@ test('edits put back after a restart are announced as data, with a button to dis
     restored: { applied: 1, rebased: true, conflicts: [{ desc: ATTACK, why: `it changed 0 rows now and 1 before ${ATTACK}` }] }, journalOff: ATTACK };
   const ui = await boot({ get: { '/api/save/state': state } });
   const gw = ui.doc.querySelector('#gamewarn');
-  assert.ok(gw.textContent.includes('1 unsaved change was put back onto the newer file the game saved'), gw.textContent);
+  assert.ok(gw.textContent.includes('1 change was put back onto the newer file the game saved'), gw.textContent);
   assert.ok(gw.textContent.includes('Could not put back'), gw.textContent);
   assert.ok(gw.textContent.includes(SEEN), 'the attack text from the conflict is shown as plain text');
   assertClean(ui.doc, 'restored notice');

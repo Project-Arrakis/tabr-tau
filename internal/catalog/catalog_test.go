@@ -53,3 +53,19 @@ func TestFirstEntryWinsAndNamesResolve(t *testing.T) {
 		}
 	}
 }
+
+func TestMaxStack(t *testing.T) {
+	for id, want := range map[string]int64{"SpicedFuelCell": 500, "AluminiumBar": 500, "SpiceSand": 2500, "Literjon": 1} {
+		if got, ok := MaxStack(id); !ok || got != want {
+			t.Errorf("%s: %d %v, want %d", id, got, ok, want)
+		}
+	}
+	if _, ok := MaxStack("NotAnItem"); ok {
+		t.Error("an unknown id has no stack size")
+	}
+	for id, n := range stacks {
+		if n < 2 {
+			t.Errorf("%s: only items that stack are listed, got %d", id, n)
+		}
+	}
+}
