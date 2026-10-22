@@ -48,6 +48,14 @@ type Save struct {
 	ops   []Op    // structured record of the edits applied since load
 	orig  string  // pristine decoded copy of the file as loaded; never written
 	odb   *sql.DB // read-only handle on orig
+
+	// the journal of pending edits (journal.go): where it is kept, what has been kept, and what became of the edits found in it at start
+	journalPath string
+	journalOff  string // why it was turned off for this session
+	recs        []opRec
+	recStmts    int
+	replaying   bool
+	restored    *Restored
 }
 
 // sqlErrorHook, when set, is called for every statement that fails. It exists so tests can notice SQL errors that
@@ -267,6 +275,7 @@ func (s *Save) load() error {
 	s.noteDisk(blob)
 	s.dirty = false
 	s.ops = nil
+	s.recs, s.recStmts = nil, 0 // the journal file is left to whoever called: Open restores from it, Discard drops it
 	return nil
 }
 
@@ -533,7 +542,11 @@ func (s *Save) ReadOnlyTable(q string, limit int) ([]string, [][]any, error) {
 func (s *Save) Discard() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.load()
+	if err := s.load(); err != nil {
+		return err
+	}
+	s.dropJournal()
+	return nil
 }
 
 func (s *Save) backupDir() string { return filepath.Join(filepath.Dir(s.Path), "tabr-tau-backups") }
@@ -639,6 +652,7 @@ func (s *Save) commit(force bool, token string, needToken bool) (map[string]any,
 	s.noteDisk(blob)
 	s.dirty = false
 	s.ops = nil
+	s.dropJournal()
 	res := map[string]any{"saved": true, "backup": bak, "ops": ops}
 	if err := reloadAfterCommit(s); err != nil {
 		// The baseline and recorded state no longer match the file just written; refuse further edits rather than

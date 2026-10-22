@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/gui"
 	"github.com/Project-Arrakis/tabr-tau/internal/notices"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/internal/settings"
 	"github.com/Project-Arrakis/tabr-tau/internal/web"
 	"github.com/Project-Arrakis/tabr-tau/internal/winpath"
 )
@@ -155,7 +157,11 @@ func main() {
 		die("error: %v", err)
 	}
 	base := "http://" + ln.Addr().String()
-	ws := newWebServer(s, *cfgDir)
+	editorDir := "" // the editor's own folder, where the pending edits are kept
+	if p := settings.Path(); p != "" {
+		editorDir = filepath.Dir(p)
+	}
+	ws := newWebServer(s, *cfgDir, editorDir)
 	ws.BindAddr(ln.Addr().String()) // the session cookie and the accepted Host header are per port
 	if note := web.PortChangeNote(*addr, ln); note != "" && !addrExplicit {
 		fmt.Fprintln(os.Stderr, "note: "+note)
@@ -201,8 +207,11 @@ func main() {
 
 // newWebServer builds the editor's server and runs what the settings ask for when the editor opens (the optional refill). It is
 // its own function so a test can prove main does both.
-func newWebServer(s *save.Save, cfgDir string) *web.Server {
+func newWebServer(s *save.Save, cfgDir, editorDir string) *web.Server {
 	ws := web.New(s, config.Dir{Path: cfgDir})
+	if editorDir != "" {
+		ws.KeepPendingEdits(editorDir) // before the startup tasks: the edits put back are pending, and the refill leaves a save with pending edits alone
+	}
 	ws.RunStartupTasks()
 	return ws
 }

@@ -3,6 +3,7 @@ package web
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"embed"
 	"encoding/hex"
@@ -66,6 +67,20 @@ func New(s *save.Save, cfg config.Dir) *Server {
 	srv := &Server{Save: s, Ops: &ops.Ops{S: s}, Cfg: cfg, token: hex.EncodeToString(b), mux: http.NewServeMux(), now: time.Now, boots: map[string]time.Time{}, SettingsPath: settings.Path()}
 	srv.routes()
 	return srv
+}
+
+// KeepPendingEdits keeps the unsaved edits in a journal file in dir (the editor's own folder), so they survive the editor being closed, and puts back
+// the edits an earlier run left for this save. They come back as pending edits to review like any other; one that no longer applies is reported, not forced.
+func (s *Server) KeepPendingEdits(dir string) {
+	h := sha256.Sum256([]byte(strings.ToLower(s.Save.Path)))
+	s.Save.EnableJournal(filepath.Join(dir, "pending-"+hex.EncodeToString(h[:6])+".json"))
+	r, err := s.Save.RestoreJournal()
+	switch {
+	case err != nil:
+		log.Printf("pending edits: could not read the journal: %v", err)
+	case r != nil:
+		log.Printf("pending edits: %d put back, %d could not be", r.Applied, len(r.Conflicts))
+	}
 }
 
 const (
@@ -631,6 +646,15 @@ func (s *Server) routes() {
 		}
 		return map[string]any{"ok": true}, s.Save.Discard()
 	})
+	// Reload now with unsaved edits: the file is read again and the edits are put back onto it where they still apply.
+	s.post("/api/save/rebase", func(ops.Args) (any, error) {
+		r, err := s.Save.Rebase()
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"ok": true, "restored": r}, nil
+	})
+	s.post("/api/save/restored/dismiss", func(ops.Args) (any, error) { s.Save.DismissRestored(); return map[string]any{"ok": true}, nil })
 	// The game-running guard looks at this computer only. For a save on a share, a removable drive or outside the game's own folder it asks
 	// the person to say the game is closed everywhere; this is that answer, kept until the editor closes.
 	s.post("/api/save/confirm-location", func(ops.Args) (any, error) {

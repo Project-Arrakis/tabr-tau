@@ -267,12 +267,17 @@ async function status() {
   // When the game saves and nothing here is unsaved, the editor reloads the file by itself (autoRefresh below), so the banner is only for the
   // cases it cannot handle: unsaved edits, or automatic refresh switched off.
   const changed = !!o.changedOnDisk && !(autoRefreshOn() && !o.pending.length && !o.dirty);
-  gw.className = saveBlocked || changed ? 'warn' : note ? 'info' : 'hide';
+  const restored = o.restored && (o.restored.applied > 0 || (o.restored.conflicts || []).length > 0) ? o.restored : null;
+  gw.className = saveBlocked || changed || restored ? 'warn' : note ? 'info' : 'hide';
   // The game rewrites game.db about every five minutes while it runs and again when a session ends, and a save onto a file that changed is
   // refused, so say so as soon as it happens and say what to do first: close the game, then edit.
-  const changedMsg = changed ? html`<div><b>The game saved since this editor opened.</b> ${o.pending.length ? html`Your ${o.pending.length} unsaved change${o.pending.length > 1 ? 's' : ''} can no longer be saved onto the new file.` : html`What you see here is out of date.`} <button class="b sm" data-act="reload">Reload now</button></div>` : html``;
+  const changedMsg = changed ? html`<div><b>The game saved since this editor opened.</b> ${o.pending.length ? html`Your ${o.pending.length} unsaved change${o.pending.length > 1 ? 's' : ''} cannot be saved onto the new file as it is. <b>Reload now</b> reads the new file and puts them back where they still apply.` : html`What you see here is out of date.`} <button class="b sm" data-act="reload">Reload now</button></div>` : html``;
   const blockedMsg = o.locationUnconfirmed ? html`<b>Saving is blocked.</b> ${saveBlockWhy}. You can keep editing. <button class="b sm" data-act="confirmLocation">Allow saving here</button>` : o.gameCheckError && saveBlocked ? html`<b>Saving is blocked.</b> ${saveBlockWhy}. If this keeps happening, report this text.` : saveBlocked ? html`<b>Saving is blocked.</b> ${saveBlockWhy}. Close the game or go to its menu before you edit: the game rewrites the save while a single-player session runs, so edits made now would be refused or overwritten.` : note ? html`Dune: Awakening is open (${(o.gameProcesses || []).join(', ')}) but not in single-player, so saving is allowed.` : html``;
-  setHTML(gw, html`${changedMsg}${blockedMsg}`);
+  // what became of the unsaved edits an earlier run (or a reload) put back, and the plain fact when they are not being kept
+  const restoredMsg = restored ? html`<div><b>${restored.applied} unsaved change${restored.applied === 1 ? ' was' : 's were'} put back${restored.rebased ? ' onto the newer file the game saved' : ''}.</b> They are listed in Review &amp; save; nothing is written until you save.
+    ${(restored.conflicts || []).map((c) => html`<div>Could not put back: ${c.desc} (${c.why}). Make it again.</div>`)} <button class="b sm" data-act="dismissRestored">OK</button></div>` : html``;
+  const journalMsg = o.journalOff && o.dirty ? html`<div class="mut">These unsaved changes are not kept if the editor is closed: ${o.journalOff}.</div>` : html``;
+  setHTML(gw, html`${changedMsg}${restoredMsg}${journalMsg}${blockedMsg}`);
   syncReview();
   const n = o.pending.length;
   $('#pending').textContent = n ? `${n} unsaved change${n > 1 ? 's' : ''}` : '';
@@ -320,7 +325,7 @@ function reviewBody() {
   const d = R.diff, tabs = d.tables || [];
   const cut = tabs.some((t) => (t.modified || []).length < t.numModified);
   return html`<div class="mbox" role="dialog" aria-modal="true"><h3 class="big" id="mtitle" tabindex="-1">Review changes</h3>
-    <div id="mmsg">${R.error ? (R.stale ? html`<div class="warn"><b>The save changed on disk.</b> ${R.error}<br>The game (or another program) rewrote game.db after you opened it, so these edits cannot be applied on top of it. Reload the file, then redo the edits listed below.<div class="row"><button class="b" data-act="reload">Reload from disk (discards these edits)</button></div></div>` : html`<div class="warn">${R.error}</div>`) : ''}</div>
+    <div id="mmsg">${R.error ? (R.stale ? html`<div class="warn"><b>The save changed on disk.</b> ${R.error}<br>The game (or another program) rewrote game.db after you opened it, so these edits cannot be applied on top of it. Reload the file: the edits listed below are put back onto it where they still apply, and any that do not are listed so you can make them again.<div class="row"><button class="b" data-act="reload">Reload and keep my edits</button></div></div>` : html`<div class="warn">${R.error}</div>`) : ''}</div>
     <h3>Edits you made (${R.ops.length})</h3>
     ${R.ops.length ? html`<ul class="tight">${R.ops.map((o) => html`<li>${o.desc}</li>`)}</ul>` : html`<p class="mut">No edits.</p>`}
     <h3>What changes inside game.db</h3>
@@ -930,7 +935,13 @@ const A = {
   askOk: () => { if (askState && askState.typed && $('#atype').value.trim().toLowerCase() !== askState.typed.toLowerCase()) return; endAsk(true); }, // the typed word is checked here too, not only by the disabled button
   askNo: () => endAsk(false),
   confirmLocation: async () => (await ask({ title: 'Allow saving to this location?', body: 'The editor can only see the game on this computer, and this save is somewhere it cannot vouch for (a network share, a removable drive, or a folder other than the one the game itself uses). Saving while the game, on this or another computer, has the file open can corrupt it or lose your work. Continue only if the game is closed everywhere that can open this save.', ok: 'Allow saving', danger: true })) && act(() => api('/api/save/confirm-location', {}), 'Saving is allowed for this save until the editor closes'),
-  reload: async () => (await ask({ title: 'Reload from disk?', body: 'Your edits are dropped and the file is read again. The edits listed in the review are the ones to redo.', ok: 'Reload', danger: true })) && act(async () => { await api('/api/save/discard', {}); R = null; drawReview(); }, 'Reloaded from disk. Redo your edits.'),
+  reload: async () => (await ask({ title: 'Reload from disk?', body: 'The file is read again. Your unsaved edits are put back onto it where they still apply; one that no longer applies is listed so you can make it again.', ok: 'Reload' })) && act(async () => {
+    const r = await api('/api/save/rebase', {});
+    R = null; drawReview();
+    const x = r && r.restored;
+    toast(x ? `Reloaded: ${x.applied} change${x.applied === 1 ? '' : 's'} kept` + ((x.conflicts || []).length ? `, ${x.conflicts.length} could not be put back` : '') : 'Reloaded from disk.');
+  }, null),
+  dismissRestored: () => act(async () => { await api('/api/save/restored/dismiss', {}); }, null),
   doSave: async () => {
     if (!R) return;
     let r;

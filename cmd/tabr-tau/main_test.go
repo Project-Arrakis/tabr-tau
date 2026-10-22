@@ -38,7 +38,7 @@ func TestNewWebServerRunsTheStartupTasks(t *testing.T) {
 	}
 	t.Cleanup(func() { os.Remove(settings.Path()) })
 	sv := testsave.PlayerWithSQL(t, cisternSQL)
-	ws := newWebServer(sv, t.TempDir())
+	ws := newWebServer(sv, t.TempDir(), t.TempDir())
 	if ws == nil || ws.Handler() == nil {
 		t.Fatal("no server")
 	}
