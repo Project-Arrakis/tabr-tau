@@ -37,10 +37,11 @@ func change(before, after int64) string {
 	return fmt.Sprintf("%s → %s", commas(before), commas(after))
 }
 
-// currencyName is the wallet the console and the page call currency 0 or 1.
+// currencyName is the wallet that currency 0 or 1 is, in the one set of money names the page uses: Solari in wallet and House credit in
+// wallet are the two virtual currencies, Solari in backpack is the item stack.
 func currencyName(id int64) string {
 	if id == 0 {
-		return "Solari Credit"
+		return "Solari in wallet"
 	}
-	return "House Credit"
+	return "House credit in wallet"
 }

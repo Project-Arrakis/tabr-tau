@@ -102,12 +102,12 @@ func (o *Ops) AddXP(a Args) (any, error) {
 	return res, nil
 }
 
-// AddCurrency adds to one of the character's virtual currency balances: 0 is Solari Credit, 1 the secondary wallet (House Credit),
-// as in the console. This is not the Solari Coin item stack in the inventory (see AddSolari). A wallet with no row yet is created.
+// AddCurrency adds to one of the character's virtual currency balances: 0 is Solari in wallet, 1 the secondary wallet (House credit in
+// wallet). This is not the Solari item stack in the backpack (see AddSolari). A wallet with no row yet is created.
 func (o *Ops) AddCurrency(a Args) (any, error) {
 	id, err := a.IntRange("currency", 0, 1)
 	if err != nil {
-		return nil, errors.New("currency must be 0 (Solari Credit) or 1 (House Credit)")
+		return nil, errors.New("currency must be 0 (Solari in wallet) or 1 (House credit in wallet)")
 	}
 	amount, err := a.IntRange("amount", 1, 1_000_000_000_000)
 	if err != nil {

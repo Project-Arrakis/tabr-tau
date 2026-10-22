@@ -46,8 +46,8 @@ func TestReviewDescriptionsNameTheItemAndShowBeforeAndAfter(t *testing.T) {
 		"Spice Melange (item " + itoa(id) + "): stack 5 → 25, grade 2 → 3",
 		"Spice Melange (item " + itoa(id) + "): stack 25 → 500",
 		"Delete 500 x Spice Melange (item " + itoa(id) + ")",
-		"Solari Credit +1,500 (",
-		"House Credit +100 (",
+		"Solari in wallet +1,500 (",
+		"House credit in wallet +100 (",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("pending = %q", got)

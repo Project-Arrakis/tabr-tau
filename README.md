@@ -37,6 +37,19 @@ live-test protocol). Do not attach saves, `Game.ini`, snapshots or logs to issue
 
 The **Player** tab mirrors the Dune Docker console's Players > Player Name view: Character, Crafting, Research, Building Sets, Customizations, Skills, Specialization, Journey, Blueprints, Bases, Vehicles and Admin. Blueprints is not built yet (it waits for game data, #111). Specialization needs one step in game before the XP buttons work (see the tab). Each Player tab holds what the console's tab holds; tabr-tau's own base tools (structure health, repair all, clear sand, placeables, piece types) are on the base's **Structures** tab, and the vendor purchase limits are on **Admin**. Live Map, Landsraad, Config and Database stay top-level tabs.
 
+## Words the editor uses
+
+| Word | Meaning |
+|---|---|
+| **Queued** | A change made while the file cannot be written (the game is in a single-player session). It waits in a private journal and is written by itself once the file can be; **Write now** tries at once and **Discard queue** drops it. |
+| **Backup** | A copy of the file taken before a write, in a `tabr-tau-backups` folder beside it. The newest 60 are kept. |
+| **Solari in backpack** | The Solari item stacks in the character's backpack. |
+| **Solari in wallet** and **House credit in wallet** | The character's two virtual currency balances, kept apart from the backpack stacks. |
+| **Intel** | The points that pay for the research tree (capped at 2,779). |
+| **Journey node** | One step of the Story, Contract, Codex or Tutorial lists. |
+| **Specialization track** | One of the five tracks (Combat, Crafting, Exploration, Gathering, Sabotage) with its XP, level and keystones. |
+| **Grade** | The quality level of an item, 0 to 5. |
+
 ## How saving works
 
 `game.db` (and `game_prepatch.db`, `autosave/*.bak`) is an 8-byte header (`uint32 1`, `uint32 size`) followed
