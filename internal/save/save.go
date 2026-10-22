@@ -58,6 +58,16 @@ type Save struct {
 	// the automatic write of pending edits (flush.go): one attempt at a time, and what became of the last
 	flushMu   sync.Mutex
 	lastFlush *Flush
+	// the last write the editor made (an automatic one): the hash of the file it wrote, and the backup it was made after. A following write may reuse that backup only while
+	// the file is still the one that write left, so a file the game saved since is never overwritten without a backup of its own.
+	lastWrote   [32]byte
+	lastBackup  string
+	lastBackupT time.Time
+	// writing is the hash of the file being written, kept in the journal while it is written: a restart that finds the file to be that one knows the edits are already in it
+	writing string
+	// held is the queue the editor could not put back onto the game's newer file (an edit conflicted with what the game changed): none of it was written, and nothing new is
+	// accepted until it is discarded. The queue stays in the journal.
+	held *Held
 }
 
 // sqlErrorHook, when set, is called for every statement that fails. It exists so tests can notice SQL errors that
@@ -359,12 +369,19 @@ func (s *Save) WithBaseline(fn func(orig, current *sql.DB) error) error {
 func (s *Save) Dirty() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.dirty
+	return s.dirty || s.held != nil
 }
 
 func (s *Save) Pending() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.held != nil {
+		out := make([]string, len(s.held.ops))
+		for i, o := range s.held.ops {
+			out[i] = o.Desc
+		}
+		return out
+	}
 	out := make([]string, len(s.ops))
 	for i, o := range s.ops {
 		out[i] = o.Desc
@@ -494,8 +511,10 @@ func (s *Save) ReadOnlyTable(q string, limit int) ([]string, [][]any, error) {
 	return cols, rows, err
 }
 
-// Discard throws away unsaved edits.
+// Discard throws away unsaved edits. It waits for an automatic write that is running (flushMu), so the two never interleave.
 func (s *Save) Discard() error {
+	s.flushMu.Lock()
+	defer s.flushMu.Unlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.load(); err != nil {
@@ -511,7 +530,10 @@ func hashOf(b []byte) [32]byte { return sha256.Sum256(b) }
 
 // backup copies the current file into the backup folder under a unique name, flushes it, and reads it back to
 // prove the copy is identical. A backup that cannot be verified is an error, so no edit proceeds on a bad one.
-func (s *Save) backup() (string, error) {
+func (s *Save) backup() (string, error) { return s.backupNamed("") }
+
+// backupNamed is backup with a tag in the file's name ("-auto" for the ones an automatic write takes: only those are ever removed by the pruning).
+func (s *Save) backupNamed(tag string) (string, error) {
 	if err := os.MkdirAll(s.backupDir(), 0o700); err != nil {
 		return "", err
 	}
@@ -521,7 +543,7 @@ func (s *Save) backup() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dest := filepath.Join(s.backupDir(), fmt.Sprintf("%s-%s-%d%s", base, time.Now().Format("20060102-150405"), time.Now().UnixNano()%1_000_000_000, ext))
+	dest := filepath.Join(s.backupDir(), fmt.Sprintf("%s-%s-%d%s%s", base, time.Now().Format("20060102-150405"), time.Now().UnixNano()%1_000_000_000, tag, ext))
 	if err := writeDurable(dest, b, 0o600); err != nil {
 		return "", err
 	}
@@ -584,8 +606,14 @@ func (s *Save) commit(force, quick bool) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	s.noteWriting(blob)
 	if err := s.installBlob(blob); err != nil {
+		s.writing = ""
+		s.writeJournal()
 		return nil, err
+	}
+	if quick {
+		s.lastWrote, s.lastBackup = hashOf(blob), bak
 	}
 	ops := make([]string, len(s.ops))
 	for i, o := range s.ops {
@@ -623,6 +651,8 @@ func (s *Save) Backups() []Row {
 // an integrity check and carry no applied patch the current save lacks (it would come from a newer game); the
 // current file is backed up first and is never truncated in place.
 func (s *Save) Restore(name string) error {
+	s.flushMu.Lock()
+	defer s.flushMu.Unlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if name == "" || name != filepath.Base(name) || name == "." || name == ".." {
@@ -631,7 +661,7 @@ func (s *Save) Restore(name string) error {
 	if blocked, why := SaveBlocked(s.Path); blocked {
 		return errors.New(why)
 	}
-	if s.dirty { // restoring reloads the file and would silently drop the pending edits
+	if s.dirty || s.held != nil { // restoring reloads the file and would silently drop the pending edits
 		return errors.New("changes are still queued; wait until they are written, or discard them, first (restoring a backup would lose them)")
 	}
 	if err := s.requirePlainFile(); err != nil {

@@ -5,14 +5,17 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 )
 
-// quickBackupEvery is how recent the newest backup must be for an automatic write to go without a new one: a burst of edits is one restore point, taken before the first.
-// keepBackups is how many the backup folder keeps after an automatic write.
+// quickBackupEvery is how recent the backup of the last automatic write must be for the next to go without a new one: a burst of edits is one restore point, taken before the
+// first (and only while the file is still the one that write left: a file the game saved since gets a backup of its own). keepBackups is how many of the backups that automatic
+// writes take the folder keeps; the others (every one an earlier version or a person made) are never removed.
 const (
 	quickBackupEvery = 2 * time.Minute
 	keepBackups      = 60
+	autoTag          = "-auto"
 )
 
 // Flush is what became of the pending edits at the last attempt to write them: written, or waiting (Queued of them) for the reason in Why.
@@ -54,7 +57,11 @@ func (s *Save) Flush() Flush {
 	s.flushMu.Lock()
 	defer s.flushMu.Unlock()
 	s.mu.Lock()
+	held := s.held
 	dirty, n, blocked := s.dirty, len(s.ops), s.blocked
+	if held != nil {
+		dirty, n = true, len(held.ops)
+	}
 	s.mu.Unlock()
 	if !dirty {
 		return Flush{}
@@ -68,17 +75,25 @@ func (s *Save) Flush() Flush {
 		f.Why = g.Reason
 		return s.setLastFlush(f)
 	}
-	if s.ChangedOnDisk() { // the game saved since the edits were made: they go back onto its file
-		r, err := s.Rebase()
+	if held != nil && !s.ChangedOnDisk() { // nothing new from the game: trying again gives the same answer
+		f.Why = heldWhy(held)
+		return s.setLastFlush(f)
+	}
+	if held != nil || s.ChangedOnDisk() { // the game saved since the edits were made: all of them go back onto its file, or none are written
+		r, err := s.rebaseAtomic()
 		if err != nil {
 			f.Why = err.Error()
 			return s.setLastFlush(f)
 		}
 		f.Restored = r
+		if h := s.Held(); h != nil {
+			f.Why = heldWhy(h)
+			return s.setLastFlush(f)
+		}
 		s.mu.Lock()
 		dirty, f.Queued = s.dirty, len(s.ops)
 		s.mu.Unlock()
-		if !dirty { // none of them could be put back
+		if !dirty {
 			return s.setLastFlush(f)
 		}
 	}
@@ -98,14 +113,26 @@ func (s *Save) Flush() Flush {
 	return s.setLastFlush(f)
 }
 
-// backupIfStale makes a backup unless the newest one is from the last quickBackupEvery, in which case it returns that one. It keeps the newest keepBackups.
-func (s *Save) backupIfStale() (string, error) {
-	newest, mod := s.newestBackup()
-	if newest != "" && time.Since(mod) < quickBackupEvery {
-		return newest, nil
+// heldWhy is the sentence for a queue that was held.
+func heldWhy(h *Held) string {
+	why := "the game saved changes that conflict with the queued ones, so none of them was written"
+	if len(h.Conflicts) > 0 {
+		why += " (" + h.Conflicts[0].Desc + ": " + h.Conflicts[0].Why + ")"
 	}
-	b, err := s.backup()
+	return why
+}
+
+// backupIfStale makes a backup unless the last automatic write was made after one from the last quickBackupEvery and the file is still the one it wrote, in which case that
+// backup holds the state before the burst and is returned again. It keeps the newest keepBackups of the automatic ones.
+func (s *Save) backupIfStale() (string, error) {
+	if s.lastBackup != "" && s.diskHash == s.lastWrote && time.Since(s.lastBackupT) < quickBackupEvery {
+		if _, err := os.Stat(s.lastBackup); err == nil {
+			return s.lastBackup, nil
+		}
+	}
+	b, err := s.backupNamed(autoTag)
 	if err == nil {
+		s.lastBackupT = time.Now()
 		s.pruneBackups()
 	}
 	return b, err
@@ -132,7 +159,7 @@ func (s *Save) pruneBackups() {
 	}
 	var all []bk
 	for _, e := range ents {
-		if info, err := e.Info(); err == nil && info.Mode().IsRegular() {
+		if info, err := e.Info(); err == nil && info.Mode().IsRegular() && strings.Contains(e.Name(), autoTag) {
 			all = append(all, bk{filepath.Join(s.backupDir(), e.Name()), info.ModTime()})
 		}
 	}

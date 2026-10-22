@@ -275,13 +275,16 @@ async function status() {
   const changedMsg = changed ? html`<div><b>The game saved since this editor opened.</b> What you see here is out of date. <button class="b sm" data-act="reload">Reload now</button></div>` : html``;
   // An edit is written as it is made. While the file cannot be written (a single-player session is running, the location is not confirmed) edits are queued, and the queue is
   // written by itself the moment the file can be.
-  const queuedMsg = q ? html`<div><b>${q} change${q > 1 ? 's are' : ' is'} queued.</b> ${why ? html`${why}.` : ''} ${o.locationUnconfirmed ? '' : 'They are written to the game file by themselves as soon as it can be written.'} <button class="b sm" data-act="writeNow">Write now</button></div>` : html``;
+  // a queue the editor could not put back onto the game's newer file: none of it was written
+  const heldMsg = o.held ? html`<div><b>${q} queued change${q > 1 ? 's were' : ' was'} not written.</b> The game saved changes that conflict with ${q > 1 ? 'them' : 'it'}, so the editor left the game's file as it is.
+    ${(o.held.conflicts || []).map((c) => html`<div>${c.desc}: ${c.why}</div>`)} <button class="b sm" data-act="discardQueue">Discard queue</button></div>` : html``;
+  const queuedMsg = q && !o.held ? html`<div><b>${q} change${q > 1 ? 's are' : ' is'} queued.</b> ${why ? html`${why}.` : ''} ${o.locationUnconfirmed ? '' : 'They are written to the game file by themselves as soon as it can be written.'} <button class="b sm" data-act="writeNow">Write now</button></div>` : html``;
   const blockedMsg = o.locationUnconfirmed ? html`<div><b>Changes cannot be written here yet.</b> ${saveBlockWhy}. You can keep editing: changes wait in the queue. <button class="b sm" data-act="confirmLocation">Allow writing here</button></div>` : o.gameCheckError && saveBlocked ? html`<div><b>Changes cannot be written.</b> ${saveBlockWhy}. If this keeps happening, report this text.</div>` : saveBlocked && !q ? html`<div><b>The game is in a single-player session.</b> It rewrites the save while it runs, so changes you make now are queued and written when you go to its menu or close it.</div>` : note ? html`<div>Dune: Awakening is open (${(o.gameProcesses || []).join(', ')}) but not in single-player, so changes are written at once.</div>` : html``;
   // what became of the edits an earlier run (or a reload) put back, and the plain fact when they are not being kept
   const restoredMsg = restored ? html`<div><b>${restored.applied} change${restored.applied === 1 ? ' was' : 's were'} put back${restored.rebased ? ' onto the newer file the game saved' : ''}.</b> They are written like any other change.
     ${(restored.conflicts || []).map((c) => html`<div>Could not put back: ${c.desc} (${c.why}). Make it again.</div>`)} <button class="b sm" data-act="dismissRestored">OK</button></div>` : html``;
   const journalMsg = o.journalOff && o.dirty ? html`<div class="mut">These queued changes are not kept if the editor is closed: ${o.journalOff}.</div>` : html``;
-  setHTML(gw, html`${changedMsg}${queuedMsg}${restoredMsg}${journalMsg}${blockedMsg}`);
+  setHTML(gw, html`${changedMsg}${heldMsg}${queuedMsg}${restoredMsg}${journalMsg}${blockedMsg}`);
   $('#pending').textContent = q ? `${q} queued` : '';
   $('#pending').title = o.pending.join('\n');
   $('#btnDiscard').hidden = !o.dirty;
@@ -901,6 +904,7 @@ const A = {
     toast(x ? `Reloaded: ${x.applied} change${x.applied === 1 ? '' : 's'} kept` + ((x.conflicts || []).length ? `, ${x.conflicts.length} could not be put back` : '') : 'Reloaded from disk.');
   }, null),
   dismissRestored: () => act(async () => { await api('/api/save/restored/dismiss', {}); }, null),
+  discardQueue: () => $('#btnDiscard').click(),
   writeNow: () => act(async () => {
     const r = await api('/api/save/flush', {});
     if (r.saved) toast('Written to the game file' + (r.warning ? '. ' + r.warning : '.'), !!r.warning);

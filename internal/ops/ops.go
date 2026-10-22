@@ -137,7 +137,7 @@ func (o *Ops) State() (any, error) {
 		"saveBlocked": g.Blocked, "blockReason": g.Reason, "gameMode": g.Mode,
 		"readOnly": o.S.WriteBlocked(), "changedOnDisk": o.S.ChangedOnDisk(), "locationUnconfirmed": g.NeedsConfirm,
 		"restored": o.S.Restored(), "journalOff": o.S.JournalOff(),
-		"lastWrite": o.S.LastFlush(),
+		"lastWrite": o.S.LastFlush(), "held": o.S.Held(),
 	}, nil
 }
 

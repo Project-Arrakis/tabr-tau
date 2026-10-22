@@ -204,6 +204,9 @@ func (s *Save) mutate(desc string, cascade bool, fn func(m *Mut) error) (int64, 
 	if s.blocked != "" {
 		return 0, errReadOnly(s.blocked)
 	}
+	if s.held != nil && !s.replaying {
+		return 0, errors.New("the queued changes conflict with what the game saved and were not written: discard them before making new ones")
+	}
 	if fn == nil {
 		return 0, errors.New("no edit given")
 	}
