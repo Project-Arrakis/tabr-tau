@@ -162,7 +162,8 @@ func main() {
 		editorDir = filepath.Dir(p)
 	}
 	ws := newWebServer(s, *cfgDir, editorDir)
-	go ws.RunAutosave(nil) // edits that are waiting (the game was running) are written when the file can be, for as long as the editor runs
+	// edits that are waiting (the game was running) are written when the file can be, for as long as the editor runs
+	go ws.RunAutosave(nil)
 	ws.BindAddr(ln.Addr().String()) // the session cookie and the accepted Host header are per port
 	if note := web.PortChangeNote(*addr, ln); note != "" && !addrExplicit {
 		fmt.Fprintln(os.Stderr, "note: "+note)
