@@ -913,7 +913,7 @@ test('Research and Crafting: categories, filter, hostile names as text, and Unlo
   assert.equal(ui.doc.querySelector('[data-rscat=""]').textContent, 'All (4)');
   assert.equal(ui.doc.querySelectorAll('[data-act="rsUnlock"]').length, 2, 'Unlock only where something is missing');
   assert.ok([...ui.doc.querySelectorAll('[data-act="rsUnlock"]')].some((b) => b.textContent == 'Repair unlock'), 'a purchased entry with its recipe missing offers a repair');
-  assert.ok(ui.doc.querySelector('button[disabled]').textContent == 'Group', 'a group marker has a disabled button');
+  assert.ok(ui.doc.querySelector('#rsout button[disabled]').textContent == 'Group', 'a group marker has a disabled button');
   ui.click('[data-rscat="Vehicles"]'); await ui.settle();
   assert.equal(ui.doc.querySelectorAll('#rsout tbody tr').length, 1);
   assert.ok(ui.doc.querySelector('#rsGrp'), 'product groups appear once a category is chosen');

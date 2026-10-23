@@ -209,3 +209,74 @@ test('Reset level and XP: a refusal because the XP changed is shown and the page
   assert.ok(ui.doc.querySelector('#toast .err').textContent.includes('you confirmed'));
   assert.ok(reads() > before);
 });
+
+// ---- Journey
+
+const journey = (nodes, tuts) => ({ story: [], contract: [], codex: [], tutorial: [], resetCount: nodes + tuts, resetNodes: nodes, resetTutorials: tuts });
+
+async function openJourney(ui) {
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:journey"]'); await ui.settle();
+}
+
+test('Reset journey: names both counts, says rewards are not touched, and sends the confirmed total', async () => {
+  const ui = await boot({ get: { '/api/player/journey/browse': journey(4, 2) }, post: { '/api/player/journey/reset': { ok: true, changed: 6, noop: false, nodes: 4, tutorials: 2 } } });
+  await openJourney(ui);
+  const btn = ui.doc.querySelector('[data-act="jReset"]');
+  assert.ok(btn, 'the Journey tab has the button');
+  assert.equal(btn.textContent.trim(), 'Reset journey (4 steps, 2 tutorials)');
+  assert.equal(btn.disabled, false);
+  assert.ok(btn.classList.contains('bad'));
+  assert.ok(ui.doc.getElementById(btn.getAttribute('aria-describedby')).textContent.includes('Waiting rewards'));
+  ui.click('[data-act="jReset"]'); await ui.settle();
+  const text = ui.doc.querySelector('#ask').textContent;
+  assert.ok(text.includes('Reset the journey (4 steps and 2 tutorials)?'));
+  assert.ok(text.includes('Type reset 6 journey items to continue'));
+  assert.ok(text.includes('Rewards that are waiting stay as they are') && /backup/i.test(text));
+  ui.type('reset 6 journey items');
+  ui.click('#aok'); await ui.settle();
+  assert.equal(posts(ui, '/api/player/journey/reset').length, 0, 'an OK within the gap is ignored');
+  await ui.wait(GAP);
+  ui.click('#aok'); await ui.settle();
+  assert.deepEqual(posts(ui, '/api/player/journey/reset').map((p) => p.body), [{ expected: 6 }]);
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Journey reset: 4 steps and 2 tutorials'));
+});
+
+test('Reset journey: off, with its reason, when nothing is finished or started', async () => {
+  const ui = await boot({ get: { '/api/player/journey/browse': journey(0, 0) } });
+  await openJourney(ui);
+  const btn = ui.doc.querySelector('[data-act="jReset"]');
+  assert.equal(btn.disabled, true);
+  assert.ok(ui.doc.getElementById(btn.getAttribute('aria-describedby')).textContent.includes('Nothing to reset'));
+  ui.click('[data-act="jReset"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'));
+});
+
+test('Reset journey: one tutorial reads in the singular and a stale count is shown and the page read again', async () => {
+  const ui = await boot({ get: { '/api/player/journey/browse': journey(0, 1) }, post: { '/api/player/journey/reset': { __fail: 'the number of finished journey steps and tutorials to reset is now 3, not the 1 you confirmed, so nothing was changed: reload the page and look again', __code: 'conflict', __status: 409 } } });
+  await openJourney(ui);
+  const reads = () => ui.fetched.filter((p) => p === '/api/player/journey/browse').length;
+  const before = reads();
+  ui.click('[data-act="jReset"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes('Type reset 1 journey item to continue'));
+  ui.type('reset 1 journey item'); await ui.wait(GAP);
+  ui.click('#aok'); await ui.settle(); await ui.wait(20); await ui.settle();
+  assert.ok(ui.doc.querySelector('#toast .err').textContent.includes('you confirmed'));
+  assert.ok(reads() > before);
+});
+
+// ---- Research: no reset, and the page says why
+
+test('Research has a Reset research button that is off, with the reason in its tooltip and beside it, and it sends nothing', async () => {
+  const ui = await boot();
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:research"]'); await ui.settle();
+  const btn = [...ui.doc.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Reset research');
+  assert.ok(btn, 'the button is there, so nobody looks for it');
+  assert.equal(btn.disabled, true);
+  assert.ok(btn.title.includes('does not say which research a new character already has'));
+  assert.ok(ui.doc.getElementById(btn.getAttribute('aria-describedby')).textContent.includes('Not available'));
+  btn.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); await ui.settle();
+  assert.equal(ui.posted.length, 0);
+  assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'));
+});

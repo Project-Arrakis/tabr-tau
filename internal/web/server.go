@@ -628,6 +628,7 @@ func (s *Server) routes() {
 	s.get("/api/player/journey", func(r *http.Request) (any, error) { return o.Journey(r.URL.Query().Get("q")) })
 	s.get("/api/player/journey/browse", func(r *http.Request) (any, error) { return o.JourneyBrowse() })
 	s.post("/api/player/journey", o.JourneySet)
+	s.post("/api/player/journey/reset", o.ResetJourney)
 	s.get("/api/player/tutorials", func(r *http.Request) (any, error) { return o.Tutorials() })
 	s.post("/api/player/tutorials", o.TutorialSet)
 	s.get("/api/player/tags", func(r *http.Request) (any, error) { return o.Tags() })

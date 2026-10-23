@@ -180,7 +180,7 @@ Console routes parsed: **428**. N/A 239, Done 71, Cut 43, Gap 42, Partial 33.
 | POST | `/api/players/{}/teleport` | Done | Teleport (P9); destinations picker in #67 |
 | POST | `/api/players/{}/spawn-vehicle` | Gap | spawning a vehicle needs the game to create it correctly (hard) |
 | POST | `/api/players/{}/clean-inventory` | Gap | remove invalid items; maintenance |
-| POST | `/api/players/{}/reset-progression` | Partial | no single route: one reset button per area, each with a typed confirmation (#339). Done: Player > Skills (all skills to rank 0), Character > Overview (level and XP), Player > Specialization (XP of the known tracks). Not yet: Journey. Research has none (the save does not say what a new character has researched) |
+| POST | `/api/players/{}/reset-progression` | Partial | no single route: one reset button per area, each with a typed confirmation (#339). Done: Player > Skills (all skills to rank 0), Character > Overview (level and XP), Player > Specialization (XP of the known tracks), Player > Journey (finished steps and tutorials). Research is deliberately not reset (the save does not say what a new character has researched) Research has none (the save does not say what a new character has researched) |
 | POST | `/api/players/{}/add-currency` | Done | Give currency (Solari Credit, House Credit wallets); the Solari Coin stack is a separate item |
 | POST | `/api/players/{}/add-faction-reputation` | Done | faction reputation (P10) |
 | POST | `/api/players/{}/faction` | Done | Faction Assignment on Player > Admin (Neutral, Atreides, Harkonnen) |
@@ -635,6 +635,7 @@ resets, write SQL and the automatic refill.
 - `/api/player/inventory`
 - `/api/player/journey`
 - `/api/player/journey/browse`
+- `/api/player/journey/reset`
 - `/api/player/level/reset`
 - `/api/player/recipes`
 - `/api/player/refill`
