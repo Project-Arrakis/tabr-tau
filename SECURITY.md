@@ -37,18 +37,26 @@ your computer (they can edit your save directly).
 - Every edit is written to the save as it is made. Before each write the editor checks that no single-player session is using the file (and
   that the game check itself worked), that the file is unchanged since it was read, and that the working copy passes an integrity check; it
   takes a backup first (one backup covers a burst of edits made within two minutes; the newest 60 automatic backups are kept, and always the oldest
-  and the first one of the session; backups made by a person or an earlier version are never removed) and reads the written file back and compares it afterwards. Each edit is also checked
+  and the first one of the session; backups made by a person or an earlier version are never removed) and reads the written file back and compares it afterwards (a file that cannot be read back is looked at again before anything is written a second time; a journal that could not be kept up to date is reported at the next start and not put back). Each edit is also checked
   for dangling references when it is made. When the file cannot be written (a single-player session is running, the location is not
   confirmed, the game check failed) the edits wait in a queue that is kept in a journal and listed on the page, and are written by
   themselves once the file can be written. If the game saved meanwhile, the queue is put back onto its newer file only when every edit still
   applies; if the game saved changes that conflict with it, none of it is written and the person is told.
+- The optional automatic pass when the editor opens (master switch off by default, one switch per job) is one edit like any other: the same
+  guards, one backup, one write-log line. It is skipped while a single-player session is running, writes nothing when nothing needs doing,
+  and a failing job rolls the whole pass back. It acts only on what the character owns or carries.
 - There is no review step before a write (the review pane was removed in #238). What stands in its place is the set of guards above at every
   write, the backups (Database > Save backups restores one), the queue with its list and its Discard control, and the confirmations that
   remain for destructive actions. The audit register records this replacement.
+- Whether the game is running is read from the system's process list in memory (the Windows process snapshot); the editor starts no other program
+  to find out, so a program placed earlier in the search path cannot answer for it and there is no child process to fail. A check that fails is tried
+  again a few times before it blocks anything. If it still cannot be made, the write is refused and the edit waits in the queue, with the reason
+  shown; the editor checks again by itself, and **Check again** and **Write now** run the check at once. A write never relies on an older answer.
 - Every write is recorded: after the file has been written the editor appends one line to `write-log.jsonl` in its own folder
   (`%APPDATA%\tabr-tau`): when, how many edits, what they were in words, and the name of the backup taken before (a restore of a backup is
   recorded the same way). The words are the sentences the page lists as changes, so they can carry game ids and amounts ("Give 500 x ... to
-  container 12", "moved vehicle 201 next to player"). They do not carry a statement typed into the SQL console (only that one was run), the
+  container 12", "moved vehicle 201 next to player"); the optional pass when the editor opens is one line, "automatic pass: 1 Water Cistern;
+  11 vehicle parts repaired". They do not carry a statement typed into the SQL console (only that one was run), the
   primary-key value of a row edited in the Database view, a number of fifteen digits or more, a long hexadecimal id or GUID, or a file path.
   The log is capped: at 256 KB it becomes `write-log.1.jsonl` and a new file starts, so there are never more than two. It is created for the
   owner (mode 0600), but Windows does not apply that mode: the file has the permissions of your profile folder, normally readable by you and by
@@ -70,7 +78,7 @@ while the file cannot be written). There is no second, human step between the re
 - A program that already runs as you, and could therefore replay the cookie, can edit the save file directly; that is out of scope above.
 - What limits the damage of a request that is wrong or unwanted is the same set of guards at every write (no single-player session, an unchanged
   file, an integrity check, a read-back), a backup before each burst of edits that Database > Save backups restores, the queue with its list
-  and Discard control, a typed word before a raw SQL write or a restore, a typed item count before a container is cleared, a fill that only raises two values of a blood sack and leaves the others alone, a refuel that raises one fuel number of each of your own vehicles and never lowers one, a question before the bulk actions, and the write log above.
+  and Discard control, a typed word before a raw SQL write or a restore, a typed item count before a container is cleared, a fill that only raises two values of a blood sack and leaves the others alone, a refuel that raises one fuel number of each of your own vehicles and never lowers one, a fill of all liquids that is one edit and is put back as a whole if any part fails, a question before the bulk actions, and the write log above.
 
 This is to be looked at again if the editor ever listens beyond this computer, serves more than one person, or offers an interface to other programs.
 

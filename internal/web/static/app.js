@@ -367,7 +367,7 @@ async function status() {
     ${(o.held.conflicts || []).map((c) => html`<div>${c.desc}: ${c.why}</div>`)} <button class="b sm" data-act="discardQueue">Discard queue</button></div>` : html``;
   let mainMsg = html``;
   if (o.locationUnconfirmed) mainMsg = html`<div><b>Changes cannot be written here yet.</b> ${reason.text} You can keep editing: changes wait in the queue. <button class="b sm" data-act="confirmLocation">Allow writing here</button></div>`;
-  else if (o.gameCheckError && saveBlocked) mainMsg = html`<div><b>Changes cannot be written.</b> ${reason.text}${q ? html` ${q} ${n('change waits', 'changes wait')} in the queue and ${n('is written by itself', 'are written by themselves')} once the check works.` : ''} <button class="b sm" data-act="writeNow">Write now</button></div>`;
+  else if (o.gameCheckError && saveBlocked) mainMsg = html`<div><b>Changes cannot be written.</b> ${reason.text}${q ? html` ${q} ${n('change waits', 'changes wait')} in the queue and ${n('is written by itself', 'are written by themselves')} once the check works.` : ''} The editor checks again by itself every few seconds. <button class="b sm" data-act="checkAgain">Check again</button> <button class="b sm" data-act="writeNow">Write now</button></div>`;
   else if (q && !o.held && last && last.stuck) mainMsg = html`<div><b>${q} queued change${n(' cannot', 's cannot')} be written.</b> The game saved after ${n('it was', 'they were')} made, and the editor did not keep ${n('it', 'them')}${o.journalOff ? ' (' + o.journalOff + ')' : ''}, so ${n('it', 'they')} cannot be put back onto the game's file, which is left as it is. Discard the queue and make ${n('the change', 'the changes')} again. <button class="b sm" data-act="discardQueue">Discard queue</button></div>`;
   else if (q && !o.held) mainMsg = html`<div><b>${q} change${n(' is', 's are')} queued.</b> ${reason.text} ${n('It is written to the game file by itself', 'They are written to the game file by themselves')} as soon as it can be written. <button class="b sm" data-act="writeNow">Write now</button></div>`;
   else if (saveBlocked && !q) mainMsg = html`<div><b>The game is in a single-player session.</b> It rewrites the save while it runs, so changes you make now are queued and written when you go to its menu or close it.</div>`;
@@ -545,6 +545,17 @@ async function bloodSacksCard() {
   const left = unknown ? ` ${unknown} blood ${unknown == 1 ? 'sack' : 'sacks'} of an unknown kind will be left alone.` : '';
   return html`<div class="card"><h3>Blood sacks</h3><div class="row"><button class="b sec" data-act="fillBlood" aria-describedby="bloodnote" ${b && !notFull ? 'disabled' : ''}>Fill blood sacks</button><span class="mut" id="bloodnote">${count}${left} Fills the sacks you carry to the most blood seen in a save for that kind (the Mk6 unique sack 30000, the basic sack 3000), without changing anything else about them. Water containers are not touched. The fill has not been checked in the game yet.</span></div></div>`;
 }
+// Fill all liquids (issue #349), under the Blood sacks card: the water refill, the blood-sack fill and, with the box ticked, the refuel of the character's vehicles, as one edit.
+// The box stays as the person left it until the page is reloaded.
+let liqVeh = true;
+async function liquidsCard() {
+  let l = null;
+  try { l = await api('/api/player/liquids'); } catch (e) { l = null; }
+  const n = (k, f) => (l && l[k] ? Number(l[k][f]) || 0 : 0);
+  const waterN = n('water', 'notFull'), bloodN = n('bloodSacks', 'notFull'), vehN = n('vehicles', 'notFull');
+  const count = !l ? 'The containers could not be counted.' : `Not full: ${nn(waterN, 'water container', 'water containers')}, ${nn(bloodN, 'blood sack', 'blood sacks')}, ${nn(vehN, 'vehicle', 'vehicles')}.`;
+  return html`<div class="card"><h3>Fill all liquids</h3><div class="row"><button class="b" data-act="fillLiquids" aria-describedby="liqnote">Fill all liquids</button><label><input type="checkbox" id="liqVeh" ${liqVeh ? 'checked' : ''}> Also refuel my vehicles</label><span class="mut" id="liqnote">${count} Fills your Literjons, stillsuits and other water containers, your blood sacks and (with the box ticked) the fuel of your own vehicles, as one edit with one backup, by the same rules as the three buttons (Refill Literjons, Fill blood sacks, Refuel all my vehicles). Kinds whose size is not known are left alone and counted.</span></div></div>`;
+}
 async function playerSection(s) {
   const h = s == 'character' ? [subNav('char', [['overview', 'Overview'], ['inventory', 'Inventory'], ['reputation', 'Reputation']])] : [];
   const c = s == 'character' ? sub.char || 'overview' : s;
@@ -587,11 +598,12 @@ async function playerSection(s) {
     h.push(augCard);
     h.push(html`<div class="card"><h3>Repair</h3><div class="row"><button class="b" data-act="repair">Repair all worn items and loadouts</button><span class="mut">Everything you wear and everything in your loadout is made as good as new: full durability, with a maximum that repairs wore down restored. The backpack is not touched.</span></div></div>`);
     h.push(html`<div class="card"><h3>Give item</h3><div class="row">${itemPicker("gt", cat)}
-    Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="queueAdd">Add to queue</button><button class="b sec" data-act="giveWater" title="Puts 10 Cups of Water in the backpack; it does not fill the character's own water (use Fill hydration)">Give water</button><button class="b sec" data-act="fillWater" title="Fill the character's own hydration to the maximum">Fill hydration</button><button class="b sec" data-act="refill">Refill Literjons</button></div>
+    Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="queueAdd">Add to queue</button><button class="b sec" data-act="fillWater" title="Fill the character's own hydration to the maximum">Fill hydration</button><button class="b sec" data-act="refill">Refill Literjons</button></div>
     <div class="row" id="gaug"></div>
     ${giveQueue.length ? html`<div class="row"><b>Queue (${giveQueue.length})</b>${giveQueue.map((q, i) => html`<span class="tag">${q.quantity} x ${itemName(q.template_id)}${q.quality ? ' (grade ' + q.quality + ')' : ''}${q.augments && q.augments.length ? ' + ' + q.augments.map((a) => augName(a)).join(', ') : ''} <button class="b sec sm" data-act="queueDel" data-id="${i}" title="Remove from the queue">x</button></span>`)}<button class="b" data-act="queueGive">Give queued items</button><button class="b sec" data-act="queueClear">Clear</button></div>` : ''}
     <p class="mut">Pick an item by its in-game name. Items already in your save that the catalog does not know are listed by their template id; any valid template id can also be typed.</p></div>
     ${await bloodSacksCard()}
+    ${await liquidsCard()}
     ${invCard}`);
   } else if (c == 'reputation') {
     const f = await api('/api/player/factions');
@@ -792,11 +804,16 @@ function catalogList() {
 
 // ---------- BASES
 // ---------- BASES (the console's Bases panel inside Player > Bases: the base list, and for one base Power, Water, Inventory and Land Claim Editor)
-// The automatic refill switch, shown on both the Power and the Water tab because it refills both: water storage (cisterns, windtraps, Blood Purifiers) and power (generators, wind turbines, windtraps).
+// The automatic refill and repair card, shown on both the Power and the Water tab because the pass covers both: a master switch and one checkbox per job (base water and power, repairs, fills).
+// A job that is not available yet is listed, greyed, with the reason the server gives.
 function autoRefillCard(prefs) {
-  return html`<div class="card"><h3>Automatic refill of water and power</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
+  const jobs = prefs.jobs || [];
+  return html`<div class="card"><h3>Automatic refill and repair when the editor opens</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>
+    ${jobs.length ? html`<div role="group" aria-label="What the automatic pass does">${jobs.map((j) => html`<div class="row"><label class="${j.ready ? '' : 'mut'}"><input type="checkbox" data-autojob="${j.key}" aria-describedby="aj-${j.key}" ${j.on ? 'checked' : ''} ${j.ready ? '' : 'disabled'}> <b>${j.label}</b></label><span class="mut" id="aj-${j.key}">${j.desc}${j.ready ? '' : ' Not available yet: ' + j.reason + '.'}</span></div>`)}</div>` : ''}
+    ${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
+    ${prefs.lastProblem ? html`<p class="bad">${prefs.lastProblem}</p>` : ''}
     ${prefs.problem ? html`<p class="bad">${prefs.problem}</p>` : ''}
-    <p class="mut">When on, opening the editor refills water storage (Water Cisterns, Windtraps, Blood Purifiers) and power (generators, wind turbines, windtraps) and <b>saves straight away</b>, like every other change, so it applies the next time the game loads. It is skipped while a single-player session is running. The previous file is backed up first. Remembered between runs. The same switch is on the Power and Water tabs.</p></div>`;
+    <p class="mut">When the master switch is on, opening the editor runs the jobs ticked above as <b>one edit</b> and <b>saves straight away</b>, like every other change, so it applies the next time the game loads. Every job is ticked by default, the repairs too; the master switch is off until you turn it on. It acts only on what your character owns or carries: your own vehicles, worn equipment, loadout, inventories and bases. It is skipped while a single-player session is running (nothing is written or queued then). When nothing needs doing nothing is written. If one job fails, nothing is changed and the error is shown here. The previous file is backed up first. Remembered between runs. The same card is on the Power and Water tabs.</p></div>`;
 }
 // The console's Land Claim Editor: the claim as a grid of cells turned by the base's own yaw (north at the top), with the totem's cell,
 // the cells it has, and dotted "available" cells next to it. Click an available cell to add it, a chosen one to take it back (what is
@@ -1139,10 +1156,21 @@ const A = {
   }, null),
   dismissRestored: () => act(async () => { await api('/api/save/restored/dismiss', {}); }, null),
   discardQueue: () => $('#btnDiscard').click(),
+  // Check again: the game check is made at once (the process list is read again, never taken from the cache) and the answer is said in a sentence. The banner is redrawn from
+  // that answer, so one that said the check could not be made goes away as soon as a check works.
+  checkAgain: () => act(async () => {
+    const c = await api('/api/game/check', {});
+    toast(capFirst(c.message), !!c.failed);
+    try { await status(); } catch (e) { /* the poll reports a lost connection */ }
+  }, null, false, true),
+  // Write now: the same check first, so there is always an answer to give even when nothing is waiting, then another attempt to write what waits.
   writeNow: () => act(async () => {
+    const c = await api('/api/game/check', {});
     const r = await api('/api/save/flush', {});
     if (r.saved) toast('Written to the game file' + (r.warning ? '. ' + r.warning : '.'), !!r.warning);
-    else toast(r.queued ? 'Still waiting: ' + (r.why || 'the file cannot be written yet') : 'Nothing was waiting.', !!r.queued);
+    else if (r.queued) toast('Still waiting: ' + (c.failed ? c.message : r.why || 'the file cannot be written yet'), true);
+    else toast(capFirst(c.message), !!c.failed);
+    try { await status(); } catch (e) { /* the poll reports a lost connection */ }
   }, null, true, true),
   solari: () => act(() => api('/api/player/solari', { amount: +val('solari') }), 'Solari updated'),
   bloodMarks: () => act(async () => { const r = await api('/api/player/blood-marks', { amount: +val('bmAmt') }); giveToast(r, 'Blood Marks', `Gave ${Number(r.given).toLocaleString()} Blood Marks (${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()})`); }, null),
@@ -1172,7 +1200,6 @@ const A = {
       : await api('/api/player/give', { template_id: tid, quantity: +val('gq'), quality: +val('gg') });
     giveToast(r, itemName(tid), 'Item added');
   }, null),
-  giveWater: () => act(async () => { const r = await api('/api/player/give', { template_id: 'WaterPack_Consumable', quantity: 10, quality: 0 }); giveToast(r, 'Cup of Water', '10 x Cup of Water added'); }, null),
   faction: () => act(async () => { const r = await api('/api/player/faction', { faction_id: +val('facSel') }); toast(`Faction set to ${r.faction}` + NOT_SAVED); }, null),
   repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(`Repaired ${r.repaired} items` + NOT_SAVED); }, null),
   fillWater: () => act(async () => { const r = await api('/api/player/hydration', {}); toast(`Hydration ${Math.round(r.before * 10) / 10} → ${r.after}` + NOT_SAVED); }, null),
@@ -1182,6 +1209,17 @@ const A = {
     const un = r.unknown ? ` ${r.unknown} blood ${r.unknown == 1 ? 'sack' : 'sacks'} of an unknown kind ${r.unknown == 1 ? 'was' : 'were'} left alone${(r.skippedUnknown || []).length ? ` (${r.skippedUnknown.join(', ')})` : ''}.` : '';
     const other = r.holdingOther ? ` ${r.holdingOther} holding something other than blood ${r.holdingOther == 1 ? 'was' : 'were'} left alone.` : '';
     toast((r.filled ? `Filled ${r.filled} blood ${r.filled == 1 ? 'sack' : 'sacks'} (${by}); ${r.alreadyFull} already full.` : `No blood sack needed filling (${r.alreadyFull} already full).`) + un + other + NOT_SAVED);
+  }, null),
+  fillLiquids: () => act(async () => {
+    const box = $('#liqVeh');
+    if (box) liqVeh = box.checked;
+    const r = await api('/api/player/fill-all-liquids', { vehicles: liqVeh });
+    const w = r.water || {}, b = r.bloodSacks || {}, v = r.vehicles || null;
+    const parts = [`${nn(w.filled || 0, 'water container', 'water containers')}`, `${nn(b.filled || 0, 'blood sack', 'blood sacks')}`];
+    if (v) parts.push(nn(v.filled || 0, 'vehicle', 'vehicles'));
+    const left = (w.skippedUnknown || []).length + (b.unknown || 0) + (v ? v.unknown || 0 : 0);
+    const any = (w.filled || 0) + (b.filled || 0) + (v ? v.filled || 0 : 0);
+    toast((any ? `Filled ${parts.join(', ')}.` : 'Nothing needed filling.') + (r.vehiclesIncluded ? '' : ' Vehicles were not refuelled.') + (left ? ' Some containers, sacks or vehicles of an unknown kind were left alone.' : '') + (any ? NOT_SAVED : ''));
   }, null),
   refill: () => act(async () => { const r = await api('/api/player/refill', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} Literjons (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
   delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). It is written at once, after a backup. If the file cannot be written (for example a single-player session is running) it is queued and written when it can be.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
@@ -1272,7 +1310,7 @@ const A = {
   jclear: () => { window.jq = ''; journeyList(); },
   jset: (d) => act(async () => { await api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }); JB = await api('/api/player/journey/browse'); journeyList(); toast('Journey updated' + NOT_SAVED); }, null),
   autoref: async (d) => {
-    if (!d.on && !(await ask({ title: 'Turn on automatic refill?', body: 'From now on, opening the editor refills water storage and power buildings and saves to your game file immediately, like every other change. The previous file is backed up each time, and nothing happens while a single-player session is running. It applies to whichever save file the editor opens.', ok: 'Turn on' }))) return;
+    if (!d.on && !(await ask({ title: 'Turn on automatic refill and repair?', body: 'From now on, opening the editor runs the jobs that are ticked on the card (refills water storage and power buildings, repairs your vehicles and your worn equipment and loadout, fills your water containers and your water, and so on) as one edit and saves to your game file immediately, like every other change. The previous file is backed up each time, and nothing happens while a single-player session is running. It applies to whichever save file the editor opens.', ok: 'Turn on' }))) return;
     act(async () => { const r = await api('/api/settings', { autoRefillOnOpen: !d.on }); toast('Automatic refill when the editor opens is now ' + (r.autoRefillOnOpen ? 'on' : 'off')); }, null);
   },
   claimShrink: async (d) => {
@@ -1407,6 +1445,11 @@ document.addEventListener('change', (e) => {
   const t = e.target;
   if (t.id == 'gt') { showGiveAugments(); return; }
   if (t.id == 'skCharge') { skCharge = t.checked; return; }
+  if (t.dataset.autojob) { // one job of the automatic pass switched on or off; the card is drawn again from what the server kept
+    const key = t.dataset.autojob, on = t.checked, label = ((t.closest('label') || {}).textContent || key).trim();
+    act(async () => { try { await api('/api/settings', { [key]: on }); } catch (e) { render(); throw e; } toast(label + ' is now ' + (on ? 'on' : 'off') + ' for the automatic pass'); }, null);
+    return;
+  }
   if (t.id == 'rsGrp') { rsGroup = t.value; researchList(); return; }
   if (t.id == 'tdsel') { const d = TD[+t.value]; if (d) { $('#tx').value = Math.round(d.x); $('#ty').value = Math.round(d.y); $('#tz').value = Math.round(d.z); } return; }
   if (t.id == 'lcLvl' && LC) { LC.level = +t.value; claimEditorDraw(); return; }

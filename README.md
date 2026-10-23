@@ -27,7 +27,7 @@ live-test protocol). Do not attach saves, `Game.ini`, snapshots or logs to issue
 
 | Tab | Features |
 |---|---|
-| **Player** | Profile, Solari, Blood Marks (the Halloween 2026 event currency), give / edit / delete items (a give puts in as much as fits and says how much), clear a container (backpack, worn gear, loadout; keeps the Solari Coin stack unless asked), repair gear, refill water containers, fill blood sacks, teleport, faction reputation, specialization tracks, tutorials, tags, Journey nodes (complete / reset), learned building recipes, vendor purchase limits and restock cycles (reset), and reset buttons for what a character has earned (all skills to rank 0 on Skills, level and XP on Character, the XP of the specialization tracks, the journey on Journey; see Not built yet) |
+| **Player** | Profile, Solari, Blood Marks (the Halloween 2026 event currency), give / edit / delete items (a give puts in as much as fits and says how much), clear a container (backpack, worn gear, loadout; keeps the Solari Coin stack unless asked), repair gear, refill water containers, fill blood sacks, fill all liquids (water, blood sacks and, optionally, your vehicles' fuel in one edit), teleport, faction reputation, specialization tracks, tutorials, tags, Journey nodes (complete / reset), learned building recipes, vendor purchase limits and restock cycles (reset), and reset buttons for what a character has earned (all skills to rank 0 on Skills, level and XP on Character, the XP of the specialization tracks, the journey on Journey; see Not built yet) |
 | **Player > Bases** | The console's Bases panel: your bases with Power, Water, Inventory (Storage, Refining, Crafting, Other) and Land Claim Editor tabs. Also:  Land claims (totems), expand or shrink a claim's size, raise its vertical level, teleport to base, structure health, repair all, clear sand buildup, refill base water and generator fuel (optionally when the editor opens), your base's storage containers (view / add / remove items, or clear a container), placeables |
 | **Player > Vehicles** | Your own vehicles (the world's vehicles are hidden) and recovered vehicles, bring a vehicle to you, repair module durability (each module is made as good as new), refuel all your vehicles to a full tank (tank sizes measured in the game) |
 | **Saved map** | Hagga Basin and the Deep Desert as in the Dune Docker console, drawn from your save (as of its last write, not live): your character, vehicles, base, storage containers and the game's own map markers (ore, salvage, plants, enemy camps, places, trainers, hazards), with layers, pan, zoom and hover details |
@@ -45,7 +45,8 @@ These console features are not in tabr-tau, and the page no longer shows a disab
 
 | Word | Meaning |
 |---|---|
-| **Queued** | A change made while the file cannot be written (the game is in a single-player session). It waits in a private journal and is written by itself once the file can be; **Write now** tries at once and **Discard queue** drops it. |
+| **Queued** | A change made while the file cannot be written (the game is in a single-player session). It waits in a private journal and is written by itself once the file can be; **Write now** tries at once and **Discard queue** drops it. A queued change never touches the running game: it goes into the save file, and the game sees it the next time it loads that save. |
+| **Check again** | Shown when the editor could not tell whether the game is running (the process list could not be read). The editor tries again by itself every few seconds and the banner goes away when a check works; **Check again** and **Write now** make the check at once and say what it found: the game is running (edits will queue), the game is not running (edits are written at once), or why the check failed again. While the check cannot be made, no change is written. |
 | **Backup** | A copy of the file taken before a write (one per burst of edits), in a `tabr-tau-backups` folder beside it. The newest 60 are kept, and always the oldest one and the first one of the session (the file before the editor wrote anything). |
 | **Write log** | `write-log.jsonl` in the editor's own folder (`%APPDATA%\tabr-tau`): one line for every write, with the time, how many edits, what they were in words, and the name of the backup taken before. The words are the sentences the page lists as changes, so they can carry game ids and amounts, but not SQL text, the key of an edited row, long numbers or hexadecimal ids, or file paths. At 256 KB it becomes `write-log.1.jsonl` (two files at most). A restore of a backup is recorded too. It is a record to read; the backup is the way back. |
 | **Solari in backpack** | The Solari item stacks in the character's backpack. A stack holds 50,000: adding fills the stacks there and makes more, removing takes from the last stack back, and asking for more than the stacks hold is refused. |
@@ -65,7 +66,7 @@ by a zlib stream containing a plain SQLite 3 database. tabr-tau decodes it into 
 2. refuses if the file changed on disk since it was loaded,
 3. runs `PRAGMA integrity_check` and verifies the re-encoded file decodes back to the same bytes,
 4. copies the original to `tabr-tau-backups/` next to it,
-5. writes the new file atomically.
+5. writes the new file atomically, then reads it back and compares (tried for about 2 seconds if another program holds the new file). If it still cannot be read back, the answer says the save was written and could not be verified, and the next attempt checks the file first: edits that are in it are not written a second time.
 
 Config edits work the same way (backups in `tabr-tau-backups/` beside the `.ini`). The game rewrites its
 configs on exit, so close it before editing them.
@@ -100,9 +101,22 @@ Every save from the editor first copies the file it replaces into `tabr-tau-back
 
 Restore uses the same guard as saving: it refuses while a single-player session is active, just ended, or cannot be checked. Whether the game's own cloud sync touches the `tabr-tau-backups` folder has not been tested.
 
-## Automatic refill
+## Automatic refill and repair
 
-The Bases tab has an **Automatic refill** switch (off by default, remembered in `%APPDATA%\tabr-tau\settings.json`, which also keeps the specialization track numbers you assign). When on, opening the editor refills base water and generators and **saves straight away**, like every other edit, so it applies the next time single-player loads. It is skipped while a single-player session is running or when edits from before are still queued; the previous file is backed up every time; a refused write leaves the edits queued with the reason. The card shows the last automatic save and its backup name. It applies to whichever save the editor opens.
+The Power and Water tabs of a base have an **Automatic refill and repair when the editor opens** card: a master switch (off by default) and one checkbox per job. The settings are remembered in `%APPDATA%\tabr-tau\settings.json`, which also keeps the specialization track numbers you assign. When the master switch is on, opening the editor runs the jobs that are ticked as **one edit** and **saves straight away**, like every other edit, so it applies the next time single-player loads. The jobs, all ticked by default (the repairs too):
+
+| Job | What it does |
+|---|---|
+| Base water | fills Water Cisterns, Windtraps and Blood Purifiers to capacity |
+| Base power | tops up generators, wind turbines and windtraps |
+| Repair vehicles | repairs every part of your own vehicles to full durability |
+| Repair worn equipment and loadout | repairs what you wear and your loadout; the items in your backpack are not touched |
+| Fill water containers | fills the Literjons and other water containers you carry |
+| Fill your water | fills the character's own water |
+| Fill blood sacks | fills the blood sacks you carry (the kinds whose capacity is known) |
+| Refuel vehicles | fills the fuel tank of your own vehicles (the classes whose tank size is known) |
+
+It acts only on what your character owns or carries (your own vehicles, worn equipment, loadout, inventories and your bases); a vehicle of another owner or a vehicle of the world is never touched. A pass is one transaction: one backup, one line in the write log (`automatic pass: ...`). When nothing needs doing nothing is written, no backup is made and no line is logged. If a job fails the whole pass is undone and the card shows which job failed and why; the other jobs are not applied. The pass is skipped while a single-player session is running (nothing is written or queued then) and when edits from before are still queued; the previous file is backed up every time; a refused write leaves the edit queued with the reason. The card shows, per job, what the last automatic save did. It applies to whichever save the editor opens. A settings file from an earlier version has only the master switch: every job then starts ticked.
 
 ## Which write features were checked in the game
 
@@ -127,14 +141,16 @@ Every write feature has automated tests on a synthetic save built from the game'
 | Clear this container (#338; real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#338) |
 | Give Blood Marks (#344; real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#344) |
 | Fill blood sacks (#346; capacities from saved values, real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#346) |
-| Give item (including the partial give that puts in as much as fits, #345), Give water, Fill hydration, Give Items queue, Give Intel, Give currency, edit or delete an item | Tests only (the protocol's T1 and T1b for Give item have no recorded result) | none | `docs/live-test-protocol.md` |
+| Give item (including the partial give that puts in as much as fits, #345), Fill hydration, Give Items queue, Give Intel, Give currency, edit or delete an item | Tests only (the protocol's T1 and T1b for Give item have no recorded result) | none | `docs/live-test-protocol.md` |
 | Refuel all my vehicles (#349; tank sizes measured in the game, real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#349) |
+| Fill all liquids (#349; the water, blood-sack and refuel fills as one edit; real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#349) |
 | Repair Gear (as good as new, #153) and the vehicle Repair Below % option | Tests only | none | `CHANGELOG.md` |
 | Teleport and Go to a place | Tests only | none | `CHANGELOG.md` (#67) |
 | Specialization: Add XP, Grant Max, Reset, keystones, Assign | Tests only | none | `CHANGELOG.md` (#108) |
 | Journey, Tutorial and tag changes | Tests only | none | `CHANGELOG.md` |
 | Land Claim Editor grid (Apply changes) | Tests only | none | `CHANGELOG.md` (#133) |
 | Automatic refill when the editor opens, and the refill of wind turbines and windtraps | Tests only (the first-version refill above was checked in game, the open-time save and the later changes were not) | none | `CHANGELOG.md` (#63) |
+| Automatic repairs and fills when the editor opens, as one edit (#352) | Tests only | none | `CHANGELOG.md` (#352) |
 | Structures: Repair all to max, Clear sand; Reset vendors; Landsraad edits; the Database cell editor and write SQL; Config edits; Restore a backup | Tests only | none | `CHANGELOG.md` |
 
 Read-only views are not listed. One of them has a recorded gap: the Saved map's spice and flour sand positions are decoded from field ids and have not been checked against the game for the map shown (`CHANGELOG.md`, #101).

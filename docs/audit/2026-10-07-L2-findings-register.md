@@ -162,7 +162,7 @@ Eight read-only reviewers (Architect, Security, GRC, Network+Cloud, UI/UX, DBA, 
 | S2-4 | Sec, Arch | LOW | Tampering | `force` accepted over HTTP skips the game-running check | **Fixed**: route ignores it (`force is ignored` case) |
 | S2-5 | Arch | MEDIUM | N/A | A refresh error after a successful save threw on `R=null` | **Fixed**: refresh errors are caught and reported |
 | S2-6 | Arch, QA, UI | MEDIUM | N/A | Stale-token error left Save enabled in a loop; stale detection matched message text | **Fixed**: server sends `code` (`changed_on_disk`, `review_changed`); a stale token refetches the review (UI test) |
-| S2-7 | Net | MEDIUM | DoS | The 5 s poll ran the table-count Overview and an uncached tasklist | **Fixed**: light `/api/save/state`; `GameRunning` cached 3 s with a 3 s timeout; poll skips hidden tabs |
+| S2-7 | Net | MEDIUM | DoS | The 5 s poll ran the table-count Overview and an uncached tasklist | **Fixed**: light `/api/save/state`; `GameRunning` cached 3 s with a 3 s timeout; poll skips hidden tabs (later: the game check reads the process snapshot and starts no program, cache 15 s, #366) |
 | S2-8 | Net, UI | LOW | DoS | A failed poll was swallowed, leaving a stale "game closed" and Save enabled | **Fixed**: banner "Lost contact with the editor", Save off |
 | S2-9 | UI | HIGH | N/A | Pane not a dialog: no focus, no Escape/backdrop close, background scrolls | **Fixed**: role=dialog, focus, Escape, backdrop, scroll lock. Full focus trap deferred to the UI/UX overhaul (#46) |
 | S2-10 | UI | MEDIUM | N/A | Truncated diff rows not announced | **Fixed** (note when listed rows < counted) |
