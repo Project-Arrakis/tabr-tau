@@ -7,6 +7,15 @@ import (
 	"testing"
 )
 
+// The datasets taken from the game's own item tables have a notice (audit GRC-6).
+func TestGameTableDatasetsHaveANotice(t *testing.T) {
+	for _, must := range []string{"## Stack sizes and cosmetic unlock ids", "internal/catalog/stacks.json", "internal/catalog/customization_unlocks.json", "does not record"} {
+		if !strings.Contains(Text, must) {
+			t.Errorf("expected %q in the notices", must)
+		}
+	}
+}
+
 // Every module the project depends on must have its licence reproduced, so adding a dependency without its notice
 // fails here.
 func TestEveryModuleHasItsLicenceText(t *testing.T) {

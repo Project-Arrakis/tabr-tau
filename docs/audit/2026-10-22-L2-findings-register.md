@@ -17,7 +17,7 @@ Severity scale: Critical, High, Medium, Low, Info. STRIDE: S spoofing, T tamperi
 | E7: Save lifecycle: locking, gates and timeouts | MEDIUM | #257 | 10 | 10 |
 | E8: Give and stack sizes: remaining gaps | MEDIUM | #258 | 4 | 4 |
 | E9: Local data exposure and the page guard | LOW | #259 | 5 | 5 |
-| E10: Embedded game-table datasets have no provenance notice | MEDIUM | #260 | 1 | 1 |
+| E10: Embedded game-table datasets have no provenance notice | MEDIUM | #260 | 1 | 0 |
 | E11: Review-era code kept alive | LOW | #261 | 2 | 2 |
 | E12: Test gaps in the write path | MEDIUM | #262 | 4 | 4 |
 | E13: Repository hygiene: agent worktrees are untracked and not ignored | LOW | #263 | 3 | 3 |
@@ -215,7 +215,7 @@ Two embedded datasets taken from the game's own tables carry no provenance or no
 
 | ID | Sev | STRIDE | Location | Finding | Status |
 |---|---|---|---|---|---|
-| GRC-6 | MEDIUM | R (provenance) | catalog/stacks.json, catalog/customization_unlocks.json, notices/THIRD-PARTY-NOTICES.md | Two embedded datasets taken from the game's own tables have no provenance or notice, against audit F-20 and against issue #61's "licence/ToS check first". | open |
+| GRC-6 | MEDIUM | R (provenance) | catalog/stacks.json, catalog/customization_unlocks.json, notices/THIRD-PARTY-NOTICES.md | Two embedded datasets taken from the game's own tables have no provenance or notice, against audit F-20 and against issue #61's "licence/ToS check first". | fixed (#279) |
 
 ## E11: Review-era code kept alive
 

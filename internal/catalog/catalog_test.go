@@ -1,7 +1,10 @@
 package catalog
 
 import (
+	"fmt"
+	"os"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -66,6 +69,34 @@ func TestMaxStack(t *testing.T) {
 	for id, n := range stacks {
 		if n < 2 {
 			t.Errorf("%s: only items that stack are listed, got %d", id, n)
+		}
+	}
+}
+
+// The two datasets taken from the game's own tables must say where they come from (audit GRC-6): the provenance file names both and carries
+// their real sizes, so a refresh of either file cannot leave the notice describing the old one.
+func TestProvenanceDescribesTheGameTableDatasets(t *testing.T) {
+	b, err := os.ReadFile("PROVENANCE.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := string(b)
+	ids := map[string]bool{}
+	entries := 0
+	for _, list := range unlocks {
+		for _, id := range list {
+			ids[id] = true
+			entries++
+		}
+	}
+	for _, want := range []string{
+		"`stacks.json`", "`customization_unlocks.json`",
+		fmt.Sprintf("For %d item template ids", len(stacks)),
+		fmt.Sprintf("For %d cosmetic item template ids", len(unlocks)),
+		fmt.Sprintf("%d entries, %d distinct ids", entries, len(ids)),
+	} {
+		if !strings.Contains(p, want) {
+			t.Errorf("PROVENANCE.md does not contain %q; update it with the data", want)
 		}
 	}
 }
