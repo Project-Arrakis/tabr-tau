@@ -27,7 +27,7 @@ live-test protocol). Do not attach saves, `Game.ini`, snapshots or logs to issue
 
 | Tab | Features |
 |---|---|
-| **Player** | Profile, Solari, give / edit / delete items, clear a container (backpack, worn gear, loadout; keeps the Solari Coin stack unless asked), repair gear, refill water containers, teleport, faction reputation, specialization tracks, tutorials, tags, Journey nodes (complete / reset), learned building recipes, vendor purchase limits and restock cycles (reset) |
+| **Player** | Profile, Solari, give / edit / delete items, clear a container (backpack, worn gear, loadout; keeps the Solari Coin stack unless asked), repair gear, refill water containers, teleport, faction reputation, specialization tracks, tutorials, tags, Journey nodes (complete / reset), learned building recipes, vendor purchase limits and restock cycles (reset), and reset buttons for what a character has earned (all skills to rank 0 on Skills; more in the same place as they are built, see Not built yet) |
 | **Player > Bases** | The console's Bases panel: your bases with Power, Water, Inventory (Storage, Refining, Crafting, Other) and Land Claim Editor tabs. Also:  Land claims (totems), expand or shrink a claim's size, raise its vertical level, teleport to base, structure health, repair all, clear sand buildup, refill base water and generator fuel (optionally when the editor opens), your base's storage containers (view / add / remove items, or clear a container), placeables |
 | **Player > Vehicles** | Your own vehicles (the world's vehicles are hidden) and recovered vehicles, bring a vehicle to you, repair module durability (each module is made as good as new) |
 | **Saved map** | Hagga Basin and the Deep Desert as in the Dune Docker console, drawn from your save (as of its last write, not live): your character, vehicles, base, storage containers and the game's own map markers (ore, salvage, plants, enemy camps, places, trainers, hazards), with layers, pan, zoom and hover details |
@@ -39,7 +39,7 @@ The **Player** tab mirrors the Dune Docker console's Players > Player Name view:
 
 ## Not built yet
 
-These console features are not in tabr-tau, and the page no longer shows a disabled button for them: **Blueprints** (waits for game data, #111), **Repair faction**, **Repair Landsraad quests**, **Wipe inventory** (what exists is Clear this container, one container at a time), **Reset progression** and **Spawn vehicle**. The console's server-only actions (kick, ban, login queue, recovering a deleted character) do not apply to a single-player save.
+These console features are not in tabr-tau, and the page no longer shows a disabled button for them: **Blueprints** (waits for game data, #111), **Repair faction**, **Repair Landsraad quests**, **Wipe inventory** (what exists is Clear this container, one container at a time) and **Spawn vehicle**. **Reset progression** is not one button: each area that holds the data has its own reset, with its own typed confirmation (Skills is built; Level and XP, Journey and the Research question follow, #339). Pressing each of them is the whole reset, and the backup restores the save as it was. The console's server-only actions (kick, ban, login queue, recovering a deleted character) do not apply to a single-player save.
 
 ## Words the editor uses
 

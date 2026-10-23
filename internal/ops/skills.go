@@ -55,22 +55,12 @@ func (o *Ops) Skills() (any, error) {
 	if len(r) == 0 {
 		return nil, errors.New("this save has no skill record for the character")
 	}
-	saved, err := o.S.Query(`select m.key k, json_extract(m.value,'$.SkillPointsSpent') s
-		from actor_fgl_entities a join fgl_entities f on f.entity_id=a.entity_id,
-			json_each(f.components,'`+moduleDataPath+`') m
-		where a.actor_id=? and a.slot_name='DuneCharacter' and json_valid(f.components, 8)`, p.Pawn)
+	spentBy, err := savedModules(o.S, p.Pawn)
 	if err != nil {
 		return nil, err
 	}
-	spentBy := map[string]int64{}
 	var spentTotal int64
-	for _, s := range saved {
-		m := moduleKeyRe.FindStringSubmatch(fmt.Sprint(s["k"]))
-		if m == nil {
-			continue
-		}
-		n, _ := toInt(s["s"])
-		spentBy[m[1]] = n
+	for _, n := range spentBy {
 		spentTotal += n
 	}
 	rows := make([]SkillRow, 0, len(spentBy))
@@ -98,7 +88,33 @@ func (o *Ops) Skills() (any, error) {
 	}
 	total, _ := toInt(r["total"])
 	unspent, _ := toInt(r["unspent"])
-	return map[string]any{"total": total, "unspent": unspent, "spent": spentTotal, "modules": rows, "schools": skills.Schools}, nil
+	return map[string]any{"total": total, "unspent": unspent, "spent": spentTotal, "modules": rows, "schools": skills.Schools, "resetCount": int64(len(resettableSkills(spentBy)))}, nil
+}
+
+// rowQuerier is what a read needs: the save itself outside an edit, the edit's own handle inside one.
+type rowQuerier interface {
+	Query(q string, args ...any) ([]save.Row, error)
+}
+
+// savedModules is what the character's ModuleData holds: the points spent, by module id. Keys that are not a skill tag are ignored.
+func savedModules(q rowQuerier, pawn int64) (map[string]int64, error) {
+	saved, err := q.Query(`select m.key k, json_extract(m.value,'$.SkillPointsSpent') s
+		from actor_fgl_entities a join fgl_entities f on f.entity_id=a.entity_id,
+			json_each(f.components,'`+moduleDataPath+`') m
+		where a.actor_id=? and a.slot_name='DuneCharacter' and json_valid(f.components, 8)`, pawn)
+	if err != nil {
+		return nil, err
+	}
+	spentBy := map[string]int64{}
+	for _, s := range saved {
+		m := moduleKeyRe.FindStringSubmatch(fmt.Sprint(s["k"]))
+		if m == nil {
+			continue
+		}
+		n, _ := toInt(s["s"])
+		spentBy[m[1]] = n
+	}
+	return spentBy, nil
 }
 
 // characterLevel reads the character's level entity inside an edit.

@@ -30,7 +30,7 @@ RULES = [
     (r"/add-currency$", "Done", "Give currency (Solari Credit, House Credit wallets); the Solari Coin stack is a separate item"),
     # --- Players: progression
     (r"^GET /api/players/\{\}/progression$|^POST /api/players/\{\}/(add-xp|set-skill-points|set-skill-module)$", "Done", "Give XP, Set unspent points and the rank control on Player > Skills; the Player summary shows level, XP and points"),
-    (r"^POST /api/players/\{\}/reset-progression$", "Gap", "reset XP, level and skill points to the start"),
+    (r"^POST /api/players/\{\}/reset-progression$", "Partial", "no single route: one reset button per area, each with a typed confirmation (#339). Done: Player > Skills (all skills to rank 0). Not yet: Level and XP, Journey. Research has none (the save does not say what a new character has researched)"),
     (r"/vitals$", "Partial", "health, hydration and spice addiction are shown in the Player summary, read-only; the save keeps no maximum"),
     (r"/factions$|/add-faction-reputation$", "Done", "faction reputation (P10)"),
     (r"POST /api/players/\{\}/faction$", "Done", "Faction Assignment on Player > Admin (Neutral, Atreides, Harkonnen)"),
