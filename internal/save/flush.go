@@ -63,16 +63,26 @@ func (s *Save) Flush() Flush {
 	s.flushMu.Lock()
 	defer s.flushMu.Unlock()
 	s.mu.Lock()
+	// A write that could not be read back is settled first: if the file is the one that was written, those edits are done with and must not be put in a second time.
+	wrote, wroteBackup, settled := s.settleWrittenLocked()
+	unverified := s.writing != ""
 	held := s.held
 	dirty, n, blocked := s.dirty, len(s.ops), s.blocked
 	if held != nil {
 		dirty, n = true, len(held.ops)
 	}
 	s.mu.Unlock()
+	if settled && !dirty {
+		return s.setLastFlush(Flush{At: time.Now(), Saved: true, Ops: wrote, Backup: wroteBackup})
+	}
 	if !dirty {
 		return Flush{}
 	}
 	f := Flush{At: time.Now(), Queued: n}
+	if unverified { // the file could not be read yet: nothing is written, and nothing is put back onto a file that may already have the edits
+		f.Why = unverifiedWhy
+		return s.setLastFlush(f)
+	}
 	if blocked != "" {
 		f.Why = errReadOnly(blocked).Error()
 		return s.setLastFlush(f)

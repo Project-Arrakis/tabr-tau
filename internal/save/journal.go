@@ -69,6 +69,8 @@ type journalFile struct {
 	// Writing is the hash of the file the edits were being written as when this was kept. If the file is that one when the editor starts again, the edits are in it already (the journal
 	// outlived the write: it could not be removed, or the editor was stopped between the two) and they are not put back a second time.
 	Writing string `json:"writing,omitempty"`
+	// WritingOps is how many of the Ops that write held (0, as in a journal of an earlier version: all of them). Edits made after an unverified write are kept after those.
+	WritingOps int `json:"writingOps,omitempty"`
 }
 
 // Conflict is an edit that could not be put back, and why.
@@ -236,8 +238,12 @@ func (s *Save) recordOp(o opRec) {
 func (s *Save) stopJournal(why string) {
 	s.journalOff = why
 	s.recs, s.recStmts = nil, 0
-	if s.journalPath != "" {
-		os.Remove(s.journalPath)
+	if s.journalPath == "" {
+		return
+	}
+	if err := os.Remove(s.journalPath); err != nil && !os.IsNotExist(err) {
+		// a file that cannot be removed (another program holds it) must not be put back later as if it were the whole queue: it is marked incomplete (see incompleteMark)
+		s.markIncomplete(s.writing, why+"; the kept file could not be removed ("+shortErr(err)+")")
 	}
 }
 
@@ -245,16 +251,32 @@ func (s *Save) stopJournal(why string) {
 func (s *Save) dropJournal() {
 	// nothing is pending any more, so whatever turned the journal off (an edit it could not keep) no longer matters: the next edit is kept again. The notice of the edits
 	// that were put back or dropped (restored) is not touched: whoever ends the queue decides.
+	writing := s.writing
 	s.recs, s.recStmts, s.journalOff, s.writing, s.held = nil, 0, "", "", nil
-	if s.journalPath != "" {
-		os.Remove(s.journalPath)
+	s.writingOps, s.writingRecs, s.writingBackup = 0, 0, ""
+	if s.journalPath == "" {
+		return
 	}
+	if err := os.Remove(s.journalPath); err != nil && !os.IsNotExist(err) {
+		// the queue is over but its file cannot be removed: marked, with the file the edits were written as, so a restart that finds that file drops it quietly and any other file reports it
+		s.markIncomplete(writing, "the kept file could not be removed ("+shortErr(err)+")")
+		return
+	}
+	os.Remove(s.markPath())
 }
 
 // noteWriting records in the journal, before the file is replaced, which file the edits are being written as (see journalFile.Writing).
 func (s *Save) noteWriting(blob []byte) {
 	h := hashOf(blob)
 	s.writing = hex.EncodeToString(h[:])
+	s.writingOps, s.writingRecs, s.writingBackup = len(s.ops), len(s.recs), ""
+	if s.journalOff != "" {
+		// the journal is off, so the marker cannot go into it; if an old journal is still on disk (marked incomplete), the mark carries the marker instead
+		if m, ok := s.readMark(); ok {
+			s.markIncomplete(s.writing, m.Reason)
+		}
+		return
+	}
 	s.writeJournal()
 }
 
@@ -268,6 +290,9 @@ func (s *Save) writeJournal() {
 		return
 	}
 	j := journalFile{Version: journalVersion, Path: s.Path, BaseHash: hex.EncodeToString(s.diskHash[:]), Ops: s.recs, Saved: time.Now().UTC(), Writing: s.writing}
+	if s.writing != "" {
+		j.WritingOps = s.writingRecs
+	}
 	b, err := json.Marshal(j)
 	if err != nil || len(b) > journalMaxBytes {
 		s.stopJournal("the pending edits are too large to keep")
@@ -297,10 +322,66 @@ func (s *Save) writeJournal() {
 			lastErr = err
 			continue
 		}
+		os.Remove(s.markPath()) // this journal is the whole queue again
 		return
 	}
 	s.journalOff = "the journal could not be written (" + shortErr(lastErr) + "); the edits made since the last copy that was kept are not kept"
 	s.recs, s.recStmts = nil, 0
+	// The old journal stays (deleting it could turn one slow moment into the loss of every kept edit), but it holds only the edits up to the last write that worked, and a restart
+	// must not put it back as if it were the whole queue: it is marked incomplete, and the restart reports it.
+	s.markIncomplete(s.writing, s.journalOff)
+}
+
+// incompleteMark is a file next to the journal that says the journal is not the whole queue: the editor could not keep every edit (the journal could not be written), or could not
+// remove the file of a queue that is over. A restart that finds it reports the journal (kept aside, not put back) unless Writing is the file on disk, which means the edits were written.
+// It is written in place and flushed; a mark that cannot be read counts as a mark with no Writing.
+type incompleteMark struct {
+	Version int       `json:"version"`
+	At      time.Time `json:"at"`
+	Reason  string    `json:"reason"`
+	Writing string    `json:"writing,omitempty"`
+}
+
+func (s *Save) markPath() string { return s.journalPath + ".incomplete" }
+
+// markIncomplete writes the mark. It is not written by renaming a temp file over the old one: the failures it answers are those of replacing the journal, and a mark that is half
+// written is read as a mark that cannot be read, which is still a mark.
+func (s *Save) markIncomplete(writing, reason string) {
+	if s.journalPath == "" {
+		return
+	}
+	b, err := json.Marshal(incompleteMark{Version: journalVersion, At: time.Now().UTC(), Reason: reason, Writing: writing})
+	if err != nil {
+		return
+	}
+	for try := 0; try < journalWriteTries; try++ {
+		if try > 0 {
+			time.Sleep(renameBackoff * time.Duration(try))
+		}
+		f, err := os.OpenFile(s.markPath(), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+		if err != nil {
+			continue
+		}
+		_, werr := f.Write(b)
+		serr := syncFile(f)
+		cerr := f.Close()
+		if werr == nil && serr == nil && cerr == nil {
+			return
+		}
+	}
+}
+
+// readMark reads the mark; ok is false when there is none. A mark that cannot be read as JSON is returned empty (ok true).
+func (s *Save) readMark() (incompleteMark, bool) {
+	b, err := os.ReadFile(s.markPath())
+	if err != nil {
+		return incompleteMark{}, !os.IsNotExist(err)
+	}
+	var m incompleteMark
+	if json.Unmarshal(b, &m) != nil {
+		return incompleteMark{Reason: "the mark could not be read"}, true
+	}
+	return m, true
 }
 
 // journalWriteTries is how many times a journal write is attempted before the journal is given up for the session.
@@ -378,7 +459,7 @@ func samePath(a, b string) bool {
 // write a new journal over it. The page shows it as a queued change that could not be put back, with the reason.
 func (s *Save) skipJournal(why string) *Restored {
 	aside := s.journalPath + ".skipped"
-	for i := 2; i < 100; i++ {
+	for i := 2; i < 100000; i++ { // the first free name: a journal that was set aside before is never overwritten
 		if _, err := os.Lstat(aside); err != nil {
 			break
 		}
@@ -404,6 +485,9 @@ func (s *Save) RestoreJournal() (*Restored, error) {
 	if s.journalPath == "" || s.dirty || len(s.recs) > 0 {
 		return nil, nil
 	}
+	if m, ok := s.readMark(); ok {
+		return s.restoreIncomplete(m), nil
+	}
 	b, err := os.ReadFile(s.journalPath)
 	if os.IsNotExist(err) {
 		return nil, nil
@@ -424,6 +508,14 @@ func (s *Save) RestoreJournal() (*Restored, error) {
 		return s.skipJournal("it was kept for a save with another path or spelling of the path"), nil
 	}
 	if j.Writing != "" && j.Writing == hex.EncodeToString(s.diskHash[:]) { // the file is the one these edits were written as: they are in it
+		if n := j.WritingOps; n > 0 && n < len(j.Ops) {
+			// the edits made after that write (it could not be read back, and the person went on) are not in it: they are put back onto it
+			r, err := s.putBackAtomic(j.Ops[n:], false, Restored{})
+			if err == nil && s.held != nil {
+				r.Applied = 0
+			}
+			return r, err
+		}
 		s.dropJournal()
 		return nil, nil
 	}
@@ -442,6 +534,8 @@ func (s *Save) Rebase() (*Restored, error) {
 	defer s.flushMu.Unlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// a write that could not be read back is settled first: the edits it held are not put back a second time
+	s.settleWrittenLocked()
 	if s.held != nil { // a held queue is not in s.recs: reading the file again and putting nothing back would throw it away without a word
 		return nil, apierr.New(apierr.ErrQueueHeld, "the queued changes conflict with what the game saved and cannot be put back: discard them first, then reload")
 	}
@@ -642,4 +736,43 @@ func (s *Save) replayOp(o opRec) string {
 		return strings.TrimSuffix(err.Error(), ": conflict")
 	}
 	return "the save no longer accepts it: " + err.Error()
+}
+
+// restoreIncomplete is RestoreJournal for a journal that is marked incomplete. If the mark carries the hash of the file on disk the edits were written and there is nothing to do.
+// Otherwise the journal is not put back (it holds some of the edits, and putting back some of them is a state the person never had): it is set aside and reported, with the edits it
+// holds, and the person is told that edits after those may be missing.
+func (s *Save) restoreIncomplete(m incompleteMark) *Restored {
+	if m.Writing != "" && m.Writing == hex.EncodeToString(s.diskHash[:]) {
+		os.Remove(s.journalPath)
+		os.Remove(s.markPath())
+		return nil
+	}
+	var held []string
+	if b, err := os.ReadFile(s.journalPath); err == nil {
+		var j journalFile
+		if json.Unmarshal(b, &j) == nil {
+			for i, o := range j.Ops {
+				if i == 5 {
+					held = append(held, "and "+strconv.Itoa(len(j.Ops)-i)+" more")
+					break
+				}
+				held = append(held, o.Desc)
+			}
+		}
+	}
+	why := "the editor could not keep every change that was queued when it was closed (" + m.Reason + "), so what was kept is not the whole queue and was not put back"
+	if len(held) > 0 {
+		why += "; it held: " + strings.Join(held, "; ") + ". Changes made after those may be missing"
+	} else {
+		why += "; none of the queued changes may have been kept"
+	}
+	var r *Restored
+	if _, err := os.Lstat(s.journalPath); err == nil {
+		r = s.skipJournal(why)
+	} else {
+		r = &Restored{Conflicts: []Conflict{{Desc: "the queued changes kept by an earlier run", Why: why}}}
+		s.restored = r
+	}
+	os.Remove(s.markPath())
+	return r
 }

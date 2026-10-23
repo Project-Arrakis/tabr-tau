@@ -598,7 +598,7 @@ async function playerSection(s) {
     h.push(augCard);
     h.push(html`<div class="card"><h3>Repair</h3><div class="row"><button class="b" data-act="repair">Repair all worn items and loadouts</button><span class="mut">Everything you wear and everything in your loadout is made as good as new: full durability, with a maximum that repairs wore down restored. The backpack is not touched.</span></div></div>`);
     h.push(html`<div class="card"><h3>Give item</h3><div class="row">${itemPicker("gt", cat)}
-    Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="queueAdd">Add to queue</button><button class="b sec" data-act="giveWater" title="Puts 10 Cups of Water in the backpack; it does not fill the character's own water (use Fill hydration)">Give water</button><button class="b sec" data-act="fillWater" title="Fill the character's own hydration to the maximum">Fill hydration</button><button class="b sec" data-act="refill">Refill Literjons</button></div>
+    Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="queueAdd">Add to queue</button><button class="b sec" data-act="fillWater" title="Fill the character's own hydration to the maximum">Fill hydration</button><button class="b sec" data-act="refill">Refill Literjons</button></div>
     <div class="row" id="gaug"></div>
     ${giveQueue.length ? html`<div class="row"><b>Queue (${giveQueue.length})</b>${giveQueue.map((q, i) => html`<span class="tag">${q.quantity} x ${itemName(q.template_id)}${q.quality ? ' (grade ' + q.quality + ')' : ''}${q.augments && q.augments.length ? ' + ' + q.augments.map((a) => augName(a)).join(', ') : ''} <button class="b sec sm" data-act="queueDel" data-id="${i}" title="Remove from the queue">x</button></span>`)}<button class="b" data-act="queueGive">Give queued items</button><button class="b sec" data-act="queueClear">Clear</button></div>` : ''}
     <p class="mut">Pick an item by its in-game name. Items already in your save that the catalog does not know are listed by their template id; any valid template id can also be typed.</p></div>
@@ -804,11 +804,16 @@ function catalogList() {
 
 // ---------- BASES
 // ---------- BASES (the console's Bases panel inside Player > Bases: the base list, and for one base Power, Water, Inventory and Land Claim Editor)
-// The automatic refill switch, shown on both the Power and the Water tab because it refills both: water storage (cisterns, windtraps, Blood Purifiers) and power (generators, wind turbines, windtraps).
+// The automatic refill and repair card, shown on both the Power and the Water tab because the pass covers both: a master switch and one checkbox per job (base water and power, repairs, fills).
+// A job that is not available yet is listed, greyed, with the reason the server gives.
 function autoRefillCard(prefs) {
-  return html`<div class="card"><h3>Automatic refill of water and power</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
+  const jobs = prefs.jobs || [];
+  return html`<div class="card"><h3>Automatic refill and repair when the editor opens</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>
+    ${jobs.length ? html`<div role="group" aria-label="What the automatic pass does">${jobs.map((j) => html`<div class="row"><label class="${j.ready ? '' : 'mut'}"><input type="checkbox" data-autojob="${j.key}" aria-describedby="aj-${j.key}" ${j.on ? 'checked' : ''} ${j.ready ? '' : 'disabled'}> <b>${j.label}</b></label><span class="mut" id="aj-${j.key}">${j.desc}${j.ready ? '' : ' Not available yet: ' + j.reason + '.'}</span></div>`)}</div>` : ''}
+    ${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
+    ${prefs.lastProblem ? html`<p class="bad">${prefs.lastProblem}</p>` : ''}
     ${prefs.problem ? html`<p class="bad">${prefs.problem}</p>` : ''}
-    <p class="mut">When on, opening the editor refills water storage (Water Cisterns, Windtraps, Blood Purifiers) and power (generators, wind turbines, windtraps) and <b>saves straight away</b>, like every other change, so it applies the next time the game loads. It is skipped while a single-player session is running. The previous file is backed up first. Remembered between runs. The same switch is on the Power and Water tabs.</p></div>`;
+    <p class="mut">When the master switch is on, opening the editor runs the jobs ticked above as <b>one edit</b> and <b>saves straight away</b>, like every other change, so it applies the next time the game loads. Every job is ticked by default, the repairs too; the master switch is off until you turn it on. It acts only on what your character owns or carries: your own vehicles, worn equipment, loadout, inventories and bases. It is skipped while a single-player session is running (nothing is written or queued then). When nothing needs doing nothing is written. If one job fails, nothing is changed and the error is shown here. The previous file is backed up first. Remembered between runs. The same card is on the Power and Water tabs.</p></div>`;
 }
 // The console's Land Claim Editor: the claim as a grid of cells turned by the base's own yaw (north at the top), with the totem's cell,
 // the cells it has, and dotted "available" cells next to it. Click an available cell to add it, a chosen one to take it back (what is
@@ -1195,7 +1200,6 @@ const A = {
       : await api('/api/player/give', { template_id: tid, quantity: +val('gq'), quality: +val('gg') });
     giveToast(r, itemName(tid), 'Item added');
   }, null),
-  giveWater: () => act(async () => { const r = await api('/api/player/give', { template_id: 'WaterPack_Consumable', quantity: 10, quality: 0 }); giveToast(r, 'Cup of Water', '10 x Cup of Water added'); }, null),
   faction: () => act(async () => { const r = await api('/api/player/faction', { faction_id: +val('facSel') }); toast(`Faction set to ${r.faction}` + NOT_SAVED); }, null),
   repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(`Repaired ${r.repaired} items` + NOT_SAVED); }, null),
   fillWater: () => act(async () => { const r = await api('/api/player/hydration', {}); toast(`Hydration ${Math.round(r.before * 10) / 10} → ${r.after}` + NOT_SAVED); }, null),
@@ -1306,7 +1310,7 @@ const A = {
   jclear: () => { window.jq = ''; journeyList(); },
   jset: (d) => act(async () => { await api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }); JB = await api('/api/player/journey/browse'); journeyList(); toast('Journey updated' + NOT_SAVED); }, null),
   autoref: async (d) => {
-    if (!d.on && !(await ask({ title: 'Turn on automatic refill?', body: 'From now on, opening the editor refills water storage and power buildings and saves to your game file immediately, like every other change. The previous file is backed up each time, and nothing happens while a single-player session is running. It applies to whichever save file the editor opens.', ok: 'Turn on' }))) return;
+    if (!d.on && !(await ask({ title: 'Turn on automatic refill and repair?', body: 'From now on, opening the editor runs the jobs that are ticked on the card (refills water storage and power buildings, repairs your vehicles and your worn equipment and loadout, fills your water containers and your water, and so on) as one edit and saves to your game file immediately, like every other change. The previous file is backed up each time, and nothing happens while a single-player session is running. It applies to whichever save file the editor opens.', ok: 'Turn on' }))) return;
     act(async () => { const r = await api('/api/settings', { autoRefillOnOpen: !d.on }); toast('Automatic refill when the editor opens is now ' + (r.autoRefillOnOpen ? 'on' : 'off')); }, null);
   },
   claimShrink: async (d) => {
@@ -1441,6 +1445,11 @@ document.addEventListener('change', (e) => {
   const t = e.target;
   if (t.id == 'gt') { showGiveAugments(); return; }
   if (t.id == 'skCharge') { skCharge = t.checked; return; }
+  if (t.dataset.autojob) { // one job of the automatic pass switched on or off; the card is drawn again from what the server kept
+    const key = t.dataset.autojob, on = t.checked, label = ((t.closest('label') || {}).textContent || key).trim();
+    act(async () => { try { await api('/api/settings', { [key]: on }); } catch (e) { render(); throw e; } toast(label + ' is now ' + (on ? 'on' : 'off') + ' for the automatic pass'); }, null);
+    return;
+  }
   if (t.id == 'rsGrp') { rsGroup = t.value; researchList(); return; }
   if (t.id == 'tdsel') { const d = TD[+t.value]; if (d) { $('#tx').value = Math.round(d.x); $('#ty').value = Math.round(d.y); $('#tz').value = Math.round(d.z); } return; }
   if (t.id == 'lcLvl' && LC) { LC.level = +t.value; claimEditorDraw(); return; }

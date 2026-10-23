@@ -72,6 +72,10 @@ type Save struct {
 	firstBackup    string
 	// writing is the hash of the file being written, kept in the journal while it is written: a restart that finds the file to be that one knows the edits are already in it
 	writing string
+	// how many of the pending edits (and of the kept ones) that write held, and the backup it was made after. They matter only while the write is unverified (the file was replaced and
+	// could not be read back): the edits made since are not in it, and the ones before are, so they are not written again.
+	writingOps, writingRecs int
+	writingBackup           string
 	// held is the queue the editor could not put back onto the game's newer file (an edit conflicted with what the game changed): none of it was written, and nothing new is
 	// accepted until it is discarded. The queue stays in the journal.
 	held *Held
@@ -691,6 +695,12 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 	}
 	s.noteWriting(blob)
 	if err := s.installBlob(blob); err != nil {
+		if errors.Is(err, errWrittenUnverified) {
+			// The file was replaced and could not be read back. The edits are, as far as anyone can tell, in it: the marker of what was written stays (in the journal too), so the
+			// next attempt recognises the file and does not put them in a second time.
+			s.writingBackup = bak
+			return nil, err
+		}
 		s.writing = ""
 		s.writeJournal()
 		return nil, err

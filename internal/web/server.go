@@ -53,6 +53,7 @@ type Server struct {
 	startupNote  string // what the open-time refill did, shown once by the UI
 	startupWarn  bool   // the note is a problem or a skip, so the UI keeps it on screen
 	lastAuto     string // the last automatic save, kept for the Automatic refill card
+	lastAutoFail string // why the last automatic pass could not finish, kept for the card
 
 	// bound is the address the editor listens on, set by BindAddr once it is known ("" until then, as in most tests). It scopes the
 	// session cookie to this port and the accepted Host header to this listener (NET-1, NET-2, SEC-7 of the 2026-10-15 audit).
@@ -554,22 +555,41 @@ func (s *Server) routes() {
 		if perr != nil { // reported, not hidden: changing a setting will be refused until the file is fixed or removed
 			problem, cur = perr.Error(), settings.Load(s.SettingsPath)
 		}
-		s.startupMu.Lock()
-		defer s.startupMu.Unlock()
-		return map[string]any{"autoRefillOnOpen": cur.AutoRefillOnOpen, "last": s.lastAuto, "problem": problem}, nil
+		out := s.autoPrefs(cur)
+		out["problem"] = problem
+		return out, nil
 	})
+	// The switches of the automatic pass: the master switch and one per job, any of them in one request. A value that is not true or false is
+	// refused and nothing is changed; so is a request that names none of them.
 	s.post("/api/settings", func(a ops.Args) (any, error) {
-		v, isBool := a["autoRefillOnOpen"].(bool)
-		if !isBool {
+		keys := append([]string{"autoRefillOnOpen"}, settings.JobKeys...)
+		want := map[string]bool{}
+		for _, k := range keys {
+			if raw, present := a[k]; present {
+				v, isBool := raw.(bool)
+				if !isBool {
+					return nil, errors.New(k + " must be true or false")
+				}
+				want[k] = v
+			}
+		}
+		if len(want) == 0 {
 			return nil, errors.New("autoRefillOnOpen must be true or false")
 		}
-		next, err := settings.Update(s.SettingsPath, func(cur *settings.Settings) error { cur.AutoRefillOnOpen = v; return nil })
+		next, err := settings.Update(s.SettingsPath, func(cur *settings.Settings) error {
+			for k, v := range want {
+				if k == "autoRefillOnOpen" {
+					cur.AutoRefillOnOpen = v
+				} else {
+					cur.SetJob(k, v)
+				}
+			}
+			return nil
+		})
 		if err != nil {
 			return nil, err
 		}
-		s.startupMu.Lock()
-		defer s.startupMu.Unlock()
-		return map[string]any{"autoRefillOnOpen": next.AutoRefillOnOpen, "last": s.lastAuto}, nil
+		return s.autoPrefs(next), nil
 	})
 	s.get("/api/startup", func(r *http.Request) (any, error) {
 		note, warn := s.takeStartup()
@@ -834,11 +854,33 @@ func (s *Server) RunAutosave(stop <-chan struct{}) {
 	}
 }
 
-// RunStartupTasks does what the editor's settings ask for when it opens. Today that is the optional refill of base
-// water storage and power buildings. It is written straight away like every other edit, so it takes effect the next time the game loads, and it is skipped when a
-// single-player session is running. If the write is refused, the edits stay queued and are written as soon as the file can be.
+// autoPrefs is what the Automatic refill card shows: the master switch, the list of jobs with their switches (and, for a job that is not ready,
+// why), and what the last pass did or why it could not finish.
+func (s *Server) autoPrefs(cur settings.Settings) map[string]any {
+	var jobs []map[string]any
+	for _, j := range ops.AutoJobs() {
+		jobs = append(jobs, map[string]any{"id": j.ID, "label": j.Label, "desc": j.Desc, "key": j.Key, "ready": j.Ready, "reason": j.Reason, "on": cur.JobOn(j.Key, j.Default)})
+	}
+	s.startupMu.Lock()
+	defer s.startupMu.Unlock()
+	return map[string]any{"autoRefillOnOpen": cur.AutoRefillOnOpen, "jobs": jobs, "last": s.lastAuto, "lastProblem": s.lastAutoFail}
+}
+
+// RunStartupTasks does what the editor's settings ask for when it opens. Today that is the automatic pass: with the master switch on, every
+// job that is switched on (base water and power, repairs, fills; see ops.AutoJobs) runs as ONE edit, which is written straight away like every
+// other edit, so it takes effect the next time the game loads. It is skipped when a single-player session is running. A pass that finds nothing
+// to do writes nothing; a job that fails rolls the whole pass back. If the write is refused, the edit stays queued and is written as soon as the file can be.
 func (s *Server) RunStartupTasks() {
-	if !settings.Load(s.SettingsPath).AutoRefillOnOpen {
+	cur := settings.Load(s.SettingsPath)
+	if !cur.AutoRefillOnOpen {
+		return
+	}
+	on := func(j ops.AutoJob) bool { return cur.JobOn(j.Key, j.Default) }
+	anyOn := false
+	for _, j := range ops.AutoJobs() {
+		anyOn = anyOn || (j.Ready && on(j))
+	}
+	if !anyOn { // the master switch is on but every job is off
 		return
 	}
 	set := func(note string, warn bool) {
@@ -854,31 +896,34 @@ func (s *Server) RunStartupTasks() {
 		set("Automatic refill skipped: edits from before are still waiting to be written.", true)
 		return
 	}
-	w, err1 := s.Ops.RefillBaseWater()
-	g, err2 := s.Ops.RefillGenerators()
-	if err1 != nil || err2 != nil {
-		queued := ""
-		if n := len(s.Save.Pending()); n > 0 {
-			queued = fmt.Sprintf(" %d prepared edit(s) are queued and are written when the file can be.", n)
+	pass, err := s.Ops.RunAutoPass(on)
+	if err != nil {
+		msg := "Automatic refill could not finish: " + err.Error() + ". Nothing was changed, so none of the other jobs were applied."
+		var je *ops.AutoJobError
+		if errors.As(err, &je) {
+			msg = fmt.Sprintf("Automatic refill could not finish: the job \"%s\" failed (%v). Nothing was changed, so none of the other jobs were applied.", je.Label, je.Err)
 		}
-		set("Automatic refill could not finish: "+errors.Join(err1, err2).Error()+"."+queued, true)
+		s.startupMu.Lock()
+		s.lastAutoFail = time.Now().Format("2006-01-02 15:04") + ": " + strings.TrimSuffix(msg, ".")
+		s.startupMu.Unlock()
+		set(msg, true)
 		return
 	}
-	nw, ng := w.(map[string]any)["filled"].(int), g.(map[string]any)["filled"].(int)
-	if nw+ng == 0 {
-		set("Automatic refill: water storage, generators, wind turbines and windtraps were already full.", false)
+	s.startupMu.Lock()
+	s.lastAutoFail = ""
+	s.startupMu.Unlock()
+	notes := ""
+	if len(pass.Notes) > 0 {
+		notes = " Not done: " + strings.Join(pass.Notes, "; ") + "."
+	}
+	if !pass.Changed {
+		set(pass.NothingNeeded()+notes, false)
 		return
 	}
-	var what []string
-	for _, part := range []string{w.(map[string]any)["summary"].(string), g.(map[string]any)["summary"].(string)} {
-		if part != "" {
-			what = append(what, part)
-		}
-	}
-	filledText := strings.Join(what, "; ")
+	filledText := pass.Summary()
 	res := s.Save.Flush()
 	if !res.Saved {
-		set(fmt.Sprintf("Automatic refill prepared %s but could not save it yet: %s. It is queued and is written as soon as the file can be.", filledText, res.Why), true)
+		set(fmt.Sprintf("Automatic refill prepared %s but could not save it yet: %s. It is queued and is written as soon as the file can be.", filledText, res.Why)+notes, true)
 		return
 	}
 	msg := fmt.Sprintf("Automatic refill saved %s to the game (the previous file is backed up as %s).", filledText, filepath.Base(res.Backup))
@@ -890,7 +935,7 @@ func (s *Server) RunStartupTasks() {
 	s.startupMu.Lock()
 	s.lastAuto = time.Now().Format("2006-01-02 15:04") + ": " + strings.TrimSuffix(msg, ".")
 	s.startupMu.Unlock()
-	set(msg, warn)
+	set(msg+notes, warn)
 }
 
 // NoteStartup adds a sentence to what the page shows once when it opens (after what RunStartupTasks left, if anything). warn keeps it on
