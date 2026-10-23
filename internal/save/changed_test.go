@@ -50,7 +50,7 @@ func TestOurOwnSaveIsNotAChangeOnDisk(t *testing.T) {
 	defer s.Close()
 	s.ExecScript(`insert into t values (1)`)
 	defer NoGameRunningForTests()()
-	if _, err := s.Commit(); err != nil {
+	if _, err := s.CommitForTests(); err != nil {
 		t.Fatal(err)
 	}
 	if s.ChangedOnDisk() {

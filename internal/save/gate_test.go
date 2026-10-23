@@ -47,7 +47,7 @@ func TestCommitRefusesWhenTheGameMayBeWriting(t *testing.T) {
 				t.Fatal(err)
 			}
 			setup(t)
-			if _, err := s.Commit(); err == nil {
+			if _, err := s.CommitForTests(); err == nil {
 				t.Fatal("Commit wrote while the game may be writing")
 			}
 			now, _ := os.ReadFile(p)
@@ -61,7 +61,7 @@ func TestCommitRefusesWhenTheGameMayBeWriting(t *testing.T) {
 				t.Fatal("a refused Commit made a backup")
 			}
 			fakeGame(t, nil, "", spStatus{}, nil) // the game is closed
-			if res, err := s.Commit(); err != nil || res["saved"] != true {
+			if res, err := s.CommitForTests(); err != nil || res["saved"] != true {
 				t.Fatalf("with the game closed the same edit must save: %v %v", res, err)
 			}
 		})
@@ -75,14 +75,14 @@ func TestNothingSkipsTheGameCheckOrTheOnDiskChangeCheck(t *testing.T) {
 	defer s.Close()
 	s.ExecScript(`insert into t values (1)`)
 	fakeGame(t, duneProc, "", spStatus{Active: true}, nil)
-	if _, err := s.Commit(); err == nil {
+	if _, err := s.CommitForTests(); err == nil {
 		t.Fatal("the game is running: must refuse")
 	}
 	other := makeSave(t, `create table t(a integer); insert into t values (9);`)
 	b, _ := os.ReadFile(other)
 	os.WriteFile(p, b, 0o644)             // the file changed on disk too
 	fakeGame(t, nil, "", spStatus{}, nil) // the game is closed
-	if _, err := s.Commit(); err == nil || !errors.Is(err, ErrChangedOnDisk) {
+	if _, err := s.CommitForTests(); err == nil || !errors.Is(err, ErrChangedOnDisk) {
 		t.Fatalf("a file that changed on disk is refused: %v", err)
 	}
 	if got, _ := os.ReadFile(p); !bytes.Equal(got, b) {
@@ -98,7 +98,7 @@ func TestRestoreRefusesWhenTheGameMayBeWriting(t *testing.T) {
 			s, _ := Open(p)
 			defer s.Close()
 			s.ExecScript(`insert into t values (1)`)
-			if _, err := s.Commit(); err != nil { // makes a backup of the original
+			if _, err := s.CommitForTests(); err != nil { // makes a backup of the original
 				t.Fatal(err)
 			}
 			bk := s.Backups()

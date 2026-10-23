@@ -93,7 +93,7 @@ func TestFlushPutsTheEditsBackOntoAFileTheGameSavedSince(t *testing.T) {
 	if _, err := other.Exec(`update u set b=6`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := other.Commit(); err != nil {
+	if _, err := other.CommitForTests(); err != nil {
 		t.Fatal(err)
 	}
 	other.Close()
@@ -300,7 +300,7 @@ func TestABackupIsNotReusedForAFileTheGameSavedSince(t *testing.T) {
 	if _, err := other.Exec(`update u set b=6`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := other.Commit(); err != nil {
+	if _, err := other.CommitForTests(); err != nil {
 		t.Fatal(err)
 	}
 	other.Close()
@@ -371,7 +371,7 @@ func TestAQueueThatConflictsWithTheGamesNewerFileIsHeldWholeAndNothingIsWritten(
 	if _, err := other.Exec(`insert into jt values (3,'the game''s',9.5,x'09',9)`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := other.Commit(); err != nil {
+	if _, err := other.CommitForTests(); err != nil {
 		t.Fatal(err)
 	}
 	other.Close()

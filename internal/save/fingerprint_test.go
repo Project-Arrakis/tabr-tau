@@ -54,7 +54,7 @@ func TestUnknownDatabaseObjectsMakeTheSaveReadOnly(t *testing.T) {
 		if rows, err := s.Query(`select count(*) c from items`); err != nil || len(rows) != 1 {
 			t.Errorf("%s: reads must keep working: %v %v", name, rows, err)
 		}
-		if _, err := s.Commit(); err != nil && !strings.Contains(err.Error(), "read-only") {
+		if _, err := s.CommitForTests(); err != nil && !strings.Contains(err.Error(), "read-only") {
 			// nothing dirty: Commit reports no changes; if it errors it must be for the right reason
 			t.Errorf("%s: unexpected commit error %v", name, err)
 		}

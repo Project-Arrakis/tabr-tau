@@ -20,8 +20,8 @@ import (
 // the save is copied. Putting the edits back runs the statements again, each edit in its own transaction through the same Mutate as a new edit (so the same checks
 // apply). What an edit read is kept too, as a hash of the rows each of its queries returned, and asked again first: an edit that worked a value out from rows the
 // game has changed since (Solari plus 250, the next free slot, the next item id) is not applied over them. An edit whose statements fail or change a different number
-// of rows than before is not applied either: it is reported, not forced. The review pane shows the
-// diff of whatever was put back, and saving still needs the review, the game-running checks and an unchanged file, as for any edit.
+// of rows than before is not applied either: it is reported, not forced. What was put back is written like any other edit (Flush): only when the game-running checks pass and
+// the file is unchanged, and the page lists what is waiting.
 //
 // The journal holds values from the save (it is a private file in the editor's own folder, 0600, deleted when the edits are saved or discarded). Only INSERT,
 // UPDATE, DELETE and REPLACE statements are journaled or replayed: an edit that ran anything else (a script, DDL, a pragma) turns the journal off for the session
