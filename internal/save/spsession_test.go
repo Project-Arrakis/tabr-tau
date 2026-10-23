@@ -298,7 +298,7 @@ func TestGameStateDecisions(t *testing.T) {
 		{"just ended", procs("DuneSandbox-Win64-Shipping.exe"), spStatus{EndedAt: now.Add(-3 * time.Second)}, nil, true, "single_player", "just ended"},
 		{"ended long ago", procs("DuneSandbox-Win64-Shipping.exe"), spStatus{EndedAt: now.Add(-time.Minute)}, nil, false, "menu_or_multiplayer", ""},
 		{"log unreadable while the game runs", procs("DuneSandbox-Win64-Shipping.exe"), spStatus{}, os.ErrPermission, true, "unknown", "cannot tell whether a single-player session"},
-		{"process check failed", func(bool) ([]string, string) { return nil, "tasklist: boom" }, spStatus{}, nil, true, "unknown", "could not check"},
+		{"process check failed", func(bool) ([]string, string) { return nil, "process snapshot: boom" }, spStatus{}, nil, true, "unknown", "could not check"},
 	}
 	for _, c := range cases {
 		listProcs = c.list
