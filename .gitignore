@@ -41,3 +41,6 @@ coverage.out
 # Python bytecode from the dev tools
 __pycache__/
 *.pyc
+
+# agent worktrees (full copies of the repository) are never part of it
+.claude/
