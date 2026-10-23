@@ -113,13 +113,17 @@ func (s *Save) installBlob(blob []byte) error {
 		os.Remove(tmp)
 		return err
 	}
-	back, err := readCapped(s.Path)
-	if err == nil && bytes.Equal(back, blob) {
+	back, err := readBackRetry(s.Path)
+	if err != nil {
+		// The rename went through: the file on disk is, as far as anyone can tell, the edited save. Saying the edits "stay queued" would have them written a second time onto it.
+		return writtenUnverified(err)
+	}
+	if bytes.Equal(back, blob) {
 		return nil
 	}
 	// The file is not what was written. The usual reason is that the game saved right after the rename, so the file now on disk may be the game's newest and must not be
 	// replaced by the copy taken before the edits: look at what is there now and only say what is true. Nothing is written from here.
-	now, rerr := readCapped(s.Path)
+	now, rerr := readBackRetry(s.Path)
 	switch {
 	case rerr != nil:
 		return apierr.Wrap(apierr.ErrWriteFailed, "the written save could not be read back to check it ("+shortErr(rerr)+"); the file was left as it is, and the copy taken before the write is in the backups folder", rerr)
@@ -129,6 +133,46 @@ func (s *Save) installBlob(blob []byte) error {
 		return apierr.New(apierr.ErrWriteFailed, "the replacement did not take effect: the file on disk is still the one that was loaded, and nothing was changed; the edits stay queued")
 	}
 	return apierr.New(apierr.ErrWriteFailed, "the file on disk is neither the edited save nor the one that was loaded (the game may have saved right after the write); it was left as it is, nothing was put back over it, and the copy taken before the write is in the backups folder")
+}
+
+// readBackTries and readBackBackoff are how long the file just written is tried for before it counts as unreadable: a scanner or an indexer opens a fresh file exclusively for a
+// moment (5 tries with pauses of 0.2, 0.4, 0.6 and 0.8 s, about 2 s). A test sets the pause to 0.
+var (
+	readBackTries   = 5
+	readBackBackoff = 200 * time.Millisecond
+)
+
+// readBackRetry reads the file, again after a growing pause while it cannot be read.
+func readBackRetry(path string) ([]byte, error) {
+	var b []byte
+	var err error
+	for i := 0; i < readBackTries; i++ {
+		if i > 0 {
+			time.Sleep(readBackBackoff * time.Duration(i))
+		}
+		if b, err = readCapped(path); err == nil {
+			return b, nil
+		}
+	}
+	return nil, err
+}
+
+// errWrittenUnverified is the kind of the error of a save that was written (the rename went through) and could not be read back to check it. The edits are very probably in the
+// file; the next attempt looks again, and does not write them a second time.
+var errWrittenUnverified = errors.New("written, not verified")
+
+type unverifiedError struct{ *apierr.E }
+
+func (e unverifiedError) Is(target error) bool {
+	return target == errWrittenUnverified || e.E.Is(target)
+}
+
+func writtenUnverified(cause error) error {
+	return unverifiedError{&apierr.E{
+		Msg:   "the save was written, but it could not be verified (the file could not be read back: " + shortErr(cause) + "); it is looked at again on the next attempt, and the edits are not written a second time. The copy taken before the write is in the backups folder",
+		Kind:  apierr.ErrWriteFailed,
+		Cause: cause,
+	}}
 }
 
 // ErrChangedOnDisk is returned when the file on disk is no longer the one this session loaded.
