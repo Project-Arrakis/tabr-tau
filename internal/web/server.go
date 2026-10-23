@@ -397,7 +397,7 @@ func (s *Server) routes() {
 	// Static UI: a fixed list of asset paths, nothing else from the embedded folder is reachable.
 	for path, ct := range map[string]string{
 		"/app.css": "text/css; charset=utf-8", "/app.js": "text/javascript; charset=utf-8", "/html.js": "text/javascript; charset=utf-8",
-		"/livemap.js": "text/javascript; charset=utf-8", "/maps/hagga-basin.png": "image/png", "/maps/deep-desert.png": "image/png"} {
+		"/livemap.js": "text/javascript; charset=utf-8", "/favicon.svg": "image/svg+xml", "/maps/hagga-basin.png": "image/png", "/maps/deep-desert.png": "image/png"} {
 		file, ctype := "static"+path, ct
 		s.mux.HandleFunc("GET "+path, func(w http.ResponseWriter, r *http.Request) {
 			b, err := static.ReadFile(file)

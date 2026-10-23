@@ -30,7 +30,7 @@ const read = (n) => fs.readFileSync(path.join(static_, n), 'utf8');
 // Allowlists: anything else appearing in the rendered DOM is an injection.
 const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h3 ul li code table thead tbody tr th td input select option datalist button details summary textarea br label canvas svg g rect text path'.split(' '));
 const SCRIPTS = new Set(['/html.js', '/livemap.js', '/app.js']); // the only scripts the page may contain, both same-origin files
-const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live aria-label tabindex label checked open viewbox x y rx transform d'.split(' '));
+const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live aria-label aria-labelledby aria-describedby aria-sort inert tabindex label checked open viewbox x y rx transform d'.split(' '));
 
 export function assertClean(doc, label) {
   const bad = [];
@@ -1792,4 +1792,115 @@ test('the SQL page and its result say an edit is written as it is made, or queue
     assert.ok(out.includes('2 rows changed') && out.includes(want) && !out.includes(not), out);
     ui.dom.window.close();
   }
+});
+const key = (ui, el, k) => el.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+
+test('a question is a named dialog: labelled by its title, the page behind is inert and does not scroll, and focus goes back to where it was (UX-32)', async () => {
+  const ui = await inventoryUI();
+  const del = ui.doc.querySelector('[data-act="delItem"]');
+  del.focus();
+  ui.click('[data-act="delItem"]'); await ui.settle();
+  const box = ui.doc.querySelector('#ask [role="dialog"]');
+  assert.ok(box, 'the dialog');
+  const title = ui.doc.getElementById(box.getAttribute('aria-labelledby'));
+  assert.ok(title && title.textContent.trim() === 'Delete item?', 'its name is its title');
+  const body = ui.doc.getElementById(box.getAttribute('aria-describedby'));
+  assert.ok(body && body.textContent.includes('Delete '), 'and it is described by its text');
+  for (const sel of ['header', '#nav', '#main', '#gamewarn', '#rowarn']) assert.ok(ui.doc.querySelector(sel).hasAttribute('inert'), `${sel} is inert while the question is open`);
+  assert.ok(!ui.doc.querySelector('#ask').hasAttribute('inert'), 'the dialog itself is not');
+  assert.ok(ui.doc.body.classList.contains('noscroll'), 'the page behind does not scroll');
+  ui.click('[data-act="askNo"]'); await ui.settle();
+  for (const sel of ['header', '#nav', '#main', '#gamewarn', '#rowarn']) assert.ok(!ui.doc.querySelector(sel).hasAttribute('inert'), `${sel} works again`);
+  assert.ok(!ui.doc.body.classList.contains('noscroll'));
+  assert.equal(ui.doc.activeElement, del, 'focus is back on the button that asked');
+  ui.dom.window.close();
+});
+
+test('Enter in a filter box runs the filter and leaves the cursor in the box: Inventory, Journey, Research, Crafting, Customizations, Database, the teleport finder (#250)', async () => {
+  const dest = { map: 'HaggaBasin', kind: 'marker', total: 1, destinations: [{ kind: 'marker', label: 'Cave', x: 1, y: 2, z: 3, distance: 100 }] };
+  const ui = await boot({ get: { '/api/player/destinations': dest } });
+  const typeEnter = async (id, text) => {
+    const box = ui.doc.querySelector('#' + id);
+    assert.ok(box, `a filter box #${id}`);
+    box.focus(); box.value = text;
+    key(ui, box, 'Enter'); await ui.settle();
+    const now = ui.doc.querySelector('#' + id);
+    assert.equal(ui.doc.activeElement, now, `the cursor is still in #${id}`);
+    assert.equal(now.value, text, `and it still holds what was typed`);
+  };
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="char:inventory"]'); await ui.settle();
+  await typeEnter('invq', 'zzzznomatch');
+  assert.ok(ui.doc.querySelector('#main').textContent.includes('No item in this group matches the filter'), 'the filter ran');
+  ui.click('[data-sub="player:journey"]'); await ui.settle();
+  await typeEnter('jq', 'zzzznomatch');
+  assert.ok(ui.doc.querySelector('#jout').textContent.includes('No node matches the filter'));
+  ui.click('[data-sub="player:research"]'); await ui.settle();
+  await typeEnter('rsq', 'zzzznomatch');
+  assert.ok(ui.doc.querySelector('#rsout').textContent.includes('No research entry matches'));
+  ui.click('[data-sub="player:crafting"]'); await ui.settle();
+  await typeEnter('crq', 'zzzznomatch');
+  assert.ok(ui.doc.querySelector('#crout').textContent.includes('No recipe matches'));
+  ui.click('[data-sub="player:customizations"]'); await ui.settle();
+  await typeEnter('ctq', 'zzzznomatch');
+  ui.click('[data-sub="player:admin"]'); await ui.settle();
+  const q = ui.doc.querySelector('#tdq'); q.focus(); q.value = 'cave';
+  key(ui, q, 'Enter'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#tdout').textContent.includes('1 place'), 'the finder ran');
+  assert.equal(ui.doc.activeElement, ui.doc.querySelector('#tdq'));
+  ui.click('[data-tab="db"]'); await ui.settle();
+  await typeEnter('dbq', 'zzz');
+  ui.dom.window.close();
+});
+
+test('an Enter that confirms an input method does not run a filter', async () => {
+  const ui = await boot();
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="char:inventory"]'); await ui.settle();
+  const box = ui.doc.querySelector('#invq');
+  box.value = 'zzzz';
+  box.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true, isComposing: true })); await ui.settle();
+  assert.ok(!ui.doc.querySelector('#main').textContent.includes('No item in this group matches'), 'an Enter that confirms an input method does not filter');
+  ui.dom.window.close();
+});
+
+test('table headers are reachable and usable from the keyboard and say their sort order (#250)', async () => {
+  const row = (o) => ({ id: 'X', name: 'X', learned: false, inInventory: false, inCatalog: true, ...o });
+  const sets = { rows: [row({ id: 'b', name: 'Beta' }), row({ id: 'a', name: 'alpha' }), row({ id: 'c', name: 'Charlie' })], newPieces: [] };
+  const ui = await boot({ get: { '/api/player/building-sets': sets } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:buildingsets"]'); await ui.settle();
+  const th = () => [...ui.doc.querySelectorAll('thead th')].find((x) => x.textContent.trim().startsWith('Item id'));
+  const ids = () => [...ui.doc.querySelectorAll('#ctout tbody tr td:nth-child(2)')].map((td) => td.textContent.trim());
+  assert.equal(th().getAttribute('tabindex'), '0', 'a header that sorts is a tab stop');
+  assert.equal(th().getAttribute('aria-sort'), 'none');
+  th().focus();
+  key(ui, th(), 'Enter'); await ui.settle();
+  assert.deepEqual(ids(), ['a', 'b', 'c']);
+  assert.equal(th().getAttribute('aria-sort'), 'ascending');
+  assert.ok(ui.doc.querySelector('#sr').textContent.includes('Sorted by Item id, ascending'), ui.doc.querySelector('#sr').textContent);
+  key(ui, th(), ' '); await ui.settle();
+  assert.deepEqual(ids(), ['c', 'b', 'a']);
+  assert.equal(th().getAttribute('aria-sort'), 'descending');
+  key(ui, th(), 'Enter'); await ui.settle();
+  assert.deepEqual(ids(), ['b', 'a', 'c'], 'the third press restores the original order');
+  assert.equal(th().getAttribute('aria-sort'), 'none');
+  assert.ok(ui.doc.querySelector('#sr').textContent.includes('original order'));
+  // an empty header (the actions column) is not a control
+  const blank = [...ui.doc.querySelectorAll('thead th')].filter((x) => !x.textContent.trim());
+  assert.ok(blank.every((x) => !x.hasAttribute('tabindex') && !x.hasAttribute('aria-sort')));
+  ui.dom.window.close();
+});
+
+test('the browser tab names the open page and has an icon (UX-41)', async () => {
+  const ui = await boot();
+  assert.ok(ui.doc.querySelector('link[rel="icon"][href="/favicon.svg"]'), 'a tab icon');
+  assert.equal(ui.doc.title, 'Player - Character - Tabr Tau');
+  ui.click('[data-sub="player:vehicles"]'); await ui.settle();
+  assert.equal(ui.doc.title, 'Player - Vehicles - Tabr Tau');
+  ui.click('[data-tab="landsraad"]'); await ui.settle();
+  assert.equal(ui.doc.title, 'Landsraad - Tabr Tau');
+  ui.click('[data-tab="db"]'); await ui.settle();
+  assert.equal(ui.doc.title, 'Database - Tabr Tau');
+  ui.dom.window.close();
 });

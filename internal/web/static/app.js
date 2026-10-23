@@ -187,7 +187,10 @@ function sortTable(t, col, dir) {
   rows.forEach((r, i) => { if (r.sortOrder === undefined) r.sortOrder = i; });
   rows.sort((a, b) => (dir ? compareCells(cellValue(a.cells[col]), cellValue(b.cells[col])) * (dir === 'asc' ? 1 : -1) : 0) || a.sortOrder - b.sortOrder);
   for (const r of rows) body.appendChild(r);
-  [...t.tHead.rows[0].cells].forEach((th, i) => { th.classList.toggle('sa', i === col && dir === 'asc'); th.classList.toggle('sd', i === col && dir === 'desc'); });
+  [...t.tHead.rows[0].cells].forEach((th, i) => {
+    th.classList.toggle('sa', i === col && dir === 'asc'); th.classList.toggle('sd', i === col && dir === 'desc');
+    if (th.hasAttribute('aria-sort')) th.setAttribute('aria-sort', i === col && dir ? (dir === 'asc' ? 'ascending' : 'descending') : 'none');
+  });
 }
 function headerClick(th) {
   const t = th.closest('table');
@@ -196,6 +199,7 @@ function headerClick(th) {
   const dir = cur && cur.col === col ? (cur.dir === 'asc' ? 'desc' : null) : 'asc';
   if (dir) SORTS.set(key, { col, dir }); else SORTS.delete(key);
   sortTable(t, col, dir);
+  sayAloud(dir ? `Sorted by ${th.textContent.trim()}, ${dir === 'asc' ? 'ascending' : 'descending'}.` : 'Back to the original order.');
   return true;
 }
 // A table that has just been drawn gets the sort remembered for its headers.
@@ -203,6 +207,7 @@ function applySorts() {
   for (const t of document.querySelectorAll('table')) {
     if (t.classList.contains('sortd') || !t.tHead || !t.tHead.rows[0]) continue;
     t.classList.add('sortd');
+    for (const th of t.tHead.rows[0].cells) if (th.textContent.trim()) { th.setAttribute('tabindex', '0'); th.setAttribute('aria-sort', 'none'); } // a header that sorts can be reached and used from the keyboard
     const s = SORTS.get(sortKey(t));
     if (s) sortTable(t, s.col, s.dir);
   }
@@ -377,12 +382,19 @@ let askState = null, askFrom = null;
 function ask({ title, body, pre = '', list = [], ok = 'Confirm', typed = '', danger = false }) {
   return new Promise((resolve) => { if (askState) askState.resolve(false); askFrom = askFrom || document.activeElement; askState = { title, body, pre, list, ok, typed, danger, resolve }; drawAsk(); });
 }
+// While a question is open the page behind it is inert (not reachable by Tab, by a screen reader's browse keys or by a click) and does not scroll.
+const BEHIND = ['header', '#gamewarn', '#rowarn', '#nav', '#main'];
+function setBehind(on) {
+  for (const s of BEHIND) { const e = $(s); if (e) { if (on) e.setAttribute('inert', ''); else e.removeAttribute('inert'); } }
+  document.body.classList.toggle('noscroll', on);
+}
 function drawAsk() {
   const el = $('#ask');
+  setBehind(!!askState);
   if (!askState) { el.className = 'hide'; setHTML(el, html``); return; }
   const a = askState;
   el.className = 'modal top';
-  setHTML(el, html`<div class="mbox small" role="dialog" aria-modal="true"><h3 class="big" id="atitle" tabindex="-1">${a.title}</h3><p>${a.body}</p>${a.list.length ? html`<ul class="qlist">${a.list.map((l) => html`<li>${l}</li>`)}</ul>` : ''}${a.pre ? html`<pre class="sqlpre">${a.pre}</pre>` : ''}
+  setHTML(el, html`<div class="mbox small" role="dialog" aria-modal="true" aria-labelledby="atitle" aria-describedby="abody"><h3 class="big" id="atitle" tabindex="-1">${a.title}</h3><p id="abody">${a.body}</p>${a.list.length ? html`<ul class="qlist">${a.list.map((l) => html`<li>${l}</li>`)}</ul>` : ''}${a.pre ? html`<pre class="sqlpre">${a.pre}</pre>` : ''}
     ${a.typed ? html`<p class="mut">Type <b>${a.typed}</b> to continue.</p><input id="atype" spellcheck="false" size="20">` : ''}
     <div class="row mt12"><button class="b ${a.danger ? 'bad' : ''}" id="aok" data-act="askOk" ${a.typed ? 'disabled' : ''}>${a.ok}</button><button class="b sec" data-act="askNo">Cancel</button></div></div>`);
   (a.typed ? $('#atype') : $('#atitle')).focus();
@@ -976,7 +988,18 @@ function repairMsg(r, scope, pct) {
   if (!r.modules) return 'Nothing to repair: no vehicle modules were found.' + skipped;
   return (pct && pct < 100 ? `Nothing to repair: none of the ${r.modules} modules is below ${pct}% of its full durability.` : `Nothing to repair: all ${r.modules} modules are already as good as new.`) + skipped;
 }
+// The browser tab names the page that is open: "Player - Inventory - Tabr Tau".
+function pageTitle() {
+  const parts = [TABS[tab] || 'Tabr Tau'];
+  if (tab === 'player') {
+    const p = PTABS.find(([k]) => k === sub.player);
+    if (p) parts.push(p[1]);
+  }
+  if (parts[0] !== 'Tabr Tau') parts.push('Tabr Tau');
+  return parts.join(' - ');
+}
 async function render() {
+  document.title = pageTitle();
   drawNav();
   try {
     await ({ player: playerView, livemap: liveMapView, landsraad: landsraadView, config: configView, db: dbView })[tab]();
@@ -1048,7 +1071,7 @@ const A = {
   tut: (d) => act(async () => { await api('/api/player/tutorials', { id: +d.id, complete: d.c == '1' }); JB = await api('/api/player/journey/browse'); journeyList(); toast('Tutorial updated' + NOT_SAVED); }, null),
   tagAdd: () => act(() => api('/api/player/tags', { tag: val('tag').trim(), add: true }), 'Tag added'),
   tagDel: (d) => act(() => api('/api/player/tags', { tag: d.tag, add: false }), 'Tag removed'),
-  invfilter: () => { invQ = val('invq'); render(); },
+  invfilter: () => { invQ = val('invq'); return render(); },
   invclear: () => { invQ = ''; render(); },
   skPoints: () => act(async () => { const r = await api('/api/player/skills/points', { points: +val('skPts') }); toast(`Unspent skill points ${r.before} → ${r.after}` + NOT_SAVED); }, null),
   skStarter: () => act(async () => { const r = await api('/api/player/skills/starter', { school: skSchool }); toast(r.changed ? `Restored ${r.changed} starter skills` + NOT_SAVED : 'The starter skills are already learned.'); }, null),
@@ -1128,7 +1151,7 @@ const A = {
   cfgdel: async (d) => (await ask({ title: 'Delete config line?', body: 'Delete ' + d.key + ' from ' + cfgFile + '. A backup of the file is made first.', ok: 'Delete', danger: true })) && act(() => api('/api/config/delete', { name: cfgFile, line: +d.line, key: d.key }), 'Deleted from the config file now', true, true),
   cfgraw: async () => (await ask({ title: 'Replace the whole file?', body: 'Everything in ' + cfgFile + ' is replaced by the text in the box. It is written now, after a backup of the file is made. Close the game first.', ok: 'Replace file', danger: true })) && act(() => api('/api/config/raw', { name: cfgFile, text: val('raw') }), 'File written now (the previous text is in Backups)', true, true),
   cfgrestore: async (d) => (await ask({ title: 'Restore config backup?', body: 'Replace ' + cfgFile + ' with ' + d.b + '. Close the game first.', ok: 'Restore', danger: true })) && act(() => api('/api/config/restore', { name: cfgFile, backup: d.b }), 'Config file restored now', true, true),
-  dbgo: () => { dbQ = val('dbq'); dbOff = 0; render(); },
+  dbgo: () => { dbQ = val('dbq'); dbOff = 0; return render(); },
   dbprev: () => { dbOff = Math.max(0, dbOff - 100); render(); },
   dbnext: () => { dbOff += 100; render(); },
   runsql: async () => {
@@ -1243,8 +1266,17 @@ setInterval(async () => {
   }
 }, 5000);
 document.addEventListener('focusout', (e) => { if (armed && e.target === armed.btn) disarm(); });
+// Enter in a filter box does what its Filter button does, and the cursor stays in the box (the page may have drawn the box again).
+const FILTER_ENTER = { invq: 'invfilter', jq: 'jfilter', rsq: 'rsfilter', crq: 'crfilter', ctq: 'ctfilter', dbq: 'dbgo', tdq: 'tdFind' };
+async function runFilter(id) {
+  try { await A[FILTER_ENTER[id]]({}); } catch (err) { toast(err.message, true); }
+  const box = $('#' + id);
+  if (box) { box.focus(); try { box.setSelectionRange(box.value.length, box.value.length); } catch (err) { /* a box with no cursor */ } }
+}
 document.addEventListener('keydown', (e) => {
   if (armed && e.key === 'Escape') disarm();
+  if (e.key === 'Enter' && !e.isComposing && !askState && e.target && Object.hasOwn(FILTER_ENTER, e.target.id)) { e.preventDefault(); runFilter(e.target.id); return; }
+  if ((e.key === 'Enter' || e.key === ' ') && !askState && e.target && e.target.matches && e.target.matches('thead th[tabindex]')) { e.preventDefault(); headerClick(e.target); return; }
   if (askState) { // the question owns the keyboard: Tab stays inside it, Enter completes a typed answer, Escape cancels
     if (e.key === 'Escape') endAsk(false);
     else if (e.key === 'Enter' && e.target.id === 'atype' && !$('#aok').disabled) endAsk(true);
