@@ -154,8 +154,8 @@ th.sd::after{content:" \25BC";font-size:9px}
 .lc-axis-x{stroke:var(--acc);fill:var(--acc)}.lc-axis-y{stroke:var(--acc2);fill:var(--acc2)}path.lc-axis{fill:none}
 .lc-key{display:inline-block;width:12px;height:12px;border:1px solid var(--line);vertical-align:middle;margin:0 3px 0 10px}
 /* UI review round 1: tokens for contrast, visible focus, hover, a banner that sticks below the header, readable inline badges */
-:root{--on-acc:#1a0e03;--line-strong:#7d6a4e;--focus:#f0b45a;--hdr-h:56px;color-scheme:dark}
-@media (prefers-color-scheme:light){:root{--acc:#a85208;--on-acc:#fff;--line-strong:#85724f;--focus:#8c5208;color-scheme:light}}
+:root{--on-acc:#1a0e03;--mut-tint:#b5a98f;--line-strong:#7d6a4e;--focus:#f0b45a;--hdr-h:56px;color-scheme:dark}
+@media (prefers-color-scheme:light){:root{--acc:#a44f07;--on-acc:#fff;--mut-tint:#675c47;--line-strong:#85724f;--focus:#8c5208;color-scheme:light}}
 input,select,textarea{border-color:var(--line-strong)}
 button.b{color:var(--on-acc)}button.b.sec{color:var(--fg)}button.b.bad{color:var(--on-acc)}
 .sub button.on{color:var(--on-acc)}
@@ -168,7 +168,7 @@ span.warn,td .warn{display:inline-block;padding:1px 8px;margin:0;border-radius:1
 #toast div span{overflow-wrap:anywhere}
 pre.sqlpre{max-height:30vh;overflow:auto;white-space:pre-wrap;word-break:break-word;background:var(--in);border:1px solid var(--line-strong);border-radius:5px;padding:8px;font:12px/1.4 Consolas,monospace;margin:6px 0}
 
-/* UI pass (design round 2): the same Dune look as the trainer's map and dashboard: type, spacing, a header with a mark, tabs that read as levels, cards, banners */
+/* UI pass (design round 2): one Dune look for the whole page: type, spacing, a header with a mark, tabs that read as levels, cards, banners */
 :root{--r:10px;--sh:0 2px 10px rgba(0,0,0,.4)}
 body{font-family:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
 header{padding:0 20px;min-height:var(--hdr-h);gap:14px}
@@ -207,6 +207,7 @@ button.b.sm{padding:3px 10px}
 #toast div{border-radius:8px;box-shadow:var(--sh)}
 .mbox{border-radius:12px;box-shadow:var(--sh)}
 span.warn,td .warn{border-left:0;background:color-mix(in srgb,var(--warn) 22%,var(--panel))}
+.warn .mut,.info .mut,.warn.mut,.info.mut{color:var(--mut-tint)}
 header .mark path{fill:currentColor}
 #gamewarn{max-height:45vh;overflow:auto}
 #gamewarn details{margin-top:6px}

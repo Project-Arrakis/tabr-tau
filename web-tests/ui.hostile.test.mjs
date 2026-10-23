@@ -472,11 +472,11 @@ test('the Bases upkeep buttons ask on the button itself (no dialog), then run on
   ui.click('[data-act="repairB"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'no dialog');
   assert.equal(ui.posted.filter((p) => p.path === '/api/bases/repair').length, 0, 'the first press only asks');
-  ui.click('[data-act="repairB"]'); await ui.settle();
+  await new Promise((r) => ui.w.setTimeout(r, 450)); ui.click('[data-act="repairB"]'); await ui.settle();
   assert.equal(ui.posted.filter((p) => p.path === '/api/bases/repair').length, 1);
   ui.click('[data-act="sand"]'); await ui.settle();
   assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 0, 'the first press only asks');
-  ui.click('[data-act="sand"]'); await ui.settle();
+  await new Promise((r) => ui.w.setTimeout(r, 450)); ui.click('[data-act="sand"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'no dialog');
   assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 1);
   ui.dom.window.close();
@@ -1449,12 +1449,12 @@ test('base and vehicle upkeep buttons post, and unknown building names stay plai
   ui.click('[data-tab=\"player\"]'); await ui.settle();
   ui.click('[data-sub=\"player:bases\"]'); await ui.settle();
   ui.click('[data-bstab="water"]'); await ui.settle();
-  ui.click('[data-act="refillWater"]'); ui.click('[data-act="refillWater"]'); await ui.settle();
+  ui.click('[data-act="refillWater"]'); await new Promise((r) => ui.w.setTimeout(r, 450)); ui.click('[data-act="refillWater"]'); await ui.settle();
   let toast = ui.doc.querySelector('#toast');
   assert.ok(toast.textContent.includes('Refilled 2 Medium Water Cisterns (1 already full)') && toast.textContent.includes(hostile), toast.textContent);
   assert.equal(toast.querySelector('img'), null);
   ui.click('[data-bstab="power"]'); await ui.settle();
-  ui.click('[data-act="refillGen"]'); ui.click('[data-act="refillGen"]'); await ui.settle();
+  ui.click('[data-act="refillGen"]'); await new Promise((r) => ui.w.setTimeout(r, 450)); ui.click('[data-act="refillGen"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Refilled 2 Omnidirectional Wind Turbines, 1 Windtrap'));
   ui.click('[data-tab=\"player\"]'); await ui.settle();
   ui.click('[data-sub=\"player:vehicles\"]'); await ui.settle();
@@ -1888,14 +1888,14 @@ test('a bulk action on every base asks on its own button: the label says what wi
   ui.doc.querySelector('[data-act="sand"]').dispatchEvent(new ui.w.FocusEvent('focusout', { bubbles: true }));
   assert.equal(ui.doc.querySelector('[data-act="sand"]').textContent, 'Clear sand on every base');
   // the second press of the same button runs it once and the page goes back to the plain label
-  ui.click('[data-act="repairB"]'); ui.click('[data-act="repairB"]'); await ui.settle();
+  ui.click('[data-act="repairB"]'); await new Promise((r) => ui.w.setTimeout(r, 450)); ui.click('[data-act="repairB"]'); await ui.settle();
   assert.equal(sent('/api/bases/repair'), 1);
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Repaired 3 pieces'));
   assert.equal(btn().textContent, was);
   ui.dom.window.close();
 });
 
-test('an armed bulk button disarms by itself after a few seconds', async () => {
+test('an armed bulk button disarms by itself after about fifteen seconds', async () => {
   const ui = await boot({ post: { '/api/bases/clear-sand': { ok: true, pieces: 2 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:bases"]'); await ui.settle();
@@ -1904,10 +1904,32 @@ test('an armed bulk button disarms by itself after a few seconds', async () => {
   const was = b.textContent;
   ui.click('[data-act="sand"]');
   assert.notEqual(b.textContent, was);
-  await new Promise((r) => ui.w.setTimeout(r, 8100));
+  await new Promise((r) => ui.w.setTimeout(r, 15100));
   assert.equal(b.textContent, was, 'back to the plain label');
   ui.click('[data-act="sand"]'); // a press after that asks again instead of running
   assert.equal(ui.posted.filter((x) => x.path === '/api/bases/clear-sand').length, 0);
+  ui.dom.window.close();
+});
+
+test('two presses of an armed bulk button less than 400 ms apart, or the second half of a double click, do not run it (review B1)', async () => {
+  const ui = await boot({ post: { '/api/bases/repair': { ok: true, pieces: 3, placeables: 1 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:bases"]'); await ui.settle();
+  ui.click('[data-bstab="structures"]'); await ui.settle();
+  const btn = () => ui.doc.querySelector('[data-act="repairB"]');
+  const sent = () => ui.posted.filter((x) => x.path === '/api/bases/repair').length;
+  // two clicks back to back: the second is ignored, the button keeps asking
+  ui.click('[data-act="repairB"]'); ui.click('[data-act="repairB"]'); await ui.settle();
+  assert.equal(sent(), 0, 'two presses at once are not a decision');
+  assert.equal(btn().textContent, 'Yes, repair every base', 'and it is still asking');
+  // the second half of a real double click carries detail 2, even when it comes later than the gap
+  await new Promise((r) => ui.w.setTimeout(r, 450));
+  btn().dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true, detail: 2 })); await ui.settle();
+  assert.equal(sent(), 0, 'the second half of a double click does not run it');
+  assert.equal(btn().textContent, 'Yes, repair every base');
+  // a deliberate second press runs it once
+  btn().dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 })); await ui.settle();
+  assert.equal(sent(), 1);
   ui.dom.window.close();
 });
 
@@ -2146,4 +2168,23 @@ test('Database: an export the server refuses shows its error and downloads nothi
   assert.ok(bad.toast.includes('table is not available'), 'the refusal is shown: ' + bad.toast);
   const good = await run([{ ok: true }]);
   assert.deepEqual(good.downloads, ['items.csv'], 'a good export still downloads');
+});
+
+test('the keyboard focus stays on the control that was used when the page is drawn again (register 2026-10-15, UX-07)', async () => {
+  const ui = await boot();
+  const focusThenClick = async (sel) => {
+    const before = ui.doc.querySelector(sel);
+    assert.ok(before, 'no control for ' + sel);
+    before.focus();
+    assert.equal(ui.doc.activeElement, before);
+    ui.click(sel); await ui.settle();
+    const after = ui.doc.querySelector(sel);
+    assert.ok(after && after.isConnected, 'the control is drawn again: ' + sel);
+    assert.notEqual(after, before, 'the page really was drawn again (' + sel + ')');
+    assert.equal(ui.doc.activeElement, after, 'focus is back on ' + sel + ', not on the page body');
+  };
+  await focusThenClick('[data-tab="db"]');
+  await focusThenClick('[data-sub="db:sql"]');
+  await focusThenClick('[data-sub="db:backups"]');
+  ui.dom.window.close();
 });
