@@ -1,4 +1,4 @@
-// Live Map tab: the save's own view of a map (Hagga Basin, Deep Desert): the character, your vehicles, your base, its storage
+// Saved map tab (the key stays "livemap"): the save's own view of a map (Hagga Basin, Deep Desert): the character, your vehicles, your base, its storage
 // containers and the game's own map markers. It shows the save as of its last write, not the running game. The picture and the
 // world-to-picture conversion are the Dune Docker console's (see the notices); everything text comes from the save and is
 // escaped by the html template or set as text.
@@ -129,7 +129,15 @@
     return lmIconByType(p.type);
   }
 
-  const lm = { map: 'HaggaBasin', data: null, points: [], hidden: new Set(), showUndiscovered: true, scale: 1, ox: 0, oy: 0, img: null, hover: null };
+  const lm = { map: 'HaggaBasin', data: null, points: [], hidden: new Set(), showUndiscovered: true, scale: 1, ox: 0, oy: 0, img: null, hover: null,
+    w: 900, h: 560, dpr: 1, fitScale: 1, view: null }; // w and h: the canvas in screen pixels; dpr: device pixels per screen pixel; view: where the person looked (kept across redraws)
+
+  // A marker type as words: "HouseRepresentativeArgosaz" is "House Representative Argosaz", "Hazard_Radiation" is "Hazard Radiation". The raw id stays in the tooltip.
+  function lmTypeName(t) {
+    const raw = String(t == null ? '' : t);
+    const s = raw.replace(/_+/g, ' ').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').replace(/\s+/g, ' ').trim();
+    return s || raw;
+  }
 
   // Marker type (as the game names it) to a group.
   function lmGroupOf(type) {
@@ -159,7 +167,7 @@
       const left = Number(f.left).toLocaleString();
       add(f.kind === 'spice' ? 'spice' : 'flour', f.x, f.y, f.kind === 'spice' ? `Spice field, ${String(f.size)} (${left} left)` : `Flour sand (${left} left)`, { size: String(f.size || '') });
     }
-    for (const m of d.markers || []) add(lmGroupOf(m.t), m.x, m.y, m.t, { d: Number(m.d) || 0, type: String(m.t ?? '') });
+    for (const m of d.markers || []) add(lmGroupOf(m.t), m.x, m.y, lmTypeName(m.t), { d: Number(m.d) || 0, type: String(m.t ?? '') });
     return pts;
   }
 
@@ -169,12 +177,51 @@
   }
   function lmVisible(p) { return !lm.hidden.has(p.g) && (lm.showUndiscovered || p.d > 0); }
 
+  const LM_HINT = 'Hover a marker for details. Drag to move, scroll or press + and - to zoom, 0 to fit.';
   function lmCanvas() { return document.querySelector('#lmc'); }
-  function lmFit(c) {
+  // The bitmap follows the size the canvas has on screen and the screen's pixel ratio, so it is sharp on a dense screen and not stretched when the window changes.
+  function lmSize(c) {
+    const b = c.getBoundingClientRect();
+    lm.w = Math.max(300, Math.round(b.width || (c.parentElement && c.parentElement.clientWidth) || 900));
+    lm.h = Math.max(200, Math.round(b.height || 560));
+    lm.dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    c.width = Math.round(lm.w * lm.dpr);
+    c.height = Math.round(lm.h * lm.dpr);
+  }
+  function lmFit() {
     const cfg = lm.data.config;
-    lm.scale = Math.min(c.width / cfg.width, c.height / cfg.height);
-    lm.ox = (c.width - cfg.width * lm.scale) / 2;
-    lm.oy = (c.height - cfg.height * lm.scale) / 2;
+    lm.scale = Math.min(lm.w / cfg.width, lm.h / cfg.height);
+    lm.fitScale = lm.scale;
+    lm.ox = (lm.w - cfg.width * lm.scale) / 2;
+    lm.oy = (lm.h - cfg.height * lm.scale) / 2;
+  }
+  // The view is kept as a zoom relative to the whole map and the map point at the middle of the canvas, so it survives a redraw of the page and a resize.
+  function lmRemember() { lm.view = { z: lm.scale / lm.fitScale, cx: (lm.w / 2 - lm.ox) / lm.scale, cy: (lm.h / 2 - lm.oy) / lm.scale }; }
+  function lmApplyView() {
+    lmFit();
+    if (!lm.view) return;
+    lm.scale = lm.view.z * lm.fitScale;
+    lm.ox = lm.w / 2 - lm.view.cx * lm.scale;
+    lm.oy = lm.h / 2 - lm.view.cy * lm.scale;
+  }
+  function lmZoom(k, mx = lm.w / 2, my = lm.h / 2) {
+    const next = Math.min(Math.max(lm.scale * k, 0.05), 6);
+    const f = next / lm.scale;
+    lm.ox = mx - (mx - lm.ox) * f;
+    lm.oy = my - (my - lm.oy) * f;
+    lm.scale = next;
+    lmRemember();
+    lmDraw();
+  }
+  function lmPan(dx, dy) { lm.ox += dx; lm.oy += dy; lmRemember(); lmDraw(); }
+  function lmReset() { lm.view = null; lmFit(); lmDraw(); }
+  let lmResizeAdded = false;
+  function lmResize() {
+    const c = lmCanvas();
+    if (!c || !lm.data) return;
+    lmSize(c);
+    lmApplyView();
+    lmDraw();
   }
 
   function lmDraw() {
@@ -187,7 +234,7 @@
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#0d0f12';
     ctx.fillRect(0, 0, c.width, c.height);
-    ctx.setTransform(lm.scale, 0, 0, lm.scale, lm.ox, lm.oy);
+    ctx.setTransform(lm.dpr * lm.scale, 0, 0, lm.dpr * lm.scale, lm.dpr * lm.ox, lm.dpr * lm.oy);
     if (lm.img && lm.img.complete && lm.img.naturalWidth) ctx.drawImage(lm.img, 0, 0, cfg.width, cfg.height);
     else { ctx.strokeStyle = '#2a2f36'; ctx.lineWidth = 2 / lm.scale; ctx.strokeRect(0, 0, cfg.width, cfg.height); }
     const r = Math.max(2.5, 4 / lm.scale * 1.0);
@@ -203,7 +250,7 @@
         // your own things keep their size; the thousands of map markers shrink when the whole map is in view, so they do not hide it
         const size = p.g === 'spice' ? (LM_SPICE_SIZE[p.size] || 24) : LM_ICON_SIZE[p.g] || Math.min(22, Math.max(10, 60 * lm.scale + 6));
         ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.setTransform(lm.dpr, 0, 0, lm.dpr, 0, 0);
         ctx.globalAlpha = p.d > 0 ? 1 : 0.4;
         ctx.drawImage(img, px * lm.scale + lm.ox - size / 2, py * lm.scale + lm.oy - size / 2, size, size);
         ctx.restore();
@@ -237,38 +284,48 @@
   function lmMount() {
     const c = lmCanvas();
     if (!c) return;
-    c.width = Math.max(300, c.parentElement.clientWidth || 900);
-    c.height = 560;
-    lmFit(c);
+    lmSize(c);
+    lmApplyView();
     const cfg = lm.data.config;
     lm.img = new Image();
     lm.img.onload = lmDraw;
     lm.img.src = cfg.image;
-    const rect = (e) => { const b = c.getBoundingClientRect(); return { x: (e.clientX - b.left) * (c.width / (b.width || c.width)), y: (e.clientY - b.top) * (c.height / (b.height || c.height)) }; };
+    const rect = (e) => { const b = c.getBoundingClientRect(); return { x: (e.clientX - b.left) * (lm.w / (b.width || lm.w)), y: (e.clientY - b.top) * (lm.h / (b.height || lm.h)) }; };
     let drag = null;
     c.addEventListener('mousedown', (e) => { drag = { x: e.clientX, y: e.clientY, ox: lm.ox, oy: lm.oy }; });
     // The window listener is added once for the page, not on every render (each render builds a new canvas and would pile up another
     // listener that keeps the old canvas's drag alive); it ends the drag of whichever canvas is current.
     lm.endDrag = () => { drag = null; };
     if (!lmMouseUpAdded) { lmMouseUpAdded = true; window.addEventListener('mouseup', () => { if (lm.endDrag) lm.endDrag(); }); }
+    if (!lmResizeAdded) { lmResizeAdded = true; window.addEventListener('resize', lmResize); }
     c.addEventListener('mousemove', (e) => {
-      if (drag) { lm.ox = drag.ox + (e.clientX - drag.x); lm.oy = drag.oy + (e.clientY - drag.y); lmDraw(); return; }
+      if (drag) { lm.ox = drag.ox + (e.clientX - drag.x); lm.oy = drag.oy + (e.clientY - drag.y); lmRemember(); lmDraw(); return; }
       const m = rect(e);
       const p = lmNearest(c, m.x, m.y);
       lm.hover = p;
       const info = document.querySelector('#lminfo');
-      if (info) info.textContent = p ? `${p.label}  (${Math.round(p.x)}, ${Math.round(p.y)})${p.d > 0 ? '' : '  not discovered yet'}` : 'Hover a marker for details. Drag to move, scroll to zoom.';
+      if (info) {
+        info.textContent = p ? `${p.label}: x ${Math.round(p.x)}, y ${Math.round(p.y)}${p.d > 0 ? '' : ' (not discovered yet)'}` : LM_HINT;
+        if (p && p.type) info.title = p.type; else info.removeAttribute('title'); // the game's own name for the marker
+      }
+    });
+    // The keyboard: + and - zoom, 0 shows the whole map, the arrow keys move it.
+    c.addEventListener('keydown', (e) => {
+      const step = 0.1;
+      if (e.key === '+' || e.key === '=') lmZoom(1.2);
+      else if (e.key === '-' || e.key === '_') lmZoom(1 / 1.2);
+      else if (e.key === '0') lmReset();
+      else if (e.key === 'ArrowLeft') lmPan(lm.w * step, 0);
+      else if (e.key === 'ArrowRight') lmPan(-lm.w * step, 0);
+      else if (e.key === 'ArrowUp') lmPan(0, lm.h * step);
+      else if (e.key === 'ArrowDown') lmPan(0, -lm.h * step);
+      else return;
+      e.preventDefault();
     });
     c.addEventListener('wheel', (e) => {
       e.preventDefault();
       const m = rect(e);
-      const k = e.deltaY < 0 ? 1.2 : 1 / 1.2;
-      const next = Math.min(Math.max(lm.scale * k, 0.05), 6);
-      const f = next / lm.scale;
-      lm.ox = m.x - (m.x - lm.ox) * f;
-      lm.oy = m.y - (m.y - lm.oy) * f;
-      lm.scale = next;
-      lmDraw();
+      lmZoom(e.deltaY < 0 ? 1.2 : 1 / 1.2, m.x, m.y);
     }, { passive: false });
     lmDraw();
   }
@@ -284,25 +341,30 @@
     const types = [...byType.values()].sort((a, b) => b.n - a.n);
     const groups = LM_GROUPS.filter((g) => counts[g.id]);
     setHTML($('#main'), html`
-      <div class="card"><h3>Live Map</h3>
+      <div class="card"><h3>Saved map</h3>
         <div class="row">${(d.maps || []).map((m) => html`<button class="b ${m.key == d.config.key ? '' : 'sec'}" data-lmmap="${m.key}">${m.label}</button>`)}
-          <button class="b sec" data-lmund="1">${lm.showUndiscovered ? 'Hide' : 'Show'} undiscovered markers</button></div>
-        <p class="mut">The map as of your last save, not the running game. Markers you have not discovered yet are shown faded.</p>
-        <div class="lm-wrap"><canvas id="lmc" class="lm"></canvas></div>
-        <p class="mut" id="lminfo">Hover a marker for details. Drag to move, scroll to zoom.</p>
+          <button class="b sec" data-lmund="1">${lm.showUndiscovered ? 'Hide' : 'Show'} undiscovered markers</button>
+          <button class="b sec" data-lmz="in" aria-label="Zoom in">+</button><button class="b sec" data-lmz="out" aria-label="Zoom out">&minus;</button><button class="b sec" data-lmz="fit">Fit</button></div>
+        <p class="mut">The save as of its last write, not the running game. Markers you have not discovered yet are shown faded.</p>
+        <div class="lm-wrap"><canvas id="lmc" class="lm" tabindex="0" role="img" aria-label="${'Saved map of ' + d.config.label + '. Press plus and minus to zoom, 0 to show the whole map, the arrow keys to move.'}"></canvas></div>
+        <p class="mut" id="lminfo">${LM_HINT}</p>
         ${counts.spice || counts.flour ? html`<p class="mut">Spice and flour sand fields are placed by decoding their ids, because the save keeps no coordinates for them; the positions have not been checked against the game for this map.</p>` : ''}
         <div class="row">${groups.map((g) => html`<button class="lm-layer ${lm.hidden.has(g.id) ? 'off' : 'on'}" data-lmg="${g.id}">${LM_GROUP_ICON[g.id] ? html`<span class="lm-ic lm-i-${LM_GROUP_ICON[g.id].replace(/\.[a-z]+$/, '').toLowerCase()}"></span>` : html`<span class="lm-sw lm-c-${g.id}"></span>`}${g.label} (${counts[g.id]})</button>`)}</div></div>
-      <div class="card"><h3>Markers on this map (${types.length} types)</h3>${tbl([{ k: 'type', label: 'Type', f: (r) => { const f = lmIconByType(r.type); return f ? html`<span class="lm-ic lm-i-${f.replace(/\.[a-z]+$/, '').toLowerCase()}"></span>${r.type}` : r.type; } }, { k: 'group', label: 'Group', f: (r) => (LM_GROUPS.find((g) => g.id == r.group) || {}).label || r.group }, { k: 'n', label: 'Markers' }, { k: 'found', label: 'Discovered' }], types)}</div>`);
+      <div class="card"><h3>Markers on this map (${types.length} types)</h3>${tbl([{ k: 'type', label: 'Marker', f: (r) => { const f = lmIconByType(r.type); const name = html`<span title="${r.type}">${lmTypeName(r.type)}</span>`; return f ? html`<span class="lm-ic lm-i-${f.replace(/\.[a-z]+$/, '').toLowerCase()}"></span>${name}` : name; } }, { k: 'group', label: 'Group', f: (r) => (LM_GROUPS.find((g) => g.id == r.group) || {}).label || r.group }, { k: 'n', label: 'Markers' }, { k: 'found', label: 'Discovered' }], types)}</div>`);
     lmMount();
   }
 
   document.addEventListener('click', (e) => {
     const m = e.target.closest('[data-lmmap]');
-    if (m) { lm.map = m.dataset.lmmap; render(); return; }
+    if (m) { lm.map = m.dataset.lmmap; lm.view = null; render(); return; }
+    const z = e.target.closest('[data-lmz]');
+    if (z) { if (z.dataset.lmz === 'in') lmZoom(1.2); else if (z.dataset.lmz === 'out') lmZoom(1 / 1.2); else lmReset(); return; }
     const g = e.target.closest('[data-lmg]');
     if (g) { const id = g.dataset.lmg; if (lm.hidden.has(id)) lm.hidden.delete(id); else lm.hidden.add(id); g.classList.toggle('off'); g.classList.toggle('on'); lmDraw(); return; }
-    if (e.target.closest('[data-lmund]')) { lm.showUndiscovered = !lm.showUndiscovered; render(); }
+    const u = e.target.closest('[data-lmund]'); // only a redraw: the data is not fetched again and the view stays
+    if (u) { lm.showUndiscovered = !lm.showUndiscovered; u.textContent = (lm.showUndiscovered ? 'Hide' : 'Show') + ' undiscovered markers'; lmDraw(); }
   });
 
   window.liveMapView = liveMapView;
+  window.liveMapState = () => ({ scale: lm.scale, ox: lm.ox, oy: lm.oy, w: lm.w, h: lm.h, dpr: lm.dpr, view: lm.view && { ...lm.view } }); // read-only, for the tests
 })();
