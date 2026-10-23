@@ -98,6 +98,13 @@ func (s *Save) installBlob(blob []byte) error {
 		os.Remove(tmp)
 		return ErrChangedOnDisk
 	}
+	// The game-running check of the caller was made well before this point (the encode, the round trip, the backup and the temp file came after it, and on a large save that
+	// is seconds, in which a single-player session can start and the game rewrite the file). It is made again right before the rename, which is the step that cannot be undone
+	// by the game's own write: a session that began in between leaves the edits queued instead.
+	if blocked, why := SaveBlocked(s.Path); blocked {
+		os.Remove(tmp)
+		return errors.New(why)
+	}
 	if err := renameRetry(tmp, s.Path); err != nil {
 		os.Remove(tmp)
 		return err
