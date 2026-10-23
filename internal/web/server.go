@@ -595,6 +595,7 @@ func (s *Server) routes() {
 	s.get("/api/player/blood-sacks", func(r *http.Request) (any, error) { return o.BloodSacks() })
 	s.post("/api/player/hydration", func(ops.Args) (any, error) { return o.FillHydration() })
 	s.post("/api/player/solari", o.AddSolari)
+	s.post("/api/player/blood-marks", o.GiveBloodMarks)
 	s.post("/api/player/intel", o.AddIntel)
 	s.post("/api/player/xp", o.AddXP)
 	s.post("/api/player/currency", o.AddCurrency)
