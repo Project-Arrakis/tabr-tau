@@ -225,3 +225,27 @@ a[data-act]{display:inline-block;padding:6px 4px}
 #toast button.x{min-width:32px;min-height:32px}
 th[tabindex]:focus-visible{outline-offset:-2px}
 th[tabindex]:hover{color:var(--fg)}
+/* Small screens (UX-37): the header and the banner scroll away instead of taking a quarter of the screen; the header is two rows; padding is tighter; sub-tab rows scroll sideways */
+header .path:empty{display:none}
+@media (max-width:720px){
+  header{position:static;padding:6px 12px;gap:8px}
+  header h1{font-size:13px;letter-spacing:.12em}
+  header .path{flex:1 1 140px;order:3}
+  header #pending{margin-left:auto}
+  #gamewarn.warn,#gamewarn.info{position:static;padding:8px 12px}
+  nav{padding:0 8px}
+  nav button{padding:10px 12px}
+  main{padding:10px}
+  .card{padding:12px;margin-bottom:12px}
+  .sub{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
+  .sub button{flex:none}
+  th,td{padding:6px}
+  input[type=number]{width:96px}
+  input[size],input.cfgv,select{max-width:100%}
+  input.cfgv{min-width:140px}
+  canvas.lm{height:60vh}
+  .lc-side{flex-basis:100%}
+  .mbox.small{margin-top:4vh}
+  #toast{left:12px;right:12px}
+  #toast div{max-width:none}
+}
