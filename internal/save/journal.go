@@ -394,7 +394,7 @@ func (s *Save) skipJournal(why string) *Restored {
 	return r
 }
 
-// RestoreJournal puts the edits found in the journal back onto the file as it is now, edit by edit. It is for start-up (the journal is of an earlier run) and does
+// RestoreJournal puts the edits found in the journal back onto the file as it is now, all of them or none. It is for start-up (the journal is of an earlier run) and does
 // nothing when there is no journal, it is of another save, or this save already has edits.
 func (s *Save) RestoreJournal() (*Restored, error) {
 	s.flushMu.Lock()
@@ -427,7 +427,13 @@ func (s *Save) RestoreJournal() (*Restored, error) {
 		s.dropJournal()
 		return nil, nil
 	}
-	return s.replayLocked(j.Ops, j.BaseHash != hex.EncodeToString(s.diskHash[:]), true), nil
+	// All of it or none, as the automatic write does: a queue with an edit that does not apply is held, with its journal, and reported. The edits that did apply are not left to
+	// be written alone, with the rest only a notice that is gone when the editor closes (and the journal deleted when none applied).
+	r, err := s.putBackAtomic(j.Ops, j.BaseHash != hex.EncodeToString(s.diskHash[:]), Restored{})
+	if err == nil && s.held != nil {
+		r.Applied = 0 // the ones that applied were undone with the rest: nothing was put back, the whole queue is held
+	}
+	return r, err
 }
 
 // Rebase reads the file again, as Discard does, and puts the pending edits back onto it where they still apply (the game saved since they were made).
@@ -504,9 +510,15 @@ func (s *Save) rebaseAtomic() (*Restored, error) {
 		return nil, err
 	}
 	s.held = nil
+	return s.putBackAtomic(kept, true, dropped)
+}
+
+// putBackAtomic puts the queue onto the file as the game has it (just read, nothing queued), all of it or none: the first edit that does not apply holds the whole queue (kept in
+// the journal, not written) and the conflicts are reported. dropped is the edits an earlier reload dropped, still to be seen. The caller holds s.mu.
+func (s *Save) putBackAtomic(kept []opRec, rebased bool, dropped Restored) (*Restored, error) {
 	// The journal is not written by the put-back itself: until the outcome is known it holds the whole queue, and a stop or a failure below must find that and not the
 	// part of it that happened to apply.
-	res := s.replayLocked(kept, true, false)
+	res := s.replayLocked(kept, rebased, false)
 	if len(res.Conflicts) == 0 {
 		s.writeJournal()
 		if len(dropped.Conflicts) > 0 {
