@@ -104,13 +104,13 @@ The security policy names the review pane as the save-write control; at least 11
 
 | ID | Sev | STRIDE | Location | Finding | Status |
 |---|---|---|---|---|---|
-| GRC-1 | MEDIUM | R, T | SECURITY.md:25, :37 | The security policy still states the removed review pane as the save-write control. | fixed (#PRN) |
-| GRC-13 | LOW | R | CHANGELOG.md:13, 16, 19, 21, 33, 42, 48, 78, 82, 84, 109 | The [Unreleased] changelog still describes the review pane in at least 11 entries, contradicting entries 9 and 91. Same defect class as L2 GRC-7. | fixed (#PRN) |
-| GRC-14 | LOW | R | docs/live-test-protocol.md:88, docs/continuation-prompt.md:15/33, docs/README.md:3, ... | Other docs and a code comment still describe the review pane; the audit register carries no replacement statement for F-06/F-10. | fixed (#PRN) |
-| UX-28 | HIGH | Accuracy | `app.js:867` (SQL card), `:941` (delete confirm), `:1032`; `docs/live-test-protocol.md:88` | Text still describes the Review & save model that f977c84 removed.** The SQL page says "Nothing reaches game.db until you press **Save to game**, which backs up first" (read back from the DOM; there is no such button). The same card's confirm says it is written "at once". The item-delete confirm ... | fixed (#PRN) |
-| UX-40 | LOW | Accuracy | `docs/live-test-protocol.md:88` | The live-test protocol tells testers to "Press Review & save, then Save to game". | fixed (#PRN) |
-| QA-16 | INFO | I | docs | Documents still describe the removed Review & save (`docs/live-test-protocol.md:88`, `docs/design/feature-inventory.md:658,661`, `tools/featureinv.py:84`). | fixed (#PRN) |
-| GRC-12 | MEDIUM | R | PR #240, issue #238, docs/audit/ | A change that removes an audit-register control was classed High by its author and merged with no review, no issue analysis and no register update. | fixed (#PRN) |
+| GRC-1 | MEDIUM | R, T | SECURITY.md:25, :37 | The security policy still states the removed review pane as the save-write control. | fixed (#275) |
+| GRC-13 | LOW | R | CHANGELOG.md:13, 16, 19, 21, 33, 42, 48, 78, 82, 84, 109 | The [Unreleased] changelog still describes the review pane in at least 11 entries, contradicting entries 9 and 91. Same defect class as L2 GRC-7. | fixed (#275) |
+| GRC-14 | LOW | R | docs/live-test-protocol.md:88, docs/continuation-prompt.md:15/33, docs/README.md:3, ... | Other docs and a code comment still describe the review pane; the audit register carries no replacement statement for F-06/F-10. | fixed (#275) |
+| UX-28 | HIGH | Accuracy | `app.js:867` (SQL card), `:941` (delete confirm), `:1032`; `docs/live-test-protocol.md:88` | Text still describes the Review & save model that f977c84 removed.** The SQL page says "Nothing reaches game.db until you press **Save to game**, which backs up first" (read back from the DOM; there is no such button). The same card's confirm says it is written "at once". The item-delete confirm ... | fixed (#275) |
+| UX-40 | LOW | Accuracy | `docs/live-test-protocol.md:88` | The live-test protocol tells testers to "Press Review & save, then Save to game". | fixed (#275) |
+| QA-16 | INFO | I | docs | Documents still describe the removed Review & save (`docs/live-test-protocol.md:88`, `docs/design/feature-inventory.md:658,661`, `tools/featureinv.py:84`). | fixed (#275) |
+| GRC-12 | MEDIUM | R | PR #240, issue #238, docs/audit/ | A change that removes an audit-register control was classed High by its author and merged with no review, no issue analysis and no register update. | fixed (#275) |
 
 ### Replacement statement for the removed review pane (F-06, F-10 of the 2026-09-30 register)
 
