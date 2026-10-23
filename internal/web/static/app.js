@@ -1011,36 +1011,32 @@ function pageTitle() {
   if (parts[0] !== 'Tabr Tau') parts.push('Tabr Tau');
   return parts.join(' - ');
 }
-// Drawing the page again replaces the control that had the keyboard focus, which leaves the focus on the document body (the next Tab starts from the top). The control is found
-// again by what it is (its id, or its data-* attributes and its place among those that share them) and given the focus; if it is gone, the focus goes to the page's main area.
-function focusSpot() {
-  const el = document.activeElement, main = $('#main');
-  if (!el || el === document.body || !main || !main.contains(el)) return null;
-  const sel = el.id ? `[id="${el.id.replace(/"/g, '')}"]` : el.tagName.toLowerCase() + [...el.attributes].filter((a) => a.name.startsWith('data-') && a.value.length < 80).map((a) => `[${a.name}="${a.value.replace(/["\\]/g, '')}"]`).join('');
-  let idx = 0;
-  try { idx = [...main.querySelectorAll(sel)].indexOf(el); } catch (e) { return null; }
-  return idx < 0 ? null : { sel, idx };
+// The page is drawn again after almost every action, which destroys the control that had the keyboard focus. focusSpec notes which control it was
+// (by id, or by its data-* attributes and label) and refocus gives the focus back to the same control in the new page, unless something else took it
+// meanwhile (register 2026-10-15, UX-07).
+function focusSpec(el) {
+  if (!el || el === document.body || !el.closest || !el.closest('#main, #nav')) return null;
+  const data = [...el.attributes].filter((a) => a.name.startsWith('data-')).map((a) => [a.name, a.value]);
+  if (!el.id && !data.length) return null;
+  return { id: el.id, tag: el.tagName, data, label: (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 60) };
 }
-function focusBack(spot) {
-  if (!spot) return;
-  const a = document.activeElement;
-  if (a && a !== document.body && a.isConnected) return; // the focus is somewhere sensible already
-  const main = $('#main');
-  let to = null;
-  try { const all = main.querySelectorAll(spot.sel); to = all[spot.idx] || all[0] || null; } catch (e) { /* a selector the page could not make */ }
-  if (!to) { main.setAttribute('tabindex', '-1'); to = main; }
-  if (typeof to.focus === 'function') to.focus({ preventScroll: true });
+function refocus(s) {
+  if (!s || (document.activeElement && document.activeElement !== document.body)) return;
+  const pool = s.id ? [document.getElementById(s.id)] : [...document.querySelectorAll('#main ' + s.tag + ', #nav ' + s.tag)];
+  const same = pool.filter((n) => n && s.data.every(([k, v]) => n.getAttribute(k) === v));
+  const n = same.find((x) => (x.getAttribute('aria-label') || x.textContent || '').trim().slice(0, 60) === s.label) || same[0];
+  if (n && typeof n.focus === 'function') n.focus({ preventScroll: true });
 }
 async function render() {
+  const keep = focusSpec(document.activeElement);
   document.title = pageTitle();
   drawNav();
-  const spot = focusSpot();
   try {
     await ({ player: playerView, livemap: liveMapView, landsraad: landsraadView, config: configView, db: dbView })[tab]();
   } catch (e) {
     setHTML($('#main'), html`<div class="card bad">${e.message}</div><div class="row mt12"><button class="b" data-act="retry">Try again</button></div>`);
   }
-  focusBack(spot);
+  refocus(keep);
 }
 
 const D = (e) => e.target.closest('[data-act]');

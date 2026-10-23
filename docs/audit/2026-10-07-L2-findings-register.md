@@ -7,6 +7,67 @@ Method: eight independent read-only hat reviewers (Architect, Security, GRC, Net
 were one reviewer), each told to verify against real code, plus a five-agent `/code-review high` pass on PR #38. QA ran
 mutation checks in a scratch copy. Tracking issue: #24. Fixes below landed in PR #38 unless stated.
 
+## Reconciliation, 2026-10-23
+
+Every finding was checked again against the current code, tests and CI (not against the old text). The "Disposition" columns below are kept as written on 2026-10-07; the table here is the current status. The "Review & save" pane was removed on 2026-10-22 (#238, #240, see `docs/control-removal.md` and `SECURITY.md`), which makes the S2 block, P7, P8, UX-2 and UX-3 obsolete. Ids such as ARCH-5, ARCH-6 and QA-4 are used again with other meanings in the 2026-10-22 register; here they mean what this file says.
+
+Counts (84 findings; the rows that listed several ids at once are counted once per id, except where the id list is one finding: D4/D5/ARCH-7 and S1/ARCH-3): **55 fixed**, **12 obsolete**, **7 accepted risk**, **10 open**.
+
+| Status | Findings |
+|---|---|
+| Open, needs the live game | D6 (volume and `sqlite_sequence`), N-3 (cloud-sync behaviour of the backups folder) |
+| Open, needs a decision (recommendation: accept, with a line in `SECURITY.md`) | D8 (no free-space check; a failed write is cleaned up), D9 (a window of milliseconds between the last hash check and the rename), ARCH-6 (ownership pre-checks before the transaction), QA-6 (no mid-way failure injection into a repair), S7 (`Tables()` and `inspect()` have no timeout, reachable only with a hostile file), C-2 (`StrictHostKeyChecking=accept-new` in `tools/send-snapshot.ps1`) |
+| Open, hygiene | QA-4 (12 uses of the toy schema remain in `internal/ops/ops_test.go`), QA-7 (loose wall-clock bounds, 3 s to 20 s) |
+
+| ID | Status | Evidence |
+|---|---|---|
+| ARCH-1 | fixed | deferred rollback `internal/save/mutate.go`; `TestMutatePanicDoesNotWedgeTheSave` |
+| S1 / ARCH-3 | fixed | `quoteIdent`, `identRe` in `internal/ops/db.go`; `TestColumnNamesFromTheSaveCannotInjectSQL` |
+| S2 | fixed | #301 closed a gap: a virtual table named `sqlite_*` was skipped by name; `TestFingerprintCatchesAVirtualTableNamedLikeAnInternalOne` |
+| D1 | fixed | #42; `TestDeletingAContainerItemRemovesItsContentsAndLeavesNothingDangling` |
+| UX-1 | fixed | read-only banner with the reason (`app.js`) |
+| UX-2, UX-3 | obsolete | the commit result and the changed-on-disk dead end belonged to the review pane; changed-on-disk is now handled by the flush (held queue, rebase, #272, #283) |
+| G-1, G-2, G-3 | fixed | CHANGELOG and plan status block rewritten (#186, #275) |
+| S3, S4, S5 | fixed | exact SQL compare and `rootpage = 0` in `internal/save/save.go`; `internal/ops/sqlvet.go`; `TestFingerprintCatchesDisguisedObjects`, `TestVetRefusesInternalsAndPragmaFunctions` |
+| ARCH-2, ARCH-4 | fixed | reads use the read-only handle (`TestQueryCannotWriteBypassingMutate`); a failed reload blocks edits (`TestCommitReloadFailureBlocksFurtherEdits`) |
+| D2, D3, D7 | fixed | the foreign-key gate `internal/save/mutate.go` (#42); `lockedTables` in `internal/ops/db.go` |
+| D4/D5/ARCH-7 | fixed | the "value is unchanged" text no longer exists |
+| D6 | open (live game) | the stack cap (`catalog.MaxStack`, #240, #280), the known-template check (#185) and the capacity check are in; `max_item_volume` is only displayed, never checked on give (`internal/ops/ops.go`), and `sqlite_sequence` is not read; two `, _ :=` still drop a query error in `giveRowsInTx`. What the game enforces needs a live check |
+| D8 | open (decision) | Restore refuses while edits are pending (`TestRestoreRefusesWithPendingEdits`); retention keeps the 60 newest plus the first and oldest (#273); no free-space check |
+| D9 | open (decision) | the game and the hash are checked again right before the rename (`internal/save/durable.go`, #297); a window of milliseconds remains and `SECURITY.md` does not say so |
+| ARCH-5 | fixed | build-then-swap `load()`; `TestFailedReloadLeavesThePreviousStateUsable` |
+| ARCH-6 | open (decision) | `requireEditableItem` and `GiveItem` check ownership before `Mutate` (`internal/ops/scope.go`); the transaction re-reads the row, so the result is a clean "not found"; only this editor's own requests can race |
+| QA-1, QA-2, QA-3 | fixed | `TestRestoreRefusesWhenTheFileChangedOnDisk`, `TestReadBackMismatchRestoresThePreviousBytes`, `TestWriteConsoleAllowlist` |
+| QA-4 | open (hygiene) | real-schema fixtures are used in about 40 test files; `newOps` (toy schema) remains in `ops_test.go` |
+| QA-5 | fixed | `TestGiveItemsQueueIsAtomicAndUsesDistinctSlots`, `TestWriteConsoleIsAtomicAcrossStatements` |
+| QA-6 | open (decision) | `RepairGear` is one `Mutate`; the real schema offers no natural way to make its update fail half way |
+| QA-7 | open (hygiene) | wall-clock bounds in `sqlconsole_test.go`, `bounded_work_test.go`, `repairbuildings_test.go` |
+| QA-8 | accepted risk | hooks are package globals, guarded by `TestTestHooksAreNotCalledByProductionCode`; no test uses `t.Parallel` |
+| QA-9 | accepted risk | as recorded on 2026-10-07 |
+| QA-10 | fixed | `goos` and `tasklistOutput` are injectable in `gameproc.go` |
+| UX-4 | fixed | #214, readable backups with a typed word to restore |
+| UX-5 | fixed | #324: a failed statement is shown in the result area and clears the old result |
+| UX-6 | fixed | #304: a refused export is shown, not downloaded |
+| UX-7 | fixed | the typed value goes back after a refusal (`editInput`); toasts have `role=alert` (#214) |
+| N-1, S6 | fixed | `internal/ops/sqlvet.go` checks quoted names and literals by content |
+| S7 | open (decision) | the write console is bounded (15 s, `TestAWriteStatementThatNeverEndsIsStoppedAndNothingIsChanged`); `Tables()`, `Query()` and `inspect()` have no timeout |
+| S8 | fixed | #302 refuses `zeroblob` and `randomblob` in both consoles; `pragma_database_list` is refused |
+| N-2 | fixed | decoded copies live in a folder of their own, named by process, swept at start (#298) |
+| N-3 | open (live game) | UNC, network and removable drives need a confirmation (#202); whether the game's cloud sync touches the backups folder "has not been tested" (README) |
+| C-1 | fixed | the reusable workflow is pinned by commit (#277) |
+| C-2 | open (decision) | the label and the target are whitelisted before they enter the remote command; the host key is trusted on first use |
+| C-3 | fixed | `govulncheck` for both builds in CI; Dependabot covers gomod, actions and npm |
+| G-4, G-5, G-6 | fixed | `schema.sql` references are consistent (`testsave_test.go` pins it against the evidence file); CHANGELOG and README reworked (#186, #205, #275) |
+| G-7, G-8 | accepted risk | no CONTRIBUTING.md; the pull request template covers it |
+| CR-1, CR-2 | fixed | not-found is an error for the Landsraad task and decree; the "40 write sites" wording is gone |
+| CR-3 | accepted risk | `RepairGear` is all-or-nothing by design |
+| P1, P2, P3, P4, P5, P9, P10, P11, P13 | fixed | `internal/diff/diff_test.go`; the CLI flags exist in `cmd/tabr-tau/main.go`; the PR says "Refs #7". C1 control characters (0x80-0x9f) are not stripped by `clean`: negligible |
+| P6 | fixed | build-then-swap `load()`; a reload failure blocks edits |
+| P7, P8, P12 | obsolete | the review view, `WithBaselineState` and the comparison under the save lock are gone (`Compare` now runs only in `tabr-tau diff`) |
+| S2-3, S2-6, S2-7, S2-8, S2-9, S2-12, S2-14 | fixed | Restore refuses with pending edits; stable error `code`s (#292); light `/api/save/state` and a 3 s cached game check; "Lost contact" banner; the `ask()` dialog is named, inert behind, Tab-trapped, restores focus (#282); docs rewritten; `--warn` and small-screen layout (#244, #289) |
+| S2-1, S2-2, S2-4, S2-5, S2-10, S2-11, S2-13 | obsolete | review token, `CommitReviewed`, `force` and the review pane's UI are gone |
+| S2-15, S2-16 | accepted risk | requests without Origin or Sec-Fetch-Site are allowed and the cookie is the control (`SECURITY.md`, "Known limits"); the pending list is raw, same-origin and cookie-gated |
+
 ## Disposition summary
 - CRITICAL: none.
 - HIGH: 9 raised; 7 fixed in #38, D1 (container child deletes) fixed in #42, UX-3 deferred to S2 (#11).
