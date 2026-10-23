@@ -215,7 +215,7 @@ Two embedded datasets taken from the game's own tables carry no provenance or no
 
 | ID | Sev | STRIDE | Location | Finding | Status |
 |---|---|---|---|---|---|
-| GRC-6 | MEDIUM | R (provenance) | catalog/stacks.json, catalog/customization_unlocks.json, notices/THIRD-PARTY-NOTICES.md | Two embedded datasets taken from the game's own tables have no provenance or notice, against audit F-20 and against issue #61's "licence/ToS check first". | fixed (#PRN) |
+| GRC-6 | MEDIUM | R (provenance) | catalog/stacks.json, catalog/customization_unlocks.json, notices/THIRD-PARTY-NOTICES.md | Two embedded datasets taken from the game's own tables have no provenance or notice, against audit F-20 and against issue #61's "licence/ToS check first". | fixed (#279) |
 
 ## E11: Review-era code kept alive
 
