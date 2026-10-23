@@ -8,19 +8,19 @@ Severity scale: Critical, High, Medium, Low, Info. STRIDE: S spoofing, T tamperi
 
 | Group | Severity | Issue | Findings | Open |
 |---|---|---|---|---|
-| E1: Queued-edit replay writes stale values over the game's newer save | HIGH | #251 | 10 | 10 |
+| E1: Queued-edit replay writes stale values over the game's newer save | HIGH | #251 | 10 | 6 |
 | E2: Edits dropped or held by a rebase are not reported; the queue cannot be inspected | MEDIUM | #252 | 6 | 6 |
 | E3: Backups: the prune can delete the pre-session backup; the throttle trusts any file | MEDIUM | #253 | 7 | 7 |
 | E4: No persistent record of writes; bulk actions lost their confirmation | MEDIUM | #254 | 4 | 4 |
 | E5: Documents still describe the removed Review & save; a control removal merged without review | MEDIUM | #255 | 7 | 0 |
-| E6: Repository settings and CI configuration | MEDIUM | #256 | 10 | 10 |
+| E6: Repository settings and CI configuration | MEDIUM | #256 | 10 | 6 |
 | E7: Save lifecycle: locking, gates and timeouts | MEDIUM | #257 | 10 | 10 |
 | E8: Give and stack sizes: remaining gaps | MEDIUM | #258 | 4 | 4 |
 | E9: Local data exposure and the page guard | LOW | #259 | 5 | 5 |
 | E10: Embedded game-table datasets have no provenance notice | MEDIUM | #260 | 1 | 0 |
 | E11: Review-era code kept alive | LOW | #261 | 2 | 2 |
 | E12: Test gaps in the write path | MEDIUM | #262 | 4 | 4 |
-| E13: Repository hygiene: agent worktrees are untracked and not ignored | LOW | #263 | 3 | 3 |
+| E13: Repository hygiene: agent worktrees are untracked and not ignored | LOW | #263 | 3 | 1 |
 | E14: Editor UI: remaining polish | MEDIUM | #264 | 10 | 9 |
 
 ## E1: Queued-edit replay writes stale values over the game's newer save
@@ -33,11 +33,11 @@ A queued edit that stored a number computed from the old value (Solari +250, a s
 
 | ID | Sev | STRIDE | Location | Finding | Status |
 |---|---|---|---|---|---|
-| QA-1 | HIGH | T, D | `internal/save/flush.go:71-77`, `journal.go:292-342` (replay checks only the row count, ... | A queued edit that stores a number the editor computed from the old value (Solari +250, set stack, XP...) is replayed over the game's newer save and silently overwrites what the player earned in between. | open |
+| QA-1 | HIGH | T, D | `internal/save/flush.go:71-77`, `journal.go:292-342` (replay checks only the row count, ... | A queued edit that stores a number the editor computed from the old value (Solari +250, set stack, XP...) is replayed over the game's newer save and silently overwrites what the player earned in between. | fixed (#272: the queue is held, nothing is written, when a row an edit read was changed by the game; the operation is not re-run on the new values, see #251) |
 | DBA-1 | HIGH | T, R | internal/save/journal.go:292-356 (replayLocked/replayOp), flush.go:71-85 | When a replayed edit fails, later edits that address its rows by id are still replayed and land on the game's unrelated rows; the result is committed in the same Flush | open |
-| DBA-2 | MEDIUM | T | journal.go:312-342; ops.go:332 (top-up), :803 (AddSolari), augment.go:124 (stats rewrite) | Replay re-runs absolute values computed from the stale working copy: it silently overwrites what the game changed on the same row (lost update) | open |
-| DBA-3 | MEDIUM | T | ops.go:388-407 (id sequencer), journal.go:318-333 | The literal `next_id` and item id are replayed onto the newer file: the sequencer is moved backwards, and the id may belong to a game row | open |
-| DBA-5 | MEDIUM | T | ops.go:360-373 via journal replay; schema.sql:284-295 | Replay inserts the stale slot (`position_index`) and does not re-check capacity: two items in one slot, item count above max_item_count | open |
+| DBA-2 | MEDIUM | T | journal.go:312-342; ops.go:332 (top-up), :803 (AddSolari), augment.go:124 (stats rewrite) | Replay re-runs absolute values computed from the stale working copy: it silently overwrites what the game changed on the same row (lost update) | fixed (#272, as QA-1) |
+| DBA-3 | MEDIUM | T | ops.go:388-407 (id sequencer), journal.go:318-333 | The literal `next_id` and item id are replayed onto the newer file: the sequencer is moved backwards, and the id may belong to a game row | fixed (#272, as QA-1: the sequencer read is one of the reads compared) |
+| DBA-5 | MEDIUM | T | ops.go:360-373 via journal replay; schema.sql:284-295 | Replay inserts the stale slot (`position_index`) and does not re-check capacity: two items in one slot, item count above max_item_count | fixed (#272, as QA-1: the free-slot read is one of the reads compared) |
 | GRC-5 | MEDIUM | T, R | save/journal.go:205-224, save/save.go:597-598 | A journal that survives a successful write replays already-written edits (duplicate items). Reproduced. | open |
 | ARCH-2 | MEDIUM | T | `internal/save/save.go:587-598`, `internal/save/journal.go:210-214, 249-266` | A journal that outlives a successful write is replayed onto a file that already holds the edits (duplicates) | open |
 | DBA-10 | LOW | T, D | journal.go:98-105, 131-146, 219-243 | Journal fidelity and degraded modes: nil []byte becomes an empty blob, invalid UTF-8 is rewritten, float32 is widened, any ';' strands the queue, write errors are swallowed, no fsync | open |
@@ -142,11 +142,11 @@ The windows and ui jobs are not required checks; SECURITY.md sends reporters to 
 
 | ID | Sev | STRIDE | Location | Finding | Status |
 |---|---|---|---|---|---|
-| CLD-4 | MEDIUM | T, R | `gh api repos/Project-Arrakis/tabr-tau/branches/main/protection` -> ... | `windows` and `ui` jobs (`ci.yml:50-67`, `112-132`) are not required checks; Windows is the only platform the product runs on. | open |
-| CLD-5 | MEDIUM | R, I | `SECURITY.md:5-8` vs `gh api ... | SECURITY.md tells reporters to use GitHub private vulnerability reporting, which is switched off. The documented fallback is a public issue. | open |
-| CLD-6 | MEDIUM | T, E | `ci.yml:177-183` (`...reusable-security-scan.yml@main`); org-wf ... | A mutable `@main` reusable workflow in an unprotected branch runs inside tau's required checks and receives `SEMGREP_APP_TOKEN`. One stolen token or one bad push changes CI for all repos. | open |
+| CLD-4 | MEDIUM | T, R | `gh api repos/Project-Arrakis/tabr-tau/branches/main/protection` -> ... | `windows` and `ui` jobs (`ci.yml:50-67`, `112-132`) are not required checks; Windows is the only platform the product runs on. | fixed (`windows` and `ui` made required checks of `main` by the owner, 2026-10-22; `gh api repos/Project-Arrakis/tabr-tau/branches/main/protection` lists them; see #277) |
+| CLD-5 | MEDIUM | R, I | `SECURITY.md:5-8` vs `gh api ... | SECURITY.md tells reporters to use GitHub private vulnerability reporting, which is switched off. The documented fallback is a public issue. | fixed (private vulnerability reporting switched on by the owner, 2026-10-22; `gh api repos/Project-Arrakis/tabr-tau/private-vulnerability-reporting` -> `{"enabled":true}`; SECURITY.md already named it and keeps the issue fallback) |
+| CLD-6 | MEDIUM | T, E | `ci.yml:177-183` (`...reusable-security-scan.yml@main`); org-wf ... | A mutable `@main` reusable workflow in an unprotected branch runs inside tau's required checks and receives `SEMGREP_APP_TOKEN`. One stolen token or one bad push changes CI for all repos. | fixed (#277: the shared workflow is called by commit) |
 | CLD-7 | MEDIUM | D | `reusable-security-scan.yml:58-112` (three jobs, no `timeout-minutes`); `ci.yml:177-183` | The reusable jobs have no timeout (GitHub default is 360 min) and the caller cannot set one. They are three of the nine required checks. This is the same class as the govulncheck 40-minute hang. | open |
-| CLD-8 | LOW | D, T | `ci.yml:96-99` | PSScriptAnalyzer is installed from PSGallery with a pinned version but no retry, no cache and no integrity check; the job is a required check. | open |
+| CLD-8 | LOW | D, T | `ci.yml:96-99` | PSScriptAnalyzer is installed from PSGallery with a pinned version but no retry, no cache and no integrity check; the job is a required check. | fixed (#270: the install is tried three times, `ci.yml`; the Windows tests have 20 minutes) |
 | CLD-10 | LOW | T, R | protection: `required_approving_review_count:0`, `strict:false`, ... | Protection is sound against accidents (admins enforced, linear history, no force-push) but is soft: CODEOWNERS is inert, branches need not be up to date, commits need not be signed. | open |
 | CLD-11 | LOW | E | .github/workflows/ci.yml | Nothing enforces the convention that actions are pinned to a commit; fork-pull-request approval is relaxed after a contributor's first merge. | open |
 | CLD-12 | LOW | I | `git -C tabr-tau log --format=%ae` -> 30 commits by `ronald.yacketta@gmail.com` in public ... | The personal gmail address is the author email on 30 public commits (the others use the noreply address). | open |
@@ -255,9 +255,9 @@ The folder of agent worktrees (full source copies, 72 MB) is untracked and not i
 
 | ID | Sev | STRIDE | Location | Finding | Status |
 |---|---|---|---|---|---|
-| GRC-18 | LOW | T, I | .claude/ (untracked), `git worktree list` | `.claude/` is untracked and not ignored, with four stale registered worktrees, so the tree is not clean and `git add -A` would stage embedded repos. | open |
-| CLD-13 | LOW | I | `git status` -> `?? .claude/`; `.gitignore` has no `.claude` entry; `.claude/worktrees/*` ... | `.claude/` (agent worktrees) is untracked and not ignored. A `git add -A` would commit repository copies and any local agent settings. | open |
-| QA-18 | INFO | - | .claude/worktrees | The untracked agent worktrees contain full duplicate copies of the repository and would be committed by git add -A. | open |
+| GRC-18 | LOW | T, I | .claude/ (untracked), `git worktree list` | `.claude/` is untracked and not ignored, with four stale registered worktrees, so the tree is not clean and `git add -A` would stage embedded repos. | partly (#271 ignores the folder; the stale registered worktrees are local to one checkout and are pruned there, not in the repository) |
+| CLD-13 | LOW | I | `git status` -> `?? .claude/`; `.gitignore` has no `.claude` entry; `.claude/worktrees/*` ... | `.claude/` (agent worktrees) is untracked and not ignored. A `git add -A` would commit repository copies and any local agent settings. | fixed (#271: `.claude/` is in `.gitignore`) |
+| QA-18 | INFO | - | .claude/worktrees | The untracked agent worktrees contain full duplicate copies of the repository and would be committed by git add -A. | fixed (#271, as CLD-13) |
 
 ## E14: Editor UI: remaining polish
 
