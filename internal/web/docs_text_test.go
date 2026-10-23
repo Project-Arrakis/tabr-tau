@@ -1,7 +1,10 @@
 package web
 
 import (
+	"io/fs"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -50,6 +53,35 @@ func TestChangelogUnreleasedHasNoDuplicateOrRunTogetherEntries(t *testing.T) {
 				t.Errorf("an entry is in [Unreleased] twice (lines %d and %d): %.80s", prev, n+1, line)
 			}
 			seen[line] = n + 1
+		}
+	}
+}
+
+// Public documents do not print a personal mailbox address (register row CLD-12 names the finding without the address).
+func TestNoPersonalMailboxAddressInThePublicDocuments(t *testing.T) {
+	re := regexp.MustCompile(`(?i)[a-z0-9._%+-]+@(gmail|googlemail|outlook|hotmail|live|yahoo|icloud|proton|protonmail)\.[a-z.]+`)
+	var files []string
+	for _, root := range []string{"../../docs", "../../README.md", "../../SECURITY.md", "../../CHANGELOG.md"} {
+		err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+			if err == nil && !d.IsDir() && strings.HasSuffix(p, ".md") {
+				files = append(files, p)
+			}
+			return err
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(files) < 5 {
+		t.Fatalf("the documents were not found: %v", files)
+	}
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if re.Match(b) {
+			t.Errorf("%s prints a personal mailbox address", f)
 		}
 	}
 }
