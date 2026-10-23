@@ -12,7 +12,7 @@ Severity scale: Critical, High, Medium, Low, Info. STRIDE: S spoofing, T tamperi
 | E2: Edits dropped or held by a rebase are not reported; the queue cannot be inspected | MEDIUM | #252 | 6 | 6 |
 | E3: Backups: the prune can delete the pre-session backup; the throttle trusts any file | MEDIUM | #253 | 7 | 7 |
 | E4: No persistent record of writes; bulk actions lost their confirmation | MEDIUM | #254 | 4 | 4 |
-| E5: Documents still describe the removed Review & save; a control removal merged without review | MEDIUM | #255 | 7 | 7 |
+| E5: Documents still describe the removed Review & save; a control removal merged without review | MEDIUM | #255 | 70 |
 | E6: Repository settings and CI configuration | MEDIUM | #256 | 10 | 10 |
 | E7: Save lifecycle: locking, gates and timeouts | MEDIUM | #257 | 10 | 10 |
 | E8: Give and stack sizes: remaining gaps | MEDIUM | #258 | 4 | 4 |
