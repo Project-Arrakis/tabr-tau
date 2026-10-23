@@ -22,6 +22,7 @@ Severity scale: Critical, High, Medium, Low, Info. STRIDE: S spoofing, T tamperi
 | E12: Test gaps in the write path | MEDIUM | #262 | 4 | 0 |
 | E13: Repository hygiene: agent worktrees are untracked and not ignored | LOW | #263 | 3 | 1 |
 | E14: Editor UI: remaining polish | MEDIUM | #264 | 10 | 0 |
+| E15: Independent review R6 of the 2026-10-23 commits (#300 to #347) | MEDIUM | #358 | 12 | 2 |
 
 ## E1: Queued-edit replay writes stale values over the game's newer save
 
@@ -279,3 +280,28 @@ Warning banners lost their colour (fixed in #244); dialogs lack aria-labelledby 
 | UX-38 | LOW | User-friendliness | `app.js:204, 859, 336`, `:785`, many | Empty states are a generic "Nothing here." (Bases shows it twice: card and "No base in this save yet."); Database shows "0 rows — showing 1–0" and the search placeholder is just "search"; the Summary "Level" tile is blank where others show "-". | fixed (#288) |
 | UX-39 | LOW | User-friendliness | `app.js:939, 910-912, 788, 482, 801, 808, 804` | Wording still mixed: "Hydration 70.1 -> 100." vs "XP 1 to 2"; Title Case card names; raw column headers (`time_stored`, `reason`, `vendor_id`, `id`); Landsraad Start and End are raw integers; reward lines show template ids; Vendor table shows vendor ids. | fixed (#249); vendor ids stay raw because the save has no vendor names |
 | UX-41 | LOW | Polish (a11y) | `app.css:2` | `--mut` on `--panel2` in the light theme is 4.08:1 (kv labels, tags, `.mut` inside kv); below 4.5. Elsewhere muted text is 4.9 to 5.4. No favicon; the title never changes per tab. | fixed (#282) |
+
+## E15: Independent review R6 of the 2026-10-23 commits (#300 to #347)
+
+Severity MEDIUM. Issue #358.
+
+A read-only review of 41 commits (no Critical, no High). Two Medium findings in the write path (a write whose read-back fails was applied twice on the next attempt; a journal that could not be kept up to date was replayed as if it were the whole queue) and a set of Low and Info findings about bulk actions, hardening and stale text. The reviewer reproduced M1 with a Windows file handle held exclusively after the rename (the test is kept in the repository as `readback_unverified_windows_test.go`); M2 was found by reading and is asserted by a test of its consequence (edits 1 to 5 kept, edit 6 not: the restart does not report "Applied 5").
+
+**Recommended fix.** M1: keep the hash of what was written through a failed read-back, treat "the file is what was written" as written before anything is written or put back again, retry the read-back. M2: mark an old journal that can no longer be updated as incomplete so a restart reports it. The rest as listed.
+
+| ID | Sev | STRIDE | Location | Finding | Status |
+|---|---|---|---|---|---|
+| R6-M1 | MEDIUM | T | `durable.go` (`installBlob`), `save.go` (`commit`), `flush.go` (`Flush`) | After the rename the read-back was tried twice with no pause; if both failed the answer said "the edits stay queued" although the file already had them, and the next write reloaded that file and put the queue onto it again (a give of 500 became 1,000). Reproduced. | fixed (#372): 5 tries over about 2 s; the hash of what was written is kept (journal too, with the number of edits it held); `Flush`, `Rebase` and `RestoreJournal` look at the file first (`settle.go`); the message says "written, but it could not be verified" |
+| R6-M2 | MEDIUM | T | `journal.go` (`writeJournal`, `noteWriting`, `RestoreJournal`) | When the journal could not be written the old journal stayed on disk and a restart put it back as the whole queue ("Applied 5" while edit 6 was lost); with the journal off the writing marker was not kept, so a stop between the rename and the removal of the journal replayed the old edits onto a file that had them. | fixed (#372): the old journal is marked incomplete (`pending.json.incomplete`, which also carries the marker); the restart sets it aside and reports which edits it held and that later ones may be missing |
+| R6-L1 | LOW | T | `clearcontainer.go`, `app.js` (`clearInv`) | The confirmed count was the top-level rows only; the items inside bags were not counted and a container that changed to other items of the same number was cleared. | fixed (#374): preview route, nested count, ids hash, 409 on a mismatch |
+| R6-L2 | LOW | T | `reset_level.go` | Reset level and XP could leave fewer total skill points than were spent. | fixed (#374): only unspent points are taken back; the dialog and the answer say how many stayed |
+| R6-L3 | LOW | T | `durable.go` (`inspect`), `readonly.go`, `save.go` (`WithBaseline`) | `trusted_schema(0)` was missing on three connections that open a save, against the CHANGELOG and register F-03 claim. | fixed (#376): added, a test asks every connection, a guard test fails for a new one |
+| R6-L4 | LOW | T | `reset_skills.go` | `charge` was read leniently (a non-boolean became false). | fixed (#374): `strictBool`, 422 `bad_argument` |
+| R6-L5 | LOW | R | README, `config.go` | README said config edits work the same way as saves; they had no read-back and the temp files of a crash were never swept. | fixed (#376): read-back, sweep at start (files older than the start by a minute, exact name), README says what is true. Not added: a whole-file hash check and a queue for config edits (an edit names its line and is refused if it changed; the game being open refuses the write) |
+| R6-L6 | LOW | - | register 2026-10-15, CHANGELOG, feature inventory, `snapshot.ps1` | Stale text: UX-08 `aria-pressed`, 400 for game_running and read_only, inventory counts, a 17-digit literal. | fixed (#376) |
+| R6-L7 | LOW | - | `app.js`, `journal.go` | The armed button ignored a press with `detail > 1` for good; the toast dismiss button had no aria-label; `skipJournal` overwrote `.skipped.99`. | fixed (#374: the first two; #372: the third) |
+| R6-I1 | INFO | I | `writelog.go` | The path redaction cut a path with spaces at the first space. | fixed (#376) |
+| R6-I2 | INFO | - | `ops.go`, `skills.go`, `landsraad.go`, `server.go` | `Args.Bool` still turns a non-boolean into the default in `complete`, `add`, `reset`, `disabled`, `ifClean` and the charge of Set rank. The page always sends booleans; the one that matters (the reset's `charge`, and the clear's `include_currency`) is strict now. | open (deferred): each would change the contract of a route that other tests and callers send loosely; do it route by route with `strictBool` (`reset.go`) |
+| R6-I3 | INFO | - | `app.js` | The exit prompt only warns about queued edits, not about a journal that is off for the session. | open (deferred): after #372 a restart reports the lost edits, so the person is told at the next start; the prompt can say it too |
+
+R6 also recorded that "Audit remediation complete" is not an accurate statement while the rows marked open in the registers remain (CLD-7, CLD-10, CLD-11, CLD-12, CLD-14, CLD-15, DBA-16, NET-8 and the 2026-10-15 and 2026-10-07 rows); the registers themselves are the statement.
