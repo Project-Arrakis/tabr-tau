@@ -21,7 +21,8 @@ const autoPassSQL = cisternSQL + twoVehiclesSQL + `
 insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (21,2,1,10,1000.0);
 insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values
   (201,21,1,0,'Helmet',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":10.0,"MaxDurability":100.0}]}',0),
-  (220,1,1,3,'Literjon',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{}]}',0);
+  (220,1,1,3,'Literjon',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{}]}',0),
+  (222,1,1,4,'Bloodsack_01',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{}]}',0);
 update actors set gas_attributes=jsonb('{"DuneHydrationAttributeSet":{"CurrentHydration":{"BaseValue":"70.000000","CurrentValue":"70.000000"}}}') where id=2;`
 
 func autoServer(t *testing.T, sql string, st settings.Settings) (*Server, string) {
@@ -68,6 +69,7 @@ func autoPassFile(t *testing.T, path string) map[string]any {
 		"vehicle":   one(`select json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability') v from vehicle_modules where id=11`),
 		"gear":      one(`select json_extract(stats,'$.FItemStackAndDurabilityStats[1].CurrentDurability') v from items where id=201`),
 		"container": one(`select coalesce(json_extract(stats,'$.FFillableItemStats[1].CurrentAmount'),0) v from items where id=220`),
+		"blood":     one(`select coalesce(json_extract(stats,'$.FFillableItemStats[1].CurrentAmount'),0) v from items where id=222`),
 		"hydration": one(`select json_extract(gas_attributes,'$.DuneHydrationAttributeSet.CurrentHydration.CurrentValue') v from actors where id=2`),
 	}
 }
@@ -76,7 +78,7 @@ func TestAutoPassIsOneEditOneBackupOneLogLine(t *testing.T) {
 	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true}) // the job switches say nothing: all on
 	s.RunStartupTasks()
 	note, warn := s.takeStartup()
-	for _, want := range []string{"Automatic refill saved ", "1 Water Cistern", "3 vehicle parts repaired", "1 worn or loadout item repaired", "1 water container filled", "your water filled", "backed up as"} {
+	for _, want := range []string{"Automatic refill saved ", "1 Water Cistern", "3 vehicle parts repaired", "1 worn or loadout item repaired", "1 water container filled", "1 blood sack filled", "your water filled", "backed up as"} {
 		if !strings.Contains(note, want) {
 			t.Errorf("note %q lacks %q", note, want)
 		}
@@ -85,7 +87,7 @@ func TestAutoPassIsOneEditOneBackupOneLogLine(t *testing.T) {
 		t.Fatalf("written at once: warn=%v pending=%v", warn, s.Save.Pending())
 	}
 	got := autoPassFile(t, s.Save.Path)
-	if got["water"] != int64(5000) || got["vehicle"] != 250.0 || got["gear"] != 100.0 || got["container"] != 1000.0 || got["hydration"] != "100.000000" {
+	if got["water"] != int64(5000) || got["vehicle"] != 250.0 || got["gear"] != 100.0 || got["container"] != 1000.0 || got["blood"] != 3000.0 || got["hydration"] != "100.000000" {
 		t.Fatalf("the written file: %v", got)
 	}
 	if n := len(s.Save.Backups()); n != 1 {

@@ -100,23 +100,10 @@ func (o *Ops) FillBloodSacks() (any, error) {
 		return nil, err
 	}
 	var st bloodSackState
-	// The sacks are looked at inside the edit, through the edit's own query, as the water refill does: what the edit read is kept with it, and an edit put back onto a
-	// newer file is not applied to a list made from the older one.
 	_, err = o.S.Mutate("fill blood sacks", func(m *save.Mut) error {
-		var lerr error
-		st, lerr = lookAtBloodSacks(m.Query, p.Pawn)
-		if lerr != nil {
-			return lerr
-		}
-		for _, t := range st.todo {
-			// The record is changed in place when it has the [header, values] pair; a missing or odd record is replaced by a whole new pair.
-			if _, err := m.Exec(`update items set stats=case
-				when json_type(stats,'$.FFillableItemStats[1]')='object'
-				then json_set(stats,'$.FFillableItemStats[1].CurrentAmount',?,'$.FFillableItemStats[1].FillableType','Blood')
-				else json_set(stats,'$.FFillableItemStats',json_array(json_array(),json_object('CurrentAmount',?,'FillableType','Blood'))) end
-				where id=?`, t.cap, t.cap, t.id); err != nil {
-				return err
-			}
+		var ferr error
+		if st, ferr = fillBloodSacksTx(m, p.Pawn); ferr != nil {
+			return ferr
 		}
 		if n := len(st.todo); n == 1 {
 			m.Desc = "Filled 1 blood sack"
@@ -130,4 +117,25 @@ func (o *Ops) FillBloodSacks() (any, error) {
 	}
 	return map[string]any{"ok": true, "filled": len(st.todo), "byTemplate": st.byKind, "alreadyFull": st.full, "holdingOther": st.other,
 		"unknown": st.unknownN, "skippedUnknown": st.skippedUnknown()}, nil
+}
+
+// fillBloodSacksTx is FillBloodSacks inside the edit m, for the character whose pawn actor is pawn, so it can share one edit with other jobs (the automatic
+// pass). The sacks are looked at through the edit's own query, as the water refill does: what the edit read is kept with it, and an edit put back onto a newer file
+// is not applied to a list made from the older one. It sets no description.
+func fillBloodSacksTx(m *save.Mut, pawn int64) (bloodSackState, error) {
+	st, err := lookAtBloodSacks(m.Query, pawn)
+	if err != nil {
+		return st, err
+	}
+	for _, t := range st.todo {
+		// The record is changed in place when it has the [header, values] pair; a missing or odd record is replaced by a whole new pair.
+		if _, err := m.Exec(`update items set stats=case
+			when json_type(stats,'$.FFillableItemStats[1]')='object'
+			then json_set(stats,'$.FFillableItemStats[1].CurrentAmount',?,'$.FFillableItemStats[1].FillableType','Blood')
+			else json_set(stats,'$.FFillableItemStats',json_array(json_array(),json_object('CurrentAmount',?,'FillableType','Blood'))) end
+			where id=?`, t.cap, t.cap, t.id); err != nil {
+			return st, err
+		}
+	}
+	return st, nil
 }

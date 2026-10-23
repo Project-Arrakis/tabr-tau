@@ -74,6 +74,7 @@ test('A refused change is shown as an error and the box goes back to what the se
   b.checked = false;
   b.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
   await ui.settle();
+  assert.deepEqual(posts(ui).map((p) => p.body), [{ autoRefillWater: false }], 'unticking sends false');
   assert.ok(ui.doc.querySelector('#toast .err').textContent.includes('damaged'), 'the reason is shown');
   assert.equal(card(ui).querySelector('[data-autojob="autoRefillWater"]').checked, true, 'redrawn from the server, not left unticked');
 });

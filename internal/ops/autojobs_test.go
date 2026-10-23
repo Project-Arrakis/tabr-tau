@@ -26,7 +26,8 @@ insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volum
 insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values
   (201,21,1,0,'Helmet',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":10.0,"MaxDurability":100.0}]}',0),
   (203,23,1,0,'Sword',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":20.0,"MaxDurability":100.0}]}',0),
-  (220,1,1,3,'Literjon',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{}]}',0);
+  (220,1,1,3,'Literjon',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{}]}',0),
+  (222,1,1,4,'Bloodsack_01',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{}]}',0);
 update actors set gas_attributes=jsonb('{"DuneHydrationAttributeSet":{"CurrentHydration":{"BaseValue":"70.000000","CurrentValue":"70.000000"}}}') where id=2;`
 
 func autoOps(t *testing.T) *Ops {
@@ -97,12 +98,12 @@ func TestAutoPassRunsEveryEnabledJobInOneEdit(t *testing.T) {
 	if len(pending) != 1 || !strings.HasPrefix(pending[0], "automatic pass: ") {
 		t.Fatalf("one edit for the whole pass, got %v", pending)
 	}
-	for _, id := range []string{"water", "power", "repair-vehicles", "repair-gear", "fill-containers", "fill-hydration"} {
+	for _, id := range []string{"water", "power", "repair-vehicles", "repair-gear", "fill-containers", "fill-hydration", "fill-blood"} {
 		if !hasDone(p, id) {
 			t.Errorf("job %s did nothing: %+v", id, p.Done)
 		}
 	}
-	for _, id := range []string{"fill-blood", "refuel"} {
+	for _, id := range []string{"refuel"} {
 		if hasDone(p, id) {
 			t.Errorf("job %s is not ready and must not run", id)
 		}
@@ -125,11 +126,14 @@ func TestAutoPassRunsEveryEnabledJobInOneEdit(t *testing.T) {
 	if r := mustOne(t, o, `select json_extract(stats,'$.FFillableItemStats[1].CurrentAmount') c, json_extract(stats,'$.FFillableItemStats[1].FillableType') k from items where id=220`); r["c"].(float64) != 1000 || r["k"] != "Water" {
 		t.Errorf("Literjon: %v", r)
 	}
+	if r := mustOne(t, o, `select json_extract(stats,'$.FFillableItemStats[1].CurrentAmount') c, json_extract(stats,'$.FFillableItemStats[1].FillableType') k from items where id=222`); r["c"].(float64) != 3000 || r["k"] != "Blood" {
+		t.Errorf("blood sack: %v", r)
+	}
 	if h := mustOne(t, o, `select json_extract(gas_attributes,'$.DuneHydrationAttributeSet.CurrentHydration.CurrentValue') h from actors where id=2`)["h"]; h != "100.000000" {
 		t.Errorf("hydration: %v", h)
 	}
 	sum := p.Summary()
-	for _, want := range []string{"Water Cistern", "Generator", "3 vehicle parts repaired", "2 worn or loadout items repaired", "1 water container filled", "your water filled"} {
+	for _, want := range []string{"Water Cistern", "Generator", "3 vehicle parts repaired", "2 worn or loadout items repaired", "1 water container filled", "your water filled", "1 blood sack filled"} {
 		if !strings.Contains(sum, want) {
 			t.Errorf("summary %q lacks %q", sum, want)
 		}
@@ -195,8 +199,8 @@ func TestAutoPassFailureInTheLastJobRollsEverythingBack(t *testing.T) {
 	if !errors.As(err, &je) || je.ID != "last" || je.Label != "The last job" || !errors.Is(err, boom) {
 		t.Fatalf("want a job error naming the last job, got %v", err)
 	}
-	if len(ran) != 6 {
-		t.Fatalf("the six ready jobs ran before the failure: %v", ran)
+	if len(ran) != 7 {
+		t.Fatalf("the seven ready jobs ran before the failure: %v", ran)
 	}
 	if autoState(t, o) != before {
 		t.Fatal("a failing job left the others' changes behind")
@@ -240,7 +244,7 @@ func TestAutoPassWithoutACharacterSkipsTheCharacterJobs(t *testing.T) {
 	if !hasDone(p, "water") || !hasDone(p, "power") || hasDone(p, "repair-vehicles") || hasDone(p, "fill-hydration") {
 		t.Fatalf("done: %+v", p.Done)
 	}
-	if len(p.Notes) != 4 || !strings.Contains(strings.Join(p.Notes, "|"), "skipped") {
+	if len(p.Notes) != 5 || !strings.Contains(strings.Join(p.Notes, "|"), "skipped") {
 		t.Fatalf("one note per skipped job: %v", p.Notes)
 	}
 }
@@ -338,5 +342,17 @@ func TestAutoPassRollsBackWhenARealJobFails(t *testing.T) {
 	}
 	if autoState(t, o) != before || len(o.S.Pending()) != 0 || o.S.Dirty() {
 		t.Fatal("the jobs before the failing one left changes behind")
+	}
+}
+
+// If a job says it did something but no row changed, the pass claims nothing: what is shown never goes beyond what was written.
+func TestAutoPassClaimsNothingWhenNoRowChanged(t *testing.T) {
+	o := autoOps(t)
+	jobs := []AutoJob{{ID: "liar", Label: "Liar", Ready: true, noChar: true, noun: "x", run: func(m *save.Mut, c player) (string, string, error) {
+		return "10 things done", "", nil
+	}}}
+	p, err := o.runAutoJobs(jobs, allJobs)
+	if err != nil || p.Changed || len(p.Done) != 0 || p.Summary() != "" || len(o.S.Pending()) != 0 {
+		t.Fatalf("%+v %v", p, err)
 	}
 }
