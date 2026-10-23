@@ -9,9 +9,13 @@ import (
 )
 
 // hashRows is a hash of the rows a query returned, in the order returned: every column of every row with its type, so 5 and 5.0 and '5' differ.
-func hashRows(rows []Row) string {
+func hashRows(rows []Row) string { return hashRowsDigest(rows, nil) }
+
+// hashRowsDigest is hashRows that also takes the digest of each blob longer than the 24 bytes the rows show (digs[i][column]): the text of such a blob stops at the 24th byte,
+// and a change after it must change the hash. A blob of 24 bytes or fewer hashes as it always did, so a journal kept by an earlier version still matches.
+func hashRowsDigest(rows []Row, digs []map[string]string) string {
 	h := sha256.New()
-	for _, r := range rows {
+	for ri, r := range rows {
 		keys := make([]string, 0, len(r))
 		for k := range r {
 			keys = append(keys, k)
@@ -22,7 +26,11 @@ func hashRows(rows []Row) string {
 			case []byte:
 				fmt.Fprintf(h, "%q=x:%x;", k, v)
 			default:
-				fmt.Fprintf(h, "%q=%T:%v;", k, v, v)
+				if ri < len(digs) && digs[ri][k] != "" {
+					fmt.Fprintf(h, "%q=%T:%v#%s;", k, v, v, digs[ri][k])
+				} else {
+					fmt.Fprintf(h, "%q=%T:%v;", k, v, v)
+				}
 			}
 		}
 		h.Write([]byte{'\n'})

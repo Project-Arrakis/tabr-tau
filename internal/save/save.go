@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	_ "embed"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -457,13 +458,23 @@ func queryTable(db querier, q string, args ...any) ([]string, [][]any, error) {
 func queryTableCtx(ctx context.Context, db interface {
 	QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error)
 }, limit int, q string, args ...any) ([]string, [][]any, error) {
+	cols, out, _, err := queryTableDigest(ctx, db, limit, q, args...)
+	return cols, out, err
+}
+
+// queryTableDigest is queryTableCtx that also returns, per row, the SHA-256 (hex) of every blob longer than the 24 bytes shown, by column index. The displayed text of a blob
+// stops at 24 bytes, so a hash of the rows an edit read must take this too or a change after the 24th byte goes unseen.
+func queryTableDigest(ctx context.Context, db interface {
+	QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error)
+}, limit int, q string, args ...any) ([]string, [][]any, []map[int]string, error) {
 	rs, err := db.QueryContext(ctx, q, args...)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer rs.Close()
 	cols, _ := rs.Columns()
 	out := [][]any{}
+	var digs []map[int]string
 	for rs.Next() {
 		if limit > 0 && len(out) >= limit {
 			break
@@ -474,13 +485,19 @@ func queryTableCtx(ctx context.Context, db interface {
 			ptrs[i] = &vals[i]
 		}
 		if err := rs.Scan(ptrs...); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
+		dig := map[int]string(nil)
 		for i, v := range vals {
 			switch x := v.(type) {
 			case []byte:
 				n := len(x)
 				if n > 24 {
+					sum := sha256.Sum256(x)
+					if dig == nil {
+						dig = map[int]string{}
+					}
+					dig[i] = hex.EncodeToString(sum[:])
 					x = x[:24]
 				}
 				vals[i] = fmt.Sprintf("<blob %dB> %x", n, x)
@@ -491,26 +508,40 @@ func queryTableCtx(ctx context.Context, db interface {
 			}
 		}
 		out = append(out, vals)
+		digs = append(digs, dig)
 	}
-	return cols, out, rs.Err()
+	return cols, out, digs, rs.Err()
 }
 
 // TxQuery is Query inside a transaction.
 func TxQuery(tx *sql.Tx, q string, args ...any) ([]Row, error) {
-	cols, rows, err := queryTable(tx, q, args...)
+	out, _, err := txQueryDigest(tx, q, args...)
+	return out, err
+}
+
+// txQueryDigest is TxQuery that also returns, per row, the digest of each long blob by column name (see queryTableDigest).
+func txQueryDigest(tx *sql.Tx, q string, args ...any) ([]Row, []map[string]string, error) {
+	cols, rows, digs, err := queryTableDigest(context.Background(), tx, 0, q, args...)
 	noteSQLError(q, err)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	out := make([]Row, 0, len(rows))
-	for _, r := range rows {
+	named := make([]map[string]string, len(rows))
+	for ri, r := range rows {
 		m := Row{}
 		for i, c := range cols {
 			m[c] = r[i]
+			if d := digs[ri][i]; d != "" {
+				if named[ri] == nil {
+					named[ri] = map[string]string{}
+				}
+				named[ri][c] = d
+			}
 		}
 		out = append(out, m)
 	}
-	return out, nil
+	return out, named, nil
 }
 
 // ReadOnlyTable runs an arbitrary query on a dedicated read-only connection (opened with mode=ro and
