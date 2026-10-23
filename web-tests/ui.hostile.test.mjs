@@ -2169,3 +2169,22 @@ test('Database: an export the server refuses shows its error and downloads nothi
   const good = await run([{ ok: true }]);
   assert.deepEqual(good.downloads, ['items.csv'], 'a good export still downloads');
 });
+
+test('the keyboard focus stays on the control that was used when the page is drawn again (register 2026-10-15, UX-07)', async () => {
+  const ui = await boot();
+  const focusThenClick = async (sel) => {
+    const before = ui.doc.querySelector(sel);
+    assert.ok(before, 'no control for ' + sel);
+    before.focus();
+    assert.equal(ui.doc.activeElement, before);
+    ui.click(sel); await ui.settle();
+    const after = ui.doc.querySelector(sel);
+    assert.ok(after && after.isConnected, 'the control is drawn again: ' + sel);
+    assert.notEqual(after, before, 'the page really was drawn again (' + sel + ')');
+    assert.equal(ui.doc.activeElement, after, 'focus is back on ' + sel + ', not on the page body');
+  };
+  await focusThenClick('[data-tab="db"]');
+  await focusThenClick('[data-sub="db:sql"]');
+  await focusThenClick('[data-sub="db:backups"]');
+  ui.dom.window.close();
+});
