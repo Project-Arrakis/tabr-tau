@@ -182,9 +182,19 @@ func (m *Mut) ExecContext(ctx context.Context, q string, args ...any) (sql.Resul
 // Query returns rows as maps, inside the edit's transaction. When the journal is on, what the edit read is kept (a hash of the rows) with what it ran: an edit
 // that worked out a value from the rows it saw (Solari +250, the next free slot, the next item id) is only put back onto a newer file if those rows are still the same.
 func (m *Mut) Query(q string, args ...any) ([]Row, error) {
-	rows, err := TxQuery(m.tx, q, args...)
-	if err == nil && m.keep {
-		rec := stmtRec{Q: q, Rd: true, H: hashRows(rows)}
+	rows, _, err := m.queryHashed(q, args...)
+	return rows, err
+}
+
+// queryHashed is Query that also returns the hash of the rows it got (blobs hashed whole, see hashRowsDigest), which putting an edit back compares with the one it kept.
+func (m *Mut) queryHashed(q string, args ...any) ([]Row, string, error) {
+	rows, digs, err := txQueryDigest(m.tx, q, args...)
+	if err != nil {
+		return rows, "", err
+	}
+	h := hashRowsDigest(rows, digs)
+	if m.keep {
+		rec := stmtRec{Q: q, Rd: true, H: h}
 		for _, a := range args {
 			j, ok := encodeArg(a)
 			if !ok {
@@ -194,7 +204,7 @@ func (m *Mut) Query(q string, args ...any) ([]Row, error) {
 		}
 		m.stmts = append(m.stmts, rec)
 	}
-	return rows, err
+	return rows, h, nil
 }
 
 // One returns the first row, or nil.
