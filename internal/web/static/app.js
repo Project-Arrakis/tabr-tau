@@ -780,11 +780,16 @@ function catalogList() {
 
 // ---------- BASES
 // ---------- BASES (the console's Bases panel inside Player > Bases: the base list, and for one base Power, Water, Inventory and Land Claim Editor)
-// The automatic refill switch, shown on both the Power and the Water tab because it refills both: water storage (cisterns, windtraps, Blood Purifiers) and power (generators, wind turbines, windtraps).
+// The automatic refill and repair card, shown on both the Power and the Water tab because the pass covers both: a master switch and one checkbox per job (base water and power, repairs, fills).
+// A job that is not available yet is listed, greyed, with the reason the server gives.
 function autoRefillCard(prefs) {
-  return html`<div class="card"><h3>Automatic refill of water and power</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
+  const jobs = prefs.jobs || [];
+  return html`<div class="card"><h3>Automatic refill and repair when the editor opens</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>
+    ${jobs.length ? html`<div role="group" aria-label="What the automatic pass does">${jobs.map((j) => html`<div class="row"><label class="${j.ready ? '' : 'mut'}"><input type="checkbox" data-autojob="${j.key}" aria-describedby="aj-${j.key}" ${j.on ? 'checked' : ''} ${j.ready ? '' : 'disabled'}> <b>${j.label}</b></label><span class="mut" id="aj-${j.key}">${j.desc}${j.ready ? '' : ' Not available yet: ' + j.reason + '.'}</span></div>`)}</div>` : ''}
+    ${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
+    ${prefs.lastProblem ? html`<p class="bad">${prefs.lastProblem}</p>` : ''}
     ${prefs.problem ? html`<p class="bad">${prefs.problem}</p>` : ''}
-    <p class="mut">When on, opening the editor refills water storage (Water Cisterns, Windtraps, Blood Purifiers) and power (generators, wind turbines, windtraps) and <b>saves straight away</b>, like every other change, so it applies the next time the game loads. It is skipped while a single-player session is running. The previous file is backed up first. Remembered between runs. The same switch is on the Power and Water tabs.</p></div>`;
+    <p class="mut">When the master switch is on, opening the editor runs the jobs ticked above as <b>one edit</b> and <b>saves straight away</b>, like every other change, so it applies the next time the game loads. Every job is ticked by default, the repairs too; the master switch is off until you turn it on. It acts only on what your character owns or carries: your own vehicles, worn equipment, loadout, inventories and bases. It is skipped while a single-player session is running (nothing is written or queued then). When nothing needs doing nothing is written. If one job fails, nothing is changed and the error is shown here. The previous file is backed up first. Remembered between runs. The same card is on the Power and Water tabs.</p></div>`;
 }
 // The console's Land Claim Editor: the claim as a grid of cells turned by the base's own yaw (north at the top), with the totem's cell,
 // the cells it has, and dotted "available" cells next to it. Click an available cell to add it, a chosen one to take it back (what is
@@ -1240,7 +1245,7 @@ const A = {
   jclear: () => { window.jq = ''; journeyList(); },
   jset: (d) => act(async () => { await api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }); JB = await api('/api/player/journey/browse'); journeyList(); toast('Journey updated' + NOT_SAVED); }, null),
   autoref: async (d) => {
-    if (!d.on && !(await ask({ title: 'Turn on automatic refill?', body: 'From now on, opening the editor refills water storage and power buildings and saves to your game file immediately, like every other change. The previous file is backed up each time, and nothing happens while a single-player session is running. It applies to whichever save file the editor opens.', ok: 'Turn on' }))) return;
+    if (!d.on && !(await ask({ title: 'Turn on automatic refill and repair?', body: 'From now on, opening the editor runs the jobs that are ticked on the card (refills water storage and power buildings, repairs your vehicles and your worn equipment and loadout, fills your water containers and your water, and so on) as one edit and saves to your game file immediately, like every other change. The previous file is backed up each time, and nothing happens while a single-player session is running. It applies to whichever save file the editor opens.', ok: 'Turn on' }))) return;
     act(async () => { const r = await api('/api/settings', { autoRefillOnOpen: !d.on }); toast('Automatic refill when the editor opens is now ' + (r.autoRefillOnOpen ? 'on' : 'off')); }, null);
   },
   claimShrink: async (d) => {
@@ -1368,6 +1373,11 @@ document.addEventListener('change', (e) => {
   const t = e.target;
   if (t.id == 'gt') { showGiveAugments(); return; }
   if (t.id == 'skCharge') { skCharge = t.checked; return; }
+  if (t.dataset.autojob) { // one job of the automatic pass switched on or off; the card is drawn again from what the server kept
+    const key = t.dataset.autojob, on = t.checked, label = ((t.closest('label') || {}).textContent || key).trim();
+    act(async () => { try { await api('/api/settings', { [key]: on }); } catch (e) { render(); throw e; } toast(label + ' is now ' + (on ? 'on' : 'off') + ' for the automatic pass'); }, null);
+    return;
+  }
   if (t.id == 'rsGrp') { rsGroup = t.value; researchList(); return; }
   if (t.id == 'tdsel') { const d = TD[+t.value]; if (d) { $('#tx').value = Math.round(d.x); $('#ty').value = Math.round(d.y); $('#tz').value = Math.round(d.z); } return; }
   if (t.id == 'lcLvl' && LC) { LC.level = +t.value; claimEditorDraw(); return; }
