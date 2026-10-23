@@ -51,6 +51,14 @@ async function act(fn, okMsg, refresh = true, immediate = false) {
   }
   catch (e) { toast(e.message, true); }
 }
+// What a box edited in place said before it was changed, and the sentence that reports the change: "Spice Melange: stack 5 → 10. To undo, set it back to 5."
+// There is no undo of its own: the old value is shown so that the person can type it again, and the backup holds the file as it was.
+const shownBefore = (t) => (t.tagName === 'SELECT' ? ((([...t.options].find((o) => o.defaultSelected)) || {}).text || '') : (t.dataset.orig !== undefined ? t.dataset.orig : t.defaultValue));
+const brief = (v) => { const s = String(v == null ? '' : v); return s === '' ? '(empty)' : s.length > 40 ? s.slice(0, 37) + '...' : s; };
+function changedMsg(t, what) {
+  const was = shownBefore(t), now = t.tagName === 'SELECT' ? (t.selectedIndex >= 0 ? t.options[t.selectedIndex].text : '') : t.value;
+  return `${what} ${brief(was)} → ${brief(now)}. To undo, set it back to ${brief(was)}.`;
+}
 // A box edited in place keeps what was typed until the server answers. If the edit is refused the box goes back to the value it had, so the
 // page never shows a value the save does not hold (UX-14); if it is accepted, that value is the one to go back to next time.
 async function editInput(t, fn, okMsg, immediate = false) {
@@ -388,6 +396,29 @@ function endAsk(v) {
 }
 document.addEventListener('input', (e) => { if (askState && e.target.id === 'atype') $('#aok').disabled = e.target.value.trim().toLowerCase() !== askState.typed.toLowerCase(); });
 
+// ---------- one-button confirmation
+// A button with data-confirm acts on every base at once and is written at once, so the first press only asks: the same button turns into "Yes, ..." for a few seconds and
+// the second press runs it. Pressing anything else, leaving the button or pressing Escape cancels. It is inline on purpose (no dialog to trap the keyboard) and the
+// change of wording is also said aloud through the page's live region.
+const ARM_MS = 8000;
+let armed = null; // { btn, label, timer }
+const sayAloud = (msg) => { const r = $('#sr'); if (r) r.textContent = msg; };
+function disarm() {
+  if (!armed) return;
+  clearTimeout(armed.timer);
+  const { btn, label } = armed;
+  armed = null;
+  if (btn.isConnected) { btn.textContent = label; btn.removeAttribute('data-armed'); }
+  sayAloud('');
+}
+function arm(btn) {
+  disarm();
+  armed = { btn, label: btn.textContent, timer: setTimeout(disarm, ARM_MS) };
+  btn.dataset.armed = '1';
+  btn.textContent = btn.dataset.confirm;
+  sayAloud(`${btn.dataset.confirm}? Press the button again within ${ARM_MS / 1000} seconds to do it, or press Escape to cancel.`);
+}
+
 // ---------- the queue: an edit is written to the game's file as it is made; while the file cannot be written (the game is in a single-player session) edits wait here
 $('#btnDiscard').onclick = async () => { if (await ask({ title: 'Discard the queued changes?', body: `These ${lastPending.length} ${lastPending.length === 1 ? 'change is' : 'changes are'} waiting for the game to close and would be dropped. The game file is not touched.`, list: lastPending, ok: 'Discard', danger: true })) act(() => api('/api/save/discard', {}), 'Discarded', true, true); };
 
@@ -456,8 +487,8 @@ async function playerSection(s) {
       <div class="sub">${G.map(([k, v]) => html`<button data-invg="${k}" class="${grp == k ? 'on' : ''}">${v} (${counts[k]})</button>`)}</div>
       <div class="row"><input id="invq" placeholder="Filter by name, item ID, or template" size="34" value="${invQ}"><button class="b sec" data-act="invfilter">Filter</button><button class="b sec" data-act="invclear">Clear</button><span class="mut">${countText(rows.length, counts[grp], 'item', 'items', terms.length > 0)}${slots}</span></div>
       ${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) },
-        { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" value="${r.stack_size}" min="1" data-item="${r.id}" data-field="stack_size" class="w90">` },
-        { k: 'quality_level', label: 'Grade', f: (r) => html`<select data-item="${r.id}" data-field="quality">${[0, 1, 2, 3, 4, 5].map((n) => html`<option ${n == r.quality_level ? 'selected' : ''}>${n}</option>`)}</select>` },
+        { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" value="${r.stack_size}" min="1" data-item="${r.id}" data-field="stack_size" data-name="${itemName(r.template_id)}" class="w90" aria-label="Stack of ${itemName(r.template_id)}">` },
+        { k: 'quality_level', label: 'Grade', f: (r) => html`<select data-item="${r.id}" data-field="quality" data-name="${itemName(r.template_id)}" aria-label="Grade of ${itemName(r.template_id)}">${[0, 1, 2, 3, 4, 5].map((n) => html`<option ${n == r.quality_level ? 'selected' : ''}>${n}</option>`)}</select>` },
         { k: 'durability', label: 'Durability', f: (r) => (r.durability == null ? '' : Number(r.durability).toFixed(1) + (r.max_durability ? ' / ' + Number(r.max_durability).toFixed(0) : '')) },
         { k: 'augments', label: 'Augments', f: (r) => (r.augments || []).map((a) => html`<span class="tag" title="${a.name}${a.quality == null ? '' : ' (quality ' + a.quality + ')'}">${itemName(a.name)}</span>`) }], rows,
         { actions: (r) => html`${r.aug_limit ? html`<button class="b sec sm" data-act="augEdit" data-id="${r.id}">Augments</button>` : ''}<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>`, empty: terms.length ? 'No item in this group matches the filter.' : 'Nothing in this group.' })}</div>`;
@@ -476,7 +507,7 @@ async function playerSection(s) {
     ${invCard}`);
   } else if (c == 'reputation') {
     const f = await api('/api/player/factions');
-    h.push(html`<div class="card"><h3>Faction reputation</h3>${tbl([{ k: 'name', label: 'Faction' }, { k: 'reputation', label: 'Reputation', f: (r) => html`<input type="number" min="0" max="12474" value="${r.reputation}" data-faction="${r.faction_id}" class="w100">` }], f, { empty: 'This save has no factions.' })}<p class="mut">Range 0–12474. Edit and press Tab/Enter.</p></div>`);
+    h.push(html`<div class="card"><h3>Faction reputation</h3>${tbl([{ k: 'name', label: 'Faction' }, { k: 'reputation', label: 'Reputation', f: (r) => html`<input type="number" min="0" max="12474" value="${r.reputation}" data-faction="${r.faction_id}" data-name="${r.name}" class="w100" aria-label="Reputation with ${r.name}">` }], f, { empty: 'This save has no factions.' })}<p class="mut">Range 0–12474. Edit and press Tab/Enter.</p></div>`);
   } else if (s == 'specialization') {
     const sp = await api('/api/player/specs');
     const known = (r) => r.number != null;
@@ -596,7 +627,7 @@ function skillsList() {
   const bar = (m) => (m.known ? html`<span class="rankbar" title="rank ${m.rank} of ${m.max}">${'●'.repeat(m.rank)}${'○'.repeat(Math.max(0, m.max - m.rank))}</span>` : html`<span class="mut" title="not in the catalog: ${m.spent} points spent">?</span>`);
   setHTML($('#skout'), tbl([{ k: 'name', label: 'Skill', f: (m) => html`<span title="${m.id}">${m.name}</span>` }, { k: 'kind', label: 'Type' }, { k: 'rank', label: 'Rank', f: bar },
     { k: 'spent', label: 'Points', f: (m) => m.spent },
-    { k: 'max', label: 'Set rank', f: (m) => (m.known ? html`<select data-skill="${m.id}">${Array.from({ length: m.max + 1 }, (_, i) => html`<option ${i == m.rank ? 'selected' : ''}>${i}</option>`)}</select>` : html`<span class="mut">catalog does not know its ranks</span>`) }], rows));
+    { k: 'max', label: 'Set rank', f: (m) => (m.known ? html`<select data-skill="${m.id}" data-name="${m.name}" aria-label="Rank of ${m.name}">${Array.from({ length: m.max + 1 }, (_, i) => html`<option ${i == m.rank ? 'selected' : ''}>${i}</option>`)}</select>` : html`<span class="mut">catalog does not know its ranks</span>`) }], rows));
 }
 
 // Research and crafting recipes, as in Dune Docker's Research and Crafting tabs: a category, a filter, and an Unlock on each entry that is not
@@ -781,13 +812,13 @@ async function basesView() {
       const prefs = await api('/api/settings');
       h.push(html`<div class="card"><h3>Power</h3>${pw.types.length ? tbl([{ k: 'name', label: 'Building' }, { k: 'devices', label: 'Built' },
         { k: 'queued', label: 'Holds', f: (r) => Number(r.queued).toLocaleString() + (r.fuel ? ' ' + itemName(r.fuel) : '') }, { k: 'capacity', label: 'Full', f: (r) => (r.capacity ? Number(r.capacity).toLocaleString() : '-') }, { k: 'empty', label: 'Empty' }], pw.types) : html`<p class="mut">No generators, wind turbines or windtraps built at this base.</p>`}
-        <div class="row"><button class="b" data-act="refillGen">Refill power (every base)</button><span class="mut">Tops up Fuel-Powered and Spice-Powered Generators (499), Omnidirectional Wind Turbines (Low-grade Lubricant) and Directional Wind Turbines (Industrial-grade Lubricant), five stacks of 100 and 499 in all, and Windtraps and Large Windtraps (5 filters, always the best filter for the machine). Buildings that are only placeholders are left alone. </span></div></div>
+        <div class="row"><button class="b" data-act="refillGen" data-confirm="Yes, refill power on every base">Refill power (every base)</button><span class="mut">Tops up Fuel-Powered and Spice-Powered Generators (499), Omnidirectional Wind Turbines (Low-grade Lubricant) and Directional Wind Turbines (Industrial-grade Lubricant), five stacks of 100 and 499 in all, and Windtraps and Large Windtraps (5 filters, always the best filter for the machine). Buildings that are only placeholders are left alone. </span></div></div>
     ${autoRefillCard(prefs)}`);
     } else if (bsTab == 'water') {
       const w = await api('/api/bases/water?base=' + id);
       h.push(html`<div class="card"><h3>Water</h3>${w.types.length ? tbl([{ k: 'name', label: 'Building' }, { k: 'devices', label: 'Built' }, { k: 'stored', label: 'Water stored', f: (r) => Number(r.stored).toLocaleString() },
         { k: 'capacity', label: 'Capacity', f: (r) => (r.capacity ? Number(r.capacity).toLocaleString() : '-') }, { k: 'fillPercent', label: 'Fill', f: (r) => (r.fillPercent == null ? '-' : Math.round(r.fillPercent) + '%') }], w.types) : html`<p class="mut">No water storage at this base.</p>`}
-        <div class="row"><button class="b" data-act="refillWater">Refill base water (every base)</button><span class="mut">Fills every Water Cistern, Medium Water Cistern, Large Water Cistern, Windtrap, Large Windtrap and Blood Purifier to its capacity. The blood in a Blood Purifier is not touched, and a building that is only a placeholder is left alone.</span></div></div>
+        <div class="row"><button class="b" data-act="refillWater" data-confirm="Yes, refill water on every base">Refill base water (every base)</button><span class="mut">Fills every Water Cistern, Medium Water Cistern, Large Water Cistern, Windtrap, Large Windtrap and Blood Purifier to its capacity. The blood in a Blood Purifier is not touched, and a building that is only a placeholder is left alone.</span></div></div>
     ${autoRefillCard(await api('/api/settings'))}`);
     } else if (bsTab == 'inventory') {
       const inv = await api('/api/bases/inventory?base=' + id);
@@ -802,7 +833,7 @@ async function basesView() {
       const b = await api('/api/bases');
       const p = b.pieces || {};
       h.push(html`<div class="card"><h3>Structure health</h3><div class="grid">${kv('Building pieces', p.n)}${kv('Lowest health', fix(p.minh))}${kv('Average health', fix(p.avgh))}${kv('Total sand buildup', fix(p.sand))}</div>
-        <div class="row"><button class="b" data-act="repairB">Repair every base to max</button><button class="b sec" data-act="sand">Clear sand on every base</button><span class="mut">These two act on all of your bases, not only the one open above. Repair sets each piece to the highest health seen for its type.</span></div></div>`);
+        <div class="row"><button class="b" data-act="repairB" data-confirm="Yes, repair every base">Repair every base to max</button><button class="b sec" data-act="sand" data-confirm="Yes, clear sand on every base">Clear sand on every base</button><span class="mut">These two act on all of your bases, not only the one open above. Repair sets each piece to the highest health seen for its type.</span></div></div>`);
       h.push(html`<div class="card"><h3>Placeables (${b.placeables.length})</h3>${tbl([{ k: 'id' }, { k: 'building_type', label: 'Type' }, { k: 'health', label: 'Health', f: (r) => (r.health == null ? '' : fix(r.health)) }], b.placeables)}</div>
         <div class="card"><h3>Building piece types</h3>${tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], b.types)}</div>`);
     } else {
@@ -1082,7 +1113,7 @@ const A = {
   openInv: async (d) => {
     const it = await api('/api/bases/storage/items?inventory=' + encodeURIComponent(d.id));
     const cat = await loadCatalog(it.map((r) => r.template_id));
-    setHTML($('#inv'), html`<div class="card"><h3>Inventory ${d.id}</h3>${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" class="w90">` }], it, { actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` })}
+    setHTML($('#inv'), html`<div class="card"><h3>Inventory ${d.id}</h3>${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" data-name="${itemName(r.template_id)}" class="w90" aria-label="Stack of ${itemName(r.template_id)}">` }], it, { actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` })}
     <div class="row">${itemPicker("bt", cat)}Qty<input id="bq" type="number" value="1" min="1"><button class="b" data-act="giveInv" data-id="${d.id}">Add item</button></div></div>`);
   },
   giveInv: (d) => act(async () => { await api('/api/bases/give', { inventory_id: +d.id, template_id: needItem('bt'), quantity: +val('bq') }); toast('Item added' + NOT_SAVED); await A.openInv(d); }, null, false),
@@ -1120,6 +1151,10 @@ const A = {
   restore: async (d) => (await ask({ title: 'Restore this backup over the save?', body: 'Replace game.db with ' + d.n + '. The current file is backed up first. Close the game first.', ok: 'Restore', typed: 'restore', danger: true })) && act(() => api('/api/save/restore', { name: d.n }), 'Restored'),
 };
 document.addEventListener('click', (e) => {
+  const cf0 = e.target.closest('[data-confirm]');
+  if (armed && !(cf0 && cf0 === armed.btn)) disarm(); // anything but the second press of the same button cancels
+  if (cf0 && !cf0.dataset.armed) { e.preventDefault(); arm(cf0); return; }
+  if (cf0) disarm(); // the second press: the label goes back and the action below runs
   const keep = e.target.closest('summary[data-keep]');
   if (keep && Object.hasOwn(KEEP, keep.dataset.keep)) KEEP[keep.dataset.keep] = !keep.parentElement.open; // the toggle is about to flip
   const hth = e.target.closest('thead th');
@@ -1177,11 +1212,11 @@ document.addEventListener('change', (e) => {
   if (t.id == 'lcLvl' && LC) { LC.level = +t.value; claimEditorDraw(); return; }
   if (t.id == 'ctgrp') { ctGroup = t.value; catalogList(); return; }
   if (t.id == 'ctexp') { ctExp = t.checked; if (!ctExp && CT.rows.some((r) => r.experimental && r.group == ctGroup)) ctGroup = ''; catalogList(); return; }
-  if (t.dataset.skill) { act(async () => { const r = await api('/api/player/skills/module', { module: t.dataset.skill, level: +t.value, charge: skCharge }); toast(`Skill points ${r.pointsBefore} → ${r.pointsAfter}` + NOT_SAVED); }, null); return; }
-  if (t.dataset.item) editInput(t, () => api('/api/items/update', { id: +t.dataset.item, [t.dataset.field]: +t.value }), 'Item updated');
-  else if (t.dataset.faction) editInput(t, () => api('/api/player/factions', { faction_id: +t.dataset.faction, amount: +t.value }), 'Reputation set');
-  else if (t.classList.contains('cfgv')) editInput(t, () => api('/api/config/set', { name: cfgFile, section: t.dataset.section, key: t.dataset.key, value: t.value, line: +t.dataset.line }), 'Saved ' + t.dataset.key + ' to the config file now', true);
-  else if (t.classList.contains('dbc')) editInput(t, () => api('/api/db/update', { table: dbTable, ...(t.dataset.kind == '_key_' ? { key: t.dataset.rowid } : { rowid: +t.dataset.rowid }), column: t.dataset.col, value: t.value === '' && t.dataset.orig === '' ? null : t.value }), 'Cell updated');
+  if (t.dataset.skill) { const said = changedMsg(t, (t.dataset.name || 'Skill') + ': rank'); act(async () => { const r = await api('/api/player/skills/module', { module: t.dataset.skill, level: +t.value, charge: skCharge }); toast(`${said} Skill points ${r.pointsBefore} → ${r.pointsAfter}` + NOT_SAVED); }, null); return; }
+  if (t.dataset.item) editInput(t, () => api('/api/items/update', { id: +t.dataset.item, [t.dataset.field]: +t.value }), changedMsg(t, (t.dataset.name || 'Item') + ': ' + (t.dataset.field == 'quality' ? 'grade' : 'stack')));
+  else if (t.dataset.faction) editInput(t, () => api('/api/player/factions', { faction_id: +t.dataset.faction, amount: +t.value }), changedMsg(t, (t.dataset.name || 'Faction') + ': reputation'));
+  else if (t.classList.contains('cfgv')) editInput(t, () => api('/api/config/set', { name: cfgFile, section: t.dataset.section, key: t.dataset.key, value: t.value, line: +t.dataset.line }), changedMsg(t, t.dataset.key + ' written to the config file now:'), true);
+  else if (t.classList.contains('dbc')) editInput(t, () => api('/api/db/update', { table: dbTable, ...(t.dataset.kind == '_key_' ? { key: t.dataset.rowid } : { rowid: +t.dataset.rowid }), column: t.dataset.col, value: t.value === '' && t.dataset.orig === '' ? null : t.value }), changedMsg(t, 'Database ' + dbTable + '.' + t.dataset.col + ':'));
   else if (t.id == 'cfgsel') { cfgFile = t.value; render(); }
   else if (t.id == 'dbsel') { dbTable = t.value; dbOff = 0; dbQ = ''; render(); }
 });
@@ -1206,7 +1241,9 @@ setInterval(async () => {
     setHTML(gw, html`<b>Lost contact with the editor.</b> Changes are not written until it answers again. If you closed the editor, nothing more will be written.`);
   }
 }, 5000);
+document.addEventListener('focusout', (e) => { if (armed && e.target === armed.btn) disarm(); });
 document.addEventListener('keydown', (e) => {
+  if (armed && e.key === 'Escape') disarm();
   if (askState) { // the question owns the keyboard: Tab stays inside it, Enter completes a typed answer, Escape cancels
     if (e.key === 'Escape') endAsk(false);
     else if (e.key === 'Enter' && e.target.id === 'atype' && !$('#aok').disabled) endAsk(true);
