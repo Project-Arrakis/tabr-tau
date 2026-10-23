@@ -63,6 +63,10 @@ type Save struct {
 	lastWrote   [32]byte
 	lastBackup  string
 	lastBackupT time.Time
+	// the bytes of that backup when it was taken (it is reused only while they still are), and the first automatic backup of this session: the state before the editor's first
+	// write, which the pruning never removes
+	lastBackupHash [32]byte
+	firstBackup    string
 	// writing is the hash of the file being written, kept in the journal while it is written: a restart that finds the file to be that one knows the edits are already in it
 	writing string
 	// held is the queue the editor could not put back onto the game's newer file (an edit conflicted with what the game changed): none of it was written, and nothing new is
@@ -530,28 +534,33 @@ func hashOf(b []byte) [32]byte { return sha256.Sum256(b) }
 
 // backup copies the current file into the backup folder under a unique name, flushes it, and reads it back to
 // prove the copy is identical. A backup that cannot be verified is an error, so no edit proceeds on a bad one.
-func (s *Save) backup() (string, error) { return s.backupNamed("") }
+func (s *Save) backup() (string, error) {
+	p, _, err := s.backupNamed("")
+	return p, err
+}
 
-// backupNamed is backup with a tag in the file's name ("-auto" for the ones an automatic write takes: only those are ever removed by the pruning).
-func (s *Save) backupNamed(tag string) (string, error) {
+// backupNamed is backup with a tag in the file's name ("-auto" for the ones an automatic write takes: only those are ever removed by the pruning). It also returns the hash of
+// the bytes it copied.
+func (s *Save) backupNamed(tag string) (string, [32]byte, error) {
 	if err := os.MkdirAll(s.backupDir(), 0o700); err != nil {
-		return "", err
+		return "", [32]byte{}, err
 	}
 	ext := filepath.Ext(s.Path)
 	base := strings.TrimSuffix(filepath.Base(s.Path), ext)
 	b, err := readCapped(s.Path)
 	if err != nil {
-		return "", err
+		return "", [32]byte{}, err
 	}
-	dest := filepath.Join(s.backupDir(), fmt.Sprintf("%s-%s-%d%s%s", base, time.Now().Format("20060102-150405"), time.Now().UnixNano()%1_000_000_000, tag, ext))
+	now := time.Now()
+	dest := filepath.Join(s.backupDir(), fmt.Sprintf("%s-%s-%d%s%s", base, now.Format("20060102-150405"), now.UnixNano()%1_000_000_000, tag, ext))
 	if err := writeDurable(dest, b, 0o600); err != nil {
-		return "", err
+		return "", [32]byte{}, err
 	}
 	if back, err := readCapped(dest); err != nil || !bytes.Equal(back, b) {
 		os.Remove(dest)
-		return "", errors.New("backup verification failed; nothing was changed")
+		return "", [32]byte{}, errors.New("backup verification failed; nothing was changed")
 	}
-	return dest, nil
+	return dest, hashOf(b), nil
 }
 
 // Commit backs up the original file, then atomically writes the edited save. force skips only the check that the
@@ -601,7 +610,10 @@ func (s *Save) commit(force, quick bool) (map[string]any, error) {
 	if quick {
 		bak, err = s.backupIfStale()
 	} else {
-		bak, err = s.backup()
+		var sum [32]byte
+		if bak, sum, err = s.backupNamed(""); err == nil && sum != s.diskHash {
+			return nil, ErrChangedOnDisk // the game saved after the check above: the copy is not of the file the edits were made on
+		}
 	}
 	if err != nil {
 		return nil, err
