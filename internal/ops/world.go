@@ -144,7 +144,7 @@ func (o *Ops) BringVehicle(a Args) (any, error) {
 		return nil, err
 	}
 	if n == 0 {
-		return nil, apierr.New(apierr.NotFound, "vehicle not found among your vehicles")
+		return nil, apierr.New(apierr.ErrNotFound, "vehicle not found among your vehicles")
 	}
 	return ok(), nil
 }

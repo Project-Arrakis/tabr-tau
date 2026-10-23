@@ -366,19 +366,19 @@ func errorCode(err error) (string, int) {
 	switch {
 	case errors.Is(err, save.ErrChangedOnDisk):
 		return "changed_on_disk", http.StatusConflict
-	case errors.Is(err, apierr.QueueHeld):
+	case errors.Is(err, apierr.ErrQueueHeld):
 		return "queue_held", http.StatusConflict
-	case errors.Is(err, apierr.Queued):
+	case errors.Is(err, apierr.ErrQueued):
 		return "queued", http.StatusConflict
-	case errors.Is(err, apierr.GameBlocked):
+	case errors.Is(err, apierr.ErrGameBlocked):
 		return "game_running", http.StatusBadRequest
-	case errors.Is(err, apierr.ReadOnly):
+	case errors.Is(err, apierr.ErrReadOnly):
 		return "read_only", http.StatusBadRequest
-	case errors.Is(err, apierr.BadArgument):
+	case errors.Is(err, apierr.ErrBadArgument):
 		return "bad_argument", http.StatusUnprocessableEntity
-	case errors.Is(err, apierr.NotFound):
+	case errors.Is(err, apierr.ErrNotFound):
 		return "not_found", http.StatusNotFound
-	case errors.Is(err, apierr.BadRequest):
+	case errors.Is(err, apierr.ErrBadRequest):
 		return "bad_request", http.StatusBadRequest
 	}
 	return "", http.StatusBadRequest
@@ -432,7 +432,7 @@ func (s *Server) post(path string, fn func(a ops.Args) (any, error)) {
 		a := ops.Args{}
 		r.Body = http.MaxBytesReader(w, r.Body, 4<<20)
 		if err := json.NewDecoder(r.Body).Decode(&a); err != nil && err.Error() != "EOF" {
-			respond(w, nil, apierr.New(apierr.BadRequest, "invalid JSON body"))
+			respond(w, nil, apierr.New(apierr.ErrBadRequest, "invalid JSON body"))
 			return
 		}
 		v, err := fn(a)

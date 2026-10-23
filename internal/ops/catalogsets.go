@@ -249,7 +249,7 @@ func (o *Ops) GrantCustomizations(a Args) (any, error) {
 	}
 	bp, _ := o.S.One(`select id from inventories where actor_id=? and inventory_type=0 order by id limit 1`, p.Pawn)
 	if bp == nil {
-		return nil, apierr.New(apierr.NotFound, "player backpack not found")
+		return nil, apierr.New(apierr.ErrNotFound, "player backpack not found")
 	}
 	// What is already owned is read in the same transaction that adds the rest (audit L2 G09), so two overlapping calls cannot both grant
 	// the same set: the second finds it all there.
@@ -275,7 +275,7 @@ func (o *Ops) GrantCustomizations(a Args) (any, error) {
 			}
 		}
 		if !valid {
-			return apierr.New(apierr.BadArgument, "unknown set")
+			return apierr.New(apierr.ErrBadArgument, "unknown set")
 		}
 		if len(items) == 0 {
 			already = true
@@ -382,7 +382,7 @@ func (o *Ops) UnlockCustomizations(a Args) (any, error) {
 			}
 		}
 		if !matched {
-			return apierr.New(apierr.BadArgument, "unknown set or cosmetic")
+			return apierr.New(apierr.ErrBadArgument, "unknown set or cosmetic")
 		}
 		if len(todo) == 0 {
 			already = true

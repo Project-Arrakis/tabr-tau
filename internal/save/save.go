@@ -109,7 +109,7 @@ func (s *Save) WriteBlocked() string {
 }
 
 func errReadOnly(reason string) error {
-	return apierr.Newf(apierr.ReadOnly, "this save is read-only: %s", reason)
+	return apierr.Newf(apierr.ErrReadOnly, "this save is read-only: %s", reason)
 }
 
 // codeObjects returns the database objects that can carry logic, keyed by "type name", with their exact SQL.
@@ -584,7 +584,7 @@ func (s *Save) commit(force, quick bool) (map[string]any, error) {
 		return nil, err
 	}
 	if blocked, why := SaveBlocked(s.Path); !force && blocked {
-		return nil, apierr.New(apierr.GameBlocked, why)
+		return nil, apierr.New(apierr.ErrGameBlocked, why)
 	}
 	cur, err := readCapped(s.Path)
 	if err != nil {
@@ -682,10 +682,10 @@ func (s *Save) Restore(name string) error {
 		return errors.New("invalid backup name")
 	}
 	if blocked, why := SaveBlocked(s.Path); blocked {
-		return apierr.New(apierr.GameBlocked, why)
+		return apierr.New(apierr.ErrGameBlocked, why)
 	}
 	if s.dirty || s.held != nil { // restoring reloads the file and would silently drop the pending edits
-		return apierr.New(apierr.Queued, "changes are still queued; wait until they are written, or discard them, first (restoring a backup would lose them)")
+		return apierr.New(apierr.ErrQueued, "changes are still queued; wait until they are written, or discard them, first (restoring a backup would lose them)")
 	}
 	if err := s.requirePlainFile(); err != nil {
 		return err

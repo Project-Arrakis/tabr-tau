@@ -59,13 +59,13 @@ func (a Args) Float(k string) (float64, error) {
 	case string:
 		var err error
 		if f, err = strconv.ParseFloat(strings.TrimSpace(v), 64); err != nil {
-			return 0, apierr.Newf(apierr.BadArgument, "%s must be a number", k)
+			return 0, apierr.Newf(apierr.ErrBadArgument, "%s must be a number", k)
 		}
 	default:
-		return 0, apierr.Newf(apierr.BadArgument, "%s must be a number", k)
+		return 0, apierr.Newf(apierr.ErrBadArgument, "%s must be a number", k)
 	}
 	if math.IsNaN(f) || math.IsInf(f, 0) {
-		return 0, apierr.Newf(apierr.BadArgument, "%s must be an ordinary number, not NaN or infinity", k)
+		return 0, apierr.Newf(apierr.ErrBadArgument, "%s must be an ordinary number, not NaN or infinity", k)
 	}
 	return f, nil
 }
@@ -82,10 +82,10 @@ func (a Args) Int(k string) (int64, error) {
 		return 0, err
 	}
 	if f != math.Trunc(f) {
-		return 0, apierr.Newf(apierr.BadArgument, "%s must be a whole number", k)
+		return 0, apierr.Newf(apierr.ErrBadArgument, "%s must be a whole number", k)
 	}
 	if f < -maxExactInt || f > maxExactInt {
-		return 0, apierr.Newf(apierr.BadArgument, "%s is too large", k)
+		return 0, apierr.Newf(apierr.ErrBadArgument, "%s is too large", k)
 	}
 	return int64(f), nil
 }
@@ -96,7 +96,7 @@ func (a Args) IntRange(k string, lo, hi int64) (int64, error) {
 		return 0, err
 	}
 	if n < lo || n > hi {
-		return 0, apierr.Newf(apierr.BadArgument, "%s out of range (%d..%d)", k, lo, hi)
+		return 0, apierr.Newf(apierr.ErrBadArgument, "%s out of range (%d..%d)", k, lo, hi)
 	}
 	return n, nil
 }
@@ -355,7 +355,7 @@ func giveStacksInTx(m *save.Mut, inventoryID int64, template string, qty, qualit
 func giveInTx(m *save.Mut, inventoryID int64, template string, qty, quality int64) (int64, error) {
 	rows, err := m.Query(`select id, coalesce(max_item_count,0) cap from inventories where id=?`, inventoryID)
 	if err != nil || len(rows) == 0 {
-		return 0, apierr.New(apierr.NotFound, "inventory not found")
+		return 0, apierr.New(apierr.ErrNotFound, "inventory not found")
 	}
 	capacity := rows[0]["cap"].(int64)
 	used := map[int64]bool{}
@@ -426,10 +426,10 @@ func (o *Ops) knownTemplate(id string) bool {
 
 func (o *Ops) requireKnownTemplate(id string) error {
 	if !templateRe.MatchString(id) {
-		return apierr.Newf(apierr.BadArgument, "invalid template id %q: pick an item from the list", id)
+		return apierr.Newf(apierr.ErrBadArgument, "invalid template id %q: pick an item from the list", id)
 	}
 	if !o.knownTemplate(id) {
-		return apierr.Newf(apierr.BadArgument, "%q is not an item the editor knows (not in the item catalog and not in this save): pick an item from the list", id)
+		return apierr.Newf(apierr.ErrBadArgument, "%q is not an item the editor knows (not in the item catalog and not in this save): pick an item from the list", id)
 	}
 	return nil
 }
@@ -466,11 +466,11 @@ func (o *Ops) GiveItem(a Args) (any, error) {
 	if inv == 0 {
 		r, _ := o.S.One(`select id from inventories where actor_id=? and inventory_type=0 order by id limit 1`, p.Pawn)
 		if r == nil {
-			return nil, apierr.New(apierr.NotFound, "player backpack not found")
+			return nil, apierr.New(apierr.ErrNotFound, "player backpack not found")
 		}
 		inv = r["id"].(int64)
 	} else if r, _ := o.S.One(`select 1 x from inventories where id=? and actor_id=?`, inv, p.Pawn); r == nil {
-		return nil, apierr.New(apierr.BadArgument, "that inventory does not belong to the player")
+		return nil, apierr.New(apierr.ErrBadArgument, "that inventory does not belong to the player")
 	}
 	var ids []int64
 	if _, err := o.S.Mutate(fmt.Sprintf("Give %s x %s (grade %d)", commas(qty), itemLabel(tmpl), grantGrade(tmpl, q)), func(m *save.Mut) (e error) { ids, e = giveStacksInTx(m, inv, tmpl, qty, q); return }); err != nil {
@@ -491,10 +491,10 @@ func (o *Ops) GiveItems(a Args) (any, error) {
 	}
 	list, _ := a["items"].([]any)
 	if len(list) == 0 {
-		return nil, apierr.New(apierr.BadArgument, "the queue is empty")
+		return nil, apierr.New(apierr.ErrBadArgument, "the queue is empty")
 	}
 	if len(list) > maxGiveBatch {
-		return nil, apierr.Newf(apierr.BadArgument, "at most %d items at a time", maxGiveBatch)
+		return nil, apierr.Newf(apierr.ErrBadArgument, "at most %d items at a time", maxGiveBatch)
 	}
 	type line struct {
 		tmpl   string
@@ -506,7 +506,7 @@ func (o *Ops) GiveItems(a Args) (any, error) {
 	for i, e := range list {
 		m, ok := e.(map[string]any)
 		if !ok {
-			return nil, apierr.Newf(apierr.BadArgument, "item %d is not an object", i+1)
+			return nil, apierr.Newf(apierr.ErrBadArgument, "item %d is not an object", i+1)
 		}
 		_, tmpl, qty, q, err := o.giveArgs(Args(m))
 		if err != nil {
@@ -527,7 +527,7 @@ func (o *Ops) GiveItems(a Args) (any, error) {
 	}
 	r, _ := o.S.One(`select id from inventories where actor_id=? and inventory_type=0 order by id limit 1`, p.Pawn)
 	if r == nil {
-		return nil, apierr.New(apierr.NotFound, "player backpack not found")
+		return nil, apierr.New(apierr.ErrNotFound, "player backpack not found")
 	}
 	inv := r["id"].(int64)
 	ids := make([]int64, 0, len(lines))
@@ -569,7 +569,7 @@ func (o *Ops) GiveToInventory(a Args) (any, error) {
 		return nil, err
 	}
 	if inv == 0 {
-		return nil, apierr.New(apierr.BadArgument, "inventory_id is required")
+		return nil, apierr.New(apierr.ErrBadArgument, "inventory_id is required")
 	}
 	if err := o.requireBaseContainer(inv); err != nil {
 		return nil, err
@@ -620,7 +620,7 @@ func (o *Ops) SetItem(a Args) (any, error) {
 			return err
 		}
 		if old == nil {
-			return apierr.New(apierr.NotFound, "item not found")
+			return apierr.New(apierr.ErrNotFound, "item not found")
 		}
 		if max, known := catalog.MaxStack(fmt.Sprint(old["template_id"])); wantStack && known && stackEdit > max { // a slot holds no more than the item's stack size
 			return fmt.Errorf("%s stacks to %s: a stack of %s is not possible (use Give to add stacks)", itemLabel(fmt.Sprint(old["template_id"])), commas(max), commas(stackEdit))
@@ -632,7 +632,7 @@ func (o *Ops) SetItem(a Args) (any, error) {
 				return err
 			}
 			if n, _ := res.RowsAffected(); n == 0 {
-				return apierr.New(apierr.NotFound, "item not found")
+				return apierr.New(apierr.ErrNotFound, "item not found")
 			}
 			was, _ := old[e.col].(int64)
 			what := "stack"
@@ -674,7 +674,7 @@ func (o *Ops) DeleteItem(a Args) (any, error) {
 			return err
 		}
 		if n, _ := res.RowsAffected(); n == 0 {
-			return apierr.New(apierr.NotFound, "item not found")
+			return apierr.New(apierr.ErrNotFound, "item not found")
 		}
 		return nil
 	})
@@ -829,7 +829,7 @@ func (o *Ops) AddSolari(a Args) (any, error) {
 	}
 	delta, err := a.IntRange("amount", -1_000_000_000, 1_000_000_000)
 	if err != nil || delta == 0 {
-		return nil, apierr.New(apierr.BadArgument, "amount must be a non-zero integer")
+		return nil, apierr.New(apierr.ErrBadArgument, "amount must be a non-zero integer")
 	}
 	_, err = o.S.Mutate(fmt.Sprintf("solari %+d", delta), func(m *save.Mut) error {
 		// Solari are item stacks, and a slot holds no more than the item tables give (50,000): adding fills the stacks that are there and makes new ones, removing takes
@@ -851,7 +851,7 @@ func (o *Ops) AddSolari(a Args) (any, error) {
 				return err
 			}
 			if len(bp) == 0 {
-				return apierr.New(apierr.NotFound, "backpack not found")
+				return apierr.New(apierr.ErrNotFound, "backpack not found")
 			}
 			inv, _ = bp[0]["id"].(int64)
 		}
@@ -922,7 +922,7 @@ func (o *Ops) SetSpec(a Args) (any, error) {
 		return nil, err
 	}
 	if lvl < 0 || lvl > 100 {
-		return nil, apierr.New(apierr.BadArgument, "level out of range (0..100)")
+		return nil, apierr.New(apierr.ErrBadArgument, "level out of range (0..100)")
 	}
 	if _, err := o.run(fmt.Sprintf("specialization %d: xp=%d level=%g", t, xp, lvl), `insert into specialization_tracks(player_id, track_type, xp_amount, level) values(?,?,?,?)
 		on conflict(player_id, track_type) do update set xp_amount=excluded.xp_amount, level=excluded.level`, p.Controller, t, xp, lvl); err != nil {
@@ -948,7 +948,7 @@ func (o *Ops) JourneySet(a Args) (any, error) {
 	}
 	id := a.Str("node_id")
 	if !nodeRe.MatchString(id) {
-		return nil, apierr.New(apierr.BadArgument, "invalid node id")
+		return nil, apierr.New(apierr.ErrBadArgument, "invalid node id")
 	}
 	complete := a.Bool("complete", true)
 	state := jsonEmptyObj
@@ -1035,7 +1035,7 @@ func (o *Ops) TagSet(a Args) (any, error) {
 	}
 	tag := a.Str("tag")
 	if !nodeRe.MatchString(tag) {
-		return nil, apierr.New(apierr.BadArgument, "invalid tag")
+		return nil, apierr.New(apierr.ErrBadArgument, "invalid tag")
 	}
 	desc := fmt.Sprintf("tag %s updated", tag)
 	if a.Bool("add", true) {

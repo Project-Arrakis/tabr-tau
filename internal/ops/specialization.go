@@ -128,7 +128,7 @@ func (o *Ops) Specs(nums map[string]int64) (any, error) {
 // trackNumber is the learned number of a track, or an error saying how to learn it.
 func trackNumber(nums map[string]int64, track string) (int64, error) {
 	if !validTrack(track) {
-		return 0, apierr.New(apierr.BadArgument, "unknown specialization track")
+		return 0, apierr.New(apierr.ErrBadArgument, "unknown specialization track")
 	}
 	n, ok := nums[track]
 	if !ok {
@@ -158,7 +158,7 @@ func (o *Ops) AddSpecXP(nums map[string]int64, a Args) (any, error) {
 	}
 	amount, err := a.IntRange("amount", -maxSpecXP, maxSpecXP)
 	if err != nil || amount == 0 {
-		return nil, apierr.New(apierr.BadArgument, "amount must be a whole number from -44182 to 44182, not 0")
+		return nil, apierr.New(apierr.ErrBadArgument, "amount must be a whole number from -44182 to 44182, not 0")
 	}
 	p, err := o.player()
 	if err != nil {
@@ -267,10 +267,10 @@ func (o *Ops) ResetAllKeystones() (any, error) {
 // the new mapping to keep.
 func CheckAssign(nums map[string]int64, track string, number int64) (map[string]int64, error) {
 	if !validTrack(track) {
-		return nil, apierr.New(apierr.BadArgument, "unknown specialization track")
+		return nil, apierr.New(apierr.ErrBadArgument, "unknown specialization track")
 	}
 	if number < 0 || number > 255 {
-		return nil, apierr.New(apierr.BadArgument, "the track number must be from 0 to 255")
+		return nil, apierr.New(apierr.ErrBadArgument, "the track number must be from 0 to 255")
 	}
 	next := map[string]int64{}
 	for t, n := range nums {

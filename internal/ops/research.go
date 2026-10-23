@@ -274,7 +274,7 @@ func addRecipeTx(m *save.Mut, pawn int64, id string) (bool, error) {
 func (o *Ops) UnlockResearch(a Args) (any, error) {
 	key := a.Str("item_key")
 	if !researchKeyRe.MatchString(key) {
-		return nil, apierr.New(apierr.BadArgument, "invalid research key")
+		return nil, apierr.New(apierr.ErrBadArgument, "invalid research key")
 	}
 	kind, id, piece := unlockOf(key)
 	if id == "" {
@@ -394,7 +394,7 @@ func (o *Ops) Crafting() (any, error) {
 func (o *Ops) UnlockRecipe(a Args) (any, error) {
 	id := a.Str("recipe_id")
 	if !recipeIDRe.MatchString(id) {
-		return nil, apierr.New(apierr.BadArgument, "invalid recipe id")
+		return nil, apierr.New(apierr.ErrBadArgument, "invalid recipe id")
 	}
 	p, err := o.player()
 	if err != nil {

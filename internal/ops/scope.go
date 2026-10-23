@@ -43,7 +43,7 @@ func (o *Ops) requireEditableItem(item int64) error {
 		return err
 	}
 	if it == nil {
-		return apierr.New(apierr.NotFound, "item not found")
+		return apierr.New(apierr.ErrNotFound, "item not found")
 	}
 	inv, _ := it["inv"].(int64)
 	p, err := o.player()

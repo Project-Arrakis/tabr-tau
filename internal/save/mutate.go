@@ -227,7 +227,7 @@ func (s *Save) mutateLocked(desc string, cascade bool, fn func(m *Mut) error) (i
 		return 0, errReadOnly(s.blocked)
 	}
 	if s.held != nil && !s.replaying {
-		return 0, apierr.New(apierr.QueueHeld, "the queued changes conflict with what the game saved and were not written: discard them before making new ones")
+		return 0, apierr.New(apierr.ErrQueueHeld, "the queued changes conflict with what the game saved and were not written: discard them before making new ones")
 	}
 	if fn == nil {
 		return 0, errors.New("no edit given")

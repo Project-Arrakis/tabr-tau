@@ -18,11 +18,11 @@ func quoteIdent(name string) string { return `"` + strings.ReplaceAll(name, `"`,
 
 func (o *Ops) tableInfo(name string) ([]string, []string, error) {
 	if !identRe.MatchString(name) {
-		return nil, nil, apierr.New(apierr.BadArgument, "invalid table name")
+		return nil, nil, apierr.New(apierr.ErrBadArgument, "invalid table name")
 	}
 	rows, err := o.S.Query(`select name, type from pragma_table_info(?)`, name)
 	if err != nil || len(rows) == 0 {
-		return nil, nil, apierr.New(apierr.NotFound, "no such table")
+		return nil, nil, apierr.New(apierr.ErrNotFound, "no such table")
 	}
 	var cols, types []string
 	for _, r := range rows {
@@ -203,7 +203,7 @@ func (o *Ops) UpdateRow(a Args) (any, error) {
 		var vals []string
 		if s, isStr := a["key"].(string); isStr {
 			if err := json.Unmarshal([]byte(s), &vals); err != nil {
-				return nil, apierr.New(apierr.BadArgument, "key must be a JSON array of the primary-key values")
+				return nil, apierr.New(apierr.ErrBadArgument, "key must be a JSON array of the primary-key values")
 			}
 		}
 		if len(vals) != len(rk.pk) {
@@ -231,7 +231,7 @@ func (o *Ops) UpdateRow(a Args) (any, error) {
 	for i, c := range cols {
 		if c == col {
 			if types[i] == "BLOB" {
-				return nil, apierr.New(apierr.BadArgument, "BLOB columns cannot be edited here")
+				return nil, apierr.New(apierr.ErrBadArgument, "BLOB columns cannot be edited here")
 			}
 			var n int64
 			_, err := o.S.Mutate(fmt.Sprintf("update %s%s.%s", table, label, col), func(m *save.Mut) error {
@@ -249,12 +249,12 @@ func (o *Ops) UpdateRow(a Args) (any, error) {
 				return nil, err
 			}
 			if n == 0 {
-				return nil, apierr.New(apierr.NotFound, "no such row")
+				return nil, apierr.New(apierr.ErrNotFound, "no such row")
 			}
 			return ok(), nil
 		}
 	}
-	return nil, apierr.New(apierr.NotFound, "no such column")
+	return nil, apierr.New(apierr.ErrNotFound, "no such column")
 }
 
 // sqlRowLimit is how many rows a read-only query returns.

@@ -99,13 +99,13 @@ func TestEveryKindMapsToItsCodeAndStatus(t *testing.T) {
 	}{
 		{save.ErrChangedOnDisk, "changed_on_disk", 409},
 		{fmt.Errorf("wrapped: %w", save.ErrChangedOnDisk), "changed_on_disk", 409},
-		{apierr.New(apierr.QueueHeld, "held"), "queue_held", 409},
-		{apierr.New(apierr.Queued, "waiting"), "queued", 409},
-		{apierr.New(apierr.GameBlocked, "the game is running"), "game_running", 400},
-		{apierr.New(apierr.ReadOnly, "read-only"), "read_only", 400},
-		{apierr.New(apierr.BadArgument, "bad"), "bad_argument", 422},
-		{apierr.New(apierr.NotFound, "gone"), "not_found", 404},
-		{apierr.New(apierr.BadRequest, "not json"), "bad_request", 400},
+		{apierr.New(apierr.ErrQueueHeld, "held"), "queue_held", 409},
+		{apierr.New(apierr.ErrQueued, "waiting"), "queued", 409},
+		{apierr.New(apierr.ErrGameBlocked, "the game is running"), "game_running", 400},
+		{apierr.New(apierr.ErrReadOnly, "read-only"), "read_only", 400},
+		{apierr.New(apierr.ErrBadArgument, "bad"), "bad_argument", 422},
+		{apierr.New(apierr.ErrNotFound, "gone"), "not_found", 404},
+		{apierr.New(apierr.ErrBadRequest, "not json"), "bad_request", 400},
 	} {
 		w := httptest.NewRecorder()
 		respond(w, nil, c.err)

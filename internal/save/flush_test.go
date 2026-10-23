@@ -392,7 +392,7 @@ func TestAQueueThatConflictsWithTheGamesNewerFileIsHeldWholeAndNothingIsWritten(
 	}
 	if _, err := s.Mutate("another", func(m *Mut) error { _, err := m.Exec(`update jt set name='x' where a=1`); return err }); err == nil {
 		t.Fatal("nothing new is accepted while a queue is held")
-	} else if !errors.Is(err, apierr.QueueHeld) {
+	} else if !errors.Is(err, apierr.ErrQueueHeld) {
 		t.Fatalf("the refusal has the kind the web layer turns into the code queue_held: %v", err)
 	}
 	if again := s.Flush(); again.Saved || again.Why == "" {
