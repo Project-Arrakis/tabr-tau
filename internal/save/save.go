@@ -250,11 +250,11 @@ func (s *Save) load() error {
 	if err != nil {
 		return err
 	}
-	work, db, err := openCopy(raw, "tabr-tau-*.sqlite", "_pragma=journal_mode(delete)&_pragma=foreign_keys(0)")
+	work, db, err := openCopy(raw, "tabr-tau-*.sqlite", "_pragma=journal_mode(delete)&_pragma=foreign_keys(0)&_pragma=trusted_schema(0)")
 	if err != nil {
 		return err
 	}
-	rdb, err := sql.Open("sqlite", "file:"+filepath.ToSlash(work)+"?mode=ro&_pragma=busy_timeout(2000)&_pragma=query_only(1)")
+	rdb, err := sql.Open("sqlite", "file:"+filepath.ToSlash(work)+"?mode=ro&_pragma=busy_timeout(2000)&_pragma=query_only(1)&_pragma=trusted_schema(0)")
 	if err != nil {
 		db.Close()
 		os.Remove(work)
