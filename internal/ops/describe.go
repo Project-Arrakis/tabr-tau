@@ -7,7 +7,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 )
 
-// The review pane lists the edits as the person made them, so a description says what changed in the player's words: an item by its in-game
+// The banner lists the edits that are waiting to be written, as the person made them, so a description says what changed in the player's words: an item by its in-game
 // name with its id in brackets, and a value as "before -> after". "edit item 4521" and "currency 0 +100" told a reader neither what nor how
 // much (UX-04 of the 2026-10-15 audit).
 

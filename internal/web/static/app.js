@@ -960,10 +960,10 @@ async function dbView() {
       <div class="row"><button class="b sec" data-act="dbprev" ${dbOff <= 0 ? 'disabled' : ''}>Previous</button><button class="b sec" data-act="dbnext" ${dbOff + 100 >= d.total ? 'disabled' : ''}>Next</button></div>`);
     return;
   } else if (s == 'sql') {
-    h.push(html`<div class="card"><h3>SQL</h3><textarea id="sql" rows="5" placeholder="select * from items limit 20">${window.lastSql || 'select name from sqlite_master'}</textarea><div class="row"><button class="b" data-act="runsql">Run (read-only)</button><button class="b bad" data-act="execsql">Run as write</button><span class="mut">Write mode runs one or more statements atomically. They are written to game.db at once, after a backup (or queued while the game is in a single-player session).</span></div><div id="sqlout"></div></div>`);
+    h.push(html`<div class="card"><h3>SQL</h3><textarea id="sql" rows="5" placeholder="select * from items limit 20">${window.lastSql || 'select name from sqlite_master'}</textarea><div class="row"><button class="b" data-act="runsql">Run (read-only)</button><button class="b bad" data-act="execsql">Run as write</button><span class="mut">Write mode runs one or more statements atomically. They are written to game.db at once, after a backup. If the file cannot be written (for example a single-player session is running) they are queued and written by themselves when it can be.</span></div><div id="sqlout"></div></div>`);
   } else {
     const b = await api('/api/save/backups');
-    h.push(html`<div class="card"><h3>Save backups</h3><p class="mut">A backup of game.db is made every time you save from here. Restore requires the game to be closed.</p>${tbl([{ k: 'name', label: 'Backup' }, { k: 'size', label: 'Size', f: (r) => fmtBytes(r.size) }, { k: 'modified', label: 'Saved', f: (r) => fmtDate(r.modified) }], b, { actions: (r) => html`<button class="b sec sm" data-act="restore" data-n="${r.name}">Restore</button>`, empty: 'No backups yet. One is made before the first change is written.' })}</div>`);
+    h.push(html`<div class="card"><h3>Save backups</h3><p class="mut">A backup of game.db is taken before changes are written (one backup covers the changes made within two minutes) and before every restore. Restore requires the game to be closed.</p>${tbl([{ k: 'name', label: 'Backup' }, { k: 'size', label: 'Size', f: (r) => fmtBytes(r.size) }, { k: 'modified', label: 'Saved', f: (r) => fmtDate(r.modified) }], b, { actions: (r) => html`<button class="b sec sm" data-act="restore" data-n="${r.name}">Restore</button>`, empty: 'No backups yet. One is made before the first change is written.' })}</div>`);
   }
   setHTML($('#main'), html`${h}`);
 }
@@ -1035,7 +1035,7 @@ const A = {
   repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(`Repaired ${r.repaired} items` + NOT_SAVED); }, null),
   fillWater: () => act(async () => { const r = await api('/api/player/hydration', {}); toast(`Hydration ${Math.round(r.before * 10) / 10} → ${r.after}` + NOT_SAVED); }, null),
   refill: () => act(async () => { const r = await api('/api/player/refill', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} Literjons (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
-  delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). It is written at once, after a backup (or queued while the game is running).', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
+  delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). It is written at once, after a backup. If the file cannot be written (for example a single-player session is running) it is queued and written when it can be.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
   spec: (d) => { $('#st').value = d.t; $('#sx').value = d.xp; $('#sl').value = d.lv; },
   spKeyAll: async () => (await ask({ title: 'Grant all keystones?', body: 'Every specialization keystone of every track is bought. One edit.', ok: 'Grant all', danger: true })) && act(async () => { const r = await api('/api/player/specs/keystones/grant', {}); toast(r.granted ? `${r.granted} keystones granted` + NOT_SAVED : 'All keystones were already granted.'); }, null),
   spKeyReset: async () => (await ask({ title: 'Reset all keystones?', body: 'Every specialization keystone you have bought is removed. One edit.', ok: 'Reset all', danger: true })) && act(async () => { const r = await api('/api/player/specs/keystones/reset', {}); toast(r.removed ? `${r.removed} keystones reset` + NOT_SAVED : 'There were no keystones to reset.'); }, null),
@@ -1140,12 +1140,13 @@ const A = {
   },
   execsql: async () => {
     window.lastSql = val('sql');
-    if (!(await ask({ title: 'Run this SQL as a write?', body: 'This statement is written to the game file at once, after the usual backup (or queued while the game is running):', pre: window.lastSql, ok: 'Run', typed: 'write', danger: true }))) return;
+    if (!(await ask({ title: 'Run this SQL as a write?', body: 'This statement is written to the game file at once, after the usual backup. If the file cannot be written (for example a single-player session is running) it waits in the queue and is written when it can be:', pre: window.lastSql, ok: 'Run', typed: 'write', danger: true }))) return;
     try {
       const r = await api('/api/db/exec', { sql: window.lastSql });
       toast(r.changes + (r.changes === 1 ? ' row changed' : ' rows changed'));
-      await status();
-      setHTML($('#sqlout'), html`<p class="ok">${r.changes} ${r.changes === 1 ? 'row' : 'rows'} changed, and written to game.db (queued while the game is in a single-player session).</p>`);
+      let queued = false;
+      try { queued = (await status()).dirty; } catch (e) { /* the poll reports a lost connection; the statement itself ran */ }
+      setHTML($('#sqlout'), html`<p class="ok">${r.changes} ${r.changes === 1 ? 'row' : 'rows'} changed, ${queued ? 'and queued: it is written to game.db as soon as the file can be written.' : 'and written to game.db.'}</p>`);
     } catch (e) { toast(e.message, true); }
   },
   restore: async (d) => (await ask({ title: 'Restore this backup over the save?', body: 'Replace game.db with ' + d.n + '. The current file is backed up first. Close the game first.', ok: 'Restore', typed: 'restore', danger: true })) && act(() => api('/api/save/restore', { name: d.n }), 'Restored'),
@@ -1230,7 +1231,7 @@ autoBox.addEventListener('change', () => { try { localStorage.autoRefresh = auto
 status().then(render).then(async () => {
   try { const r = await api('/api/startup'); if (r.note) toast(r.note, !!r.warn, 15000); } catch (e) { /* the note is optional */ }
 });
-// Keeps the game-running warning current. A failed poll is shown, not hidden: Save stays off until contact returns.
+// Keeps the game-running warning current. A failed poll is shown, not hidden: writing stays off until contact returns.
 setInterval(async () => {
   if (document.hidden) return;
   try { await status(); } catch (e) {

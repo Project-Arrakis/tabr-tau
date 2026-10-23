@@ -435,7 +435,7 @@ func TestStateReportsAFileChangedOnDisk(t *testing.T) {
 	}
 }
 
-// The open-time refill is the one write that skips the review pane, so its gates are pinned (QA-1 of the 2026-10-15 audit): during a
+// The open-time refill writes without the person pressing anything, so its gates are pinned (QA-1 of the 2026-10-15 audit): during a
 // single-player session it writes nothing and leaves nothing pending, and it never folds someone else's unsaved edits into a save.
 func TestOpenTimeRefillWritesNothingDuringASinglePlayerSession(t *testing.T) {
 	s := New(testsave.PlayerWithSQL(t, cisternSQL), config.Dir{Path: t.TempDir()})

@@ -1,8 +1,9 @@
 # tabr-tau documentation index
 
-Start here. Status as of 2026-10-15: the editor is built and in use (Windows 10/11 only, one Go binary with a local web UI). The design
+Start here. Status as of 2026-10-22: the editor is built and in use (Windows 10/11 only, one Go binary with a local web UI). The design
 and Layer 1 audit of 2026-09-30 were carried out through governance (P0), security hardening (S0), the single write pipeline (S1),
-UX safety (S2) and most of the Player tabs (S3); three audit layers are on record (below). What is still open is in the open issues
+UX safety (S2; its review pane was replaced by writing each edit as it is made, #238) and most of the Player tabs (S3); four audit
+passes are on record (below). What is still open is in the open issues
 of the repository. Nothing in `docs/` contains account or platform IDs.
 
 | Read this | To learn |

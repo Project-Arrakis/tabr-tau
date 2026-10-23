@@ -33,7 +33,7 @@ func TestThePageHasNoWordsAboutAReviewOrSaveStep(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, bad := range []string{"Save to game", "Review &amp; save", "Review & save", "until you save", "not at Save", "review pane"} {
+		for _, bad := range []string{"Save to game", "Review &amp; save", "Review & save", "until you save", "not at Save", "review pane", "until you press", "Nothing reaches game.db"} {
 			if strings.Contains(string(b), bad) {
 				t.Errorf("%s still says %q", f, bad)
 			}

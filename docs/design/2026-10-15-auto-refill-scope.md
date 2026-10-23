@@ -1,5 +1,7 @@
 # Scope of the refill, repair and start-up auto-refill operations
 
+> Note (2026-10-22): the review pane this document describes ("Review & save", "Save to game", Save reachable only from the pane) was removed in #238. Every edit is now written to the game's file as it is made, or queued while the file cannot be written; see `SECURITY.md` and the E5 group of `audit/2026-10-22-L2-findings-register.md` for what stands in its place. The text below is kept as the record of the design at its date.
+
 Date: 2026-10-15. Issue: #165 (audit L2 G08, tracking issue #157). Status: record of what the code does today; one point is waiting for the owner.
 
 ## What the operations touch

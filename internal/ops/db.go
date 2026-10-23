@@ -44,7 +44,7 @@ var lockedTables = map[string]string{
 var identityColumns = map[string]bool{"account_id": true, "owner_account_id": true, "platform_id": true, "funcom_id": true, "platform_name": true, "user": true}
 
 // lockedColumns says why each column of a table cannot be edited by hand: it is part of the primary key, it links to another
-// table, or it identifies the account. Editing those through the review pane would still be possible, and could break the
+// table, or it identifies the account. Editing those by hand would still be possible, and could break the
 // links the game follows. The first return value is the reason for the whole table when it is locked.
 func (o *Ops) lockedColumns(table string, cols []string) (string, map[string]string) {
 	lt := strings.ToLower(table)

@@ -10,9 +10,11 @@ Operator: the repo owner. Operating rules: the Project Arrakis `meta` README (re
 work on branches and PRs (21), every finding filed as an issue with a STRIDE table (20), no secrets or IDs in the repo (5, 24),
 no AI co-author trailers in commits (operator rule), verify before asserting (12), documentation drift is a defect (14).
 
-## State (2026-10-15)
-- Done and merged: governance and CI (P0), security hardening of the original code (S0), the single write path `save.Mutate` with a
-  review pane, durable Commit/Restore and a foreign-key gate (S1, S2), the Player tabs mirrored from the console (S3) including
+## State (2026-10-22)
+- Edits are written to the game's file as they are made, or queued while the file cannot be written (#238); there is no review pane
+  and no Save step. What stands in its place is recorded in `docs/audit/2026-10-22-L2-findings-register.md` (E5) and `SECURITY.md`.
+- Done and merged: governance and CI (P0), security hardening of the original code (S0), the single write path `save.Mutate` with
+  durable writes, restore and a foreign-key gate (S1, S2), the Player tabs mirrored from the console (S3) including
   specialization, skills, research, crafting, Journey, augments, building sets and customizations, bases (power, water, inventory,
   land-claim editor), vehicles, teleport, faction, the Live Map drawn from the save, config and database tabs, and the automatic refill.
   The full list is in `CHANGELOG.md` and `README.md`.
@@ -30,8 +32,9 @@ no AI co-author trailers in commits (operator rule), verify before asserting (12
   `actors.gas_attributes.DuneHydrationAttributeSet.CurrentHydration`.
 - dune-docker uses RMQ only for live commands (give-item, XP, skill points, water, kick, broadcast, teleport, vehicle spawn).
   Single-player equivalents are direct save edits. Multiplayer-only tables (guilds, exchange, world_partition) do not exist.
-- The game rewrites game.db about every five minutes while a single-player session runs and again when it ends; a save onto a changed
-  file is refused (`ErrChangedOnDisk`). Close the game, or go to its menu, before editing.
+- The game rewrites game.db about every five minutes while a single-player session runs and again when it ends; an edit is never written
+  onto a file the game changed since it was read (`ErrChangedOnDisk`): the queued edits are put back onto the newer file first, and held
+  with a reason when they no longer apply. Close the game, or go to its menu, to have edits written; until then they are queued.
 - Vehicle module durability is absolute and set by the vehicle family and the part (`internal/ops/upkeep.go`); weapons, armor and tools
   use a 0 to 100 scale.
 
