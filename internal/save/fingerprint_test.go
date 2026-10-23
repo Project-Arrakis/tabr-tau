@@ -114,3 +114,19 @@ func TestLineEndingsDoNotMakeTheGameTriggerLookModified(t *testing.T) {
 		}
 	}
 }
+
+// A virtual table has rootpage 0 and, in a hand-crafted file, can be named like one of SQLite's own tables. Only the
+// internal tables (which have a root page) may be skipped by name, so this must still make the save read-only
+// (register 2026-10-07, S2 and S4).
+func TestFingerprintCatchesAVirtualTableNamedLikeAnInternalOne(t *testing.T) {
+	s := testsave.PlayerWithSQL(t, `pragma writable_schema=on;
+		insert into sqlite_master(type,name,tbl_name,rootpage,sql) values ('table','sqlite_evil','sqlite_evil',0,
+		'CREATE VIRTUAL TABLE sqlite_evil USING rtree(id, a, b)');`)
+	r := s.WriteBlocked()
+	if r == "" {
+		t.Fatal("a virtual table named sqlite_* must make the save read-only")
+	}
+	if !strings.Contains(r, "sqlite_evil") {
+		t.Errorf("reason %q should name the table", r)
+	}
+}
