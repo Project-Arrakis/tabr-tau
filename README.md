@@ -27,8 +27,8 @@ live-test protocol). Do not attach saves, `Game.ini`, snapshots or logs to issue
 
 | Tab | Features |
 |---|---|
-| **Player** | Profile, Solari, give / edit / delete items, repair gear, refill water containers, teleport, faction reputation, specialization tracks, tutorials, tags, Journey nodes (complete / reset), learned building recipes, vendor purchase limits and restock cycles (reset) |
-| **Player > Bases** | The console's Bases panel: your bases with Power, Water, Inventory (Storage, Refining, Crafting, Other) and Land Claim Editor tabs. Also:  Land claims (totems), expand or shrink a claim's size, raise its vertical level, teleport to base, structure health, repair all, clear sand buildup, refill base water and generator fuel (optionally when the editor opens), your base's storage containers (view / add / remove items), placeables |
+| **Player** | Profile, Solari, give / edit / delete items, clear a container (backpack, worn gear, loadout; keeps the Solari Coin stack unless asked), repair gear, refill water containers, teleport, faction reputation, specialization tracks, tutorials, tags, Journey nodes (complete / reset), learned building recipes, vendor purchase limits and restock cycles (reset) |
+| **Player > Bases** | The console's Bases panel: your bases with Power, Water, Inventory (Storage, Refining, Crafting, Other) and Land Claim Editor tabs. Also:  Land claims (totems), expand or shrink a claim's size, raise its vertical level, teleport to base, structure health, repair all, clear sand buildup, refill base water and generator fuel (optionally when the editor opens), your base's storage containers (view / add / remove items, or clear a container), placeables |
 | **Player > Vehicles** | Your own vehicles (the world's vehicles are hidden) and recovered vehicles, bring a vehicle to you, repair module durability (each module is made as good as new) |
 | **Saved map** | Hagga Basin and the Deep Desert as in the Dune Docker console, drawn from your save (as of its last write, not live): your character, vehicles, base, storage containers and the game's own map markers (ore, salvage, plants, enemy camps, places, trainers, hazards), with layers, pan, zoom and hover details |
 | **Landsraad** | Current term, decree pool, active decree, task board (fill progress, complete / reopen), rewards |
@@ -39,7 +39,7 @@ The **Player** tab mirrors the Dune Docker console's Players > Player Name view:
 
 ## Not built yet
 
-These console features are not in tabr-tau, and the page no longer shows a disabled button for them: **Blueprints** (waits for game data, #111), **Repair faction**, **Repair Landsraad quests**, **Wipe inventory**, **Reset progression** and **Spawn vehicle**. The console's server-only actions (kick, ban, login queue, recovering a deleted character) do not apply to a single-player save.
+These console features are not in tabr-tau, and the page no longer shows a disabled button for them: **Blueprints** (waits for game data, #111), **Repair faction**, **Repair Landsraad quests**, **Wipe inventory** (what exists is Clear this container, one container at a time), **Reset progression** and **Spawn vehicle**. The console's server-only actions (kick, ban, login queue, recovering a deleted character) do not apply to a single-player save.
 
 ## Words the editor uses
 
@@ -124,6 +124,7 @@ Every write feature has automated tests on a synthetic save built from the game'
 | Faction assignment | Tests only; stated as not yet in game | not recorded | `CHANGELOG.md` (#96) |
 | Unlock customizations directly (set, all sets, one cosmetic; library ids) | **In game** for ordinary cosmetics (a dye pack stayed and was usable). Store (MTX_) and DLC cosmetics are **removed by the game on load** unless the account owns them, so sets skip them and a single unlock warns | 2026-10-20 | `CHANGELOG.md` (#215, #217) |
 | Building Sets and Customizations: Give, Grant set, Unlock all; Unlock all research and recipes; Max all skills | Tests only; stated as not checked in game | not recorded | `CHANGELOG.md` (#122, #123, #124) |
+| Clear this container (#338; real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#338) |
 | Give item, Give water, Fill hydration, Give Items queue, Give Intel, Give currency, edit or delete an item | Tests only (the protocol's T1 and T1b for Give item have no recorded result) | none | `docs/live-test-protocol.md` |
 | Repair Gear (as good as new, #153) and the vehicle Repair Below % option | Tests only | none | `CHANGELOG.md` |
 | Teleport and Go to a place | Tests only | none | `CHANGELOG.md` (#67) |

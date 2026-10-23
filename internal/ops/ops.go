@@ -712,19 +712,25 @@ func (o *Ops) DeleteItem(a Args) (any, error) {
 			n, _ := old["stack_size"].(int64)
 			m.Desc = fmt.Sprintf("Delete %s x %s (item %d)", commas(n), itemLabel(fmt.Sprint(old["template_id"])), id)
 		}
-		res, err := m.Exec(`delete from items where id=?`, id)
-		if err != nil {
-			return err
-		}
-		if n, _ := res.RowsAffected(); n == 0 {
-			return apierr.New(apierr.ErrNotFound, "item not found")
-		}
-		return nil
+		return deleteItemRowTx(m, id)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return ok(), nil
+}
+
+// deleteItemRowTx removes one item row inside an edit that runs with the schema's cascades on (MutateCascade): everything that hangs from the item goes with it.
+// It is the one place an item is removed from a save; the single-item delete and the clearing of a container both call it.
+func deleteItemRowTx(m *save.Mut, id int64) error {
+	res, err := m.Exec(`delete from items where id=?`, id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return apierr.New(apierr.ErrNotFound, "item not found")
+	}
+	return nil
 }
 
 // gearDurability is the part of an item's FItemStackAndDurabilityStats the repair decides on. Absent or non-numeric values stay at their zero
