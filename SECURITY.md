@@ -42,13 +42,17 @@ your computer (they can edit your save directly).
   confirmed, the game check failed) the edits wait in a queue that is kept in a journal and listed on the page, and are written by
   themselves once the file can be written. If the game saved meanwhile, the queue is put back onto its newer file only when every edit still
   applies; if the game saved changes that conflict with it, none of it is written and the person is told.
+- The optional automatic pass when the editor opens (master switch off by default, one switch per job) is one edit like any other: the same
+  guards, one backup, one write-log line. It is skipped while a single-player session is running, writes nothing when nothing needs doing,
+  and a failing job rolls the whole pass back. It acts only on what the character owns or carries.
 - There is no review step before a write (the review pane was removed in #238). What stands in its place is the set of guards above at every
   write, the backups (Database > Save backups restores one), the queue with its list and its Discard control, and the confirmations that
   remain for destructive actions. The audit register records this replacement.
 - Every write is recorded: after the file has been written the editor appends one line to `write-log.jsonl` in its own folder
   (`%APPDATA%\tabr-tau`): when, how many edits, what they were in words, and the name of the backup taken before (a restore of a backup is
   recorded the same way). The words are the sentences the page lists as changes, so they can carry game ids and amounts ("Give 500 x ... to
-  container 12", "moved vehicle 201 next to player"). They do not carry a statement typed into the SQL console (only that one was run), the
+  container 12", "moved vehicle 201 next to player"); the optional pass when the editor opens is one line, "automatic pass: 1 Water Cistern;
+  11 vehicle parts repaired". They do not carry a statement typed into the SQL console (only that one was run), the
   primary-key value of a row edited in the Database view, a number of fifteen digits or more, a long hexadecimal id or GUID, or a file path.
   The log is capped: at 256 KB it becomes `write-log.1.jsonl` and a new file starts, so there are never more than two. It is created for the
   owner (mode 0600), but Windows does not apply that mode: the file has the permissions of your profile folder, normally readable by you and by

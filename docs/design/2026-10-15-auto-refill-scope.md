@@ -4,6 +4,8 @@
 
 Date: 2026-10-15. Issue: #165 (audit L2 G08, tracking issue #157). Status: record of what the code does today; one point is waiting for the owner.
 
+> Note (2026-10-23, #352): the start-up pass has grown. Besides base water and generators it can repair the character's own vehicles, repair worn equipment and loadout, fill water containers and fill the character's water (and, when those features exist, blood sacks and vehicle fuel), each with its own switch under the master switch, all as ONE edit (one backup, one write-log line). "Not part of it" below is therefore out of date for vehicle repair; Repair all to max (buildings) and Clear sand still never run at start-up. See README, "Automatic refill and repair".
+
 ## What the operations touch
 
 The refill and repair buttons are not per base. They work on the whole save:
