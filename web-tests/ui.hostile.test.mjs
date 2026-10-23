@@ -30,7 +30,7 @@ const read = (n) => fs.readFileSync(path.join(static_, n), 'utf8');
 // Allowlists: anything else appearing in the rendered DOM is an injection.
 const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h3 ul li code table thead tbody tr th td input select option datalist button details summary textarea br label canvas svg g rect text path'.split(' '));
 const SCRIPTS = new Set(['/html.js', '/livemap.js', '/app.js']); // the only scripts the page may contain, both same-origin files
-const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live aria-label aria-labelledby aria-describedby aria-sort inert tabindex label checked open viewbox x y rx transform d'.split(' '));
+const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live aria-label aria-labelledby aria-describedby aria-sort aria-current aria-pressed inert tabindex label checked open viewbox x y rx transform d'.split(' '));
 
 export function assertClean(doc, label) {
   const bad = [];
@@ -2186,5 +2186,28 @@ test('the keyboard focus stays on the control that was used when the page is dra
   await focusThenClick('[data-tab="db"]');
   await focusThenClick('[data-sub="db:sql"]');
   await focusThenClick('[data-sub="db:backups"]');
+  ui.dom.window.close();
+});
+
+test('the selected tab and sub-tab say so to assistive technology, and a map layer toggle says whether it is on (register 2026-10-15 UX-08, 2026-09-30 F-21)', async () => {
+  const data = { config: { key: 'HaggaBasin', label: 'Hagga Basin', image: '/maps/hagga-basin.png', width: 4096, height: 4096, minX: -456752, maxX: 354547, minY: -450630, maxY: 353821 },
+    maps: [{ key: 'HaggaBasin', label: 'Hagga Basin' }], character: { name: 'Me', x: 0, y: 0, z: 0 }, vehicles: [], bases: [], storage: [],
+    resourceFields: [{ kind: 'spice', size: 'Small', x: 5, y: 5, left: 5000 }], markers: [{ t: 'AzuriteOre', x: 4, y: 4, d: 1 }] };
+  const ui = await boot({ get: { '/api/livemap': data } });
+  const current = (sel) => [...ui.doc.querySelectorAll(sel)].filter((b) => b.getAttribute('aria-current') && b.getAttribute('aria-current') !== 'false');
+  ui.click('[data-tab="db"]'); await ui.settle();
+  assert.deepEqual(current('[data-tab]').map((b) => b.dataset.tab), ['db'], 'exactly the open tab is current');
+  ui.click('[data-sub="db:sql"]'); await ui.settle();
+  assert.deepEqual(current('[data-sub]').map((b) => b.dataset.sub), ['db:sql'], 'exactly the open sub-tab is current');
+  assert.ok(ui.doc.querySelector('[data-sub="db:browse"]').getAttribute('aria-current') === 'false', 'the others say false');
+  ui.click('[data-tab="livemap"]'); await ui.settle();
+  const toggles = [...ui.doc.querySelectorAll('.lm-layer')];
+  assert.ok(toggles.length >= 2, 'the layer toggles are drawn');
+  for (const t of toggles) assert.equal(t.getAttribute('aria-pressed'), 'true', 'a visible layer is pressed');
+  toggles[0].dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true }));
+  assert.equal(toggles[0].getAttribute('aria-pressed'), 'false', 'a hidden layer is not pressed');
+  assert.ok(toggles[0].classList.contains('off'));
+  toggles[0].dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true }));
+  assert.equal(toggles[0].getAttribute('aria-pressed'), 'true', 'and pressed again when shown');
   ui.dom.window.close();
 });
