@@ -22,6 +22,9 @@ insert into vehicle_modules(id,vehicle_id,template_id,stats) values
   (11,211,'Hull_0',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":100.0,"DecayedMaxDurability":250.0}]}')),
   (12,212,'Hull_0',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":100.0,"DecayedMaxDurability":250.0}]}')),
   (13,212,'Gen_0',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":240.0,"DecayedMaxDurability":250.0}]}'));
+insert into fgl_entities(entity_id,components) values
+  (-211, jsonb('{"FVehicleComponent":[34,{"CurrentFuel":10.0}]}')),(-212, jsonb('{"FVehicleComponent":[34,{"CurrentFuel":20.0}]}'));
+insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (211,-211,'Actor'),(212,-212,'Actor');
 insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (21,2,1,10,1000.0),(23,2,15,8,1000.0);
 insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values
   (201,21,1,0,'Helmet',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":10.0,"MaxDurability":100.0}]}',0),
@@ -98,15 +101,16 @@ func TestAutoPassRunsEveryEnabledJobInOneEdit(t *testing.T) {
 	if len(pending) != 1 || !strings.HasPrefix(pending[0], "automatic pass: ") {
 		t.Fatalf("one edit for the whole pass, got %v", pending)
 	}
-	for _, id := range []string{"water", "power", "repair-vehicles", "repair-gear", "fill-containers", "fill-hydration", "fill-blood"} {
+	for _, id := range []string{"water", "power", "repair-vehicles", "repair-gear", "fill-containers", "fill-hydration", "fill-blood", "refuel"} {
 		if !hasDone(p, id) {
 			t.Errorf("job %s did nothing: %+v", id, p.Done)
 		}
 	}
-	for _, id := range []string{"refuel"} {
-		if hasDone(p, id) {
-			t.Errorf("job %s is not ready and must not run", id)
-		}
+	if f := mustOne(t, o, `select json_extract(components,'$.FVehicleComponent[1].CurrentFuel') f from fgl_entities where entity_id=-211`)["f"].(float64); f != 100 {
+		t.Errorf("sandbike tank: %v", f)
+	}
+	if f := mustOne(t, o, `select json_extract(components,'$.FVehicleComponent[1].CurrentFuel') f from fgl_entities where entity_id=-212`)["f"].(float64); f != 240 {
+		t.Errorf("buggy tank: %v", f)
 	}
 	if water(t, o, -1001) != 5000 || water(t, o, -1002) != 5000 {
 		t.Errorf("base water: %d %d", water(t, o, -1001), water(t, o, -1002))
@@ -133,7 +137,7 @@ func TestAutoPassRunsEveryEnabledJobInOneEdit(t *testing.T) {
 		t.Errorf("hydration: %v", h)
 	}
 	sum := p.Summary()
-	for _, want := range []string{"Water Cistern", "Generator", "3 vehicle parts repaired", "2 worn or loadout items repaired", "1 water container filled", "your water filled", "1 blood sack filled"} {
+	for _, want := range []string{"Water Cistern", "Generator", "3 vehicle parts repaired", "2 worn or loadout items repaired", "1 water container filled", "your water filled", "1 blood sack filled", "2 vehicles refuelled"} {
 		if !strings.Contains(sum, want) {
 			t.Errorf("summary %q lacks %q", sum, want)
 		}
@@ -199,8 +203,8 @@ func TestAutoPassFailureInTheLastJobRollsEverythingBack(t *testing.T) {
 	if !errors.As(err, &je) || je.ID != "last" || je.Label != "The last job" || !errors.Is(err, boom) {
 		t.Fatalf("want a job error naming the last job, got %v", err)
 	}
-	if len(ran) != 7 {
-		t.Fatalf("the seven ready jobs ran before the failure: %v", ran)
+	if len(ran) != 8 {
+		t.Fatalf("the eight ready jobs ran before the failure: %v", ran)
 	}
 	if autoState(t, o) != before {
 		t.Fatal("a failing job left the others' changes behind")
@@ -244,7 +248,7 @@ func TestAutoPassWithoutACharacterSkipsTheCharacterJobs(t *testing.T) {
 	if !hasDone(p, "water") || !hasDone(p, "power") || hasDone(p, "repair-vehicles") || hasDone(p, "fill-hydration") {
 		t.Fatalf("done: %+v", p.Done)
 	}
-	if len(p.Notes) != 5 || !strings.Contains(strings.Join(p.Notes, "|"), "skipped") {
+	if len(p.Notes) != 6 || !strings.Contains(strings.Join(p.Notes, "|"), "skipped") {
 		t.Fatalf("one note per skipped job: %v", p.Notes)
 	}
 }

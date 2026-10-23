@@ -113,7 +113,7 @@ The Power and Water tabs of a base have an **Automatic refill and repair when th
 | Fill water containers | fills the Literjons and other water containers you carry |
 | Fill your water | fills the character's own water |
 | Fill blood sacks | fills the blood sacks you carry (the kinds whose capacity is known) |
-| Refuel vehicles | listed but greyed until the refuel feature (#349) arrives |
+| Refuel vehicles | fills the fuel tank of your own vehicles (the classes whose tank size is known) |
 
 It acts only on what your character owns or carries (your own vehicles, worn equipment, loadout, inventories and your bases); a vehicle of another owner or a vehicle of the world is never touched. A pass is one transaction: one backup, one line in the write log (`automatic pass: ...`). When nothing needs doing nothing is written, no backup is made and no line is logged. If a job fails the whole pass is undone and the card shows which job failed and why; the other jobs are not applied. The pass is skipped while a single-player session is running (nothing is written or queued then) and when edits from before are still queued; the previous file is backed up every time; a refused write leaves the edit queued with the reason. The card shows, per job, what the last automatic save did. It applies to whichever save the editor opens. A settings file from an earlier version has only the master switch: every job then starts ticked.
 

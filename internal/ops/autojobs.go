@@ -109,9 +109,15 @@ func AutoJobs() []AutoJob {
 				}
 				return many(len(st.todo), "blood sack filled", "blood sacks filled"), "", nil
 			}},
-		{ID: "refuel", Label: "Refuel vehicles", Key: "autoRefuelVehicles", Default: true, noun: "vehicle tanks",
-			Desc:   "Fills the fuel tank of your own vehicles.",
-			Reason: "arrives with the refuel feature"},
+		{ID: "refuel", Label: "Refuel vehicles", Key: "autoRefuelVehicles", Default: true, Ready: true, noun: "vehicle tanks",
+			Desc: "Fills the fuel tank of your own vehicles.",
+			run: func(m *save.Mut, c player) (string, string, error) {
+				st, err := refuelVehiclesTx(m, c.Controller)
+				if err != nil || len(st.todo) == 0 {
+					return "", "", err
+				}
+				return many(len(st.todo), "vehicle refuelled", "vehicles refuelled"), "", nil
+			}},
 	}
 }
 
