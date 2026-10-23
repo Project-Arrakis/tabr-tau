@@ -80,6 +80,8 @@ func (s *Server) KeepPendingEdits(dir string) {
 	switch {
 	case err != nil:
 		log.Printf("pending edits: could not read the journal: %v", err)
+	case r != nil && s.Save.Held() != nil:
+		log.Printf("pending edits: held, not written: %d of them conflict with the game's file", len(r.Conflicts))
 	case r != nil:
 		log.Printf("pending edits: %d put back, %d could not be", r.Applied, len(r.Conflicts))
 	}
