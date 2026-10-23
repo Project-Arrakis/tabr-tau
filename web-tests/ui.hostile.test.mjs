@@ -1945,6 +1945,56 @@ test('two presses of an armed bulk button less than 400 ms apart, or the second 
   ui.dom.window.close();
 });
 
+// ---------- accessibility, round 3 (review 2026-10-23, group C)
+test('the question box: its scrollable list is reachable by Tab and part of the trap, and Tab wraps through it', async () => {
+  const ui = await boot({ get: { '/api/save/state': queuedState(sessionBlock) } });
+  ui.click('#btnDiscard'); await ui.settle();
+  const list = ui.doc.querySelector('#ask ul.qlist');
+  assert.ok(list, 'the question lists the queued changes');
+  assert.equal(list.getAttribute('tabindex'), '0', 'a scrollable list can be focused to scroll it');
+  assert.ok(list.getAttribute('aria-label'), 'and has a name');
+  const cancel = ui.doc.querySelector('[data-act="askNo"]');
+  cancel.focus();
+  ui.doc.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+  assert.equal(ui.doc.activeElement, list, 'Tab from the last button wraps to the list, inside the box');
+  ui.doc.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }));
+  assert.equal(ui.doc.activeElement, cancel, 'and Shift+Tab goes back to the last button');
+  ui.dom.window.close();
+});
+
+test('after an action draws the page again, the keyboard focus is on the same control, not on the page body', async () => {
+  const ui = await boot({ post: { '/api/player/solari': { ok: true } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  const before = ui.doc.querySelector('[data-act="solari"]');
+  before.focus();
+  assert.equal(ui.doc.activeElement, before);
+  ui.click('[data-act="solari"]'); await ui.settle();
+  const after = ui.doc.querySelector('[data-act="solari"]');
+  assert.notEqual(after, before, 'the page was drawn again');
+  assert.equal(ui.doc.activeElement, after, 'and the new button has the focus');
+  ui.dom.window.close();
+});
+
+test('the map layer buttons say whether they are on (aria-pressed), and the tag remove link has a name', async () => {
+  const ui = await boot();
+  await goTo(ui, 'livemap');
+  const layers = [...ui.doc.querySelectorAll('.lm-layer[data-lmg]')];
+  assert.ok(layers.length > 0, 'the map has layer buttons');
+  for (const l of layers) assert.equal(l.getAttribute('aria-pressed'), l.classList.contains('on') ? 'true' : 'false', l.textContent);
+  const first = layers[0], was = first.getAttribute('aria-pressed');
+  first.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true }));
+  assert.equal(first.getAttribute('aria-pressed'), was === 'true' ? 'false' : 'true', 'the state follows the click');
+  ui.dom.window.close();
+  let found = 0;
+  for (const [tabName, ...subs] of VIEWS) {
+    const u = await boot();
+    await goTo(u, tabName, ...subs);
+    for (const a of u.doc.querySelectorAll('[data-act="tagDel"]')) { found++; assert.ok(/^Remove tag /.test(a.getAttribute('aria-label') || ''), 'the × link is named'); }
+    u.dom.window.close();
+  }
+  assert.ok(found > 0, 'a view with a tag to remove was found');
+});
+
 test('an inline edit reports the old and the new value and how to put it back (UX-29)', async () => {
   const inv = baseFixtures['/api/player/inventory'].body;
   const first = inv.items.find((r) => r.inventory_type == 0) || inv.items[0];

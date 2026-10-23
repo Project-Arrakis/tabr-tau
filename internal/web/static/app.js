@@ -410,7 +410,7 @@ function drawAsk() {
   if (!askState) { el.className = 'hide'; setHTML(el, html``); return; }
   const a = askState;
   el.className = 'modal top';
-  setHTML(el, html`<div class="mbox small" role="dialog" aria-modal="true" aria-labelledby="atitle" aria-describedby="abody"><h3 class="big" id="atitle" tabindex="-1">${a.title}</h3><p id="abody">${a.body}</p>${a.list.length ? html`<ul class="qlist">${a.list.map((l) => html`<li>${l}</li>`)}</ul>` : ''}${a.pre ? html`<pre class="sqlpre">${a.pre}</pre>` : ''}
+  setHTML(el, html`<div class="mbox small" role="dialog" aria-modal="true" aria-labelledby="atitle" aria-describedby="abody"><h3 class="big" id="atitle" tabindex="-1">${a.title}</h3><p id="abody">${a.body}</p>${a.list.length ? html`<ul class="qlist" tabindex="0" aria-label="The changes">${a.list.map((l) => html`<li>${l}</li>`)}</ul>` : ''}${a.pre ? html`<pre class="sqlpre" tabindex="0" aria-label="The statement">${a.pre}</pre>` : ''}
     ${a.typed ? html`<p class="mut">Type <b>${a.typed}</b> to continue.</p><input id="atype" spellcheck="false" size="20">` : ''}
     <div class="row mt12"><button class="b ${a.danger ? 'bad' : ''}" id="aok" data-act="askOk" ${a.typed ? 'disabled' : ''}>${a.ok}</button><button class="b sec" data-act="askNo">Cancel</button></div></div>`);
   (a.typed ? $('#atype') : $('#atitle')).focus();
@@ -561,7 +561,7 @@ async function playerSection(s) {
     JB = await api('/api/player/journey/browse');
     const tg = await api('/api/player/tags');
     h.push(html`<div class="card"><h3>Journey browser</h3><div id="jhead"></div><div id="jout"></div></div>`);
-    h.push(html`<div class="card"><h3>Player tags</h3>${tg.length ? tg.map((t) => html`<span class="tag">${t.tag} <a href="#" data-act="tagDel" data-tag="${t.tag}">×</a></span>`) : html`<span class="mut">none</span>`}<div class="row"><input id="tag" placeholder="Tag.Name" size="40"><button class="b" data-act="tagAdd">Add tag</button></div></div>`);
+    h.push(html`<div class="card"><h3>Player tags</h3>${tg.length ? tg.map((t) => html`<span class="tag">${t.tag} <a href="#" data-act="tagDel" data-tag="${t.tag}" aria-label="Remove tag ${t.tag}" title="Remove tag ${t.tag}">×</a></span>`) : html`<span class="mut">none</span>`}<div class="row"><input id="tag" placeholder="Tag.Name" size="40"><button class="b" data-act="tagAdd">Add tag</button></div></div>`);
   } else if (s == 'skills') {
     SK = await api('/api/player/skills');
     h.push(html`<div class="card"><h3>Skill point controls</h3>
@@ -1331,7 +1331,7 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') endAsk(false);
     else if (e.key === 'Enter' && e.target.id === 'atype' && !$('#aok').disabled) endAsk(true);
     else if (e.key === 'Tab') {
-      const f = [...$('#ask').querySelectorAll('input,button')].filter((x) => !x.disabled);
+      const f = [...$('#ask').querySelectorAll('input,button,[tabindex="0"]')].filter((x) => !x.disabled);
       if (!f.length) return;
       const i = f.indexOf(document.activeElement);
       const n = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i === f.length - 1 ? 0 : i + 1);
