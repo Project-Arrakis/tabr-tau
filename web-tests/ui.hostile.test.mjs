@@ -1354,12 +1354,13 @@ test('Database > Tables: a cell edit sends the rowid for a table with one and th
   assert.deepEqual(await edit(['_key_', 'character_id', 'tag'], ['["1","a"]', 1, 'a']), [{ table: 'player_tags', key: '["1","a"]', column: 'tag', value: 'changed', expected: 'a' }]);
 });
 
-test('Give water gives ten Cups of Water in one post', async () => {
-  const ui = await boot({ post: { '/api/player/give': { ok: true, itemId: 9 } } });
+test('there is no Give water button: Fill hydration and Refill Literjons are what fill water (#369)', async () => {
+  const ui = await boot({});
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="char:inventory"]'); await ui.settle();
-  ui.click('[data-act="giveWater"]'); await ui.settle();
-  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/give').map((p) => p.body), [{ template_id: 'WaterPack_Consumable', quantity: 10, quality: 0 }]);
+  assert.equal(ui.dom.window.document.querySelector('[data-act="giveWater"]'), null, 'the Give water button is gone');
+  assert.ok(ui.dom.window.document.querySelector('[data-act="fillWater"]'), 'Fill hydration stays');
+  assert.ok(ui.dom.window.document.querySelector('[data-act="refill"]'), 'Refill Literjons stays');
   ui.dom.window.close();
 });
 
