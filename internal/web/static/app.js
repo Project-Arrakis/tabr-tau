@@ -66,7 +66,10 @@ const shownBefore = (t) => (t.tagName === 'SELECT' ? ((([...t.options].find((o) 
 const brief = (v) => { const s = String(v == null ? '' : v); return s === '' ? '(empty)' : s.length > 40 ? s.slice(0, 37) + '...' : s; };
 function changedMsg(t, what) {
   const was = shownBefore(t), now = t.tagName === 'SELECT' ? (t.selectedIndex >= 0 ? t.options[t.selectedIndex].text : '') : t.value;
-  return `${what} ${brief(was)} → ${brief(now)}. To undo, set it back to ${brief(was)}.`;
+  // the old value is shown whole to put back (a cut-short one could not be typed again); a value too long to show says so instead of giving half of it
+  const w = String(was == null ? '' : was);
+  const back = w === '' ? '(empty)' : w.length <= 200 ? w : null;
+  return `${what} ${brief(was)} → ${brief(now)}. To undo, ${back === null ? 'set it back to the value it had (too long to show here; the backup has it)' : 'set it back to ' + back}.`;
 }
 // A box edited in place keeps what was typed until the server answers. If the edit is refused the box goes back to the value it had, so the
 // page never shows a value the save does not hold (UX-14); if it is accepted, that value is the one to go back to next time.
@@ -986,7 +989,7 @@ async function dbView() {
     setHTML($('#dbout'), html`<p class="mut">${d.total === 0 ? (dbQ ? 'No rows match the search' : 'No rows in this table') : `${nn(d.total, 'row', 'rows')}, showing ${dbOff + 1}–${Math.min(dbOff + 100, d.total)}`}${d.tableLocked ? html`. Read-only: ${d.tableLocked}.` : locked.size ? html`. Plain text columns are read-only (primary keys, links to other tables and account identity); hover for the reason.` : ''}</p><div class="scroll"><table><thead><tr>${cols.map((c) => html`<th>${c}</th>`)}</tr></thead><tbody>${d.rows.map((r) => html`<tr>${r.slice(1).map((v, i) => {
       const b = typeof v === 'string' && v.startsWith('<blob');
       const why = d.tableLocked || locked.get(cols[i]);
-      return html`<td>${b ? html`<span class="mut mono">${v}</span>` : why ? html`<span class="mono" title="${why}">${v}</span>` : html`<input class="dbc" value="${v}" data-rowid="${r[0]}" data-kind="${d.columns[0]}" data-col="${cols[i]}" data-orig="${v}" size="${Math.max(6, Math.min(40, String(v ?? '').length + 2))}">`}</td>`;
+      return html`<td>${b ? html`<span class="mut mono">${v}</span>` : why ? html`<span class="mono" title="${why}">${v}</span>` : html`<input class="dbc" value="${v}" data-rowid="${r[0]}" data-kind="${d.columns[0]}" data-col="${cols[i]}" data-orig="${v}" ${v === null ? 'data-null' : ''} size="${Math.max(6, Math.min(40, String(v ?? '').length + 2))}">`}</td>`;
     })}</tr>`)}</tbody></table></div>
       <div class="row"><button class="b sec" data-act="dbprev" ${dbOff <= 0 ? 'disabled' : ''}>Previous</button><button class="b sec" data-act="dbnext" ${dbOff + 100 >= d.total ? 'disabled' : ''}>Next</button></div>`);
     return;
@@ -1269,7 +1272,7 @@ document.addEventListener('click', (e) => {
     fetch(x.href, { credentials: 'same-origin' }).then(async (r) => {
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || r.statusText || 'The export failed'); }
       return r.blob();
-    }).then((b) => { const u = URL.createObjectURL(b), l = document.createElement('a'); l.href = u; l.download = dbTable + '.' + x.dataset.export; l.click(); URL.revokeObjectURL(u); }).catch((err) => toast(err.message, true));
+    }).then((b) => { const u = URL.createObjectURL(b), l = document.createElement('a'); l.href = u; l.download = dbTable + '.' + x.dataset.export; l.click(); setTimeout(() => URL.revokeObjectURL(u), 60000); /* the browser reads the blob after the click returns */ }).catch((err) => toast(err.message, true));
   }
 });
 document.addEventListener('change', (e) => {
@@ -1286,7 +1289,7 @@ document.addEventListener('change', (e) => {
   else if (t.dataset.faction) editInput(t, () => api('/api/player/factions', { faction_id: +t.dataset.faction, amount: +t.value }), changedMsg(t, (t.dataset.name || 'Faction') + ': reputation'));
   else if (t.classList.contains('cfgv')) editInput(t, () => api('/api/config/set', { name: cfgFile, section: t.dataset.section, key: t.dataset.key, value: t.value, line: +t.dataset.line }), changedMsg(t, t.dataset.key + ' written to the config file now:'), true);
   else if (t.classList.contains('dbc')) editInput(t, async () => {
-    try { return await api('/api/db/update', { table: dbTable, ...(t.dataset.kind == '_key_' ? { key: t.dataset.rowid } : { rowid: +t.dataset.rowid }), column: t.dataset.col, value: t.value === '' && t.dataset.orig === '' ? null : t.value, expected: t.dataset.orig }); }
+    try { return await api('/api/db/update', { table: dbTable, ...(t.dataset.kind == '_key_' ? { key: t.dataset.rowid } : { rowid: +t.dataset.rowid }), column: t.dataset.col, value: t.value === '' && t.hasAttribute('data-null') ? null : t.value, expected: t.dataset.orig }); }
     catch (e) { if (e.code === 'conflict') setTimeout(render, 0); throw e; } // the table is out of date: show it as it is now
   }, changedMsg(t, 'Database ' + dbTable + '.' + t.dataset.col + ':'));
   else if (t.id == 'cfgsel') { cfgFile = t.value; render(); }
@@ -1305,15 +1308,17 @@ status().then(render).then(async () => {
   if ($('#loading')) setHTML($('#main'), html`<div class="card bad">The editor did not answer: ${e.message}</div><div class="row mt12"><button class="b" data-act="retry">Try again</button></div>`);
 });
 // Keeps the game-running warning current. A failed poll is shown, not hidden: writing stays off until contact returns.
+let pollBusy = false; // a poll that is still waiting for an answer (a slow save, a stalled editor) is not asked again on top of itself
 setInterval(async () => {
-  if (document.hidden) return;
+  if (document.hidden || pollBusy) return;
+  pollBusy = true;
   try { await status(); } catch (e) {
     offline = true;
     const gw = $('#gamewarn');
     gw.className = 'warn';
     gwKey = '';
     setHTML(gw, html`<b>Lost contact with the editor.</b> Changes are not written until it answers again. If you closed the editor, nothing more will be written.`);
-  }
+  } finally { pollBusy = false; }
 }, 5000);
 document.addEventListener('focusout', (e) => { if (armed && e.target === armed.btn) disarm(); });
 // Enter in a filter box does what its Filter button does, and the cursor stays in the box (the page may have drawn the box again).
