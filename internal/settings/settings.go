@@ -16,13 +16,73 @@ import (
 
 // Settings is everything the editor remembers between runs.
 type Settings struct {
-	// AutoRefillOnOpen refills base water and generators when the editor opens and writes them straight away, like any
-	// other edit (it waits in the queue while a single-player session is running). Off by default. It applies to
-	// whichever save the editor opens.
+	// AutoRefillOnOpen is the master switch of the automatic pass: when the editor opens it runs the jobs below that are
+	// switched on (base water, base power, repairs, fills) as one edit and writes it straight away, like any other edit
+	// (it is skipped while a single-player session is running). Off by default. It applies to whichever save the editor opens.
 	AutoRefillOnOpen bool `json:"autoRefillOnOpen"`
+	// One switch per automatic job, used only while AutoRefillOnOpen is on. A key that is missing from the file (a file from an
+	// older version, or a job added since) is that job's default, which the job list in internal/ops gives (all on); that is why
+	// they are pointers: absent is not the same as false. Read them with JobOn and change them with SetJob.
+	AutoRefillWater    *bool `json:"autoRefillWater,omitempty"`
+	AutoRefillPower    *bool `json:"autoRefillPower,omitempty"`
+	AutoRepairVehicles *bool `json:"autoRepairVehicles,omitempty"`
+	AutoRepairGear     *bool `json:"autoRepairGear,omitempty"`
+	AutoFillContainers *bool `json:"autoFillContainers,omitempty"`
+	AutoFillHydration  *bool `json:"autoFillHydration,omitempty"`
+	AutoFillBloodSacks *bool `json:"autoFillBloodSacks,omitempty"`
+	AutoRefuelVehicles *bool `json:"autoRefuelVehicles,omitempty"`
 	// TrackNumbers is which number the game uses for each specialization track in specialization_tracks (the save stores a bare number
 	// and does not say which track it is). Learned from the character's own rows with Assign on the Specialization tab.
 	TrackNumbers map[string]int64 `json:"trackNumbers,omitempty"`
+}
+
+// JobKeys are the settings keys of the automatic jobs, in the order the page lists them. internal/ops has the jobs themselves and a test
+// holds the two lists together.
+var JobKeys = []string{"autoRefillWater", "autoRefillPower", "autoRepairVehicles", "autoRepairGear", "autoFillContainers", "autoFillHydration", "autoFillBloodSacks", "autoRefuelVehicles"}
+
+func (s *Settings) jobField(key string) **bool {
+	switch key {
+	case "autoRefillWater":
+		return &s.AutoRefillWater
+	case "autoRefillPower":
+		return &s.AutoRefillPower
+	case "autoRepairVehicles":
+		return &s.AutoRepairVehicles
+	case "autoRepairGear":
+		return &s.AutoRepairGear
+	case "autoFillContainers":
+		return &s.AutoFillContainers
+	case "autoFillHydration":
+		return &s.AutoFillHydration
+	case "autoFillBloodSacks":
+		return &s.AutoFillBloodSacks
+	case "autoRefuelVehicles":
+		return &s.AutoRefuelVehicles
+	}
+	return nil
+}
+
+// JobOn says whether the automatic job with this settings key is switched on: what the file says, or def when it says nothing. An
+// unknown key is off.
+func (s Settings) JobOn(key string, def bool) bool {
+	f := s.jobField(key)
+	if f == nil {
+		return false
+	}
+	if *f == nil {
+		return def
+	}
+	return **f
+}
+
+// SetJob switches the automatic job with this settings key on or off and says whether the key is one of JobKeys.
+func (s *Settings) SetJob(key string, on bool) bool {
+	f := s.jobField(key)
+	if f == nil {
+		return false
+	}
+	*f = &on
+	return true
 }
 
 // Path is the settings file. It is empty when the OS has no user config folder.
