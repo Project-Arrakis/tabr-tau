@@ -1773,3 +1773,23 @@ test('a config value and a database cell also report old and new; a queued edit 
   assert.ok(t.includes('Database ') && t.includes(`${cell.dataset.col}:`) && t.includes('queued'), t);
   ui.dom.window.close();
 });
+
+test('the SQL page and its result say an edit is written as it is made, or queued when the file cannot be written (UX-28)', async () => {
+  for (const [state, want, not] of [[queuedState({ dirty: false, pending: [] }), 'and written to game.db', 'queued'], [queuedState(sessionBlock), 'and queued: it is written to game.db as soon as', 'and written to game.db.']]) {
+    const ui = await boot({ get: { '/api/save/state': state }, post: { '/api/db/exec': { changes: 2 } } });
+    ui.click('[data-tab="db"]'); await ui.settle();
+    ui.click('[data-sub="db:sql"]'); await ui.settle();
+    const card = ui.doc.querySelector('#sql').closest('.card').textContent;
+    assert.ok(card.includes('written to game.db at once, after a backup') && card.includes('they are queued'), card);
+    for (const bad of ['until you', 'Save to game', 'Review']) assert.ok(!card.includes(bad), `${bad} in ${card}`);
+    ui.click('[data-act="execsql"]'); await ui.settle();
+    const q = ui.doc.querySelector('#ask').textContent;
+    assert.ok(q.includes('written to the game file at once, after the usual backup') && q.includes('waits in the queue'), q);
+    const inp = ui.doc.querySelector('#atype');
+    inp.value = 'write'; inp.dispatchEvent(new ui.w.Event('input', { bubbles: true }));
+    inp.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await ui.settle();
+    const out = ui.doc.querySelector('#sqlout').textContent;
+    assert.ok(out.includes('2 rows changed') && out.includes(want) && !out.includes(not), out);
+    ui.dom.window.close();
+  }
+});

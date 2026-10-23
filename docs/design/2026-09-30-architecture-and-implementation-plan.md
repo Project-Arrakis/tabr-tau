@@ -1,5 +1,7 @@
 # tabr-tau: architecture and implementation plan (v0.2, post Layer 1 audit)
 
+> Note (2026-10-22): the review pane this document describes ("Review & save", "Save to game", Save reachable only from the pane) was removed in #238. Every edit is now written to the game's file as it is made, or queued while the file cannot be written; see `SECURITY.md` and the E5 group of `audit/2026-10-22-L2-findings-register.md` for what stands in its place. The text below is kept as the record of the design at its date.
+
 Status: v0.2. Revised after the Layer 1 (design) eight-hat audit (Requirement 20). Findings register:
 `../audit/2026-09-30-L1-findings-register.md` (F-01..F-22). Where this plan cites `F-nn` it is closing that finding.
 Evidence base: `2026-09-30-dune-docker-parity.md`, `../single-player-files.md`, `../live-test-protocol.md`.

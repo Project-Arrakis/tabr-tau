@@ -1,5 +1,7 @@
 # Player tabs: what the console shows, and what tabr-tau builds
 
+> Note (2026-10-22): the review pane this document describes ("Review & save", "Save to game", Save reachable only from the pane) was removed in #238. Every edit is now written to the game's file as it is made, or queued while the file cannot be written; see `SECURITY.md` and the E5 group of `audit/2026-10-22-L2-findings-register.md` for what stands in its place. The text below is kept as the record of the design at its date.
+
 Date: 2026-10-08. Issue: #96 (with #94 for Bases). Status: spec; slices are built one PR at a time.
 
 Operator decision: the Player tab mirrors the Dune Docker console's **Players > Player Name** view, tab for tab. Each tab holds what the

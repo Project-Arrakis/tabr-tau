@@ -34,10 +34,17 @@ your computer (they can edit your save directly).
 - The editor binds to loopback only, checks the Host header and the peer address, and refuses a request from another site (fetch metadata and
   Origin). The session is an HttpOnly, SameSite=Strict cookie, handed over once through a link that works one time for ten minutes.
 - All HTML is built by an escaping template function; the page allows only its own scripts and styles.
-- Every edit is written to the save as it is made, and only after a game-running check, a changed-on-disk check, an integrity check and a
-  backup, and is read back and compared afterwards. While a single-player session is running the edits wait in a queue (kept in a journal) and
-  are written when it ends; if the game saved changes that conflict with the queue, none of it is written and the person is told. The
-  review pane was removed (#238): the guards run at every write and the backups are the way back.
+- Every edit is written to the save as it is made. Before each write the editor checks that no single-player session is using the file (and
+  that the game check itself worked), that the file is unchanged since it was read, and that the working copy passes an integrity check; it
+  takes a backup first (one backup covers a burst of edits made within two minutes; the newest 60 automatic backups are kept and backups made
+  by a person or an earlier version are never removed) and reads the written file back and compares it afterwards. Each edit is also checked
+  for dangling references when it is made. When the file cannot be written (a single-player session is running, the location is not
+  confirmed, the game check failed) the edits wait in a queue that is kept in a journal and listed on the page, and are written by
+  themselves once the file can be written. If the game saved meanwhile, the queue is put back onto its newer file only when every edit still
+  applies; if the game saved changes that conflict with it, none of it is written and the person is told.
+- There is no review step before a write (the review pane was removed in #238). What stands in its place is the set of guards above at every
+  write, the backups (Database > Save backups restores one), the queue with its list and its Discard control, and the confirmations that
+  remain for destructive actions. The audit register records this replacement.
 - Saves are opened from a private copy, and the container is checked (size, declared size, integrity) before anything is trusted.
 
 ## Known limits that are documented, not hidden

@@ -81,7 +81,7 @@ RULES = [
     (r"^GET /api/admin/(items|items/catalog|items/search)$", "Done", "item catalog picker (coverage gaps: #72)"),
     (r"^GET /api/admin/vehicles", "Partial", "vehicle class names only"),
     (r"^GET /api/admin/skill-modules$", "Done", "Player > Skills uses the console skill catalog"),
-    (r"^GET /api/admin/history$", "Partial", "Review & save lists the pending edits; no persistent command history"),
+    (r"^GET /api/admin/history$", "Partial", "edits waiting for the file are listed in the banner; no persistent command history"),
     (r"^POST /api/admin/history/clear$", "N/A", "command history"),
     (r"^[A-Z]+ /api/admin/(character-transfer|message-of-the-day|player-announcements|map-chat|broadcast)", "N/A", "server messaging"),
     # --- Database

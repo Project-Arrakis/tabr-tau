@@ -16,7 +16,7 @@ func TestCommas(t *testing.T) {
 	}
 }
 
-// The review pane lists an edit in words: the item by its in-game name with its id, and a value as before to after (UX-04 of the 2026-10-15
+// A waiting edit is listed in words: the item by its in-game name with its id, and a value as before to after (UX-04 of the 2026-10-15
 // audit: "edit item 4521" and "currency 0 +100" said neither what nor how much).
 func TestReviewDescriptionsNameTheItemAndShowBeforeAndAfter(t *testing.T) {
 	o := &Ops{S: testsave.Player(t)}

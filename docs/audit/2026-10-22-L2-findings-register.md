@@ -104,13 +104,33 @@ The security policy names the review pane as the save-write control; at least 11
 
 | ID | Sev | STRIDE | Location | Finding | Status |
 |---|---|---|---|---|---|
-| GRC-1 | MEDIUM | R, T | SECURITY.md:25, :37 | The security policy still states the removed review pane as the save-write control. | open |
-| GRC-13 | LOW | R | CHANGELOG.md:13, 16, 19, 21, 33, 42, 48, 78, 82, 84, 109 | The [Unreleased] changelog still describes the review pane in at least 11 entries, contradicting entries 9 and 91. Same defect class as L2 GRC-7. | open |
-| GRC-14 | LOW | R | docs/live-test-protocol.md:88, docs/continuation-prompt.md:15/33, docs/README.md:3, ... | Other docs and a code comment still describe the review pane; the audit register carries no replacement statement for F-06/F-10. | open |
-| UX-28 | HIGH | Accuracy | `app.js:867` (SQL card), `:941` (delete confirm), `:1032`; `docs/live-test-protocol.md:88` | Text still describes the Review & save model that f977c84 removed.** The SQL page says "Nothing reaches game.db until you press **Save to game**, which backs up first" (read back from the DOM; there is no such button). The same card's confirm says it is written "at once". The item-delete confirm ... | open |
-| UX-40 | LOW | Accuracy | `docs/live-test-protocol.md:88` | The live-test protocol tells testers to "Press Review & save, then Save to game". | open |
-| QA-16 | INFO | I | docs | Documents still describe the removed Review & save (`docs/live-test-protocol.md:88`, `docs/design/feature-inventory.md:658,661`, `tools/featureinv.py:84`). | open |
-| GRC-12 | MEDIUM | R | PR #240, issue #238, docs/audit/ | A change that removes an audit-register control was classed High by its author and merged with no review, no issue analysis and no register update. | open |
+| GRC-1 | MEDIUM | R, T | SECURITY.md:25, :37 | The security policy still states the removed review pane as the save-write control. | fixed (#PRN) |
+| GRC-13 | LOW | R | CHANGELOG.md:13, 16, 19, 21, 33, 42, 48, 78, 82, 84, 109 | The [Unreleased] changelog still describes the review pane in at least 11 entries, contradicting entries 9 and 91. Same defect class as L2 GRC-7. | fixed (#PRN) |
+| GRC-14 | LOW | R | docs/live-test-protocol.md:88, docs/continuation-prompt.md:15/33, docs/README.md:3, ... | Other docs and a code comment still describe the review pane; the audit register carries no replacement statement for F-06/F-10. | fixed (#PRN) |
+| UX-28 | HIGH | Accuracy | `app.js:867` (SQL card), `:941` (delete confirm), `:1032`; `docs/live-test-protocol.md:88` | Text still describes the Review & save model that f977c84 removed.** The SQL page says "Nothing reaches game.db until you press **Save to game**, which backs up first" (read back from the DOM; there is no such button). The same card's confirm says it is written "at once". The item-delete confirm ... | fixed (#PRN) |
+| UX-40 | LOW | Accuracy | `docs/live-test-protocol.md:88` | The live-test protocol tells testers to "Press Review & save, then Save to game". | fixed (#PRN) |
+| QA-16 | INFO | I | docs | Documents still describe the removed Review & save (`docs/live-test-protocol.md:88`, `docs/design/feature-inventory.md:658,661`, `tools/featureinv.py:84`). | fixed (#PRN) |
+| GRC-12 | MEDIUM | R | PR #240, issue #238, docs/audit/ | A change that removes an audit-register control was classed High by its author and merged with no review, no issue analysis and no register update. | fixed (#PRN) |
+
+### Replacement statement for the removed review pane (F-06, F-10 of the 2026-09-30 register)
+
+The review pane was removed by #240 (issue #238). The 2026-09-30 register named it as the control for two findings: F-06 (no way to see what
+will be written) and F-10 (Save reachable only after a review, with confirmations that state the consequence). This is what plays each role
+now, with the code that does it and the test that pins it, and what is not replaced. Dated 2026-10-22; it is a statement of the code at
+that date, not a new claim of coverage.
+
+| Role the review pane played | What plays it now | Where | Pinned by | Not replaced (finding) |
+|---|---|---|---|---|
+| No write happens unless a game-running check passed | The check runs at every write, not once at Save: no single-player session, the check itself worked, the location confirmed, the save not read-only. A failed check queues the edit instead of writing it. | `Flush` in `internal/save/flush.go` (`GameStateFor`, `blocked`); `commit` in `internal/save/save.go` | `TestCommitRefusesWhenTheGameMayBeWriting`, `TestFlushQueuesTheEditWhileASinglePlayerSessionIsActiveAndWritesItWhenItEnds` | Gates read a cached process list (ARCH-4, #257) |
+| No write over a file the game changed | Changed-on-disk check, then queued edits are put back onto the newer file and written only if every one still applies; otherwise the whole queue is held and nothing is written. | `Flush`, `rebaseAtomic`; `commit` | `TestFlushPutsTheEditsBackOntoAFileTheGameSavedSince`, `TestAQueueThatConflictsWithTheGamesNewerFileIsHeldWholeAndNothingIsWritten` | Replay can write stale values; dropped edits are not reported (#251, #252) |
+| The file written is the file intended | Integrity check of the working copy, an encode and decode round trip before the write, and a read back that is compared byte for byte after it; a mismatch restores the previous bytes. | `commit` in `internal/save/save.go`; `installBlob` in `internal/save/durable.go` | `TestReadBackMismatchRestoresThePreviousBytes` | |
+| A way back | A backup is taken before the first write of a burst (one covers edits made within two minutes, only while the file is still the one the editor wrote); the newest 60 automatic backups are kept, others are never removed; Database > Save backups restores one after a typed word. | `backupIfStale`, `pruneBackups` in `internal/save/flush.go`; `Restore` | `TestABackupIsNotReusedForAFileTheGameSavedSince` | The prune can delete the pre-session backup (#253) |
+| See what will change before it is written (F-06) | Not replaced before the write. Each edit carries a description in the player's words; the page lists the edits that are waiting (banner and the Discard question), and the toast and `Flush.Ops` name what was written. After the fact, `tabr-tau diff <before> <after>` compares a backup with the file (read only, identifiers masked). | `Ops` descriptions; `queueLine` in `internal/web/static/app.js`; `cmd/tabr-tau` | `TestFlushWritesTheEditAtOnceWhenTheFileCanBeWritten` | No persistent record of what was written (GRC-3, #254) |
+| Confirm that a far-reaching action is meant (F-10) | In-app questions that state the consequence stay for destructive actions; a typed word stays for a raw SQL write and for restoring a backup. | `ask()` in `internal/web/static/app.js` | `web-tests/ui.hostile.test.mjs` (typed-word tests) | Bulk actions (Repair all, Clear sand, Reset vendors) lost their confirmation when the review went (GRC-2, #254) |
+| Edits made while the game runs are not lost or applied blindly | A queue kept in a private journal, listed on the page, written by itself when the file can be written, with Write now and Discard queue. | `Flush`, the journal in `internal/save/journal.go` | `TestFlushQueuesTheEditWhileASinglePlayerSessionIsActiveAndWritesItWhenItEnds` | The queue cannot be inspected beyond its list (UX-30, UX-31, #252) |
+
+The roles that are not replaced are open findings of this register (GRC-2, GRC-3, ARCH-4, the E1 to E3 groups), not new ones. How a change that
+removes a control of this kind is handled from now on: [`docs/control-removal.md`](../control-removal.md).
 
 ## E6: Repository settings and CI configuration
 
