@@ -127,7 +127,7 @@ Every write feature has automated tests on a synthetic save built from the game'
 | Clear this container (#338; real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#338) |
 | Give Blood Marks (#344; real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#344) |
 | Fill blood sacks (#346; capacities from saved values, real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#346) |
-| Give item (including the partial give that puts in as much as fits, #345), Give water, Fill hydration, Give Items queue, Give Intel, Give currency, edit or delete an item | Tests only (the protocol's T1 and T1b for Give item have no recorded result) | none | `docs/live-test-protocol.md` |
+| Give item (including the partial give that puts in as much as fits, #345), Fill hydration, Give Items queue, Give Intel, Give currency, edit or delete an item | Tests only (the protocol's T1 and T1b for Give item have no recorded result) | none | `docs/live-test-protocol.md` |
 | Refuel all my vehicles (#349; tank sizes measured in the game, real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#349) |
 | Fill all liquids (#349; the water, blood-sack and refuel fills as one edit; real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#349) |
 | Repair Gear (as good as new, #153) and the vehicle Repair Below % option | Tests only | none | `CHANGELOG.md` |
