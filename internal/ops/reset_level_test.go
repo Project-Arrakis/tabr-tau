@@ -19,9 +19,12 @@ func TestResetLevelPutsXpAtZeroAndTakesBackTheSkillPointsTheLevelsGave(t *testin
 	if m := r.(map[string]any); m["changed"].(int64) != 41221 || m["noop"] != false || m["levelBefore"].(int) != 71 {
 		t.Fatalf("answer: %v", m)
 	}
-	// 71 levels gave 71 points (the rule Give XP follows); the totals never go below 0
-	if xp, total, unspent := levelState(t, o); xp != 0 || total != 0 || unspent != 0 {
+	// 71 levels gave 71 points (the rule Give XP follows), but only 9 are unspent: the other 61 are spent in skills and stay, and the total still covers them
+	if xp, total, unspent := levelState(t, o); xp != 0 || total != 61 || unspent != 0 {
 		t.Fatalf("state after: xp=%d total=%d unspent=%d", xp, total, unspent)
+	}
+	if m := r.(map[string]any); m["pointsTaken"].(int64) != 9 || m["pointsKept"].(int64) != 62 {
+		t.Fatalf("the answer says how many points were taken and how many stayed: %v", m)
 	}
 	row := mustOne(t, o, `select json_extract(components,'$.FLevelComponent[1].LastViewedSkillTree') v, json_extract(components,'$.FLevelComponent[1].ModuleData."Skills.Key.Mentat1".SkillPointsSpent') x,
 		json_extract(components,'$.FHealthComponent[1].m_CurrentHealth') h, typeof(components) ty from fgl_entities where entity_id=-10`)
@@ -44,6 +47,41 @@ func TestResetLevelKeepsPointsThatDidNotComeFromLevels(t *testing.T) {
 	}
 	if xp, total, unspent := levelState(t, o); xp != 0 || total != 6 || unspent != 3 {
 		t.Fatalf("state after: xp=%d total=%d unspent=%d", xp, total, unspent)
+	}
+}
+
+// Points that are spent in skills are not taken back: the total never falls below the points spent (total minus unspent is what the skills hold).
+func TestResetLevelNeverLeavesFewerTotalPointsThanAreSpent(t *testing.T) {
+	for _, c := range []struct{ xp, total, unspent int }{
+		{1000, 20, 0},   // level 4, every point spent: nothing can be taken back
+		{1000, 20, 2},   // two unspent: two taken, not four
+		{41221, 70, 9},  // level 71, nine unspent
+		{1000, 3, 3},    // fewer points than the levels gave: only the three that exist
+		{1000, 100, 50}, // plenty: the four levels' points come off both
+	} {
+		o := xpOps(t, c.xp, c.total, c.unspent)
+		if _, err := o.ResetLevel(Args{"expected": float64(c.xp)}); err != nil {
+			t.Fatal(err)
+		}
+		_, total, unspent := levelState(t, o)
+		if spent := int64(c.total - c.unspent); total < spent || total-unspent != spent || unspent < 0 {
+			t.Fatalf("%+v: total=%d unspent=%d, but %d points are spent", c, total, unspent, spent)
+		}
+	}
+}
+
+// A character with every point spent keeps them all; the answer says so.
+func TestResetLevelWithAllPointsSpentTakesNothingBackAndSaysSo(t *testing.T) {
+	o := xpOps(t, 1000, 20, 0)
+	r, err := o.ResetLevel(Args{"expected": 1000.0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if xp, total, unspent := levelState(t, o); xp != 0 || total != 20 || unspent != 0 {
+		t.Fatalf("state after: xp=%d total=%d unspent=%d", xp, total, unspent)
+	}
+	if m := r.(map[string]any); m["pointsTaken"].(int64) != 0 || m["pointsKept"].(int64) != 4 {
+		t.Fatalf("answer: %v", m)
 	}
 }
 

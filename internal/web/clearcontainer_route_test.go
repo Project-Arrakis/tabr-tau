@@ -2,9 +2,12 @@ package web
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
@@ -13,6 +16,18 @@ import (
 )
 
 // POST /api/inventories/clear (#338). The test character's backpack (inventory 1) holds a Solari stack (item 10) and a Knife (item 11).
+
+// clearBody is the body the page would send for the container as it is now, with the nested count and the hash the preview gives.
+func clearBody(t *testing.T, s *Server, inv, count int, cur bool) string {
+	t.Helper()
+	h := map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}
+	w := do(t, s, "GET", fmt.Sprintf("http://127.0.0.1/api/inventories/clear-preview?inventory_id=%d&include_currency=%t", inv, cur), loop, h, nil)
+	m := decodeBody(t, w)
+	if w.Code != 200 || m["token"] == nil {
+		t.Fatalf("preview of %d: %d %s", inv, w.Code, w.Body.String())
+	}
+	return fmt.Sprintf(`{"inventory_id":%d,"count":%d,"nested":%v,"ids_hash":%q,"include_currency":%t}`, inv, count, m["nested"], m["token"], cur)
+}
 
 func backpackIDs(t *testing.T, path string) []int64 {
 	t.Helper()
@@ -36,7 +51,7 @@ func TestClearingAContainerIsWrittenAtOnceWithABackupAndALogLine(t *testing.T) {
 	s := New(testsave.Player(t), config.Dir{Path: t.TempDir()})
 	dir := t.TempDir()
 	s.KeepPendingEdits(dir)
-	w := postEdit(t, s, "/api/inventories/clear", `{"inventory_id":1,"count":1}`)
+	w := postEdit(t, s, "/api/inventories/clear", clearBody(t, s, 1, 1, false))
 	m := decodeBody(t, w)
 	if w.Code != 200 || m["ok"] != true || m["outcome"] != "written" || m["removed"] != float64(1) || m["kept"] != float64(1) {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
@@ -66,7 +81,7 @@ func TestClearingAContainerIsWrittenAtOnceWithABackupAndALogLine(t *testing.T) {
 
 func TestClearingWithCurrencyIncludedAsksForItInTheBody(t *testing.T) {
 	s := New(testsave.Player(t), config.Dir{Path: t.TempDir()})
-	if w := postEdit(t, s, "/api/inventories/clear", `{"inventory_id":1,"count":2,"include_currency":true}`); w.Code != 200 {
+	if w := postEdit(t, s, "/api/inventories/clear", clearBody(t, s, 1, 2, true)); w.Code != 200 {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
 	}
 	if got := backpackIDs(t, s.Save.Path); len(got) != 0 {
@@ -78,7 +93,7 @@ func TestAClearWhileTheGameHoldsTheFileIsQueuedLikeTheOtherEdits(t *testing.T) {
 	restore := save.ActiveSessionForTests()
 	defer restore()
 	s := New(testsave.Player(t), config.Dir{Path: t.TempDir()})
-	w := postEdit(t, s, "/api/inventories/clear", `{"inventory_id":1,"count":1}`)
+	w := postEdit(t, s, "/api/inventories/clear", clearBody(t, s, 1, 1, false))
 	if m := decodeBody(t, w); w.Code != 200 || m["outcome"] != "queued" || m["ok"] != true {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
 	}
@@ -97,12 +112,14 @@ func TestARefusedClearCarriesItsCodeAndTheStatusThatFits(t *testing.T) {
 		name, body, code string
 		status           int
 	}{
-		{"a count that is not what the container holds", `{"inventory_id":1,"count":5}`, "conflict", http.StatusConflict},
-		{"the count that includes the currency, without the flag", `{"inventory_id":1,"count":2}`, "conflict", http.StatusConflict},
-		{"a container that is not in the save", `{"inventory_id":987654,"count":0}`, "not_found", http.StatusNotFound},
-		{"a container the page does not offer", `{"inventory_id":60,"count":0}`, "bad_argument", http.StatusUnprocessableEntity},
+		{"a count that is not what the container holds", clearBody(t, s, 1, 5, false), "conflict", http.StatusConflict},
+		{"the count that includes the currency, without the flag", clearBody(t, s, 1, 2, false), "conflict", http.StatusConflict},
+		{"a hash of other items", fmt.Sprintf(`{"inventory_id":1,"count":1,"nested":0,"ids_hash":%q}`, strings.Repeat("a", 64)), "conflict", http.StatusConflict},
+		{"no hash", `{"inventory_id":1,"count":1,"nested":0}`, "bad_argument", http.StatusUnprocessableEntity},
+		{"a container that is not in the save", fmt.Sprintf(`{"inventory_id":987654,"count":0,"nested":0,"ids_hash":%q}`, strings.Repeat("a", 64)), "not_found", http.StatusNotFound},
+		{"a container the page does not offer", fmt.Sprintf(`{"inventory_id":60,"count":0,"nested":0,"ids_hash":%q}`, strings.Repeat("a", 64)), "bad_argument", http.StatusUnprocessableEntity},
 		{"no count", `{"inventory_id":1}`, "bad_argument", http.StatusUnprocessableEntity},
-		{"a currency flag that is not true or false", `{"inventory_id":1,"count":1,"include_currency":"yes"}`, "bad_argument", http.StatusUnprocessableEntity},
+		{"a currency flag that is not true or false", fmt.Sprintf(`{"inventory_id":1,"count":1,"nested":0,"ids_hash":%q,"include_currency":"yes"}`, strings.Repeat("a", 64)), "bad_argument", http.StatusUnprocessableEntity},
 		{"a body that is not JSON", `{`, "bad_request", http.StatusBadRequest},
 	} {
 		w := postEdit(t, s, "/api/inventories/clear", c.body)
@@ -118,7 +135,7 @@ func TestARefusedClearCarriesItsCodeAndTheStatusThatFits(t *testing.T) {
 
 func TestClearingAnEmptyContainerChangesNothingAndSaysSo(t *testing.T) {
 	s := New(testsave.PlayerWithSQL(t, `insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (2,2,1,10,1000.0);`), config.Dir{Path: t.TempDir()})
-	w := postEdit(t, s, "/api/inventories/clear", `{"inventory_id":2,"count":0}`)
+	w := postEdit(t, s, "/api/inventories/clear", clearBody(t, s, 2, 0, false))
 	m := decodeBody(t, w)
 	if w.Code != 200 || m["removed"] != float64(0) || m["message"] == nil || m["outcome"] != nil {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
@@ -163,7 +180,7 @@ func TestAClearIsRefusedWhileTheQueueIsHeld(t *testing.T) {
 	restore := save.ActiveSessionForTests()
 	s := New(testsave.Player(t), config.Dir{Path: t.TempDir()})
 	s.Save.EnableJournal(filepath.Join(t.TempDir(), "pending.json"))
-	if w := postEdit(t, s, "/api/inventories/clear", `{"inventory_id":1,"count":1}`); w.Code != 200 {
+	if w := postEdit(t, s, "/api/inventories/clear", clearBody(t, s, 1, 1, false)); w.Code != 200 {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
 	}
 	restore()
@@ -184,8 +201,41 @@ func TestAClearIsRefusedWhileTheQueueIsHeld(t *testing.T) {
 	if f := s.Save.Flush(); f.Saved || s.Save.Held() == nil {
 		t.Fatalf("the queued clear conflicts with the game's newer file and is held: %+v", f)
 	}
-	w := postEdit(t, s, "/api/inventories/clear", `{"inventory_id":1,"count":2}`)
+	w := postEdit(t, s, "/api/inventories/clear", fmt.Sprintf(`{"inventory_id":1,"count":2,"nested":0,"ids_hash":%q}`, strings.Repeat("a", 64)))
 	if m := decodeBody(t, w); w.Code != http.StatusConflict || m["code"] != "queue_held" {
 		t.Fatalf("a held queue takes no new edit: %d %s", w.Code, w.Body.String())
+	}
+}
+
+// GET /api/inventories/clear-preview says what the clear would remove, changes nothing, and refuses what the clear refuses.
+func TestTheClearPreviewReadsAndChangesNothing(t *testing.T) {
+	s := New(testsave.Player(t), config.Dir{Path: t.TempDir()})
+	h := map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}
+	get := func(q string, hdr map[string]string) (*httptest.ResponseRecorder, map[string]any) {
+		w := do(t, s, "GET", "http://127.0.0.1/api/inventories/clear-preview"+q, loop, hdr, nil)
+		var m map[string]any
+		json.Unmarshal(w.Body.Bytes(), &m)
+		return w, m
+	}
+	w, m := get("?inventory_id=1", h)
+	if w.Code != 200 || m["items"] != float64(1) || m["kept"] != float64(1) || m["nested"] != float64(0) || len(fmt.Sprint(m["token"])) != 64 {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	if _, m2 := get("?inventory_id=1&include_currency=true", h); m2["items"] != float64(2) || m2["token"] == m["token"] {
+		t.Fatalf("with currency: %v", m2)
+	}
+	for q, want := range map[string]int{"": 422, "?inventory_id=x": 422, "?inventory_id=1&include_currency=1": 422, "?inventory_id=987654": 404} {
+		if w, _ := get(q, h); w.Code != want {
+			t.Errorf("%q: %d %s, want %d", q, w.Code, w.Body.String(), want)
+		}
+	}
+	if w, _ := get("?inventory_id=1", map[string]string{"Host": "127.0.0.1:8090"}); w.Code != http.StatusForbidden && w.Code != http.StatusUnauthorized {
+		t.Errorf("no session: %d", w.Code)
+	}
+	if w := do(t, s, "POST", "http://127.0.0.1/api/inventories/clear-preview?inventory_id=1", loop, map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token, "Content-Type": "application/json"}, []byte(`{}`)); w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("a POST: %d", w.Code)
+	}
+	if s.Save.Dirty() || len(backpackIDs(t, s.Save.Path)) != 2 {
+		t.Fatal("a preview changed something")
 	}
 }

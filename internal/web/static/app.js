@@ -37,6 +37,7 @@ function toast(msg, err, ms = 3500) {
     x.className = 'x';
     x.textContent = '\u00d7';
     x.title = 'Dismiss';
+    x.setAttribute('aria-label', 'Dismiss this message');
     x.onclick = () => d.remove();
     d.append(x);
   } else setTimeout(() => d.remove(), ms);
@@ -532,7 +533,7 @@ const NO_TRACK_NUMBER = 'This track\'s number is not known yet: see the note abo
 // The reset of the character's level and XP (#339): on Character > Overview, beside Give XP. The number it asks the person to confirm is the XP the summary above shows.
 function levelResetCard() {
   const xp = SUMMARY && Number.isInteger(SUMMARY.xp) ? SUMMARY.xp : null;
-  const note = xp === null ? 'This save has no level record for the character.' : xp > 0 ? 'The XP goes back to 0 and the level with it, and the skill points the levels gave are taken back. Skills you bought stay. Asks first.' : 'Nothing to reset: the character has no XP.';
+  const note = xp === null ? 'This save has no level record for the character.' : xp > 0 ? 'The XP goes back to 0 and the level with it, and the skill points the levels gave are taken back as far as they are unspent. Skills you bought stay, with their points. Asks first.' : 'Nothing to reset: the character has no XP.';
   return html`<div class="card"><h3>Reset level and XP</h3><div class="row"><button class="b bad" data-act="lvReset" aria-describedby="lvresetnote" ${xp ? '' : 'disabled'}>Reset level and XP (${Number(xp || 0).toLocaleString()} XP)</button><span class="mut" id="lvresetnote">${note}</span></div></div>`;
 }
 // Fill blood sacks (issue #60), beside the Refill Literjons button of Give item: the count says how many of the character's blood sacks are not full. Only the kinds whose
@@ -1174,11 +1175,15 @@ const A = {
   refill: () => act(async () => { const r = await api('/api/player/refill', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} Literjons (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
   delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). It is written at once, after a backup. If the file cannot be written (for example a single-player session is running) it is queued and written when it can be.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
   clearInv: async (d) => {
-    const cur = !!($('#clrCur') && $('#clrCur').checked), n = +(cur ? d.all : d.plain);
-    if (!n) { toast(+d.all ? 'Nothing to clear: this container holds only currency. Tick the box to remove it too.' : 'Nothing to clear: this container is empty.'); return; }
-    const body = `This removes ${nn(n, 'item', 'items')} from ${d.name}, with everything attached to them (stats, links, and what is inside a bag). ${cur ? 'The currency is removed too.' : 'The Solari Coin stack is kept.'} It is one edit, written at once after a backup. If the file cannot be written (for example a single-player session is running) it is queued and written when it can be. Items added to the container meanwhile make the editor refuse and change nothing.`;
-    if (!(await ask({ title: 'Clear ' + d.name + '?', body, ok: 'Clear container', typed: String(n), danger: true }))) return;
-    act(async () => { const r = await api('/api/inventories/clear', { inventory_id: +d.inv, count: n, include_currency: cur }); toast(r.removed ? `Cleared ${d.name}: ${nn(r.removed, 'item', 'items')} removed` + NOT_SAVED : r.message); }, null);
+    const cur = !!($('#clrCur') && $('#clrCur').checked);
+    let pv; // what the clear would remove right now, as the editor reads it (the list on the page may be older): the numbers to confirm and the token that binds the items
+    try { pv = await api('/api/inventories/clear-preview?inventory_id=' + encodeURIComponent(d.inv) + '&include_currency=' + cur); } catch (e) { toast(e.message, true); return; }
+    const n = +pv.items, nested = +pv.nested, total = n + nested;
+    if (!n) { toast(+pv.kept ? 'Nothing to clear: this container holds only currency. Tick the box to remove it too.' : 'Nothing to clear: this container is empty.'); return; }
+    const inside = nested ? `, and the ${nn(nested, 'item', 'items')} inside them (in bags)` : '';
+    const body = `This removes ${nn(n, 'item', 'items')} from ${d.name}${inside}, with everything else attached to them (stats, links)${nested ? `: ${nn(total, 'item', 'items')} in all` : ''}. ${cur ? 'The currency is removed too.' : 'The Solari Coin stack is kept.'} It is one edit, written at once after a backup. If the file cannot be written (for example a single-player session is running) it is queued and written when it can be. If the container holds other items than these by then, the editor refuses and changes nothing.`;
+    if (!(await ask({ title: 'Clear ' + d.name + '?', body, ok: 'Clear container', typed: String(total), danger: true }))) return;
+    act(async () => { const r = await api('/api/inventories/clear', { inventory_id: +d.inv, count: n, nested, ids_hash: pv.token, include_currency: cur }); toast(r.removed ? `Cleared ${d.name}: ${nn(r.removed, 'item', 'items')} removed${r.nested ? ` (and ${nn(r.nested, 'item', 'items')} inside bags)` : ''}` + NOT_SAVED : r.message); }, null);
   },
   spec: (d) => { $('#st').value = d.t; $('#sx').value = d.xp; $('#sl').value = d.lv; },
   spKeyAll: async () => (await ask({ title: 'Grant all keystones?', body: 'Every specialization keystone of every track is bought. One edit.', ok: 'Grant all', danger: true })) && act(async () => { const r = await api('/api/player/specs/keystones/grant', {}); toast(r.granted ? `${r.granted} keystones granted` + NOT_SAVED : 'All keystones were already granted.'); }, null),
@@ -1208,8 +1213,8 @@ const A = {
     const lvl = SUMMARY.level, sp = SUMMARY.skillPoints;
     const fmt = (n) => Number(n).toLocaleString();
     return resetArea({ count: xp, title: `Reset level ${lvl} and ${fmt(xp)} XP to 0?`, ok: 'Reset level and XP', typed: `reset ${xp} xp`,
-      body: `The character's XP goes to 0 and the level with it. The skill points the levels gave are taken back, as many as the level (${lvl}) from the total${sp ? ` (now ${fmt(sp.total)})` : ''} and from the unspent points${sp ? ` (now ${fmt(sp.unspent)})` : ''}, never below 0. Skills you bought are not touched: reset them on the Skills tab first, with the box ticked so their points come back, to be left with none. One edit.`,
-      path: '/api/player/level/reset', done: (r) => `Level ${r.levelBefore} and ${fmt(r.changed)} XP reset to 0`, none: 'The character has no XP, so there was nothing to reset.' });
+      body: `The character's XP goes to 0 and the level with it. The skill points the levels gave are taken back, up to the level (${lvl}), but only from the points you have not spent${sp ? ` (unspent now ${fmt(sp.unspent)}, total ${fmt(sp.total)})` : ''}: a point spent in a skill stays, so the total never drops below what your skills hold. Skills you bought are not touched: reset them on the Skills tab first, with the box ticked so their points come back, to take back all of them. One edit.`,
+      path: '/api/player/level/reset', done: (r) => `Level ${r.levelBefore} and ${fmt(r.changed)} XP reset to 0` + (r.pointsKept ? `; ${nn(r.pointsKept, 'skill point', 'skill points')} could not be taken back because they are spent in skills` : ''), none: 'The character has no XP, so there was nothing to reset.' });
   },
   jReset: (d) => {
     const n = +d.n || 0, nodes = +d.nodes || 0, tuts = +d.tuts || 0;
@@ -1330,7 +1335,7 @@ document.addEventListener('click', (e) => {
   const cf0 = e.target.closest('[data-confirm]');
   if (armed && !(cf0 && cf0 === armed.btn)) disarm(); // anything but the second press of the same button cancels
   if (cf0 && !cf0.dataset.armed) { e.preventDefault(); arm(cf0); return; }
-  if (cf0 && armed && cf0 === armed.btn && (e.detail > 1 || Date.now() - armed.at < ARM_GAP_MS)) { e.preventDefault(); e.stopPropagation(); return; } // the second half of a double click, or two presses too close to be two decisions: still asking
+  if (cf0 && armed && cf0 === armed.btn && Date.now() - armed.at < ARM_GAP_MS) { e.preventDefault(); e.stopPropagation(); return; } // two presses too close to be two decisions (the second half of a double click): still asking. Only the time counts: a press after the gap is a decision, whatever the system calls it
   if (cf0) disarm(); // the second press: the label goes back and the action below runs
   const keep = e.target.closest('summary[data-keep]');
   if (keep && Object.hasOwn(KEEP, keep.dataset.keep)) KEEP[keep.dataset.keep] = !keep.parentElement.open; // the toggle is about to flip

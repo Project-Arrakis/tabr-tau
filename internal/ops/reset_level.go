@@ -46,10 +46,11 @@ func writeLevelTx(m *save.Mut, entity any, xp, total, unspent int64) error {
 }
 
 // ResetLevel puts the character's XP back to 0 (args expected: the XP the page showed and the person confirmed). The level follows the XP, and Give XP
-// adds one skill point to both the total and the unspent count for each level gained, so the reset takes those points back the same way: as many
-// as the levels the XP stood for, from the total and from the unspent points, never below 0. Skills already bought, points that did not come from
-// levels and everything else in the record stay; reset the skills first (with the points given back) to be left with none. The XP is read inside the
-// edit and a different number than the confirmed one is refused with a conflict.
+// adds one skill point to both the total and the unspent count for each level gained, so the reset takes those points back the same way, from the total
+// and from the unspent points together, as many as the levels the XP stood for but no more than are unspent: a point that is already spent in a skill is not taken back, so
+// the total never falls below what the skills hold (the gap total minus unspent is left as it was). Skills already bought, points that did not come from
+// levels and everything else in the record stay; reset the skills first (with the points given back) to take back more. The answer says how many points
+// were taken back and how many stayed because they are spent. The XP is read inside the edit and a different number than the confirmed one is refused with a conflict.
 func (o *Ops) ResetLevel(a Args) (any, error) {
 	expected, err := expectedCount(a)
 	if err != nil {
@@ -59,7 +60,7 @@ func (o *Ops) ResetLevel(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	var changed int64
+	var changed, taken, kept int64
 	var levelBefore int
 	if _, err := o.S.Mutate("reset level and xp", func(m *save.Mut) error {
 		rec, err := readLevelTx(m, p.Pawn)
@@ -75,12 +76,14 @@ func (o *Ops) ResetLevel(a Args) (any, error) {
 			return nil
 		}
 		lost := int64(levelBefore)
+		taken = max(min(lost, rec.unspent, rec.total), 0) // only unspent points can be taken back: the spent ones are in the skills, and the total must still cover them
+		kept = lost - taken
 		m.Desc = fmt.Sprintf("reset level and xp (%d XP, level %d to 0)", rec.xp, levelBefore)
-		return writeLevelTx(m, rec.entity, 0, max(rec.total-lost, 0), max(rec.unspent-lost, 0))
+		return writeLevelTx(m, rec.entity, 0, rec.total-taken, rec.unspent-taken)
 	}); err != nil {
 		return nil, err
 	}
-	return resetAnswer(changed, map[string]any{"levelBefore": levelBefore}), nil
+	return resetAnswer(changed, map[string]any{"levelBefore": levelBefore, "pointsTaken": taken, "pointsKept": kept}), nil
 }
 
 // knownTrackNumbers are the numbers of the tracks the editor has learned, each once, in order.

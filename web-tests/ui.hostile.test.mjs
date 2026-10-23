@@ -74,8 +74,9 @@ async function boot({ post = {}, get = {}, confused = false, noStorage = false }
         if (b.__fail) return { ok: false, status: b.__status || 400, statusText: 'Bad Request', json: async () => ({ error: b.__fail, code: b.__code }) };
         return { ok: true, status: 200, statusText: 'OK', json: async () => b };
       }
-      if (get[u.pathname] && get[u.pathname].__fail) return { ok: false, status: 400, statusText: 'Bad Request', json: async () => ({ error: get[u.pathname].__fail }), blob: async () => new w.Blob([JSON.stringify({ error: get[u.pathname].__fail })]) };
-      if (get[u.pathname]) return { ok: true, status: 200, statusText: 'OK', json: async () => get[u.pathname], blob: async () => new w.Blob(['a,b\n1,2\n']) };
+      const gv = typeof get[u.pathname] === 'function' ? get[u.pathname](u) : get[u.pathname];
+      if (gv && gv.__fail) return { ok: false, status: gv.__status || 400, statusText: 'Bad Request', json: async () => ({ error: gv.__fail, code: gv.__code }), blob: async () => new w.Blob([JSON.stringify({ error: gv.__fail })]) };
+      if (gv) return { ok: true, status: 200, statusText: 'OK', json: async () => gv, blob: async () => new w.Blob(['a,b\n1,2\n']) };
       const f = (confused ? confusedFixtures : baseFixtures)[u.pathname];
       const status = f ? f.status : 404;
       return { ok: status < 400, status, statusText: f ? 'OK' : 'Not Found', json: async () => (f ? f.body : { error: 'not in fixtures: ' + u.pathname }), blob: async () => new w.Blob(['x']) };
@@ -1975,7 +1976,7 @@ test('a browser that blocks local storage (it throws on the first touch) still s
   ui.dom.window.close();
 });
 
-test('two presses of an armed bulk button less than 400 ms apart, or the second half of a double click, do not run it (review B1)', async () => {
+test('two presses of an armed bulk button less than 400 ms apart do not run it; a press after the gap does, whatever its click count (review B1, R6 L7)', async () => {
   const ui = await boot({ post: { '/api/bases/repair': { ok: true, pieces: 3, placeables: 1 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:bases"]'); await ui.settle();
@@ -1986,14 +1987,13 @@ test('two presses of an armed bulk button less than 400 ms apart, or the second 
   ui.click('[data-act="repairB"]'); ui.click('[data-act="repairB"]'); await ui.settle();
   assert.equal(sent(), 0, 'two presses at once are not a decision');
   assert.equal(btn().textContent, 'Yes, repair every base', 'and it is still asking');
-  // the second half of a real double click carries detail 2, even when it comes later than the gap
+  // the second half of a double click that comes within the gap is the same movement of the hand
+  btn().dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true, detail: 2 })); await ui.settle();
+  assert.equal(sent(), 0, 'a press within the gap does not run it');
+  // a press after the gap is a decision, even when the system counts it as part of a double click (it used to be ignored until the double-click time had passed)
   await new Promise((r) => ui.w.setTimeout(r, 450));
   btn().dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true, detail: 2 })); await ui.settle();
-  assert.equal(sent(), 0, 'the second half of a double click does not run it');
-  assert.equal(btn().textContent, 'Yes, repair every base');
-  // a deliberate second press runs it once
-  btn().dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 })); await ui.settle();
-  assert.equal(sent(), 1);
+  assert.equal(sent(), 1, 'the press after the gap runs it, once');
   ui.dom.window.close();
 });
 
@@ -2411,8 +2411,18 @@ const clearInventory = () => {
 // the two presses of a button that asks first, a decision's time apart
 const press = async (ui, sel) => { ui.click(sel); await ui.settle(); await new Promise((r) => ui.w.setTimeout(r, 450)); ui.click(sel); await ui.settle(); };
 const typeInto = (ui, text) => { const inp = ui.doc.querySelector('#atype'); inp.value = text; inp.dispatchEvent(new ui.w.Event('input', { bubbles: true })); };
-async function charInventory(post = {}) {
-  const ui = await boot({ get: { '/api/player/inventory': clearInventory() }, post });
+// What the editor's preview answers for a container of the inventory above: the items in it (the Solari Coin stack stays unless the currency box is ticked), nested items
+// inside bags as given, and a token that stands for the items.
+const HASH = 'a'.repeat(64);
+const clearPreview = (inv = clearInventory(), nested = {}) => (u) => {
+  const id = +u.searchParams.get('inventory_id'), cur = u.searchParams.get('include_currency') === 'true';
+  const rows = inv.items.filter((r) => r.inventory_id === id);
+  const items = rows.filter((r) => cur || r.template_id !== 'SolarisCoin').length;
+  return { items, kept: rows.length - items, nested: nested[id] || 0, token: HASH };
+};
+async function charInventory(post = {}, nested = {}) {
+  const inv = clearInventory();
+  const ui = await boot({ get: { '/api/player/inventory': inv, '/api/inventories/clear-preview': clearPreview(inv, nested) }, post });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="char:inventory"]'); await ui.settle();
   return ui;
@@ -2459,7 +2469,7 @@ test('the typed count sends the container, the count and the currency flag, and 
   typeInto(ui, ' 2 ');
   assert.equal(ui.doc.querySelector('#aok').disabled, false, 'the right count enables it');
   ui.click('#aok'); await ui.settle();
-  assert.deepEqual(clears(ui).map((p) => p.body), [{ inventory_id: 1, count: 2, include_currency: false }]);
+  assert.deepEqual(clears(ui).map((p) => p.body), [{ inventory_id: 1, count: 2, nested: 0, ids_hash: HASH, include_currency: false }]);
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Cleared Backpack: 2 items removed'), ui.doc.querySelector('#toast').textContent);
   ui.dom.window.close();
 });
@@ -2474,7 +2484,7 @@ test('ticking the currency box changes the count to type and is sent as include_
   assert.equal(ui.doc.querySelector('#aok').disabled, true, 'the count without the currency is not the one asked for');
   typeInto(ui, '3');
   ui.click('#aok'); await ui.settle();
-  assert.deepEqual(clears(ui).map((p) => p.body), [{ inventory_id: 1, count: 3, include_currency: true }]);
+  assert.deepEqual(clears(ui).map((p) => p.body), [{ inventory_id: 1, count: 3, nested: 0, ids_hash: HASH, include_currency: true }]);
   ui.dom.window.close();
 });
 
@@ -2484,7 +2494,7 @@ test('worn gear clears its own container, schematics offer no clear, and a conta
   await press(ui, '[data-act="clearInv"]');
   assert.ok(ui.doc.querySelector('#ask').textContent.includes('Clear Character?'));
   typeInto(ui, '1'); ui.click('#aok'); await ui.settle();
-  assert.deepEqual(clears(ui).map((p) => p.body), [{ inventory_id: 2, count: 1, include_currency: false }]);
+  assert.deepEqual(clears(ui).map((p) => p.body), [{ inventory_id: 2, count: 1, nested: 0, ids_hash: HASH, include_currency: false }]);
   ui.click('[data-invg="loadout"]'); await ui.settle();
   assert.equal(ui.doc.querySelector('[data-act="clearInv"]').disabled, true, 'an empty container has nothing to clear');
   assert.ok(ui.doc.querySelector('#clrnote').textContent.includes('nothing to clear'));
@@ -2495,7 +2505,7 @@ test('worn gear clears its own container, schematics offer no clear, and a conta
 
 test('a container that holds only currency says there is nothing to clear until the box is ticked', async () => {
   const inv = clearInventory(); inv.items = inv.items.filter((r) => r.id !== 11 && r.id !== 12);
-  const ui = await boot({ get: { '/api/player/inventory': inv } });
+  const ui = await boot({ get: { '/api/player/inventory': inv, '/api/inventories/clear-preview': clearPreview(inv) } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="char:inventory"]'); await ui.settle();
   await press(ui, '[data-act="clearInv"]');
@@ -2517,7 +2527,7 @@ test('a refusal of the editor (the count no longer matches) is shown and the pag
 test('an opened base container sends its own id and count, named as the base names it', async () => {
   const items = [{ id: 1, template_id: 'CopperOre', stack_size: 5, quality_level: 0, position_index: 0 }, { id: 2, template_id: 'SolarisCoin', stack_size: 5, quality_level: 0, position_index: 1 }];
   const ui = await boot({
-    get: { '/api/bases/storage/items': items, '/api/bases/inventory': { groups: [{ id: 'storage', label: 'Storage', count: 1 }], containers: [{ inventory_id: 7001, name: 'Ore Storage', type: 'Chest', group: 'storage', items: 2, max_item_count: 20 }] } },
+    get: { '/api/inventories/clear-preview': () => ({ items: 1, kept: 1, nested: 0, token: HASH }), '/api/bases/storage/items': items, '/api/bases/inventory': { groups: [{ id: 'storage', label: 'Storage', count: 1 }], containers: [{ inventory_id: 7001, name: 'Ore Storage', type: 'Chest', group: 'storage', items: 2, max_item_count: 20 }] } },
     post: { '/api/inventories/clear': { ok: true, removed: 1, kept: 1 } },
   });
   ui.click('[data-tab="player"]'); await ui.settle();
@@ -2528,6 +2538,62 @@ test('an opened base container sends its own id and count, named as the base nam
   await press(ui, '#inv [data-act="clearInv"]');
   assert.ok(ui.doc.querySelector('#ask').textContent.includes('Clear Ore Storage?'), ui.doc.querySelector('#ask').textContent);
   typeInto(ui, '1'); ui.click('#aok'); await ui.settle();
-  assert.deepEqual(clears(ui).map((p) => p.body), [{ inventory_id: 7001, count: 1, include_currency: false }]);
+  assert.deepEqual(clears(ui).map((p) => p.body), [{ inventory_id: 7001, count: 1, nested: 0, ids_hash: HASH, include_currency: false }]);
+  ui.dom.window.close();
+});
+
+test('the clear counts what is inside the bags: the dialog says so, the number to type is the total, and the nested count and token go with the request', async () => {
+  const ui = await charInventory({ '/api/inventories/clear': { ok: true, removed: 2, kept: 1, nested: 3, outcome: 'written' } }, { 1: 3 });
+  await press(ui, '[data-act="clearInv"]');
+  const ask = ui.doc.querySelector('#ask');
+  assert.ok(ask.textContent.includes('2 items') && ask.textContent.includes('3 items') && ask.textContent.includes('inside them') && ask.textContent.includes('5 items in all'), ask.textContent);
+  assert.equal(ask.querySelector('b').textContent, '5', 'the number to type is every item that goes');
+  typeInto(ui, '2');
+  assert.equal(ui.doc.querySelector('#aok').disabled, true, 'the count of the top-level items alone is not the number');
+  typeInto(ui, '5'); ui.click('#aok'); await ui.settle();
+  assert.deepEqual(clears(ui).map((p) => p.body), [{ inventory_id: 1, count: 2, nested: 3, ids_hash: HASH, include_currency: false }]);
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('3 items inside bags'), ui.doc.querySelector('#toast').textContent);
+  ui.dom.window.close();
+});
+
+test('the clear asks the editor what it would remove at the time of the click, not the list the page drew', async () => {
+  // the page drew 2 items; by the time of the click the editor sees 4
+  const inv = clearInventory();
+  const ui = await boot({ get: { '/api/player/inventory': inv, '/api/inventories/clear-preview': () => ({ items: 4, kept: 1, nested: 0, token: HASH }) }, post: { '/api/inventories/clear': { ok: true, removed: 4, kept: 1 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="char:inventory"]'); await ui.settle();
+  await press(ui, '[data-act="clearInv"]');
+  assert.equal(ui.doc.querySelector('#ask b').textContent, '4');
+  ui.dom.window.close();
+});
+
+test('a preview that fails is shown, no question is asked and nothing is sent', async () => {
+  const inv = clearInventory();
+  const ui = await boot({ get: { '/api/player/inventory': inv, '/api/inventories/clear-preview': { __fail: 'container not found', __code: 'not_found', __status: 404 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="char:inventory"]'); await ui.settle();
+  await press(ui, '[data-act="clearInv"]');
+  assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'));
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('container not found'));
+  assert.equal(clears(ui).length, 0);
+  ui.dom.window.close();
+});
+
+test('the second press of a button that asks first counts once the gap has passed, even when the system calls it part of a double click', async () => {
+  const ui = await charInventory({ '/api/inventories/clear': { ok: true, removed: 2, kept: 1 } });
+  ui.click('[data-act="clearInv"]'); await ui.settle();
+  await new Promise((r) => ui.w.setTimeout(r, 450));
+  const b = ui.doc.querySelector('[data-act="clearInv"]');
+  b.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true, detail: 2 })); await ui.settle();
+  assert.ok(!ui.doc.querySelector('#ask').classList.contains('hide'), 'a press after the gap is a decision, whatever its click count');
+  ui.dom.window.close();
+});
+
+test('an error toast has a dismiss button with an accessible name', async () => {
+  const ui = await boot({});
+  ui.w.eval("toast('something failed', true)");
+  const x = ui.doc.querySelector('#toast button.x');
+  assert.ok(x, 'an error can be dismissed');
+  assert.equal(x.getAttribute('aria-label'), 'Dismiss this message');
   ui.dom.window.close();
 });
