@@ -8,13 +8,13 @@ Severity scale: Critical, High, Medium, Low, Info. STRIDE: S spoofing, T tamperi
 
 | Group | Severity | Issue | Findings | Open |
 |---|---|---|---|---|
-| E1: Queued-edit replay writes stale values over the game's newer save | HIGH | #251 | 10 | 6 |
-| E2: Edits dropped or held by a rebase are not reported; the queue cannot be inspected | MEDIUM | #252 | 6 | 6 |
-| E3: Backups: the prune can delete the pre-session backup; the throttle trusts any file | MEDIUM | #253 | 7 | 7 |
+| E1: Queued-edit replay writes stale values over the game's newer save | HIGH | #251 | 10 | 1 |
+| E2: Edits dropped or held by a rebase are not reported; the queue cannot be inspected | MEDIUM | #252 | 6 | 0 |
+| E3: Backups: the prune can delete the pre-session backup; the throttle trusts any file | MEDIUM | #253 | 7 | 0 |
 | E4: No persistent record of writes; bulk actions lost their confirmation | MEDIUM | #254 | 4 | 4 |
 | E5: Documents still describe the removed Review & save; a control removal merged without review | MEDIUM | #255 | 7 | 0 |
 | E6: Repository settings and CI configuration | MEDIUM | #256 | 10 | 6 |
-| E7: Save lifecycle: locking, gates and timeouts | MEDIUM | #257 | 10 | 10 |
+| E7: Save lifecycle: locking, gates and timeouts | MEDIUM | #257 | 10 | 7 |
 | E8: Give and stack sizes: remaining gaps | MEDIUM | #258 | 4 | 4 |
 | E9: Local data exposure and the page guard | LOW | #259 | 5 | 5 |
 | E10: Embedded game-table datasets have no provenance notice | MEDIUM | #260 | 1 | 0 |
@@ -34,15 +34,15 @@ A queued edit that stored a number computed from the old value (Solari +250, a s
 | ID | Sev | STRIDE | Location | Finding | Status |
 |---|---|---|---|---|---|
 | QA-1 | HIGH | T, D | `internal/save/flush.go:71-77`, `journal.go:292-342` (replay checks only the row count, ... | A queued edit that stores a number the editor computed from the old value (Solari +250, set stack, XP...) is replayed over the game's newer save and silently overwrites what the player earned in between. | fixed (#272: the queue is held, nothing is written, when a row an edit read was changed by the game; the operation is not re-run on the new values, see #251) |
-| DBA-1 | HIGH | T, R | internal/save/journal.go:292-356 (replayLocked/replayOp), flush.go:71-85 | When a replayed edit fails, later edits that address its rows by id are still replayed and land on the game's unrelated rows; the result is committed in the same Flush | open |
+| DBA-1 | HIGH | T, R | internal/save/journal.go:292-356 (replayLocked/replayOp), flush.go:71-85 | When a replayed edit fails, later edits that address its rows by id are still replayed and land on the game's unrelated rows; the result is committed in the same Flush | fixed (#283) |
 | DBA-2 | MEDIUM | T | journal.go:312-342; ops.go:332 (top-up), :803 (AddSolari), augment.go:124 (stats rewrite) | Replay re-runs absolute values computed from the stale working copy: it silently overwrites what the game changed on the same row (lost update) | fixed (#272, as QA-1) |
 | DBA-3 | MEDIUM | T | ops.go:388-407 (id sequencer), journal.go:318-333 | The literal `next_id` and item id are replayed onto the newer file: the sequencer is moved backwards, and the id may belong to a game row | fixed (#272, as QA-1: the sequencer read is one of the reads compared) |
 | DBA-5 | MEDIUM | T | ops.go:360-373 via journal replay; schema.sql:284-295 | Replay inserts the stale slot (`position_index`) and does not re-check capacity: two items in one slot, item count above max_item_count | fixed (#272, as QA-1: the free-slot read is one of the reads compared) |
-| GRC-5 | MEDIUM | T, R | save/journal.go:205-224, save/save.go:597-598 | A journal that survives a successful write replays already-written edits (duplicate items). Reproduced. | open |
-| ARCH-2 | MEDIUM | T | `internal/save/save.go:587-598`, `internal/save/journal.go:210-214, 249-266` | A journal that outlives a successful write is replayed onto a file that already holds the edits (duplicates) | open |
+| GRC-5 | MEDIUM | T, R | save/journal.go:205-224, save/save.go:597-598 | A journal that survives a successful write replays already-written edits (duplicate items). Reproduced. | fixed (#242, test in flush_test.go) |
+| ARCH-2 | MEDIUM | T | `internal/save/save.go:587-598`, `internal/save/journal.go:210-214, 249-266` | A journal that outlives a successful write is replayed onto a file that already holds the edits (duplicates) | fixed (#242, test in flush_test.go) |
 | DBA-10 | LOW | T, D | journal.go:98-105, 131-146, 219-243 | Journal fidelity and degraded modes: nil []byte becomes an empty blob, invalid UTF-8 is rewritten, float32 is widened, any ';' strands the queue, write errors are swallowed, no fsync | open |
-| DBA-11 | LOW | T | journal.go:270-310 | Rebase is not under flushMu and releases s.mu between replayed ops; the journal file is deleted before replay re-creates it | open |
-| ARCH-3 | MEDIUM | T, D | `internal/save/journal.go:270-298`, `internal/save/save.go:498-506, 625`, ... | Rebase, Discard and Restore are not serialized with Flush; replay drops `s.mu`; Discard can be undone by an in-flight replay | open |
+| DBA-11 | LOW | T | journal.go:270-310 | Rebase is not under flushMu and releases s.mu between replayed ops; the journal file is deleted before replay re-creates it | fixed (#283) |
+| ARCH-3 | MEDIUM | T, D | `internal/save/journal.go:270-298`, `internal/save/save.go:498-506, 625`, ... | Rebase, Discard and Restore are not serialized with Flush; replay drops `s.mu`; Discard can be undone by an in-flight replay | fixed (#283) |
 
 ## E2: Edits dropped or held by a rebase are not reported; the queue cannot be inspected
 
@@ -54,12 +54,12 @@ A successful automatic write erases the notice of the edits the rebase dropped; 
 
 | ID | Sev | STRIDE | Location | Finding | Status |
 |---|---|---|---|---|---|
-| ARCH-1 | MEDIUM | R, T | `internal/save/flush.go:71-84`, `internal/save/save.go:598`, ... | Edits dropped by the automatic rebase are never reported: the successful write erases the notice | open |
-| DBA-4 | MEDIUM | R | save.go:598 (commit -> dropJournal), journal.go:212, web/static/app.js:268-282 | Conflicts found by a Flush-driven rebase are never shown: dropJournal clears `restored`, and the page only reads `o.restored` | open |
-| ARCH-9 | LOW | D | `internal/save/journal.go:270-277`, `internal/web/static/app.js:278` | With the journal off, queued edits can never be written once the game has saved; the banner still promises they will be | open |
-| UX-30 | MEDIUM | Usability | `app.js:285-287, 324`; header `#pending` | The queue cannot be inspected.** What is queued appears only as the `title` of "1 queued" (hover): "solari +10000", lower-case internal wording. The Discard dialog ("The changes that are waiting for the game to close are dropped") lists nothing; neither does the banner. Verified on the fixture. | open |
-| UX-31 | MEDIUM | Polish, User-friendliness | `app.js:278-279`; screen (fixture) | The two banners stack with the same reason twice and raw tool text: "1 change is queued. could not check whether the game is running (exit status 1: ERROR: Call cancelled). They are written ... Changes cannot be written. could not check ... (exit status 1 ...). If this keeps happening, report this ... | open |
-| GRC-15 | LOW | R, I | web/static/app.js:39, 46, 913, 922 | About 41 success toasts carry no queued hint; "Teleport queued" appears when the edit was written. | open |
+| ARCH-1 | MEDIUM | R, T | `internal/save/flush.go:71-84`, `internal/save/save.go:598`, ... | Edits dropped by the automatic rebase are never reported: the successful write erases the notice | fixed (#276) |
+| DBA-4 | MEDIUM | R | save.go:598 (commit -> dropJournal), journal.go:212, web/static/app.js:268-282 | Conflicts found by a Flush-driven rebase are never shown: dropJournal clears `restored`, and the page only reads `o.restored` | fixed (#276) |
+| ARCH-9 | LOW | D | `internal/save/journal.go:270-277`, `internal/web/static/app.js:278` | With the journal off, queued edits can never be written once the game has saved; the banner still promises they will be | fixed (#276) |
+| UX-30 | MEDIUM | Usability | `app.js:285-287, 324`; header `#pending` | The queue cannot be inspected.** What is queued appears only as the `title` of "1 queued" (hover): "solari +10000", lower-case internal wording. The Discard dialog ("The changes that are waiting for the game to close are dropped") lists nothing; neither does the banner. Verified on the fixture. | fixed (#247, pinned by tests in #276) |
+| UX-31 | MEDIUM | Polish, User-friendliness | `app.js:278-279`; screen (fixture) | The two banners stack with the same reason twice and raw tool text: "1 change is queued. could not check whether the game is running (exit status 1: ERROR: Call cancelled). They are written ... Changes cannot be written. could not check ... (exit status 1 ...). If this keeps happening, report this ... | fixed (#247, pinned by tests in #276) |
+| GRC-15 | LOW | R, I | web/static/app.js:39, 46, 913, 922 | About 41 success toasts carry no queued hint; "Teleport queued" appears when the edit was written. | fixed (#276) |
 
 ## E3: Backups: the prune can delete the pre-session backup; the throttle trusts any file
 
@@ -71,13 +71,13 @@ Backups are kept at one per 2-minute burst and the newest 60, so the pristine pr
 
 | ID | Sev | STRIDE | Location | Finding | Status |
 |---|---|---|---|---|---|
-| SEC-1 | MEDIUM | T, D (loss of recovery) | internal/save/flush.go:13-16, 101-112, 126-146; save.go:580 | The automatic backup prune keeps only the newest 60 files and does not protect the first, pre-editor backup. A long or repeated editing history silently deletes the only copy of the never-edited save. | open |
-| SEC-2 | LOW | T, R | internal/save/flush.go:101-112 (backupIfStale), save.go:541-607 | Backup is reused for 2 minutes, but Flush rebases onto a newer game save first. The file that gets overwritten is then not the state the reported "backup" holds. | open |
-| GRC-4 | MEDIUM | R, D | save/flush.go:14-15, 101-146; README.md:49, 75 | Backup policy changed to one per 2-minute burst and a 60-file cap; the next write deletes 41 of the operator's 101 existing backups, including the 2026-10-07 originals. README still says every save is backed up. | open |
-| ARCH-7 | LOW | R | `internal/save/flush.go:104-112, 140-145`, `internal/save/save.go:579-583` | The "backup" reported by an automatic write may not be of the file it replaced; count-based pruning can discard the session's original | open |
-| DBA-7 | MEDIUM | R, D | flush.go:102-124, save.go:514-533 | Backup throttle trusts the mtime of any file in the folder: a future-dated or junk file suppresses all backups; no byte comparison with the pre-edit file; skipped after a rebase | open |
-| DBA-9 | LOW | R | flush.go:127-146 | pruneBackups evicts the oldest file by mtime after 60: the pristine pre-session backup is the first to go; also deletes any file in the folder | open |
-| QA-3 | MEDIUM | T, R | `flush.go:126-146` (`pruneBackups`), test `flush_test.go:105-135` | The backup-retention test cannot fail when pruning deletes the newest backup (the restore point just taken). Mutant survives. | open |
+| SEC-1 | MEDIUM | T, D (loss of recovery) | internal/save/flush.go:13-16, 101-112, 126-146; save.go:580 | The automatic backup prune keeps only the newest 60 files and does not protect the first, pre-editor backup. A long or repeated editing history silently deletes the only copy of the never-edited save. | fixed (#273) |
+| SEC-2 | LOW | T, R | internal/save/flush.go:101-112 (backupIfStale), save.go:541-607 | Backup is reused for 2 minutes, but Flush rebases onto a newer game save first. The file that gets overwritten is then not the state the reported "backup" holds. | fixed (#273) |
+| GRC-4 | MEDIUM | R, D | save/flush.go:14-15, 101-146; README.md:49, 75 | Backup policy changed to one per 2-minute burst and a 60-file cap; the next write deletes 41 of the operator's 101 existing backups, including the 2026-10-07 originals. README still says every save is backed up. | fixed (#273) |
+| ARCH-7 | LOW | R | `internal/save/flush.go:104-112, 140-145`, `internal/save/save.go:579-583` | The "backup" reported by an automatic write may not be of the file it replaced; count-based pruning can discard the session's original | fixed (#273) |
+| DBA-7 | MEDIUM | R, D | flush.go:102-124, save.go:514-533 | Backup throttle trusts the mtime of any file in the folder: a future-dated or junk file suppresses all backups; no byte comparison with the pre-edit file; skipped after a rebase | fixed (#273) |
+| DBA-9 | LOW | R | flush.go:127-146 | pruneBackups evicts the oldest file by mtime after 60: the pristine pre-session backup is the first to go; also deletes any file in the folder | fixed (#273) |
+| QA-3 | MEDIUM | T, R | `flush.go:126-146` (`pruneBackups`), test `flush_test.go:105-135` | The backup-retention test cannot fail when pruning deletes the newest backup (the restore point just taken). Mutant survives. | fixed (#273) |
 
 ## E4: No persistent record of writes; bulk actions lost their confirmation
 
@@ -163,9 +163,9 @@ The write gates use the 3-second process cache while the status poll bypasses it
 
 | ID | Sev | STRIDE | Location | Finding | Status |
 |---|---|---|---|---|---|
-| ARCH-4 | MEDIUM | T | `internal/save/spsession.go:170-171`, `internal/save/gameproc.go:104-110` | The `fresh` flag is inverted: write gates use the 3-second process cache, the 5-second status poll bypasses it | open |
-| ARCH-5 | LOW | D, T | `internal/save/save.go:188`, `internal/save/durable.go:65`, `cmd/tabr-tau/main.go:111-117` | `Open` deletes `*.tabr-*.tmp` before the single-instance lock is taken | open |
-| DBA-12 | LOW | D | cmd/tabr-tau/main.go:111-117, save.go:188, durable.go:65 | `Open` (which deletes `game.db.tabr-*.tmp`) runs before `LockSave`; a second launch can delete the first editor's in-flight temp file | open |
+| ARCH-4 | MEDIUM | T | `internal/save/spsession.go:170-171`, `internal/save/gameproc.go:104-110` | The `fresh` flag is inverted: write gates use the 3-second process cache, the 5-second status poll bypasses it | fixed (#242, pinned by #285) |
+| ARCH-5 | LOW | D, T | `internal/save/save.go:188`, `internal/save/durable.go:65`, `cmd/tabr-tau/main.go:111-117` | `Open` deletes `*.tabr-*.tmp` before the single-instance lock is taken | fixed (#285) |
+| DBA-12 | LOW | D | cmd/tabr-tau/main.go:111-117, save.go:188, durable.go:65 | `Open` (which deletes `game.db.tabr-*.tmp`) runs before `LockSave`; a second launch can delete the first editor's in-flight temp file | fixed (#285) |
 | ARCH-8 | LOW | D | `internal/save/save.go:541-607, 485-495`, `internal/save/durable.go:48-57` | `s.mu` is held across process spawn, hashing, encode, backup and rename retries (up to ~3 s) and across 5 s console queries; polls stall | open |
 | DBA-15 | INFO | T | save.go:541-607, durable.go:87-117 | The single-player gate is evaluated once, well before the rename; with the game writing game.db about every 20 s, a missed marker loses the edit silently | open |
 | DBA-16 | INFO | T | save.go:149-177 | The schema fingerprint covers triggers, views and virtual tables only; table DDL and applied_patches are not compared at open | open |
