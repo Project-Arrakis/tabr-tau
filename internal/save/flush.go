@@ -2,6 +2,7 @@ package save
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -163,51 +164,77 @@ func (s *Save) canReuseBackup() bool {
 	return err == nil && hashOf(b) == s.lastBackupHash
 }
 
-// autoBackupKey tells whether name is one this editor gave to an automatic backup of the save (<name>-<yyyymmdd>-<hhmmss>-<nanoseconds>-auto<ext>), and the time in it. Only
-// such files are counted or removed by the pruning: a file of any other name, or with a time somebody set on it, is not the editor's.
-func (s *Save) autoBackupKey(name string) (stamp string, nanos int64, ok bool) {
-	ext := filepath.Ext(s.Path)
-	pre, suf := strings.TrimSuffix(filepath.Base(s.Path), ext)+"-", autoTag+ext
-	if len(name) <= len(pre)+len(suf) || !strings.HasPrefix(name, pre) || !strings.HasSuffix(name, suf) {
-		return "", 0, false
+// Backup names are <name>-<yyyymmdd-hhmmss>Z-<nanoseconds, 9 digits>[-auto]<ext>: the time is UTC (the Z), so a change of the clock's zone or a daylight-saving change cannot make a
+// newer backup look older, and the nanoseconds are padded so the names sort as the times do. Names made by earlier versions have the local time, no Z and unpadded nanoseconds; they
+// are still understood (the local time is read in the zone the computer is in now).
+var backupStamp = regexp.MustCompile(`^(\d{8}-\d{6})(Z?)-(\d{1,9})$`)
+
+// newBackupName is the name of a backup taken now. The time in it is later than that of every backup already in the folder, whatever the clock says: a clock that was set back
+// would otherwise give a new backup an old time, and the pruning would take it for one of the oldest.
+func (s *Save) newBackupName(base, tag, ext string) string {
+	now := time.Now().UTC()
+	ents, _ := os.ReadDir(s.backupDir())
+	for _, e := range ents {
+		if at, ok := s.backupInstant(e.Name()); ok && at >= now.UnixNano() {
+			now = time.Unix(0, at).UTC().Add(time.Millisecond)
+		}
 	}
-	m := autoBackupStamp.FindStringSubmatch(name[len(pre) : len(name)-len(suf)])
-	if m == nil {
-		return "", 0, false
-	}
-	n, err := strconv.ParseInt(m[2], 10, 64)
-	if err != nil {
-		return "", 0, false
-	}
-	return m[1], n, true
+	return fmt.Sprintf("%s-%sZ-%09d%s%s", base, now.Format("20060102-150405"), now.Nanosecond(), tag, ext)
 }
 
-var autoBackupStamp = regexp.MustCompile(`^(\d{8}-\d{6})-(\d{1,9})$`)
+// backupInstant is the time in the name of a backup of this save (its name, then the stamp, then the optional -auto and the extension), in nanoseconds since 1970.
+func (s *Save) backupInstant(name string) (int64, bool) {
+	at, _, ok := s.parseBackupName(name)
+	return at, ok
+}
 
-// pruneBackups removes the oldest of the editor's automatic backups beyond keepBackups. Ordered by the time in their names (not the file times, which anything can set), the
+func (s *Save) parseBackupName(name string) (at int64, auto bool, ok bool) {
+	ext := filepath.Ext(s.Path)
+	pre := strings.TrimSuffix(filepath.Base(s.Path), ext) + "-"
+	if !strings.HasPrefix(name, pre) || !strings.HasSuffix(name, ext) || len(name) <= len(pre)+len(ext) {
+		return 0, false, false
+	}
+	mid := name[len(pre) : len(name)-len(ext)]
+	if strings.HasSuffix(mid, autoTag) {
+		mid, auto = strings.TrimSuffix(mid, autoTag), true
+	}
+	m := backupStamp.FindStringSubmatch(mid)
+	if m == nil {
+		return 0, false, false
+	}
+	n, err := strconv.ParseInt(m[3], 10, 64)
+	if err != nil {
+		return 0, false, false
+	}
+	loc := time.Local
+	if m[2] == "Z" {
+		loc = time.UTC
+	}
+	t, err := time.ParseInLocation("20060102-150405", m[1], loc)
+	if err != nil {
+		return 0, false, false
+	}
+	return t.UnixNano() + n, auto, true
+}
+
+// pruneBackups removes the oldest of the editor's automatic backups beyond keepBackups. Ordered by the time in their names, read as an instant (not the file times, which anything can set, and not the text of the name, whose local time can run backwards), the
 // ones it never removes are the oldest, the first of this session and justTaken, and nothing that is not an automatic backup of this save is looked at.
 func (s *Save) pruneBackups(justTaken string) {
 	ents, _ := os.ReadDir(s.backupDir())
 	type bk struct {
-		path  string
-		stamp string
-		nanos int64
+		path string
+		at   int64
 	}
 	var all []bk
 	for _, e := range ents {
-		if stamp, n, ok := s.autoBackupKey(e.Name()); ok && e.Type().IsRegular() {
-			all = append(all, bk{filepath.Join(s.backupDir(), e.Name()), stamp, n})
+		if at, auto, ok := s.parseBackupName(e.Name()); ok && auto && e.Type().IsRegular() {
+			all = append(all, bk{filepath.Join(s.backupDir(), e.Name()), at})
 		}
 	}
 	if len(all) <= keepBackups {
 		return
 	}
-	sort.Slice(all, func(i, j int) bool {
-		if all[i].stamp != all[j].stamp {
-			return all[i].stamp > all[j].stamp
-		}
-		return all[i].nanos > all[j].nanos
-	})
+	sort.Slice(all, func(i, j int) bool { return all[i].at > all[j].at })
 	keep := map[string]bool{justTaken: true, s.firstBackup: true, all[len(all)-1].path: true}
 	for _, b := range all[keepBackups:] {
 		if !keep[b.path] {

@@ -36,15 +36,6 @@ func (o *Ops) RefillContainers() (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	rows, err := o.S.Query(`select i.id, i.template_id,
-		cast(json_extract(i.stats,'$.FFillableItemStats[1].CurrentAmount') as real) amount,
-		json_extract(i.stats,'$.FFillableItemStats[1].FillableType') kind,
-		json_extract(i.stats,'$.FFillableItemStats') has
-		from items i join inventories v on v.id=i.inventory_id
-		where v.actor_id=? and json_valid(i.stats) order by i.id`, p.Pawn)
-	if err != nil {
-		return nil, err
-	}
 	type target struct {
 		id  any
 		cap float64
@@ -52,28 +43,40 @@ func (o *Ops) RefillContainers() (any, error) {
 	var todo []target
 	full := 0
 	unknown := map[string]int{}
-	for _, r := range rows {
-		tpl := fmt.Sprint(r["template_id"])
-		capacity, known := waterCapacity[tpl]
-		if !known {
-			// A record without a type or amount is an empty container; blood sacks (issue #60) are not water.
-			if r["has"] != nil && !strings.HasPrefix(tpl, "Bloodsack") { // a container we cannot size
-				if r["kind"] == nil || r["kind"] == "Water" {
-					unknown[tpl]++
-				}
-			}
-			continue
-		}
-		if r["kind"] != nil && r["kind"] != "Water" {
-			continue
-		}
-		if cur, ok := r["amount"].(float64); ok && cur >= capacity {
-			full++
-			continue
-		}
-		todo = append(todo, target{r["id"], capacity})
-	}
+	// The containers are looked at inside the edit, through the edit's own query: what the edit read is then kept with it, and an edit put back onto a newer file is not applied
+	// to a list of containers made from the older one.
 	_, err = o.S.Mutate("refill containers", func(m *save.Mut) error {
+		todo, full, unknown = nil, 0, map[string]int{}
+		rows, err := m.Query(`select i.id, i.template_id,
+		cast(json_extract(i.stats,'$.FFillableItemStats[1].CurrentAmount') as real) amount,
+		json_extract(i.stats,'$.FFillableItemStats[1].FillableType') kind,
+		json_extract(i.stats,'$.FFillableItemStats') has
+		from items i join inventories v on v.id=i.inventory_id
+		where v.actor_id=? and json_valid(i.stats) order by i.id`, p.Pawn)
+		if err != nil {
+			return err
+		}
+		for _, r := range rows {
+			tpl := fmt.Sprint(r["template_id"])
+			capacity, known := waterCapacity[tpl]
+			if !known {
+				// A record without a type or amount is an empty container; blood sacks (issue #60) are not water.
+				if r["has"] != nil && !strings.HasPrefix(tpl, "Bloodsack") { // a container we cannot size
+					if r["kind"] == nil || r["kind"] == "Water" {
+						unknown[tpl]++
+					}
+				}
+				continue
+			}
+			if r["kind"] != nil && r["kind"] != "Water" {
+				continue
+			}
+			if cur, ok := r["amount"].(float64); ok && cur >= capacity {
+				full++
+				continue
+			}
+			todo = append(todo, target{r["id"], capacity})
+		}
 		for _, t := range todo {
 			// json_set keeps every other key and writes the number the way the game does (20000.0).
 			if _, err := m.Exec(`update items set stats=case

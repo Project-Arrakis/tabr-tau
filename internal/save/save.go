@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	_ "embed"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -250,11 +251,11 @@ func (s *Save) load() error {
 	if err != nil {
 		return err
 	}
-	work, db, err := openCopy(raw, "tabr-tau-*.sqlite", "_pragma=journal_mode(delete)&_pragma=foreign_keys(0)")
+	work, db, err := openCopy(raw, "tabr-tau-*.sqlite", "_pragma=journal_mode(delete)&_pragma=foreign_keys(0)&_pragma=trusted_schema(0)")
 	if err != nil {
 		return err
 	}
-	rdb, err := sql.Open("sqlite", "file:"+filepath.ToSlash(work)+"?mode=ro&_pragma=busy_timeout(2000)&_pragma=query_only(1)")
+	rdb, err := sql.Open("sqlite", "file:"+filepath.ToSlash(work)+"?mode=ro&_pragma=busy_timeout(2000)&_pragma=query_only(1)&_pragma=trusted_schema(0)")
 	if err != nil {
 		db.Close()
 		os.Remove(work)
@@ -457,13 +458,23 @@ func queryTable(db querier, q string, args ...any) ([]string, [][]any, error) {
 func queryTableCtx(ctx context.Context, db interface {
 	QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error)
 }, limit int, q string, args ...any) ([]string, [][]any, error) {
+	cols, out, _, err := queryTableDigest(ctx, db, limit, q, args...)
+	return cols, out, err
+}
+
+// queryTableDigest is queryTableCtx that also returns, per row, the SHA-256 (hex) of every blob longer than the 24 bytes shown, by column index. The displayed text of a blob
+// stops at 24 bytes, so a hash of the rows an edit read must take this too or a change after the 24th byte goes unseen.
+func queryTableDigest(ctx context.Context, db interface {
+	QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error)
+}, limit int, q string, args ...any) ([]string, [][]any, []map[int]string, error) {
 	rs, err := db.QueryContext(ctx, q, args...)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer rs.Close()
 	cols, _ := rs.Columns()
 	out := [][]any{}
+	var digs []map[int]string
 	for rs.Next() {
 		if limit > 0 && len(out) >= limit {
 			break
@@ -474,13 +485,19 @@ func queryTableCtx(ctx context.Context, db interface {
 			ptrs[i] = &vals[i]
 		}
 		if err := rs.Scan(ptrs...); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
+		dig := map[int]string(nil)
 		for i, v := range vals {
 			switch x := v.(type) {
 			case []byte:
 				n := len(x)
 				if n > 24 {
+					sum := sha256.Sum256(x)
+					if dig == nil {
+						dig = map[int]string{}
+					}
+					dig[i] = hex.EncodeToString(sum[:])
 					x = x[:24]
 				}
 				vals[i] = fmt.Sprintf("<blob %dB> %x", n, x)
@@ -491,26 +508,40 @@ func queryTableCtx(ctx context.Context, db interface {
 			}
 		}
 		out = append(out, vals)
+		digs = append(digs, dig)
 	}
-	return cols, out, rs.Err()
+	return cols, out, digs, rs.Err()
 }
 
 // TxQuery is Query inside a transaction.
 func TxQuery(tx *sql.Tx, q string, args ...any) ([]Row, error) {
-	cols, rows, err := queryTable(tx, q, args...)
+	out, _, err := txQueryDigest(tx, q, args...)
+	return out, err
+}
+
+// txQueryDigest is TxQuery that also returns, per row, the digest of each long blob by column name (see queryTableDigest).
+func txQueryDigest(tx *sql.Tx, q string, args ...any) ([]Row, []map[string]string, error) {
+	cols, rows, digs, err := queryTableDigest(context.Background(), tx, 0, q, args...)
 	noteSQLError(q, err)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	out := make([]Row, 0, len(rows))
-	for _, r := range rows {
+	named := make([]map[string]string, len(rows))
+	for ri, r := range rows {
 		m := Row{}
 		for i, c := range cols {
 			m[c] = r[i]
+			if d := digs[ri][i]; d != "" {
+				if named[ri] == nil {
+					named[ri] = map[string]string{}
+				}
+				named[ri][c] = d
+			}
 		}
 		out = append(out, m)
 	}
-	return out, nil
+	return out, named, nil
 }
 
 // ReadOnlyTable runs an arbitrary query on a dedicated read-only connection (opened with mode=ro and
@@ -546,6 +577,24 @@ func (s *Save) Discard() error {
 	return nil
 }
 
+// DiscardIfClean is Discard for the automatic refresh: it reads the file again only when nothing is queued, and decides that under the same locks that the read takes. A check of
+// Dirty followed by Discard is two steps: an edit made between them would be thrown away by the second and the request would say it had worked. It returns false, and leaves the
+// queue and the file as they are, when an edit is waiting (or a queue is held).
+func (s *Save) DiscardIfClean() (bool, error) {
+	s.flushMu.Lock()
+	defer s.flushMu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.dirty || s.held != nil {
+		return false, nil
+	}
+	if err := s.load(); err != nil {
+		return false, err
+	}
+	s.dropJournal()
+	return true, nil
+}
+
 func (s *Save) backupDir() string { return filepath.Join(filepath.Dir(s.Path), "tabr-tau-backups") }
 
 func hashOf(b []byte) [32]byte { return sha256.Sum256(b) }
@@ -569,8 +618,7 @@ func (s *Save) backupNamed(tag string) (string, [32]byte, error) {
 	if err != nil {
 		return "", [32]byte{}, err
 	}
-	now := time.Now()
-	dest := filepath.Join(s.backupDir(), fmt.Sprintf("%s-%s-%d%s%s", base, now.Format("20060102-150405"), now.UnixNano()%1_000_000_000, tag, ext))
+	dest := filepath.Join(s.backupDir(), s.newBackupName(base, tag, ext))
 	if err := writeDurable(dest, b, 0o600); err != nil {
 		return "", [32]byte{}, err
 	}
@@ -681,7 +729,18 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 // Backups lists backups, newest first.
 func (s *Save) Backups() []Row {
 	ents, _ := os.ReadDir(s.backupDir())
-	sort.Slice(ents, func(i, j int) bool { return ents[i].Name() > ents[j].Name() })
+	// newest first by the time in the name (the names of different editor versions and clocks do not sort as text); what has no such time follows, by name
+	sort.Slice(ents, func(i, j int) bool {
+		ti, oki := s.backupInstant(ents[i].Name())
+		tj, okj := s.backupInstant(ents[j].Name())
+		if oki != okj {
+			return oki
+		}
+		if oki && ti != tj {
+			return ti > tj
+		}
+		return ents[i].Name() > ents[j].Name()
+	})
 	out := []Row{}
 	for _, e := range ents {
 		if info, err := e.Info(); err == nil {

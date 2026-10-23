@@ -133,17 +133,31 @@ func (o *Ops) BringVehicle(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	me, _ := o.S.One(`select map, location_x x, location_y y, location_z z from actors where id=?`, p.Pawn)
-	if me == nil {
-		return nil, errors.New("player position unknown")
-	}
-	n, err := o.run(fmt.Sprintf("moved vehicle %d next to player", id), `update actors set map=?, location_x=?+800, location_y=?, location_z=?+150
+	// The player's position is read inside the edit, through its own query: it is kept with the edit, so an edit put back onto a newer file (the player has moved since)
+	// is not applied to the old position.
+	found := false
+	_, err = o.S.Mutate(fmt.Sprintf("moved vehicle %d next to player", id), func(m *save.Mut) error {
+		me, err := m.One(`select map, location_x x, location_y y, location_z z from actors where id=?`, p.Pawn)
+		if err != nil {
+			return err
+		}
+		if me == nil {
+			return errors.New("player position unknown")
+		}
+		res, err := m.Exec(`update actors set map=?, location_x=?+800, location_y=?, location_z=?+150
 		where id=? and id in (`+ownedVehicleSQL+`)`,
-		me["map"], me["x"], me["y"], me["z"], id, p.Controller)
+			me["map"], me["x"], me["y"], me["z"], id, p.Controller)
+		if err != nil {
+			return err
+		}
+		n, _ := res.RowsAffected()
+		found = n > 0
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	if n == 0 {
+	if !found {
 		return nil, apierr.New(apierr.ErrNotFound, "vehicle not found among your vehicles")
 	}
 	return ok(), nil

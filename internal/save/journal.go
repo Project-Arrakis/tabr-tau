@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -278,17 +279,32 @@ func (s *Save) writeJournal() {
 		return
 	}
 	tmp := s.journalPath + ".tmp"
-	// written and flushed to the disk before it replaces the old one, so a power cut leaves the old journal or the new one, never half of one
-	os.Remove(tmp) // a leftover of a stopped run
-	if err := writeDurable(tmp, b, 0o600); err != nil {
-		s.stopJournal("the journal could not be written (" + shortErr(err) + ")")
+	// Written and flushed to the disk before it replaces the old one, so a power cut leaves the old journal or the new one, never half of one. A virus scanner, an indexer or a
+	// backup program can hold either file for a moment, so a failed attempt is made again a few times before it counts; and when the new journal still cannot replace the old,
+	// the old one stays (it holds the edits up to the last write that worked): deleting it would turn one slow moment into the loss of every kept edit.
+	var lastErr error
+	for try := 0; try < journalWriteTries; try++ {
+		if try > 0 {
+			time.Sleep(renameBackoff * time.Duration(try))
+		}
+		os.Remove(tmp) // a leftover of a stopped run, or of the attempt before
+		if err := writeDurable(tmp, b, 0o600); err != nil {
+			lastErr = err
+			continue
+		}
+		if err := fsRename(tmp, s.journalPath); err != nil {
+			os.Remove(tmp)
+			lastErr = err
+			continue
+		}
 		return
 	}
-	if err := os.Rename(tmp, s.journalPath); err != nil {
-		os.Remove(tmp)
-		s.stopJournal("the journal could not be written (" + shortErr(err) + ")")
-	}
+	s.journalOff = "the journal could not be written (" + shortErr(lastErr) + "); the edits made since the last copy that was kept are not kept"
+	s.recs, s.recStmts = nil, 0
 }
+
+// journalWriteTries is how many times a journal write is attempted before the journal is given up for the session.
+const journalWriteTries = 4
 
 // shortErr is an error's message without the folder names of a path error, which the page would show.
 func shortErr(err error) string {
@@ -349,6 +365,35 @@ func oneStatement(q string) bool {
 
 var errConflict = errors.New("conflict")
 
+// samePath says whether two spellings name the same save: after cleaning, equal, and on Windows (whose paths do not distinguish case) equal ignoring case.
+func samePath(a, b string) bool {
+	a, b = filepath.Clean(a), filepath.Clean(b)
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(a, b)
+	}
+	return a == b
+}
+
+// skipJournal reports a journal this run cannot use and keeps it: the file is moved aside (named ...skipped, then ...skipped.2 and so on), not deleted, because the next edit would
+// write a new journal over it. The page shows it as a queued change that could not be put back, with the reason.
+func (s *Save) skipJournal(why string) *Restored {
+	aside := s.journalPath + ".skipped"
+	for i := 2; i < 100; i++ {
+		if _, err := os.Lstat(aside); err != nil {
+			break
+		}
+		aside = s.journalPath + ".skipped." + strconv.Itoa(i)
+	}
+	if err := os.Rename(s.journalPath, aside); err != nil {
+		why += " (it could not be moved aside: " + shortErr(err) + ")"
+	} else {
+		why += " (it is kept as " + filepath.Base(aside) + " in the editor's folder)"
+	}
+	r := &Restored{Conflicts: []Conflict{{Desc: "the queued changes kept by an earlier run", Why: why}}}
+	s.restored = r
+	return r
+}
+
 // RestoreJournal puts the edits found in the journal back onto the file as it is now, edit by edit. It is for start-up (the journal is of an earlier run) and does
 // nothing when there is no journal, it is of another save, or this save already has edits.
 func (s *Save) RestoreJournal() (*Restored, error) {
@@ -367,14 +412,22 @@ func (s *Save) RestoreJournal() (*Restored, error) {
 		return nil, err
 	}
 	var j journalFile
-	if err := json.Unmarshal(b, &j); err != nil || j.Version != journalVersion || j.Path != s.Path || len(j.Ops) == 0 {
-		return nil, nil // not ours to use: left as it is (the next edit replaces it)
+	if err := json.Unmarshal(b, &j); err != nil {
+		return s.skipJournal("the file could not be read as a list of changes"), nil
+	}
+	switch {
+	case j.Version != journalVersion:
+		return s.skipJournal("it was kept by a different version of the editor"), nil
+	case len(j.Ops) == 0:
+		return nil, nil // nothing was kept in it
+	case !samePath(j.Path, s.Path):
+		return s.skipJournal("it was kept for a save with another path or spelling of the path"), nil
 	}
 	if j.Writing != "" && j.Writing == hex.EncodeToString(s.diskHash[:]) { // the file is the one these edits were written as: they are in it
 		s.dropJournal()
 		return nil, nil
 	}
-	return s.replayLocked(j.Ops, j.BaseHash != hex.EncodeToString(s.diskHash[:])), nil
+	return s.replayLocked(j.Ops, j.BaseHash != hex.EncodeToString(s.diskHash[:]), true), nil
 }
 
 // Rebase reads the file again, as Discard does, and puts the pending edits back onto it where they still apply (the game saved since they were made).
@@ -404,7 +457,7 @@ func (s *Save) Rebase() (*Restored, error) {
 	}
 	// the journal file stays until the edits that go back have replaced it (a stop in between must not lose the queue)
 	s.recs, s.recStmts, s.journalOff, s.writing, s.held = nil, 0, "", "", nil
-	return s.replayLocked(kept, true), nil
+	return s.replayLocked(kept, true, true), nil
 }
 
 // Held is a queue that could not be put back onto the game's newer file: what it was, and which edits conflicted and why.
@@ -442,16 +495,20 @@ func (s *Save) rebaseAtomic() (*Restored, error) {
 		}
 		return nil, notKeptError{"the pending edits were not kept (" + why + "): they cannot be put back onto the game's newer file; use Discard to read the file again"}
 	}
-	s.held = nil
 	dropped := Restored{}
 	if s.restored != nil {
 		dropped.Conflicts = s.restored.Conflicts // edits an earlier reload dropped: still to be seen
 	}
+	// Nothing about the queue changes until the file has been read: a failed read leaves it as it was (held, with its journal).
 	if err := s.load(); err != nil {
 		return nil, err
 	}
-	res := s.replayLocked(kept, true)
+	s.held = nil
+	// The journal is not written by the put-back itself: until the outcome is known it holds the whole queue, and a stop or a failure below must find that and not the
+	// part of it that happened to apply.
+	res := s.replayLocked(kept, true, false)
 	if len(res.Conflicts) == 0 {
+		s.writeJournal()
 		if len(dropped.Conflicts) > 0 {
 			n := *res
 			n.Conflicts = dropped.Conflicts
@@ -460,17 +517,24 @@ func (s *Save) rebaseAtomic() (*Restored, error) {
 		return res, nil
 	}
 	// nothing is written: back to the file as the game has it, the queue held as it was
+	held := &Held{ops: kept, Conflicts: res.Conflicts, base: s.diskHash}
+	s.recs, s.recStmts = nil, 0
+	s.restored = nil
+	if len(dropped.Conflicts) > 0 {
+		s.restored = &dropped
+	}
 	if err := s.load(); err != nil {
+		// The working copy holds only the edits that applied. The queue is held whole all the same (the journal still has all of it, and nothing is written while it is held),
+		// so the partial copy is never written; the error is reported, and a later attempt reads the file again from the held queue.
+		s.held = held
+		s.recs = nil
 		return nil, err
 	}
 	s.recs = kept
 	s.writeJournal()
 	s.recs = nil
-	s.held = &Held{ops: kept, Conflicts: res.Conflicts, base: s.diskHash}
-	s.restored = nil
-	if len(dropped.Conflicts) > 0 {
-		s.restored = &dropped
-	}
+	held.base = s.diskHash
+	s.held = held
 	return res, nil
 }
 
@@ -483,7 +547,7 @@ var replayStep func()
 // An edit that does not apply is not forced, and neither is an edit that works on what it was to leave: one that touches a table the failed edit touched and has a value in
 // common with it (the id of the row the failed edit was to add, the item it was to change) would otherwise act on the game's own rows with that id. It is reported as not put
 // back, naming the edit it depends on.
-func (s *Save) replayLocked(ops []opRec, rebased bool) *Restored {
+func (s *Save) replayLocked(ops []opRec, rebased, journal bool) *Restored {
 	res := &Restored{Rebased: rebased}
 	s.replaying = true
 	var failed []opRec
@@ -504,7 +568,9 @@ func (s *Save) replayLocked(ops []opRec, rebased bool) *Restored {
 		}
 	}
 	s.replaying = false
-	s.writeJournal()
+	if journal {
+		s.writeJournal()
+	}
 	if res.Applied > 0 || len(res.Conflicts) > 0 {
 		s.restored = res
 	}
@@ -531,11 +597,11 @@ func (s *Save) replayOp(o opRec) string {
 				if !readable(st.Q) {
 					return fmt.Errorf("a statement that is not kept: %w", errConflict)
 				}
-				rows, err := m.Query(st.Q, args...)
+				_, h, err := m.queryHashed(st.Q, args...)
 				if err != nil {
 					return err
 				}
-				if hashRows(rows) != st.H {
+				if h != st.H {
 					return fmt.Errorf("the game changed what it was worked out from: %w", errConflict)
 				}
 				continue

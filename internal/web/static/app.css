@@ -157,7 +157,7 @@ th.sd::after{content:" \25BC";font-size:9px}
 :root{--on-acc:#1a0e03;--line-strong:#7d6a4e;--focus:#f0b45a;--hdr-h:56px;color-scheme:dark}
 @media (prefers-color-scheme:light){:root{--acc:#a85208;--on-acc:#fff;--line-strong:#85724f;--focus:#8c5208;color-scheme:light}}
 input,select,textarea{border-color:var(--line-strong)}
-button.b{color:var(--on-acc)}button.b.sec{color:var(--fg)}button.b.bad{color:#fff}
+button.b{color:var(--on-acc)}button.b.sec{color:var(--fg)}button.b.bad{color:var(--on-acc)}
 .sub button.on{color:var(--on-acc)}
 :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 button.b:hover:not(:disabled){filter:brightness(1.12)}button.b:active:not(:disabled){transform:translateY(1px)}

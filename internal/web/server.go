@@ -725,8 +725,15 @@ func (s *Server) routes() {
 	// ifClean is what the automatic refresh sends: it was decided from a status read that can be seconds old on a large save, so an edit made since must not be
 	// thrown away with it (the page then leaves the file as it is and the next status shows the banner).
 	s.post("/api/save/discard", func(a ops.Args) (any, error) {
-		if a.Bool("ifClean", false) && s.Save.Dirty() {
-			return map[string]any{"ok": true, "kept": true}, nil
+		if a.Bool("ifClean", false) {
+			cleaned, err := s.Save.DiscardIfClean() // decided under the save's locks: an edit made since the status was read is not thrown away
+			if err != nil {
+				return nil, err
+			}
+			if !cleaned {
+				return map[string]any{"ok": true, "kept": true}, nil
+			}
+			return map[string]any{"ok": true}, nil
 		}
 		return map[string]any{"ok": true}, s.Save.Discard()
 	})
