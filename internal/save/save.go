@@ -208,7 +208,7 @@ func Open(path string) (*Save, error) {
 // openCopy writes raw to a new private temp file and opens it with the given DSN options. On any error nothing is
 // left behind.
 func openCopy(raw []byte, pattern, opts string) (path string, db *sql.DB, err error) {
-	f, err := os.CreateTemp("", pattern)
+	f, err := tempCopy(pattern)
 	if err != nil {
 		return "", nil, err
 	}

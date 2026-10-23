@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
@@ -132,6 +134,16 @@ func main() {
 		}
 		os.Exit(1)
 	}
+	// Ctrl+C (or Ctrl+Break, or a termination request) in a terminal ends the process without running deferred calls, which would leave the decoded copy of the save in the
+	// temp folder: give the copy up first.
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-interrupt
+		s.Close()
+		releaseLock()
+		os.Exit(130)
+	}()
 
 	cd := config.Dir{Path: *cfgDir}
 	if v := cd.Validate(); v["ok"] != true {

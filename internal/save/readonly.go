@@ -24,7 +24,7 @@ func OpenReadOnly(path string) (*sql.DB, func(), error) {
 			return nil, nil, err
 		}
 	}
-	f, err := os.CreateTemp("", "tabr-tau-ro-*.sqlite")
+	f, err := tempCopy("tabr-tau-ro-*.sqlite")
 	if err != nil {
 		return nil, nil, err
 	}
