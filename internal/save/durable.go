@@ -114,17 +114,21 @@ func (s *Save) installBlob(blob []byte) error {
 		return err
 	}
 	back, err := readCapped(s.Path)
-	if err != nil || !bytes.Equal(back, blob) {
-		// The new file is not what we wrote: put the previous content back the same way and say so.
-		rb := s.tmpPath()
-		if werr := writeDurable(rb, cur, 0o600); werr == nil {
-			if rerr := renameRetry(rb, s.Path); rerr != nil {
-				os.Remove(rb)
-			}
-		}
-		return errors.New("the written save did not read back identically; the previous file was restored")
+	if err == nil && bytes.Equal(back, blob) {
+		return nil
 	}
-	return nil
+	// The file is not what was written. The usual reason is that the game saved right after the rename, so the file now on disk may be the game's newest and must not be
+	// replaced by the copy taken before the edits: look at what is there now and only say what is true. Nothing is written from here.
+	now, rerr := readCapped(s.Path)
+	switch {
+	case rerr != nil:
+		return fmt.Errorf("the written save could not be read back to check it (%s); the file was left as it is, and the copy taken before the write is in the backups folder", shortErr(rerr))
+	case bytes.Equal(now, blob): // a read that failed to see it once
+		return nil
+	case hashOf(now) == hashOf(cur):
+		return errors.New("the replacement did not take effect: the file on disk is still the one that was loaded, and nothing was changed; the edits stay queued")
+	}
+	return errors.New("the file on disk is neither the edited save nor the one that was loaded (the game may have saved right after the write); it was left as it is, nothing was put back over it, and the copy taken before the write is in the backups folder")
 }
 
 // ErrChangedOnDisk is returned when the file on disk is no longer the one this session loaded.

@@ -284,9 +284,10 @@ func TestReloadFailureAfterRenameIsAWarningNotAnError(t *testing.T) {
 	}
 }
 
-func TestReadBackMismatchRestoresThePreviousBytes(t *testing.T) {
+// A file that comes back different from what was written is reported for what it is and is not written over: it may be the game's own newer save, and the copy taken before the
+// edits is older than that (see review_readback_test.go for the game-saved and the did-not-take-effect cases).
+func TestReadBackMismatchIsReportedAndTheFileIsLeftAlone(t *testing.T) {
 	s, p := openToy(t)
-	orig, _ := os.ReadFile(p)
 	s.ExecScript(`insert into t values (2)`)
 	old := fsRename
 	first := true
@@ -304,11 +305,14 @@ func TestReadBackMismatchRestoresThePreviousBytes(t *testing.T) {
 	renameBackoff = 0
 	t.Cleanup(func() { fsRename = old; renameBackoff = oldWait })
 	_, err := s.CommitForTests()
-	if err == nil || !strings.Contains(err.Error(), "read back") {
-		t.Fatalf("want a read-back error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "neither the edited save nor the one that was loaded") || strings.Contains(err.Error(), "was restored") {
+		t.Fatalf("want the error to say what was found, got %v", err)
 	}
-	if got, _ := os.ReadFile(p); !bytes.Equal(got, orig) {
-		t.Fatal("the previous file contents must be restored after a bad write")
+	if got, _ := os.ReadFile(p); !bytes.Equal(got, []byte("garbage")) {
+		t.Fatal("a file that is neither the blob nor the previous file is not written over")
+	}
+	if !s.Dirty() {
+		t.Fatal("the edits stay queued")
 	}
 }
 

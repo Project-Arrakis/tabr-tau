@@ -422,8 +422,9 @@ document.addEventListener('input', (e) => { if (askState && e.target.id === 'aty
 // A button with data-confirm acts on every base at once and is written at once, so the first press only asks: the same button turns into "Yes, ..." for a few seconds and
 // the second press runs it. Pressing anything else, leaving the button or pressing Escape cancels. It is inline on purpose (no dialog to trap the keyboard) and the
 // change of wording is also said aloud through the page's live region.
-const ARM_MS = 8000;
-let armed = null; // { btn, label, timer }
+const ARM_MS = 15000;
+const ARM_GAP_MS = 400; // a second press sooner than this after the first is the same movement of the hand (a double click, a bouncing switch), not a decision
+let armed = null; // { btn, label, timer, at }
 const sayAloud = (msg) => { const r = $('#sr'); if (r) r.textContent = msg; };
 function disarm() {
   if (!armed) return;
@@ -435,7 +436,7 @@ function disarm() {
 }
 function arm(btn) {
   disarm();
-  armed = { btn, label: btn.textContent, timer: setTimeout(disarm, ARM_MS) };
+  armed = { btn, label: btn.textContent, timer: setTimeout(disarm, ARM_MS), at: Date.now() };
   btn.dataset.armed = '1';
   btn.textContent = btn.dataset.confirm;
   sayAloud(`${btn.dataset.confirm}? Press the button again within ${ARM_MS / 1000} seconds to do it, or press Escape to cancel.`);
@@ -1010,7 +1011,24 @@ function pageTitle() {
   if (parts[0] !== 'Tabr Tau') parts.push('Tabr Tau');
   return parts.join(' - ');
 }
+// The page is drawn again after almost every action, which destroys the control that had the keyboard focus. focusSpec notes which control it was
+// (by id, or by its data-* attributes and label) and refocus gives the focus back to the same control in the new page, unless something else took it
+// meanwhile (register 2026-10-15, UX-07).
+function focusSpec(el) {
+  if (!el || el === document.body || !el.closest || !el.closest('#main, #nav')) return null;
+  const data = [...el.attributes].filter((a) => a.name.startsWith('data-')).map((a) => [a.name, a.value]);
+  if (!el.id && !data.length) return null;
+  return { id: el.id, tag: el.tagName, data, label: (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 60) };
+}
+function refocus(s) {
+  if (!s || (document.activeElement && document.activeElement !== document.body)) return;
+  const pool = s.id ? [document.getElementById(s.id)] : [...document.querySelectorAll('#main ' + s.tag + ', #nav ' + s.tag)];
+  const same = pool.filter((n) => n && s.data.every(([k, v]) => n.getAttribute(k) === v));
+  const n = same.find((x) => (x.getAttribute('aria-label') || x.textContent || '').trim().slice(0, 60) === s.label) || same[0];
+  if (n && typeof n.focus === 'function') n.focus({ preventScroll: true });
+}
 async function render() {
+  const keep = focusSpec(document.activeElement);
   document.title = pageTitle();
   drawNav();
   try {
@@ -1018,6 +1036,7 @@ async function render() {
   } catch (e) {
     setHTML($('#main'), html`<div class="card bad">${e.message}</div><div class="row mt12"><button class="b" data-act="retry">Try again</button></div>`);
   }
+  refocus(keep);
 }
 
 const D = (e) => e.target.closest('[data-act]');
@@ -1193,6 +1212,7 @@ document.addEventListener('click', (e) => {
   const cf0 = e.target.closest('[data-confirm]');
   if (armed && !(cf0 && cf0 === armed.btn)) disarm(); // anything but the second press of the same button cancels
   if (cf0 && !cf0.dataset.armed) { e.preventDefault(); arm(cf0); return; }
+  if (cf0 && armed && cf0 === armed.btn && (e.detail > 1 || Date.now() - armed.at < ARM_GAP_MS)) { e.preventDefault(); e.stopPropagation(); return; } // the second half of a double click, or two presses too close to be two decisions: still asking
   if (cf0) disarm(); // the second press: the label goes back and the action below runs
   const keep = e.target.closest('summary[data-keep]');
   if (keep && Object.hasOwn(KEEP, keep.dataset.keep)) KEEP[keep.dataset.keep] = !keep.parentElement.open; // the toggle is about to flip
