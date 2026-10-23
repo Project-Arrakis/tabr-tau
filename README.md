@@ -65,7 +65,7 @@ by a zlib stream containing a plain SQLite 3 database. tabr-tau decodes it into 
 2. refuses if the file changed on disk since it was loaded,
 3. runs `PRAGMA integrity_check` and verifies the re-encoded file decodes back to the same bytes,
 4. copies the original to `tabr-tau-backups/` next to it,
-5. writes the new file atomically.
+5. writes the new file atomically, then reads it back and compares (tried for about 2 seconds if another program holds the new file). If it still cannot be read back, the answer says the save was written and could not be verified, and the next attempt checks the file first: edits that are in it are not written a second time.
 
 Config edits work the same way (backups in `tabr-tau-backups/` beside the `.ini`). The game rewrites its
 configs on exit, so close it before editing them.
