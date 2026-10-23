@@ -181,7 +181,7 @@ jobs:
 
   security-scan:
     name: security-scan
-    uses: Project-Arrakis/.github/.github/workflows/reusable-security-scan.yml@33f4e824c951d8b0472d506c5cb2eb2ecae2be0f # main on 2026-09-08; bump by hand when the shared workflow changes
+    uses: Project-Arrakis/.github/.github/workflows/reusable-security-scan-v2.yml@95ad7a4d1368e7ec1092e9a13e3102bcdfd44499 # v2 of the shared scan (Project-Arrakis/.github#9, 2026-10-23): gitleaks config from the default branch, contents: read, --metrics off; bump by hand when the shared workflow changes
     permissions:
       contents: read
     secrets:
