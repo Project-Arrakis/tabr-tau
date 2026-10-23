@@ -603,6 +603,17 @@ func (s *Server) routes() {
 	s.post("/api/player/currency", o.AddCurrency)
 	s.post("/api/items/update", o.SetItem)
 	s.post("/api/items/delete", o.DeleteItem)
+	s.get("/api/inventories/clear-preview", func(r *http.Request) (any, error) {
+		inv, err := strconv.ParseInt(r.URL.Query().Get("inventory_id"), 10, 64)
+		if err != nil {
+			return nil, apierr.New(apierr.ErrBadArgument, "inventory_id must be a container id")
+		}
+		cur := r.URL.Query().Get("include_currency")
+		if cur != "" && cur != "true" && cur != "false" {
+			return nil, apierr.New(apierr.ErrBadArgument, "include_currency must be true or false")
+		}
+		return o.ClearPreview(inv, cur == "true")
+	})
 	s.post("/api/inventories/clear", o.ClearContainer)
 	s.get("/api/player/factions", func(r *http.Request) (any, error) { return o.Factions() })
 	s.post("/api/player/factions", o.SetReputation)

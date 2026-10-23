@@ -138,7 +138,8 @@ test('Reset level and XP: names the XP, says what happens to the skill points, a
   const text = ui.doc.querySelector('#ask').textContent;
   assert.ok(text.includes('Reset level 71 and 41,221 XP to 0?'));
   assert.ok(text.includes('Type reset 41221 xp to continue'));
-  assert.ok(text.includes('now 70') && text.includes('now 9'), 'the skill points that will be taken back are named');
+  assert.ok(text.includes('total 70') && text.includes('unspent now 9'), 'the skill points that can be taken back are named');
+  assert.ok(text.includes('only from the points you have not spent') && text.includes('never drops below what your skills hold'), 'the dialog says that spent points stay');
   assert.ok(/backup/i.test(text));
   assert.equal(posts(ui, '/api/player/level/reset').length, 0);
   ui.type('reset 41221 xp');
@@ -279,4 +280,14 @@ test('Research has a Reset research button that is off, with the reason in its t
   btn.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); await ui.settle();
   assert.equal(ui.posted.length, 0);
   assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'));
+});
+
+test('Reset level and XP: the answer says how many skill points stayed because they are spent', async () => {
+  const ui = await boot({ get: { '/api/player/summary': summary() }, post: { '/api/player/level/reset': { ok: true, changed: 41221, noop: false, levelBefore: 71, pointsTaken: 9, pointsKept: 62 } } }); ui.freeze();
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-act="lvReset"]'); await ui.settle();
+  ui.type('reset 41221 xp');
+  ui.tick(GAP);
+  ui.click('#aok'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('62 skill points could not be taken back because they are spent in skills'), ui.doc.querySelector('#toast').textContent);
 });
