@@ -6,7 +6,7 @@ const $ = (s, r = document) => r.querySelector(s);
 // What the editor said about the last edit it was sent: 'written' (it is in the game's file), 'queued' (accepted, written when the file can be), or null when the
 // answer carried none (nothing changed, or the request failed). A message about an edit reads this and never guesses from an older status.
 let lastOutcome = null;
-// A refusal carries a stable code (changed_on_disk, queue_held, queued, game_running, read_only, bad_argument, not_found, bad_request) and the HTTP status; the words
+// A refusal carries a stable code (changed_on_disk, conflict, queue_held, queued, game_running, read_only, bad_argument, not_found, bad_request, and for faults integrity_failed and write_failed) and the HTTP status; the words
 // of the message are for the person and are never matched.
 async function api(path, body) {
   const opt = { credentials: 'same-origin' };
@@ -158,15 +158,21 @@ const TABS = { player: 'Player', livemap: 'Saved map', landsraad: 'Landsraad', c
 // Vehicles used to be top-level tabs and are two of these.
 const PTABS = [['character', 'Character'], ['crafting', 'Crafting'], ['research', 'Research'], ['buildingsets', 'Building sets'], ['customizations', 'Customizations'],
   ['skills', 'Skills'], ['specialization', 'Specialization'], ['journey', 'Journey'], ['bases', 'Bases'], ['vehicles', 'Vehicles'], ['admin', 'Admin']];
-let tab = Object.hasOwn(TABS, localStorage.tab) ? localStorage.tab : 'player';
-const sub = { player: ['bases', 'vehicles'].includes(localStorage.tab) ? localStorage.tab : 'character', char: 'overview', db: 'browse' };
+// The browser's storage is a convenience (the tab last open): a browser that blocks it, or a private window, throws on the first touch, which must not stop the page from starting.
+const browserStore = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* the choice lasts until the page is closed */ } },
+};
+const savedTab = browserStore.get('tab');
+let tab = Object.hasOwn(TABS, savedTab) ? savedTab : 'player';
+const sub = { player: ['bases', 'vehicles'].includes(savedTab) ? savedTab : 'character', char: 'overview', db: 'browse' };
 const GROUPS = ['player', 'char', 'bases', 'db'];
 let invG = null, invQ = ''; let giveQueue = loadQueue(); let augItem = null; // augItem: the inventory item whose augments are open for editing // Character > Inventory: the chosen group (null: the first one with items) and the filter text
 function drawNav() {
-  setHTML($('#nav'), html`${Object.entries(TABS).map(([k, v]) => html`<button data-tab="${k}" class="${k == tab ? 'on' : ''}">${v}</button>`)}`);
+  setHTML($('#nav'), html`${Object.entries(TABS).map(([k, v]) => html`<button data-tab="${k}" class="${k == tab ? 'on' : ''}" aria-current="${k == tab ? 'page' : 'false'}">${v}</button>`)}`);
 }
 function subNav(group, items) {
-  return html`<div class="sub">${items.map(([k, v]) => html`<button data-sub="${group}:${k}" class="${sub[group] == k ? 'on' : ''}">${v}</button>`)}</div>`;
+  return html`<div class="sub">${items.map(([k, v]) => html`<button data-sub="${group}:${k}" class="${sub[group] == k ? 'on' : ''}" aria-current="${sub[group] == k ? 'true' : 'false'}">${v}</button>`)}</div>`;
 }
 
 // ---------- generic renderers
@@ -1040,6 +1046,9 @@ async function render() {
 }
 
 const D = (e) => e.target.closest('[data-act]');
+// A failed SQL statement shows its reason where the result goes, and the earlier result is cleared so it cannot be read as the answer (register 2026-10-07, UX-5).
+function sqlFailed(e) { const out = $('#sqlout'); if (out) setHTML(out, html`<p class="bad">${e.message}</p>`); }
+
 const A = {
   retry: () => render(),
   askOk: () => { if (askState && askState.typed && $('#atype').value.trim().toLowerCase() !== askState.typed.toLowerCase()) return; endAsk(true); }, // the typed word is checked here too, not only by the disabled button
@@ -1190,7 +1199,7 @@ const A = {
     try {
       const r = await api('/api/db/sql', { sql: window.lastSql });
       setHTML($('#sqlout'), html`<p class="mut">${r.rows.length.toLocaleString()} ${r.rows.length === 1 ? 'row' : 'rows'}${r.truncated ? '. Only the first 1,000 rows are shown: add LIMIT or a WHERE to see others.' : ''}</p><div class="scroll"><table><thead><tr>${r.columns.map((c) => html`<th>${c}</th>`)}</tr></thead><tbody>${r.rows.map((x) => html`<tr>${x.map((v) => html`<td>${v}</td>`)}</tr>`)}</tbody></table></div>`);
-    } catch (e) { toast(e.message, true); }
+    } catch (e) { toast(e.message, true); sqlFailed(e); }
   },
   execsql: async () => {
     window.lastSql = val('sql');
@@ -1201,7 +1210,7 @@ const A = {
       let queued = r.outcome === 'queued';
       if (!r.outcome) try { queued = (await status()).dirty; } catch (e) { /* the poll reports a lost connection; the statement itself ran */ }
       setHTML($('#sqlout'), html`<p class="ok">${r.changes} ${r.changes === 1 ? 'row' : 'rows'} changed, ${queued ? 'and queued: it is written to game.db as soon as the file can be written.' : 'and written to game.db.'}</p>`);
-    } catch (e) { toast(e.message, true); }
+    } catch (e) { toast(e.message, true); sqlFailed(e); }
   },
   restore: async (d) => (await ask({ title: 'Restore this backup over the save?', body: 'Replace game.db with ' + d.n + '. The current file is backed up first. Close the game first.', ok: 'Restore', typed: 'restore', danger: true })) && act(() => api('/api/save/restore', { name: d.n }), 'Restored'),
 };
@@ -1216,7 +1225,7 @@ document.addEventListener('click', (e) => {
   const hth = e.target.closest('thead th');
   if (hth && !e.target.closest('button, a, input, select') && headerClick(hth)) return;
   const t = e.target.closest('[data-tab]');
-  if (t) { if (Object.hasOwn(TABS, t.dataset.tab)) { tab = t.dataset.tab; localStorage.tab = tab; render(); } return; }
+  if (t) { if (Object.hasOwn(TABS, t.dataset.tab)) { tab = t.dataset.tab; browserStore.set('tab', tab); render(); } return; }
   const rv = e.target.closest('[data-reveal]');
   if (rv) {
     const k = rv.dataset.reveal;

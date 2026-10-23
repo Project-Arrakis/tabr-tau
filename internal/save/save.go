@@ -624,7 +624,7 @@ func (s *Save) backupNamed(tag string) (string, [32]byte, error) {
 	}
 	if back, err := readCapped(dest); err != nil || !bytes.Equal(back, b) {
 		os.Remove(dest)
-		return "", [32]byte{}, errors.New("backup verification failed; nothing was changed")
+		return "", [32]byte{}, apierr.New(apierr.ErrWriteFailed, "backup verification failed; nothing was changed")
 	}
 	return dest, hashOf(b), nil
 }
@@ -664,7 +664,7 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 	}
 	var chk string
 	if err := s.db.QueryRow("PRAGMA integrity_check").Scan(&chk); err != nil || chk != "ok" {
-		return nil, fmt.Errorf("integrity check failed: %v %s", err, chk)
+		return nil, apierr.New(apierr.ErrIntegrity, fmt.Sprintf("integrity check failed: %v %s", err, chk))
 	}
 	raw, err := os.ReadFile(s.work)
 	if err != nil {
@@ -675,7 +675,7 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 		return nil, err
 	}
 	if back, err := Decode(blob); err != nil || !bytes.Equal(back, raw) {
-		return nil, errors.New("round-trip verification failed; nothing written")
+		return nil, apierr.New(apierr.ErrIntegrity, "round-trip verification failed; nothing written")
 	}
 	var bak string
 	if quick {

@@ -359,13 +359,15 @@ func collectPaths(err error, out *[]string) {
 //	conflict          409  the value an edit was made from is not what the save holds now (a cell edited from a table that has changed since it was shown)
 //	queue_held        409  edits waiting from before conflict with the game's newer file; nothing new is accepted until they are discarded
 //	queued            409  the action needs an empty queue and edits are still waiting
-//	game_running      400  the game-running check refused the write, or could not be made
-//	read_only         400  this save was opened for reading only
+//	game_running      409  the game-running check refused the write, or could not be made
+//	read_only         409  this save was opened for reading only
+//	integrity_failed  500  the edited save failed its own checks (integrity check, round trip); nothing was written
+//	write_failed      500  the file could not be written or replaced (a disk fault, or another program holding the file); the edits stay queued
 //	bad_argument      422  a value of the request is missing, of the wrong type, out of range or not allowed
 //	not_found         404  the thing the request names is not in the save
 //	bad_request       400  the request body is not JSON
 //
-// An error with none of these has no code and answers 400, as before.
+// An error with none of these has no code and answers 400, as before (a refusal of the request, such as a name that does not exist).
 func errorCode(err error) (string, int) {
 	switch {
 	case errors.Is(err, save.ErrChangedOnDisk):
@@ -377,9 +379,13 @@ func errorCode(err error) (string, int) {
 	case errors.Is(err, apierr.ErrQueued):
 		return "queued", http.StatusConflict
 	case errors.Is(err, apierr.ErrGameBlocked):
-		return "game_running", http.StatusBadRequest
+		return "game_running", http.StatusConflict
 	case errors.Is(err, apierr.ErrReadOnly):
-		return "read_only", http.StatusBadRequest
+		return "read_only", http.StatusConflict
+	case errors.Is(err, apierr.ErrIntegrity):
+		return "integrity_failed", http.StatusInternalServerError
+	case errors.Is(err, apierr.ErrWriteFailed):
+		return "write_failed", http.StatusInternalServerError
 	case errors.Is(err, apierr.ErrBadArgument):
 		return "bad_argument", http.StatusUnprocessableEntity
 	case errors.Is(err, apierr.ErrNotFound):
@@ -714,7 +720,7 @@ func (s *Server) routes() {
 			ext = "json"
 		}
 		w.Header().Set("Content-Disposition", `attachment; filename="`+safeFilename(r.URL.Query().Get("name"))+"."+ext+`"`)
-		// CSV/JSON export of save data, not HTML. Content sniffing and CSV formula injection are tracked in F-03 (#4); S0 adds nosniff and cell escaping. Remove this nosemgrep when #4 lands.
+		// CSV/JSON export of save data, not HTML: it is sent as an attachment with nosniff and its cells are escaped against formulas, so the rule (written for HTML) does not apply.
 		w.Write(b) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
 	})
 
