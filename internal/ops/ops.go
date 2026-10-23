@@ -337,12 +337,18 @@ func giveInTx(m *save.Mut, inventoryID int64, template string, qty, quality int6
 // are some but fewer than sizes needs.
 func giveRowsInTx(m *save.Mut, inventoryID int64, template string, sizes []int64, quality int64) ([]int64, error) {
 	rows, err := m.Query(`select id, coalesce(max_item_count,0) cap from inventories where id=?`, inventoryID)
-	if err != nil || len(rows) == 0 {
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
 		return nil, apierr.New(apierr.ErrNotFound, "inventory not found")
 	}
 	capacity := rows[0]["cap"].(int64)
 	used := map[int64]bool{}
-	pos, _ := m.Query(`select position_index p from items where inventory_id=?`, inventoryID)
+	pos, err := m.Query(`select position_index p from items where inventory_id=?`, inventoryID)
+	if err != nil { // the used slots decide where the new stacks go: a read that failed is not "no slot is used"
+		return nil, err
+	}
 	for _, r := range pos {
 		if p, ok := r["p"].(int64); ok {
 			used[p] = true
@@ -359,7 +365,11 @@ func giveRowsInTx(m *save.Mut, inventoryID int64, template string, sizes []int64
 	}
 	quality = grantGrade(template, quality)
 	stats := `{"FCustomizationStats":[[],{}],"FItemStackAndDurabilityStats":[[],{}]}`
-	if k, _ := m.Query(`select stats from items where template_id=? and stats is not null order by id limit 1`, template); len(k) > 0 {
+	k, err := m.Query(`select stats from items where template_id=? and stats is not null order by id limit 1`, template)
+	if err != nil {
+		return nil, err
+	}
+	if len(k) > 0 {
 		stats = fmt.Sprint(k[0]["stats"])
 		if plain, err := augments.Stats(stats, nil); err == nil { // the copied item's augments are its own, not the new item's
 			stats = plain
