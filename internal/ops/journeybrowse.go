@@ -129,7 +129,12 @@ func (o *Ops) JourneyBrowse() (any, error) {
 		id := ts
 		tut = append(tut, JourneyRow{ID: fmt.Sprint(r["id"]), Name: journey.DisplayName(r["name"].(string)), Category: "Tutorial", Status: s, Complete: ts == 2, Actionable: true, TutorialState: &id})
 	}
-	return map[string]any{"story": story, "contract": contract, "codex": codex, "tutorial": tut}, nil
+	nodes, tuts, err := journeyResetSet(o.S, p.Controller)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"story": story, "contract": contract, "codex": codex, "tutorial": tut,
+		"resetCount": int64(len(nodes) + len(tuts)), "resetNodes": int64(len(nodes)), "resetTutorials": int64(len(tuts))}, nil
 }
 
 func truthy(v any) bool {

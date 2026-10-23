@@ -22,6 +22,11 @@ export async function boot({ post = {}, get = {} } = {}) {
   const dom = new JSDOM(read('index.html'), { url: 'http://127.0.0.1:8090/', runScripts: 'dangerously', pretendToBeVisual: true });
   const w = dom.window;
   open.push(dom);
+  // The page measures the gap between a question opening and its OK with Date.now(). A test freezes that clock, so a slow machine cannot turn "at once" into "later",
+  // and moves it on by hand.
+  const realNow = w.Date.now.bind(w.Date);
+  const clock = { now: null };
+  w.Date.now = () => (clock.now === null ? realNow() : clock.now);
   let inflight = 0;
   const posted = [], fetched = [];
   w.fetch = async (p, opt = {}) => {
@@ -54,7 +59,9 @@ export async function boot({ post = {}, get = {} } = {}) {
   // types into the question's box the way a person does: the input event fires
   const type = (text) => { const el = w.document.querySelector('#atype'); assert.ok(el, 'no typed-confirmation box'); el.value = text; el.dispatchEvent(new w.Event('input', { bubbles: true })); };
   const wait = (ms) => new Promise((r) => w.setTimeout(r, ms));
-  return { dom, w, doc: w.document, settle, posted, fetched, click, type, wait };
+  const freeze = () => { clock.now = realNow(); };
+  const tick = (ms) => { clock.now = (clock.now === null ? realNow() : clock.now) + ms; };
+  return { dom, w, doc: w.document, settle, posted, fetched, click, type, wait, freeze, tick };
 }
 
 // The minimum gap a second press must respect (app.js ARM_GAP_MS is 400 ms); tests wait a little longer.

@@ -132,3 +132,37 @@ func TestResetSpecTracksRoute(t *testing.T) {
 		t.Fatalf("nothing to do: %d %s", w.Code, w.Body.String())
 	}
 }
+
+func TestResetJourneyRoute(t *testing.T) {
+	s := New(testsave.PlayerWithSQL(t, `insert into journey_story_node(character_id,story_node_id,complete_condition_state,reveal_condition_state,fail_condition_state,metadata_state,has_pending_reward) values
+		(1,'Quest.A',x'01',x'01',x'0c',x'0c',1),(1,'Quest.B',x'01',x'01',x'0c',x'0c',0),(1,'DA_CT_SomeContract',x'01',x'01',x'0c',x'0c',0);
+		insert into tutorials(id,name) values (11,'TUT_One');
+		insert into tutorial_per_player(player_id,tutorial_id,tutorial_state) values (1,11,2);`), config.Dir{Path: t.TempDir()})
+	w := do(t, s, "GET", "http://127.0.0.1/api/player/journey/browse", loop, map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}, nil)
+	if m := decodeBody(t, w); w.Code != 200 || m["resetCount"] != float64(3) || m["resetNodes"] != float64(2) || m["resetTutorials"] != float64(1) {
+		t.Fatalf("the read says what a reset would change: %d %s", w.Code, w.Body.String())
+	}
+	for _, c := range []struct {
+		name, body, code string
+		status           int
+	}{
+		{"no count", `{}`, "bad_argument", http.StatusUnprocessableEntity},
+		{"a stale count", `{"expected":2}`, "conflict", http.StatusConflict},
+	} {
+		w := postEdit(t, s, "/api/player/journey/reset", c.body)
+		if m := decodeBody(t, w); w.Code != c.status || m["code"] != c.code || m["outcome"] != nil {
+			t.Errorf("%s: %d %s, want %d %s", c.name, w.Code, w.Body.String(), c.status, c.code)
+		}
+	}
+	if s.Save.Dirty() {
+		t.Fatal("a refused reset must not write")
+	}
+	w = postEdit(t, s, "/api/player/journey/reset", `{"expected":3}`)
+	if m := decodeBody(t, w); w.Code != 200 || m["changed"] != float64(3) || m["nodes"] != float64(2) || m["tutorials"] != float64(1) || m["outcome"] != "written" {
+		t.Fatalf("the reset: %d %s", w.Code, w.Body.String())
+	}
+	w = postEdit(t, s, "/api/player/journey/reset", `{"expected":0}`)
+	if m := decodeBody(t, w); w.Code != 200 || m["noop"] != true || m["outcome"] != nil {
+		t.Fatalf("nothing to do: %d %s", w.Code, w.Body.String())
+	}
+}

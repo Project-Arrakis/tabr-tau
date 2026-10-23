@@ -989,6 +989,25 @@ func (o *Ops) Journey(q string) (any, error) {
 		from journey_story_node where character_id=? and story_node_id like ? order by story_node_id`, jsonTrue, p.Controller, "%"+q+"%")
 }
 
+// setNodeStateTx sets the complete state of a story node and of every child ("node.*") and marks them revealed. JourneySet and the reset of the
+// whole journey end here. The children are the rows whose id starts with "<id>.". A plain prefix compare is used rather than LIKE, whose "_" matches
+// any character (node ids hold underscores) and which ignores case.
+func setNodeStateTx(m *save.Mut, controller int64, id string, state []byte) (int64, error) {
+	res, err := m.Exec(`update journey_story_node set complete_condition_state=?, reveal_condition_state=?
+		where character_id=? and (story_node_id=? or substr(story_node_id, 1, length(?) + 1) = ? || '.')`, state, jsonTrue, controller, id, id, id)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
+}
+
+// clearTutorialTx puts a tutorial back to not started (no row). TutorialSet and the reset of the whole journey end here.
+func clearTutorialTx(m *save.Mut, controller, id int64) error {
+	_, err := m.Exec(`delete from tutorial_per_player where player_id=? and tutorial_id=?`, controller, id)
+	return err
+}
+
 // JourneySet completes or resets a story node and every child ("node.*").
 func (o *Ops) JourneySet(a Args) (any, error) {
 	p, err := o.player()
@@ -1006,14 +1025,10 @@ func (o *Ops) JourneySet(a Args) (any, error) {
 	}
 	var n int64
 	_, err = o.S.Mutate("", func(m *save.Mut) error {
-		// The children are the rows whose id starts with "<id>.". A plain prefix compare is used rather than LIKE, whose "_" matches any
-		// character (node ids hold underscores) and which ignores case.
-		res, err := m.Exec(`update journey_story_node set complete_condition_state=?, reveal_condition_state=?
-			where character_id=? and (story_node_id=? or substr(story_node_id, 1, length(?) + 1) = ? || '.')`, state, jsonTrue, p.Controller, id, id, id)
-		if err != nil {
+		var err error
+		if n, err = setNodeStateTx(m, p.Controller, id, state); err != nil {
 			return err
 		}
-		n, _ = res.RowsAffected()
 		if complete {
 			// The node's own row too, when only children have rows: completing a node must complete the node itself.
 			own, err := m.One(`select count(*) c from journey_story_node where character_id=? and story_node_id=?`, p.Controller, id)
@@ -1061,7 +1076,7 @@ func (o *Ops) TutorialSet(a Args) (any, error) {
 		_, err = o.run(desc, `insert into tutorial_per_player(player_id, tutorial_id, tutorial_state) values(?,?,2)
 			on conflict(player_id, tutorial_id) do update set tutorial_state=2`, p.Controller, id)
 	} else {
-		_, err = o.run(desc, `delete from tutorial_per_player where player_id=? and tutorial_id=?`, p.Controller, id)
+		_, err = o.S.Mutate(desc, func(m *save.Mut) error { return clearTutorialTx(m, p.Controller, id) })
 	}
 	if err != nil {
 		return nil, err

@@ -667,7 +667,10 @@ function journeyList() {
   const q = (window.jq || '').trim().toLowerCase();
   const all = JB[jgrp] || [];
   const rows = q ? all.filter((r) => r.name.toLowerCase().includes(q) || r.id.toLowerCase().includes(q)) : all;
+  const jn = JB.resetNodes || 0, jt = JB.resetTutorials || 0;
   setHTML($('#jhead'), html`<div class="sub">${JGROUPS.map(([k, v]) => html`<button data-jgrp="${k}" class="${jgrp == k ? 'on' : ''}">${v} (${(JB[k] || []).length})</button>`)}</div>
+    <div class="row"><button class="b bad" data-act="jReset" data-n="${JB.resetCount || 0}" data-nodes="${jn}" data-tuts="${jt}" aria-describedby="jresetnote" ${JB.resetCount ? '' : 'disabled'}>Reset journey (${nn(jn, 'step', 'steps')}, ${nn(jt, 'tutorial', 'tutorials')})</button>
+    <span class="mut" id="jresetnote">${JB.resetCount ? 'Every finished Story and Codex step goes back to not finished and every started or finished tutorial back to not started, in one edit, after you type a confirmation. Waiting rewards, tags and contracts are not touched.' : 'Nothing to reset: no Story or Codex step is finished and no tutorial is started.'}</span></div>
     <div class="row"><input id="jq" placeholder="Filter by name or node id" size="34" value="${window.jq || ''}"><button class="b sec" data-act="jfilter">Filter</button><button class="b sec" data-act="jclear">Clear</button>
     <span class="mut">${countText(rows.length, all.length, 'node', 'nodes', !!q)}${rows.length > JMAX ? `, the first ${JMAX} shown: narrow the filter to see others` : ''}. ${jgrp == 'contract' ? 'Contracts are shown read-only; a contract is complete when all its tags are on the character.' : 'Completing a node completes its children; resetting clears it and its children.'}</span></div>`);
   const stat = (r) => (r.status == 'Complete' ? html`<span class="ok">Complete</span>` : r.status == 'Revealed' || r.status == 'Started' ? html`<span class="warn">${r.status}</span>` : html`<span class="mut">${r.status}</span>`);
@@ -721,7 +724,8 @@ function researchList() {
   setHTML($('#rshead'), html`<div class="sub"><button data-rscat="" class="${rsCat == '' ? 'on' : ''}">All (${RS.length})</button>${RCATS.map((c) => html`<button data-rscat="${c}" class="${rsCat == c ? 'on' : ''}">${c} (${RS.filter((r) => r.category == c).length})</button>`)}</div>
     <div class="row">${rsCat ? html`<select id="rsGrp"><option value="">All product groups</option>${groups.map((g) => html`<option ${g == rsGroup ? 'selected' : ''}>${g}</option>`)}</select>` : ''}
     <input id="rsq" placeholder="Filter by name, key, type or group" size="34" value="${rsQ}"><button class="b sec" data-act="rsfilter">Filter</button><button class="b sec" data-act="rsclear">Clear</button>
-    <span class="mut">${countText(rows.length, inCat.length, 'entry', 'entries', rsFiltered)}${rows.length > LISTMAX ? `, the first ${LISTMAX} shown` : ''}; ${done} of ${RS.length} entries unlocked in all. Unlocking adds the linked recipe or building set; group markers cannot be unlocked as one entry.</span></div>`);
+    <span class="mut">${countText(rows.length, inCat.length, 'entry', 'entries', rsFiltered)}${rows.length > LISTMAX ? `, the first ${LISTMAX} shown` : ''}; ${done} of ${RS.length} entries unlocked in all. Unlocking adds the linked recipe or building set; group markers cannot be unlocked as one entry.</span></div>
+    <div class="row"><button class="b bad" disabled aria-describedby="rsresetnote" title="The save does not say which research a new character already has (its starting recipes and building sets), so there is no state to reset to, and the editor has no safe way to take a recipe or building set back out. Restore a backup from before the research was unlocked to undo it.">Reset research</button><span class="mut" id="rsresetnote">Not available: The save does not say which research a new character already has (its starting recipes and building sets), so there is no state to reset to, and the editor has no safe way to take a recipe or building set back out. Restore a backup from before the research was unlocked to undo it.</span></div>`);
   const state = (r) => (r.unlocked ? html`<span class="ok">Unlocked</span>` : r.purchased ? html`<span class="warn">Purchased, ${r.unlockKind} missing</span>` : html`<span class="mut">Not purchased</span>`);
   const act = (r) => (!r.actionable ? html`<button class="b sec sm" disabled title="A group marker; unlock its individual entries">Group</button>` : r.unlocked ? '' :
     html`<button class="b sm" data-act="rsUnlock" data-key="${r.itemKey}">${r.needsRepair ? 'Repair unlock' : 'Unlock'}</button>`);
@@ -1179,6 +1183,13 @@ const A = {
     return resetArea({ count: xp, title: `Reset level ${lvl} and ${fmt(xp)} XP to 0?`, ok: 'Reset level and XP', typed: `reset ${xp} xp`,
       body: `The character's XP goes to 0 and the level with it. The skill points the levels gave are taken back, as many as the level (${lvl}) from the total${sp ? ` (now ${fmt(sp.total)})` : ''} and from the unspent points${sp ? ` (now ${fmt(sp.unspent)})` : ''}, never below 0. Skills you bought are not touched: reset them on the Skills tab first, with the box ticked so their points come back, to be left with none. One edit.`,
       path: '/api/player/level/reset', done: (r) => `Level ${r.levelBefore} and ${fmt(r.changed)} XP reset to 0`, none: 'The character has no XP, so there was nothing to reset.' });
+  },
+  jReset: (d) => {
+    const n = +d.n || 0, nodes = +d.nodes || 0, tuts = +d.tuts || 0;
+    if (!n) { toast('No Story or Codex step is finished and no tutorial is started, so there is nothing to reset.'); return; }
+    return resetArea({ count: n, title: `Reset the journey (${nn(nodes, 'step', 'steps')} and ${nn(tuts, 'tutorial', 'tutorials')})?`, ok: 'Reset journey', typed: `reset ${n} journey ${n === 1 ? 'item' : 'items'}`,
+      body: `Finished Story and Codex steps (${nodes}) go back to not finished, the same as the Reset button of each row: a step and its children are marked not finished and revealed. Started or finished tutorials (${tuts}) go back to not started. Rewards that are waiting stay as they are (whether the game gives a reward again when a step is finished again is not known), and tags and contracts are not touched. One edit.`,
+      path: '/api/player/journey/reset', done: (r) => `Journey reset: ${nn(r.nodes, 'step', 'steps')} and ${nn(r.tutorials, 'tutorial', 'tutorials')}`, none: 'No Story or Codex step is finished and no tutorial is started, so there was nothing to reset.' });
   },
   spResetAll: (d) => {
     const n = +d.n || 0, left = +d.left || 0;
