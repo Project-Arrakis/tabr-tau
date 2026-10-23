@@ -36,8 +36,8 @@ your computer (they can edit your save directly).
 - All HTML is built by an escaping template function; the page allows only its own scripts and styles.
 - Every edit is written to the save as it is made. Before each write the editor checks that no single-player session is using the file (and
   that the game check itself worked), that the file is unchanged since it was read, and that the working copy passes an integrity check; it
-  takes a backup first (one backup covers a burst of edits made within two minutes; the newest 60 automatic backups are kept and backups made
-  by a person or an earlier version are never removed) and reads the written file back and compares it afterwards. Each edit is also checked
+  takes a backup first (one backup covers a burst of edits made within two minutes; the newest 60 automatic backups are kept, and always the oldest
+  and the first one of the session; backups made by a person or an earlier version are never removed) and reads the written file back and compares it afterwards. Each edit is also checked
   for dangling references when it is made. When the file cannot be written (a single-player session is running, the location is not
   confirmed, the game check failed) the edits wait in a queue that is kept in a journal and listed on the page, and are written by
   themselves once the file can be written. If the game saved meanwhile, the queue is put back onto its newer file only when every edit still
