@@ -116,6 +116,9 @@ func (s *Save) Flush() Flush {
 	f.Backup, _ = res["backup"].(string)
 	f.Ops, _ = res["ops"].([]string)
 	f.Warning, _ = res["warning"].(string)
+	if f.Saved {
+		s.appendWriteLog(f) // the write has happened; recording it cannot undo it, and a failure is reported through WriteLogProblem
+	}
 	return s.setLastFlush(f)
 }
 

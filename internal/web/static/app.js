@@ -339,7 +339,7 @@ async function status() {
   // off. Queued edits are put back onto the game's newer file when they are written, so a changed file needs no word from the person.
   const changed = !!o.changedOnDisk && !q && !autoRefreshOn();
   const restored = o.restored && (o.restored.applied > 0 || (o.restored.conflicts || []).length > 0) ? o.restored : null;
-  gw.className = saveBlocked || q || changed || restored ? 'warn' : note ? 'info' : 'hide';
+  gw.className = saveBlocked || q || changed || restored || o.writeLogProblem ? 'warn' : note ? 'info' : 'hide';
   const changedMsg = changed ? html`<div><b>The game saved since this editor opened.</b> What you see here is out of date. <button class="b sm" data-act="reload">Reload now</button></div>` : html``;
   // One banner for the whole state. The reason is said once, as a sentence; the tool's own text, when the sentence replaces it, sits under Details.
   // An edit is written as it is made. While the file cannot be written (a single-player session is running, the location is not confirmed) edits are queued, and the queue is
@@ -364,11 +364,12 @@ async function status() {
   const restoredMsg = restored ? html`<div>${restoredHead}
     ${(restored.conflicts || []).map((c) => html`<div>Could not put back: ${c.desc} (${c.why}). Make it again.</div>`)} <button class="b sm" data-act="dismissRestored">OK</button></div>` : html``;
   const journalMsg = o.journalOff && o.dirty ? html`<div class="mut">These queued changes are not kept if the editor is closed: ${o.journalOff}.</div>` : html``;
+  const logMsg = o.writeLogProblem ? html`<div class="mut">${capFirst(o.writeLogProblem)}. The game's file was written; only the record of it is missing.</div>` : html``;
   const lines = o.pending.map(queueLine);
   const listMsg = q ? html`<details class="bn-list" ${KEEP.qlist ? 'open' : ''}><summary data-keep="qlist">What is queued (${q})</summary><ul>${lines.map((l) => html`<li>${l}</li>`)}</ul></details>` : html``;
   const rawMsg = reason.raw ? html`<details class="bn-raw" ${KEEP.raw ? 'open' : ''}><summary data-keep="raw">Details (include this if you report a problem)</summary><div class="mono">${reason.raw}</div></details>` : html``;
   lastPending = lines;
-  const banner = html`${changedMsg}${heldMsg}${mainMsg}${restoredMsg}${journalMsg}${listMsg}${rawMsg}`;
+  const banner = html`${changedMsg}${heldMsg}${mainMsg}${restoredMsg}${journalMsg}${logMsg}${listMsg}${rawMsg}`;
   // redrawn only when it changed: a redraw every few seconds would take the keyboard focus off its buttons
   const key = String(banner).replace(/ ?open>/g, '>').replace(/ >/g, '>'); // a toggle the person opened is already open in the page: that alone is no reason to redraw
   if (key !== gwKey) { gwKey = key; setHTML(gw, banner); }

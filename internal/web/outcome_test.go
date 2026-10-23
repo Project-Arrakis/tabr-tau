@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -146,6 +148,32 @@ func TestTheRefusalsOfTheSaveLifecycleCarryTheirCodes(t *testing.T) {
 	w = postEdit(t, ro, "/api/player/solari", `{"amount":1}`)
 	if m := decodeBody(t, w); w.Code != 400 || m["code"] != "read_only" {
 		t.Fatalf("an edit of a read-only save: %d %s", w.Code, w.Body.String())
+	}
+}
+
+// GRC-3: the editor's own folder holds a write log, and an edit that is written is in it.
+func TestAWrittenEditIsRecordedInTheWriteLogOfTheEditorsFolder(t *testing.T) {
+	s := New(testsave.Player(t), config.Dir{Path: t.TempDir()})
+	dir := t.TempDir()
+	s.KeepPendingEdits(dir)
+	if w := postEdit(t, s, "/api/player/solari", `{"amount":250}`); w.Code != 200 {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "write-log.jsonl"))
+	if err != nil {
+		t.Fatalf("the write is recorded: %v", err)
+	}
+	var l struct {
+		Edits  int      `json:"edits"`
+		Ops    []string `json:"ops"`
+		Backup string   `json:"backup"`
+	}
+	if err := json.Unmarshal(b, &l); err != nil || l.Edits != 1 || len(l.Ops) != 1 || l.Backup == "" {
+		t.Fatalf("one line, one edit, one backup: %v %s", err, b)
+	}
+	w := do(t, s, "GET", "http://127.0.0.1/api/save/state", loop, map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}, nil)
+	if m := decodeBody(t, w); m["writeLogProblem"] != "" {
+		t.Fatalf("the state says the log is fine: %s", w.Body.String())
 	}
 }
 

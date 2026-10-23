@@ -75,6 +75,7 @@ func New(s *save.Save, cfg config.Dir) *Server {
 func (s *Server) KeepPendingEdits(dir string) {
 	h := sha256.Sum256([]byte(strings.ToLower(s.Save.Path)))
 	s.Save.EnableJournal(filepath.Join(dir, "pending-"+hex.EncodeToString(h[:6])+".json"))
+	s.Save.EnableWriteLog(filepath.Join(dir, "write-log.jsonl"))
 	r, err := s.Save.RestoreJournal()
 	switch {
 	case err != nil:

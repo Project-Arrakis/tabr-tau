@@ -52,7 +52,10 @@ type Save struct {
 	recs        []opRec
 	recStmts    int
 	replaying   bool
-	restored    *Restored
+	// the write log (writelog.go): where it is kept, and why the last write could not be recorded in it
+	logPath    string
+	logProblem string
+	restored   *Restored
 
 	// the automatic write of pending edits (flush.go): one attempt at a time, and what became of the last
 	flushMu   sync.Mutex
