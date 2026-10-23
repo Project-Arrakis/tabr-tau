@@ -46,10 +46,13 @@ your computer (they can edit your save directly).
   write, the backups (Database > Save backups restores one), the queue with its list and its Discard control, and the confirmations that
   remain for destructive actions. The audit register records this replacement.
 - Every write is recorded: after the file has been written the editor appends one line to `write-log.jsonl` in its own folder
-  (`%APPDATA%\tabr-tau`): when, how many edits, what they were in words, and the name of the backup taken before. The log holds no values from
-  the save (a statement typed into the SQL console is not copied, and a number of fifteen digits or more is replaced), is created with
-  owner-only permissions in your user profile, and is capped: at 256 KB it becomes `write-log.1.jsonl` and a new file starts, so there are
-  never more than two. It is a record to read, not a way back (the backup is), and the editor never reads it.
+  (`%APPDATA%\tabr-tau`): when, how many edits, what they were in words, and the name of the backup taken before (a restore of a backup is
+  recorded the same way). The words are the sentences the page lists as changes, so they can carry game ids and amounts ("Give 500 x ... to
+  container 12", "moved vehicle 201 next to player"). They do not carry a statement typed into the SQL console (only that one was run), the
+  primary-key value of a row edited in the Database view, a number of fifteen digits or more, a long hexadecimal id or GUID, or a file path.
+  The log is capped: at 256 KB it becomes `write-log.1.jsonl` and a new file starts, so there are never more than two. It is created for the
+  owner (mode 0600), but Windows does not apply that mode: the file has the permissions of your profile folder, normally readable by you and by
+  administrators only. It is a record to read, not a way back (the backup is), and the editor never reads it.
 - Saves are opened from a private copy, and the container is checked (size, declared size, integrity) before anything is trusted.
 
 ## Accepted risk: a write on every accepted request
@@ -79,8 +82,8 @@ This is to be looked at again if the editor ever listens beyond this computer, s
   for the editor, and close other local web servers you browse to while it runs. The cookie is valid for this run of the editor only.
 - **The queue of waiting edits is a plain file.** While edits wait (the game is in a single-player session) they are kept in
   `pending-<id>.json` in `%APPDATA%\tabr-tau` so they survive a restart. It holds what each edit ran, with the values of the save they used, as
-  plain text. It is created with owner-only permissions and removed when the edits are written or discarded, but `%APPDATA%` is the roaming
-  profile folder, which some organisations copy to a server. When the edits are put back (at start, or onto a newer save) the recorded
+  plain text. It is created with mode 0600 (which Windows does not apply: the file has the permissions of your profile folder) and removed
+  when the edits are written or discarded, but `%APPDATA%` is the roaming profile folder, which some organisations copy to a server. When the edits are put back (at start, or onto a newer save) the recorded
   statements are run as they were recorded, without the SQL console's checks: they were checked or made by the editor when the edit was first
   made, and only a program running as you can plant a file there, which is out of scope above. A queue that cannot be kept says so on the page.
 - **The decoded copy of the save.** To edit, the editor writes a decoded (plain SQLite) copy of the save, which holds the account and
