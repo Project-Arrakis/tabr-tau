@@ -544,11 +544,11 @@ func (s *Save) replayOp(o opRec) string {
 				if !readable(st.Q) {
 					return fmt.Errorf("a statement that is not kept: %w", errConflict)
 				}
-				rows, err := m.Query(st.Q, args...)
+				_, h, err := m.queryHashed(st.Q, args...)
 				if err != nil {
 					return err
 				}
-				if hashRows(rows) != st.H {
+				if h != st.H {
 					return fmt.Errorf("the game changed what it was worked out from: %w", errConflict)
 				}
 				continue
