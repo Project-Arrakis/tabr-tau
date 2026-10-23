@@ -52,8 +52,21 @@ your computer (they can edit your save directly).
 - **The one-time link.** When the editor opens in the browser (`--web`) it hands the default browser a link that carries a single-use token
   in its query string. It is valid for ten minutes and for one use, and the editor redirects away from it at once, but it passes through
   the browser's history and the command line of the process that opens it. The native window (the Windows default) does not use the browser.
-- **The session cookie is a bearer token.** Browsers send a cookie for `127.0.0.1` to every port of that address, so another program on
-  this computer that you browse to on another port receives the header, and a local program that is given the cookie can replay it.
+- **The session cookie is a bearer token.** Browsers send a cookie for `127.0.0.1` to every port of that address (RFC 6265 does not scope a
+  cookie by port; the cookie's name carries the port only so two editors do not overwrite each other's), so another program on this
+  computer that you browse to on another port receives the header, and a local program that is given the cookie can replay it. In the native
+  window the editor is the only site the window visits, so no other listener sees the cookie; with `--web`, use a browser profile of its own
+  for the editor, and close other local web servers you browse to while it runs. The cookie is valid for this run of the editor only.
+- **The queue of waiting edits is a plain file.** While edits wait (the game is in a single-player session) they are kept in
+  `pending-<id>.json` in `%APPDATA%\tabr-tau` so they survive a restart. It holds what each edit ran, with the values of the save they used, as
+  plain text. It is created with owner-only permissions and removed when the edits are written or discarded, but `%APPDATA%` is the roaming
+  profile folder, which some organisations copy to a server. When the edits are put back (at start, or onto a newer save) the recorded
+  statements are run as they were recorded, without the SQL console's checks: they were checked or made by the editor when the edit was first
+  made, and only a program running as you can plant a file there, which is out of scope above. A queue that cannot be kept says so on the page.
+- **The decoded copy of the save.** To edit, the editor writes a decoded (plain SQLite) copy of the save, which holds the account and
+  platform identifiers, to a folder of its own in your temp folder (`tabr-tau-work`), named by the process that made it. It is removed when
+  the editor closes, including on Ctrl+C in a terminal; a copy that a crash or a kill left behind is removed at the next start, once its
+  process is gone. Anyone who can read your temp folder as you can read it while the editor runs.
 - **WebView2 and Edge traffic.** The native window is Microsoft's WebView2 runtime, which is part of Edge. The editor itself makes no
   outbound connection, but the runtime may contact Microsoft for updates and, depending on your Windows and Edge settings, send
   diagnostic data. That traffic is outside this program's control; manage it with the WebView2 and Edge policies of your Windows install,

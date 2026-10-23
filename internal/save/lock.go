@@ -18,6 +18,7 @@ func LockSave(path string) (release func(), err error) {
 	release, err = lockFile(filepath.Join(filepath.Dir(path), filepath.Base(path)+".tabr-tau.lock"))
 	if err == nil {
 		cleanStaleTemps(path) // only the editor that holds the lock may remove a temp file next to the save: another editor's write may be in flight
+		SweepWorkCopies()     // and the decoded copies of sessions that have ended (a crash or a kill leaves them), found by their process id
 	}
 	return release, err
 }

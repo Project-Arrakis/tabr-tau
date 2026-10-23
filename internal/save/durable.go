@@ -122,7 +122,7 @@ var ErrChangedOnDisk = errors.New("the save changed on disk since it was loaded 
 
 // inspect checks a decoded save is a sound SQLite database and returns its applied_patches names.
 func inspect(raw []byte) (map[string]bool, error) {
-	f, err := os.CreateTemp("", "tabr-tau-inspect-*.sqlite")
+	f, err := tempCopy("tabr-tau-inspect-*.sqlite")
 	if err != nil {
 		return nil, err
 	}
