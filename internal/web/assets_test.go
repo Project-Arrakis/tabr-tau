@@ -14,7 +14,7 @@ import (
 func TestEveryEmbeddedAssetIsServedWithItsOwnBytes(t *testing.T) {
 	s := newTestServer(t)
 	hdr := map[string]string{"Host": "127.0.0.1:8090"}
-	wantType := map[string]string{".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".webp": "image/webp"}
+	wantType := map[string]string{".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".webp": "image/webp", ".svg": "image/svg+xml"}
 	pages := map[string]bool{"static/index.html": true, "static/locked.html": true}
 	served := 0
 	err := fs.WalkDir(static, "static", func(p string, d fs.DirEntry, err error) error {
@@ -44,7 +44,7 @@ func TestEveryEmbeddedAssetIsServedWithItsOwnBytes(t *testing.T) {
 	if served < 25 { // app.js, html.js, livemap.js, app.css, the two maps and the icons
 		t.Fatalf("only %d embedded assets found", served)
 	}
-	for _, must := range []string{"/app.js", "/html.js", "/livemap.js", "/app.css", "/maps/hagga-basin.png", "/maps/deep-desert.png"} {
+	for _, must := range []string{"/app.js", "/html.js", "/livemap.js", "/app.css", "/favicon.svg", "/maps/hagga-basin.png", "/maps/deep-desert.png"} {
 		if w := do(t, s, "GET", "http://127.0.0.1"+must, loop, hdr, nil); w.Code != 200 {
 			t.Errorf("%s: %d; the page cannot start without it", must, w.Code)
 		}

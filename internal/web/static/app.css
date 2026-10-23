@@ -1,5 +1,5 @@
 :root{--bg:#14110d;--panel:#1e1913;--panel2:#26200f;--line:#3a3022;--fg:#eadfc8;--mut:#9a8d75;--acc:#d9902f;--acc2:#f0b45a;--ok:#6fbf73;--bad:#e0604f;--warn:#e8b64a;--in:#100d09}
-@media (prefers-color-scheme:light){:root{--bg:#f6f1e6;--panel:#fffaf0;--panel2:#f0e6d0;--line:#d8ccb2;--fg:#2b2416;--mut:#7a6d55;--acc:#b56d10;--acc2:#8c5208;--ok:#2f8a3a;--bad:#b83a2a;--warn:#9a6a00;--in:#fff}}
+@media (prefers-color-scheme:light){:root{--bg:#f6f1e6;--panel:#fffaf0;--panel2:#f0e6d0;--line:#d8ccb2;--fg:#2b2416;--mut:#6f634d;--acc:#b56d10;--acc2:#8c5208;--ok:#24702f;--bad:#b83a2a;--warn:#9a6a00;--in:#fff}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,Segoe UI,sans-serif}
 header{display:flex;gap:12px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5;flex-wrap:wrap}
 header h1{font-size:16px;margin:0;color:var(--acc2);letter-spacing:.5px}
@@ -216,3 +216,12 @@ header .mark path{fill:currentColor}
 .mbox ul.qlist{max-height:30vh;overflow:auto;margin:8px 0}
 .sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 button[data-armed]{outline:2px solid var(--focus);outline-offset:2px}
+/* Accessibility: a 32 px minimum for every control a pointer or a finger has to hit; the focus ring is not clipped by a scrolling table */
+button,input:not([type=checkbox]):not([type=radio]),select{min-height:32px}
+button.b.sm,.lm-layer{min-height:32px}
+.row label,header label,label.mut{display:inline-flex;align-items:center;gap:6px;min-height:32px}
+input[type=checkbox],input[type=radio]{width:18px;height:18px;margin:0}
+a[data-act]{display:inline-block;padding:6px 4px}
+#toast button.x{min-width:32px;min-height:32px}
+th[tabindex]:focus-visible{outline-offset:-2px}
+th[tabindex]:hover{color:var(--fg)}
