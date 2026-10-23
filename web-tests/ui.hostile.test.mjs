@@ -30,7 +30,7 @@ const read = (n) => fs.readFileSync(path.join(static_, n), 'utf8');
 // Allowlists: anything else appearing in the rendered DOM is an injection.
 const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h3 ul li code table thead tbody tr th td input select option datalist button details summary textarea br label canvas svg g rect text path'.split(' '));
 const SCRIPTS = new Set(['/html.js', '/livemap.js', '/app.js']); // the only scripts the page may contain, both same-origin files
-const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live tabindex label checked open viewbox x y rx transform d'.split(' '));
+const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live aria-label tabindex label checked open viewbox x y rx transform d'.split(' '));
 
 export function assertClean(doc, label) {
   const bad = [];
@@ -463,16 +463,20 @@ test('a far-reaching action needs the word typed, and Escape cancels', async () 
   ui.dom.window.close();
 });
 
-test('the Bases upkeep buttons run at once: the edit is written and a backup is kept, so there is no question', async () => {
+test('the Bases upkeep buttons ask on the button itself (no dialog), then run on the second press: the edit is written and a backup is kept', async () => {
   const ui = await boot({ post: { '/api/bases/repair': { ok: true, pieces: 3, placeables: 1 }, '/api/bases/clear-sand': { ok: true, pieces: 2 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:bases"]'); await ui.settle();
   ui.click('[data-bstab="structures"]'); await ui.settle();
   ui.click('[data-act="repairB"]'); await ui.settle();
-  assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'no question');
+  assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'no dialog');
+  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/repair').length, 0, 'the first press only asks');
+  ui.click('[data-act="repairB"]'); await ui.settle();
   assert.equal(ui.posted.filter((p) => p.path === '/api/bases/repair').length, 1);
   ui.click('[data-act="sand"]'); await ui.settle();
-  assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'no question');
+  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 0, 'the first press only asks');
+  ui.click('[data-act="sand"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'no dialog');
   assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 1);
   ui.dom.window.close();
 });
@@ -1271,12 +1275,12 @@ test('base and vehicle upkeep buttons post, and unknown building names stay plai
   ui.click('[data-tab=\"player\"]'); await ui.settle();
   ui.click('[data-sub=\"player:bases\"]'); await ui.settle();
   ui.click('[data-bstab="water"]'); await ui.settle();
-  ui.click('[data-act="refillWater"]'); await ui.settle();
+  ui.click('[data-act="refillWater"]'); ui.click('[data-act="refillWater"]'); await ui.settle();
   let toast = ui.doc.querySelector('#toast');
   assert.ok(toast.textContent.includes('Refilled 2 Medium Water Cisterns (1 already full)') && toast.textContent.includes(hostile), toast.textContent);
   assert.equal(toast.querySelector('img'), null);
   ui.click('[data-bstab="power"]'); await ui.settle();
-  ui.click('[data-act="refillGen"]'); await ui.settle();
+  ui.click('[data-act="refillGen"]'); ui.click('[data-act="refillGen"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Refilled 2 Omnidirectional Wind Turbines, 1 Windtrap'));
   ui.click('[data-tab=\"player\"]'); await ui.settle();
   ui.click('[data-sub=\"player:vehicles\"]'); await ui.settle();
@@ -1669,5 +1673,103 @@ test('Character > Overview has one Money card for the backpack Solari and the wa
   assert.ok(money[0].querySelector('#solari') && money[0].querySelector('#curSel') && money[0].querySelector('#curAmt'), 'it holds the backpack stack and the wallet controls');
   assert.ok(![...ui.doc.querySelectorAll('#main h3')].some((h) => h.textContent === 'Quick rewards' && h.parentElement.querySelector('#curSel')), 'Quick rewards no longer holds a wallet row');
   assert.equal(ui.doc.querySelector('[data-sub="player:blueprints"]'), null, 'the Blueprints page that only said "not yet" is gone');
+  ui.dom.window.close();
+});
+
+test('a bulk action on every base asks on its own button: the label says what will happen, another press, Escape or leaving cancels, the second press runs it (GRC-2)', async () => {
+  const ui = await boot({ post: { '/api/bases/repair': { ok: true, pieces: 3, placeables: 1 }, '/api/bases/clear-sand': { ok: true, pieces: 2 }, '/api/bases/refill-water': { ok: true, filled: 1, alreadyFull: 0, summary: '1 Cistern' } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:bases"]'); await ui.settle();
+  ui.click('[data-bstab="structures"]'); await ui.settle();
+  const btn = () => ui.doc.querySelector('[data-act="repairB"]');
+  const was = btn().textContent;
+  const sent = (p) => ui.posted.filter((x) => x.path === p).length;
+  ui.click('[data-act="repairB"]'); await ui.settle();
+  assert.equal(btn().textContent, 'Yes, repair every base', 'the button now says what pressing it again does');
+  assert.ok(ui.doc.querySelector('#sr').textContent.includes('Press the button again'), 'and the live region says it aloud');
+  assert.equal(sent('/api/bases/repair'), 0);
+  assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'no dialog opened: the keyboard is not trapped');
+  // Escape cancels
+  ui.doc.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  assert.equal(btn().textContent, was); assert.equal(btn().dataset.armed, undefined); assert.equal(ui.doc.querySelector('#sr').textContent, '');
+  // pressing a different button cancels the first and arms the second; nothing is sent
+  ui.click('[data-act="repairB"]');
+  ui.click('[data-act="sand"]');
+  assert.equal(btn().textContent, was, 'the first is back');
+  assert.equal(ui.doc.querySelector('[data-act="sand"]').textContent, 'Yes, clear sand on every base');
+  assert.equal(sent('/api/bases/repair') + sent('/api/bases/clear-sand'), 0, 'asking sends nothing');
+  // leaving the button cancels
+  ui.doc.querySelector('[data-act="sand"]').dispatchEvent(new ui.w.FocusEvent('focusout', { bubbles: true }));
+  assert.equal(ui.doc.querySelector('[data-act="sand"]').textContent, 'Clear sand on every base');
+  // the second press of the same button runs it once and the page goes back to the plain label
+  ui.click('[data-act="repairB"]'); ui.click('[data-act="repairB"]'); await ui.settle();
+  assert.equal(sent('/api/bases/repair'), 1);
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Repaired 3 pieces'));
+  assert.equal(btn().textContent, was);
+  ui.dom.window.close();
+});
+
+test('an armed bulk button disarms by itself after a few seconds', async () => {
+  const ui = await boot({ post: { '/api/bases/clear-sand': { ok: true, pieces: 2 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:bases"]'); await ui.settle();
+  ui.click('[data-bstab="structures"]'); await ui.settle();
+  const b = ui.doc.querySelector('[data-act="sand"]');
+  const was = b.textContent;
+  ui.click('[data-act="sand"]');
+  assert.notEqual(b.textContent, was);
+  await new Promise((r) => ui.w.setTimeout(r, 8100));
+  assert.equal(b.textContent, was, 'back to the plain label');
+  ui.click('[data-act="sand"]'); // a press after that asks again instead of running
+  assert.equal(ui.posted.filter((x) => x.path === '/api/bases/clear-sand').length, 0);
+  ui.dom.window.close();
+});
+
+test('an inline edit reports the old and the new value and how to put it back (UX-29)', async () => {
+  const inv = baseFixtures['/api/player/inventory'].body;
+  const first = inv.items.find((r) => r.inventory_type == 0) || inv.items[0];
+  const ui = await boot({ post: { '/api/items/update': { ok: true } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="char:inventory"]'); await ui.settle();
+  const box = ui.doc.querySelector(`input[data-item="${first.id}"][data-field="stack_size"]`);
+  const was = box.value;
+  box.value = '77';
+  box.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  let t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.includes(`stack ${was} → 77`) && t.includes(`To undo, set it back to ${was}`), t);
+  assert.ok(t.includes(box.dataset.name), 'the item is named');
+  // a second edit of the same box: the value to go back to is the one just accepted
+  box.value = '5';
+  box.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.includes('stack 77 → 5') && t.includes('set it back to 77'), t);
+  // a grade (a drop-down) names the old grade
+  const sel = ui.doc.querySelector(`select[data-item="${first.id}"][data-field="quality"]`);
+  const g = sel.options[sel.selectedIndex].text;
+  sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length;
+  const g2 = sel.options[sel.selectedIndex].text;
+  sel.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.includes(`grade ${g} → ${g2}`), t);
+  ui.dom.window.close();
+});
+
+test('a config value and a database cell also report old and new; a queued edit adds that it waits', async () => {
+  const ov = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)); ov.dirty = true; ov.pending = ['edit something'];
+  const tbl = { columns: ['_rowid_', 'id', 'template_id'], rows: [[5, 10, 'Spice']], total: 1, tableLocked: '', locked: { id: 'primary key' } };
+  const ui = await boot({ get: { '/api/save/state': ov, '/api/db/tables': [{ name: 'items', rows: 1, columns: ['id'], types: ['INTEGER'] }], '/api/db/table': tbl }, post: { '/api/config/set': { ok: true }, '/api/db/update': { ok: true } } });
+  ui.click('[data-tab="config"]'); await ui.settle();
+  const box = ui.doc.querySelector('input.cfgv');
+  box.value = 'changed';
+  box.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  let t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.includes(`${box.dataset.key} written to the config file now`) && t.includes('→ changed') && t.includes('set it back to'), t);
+  ui.click('[data-tab="db"]'); await ui.settle();
+  const cell = ui.doc.querySelector('input.dbc');
+  assert.ok(cell, 'an editable cell');
+  cell.value = cell.value + 'x';
+  cell.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  t = [...ui.doc.querySelectorAll('#toast div')].map((d) => d.textContent).join('\n');
+  assert.ok(t.includes('Database ') && t.includes(`${cell.dataset.col}:`) && t.includes('queued'), t);
   ui.dom.window.close();
 });
