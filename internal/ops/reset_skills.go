@@ -40,7 +40,10 @@ func (o *Ops) ResetSkills(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	charge := a.Bool("charge", false)
+	charge, err := strictBool(a, "charge", false)
+	if err != nil {
+		return nil, err
+	}
 	p, err := o.player()
 	if err != nil {
 		return nil, err

@@ -167,3 +167,18 @@ func TestResetSkillsRefusesAMissingOrBadCountAndAnUnreadableRecord(t *testing.T)
 		t.Fatalf("a save with no skill record is refused as such: %v", err)
 	}
 }
+
+// charge says whether the points come back: a value that is not true or false is refused, never read as false.
+func TestResetSkillsRefusesAChargeThatIsNotABoolean(t *testing.T) {
+	o := resetSkillOps(t, 45)
+	for _, v := range []any{"true", "yes", 1.0, 0.0, nil, []any{true}} {
+		_, err := o.ResetSkills(Args{"expected": 2.0, "charge": v})
+		wantRefusal(t, err, apierr.ErrBadArgument, "charge that is not a boolean")
+		if o.S.Dirty() {
+			t.Fatalf("%v: a refused reset changes nothing", v)
+		}
+	}
+	if _, err := o.ResetSkills(Args{"expected": 2.0, "charge": false}); err != nil {
+		t.Fatalf("false is a value: %v", err)
+	}
+}

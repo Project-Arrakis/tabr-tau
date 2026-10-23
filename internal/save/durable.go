@@ -178,6 +178,17 @@ func writtenUnverified(cause error) error {
 // ErrChangedOnDisk is returned when the file on disk is no longer the one this session loaded.
 var ErrChangedOnDisk = errors.New("the save changed on disk since it was loaded (game autosave?); discard and redo the edits")
 
+// openInspect opens a decoded copy of a save (the current file, or a backup chosen for Restore) read-only with the schema not trusted, like every connection that opens a save
+// (a trigger or a view in a file from outside must not call functions with side effects). One connection, so the pragmas hold.
+func openInspect(name string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(name)+"?mode=ro&_pragma=trusted_schema(0)")
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(1)
+	return db, nil
+}
+
 // inspect checks a decoded save is a sound SQLite database and returns its applied_patches names.
 func inspect(raw []byte) (map[string]bool, error) {
 	f, err := tempCopy("tabr-tau-inspect-*.sqlite")
@@ -191,12 +202,11 @@ func inspect(raw []byte) (map[string]bool, error) {
 		return nil, err
 	}
 	f.Close()
-	db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(name)+"?mode=ro")
+	db, err := openInspect(name)
 	if err != nil {
 		return nil, err
 	}
 	defer db.Close()
-	db.SetMaxOpenConns(1)
 	var chk string
 	if err := db.QueryRow("PRAGMA integrity_check").Scan(&chk); err != nil || chk != "ok" {
 		return nil, fmt.Errorf("integrity check failed: %v %s", err, chk)

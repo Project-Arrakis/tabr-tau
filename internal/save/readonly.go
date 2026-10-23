@@ -35,7 +35,7 @@ func OpenReadOnly(path string) (*sql.DB, func(), error) {
 		return nil, nil, err
 	}
 	f.Close()
-	db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(name)+"?mode=ro&_pragma=query_only(1)")
+	db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(name)+"?mode=ro&_pragma=query_only(1)&_pragma=trusted_schema(0)")
 	if err != nil {
 		os.Remove(name)
 		return nil, nil, err

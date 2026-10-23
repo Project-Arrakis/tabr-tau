@@ -25,7 +25,7 @@ var duneProc = []string{"DuneSandbox-Win64-Shipping.exe"}
 var blockedGames = map[string]func(t *testing.T){
 	"a single-player session is active": func(t *testing.T) { fakeGame(t, duneProc, "", spStatus{Active: true}, nil) },
 	"the log cannot be read":            func(t *testing.T) { fakeGame(t, duneProc, "", spStatus{}, errors.New("cannot read the game log")) },
-	"the process list cannot be read":   func(t *testing.T) { fakeGame(t, nil, "tasklist: not found", spStatus{}, nil) },
+	"the process list cannot be read":   func(t *testing.T) { fakeGame(t, nil, "process snapshot: not found", spStatus{}, nil) },
 	"the session ended a moment ago": func(t *testing.T) {
 		fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-2 * time.Second)}, nil)
 	},

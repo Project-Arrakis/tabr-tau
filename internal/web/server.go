@@ -623,6 +623,17 @@ func (s *Server) routes() {
 	s.post("/api/player/currency", o.AddCurrency)
 	s.post("/api/items/update", o.SetItem)
 	s.post("/api/items/delete", o.DeleteItem)
+	s.get("/api/inventories/clear-preview", func(r *http.Request) (any, error) {
+		inv, err := strconv.ParseInt(r.URL.Query().Get("inventory_id"), 10, 64)
+		if err != nil {
+			return nil, apierr.New(apierr.ErrBadArgument, "inventory_id must be a container id")
+		}
+		cur := r.URL.Query().Get("include_currency")
+		if cur != "" && cur != "true" && cur != "false" {
+			return nil, apierr.New(apierr.ErrBadArgument, "include_currency must be true or false")
+		}
+		return o.ClearPreview(inv, cur == "true")
+	})
 	s.post("/api/inventories/clear", o.ClearContainer)
 	s.get("/api/player/factions", func(r *http.Request) (any, error) { return o.Factions() })
 	s.post("/api/player/factions", o.SetReputation)
@@ -764,6 +775,9 @@ func (s *Server) routes() {
 		allowLongWrite(w)
 		respond(w, s.Save.Flush(), nil)
 	})
+	// Check again / Write now: the game check is made at once and the answer is a sentence (running, not running, or why the check failed). It reads the process list in
+	// memory and starts no program. Like every POST it then tries to write what waits.
+	s.post("/api/game/check", func(ops.Args) (any, error) { return save.CheckGameNow(s.Save.Path), nil })
 	// ifClean is what the automatic refresh sends: it was decided from a status read that can be seconds old on a large save, so an edit made since must not be
 	// thrown away with it (the page then leaves the file as it is and the next status shows the banner).
 	s.post("/api/save/discard", func(a ops.Args) (any, error) {

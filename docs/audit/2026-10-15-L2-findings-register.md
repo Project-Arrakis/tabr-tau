@@ -17,7 +17,7 @@ Counts (93 findings): **69 fixed**, **1 obsolete** (DBA-4: the route was removed
 | Owner (repository or organisation settings) | CLD-2 (no required reviewer: a single maintainer cannot approve their own pull request; `strict` off), CLD-3 (partly addressed by #355: the gitleaks configuration now comes from the default branch through the organisation's v2 workflow; the semgrep rule sets stay unpinned until the organisation's snapshot job has run), CLD-4 (#355: v2 can install semgrep from a hash-locked file, but the file is created by a maintainer-run job in the organisation's repository that has not run yet), CLD-8 (`allowed_actions: all`, `sha_pinning_required: false`; the three jobs of the reusable workflow have no timeout), CLD-9 (30 commits carry a personal address; a rewrite of public history) |
 | Owner (decision or record) | GRC-3 (the waiver of the "live test gates S3" rule is written nowhere), GRC-9 (turbines and windtraps in the start-up refill: "Owner to confirm" in `docs/design/2026-10-15-auto-refill-scope.md`), GRC-12 (no terms-of-use position and no date for the vehicle-durability numbers), GRC-13 (#56 and #57 are open although the work shipped), ARCH-10 (`trackNumbers` is one setting for all saves) |
 | Needs the live game | DBA-9 (turbine and windtrap fill is "tests only" in the README matrix), DBA-10 (#194: land-claim writes accept any existing totem id; ownership evidence needs a read-only look at a real save) |
-| Accessibility backlog (#180) | UX-08 (land-claim cells are click-only; no `aria-pressed` on the map layer toggles; many inline inputs have no accessible name; map marker information is hover-only), UX-11 (the Saved map always opens on Hagga Basin), UX-13 (the word "template id" in one hint; a dead `tpTo` handler) |
+| Accessibility backlog (#180) | UX-08 (land-claim cells are click-only; many inline inputs have no accessible name; map marker information is hover-only), UX-11 (the Saved map always opens on Hagga Basin), UX-13 (the word "template id" in one hint; a dead `tpTo` handler) |
 | Test hygiene | QA-12 (`TestSymlinkedSaveIsRefused` skips without the privilege, no `-race` on Windows) |
 
 | ID | Status | Evidence |
@@ -39,7 +39,7 @@ Counts (93 findings): **69 fixed**, **1 obsolete** (DBA-4: the route was removed
 | SEC-5 | fixed | #197; comma-ok in `baseview.go`, `recoverPanic`; `TestBaseViewsSurviveABuildingWithNoType`. Other bare type assertions read NOT NULL columns and are backstopped by `recoverPanic` |
 | SEC-6 | fixed | #197; `readCapped` stats the file before it reads (`codec.go`); `readcap_test.go` |
 | SEC-7 | fixed | #200; the cookie name carries the port and `hasSession` scans every cookie of that name (`TestAShadowCookieDoesNotHideTheRealOne`); that every port of 127.0.0.1 receives it is accepted and documented (NET-2) |
-| SEC-8 | fixed | #203; `tasklist` and `rundll32` by full System32 path (`winpath`) |
+| SEC-8 | fixed | #203; `tasklist` and `rundll32` by full System32 path (`winpath`); the game check no longer starts `tasklist` at all (process snapshot, #366) |
 | SEC-9 | fixed | the turn-on question is at `app.js` (`autoRefillOnOpen`) and every refill write is in `write-log.jsonl` (#296); the toggle itself is not logged |
 | SEC-10 | fixed | #197; `publicError`; `TestErrorsDoNotCarryAbsolutePathsOrTheHomeFolder`. One start-up note (`errors.Join` in `server.go`) is not passed through it; no path is known to reach it |
 | GRC-1 | accepted risk | owner decision 2026-10-15 (#196): README carve-out, `docs/art-notice.md`, `THIRD-PARTY-NOTICES.md`; the `LICENSE` file itself has no carve-out |
@@ -75,7 +75,7 @@ Counts (93 findings): **69 fixed**, **1 obsolete** (DBA-4: the route was removed
 | UX-04 | fixed | #204; the queue is listed in words (`describe.go`) |
 | UX-06 | fixed | the start-up note is a 15 s toast, warnings stay until dismissed, and every write is in `write-log.jsonl` (#296); "Last automatic save" is kept in memory only |
 | UX-07 | fixed | #282 (dialog name, inert background, Tab trap, live region) and #328 (focus is restored after the page is drawn again) |
-| UX-08 | open | sortable headers are keyboard operable (#282). Open: land-claim cells (`app.js`, click-only), `aria-pressed` on the layer toggles, accessible names of inline inputs, hover-only marker information |
+| UX-08 | open | sortable headers are keyboard operable (#282); the map layer toggles say whether they are on (`aria-pressed`, #332, #333). Open: land-claim cells (`app.js`, click-only), accessible names of inline inputs, hover-only marker information |
 | UX-09 | fixed | #214, #282, #315; the label of the accent and the red button reach 4.5:1 in both themes (`TestFilledButtonLabelsReachFourPointFiveInBothThemes`); a disabled layer toggle is dimmed on purpose |
 | UX-11 | open | marker names are words and Fit resets the view (#284); the map still opens on Hagga Basin |
 | UX-13 | open | headers and jargon were reworded (#249); "template id" remains in one hint and the `tpTo` handler is dead |
@@ -126,7 +126,7 @@ Counts (93 findings): **69 fixed**, **1 obsolete** (DBA-4: the route was removed
 | G20 | #177 | MEDIUM | Tampering, Information Disclosure, Elevation of Privilege | fix | Fixed (#203); owner-only settings open | Smaller hardening, supply chain and disclosure channel |
 | G21 | #178 | MEDIUM | Tampering, Elevation of Privilege | operator | Open: owner (repository settings, org workflow) | CI trust: the reusable security workflow is referenced at @main and required checks are incomplete |
 | G22 | #179 | MEDIUM | Repudiation | fix | Fixed (#204) | Messages that misreport state, and dead ends |
-| G23 | #180 | MEDIUM | N/A | defer | Partly fixed (#214, #249, #282, #284, #315, #328); UX-08, UX-11 and UX-13 remain | Accessibility and polish backlog |
+| G23 | #180 | MEDIUM | N/A | defer | Partly fixed (#214, #249, #282, #284, #315, #328, #332, #333); UX-08, UX-11 and UX-13 remain | Accessibility and polish backlog |
 | G24 | #181 | MEDIUM | N/A | fix | Fixed (#193) | Test hardening |
 | G25 | #182 | LOW | Tampering | fix | Fixed (#198); trackNumbers per save needs a design decision | Smaller correctness items |
 
