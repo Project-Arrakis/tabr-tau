@@ -278,17 +278,32 @@ func (s *Save) writeJournal() {
 		return
 	}
 	tmp := s.journalPath + ".tmp"
-	// written and flushed to the disk before it replaces the old one, so a power cut leaves the old journal or the new one, never half of one
-	os.Remove(tmp) // a leftover of a stopped run
-	if err := writeDurable(tmp, b, 0o600); err != nil {
-		s.stopJournal("the journal could not be written (" + shortErr(err) + ")")
+	// Written and flushed to the disk before it replaces the old one, so a power cut leaves the old journal or the new one, never half of one. A virus scanner, an indexer or a
+	// backup program can hold either file for a moment, so a failed attempt is made again a few times before it counts; and when the new journal still cannot replace the old,
+	// the old one stays (it holds the edits up to the last write that worked): deleting it would turn one slow moment into the loss of every kept edit.
+	var lastErr error
+	for try := 0; try < journalWriteTries; try++ {
+		if try > 0 {
+			time.Sleep(renameBackoff * time.Duration(try))
+		}
+		os.Remove(tmp) // a leftover of a stopped run, or of the attempt before
+		if err := writeDurable(tmp, b, 0o600); err != nil {
+			lastErr = err
+			continue
+		}
+		if err := fsRename(tmp, s.journalPath); err != nil {
+			os.Remove(tmp)
+			lastErr = err
+			continue
+		}
 		return
 	}
-	if err := os.Rename(tmp, s.journalPath); err != nil {
-		os.Remove(tmp)
-		s.stopJournal("the journal could not be written (" + shortErr(err) + ")")
-	}
+	s.journalOff = "the journal could not be written (" + shortErr(lastErr) + "); the edits made since the last copy that was kept are not kept"
+	s.recs, s.recStmts = nil, 0
 }
+
+// journalWriteTries is how many times a journal write is attempted before the journal is given up for the session.
+const journalWriteTries = 4
 
 // shortErr is an error's message without the folder names of a path error, which the page would show.
 func shortErr(err error) string {
