@@ -2346,3 +2346,136 @@ test('the selected tab and sub-tab say so to assistive technology, and a map lay
   assert.equal(toggles[0].getAttribute('aria-pressed'), 'true', 'and pressed again when shown');
   ui.dom.window.close();
 });
+
+// ---------- clear a container (#338)
+const clearInventory = () => {
+  const it = (id, tmpl, inv, slot, type) => ({ id, template_id: tmpl, stack_size: 1, quality_level: 0, position_index: slot, inventory_id: inv, inventory_type: type, inventory_name: 'x', durability: null, max_durability: null, augments: [] });
+  return {
+    items: [it(10, 'SolarisCoin', 1, 0, 0), it(11, 'Knife', 1, 1, 0), it(12, 'Literjon_T1', 1, 2, 0), it(20, 'Combat_Heavy_Helmet_06', 2, 0, 1), it(23, 'Schematic', 4, 0, 30)],
+    inventories: [{ id: 1, inventory_type: 0, max_item_count: 35 }, { id: 2, inventory_type: 1, max_item_count: 10 }, { id: 3, inventory_type: 15, max_item_count: 8 }, { id: 4, inventory_type: 30, max_item_count: 8 }],
+    templates: ['SolarisCoin', 'Knife', 'Literjon_T1', 'Combat_Heavy_Helmet_06', 'Schematic'],
+  };
+};
+// the two presses of a button that asks first, a decision's time apart
+const press = async (ui, sel) => { ui.click(sel); await ui.settle(); await new Promise((r) => ui.w.setTimeout(r, 450)); ui.click(sel); await ui.settle(); };
+const typeInto = (ui, text) => { const inp = ui.doc.querySelector('#atype'); inp.value = text; inp.dispatchEvent(new ui.w.Event('input', { bubbles: true })); };
+async function charInventory(post = {}) {
+  const ui = await boot({ get: { '/api/player/inventory': clearInventory() }, post });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="char:inventory"]'); await ui.settle();
+  return ui;
+}
+const clears = (ui) => ui.posted.filter((p) => p.path === '/api/inventories/clear');
+
+test('Clear this container asks on the button first, then needs the count typed; Cancel and Escape send nothing', async () => {
+  const ui = await charInventory({ '/api/inventories/clear': { ok: true, removed: 2, kept: 1 } });
+  const btn = () => ui.doc.querySelector('[data-act="clearInv"]');
+  assert.ok(btn() && !btn().disabled, 'the Backpack group has a clear button');
+  assert.equal(btn().getAttribute('aria-describedby'), 'clrnote');
+  assert.ok(ui.doc.querySelector('#clrnote').textContent.includes('2 items') && ui.doc.querySelector('#clrnote').textContent.includes('kept'), ui.doc.querySelector('#clrnote').textContent);
+  assert.ok(ui.doc.querySelector('label input#clrCur'), 'the currency box has a visible label');
+  ui.click('[data-act="clearInv"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'the first press opens no dialog');
+  assert.equal(btn().dataset.armed, '1');
+  assert.equal(btn().textContent, 'Yes, clear this container');
+  assert.equal(clears(ui).length, 0, 'the first press sends nothing');
+  ui.click('[data-act="clearInv"]'); await ui.settle(); // too soon: the same movement of the hand, not a second decision
+  assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'a second press within the minimum gap is ignored');
+  await new Promise((r) => ui.w.setTimeout(r, 450));
+  ui.click('[data-act="clearInv"]'); await ui.settle();
+  const ask = ui.doc.querySelector('#ask');
+  assert.ok(!ask.classList.contains('hide'), 'the second press opens the question');
+  assertClean(ui.doc, 'clear confirmation');
+  assert.ok(ask.textContent.includes('Clear Backpack?') && ask.textContent.includes('2 items') && ask.textContent.includes('Solari Coin stack is kept'), ask.textContent);
+  assert.equal(ask.querySelector('[role="dialog"]').getAttribute('aria-modal'), 'true');
+  assert.equal(ui.doc.querySelector('#aok').disabled, true, 'the button is off until the count is typed');
+  assert.equal(ask.querySelector('b').textContent, '2', 'the question names the number to type');
+  typeInto(ui, '3');
+  assert.equal(ui.doc.querySelector('#aok').disabled, true, 'a wrong count does not enable it');
+  ui.doc.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await ui.settle();
+  assert.ok(ask.classList.contains('hide'));
+  assert.equal(clears(ui).length, 0, 'Escape sends nothing');
+  await press(ui, '[data-act="clearInv"]');
+  ui.click('[data-act="askNo"]'); await ui.settle();
+  assert.equal(clears(ui).length, 0, 'Cancel sends nothing');
+  ui.dom.window.close();
+});
+
+test('the typed count sends the container, the count and the currency flag, and the answer is reported', async () => {
+  const ui = await charInventory({ '/api/inventories/clear': { ok: true, removed: 2, kept: 1, outcome: 'written' } });
+  await press(ui, '[data-act="clearInv"]');
+  typeInto(ui, ' 2 ');
+  assert.equal(ui.doc.querySelector('#aok').disabled, false, 'the right count enables it');
+  ui.click('#aok'); await ui.settle();
+  assert.deepEqual(clears(ui).map((p) => p.body), [{ inventory_id: 1, count: 2, include_currency: false }]);
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Cleared Backpack: 2 items removed'), ui.doc.querySelector('#toast').textContent);
+  ui.dom.window.close();
+});
+
+test('ticking the currency box changes the count to type and is sent as include_currency', async () => {
+  const ui = await charInventory({ '/api/inventories/clear': { ok: true, removed: 3, kept: 0 } });
+  ui.doc.querySelector('#clrCur').checked = true;
+  await press(ui, '[data-act="clearInv"]');
+  const ask = ui.doc.querySelector('#ask');
+  assert.ok(ask.textContent.includes('3 items') && ask.textContent.includes('currency is removed too'), ask.textContent);
+  typeInto(ui, '2');
+  assert.equal(ui.doc.querySelector('#aok').disabled, true, 'the count without the currency is not the one asked for');
+  typeInto(ui, '3');
+  ui.click('#aok'); await ui.settle();
+  assert.deepEqual(clears(ui).map((p) => p.body), [{ inventory_id: 1, count: 3, include_currency: true }]);
+  ui.dom.window.close();
+});
+
+test('worn gear clears its own container, schematics offer no clear, and a container with nothing in it has the button off', async () => {
+  const ui = await charInventory({ '/api/inventories/clear': { ok: true, removed: 1, kept: 0 } });
+  ui.click('[data-invg="character"]'); await ui.settle();
+  await press(ui, '[data-act="clearInv"]');
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes('Clear Character?'));
+  typeInto(ui, '1'); ui.click('#aok'); await ui.settle();
+  assert.deepEqual(clears(ui).map((p) => p.body), [{ inventory_id: 2, count: 1, include_currency: false }]);
+  ui.click('[data-invg="loadout"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('[data-act="clearInv"]').disabled, true, 'an empty container has nothing to clear');
+  assert.ok(ui.doc.querySelector('#clrnote').textContent.includes('nothing to clear'));
+  ui.click('[data-invg="schematics"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('[data-act="clearInv"]'), null, 'the unique schematics cannot be cleared');
+  ui.dom.window.close();
+});
+
+test('a container that holds only currency says there is nothing to clear until the box is ticked', async () => {
+  const inv = clearInventory(); inv.items = inv.items.filter((r) => r.id !== 11 && r.id !== 12);
+  const ui = await boot({ get: { '/api/player/inventory': inv } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="char:inventory"]'); await ui.settle();
+  await press(ui, '[data-act="clearInv"]');
+  assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'no question for nothing');
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('only currency'), ui.doc.querySelector('#toast').textContent);
+  assert.equal(clears(ui).length, 0);
+  ui.dom.window.close();
+});
+
+test('a refusal of the editor (the count no longer matches) is shown and the page keeps what it had', async () => {
+  const ui = await charInventory({ '/api/inventories/clear': { __fail: 'this container holds 3 items to clear now, not the 2 that were confirmed', __code: 'conflict', __status: 409 } });
+  await press(ui, '[data-act="clearInv"]');
+  typeInto(ui, '2'); ui.click('#aok'); await ui.settle();
+  const t = ui.doc.querySelector('#toast');
+  assert.ok(t.querySelector('[role="alert"]') && t.textContent.includes('not the 2 that were confirmed'), t.textContent);
+  ui.dom.window.close();
+});
+
+test('an opened base container sends its own id and count, named as the base names it', async () => {
+  const items = [{ id: 1, template_id: 'CopperOre', stack_size: 5, quality_level: 0, position_index: 0 }, { id: 2, template_id: 'SolarisCoin', stack_size: 5, quality_level: 0, position_index: 1 }];
+  const ui = await boot({
+    get: { '/api/bases/storage/items': items, '/api/bases/inventory': { groups: [{ id: 'storage', label: 'Storage', count: 1 }], containers: [{ inventory_id: 7001, name: 'Ore Storage', type: 'Chest', group: 'storage', items: 2, max_item_count: 20 }] } },
+    post: { '/api/inventories/clear': { ok: true, removed: 1, kept: 1 } },
+  });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:bases"]'); await ui.settle();
+  ui.click('[data-bstab="inventory"]'); await ui.settle();
+  ui.click('[data-act="openInv"]'); await ui.settle();
+  assertClean(ui.doc, 'the opened container');
+  await press(ui, '#inv [data-act="clearInv"]');
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes('Clear Ore Storage?'), ui.doc.querySelector('#ask').textContent);
+  typeInto(ui, '1'); ui.click('#aok'); await ui.settle();
+  assert.deepEqual(clears(ui).map((p) => p.body), [{ inventory_id: 7001, count: 1, include_currency: false }]);
+  ui.dom.window.close();
+});

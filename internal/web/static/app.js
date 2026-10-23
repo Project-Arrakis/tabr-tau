@@ -472,6 +472,16 @@ async function resetArea({ count, title, body, list = [], typed, ok, path, extra
 // ---------- the queue: an edit is written to the game's file as it is made; while the file cannot be written (the game is in a single-player session) edits wait here
 $('#btnDiscard').onclick = async () => { if (await ask({ title: 'Discard the queued changes?', body: `These ${lastPending.length} ${lastPending.length === 1 ? 'change is' : 'changes are'} waiting for the game to close and would be dropped. The game file is not touched.`, list: lastPending, ok: 'Discard', danger: true })) act(() => api('/api/save/discard', {}), 'Discarded', true, true); };
 
+// ---------- clear a container (#338)
+// One row under a container's item list: a box for the currency, and a button that asks twice (the two-press rule of data-confirm, then a typed count). The count
+// the person types is the number of items the clear will remove, and it is sent with the request: the editor refuses when the container holds another number by then.
+const SOLARI = 'SolarisCoin';
+function clearRow(inv, name, rows) {
+  const all = rows.length, kept = rows.filter((r) => r.template_id === SOLARI).length, plain = all - kept;
+  const note = all ? `Removes the ${nn(plain, 'item', 'items')} in ${name}, with everything attached to them. The Solari Coin stack${kept === 1 ? ' is' : 's are'} kept unless the box is ticked. Two presses, then type the count.` : `${name} is empty: nothing to clear.`;
+  return html`<div class="row"><label><input type="checkbox" id="clrCur"> Also remove currency</label><button class="b bad" data-act="clearInv" data-confirm="Yes, clear this container" data-inv="${inv}" data-name="${name}" data-plain="${plain}" data-all="${all}" aria-describedby="clrnote" ${all ? '' : 'disabled'}>Clear this container</button><span class="mut" id="clrnote">${note}</span></div>`;
+}
+
 // ---------- PLAYER
 let P = null;
 function host() { return $('#pbody') || $('#main'); }
@@ -537,6 +547,7 @@ async function playerSection(s) {
     const invCard = html`<div class="card"><h3>Inventory: ${nn(d.items.length, 'item', 'items')} carried</h3>
       <div class="sub">${G.map(([k, v]) => html`<button data-invg="${k}" class="${grp == k ? 'on' : ''}">${v} (${counts[k]})</button>`)}</div>
       <div class="row"><input id="invq" placeholder="Filter by name, item ID, or template" size="34" value="${invQ}"><button class="b sec" data-act="invfilter">Filter</button><button class="b sec" data-act="invclear">Clear</button><span class="mut">${countText(rows.length, counts[grp], 'item', 'items', terms.length > 0)}${slots}</span></div>
+      ${cap && grp != 'schematics' ? clearRow(cap.id, G.find(([k]) => k == grp)[1], d.items.filter((r) => r.inventory_id == cap.id)) : ''}
       ${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) },
         { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" value="${r.stack_size}" min="1" data-item="${r.id}" data-field="stack_size" data-name="${itemName(r.template_id)}" class="w90" aria-label="Stack of ${itemName(r.template_id)}">` },
         { k: 'quality_level', label: 'Grade', f: (r) => html`<select data-item="${r.id}" data-field="quality" data-name="${itemName(r.template_id)}" aria-label="Grade of ${itemName(r.template_id)}">${[0, 1, 2, 3, 4, 5].map((n) => html`<option ${n == r.quality_level ? 'selected' : ''}>${n}</option>`)}</select>` },
@@ -880,7 +891,7 @@ async function basesView() {
       const rows = inv.containers.filter((c) => c.group == grp);
       h.push(html`<div class="card"><h3>Inventory</h3><div class="sub">${inv.groups.map((g) => html`<button data-bsgrp="${g.id}" class="${grp == g.id ? 'on' : ''}">${g.label} (${g.count})</button>`)}</div>
         ${tbl([{ k: 'name', label: 'Container' }, { k: 'type', label: 'Type' }, { k: 'items', label: 'Items' }, { k: 'max_item_count', label: 'Slots used', f: (r) => `${r.items} of ${r.max_item_count}` }], rows,
-        { actions: (r) => html`<button class="b sec sm" data-act="openInv" data-id="${r.inventory_id}">Open</button>`, empty: 'No containers in this group.' })}
+        { actions: (r) => html`<button class="b sec sm" data-act="openInv" data-id="${r.inventory_id}" data-name="${r.name}">Open</button>`, empty: 'No containers in this group.' })}
         <p class="mut">Slots used is the items held out of the container's capacity. Only containers that belong to this base are listed.</p></div><div id="inv"></div>`);
     } else if (bsTab == 'structures') {
       // tabr-tau's own base tools (the console's base view has no equivalent): structure health, repair all, sand, placeables, piece types.
@@ -1122,6 +1133,13 @@ const A = {
   fillWater: () => act(async () => { const r = await api('/api/player/hydration', {}); toast(`Hydration ${Math.round(r.before * 10) / 10} → ${r.after}` + NOT_SAVED); }, null),
   refill: () => act(async () => { const r = await api('/api/player/refill', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} Literjons (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
   delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). It is written at once, after a backup. If the file cannot be written (for example a single-player session is running) it is queued and written when it can be.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
+  clearInv: async (d) => {
+    const cur = !!($('#clrCur') && $('#clrCur').checked), n = +(cur ? d.all : d.plain);
+    if (!n) { toast(+d.all ? 'Nothing to clear: this container holds only currency. Tick the box to remove it too.' : 'Nothing to clear: this container is empty.'); return; }
+    const body = `This removes ${nn(n, 'item', 'items')} from ${d.name}, with everything attached to them (stats, links, and what is inside a bag). ${cur ? 'The currency is removed too.' : 'The Solari Coin stack is kept.'} It is one edit, written at once after a backup. If the file cannot be written (for example a single-player session is running) it is queued and written when it can be. Items added to the container meanwhile make the editor refuse and change nothing.`;
+    if (!(await ask({ title: 'Clear ' + d.name + '?', body, ok: 'Clear container', typed: String(n), danger: true }))) return;
+    act(async () => { const r = await api('/api/inventories/clear', { inventory_id: +d.inv, count: n, include_currency: cur }); toast(r.removed ? `Cleared ${d.name}: ${nn(r.removed, 'item', 'items')} removed` + NOT_SAVED : r.message); }, null);
+  },
   spec: (d) => { $('#st').value = d.t; $('#sx').value = d.xp; $('#sl').value = d.lv; },
   spKeyAll: async () => (await ask({ title: 'Grant all keystones?', body: 'Every specialization keystone of every track is bought. One edit.', ok: 'Grant all', danger: true })) && act(async () => { const r = await api('/api/player/specs/keystones/grant', {}); toast(r.granted ? `${r.granted} keystones granted` + NOT_SAVED : 'All keystones were already granted.'); }, null),
   spKeyReset: async () => (await ask({ title: 'Reset all keystones?', body: 'Every specialization keystone you have bought is removed. One edit.', ok: 'Reset all', danger: true })) && act(async () => { const r = await api('/api/player/specs/keystones/reset', {}); toast(r.removed ? `${r.removed} keystones reset` + NOT_SAVED : 'There were no keystones to reset.'); }, null),
@@ -1208,7 +1226,7 @@ const A = {
     const it = await api('/api/bases/storage/items?inventory=' + encodeURIComponent(d.id));
     const cat = await loadCatalog(it.map((r) => r.template_id));
     setHTML($('#inv'), html`<div class="card"><h3>Inventory ${d.id}</h3>${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" data-name="${itemName(r.template_id)}" class="w90" aria-label="Stack of ${itemName(r.template_id)}">` }], it, { empty: 'This container is empty.', actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` })}
-    <div class="row">${itemPicker("bt", cat)}Qty<input id="bq" type="number" value="1" min="1"><button class="b" data-act="giveInv" data-id="${d.id}">Add item</button></div></div>`);
+    <div class="row">${itemPicker("bt", cat)}Qty<input id="bq" type="number" value="1" min="1"><button class="b" data-act="giveInv" data-id="${d.id}" data-name="${d.name || ''}">Add item</button></div>${clearRow(d.id, d.name || 'this container', it)}</div>`);
   },
   giveInv: (d) => act(async () => { await api('/api/bases/give', { inventory_id: +d.id, template_id: needItem('bt'), quantity: +val('bq') }); toast('Item added' + NOT_SAVED); await A.openInv(d); }, null, false),
   bring: (d) => act(() => api('/api/vehicles/bring', { id: +d.id }), 'Vehicle moved next to you'),
