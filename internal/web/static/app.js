@@ -1236,7 +1236,11 @@ document.addEventListener('click', (e) => {
   const x = e.target.closest('[data-export]');
   if (x) {
     e.preventDefault();
-    fetch(x.href, { credentials: 'same-origin' }).then((r) => r.blob()).then((b) => { const u = URL.createObjectURL(b), l = document.createElement('a'); l.href = u; l.download = dbTable + '.' + x.dataset.export; l.click(); URL.revokeObjectURL(u); });
+    // An error answer is JSON with the reason; it is shown, not saved as the table's file (register 2026-10-07, UX-6).
+    fetch(x.href, { credentials: 'same-origin' }).then(async (r) => {
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || r.statusText || 'The export failed'); }
+      return r.blob();
+    }).then((b) => { const u = URL.createObjectURL(b), l = document.createElement('a'); l.href = u; l.download = dbTable + '.' + x.dataset.export; l.click(); URL.revokeObjectURL(u); }).catch((err) => toast(err.message, true));
   }
 });
 document.addEventListener('change', (e) => {
