@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
+	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
@@ -101,15 +102,22 @@ func TestGivingManyOneSlotItemsReadsTheInventoryOnceNotOncePerPiece(t *testing.T
 	assertDBSound(t, o)
 }
 
-func TestAGiveOfMoreStacksThanTheBoundIsRefusedWholeAndTheBoundItselfIsAccepted(t *testing.T) {
+// A give past the bound gives up to the bound and says so (it used to be refused whole); the strict give that Solari use still refuses (TestSolariPastTheBoundIsRefusedWhole).
+func TestAGiveOfMoreStacksThanTheBoundGivesTheBoundAndSaysSoAndTheBoundItselfIsAccepted(t *testing.T) {
 	o := &Ops{S: testsave.PlayerWithSQL(t, noSlotLimitSQL)}
 	tmpl := oneSlotItem(t)
-	_, err := o.GiveItem(Args{"template_id": tmpl, "quantity": float64(maxGiveStacks + 1)})
-	if err == nil || !strings.Contains(err.Error(), "separate stacks") || !strings.Contains(err.Error(), "at most") {
-		t.Fatalf("the person is told the bound and what to do: %v", err)
+	r, err := o.GiveItem(Args{"template_id": tmpl, "quantity": float64(maxGiveStacks + 1)})
+	if err != nil {
+		t.Fatalf("a give past the bound gives what the bound allows: %v", err)
 	}
-	if n := mustOne(t, o, `select count(*) n from items where template_id=?`, tmpl)["n"].(int64); n != 0 || o.S.Dirty() {
-		t.Fatalf("a refused give leaves nothing behind: %d", n)
+	if m := r.(map[string]any); m["given"] != int64(maxGiveStacks) || m["requested"] != int64(maxGiveStacks+1) || m["limit"] != "bound" || !strings.Contains(m["reason"].(string), "at most 1,000 stacks") {
+		t.Fatalf("the answer says what was given and why not more: %v", r)
+	}
+	if n := mustOne(t, o, `select count(*) n from items where template_id=?`, tmpl)["n"].(int64); n != maxGiveStacks {
+		t.Fatalf("the bound was given: %d", n)
+	}
+	if _, err := o.S.Mutate("clean", func(m *save.Mut) error { _, e := m.Exec(`delete from items where template_id=?`, tmpl); return e }); err != nil {
+		t.Fatal(err)
 	}
 	start := time.Now()
 	if _, err := o.GiveItem(Args{"template_id": tmpl, "quantity": float64(maxGiveStacks)}); err != nil {

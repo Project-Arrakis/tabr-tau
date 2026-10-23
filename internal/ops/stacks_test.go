@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
@@ -161,9 +162,13 @@ func TestGiveDoesNotTopUpAStackOfAnotherGrade(t *testing.T) {
 	assertDBSound(t, o)
 }
 
-func TestGiveThatNeedsMoreSlotsThanAreFreeSaysSo(t *testing.T) {
+// The strict give (what Solari use) still refuses a request that needs more slots than are free, with the number of stacks it needs. The give of an item (GiveItem) gives what fits instead.
+func TestTheStrictGiveThatNeedsMoreSlotsThanAreFreeSaysSo(t *testing.T) {
 	o := &Ops{S: testsave.Player(t)} // 3 free slots
-	_, err := o.GiveItem(Args{"template_id": "SpicedFuelCell", "quantity": 4000.0})
+	_, err := o.S.Mutate("strict", func(m *save.Mut) error {
+		_, e := giveStacksInTx(m, 1, "SpicedFuelCell", 4000, 0)
+		return e
+	})
 	if err == nil || !strings.Contains(err.Error(), "not enough room") || !strings.Contains(err.Error(), "8 stacks of up to 500") {
 		t.Fatalf("the person is told how many stacks it needs: %v", err)
 	}

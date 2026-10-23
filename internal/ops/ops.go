@@ -320,53 +320,6 @@ var (
 	errNotEnoughRoom = errors.New("not enough room")
 )
 
-// giveStacksInTx gives qty of an item the way the game holds it: no slot holds more than the item's stack size (the game's own item tables, see catalog.MaxStack). Partial
-// stacks of the same item and grade that are already in the inventory are filled first, then new stacks are added, each in its own slot. The caller's transaction makes it
-// all or nothing. An item the catalog does not know has no stack size to honor and goes in as one row, as it always did. It returns the ids of the rows it added (none when
-// everything fitted on stacks that were there). More than maxGiveStacks new stacks are refused.
-func giveStacksInTx(m *save.Mut, inventoryID int64, template string, qty, quality int64) ([]int64, error) {
-	max, known := catalog.MaxStack(template)
-	if !known {
-		id, err := giveInTx(m, inventoryID, template, qty, quality)
-		return []int64{id}, err
-	}
-	left := qty
-	if max > 1 {
-		rows, err := m.Query(`select id, stack_size from items where inventory_id=? and template_id=? and quality_level=? and stack_size<? order by position_index, id`, inventoryID, template, quality, max)
-		if err != nil {
-			return nil, err
-		}
-		for _, r := range rows {
-			have, _ := r["stack_size"].(int64)
-			add := min(max-have, left)
-			if add <= 0 {
-				continue
-			}
-			if _, err := m.Exec(`update items set stack_size=? where id=?`, have+add, r["id"]); err != nil {
-				return nil, err
-			}
-			left -= add
-		}
-	}
-	if left <= 0 {
-		return nil, nil
-	}
-	n := (left + max - 1) / max
-	if n > maxGiveStacks {
-		return nil, apierr.Newf(apierr.ErrBadArgument, "%s makes %s separate stacks (a slot holds %s); at most %s at a time: give fewer, or give them in several steps", itemLabel(template), commas(n), commas(max), commas(maxGiveStacks))
-	}
-	sizes := make([]int64, n)
-	for i := range sizes {
-		sizes[i] = max
-	}
-	sizes[n-1] = left - (n-1)*max
-	ids, err := giveRowsInTx(m, inventoryID, template, sizes, quality)
-	if errors.Is(err, errNotEnoughRoom) {
-		return nil, fmt.Errorf("not enough room: %s needs %d stacks of up to %s and the inventory has no more free slots", itemLabel(template), (qty+max-1)/max, commas(max))
-	}
-	return ids, err
-}
-
 // giveInTx inserts one stack of qty into inventoryID, in the next free slot, with an id from the game's own sequencer.
 func giveInTx(m *save.Mut, inventoryID int64, template string, qty, quality int64) (int64, error) {
 	ids, err := giveRowsInTx(m, inventoryID, template, []int64{qty}, quality)
@@ -515,11 +468,30 @@ func (o *Ops) GiveItem(a Args) (any, error) {
 	} else if r, _ := o.S.One(`select 1 x from inventories where id=? and actor_id=?`, inv, p.Pawn); r == nil {
 		return nil, apierr.New(apierr.ErrBadArgument, "that inventory does not belong to the player")
 	}
-	var ids []int64
-	if _, err := o.S.Mutate(fmt.Sprintf("Give %s x %s (grade %d)", commas(qty), itemLabel(tmpl), grantGrade(tmpl, q)), func(m *save.Mut) (e error) { ids, e = giveStacksInTx(m, inv, tmpl, qty, q); return }); err != nil {
+	what := o.inventoryNoun(inv)
+	var out giveOutcome
+	suffix := fmt.Sprintf("(grade %d)", grantGrade(tmpl, q))
+	if _, err := o.S.Mutate(fmt.Sprintf("Give %s x %s %s", commas(qty), itemLabel(tmpl), suffix), func(m *save.Mut) (e error) {
+		if out, e = giveUpToInTx(m, inv, tmpl, qty, q); e != nil {
+			return e
+		}
+		if out.Given == 0 {
+			return refuseNothingFits(out, what)
+		}
+		m.Desc = giveWords(out, tmpl, suffix)
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-	return giveResult(ids), nil
+	return giveAnswer(out, what), nil
+}
+
+// inventoryNoun names an inventory of the player's in the words of a message: the backpack, or the inventory.
+func (o *Ops) inventoryNoun(inv int64) string {
+	if r, _ := o.S.One(`select 1 x from inventories where id=? and inventory_type=0`, inv); r != nil {
+		return "the backpack"
+	}
+	return "the inventory"
 }
 
 // maxGiveBatch caps one Give Items queue; the console's queue is a handful of lines, and a typo cannot flood the backpack.
@@ -573,14 +545,17 @@ func (o *Ops) GiveItems(a Args) (any, error) {
 		return nil, apierr.New(apierr.ErrNotFound, "player backpack not found")
 	}
 	inv := r["id"].(int64)
-	ids := make([]int64, 0, len(lines))
+	var ids []int64
+	var req, got int64
+	var results []map[string]any
 	if _, err := o.S.Mutate(fmt.Sprintf("give %d queued items", len(lines)), func(m *save.Mut) error {
+		ids, req, got, results = nil, 0, 0, nil
 		for i, l := range lines {
-			rows, e := giveStacksInTx(m, inv, l.tmpl, l.qty, l.q)
+			out, e := giveUpToInTx(m, inv, l.tmpl, l.qty, l.q)
 			if e != nil {
 				return fmt.Errorf("item %d (%s): %w", i+1, l.tmpl, e)
 			}
-			for _, id := range rows {
+			for _, id := range out.IDs {
 				if len(l.aug) > 0 {
 					if _, e := setAugmentsTx(m, id, l.aug, l.grade); e != nil {
 						return fmt.Errorf("item %d (%s): %w", i+1, l.tmpl, e)
@@ -588,21 +563,28 @@ func (o *Ops) GiveItems(a Args) (any, error) {
 				}
 				ids = append(ids, id)
 			}
+			req += out.Requested
+			got += out.Given
+			results = append(results, map[string]any{"template_id": l.tmpl, "requested": out.Requested, "given": out.Given, "reason": out.reason("the backpack"), "limit": out.Limit})
+		}
+		if got == 0 {
+			return apierr.New(apierr.ErrNoRoom, "Nothing was given: the backpack is full.")
+		}
+		if got < req {
+			m.Desc = fmt.Sprintf("give %d queued items: %s of %s units fitted", len(lines), commas(got), commas(req))
 		}
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	return map[string]any{"ok": true, "itemIds": ids, "count": len(ids)}, nil
-}
-
-// giveResult is what a Give answers: the first row added (0 when everything went onto stacks that were there) and how many stacks were added.
-func giveResult(ids []int64) map[string]any {
-	var first int64
-	if len(ids) > 0 {
-		first = ids[0]
+	ans := map[string]any{"ok": true, "itemIds": ids, "count": len(ids), "requested": req, "given": got, "lines": results, "reason": "", "limit": ""}
+	for _, r := range results {
+		if r["reason"] != "" {
+			ans["reason"], ans["limit"] = r["reason"], r["limit"]
+			break
+		}
 	}
-	return map[string]any{"ok": true, "itemId": first, "stacks": len(ids)}
+	return ans, nil
 }
 
 // GiveToInventory adds an item to any storage inventory (bases tab).
@@ -617,11 +599,21 @@ func (o *Ops) GiveToInventory(a Args) (any, error) {
 	if err := o.requireBaseContainer(inv); err != nil {
 		return nil, err
 	}
-	var ids []int64
-	if _, err := o.S.Mutate(fmt.Sprintf("Give %s x %s to container %d", commas(qty), itemLabel(tmpl), inv), func(m *save.Mut) (e error) { ids, e = giveStacksInTx(m, inv, tmpl, qty, q); return }); err != nil {
+	var out giveOutcome
+	suffix := fmt.Sprintf("to container %d", inv)
+	if _, err := o.S.Mutate(fmt.Sprintf("Give %s x %s %s", commas(qty), itemLabel(tmpl), suffix), func(m *save.Mut) (e error) {
+		if out, e = giveUpToInTx(m, inv, tmpl, qty, q); e != nil {
+			return e
+		}
+		if out.Given == 0 {
+			return refuseNothingFits(out, "the container")
+		}
+		m.Desc = giveWords(out, tmpl, suffix)
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-	return giveResult(ids), nil
+	return giveAnswer(out, "the container"), nil
 }
 
 func (o *Ops) SetItem(a Args) (any, error) {
