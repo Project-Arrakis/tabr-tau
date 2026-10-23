@@ -126,7 +126,8 @@ var introspection = map[string]bool{
 	"pragma_index_info": true, "pragma_index_xinfo": true, "pragma_foreign_key_list": true,
 }
 
-// forbidden refuses, in either console, anything that could reach SQLite internals: load_extension, pragma_*
+// forbidden refuses, in either console, anything that could reach SQLite internals: load_extension, zeroblob and
+// randomblob (one call allocates up to a gigabyte), pragma_*
 // table-valued functions (they accept arguments and can change settings; only the schema-describing ones above
 // are allowed, and only when reading), and sqlite_* objects other than
 // the read-only catalogue views sqlite_master / sqlite_schema. Quoted names and string literals are checked by
@@ -138,6 +139,9 @@ func (s sqlStatement) forbidden(reading bool) error {
 		switch {
 		case name == "load_extension":
 			return errors.New("load_extension is not allowed")
+		case name == "zeroblob" || name == "randomblob":
+			// one call can allocate up to a gigabyte and the console reads the whole value before it cuts it (register 2026-10-07, S8)
+			return fmt.Errorf("%s is not allowed: it can allocate a huge value", name)
 		case strings.HasPrefix(name, "pragma_"):
 			if !reading || quoted || !introspection[name] {
 				return errors.New("pragma functions are not allowed")
