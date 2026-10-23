@@ -569,8 +569,7 @@ func (s *Save) backupNamed(tag string) (string, [32]byte, error) {
 	if err != nil {
 		return "", [32]byte{}, err
 	}
-	now := time.Now()
-	dest := filepath.Join(s.backupDir(), fmt.Sprintf("%s-%s-%d%s%s", base, now.Format("20060102-150405"), now.UnixNano()%1_000_000_000, tag, ext))
+	dest := filepath.Join(s.backupDir(), s.newBackupName(base, tag, ext))
 	if err := writeDurable(dest, b, 0o600); err != nil {
 		return "", [32]byte{}, err
 	}
@@ -681,7 +680,18 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 // Backups lists backups, newest first.
 func (s *Save) Backups() []Row {
 	ents, _ := os.ReadDir(s.backupDir())
-	sort.Slice(ents, func(i, j int) bool { return ents[i].Name() > ents[j].Name() })
+	// newest first by the time in the name (the names of different editor versions and clocks do not sort as text); what has no such time follows, by name
+	sort.Slice(ents, func(i, j int) bool {
+		ti, oki := s.backupInstant(ents[i].Name())
+		tj, okj := s.backupInstant(ents[j].Name())
+		if oki != okj {
+			return oki
+		}
+		if oki && ti != tj {
+			return ti > tj
+		}
+		return ents[i].Name() > ents[j].Name()
+	})
 	out := []Row{}
 	for _, e := range ents {
 		if info, err := e.Info(); err == nil {
