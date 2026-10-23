@@ -14,7 +14,7 @@ import (
 )
 
 const schema = `
-create table player_state(id integer primary key, account_id integer, character_name text);
+create table player_state(id integer primary key, account_id integer, character_name text, player_pawn_id integer);
 create table actors(id integer primary key, class text, map text, location_x real, location_y real, location_z real, owner_account_id integer);
 create table inventories(id integer primary key, actor_id integer, item_id integer, inventory_type integer, max_item_count integer, max_item_volume real);
 create table items(id integer primary key, inventory_id integer, stack_size integer, position_index integer, template_id text, is_new integer, acquisition_time integer, stats text, quality_level integer);
@@ -22,7 +22,7 @@ create table items_id_sequencer(next_id integer);
 create table journey_story_node(character_id integer, story_node_id text, has_pending_reward integer, complete_condition_state blob, reveal_condition_state blob, fail_condition_state blob, metadata_state blob, reset_group integer, primary key(character_id, story_node_id));
 create table landsraad_tasks(id integer primary key, completed integer, winning_faction_id integer, completion_time integer);
 create table landsraad_task_faction_contributions(faction_id integer, task_id integer, amount real, primary key(faction_id, task_id));
-insert into player_state values (1, 1, 'Tester');
+insert into player_state(id, account_id, character_name) values (1, 1, 'Tester');
 insert into actors values (2, '/Game/BP_DunePlayerCharacter.BP_DunePlayerCharacter_C', 'HaggaBasin', 1, 2, 3, 1);
 insert into inventories values (1, 2, null, 0, 3, 100);
 insert into items values (10, 1, 100, 0, 'SolarisCoin', 0, 0, '{"FItemStackAndDurabilityStats":[[],{}]}', 0);
