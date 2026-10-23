@@ -27,8 +27,10 @@ var (
 var (
 	longNumber = regexp.MustCompile(`\d{15,}`)
 	hexID      = regexp.MustCompile(`\b[0-9a-fA-F]{16,}\b|\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b`)
-	filePath   = regexp.MustCompile(`(?:[A-Za-z]:[\\/]|\\\\)[^\s"'<>|]+|/(?:home|Users|tmp|var|mnt|private)/[^\s"'<>|]+`)
-	cellEdit   = regexp.MustCompile(`^(update [^\[\]\s]+)\[.*\](\.\S+)$`) // "update table[primary-key values].column" of the Database view
+	// A path is cut at its boundaries, not at the first space: the folders of a path may have spaces in their names (C:\Users\First Last\...), so a folder runs to the next
+	// separator; the last name stops at a space, since the sentence goes on after it.
+	filePath = regexp.MustCompile(`(?:[A-Za-z]:[\\/]|\\\\)(?:[^\\/:"<>|?*\r\n]+[\\/])*[^\s"'<>|]*|/(?:home|Users|tmp|var|mnt|private)/(?:[^/:"<>|?*\r\n]+/)*[^\s"'<>|]*`)
+	cellEdit = regexp.MustCompile(`^(update [^\[\]\s]+)\[.*\](\.\S+)$`) // "update table[primary-key values].column" of the Database view
 )
 
 type writeLogLine struct {

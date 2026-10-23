@@ -18,7 +18,12 @@ func TestWriteLogDescriptionsCarryNoKeysHexIdsOrPaths(t *testing.T) {
 		"owner 123e4567-e89b-12d3-a456-426614174000 set":                             "owner <id> set",
 		`saved, but reloading failed: open C:\Users\someone\AppData\game.db: denied`: `saved, but reloading failed: open <path> denied`,
 		`read \\server\share\Saved\game.db failed`:                                   `read <path> failed`,
-		"item of account 12345678901234567":                                          "item of account <number>",
+		// folders with spaces in their names: the whole path goes, and the sentence after it stays
+		`open C:\Users\First Last\AppData\Local\Dune Sandbox\game.db: denied`:     `open <path> denied`,
+		`read \\my server\my share\Saved Games\game.db failed`:                    `read <path> failed`,
+		`copied /home/first last/Documents/My Saves/game.db to the backups`:       `copied <path> to the backups`,
+		`could not replace game.db (C:\Users\First Last\x\game.db is held) twice`: `could not replace game.db (<path> is held) twice`,
+		"item of account 12345678901234567":                                       "item of account <number>",
 	} {
 		got := logDesc(in)
 		// the path pattern takes the colon after the file name along with the name; compare without it
