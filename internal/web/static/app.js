@@ -1021,6 +1021,9 @@ async function render() {
 }
 
 const D = (e) => e.target.closest('[data-act]');
+// A failed SQL statement shows its reason where the result goes, and the earlier result is cleared so it cannot be read as the answer (register 2026-10-07, UX-5).
+function sqlFailed(e) { const out = $('#sqlout'); if (out) setHTML(out, html`<p class="bad">${e.message}</p>`); }
+
 const A = {
   retry: () => render(),
   askOk: () => { if (askState && askState.typed && $('#atype').value.trim().toLowerCase() !== askState.typed.toLowerCase()) return; endAsk(true); }, // the typed word is checked here too, not only by the disabled button
@@ -1171,7 +1174,7 @@ const A = {
     try {
       const r = await api('/api/db/sql', { sql: window.lastSql });
       setHTML($('#sqlout'), html`<p class="mut">${r.rows.length.toLocaleString()} ${r.rows.length === 1 ? 'row' : 'rows'}${r.truncated ? '. Only the first 1,000 rows are shown: add LIMIT or a WHERE to see others.' : ''}</p><div class="scroll"><table><thead><tr>${r.columns.map((c) => html`<th>${c}</th>`)}</tr></thead><tbody>${r.rows.map((x) => html`<tr>${x.map((v) => html`<td>${v}</td>`)}</tr>`)}</tbody></table></div>`);
-    } catch (e) { toast(e.message, true); }
+    } catch (e) { toast(e.message, true); sqlFailed(e); }
   },
   execsql: async () => {
     window.lastSql = val('sql');
@@ -1182,7 +1185,7 @@ const A = {
       let queued = r.outcome === 'queued';
       if (!r.outcome) try { queued = (await status()).dirty; } catch (e) { /* the poll reports a lost connection; the statement itself ran */ }
       setHTML($('#sqlout'), html`<p class="ok">${r.changes} ${r.changes === 1 ? 'row' : 'rows'} changed, ${queued ? 'and queued: it is written to game.db as soon as the file can be written.' : 'and written to game.db.'}</p>`);
-    } catch (e) { toast(e.message, true); }
+    } catch (e) { toast(e.message, true); sqlFailed(e); }
   },
   restore: async (d) => (await ask({ title: 'Restore this backup over the save?', body: 'Replace game.db with ' + d.n + '. The current file is backed up first. Close the game first.', ok: 'Restore', typed: 'restore', danger: true })) && act(() => api('/api/save/restore', { name: d.n }), 'Restored'),
 };

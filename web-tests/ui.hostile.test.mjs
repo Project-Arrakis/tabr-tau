@@ -2147,3 +2147,25 @@ test('Database: an export the server refuses shows its error and downloads nothi
   const good = await run([{ ok: true }]);
   assert.deepEqual(good.downloads, ['items.csv'], 'a good export still downloads');
 });
+
+test('SQL console: a refused or failed statement shows its reason in the result area and clears the old result (register 2026-10-07, UX-5)', async () => {
+  const post = { '/api/db/sql': { columns: ['name'], rows: [['items']] }, '/api/db/exec': { changes: 1 } };
+  const ui = await boot({ post });
+  ui.click('[data-tab="db"]'); await ui.settle();
+  ui.click('[data-sub="db:sql"]'); await ui.settle();
+  ui.click('[data-act="runsql"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#sqlout table'), 'a good query shows a table');
+  post['/api/db/sql'] = { __fail: 'near "selec": syntax error <b>x</b>' };
+  ui.click('[data-act="runsql"]'); await ui.settle();
+  const out = ui.doc.querySelector('#sqlout');
+  assert.ok(out.textContent.includes('near "selec": syntax error'), 'the reason is shown where the result was: ' + out.textContent);
+  assert.ok(!out.querySelector('table'), 'the earlier result is gone, so it cannot be mistaken for the answer');
+  assert.ok(!out.querySelector('b'), 'the reason is plain text');
+  post['/api/db/exec'] = { __fail: 'only SELECT is allowed here' };
+  ui.click('[data-act="execsql"]'); await ui.settle();
+  const inp = ui.doc.querySelector('#atype');
+  inp.value = 'write'; inp.dispatchEvent(new ui.w.Event('input', { bubbles: true }));
+  inp.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await ui.settle();
+  assert.ok(ui.doc.querySelector('#sqlout').textContent.includes('only SELECT is allowed here'), 'a refused write shows its reason too: ' + ui.doc.querySelector('#sqlout').textContent);
+  ui.dom.window.close();
+});
