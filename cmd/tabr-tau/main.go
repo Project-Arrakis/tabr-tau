@@ -70,7 +70,7 @@ func main() {
 	if window { // a GUI-subsystem exe has no console: report a crash in a box instead of vanishing
 		defer func() {
 			if r := recover(); r != nil {
-				gui.MessageBox("TABR TAU", fmt.Sprintf("Unexpected internal error: %v\n\nNothing was written to your save unless you pressed Save.", r))
+				gui.MessageBox("TABR TAU", fmt.Sprintf("Unexpected internal error: %v\n\nThe editor writes your changes to the save as you make them, after a backup (the tabr-tau-backups folder next to the save), so some may already be in it. If the save looks wrong, restore the newest backup from there.", r))
 				os.Exit(2)
 			}
 		}()

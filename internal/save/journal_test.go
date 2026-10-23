@@ -119,6 +119,7 @@ func TestPendingEditsAreRebasedOntoAFileTheGameSavedInTheMeantime(t *testing.T) 
 func TestAnEditThatNoLongerAppliesIsReportedNotForced(t *testing.T) {
 	p := makeSave(t, journalDDL)
 	dir := t.TempDir()
+	jp := filepath.Join(dir, "pending.json")
 	s1 := openJournaled(t, p, dir)
 	for _, d := range []struct{ desc, q string }{
 		{"rename one", `update jt set name='uno' where a=1`},
@@ -136,14 +137,23 @@ func TestAnEditThatNoLongerAppliesIsReportedNotForced(t *testing.T) {
 	}
 	s2 := openJournaled(t, p, dir)
 	r, err := s2.RestoreJournal()
-	if err != nil || r == nil || r.Applied != 1 || len(r.Conflicts) != 1 || r.Conflicts[0].Desc != "rename one" {
+	if err != nil || r == nil || r.Applied != 0 || len(r.Conflicts) != 1 || r.Conflicts[0].Desc != "rename one" {
 		t.Fatalf("restore: %+v %v", r, err)
+	}
+	if s2.Held() == nil {
+		t.Fatal("the queue is held whole: the edit that did apply is not written alone")
 	}
 	if !strings.Contains(r.Conflicts[0].Why, "0 rows") {
 		t.Fatalf("the reason should say what differed: %q", r.Conflicts[0].Why)
 	}
-	if got := s2.Pending(); len(got) != 1 || got[0] != "rename two" {
-		t.Fatalf("only the edit that applied is pending: %v", got)
+	if got := s2.Pending(); len(got) != 2 || got[0] != "rename one" || got[1] != "rename two" {
+		t.Fatalf("both edits are still waiting, held: %v", got)
+	}
+	if _, err := os.Stat(jp); err != nil {
+		t.Fatalf("the journal is kept: %v", err)
+	}
+	if rowName(t, s2, 2) != "two" {
+		t.Fatal("the held edit is not applied to the working copy: the game's file as it is")
 	}
 	if rowName(t, s2, 1) != "<none>" {
 		t.Fatal("the deleted row must stay deleted")
