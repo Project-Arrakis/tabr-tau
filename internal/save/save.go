@@ -193,13 +193,13 @@ func fingerprint(db *sql.DB) string {
 // ReadTimeout bounds every read-only console query.
 var ReadTimeout = 5 * time.Second
 
-// Open decodes path (a save file, or the folder containing game.db).
+// Open decodes path (a save file, or the folder containing game.db). It removes nothing next to the save: the temp files a crashed run left are removed by LockSave, once this
+// editor holds the lock, so a second editor started on the same save cannot delete the temp file of the first while it is writing.
 func Open(path string) (*Save, error) {
 	if st, err := os.Stat(path); err == nil && st.IsDir() {
 		path = filepath.Join(path, "game.db")
 	}
 	s := &Save{Path: path}
-	cleanStaleTemps(path)
 	if err := s.load(); err != nil {
 		return nil, err
 	}

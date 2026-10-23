@@ -126,7 +126,9 @@ func TestRenameFailureLeavesOriginalAndCleansTemp(t *testing.T) {
 	}
 }
 
-func TestStaleTempFilesAreCleanedAtOpen(t *testing.T) {
+// Opening a save removes nothing: a second editor started on the same file would otherwise delete the temp file the first is writing (ARCH-5, DBA-12). The temp files a
+// crashed run left are removed once the lock is held, and a refused lock removes nothing.
+func TestStaleTempFilesAreCleanedOnlyByTheEditorThatHoldsTheLock(t *testing.T) {
 	p := makeSave(t, `create table t(a integer);`)
 	stale := p + ".tabr-123.tmp"
 	os.WriteFile(stale, []byte("junk"), 0o600)
@@ -135,8 +137,29 @@ func TestStaleTempFilesAreCleanedAtOpen(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
+	if _, err := os.Stat(stale); err != nil {
+		t.Fatal("opening a save must not delete anything next to it: the file may be another editor's write in flight")
+	}
+	release, err := LockSave(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
 	if _, err := os.Stat(stale); err == nil {
-		t.Fatal("stale temp file should be removed at open")
+		t.Fatal("the editor that holds the lock removes the temp files a crashed run left")
+	}
+	inFlight := p + ".tabr-456.tmp" // the first editor is writing
+	os.WriteFile(inFlight, []byte("being written"), 0o600)
+	if _, err := LockSave(p); !errors.Is(err, ErrSaveInUse) {
+		t.Fatalf("a second editor is refused: %v", err)
+	}
+	s2, err := Open(p) // and starting up before it is refused touches nothing either
+	if err != nil {
+		t.Fatal(err)
+	}
+	s2.Close()
+	if b, err := os.ReadFile(inFlight); err != nil || string(b) != "being written" {
+		t.Fatalf("the first editor's temp file survives a second editor: %v", err)
 	}
 }
 
