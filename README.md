@@ -27,7 +27,7 @@ live-test protocol). Do not attach saves, `Game.ini`, snapshots or logs to issue
 
 | Tab | Features |
 |---|---|
-| **Player** | Profile, Solari, Blood Marks (the Halloween 2026 event currency), give / edit / delete items (a give puts in as much as fits and says how much), clear a container (backpack, worn gear, loadout; keeps the Solari Coin stack unless asked), repair gear, refill water containers, fill blood sacks, fill all liquids (water, blood sacks and, optionally, your vehicles' fuel in one edit), teleport, faction reputation, specialization tracks, tutorials, tags, Journey nodes (complete / reset), learned building recipes, vendor purchase limits and restock cycles (reset), and reset buttons for what a character has earned (all skills to rank 0 on Skills, level and XP on Character, the XP of the specialization tracks, the journey on Journey; see Not built yet) |
+| **Player** | Profile, Solari, Blood Marks (the Halloween 2026 event currency), give / edit / delete items (a give puts in as much as fits and says how much), clear a container (backpack, worn gear, loadout; keeps the Solari Coin stack unless asked; the question counts the items inside bags and the editor refuses if the container changed), repair gear, refill water containers, fill blood sacks, fill all liquids (water, blood sacks and, optionally, your vehicles' fuel in one edit), teleport, faction reputation, specialization tracks, tutorials, tags, Journey nodes (complete / reset), learned building recipes, vendor purchase limits and restock cycles (reset), and reset buttons for what a character has earned (all skills to rank 0 on Skills, level and XP on Character, the XP of the specialization tracks, the journey on Journey; see Not built yet) |
 | **Player > Bases** | The console's Bases panel: your bases with Power, Water, Inventory (Storage, Refining, Crafting, Other) and Land Claim Editor tabs. Also:  Land claims (totems), expand or shrink a claim's size, raise its vertical level, teleport to base, structure health, repair all, clear sand buildup, refill base water and generator fuel (optionally when the editor opens), your base's storage containers (view / add / remove items, or clear a container), placeables |
 | **Player > Vehicles** | Your own vehicles (the world's vehicles are hidden) and recovered vehicles, bring a vehicle to you, repair module durability (each module is made as good as new), refuel all your vehicles to a full tank (tank sizes measured in the game) |
 | **Saved map** | Hagga Basin and the Deep Desert as in the Dune Docker console, drawn from your save (as of its last write, not live): your character, vehicles, base, storage containers and the game's own map markers (ore, salvage, plants, enemy camps, places, trainers, hazards), with layers, pan, zoom and hover details |
@@ -68,8 +68,10 @@ by a zlib stream containing a plain SQLite 3 database. tabr-tau decodes it into 
 4. copies the original to `tabr-tau-backups/` next to it,
 5. writes the new file atomically, then reads it back and compares (tried for about 2 seconds if another program holds the new file). If it still cannot be read back, the answer says the save was written and could not be verified, and the next attempt checks the file first: edits that are in it are not written a second time.
 
-Config edits work the same way (backups in `tabr-tau-backups/` beside the `.ini`). The game rewrites its
-configs on exit, so close it before editing them.
+Config edits are written with a backup (in `tabr-tau-backups/` beside the `.ini`, the newest 60 kept), a temp file of their own and a rename, and the file is read
+back to check it. They do not have all the guards of a save: there is no queue (an edit is refused while the game runs) and no check of the whole file
+against the moment it was read (an edit names its line and is refused if that line changed). Temp files that a crash left in the config folder are removed at
+the next start, but only ones older than that start. The game rewrites its configs on exit, so close it before editing them.
 
 ## Run
 

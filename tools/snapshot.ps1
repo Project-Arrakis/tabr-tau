@@ -11,7 +11,7 @@
       Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .EXAMPLE
   .\snapshot.ps1 -Label A0-baseline
-  .\snapshot.ps1 -Label A0-baseline -SteamId 12345678901234567   # when several accounts exist
+  .\snapshot.ps1 -Label A0-baseline -SteamId <name of the account folder>   # when several accounts exist
   .\snapshot.ps1 -Label B1-ingame-literjon -Zip
 #>
 param(

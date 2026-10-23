@@ -146,6 +146,7 @@ func main() {
 	}()
 
 	cd := config.Dir{Path: *cfgDir}
+	cd.SweepStaleTemps(time.Now()) // temp files of a config write that a crash left (only ones older than this start)
 	if v := cd.Validate(); v["ok"] != true {
 		fmt.Fprintln(os.Stderr, "warning: config check found problems (see the Config tab):")
 		if e, has := v["error"]; has {

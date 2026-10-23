@@ -21,6 +21,20 @@ func expectedCount(a Args) (int64, error) {
 	return a.IntRange("expected", 0, maxResetCount)
 }
 
+// strictBool reads a flag that is true or false when the request carries it, and def when it does not. A value of another type is refused: reading it as false would do
+// the opposite of what a careless caller meant without a word.
+func strictBool(a Args, key string, def bool) (bool, error) {
+	v, has := a[key]
+	if !has {
+		return def, nil
+	}
+	b, ok := v.(bool)
+	if !ok {
+		return false, apierr.Newf(apierr.ErrBadArgument, "%s must be true or false", key)
+	}
+	return b, nil
+}
+
 // resetMismatch is the refusal when the state inside the edit is not what the person confirmed.
 func resetMismatch(what string, now, confirmed int64) error {
 	return apierr.Newf(apierr.ErrConflict, "%s to reset is now %d, not the %d you confirmed, so nothing was changed: reload the page and look again", what, now, confirmed)

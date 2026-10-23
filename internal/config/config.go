@@ -323,7 +323,56 @@ func (d Dir) write(name, text string) error {
 		os.Remove(tmp)
 		return err
 	}
+	// read back, as a save is: the file must be what was written. A program that holds or rewrites the file at that moment is told to the person, with the backup that holds the old text.
+	var back []byte
+	for try := 0; try < readBackTries; try++ {
+		if try > 0 {
+			time.Sleep(readBackBackoff * time.Duration(try))
+		}
+		if back, err = readConfigFile(p); err == nil {
+			break
+		}
+	}
+	switch {
+	case err != nil:
+		return fmt.Errorf("%s was written, but it could not be read back to check it (%v); look at the file before the game starts", name, err)
+	case string(back) != text:
+		return fmt.Errorf("%s was written, but the file now holds other text than was written (another program changed it?); the copy taken before the edit is in tabr-tau-backups", name)
+	}
 	return nil
+}
+
+// readConfigFile and the read-back pause are variables so a test can make the read-back fail.
+var (
+	readConfigFile  = os.ReadFile
+	readBackTries   = 3
+	readBackBackoff = 150 * time.Millisecond
+)
+
+// tempNamePattern is how a temp file of a config write is named (see write): the config file's name, then .tabr-<digits>.tmp.
+var tempNamePattern = regexp.MustCompile(`\.ini\.tabr-\d+\.tmp$`)
+
+// SweepStaleTemps removes the temp files that a crash left in the config folder (name.ini.tabr-N.tmp). It is called once at start, after the editor holds the save's lock. Only
+// files last written more than a minute before startedAt are removed, so the temp file of another editor that is writing right now is never touched, and neither is anything that
+// does not have the exact name of a temp file of this editor. It returns how many it removed.
+func (d Dir) SweepStaleTemps(startedAt time.Time) int {
+	ents, err := os.ReadDir(d.Path)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, e := range ents {
+		if !e.Type().IsRegular() || !tempNamePattern.MatchString(e.Name()) {
+			continue
+		}
+		if info, err := e.Info(); err != nil || info.ModTime().After(startedAt.Add(-time.Minute)) {
+			continue
+		}
+		if os.Remove(filepath.Join(d.Path, e.Name())) == nil {
+			n++
+		}
+	}
+	return n
 }
 
 // pruneBackups removes the oldest backups of one config file beyond keepConfigBackups, never the oldest one. Only files named exactly as this editor names a backup of this file
