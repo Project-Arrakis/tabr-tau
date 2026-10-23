@@ -16,7 +16,7 @@ async function openSkills(ui) {
 const posts = (ui, p) => ui.posted.filter((x) => x.path === p);
 
 test('Reset skills: a typed sentence with the area and the count, a gap before OK counts, and the confirmed count goes with the request', async () => {
-  const ui = await boot({ get: { '/api/player/skills': skills(12) }, post: { '/api/player/skills/reset': { ok: true, changed: 12, noop: false } } });
+  const ui = await boot({ get: { '/api/player/skills': skills(12) }, post: { '/api/player/skills/reset': { ok: true, changed: 12, noop: false } } }); ui.freeze();
   await openSkills(ui);
   const btn = ui.doc.querySelector('[data-act="skReset"]');
   assert.ok(btn, 'the Skills tab has the reset button');
@@ -53,7 +53,7 @@ test('Reset skills: a typed sentence with the area and the count, a gap before O
   await ui.settle();
   assert.equal(posts(ui, '/api/player/skills/reset').length, 0, 'Enter sooner than the gap is ignored too');
 
-  await ui.wait(GAP);
+  ui.tick(GAP);
   ui.click('#aok'); await ui.settle();
   assert.deepEqual(posts(ui, '/api/player/skills/reset').map((p) => p.body), [{ expected: 12, charge: false }]);
   assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'the question is closed');
@@ -62,7 +62,7 @@ test('Reset skills: a typed sentence with the area and the count, a gap before O
 });
 
 test('Reset skills: Enter in the box completes it after the gap, Escape and Cancel send nothing, and the ticked box is said and sent', async () => {
-  const ui = await boot({ get: { '/api/player/skills': skills(1) }, post: { '/api/player/skills/reset': { ok: true, changed: 1, noop: false } } });
+  const ui = await boot({ get: { '/api/player/skills': skills(1) }, post: { '/api/player/skills/reset': { ok: true, changed: 1, noop: false } } }); ui.freeze();
   await openSkills(ui);
   ui.doc.querySelector('#skCharge').checked = true;
   ui.doc.querySelector('#skCharge').dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
@@ -77,14 +77,14 @@ test('Reset skills: Enter in the box completes it after the gap, Escape and Canc
   assert.equal(posts(ui, '/api/player/skills/reset').length, 0, 'Escape and Cancel send nothing');
   ui.click('[data-act="skReset"]'); await ui.settle();
   ui.type('reset 1 skill');
-  await ui.wait(GAP);
+  ui.tick(GAP);
   ui.doc.querySelector('#atype').dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await ui.settle();
   assert.deepEqual(posts(ui, '/api/player/skills/reset').map((p) => p.body), [{ expected: 1, charge: true }]);
   ui.dom.window.close();
 });
 
 test('Reset skills: with nothing to reset the button is off and the page says why', async () => {
-  const ui = await boot({ get: { '/api/player/skills': skills(0) } });
+  const ui = await boot({ get: { '/api/player/skills': skills(0) } }); ui.freeze();
   await openSkills(ui);
   const btn = ui.doc.querySelector('[data-act="skReset"]');
   assert.equal(btn.disabled, true);
@@ -96,12 +96,12 @@ test('Reset skills: with nothing to reset the button is off and the page says wh
 });
 
 test('Reset skills: a refusal because the count changed is shown and the page is read again', async () => {
-  const ui = await boot({ get: { '/api/player/skills': skills(3) }, post: { '/api/player/skills/reset': { __fail: 'the number of skills to reset is now 2, not the 3 you confirmed, so nothing was changed: reload the page and look again', __code: 'conflict', __status: 409 } } });
+  const ui = await boot({ get: { '/api/player/skills': skills(3) }, post: { '/api/player/skills/reset': { __fail: 'the number of skills to reset is now 2, not the 3 you confirmed, so nothing was changed: reload the page and look again', __code: 'conflict', __status: 409 } } }); ui.freeze();
   await openSkills(ui);
   const reads = () => ui.fetched.filter((p) => p === '/api/player/skills').length;
   const before = reads();
   ui.click('[data-act="skReset"]'); await ui.settle();
-  ui.type('reset 3 skills'); await ui.wait(GAP);
+  ui.type('reset 3 skills'); ui.tick(GAP);
   ui.click('#aok'); await ui.settle();
   await ui.wait(20); await ui.settle();
   const err = ui.doc.querySelector('#toast .err');
@@ -111,10 +111,10 @@ test('Reset skills: a refusal because the count changed is shown and the page is
 });
 
 test('Reset skills: a no-op answer says nothing was changed', async () => {
-  const ui = await boot({ get: { '/api/player/skills': skills(2) }, post: { '/api/player/skills/reset': { ok: true, changed: 0, noop: true } } });
+  const ui = await boot({ get: { '/api/player/skills': skills(2) }, post: { '/api/player/skills/reset': { ok: true, changed: 0, noop: true } } }); ui.freeze();
   await openSkills(ui);
   ui.click('[data-act="skReset"]'); await ui.settle();
-  ui.type('reset 2 skills'); await ui.wait(GAP);
+  ui.type('reset 2 skills'); ui.tick(GAP);
   ui.click('#aok'); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('already at rank 0'));
   ui.dom.window.close();
@@ -126,7 +126,7 @@ const summary = (o = {}) => ({ name: 'Tester', status: 'Offline', map: 'HaggaBas
   intel: { points: 1, max: 2779 }, vitals: {}, identity: {}, ids: {}, currency: [], ...o });
 
 test('Reset level and XP: names the XP, says what happens to the skill points, and sends the XP that was confirmed', async () => {
-  const ui = await boot({ get: { '/api/player/summary': summary() }, post: { '/api/player/level/reset': { ok: true, changed: 41221, noop: false, levelBefore: 71 } } });
+  const ui = await boot({ get: { '/api/player/summary': summary() }, post: { '/api/player/level/reset': { ok: true, changed: 41221, noop: false, levelBefore: 71 } } }); ui.freeze();
   ui.click('[data-tab="player"]'); await ui.settle();
   const btn = ui.doc.querySelector('[data-act="lvReset"]');
   assert.ok(btn, 'the Character overview has the button');
@@ -144,7 +144,7 @@ test('Reset level and XP: names the XP, says what happens to the skill points, a
   ui.type('reset 41221 xp');
   ui.click('#aok'); await ui.settle();
   assert.equal(posts(ui, '/api/player/level/reset').length, 0, 'an OK within the gap is ignored');
-  await ui.wait(GAP);
+  ui.tick(GAP);
   ui.click('#aok'); await ui.settle();
   assert.deepEqual(posts(ui, '/api/player/level/reset').map((p) => p.body), [{ expected: 41221 }]);
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Level 71 and 41,221 XP reset to 0'));
@@ -152,7 +152,7 @@ test('Reset level and XP: names the XP, says what happens to the skill points, a
 
 test('Reset level and XP: off, with its reason, when the character has no XP or the save has no level record', async () => {
   for (const [sm, why] of [[summary({ xp: 0, level: 0 }), 'no XP'], [(() => { const s = summary(); delete s.xp; delete s.level; return s; })(), 'no level record']]) {
-    const ui = await boot({ get: { '/api/player/summary': sm } });
+    const ui = await boot({ get: { '/api/player/summary': sm } }); ui.freeze();
     ui.click('[data-tab="player"]'); await ui.settle();
     const btn = ui.doc.querySelector('[data-act="lvReset"]');
     assert.equal(btn.disabled, true, why);
@@ -174,7 +174,7 @@ async function openSpecs(ui) {
 }
 
 test('Reset XP of all known tracks: says the unknown rows are left alone, and sends the confirmed count', async () => {
-  const ui = await boot({ get: { '/api/player/specs': specs(2, [{ number: 7, xp: 900, level: 8 }]) }, post: { '/api/player/specs/reset-all': { ok: true, changed: 2, noop: false } } });
+  const ui = await boot({ get: { '/api/player/specs': specs(2, [{ number: 7, xp: 900, level: 8 }]) }, post: { '/api/player/specs/reset-all': { ok: true, changed: 2, noop: false } } }); ui.freeze();
   await openSpecs(ui);
   const btn = ui.doc.querySelector('[data-act="spResetAll"]');
   assert.equal(btn.textContent.trim(), 'Reset XP of all known tracks (2)');
@@ -185,13 +185,13 @@ test('Reset XP of all known tracks: says the unknown rows are left alone, and se
   assert.ok(text.includes('Reset the XP of 2 tracks?') && text.includes('Type reset 2 tracks to continue'));
   assert.ok(text.includes('1 row of the save whose track is not known yet is left alone'));
   assert.ok(text.includes('Keystones are not touched'));
-  ui.type('reset 2 tracks'); await ui.wait(GAP);
+  ui.type('reset 2 tracks'); ui.tick(GAP);
   ui.click('#aok'); await ui.settle();
   assert.deepEqual(posts(ui, '/api/player/specs/reset-all').map((p) => p.body), [{ expected: 2 }]);
 });
 
 test('Reset XP of all known tracks: off when no known track has XP', async () => {
-  const ui = await boot({ get: { '/api/player/specs': specs(0) } });
+  const ui = await boot({ get: { '/api/player/specs': specs(0) } }); ui.freeze();
   await openSpecs(ui);
   const btn = ui.doc.querySelector('[data-act="spResetAll"]');
   assert.equal(btn.disabled, true);
@@ -199,12 +199,12 @@ test('Reset XP of all known tracks: off when no known track has XP', async () =>
 });
 
 test('Reset level and XP: a refusal because the XP changed is shown and the page is read again', async () => {
-  const ui = await boot({ get: { '/api/player/summary': summary() }, post: { '/api/player/level/reset': { __fail: 'the XP to reset is now 100, not the 41221 you confirmed, so nothing was changed: reload the page and look again', __code: 'conflict', __status: 409 } } });
+  const ui = await boot({ get: { '/api/player/summary': summary() }, post: { '/api/player/level/reset': { __fail: 'the XP to reset is now 100, not the 41221 you confirmed, so nothing was changed: reload the page and look again', __code: 'conflict', __status: 409 } } }); ui.freeze();
   ui.click('[data-tab="player"]'); await ui.settle();
   const reads = () => ui.fetched.filter((p) => p === '/api/player/summary').length;
   const before = reads();
   ui.click('[data-act="lvReset"]'); await ui.settle();
-  ui.type('reset 41221 xp'); await ui.wait(GAP);
+  ui.type('reset 41221 xp'); ui.tick(GAP);
   ui.click('#aok'); await ui.settle(); await ui.wait(20); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast .err').textContent.includes('you confirmed'));
   assert.ok(reads() > before);
@@ -220,7 +220,7 @@ async function openJourney(ui) {
 }
 
 test('Reset journey: names both counts, says rewards are not touched, and sends the confirmed total', async () => {
-  const ui = await boot({ get: { '/api/player/journey/browse': journey(4, 2) }, post: { '/api/player/journey/reset': { ok: true, changed: 6, noop: false, nodes: 4, tutorials: 2 } } });
+  const ui = await boot({ get: { '/api/player/journey/browse': journey(4, 2) }, post: { '/api/player/journey/reset': { ok: true, changed: 6, noop: false, nodes: 4, tutorials: 2 } } }); ui.freeze();
   await openJourney(ui);
   const btn = ui.doc.querySelector('[data-act="jReset"]');
   assert.ok(btn, 'the Journey tab has the button');
@@ -236,14 +236,14 @@ test('Reset journey: names both counts, says rewards are not touched, and sends 
   ui.type('reset 6 journey items');
   ui.click('#aok'); await ui.settle();
   assert.equal(posts(ui, '/api/player/journey/reset').length, 0, 'an OK within the gap is ignored');
-  await ui.wait(GAP);
+  ui.tick(GAP);
   ui.click('#aok'); await ui.settle();
   assert.deepEqual(posts(ui, '/api/player/journey/reset').map((p) => p.body), [{ expected: 6 }]);
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Journey reset: 4 steps and 2 tutorials'));
 });
 
 test('Reset journey: off, with its reason, when nothing is finished or started', async () => {
-  const ui = await boot({ get: { '/api/player/journey/browse': journey(0, 0) } });
+  const ui = await boot({ get: { '/api/player/journey/browse': journey(0, 0) } }); ui.freeze();
   await openJourney(ui);
   const btn = ui.doc.querySelector('[data-act="jReset"]');
   assert.equal(btn.disabled, true);
@@ -253,13 +253,13 @@ test('Reset journey: off, with its reason, when nothing is finished or started',
 });
 
 test('Reset journey: one tutorial reads in the singular and a stale count is shown and the page read again', async () => {
-  const ui = await boot({ get: { '/api/player/journey/browse': journey(0, 1) }, post: { '/api/player/journey/reset': { __fail: 'the number of finished journey steps and tutorials to reset is now 3, not the 1 you confirmed, so nothing was changed: reload the page and look again', __code: 'conflict', __status: 409 } } });
+  const ui = await boot({ get: { '/api/player/journey/browse': journey(0, 1) }, post: { '/api/player/journey/reset': { __fail: 'the number of finished journey steps and tutorials to reset is now 3, not the 1 you confirmed, so nothing was changed: reload the page and look again', __code: 'conflict', __status: 409 } } }); ui.freeze();
   await openJourney(ui);
   const reads = () => ui.fetched.filter((p) => p === '/api/player/journey/browse').length;
   const before = reads();
   ui.click('[data-act="jReset"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#ask').textContent.includes('Type reset 1 journey item to continue'));
-  ui.type('reset 1 journey item'); await ui.wait(GAP);
+  ui.type('reset 1 journey item'); ui.tick(GAP);
   ui.click('#aok'); await ui.settle(); await ui.wait(20); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast .err').textContent.includes('you confirmed'));
   assert.ok(reads() > before);
@@ -268,7 +268,7 @@ test('Reset journey: one tutorial reads in the singular and a stale count is sho
 // ---- Research: no reset, and the page says why
 
 test('Research has a Reset research button that is off, with the reason in its tooltip and beside it, and it sends nothing', async () => {
-  const ui = await boot();
+  const ui = await boot(); ui.freeze();
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:research"]'); await ui.settle();
   const btn = [...ui.doc.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Reset research');
