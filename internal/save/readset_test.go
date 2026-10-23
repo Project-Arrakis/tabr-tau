@@ -101,7 +101,7 @@ func TestFlushHoldsAQueueWhoseEditWasWorkedOutFromRowsTheGameChanged(t *testing.
 		t.Fatalf("a running game blocks the write: %+v", f)
 	}
 	restore() // the game is closed; its last save is on disk
-	other, _ := Open(p) 
+	other, _ := Open(p)
 	if _, err := other.Exec(`update jt set n=5100 where a=1`); err != nil {
 		t.Fatal(err)
 	}
