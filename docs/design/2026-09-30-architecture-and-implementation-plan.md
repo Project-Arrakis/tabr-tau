@@ -168,11 +168,11 @@ Current state (verified by the audit):
 - Backups/temps are 0644; no symlink checks; the decoded save sits in the OS temp dir (0644 by default on some systems).
 
 Target (Phase S0, before any new feature):
-1. Refuse a non-loopback `--addr` (the `--allow-remote` override was cut 2026-10-07 and **removed 2026-10-08**, #58);  additionally reject requests whose `RemoteAddr` is not loopback; never serve the token to a non-loopback peer. Default to a random free port (fallback), IPv4 loopback only (documented: `[::1]` is not bound).
+1. Refuse a non-loopback `--addr` (the `--allow-remote` override was cut 2026-10-07 and **removed 2026-10-08**, #58);  additionally reject requests whose `RemoteAddr` is not loopback; never serve the token to a non-loopback peer. Default to a random free port (fallback), IPv4 loopback by default (`127.0.0.1`); an explicit `--addr [::1]:port` is accepted too, because it is loopback as well.
 2. Headers on every response: `Content-Security-Policy: default-src 'self'; script-src 'self'; frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cross-Origin-Resource-Policy: same-origin`. The token is delivered once via an HttpOnly, SameSite=Strict cookie set at bootstrap, not embedded in inline script; inline JS moves to a file.
 3. POST requires `Content-Type: application/json`; constant-time token compare; check `Origin`/`Sec-Fetch-Site`; handle `rand.Read` errors; Read/Write/Idle timeouts.
 4. Output encoding: every interpolated value goes through `esc()` or DOM `textContent`; a test loads a hostile-string fixture.
-5. Two SQLite connections: the write path (working copy, `trusted_schema=OFF`) and a separate `mode=ro` connection **with an authorizer** for browse and read SQL (allow `SELECT`/`WITH` only, single statement, no `ATTACH`/`PRAGMA`/`VACUUM`); the write console goes through `Mutate` with statement-kind allowlist, blocks PRAGMA/BEGIN/COMMIT/ATTACH/VACUUM, and requires typed confirmation plus the review pane.
+5. Two SQLite connections: the write path (working copy, `trusted_schema=OFF`) and a separate `mode=ro` connection with `query_only` for browse and read SQL (statement vetting instead of a SQLite authorizer: `SELECT`/`WITH` only, single statement, no `ATTACH`/`PRAGMA`/`VACUUM`/`zeroblob`); the write console goes through `Mutate` with statement-kind allowlist, blocks PRAGMA/BEGIN/COMMIT/ATTACH/VACUUM, and requires a typed confirmation (the review pane was removed by #238; see `SECURITY.md`).
 6. Identifier helper doubles quotes and applies `identRe` before any use, including names read from `sqlite_master`.
 7. Untrusted-save handling: bounded decode (4.1), schema fingerprint (4.3), JSON depth 32 / size 1 MiB limits for components, refuse to open an online-server cache folder (tested; today only asserted).
 8. Files: 0600 for backups/temps, `Lstat` refusal of symlinks in the backup dir and target, exclusive create for temps; a private temp directory cleaned at start (crash leaves the decoded save behind otherwise).
@@ -236,7 +236,7 @@ Layer 2 audit at the end of S1, S3, P4 and P5; Layer 3 before each tagged releas
 | R6 | Privacy leak of IDs (git, cloud, screenshots, diffs) | med | med | F-11 controls; masking by default |
 | R7 | Catalog names stale/unlicensed | high | low | show raw IDs; provenance check; fallback to names from own save |
 | R8 | Unverifiable features without matching save data | high | low | operator test save; experimental badge |
-| R9 | ToS/anti-cheat exposure | low | med | expanded disclaimer; single-player only; **built and tested** refusal of online-server folders |
+| R9 | ToS/anti-cheat exposure | low | med | expanded disclaimer; single-player only; a location check (a save outside the single-player folder shape waits for the person's confirmation: tested; a refusal by folder name is **not built**, register F-20) |
 | R10 | Tests pass but prove nothing about the real game | high | high | real-DDL contract fixture (F-02) |
 | R11 | Credential exposure through the test-data transfer path (details withheld) | realized | high | F-01: revoke, token-free transfer, data-lifecycle rule |
 | R12 | Governance gaps on a public repo (no protection, no scanning) | realized | med | P0 first |
