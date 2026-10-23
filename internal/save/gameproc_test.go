@@ -73,7 +73,7 @@ func useImages(t *testing.T, answers ...imagesAnswer) *fakeImages {
 var (
 	noGame   = imagesAnswer{names: []string{"explorer.exe", "notepad.exe"}}
 	theGame  = imagesAnswer{names: []string{"explorer.exe", "DuneSandbox-Win64-Shipping.exe"}}
-	snapFail = imagesAnswer{err: errors.New("process snapshot: Access is denied.")}
+	snapFail = imagesAnswer{err: errors.New("process snapshot: Access is denied")}
 )
 
 // A check that cannot run must block writes and say why, not pass as "game closed". The failure is injected (on every OS), so this does not depend on whether the
