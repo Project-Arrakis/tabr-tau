@@ -373,7 +373,7 @@ func (s *Save) WithBaseline(fn func(orig, current *sql.DB) error) error {
 	if err != nil {
 		return err
 	}
-	orig, odb, err := openCopy(raw, "tabr-tau-orig-*.sqlite", "mode=ro&_pragma=query_only(1)")
+	orig, odb, err := openCopy(raw, "tabr-tau-orig-*.sqlite", "mode=ro&_pragma=query_only(1)&_pragma=trusted_schema(0)")
 	if err != nil {
 		return err
 	}

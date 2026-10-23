@@ -67,8 +67,10 @@ by a zlib stream containing a plain SQLite 3 database. tabr-tau decodes it into 
 4. copies the original to `tabr-tau-backups/` next to it,
 5. writes the new file atomically.
 
-Config edits work the same way (backups in `tabr-tau-backups/` beside the `.ini`). The game rewrites its
-configs on exit, so close it before editing them.
+Config edits are written with a backup (in `tabr-tau-backups/` beside the `.ini`, the newest 60 kept), a temp file of their own and a rename, and the file is read
+back to check it. They do not have all the guards of a save: there is no queue (an edit is refused while the game runs) and no check of the whole file
+against the moment it was read (an edit names its line and is refused if that line changed). Temp files that a crash left in the config folder are removed at
+the next start, but only ones older than that start. The game rewrites its configs on exit, so close it before editing them.
 
 ## Run
 
