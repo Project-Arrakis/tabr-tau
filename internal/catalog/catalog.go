@@ -8,6 +8,8 @@
 //
 // stacks.json holds the most of an item one inventory slot can hold, as the game's own item tables list it (the base item rows, StackAndDurability.MaxStackSize). Only
 // the items that stack are listed; every other item the catalog knows holds one.
+//
+// Where each file in this folder comes from, and what is not recorded about it, is in PROVENANCE.md (the notice is in internal/notices).
 package catalog
 
 import (
