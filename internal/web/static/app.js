@@ -545,6 +545,17 @@ async function bloodSacksCard() {
   const left = unknown ? ` ${unknown} blood ${unknown == 1 ? 'sack' : 'sacks'} of an unknown kind will be left alone.` : '';
   return html`<div class="card"><h3>Blood sacks</h3><div class="row"><button class="b sec" data-act="fillBlood" aria-describedby="bloodnote" ${b && !notFull ? 'disabled' : ''}>Fill blood sacks</button><span class="mut" id="bloodnote">${count}${left} Fills the sacks you carry to the most blood seen in a save for that kind (the Mk6 unique sack 30000, the basic sack 3000), without changing anything else about them. Water containers are not touched. The fill has not been checked in the game yet.</span></div></div>`;
 }
+// Fill all liquids (issue #349), under the Blood sacks card: the water refill, the blood-sack fill and, with the box ticked, the refuel of the character's vehicles, as one edit.
+// The box stays as the person left it until the page is reloaded.
+let liqVeh = true;
+async function liquidsCard() {
+  let l = null;
+  try { l = await api('/api/player/liquids'); } catch (e) { l = null; }
+  const n = (k, f) => (l && l[k] ? Number(l[k][f]) || 0 : 0);
+  const waterN = n('water', 'notFull'), bloodN = n('bloodSacks', 'notFull'), vehN = n('vehicles', 'notFull');
+  const count = !l ? 'The containers could not be counted.' : `Not full: ${nn(waterN, 'water container', 'water containers')}, ${nn(bloodN, 'blood sack', 'blood sacks')}, ${nn(vehN, 'vehicle', 'vehicles')}.`;
+  return html`<div class="card"><h3>Fill all liquids</h3><div class="row"><button class="b" data-act="fillLiquids" aria-describedby="liqnote">Fill all liquids</button><label><input type="checkbox" id="liqVeh" ${liqVeh ? 'checked' : ''}> Also refuel my vehicles</label><span class="mut" id="liqnote">${count} Fills your Literjons, stillsuits and other water containers, your blood sacks and (with the box ticked) the fuel of your own vehicles, as one edit with one backup, by the same rules as the three buttons (Refill Literjons, Fill blood sacks, Refuel all my vehicles). Kinds whose size is not known are left alone and counted.</span></div></div>`;
+}
 async function playerSection(s) {
   const h = s == 'character' ? [subNav('char', [['overview', 'Overview'], ['inventory', 'Inventory'], ['reputation', 'Reputation']])] : [];
   const c = s == 'character' ? sub.char || 'overview' : s;
@@ -592,6 +603,7 @@ async function playerSection(s) {
     ${giveQueue.length ? html`<div class="row"><b>Queue (${giveQueue.length})</b>${giveQueue.map((q, i) => html`<span class="tag">${q.quantity} x ${itemName(q.template_id)}${q.quality ? ' (grade ' + q.quality + ')' : ''}${q.augments && q.augments.length ? ' + ' + q.augments.map((a) => augName(a)).join(', ') : ''} <button class="b sec sm" data-act="queueDel" data-id="${i}" title="Remove from the queue">x</button></span>`)}<button class="b" data-act="queueGive">Give queued items</button><button class="b sec" data-act="queueClear">Clear</button></div>` : ''}
     <p class="mut">Pick an item by its in-game name. Items already in your save that the catalog does not know are listed by their template id; any valid template id can also be typed.</p></div>
     ${await bloodSacksCard()}
+    ${await liquidsCard()}
     ${invCard}`);
   } else if (c == 'reputation') {
     const f = await api('/api/player/factions');
@@ -1182,6 +1194,17 @@ const A = {
     const un = r.unknown ? ` ${r.unknown} blood ${r.unknown == 1 ? 'sack' : 'sacks'} of an unknown kind ${r.unknown == 1 ? 'was' : 'were'} left alone${(r.skippedUnknown || []).length ? ` (${r.skippedUnknown.join(', ')})` : ''}.` : '';
     const other = r.holdingOther ? ` ${r.holdingOther} holding something other than blood ${r.holdingOther == 1 ? 'was' : 'were'} left alone.` : '';
     toast((r.filled ? `Filled ${r.filled} blood ${r.filled == 1 ? 'sack' : 'sacks'} (${by}); ${r.alreadyFull} already full.` : `No blood sack needed filling (${r.alreadyFull} already full).`) + un + other + NOT_SAVED);
+  }, null),
+  fillLiquids: () => act(async () => {
+    const box = $('#liqVeh');
+    if (box) liqVeh = box.checked;
+    const r = await api('/api/player/fill-all-liquids', { vehicles: liqVeh });
+    const w = r.water || {}, b = r.bloodSacks || {}, v = r.vehicles || null;
+    const parts = [`${nn(w.filled || 0, 'water container', 'water containers')}`, `${nn(b.filled || 0, 'blood sack', 'blood sacks')}`];
+    if (v) parts.push(nn(v.filled || 0, 'vehicle', 'vehicles'));
+    const left = (w.skippedUnknown || []).length + (b.unknown || 0) + (v ? v.unknown || 0 : 0);
+    const any = (w.filled || 0) + (b.filled || 0) + (v ? v.filled || 0 : 0);
+    toast((any ? `Filled ${parts.join(', ')}.` : 'Nothing needed filling.') + (r.vehiclesIncluded ? '' : ' Vehicles were not refuelled.') + (left ? ' Some containers, sacks or vehicles of an unknown kind were left alone.' : '') + (any ? NOT_SAVED : ''));
   }, null),
   refill: () => act(async () => { const r = await api('/api/player/refill', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} Literjons (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
   delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). It is written at once, after a backup. If the file cannot be written (for example a single-player session is running) it is queued and written when it can be.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
