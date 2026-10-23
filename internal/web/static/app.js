@@ -398,9 +398,11 @@ async function status() {
 // or far-reaching action asks first with its consequence in words. The far-reaching ones (bulk changes, raw SQL
 // writes, restoring a backup over the save) also make the person type a word, so a stray click cannot start them.
 let askState = null, askFrom = null;
-function ask({ title, body, pre = '', list = [], ok = 'Confirm', typed = '', danger = false }) {
-  return new Promise((resolve) => { if (askState) askState.resolve(false); askFrom = askFrom || document.activeElement; askState = { title, body, pre, list, ok, typed, danger, resolve }; drawAsk(); });
+function ask({ title, body, pre = '', list = [], ok = 'Confirm', typed = '', danger = false, gap = false }) {
+  return new Promise((resolve) => { if (askState) askState.resolve(false); askFrom = askFrom || document.activeElement; askState = { title, body, pre, list, ok, typed, danger, gap, at: Date.now(), resolve }; drawAsk(); });
 }
+// A question opened with gap: true ignores an OK that comes sooner than ARM_GAP_MS after it opened (the second half of a double click on the button that opened it, a key that repeats).
+const tooSoon = () => !!(askState && askState.gap && Date.now() - askState.at < ARM_GAP_MS);
 // While a question is open the page behind it is inert (not reachable by Tab, by a screen reader's browse keys or by a click) and does not scroll.
 const BEHIND = ['header', '#gamewarn', '#rowarn', '#nav', '#main'];
 function setBehind(on) {
@@ -449,6 +451,22 @@ function arm(btn) {
   btn.dataset.armed = '1';
   btn.textContent = btn.dataset.confirm;
   sayAloud(`${btn.dataset.confirm}? Press the button again within ${ARM_MS / 1000} seconds to do it, or press Escape to cancel.`);
+}
+
+// ---------- reset buttons (#339, part of #112)
+// One button per area (Skills, Level and XP, Journey) and never one for everything; pressing each of them is the "reset everything". A reset has two steps: the
+// button opens a question that says what changes and that the backup puts it back, and asks for a sentence naming the area and the number, typed in full (an OK that
+// comes sooner than ARM_GAP_MS after the question opened is ignored); then the request carries that number, the editor reads the save again inside the edit and
+// refuses with a conflict (409) when the number is no longer the one that was confirmed, and the page is redrawn so that the new number is on it.
+const UNDO_NOTE = 'A backup of the save is taken before the change is written to the game file, and Restore on the Database tab (Save backups) puts it back.';
+async function resetArea({ count, title, body, list = [], typed, ok, path, extra = {}, done, none }) {
+  if (!(await ask({ title, body: `${body} ${UNDO_NOTE}`, list, ok, typed, danger: true, gap: true }))) return;
+  await act(async () => {
+    try {
+      const r = await api(path, { expected: count, ...extra });
+      toast((r.noop ? none : done(r)) + NOT_SAVED);
+    } catch (e) { if (e.code === 'conflict') setTimeout(render, 0); throw e; }
+  }, null);
 }
 
 // ---------- the queue: an edit is written to the game's file as it is made; while the file cannot be written (the game is in a single-player session) edits wait here
@@ -657,7 +675,9 @@ function skillsList() {
     <div class="row"><label><input type="checkbox" id="skCharge" ${skCharge ? 'checked' : ''}> Pay for changes from the unspent points (and give them back when lowering)</label>
     ${skSchool != 'Other' ? html`<button class="b sec" data-act="skStarter">Restore starter skills</button>` : ''}
     ${skSchool != 'Other' ? html`<button class="b" data-act="skMax" data-school="${skSchool}">Max all ${groups.find(([k]) => k == skSchool)[1]} skills</button>` : ''}<button class="b" data-act="skMax" data-school="all">Max all skills of all schools</button>
-    <span class="mut">${nn(rows.length, 'skill', 'skills')}, ${rows.filter((m) => m.rank > 0).length} learned.</span></div>`);
+    <span class="mut">${nn(rows.length, 'skill', 'skills')}, ${rows.filter((m) => m.rank > 0).length} learned.</span></div>
+    <div class="row"><button class="b bad" data-act="skReset" aria-describedby="skresetnote" ${SK.resetCount ? '' : 'disabled'}>Reset all skills to rank 0 (${SK.resetCount || 0})</button>
+    <span class="mut" id="skresetnote">${SK.resetCount ? 'Every skill of the five schools that has points goes back to rank 0, in one edit, after you type a confirmation. Hidden skills and skills the catalog does not know are left alone.' : 'Nothing to reset: every skill of the five schools is already at rank 0.'}</span></div>`);
   const bar = (m) => (m.known ? html`<span class="rankbar" title="rank ${m.rank} of ${m.max}">${'●'.repeat(m.rank)}${'○'.repeat(Math.max(0, m.max - m.rank))}</span>` : html`<span class="mut" title="not in the catalog: ${m.spent} points spent">?</span>`);
   setHTML($('#skout'), tbl([{ k: 'name', label: 'Skill', f: (m) => html`<span title="${m.id}">${m.name}</span>` }, { k: 'kind', label: 'Type' }, { k: 'rank', label: 'Rank', f: bar },
     { k: 'spent', label: 'Points', f: (m) => m.spent },
@@ -1054,7 +1074,7 @@ function sqlFailed(e) { const out = $('#sqlout'); if (out) setHTML(out, html`<p 
 
 const A = {
   retry: () => render(),
-  askOk: () => { if (askState && askState.typed && $('#atype').value.trim().toLowerCase() !== askState.typed.toLowerCase()) return; endAsk(true); }, // the typed word is checked here too, not only by the disabled button
+  askOk: () => { if (tooSoon()) return; if (askState && askState.typed && $('#atype').value.trim().toLowerCase() !== askState.typed.toLowerCase()) return; endAsk(true); }, // the typed word is checked here too, not only by the disabled button
   askNo: () => endAsk(false),
   confirmLocation: async () => (await ask({ title: 'Allow saving to this location?', body: 'The editor can only see the game on this computer, and this save is somewhere it cannot vouch for (a network share, a removable drive, or a folder other than the one the game itself uses). Saving while the game, on this or another computer, has the file open can corrupt it or lose your work. Continue only if the game is closed everywhere that can open this save.', ok: 'Allow saving', danger: true })) && act(() => api('/api/save/confirm-location', {}), 'Saving is allowed for this save until the editor closes'),
   reload: async () => (await ask({ title: 'Reload from disk?', body: 'The file is read again. Any changes still queued are put back onto it where they still apply; one that no longer applies is listed so you can make it again.', ok: 'Reload' })) && act(async () => {
@@ -1124,6 +1144,14 @@ const A = {
   bsAll: async () => (await ask({ title: 'Unlock all building sets?', body: 'Every building set in the list below, except the experimental ones, is added to the sets you have learned. This is one edit.', ok: 'Unlock all' })) && act(async () => { const r = await api('/api/player/building-sets/unlock-all', {}); toast(r.added ? `Learned ${r.added} building sets` + NOT_SAVED : 'All building sets are already learned.'); }, null),
   rsAll: async () => (await ask({ title: 'Unlock all research?', body: 'Every research entry that unlocks a recipe or a building set is bought, and the recipes and sets they unlock are added. One edit.', ok: 'Unlock all' })) && act(async () => { const r = await api('/api/player/research/unlock-all', {}); toast(r.bought || r.repaired ? `Research: ${r.bought} bought, ${r.repaired} repaired, ${r.unlocksAdded} recipes or sets added` + NOT_SAVED : 'All research is already unlocked.'); }, null),
   crAll: async () => (await ask({ title: 'Unlock all recipes?', body: 'Every crafting recipe your research tree offers that you do not know yet is added to your known recipes. One edit.', ok: 'Unlock all' })) && act(async () => { const r = await api('/api/player/crafting/unlock-all', {}); toast(r.added ? `Added ${r.added} recipes` + NOT_SAVED : 'You already know every recipe.'); }, null),
+  skReset: () => {
+    const n = (SK && SK.resetCount) || 0;
+    if (!n) { toast('Every skill of the five schools is already at rank 0, so there is nothing to reset.'); return; }
+    const back = skCharge; // the box above the list: the same choice as for a single skill
+    return resetArea({ count: n, title: `Reset ${nn(n, 'skill', 'skills')} to rank 0?`, ok: 'Reset skills', typed: `reset ${n} ${n === 1 ? 'skill' : 'skills'}`,
+      body: `Every skill of the five schools that has points goes back to rank 0. ${back ? 'The points they cost are given back to your unspent skill points (the box above the list is ticked).' : 'Your unspent skill points do not change (the box above the list is not ticked).'} Your level and XP, the Hidden skills and the skills the catalog does not know are not touched. One edit.`,
+      path: '/api/player/skills/reset', extra: { charge: back }, done: (r) => `${nn(r.changed, 'skill', 'skills')} reset to rank 0`, none: 'Every skill of the five schools is already at rank 0.' });
+  },
   skMax: async (d) => (await ask({ title: 'Max skills?', body: d.school == 'all' ? 'Every skill of the five schools is set to its highest rank. The unspent points are not changed. One edit.' : 'Every skill of this school is set to its highest rank. The unspent points are not changed.', ok: 'Max skills' })) && act(async () => { const r = await api('/api/player/skills/max', { school: d.school }); toast(r.changed ? `${r.changed} skills raised to their highest rank` + NOT_SAVED : 'Those skills are already at their highest rank.'); }, null),
   ctUnlockSet: async (d) => (await ask({ title: 'Unlock ' + d.name + '?', body: 'Every ordinary cosmetic of ' + d.name + ' that is not unlocked yet is added to your character\'s customization library, with no item in your backpack. One edit. Store and DLC cosmetics are skipped: they need an account entitlement, and the game removes the ones your account does not own.', ok: 'Unlock' })) && act(async () => { const r = await api('/api/player/customizations/unlock', { group: d.id }); const sk = r.skippedEntitlement ? ` (${r.skippedEntitlement} store or DLC cosmetics skipped: they need an account entitlement)` : ''; toast((r.added ? `Unlocked ${r.added} customizations` + NOT_SAVED : 'Nothing new to unlock in that set') + sk); }, null),
   ctUnlock: async (d) => (await ask({ title: 'Unlock ' + d.name + '?', body: 'This cosmetic is added to your character\'s customization library, with no item in your backpack. One edit.' + (d.ent ? ' It needs an account entitlement: if your account does not own it, the game removes the unlock when it loads the save (it did for a store cosmetic in a test).' : ''), ok: 'Unlock' })) && act(async () => { const r = await api('/api/player/customizations/unlock', { id: d.id }); toast(r.added ? `Unlocked ${r.added} customization${r.added > 1 ? 's' : ''}` + NOT_SAVED + (r.warning ? ' ' + r.warning : '') : 'That cosmetic is already unlocked.', !!r.warning, r.warning ? 9000 : 3500); }, null),
@@ -1334,7 +1362,7 @@ document.addEventListener('keydown', (e) => {
   if ((e.key === 'Enter' || e.key === ' ') && !askState && e.target && e.target.matches && e.target.matches('thead th[tabindex]')) { e.preventDefault(); headerClick(e.target); return; }
   if (askState) { // the question owns the keyboard: Tab stays inside it, Enter completes a typed answer, Escape cancels
     if (e.key === 'Escape') endAsk(false);
-    else if (e.key === 'Enter' && e.target.id === 'atype' && !$('#aok').disabled) endAsk(true);
+    else if (e.key === 'Enter' && e.target.id === 'atype' && !$('#aok').disabled) { if (!tooSoon()) endAsk(true); }
     else if (e.key === 'Tab') {
       const f = [...$('#ask').querySelectorAll('input,button,[tabindex="0"]')].filter((x) => !x.disabled);
       if (!f.length) return;

@@ -680,6 +680,7 @@ func (s *Server) routes() {
 	s.post("/api/player/skills/module", o.SetSkillModule)
 	s.post("/api/player/skills/points", o.SetSkillPoints)
 	s.post("/api/player/skills/starter", o.RestoreStarterSkills)
+	s.post("/api/player/skills/reset", o.ResetSkills)
 	s.get("/api/player/research", func(r *http.Request) (any, error) { return o.Research() })
 	s.post("/api/player/research/unlock", o.UnlockResearch)
 	s.get("/api/player/crafting", func(r *http.Request) (any, error) { return o.Crafting() })
