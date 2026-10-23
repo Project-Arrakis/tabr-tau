@@ -107,10 +107,7 @@ func (o *Ops) SetDecree(a Args) (any, error) {
 
 // SetTerm updates the active/elected decree, reigning faction and term end.
 func (o *Ops) SetTerm(a Args) (any, error) {
-	term, err := o.S.One(`select term_id from landsraad_decree_term order by term_id desc limit 1`)
-	if err != nil || term == nil {
-		return nil, errors.New("no Landsraad term in this save")
-	}
+	var err error
 	type edit struct {
 		col string
 		val any
@@ -136,7 +133,17 @@ func (o *Ops) SetTerm(a Args) (any, error) {
 	for _, e := range edits {
 		parts = append(parts, fmt.Sprintf("%s = %v", e.col, e.val))
 	}
-	_, err = o.S.Mutate(fmt.Sprintf("landsraad term %v: %s", term["term_id"], strings.Join(parts, ", ")), func(m *save.Mut) error {
+	// The term is looked up inside the edit, through its own query, so it is kept with the edit: put back onto a newer file with another term, the edit is not applied to the
+	// old term's id.
+	_, err = o.S.Mutate("landsraad term", func(m *save.Mut) error {
+		term, err := m.One(`select term_id from landsraad_decree_term order by term_id desc limit 1`)
+		if err != nil {
+			return err
+		}
+		if term == nil {
+			return errors.New("no Landsraad term in this save")
+		}
+		m.Desc = fmt.Sprintf("landsraad term %v: %s", term["term_id"], strings.Join(parts, ", "))
 		for _, e := range edits {
 			if _, err := m.Exec(`update landsraad_decree_term set `+e.col+`=? where term_id=?`, e.val, term["term_id"]); err != nil {
 				return err
