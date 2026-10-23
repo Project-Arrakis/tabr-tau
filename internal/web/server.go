@@ -427,8 +427,18 @@ func (s *Server) get(path string, fn func(r *http.Request) (any, error)) {
 	})
 }
 
+// editWriteWindow is how long an edit request may take to be answered. The server's own write timeout (NewHTTPServer) is two minutes, which is for exports; an edit runs the
+// whole write inside the request (backup, encode, rename with retries), and a very large save that took longer than that would have had its answer cut after the file was
+// written, so the page would have shown a network error for an edit that was saved. Reading the request is still held to the server's read timeout.
+const editWriteWindow = 10 * time.Minute
+
+func allowLongWrite(w http.ResponseWriter) {
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(editWriteWindow)) // a writer that cannot set one keeps the server's timeout
+}
+
 func (s *Server) post(path string, fn func(a ops.Args) (any, error)) {
 	s.mux.HandleFunc("POST "+path, func(w http.ResponseWriter, r *http.Request) {
+		allowLongWrite(w)
 		a := ops.Args{}
 		r.Body = http.MaxBytesReader(w, r.Body, 4<<20)
 		if err := json.NewDecoder(r.Body).Decode(&a); err != nil && err.Error() != "EOF" {
@@ -705,6 +715,7 @@ func (s *Server) routes() {
 	// save file lifecycle
 	// An edit is written as it is made (see post) and waits when the file cannot be written; this asks for another attempt now. The game-running check cannot be switched off from here.
 	s.mux.HandleFunc("POST /api/save/flush", func(w http.ResponseWriter, r *http.Request) {
+		allowLongWrite(w)
 		respond(w, s.Save.Flush(), nil)
 	})
 	// ifClean is what the automatic refresh sends: it was decided from a status read that can be seconds old on a large save, so an edit made since must not be

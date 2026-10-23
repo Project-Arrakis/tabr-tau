@@ -1,6 +1,7 @@
 package save
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -156,7 +157,13 @@ type Mut struct {
 
 // Exec runs one statement (or, with no arguments, a script of several) inside the edit's transaction.
 func (m *Mut) Exec(q string, args ...any) (sql.Result, error) {
-	res, err := m.tx.Exec(q, args...)
+	return m.ExecContext(context.Background(), q, args...)
+}
+
+// ExecContext is Exec that stops when ctx ends: the statement is interrupted and the error says so, and the edit (which the caller ends by returning it) is rolled back. It is
+// for a statement a person typed, which can run for as long as it likes while the save is locked.
+func (m *Mut) ExecContext(ctx context.Context, q string, args ...any) (sql.Result, error) {
+	res, err := m.tx.ExecContext(ctx, q, args...)
 	noteSQLError(q, err)
 	if err == nil && m.keep {
 		rec := stmtRec{Q: q}
