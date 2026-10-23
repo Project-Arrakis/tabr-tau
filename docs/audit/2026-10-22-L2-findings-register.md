@@ -11,7 +11,7 @@ Severity scale: Critical, High, Medium, Low, Info. STRIDE: S spoofing, T tamperi
 | E1: Queued-edit replay writes stale values over the game's newer save | HIGH | #251 | 10 | 1 |
 | E2: Edits dropped or held by a rebase are not reported; the queue cannot be inspected | MEDIUM | #252 | 6 | 0 |
 | E3: Backups: the prune can delete the pre-session backup; the throttle trusts any file | MEDIUM | #253 | 7 | 0 |
-| E4: No persistent record of writes; bulk actions lost their confirmation | MEDIUM | #254 | 4 | 4 |
+| E4: No persistent record of writes; bulk actions lost their confirmation | MEDIUM | #254 | 4 | 2 |
 | E5: Documents still describe the removed Review & save; a control removal merged without review | MEDIUM | #255 | 7 | 0 |
 | E6: Repository settings and CI configuration | MEDIUM | #256 | 10 | 6 |
 | E7: Save lifecycle: locking, gates and timeouts | MEDIUM | #257 | 10 | 7 |
@@ -21,7 +21,7 @@ Severity scale: Critical, High, Medium, Low, Info. STRIDE: S spoofing, T tamperi
 | E11: Review-era code kept alive | LOW | #261 | 2 | 2 |
 | E12: Test gaps in the write path | MEDIUM | #262 | 4 | 4 |
 | E13: Repository hygiene: agent worktrees are untracked and not ignored | LOW | #263 | 3 | 1 |
-| E14: Editor UI: remaining polish | MEDIUM | #264 | 10 | 9 |
+| E14: Editor UI: remaining polish | MEDIUM | #264 | 10 | 0 |
 
 ## E1: Queued-edit replay writes stale values over the game's newer save
 
@@ -90,9 +90,9 @@ Since writes happen as edits are made there is no durable record of what was wri
 | ID | Sev | STRIDE | Location | Finding | Status |
 |---|---|---|---|---|---|
 | GRC-3 | MEDIUM | R | save/save.go:597, save/flush.go:32, ops/ops.go:140 | No persistent record of what was written, when, or under which backup. | open |
-| GRC-2 | MEDIUM | T, R | web/static/app.js:1010-1015, CHANGELOG.md:78 | Bulk base actions lost their only confirmation when the review pane went; they now write on one click. | open |
+| GRC-2 | MEDIUM | T, R | web/static/app.js:1010-1015, CHANGELOG.md:78 | Bulk base actions lost their only confirmation when the review pane went; they now write on one click. | fixed (#278) |
 | SEC-14 | INFO | R | CHANGELOG.md:9; web/server.go:372-386 | The change from "stage then review" to "write on every successful POST" removed a human-in-the-loop second factor for every write route. Compensating controls hold, but this should be stated as an accepted risk in SECURITY.md. | open |
-| UX-29 | MEDIUM | Usability (safety) | `app.js:1110-1114` (`change` handlers), `:41-66` (`act`, `editInput`) | Inline edits commit as soon as the field loses focus, and there is nothing to review or undo.** Stack, Grade, Reputation, Database cells, Config values and skill ranks write on change. The toast is "Item updated" with no before→after. The only undo is a whole-file restore under Database > Save ... | open |
+| UX-29 | MEDIUM | Usability (safety) | `app.js:1110-1114` (`change` handlers), `:41-66` (`act`, `editInput`) | Inline edits commit as soon as the field loses focus, and there is nothing to review or undo.** Stack, Grade, Reputation, Database cells, Config values and skill ranks write on change. The toast is "Item updated" with no before→after. The only undo is a whole-file restore under Database > Save ... | fixed (#278) |
 
 ## E5: Documents still describe the removed Review & save; a control removal merged without review
 
@@ -270,12 +270,12 @@ Warning banners lost their colour (fixed in #244); dialogs lack aria-labelledby 
 | ID | Sev | STRIDE | Location | Finding | Status |
 |---|---|---|---|---|---|
 | UX-27 | HIGH | Accuracy, Polish | `app.css:201, 205, 209` (`var(--warn)` is never defined; `grep --warn` finds only these ... | Every warning banner and `.warn` pill lost its colour.** Since the round-2 skin (609dc04) `.warn,.info` use `var(--warn)`; the editor's `:root` has no `--warn`, so `border-left` and `background` are invalid at computed time. Measured on the live banner: `background: rgba(0,0,0,0)`, ... | fixed: tau #244 |
-| UX-32 | MEDIUM | Usability (a11y) | `app.js:309, 1139-1153`; `app.css:53`; `app.js:388` etc. | Dialogs: `role=dialog aria-modal` but no `aria-labelledby`; the page behind is not `inert` and scrolls (`body.noscroll` exists in CSS and is never applied). The Tab trap and focus return do work. Filter boxes in Inventory, Journey, Research, Crafting, Customizations still ignore Enter and need the ... | open |
-| UX-33 | MEDIUM | Accuracy, User-friendliness | `app.js:385, 388, 505, 554, 569, 593, 348-349, 785` | Counts without a stated meaning.** Inventory reads "2 of 2 - 2 / 5 slots used". Journey: "972 of 972 (showing the first 400, narrow the filter)". Summary "Skill points 9 / 70" is unspent over total with no label; "Health 85.0 (max at least 150)". Cargo "n / ?". "N of N" appears even when nothing is ... | open |
-| UX-34 | MEDIUM | Polish, Redundancy | `livemap.js:162, 240-241, 260, 295, 304`; `app.js:137` | The Live Map tab is a weaker second map: raw type ids in the hover and the table. | open |
-| UX-35 | MEDIUM | Redundancy, User-friendliness | `app.js:401, 472-473, 779, 464-478, 372-373, 346-353` | Prior clutter is still there.** Repair exists in the Inventory, Admin and Vehicles tabs (and Admin shows "Repair Faction" twice per row: the label and the disabled button). Five disabled "Not in tabr-tau yet" stubs fill Admin ("Repair Quests", "Wipe Inventory", "Reset Progression", "Spawn", "Repair ... | open |
-| UX-36 | MEDIUM | Usability | `app.js:411-428` (still as in prior #12) | Specialization is a dead end for a new save (all tracks show "?" and the XP buttons are disabled until the player earns XP in game and reloads); "Advanced: set a raw row" is open with no confirm. Verified on the fixture. | open |
-| UX-37 | LOW | Polish | `app.css` (no `@media`), `index.html:10-16`; measured at 390 px | The sticky header is 99 px (3 rows) and the sticky banner about 100 px more at 390 px, 200 px of an 800 px screen. No breakpoints. At startup the page is a header with an empty path pill and nothing else until the first fetch ends (no loading state; seen for about 3 s on this busy machine). | open |
-| UX-38 | LOW | User-friendliness | `app.js:204, 859, 336`, `:785`, many | Empty states are a generic "Nothing here." (Bases shows it twice: card and "No base in this save yet."); Database shows "0 rows — showing 1–0" and the search placeholder is just "search"; the Summary "Level" tile is blank where others show "-". | open |
-| UX-39 | LOW | User-friendliness | `app.js:939, 910-912, 788, 482, 801, 808, 804` | Wording still mixed: "Hydration 70.1 -> 100." vs "XP 1 to 2"; Title Case card names; raw column headers (`time_stored`, `reason`, `vendor_id`, `id`); Landsraad Start and End are raw integers; reward lines show template ids; Vendor table shows vendor ids. | open |
-| UX-41 | LOW | Polish (a11y) | `app.css:2` | `--mut` on `--panel2` in the light theme is 4.08:1 (kv labels, tags, `.mut` inside kv); below 4.5. Elsewhere muted text is 4.9 to 5.4. No favicon; the title never changes per tab. | open |
+| UX-32 | MEDIUM | Usability (a11y) | `app.js:309, 1139-1153`; `app.css:53`; `app.js:388` etc. | Dialogs: `role=dialog aria-modal` but no `aria-labelledby`; the page behind is not `inert` and scrolls (`body.noscroll` exists in CSS and is never applied). The Tab trap and focus return do work. Filter boxes in Inventory, Journey, Research, Crafting, Customizations still ignore Enter and need the ... | fixed (#282) |
+| UX-33 | MEDIUM | Accuracy, User-friendliness | `app.js:385, 388, 505, 554, 569, 593, 348-349, 785` | Counts without a stated meaning.** Inventory reads "2 of 2 - 2 / 5 slots used". Journey: "972 of 972 (showing the first 400, narrow the filter)". Summary "Skill points 9 / 70" is unspent over total with no label; "Health 85.0 (max at least 150)". Cargo "n / ?". "N of N" appears even when nothing is ... | fixed (#249) |
+| UX-34 | MEDIUM | Polish, Redundancy | `livemap.js:162, 240-241, 260, 295, 304`; `app.js:137` | The Live Map tab is a weaker second map: raw type ids in the hover and the table. | fixed (#284) |
+| UX-35 | MEDIUM | Redundancy, User-friendliness | `app.js:401, 472-473, 779, 464-478, 372-373, 346-353` | Prior clutter is still there.** Repair exists in the Inventory, Admin and Vehicles tabs (and Admin shows "Repair Faction" twice per row: the label and the disabled button). Five disabled "Not in tabr-tau yet" stubs fill Admin ("Repair Quests", "Wipe Inventory", "Reset Progression", "Spawn", "Repair ... | fixed (#267) |
+| UX-36 | MEDIUM | Usability | `app.js:411-428` (still as in prior #12) | Specialization is a dead end for a new save (all tracks show "?" and the XP buttons are disabled until the player earns XP in game and reloads); "Advanced: set a raw row" is open with no confirm. Verified on the fixture. | fixed (#288) |
+| UX-37 | LOW | Polish | `app.css` (no `@media`), `index.html:10-16`; measured at 390 px | The sticky header is 99 px (3 rows) and the sticky banner about 100 px more at 390 px, 200 px of an 800 px screen. No breakpoints. At startup the page is a header with an empty path pill and nothing else until the first fetch ends (no loading state; seen for about 3 s on this busy machine). | fixed (#289) |
+| UX-38 | LOW | User-friendliness | `app.js:204, 859, 336`, `:785`, many | Empty states are a generic "Nothing here." (Bases shows it twice: card and "No base in this save yet."); Database shows "0 rows — showing 1–0" and the search placeholder is just "search"; the Summary "Level" tile is blank where others show "-". | fixed (#288) |
+| UX-39 | LOW | User-friendliness | `app.js:939, 910-912, 788, 482, 801, 808, 804` | Wording still mixed: "Hydration 70.1 -> 100." vs "XP 1 to 2"; Title Case card names; raw column headers (`time_stored`, `reason`, `vendor_id`, `id`); Landsraad Start and End are raw integers; reward lines show template ids; Vendor table shows vendor ids. | fixed (#249); vendor ids stay raw because the save has no vendor names |
+| UX-41 | LOW | Polish (a11y) | `app.css:2` | `--mut` on `--panel2` in the light theme is 4.08:1 (kv labels, tags, `.mut` inside kv); below 4.5. Elsewhere muted text is 4.9 to 5.4. No favicon; the title never changes per tab. | fixed (#282) |
