@@ -31,10 +31,18 @@ update items_id_sequencer set next_id=10000;`
 
 func clearOps(t *testing.T) *Ops { return &Ops{S: testsave.PlayerWithSQL(t, clearWorld)} }
 
-func clearArgs(inv, count int64, currency ...bool) Args {
-	a := Args{"inventory_id": float64(inv), "count": float64(count)}
+// clearArgs is the request the page would send for the container as it is now: the count given, the nested count and the hash from the preview (a container the preview
+// refuses gets a zero hash, which the clear refuses as well).
+func clearArgs(o *Ops, inv, count int64, currency ...bool) Args {
+	cur := len(currency) > 0 && currency[0]
+	a := Args{"inventory_id": float64(inv), "count": float64(count), "nested": 0.0, "ids_hash": strings.Repeat("0", 64)}
 	if len(currency) > 0 {
 		a["include_currency"] = currency[0]
+	}
+	if p, err := o.ClearPreview(inv, cur); err == nil {
+		m := p.(map[string]any)
+		a["nested"] = float64(m["nested"].(int64))
+		a["ids_hash"] = m["token"]
 	}
 	return a
 }
@@ -69,7 +77,7 @@ func rowCounts(t *testing.T, o *Ops) map[string]int64 {
 func TestClearingTheBackpackRemovesItsItemsAndWhatHangsFromThemAndKeepsCurrency(t *testing.T) {
 	o := clearOps(t)
 	before := rowCounts(t, o)
-	res, err := o.ClearContainer(clearArgs(1, 3)) // Knife, Bag, Spice; the Solari stack is kept
+	res, err := o.ClearContainer(clearArgs(o, 1, 3)) // Knife, Bag, Spice; the Solari stack is kept
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +122,7 @@ func TestClearingTheBackpackRemovesItsItemsAndWhatHangsFromThemAndKeepsCurrency(
 
 func TestClearingWithCurrencyIncludedRemovesTheSolariStackToo(t *testing.T) {
 	o := clearOps(t)
-	if _, err := o.ClearContainer(clearArgs(1, 4, true)); err != nil {
+	if _, err := o.ClearContainer(clearArgs(o, 1, 4, true)); err != nil {
 		t.Fatal(err)
 	}
 	if got := itemIDs(t, o, `inventory_id=1`); got != "" {
@@ -136,7 +144,7 @@ func TestClearingWornGearAndTheLoadoutTouchesOnlyThatContainer(t *testing.T) {
 		{3, 1, map[int64]string{1: "10,11,12,14", 2: "20,21", 4: "23"}},
 	} {
 		o := clearOps(t)
-		if _, err := o.ClearContainer(clearArgs(c.inv, c.count)); err != nil {
+		if _, err := o.ClearContainer(clearArgs(o, c.inv, c.count)); err != nil {
 			t.Fatalf("container %d: %v", c.inv, err)
 		}
 		if got := itemIDs(t, o, `inventory_id=`+dec(c.inv)); got != "" {
@@ -153,7 +161,7 @@ func TestClearingWornGearAndTheLoadoutTouchesOnlyThatContainer(t *testing.T) {
 
 func TestClearingABaseContainerKeepsItsCurrencyAndEveryOtherContainer(t *testing.T) {
 	o := clearOps(t)
-	if _, err := o.ClearContainer(clearArgs(7001, 2)); err != nil {
+	if _, err := o.ClearContainer(clearArgs(o, 7001, 2)); err != nil {
 		t.Fatal(err)
 	}
 	if got := itemIDs(t, o, `inventory_id=7001`); got != "9004" {
@@ -165,7 +173,7 @@ func TestClearingABaseContainerKeepsItsCurrencyAndEveryOtherContainer(t *testing
 	if got := itemIDs(t, o, `inventory_id=1`); got != "10,11,12,14" {
 		t.Fatalf("the backpack is untouched: %q", got)
 	}
-	if _, err := o.ClearContainer(clearArgs(7003, 1)); err != nil {
+	if _, err := o.ClearContainer(clearArgs(o, 7003, 1)); err != nil {
 		t.Fatalf("a refinery is a container of the base too: %v", err)
 	}
 	assertDBSound(t, o)
@@ -184,7 +192,7 @@ func TestAWrongCountIsRefusedAndNothingChanges(t *testing.T) {
 		{"the count that leaves the currency out, with the flag", 3, true},
 		{"zero for a container that holds items", 0, false},
 	} {
-		_, err := o.ClearContainer(clearArgs(1, c.count, c.cur))
+		_, err := o.ClearContainer(clearArgs(o, 1, c.count, c.cur))
 		if !errors.Is(err, apierr.ErrConflict) {
 			t.Errorf("%s: want a conflict, got %v", c.name, err)
 		}
@@ -199,7 +207,7 @@ func TestAWrongCountIsRefusedAndNothingChanges(t *testing.T) {
 
 func TestAnEmptyContainerIsNotAnEditAndSaysSo(t *testing.T) {
 	o := clearOps(t)
-	res, err := o.ClearContainer(clearArgs(7002, 0))
+	res, err := o.ClearContainer(clearArgs(o, 7002, 0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,10 +222,10 @@ func TestAnEmptyContainerIsNotAnEditAndSaysSo(t *testing.T) {
 
 func TestAContainerThatHoldsOnlyCurrencyIsNothingToClearUntilCurrencyIsIncluded(t *testing.T) {
 	o2 := clearOps(t)
-	if _, err := o2.ClearContainer(clearArgs(1, 3)); err != nil {
+	if _, err := o2.ClearContainer(clearArgs(o2, 1, 3)); err != nil {
 		t.Fatal(err)
 	}
-	res, err := o2.ClearContainer(clearArgs(1, 0))
+	res, err := o2.ClearContainer(clearArgs(o2, 1, 0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +250,7 @@ func TestOnlyTheCharactersCarriedContainersAndTheBasesContainersCanBeCleared(t *
 		"a container with no capacity":     7007,
 		"an inventory that does not exist": 31337,
 	} {
-		_, err := o.ClearContainer(clearArgs(inv, 1))
+		_, err := o.ClearContainer(clearArgs(o, inv, 1))
 		if err == nil {
 			t.Errorf("%s must be refused", name)
 		}
@@ -250,27 +258,35 @@ func TestOnlyTheCharactersCarriedContainersAndTheBasesContainersCanBeCleared(t *
 			t.Fatalf("%s: a refused clear must not change the save", name)
 		}
 	}
-	if _, err := o.ClearContainer(clearArgs(31337, 0)); !errors.Is(err, apierr.ErrNotFound) {
+	if _, err := o.ClearContainer(clearArgs(o, 31337, 0)); !errors.Is(err, apierr.ErrNotFound) {
 		t.Errorf("a missing container is not found: %v", err)
 	}
-	if _, err := o.ClearContainer(clearArgs(4, 1)); !errors.Is(err, apierr.ErrBadArgument) {
+	if _, err := o.ClearContainer(clearArgs(o, 4, 1)); !errors.Is(err, apierr.ErrBadArgument) {
 		t.Errorf("an out-of-scope container is a bad argument: %v", err)
 	}
 }
 
 func TestClearContainerRefusesMalformedRequests(t *testing.T) {
 	o := clearOps(t)
+	good := strings.Repeat("a", 64)
 	for name, a := range map[string]Args{
-		"no container":            {"count": 3.0},
-		"container zero":          {"inventory_id": 0.0, "count": 0.0},
-		"a fractional container":  {"inventory_id": 1.5, "count": 3.0},
-		"no count":                {"inventory_id": 1.0},
-		"a negative count":        {"inventory_id": 1.0, "count": -1.0},
-		"a fractional count":      {"inventory_id": 1.0, "count": 2.5},
-		"a count of text":         {"inventory_id": 1.0, "count": "three"},
-		"a currency flag of text": {"inventory_id": 1.0, "count": 3.0, "include_currency": "yes"},
-		"a currency flag of 1":    {"inventory_id": 1.0, "count": 3.0, "include_currency": 1.0},
-		"a huge count":            {"inventory_id": 1.0, "count": 1e300},
+		"no container":             {"count": 3.0, "nested": 0.0, "ids_hash": good},
+		"container zero":           {"inventory_id": 0.0, "count": 0.0, "nested": 0.0, "ids_hash": good},
+		"a fractional container":   {"inventory_id": 1.5, "count": 3.0, "nested": 0.0, "ids_hash": good},
+		"no count":                 {"inventory_id": 1.0, "nested": 0.0, "ids_hash": good},
+		"a negative count":         {"inventory_id": 1.0, "count": -1.0, "nested": 0.0, "ids_hash": good},
+		"a fractional count":       {"inventory_id": 1.0, "count": 2.5, "nested": 0.0, "ids_hash": good},
+		"a count of text":          {"inventory_id": 1.0, "count": "three", "nested": 0.0, "ids_hash": good},
+		"a currency flag of text":  {"inventory_id": 1.0, "count": 3.0, "nested": 0.0, "ids_hash": good, "include_currency": "yes"},
+		"a currency flag of 1":     {"inventory_id": 1.0, "count": 3.0, "nested": 0.0, "ids_hash": good, "include_currency": 1.0},
+		"a huge count":             {"inventory_id": 1.0, "count": 1e300, "nested": 0.0, "ids_hash": good},
+		"no nested count":          {"inventory_id": 1.0, "count": 3.0, "ids_hash": good},
+		"a negative nested count":  {"inventory_id": 1.0, "count": 3.0, "nested": -1.0, "ids_hash": good},
+		"a nested count of text":   {"inventory_id": 1.0, "count": 3.0, "nested": "one", "ids_hash": good},
+		"no hash":                  {"inventory_id": 1.0, "count": 3.0, "nested": 1.0},
+		"a hash of a number":       {"inventory_id": 1.0, "count": 3.0, "nested": 1.0, "ids_hash": 12345.0},
+		"a hash that is too short": {"inventory_id": 1.0, "count": 3.0, "nested": 1.0, "ids_hash": "abc"},
+		"a hash that is not hex":   {"inventory_id": 1.0, "count": 3.0, "nested": 1.0, "ids_hash": strings.Repeat("z", 64)},
 	} {
 		_, err := o.ClearContainer(a)
 		if !errors.Is(err, apierr.ErrBadArgument) {
@@ -282,12 +298,85 @@ func TestClearContainerRefusesMalformedRequests(t *testing.T) {
 	}
 }
 
+// What hangs from the items is part of what the person confirms: the Bag in the backpack owns an inventory that holds item 13.
+func TestTheClearPreviewCountsTheItemsInsideBagsAndTheClearRefusesAnotherNumber(t *testing.T) {
+	o := clearOps(t)
+	p, err := o.ClearPreview(1, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := p.(map[string]any)
+	if m["items"].(int64) != 3 || m["kept"].(int64) != 1 || m["nested"].(int64) != 1 || len(m["token"].(string)) != 64 {
+		t.Fatalf("preview: %v", m)
+	}
+	if o.S.Dirty() {
+		t.Fatal("a preview changes nothing")
+	}
+	a := clearArgs(o, 1, 3)
+	a["nested"] = 0.0 // the person was told about no item inside a bag
+	_, err = o.ClearContainer(a)
+	wantRefusal(t, err, apierr.ErrConflict, "a nested count that is not the container's")
+	if o.S.Dirty() {
+		t.Fatal("a refused clear changes nothing")
+	}
+	res, err := o.ClearContainer(clearArgs(o, 1, 3))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.(map[string]any)["nested"].(int64) != 1 {
+		t.Fatalf("the answer says how many items went with the bags: %v", res)
+	}
+	if n := countWhere(t, o, `select count(*) n from items where id=13`); n != 0 {
+		t.Fatal("the item inside the bag went with it")
+	}
+}
+
+// The number alone does not bind what is removed: a container that holds other items of the same number by the time of the click is refused.
+func TestAContainerThatChangedToOtherItemsOfTheSameNumberIsRefused(t *testing.T) {
+	swap := func(name, sql string) {
+		t.Run(name, func(t *testing.T) {
+			o := clearOps(t)
+			a := clearArgs(o, 1, 3) // the page drew the backpack: Knife, Bag, Spice
+			if _, err := o.S.Mutate("the game changed it", func(m *save.Mut) error { _, err := m.Exec(sql); return err }); err != nil {
+				t.Fatal(err)
+			}
+			_, err := o.ClearContainer(a)
+			wantRefusal(t, err, apierr.ErrConflict, name)
+			if len(o.S.Pending()) != 1 {
+				t.Fatalf("the clear was refused and added no edit: %v", o.S.Pending())
+			}
+			if got := itemIDs(t, o, `inventory_id=1 and id<>11`); got != "10,12,14,15" && got != "10,12,14" {
+				t.Fatalf("nothing was cleared: %q", got)
+			}
+		})
+	}
+	swap("a top-level item replaced", `delete from items where id=11; insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values (15,1,1,4,'Rifle',0,1790000000,'{}',0)`)
+	swap("an item inside a bag replaced", `delete from items where id=13; insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values (16,40,1,0,'Other',0,1790000000,'{}',0)`)
+}
+
+func TestClearPreviewRefusesWhatTheClearRefuses(t *testing.T) {
+	o := clearOps(t)
+	if _, err := o.ClearPreview(31337, false); !errors.Is(err, apierr.ErrNotFound) {
+		t.Errorf("a missing container: %v", err)
+	}
+	if _, err := o.ClearPreview(4, false); !errors.Is(err, apierr.ErrBadArgument) {
+		t.Errorf("the schematics: %v", err)
+	}
+	if _, err := o.ClearPreview(0, false); !errors.Is(err, apierr.ErrBadArgument) {
+		t.Errorf("zero: %v", err)
+	}
+	p, err := o.ClearPreview(1, true)
+	if err != nil || p.(map[string]any)["items"].(int64) != 4 || p.(map[string]any)["kept"].(int64) != 0 {
+		t.Errorf("with currency: %v %v", p, err)
+	}
+}
+
 // The clear reads the container inside the edit, so a queued copy is put back only onto a file where the container still holds what it held.
 func TestAQueuedClearIsHeldWhenTheGameAddedAnItemToTheContainer(t *testing.T) {
 	defer save.NoGameRunningForTests()()
 	o := clearOps(t)
 	o.S.EnableJournal(filepath.Join(t.TempDir(), "pending.json"))
-	if _, err := o.ClearContainer(clearArgs(1, 3)); err != nil {
+	if _, err := o.ClearContainer(clearArgs(o, 1, 3)); err != nil {
 		t.Fatal(err)
 	}
 	gameChanges(t, o.S.Path, `insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values (15,1,1,4,'Rifle',0,1790000000,'{}',0)`)
@@ -298,7 +387,7 @@ func TestAQueuedClearIsWrittenWhenTheGameChangedAnotherContainer(t *testing.T) {
 	defer save.NoGameRunningForTests()()
 	o := clearOps(t)
 	o.S.EnableJournal(filepath.Join(t.TempDir(), "pending.json"))
-	if _, err := o.ClearContainer(clearArgs(1, 3)); err != nil {
+	if _, err := o.ClearContainer(clearArgs(o, 1, 3)); err != nil {
 		t.Fatal(err)
 	}
 	gameChanges(t, o.S.Path, `update items set stack_size=9 where id=20`)
@@ -319,7 +408,8 @@ func TestAQueuedClearIsPutBackWhenTheEditorStartsAgain(t *testing.T) {
 	s1 := testsave.PlayerWithSQL(t, clearWorld)
 	jp := filepath.Join(t.TempDir(), "pending.json")
 	s1.EnableJournal(jp)
-	if _, err := (&Ops{S: s1}).ClearContainer(clearArgs(1, 3)); err != nil {
+	o1 := &Ops{S: s1}
+	if _, err := o1.ClearContainer(clearArgs(o1, 1, 3)); err != nil {
 		t.Fatal(err)
 	}
 	pending := s1.Pending()
