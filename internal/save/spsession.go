@@ -168,7 +168,7 @@ type GameState struct {
 // listProcs and statusFor are variables so tests can stand in for the machine.
 var (
 	listProcs = func(fresh bool) ([]string, string) {
-		n := gameProcesses(!fresh) // fresh asks tasklist again; the status poll (not fresh) may use the answer of the last three seconds
+		n := gameProcesses(!fresh) // fresh asks the process list again; the status poll (not fresh) may use the answer of the last gameCacheTTL
 		gameCache.Lock()
 		defer gameCache.Unlock()
 		return n, gameCache.err
@@ -177,7 +177,7 @@ var (
 	nowFunc   = time.Now
 )
 
-// GameStateFor decides for the save at savePath. fresh bypasses the three-second process cache (writes use it).
+// GameStateFor decides for the save at savePath. fresh bypasses the process cache (writes use it).
 // Anything it cannot establish blocks the write: a guess must not decide.
 func GameStateFor(savePath string, fresh bool) GameState {
 	g := processState(savePath, fresh)
