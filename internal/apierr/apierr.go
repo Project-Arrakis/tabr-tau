@@ -17,16 +17,23 @@ var (
 	ErrConflict    = errors.New("the data changed since it was read")      // an edit was made from a value that is not what the save holds now
 	ErrQueueHeld   = errors.New("queued changes are held")                 // edits waiting from before conflict with the game's newer file; nothing new is accepted
 	ErrQueued      = errors.New("changes are still waiting to be written") // the action needs an empty queue
+	ErrIntegrity   = errors.New("the edited save failed its own checks")   // a fault of the editor or the disk, not of the request: the integrity check or the round trip of the edited copy failed
+	ErrWriteFailed = errors.New("the file could not be written")           // a fault of the disk or of another program holding the file, not of the request
 )
 
-// E is a message with a kind.
+// E is a message with a kind, and optionally the error that caused it (kept so that a caller can still look inside it, for instance for the paths it names).
 type E struct {
-	Msg  string
-	Kind error
+	Msg   string
+	Kind  error
+	Cause error
 }
 
 func (e *E) Error() string        { return e.Msg }
 func (e *E) Is(target error) bool { return target == e.Kind }
+func (e *E) Unwrap() error        { return e.Cause }
+
+// Wrap is New with the error that caused the refusal.
+func Wrap(kind error, msg string, cause error) error { return &E{Msg: msg, Kind: kind, Cause: cause} }
 
 // New makes an error of the given kind with exactly this message.
 func New(kind error, msg string) error { return &E{Msg: msg, Kind: kind} }

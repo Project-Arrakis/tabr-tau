@@ -6,7 +6,7 @@ const $ = (s, r = document) => r.querySelector(s);
 // What the editor said about the last edit it was sent: 'written' (it is in the game's file), 'queued' (accepted, written when the file can be), or null when the
 // answer carried none (nothing changed, or the request failed). A message about an edit reads this and never guesses from an older status.
 let lastOutcome = null;
-// A refusal carries a stable code (changed_on_disk, queue_held, queued, game_running, read_only, bad_argument, not_found, bad_request) and the HTTP status; the words
+// A refusal carries a stable code (changed_on_disk, conflict, queue_held, queued, game_running, read_only, bad_argument, not_found, bad_request, and for faults integrity_failed and write_failed) and the HTTP status; the words
 // of the message are for the person and are never matched.
 async function api(path, body) {
   const opt = { credentials: 'same-origin' };

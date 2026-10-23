@@ -106,8 +106,10 @@ func TestEveryKindMapsToItsCodeAndStatus(t *testing.T) {
 		{apierr.New(apierr.ErrConflict, "changed"), "conflict", 409},
 		{apierr.New(apierr.ErrQueueHeld, "held"), "queue_held", 409},
 		{apierr.New(apierr.ErrQueued, "waiting"), "queued", 409},
-		{apierr.New(apierr.ErrGameBlocked, "the game is running"), "game_running", 400},
-		{apierr.New(apierr.ErrReadOnly, "read-only"), "read_only", 400},
+		{apierr.New(apierr.ErrGameBlocked, "the game is running"), "game_running", 409},
+		{apierr.New(apierr.ErrReadOnly, "read-only"), "read_only", 409},
+		{apierr.New(apierr.ErrIntegrity, "integrity check failed"), "integrity_failed", 500},
+		{apierr.New(apierr.ErrWriteFailed, "could not replace game.db"), "write_failed", 500},
 		{apierr.New(apierr.ErrBadArgument, "bad"), "bad_argument", 422},
 		{apierr.New(apierr.ErrNotFound, "gone"), "not_found", 404},
 		{apierr.New(apierr.ErrBadRequest, "not json"), "bad_request", 400},
@@ -138,7 +140,7 @@ func TestTheRefusalsOfTheSaveLifecycleCarryTheirCodes(t *testing.T) {
 	restore := save.ActiveSessionForTests()
 	defer restore()
 	w = postEdit(t, s, "/api/save/restore", `{"name":"x.db"}`)
-	if m := decodeBody(t, w); w.Code != 400 || m["code"] != "game_running" {
+	if m := decodeBody(t, w); w.Code != 409 || m["code"] != "game_running" {
 		t.Fatalf("restore while the game may be writing: %d %s", w.Code, w.Body.String())
 	}
 
@@ -147,7 +149,7 @@ func TestTheRefusalsOfTheSaveLifecycleCarryTheirCodes(t *testing.T) {
 		t.Skip("this fixture is not opened read-only")
 	}
 	w = postEdit(t, ro, "/api/player/solari", `{"amount":1}`)
-	if m := decodeBody(t, w); w.Code != 400 || m["code"] != "read_only" {
+	if m := decodeBody(t, w); w.Code != 409 || m["code"] != "read_only" {
 		t.Fatalf("an edit of a read-only save: %d %s", w.Code, w.Body.String())
 	}
 }
