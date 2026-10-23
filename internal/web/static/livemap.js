@@ -349,7 +349,7 @@
         <div class="lm-wrap"><canvas id="lmc" class="lm" tabindex="0" role="img" aria-label="${'Saved map of ' + d.config.label + '. Press plus and minus to zoom, 0 to show the whole map, the arrow keys to move.'}"></canvas></div>
         <p class="mut" id="lminfo">${LM_HINT}</p>
         ${counts.spice || counts.flour ? html`<p class="mut">Spice and flour sand fields are placed by decoding their ids, because the save keeps no coordinates for them; the positions have not been checked against the game for this map.</p>` : ''}
-        <div class="row">${groups.map((g) => html`<button class="lm-layer ${lm.hidden.has(g.id) ? 'off' : 'on'}" data-lmg="${g.id}">${LM_GROUP_ICON[g.id] ? html`<span class="lm-ic lm-i-${LM_GROUP_ICON[g.id].replace(/\.[a-z]+$/, '').toLowerCase()}"></span>` : html`<span class="lm-sw lm-c-${g.id}"></span>`}${g.label} (${counts[g.id]})</button>`)}</div></div>
+        <div class="row">${groups.map((g) => html`<button class="lm-layer ${lm.hidden.has(g.id) ? 'off' : 'on'}" data-lmg="${g.id}" aria-pressed="${lm.hidden.has(g.id) ? 'false' : 'true'}">${LM_GROUP_ICON[g.id] ? html`<span class="lm-ic lm-i-${LM_GROUP_ICON[g.id].replace(/\.[a-z]+$/, '').toLowerCase()}"></span>` : html`<span class="lm-sw lm-c-${g.id}"></span>`}${g.label} (${counts[g.id]})</button>`)}</div></div>
       <div class="card"><h3>Markers on this map (${types.length} types)</h3>${tbl([{ k: 'type', label: 'Marker', f: (r) => { const f = lmIconByType(r.type); const name = html`<span title="${r.type}">${lmTypeName(r.type)}</span>`; return f ? html`<span class="lm-ic lm-i-${f.replace(/\.[a-z]+$/, '').toLowerCase()}"></span>${name}` : name; } }, { k: 'group', label: 'Group', f: (r) => (LM_GROUPS.find((g) => g.id == r.group) || {}).label || r.group }, { k: 'n', label: 'Markers' }, { k: 'found', label: 'Discovered' }], types)}</div>`);
     lmMount();
   }
@@ -360,7 +360,7 @@
     const z = e.target.closest('[data-lmz]');
     if (z) { if (z.dataset.lmz === 'in') lmZoom(1.2); else if (z.dataset.lmz === 'out') lmZoom(1 / 1.2); else lmReset(); return; }
     const g = e.target.closest('[data-lmg]');
-    if (g) { const id = g.dataset.lmg; if (lm.hidden.has(id)) lm.hidden.delete(id); else lm.hidden.add(id); g.classList.toggle('off'); g.classList.toggle('on'); lmDraw(); return; }
+    if (g) { const id = g.dataset.lmg; if (lm.hidden.has(id)) lm.hidden.delete(id); else lm.hidden.add(id); g.classList.toggle('off'); g.classList.toggle('on'); g.setAttribute('aria-pressed', lm.hidden.has(id) ? 'false' : 'true'); lmDraw(); return; }
     const u = e.target.closest('[data-lmund]'); // only a redraw: the data is not fetched again and the view stays
     if (u) { lm.showUndiscovered = !lm.showUndiscovered; u.textContent = (lm.showUndiscovered ? 'Hide' : 'Show') + ' undiscovered markers'; lmDraw(); }
   });

@@ -404,7 +404,7 @@ function drawAsk() {
   if (!askState) { el.className = 'hide'; setHTML(el, html``); return; }
   const a = askState;
   el.className = 'modal top';
-  setHTML(el, html`<div class="mbox small" role="dialog" aria-modal="true" aria-labelledby="atitle" aria-describedby="abody"><h3 class="big" id="atitle" tabindex="-1">${a.title}</h3><p id="abody">${a.body}</p>${a.list.length ? html`<ul class="qlist">${a.list.map((l) => html`<li>${l}</li>`)}</ul>` : ''}${a.pre ? html`<pre class="sqlpre">${a.pre}</pre>` : ''}
+  setHTML(el, html`<div class="mbox small" role="dialog" aria-modal="true" aria-labelledby="atitle" aria-describedby="abody"><h3 class="big" id="atitle" tabindex="-1">${a.title}</h3><p id="abody">${a.body}</p>${a.list.length ? html`<ul class="qlist" tabindex="0" aria-label="The changes">${a.list.map((l) => html`<li>${l}</li>`)}</ul>` : ''}${a.pre ? html`<pre class="sqlpre" tabindex="0" aria-label="The statement">${a.pre}</pre>` : ''}
     ${a.typed ? html`<p class="mut">Type <b>${a.typed}</b> to continue.</p><input id="atype" spellcheck="false" size="20">` : ''}
     <div class="row mt12"><button class="b ${a.danger ? 'bad' : ''}" id="aok" data-act="askOk" ${a.typed ? 'disabled' : ''}>${a.ok}</button><button class="b sec" data-act="askNo">Cancel</button></div></div>`);
   (a.typed ? $('#atype') : $('#atitle')).focus();
@@ -555,7 +555,7 @@ async function playerSection(s) {
     JB = await api('/api/player/journey/browse');
     const tg = await api('/api/player/tags');
     h.push(html`<div class="card"><h3>Journey browser</h3><div id="jhead"></div><div id="jout"></div></div>`);
-    h.push(html`<div class="card"><h3>Player tags</h3>${tg.length ? tg.map((t) => html`<span class="tag">${t.tag} <a href="#" data-act="tagDel" data-tag="${t.tag}">×</a></span>`) : html`<span class="mut">none</span>`}<div class="row"><input id="tag" placeholder="Tag.Name" size="40"><button class="b" data-act="tagAdd">Add tag</button></div></div>`);
+    h.push(html`<div class="card"><h3>Player tags</h3>${tg.length ? tg.map((t) => html`<span class="tag">${t.tag} <a href="#" data-act="tagDel" data-tag="${t.tag}" aria-label="Remove tag ${t.tag}" title="Remove tag ${t.tag}">×</a></span>`) : html`<span class="mut">none</span>`}<div class="row"><input id="tag" placeholder="Tag.Name" size="40"><button class="b" data-act="tagAdd">Add tag</button></div></div>`);
   } else if (s == 'skills') {
     SK = await api('/api/player/skills');
     h.push(html`<div class="card"><h3>Skill point controls</h3>
@@ -1011,14 +1011,36 @@ function pageTitle() {
   if (parts[0] !== 'Tabr Tau') parts.push('Tabr Tau');
   return parts.join(' - ');
 }
+// Drawing the page again replaces the control that had the keyboard focus, which leaves the focus on the document body (the next Tab starts from the top). The control is found
+// again by what it is (its id, or its data-* attributes and its place among those that share them) and given the focus; if it is gone, the focus goes to the page's main area.
+function focusSpot() {
+  const el = document.activeElement, main = $('#main');
+  if (!el || el === document.body || !main || !main.contains(el)) return null;
+  const sel = el.id ? `[id="${el.id.replace(/"/g, '')}"]` : el.tagName.toLowerCase() + [...el.attributes].filter((a) => a.name.startsWith('data-') && a.value.length < 80).map((a) => `[${a.name}="${a.value.replace(/["\\]/g, '')}"]`).join('');
+  let idx = 0;
+  try { idx = [...main.querySelectorAll(sel)].indexOf(el); } catch (e) { return null; }
+  return idx < 0 ? null : { sel, idx };
+}
+function focusBack(spot) {
+  if (!spot) return;
+  const a = document.activeElement;
+  if (a && a !== document.body && a.isConnected) return; // the focus is somewhere sensible already
+  const main = $('#main');
+  let to = null;
+  try { const all = main.querySelectorAll(spot.sel); to = all[spot.idx] || all[0] || null; } catch (e) { /* a selector the page could not make */ }
+  if (!to) { main.setAttribute('tabindex', '-1'); to = main; }
+  if (typeof to.focus === 'function') to.focus({ preventScroll: true });
+}
 async function render() {
   document.title = pageTitle();
   drawNav();
+  const spot = focusSpot();
   try {
     await ({ player: playerView, livemap: liveMapView, landsraad: landsraadView, config: configView, db: dbView })[tab]();
   } catch (e) {
     setHTML($('#main'), html`<div class="card bad">${e.message}</div><div class="row mt12"><button class="b" data-act="retry">Try again</button></div>`);
   }
+  focusBack(spot);
 }
 
 const D = (e) => e.target.closest('[data-act]');
@@ -1304,7 +1326,7 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') endAsk(false);
     else if (e.key === 'Enter' && e.target.id === 'atype' && !$('#aok').disabled) endAsk(true);
     else if (e.key === 'Tab') {
-      const f = [...$('#ask').querySelectorAll('input,button')].filter((x) => !x.disabled);
+      const f = [...$('#ask').querySelectorAll('input,button,[tabindex="0"]')].filter((x) => !x.disabled);
       if (!f.length) return;
       const i = f.indexOf(document.activeElement);
       const n = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i === f.length - 1 ? 0 : i + 1);
