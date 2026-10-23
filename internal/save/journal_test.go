@@ -297,10 +297,23 @@ func TestAJournalOfAnotherSaveOrTamperedWithIsNotUsed(t *testing.T) {
 			t.Fatal(err)
 		}
 		s := openJournaled(t, p, dir)
-		if r, err := s.RestoreJournal(); r != nil || err != nil || s.Dirty() {
+		// not applied, and not silently: the person is told, and the file is kept (moved aside, since the next edit writes a new journal)
+		if r, err := s.RestoreJournal(); r == nil || len(r.Conflicts) != 1 || r.Applied != 0 || err != nil || s.Dirty() {
 			t.Fatalf("%s: %+v %v dirty=%v", name, r, err, s.Dirty())
 		}
+		if s.Restored() == nil {
+			t.Fatalf("%s: the notice is kept until dismissed", name)
+		}
+		if _, err := os.Stat(jp); err == nil {
+			t.Fatalf("%s: the journal was moved aside, not left to be replaced", name)
+		}
+		if m, _ := filepath.Glob(jp + ".skipped*"); len(m) == 0 {
+			t.Fatalf("%s: the journal is kept, not deleted", name)
+		}
 		s.Close()
+		for _, m := range func() []string { m, _ := filepath.Glob(jp + ".skipped*"); return m }() {
+			os.Remove(m)
+		}
 	}
 	// a statement that is not an INSERT, UPDATE, DELETE or REPLACE in a journal of this save is refused when it is replayed
 	tamper := `{"version":1,"path":"` + strings.ReplaceAll(p, `\`, `\\`) + `","baseHash":"","ops":[{"desc":"drop","rows":0,"stmts":[{"q":"drop table jt"}]}]}`
