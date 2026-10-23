@@ -564,13 +564,11 @@ func (s *Save) backupNamed(tag string) (string, [32]byte, error) {
 	return dest, hashOf(b), nil
 }
 
-// Commit backs up the original file, then atomically writes the edited save, after the same checks as the automatic write (Flush): the game must not be running and the file
-// must be the one that was loaded. Nothing skips them. The editor itself writes through Flush; this is the form that always takes a backup of its own.
-func (s *Save) Commit() (map[string]any, error) { return s.commit(false, false) }
-
-// commit is Commit; quick is the automatic write after each edit (Flush): it takes a backup only when the newest one is not from the last couple of minutes (a burst of
-// edits is one restore point, taken before the first of them), and keeps the newest backups only.
-func (s *Save) commit(force, quick bool) (map[string]any, error) {
+// commit backs up the original file, then atomically writes the edited save, after the checks every write has: the game must not be running and the file must be the one that
+// was loaded. Nothing skips them. quick is the automatic write after each edit (Flush, the only caller outside tests): it takes a backup only when the newest one is not from
+// the last couple of minutes (a burst of edits is one restore point, taken before the first of them), and keeps the newest backups only; otherwise a backup of its own is taken
+// every time (CommitForTests).
+func (s *Save) commit(quick bool) (map[string]any, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.dirty {
@@ -582,7 +580,7 @@ func (s *Save) commit(force, quick bool) (map[string]any, error) {
 	if err := s.requirePlainFile(); err != nil {
 		return nil, err
 	}
-	if blocked, why := SaveBlocked(s.Path); !force && blocked {
+	if blocked, why := SaveBlocked(s.Path); blocked {
 		return nil, errors.New(why)
 	}
 	cur, err := readCapped(s.Path)

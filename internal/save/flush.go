@@ -103,7 +103,7 @@ func (s *Save) Flush() Flush {
 			return s.setLastFlush(f)
 		}
 	}
-	res, err := s.commit(false, true)
+	res, err := s.commit(true)
 	if err != nil {
 		f.Why = err.Error()
 		if errors.Is(err, ErrChangedOnDisk) {

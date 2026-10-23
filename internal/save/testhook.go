@@ -29,6 +29,11 @@ func resetGameCache() {
 	gameCache.Unlock()
 }
 
+// CommitForTests writes the pending edits to the file the way Flush does, but takes a backup of its own every time and does not wait for the quick-backup interval. The game-running
+// and unchanged-file checks still apply. A test uses it to put an edit into the file as if it were the game's own save; shipped code writes through Flush, and the guard test
+// fails if it calls this.
+func (s *Save) CommitForTests() (map[string]any, error) { return s.commit(false) }
+
 // UntrustedLocationForTests makes the editor believe the save is on a network share, so a test in another package can check the confirm-location
 // route and the banner. Test code calls it; production code never does (the guard test fails if it does). It returns a function that puts
 // the real check back.

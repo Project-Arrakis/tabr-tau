@@ -482,7 +482,7 @@ func (o *Ops) GiveItem(a Args) (any, error) {
 const maxGiveBatch = 50
 
 // GiveItems gives a queue of items to the player's backpack in one edit, all or nothing: args "items" is a list of
-// {template_id, quantity, quality}. One review entry and one undo cover the whole queue.
+// {template_id, quantity, quality}. It is one edit, so it is written (or queued) as one.
 func (o *Ops) GiveItems(a Args) (any, error) {
 	p, err := o.player()
 	if err != nil {

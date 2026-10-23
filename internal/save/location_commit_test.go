@@ -23,7 +23,7 @@ func TestCommitAndRestoreRefuseAnUntrustedLocationUntilConfirmed(t *testing.T) {
 	t.Cleanup(func() { goos, locationFor = oldOS, oldLoc })
 	fakeGame(t, nil, "", spStatus{}, nil)
 
-	if _, err := s.Commit(); err == nil || !strings.Contains(err.Error(), "cannot tell whether the game is using it") {
+	if _, err := s.CommitForTests(); err == nil || !strings.Contains(err.Error(), "cannot tell whether the game is using it") {
 		t.Fatalf("Commit must refuse and say why: %v", err)
 	}
 	if now, _ := os.ReadFile(p); !bytes.Equal(before, now) || len(s.Backups()) != 0 || !s.Dirty() {
@@ -33,7 +33,7 @@ func TestCommitAndRestoreRefuseAnUntrustedLocationUntilConfirmed(t *testing.T) {
 		t.Fatalf("Restore must refuse too: %v", err)
 	}
 	ConfirmLocation(p)
-	if res, err := s.Commit(); err != nil || res["saved"] != true {
+	if res, err := s.CommitForTests(); err != nil || res["saved"] != true {
 		t.Fatalf("after the confirmation the same edit saves: %v %v", res, err)
 	}
 }

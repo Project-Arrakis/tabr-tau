@@ -173,7 +173,7 @@ func TestDiscardAndSaveRemoveTheJournal(t *testing.T) {
 	}
 	edit()
 	defer NoGameRunningForTests()()
-	if _, err := s.Commit(); err != nil {
+	if _, err := s.CommitForTests(); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(jp); !os.IsNotExist(err) {
@@ -206,7 +206,7 @@ func TestReloadNowKeepsTheEditsWhereTheyStillApply(t *testing.T) {
 	if rowName(t, s, 1) != "uno" || rowName(t, s, 3) != "game row" || len(s.Pending()) != 1 {
 		t.Fatalf("the edit is on the new file: %q %q %v", rowName(t, s, 1), rowName(t, s, 3), s.Pending())
 	}
-	if _, err := s.Commit(); err == nil {
+	if _, err := s.CommitForTests(); err == nil {
 		// the game-running guard may refuse here; what matters is that the file check does not (it would be ErrChangedOnDisk)
 		t.Log("committed")
 	} else if err == ErrChangedOnDisk {

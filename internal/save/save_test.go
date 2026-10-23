@@ -100,11 +100,11 @@ func TestCommitBacksUpAndPersists(t *testing.T) {
 	orig, _ := os.ReadFile(p)
 	s, _ := Open(p)
 	defer s.Close()
-	if r, _ := s.Commit(); r["saved"] != false {
+	if r, _ := s.CommitForTests(); r["saved"] != false {
 		t.Fatal("commit with no changes must be a no-op")
 	}
 	s.ExecScript(`insert into t values (2)`)
-	res, err := s.Commit()
+	res, err := s.CommitForTests()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func TestCommitDetectsExternalChange(t *testing.T) {
 	other := makeSave(t, `create table t(a integer); insert into t values (9);`)
 	b, _ := os.ReadFile(other)
 	os.WriteFile(p, b, 0o644) // the game autosaved in the meantime
-	if _, err := s.Commit(); err == nil {
+	if _, err := s.CommitForTests(); err == nil {
 		t.Fatal("commit must refuse when the file changed on disk")
 	}
 }
