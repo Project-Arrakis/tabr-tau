@@ -6,6 +6,7 @@ Versioning: [Semantic Versioning](https://semver.org/), tags `v0.x` until the fi
 ## [Unreleased]
 
 ### Added
+- The 2026-10-07 implementation audit register is reconciled with the code (#24, 84 findings): 55 fixed, 12 obsolete (the review pane was removed), 7 accepted risk, 10 open (two need the live game, six need a decision, two are test hygiene). It names the pull request or test that shows each one; #301, #302, #304 and #324 closed the gaps found on the way.
 - The 2026-09-30 design audit register is reconciled with the code (#24, F-01 to F-22): each finding was checked again against the current code, tests, CI and repository settings; 13 of 22 are fixed, 2 are accepted risks (the removed review pane, `foreign_keys` left off), 7 are open and low or waiting for the live game or the owner. Three statements of the design plan that were no longer true (authorizer and `trusted_schema`, the refusal of online-server folders, IPv6) are corrected.
 - **Three guards written as tests** (#23, #180, register 2026-09-30 F-22 and register 2026-10-15 QA-3): the claim that the editor's own code makes no outbound connection now fails the build if shipped code uses an HTTP client or dials out (the one name lookup, of `localhost`, is listed by name); writing a config entry back with the value it has leaves the file byte for byte as it was (CRLF or LF, byte-order mark, comments); and `TutorialSet` and `TagSet` are tested to touch only the character's own rows (a mutant that dropped the player from either delete is caught). No behaviour changed.
 
