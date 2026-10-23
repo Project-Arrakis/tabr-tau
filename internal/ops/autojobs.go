@@ -82,11 +82,11 @@ func AutoJobs() []AutoJob {
 		{ID: "fill-containers", Label: "Fill water containers", Key: "autoFillContainers", Default: true, Ready: true, noun: "water containers",
 			Desc: "Fills the Literjons and other water containers you carry.",
 			run: func(m *save.Mut, c player) (string, string, error) {
-				r, err := refillContainersTx(m, c.Pawn)
-				if err != nil || r.filled == 0 {
+				st, err := refillContainersTx(m, c.Pawn)
+				if err != nil || len(st.todo) == 0 {
 					return "", "", err
 				}
-				return many(r.filled, "water container filled", "water containers filled"), "", nil
+				return many(len(st.todo), "water container filled", "water containers filled"), "", nil
 			}},
 		{ID: "fill-hydration", Label: "Fill your water", Key: "autoFillHydration", Default: true, Ready: true, noun: "your water",
 			Desc: "Fills the character's own water to the maximum.",

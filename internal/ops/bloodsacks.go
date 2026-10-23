@@ -91,37 +91,7 @@ func (o *Ops) BloodSacks() (any, error) {
 	return map[string]any{"total": st.totalKnow, "notFull": len(st.todo), "unknown": st.unknownN, "holdingOther": st.other}, nil
 }
 
-// FillBloodSacks fills every blood sack of a known kind that the character carries to its capacity, in one edit. A sack already at or above its capacity is not
-// rewritten (a value is never lowered), a sack holding something other than blood is left alone, and so is a sack whose template is not in bloodCapacity.
-// Nothing else in the sack's stats changes: json_set writes only the two keys.
-func (o *Ops) FillBloodSacks() (any, error) {
-	p, err := o.player()
-	if err != nil {
-		return nil, err
-	}
-	var st bloodSackState
-	_, err = o.S.Mutate("fill blood sacks", func(m *save.Mut) error {
-		var ferr error
-		if st, ferr = fillBloodSacksTx(m, p.Pawn); ferr != nil {
-			return ferr
-		}
-		if n := len(st.todo); n == 1 {
-			m.Desc = "Filled 1 blood sack"
-		} else {
-			m.Desc = fmt.Sprintf("Filled %d blood sacks", n)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return map[string]any{"ok": true, "filled": len(st.todo), "byTemplate": st.byKind, "alreadyFull": st.full, "holdingOther": st.other,
-		"unknown": st.unknownN, "skippedUnknown": st.skippedUnknown()}, nil
-}
-
-// fillBloodSacksTx is FillBloodSacks inside the edit m, for the character whose pawn actor is pawn, so it can share one edit with other jobs (the automatic
-// pass). The sacks are looked at through the edit's own query, as the water refill does: what the edit read is kept with it, and an edit put back onto a newer file
-// is not applied to a list made from the older one. It sets no description.
+// fillBloodSacksTx fills the sacks a look finds to their capacity, inside the edit m. The Fill blood sacks button and Fill all liquids both end here.
 func fillBloodSacksTx(m *save.Mut, pawn int64) (bloodSackState, error) {
 	st, err := lookAtBloodSacks(m.Query, pawn)
 	if err != nil {
@@ -138,4 +108,39 @@ func fillBloodSacksTx(m *save.Mut, pawn int64) (bloodSackState, error) {
 		}
 	}
 	return st, nil
+}
+
+// FillBloodSacks fills every blood sack of a known kind that the character carries to its capacity, in one edit. A sack already at or above its capacity is not
+// rewritten (a value is never lowered), a sack holding something other than blood is left alone, and so is a sack whose template is not in bloodCapacity.
+// Nothing else in the sack's stats changes: json_set writes only the two keys.
+func (o *Ops) FillBloodSacks() (any, error) {
+	p, err := o.player()
+	if err != nil {
+		return nil, err
+	}
+	var st bloodSackState
+	// The sacks are looked at inside the edit, through the edit's own query, as the water refill does: what the edit read is kept with it, and an edit put back onto a
+	// newer file is not applied to a list made from the older one.
+	_, err = o.S.Mutate("fill blood sacks", func(m *save.Mut) error {
+		var ferr error
+		if st, ferr = fillBloodSacksTx(m, p.Pawn); ferr != nil {
+			return ferr
+		}
+		if n := len(st.todo); n == 1 {
+			m.Desc = "Filled 1 blood sack"
+		} else {
+			m.Desc = fmt.Sprintf("Filled %d blood sacks", n)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return st.answer(), nil
+}
+
+// answer is the answer of a blood-sack fill, alone or as a part of filling all liquids.
+func (st bloodSackState) answer() map[string]any {
+	return map[string]any{"ok": true, "filled": len(st.todo), "byTemplate": st.byKind, "alreadyFull": st.full, "holdingOther": st.other,
+		"unknown": st.unknownN, "skippedUnknown": st.skippedUnknown()}
 }
