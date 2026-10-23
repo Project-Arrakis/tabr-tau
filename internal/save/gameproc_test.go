@@ -277,3 +277,37 @@ func TestTheGameCheckStartsNoProgram(t *testing.T) {
 		}
 	}
 }
+
+// A queued edit is written by itself once the check works again, with no restart: the check failed on every try of the first attempts to write, then the process list
+// answers and the next attempt (the editor makes one every few seconds while edits wait) writes it. The game is not running at that point.
+func TestAQueuedEditIsWrittenOnceTheFailingCheckWorksAgain(t *testing.T) {
+	p := makeSave(t, `create table t(a integer); insert into t values (1);`)
+	s, err := Open(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	// two whole attempts fail (checkAttempts tries each), then the list answers: the game is not running
+	answers := make([]imagesAnswer, 0, 2*checkAttempts+1)
+	for i := 0; i < 2*checkAttempts; i++ {
+		answers = append(answers, snapFail)
+	}
+	useImages(t, append(answers, noGame)...)
+	setA(t, s, 2)
+	for i := 0; i < 2; i++ {
+		f := s.Flush()
+		if f.Saved || f.Queued != 1 || !strings.Contains(f.Why, "could not check whether the game is running") {
+			t.Fatalf("attempt %d: with the check failing the edit waits and says why: %+v", i+1, f)
+		}
+	}
+	if !s.Dirty() || fileA(t, p) != 1 {
+		t.Fatal("nothing was written while the check failed")
+	}
+	f := s.Flush()
+	if !f.Saved || f.Queued != 0 || s.Dirty() {
+		t.Fatalf("the check works again: the waiting edit is written: %+v", f)
+	}
+	if fileA(t, p) != 2 {
+		t.Fatal("the file holds the edit")
+	}
+}
