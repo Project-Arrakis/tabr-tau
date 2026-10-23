@@ -170,8 +170,23 @@ func (m *Mut) Exec(q string, args ...any) (sql.Result, error) {
 	return res, err
 }
 
-// Query returns rows as maps, inside the edit's transaction.
-func (m *Mut) Query(q string, args ...any) ([]Row, error) { return TxQuery(m.tx, q, args...) }
+// Query returns rows as maps, inside the edit's transaction. When the journal is on, what the edit read is kept (a hash of the rows) with what it ran: an edit
+// that worked out a value from the rows it saw (Solari +250, the next free slot, the next item id) is only put back onto a newer file if those rows are still the same.
+func (m *Mut) Query(q string, args ...any) ([]Row, error) {
+	rows, err := TxQuery(m.tx, q, args...)
+	if err == nil && m.keep {
+		rec := stmtRec{Q: q, Rd: true, H: hashRows(rows)}
+		for _, a := range args {
+			j, ok := encodeArg(a)
+			if !ok {
+				m.lossy = true
+			}
+			rec.A = append(rec.A, j)
+		}
+		m.stmts = append(m.stmts, rec)
+	}
+	return rows, err
+}
 
 // One returns the first row, or nil.
 func (m *Mut) One(q string, args ...any) (Row, error) {

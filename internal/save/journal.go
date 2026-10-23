@@ -17,7 +17,9 @@ import (
 //
 // What is kept is what each edit ran: the statements and their arguments, in order, with the edit's description and how many rows it changed. Nothing else about
 // the save is copied. Putting the edits back runs the statements again, each edit in its own transaction through the same Mutate as a new edit (so the same checks
-// apply), and an edit whose statements fail or change a different number of rows than before is not applied: it is reported, not forced. The review pane shows the
+// apply). What an edit read is kept too, as a hash of the rows each of its queries returned, and asked again first: an edit that worked a value out from rows the
+// game has changed since (Solari plus 250, the next free slot, the next item id) is not applied over them. An edit whose statements fail or change a different number
+// of rows than before is not applied either: it is reported, not forced. The review pane shows the
 // diff of whatever was put back, and saving still needs the review, the game-running checks and an unchanged file, as for any edit.
 //
 // The journal holds values from the save (it is a private file in the editor's own folder, 0600, deleted when the edits are saved or discarded). Only INSERT,
@@ -39,6 +41,10 @@ type jarg struct {
 type stmtRec struct {
 	Q string `json:"q"`
 	A []jarg `json:"a,omitempty"`
+	// Rd marks a query the edit made (not a change), and H is a hash of the rows it got. Putting the edit back asks the same query of the newer file first and stops
+	// at the first difference: the edit was worked out from rows that are not the same any more.
+	Rd bool   `json:"rd,omitempty"`
+	H  string `json:"h,omitempty"`
 }
 
 // opRec is one edit as it ran.
@@ -186,7 +192,7 @@ func (s *Save) recordOp(o opRec) {
 		return
 	}
 	for _, st := range o.Stmts {
-		if !journalable(st.Q) {
+		if !(st.Rd && readable(st.Q)) && !(!st.Rd && journalable(st.Q)) {
 			s.stopJournal("an edit ran a statement the journal does not keep (" + o.Desc + ")")
 			return
 		}
@@ -387,9 +393,6 @@ func (s *Save) replayOp(o opRec) string {
 			return err
 		}
 		for _, st := range o.Stmts {
-			if !journalable(st.Q) {
-				return fmt.Errorf("a statement that is not kept: %w", errConflict)
-			}
 			args := make([]any, len(st.A))
 			for i, a := range st.A {
 				v, err := decodeArg(a)
@@ -397,6 +400,23 @@ func (s *Save) replayOp(o opRec) string {
 					return err
 				}
 				args[i] = v
+			}
+			if st.Rd {
+				// what the edit looked at must be what the newer file shows now, or the values it worked out from it (a total plus 250, the next free slot, the next id) are stale
+				if !readable(st.Q) {
+					return fmt.Errorf("a statement that is not kept: %w", errConflict)
+				}
+				rows, err := m.Query(st.Q, args...)
+				if err != nil {
+					return err
+				}
+				if hashRows(rows) != st.H {
+					return fmt.Errorf("the game changed what it was worked out from: %w", errConflict)
+				}
+				continue
+			}
+			if !journalable(st.Q) {
+				return fmt.Errorf("a statement that is not kept: %w", errConflict)
 			}
 			if _, err := m.Exec(st.Q, args...); err != nil {
 				return err
