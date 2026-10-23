@@ -14,10 +14,10 @@ const (
 
 // lockFile opens the file with no sharing: a second open, by this or another process, fails with a sharing violation for as long as the
 // first handle lives. FILE_FLAG_DELETE_ON_CLOSE removes the file when the handle closes, which Windows also does when the process dies.
-func lockFile(path string) (func(), error) {
+func lockFile(path string) (release func(), held bool, err error) {
 	p, err := syscall.UTF16PtrFromString(path)
 	if err != nil {
-		return func() {}, nil
+		return func() {}, false, nil
 	}
 	var h syscall.Handle
 	// A virus scanner or indexer can hold the file open for a moment, which looks the same as another editor holding it; a few short retries
@@ -32,9 +32,9 @@ func lockFile(path string) (func(), error) {
 	}
 	if err != nil {
 		if errors.Is(err, errSharingViolation) || errors.Is(err, errLockViolation) {
-			return nil, ErrSaveInUse
+			return nil, false, ErrSaveInUse
 		}
-		return func() {}, nil
+		return func() {}, false, nil // not made for another reason: the editor goes on, holding no lock
 	}
-	return func() { syscall.CloseHandle(h) }, nil
+	return func() { syscall.CloseHandle(h) }, true, nil
 }
