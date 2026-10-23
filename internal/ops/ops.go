@@ -181,6 +181,8 @@ func (o *Ops) Player() (any, error) {
 	out["actor"], _ = o.S.One(`select map, location_x x, location_y y, location_z z, dimension_index from actors where id=?`, p.Pawn)
 	out["respawns"], _ = o.S.Query(`select "group", locator_name, locator_actor_id, map, last_used_timestamp from player_respawn_locations where character_id=?`, p.Controller)
 	out["solari"] = o.solari(p)
+	out["bloodMarks"] = o.bloodMarks(p)
+	out["bloodMarksMax"] = bloodMarksStack()
 	journeyTotals, _ := o.S.One(`select count(*) total, sum(complete_condition_state=?) done from journey_story_node where character_id=?`, jsonTrue, p.Controller)
 	out["journey"] = journeyTotals
 	return out, nil
