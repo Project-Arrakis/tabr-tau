@@ -67,7 +67,6 @@ func otherRows(t *testing.T, o *Ops) string {
 	return strings.Join(all, "\n")
 }
 
-
 // 420 + 500 = 920 on the stack that is there; no second stack is made.
 func TestBloodMarksAreAddedToTheStackThatIsThere(t *testing.T) {
 	o := &Ops{S: testsave.PlayerWithSQL(t, coinSQL)}
