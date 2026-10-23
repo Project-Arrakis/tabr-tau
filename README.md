@@ -29,7 +29,7 @@ live-test protocol). Do not attach saves, `Game.ini`, snapshots or logs to issue
 |---|---|
 | **Player** | Profile, Solari, Blood Marks (the Halloween 2026 event currency), give / edit / delete items (a give puts in as much as fits and says how much), clear a container (backpack, worn gear, loadout; keeps the Solari Coin stack unless asked), repair gear, refill water containers, fill blood sacks, teleport, faction reputation, specialization tracks, tutorials, tags, Journey nodes (complete / reset), learned building recipes, vendor purchase limits and restock cycles (reset), and reset buttons for what a character has earned (all skills to rank 0 on Skills, level and XP on Character, the XP of the specialization tracks, the journey on Journey; see Not built yet) |
 | **Player > Bases** | The console's Bases panel: your bases with Power, Water, Inventory (Storage, Refining, Crafting, Other) and Land Claim Editor tabs. Also:  Land claims (totems), expand or shrink a claim's size, raise its vertical level, teleport to base, structure health, repair all, clear sand buildup, refill base water and generator fuel (optionally when the editor opens), your base's storage containers (view / add / remove items, or clear a container), placeables |
-| **Player > Vehicles** | Your own vehicles (the world's vehicles are hidden) and recovered vehicles, bring a vehicle to you, repair module durability (each module is made as good as new) |
+| **Player > Vehicles** | Your own vehicles (the world's vehicles are hidden) and recovered vehicles, bring a vehicle to you, repair module durability (each module is made as good as new), refuel all your vehicles to a full tank (tank sizes measured in the game) |
 | **Saved map** | Hagga Basin and the Deep Desert as in the Dune Docker console, drawn from your save (as of its last write, not live): your character, vehicles, base, storage containers and the game's own map markers (ore, salvage, plants, enemy camps, places, trainers, hazards), with layers, pan, zoom and hover details |
 | **Landsraad** | Current term, decree pool, active decree, task board (fill progress, complete / reopen), rewards |
 | **Config** | Edit the game's `.ini` files (`ServerCustomSettings.ini`, `Game.ini`, `GameUserSettings.ini`, `Engine.ini`, `Input.ini`, ...) with backups; validates that the expected files and sections exist |
@@ -128,6 +128,7 @@ Every write feature has automated tests on a synthetic save built from the game'
 | Give Blood Marks (#344; real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#344) |
 | Fill blood sacks (#346; capacities from saved values, real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#346) |
 | Give item (including the partial give that puts in as much as fits, #345), Give water, Fill hydration, Give Items queue, Give Intel, Give currency, edit or delete an item | Tests only (the protocol's T1 and T1b for Give item have no recorded result) | none | `docs/live-test-protocol.md` |
+| Refuel all my vehicles (#349; tank sizes measured in the game, real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#349) |
 | Repair Gear (as good as new, #153) and the vehicle Repair Below % option | Tests only | none | `CHANGELOG.md` |
 | Teleport and Go to a place | Tests only | none | `CHANGELOG.md` (#67) |
 | Specialization: Add XP, Grant Max, Reset, keystones, Assign | Tests only | none | `CHANGELOG.md` (#108) |
@@ -142,7 +143,7 @@ Read-only views are not listed. One of them has a recorded gap: the Saved map's 
 
 - tabr-tau's own code makes no outbound network connections (no telemetry, no update check). On Windows the editor window is the Microsoft Edge WebView2 runtime, a Windows component with its own update and diagnostics settings that tabr-tau does not control; it only ever loads the editor's own `127.0.0.1` address.
 - The server only listens on localhost, rejects other `Host` headers, and answers an API call only when it carries the session cookie that the window (or the one-time link printed with `--web`) was given at start; the cookie is valid for this run of the editor only.
-- Vehicle fuel and other data stored in opaque binary blobs are read-only.
+- Data stored in opaque binary blobs is read-only. A vehicle's fuel is not one of them: it is a plain number in the vehicle's record, which Refuel all my vehicles raises.
 - Only one editor can have a save open at a time (a second one is refused). If the default port is busy the editor says it picked another.
 - A save outside the game's own folder (`Saved\Cloud\PlayerClientStorage`), on a network share or on a removable drive asks for one confirmation before it can be written, because the game-running check only sees this computer.
 - Reporting a security problem: see [SECURITY.md](SECURITY.md).
