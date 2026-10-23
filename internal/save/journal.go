@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 )
 
 // The pending edits are kept in a journal file so they survive the editor being closed, and can be put back onto a newer file when the game has saved since.
@@ -381,6 +383,9 @@ func (s *Save) Rebase() (*Restored, error) {
 	defer s.flushMu.Unlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.held != nil { // a held queue is not in s.recs: reading the file again and putting nothing back would throw it away without a word
+		return nil, apierr.New(apierr.ErrQueueHeld, "the queued changes conflict with what the game saved and cannot be put back: discard them first, then reload")
+	}
 	kept := append([]opRec(nil), s.recs...)
 	if s.dirty && len(kept) == 0 { // edits were made but not kept (the journal is off, or was never enabled): they cannot be put back
 		why := s.journalOff
