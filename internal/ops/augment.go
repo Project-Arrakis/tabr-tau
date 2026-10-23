@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/augments"
 	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
@@ -29,13 +30,13 @@ func augmentIDs(a Args) ([]string, error) {
 	}
 	list, ok := raw.([]any)
 	if !ok {
-		return nil, errors.New("augments must be a list")
+		return nil, apierr.New(apierr.BadArgument, "augments must be a list")
 	}
 	var ids []string
 	for _, e := range list {
 		s, ok := e.(string)
 		if !ok {
-			return nil, errors.New("augments must be a list of augment ids")
+			return nil, apierr.New(apierr.BadArgument, "augments must be a list of augment ids")
 		}
 		if s = strings.TrimSpace(s); s != "" {
 			ids = append(ids, s)
@@ -95,7 +96,7 @@ func unlockSlots(m *save.Mut, controller int64, template string) (int64, error) 
 func setAugmentsTx(m *save.Mut, itemID int64, ids []string, grade int) (string, error) {
 	rows, err := m.Query(`select template_id, stats from items where id=?`, itemID)
 	if err != nil || len(rows) == 0 {
-		return "", errors.New("item not found")
+		return "", apierr.New(apierr.NotFound, "item not found")
 	}
 	tmpl := fmt.Sprint(rows[0]["template_id"])
 	if err := checkAugments(tmpl, ids); err != nil {

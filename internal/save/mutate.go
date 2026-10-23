@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 )
 
 // fkCounts runs PRAGMA foreign_key_check and returns the dangling references, keyed per child row
@@ -225,7 +227,7 @@ func (s *Save) mutateLocked(desc string, cascade bool, fn func(m *Mut) error) (i
 		return 0, errReadOnly(s.blocked)
 	}
 	if s.held != nil && !s.replaying {
-		return 0, errors.New("the queued changes conflict with what the game saved and were not written: discard them before making new ones")
+		return 0, apierr.New(apierr.QueueHeld, "the queued changes conflict with what the game saved and were not written: discard them before making new ones")
 	}
 	if fn == nil {
 		return 0, errors.New("no edit given")

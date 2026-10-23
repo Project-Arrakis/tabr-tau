@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"strings"
+
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 )
 
 // Teleport as the Dune Docker console has it (PlayerTeleportControls.tsx): move the character to coordinates or to a named place,
@@ -37,7 +39,7 @@ func (o *Ops) where() (id int64, mp string, x, y float64, err error) {
 	}
 	r, err := o.S.One(`select map, location_x x, location_y y from actors where id=?`, p.Pawn)
 	if err != nil || r == nil {
-		return 0, "", 0, 0, errors.New("the character's body was not found in this save")
+		return 0, "", 0, 0, apierr.New(apierr.NotFound, "the character's body was not found in this save")
 	}
 	fx, _ := toFloat(r["x"])
 	fy, _ := toFloat(r["y"])
@@ -111,7 +113,7 @@ func (o *Ops) Destinations(kind, q string) (any, error) {
 			add("marker", fmt.Sprint(r["t"]), r["x"], r["y"], r["z"])
 		}
 	default:
-		return nil, errors.New("kind must be base, respawn, vehicle or marker")
+		return nil, apierr.New(apierr.BadArgument, "kind must be base, respawn, vehicle or marker")
 	}
 	sortByDistance(out)
 	total := len(out)
@@ -157,7 +159,7 @@ func (o *Ops) Teleport(a Args) (any, error) {
 	}
 	for _, v := range []float64{x, y, z} {
 		if math.IsNaN(v) || math.IsInf(v, 0) || math.Abs(v) > 1e7 {
-			return nil, errors.New("x, y and z must be ordinary numbers (game units)")
+			return nil, apierr.New(apierr.BadArgument, "x, y and z must be ordinary numbers (game units)")
 		}
 	}
 	desc := fmt.Sprintf("teleport player to %.0f, %.0f, %.0f", x, y, z)
@@ -169,7 +171,7 @@ func (o *Ops) Teleport(a Args) (any, error) {
 	}
 	yaw, err := a.Float("yaw")
 	if err != nil || math.IsNaN(yaw) || math.IsInf(yaw, 0) || math.Abs(yaw) > 3600 {
-		return nil, errors.New("facing must be a number of degrees")
+		return nil, apierr.New(apierr.BadArgument, "facing must be a number of degrees")
 	}
 	qx, qy, qz, qw := yawQuaternion(yaw)
 	if _, err := o.run(desc+fmt.Sprintf(" facing %.0f degrees", yaw),

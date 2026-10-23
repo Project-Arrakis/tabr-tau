@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
@@ -50,7 +51,7 @@ func (o *Ops) SetTaskProgress(a Args) (any, error) {
 		return nil, err
 	}
 	if amt < 0 {
-		return nil, errors.New("amount must be >= 0")
+		return nil, apierr.New(apierr.BadArgument, "amount must be >= 0")
 	}
 	if _, err := o.run(fmt.Sprintf("landsraad task %d faction %d progress = %g", t, f, amt), `insert into landsraad_task_faction_contributions(faction_id, task_id, amount) values(?,?,?)
 		on conflict(faction_id, task_id) do update set amount=excluded.amount`, f, t, amt); err != nil {
@@ -79,7 +80,7 @@ func (o *Ops) CompleteTask(a Args) (any, error) {
 		return nil, err
 	}
 	if n == 0 {
-		return nil, errors.New("task not found")
+		return nil, apierr.New(apierr.NotFound, "task not found")
 	}
 	return ok(), nil
 }
@@ -99,7 +100,7 @@ func (o *Ops) SetDecree(a Args) (any, error) {
 		return nil, err
 	}
 	if n == 0 {
-		return nil, errors.New("decree not found")
+		return nil, apierr.New(apierr.NotFound, "decree not found")
 	}
 	return ok(), nil
 }

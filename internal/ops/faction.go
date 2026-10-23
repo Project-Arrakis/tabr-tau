@@ -1,10 +1,10 @@
 package ops
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
@@ -55,11 +55,11 @@ func (o *Ops) SetFaction(a Args) (any, error) {
 		ok = ok || f == id
 	}
 	if !ok {
-		return nil, errors.New("faction must be Neutral, Atreides or Harkonnen")
+		return nil, apierr.New(apierr.BadArgument, "faction must be Neutral, Atreides or Harkonnen")
 	}
 	r, _ := o.S.One(`select name from factions where id=?`, id)
 	if len(r) == 0 {
-		return nil, errors.New("this save has no such faction")
+		return nil, apierr.New(apierr.NotFound, "this save has no such faction")
 	}
 	now := time.Now().UnixMicro()
 	if _, err := o.S.Mutate(fmt.Sprintf("assign faction %s", factionLabel(fmt.Sprint(r["name"]))), func(m *save.Mut) error {

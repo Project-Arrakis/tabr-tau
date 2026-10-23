@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/skills"
 )
@@ -164,7 +165,7 @@ func setModuleTx(m *save.Mut, pawn int64, id string, rank int, charge bool) (bef
 func (o *Ops) SetSkillModule(a Args) (any, error) {
 	id := a.Str("module")
 	if !skills.ValidID(id) {
-		return nil, errors.New("invalid skill module")
+		return nil, apierr.New(apierr.BadArgument, "invalid skill module")
 	}
 	rank, err := a.IntRange("level", 0, 100)
 	if err != nil {
@@ -219,7 +220,7 @@ func (o *Ops) RestoreStarterSkills(a Args) (any, error) {
 	school := a.Str("school")
 	starters := skills.StarterSkills(school)
 	if len(starters) == 0 {
-		return nil, errors.New("unknown school")
+		return nil, apierr.New(apierr.BadArgument, "unknown school")
 	}
 	p, err := o.player()
 	if err != nil {
@@ -265,7 +266,7 @@ func (o *Ops) MaxSkills(a Args) (any, error) {
 		valid = valid || s.Key == school
 	}
 	if !valid {
-		return nil, errors.New("unknown school")
+		return nil, apierr.New(apierr.BadArgument, "unknown school")
 	}
 	p, err := o.player()
 	if err != nil {

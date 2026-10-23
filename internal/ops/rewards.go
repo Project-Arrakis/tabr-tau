@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
@@ -16,7 +17,7 @@ const intelPath = "$.TechKnowledgePlayerComponent.m_TechKnowledgePoints"
 func (o *Ops) AddIntel(a Args) (any, error) {
 	amount, err := a.IntRange("amount", 1, 1_000_000_000)
 	if err != nil {
-		return nil, errors.New("amount must be a whole number from 1 to 1,000,000,000")
+		return nil, apierr.New(apierr.BadArgument, "amount must be a whole number from 1 to 1,000,000,000")
 	}
 	p, err := o.player()
 	if err != nil {
@@ -56,7 +57,7 @@ func (o *Ops) AddIntel(a Args) (any, error) {
 func (o *Ops) AddXP(a Args) (any, error) {
 	amount, err := a.IntRange("amount", 1, 100_000_000)
 	if err != nil {
-		return nil, errors.New("amount must be a whole number from 1 to 100,000,000")
+		return nil, apierr.New(apierr.BadArgument, "amount must be a whole number from 1 to 100,000,000")
 	}
 	p, err := o.player()
 	if err != nil {
@@ -107,11 +108,11 @@ func (o *Ops) AddXP(a Args) (any, error) {
 func (o *Ops) AddCurrency(a Args) (any, error) {
 	id, err := a.IntRange("currency", 0, 1)
 	if err != nil {
-		return nil, errors.New("currency must be 0 (Solari in wallet) or 1 (House credit in wallet)")
+		return nil, apierr.New(apierr.BadArgument, "currency must be 0 (Solari in wallet) or 1 (House credit in wallet)")
 	}
 	amount, err := a.IntRange("amount", 1, 1_000_000_000_000)
 	if err != nil {
-		return nil, errors.New("amount must be a whole number from 1 to 1,000,000,000,000")
+		return nil, apierr.New(apierr.BadArgument, "amount must be a whole number from 1 to 1,000,000,000,000")
 	}
 	p, err := o.player()
 	if err != nil {

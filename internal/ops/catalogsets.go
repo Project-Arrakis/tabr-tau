@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
@@ -248,7 +249,7 @@ func (o *Ops) GrantCustomizations(a Args) (any, error) {
 	}
 	bp, _ := o.S.One(`select id from inventories where actor_id=? and inventory_type=0 order by id limit 1`, p.Pawn)
 	if bp == nil {
-		return nil, errors.New("player backpack not found")
+		return nil, apierr.New(apierr.NotFound, "player backpack not found")
 	}
 	// What is already owned is read in the same transaction that adds the rest (audit L2 G09), so two overlapping calls cannot both grant
 	// the same set: the second finds it all there.
@@ -274,7 +275,7 @@ func (o *Ops) GrantCustomizations(a Args) (any, error) {
 			}
 		}
 		if !valid {
-			return errors.New("unknown set")
+			return apierr.New(apierr.BadArgument, "unknown set")
 		}
 		if len(items) == 0 {
 			already = true
@@ -381,7 +382,7 @@ func (o *Ops) UnlockCustomizations(a Args) (any, error) {
 			}
 		}
 		if !matched {
-			return errors.New("unknown set or cosmetic")
+			return apierr.New(apierr.BadArgument, "unknown set or cosmetic")
 		}
 		if len(todo) == 0 {
 			already = true
