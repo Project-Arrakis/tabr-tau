@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
@@ -144,5 +146,45 @@ func TestTheRefusalsOfTheSaveLifecycleCarryTheirCodes(t *testing.T) {
 	w = postEdit(t, ro, "/api/player/solari", `{"amount":1}`)
 	if m := decodeBody(t, w); w.Code != 400 || m["code"] != "read_only" {
 		t.Fatalf("an edit of a read-only save: %d %s", w.Code, w.Body.String())
+	}
+}
+
+// NET-13 of the 2026-10-22 audit: an edit runs the whole write inside its request, so the answer may not be cut by the two-minute write timeout of the server.
+type deadlineRecorder struct {
+	*httptest.ResponseRecorder
+	deadlines []time.Time
+}
+
+func (d *deadlineRecorder) SetWriteDeadline(t time.Time) error {
+	d.deadlines = append(d.deadlines, t)
+	return nil
+}
+
+func TestEditRequestsAskForALongerWriteWindowThanTheServersDefault(t *testing.T) {
+	s := New(testsave.Player(t), config.Dir{Path: t.TempDir()})
+	for _, path := range []string{"/api/player/solari", "/api/save/flush"} {
+		req := httptest.NewRequest("POST", "http://127.0.0.1"+path, strings.NewReader(`{"amount":1}`))
+		req.RemoteAddr = loop
+		req.Host = "127.0.0.1:8090"
+		req.Header.Set("Cookie", "tabr_session="+s.token)
+		req.Header.Set("Content-Type", "application/json")
+		rec := &deadlineRecorder{ResponseRecorder: httptest.NewRecorder()}
+		start := time.Now()
+		s.Handler().ServeHTTP(rec, req)
+		if rec.Code != 200 || len(rec.deadlines) == 0 {
+			t.Fatalf("%s: %d, deadlines %v", path, rec.Code, rec.deadlines)
+		}
+		if got := rec.deadlines[0].Sub(start); got < 5*time.Minute || got > 11*time.Minute {
+			t.Fatalf("%s: the window is %s, longer than the server's %s default and bounded", path, got, NewHTTPServer(nil).WriteTimeout)
+		}
+	}
+	rec := &deadlineRecorder{ResponseRecorder: httptest.NewRecorder()}
+	req := httptest.NewRequest("GET", "http://127.0.0.1/api/overview", nil)
+	req.RemoteAddr = loop
+	req.Host = "127.0.0.1:8090"
+	req.Header.Set("Cookie", "tabr_session="+s.token)
+	s.Handler().ServeHTTP(rec, req)
+	if len(rec.deadlines) != 0 {
+		t.Fatal("a read keeps the server's timeout")
 	}
 }

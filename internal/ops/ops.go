@@ -308,10 +308,19 @@ func grantGrade(template string, q int64) int64 {
 	return q
 }
 
+// maxGiveStacks is the most separate stacks (rows) one give creates. An item that holds one per slot given in the hundreds of thousands would insert that many rows into a
+// container with no slot limit, under the one lock of the save, and make a save the game would be slow to load; no inventory the game builds has room for more than a few hundred.
+const maxGiveStacks = 1000
+
+var (
+	errInventoryFull = errors.New("inventory is full")
+	errNotEnoughRoom = errors.New("not enough room")
+)
+
 // giveStacksInTx gives qty of an item the way the game holds it: no slot holds more than the item's stack size (the game's own item tables, see catalog.MaxStack). Partial
 // stacks of the same item and grade that are already in the inventory are filled first, then new stacks are added, each in its own slot. The caller's transaction makes it
 // all or nothing. An item the catalog does not know has no stack size to honor and goes in as one row, as it always did. It returns the ids of the rows it added (none when
-// everything fitted on stacks that were there).
+// everything fitted on stacks that were there). More than maxGiveStacks new stacks are refused.
 func giveStacksInTx(m *save.Mut, inventoryID int64, template string, qty, quality int64) ([]int64, error) {
 	max, known := catalog.MaxStack(template)
 	if !known {
@@ -336,26 +345,42 @@ func giveStacksInTx(m *save.Mut, inventoryID int64, template string, qty, qualit
 			left -= add
 		}
 	}
-	var ids []int64
-	for left > 0 {
-		n := min(left, max)
-		id, err := giveInTx(m, inventoryID, template, n, quality)
-		if err != nil {
-			if len(ids) > 0 && err.Error() == "inventory is full" {
-				return nil, fmt.Errorf("not enough room: %s needs %d stacks of up to %s and the inventory has no more free slots", itemLabel(template), (qty+max-1)/max, commas(max))
-			}
-			return nil, err
-		}
-		ids = append(ids, id)
-		left -= n
+	if left <= 0 {
+		return nil, nil
 	}
-	return ids, nil
+	n := (left + max - 1) / max
+	if n > maxGiveStacks {
+		return nil, apierr.Newf(apierr.ErrBadArgument, "%s makes %s separate stacks (a slot holds %s); at most %s at a time: give fewer, or give them in several steps", itemLabel(template), commas(n), commas(max), commas(maxGiveStacks))
+	}
+	sizes := make([]int64, n)
+	for i := range sizes {
+		sizes[i] = max
+	}
+	sizes[n-1] = left - (n-1)*max
+	ids, err := giveRowsInTx(m, inventoryID, template, sizes, quality)
+	if errors.Is(err, errNotEnoughRoom) {
+		return nil, fmt.Errorf("not enough room: %s needs %d stacks of up to %s and the inventory has no more free slots", itemLabel(template), (qty+max-1)/max, commas(max))
+	}
+	return ids, err
 }
 
+// giveInTx inserts one stack of qty into inventoryID, in the next free slot, with an id from the game's own sequencer.
 func giveInTx(m *save.Mut, inventoryID int64, template string, qty, quality int64) (int64, error) {
+	ids, err := giveRowsInTx(m, inventoryID, template, []int64{qty}, quality)
+	if err != nil {
+		return 0, err
+	}
+	return ids[0], nil
+}
+
+// giveRowsInTx inserts one stack per entry of sizes into inventoryID: each in the next free slot, in order, with consecutive ids from the game's own sequencer. What it needs
+// from the save (the inventory's limit, its used slots, the stats to copy, the next id) is read once, so the work grows with the number of rows and not with the number of rows
+// times the items already in the inventory. It is all or nothing with the caller's transaction: errInventoryFull when there is no free slot at all, errNotEnoughRoom when there
+// are some but fewer than sizes needs.
+func giveRowsInTx(m *save.Mut, inventoryID int64, template string, sizes []int64, quality int64) ([]int64, error) {
 	rows, err := m.Query(`select id, coalesce(max_item_count,0) cap from inventories where id=?`, inventoryID)
 	if err != nil || len(rows) == 0 {
-		return 0, apierr.New(apierr.ErrNotFound, "inventory not found")
+		return nil, apierr.New(apierr.ErrNotFound, "inventory not found")
 	}
 	capacity := rows[0]["cap"].(int64)
 	used := map[int64]bool{}
@@ -365,12 +390,14 @@ func giveInTx(m *save.Mut, inventoryID int64, template string, qty, quality int6
 			used[p] = true
 		}
 	}
-	if capacity > 0 && int64(len(used)) >= capacity {
-		return 0, errors.New("inventory is full")
-	}
-	var slot int64
-	for used[slot] {
-		slot++
+	if capacity > 0 {
+		free := capacity - int64(len(used))
+		if free <= 0 {
+			return nil, errInventoryFull
+		}
+		if int64(len(sizes)) > free {
+			return nil, errNotEnoughRoom
+		}
 	}
 	quality = grantGrade(template, quality)
 	stats := `{"FCustomizationStats":[[],{}],"FItemStackAndDurabilityStats":[[],{}]}`
@@ -383,33 +410,46 @@ func giveInTx(m *save.Mut, inventoryID int64, template string, qty, quality int6
 	if augments.IsStandalone(template) { // perfect stat rolls, not the ones of the item copied above
 		var err error
 		if stats, err = augments.StandaloneStats(stats, template); err != nil {
-			return 0, err
+			return nil, err
 		}
 	}
 	var next, maxID int64
 	seq, err := m.Query(`select next_id from items_id_sequencer`)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	mx, err := m.Query(`select coalesce(max(id),0) m from items`)
 	if err != nil || len(mx) == 0 {
-		return 0, errors.New("could not read the item id counter")
+		return nil, errors.New("could not read the item id counter")
 	}
 	maxID = mx[0]["m"].(int64)
 	next = maxID + 1
+	last := int64(len(sizes)) // the sequencer is left pointing after the last id used
 	if len(seq) > 0 {
 		if n := seq[0]["next_id"].(int64); n > next {
 			next = n
 		}
-		if _, err := m.Exec(`update items_id_sequencer set next_id=?`, next+1); err != nil {
-			return 0, err
+		if _, err := m.Exec(`update items_id_sequencer set next_id=?`, next+last); err != nil {
+			return nil, err
 		}
-	} else if _, err := m.Exec(`insert into items_id_sequencer(next_id) values(?)`, next+1); err != nil {
-		return 0, err
+	} else if _, err := m.Exec(`insert into items_id_sequencer(next_id) values(?)`, next+last); err != nil {
+		return nil, err
 	}
-	_, err = m.Exec(`insert into items(id, inventory_id, stack_size, position_index, template_id, is_new, acquisition_time, stats, quality_level)
-		values(?,?,?,?,?,1,strftime('%s','now'),?,?)`, next, inventoryID, qty, slot, template, stats, quality)
-	return next, err
+	ids := make([]int64, 0, len(sizes))
+	var slot int64
+	for i, qty := range sizes {
+		for used[slot] {
+			slot++
+		}
+		used[slot] = true
+		id := next + int64(i)
+		if _, err := m.Exec(`insert into items(id, inventory_id, stack_size, position_index, template_id, is_new, acquisition_time, stats, quality_level)
+			values(?,?,?,?,?,1,strftime('%s','now'),?,?)`, id, inventoryID, qty, slot, template, stats, quality); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 // knownTemplate says whether an item template id is one the editor may give: it is in the item catalog or already appears on an item

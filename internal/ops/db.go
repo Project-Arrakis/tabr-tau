@@ -2,11 +2,13 @@ package ops
 
 import (
 	"bytes"
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
@@ -273,6 +275,9 @@ func (o *Ops) SQL(q string) (any, error) {
 	return map[string]any{"columns": cols, "rows": rows, "truncated": len(rows) >= sqlRowLimit}, nil
 }
 
+// SQLWriteTimeout bounds one statement of the write console.
+var SQLWriteTimeout = 15 * time.Second
+
 // ExecSQL runs write statements against the working copy. Changes stay pending
 // until the save is committed (which backs up the original first).
 func (o *Ops) ExecSQL(q string) (any, error) {
@@ -283,7 +288,16 @@ func (o *Ops) ExecSQL(q string) (any, error) {
 	if len(short) > 100 {
 		short = short[:100] + "…"
 	}
-	n, err := o.S.Mutate("sql: "+short, func(m *save.Mut) error { _, err := m.Exec(q); return err })
+	n, err := o.S.Mutate("sql: "+short, func(m *save.Mut) error {
+		// The save is locked while this runs, so a statement that never ends (a recursive query with no stop, say) is interrupted after SQLWriteTimeout, like a read is after save.ReadTimeout.
+		ctx, cancel := context.WithTimeout(context.Background(), SQLWriteTimeout)
+		defer cancel()
+		_, err := m.ExecContext(ctx, q)
+		if err != nil && ctx.Err() != nil {
+			return fmt.Errorf("the statement was stopped after %s: nothing was changed", SQLWriteTimeout)
+		}
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
