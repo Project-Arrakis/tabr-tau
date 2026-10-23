@@ -20,7 +20,7 @@ func gameSetsSolari(t *testing.T, path string, n int) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := other.Commit(false); err != nil {
+	if _, err := other.Commit(); err != nil {
 		t.Fatal(err)
 	}
 }

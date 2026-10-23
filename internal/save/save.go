@@ -43,9 +43,7 @@ type Save struct {
 	changedMod  time.Time
 
 	dirty bool
-	ops   []Op    // structured record of the edits applied since load
-	orig  string  // pristine decoded copy of the file as loaded; never written
-	odb   *sql.DB // read-only handle on orig
+	ops   []Op // structured record of the edits applied since load
 
 	// the journal of pending edits (journal.go): where it is kept, what has been kept, and what became of the edits found in it at start
 	journalPath string
@@ -233,9 +231,8 @@ func openCopy(raw []byte, pattern, opts string) (path string, db *sql.DB, err er
 	return path, db, nil
 }
 
-// load (re)reads the file on disk into a fresh working copy, read-only handle and pristine baseline. The new copies
-// are built first and swapped in only when all of them succeeded, so a failure leaves the previous state intact and
-// leaks no temp files.
+// load (re)reads the file on disk into a fresh working copy and read-only handle. The new copies are built first and
+// swapped in only when all of them succeeded, so a failure leaves the previous state intact and leaks no temp files.
 func (s *Save) load() error {
 	blob, err := readCapped(s.Path)
 	if err != nil {
@@ -257,14 +254,6 @@ func (s *Save) load() error {
 	}
 	rdb.SetMaxOpenConns(1)
 	rdb.SetConnMaxLifetime(0)
-	// The pristine baseline: an immutable copy of what was loaded, kept so a test can show exactly what changed and prove that only the intended changes were made.
-	orig, odb, err := openCopy(raw, "tabr-tau-orig-*.sqlite", "mode=ro&_pragma=query_only(1)")
-	if err != nil {
-		rdb.Close()
-		db.Close()
-		os.Remove(work)
-		return err
-	}
 	blocked := fingerprint(db)
 	base, fkErr := fkCounts(db)
 	if fkErr != nil && blocked == "" { // never hide a more specific reason (unknown database objects)
@@ -278,14 +267,7 @@ func (s *Save) load() error {
 		s.db.Close()
 		os.Remove(s.work)
 	}
-	if s.odb != nil {
-		s.odb.Close()
-	}
-	if s.orig != "" {
-		os.Remove(s.orig)
-	}
 	s.work, s.db, s.rdb = work, db, rdb
-	s.orig, s.odb = orig, odb
 	s.blocked, s.fkBase = blocked, base
 	s.noteDisk(blob)
 	s.dirty = false
@@ -340,12 +322,6 @@ func (s *Save) Close() {
 	if s.rdb != nil {
 		s.rdb.Close()
 	}
-	if s.odb != nil {
-		s.odb.Close()
-	}
-	if s.orig != "" {
-		os.Remove(s.orig)
-	}
 	if s.db != nil {
 		s.db.Close()
 		os.Remove(s.work)
@@ -360,14 +336,34 @@ func (s *Save) Ops() []Op {
 }
 
 // WithBaseline calls fn with read-only handles on the pristine copy of the save as loaded and on the working copy as edited so far, so a test (or a diagnostic) can show exactly
-// what an edit changed. fn runs with the save locked, so it must not call back into the Save.
+// what an edit changed. The pristine copy is made from the file on disk when this is called (the editor does not keep one), so it is only available while the file is still
+// the one that was loaded or last written; otherwise it returns an error. fn runs with the save locked, so it must not call back into the Save.
 func (s *Save) WithBaseline(fn func(orig, current *sql.DB) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.odb == nil || s.rdb == nil {
+	if s.rdb == nil {
 		return errors.New("no save is loaded")
 	}
-	return fn(s.odb, s.rdb)
+	blob, err := readCapped(s.Path)
+	if err != nil {
+		return err
+	}
+	if hashOf(blob) != s.diskHash {
+		return errors.New("the file changed on disk since it was loaded, so the state as loaded is no longer available")
+	}
+	raw, err := Decode(blob)
+	if err != nil {
+		return err
+	}
+	orig, odb, err := openCopy(raw, "tabr-tau-orig-*.sqlite", "mode=ro&_pragma=query_only(1)")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		odb.Close()
+		os.Remove(orig)
+	}()
+	return fn(odb, s.rdb)
 }
 
 func (s *Save) Dirty() bool {
@@ -568,9 +564,9 @@ func (s *Save) backupNamed(tag string) (string, [32]byte, error) {
 	return dest, hashOf(b), nil
 }
 
-// Commit backs up the original file, then atomically writes the edited save. force skips only the check that the
-// game is running; it never skips the changed-on-disk check.
-func (s *Save) Commit(force bool) (map[string]any, error) { return s.commit(force, false) }
+// Commit backs up the original file, then atomically writes the edited save, after the same checks as the automatic write (Flush): the game must not be running and the file
+// must be the one that was loaded. Nothing skips them. The editor itself writes through Flush; this is the form that always takes a backup of its own.
+func (s *Save) Commit() (map[string]any, error) { return s.commit(false, false) }
 
 // commit is Commit; quick is the automatic write after each edit (Flush): it takes a backup only when the newest one is not from the last couple of minutes (a burst of
 // edits is one restore point, taken before the first of them), and keeps the newest backups only.
@@ -652,8 +648,8 @@ func (s *Save) commit(force, quick bool) (map[string]any, error) {
 	}
 	res := map[string]any{"saved": true, "backup": bak, "ops": ops}
 	if err := reloadAfterCommit(s); err != nil {
-		// The baseline and recorded state no longer match the file just written; refuse further edits rather than
-		// let a stale baseline mislead the review.
+		// The working copy and the recorded state no longer match the file just written; refuse further edits rather than
+		// build them on a copy that is out of date.
 		s.blocked = "the save was written but reloading it failed (" + err.Error() + "); restart the editor"
 		res["warning"] = "saved, but reloading the file failed: " + err.Error() + " (further edits are disabled; restart the editor)"
 	}

@@ -40,7 +40,7 @@ func TestBackupNamesAreUniqueWithinOneSecond(t *testing.T) {
 		if _, err := s.ExecScript(`insert into t values (2)`); err != nil {
 			t.Fatal(err)
 		}
-		r, err := s.Commit(false)
+		r, err := s.Commit()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -58,14 +58,15 @@ func TestBackupNamesAreUniqueWithinOneSecond(t *testing.T) {
 	}
 }
 
-func TestForceNeverSkipsTheOnDiskChangeCheck(t *testing.T) {
+func TestACommitNeverOverwritesAFileThatChangedOnDisk(t *testing.T) {
+	defer NoGameRunningForTests()()
 	s, p := openToy(t)
 	s.ExecScript(`insert into t values (2)`)
 	other := makeSave(t, `create table t(a integer); insert into t values (9);`)
 	b, _ := os.ReadFile(other)
 	os.WriteFile(p, b, 0o600)
-	if _, err := s.Commit(true); err == nil {
-		t.Fatal("force must not bypass the changed-on-disk check")
+	if _, err := s.Commit(); err == nil {
+		t.Fatal("a file that changed on disk must not be overwritten")
 	}
 	if got, _ := os.ReadFile(p); !bytes.Equal(got, b) {
 		t.Fatal("a refused commit must leave the file alone")
@@ -87,7 +88,7 @@ func TestRenameRetriesThenSucceeds(t *testing.T) {
 	renameBackoff = 0
 	t.Cleanup(func() { fsRename = old; renameBackoff = oldWait })
 	s.ExecScript(`insert into t values (2)`)
-	r, err := s.Commit(false)
+	r, err := s.Commit()
 	if err != nil || r["saved"] != true {
 		t.Fatalf("commit should survive transient rename failures: %v %v", r, err)
 	}
@@ -110,7 +111,7 @@ func TestRenameFailureLeavesOriginalAndCleansTemp(t *testing.T) {
 	renameBackoff = 0
 	t.Cleanup(func() { fsRename = old; renameBackoff = oldWait })
 	s.ExecScript(`insert into t values (2)`)
-	if _, err := s.Commit(false); err == nil {
+	if _, err := s.Commit(); err == nil {
 		t.Fatal("expected failure")
 	}
 	if got, _ := os.ReadFile(p); !bytes.Equal(got, orig) {
@@ -167,7 +168,7 @@ func TestBackupIsVerifiedAndPrivate(t *testing.T) {
 	s, p := openToy(t)
 	orig, _ := os.ReadFile(p)
 	s.ExecScript(`insert into t values (2)`)
-	r, err := s.Commit(false)
+	r, err := s.Commit()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +198,7 @@ func TestSymlinkedSaveIsRefused(t *testing.T) {
 	}
 	defer s.Close()
 	s.ExecScript(`insert into t values (2)`)
-	if _, err := s.Commit(false); err == nil {
+	if _, err := s.Commit(); err == nil {
 		t.Fatal("commit through a symlink must be refused")
 	}
 }
@@ -205,7 +206,7 @@ func TestSymlinkedSaveIsRefused(t *testing.T) {
 func TestRestoreNeverTruncatesTheLiveFile(t *testing.T) {
 	s, p := openToy(t)
 	s.ExecScript(`insert into t values (2)`)
-	r, err := s.Commit(false)
+	r, err := s.Commit()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +228,7 @@ func TestRestoreNeverTruncatesTheLiveFile(t *testing.T) {
 func TestRestoreRefusesCorruptBackupAndPathTricks(t *testing.T) {
 	s, p := openToy(t)
 	s.ExecScript(`insert into t values (2)`)
-	if _, err := s.Commit(false); err != nil {
+	if _, err := s.Commit(); err != nil {
 		t.Fatal(err)
 	}
 	bdir := filepath.Join(filepath.Dir(p), "tabr-tau-backups")
@@ -244,17 +245,17 @@ func TestRestoreRefusesBackupWithUnknownPatches(t *testing.T) {
 	s, p := openToy(t)
 	// current save has one patch; a backup carrying a patch the current save lacks came from a newer game
 	s.ExecScript(`insert into applied_patches(name,date) values ('p1',1)`)
-	if _, err := s.Commit(false); err != nil {
+	if _, err := s.Commit(); err != nil {
 		t.Fatal(err)
 	}
 	s.ExecScript(`insert into applied_patches(name,date) values ('p2',2)`)
-	r, err := s.Commit(false)
+	r, err := s.Commit()
 	if err != nil {
 		t.Fatal(err)
 	}
 	// r's backup holds {p1}; make the live save older ({}), then restoring the {p1} backup must be refused
 	s.ExecScript(`delete from applied_patches`)
-	if _, err := s.Commit(false); err != nil {
+	if _, err := s.Commit(); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.Restore(filepath.Base(r["backup"].(string))); err == nil {
@@ -269,7 +270,7 @@ func TestReloadFailureAfterRenameIsAWarningNotAnError(t *testing.T) {
 	old := reloadAfterCommit
 	reloadAfterCommit = func(*Save) error { return errors.New("boom") }
 	t.Cleanup(func() { reloadAfterCommit = old })
-	r, err := s.Commit(false)
+	r, err := s.Commit()
 	if err != nil {
 		t.Fatalf("the file was written; a reload problem must not be reported as a failed save: %v", err)
 	}
@@ -302,7 +303,7 @@ func TestReadBackMismatchRestoresThePreviousBytes(t *testing.T) {
 	oldWait := renameBackoff
 	renameBackoff = 0
 	t.Cleanup(func() { fsRename = old; renameBackoff = oldWait })
-	_, err := s.Commit(false)
+	_, err := s.Commit()
 	if err == nil || !strings.Contains(err.Error(), "read back") {
 		t.Fatalf("want a read-back error, got %v", err)
 	}
@@ -314,7 +315,7 @@ func TestReadBackMismatchRestoresThePreviousBytes(t *testing.T) {
 func TestRestoreRefusesWhenTheFileChangedOnDisk(t *testing.T) {
 	s, p := openToy(t)
 	s.ExecScript(`insert into t values (2)`)
-	r, err := s.Commit(false)
+	r, err := s.Commit()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -368,7 +369,7 @@ func TestCommitReloadFailureBlocksFurtherEdits(t *testing.T) {
 	old := reloadAfterCommit
 	reloadAfterCommit = func(*Save) error { return errors.New("boom") }
 	t.Cleanup(func() { reloadAfterCommit = old })
-	if _, err := s.Commit(false); err != nil {
+	if _, err := s.Commit(); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.ExecScript(`insert into t values (3)`); err == nil || !strings.Contains(err.Error(), "read-only") {

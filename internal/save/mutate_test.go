@@ -190,7 +190,7 @@ func TestOpsRecordDescriptionRowsAndTime(t *testing.T) {
 func TestCommitMakesTheWrittenFileTheNewBaseline(t *testing.T) {
 	s := testsave.Player(t)
 	testsave.Exec(t, s, `update items set stack_size=5 where id=10`)
-	if _, err := s.Commit(true); err != nil {
+	if _, err := s.Commit(); err != nil {
 		t.Fatal(err)
 	}
 	if n := baselineCount(t, s, `select stack_size from items where id=10`); n != 5 {

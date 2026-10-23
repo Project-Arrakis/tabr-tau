@@ -105,7 +105,7 @@ func TestFlushHoldsAQueueWhoseEditWasWorkedOutFromRowsTheGameChanged(t *testing.
 	if _, err := other.Exec(`update jt set n=5100 where a=1`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := other.Commit(false); err != nil {
+	if _, err := other.Commit(); err != nil {
 		t.Fatal(err)
 	}
 	other.Close()
