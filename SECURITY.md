@@ -48,6 +48,10 @@ your computer (they can edit your save directly).
 - There is no review step before a write (the review pane was removed in #238). What stands in its place is the set of guards above at every
   write, the backups (Database > Save backups restores one), the queue with its list and its Discard control, and the confirmations that
   remain for destructive actions. The audit register records this replacement.
+- Whether the game is running is read from the system's process list in memory (the Windows process snapshot); the editor starts no other program
+  to find out, so a program placed earlier in the search path cannot answer for it and there is no child process to fail. A check that fails is tried
+  again a few times before it blocks anything. If it still cannot be made, the write is refused and the edit waits in the queue, with the reason
+  shown; the editor checks again by itself, and **Check again** and **Write now** run the check at once. A write never relies on an older answer.
 - Every write is recorded: after the file has been written the editor appends one line to `write-log.jsonl` in its own folder
   (`%APPDATA%\tabr-tau`): when, how many edits, what they were in words, and the name of the backup taken before (a restore of a backup is
   recorded the same way). The words are the sentences the page lists as changes, so they can carry game ids and amounts ("Give 500 x ... to

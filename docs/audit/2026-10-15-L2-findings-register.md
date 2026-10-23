@@ -39,7 +39,7 @@ Counts (93 findings): **69 fixed**, **1 obsolete** (DBA-4: the route was removed
 | SEC-5 | fixed | #197; comma-ok in `baseview.go`, `recoverPanic`; `TestBaseViewsSurviveABuildingWithNoType`. Other bare type assertions read NOT NULL columns and are backstopped by `recoverPanic` |
 | SEC-6 | fixed | #197; `readCapped` stats the file before it reads (`codec.go`); `readcap_test.go` |
 | SEC-7 | fixed | #200; the cookie name carries the port and `hasSession` scans every cookie of that name (`TestAShadowCookieDoesNotHideTheRealOne`); that every port of 127.0.0.1 receives it is accepted and documented (NET-2) |
-| SEC-8 | fixed | #203; `tasklist` and `rundll32` by full System32 path (`winpath`) |
+| SEC-8 | fixed | #203; `tasklist` and `rundll32` by full System32 path (`winpath`); the game check no longer starts `tasklist` at all (process snapshot, #366) |
 | SEC-9 | fixed | the turn-on question is at `app.js` (`autoRefillOnOpen`) and every refill write is in `write-log.jsonl` (#296); the toggle itself is not logged |
 | SEC-10 | fixed | #197; `publicError`; `TestErrorsDoNotCarryAbsolutePathsOrTheHomeFolder`. One start-up note (`errors.Join` in `server.go`) is not passed through it; no path is known to reach it |
 | GRC-1 | accepted risk | owner decision 2026-10-15 (#196): README carve-out, `docs/art-notice.md`, `THIRD-PARTY-NOTICES.md`; the `LICENSE` file itself has no carve-out |
