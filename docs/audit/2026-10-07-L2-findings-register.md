@@ -11,12 +11,12 @@ mutation checks in a scratch copy. Tracking issue: #24. Fixes below landed in PR
 
 Every finding was checked again against the current code, tests and CI (not against the old text). The "Disposition" columns below are kept as written on 2026-10-07; the table here is the current status. The "Review & save" pane was removed on 2026-10-22 (#238, #240, see `docs/control-removal.md` and `SECURITY.md`), which makes the S2 block, P7, P8, UX-2 and UX-3 obsolete. Ids such as ARCH-5, ARCH-6 and QA-4 are used again with other meanings in the 2026-10-22 register; here they mean what this file says.
 
-Counts (84 findings; the rows that listed several ids at once are counted once per id, except where the id list is one finding: D4/D5/ARCH-7 and S1/ARCH-3): **55 fixed**, **12 obsolete**, **7 accepted risk**, **10 open**.
+Counts (84 findings; the rows that listed several ids at once are counted once per id, except where the id list is one finding: D4/D5/ARCH-7 and S1/ARCH-3): **56 fixed**, **12 obsolete**, **9 accepted risk**, **7 open**. (Changed on 2026-10-23 by #39: ARCH-6 is fixed, D8 and D9 are accepted risk; before that 55, 12, 7 and 10.)
 
 | Status | Findings |
 |---|---|
 | Open, needs the live game | D6 (volume and `sqlite_sequence`), N-3 (cloud-sync behaviour of the backups folder) |
-| Open, needs a decision (recommendation: accept, with a line in `SECURITY.md`) | D8 (no free-space check; a failed write is cleaned up), D9 (a window of milliseconds between the last hash check and the rename), ARCH-6 (ownership pre-checks before the transaction), QA-6 (no mid-way failure injection into a repair), S7 (`Tables()` and `inspect()` have no timeout, reachable only with a hostile file), C-2 (`StrictHostKeyChecking=accept-new` in `tools/send-snapshot.ps1`) |
+| Open, needs a decision (recommendation: accept, with a line in `SECURITY.md`) | QA-6 (no mid-way failure injection into a repair), S7 (`Tables()` and `inspect()` have no timeout, reachable only with a hostile file), C-2 (`StrictHostKeyChecking=accept-new` in `tools/send-snapshot.ps1`) |
 | Open, hygiene | QA-4 (12 uses of the toy schema remain in `internal/ops/ops_test.go`), QA-7 (loose wall-clock bounds, 3 s to 20 s) |
 
 | ID | Status | Evidence |
@@ -33,10 +33,10 @@ Counts (84 findings; the rows that listed several ids at once are counted once p
 | D2, D3, D7 | fixed | the foreign-key gate `internal/save/mutate.go` (#42); `lockedTables` in `internal/ops/db.go` |
 | D4/D5/ARCH-7 | fixed | the "value is unchanged" text no longer exists |
 | D6 | open (live game) | the stack cap (`catalog.MaxStack`, #240, #280), the known-template check (#185) and the capacity check are in; `max_item_volume` is only displayed, never checked on give (`internal/ops/ops.go`), and `sqlite_sequence` is not read; two `, _ :=` still drop a query error in `giveRowsInTx`. What the game enforces needs a live check |
-| D8 | open (decision) | Restore refuses while edits are pending (`TestRestoreRefusesWithPendingEdits`); retention keeps the 60 newest plus the first and oldest (#273); no free-space check |
-| D9 | open (decision) | the game and the hash are checked again right before the rename (`internal/save/durable.go`, #297); a window of milliseconds remains and `SECURITY.md` does not say so |
+| D8 | accepted risk | Restore refuses while edits are pending (`TestRestoreRefusesWithPendingEdits`); retention keeps the 60 newest plus the first and oldest (#273); there is no free-space check: a backup or temp file that cannot be written fails before the file is replaced and changes nothing, and `SECURITY.md` says so (#39) |
+| D9 | accepted risk | the game and the hash are checked again right before the rename (`internal/save/durable.go`, #297); a window of milliseconds remains, a game save inside it is caught by the read-back, which leaves the game's file alone; `SECURITY.md` says so (#39) |
 | ARCH-5 | fixed | build-then-swap `load()`; `TestFailedReloadLeavesThePreviousStateUsable` |
-| ARCH-6 | open (decision) | `requireEditableItem` and `GiveItem` check ownership before `Mutate` (`internal/ops/scope.go`); the transaction re-reads the row, so the result is a clean "not found"; only this editor's own requests can race |
+| ARCH-6 | fixed | `requireEditableItem` and `GiveItem` check ownership before `Mutate` (`internal/ops/scope.go`); the transaction re-reads the row, so the result is a clean "not found" (accepted in writing: only this editor's own requests can race); the two reads of `giveRowsInTx` that ignored their errors (the used slots and the stats source) return them (#39, `TestAGiveReturnsTheErrorOfAReadThatFailed`) |
 | QA-1, QA-2, QA-3 | fixed | `TestRestoreRefusesWhenTheFileChangedOnDisk`, `TestReadBackMismatchRestoresThePreviousBytes`, `TestWriteConsoleAllowlist` |
 | QA-4 | open (hygiene) | real-schema fixtures are used in about 40 test files; `newOps` (toy schema) remains in `ops_test.go` |
 | QA-5 | fixed | `TestGiveItemsQueueIsAtomicAndUsesDistinctSlots`, `TestWriteConsoleIsAtomicAcrossStatements` |
