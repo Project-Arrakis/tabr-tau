@@ -8,7 +8,7 @@ func TestRestoreRefusesWithPendingEdits(t *testing.T) {
 	s, _ := Open(p)
 	defer s.Close()
 	s.Exec(`update t set a=2`)
-	if _, err := s.Commit(false); err != nil {
+	if _, err := s.Commit(); err != nil {
 		t.Fatal(err)
 	}
 	name := s.Backups()[0]["name"].(string)

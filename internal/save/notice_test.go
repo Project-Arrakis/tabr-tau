@@ -15,7 +15,7 @@ func gameSavesRow3(t *testing.T, p string) {
 	if _, err := other.Exec(`insert into jt values (3,'the game''s',9.5,x'09',9)`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := other.Commit(false); err != nil {
+	if _, err := other.Commit(); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -47,7 +47,7 @@ func TestTheNoticeOfDroppedEditsSurvivesTheWriteAndTheRefresh(t *testing.T) {
 	// the game saves again and, with nothing queued, the page reads the file by itself
 	other, _ := Open(p)
 	other.Exec(`update jt set n=77 where a=2`)
-	other.Commit(false)
+	other.Commit()
 	other.Close()
 	if err := s.Discard(); err != nil {
 		t.Fatal(err)
@@ -88,7 +88,7 @@ func TestANoticeWithNothingDroppedGoesWithTheWriteAndWithTheDiscard(t *testing.T
 	}
 	other, _ := Open(p)
 	other.Exec(`insert into jt values (4,'the game''s',1,x'01',1)`)
-	other.Commit(false)
+	other.Commit()
 	other.Close()
 	if r, _ := s.Rebase(); r == nil || r.Applied != 1 || len(r.Conflicts) != 1 || s.Restored() == nil {
 		t.Fatalf("%+v", r)

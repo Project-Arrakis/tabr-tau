@@ -28,7 +28,7 @@ func writeSave(t *testing.T, edit string) string {
 	if edit != "" {
 		testsave.Exec(t, s, edit)
 	}
-	if _, err := s.Commit(true); err != nil && edit != "" {
+	if _, err := s.Commit(); err != nil && edit != "" {
 		t.Fatal(err)
 	}
 	return s.Path
