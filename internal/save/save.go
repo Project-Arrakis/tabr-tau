@@ -585,6 +585,11 @@ func (s *Save) backupNamed(tag string) (string, [32]byte, error) {
 // the last couple of minutes (a burst of edits is one restore point, taken before the first of them), and keeps the newest backups only; otherwise a backup of its own is taken
 // every time (CommitForTests).
 func (s *Save) commit(quick bool) (map[string]any, error) {
+	// s.mu is held from here to the end, across the hash of the file, the encode and its round trip, the backup, the temp file and the rename with its retries (up to about three
+	// seconds when another program holds the file), and the reload. It is not narrowed because what it protects is one consistent step: the working copy that is encoded is the one
+	// whose edits are then marked written (dirty cleared, the list of edits emptied, the journal dropped), and an edit that came in between would be marked written without
+	// being in the file. What stays slow under it is the encode and the disk; a status read waits that long. The game-running check, a process spawn, is not repeated under the
+	// lock by the automatic write (Flush has just made it, and the check right before the rename, in installBlob, is the one that counts).
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.dirty {
@@ -596,8 +601,10 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 	if err := s.requirePlainFile(); err != nil {
 		return nil, err
 	}
-	if blocked, why := SaveBlocked(s.Path); blocked {
-		return nil, apierr.New(apierr.ErrGameBlocked, why)
+	if !quick { // the automatic write has just passed this check in Flush (without the lock), and installBlob makes it again right before the rename
+		if blocked, why := SaveBlocked(s.Path); blocked {
+			return nil, apierr.New(apierr.ErrGameBlocked, why)
+		}
 	}
 	cur, err := readCapped(s.Path)
 	if err != nil {
