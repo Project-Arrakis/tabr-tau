@@ -598,6 +598,58 @@ test('Refill Literjons reports what it filled and shows a container it could not
   ui.dom.window.close();
 });
 
+test('Fill blood sacks shows how many are not full, posts once and reports what it filled and left alone, names as plain text', async () => {
+  const hostile = '<img src=x onerror=1>';
+  const ui = await boot({ get: { '/api/player/blood-sacks': { total: 4, notFull: 3, unknown: 2, holdingOther: 0 } },
+    post: { '/api/player/fill-blood-sacks': { ok: true, filled: 3, byTemplate: { Bloodsack_01: 1, Bloodsack_Unique_Durable_06: 2 }, alreadyFull: 1, holdingOther: 0, unknown: 2, skippedUnknown: ['Bloodsack_02 x1', hostile + ' x1'] } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="char:inventory"]'); await ui.settle();
+  const note = ui.doc.querySelector('#bloodnote');
+  assert.ok(note.textContent.includes('3 of 4 blood sacks are not full'), note.textContent);
+  assert.ok(note.textContent.includes('2 blood sacks of an unknown kind will be left alone'), note.textContent);
+  const btn = ui.doc.querySelector('[data-act="fillBlood"]');
+  assert.equal(btn.textContent, 'Fill blood sacks');
+  assert.equal(btn.disabled, false);
+  assert.ok(ui.doc.querySelector('[data-act="refill"]'), 'the water refill button is still there');
+  ui.click('[data-act="fillBlood"]'); await ui.settle();
+  const toast = ui.doc.querySelector('#toast');
+  assert.ok(toast.textContent.includes('Filled 3 blood sacks'), toast.textContent);
+  assert.ok(toast.textContent.includes('1 already full'), toast.textContent);
+  assert.ok(/\(1 x [^,]+, 2 x [^)]+\)/.test(toast.textContent), 'how many of each kind: ' + toast.textContent);
+  assert.ok(toast.textContent.includes('2 blood sacks of an unknown kind were left alone'), toast.textContent);
+  assert.ok(toast.textContent.includes(hostile), 'the name is shown as text');
+  assert.equal(toast.querySelector('img'), null, 'and never becomes markup');
+  assert.equal(ui.posted.filter((p) => p.path === '/api/player/fill-blood-sacks').length, 1);
+  assert.equal(ui.posted.filter((p) => p.path === '/api/player/refill').length, 0, 'the water refill is not run by it');
+  ui.dom.window.close();
+});
+
+test('Fill blood sacks is switched off when every sack is full, and says so when none were filled', async () => {
+  const ui = await boot({ get: { '/api/player/blood-sacks': { total: 2, notFull: 0, unknown: 1, holdingOther: 0 } },
+    post: { '/api/player/fill-blood-sacks': { ok: true, filled: 0, byTemplate: {}, alreadyFull: 2, holdingOther: 0, unknown: 1, skippedUnknown: ['Bloodsack_02 x1'] } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="char:inventory"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('[data-act="fillBlood"]').disabled, true);
+  assert.ok(ui.doc.querySelector('#bloodnote').textContent.includes('0 of 2 blood sacks are not full'));
+  // a stale page can still send it; the answer is plain
+  ui.doc.querySelector('[data-act="fillBlood"]').disabled = false;
+  ui.click('[data-act="fillBlood"]'); await ui.settle();
+  const t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.includes('No blood sack needed filling (2 already full)') && t.includes('1 blood sack of an unknown kind was left alone'), t);
+  ui.dom.window.close();
+});
+
+test('Fill blood sacks still works when the count cannot be read, and a refusal is shown', async () => {
+  const ui = await boot({ get: { '/api/player/blood-sacks': { __fail: 'no count', __status: 500 } }, post: { '/api/player/fill-blood-sacks': { __fail: 'The file changed on disk', __code: 'conflict', __status: 409 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="char:inventory"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#bloodnote').textContent.includes('could not be counted'));
+  assert.equal(ui.doc.querySelector('[data-act="fillBlood"]').disabled, false);
+  ui.click('[data-act="fillBlood"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('The file changed on disk'));
+  ui.dom.window.close();
+});
+
 test('Expand claim asks first, posts the chosen size and level, and the totem name stays plain text', async () => {
   const claim = [{ totem_id: 7, name: '<img src=x onerror=1> Totem', cells: 1, rings: 0, level: 0, maxRings: 5, maxLevel: 5 }];
   const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/claim': claim }, post: { '/api/bases/claim/expand': { ok: true, added: 24, totalCells: 25, level: 2 } } });

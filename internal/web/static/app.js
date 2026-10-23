@@ -528,6 +528,16 @@ function levelResetCard() {
   const note = xp === null ? 'This save has no level record for the character.' : xp > 0 ? 'The XP goes back to 0 and the level with it, and the skill points the levels gave are taken back. Skills you bought stay. Asks first.' : 'Nothing to reset: the character has no XP.';
   return html`<div class="card"><h3>Reset level and XP</h3><div class="row"><button class="b bad" data-act="lvReset" aria-describedby="lvresetnote" ${xp ? '' : 'disabled'}>Reset level and XP (${Number(xp || 0).toLocaleString()} XP)</button><span class="mut" id="lvresetnote">${note}</span></div></div>`;
 }
+// Fill blood sacks (issue #60), beside the Refill Literjons button of Give item: the count says how many of the character's blood sacks are not full. Only the kinds whose
+// capacity was seen in a save are filled; the others are left alone and counted.
+async function bloodSacksCard() {
+  let b = null;
+  try { b = await api('/api/player/blood-sacks'); } catch (e) { b = null; }
+  const total = b ? Number(b.total) || 0 : 0, notFull = b ? Number(b.notFull) || 0 : 0, unknown = b ? Number(b.unknown) || 0 : 0;
+  const count = !b ? 'The blood sacks could not be counted.' : total || unknown ? `${notFull} of ${total} blood sacks are not full.` : 'No blood sacks in the backpack, worn gear or loadout.';
+  const left = unknown ? ` ${unknown} blood ${unknown == 1 ? 'sack' : 'sacks'} of an unknown kind will be left alone.` : '';
+  return html`<div class="card"><h3>Blood sacks</h3><div class="row"><button class="b sec" data-act="fillBlood" aria-describedby="bloodnote" ${b && !notFull ? 'disabled' : ''}>Fill blood sacks</button><span class="mut" id="bloodnote">${count}${left} Fills the sacks you carry to the most blood seen in a save for that kind (the Mk6 unique sack 30000, the basic sack 3000), without changing anything else about them. Water containers are not touched. The fill has not been checked in the game yet.</span></div></div>`;
+}
 async function playerSection(s) {
   const h = s == 'character' ? [subNav('char', [['overview', 'Overview'], ['inventory', 'Inventory'], ['reputation', 'Reputation']])] : [];
   const c = s == 'character' ? sub.char || 'overview' : s;
@@ -573,6 +583,7 @@ async function playerSection(s) {
     <div class="row" id="gaug"></div>
     ${giveQueue.length ? html`<div class="row"><b>Queue (${giveQueue.length})</b>${giveQueue.map((q, i) => html`<span class="tag">${q.quantity} x ${itemName(q.template_id)}${q.quality ? ' (grade ' + q.quality + ')' : ''}${q.augments && q.augments.length ? ' + ' + q.augments.map((a) => augName(a)).join(', ') : ''} <button class="b sec sm" data-act="queueDel" data-id="${i}" title="Remove from the queue">x</button></span>`)}<button class="b" data-act="queueGive">Give queued items</button><button class="b sec" data-act="queueClear">Clear</button></div>` : ''}
     <p class="mut">Pick an item by its in-game name. Items already in your save that the catalog does not know are listed by their template id; any valid template id can also be typed.</p></div>
+    ${await bloodSacksCard()}
     ${invCard}`);
   } else if (c == 'reputation') {
     const f = await api('/api/player/factions');
@@ -1144,6 +1155,13 @@ const A = {
   faction: () => act(async () => { const r = await api('/api/player/faction', { faction_id: +val('facSel') }); toast(`Faction set to ${r.faction}` + NOT_SAVED); }, null),
   repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(`Repaired ${r.repaired} items` + NOT_SAVED); }, null),
   fillWater: () => act(async () => { const r = await api('/api/player/hydration', {}); toast(`Hydration ${Math.round(r.before * 10) / 10} → ${r.after}` + NOT_SAVED); }, null),
+  fillBlood: () => act(async () => {
+    const r = await api('/api/player/fill-blood-sacks', {});
+    const by = Object.entries(r.byTemplate || {}).sort().map(([k, n]) => `${n} x ${itemName(k)}`).join(', ');
+    const un = r.unknown ? ` ${r.unknown} blood ${r.unknown == 1 ? 'sack' : 'sacks'} of an unknown kind ${r.unknown == 1 ? 'was' : 'were'} left alone${(r.skippedUnknown || []).length ? ` (${r.skippedUnknown.join(', ')})` : ''}.` : '';
+    const other = r.holdingOther ? ` ${r.holdingOther} holding something other than blood ${r.holdingOther == 1 ? 'was' : 'were'} left alone.` : '';
+    toast((r.filled ? `Filled ${r.filled} blood ${r.filled == 1 ? 'sack' : 'sacks'} (${by}); ${r.alreadyFull} already full.` : `No blood sack needed filling (${r.alreadyFull} already full).`) + un + other + NOT_SAVED);
+  }, null),
   refill: () => act(async () => { const r = await api('/api/player/refill', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} Literjons (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
   delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). It is written at once, after a backup. If the file cannot be written (for example a single-player session is running) it is queued and written when it can be.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
   clearInv: async (d) => {

@@ -28,6 +28,16 @@ var waterCapacity = map[string]float64{
 	"HighCapacityLiterjon_06": 3000,
 }
 
+// bloodCapacity is how much blood each blood sack holds when full, in the unit of the save's FFillableItemStats.CurrentAmount.
+//
+// Source: the largest amount seen in a save, not the game's data. A full Bloodsack_Unique_Durable_06 held 30000 and a full Bloodsack_01 held 3000
+// (2026-10-23). Whether that is the true capacity of the sack is not known, and the tool has not yet checked in the game that it accepts a sack
+// filled this way. Every other blood sack template is left alone and reported, because its capacity is unknown (issue #60).
+var bloodCapacity = map[string]float64{
+	"Bloodsack_Unique_Durable_06": 30000,
+	"Bloodsack_01":                3000,
+}
+
 // RefillContainers fills every water container the player carries to its capacity. A container holding
 // something other than water (a blood sack) is left alone. The fill level lives in the item's own stats as
 // {"FFillableItemStats":[[],{"CurrentAmount":N,"FillableType":"Water"}]}; an empty container has no such key.
