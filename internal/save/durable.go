@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 )
 
 // Hooks so tests can inject faults (a locked file, a failing reload). Production code never changes them.
@@ -89,6 +91,14 @@ func (s *Save) installBlob(blob []byte) error {
 	tmp := s.tmpPath()
 	if err := writeDurable(tmp, blob, 0o600); err != nil {
 		return err
+	}
+	// The game-running check of the caller was made well before this point (the encode, the round trip, the backup and the temp file came after it, and on a large save that
+	// is seconds, in which a single-player session can start and the game rewrite the file). It is made again right before the rename, which is the step that cannot be undone
+	// by the game's own write: a session that began in between leaves the edits queued instead. It comes before the look at the file on disk, not after, because the check
+	// itself takes time in which the game can save: what the file is must be read last.
+	if blocked, why := SaveBlocked(s.Path); blocked {
+		os.Remove(tmp)
+		return apierr.New(apierr.ErrGameBlocked, why)
 	}
 	cur, err := readCapped(s.Path)
 	if err != nil {

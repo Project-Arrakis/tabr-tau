@@ -235,9 +235,15 @@ func openCopy(raw []byte, pattern, opts string) (path string, db *sql.DB, err er
 // load (re)reads the file on disk into a fresh working copy and read-only handle. The new copies are built first and
 // swapped in only when all of them succeeded, so a failure leaves the previous state intact and leaks no temp files.
 func (s *Save) load() error {
+	// The file's size and time are taken before its content is read: if the game rewrites the file in between, the recorded time is the older one, so the next look at the file
+	// finds it different from what was loaded (taken after the read, the new time would be recorded against the old content and the change would go unseen).
+	st, statErr := os.Stat(s.Path)
 	blob, err := readCapped(s.Path)
 	if err != nil {
 		return err
+	}
+	if afterLoadRead != nil {
+		afterLoadRead()
 	}
 	raw, err := Decode(blob)
 	if err != nil {
@@ -270,14 +276,23 @@ func (s *Save) load() error {
 	}
 	s.work, s.db, s.rdb = work, db, rdb
 	s.blocked, s.fkBase = blocked, base
-	s.noteDisk(blob)
+	s.diskHash = hashOf(blob)
+	s.diskSize, s.diskMod = 0, time.Time{}
+	s.changedSize, s.changedMod = 0, time.Time{}
+	if statErr == nil {
+		s.diskSize, s.diskMod = st.Size(), st.ModTime()
+	}
 	s.dirty = false
 	s.ops = nil
 	s.recs, s.recStmts = nil, 0 // the journal file is left to whoever called: Open restores from it, Discard drops it
 	return nil
 }
 
-// noteDisk records the file as it now is (its content hash, size and modification time) as the baseline the editor works from.
+// afterLoadRead is called by a test between reading the file and building the working copy, to change the file there.
+var afterLoadRead func()
+
+// noteDisk records the file as it now is (its content hash, size and modification time) as the baseline the editor works from. It is for a file the editor has just written
+// (the size and time are those of what it wrote); a file that was read is recorded by load, which took them before the read.
 func (s *Save) noteDisk(blob []byte) {
 	s.diskHash = hashOf(blob)
 	s.diskSize, s.diskMod = 0, time.Time{}
@@ -570,6 +585,11 @@ func (s *Save) backupNamed(tag string) (string, [32]byte, error) {
 // the last couple of minutes (a burst of edits is one restore point, taken before the first of them), and keeps the newest backups only; otherwise a backup of its own is taken
 // every time (CommitForTests).
 func (s *Save) commit(quick bool) (map[string]any, error) {
+	// s.mu is held from here to the end, across the hash of the file, the encode and its round trip, the backup, the temp file and the rename with its retries (up to about three
+	// seconds when another program holds the file), and the reload. It is not narrowed because what it protects is one consistent step: the working copy that is encoded is the one
+	// whose edits are then marked written (dirty cleared, the list of edits emptied, the journal dropped), and an edit that came in between would be marked written without
+	// being in the file. What stays slow under it is the encode and the disk; a status read waits that long. The game-running check, a process spawn, is not repeated under the
+	// lock by the automatic write (Flush has just made it, and the check right before the rename, in installBlob, is the one that counts).
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.dirty {
@@ -581,8 +601,10 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 	if err := s.requirePlainFile(); err != nil {
 		return nil, err
 	}
-	if blocked, why := SaveBlocked(s.Path); blocked {
-		return nil, apierr.New(apierr.ErrGameBlocked, why)
+	if !quick { // the automatic write has just passed this check in Flush (without the lock), and installBlob makes it again right before the rename
+		if blocked, why := SaveBlocked(s.Path); blocked {
+			return nil, apierr.New(apierr.ErrGameBlocked, why)
+		}
 	}
 	cur, err := readCapped(s.Path)
 	if err != nil {
