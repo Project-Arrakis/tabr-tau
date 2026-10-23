@@ -33,7 +33,7 @@ func hashRows(rows []Row) string {
 // readable says whether a statement is a single SELECT (or a WITH leading into one that does not write): the only kind of query the journal runs again.
 func readable(q string) bool {
 	s := strings.TrimRight(strings.TrimSpace(q), "; \t\r\n")
-	if s == "" || strings.Contains(s, ";") {
+	if s == "" || !oneStatement(q) {
 		return false
 	}
 	w := strings.ToLower(s)
