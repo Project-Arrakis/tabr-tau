@@ -546,6 +546,24 @@ func (s *Save) Discard() error {
 	return nil
 }
 
+// DiscardIfClean is Discard for the automatic refresh: it reads the file again only when nothing is queued, and decides that under the same locks that the read takes. A check of
+// Dirty followed by Discard is two steps: an edit made between them would be thrown away by the second and the request would say it had worked. It returns false, and leaves the
+// queue and the file as they are, when an edit is waiting (or a queue is held).
+func (s *Save) DiscardIfClean() (bool, error) {
+	s.flushMu.Lock()
+	defer s.flushMu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.dirty || s.held != nil {
+		return false, nil
+	}
+	if err := s.load(); err != nil {
+		return false, err
+	}
+	s.dropJournal()
+	return true, nil
+}
+
 func (s *Save) backupDir() string { return filepath.Join(filepath.Dir(s.Path), "tabr-tau-backups") }
 
 func hashOf(b []byte) [32]byte { return sha256.Sum256(b) }
