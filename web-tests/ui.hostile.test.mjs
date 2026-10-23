@@ -1173,6 +1173,55 @@ test('Specialization: every track is listed, unknown numbers disable XP actions,
   ui.dom.window.close();
 });
 
+test('Specialization on a new save says why the XP controls are off and what to do; keystones still work; the raw row is folded and asks first (UX-36)', async () => {
+  const row = (o) => ({ track: 'Combat', number: null, xp: 0, level: 0, keystoneOwned: 0, keystoneTotal: 41, granted: false, ...o });
+  const specs = { rows: [row({}), row({ track: 'Gathering' })], unassigned: [], maxXp: 44182, tracks: ['Combat', 'Gathering'] };
+  const ui = await boot({ get: { '/api/player/specs': specs }, post: { '/api/player/specs': { ok: true } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:specialization"]'); await ui.settle();
+  const note = ui.doc.querySelector('#spnone');
+  assert.ok(note, 'a note appears while no track has a number');
+  assert.ok(note.textContent.includes('Earn a little XP') && note.textContent.includes('Track numbers') && note.textContent.includes('Keystones need no numbers'), note.textContent);
+  const add = ui.doc.querySelector('[data-act="spAdd"][data-t="Combat"]');
+  assert.ok(add.disabled && add.title.includes('not known yet'), 'a disabled button says why');
+  assert.ok(!ui.doc.querySelector('[data-act="spKeyAll"]').disabled, 'keystones need no numbers');
+  const adv = [...ui.doc.querySelectorAll('details')].find((d) => d.textContent.includes('Advanced: set a raw row'));
+  assert.ok(adv && !adv.open, 'the raw row is folded');
+  ui.doc.querySelector('#st').value = '3'; ui.doc.querySelector('#sx').value = '500'; ui.doc.querySelector('#sl').value = '2';
+  ui.click('[data-act="specSet"]'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/player/specs').length, 0, 'nothing is sent before the answer');
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes('Track number 3') && ui.doc.querySelector('#ask').textContent.includes('500 XP'), ui.doc.querySelector('#ask').textContent);
+  ui.click('#aok'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/specs').map((p) => p.body), [{ track_type: 3, xp: 500, level: 2 }]);
+  ui.dom.window.close();
+  // once a track has a number the note is gone
+  const known = { ...specs, rows: [row({ number: 2, xp: 10, level: 1 }), row({ track: 'Gathering' })] };
+  const ui2 = await boot({ get: { '/api/player/specs': known } });
+  ui2.click('[data-tab="player"]'); await ui2.settle();
+  ui2.click('[data-sub="player:specialization"]'); await ui2.settle();
+  assert.equal(ui2.doc.querySelector('#spnone'), null);
+  ui2.dom.window.close();
+});
+
+test('an empty table says what is empty in its own words on Structures, Landsraad and the config backups (UX-38)', async () => {
+  const bases = JSON.parse(JSON.stringify(baseFixtures['/api/bases'].body));
+  bases.placeables = []; bases.types = [];
+  const lands = JSON.parse(JSON.stringify(baseFixtures['/api/landsraad'].body));
+  lands.decrees = [];
+  const ui = await boot({ get: { '/api/bases': bases, '/api/bases/list': BASE7, '/api/landsraad': lands, '/api/config/backups': [] } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:bases"]'); await ui.settle();
+  ui.click('[data-bstab="structures"]'); await ui.settle();
+  let t = ui.doc.querySelector('#main').textContent;
+  assert.ok(t.includes('No placeables in this save.') && t.includes('No building pieces in this save.'), t.slice(0, 300));
+  ui.click('[data-tab="landsraad"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#main').textContent.includes('This save has no decrees.'));
+  ui.click('[data-tab="config"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#main').textContent.includes('No backups of this file yet'));
+  for (const name of ['Nothing to show here.', 'Nothing here.']) assert.ok(!ui.doc.querySelector('#main').textContent.includes(name), name);
+  ui.dom.window.close();
+});
+
 test('Resetting a specialization track that holds nothing says nothing changed, not that it was reset (ARCH-4)', async () => {
   const row = (o) => ({ track: 'Combat', number: 2, xp: 0, level: 0, keystoneOwned: 0, keystoneTotal: 41, granted: false, ...o });
   const specs = { rows: [row({})], unassigned: [], maxXp: 44182, tracks: ['Combat'] };
