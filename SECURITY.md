@@ -66,7 +66,7 @@ while the file cannot be written). There is no second, human step between the re
 - A program that already runs as you, and could therefore replay the cookie, can edit the save file directly; that is out of scope above.
 - What limits the damage of a request that is wrong or unwanted is the same set of guards at every write (no single-player session, an unchanged
   file, an integrity check, a read-back), a backup before each burst of edits that Database > Save backups restores, the queue with its list
-  and Discard control, a typed word before a raw SQL write or a restore, a typed item count before a container is cleared, a question before the bulk actions, and the write log above.
+  and Discard control, a typed word before a raw SQL write or a restore, a typed item count before a container is cleared, a refuel that raises one fuel number of each of your own vehicles and never lowers one, a question before the bulk actions, and the write log above.
 
 This is to be looked at again if the editor ever listens beyond this computer, serves more than one person, or offers an interface to other programs.
 

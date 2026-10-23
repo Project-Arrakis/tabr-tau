@@ -947,8 +947,20 @@ async function basesView() {
 let vhOpen = null;
 const pctCell = (v) => (v == null ? html`<span class="mut">-</span>` : html`<span class="${v < 30 ? 'bad' : v < 60 ? 'warn' : 'ok'}">${Math.round(v)}%</span>`);
 const compName = (t) => String(t || '').replace(/_\d+$/, '').replace(/([a-z])([A-Z])/g, '$1 $2');
+// The kind of a vehicle from its blueprint name: BP_MediumOrnithopter_CHOAM_C is a Medium Ornithopter.
+const vehKind = (c) => String(c || '').replace(/^BP_/, '').replace(/_C$/, '').replace(/_CHOAM$/i, '').replace(/([a-z])([A-Z])/g, '$1 $2');
+// Refuel all my vehicles (issue #349): the count says how many of the character's vehicles are not full. Only the kinds whose full tank was measured in the game are filled; the others are left alone and counted.
+function refuelCard(f) {
+  const total = f ? Number(f.total) || 0 : 0, notFull = f ? Number(f.notFull) || 0 : 0, unknown = f ? Number(f.unknown) || 0 : 0, noRec = f ? Number(f.noFuelRecord) || 0 : 0;
+  const count = !f ? 'The vehicles could not be counted.' : total ? `${notFull} of ${total} vehicles are not full.` : 'You have no vehicles in this save yet.';
+  const left = unknown ? ` ${unknown} ${unknown == 1 ? 'vehicle' : 'vehicles'} of an unknown kind will be left alone.` : '';
+  const none = noRec ? ` ${noRec} ${noRec == 1 ? 'vehicle has' : 'vehicles have'} no fuel record and will be left alone.` : '';
+  return html`<div class="card"><h3>Fuel</h3><div class="row"><button class="b" data-act="refuelV" aria-describedby="refuelnote" ${f && !notFull ? 'disabled' : ''}>Refuel all my vehicles</button><span class="mut" id="refuelnote">${count}${left}${none} Fills the fuel of your own vehicles to a full tank, never lowering a fuel amount that is already at or above it. The tank sizes were measured in the game (the fuel gauge read 100 % at these amounts): Sandbike 100, Buggy 240, Light Ornithopter 300, Medium Ornithopter 750, Sand Crawler 750, Transport Ornithopter 2500. A vehicle of any other kind is left alone and counted. Vehicles of other owners and the world's vehicles are not touched.</span></div></div>`;
+}
 async function vehiclesView() {
   const v = await api('/api/vehicles');
+  let fuel = null;
+  try { fuel = await api('/api/vehicles/fuel'); } catch (e) { fuel = null; }
   const open = v.vehicles.find((r) => r.id == vhOpen) || v.vehicles[0];
   if (open && open.cargo && open.cargo.items.length) await loadCatalog(open.cargo.items.map((i) => i.template_id));
   const h = [html`<div class="card"><h3>Your vehicles (${v.vehicles.length})</h3>${tbl([{ k: 'name', label: 'Vehicle', f: (r) => html`<b title="${r.name}">${r.type || r.name}</b> <span class="mut">${r.map}</span>` }, { k: 'type', label: 'Type' },
@@ -956,18 +968,18 @@ async function vehiclesView() {
     { k: 'x', label: 'Location', f: (r) => `${fix(r.x)}, ${fix(r.y)}` }], v.vehicles,
     { actions: (r) => html`<button class="b ${open && open.id == r.id ? '' : 'sec'} sm" data-vhopen="${r.id}">Details</button><button class="b sm" data-act="repairOne" data-id="${r.id}">Repair</button><button class="b sm" data-act="bring" data-id="${r.id}">Bring to me</button>`, empty: 'You have no vehicles in this save yet.' })}
     <div class="row"><button class="b" data-act="repairV">Repair all my vehicles</button><label>Only modules below <input id="rvPct" type="number" min="1" max="100" value="100" class="w70"> % of their full durability</label></div>
-    <p class="mut">Makes every module as good as new: full durability, and the maximum that repairs at a workbench wore down is restored too. 100 repairs every module that is not already as good as new; a lower number repairs only the modules below that share, and says when there were none. A module whose full durability is not known is raised to the maximum it records, or skipped when it records none.</p></div>`];
+    <p class="mut">Makes every module as good as new: full durability, and the maximum that repairs at a workbench wore down is restored too. 100 repairs every module that is not already as good as new; a lower number repairs only the modules below that share, and says when there were none. A module whose full durability is not known is raised to the maximum it records, or skipped when it records none.</p></div>`, refuelCard(fuel)];
   if (open) {
     const cargo = open.cargo;
     h.push(html`<div class="card"><h3>${open.type || open.name}: ${(open.components || []).length} components</h3>${tbl([{ k: 'template_id', label: 'Component', f: (r) => html`<span title="${r.template_id}">${compName(r.template_id)}</span>` },
       { k: 'percent', label: 'Condition', f: (r) => pctCell(r.percent) }, { k: 'current', label: 'Durability', f: (r) => (r.current == null ? '-' : Number(r.current).toFixed(0) + (r.max ? ' / ' + Number(r.max).toFixed(0) : '')) }], open.components || [], { empty: 'This vehicle has no components in the save.' })}
-      <p class="mut">Condition is each module's durability against its current maximum; a module with no stored maximum shows only its value. The fuel tank size is not stored in the save, so fuel is the current amount.</p></div>`);
+      <p class="mut">Condition is each module's durability against its current maximum; a module with no stored maximum shows only its value. The fuel tank size is not stored in the save, so the Fuel column is the current amount; the tank sizes the Refuel button uses were measured in the game.</p></div>`);
     h.push(html`<div class="card"><h3>Cargo hold</h3>${cargo ? html`<p class="mut">${cargo.slots == null ? nn(cargo.items.length, 'item', 'items') : `${cargo.items.length} of ${cargo.slots} slots used`}</p>${cargo.items.length ? tbl([{ k: 'position_index', label: 'Slot' },
       { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Quantity' }, { k: 'quality_level', label: 'Grade' }], cargo.items) : html`<p class="mut">The cargo hold is empty.</p>`}` : html`<p class="mut">This vehicle has no cargo hold.</p>`}</div>`);
   }
   h.push(html`<div class="card"><h3>Recovered and stored vehicles (${v.recovered.length})</h3>${tbl([{ k: 'vehicle_id', label: 'ID' }, { k: 'vehicle_name', label: 'Name' }, { k: 'chassis_durability', label: 'Chassis durability' }, { k: 'time_stored', label: 'Stored at', f: (r) => fmtEpoch(r.time_stored) }, { k: 'reason', label: 'Reason code' }], v.recovered, { empty: 'No vehicle has been recovered or stored.' })}</div>`);
   if (v.hidden) h.push(html`<p class="mut">${v.hidden} other vehicle${v.hidden == 1 ? '' : 's'} in the world (not yours) ${v.hidden == 1 ? 'is' : 'are'} not shown.</p>`);
-  if (!v.vehicles.length && !v.recovered.length) h.push(html`<p class="mut">None of your vehicles are in this save yet. Vehicle fuel is stored in an opaque binary blob and is not editable.</p>`);
+  if (!v.vehicles.length && !v.recovered.length) h.push(html`<p class="mut">None of your vehicles are in this save yet.</p>`);
   setHTML(host(), html`${h}`);
 }
 
@@ -1261,6 +1273,13 @@ const A = {
   },
   refillWater: () => act(async () => { const r = await api('/api/bases/refill-water', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast((r.filled ? `Refilled ${r.summary} (${r.alreadyFull} already full).` : `All ${r.alreadyFull} water buildings were already full.`) + sk + NOT_SAVED); }, null),
   refillGen: () => act(async () => { const r = await api('/api/bases/refill-generators', {}); toast((r.filled ? `Refilled ${r.summary} (${r.alreadyFull} already full).` : `All ${r.alreadyFull} power buildings were already full.`) + ((r.skipped || []).length ? ` No free slot: ${r.skipped.join(', ')}.` : '') + NOT_SAVED); }, null),
+  refuelV: () => act(async () => {
+    const r = await api('/api/vehicles/refuel', {});
+    const by = Object.entries(r.byClass || {}).sort().map(([k, n]) => `${n} x ${vehKind(k)}`).join(', ');
+    const un = r.unknown ? ` ${r.unknown} ${r.unknown == 1 ? 'vehicle' : 'vehicles'} of an unknown kind ${r.unknown == 1 ? 'was' : 'were'} left alone${(r.skippedUnknown || []).length ? ` (${r.skippedUnknown.map((x) => vehKind(x.replace(/ x\d+$/, '')) + x.replace(/^.* (x\d+)$/, ' $1')).join(', ')})` : ''}.` : '';
+    const none = r.noFuelRecord ? ` ${r.noFuelRecord} ${r.noFuelRecord == 1 ? 'vehicle has' : 'vehicles have'} no fuel record and ${r.noFuelRecord == 1 ? 'was' : 'were'} left alone.` : '';
+    toast((r.filled ? `Refuelled ${r.filled} ${r.filled == 1 ? 'vehicle' : 'vehicles'} (${by}); ${r.alreadyFull} already full.` : r.total ? `No vehicle needed fuel (${r.alreadyFull} already full).` : 'You have no vehicles in this save.') + un + none + (r.filled ? NOT_SAVED : ''));
+  }, null),
   repairOne: (d) => act(async () => { const r = await api('/api/vehicles/repair', { vehicle_id: +d.id }); toast(repairMsg(r, 'modules of this vehicle') + (r.repaired ? NOT_SAVED : '')); }, null),
   repairV: () => act(async () => { const pct = $('#rvPct'); const n = pct ? +pct.value : 100; const r = await api('/api/vehicles/repair', pct && n < 100 ? { threshold: n } : {}); toast(repairMsg(r, 'vehicle modules', n) + (r.repaired ? NOT_SAVED : '')); }, null),
   repairB: () => act(async () => { const r = await api('/api/bases/repair', {}); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables` + NOT_SAVED); }, null),

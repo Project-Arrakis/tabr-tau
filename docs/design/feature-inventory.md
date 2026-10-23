@@ -198,7 +198,7 @@ Console routes parsed: **428**. N/A 239, Done 71, Cut 43, Gap 42, Partial 33.
 | POST | `/api/players/{}/tutorials/reset` | Done | tutorials (P12) |
 | POST | `/api/players/{}/repair-gear` | Done | Repair gear |
 | POST | `/api/players/{}/repair-vehicle-decay` | Done | Repair Vehicle Durability: every module made as good as new, Repair Below % threshold |
-| POST | `/api/players/{}/refuel-vehicle` | Gap | refuel; fuel field not located in a save yet |
+| POST | `/api/players/{}/refuel-vehicle` | Done | Player > Vehicles: Refuel all my vehicles (#349), every owned vehicle of a measured kind to a full tank; no per-vehicle button |
 | POST | `/api/players/{}/augment-item` | Done | augments editor on Character > Inventory (and in Give item) |
 | DELETE | `/api/players/{}/inventory/{}` | Done | edit / delete item |
 | PATCH | `/api/players/{}/inventory/{}` | Done | edit / delete item |
