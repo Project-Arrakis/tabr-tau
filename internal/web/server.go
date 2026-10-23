@@ -374,6 +374,8 @@ func errorCode(err error) (string, int) {
 		return "changed_on_disk", http.StatusConflict
 	case errors.Is(err, apierr.ErrConflict):
 		return "conflict", http.StatusConflict
+	case errors.Is(err, apierr.ErrNoRoom):
+		return "no_room", http.StatusConflict
 	case errors.Is(err, apierr.ErrQueueHeld):
 		return "queue_held", http.StatusConflict
 	case errors.Is(err, apierr.ErrQueued):

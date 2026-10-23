@@ -6,7 +6,7 @@ const $ = (s, r = document) => r.querySelector(s);
 // What the editor said about the last edit it was sent: 'written' (it is in the game's file), 'queued' (accepted, written when the file can be), or null when the
 // answer carried none (nothing changed, or the request failed). A message about an edit reads this and never guesses from an older status.
 let lastOutcome = null;
-// A refusal carries a stable code (changed_on_disk, conflict, queue_held, queued, game_running, read_only, bad_argument, not_found, bad_request, and for faults integrity_failed and write_failed) and the HTTP status; the words
+// A refusal carries a stable code (changed_on_disk, conflict, no_room, queue_held, queued, game_running, read_only, bad_argument, not_found, bad_request, and for faults integrity_failed and write_failed) and the HTTP status; the words
 // of the message are for the person and are never matched.
 async function api(path, body) {
   const opt = { credentials: 'same-origin' };
@@ -26,8 +26,9 @@ async function api(path, body) {
 }
 function toast(msg, err, ms = 3500) {
   const d = document.createElement('div');
-  d.setAttribute('role', err ? 'alert' : 'status');
-  if (err) d.className = 'err';
+  const part = err === 'part'; // part of a give went in: a warning that stays until it is dismissed, not a failure
+  d.setAttribute('role', err && !part ? 'alert' : 'status');
+  if (err) d.className = part ? 'part' : 'err';
   const t = document.createElement('span');
   t.textContent = msg;
   d.append(t);
@@ -40,6 +41,12 @@ function toast(msg, err, ms = 3500) {
     d.append(x);
   } else setTimeout(() => d.remove(), ms);
   $('#toast').append(d);
+}
+// What a give did, in words: okText when all of it went in, else how much did and why not more (a give puts in as much as fits). The answer carries requested, given and reason.
+function giveToast(r, name, okText) {
+  const n = (v) => Number(v).toLocaleString();
+  if (r && Number(r.given) < Number(r.requested)) toast(`Gave ${n(r.given)} of ${n(r.requested)} ${name}: ${r.reason || 'not all of it fitted'}.` + NOT_SAVED, 'part');
+  else toast(okText + NOT_SAVED);
 }
 // An edit of the save is written to the game's file as it is made, so a message has nothing to add; act() adds a hint when it finds the edit queued instead (the game is
 // in a single-player session and rewrites the file). NOT_SAVED is that hint for the messages that are built by hand: it reads as the hint while edits are being queued
@@ -1144,14 +1151,14 @@ const A = {
   queueAdd: () => { let t; try { t = needItem('gt'); } catch (e) { return toast(e.message, 'err'); } const e = { template_id: t, quantity: Math.max(1, +val('gq') || 1), quality: +val('gg') }; const ids = augPicked('ga', 3); if (ids.length) { e.augments = ids; e.grade = +val('gag'); } giveQueue.push(e); keepQueue(); render(); },
   queueDel: (d) => { giveQueue.splice(+d.id, 1); keepQueue(); render(); },
   queueClear: () => { giveQueue = []; keepQueue(); render(); },
-  queueGive: () => act(async () => { const r = await api('/api/player/give-items', { items: giveQueue }); giveQueue = []; keepQueue(); toast(`Added ${r.count} items` + NOT_SAVED); }, null),
+  queueGive: () => act(async () => { const r = await api('/api/player/give-items', { items: giveQueue }); giveQueue = []; keepQueue(); giveToast(r, 'units of the queued items', `Added ${r.count} items`); }, null),
   give: () => act(async () => {
-    const ids = augPicked('ga', 3);
-    if (ids.length) await api('/api/player/give-items', { items: [{ template_id: needItem('gt'), quantity: +val('gq'), quality: +val('gg'), augments: ids, grade: +val('gag') }] });
-    else await api('/api/player/give', { template_id: needItem('gt'), quantity: +val('gq'), quality: +val('gg') });
-    toast('Item added' + NOT_SAVED);
+    const ids = augPicked('ga', 3), tid = needItem('gt');
+    const r = ids.length ? await api('/api/player/give-items', { items: [{ template_id: tid, quantity: +val('gq'), quality: +val('gg'), augments: ids, grade: +val('gag') }] })
+      : await api('/api/player/give', { template_id: tid, quantity: +val('gq'), quality: +val('gg') });
+    giveToast(r, itemName(tid), 'Item added');
   }, null),
-  giveWater: () => act(async () => { await api('/api/player/give', { template_id: 'WaterPack_Consumable', quantity: 10, quality: 0 }); toast('10 x Cup of Water added' + NOT_SAVED); }, null),
+  giveWater: () => act(async () => { const r = await api('/api/player/give', { template_id: 'WaterPack_Consumable', quantity: 10, quality: 0 }); giveToast(r, 'Cup of Water', '10 x Cup of Water added'); }, null),
   faction: () => act(async () => { const r = await api('/api/player/faction', { faction_id: +val('facSel') }); toast(`Faction set to ${r.faction}` + NOT_SAVED); }, null),
   repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(`Repaired ${r.repaired} items` + NOT_SAVED); }, null),
   fillWater: () => act(async () => { const r = await api('/api/player/hydration', {}); toast(`Hydration ${Math.round(r.before * 10) / 10} → ${r.after}` + NOT_SAVED); }, null),
@@ -1282,7 +1289,7 @@ const A = {
     setHTML($('#inv'), html`<div class="card"><h3>Inventory ${d.id}</h3>${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" data-name="${itemName(r.template_id)}" class="w90" aria-label="Stack of ${itemName(r.template_id)}">` }], it, { empty: 'This container is empty.', actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` })}
     <div class="row">${itemPicker("bt", cat)}Qty<input id="bq" type="number" value="1" min="1"><button class="b" data-act="giveInv" data-id="${d.id}" data-name="${d.name || ''}">Add item</button></div>${clearRow(d.id, d.name || 'this container', it)}</div>`);
   },
-  giveInv: (d) => act(async () => { await api('/api/bases/give', { inventory_id: +d.id, template_id: needItem('bt'), quantity: +val('bq') }); toast('Item added' + NOT_SAVED); await A.openInv(d); }, null, false),
+  giveInv: (d) => act(async () => { const tid = needItem('bt'); const r = await api('/api/bases/give', { inventory_id: +d.id, template_id: tid, quantity: +val('bq') }); giveToast(r, itemName(tid), 'Item added'); await A.openInv(d); }, null, false),
   bring: (d) => act(() => api('/api/vehicles/bring', { id: +d.id }), 'Vehicle moved next to you'),
   vreset: async (d) => (await ask({ title: d.v ? 'Reset purchase limits for this vendor?' : 'Reset purchase limits for every vendor?', body: d.v ? 'Resets the purchase counters of vendor ' + d.v + '.' : 'Resets the purchase counters of every vendor in the save, not one.', ok: 'Reset' })) && act(() => api('/api/vendors/reset', { vendor_id: d.v }), 'Purchase limits reset'),
   term: () => act(async () => { await api('/api/landsraad/term', { active_decree_id: val('ad'), reigning_faction_id: val('rf') }); }, 'Term updated'),
