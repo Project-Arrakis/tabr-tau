@@ -117,8 +117,9 @@ func errReadOnly(reason string) error {
 
 // codeObjects returns the database objects that can carry logic, keyed by "type name", with their exact SQL.
 // Triggers and views are always included; a virtual table is recognised by rootpage 0 (not by its SQL text, which
-// comments can disguise). Only SQLite's own internal tables (sqlite_sequence, sqlite_stat1, ...) are skipped, and
-// only when they are tables: a trigger or view named sqlite_* is still reported.
+// comments can disguise). SQLite's own internal tables (sqlite_sequence, sqlite_stat1, ...) have a root page, so the
+// rootpage test already leaves them out; nothing is skipped by name, because a trigger, a view or a virtual table
+// named sqlite_* in a hand-made file must still be reported.
 func codeObjects(q interface {
 	Query(q string, args ...any) (*sql.Rows, error)
 }) (map[string]string, error) {
@@ -137,9 +138,6 @@ func codeObjects(q interface {
 		switch {
 		case typ == "trigger" || typ == "view":
 		case typ == "table" && root.Valid && root.Int64 == 0:
-			if strings.HasPrefix(strings.ToLower(name), "sqlite_") {
-				continue
-			}
 		default:
 			continue
 		}
