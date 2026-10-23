@@ -367,7 +367,7 @@ async function status() {
     ${(o.held.conflicts || []).map((c) => html`<div>${c.desc}: ${c.why}</div>`)} <button class="b sm" data-act="discardQueue">Discard queue</button></div>` : html``;
   let mainMsg = html``;
   if (o.locationUnconfirmed) mainMsg = html`<div><b>Changes cannot be written here yet.</b> ${reason.text} You can keep editing: changes wait in the queue. <button class="b sm" data-act="confirmLocation">Allow writing here</button></div>`;
-  else if (o.gameCheckError && saveBlocked) mainMsg = html`<div><b>Changes cannot be written.</b> ${reason.text}${q ? html` ${q} ${n('change waits', 'changes wait')} in the queue and ${n('is written by itself', 'are written by themselves')} once the check works.` : ''} <button class="b sm" data-act="writeNow">Write now</button></div>`;
+  else if (o.gameCheckError && saveBlocked) mainMsg = html`<div><b>Changes cannot be written.</b> ${reason.text}${q ? html` ${q} ${n('change waits', 'changes wait')} in the queue and ${n('is written by itself', 'are written by themselves')} once the check works.` : ''} The editor checks again by itself every few seconds. <button class="b sm" data-act="checkAgain">Check again</button> <button class="b sm" data-act="writeNow">Write now</button></div>`;
   else if (q && !o.held && last && last.stuck) mainMsg = html`<div><b>${q} queued change${n(' cannot', 's cannot')} be written.</b> The game saved after ${n('it was', 'they were')} made, and the editor did not keep ${n('it', 'them')}${o.journalOff ? ' (' + o.journalOff + ')' : ''}, so ${n('it', 'they')} cannot be put back onto the game's file, which is left as it is. Discard the queue and make ${n('the change', 'the changes')} again. <button class="b sm" data-act="discardQueue">Discard queue</button></div>`;
   else if (q && !o.held) mainMsg = html`<div><b>${q} change${n(' is', 's are')} queued.</b> ${reason.text} ${n('It is written to the game file by itself', 'They are written to the game file by themselves')} as soon as it can be written. <button class="b sm" data-act="writeNow">Write now</button></div>`;
   else if (saveBlocked && !q) mainMsg = html`<div><b>The game is in a single-player session.</b> It rewrites the save while it runs, so changes you make now are queued and written when you go to its menu or close it.</div>`;
@@ -1139,10 +1139,21 @@ const A = {
   }, null),
   dismissRestored: () => act(async () => { await api('/api/save/restored/dismiss', {}); }, null),
   discardQueue: () => $('#btnDiscard').click(),
+  // Check again: the game check is made at once (the process list is read again, never taken from the cache) and the answer is said in a sentence. The banner is redrawn from
+  // that answer, so one that said the check could not be made goes away as soon as a check works.
+  checkAgain: () => act(async () => {
+    const c = await api('/api/game/check', {});
+    toast(capFirst(c.message), !!c.failed);
+    try { await status(); } catch (e) { /* the poll reports a lost connection */ }
+  }, null, false, true),
+  // Write now: the same check first, so there is always an answer to give even when nothing is waiting, then another attempt to write what waits.
   writeNow: () => act(async () => {
+    const c = await api('/api/game/check', {});
     const r = await api('/api/save/flush', {});
     if (r.saved) toast('Written to the game file' + (r.warning ? '. ' + r.warning : '.'), !!r.warning);
-    else toast(r.queued ? 'Still waiting: ' + (r.why || 'the file cannot be written yet') : 'Nothing was waiting.', !!r.queued);
+    else if (r.queued) toast('Still waiting: ' + (c.failed ? c.message : r.why || 'the file cannot be written yet'), true);
+    else toast(capFirst(c.message), !!c.failed);
+    try { await status(); } catch (e) { /* the poll reports a lost connection */ }
   }, null, true, true),
   solari: () => act(() => api('/api/player/solari', { amount: +val('solari') }), 'Solari updated'),
   bloodMarks: () => act(async () => { const r = await api('/api/player/blood-marks', { amount: +val('bmAmt') }); giveToast(r, 'Blood Marks', `Gave ${Number(r.given).toLocaleString()} Blood Marks (${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()})`); }, null),

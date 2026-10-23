@@ -742,6 +742,9 @@ func (s *Server) routes() {
 		allowLongWrite(w)
 		respond(w, s.Save.Flush(), nil)
 	})
+	// Check again / Write now: the game check is made at once and the answer is a sentence (running, not running, or why the check failed). It reads the process list in
+	// memory and starts no program. Like every POST it then tries to write what waits.
+	s.post("/api/game/check", func(ops.Args) (any, error) { return save.CheckGameNow(s.Save.Path), nil })
 	// ifClean is what the automatic refresh sends: it was decided from a status read that can be seconds old on a large save, so an edit made since must not be
 	// thrown away with it (the page then leaves the file as it is and the next status shows the banner).
 	s.post("/api/save/discard", func(a ops.Args) (any, error) {
