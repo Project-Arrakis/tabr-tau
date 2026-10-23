@@ -472,11 +472,11 @@ test('the Bases upkeep buttons ask on the button itself (no dialog), then run on
   ui.click('[data-act="repairB"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'no dialog');
   assert.equal(ui.posted.filter((p) => p.path === '/api/bases/repair').length, 0, 'the first press only asks');
-  ui.click('[data-act="repairB"]'); await ui.settle();
+  await new Promise((r) => ui.w.setTimeout(r, 450)); ui.click('[data-act="repairB"]'); await ui.settle();
   assert.equal(ui.posted.filter((p) => p.path === '/api/bases/repair').length, 1);
   ui.click('[data-act="sand"]'); await ui.settle();
   assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 0, 'the first press only asks');
-  ui.click('[data-act="sand"]'); await ui.settle();
+  await new Promise((r) => ui.w.setTimeout(r, 450)); ui.click('[data-act="sand"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'no dialog');
   assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 1);
   ui.dom.window.close();
@@ -1449,12 +1449,12 @@ test('base and vehicle upkeep buttons post, and unknown building names stay plai
   ui.click('[data-tab=\"player\"]'); await ui.settle();
   ui.click('[data-sub=\"player:bases\"]'); await ui.settle();
   ui.click('[data-bstab="water"]'); await ui.settle();
-  ui.click('[data-act="refillWater"]'); ui.click('[data-act="refillWater"]'); await ui.settle();
+  ui.click('[data-act="refillWater"]'); await new Promise((r) => ui.w.setTimeout(r, 450)); ui.click('[data-act="refillWater"]'); await ui.settle();
   let toast = ui.doc.querySelector('#toast');
   assert.ok(toast.textContent.includes('Refilled 2 Medium Water Cisterns (1 already full)') && toast.textContent.includes(hostile), toast.textContent);
   assert.equal(toast.querySelector('img'), null);
   ui.click('[data-bstab="power"]'); await ui.settle();
-  ui.click('[data-act="refillGen"]'); ui.click('[data-act="refillGen"]'); await ui.settle();
+  ui.click('[data-act="refillGen"]'); await new Promise((r) => ui.w.setTimeout(r, 450)); ui.click('[data-act="refillGen"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Refilled 2 Omnidirectional Wind Turbines, 1 Windtrap'));
   ui.click('[data-tab=\"player\"]'); await ui.settle();
   ui.click('[data-sub=\"player:vehicles\"]'); await ui.settle();
