@@ -3,10 +3,16 @@
 const { html, setHTML } = window.TabrHTML;
 const $ = (s, r = document) => r.querySelector(s);
 
+// What the editor said about the last edit it was sent: 'written' (it is in the game's file), 'queued' (accepted, written when the file can be), or null when the
+// answer carried none (nothing changed, or the request failed). A message about an edit reads this and never guesses from an older status.
+let lastOutcome = null;
+// A refusal carries a stable code (changed_on_disk, queue_held, queued, game_running, read_only, bad_argument, not_found, bad_request) and the HTTP status; the words
+// of the message are for the person and are never matched.
 async function api(path, body) {
   const opt = { credentials: 'same-origin' };
   if (body !== undefined) {
     opt.method = 'POST';
+    lastOutcome = null;
     opt.headers = { 'Content-Type': 'application/json' };
     opt.body = JSON.stringify(body);
   }
@@ -14,7 +20,8 @@ async function api(path, body) {
   const j = await r.json().catch(() => ({ error: r.statusText }));
   // The editor answers a signed-out page with a sentence of its own (code not_signed_in). This is only the fallback for a 403 that carries none.
   if (r.status === 403 && !j.error) throw new Error('This window is no longer signed in to the editor. Close tabr-tau completely and start it again: the editor\'s own window opens signed in; in a browser, open the new link printed in the terminal.');
-  if (!r.ok || j.error) { const e = new Error(j.error || r.statusText); e.code = j.code; throw e; }
+  if (!r.ok || j.error) { const e = new Error(j.error || r.statusText); e.code = j.code; e.status = r.status; throw e; }
+  if (body !== undefined && j && (j.outcome === 'written' || j.outcome === 'queued')) lastOutcome = j.outcome;
   return j;
 }
 function toast(msg, err, ms = 3500) {
@@ -38,13 +45,15 @@ function toast(msg, err, ms = 3500) {
 // in a single-player session and rewrites the file). NOT_SAVED is that hint for the messages that are built by hand: it reads as the hint while edits are being queued
 // (the last status said so) and as nothing otherwise.
 const QUEUED_HINT = ' (queued: written when the game closes)';
-const NOT_SAVED = { toString: () => (saveBlocked || lastDirty ? QUEUED_HINT : '') };
+const NOT_SAVED = { toString: () => (lastOutcome ? (lastOutcome === 'queued' ? QUEUED_HINT : '') : saveBlocked || lastDirty ? QUEUED_HINT : '') };
 // immediate: the change is written at once (a config file, a setting) and never waits in the queue, so it never gets the hint.
 async function act(fn, okMsg, refresh = true, immediate = false) {
   try {
+    lastOutcome = null; // an older edit's outcome must not colour this message
     const r = await fn();
     let dirty = false;
-    if (!immediate) try { dirty = (await status()).dirty; } catch (e) { /* the poll reports a lost connection; the edit itself succeeded */ }
+    if (lastOutcome) dirty = lastOutcome === 'queued'; // the answer to the edit said which
+    else if (!immediate) try { dirty = (await status()).dirty; } catch (e) { /* the poll reports a lost connection; the edit itself succeeded */ }
     if (okMsg) toast(okMsg + (dirty ? QUEUED_HINT : ''));
     if (refresh) await render();
     return r;
@@ -1169,8 +1178,8 @@ const A = {
     try {
       const r = await api('/api/db/exec', { sql: window.lastSql });
       toast(r.changes + (r.changes === 1 ? ' row changed' : ' rows changed'));
-      let queued = false;
-      try { queued = (await status()).dirty; } catch (e) { /* the poll reports a lost connection; the statement itself ran */ }
+      let queued = r.outcome === 'queued';
+      if (!r.outcome) try { queued = (await status()).dirty; } catch (e) { /* the poll reports a lost connection; the statement itself ran */ }
       setHTML($('#sqlout'), html`<p class="ok">${r.changes} ${r.changes === 1 ? 'row' : 'rows'} changed, ${queued ? 'and queued: it is written to game.db as soon as the file can be written.' : 'and written to game.db.'}</p>`);
     } catch (e) { toast(e.message, true); }
   },
