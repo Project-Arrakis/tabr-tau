@@ -70,7 +70,7 @@ async function boot({ post = {}, get = {}, confused = false } = {}) {
       if ((opt.method || 'GET') === 'POST') {
         const b = post[u.pathname] ?? { ok: true };
         posted.push({ path: u.pathname, body: opt.body ? JSON.parse(opt.body) : null });
-        if (b.__fail) return { ok: false, status: 400, statusText: 'Bad Request', json: async () => ({ error: b.__fail, code: b.__code }) };
+        if (b.__fail) return { ok: false, status: b.__status || 400, statusText: 'Bad Request', json: async () => ({ error: b.__fail, code: b.__code }) };
         return { ok: true, status: 200, statusText: 'OK', json: async () => b };
       }
       if (get[u.pathname]) return { ok: true, status: 200, statusText: 'OK', json: async () => get[u.pathname] };
@@ -487,6 +487,38 @@ test('an edit that is queued says so; one that is written says nothing more', as
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-act="solari"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('queued'));
+  ui.dom.window.close();
+});
+
+// ARCH-15: the answer to an edit carries its outcome, so the toast no longer reads a status that may be seconds old.
+test('the toast follows the outcome in the answer, not an older status: queued says so', async () => {
+  const st = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)); st.dirty = false; // the status poll has not seen the queue yet
+  const ui = await boot({ get: { '/api/save/state': st }, post: { '/api/player/solari': { ok: true, solari: 350, outcome: 'queued' } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-act="solari"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('queued: written when the game closes'), ui.doc.querySelector('#toast').textContent);
+  ui.dom.window.close();
+});
+
+test('the toast follows the outcome in the answer: written says nothing more even if an old status says dirty', async () => {
+  const st = JSON.parse(JSON.stringify(baseFixtures['/api/save/state'].body)); st.dirty = true;
+  const ui = await boot({ get: { '/api/save/state': st }, post: { '/api/player/solari': { ok: true, solari: 350, outcome: 'written' } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-act="solari"]'); await ui.settle();
+  const t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.length > 0 && !t.includes('queued'), t);
+  ui.dom.window.close();
+});
+
+test('the page keeps the code and the status of a refusal and shows its words', async () => {
+  const ui = await boot({ post: { '/api/player/solari': { __fail: 'the queued changes conflict with what the game saved', __code: 'queue_held', __status: 409 } } });
+  let err = null;
+  try { await ui.w.api('/api/player/solari', { amount: 1 }); } catch (e) { err = e; }
+  assert.ok(err && err.code === 'queue_held' && err.status === 409 && err.message.includes('conflict'), String(err));
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-act="solari"]'); await ui.settle();
+  const t = ui.doc.querySelector('#toast .err');
+  assert.ok(t && t.textContent.includes('conflict'), ui.doc.querySelector('#toast').textContent);
   ui.dom.window.close();
 });
 

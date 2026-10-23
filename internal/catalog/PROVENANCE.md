@@ -9,7 +9,12 @@
 `stacks.json` and `customization_unlocks.json` contain only the game's identifiers and integers: no names, text, images or code. They are
 read by `catalog.go` (`MaxStack`, `Unlocks`) and nothing else.
 
-**Not recorded in the repository** (so not stated here): the game build the tables were read from, the date they were read, the tool or files
-used to read them, and any licence or terms-of-service position on using them. The notice for these two files is in
-`internal/notices/THIRD-PARTY-NOTICES.md` ("Stack sizes and cosmetic unlock ids"). The game and its data belong to Funcom and this project
-is unofficial. Whoever refreshes either file should add the game build and the way it was read to this table in the same pull request.
+**Game build.** The installed game's Steam manifest (`appmanifest_1172710.acf`, read on 2026-10-22) names build `20502675`, last updated by
+Steam on 2025-10-23 09:07 UTC, with the target build equal to the installed one. Both files were added after that date (2026-10-20 and
+2026-10-22), and the game had no later update, so they were read from build `20502675`. The tables are read from the installed game's content
+files, read-only; nothing in the game is changed by reading them.
+
+**Not recorded in the repository** (so not stated here): the tool and the exact files used to read the tables, and any licence or terms-of-service
+position on using them. The notice for these two files is in `internal/notices/THIRD-PARTY-NOTICES.md` ("Stack sizes and cosmetic unlock ids").
+The game and its data belong to Funcom and this project is unofficial. Whoever refreshes either file should add the game build, the tool and the
+files used to this table in the same pull request.

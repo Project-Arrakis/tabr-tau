@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 	"github.com/Project-Arrakis/tabr-tau/internal/settings"
 	"io/fs"
@@ -349,17 +350,74 @@ func collectPaths(err error, out *[]string) {
 	}
 }
 
+// errorCode is the stable code of a refusal and the HTTP status that goes with it; a caller keys on these and never on the words of the message, which may change.
+//
+//	changed_on_disk   409  the game saved since the editor loaded the file
+//	queue_held        409  edits waiting from before conflict with the game's newer file; nothing new is accepted until they are discarded
+//	queued            409  the action needs an empty queue and edits are still waiting
+//	game_running      400  the game-running check refused the write, or could not be made
+//	read_only         400  this save was opened for reading only
+//	bad_argument      422  a value of the request is missing, of the wrong type, out of range or not allowed
+//	not_found         404  the thing the request names is not in the save
+//	bad_request       400  the request body is not JSON
+//
+// An error with none of these has no code and answers 400, as before.
+func errorCode(err error) (string, int) {
+	switch {
+	case errors.Is(err, save.ErrChangedOnDisk):
+		return "changed_on_disk", http.StatusConflict
+	case errors.Is(err, apierr.ErrQueueHeld):
+		return "queue_held", http.StatusConflict
+	case errors.Is(err, apierr.ErrQueued):
+		return "queued", http.StatusConflict
+	case errors.Is(err, apierr.ErrGameBlocked):
+		return "game_running", http.StatusBadRequest
+	case errors.Is(err, apierr.ErrReadOnly):
+		return "read_only", http.StatusBadRequest
+	case errors.Is(err, apierr.ErrBadArgument):
+		return "bad_argument", http.StatusUnprocessableEntity
+	case errors.Is(err, apierr.ErrNotFound):
+		return "not_found", http.StatusNotFound
+	case errors.Is(err, apierr.ErrBadRequest):
+		return "bad_request", http.StatusBadRequest
+	}
+	return "", http.StatusBadRequest
+}
+
 func respond(w http.ResponseWriter, v any, err error) {
 	if err != nil {
 		body := map[string]any{"error": publicError(err)}
-		switch { // a stable code, so the page never has to match message wording
-		case errors.Is(err, save.ErrChangedOnDisk):
-			body["code"] = "changed_on_disk"
+		code, status := errorCode(err)
+		if code != "" {
+			body["code"] = code
 		}
-		writeJSON(w, http.StatusBadRequest, body)
+		writeJSON(w, status, body)
 		return
 	}
 	writeJSON(w, http.StatusOK, v)
+}
+
+// Outcomes of an edit request: the edit is in the game's file ("written"), or it is accepted and waits for the file to become writable ("queued").
+const (
+	outcomeWritten = "written"
+	outcomeQueued  = "queued"
+)
+
+// withOutcome adds "outcome" to an answer that is a JSON object and leaves every other answer, and every field of this one, as it was.
+func withOutcome(v any, outcome string) any {
+	if outcome == "" {
+		return v
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return v
+	}
+	var m map[string]json.RawMessage
+	if json.Unmarshal(b, &m) != nil || m == nil {
+		return v
+	}
+	m["outcome"] = json.RawMessage(strconv.Quote(outcome))
+	return m
 }
 
 func (s *Server) get(path string, fn func(r *http.Request) (any, error)) {
@@ -374,12 +432,21 @@ func (s *Server) post(path string, fn func(a ops.Args) (any, error)) {
 		a := ops.Args{}
 		r.Body = http.MaxBytesReader(w, r.Body, 4<<20)
 		if err := json.NewDecoder(r.Body).Decode(&a); err != nil && err.Error() != "EOF" {
-			respond(w, nil, errors.New("invalid JSON body"))
+			respond(w, nil, apierr.New(apierr.ErrBadRequest, "invalid JSON body"))
 			return
 		}
 		v, err := fn(a)
+		outcome := ""
 		if err == nil && s.Save.Dirty() {
-			s.Save.Flush() // an edit is written to the game's file as it is made, or queued when the file cannot be written (the page reads which from the state)
+			// An edit is written to the game's file as it is made, or queued when the file cannot be written; the answer says which.
+			if f := s.Save.Flush(); f.Saved && f.Queued == 0 {
+				outcome = outcomeWritten
+			} else {
+				outcome = outcomeQueued
+			}
+		}
+		if err == nil {
+			v = withOutcome(v, outcome)
 		}
 		respond(w, v, err)
 	})
