@@ -14,6 +14,7 @@ var (
 	ErrNotFound    = errors.New("not found")                               // the thing the request names is not in the save
 	ErrReadOnly    = errors.New("save is read-only")                       // the editor opened this save for reading only
 	ErrGameBlocked = errors.New("the game may be using the save")          // the game-running check refused the write (or could not be made)
+	ErrConflict    = errors.New("the data changed since it was read")      // an edit was made from a value that is not what the save holds now
 	ErrQueueHeld   = errors.New("queued changes are held")                 // edits waiting from before conflict with the game's newer file; nothing new is accepted
 	ErrQueued      = errors.New("changes are still waiting to be written") // the action needs an empty queue
 )

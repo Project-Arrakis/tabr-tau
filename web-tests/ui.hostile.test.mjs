@@ -1295,8 +1295,8 @@ test('Database > Tables: a cell edit sends the rowid for a table with one and th
     ui.dom.window.close();
     return body;
   };
-  assert.deepEqual(await edit(['_rowid_', 'character_id', 'tag'], [5, 1, 'a']), [{ table: 'player_tags', rowid: 5, column: 'tag', value: 'changed' }]);
-  assert.deepEqual(await edit(['_key_', 'character_id', 'tag'], ['["1","a"]', 1, 'a']), [{ table: 'player_tags', key: '["1","a"]', column: 'tag', value: 'changed' }]);
+  assert.deepEqual(await edit(['_rowid_', 'character_id', 'tag'], [5, 1, 'a']), [{ table: 'player_tags', rowid: 5, column: 'tag', value: 'changed', expected: 'a' }]);
+  assert.deepEqual(await edit(['_key_', 'character_id', 'tag'], ['["1","a"]', 1, 'a']), [{ table: 'player_tags', key: '["1","a"]', column: 'tag', value: 'changed', expected: 'a' }]);
 });
 
 test('Give water gives ten Cups of Water in one post', async () => {
@@ -1956,6 +1956,41 @@ test('a config value and a database cell also report old and new; a queued edit 
   cell.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
   t = [...ui.doc.querySelectorAll('#toast div')].map((d) => d.textContent).join('\n');
   assert.ok(t.includes('Database ') && t.includes(`${cell.dataset.col}:`) && t.includes('queued'), t);
+  ui.dom.window.close();
+});
+
+// SEC-7: a cell edit says what the cell showed, and a table that has changed since is shown again as it is now.
+test('a database cell edit sends the text the cell showed, and a conflict reloads the table', async () => {
+  const tbl = { columns: ['_rowid_', 'id', 'template_id', 'note'], rows: [[5, 10, 'Spice', null]], total: 1, tableLocked: '', locked: { id: 'primary key' } };
+  const ui = await boot({ get: { '/api/db/tables': [{ name: 'items', rows: 1, columns: ['id'], types: ['INTEGER'] }], '/api/db/table': tbl }, post: { '/api/db/update': { ok: true } } });
+  ui.click('[data-tab="db"]'); await ui.settle();
+  const [cell, empty] = [...ui.doc.querySelectorAll('input.dbc')];
+  cell.value = 'Melange';
+  cell.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  empty.value = 'a note';
+  empty.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  const sent = ui.posted.filter((p) => p.path === '/api/db/update').map((p) => p.body);
+  assert.equal(sent.length, 2);
+  assert.equal(sent[0].expected, 'Spice');
+  assert.equal(sent[0].value, 'Melange');
+  assert.equal(sent[1].expected, '', 'an empty cell is sent as the empty text');
+  ui.dom.window.close();
+});
+
+test('a refused cell edit puts the old text back and loads the table again', async () => {
+  const tbl = { columns: ['_rowid_', 'id', 'template_id'], rows: [[5, 10, 'Spice']], total: 1, tableLocked: '', locked: { id: 'primary key' } };
+  let tableReads = 0;
+  const ui = await boot({ get: { '/api/db/tables': [{ name: 'items', rows: 1, columns: ['id'], types: ['INTEGER'] }], '/api/db/table': tbl }, post: { '/api/db/update': { __fail: 'this cell has changed since the table was shown, so nothing was changed: reload the table and try again', __code: 'conflict', __status: 409 } } });
+  const origFetch = ui.w.fetch;
+  ui.w.fetch = async (p, o) => { if (String(p).startsWith('/api/db/table?')) tableReads++; return origFetch(p, o); };
+  ui.click('[data-tab="db"]'); await ui.settle();
+  const before = tableReads;
+  const cell = ui.doc.querySelector('input.dbc');
+  cell.value = 'Melange';
+  cell.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  assert.ok(ui.doc.querySelector('#toast .err').textContent.includes('has changed since the table was shown'));
+  assert.equal(ui.doc.querySelector('input.dbc').value, 'Spice', 'the box shows what the table holds');
+  assert.ok(tableReads > before, 'the table was read again');
   ui.dom.window.close();
 });
 

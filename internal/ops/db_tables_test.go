@@ -68,7 +68,8 @@ func TestTablesViewWorksOnAllRealSchemaTables(t *testing.T) {
 			if _, l := locked[c]; l || types[i] == "BLOB" {
 				continue
 			}
-			args := Args{"table": name, "column": c, "value": rows[0][i+1]}
+			// the page sends the text the cell showed as the value it expects: it must be accepted for every kind of cell the real schema has
+			args := Args{"table": name, "column": c, "value": rows[0][i+1], "expected": shown(rows[0][i+1])}
 			if wr[name] {
 				args["key"] = rows[0][0]
 			} else {
