@@ -593,6 +593,7 @@ func (s *Server) routes() {
 	s.post("/api/player/refill", func(ops.Args) (any, error) { return o.RefillContainers() })
 	s.post("/api/player/hydration", func(ops.Args) (any, error) { return o.FillHydration() })
 	s.post("/api/player/solari", o.AddSolari)
+	s.post("/api/player/blood-marks", o.GiveBloodMarks)
 	s.post("/api/player/intel", o.AddIntel)
 	s.post("/api/player/xp", o.AddXP)
 	s.post("/api/player/currency", o.AddCurrency)
