@@ -31,6 +31,7 @@ type Flush struct {
 	Backup  string    `json:"backup,omitempty"`  // the backup the write was made after
 	Ops     []string  `json:"ops,omitempty"`     // what was written
 	Warning string    `json:"warning,omitempty"` // written, but the file could not be read back in (the editor needs a restart)
+	Stuck   bool      `json:"stuck,omitempty"`   // the edits cannot be written and will not be: they were not kept, the game saved, so they can only be discarded and made again
 	// Restored says that the edits were put back onto a newer file first (the game saved since they were made), and which could not be
 	Restored *Restored `json:"restored,omitempty"`
 }
@@ -87,6 +88,7 @@ func (s *Save) Flush() Flush {
 		r, err := s.rebaseAtomic()
 		if err != nil {
 			f.Why = err.Error()
+			f.Stuck = errors.Is(err, ErrNotKept)
 			return s.setLastFlush(f)
 		}
 		f.Restored = r

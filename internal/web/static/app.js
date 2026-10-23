@@ -35,15 +35,17 @@ function toast(msg, err, ms = 3500) {
   $('#toast').append(d);
 }
 // An edit of the save is written to the game's file as it is made, so a message has nothing to add; act() adds a hint when it finds the edit queued instead (the game is
-// in a single-player session and rewrites the file).
-const NOT_SAVED = '';
+// in a single-player session and rewrites the file). NOT_SAVED is that hint for the messages that are built by hand: it reads as the hint while edits are being queued
+// (the last status said so) and as nothing otherwise.
+const QUEUED_HINT = ' (queued: written when the game closes)';
+const NOT_SAVED = { toString: () => (saveBlocked || lastDirty ? QUEUED_HINT : '') };
 // immediate: the change is written at once (a config file, a setting) and never waits in the queue, so it never gets the hint.
 async function act(fn, okMsg, refresh = true, immediate = false) {
   try {
     const r = await fn();
     let dirty = false;
     if (!immediate) try { dirty = (await status()).dirty; } catch (e) { /* the poll reports a lost connection; the edit itself succeeded */ }
-    if (okMsg) toast(okMsg + (dirty ? ' (queued: written when the game closes)' : ''));
+    if (okMsg) toast(okMsg + (dirty ? QUEUED_HINT : ''));
     if (refresh) await render();
     return r;
   }
@@ -247,7 +249,7 @@ function keepQueue() {
 }
 
 // ---------- status bar
-let saveBlocked = false, saveBlockWhy = '', offline = false;
+let saveBlocked = false, saveBlockWhy = '', offline = false, lastDirty = false;
 let gwKey = '', lastPending = []; // the banner as last drawn, and the queued changes in words
 const KEEP = { qlist: false, raw: false }; // which of the banner's toggles are open: kept across redraws
 // The reasons the editor gives for not writing, as a sentence. The wording the tools and checks use stays available under Details.
@@ -302,6 +304,7 @@ async function status() {
   const o = await api('/api/save/state');
   offline = false;
   saveBlocked = !!o.saveBlocked;
+  lastDirty = !!o.dirty;
   saveBlockWhy = o.blockReason || '';
   $('#path').textContent = String(o.path || '').split(/[\\/]/).pop();
   $('#path').title = o.path || '';
@@ -327,11 +330,16 @@ async function status() {
   let mainMsg = html``;
   if (o.locationUnconfirmed) mainMsg = html`<div><b>Changes cannot be written here yet.</b> ${reason.text} You can keep editing: changes wait in the queue. <button class="b sm" data-act="confirmLocation">Allow writing here</button></div>`;
   else if (o.gameCheckError && saveBlocked) mainMsg = html`<div><b>Changes cannot be written.</b> ${reason.text}${q ? html` ${q} ${n('change waits', 'changes wait')} in the queue and ${n('is written by itself', 'are written by themselves')} once the check works.` : ''} <button class="b sm" data-act="writeNow">Write now</button></div>`;
+  else if (q && !o.held && last && last.stuck) mainMsg = html`<div><b>${q} queued change${n(' cannot', 's cannot')} be written.</b> The game saved after ${n('it was', 'they were')} made, and the editor did not keep ${n('it', 'them')}${o.journalOff ? ' (' + o.journalOff + ')' : ''}, so ${n('it', 'they')} cannot be put back onto the game's file, which is left as it is. Discard the queue and make ${n('the change', 'the changes')} again. <button class="b sm" data-act="discardQueue">Discard queue</button></div>`;
   else if (q && !o.held) mainMsg = html`<div><b>${q} change${n(' is', 's are')} queued.</b> ${reason.text} ${n('It is written to the game file by itself', 'They are written to the game file by themselves')} as soon as it can be written. <button class="b sm" data-act="writeNow">Write now</button></div>`;
   else if (saveBlocked && !q) mainMsg = html`<div><b>The game is in a single-player session.</b> It rewrites the save while it runs, so changes you make now are queued and written when you go to its menu or close it.</div>`;
   else if (note) mainMsg = html`<div>Dune: Awakening is open (${(o.gameProcesses || []).join(', ')}) but not in single-player, so changes are written at once.</div>`;
   // what became of the edits an earlier run (or a reload) put back, and the plain fact when they are not being kept
-  const restoredMsg = restored ? html`<div><b>${restored.applied} change${restored.applied === 1 ? ' was' : 's were'} put back${restored.rebased ? ' onto the newer file the game saved' : ''}.</b> They are written like any other change.
+  // A change that could not be put back is dropped for good: its notice stays, even after the others are written, until it is dismissed.
+  const restoredHead = !restored ? html`` : restored.applied > 0
+    ? html`<b>${restored.applied} change${restored.applied === 1 ? ' was' : 's were'} put back${restored.rebased ? ' onto the newer file the game saved' : ''}.</b> ${restored.written ? (restored.applied === 1 ? 'It has been written.' : 'They have been written.') : 'They are written like any other change.'}`
+    : html`<b>${(restored.conflicts || []).length === 1 ? 'A queued change was' : 'Queued changes were'} not kept.</b>`;
+  const restoredMsg = restored ? html`<div>${restoredHead}
     ${(restored.conflicts || []).map((c) => html`<div>Could not put back: ${c.desc} (${c.why}). Make it again.</div>`)} <button class="b sm" data-act="dismissRestored">OK</button></div>` : html``;
   const journalMsg = o.journalOff && o.dirty ? html`<div class="mut">These queued changes are not kept if the editor is closed: ${o.journalOff}.</div>` : html``;
   const lines = o.pending.map(queueLine);
@@ -968,7 +976,7 @@ const A = {
   xp: () => act(async () => { const r = await api('/api/player/xp', { amount: +val('xpAmt') }); toast(r.applied ? `XP ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()}, level ${r.levelBefore} → ${r.levelAfter}` + (r.skillPointsGained ? `, +${r.skillPointsGained} skill points` : '') + (r.capped ? ' (stopped at level 200)' : '') + NOT_SAVED : 'Already at the last level (200).'); }, null),
   currency: () => act(async () => { const r = await api('/api/player/currency', { currency: +val('curSel'), amount: +val('curAmt') }); toast(`${r.currency == 0 ? 'Solari in wallet' : 'House credit in wallet'} ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()}` + NOT_SAVED); }, null),
   intel: () => act(async () => { const r = await api('/api/player/intel', { amount: +val('intelAmt') }); toast(r.applied ? `Intel ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()}` + (r.capped ? ' (capped at 2,779)' : '') + NOT_SAVED : 'Intel is already at the cap (2,779).'); }, null),
-  teleport: () => act(() => { const body = { x: +val('tx'), y: +val('ty'), z: +val('tz') }; if (val('tdyaw') !== '') body.yaw = +val('tdyaw'); return api('/api/player/teleport', body); }, 'Teleport queued'),
+  teleport: () => act(() => { const body = { x: +val('tx'), y: +val('ty'), z: +val('tz') }; if (val('tdyaw') !== '') body.yaw = +val('tdyaw'); return api('/api/player/teleport', body); }, 'Teleport set'),
   tdFind: async () => {
     try {
       const r = await api(`/api/player/destinations?kind=${encodeURIComponent(val('tdkind'))}&q=${encodeURIComponent(val('tdq'))}`);
@@ -977,7 +985,7 @@ const A = {
       setHTML($('#tdout'), TD.length ? html`<select id="tdsel"><option value="">${TD.length} place${TD.length == 1 ? '' : 's'} on ${r.map}, nearest first${more}</option>${TD.map((d, i) => html`<option value="${i}">${d.label} - ${Math.round(d.distance / 100).toLocaleString()} m away</option>`)}</select>` : html`None on ${r.map}.`);
     } catch (e) { toast(e.message, true); }
   },
-  tpTo: (d) => act(() => api('/api/player/teleport', { x: +d.x, y: +d.y, z: +d.z }), 'Teleport queued'),
+  tpTo: (d) => act(() => api('/api/player/teleport', { x: +d.x, y: +d.y, z: +d.z }), 'Teleport set'),
   augEdit: (d) => act(async () => { const r = await api('/api/items/augment-options', { item_id: +d.id }); r.options.forEach((o) => AUG_NAMES.set(o.id, o.name)); augItem = { ...r, item_id: +d.id }; render(); }, null, false),
   augCancel: () => { augItem = null; render(); },
   augApply: (d) => act(async () => { const r = await api('/api/items/augment', { item_id: +d.id, augments: augPicked('au', augItem.limit), grade: +val('augG'), unlock_slots: $('#augU').checked }); augItem = null; toast(`Augments set (${r.augments})` + (r.slotsUnlocked ? `, ${r.slotsUnlocked} slot keystones unlocked` : '') + NOT_SAVED); }, null),
