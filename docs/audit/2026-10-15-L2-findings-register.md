@@ -6,6 +6,94 @@ Method (Project Arrakis meta Requirement 20): eight independent read-only hat wo
 
 No hat contradicted another on a fact. Overlaps resolved in the merge: the unreviewed start-up auto-commit (Architect, DBA, GRC, Security, UI/UX), reading outside the transaction (Architect, DBA), the whole-document stats rewrite in Repair Gear (Architect, DBA, QA), non-finite and out-of-range numbers (Security, DBA), the port-agnostic session cookie (Network, Security), the unscoped health route (DBA, Architect, GRC), and the reusable workflow at `@main` (Cloud; the earlier C-1).
 
+## Reconciliation, 2026-10-23
+
+Every finding of the eight hats was checked again against the current code, tests, CI and repository settings (`gh api`, read only), not against the old text or the group labels. The group table and the hat tables below keep the text of 2026-10-15; the table in this section is the current status.
+
+Counts (93 findings): **69 fixed**, **1 obsolete** (DBA-4: the route was removed), **7 accepted risk** (ARCH-1, GRC-1, NET-2, NET-5, NET-6, CLD-7, QA-15), **16 open**. Several fixes are newer than the 2026-10-22 audit: #301 to #328 (this pass) and the pull requests of the 2026-10-22 register.
+
+| Open, why | Findings |
+|---|---|
+| Owner (repository or organisation settings) | CLD-2 (no required reviewer: a single maintainer cannot approve their own pull request; `strict` off), CLD-3 (the security gates read their configuration from the pull request and the semgrep rule sets are not pinned: the change is in the organisation's workflow repository), CLD-4 (transitive pip dependencies of the semgrep job are not hash-pinned: same repository), CLD-8 (`allowed_actions: all`, `sha_pinning_required: false`; the three jobs of the reusable workflow have no timeout), CLD-9 (30 commits carry a personal address; a rewrite of public history) |
+| Owner (decision or record) | GRC-3 (the waiver of the "live test gates S3" rule is written nowhere), GRC-9 (turbines and windtraps in the start-up refill: "Owner to confirm" in `docs/design/2026-10-15-auto-refill-scope.md`), GRC-12 (no terms-of-use position and no date for the vehicle-durability numbers), GRC-13 (#56 and #57 are open although the work shipped), ARCH-10 (`trackNumbers` is one setting for all saves) |
+| Needs the live game | DBA-9 (turbine and windtrap fill is "tests only" in the README matrix), DBA-10 (#194: land-claim writes accept any existing totem id; ownership evidence needs a read-only look at a real save) |
+| Accessibility backlog (#180) | UX-08 (land-claim cells are click-only; no `aria-pressed` on the map layer toggles; many inline inputs have no accessible name; map marker information is hover-only), UX-11 (the Saved map always opens on Hagga Basin), UX-13 (the word "template id" in one hint; a dead `tpTo` handler) |
+| Test hygiene | QA-12 (`TestSymlinkedSaveIsRefused` skips without the privilege, no `-race` on Windows) |
+
+| ID | Status | Evidence |
+|---|---|---|
+| ARCH-1 | accepted risk | whole-save scope is documented (`docs/design/2026-10-15-auto-refill-scope.md`), the buttons say "every base" and ask first (#278), the unreviewed auto-commit is the "write on every accepted request" of `SECURITY.md`, every write is logged (#296) |
+| ARCH-2 | fixed | #188; reads and plans inside `Mutate` (`upkeep.go`, `specialization.go`, `ops.go`); `TestOverlappingGeneratorRefillsDoNotOverfill` |
+| ARCH-3 | fixed | #188; `RepairGear` patches three keys with `json_set`; `TestRepairGearChangesOnlyTheDurabilityKeys` |
+| ARCH-4 | fixed | #190; `Teleport` refuses pawn 0; the reset toast reports `removed` |
+| ARCH-5 | fixed | #198; `journeyset_test.go` |
+| ARCH-6 | fixed | #188; one `powerInventorySQL`; `TestRefillAndPowerTabAgreeOnTheFuelInventory` |
+| ARCH-7 | fixed | #195; `lockedTables` includes `items_id_sequencer`; `TestSQLWriteLocksEveryLockedTable` |
+| ARCH-8 | fixed | #192, #207; one `growClaim`; the page text no longer says cells are never removed |
+| ARCH-9 | fixed | #195; `requireEditableItem`, `requireBaseContainer`; `TestItemEditsReachOnlyCarriedAndBaseInventories` |
+| ARCH-10 | open (owner) | the locked `settings.Update` and the strict load are in (#198, `internal/settings/update_test.go`); `trackNumbers` is still one map for every save (`settings.go`) |
+| ARCH-11 | fixed | #198; `storageTypes` by group id; `lmMouseUpAdded` |
+| SEC-1 | fixed | #190; `writeJSON` answers 500 with a JSON error; `jsonerr_test.go` |
+| SEC-2, SEC-3 | fixed | #190; `Args.Float` and `Args.Int`; `TestArgsFloatRefusesNonFinite`, `TestArgsIntNeedsAnExactInteger` |
+| SEC-4 | fixed | #197; `csvCell` on header cells; `hostile_save_test.go` |
+| SEC-5 | fixed | #197; comma-ok in `baseview.go`, `recoverPanic`; `TestBaseViewsSurviveABuildingWithNoType`. Other bare type assertions read NOT NULL columns and are backstopped by `recoverPanic` |
+| SEC-6 | fixed | #197; `readCapped` stats the file before it reads (`codec.go`); `readcap_test.go` |
+| SEC-7 | fixed | #200; the cookie name carries the port and `hasSession` scans every cookie of that name (`TestAShadowCookieDoesNotHideTheRealOne`); that every port of 127.0.0.1 receives it is accepted and documented (NET-2) |
+| SEC-8 | fixed | #203; `tasklist` and `rundll32` by full System32 path (`winpath`) |
+| SEC-9 | fixed | the turn-on question is at `app.js` (`autoRefillOnOpen`) and every refill write is in `write-log.jsonl` (#296); the toggle itself is not logged |
+| SEC-10 | fixed | #197; `publicError`; `TestErrorsDoNotCarryAbsolutePathsOrTheHomeFolder`. One start-up note (`errors.Join` in `server.go`) is not passed through it; no path is known to reach it |
+| GRC-1 | accepted risk | owner decision 2026-10-15 (#196): README carve-out, `docs/art-notice.md`, `THIRD-PARTY-NOTICES.md`; the `LICENSE` file itself has no carve-out |
+| GRC-2 | fixed | #186; `docs/README.md` and `docs/continuation-prompt.md` current |
+| GRC-3 | open (owner) | the README matrix labels each feature honestly (#199); T1/T1b/T2/T3 have no result rows; the waiver is in no document |
+| GRC-4 | fixed | #199; the README verification matrix |
+| GRC-5 | fixed | #197; ids hidden behind Show (`SECRET_IDS`) |
+| GRC-6 | fixed | #186; the Go 1.26.10 raise (#229) is now in the CHANGELOG |
+| GRC-7, GRC-8, GRC-10 | fixed | #186; one heading per kind in `[Unreleased]`; the README no longer claims chassis durability or an open recovery tool; this pass renamed "Live Map" to "Saved map" in the README as the tab is called |
+| GRC-9 | open (owner) | "Owner to confirm" in `docs/design/2026-10-15-auto-refill-scope.md`; the plan names only water and generators |
+| GRC-11 | fixed | #196; `THIRD-PARTY-NOTICES.md` covers the XP table, water capacities, fuel amounts, building-set groups and research logic |
+| GRC-12 | open (owner) | sources are named; no dates for the vehicle-durability numbers and no terms-of-use position |
+| GRC-13 | open (owner) | #58 and #87 are closed with their work delivered; #56 and #57 are open although chassis health, Expand, Shrink and Apply shipped |
+| GRC-14 | fixed | this register and the 2026-10-22 register are the audit record |
+| NET-1 | fixed | #200, #285; `PortChangeNote`; `LockSave` refuses a second editor on the same save |
+| NET-2, NET-5, NET-6 | accepted risk | `SECURITY.md`: the cookie is a bearer token sent to every port of 127.0.0.1; the one-time link; WebView2 and Edge traffic |
+| NET-3 | fixed | #202; `locationProblem` and the confirmation; `TestAnUntrustedLocationBlocksUntilConfirmed` |
+| NET-4 | fixed | #203; `localhostIPs` requires every address to be loopback and the checked address is bound |
+| NET-7 | fixed | #203; all eight checkout steps pinned to one SHA |
+| CLD-1 | fixed | #277; the reusable workflow is called by commit |
+| CLD-2 | open (owner) | 11 required checks including `windows` and `ui`; `required_approving_review_count` 0, `strict` false |
+| CLD-3, CLD-4 | open (owner) | in the organisation's workflow repository, not here |
+| CLD-5 | fixed | #203, #149; runners and Node pinned, Dependabot covers gomod, actions and npm |
+| CLD-6 | fixed | #203; `TestEmbeddedWebView2LoadersAreTheReviewedOnes` |
+| CLD-7 | accepted risk | `SECURITY.md`: no published binaries |
+| CLD-8 | open (owner) | `persist-credentials: false` and `timeout-minutes` on all own jobs (#203); the repository still allows all actions and does not require SHA pinning |
+| CLD-9 | open (owner) | 30 of the commits carry a personal address; every recent one uses the noreply address |
+| CLD-10 | fixed | #203; `SECURITY.md` and private vulnerability reporting enabled (checked with `gh api`) |
+| UX-01 | fixed | #185, #211, #234; the status poll sees the file change and reloads by itself when nothing is queued; held edits are kept (#272, #283) |
+| UX-02 | fixed | #185; free text is never sent as a template id; `TestGiveRefusesAnIdThatIsNotAnItem` |
+| UX-03, UX-05, UX-10, UX-12, UX-14 | fixed | #204, #278; the repair default and the explanation of "Repaired 0"; config edits are not "not saved yet"; the 403 is JSON with Try again; confirm texts; the box goes back to the old value |
+| UX-04 | fixed | #204; the queue is listed in words (`describe.go`) |
+| UX-06 | fixed | the start-up note is a 15 s toast, warnings stay until dismissed, and every write is in `write-log.jsonl` (#296); "Last automatic save" is kept in memory only |
+| UX-07 | fixed | #282 (dialog name, inert background, Tab trap, live region) and #328 (focus is restored after the page is drawn again) |
+| UX-08 | open | sortable headers are keyboard operable (#282). Open: land-claim cells (`app.js`, click-only), `aria-pressed` on the layer toggles, accessible names of inline inputs, hover-only marker information |
+| UX-09 | fixed | #214, #282, #315; the label of the accent and the red button reach 4.5:1 in both themes (`TestFilledButtonLabelsReachFourPointFiveInBothThemes`); a disabled layer toggle is dimmed on purpose |
+| UX-11 | open | marker names are words and Fit resets the view (#284); the map still opens on Hagga Basin |
+| UX-13 | open | headers and jargon were reworded (#249); "template id" remains in one hint and the `tpTo` handler is dead |
+| DBA-1 | fixed | #189; `TestRepairBuildingsIsLinearInThePieceCount` |
+| DBA-2, DBA-3 | fixed | #188; `TestOverlappingWaterRefillsFillEachDeviceOnce`, `TestRepairGearChangesOnlyTheDurabilityKeys` |
+| DBA-4 | obsolete | #195 removed the piece-health route |
+| DBA-5 | fixed | #192; `TestShrinkLandClaimRefusesToStrandACell` |
+| DBA-6, DBA-7 | fixed | #191, #190; `TestVehicleRepairNeverLowersARecordedMaximum`, `TestSetSpecRefusesValuesTheTrackCannotHold` |
+| DBA-8, DBA-11 | fixed | #187; `rowKey` addresses WITHOUT ROWID tables by key; `TestTablesViewWorksOnAllRealSchemaTables`, `TestFKGateTellsOrphansOfWithoutRowidTablesApart` |
+| DBA-9 | open (live game) | the turbine and windtrap fill is recorded as "tests only" in the README matrix |
+| DBA-10 | open (live game) | `landclaim.go` checks only that the totem exists; #194 |
+| DBA-12 | fixed | #186; README "Restoring a backup" |
+| QA-1, QA-2 | fixed | #184; `gate_test.go`, `TestRepairOneVehicleLeavesTheOtherOwnedVehicleAlone` |
+| QA-3 | fixed | #193 and #312: `TutorialSet` and `TagSet` are tested to touch only the character's rows (a mutant is caught) |
+| QA-4 .. QA-11 | fixed | #191, #193; `TestVehicleDurabilityTableGolden`, `db_locked_test.go`, `TestSinglePlayerStatusAcrossSplitReads`, `TestNewServerDoesNotUseTheDevelopersSettings`, `TestEveryEmbeddedAssetIsServedWithItsOwnBytes`, hostile fixtures on seven routes, `boundaries_test.go` |
+| QA-12 | open (hygiene) | the symlink test skips without the privilege; the Windows job runs without `-race` |
+| QA-13, QA-14 | fixed | #193, #203; `timeout-minutes` and no cancel on main; exact assertions |
+| QA-15 | accepted risk | `NoGameRunningForTests` is still exported; `TestTestHooksAreNotCalledByProductionCode` fails if shipped code calls it |
+
 ## Disposition summary
 - CRITICAL: none.
 - HIGH: 6 groups, 6 raw findings (QA-1, QA-2, UX-01, UX-02, GRC-1, GRC-2). To be resolved before the layer is considered passed; G07 (the Funcom art) needs a decision from the owner.
@@ -37,7 +125,7 @@ No hat contradicted another on a fact. Overlaps resolved in the merge: the unrev
 | G20 | #177 | MEDIUM | Tampering, Information Disclosure, Elevation of Privilege | fix | Fixed (#203); owner-only settings open | Smaller hardening, supply chain and disclosure channel |
 | G21 | #178 | MEDIUM | Tampering, Elevation of Privilege | operator | Open: owner (repository settings, org workflow) | CI trust: the reusable security workflow is referenced at @main and required checks are incomplete |
 | G22 | #179 | MEDIUM | Repudiation | fix | Fixed (#204) | Messages that misreport state, and dead ends |
-| G23 | #180 | MEDIUM | N/A | defer | Deferred: accessibility and polish backlog | Accessibility and polish backlog |
+| G23 | #180 | MEDIUM | N/A | defer | Partly fixed (#214, #249, #282, #284, #315, #328); UX-08, UX-11 and UX-13 remain | Accessibility and polish backlog |
 | G24 | #181 | MEDIUM | N/A | fix | Fixed (#193) | Test hardening |
 | G25 | #182 | LOW | Tampering | fix | Fixed (#198); trackNumbers per save needs a design decision | Smaller correctness items |
 
