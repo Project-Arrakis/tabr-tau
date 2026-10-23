@@ -1295,8 +1295,8 @@ test('Database > Tables: a cell edit sends the rowid for a table with one and th
     ui.dom.window.close();
     return body;
   };
-  assert.deepEqual(await edit(['_rowid_', 'character_id', 'tag'], [5, 1, 'a']), [{ table: 'player_tags', rowid: 5, column: 'tag', value: 'changed' }]);
-  assert.deepEqual(await edit(['_key_', 'character_id', 'tag'], ['["1","a"]', 1, 'a']), [{ table: 'player_tags', key: '["1","a"]', column: 'tag', value: 'changed' }]);
+  assert.deepEqual(await edit(['_rowid_', 'character_id', 'tag'], [5, 1, 'a']), [{ table: 'player_tags', rowid: 5, column: 'tag', value: 'changed', expected: 'a' }]);
+  assert.deepEqual(await edit(['_key_', 'character_id', 'tag'], ['["1","a"]', 1, 'a']), [{ table: 'player_tags', key: '["1","a"]', column: 'tag', value: 'changed', expected: 'a' }]);
 });
 
 test('Give water gives ten Cups of Water in one post', async () => {
