@@ -57,9 +57,10 @@ function haystack(doc) {
   return h;
 }
 
-async function boot({ post = {}, get = {}, confused = false } = {}) {
+async function boot({ post = {}, get = {}, confused = false, noStorage = false } = {}) {
   const dom = new JSDOM(read('index.html'), { url: 'http://127.0.0.1:8090/', runScripts: 'dangerously', pretendToBeVisual: true });
   const w = dom.window;
+  if (noStorage) Object.defineProperty(w, 'localStorage', { get() { throw new w.DOMException('The operation is insecure.', 'SecurityError'); }, configurable: true }); // a browser that blocks site storage
   let inflight = 0;
   const posted = [];
   w.fetch = async (p, opt = {}) => {
@@ -1908,6 +1909,17 @@ test('an armed bulk button disarms by itself after about fifteen seconds', async
   assert.equal(b.textContent, was, 'back to the plain label');
   ui.click('[data-act="sand"]'); // a press after that asks again instead of running
   assert.equal(ui.posted.filter((x) => x.path === '/api/bases/clear-sand').length, 0);
+  ui.dom.window.close();
+});
+
+test('a browser that blocks local storage (it throws on the first touch) still starts the page and switches tabs (review B5)', async () => {
+  const ui = await boot({ noStorage: true });
+  assert.throws(() => ui.w.localStorage, 'the fixture really throws');
+  assert.ok(ui.doc.querySelector('#main').textContent.length > 0, 'the page rendered');
+  ui.click('[data-tab="livemap"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('[data-tab="livemap"]').classList.contains('on'), 'a tab can be opened without storage');
+  ui.click('[data-tab="player"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('[data-tab="player"]').classList.contains('on'));
   ui.dom.window.close();
 });
 

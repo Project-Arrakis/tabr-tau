@@ -158,8 +158,14 @@ const TABS = { player: 'Player', livemap: 'Saved map', landsraad: 'Landsraad', c
 // Vehicles used to be top-level tabs and are two of these.
 const PTABS = [['character', 'Character'], ['crafting', 'Crafting'], ['research', 'Research'], ['buildingsets', 'Building sets'], ['customizations', 'Customizations'],
   ['skills', 'Skills'], ['specialization', 'Specialization'], ['journey', 'Journey'], ['bases', 'Bases'], ['vehicles', 'Vehicles'], ['admin', 'Admin']];
-let tab = Object.hasOwn(TABS, localStorage.tab) ? localStorage.tab : 'player';
-const sub = { player: ['bases', 'vehicles'].includes(localStorage.tab) ? localStorage.tab : 'character', char: 'overview', db: 'browse' };
+// The browser's storage is a convenience (the tab last open): a browser that blocks it, or a private window, throws on the first touch, which must not stop the page from starting.
+const browserStore = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* the choice lasts until the page is closed */ } },
+};
+const savedTab = browserStore.get('tab');
+let tab = Object.hasOwn(TABS, savedTab) ? savedTab : 'player';
+const sub = { player: ['bases', 'vehicles'].includes(savedTab) ? savedTab : 'character', char: 'overview', db: 'browse' };
 const GROUPS = ['player', 'char', 'bases', 'db'];
 let invG = null, invQ = ''; let giveQueue = loadQueue(); let augItem = null; // augItem: the inventory item whose augments are open for editing // Character > Inventory: the chosen group (null: the first one with items) and the filter text
 function drawNav() {
@@ -1219,7 +1225,7 @@ document.addEventListener('click', (e) => {
   const hth = e.target.closest('thead th');
   if (hth && !e.target.closest('button, a, input, select') && headerClick(hth)) return;
   const t = e.target.closest('[data-tab]');
-  if (t) { if (Object.hasOwn(TABS, t.dataset.tab)) { tab = t.dataset.tab; localStorage.tab = tab; render(); } return; }
+  if (t) { if (Object.hasOwn(TABS, t.dataset.tab)) { tab = t.dataset.tab; browserStore.set('tab', tab); render(); } return; }
   const rv = e.target.closest('[data-reveal]');
   if (rv) {
     const k = rv.dataset.reveal;
