@@ -806,13 +806,16 @@ func (s *Save) Restore(name string) error {
 			return fmt.Errorf("backup has applied patch %q that the current save lacks (it is from a newer game version)", p)
 		}
 	}
-	if _, err := s.backup(); err != nil {
+	bak, err := s.backup()
+	if err != nil {
 		return err
 	}
 	if err := s.installBlob(b); err != nil {
 		return err
 	}
 	s.noteDisk(b)
+	// a restore is a write to the game's file like any other, and is recorded like one: after the file has been replaced, with the backup that holds the file as it was
+	s.appendWriteLogLocked(Flush{At: time.Now(), Saved: true, Ops: []string{"restored the backup " + name}, Backup: bak})
 	if err := reloadAfterCommit(s); err != nil {
 		// The file on disk is the restored backup but the working copy is stale: refuse further edits so the
 		// stale copy can never be saved over the restore.
