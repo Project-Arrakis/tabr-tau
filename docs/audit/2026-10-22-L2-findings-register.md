@@ -8,18 +8,18 @@ Severity scale: Critical, High, Medium, Low, Info. STRIDE: S spoofing, T tamperi
 
 | Group | Severity | Issue | Findings | Open |
 |---|---|---|---|---|
-| E1: Queued-edit replay writes stale values over the game's newer save | HIGH | #251 | 10 | 1 |
+| E1: Queued-edit replay writes stale values over the game's newer save | HIGH | #251 | 10 | 0 |
 | E2: Edits dropped or held by a rebase are not reported; the queue cannot be inspected | MEDIUM | #252 | 6 | 0 |
 | E3: Backups: the prune can delete the pre-session backup; the throttle trusts any file | MEDIUM | #253 | 7 | 0 |
-| E4: No persistent record of writes; bulk actions lost their confirmation | MEDIUM | #254 | 4 | 2 |
+| E4: No persistent record of writes; bulk actions lost their confirmation | MEDIUM | #254 | 4 | 0 |
 | E5: Documents still describe the removed Review & save; a control removal merged without review | MEDIUM | #255 | 7 | 0 |
 | E6: Repository settings and CI configuration | MEDIUM | #256 | 10 | 6 |
-| E7: Save lifecycle: locking, gates and timeouts | MEDIUM | #257 | 10 | 7 |
-| E8: Give and stack sizes: remaining gaps | MEDIUM | #258 | 4 | 4 |
-| E9: Local data exposure and the page guard | LOW | #259 | 5 | 5 |
+| E7: Save lifecycle: locking, gates and timeouts | MEDIUM | #257 | 10 | 1 |
+| E8: Give and stack sizes: remaining gaps | MEDIUM | #258 | 4 | 1 |
+| E9: Local data exposure and the page guard | LOW | #259 | 5 | 1 |
 | E10: Embedded game-table datasets have no provenance notice | MEDIUM | #260 | 1 | 0 |
-| E11: Review-era code kept alive | LOW | #261 | 2 | 2 |
-| E12: Test gaps in the write path | MEDIUM | #262 | 4 | 4 |
+| E11: Review-era code kept alive | LOW | #261 | 2 | 0 |
+| E12: Test gaps in the write path | MEDIUM | #262 | 4 | 0 |
 | E13: Repository hygiene: agent worktrees are untracked and not ignored | LOW | #263 | 3 | 1 |
 | E14: Editor UI: remaining polish | MEDIUM | #264 | 10 | 0 |
 
@@ -40,7 +40,7 @@ A queued edit that stored a number computed from the old value (Solari +250, a s
 | DBA-5 | MEDIUM | T | ops.go:360-373 via journal replay; schema.sql:284-295 | Replay inserts the stale slot (`position_index`) and does not re-check capacity: two items in one slot, item count above max_item_count | fixed (#272, as QA-1: the free-slot read is one of the reads compared) |
 | GRC-5 | MEDIUM | T, R | save/journal.go:205-224, save/save.go:597-598 | A journal that survives a successful write replays already-written edits (duplicate items). Reproduced. | fixed (#242, test in flush_test.go) |
 | ARCH-2 | MEDIUM | T | `internal/save/save.go:587-598`, `internal/save/journal.go:210-214, 249-266` | A journal that outlives a successful write is replayed onto a file that already holds the edits (duplicates) | fixed (#242, test in flush_test.go) |
-| DBA-10 | LOW | T, D | journal.go:98-105, 131-146, 219-243 | Journal fidelity and degraded modes: nil []byte becomes an empty blob, invalid UTF-8 is rewritten, float32 is widened, any ';' strands the queue, write errors are swallowed, no fsync | open |
+| DBA-10 | LOW | T, D | journal.go:98-105, 131-146, 219-243 | Journal fidelity and degraded modes: nil []byte becomes an empty blob, invalid UTF-8 is rewritten, float32 is widened, any ';' strands the queue, write errors are swallowed, no fsync | fixed (#293: a nil blob stays NULL, bad UTF-8 and float32 are kept exactly, `oneStatement` replaces the ";" test, a journal write error turns the journal off with its reason, the file is flushed before the rename) |
 | DBA-11 | LOW | T | journal.go:270-310 | Rebase is not under flushMu and releases s.mu between replayed ops; the journal file is deleted before replay re-creates it | fixed (#283) |
 | ARCH-3 | MEDIUM | T, D | `internal/save/journal.go:270-298`, `internal/save/save.go:498-506, 625`, ... | Rebase, Discard and Restore are not serialized with Flush; replay drops `s.mu`; Discard can be undone by an in-flight replay | fixed (#283) |
 
@@ -89,9 +89,9 @@ Since writes happen as edits are made there is no durable record of what was wri
 
 | ID | Sev | STRIDE | Location | Finding | Status |
 |---|---|---|---|---|---|
-| GRC-3 | MEDIUM | R | save/save.go:597, save/flush.go:32, ops/ops.go:140 | No persistent record of what was written, when, or under which backup. | open |
+| GRC-3 | MEDIUM | R | save/save.go:597, save/flush.go:32, ops/ops.go:140 | No persistent record of what was written, when, or under which backup. | fixed (#296: `write-log.jsonl` in the editor's folder, one line per write with time, edits, backup name; no values; 256 KB cap with one older generation; a failed append is reported on the page) |
 | GRC-2 | MEDIUM | T, R | web/static/app.js:1010-1015, CHANGELOG.md:78 | Bulk base actions lost their only confirmation when the review pane went; they now write on one click. | fixed (#278) |
-| SEC-14 | INFO | R | CHANGELOG.md:9; web/server.go:372-386 | The change from "stage then review" to "write on every successful POST" removed a human-in-the-loop second factor for every write route. Compensating controls hold, but this should be stated as an accepted risk in SECURITY.md. | open |
+| SEC-14 | INFO | R | CHANGELOG.md:9; web/server.go:372-386 | The change from "stage then review" to "write on every successful POST" removed a human-in-the-loop second factor for every write route. Compensating controls hold, but this should be stated as an accepted risk in SECURITY.md. | fixed (#296: SECURITY.md states the accepted risk of a write on every accepted request, the controls that stand in its place, and when to look at it again) |
 | UX-29 | MEDIUM | Usability (safety) | `app.js:1110-1114` (`change` handlers), `:41-66` (`act`, `editInput`) | Inline edits commit as soon as the field loses focus, and there is nothing to review or undo.** Stack, Grade, Reputation, Database cells, Config values and skill ranks write on change. The toast is "Item updated" with no before→after. The only undo is a whole-file restore under Database > Save ... | fixed (#278) |
 
 ## E5: Documents still describe the removed Review & save; a control removal merged without review
@@ -166,13 +166,13 @@ The write gates use the 3-second process cache while the status poll bypasses it
 | ARCH-4 | MEDIUM | T | `internal/save/spsession.go:170-171`, `internal/save/gameproc.go:104-110` | The `fresh` flag is inverted: write gates use the 3-second process cache, the 5-second status poll bypasses it | fixed (#242, pinned by #285) |
 | ARCH-5 | LOW | D, T | `internal/save/save.go:188`, `internal/save/durable.go:65`, `cmd/tabr-tau/main.go:111-117` | `Open` deletes `*.tabr-*.tmp` before the single-instance lock is taken | fixed (#285) |
 | DBA-12 | LOW | D | cmd/tabr-tau/main.go:111-117, save.go:188, durable.go:65 | `Open` (which deletes `game.db.tabr-*.tmp`) runs before `LockSave`; a second launch can delete the first editor's in-flight temp file | fixed (#285) |
-| ARCH-8 | LOW | D | `internal/save/save.go:541-607, 485-495`, `internal/save/durable.go:48-57` | `s.mu` is held across process spawn, hashing, encode, backup and rename retries (up to ~3 s) and across 5 s console queries; polls stall | open |
-| DBA-15 | INFO | T | save.go:541-607, durable.go:87-117 | The single-player gate is evaluated once, well before the rename; with the game writing game.db about every 20 s, a missed marker loses the edit silently | open |
-| DBA-16 | INFO | T | save.go:149-177 | The schema fingerprint covers triggers, views and virtual tables only; table DDL and applied_patches are not compared at open | open |
-| DBA-17 | INFO | T | save.go:284-291 | noteDisk stats the file after the blob was read (about 100 ms later on the real save): ChangedOnDisk can say "unchanged" for a file newer than the loaded one | open |
-| SEC-11 | LOW | D | internal/ops/db.go:277-290; ops/ops.go:314-352, 441; save/mutate.go:201-203 | Unbounded work on the single save lock: write-console SQL has no timeout, and a Give of a non-stacking item with quantity up to 1,000,000 loops one insert per unit with a slot scan each when the inventory has no capacity limit. | open |
-| NET-13 | INFO | - | internal/web/server.go:372-386, listen.go:130 | Write-as-you-go now runs the whole `Flush` (backup, encode, write) inside the POST handler, bounded by `WriteTimeout` 2 min (the comment says it is for exports). A very large save that takes longer would have its response cut after the file was written; the page would show a network error for a ... | open |
-| QA-13 | LOW | D | `ops/ops.go:339-350` (`for left > 0`), `giveInTx` :354 | A one-per-slot item (stack size 1) given in a container with no slot limit costs a quadratic amount of work: 500 pieces 0.23 s, 1,000 0.92 s, 2,000 4.96 s; the argument limit is 1,000,000 and the save lock is held throughout. | open |
+| ARCH-8 | LOW | D | `internal/save/save.go:541-607, 485-495`, `internal/save/durable.go:48-57` | `s.mu` is held across process spawn, hashing, encode, backup and rename retries (up to ~3 s) and across 5 s console queries; polls stall | fixed in part, documented for the rest (#297: the automatic write no longer starts a second process check under `s.mu`; the lock across hash, encode, backup and rename is kept on purpose and the reason is at the top of `commit`) |
+| DBA-15 | INFO | T | save.go:541-607, durable.go:87-117 | The single-player gate is evaluated once, well before the rename; with the game writing game.db about every 20 s, a missed marker loses the edit silently | fixed (#297: the game-running check is made again in `installBlob` right before the rename, before the final read of the file on disk) |
+| DBA-16 | INFO | T | save.go:149-177 | The schema fingerprint covers triggers, views and virtual tables only; table DDL and applied_patches are not compared at open | open: not done because it needs a decision. Comparing table definitions and `applied_patches` at open would make a save read-only whenever the game's own migrations (an added column changes the stored table text) or a newer game build make it differ; whether that should block, warn or be ignored is for the owner to say |
+| DBA-17 | INFO | T | save.go:284-291 | noteDisk stats the file after the blob was read (about 100 ms later on the real save): ChangedOnDisk can say "unchanged" for a file newer than the loaded one | fixed (#297: the file is stat'ed before it is read) |
+| SEC-11 | LOW | D | internal/ops/db.go:277-290; ops/ops.go:314-352, 441; save/mutate.go:201-203 | Unbounded work on the single save lock: write-console SQL has no timeout, and a Give of a non-stacking item with quantity up to 1,000,000 loops one insert per unit with a slot scan each when the inventory has no capacity limit. | fixed (#295: a write-console statement stops after 15 s, a give reads the inventory once and makes at most 1,000 stacks) |
+| NET-13 | INFO | - | internal/web/server.go:372-386, listen.go:130 | Write-as-you-go now runs the whole `Flush` (backup, encode, write) inside the POST handler, bounded by `WriteTimeout` 2 min (the comment says it is for exports). A very large save that takes longer would have its response cut after the file was written; the page would show a network error for a ... | fixed (#295: edit requests and the flush route ask for a ten minute write window) |
+| QA-13 | LOW | D | `ops/ops.go:339-350` (`for left > 0`), `giveInTx` :354 | A one-per-slot item (stack size 1) given in a container with no slot limit costs a quadratic amount of work: 500 pieces 0.23 s, 1,000 0.92 s, 2,000 4.96 s; the argument limit is 1,000,000 and the save lock is held throughout. | fixed (#295: `giveRowsInTx` reads the inventory, the stats and the id sequencer once per give; a test counts the reads) |
 
 ## E8: Give and stack sizes: remaining gaps
 
@@ -184,10 +184,10 @@ A stack edit ignores the stack size (1e9 in one stack against the game's 50,000)
 
 | ID | Sev | STRIDE | Location | Finding | Status |
 |---|---|---|---|---|---|
-| DBA-6 | MEDIUM | T | ops.go:785-820 (AddSolari) | Ignores catalog.MaxStack (1e9 in one stack vs the game's 50,000) and only touches the first stack, so removal under-removes while reporting success | open |
-| DBA-8 | LOW | T | ops.go:376-381 | A new item clones `stats` from an arbitrary existing item of the template (ContractUid, fuel, ammo, durability, swatch) | open |
-| QA-11 | LOW | T | `ops/ops.go:314-350, 583-640 (cap check :624)` | Stack-size feature gaps: a stack of another grade being topped up (mutant), the 500/501 boundary of the SetItem cap, and the "not enough room" message are untested. | open |
-| QA-12 | LOW | T | `ops/ops.go:785-806` vs `:624` | `AddSolari` accepts a wallet stack past the 50,000 the item tables give for one slot (900,100 accepted) while `SetItem` refuses the same stack above 50,000. | open |
+| DBA-6 | MEDIUM | T | ops.go:785-820 (AddSolari) | Ignores catalog.MaxStack (1e9 in one stack vs the game's 50,000) and only touches the first stack, so removal under-removes while reporting success | fixed (#280: Solari follow the stack size of 50,000, fill the stacks there and make more; a removal takes from the last stack back and reports what it took) |
+| DBA-8 | LOW | T | ops.go:376-381 | A new item clones `stats` from an arbitrary existing item of the template (ContractUid, fuel, ammo, durability, swatch) | partly (#280: a new item's stats come from the oldest item of its template, no longer an arbitrary one; they are still a copy of an existing item, so a contract id, fuel or ammo of that item is carried over, because the editor has no template defaults) |
+| QA-11 | LOW | T | `ops/ops.go:314-350, 583-640 (cap check :624)` | Stack-size feature gaps: a stack of another grade being topped up (mutant), the 500/501 boundary of the SetItem cap, and the "not enough room" message are untested. | fixed (#280: tests for a stack of another grade, the 500/501 boundary of a stack edit, and the "not enough room" message) |
+| QA-12 | LOW | T | `ops/ops.go:785-806` vs `:624` | `AddSolari` accepts a wallet stack past the 50,000 the item tables give for one slot (900,100 accepted) while `SetItem` refuses the same stack above 50,000. | fixed (#280, as DBA-6: 900,100 is no longer accepted in one stack) |
 
 ## E9: Local data exposure and the page guard
 
@@ -199,11 +199,11 @@ Decoded plaintext copies of the save (with account and platform ids) are written
 
 | ID | Sev | STRIDE | Location | Finding | Status |
 |---|---|---|---|---|---|
-| SEC-3 | LOW | I | internal/save/save.go:195-220, 234, 247; readonly.go:27; durable.go:65 (cleanStaleTemps), ... | Decoded plaintext copies of the save (with account/platform ids) are written to `%TEMP%` and are only removed by a clean `Close`. A crash or kill leaves them forever, and nothing sweeps them at start. 27 such files are in the user's `%TEMP%` now. | open |
-| SEC-7 | LOW | T | internal/ops/db.go:182-257; web/static/app.js:1114; save/flush.go:71-84 | Tables-view cell edits address a row by `rowid` and send no expected old value. With the file now reloaded or rebased automatically, a stale view can overwrite a different row. | open |
-| SEC-12 | INFO | T, I | internal/save/journal.go:312-342, 233-241; web/server.go:74-84 | The pending-edit journal is a plaintext file under `%APPDATA%` (roaming profile). Replay executes journal statements without the SQL-console vetting or the locked-table list. Only a local attacker can plant one, which SECURITY.md scopes out. | open |
-| NET-5 | LOW | I, S | internal/web/server.go:130-160, 443 | Residual of the 2026-10-15 NET-2: renaming the cookie per port does not stop the browser sending it to every other port on the same host (RFC 6265 s8.5). In `--web` mode another loopback listener the user browses to receives a replayable session. | open |
-| NET-8 | LOW | T, E | internal/gui/gui_windows.go | The WebView2 navigation restriction is a script click hook only (no NavigationStarting or NewWindowRequested handler). Latent: no sink today. | open |
+| SEC-3 | LOW | I | internal/save/save.go:195-220, 234, 247; readonly.go:27; durable.go:65 (cleanStaleTemps), ... | Decoded plaintext copies of the save (with account/platform ids) are written to `%TEMP%` and are only removed by a clean `Close`. A crash or kill leaves them forever, and nothing sweeps them at start. 27 such files are in the user's `%TEMP%` now. | fixed (#298: decoded copies are made in `tabr-tau-work` named by process, swept at start once the lock is held when their process is gone, closed on Ctrl+C; day-old loose copies of older versions are removed) |
+| SEC-7 | LOW | T | internal/ops/db.go:182-257; web/static/app.js:1114; save/flush.go:71-84 | Tables-view cell edits address a row by `rowid` and send no expected old value. With the file now reloaded or rebased automatically, a stale view can overwrite a different row. | fixed (#299: a cell edit sends the text the cell showed and is refused with the code `conflict` if the cell holds something else; the page reloads the table) |
+| SEC-12 | INFO | T, I | internal/save/journal.go:312-342, 233-241; web/server.go:74-84 | The pending-edit journal is a plaintext file under `%APPDATA%` (roaming profile). Replay executes journal statements without the SQL-console vetting or the locked-table list. Only a local attacker can plant one, which SECURITY.md scopes out. | fixed as documentation (#298: SECURITY.md known limits say the queue file is plain text in the roaming profile and is replayed as recorded without the console's checks; only a program running as the person can plant one) |
+| NET-5 | LOW | I, S | internal/web/server.go:130-160, 443 | Residual of the 2026-10-15 NET-2: renaming the cookie per port does not stop the browser sending it to every other port on the same host (RFC 6265 s8.5). In `--web` mode another loopback listener the user browses to receives a replayable session. | accepted and documented (#298: a cookie cannot be scoped by port; SECURITY.md says so and advises a browser profile of its own for `--web`; the native window visits no other site) |
+| NET-8 | LOW | T, E | internal/gui/gui_windows.go | The WebView2 navigation restriction is a script click hook only (no NavigationStarting or NewWindowRequested handler). Latent: no sink today. | open: not done. A `NavigationStarting` or `NewWindowRequested` handler needs COM event-handler plumbing that `go-webview2` does not wrap (only the vtable slots exist) and can only be exercised in a real window; the finding is latent (no sink today) |
 
 ## E10: Embedded game-table datasets have no provenance notice
 
@@ -227,8 +227,8 @@ The pristine baseline copy is built on every load and rebase but used only by te
 
 | ID | Sev | STRIDE | Location | Finding | Status |
 |---|---|---|---|---|---|
-| ARCH-6 | LOW | T (surface) | `internal/save/save.go:246-248, 267-272, 348-357, 537` | Review-era code kept alive: pristine baseline copy and `Commit(force)` have no production caller; stale comments | open |
-| QA-17 | INFO | R | `save/save.go:247` (`openCopy(... "tabr-tau-orig-*")`) | The pristine baseline copy is still built on every load/rebase but is now used only by tests; the production guarantee it served (show exactly what changed) went with the review pane, with no replacement check. | open |
+| ARCH-6 | LOW | T (surface) | `internal/save/save.go:246-248, 267-272, 348-357, 537` | Review-era code kept alive: pristine baseline copy and `Commit(force)` have no production caller; stale comments | fixed (#287 removed the pristine copy; #294 removed the `force` argument, `Commit` is the test hook `CommitForTests`, stale comments corrected) |
+| QA-17 | INFO | R | `save/save.go:247` (`openCopy(... "tabr-tau-orig-*")`) | The pristine baseline copy is still built on every load/rebase but is now used only by tests; the production guarantee it served (show exactly what changed) went with the review pane, with no replacement check. | fixed (#287: the pristine copy is not built on a load or rebase; #294 corrected the comments that described it) |
 
 ## E12: Test gaps in the write path
 
@@ -240,10 +240,10 @@ The error, conflict and warning branches of Flush are untested (the mutants that
 
 | ID | Sev | STRIDE | Location | Finding | Status |
 |---|---|---|---|---|---|
-| QA-2 | MEDIUM | T | `internal/save/flush.go:63-66, 73-76, 81-83, 86-91, 96` (uncovered, 75.7% of `Flush`) | The error, conflict and warning branches of Flush are untested: mutants "ignore the rebase error" and "drop the read-back warning" survive the whole suite. | open |
-| QA-4 | MEDIUM | T | `journal.go:344-347`, `mutate.go:197` (`MutateCascade` 0.0%), `ops.go:666` (`DeleteItem`) | Replay of a cascading delete (DeleteItem) and the journal size limit are untested; the mutant that loses the cascade flag survives. My 25-line test kills it. | open |
-| QA-15 | INFO | R | `web/server.go:380-383, 640-642` | The new `/api/save/flush` route and the flush-after-every-POST hook have no Go test of their own, and the POST response never says whether the edit was written or queued. | open |
-| ARCH-15 | INFO | R | `internal/web/server.go:372-386, 352-363, 726-780`, `app.js:45` | UI/server contract: edit outcome is not in the response; every error is a 400; startup relies on ordering | open |
+| QA-2 | MEDIUM | T | `internal/save/flush.go:63-66, 73-76, 81-83, 86-91, 96` (uncovered, 75.7% of `Flush`) | The error, conflict and warning branches of Flush are untested: mutants "ignore the rebase error" and "drop the read-back warning" survive the whole suite. | fixed (#274: a test for each way an attempt can end without a write, and for the read-back warning) |
+| QA-4 | MEDIUM | T | `journal.go:344-347`, `mutate.go:197` (`MutateCascade` 0.0%), `ops.go:666` (`DeleteItem`) | Replay of a cascading delete (DeleteItem) and the journal size limit are untested; the mutant that loses the cascade flag survives. My 25-line test kills it. | fixed (#274: replay of a cascading delete and the journal limits are tested) |
+| QA-15 | INFO | R | `web/server.go:380-383, 640-642` | The new `/api/save/flush` route and the flush-after-every-POST hook have no Go test of their own, and the POST response never says whether the edit was written or queued. | fixed (#274: the flush route and the flush after every edit have Go tests; #292 puts the outcome in the answer) |
+| ARCH-15 | INFO | R | `internal/web/server.go:372-386, 352-363, 726-780`, `app.js:45` | UI/server contract: edit outcome is not in the response; every error is a 400; startup relies on ordering | fixed (#292: an edit request answers with `outcome` written or queued, a refusal carries a stable `code` and a fitting status; the page reads the outcome and never the words) |
 
 ## E13: Repository hygiene: agent worktrees are untracked and not ignored
 
