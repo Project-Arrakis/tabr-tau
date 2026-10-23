@@ -149,7 +149,7 @@ The windows and ui jobs are not required checks; SECURITY.md sends reporters to 
 | CLD-8 | LOW | D, T | `ci.yml:96-99` | PSScriptAnalyzer is installed from PSGallery with a pinned version but no retry, no cache and no integrity check; the job is a required check. | fixed (#270: the install is tried three times, `ci.yml`; the Windows tests have 20 minutes) |
 | CLD-10 | LOW | T, R | protection: `required_approving_review_count:0`, `strict:false`, ... | Protection is sound against accidents (admins enforced, linear history, no force-push) but is soft: CODEOWNERS is inert, branches need not be up to date, commits need not be signed. | open |
 | CLD-11 | LOW | E | .github/workflows/ci.yml | Nothing enforces the convention that actions are pinned to a commit; fork-pull-request approval is relaxed after a contributor's first merge. | open |
-| CLD-12 | LOW | I | `git -C tabr-tau log --format=%ae` -> 30 commits by `ronald.yacketta@gmail.com` in public ... | The personal gmail address is the author email on 30 public commits (the others use the noreply address). | open |
+| CLD-12 | LOW | I | `git -C tabr-tau log --format=%ae` -> 30 commits by the operator's personal email address in public ... | The personal gmail address is the author email on 30 public commits (the others use the noreply address). | open |
 | CLD-14 | INFO | R | no releases, no tags, no release workflow (`releases` -> `[]`, `tags` -> `[]`); ... | No release pipeline, checksum, signature or provenance exists. tau documents this honestly; the `test-builds` zips are local and unsigned. | open |
 | CLD-15 | INFO | R | ci.yml | GitHub-side stale job status on main commits (all steps of the job show success). Not a repository defect. | open |
 
