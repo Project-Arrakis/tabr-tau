@@ -56,7 +56,7 @@ func renameRetry(from, to string) error {
 		}
 		time.Sleep(renameBackoff * time.Duration(i))
 	}
-	return fmt.Errorf("could not replace %s (is another program holding it?): %w", filepath.Base(to), err)
+	return apierr.Wrap(apierr.ErrWriteFailed, fmt.Sprintf("could not replace %s (is another program holding it?): %v", filepath.Base(to), err), err)
 }
 
 // tmpPath is a unique sibling name; the ".tabr-*.tmp" pattern is what cleanStaleTemps removes.
@@ -90,7 +90,7 @@ func (s *Save) requirePlainFile() error {
 func (s *Save) installBlob(blob []byte) error {
 	tmp := s.tmpPath()
 	if err := writeDurable(tmp, blob, 0o600); err != nil {
-		return err
+		return apierr.Wrap(apierr.ErrWriteFailed, "could not write the new file next to the save ("+shortErr(err)+"); nothing was changed", err)
 	}
 	// The game-running check of the caller was made well before this point (the encode, the round trip, the backup and the temp file came after it, and on a large save that
 	// is seconds, in which a single-player session can start and the game rewrite the file). It is made again right before the rename, which is the step that cannot be undone
@@ -122,13 +122,13 @@ func (s *Save) installBlob(blob []byte) error {
 	now, rerr := readCapped(s.Path)
 	switch {
 	case rerr != nil:
-		return fmt.Errorf("the written save could not be read back to check it (%s); the file was left as it is, and the copy taken before the write is in the backups folder", shortErr(rerr))
+		return apierr.Wrap(apierr.ErrWriteFailed, "the written save could not be read back to check it ("+shortErr(rerr)+"); the file was left as it is, and the copy taken before the write is in the backups folder", rerr)
 	case bytes.Equal(now, blob): // a read that failed to see it once
 		return nil
 	case hashOf(now) == hashOf(cur):
-		return errors.New("the replacement did not take effect: the file on disk is still the one that was loaded, and nothing was changed; the edits stay queued")
+		return apierr.New(apierr.ErrWriteFailed, "the replacement did not take effect: the file on disk is still the one that was loaded, and nothing was changed; the edits stay queued")
 	}
-	return errors.New("the file on disk is neither the edited save nor the one that was loaded (the game may have saved right after the write); it was left as it is, nothing was put back over it, and the copy taken before the write is in the backups folder")
+	return apierr.New(apierr.ErrWriteFailed, "the file on disk is neither the edited save nor the one that was loaded (the game may have saved right after the write); it was left as it is, nothing was put back over it, and the copy taken before the write is in the backups folder")
 }
 
 // ErrChangedOnDisk is returned when the file on disk is no longer the one this session loaded.
