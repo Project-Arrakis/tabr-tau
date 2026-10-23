@@ -275,6 +275,8 @@ var errConflict = errors.New("conflict")
 // RestoreJournal puts the edits found in the journal back onto the file as it is now, edit by edit. It is for start-up (the journal is of an earlier run) and does
 // nothing when there is no journal, it is of another save, or this save already has edits.
 func (s *Save) RestoreJournal() (*Restored, error) {
+	s.flushMu.Lock()
+	defer s.flushMu.Unlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.journalPath == "" || s.dirty || len(s.recs) > 0 {
@@ -315,11 +317,13 @@ func (s *Save) Rebase() (*Restored, error) {
 	if err := s.load(); err != nil {
 		return nil, err
 	}
-	s.dropJournal()
 	s.restored = nil
 	if len(kept) == 0 {
+		s.dropJournal()
 		return nil, nil
 	}
+	// the journal file stays until the edits that go back have replaced it (a stop in between must not lose the queue)
+	s.recs, s.recStmts, s.journalOff, s.writing, s.held = nil, 0, "", "", nil
 	return s.replayLocked(kept, true), nil
 }
 
@@ -390,19 +394,35 @@ func (s *Save) rebaseAtomic() (*Restored, error) {
 	return res, nil
 }
 
-// replayLocked runs the edits again, each in its own transaction, and keeps the result as the pending edits. The caller holds s.mu.
+// replayStep, when set (by a test), is called after each edit has been put back, with s.mu held.
+var replayStep func()
+
+// replayLocked runs the edits again, each in its own transaction, and keeps the result as the pending edits. The caller holds s.mu, and it is held to the end: a new edit, a
+// discard or a status read cannot come in between two of the edits being put back.
+//
+// An edit that does not apply is not forced, and neither is an edit that works on what it was to leave: one that touches a table the failed edit touched and has a value in
+// common with it (the id of the row the failed edit was to add, the item it was to change) would otherwise act on the game's own rows with that id. It is reported as not put
+// back, naming the edit it depends on.
 func (s *Save) replayLocked(ops []opRec, rebased bool) *Restored {
 	res := &Restored{Rebased: rebased}
 	s.replaying = true
-	s.mu.Unlock() // Mutate takes the lock itself
+	var failed []opRec
 	for _, o := range ops {
+		if dep := dependsOnAny(o, failed); dep != "" {
+			res.Conflicts = append(res.Conflicts, Conflict{Desc: o.Desc, Why: "it works on the same rows as \"" + dep + "\", which could not be put back"})
+			failed = append(failed, o)
+			continue
+		}
 		if why := s.replayOp(o); why != "" {
 			res.Conflicts = append(res.Conflicts, Conflict{Desc: o.Desc, Why: why})
+			failed = append(failed, o)
 			continue
 		}
 		res.Applied++
+		if replayStep != nil {
+			replayStep()
+		}
 	}
-	s.mu.Lock()
 	s.replaying = false
 	s.writeJournal()
 	if res.Applied > 0 || len(res.Conflicts) > 0 {
@@ -456,12 +476,7 @@ func (s *Save) replayOp(o opRec) string {
 		m.Desc = o.Desc
 		return nil
 	}
-	var err error
-	if o.Cascade {
-		_, err = s.MutateCascade(o.Desc, run)
-	} else {
-		_, err = s.Mutate(o.Desc, run)
-	}
+	_, err := s.mutateLocked(o.Desc, o.Cascade, run)
 	if err == nil {
 		return ""
 	}
