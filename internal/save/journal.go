@@ -374,7 +374,7 @@ func (s *Save) RestoreJournal() (*Restored, error) {
 		s.dropJournal()
 		return nil, nil
 	}
-	return s.replayLocked(j.Ops, j.BaseHash != hex.EncodeToString(s.diskHash[:])), nil
+	return s.replayLocked(j.Ops, j.BaseHash != hex.EncodeToString(s.diskHash[:]), true), nil
 }
 
 // Rebase reads the file again, as Discard does, and puts the pending edits back onto it where they still apply (the game saved since they were made).
@@ -404,7 +404,7 @@ func (s *Save) Rebase() (*Restored, error) {
 	}
 	// the journal file stays until the edits that go back have replaced it (a stop in between must not lose the queue)
 	s.recs, s.recStmts, s.journalOff, s.writing, s.held = nil, 0, "", "", nil
-	return s.replayLocked(kept, true), nil
+	return s.replayLocked(kept, true, true), nil
 }
 
 // Held is a queue that could not be put back onto the game's newer file: what it was, and which edits conflicted and why.
@@ -442,16 +442,20 @@ func (s *Save) rebaseAtomic() (*Restored, error) {
 		}
 		return nil, notKeptError{"the pending edits were not kept (" + why + "): they cannot be put back onto the game's newer file; use Discard to read the file again"}
 	}
-	s.held = nil
 	dropped := Restored{}
 	if s.restored != nil {
 		dropped.Conflicts = s.restored.Conflicts // edits an earlier reload dropped: still to be seen
 	}
+	// Nothing about the queue changes until the file has been read: a failed read leaves it as it was (held, with its journal).
 	if err := s.load(); err != nil {
 		return nil, err
 	}
-	res := s.replayLocked(kept, true)
+	s.held = nil
+	// The journal is not written by the put-back itself: until the outcome is known it holds the whole queue, and a stop or a failure below must find that and not the
+	// part of it that happened to apply.
+	res := s.replayLocked(kept, true, false)
 	if len(res.Conflicts) == 0 {
+		s.writeJournal()
 		if len(dropped.Conflicts) > 0 {
 			n := *res
 			n.Conflicts = dropped.Conflicts
@@ -460,17 +464,24 @@ func (s *Save) rebaseAtomic() (*Restored, error) {
 		return res, nil
 	}
 	// nothing is written: back to the file as the game has it, the queue held as it was
+	held := &Held{ops: kept, Conflicts: res.Conflicts, base: s.diskHash}
+	s.recs, s.recStmts = nil, 0
+	s.restored = nil
+	if len(dropped.Conflicts) > 0 {
+		s.restored = &dropped
+	}
 	if err := s.load(); err != nil {
+		// The working copy holds only the edits that applied. The queue is held whole all the same (the journal still has all of it, and nothing is written while it is held),
+		// so the partial copy is never written; the error is reported, and a later attempt reads the file again from the held queue.
+		s.held = held
+		s.recs = nil
 		return nil, err
 	}
 	s.recs = kept
 	s.writeJournal()
 	s.recs = nil
-	s.held = &Held{ops: kept, Conflicts: res.Conflicts, base: s.diskHash}
-	s.restored = nil
-	if len(dropped.Conflicts) > 0 {
-		s.restored = &dropped
-	}
+	held.base = s.diskHash
+	s.held = held
 	return res, nil
 }
 
@@ -483,7 +494,7 @@ var replayStep func()
 // An edit that does not apply is not forced, and neither is an edit that works on what it was to leave: one that touches a table the failed edit touched and has a value in
 // common with it (the id of the row the failed edit was to add, the item it was to change) would otherwise act on the game's own rows with that id. It is reported as not put
 // back, naming the edit it depends on.
-func (s *Save) replayLocked(ops []opRec, rebased bool) *Restored {
+func (s *Save) replayLocked(ops []opRec, rebased, journal bool) *Restored {
 	res := &Restored{Rebased: rebased}
 	s.replaying = true
 	var failed []opRec
@@ -504,7 +515,9 @@ func (s *Save) replayLocked(ops []opRec, rebased bool) *Restored {
 		}
 	}
 	s.replaying = false
-	s.writeJournal()
+	if journal {
+		s.writeJournal()
+	}
 	if res.Applied > 0 || len(res.Conflicts) > 0 {
 		s.restored = res
 	}
