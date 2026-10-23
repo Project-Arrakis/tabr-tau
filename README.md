@@ -30,12 +30,12 @@ live-test protocol). Do not attach saves, `Game.ini`, snapshots or logs to issue
 | **Player** | Profile, Solari, give / edit / delete items, repair gear, refill water containers, teleport, faction reputation, specialization tracks, tutorials, tags, Journey nodes (complete / reset), learned building recipes, vendor purchase limits and restock cycles (reset) |
 | **Player > Bases** | The console's Bases panel: your bases with Power, Water, Inventory (Storage, Refining, Crafting, Other) and Land Claim Editor tabs. Also:  Land claims (totems), expand or shrink a claim's size, raise its vertical level, teleport to base, structure health, repair all, clear sand buildup, refill base water and generator fuel (optionally when the editor opens), your base's storage containers (view / add / remove items), placeables |
 | **Player > Vehicles** | Your own vehicles (the world's vehicles are hidden) and recovered vehicles, bring a vehicle to you, repair module durability (each module is made as good as new) |
-| **Live Map** | Hagga Basin and the Deep Desert as in the Dune Docker console, drawn from your save (as of its last write, not live): your character, vehicles, base, storage containers and the game's own map markers (ore, salvage, plants, enemy camps, places, trainers, hazards), with layers, pan, zoom and hover details |
+| **Saved map** | Hagga Basin and the Deep Desert as in the Dune Docker console, drawn from your save (as of its last write, not live): your character, vehicles, base, storage containers and the game's own map markers (ore, salvage, plants, enemy camps, places, trainers, hazards), with layers, pan, zoom and hover details |
 | **Landsraad** | Current term, decree pool, active decree, task board (fill progress, complete / reopen), rewards |
 | **Config** | Edit the game's `.ini` files (`ServerCustomSettings.ini`, `Game.ini`, `GameUserSettings.ini`, `Engine.ini`, `Input.ini`, ...) with backups; validates that the expected files and sections exist |
 | **Database** | Browse and edit any table, CSV/JSON export, read-only SQL (one SELECT), and **write SQL** (INSERT/UPDATE/DELETE/REPLACE only; atomic, applied to your working copy) |
 
-The **Player** tab mirrors the Dune Docker console's Players > Player Name view: Character, Crafting, Research, Building Sets, Customizations, Skills, Specialization, Journey, Bases, Vehicles and Admin. Specialization needs one step in game before the XP buttons work (see the tab). Each Player tab holds what the console's tab holds; tabr-tau's own base tools (structure health, repair all, clear sand, placeables, piece types) are on the base's **Structures** tab, and the vendor purchase limits are on **Admin**. Live Map, Landsraad, Config and Database stay top-level tabs.
+The **Player** tab mirrors the Dune Docker console's Players > Player Name view: Character, Crafting, Research, Building Sets, Customizations, Skills, Specialization, Journey, Bases, Vehicles and Admin. Specialization needs one step in game before the XP buttons work (see the tab). Each Player tab holds what the console's tab holds; tabr-tau's own base tools (structure health, repair all, clear sand, placeables, piece types) are on the base's **Structures** tab, and the vendor purchase limits are on **Admin**. Saved map, Landsraad, Config and Database stay top-level tabs.
 
 ## Not built yet
 
@@ -47,7 +47,7 @@ These console features are not in tabr-tau, and the page no longer shows a disab
 |---|---|
 | **Queued** | A change made while the file cannot be written (the game is in a single-player session). It waits in a private journal and is written by itself once the file can be; **Write now** tries at once and **Discard queue** drops it. |
 | **Backup** | A copy of the file taken before a write (one per burst of edits), in a `tabr-tau-backups` folder beside it. The newest 60 are kept, and always the oldest one and the first one of the session (the file before the editor wrote anything). |
-| **Write log** | `write-log.jsonl` in the editor's own folder (`%APPDATA%\tabr-tau`): one line for every write, with the time, how many edits, what they were in words, and the name of the backup taken before. It holds no values from the save, and at 256 KB it becomes `write-log.1.jsonl` (two files at most). It is a record to read; the backup is the way back. |
+| **Write log** | `write-log.jsonl` in the editor's own folder (`%APPDATA%\tabr-tau`): one line for every write, with the time, how many edits, what they were in words, and the name of the backup taken before. The words are the sentences the page lists as changes, so they can carry game ids and amounts, but not SQL text, the key of an edited row, long numbers or hexadecimal ids, or file paths. At 256 KB it becomes `write-log.1.jsonl` (two files at most). A restore of a backup is recorded too. It is a record to read; the backup is the way back. |
 | **Solari in backpack** | The Solari item stacks in the character's backpack. A stack holds 50,000: adding fills the stacks there and makes more, removing takes from the last stack back, and asking for more than the stacks hold is refused. |
 | **Solari in wallet** and **House credit in wallet** | The character's two virtual currency balances, kept apart from the backpack stacks. |
 | **Intel** | The points that pay for the research tree (capped at 2,779). |
@@ -133,12 +133,12 @@ Every write feature has automated tests on a synthetic save built from the game'
 | Automatic refill when the editor opens, and the refill of wind turbines and windtraps | Tests only (the first-version refill above was checked in game, the open-time save and the later changes were not) | none | `CHANGELOG.md` (#63) |
 | Structures: Repair all to max, Clear sand; Reset vendors; Landsraad edits; the Database cell editor and write SQL; Config edits; Restore a backup | Tests only | none | `CHANGELOG.md` |
 
-Read-only views are not listed. One of them has a recorded gap: the Live Map's spice and flour sand positions are decoded from field ids and have not been checked against the game for the map shown (`CHANGELOG.md`, #101).
+Read-only views are not listed. One of them has a recorded gap: the Saved map's spice and flour sand positions are decoded from field ids and have not been checked against the game for the map shown (`CHANGELOG.md`, #101).
 
 ## Safety notes
 
 - tabr-tau's own code makes no outbound network connections (no telemetry, no update check). On Windows the editor window is the Microsoft Edge WebView2 runtime, a Windows component with its own update and diagnostics settings that tabr-tau does not control; it only ever loads the editor's own `127.0.0.1` address.
-- The server only listens on localhost, rejects other `Host` headers, and requires a per-run token on every API call.
+- The server only listens on localhost, rejects other `Host` headers, and answers an API call only when it carries the session cookie that the window (or the one-time link printed with `--web`) was given at start; the cookie is valid for this run of the editor only.
 - Vehicle fuel and other data stored in opaque binary blobs are read-only.
 - Only one editor can have a save open at a time (a second one is refused). If the default port is busy the editor says it picked another.
 - A save outside the game's own folder (`Saved\Cloud\PlayerClientStorage`), on a network share or on a removable drive asks for one confirmation before it can be written, because the game-running check only sees this computer.
@@ -156,4 +156,4 @@ Tests use synthetic saves built in a temp folder; no real save data is needed.
 
 ## License
 
-MIT. See [LICENSE](LICENSE). **The MIT licence covers this project's code, not the game art in it.** The Live Map's two map pictures and 62 marker icons (`internal/web/static/maps/`) are Dune: Awakening artwork that belongs to Funcom; they are not licensed by this project, are included only to show where things are on the map (as the Dune Docker console does), and are not covered by the MIT licence. If you are the rights holder and want them removed, open an issue on this repository and they will be taken out. See `docs/art-notice.md` and the third-party notices (`tabr-tau licenses`).
+MIT. See [LICENSE](LICENSE). **The MIT licence covers this project's code, not the game art in it.** The Saved map's two map pictures and 62 marker icons (`internal/web/static/maps/`) are Dune: Awakening artwork that belongs to Funcom; they are not licensed by this project, are included only to show where things are on the map (as the Dune Docker console does), and are not covered by the MIT licence. If you are the rights holder and want them removed, open an issue on this repository and they will be taken out. See `docs/art-notice.md` and the third-party notices (`tabr-tau licenses`).

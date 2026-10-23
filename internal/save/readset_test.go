@@ -60,8 +60,8 @@ func TestAnEditWorkedOutFromARowTheGameChangedIsNotPutBackOverIt(t *testing.T) {
 	if got := nOf(t, s2, 1); got != 5100 {
 		t.Fatalf("the game's value must stay: %d", got)
 	}
-	if len(s2.Pending()) != 0 {
-		t.Fatalf("nothing applied, nothing pending: %v", s2.Pending())
+	if s2.Held() == nil || len(s2.Pending()) != 1 {
+		t.Fatalf("nothing applied: the queue is held, and the journal is kept with it: %v", s2.Pending())
 	}
 }
 
