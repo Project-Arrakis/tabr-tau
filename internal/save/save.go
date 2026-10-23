@@ -515,16 +515,21 @@ func (s *Save) ReadOnlyTable(q string, limit int) ([]string, [][]any, error) {
 	return cols, rows, err
 }
 
-// Discard throws away unsaved edits. It waits for an automatic write that is running (flushMu), so the two never interleave.
+// Discard throws away unsaved edits. It waits for an automatic write that is running (flushMu), so the two never interleave. Throwing a queue away also ends the notice of
+// what became of it; with nothing queued (the automatic refresh reading a newer file) the notice of edits dropped earlier stays until it is dismissed.
 func (s *Save) Discard() error {
 	s.flushMu.Lock()
 	defer s.flushMu.Unlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	queued := s.dirty || s.held != nil
 	if err := s.load(); err != nil {
 		return err
 	}
 	s.dropJournal()
+	if queued {
+		s.restored = nil
+	}
 	return nil
 }
 
@@ -636,6 +641,15 @@ func (s *Save) commit(force, quick bool) (map[string]any, error) {
 	s.dirty = false
 	s.ops = nil
 	s.dropJournal()
+	if r := s.restored; r != nil { // the edits put back are written; the notice of the ones that were not stays until the person has seen it
+		if len(r.Conflicts) == 0 {
+			s.restored = nil
+		} else {
+			kept := *r
+			kept.Written = true
+			s.restored = &kept
+		}
+	}
 	res := map[string]any{"saved": true, "backup": bak, "ops": ops}
 	if err := reloadAfterCommit(s); err != nil {
 		// The baseline and recorded state no longer match the file just written; refuse further edits rather than

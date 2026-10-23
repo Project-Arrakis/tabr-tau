@@ -78,7 +78,18 @@ type Restored struct {
 	Applied   int        `json:"applied"`
 	Conflicts []Conflict `json:"conflicts,omitempty"`
 	Rebased   bool       `json:"rebased"` // the file had changed since the edits were made
+	// Written says that the edits that were put back have been written since. The notice of the ones that were not put back (Conflicts) outlives that write, so the person
+	// still learns which edits were dropped; it goes when it is dismissed, when a queue is discarded or when the file is reloaded.
+	Written bool `json:"written,omitempty"`
 }
+
+// ErrNotKept is the error of a queue the editor did not keep (the journal is off or not enabled): it cannot be put back onto a newer file, only discarded.
+var ErrNotKept = errors.New("the pending edits were not kept")
+
+type notKeptError struct{ msg string }
+
+func (e notKeptError) Error() string        { return e.msg }
+func (e notKeptError) Is(target error) bool { return target == ErrNotKept }
 
 func encodeArg(v any) (jarg, bool) {
 	switch x := v.(type) {
@@ -217,8 +228,9 @@ func (s *Save) stopJournal(why string) {
 
 // dropJournal forgets the kept edits and removes the file (the edits were saved or discarded). The caller holds s.mu.
 func (s *Save) dropJournal() {
-	// nothing is pending any more, so whatever turned the journal off (an edit it could not keep) no longer matters: the next edit is kept again
-	s.recs, s.recStmts, s.restored, s.journalOff, s.writing, s.held = nil, 0, nil, "", "", nil
+	// nothing is pending any more, so whatever turned the journal off (an edit it could not keep) no longer matters: the next edit is kept again. The notice of the edits
+	// that were put back or dropped (restored) is not touched: whoever ends the queue decides.
+	s.recs, s.recStmts, s.journalOff, s.writing, s.held = nil, 0, "", "", nil
 	if s.journalPath != "" {
 		os.Remove(s.journalPath)
 	}
@@ -298,12 +310,13 @@ func (s *Save) Rebase() (*Restored, error) {
 		if why == "" {
 			why = "the journal is not enabled"
 		}
-		return nil, errors.New("the pending edits were not kept (" + why + "): they cannot be put back; use Discard to read the file again")
+		return nil, notKeptError{"the pending edits were not kept (" + why + "): they cannot be put back; use Discard to read the file again"}
 	}
 	if err := s.load(); err != nil {
 		return nil, err
 	}
 	s.dropJournal()
+	s.restored = nil
 	if len(kept) == 0 {
 		return nil, nil
 	}
@@ -343,14 +356,23 @@ func (s *Save) rebaseAtomic() (*Restored, error) {
 		if why == "" {
 			why = "the journal is not enabled"
 		}
-		return nil, errors.New("the pending edits were not kept (" + why + "): they cannot be put back onto the game's newer file; use Discard to read the file again")
+		return nil, notKeptError{"the pending edits were not kept (" + why + "): they cannot be put back onto the game's newer file; use Discard to read the file again"}
 	}
 	s.held = nil
+	dropped := Restored{}
+	if s.restored != nil {
+		dropped.Conflicts = s.restored.Conflicts // edits an earlier reload dropped: still to be seen
+	}
 	if err := s.load(); err != nil {
 		return nil, err
 	}
 	res := s.replayLocked(kept, true)
 	if len(res.Conflicts) == 0 {
+		if len(dropped.Conflicts) > 0 {
+			n := *res
+			n.Conflicts = dropped.Conflicts
+			s.restored = &n
+		}
 		return res, nil
 	}
 	// nothing is written: back to the file as the game has it, the queue held as it was
@@ -362,6 +384,9 @@ func (s *Save) rebaseAtomic() (*Restored, error) {
 	s.recs = nil
 	s.held = &Held{ops: kept, Conflicts: res.Conflicts, base: s.diskHash}
 	s.restored = nil
+	if len(dropped.Conflicts) > 0 {
+		s.restored = &dropped
+	}
 	return res, nil
 }
 
