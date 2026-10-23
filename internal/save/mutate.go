@@ -216,6 +216,11 @@ func (s *Save) MutateCascade(desc string, fn func(m *Mut) error) (int64, error) 
 func (s *Save) mutate(desc string, cascade bool, fn func(m *Mut) error) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.mutateLocked(desc, cascade, fn)
+}
+
+// mutateLocked is mutate for a caller that holds s.mu (the put-back of queued edits holds it from the first edit to the last).
+func (s *Save) mutateLocked(desc string, cascade bool, fn func(m *Mut) error) (int64, error) {
 	if s.blocked != "" {
 		return 0, errReadOnly(s.blocked)
 	}
