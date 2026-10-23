@@ -80,3 +80,16 @@ test('a held queue lists the conflicts and offers Discard queue, once', async ()
   assert.equal(b.doc.querySelectorAll('[data-act="discardQueue"]').length, 1);
   b.close();
 });
+
+test('a write that could not be recorded in the write log says so, and that the game file was written', async () => {
+  const b = await banner({ writeLogProblem: 'the write could not be recorded in the write log (open write-log.jsonl: access is denied)' });
+  assert.equal(b.gw.className, 'warn');
+  assert.match(b.text, /The write could not be recorded in the write log \(open write-log\.jsonl: access is denied\)\. The game's file was written; only the record of it is missing\./);
+  b.close();
+});
+
+test('with nothing wrong with the write log the banner stays hidden', async () => {
+  const b = await banner({ writeLogProblem: '' });
+  assert.equal(b.gw.className, 'hide');
+  b.close();
+});

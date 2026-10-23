@@ -45,7 +45,27 @@ your computer (they can edit your save directly).
 - There is no review step before a write (the review pane was removed in #238). What stands in its place is the set of guards above at every
   write, the backups (Database > Save backups restores one), the queue with its list and its Discard control, and the confirmations that
   remain for destructive actions. The audit register records this replacement.
+- Every write is recorded: after the file has been written the editor appends one line to `write-log.jsonl` in its own folder
+  (`%APPDATA%\tabr-tau`): when, how many edits, what they were in words, and the name of the backup taken before. The log holds no values from
+  the save (a statement typed into the SQL console is not copied, and a number of fifteen digits or more is replaced), is created with
+  owner-only permissions in your user profile, and is capped: at 256 KB it becomes `write-log.1.jsonl` and a new file starts, so there are
+  never more than two. It is a record to read, not a way back (the backup is), and the editor never reads it.
 - Saves are opened from a private copy, and the container is checked (size, declared size, integrity) before anything is trusted.
+
+## Accepted risk: a write on every accepted request
+
+Since the review step was removed, an edit request that the editor accepts is written to the game's file before the answer is sent (or queued
+while the file cannot be written). There is no second, human step between the request and the write. This is accepted, on these grounds:
+
+- The only client is the editor's own page. A request must carry the session cookie (HttpOnly, SameSite=Strict, valid for this run of the
+  editor only), come from the loopback address with a Host header the editor expects, and pass the fetch-metadata and Origin checks, so another
+  web page, another site or another computer cannot make one.
+- A program that already runs as you, and could therefore replay the cookie, can edit the save file directly; that is out of scope above.
+- What limits the damage of a request that is wrong or unwanted is the same set of guards at every write (no single-player session, an unchanged
+  file, an integrity check, a read-back), a backup before each burst of edits that Database > Save backups restores, the queue with its list
+  and Discard control, a typed word before a raw SQL write or a restore, a question before the bulk actions, and the write log above.
+
+This is to be looked at again if the editor ever listens beyond this computer, serves more than one person, or offers an interface to other programs.
 
 ## Known limits that are documented, not hidden
 
