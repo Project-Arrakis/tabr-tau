@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
@@ -328,7 +329,7 @@ func (o *Ops) RepairVehiclesBelow(pct int64) (any, error) { return o.RepairVehic
 // of them.
 func (o *Ops) RepairVehiclesWhere(pct, vehicleID int64) (any, error) {
 	if pct < 1 || pct > 100 {
-		return nil, errors.New("the repair threshold must be between 1 and 100 percent")
+		return nil, apierr.New(apierr.ErrBadArgument, "the repair threshold must be between 1 and 100 percent")
 	}
 	p, err := o.player()
 	if err != nil {

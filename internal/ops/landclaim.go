@@ -6,6 +6,7 @@ import (
 	"math"
 	"sort"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
@@ -169,7 +170,7 @@ func (o *Ops) growClaim(id int64, desc func(added int, level int64) string, plan
 			return err
 		}
 		if t == nil {
-			return errors.New("land claim (totem) not found")
+			return apierr.New(apierr.ErrNotFound, "land claim (totem) not found")
 		}
 		curLevel := t["level"].(int64)
 		rows, err := m.Query(`select grid_location_x x, grid_location_y y from landclaim_segments where totem_id=?`, id)
@@ -334,7 +335,7 @@ func (o *Ops) ShrinkLandClaim(a Args) (any, error) {
 		return nil, err
 	}
 	if t, err := o.S.One(`select 1 x from totems where id=?`, id); err != nil || t == nil {
-		return nil, errors.New("land claim (totem) not found")
+		return nil, apierr.New(apierr.ErrNotFound, "land claim (totem) not found")
 	}
 	// Building pieces are never moved by an edit made here, so they are read once, outside the transaction. The cells are read, checked and
 	// deleted in one transaction, so an Expand or Apply that lands in between cannot leave the check looking at a stale claim.
@@ -433,7 +434,7 @@ func (o *Ops) RemoveLandClaimCells(a Args) (any, error) {
 		x, errx := Args(m).IntRange("x", -maxClaimCoord, maxClaimCoord)
 		y, erry := Args(m).IntRange("y", -maxClaimCoord, maxClaimCoord)
 		if errx != nil || erry != nil {
-			return nil, fmt.Errorf("cell %d: x and y must be whole numbers from -%d to %d", i+1, maxClaimCoord, maxClaimCoord)
+			return nil, apierr.Newf(apierr.ErrBadArgument, "cell %d: x and y must be whole numbers from -%d to %d", i+1, maxClaimCoord, maxClaimCoord)
 		}
 		c := claimCell{x, y}
 		if c == (claimCell{0, 0}) {
@@ -446,7 +447,7 @@ func (o *Ops) RemoveLandClaimCells(a Args) (any, error) {
 		order = append(order, c)
 	}
 	if t, err := o.S.One(`select 1 x from totems where id=?`, id); err != nil || t == nil {
-		return nil, errors.New("land claim (totem) not found")
+		return nil, apierr.New(apierr.ErrNotFound, "land claim (totem) not found")
 	}
 	// Building pieces are never moved by an edit made here, so they are read once, outside the transaction; the cells are read, checked and deleted
 	// in one, so an Expand or Apply that lands in between cannot leave the checks looking at a stale claim.
@@ -576,7 +577,7 @@ func (o *Ops) ApplyLandClaim(a Args) (any, error) {
 				x, errx := Args(m).IntRange("x", -maxClaimCoord, maxClaimCoord)
 				y, erry := Args(m).IntRange("y", -maxClaimCoord, maxClaimCoord)
 				if errx != nil || erry != nil {
-					return nil, 0, fmt.Errorf("cell %d: x and y must be whole numbers from -%d to %d", i+1, maxClaimCoord, maxClaimCoord)
+					return nil, 0, apierr.Newf(apierr.ErrBadArgument, "cell %d: x and y must be whole numbers from -%d to %d", i+1, maxClaimCoord, maxClaimCoord)
 				}
 				c := claimCell{x, y}
 				if have[c] {

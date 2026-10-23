@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 )
 
 func setA(t *testing.T, s *Save, v int) {
@@ -389,6 +392,8 @@ func TestAQueueThatConflictsWithTheGamesNewerFileIsHeldWholeAndNothingIsWritten(
 	}
 	if _, err := s.Mutate("another", func(m *Mut) error { _, err := m.Exec(`update jt set name='x' where a=1`); return err }); err == nil {
 		t.Fatal("nothing new is accepted while a queue is held")
+	} else if !errors.Is(err, apierr.ErrQueueHeld) {
+		t.Fatalf("the refusal has the kind the web layer turns into the code queue_held: %v", err)
 	}
 	if again := s.Flush(); again.Saved || again.Why == "" {
 		t.Fatalf("trying again with the same file changes nothing: %+v", again)

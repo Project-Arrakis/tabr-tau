@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
@@ -143,7 +144,7 @@ func (o *Ops) BringVehicle(a Args) (any, error) {
 		return nil, err
 	}
 	if n == 0 {
-		return nil, errors.New("vehicle not found among your vehicles")
+		return nil, apierr.New(apierr.ErrNotFound, "vehicle not found among your vehicles")
 	}
 	return ok(), nil
 }
