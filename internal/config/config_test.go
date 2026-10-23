@@ -136,3 +136,40 @@ func TestBOMPreserved(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+// Writing an entry back with the value it already has must leave the file byte for byte as it was: CRLF or LF, with or
+// without a byte-order mark, with comments and blank lines (register 2026-09-30, F-22: config no-op round trip). A file
+// that mixes line endings or lacks a final newline is made uniform by the first write; that write is then stable.
+func TestSettingAValueToItselfChangesNothing(t *testing.T) {
+	body := "; header comment\n\n[/Script/DuneSandbox.UserServerCustomSettings]\n# note\nGatheringAmount=2.000000\nCraftingCost=0.500000\nName=two words\n\n[Other]\nA=1\n"
+	crlf := strings.ReplaceAll(body, "\n", "\r\n")
+	files := map[string]string{"crlf": crlf, "lf": body, "bom and crlf": bomStr + crlf, "bom and lf": bomStr + body}
+	for name, text := range files {
+		d := setup(t, map[string]string{"Game.ini": text})
+		n := 0
+		for _, e := range parseDoc(text).entries() {
+			if err := d.Set("Game.ini", e.Section, e.Key, e.Value, e.Line); err != nil {
+				t.Fatalf("%s: %s: %v", name, e.Key, err)
+			}
+			n++
+			if got := read(t, d, "Game.ini"); got != text {
+				t.Fatalf("%s: writing %s back unchanged changed the file:\n got %q\nwant %q", name, e.Key, got, text)
+			}
+		}
+		if n != 4 {
+			t.Fatalf("%s: %d entries exercised, want 4", name, n)
+		}
+	}
+	mixed := "[S]\r\nA=1\nB=2"
+	d := setup(t, map[string]string{"Game.ini": mixed})
+	if err := d.Set("Game.ini", "S", "A", "1", 1); err != nil {
+		t.Fatal(err)
+	}
+	once := read(t, d, "Game.ini")
+	if err := d.Set("Game.ini", "S", "A", "1", 1); err != nil {
+		t.Fatal(err)
+	}
+	if again := read(t, d, "Game.ini"); again != once {
+		t.Fatalf("the second no-op write changed the file again: %q then %q", once, again)
+	}
+}
