@@ -181,7 +181,9 @@ jobs:
 
   security-scan:
     name: security-scan
-    uses: Project-Arrakis/.github/.github/workflows/reusable-security-scan-v2.yml@95ad7a4d1368e7ec1092e9a13e3102bcdfd44499 # v2 of the shared scan (Project-Arrakis/.github#9, 2026-10-23): gitleaks config from the default branch, contents: read, --metrics off; bump by hand when the shared workflow changes
+    uses: Project-Arrakis/.github/.github/workflows/reusable-security-scan-v2.yml@2b8bd347453e032e6085cd42fafcdf659245a7dd # v2 of the shared scan pinned at the commit that carries the hash-locked semgrep requirements and the rule snapshot (Project-Arrakis/.github#11 and #12, 2026-10-23); tools-ref below makes the scan install and run from those files
+    with:
+      tools-ref: 2b8bd347453e032e6085cd42fafcdf659245a7dd
     permissions:
       contents: read
     secrets:
