@@ -163,10 +163,10 @@ const sub = { player: ['bases', 'vehicles'].includes(localStorage.tab) ? localSt
 const GROUPS = ['player', 'char', 'bases', 'db'];
 let invG = null, invQ = ''; let giveQueue = loadQueue(); let augItem = null; // augItem: the inventory item whose augments are open for editing // Character > Inventory: the chosen group (null: the first one with items) and the filter text
 function drawNav() {
-  setHTML($('#nav'), html`${Object.entries(TABS).map(([k, v]) => html`<button data-tab="${k}" class="${k == tab ? 'on' : ''}">${v}</button>`)}`);
+  setHTML($('#nav'), html`${Object.entries(TABS).map(([k, v]) => html`<button data-tab="${k}" class="${k == tab ? 'on' : ''}" aria-current="${k == tab ? 'page' : 'false'}">${v}</button>`)}`);
 }
 function subNav(group, items) {
-  return html`<div class="sub">${items.map(([k, v]) => html`<button data-sub="${group}:${k}" class="${sub[group] == k ? 'on' : ''}">${v}</button>`)}</div>`;
+  return html`<div class="sub">${items.map(([k, v]) => html`<button data-sub="${group}:${k}" class="${sub[group] == k ? 'on' : ''}" aria-current="${sub[group] == k ? 'true' : 'false'}">${v}</button>`)}</div>`;
 }
 
 // ---------- generic renderers
