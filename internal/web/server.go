@@ -596,6 +596,7 @@ func (s *Server) routes() {
 	s.post("/api/player/currency", o.AddCurrency)
 	s.post("/api/items/update", o.SetItem)
 	s.post("/api/items/delete", o.DeleteItem)
+	s.post("/api/inventories/clear", o.ClearContainer)
 	s.get("/api/player/factions", func(r *http.Request) (any, error) { return o.Factions() })
 	s.post("/api/player/factions", o.SetReputation)
 	s.get("/api/player/specs", func(r *http.Request) (any, error) { return o.Specs(settings.Load(s.SettingsPath).TrackNumbers) })
