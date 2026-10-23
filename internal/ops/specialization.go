@@ -95,6 +95,12 @@ func (o *Ops) Specs(nums map[string]int64) (any, error) {
 		l, _ := r["l"].(float64)
 		byNum[n] = SpecRaw{Number: n, XP: xp, Level: l}
 	}
+	var resetCount int64
+	for _, n := range knownTrackNumbers(nums) {
+		if _, has := byNum[n]; has {
+			resetCount++
+		}
+	}
 	rows := make([]SpecRow, 0, len(SpecTracks))
 	used := map[int64]bool{}
 	for _, t := range SpecTracks {
@@ -122,7 +128,7 @@ func (o *Ops) Specs(nums map[string]int64) (any, error) {
 		}
 	}
 	sort.Slice(unassigned, func(i, j int) bool { return unassigned[i].Number < unassigned[j].Number })
-	return map[string]any{"rows": rows, "unassigned": unassigned, "maxXp": maxSpecXP, "tracks": SpecTracks}, nil
+	return map[string]any{"rows": rows, "unassigned": unassigned, "maxXp": maxSpecXP, "tracks": SpecTracks, "resetCount": resetCount}, nil
 }
 
 // trackNumber is the learned number of a track, or an error saying how to learn it.
@@ -213,12 +219,9 @@ func (o *Ops) ResetSpec(nums map[string]int64, a Args) (any, error) {
 		return nil, err
 	}
 	var removed int64
-	if _, err := o.S.Mutate("specialization "+track+" reset", func(m *save.Mut) error {
-		res, e := m.Exec(`delete from specialization_tracks where player_id=? and track_type=?`, p.Controller, n)
-		if e == nil {
-			removed, _ = res.RowsAffected()
-		}
-		return e
+	if _, err := o.S.Mutate("specialization "+track+" reset", func(m *save.Mut) (e error) {
+		removed, e = deleteSpecTx(m, p.Controller, n)
+		return
 	}); err != nil {
 		return nil, err
 	}

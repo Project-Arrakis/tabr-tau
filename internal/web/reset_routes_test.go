@@ -2,10 +2,12 @@ package web
 
 import (
 	"net/http"
+	"path/filepath"
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/internal/settings"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
@@ -74,4 +76,59 @@ func TestResetSkillsIsQueuedWhileTheGameHoldsTheFile(t *testing.T) {
 		t.Fatalf("the queue lists it in words: %q", p)
 	}
 	restore()
+}
+
+func TestResetLevelRoute(t *testing.T) {
+	s := resetServer(t)
+	for _, c := range []struct {
+		name, body, code string
+		status           int
+	}{
+		{"no count", `{}`, "bad_argument", http.StatusUnprocessableEntity},
+		{"a stale count", `{"expected":999}`, "conflict", http.StatusConflict},
+	} {
+		w := postEdit(t, s, "/api/player/level/reset", c.body)
+		if m := decodeBody(t, w); w.Code != c.status || m["code"] != c.code || m["outcome"] != nil {
+			t.Errorf("%s: %d %s, want %d %s", c.name, w.Code, w.Body.String(), c.status, c.code)
+		}
+	}
+	if s.Save.Dirty() {
+		t.Fatal("a refused reset must not write")
+	}
+	w := postEdit(t, s, "/api/player/level/reset", `{"expected":1000}`)
+	if m := decodeBody(t, w); w.Code != 200 || m["changed"] != float64(1000) || m["noop"] != false || m["outcome"] != "written" {
+		t.Fatalf("the reset: %d %s", w.Code, w.Body.String())
+	}
+	w = postEdit(t, s, "/api/player/level/reset", `{"expected":0}`)
+	if m := decodeBody(t, w); w.Code != 200 || m["noop"] != true || m["outcome"] != nil {
+		t.Fatalf("nothing to do: %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestResetSpecTracksRoute(t *testing.T) {
+	s := New(testsave.PlayerWithSQL(t, resetCharacter+`
+		insert into specialization_tracks(player_id,track_type,xp_amount,level) values (1,2,3000,19.0),(1,7,900,8.0);`), config.Dir{Path: t.TempDir()})
+	s.SettingsPath = filepath.Join(t.TempDir(), "settings.json")
+	if err := settings.Save(s.SettingsPath, settings.Settings{TrackNumbers: map[string]int64{"Combat": 2}}); err != nil {
+		t.Fatal(err)
+	}
+	w := do(t, s, "GET", "http://127.0.0.1/api/player/specs", loop, map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}, nil)
+	if m := decodeBody(t, w); w.Code != 200 || m["resetCount"] != float64(1) {
+		t.Fatalf("the read says how many rows a reset would change: %d %s", w.Code, w.Body.String())
+	}
+	w = postEdit(t, s, "/api/player/specs/reset-all", `{"expected":2}`)
+	if m := decodeBody(t, w); w.Code != 409 || m["code"] != "conflict" {
+		t.Fatalf("a stale count: %d %s", w.Code, w.Body.String())
+	}
+	w = postEdit(t, s, "/api/player/specs/reset-all", `{"expected":1}`)
+	if m := decodeBody(t, w); w.Code != 200 || m["changed"] != float64(1) || m["outcome"] != "written" {
+		t.Fatalf("the reset: %d %s", w.Code, w.Body.String())
+	}
+	if n, err := s.Save.One(`select count(*) c from specialization_tracks`); err != nil || n["c"].(int64) != 1 {
+		t.Fatalf("the row of the unknown track stays: %v %v", n, err)
+	}
+	w = postEdit(t, s, "/api/player/specs/reset-all", `{"expected":0}`)
+	if m := decodeBody(t, w); w.Code != 200 || m["noop"] != true || m["outcome"] != nil {
+		t.Fatalf("nothing to do: %d %s", w.Code, w.Body.String())
+	}
 }
