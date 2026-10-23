@@ -973,7 +973,8 @@ test('Live Map: marker types that name inherited properties find no picture, kno
   const ui = await boot({ get: { '/api/livemap': data } });
   ui.click('[data-tab="livemap"]'); await ui.settle();
   const main = ui.doc.querySelector('#main');
-  assert.ok(main.textContent.includes('__proto__') && main.textContent.includes('constructor'), 'every type is listed: ' + main.textContent.slice(0, 300));
+  const raws = [...main.querySelectorAll('table td span[title]')].map((x) => x.getAttribute('title'));
+  assert.ok(raws.includes('__proto__') && raws.includes('constructor'), 'every type is listed, with its raw id in the tooltip: ' + raws.join(','));
   assert.ok(!main.textContent.includes('TypeError') && !main.textContent.includes('is not a function'), main.textContent.slice(0, 200));
   assert.equal(ui.doc.querySelector('img'), null, 'a hostile type is text, not markup');
   assert.ok([...main.querySelectorAll('.lm-layer')].some((b) => b.textContent.includes('Spice fields (1)')) && [...main.querySelectorAll('.lm-layer')].some((b) => b.textContent.includes('Flour sand (1)')), 'the spice and flour sand layers are listed with their counts');
@@ -993,9 +994,100 @@ test('Live Map: drawing the map again does not add another window mouseup listen
   const add = ui.w.addEventListener.bind(ui.w);
   ui.w.addEventListener = (type, ...rest) => { seen.push(type); return add(type, ...rest); };
   ui.click('[data-tab="livemap"]'); await ui.settle();
-  for (let i = 0; i < 4; i++) { ui.click('[data-lmund]'); await ui.settle(); } // each click draws the whole view again
+  for (let i = 0; i < 4; i++) { ui.click('[data-lmund]'); await ui.settle(); } // each click redraws the map
   assert.ok(ui.doc.querySelector('#lmc'), 'the map is drawn');
   assert.equal(seen.filter((t) => t === 'mouseup').length, 1, 'one window mouseup listener for the page, however often the map is drawn: ' + seen.join(','));
+  ui.dom.window.close();
+});
+
+const MAPCFG = { key: 'HaggaBasin', label: 'Hagga Basin', image: '/maps/hagga-basin.png', width: 4096, height: 4096, minX: -456752, maxX: 354547, minY: -450630, maxY: 353821 };
+const mapData = (markers) => ({ config: MAPCFG, maps: [{ key: 'HaggaBasin', label: 'Hagga Basin' }], character: { name: 'Me', x: 0, y: 0, z: 0 }, vehicles: [], bases: [], storage: [], resourceFields: [], markers });
+
+test('the Live Map tab is the Saved map, and says it is the save as of its last write (UX-34, #268)', async () => {
+  const ui = await boot({ get: { '/api/livemap': mapData([{ t: 'AzuriteOre', x: 4, y: 4, d: 1 }]) } });
+  assert.equal(ui.doc.querySelector('[data-tab="livemap"]').textContent, 'Saved map');
+  ui.click('[data-tab="livemap"]'); await ui.settle();
+  const main = ui.doc.querySelector('#main');
+  assert.ok(main.querySelector('h3').textContent === 'Saved map');
+  assert.ok(main.textContent.includes('as of its last write, not the running game'), main.textContent.slice(0, 300));
+  assert.ok(!ui.doc.body.textContent.includes('Live Map'), 'no visible "Live Map" is left');
+  ui.dom.window.close();
+});
+
+test('Saved map: marker names are words, the raw id is in the tooltip, and the hover labels the coordinates', async () => {
+  const hostile = '<img src=x onerror=1>';
+  const data = mapData([{ t: 'HouseRepresentativeArgosaz', x: -100000, y: -100000, d: 1 }, { t: 'AzuritePickup', x: 4, y: 4, d: 1 }, { t: 'Hazard_Radiation', x: 5, y: 5, d: 0 }, { t: hostile, x: 6, y: 6, d: 1 }]);
+  const ui = await boot({ get: { '/api/livemap': data } });
+  ui.click('[data-tab="livemap"]'); await ui.settle();
+  const cell = (raw) => [...ui.doc.querySelectorAll('#main table td span[title]')].find((s) => s.getAttribute('title') === raw);
+  assert.equal(cell('HouseRepresentativeArgosaz').textContent, 'House Representative Argosaz');
+  assert.equal(cell('AzuritePickup').textContent, 'Azurite Pickup');
+  assert.equal(cell('Hazard_Radiation').textContent, 'Hazard Radiation');
+  assert.equal(ui.doc.querySelector('#main img'), null, 'a hostile type is text');
+  assert.ok([...ui.doc.querySelectorAll('#main th')].some((th) => th.textContent.trim() === 'Marker'));
+  // hover: the marker at its place on the picture
+  const st = ui.w.liveMapState();
+  const px = ((-100000 - MAPCFG.minX) / (MAPCFG.maxX - MAPCFG.minX)) * MAPCFG.width, py = ((-100000 - MAPCFG.minY) / (MAPCFG.maxY - MAPCFG.minY)) * MAPCFG.height;
+  const c = ui.doc.querySelector('#lmc');
+  c.dispatchEvent(new ui.w.MouseEvent('mousemove', { bubbles: true, clientX: px * st.scale + st.ox, clientY: py * st.scale + st.oy }));
+  const info = ui.doc.querySelector('#lminfo');
+  assert.equal(info.textContent, 'House Representative Argosaz: x -100000, y -100000');
+  assert.equal(info.getAttribute('title'), 'HouseRepresentativeArgosaz');
+  ui.dom.window.close();
+});
+
+test('Saved map: the view is kept when the page is drawn again, Hide undiscovered only redraws, and Fit starts over', async () => {
+  const ui = await boot({ get: { '/api/livemap': mapData([{ t: 'AzuriteOre', x: 4, y: 4, d: 0 }]) } });
+  let fetched = 0;
+  const f = ui.w.fetch;
+  ui.w.fetch = (p, o) => { if (String(p).startsWith('/api/livemap')) fetched++; return f(p, o); };
+  ui.click('[data-tab="livemap"]'); await ui.settle();
+  assert.equal(fetched, 1);
+  assert.equal(ui.w.liveMapState().view, null, 'nothing has been moved yet');
+  const key = (k) => ui.doc.querySelector('#lmc').dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+  key('+'); key('+'); key('ArrowLeft');
+  const moved = ui.w.liveMapState();
+  assert.ok(Math.abs(moved.view.z - 1.44) < 1e-9, 'two steps of 1.2 in: ' + moved.view.z);
+  // the page is drawn again (the automatic refresh does this): the new canvas shows the same place at the same zoom
+  ui.click('[data-tab="livemap"]'); await ui.settle();
+  assert.equal(fetched, 2);
+  const again = ui.w.liveMapState();
+  assert.ok(Math.abs(again.scale - moved.scale) < 1e-9 && Math.abs(again.ox - moved.ox) < 1e-6 && Math.abs(again.oy - moved.oy) < 1e-6, JSON.stringify({ moved, again }));
+  // Hide undiscovered: a redraw only, no new fetch, the view stays, the button reads Show
+  ui.click('[data-lmund]'); await ui.settle();
+  assert.equal(fetched, 2, 'the data is not fetched again');
+  assert.equal(ui.doc.querySelector('[data-lmund]').textContent, 'Show undiscovered markers');
+  assert.ok(Math.abs(ui.w.liveMapState().scale - moved.scale) < 1e-9, 'the zoom stays');
+  // the buttons
+  ui.click('[data-lmz="out"]');
+  assert.ok(Math.abs(ui.w.liveMapState().view.z - 1.2) < 1e-9, 'one step out');
+  ui.click('[data-lmz="in"]');
+  assert.ok(Math.abs(ui.w.liveMapState().view.z - 1.44) < 1e-9);
+  ui.click('[data-lmz="fit"]');
+  assert.equal(ui.w.liveMapState().view, null, 'Fit shows the whole map again');
+  key('+'); key('0');
+  assert.equal(ui.w.liveMapState().view, null, '0 on the map does the same');
+  // another map starts from the whole picture
+  key('+');
+  ui.click('[data-lmmap="HaggaBasin"]'); await ui.settle();
+  assert.equal(ui.w.liveMapState().view, null, 'switching map starts from the whole map');
+  ui.dom.window.close();
+});
+
+test('Saved map: the bitmap follows the canvas size and the screen pixel ratio, also when the window is resized, and the canvas has a name and is a tab stop', async () => {
+  const ui = await boot({ get: { '/api/livemap': mapData([]) } });
+  ui.w.devicePixelRatio = 2;
+  ui.click('[data-tab="livemap"]'); await ui.settle();
+  const c = ui.doc.querySelector('#lmc');
+  const s1 = ui.w.liveMapState();
+  assert.equal(s1.dpr, 2);
+  assert.equal(c.width, s1.w * 2, 'twice as many bitmap pixels as screen pixels');
+  assert.equal(c.height, s1.h * 2);
+  ui.w.devicePixelRatio = 1;
+  ui.w.dispatchEvent(new ui.w.Event('resize'));
+  assert.equal(c.width, s1.w, 'a resize reads the pixel ratio again');
+  assert.equal(c.getAttribute('tabindex'), '0');
+  assert.ok(c.getAttribute('aria-label').includes('Saved map of Hagga Basin') && c.getAttribute('aria-label').includes('arrow keys'));
   ui.dom.window.close();
 });
 
