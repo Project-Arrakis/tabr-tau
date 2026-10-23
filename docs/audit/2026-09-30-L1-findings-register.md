@@ -21,7 +21,7 @@ Fixed since this register was written, with the pull request: #30, #31, #34, #36
 |---|---|
 | Needs the live game | F-08 (T4), F-17 (T6), F-19 (restore drill), F-22 (T1) |
 | Needs the owner | F-09 (org README, board, labels), F-20 (Funcom content), F-19 (warn or block on a changed table shape) |
-| Cheap and testable, not done in this pass | F-18 (post-edit assertion), F-21 (`aria-current`), F-20 (server-folder refusal needs the real folder names first) |
+| Cheap and testable, not done in this pass | F-18 (post-edit assertion; done later in #19: the cells an edit wrote are checked for type, validity, 1 MiB and round trip), F-21 (`aria-current`), F-20 (server-folder refusal needs the real folder names first) |
 
 ## Severity adjustments made by the consolidator
 - UX-1 (no review-before-save pane): hat said CRITICAL, consolidated **HIGH**. It is a design gap in a feature

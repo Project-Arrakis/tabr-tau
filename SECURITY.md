@@ -54,6 +54,10 @@ your computer (they can edit your save directly).
   owner (mode 0600), but Windows does not apply that mode: the file has the permissions of your profile folder, normally readable by you and by
   administrators only. It is a record to read, not a way back (the backup is), and the editor never reads it.
 - Saves are opened from a private copy, and the container is checked (size, declared size, integrity) before anything is trusted.
+- After each edit, the JSON documents the edit wrote are checked inside its transaction (valid JSON of the column's kind, at most 1 MiB per cell, reads back as the
+  same document); a bad one refuses the whole edit and rolls it back.
+- The editor's window shows only the editor's own address: a page outside that origin is replaced by a "Blocked" page before it is loaded, links and forms cannot open
+  another window, and developer tools and the context menu are off. A popup is stopped by the page's script, not by the engine (the window library has no event for it).
 
 ## Accepted risk: a write on every accepted request
 

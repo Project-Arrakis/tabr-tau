@@ -279,6 +279,12 @@ func (s *Save) mutateLocked(desc string, cascade bool, fn func(m *Mut) error) (i
 		tx.Rollback()
 		return 0, err
 	}
+	// Gate: the cells of the JSON columns that the edit wrote are checked (jsoncheck.go); a bad one refuses the whole edit.
+	jw, err := startJSONWatch(tx)
+	if err != nil {
+		tx.Rollback()
+		return 0, err
+	}
 	m := &Mut{tx: tx, Desc: desc, keep: s.journalPath != "" && s.journalOff == ""}
 	if err := fn(m); err != nil {
 		tx.Rollback()
@@ -288,6 +294,12 @@ func (s *Save) mutateLocked(desc string, cascade bool, fn func(m *Mut) error) (i
 		tx.Rollback()
 		return 0, err
 	}
+	logged, err := jw.finish()
+	if err != nil {
+		tx.Rollback()
+		return 0, err
+	}
+	after -= logged // the check's own notes are rows changed too, but not by the edit
 	// Gate: an edit may not leave more dangling references than the save had before it (audit F-08). Existing
 	// violations in the file are tolerated (the game wrote them); only new ones refuse the edit.
 	// A scan is O(save size), so it is skipped when the edit changed no rows (nothing can have been broken).

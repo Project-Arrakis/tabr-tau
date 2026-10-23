@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"syscall"
 	"unicode/utf16"
 	"unsafe"
 
 	"github.com/jchv/go-webview2"
+	"github.com/jchv/go-webview2/pkg/edge"
 )
 
 // Supported reports whether a native window can be opened on this platform.
@@ -44,18 +46,76 @@ func Run(url, title string, width, height uint, confirmClose func() bool) error 
 	}
 	defer w.Destroy()
 	guardClose(uintptr(w.Window()), confirmClose)
-	// Defence in depth for a window with no address bar: the page has no external links and its CSP forbids foreign
-	// scripts, but top-level navigation is not covered by CSP, and go-webview2 offers no navigation hook. Refuse
-	// window.open and any click on a link that leaves the editor's own origin.
+	// A window with no address bar must stay on the editor's own origin. go-webview2 has no navigation or new-window event, but it lets the program answer a document
+	// request itself, so a page outside the origin is replaced by a short "blocked" page before it is loaded (guardNavigation). The script below is the second layer, for the
+	// ways a page can ask for a new window (window.open, a link or a form aimed at another window), which that hook does not see: they are made to stay in this window,
+	// where the hook judges them. Developer tools and the context menu are off (Debug false above).
+	guardNavigation(w, OriginOf(url))
 	w.Init(`(function () {
   window.open = function () { return null; };
-  document.addEventListener('click', function (e) {
+  function stay(e) {
+    var t = e.target && e.target.closest && e.target.closest('a[href],area[href],form');
+    if (t && t.target && t.target !== '_self') t.target = '_self';
     var a = e.target && e.target.closest && e.target.closest('a[href]');
-    if (a && a.origin && a.origin !== location.origin) { e.preventDefault(); e.stopPropagation(); }
-  }, true);
+    if (a && a.origin && a.origin !== location.origin && a.protocol.indexOf('blob') !== 0) { e.preventDefault(); e.stopPropagation(); }
+  }
+  document.addEventListener('click', stay, true);
+  document.addEventListener('auxclick', stay, true);
+  document.addEventListener('submit', stay, true);
 })();`)
 	w.Navigate(url)
 	w.Run()
+	return nil
+}
+
+// guardNavigation refuses every document the window is about to load that AllowedNavigation does not allow (the top page and any frame), by answering the request with
+// BlockedPage. Nothing is sent to the address. If the wrapper's browser cannot be reached (a library change) or the origin is unknown, it does nothing and the script in
+// Run is the only guard; the window never fails to open because of it.
+func guardNavigation(w webview2.WebView, origin string) {
+	if origin == "" {
+		return
+	}
+	ch := chromiumOf(w)
+	if ch == nil || ch.Environment() == nil {
+		return
+	}
+	env := ch.Environment()
+	ch.WebResourceRequestedCallback = func(req *edge.ICoreWebView2WebResourceRequest, args *edge.ICoreWebView2WebResourceRequestedEventArgs) {
+		if uri, err := req.GetUri(); err == nil && AllowedNavigation(origin, uri) {
+			return
+		}
+		resp, err := env.CreateWebResourceResponse(BlockedPage(origin), 403, "Forbidden", "Content-Type: text/html; charset=utf-8")
+		if err != nil || resp == nil {
+			return // no way to answer it: the request goes on and the page-level script is the guard
+		}
+		_ = args.PutResponse(resp)
+	}
+	ch.AddWebResourceRequestedFilter("*", edge.COREWEBVIEW2_WEB_RESOURCE_CONTEXT_DOCUMENT)
+}
+
+// chromiumOf finds the Chromium the go-webview2 window wraps. The wrapper keeps it in an unexported field of its own, and offers no accessor, so it is looked up by type
+// (the field's value is an interface that holds a *edge.Chromium). Anything unexpected gives nil.
+func chromiumOf(w any) (ch *edge.Chromium) {
+	defer func() {
+		if recover() != nil {
+			ch = nil
+		}
+	}()
+	rv := reflect.ValueOf(w)
+	if rv.Kind() != reflect.Pointer || rv.IsNil() || rv.Elem().Kind() != reflect.Struct {
+		return nil
+	}
+	rv = rv.Elem()
+	for i := 0; i < rv.NumField(); i++ {
+		f := rv.Field(i)
+		if f.Kind() != reflect.Interface || !f.CanAddr() {
+			continue
+		}
+		v := reflect.NewAt(f.Type(), unsafe.Pointer(f.UnsafeAddr())).Elem().Interface()
+		if c, ok := v.(*edge.Chromium); ok && c != nil {
+			return c
+		}
+	}
 	return nil
 }
 
