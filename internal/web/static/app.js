@@ -473,6 +473,7 @@ async function playerView() {
   if (sub.player == 'vehicles') return vehiclesView();
   return playerSection(sub.player);
 }
+const NO_TRACK_NUMBER = 'This track\'s number is not known yet: see the note above';
 async function playerSection(s) {
   const h = s == 'character' ? [subNav('char', [['overview', 'Overview'], ['inventory', 'Inventory'], ['reputation', 'Reputation']])] : [];
   const c = s == 'character' ? sub.char || 'overview' : s;
@@ -526,18 +527,19 @@ async function playerSection(s) {
     const keystone = (r) => (r.granted ? html`<span class="ok" title="${r.keystoneOwned} of ${r.keystoneTotal} keystones">Granted</span>` : r.keystoneOwned > 0 ? html`<span title="${r.keystoneOwned} of ${r.keystoneTotal} keystones bought">${r.keystoneOwned}/${r.keystoneTotal}</span>` : html`<span class="mut">-</span>`);
     h.push(html`<div class="card"><h3>Specialization tracks</h3>
       <div class="row"><button class="b" data-act="spKeyAll">Grant all keystones</button><button class="b bad" data-act="spKeyReset">Reset all keystones</button></div>
+      ${sp.rows.some(known) ? '' : html`<div class="info" id="spnone"><b>No track has a number in this save yet</b>, so the XP controls below are off. Earn a little XP in a specialization track in the game, let it save, then come back to this tab: the track appears under Track numbers, where you assign it. Keystones need no numbers and work now.</div>`}
       <p class="mut">Changes are written to the game file as you make them and show in the game after it loads the save. Max XP is ${Number(sp.maxXp).toLocaleString()}.</p>
       ${tbl([{ k: 'track', label: 'Track' }, { k: 'xp', label: 'XP', f: (r) => (known(r) ? Number(r.xp).toLocaleString() : html`<span class="mut" title="This track's number in your save is not known yet; see below">?</span>`) },
         { k: 'level', label: 'Level', f: (r) => (known(r) ? Math.floor(r.level) : html`<span class="mut">?</span>`) }, { k: 'keystoneOwned', label: 'Keystone', f: keystone },
-        { k: 'add', label: 'Add XP', f: (r) => html`<input id="spx${r.track}" type="number" value="1000" class="w90" ${known(r) ? '' : 'disabled'}><button class="b sm" data-act="spAdd" data-t="${r.track}" ${known(r) ? '' : 'disabled'}>Add XP</button>` }],
-        sp.rows, { actions: (r) => html`<button class="b sec sm" data-act="spMax" data-t="${r.track}" ${known(r) ? '' : 'disabled'}>Grant max</button><button class="b bad sm" data-act="spReset" data-t="${r.track}" ${known(r) ? '' : 'disabled'}>Reset</button>` })}</div>
+        { k: 'add', label: 'Add XP', f: (r) => html`<input id="spx${r.track}" type="number" value="1000" class="w90" aria-label="XP to add to ${r.track}" ${known(r) ? '' : 'disabled'}><button class="b sm" data-act="spAdd" data-t="${r.track}" ${known(r) ? '' : 'disabled'} title="${known(r) ? '' : NO_TRACK_NUMBER}">Add XP</button>` }],
+        sp.rows, { empty: 'This save has no specialization tracks.', actions: (r) => html`<button class="b sec sm" data-act="spMax" data-t="${r.track}" ${known(r) ? '' : 'disabled'} title="${known(r) ? '' : NO_TRACK_NUMBER}">Grant max</button><button class="b bad sm" data-act="spReset" data-t="${r.track}" ${known(r) ? '' : 'disabled'} title="${known(r) ? '' : NO_TRACK_NUMBER}">Reset</button>` })}</div>
     <div class="card"><h3>Track numbers</h3>
       <p class="mut">The game's own database names its specialization tracks. Your save stores only a number for each one and does not say which number is which, so the XP controls above need to know the number of each track. It is learned from your own save: earn a little XP in a track in game, save, reload this tab, and the new row appears below to assign to the track you used. Keystones need no numbers.</p>
       ${sp.unassigned.length ? html`${sp.unassigned.map((u) => html`<div class="row"><span>Track number <b>${u.number}</b>: ${Number(u.xp).toLocaleString()} XP, level ${Math.floor(u.level)}</span> is
         <select id="spa${u.number}">${sp.tracks.map((t) => html`<option>${t}</option>`)}</select><button class="b" data-act="spAssign" data-n="${u.number}">Assign</button></div>`)}` : html`<p class="mut">No specialization XP in your save is waiting to be assigned.</p>`}
       <div class="row"><span class="mut">Known a track's number already?</span><select id="spmt">${sp.tracks.map((t) => html`<option>${t}</option>`)}</select> number <input id="spmn" type="number" min="0" max="255" class="w70"><button class="b sec" data-act="spAssignHand">Set</button></div>
       <p class="mut">Assigned: ${sp.rows.filter(known).map((r) => `${r.track} = ${r.number}`).join(', ') || 'none yet'}.</p></div>
-    <div class="card"><h3>Advanced: set a raw row</h3><div class="row"><span class="mut">Track number</span><input id="st" type="number" value="0" class="w70">XP<input id="sx" type="number" value="0">Level<input id="sl" type="number" step="0.1" value="1" class="w80"><button class="b sec" data-act="specSet">Set</button></div></div>`);
+    <div class="card"><details><summary>Advanced: set a raw row</summary><p class="mut">Writes the XP and level you type for a track number directly. A wrong number changes another track.</p><div class="row"><span class="mut">Track number</span><input id="st" type="number" value="0" class="w70">XP<input id="sx" type="number" value="0">Level<input id="sl" type="number" step="0.1" value="1" class="w80"><button class="b sec" data-act="specSet">Set</button></div></details></div>`);
   } else if (s == 'journey') {
     JB = await api('/api/player/journey/browse');
     const tg = await api('/api/player/tags');
@@ -639,7 +641,7 @@ function skillsList() {
   const bar = (m) => (m.known ? html`<span class="rankbar" title="rank ${m.rank} of ${m.max}">${'●'.repeat(m.rank)}${'○'.repeat(Math.max(0, m.max - m.rank))}</span>` : html`<span class="mut" title="not in the catalog: ${m.spent} points spent">?</span>`);
   setHTML($('#skout'), tbl([{ k: 'name', label: 'Skill', f: (m) => html`<span title="${m.id}">${m.name}</span>` }, { k: 'kind', label: 'Type' }, { k: 'rank', label: 'Rank', f: bar },
     { k: 'spent', label: 'Points', f: (m) => m.spent },
-    { k: 'max', label: 'Set rank', f: (m) => (m.known ? html`<select data-skill="${m.id}" data-name="${m.name}" aria-label="Rank of ${m.name}">${Array.from({ length: m.max + 1 }, (_, i) => html`<option ${i == m.rank ? 'selected' : ''}>${i}</option>`)}</select>` : html`<span class="mut">catalog does not know its ranks</span>`) }], rows));
+    { k: 'max', label: 'Set rank', f: (m) => (m.known ? html`<select data-skill="${m.id}" data-name="${m.name}" aria-label="Rank of ${m.name}">${Array.from({ length: m.max + 1 }, (_, i) => html`<option ${i == m.rank ? 'selected' : ''}>${i}</option>`)}</select>` : html`<span class="mut">catalog does not know its ranks</span>`) }], rows, { empty: 'No skills in this school.' }));
 }
 
 // Research and crafting recipes, as in Dune Docker's Research and Crafting tabs: a category, a filter, and an Unlock on each entry that is not
@@ -702,7 +704,7 @@ function catalogList() {
   setHTML($('#ctout'), tbl([{ k: 'name', label: bs ? 'Building set' : 'Customization', f: (r) => html`<span title="${r.id}">${r.name}</span>${r.experimental ? html` <span class="tag">experimental</span>` : ''}` }, { k: 'id', label: 'Item id', cls: 'mut' },
     { k: 'group', label: bs ? 'Group' : 'Set' }, { k: 'requiredDlc', label: 'Requires', f: (r) => r.requiredDlc || (r.entitlement ? 'Account entitlement' : '') },
     { k: 'learned', label: 'State', f: (r) => (r.learned ? html`<span class="ok">Learned</span>` : r.unlocked ? html`<span class="ok">Unlocked</span>` : r.inInventory ? html`<span class="warn">In inventory</span>` : html`<span class="mut">Not owned</span>`) }], rows.slice(0, LISTMAX),
-    { actions: (r) => html`${!bs && CT.libraryAvailable && r.unlockable && !r.unlocked ? html`<button class="b sm" data-act="ctUnlock" data-id="${r.id}" data-name="${r.name}" data-ent="${r.entitlement ? '1' : ''}" title="${r.entitlement ? 'Needs an account entitlement: the game removes it if your account does not own it' : ''}">Unlock</button> ` : ''}${r.inCatalog ? html`<button class="b ${!bs && CT.libraryAvailable && r.unlockable ? 'sec ' : ''}sm" data-act="ctGive" data-id="${r.id}">Give</button>` : ''}` }));
+    { empty: bs ? 'No building set matches the filter.' : 'No customization matches the filter.', actions: (r) => html`${!bs && CT.libraryAvailable && r.unlockable && !r.unlocked ? html`<button class="b sm" data-act="ctUnlock" data-id="${r.id}" data-name="${r.name}" data-ent="${r.entitlement ? '1' : ''}" title="${r.entitlement ? 'Needs an account entitlement: the game removes it if your account does not own it' : ''}">Unlock</button> ` : ''}${r.inCatalog ? html`<button class="b ${!bs && CT.libraryAvailable && r.unlockable ? 'sec ' : ''}sm" data-act="ctGive" data-id="${r.id}">Give</button>` : ''}` }));
 }
 
 // ---------- BASES
@@ -846,8 +848,8 @@ async function basesView() {
       const p = b.pieces || {};
       h.push(html`<div class="card"><h3>Structure health</h3><div class="grid">${kv('Building pieces', p.n)}${kv('Lowest health', fix(p.minh))}${kv('Average health', fix(p.avgh))}${kv('Total sand buildup', fix(p.sand))}</div>
         <div class="row"><button class="b" data-act="repairB" data-confirm="Yes, repair every base">Repair every base to max</button><button class="b sec" data-act="sand" data-confirm="Yes, clear sand on every base">Clear sand on every base</button><span class="mut">These two act on all of your bases, not only the one open above. Repair sets each piece to the highest health seen for its type.</span></div></div>`);
-      h.push(html`<div class="card"><h3>Placeables (${b.placeables.length})</h3>${tbl([{ k: 'id' }, { k: 'building_type', label: 'Type' }, { k: 'health', label: 'Health', f: (r) => (r.health == null ? '' : fix(r.health)) }], b.placeables)}</div>
-        <div class="card"><h3>Building piece types</h3>${tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], b.types)}</div>`);
+      h.push(html`<div class="card"><h3>Placeables (${b.placeables.length})</h3>${tbl([{ k: 'id' }, { k: 'building_type', label: 'Type' }, { k: 'health', label: 'Health', f: (r) => (r.health == null ? '' : fix(r.health)) }], b.placeables, { empty: 'No placeables in this save.' })}</div>
+        <div class="card"><h3>Building piece types</h3>${tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], b.types, { empty: 'No building pieces in this save.' })}</div>`);
     } else {
       const claims = (await api('/api/bases/claim')).filter((c) => c.totem_id == id);
       LC = claims.length ? { claim: claims[0], sel: new Set(), rm: new Set(), level: claims[0].level } : null;
@@ -881,13 +883,13 @@ async function vehiclesView() {
   const h = [html`<div class="card"><h3>Your vehicles (${v.vehicles.length})</h3>${tbl([{ k: 'name', label: 'Vehicle', f: (r) => html`<b title="${r.name}">${r.type || r.name}</b> <span class="mut">${r.map}</span>` }, { k: 'type', label: 'Type' },
     { k: 'condition', label: 'Lowest condition', f: (r) => pctCell(r.condition) }, { k: 'fuel', label: 'Fuel', f: (r) => (r.fuel == null ? '-' : Number(r.fuel).toFixed(1)) },
     { k: 'x', label: 'Location', f: (r) => `${fix(r.x)}, ${fix(r.y)}` }], v.vehicles,
-    { actions: (r) => html`<button class="b ${open && open.id == r.id ? '' : 'sec'} sm" data-vhopen="${r.id}">Details</button><button class="b sm" data-act="repairOne" data-id="${r.id}">Repair</button><button class="b sm" data-act="bring" data-id="${r.id}">Bring to me</button>` })}
+    { actions: (r) => html`<button class="b ${open && open.id == r.id ? '' : 'sec'} sm" data-vhopen="${r.id}">Details</button><button class="b sm" data-act="repairOne" data-id="${r.id}">Repair</button><button class="b sm" data-act="bring" data-id="${r.id}">Bring to me</button>`, empty: 'You have no vehicles in this save yet.' })}
     <div class="row"><button class="b" data-act="repairV">Repair all my vehicles</button><label>Only modules below <input id="rvPct" type="number" min="1" max="100" value="100" class="w70"> % of their full durability</label></div>
     <p class="mut">Makes every module as good as new: full durability, and the maximum that repairs at a workbench wore down is restored too. 100 repairs every module that is not already as good as new; a lower number repairs only the modules below that share, and says when there were none. A module whose full durability is not known is raised to the maximum it records, or skipped when it records none.</p></div>`];
   if (open) {
     const cargo = open.cargo;
     h.push(html`<div class="card"><h3>${open.type || open.name}: ${(open.components || []).length} components</h3>${tbl([{ k: 'template_id', label: 'Component', f: (r) => html`<span title="${r.template_id}">${compName(r.template_id)}</span>` },
-      { k: 'percent', label: 'Condition', f: (r) => pctCell(r.percent) }, { k: 'current', label: 'Durability', f: (r) => (r.current == null ? '-' : Number(r.current).toFixed(0) + (r.max ? ' / ' + Number(r.max).toFixed(0) : '')) }], open.components || [])}
+      { k: 'percent', label: 'Condition', f: (r) => pctCell(r.percent) }, { k: 'current', label: 'Durability', f: (r) => (r.current == null ? '-' : Number(r.current).toFixed(0) + (r.max ? ' / ' + Number(r.max).toFixed(0) : '')) }], open.components || [], { empty: 'This vehicle has no components in the save.' })}
       <p class="mut">Condition is each module's durability against its current maximum; a module with no stored maximum shows only its value. The fuel tank size is not stored in the save, so fuel is the current amount.</p></div>`);
     h.push(html`<div class="card"><h3>Cargo hold</h3>${cargo ? html`<p class="mut">${cargo.slots == null ? nn(cargo.items.length, 'item', 'items') : `${cargo.items.length} of ${cargo.slots} slots used`}</p>${cargo.items.length ? tbl([{ k: 'position_index', label: 'Slot' },
       { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Quantity' }, { k: 'quality_level', label: 'Grade' }], cargo.items) : html`<p class="mut">The cargo hold is empty.</p>`}` : html`<p class="mut">This vehicle has no cargo hold.</p>`}</div>`);
@@ -909,7 +911,7 @@ async function landsraadView() {
   setHTML($('#main'), html`<div class="card"><h3>Current term ${t.term_id}</h3><div class="grid">${kv('Start', fmtEpoch(t.start_time))}${kv('End', fmtEpoch(t.end_time))}${kv('Reigning faction', fname(t.reigning_faction_id))}${kv('Active decree', (dec.find((d) => d.id == t.active_decree_id) || {}).decree_name || '—')}${kv('Elected decree', (dec.find((d) => d.id == t.elected_decree_id) || {}).decree_name || '—')}</div>
   <div class="row">Active decree<select id="ad"><option value="">none</option>${dec.map((d) => html`<option value="${d.id}" ${d.id == t.active_decree_id ? 'selected' : ''}>${d.decree_name}</option>`)}</select>
   Reigning<select id="rf"><option value="">none</option>${facOpts(t.reigning_faction_id)}</select><button class="b" data-act="term">Apply</button></div></div>
-  <div class="card"><h3>Decree pool</h3>${tbl([{ k: 'id', label: 'ID' }, { k: 'decree_name', label: 'Decree' }, { k: 'disabled', label: 'State', f: (r) => (r.disabled ? html`<span class="mut">disabled</span>` : html`<span class="ok">enabled</span>`) }], dec, { actions: (r) => html`<button class="b sec sm" data-act="decree" data-id="${r.id}" data-d="${r.disabled ? 0 : 1}">${r.disabled ? 'Enable' : 'Disable'}</button>` })}</div>
+  <div class="card"><h3>Decree pool</h3>${tbl([{ k: 'id', label: 'ID' }, { k: 'decree_name', label: 'Decree' }, { k: 'disabled', label: 'State', f: (r) => (r.disabled ? html`<span class="mut">disabled</span>` : html`<span class="ok">enabled</span>`) }], dec, { empty: 'This save has no decrees.', actions: (r) => html`<button class="b sec sm" data-act="decree" data-id="${r.id}" data-d="${r.disabled ? 0 : 1}">${r.disabled ? 'Enable' : 'Disable'}</button>` })}</div>
   <div class="card"><h3>Task board (${l.tasks.length})</h3><div class="row">Faction<select id="lf">${facOpts()}</select><span class="mut">used by the buttons below</span></div>${tbl([{ k: 'board_index', label: '#' }, { k: 'house_name', label: 'House', f: (r) => String(r.house_name || '').replace('DA_House', '') }, { k: 'goal_amount', label: 'Goal' },
     { k: 'contributions', label: 'Progress', f: (r) => ((r.contributions || []).length ? (r.contributions || []).map((c) => html`<span class="tag">${fname(c.faction_id)}: ${fix(c.amount)}</span>`) : html`<span class="mut">0</span>`) },
     { k: 'completed', label: 'Status', f: (r) => (r.completed ? html`<span class="ok">done (${fname(r.winning_faction_id)})</span>` : 'open') },
@@ -945,7 +947,7 @@ async function configView() {
     h.push(html`<div class="card"><h3>${cfgFile}</h3>${c.entries.length ? html`<div class="scroll"><table><thead><tr><th>Section</th><th>Key</th><th>Value</th><th></th></tr></thead><tbody>${entryRows}</tbody></table></div>` : html`<p class="mut">This file is empty.</p>`}
     <div class="row mt12"><b>Add key</b><input id="cs" placeholder="[Section]" list="secs"><datalist id="secs">${[...new Set(c.entries.map((e) => e.section))].map((s) => html`<option value="${s}">`)}</datalist><input id="ck" placeholder="Key"><input id="cv" placeholder="Value"><button class="b" data-act="cfgadd">Add</button></div></div>
     <div class="card"><details><summary>Edit raw text</summary><textarea id="raw" rows="18" spellcheck="false">${c.text}</textarea><div class="row"><button class="b" data-act="cfgraw">Save raw text</button></div></details></div>
-    <div class="card"><details><summary>Backups (${bk.length})</summary>${tbl([{ k: 'name', label: 'Backup' }, { k: 'size', label: 'Size', f: (r) => fmtBytes(r.size) }], bk, { actions: (r) => html`<button class="b sec sm" data-act="cfgrestore" data-b="${r.name}">Restore</button>` })}</details></div>`);
+    <div class="card"><details><summary>Backups (${bk.length})</summary>${tbl([{ k: 'name', label: 'Backup' }, { k: 'size', label: 'Size', f: (r) => fmtBytes(r.size) }], bk, { empty: 'No backups of this file yet. One is made before a change is written.', actions: (r) => html`<button class="b sec sm" data-act="cfgrestore" data-b="${r.name}">Restore</button>` })}</details></div>`);
   }
   setHTML($('#main'), html`${h}`);
 }
@@ -1067,7 +1069,7 @@ const A = {
   spReset: async (d) => (await ask({ title: 'Reset ' + d.t + '?', body: d.t + " goes back to 0 XP. Its keystones are not changed. One edit.", ok: 'Reset', danger: true })) && act(async () => { const r = await api('/api/player/specs/reset', { track: d.t }); toast(r.removed ? d.t + ' reset' + NOT_SAVED : d.t + ' had no XP to reset; nothing changed.'); }, null),
   spAssign: (d) => act(async () => { const t = val('spa' + d.n); await api('/api/player/specs/assign', { track: t, number: +d.n }); toast(`Track number ${d.n} is ${t}`); }, null, false),
   spAssignHand: () => act(async () => { const t = val('spmt'), n = val('spmn'); if (n === '') throw new Error('Type the track number first.'); await api('/api/player/specs/assign', { track: t, number: +n }); toast(`${t} is track number ${n}`); }, null, false),
-  specSet: () => act(() => api('/api/player/specs', { track_type: +val('st'), xp: +val('sx'), level: +val('sl') }), 'Specialization set'),
+  specSet: async () => (await ask({ title: 'Set this raw row?', body: `Track number ${+val('st')} is set to ${(+val('sx')).toLocaleString()} XP at level ${+val('sl')}. If that number belongs to another track than you mean, the other track changes. One edit.`, ok: 'Set the row', danger: true })) && act(() => api('/api/player/specs', { track_type: +val('st'), xp: +val('sx'), level: +val('sl') }), 'Specialization set'),
   tut: (d) => act(async () => { await api('/api/player/tutorials', { id: +d.id, complete: d.c == '1' }); JB = await api('/api/player/journey/browse'); journeyList(); toast('Tutorial updated' + NOT_SAVED); }, null),
   tagAdd: () => act(() => api('/api/player/tags', { tag: val('tag').trim(), add: true }), 'Tag added'),
   tagDel: (d) => act(() => api('/api/player/tags', { tag: d.tag, add: false }), 'Tag removed'),
@@ -1136,7 +1138,7 @@ const A = {
   openInv: async (d) => {
     const it = await api('/api/bases/storage/items?inventory=' + encodeURIComponent(d.id));
     const cat = await loadCatalog(it.map((r) => r.template_id));
-    setHTML($('#inv'), html`<div class="card"><h3>Inventory ${d.id}</h3>${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" data-name="${itemName(r.template_id)}" class="w90" aria-label="Stack of ${itemName(r.template_id)}">` }], it, { actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` })}
+    setHTML($('#inv'), html`<div class="card"><h3>Inventory ${d.id}</h3>${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" data-name="${itemName(r.template_id)}" class="w90" aria-label="Stack of ${itemName(r.template_id)}">` }], it, { empty: 'This container is empty.', actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` })}
     <div class="row">${itemPicker("bt", cat)}Qty<input id="bq" type="number" value="1" min="1"><button class="b" data-act="giveInv" data-id="${d.id}">Add item</button></div></div>`);
   },
   giveInv: (d) => act(async () => { await api('/api/bases/give', { inventory_id: +d.id, template_id: needItem('bt'), quantity: +val('bq') }); toast('Item added' + NOT_SAVED); await A.openInv(d); }, null, false),
