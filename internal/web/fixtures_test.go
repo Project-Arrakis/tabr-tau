@@ -131,6 +131,7 @@ func addHostileCharacter(t *testing.T, sv *save.Save) {
 	water := mustJSON(t, map[string]any{"FWaterStorageComponent": []any{[]any{}, map[string]any{"m_WaterStored": 100}}})
 	for _, q := range [][]any{
 		{`insert into actors(id,class,map,owner_account_id,properties) values (900010,'/Game/Dune/Characters/Player/BP_DunePlayerCharacter.BP_DunePlayerCharacter_C','HaggaBasin',1,jsonb(?))`, props},
+		{`update player_state set player_pawn_id=900010 where id=1`}, // the game links the player to this pawn; the editor follows that link
 		{`insert into fgl_entities(entity_id,components) values (-900010, jsonb(?))`, level},
 		{`insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (900010,-900010,'DuneCharacter')`},
 		{`insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (900011,900010,0,20,1000.0)`},

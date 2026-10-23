@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
@@ -32,6 +33,13 @@ type Entry struct {
 
 // Dir manages a config directory.
 type Dir struct{ Path string }
+
+// editMu serialises the edits: each one reads the file, changes a line and writes the file back, and two at once (two requests, or a request and a restore) would each start
+// from the same text and the second write would drop the first one's change. One editor process works on one config folder, so one lock for the package is enough.
+var editMu sync.Mutex
+
+// keepConfigBackups is how many backups of one config file are kept; the oldest ever taken is always kept too (it is the file as it was before the editor first wrote it).
+const keepConfigBackups = 60
 
 // DefaultDir is %LOCALAPPDATA%\DuneSandbox\Saved\Config\Windows.
 func DefaultDir() string {
@@ -149,6 +157,8 @@ func (d doc) sections() []string {
 
 // Create makes a missing expected file, or adds its missing section headers.
 func (d Dir) Create(name string) error {
+	editMu.Lock()
+	defer editMu.Unlock()
 	for _, e := range Expected {
 		if e.Name != name {
 			continue
@@ -265,6 +275,7 @@ func cleanValue(v string) (string, error) {
 
 func (d Dir) backupDir() string { return filepath.Join(d.Path, "tabr-tau-backups") }
 
+// write replaces the file with text after a backup of it. The caller holds editMu.
 func (d Dir) write(name, text string) error {
 	if save.GameRunningNow() {
 		return fmt.Errorf("%s (the game rewrites its config on exit); close the game first", save.RunningMessage())
@@ -278,15 +289,61 @@ func (d Dir) write(name, text string) error {
 			return err
 		}
 		stem := strings.TrimSuffix(name, ".ini")
-		if err := os.WriteFile(filepath.Join(d.backupDir(), stem+"-"+time.Now().Format("20060102-150405.000")+".ini"), old, 0o644); err != nil {
+		// two writes in the same millisecond would share a name and the second backup would replace the first: the time is moved on until the name is free
+		at := time.Now()
+		var dest string
+		for {
+			dest = filepath.Join(d.backupDir(), stem+"-"+at.Format("20060102-150405.000")+".ini")
+			if _, err := os.Lstat(dest); err != nil {
+				break
+			}
+			at = at.Add(time.Millisecond)
+		}
+		if err := os.WriteFile(dest, old, 0o644); err != nil {
 			return err
 		}
+		d.pruneBackups(stem)
 	}
-	tmp := p + ".tmp"
-	if err := os.WriteFile(tmp, []byte(text), 0o644); err != nil {
+	// a temp file of its own name (a leftover of a crash, or another program's file, is never written over), in the folder of the file so that the rename stays on one disk
+	f, err := os.CreateTemp(filepath.Dir(p), filepath.Base(p)+".tabr-*.tmp")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, p)
+	tmp := f.Name()
+	if _, err := f.WriteString(text); err != nil {
+		f.Close()
+		os.Remove(tmp)
+		return err
+	}
+	if err := f.Close(); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	if err := os.Rename(tmp, p); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+// pruneBackups removes the oldest backups of one config file beyond keepConfigBackups, never the oldest one. Only files named exactly as this editor names a backup of this file
+// are counted, so another config file whose name starts the same (Game.ini and Game-extra.ini) and anything else in the folder are left alone.
+func (d Dir) pruneBackups(stem string) {
+	re := regexp.MustCompile(`^` + regexp.QuoteMeta(stem) + `-\d{8}-\d{6}\.\d{3}\.ini$`)
+	ents, _ := os.ReadDir(d.backupDir())
+	var names []string
+	for _, e := range ents {
+		if e.Type().IsRegular() && re.MatchString(e.Name()) {
+			names = append(names, e.Name())
+		}
+	}
+	if len(names) <= keepConfigBackups {
+		return
+	}
+	sort.Strings(names) // the time is in the name, oldest first
+	for _, n := range names[1 : len(names)-keepConfigBackups] {
+		os.Remove(filepath.Join(d.backupDir(), n))
+	}
 }
 
 func (d Dir) load(name string) (doc, error) {
@@ -308,6 +365,8 @@ func (d Dir) Set(name, section, key, value string, line int) error {
 	if err != nil {
 		return err
 	}
+	editMu.Lock()
+	defer editMu.Unlock()
 	if strings.TrimSpace(key) == "" || strings.ContainsAny(key, "=\r\n[]") {
 		return errors.New("invalid key")
 	}
@@ -361,6 +420,8 @@ func (d Dir) Set(name, section, key, value string, line int) error {
 
 // Delete removes one entry line (verified against key).
 func (d Dir) Delete(name, key string, line int) error {
+	editMu.Lock()
+	defer editMu.Unlock()
 	dc, err := d.load(name)
 	if err != nil {
 		return err
@@ -376,7 +437,11 @@ func (d Dir) Delete(name, key string, line int) error {
 }
 
 // WriteRaw replaces the whole file.
-func (d Dir) WriteRaw(name, text string) error { return d.write(name, text) }
+func (d Dir) WriteRaw(name, text string) error {
+	editMu.Lock()
+	defer editMu.Unlock()
+	return d.write(name, text)
+}
 
 // Backups lists backups for one file, newest first.
 func (d Dir) Backups(name string) []map[string]any {
@@ -401,5 +466,7 @@ func (d Dir) Restore(name, backup string) error {
 	if !strings.HasPrefix(filepath.Base(backup), strings.TrimSuffix(name, ".ini")+"-") {
 		return errors.New("backup does not belong to this file")
 	}
+	editMu.Lock()
+	defer editMu.Unlock()
 	return d.write(name, string(b))
 }

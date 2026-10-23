@@ -113,10 +113,13 @@ type player struct {
 	Name                      string
 }
 
-// player resolves the single character in this save.
+// player finds the character. The pawn is the actor the game itself links from player_state (player_pawn_id); only a
+// save where that link is empty falls back to the account's first PlayerCharacter actor (issue #33). The controller is
+// player_state.id, which equals player_controller_id on every save checked.
 func (o *Ops) player() (player, error) {
 	r, err := o.S.One(`select ps.id controller, ps.account_id account, ps.character_name name,
-		coalesce((select a.id from actors a where a.owner_account_id=ps.account_id and a.class like '%PlayerCharacter%' limit 1),0) pawn
+		coalesce((select a.id from actors a where a.id=ps.player_pawn_id),
+			(select a.id from actors a where a.owner_account_id=ps.account_id and a.class like '%PlayerCharacter%' order by a.id limit 1),0) pawn
 		from player_state ps order by ps.id limit 1`)
 	if err != nil {
 		return player{}, err
