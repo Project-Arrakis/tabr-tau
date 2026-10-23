@@ -189,9 +189,11 @@ func TestTheJournalIsFlushedToDiskBeforeItReplacesTheOldOne(t *testing.T) {
 	if why := s.JournalOff(); !strings.Contains(why, "disk full") {
 		t.Fatalf("the reason is the error: %q", why)
 	}
-	for _, f := range []string{jp, jp + ".tmp"} {
-		if _, err := os.Stat(f); !os.IsNotExist(err) {
-			t.Fatalf("%s must not be left behind: %v", f, err)
-		}
+	// no half journal and no temp file; the journal that was kept before stays (it holds the first edit), because deleting it would lose that edit as well
+	if _, err := os.Stat(jp + ".tmp"); !os.IsNotExist(err) {
+		t.Fatalf("the temp file must not be left behind: %v", err)
+	}
+	if kept, err := os.ReadFile(jp); err != nil || !strings.Contains(string(kept), `"edit"`) || strings.Contains(string(kept), `"edit 2"`) {
+		t.Fatalf("the journal that was kept stays as it was: %v %s", err, kept)
 	}
 }
