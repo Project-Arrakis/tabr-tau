@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -347,6 +348,35 @@ func oneStatement(q string) bool {
 
 var errConflict = errors.New("conflict")
 
+// samePath says whether two spellings name the same save: after cleaning, equal, and on Windows (whose paths do not distinguish case) equal ignoring case.
+func samePath(a, b string) bool {
+	a, b = filepath.Clean(a), filepath.Clean(b)
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(a, b)
+	}
+	return a == b
+}
+
+// skipJournal reports a journal this run cannot use and keeps it: the file is moved aside (named ...skipped, then ...skipped.2 and so on), not deleted, because the next edit would
+// write a new journal over it. The page shows it as a queued change that could not be put back, with the reason.
+func (s *Save) skipJournal(why string) *Restored {
+	aside := s.journalPath + ".skipped"
+	for i := 2; i < 100; i++ {
+		if _, err := os.Lstat(aside); err != nil {
+			break
+		}
+		aside = s.journalPath + ".skipped." + strconv.Itoa(i)
+	}
+	if err := os.Rename(s.journalPath, aside); err != nil {
+		why += " (it could not be moved aside: " + shortErr(err) + ")"
+	} else {
+		why += " (it is kept as " + filepath.Base(aside) + " in the editor's folder)"
+	}
+	r := &Restored{Conflicts: []Conflict{{Desc: "the queued changes kept by an earlier run", Why: why}}}
+	s.restored = r
+	return r
+}
+
 // RestoreJournal puts the edits found in the journal back onto the file as it is now, edit by edit. It is for start-up (the journal is of an earlier run) and does
 // nothing when there is no journal, it is of another save, or this save already has edits.
 func (s *Save) RestoreJournal() (*Restored, error) {
@@ -365,8 +395,16 @@ func (s *Save) RestoreJournal() (*Restored, error) {
 		return nil, err
 	}
 	var j journalFile
-	if err := json.Unmarshal(b, &j); err != nil || j.Version != journalVersion || j.Path != s.Path || len(j.Ops) == 0 {
-		return nil, nil // not ours to use: left as it is (the next edit replaces it)
+	if err := json.Unmarshal(b, &j); err != nil {
+		return s.skipJournal("the file could not be read as a list of changes"), nil
+	}
+	switch {
+	case j.Version != journalVersion:
+		return s.skipJournal("it was kept by a different version of the editor"), nil
+	case len(j.Ops) == 0:
+		return nil, nil // nothing was kept in it
+	case !samePath(j.Path, s.Path):
+		return s.skipJournal("it was kept for a save with another path or spelling of the path"), nil
 	}
 	if j.Writing != "" && j.Writing == hex.EncodeToString(s.diskHash[:]) { // the file is the one these edits were written as: they are in it
 		s.dropJournal()
