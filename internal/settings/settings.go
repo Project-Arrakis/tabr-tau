@@ -16,8 +16,8 @@ import (
 
 // Settings is everything the editor remembers between runs.
 type Settings struct {
-	// AutoRefillOnOpen refills base water and generators when the editor opens and saves them straight away (no review
-	// step; an explicit, opt-in exception), unless a single-player session is running. Off by default. It applies to
+	// AutoRefillOnOpen refills base water and generators when the editor opens and writes them straight away, like any
+	// other edit (it waits in the queue while a single-player session is running). Off by default. It applies to
 	// whichever save the editor opens.
 	AutoRefillOnOpen bool `json:"autoRefillOnOpen"`
 	// TrackNumbers is which number the game uses for each specialization track in specialization_tracks (the save stores a bare number

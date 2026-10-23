@@ -15,6 +15,7 @@ var (
 	fsRename          = os.Rename
 	renameBackoff     = 150 * time.Millisecond
 	reloadAfterCommit = func(s *Save) error { return s.load() }
+	syncFile          = func(f *os.File) error { return f.Sync() }
 )
 
 const renameAttempts = 6
@@ -31,7 +32,7 @@ func writeDurable(path string, data []byte, mode os.FileMode) error {
 		os.Remove(path)
 		return err
 	}
-	if err := f.Sync(); err != nil {
+	if err := syncFile(f); err != nil {
 		f.Close()
 		os.Remove(path)
 		return err

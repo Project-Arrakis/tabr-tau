@@ -1,6 +1,10 @@
 package ops
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
+)
 
 // The write routes that name an item or an inventory by id take what the page sends, so the id is checked against what the page may
 // offer: the player's carried inventories (backpack, worn gear, loadout, unique schematics) and the containers of the player's bases
@@ -39,7 +43,7 @@ func (o *Ops) requireEditableItem(item int64) error {
 		return err
 	}
 	if it == nil {
-		return errors.New("item not found")
+		return apierr.New(apierr.ErrNotFound, "item not found")
 	}
 	inv, _ := it["inv"].(int64)
 	p, err := o.player()

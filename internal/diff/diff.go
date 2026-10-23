@@ -1,7 +1,7 @@
 // Package diff compares two SQLite databases (a pristine save and an edited one) at row and JSON-path level.
 //
 // It is a leaf package: it knows nothing about saves, files or the web UI, only about two read-only *sql.DB handles.
-// It is the Go port of tools/snapdiff.py and is what the review-before-save screen, the CLI and the post-write
+// It is the Go port of tools/snapdiff.py and is what the command line (tabr-tau diff) and the post-write
 // verification use. Rows are matched and compared on RAW values; identifiers (platform and Funcom ids, account and
 // character names, 15+ digit numbers) are masked only in the output, by default, because a diff is exactly the kind of
 // text that gets pasted into a bug report. Masking never hides a difference: an edited identifier is still listed,
@@ -338,7 +338,7 @@ func present(key []any, data map[string]any, redact bool) Row {
 }
 
 // presentChange masks the key, paths and values of a modified row. A change whose masked before and after look
-// identical (an identifier was edited) is still listed, so the review shows that the field changed.
+// identical (an identifier was edited) is still listed, so the report shows that the field changed.
 func presentChange(key []any, changes []Change, redact bool) RowChange {
 	if !redact {
 		return RowChange{Key: key, Changes: changes}

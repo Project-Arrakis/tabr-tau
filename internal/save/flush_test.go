@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 )
 
 func setA(t *testing.T, s *Save, v int) {
@@ -90,7 +93,7 @@ func TestFlushPutsTheEditsBackOntoAFileTheGameSavedSince(t *testing.T) {
 	if _, err := other.Exec(`update u set b=6`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := other.Commit(); err != nil {
+	if _, err := other.CommitForTests(); err != nil {
 		t.Fatal(err)
 	}
 	other.Close()
@@ -297,7 +300,7 @@ func TestABackupIsNotReusedForAFileTheGameSavedSince(t *testing.T) {
 	if _, err := other.Exec(`update u set b=6`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := other.Commit(); err != nil {
+	if _, err := other.CommitForTests(); err != nil {
 		t.Fatal(err)
 	}
 	other.Close()
@@ -368,7 +371,7 @@ func TestAQueueThatConflictsWithTheGamesNewerFileIsHeldWholeAndNothingIsWritten(
 	if _, err := other.Exec(`insert into jt values (3,'the game''s',9.5,x'09',9)`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := other.Commit(); err != nil {
+	if _, err := other.CommitForTests(); err != nil {
 		t.Fatal(err)
 	}
 	other.Close()
@@ -389,6 +392,8 @@ func TestAQueueThatConflictsWithTheGamesNewerFileIsHeldWholeAndNothingIsWritten(
 	}
 	if _, err := s.Mutate("another", func(m *Mut) error { _, err := m.Exec(`update jt set name='x' where a=1`); return err }); err == nil {
 		t.Fatal("nothing new is accepted while a queue is held")
+	} else if !errors.Is(err, apierr.ErrQueueHeld) {
+		t.Fatalf("the refusal has the kind the web layer turns into the code queue_held: %v", err)
 	}
 	if again := s.Flush(); again.Saved || again.Why == "" {
 		t.Fatalf("trying again with the same file changes nothing: %+v", again)

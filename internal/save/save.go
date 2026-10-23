@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	_ "modernc.org/sqlite"
 )
 
@@ -108,7 +109,7 @@ func (s *Save) WriteBlocked() string {
 }
 
 func errReadOnly(reason string) error {
-	return fmt.Errorf("this save is read-only: %s", reason)
+	return apierr.Newf(apierr.ErrReadOnly, "this save is read-only: %s", reason)
 }
 
 // codeObjects returns the database objects that can carry logic, keyed by "type name", with their exact SQL.
@@ -579,13 +580,11 @@ func (s *Save) backupNamed(tag string) (string, [32]byte, error) {
 	return dest, hashOf(b), nil
 }
 
-// Commit backs up the original file, then atomically writes the edited save, after the same checks as the automatic write (Flush): the game must not be running and the file
-// must be the one that was loaded. Nothing skips them. The editor itself writes through Flush; this is the form that always takes a backup of its own.
-func (s *Save) Commit() (map[string]any, error) { return s.commit(false, false) }
-
-// commit is Commit; quick is the automatic write after each edit (Flush): it takes a backup only when the newest one is not from the last couple of minutes (a burst of
-// edits is one restore point, taken before the first of them), and keeps the newest backups only.
-func (s *Save) commit(force, quick bool) (map[string]any, error) {
+// commit backs up the original file, then atomically writes the edited save, after the checks every write has: the game must not be running and the file must be the one that
+// was loaded. Nothing skips them. quick is the automatic write after each edit (Flush, the only caller outside tests): it takes a backup only when the newest one is not from
+// the last couple of minutes (a burst of edits is one restore point, taken before the first of them), and keeps the newest backups only; otherwise a backup of its own is taken
+// every time (CommitForTests).
+func (s *Save) commit(quick bool) (map[string]any, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.dirty {
@@ -597,8 +596,8 @@ func (s *Save) commit(force, quick bool) (map[string]any, error) {
 	if err := s.requirePlainFile(); err != nil {
 		return nil, err
 	}
-	if blocked, why := SaveBlocked(s.Path); !force && blocked {
-		return nil, errors.New(why)
+	if blocked, why := SaveBlocked(s.Path); blocked {
+		return nil, apierr.New(apierr.ErrGameBlocked, why)
 	}
 	cur, err := readCapped(s.Path)
 	if err != nil {
@@ -696,10 +695,10 @@ func (s *Save) Restore(name string) error {
 		return errors.New("invalid backup name")
 	}
 	if blocked, why := SaveBlocked(s.Path); blocked {
-		return errors.New(why)
+		return apierr.New(apierr.ErrGameBlocked, why)
 	}
 	if s.dirty || s.held != nil { // restoring reloads the file and would silently drop the pending edits
-		return errors.New("changes are still queued; wait until they are written, or discard them, first (restoring a backup would lose them)")
+		return apierr.New(apierr.ErrQueued, "changes are still queued; wait until they are written, or discard them, first (restoring a backup would lose them)")
 	}
 	if err := s.requirePlainFile(); err != nil {
 		return err
