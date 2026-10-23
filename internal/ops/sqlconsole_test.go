@@ -532,3 +532,33 @@ func TestDiscardResetsTheForeignKeyBaseline(t *testing.T) {
 		t.Fatalf("%d violations", v)
 	}
 }
+
+// A single zeroblob() or randomblob() call allocates up to a gigabyte, and the read console reads the whole value before
+// it shortens it for display, so both consoles refuse the two functions (register 2026-10-07, S8).
+func TestConsolesRefuseFunctionsThatAllocateHugeValues(t *testing.T) {
+	o := newPlayerOps(t)
+	for _, q := range []string{
+		`select zeroblob(5000000)`, `select length(ZEROBLOB(5000000))`, `select "randomblob"(5000000)`,
+		`select 1 where length(zeroblob(5000000)) > 0`,
+	} {
+		if _, err := o.SQL(q); err == nil {
+			t.Errorf("the read console must refuse %q", q)
+		}
+	}
+	for _, q := range []string{
+		`update items set stack_size=length(zeroblob(5000000)) where id=10`,
+		`update items set stack_size=length(randomblob(5000000)) where id=10`,
+	} {
+		o := newPlayerOps(t)
+		before := stackOf(t, o, 10)
+		if _, err := o.ExecSQL(q); err == nil {
+			t.Errorf("the write console must refuse %q", q)
+		}
+		if after := stackOf(t, o, 10); after != before {
+			t.Errorf("a refused statement changed data: %q", q)
+		}
+	}
+	if _, err := o.SQL(`select length(x'00ff') n`); err != nil {
+		t.Errorf("an ordinary blob literal must still work: %v", err)
+	}
+}
