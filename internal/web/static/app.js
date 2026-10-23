@@ -1255,6 +1255,8 @@ autoBox.checked = autoRefreshOn();
 autoBox.addEventListener('change', () => { try { localStorage.autoRefresh = autoBox.checked ? '1' : '0'; } catch (e) { /* the choice lasts until the page is closed */ } status(); });
 status().then(render).then(async () => {
   try { const r = await api('/api/startup'); if (r.note) toast(r.note, !!r.warn, 15000); } catch (e) { /* the note is optional */ }
+}).catch((e) => { // the editor did not answer: "Loading the save..." would stay for ever
+  if ($('#loading')) setHTML($('#main'), html`<div class="card bad">The editor did not answer: ${e.message}</div><div class="row mt12"><button class="b" data-act="retry">Try again</button></div>`);
 });
 // Keeps the game-running warning current. A failed poll is shown, not hidden: writing stays off until contact returns.
 setInterval(async () => {

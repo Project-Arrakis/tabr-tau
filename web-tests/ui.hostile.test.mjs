@@ -1754,6 +1754,18 @@ test('Landsraad shows the term as dates and a reward as the item\'s name; Admin 
   ui.dom.window.close();
 });
 
+test('the page says it is loading until the first view is drawn, and says so when the editor does not answer (UX-37)', async () => {
+  assert.ok(read('index.html').includes('Loading the save'), 'the markup itself shows a loading line');
+  const ui = await boot();
+  assert.equal(ui.doc.querySelector('#loading'), null, 'the first view replaced it');
+  ui.dom.window.close();
+  const bad = await boot({ get: { '/api/save/state': { error: 'connection refused' } } });
+  assert.ok(bad.doc.querySelector('#main').textContent.includes('The editor did not answer: connection refused'), bad.doc.querySelector('#main').textContent);
+  assert.ok(bad.doc.querySelector('[data-act="retry"]'), 'and offers Try again');
+  assert.equal(bad.doc.querySelector('#loading'), null);
+  bad.dom.window.close();
+});
+
 test('Database: an empty table says so instead of "showing 1-0"', async () => {
   const ui = await boot({ get: { '/api/db/table': { columns: ['rowid', 'a'], rows: [], total: 0, locked: {} } } });
   await goTo(ui, 'db', 'db:browse');
