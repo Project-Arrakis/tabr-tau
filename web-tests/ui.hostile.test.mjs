@@ -2188,3 +2188,54 @@ test('the keyboard focus stays on the control that was used when the page is dra
   await focusThenClick('[data-sub="db:backups"]');
   ui.dom.window.close();
 });
+
+// ---------- small page fixes (review 2026-10-23, group C)
+const DBTABLE = (rows) => ({ '/api/db/table': { columns: ['_key_', 'a', 'b'], rows, total: rows.length, locked: {}, tableLocked: '' } });
+
+test('clearing a cell that was NULL puts NULL back, not an empty text; and the undo sentence gives the whole old value', async () => {
+  const long = 'v'.repeat(120);
+  const ui = await boot({ get: DBTABLE([['7', null, long]]), post: { '/api/db/update': { ok: true } } });
+  ui.click('[data-tab="db"]'); await ui.settle();
+  const sel = ui.doc.querySelector('#dbsel'); if (sel) { sel.value = sel.options[0].value; }
+  const cells = [...ui.doc.querySelectorAll('input.dbc')];
+  assert.equal(cells.length, 2, 'two editable cells');
+  const [nullCell, longCell] = cells;
+  assert.ok(nullCell.hasAttribute('data-null') && !longCell.hasAttribute('data-null'), 'the page notes which cell was NULL');
+  nullCell.value = 'abc';
+  nullCell.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  nullCell.value = '';
+  nullCell.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  const sent = ui.posted.filter((p) => p.path === '/api/db/update').map((p) => p.body.value);
+  assert.deepEqual(sent, ['abc', null], 'the second edit puts NULL back');
+  // an old value of 120 characters is given whole in the sentence about putting it back
+  longCell.value = 'short';
+  longCell.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  const t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.includes('set it back to ' + long + '.'), t);
+  ui.dom.window.close();
+});
+
+test('the editor is not polled again while an answer is still awaited', async () => {
+  const ui = await boot();
+  let calls = 0;
+  const f = ui.w.fetch;
+  ui.w.fetch = (p, o) => { if (String(p).startsWith('/api/save/state')) { calls++; return new Promise(() => {}); } return f(p, o); }; // the answer never comes
+  await new Promise((r) => ui.w.setTimeout(r, 10600)); // two polls come due
+  assert.equal(calls, 1, 'the second poll waits for the first');
+  ui.dom.window.close();
+});
+
+test('an exported table\'s blob address is not revoked before the browser has read it', async () => {
+  const ui = await boot({ get: { '/api/db/export': { ok: true } } });
+  const made = [], revoked = [];
+  ui.w.URL.createObjectURL = (b) => { made.push(b); return 'blob:test/' + made.length; };
+  ui.w.URL.revokeObjectURL = (u) => revoked.push(u);
+  ui.w.HTMLAnchorElement.prototype.click = function () { /* no navigation in the test */ };
+  ui.click('[data-tab="db"]'); await ui.settle();
+  const a = ui.doc.querySelector('[data-export="csv"]');
+  assert.ok(a, 'the export link is there');
+  a.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); await ui.settle();
+  assert.equal(made.length, 1, 'the file was made: ' + ui.doc.querySelector('#toast').textContent);
+  assert.equal(revoked.length, 0, 'and its address is still valid right after the click');
+  ui.dom.window.close();
+});
