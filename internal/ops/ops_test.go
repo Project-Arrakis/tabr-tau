@@ -339,12 +339,16 @@ func TestGiveHonorsTheStackSize(t *testing.T) {
 	if r.(map[string]any)["stacks"].(int) != 2 {
 		t.Fatalf("two new stacks: %v", r)
 	}
-	// one that does not fit the slots left is refused whole
-	if _, err := o.GiveItem(Args{"template_id": "SpicedFuelCell", "quantity": 4000.0}); err == nil {
-		t.Fatal("8 stacks do not fit 5 free slots")
+	// one that does not fit the slots left gives what fits (it used to be refused whole): 4,000 needs 8 stacks, 5 slots are free, the 320 stack is filled (180) and 5 new stacks fill the slots, so 2,680 go in
+	r, err = o.GiveItem(Args{"template_id": "SpicedFuelCell", "quantity": 4000.0})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if n, _ := o.S.One(`select sum(stack_size) s from items where template_id='SpicedFuelCell'`); n["s"].(int64) != 1320 {
-		t.Fatalf("a refused give leaves nothing behind: %v", n)
+	if m := r.(map[string]any); m["given"] != int64(2680) || m["requested"] != int64(4000) || m["limit"] != "slots" {
+		t.Fatalf("the stack topped up and 5 new ones: %v", m)
+	}
+	if n, _ := o.S.One(`select sum(stack_size) s from items where template_id='SpicedFuelCell'`); n["s"].(int64) != 4000 {
+		t.Fatalf("1,320 + 2,680: %v", n)
 	}
 }
 
