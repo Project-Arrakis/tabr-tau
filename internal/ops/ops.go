@@ -373,7 +373,7 @@ func giveInTx(m *save.Mut, inventoryID int64, template string, qty, quality int6
 	}
 	quality = grantGrade(template, quality)
 	stats := `{"FCustomizationStats":[[],{}],"FItemStackAndDurabilityStats":[[],{}]}`
-	if k, _ := m.Query(`select stats from items where template_id=? and stats is not null limit 1`, template); len(k) > 0 {
+	if k, _ := m.Query(`select stats from items where template_id=? and stats is not null order by id limit 1`, template); len(k) > 0 {
 		stats = fmt.Sprint(k[0]["stats"])
 		if plain, err := augments.Stats(stats, nil); err == nil { // the copied item's augments are its own, not the new item's
 			stats = plain
@@ -781,6 +781,45 @@ func (o *Ops) RepairGear() (any, error) {
 	return map[string]any{"ok": true, "scanned": scanned, "repaired": repaired}, nil
 }
 
+// removeSolariInTx takes want Solari out of the player's backpack stacks, from the last slot back, deleting a stack it empties. It refuses (and changes nothing) when the
+// stacks hold less than want, so a removal never reports more than it took.
+func removeSolariInTx(m *save.Mut, pawn, want int64) error {
+	rows, err := m.Query(`select i.id, i.stack_size from items i join inventories v on v.id=i.inventory_id
+		where v.actor_id=? and v.inventory_type=0 and i.template_id=? order by i.position_index desc, i.id desc`, pawn, solariTemplate)
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return errors.New("player has no Solari")
+	}
+	var have int64
+	for _, r := range rows {
+		n, _ := r["stack_size"].(int64)
+		have += n
+	}
+	if have < want {
+		return fmt.Errorf("not enough Solari: the backpack holds %s and %s were asked to be removed", commas(have), commas(want))
+	}
+	left := want
+	for _, r := range rows {
+		if left == 0 {
+			break
+		}
+		n, _ := r["stack_size"].(int64)
+		take := min(n, left)
+		if take == n {
+			_, err = m.Exec(`delete from items where id=?`, r["id"])
+		} else {
+			_, err = m.Exec(`update items set stack_size=? where id=?`, n-take, r["id"])
+		}
+		if err != nil {
+			return err
+		}
+		left -= take
+	}
+	return nil
+}
+
 // AddSolari adjusts the player's Solari (an item stack in this game version).
 func (o *Ops) AddSolari(a Args) (any, error) {
 	p, err := o.player()
@@ -792,25 +831,30 @@ func (o *Ops) AddSolari(a Args) (any, error) {
 		return nil, errors.New("amount must be a non-zero integer")
 	}
 	_, err = o.S.Mutate(fmt.Sprintf("solari %+d", delta), func(m *save.Mut) error {
-		rows, _ := m.Query(`select i.id, i.stack_size from items i join inventories v on v.id=i.inventory_id
+		// Solari are item stacks, and a slot holds no more than the item tables give (50,000): adding fills the stacks that are there and makes new ones, removing takes
+		// from the stacks from the last slot back, so nothing is removed from one stack that it does not hold.
+		if delta < 0 {
+			return removeSolariInTx(m, p.Pawn, -delta)
+		}
+		rows, err := m.Query(`select i.inventory_id from items i join inventories v on v.id=i.inventory_id
 			where v.actor_id=? and v.inventory_type=0 and i.template_id=? order by i.id limit 1`, p.Pawn, solariTemplate)
-		if len(rows) > 0 {
-			n := rows[0]["stack_size"].(int64) + delta
-			if n <= 0 {
-				_, err := m.Exec(`delete from items where id=?`, rows[0]["id"])
-				return err
-			}
-			_, err := m.Exec(`update items set stack_size=? where id=?`, n, rows[0]["id"])
+		if err != nil {
 			return err
 		}
-		if delta < 0 {
-			return errors.New("player has no Solari")
+		var inv int64
+		if len(rows) > 0 {
+			inv, _ = rows[0]["inventory_id"].(int64)
+		} else {
+			bp, err := m.Query(`select id from inventories where actor_id=? and inventory_type=0 order by id limit 1`, p.Pawn)
+			if err != nil {
+				return err
+			}
+			if len(bp) == 0 {
+				return errors.New("backpack not found")
+			}
+			inv, _ = bp[0]["id"].(int64)
 		}
-		inv, _ := m.Query(`select id from inventories where actor_id=? and inventory_type=0 order by id limit 1`, p.Pawn)
-		if len(inv) == 0 {
-			return errors.New("backpack not found")
-		}
-		_, err := giveInTx(m, inv[0]["id"].(int64), solariTemplate, delta, 0)
+		_, err = giveStacksInTx(m, inv, solariTemplate, delta, 0)
 		return err
 	})
 	if err != nil {

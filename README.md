@@ -47,7 +47,7 @@ These console features are not in tabr-tau, and the page no longer shows a disab
 |---|---|
 | **Queued** | A change made while the file cannot be written (the game is in a single-player session). It waits in a private journal and is written by itself once the file can be; **Write now** tries at once and **Discard queue** drops it. |
 | **Backup** | A copy of the file taken before a write (one per burst of edits), in a `tabr-tau-backups` folder beside it. The newest 60 are kept, and always the oldest one and the first one of the session (the file before the editor wrote anything). |
-| **Solari in backpack** | The Solari item stacks in the character's backpack. |
+| **Solari in backpack** | The Solari item stacks in the character's backpack. A stack holds 50,000: adding fills the stacks there and makes more, removing takes from the last stack back, and asking for more than the stacks hold is refused. |
 | **Solari in wallet** and **House credit in wallet** | The character's two virtual currency balances, kept apart from the backpack stacks. |
 | **Intel** | The points that pay for the research tree (capped at 2,779). |
 | **Journey node** | One step of the Story, Contract, Codex or Tutorial lists. |
