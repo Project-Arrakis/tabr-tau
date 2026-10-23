@@ -4,14 +4,18 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
 
 // quickBackupEvery is how recent the backup of the last automatic write must be for the next to go without a new one: a burst of edits is one restore point, taken before the
-// first (and only while the file is still the one that write left: a file the game saved since gets a backup of its own). keepBackups is how many of the backups that automatic
-// writes take the folder keeps; the others (every one an earlier version or a person made) are never removed.
+// first (and only while the file is still the one that write left: a file the game saved since gets a backup of its own, and the backup is reused only while its bytes are
+// still the ones recorded when it was taken). keepBackups is how many of the newest backups that automatic writes take the folder keeps; besides those it always keeps the
+// oldest one, the first one this session took (the state before the editor's first write) and the one just taken. The others (every one an earlier version or a person made,
+// and any file the editor did not name itself) are never counted and never removed.
 const (
 	quickBackupEvery = 2 * time.Minute
 	keepBackups      = 60
@@ -123,51 +127,86 @@ func heldWhy(h *Held) string {
 }
 
 // backupIfStale makes a backup unless the last automatic write was made after one from the last quickBackupEvery and the file is still the one it wrote, in which case that
-// backup holds the state before the burst and is returned again. It keeps the newest keepBackups of the automatic ones.
+// backup holds the state before the burst and is returned again (after its bytes have been read and found to be the ones recorded when it was taken). A new backup must be of
+// the file the edits were made on: when the game saved between the check and the copy, nothing is written (ErrChangedOnDisk) and the copy stays as a backup of the game's file.
 func (s *Save) backupIfStale() (string, error) {
-	if s.lastBackup != "" && s.diskHash == s.lastWrote && time.Since(s.lastBackupT) < quickBackupEvery {
-		if _, err := os.Stat(s.lastBackup); err == nil {
-			return s.lastBackup, nil
-		}
+	if s.canReuseBackup() {
+		return s.lastBackup, nil
 	}
-	b, err := s.backupNamed(autoTag)
-	if err == nil {
-		s.lastBackupT = time.Now()
-		s.pruneBackups()
+	b, sum, err := s.backupNamed(autoTag)
+	if err != nil {
+		return "", err
 	}
-	return b, err
+	if sum != s.diskHash {
+		return "", ErrChangedOnDisk
+	}
+	s.lastBackupT, s.lastBackupHash = time.Now(), sum
+	if s.firstBackup == "" {
+		s.firstBackup = b
+	}
+	s.pruneBackups(b)
+	return b, nil
 }
 
-func (s *Save) newestBackup() (string, time.Time) {
-	var name string
-	var mod time.Time
-	ents, _ := os.ReadDir(s.backupDir())
-	for _, e := range ents {
-		if info, err := e.Info(); err == nil && info.Mode().IsRegular() && info.ModTime().After(mod) {
-			name, mod = filepath.Join(s.backupDir(), e.Name()), info.ModTime()
-		}
+// canReuseBackup says whether the backup of the last automatic write still stands for this one: it is recent, the file is still the one that write left, and the backup is
+// on disk with the bytes it was taken with.
+func (s *Save) canReuseBackup() bool {
+	if s.lastBackup == "" || s.diskHash != s.lastWrote || time.Since(s.lastBackupT) >= quickBackupEvery {
+		return false
 	}
-	return name, mod
+	b, err := readCapped(s.lastBackup)
+	return err == nil && hashOf(b) == s.lastBackupHash
 }
 
-// pruneBackups removes the oldest backups beyond keepBackups (the editor's own folder next to the save, nothing else).
-func (s *Save) pruneBackups() {
+// autoBackupKey tells whether name is one this editor gave to an automatic backup of the save (<name>-<yyyymmdd>-<hhmmss>-<nanoseconds>-auto<ext>), and the time in it. Only
+// such files are counted or removed by the pruning: a file of any other name, or with a time somebody set on it, is not the editor's.
+func (s *Save) autoBackupKey(name string) (stamp string, nanos int64, ok bool) {
+	ext := filepath.Ext(s.Path)
+	pre, suf := strings.TrimSuffix(filepath.Base(s.Path), ext)+"-", autoTag+ext
+	if len(name) <= len(pre)+len(suf) || !strings.HasPrefix(name, pre) || !strings.HasSuffix(name, suf) {
+		return "", 0, false
+	}
+	m := autoBackupStamp.FindStringSubmatch(name[len(pre) : len(name)-len(suf)])
+	if m == nil {
+		return "", 0, false
+	}
+	n, err := strconv.ParseInt(m[2], 10, 64)
+	if err != nil {
+		return "", 0, false
+	}
+	return m[1], n, true
+}
+
+var autoBackupStamp = regexp.MustCompile(`^(\d{8}-\d{6})-(\d{1,9})$`)
+
+// pruneBackups removes the oldest of the editor's automatic backups beyond keepBackups. Ordered by the time in their names (not the file times, which anything can set), the
+// ones it never removes are the oldest, the first of this session and justTaken, and nothing that is not an automatic backup of this save is looked at.
+func (s *Save) pruneBackups(justTaken string) {
 	ents, _ := os.ReadDir(s.backupDir())
 	type bk struct {
-		path string
-		mod  time.Time
+		path  string
+		stamp string
+		nanos int64
 	}
 	var all []bk
 	for _, e := range ents {
-		if info, err := e.Info(); err == nil && info.Mode().IsRegular() && strings.Contains(e.Name(), autoTag) {
-			all = append(all, bk{filepath.Join(s.backupDir(), e.Name()), info.ModTime()})
+		if stamp, n, ok := s.autoBackupKey(e.Name()); ok && e.Type().IsRegular() {
+			all = append(all, bk{filepath.Join(s.backupDir(), e.Name()), stamp, n})
 		}
 	}
 	if len(all) <= keepBackups {
 		return
 	}
-	sort.Slice(all, func(i, j int) bool { return all[i].mod.After(all[j].mod) })
+	sort.Slice(all, func(i, j int) bool {
+		if all[i].stamp != all[j].stamp {
+			return all[i].stamp > all[j].stamp
+		}
+		return all[i].nanos > all[j].nanos
+	})
+	keep := map[string]bool{justTaken: true, s.firstBackup: true, all[len(all)-1].path: true}
 	for _, b := range all[keepBackups:] {
-		os.Remove(b.path)
+		if !keep[b.path] {
+			os.Remove(b.path)
+		}
 	}
 }

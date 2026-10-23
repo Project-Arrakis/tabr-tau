@@ -42,7 +42,7 @@ The **Player** tab mirrors the Dune Docker console's Players > Player Name view:
 | Word | Meaning |
 |---|---|
 | **Queued** | A change made while the file cannot be written (the game is in a single-player session). It waits in a private journal and is written by itself once the file can be; **Write now** tries at once and **Discard queue** drops it. |
-| **Backup** | A copy of the file taken before a write, in a `tabr-tau-backups` folder beside it. The newest 60 are kept. |
+| **Backup** | A copy of the file taken before a write (one per burst of edits), in a `tabr-tau-backups` folder beside it. The newest 60 are kept, and always the oldest one and the first one of the session (the file before the editor wrote anything). |
 | **Solari in backpack** | The Solari item stacks in the character's backpack. |
 | **Solari in wallet** and **House credit in wallet** | The character's two virtual currency balances, kept apart from the backpack stacks. |
 | **Intel** | The points that pay for the research tree (capped at 2,779). |
