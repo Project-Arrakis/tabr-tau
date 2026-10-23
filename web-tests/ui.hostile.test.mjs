@@ -73,7 +73,8 @@ async function boot({ post = {}, get = {}, confused = false } = {}) {
         if (b.__fail) return { ok: false, status: b.__status || 400, statusText: 'Bad Request', json: async () => ({ error: b.__fail, code: b.__code }) };
         return { ok: true, status: 200, statusText: 'OK', json: async () => b };
       }
-      if (get[u.pathname]) return { ok: true, status: 200, statusText: 'OK', json: async () => get[u.pathname] };
+      if (get[u.pathname] && get[u.pathname].__fail) return { ok: false, status: 400, statusText: 'Bad Request', json: async () => ({ error: get[u.pathname].__fail }), blob: async () => new w.Blob([JSON.stringify({ error: get[u.pathname].__fail })]) };
+      if (get[u.pathname]) return { ok: true, status: 200, statusText: 'OK', json: async () => get[u.pathname], blob: async () => new w.Blob(['a,b\n1,2\n']) };
       const f = (confused ? confusedFixtures : baseFixtures)[u.pathname];
       const status = f ? f.status : 404;
       return { ok: status < 400, status, statusText: f ? 'OK' : 'Not Found', json: async () => (f ? f.body : { error: 'not in fixtures: ' + u.pathname }), blob: async () => new w.Blob(['x']) };
@@ -2123,4 +2124,26 @@ test('the browser tab names the open page and has an icon (UX-41)', async () => 
   ui.click('[data-tab="db"]'); await ui.settle();
   assert.equal(ui.doc.title, 'Database - Tabr Tau');
   ui.dom.window.close();
+});
+
+test('Database: an export the server refuses shows its error and downloads nothing; a good one downloads (register 2026-10-07, UX-6)', async () => {
+  const tbl = { columns: ['_rowid_', 'id'], rows: [[1, 1]], total: 1, tableLocked: '', locked: { id: 'primary key' } };
+  const tables = [{ name: 'items', rows: 1, columns: ['id'], types: ['INTEGER'] }];
+  const run = async (exportAnswer) => {
+    const ui = await boot({ get: { '/api/db/tables': tables, '/api/db/table': tbl, '/api/db/export': exportAnswer } });
+    const downloads = [];
+    ui.w.URL.createObjectURL = () => 'blob:test';
+    ui.w.URL.revokeObjectURL = () => {};
+    ui.w.HTMLAnchorElement.prototype.click = function () { downloads.push(this.download); };
+    ui.click('[data-tab="db"]'); await ui.settle();
+    ui.click('[data-export="csv"]'); await ui.settle();
+    const out = { downloads, toast: ui.doc.querySelector('#toast').textContent };
+    ui.dom.window.close();
+    return out;
+  };
+  const bad = await run({ __fail: 'table is not available' });
+  assert.deepEqual(bad.downloads, [], 'an error answer is not saved as items.csv');
+  assert.ok(bad.toast.includes('table is not available'), 'the refusal is shown: ' + bad.toast);
+  const good = await run([{ ok: true }]);
+  assert.deepEqual(good.downloads, ['items.csv'], 'a good export still downloads');
 });
