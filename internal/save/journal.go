@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // The pending edits are kept in a journal file so they survive the editor being closed, and can be put back onto a newer file when the game has saved since.
@@ -34,7 +35,7 @@ const (
 
 // jarg is one statement argument with its type kept (JSON alone would turn every number into a float).
 type jarg struct {
-	T string `json:"t"` // n null, i integer, f float, s text, x blob, o boolean
+	T string `json:"t"` // n null, i integer, f float, s text, t text that is not valid UTF-8 (its bytes, base64), x blob, o boolean
 	V string `json:"v,omitempty"`
 }
 
@@ -116,12 +117,20 @@ func encodeArg(v any) (jarg, bool) {
 	case uint64:
 		return jarg{"i", strconv.FormatUint(x, 10)}, true
 	case float32:
-		return jarg{"f", strconv.FormatFloat(float64(x), 'g', -1, 32)}, true
+		// The database stores a REAL as a 64-bit float, so the value that was run is float64(x), with every digit it has (0.1 as a 32-bit float is 0.10000000149011612). Writing the
+		// shortest text that a 32-bit float reads back from would put 0.1 into the file when the edit was run again.
+		return jarg{"f", strconv.FormatFloat(float64(x), 'g', -1, 64)}, true
 	case float64:
 		return jarg{"f", strconv.FormatFloat(x, 'g', -1, 64)}, true
 	case string:
+		if !utf8.ValidString(x) { // JSON would replace the bad bytes with U+FFFD: the text is kept as the bytes it is
+			return jarg{"t", base64.StdEncoding.EncodeToString([]byte(x))}, true
+		}
 		return jarg{"s", x}, true
 	case []byte:
+		if x == nil { // the driver binds a nil slice as NULL and an empty one as an empty blob: the two are kept apart
+			return jarg{T: "n"}, true
+		}
 		return jarg{"x", base64.StdEncoding.EncodeToString(x)}, true
 	case bool:
 		return jarg{"o", strconv.FormatBool(x)}, true
@@ -139,6 +148,9 @@ func decodeArg(a jarg) (any, error) {
 		return strconv.ParseFloat(a.V, 64)
 	case "s":
 		return a.V, nil
+	case "t":
+		b, err := base64.StdEncoding.DecodeString(a.V)
+		return string(b), err
 	case "x":
 		return base64.StdEncoding.DecodeString(a.V)
 	case "o":
@@ -151,7 +163,7 @@ func decodeArg(a jarg) (any, error) {
 func journalable(q string) bool {
 	s := strings.TrimSpace(q)
 	s = strings.TrimRight(s, "; \t\r\n")
-	if s == "" || strings.Contains(s, ";") { // a script of several statements (a ';' inside a quoted value also lands here, and is simply not journaled)
+	if s == "" || !oneStatement(q) { // a script of several statements (a ';' inside a quoted value or a comment is not the end of one)
 		return false
 	}
 	w := strings.ToLower(s)
@@ -258,16 +270,79 @@ func (s *Save) writeJournal() {
 		s.stopJournal("the pending edits are too large to keep")
 		return
 	}
+	// A journal that cannot be written is not left to look as if it were kept: it is turned off with the reason, and the page says that the queue is lost if the editor closes.
 	if err := os.MkdirAll(filepath.Dir(s.journalPath), 0o700); err != nil {
+		s.stopJournal("the journal could not be written (" + shortErr(err) + ")")
 		return
 	}
 	tmp := s.journalPath + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+	// written and flushed to the disk before it replaces the old one, so a power cut leaves the old journal or the new one, never half of one
+	os.Remove(tmp) // a leftover of a stopped run
+	if err := writeDurable(tmp, b, 0o600); err != nil {
+		s.stopJournal("the journal could not be written (" + shortErr(err) + ")")
 		return
 	}
 	if err := os.Rename(tmp, s.journalPath); err != nil {
 		os.Remove(tmp)
+		s.stopJournal("the journal could not be written (" + shortErr(err) + ")")
 	}
+}
+
+// shortErr is an error's message without the folder names of a path error, which the page would show.
+func shortErr(err error) string {
+	var pe *os.PathError
+	if errors.As(err, &pe) {
+		return pe.Op + " " + filepath.Base(pe.Path) + ": " + pe.Err.Error()
+	}
+	return err.Error()
+}
+
+// oneStatement says whether q is a single SQL statement: a ';' ends a statement only outside a quoted text or name ('...', "...", `...`, [...]) and outside a comment
+// (-- to the end of the line, /* ... */), and only blanks and comments may follow it. A quote or comment that is not closed is not one statement.
+func oneStatement(q string) bool {
+	ended := false // a statement has ended; only blanks, comments and more ';' may follow
+	for i := 0; i < len(q); {
+		c := q[i]
+		switch {
+		case c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == ';':
+			if c == ';' {
+				ended = true
+			}
+			i++
+		case c == '-' && i+1 < len(q) && q[i+1] == '-':
+			for i < len(q) && q[i] != '\n' {
+				i++
+			}
+		case c == '/' && i+1 < len(q) && q[i+1] == '*':
+			end := strings.Index(q[i+2:], "*/")
+			if end < 0 { // SQLite lets a comment run to the end of the text
+				return true
+			}
+			i += end + 4
+		case c == '\'' || c == '"' || c == '`' || c == '[':
+			if ended {
+				return false
+			}
+			closer := c
+			if c == '[' {
+				closer = ']'
+			}
+			j := i + 1
+			for j < len(q) && q[j] != closer { // a doubled quote closes and reopens, which comes to the same
+				j++
+			}
+			if j >= len(q) {
+				return false
+			}
+			i = j + 1
+		default:
+			if ended {
+				return false
+			}
+			i++
+		}
+	}
+	return true
 }
 
 var errConflict = errors.New("conflict")
