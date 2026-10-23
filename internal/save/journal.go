@@ -26,7 +26,7 @@ import (
 // of rows than before is not applied either: it is reported, not forced. What was put back is written like any other edit (Flush): only when the game-running checks pass and
 // the file is unchanged, and the page lists what is waiting.
 //
-// The journal holds values from the save (it is a private file in the editor's own folder, 0600, deleted when the edits are saved or discarded). Only INSERT,
+// The journal holds values from the save (it is a file in the editor's own folder, created with mode 0600 (which Windows does not apply), deleted when the edits are saved or discarded). Only INSERT,
 // UPDATE, DELETE and REPLACE statements are journaled or replayed: an edit that ran anything else (a script, DDL, a pragma) turns the journal off for the session
 // rather than keep part of the edits.
 
