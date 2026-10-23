@@ -353,6 +353,7 @@ func collectPaths(err error, out *[]string) {
 // errorCode is the stable code of a refusal and the HTTP status that goes with it; a caller keys on these and never on the words of the message, which may change.
 //
 //	changed_on_disk   409  the game saved since the editor loaded the file
+//	conflict          409  the value an edit was made from is not what the save holds now (a cell edited from a table that has changed since it was shown)
 //	queue_held        409  edits waiting from before conflict with the game's newer file; nothing new is accepted until they are discarded
 //	queued            409  the action needs an empty queue and edits are still waiting
 //	game_running      400  the game-running check refused the write, or could not be made
@@ -366,6 +367,8 @@ func errorCode(err error) (string, int) {
 	switch {
 	case errors.Is(err, save.ErrChangedOnDisk):
 		return "changed_on_disk", http.StatusConflict
+	case errors.Is(err, apierr.ErrConflict):
+		return "conflict", http.StatusConflict
 	case errors.Is(err, apierr.ErrQueueHeld):
 		return "queue_held", http.StatusConflict
 	case errors.Is(err, apierr.ErrQueued):

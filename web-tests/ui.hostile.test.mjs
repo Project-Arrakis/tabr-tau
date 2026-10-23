@@ -1959,6 +1959,41 @@ test('a config value and a database cell also report old and new; a queued edit 
   ui.dom.window.close();
 });
 
+// SEC-7: a cell edit says what the cell showed, and a table that has changed since is shown again as it is now.
+test('a database cell edit sends the text the cell showed, and a conflict reloads the table', async () => {
+  const tbl = { columns: ['_rowid_', 'id', 'template_id', 'note'], rows: [[5, 10, 'Spice', null]], total: 1, tableLocked: '', locked: { id: 'primary key' } };
+  const ui = await boot({ get: { '/api/db/tables': [{ name: 'items', rows: 1, columns: ['id'], types: ['INTEGER'] }], '/api/db/table': tbl }, post: { '/api/db/update': { ok: true } } });
+  ui.click('[data-tab="db"]'); await ui.settle();
+  const [cell, empty] = [...ui.doc.querySelectorAll('input.dbc')];
+  cell.value = 'Melange';
+  cell.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  empty.value = 'a note';
+  empty.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  const sent = ui.posted.filter((p) => p.path === '/api/db/update').map((p) => p.body);
+  assert.equal(sent.length, 2);
+  assert.equal(sent[0].expected, 'Spice');
+  assert.equal(sent[0].value, 'Melange');
+  assert.equal(sent[1].expected, '', 'an empty cell is sent as the empty text');
+  ui.dom.window.close();
+});
+
+test('a refused cell edit puts the old text back and loads the table again', async () => {
+  const tbl = { columns: ['_rowid_', 'id', 'template_id'], rows: [[5, 10, 'Spice']], total: 1, tableLocked: '', locked: { id: 'primary key' } };
+  let tableReads = 0;
+  const ui = await boot({ get: { '/api/db/tables': [{ name: 'items', rows: 1, columns: ['id'], types: ['INTEGER'] }], '/api/db/table': tbl }, post: { '/api/db/update': { __fail: 'this cell has changed since the table was shown, so nothing was changed: reload the table and try again', __code: 'conflict', __status: 409 } } });
+  const origFetch = ui.w.fetch;
+  ui.w.fetch = async (p, o) => { if (String(p).startsWith('/api/db/table?')) tableReads++; return origFetch(p, o); };
+  ui.click('[data-tab="db"]'); await ui.settle();
+  const before = tableReads;
+  const cell = ui.doc.querySelector('input.dbc');
+  cell.value = 'Melange';
+  cell.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  assert.ok(ui.doc.querySelector('#toast .err').textContent.includes('has changed since the table was shown'));
+  assert.equal(ui.doc.querySelector('input.dbc').value, 'Spice', 'the box shows what the table holds');
+  assert.ok(tableReads > before, 'the table was read again');
+  ui.dom.window.close();
+});
+
 test('the SQL page and its result say an edit is written as it is made, or queued when the file cannot be written (UX-28)', async () => {
   for (const [state, want, not] of [[queuedState({ dirty: false, pending: [] }), 'and written to game.db', 'queued'], [queuedState(sessionBlock), 'and queued: it is written to game.db as soon as', 'and written to game.db.']]) {
     const ui = await boot({ get: { '/api/save/state': state }, post: { '/api/db/exec': { changes: 2 } } });

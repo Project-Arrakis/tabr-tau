@@ -1251,7 +1251,10 @@ document.addEventListener('change', (e) => {
   if (t.dataset.item) editInput(t, () => api('/api/items/update', { id: +t.dataset.item, [t.dataset.field]: +t.value }), changedMsg(t, (t.dataset.name || 'Item') + ': ' + (t.dataset.field == 'quality' ? 'grade' : 'stack')));
   else if (t.dataset.faction) editInput(t, () => api('/api/player/factions', { faction_id: +t.dataset.faction, amount: +t.value }), changedMsg(t, (t.dataset.name || 'Faction') + ': reputation'));
   else if (t.classList.contains('cfgv')) editInput(t, () => api('/api/config/set', { name: cfgFile, section: t.dataset.section, key: t.dataset.key, value: t.value, line: +t.dataset.line }), changedMsg(t, t.dataset.key + ' written to the config file now:'), true);
-  else if (t.classList.contains('dbc')) editInput(t, () => api('/api/db/update', { table: dbTable, ...(t.dataset.kind == '_key_' ? { key: t.dataset.rowid } : { rowid: +t.dataset.rowid }), column: t.dataset.col, value: t.value === '' && t.dataset.orig === '' ? null : t.value }), changedMsg(t, 'Database ' + dbTable + '.' + t.dataset.col + ':'));
+  else if (t.classList.contains('dbc')) editInput(t, async () => {
+    try { return await api('/api/db/update', { table: dbTable, ...(t.dataset.kind == '_key_' ? { key: t.dataset.rowid } : { rowid: +t.dataset.rowid }), column: t.dataset.col, value: t.value === '' && t.dataset.orig === '' ? null : t.value, expected: t.dataset.orig }); }
+    catch (e) { if (e.code === 'conflict') setTimeout(render, 0); throw e; } // the table is out of date: show it as it is now
+  }, changedMsg(t, 'Database ' + dbTable + '.' + t.dataset.col + ':'));
   else if (t.id == 'cfgsel') { cfgFile = t.value; render(); }
   else if (t.id == 'dbsel') { dbTable = t.value; dbOff = 0; dbQ = ''; render(); }
 });

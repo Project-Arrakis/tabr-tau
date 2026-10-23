@@ -101,6 +101,7 @@ func TestEveryKindMapsToItsCodeAndStatus(t *testing.T) {
 	}{
 		{save.ErrChangedOnDisk, "changed_on_disk", 409},
 		{fmt.Errorf("wrapped: %w", save.ErrChangedOnDisk), "changed_on_disk", 409},
+		{apierr.New(apierr.ErrConflict, "changed"), "conflict", 409},
 		{apierr.New(apierr.ErrQueueHeld, "held"), "queue_held", 409},
 		{apierr.New(apierr.ErrQueued, "waiting"), "queued", 409},
 		{apierr.New(apierr.ErrGameBlocked, "the game is running"), "game_running", 400},

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -182,6 +183,32 @@ func (o *Ops) TableRows(name, q string, limit, offset int) (any, error) {
 	return map[string]any{"columns": c, "rows": rows, "total": tot["c"], "tableLocked": whole, "locked": locked}, nil
 }
 
+// expectedCond is the extra condition of a cell edit that says what the cell held when the table was shown: the update only goes through if it still holds it. The page sends the
+// text it showed. It is compared as the column compares text (a number column reads "5" as 5, so 5.0 matches), and nothing shown stands for an empty cell, which is NULL or empty text. A
+// whole number beyond 2^53 is shown rounded by the page, so it is compared as the rounded number. ok is false when the request carries no expected value (older callers).
+func expectedCond(a Args, col string) (cond string, args []any, ok bool, err error) {
+	v, has := a["expected"]
+	if !has {
+		return "", nil, false, nil
+	}
+	c := quoteIdent(col)
+	switch x := v.(type) {
+	case nil:
+		return ` and (` + c + ` is null or ` + c + `='')`, nil, true, nil
+	case string:
+		if x == "" {
+			return ` and (` + c + ` is null or ` + c + `='')`, nil, true, nil
+		}
+		if n, perr := strconv.ParseInt(x, 10, 64); (perr == nil && (n >= maxExactInt || n <= -maxExactInt)) || (perr != nil && errors.Is(perr, strconv.ErrRange)) {
+			return ` and cast(` + c + ` as real)=cast(? as real)`, []any{x}, true, nil
+		}
+		return ` and ` + c + ` is ?`, []any{x}, true, nil
+	case float64:
+		return ` and ` + c + ` is ?`, []any{x}, true, nil
+	}
+	return "", nil, false, apierr.New(apierr.ErrBadArgument, "expected must be the text the cell showed")
+}
+
 func (o *Ops) UpdateRow(a Args) (any, error) {
 	table, col := a.Str("table"), a.Str("column")
 	cols, types, err := o.tableInfo(table)
@@ -235,15 +262,25 @@ func (o *Ops) UpdateRow(a Args) (any, error) {
 			if types[i] == "BLOB" {
 				return nil, apierr.New(apierr.ErrBadArgument, "BLOB columns cannot be edited here")
 			}
+			cond, condArgs, hasExpected, err := expectedCond(a, col)
+			if err != nil {
+				return nil, err
+			}
 			var n int64
-			_, err := o.S.Mutate(fmt.Sprintf("update %s%s.%s", table, label, col), func(m *save.Mut) error {
-				res, err := m.Exec(`update `+quoteIdent(table)+` set `+quoteIdent(col)+`=? where `+where, append([]any{a["value"]}, whereArgs...)...)
+			_, err = o.S.Mutate(fmt.Sprintf("update %s%s.%s", table, label, col), func(m *save.Mut) error {
+				args := append(append([]any{a["value"]}, whereArgs...), condArgs...)
+				res, err := m.Exec(`update `+quoteIdent(table)+` set `+quoteIdent(col)+`=? where (`+where+`)`+cond, args...)
 				if err != nil {
 					return err
 				}
 				n, _ = res.RowsAffected()
 				if n > 1 { // a key must name one row; refuse and roll back rather than change several
 					return fmt.Errorf("the key matched %d rows; nothing was changed", n)
+				}
+				if n == 0 && hasExpected { // the row is there but its cell is not what the table showed: the table is out of date (the game saved, or the queue was put back onto a newer file)
+					if r, qerr := m.One(`select 1 x from `+quoteIdent(table)+` where `+where, whereArgs...); qerr == nil && r != nil {
+						return apierr.New(apierr.ErrConflict, "this cell has changed since the table was shown, so nothing was changed: reload the table and try again")
+					}
 				}
 				return nil
 			})
