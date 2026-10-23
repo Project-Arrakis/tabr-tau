@@ -41,8 +41,8 @@ func (notChromium) Focus() {}
 // this covers the lookup the navigation guard depends on.)
 func TestChromiumOfFindsTheBrowserBehindTheWrapperField(t *testing.T) {
 	type wrapper struct {
-		hwnd    uintptr
-		other   interface{ String() string }
+		_       uintptr
+		_       interface{ String() string }
 		browser focuser
 	}
 	ch := edge.NewChromium()

@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
-	"sync/atomic"
 )
 
 // MaxJSONCell is the largest stored JSON document an edit may leave in one cell, in bytes (characters for a text column). The game's own documents are a few kilobytes; a
@@ -34,8 +33,6 @@ type jsonWatch struct {
 	tx      *sql.Tx
 	columns []jsonColumn // the covered columns that exist in this save
 }
-
-var jsonWatchSeq atomic.Uint64
 
 // startJSONWatch installs the triggers. Columns that the save does not have (a toy schema) are left out.
 func startJSONWatch(tx *sql.Tx) (*jsonWatch, error) {
