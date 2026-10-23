@@ -522,6 +522,12 @@ async function playerView() {
   return playerSection(sub.player);
 }
 const NO_TRACK_NUMBER = 'This track\'s number is not known yet: see the note above';
+// The reset of the character's level and XP (#339): on Character > Overview, beside Give XP. The number it asks the person to confirm is the XP the summary above shows.
+function levelResetCard() {
+  const xp = SUMMARY && Number.isInteger(SUMMARY.xp) ? SUMMARY.xp : null;
+  const note = xp === null ? 'This save has no level record for the character.' : xp > 0 ? 'The XP goes back to 0 and the level with it, and the skill points the levels gave are taken back. Skills you bought stay. Asks first.' : 'Nothing to reset: the character has no XP.';
+  return html`<div class="card"><h3>Reset level and XP</h3><div class="row"><button class="b bad" data-act="lvReset" aria-describedby="lvresetnote" ${xp ? '' : 'disabled'}>Reset level and XP (${Number(xp || 0).toLocaleString()} XP)</button><span class="mut" id="lvresetnote">${note}</span></div></div>`;
+}
 async function playerSection(s) {
   const h = s == 'character' ? [subNav('char', [['overview', 'Overview'], ['inventory', 'Inventory'], ['reputation', 'Reputation']])] : [];
   const c = s == 'character' ? sub.char || 'overview' : s;
@@ -531,7 +537,8 @@ async function playerSection(s) {
     h.push(html`<div class="card"><h3>${P.name}</h3><div class="grid">${kv('Solari in backpack', P.solari.toLocaleString())}${kv('Position', `${fix(a.x)}, ${fix(a.y)}, ${fix(a.z)}`)}${kv('Journey', `${(j.done || 0).toLocaleString()} of ${(j.total || 0).toLocaleString()} nodes done`)}</div><p class="mut">Map, account, platform and the database ids are in the summary above.</p></div>
     <div class="card"><h3>Money</h3><div class="row"><b>Solari in backpack</b><input id="solari" type="number" value="10000"><button class="b" data-act="solari">Add or remove</button><span class="mut">A negative number removes. These are the Solari stacks in your backpack.</span></div>
     <div class="row"><b>Give to a wallet</b><select id="curSel"><option value="0">Solari in wallet</option><option value="1">House credit in wallet</option></select><input id="curAmt" type="number" value="100" min="1"><button class="b" data-act="currency">Give</button><span class="mut">A wallet balance, kept apart from the Solari stacks in your backpack.</span></div></div>
-    <div class="card"><h3>Quick rewards</h3><div class="row"><b>Give XP</b><input id="xpAmt" type="number" value="1000" min="1"><button class="b" data-act="xp">Give</button><span class="mut">Raises the level as the XP grows and adds one skill point per level gained; stops at level 200.</span></div><div class="row"><b>Give Intel</b><input id="intelAmt" type="number" value="100" min="1"><button class="b" data-act="intel">Give</button><span class="mut">Adds Intel for the research tree, never past 2,779. All of these apply when the game next loads the save.</span></div></div>`);
+    <div class="card"><h3>Quick rewards</h3><div class="row"><b>Give XP</b><input id="xpAmt" type="number" value="1000" min="1"><button class="b" data-act="xp">Give</button><span class="mut">Raises the level as the XP grows and adds one skill point per level gained; stops at level 200.</span></div><div class="row"><b>Give Intel</b><input id="intelAmt" type="number" value="100" min="1"><button class="b" data-act="intel">Give</button><span class="mut">Adds Intel for the research tree, never past 2,779. All of these apply when the game next loads the save.</span></div></div>
+    ${levelResetCard()}`);
   } else if (c == 'inventory') {
     const d = await api('/api/player/inventory');
     const cat = await loadCatalog(d.templates);
@@ -576,6 +583,8 @@ async function playerSection(s) {
     const keystone = (r) => (r.granted ? html`<span class="ok" title="${r.keystoneOwned} of ${r.keystoneTotal} keystones">Granted</span>` : r.keystoneOwned > 0 ? html`<span title="${r.keystoneOwned} of ${r.keystoneTotal} keystones bought">${r.keystoneOwned}/${r.keystoneTotal}</span>` : html`<span class="mut">-</span>`);
     h.push(html`<div class="card"><h3>Specialization tracks</h3>
       <div class="row"><button class="b" data-act="spKeyAll">Grant all keystones</button><button class="b bad" data-act="spKeyReset">Reset all keystones</button></div>
+      <div class="row"><button class="b bad" data-act="spResetAll" data-n="${sp.resetCount || 0}" data-left="${sp.unassigned.length}" aria-describedby="spresetnote" ${sp.resetCount ? '' : 'disabled'}>Reset XP of all known tracks (${sp.resetCount || 0})</button>
+      <span class="mut" id="spresetnote">${sp.resetCount ? 'Removes the XP of every track whose number is known (the rows the table below shows XP for), in one edit, after you type a confirmation. Keystones are not touched.' : 'Nothing to reset: no track whose number is known has XP.'}${sp.unassigned.length ? ` ${nn(sp.unassigned.length, 'row', 'rows')} of the save whose track is not known yet ${sp.unassigned.length === 1 ? 'is' : 'are'} left alone.` : ''}</span></div>
       ${sp.rows.some(known) ? '' : html`<div class="info" id="spnone"><b>No track has a number in this save yet</b>, so the XP controls below are off. Earn a little XP in a specialization track in the game, let it save, then come back to this tab: the track appears under Track numbers, where you assign it. Keystones need no numbers and work now.</div>`}
       <p class="mut">Changes are written to the game file as you make them and show in the game after it loads the save. Max XP is ${Number(sp.maxXp).toLocaleString()}.</p>
       ${tbl([{ k: 'track', label: 'Track' }, { k: 'xp', label: 'XP', f: (r) => (known(r) ? Number(r.xp).toLocaleString() : html`<span class="mut" title="This track's number in your save is not known yet; see below">?</span>`) },
@@ -1162,6 +1171,22 @@ const A = {
   bsAll: async () => (await ask({ title: 'Unlock all building sets?', body: 'Every building set in the list below, except the experimental ones, is added to the sets you have learned. This is one edit.', ok: 'Unlock all' })) && act(async () => { const r = await api('/api/player/building-sets/unlock-all', {}); toast(r.added ? `Learned ${r.added} building sets` + NOT_SAVED : 'All building sets are already learned.'); }, null),
   rsAll: async () => (await ask({ title: 'Unlock all research?', body: 'Every research entry that unlocks a recipe or a building set is bought, and the recipes and sets they unlock are added. One edit.', ok: 'Unlock all' })) && act(async () => { const r = await api('/api/player/research/unlock-all', {}); toast(r.bought || r.repaired ? `Research: ${r.bought} bought, ${r.repaired} repaired, ${r.unlocksAdded} recipes or sets added` + NOT_SAVED : 'All research is already unlocked.'); }, null),
   crAll: async () => (await ask({ title: 'Unlock all recipes?', body: 'Every crafting recipe your research tree offers that you do not know yet is added to your known recipes. One edit.', ok: 'Unlock all' })) && act(async () => { const r = await api('/api/player/crafting/unlock-all', {}); toast(r.added ? `Added ${r.added} recipes` + NOT_SAVED : 'You already know every recipe.'); }, null),
+  lvReset: () => {
+    const xp = SUMMARY && Number.isInteger(SUMMARY.xp) ? SUMMARY.xp : 0;
+    if (!xp) { toast('The character has no XP, so there is nothing to reset.'); return; }
+    const lvl = SUMMARY.level, sp = SUMMARY.skillPoints;
+    const fmt = (n) => Number(n).toLocaleString();
+    return resetArea({ count: xp, title: `Reset level ${lvl} and ${fmt(xp)} XP to 0?`, ok: 'Reset level and XP', typed: `reset ${xp} xp`,
+      body: `The character's XP goes to 0 and the level with it. The skill points the levels gave are taken back, as many as the level (${lvl}) from the total${sp ? ` (now ${fmt(sp.total)})` : ''} and from the unspent points${sp ? ` (now ${fmt(sp.unspent)})` : ''}, never below 0. Skills you bought are not touched: reset them on the Skills tab first, with the box ticked so their points come back, to be left with none. One edit.`,
+      path: '/api/player/level/reset', done: (r) => `Level ${r.levelBefore} and ${fmt(r.changed)} XP reset to 0`, none: 'The character has no XP, so there was nothing to reset.' });
+  },
+  spResetAll: (d) => {
+    const n = +d.n || 0, left = +d.left || 0;
+    if (!n) { toast('No track whose number is known has XP, so there is nothing to reset.'); return; }
+    return resetArea({ count: n, title: `Reset the XP of ${nn(n, 'track', 'tracks')}?`, ok: 'Reset XP', typed: `reset ${n} ${n === 1 ? 'track' : 'tracks'}`,
+      body: `The XP and level of every specialization track whose number the editor knows go back to 0, the same as the Reset button of each track. Keystones are not touched.${left ? ` ${nn(left, 'row', 'rows')} of the save whose track is not known yet ${left === 1 ? 'is' : 'are'} left alone, since removing ${left === 1 ? 'it' : 'them'} could clear the wrong track.` : ''} One edit.`,
+      path: '/api/player/specs/reset-all', done: (r) => `${nn(r.changed, 'track', 'tracks')} reset to 0 XP`, none: 'No track whose number is known has XP, so there was nothing to reset.' });
+  },
   skReset: () => {
     const n = (SK && SK.resetCount) || 0;
     if (!n) { toast('Every skill of the five schools is already at rank 0, so there is nothing to reset.'); return; }

@@ -66,24 +66,11 @@ func (o *Ops) AddXP(a Args) (any, error) {
 	maxXP := xpByLevel[len(xpByLevel)-1]
 	var res map[string]any
 	_, err = o.S.Mutate(fmt.Sprintf("xp +%d", amount), func(m *save.Mut) error {
-		rows, err := m.Query(`select f.entity_id id,
-				json_extract(f.components,'$.FLevelComponent[1].TotalXPEarned') xp,
-				json_extract(f.components,'$.FLevelComponent[1].TotalSkillPoints') total,
-				json_extract(f.components,'$.FLevelComponent[1].UnspentSkillPoints') unspent
-			from actor_fgl_entities a join fgl_entities f on f.entity_id=a.entity_id
-			where a.actor_id=? and a.slot_name='DuneCharacter' and json_valid(f.components, 8)`, p.Pawn)
+		rec, err := readLevelTx(m, p.Pawn)
 		if err != nil {
 			return err
 		}
-		if len(rows) == 0 {
-			return errors.New("this save has no level record for the character")
-		}
-		xp, ok1 := toInt(rows[0]["xp"])
-		total, ok2 := toInt(rows[0]["total"])
-		unspent, ok3 := toInt(rows[0]["unspent"])
-		if !ok1 || !ok2 || !ok3 {
-			return errors.New("this save has no level record for the character")
-		}
+		xp, total, unspent := rec.xp, rec.total, rec.unspent
 		after := min(xp+amount, maxXP)
 		lb, la := xpToLevel(xp), xpToLevel(after)
 		gained := la - lb
@@ -92,10 +79,7 @@ func (o *Ops) AddXP(a Args) (any, error) {
 		if after == xp {
 			return nil // already at the last level: nothing to write
 		}
-		_, err = m.Exec(`update fgl_entities set components=jsonb_set(jsonb_set(jsonb_set(components,
-				'$.FLevelComponent[1].TotalXPEarned', ?), '$.FLevelComponent[1].TotalSkillPoints', ?), '$.FLevelComponent[1].UnspentSkillPoints', ?)
-			where entity_id=?`, after, total+int64(gained), unspent+int64(gained), rows[0]["id"])
-		return err
+		return writeLevelTx(m, rec.entity, after, total+int64(gained), unspent+int64(gained))
 	})
 	if err != nil {
 		return nil, err

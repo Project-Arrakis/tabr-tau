@@ -603,6 +603,8 @@ func (s *Server) routes() {
 	s.post("/api/player/specs/xp", func(a ops.Args) (any, error) { return o.AddSpecXP(settings.Load(s.SettingsPath).TrackNumbers, a) })
 	s.post("/api/player/specs/max", func(a ops.Args) (any, error) { return o.GrantMaxSpec(settings.Load(s.SettingsPath).TrackNumbers, a) })
 	s.post("/api/player/specs/reset", func(a ops.Args) (any, error) { return o.ResetSpec(settings.Load(s.SettingsPath).TrackNumbers, a) })
+	s.post("/api/player/specs/reset-all", func(a ops.Args) (any, error) { return o.ResetSpecTracks(settings.Load(s.SettingsPath).TrackNumbers, a) })
+	s.post("/api/player/level/reset", o.ResetLevel)
 	s.post("/api/player/specs/keystones/grant", func(ops.Args) (any, error) { return o.GrantAllKeystones() })
 	s.post("/api/player/specs/keystones/reset", func(ops.Args) (any, error) { return o.ResetAllKeystones() })
 	s.post("/api/player/specs/assign", func(a ops.Args) (any, error) {
