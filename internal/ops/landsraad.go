@@ -27,23 +27,32 @@ func (o *Ops) Landsraad() (any, error) {
 	contrib, _ := o.S.Query(`select task_id, faction_id, amount from landsraad_task_faction_contributions`)
 	byTask := map[int64][]map[string]any{}
 	for _, c := range contrib {
-		t := c["task_id"].(int64)
+		t, ok := c["task_id"].(int64)
+		if !ok { // a row of a save built by hand that names no task belongs to none
+			continue
+		}
 		byTask[t] = append(byTask[t], map[string]any{"faction_id": c["faction_id"], "amount": c["amount"]})
 	}
 	pc, _ := o.S.Query(`select task_id, player_id, faction_id, amount from landsraad_task_player_contributions order by task_id, player_id`)
 	byPlayer := map[int64][]map[string]any{}
 	for _, c := range pc {
-		t := c["task_id"].(int64)
+		t, ok := c["task_id"].(int64)
+		if !ok {
+			continue
+		}
 		byPlayer[t] = append(byPlayer[t], map[string]any{"player_id": c["player_id"], "faction_id": c["faction_id"], "amount": c["amount"]})
 	}
 	rewards, _ := o.S.Query(`select task_id, threshold, template_id, amount from landsraad_task_rewards order by task_id, threshold`)
 	rw := map[int64][]any{}
 	for _, r := range rewards {
-		t := r["task_id"].(int64)
+		t, ok := r["task_id"].(int64)
+		if !ok {
+			continue
+		}
 		rw[t] = append(rw[t], r)
 	}
 	for _, t := range tasks {
-		id := t["id"].(int64)
+		id, _ := t["id"].(int64)
 		t["contributions"] = byTask[id]
 		t["rewards"] = rw[id]
 		t["player_contributions"] = byPlayer[id]

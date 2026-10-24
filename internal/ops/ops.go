@@ -127,7 +127,14 @@ func (o *Ops) player() (player, error) {
 	if r == nil {
 		return player{}, errors.New("no player found in this save")
 	}
-	return player{Controller: r["controller"].(int64), Account: r["account"].(int64), Pawn: r["pawn"].(int64), Name: fmt.Sprint(r["name"])}, nil
+	// the save is data from outside: a column the game declares NOT NULL can hold anything in a file built by hand
+	ctl, ok1 := r["controller"].(int64)
+	acc, ok2 := r["account"].(int64)
+	pawn, ok3 := r["pawn"].(int64)
+	if !ok1 || !ok2 || !ok3 {
+		return player{}, errors.New("the player's record in this save has no usable id")
+	}
+	return player{Controller: ctl, Account: acc, Pawn: pawn, Name: fmt.Sprint(r["name"])}, nil
 }
 
 // ---------------------------------------------------------------- overview
@@ -343,7 +350,10 @@ func giveRowsInTx(m *save.Mut, inventoryID int64, template string, sizes []int64
 	if len(rows) == 0 {
 		return nil, apierr.New(apierr.ErrNotFound, "inventory not found")
 	}
-	capacity := rows[0]["cap"].(int64)
+	capacity, ok := rows[0]["cap"].(int64)
+	if !ok {
+		return nil, errors.New("the inventory's size in this save is not a number")
+	}
 	used := map[int64]bool{}
 	pos, err := m.Query(`select position_index p from items where inventory_id=?`, inventoryID)
 	if err != nil { // the used slots decide where the new stacks go: a read that failed is not "no slot is used"
@@ -390,11 +400,15 @@ func giveRowsInTx(m *save.Mut, inventoryID int64, template string, sizes []int64
 	if err != nil || len(mx) == 0 {
 		return nil, errors.New("could not read the item id counter")
 	}
-	maxID = mx[0]["m"].(int64)
+	maxID, ok = mx[0]["m"].(int64)
+	if !ok {
+		return nil, errors.New("could not read the item id counter")
+	}
 	next = maxID + 1
 	last := int64(len(sizes)) // the sequencer is left pointing after the last id used
 	if len(seq) > 0 {
-		if n := seq[0]["next_id"].(int64); n > next {
+		// a counter that holds no number (a save built by hand) is rebuilt from the highest id, and written back as a number below
+		if n, isNum := seq[0]["next_id"].(int64); isNum && n > next {
 			next = n
 		}
 		if _, err := m.Exec(`update items_id_sequencer set next_id=?`, next+last); err != nil {
@@ -412,7 +426,7 @@ func giveRowsInTx(m *save.Mut, inventoryID int64, template string, sizes []int64
 		used[slot] = true
 		id := next + int64(i)
 		if _, err := m.Exec(`insert into items(id, inventory_id, stack_size, position_index, template_id, is_new, acquisition_time, stats, quality_level)
-			values(?,?,?,?,?,1,strftime('%s','now'),?,?)`, id, inventoryID, qty, slot, template, stats, quality); err != nil {
+			values(?,?,?,?,?,1,cast(strftime('%s','now') as integer),?,?)`, id, inventoryID, qty, slot, template, stats, quality); err != nil {
 			return nil, err
 		}
 		ids = append(ids, id)
@@ -476,7 +490,10 @@ func (o *Ops) GiveItem(a Args) (any, error) {
 		if r == nil {
 			return nil, apierr.New(apierr.ErrNotFound, "player backpack not found")
 		}
-		inv = r["id"].(int64)
+		var ok bool
+		if inv, ok = r["id"].(int64); !ok {
+			return nil, apierr.New(apierr.ErrNotFound, "player backpack not found")
+		}
 	} else if r, _ := o.S.One(`select 1 x from inventories where id=? and actor_id=?`, inv, p.Pawn); r == nil {
 		return nil, apierr.New(apierr.ErrBadArgument, "that inventory does not belong to the player")
 	}
@@ -556,7 +573,10 @@ func (o *Ops) GiveItems(a Args) (any, error) {
 	if r == nil {
 		return nil, apierr.New(apierr.ErrNotFound, "player backpack not found")
 	}
-	inv := r["id"].(int64)
+	inv, ok := r["id"].(int64)
+	if !ok {
+		return nil, apierr.New(apierr.ErrNotFound, "player backpack not found")
+	}
 	var ids []int64
 	var req, got int64
 	var results []map[string]any

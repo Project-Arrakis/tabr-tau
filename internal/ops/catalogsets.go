@@ -283,7 +283,11 @@ func (o *Ops) GrantCustomizations(a Args) (any, error) {
 		}
 		m.Desc = fmt.Sprintf("grant %d customizations (%s)", len(items), want)
 		for i, it := range items {
-			id, e := giveInTx(m, bp["id"].(int64), it.ID, 1, 0)
+			bpID, isNum := bp["id"].(int64)
+			if !isNum {
+				return errors.New("the backpack's id in this save is not a number")
+			}
+			id, e := giveInTx(m, bpID, it.ID, 1, 0)
 			if e != nil {
 				return fmt.Errorf("the backpack has room for %d of the %d items (%s: %v); make room and try again", i, len(items), it.ID, e)
 			}
