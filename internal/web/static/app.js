@@ -54,6 +54,14 @@ function giveToast(r, name, okText) {
 // (the last status said so) and as nothing otherwise.
 const QUEUED_HINT = ' (queued: written when the game closes)';
 const NOT_SAVED = { toString: () => (lastOutcome ? (lastOutcome === 'queued' ? QUEUED_HINT : '') : saveBlocked || lastDirty ? QUEUED_HINT : '') };
+// What Fill hydration says (#371). It edits the save. When the file can be written the edit is in it at once; while the game runs the edit is only queued and is applied
+// when the game closes and loads the save again, so it cannot refill a character who is thirsty now. That case is said plainly and is not a success message: it stays
+// on the screen until it is dismissed and it names what to do.
+function hydrationMessage(r) {
+  const was = Math.round(r.before * 10) / 10;
+  if (String(NOT_SAVED) === '') return { text: `Hydration ${was} → ${r.after}`, warn: false };
+  return { warn: true, text: `Fill hydration is queued, not applied. The game is running, so the water changes only after the game closes and loads this save again (${was} → ${r.after} then). It will not help right now: a character who is thirsty now needs another source of water now.` };
+}
 // immediate: the change is written at once (a config file, a setting) and never waits in the queue, so it never gets the hint.
 async function act(fn, okMsg, refresh = true, immediate = false) {
   try {
@@ -597,7 +605,7 @@ async function playerSection(s) {
     h.push(augCard);
     h.push(html`<div class="card"><h3>Repair</h3><div class="row"><button class="b" data-act="repair">Repair all worn items and loadouts</button><span class="mut">Everything you wear and everything in your loadout is made as good as new: full durability, with a maximum that repairs wore down restored. The backpack is not touched.</span></div></div>`);
     h.push(html`<div class="card"><h3>Give item</h3><div class="row">${itemPicker("gt", cat)}
-    Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="queueAdd">Add to queue</button><button class="b sec" data-act="fillWater" title="Fill the character's own hydration to the maximum">Fill hydration</button><button class="b sec" data-act="refill">Refill Literjons</button></div>
+    Qty<input id="gq" type="number" value="1" min="1">Grade<select id="gg">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="queueAdd">Add to queue</button><button class="b sec" data-act="fillWater" title="Fill the character's own hydration to the maximum in the save. While the game is running this is queued until the game closes and loads the save again: it will not help a thirsty character right now.">Fill hydration</button><button class="b sec" data-act="refill">Refill Literjons</button></div>
     <div class="row" id="gaug"></div>
     ${giveQueue.length ? html`<div class="row"><b>Queue (${giveQueue.length})</b>${giveQueue.map((q, i) => html`<span class="tag">${q.quantity} x ${itemName(q.template_id)}${q.quality ? ' (grade ' + q.quality + ')' : ''}${q.augments && q.augments.length ? ' + ' + q.augments.map((a) => augName(a)).join(', ') : ''} <button class="b sec sm" data-act="queueDel" data-id="${i}" title="Remove from the queue">x</button></span>`)}<button class="b" data-act="queueGive">Give queued items</button><button class="b sec" data-act="queueClear">Clear</button></div>` : ''}
     <p class="mut">Pick an item by its in-game name. Items already in your save that the catalog does not know are listed by their template id; any valid template id can also be typed.</p></div>
@@ -1012,6 +1020,14 @@ async function vehiclesView() {
 }
 
 // ---------- LANDSRAAD
+// The rows the save records for the players' own contributions to a house (#363). A recorded amount can be above the house goal and above the last reward tier, so it is
+// shown as it is, never cut at the goal. Which row belongs to the character is not known from the save, so the cell says what is recorded, not whose it is.
+function personalCell(r) {
+  const rows = r.player_contributions || [];
+  if (!rows.length) return html`<span class="mut">none recorded</span>`;
+  const top = Math.max(...rows.map((c) => Number(c.amount) || 0));
+  return html`<span title="Rows of the save's table of players' contributions. The save does not say which row is your character's.">${nn(rows.length, 'row', 'rows')}, largest ${Number(top).toLocaleString()}</span>`;
+}
 async function landsraadView() {
   const l = await api('/api/landsraad');
   await loadCatalog(l.tasks.flatMap((x) => (x.rewards || []).map((y) => y.template_id)));
@@ -1023,11 +1039,14 @@ async function landsraadView() {
   <div class="row">Active decree<select id="ad"><option value="">none</option>${dec.map((d) => html`<option value="${d.id}" ${d.id == t.active_decree_id ? 'selected' : ''}>${d.decree_name}</option>`)}</select>
   Reigning<select id="rf"><option value="">none</option>${facOpts(t.reigning_faction_id)}</select><button class="b" data-act="term">Apply</button></div></div>
   <div class="card"><h3>Decree pool</h3>${tbl([{ k: 'id', label: 'ID' }, { k: 'decree_name', label: 'Decree' }, { k: 'disabled', label: 'State', f: (r) => (r.disabled ? html`<span class="mut">disabled</span>` : html`<span class="ok">enabled</span>`) }], dec, { empty: 'This save has no decrees.', actions: (r) => html`<button class="b sec sm" data-act="decree" data-id="${r.id}" data-d="${r.disabled ? 0 : 1}">${r.disabled ? 'Enable' : 'Disable'}</button>` })}</div>
-  <div class="card"><h3>Task board (${l.tasks.length})</h3><div class="row">Faction<select id="lf">${facOpts()}</select><span class="mut">used by the buttons below</span></div>${tbl([{ k: 'board_index', label: '#' }, { k: 'house_name', label: 'House', f: (r) => String(r.house_name || '').replace('DA_House', '') }, { k: 'goal_amount', label: 'Goal' },
-    { k: 'contributions', label: 'Progress', f: (r) => ((r.contributions || []).length ? (r.contributions || []).map((c) => html`<span class="tag">${fname(c.faction_id)}: ${fix(c.amount)}</span>`) : html`<span class="mut">0</span>`) },
+  <div class="card"><h3>Task board (${l.tasks.length})</h3>
+  <p class="mut" id="lscales">Two different scales are shown for each house. <b>House goal (faction)</b> is what the faction needs to take the house (for example 4,000). The <b>reward tiers</b> are set by a player's own contribution, for example from 1,200 up to 6,000, and a contribution can go above the house goal, so the upper tiers can be reached. This tab does not know which recorded contribution is your character's and does not show whether a tier has been reached or delivered; those are not read from the save yet.</p>
+  <div class="row">Faction<select id="lf">${facOpts()}</select><span class="mut">used by the buttons below. Fill faction goal sets that faction's progress to the house goal (it does not set a personal contribution or deliver a reward); Complete marks the house taken.</span></div>${tbl([{ k: 'board_index', label: '#' }, { k: 'house_name', label: 'House', f: (r) => String(r.house_name || '').replace('DA_House', '') }, { k: 'goal_amount', label: 'House goal (faction)', f: (r) => Number(r.goal_amount).toLocaleString() },
+    { k: 'contributions', label: 'Faction progress', f: (r) => ((r.contributions || []).length ? (r.contributions || []).map((c) => html`<span class="tag">${fname(c.faction_id)}: ${fix(c.amount)} of ${Number(r.goal_amount).toLocaleString()}</span>`) : html`<span class="mut">0 of ${Number(r.goal_amount).toLocaleString()}</span>`) },
+    { k: 'player_contributions', label: 'Recorded personal contributions', f: (r) => personalCell(r) },
     { k: 'completed', label: 'Status', f: (r) => (r.completed ? html`<span class="ok">done (${fname(r.winning_faction_id)})</span>` : 'open') },
-    { k: 'rewards', label: 'Rewards', f: (r) => html`<details><summary>${nn((r.rewards || []).length, 'reward', 'rewards')}</summary>${(r.rewards || []).map((x) => html`<div>At ${x.threshold}: ${Number(x.amount).toLocaleString()} × ${itemName(x.template_id)}</div>`)}</details>` }], l.tasks,
-    { empty: 'This save has no Landsraad tasks.', actions: (r) => html`<button class="b sm" data-act="tfill" data-id="${r.id}" data-goal="${r.goal_amount}">Fill goal</button> <button class="b sm" data-act="tdone" data-id="${r.id}" data-r="${r.completed ? 1 : 0}">${r.completed ? 'Reopen' : 'Complete'}</button>` })}</div>`);
+    { k: 'rewards', label: 'Reward tiers (personal contribution)', f: (r) => html`<details><summary>${nn((r.rewards || []).length, 'tier', 'tiers')}</summary>${(r.rewards || []).map((x) => html`<div>At ${Number(x.threshold).toLocaleString()} contributed: ${Number(x.amount).toLocaleString()} × ${itemName(x.template_id)}</div>`)}</details>` }], l.tasks,
+    { empty: 'This save has no Landsraad tasks.', actions: (r) => html`<button class="b sm" data-act="tfill" data-id="${r.id}" data-goal="${r.goal_amount}" title="Set the chosen faction's progress on this house to the house goal (${Number(r.goal_amount).toLocaleString()}). A personal contribution and the reward tiers are not changed.">Fill faction goal</button> <button class="b sm" data-act="tdone" data-id="${r.id}" data-r="${r.completed ? 1 : 0}">${r.completed ? 'Reopen' : 'Complete'}</button>` })}</div>`);
 }
 
 // ---------- CONFIG (.ini)
@@ -1280,7 +1299,7 @@ const A = {
   }, null),
   faction: () => act(async () => { const r = await api('/api/player/faction', { faction_id: +val('facSel') }); toast(`Faction set to ${r.faction}` + NOT_SAVED); }, null),
   repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(`Repaired ${r.repaired} items` + NOT_SAVED); }, null),
-  fillWater: () => act(async () => { const r = await api('/api/player/hydration', {}); toast(`Hydration ${Math.round(r.before * 10) / 10} → ${r.after}` + NOT_SAVED); }, null),
+  fillWater: () => act(async () => { const r = await api('/api/player/hydration', {}); const m = hydrationMessage(r); toast(m.text, m.warn ? 'part' : false); }, null),
   fillBlood: () => act(async () => {
     const r = await api('/api/player/fill-blood-sacks', {});
     const by = Object.entries(r.byTemplate || {}).sort().map(([k, n]) => `${n} x ${itemName(k)}`).join(', ');
