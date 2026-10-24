@@ -1053,13 +1053,23 @@ async function vehiclesView() {
 }
 
 // ---------- LANDSRAAD
-// The rows the save records for the players' own contributions to a house (#363). A recorded amount can be above the house goal and above the last reward tier, so it is
-// shown as it is, never cut at the goal. Which row belongs to the character is not known from the save, so the cell says what is recorded, not whose it is.
-function personalCell(r) {
+// The contributions the save records for a house (#363, #380). The row with the character's own player id is the character's contribution (the server marks it "mine"); the
+// other rows belong to the simulated players. A recorded amount can be above the house goal and above the last reward tier, so it is shown as it is, never cut at the goal.
+function personalCell(r, l) {
   const rows = r.player_contributions || [];
-  if (!rows.length) return html`<span class="mut">none recorded</span>`;
-  const top = Math.max(...rows.map((c) => Number(c.amount) || 0));
-  return html`<span title="Rows of the save's table of players' contributions. The save does not say which row is your character's.">${nn(rows.length, 'row', 'rows')}, largest ${Number(top).toLocaleString()}</span>`;
+  const others = rows.filter((c) => !c.mine);
+  const tiers = r.rewards || [];
+  const reached = tiers.filter((x) => x.reached).length;
+  const mine = !l.character ? html`<span class="mut">no character in this save</span>`
+    : html`<b>${Number(r.my_contribution || 0).toLocaleString()}</b> <span class="mut">${r.my_recorded ? '' : 'none recorded, '}${reached} of ${nn(tiers.length, 'tier', 'tiers')} reached</span>`;
+  const top = Math.max(0, ...others.map((c) => Number(c.amount) || 0));
+  return html`${mine}${others.length ? html`<div class="mut" title="Rows of the save's table of players' contributions that are not your character's: the simulated players of the single-player world.">other players: ${nn(others.length, 'row', 'rows')}, largest ${Number(top).toLocaleString()}</div>` : ''}`;
+}
+// One reward tier of a house, with what the save says about it for the character (#380) and a button that fills the character's contribution up to it.
+function tierLine(r, x, l) {
+  const can = l.character && l.character.faction_id != null;
+  const state = x.delivered ? html`<span class="ok">reached, recorded as delivered</span>` : x.reached ? html`<span class="mut">reached, no delivery recorded in this term</span>` : html`<span class="mut">not reached</span>`;
+  return html`<div>At ${Number(x.threshold).toLocaleString()} contributed: ${Number(x.amount).toLocaleString()} × ${itemName(x.template_id)} · ${state} ${x.reached || !can ? '' : html`<button class="b sec sm" data-act="mfill" data-id="${r.id}" data-tier="${x.threshold}" title="Raise your contribution to this house to ${Number(x.threshold).toLocaleString()}. The reward itself is not written.">Fill to this tier</button>`}</div>`;
 }
 async function landsraadView() {
   const l = await api('/api/landsraad');
@@ -1073,12 +1083,13 @@ async function landsraadView() {
   Reigning<select id="rf" aria-label="Reigning faction"><option value="">none</option>${facOpts(t.reigning_faction_id)}</select><button class="b" data-act="term">Apply</button></div></div>
   <div class="card"><h3>Decree pool</h3>${tbl([{ k: 'id', label: 'ID' }, { k: 'decree_name', label: 'Decree' }, { k: 'disabled', label: 'State', f: (r) => (r.disabled ? html`<span class="mut">disabled</span>` : html`<span class="ok">enabled</span>`) }], dec, { empty: 'This save has no decrees.', actions: (r) => html`<button class="b sec sm" data-act="decree" data-id="${r.id}" data-d="${r.disabled ? 0 : 1}">${r.disabled ? 'Enable' : 'Disable'}</button>` })}</div>
   <div class="card"><h3>Task board (${l.tasks.length})</h3>
-  <p class="mut" id="lscales">Two different scales are shown for each house. <b>House goal (faction)</b> is what the faction needs to take the house (for example 4,000). The <b>reward tiers</b> are set by a player's own contribution, for example from 1,200 up to 6,000, and a contribution can go above the house goal, so the upper tiers can be reached. This tab does not know which recorded contribution is your character's and does not show whether a tier has been reached or delivered; those are not read from the save yet.</p>
+  <p class="mut" id="lscales">Two different scales are shown for each house. <b>House goal (faction)</b> is what the faction needs to take the house (for example 4,000). The <b>reward tiers</b> are set by a player's own contribution, for example from 1,200 up to 6,000, and a contribution can go above the house goal, so the upper tiers can be reached. <b>Your contribution</b> is the row the save keeps under your character's own id; the other rows belong to the simulated players. A tier is reached when your contribution is at least its amount, and "recorded as delivered" means the save holds that item as given to your character for this house in this term. Fill to this tier raises your contribution only (the reward is not written, and the faction's progress only when the box below is ticked). Whether the game hands out a tier when it loads the save after a fill is not known from a save.${l.character && l.character.faction_id == null ? ' Your character is in no faction (Neutral), so there is nothing to fill: assign Atreides or Harkonnen under Admin first.' : ''}</p>
+  <div class="row"><label><input type="checkbox" id="lwf"> Also set my faction's progress on that house to its goal</label></div>
   <div class="row">Faction<select id="lf" aria-label="Faction for the buttons below">${facOpts()}</select><span class="mut">used by the buttons below. Fill faction goal sets that faction's progress to the house goal (it does not set a personal contribution or deliver a reward); Complete marks the house taken.</span></div>${tbl([{ k: 'board_index', label: '#' }, { k: 'house_name', label: 'House', f: (r) => String(r.house_name || '').replace('DA_House', '') }, { k: 'goal_amount', label: 'House goal (faction)', f: (r) => Number(r.goal_amount).toLocaleString() },
     { k: 'contributions', label: 'Faction progress', f: (r) => ((r.contributions || []).length ? (r.contributions || []).map((c) => html`<span class="tag">${fname(c.faction_id)}: ${fix(c.amount)} of ${Number(r.goal_amount).toLocaleString()}</span>`) : html`<span class="mut">0 of ${Number(r.goal_amount).toLocaleString()}</span>`) },
-    { k: 'player_contributions', label: 'Recorded personal contributions', f: (r) => personalCell(r) },
+    { k: 'player_contributions', label: 'Your contribution', f: (r) => personalCell(r, l) },
     { k: 'completed', label: 'Status', f: (r) => (r.completed ? html`<span class="ok">done (${fname(r.winning_faction_id)})</span>` : 'open') },
-    { k: 'rewards', label: 'Reward tiers (personal contribution)', f: (r) => html`<details><summary>${nn((r.rewards || []).length, 'tier', 'tiers')}</summary>${(r.rewards || []).map((x) => html`<div>At ${Number(x.threshold).toLocaleString()} contributed: ${Number(x.amount).toLocaleString()} × ${itemName(x.template_id)}</div>`)}</details>` }], l.tasks,
+    { k: 'rewards', label: 'Reward tiers (personal contribution)', f: (r) => html`<details><summary>${nn((r.rewards || []).length, 'tier', 'tiers')}</summary>${(r.rewards || []).map((x) => tierLine(r, x, l))}</details>` }], l.tasks,
     { empty: 'This save has no Landsraad tasks.', actions: (r) => html`<button class="b sm" data-act="tfill" data-id="${r.id}" data-goal="${r.goal_amount}" title="Set the chosen faction's progress on this house to the house goal (${Number(r.goal_amount).toLocaleString()}). A personal contribution and the reward tiers are not changed.">Fill faction goal</button> <button class="b sm" data-act="tdone" data-id="${r.id}" data-r="${r.completed ? 1 : 0}">${r.completed ? 'Reopen' : 'Complete'}</button>` })}</div>`);
 }
 
@@ -1486,6 +1497,7 @@ const A = {
   term: () => act(async () => { await api('/api/landsraad/term', { active_decree_id: val('ad'), reigning_faction_id: val('rf') }); }, 'Term updated'),
   decree: (d) => act(() => api('/api/landsraad/decree', { id: +d.id, disabled: d.d == '1' }), 'Decree updated'),
   tfill: (d) => act(() => api('/api/landsraad/progress', { task_id: +d.id, faction_id: +val('lf'), amount: +d.goal }), 'Progress set'),
+  mfill: (d) => act(async () => { const r = await api('/api/landsraad/mine', { task_id: +d.id, tier: +d.tier, with_faction: !!($('#lwf') || {}).checked }); toast(r.changed ? `Your contribution ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()}` + (r.faction_changed ? ", and your faction's progress is at the house goal" : '') + NOT_SAVED : 'Nothing to change: your contribution is already at or above that tier.'); }, null),
   tdone: async (d) => (await ask({ title: d.r == '1' ? 'Reset this task?' : 'Complete this task?', body: 'Changes the Landsraad task for the chosen faction.', ok: d.r == '1' ? 'Reset' : 'Complete' })) && act(() => api('/api/landsraad/complete', { task_id: +d.id, faction_id: +val('lf'), reset: d.r == '1' }), 'Task updated'),
   cfgcreate: (d) => act(() => api('/api/config/create', { name: d.n }), 'Created ' + d.n + ' now', true, true),
   cfgadd: () => act(() => api('/api/config/set', { name: cfgFile, section: val('cs').replace(/^\[|\]$/g, ''), key: val('ck').trim(), value: val('cv') }), 'Added to the config file now', true, true),
