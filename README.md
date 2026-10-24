@@ -103,6 +103,8 @@ Every save from the editor first copies the file it replaces into `tabr-tau-back
 
 Restore uses the same guard as saving: it refuses while a single-player session is active, just ended, or cannot be checked. Whether the game's own cloud sync touches the `tabr-tau-backups` folder has not been tested.
 
+**If the game was updated after you made an edit.** The game may change the save's layout the next time it opens it. When a table of the save is not defined the way this editor expects (the game was updated, or the file was made by hand), the editor says so in a notice under the header and you can keep editing; the editor's queries name the columns they use, so a column the game added does not matter, and a screen that reports an error about a column is the sign that the game changed it. The way back is the backups folder: a backup taken before the update restores over the updated save (the file being replaced is backed up first), a backup taken by a newer game than the save is refused, and none of this has been tried against a real update yet. Keep the backups until you have played a session on the updated game.
+
 ## Automatic refill and repair
 
 The Power and Water tabs of a base have an **Automatic refill and repair when the editor opens** card: a master switch (off by default) and one checkbox per job. The settings are remembered in `%APPDATA%\tabr-tau\settings.json`, which also keeps the specialization track numbers you assign. When the master switch is on, opening the editor runs the jobs that are ticked as **one edit** and **saves straight away**, like every other edit, so it applies the next time single-player loads. The jobs, all ticked by default (the repairs too):
