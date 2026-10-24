@@ -295,6 +295,7 @@ func (o *Ops) Inventory() (any, error) {
 		it["durability"], it["max_durability"] = durability(fmt.Sprint(it["stats"]))
 		it["augments"] = augmentsOf(fmt.Sprint(it["stats"]))
 		it["aug_limit"] = fitOf(fmt.Sprint(it["template_id"])).Limit
+		it["fill"] = fillOf(fmt.Sprint(it["template_id"]), fmt.Sprint(it["stats"]))
 		delete(it, "stats")
 	}
 	invs, _ := o.S.Query(`select id, inventory_type, max_item_count, max_item_volume from inventories where actor_id=? and inventory_type in (0, 1, 15, 30) order by id`, p.Pawn)

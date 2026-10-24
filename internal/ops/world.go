@@ -36,7 +36,15 @@ func (o *Ops) Bases() (any, error) {
 
 // Storage lists every non-player inventory (containers, machines, vehicles) that holds items.
 func (o *Ops) StorageItems(inv int64) (any, error) {
-	return o.S.Query(`select id, template_id, stack_size, quality_level, position_index from items where inventory_id=? order by position_index`, inv)
+	items, err := o.S.Query(`select id, template_id, stack_size, quality_level, position_index, stats from items where inventory_id=? order by position_index`, inv)
+	if err != nil {
+		return nil, err
+	}
+	for _, it := range items {
+		it["fill"] = fillOf(fmt.Sprint(it["template_id"]), fmt.Sprint(it["stats"]))
+		delete(it, "stats")
+	}
+	return items, nil
 }
 
 // RepairBuildings sets every building piece to the highest health seen for its type.
