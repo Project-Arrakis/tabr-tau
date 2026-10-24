@@ -18,7 +18,7 @@ const open = [];
 // Closes every window a test opened, passed or failed: the page polls on a timer, and a window left open keeps the test process alive.
 export function closeAll() { while (open.length) open.pop().window.close(); }
 
-export async function boot({ post = {}, get = {} } = {}) {
+export async function boot({ post = {}, get = {}, session = {}, local = {}, pre = null } = {}) {
   const dom = new JSDOM(read('index.html'), { url: 'http://127.0.0.1:8090/', runScripts: 'dangerously', pretendToBeVisual: true });
   const w = dom.window;
   open.push(dom);
@@ -50,6 +50,9 @@ export async function boot({ post = {}, get = {} } = {}) {
       return { ok: status < 400, status, statusText: f ? 'OK' : 'Not Found', json: async () => (f ? f.body : { error: 'not in fixtures: ' + u.pathname }), blob: async () => new w.Blob(['x']) };
     } finally { inflight--; }
   };
+  for (const [k, v] of Object.entries(session)) w.sessionStorage.setItem(k, v); // what an earlier page left behind (a refresh keeps the session storage)
+  for (const [k, v] of Object.entries(local)) w.localStorage.setItem(k, v);
+  if (pre) pre(w); // runs before the page's code does
   w.eval(read('html.js'));
   w.eval(read('livemap.js'));
   w.eval(read('app.js'));
