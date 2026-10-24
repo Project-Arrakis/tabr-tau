@@ -63,7 +63,7 @@ async function act(fn, okMsg, refresh = true, immediate = false) {
     if (lastOutcome) dirty = lastOutcome === 'queued'; // the answer to the edit said which
     else if (!immediate) try { dirty = (await status()).dirty; } catch (e) { /* the poll reports a lost connection; the edit itself succeeded */ }
     if (okMsg) toast(okMsg + (dirty ? QUEUED_HINT : ''));
-    if (refresh) await render();
+    if (refresh) await render(true);
     return r;
   }
   catch (e) { toast(e.message, true); }
@@ -332,11 +332,9 @@ async function autoRefresh(o) {
   autoBusy = true;
   autoAt = Date.now();
   try {
-    const y = window.scrollY;
     const r = await api('/api/save/discard', { ifClean: true });
     if (r && r.kept) return; // an edit was made while the status was being read: nothing is thrown away
-    await render();
-    window.scrollTo(0, y);
+    await render(true);
   } catch (e) { /* the next poll shows the banner and tries again */ } finally { autoBusy = false; }
 }
 async function status() {
@@ -1129,8 +1127,86 @@ function refocus(s) {
   const n = same.find((x) => (x.getAttribute('aria-label') || x.textContent || '').trim().slice(0, 60) === s.label) || same[0];
   if (n && typeof n.focus === 'function') n.focus({ preventScroll: true });
 }
-async function render() {
+// The page is drawn again after an action, and that must not cost the person their place (#365): the scroll offset of the page and of every scrolling table, the
+// choices made in the page that the save does not hold (a ticked box, a chosen faction, text typed in a box) and the lists that were opened. viewSnapshot notes them before
+// the redraw and viewApply puts them back after it. A control is put back only when what the page would show for it is what it showed before (its default is unchanged):
+// a box whose value the save has changed meanwhile shows the new value. The same snapshot is kept in the session storage when the page is left, so a refresh of the page
+// (F5) comes back to the same tab, place and choices.
+const VIEW_KEY = 'tabr-tau-view';
+const VIEW_SKIP = new Set(['button', 'submit', 'reset', 'hidden', 'file', 'password', 'image']);
+function ctlKey(el) {
+  if (el.id) return '#' + el.id;
+  const data = [...el.attributes].filter((a) => a.name.startsWith('data-')).map((a) => a.name + '=' + a.value).join('&');
+  return el.tagName + ':' + (el.type || '') + ':' + data + ':' + (el.getAttribute('aria-label') || el.name || '');
+}
+// Calls fn(kind, element, key) for every control, scrolling table and list in the page, with a key that stays the same across a redraw (the id, or the attributes and
+// the label, and the order among the ones that are alike).
+function eachViewPart(fn) {
+  const main = $('#main');
+  if (!main) return;
+  const count = new Map();
+  const nth = (k) => { const n = count.get(k) || 0; count.set(k, n + 1); return k + '|' + n; };
+  main.querySelectorAll('.scroll').forEach((e) => { const h = e.closest('.card') && e.closest('.card').querySelector('h3'); fn('scroll', e, nth('S:' + (h ? h.textContent.trim().slice(0, 40) : ''))); });
+  main.querySelectorAll('input, select, textarea').forEach((e) => { if (!VIEW_SKIP.has(e.type)) fn('ctl', e, nth(ctlKey(e))); });
+  main.querySelectorAll('details').forEach((e) => { const s = e.querySelector('summary'); fn('det', e, nth('D:' + (s ? s.textContent.trim().slice(0, 40) : ''))); });
+}
+const selDefault = (s) => { const o = [...s.options].find((x) => x.defaultSelected) || s.options[0]; return o ? o.value : ''; };
+function viewSnapshot() {
+  if (!$('#main') || $('#loading')) return null;
+  const snap = { tab, sub: { player: sub.player, char: sub.char, db: sub.db }, y: window.scrollY || 0, boxes: {}, ctl: {}, det: {} };
+  eachViewPart((kind, e, key) => {
+    if (kind === 'scroll') { if (e.scrollTop || e.scrollLeft) snap.boxes[key] = [e.scrollTop, e.scrollLeft]; }
+    else if (kind === 'det') snap.det[key] = e.open;
+    else if (e.type === 'checkbox' || e.type === 'radio') { if (e.checked !== e.defaultChecked) snap.ctl[key] = [e.checked, e.defaultChecked]; }
+    else if (e.tagName === 'SELECT') { if (e.selectedIndex >= 0 && e.value !== selDefault(e)) snap.ctl[key] = [e.value, selDefault(e)]; }
+    else if (e.value !== e.defaultValue) snap.ctl[key] = [e.value, e.defaultValue];
+  });
+  return snap;
+}
+function viewApply(snap) {
+  if (!snap || snap.tab !== tab) return;
+  eachViewPart((kind, e, key) => {
+    if (kind === 'scroll') { const b = snap.boxes[key]; if (b) { e.scrollTop = b[0]; e.scrollLeft = b[1]; } return; }
+    if (kind === 'det') { if (Object.hasOwn(snap.det, key)) e.open = !!snap.det[key]; return; }
+    const c = snap.ctl[key];
+    if (!c) return;
+    if (e.type === 'checkbox' || e.type === 'radio') { if (e.defaultChecked === c[1]) e.checked = c[0]; }
+    else if (e.tagName === 'SELECT') { if (selDefault(e) === c[1] && [...e.options].some((o) => o.value === c[0])) e.value = c[0]; }
+    else if (e.defaultValue === c[1]) e.value = c[0];
+  });
+  if (snap.y) window.scrollTo(0, snap.y);
+}
+function viewSave() {
+  try { const s = viewSnapshot(); if (s) sessionStorage.setItem(VIEW_KEY, JSON.stringify(s)); } catch (e) { /* the place is not kept across a refresh */ }
+}
+// What the page left in the session storage when it was last left; a snapshot that does not read back as the shape above is dropped (the storage is not trusted).
+function viewLoad() {
+  try {
+    const raw = sessionStorage.getItem(VIEW_KEY);
+    sessionStorage.removeItem(VIEW_KEY);
+    const s = JSON.parse(raw || 'null');
+    const rec = (v) => v && typeof v === 'object' && !Array.isArray(v);
+    if (!rec(s) || !rec(s.boxes) || !rec(s.ctl) || !rec(s.det) || !rec(s.sub) || typeof s.tab !== 'string' || !(Number(s.y) >= 0)) return null;
+    for (const k of Object.keys(s.boxes)) if (!Array.isArray(s.boxes[k]) || s.boxes[k].length !== 2) delete s.boxes[k];
+    for (const k of Object.keys(s.ctl)) if (!Array.isArray(s.ctl[k]) || s.ctl[k].length !== 2) delete s.ctl[k];
+    s.y = Number(s.y);
+    return s;
+  } catch (e) { return null; }
+}
+let reloaded = viewLoad(); // the place the page had when it was refreshed; used once, by the first drawing
+if (reloaded && reloaded.tab === tab) {
+  if (PTABS.some(([k]) => k === reloaded.sub.player) && !['bases', 'vehicles'].includes(savedTab)) sub.player = reloaded.sub.player;
+  if (['overview', 'inventory', 'reputation'].includes(reloaded.sub.char)) sub.char = reloaded.sub.char;
+  if (['browse', 'sql', 'backups'].includes(reloaded.sub.db)) sub.db = reloaded.sub.db;
+}
+window.addEventListener('pagehide', viewSave);
+document.addEventListener('visibilitychange', () => { if (document.hidden) viewSave(); });
+// render(true) is the redraw after an action (or the page's own refresh from the file): it keeps the place; render('scroll') keeps only the scroll offsets. Any other call is a move to another page, which starts at the top.
+async function render(keepPlace) {
   const keep = focusSpec(document.activeElement);
+  const place = keepPlace === true || keepPlace === 'scroll' ? viewSnapshot() : reloaded;
+  if (place && keepPlace === 'scroll') place.ctl = {}; // a redraw to show what the save holds (a refused change): the boxes go back to it, only the place is kept
+  reloaded = null;
   document.title = pageTitle();
   drawNav();
   try {
@@ -1138,6 +1214,7 @@ async function render() {
   } catch (e) {
     setHTML($('#main'), html`<div class="card bad">${e.message}</div><div class="row mt12"><button class="b" data-act="retry">Try again</button></div>`);
   }
+  viewApply(place);
   refocus(keep);
 }
 
@@ -1146,7 +1223,7 @@ const D = (e) => e.target.closest('[data-act]');
 function sqlFailed(e) { const out = $('#sqlout'); if (out) setHTML(out, html`<p class="bad">${e.message}</p>`); }
 
 const A = {
-  retry: () => render(),
+  retry: () => render(true),
   askOk: () => { if (tooSoon()) return; if (askState && askState.typed && $('#atype').value.trim().toLowerCase() !== askState.typed.toLowerCase()) return; endAsk(true); }, // the typed word is checked here too, not only by the disabled button
   askNo: () => endAsk(false),
   confirmLocation: async () => (await ask({ title: 'Allow saving to this location?', body: 'The editor can only see the game on this computer, and this save is somewhere it cannot vouch for (a network share, a removable drive, or a folder other than the one the game itself uses). Saving while the game, on this or another computer, has the file open can corrupt it or lose your work. Continue only if the game is closed everywhere that can open this save.', ok: 'Allow saving', danger: true })) && act(() => api('/api/save/confirm-location', {}), 'Saving is allowed for this save until the editor closes'),
@@ -1189,11 +1266,11 @@ const A = {
   },
   tpTo: (d) => act(() => api('/api/player/teleport', { x: +d.x, y: +d.y, z: +d.z }), 'Teleport set'),
   augEdit: (d) => act(async () => { const r = await api('/api/items/augment-options', { item_id: +d.id }); r.options.forEach((o) => AUG_NAMES.set(o.id, o.name)); augItem = { ...r, item_id: +d.id }; render(); }, null, false),
-  augCancel: () => { augItem = null; render(); },
+  augCancel: () => { augItem = null; render(true); },
   augApply: (d) => act(async () => { const r = await api('/api/items/augment', { item_id: +d.id, augments: augPicked('au', augItem.limit), grade: +val('augG'), unlock_slots: $('#augU').checked }); augItem = null; toast(`Augments set (${r.augments})` + (r.slotsUnlocked ? `, ${r.slotsUnlocked} slot keystones unlocked` : '') + NOT_SAVED); }, null),
   queueAdd: () => { let t; try { t = needItem('gt'); } catch (e) { return toast(e.message, 'err'); } const e = { template_id: t, quantity: Math.max(1, +val('gq') || 1), quality: +val('gg') }; const ids = augPicked('ga', 3); if (ids.length) { e.augments = ids; e.grade = +val('gag'); } giveQueue.push(e); keepQueue(); render(); },
-  queueDel: (d) => { giveQueue.splice(+d.id, 1); keepQueue(); render(); },
-  queueClear: () => { giveQueue = []; keepQueue(); render(); },
+  queueDel: (d) => { giveQueue.splice(+d.id, 1); keepQueue(); render(true); },
+  queueClear: () => { giveQueue = []; keepQueue(); render(true); },
   queueGive: () => act(async () => { const r = await api('/api/player/give-items', { items: giveQueue }); giveQueue = []; keepQueue(); giveToast(r, 'units of the queued items', `Added ${r.count} items`); }, null),
   give: () => act(async () => {
     const ids = augPicked('ga', 3), tid = needItem('gt');
@@ -1452,7 +1529,7 @@ document.addEventListener('change', (e) => {
   if (t.id == 'skCharge') { skCharge = t.checked; return; }
   if (t.dataset.autojob) { // one job of the automatic pass switched on or off; the card is drawn again from what the server kept
     const key = t.dataset.autojob, on = t.checked, label = ((t.closest('label') || {}).textContent || key).trim();
-    act(async () => { try { await api('/api/settings', { [key]: on }); } catch (e) { render(); throw e; } toast(label + ' is now ' + (on ? 'on' : 'off') + ' for the automatic pass'); }, null);
+    act(async () => { try { await api('/api/settings', { [key]: on }); } catch (e) { render('scroll'); throw e; } toast(label + ' is now ' + (on ? 'on' : 'off') + ' for the automatic pass'); }, null);
     return;
   }
   if (t.id == 'rsGrp') { rsGroup = t.value; researchList(); return; }
