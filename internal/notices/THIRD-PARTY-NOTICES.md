@@ -491,3 +491,13 @@ read, the tool or files used to read them, and for all three any licence or term
 affiliated with or endorsed by Funcom; the game, its item tables and its names belong to their owners, and the files are included only so the
 editor can write values the game itself accepts. If you hold the rights and want either file changed or removed, open an issue on this
 repository.
+
+## Default values of the single-player settings: dune-awakening-selfhost-docker (RedBlink)
+
+`internal/config/defaults.go` lists, for the 45 keys of `[/Script/DuneSandbox.UserServerCustomSettings]` in `ServerCustomSettings.ini`, the default value, the allowed
+range and the allowed words, copied from the settings tables of https://github.com/Red-Blink/dune-awakening-selfhost-docker
+(`SERVER_CUSTOM_FIELDS`, `SERVER_CUSTOM_NUMERIC_BOUNDS` and `SERVER_CUSTOM_ENUM_VALUES` in `runtime/scripts/usersettings.py`, checked on 2026-10-24 against the
+second list in `console/api/src/services/publicDirectory.js`, which agrees for all 45 keys). That project is MIT-licensed under the licence reproduced in the item
+catalog section above. The Config tab uses the numbers to show each setting's default and to put a setting, or all of them, back to it. A key that is not in the table
+has no default here and is never reset. The game's setting names and their meaning belong to their owners; this project is unofficial and not affiliated with or
+endorsed by Funcom.
