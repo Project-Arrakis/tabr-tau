@@ -104,7 +104,10 @@ func TestGiveThatExactlyFillsTheVolumeIsWhole(t *testing.T) {
 func TestVolumeAndSlotsTogetherTheTighterOneIsNamed(t *testing.T) {
 	// room for 1,428 ingots by volume (1000 / 0.7), one slot of 500 by slots: the slots are tighter
 	o := volumeOps(t, "1000.0", "")
-	if _, err := o.S.Mutate("slots", func(m *save.Mut) error { _, e := m.Exec(`update inventories set max_item_count=1 where id=31`); return e }); err != nil {
+	if _, err := o.S.Mutate("slots", func(m *save.Mut) error {
+		_, e := m.Exec(`update inventories set max_item_count=1 where id=31`)
+		return e
+	}); err != nil {
 		t.Fatal(err)
 	}
 	r, err := giveTo(o, "AluminiumBar", 1000)
