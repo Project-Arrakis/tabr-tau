@@ -693,6 +693,9 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 	if back, err := Decode(blob); err != nil || !bytes.Equal(back, raw) {
 		return nil, apierr.New(apierr.ErrIntegrity, "round-trip verification failed; nothing written")
 	}
+	if err := s.requireFreeSpace(int64(len(cur)) + int64(len(blob))); err != nil {
+		return nil, err
+	}
 	var bak string
 	if quick {
 		bak, err = s.backupIfStale()
@@ -830,6 +833,9 @@ func (s *Save) Restore(name string) error {
 		if !have[p] {
 			return fmt.Errorf("backup has applied patch %q that the current save lacks (it is from a newer game version)", p)
 		}
+	}
+	if err := s.requireFreeSpace(int64(len(cur)) + int64(len(b))); err != nil {
+		return err
 	}
 	bak, err := s.backup()
 	if err != nil {
