@@ -31,7 +31,7 @@ live-test protocol). Do not attach saves, `Game.ini`, snapshots or logs to issue
 | **Player > Bases** | The console's Bases panel: your bases with Power, Water, Inventory (Storage, Refining, Crafting, Other) and Land Claim Editor tabs. Also:  Land claims (totems), expand or shrink a claim's size, raise its vertical level, teleport to base, structure health, repair all, clear sand buildup, refill base water and generator fuel (optionally when the editor opens), your base's storage containers (view / add / remove items, or clear a container), placeables |
 | **Player > Vehicles** | Your own vehicles (the world's vehicles are hidden) and recovered vehicles, bring a vehicle to you, repair module durability (each module is made as good as new), refuel all your vehicles to a full tank (tank sizes measured in the game) |
 | **Saved map** | Hagga Basin and the Deep Desert as in the Dune Docker console, drawn from your save (as of its last write, not live): your character, vehicles, base, storage containers and the game's own map markers (ore, salvage, plants, enemy camps, places, trainers, hazards), with layers, pan, zoom and hover details |
-| **Landsraad** | Current term, decree pool, active decree, task board (fill progress, complete / reopen), rewards |
+| **Landsraad** | Current term, decree pool, active decree, the current term's task board (fill the faction goal, fill your own contribution up to a reward tier, complete / reopen), your contribution and the reward tiers reached |
 | **Config** | Edit the game's `.ini` files (`ServerCustomSettings.ini`, `Game.ini`, `GameUserSettings.ini`, `Engine.ini`, `Input.ini`, ...) with backups; validates that the expected files and sections exist; in `ServerCustomSettings.ini` shows each setting's default and puts one setting, or all of them, back to it |
 | **Database** | Browse and edit any table, CSV/JSON export, read-only SQL (one SELECT), and **write SQL** (INSERT/UPDATE/DELETE/REPLACE only; atomic, applied to your working copy) |
 
@@ -155,6 +155,7 @@ Every write feature has automated tests on a synthetic save built from the game'
 | Land Claim Editor grid (Apply changes) | Tests only | none | `CHANGELOG.md` (#133) |
 | Automatic refill when the editor opens, and the refill of wind turbines and windtraps | Tests only (the first-version refill above was checked in game, the open-time save and the later changes were not) | none | `CHANGELOG.md` (#63) |
 | Automatic repairs and fills when the editor opens, as one edit (#352) | Tests only | none | `CHANGELOG.md` (#352) |
+| Landsraad: Fill to this tier (#380; the character's own contribution, real-schema save, checked with the integrity test) | Tests only; the fill was run on a copy of a real save and the rows were as expected; not in game, and whether the game hands out the tier after it is not known | none | `CHANGELOG.md` (#380) |
 | Structures: Repair all to max, Clear sand; Reset vendors; Landsraad edits; the Database cell editor and write SQL; Config edits; Restore a backup | Tests only | none | `CHANGELOG.md` |
 
 Read-only views are not listed. One of them has a recorded gap: the Saved map's spice and flour sand positions are decoded from field ids and have not been checked against the game for the map shown (`CHANGELOG.md`, #101).
