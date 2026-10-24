@@ -44,12 +44,16 @@ func (o *Ops) JourneyBrowse() (any, error) {
 		return nil, err
 	}
 	for _, r := range rows {
-		state[r["id"].(string)] = st{truthy(r["c"]), truthy(r["r"]), truthy(r["p"])}
+		if id, ok := r["id"].(string); ok {
+			state[id] = st{truthy(r["c"]), truthy(r["r"]), truthy(r["p"])}
+		}
 	}
 	tagRows, _ := o.S.Query(`select tag from player_tags where character_id=?`, p.Controller)
 	tags := map[string]bool{}
 	for _, r := range tagRows {
-		tags[r["tag"].(string)] = true
+		if tag, ok := r["tag"].(string); ok {
+			tags[tag] = true
+		}
 	}
 	// every node id seen in any row (the save has the player's only), plus the catalog's
 	all, _ := o.S.Query(`select distinct story_node_id id from journey_story_node`)
@@ -58,7 +62,9 @@ func (o *Ops) JourneyBrowse() (any, error) {
 		known[id] = true
 	}
 	for _, r := range all {
-		known[r["id"].(string)] = true
+		if id, ok := r["id"].(string); ok {
+			known[id] = true
+		}
 	}
 	status := func(s st) string {
 		switch {
@@ -127,7 +133,7 @@ func (o *Ops) JourneyBrowse() (any, error) {
 			s = "Started"
 		}
 		id := ts
-		tut = append(tut, JourneyRow{ID: fmt.Sprint(r["id"]), Name: journey.DisplayName(r["name"].(string)), Category: "Tutorial", Status: s, Complete: ts == 2, Actionable: true, TutorialState: &id})
+		tut = append(tut, JourneyRow{ID: fmt.Sprint(r["id"]), Name: journey.DisplayName(fmt.Sprint(r["name"])), Category: "Tutorial", Status: s, Complete: ts == 2, Actionable: true, TutorialState: &id})
 	}
 	nodes, tuts, err := journeyResetSet(o.S, p.Controller)
 	if err != nil {
