@@ -12,6 +12,11 @@ import (
 
 // Landsraad returns the current term, the task board with faction progress and
 // rewards, and the decree list.
+//
+// A task carries two different scales (#363). goal_amount is the faction's goal for the house (the game shows it as "Goal Amount: 0 / 4,000"); the
+// rewards are tiers of the player's own contribution (1200 to 6000 in the term read so far) and a contribution can go above the goal. Both are returned
+// as the save holds them, nothing is clamped or derived. player_contributions lists the rows of landsraad_task_player_contributions for the task as they
+// are, with the actor id each belongs to: which of those ids is the character's own is not known from the save, so it is not picked here.
 func (o *Ops) Landsraad() (any, error) {
 	term, _ := o.S.One(`select * from landsraad_decree_term order by term_id desc limit 1`)
 	tasks, err := o.S.Query(`select t.id, t.board_index, t.house_name, t.goal_amount, t.completed, t.winning_faction_id, t.sysselraad, t.completion_time
@@ -25,6 +30,12 @@ func (o *Ops) Landsraad() (any, error) {
 		t := c["task_id"].(int64)
 		byTask[t] = append(byTask[t], map[string]any{"faction_id": c["faction_id"], "amount": c["amount"]})
 	}
+	pc, _ := o.S.Query(`select task_id, player_id, faction_id, amount from landsraad_task_player_contributions order by task_id, player_id`)
+	byPlayer := map[int64][]map[string]any{}
+	for _, c := range pc {
+		t := c["task_id"].(int64)
+		byPlayer[t] = append(byPlayer[t], map[string]any{"player_id": c["player_id"], "faction_id": c["faction_id"], "amount": c["amount"]})
+	}
 	rewards, _ := o.S.Query(`select task_id, threshold, template_id, amount from landsraad_task_rewards order by task_id, threshold`)
 	rw := map[int64][]any{}
 	for _, r := range rewards {
@@ -35,6 +46,7 @@ func (o *Ops) Landsraad() (any, error) {
 		id := t["id"].(int64)
 		t["contributions"] = byTask[id]
 		t["rewards"] = rw[id]
+		t["player_contributions"] = byPlayer[id]
 	}
 	decrees, _ := o.S.Query(`select id, decree_name, disabled, weight from landsraad_decrees order by id`)
 	rotation, _ := o.S.Query(`select decree_id from landsraad_decree_rotation`)
@@ -42,7 +54,8 @@ func (o *Ops) Landsraad() (any, error) {
 	return map[string]any{"term": term, "tasks": tasks, "decrees": decrees, "rotation": rotation, "factions": factions}, nil
 }
 
-// SetTaskProgress sets a faction's contribution to a task.
+// SetTaskProgress sets a faction's contribution to a task (the faction's progress towards the house goal, not a player's own contribution). The amount is
+// written as given: it is not held to the goal, because the game's numbers can pass it (#363).
 func (o *Ops) SetTaskProgress(a Args) (any, error) {
 	t, e1 := a.Int("task_id")
 	f, e2 := a.Int("faction_id")
