@@ -86,6 +86,6 @@ test('every handler in the action table can be reached by a button, or is run by
   const i = appJs.indexOf('\nconst A = {');
   const j = appJs.indexOf('\n};', i);
   const body = appJs.slice(i, j);
-  const dead = [...body.matchAll(/^ {2}(\w+):/gm)].map((m) => m[1]).filter((k) => !appJs.includes(`data-act="${k}"`) && !new RegExp(`['"]${k}['"]`).test(appJs));
+  const dead = [...body.matchAll(/^ {2}(\w+):/gm)].map((m) => m[1]).filter((k) => !appJs.includes(`data-act="${k}"`) && !appJs.includes(`'${k}'`) && !appJs.includes(`"${k}"`));
   assert.deepEqual(dead, [], 'handlers nothing can call');
 });
