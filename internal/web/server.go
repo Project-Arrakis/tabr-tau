@@ -839,6 +839,31 @@ func (s *Server) routes() {
 		}
 		return map[string]any{"ok": true}, s.Cfg.Delete(a.Str("name"), a.Str("key"), int(l))
 	})
+	// Reset to the game's default: one setting (line and key, as set does), or every known setting of the file (expect: the number the page showed). One edit, one backup.
+	s.post("/api/config/reset", func(a ops.Args) (any, error) {
+		line, expect := -1, 0
+		if _, has := a["line"]; has {
+			l, err := a.Int("line")
+			if err != nil {
+				return nil, err
+			}
+			line = int(l)
+		} else {
+			n, err := a.Int("expect")
+			if err != nil {
+				return nil, err
+			}
+			expect = int(n)
+		}
+		res, err := s.Cfg.Reset(a.Str("name"), line, a.Str("key"), expect)
+		if err != nil {
+			return nil, err
+		}
+		if res.Changed > 0 && s.Save != nil {
+			s.Save.RecordConfigWrite(fmt.Sprintf("reset %d setting(s) in %s to the game's default", res.Changed, a.Str("name")))
+		}
+		return map[string]any{"ok": true, "result": res}, nil
+	})
 	s.post("/api/config/raw", func(a ops.Args) (any, error) {
 		return map[string]any{"ok": true}, s.Cfg.WriteRaw(a.Str("name"), a.Str("text"))
 	})
