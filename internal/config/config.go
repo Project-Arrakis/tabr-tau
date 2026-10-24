@@ -285,6 +285,9 @@ func (d Dir) write(name, text string) error {
 		return err
 	}
 	if old, err := os.ReadFile(p); err == nil {
+		if err := save.RequirePlainFolder(d.backupDir()); err != nil {
+			return err
+		}
 		if err := os.MkdirAll(d.backupDir(), 0o755); err != nil {
 			return err
 		}
@@ -378,6 +381,9 @@ func (d Dir) SweepStaleTemps(startedAt time.Time) int {
 // pruneBackups removes the oldest backups of one config file beyond keepConfigBackups, never the oldest one. Only files named exactly as this editor names a backup of this file
 // are counted, so another config file whose name starts the same (Game.ini and Game-extra.ini) and anything else in the folder are left alone.
 func (d Dir) pruneBackups(stem string) {
+	if save.RequirePlainFolder(d.backupDir()) != nil { // never remove files through a link
+		return
+	}
 	re := regexp.MustCompile(`^` + regexp.QuoteMeta(stem) + `-\d{8}-\d{6}\.\d{3}\.ini$`)
 	ents, _ := os.ReadDir(d.backupDir())
 	var names []string

@@ -2,6 +2,7 @@ package save
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -81,6 +82,22 @@ func (s *Save) requirePlainFile() error {
 	}
 	if !st.Mode().IsRegular() {
 		return fmt.Errorf("%s is not a regular file (symlinks are refused)", filepath.Base(s.Path))
+	}
+	return nil
+}
+
+// RequirePlainFolder refuses a backups folder that is a link (a symbolic link, or a junction on Windows), as requirePlainFile does for the save: a link would send the backups,
+// and the removal of the old ones, to a folder somewhere else. A folder that does not exist yet is fine (it is created as a plain folder); one that is a file is not.
+func RequirePlainFolder(dir string) error {
+	st, err := os.Lstat(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if st.Mode()&(os.ModeSymlink|os.ModeIrregular) != 0 || !st.IsDir() {
+		return fmt.Errorf("%s is not a plain folder (links are refused): the backups would not stay next to the save", filepath.Base(dir))
 	}
 	return nil
 }
@@ -207,13 +224,22 @@ func inspect(raw []byte) (map[string]bool, error) {
 		return nil, err
 	}
 	defer db.Close()
+	// The file may have come from outside (a backup chosen for Restore): a database built to make the check run for ever must not hold the editor, so both steps have a deadline.
+	ctx, cancel := context.WithTimeout(context.Background(), inspectTimeout)
+	defer cancel()
 	var chk string
-	if err := db.QueryRow("PRAGMA integrity_check").Scan(&chk); err != nil || chk != "ok" {
+	if err := db.QueryRowContext(ctx, "PRAGMA integrity_check").Scan(&chk); err != nil || chk != "ok" {
+		if err != nil && ctx.Err() != nil {
+			return nil, stopped(ctx, inspectTimeout, err)
+		}
 		return nil, fmt.Errorf("integrity check failed: %v %s", err, chk)
 	}
 	out := map[string]bool{}
-	rs, err := db.Query(`select name from applied_patches`)
+	rs, err := db.QueryContext(ctx, `select name from applied_patches`)
 	if err != nil {
+		if ctx.Err() != nil {
+			return nil, stopped(ctx, inspectTimeout, err)
+		}
 		return out, nil // an older save without the table has no patches
 	}
 	defer rs.Close()
@@ -224,5 +250,5 @@ func inspect(raw []byte) (map[string]bool, error) {
 		}
 		out[n] = true
 	}
-	return out, rs.Err()
+	return out, stopped(ctx, inspectTimeout, rs.Err())
 }
