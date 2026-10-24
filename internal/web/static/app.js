@@ -251,6 +251,23 @@ if (typeof MutationObserver !== 'undefined') new MutationObserver(applySorts).ob
 const heading = (k) => capFirst(String(k).replace(/_/g, ' ').trim());
 // What a count counts: "3 items" or "1 item" (the number with its noun).
 const nn = (n, one, many) => `${Number(n).toLocaleString()} ${n === 1 ? one : many}`;
+// The fill level of a liquid container (read-only; the server works it out from the item's stats). Empty for an item that holds no liquid.
+function fillCell(r) {
+  const f = r.fill;
+  if (!f) return '';
+  const lit = (n) => Number(n).toLocaleString();
+  const what = f.kind || 'Liquid';
+  if (f.state == 'empty') return html`<span class="mut">${what} empty</span>`;
+  if (f.capacity == null) return html`<span class="warn" title="The capacity of this container is not known to the editor.">${what} ${lit(f.amount)} (capacity unknown)</span>`;
+  return html`<span class="${f.state == 'full' ? 'ok' : f.state == 'over' ? 'warn' : ''}" title="${f.state == 'over' ? 'More than the capacity the editor knows.' : ''}">${what} ${lit(f.amount)} / ${lit(f.capacity)} (${f.percent}%)</span>`;
+}
+// The card header's count of liquid containers in a list of items, and how many of them are not full.
+function fillTotals(items) {
+  const c = items.filter((r) => r.fill);
+  if (!c.length) return '';
+  const notFull = c.filter((r) => r.fill.state == 'empty' || r.fill.state == 'partial').length, unk = c.filter((r) => r.fill.state == 'unknown').length;
+  return `${nn(c.length, 'liquid container', 'liquid containers')}, ${notFull} not full${unk ? `, ${unk} of unknown capacity` : ''}.`;
+}
 // "12 nodes" while nothing narrows the list; "3 of 12 nodes match" while a filter does. "12 of 12" says nothing the 12 did not.
 const countText = (shown, total, one, many, filtered) => (filtered ? `${Number(shown).toLocaleString()} of ${Number(total).toLocaleString()} ${many} match` : nn(total, one, many));
 // A time the save keeps as seconds (or milliseconds) since 1970, as the person's own date and time; anything that is not a plausible time stays as it is.
@@ -592,11 +609,12 @@ async function playerSection(s) {
     const slots = cap && cap.max_item_count > 0 ? `, ${counts[grp]} of ${cap.max_item_count} slots used` : '';
     const invCard = html`<div class="card"><h3>Inventory: ${nn(d.items.length, 'item', 'items')} carried</h3>
       <div class="sub">${G.map(([k, v]) => html`<button data-invg="${k}" class="${grp == k ? 'on' : ''}">${v} (${counts[k]})</button>`)}</div>
-      <div class="row"><input id="invq" aria-label="Filter the inventory" placeholder="Filter by name, item ID, or template" size="34" value="${invQ}"><button class="b sec" data-act="invfilter">Filter</button><button class="b sec" data-act="invclear">Clear</button><span class="mut">${countText(rows.length, counts[grp], 'item', 'items', terms.length > 0)}${slots}</span></div>
+      <div class="row"><input id="invq" aria-label="Filter the inventory" placeholder="Filter by name, item ID, or template" size="34" value="${invQ}"><button class="b sec" data-act="invfilter">Filter</button><button class="b sec" data-act="invclear">Clear</button><span class="mut">${countText(rows.length, counts[grp], 'item', 'items', terms.length > 0)}${slots}</span>${fillTotals(d.items.filter((r) => groupOf(r) == grp)) ? html`<span class="mut" id="invfill">${fillTotals(d.items.filter((r) => groupOf(r) == grp))}</span>` : ''}</div>
       ${cap && grp != 'schematics' ? clearRow(cap.id, G.find(([k]) => k == grp)[1], d.items.filter((r) => r.inventory_id == cap.id)) : ''}
       ${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) },
         { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" value="${r.stack_size}" min="1" data-item="${r.id}" data-field="stack_size" data-name="${itemName(r.template_id)}" class="w90" aria-label="Stack of ${itemName(r.template_id)}">` },
         { k: 'quality_level', label: 'Grade', f: (r) => html`<select data-item="${r.id}" data-field="quality" data-name="${itemName(r.template_id)}" aria-label="Grade of ${itemName(r.template_id)}">${[0, 1, 2, 3, 4, 5].map((n) => html`<option ${n == r.quality_level ? 'selected' : ''}>${n}</option>`)}</select>` },
+        { k: 'fill', label: 'Liquid', f: (r) => fillCell(r) },
         { k: 'durability', label: 'Durability', f: (r) => (r.durability == null ? '' : Number(r.durability).toFixed(1) + (r.max_durability ? ' / ' + Number(r.max_durability).toFixed(0) : '')) },
         { k: 'augments', label: 'Augments', f: (r) => (r.augments || []).map((a) => html`<span class="tag" title="${a.name}${a.quality == null ? '' : ' (quality ' + a.quality + ')'}">${itemName(a.name)}</span>`) }], rows,
         { actions: (r) => html`${r.aug_limit ? html`<button class="b sec sm" data-act="augEdit" data-id="${r.id}">Augments</button>` : ''}<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>`, empty: terms.length ? 'No item in this group matches the filter.' : 'Nothing in this group.' })}</div>`;
@@ -1473,7 +1491,7 @@ const A = {
   openInv: async (d) => {
     const it = await api('/api/bases/storage/items?inventory=' + encodeURIComponent(d.id));
     const cat = await loadCatalog(it.map((r) => r.template_id));
-    setHTML($('#inv'), html`<div class="card"><h3>Inventory ${d.id}</h3>${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" data-name="${itemName(r.template_id)}" class="w90" aria-label="Stack of ${itemName(r.template_id)}">` }], it, { empty: 'This container is empty.', actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` })}
+    setHTML($('#inv'), html`<div class="card"><h3>Inventory ${d.id}</h3>${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" data-name="${itemName(r.template_id)}" class="w90" aria-label="Stack of ${itemName(r.template_id)}">` }, { k: 'fill', label: 'Liquid', f: (r) => fillCell(r) }], it, { empty: 'This container is empty.', actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` })}
     <div class="row">${itemPicker("bt", cat)}Qty<input id="bq" aria-label="Quantity to add" type="number" value="1" min="1"><button class="b" data-act="giveInv" data-id="${d.id}" data-name="${d.name || ''}">Add item</button></div>${clearRow(d.id, d.name || 'this container', it)}</div>`);
   },
   giveInv: (d) => act(async () => { const tid = needItem('bt'); const r = await api('/api/bases/give', { inventory_id: +d.id, template_id: tid, quantity: +val('bq') }); giveToast(r, itemName(tid), 'Item added'); await A.openInv(d); }, null, false),
