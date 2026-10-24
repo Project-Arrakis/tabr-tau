@@ -14,10 +14,10 @@ Counts (93 findings): **69 fixed**, **1 obsolete** (DBA-4: the route was removed
 
 | Open, why | Findings |
 |---|---|
-| Owner (repository or organisation settings) | CLD-2 (no required reviewer: a single maintainer cannot approve their own pull request; `strict` off), CLD-3 (partly addressed by #355: the gitleaks configuration now comes from the default branch through the organisation's v2 workflow; the semgrep rule sets stay unpinned until the organisation's snapshot job has run), CLD-4 (#355: v2 can install semgrep from a hash-locked file, but the file is created by a maintainer-run job in the organisation's repository that has not run yet), CLD-8 (`allowed_actions: all`, `sha_pinning_required: false`; the three jobs of the reusable workflow have no timeout), CLD-9 (30 commits carry a personal address; a rewrite of public history) |
+| Owner (repository or organisation settings) | CLD-2 (no required reviewer: a single maintainer cannot approve their own pull request; `strict` off), CLD-3 (partly addressed by #355: the gitleaks configuration now comes from the default branch through the organisation's v2 workflow; the semgrep rule sets stay unpinned until the organisation's snapshot job has run), CLD-4 (#355: v2 can install semgrep from a hash-locked file, but the file is created by a maintainer-run job in the organisation's repository that has not run yet), CLD-8 (the three jobs of the reusable workflow have no timeout; the repository now allows selected actions and requires SHA pinning, checked 2026-10-24), CLD-9 (30 commits carry a personal address; a rewrite of public history) |
 | Owner (decision or record) | GRC-3 (the waiver of the "live test gates S3" rule is written nowhere), GRC-9 (turbines and windtraps in the start-up refill: "Owner to confirm" in `docs/design/2026-10-15-auto-refill-scope.md`), GRC-12 (no terms-of-use position and no date for the vehicle-durability numbers), GRC-13 (#56 and #57 are open although the work shipped), ARCH-10 (`trackNumbers` is one setting for all saves) |
 | Needs the live game | DBA-9 (turbine and windtrap fill is "tests only" in the README matrix), DBA-10 (#194: land-claim writes accept any existing totem id; ownership evidence needs a read-only look at a real save) |
-| Accessibility backlog (#180) | UX-08 (land-claim cells are click-only; many inline inputs have no accessible name; map marker information is hover-only), UX-11 (the Saved map always opens on Hagga Basin), UX-13 (the word "template id" in one hint; a dead `tpTo` handler) |
+| Accessibility backlog (#180) | UX-08 (map marker information is hover-only; the land-claim cells and the inline input names were fixed in #385), UX-11 (the Saved map always opens on Hagga Basin), UX-13 (the word "template id" in one hint; the dead `tpTo` handler was removed in #385) |
 | Test hygiene | QA-12 (`TestSymlinkedSaveIsRefused` skips without the privilege, no `-race` on Windows) |
 
 | ID | Status | Evidence |
@@ -66,7 +66,7 @@ Counts (93 findings): **69 fixed**, **1 obsolete** (DBA-4: the route was removed
 | CLD-5 | fixed | #203, #149; runners and Node pinned, Dependabot covers gomod, actions and npm |
 | CLD-6 | fixed | #203; `TestEmbeddedWebView2LoadersAreTheReviewedOnes` |
 | CLD-7 | accepted risk | `SECURITY.md`: no published binaries |
-| CLD-8 | open (owner) | `persist-credentials: false` and `timeout-minutes` on all own jobs (#203); the repository still allows all actions and does not require SHA pinning |
+| CLD-8 | open (owner) | `persist-credentials: false` and `timeout-minutes` on all own jobs (#203); the repository allows selected actions and requires SHA pinning (`gh api repos/Project-Arrakis/tabr-tau/actions/permissions`, 2026-10-24). Open: the three jobs of the reusable workflow have no timeout (`reusable-security-scan-v2.yml` at the pinned commit), and the fork-pull-request approval policy |
 | CLD-9 | open (owner) | 30 of the commits carry a personal address; every recent one uses the noreply address |
 | CLD-10 | fixed | #203; `SECURITY.md` and private vulnerability reporting enabled (checked with `gh api`) |
 | UX-01 | fixed | #185, #211, #234; the status poll sees the file change and reloads by itself when nothing is queued; held edits are kept (#272, #283) |
@@ -75,10 +75,10 @@ Counts (93 findings): **69 fixed**, **1 obsolete** (DBA-4: the route was removed
 | UX-04 | fixed | #204; the queue is listed in words (`describe.go`) |
 | UX-06 | fixed | the start-up note is a 15 s toast, warnings stay until dismissed, and every write is in `write-log.jsonl` (#296); "Last automatic save" is kept in memory only |
 | UX-07 | fixed | #282 (dialog name, inert background, Tab trap, live region) and #328 (focus is restored after the page is drawn again) |
-| UX-08 | open | sortable headers are keyboard operable (#282); the map layer toggles say whether they are on (`aria-pressed`, #332, #333). Open: land-claim cells (`app.js`, click-only), accessible names of inline inputs, hover-only marker information |
+| UX-08 | open | sortable headers are keyboard operable (#282); the map layer toggles say whether they are on (`aria-pressed`, #332, #333); land-claim cells are buttons in the tab order that Enter and Space press, keeping the focus (#385, `web-tests/a11y.test.mjs`); every field on every tab has an accessible name (#385, the same test). Open: hover-only marker information |
 | UX-09 | fixed | #214, #282, #315; the label of the accent and the red button reach 4.5:1 in both themes (`TestFilledButtonLabelsReachFourPointFiveInBothThemes`); a disabled layer toggle is dimmed on purpose |
 | UX-11 | open | marker names are words and Fit resets the view (#284); the map still opens on Hagga Basin |
-| UX-13 | open | headers and jargon were reworded (#249); "template id" remains in one hint and the `tpTo` handler is dead |
+| UX-13 | open | headers and jargon were reworded (#249); "template id" remains in one hint; the dead `tpTo` handler (and a second one, `spec`) was removed and a test fails when a handler has no button (#385) |
 | DBA-1 | fixed | #189; `TestRepairBuildingsIsLinearInThePieceCount` |
 | DBA-2, DBA-3 | fixed | #188; `TestOverlappingWaterRefillsFillEachDeviceOnce`, `TestRepairGearChangesOnlyTheDurabilityKeys` |
 | DBA-4 | obsolete | #195 removed the piece-health route |

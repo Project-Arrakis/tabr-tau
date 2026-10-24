@@ -11,13 +11,13 @@ mutation checks in a scratch copy. Tracking issue: #24. Fixes below landed in PR
 
 Every finding was checked again against the current code, tests and CI (not against the old text). The "Disposition" columns below are kept as written on 2026-10-07; the table here is the current status. The "Review & save" pane was removed on 2026-10-22 (#238, #240, see `docs/control-removal.md` and `SECURITY.md`), which makes the S2 block, P7, P8, UX-2 and UX-3 obsolete. Ids such as ARCH-5, ARCH-6 and QA-4 are used again with other meanings in the 2026-10-22 register; here they mean what this file says.
 
-Counts (84 findings; the rows that listed several ids at once are counted once per id, except where the id list is one finding: D4/D5/ARCH-7 and S1/ARCH-3): **56 fixed**, **12 obsolete**, **9 accepted risk**, **7 open**. (Changed on 2026-10-23 by #39: ARCH-6 is fixed, D8 and D9 are accepted risk; before that 55, 12, 7 and 10.)
+Counts (84 findings; the rows that listed several ids at once are counted once per id, except where the id list is one finding: D4/D5/ARCH-7 and S1/ARCH-3): **58 fixed**, **12 obsolete**, **9 accepted risk**, **5 open**. (Changed on 2026-10-23 by #39: ARCH-6 is fixed, D8 and D9 are accepted risk; before that 55, 12, 7 and 10. Changed on 2026-10-24 by #382 (S7) and #386 (QA-7): both are fixed.)
 
 | Status | Findings |
 |---|---|
 | Open, needs the live game | D6 (volume and `sqlite_sequence`), N-3 (cloud-sync behaviour of the backups folder) |
-| Open, needs a decision (recommendation: accept, with a line in `SECURITY.md`) | QA-6 (no mid-way failure injection into a repair), S7 (`Tables()` and `inspect()` have no timeout, reachable only with a hostile file), C-2 (`StrictHostKeyChecking=accept-new` in `tools/send-snapshot.ps1`) |
-| Open, hygiene | QA-4 (12 uses of the toy schema remain in `internal/ops/ops_test.go`), QA-7 (loose wall-clock bounds, 3 s to 20 s) |
+| Open, needs a decision (recommendation: accept, with a line in `SECURITY.md`) | QA-6 (no mid-way failure injection into a repair), C-2 (`StrictHostKeyChecking=accept-new` in `tools/send-snapshot.ps1`) |
+| Open, hygiene | QA-4 (12 uses of the toy schema remain in `internal/ops/ops_test.go`) |
 
 | ID | Status | Evidence |
 |---|---|---|
@@ -32,7 +32,7 @@ Counts (84 findings; the rows that listed several ids at once are counted once p
 | ARCH-2, ARCH-4 | fixed | reads use the read-only handle (`TestQueryCannotWriteBypassingMutate`); a failed reload blocks edits (`TestCommitReloadFailureBlocksFurtherEdits`) |
 | D2, D3, D7 | fixed | the foreign-key gate `internal/save/mutate.go` (#42); `lockedTables` in `internal/ops/db.go` |
 | D4/D5/ARCH-7 | fixed | the "value is unchanged" text no longer exists |
-| D6 | open (live game) | the stack cap (`catalog.MaxStack`, #240, #280), the known-template check (#185) and the capacity check are in; `max_item_volume` is only displayed, never checked on give (`internal/ops/ops.go`), and `sqlite_sequence` is not read; two `, _ :=` still drop a query error in `giveRowsInTx`. What the game enforces needs a live check |
+| D6 | open (live game) | the stack cap (`catalog.MaxStack`, #240, #280), the known-template check (#185) and the capacity check are in; the two ignored reads in `giveRowsInTx` return their errors (#377); `strftime` is cast and the reads of the sequencer are checked (#383). `max_item_volume` is only displayed, never checked on give (needs per-item volume data, #61), and `sqlite_sequence` is not read. What the game enforces needs a live check |
 | D8 | accepted risk | Restore refuses while edits are pending (`TestRestoreRefusesWithPendingEdits`); retention keeps the 60 newest plus the first and oldest (#273); there is no free-space check: a backup or temp file that cannot be written fails before the file is replaced and changes nothing, and `SECURITY.md` says so (#39) |
 | D9 | accepted risk | the game and the hash are checked again right before the rename (`internal/save/durable.go`, #297); a window of milliseconds remains, a game save inside it is caught by the read-back, which leaves the game's file alone; `SECURITY.md` says so (#39) |
 | ARCH-5 | fixed | build-then-swap `load()`; `TestFailedReloadLeavesThePreviousStateUsable` |
@@ -41,7 +41,7 @@ Counts (84 findings; the rows that listed several ids at once are counted once p
 | QA-4 | open (hygiene) | real-schema fixtures are used in about 40 test files; `newOps` (toy schema) remains in `ops_test.go` |
 | QA-5 | fixed | `TestGiveItemsQueueIsAtomicAndUsesDistinctSlots`, `TestWriteConsoleIsAtomicAcrossStatements` |
 | QA-6 | open (decision) | `RepairGear` is one `Mutate`; the real schema offers no natural way to make its update fail half way |
-| QA-7 | open (hygiene) | wall-clock bounds in `sqlconsole_test.go`, `bounded_work_test.go`, `repairbuildings_test.go` |
+| QA-7 | fixed (#386) | the read console sets its time limit through `save.DeadlinesForTests` and checks `save.ErrStopped`; the write console and the give at its bound no longer measure time; the repair of buildings is checked by the plan of its statements (no correlated subquery) |
 | QA-8 | accepted risk | hooks are package globals, guarded by `TestTestHooksAreNotCalledByProductionCode`; no test uses `t.Parallel` |
 | QA-9 | accepted risk | as recorded on 2026-10-07 |
 | QA-10 | fixed | `goos` and `tasklistOutput` are injectable in `gameproc.go` |
@@ -50,10 +50,10 @@ Counts (84 findings; the rows that listed several ids at once are counted once p
 | UX-6 | fixed | #304: a refused export is shown, not downloaded |
 | UX-7 | fixed | the typed value goes back after a refusal (`editInput`); toasts have `role=alert` (#214) |
 | N-1, S6 | fixed | `internal/ops/sqlvet.go` checks quoted names and literals by content |
-| S7 | open (decision) | the write console is bounded (15 s, `TestAWriteStatementThatNeverEndsIsStoppedAndNothingIsChanged`); `Tables()`, `Query()` and `inspect()` have no timeout |
+| S7 | fixed (#382, #295) | the write console is bounded (15 s, `TestAWriteStatementThatNeverEndsIsStoppedAndNothingIsChanged`); `Table`, `Query` and `One` stop after `save.ReadTimeout` (5 s), the list of tables ends with an error when a count is stopped, and `inspect` stops after 60 s (`internal/save/deadline_test.go`, `internal/ops/deadline_test.go`) |
 | S8 | fixed | #302 refuses `zeroblob` and `randomblob` in both consoles; `pragma_database_list` is refused |
 | N-2 | fixed | decoded copies live in a folder of their own, named by process, swept at start (#298) |
-| N-3 | open (live game) | UNC, network and removable drives need a confirmation (#202); whether the game's cloud sync touches the backups folder "has not been tested" (README) |
+| N-3 | open (live game) | UNC, network and removable drives need a confirmation (#202); whether the game's cloud sync touches the backups folder "has not been tested" (README); a backups folder that is a link or a junction is refused (#382) |
 | C-1 | fixed | the reusable workflow is pinned by commit (#277) |
 | C-2 | open (decision) | the label and the target are whitelisted before they enter the remote command; the host key is trusted on first use |
 | C-3 | fixed | `govulncheck` for both builds in CI; Dependabot covers gomod, actions and npm |
