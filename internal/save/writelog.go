@@ -134,3 +134,9 @@ func writeLogAppend(path string, f Flush) error {
 	}
 	return w.Close()
 }
+
+// RecordConfigWrite adds a line to the write log for a change made to one of the game's config files (the save itself was not written). desc is a sentence without
+// values from the save. It does nothing when the log is not enabled, and a failure to write the line is reported through WriteLogProblem like any other.
+func (s *Save) RecordConfigWrite(desc string) {
+	s.appendWriteLog(Flush{At: time.Now(), Saved: true, Ops: []string{desc}})
+}
