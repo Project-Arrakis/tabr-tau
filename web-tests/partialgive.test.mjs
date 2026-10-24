@@ -49,3 +49,20 @@ test('Give item: a whole give says Item added, and a give that fits nothing show
   assert.ok(!ui.doc.querySelector('#toast').textContent.includes('Item added'));
   ui.dom.window.close();
 });
+
+test('Give item: a give cut by the volume limit says so, and a note that the volume was not checked is shown with a whole give', async () => {
+  let ui = await boot_({ '/api/player/give': { ok: true, requested: 500, given: 340, reason: 'the backpack is full (volume)', limit: 'volume', volumeChecked: true, volumeNote: '', outcome: 'written' } });
+  await openGive(ui, 500);
+  ui.click('[data-act="give"]'); await ui.settle();
+  const t = ui.doc.querySelector('#toast .part');
+  assert.ok(t && t.textContent.includes('Gave 340 of 500 Iron Bar: the backpack is full (volume).'), t && t.textContent);
+  ui.dom.window.close();
+
+  ui = await boot_({ '/api/player/give': { ok: true, requested: 5, given: 5, reason: '', limit: '', volumeChecked: false, volumeNote: 'Volume was not checked: the editor has no volume for this item.', outcome: 'written' } });
+  await openGive(ui, 5);
+  ui.click('[data-act="give"]'); await ui.settle();
+  const w = ui.doc.querySelector('#toast').textContent;
+  assert.ok(w.includes('Item added') && w.includes('Volume was not checked: the editor has no volume for this item.'), w);
+  assert.equal(ui.doc.querySelector('#toast .err'), null);
+  ui.dom.window.close();
+});

@@ -46,8 +46,9 @@ function toast(msg, err, ms = 3500) {
 // What a give did, in words: okText when all of it went in, else how much did and why not more (a give puts in as much as fits). The answer carries requested, given and reason.
 function giveToast(r, name, okText) {
   const n = (v) => Number(v).toLocaleString();
-  if (r && Number(r.given) < Number(r.requested)) toast(`Gave ${n(r.given)} of ${n(r.requested)} ${name}: ${r.reason || 'not all of it fitted'}.` + NOT_SAVED, 'part');
-  else toast(okText + NOT_SAVED);
+  const note = r && r.volumeNote ? ' ' + r.volumeNote : ''; // e.g. "Volume was not checked: the editor has no volume for this item."
+  if (r && Number(r.given) < Number(r.requested)) toast(`Gave ${n(r.given)} of ${n(r.requested)} ${name}: ${r.reason || 'not all of it fitted'}.` + note + NOT_SAVED, 'part');
+  else toast(okText + note + NOT_SAVED);
 }
 // An edit of the save is written to the game's file as it is made, so a message has nothing to add; act() adds a hint when it finds the edit queued instead (the game is
 // in a single-player session and rewrites the file). NOT_SAVED is that hint for the messages that are built by hand: it reads as the hint while edits are being queued

@@ -323,7 +323,7 @@ insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,a
 func TestGiveHonorsTheStackSize(t *testing.T) {
 	o := newOps(t) // backpack of 3 slots, 2 used
 	if _, err := o.S.Mutate("seed", func(m *save.Mut) error {
-		_, err := m.Exec(`update inventories set max_item_count=10 where id=1`)
+		_, err := m.Exec(`update inventories set max_item_count=10, max_item_volume=0 where id=1`)
 		return err
 	}); err != nil {
 		t.Fatal(err)

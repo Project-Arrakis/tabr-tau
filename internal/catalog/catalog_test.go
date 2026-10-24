@@ -100,3 +100,49 @@ func TestProvenanceDescribesTheGameTableDatasets(t *testing.T) {
 		}
 	}
 }
+
+func TestVolume(t *testing.T) {
+	// values the game's tables give, which the Dune Docker console's own measured values for its volume-tracked items also give (103 of its 106 agree)
+	for id, want := range map[string]float64{"Mouse_Corpse": 5, "FuelCanister": 2, "AluminiumBar": 0.7, "AzuriteOre": 0.2, "Silicone": 0.1, "DuraluminumRod": 0.9, "T6ResourceB": 0.5, "WindTurbineLubricant2": 0.2, "T6Machinery": 0.1} {
+		if got, ok := Volume(id); !ok || got != want {
+			t.Errorf("%s: %v %v, want %v", id, got, ok, want)
+		}
+	}
+	// an item the game lists with no volume is known to take none; an id the tables do not list, and one they list twice with two sizes, is unknown
+	if v, ok := Volume("MTX_SardaukarFightingDummy_Patent"); !ok || v != 0 {
+		t.Errorf("zero volume: %v %v", v, ok)
+	}
+	for _, id := range []string{"NotAnItem", "Thumper", "D_Turret", "Stilltent"} {
+		if _, ok := Volume(id); ok {
+			t.Errorf("%s must be unknown", id)
+		}
+	}
+	if len(volumes) < 4000 {
+		t.Errorf("only %d volumes", len(volumes))
+	}
+	for id, v := range volumes {
+		if v < 0 || v > 1000 || id == "" {
+			t.Errorf("odd entry %q = %v", id, v)
+		}
+	}
+}
+
+// PROVENANCE.md states how many volumes there are and how many are above zero; it must stay true.
+func TestVolumesProvenanceSizesMatch(t *testing.T) {
+	b, err := os.ReadFile("PROVENANCE.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	nonzero := 0
+	for _, v := range volumes {
+		if v > 0 {
+			nonzero++
+		}
+	}
+	text := strings.ReplaceAll(string(b), ",", "")
+	for _, want := range []string{fmt.Sprintf("For %d item template ids the volume of one unit", len(volumes)), fmt.Sprintf("%d are above 0", nonzero)} {
+		if !strings.Contains(text, want) {
+			t.Errorf("PROVENANCE.md does not say %q", want)
+		}
+	}
+}

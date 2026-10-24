@@ -3,11 +3,15 @@
 //
 // The names come from the item catalog of the Dune Awakening Docker console (runtime/data/admin-items.json, MIT
 // licence, copyright RedBlink; synced 2026-10-09 with blob 1bde840c). Only the id, the name, the category, the source and the required DLC are kept, not the
-// stack sizes or volumes. The licence text is reproduced in internal/notices/THIRD-PARTY-NOTICES.md. Seven ids appear
+// stack sizes or volumes (those come from the game's own tables: stacks.json and volumes.json). The licence text is reproduced in internal/notices/THIRD-PARTY-NOTICES.md. Seven ids appear
 // twice in the source (the same item listed under two categories); the first entry wins.
 //
 // stacks.json holds the most of an item one inventory slot can hold, as the game's own item tables list it (the base item rows, StackAndDurability.MaxStackSize). Only
 // the items that stack are listed; every other item the catalog knows holds one.
+//
+// volumes.json holds the volume of one unit of an item, as the game's own item tables list it (the base item rows, StaticData.ItemSize; no row has an
+// ItemSizeOverride). 0 means the game lists the item with no volume. An item that is not listed is unknown, not zero: the 17 ids that two tables list with different
+// sizes are left out rather than guessed.
 //
 // Where each file in this folder comes from, and what is not recorded about it, is in PROVENANCE.md (the notice is in internal/notices).
 package catalog
@@ -23,6 +27,9 @@ var raw []byte
 
 //go:embed stacks.json
 var rawStacks []byte
+
+//go:embed volumes.json
+var rawVolumes []byte
 
 // customization_unlocks.json maps each cosmetic item (a token the character uses to unlock cosmetics) to the customization ids it unlocks, as the game's own
 // item table lists them (DT_ItemTableCustomizations, CustomizationItemStats.UnlockableCustomizations). It holds ids only. A character's unlocked ids are
@@ -46,6 +53,7 @@ var (
 	byID    map[string]Entry
 	unlocks map[string][]string
 	stacks  map[string]int64
+	volumes map[string]float64
 )
 
 func init() {
@@ -62,6 +70,13 @@ func init() {
 		panic("catalog: stacks.json is not valid: " + err.Error())
 	}
 	stacks = st.Max
+	var vo struct {
+		Size map[string]float64 `json:"size"`
+	}
+	if err := json.Unmarshal(rawVolumes, &vo); err != nil {
+		panic("catalog: volumes.json is not valid: " + err.Error())
+	}
+	volumes = vo.Size
 	byID = make(map[string]Entry, len(entries))
 	for _, e := range entries {
 		if _, dup := byID[e.ID]; !dup { // the first entry for an id wins
@@ -81,6 +96,12 @@ func MaxStack(id string) (int64, bool) {
 		return 1, true
 	}
 	return 0, false
+}
+
+// Volume returns the volume of one unit of an item, and whether it is known: only an item the game's tables list has an answer (0 is an answer: the item takes no volume).
+func Volume(id string) (float64, bool) {
+	v, ok := volumes[id]
+	return v, ok
 }
 
 // Unlocks returns the customization ids a cosmetic item unlocks when it is used, or nil when the game's table has no entry for it. The slice must not be changed.

@@ -598,7 +598,7 @@ func (o *Ops) GiveItems(a Args) (any, error) {
 			}
 			req += out.Requested
 			got += out.Given
-			results = append(results, map[string]any{"template_id": l.tmpl, "requested": out.Requested, "given": out.Given, "reason": out.reason("the backpack"), "limit": out.Limit})
+			results = append(results, map[string]any{"template_id": l.tmpl, "requested": out.Requested, "given": out.Given, "reason": out.reason("the backpack"), "limit": out.Limit, "volumeNote": out.VolumeNote})
 		}
 		if got == 0 {
 			return apierr.New(apierr.ErrNoRoom, "Nothing was given: the backpack is full.")
@@ -610,10 +610,16 @@ func (o *Ops) GiveItems(a Args) (any, error) {
 	}); err != nil {
 		return nil, err
 	}
-	ans := map[string]any{"ok": true, "itemIds": ids, "count": len(ids), "requested": req, "given": got, "lines": results, "reason": "", "limit": ""}
+	ans := map[string]any{"ok": true, "itemIds": ids, "count": len(ids), "requested": req, "given": got, "lines": results, "reason": "", "limit": "", "volumeNote": ""}
 	for _, r := range results {
 		if r["reason"] != "" {
 			ans["reason"], ans["limit"] = r["reason"], r["limit"]
+			break
+		}
+	}
+	for _, r := range results { // the first caveat about the volume check, if any line had one
+		if n, _ := r["volumeNote"].(string); n != "" {
+			ans["volumeNote"] = n
 			break
 		}
 	}

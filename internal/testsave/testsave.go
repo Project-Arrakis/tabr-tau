@@ -207,7 +207,7 @@ func buildPlayer(t testing.TB, extra string) *save.Save {
 		}
 		fill1(t, db, "player_state", map[string]any{"id": pc, "account_id": 1, "character_name": "Tester",
 			"player_controller_id": pc, "player_pawn_id": pawn, "player_state_id": pstate})
-		fill1(t, db, "inventories", map[string]any{"id": 1, "actor_id": pawn, "inventory_type": 0, "max_item_count": 5, "max_item_volume": 1000.0})
+		fill1(t, db, "inventories", map[string]any{"id": 1, "actor_id": pawn, "inventory_type": 0, "max_item_count": 5, "max_item_volume": 1e9}) // no volume limit that gets in the way of the slot and stack tests; the volume tests set their own
 		fill1(t, db, "items", map[string]any{"id": 10, "inventory_id": 1, "stack_size": 100, "position_index": 0, "template_id": "SolarisCoin", "is_new": 0,
 			"acquisition_time": 1790000000, "stats": `{"FItemStackAndDurabilityStats":[[],{}],"FCustomizationStats":[[],{}]}`, "quality_level": 0})
 		fill1(t, db, "items", map[string]any{"id": 11, "inventory_id": 1, "stack_size": 1, "position_index": 1, "template_id": "Knife", "is_new": 0,

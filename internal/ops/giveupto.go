@@ -13,19 +13,22 @@ import (
 //   - the slots: an inventory holds the number of stacks its max_item_count says (0 means no limit). A stack that is already there and has room is filled first and needs no slot;
 //     every other stack needs a free slot;
 //   - the stack size: no slot holds more than the item's stack size (the game's item tables, catalog.MaxStack). An item that does not stack takes one slot per copy;
+//   - the volume (#357): the volume of what is in the inventory (each row's unit volume times its stack, the unit volume being the game's item table value, catalog.Volume, or the
+//     row's own volume_override, which the game too reads per unit) plus the new units may not pass the inventory's max_item_volume. The check is a calculation only: the rows a
+//     give writes keep volume_override NULL, the game's own convention (the game multiplies a non-NULL value by the stack size, so a total written there would be counted twice).
+//     It is not made, and the answer says so, when the item has no known volume or the inventory has no volume limit recorded (NULL or not above 0); items already in the
+//     inventory whose volume is unknown count as none and are counted in the answer's note;
 //   - the bound: one give makes at most maxGiveStacks new stacks.
-//
-// The editor does not track an inventory's volume: the item catalog it embeds has no volume for any item, so there is nothing to add up against max_item_volume. A give is not
-// limited by volume, as it never was.
 //
 // Only a give that cannot place a single unit is a refusal. The numbers are worked out inside the edit, from rows the edit reads, so a queued copy of the edit is put back only
 // onto a file where those rows are what they were (the held-queue rules, as for every other edit).
 
 // What stopped a give that placed less than was asked.
 const (
-	limitNone  = ""
-	limitSlots = "slots" // the inventory has no free slot for another stack
-	limitBound = "bound" // one give makes at most maxGiveStacks stacks
+	limitNone   = ""
+	limitSlots  = "slots"  // the inventory has no free slot for another stack
+	limitBound  = "bound"  // one give makes at most maxGiveStacks stacks
+	limitVolume = "volume" // the inventory's volume limit leaves room for fewer units
 )
 
 // giveOutcome is what one give did.
@@ -36,6 +39,9 @@ type giveOutcome struct {
 	Limit     string // limitNone when everything was given, else what stopped it
 	FreeSlots int64  // the free slots the inventory had when the give began; -1 when it has no limit
 	Stack     int64  // the item's stack size (0 when the catalog does not know the item)
+	// VolumeChecked says whether the volume limit was part of the give; when it was not, or when it was with a caveat, VolumeNote says why in words ("" otherwise).
+	VolumeChecked bool
+	VolumeNote    string
 }
 
 // reason says in words what stopped the give ("" when nothing did). what names the inventory: "the backpack", "the container".
@@ -45,6 +51,8 @@ func (g giveOutcome) reason(what string) string {
 		return what + " is full"
 	case limitBound:
 		return fmt.Sprintf("at most %s stacks are made in one give", commas(maxGiveStacks))
+	case limitVolume:
+		return what + " is full (volume)"
 	}
 	return ""
 }
@@ -70,6 +78,57 @@ func freeSlotsInTx(m *save.Mut, inventoryID int64) (int64, error) {
 	return max(capacity-n, 0), nil
 }
 
+// volumeLeftInTx works out how many units of template the volume limit of the inventory still leaves room for. fit is -1 when the volume limit is not part of this give
+// (checked false, and note says why), and otherwise the whole number of units that fit (0 when it is full). note is also set when the check was made with a caveat.
+func volumeLeftInTx(m *save.Mut, inventoryID int64, template string) (fit int64, checked bool, note string, err error) {
+	unit, known := catalog.Volume(template)
+	if !known {
+		return -1, false, "Volume was not checked: the editor has no volume for this item.", nil
+	}
+	rows, err := m.Query(`select max_item_volume v from inventories where id=?`, inventoryID)
+	if err != nil {
+		return -1, false, "", err
+	}
+	var limit float64
+	if len(rows) > 0 {
+		limit, _ = rows[0]["v"].(float64)
+	}
+	if limit <= 0 {
+		return -1, false, "Volume was not checked: this inventory has no volume limit recorded.", nil
+	}
+	if unit <= 0 {
+		return -1, true, "", nil // the item takes no volume
+	}
+	// a save whose items table has no volume_override column (the game's has it; an older or hand-made file may not) counts every row at the item table's volume
+	override := "null"
+	if c, e := m.Query(`select count(*) n from pragma_table_info('items') where name='volume_override'`); e == nil && len(c) > 0 && c[0]["n"] == int64(1) {
+		override = "volume_override"
+	}
+	have, err := m.Query(`select template_id t, `+override+` o, sum(stack_size) n from items where inventory_id=? group by template_id, `+override, inventoryID)
+	if err != nil {
+		return -1, false, "", err
+	}
+	var used float64
+	var unknown int64
+	for _, r := range have {
+		n, _ := r["n"].(int64)
+		if o, ok := r["o"].(float64); ok { // per unit, as the game reads it
+			used += o * float64(n)
+		} else if u, ok := catalog.Volume(fmt.Sprint(r["t"])); ok {
+			used += u * float64(n)
+		} else {
+			unknown += n
+		}
+	}
+	if unknown > 0 {
+		note = fmt.Sprintf("%s units already there have no known volume and were counted as none.", commas(unknown))
+	}
+	if used >= limit {
+		return 0, true, note, nil
+	}
+	return int64((limit-used)/unit + 1e-9), true, note, nil
+}
+
 // giveUpToInTx gives up to qty of an item the way the game holds it: stacks of the same item and grade that are in the inventory and not full are filled first, then new stacks are
 // added, each in its own slot, for as long as there are free slots and the bound allows. It gives as much as fits; outcome.Given says how much that was. It returns an error only
 // for a fault, never for a lack of room: a caller that cannot accept less than it asked for turns a short outcome into a refusal (giveStacksInTx).
@@ -80,14 +139,28 @@ func giveUpToInTx(m *save.Mut, inventoryID int64, template string, qty, quality 
 	if known {
 		out.Stack = size
 	} else {
-		size = qty // one row with everything
+		size = qty // one row with everything (cut to what fits below)
 	}
 	free, err := freeSlotsInTx(m, inventoryID)
 	if err != nil {
 		return out, err
 	}
 	out.FreeSlots = free
-	left := qty
+	// the volume cuts what is asked down to what fits; the rest of the give works with that amount
+	target := qty
+	fit, checked, note, err := volumeLeftInTx(m, inventoryID, template)
+	if err != nil {
+		return out, err
+	}
+	out.VolumeChecked, out.VolumeNote = checked, note
+	volumeCut := false
+	if checked && fit >= 0 && fit < qty {
+		target, volumeCut = fit, true
+		if !known {
+			size = target
+		}
+	}
+	left := target
 	var topUps []struct{ id, to int64 }
 	if known && size > 1 {
 		rows, err := m.Query(`select id, stack_size from items where inventory_id=? and template_id=? and quality_level=? and stack_size<? order by position_index, id`, inventoryID, template, quality, size)
@@ -126,11 +199,14 @@ func giveUpToInTx(m *save.Mut, inventoryID int64, template string, qty, quality 
 			}
 		}
 	}
+	if volumeCut && out.Limit == limitNone {
+		out.Limit = limitVolume
+	}
 	var placed int64
 	for _, s := range sizes {
 		placed += s
 	}
-	out.Given = qty - left + placed
+	out.Given = target - left + placed
 	if out.Given == 0 {
 		return out, nil // nothing fits: nothing is written
 	}
@@ -161,6 +237,9 @@ func giveStacksInTx(m *save.Mut, inventoryID int64, template string, qty, qualit
 		stacks := (qty + max(out.Stack, 1) - 1) / max(out.Stack, 1)
 		return nil, apierr.Newf(apierr.ErrBadArgument, "%s makes %s separate stacks (a slot holds %s); at most %s at a time: give fewer, or give them in several steps", itemLabel(template), commas(stacks), commas(max(out.Stack, 1)), commas(maxGiveStacks))
 	}
+	if out.Limit == limitVolume {
+		return nil, fmt.Errorf("%w: %s needs room for %s units by volume and the inventory has room for %s", errNotEnoughRoom, itemLabel(template), commas(qty), commas(out.Given))
+	}
 	if out.FreeSlots == 0 {
 		return nil, errInventoryFull
 	}
@@ -188,5 +267,6 @@ func giveAnswer(g giveOutcome, what string) map[string]any {
 	if len(g.IDs) > 0 {
 		first = g.IDs[0]
 	}
-	return map[string]any{"ok": true, "itemId": first, "stacks": len(g.IDs), "requested": g.Requested, "given": g.Given, "reason": g.reason(what), "limit": g.Limit}
+	return map[string]any{"ok": true, "itemId": first, "stacks": len(g.IDs), "requested": g.Requested, "given": g.Given, "reason": g.reason(what), "limit": g.Limit,
+		"volumeChecked": g.VolumeChecked, "volumeNote": g.VolumeNote}
 }
