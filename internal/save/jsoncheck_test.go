@@ -116,7 +116,9 @@ func TestTheCellSizeCapIsExact(t *testing.T) {
 	if MaxJSONCell != 1<<20 {
 		t.Fatalf("the cap is %d, want 1 MiB", MaxJSONCell)
 	}
-	pad := func(n int) string { return `'"' || substr(replace(hex(zeroblob(` + "700000" + `)),'0','a'),1,` + strconv.Itoa(n-2) + `) || '"'` }
+	pad := func(n int) string {
+		return `'"' || substr(replace(hex(zeroblob(` + "700000" + `)),'0','a'),1,` + strconv.Itoa(n-2) + `) || '"'`
+	}
 	if _, err := s.Exec(`update items set stats=` + pad(MaxJSONCell) + ` where id=1`); err != nil {
 		t.Fatalf("a document of exactly 1 MiB is accepted: %v", err)
 	}
@@ -164,5 +166,68 @@ func TestTheJSONCheckLeavesNothingBehind(t *testing.T) {
 	r, err := s.One(`select (select count(*) from sqlite_temp_master) c`)
 	if err != nil || r["c"].(int64) != 0 {
 		t.Fatalf("temporary objects left on the connection: %v %v", r, err)
+	}
+}
+
+// nest is a JSON text of n arrays inside each other.
+func nest(n int) string { return strings.Repeat("[", n) + strings.Repeat("]", n) }
+
+// The depth cap is exact: 32 levels are accepted, 33 are refused, in a text column and in a jsonb column.
+func TestTheDepthCapIsExact(t *testing.T) {
+	s := jsonSave(t)
+	if MaxJSONDepth != 32 {
+		t.Fatalf("the cap is %d, want 32", MaxJSONDepth)
+	}
+	if _, err := s.Exec(`update items set stats='{"d":` + nest(MaxJSONDepth-1) + `}' where id=1`); err != nil {
+		t.Fatalf("32 levels are accepted: %v", err)
+	}
+	if _, err := s.Exec(`update actors set properties=jsonb('{"d":` + nest(MaxJSONDepth-1) + `}') where id=1`); err != nil {
+		t.Fatalf("32 levels are accepted in a jsonb column: %v", err)
+	}
+	for _, q := range []string{
+		`update items set stats='{"d":` + nest(MaxJSONDepth) + `}' where id=2`,
+		`update actors set gas_attributes=jsonb('{"d":` + nest(MaxJSONDepth) + `}') where id=1`,
+		`update fgl_entities set components=jsonb('{"d":` + nest(MaxJSONDepth) + `}') where entity_id=7`,
+	} {
+		_, err := s.Exec(q)
+		if err == nil || !strings.Contains(err.Error(), "nested more than 32 levels deep") || !strings.Contains(err.Error(), "nothing was changed") {
+			t.Errorf("33 levels must be refused: %v", err)
+		}
+	}
+	r, _ := s.One(`select stats from items where id=2`)
+	if r["stats"].(string) != `{"d":{"x":2}}` {
+		t.Fatalf("the refused edit left a change: %v", r)
+	}
+}
+
+// jsonDepth counts brackets outside strings only.
+func TestJSONDepthIgnoresBracketsInStrings(t *testing.T) {
+	for doc, want := range map[string]int{
+		`1`:                           0,
+		`{}`:                          1,
+		`{"a":"[[[[","b":[{"c":[]}]}`: 4,
+		`{"a":"\"[[[","b":["]]]"]}`:   2,
+		`{"a":"x\\","b":[[1]]}`:       3,
+	} {
+		if got := jsonDepth(doc); got != want {
+			t.Errorf("%s: depth %d, want %d", doc, got, want)
+		}
+	}
+}
+
+// The notes the check writes are not changes of the edit: the count an edit reports to its own function is the same with and without a JSON cell in it.
+func TestAnEditsOwnChangeCountLeavesOutTheCheckNotes(t *testing.T) {
+	s := jsonSave(t)
+	_, err := s.Mutate("count", func(m *Mut) error {
+		if _, err := m.Exec(`update items set stats=json_set(stats,'$.d.x',5)`); err != nil {
+			return err
+		}
+		if n, err := m.changes(); err != nil || n != 2 {
+			t.Errorf("two rows were changed: %d err=%v", n, err)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

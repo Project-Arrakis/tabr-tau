@@ -136,7 +136,7 @@ func addHostileCharacter(t *testing.T, sv *save.Save) {
 		{`insert into fgl_entities(entity_id,components) values (-900010, jsonb(?))`, level},
 		{`insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (900010,-900010,'DuneCharacter')`},
 		{`insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (900011,900010,0,20,1000.0)`},
-		{`insert into items(id,inventory_id,stack_size,position_index,template_id,stats) values (900012,900011,1,0,?,?)`, h, h},
+		{`insert into items(id,inventory_id,stack_size,position_index,template_id,stats) values (900012,900011,1,0,?,?)`, h, mustJSON(t, map[string]any{"Note": h})}, // stats is a JSON document: the editor refuses to store text that is not JSON there
 		// a generator holding fuel, and a water building of a kind the editor does not know (so its name is the save's own text)
 		{`insert into actors(id,class,map) values (900020,'/Game/Water.Water_C','HaggaBasin'),(900021,'/Game/Generator.Generator_C','HaggaBasin')`},
 		{`insert into fgl_entities(entity_id,components) values (-900020, jsonb(?))`, water},

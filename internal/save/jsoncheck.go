@@ -11,6 +11,10 @@ import (
 // to write.
 const MaxJSONCell = 1 << 20
 
+// MaxJSONDepth is the deepest nesting of arrays and objects an edit may leave in one stored document. The game's documents nest a handful of levels; a document far deeper
+// is a statement gone wrong, and every reader of the document pays for it.
+const MaxJSONDepth = 32
+
 // jsonColumn is a column that holds a JSON document, and how: blob columns hold binary JSON (JSONB), text columns hold JSON text. key is the column that names a row.
 type jsonColumn struct {
 	table, col, key string
@@ -69,13 +73,22 @@ func startJSONWatch(tx *sql.Tx) (*jsonWatch, error) {
 
 func qLit(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
 
+// logged is how many notes the triggers have written so far.
+func (w *jsonWatch) logged() (n int64, err error) {
+	if len(w.columns) == 0 {
+		return 0, nil
+	}
+	err = w.tx.QueryRow(`select count(*) from temp.tabr_json_edits`).Scan(&n)
+	return n, err
+}
+
 // finish checks the cells that were written, removes the triggers and the table, and returns how many lines the triggers wrote (each one is a row change in
 // total_changes() that the edit did not make). A bad cell comes back as an error that names it and says nothing was changed.
 func (w *jsonWatch) finish() (logged int64, err error) {
 	if len(w.columns) == 0 {
 		return 0, nil
 	}
-	if err := w.tx.QueryRow(`select count(*) from temp.tabr_json_edits`).Scan(&logged); err != nil {
+	if logged, err = w.logged(); err != nil {
 		return 0, err
 	}
 	var problems []string
@@ -112,6 +125,7 @@ var jsonReasons = map[string]string{
 	"blob":      "stored as binary JSON, not as text",
 	"invalid":   "not valid JSON",
 	"oversize":  "larger than 1 MiB",
+	"deep":      "nested more than 32 levels deep",
 	"roundtrip": "does not read back as the same document",
 }
 
@@ -138,6 +152,7 @@ func (w *jsonWatch) check() ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
+		bad := map[int64]bool{}
 		for rows.Next() {
 			var k int64
 			var r string
@@ -145,6 +160,7 @@ func (w *jsonWatch) check() ([]string, error) {
 				rows.Close()
 				return nil, err
 			}
+			bad[k] = true
 			out = append(out, fmt.Sprintf("%s.%s #%d: %s", c.table, c.col, k, jsonReasons[r]))
 		}
 		if err := rows.Err(); err != nil {
@@ -152,8 +168,62 @@ func (w *jsonWatch) check() ([]string, error) {
 			return nil, err
 		}
 		rows.Close()
+		deep, err := w.tooDeep(c, textOf, bad)
+		if err != nil {
+			return nil, err
+		}
+		for _, k := range deep {
+			out = append(out, fmt.Sprintf("%s.%s #%d: %s", c.table, c.col, k, jsonReasons["deep"]))
+		}
 	}
 	return out, nil
+}
+
+// tooDeep returns (at most 20 of) the written cells, other than the ones already judged bad, whose document nests deeper than MaxJSONDepth. The cells are valid JSON by now,
+// so counting the brackets that are outside strings is exact.
+func (w *jsonWatch) tooDeep(c jsonColumn, textOf string, skip map[int64]bool) ([]int64, error) {
+	rows, err := w.tx.Query(`select l.k, `+textOf+` from (select distinct k from temp.tabr_json_edits where tbl=? and col=?) l join main.`+qIdent(c.table)+` t on t.`+qIdent(c.key)+`=l.k where t.`+qIdent(c.col)+` is not null and length(t.`+qIdent(c.col)+`) > ? order by l.k`, c.table, c.col, MaxJSONDepth)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []int64
+	for rows.Next() && len(out) < 20 {
+		var k int64
+		var doc string
+		if err := rows.Scan(&k, &doc); err != nil {
+			return nil, err
+		}
+		if !skip[k] && jsonDepth(doc) > MaxJSONDepth {
+			out = append(out, k)
+		}
+	}
+	return out, rows.Err()
+}
+
+// jsonDepth is the deepest nesting of [ and { in a valid JSON text.
+func jsonDepth(doc string) int {
+	depth, max := 0, 0
+	inStr := false
+	for i := 0; i < len(doc); i++ {
+		switch ch := doc[i]; {
+		case inStr:
+			if ch == '\\' {
+				i++
+			} else if ch == '"' {
+				inStr = false
+			}
+		case ch == '"':
+			inStr = true
+		case ch == '[' || ch == '{':
+			if depth++; depth > max {
+				max = depth
+			}
+		case ch == ']' || ch == '}':
+			depth--
+		}
+	}
+	return max
 }
 
 // isTextJSON is true for a blob column whose bytes are JSON text: the document was stored without being turned into binary JSON.

@@ -150,9 +150,27 @@ type Mut struct {
 	// Desc is the human-readable description recorded for the edit when it changed something. Mutate sets it from
 	// its desc argument; the function may replace it once it knows the outcome (for example a row count).
 	Desc  string
-	keep  bool      // the journal is on, so what the edit runs is recorded
-	stmts []stmtRec // what the edit ran, for the journal of pending edits
-	lossy bool      // an argument could not be kept
+	keep  bool       // the journal is on, so what the edit runs is recorded
+	stmts []stmtRec  // what the edit ran, for the journal of pending edits
+	lossy bool       // an argument could not be kept
+	jw    *jsonWatch // the check of the JSON cells this edit writes (its notes are rows changed too, see changes)
+}
+
+// changes is the number of rows the edit has changed so far in its transaction: SQLite's total_changes() less the notes the JSON check has written about the cells the
+// edit touched (those rows are changed too, but not by the edit). A put-back compares it with the count recorded when the edit was first made.
+func (m *Mut) changes() (int64, error) {
+	var n int64
+	if err := m.tx.QueryRow("select total_changes()").Scan(&n); err != nil {
+		return 0, err
+	}
+	if m.jw != nil {
+		l, err := m.jw.logged()
+		if err != nil {
+			return 0, err
+		}
+		n -= l
+	}
+	return n, nil
 }
 
 // Exec runs one statement (or, with no arguments, a script of several) inside the edit's transaction.
@@ -285,7 +303,7 @@ func (s *Save) mutateLocked(desc string, cascade bool, fn func(m *Mut) error) (i
 		tx.Rollback()
 		return 0, err
 	}
-	m := &Mut{tx: tx, Desc: desc, keep: s.journalPath != "" && s.journalOff == ""}
+	m := &Mut{tx: tx, Desc: desc, keep: s.journalPath != "" && s.journalOff == "", jw: jw}
 	if err := fn(m); err != nil {
 		tx.Rollback()
 		return 0, err

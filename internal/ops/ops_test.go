@@ -32,7 +32,9 @@ insert into journey_story_node values (1, 'Q', 0, x'0c', x'0c', x'0c', x'0c', 0)
 insert into landsraad_tasks values (1, 0, null, null);
 `
 
-func newOps(t *testing.T) *Ops {
+// newOps opens the toy save. extra is SQL run on the file before the game's encoding is applied: damage the game itself wrote (a stored document that is not JSON), which an
+// edit through the editor could no longer put there (the JSON check refuses it).
+func newOps(t *testing.T, extra ...string) *Ops {
 	t.Helper()
 	dir := t.TempDir()
 	plain := filepath.Join(dir, "p.sqlite")
@@ -45,6 +47,11 @@ func newOps(t *testing.T) *Ops {
 	}
 	if _, err := db.Exec(schema + "create table actor_fgl_entities(actor_id integer, entity_id integer, slot_name text);" + trigger); err != nil {
 		t.Fatal(err)
+	}
+	for _, q := range extra {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
 	}
 	db.Close()
 	raw, _ := os.ReadFile(plain)
