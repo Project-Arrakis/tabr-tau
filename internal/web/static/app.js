@@ -1065,15 +1065,62 @@ function personalCell(r, l) {
   const top = Math.max(0, ...others.map((c) => Number(c.amount) || 0));
   return html`${mine}${others.length ? html`<div class="mut" title="Rows of the save's table of players' contributions that are not your character's: the simulated players of the single-player world.">other players: ${nn(others.length, 'row', 'rows')}, largest ${Number(top).toLocaleString()}</div>` : ''}`;
 }
-// One reward tier of a house, with what the save says about it for the character (#380) and a button that fills the character's contribution up to it.
+// The houses and single tiers chosen for a fill (#364). Choosing a house chooses all its tiers (the highest one counts); a single tier can be chosen on its own. The choice is
+// kept while the page is drawn again and is dropped for a house that is no longer on the board.
+let LS = { houses: new Set(), tiers: new Set() }, LD = null;
+const lsTierKey = (id, th) => id + ':' + Number(th);
+const lsName = (r) => String(r.house_name || '').replace('DA_House', '');
+// The tier a fill raises the house to: the highest of its tiers when the house is chosen, else the highest single tier chosen for it, else 0.
+function lsTarget(r) {
+  const th = (r.rewards || []).map((x) => Number(x.threshold)).filter((n) => Number.isFinite(n));
+  if (LS.houses.has(r.id)) return th.length ? Math.max(...th) : 0;
+  return Math.max(0, ...th.filter((n) => LS.tiers.has(lsTierKey(r.id, n))));
+}
+// What a fill of the choice would send and change, worked out from the board as drawn (the server counts again inside the edit). A house changes when the contribution is
+// below its tier, or, with the faction box ticked, when the character's faction is below the house goal.
+function lsPlan(l, withFaction) {
+  const items = [];
+  let changed = 0;
+  const fid = l.character ? l.character.faction_id : null;
+  for (const r of l.tasks) {
+    const tier = lsTarget(r);
+    if (!tier) continue;
+    items.push({ task_id: r.id, tier });
+    const fac = (r.contributions || []).find((c) => c.faction_id == fid);
+    if (Number(r.my_contribution || 0) < tier || (withFaction && Number(fac ? fac.amount : 0) < Number(r.goal_amount))) changed++;
+  }
+  return { items, changed };
+}
+function lsSummary() {
+  if (!LD) return '';
+  const single = [...LS.tiers].filter((k) => !LS.houses.has(+k.split(':')[0])).length;
+  if (!LS.houses.size && !single) return 'Nothing is chosen. Choose houses (all their tiers) or single tiers, then Fill chosen.';
+  const p = lsPlan(LD, !!($('#lwf') || {}).checked);
+  return `Chosen: ${nn(LS.houses.size, 'house', 'houses')} with all their tiers and ${nn(single, 'single tier', 'single tiers')}. Fill chosen would raise your contribution${$('#lwf') && $('#lwf').checked ? ' or the faction goal' : ''} on ${nn(p.changed, 'house', 'houses')} (the others are already at or above what was chosen).`;
+}
+// Puts the boxes and the line of text in step with the choice, without drawing the page again.
+function lsSync() {
+  document.querySelectorAll('[data-lshouse]').forEach((e) => { e.checked = e.defaultChecked = LS.houses.has(+e.dataset.lshouse); });
+  document.querySelectorAll('[data-lstier]').forEach((e) => { const id = +e.dataset.lsid; e.checked = e.defaultChecked = LS.houses.has(id) || LS.tiers.has(lsTierKey(id, e.dataset.lstier)); e.disabled = LS.houses.has(id); });
+  const t = $('#lsum');
+  if (t) t.textContent = lsSummary();
+}
+const lsHouseBox = (r) => html`<input type="checkbox" data-lshouse="${r.id}" aria-label="Choose House ${lsName(r)} with all its tiers" ${LS.houses.has(r.id) ? 'checked' : ''}>`;
+// One reward tier of a house, with what the save says about it for the character (#380), a box to choose it for a fill (#364) and a button that fills the character's contribution up to it.
 function tierLine(r, x, l) {
   const can = l.character && l.character.faction_id != null;
+  const on = LS.houses.has(r.id) || LS.tiers.has(lsTierKey(r.id, x.threshold));
+  const box = html`<input type="checkbox" data-lstier="${x.threshold}" data-lsid="${r.id}" aria-label="Choose the ${Number(x.threshold).toLocaleString()} tier of House ${lsName(r)}" ${on ? 'checked' : ''} ${LS.houses.has(r.id) ? 'disabled' : ''}>`;
   const state = x.delivered ? html`<span class="ok">reached, recorded as delivered</span>` : x.reached ? html`<span class="mut">reached, no delivery recorded in this term</span>` : html`<span class="mut">not reached</span>`;
-  return html`<div>At ${Number(x.threshold).toLocaleString()} contributed: ${Number(x.amount).toLocaleString()} × ${itemName(x.template_id)} · ${state} ${x.reached || !can ? '' : html`<button class="b sec sm" data-act="mfill" data-id="${r.id}" data-tier="${x.threshold}" title="Raise your contribution to this house to ${Number(x.threshold).toLocaleString()}. The reward itself is not written.">Fill to this tier</button>`}</div>`;
+  return html`<div>${box} At ${Number(x.threshold).toLocaleString()} contributed: ${Number(x.amount).toLocaleString()} × ${itemName(x.template_id)} · ${state} ${x.reached || !can ? '' : html`<button class="b sec sm" data-act="mfill" data-id="${r.id}" data-tier="${x.threshold}" title="Raise your contribution to this house to ${Number(x.threshold).toLocaleString()}. The reward itself is not written.">Fill to this tier</button>`}</div>`;
 }
 async function landsraadView() {
   const l = await api('/api/landsraad');
   await loadCatalog(l.tasks.flatMap((x) => (x.rewards || []).map((y) => y.template_id)));
+  const onBoard = new Set(l.tasks.map((x) => x.id));
+  LS.houses = new Set([...LS.houses].filter((id) => onBoard.has(id)));
+  LS.tiers = new Set([...LS.tiers].filter((k) => onBoard.has(+k.split(':')[0])));
+  LD = l;
   const t = l.term || {};
   const fname = (id) => (l.factions.find((f) => f.id == id) || {}).name || id || '—';
   const facOpts = (sel) => l.factions.map((f) => html`<option value="${f.id}" ${f.id == sel ? 'selected' : ''}>${f.name}</option>`);
@@ -1084,8 +1131,9 @@ async function landsraadView() {
   <div class="card"><h3>Decree pool</h3>${tbl([{ k: 'id', label: 'ID' }, { k: 'decree_name', label: 'Decree' }, { k: 'disabled', label: 'State', f: (r) => (r.disabled ? html`<span class="mut">disabled</span>` : html`<span class="ok">enabled</span>`) }], dec, { empty: 'This save has no decrees.', actions: (r) => html`<button class="b sec sm" data-act="decree" data-id="${r.id}" data-d="${r.disabled ? 0 : 1}">${r.disabled ? 'Enable' : 'Disable'}</button>` })}</div>
   <div class="card"><h3>Task board (${l.tasks.length})</h3>
   <p class="mut" id="lscales">Two different scales are shown for each house. <b>House goal (faction)</b> is what the faction needs to take the house (for example 4,000). The <b>reward tiers</b> are set by a player's own contribution, for example from 1,200 up to 6,000, and a contribution can go above the house goal, so the upper tiers can be reached. <b>Your contribution</b> is the row the save keeps under your character's own id; the other rows belong to the simulated players. A tier is reached when your contribution is at least its amount, and "recorded as delivered" means the save holds that item as given to your character for this house in this term. Fill to this tier raises your contribution only (the reward is not written, and the faction's progress only when the box below is ticked). Whether the game hands out a tier when it loads the save after a fill is not known from a save.${l.character && l.character.faction_id == null ? ' Your character is in no faction (Neutral), so there is nothing to fill: assign Atreides or Harkonnen under Admin first.' : ''}</p>
-  <div class="row"><label><input type="checkbox" id="lwf"> Also set my faction's progress on that house to its goal</label></div>
-  <div class="row">Faction<select id="lf" aria-label="Faction for the buttons below">${facOpts()}</select><span class="mut">used by the buttons below. Fill faction goal sets that faction's progress to the house goal (it does not set a personal contribution or deliver a reward); Complete marks the house taken.</span></div>${tbl([{ k: 'board_index', label: '#' }, { k: 'house_name', label: 'House', f: (r) => String(r.house_name || '').replace('DA_House', '') }, { k: 'goal_amount', label: 'House goal (faction)', f: (r) => Number(r.goal_amount).toLocaleString() },
+  <div class="row"><label><input type="checkbox" id="lwf"> Also set my faction's progress on the house to its goal</label></div>
+  <div class="row" role="group" aria-label="Fill several houses or tiers at once"><button class="b sec sm" data-act="lsAll">Choose all houses</button><button class="b sec sm" data-act="lsNone">Clear the choice</button><button class="b" data-act="lsFill">Fill chosen</button><span class="mut" id="lsum" aria-live="polite">${lsSummary()}</span></div>
+  <div class="row">Faction<select id="lf" aria-label="Faction for the buttons below">${facOpts()}</select><span class="mut">used by the buttons below. Fill faction goal sets that faction's progress to the house goal (it does not set a personal contribution or deliver a reward); Complete marks the house taken.</span></div>${tbl([{ k: 'sel', label: 'Choose', f: (r) => lsHouseBox(r) }, { k: 'board_index', label: '#' }, { k: 'house_name', label: 'House', f: (r) => String(r.house_name || '').replace('DA_House', '') }, { k: 'goal_amount', label: 'House goal (faction)', f: (r) => Number(r.goal_amount).toLocaleString() },
     { k: 'contributions', label: 'Faction progress', f: (r) => ((r.contributions || []).length ? (r.contributions || []).map((c) => html`<span class="tag">${fname(c.faction_id)}: ${fix(c.amount)} of ${Number(r.goal_amount).toLocaleString()}</span>`) : html`<span class="mut">0 of ${Number(r.goal_amount).toLocaleString()}</span>`) },
     { k: 'player_contributions', label: 'Your contribution', f: (r) => personalCell(r, l) },
     { k: 'completed', label: 'Status', f: (r) => (r.completed ? html`<span class="ok">done (${fname(r.winning_faction_id)})</span>` : 'open') },
@@ -1497,6 +1545,25 @@ const A = {
   term: () => act(async () => { await api('/api/landsraad/term', { active_decree_id: val('ad'), reigning_faction_id: val('rf') }); }, 'Term updated'),
   decree: (d) => act(() => api('/api/landsraad/decree', { id: +d.id, disabled: d.d == '1' }), 'Decree updated'),
   tfill: (d) => act(() => api('/api/landsraad/progress', { task_id: +d.id, faction_id: +val('lf'), amount: +d.goal }), 'Progress set'),
+  lsAll: () => { if (!LD) return; LS.houses = new Set(LD.tasks.map((x) => x.id)); lsSync(); },
+  lsNone: () => { LS = { houses: new Set(), tiers: new Set() }; lsSync(); },
+  lsFill: async () => {
+    const l = await api('/api/landsraad'); // the editor's board at the click, not the one drawn earlier
+    const withFaction = !!($('#lwf') || {}).checked;
+    if (!l.character || l.character.faction_id == null) { toast('Your character is in no faction (Neutral), so it has no Landsraad contribution to fill: assign Atreides or Harkonnen under Admin first.', true); return; }
+    LD = l;
+    const plan = lsPlan(l, withFaction);
+    if (!plan.items.length) { toast('Nothing is chosen. Choose houses or single tiers first.'); return; }
+    if (!plan.changed) { toast('Nothing to change: your contribution is already at or above what was chosen' + (withFaction ? ' and the faction goal is already reached.' : '.')); return; }
+    const n = plan.changed;
+    if (!(await ask({ title: `Fill your contribution on ${nn(n, 'house', 'houses')}?`, ok: 'Fill chosen', typed: `fill ${n} ${n === 1 ? 'house' : 'houses'}`,
+      body: `Your own contribution is raised, on each of ${nn(n, 'house', 'houses')} that is below it, to the highest tier chosen for the house (a house chosen whole is raised to its last tier). A contribution already at or above the tier is not lowered.${withFaction ? " The faction's progress on each is raised to the house goal." : " The faction's progress is not changed."} The rewards themselves are not written; whether the game hands out a tier after it loads the save is not known. One edit, with the usual backup.` }))) return;
+    return act(async () => {
+      const r = await api('/api/landsraad/mine-many', { term_id: l.term.term_id, items: plan.items, with_faction: withFaction, expected: n });
+      LS = { houses: new Set(), tiers: new Set() };
+      toast(r.changed ? `Your contribution raised on ${nn(r.changed, 'house', 'houses')}` + (r.faction_changed ? `, and the faction goal on ${r.faction_changed}` : '') + NOT_SAVED : 'Nothing to change.');
+    }, null);
+  },
   mfill: (d) => act(async () => { const r = await api('/api/landsraad/mine', { task_id: +d.id, tier: +d.tier, with_faction: !!($('#lwf') || {}).checked }); toast(r.changed ? `Your contribution ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()}` + (r.faction_changed ? ", and your faction's progress is at the house goal" : '') + NOT_SAVED : 'Nothing to change: your contribution is already at or above that tier.'); }, null),
   tdone: async (d) => (await ask({ title: d.r == '1' ? 'Reset this task?' : 'Complete this task?', body: 'Changes the Landsraad task for the chosen faction.', ok: d.r == '1' ? 'Reset' : 'Complete' })) && act(() => api('/api/landsraad/complete', { task_id: +d.id, faction_id: +val('lf'), reset: d.r == '1' }), 'Task updated'),
   cfgcreate: (d) => act(() => api('/api/config/create', { name: d.n }), 'Created ' + d.n + ' now', true, true),
@@ -1589,6 +1656,9 @@ document.addEventListener('change', (e) => {
   const t = e.target;
   if (t.id == 'gt') { showGiveAugments(); return; }
   if (t.id == 'skCharge') { skCharge = t.checked; return; }
+  if (t.dataset.lshouse !== undefined) { const id = +t.dataset.lshouse; if (t.checked) LS.houses.add(id); else LS.houses.delete(id); lsSync(); return; }
+  if (t.dataset.lstier !== undefined) { const k = lsTierKey(+t.dataset.lsid, t.dataset.lstier); if (t.checked) LS.tiers.add(k); else LS.tiers.delete(k); lsSync(); return; }
+  if (t.id == 'lwf') { lsSync(); return; }
   if (t.dataset.autojob) { // one job of the automatic pass switched on or off; the card is drawn again from what the server kept
     const key = t.dataset.autojob, on = t.checked, label = ((t.closest('label') || {}).textContent || key).trim();
     act(async () => { try { await api('/api/settings', { [key]: on }); } catch (e) { render('scroll'); throw e; } toast(label + ' is now ' + (on ? 'on' : 'off') + ' for the automatic pass'); }, null);

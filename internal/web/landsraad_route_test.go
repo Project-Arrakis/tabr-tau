@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -66,6 +67,46 @@ func TestFillingMyLandsraadContributionRefusesAHouseOfAnEarlierTermWithAConflict
 	}
 	if w := postEdit(t, s, "/api/landsraad/mine", `{"task_id":175,"tier":1500}`); w.Code != 422 {
 		t.Fatalf("a tier the house does not have is a bad argument: %d %s", w.Code, w.Body.String())
+	}
+	if got := landsraadMineAmounts(t, s.Save.Path); got[1] != 1300 {
+		t.Fatalf("nothing was written: %v", got)
+	}
+}
+
+// POST /api/landsraad/mine-many (#364)
+func TestFillingSeveralHousesIsOneEditWithOneBackupAndOneLogLine(t *testing.T) {
+	s := New(testsave.PlayerWithSQL(t, landsraadMineWorld+`
+insert into landsraad_tasks(id, term_id, board_index, house_name, goal_amount) values (176, 7, 1, 'DA_HouseVernius', 4000);
+insert into landsraad_task_rewards(task_id, threshold, template_id, amount) values (176, 1200, 'SolarisCoin', 10000);`), config.Dir{Path: t.TempDir()})
+	dir := t.TempDir()
+	s.KeepPendingEdits(dir)
+	w := postEdit(t, s, "/api/landsraad/mine-many", `{"term_id":7,"expected":2,"items":[{"task_id":175,"tier":6000},{"task_id":176,"tier":1200}]}`)
+	m := decodeBody(t, w)
+	if w.Code != 200 || m["ok"] != true || m["outcome"] != "written" || m["changed"] != float64(2) {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	if got := landsraadMineAmounts(t, s.Save.Path); got[1] != 6000 || got[50] != 3000 {
+		t.Fatalf("the character's row is filled, the guild's is as it was: %v", got)
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "write-log.jsonl"))
+	if err != nil {
+		t.Fatalf("the write is recorded: %v", err)
+	}
+	var l struct {
+		Edits  int      `json:"edits"`
+		Ops    []string `json:"ops"`
+		Backup string   `json:"backup"`
+	}
+	if err := json.Unmarshal(b, &l); err != nil || l.Edits != 1 || len(l.Ops) != 1 || l.Backup == "" {
+		t.Fatalf("one line: one edit, its words, its backup: %v %s", err, b)
+	}
+}
+
+func TestFillingSeveralHousesWithAStaleCountIsAConflictAndWritesNothing(t *testing.T) {
+	s := New(testsave.PlayerWithSQL(t, landsraadMineWorld), config.Dir{Path: t.TempDir()})
+	w := postEdit(t, s, "/api/landsraad/mine-many", `{"term_id":7,"expected":5,"items":[{"task_id":175,"tier":6000}]}`)
+	if w.Code != 409 {
+		t.Fatalf("a count that is not the set is a conflict: %d %s", w.Code, w.Body.String())
 	}
 	if got := landsraadMineAmounts(t, s.Save.Path); got[1] != 1300 {
 		t.Fatalf("nothing was written: %v", got)
