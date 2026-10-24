@@ -256,7 +256,12 @@ func (d Dir) Read(name string) (map[string]any, error) {
 		return nil, err
 	}
 	dc := parseDoc(string(b))
-	return map[string]any{"name": name, "text": string(b), "entries": nonNil(dc.entries()), "gameRunning": save.GameRunning()}, nil
+	out := map[string]any{"name": name, "text": string(b), "entries": nonNil(dc.entries()), "gameRunning": save.GameRunning()}
+	if hasDefaults(name) {
+		infos, counts := defaultsOf(name, dc.entries())
+		out["defaults"], out["resetCounts"] = infos, counts
+	}
+	return out, nil
 }
 
 func nonNil(e []Entry) []Entry {

@@ -1143,6 +1143,19 @@ async function landsraadView() {
 
 // ---------- CONFIG (.ini)
 let cfgFile = null;
+// The Default and Reset cells of one setting (a file with a table of defaults). A setting with no verified default says so and has no working Reset.
+function defaultCells(e, d) {
+  if (!d || !d.known) return html`<td class="mut">default unknown</td><td><button class="b sec sm" disabled title="No verified default for ${e.key}: it is never reset" aria-label="Reset ${e.key} (default unknown)">Reset</button></td>`;
+  const range = d.options ? 'one of ' + d.options.join(', ') : d.min != null || d.max != null ? `range ${d.min == null ? '' : d.min} to ${d.max == null ? 'no upper limit' : d.max}` : '';
+  return html`<td class="mono" title="${range}">${d.default}${range ? html` <span class="mut">(${range})</span>` : ''}</td><td>${d.atDefault
+    ? html`<button class="b sec sm" disabled title="Already the default" aria-label="Reset ${e.key} (already the default)">Reset</button>`
+    : html`<button class="b sec sm" data-act="cfgReset" data-confirm="Yes, reset" data-line="${e.line}" data-key="${e.key}" data-was="${e.value}" data-to="${d.default}" aria-label="Reset ${e.key} to ${d.default}">Reset</button>`}</td>`;
+}
+// The row above the table: Reset all, with what it changes and what it leaves alone.
+function resetAllRow(rc) {
+  const n = rc.change || 0, left = (rc.noDefault || 0) + (rc.otherParts || 0);
+  return html`<div class="row"><button class="b bad" data-act="cfgResetAll" data-n="${n}" aria-describedby="rstnote" ${n ? '' : 'disabled'}>Reset all to defaults</button><span class="mut" id="rstnote">${n ? `${nn(n, 'value differs', 'values differ')} from the default and would change.` : 'Every setting that has a known default is already at it.'} ${nn(rc.atDefault || 0, 'value is', 'values are')} already at the default${left ? `; ${nn(left, 'entry has', 'entries have')} no known default (or is not a game setting) and ${left == 1 ? 'is' : 'are'} left as ${left == 1 ? 'it is' : 'they are'}` : ''}. The defaults are the Dune Docker console's table for the game's settings (MIT, RedBlink); a setting without a verified default is never reset.</span></div>`;
+}
 async function configView() {
   const val_ = await api('/api/config/validate');
   if (!val_.dirExists) {
@@ -1161,12 +1174,13 @@ async function configView() {
     const c = await api('/api/config/file?name=' + encodeURIComponent(cfgFile));
     const bk = await api('/api/config/backups?name=' + encodeURIComponent(cfgFile));
     let last = null;
+    const dmap = Object.fromEntries((c.defaults || []).map((x) => [x.line, x])), rc = c.resetCounts || {};
     const entryRows = c.entries.map((e) => {
       const sec = e.section !== last ? e.section : '';
       last = e.section;
-      return html`<tr><td class="mut mono">${sec}</td><td class="mono">${e.key}</td><td><input class="cfgv" aria-label="Value of ${e.key}" value="${e.value}" data-line="${e.line}" data-key="${e.key}" data-section="${e.section}"></td><td><a href="#" data-act="cfgdel" data-line="${e.line}" data-key="${e.key}" class="bad">delete</a></td></tr>`;
+      return html`<tr><td class="mut mono">${sec}</td><td class="mono">${e.key}</td><td><input class="cfgv" aria-label="Value of ${e.key}" value="${e.value}" data-line="${e.line}" data-key="${e.key}" data-section="${e.section}"></td>${c.defaults ? defaultCells(e, dmap[e.line]) : ''}<td><a href="#" data-act="cfgdel" data-line="${e.line}" data-key="${e.key}" class="bad">delete</a></td></tr>`;
     });
-    h.push(html`<div class="card"><h3>${cfgFile}</h3>${c.entries.length ? html`<div class="scroll"><table><thead><tr><th>Section</th><th>Key</th><th>Value</th><th></th></tr></thead><tbody>${entryRows}</tbody></table></div>` : html`<p class="mut">This file is empty.</p>`}
+    h.push(html`<div class="card"><h3>${cfgFile}</h3>${c.defaults ? resetAllRow(rc) : ''}${c.entries.length ? html`<div class="scroll"><table><thead><tr><th>Section</th><th>Key</th><th>Value</th>${c.defaults ? html`<th>Default</th><th>Reset</th>` : ''}<th></th></tr></thead><tbody>${entryRows}</tbody></table></div>` : html`<p class="mut">This file is empty.</p>`}
     <div class="row mt12"><b>Add key</b><input id="cs" aria-label="Section of the new key" placeholder="[Section]" list="secs"><datalist id="secs">${[...new Set(c.entries.map((e) => e.section))].map((s) => html`<option value="${s}">`)}</datalist><input id="ck" aria-label="Name of the new key" placeholder="Key"><input id="cv" aria-label="Value of the new key" placeholder="Value"><button class="b" data-act="cfgadd">Add</button></div></div>
     <div class="card"><details><summary>Edit raw text</summary><textarea id="raw" aria-label="Raw text of the config file" rows="18" spellcheck="false">${c.text}</textarea><div class="row"><button class="b" data-act="cfgraw">Save raw text</button></div></details></div>
     <div class="card"><details><summary>Backups (${bk.length})</summary>${tbl([{ k: 'name', label: 'Backup' }, { k: 'size', label: 'Size', f: (r) => fmtBytes(r.size) }], bk, { empty: 'No backups of this file yet. One is made before a change is written.', actions: (r) => html`<button class="b sec sm" data-act="cfgrestore" data-b="${r.name}">Restore</button>` })}</details></div>`);
@@ -1568,6 +1582,12 @@ const A = {
   tdone: async (d) => (await ask({ title: d.r == '1' ? 'Reset this task?' : 'Complete this task?', body: 'Changes the Landsraad task for the chosen faction.', ok: d.r == '1' ? 'Reset' : 'Complete' })) && act(() => api('/api/landsraad/complete', { task_id: +d.id, faction_id: +val('lf'), reset: d.r == '1' }), 'Task updated'),
   cfgcreate: (d) => act(() => api('/api/config/create', { name: d.n }), 'Created ' + d.n + ' now', true, true),
   cfgadd: () => act(() => api('/api/config/set', { name: cfgFile, section: val('cs').replace(/^\[|\]$/g, ''), key: val('ck').trim(), value: val('cv') }), 'Added to the config file now', true, true),
+  cfgReset: (d) => act(async () => { await api('/api/config/reset', { name: cfgFile, line: +d.line, key: d.key }); toast(`${d.key}: ${brief(d.was)} → ${brief(d.to)} (the game's default). To undo, set it back to ${brief(d.was)}. The file was written now, after a backup.`); }, null, true, true),
+  cfgResetAll: async (d) => {
+    const n = +d.n;
+    if (!(await ask({ title: `Reset ${nn(n, 'setting', 'settings')} to the game's default?`, body: 'In ' + cfgFile + ', ' + nn(n, 'value is', 'values are') + ' put back to the default. Values already at the default, entries without a known default and keys you added are not touched. It is one edit: the file is written now, after one backup. Close the game first.', ok: 'Reset ' + n, typed: `reset ${n} ${n === 1 ? 'setting' : 'settings'} in ${cfgFile}`, danger: true, gap: true }))) return;
+    act(async () => { const r = (await api('/api/config/reset', { name: cfgFile, expect: n })).result; toast(r.changed ? `Reset ${nn(r.changed, 'setting', 'settings')} in ${cfgFile} to the game's default. The file was written now, after a backup.` : 'Nothing to reset: every setting with a known default is already at it.'); }, null, true, true);
+  },
   cfgdel: async (d) => (await ask({ title: 'Delete config line?', body: 'Delete ' + d.key + ' from ' + cfgFile + '. A backup of the file is made first.', ok: 'Delete', danger: true })) && act(() => api('/api/config/delete', { name: cfgFile, line: +d.line, key: d.key }), 'Deleted from the config file now', true, true),
   cfgraw: async () => (await ask({ title: 'Replace the whole file?', body: 'Everything in ' + cfgFile + ' is replaced by the text in the box. It is written now, after a backup of the file is made. Close the game first.', ok: 'Replace file', danger: true })) && act(() => api('/api/config/raw', { name: cfgFile, text: val('raw') }), 'File written now (the previous text is in Backups)', true, true),
   cfgrestore: async (d) => (await ask({ title: 'Restore config backup?', body: 'Replace ' + cfgFile + ' with ' + d.b + '. Close the game first.', ok: 'Restore', danger: true })) && act(() => api('/api/config/restore', { name: cfgFile, backup: d.b }), 'Config file restored now', true, true),
