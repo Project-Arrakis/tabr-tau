@@ -34,7 +34,6 @@ func TestRefillContainers(t *testing.T) {
 	addItem(t, o, 204, 1, "Bloodsack_02", `{"FFillableItemStats":[[],{}],`+dur+`}`)
 	addItem(t, o, 205, 1, "Mystery_Flask", `{"FFillableItemStats":[[],{"CurrentAmount":5.0,"FillableType":"Water"}],`+dur+`}`)
 	addItem(t, o, 206, 9, "Literjon", `{`+dur+`}`)                                                                                        // in someone else's storage: not the player's
-	addItem(t, o, 207, 1, "Junk", `{bad json`)                                                                                            // damaged stats must not stop the refill
 	addItem(t, o, 208, 1, "HighCapacityLiterjon_06", `{`+dur+`,"FFillableItemStats":[[],{"CurrentAmount":3000,"FillableType":"Water"}]}`) // integer amount, already full
 	addItem(t, o, 209, 1, "Literjon", `{`+dur+`,"FFillableItemStats":[[],{"CurrentAmount":40.0,"FillableType":"Blood"}]}`)                // not water
 

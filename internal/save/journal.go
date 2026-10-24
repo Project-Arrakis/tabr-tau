@@ -686,7 +686,8 @@ func (s *Save) replayLocked(ops []opRec, rebased, journal bool) *Restored {
 func (s *Save) replayOp(o opRec) string {
 	run := func(m *Mut) error {
 		var before, after int64
-		if err := m.tx.QueryRow("select total_changes()").Scan(&before); err != nil {
+		var err error
+		if before, err = m.changes(); err != nil {
 			return err
 		}
 		for _, st := range o.Stmts {
@@ -719,7 +720,7 @@ func (s *Save) replayOp(o opRec) string {
 				return err
 			}
 		}
-		if err := m.tx.QueryRow("select total_changes()").Scan(&after); err != nil {
+		if after, err = m.changes(); err != nil {
 			return err
 		}
 		if after-before != o.Rows {
