@@ -471,10 +471,12 @@ used, no text or images. This project is unofficial and not affiliated with or e
 
 ## Stack sizes and cosmetic unlock ids: taken from the game's own item tables
 
-Two files under `internal/catalog/` hold data that comes from the game's own item tables, not from the Dune Docker console:
+Three files under `internal/catalog/` hold data that comes from the game's own item tables, not from the Dune Docker console:
 
 - `internal/catalog/stacks.json` (added in #240, 2026-10-22): for 221 item template ids, the most of that item one inventory slot holds (the base item rows'
   `StackAndDurability.MaxStackSize`). Only the items that stack are listed. It holds template ids and whole numbers.
+- `internal/catalog/volumes.json` (added in #357, 2026-10-24): for 4,210 item template ids, the volume of one unit (the base item rows' `StaticData.ItemSize`); 1,760 are above 0.
+  It holds template ids and numbers. 103 of the 106 values the Dune Docker console carries for its volume-tracked items are the same numbers.
 - `internal/catalog/customization_unlocks.json` (added in #216, 2026-10-20): for 392 cosmetic item template ids, the customization ids that using the item
   unlocks (`DT_ItemTableCustomizations`, `CustomizationItemStats.UnlockableCustomizations`); 625 entries naming 614 distinct customization ids.
   It holds ids only.
@@ -484,8 +486,8 @@ of the game); they are embedded in the executable and used to size stacks that G
 customization library; the code comments in `internal/catalog/catalog.go` and the pull requests that added them name the game's item
 tables as the source. See `internal/catalog/PROVENANCE.md` for the same facts next to the files.
 
-What the repository does not record, and this notice therefore does not state: the game build the tables were read from, the date they were
-read, the tool or files used to read them, and any licence or terms-of-service position on using them. This project is unofficial and not
+What the repository does not record, and this notice therefore does not state: for `stacks.json` and `customization_unlocks.json` the game build the tables were read from, the date they were
+read, the tool or files used to read them, and for all three any licence or terms-of-service position on using them (`internal/catalog/PROVENANCE.md` has the build and date of `volumes.json`). This project is unofficial and not
 affiliated with or endorsed by Funcom; the game, its item tables and its names belong to their owners, and the files are included only so the
 editor can write values the game itself accepts. If you hold the rights and want either file changed or removed, open an issue on this
 repository.

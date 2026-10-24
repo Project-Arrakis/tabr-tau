@@ -4,12 +4,23 @@
 |---|---|---|---|
 | `items.json` | Template id, in-game name, category, source and required DLC of each item | The item catalog of the Dune Docker console (RedBlink, MIT licence), `runtime/data/admin-items.json`; see `internal/notices/THIRD-PARTY-NOTICES.md` ("Item catalog") for the commit, the blob and the licence text | #69, #122 |
 | `stacks.json` | For 221 item template ids, the most of the item one inventory slot holds (`{"max": {"<template id>": n}}`) | The game's own item tables: the base item rows, `StackAndDurability.MaxStackSize`. Only items that stack are listed | #240, 2026-10-22 |
+| `volumes.json` | For 4,210 item template ids, the volume of one unit (`{"size": {"<template id>": n}}`; 1,760 are above 0, the rest are listed with no volume) | The game's own item tables: the base item rows of the 20 `DT_BaseItems_*` tables, `StaticData.ItemSize` (no row has an `ItemSizeOverride`). 17 ids that two tables list with different sizes (`D_Turret`, `Thumper`, `Stilltent`, `RespawnBeacon`, `D_Totem`, the seismic probes and thumpers, three Halloween 2026 clothing variants) are left out, not guessed | #357, 2026-10-24 |
 | `customization_unlocks.json` | For 392 cosmetic item template ids, the customization ids that using the item unlocks (625 entries, 614 distinct ids) | The game's own item table `DT_ItemTableCustomizations`, `CustomizationItemStats.UnlockableCustomizations` | #216, 2026-10-20 |
 
-`stacks.json` and `customization_unlocks.json` contain only the game's identifiers and integers: no names, text, images or code. They are
-read by `catalog.go` (`MaxStack`, `Unlocks`) and nothing else.
+`stacks.json`, `volumes.json` and `customization_unlocks.json` contain only the game's identifiers and integers: no names, text, images or code. They are
+read by `catalog.go` (`MaxStack`, `Volume`, `Unlocks`) and nothing else.
 
-**Game build.** The installed game's Steam manifest (`appmanifest_1172710.acf`, read on 2026-10-22) names build `20502675`, last updated by
+**How `volumes.json` was checked.** Of the 106 items for which the Dune Docker console's item file (`runtime/data/admin-items.json`) carries a measured unit volume, 103
+have exactly the value the game's table gives (for example Aluminum Ingot 0.7, Copper Ore 0.2, Mouse Corpse 5, fuel canisters 2 to 5). The other three
+(`T2MuaddibComponent`, `T4ShieldWallComponent`, `ExperimentalWindTurbineComponent`) are 1.0 in the console file, which its own change log describes as a placeholder, and 0.1 in
+the game's table, like the other components. The editor uses the game's table. The volume of an inventory is the sum of unit volume times stack size over its rows (a row's own
+`volume_override`, which the game reads per unit, replaces the table value); that the sum equals the number the game shows is checked in the editor's tests against the rule, not
+yet against the game on a live character.
+
+**Game build of `volumes.json`.** The installed game's Steam manifest (`appmanifest_1172710.acf`, read on 2026-10-24) names build `26083551`, last updated on 2026-10-22 13:59
+UTC, with the target build equal to the installed one; the tables were read from that build, with a read-only reader of the game's container files, on 2026-10-24.
+
+**Game build of the other two files.** The installed game's Steam manifest (`appmanifest_1172710.acf`, read on 2026-10-22) names build `20502675`, last updated by
 Steam on 2025-10-23 09:07 UTC, with the target build equal to the installed one. Both files were added after that date (2026-10-20 and
 2026-10-22), and the game had no later update, so they were read from build `20502675`. The tables are read from the installed game's content
 files, read-only; nothing in the game is changed by reading them.
