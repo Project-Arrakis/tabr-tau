@@ -97,10 +97,11 @@ func giveUpToInTx(m *save.Mut, inventoryID int64, template string, qty, quality 
 		for _, r := range rows {
 			have, _ := r["stack_size"].(int64)
 			add := min(size-have, left)
-			if add <= 0 {
+			id, ok := r["id"].(int64)
+			if add <= 0 || !ok {
 				continue
 			}
-			topUps = append(topUps, struct{ id, to int64 }{r["id"].(int64), have + add})
+			topUps = append(topUps, struct{ id, to int64 }{id, have + add})
 			left -= add
 		}
 	}
