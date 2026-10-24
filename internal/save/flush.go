@@ -230,6 +230,9 @@ func (s *Save) parseBackupName(name string) (at int64, auto bool, ok bool) {
 // pruneBackups removes the oldest of the editor's automatic backups beyond keepBackups. Ordered by the time in their names, read as an instant (not the file times, which anything can set, and not the text of the name, whose local time can run backwards), the
 // ones it never removes are the oldest, the first of this session and justTaken, and nothing that is not an automatic backup of this save is looked at.
 func (s *Save) pruneBackups(justTaken string) {
+	if RequirePlainFolder(s.backupDir()) != nil { // never remove files through a link
+		return
+	}
 	ents, _ := os.ReadDir(s.backupDir())
 	type bk struct {
 		path string

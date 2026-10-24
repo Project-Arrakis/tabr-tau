@@ -24,6 +24,9 @@ func (o *Ops) tableInfo(name string) ([]string, []string, error) {
 		return nil, nil, apierr.New(apierr.ErrBadArgument, "invalid table name")
 	}
 	rows, err := o.S.Query(`select name, type from pragma_table_info(?)`, name)
+	if errors.Is(err, save.ErrStopped) { // a read that ran out of time is not a missing table
+		return nil, nil, err
+	}
 	if err != nil || len(rows) == 0 {
 		return nil, nil, apierr.New(apierr.ErrNotFound, "no such table")
 	}
@@ -90,8 +93,15 @@ func (o *Ops) Tables() (any, error) {
 		if !identRe.MatchString(n) { // a save-controlled name is never spliced into SQL text
 			continue
 		}
-		cols, types, _ := o.tableInfo(n)
-		c, _ := o.S.One(`select count(*) c from "` + n + `"`)
+		cols, types, terr := o.tableInfo(n)
+		if errors.Is(terr, save.ErrStopped) {
+			return nil, terr
+		}
+		// Each count has the read deadline, so a table that cannot be counted in time (a hostile file) ends the list with an error instead of holding the save's lock.
+		c, cerr := o.S.One(`select count(*) c from "` + n + `"`)
+		if errors.Is(cerr, save.ErrStopped) {
+			return nil, cerr
+		}
 		out = append(out, map[string]any{"name": n, "rows": c["c"], "columns": cols, "types": types})
 	}
 	return out, nil

@@ -57,3 +57,12 @@ func FailedGameCheckForTests(reason string) (restore func()) {
 	listProcs = func(bool) ([]string, string) { return nil, reason }
 	return func() { listProcs = old }
 }
+
+// DeadlinesForTests sets the time every bounded read may take (the read-only console, Table, Query and One, and the soundness check of a decoded save) to d, so a test can show the
+// deadline is applied without waiting for the real one: a negative d is a deadline that has already passed. Test code calls it; production code never does (the guard test fails if
+// it does). It returns a function that puts the real values back.
+func DeadlinesForTests(d time.Duration) (restore func()) {
+	oldR, oldI := ReadTimeout, inspectTimeout
+	ReadTimeout, inspectTimeout = d, d
+	return func() { ReadTimeout, inspectTimeout = oldR, oldI }
+}

@@ -17,7 +17,7 @@ func TestTestHooksAreNotCalledByProductionCode(t *testing.T) {
 		filepath.Join("internal", "testsave", "testsave.go"):        true, // the shared fixture package, imported by tests only
 		filepath.Join("internal", "save", "testhook_guard_test.go"): true,
 	}
-	hooks := []string{"NoGameRunningForTests(", "ActiveSessionForTests(", "UntrustedLocationForTests(", "CommitForTests(", "FailedGameCheckForTests("}
+	hooks := []string{"NoGameRunningForTests(", "ActiveSessionForTests(", "UntrustedLocationForTests(", "CommitForTests(", "FailedGameCheckForTests(", "DeadlinesForTests("}
 	checked := 0
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {

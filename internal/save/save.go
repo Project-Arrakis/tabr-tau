@@ -195,8 +195,23 @@ func fingerprint(db *sql.DB) string {
 	return strings.Join(bad, "; ")
 }
 
-// ReadTimeout bounds every read-only console query.
+// ReadTimeout bounds every read the editor makes on the working copy: the read-only console, and Table, Query and One (which the tabs, the Tables view and the exports use).
 var ReadTimeout = 5 * time.Second
+
+// inspectTimeout bounds the soundness check of a decoded save (inspect: integrity_check and the patch list). It is longer than ReadTimeout because integrity_check reads
+// every page of a large save; it exists so a file built to make that check run for ever cannot hold the editor.
+var inspectTimeout = 60 * time.Second
+
+// ErrStopped is wrapped by the error of a read that was stopped by its deadline.
+var ErrStopped = errors.New("stopped by its time limit")
+
+// stopped turns the error of a query that ran into its deadline into one that says so (and wraps ErrStopped); any other error is returned as it is.
+func stopped(ctx context.Context, d time.Duration, err error) error {
+	if err != nil && ctx.Err() != nil {
+		return fmt.Errorf("query stopped after %s: %w (%v)", d, ErrStopped, err)
+	}
+	return err
+}
 
 // Open decodes path (a save file, or the folder containing game.db). It removes nothing next to the save: the temp files a crashed run left are removed by LockSave, once this
 // editor holds the lock, so a second editor started on the same save cannot delete the temp file of the first while it is writing.
@@ -443,21 +458,16 @@ func (s *Save) Table(q string, args ...any) ([]string, [][]any, error) {
 	defer s.mu.Unlock()
 	// Reads use the read-only connection, so a statement that writes cannot slip in through Query/Table/One and
 	// bypass Mutate (it fails with "attempt to write a readonly database").
-	cols, rows, err := queryTable(s.rdb, q, args...)
+	// A statement that never ends (a recursive query, say) is interrupted after ReadTimeout: this holds the save's lock, and nothing else could be read or edited meanwhile.
+	ctx, cancel := context.WithTimeout(context.Background(), ReadTimeout)
+	defer cancel()
+	cols, rows, _, err := queryTableDigest(ctx, s.rdb, 0, q, args...)
+	err = stopped(ctx, ReadTimeout, err)
 	noteSQLError(q, err)
 	return cols, rows, err
 }
 
-type querier interface {
-	QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error)
-	Query(q string, args ...any) (*sql.Rows, error)
-}
-
-func queryTable(db querier, q string, args ...any) ([]string, [][]any, error) {
-	return queryTableCtx(context.Background(), db, 0, q, args...)
-}
-
-// queryTableCtx is queryTable with a context and a row cap (limit <= 0 means no cap). Reaching the cap stops
+// queryTableCtx runs a query with a context and a row cap (limit <= 0 means no cap). Reaching the cap stops
 // reading and returns the rows so far without an error.
 func queryTableCtx(ctx context.Context, db interface {
 	QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error)
@@ -557,10 +567,7 @@ func (s *Save) ReadOnlyTable(q string, limit int) ([]string, [][]any, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), ReadTimeout)
 	defer cancel()
 	cols, rows, err := queryTableCtx(ctx, s.rdb, limit, q)
-	if err != nil && ctx.Err() != nil {
-		err = fmt.Errorf("query stopped after %s: %w", ReadTimeout, err)
-	}
-	return cols, rows, err
+	return cols, rows, stopped(ctx, ReadTimeout, err)
 }
 
 // Discard throws away unsaved edits. It waits for an automatic write that is running (flushMu), so the two never interleave. Throwing a queue away also ends the notice of
@@ -613,6 +620,9 @@ func (s *Save) backup() (string, error) {
 // backupNamed is backup with a tag in the file's name ("-auto" for the ones an automatic write takes: only those are ever removed by the pruning). It also returns the hash of
 // the bytes it copied.
 func (s *Save) backupNamed(tag string) (string, [32]byte, error) {
+	if err := RequirePlainFolder(s.backupDir()); err != nil {
+		return "", [32]byte{}, apierr.Wrap(apierr.ErrWriteFailed, err.Error()+"; nothing was changed", err)
+	}
 	if err := os.MkdirAll(s.backupDir(), 0o700); err != nil {
 		return "", [32]byte{}, err
 	}
@@ -778,6 +788,9 @@ func (s *Save) Restore(name string) error {
 		return apierr.New(apierr.ErrQueued, "changes are still queued; wait until they are written, or discard them, first (restoring a backup would lose them)")
 	}
 	if err := s.requirePlainFile(); err != nil {
+		return err
+	}
+	if err := RequirePlainFolder(s.backupDir()); err != nil {
 		return err
 	}
 	bp := filepath.Join(s.backupDir(), name)
