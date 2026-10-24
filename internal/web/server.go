@@ -741,6 +741,7 @@ func (s *Server) routes() {
 	s.post("/api/vendors/reset", o.ResetVendors)
 	s.get("/api/landsraad", func(r *http.Request) (any, error) { return o.Landsraad() })
 	s.post("/api/landsraad/progress", o.SetTaskProgress)
+	s.post("/api/landsraad/mine", o.FillMyContribution)
 	s.post("/api/landsraad/complete", o.CompleteTask)
 	s.post("/api/landsraad/decree", o.SetDecree)
 	s.post("/api/landsraad/term", o.SetTerm)

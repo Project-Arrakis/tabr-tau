@@ -8,21 +8,24 @@ afterEach(closeAll);
 const landsraad = () => ({
   term: { term_id: 7, start_time: 1, end_time: 2, reigning_faction_id: 1, active_decree_id: 1, elected_decree_id: 1 },
   factions: [{ id: 1, name: 'Atreides' }, { id: 2, name: 'Harkonnen' }],
+  character: { player_id: 1, name: 'Tester', faction_id: 1 },
   decrees: [{ id: 1, decree_name: 'Decree A', disabled: 0 }],
   rotation: [],
   tasks: [{
     id: 900, board_index: 20, house_name: 'DA_HouseVarota', goal_amount: 4000, completed: 0,
     contributions: [{ faction_id: 1, amount: 1000 }],
-    player_contributions: [{ player_id: 5, faction_id: 1, amount: 4000 }, { player_id: 6, faction_id: 1, amount: 6500 }],
-    rewards: [1200, 2400, 3600, 4800, 6000].map((threshold) => ({ threshold, amount: 1, template_id: 'Item.A' })),
+    player_contributions: [{ player_id: 5, faction_id: 1, amount: 4000, mine: false }, { player_id: 1, faction_id: 1, amount: 6500, mine: true }],
+    my_contribution: 6500, my_recorded: true,
+    rewards: [1200, 2400, 3600, 4800, 6000].map((threshold) => ({ threshold, amount: 1, template_id: 'Item.A', reached: true, delivered: threshold <= 2400 })),
   }, {
     id: 901, board_index: 21, house_name: 'DA_HouseKenola', goal_amount: 4000, completed: 0, contributions: [], player_contributions: [],
-    rewards: [{ threshold: 1200, amount: 1, template_id: 'Item.A' }],
+    my_contribution: 0, my_recorded: false,
+    rewards: [{ threshold: 1200, amount: 1, template_id: 'Item.A', reached: false, delivered: false }],
   }],
 });
 
 async function openLandsraad() {
-  const ui = await boot({ get: { '/api/landsraad': landsraad() }, post: { '/api/landsraad/progress': { ok: true, outcome: 'written' } } });
+  const ui = await boot({ get: { '/api/landsraad': landsraad() }, post: { '/api/landsraad/progress': { ok: true, outcome: 'written' }, '/api/landsraad/mine': { ok: true, before: 0, after: 1200, changed: true, faction_changed: false, outcome: 'written' } } });
   ui.click('[data-tab="landsraad"]'); await ui.settle();
   return ui;
 }
@@ -41,16 +44,44 @@ test('the Landsraad tab shows the house goal and the reward tiers as two separat
   for (const n of ['1,200', '2,400', '3,600', '4,800', '6,000']) assert.ok(tiers.includes('At ' + n + ' contributed'), tiers);
   const note = ui.doc.querySelector('#lscales').textContent;
   assert.ok(/can go above the house goal/.test(note), note);
-  assert.ok(/not read from the save/.test(note), 'what is unknown is said: ' + note);
+  assert.ok(/Whether the game hands out a tier when it loads the save after a fill is not known/.test(note), 'what is unknown is said: ' + note);
+  assert.ok(/row the save keeps under your character's own id/.test(note), note);
 });
 
-test('a recorded personal contribution above the goal is shown whole, not cut at the goal; none recorded says so', async () => {
+test('your contribution is the character row, shown whole above the goal; the rows of the simulated players are told apart; none recorded says so', async () => {
   const ui = await openLandsraad();
+  const heads = [...ui.doc.querySelectorAll('#main th')].map((t) => t.textContent.trim());
+  assert.ok(heads.includes('Your contribution'), heads.join(' | '));
   const a = ui.doc.querySelector('[data-act="tfill"][data-id="900"]').closest('tr').textContent;
-  assert.ok(a.includes('2 rows, largest 6,500'), a);
-  assert.ok(!a.includes('largest 4,000'), 'not clamped to the goal');
+  assert.ok(a.includes('6,500') && a.includes('5 of 5 tiers reached'), a);
+  assert.ok(a.includes('other players: 1 row, largest 4,000'), 'the other rows are not mixed into the character row: ' + a);
   const b = ui.doc.querySelector('[data-act="tfill"][data-id="901"]').closest('tr').textContent;
-  assert.ok(b.includes('none recorded'), b);
+  assert.ok(b.includes('none recorded') && b.includes('0 of 1 tier reached'), b);
+});
+
+test('each tier says reached or not and delivered or not, and only a tier not yet reached has a Fill button', async () => {
+  const ui = await openLandsraad();
+  const lines = [...ui.doc.querySelector('[data-act="tfill"][data-id="900"]').closest('tr').querySelectorAll('details > div')].map((d) => d.textContent);
+  assert.ok(lines[0].includes('reached, recorded as delivered'), lines[0]);
+  assert.ok(lines[4].includes('reached, no delivery recorded in this term'), lines[4]);
+  assert.equal(ui.doc.querySelectorAll('[data-act="mfill"][data-id="900"]').length, 0, 'every tier of 900 is reached');
+  const one = ui.doc.querySelectorAll('[data-act="mfill"][data-id="901"]');
+  assert.equal(one.length, 1);
+  assert.ok(ui.doc.querySelector('[data-act="tfill"][data-id="901"]').closest('tr').textContent.includes('not reached'));
+  assert.ok(/reward itself is not written/.test(one[0].title), one[0].title);
+});
+
+test('Fill to this tier sends the task and the tier, and the faction goal only when the box is ticked', async () => {
+  const ui = await openLandsraad();
+  ui.click('[data-act="mfill"][data-id="901"]'); await ui.settle();
+  let sent = ui.posted.filter((p) => p.path === '/api/landsraad/mine');
+  assert.equal(sent.length, 1);
+  assert.deepEqual(sent[0].body, { task_id: 901, tier: 1200, with_faction: false });
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Your contribution 0 → 1,200'), ui.doc.querySelector('#toast').textContent);
+  ui.doc.querySelector('#lwf').checked = true;
+  ui.click('[data-act="mfill"][data-id="901"]'); await ui.settle();
+  sent = ui.posted.filter((p) => p.path === '/api/landsraad/mine');
+  assert.equal(sent[1].body.with_faction, true);
 });
 
 test('the fill button says it fills the faction goal and sends the goal, nothing about a personal contribution', async () => {
