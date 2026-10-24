@@ -93,3 +93,19 @@ test('with nothing wrong with the write log the banner stays hidden', async () =
   assert.equal(b.gw.className, 'hide');
   b.close();
 });
+
+test('a table defined differently from the game is a notice at open, not a block', async () => {
+  const b = await banner({ schemaNote: 'This save\'s tables are not all defined as in the game this editor was built against (defined differently: items). You can keep editing.' });
+  assert.match(b.text, /This save is not quite the one this editor knows\./);
+  assert.match(b.text, /defined differently: items/);
+  assert.match(b.text, /You can keep editing/);
+  assert.equal(b.gw.className.includes('warn'), false, 'it is not a warning that stops anything');
+  assert.equal(b.gw.className.includes('hide'), false);
+  b.close();
+});
+
+test('a save whose tables are as expected shows no such notice', async () => {
+  const b = await banner({ schemaNote: '' });
+  assert.ok(!/not quite the one/.test(b.text));
+  b.close();
+});

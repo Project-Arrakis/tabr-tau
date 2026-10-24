@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -113,32 +114,29 @@ func TestReadConsoleSeesCommittedWrites(t *testing.T) {
 	}
 }
 
+// QA-7 of the 2026-10-07 audit: the bounds are told by what the code does, not by how long it took. The row cap is the number of rows that come back; the time limit is the
+// error that says the query was stopped (save.ErrStopped). The limit is set through the hook, short for the query that never ends and long for the one that must finish, so a
+// slow machine cannot turn a pass into a failure, and a regression that lets the query run on is a failure with the error missing instead of a test that waits.
 func TestReadConsoleBoundsRowsAndTime(t *testing.T) {
 	o := newPlayerOps(t)
-	old := save.ReadTimeout
-	save.ReadTimeout = 700 * time.Millisecond
-	t.Cleanup(func() { save.ReadTimeout = old })
 
-	start := time.Now()
+	restore := save.DeadlinesForTests(time.Minute)
 	r, err := o.SQL("with recursive c(x) as (select 1 union all select x+1 from c) select x from c")
+	restore()
 	if err != nil {
 		t.Fatalf("an unbounded result must be truncated, not fail: %v", err)
 	}
 	if n := len(r.(map[string]any)["rows"].([][]any)); n != 1000 {
 		t.Fatalf("rows = %d, want the 1000-row cap", n)
 	}
-	if time.Since(start) > 3*time.Second {
-		t.Fatalf("row-cap path took %v", time.Since(start))
-	}
 
-	start = time.Now()
+	defer save.DeadlinesForTests(300 * time.Millisecond)()
 	_, err = o.SQL("with recursive c(x) as (select 1 union all select x+1 from c where x<1000000000000) select count(*) from c")
-	if err == nil {
-		t.Fatal("a runaway query must be stopped")
+	if !errors.Is(err, save.ErrStopped) {
+		t.Fatalf("a runaway query must be stopped by the time limit, got: %v", err)
 	}
-	if time.Since(start) > 4*time.Second {
-		t.Fatalf("timeout not enforced: %v", time.Since(start))
-	}
+	restore = save.DeadlinesForTests(time.Minute)
+	defer restore()
 	if _, err := o.SQL("select 1"); err != nil {
 		t.Fatalf("the console must keep working after a timeout: %v", err)
 	}
