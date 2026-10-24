@@ -29,15 +29,16 @@ type Row = map[string]any
 type Save struct {
 	Path string
 
-	mu       sync.Mutex
-	work     string // decoded working copy on disk
-	db       *sql.DB
-	rdb      *sql.DB        // separate read-only connection for the SQL console
-	blocked  string         // why writes are refused (unknown database objects), or ""
-	fkBase   map[string]int // dangling references present before the current edit (see Mutate)
-	diskHash [32]byte
-	diskSize int64 // size and modification time of the file when diskHash was taken: a cheap first test for "changed on disk"
-	diskMod  time.Time
+	mu         sync.Mutex
+	work       string // decoded working copy on disk
+	db         *sql.DB
+	rdb        *sql.DB        // separate read-only connection for the SQL console
+	blocked    string         // why writes are refused (unknown database objects), or ""
+	schemaDiff string         // a warning that some table is not defined as the editor expects (DBA-16); never blocks
+	fkBase     map[string]int // dangling references present before the current edit (see Mutate)
+	diskHash   [32]byte
+	diskSize   int64 // size and modification time of the file when diskHash was taken: a cheap first test for "changed on disk"
+	diskMod    time.Time
 
 	// the size and modification time of a file already found to differ from the one loaded: the status poll asks again every few seconds, and reading and hashing a large
 	// save each time made the answer slow, which is when a refresh decided from it could be out of date
@@ -268,6 +269,7 @@ func (s *Save) load() error {
 	rdb.SetMaxOpenConns(1)
 	rdb.SetConnMaxLifetime(0)
 	blocked := fingerprint(db)
+	note := schemaNote(db)
 	base, fkErr := fkCounts(db)
 	if fkErr != nil && blocked == "" { // never hide a more specific reason (unknown database objects)
 		blocked = "the save's foreign-key state could not be read: " + fkErr.Error()
@@ -281,7 +283,7 @@ func (s *Save) load() error {
 		os.Remove(s.work)
 	}
 	s.work, s.db, s.rdb = work, db, rdb
-	s.blocked, s.fkBase = blocked, base
+	s.blocked, s.fkBase, s.schemaDiff = blocked, base, note
 	s.diskHash = hashOf(blob)
 	s.diskSize, s.diskMod = 0, time.Time{}
 	s.changedSize, s.changedMod = 0, time.Time{}
