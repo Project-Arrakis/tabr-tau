@@ -80,8 +80,13 @@ func (o *Ops) LandClaims() (any, error) {
 		}
 		t["name"] = shortClass(t["class"])
 		delete(t, "class")
-		pc, err := o.pieceCells(t["totem_id"].(int64))
-		if err == nil {
+		totemID, isNum := t["totem_id"].(int64)
+		var pc map[claimCell]int64
+		var perr error = errors.New("the totem has no id")
+		if isNum {
+			pc, perr = o.pieceCells(totemID)
+		}
+		if perr == nil {
 			var inside int64
 			for c, n := range pc {
 				if have[c] {
@@ -172,7 +177,10 @@ func (o *Ops) growClaim(id int64, desc func(added int, level int64) string, plan
 		if t == nil {
 			return apierr.New(apierr.ErrNotFound, "land claim (totem) not found")
 		}
-		curLevel := t["level"].(int64)
+		curLevel, isNum := t["level"].(int64)
+		if !isNum {
+			return errors.New("the land claim's level in this save is not a number")
+		}
 		rows, err := m.Query(`select grid_location_x x, grid_location_y y from landclaim_segments where totem_id=?`, id)
 		if err != nil {
 			return err
