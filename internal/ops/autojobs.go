@@ -91,14 +91,14 @@ func AutoJobs() []AutoJob {
 		{ID: "fill-hydration", Label: "Fill your water", Key: "autoFillHydration", Default: true, Ready: true, noun: "your water",
 			Desc: "Fills the character's own water to the maximum.",
 			run: func(m *save.Mut, c player) (string, string, error) {
-				before, err := fillHydrationTx(m, c.Pawn, true)
+				w, err := fillHydrationTx(m, c.Pawn, true)
 				if errors.Is(err, errNoHydration) {
 					return "", "your water was not filled: this save has no hydration record for the character", nil
 				}
-				if err != nil || before >= maxHydration {
+				if err != nil || w.Before >= maxHydration {
 					return "", "", err
 				}
-				return "your water filled", "", nil
+				return "your water filled (" + w.describe() + ")", "", nil
 			}},
 		{ID: "fill-blood", Label: "Fill blood sacks", Key: "autoFillBloodSacks", Default: true, Ready: true, noun: "blood sacks",
 			Desc: "Fills the blood sacks you carry.",

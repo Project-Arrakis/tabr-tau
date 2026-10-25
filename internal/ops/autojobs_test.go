@@ -360,3 +360,32 @@ func TestAutoPassClaimsNothingWhenNoRowChanged(t *testing.T) {
 		t.Fatalf("%+v %v", p, err)
 	}
 }
+
+// The automatic pass keeps the type of the stored water like the button does: a number stays a number (the game's own shape in current
+// saves), text stays text, and the summary (and so the write log) says which.
+func TestAutoPassKeepsTheTypeOfTheHydration(t *testing.T) {
+	for _, tc := range []struct {
+		name, rec, jsonType string
+		want                any
+	}{
+		{"number", `{"BaseValue":59.289321,"CurrentValue":59.289321}`, "real", 100.0},
+		{"text", `{"BaseValue":"59.289321","CurrentValue":"59.289321"}`, "text", "100.000000"},
+	} {
+		o := &Ops{S: testsave.PlayerWithSQL(t, `update actors set gas_attributes=jsonb('{"DuneHydrationAttributeSet":{"CurrentHydration":`+tc.rec+`,"ClothingCapturedWater":{"BaseValue":0.0,"CurrentValue":0.0}}}') where id=2;`)}
+		p, err := o.RunAutoPass(onlyJobs("fill-hydration"))
+		if err != nil || !hasDone(p, "fill-hydration") {
+			t.Fatalf("%s: %+v %v", tc.name, p, err)
+		}
+		row := mustOne(t, o, `select json_type(gas_attributes,'$.DuneHydrationAttributeSet.CurrentHydration.BaseValue') bt,
+			json_type(gas_attributes,'$.DuneHydrationAttributeSet.CurrentHydration.CurrentValue') ct,
+			json_extract(gas_attributes,'$.DuneHydrationAttributeSet.CurrentHydration.BaseValue') b,
+			json_extract(gas_attributes,'$.DuneHydrationAttributeSet.CurrentHydration.CurrentValue') c,
+			json_type(gas_attributes,'$.DuneHydrationAttributeSet.ClothingCapturedWater.CurrentValue') wt from actors where id=2`)
+		if row["bt"] != tc.jsonType || row["ct"] != tc.jsonType || row["b"] != tc.want || row["c"] != tc.want || row["wt"] != "real" {
+			t.Errorf("%s: %v", tc.name, row)
+		}
+		if !strings.Contains(p.Summary(), "your water filled (kept as "+tc.name+")") {
+			t.Errorf("%s: the summary does not say the type: %q", tc.name, p.Summary())
+		}
+	}
+}
