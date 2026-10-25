@@ -2,9 +2,10 @@
 // It is data only: it never imports the save, so it can be used by any layer.
 //
 // The names come from the item catalog of the Dune Awakening Docker console (runtime/data/admin-items.json, MIT
-// licence, copyright RedBlink; synced 2026-10-09 with blob 1bde840c). Only the id, the name, the category, the source and the required DLC are kept, not the
-// stack sizes or volumes (those come from the game's own tables: stacks.json and volumes.json). The licence text is reproduced in internal/notices/THIRD-PARTY-NOTICES.md. Seven ids appear
-// twice in the source (the same item listed under two categories); the first entry wins.
+// licence, copyright RedBlink; refreshed 2026-10-25 from fork commit ca3f4cd7, blob 2746a605, plus the one item of upstream v1.4.52). Only the id, the name, the category, the source, the
+// required DLC (name and Steam id) and the group of a resource are kept, not the stack sizes or volumes (those come from the game's own tables: stacks.json and volumes.json). The licence text is
+// reproduced in internal/notices/THIRD-PARTY-NOTICES.md. Seven ids appear twice in the source (the same item listed under two categories); the rule is that the first entry wins,
+// and in the console's file the placeable comes before the weapon.
 //
 // stacks.json holds the most of an item one inventory slot can hold, as the game's own item tables list it (the base item rows, StackAndDurability.MaxStackSize). Only
 // the items that stack are listed; every other item the catalog knows holds one.
@@ -39,13 +40,16 @@ var rawVolumes []byte
 var rawUnlocks []byte
 
 // Entry is one item: its template id, in-game name and category, where the console files it (Source, for example "BuildingSets" or
-// "Customizations") and the DLC it needs, if any.
+// "Customizations"), the DLC it needs, if any (its name, and the Steam id of the DLC for the eight Filmic Archive items), and Group:
+// "component", "refined_resource" or "raw_resource" for the 99 resources the console groups, empty for every other item.
 type Entry struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Category    string `json:"category"`
-	Source      string `json:"source,omitempty"`
-	RequiredDLC string `json:"requiredDlc,omitempty"`
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	Category         string `json:"category"`
+	Source           string `json:"source,omitempty"`
+	RequiredDLC      string `json:"requiredDlc,omitempty"`
+	RequiredSteamDLC string `json:"requiredSteamDlc,omitempty"`
+	Group            string `json:"group,omitempty"`
 }
 
 var (
@@ -115,6 +119,9 @@ func Name(id string) (string, bool) {
 	e, ok := byID[id]
 	return e.Name, ok
 }
+
+// Group returns the console's group of a resource ("component", "refined_resource" or "raw_resource"), or "" when the item has none or the id is not in the catalog.
+func Group(id string) string { return byID[id].Group }
 
 // Category returns the category of a template id ("clothing", "weapons", ...), or "" when the id is not in the catalog.
 func Category(id string) string { return byID[id].Category }

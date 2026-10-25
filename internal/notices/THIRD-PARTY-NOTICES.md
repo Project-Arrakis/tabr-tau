@@ -396,9 +396,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Item catalog: dune-awakening-selfhost-docker (RedBlink)
 
-`internal/catalog/items.json` holds the template id, in-game name and category of each item, taken from
+`internal/catalog/items.json` holds the template id, in-game name, category, source, required DLC and resource group of each item, taken from
 `runtime/data/admin-items.json` of https://github.com/Red-Blink/dune-awakening-selfhost-docker (first imported at commit
-db5d7f40, synced on 2026-10-09 with git blob 1bde840c, which adds each item's source and required DLC). That project is MIT-licensed; its licence is reproduced here as it requires. The game's item names
+db5d7f40, synced on 2026-10-09 with git blob 1bde840c, which adds each item's source and required DLC, and refreshed on 2026-10-25 from commit ca3f4cd7, git blob 2746a605, which adds the Steam id of
+the required DLC and the group of a resource; one item, `MTX_IxianTotem_Patent`, is from the same project's release v1.4.52, commit c685d266). That project is MIT-licensed; its licence is reproduced here as it requires. The game's item names
 themselves belong to their owners (Funcom); this project is unofficial and not affiliated with or endorsed by Funcom.
 
 ```text
