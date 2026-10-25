@@ -198,3 +198,29 @@ func TestAutoPassWritesNothingDuringASinglePlayerSession(t *testing.T) {
 		t.Fatal("the pass touched the save during a session")
 	}
 }
+
+// A save that holds the water as numbers (the game's own shape) is filled as a number by the pass at launch, and the log line says so.
+func TestAutoPassFillsNumericHydrationAsANumber(t *testing.T) {
+	sql := autoPassSQL + `update actors set gas_attributes=jsonb('{"DuneHydrationAttributeSet":{"CurrentHydration":{"BaseValue":59.289321,"CurrentValue":59.289321}}}') where id=2;`
+	s, dir := autoServer(t, sql, settings.Settings{AutoRefillOnOpen: true})
+	s.RunStartupTasks()
+	note, warn := s.takeStartup()
+	if warn || !strings.Contains(note, "your water filled (kept as number)") {
+		t.Fatalf("note %q warn=%v", note, warn)
+	}
+	if got := autoPassFile(t, s.Save.Path); got["hydration"] != 100.0 {
+		t.Fatalf("the written file holds %#v, want the number 100.0", got["hydration"])
+	}
+	chk, err := save.Open(s.Save.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer chk.Close()
+	r, err := chk.One(`select json_type(gas_attributes,'$.DuneHydrationAttributeSet.CurrentHydration.BaseValue') b, json_type(gas_attributes,'$.DuneHydrationAttributeSet.CurrentHydration.CurrentValue') c from actors where id=2`)
+	if err != nil || r["b"] != "real" || r["c"] != "real" {
+		t.Fatalf("%v %v", r, err)
+	}
+	if l := strings.Join(logLines(t, dir), " "); !strings.Contains(l, "kept as number") {
+		t.Fatalf("the write log does not say the type: %s", l)
+	}
+}
