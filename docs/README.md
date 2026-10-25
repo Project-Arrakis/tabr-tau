@@ -15,6 +15,7 @@ of the repository. Nothing in `docs/` contains account or platform IDs.
 | [`design/2026-10-08-windows-only-and-go.md`](design/2026-10-08-windows-only-and-go.md) | Why the app is Windows-only and written in Go |
 | [`design/2026-10-08-feature-comparison-selfhost-console.md`](design/2026-10-08-feature-comparison-selfhost-console.md) | The console's features compared with this app's |
 | [`design/2026-10-08-player-tabs-spec.md`](design/2026-10-08-player-tabs-spec.md) | The Player tabs mirrored from the console |
+| [`design/2026-10-24-player-tabs-status.md`](design/2026-10-24-player-tabs-status.md) | Which of the console's 12 Player tabs the save supports, what is built and what is not, and why |
 | [`design/feature-inventory.md`](design/feature-inventory.md) | Every console feature rated Done, Gap or Out of scope (regenerate with `tools/featureinv.py`) |
 | [`audit/2026-09-30-L1-findings-register.md`](audit/2026-09-30-L1-findings-register.md) | Layer 1 (design) eight-hat audit: 22 merged findings, STRIDE table |
 | [`audit/2026-10-07-L2-findings-register.md`](audit/2026-10-07-L2-findings-register.md) | Layer 2 audit of the write pipeline (S0, S1 slices 1-2) |
