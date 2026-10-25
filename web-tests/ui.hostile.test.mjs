@@ -633,7 +633,6 @@ test('Refill Literjons reports what it filled and shows a container it could not
   const hostile = '<img src=x onerror=1> x1';
   const ui = await boot({ post: { '/api/player/refill': { ok: true, filled: 3, alreadyFull: 1, skippedUnknown: [hostile] } } });
   ui.click('[data-tab="player"]'); await ui.settle();
-  ui.click('[data-sub="char:inventory"]'); await ui.settle();
   ui.click('[data-act="refill"]'); await ui.settle();
   const toast = ui.doc.querySelector('#toast');
   assert.ok(toast.textContent.includes('Filled 3 Literjons (1 already full)'), toast.textContent);
@@ -648,7 +647,6 @@ test('Fill blood sacks shows how many are not full, posts once and reports what 
   const ui = await boot({ get: { '/api/player/blood-sacks': { total: 4, notFull: 3, unknown: 2, holdingOther: 0 } },
     post: { '/api/player/fill-blood-sacks': { ok: true, filled: 3, byTemplate: { Bloodsack_01: 1, Bloodsack_Unique_Durable_06: 2 }, alreadyFull: 1, holdingOther: 0, unknown: 2, skippedUnknown: ['Bloodsack_02 x1', hostile + ' x1'] } } });
   ui.click('[data-tab="player"]'); await ui.settle();
-  ui.click('[data-sub="char:inventory"]'); await ui.settle();
   const note = ui.doc.querySelector('#bloodnote');
   assert.ok(note.textContent.includes('3 of 4 blood sacks are not full'), note.textContent);
   assert.ok(note.textContent.includes('2 blood sacks of an unknown kind will be left alone'), note.textContent);
@@ -673,7 +671,6 @@ test('Fill blood sacks is switched off when every sack is full, and says so when
   const ui = await boot({ get: { '/api/player/blood-sacks': { total: 2, notFull: 0, unknown: 1, holdingOther: 0 } },
     post: { '/api/player/fill-blood-sacks': { ok: true, filled: 0, byTemplate: {}, alreadyFull: 2, holdingOther: 0, unknown: 1, skippedUnknown: ['Bloodsack_02 x1'] } } });
   ui.click('[data-tab="player"]'); await ui.settle();
-  ui.click('[data-sub="char:inventory"]'); await ui.settle();
   assert.equal(ui.doc.querySelector('[data-act="fillBlood"]').disabled, true);
   assert.ok(ui.doc.querySelector('#bloodnote').textContent.includes('0 of 2 blood sacks are not full'));
   // a stale page can still send it; the answer is plain
@@ -687,7 +684,6 @@ test('Fill blood sacks is switched off when every sack is full, and says so when
 test('Fill blood sacks still works when the count cannot be read, and a refusal is shown', async () => {
   const ui = await boot({ get: { '/api/player/blood-sacks': { __fail: 'no count', __status: 500 } }, post: { '/api/player/fill-blood-sacks': { __fail: 'The file changed on disk', __code: 'conflict', __status: 409 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
-  ui.click('[data-sub="char:inventory"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#bloodnote').textContent.includes('could not be counted'));
   assert.equal(ui.doc.querySelector('[data-act="fillBlood"]').disabled, false);
   ui.click('[data-act="fillBlood"]'); await ui.settle();
@@ -1401,7 +1397,6 @@ test('Database > Tables: a cell edit sends the rowid for a table with one and th
 test('there is no Give water button: Fill hydration and Refill Literjons are what fill water (#369)', async () => {
   const ui = await boot({});
   ui.click('[data-tab="player"]'); await ui.settle();
-  ui.click('[data-sub="char:inventory"]'); await ui.settle();
   assert.equal(ui.dom.window.document.querySelector('[data-act="giveWater"]'), null, 'the Give water button is gone');
   assert.ok(ui.dom.window.document.querySelector('[data-act="fillWater"]'), 'Fill hydration stays');
   assert.ok(ui.dom.window.document.querySelector('[data-act="refill"]'), 'Refill Literjons stays');

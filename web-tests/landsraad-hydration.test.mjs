@@ -99,7 +99,6 @@ test('the fill button says it fills the faction goal and sends the goal, nothing
 async function fillHydration(post) {
   const ui = await boot({ post: { '/api/player/hydration': post } });
   ui.click('[data-tab="player"]'); await ui.settle();
-  ui.click('[data-sub="char:inventory"]'); await ui.settle();
   ui.click('[data-act="fillWater"]'); await ui.settle();
   return ui;
 }

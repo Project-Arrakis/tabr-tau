@@ -1,4 +1,4 @@
-// Fill all liquids (#349): the card under Blood sacks on Player > Character > Inventory shows what is not full, has the "also refuel my vehicles" box (on by default), posts one
+// Fill all liquids (#349): the Fill card on Player > Character shows (moved from Inventory, #415) what is not full, has the "also refuel my vehicles" box (on by default), posts one
 // request with the box's value, remembers the box after the redraw, and says what each part did.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -6,21 +6,19 @@ import { boot, closeAll } from './boot.mjs';
 
 afterEach(closeAll);
 
-const INV = { items: [], inventories: [{ id: 1, inventory_type: 0, max_item_count: 5, max_item_volume: 1000 }], templates: [] };
 const STATUS = { water: { total: 3, notFull: 2, unknown: 0 }, bloodSacks: { total: 4, notFull: 1, unknown: 1, holdingOther: 0 }, vehicles: { total: 5, notFull: 3, unknown: 0, noFuelRecord: 0 } };
 const DONE = { ok: true, vehiclesIncluded: true, water: { ok: true, filled: 2, alreadyFull: 1, skippedUnknown: [] }, bloodSacks: { ok: true, filled: 1, byTemplate: { Bloodsack_01: 1 }, alreadyFull: 0, unknown: 0, skippedUnknown: [] }, vehicles: { ok: true, filled: 3, byClass: {}, alreadyFull: 2, total: 5, unknown: 0, skippedUnknown: [] }, outcome: 'written' };
 const posts = (ui, p) => ui.posted.filter((x) => x.path === p);
-const boot_ = (get, post) => boot({ get: { '/api/player/inventory': INV, ...get }, post });
-async function openInventory(ui) {
+const boot_ = (get, post) => boot({ get, post });
+async function openInventory(ui) { // the Character tab (Overview) is what Player shows first
   ui.click('[data-tab="player"]'); await ui.settle();
-  ui.click('[data-sub="char:inventory"]'); await ui.settle();
 }
 
 test('Fill all liquids: the count, the box on by default, one request with the box, and a toast that names each part', async () => {
   const ui = await boot_({ '/api/player/liquids': STATUS }, { '/api/player/fill-all-liquids': DONE });
   await openInventory(ui);
   const btn = ui.doc.querySelector('[data-act="fillLiquids"]');
-  assert.ok(btn, 'the Inventory tab has the button');
+  assert.ok(btn, 'the Character tab has the button');
   assert.equal(btn.textContent.trim(), 'Fill all liquids');
   assert.equal(ui.doc.querySelectorAll('[data-act="fillLiquids"]').length, 1);
   const box = ui.doc.querySelector('#liqVeh');
