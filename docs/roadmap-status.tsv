@@ -1,0 +1,15 @@
+# number<TAB>status<TAB>reason. Read by scripts/roadmap-gen.sh. Status is free text; reason is shown after the tag (parked items say why).
+409	waiting on the operator's in-game check	Waiting on the operator's in-game test.
+402	
+404	
+403	built, waiting on the operator's in-game check	The read-only part is built.
+401	needs the game	Gated on the Duplicate vehicle in-game test (#398).
+67	waiting on the operator's in-game check	
+56	blocked on a save	Needs a save with a wrecked vehicle.
+48	
+96	
+61	
+111	blocked on a save	No save has blueprints.
+110	parked	Deferred until the owner reaches the Deep Desert.
+101	parked	Deferred; no work planned yet.
+221	parked	Deferred; no work planned yet.
