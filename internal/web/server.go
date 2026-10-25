@@ -727,6 +727,7 @@ func (s *Server) routes() {
 	s.post("/api/player/skills/reset", o.ResetSkills)
 	s.get("/api/player/research", func(r *http.Request) (any, error) { return o.Research() })
 	s.post("/api/player/research/unlock", o.UnlockResearch)
+	s.post("/api/player/research/reset", o.ResetResearch)
 	s.get("/api/player/crafting", func(r *http.Request) (any, error) { return o.Crafting() })
 	s.post("/api/player/crafting/unlock", o.UnlockRecipe)
 	s.get("/api/player/building-sets", func(r *http.Request) (any, error) { return o.BuildingSets() })

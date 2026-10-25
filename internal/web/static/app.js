@@ -671,7 +671,9 @@ async function playerSection(s) {
       <p class="mut">The save does not keep spent plus unspent equal to the total (some skills are granted free), so these three numbers are shown as stored and not worked out from each other.</p></div>
     <div class="card"><h3>Skill browser</h3><div id="skhead"></div><div id="skout"></div></div>`);
   } else if (s == 'research') {
-    RS = (await api('/api/player/research')).rows;
+    const rsAns = await api('/api/player/research');
+    RS = rsAns.rows;
+    RSRESET = { entries: rsAns.resetCount || 0, recipes: rsAns.resetRecipes || 0, sets: rsAns.resetSets || 0 };
     h.push(html`<div class="card"><h3>Research</h3><div class="row"><button class="b" data-act="rsAll">Unlock all research</button><span class="mut">Buys every entry that unlocks a recipe or a building set and adds what it unlocks.</span></div><div id="rshead"></div><div id="rsout"></div></div>`);
   } else if (s == 'crafting') {
     CR = (await api('/api/player/crafting')).rows;
@@ -770,7 +772,7 @@ function skillsList() {
 // Research and crafting recipes, as in Dune Docker's Research and Crafting tabs: a category, a filter, and an Unlock on each entry that is not
 // there yet. Unlocking research marks it purchased and adds the recipe or building set it unlocks; a purchased entry whose recipe or set is
 // missing shows Repair unlock.
-let RS = null, CR = null, rsCat = '', rsGroup = '', rsQ = '', crCat = '', crQ = '';
+let RS = null, RSRESET = { entries: 0, recipes: 0, sets: 0 }, CR = null, rsCat = '', rsGroup = '', rsQ = '', crCat = '', crQ = '';
 const RCATS = ['Water Discipline', 'Combat', 'Construction', 'Exploration', 'Vehicles', 'Augmentations', 'Uniques', 'Essentials'];
 const LISTMAX = 400;
 function researchList() {
@@ -785,7 +787,7 @@ function researchList() {
     <div class="row">${rsCat ? html`<select id="rsGrp"><option value="">All product groups</option>${groups.map((g) => html`<option ${g == rsGroup ? 'selected' : ''}>${g}</option>`)}</select>` : ''}
     <input id="rsq" aria-label="Filter the research" placeholder="Filter by name, key, type or group" size="34" value="${rsQ}"><button class="b sec" data-act="rsfilter">Filter</button><button class="b sec" data-act="rsclear">Clear</button>
     <span class="mut">${countText(rows.length, inCat.length, 'entry', 'entries', rsFiltered)}${rows.length > LISTMAX ? `, the first ${LISTMAX} shown` : ''}; ${done} of ${RS.length} entries unlocked in all. Unlocking adds the linked recipe or building set; group markers cannot be unlocked as one entry.</span></div>
-    <div class="row"><button class="b bad" disabled aria-describedby="rsresetnote" title="The save does not say which research a new character already has (its starting recipes and building sets), so there is no state to reset to, and the editor has no safe way to take a recipe or building set back out. Restore a backup from before the research was unlocked to undo it.">Reset research</button><span class="mut" id="rsresetnote">Not available: The save does not say which research a new character already has (its starting recipes and building sets), so there is no state to reset to, and the editor has no safe way to take a recipe or building set back out. Restore a backup from before the research was unlocked to undo it.</span></div>`);
+    <div class="row"><button class="b bad" data-act="rsReset" aria-describedby="rsresetnote" ${RSRESET.entries ? '' : 'disabled'}>Reset research (${nn(RSRESET.entries, 'entry', 'entries')})</button><span class="mut" id="rsresetnote">${RSRESET.entries ? `Puts the research back to what a new character has: every bought entry except the four a new character starts with goes back to not bought, and the ${nn(RSRESET.recipes, 'recipe', 'recipes')} and ${nn(RSRESET.sets, 'building set', 'building sets')} they gave are taken out again. After a typed confirmation, in one edit. Intel is not given back.` : 'Nothing to reset: no entry beyond the four a new character starts with is bought.'}</span></div>`);
   const state = (r) => (r.unlocked ? html`<span class="ok">Unlocked</span>` : r.purchased ? html`<span class="warn">Purchased, ${r.unlockKind} missing</span>` : html`<span class="mut">Not purchased</span>`);
   const act = (r) => (!r.actionable ? html`<button class="b sec sm" disabled title="A group marker; unlock its individual entries">Group</button>` : r.unlocked ? '' :
     html`<button class="b sm" data-act="rsUnlock" data-key="${r.itemKey}">${r.needsRepair ? 'Repair unlock' : 'Unlock'}</button>`);
@@ -1480,6 +1482,13 @@ const A = {
     return resetArea({ count: n, title: `Reset the XP of ${nn(n, 'track', 'tracks')}?`, ok: 'Reset XP', typed: `reset ${n} ${n === 1 ? 'track' : 'tracks'}`,
       body: `The XP and level of every specialization track whose number the editor knows go back to 0, the same as the Reset button of each track. Keystones are not touched.${left ? ` ${nn(left, 'row', 'rows')} of the save whose track is not known yet ${left === 1 ? 'is' : 'are'} left alone, since removing ${left === 1 ? 'it' : 'them'} could clear the wrong track.` : ''} One edit.`,
       path: '/api/player/specs/reset-all', done: (r) => `${nn(r.changed, 'track', 'tracks')} reset to 0 XP`, none: 'No track whose number is known has XP, so there was nothing to reset.' });
+  },
+  rsReset: () => {
+    const n = RSRESET.entries, rc = RSRESET.recipes, bs = RSRESET.sets;
+    if (!n) { toast('No research beyond the four entries a new character starts with is bought, so there is nothing to reset.'); return; }
+    return resetArea({ count: n, title: `Reset ${nn(n, 'research entry', 'research entries')}?`, ok: 'Reset research', typed: `reset ${n} research ${n === 1 ? 'entry' : 'entries'}`,
+      body: `Every bought research entry except the four a new character starts with goes back to not bought. The ${nn(rc, 'recipe', 'recipes')} those entries gave are taken out of your known recipes (unique schematics you found are among them, and you would have to find them again or unlock them in the tree) and the ${nn(bs, 'building set', 'building sets')} they gave out of your learned sets. Recipes you know from a schematic whose entry is not bought, recipes and sets the research tree does not list, your Intel, your items, the buildings you placed and your skills are not touched, and no Intel is given back. One edit.`,
+      path: '/api/player/research/reset', done: (r) => `Research reset: ${nn(r.changed, 'entry', 'entries')} back to not bought, ${nn(r.recipes, 'recipe', 'recipes')} and ${nn(r.sets, 'building set', 'building sets')} taken out`, none: 'No research beyond the four entries a new character starts with is bought, so there was nothing to reset.' });
   },
   skReset: () => {
     const n = (SK && SK.resetCount) || 0;

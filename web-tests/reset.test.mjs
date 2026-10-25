@@ -266,20 +266,64 @@ test('Reset journey: one tutorial reads in the singular and a stale count is sho
   assert.ok(reads() > before);
 });
 
-// ---- Research: no reset, and the page says why
+// ---- Research: the reset gives back what a new character has
 
-test('Research has a Reset research button that is off, with the reason in its tooltip and beside it, and it sends nothing', async () => {
-  const ui = await boot(); ui.freeze();
+const research = (resetCount, extra = {}) => ({ rows: [], resetCount, resetRecipes: 3, resetSets: 2, ...extra });
+async function openResearch(ui) {
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:research"]'); await ui.settle();
-  const btn = [...ui.doc.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Reset research');
+}
+
+test('Reset research: a typed sentence with the area and the count, the counts in the question, and the confirmed count goes with the request', async () => {
+  const ui = await boot({ get: { '/api/player/research': research(5) }, post: { '/api/player/research/reset': { ok: true, changed: 5, noop: false, recipes: 3, sets: 2 } } }); ui.freeze();
+  await openResearch(ui);
+  const btn = ui.doc.querySelector('[data-act="rsReset"]');
+  assert.ok(btn, 'the Research tab has the reset button');
+  assert.equal(btn.disabled, false);
+  assert.ok(btn.classList.contains('bad'), 'a destructive button looks like the others');
+  assert.equal(btn.textContent.trim(), 'Reset research (5 entries)');
+  assert.ok(ui.doc.getElementById(btn.getAttribute('aria-describedby')).textContent.includes('Intel is not given back'));
+  assert.equal(ui.doc.querySelectorAll('[data-act="rsReset"]').length, 1);
+  ui.click('[data-act="rsReset"]'); await ui.settle();
+  const text = ui.doc.querySelector('#ask [role="dialog"]').textContent;
+  assert.ok(text.includes('Reset 5 research entries?'), text);
+  assert.ok(text.includes('3 recipes') && text.includes('2 building sets'), 'the question counts what is taken out');
+  assert.ok(text.includes('Type reset 5 research entries to continue'));
+  assert.ok(/backup/i.test(text) && text.includes('Restore'), 'it says the backup puts it back');
+  assert.equal(ui.doc.querySelector('#aok').disabled, true);
+  ui.type('reset 4 research entries');
+  assert.equal(ui.doc.querySelector('#aok').disabled, true, 'the wrong count does not enable it');
+  ui.type('reset 5 research entries');
+  ui.click('#aok'); await ui.settle();
+  assert.equal(posts(ui, '/api/player/research/reset').length, 0, 'an OK sooner than the gap is not a decision');
+  ui.tick(GAP);
+  ui.click('#aok'); await ui.settle();
+  assert.deepEqual(posts(ui, '/api/player/research/reset').map((p) => p.body), [{ expected: 5 }]);
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Research reset: 5 entries back to not bought, 3 recipes and 2 building sets taken out'), ui.doc.querySelector('#toast').textContent);
+});
+
+test('Reset research with nothing bought beyond the starting four is off, says so, and sends nothing', async () => {
+  const ui = await boot({ get: { '/api/player/research': research(0, { resetRecipes: 0, resetSets: 0 }) } }); ui.freeze();
+  await openResearch(ui);
+  const btn = ui.doc.querySelector('[data-act="rsReset"]');
   assert.ok(btn, 'the button is there, so nobody looks for it');
   assert.equal(btn.disabled, true);
-  assert.ok(btn.title.includes('does not say which research a new character already has'));
-  assert.ok(ui.doc.getElementById(btn.getAttribute('aria-describedby')).textContent.includes('Not available'));
+  assert.ok(ui.doc.getElementById(btn.getAttribute('aria-describedby')).textContent.includes('Nothing to reset'));
   btn.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); await ui.settle();
   assert.equal(ui.posted.length, 0);
   assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'));
+});
+
+test('Reset research: a refusal because the count changed redraws the page', async () => {
+  const ui = await boot({ get: { '/api/player/research': research(5) }, post: { '/api/player/research/reset': { __fail: 'the number of bought research entries to reset is now 6, not the 5 you confirmed, so nothing was changed: reload the page and look again', __code: 'conflict', __status: 409 } } }); ui.freeze();
+  await openResearch(ui);
+  const reads = () => ui.fetched.filter((p) => p === '/api/player/research').length;
+  const before = reads();
+  ui.click('[data-act="rsReset"]'); await ui.settle();
+  ui.type('reset 5 research entries'); ui.tick(GAP);
+  ui.click('#aok'); await ui.settle(); await ui.wait(20); await ui.settle();
+  assert.ok(ui.doc.querySelector('#toast .err').textContent.includes('you confirmed'));
+  assert.ok(reads() > before);
 });
 
 test('Reset level and XP: the answer says how many skill points stayed because they are spent', async () => {
