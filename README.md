@@ -151,6 +151,7 @@ Every write feature has automated tests on a synthetic save built from the game'
 | Fill all liquids (#349; the water, blood-sack and refuel fills as one edit; real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#349) |
 | Repair Gear (as good as new, #153) and the vehicle Repair Below % option | Tests only | none | `CHANGELOG.md` |
 | Teleport and Go to a place | Tests only | none | `CHANGELOG.md` (#67) |
+| Teleport to another map (Hagga Basin and the Deep Desert; the character's controller, body and player state are moved together) | Tests, and the shape compared with saves the game wrote; **not in game** | not recorded | `CHANGELOG.md` (#67) |
 | Specialization: Add XP, Grant Max, Reset, keystones, Assign | Tests only | none | `CHANGELOG.md` (#108) |
 | Journey, Tutorial and tag changes | Tests only | none | `CHANGELOG.md` |
 | Land Claim Editor grid (Apply changes) | Tests only | none | `CHANGELOG.md` (#133) |

@@ -153,7 +153,7 @@ func TestDestinationListIsCappedAt200AndSaysHowManyThereAre(t *testing.T) {
 			with recursive n(i) as (select 1 union all select i+1 from n where i<%d)
 			insert into player_markers(player_id,marker_hash_id,dimension_index,map_name,discovery_level,discovery_method) select 1,i,0,'HaggaBasin',3,1 from n;`, n, n)
 		o := &Ops{S: testsave.PlayerWithSQL(t, sql)}
-		res, err := o.Destinations("marker", "")
+		res, err := o.Destinations("marker", "", "")
 		if err != nil {
 			t.Fatal(err)
 		}
