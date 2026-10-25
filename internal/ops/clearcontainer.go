@@ -85,7 +85,10 @@ func (o *Ops) requireClearable(inv int64) error {
 	} else if ok {
 		return nil
 	}
-	return apierr.New(apierr.ErrBadArgument, "that is not your backpack, worn gear or loadout, or a container at one of your bases")
+	if o.ownedVehicleCargo(p, inv) {
+		return nil
+	}
+	return apierr.New(apierr.ErrBadArgument, "that is not your backpack, worn gear or loadout, or a container at one of your bases, or the cargo hold of one of your vehicles")
 }
 
 // clearSet is what a clear of one container would remove: the item rows in it (top), the Solari stacks it would keep, and the item rows that hang from the top ones through the

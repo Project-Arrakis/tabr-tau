@@ -201,6 +201,32 @@ test('Vehicles: Duplicate asks first, says the game has not been shown to accept
   ui.dom.window.close();
 });
 
+test('Vehicles: the cargo hold of the open vehicle can be changed like a base container: quantity, Delete, Add item and Clear this container (#48)', async () => {
+  const hostile = '<img src=x onerror=1>';
+  const v1 = { id: 152, name: 'BP_Sandbike_CHOAM', type: 'Sandbike', map: 'HaggaBasin', x: 1, y: 2, z: 0, condition: 40, fuel: 90.5, fuelMax: 100, fuelPercent: 90.5, components: [],
+    cargo: { inventory_id: 59, slots: 15, items: [{ id: 1, template_id: 'CopperOre', stack_size: 40, quality_level: 0, position_index: 2 }, { id: 2, template_id: hostile, stack_size: 3, quality_level: 1, position_index: 3 }] } };
+  const v2 = { ...v1, id: 153, name: 'BP_Buggy_CHOAM', type: 'Buggy', cargo: null };
+  const ui = await boot({ get: { '/api/vehicles': { vehicles: [v1, v2], recovered: [], backups: [], hidden: 0 } }, post: { '/api/items/update': { ok: true }, '/api/items/delete': { ok: true }, '/api/bases/give': { ok: true, given: 1, requested: 1 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:vehicles"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('#main img'), null, 'a hostile template id is text');
+  assert.ok(ui.doc.querySelector('#main').textContent.includes('90.5 of 100 (91%)'), 'the fuel says how big the tank is where that is known');
+  const qty = ui.doc.querySelector('input[data-item="1"][data-field="stack_size"]');
+  assert.ok(qty && qty.value === '40', 'the quantity of a stack is an input');
+  qty.value = '45'; qty.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/items/update').map((p) => p.body), [{ id: 1, stack_size: 45 }]);
+  assert.equal(ui.doc.querySelectorAll('[data-act="delItem"]').length, 2, 'every stack has a Delete');
+  ui.doc.querySelector('#bt').value = 'CopperOre'; ui.doc.querySelector('#bq').value = '12';
+  ui.click('[data-act="giveCargo"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/bases/give').map((p) => p.body), [{ inventory_id: 59, template_id: 'CopperOre', quantity: 12 }], 'the add goes to this cargo hold');
+  const clr = ui.doc.querySelector('[data-act="clearInv"]');
+  assert.ok(clr && clr.dataset.inv === '59' && clr.dataset.name === 'Sandbike cargo hold', 'Clear this container names the cargo hold');
+  ui.click('[data-vhopen="153"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('[data-act="giveCargo"]'), null, 'a vehicle with no cargo hold has nothing to add to');
+  assert.ok(ui.doc.querySelector('#main').textContent.includes('This vehicle has no cargo hold.'));
+  ui.dom.window.close();
+});
+
 test('Player > Bases lists the bases and shows Power, Water and Inventory for the open one', async () => {
   const ui = await boot({ get: {
     '/api/bases/list': [{ base_id: 164, name: 'Advanced Sub-Fief Console', base_type: 'Advanced Sub-Fief', owner: 'Tester', map: 'HaggaBasin', generators: 11, pieces: 486, placeables: 90, x: -67159, y: -211307, z: 12 }],
