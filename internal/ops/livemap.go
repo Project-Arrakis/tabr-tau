@@ -84,6 +84,21 @@ func (o *Ops) LiveMap(key string) (any, error) {
 
 	out["bases"], _ = o.S.Query(`select t.id, a.location_x x, a.location_y y from totems t join actors a on a.id=t.id where a.map=? order by t.id`, cfg.Key)
 
+	// Where things are, by region name (the Hagga Basin only), and the regions the character has discovered.
+	rf := o.regionFinder()
+	if ch, ok := out["character"].(map[string]any); ok {
+		rf.label(ch, cfg.Key, "x", "y")
+	}
+	for _, v := range vehicles {
+		rf.label(v, cfg.Key, "x", "y")
+	}
+	if bases, ok := out["bases"].([]map[string]any); ok {
+		for _, b := range bases {
+			rf.label(b, cfg.Key, "x", "y")
+		}
+	}
+	out["areas"] = o.discoveredAreas(p.Controller, cfg.Key)
+
 	types := make([]any, 0, len(storageTypes))
 	marks := make([]string, 0, len(storageTypes))
 	for t := range storageTypes {

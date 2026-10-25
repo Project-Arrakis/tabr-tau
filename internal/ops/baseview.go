@@ -53,8 +53,12 @@ func (o *Ops) baseListRows(owner string) ([]map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	rf := o.regionFinder()
 	for _, b := range totems {
 		id := b["base_id"]
+		if m, ok := b["map"].(string); ok {
+			rf.label(b, m, "x", "y")
+		}
 		b["pieces"] = o.countWhere(`select count(*) n from building_instances where `+ownedByBase, id)
 		b["placeables"] = o.countWhere(`select count(*) n from placeables where is_hologram=0 and `+ownedByBase, id)
 		var marks []string

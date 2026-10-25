@@ -502,3 +502,13 @@ second list in `console/api/src/services/publicDirectory.js`, which agrees for a
 catalog section above. The Config tab uses the numbers to show each setting's default and to put a setting, or all of them, back to it. A key that is not in the table
 has no default here and is never reset. The game's setting names and their meaning belong to their owners; this project is unofficial and not affiliated with or
 endorsed by Funcom.
+
+## Region names: dune-awakening-selfhost-docker (RedBlink)
+
+`internal/ops/hagga-regions.json` is a copy, unchanged, of `runtime/data/hagga-regions.json` of
+https://github.com/Red-Blink/dune-awakening-selfhost-docker (commit 82548d72, git blob 1d1299a2 (unchanged since ca3f4cd7)), MIT-licensed under the licence reproduced in the item
+catalog section above. It gives the names of the 12 sub-regions of the Hagga Basin, keyed by the area number the game's map markers carry; the file's own
+header says the console took them from the game's area definitions. The Saved map, the vehicle list and the base list use them to say which region a place
+is near, by the area of the nearest map marker (the way the console labels its vehicles: `mapRegionNames` and `attachVehicleRegions` in
+`console/api/src/duneDb.js`; the code here is written anew). The game's names belong to their owners; this project is unofficial and not affiliated with or
+endorsed by Funcom.
