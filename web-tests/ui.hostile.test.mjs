@@ -183,6 +183,24 @@ test('Player > Vehicles shows type, condition, fuel, components and the cargo ho
   ui.dom.window.close();
 });
 
+test('Vehicles: Duplicate asks first, says the game has not been shown to accept the copy, and posts the vehicle once (#112)', async () => {
+  const v1 = { id: 152, name: 'BP_Sandbike_CHOAM', type: 'Sandbike', map: 'HaggaBasin', x: 1, y: 2, z: 0, condition: 40, fuel: 90.5, components: [], cargo: null };
+  const ui = await boot({ get: { '/api/vehicles': { vehicles: [v1], recovered: [], backups: [], hidden: 0 } }, post: { '/api/vehicles/duplicate': { ok: true, id: 1700, modules: 8, inventories: 3 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:vehicles"]'); await ui.settle();
+  const btn = ui.doc.querySelector('[data-act="dupV"]');
+  assert.ok(btn && btn.textContent.trim() === 'Duplicate' && btn.dataset.id === '152', 'a Duplicate button on each vehicle');
+  ui.click('[data-act="dupV"]'); await ui.settle();
+  const dlg = ui.doc.querySelector('#ask [role="dialog"]');
+  assert.ok(dlg, 'the first press only asks');
+  assert.equal(ui.posted.filter((p) => p.path === '/api/vehicles/duplicate').length, 0, 'nothing is sent before the answer');
+  assert.ok(dlg.textContent.includes('has not been checked') && /backup/i.test(dlg.textContent), 'the question says it is not proven in the game and that the backup undoes it');
+  ui.click('#aok'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/vehicles/duplicate').map((p) => p.body), [{ id: 152 }]);
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Made vehicle 1700'), ui.doc.querySelector('#toast').textContent);
+  ui.dom.window.close();
+});
+
 test('Player > Bases lists the bases and shows Power, Water and Inventory for the open one', async () => {
   const ui = await boot({ get: {
     '/api/bases/list': [{ base_id: 164, name: 'Advanced Sub-Fief Console', base_type: 'Advanced Sub-Fief', owner: 'Tester', map: 'HaggaBasin', generators: 11, pieces: 486, placeables: 90, x: -67159, y: -211307, z: 12 }],
