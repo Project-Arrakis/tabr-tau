@@ -115,9 +115,13 @@ func (o *Ops) Vehicles() (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	rf := o.regionFinder()
 	for _, v := range live {
 		v["name"] = shortClass(v["class"])
 		v["type"] = vehicleType(fmt.Sprint(v["name"]))
+		if m, ok := v["map"].(string); ok {
+			rf.label(v, m, "x", "y")
+		}
 		o.vehicleDetails(v)
 		mods, _ := o.S.Query(`select id, template_id from vehicle_modules where vehicle_id=?`, v["id"])
 		v["modules"] = mods
