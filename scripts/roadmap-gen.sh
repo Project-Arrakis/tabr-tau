@@ -9,6 +9,7 @@
 #
 # An open roadmap/bug issue is placed by its priority label: p0-critical, p1-now, p2-next,
 # p3-later or p4-parked. One without a priority label (or with `inbox`) is listed under Inbox.
+# Within a priority the bugs are listed first, then the rest, each by number.
 # Closed issues are never listed. The operator decides priority changes; this script only
 # writes down what the labels say.
 set -euo pipefail
@@ -48,11 +49,13 @@ priority_of() {
 
 # section PRIORITY HEADING DESCRIPTION
 section() {
-  local want="$1" heading="$2" blurb="$3" count=0 lines="" num labels title prio st status reason line
+  local want="$1" heading="$2" blurb="$3" count=0 lines="" num labels title prio st status reason line pass
+  for pass in bug other; do # bugs come before features within a priority (operator rule, 2026-10-25)
   while IFS=$'\t' read -r num labels title; do
     [ -n "$num" ] || continue
     prio="$(priority_of "$labels")"
     [ "$prio" = "$want" ] || continue
+    case ",$labels," in *",bug,"*) [ "$pass" = bug ] || continue ;; *) [ "$pass" = other ] || continue ;; esac
     st="$(status_of "$num")"
     status="${st%%$'\t'*}"
     reason=""
@@ -63,6 +66,7 @@ section() {
     lines="${lines}${line}"$'\n'
     count=$((count + 1))
   done <<< "$issues"
+  done
   printf '## %s\n\n%s Items: %d.\n\n' "$heading" "$blurb" "$count"
   if [ "$count" -eq 0 ]; then
     printf 'Nothing.\n\n'
@@ -86,6 +90,7 @@ Last regenerated: $(date +%F)
 - **P0 (\`p0-critical\`)** is urgent: data loss, a safety problem, or it stops the operator playing now. A P0 jumps the queue.
 - Several tasks may be in flight in parallel. They are taken from the top of the list: \`p1-now\` first, then \`p2-next\`, then \`p3-later\`. \`p4-parked\` is not worked; each parked item says why.
 - The priorities are checked when a task finishes and at the start of each session: the Inbox is read, each new item gets exactly one of \`p1-now\`, \`p2-next\`, \`p3-later\` or \`p4-parked\` (and loses \`inbox\`), and items may move between them. Keep \`p1-now\` to what the operator needs now.
+- **Bugs come before features** (operator rule, 2026-10-25): within the same priority, open bugs are worked first. A new bug the operator reports gets \`p1-now\` unless it is trivial or needs the operator or the game, in which case it is labelled so (waiting on the operator / needs the game) but never left in the inbox for long.
 - The operator decides every priority change. A check does not interrupt work already in flight.
 
 Status tags: **in flight** (being worked), **waiting on the operator's in-game check** (built, nothing more to do until it is tried), **needs the game** (can only be finished and checked in the game), **blocked on a save** (needs a save that has the thing), **partly answered**, **parked** (with the reason). An item with no tag has not been started.

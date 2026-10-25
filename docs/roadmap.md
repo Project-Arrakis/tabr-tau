@@ -11,6 +11,7 @@ Last regenerated: 2026-10-25
 - **P0 (`p0-critical`)** is urgent: data loss, a safety problem, or it stops the operator playing now. A P0 jumps the queue.
 - Several tasks may be in flight in parallel. They are taken from the top of the list: `p1-now` first, then `p2-next`, then `p3-later`. `p4-parked` is not worked; each parked item says why.
 - The priorities are checked when a task finishes and at the start of each session: the Inbox is read, each new item gets exactly one of `p1-now`, `p2-next`, `p3-later` or `p4-parked` (and loses `inbox`), and items may move between them. Keep `p1-now` to what the operator needs now.
+- **Bugs come before features** (operator rule, 2026-10-25): within the same priority, open bugs are worked first. A new bug the operator reports gets `p1-now` unless it is trivial or needs the operator or the game, in which case it is labelled so (waiting on the operator / needs the game) but never left in the inbox for long.
 - The operator decides every priority change. A check does not interrupt work already in flight.
 
 Status tags: **in flight** (being worked), **waiting on the operator's in-game check** (built, nothing more to do until it is tried), **needs the game** (can only be finished and checked in the game), **blocked on a save** (needs a save that has the thing), **partly answered**, **parked** (with the reason). An item with no tag has not been started.
@@ -57,7 +58,7 @@ Not worked until the reason given is gone. Items: 4.
 
 ## Inbox (unprioritised)
 
-New items waiting for the next priority check. Items: 0.
+New items waiting for the next priority check. Items: 1.
 
-Nothing.
+- [#417](https://github.com/Project-Arrakis/tabr-tau/issues/417) Care package: save a named kit (items, XP) and apply it to a new character in one edit, like the console's Care Package
 
