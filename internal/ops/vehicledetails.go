@@ -1,6 +1,9 @@
 package ops
 
-import "strings"
+import (
+	"math"
+	"strings"
+)
 
 // vehicleType is the kind of vehicle from its blueprint name: "BP_Sandbike_CHOAM" is a "Sandbike".
 func vehicleType(name string) string {
@@ -56,6 +59,13 @@ func (o *Ops) vehicleDetails(v map[string]any) {
 		from actor_fgl_entities a join fgl_entities f on f.entity_id=a.entity_id
 		where a.actor_id=? and json_valid(f.components,8) and json_type(f.components,'$.FVehicleComponent') is not null`, v["id"]); len(f) > 0 && f["fuel"] != nil {
 		v["fuel"] = f["fuel"]
+		// where the tank of this kind of vehicle was measured in the game, say how big it is and how full it is; otherwise the number stands alone
+		if cur, ok := toFloat(f["fuel"]); ok {
+			if tank, known := vehicleTank[blueprintClass(v["class"])]; known && tank > 0 {
+				v["fuelMax"] = tank
+				v["fuelPercent"] = math.Min(100, cur/tank*100)
+			}
+		}
 	}
 
 	v["cargo"] = nil
