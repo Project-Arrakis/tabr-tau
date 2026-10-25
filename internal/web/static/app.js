@@ -563,26 +563,35 @@ function levelResetCard() {
   const note = xp === null ? 'This save has no level record for the character.' : xp > 0 ? 'The XP goes back to 0 and the level with it, and the skill points the levels gave are taken back as far as they are unspent. Skills you bought stay, with their points. Asks first.' : 'Nothing to reset: the character has no XP.';
   return html`<div class="card"><h3>Reset level and XP</h3><div class="row"><button class="b bad" data-act="lvReset" aria-describedby="lvresetnote" ${xp ? '' : 'disabled'}>Reset level and XP (${Number(xp || 0).toLocaleString()} XP)</button><span class="mut" id="lvresetnote">${note}</span></div></div>`;
 }
-// Fill blood sacks (issue #60), beside the Refill Literjons button of Give item: the count says how many of the character's blood sacks are not full. Only the kinds whose
-// capacity was seen in a save are filled; the others are left alone and counted.
-async function bloodSacksCard() {
-  let b = null;
-  try { b = await api('/api/player/blood-sacks'); } catch (e) { b = null; }
+// The Fill card on Player > Character > Overview (#415): what used to be spread over Player > Inventory (Fill hydration, Fill blood sacks #60, Refill Literjons, Fill all liquids #349),
+// in one place. The wording, the counts, the disabled states and the data-act keys are those the buttons had on the Inventory tab. The two counts are read here, when the tab is
+// drawn; a count that cannot be read leaves its button usable and says so, and a save with no hydration record or no sacks still draws the card.
+// Fill blood sacks: the count says how many of the character's blood sacks are not full. Only the kinds whose capacity was seen in a save are filled; the others are left alone and counted.
+function bloodSacksRow(b) {
   const total = b ? Number(b.total) || 0 : 0, notFull = b ? Number(b.notFull) || 0 : 0, unknown = b ? Number(b.unknown) || 0 : 0;
   const count = !b ? 'The blood sacks could not be counted.' : total || unknown ? `${notFull} of ${total} blood sacks are not full.` : 'No blood sacks in the backpack, worn gear or loadout.';
   const left = unknown ? ` ${unknown} blood ${unknown == 1 ? 'sack' : 'sacks'} of an unknown kind will be left alone.` : '';
-  return html`<div class="card"><h3>Blood sacks</h3><div class="row"><button class="b sec" data-act="fillBlood" aria-describedby="bloodnote" ${b && !notFull ? 'disabled' : ''}>Fill blood sacks</button><span class="mut" id="bloodnote">${count}${left} Fills the sacks you carry to the most blood seen in a save for that kind (the Mk6 unique sack 30000, the basic sack 3000), without changing anything else about them. Water containers are not touched. The fill has not been checked in the game yet.</span></div></div>`;
+  return html`<div class="row"><button class="b sec" data-act="fillBlood" aria-describedby="bloodnote" ${b && !notFull ? 'disabled' : ''}>Fill blood sacks</button><span class="mut" id="bloodnote">${count}${left} Fills the sacks you carry to the most blood seen in a save for that kind (the Mk6 unique sack 30000, the basic sack 3000), without changing anything else about them. Water containers are not touched. The fill has not been checked in the game yet.</span></div>`;
 }
-// Fill all liquids (issue #349), under the Blood sacks card: the water refill, the blood-sack fill and, with the box ticked, the refuel of the character's vehicles, as one edit.
+// Fill all liquids (issue #349): the water refill, the blood-sack fill and, with the box ticked, the refuel of the character's vehicles, as one edit.
 // The box stays as the person left it until the page is reloaded.
 let liqVeh = true;
-async function liquidsCard() {
-  let l = null;
-  try { l = await api('/api/player/liquids'); } catch (e) { l = null; }
+function liquidsRow(l) {
   const n = (k, f) => (l && l[k] ? Number(l[k][f]) || 0 : 0);
   const waterN = n('water', 'notFull'), bloodN = n('bloodSacks', 'notFull'), vehN = n('vehicles', 'notFull');
   const count = !l ? 'The containers could not be counted.' : `Not full: ${nn(waterN, 'water container', 'water containers')}, ${nn(bloodN, 'blood sack', 'blood sacks')}, ${nn(vehN, 'vehicle', 'vehicles')}.`;
-  return html`<div class="card"><h3>Fill all liquids</h3><div class="row"><button class="b" data-act="fillLiquids" aria-describedby="liqnote">Fill all liquids</button><label><input type="checkbox" id="liqVeh" ${liqVeh ? 'checked' : ''}> Also refuel my vehicles</label><span class="mut" id="liqnote">${count} Fills your Literjons, stillsuits and other water containers, your blood sacks and (with the box ticked) the fuel of your own vehicles, as one edit with one backup, by the same rules as the three buttons (Refill Literjons, Fill blood sacks, Refuel all my vehicles). Kinds whose size is not known are left alone and counted.</span></div></div>`;
+  return html`<div class="row"><button class="b" data-act="fillLiquids" aria-describedby="liqnote">Fill all liquids</button><label><input type="checkbox" id="liqVeh" ${liqVeh ? 'checked' : ''}> Also refuel my vehicles</label><span class="mut" id="liqnote">${count} Fills your Literjons, stillsuits and other water containers, your blood sacks and (with the box ticked) the fuel of your own vehicles, as one edit with one backup, by the same rules as the three buttons (Refill Literjons, Fill blood sacks, Refuel all my vehicles). Kinds whose size is not known are left alone and counted.</span></div>`;
+}
+async function fillCard() {
+  const get = async (path) => { try { return await api(path); } catch (e) { return null; } };
+  const [b, l] = await Promise.all([get('/api/player/blood-sacks'), get('/api/player/liquids')]);
+  const hyd = SUMMARY && SUMMARY.vitals && SUMMARY.vitals.hydration != null ? SUMMARY.vitals : null;
+  const hydNote = hyd ? `Hydration is ${Number(hyd.hydration).toFixed(1)} of ${hyd.maxHydration}.` : 'The summary shows no hydration for the character, so this may be refused.';
+  return html`<div class="card"><h3>Fill</h3>
+    <div class="row"><button class="b sec" data-act="fillWater" aria-describedby="hydnote" title="Fill the character's own hydration to the maximum in the save. While the game is running this is queued until the game closes and loads the save again: it will not help a thirsty character right now.">Fill hydration</button><span class="mut" id="hydnote">${hydNote} Fills the character's own water to the maximum.</span></div>
+    ${bloodSacksRow(b)}
+    <div class="row"><button class="b sec" data-act="refill" aria-describedby="refillnote">Refill Literjons</button><span class="mut" id="refillnote">Fills the Literjons, stillsuits and other water containers you carry to their capacity.</span></div>
+    ${liquidsRow(l)}</div>`;
 }
 async function playerSection(s) {
   const h = s == 'character' ? [subNav('char', [['overview', 'Overview'], ['inventory', 'Inventory'], ['reputation', 'Reputation']])] : [];
@@ -595,6 +604,7 @@ async function playerSection(s) {
     <div class="row"><b>Give to a wallet</b><select id="curSel" aria-label="Wallet currency"><option value="0">Solari in wallet</option><option value="1">House credit in wallet</option></select><input id="curAmt" aria-label="Amount to give to the wallet" type="number" value="100" min="1"><button class="b" data-act="currency">Give</button><span class="mut">A wallet balance, kept apart from the Solari stacks in your backpack.</span></div>
     <div class="row"><b title="Blood Marks (item HalloweenCoin): the currency of the Scourge event">Blood Marks in backpack</b><b id="bmHave">${Number(P.bloodMarks || 0).toLocaleString()}</b><input id="bmAmt" type="number" value="100" min="1" max="${P.bloodMarksMax || 50000}" aria-label="Blood Marks to give"><button class="b" data-act="bloodMarks">Give Blood Marks</button><span class="mut">The currency of the Scourge event (item HalloweenCoin). It is added to the stack in your backpack, and to a new stack when it does not fit; as much as fits is given.</span></div></div>
     <div class="card"><h3>Quick rewards</h3><div class="row"><b>Give XP</b><input id="xpAmt" aria-label="XP to give" type="number" value="1000" min="1"><button class="b" data-act="xp">Give</button><span class="mut">Raises the level as the XP grows and adds one skill point per level gained; stops at level 200.</span></div><div class="row"><b>Give Intel</b><input id="intelAmt" aria-label="Intel to give" type="number" value="100" min="1"><button class="b" data-act="intel">Give</button><span class="mut">Adds Intel for the research tree, never past 2,779. All of these apply when the game next loads the save.</span></div></div>
+    ${await fillCard()}
     ${levelResetCard()}`);
   } else if (c == 'inventory') {
     const d = await api('/api/player/inventory');
@@ -609,6 +619,7 @@ async function playerSection(s) {
     const cap = (d.inventories || []).find((i) => groupOf(i) == grp);
     const slots = cap && cap.max_item_count > 0 ? `, ${counts[grp]} of ${cap.max_item_count} slots used` : '';
     const invCard = html`<div class="card"><h3>Inventory: ${nn(d.items.length, 'item', 'items')} carried</h3>
+      <p class="mut" id="fillmoved">The fill actions are on the Character tab. <button class="b sec sm" data-goto="character:overview">Go to Character</button></p>
       <div class="sub">${G.map(([k, v]) => html`<button data-invg="${k}" class="${grp == k ? 'on' : ''}">${v} (${counts[k]})</button>`)}</div>
       <div class="row"><input id="invq" aria-label="Filter the inventory" placeholder="Filter by name, item ID, or template" size="34" value="${invQ}"><button class="b sec" data-act="invfilter">Filter</button><button class="b sec" data-act="invclear">Clear</button><span class="mut">${countText(rows.length, counts[grp], 'item', 'items', terms.length > 0)}${slots}</span>${fillTotals(d.items.filter((r) => groupOf(r) == grp)) ? html`<span class="mut" id="invfill">${fillTotals(d.items.filter((r) => groupOf(r) == grp))}</span>` : ''}</div>
       ${cap && grp != 'schematics' ? clearRow(cap.id, G.find(([k]) => k == grp)[1], d.items.filter((r) => r.inventory_id == cap.id)) : ''}
@@ -627,12 +638,10 @@ async function playerSection(s) {
     h.push(augCard);
     h.push(html`<div class="card"><h3>Repair</h3><div class="row"><button class="b" data-act="repair">Repair all worn items and loadouts</button><span class="mut">Everything you wear and everything in your loadout is made as good as new: full durability, with a maximum that repairs wore down restored. The backpack is not touched.</span></div></div>`);
     h.push(html`<div class="card"><h3>Give item</h3><div class="row">${itemPicker("gt", cat)}
-    Qty<input id="gq" aria-label="Quantity to give" type="number" value="1" min="1">Grade<select id="gg" aria-label="Grade of the item to give">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="queueAdd">Add to queue</button><button class="b sec" data-act="fillWater" title="Fill the character's own hydration to the maximum in the save. While the game is running this is queued until the game closes and loads the save again: it will not help a thirsty character right now.">Fill hydration</button><button class="b sec" data-act="refill">Refill Literjons</button></div>
+    Qty<input id="gq" aria-label="Quantity to give" type="number" value="1" min="1">Grade<select id="gg" aria-label="Grade of the item to give">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="queueAdd">Add to queue</button></div>
     <div class="row" id="gaug"></div>
     ${giveQueue.length ? html`<div class="row"><b>Queue (${giveQueue.length})</b>${giveQueue.map((q, i) => html`<span class="tag">${q.quantity} x ${itemName(q.template_id)}${q.quality ? ' (grade ' + q.quality + ')' : ''}${q.augments && q.augments.length ? ' + ' + q.augments.map((a) => augName(a)).join(', ') : ''} <button class="b sec sm" data-act="queueDel" data-id="${i}" title="Remove from the queue">x</button></span>`)}<button class="b" data-act="queueGive">Give queued items</button><button class="b sec" data-act="queueClear">Clear</button></div>` : ''}
     <p class="mut">Pick an item by its in-game name. Items already in your save that the catalog does not know are listed by their template id; any valid template id can also be typed.</p></div>
-    ${await bloodSacksCard()}
-    ${await liquidsCard()}
     ${invCard}`);
   } else if (c == 'reputation') {
     const f = await api('/api/player/factions');
