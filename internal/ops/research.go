@@ -243,7 +243,14 @@ func (o *Ops) Research() (any, error) {
 			NeedsRepair: id != "" && purchased && !mat, Actionable: id != ""})
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].ItemKey < out[j].ItemKey })
-	return map[string]any{"rows": out}, nil
+	rs, err := researchReset(o.S, p.Pawn, p.Controller)
+	if errors.Is(err, errNoResearchList) {
+		rs, err = &researchResetSet{}, nil // a save without the list shows an empty tree and nothing to reset
+	}
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"rows": out, "resetCount": int64(len(rs.entries)), "resetRecipes": int64(len(rs.recipes)), "resetSets": int64(len(rs.sets))}, nil
 }
 
 // newRecipeJSON is a known-recipe entry in the order and shape the game writes them.
