@@ -376,6 +376,9 @@ func giveRowsInTx(m *save.Mut, inventoryID int64, template string, sizes []int64
 	}
 	quality = grantGrade(template, quality)
 	stats := `{"FCustomizationStats":[[],{}],"FItemStackAndDurabilityStats":[[],{}]}`
+	if catalog.Category(template) == "resources" { // what the game writes for a resource (#258): a durability record of only a decayed maximum of 0
+		stats = `{"FCustomizationStats":[[],{}],"FItemStackAndDurabilityStats":[[],{"DecayedMaxDurability":0.0}]}`
+	}
 	k, err := m.Query(`select stats from items where template_id=? and stats is not null order by id limit 1`, template)
 	if err != nil {
 		return nil, err
