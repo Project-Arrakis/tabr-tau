@@ -40,3 +40,12 @@ func TestEveryModuleHasItsLicenceText(t *testing.T) {
 		}
 	}
 }
+
+// The item catalog notice names the commits and blobs the file was copied from (#405).
+func TestItemCatalogNoticeNamesTheRefresh(t *testing.T) {
+	for _, must := range []string{"82548d72", "ecffc834", "v1.4.52", "MTX_IxianTotem_Patent", "1bde840c"} {
+		if !strings.Contains(Text, must) {
+			t.Errorf("expected %q in the item catalog notice", must)
+		}
+	}
+}
