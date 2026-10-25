@@ -118,6 +118,9 @@ func (o *Ops) Vehicles() (any, error) {
 	for _, v := range live {
 		v["name"] = shortClass(v["class"])
 		v["type"] = vehicleType(fmt.Sprint(v["name"]))
+		if kind := o.storedKind(v["id"].(int64)); kind != "" {
+			v["stored"], v["storedLabel"] = kind, storedLabel(kind)
+		}
 		o.vehicleDetails(v)
 		mods, _ := o.S.Query(`select id, template_id from vehicle_modules where vehicle_id=?`, v["id"])
 		v["modules"] = mods
@@ -141,6 +144,9 @@ func (o *Ops) BringVehicle(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := refuseStored(o.S.One, id, "brought to you"); err != nil {
+		return nil, err
+	}
 	// The player's position is read inside the edit, through its own query: it is kept with the edit, so an edit put back onto a newer file (the player has moved since)
 	// is not applied to the old position.
 	found := false
@@ -153,7 +159,7 @@ func (o *Ops) BringVehicle(a Args) (any, error) {
 			return errors.New("player position unknown")
 		}
 		res, err := m.Exec(`update actors set map=?, location_x=?+800, location_y=?, location_z=?+150
-		where id=? and id in (`+ownedVehicleSQL+`)`,
+		where id=? and id in (`+ownedVehicleSQL+`) and id not in (`+storedVehicleSQL+`)`,
 			me["map"], me["x"], me["y"], me["z"], id, p.Controller)
 		if err != nil {
 			return err

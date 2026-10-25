@@ -100,6 +100,9 @@ func (o *Ops) DuplicateVehicle(a Args) (any, error) {
 		if src == nil {
 			return apierr.New(apierr.ErrNotFound, "that is not one of your vehicles")
 		}
+		if err := refuseStored(m.One, id, "duplicated"); err != nil {
+			return err
+		}
 		cls := blueprintClass(src["class"])
 		me, err := m.One(`select map, location_x x, location_y y, location_z z, dimension_index d from actors where id=?`, p.Pawn)
 		if err != nil {

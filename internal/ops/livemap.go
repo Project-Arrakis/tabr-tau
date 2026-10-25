@@ -71,12 +71,16 @@ func (o *Ops) LiveMap(key string) (any, error) {
 	}
 
 	out["vehicles"], _ = o.S.Query(`select a.id, a.class, a.location_x x, a.location_y y from vehicles v join actors a on a.id=v.id
-		where a.map=? and v.id in (`+ownedVehicleSQL+`) order by a.id`, cfg.Key, p.Controller)
+		where a.map=? and v.id in (`+ownedVehicleSQL+`) and v.id not in (`+storedVehicleSQL+`) order by a.id`, cfg.Key, p.Controller)
 	vehicles, _ := out["vehicles"].([]map[string]any)
 	for _, v := range vehicles {
 		v["name"] = shortClass(v["class"])
 		delete(v, "class")
 	}
+
+	// Stored vehicles (in the vehicle backup or waiting for recovery) keep their last place in the world: they are counted, not plotted.
+	stored, _ := o.S.One(`select count(*) n from vehicles v join actors a on a.id=v.id where a.map=? and v.id in (`+ownedVehicleSQL+`) and v.id in (`+storedVehicleSQL+`)`, cfg.Key, p.Controller)
+	out["storedVehicles"] = stored["n"]
 
 	out["bases"], _ = o.S.Query(`select t.id, a.location_x x, a.location_y y from totems t join actors a on a.id=t.id where a.map=? order by t.id`, cfg.Key)
 

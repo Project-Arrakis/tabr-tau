@@ -76,6 +76,9 @@ func (o *Ops) baseListRows(owner string) ([]map[string]any, error) {
 		b["name"] = name
 		b["owner"] = owner
 		delete(b, "totem_type")
+		// Picked up with the game's base tool: the claim is gone (no permission record) and the base's actors are linked in base_backup_linked_actors.
+		picked, _ := o.S.One(`select 1 x from base_backup_linked_actors where actor_id=? and not exists (select 1 from permission_actor where actor_id=?)`, id, id)
+		b["picked_up"] = picked != nil
 	}
 	return totems, nil
 }
