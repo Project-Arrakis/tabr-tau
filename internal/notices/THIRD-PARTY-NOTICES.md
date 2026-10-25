@@ -506,7 +506,7 @@ endorsed by Funcom.
 ## Region names: dune-awakening-selfhost-docker (RedBlink)
 
 `internal/ops/hagga-regions.json` is a copy, unchanged, of `runtime/data/hagga-regions.json` of
-https://github.com/Red-Blink/dune-awakening-selfhost-docker (commit ca3f4cd7, git blob 1d1299a2), MIT-licensed under the licence reproduced in the item
+https://github.com/Red-Blink/dune-awakening-selfhost-docker (commit 82548d72, git blob 1d1299a2 (unchanged since ca3f4cd7)), MIT-licensed under the licence reproduced in the item
 catalog section above. It gives the names of the 12 sub-regions of the Hagga Basin, keyed by the area number the game's map markers carry; the file's own
 header says the console took them from the game's area definitions. The Saved map, the vehicle list and the base list use them to say which region a place
 is near, by the area of the nearest map marker (the way the console labels its vehicles: `mapRegionNames` and `attachVehicleRegions` in

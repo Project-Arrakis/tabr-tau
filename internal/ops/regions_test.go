@@ -141,7 +141,7 @@ func TestTheRegionFileHasItsNotice(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"internal/ops/hagga-regions.json", "hagga-regions.json", "ca3f4cd7"} {
+	for _, want := range []string{"internal/ops/hagga-regions.json", "hagga-regions.json", "82548d72"} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("the notices do not say %q", want)
 		}
