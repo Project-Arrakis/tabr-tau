@@ -122,11 +122,11 @@ func TestTeleportToAnotherMapRefusesWhatCannotBeRight(t *testing.T) {
 	o := &Ops{S: testsave.PlayerWithSQL(t, teleportWorld+teleportDeepDesert)}
 	before := playerActorMaps(t, o)
 	for name, a := range map[string]Args{
-		"a dungeon":                            {"x": 5.0, "y": 5.0, "z": 5.0, "map": "PitDungeon"},
-		"a social hub":                         {"x": 5.0, "y": 5.0, "z": 5.0, "map": "Arrakeen"},
-		"a map that does not exist":            {"x": 5.0, "y": 5.0, "z": 5.0, "map": "nowhere"},
-		"a map that is not text":               {"x": 5.0, "y": 5.0, "z": 5.0, "map": 7.0},
-		"a position off the Deep Desert map":   {"x": 5e6, "y": 0.0, "z": 300.0, "map": "DeepDesert"},
+		"a dungeon":                          {"x": 5.0, "y": 5.0, "z": 5.0, "map": "PitDungeon"},
+		"a social hub":                       {"x": 5.0, "y": 5.0, "z": 5.0, "map": "Arrakeen"},
+		"a map that does not exist":          {"x": 5.0, "y": 5.0, "z": 5.0, "map": "nowhere"},
+		"a map that is not text":             {"x": 5.0, "y": 5.0, "z": 5.0, "map": 7.0},
+		"a position off the Deep Desert map": {"x": 5e6, "y": 0.0, "z": 300.0, "map": "DeepDesert"},
 	} {
 		if _, err := o.Teleport(a); err == nil {
 			t.Errorf("%s must be refused", name)
