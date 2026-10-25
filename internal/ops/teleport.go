@@ -130,7 +130,7 @@ func (o *Ops) Destinations(kind, q, dest string) (any, error) {
 		}
 	case "vehicle":
 		rows, err := o.S.Query(`select a.id id, a.class cls, a.location_x x, a.location_y y, a.location_z z from vehicles v join actors a on a.id=v.id
-			where v.id in (`+ownedVehicleSQL+`) and a.map=?`, p.Controller, mp)
+			where v.id in (`+ownedVehicleSQL+`) and v.id not in (`+storedVehicleSQL+`) and a.map=?`, p.Controller, mp)
 		if err != nil {
 			return nil, err
 		}

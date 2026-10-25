@@ -362,6 +362,7 @@
           <button class="b sec" data-lmund="1">${lm.showUndiscovered ? 'Hide' : 'Show'} undiscovered markers</button>
           <button class="b sec" data-lmz="in" aria-label="Zoom in">+</button><button class="b sec" data-lmz="out" aria-label="Zoom out">&minus;</button><button class="b sec" data-lmz="fit">Fit</button></div>
         <p class="mut">The save as of its last write, not the running game. Markers you have not discovered yet are shown faded.</p>
+        ${d.storedVehicles ? html`<p class="mut">${d.storedVehicles} of your ${d.storedVehicles == 1 ? 'vehicles is' : 'vehicles are'} stored (in the vehicle backup or waiting for recovery) and not shown: the game keeps only the place a stored vehicle was last in the world.</p>` : ''}
         <div class="lm-wrap"><canvas id="lmc" class="lm" tabindex="0" role="img" aria-label="${'Saved map of ' + d.config.label + '. Press plus and minus to zoom, 0 to show the whole map, the arrow keys to move.'}"></canvas></div>
         <p class="mut" id="lminfo">${LM_HINT}</p>
         ${counts.spice || counts.flour ? html`<p class="mut">Spice and flour sand fields are placed by decoding their ids, because the save keeps no coordinates for them; the positions have not been checked against the game for this map.</p>` : ''}
