@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
+	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
 // Teleport as the Dune Docker console has it (PlayerTeleportControls.tsx): move the character to coordinates or to a named place,
@@ -30,8 +31,25 @@ type Destination struct {
 // DestinationKinds are the lists the picker offers.
 var DestinationKinds = []string{"base", "respawn", "vehicle", "marker"}
 
-// where returns the character's pawn id, map and position; destinations are limited to that map because a move to another map is not
-// something the editor can do from the save (it is held back until it has been checked in game).
+// TravelMap is a map the character can be moved to: the two the console offers for an offline player (Hagga Basin and the Deep Desert).
+// The social hubs and the dungeons are instances with their own entry; a position in the save is not enough to enter them, so they are not offered.
+type TravelMap struct {
+	Key     string `json:"key"`
+	Label   string `json:"label"`
+	Current bool   `json:"current"`
+}
+
+// travelMapOf returns the map named key, or false when the editor does not move the character to it.
+func travelMapOf(key string) (mapConfig, bool) {
+	for _, m := range liveMaps {
+		if m.Key == key {
+			return m, true
+		}
+	}
+	return mapConfig{}, false
+}
+
+// where returns the character's pawn id, map and position.
 func (o *Ops) where() (id int64, mp string, x, y float64, err error) {
 	p, err := o.player()
 	if err != nil {
@@ -48,16 +66,29 @@ func (o *Ops) where() (id int64, mp string, x, y float64, err error) {
 
 func flatDistance(x, y, px, py float64) float64 { return math.Hypot(x-px, y-py) }
 
-// Destinations lists places on the character's current map for one kind (base, respawn, vehicle or marker), nearest first. q narrows by
-// name (a marker's type, a respawn group, a vehicle class).
-func (o *Ops) Destinations(kind, q string) (any, error) {
+// Destinations lists places for one kind (base, respawn, vehicle or marker) on the map named dest, or on the character's current map when dest
+// is empty. On the character's own map the places are nearest first; on another map a distance from the character means nothing, so none is
+// given and the places are in the order of the save's tables. q narrows by name (a marker's type, a respawn group, a vehicle class).
+func (o *Ops) Destinations(kind, q, dest string) (any, error) {
 	p, err := o.player()
 	if err != nil {
 		return nil, err
 	}
-	_, mp, px, py, err := o.where()
+	_, cur, px, py, err := o.where()
 	if err != nil {
 		return nil, err
+	}
+	mp := cur
+	if dest != "" {
+		if _, ok := travelMapOf(dest); !ok && dest != cur {
+			return nil, apierr.New(apierr.ErrBadArgument, "map must be HaggaBasin or DeepDesert")
+		}
+		mp = dest
+	}
+	same := mp == cur
+	maps := make([]TravelMap, 0, len(liveMaps))
+	for _, m := range liveMaps {
+		maps = append(maps, TravelMap{Key: m.Key, Label: m.Label, Current: m.Key == cur})
 	}
 	q = strings.ToLower(strings.TrimSpace(q))
 	var out []Destination
@@ -71,7 +102,11 @@ func (o *Ops) Destinations(kind, q string) (any, error) {
 		if q != "" && !strings.Contains(strings.ToLower(label), q) {
 			return
 		}
-		out = append(out, Destination{Kind: kind, Label: label, X: fx, Y: fy, Z: fz, Distance: flatDistance(fx, fy, px, py)})
+		d := Destination{Kind: kind, Label: label, X: fx, Y: fy, Z: fz}
+		if same {
+			d.Distance = flatDistance(fx, fy, px, py)
+		}
+		out = append(out, d)
 	}
 	switch kind {
 	case "base":
@@ -115,7 +150,9 @@ func (o *Ops) Destinations(kind, q string) (any, error) {
 	default:
 		return nil, apierr.New(apierr.ErrBadArgument, "kind must be base, respawn, vehicle or marker")
 	}
-	sortByDistance(out)
+	if same {
+		sortByDistance(out)
+	}
 	total := len(out)
 	if len(out) > destinationLimit {
 		out = out[:destinationLimit]
@@ -123,7 +160,7 @@ func (o *Ops) Destinations(kind, q string) (any, error) {
 	if out == nil {
 		out = []Destination{}
 	}
-	return map[string]any{"map": mp, "kind": kind, "total": total, "destinations": out}, nil
+	return map[string]any{"map": mp, "sameMap": same, "maps": maps, "kind": kind, "total": total, "destinations": out}, nil
 }
 
 func sortByDistance(d []Destination) {
@@ -163,20 +200,110 @@ func (o *Ops) Teleport(a Args) (any, error) {
 		}
 	}
 	desc := fmt.Sprintf("teleport player to %.0f, %.0f, %.0f", x, y, z)
-	if _, has := a["yaw"]; !has || a["yaw"] == nil || a["yaw"] == "" {
+	yaw, hasYaw, err := teleportYaw(a)
+	if err != nil {
+		return nil, err
+	}
+	dest, err := teleportMapArg(a)
+	if err != nil {
+		return nil, err
+	}
+	if dest != "" {
+		_, cur, _, _, err := o.where()
+		if err != nil {
+			return nil, err
+		}
+		if dest != cur {
+			return o.teleportToMap(p, dest, x, y, z, yaw, hasYaw)
+		}
+	}
+	if !hasYaw {
 		if _, err := o.run(desc, `update actors set location_x=?, location_y=?, location_z=? where id=?`, x, y, z, p.Pawn); err != nil {
 			return nil, err
 		}
 		return ok(), nil
 	}
-	yaw, err := a.Float("yaw")
-	if err != nil || math.IsNaN(yaw) || math.IsInf(yaw, 0) || math.Abs(yaw) > 3600 {
-		return nil, apierr.New(apierr.ErrBadArgument, "facing must be a number of degrees")
-	}
 	qx, qy, qz, qw := yawQuaternion(yaw)
 	if _, err := o.run(desc+fmt.Sprintf(" facing %.0f degrees", yaw),
 		`update actors set location_x=?, location_y=?, location_z=?, rotation_x=?, rotation_y=?, rotation_z=?, rotation_w=? where id=?`,
 		x, y, z, qx, qy, qz, qw, p.Pawn); err != nil {
+		return nil, err
+	}
+	return ok(), nil
+}
+
+// teleportYaw reads the optional facing: absent, null or empty means "keep the way the character faces".
+func teleportYaw(a Args) (yaw float64, has bool, err error) {
+	if _, ok := a["yaw"]; !ok || a["yaw"] == nil || a["yaw"] == "" {
+		return 0, false, nil
+	}
+	yaw, err = a.Float("yaw")
+	if err != nil || math.IsNaN(yaw) || math.IsInf(yaw, 0) || math.Abs(yaw) > 3600 {
+		return 0, false, apierr.New(apierr.ErrBadArgument, "facing must be a number of degrees")
+	}
+	return yaw, true, nil
+}
+
+// teleportMapArg reads the optional map to move to: absent, null or empty means "the map the character is on". Anything but text is refused.
+func teleportMapArg(a Args) (string, error) {
+	v, has := a["map"]
+	if !has || v == nil {
+		return "", nil
+	}
+	s, ok := v.(string)
+	if !ok {
+		return "", apierr.New(apierr.ErrBadArgument, "map must be text: HaggaBasin or DeepDesert")
+	}
+	if s == "" {
+		return "", nil
+	}
+	if _, ok := travelMapOf(s); !ok {
+		return "", apierr.New(apierr.ErrBadArgument, "map must be HaggaBasin or DeepDesert")
+	}
+	return s, nil
+}
+
+// teleportToMap moves the character to another map. A save the game wrote keeps the character's three actors (the controller, the body and
+// the player state) on the same map and at the same position, so a move between maps writes all three; a move on one map writes the body
+// only, which is what was checked in the game. The position has to lie inside the destination map's own bounds (Hagga Basin's are much
+// smaller than the Deep Desert's, so a Deep Desert position typed for Hagga Basin is caught; the reverse is not, and the places the page lists
+// for a map are the safe way to choose). Whether the game loads a character
+// moved to another map this way has not been checked in the game.
+func (o *Ops) teleportToMap(p player, dest string, x, y, z, yaw float64, hasYaw bool) (any, error) {
+	cfg, _ := travelMapOf(dest)
+	if x < cfg.MinX || x > cfg.MaxX || y < cfg.MinY || y > cfg.MaxY {
+		return nil, apierr.Newf(apierr.ErrBadArgument, "X %.0f, Y %.0f is outside the %s map (X %.0f to %.0f, Y %.0f to %.0f)", x, y, cfg.Label, cfg.MinX, cfg.MaxX, cfg.MinY, cfg.MaxY)
+	}
+	desc := fmt.Sprintf("teleport player to %s %.0f, %.0f, %.0f", dest, x, y, z)
+	if hasYaw {
+		desc += fmt.Sprintf(" facing %.0f degrees", yaw)
+	}
+	if _, err := o.S.Mutate(desc, func(m *save.Mut) error {
+		r, err := m.Query(`select ps.player_controller_id c, ps.player_pawn_id b, ps.player_state_id s,
+			(select count(*) from actors where id in (ps.player_controller_id, ps.player_pawn_id, ps.player_state_id)) n from player_state ps where ps.id=?`, p.Controller)
+		if err != nil {
+			return err
+		}
+		if len(r) == 0 {
+			return errors.New("the character's record was not found in this save")
+		}
+		if n, _ := toInt(r[0]["n"]); n != 3 {
+			return errors.New("this save does not hold all three of the character's actors (controller, body and player state), so a move to another map is refused: moving only some of them would split the character between two maps")
+		}
+		c, _ := toInt(r[0]["c"])
+		b, _ := toInt(r[0]["b"])
+		s, _ := toInt(r[0]["s"])
+		if _, err := m.Exec(`update actors set map=?, dimension_index=0, location_x=?, location_y=?, location_z=? where id in (?,?,?)`, dest, x, y, z, c, b, s); err != nil {
+			return err
+		}
+		if hasYaw {
+			qx, qy, qz, qw := yawQuaternion(yaw)
+			if _, err := m.Exec(`update actors set rotation_x=?, rotation_y=?, rotation_z=?, rotation_w=? where id=?`, qx, qy, qz, qw, b); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 	return ok(), nil

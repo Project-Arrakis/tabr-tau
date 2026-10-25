@@ -1366,7 +1366,7 @@ test('there is no Give water button: Fill hydration and Refill Literjons are wha
 
 test('Teleport: Find lists places as text, choosing one fills X Y Z, Facing is sent only when typed', async () => {
   const hostile = '<img src=x onerror=1>';
-  const dest = { map: 'HaggaBasin', kind: 'marker', total: 3, destinations: [{ kind: 'marker', label: 'Cave ' + hostile, x: 400.4, y: 500.6, z: 20, distance: 52000 }, { kind: 'marker', label: 'EnemyCamp', x: 9000, y: 9000, z: 30, distance: 900000 }] };
+  const dest = { map: 'HaggaBasin', sameMap: true, kind: 'marker', total: 3, destinations: [{ kind: 'marker', label: 'Cave ' + hostile, x: 400.4, y: 500.6, z: 20, distance: 52000 }, { kind: 'marker', label: 'EnemyCamp', x: 9000, y: 9000, z: 30, distance: 900000 }] };
   const ui = await boot({ get: { '/api/player/destinations': dest }, post: { '/api/player/teleport': { ok: true } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:admin"]'); await ui.settle();
@@ -1387,6 +1387,30 @@ test('Teleport: Find lists places as text, choosing one fills X Y Z, Facing is s
   ui.click('[data-act="teleport"]'); await ui.settle();
   assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/teleport').at(-1).body, { x: 400, y: 501, z: 20, yaw: 90 });
   assert.ok(ui.doc.body.textContent.includes('next enter single-player'), 'the page says when the move shows');
+  ui.dom.window.close();
+});
+
+test('Teleport to another map: Find asks for that map, lists its places with no distance, and the move carries the map', async () => {
+  const dest = { map: 'DeepDesert', sameMap: false, kind: 'base', total: 1, maps: [{ key: 'HaggaBasin', label: 'Hagga Basin', current: true }, { key: 'DeepDesert', label: 'The Deep Desert', current: false }],
+    destinations: [{ kind: 'base', label: 'Base #701', x: -300000, y: -590000, z: 1000, distance: 0 }] };
+  const ui = await boot({ get: { '/api/player/destinations': dest }, post: { '/api/player/teleport': { ok: true } } });
+  const asked = [];
+  const f = ui.w.fetch; ui.w.fetch = (p, o) => { asked.push(String(p)); return f(p, o); };
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:admin"]'); await ui.settle();
+  const maps = [...ui.doc.querySelectorAll('#tmap option')].map((o) => o.value);
+  assert.deepEqual(maps, ['', 'HaggaBasin', 'DeepDesert'], 'this map first, then the two the console offers');
+  assert.ok(ui.doc.querySelector('#tmap option').textContent.startsWith('This map ('), 'the first choice names the map the character is on');
+  ui.doc.querySelector('#tdkind').value = 'base'; ui.doc.querySelector('#tmap').value = 'DeepDesert';
+  ui.click('[data-act="tdFind"]'); await ui.settle();
+  assert.ok(asked.some((u) => u.startsWith('/api/player/destinations?') && u.includes('map=DeepDesert')), asked.filter((u) => u.includes('destinations')).join(' '));
+  const sel = ui.doc.querySelector('#tdsel');
+  assert.ok(sel.options[0].textContent.includes('1 place on DeepDesert') && !sel.options[0].textContent.includes('nearest first'), sel.options[0].textContent);
+  assert.ok(!sel.options[1].textContent.includes('m away'), 'no distance across maps: ' + sel.options[1].textContent);
+  sel.value = '0'; sel.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
+  ui.click('[data-act="teleport"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/teleport').map((p) => p.body), [{ x: -300000, y: -590000, z: 1000, map: 'DeepDesert' }]);
+  assert.ok(ui.doc.body.textContent.includes('has not been checked in the game yet'), 'the page says a move between maps is not proven');
   ui.dom.window.close();
 });
 

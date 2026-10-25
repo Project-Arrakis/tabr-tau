@@ -31,7 +31,7 @@ insert into player_markers(player_id,marker_hash_id,dimension_index,map_name,dis
 
 func listDestinations(t *testing.T, o *Ops, kind, q string) []Destination {
 	t.Helper()
-	res, err := o.Destinations(kind, q)
+	res, err := o.Destinations(kind, q, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func TestDestinationsListPlacesOnTheCurrentMapNearestFirst(t *testing.T) {
 	if want := math.Hypot(300, 300); math.Abs(markers[0].Distance-want) > 1e-6 {
 		t.Fatalf("distance is flat and from the character: %v want %v", markers[0].Distance, want)
 	}
-	if _, err := o.Destinations("nowhere", ""); err == nil {
+	if _, err := o.Destinations("nowhere", "", ""); err == nil {
 		t.Fatal("an unknown kind must be an error")
 	}
 }
