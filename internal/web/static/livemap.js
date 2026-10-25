@@ -330,6 +330,22 @@
     lmDraw();
   }
 
+  // Region names (the Hagga Basin only): where the character, your vehicles and your bases are, by the region of the nearest map marker, and which
+  // regions the character has discovered. The game does not store the region of a vehicle or a base, so "near" is a guess from the markers.
+  function lmRegionsCard(d) {
+    const a = d.areas;
+    if (!a || !a.named) return '';
+    const rows = [];
+    if (d.character && d.character.region) rows.push({ what: d.character.name || 'Character', region: d.character.region });
+    for (const v of d.vehicles || []) if (v.region) rows.push({ what: v.name, region: v.region });
+    for (const b of d.bases || []) if (b.region) rows.push({ what: 'Your base', region: b.region });
+    const found = a.discovered || [];
+    return html`<div class="card"><h3>Regions of ${d.config.label} (${found.length} of ${a.total} discovered)</h3>
+      <p>${found.length ? found.map((n) => html`<span class="tag">${n}</span> `) : html`<span class="mut">No region of this map is marked as discovered in the save.</span>`}${a.other ? html` <span class="mut">and ${a.other} more without a name.</span>` : ''}</p>
+      ${rows.length ? tbl([{ k: 'what', label: 'What' }, { k: 'region', label: 'Near the region' }], rows) : ''}
+      <p class="mut">The save keeps the region of a map marker, not of a vehicle or a base. A place is shown near the region of the nearest marker; close to the edge of two regions this can be the neighbour. The names are the game's own, for the Hagga Basin (see the notices); the Deep Desert has none.</p></div>`;
+  }
+
   async function liveMapView() {
     const d = await api('/api/livemap?map=' + encodeURIComponent(lm.map));
     lm.data = d;
@@ -350,6 +366,7 @@
         <p class="mut" id="lminfo">${LM_HINT}</p>
         ${counts.spice || counts.flour ? html`<p class="mut">Spice and flour sand fields are placed by decoding their ids, because the save keeps no coordinates for them; the positions have not been checked against the game for this map.</p>` : ''}
         <div class="row">${groups.map((g) => html`<button class="lm-layer ${lm.hidden.has(g.id) ? 'off' : 'on'}" data-lmg="${g.id}" aria-pressed="${lm.hidden.has(g.id) ? 'false' : 'true'}">${LM_GROUP_ICON[g.id] ? html`<span class="lm-ic lm-i-${LM_GROUP_ICON[g.id].replace(/\.[a-z]+$/, '').toLowerCase()}"></span>` : html`<span class="lm-sw lm-c-${g.id}"></span>`}${g.label} (${counts[g.id]})</button>`)}</div></div>
+      ${lmRegionsCard(d)}
       <div class="card"><h3>Markers on this map (${types.length} types)</h3>${tbl([{ k: 'type', label: 'Marker', f: (r) => { const f = lmIconByType(r.type); const name = html`<span title="${r.type}">${lmTypeName(r.type)}</span>`; return f ? html`<span class="lm-ic lm-i-${f.replace(/\.[a-z]+$/, '').toLowerCase()}"></span>${name}` : name; } }, { k: 'group', label: 'Group', f: (r) => (LM_GROUPS.find((g) => g.id == r.group) || {}).label || r.group }, { k: 'n', label: 'Markers' }, { k: 'found', label: 'Discovered' }], types)}</div>`);
     lmMount();
   }
