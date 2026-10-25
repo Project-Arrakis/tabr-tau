@@ -6,59 +6,75 @@ Last regenerated: 2026-10-25
 
 ## How we work the roadmap
 
-- Every feature, idea or bug the operator raises is an issue. A feature or idea gets `roadmap` and `inbox` (and `idea` while it is only an idea); a bug gets `bug` and `inbox`.
+- Every feature, idea or bug the operator raises is an issue. A feature or idea gets `roadmap` and `inbox` (and `idea` while it is only an idea); a bug gets `bug`, `inbox` and a reported priority (below).
 - A new item waits. It is not started the moment it is raised: it sits in the Inbox until the next priority check. Only a P0 starts at once.
 - **P0 (`p0-critical`)** is urgent: data loss, a safety problem, or it stops the operator playing now. A P0 jumps the queue.
 - Several tasks may be in flight in parallel. They are taken from the top of the list: `p1-now` first, then `p2-next`, then `p3-later`. `p4-parked` is not worked; each parked item says why.
 - The priorities are checked when a task finishes and at the start of each session: the Inbox is read, each new item gets exactly one of `p1-now`, `p2-next`, `p3-later` or `p4-parked` (and loses `inbox`), and items may move between them. Keep `p1-now` to what the operator needs now.
 - **Bugs come before features** (operator rule, 2026-10-25): within the same priority, open bugs are worked first. A new bug the operator reports gets `p1-now` unless it is trivial or needs the operator or the game, in which case it is labelled so (waiting on the operator / needs the game) but never left in the inbox for long.
+- **A bug carries two priorities.** The *reported priority* is the priority the bug was reported with, how bad the operator says it is (the labels `rp1-critical`, `rp2-high`, `rp3-normal`, `rp4-low`, or `rp-unset`); the *working priority* is `p0-critical` to `p4-parked`, how we schedule it. Exactly one `rp` label per bug.
+- The reported priority is set from the operator's own words and nothing else: "this can't happen, ever" or "it stops me" is `rp1-critical`; "wrong, but I can work" is `rp2-high` or `rp3-normal`; cosmetic is `rp4-low`. When he says nothing the label is `rp-unset` and the assistant asks him at the next check. The label is changed only when he changes it; a comment on the issue says where it came from.
+- The working priority is never lower than the reported priority without the operator's OK: `rp1-critical` means at least `p1-now`, and `p0-critical` when the bug loses data, is unsafe, or stops him playing now; `rp2-high` at least `p2-next`; `rp3-normal` at least `p3-later`. (`rp-unset` is asked about before it is parked.)
+- This page lists the bugs first within each working priority, ordered by reported priority (`rp1` first, `rp-unset` last) and then by the date they were reported, oldest first, and shows the reported priority in the Reported column.
 - The operator decides every priority change. A check does not interrupt work already in flight.
 
 Status tags: **in flight** (being worked), **waiting on the operator's in-game check** (built, nothing more to do until it is tried), **needs the game** (can only be finished and checked in the game), **blocked on a save** (needs a save that has the thing), **partly answered**, **parked** (with the reason). An item with no tag has not been started.
 
 ## Urgent (P0)
 
-Jumps the queue: data loss, a safety problem, or it stops the operator playing now. Items: 0.
+Jumps the queue: data loss, a safety problem, or it stops the operator playing now. Items: 1.
 
-Nothing.
+| Issue | Reported | What | Status |
+| --- | --- | --- | --- |
+| [#419](https://github.com/Project-Arrakis/tabr-tau/issues/419) | unset | Bug: the automatic pass wrote the save while the game was running; afterwards six items could not be moved in the game |  |
 
 ## Now (p1)
 
 What the operator needs now. Items: 1.
 
-- [#409](https://github.com/Project-Arrakis/tabr-tau/issues/409) Bug: after the automatic pass on launch the character was dehydrated at login (hydration written as text where the game now stores numbers) **[waiting on the operator's in-game check]** Waiting on the operator's in-game test.
+| Issue | Reported | What | Status |
+| --- | --- | --- | --- |
+| [#409](https://github.com/Project-Arrakis/tabr-tau/issues/409) | rp2 high | Bug: after the automatic pass on launch the character was dehydrated at login (hydration written as text where the game now stores numbers) | **[waiting on the operator's in-game check]** Waiting on the operator's in-game test. |
 
 ## Next (p2)
 
 Taken once the Now items are done or waiting. Items: 7.
 
-- [#48](https://github.com/Project-Arrakis/tabr-tau/issues/48) UX: keep Bases and Vehicles tabs, fix real usability problems (shrunk 2026-10-07)
-- [#56](https://github.com/Project-Arrakis/tabr-tau/issues/56) Full repair for bases and vehicles **[blocked on a save]** Needs a save with a wrecked vehicle.
-- [#67](https://github.com/Project-Arrakis/tabr-tau/issues/67) Teleport parity with the Dune Docker console: destinations, map, facing **[waiting on the operator's in-game check]**
-- [#401](https://github.com/Project-Arrakis/tabr-tau/issues/401) Spawn a vehicle by template (grade and uniques), as the console's Spawn Vehicle does **[needs the game]** Gated on the Duplicate vehicle in-game test (#398).
-- [#402](https://github.com/Project-Arrakis/tabr-tau/issues/402) Idea: completing a journey node should also set the tags and follow-on effects the node sets
-- [#403](https://github.com/Project-Arrakis/tabr-tau/issues/403) Idea: use the game's lifecycle state for stored vehicles and picked-up bases **[built, waiting on the operator's in-game check]** The read-only part is built.
-- [#404](https://github.com/Project-Arrakis/tabr-tau/issues/404) Idea: reputation changes should keep the character's own faction record and earned tier tags in step
+| Issue | Reported | What | Status |
+| --- | --- | --- | --- |
+| [#48](https://github.com/Project-Arrakis/tabr-tau/issues/48) | - | UX: keep Bases and Vehicles tabs, fix real usability problems (shrunk 2026-10-07) |  |
+| [#56](https://github.com/Project-Arrakis/tabr-tau/issues/56) | - | Full repair for bases and vehicles | **[blocked on a save]** Needs a save with a wrecked vehicle. |
+| [#67](https://github.com/Project-Arrakis/tabr-tau/issues/67) | - | Teleport parity with the Dune Docker console: destinations, map, facing | **[waiting on the operator's in-game check]** |
+| [#401](https://github.com/Project-Arrakis/tabr-tau/issues/401) | - | Spawn a vehicle by template (grade and uniques), as the console's Spawn Vehicle does | **[needs the game]** Gated on the Duplicate vehicle in-game test (#398). |
+| [#402](https://github.com/Project-Arrakis/tabr-tau/issues/402) | - | Idea: completing a journey node should also set the tags and follow-on effects the node sets |  |
+| [#403](https://github.com/Project-Arrakis/tabr-tau/issues/403) | - | Idea: use the game's lifecycle state for stored vehicles and picked-up bases | **[built, waiting on the operator's in-game check]** The read-only part is built. |
+| [#404](https://github.com/Project-Arrakis/tabr-tau/issues/404) | - | Idea: reputation changes should keep the character's own faction record and earned tier tags in step |  |
 
 ## Later (p3)
 
 Wanted, not yet scheduled. Items: 2.
 
-- [#61](https://github.com/Project-Arrakis/tabr-tau/issues/61) Later: read-only inspection of installed game data for item capacities and ids (parked)
-- [#96](https://github.com/Project-Arrakis/tabr-tau/issues/96) Player tab: mirror the console's Players > Player Name view and its 12 tabs
+| Issue | Reported | What | Status |
+| --- | --- | --- | --- |
+| [#61](https://github.com/Project-Arrakis/tabr-tau/issues/61) | - | Later: read-only inspection of installed game data for item capacities and ids (parked) |  |
+| [#96](https://github.com/Project-Arrakis/tabr-tau/issues/96) | - | Player tab: mirror the console's Players > Player Name view and its 12 tabs |  |
 
 ## Parked (p4)
 
 Not worked until the reason given is gone. Items: 4.
 
-- [#101](https://github.com/Project-Arrakis/tabr-tau/issues/101) Live Map: mirror the console's Live Map from the save (Hagga Basin first, Deep Desert included) **[parked]** Deferred; no work planned yet.
-- [#110](https://github.com/Project-Arrakis/tabr-tau/issues/110) Deep Desert: map, terrain and anything that needs the area (deferred until the owner reaches it) **[parked]** Deferred until the owner reaches the Deep Desert.
-- [#111](https://github.com/Project-Arrakis/tabr-tau/issues/111) Blueprints tab: player blueprints (blocked on a save that has blueprints) **[blocked on a save]** No save has blueprints.
-- [#221](https://github.com/Project-Arrakis/tabr-tau/issues/221) Export an embeddable editor package (handler with extension routes) **[parked]** Deferred; no work planned yet.
+| Issue | Reported | What | Status |
+| --- | --- | --- | --- |
+| [#101](https://github.com/Project-Arrakis/tabr-tau/issues/101) | - | Live Map: mirror the console's Live Map from the save (Hagga Basin first, Deep Desert included) | **[parked]** Deferred; no work planned yet. |
+| [#110](https://github.com/Project-Arrakis/tabr-tau/issues/110) | - | Deep Desert: map, terrain and anything that needs the area (deferred until the owner reaches it) | **[parked]** Deferred until the owner reaches the Deep Desert. |
+| [#111](https://github.com/Project-Arrakis/tabr-tau/issues/111) | - | Blueprints tab: player blueprints (blocked on a save that has blueprints) | **[blocked on a save]** No save has blueprints. |
+| [#221](https://github.com/Project-Arrakis/tabr-tau/issues/221) | - | Export an embeddable editor package (handler with extension routes) | **[parked]** Deferred; no work planned yet. |
 
 ## Inbox (unprioritised)
 
 New items waiting for the next priority check. Items: 1.
 
-- [#417](https://github.com/Project-Arrakis/tabr-tau/issues/417) Care package: save a named kit (items, XP) and apply it to a new character in one edit, like the console's Care Package
+| Issue | Reported | What | Status |
+| --- | --- | --- | --- |
+| [#417](https://github.com/Project-Arrakis/tabr-tau/issues/417) | - | Care package: save a named kit (items, XP) and apply it to a new character in one edit, like the console's Care Package |  |
 

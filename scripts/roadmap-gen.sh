@@ -9,7 +9,10 @@
 #
 # An open roadmap/bug issue is placed by its priority label: p0-critical, p1-now, p2-next,
 # p3-later or p4-parked. One without a priority label (or with `inbox`) is listed under Inbox.
-# Within a priority the bugs are listed first, then the rest, each by number.
+# A bug also carries the priority it was reported with (rp1-critical, rp2-high, rp3-normal, rp4-low,
+# or rp-unset when the operator has not said); the page shows it in the Reported column. Within a
+# working priority the bugs come first, ordered by reported priority (rp1 first, rp-unset last) and
+# then by the date they were reported (oldest first); the rest follow, each by number.
 # Closed issues are never listed. The operator decides priority changes; this script only
 # writes down what the labels say.
 set -euo pipefail
@@ -25,9 +28,20 @@ tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
 
 issues="$(gh issue list --repo "$repo" --state open --limit 1000 \
-  --json number,title,labels \
-  --jq '.[] | select(any(.labels[]; .name=="roadmap" or .name=="bug" or .name=="inbox")) | [.number, ([.labels[].name] | join(",")), .title] | @tsv' \
-  | tr -d '\r' | sort -n)"
+  --json number,title,labels,createdAt \
+  --jq '[.[] | select(any(.labels[]; .name=="roadmap" or .name=="bug" or .name=="inbox"))
+         | ([.labels[].name]) as $l
+         | {n: .number, l: $l, t: .title,
+            b: (if ($l | index("bug")) then 0 else 1 end),
+            r: (if ($l | index("bug") | not) then 0
+                elif ($l | index("rp1-critical")) then 1
+                elif ($l | index("rp2-high")) then 2
+                elif ($l | index("rp3-normal")) then 3
+                elif ($l | index("rp4-low")) then 4
+                else 5 end),
+            c: (if ($l | index("bug")) then .createdAt else "" end)}]
+        | sort_by([.b, .r, .c, .n]) | .[] | [.n, (.l | join(",")), .t] | @tsv' \
+  | tr -d '\r')"
 
 # status_of NUMBER -> "status<TAB>reason" (both may be empty)
 status_of() {
@@ -47,31 +61,43 @@ priority_of() {
   echo inbox
 }
 
+# reported_of LABELS -> the reported priority of a bug as shown on the page; "-" for anything that is not a bug
+reported_of() {
+  local labels=",$1," p
+  case "$labels" in *",bug,"*) ;; *) echo "-"; return ;; esac
+  for p in rp1-critical rp2-high rp3-normal rp4-low; do
+    case "$labels" in
+      *",$p,"*) echo "${p%%-*} ${p#*-}"; return ;;
+    esac
+  done
+  echo "unset"
+}
+
 # section PRIORITY HEADING DESCRIPTION
 section() {
-  local want="$1" heading="$2" blurb="$3" count=0 lines="" num labels title prio st status reason line pass
-  for pass in bug other; do # bugs come before features within a priority (operator rule, 2026-10-25)
+  local want="$1" heading="$2" blurb="$3" count=0 lines="" num labels title prio st status reason cell line
   while IFS=$'\t' read -r num labels title; do
     [ -n "$num" ] || continue
     prio="$(priority_of "$labels")"
     [ "$prio" = "$want" ] || continue
-    case ",$labels," in *",bug,"*) [ "$pass" = bug ] || continue ;; *) [ "$pass" = other ] || continue ;; esac
     st="$(status_of "$num")"
     status="${st%%$'\t'*}"
     reason=""
     case "$st" in *$'\t'*) reason="${st#*$'\t'}" ;; esac
-    line="- [#${num}](https://github.com/${repo}/issues/${num}) ${title}"
-    [ -z "$status" ] || line="${line} **[${status}]**"
-    [ -z "$reason" ] || line="${line} ${reason}"
+    title="${title//|/\|}"
+    reason="${reason//|/\|}"
+    cell=""
+    [ -z "$status" ] || cell="**[${status}]**"
+    [ -z "$reason" ] || cell="${cell:+${cell} }${reason}"
+    line="| [#${num}](https://github.com/${repo}/issues/${num}) | $(reported_of "$labels") | ${title} | ${cell} |"
     lines="${lines}${line}"$'\n'
     count=$((count + 1))
   done <<< "$issues"
-  done
   printf '## %s\n\n%s Items: %d.\n\n' "$heading" "$blurb" "$count"
   if [ "$count" -eq 0 ]; then
     printf 'Nothing.\n\n'
   else
-    printf '%s\n' "$lines"
+    printf '| Issue | Reported | What | Status |\n| --- | --- | --- | --- |\n%s\n' "$lines"
   fi
 }
 
@@ -85,12 +111,16 @@ Last regenerated: $(date +%F)
 
 ## How we work the roadmap
 
-- Every feature, idea or bug the operator raises is an issue. A feature or idea gets \`roadmap\` and \`inbox\` (and \`idea\` while it is only an idea); a bug gets \`bug\` and \`inbox\`.
+- Every feature, idea or bug the operator raises is an issue. A feature or idea gets \`roadmap\` and \`inbox\` (and \`idea\` while it is only an idea); a bug gets \`bug\`, \`inbox\` and a reported priority (below).
 - A new item waits. It is not started the moment it is raised: it sits in the Inbox until the next priority check. Only a P0 starts at once.
 - **P0 (\`p0-critical\`)** is urgent: data loss, a safety problem, or it stops the operator playing now. A P0 jumps the queue.
 - Several tasks may be in flight in parallel. They are taken from the top of the list: \`p1-now\` first, then \`p2-next\`, then \`p3-later\`. \`p4-parked\` is not worked; each parked item says why.
 - The priorities are checked when a task finishes and at the start of each session: the Inbox is read, each new item gets exactly one of \`p1-now\`, \`p2-next\`, \`p3-later\` or \`p4-parked\` (and loses \`inbox\`), and items may move between them. Keep \`p1-now\` to what the operator needs now.
 - **Bugs come before features** (operator rule, 2026-10-25): within the same priority, open bugs are worked first. A new bug the operator reports gets \`p1-now\` unless it is trivial or needs the operator or the game, in which case it is labelled so (waiting on the operator / needs the game) but never left in the inbox for long.
+- **A bug carries two priorities.** The *reported priority* is the priority the bug was reported with, how bad the operator says it is (the labels \`rp1-critical\`, \`rp2-high\`, \`rp3-normal\`, \`rp4-low\`, or \`rp-unset\`); the *working priority* is \`p0-critical\` to \`p4-parked\`, how we schedule it. Exactly one \`rp\` label per bug.
+- The reported priority is set from the operator's own words and nothing else: "this can't happen, ever" or "it stops me" is \`rp1-critical\`; "wrong, but I can work" is \`rp2-high\` or \`rp3-normal\`; cosmetic is \`rp4-low\`. When he says nothing the label is \`rp-unset\` and the assistant asks him at the next check. The label is changed only when he changes it; a comment on the issue says where it came from.
+- The working priority is never lower than the reported priority without the operator's OK: \`rp1-critical\` means at least \`p1-now\`, and \`p0-critical\` when the bug loses data, is unsafe, or stops him playing now; \`rp2-high\` at least \`p2-next\`; \`rp3-normal\` at least \`p3-later\`. (\`rp-unset\` is asked about before it is parked.)
+- This page lists the bugs first within each working priority, ordered by reported priority (\`rp1\` first, \`rp-unset\` last) and then by the date they were reported, oldest first, and shows the reported priority in the Reported column.
 - The operator decides every priority change. A check does not interrupt work already in flight.
 
 Status tags: **in flight** (being worked), **waiting on the operator's in-game check** (built, nothing more to do until it is tried), **needs the game** (can only be finished and checked in the game), **blocked on a save** (needs a save that has the thing), **partly answered**, **parked** (with the reason). An item with no tag has not been started.

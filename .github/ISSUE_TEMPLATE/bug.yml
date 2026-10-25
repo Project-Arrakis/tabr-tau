@@ -7,6 +7,18 @@ body:
     attributes:
       label: What happened, and what you expected
     validations: {required: true}
+  - type: dropdown
+    id: reported
+    attributes:
+      label: How bad is it, as you report it?
+      description: The priority you give this bug. The team schedules it separately and never below what you say here without your OK.
+      options:
+        - rp1-critical (this can't happen, ever; it stops me; loses data or is unsafe)
+        - rp2-high (clearly wrong and in my way, but I can still work)
+        - rp3-normal (wrong, but I can work around it)
+        - rp4-low (cosmetic or minor)
+        - rp-unset (I have not decided; please ask me)
+    validations: {required: true}
   - type: textarea
     id: steps
     attributes:
