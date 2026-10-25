@@ -2,7 +2,7 @@
 // It is data only: it never imports the save, so it can be used by any layer.
 //
 // The names come from the item catalog of the Dune Awakening Docker console (runtime/data/admin-items.json, MIT
-// licence, copyright RedBlink; refreshed 2026-10-25 from fork commit ca3f4cd7, blob 2746a605, plus the one item of upstream v1.4.52). Only the id, the name, the category, the source, the
+// licence, copyright RedBlink; refreshed 2026-10-25 from fork commit 82548d72, blob ecffc834, which includes the upstream v1.4.52 release). Only the id, the name, the category, the source, the
 // required DLC (name and Steam id) and the group of a resource are kept, not the stack sizes or volumes (those come from the game's own tables: stacks.json and volumes.json). The licence text is
 // reproduced in internal/notices/THIRD-PARTY-NOTICES.md. Seven ids appear twice in the source (the same item listed under two categories); the rule is that the first entry wins,
 // and in the console's file the placeable comes before the weapon.

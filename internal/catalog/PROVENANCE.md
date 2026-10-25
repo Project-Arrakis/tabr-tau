@@ -10,8 +10,7 @@
 `stacks.json`, `volumes.json` and `customization_unlocks.json` contain only the game's identifiers and integers: no names, text, images or code. They are
 read by `catalog.go` (`MaxStack`, `Volume`, `Unlocks`) and nothing else.
 
-**How `items.json` was refreshed (#405, 2026-10-25).** Copied from the console fork at commit `ca3f4cd7` (`runtime/data/admin-items.json`, git blob `2746a605`) with one item added from the
-upstream release v1.4.52 (commit `c685d266`): `MTX_IxianTotem_Patent`, "Ixian Icon", a building set. Its id is also in the game's own item tables (it has a row in `volumes.json`), so it is an
+**How `items.json` was refreshed (#405, 2026-10-25).** Copied from the console fork at commit `82548d72` (`runtime/data/admin-items.json`, git blob `ecffc834`; the fork had merged the upstream release v1.4.52 by then). The one item the earlier copy (fork commit `ca3f4cd7`, blob `2746a605`) lacked is `MTX_IxianTotem_Patent`, "Ixian Icon", a building set. Its id is also in the game's own item tables (it has a row in `volumes.json`), so it is an
 item of the game and not only of the console. The ids and names, categories, sources and DLC names of the other 2,558 items were already the same as in the fork's file. What the refresh added
 are two fields: `group` (`component`, `refined_resource` or `raw_resource`; 59, 21 and 19 items) and `requiredSteamDlc` (the Steam id 4857580 of the eight Filmic Archive items). Nothing in
 the editor reads the two fields yet except `/api/catalog/items`, which sends them with the rest.

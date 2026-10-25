@@ -103,7 +103,7 @@ func TestProvenanceNamesTheCatalogCommitAndTheDuplicateRule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"ca3f4cd7", "c685d266", "MTX_IxianTotem_Patent", "first entry", "UniqueThumper_02", "`group`", "`requiredSteamDlc`"} {
+	for _, want := range []string{"82548d72", "ecffc834", "MTX_IxianTotem_Patent", "first entry", "UniqueThumper_02", "`group`", "`requiredSteamDlc`"} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("PROVENANCE.md does not say %q", want)
 		}
