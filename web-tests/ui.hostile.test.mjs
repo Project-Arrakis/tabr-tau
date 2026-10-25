@@ -457,11 +457,20 @@ test('a save the game check cannot vouch for queues the edits, says why, and All
   ui.dom.window.close();
 });
 
-test('the game open in multiplayer or at the menu shows a note and edits are written at once', async () => {
-  const ui = await boot({ get: { '/api/save/state': queuedState({ dirty: false, pending: [], gameRunning: true, gameProcesses: ['DuneTest.exe'], saveBlocked: false, gameMode: 'menu_or_multiplayer' }) } });
+test('the game open at the menu or in multiplayer queues the edits and says they are applied when it closes (#419)', async () => {
+  const why = 'DuneTest.exe is running; edits are queued and written when the game closes';
+  const ui = await boot({ get: { '/api/save/state': queuedState({ dirty: true, pending: ['water +5'], gameRunning: true, gameProcesses: ['DuneTest.exe'], saveBlocked: true, blockReason: why, gameMode: 'game_running' }) } });
   const gw = ui.doc.querySelector('#gamewarn');
-  assert.ok(gw.classList.contains('info') && !gw.classList.contains('warn'), gw.className);
-  assert.ok(gw.textContent.includes('not in single-player') && gw.textContent.includes('DuneTest.exe') && gw.textContent.includes('written at once'), gw.textContent);
+  assert.ok(gw.classList.contains('warn'), gw.className);
+  assert.ok(gw.textContent.includes('Queued: the game is running; applied when it closes') && !gw.textContent.includes('written at once'), gw.textContent);
+  ui.dom.window.close();
+});
+
+test('the game open with nothing queued shows that edits will queue (#419)', async () => {
+  const why = 'DuneTest.exe is running; edits are queued and written when the game closes';
+  const ui = await boot({ get: { '/api/save/state': queuedState({ dirty: false, pending: [], gameRunning: true, gameProcesses: ['DuneTest.exe'], saveBlocked: true, blockReason: why, gameMode: 'game_running' }) } });
+  const gw = ui.doc.querySelector('#gamewarn');
+  assert.ok(gw.classList.contains('warn') && gw.textContent.includes('The game is running') && gw.textContent.includes('queued'), gw.textContent);
   ui.dom.window.close();
 });
 

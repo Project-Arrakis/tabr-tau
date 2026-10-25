@@ -186,8 +186,6 @@ func CheckGameNow(savePath string) GameCheck {
 		c.Message = "the check failed again: " + g.CheckError
 	case c.Running && g.Blocked:
 		c.Message = "the game is running: edits will queue"
-	case c.Running:
-		c.Message = "the game is running, but not in a single-player session: edits are written at once"
 	case g.Blocked:
 		c.Message = "the game is not running, but " + g.Reason + ": edits will queue"
 	default:

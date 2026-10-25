@@ -266,13 +266,17 @@ func TestGameStateGraceBoundary(t *testing.T) {
 	}
 	for _, c := range []struct {
 		ago     time.Duration
-		blocked bool
+		blocked bool // the sentence is the "just ended" one (the write is refused in both cases since #419: a process exists)
 	}{
 		{0, true}, {spEndGrace - time.Millisecond, true}, {spEndGrace, false}, {spEndGrace + time.Millisecond, false},
 	} {
 		statusFor = func(string) (spStatus, error) { return spStatus{EndedAt: now.Add(-c.ago)}, nil }
-		if g := GameStateFor("x", true); g.Blocked != c.blocked {
-			t.Errorf("ended %v ago: blocked=%v want %v", c.ago, g.Blocked, c.blocked)
+		g := GameStateFor("x", true)
+		if !g.Blocked {
+			t.Errorf("ended %v ago: a game process exists, so the write must be refused", c.ago)
+		}
+		if just := strings.Contains(g.Reason, "just ended"); just != c.blocked {
+			t.Errorf("ended %v ago: reason %q, just-ended sentence=%v want %v", c.ago, g.Reason, just, c.blocked)
 		}
 	}
 }
@@ -293,11 +297,11 @@ func TestGameStateDecisions(t *testing.T) {
 		reason  string
 	}{
 		{"no game", procs(), spStatus{Active: true}, nil, false, "none", ""},
-		{"menu or multiplayer", procs("DuneSandbox-Win64-Shipping.exe"), spStatus{}, nil, false, "menu_or_multiplayer", "saving is allowed"},
+		{"menu or multiplayer (a process exists: edits queue, #419)", procs("DuneSandbox-Win64-Shipping.exe"), spStatus{}, nil, true, "game_running", "written when the game closes"},
 		{"single-player active", procs("DuneSandbox-Win64-Shipping.exe"), spStatus{Active: true}, nil, true, "single_player", "single-player session is active"},
 		{"just ended", procs("DuneSandbox-Win64-Shipping.exe"), spStatus{EndedAt: now.Add(-3 * time.Second)}, nil, true, "single_player", "just ended"},
-		{"ended long ago", procs("DuneSandbox-Win64-Shipping.exe"), spStatus{EndedAt: now.Add(-time.Minute)}, nil, false, "menu_or_multiplayer", ""},
-		{"log unreadable while the game runs", procs("DuneSandbox-Win64-Shipping.exe"), spStatus{}, os.ErrPermission, true, "unknown", "cannot tell whether a single-player session"},
+		{"ended long ago", procs("DuneSandbox-Win64-Shipping.exe"), spStatus{EndedAt: now.Add(-time.Minute)}, nil, true, "game_running", "is running"},
+		{"log unreadable while the game runs", procs("DuneSandbox-Win64-Shipping.exe"), spStatus{}, os.ErrPermission, true, "game_running", "is running"},
 		{"process check failed", func(bool) ([]string, string) { return nil, "process snapshot: boom" }, spStatus{}, nil, true, "unknown", "could not check"},
 	}
 	for _, c := range cases {

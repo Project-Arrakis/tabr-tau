@@ -244,7 +244,7 @@ func TestCheckGameNowSaysWhatItFound(t *testing.T) {
 	}
 	statusFor = func(string) (spStatus, error) { return spStatus{}, nil }
 	c = CheckGameNow(p)
-	if !c.Running || c.Blocked || !strings.Contains(c.Message, "not in a single-player session") {
+	if !c.Running || !c.Blocked || c.Failed || c.Message != "the game is running: edits will queue" { // a process exists: queued whatever the log says (#419)
 		t.Fatalf("running at the menu: %+v", c)
 	}
 

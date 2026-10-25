@@ -53,6 +53,7 @@ type Server struct {
 	startupNote  string // what the open-time refill did, shown once by the UI
 	startupWarn  bool   // the note is a problem or a skip, so the UI keeps it on screen
 	lastAuto     string // the last automatic save, kept for the Automatic refill card
+	autoWaiting  bool   // the automatic pass is waiting for the game to close (#419); RunAutosave runs it then
 	lastAutoFail string // why the last automatic pass could not finish, kept for the card
 
 	// bound is the address the editor listens on, set by BindAddr once it is known ("" until then, as in most tests). It scopes the
@@ -890,8 +891,24 @@ func (s *Server) RunAutosave(stop <-chan struct{}) {
 			if s.Save.Dirty() {
 				s.Save.Flush()
 			}
+			s.retryWaitingPass()
 		}
 	}
+}
+
+// retryWaitingPass runs the automatic pass that was held back because the game was running, once no game process exists and nothing is queued: the file is read
+// again first (the game saved while it ran), so the pass works from what the game left. It does nothing while the game, or the check, is in the way.
+func (s *Server) retryWaitingPass() {
+	s.startupMu.Lock()
+	waiting := s.autoWaiting
+	s.startupMu.Unlock()
+	if !waiting || s.Save.Dirty() || save.GameStateFor(s.Save.Path, true).Blocked {
+		return
+	}
+	if kept, err := s.Save.DiscardIfClean(); err != nil || !kept {
+		return // nothing is queued but the file could not be read, or an edit came in: try again at the next tick
+	}
+	s.RunStartupTasks()
 }
 
 // autoPrefs is what the Automatic refill card shows: the master switch, the list of jobs with their switches (and, for a job that is not ready,
@@ -908,7 +925,7 @@ func (s *Server) autoPrefs(cur settings.Settings) map[string]any {
 
 // RunStartupTasks does what the editor's settings ask for when it opens. Today that is the automatic pass: with the master switch on, every
 // job that is switched on (base water and power, repairs, fills; see ops.AutoJobs) runs as ONE edit, which is written straight away like every
-// other edit, so it takes effect the next time the game loads. It is skipped when a single-player session is running. A pass that finds nothing
+// other edit, so it takes effect the next time the game loads. It waits while a game process exists or the game check cannot say (nothing is written then, #419). A pass that finds nothing
 // to do writes nothing; a job that fails rolls the whole pass back. If the write is refused, the edit stays queued and is written as soon as the file can be.
 func (s *Server) RunStartupTasks() {
 	cur := settings.Load(s.SettingsPath)
@@ -929,9 +946,21 @@ func (s *Server) RunStartupTasks() {
 		s.startupMu.Unlock()
 	}
 	if g := save.GameStateFor(s.Save.Path, true); g.Blocked {
-		set("Automatic refill skipped: "+g.Reason+".", true)
+		// Nothing is written while a game process exists, or while the check cannot say (#419). The pass is not prepared against a file the game is about to
+		// rewrite either: it waits, and RunAutosave runs it on the fresh file once the game has closed.
+		s.startupMu.Lock()
+		s.autoWaiting = true
+		s.startupMu.Unlock()
+		if len(g.Processes) > 0 {
+			set("Automatic refill queued: the game is running; applied when it closes.", true)
+		} else {
+			set("Automatic refill queued: "+g.Reason+". It runs as soon as the file can be written.", true)
+		}
 		return
 	}
+	s.startupMu.Lock()
+	s.autoWaiting = false
+	s.startupMu.Unlock()
 	if len(s.Save.Pending()) > 0 { // edits from an earlier run are still waiting: the refill is not mixed into them
 		set("Automatic refill skipped: edits from before are still waiting to be written.", true)
 		return
