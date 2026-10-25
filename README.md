@@ -39,7 +39,7 @@ The **Player** tab mirrors the Dune Docker console's Players > Player Name view:
 
 ## Not built yet
 
-These console features are not in tabr-tau, and the page no longer shows a disabled button for them: **Blueprints** (waits for game data, #111), **Repair faction**, **Repair Landsraad quests**, **Wipe inventory** (what exists is Clear this container, one container at a time) and **Spawn vehicle**. **Reset progression** is not one button: each area that holds the data has its own reset, with its own typed confirmation (Skills, Level and XP, the specialization XP, the Journey and Research are built, #339 and #112). Pressing each of them is the whole reset, and the backup restores the save as it was. The console's server-only actions (kick, ban, login queue, recovering a deleted character) do not apply to a single-player save.
+These console features are not in tabr-tau, and the page no longer shows a disabled button for them: **Blueprints** (waits for game data, #111), **Repair faction**, **Repair Landsraad quests** and **Wipe inventory** (what exists is Clear this container, one container at a time). The console's **Spawn vehicle** is **Duplicate** on each of your vehicles (a copy of one you own, next to you). **Reset progression** is not one button: each area that holds the data has its own reset, with its own typed confirmation (Skills, Level and XP, the specialization XP, the Journey and Research are built, #339 and #112). Pressing each of them is the whole reset, and the backup restores the save as it was. The console's server-only actions (kick, ban, login queue, recovering a deleted character) do not apply to a single-player save.
 
 ## Words the editor uses
 
@@ -143,6 +143,7 @@ Every write feature has automated tests on a synthetic save built from the game'
 | Unlock customizations directly (set, all sets, one cosmetic; library ids) | **In game** for ordinary cosmetics (a dye pack stayed and was usable). Store (MTX_) and DLC cosmetics are **removed by the game on load** unless the account owns them, so sets skip them and a single unlock warns | 2026-10-20 | `CHANGELOG.md` (#215, #217) |
 | Building Sets and Customizations: Give, Grant set, Unlock all; Unlock all research and recipes; Max all skills | Tests only; stated as not checked in game | not recorded | `CHANGELOG.md` (#122, #123, #124) |
 | Clear this container (#338; real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#338) |
+| Duplicate vehicle (#112; built from the rows of a vehicle in a save the game wrote) | Tests, and run on a copy of a played save (foreign keys and integrity checked); **not in game** | not recorded | `CHANGELOG.md` (#112) |
 | Reset research (#112; the four starting entries and recipes are read from a save of a brand-new character) | Tests, and the reset run on a copy of a played save | not recorded | `CHANGELOG.md` (#112) |
 | Give Blood Marks (#344; real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#344) |
 | Fill blood sacks (#346; capacities from saved values, real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#346) |
