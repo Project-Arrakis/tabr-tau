@@ -41,7 +41,7 @@ func TestDamagedOrHostileFilesGiveDefaults(t *testing.T) {
 		}
 	}
 	big := filepath.Join(dir, "big.json")
-	os.WriteFile(big, append([]byte(`{"autoRefillOnOpen": true}`), make([]byte, 70<<10)...), 0o600)
+	os.WriteFile(big, append([]byte(`{"autoRefillOnOpen": true}`), make([]byte, 520<<10)...), 0o600)
 	if Load(big).AutoRefillOnOpen {
 		t.Error("an oversized file must be ignored")
 	}
