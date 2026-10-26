@@ -93,7 +93,7 @@ async function boot({ post = {}, get = {}, confused = false, noStorage = false }
 
 const BASE7 = [{ base_id: 7, name: 'Base', base_type: 'Advanced Sub-Fief', owner: 'Owner', map: 'HaggaBasin', generators: 0, pieces: 0, placeables: 0, x: 0, y: 0, z: 0 }];
 const VIEWS = [
-  ['player', 'char:overview'], ['player', 'char:inventory'], ['player', 'char:reputation'], ['player', 'player:specialization'], ['player', 'player:journey'],
+  ['player', 'char:overview'], ['player', 'char:inventory'], ['player', 'char:reputation'], ['player', 'char:carepackage'], ['player', 'player:specialization'], ['player', 'player:journey'],
   ['player', 'player:buildingsets'], ['player', 'player:admin'],
   ['player', 'player:crafting'], ['player', 'player:research'], ['player', 'player:customizations'], ['player', 'player:skills'],
   ['player', 'player:bases'], ['player', 'player:bases', '[data-bstab="water"]'], ['player', 'player:bases', '[data-bstab="inventory"]'], ['player', 'player:bases', '[data-bstab="claim"]'],
