@@ -807,18 +807,17 @@ async function playerSection(s) {
     P = await api('/api/player');
     const a = P.actor || {};
     const fa = await api('/api/player/faction');
-    h.push(html`<div class="card"><h3>Admin actions</h3><p class="mut">Faction, teleport and the vendor purchase limits. Repair is on Character &gt; Inventory (gear) and on Vehicles.</p></div>
-    <div class="card"><h3>Faction assignment</h3><div class="row"><b>Current</b><span>${fa.current ? fa.current.name : 'none recorded'}</span>
-      <select id="facSel" aria-label="Faction">${fa.options.map((o) => html`<option value="${o.id}" ${fa.current && fa.current.id == o.id ? 'selected' : ''}>${o.name}</option>`)}</select><button class="b" data-act="faction">Change faction</button>
-      <span class="mut">Changes which faction the character belongs to. Reputation is under Character &gt; Reputation.</span></div></div>
+    h.push(html`<div class="card"><h3>Faction assignment</h3><div class="row"><b>Current</b><span>${fa.current ? fa.current.name : 'none recorded'}</span>
+      <select id="facSel" aria-label="Faction">${fa.options.map((o) => html`<option value="${o.id}" ${fa.current && fa.current.id == o.id ? 'selected' : ''}>${o.name}</option>`)}</select>${tip('factip', 'Changes which faction the character belongs to. Reputation is under Character > Reputation.', html`<button class="b" data-act="faction" aria-describedby="factip">Change faction</button>`)}</div></div>
     <div class="card"><h3>Repair</h3><div class="row"><b>Gear and loadouts</b><button class="b sec" data-goto="character:inventory">Open Character &gt; Inventory</button><b>Vehicles</b><button class="b sec" data-goto="vehicles">Open Vehicles</button></div></div>
-    <div class="card"><h3>Movement</h3><div class="row"><b>Teleport to</b>X<input id="tx" aria-label="Teleport to X" type="number" value="${Math.round(a.x)}">Y<input id="ty" aria-label="Teleport to Y" type="number" value="${Math.round(a.y)}">Z<input id="tz" aria-label="Teleport to Z" type="number" value="${Math.round(a.z)}">Facing <input id="tdyaw" aria-label="Facing in degrees" type="number" step="1" placeholder="degrees" class="w90">Map <select id="tmap" aria-label="Map to move to"><option value="">This map (${a.map || 'unknown'})</option>${TRAVEL_MAPS.map(([k, v]) => html`<option value="${k}">${v}</option>`)}</select><button class="b" data-act="teleport">Teleport</button></div>
-    <div class="row"><b>Go to a place</b><select id="tdkind" aria-label="Kind of place"><option value="base">Base</option><option value="respawn">Respawn point</option><option value="vehicle">My vehicle</option><option value="marker">Discovered map marker</option></select><input id="tdq" aria-label="Filter the places" placeholder="filter, e.g. cave" class="w150"><button class="b sec" data-act="tdFind">Find</button><span id="tdout" class="mut"></span></div>
-    <p class="mut">Moves the character in the save. The game keeps its own copy of the save in memory while single-player runs and overwrites the file, so the move shows when you next enter single-player. Choosing a place fills X, Y and Z. Places are on the map chosen in Map (the one the character is on now unless you change it); another map is a move between maps, which writes the character's controller, body and player state on the new map and has not been checked in the game yet, so try it on a copy first. A position typed for the Deep Desert is not accepted for Hagga Basin. Facing is optional: 0 looks along +X; leave it empty to keep the way the character faces. If you type a Z yourself, stay above the terrain or you may fall through.</p>
+    <div class="card"><h3>Movement</h3><div class="row"><b>Teleport to</b>X<input id="tx" aria-label="Teleport to X" type="number" value="${Math.round(a.x)}">Y<input id="ty" aria-label="Teleport to Y" type="number" value="${Math.round(a.y)}">Z${tip('tztip', 'If you type a Z yourself, stay above the terrain or you may fall through.', html`<input id="tz" aria-label="Teleport to Z" type="number" value="${Math.round(a.z)}" aria-describedby="tztip">`)}Facing ${tip('tyawtip', 'Facing is optional: 0 looks along +X; leave it empty to keep the way the character faces.', html`<input id="tdyaw" aria-label="Facing in degrees" type="number" step="1" placeholder="degrees" class="w90" aria-describedby="tyawtip">`)}Map ${tip('tmaptip', 'Places are on the map chosen in Map (the one the character is on now unless you change it).', html`<select id="tmap" aria-label="Map to move to" aria-describedby="tmaptip"><option value="">This map (${a.map || 'unknown'})</option>${TRAVEL_MAPS.map(([k, v]) => html`<option value="${k}">${v}</option>`)}</select>`)}<button class="b" data-act="teleport">Teleport</button></div>
+    <div id="tmapnote"></div>
+    <div class="row"><b>Go to a place</b><select id="tdkind" aria-label="Kind of place"><option value="base">Base</option><option value="respawn">Respawn point</option><option value="vehicle">My vehicle</option><option value="marker">Discovered map marker</option></select><input id="tdq" aria-label="Filter the places" placeholder="filter, e.g. cave" class="w150">${tip('findtip', 'Choosing a place fills X, Y and Z.', html`<button class="b sec" data-act="tdFind" aria-describedby="findtip">Find</button>`)}<span id="tdout" class="mut"></span></div>
+    ${about('admin.movement', 'Movement', html`<p class="mut">Moves the character in the save. The game keeps its own copy of the save in memory while single-player runs and overwrites the file, so the move shows when you next enter single-player.</p><p class="mut">${TRAVEL_NOTE}</p><p class="mut">If you type a Z yourself, stay above the terrain or you may fall through.</p>`)}
     </div>`);
     const ve = await api('/api/vendors');
     await loadCatalog(ve.stock.map((x) => x.template_id));
-    h.push(html`<div class="card"><h3>Vendor purchase limits</h3><p class="mut">Vendors limit how much you can buy per restock cycle. Resetting clears those counters.</p><div class="row"><button class="b" data-act="vreset" data-v="">Reset all vendors</button></div>
+    h.push(html`<div class="card"><h3>Vendor purchase limits</h3><div class="row">${tip('vendtip', 'Vendors limit how much you can buy per restock cycle. Resetting clears those counters.', html`<button class="b" data-act="vreset" data-v="" aria-describedby="vendtip">Reset all vendors</button>`)}</div>
       ${tbl([{ k: 'vendor_id', label: 'Vendor ID' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'amount_bought', label: 'Bought' }], ve.stock, { actions: (r) => html`<button class="b sec sm" data-act="vreset" data-v="${r.vendor_id}">Reset vendor</button>`, empty: 'No purchases are counted against any vendor, so there is nothing to reset.' })}
       <h3 class="mt14">Restock cycles</h3>${tbl([{ k: 'vendor_id', label: 'Vendor ID' }, { k: 'last_interacted_timestamp', label: 'Last interaction', f: (r) => fmtEpoch(r.last_interacted_timestamp) }], ve.cycles, { empty: 'No vendor has been visited yet.' })}</div>`);
   } else {
@@ -964,6 +963,7 @@ function autoRefillCard(prefs) {
 // for removal (shown as red), and Remove takes the marked cells out; the claim must stay connected, and the server refuses a cell with pieces in it as well.
 let LC = null; // { claim, sel: Set of "x,y" to add, rm: Set of "x,y" to remove, level }
 let TD = []; // the places the last Find returned
+const TRAVEL_NOTE = 'A move to another map writes the character\'s controller, body and player state on the new map and has not been checked in the game yet, so try it on a copy first. A position typed for the Deep Desert is not accepted for Hagga Basin.';
 const TRAVEL_MAPS = [['HaggaBasin', 'Hagga Basin'], ['DeepDesert', 'The Deep Desert']]; // the maps the editor moves the character to (the console offers the same two for an offline player)
 const lcKey = (x, y) => `${x},${y}`;
 const lcNeighbours = (x, y) => [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]];
@@ -1446,6 +1446,11 @@ if (reloaded && reloaded.tab === tab) {
 }
 window.addEventListener('pagehide', viewSave);
 document.addEventListener('visibilitychange', () => { if (document.hidden) viewSave(); });
+// The note about a move between maps is drawn only while another map is chosen (#426).
+function tmapSync() {
+  const sel = $('#tmap'), box = $('#tmapnote');
+  if (box) setHTML(box, sel && sel.value !== '' ? html`<p class="warn" id="tmapwarn">${TRAVEL_NOTE}</p>` : html``);
+}
 // render(true) is the redraw after an action (or the page's own refresh from the file): it keeps the place; render('scroll') keeps only the scroll offsets. Any other call is a move to another page, which starts at the top.
 async function render(keepPlace) {
   const keep = focusSpec(document.activeElement);
@@ -1460,6 +1465,7 @@ async function render(keepPlace) {
     setHTML($('#main'), html`<div class="card bad">${e.message}</div><div class="row mt12"><button class="b" data-act="retry">Try again</button></div>`);
   }
   viewApply(place);
+  tmapSync();
   refocus(keep);
 }
 
@@ -1862,6 +1868,7 @@ document.addEventListener('change', (e) => {
     return;
   }
   if (t.id == 'rsGrp') { rsGroup = t.value; researchList(); return; }
+  if (t.id == 'tmap') { tmapSync(); return; }
   if (t.id == 'tdsel') { const d = TD[+t.value]; if (d) { $('#tx').value = Math.round(d.x); $('#ty').value = Math.round(d.y); $('#tz').value = Math.round(d.z); } return; }
   if (t.id == 'lcLvl' && LC) { LC.level = +t.value; claimEditorDraw(); return; }
   if (t.id == 'ctgrp') { ctGroup = t.value; catalogList(); return; }
