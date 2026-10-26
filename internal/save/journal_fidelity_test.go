@@ -172,7 +172,7 @@ func TestTheJournalIsFlushedToDiskBeforeItReplacesTheOldOne(t *testing.T) {
 	syncFile = func(f *os.File) error {
 		_, err := os.Stat(jp)
 		synced = append(synced, f.Name()+" final-exists="+map[bool]string{true: "no", false: "yes"}[os.IsNotExist(err)])
-		return old(f)
+		return realSyncFile(f) // this test is about the flush reaching the disk: the real one runs
 	}
 	s := openJournaled(t, p, dir)
 	if _, err := s.Mutate("edit", func(m *Mut) error { _, err := m.Exec(`update jt set name='x' where a=1`); return err }); err != nil {

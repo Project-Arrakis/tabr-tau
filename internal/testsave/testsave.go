@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -70,18 +71,20 @@ func build(t testing.TB, fn func(db *sql.DB)) *save.Save {
 	t.Helper()
 	dir := t.TempDir()
 	plain := filepath.Join(dir, "p.sqlite")
+	// The real schema is created once per test binary and each save starts as a copy of that file (#437): running its 94 tables
+	// again for every save was most of the cost of a save.
+	if err := os.WriteFile(plain, schemaTemplate(t), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	db, err := sql.Open("sqlite", plain)
 	if err != nil {
 		t.Fatal(err)
 	}
 	db.SetMaxOpenConns(1)
 	// The working file is thrown away after it is read back, so it does not need to survive a crash: without these two
-	// pragmas every one of the schema's statements waits for the disk, which cost most of a second per save (#89).
+	// pragmas every statement of fn waits for the disk (#89).
 	if _, err := db.Exec(`pragma synchronous=off; pragma journal_mode=off`); err != nil {
 		t.Fatal(err)
-	}
-	if _, err := db.Exec(schemaSQL); err != nil {
-		t.Fatalf("real schema failed to load: %v", err)
 	}
 	if fn != nil {
 		fn(db)
@@ -107,6 +110,51 @@ func build(t testing.TB, fn func(db *sql.DB)) *save.Save {
 	}
 	t.Cleanup(s.Close)
 	return s
+}
+
+var (
+	templateOnce sync.Once
+	templateRaw  []byte
+	templateErr  error
+)
+
+// schemaTemplate is a SQLite file holding the real schema and no rows, built the first time it is asked for. Callers copy it and never change it.
+func schemaTemplate(t testing.TB) []byte {
+	t.Helper()
+	templateOnce.Do(func() {
+		dir, err := os.MkdirTemp("", "tabr-tau-testsave-")
+		if err != nil {
+			templateErr = err
+			return
+		}
+		defer os.RemoveAll(dir)
+		p := filepath.Join(dir, "template.sqlite")
+		db, err := sql.Open("sqlite", p)
+		if err != nil {
+			templateErr = err
+			return
+		}
+		db.SetMaxOpenConns(1)
+		if _, err := db.Exec(`pragma synchronous=off; pragma journal_mode=off`); err != nil {
+			db.Close()
+			templateErr = err
+			return
+		}
+		if _, err := db.Exec(schemaSQL); err != nil {
+			db.Close()
+			templateErr = fmt.Errorf("real schema failed to load: %w", err)
+			return
+		}
+		if err := db.Close(); err != nil {
+			templateErr = err
+			return
+		}
+		templateRaw, templateErr = os.ReadFile(p)
+	})
+	if templateErr != nil {
+		t.Fatal(templateErr)
+	}
+	return templateRaw
 }
 
 // Empty is the real schema with no rows.
