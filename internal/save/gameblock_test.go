@@ -25,11 +25,11 @@ var gameSituations = map[string]func(t *testing.T){
 	"logged out to character selection 23 s ago (the #419 case)": func(t *testing.T) {
 		fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-23 * time.Second)}, nil)
 	},
-	"the session ended an hour ago": func(t *testing.T) { fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-time.Hour)}, nil) },
+	"the session ended an hour ago":     func(t *testing.T) { fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-time.Hour)}, nil) },
 	"a single-player session is active": func(t *testing.T) { fakeGame(t, duneProc, "", spStatus{Active: true}, nil) },
-	"the log cannot be read":           func(t *testing.T) { fakeGame(t, duneProc, "", spStatus{}, errors.New("no log")) },
-	"the process list cannot be read":  func(t *testing.T) { fakeGame(t, nil, "process snapshot: access denied", spStatus{}, nil) },
-	"a launcher process only":          func(t *testing.T) { fakeGame(t, []string{"DuneAwakening.exe"}, "", spStatus{}, nil) },
+	"the log cannot be read":            func(t *testing.T) { fakeGame(t, duneProc, "", spStatus{}, errors.New("no log")) },
+	"the process list cannot be read":   func(t *testing.T) { fakeGame(t, nil, "process snapshot: access denied", spStatus{}, nil) },
+	"a launcher process only":           func(t *testing.T) { fakeGame(t, []string{"DuneAwakening.exe"}, "", spStatus{}, nil) },
 }
 
 // writeEntryPoints lists every route by which the editor can put bytes into the save file. A new route must be added here, and
@@ -246,13 +246,13 @@ func TestTheSaveFileHasOneWriterBehindTheGate(t *testing.T) {
 
 // knownFileWriters are the functions that create or replace files other than the save: none of them writes the save path.
 var knownFileWriters = map[string]bool{
-	"internal/save.writeDurable":    true, // the temp file next to the save and the journal's temp file; the rename into the save is installBlob's
-	"internal/save.skipJournal":     true, // moves an unreadable journal aside
-	"internal/save.writeLogAppend":  true, // the editor's own write log
-	"internal/save.lockFile":        true, // the lock file
-	"internal/save.markIncomplete":  true, // the journal's incomplete-write mark
-	"internal/config.write":         true, // the game's config files, never the save
-	"internal/settings.save":        true, // the editor's own settings file
-	"internal/gui.AttachConsole":    true, // the console handles of the process
-	"cmd/tabr-tau.runCommand":       true, // decode and encode write the file the person names
+	"internal/save.writeDurable":   true, // the temp file next to the save and the journal's temp file; the rename into the save is installBlob's
+	"internal/save.skipJournal":    true, // moves an unreadable journal aside
+	"internal/save.writeLogAppend": true, // the editor's own write log
+	"internal/save.lockFile":       true, // the lock file
+	"internal/save.markIncomplete": true, // the journal's incomplete-write mark
+	"internal/config.write":        true, // the game's config files, never the save
+	"internal/settings.save":       true, // the editor's own settings file
+	"internal/gui.AttachConsole":   true, // the console handles of the process
+	"cmd/tabr-tau.runCommand":      true, // decode and encode write the file the person names
 }
