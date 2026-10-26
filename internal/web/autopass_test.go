@@ -190,12 +190,59 @@ func TestAutoPassWritesNothingDuringASinglePlayerSession(t *testing.T) {
 	defer save.ActiveSessionForTests()()
 	s.RunStartupTasks()
 	note, warn := s.takeStartup()
-	if !strings.Contains(note, "skipped") || !strings.Contains(note, "single-player") || !warn {
+	if !strings.Contains(note, "queued") || !strings.Contains(note, "the game is running") || !strings.Contains(note, "applied when it closes") || !warn {
 		t.Fatalf("note %q warn %v", note, warn)
 	}
 	after, _ := os.ReadFile(s.Save.Path)
 	if !bytes.Equal(before, after) || len(s.Save.Pending()) != 0 || s.Save.Dirty() || len(s.Save.Backups()) != 0 || len(logLines(t, dir)) != 0 {
 		t.Fatal("the pass touched the save during a session")
+	}
+}
+
+// #419: the pass ran at the character-selection screen (a game process, no single-player session in the log) and wrote the save. Whatever the log says, a game process
+// means the pass writes nothing and queues nothing now, says so plainly, and runs on the fresh file once the game has closed.
+func TestAutoPassWaitsForTheGameToCloseWhateverTheLogSays(t *testing.T) {
+	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
+	before, _ := os.ReadFile(s.Save.Path)
+	restore := save.GameAtMenuForTests()
+	s.RunStartupTasks()
+	note, warn := s.takeStartup()
+	if note != "Automatic refill queued: the game is running; applied when it closes." || !warn {
+		t.Fatalf("note %q warn %v", note, warn)
+	}
+	after, _ := os.ReadFile(s.Save.Path)
+	if !bytes.Equal(before, after) || s.Save.Dirty() || len(s.Save.Backups()) != 0 || len(logLines(t, dir)) != 0 {
+		t.Fatal("the pass touched the save while a game process existed")
+	}
+	s.retryWaitingPass() // the game is still there: nothing happens
+	if after, _ = os.ReadFile(s.Save.Path); !bytes.Equal(before, after) || s.Save.Dirty() {
+		t.Fatal("the retry wrote while the game was still running")
+	}
+	restore() // the game closes
+	s.retryWaitingPass()
+	if note, _ := s.takeStartup(); !strings.Contains(note, "Automatic refill saved ") {
+		t.Fatalf("after the game closed the pass should run: %q", note)
+	}
+	if got := autoPassFile(t, s.Save.Path); got["water"] != int64(5000) || got["gear"] != 100.0 {
+		t.Fatalf("the written file: %v", got)
+	}
+	s.retryWaitingPass() // it runs once
+	if n, _ := s.takeStartup(); n != "" {
+		t.Fatalf("the pass ran twice: %q", n)
+	}
+}
+
+// A game check that fails counts as the game running.
+func TestAutoPassWaitsWhenTheGameCheckFails(t *testing.T) {
+	s, _ := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
+	before, _ := os.ReadFile(s.Save.Path)
+	defer save.FailedGameCheckForTests("process snapshot: access denied")()
+	s.RunStartupTasks()
+	if note, warn := s.takeStartup(); !warn || !strings.Contains(note, "queued") {
+		t.Fatalf("note %q warn %v", note, warn)
+	}
+	if after, _ := os.ReadFile(s.Save.Path); !bytes.Equal(before, after) || s.Save.Dirty() {
+		t.Fatal("the pass wrote when the check could not say")
 	}
 }
 

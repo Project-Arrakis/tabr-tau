@@ -325,7 +325,7 @@ function humanReason(raw) {
   const L = r.toLowerCase();
   const map = (text) => ({ text, raw: r });
   if (L.startsWith('could not check whether the game is running')) return map('Could not tell whether Dune: Awakening is running.');
-  if (L.includes('cannot tell whether a single-player session is active')) return map('Dune: Awakening is running and the editor cannot tell whether it is in single-player.');
+  if (L.includes('is running; edits are queued and written when the game closes')) return map('Queued: the game is running; applied when it closes.');
   if (L.includes('single-player session is active')) return map('A single-player session is running, and the game rewrites the save while it runs.');
   if (L.includes('single-player session just ended')) return map('The single-player session has just ended; the game is still finishing its write of the save.');
   if (L.includes('cannot tell whether the game is using it')) return map('This save is on a network share or a removable drive, so the editor cannot tell whether the game is using it.');
@@ -372,7 +372,6 @@ async function status() {
   $('#path').textContent = String(o.path || '').split(/[\\/]/).pop();
   $('#path').title = o.path || '';
   const gw = $('#gamewarn');
-  const note = o.gameMode === 'menu_or_multiplayer';
   const q = o.pending.length;
   const last = o.lastWrite;
   const why = (last && !last.saved && last.why) || saveBlockWhy;
@@ -382,7 +381,7 @@ async function status() {
   const restored = o.restored && (o.restored.applied > 0 || (o.restored.conflicts || []).length > 0) ? o.restored : null;
   // Some table is not defined as the editor expects (the game was probably updated): said at open and kept, editing continues.
   const schemaNote = o.schemaNote ? String(o.schemaNote) : '';
-  gw.className = saveBlocked || q || changed || restored || o.writeLogProblem ? 'warn' : note || schemaNote ? 'info' : 'hide';
+  gw.className = saveBlocked || q || changed || restored || o.writeLogProblem ? 'warn' : schemaNote ? 'info' : 'hide';
   const changedMsg = changed ? html`<div><b>The game saved since this editor opened.</b> What you see here is out of date. <button class="b sm" data-act="reload">Reload now</button></div>` : html``;
   // One banner for the whole state. The reason is said once, as a sentence; the tool's own text, when the sentence replaces it, sits under Details.
   // An edit is written as it is made. While the file cannot be written (a single-player session is running, the location is not confirmed) edits are queued, and the queue is
@@ -397,8 +396,7 @@ async function status() {
   else if (o.gameCheckError && saveBlocked) mainMsg = html`<div><b>Changes cannot be written.</b> ${reason.text}${q ? html` ${q} ${n('change waits', 'changes wait')} in the queue and ${n('is written by itself', 'are written by themselves')} once the check works.` : ''} The editor checks again by itself every few seconds. <button class="b sm" data-act="checkAgain">Check again</button> <button class="b sm" data-act="writeNow">Write now</button></div>`;
   else if (q && !o.held && last && last.stuck) mainMsg = html`<div><b>${q} queued change${n(' cannot', 's cannot')} be written.</b> The game saved after ${n('it was', 'they were')} made, and the editor did not keep ${n('it', 'them')}${o.journalOff ? ' (' + o.journalOff + ')' : ''}, so ${n('it', 'they')} cannot be put back onto the game's file, which is left as it is. Discard the queue and make ${n('the change', 'the changes')} again. <button class="b sm" data-act="discardQueue">Discard queue</button></div>`;
   else if (q && !o.held) mainMsg = html`<div><b>${q} change${n(' is', 's are')} queued.</b> ${reason.text} ${n('It is written to the game file by itself', 'They are written to the game file by themselves')} as soon as it can be written. <button class="b sm" data-act="writeNow">Write now</button></div>`;
-  else if (saveBlocked && !q) mainMsg = html`<div><b>The game is in a single-player session.</b> It rewrites the save while it runs, so changes you make now are queued and written when you go to its menu or close it.</div>`;
-  else if (note) mainMsg = html`<div>Dune: Awakening is open (${(o.gameProcesses || []).join(', ')}) but not in single-player, so changes are written at once.</div>`;
+  else if (saveBlocked && !q) mainMsg = html`<div><b>The game is running.</b> Changes you make now are queued and written when the game closes.</div>`;
   // what became of the edits an earlier run (or a reload) put back, and the plain fact when they are not being kept
   // A change that could not be put back is dropped for good: its notice stays, even after the others are written, until it is dismissed.
   const restoredHead = !restored ? html`` : restored.applied > 0
@@ -853,7 +851,7 @@ function autoRefillCard(prefs) {
     ${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
     ${prefs.lastProblem ? html`<p class="bad">${prefs.lastProblem}</p>` : ''}
     ${prefs.problem ? html`<p class="bad">${prefs.problem}</p>` : ''}
-    <p class="mut">When the master switch is on, opening the editor runs the jobs ticked above as <b>one edit</b> and <b>saves straight away</b>, like every other change, so it applies the next time the game loads. Every job is ticked by default, the repairs too; the master switch is off until you turn it on. It acts only on what your character owns or carries: your own vehicles, worn equipment, loadout, inventories and bases. It is skipped while a single-player session is running (nothing is written or queued then). When nothing needs doing nothing is written. If one job fails, nothing is changed and the error is shown here. The previous file is backed up first. Remembered between runs. The same card is on the Power and Water tabs.</p></div>`;
+    <p class="mut">When the master switch is on, opening the editor runs the jobs ticked above as <b>one edit</b> and <b>saves straight away</b>, like every other change, so it applies the next time the game loads. Every job is ticked by default, the repairs too; the master switch is off until you turn it on. It acts only on what your character owns or carries: your own vehicles, worn equipment, loadout, inventories and bases. It waits while the game is running: nothing is written or queued, and it runs once the game has closed. When nothing needs doing nothing is written. If one job fails, nothing is changed and the error is shown here. The previous file is backed up first. Remembered between runs. The same card is on the Power and Water tabs.</p></div>`;
 }
 // The console's Land Claim Editor: the claim as a grid of cells turned by the base's own yaw (north at the top), with the totem's cell,
 // the cells it has, and dotted "available" cells next to it. Click an available cell to add it, a chosen one to take it back (what is
@@ -1227,7 +1225,7 @@ async function dbView() {
       <div class="row"><button class="b sec" data-act="dbprev" ${dbOff <= 0 ? 'disabled' : ''}>Previous</button><button class="b sec" data-act="dbnext" ${dbOff + 100 >= d.total ? 'disabled' : ''}>Next</button></div>`);
     return;
   } else if (s == 'sql') {
-    h.push(html`<div class="card"><h3>SQL</h3><textarea id="sql" rows="5" placeholder="select * from items limit 20">${window.lastSql || 'select name from sqlite_master'}</textarea><div class="row"><button class="b" data-act="runsql">Run (read-only)</button><button class="b bad" data-act="execsql">Run as write</button><span class="mut">Write mode runs one or more statements atomically. They are written to game.db at once, after a backup. If the file cannot be written (for example a single-player session is running) they are queued and written by themselves when it can be.</span></div><div id="sqlout"></div></div>`);
+    h.push(html`<div class="card"><h3>SQL</h3><textarea id="sql" rows="5" placeholder="select * from items limit 20">${window.lastSql || 'select name from sqlite_master'}</textarea><div class="row"><button class="b" data-act="runsql">Run (read-only)</button><button class="b bad" data-act="execsql">Run as write</button><span class="mut">Write mode runs one or more statements atomically. They are written to game.db at once, after a backup. If the file cannot be written (for example the game is running) they are queued and written by themselves when it can be.</span></div><div id="sqlout"></div></div>`);
   } else {
     const b = await api('/api/save/backups');
     h.push(html`<div class="card"><h3>Save backups</h3><p class="mut">A backup of game.db is taken before changes are written (one backup covers the changes made within two minutes) and before every restore. Restore requires the game to be closed.</p>${tbl([{ k: 'name', label: 'Backup' }, { k: 'size', label: 'Size', f: (r) => fmtBytes(r.size) }, { k: 'modified', label: 'Saved', f: (r) => fmtDate(r.modified) }], b, { actions: (r) => html`<button class="b sec sm" data-act="restore" data-n="${r.name}">Restore</button>`, empty: 'No backups yet. One is made before the first change is written.' })}</div>`);
@@ -1441,7 +1439,7 @@ const A = {
     toast((any ? `Filled ${parts.join(', ')}.` : 'Nothing needed filling.') + (r.vehiclesIncluded ? '' : ' Vehicles were not refuelled.') + (left ? ' Some containers, sacks or vehicles of an unknown kind were left alone.' : '') + (any ? NOT_SAVED : ''));
   }, null),
   refill: () => act(async () => { const r = await api('/api/player/refill', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} Literjons (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
-  delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). It is written at once, after a backup. If the file cannot be written (for example a single-player session is running) it is queued and written when it can be.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
+  delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). It is written at once, after a backup. If the file cannot be written (for example the game is running) it is queued and written when it can be.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
   clearInv: async (d) => {
     const cur = !!($('#clrCur') && $('#clrCur').checked);
     let pv; // what the clear would remove right now, as the editor reads it (the list on the page may be older): the numbers to confirm and the token that binds the items
@@ -1449,7 +1447,7 @@ const A = {
     const n = +pv.items, nested = +pv.nested, total = n + nested;
     if (!n) { toast(+pv.kept ? 'Nothing to clear: this container holds only currency. Tick the box to remove it too.' : 'Nothing to clear: this container is empty.'); return; }
     const inside = nested ? `, and the ${nn(nested, 'item', 'items')} inside them (in bags)` : '';
-    const body = `This removes ${nn(n, 'item', 'items')} from ${d.name}${inside}, with everything else attached to them (stats, links)${nested ? `: ${nn(total, 'item', 'items')} in all` : ''}. ${cur ? 'The currency is removed too.' : 'The Solari Coin stack is kept.'} It is one edit, written at once after a backup. If the file cannot be written (for example a single-player session is running) it is queued and written when it can be. If the container holds other items than these by then, the editor refuses and changes nothing.`;
+    const body = `This removes ${nn(n, 'item', 'items')} from ${d.name}${inside}, with everything else attached to them (stats, links)${nested ? `: ${nn(total, 'item', 'items')} in all` : ''}. ${cur ? 'The currency is removed too.' : 'The Solari Coin stack is kept.'} It is one edit, written at once after a backup. If the file cannot be written (for example the game is running) it is queued and written when it can be. If the container holds other items than these by then, the editor refuses and changes nothing.`;
     if (!(await ask({ title: 'Clear ' + d.name + '?', body, ok: 'Clear container', typed: String(total), danger: true }))) return;
     act(async () => { const r = await api('/api/inventories/clear', { inventory_id: +d.inv, count: n, nested, ids_hash: pv.token, include_currency: cur }); toast(r.removed ? `Cleared ${d.name}: ${nn(r.removed, 'item', 'items')} removed${r.nested ? ` (and ${nn(r.nested, 'item', 'items')} inside bags)` : ''}` + NOT_SAVED : r.message); }, null);
   },
@@ -1539,7 +1537,7 @@ const A = {
   jclear: () => { window.jq = ''; journeyList(); },
   jset: (d) => act(async () => { await api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }); JB = await api('/api/player/journey/browse'); journeyList(); toast('Journey updated' + NOT_SAVED); }, null),
   autoref: async (d) => {
-    if (!d.on && !(await ask({ title: 'Turn on automatic refill and repair?', body: 'From now on, opening the editor runs the jobs that are ticked on the card (refills water storage and power buildings, repairs your vehicles and your worn equipment and loadout, fills your water containers and your water, and so on) as one edit and saves to your game file immediately, like every other change. The previous file is backed up each time, and nothing happens while a single-player session is running. It applies to whichever save file the editor opens.', ok: 'Turn on' }))) return;
+    if (!d.on && !(await ask({ title: 'Turn on automatic refill and repair?', body: 'From now on, opening the editor runs the jobs that are ticked on the card (refills water storage and power buildings, repairs your vehicles and your worn equipment and loadout, fills your water containers and your water, and so on) as one edit and saves to your game file immediately, like every other change. The previous file is backed up each time, and nothing happens while the game is running (it runs when the game has closed). It applies to whichever save file the editor opens.', ok: 'Turn on' }))) return;
     act(async () => { const r = await api('/api/settings', { autoRefillOnOpen: !d.on }); toast('Automatic refill when the editor opens is now ' + (r.autoRefillOnOpen ? 'on' : 'off')); }, null);
   },
   claimShrink: async (d) => {
@@ -1629,7 +1627,7 @@ const A = {
   },
   execsql: async () => {
     window.lastSql = val('sql');
-    if (!(await ask({ title: 'Run this SQL as a write?', body: 'This statement is written to the game file at once, after the usual backup. If the file cannot be written (for example a single-player session is running) it waits in the queue and is written when it can be:', pre: window.lastSql, ok: 'Run', typed: 'write', danger: true }))) return;
+    if (!(await ask({ title: 'Run this SQL as a write?', body: 'This statement is written to the game file at once, after the usual backup. If the file cannot be written (for example the game is running) it waits in the queue and is written when it can be:', pre: window.lastSql, ok: 'Run', typed: 'write', danger: true }))) return;
     try {
       const r = await api('/api/db/exec', { sql: window.lastSql });
       toast(r.changes + (r.changes === 1 ? ' row changed' : ' rows changed'));

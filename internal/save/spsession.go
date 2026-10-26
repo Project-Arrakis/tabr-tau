@@ -10,9 +10,10 @@ import (
 	"time"
 )
 
-// The game process stays alive in multiplayer and at the menu; only an active single-player session holds the
-// save (it rewrites game.db about every five minutes while it runs, and once more when the session ends).
-// So Save is blocked only while a single-player session is active. The session is read from the game's own log
+// Since #419 a write is refused while ANY game process exists (and when the process list cannot be read): the game keeps its own copy of
+// the save's rows in memory, at the menu and in multiplayer too, so a write under it can leave items it cannot move. The log below
+// no longer decides whether to write; it only says which sentence to show (a single-player session rewrites game.db about every five
+// minutes while it runs, and once more when the session ends). The session is read from the game's own log
 // (Saved/Logs/DuneSandbox.log), whose markers were checked against 11 real logs (issue #65):
 //
 //	start  LogNet: Display: Browse (net mode 0|2): /Game/.../Survival_1?listen        (a local URL ending in ?listen)
@@ -157,7 +158,7 @@ func singlePlayerStatus(savePath string) (spStatus, error) {
 type GameState struct {
 	Blocked    bool     // Save must not run
 	Reason     string   // why, in a sentence (also set when the game is open but saving is allowed)
-	Mode       string   // none | menu_or_multiplayer | single_player | unknown
+	Mode       string   // none | game_running | single_player | unknown
 	Processes  []string // Dune processes found
 	CheckError string   // set when we could not tell
 	// NeedsConfirm is set when the only thing blocking the write is that the save's location cannot be vouched for (a network share, a removable
@@ -202,11 +203,8 @@ func processState(savePath string, fresh bool) GameState {
 		return GameState{Mode: "none"}
 	}
 	names := strings.Join(procs, ", ")
-	sp, err := statusFor(savePath)
-	if err != nil {
-		return GameState{Blocked: true, Mode: "unknown", Processes: procs, CheckError: err.Error(),
-			Reason: names + " is running and the editor cannot tell whether a single-player session is active (" + err.Error() + "); quit the game to save"}
-	}
+	// The log only chooses the sentence. If it cannot be read the write is refused all the same, because a process exists.
+	sp, _ := statusFor(savePath)
 	if sp.Active {
 		return GameState{Blocked: true, Mode: "single_player", Processes: procs,
 			Reason: "a single-player session is active (" + names + "); go to the menu or multiplayer, or quit the game, then save"}
@@ -215,7 +213,10 @@ func processState(savePath string, fresh bool) GameState {
 		return GameState{Blocked: true, Mode: "single_player", Processes: procs,
 			Reason: "the single-player session just ended; wait a few seconds for the game to finish writing the save"}
 	}
-	return GameState{Mode: "menu_or_multiplayer", Processes: procs, Reason: names + " is running but not in single-player; saving is allowed"}
+	// A game process that exists blocks the write whatever the log says (#419): the game keeps its own copy of the save's rows in memory, at the menu and in
+	// multiplayer as well, and a write under it changes rows it believes it owns. The log only chooses the sentence.
+	return GameState{Blocked: true, Mode: "game_running", Processes: procs,
+		Reason: names + " is running; edits are queued and written when the game closes"}
 }
 
 // SaveBlocked is GameStateFor for the checks that gate a write.

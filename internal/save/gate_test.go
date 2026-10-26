@@ -111,7 +111,7 @@ func TestRestoreRefusesWhenTheGameMayBeWriting(t *testing.T) {
 			if err == nil {
 				t.Fatal("Restore wrote while the game may be writing")
 			}
-			if !strings.Contains(err.Error(), "single-player") && !strings.Contains(err.Error(), "could not check") && !strings.Contains(err.Error(), "cannot tell") && !strings.Contains(err.Error(), "just ended") {
+			if !strings.Contains(err.Error(), "single-player") && !strings.Contains(err.Error(), "could not check") && !strings.Contains(err.Error(), "cannot tell") && !strings.Contains(err.Error(), "just ended") && !strings.Contains(err.Error(), "is running") {
 				t.Fatalf("the refusal should say why: %v", err)
 			}
 			after, _ := os.ReadFile(p)
