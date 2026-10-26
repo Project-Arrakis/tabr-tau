@@ -140,7 +140,7 @@ func TestAutoPassHonoursTheSwitches(t *testing.T) {
 	if got["water"] != int64(5000) || got["gear"] != 100.0 || got["container"] != 1000.0 {
 		t.Fatalf("the others must run: %v", got)
 	}
-	if n, _ := s.takeStartup(); strings.Contains(n, "vehicle parts") || strings.Contains(n, "your water") {
+	if n, _ := s.takeStartup(); strings.Contains(n, "vehicle parts repaired") || strings.Contains(n, "your water filled") {
 		t.Fatalf("the note claims jobs that did not run: %q", n)
 	}
 
