@@ -371,6 +371,16 @@ Each step is its own branch and pull request, referencing #426, with tests writt
 The README gets a short paragraph where the pages are described (what a tooltip and "About this" are, and that the queued state and the backup information stay in view). The repository has no UAT table; the by-eye checks are listed per
 step in the pull request and again in the end report.
 
+## Choices made while carrying it out
+
+The decisions above stand; where carrying one out showed a better way, the way is written here (and in the pull request of the step), so the table is not rewritten.
+
+* **One place for a sentence.** Where the table said "tooltip and About this" for the same words (Fill blood sacks, Refill power, Refill base water), the words are in the tooltip only, and the About this holds only the part that is about the card; the caveat that a blood-sack fill is not checked in the game yet is the one sentence that is in both, on purpose.
+* **Quick rewards** has tooltips on Give XP and Give Intel and no About this (O18).
+* **Many boxes in a table** (Reputation) carry their range as the native `title` of the box, which is a tooltip too, instead of a tooltip box for each row.
+* **A reset button** keeps the id of its explanation: when the reset can run, that id is the tooltip; when it cannot, the same id is the state line that says why. The button is described by it either way.
+* **A bug found by the sweep** (the Journey lists could not be switched before the filter was used) is #429, fixed in the step that touched that code, with its own test.
+
 ## Not in this sweep
 
 * Reordering or merging cards (#212 findings 16, 35, 36), renaming, the theme, internal ids in columns (42): separate changes.
