@@ -934,8 +934,16 @@ func (s *Server) RunStartupTasks() {
 	}
 	on := func(j ops.AutoJob) bool { return cur.JobOn(j.Key, j.Default) }
 	anyOn := false
+	var switchedOff []string // the jobs the operator switched off, named in the result so a quiet job is never a mystery
 	for _, j := range ops.AutoJobs() {
 		anyOn = anyOn || (j.Ready && on(j))
+		if j.Ready && !on(j) {
+			switchedOff = append(switchedOff, j.Label)
+		}
+	}
+	off := ""
+	if len(switchedOff) > 0 {
+		off = " Switched off: " + strings.Join(switchedOff, ", ") + "."
 	}
 	if !anyOn { // the master switch is on but every job is off
 		return
@@ -952,9 +960,9 @@ func (s *Server) RunStartupTasks() {
 		s.autoWaiting = true
 		s.startupMu.Unlock()
 		if len(g.Processes) > 0 {
-			set("Automatic refill queued: the game is running; applied when it closes.", true)
+			set("Automatic refill queued: the game is running; applied when it closes."+off, true)
 		} else {
-			set("Automatic refill queued: "+g.Reason+". It runs as soon as the file can be written.", true)
+			set("Automatic refill queued: "+g.Reason+". It runs as soon as the file can be written."+off, true)
 		}
 		return
 	}
@@ -962,7 +970,7 @@ func (s *Server) RunStartupTasks() {
 	s.autoWaiting = false
 	s.startupMu.Unlock()
 	if len(s.Save.Pending()) > 0 { // edits from an earlier run are still waiting: the refill is not mixed into them
-		set("Automatic refill skipped: edits from before are still waiting to be written.", true)
+		set("Automatic refill skipped: edits from before are still waiting to be written."+off, true)
 		return
 	}
 	pass, err := s.Ops.RunAutoPass(on)
@@ -986,16 +994,16 @@ func (s *Server) RunStartupTasks() {
 		notes = " Not done: " + strings.Join(pass.Notes, "; ") + "."
 	}
 	if !pass.Changed {
-		set(pass.NothingNeeded()+notes, false)
+		set(pass.NothingNeeded()+notes+off, false)
 		return
 	}
 	filledText := pass.Summary()
 	res := s.Save.Flush()
 	if !res.Saved {
-		set(fmt.Sprintf("Automatic refill prepared %s but could not save it yet: %s. It is queued and is written as soon as the file can be.", filledText, res.Why)+notes, true)
+		set(fmt.Sprintf("Automatic refill prepared %s but could not save it yet: %s. It is queued and is written as soon as the file can be.", filledText, res.Why)+notes+off, true)
 		return
 	}
-	msg := fmt.Sprintf("Automatic refill saved %s to the game (the previous file is backed up as %s).", filledText, filepath.Base(res.Backup))
+	msg := fmt.Sprintf("Automatic refill saved %s to the game (the previous file is backed up as %s).", filledText, filepath.Base(res.Backup)) + off
 	warn := false
 	if res.Warning != "" { // written, but the editor could not reload the file
 		msg += " Warning: " + res.Warning
