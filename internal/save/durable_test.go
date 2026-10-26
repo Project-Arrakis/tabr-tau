@@ -15,6 +15,7 @@ import (
 
 func openToy(t *testing.T) (*Save, string) {
 	t.Helper()
+	realFlush(t) // this file is about what reaches the disk and how: the writes here wait for it, as shipped
 	p := makeSave(t, `create table t(a integer); insert into t values (1);`)
 	s, err := Open(p)
 	if err != nil {

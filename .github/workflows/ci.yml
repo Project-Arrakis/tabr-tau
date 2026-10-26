@@ -62,10 +62,18 @@ jobs:
       - name: go vet
         run: go vet ./...
       - name: go test
-        # The suite builds its test saves without waiting on the disk (#89), so it takes about three minutes here; the limits are
-        # generous multiples of that, not the old stopgap. A runner with a slow disk once took over twelve (#269), so the test limit is 20 minutes
-        # and the job's 30.
-        run: go test -count=1 -timeout 20m ./...
+        # The limit is per test binary and shorter than the job's: a test that hangs ends the run with every goroutine's stack and the
+        # name of the running test, long before the job could be cancelled without a word (#437). The suite takes a few minutes here: its
+        # test saves are built from a template and the tests do not wait for the disk except where a test is about that (#89, #437),
+        # so 12 minutes is a generous multiple, not an expected time.
+        # Keep this step in PowerShell, not bash: under Git Bash on the runner the tests that hold the save open exclusively (a scanner
+        # simulation, readback_unverified_windows_test.go) are not held, so they fail. Tee-Object keeps the log for the next step and
+        # the step still fails with go's exit code ($LASTEXITCODE is go's, not Tee-Object's).
+        run: go test -count=1 -timeout 12m -v ./... | Tee-Object -FilePath test.log
+      - name: slowest tests
+        if: always()
+        shell: bash
+        run: bash scripts/slowest-tests.sh test.log 10
 
   govulncheck:
     name: govulncheck

@@ -5,33 +5,76 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
 // makeSave writes a container holding the real game schema plus ddl (a toy table "t") and returns its path.
 // The real schema is needed because a save with a different set of triggers is deliberately read-only.
+//
+// The container is built once per distinct ddl in this test run (a template) and each call writes a copy of it into the test's own
+// folder: creating the 94-table schema is what used to cost most of a test, since every statement waited for the disk (#437). The
+// template is built on a scratch file that does not wait for the disk either; it is thrown away once it is read back.
 func makeSave(t *testing.T, ddl string) string {
 	t.Helper()
-	dir := t.TempDir()
-	plain := filepath.Join(dir, "plain.sqlite")
-	db, err := sql.Open("sqlite", plain)
+	blob, err := saveTemplate(ddl)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(KnownSchema + ddl); err != nil {
-		t.Fatal(err)
-	}
-	db.Close()
-	raw, _ := os.ReadFile(plain)
-	blob, err := Encode(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	p := filepath.Join(dir, "game.db")
+	p := filepath.Join(t.TempDir(), "game.db")
 	if err := os.WriteFile(p, blob, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return p
+}
+
+var templates = struct {
+	sync.Mutex
+	blobs map[string][]byte
+}{blobs: map[string][]byte{}}
+
+// saveTemplate returns the encoded container for the real schema plus ddl, building it the first time it is asked for. The returned
+// bytes are shared: callers write them out and never change them.
+func saveTemplate(ddl string) ([]byte, error) {
+	templates.Lock()
+	defer templates.Unlock()
+	if b, ok := templates.blobs[ddl]; ok {
+		return b, nil
+	}
+	dir, err := os.MkdirTemp("", "tabr-tau-template-")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(dir)
+	plain := filepath.Join(dir, "plain.sqlite")
+	db, err := sql.Open("sqlite", plain)
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(1) // the pragmas below belong to one connection
+	// A scratch file that is read back at once does not need to survive a crash; without these two pragmas each of the schema's
+	// statements waits for the disk, which is slow enough on a hosted Windows runner to run the job out of time (#89, #437).
+	if _, err := db.Exec(`pragma synchronous=off; pragma journal_mode=off`); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if _, err := db.Exec(KnownSchema + ddl); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err := db.Close(); err != nil {
+		return nil, err
+	}
+	raw, err := os.ReadFile(plain)
+	if err != nil {
+		return nil, err
+	}
+	blob, err := Encode(raw)
+	if err != nil {
+		return nil, err
+	}
+	templates.blobs[ddl] = blob
+	return blob, nil
 }
 
 func TestCodecRoundTripAndHeader(t *testing.T) {
