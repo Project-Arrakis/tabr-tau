@@ -534,8 +534,10 @@ $('#btnDiscard').onclick = async () => { if (await ask({ title: 'Discard the que
 const SOLARI = 'SolarisCoin';
 function clearRow(inv, name, rows) {
   const all = rows.length, kept = rows.filter((r) => r.template_id === SOLARI).length, plain = all - kept;
-  const note = all ? `Removes the ${nn(plain, 'item', 'items')} in ${name}, with everything attached to them. The Solari Coin stack${kept === 1 ? ' is' : 's are'} kept unless the box is ticked. Two presses, then type the count.` : `${name} is empty: nothing to clear.`;
-  return html`<div class="row"><label><input type="checkbox" id="clrCur"> Also remove currency</label><button class="b bad" data-act="clearInv" data-confirm="Yes, clear this container" data-inv="${inv}" data-name="${name}" data-plain="${plain}" data-all="${all}" aria-describedby="clrnote" ${all ? '' : 'disabled'}>Clear this container</button><span class="mut" id="clrnote">${note}</span></div>`;
+  const btn = html`<button class="b bad" data-act="clearInv" data-confirm="Yes, clear this container" data-inv="${inv}" data-name="${name}" data-plain="${plain}" data-all="${all}" aria-describedby="clrnote" ${all ? '' : 'disabled'}>Clear this container</button>`;
+  const note = `Removes the ${nn(plain, 'item', 'items')} in ${name}, with everything attached to them. The Solari Coin stack${kept === 1 ? ' is' : 's are'} kept unless the box is ticked. Two presses, then type the count.`;
+  // what it does is the tooltip; that there is nothing to clear is state and stays drawn
+  return html`<div class="row"><label><input type="checkbox" id="clrCur"> Also remove currency</label>${all ? tip('clrnote', note, btn) : btn}${all ? '' : html`<span class="mut" id="clrnote">${name} is empty: nothing to clear.</span>`}</div>`;
 }
 
 // ---------- PLAYER
@@ -638,28 +640,28 @@ function kitsCard() {
   const list = KITS.kits, lim = KITS.limits, editing = !!kitDraft;
   const why = editing ? 'Finish or cancel the kit you are editing first.' : '';
   return html`<div class="card"><h3>Care packages</h3>
-    <p class="mut">A care package is a named kit of items, XP and skill points. Kits are kept in the editor's own settings, not in a save, so a new save starts with them. Apply gives a kit to the character in this save as one edit: the items by the rules of Give item (slots, stacks, volume), then the XP and the skill points. It shows what would be given and what would not fit before it asks. Up to ${lim.kits} kits, each with up to ${lim.items} items. A kit file you export is a small text file; one you import is checked first and never replaces a kit you have.</p>
     ${KITS.problem ? html`<div class="info" role="alert">${KITS.problem}</div>` : ''}
+    ${list.length >= lim.kits ? html`<p class="mut" id="kitfull">The most kits are kept (${lim.kits}): delete one first.</p>` : ''}
     <div class="row"><button class="b" data-act="kitNew" ${editing || list.length >= lim.kits ? 'disabled' : ''} title="${list.length >= lim.kits ? 'The most kits are kept: delete one first.' : why}">New kit</button>
       <label>Import a kit file <input type="file" id="kitFile" ${editing ? 'disabled' : ''}></label>
       <button class="b sec" data-act="kitExport" data-name="" ${list.length ? '' : 'disabled'}>Export all kits</button></div>
     ${tbl([{ k: 'name', label: 'Kit', f: (k) => html`<b>${k.name}</b>${k.problem ? html` <span class="warn">Cannot be used: ${k.problem}</span>` : ''}` },
       { k: 'items', label: 'Items', f: (k) => kitContents(k) }, { k: 'xp', label: 'XP', f: (k) => (k.xp ? Number(k.xp).toLocaleString() : '') },
       { k: 'skillPoints', label: 'Skill points', f: (k) => (k.skillPoints ? Number(k.skillPoints).toLocaleString() : '') }], list,
-      { empty: 'No kits yet. Make one with New kit, or import a kit file.', actions: (k) => html`<button class="b sm" data-act="kitApply" data-name="${k.name}" aria-label="Apply kit ${k.name} to the character" ${k.problem ? 'disabled' : ''} title="${k.problem ? 'This kit cannot be used: ' + k.problem : ''}">Apply</button><button class="b sec sm" data-act="kitEdit" data-name="${k.name}" aria-label="Edit kit ${k.name}" ${editing ? 'disabled' : ''} title="${why}">Edit</button><button class="b sec sm" data-act="kitDup" data-name="${k.name}" aria-label="Duplicate kit ${k.name}">Duplicate</button><button class="b sec sm" data-act="kitExport" data-name="${k.name}" aria-label="Export kit ${k.name}">Export</button><button class="b bad sm" data-act="kitDel" data-name="${k.name}" aria-label="Delete kit ${k.name}">Delete</button>` })}</div>`;
+      { empty: 'No kits yet. Make one with New kit, or import a kit file.', actions: (k) => html`<button class="b sm" data-act="kitApply" data-name="${k.name}" aria-label="Apply kit ${k.name} to the character" ${k.problem ? 'disabled' : ''} title="${k.problem ? 'This kit cannot be used: ' + k.problem : ''}">Apply</button><button class="b sec sm" data-act="kitEdit" data-name="${k.name}" aria-label="Edit kit ${k.name}" ${editing ? 'disabled' : ''} title="${why}">Edit</button><button class="b sec sm" data-act="kitDup" data-name="${k.name}" aria-label="Duplicate kit ${k.name}">Duplicate</button><button class="b sec sm" data-act="kitExport" data-name="${k.name}" aria-label="Export kit ${k.name}">Export</button><button class="b bad sm" data-act="kitDel" data-name="${k.name}" aria-label="Delete kit ${k.name}">Delete</button>` })}
+    ${about('carepackage.list', 'Care packages', html`<p class="mut">A care package is a named kit of items, XP and skill points. Kits are kept in the editor's own settings, not in a save, so a new save starts with them. Apply gives a kit to the character in this save as one edit: the items by the rules of Give item (slots, stacks, volume), then the XP and the skill points. It shows what would be given and what would not fit before it asks. Up to ${lim.kits} kits, each with up to ${lim.items} items. A kit file you export is a small text file; one you import is checked first and never replaces a kit you have.</p>`)}</div>`;
 }
 function kitEditor(cat) {
   const d = kitDraft, lim = KITS.limits;
   return html`<div class="card"><h3>${d.was ? 'Edit kit: ' + d.was : 'New kit'}</h3>
-    <div class="row"><label>Name <input id="kitName" value="${d.name}" size="32"></label><span class="mut">Up to ${lim.name} letters, digits, spaces and - _ . , ' ( ) + &amp; # !</span></div>
+    <div class="row">${tip('kitnametip', html`Up to ${lim.name} letters, digits, spaces and - _ . , ' ( ) + &amp; # !`, html`<label>Name <input id="kitName" value="${d.name}" size="32" aria-describedby="kitnametip"></label>`)}</div>
     <div class="row"><b>Add an item</b>${itemPicker('kitItem', cat)}<label>Qty <input id="kitQty" type="number" value="1" min="1" max="${lim.quantity}"></label><label>Grade <select id="kitGrade">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select></label><button class="b" data-act="kitAddLine" ${d.items.length >= lim.items ? 'disabled' : ''}>Add to kit</button></div>
     <div class="row" id="kitAug"></div>
     ${tbl([{ k: 'item', label: 'Item', f: (l) => itemCell(l.item) },
       { k: 'quantity', label: 'Quantity', f: (l) => html`<input type="number" min="1" max="${lim.quantity}" value="${l.quantity}" data-kitqty="${d.items.indexOf(l)}" class="w90" aria-label="Quantity of ${itemName(l.item)}">` },
       { k: 'grade', label: 'Grade' }, { k: 'augments', label: 'Augments', f: (l) => (l.augments || []).map((a) => html`<span class="tag">${augName(a)}</span>`) }], d.items,
       { empty: 'No items yet.', actions: (l) => html`<button class="b bad sm" data-act="kitDelLine" data-id="${d.items.indexOf(l)}" aria-label="Remove ${itemName(l.item)} from the kit">Remove</button>` })}
-    <div class="row"><label>XP <input id="kitXp" type="number" min="0" max="${lim.xp}" value="${d.xp}" class="w90"></label><label>Skill points <input id="kitSp" type="number" min="0" max="${lim.skillPoints}" value="${d.skillPoints}" class="w90"></label>
-      <span class="mut">XP raises the level and adds a skill point per level gained, as Give XP does. Skill points are added on top.</span></div>
+    <div class="row">${tip('kitxptip', 'XP raises the level and adds a skill point per level gained, as Give XP does. Skill points are added on top.', html`<label>XP <input id="kitXp" type="number" min="0" max="${lim.xp}" value="${d.xp}" class="w90" aria-describedby="kitxptip"></label>`)}<label>Skill points <input id="kitSp" type="number" min="0" max="${lim.skillPoints}" value="${d.skillPoints}" class="w90"></label></div>
     <div class="row"><button class="b" data-act="kitSave">Save kit</button><button class="b sec" data-act="kitCancel">Cancel</button></div></div>`;
 }
 // What an apply of a kit gave or would give, line by line, for the question that asks first and for the message that reports it.
@@ -715,7 +717,6 @@ async function playerSection(s) {
     const cap = (d.inventories || []).find((i) => groupOf(i) == grp);
     const slots = cap && cap.max_item_count > 0 ? `, ${counts[grp]} of ${cap.max_item_count} slots used` : '';
     const invCard = html`<div class="card"><h3>Inventory: ${nn(d.items.length, 'item', 'items')} carried</h3>
-      <p class="mut" id="fillmoved">The fill actions are on the Character tab. <button class="b sec sm" data-goto="character:overview">Go to Character</button></p>
       <div class="sub">${G.map(([k, v]) => html`<button data-invg="${k}" class="${grp == k ? 'on' : ''}">${v} (${counts[k]})</button>`)}</div>
       <div class="row"><input id="invq" aria-label="Filter the inventory" placeholder="Filter by name, item ID, or template" size="34" value="${invQ}"><button class="b sec" data-act="invfilter">Filter</button><button class="b sec" data-act="invclear">Clear</button><span class="mut">${countText(rows.length, counts[grp], 'item', 'items', terms.length > 0)}${slots}</span>${fillTotals(d.items.filter((r) => groupOf(r) == grp)) ? html`<span class="mut" id="invfill">${fillTotals(d.items.filter((r) => groupOf(r) == grp))}</span>` : ''}</div>
       ${cap && grp != 'schematics' ? clearRow(cap.id, G.find(([k]) => k == grp)[1], d.items.filter((r) => r.inventory_id == cap.id)) : ''}
@@ -725,19 +726,20 @@ async function playerSection(s) {
         { k: 'fill', label: 'Liquid', f: (r) => fillCell(r) },
         { k: 'durability', label: 'Durability', f: (r) => (r.durability == null ? '' : Number(r.durability).toFixed(1) + (r.max_durability ? ' / ' + Number(r.max_durability).toFixed(0) : '')) },
         { k: 'augments', label: 'Augments', f: (r) => (r.augments || []).map((a) => html`<span class="tag" title="${a.name}${a.quality == null ? '' : ' (quality ' + a.quality + ')'}">${itemName(a.name)}</span>`) }], rows,
-        { actions: (r) => html`${r.aug_limit ? html`<button class="b sec sm" data-act="augEdit" data-id="${r.id}">Augments</button>` : ''}<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>`, empty: terms.length ? 'No item in this group matches the filter.' : 'Nothing in this group.' })}</div>`;
+        { actions: (r) => html`${r.aug_limit ? html`<button class="b sec sm" data-act="augEdit" data-id="${r.id}">Augments</button>` : ''}<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>`, empty: terms.length ? 'No item in this group matches the filter.' : 'Nothing in this group.' })}
+      ${about('inventory.card', 'Inventory', html`<p class="mut">The fill actions (Fill hydration, Fill blood sacks, Refill Literjons, Fill all liquids) are on Character &gt; Overview. <button class="b sec sm" data-goto="character:overview">Go to Character</button></p>`)}</div>`;
     const augCard = augItem ? html`<div class="card"><h3>Augments: ${itemName(augItem.template_id)}</h3>
-      <p class="mut">Holds up to ${augItem.limit}. Pick what to apply; an augment already on the item keeps its grade, new ones get the grade below. Choose (none) in every slot to remove them all.</p>
+      <p class="mut">Holds up to ${augItem.limit}.</p>
       <div class="row">${augSlots('au', augItem, augItem.applied.map((a) => a.id))}</div>
       <div class="row">${augGradeSel('augG')}<label><input type="checkbox" id="augU" checked> Also unlock the augment slots (specialization keystones)</label>
-      <button class="b" data-act="augApply" data-id="${augItem.item_id}">Apply</button><button class="b sec" data-act="augCancel">Cancel</button></div></div>` : '';
+      ${tip('augtip', 'Pick what to apply; an augment already on the item keeps its grade, new ones get the grade below. Choose (none) in every slot to remove them all.', html`<button class="b" data-act="augApply" data-id="${augItem.item_id}" aria-describedby="augtip">Apply</button>`)}<button class="b sec" data-act="augCancel">Cancel</button></div></div>` : '';
     h.push(augCard);
-    h.push(html`<div class="card"><h3>Repair</h3><div class="row"><button class="b" data-act="repair">Repair all worn items and loadouts</button><span class="mut">Everything you wear and everything in your loadout is made as good as new: full durability, with a maximum that repairs wore down restored. The backpack is not touched.</span></div></div>`);
+    h.push(html`<div class="card"><h3>Repair</h3><div class="row">${tip('repairtip', 'Everything you wear and everything in your loadout is made as good as new: full durability, with a maximum that repairs wore down restored. The backpack is not touched.', html`<button class="b" data-act="repair" aria-describedby="repairtip">Repair all worn items and loadouts</button>`)}</div></div>`);
     h.push(html`<div class="card"><h3>Give item</h3><div class="row">${itemPicker("gt", cat)}
     Qty<input id="gq" aria-label="Quantity to give" type="number" value="1" min="1">Grade<select id="gg" aria-label="Grade of the item to give">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="queueAdd">Add to queue</button></div>
     <div class="row" id="gaug"></div>
     ${giveQueue.length ? html`<div class="row"><b>Queue (${giveQueue.length})</b>${giveQueue.map((q, i) => html`<span class="tag">${q.quantity} x ${itemName(q.template_id)}${q.quality ? ' (grade ' + q.quality + ')' : ''}${q.augments && q.augments.length ? ' + ' + q.augments.map((a) => augName(a)).join(', ') : ''} <button class="b sec sm" data-act="queueDel" data-id="${i}" title="Remove from the queue">x</button></span>`)}<button class="b" data-act="queueGive">Give queued items</button><button class="b sec" data-act="queueClear">Clear</button></div>` : ''}
-    <p class="mut">Pick an item by its in-game name. Items already in your save that the catalog does not know are listed by their template id; any valid template id can also be typed.</p></div>
+    ${about('inventory.give', 'Give item', html`<p class="mut">Pick an item by its in-game name. Items already in your save that the catalog does not know are listed by their template id; any valid template id can also be typed.</p>`)}</div>
     ${invCard}`);
   } else if (c == 'carepackage') {
     KITS = await api('/api/kits');
@@ -746,7 +748,7 @@ async function playerSection(s) {
     if (kitDraft) h.push(kitEditor(cat));
   } else if (c == 'reputation') {
     const f = await api('/api/player/factions');
-    h.push(html`<div class="card"><h3>Faction reputation</h3>${tbl([{ k: 'name', label: 'Faction' }, { k: 'reputation', label: 'Reputation', f: (r) => html`<input type="number" min="0" max="12474" value="${r.reputation}" data-faction="${r.faction_id}" data-name="${r.name}" class="w100" aria-label="Reputation with ${r.name}">` }], f, { empty: 'This save has no factions.' })}<p class="mut">Range 0–12474. Edit and press Tab/Enter.</p></div>`);
+    h.push(html`<div class="card"><h3>Faction reputation</h3>${tbl([{ k: 'name', label: 'Faction' }, { k: 'reputation', label: 'Reputation', f: (r) => html`<input type="number" min="0" max="12474" value="${r.reputation}" data-faction="${r.faction_id}" data-name="${r.name}" class="w100" aria-label="Reputation with ${r.name}" title="0 to 12474">` }], f, { empty: 'This save has no factions.' })}</div>`);
   } else if (s == 'specialization') {
     const sp = await api('/api/player/specs');
     const known = (r) => r.number != null;
