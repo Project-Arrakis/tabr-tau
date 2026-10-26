@@ -162,7 +162,7 @@
     for (const v of d.vehicles || []) add('vehicles', v.x, v.y, v.name, { cls: String(v.class ?? '') });
     for (const b of d.bases || []) add('bases', b.x, b.y, 'Your base');
     for (const s of d.storage || []) add('storage', s.x, s.y, s.name);
-    // Spice and flour sand fields: their positions are decoded from their ids (see the notice under the map).
+    // Spice and flour sand fields: their positions are decoded from their ids (see the tooltip of their layer buttons).
     for (const f of d.resourceFields || []) {
       const left = Number(f.left).toLocaleString();
       add(f.kind === 'spice' ? 'spice' : 'flour', f.x, f.y, f.kind === 'spice' ? `Spice field, ${String(f.size)} (${left} left)` : `Flour sand (${left} left)`, { size: String(f.size || '') });
@@ -177,6 +177,7 @@
   }
   function lmVisible(p) { return !lm.hidden.has(p.g) && (lm.showUndiscovered || p.d > 0); }
 
+  const LM_SAND_NOTE = 'Spice and flour sand fields are placed by decoding their ids, because the save keeps no coordinates for them; the positions have not been checked against the game for this map.';
   const LM_HINT = 'Hover a marker for details. Drag to move, scroll or press + and - to zoom, 0 to fit.';
   function lmCanvas() { return document.querySelector('#lmc'); }
   // The bitmap follows the size the canvas has on screen and the screen's pixel ratio, so it is sharp on a dense screen and not stretched when the window changes.
@@ -305,7 +306,7 @@
       lm.hover = p;
       const info = document.querySelector('#lminfo');
       if (info) {
-        info.textContent = p ? `${p.label}: x ${Math.round(p.x)}, y ${Math.round(p.y)}${p.d > 0 ? '' : ' (not discovered yet)'}` : LM_HINT;
+        info.textContent = p ? `${p.label}: x ${Math.round(p.x)}, y ${Math.round(p.y)}${p.d > 0 ? '' : ' (not discovered yet)'}` : '';
         if (p && p.type) info.title = p.type; else info.removeAttribute('title'); // the game's own name for the marker
       }
     });
@@ -343,7 +344,7 @@
     return html`<div class="card"><h3>Regions of ${d.config.label} (${found.length} of ${a.total} discovered)</h3>
       <p>${found.length ? found.map((n) => html`<span class="tag">${n}</span> `) : html`<span class="mut">No region of this map is marked as discovered in the save.</span>`}${a.other ? html` <span class="mut">and ${a.other} more without a name.</span>` : ''}</p>
       ${rows.length ? tbl([{ k: 'what', label: 'What' }, { k: 'region', label: 'Near the region' }], rows) : ''}
-      <p class="mut">The save keeps the region of a map marker, not of a vehicle or a base. A place is shown near the region of the nearest marker; close to the edge of two regions this can be the neighbour. The names are the game's own, for the Hagga Basin (see the notices); the Deep Desert has none.</p></div>`;
+      ${about('livemap.regions', 'Regions', html`<p class="mut">The save keeps the region of a map marker, not of a vehicle or a base. A place is shown near the region of the nearest marker; close to the edge of two regions this can be the neighbour. The names are the game's own, for the Hagga Basin (see the notices); the Deep Desert has none.</p>`)}</div>`;
   }
 
   async function liveMapView() {
@@ -359,14 +360,14 @@
     setHTML($('#main'), html`
       <div class="card"><h3>Saved map</h3>
         <div class="row">${(d.maps || []).map((m) => html`<button class="b ${m.key == d.config.key ? '' : 'sec'}" data-lmmap="${m.key}">${m.label}</button>`)}
-          <button class="b sec" data-lmund="1">${lm.showUndiscovered ? 'Hide' : 'Show'} undiscovered markers</button>
+          ${tip('lmundtip', 'Markers you have not discovered yet are shown faded.', html`<button class="b sec" data-lmund="1" aria-describedby="lmundtip">${lm.showUndiscovered ? 'Hide' : 'Show'} undiscovered markers</button>`)}
           <button class="b sec" data-lmz="in" aria-label="Zoom in">+</button><button class="b sec" data-lmz="out" aria-label="Zoom out">&minus;</button><button class="b sec" data-lmz="fit">Fit</button></div>
-        <p class="mut">The save as of its last write, not the running game. Markers you have not discovered yet are shown faded.</p>
-        ${d.storedVehicles ? html`<p class="mut">${d.storedVehicles} of your ${d.storedVehicles == 1 ? 'vehicles is' : 'vehicles are'} stored (in the vehicle backup or waiting for recovery) and not shown: the game keeps only the place a stored vehicle was last in the world.</p>` : ''}
+        <p class="mut">The save as of its last write, not the running game.</p>
+        ${d.storedVehicles ? html`<p class="mut">${d.storedVehicles} of your ${d.storedVehicles == 1 ? 'vehicles is' : 'vehicles are'} stored (in the vehicle backup or waiting for recovery) and not shown.</p>` : ''}
         <div class="lm-wrap"><canvas id="lmc" class="lm" tabindex="0" role="img" aria-label="${'Saved map of ' + d.config.label + '. Press plus and minus to zoom, 0 to show the whole map, the arrow keys to move.'}"></canvas></div>
-        <p class="mut" id="lminfo">${LM_HINT}</p>
-        ${counts.spice || counts.flour ? html`<p class="mut">Spice and flour sand fields are placed by decoding their ids, because the save keeps no coordinates for them; the positions have not been checked against the game for this map.</p>` : ''}
-        <div class="row">${groups.map((g) => html`<button class="lm-layer ${lm.hidden.has(g.id) ? 'off' : 'on'}" data-lmg="${g.id}" aria-pressed="${lm.hidden.has(g.id) ? 'false' : 'true'}">${LM_GROUP_ICON[g.id] ? html`<span class="lm-ic lm-i-${LM_GROUP_ICON[g.id].replace(/\.[a-z]+$/, '').toLowerCase()}"></span>` : html`<span class="lm-sw lm-c-${g.id}"></span>`}${g.label} (${counts[g.id]})</button>`)}</div></div>
+        <p class="mut" id="lminfo"></p>
+        <div class="row">${groups.map((g) => (g.id == 'spice' || g.id == 'flour' ? (b) => tip('lmtip-' + g.id, LM_SAND_NOTE, b) : (b) => b)(html`<button class="lm-layer ${lm.hidden.has(g.id) ? 'off' : 'on'}" data-lmg="${g.id}" ${g.id == 'spice' || g.id == 'flour' ? html`aria-describedby="lmtip-${g.id}"` : ''} aria-pressed="${lm.hidden.has(g.id) ? 'false' : 'true'}">${LM_GROUP_ICON[g.id] ? html`<span class="lm-ic lm-i-${LM_GROUP_ICON[g.id].replace(/\.[a-z]+$/, '').toLowerCase()}"></span>` : html`<span class="lm-sw lm-c-${g.id}"></span>`}${g.label} (${counts[g.id]})</button>`))}</div>
+        ${about('livemap.card', 'Saved map', html`<p class="mut">${LM_HINT}</p>${d.storedVehicles ? html`<p class="mut">The game keeps only the place a stored vehicle was last in the world.</p>` : ''}`)}</div>
       ${lmRegionsCard(d)}
       <div class="card"><h3>Markers on this map (${types.length} types)</h3>${tbl([{ k: 'type', label: 'Marker', f: (r) => { const f = lmIconByType(r.type); const name = html`<span title="${r.type}">${lmTypeName(r.type)}</span>`; return f ? html`<span class="lm-ic lm-i-${f.replace(/\.[a-z]+$/, '').toLowerCase()}"></span>${name}` : name; } }, { k: 'group', label: 'Group', f: (r) => (LM_GROUPS.find((g) => g.id == r.group) || {}).label || r.group }, { k: 'n', label: 'Markers' }, { k: 'found', label: 'Discovered' }], types)}</div>`);
     lmMount();
