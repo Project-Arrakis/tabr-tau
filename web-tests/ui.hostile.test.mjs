@@ -1541,7 +1541,7 @@ test('Land Claim Editor: click available cells to add them, click again to take 
   assert.ok(ui.doc.querySelector('#main').textContent.includes('Original yaw') && ui.doc.querySelector('#main').textContent.includes('90°'));
   assert.ok(ui.doc.querySelector('svg.lc-svg g').getAttribute('transform').startsWith('rotate(90'), 'the grid is turned by the base yaw');
   assert.deepEqual([...ui.doc.querySelectorAll('svg.lc-svg text.lc-compass')].map((t) => t.textContent), ['N', 'S', 'W', 'E'], 'the compass points are on the grid');
-  const north = ui.doc.querySelector('.lc-north').textContent;
+  const north = ui.doc.querySelector('details[data-about="bases.claim"]').textContent; // moved into the card's About this by the text sweep (#426)
   assert.ok(north.includes('+x runs South') && north.includes('+y runs West'), 'a base at yaw 90: the column runs south and the row west: ' + north);
   assert.ok(ui.doc.querySelectorAll('svg.lc-svg text.lc-axis-t').length === 2 && cell('2,0').querySelector('title').textContent === 'cell 2, 0', 'the axes are marked and a cell says its coordinates');
   assert.equal(cell('0,0'), null, 'the totem cell is not clickable');

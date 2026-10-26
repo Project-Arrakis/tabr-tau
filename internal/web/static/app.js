@@ -956,11 +956,12 @@ function catalogList() {
 function autoRefillCard(prefs) {
   const jobs = prefs.jobs || [];
   return html`<div class="card"><h3>Automatic refill and repair when the editor opens</h3><div class="row"><span>When the editor opens: <b>${prefs.autoRefillOnOpen ? 'on' : 'off'}</b></span><button class="b sec" data-act="autoref" data-on="${prefs.autoRefillOnOpen ? '1' : ''}">${prefs.autoRefillOnOpen ? 'Turn off' : 'Turn on'}</button></div>
-    ${jobs.length ? html`<div role="group" aria-label="What the automatic pass does">${jobs.map((j) => html`<div class="row"><label class="${j.ready ? '' : 'mut'}"><input type="checkbox" data-autojob="${j.key}" aria-describedby="aj-${j.key}" ${j.on ? 'checked' : ''} ${j.ready ? '' : 'disabled'}> <b>${j.label}</b></label><span class="mut" id="aj-${j.key}">${j.desc}${j.ready ? '' : ' Not available yet: ' + j.reason + '.'}</span></div>`)}</div>` : ''}
+    ${jobs.length ? html`<div role="group" aria-label="What the automatic pass does">${jobs.map((j) => html`<div class="row">${tip('ajt-' + j.key, j.desc, html`<label class="${j.ready ? '' : 'mut'}"><input type="checkbox" data-autojob="${j.key}" aria-describedby="${j.ready ? 'ajt-' + j.key : 'aj-' + j.key + ' ajt-' + j.key}" ${j.on ? 'checked' : ''} ${j.ready ? '' : 'disabled'}> <b>${j.label}</b></label>`)}${j.ready ? '' : html`<span class="mut" id="aj-${j.key}">Not available yet: ${j.reason}.</span>`}</div>`)}</div>` : ''}
     ${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
     ${prefs.lastProblem ? html`<p class="bad">${prefs.lastProblem}</p>` : ''}
     ${prefs.problem ? html`<p class="bad">${prefs.problem}</p>` : ''}
-    <p class="mut">When the master switch is on, opening the editor runs the jobs ticked above as <b>one edit</b> and <b>saves straight away</b>, like every other change, so it applies the next time the game loads. Every job is ticked by default, the repairs too; the master switch is off until you turn it on. It acts only on what your character owns or carries: your own vehicles, worn equipment, loadout, inventories and bases. It waits while the game is running: nothing is written or queued, and it runs once the game has closed. When nothing needs doing nothing is written. If one job fails, nothing is changed and the error is shown here. The previous file is backed up first. Remembered between runs. The same card is on the Power and Water tabs.</p></div>`;
+    ${prefs.autoRefillOnOpen && saveBlocked ? html`<p class="mut" id="autowait">Waiting: the save cannot be written yet (see the banner above). The automatic pass runs once the game has closed.</p>` : ''}
+    ${about('bases.autorefill', 'Automatic refill and repair', html`<p class="mut">When the master switch is on, opening the editor runs the jobs ticked above as <b>one edit</b> and <b>saves straight away</b>, like every other change, so it applies the next time the game loads. Every job is ticked by default, the repairs too; the master switch is off until you turn it on. It acts only on what your character owns or carries: your own vehicles, worn equipment, loadout, inventories and bases. It waits while the game is running: nothing is written or queued, and it runs once the game has closed. When nothing needs doing nothing is written. If one job fails, nothing is changed and the error is shown here. The previous file is backed up first. Remembered between runs. The same card is on the Power and Water tabs.</p>`)}</div>`;
 }
 // The console's Land Claim Editor: the claim as a grid of cells turned by the base's own yaw (north at the top), with the totem's cell,
 // the cells it has, and dotted "available" cells next to it. Click an available cell to add it, a chosen one to take it back (what is
@@ -1045,24 +1046,24 @@ function claimEditorDraw(focusKey) {
   });
   setHTML(host, html`<div class="card"><h3>Land claim editor</h3>
     <div class="grid">${kv('Totem ID', c.totem_id)}${kv('Original yaw', Math.round(yaw * 10) / 10 + '°')}${kv('Horizontal segments', c.cells - 1)}${kv('Vertical level', c.level + ' / ' + c.maxLevel)}</div>
-    <div class="lc-work"><div class="lc-gridcard"><b>Horizontal claim</b><p class="mut">Click a dotted cell to add it. New cells must stay connected edge to edge. A number is how many building pieces a cell holds.</p>
-      <div class="lc-north">&#9650; North is up. Column <b>+x</b> runs <b>${dirX}</b>, row <b>+y</b> runs <b>${dirY}</b> (the base's yaw is ${Math.round(yaw * 10) / 10}°).</div>
+    <div class="lc-work"><div class="lc-gridcard"><b>Horizontal claim</b>
       <svg class="lc-svg" viewBox="${vx} ${vy} ${vw} ${vh}">${compass}<g transform="rotate(${yaw} 0 0)">${cells}
         <path d="M0.5 0 H1.9" class="lc-axis lc-axis-x"></path><path d="M1.9 0 l-0.25 -0.14 v0.28 z" class="lc-axis-head lc-axis-x"></path><text x="2.35" y="0.12" transform="rotate(${-yaw} 2.35 0)" class="lc-axis-t lc-axis-x">+x</text>
         <path d="M0 0.5 V1.9" class="lc-axis lc-axis-y"></path><path d="M0 1.9 l-0.14 -0.25 h0.28 z" class="lc-axis-head lc-axis-y"></path><text x="0" y="2.5" transform="rotate(${-yaw} 0 2.5)" class="lc-axis-t lc-axis-y">+y</text></g></svg>
       <p class="mut"><span class="lc-key lc-o"></span>Totem <span class="lc-key lc-x"></span>Existing <span class="lc-key lc-s"></span>New <span class="lc-key lc-a"></span>Available <span class="lc-key lc-r"></span>To remove</p>
-      <p class="mut">World-oriented view: north stays at the top and the grid is turned by the base's original yaw; the saved cell coordinates are not changed.</p></div>
+</div>
     <div class="lc-side"><b>Expansion</b>
-      <label>Vertical level <select id="lcLvl">${Array.from({ length: maxLevel - c.level + 1 }, (_, i) => c.level + i).map((n) => html`<option ${n === LC.level ? 'selected' : ''}>${n}</option>`)}</select></label>
-      <p class="mut">Vertical expansion grows equally up and down. The game caps it at level ${c.maxLevel}.</p>
+      ${tip('lcleveltip', `Vertical expansion grows equally up and down. The game caps it at level ${c.maxLevel}.`, html`<label>Vertical level <select id="lcLvl" aria-describedby="lcleveltip">${Array.from({ length: maxLevel - c.level + 1 }, (_, i) => c.level + i).map((n) => html`<option ${n === LC.level ? 'selected' : ''}>${n}</option>`)}</select></label>`)}
       <div class="kv"><b>Pending horizontal</b><span>${LC.sel.size}</span></div><div class="kv"><b>Pending vertical</b><span>${LC.level === c.level ? 'No change' : c.level + ' → ' + LC.level}</span></div>
       <div class="row"><button class="b" data-act="lcApply" ${dirty ? '' : 'disabled'}>Apply changes</button>${LC.sel.size || LC.rm.size ? html`<button class="b sec" data-act="lcClear">Clear selection</button>` : ''}</div>
       <div class="kv"><b>Marked for removal</b><span>${LC.rm.size}</span></div>
       ${cutOff.length ? html`<p class="bad">Removing those would cut ${cutOff.length} cell${cutOff.length === 1 ? '' : 's'} that stay off from the totem; the game needs the claim connected edge to edge. Mark them too, or unmark a cell.</p>` : ''}
       <div class="row"><button class="b" data-act="lcRemove" ${LC.rm.size && !cutOff.length ? '' : 'disabled'}>Remove marked cells</button></div>
+      ${LC.sel.size ? html`<p class="mut" id="lcbypass">This editor bypasses the game's normal staking checks. Claiming a protected area does not guarantee that the game lets you build there.</p>` : ''}</div></div>
+    ${about('bases.claim', 'Land claim editor', html`<p class="mut">Click a dotted cell to add it. New cells must stay connected edge to edge. A number is how many building pieces a cell holds.</p>
+      <p class="mut">North is up. Column <b>+x</b> runs <b>${dirX}</b>, row <b>+y</b> runs <b>${dirY}</b> (the base's yaw is ${Math.round(yaw * 10) / 10}°). World-oriented view: north stays at the top and the grid is turned by the base's original yaw; the saved cell coordinates are not changed.</p>
       <p class="mut">Click an existing cell to mark it. A cell with building pieces or placeables in it (its number is shown) cannot be removed, and neither can the totem's own cell.</p>
-      <p class="mut">The edit is written at once, after the usual backup. Applied when the game next loads the save.</p></div></div>
-    <p class="mut">This editor bypasses the game's normal staking checks. Claiming a protected area does not guarantee that the game lets you build there.</p></div>`);
+      <p class="mut">The edit is written at once, after the usual backup. Applied when the game next loads the save. This editor bypasses the game's normal staking checks. Claiming a protected area does not guarantee that the game lets you build there.</p>`)}</div>`);
   // The grid was drawn again, so the cell that had the keyboard focus is gone: put the focus on the same cell (or, when it is no longer a cell to press, on Apply).
   if (focusKey) {
     const again = [...host.querySelectorAll('[data-cell]')].find((c) => c.getAttribute('data-cell') === focusKey) || host.querySelector('[data-act="lcApply"]');
@@ -1086,13 +1087,13 @@ async function basesView() {
       const prefs = await api('/api/settings');
       h.push(html`<div class="card"><h3>Power</h3>${pw.types.length ? tbl([{ k: 'name', label: 'Building' }, { k: 'devices', label: 'Built' },
         { k: 'queued', label: 'Holds', f: (r) => Number(r.queued).toLocaleString() + (r.fuel ? ' ' + itemName(r.fuel) : '') }, { k: 'capacity', label: 'Full', f: (r) => (r.capacity ? Number(r.capacity).toLocaleString() : '-') }, { k: 'empty', label: 'Empty' }], pw.types) : html`<p class="mut">No generators, wind turbines or windtraps built at this base.</p>`}
-        <div class="row"><button class="b" data-act="refillGen" data-confirm="Yes, refill power on every base">Refill power (every base)</button><span class="mut">Tops up Fuel-Powered and Spice-Powered Generators (499), Omnidirectional Wind Turbines (Low-grade Lubricant) and Directional Wind Turbines (Industrial-grade Lubricant), five stacks of 100 and 499 in all, and Windtraps and Large Windtraps (5 filters, always the best filter for the machine). Buildings that are only placeholders are left alone. </span></div></div>
+        <div class="row">${tip('gentip', 'Tops up Fuel-Powered and Spice-Powered Generators (499), Omnidirectional Wind Turbines (Low-grade Lubricant) and Directional Wind Turbines (Industrial-grade Lubricant), five stacks of 100 and 499 in all, and Windtraps and Large Windtraps (5 filters, always the best filter for the machine). Buildings that are only placeholders are left alone.', html`<button class="b" data-act="refillGen" data-confirm="Yes, refill power on every base" aria-describedby="gentip">Refill power (every base)</button>`)}</div></div>
     ${autoRefillCard(prefs)}`);
     } else if (bsTab == 'water') {
       const w = await api('/api/bases/water?base=' + id);
       h.push(html`<div class="card"><h3>Water</h3>${w.types.length ? tbl([{ k: 'name', label: 'Building' }, { k: 'devices', label: 'Built' }, { k: 'stored', label: 'Water stored', f: (r) => Number(r.stored).toLocaleString() },
         { k: 'capacity', label: 'Capacity', f: (r) => (r.capacity ? Number(r.capacity).toLocaleString() : '-') }, { k: 'fillPercent', label: 'Fill', f: (r) => (r.fillPercent == null ? '-' : Math.round(r.fillPercent) + '%') }], w.types) : html`<p class="mut">No water storage at this base.</p>`}
-        <div class="row"><button class="b" data-act="refillWater" data-confirm="Yes, refill water on every base">Refill base water (every base)</button><span class="mut">Fills every Water Cistern, Medium Water Cistern, Large Water Cistern, Windtrap, Large Windtrap and Blood Purifier to its capacity. The blood in a Blood Purifier is not touched, and a building that is only a placeholder is left alone.</span></div></div>
+        <div class="row">${tip('watertip', 'Fills every Water Cistern, Medium Water Cistern, Large Water Cistern, Windtrap, Large Windtrap and Blood Purifier to its capacity. The blood in a Blood Purifier is not touched, and a building that is only a placeholder is left alone.', html`<button class="b" data-act="refillWater" data-confirm="Yes, refill water on every base" aria-describedby="watertip">Refill base water (every base)</button>`)}</div></div>
     ${autoRefillCard(await api('/api/settings'))}`);
     } else if (bsTab == 'inventory') {
       const inv = await api('/api/bases/inventory?base=' + id);
@@ -1101,13 +1102,13 @@ async function basesView() {
       h.push(html`<div class="card"><h3>Inventory</h3><div class="sub">${inv.groups.map((g) => html`<button data-bsgrp="${g.id}" class="${grp == g.id ? 'on' : ''}">${g.label} (${g.count})</button>`)}</div>
         ${tbl([{ k: 'name', label: 'Container' }, { k: 'type', label: 'Type' }, { k: 'items', label: 'Items' }, { k: 'max_item_count', label: 'Slots used', f: (r) => `${r.items} of ${r.max_item_count}` }], rows,
         { actions: (r) => html`<button class="b sec sm" data-act="openInv" data-id="${r.inventory_id}" data-name="${r.name}">Open</button>`, empty: 'No containers in this group.' })}
-        <p class="mut">Slots used is the items held out of the container's capacity. Only containers that belong to this base are listed.</p></div><div id="inv"></div>`);
+        ${about('bases.inventory', 'Inventory', html`<p class="mut">Only containers that belong to this base are listed.</p>`)}</div><div id="inv"></div>`);
     } else if (bsTab == 'structures') {
       // tabr-tau's own base tools (the console's base view has no equivalent): structure health, repair all, sand, placeables, piece types.
       const b = await api('/api/bases');
       const p = b.pieces || {};
       h.push(html`<div class="card"><h3>Structure health</h3><div class="grid">${kv('Building pieces', p.n)}${kv('Lowest health', fix(p.minh))}${kv('Average health', fix(p.avgh))}${kv('Total sand buildup', fix(p.sand))}</div>
-        <div class="row"><button class="b" data-act="repairB" data-confirm="Yes, repair every base">Repair every base to max</button><button class="b sec" data-act="sand" data-confirm="Yes, clear sand on every base">Clear sand on every base</button><span class="mut">These two act on all of your bases, not only the one open above. Repair sets each piece to the highest health seen for its type.</span></div></div>`);
+        <div class="row">${tip('repairbtip', 'Repair sets each piece to the highest health seen for its type.', html`<button class="b" data-act="repairB" data-confirm="Yes, repair every base" aria-describedby="repairbtip">Repair every base to max</button>`)}<button class="b sec" data-act="sand" data-confirm="Yes, clear sand on every base">Clear sand on every base</button></div></div>`);
       h.push(html`<div class="card"><h3>Placeables (${b.placeables.length})</h3>${tbl([{ k: 'id' }, { k: 'building_type', label: 'Type' }, { k: 'health', label: 'Health', f: (r) => (r.health == null ? '' : fix(r.health)) }], b.placeables, { empty: 'No placeables in this save.' })}</div>
         <div class="card"><h3>Building piece types</h3>${tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], b.types, { empty: 'No building pieces in this save.' })}</div>`);
     } else {
@@ -1120,8 +1121,8 @@ async function basesView() {
       <button class="b" data-act="claimGrow" data-id="${c.totem_id}" data-level="${c.level}">Expand claim</button></div>
       ${c.cells > 1 ? html`<div class="row"><span class="mut">${c.piecesInClaim == null ? '' : `${c.piecesInClaim} pieces inside the claim, ${c.piecesOutside} outside.`}</span>
         Shrink to <select id="cs${c.totem_id}"><option value="0">the totem's own cell only</option>${Array.from({ length: c.maxRings }, (_, i) => i + 1).filter((n) => (c.irregular ? n <= c.rings : n < c.rings)).map((n) => html`<option value="${n}">${2 * n + 1} x ${2 * n + 1} square</option>`)}</select>
-        <button class="b sec" data-act="claimShrink" data-id="${c.totem_id}">Shrink claim</button><span class="mut">Cells that hold building pieces are never removed.</span></div>` : html``}`)}
-    <p class="mut">One cell is 10 x 10 foundations, around the totem. Expanding only adds cells and never removes them, and the vertical level can only go up. Applied when the game next loads the save.</p></div>` : html``}
+        ${tip('shrinktip' + c.totem_id, 'Cells that hold building pieces are never removed.', html`<button class="b sec" data-act="claimShrink" data-id="${c.totem_id}" aria-describedby="shrinktip${c.totem_id}">Shrink claim</button>`)}</div>` : html``}`)}
+    ${about('bases.resize', 'Resize by square', html`<p class="mut">One cell is 10 x 10 foundations, around the totem. Expanding only adds cells and never removes them, and the vertical level can only go up. Applied when the game next loads the save. This editor bypasses the game's normal staking checks. Claiming a protected area does not guarantee that the game lets you build there.</p>`)}</div>` : html``}
 `);
       if (!claims.length) h.push(html`<p class="mut">This base has no land claim data in the save.</p>`);
     }
