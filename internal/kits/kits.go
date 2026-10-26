@@ -179,6 +179,15 @@ func CheckStored(list []Kit) error {
 	return nil
 }
 
+// Get is the kit called name (names are compared without regard to case).
+func Get(list []Kit, name string) (Kit, error) {
+	at := Find(list, name)
+	if at < 0 {
+		return Kit{}, noKit(name)
+	}
+	return list[at], nil
+}
+
 func noKit(name string) error {
 	return fmt.Errorf("there is no kit called %q (it may have been deleted)", clip(name))
 }

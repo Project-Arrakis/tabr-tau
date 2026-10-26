@@ -595,6 +595,7 @@ async function fillCard() {
 // ---------- Care package (#417): named kits of items, XP and skill points, kept in the editor's own settings (not in a save, so a new save starts with them).
 // The draft is the kit being made or changed; it lives here, not in the boxes, because the page is drawn again after every action.
 let KITS = null; // the last answer of /api/kits: { kits, limits, problem }
+let kitApplied = new Set(); // the kits applied since this page was opened: applying one again asks with that said (the kit itself remembers nothing about any save)
 let kitDraft = null; // { was, name, items: [{ item, quantity, grade, augments, augmentGrade }], xp, skillPoints }; was is the name of the kit being changed ('' for a new one)
 const kitSpec = (l) => `${Number(l.quantity).toLocaleString()} x ${itemName(l.item)}${l.grade ? ' (grade ' + l.grade + ')' : ''}${l.augments && l.augments.length ? ' + ' + l.augments.map((a) => augName(a)).join(', ') : ''}`;
 const kitContents = (k) => (k.items.length ? k.items.slice(0, 4).map(kitSpec).join('; ') + (k.items.length > 4 ? `; and ${k.items.length - 4} more` : '') : 'No items');
@@ -611,7 +612,7 @@ function kitsCard() {
   const list = KITS.kits, lim = KITS.limits, editing = !!kitDraft;
   const why = editing ? 'Finish or cancel the kit you are editing first.' : '';
   return html`<div class="card"><h3>Care packages</h3>
-    <p class="mut">A care package is a named kit of items, XP and skill points. Kits are kept in the editor's own settings, not in a save, so a new save starts with them. Up to ${lim.kits} kits, each with up to ${lim.items} items. A kit file you export is a small text file; one you import is checked first and never replaces a kit you have.</p>
+    <p class="mut">A care package is a named kit of items, XP and skill points. Kits are kept in the editor's own settings, not in a save, so a new save starts with them. Apply gives a kit to the character in this save as one edit: the items by the rules of Give item (slots, stacks, volume), then the XP and the skill points. It shows what would be given and what would not fit before it asks. Up to ${lim.kits} kits, each with up to ${lim.items} items. A kit file you export is a small text file; one you import is checked first and never replaces a kit you have.</p>
     ${KITS.problem ? html`<div class="info" role="alert">${KITS.problem}</div>` : ''}
     <div class="row"><button class="b" data-act="kitNew" ${editing || list.length >= lim.kits ? 'disabled' : ''} title="${list.length >= lim.kits ? 'The most kits are kept: delete one first.' : why}">New kit</button>
       <label>Import a kit file <input type="file" id="kitFile" ${editing ? 'disabled' : ''}></label>
@@ -619,7 +620,7 @@ function kitsCard() {
     ${tbl([{ k: 'name', label: 'Kit', f: (k) => html`<b>${k.name}</b>${k.problem ? html` <span class="warn">Cannot be used: ${k.problem}</span>` : ''}` },
       { k: 'items', label: 'Items', f: (k) => kitContents(k) }, { k: 'xp', label: 'XP', f: (k) => (k.xp ? Number(k.xp).toLocaleString() : '') },
       { k: 'skillPoints', label: 'Skill points', f: (k) => (k.skillPoints ? Number(k.skillPoints).toLocaleString() : '') }], list,
-      { empty: 'No kits yet. Make one with New kit, or import a kit file.', actions: (k) => html`<button class="b sec sm" data-act="kitEdit" data-name="${k.name}" aria-label="Edit kit ${k.name}" ${editing ? 'disabled' : ''} title="${why}">Edit</button><button class="b sec sm" data-act="kitDup" data-name="${k.name}" aria-label="Duplicate kit ${k.name}">Duplicate</button><button class="b sec sm" data-act="kitExport" data-name="${k.name}" aria-label="Export kit ${k.name}">Export</button><button class="b bad sm" data-act="kitDel" data-name="${k.name}" aria-label="Delete kit ${k.name}">Delete</button>` })}</div>`;
+      { empty: 'No kits yet. Make one with New kit, or import a kit file.', actions: (k) => html`<button class="b sm" data-act="kitApply" data-name="${k.name}" aria-label="Apply kit ${k.name} to the character" ${k.problem ? 'disabled' : ''} title="${k.problem ? 'This kit cannot be used: ' + k.problem : ''}">Apply</button><button class="b sec sm" data-act="kitEdit" data-name="${k.name}" aria-label="Edit kit ${k.name}" ${editing ? 'disabled' : ''} title="${why}">Edit</button><button class="b sec sm" data-act="kitDup" data-name="${k.name}" aria-label="Duplicate kit ${k.name}">Duplicate</button><button class="b sec sm" data-act="kitExport" data-name="${k.name}" aria-label="Export kit ${k.name}">Export</button><button class="b bad sm" data-act="kitDel" data-name="${k.name}" aria-label="Delete kit ${k.name}">Delete</button>` })}</div>`;
 }
 function kitEditor(cat) {
   const d = kitDraft, lim = KITS.limits;
@@ -634,6 +635,14 @@ function kitEditor(cat) {
     <div class="row"><label>XP <input id="kitXp" type="number" min="0" max="${lim.xp}" value="${d.xp}" class="w90"></label><label>Skill points <input id="kitSp" type="number" min="0" max="${lim.skillPoints}" value="${d.skillPoints}" class="w90"></label>
       <span class="mut">XP raises the level and adds a skill point per level gained, as Give XP does. Skill points are added on top.</span></div>
     <div class="row"><button class="b" data-act="kitSave">Save kit</button><button class="b sec" data-act="kitCancel">Cancel</button></div></div>`;
+}
+// What an apply of a kit gave or would give, line by line, for the question that asks first and for the message that reports it.
+function kitLines(r) {
+  const n = (v) => Number(v).toLocaleString();
+  const out = r.lines.map((l) => (Number(l.given) >= Number(l.requested) ? `${n(l.given)} x ${l.name}` : `${n(l.given)} of ${n(l.requested)} x ${l.name}: ${n(l.requested - l.given)} did not fit (${l.reason || 'no room'})`));
+  if (r.xp) out.push(r.xp.applied ? `+${n(r.xp.applied)} XP, level ${r.xp.levelBefore} to ${r.xp.levelAfter}${r.xp.capped ? `; ${n(r.xp.requested - r.xp.applied)} XP past the last level left out` : ''}` : 'No XP: the character is at the last level already');
+  if (r.skillPoints) out.push(r.skillPoints.applied ? `+${n(r.skillPoints.applied)} skill points${r.skillPoints.capped ? `; ${n(r.skillPoints.requested - r.skillPoints.applied)} more would pass the most that can be unspent` : ''}` : 'No skill points: the most that can be unspent is reached already');
+  return out;
 }
 async function kitDownload(name) {
   const j = await api('/api/kits/export' + (name ? '?name=' + encodeURIComponent(name) : ''));
@@ -1504,6 +1513,24 @@ const A = {
   kitDup: (d) => act(async () => { const r = await api('/api/kits/duplicate', { name: d.name }); toast(`Made "${r.saved}"`); }, null, true, true),
   kitDel: async (d) => (await ask({ title: 'Delete kit?', body: `Delete the kit "${d.name}" from the editor's settings. Nothing in any save changes. Export it first to keep a copy.`, ok: 'Delete', danger: true })) && act(() => api('/api/kits/delete', { name: d.name }), `Deleted kit "${d.name}"`, true, true),
   kitExport: (d) => kitDownload(d.name),
+  // Apply asks the editor what it would do (a dry run: nothing is written), shows that, and applies only after OK. The apply is one edit, written after a backup, or queued while the game runs.
+  kitApply: async (d) => {
+    let pv;
+    try { pv = await api('/api/kits/preview', { name: d.name }); } catch (e) { toast(e.message, true); return; }
+    if (!pv.changed) { toast(`Nothing would change: ${kitLines(pv).join('; ') || 'the kit is empty'}.`, 'part'); return; }
+    const again = kitApplied.has(d.name) ? ' You applied this kit earlier in this session; applying it again gives all of it again.' : '';
+    const where = saveBlocked ? 'The game is running, so the edit is queued and written when the game closes.' : 'It is written at once, after a backup.';
+    const ok = await ask({ title: `Apply kit "${d.name}" to the character?`, ok: 'Apply kit', gap: true, list: kitLines(pv),
+      body: `This is what would be given${pv.complete ? '' : ', and what would not fit'}. It is one edit. ${where}${again}${pv.volumeNote ? ' ' + pv.volumeNote : ''}` });
+    if (!ok) return;
+    return act(async () => {
+      const r = await api('/api/kits/apply', { name: d.name });
+      kitApplied.add(d.name);
+      const lines = kitLines(r).join('; ');
+      if (r.complete) toast(`Applied kit "${d.name}": ${lines}` + NOT_SAVED);
+      else toast(`Applied kit "${d.name}", but not all of it fitted: ${lines}` + NOT_SAVED, 'part');
+    }, null);
+  },
   queueDel: (d) => { giveQueue.splice(+d.id, 1); keepQueue(); render(true); },
   queueClear: () => { giveQueue = []; keepQueue(); render(true); },
   queueGive: () => act(async () => { const r = await api('/api/player/give-items', { items: giveQueue }); giveQueue = []; keepQueue(); giveToast(r, 'units of the queued items', `Added ${r.count} items`); }, null),

@@ -63,28 +63,48 @@ func (o *Ops) AddXP(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	maxXP := xpByLevel[len(xpByLevel)-1]
 	var res map[string]any
-	_, err = o.S.Mutate(fmt.Sprintf("xp +%d", amount), func(m *save.Mut) error {
-		rec, err := readLevelTx(m, p.Pawn)
-		if err != nil {
-			return err
-		}
-		xp, total, unspent := rec.xp, rec.total, rec.unspent
-		after := min(xp+amount, maxXP)
-		lb, la := xpToLevel(xp), xpToLevel(after)
-		gained := la - lb
-		res = map[string]any{"ok": true, "before": xp, "after": after, "applied": after - xp, "levelBefore": lb, "levelAfter": la,
-			"skillPointsGained": gained, "capped": xp+amount > maxXP}
-		if after == xp {
-			return nil // already at the last level: nothing to write
-		}
-		return writeLevelTx(m, rec.entity, after, total+int64(gained), unspent+int64(gained))
+	_, err = o.S.Mutate(fmt.Sprintf("xp +%d", amount), func(m *save.Mut) (e error) {
+		res, e = addXPTx(m, p.Pawn, amount)
+		return
 	})
 	if err != nil {
 		return nil, err
 	}
 	return res, nil
+}
+
+// addXPTx is Give XP inside an edit (a care package kit uses it too): the XP grows by amount, up to the last level, and the level data follows. It returns the answer of Give XP.
+func addXPTx(m *save.Mut, pawn, amount int64) (map[string]any, error) {
+	rec, err := readLevelTx(m, pawn)
+	if err != nil {
+		return nil, err
+	}
+	maxXP := xpByLevel[len(xpByLevel)-1]
+	xp, total, unspent := rec.xp, rec.total, rec.unspent
+	after := min(xp+amount, maxXP)
+	lb, la := xpToLevel(xp), xpToLevel(after)
+	gained := la - lb
+	res := map[string]any{"ok": true, "before": xp, "after": after, "applied": after - xp, "levelBefore": lb, "levelAfter": la,
+		"skillPointsGained": gained, "capped": xp+amount > maxXP}
+	if after == xp {
+		return res, nil // already at the last level: nothing to write
+	}
+	return res, writeLevelTx(m, rec.entity, after, total+int64(gained), unspent+int64(gained))
+}
+
+// addSkillPointsTx adds n skill points to the character inside an edit, to the points earned in total and to the unspent ones together (the way a level gained does), never past
+// maxUnspent unspent. It returns how many were added.
+func addSkillPointsTx(m *save.Mut, pawn, n int64) (int64, error) {
+	rec, err := readLevelTx(m, pawn)
+	if err != nil {
+		return 0, err
+	}
+	applied := min(rec.unspent+n, max(maxUnspent, rec.unspent)) - rec.unspent
+	if applied <= 0 {
+		return 0, nil
+	}
+	return applied, writeLevelTx(m, rec.entity, rec.xp, rec.total+applied, rec.unspent+applied)
 }
 
 // AddCurrency adds to one of the character's virtual currency balances: 0 is Solari in wallet, 1 the secondary wallet (House credit in

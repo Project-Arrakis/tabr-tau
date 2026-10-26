@@ -530,6 +530,38 @@ func (o *Ops) inventoryNoun(inv int64) string {
 // maxGiveBatch caps one Give Items queue; the console's queue is a handful of lines, and a typo cannot flood the backpack.
 const maxGiveBatch = 50
 
+// giveLine is one line of a Give Items queue (and of a care package kit): an item, how many, its grade, and the augments to put on each stack made, at augment grade grade.
+type giveLine struct {
+	tmpl   string
+	qty, q int64
+	aug    []string
+	grade  int
+}
+
+// giveLinesInTx gives the lines to inventory inv in order, inside the caller's edit, each as much as fits (giveUpToInTx) with its augments applied to the stacks it made. It returns the ids
+// of the rows added, the units asked for and given, and one result per line (what was asked, given and why not more). It returns an error only for a fault, never for a lack of room: the
+// caller decides what a short result means. A later line sees the slots and the volume the earlier lines used.
+func giveLinesInTx(m *save.Mut, inv int64, lines []giveLine) (ids []int64, req, got int64, results []map[string]any, err error) {
+	for i, l := range lines {
+		out, e := giveUpToInTx(m, inv, l.tmpl, l.qty, l.q)
+		if e != nil {
+			return nil, 0, 0, nil, fmt.Errorf("item %d (%s): %w", i+1, l.tmpl, e)
+		}
+		for _, id := range out.IDs {
+			if len(l.aug) > 0 {
+				if _, e := setAugmentsTx(m, id, l.aug, l.grade); e != nil {
+					return nil, 0, 0, nil, fmt.Errorf("item %d (%s): %w", i+1, l.tmpl, e)
+				}
+			}
+			ids = append(ids, id)
+		}
+		req += out.Requested
+		got += out.Given
+		results = append(results, map[string]any{"template_id": l.tmpl, "requested": out.Requested, "given": out.Given, "reason": out.reason("the backpack"), "limit": out.Limit, "volumeNote": out.VolumeNote})
+	}
+	return ids, req, got, results, nil
+}
+
 // GiveItems gives a queue of items to the player's backpack in one edit, all or nothing: args "items" is a list of
 // {template_id, quantity, quality}. It is one edit, so it is written (or queued) as one.
 func (o *Ops) GiveItems(a Args) (any, error) {
@@ -544,13 +576,7 @@ func (o *Ops) GiveItems(a Args) (any, error) {
 	if len(list) > maxGiveBatch {
 		return nil, apierr.Newf(apierr.ErrBadArgument, "at most %d items at a time", maxGiveBatch)
 	}
-	type line struct {
-		tmpl   string
-		qty, q int64
-		aug    []string
-		grade  int
-	}
-	lines := make([]line, 0, len(list))
+	lines := make([]giveLine, 0, len(list))
 	for i, e := range list {
 		m, ok := e.(map[string]any)
 		if !ok {
@@ -571,7 +597,7 @@ func (o *Ops) GiveItems(a Args) (any, error) {
 		if err := checkAugments(tmpl, ids); err != nil {
 			return nil, fmt.Errorf("item %d: %w", i+1, err)
 		}
-		lines = append(lines, line{tmpl, qty, q, ids, grade})
+		lines = append(lines, giveLine{tmpl, qty, q, ids, grade})
 	}
 	r, _ := o.S.One(`select id from inventories where actor_id=? and inventory_type=0 order by id limit 1`, p.Pawn)
 	if r == nil {
@@ -584,24 +610,9 @@ func (o *Ops) GiveItems(a Args) (any, error) {
 	var ids []int64
 	var req, got int64
 	var results []map[string]any
-	if _, err := o.S.Mutate(fmt.Sprintf("give %d queued items", len(lines)), func(m *save.Mut) error {
-		ids, req, got, results = nil, 0, 0, nil
-		for i, l := range lines {
-			out, e := giveUpToInTx(m, inv, l.tmpl, l.qty, l.q)
-			if e != nil {
-				return fmt.Errorf("item %d (%s): %w", i+1, l.tmpl, e)
-			}
-			for _, id := range out.IDs {
-				if len(l.aug) > 0 {
-					if _, e := setAugmentsTx(m, id, l.aug, l.grade); e != nil {
-						return fmt.Errorf("item %d (%s): %w", i+1, l.tmpl, e)
-					}
-				}
-				ids = append(ids, id)
-			}
-			req += out.Requested
-			got += out.Given
-			results = append(results, map[string]any{"template_id": l.tmpl, "requested": out.Requested, "given": out.Given, "reason": out.reason("the backpack"), "limit": out.Limit, "volumeNote": out.VolumeNote})
+	if _, err := o.S.Mutate(fmt.Sprintf("give %d queued items", len(lines)), func(m *save.Mut) (e error) {
+		if ids, req, got, results, e = giveLinesInTx(m, inv, lines); e != nil {
+			return e
 		}
 		if got == 0 {
 			return apierr.New(apierr.ErrNoRoom, "Nothing was given: the backpack is full.")
