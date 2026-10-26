@@ -251,3 +251,12 @@ header .path:empty{display:none}
   #toast{left:12px;right:12px}
   #toast div{max-width:none}
 }
+/* Text that is not shown all the time (#426): a tooltip on one control (hover and keyboard focus; Escape puts it away), and an "About this" disclosure for a card */
+.tip{position:relative;display:inline-block}
+.tipbox{display:none;position:absolute;z-index:6;left:0;top:calc(100% - 2px);width:max-content;max-width:min(360px,80vw);padding:6px 10px;background:var(--panel2);color:var(--fg);border:1px solid var(--line-strong);border-radius:6px;box-shadow:var(--sh);font-size:12px;font-weight:400;line-height:1.4;text-align:left;white-space:normal;cursor:default}
+.tip:hover .tipbox,.tip:focus-within .tipbox{display:block}
+.tip.closed .tipbox{display:none}
+details.about{margin-top:10px}
+details.about summary{font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--mut)}
+details.about[open] summary{margin-bottom:6px}
+details.about p{margin:6px 0}

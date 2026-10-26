@@ -113,7 +113,7 @@ test('Fill hydration queued while the game runs says it will not help right now,
   assert.ok(t.includes('needs another source of water now'), t);
   assert.ok(t.includes('after the game closes and loads this save again'), t);
   assert.ok(!/^Hydration/.test(t), 'it does not read as the plain success line');
-  assert.ok(ui.doc.querySelector('[data-act="fillWater"]').title.includes('will not help a thirsty character right now'), 'the button says it too');
+  assert.ok(ui.doc.getElementById('hydtip').textContent.includes('will not help a thirsty character right now'), 'the tooltip of the button says it too');
 });
 
 test('Fill hydration written at once keeps the short success line', async () => {

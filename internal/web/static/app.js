@@ -183,6 +183,7 @@ const PTABS = [['character', 'Character'], ['crafting', 'Crafting'], ['research'
 const browserStore = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* the choice lasts until the page is closed */ } },
+  remove(k) { try { localStorage.removeItem(k); } catch (e) { /* nothing was kept */ } },
 };
 const savedTab = browserStore.get('tab');
 let tab = Object.hasOwn(TABS, savedTab) ? savedTab : 'player';
@@ -195,6 +196,27 @@ function drawNav() {
 function subNav(group, items) {
   return html`<div class="sub">${items.map(([k, v]) => html`<button data-sub="${group}:${k}" class="${sub[group] == k ? 'on' : ''}" aria-current="${sub[group] == k ? 'true' : 'false'}">${v}</button>`)}</div>`;
 }
+
+// ---------- text that is not shown all the time (#426, docs/design/2026-10-26-ui-text-sweep.md)
+// A permanent line must earn its place: the state of a control, a result, an error, what is queued and the one thing that can hurt stay on the page. An explanation, a limit or
+// background goes in one of two places. tip() puts the sentence or two that belong to ONE control in a tooltip that shows on hover and on keyboard focus; the control carries
+// aria-describedby="<id>" so a screen reader reads it as the control's description whether or not it is drawn (the caller writes the attribute; a test checks that every tip has one).
+// about() puts what belongs to a card as a whole in a closed "About this" disclosure; whether it is open is kept per card in the browser's storage.
+const tip = (id, text, control) => html`<span class="tip">${control}<span class="tipbox" role="tooltip" id="${id}">${text}</span></span>`;
+const aboutKey = (id) => 'about.' + id;
+const about = (id, title, content) => html`<details class="about" data-about="${id}" ${browserStore.get(aboutKey(id)) === '1' ? 'open' : ''}><summary>About this<span class="sr"> (${title})</span></summary>${content}</details>`;
+document.addEventListener('toggle', (e) => {
+  const d = e.target;
+  if (d && d.matches && d.matches('details.about[data-about]')) { if (d.open) browserStore.set(aboutKey(d.dataset.about), '1'); else browserStore.remove(aboutKey(d.dataset.about)); }
+}, true);
+// Escape puts a tooltip away without moving the focus or the pointer; it comes back when the pointer or the focus leaves and returns.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  document.querySelectorAll('.tip').forEach((t) => { if (t.contains(document.activeElement) || t.matches(':hover')) t.classList.add('closed'); });
+});
+const reopenTip = (e) => { const t = e.target && e.target.closest && e.target.closest('.tip'); if (t && !t.contains(e.relatedTarget)) t.classList.remove('closed'); };
+document.addEventListener('focusout', reopenTip);
+document.addEventListener('mouseout', reopenTip);
 
 // ---------- generic renderers
 // Every table sorts by the header that is clicked: once ascending, again descending, a third time back to the original order. The rows
@@ -559,8 +581,10 @@ const NO_TRACK_NUMBER = 'This track\'s number is not known yet: see the note abo
 // The reset of the character's level and XP (#339): on Character > Overview, beside Give XP. The number it asks the person to confirm is the XP the summary above shows.
 function levelResetCard() {
   const xp = SUMMARY && Number.isInteger(SUMMARY.xp) ? SUMMARY.xp : null;
-  const note = xp === null ? 'This save has no level record for the character.' : xp > 0 ? 'The XP goes back to 0 and the level with it, and the skill points the levels gave are taken back as far as they are unspent. Skills you bought stay, with their points. Asks first.' : 'Nothing to reset: the character has no XP.';
-  return html`<div class="card"><h3>Reset level and XP</h3><div class="row"><button class="b bad" data-act="lvReset" aria-describedby="lvresetnote" ${xp ? '' : 'disabled'}>Reset level and XP (${Number(xp || 0).toLocaleString()} XP)</button><span class="mut" id="lvresetnote">${note}</span></div></div>`;
+  // why the button is off is state and stays; what it does when it is on is the button's tooltip
+  const off = xp === null ? 'This save has no level record for the character.' : xp > 0 ? '' : 'Nothing to reset: the character has no XP.';
+  const btn = html`<button class="b bad" data-act="lvReset" aria-describedby="${off ? 'lvresetnote' : 'lvresettip'}" ${xp ? '' : 'disabled'}>Reset level and XP (${Number(xp || 0).toLocaleString()} XP)</button>`;
+  return html`<div class="card"><h3>Reset level and XP</h3><div class="row">${off ? btn : tip('lvresettip', 'The XP goes back to 0 and the level with it, and the skill points the levels gave are taken back as far as they are unspent. Skills you bought stay, with their points. Asks first.', btn)}${off ? html`<span class="mut" id="lvresetnote">${off}</span>` : ''}</div></div>`;
 }
 // The Fill card on Player > Character > Overview (#415): what used to be spread over Player > Inventory (Fill hydration, Fill blood sacks #60, Refill Literjons, Fill all liquids #349),
 // in one place. The wording, the counts, the disabled states and the data-act keys are those the buttons had on the Inventory tab. The two counts are read here, when the tab is
@@ -570,7 +594,7 @@ function bloodSacksRow(b) {
   const total = b ? Number(b.total) || 0 : 0, notFull = b ? Number(b.notFull) || 0 : 0, unknown = b ? Number(b.unknown) || 0 : 0;
   const count = !b ? 'The blood sacks could not be counted.' : total || unknown ? `${notFull} of ${total} blood sacks are not full.` : 'No blood sacks in the backpack, worn gear or loadout.';
   const left = unknown ? ` ${unknown} blood ${unknown == 1 ? 'sack' : 'sacks'} of an unknown kind will be left alone.` : '';
-  return html`<div class="row"><button class="b sec" data-act="fillBlood" aria-describedby="bloodnote" ${b && !notFull ? 'disabled' : ''}>Fill blood sacks</button><span class="mut" id="bloodnote">${count}${left} Fills the sacks you carry to the most blood seen in a save for that kind (the Mk6 unique sack 30000, the basic sack 3000), without changing anything else about them. Water containers are not touched. The fill has not been checked in the game yet.</span></div>`;
+  return html`<div class="row">${tip('bloodtip', 'Fills the sacks you carry to the most blood seen in a save for that kind (the Mk6 unique sack 30000, the basic sack 3000), without changing anything else about them. Water containers are not touched. The fill has not been checked in the game yet.', html`<button class="b sec" data-act="fillBlood" aria-describedby="bloodnote bloodtip" ${b && !notFull ? 'disabled' : ''}>Fill blood sacks</button>`)}<span class="mut" id="bloodnote">${count}${left}</span></div>`;
 }
 // Fill all liquids (issue #349): the water refill, the blood-sack fill and, with the box ticked, the refuel of the character's vehicles, as one edit.
 // The box stays as the person left it until the page is reloaded.
@@ -579,18 +603,20 @@ function liquidsRow(l) {
   const n = (k, f) => (l && l[k] ? Number(l[k][f]) || 0 : 0);
   const waterN = n('water', 'notFull'), bloodN = n('bloodSacks', 'notFull'), vehN = n('vehicles', 'notFull');
   const count = !l ? 'The containers could not be counted.' : `Not full: ${nn(waterN, 'water container', 'water containers')}, ${nn(bloodN, 'blood sack', 'blood sacks')}, ${nn(vehN, 'vehicle', 'vehicles')}.`;
-  return html`<div class="row"><button class="b" data-act="fillLiquids" aria-describedby="liqnote">Fill all liquids</button><label><input type="checkbox" id="liqVeh" ${liqVeh ? 'checked' : ''}> Also refuel my vehicles</label><span class="mut" id="liqnote">${count} Fills your Literjons, stillsuits and other water containers, your blood sacks and (with the box ticked) the fuel of your own vehicles, as one edit with one backup, by the same rules as the three buttons (Refill Literjons, Fill blood sacks, Refuel all my vehicles). Kinds whose size is not known are left alone and counted.</span></div>`;
+  return html`<div class="row">${tip('liqtip', 'Fills your Literjons, stillsuits and other water containers, your blood sacks and (with the box ticked) the fuel of your own vehicles, as one edit with one backup, by the same rules as the three buttons (Refill Literjons, Fill blood sacks, Refuel all my vehicles). Kinds whose size is not known are left alone and counted.', html`<button class="b" data-act="fillLiquids" aria-describedby="liqnote liqtip">Fill all liquids</button>`)}<label><input type="checkbox" id="liqVeh" ${liqVeh ? 'checked' : ''}> Also refuel my vehicles</label><span class="mut" id="liqnote">${count}</span></div>`;
 }
 async function fillCard() {
   const get = async (path) => { try { return await api(path); } catch (e) { return null; } };
   const [b, l] = await Promise.all([get('/api/player/blood-sacks'), get('/api/player/liquids')]);
   const hyd = SUMMARY && SUMMARY.vitals && SUMMARY.vitals.hydration != null ? SUMMARY.vitals : null;
-  const hydNote = hyd ? `Hydration is ${Number(hyd.hydration).toFixed(1)} of ${hyd.maxHydration}.` : 'The summary shows no hydration for the character, so this may be refused.';
+  // the number is the summary tile's; the line is drawn only when there is none to fill from
+  const hydNote = hyd ? '' : 'The summary shows no hydration for the character, so this may be refused.';
   return html`<div class="card"><h3>Fill</h3>
-    <div class="row"><button class="b sec" data-act="fillWater" aria-describedby="hydnote" title="Fill the character's own hydration to the maximum in the save. While the game is running this is queued until the game closes and loads the save again: it will not help a thirsty character right now.">Fill hydration</button><span class="mut" id="hydnote">${hydNote} Fills the character's own water to the maximum.</span></div>
+    <div class="row">${tip('hydtip', 'Fills the character\'s own water to the maximum in the save. While the game is running this is queued until the game closes and loads the save again: it will not help a thirsty character right now.', html`<button class="b sec" data-act="fillWater" aria-describedby="${hydNote ? 'hydnote hydtip' : 'hydtip'}">Fill hydration</button>`)}${hydNote ? html`<span class="mut" id="hydnote">${hydNote}</span>` : ''}</div>
     ${bloodSacksRow(b)}
-    <div class="row"><button class="b sec" data-act="refill" aria-describedby="refillnote">Refill Literjons</button><span class="mut" id="refillnote">Fills the Literjons, stillsuits and other water containers you carry to their capacity.</span></div>
-    ${liquidsRow(l)}</div>`;
+    <div class="row">${tip('refilltip', 'Fills the Literjons, stillsuits and other water containers you carry to their capacity.', html`<button class="b sec" data-act="refill" aria-describedby="refilltip">Refill Literjons</button>`)}</div>
+    ${liquidsRow(l)}
+    ${about('overview.fill', 'Fill', html`<p class="mut">The fill of blood sacks has not been checked in the game yet. A fill is written to the save at once; while the game is running it is queued and applied when the game closes and loads the save again, so it does not help a character who is thirsty now.</p>`)}</div>`;
 }
 // ---------- Care package (#417): named kits of items, XP and skill points, kept in the editor's own settings (not in a save, so a new save starts with them).
 // The draft is the kit being made or changed; it lives here, not in the boxes, because the page is drawn again after every action.
@@ -669,11 +695,11 @@ async function playerSection(s) {
   if (c == 'overview') {
     P = await api('/api/player');
     const a = P.actor || {}, j = P.journey || {};
-    h.push(html`<div class="card"><h3>${P.name}</h3><div class="grid">${kv('Solari in backpack', P.solari.toLocaleString())}${kv('Position', `${fix(a.x)}, ${fix(a.y)}, ${fix(a.z)}`)}${kv('Journey', `${(j.done || 0).toLocaleString()} of ${(j.total || 0).toLocaleString()} nodes done`)}</div><p class="mut">Map, account, platform and the database ids are in the summary above.</p></div>
-    <div class="card"><h3>Money</h3><div class="row"><b>Solari in backpack</b><input id="solari" aria-label="Solari to add or remove" type="number" value="10000"><button class="b" data-act="solari">Add or remove</button><span class="mut">A negative number removes. These are the Solari stacks in your backpack.</span></div>
-    <div class="row"><b>Give to a wallet</b><select id="curSel" aria-label="Wallet currency"><option value="0">Solari in wallet</option><option value="1">House credit in wallet</option></select><input id="curAmt" aria-label="Amount to give to the wallet" type="number" value="100" min="1"><button class="b" data-act="currency">Give</button><span class="mut">A wallet balance, kept apart from the Solari stacks in your backpack.</span></div>
-    <div class="row"><b title="Blood Marks (item HalloweenCoin): the currency of the Scourge event">Blood Marks in backpack</b><b id="bmHave">${Number(P.bloodMarks || 0).toLocaleString()}</b><input id="bmAmt" type="number" value="100" min="1" max="${P.bloodMarksMax || 50000}" aria-label="Blood Marks to give"><button class="b" data-act="bloodMarks">Give Blood Marks</button><span class="mut">The currency of the Scourge event (item HalloweenCoin). It is added to the stack in your backpack, and to a new stack when it does not fit; as much as fits is given.</span></div></div>
-    <div class="card"><h3>Quick rewards</h3><div class="row"><b>Give XP</b><input id="xpAmt" aria-label="XP to give" type="number" value="1000" min="1"><button class="b" data-act="xp">Give</button><span class="mut">Raises the level as the XP grows and adds one skill point per level gained; stops at level 200.</span></div><div class="row"><b>Give Intel</b><input id="intelAmt" aria-label="Intel to give" type="number" value="100" min="1"><button class="b" data-act="intel">Give</button><span class="mut">Adds Intel for the research tree, never past 2,779. All of these apply when the game next loads the save.</span></div></div>
+    h.push(html`<div class="card"><h3>${P.name}</h3><div class="grid">${kv('Solari in backpack', P.solari.toLocaleString())}${kv('Position', `${fix(a.x)}, ${fix(a.y)}, ${fix(a.z)}`)}${kv('Journey', `${(j.done || 0).toLocaleString()} of ${(j.total || 0).toLocaleString()} nodes done`)}</div></div>
+    <div class="card"><h3>Money</h3><div class="row"><b>Solari in backpack</b><input id="solari" aria-label="Solari to add or remove" type="number" value="10000">${tip('solaritip', 'A negative number removes. These are the Solari stacks in your backpack.', html`<button class="b" data-act="solari" aria-describedby="solaritip">Add or remove</button>`)}</div>
+    <div class="row"><b>Give to a wallet</b><select id="curSel" aria-label="Wallet currency"><option value="0">Solari in wallet</option><option value="1">House credit in wallet</option></select><input id="curAmt" aria-label="Amount to give to the wallet" type="number" value="100" min="1">${tip('wallettip', 'A wallet balance, kept apart from the Solari stacks in your backpack.', html`<button class="b" data-act="currency" aria-describedby="wallettip">Give</button>`)}</div>
+    <div class="row"><b title="Blood Marks (item HalloweenCoin): the currency of the Scourge event">Blood Marks in backpack</b><b id="bmHave">${Number(P.bloodMarks || 0).toLocaleString()}</b><input id="bmAmt" type="number" value="100" min="1" max="${P.bloodMarksMax || 50000}" aria-label="Blood Marks to give">${tip('bmtip', 'The currency of the Scourge event (item HalloweenCoin). It is added to the stack in your backpack, and to a new stack when it does not fit; as much as fits is given.', html`<button class="b" data-act="bloodMarks" aria-describedby="bmtip">Give Blood Marks</button>`)}</div></div>
+    <div class="card"><h3>Quick rewards</h3><div class="row"><b>Give XP</b><input id="xpAmt" aria-label="XP to give" type="number" value="1000" min="1">${tip('xptip', 'Raises the level as the XP grows and adds one skill point per level gained; stops at level 200.', html`<button class="b" data-act="xp" aria-describedby="xptip">Give</button>`)}</div><div class="row"><b>Give Intel</b><input id="intelAmt" aria-label="Intel to give" type="number" value="100" min="1">${tip('inteltip', 'Adds Intel for the research tree, never past 2,779.', html`<button class="b" data-act="intel" aria-describedby="inteltip">Give</button>`)}</div></div>
     ${await fillCard()}
     ${levelResetCard()}`);
   } else if (c == 'inventory') {
