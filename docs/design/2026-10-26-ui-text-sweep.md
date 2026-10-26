@@ -1,8 +1,8 @@
 # UI text sweep: what is shown all the time, and what is not (2026-10-26)
 
 Issue [#426](https://github.com/Project-Arrakis/tabr-tau/issues/426). Related: [#212](https://github.com/Project-Arrakis/tabr-tau/issues/212) (the 2026-10-18 UI/UX review, 45 findings) and [#46](https://github.com/Project-Arrakis/tabr-tau/issues/46).
-Status: **design note, phase 1.** It lists every line of explanation, limit and background that the editor shows all the time, says what each one is, and decides where it goes.
-Nothing in `internal/web/static/` changes in this note's pull request; the decisions are carried out in small pull requests, one page at a time (see "Plan").
+Status: **carried out** (the pull requests are listed under "Plan"; what shipped is under "Choices made while carrying it out"). It lists every line of explanation, limit and background that the editor shows all the time, says what each one is, and decides where it goes.
+The note was merged first (#427); the decisions were then carried out in small pull requests, one page at a time.
 
 ## Why
 
@@ -359,14 +359,14 @@ Each step is its own branch and pull request, referencing #426, with tests writt
 
 | # | Pull request | Pages | IDs |
 |---|---|---|---|
-| 1 | The mechanism: `.tip`, `details.about`, the remembered open state, the helper that computes the default visible text, the accessibility checks; first user: Character > Overview | Character > Overview | H18, O1-O18 |
-| 2 | Character > Inventory, Reputation, Care package | Character | I1-I8, R1, C1-C8 |
-| 3 | Crafting, Research, Building sets, Customizations, Skills, Specialization, Journey | Player pages | CF, RS, BS, CU, SK, SP, J |
-| 4 | Bases, with the Land claim editor and the Automatic refill and repair card | Player > Bases | B1-B22, A1-A6 |
-| 5 | Vehicles | Player > Vehicles | V1-V9 |
-| 6 | Admin | Player > Admin | AD1-AD13 |
-| 7 | Saved map and Landsraad | Saved map, Landsraad | M1-M6, L1-L6 |
-| 8 | Config and Database; README and the closing counts | Config, Database | CG1-CG8, D1-D7 |
+| 1 (#428) | The mechanism: `.tip`, `details.about`, the remembered open state, the helper that computes the default visible text, the accessibility checks; first user: Character > Overview | Character > Overview | H18, O1-O18 |
+| 2 (#430) | Character > Inventory, Reputation, Care package | Character | I1-I8, R1, C1-C8 |
+| 3 (#431) | Crafting, Research, Building sets, Customizations, Skills, Specialization, Journey | Player pages | CF, RS, BS, CU, SK, SP, J |
+| 4 (#432) | Bases, with the Land claim editor and the Automatic refill and repair card | Player > Bases | B1-B22, A1-A6 |
+| 5 (#433) | Vehicles | Player > Vehicles | V1-V9 |
+| 6 (#434) | Admin | Player > Admin | AD1-AD13 |
+| 7 (#435) | Saved map and Landsraad | Saved map, Landsraad | M1-M6, L1-L6 |
+| 8 (#436) | Config and Database | Config, Database | CG1-CG8, D1-D7 |
 
 The README gets a short paragraph where the pages are described (what a tooltip and "About this" are, and that the queued state and the backup information stay in view). The repository has no UAT table; the by-eye checks are listed per
 step in the pull request and again in the end report.
@@ -379,7 +379,30 @@ The decisions above stand; where carrying one out showed a better way, the way i
 * **Quick rewards** has tooltips on Give XP and Give Intel and no About this (O18).
 * **Many boxes in a table** (Reputation) carry their range as the native `title` of the box, which is a tooltip too, instead of a tooltip box for each row.
 * **A reset button** keeps the id of its explanation: when the reset can run, that id is the tooltip; when it cannot, the same id is the state line that says why. The button is described by it either way.
+* **The Automatic refill card** shows a new conditional line, "Waiting: the save cannot be written yet (see the banner above). The automatic pass runs once the game has closed.", while the master switch is on and the save cannot be written: the fact that the pass waits for the game was one sentence of the paragraph that is now About this, and it is a pending state, so it is drawn where it applies.
+* **The staking-check warning** of the Land claim editor is drawn next to Apply while cells are chosen to be added (and is always in About this, with the Resize by square card's), not only in About this.
+* **Several "tooltip on the line" decisions became About this**, because a line of text cannot take the keyboard focus that opens a tooltip: the reason a stored vehicle is not on the Saved map, the idle hint of the map, and the Vehicles line about the world's other vehicles.
+* **The move between maps** is a separate note under the Teleport row (`#tmapwarn`), drawn while a map other than this one is chosen; the same words are in the Movement card's About this.
+* **About this is the last thing in its card**, which a test checks on every page; on the Landsraad the explanation therefore sits under the table, not above it.
+* **Fill faction goal** keeps the sentence it already had as its tooltip (it said the same as the line that was removed); Complete gained "Marks the house taken, for the chosen faction."
+* **The Database backups line** keeps the backup facts in one sentence; the two-minute detail is in About this. The config warning points at the Backups list below it.
+* **`tip` and `about`** are plain functions, so the map's script (a separate file) can use them.
 * **A bug found by the sweep** (the Journey lists could not be switched before the filter was used) is #429, fixed in the step that touched that code, with its own test.
+
+## What shipped, in numbers
+
+The code has 41 tooltip sites (39 in `app.js`, 2 in `livemap.js`; the job descriptions, the shrink buttons and the layer buttons are drawn from a list) and 24 closed **About this** disclosures, each remembered per card. Beyond the 168 rows: 33 web tests were added (`uitext*.test.mjs`: the mechanism on every page, then one file per step), and existing tests in 7 files (fillcard, liquids, landsraad-hydration, reset, autojobs, refuel, ui.hostile) were changed on purpose to read a tooltip, an About this or a shorter line instead of a permanent note, and one bug was found and fixed (#429).
+
+## By-eye check (what the operator looks at)
+
+Open each page once with About this closed: it should show state, counts, results and what is queued, and each button should show its sentence when the pointer is over it or it has the focus (Tab), and lose it on Escape.
+
+* Player > Character: Overview (Fill card and its About this, Reset level and XP), Inventory, Reputation, Care package (open the kit editor)
+* Player: Crafting, Research, Building sets, Customizations, Skills, Specialization (try a save with no known track), Journey (switch the lists first)
+* Player > Bases: Power, Water, Inventory, Land claim editor (choose a cell), Structures; the Automatic refill card with the game running
+* Player > Vehicles, Player > Admin (choose The Deep Desert in Map)
+* Saved map (hover a marker; Spice and Flour layer buttons), Landsraad (Task board About this)
+* Config (a file with defaults), Database (Tables, SQL, Save backups)
 
 ## Not in this sweep
 
