@@ -24,11 +24,13 @@ test('Refuel: the count says how many are not full, the press posts once and the
   assert.equal(btn.textContent.trim(), 'Refuel all my vehicles');
   assert.equal(btn.disabled, false);
   assert.equal(ui.doc.querySelectorAll('[data-act="refuelV"]').length, 1);
-  const note = ui.doc.getElementById(btn.getAttribute('aria-describedby'));
-  assert.ok(note, 'the button is described by a note on the page');
+  assert.deepEqual(btn.getAttribute('aria-describedby').split(' '), ['refuelnote', 'refueltip']);
+  const note = ui.doc.getElementById('refuelnote');
+  assert.ok(note, 'the button is described by the count on the page');
   assert.ok(note.textContent.includes('3 of 5 vehicles are not full.'), note.textContent);
   assert.ok(note.textContent.includes('1 vehicle of an unknown kind will be left alone.'), note.textContent);
-  assert.ok(note.textContent.includes('Sandbike 100') && note.textContent.includes('Transport Ornithopter 2500'), 'the tank sizes are on the page');
+  assert.ok(!note.textContent.includes('Sandbike 100'), 'the tank sizes are not a permanent line (#426)');
+  assert.ok(ui.doc.querySelector('details[data-about="vehicles.fuel"]').textContent.includes('Sandbike 100') && ui.doc.querySelector('details[data-about="vehicles.fuel"]').textContent.includes('Transport Ornithopter 2500'), 'the tank sizes are in the About this of the Fuel card');
   assert.equal(posts(ui, '/api/vehicles/refuel').length, 0, 'nothing is sent before the press');
 
   ui.click('[data-act="refuelV"]'); await ui.settle();
@@ -48,7 +50,7 @@ test('Refuel: every vehicle full turns the button off and says so; a press that 
   await openVehicles(ui);
   const btn = ui.doc.querySelector('[data-act="refuelV"]');
   assert.equal(btn.disabled, true);
-  const note = ui.doc.getElementById(btn.getAttribute('aria-describedby')).textContent;
+  const note = ui.doc.getElementById('refuelnote').textContent;
   assert.ok(note.includes('0 of 2 vehicles are not full.') && note.includes('1 vehicle has no fuel record and will be left alone.'), note);
   btn.disabled = false; // a stale page: the press is answered by the editor's own count
   ui.click('[data-act="refuelV"]'); await ui.settle();
@@ -65,7 +67,7 @@ test('Refuel: a refusal is shown as the editor words it, and the page draws when
   await openVehicles(ui);
   const btn = ui.doc.querySelector('[data-act="refuelV"]');
   assert.ok(btn && !btn.disabled, 'the button stays usable without a count');
-  assert.ok(ui.doc.getElementById(btn.getAttribute('aria-describedby')).textContent.includes('could not be counted'));
+  assert.ok(ui.doc.getElementById('refuelnote').textContent.includes('could not be counted'));
   ui.click('[data-act="refuelV"]'); await ui.settle();
   const err = ui.doc.querySelector('#toast .err');
   assert.ok(err && err.textContent.includes('Edits are held until the queue is looked at.'), ui.doc.querySelector('#toast').textContent);
