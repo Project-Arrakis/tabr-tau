@@ -154,16 +154,17 @@ function needItem(inputId) {
 // Augments (#96). The slots are one drop-down each, with the augments that fit the item (from the console's compatibility data) and their
 // best-grade effects; "applied" are the ids already on the item.
 let augSeq = 0; // the newest request wins when the picker changes quickly
-async function showGiveAugments() {
-  const box = $('#gaug'), t = pickedItemId('gt'), seq = ++augSeq;
+// The Give item row (picker gt, box gaug, slots ga, grade gag) and the care package editor's row (kitItem, kitAug, ka, kag) use the same slots.
+async function showGiveAugments(pick = 'gt', boxId = 'gaug', prefix = 'ga', gradeId = 'gag') {
+  const box = $('#' + boxId), t = pickedItemId(pick), seq = ++augSeq;
   if (!box) return;
   setHTML(box, html``);
   if (!t) return;
   try {
     const fit = await api('/api/items/augment-options', { template_id: t });
     fit.options.forEach((o) => AUG_NAMES.set(o.id, o.name));
-    if (seq !== augSeq || !fit.limit || !$('#gaug')) return;
-    setHTML($('#gaug'), html`<b>Augments</b> ${augSlots('ga', fit, [])}${augGradeSel('gag')}`);
+    if (seq !== augSeq || !fit.limit || !$('#' + boxId)) return;
+    setHTML($('#' + boxId), html`<b>Augments</b> ${augSlots(prefix, fit, [])}${augGradeSel(gradeId)}`);
   } catch (e) { /* an unknown item simply has no augment slots */ }
 }
 const augName = (id) => (AUG_NAMES.get(id) || id);
@@ -591,8 +592,70 @@ async function fillCard() {
     <div class="row"><button class="b sec" data-act="refill" aria-describedby="refillnote">Refill Literjons</button><span class="mut" id="refillnote">Fills the Literjons, stillsuits and other water containers you carry to their capacity.</span></div>
     ${liquidsRow(l)}</div>`;
 }
+// ---------- Care package (#417): named kits of items, XP and skill points, kept in the editor's own settings (not in a save, so a new save starts with them).
+// The draft is the kit being made or changed; it lives here, not in the boxes, because the page is drawn again after every action.
+let KITS = null; // the last answer of /api/kits: { kits, limits, problem }
+let kitDraft = null; // { was, name, items: [{ item, quantity, grade, augments, augmentGrade }], xp, skillPoints }; was is the name of the kit being changed ('' for a new one)
+const kitSpec = (l) => `${Number(l.quantity).toLocaleString()} x ${itemName(l.item)}${l.grade ? ' (grade ' + l.grade + ')' : ''}${l.augments && l.augments.length ? ' + ' + l.augments.map((a) => augName(a)).join(', ') : ''}`;
+const kitContents = (k) => (k.items.length ? k.items.slice(0, 4).map(kitSpec).join('; ') + (k.items.length > 4 ? `; and ${k.items.length - 4} more` : '') : 'No items');
+// Reads the boxes into the draft before the page is drawn again.
+function kitSync() {
+  if (!kitDraft || !$('#kitName')) return;
+  const whole = (id) => Math.max(0, Math.floor(+val(id)) || 0);
+  kitDraft.name = val('kitName');
+  kitDraft.xp = whole('kitXp');
+  kitDraft.skillPoints = whole('kitSp');
+  document.querySelectorAll('[data-kitqty]').forEach((e) => { const l = kitDraft.items[+e.dataset.kitqty]; if (l) l.quantity = Math.max(1, Math.floor(+e.value) || 1); });
+}
+function kitsCard() {
+  const list = KITS.kits, lim = KITS.limits, editing = !!kitDraft;
+  const why = editing ? 'Finish or cancel the kit you are editing first.' : '';
+  return html`<div class="card"><h3>Care packages</h3>
+    <p class="mut">A care package is a named kit of items, XP and skill points. Kits are kept in the editor's own settings, not in a save, so a new save starts with them. Up to ${lim.kits} kits, each with up to ${lim.items} items. A kit file you export is a small text file; one you import is checked first and never replaces a kit you have.</p>
+    ${KITS.problem ? html`<div class="info" role="alert">${KITS.problem}</div>` : ''}
+    <div class="row"><button class="b" data-act="kitNew" ${editing || list.length >= lim.kits ? 'disabled' : ''} title="${list.length >= lim.kits ? 'The most kits are kept: delete one first.' : why}">New kit</button>
+      <label>Import a kit file <input type="file" id="kitFile" ${editing ? 'disabled' : ''}></label>
+      <button class="b sec" data-act="kitExport" data-name="" ${list.length ? '' : 'disabled'}>Export all kits</button></div>
+    ${tbl([{ k: 'name', label: 'Kit', f: (k) => html`<b>${k.name}</b>${k.problem ? html` <span class="warn">Cannot be used: ${k.problem}</span>` : ''}` },
+      { k: 'items', label: 'Items', f: (k) => kitContents(k) }, { k: 'xp', label: 'XP', f: (k) => (k.xp ? Number(k.xp).toLocaleString() : '') },
+      { k: 'skillPoints', label: 'Skill points', f: (k) => (k.skillPoints ? Number(k.skillPoints).toLocaleString() : '') }], list,
+      { empty: 'No kits yet. Make one with New kit, or import a kit file.', actions: (k) => html`<button class="b sec sm" data-act="kitEdit" data-name="${k.name}" aria-label="Edit kit ${k.name}" ${editing ? 'disabled' : ''} title="${why}">Edit</button><button class="b sec sm" data-act="kitDup" data-name="${k.name}" aria-label="Duplicate kit ${k.name}">Duplicate</button><button class="b sec sm" data-act="kitExport" data-name="${k.name}" aria-label="Export kit ${k.name}">Export</button><button class="b bad sm" data-act="kitDel" data-name="${k.name}" aria-label="Delete kit ${k.name}">Delete</button>` })}</div>`;
+}
+function kitEditor(cat) {
+  const d = kitDraft, lim = KITS.limits;
+  return html`<div class="card"><h3>${d.was ? 'Edit kit: ' + d.was : 'New kit'}</h3>
+    <div class="row"><label>Name <input id="kitName" value="${d.name}" size="32"></label><span class="mut">Up to ${lim.name} letters, digits, spaces and - _ . , ' ( ) + &amp; # !</span></div>
+    <div class="row"><b>Add an item</b>${itemPicker('kitItem', cat)}<label>Qty <input id="kitQty" type="number" value="1" min="1" max="${lim.quantity}"></label><label>Grade <select id="kitGrade">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select></label><button class="b" data-act="kitAddLine" ${d.items.length >= lim.items ? 'disabled' : ''}>Add to kit</button></div>
+    <div class="row" id="kitAug"></div>
+    ${tbl([{ k: 'item', label: 'Item', f: (l) => itemCell(l.item) },
+      { k: 'quantity', label: 'Quantity', f: (l) => html`<input type="number" min="1" max="${lim.quantity}" value="${l.quantity}" data-kitqty="${d.items.indexOf(l)}" class="w90" aria-label="Quantity of ${itemName(l.item)}">` },
+      { k: 'grade', label: 'Grade' }, { k: 'augments', label: 'Augments', f: (l) => (l.augments || []).map((a) => html`<span class="tag">${augName(a)}</span>`) }], d.items,
+      { empty: 'No items yet.', actions: (l) => html`<button class="b bad sm" data-act="kitDelLine" data-id="${d.items.indexOf(l)}" aria-label="Remove ${itemName(l.item)} from the kit">Remove</button>` })}
+    <div class="row"><label>XP <input id="kitXp" type="number" min="0" max="${lim.xp}" value="${d.xp}" class="w90"></label><label>Skill points <input id="kitSp" type="number" min="0" max="${lim.skillPoints}" value="${d.skillPoints}" class="w90"></label>
+      <span class="mut">XP raises the level and adds a skill point per level gained, as Give XP does. Skill points are added on top.</span></div>
+    <div class="row"><button class="b" data-act="kitSave">Save kit</button><button class="b sec" data-act="kitCancel">Cancel</button></div></div>`;
+}
+async function kitDownload(name) {
+  const j = await api('/api/kits/export' + (name ? '?name=' + encodeURIComponent(name) : ''));
+  const b = new Blob([JSON.stringify(j, null, 2) + '\n'], { type: 'application/json' });
+  const u = URL.createObjectURL(b), l = document.createElement('a');
+  l.href = u;
+  l.download = (name ? 'tabr-tau-kit-' + name.replace(/[^A-Za-z0-9._-]+/g, '_') : 'tabr-tau-kits') + '.json';
+  l.click();
+  setTimeout(() => URL.revokeObjectURL(u), 60000); // the browser reads the blob after the click returns
+}
+function kitImport(input) {
+  const f = input.files && input.files[0];
+  input.value = '';
+  if (!f) return;
+  if (f.size > KITS.limits.fileBytes) { toast(`That file is larger than ${KITS.limits.fileBytes / 1024} KiB: a kit file is small, so this is not one.`, true); return; }
+  act(async () => {
+    const r = await api('/api/kits/import', { text: await f.text() });
+    toast(`Imported ${nn(r.imported, 'kit', 'kits')}` + (r.renamed ? `; ${nn(r.renamed, 'name was', 'names were')} taken, so ${r.renamed == 1 ? 'that kit has' : 'those kits have'} "(imported)" after the name` : ''));
+  }, null, true, true);
+}
 async function playerSection(s) {
-  const h = s == 'character' ? [subNav('char', [['overview', 'Overview'], ['inventory', 'Inventory'], ['reputation', 'Reputation']])] : [];
+  const h = s == 'character' ? [subNav('char', [['overview', 'Overview'], ['inventory', 'Inventory'], ['reputation', 'Reputation'], ['carepackage', 'Care package']])] : [];
   const c = s == 'character' ? sub.char || 'overview' : s;
   if (c == 'overview') {
     P = await api('/api/player');
@@ -641,6 +704,11 @@ async function playerSection(s) {
     ${giveQueue.length ? html`<div class="row"><b>Queue (${giveQueue.length})</b>${giveQueue.map((q, i) => html`<span class="tag">${q.quantity} x ${itemName(q.template_id)}${q.quality ? ' (grade ' + q.quality + ')' : ''}${q.augments && q.augments.length ? ' + ' + q.augments.map((a) => augName(a)).join(', ') : ''} <button class="b sec sm" data-act="queueDel" data-id="${i}" title="Remove from the queue">x</button></span>`)}<button class="b" data-act="queueGive">Give queued items</button><button class="b sec" data-act="queueClear">Clear</button></div>` : ''}
     <p class="mut">Pick an item by its in-game name. Items already in your save that the catalog does not know are listed by their template id; any valid template id can also be typed.</p></div>
     ${invCard}`);
+  } else if (c == 'carepackage') {
+    KITS = await api('/api/kits');
+    const cat = await loadCatalog([]);
+    h.push(kitsCard());
+    if (kitDraft) h.push(kitEditor(cat));
   } else if (c == 'reputation') {
     const f = await api('/api/player/factions');
     h.push(html`<div class="card"><h3>Faction reputation</h3>${tbl([{ k: 'name', label: 'Faction' }, { k: 'reputation', label: 'Reputation', f: (r) => html`<input type="number" min="0" max="12474" value="${r.reputation}" data-faction="${r.faction_id}" data-name="${r.name}" class="w100" aria-label="Reputation with ${r.name}">` }], f, { empty: 'This save has no factions.' })}<p class="mut">Range 0–12474. Edit and press Tab/Enter.</p></div>`);
@@ -1408,6 +1476,34 @@ const A = {
   augCancel: () => { augItem = null; render(true); },
   augApply: (d) => act(async () => { const r = await api('/api/items/augment', { item_id: +d.id, augments: augPicked('au', augItem.limit), grade: +val('augG'), unlock_slots: $('#augU').checked }); augItem = null; toast(`Augments set (${r.augments})` + (r.slotsUnlocked ? `, ${r.slotsUnlocked} slot keystones unlocked` : '') + NOT_SAVED); }, null),
   queueAdd: () => { let t; try { t = needItem('gt'); } catch (e) { return toast(e.message, 'err'); } const e = { template_id: t, quantity: Math.max(1, +val('gq') || 1), quality: +val('gg') }; const ids = augPicked('ga', 3); if (ids.length) { e.augments = ids; e.grade = +val('gag'); } giveQueue.push(e); keepQueue(); render(); },
+  // Care package (#417). These change the editor's settings and never the save, so they are immediate: nothing is queued.
+  kitNew: () => { kitDraft = { was: '', name: '', items: [], xp: 0, skillPoints: 0 }; render(); },
+  kitEdit: (d) => {
+    const k = KITS && KITS.kits.find((x) => x.name === d.name);
+    if (!k) { toast('That kit is no longer in the list.', true); return render(true); }
+    kitDraft = { was: k.name, name: k.name, items: k.items.map((l) => ({ ...l, augments: (l.augments || []).slice() })), xp: k.xp || 0, skillPoints: k.skillPoints || 0 };
+    render();
+  },
+  kitCancel: () => { kitDraft = null; render(true); },
+  kitAddLine: () => {
+    kitSync();
+    let item;
+    try { item = needItem('kitItem'); } catch (e) { return toast(e.message, 'err'); }
+    const line = { item, quantity: Math.max(1, Math.floor(+val('kitQty')) || 1), grade: +val('kitGrade') };
+    const ids = augPicked('ka', 12);
+    if (ids.length) { line.augments = ids; line.augmentGrade = +val('kag'); }
+    kitDraft.items.push(line);
+    render();
+  },
+  kitDelLine: (d) => { kitSync(); kitDraft.items.splice(+d.id, 1); render(); },
+  kitSave: () => {
+    kitSync();
+    const d = kitDraft;
+    return act(async () => { await api('/api/kits/save', { was: d.was, kit: { name: d.name, items: d.items, xp: d.xp, skillPoints: d.skillPoints } }); kitDraft = null; }, `Saved kit "${d.name.trim()}"`, true, true);
+  },
+  kitDup: (d) => act(async () => { const r = await api('/api/kits/duplicate', { name: d.name }); toast(`Made "${r.saved}"`); }, null, true, true),
+  kitDel: async (d) => (await ask({ title: 'Delete kit?', body: `Delete the kit "${d.name}" from the editor's settings. Nothing in any save changes. Export it first to keep a copy.`, ok: 'Delete', danger: true })) && act(() => api('/api/kits/delete', { name: d.name }), `Deleted kit "${d.name}"`, true, true),
+  kitExport: (d) => kitDownload(d.name),
   queueDel: (d) => { giveQueue.splice(+d.id, 1); keepQueue(); render(true); },
   queueClear: () => { giveQueue = []; keepQueue(); render(true); },
   queueGive: () => act(async () => { const r = await api('/api/player/give-items', { items: giveQueue }); giveQueue = []; keepQueue(); giveToast(r, 'units of the queued items', `Added ${r.count} items`); }, null),
@@ -1699,6 +1795,8 @@ document.addEventListener('click', (e) => {
 document.addEventListener('change', (e) => {
   const t = e.target;
   if (t.id == 'gt') { showGiveAugments(); return; }
+  if (t.id == 'kitItem') { showGiveAugments('kitItem', 'kitAug', 'ka', 'kag'); return; }
+  if (t.id == 'kitFile') { kitImport(t); return; }
   if (t.id == 'skCharge') { skCharge = t.checked; return; }
   if (t.dataset.lshouse !== undefined) { const id = +t.dataset.lshouse; if (t.checked) LS.houses.add(id); else LS.houses.delete(id); lsSync(); return; }
   if (t.dataset.lstier !== undefined) { const k = lsTierKey(+t.dataset.lsid, t.dataset.lstier); if (t.checked) LS.tiers.add(k); else LS.tiers.delete(k); lsSync(); return; }

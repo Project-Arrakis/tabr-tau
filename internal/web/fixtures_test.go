@@ -10,7 +10,9 @@ import (
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
+	"github.com/Project-Arrakis/tabr-tau/internal/kits"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/internal/settings"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
@@ -20,7 +22,7 @@ var uiRoutes = []string{
 	"/api/overview", "/api/save/state", "/api/player", "/api/player/summary", "/api/player/inventory", "/api/player/blood-sacks", "/api/player/factions", "/api/player/building-sets", "/api/player/customizations", "/api/player/research", "/api/player/crafting", "/api/player/skills", "/api/player/journey/browse", "/api/player/faction", "/api/player/specs",
 	"/api/player/tutorials", "/api/player/tags", "/api/player/recipes", "/api/player/journey",
 	"/api/catalog/items", "/api/settings", "/api/bases", "/api/bases/list", "/api/bases/power?base=900001", "/api/bases/water?base=900001", "/api/bases/inventory?base=900001", "/api/bases/claim", "/api/bases/storage", "/api/bases/storage/items?inventory=1", "/api/livemap", "/api/vehicles", "/api/vendors", "/api/landsraad",
-	"/api/vehicles/fuel", "/api/player/liquids",
+	"/api/vehicles/fuel", "/api/player/liquids", "/api/kits",
 	"/api/db/tables", "/api/save/backups",
 	"/api/config/validate", "/api/config/files",
 }
@@ -44,6 +46,12 @@ func TestDumpUIFixtures(t *testing.T) {
 	addHostileStorage(t, sv)
 	addHostileCharacter(t, sv)
 	s := New(sv, config.Dir{Path: cfgDir})
+	// a settings file edited by hand can hold anything in a kit; the Care package view must show it as plain data
+	s.SettingsPath = filepath.Join(t.TempDir(), "settings.json")
+	hostileKit := kits.Kit{Name: testsave.HostileText, Items: []kits.Line{{Item: testsave.HostileText, Quantity: 1, Augments: []string{testsave.HostileText}}}, XP: 1}
+	if err := settings.Save(s.SettingsPath, settings.Settings{Kits: []kits.Kit{hostileKit}}); err != nil {
+		t.Fatal(err)
+	}
 	cookie := map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}
 
 	out := map[string]any{}
