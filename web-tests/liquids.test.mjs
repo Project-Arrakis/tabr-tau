@@ -23,7 +23,8 @@ test('Fill all liquids: the count, the box on by default, one request with the b
   assert.equal(ui.doc.querySelectorAll('[data-act="fillLiquids"]').length, 1);
   const box = ui.doc.querySelector('#liqVeh');
   assert.ok(box && box.checked, 'the vehicles box is on by default');
-  const note = ui.doc.getElementById(btn.getAttribute('aria-describedby')).textContent;
+  const note = ui.doc.getElementById('liqnote').textContent;
+  assert.deepEqual(btn.getAttribute('aria-describedby').split(' '), ['liqnote', 'liqtip']);
   assert.ok(note.includes('Not full: 2 water containers, 1 blood sack, 3 vehicles.'), note);
   assert.ok(ui.doc.querySelector('[data-act="refill"]') && ui.doc.querySelector('[data-act="fillBlood"]'), 'the single buttons are still there');
   assert.equal(posts(ui, '/api/player/fill-all-liquids').length, 0, 'nothing is sent before the press');
@@ -54,7 +55,7 @@ test('Fill all liquids: nothing to fill says so, a refusal shows the editor\'s w
   await openInventory(ui);
   const btn = ui.doc.querySelector('[data-act="fillLiquids"]');
   assert.ok(btn && !btn.disabled);
-  assert.ok(ui.doc.getElementById(btn.getAttribute('aria-describedby')).textContent.includes('could not be counted'));
+  assert.ok(ui.doc.getElementById('liqnote').textContent.includes('could not be counted'));
   ui.click('[data-act="fillLiquids"]'); await ui.settle();
   const t = ui.doc.querySelector('#toast').textContent;
   assert.ok(t.includes('Nothing needed filling.') && t.includes('of an unknown kind were left alone'), t);

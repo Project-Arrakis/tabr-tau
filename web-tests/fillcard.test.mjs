@@ -24,13 +24,13 @@ test('Player > Character shows one Fill card with the four actions and their not
   assert.deepEqual([...c.querySelectorAll('[data-act]')].map((b) => b.dataset.act), ACTS);
   for (const a of ACTS) assert.equal(ui.doc.querySelectorAll(`[data-act="${a}"]`).length, 1, a + ' appears once');
   assert.deepEqual([...c.querySelectorAll('button')].map((b) => b.textContent.trim()), ['Fill hydration', 'Fill blood sacks', 'Refill Literjons', 'Fill all liquids']);
-  assert.ok(ui.doc.querySelector('#hydnote').textContent.includes('Hydration is 52.5 of 100.'), ui.doc.querySelector('#hydnote').textContent);
+  assert.equal(ui.doc.querySelector('#hydnote'), null, 'the hydration number is in the summary tile above, so the Fill card does not repeat it');
   const blood = ui.doc.querySelector('#bloodnote').textContent;
   assert.ok(blood.includes('3 of 4 blood sacks are not full') && blood.includes('2 blood sacks of an unknown kind will be left alone'), blood);
   assert.equal(ui.doc.querySelector('[data-act="fillBlood"]').disabled, false);
   assert.ok(ui.doc.querySelector('#liqnote').textContent.includes('Not full: 2 water containers, 1 blood sack, 3 vehicles.'));
   assert.equal(ui.doc.querySelector('#liqVeh').checked, true, 'the vehicles box is on by default');
-  assert.ok(ui.doc.querySelector('[data-act="fillWater"]').title.includes('will not help a thirsty character right now'));
+  assert.ok(ui.doc.getElementById('hydtip').textContent.includes('will not help a thirsty character right now'), 'the tooltip of Fill hydration says what a queued fill does');
   ui.dom.window.close();
 });
 
