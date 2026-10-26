@@ -180,7 +180,8 @@ test('Reset XP of all known tracks: says the unknown rows are left alone, and se
   const btn = ui.doc.querySelector('[data-act="spResetAll"]');
   assert.equal(btn.textContent.trim(), 'Reset XP of all known tracks (2)');
   assert.equal(btn.disabled, false);
-  assert.ok(ui.doc.getElementById(btn.getAttribute('aria-describedby')).textContent.includes('left alone'));
+  assert.ok(ui.doc.getElementById('spresetleft').textContent.includes('left alone'), 'the count of rows left alone stays on the page');
+  assert.ok(ui.doc.getElementById('spresettip').textContent.includes('Keystones are not touched'), 'what the button does is its tooltip');
   ui.click('[data-act="spResetAll"]'); await ui.settle();
   const text = ui.doc.querySelector('#ask').textContent;
   assert.ok(text.includes('Reset the XP of 2 tracks?') && text.includes('Type reset 2 tracks to continue'));

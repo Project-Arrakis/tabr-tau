@@ -1317,7 +1317,7 @@ test('Specialization on a new save says why the XP controls are off and what to 
   ui.click('[data-sub="player:specialization"]'); await ui.settle();
   const note = ui.doc.querySelector('#spnone');
   assert.ok(note, 'a note appears while no track has a number');
-  assert.ok(note.textContent.includes('Earn a little XP') && note.textContent.includes('Track numbers') && note.textContent.includes('Keystones need no numbers'), note.textContent);
+  assert.ok(note.textContent.includes('Earn a little XP') && note.textContent.includes('Track numbers') && note.textContent.includes('Keystones work now'), note.textContent); // shortened by the text sweep (#426): the longer explanation is in Track numbers > About this
   const add = ui.doc.querySelector('[data-act="spAdd"][data-t="Combat"]');
   assert.ok(add.disabled && add.title.includes('not known yet'), 'a disabled button says why');
   assert.ok(!ui.doc.querySelector('[data-act="spKeyAll"]').disabled, 'keystones need no numbers');
