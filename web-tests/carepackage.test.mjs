@@ -2,6 +2,9 @@
 // change is an immediate settings change (nothing is queued, nothing touches the save), and a refusal leaves the page as it was.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { boot, closeAll } from './boot.mjs';
 
 afterEach(closeAll);
@@ -218,5 +221,87 @@ test('every field of the Care package tab has an accessible name, with the edito
   assert.deepEqual(bad, []);
   const unnamedButtons = [...ui.doc.querySelectorAll('#main button')].filter((b) => !b.textContent.trim() && !b.getAttribute('aria-label'));
   assert.equal(unnamedButtons.length, 0);
+  ui.dom.window.close();
+});
+
+// Apply kit (slice 3). The editor's answers are the shape of internal/ops/kit.go.
+const WHOLE = { ok: true, kit: 'Starter', dryRun: false, complete: true, changed: true, requested: 1001, given: 1001, notGiven: [], volumeNote: '',
+  lines: [{ template_id: 'SpicedFuelCell', name: 'Spice-infused Fuel Cell', requested: 1000, given: 1000, reason: '', limit: '' }, { template_id: 'Combat_Heavy_Unique_Reinforced_Helmet_06', name: 'Bulwark Helmet', requested: 1, given: 1, reason: '', limit: '' }],
+  xp: { requested: 215, applied: 215, levelBefore: 0, levelAfter: 2, capped: false }, skillPoints: { requested: 3, applied: 3, capped: false } };
+const PARTIAL = { ...WHOLE, complete: false, requested: 2001, given: 1500, notGiven: [{ name: 'Spice-infused Fuel Cell', requested: 2000, short: 500, reason: 'the backpack is full' }],
+  lines: [{ template_id: 'SpicedFuelCell', name: 'Spice-infused Fuel Cell', requested: 2000, given: 1500, reason: 'the backpack is full', limit: 'slots' }, { template_id: 'Combat_Heavy_Unique_Reinforced_Helmet_06', name: 'Bulwark Helmet', requested: 1, given: 0, reason: 'the backpack is full', limit: 'slots' }] };
+const fixtureState = () => JSON.parse(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'ui-fixtures.json'), 'utf8'))['/api/save/state'].body;
+const applyUI = (preview, apply, kits = [STARTER]) => boot({ get: { '/api/kits': KITS(kits) }, post: { '/api/kits/preview': { ...preview, dryRun: true }, '/api/kits/apply': apply } });
+
+test('Apply shows the dry run first, applies nothing on Cancel, and applies once on OK', async () => {
+  const ui = await applyUI(WHOLE, { ...WHOLE, outcome: 'written' });
+  await open(ui);
+  ui.click('table [data-act="kitApply"][data-name="Starter"]'); await ui.settle();
+  assert.deepEqual(posts(ui, '/api/kits/preview').map((x) => x.body), [{ name: 'Starter' }]);
+  assert.equal(posts(ui, '/api/kits/apply').length, 0, 'nothing is applied before the person says so');
+  const q = ui.doc.querySelector('#ask');
+  const items = [...q.querySelectorAll('li')].map((l) => l.textContent);
+  assert.deepEqual(items, ['1,000 x Spice-infused Fuel Cell', '1 x Bulwark Helmet', '+215 XP, level 0 to 2', '+3 skill points']);
+  assert.ok(q.textContent.includes('Apply kit "Starter" to the character?') && q.textContent.includes('written at once, after a backup'), q.textContent);
+  ui.click('[data-act="askNo"]'); await ui.settle();
+  assert.equal(posts(ui, '/api/kits/apply').length, 0, 'Cancel applies nothing');
+  ui.click('table [data-act="kitApply"]'); await ui.settle();
+  await ui.wait(450); // the gap the question keeps against a double click
+  ui.click('#aok'); await ui.settle();
+  assert.deepEqual(posts(ui, '/api/kits/apply').map((x) => x.body), [{ name: 'Starter' }]);
+  const t = ui.doc.querySelector('#toast');
+  assert.ok(t.textContent.includes('Applied kit "Starter": 1,000 x Spice-infused Fuel Cell') && !t.textContent.includes('queued') && !t.querySelector('.part'), t.textContent);
+  // a second time says that it was applied before
+  ui.click('table [data-act="kitApply"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes('You applied this kit earlier in this session'));
+  ui.dom.window.close();
+});
+
+test('a dry run that does not fit says what would not, and the result after OK is a warning that stays', async () => {
+  const ui = await applyUI(PARTIAL, { ...PARTIAL, outcome: 'written' });
+  await open(ui);
+  ui.click('table [data-act="kitApply"]'); await ui.settle();
+  const q = ui.doc.querySelector('#ask');
+  assert.ok(q.textContent.includes('and what would not fit'));
+  assert.ok([...q.querySelectorAll('li')].map((l) => l.textContent).includes('1,500 of 2,000 x Spice-infused Fuel Cell: 500 did not fit (the backpack is full)'), q.textContent);
+  assert.ok([...q.querySelectorAll('li')].map((l) => l.textContent).includes('0 of 1 x Bulwark Helmet: 1 did not fit (the backpack is full)'));
+  await ui.wait(450);
+  ui.click('#aok'); await ui.settle();
+  const warn = ui.doc.querySelector('#toast .part');
+  assert.ok(warn && warn.textContent.includes('not all of it fitted') && warn.textContent.includes('500 did not fit'), ui.doc.querySelector('#toast').textContent);
+  ui.dom.window.close();
+});
+
+test('while the game runs the question says the edit is queued, and the result carries the queued hint', async () => {
+  const ui = await boot({ get: { '/api/kits': KITS([STARTER]), '/api/save/state': { ...fixtureState(), saveBlocked: true, blockReason: 'The game is running.' } }, post: { '/api/kits/preview': { ...WHOLE, dryRun: true }, '/api/kits/apply': { ...WHOLE, outcome: 'queued' } } });
+  await open(ui);
+  ui.click('table [data-act="kitApply"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes('the edit is queued and written when the game closes'), ui.doc.querySelector('#ask').textContent);
+  await ui.wait(450);
+  ui.click('#aok'); await ui.settle();
+  const t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.includes('Applied kit "Starter"') && t.includes('queued: written when the game closes'), t);
+  ui.dom.window.close();
+});
+
+test('Apply is off for a kit that cannot be used; a refused preview asks nothing; a kit that would change nothing says so', async () => {
+  let ui = await applyUI(WHOLE, WHOLE, [{ ...STARTER, problem: 'x is not an item' }]);
+  await open(ui);
+  assert.equal(ui.doc.querySelector('[data-act="kitApply"]').disabled, true);
+  ui.dom.window.close();
+
+  ui = await boot({ get: { '/api/kits': KITS([STARTER]) }, post: { '/api/kits/preview': { __fail: 'Nothing was given: the backpack is full.', __code: 'no_room', __status: 409 } } });
+  await open(ui);
+  ui.click('table [data-act="kitApply"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('#ask').className, 'hide', 'no question');
+  assert.ok(ui.doc.querySelector('#toast .err').textContent.includes('the backpack is full'));
+  assert.equal(posts(ui, '/api/kits/apply').length, 0);
+  ui.dom.window.close();
+
+  ui = await applyUI({ ...PARTIAL, changed: false, given: 0, xp: undefined, skillPoints: undefined, lines: [PARTIAL.lines[0]].map((l) => ({ ...l, given: 0 })) }, WHOLE);
+  await open(ui);
+  ui.click('table [data-act="kitApply"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Nothing would change'));
+  assert.equal(posts(ui, '/api/kits/apply').length, 0);
   ui.dom.window.close();
 });

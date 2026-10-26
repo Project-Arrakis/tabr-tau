@@ -12,9 +12,9 @@ import (
 )
 
 // The care package routes (#417): the kits the editor keeps in its own settings file. These routes change that file and never the save, so they are not written to the save, are
-// not queued and carry no outcome: they work the same with the game closed or running. Applying a kit to a character is a save edit and has its own route.
+// not queued and carry no outcome: they work the same with the game closed or running. Applying a kit to a character is a save edit (the last routes below).
 
-// postSettings is post for a route that changes only the editor's own files: no flush of the save, no outcome in the answer.
+// postSettings is post for a route that changes only the editor's own files, or nothing: no flush of the save, no outcome in the answer.
 func (s *Server) postSettings(path string, fn func(a ops.Args) (any, error)) {
 	s.mux.HandleFunc("POST "+path, func(w http.ResponseWriter, r *http.Request) {
 		a, ok := postArgs(w, r)
@@ -80,6 +80,19 @@ func (s *Server) changeKits(fn func(list []kits.Kit) ([]kits.Kit, error), extra 
 	return out, nil
 }
 
+// kitNamed is the kit a request names, read from the settings file (a damaged file is reported, not guessed at).
+func (s *Server) kitNamed(a ops.Args) (kits.Kit, error) {
+	cur, err := settings.LoadStrict(s.SettingsPath)
+	if err != nil {
+		return kits.Kit{}, err
+	}
+	k, err := kits.Get(cur.Kits, a.Str("name"))
+	if err != nil {
+		return k, apierr.Newf(apierr.ErrBadArgument, "%v", err)
+	}
+	return k, nil
+}
+
 func (s *Server) kitRoutes() {
 	s.get("/api/kits", func(r *http.Request) (any, error) {
 		cur, perr := settings.LoadStrict(s.SettingsPath)
@@ -112,6 +125,22 @@ func (s *Server) kitRoutes() {
 			copied = cp.Name
 			return out, err
 		}, func() map[string]any { return map[string]any{"ok": true, "saved": copied} })
+	})
+	// apply: the kit called "name" goes to the character as one edit, written after a backup or queued while a game process exists, like every edit of the save (post does that).
+	// preview: the same, worked out and rolled back: what would be given and what would not fit. It changes nothing, so it is never written or queued.
+	s.post("/api/kits/apply", func(a ops.Args) (any, error) {
+		k, err := s.kitNamed(a)
+		if err != nil {
+			return nil, err
+		}
+		return s.Ops.ApplyKit(k, false)
+	})
+	s.postSettings("/api/kits/preview", func(a ops.Args) (any, error) {
+		k, err := s.kitNamed(a)
+		if err != nil {
+			return nil, err
+		}
+		return s.Ops.ApplyKit(k, true)
 	})
 	// export: the kit file for the kits named in the query (all when none is), as the JSON object the page offers as a download. It reads the settings and writes nothing.
 	s.get("/api/kits/export", func(r *http.Request) (any, error) {
