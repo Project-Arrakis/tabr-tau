@@ -34,8 +34,9 @@ test('The card has the new title, the master switch and one checkbox per job wit
   for (const [i, j] of JOBS.entries()) {
     const b = boxes[i];
     assert.ok(b.closest('label').textContent.includes(j.label), `${j.id}: the label is next to the box`);
-    const note = ui.doc.getElementById(b.getAttribute('aria-describedby'));
-    assert.ok(note && note.textContent.includes(j.desc), `${j.id}: the box is described by its one-line description`);
+    const note = ui.doc.getElementById('ajt-' + j.key);
+    assert.ok(note && note.classList.contains('tipbox') && note.textContent.includes(j.desc), `${j.id}: the description is the tooltip of the box (not a permanent line, #426)`);
+    assert.ok(b.getAttribute('aria-describedby').split(' ').includes('ajt-' + j.key), `${j.id}: and the box is described by it`);
   }
   assert.equal(c.querySelector('button[data-act="autoref"]').textContent, 'Turn off', 'the master switch is on in this fixture');
 });
@@ -50,7 +51,7 @@ test('A job that is not available is greyed with the reason; the ones that are a
   assert.ok(ui.doc.getElementById('aj-autoFillBloodSacks').textContent.includes('arrives with the blood sack feature'), 'the reason is on the page');
   assert.ok(ui.doc.getElementById('aj-autoRefuelVehicles').textContent.includes('arrives with the refuel feature'));
   assert.equal(box('autoRefillWater').disabled, false);
-  assert.ok(!ui.doc.getElementById('aj-autoRefillWater').textContent.includes('Not available'), 'an available job has no reason');
+  assert.equal(ui.doc.getElementById('aj-autoRefillWater'), null, 'an available job has no reason line');
 });
 
 test('Ticking a job sends just that key, without a question, and says what changed', async () => {
