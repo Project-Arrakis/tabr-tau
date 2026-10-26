@@ -103,12 +103,10 @@ test('Inventory keeps the item table, its Liquid column and Give item, drops the
   assert.ok(ui.doc.querySelector('[data-act="repair"]'), 'the other cards stay');
   for (const a of ACTS) assert.equal(ui.doc.querySelector(`[data-act="${a}"]`), null, a + ' is not on Inventory');
   assert.equal(ui.doc.querySelector('#liqVeh'), null);
-  const note = ui.doc.querySelector('#fillmoved');
-  assert.ok(note && note.textContent.includes('The fill actions are on the Character tab'), 'the note');
-  assert.equal(note.previousElementSibling.tagName, 'H3', 'directly under the title');
+  assert.equal(ui.doc.querySelector('#fillmoved'), null, 'the permanent pointer line is gone (#426); the way back is in the About this of the card');
   const after = ui.fetched.slice(ui.fetched.lastIndexOf('/api/player/inventory'));
   assert.ok(!after.includes('/api/player/blood-sacks') && !after.includes('/api/player/liquids'), 'Inventory does not read the fill counts');
-  ui.click('#fillmoved [data-goto]'); await ui.settle();
+  ui.click('details[data-about="inventory.card"] [data-goto]'); await ui.settle();
   assert.ok(card(ui), 'the button switches to the Character tab, where the Fill card is');
   ui.dom.window.close();
 });
