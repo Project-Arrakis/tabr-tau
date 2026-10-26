@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/Project-Arrakis/tabr-tau/internal/kits"
 )
 
 // Settings is everything the editor remembers between runs.
@@ -34,7 +36,14 @@ type Settings struct {
 	// TrackNumbers is which number the game uses for each specialization track in specialization_tracks (the save stores a bare number
 	// and does not say which track it is). Learned from the character's own rows with Assign on the Specialization tab.
 	TrackNumbers map[string]int64 `json:"trackNumbers,omitempty"`
+	// Kits are the care packages (#417): named kits of items, XP and skill points that are kept here, not in a save, so they are still there when a new
+	// save is started. internal/kits has the model and the checks; this file only holds them. They are written and read with Update and Load like every other
+	// setting, and a list that does not pass kits.CheckStored is never written (the file would outgrow maxFileBytes and every setting with it).
+	Kits []kits.Kit `json:"kits,omitempty"`
 }
+
+// maxFileBytes is the largest settings file that is read. The kits may take up to kits.MaxStoredBytes of it.
+const maxFileBytes = 512 << 10
 
 // JobKeys are the settings keys of the automatic jobs, in the order the page lists them. internal/ops has the jobs themselves and a test
 // holds the two lists together.
@@ -124,8 +133,8 @@ func loadStrict(path string) (Settings, error) {
 	if err != nil {
 		return Settings{}, fmt.Errorf("the settings file %s cannot be read: %w", filepath.Base(path), err)
 	}
-	if len(b) > 64<<10 {
-		return Settings{}, fmt.Errorf("the settings file %s is larger than 64 KiB", filepath.Base(path))
+	if len(b) > maxFileBytes {
+		return Settings{}, fmt.Errorf("the settings file %s is larger than %d KiB", filepath.Base(path), maxFileBytes>>10)
 	}
 	if len(bytes.TrimSpace(b)) == 0 { // an empty file holds nothing to lose
 		return s, nil
@@ -177,6 +186,9 @@ func save(path string, s Settings) error {
 	b, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
 		return err
+	}
+	if len(b) > maxFileBytes { // a file the next read would refuse is never written
+		return fmt.Errorf("the settings would take %d KiB; the file is read only up to %d KiB: delete or shorten a kit", len(b)>>10, maxFileBytes>>10)
 	}
 	tmp, err := os.CreateTemp(filepath.Dir(path), "settings-*.tmp")
 	if err != nil {

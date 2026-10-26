@@ -452,13 +452,22 @@ func allowLongWrite(w http.ResponseWriter) {
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(editWriteWindow)) // a writer that cannot set one keeps the server's timeout
 }
 
+// postArgs reads the JSON object of a POST; when the body is not one it has answered already and says so.
+func postArgs(w http.ResponseWriter, r *http.Request) (ops.Args, bool) {
+	a := ops.Args{}
+	r.Body = http.MaxBytesReader(w, r.Body, 4<<20)
+	if err := json.NewDecoder(r.Body).Decode(&a); err != nil && err.Error() != "EOF" {
+		respond(w, nil, apierr.New(apierr.ErrBadRequest, "invalid JSON body"))
+		return nil, false
+	}
+	return a, true
+}
+
 func (s *Server) post(path string, fn func(a ops.Args) (any, error)) {
 	s.mux.HandleFunc("POST "+path, func(w http.ResponseWriter, r *http.Request) {
 		allowLongWrite(w)
-		a := ops.Args{}
-		r.Body = http.MaxBytesReader(w, r.Body, 4<<20)
-		if err := json.NewDecoder(r.Body).Decode(&a); err != nil && err.Error() != "EOF" {
-			respond(w, nil, apierr.New(apierr.ErrBadRequest, "invalid JSON body"))
+		a, ok := postArgs(w, r)
+		if !ok {
 			return
 		}
 		v, err := fn(a)
@@ -596,6 +605,7 @@ func (s *Server) routes() {
 		note, warn := s.takeStartup()
 		return map[string]any{"note": note, "warn": warn}, nil
 	})
+	s.kitRoutes()
 	s.get("/api/catalog/items", func(r *http.Request) (any, error) { return catalog.All(), nil })
 	s.get("/api/save/state", func(r *http.Request) (any, error) { return o.State() })
 
