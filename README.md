@@ -109,7 +109,7 @@ Restore uses the same guard as saving: it refuses while a game process exists or
 
 ## Automatic refill and repair
 
-The Power and Water tabs of a base have an **Automatic refill and repair when the editor opens** card: a master switch (off by default) and one checkbox per job. The settings are remembered in `%APPDATA%\tabr-tau\settings.json`, which also keeps the specialization track numbers you assign. When the master switch is on, opening the editor runs the jobs that are ticked as **one edit** and **saves straight away**, like every other edit, so it applies the next time single-player loads. The jobs, all ticked by default (the repairs too):
+The Power and Water tabs of a base have an **Automatic refill and repair when the editor opens** card: a master switch (off by default) and one checkbox per job. The settings are remembered in `%APPDATA%\tabr-tau\settings.json`, which also keeps the specialization track numbers you assign and your care package kits. The file as it was before the last change is kept beside it as `settings.json.bak`; if `settings.json` is ever found empty or cut off, the editor reads the copy, says so on the page, and the next change keeps the damaged file as `settings.json.damaged-<time>`. When the master switch is on, opening the editor runs the jobs that are ticked as **one edit** and **saves straight away**, like every other edit, so it applies the next time single-player loads. The jobs, all ticked by default (the repairs too):
 
 | Job | What it does |
 |---|---|

@@ -1,17 +1,16 @@
 // Package settings keeps the editor's own preferences (not the game's) in a small JSON file in the user's config
-// folder, for example %APPDATA%\tabr-tau\settings.json on Windows. A missing or damaged file means defaults: a bad
-// settings file must never stop the editor or turn a feature on.
+// folder, for example %APPDATA%\tabr-tau\settings.json on Windows. A missing file means defaults. An empty or damaged one means the copy
+// from before the last change (settings.json.bak) when that is good; without one it is reported, read as defaults, and never written
+// over without a copy (settings.json.damaged-<time>): a bad settings file must never stop the editor or turn a feature on.
 package settings
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/kits"
 )
@@ -103,9 +102,9 @@ func Path() string {
 	return filepath.Join(dir, "tabr-tau", "settings.json")
 }
 
-// Load reads the file. Any problem (missing, unreadable, not JSON) gives the defaults.
+// Load reads the file. Any problem (missing, unreadable, not JSON, and no usable backup copy) gives the defaults.
 func Load(path string) Settings {
-	s, err := LoadStrict(path)
+	s, _, err := LoadNote(path)
 	if err != nil {
 		return Settings{}
 	}
@@ -113,36 +112,41 @@ func Load(path string) Settings {
 }
 
 // LoadStrict reads the file like Load, but tells a damaged file from an absent one: a missing file is the defaults with no error; one
-// that exists and cannot be read, is too large or is not JSON is an error, so a caller that is about to write can refuse instead of
-// replacing what it could not read (the other settings in it would be lost).
+// that exists and cannot be read, or is empty, too large or not JSON, is an error unless the backup copy (see BackupPath) is good, so
+// a caller that is about to write can refuse instead of replacing what it could not read (the other settings in it, the kits among
+// them, would be lost).
 func LoadStrict(path string) (Settings, error) {
+	s, _, err := LoadNote(path)
+	return s, err
+}
+
+// LoadNote is LoadStrict plus a note for the person: it is empty unless the file was damaged and the settings come from the backup copy,
+// when it says so. The damaged file is not touched by a read; the next change keeps it as settings.json.damaged-<time>.
+func LoadNote(path string) (Settings, string, error) {
 	writeMu.Lock() // a read must not land in the middle of a write: on Windows the file is briefly unreadable while it is replaced
 	defer writeMu.Unlock()
-	return loadStrict(path)
+	return loadNote(path)
 }
 
 func loadStrict(path string) (Settings, error) {
-	var s Settings
+	s, _, err := loadNote(path)
+	return s, err
+}
+
+func loadNote(path string) (Settings, string, error) {
 	if path == "" {
-		return s, nil
+		return Settings{}, "", nil
 	}
-	b, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return s, nil
+	f := readSettings(path)
+	if f.state != stDamaged {
+		return f.s, "", f.err
 	}
-	if err != nil {
-		return Settings{}, fmt.Errorf("the settings file %s cannot be read: %w", filepath.Base(path), err)
+	// An empty or cut-off file is what a crash right after a replace leaves behind. The copy of the file before the last change is the
+	// way back; without a good one the damage is reported and nothing is written over it.
+	if b := readSettings(BackupPath(path)); b.state == stOK {
+		return b.s, f.err.Error() + "; the copy from before the last change (" + filepath.Base(BackupPath(path)) + ") is used instead", nil
 	}
-	if len(b) > maxFileBytes {
-		return Settings{}, fmt.Errorf("the settings file %s is larger than %d KiB", filepath.Base(path), maxFileBytes>>10)
-	}
-	if len(bytes.TrimSpace(b)) == 0 { // an empty file holds nothing to lose
-		return s, nil
-	}
-	if err := json.Unmarshal(b, &s); err != nil {
-		return Settings{}, fmt.Errorf("the settings file %s is damaged (%v)", filepath.Base(path), err)
-	}
-	return s, nil
+	return Settings{}, "", fmt.Errorf("%w; there is no good copy (%s) to fall back on: delete the file to start again with the defaults", f.err, filepath.Base(BackupPath(path)))
 }
 
 // writeMu serialises Update: two requests that change different settings at the same moment must not each read the old file and
@@ -168,8 +172,9 @@ func Update(path string, fn func(*Settings) error) (Settings, error) {
 	return s, nil
 }
 
-// Save writes the file atomically (temp file in the same folder, then rename), mode 0600. It does not look at what is in the file now;
-// to change one setting and keep the others use Update.
+// Save writes the file atomically and durably (see writeFileAtomic), mode 0600, after keeping the file as it is now as the backup copy
+// (or, if it is damaged, as settings.json.damaged-<time>). It does not use what is in the file; to change one setting and keep the
+// others use Update.
 func Save(path string, s Settings) error {
 	writeMu.Lock()
 	defer writeMu.Unlock()
@@ -190,28 +195,30 @@ func save(path string, s Settings) error {
 	if len(b) > maxFileBytes { // a file the next read would refuse is never written
 		return fmt.Errorf("the settings would take %d KiB; the file is read only up to %d KiB: delete or shorten a kit", len(b)>>10, maxFileBytes>>10)
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), "settings-*.tmp")
-	if err != nil {
-		return err
-	}
-	name := tmp.Name()
-	if _, err := tmp.Write(append(b, '\n')); err != nil {
-		tmp.Close()
-		os.Remove(name)
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		os.Remove(name)
-		return err
-	}
-	// On Windows a virus scanner or the search indexer can hold the file open for a moment right after it was written, and the rename
-	// over it is then refused; a few short retries get past that.
-	for i := 0; i < 8; i++ {
-		if err = os.Rename(name, path); err == nil {
-			return nil
+	sweepTemps(filepath.Dir(path))
+	// What is in the file now decides what happens to it before it is replaced (the new file is still written to a temp file first, so
+	// until the last rename the old one is untouched):
+	//   good    -> kept as the backup copy (one generation), so a replaced file that turns out empty or cut off has a way back
+	//   damaged -> kept as settings.json.damaged-<time>, never replaced without a trace; the backup copy is not touched
+	//   missing -> the backup copy goes too (the file was removed on purpose; its copy must not come back later)
+	cur := readSettings(path)
+	switch cur.state {
+	case stUnreadable:
+		return cur.err
+	case stOK:
+		if err := writeFileAtomic(BackupPath(path), cur.raw); err != nil {
+			return fmt.Errorf("the previous settings could not be kept as %s, so nothing was changed: %w", filepath.Base(BackupPath(path)), err)
 		}
-		time.Sleep(25 * time.Millisecond)
+	case stDamaged:
+		if err := writeFileAtomic(damagedName(path), cur.raw); err != nil {
+			return fmt.Errorf("the damaged settings file could not be kept aside, so nothing was changed: %w", err)
+		}
 	}
-	os.Remove(name)
-	return err
+	if err := writeFileAtomic(path, append(b, '\n')); err != nil {
+		return err
+	}
+	if cur.state == stMissing {
+		os.Remove(BackupPath(path))
+	}
+	return nil
 }

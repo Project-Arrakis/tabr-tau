@@ -622,7 +622,7 @@ async function fillCard() {
 }
 // ---------- Care package (#417): named kits of items, XP and skill points, kept in the editor's own settings (not in a save, so a new save starts with them).
 // The draft is the kit being made or changed; it lives here, not in the boxes, because the page is drawn again after every action.
-let KITS = null; // the last answer of /api/kits: { kits, limits, problem }
+let KITS = null; // the last answer of /api/kits: { kits, limits, problem, notice }
 let kitApplied = new Set(); // the kits applied since this page was opened: applying one again asks with that said (the kit itself remembers nothing about any save)
 let kitDraft = null; // { was, name, items: [{ item, quantity, grade, augments, augmentGrade }], xp, skillPoints }; was is the name of the kit being changed ('' for a new one)
 const kitSpec = (l) => `${Number(l.quantity).toLocaleString()} x ${itemName(l.item)}${l.grade ? ' (grade ' + l.grade + ')' : ''}${l.augments && l.augments.length ? ' + ' + l.augments.map((a) => augName(a)).join(', ') : ''}`;
@@ -641,6 +641,7 @@ function kitsCard() {
   const why = editing ? 'Finish or cancel the kit you are editing first.' : '';
   return html`<div class="card"><h3>Care packages</h3>
     ${KITS.problem ? html`<div class="info" role="alert">${KITS.problem}</div>` : ''}
+    ${KITS.notice ? html`<div class="info" role="status" id="settingsnotice">${KITS.notice}</div>` : ''}
     ${list.length >= lim.kits ? html`<p class="mut" id="kitfull">The most kits are kept (${lim.kits}): delete one first.</p>` : ''}
     <div class="row"><button class="b" data-act="kitNew" ${editing || list.length >= lim.kits ? 'disabled' : ''} title="${list.length >= lim.kits ? 'The most kits are kept: delete one first.' : why}">New kit</button>
       <label>Import a kit file <input type="file" id="kitFile" ${editing ? 'disabled' : ''}></label>
@@ -959,6 +960,7 @@ function autoRefillCard(prefs) {
     ${prefs.last ? html`<p class="mut">Last automatic save: ${prefs.last}</p>` : ''}
     ${prefs.lastProblem ? html`<p class="bad">${prefs.lastProblem}</p>` : ''}
     ${prefs.problem ? html`<p class="bad">${prefs.problem}</p>` : ''}
+    ${prefs.notice ? html`<p class="warn" role="status" id="settingsnotice">${prefs.notice}</p>` : ''}
     ${prefs.autoRefillOnOpen && saveBlocked ? html`<p class="mut" id="autowait">Waiting: the save cannot be written yet (see the banner above). The automatic pass runs once the game has closed.</p>` : ''}
     ${about('bases.autorefill', 'Automatic refill and repair', html`<p class="mut">When the master switch is on, opening the editor runs the jobs ticked above as <b>one edit</b> and <b>saves straight away</b>, like every other change, so it applies the next time the game loads. Every job is ticked by default, the repairs too; the master switch is off until you turn it on. It acts only on what your character owns or carries: your own vehicles, worn equipment, loadout, inventories and bases. It waits while the game is running: nothing is written or queued, and it runs once the game has closed. When nothing needs doing nothing is written. If one job fails, nothing is changed and the error is shown here. The previous file is backed up first. Remembered between runs. The same card is on the Power and Water tabs.</p>`)}</div>`;
 }

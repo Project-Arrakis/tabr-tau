@@ -95,8 +95,9 @@ func (s *Server) kitNamed(a ops.Args) (kits.Kit, error) {
 
 func (s *Server) kitRoutes() {
 	s.get("/api/kits", func(r *http.Request) (any, error) {
-		cur, perr := settings.LoadStrict(s.SettingsPath)
+		cur, note, perr := settings.LoadNote(s.SettingsPath)
 		out := kitList(cur)
+		out["notice"] = s.logSettingsNote(note)
 		if perr != nil { // reported, not hidden: changing a kit is refused until the file is fixed or removed
 			out["problem"] = perr.Error()
 		}
