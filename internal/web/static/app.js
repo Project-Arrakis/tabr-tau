@@ -1770,7 +1770,8 @@ const A = {
     return act(async () => {
       const r = await api('/api/landsraad/mine-many', { term_id: l.term.term_id, items: plan.items, with_faction: withFaction, expected: n });
       LS = { houses: new Set(), tiers: new Set() };
-      toast(r.changed ? `Your contribution raised on ${nn(r.changed, 'house', 'houses')}` + (r.faction_changed ? `, and the faction goal on ${r.faction_changed}` : '') + '. The rewards themselves are not written.' + NOT_SAVED : 'Nothing to change.');
+      const mine = r.contribution_changed || 0, fac = r.faction_changed || 0;
+      toast(r.changed ? [mine ? `Your contribution raised on ${nn(mine, 'house', 'houses')}` : '', fac ? `${mine ? 'the faction' : 'The faction'} goal on ${nn(fac, 'house', 'houses')}` : ''].filter(Boolean).join(', ') + '. The rewards themselves are not written.' + NOT_SAVED : 'Nothing to change.');
     }, null);
   },
   mfill: (d) => act(async () => { const r = await api('/api/landsraad/mine', { task_id: +d.id, tier: +d.tier, with_faction: !!($('#lwf') || {}).checked }); toast(r.changed ? `Your contribution ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()}` + (r.faction_changed ? ", and your faction's progress is at the house goal" : '') + NOT_SAVED : 'Nothing to change: your contribution is already at or above that tier.'); }, null),

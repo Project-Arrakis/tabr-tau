@@ -132,7 +132,7 @@ func TestFillSeveralHousesCountsAHouseWhoseFactionRowOnlyChanges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m := got.(map[string]any); m["changed"].(int64) != 1 || m["faction_changed"].(int64) != 1 {
+	if m := got.(map[string]any); m["changed"].(int64) != 1 || m["faction_changed"].(int64) != 1 || m["contribution_changed"].(int64) != 0 {
 		t.Fatalf("answer: %v", m)
 	}
 	if v := mustOne(t, o, `select amount a from landsraad_task_faction_contributions where task_id=175`)["a"].(float64); v != 4000 {

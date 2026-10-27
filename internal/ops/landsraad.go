@@ -467,9 +467,9 @@ func (o *Ops) FillMyContributions(a Args) (any, error) {
 		return nil, err
 	}
 	var changed int64
-	var factions int64
+	var factions, mine int64 // houses whose faction progress / own contribution were raised (a house counts in changed when either was)
 	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
-		changed, factions = 0, 0
+		changed, factions, mine = 0, 0, 0
 		me, err := myLandsraadTx(m, p)
 		if err != nil {
 			return err
@@ -494,16 +494,19 @@ func (o *Ops) FillMyContributions(a Args) (any, error) {
 			return apierr.Newf(apierr.ErrConflict, "the number of houses to fill is now %d, not the %d the page counted, so nothing was changed: reload the page and look again", changed, expected)
 		}
 		for _, it := range items {
-			_, _, fch, _, err := fillMine(m, me, it.task, it.tier, withFaction, true)
+			before, after, fch, _, err := fillMine(m, me, it.task, it.tier, withFaction, true)
 			if err != nil {
 				return err
+			}
+			if after > before {
+				mine++
 			}
 			if fch {
 				factions++
 			}
 		}
 		if changed > 0 {
-			m.Desc = fmt.Sprintf("landsraad: your contribution filled on %d houses", changed)
+			m.Desc = fmt.Sprintf("landsraad: your contribution filled on %d houses", mine)
 			if factions > 0 {
 				m.Desc += fmt.Sprintf(", the faction goal on %d", factions)
 			}
@@ -512,5 +515,5 @@ func (o *Ops) FillMyContributions(a Args) (any, error) {
 	}); err != nil {
 		return nil, err
 	}
-	return resetAnswer(changed, map[string]any{"houses": int64(len(items)), "faction_changed": factions}), nil
+	return resetAnswer(changed, map[string]any{"houses": int64(len(items)), "faction_changed": factions, "contribution_changed": mine}), nil
 }
