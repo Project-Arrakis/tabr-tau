@@ -20,7 +20,7 @@ Stays visible, always:
 | **State** of a control or of the save | `Hydration is 85.1 of 100`, `12 items`, `When the editor opens: off`, `Nothing to reset: the character has no XP` (the reason a button is off) |
 | **Result** of an action | the toasts and result lines, as they read today |
 | **Error** | every refusal and every failed check, as it reads today |
-| **Queued or pending** | the banner, `N queued`, the `(queued: written when the game closes)` hint, `Pending horizontal` |
+| **Queued or pending** | the banner, `N queued`, the `(queued: written as soon as the save can be written)` hint (#449: it no longer says "when the game closes", because an edit is also written at the menu once the game is quiet), `Pending horizontal` |
 | **Time left** | none on this editor today (the Landsraad term shows start and end) |
 | **The one thing that can hurt** | the game rewrites config files when it exits; a read-only save; an unconfirmed location; a change that was not written |
 
@@ -74,11 +74,11 @@ the help is this repository's README; both are covered under their pages.
 | H1 | index.html:12 | Auto-refresh (box with a title saying what it does) | state | keep (already a tooltip) |
 | H2 | index.html:13 | Discard queue (button with a title) | state | keep (already a tooltip) |
 | H3 | 419-420 | `N queued`, with the list in its title | queued | keep |
-| H4 | 400 | The game is running. Changes you make now are queued and written when the game closes. | queued | keep |
+| H4 | 400 | Changes you make now are queued. <the reason: what is being waited for, e.g. the game wrote its database 20 seconds ago and must be quiet for 3 minutes; the single-player session is active; another program has the save file open>. They are written by themselves as soon as that clears. (#449: it said "The game is running ... written when the game closes", which is no longer what is waited for.) | queued | keep |
 | H5 | 396 | Changes cannot be written here yet. ... You can keep editing: changes wait in the queue. Allow writing here | error, queued | keep |
 | H6 | 397 | Changes cannot be written. ... The editor checks again by itself every few seconds. Check again, Write now | error, queued | keep |
 | H7 | 398 | N queued changes cannot be written ... Discard the queue | error | keep |
-| H8 | 399 | N changes are queued. ... written ... by themselves as soon as it can be written. Write now | queued | keep |
+| H8 | 399 | N changes are queued. <the reason> ... written ... by themselves as soon as it can be written. Write now (the reason names what is waited for since #449) | queued | keep |
 | H9 | 393 | N queued changes were not written. The game saved changes that conflict ... | error | keep |
 | H10 | 386, 403-407 | The game saved since this editor opened (auto-refresh off); N changes were put back; queued changes were not kept | state, result, error | keep (conditional already) |
 | H11 | 408 | These queued changes are not kept if the editor is closed: reason | the one thing that can hurt | keep (conditional already) |
@@ -237,7 +237,7 @@ Toasts and the questions that ask first (`ask()`, the two-press buttons) are res
 | A3 | 927 | `Not available yet: reason.` on a job that cannot run | state, error | keep (conditional already) |
 | A4 | 928 | Last automatic save: ... | result | keep |
 | A5 | 929, 930 | The last problem; the settings problem | error | keep |
-| A6 | 931 | When the master switch is on, opening the editor runs the jobs ticked above as one edit and saves straight away, like every other change, so it applies the next time the game loads. Every job is ticked by default, the repairs too; the master switch is off until you turn it on. It acts only on what your character owns or carries ... It waits while the game is running: nothing is written or queued, and it runs once the game has closed. When nothing needs doing nothing is written. If one job fails, nothing is changed and the error is shown here. The previous file is backed up first. Remembered between runs. The same card is on the Power and Water tabs. | explanation, limit, background (includes the backup and the waiting-for-the-game state) | disclosure (the card's About this, whole); and **one conditional line** is added for the queued state: while the switch is on and the game is running, `Waiting for the game to close; it runs once the game has closed.` |
+| A6 | 931 | When the master switch is on, opening the editor runs the jobs ticked above as one edit and saves straight away, like every other change, so it applies the next time the game loads. Every job is ticked by default, the repairs too; the master switch is off until you turn it on. It acts only on what your character owns or carries ... It waits while the game is open, even at its main menu: nothing is written or queued, and it runs once the game has closed. When nothing needs doing nothing is written. If one job fails, nothing is changed and the error is shown here. The previous file is backed up first. Remembered between runs. The same card is on the Power and Water tabs. | explanation, limit, background (includes the backup and the waiting-for-the-game state) | disclosure (the card's About this, whole); and **one conditional line** is added for the queued state: while the switch is on and the pass is waiting for the game to close, `Waiting for the game to close; it runs once the game has closed.` |
 
 ### Player > Vehicles
 

@@ -255,61 +255,113 @@ func TestLogTime(t *testing.T) {
 	}
 }
 
-func TestGameStateGraceBoundary(t *testing.T) {
-	oldList, oldStatus, oldNow := listProcs, statusFor, nowFunc
-	t.Cleanup(func() { listProcs, statusFor, nowFunc = oldList, oldStatus, oldNow })
-	now := time.Date(2026, 10, 8, 17, 30, 0, 0, time.UTC)
-	nowFunc = func() time.Time { return now }
-	listProcs = func(bool) ([]string, string) { return []string{"DuneSandbox-Win64-Shipping.exe"}, "" }
-	if spEndGrace != 15*time.Second {
-		t.Fatalf("the documented grace after the end marker is 15 s, got %v", spEndGrace)
+// The save markers of the game's log (#449), in the shape of the real lines.
+const (
+	lnSave1 = "[2026.10.08-17.10.54:100][604][20424][0]LogLowLevelPersistence: Display: DB(game.db:0): SaveDatabase - Database saved to disk. Saving again in 60 seconds."
+	lnSave0 = "[2026.10.08-17.09.54:100][604][20424][0]LogLowLevelPersistence: Display: DB(game.db:0): SaveDatabase - Database saved to disk. Saving again in 60 seconds."
+)
+
+func TestTrackerRecordsTheGamesLastWriteOfTheDatabase(t *testing.T) {
+	tr := run(lnStart, lnSave0, lnLeave2, lnSave1)
+	if want := time.Date(2026, 10, 8, 17, 10, 54, 0, time.UTC); !tr.lastSaveAt.Equal(want) {
+		t.Fatalf("last write %v want %v", tr.lastSaveAt, want)
 	}
-	for _, c := range []struct {
-		ago     time.Duration
-		blocked bool // the sentence is the "just ended" one (the write is refused in both cases since #419: a process exists)
-	}{
-		{0, true}, {spEndGrace - time.Millisecond, true}, {spEndGrace, false}, {spEndGrace + time.Millisecond, false},
-	} {
-		statusFor = func(string) (spStatus, error) { return spStatus{EndedAt: now.Add(-c.ago)}, nil }
-		g := GameStateFor("x", true)
-		if !g.Blocked {
-			t.Errorf("ended %v ago: a game process exists, so the write must be refused", c.ago)
-		}
-		if just := strings.Contains(g.Reason, "just ended"); just != c.blocked {
-			t.Errorf("ended %v ago: reason %q, just-ended sentence=%v want %v", c.ago, g.Reason, just, c.blocked)
-		}
+	if tr.endedAt.IsZero() || !tr.lastSaveAt.After(tr.endedAt) {
+		t.Fatalf("the write after the end marker must be seen after it: ended %v, saved %v", tr.endedAt, tr.lastSaveAt)
+	}
+	if !run(lnStart, lnLeave2).lastSaveAt.IsZero() {
+		t.Fatal("no write line, no write time")
+	}
+	if tr := run(lnStart, lnNoise); !tr.lastSaveAt.IsZero() {
+		t.Fatal("other lines are not writes")
+	}
+	// a line without a timestamp counts as just written, which only lengthens the wait
+	if tr := run("LogLowLevelPersistence: Display: DB(game.db:0): SaveDatabase - Database saved to disk."); time.Since(tr.lastSaveAt) > time.Minute || tr.lastSaveAt.IsZero() {
+		t.Fatalf("an untimed write line: %v", tr.lastSaveAt)
 	}
 }
 
+// The log, read from a file, reports the write time too.
+func TestSinglePlayerStatusReportsTheLastWrite(t *testing.T) {
+	resetSPLog()
+	sp, _ := writeLog(t, strings.Join([]string{lnStart, lnLeave2, lnSave1}, "\n")+"\n")
+	st, err := singlePlayerStatus(sp)
+	if err != nil || st.Active || st.EndedAt.IsZero() || !st.LastSaveAt.After(st.EndedAt) {
+		t.Fatalf("%+v %v", st, err)
+	}
+}
+
+func TestTheRuleConstants(t *testing.T) {
+	// The numbers the page and the PR state. dbQuietFor is three of the game's 60 s intervals; endedFallbackGrace is the unmeasured one.
+	if dbQuietFor != 3*time.Minute || endedFallbackGrace != 6*time.Minute {
+		t.Fatalf("dbQuietFor %v, endedFallbackGrace %v: change the README, the changelog and the PR text with them", dbQuietFor, endedFallbackGrace)
+	}
+}
+
+// The rule for a game process that exists (#449), in the order of its conditions. now is fixed; every case sets what the log says and what the file check says.
 func TestGameStateDecisions(t *testing.T) {
-	oldList, oldStatus, oldNow := listProcs, statusFor, nowFunc
-	t.Cleanup(func() { listProcs, statusFor, nowFunc = oldList, oldStatus, oldNow })
+	oldList, oldStatus, oldNow, oldHeld := listProcs, statusFor, nowFunc, fileHeld
+	t.Cleanup(func() { listProcs, statusFor, nowFunc, fileHeld = oldList, oldStatus, oldNow, oldHeld })
 	now := time.Date(2026, 10, 8, 17, 30, 0, 0, time.UTC)
 	nowFunc = func() time.Time { return now }
-	procs := func(n ...string) func(bool) ([]string, string) { return func(bool) ([]string, string) { return n, "" } }
+	game := func(bool) ([]string, string) { return []string{"DuneSandbox-Win64-Shipping.exe"}, "" }
+	none := func(bool) ([]string, string) { return nil, "" }
+	ago := func(d time.Duration) time.Time { return now.Add(-d) }
 	cases := []struct {
 		name    string
 		list    func(bool) ([]string, string)
 		status  spStatus
 		statErr error
+		held    bool
+		heldErr error
 		blocked bool
 		mode    string
 		reason  string
 	}{
-		{"no game", procs(), spStatus{Active: true}, nil, false, "none", ""},
-		{"menu or multiplayer (a process exists: edits queue, #419)", procs("DuneSandbox-Win64-Shipping.exe"), spStatus{}, nil, true, "game_running", "written when the game closes"},
-		{"single-player active", procs("DuneSandbox-Win64-Shipping.exe"), spStatus{Active: true}, nil, true, "single_player", "single-player session is active"},
-		{"just ended", procs("DuneSandbox-Win64-Shipping.exe"), spStatus{EndedAt: now.Add(-3 * time.Second)}, nil, true, "single_player", "just ended"},
-		{"ended long ago", procs("DuneSandbox-Win64-Shipping.exe"), spStatus{EndedAt: now.Add(-time.Minute)}, nil, true, "game_running", "is running"},
-		{"log unreadable while the game runs", procs("DuneSandbox-Win64-Shipping.exe"), spStatus{}, os.ErrPermission, true, "game_running", "is running"},
-		{"process check failed", func(bool) ([]string, string) { return nil, "process snapshot: boom" }, spStatus{}, nil, true, "unknown", "could not check"},
+		{name: "no game", list: none, status: spStatus{Active: true}, mode: "none"},
+		{name: "the game at its menu, no session in this log, nothing held: written", list: game, mode: "menu"},
+		{name: "the process list cannot be read", list: func(bool) ([]string, string) { return nil, "process snapshot: boom" }, blocked: true, mode: "unknown", reason: "could not check whether the game is running"},
+		{name: "the log cannot be read", list: game, statErr: os.ErrPermission, blocked: true, mode: "game_running", reason: "its log cannot be read"},
+		{name: "a session is active", list: game, status: spStatus{Active: true, LastSaveAt: ago(10 * time.Second)}, blocked: true, mode: "single_player", reason: "single-player session is active"},
+		{name: "the #419 case: left the world 23 s ago, the game's last write 20 s ago", list: game, status: spStatus{EndedAt: ago(23 * time.Second), LastSaveAt: ago(20 * time.Second)}, blocked: true, mode: "session_ended", reason: "wrote its database 20 seconds ago"},
+		{name: "ended, the game wrote 2 minutes ago: still not quiet", list: game, status: spStatus{EndedAt: ago(130 * time.Second), LastSaveAt: ago(2 * time.Minute)}, blocked: true, mode: "session_ended", reason: "wrote its database 2 minutes ago"},
+		{name: "ended, quiet for just under the limit", list: game, status: spStatus{EndedAt: ago(10 * time.Minute), LastSaveAt: ago(dbQuietFor - time.Second)}, blocked: true, mode: "session_ended", reason: "wrote its database"},
+		{name: "ended, quiet for exactly the limit: written", list: game, status: spStatus{EndedAt: ago(10 * time.Minute), LastSaveAt: ago(dbQuietFor)}, mode: "menu"},
+		{name: "ended long ago with the last write seen: written", list: game, status: spStatus{EndedAt: ago(time.Hour), LastSaveAt: ago(time.Hour - 5*time.Second)}, mode: "menu"},
+		{name: "ended 3 s ago, no write after the end seen: the fallback wait", list: game, status: spStatus{EndedAt: ago(3 * time.Second)}, blocked: true, mode: "session_ended", reason: "does not show the game's last write"},
+		{name: "ended 5 minutes ago, no write after it seen: still the fallback wait", list: game, status: spStatus{EndedAt: ago(5 * time.Minute), LastSaveAt: ago(40 * time.Minute)}, blocked: true, mode: "session_ended", reason: "waits 6 minutes after the end"},
+		{name: "fallback wait over: written", list: game, status: spStatus{EndedAt: ago(endedFallbackGrace), LastSaveAt: ago(40 * time.Minute)}, mode: "menu"},
+		{name: "another program has the save file open", list: game, status: spStatus{EndedAt: ago(time.Hour), LastSaveAt: ago(time.Hour)}, held: true, blocked: true, mode: "game_running", reason: "has the save file open"},
+		{name: "the file check cannot be made", list: game, heldErr: os.ErrPermission, blocked: true, mode: "game_running", reason: "could not check whether another program has the save file open"},
 	}
 	for _, c := range cases {
 		listProcs = c.list
 		statusFor = func(string) (spStatus, error) { return c.status, c.statErr }
+		fileHeld = func(string) (bool, error) { return c.held, c.heldErr }
 		g := GameStateFor("x", true)
 		if g.Blocked != c.blocked || g.Mode != c.mode || !strings.Contains(g.Reason, c.reason) {
 			t.Errorf("%s: %+v", c.name, g)
+		}
+		if !g.Blocked && g.Reason != "" {
+			t.Errorf("%s: an allowed write has no reason, got %q", c.name, g.Reason)
+		}
+		if c.blocked && !strings.Contains(g.Reason, "queued") && c.mode != "unknown" {
+			t.Errorf("%s: the reason must say the edits are queued: %q", c.name, g.Reason)
+		}
+		if c.list != nil && c.mode == "menu" && len(g.Processes) != 1 {
+			t.Errorf("%s: the processes must be reported even when saving is allowed (the automatic pass waits on them): %+v", c.name, g)
+		}
+	}
+}
+
+// The wait is said in words that are true: seconds under two minutes, whole minutes after, rounded up for what is still to wait.
+func TestApproxDuration(t *testing.T) {
+	for _, c := range []struct {
+		d    time.Duration
+		want string
+	}{{0, "0 seconds"}, {-time.Second, "0 seconds"}, {20 * time.Second, "20 seconds"}, {119 * time.Second, "119 seconds"}, {2 * time.Minute, "2 minutes"}, {2*time.Minute + time.Second, "3 minutes"}, {6 * time.Minute, "6 minutes"}} {
+		if got := approxDuration(c.d); got != c.want {
+			t.Errorf("%v: %q want %q", c.d, got, c.want)
 		}
 	}
 }

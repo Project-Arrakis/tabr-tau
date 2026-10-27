@@ -276,11 +276,11 @@ test('while the game runs the question says the edit is queued, and the result c
   const ui = await boot({ get: { '/api/kits': KITS([STARTER]), '/api/save/state': { ...fixtureState(), saveBlocked: true, blockReason: 'The game is running.' } }, post: { '/api/kits/preview': { ...WHOLE, dryRun: true }, '/api/kits/apply': { ...WHOLE, outcome: 'queued' } } });
   await open(ui);
   ui.click('table [data-act="kitApply"]'); await ui.settle();
-  assert.ok(ui.doc.querySelector('#ask').textContent.includes('the edit is queued and written when the game closes'), ui.doc.querySelector('#ask').textContent);
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes('the edit is queued and written as soon as it can be'), ui.doc.querySelector('#ask').textContent);
   await ui.wait(450);
   ui.click('#aok'); await ui.settle();
   const t = ui.doc.querySelector('#toast').textContent;
-  assert.ok(t.includes('Applied kit "Starter"') && t.includes('queued: written when the game closes'), t);
+  assert.ok(t.includes('Applied kit "Starter"') && t.includes('queued: written as soon as the save can be written'), t);
   ui.dom.window.close();
 });
 

@@ -16,27 +16,52 @@ import (
 )
 
 // #419: the editor's automatic pass wrote the save at the character-selection screen, 23 seconds after the player left the world, while the game process was still
-// running. The old gate allowed a write whenever the game's log showed no single-player session. The rule now is the plain one: nothing writes the save while a game
-// process exists, or while the process list cannot be read, whatever the log says.
+// running. #419 then refused every write while a game process exists; #449 relaxed that for edits made by hand and for restoring a backup: they are written when the
+// evidence says the game is at its menu with the save unloaded (spsession.go, processState), and queued otherwise. The pass at launch never writes while a process exists.
 
-// gameSituations are the ways a game process can be there. None of them may let a write through.
+// gameSituations are the ways a game process can be there that must NOT let a write through.
 var gameSituations = map[string]func(t *testing.T){
-	"the game at its menu (no session in the log)": func(t *testing.T) { fakeGame(t, duneProc, "", spStatus{}, nil) },
 	"logged out to character selection 23 s ago (the #419 case)": func(t *testing.T) {
-		fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-23 * time.Second)}, nil)
+		fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-23 * time.Second), LastSaveAt: time.Now().Add(-20 * time.Second)}, nil)
 	},
-	"the session ended an hour ago":     func(t *testing.T) { fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-time.Hour)}, nil) },
+	"the session ended 2 minutes ago, the game's last write 100 s ago": func(t *testing.T) {
+		fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-2 * time.Minute), LastSaveAt: time.Now().Add(-100 * time.Second)}, nil)
+	},
+	"the session ended 1 minute ago, no write after it in the log": func(t *testing.T) {
+		fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-time.Minute)}, nil)
+	},
 	"a single-player session is active": func(t *testing.T) { fakeGame(t, duneProc, "", spStatus{Active: true}, nil) },
 	"the log cannot be read":            func(t *testing.T) { fakeGame(t, duneProc, "", spStatus{}, errors.New("no log")) },
 	"the process list cannot be read":   func(t *testing.T) { fakeGame(t, nil, "process snapshot: access denied", spStatus{}, nil) },
-	"a launcher process only":           func(t *testing.T) { fakeGame(t, []string{"DuneAwakening.exe"}, "", spStatus{}, nil) },
+	"the game at its menu but another program has the save file open": func(t *testing.T) {
+		fakeGame(t, duneProc, "", spStatus{}, nil)
+		fakeHeld(true, nil)
+	},
+	"the game at its menu but the file check cannot be made": func(t *testing.T) {
+		fakeGame(t, duneProc, "", spStatus{}, nil)
+		fakeHeld(false, errors.New("access is denied"))
+	},
+}
+
+// menuSituations are the ways a game process can be there that let a manual write through (#449).
+var menuSituations = map[string]func(t *testing.T){
+	"the game at its menu (no session in the log)": func(t *testing.T) { fakeGame(t, duneProc, "", spStatus{}, nil) },
+	"the session ended an hour ago, its last write seen": func(t *testing.T) {
+		fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-time.Hour), LastSaveAt: time.Now().Add(-time.Hour + 5*time.Second)}, nil)
+	},
+	"the game was quiet for 4 minutes after the session ended": func(t *testing.T) {
+		fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-5 * time.Minute), LastSaveAt: time.Now().Add(-4 * time.Minute)}, nil)
+	},
 }
 
 // writeEntryPoints lists every route by which the editor can put bytes into the save file. A new route must be added here, and
 // TestTheSaveFileHasOneWriterBehindTheGate fails when the code has a route this list does not know about.
 var writeEntryPoints = map[string]func(t *testing.T, s *Save, p string, backup string) (wrote bool){
-	"Flush (the automatic write after every edit, the 3 s retry, the pass at launch)": func(t *testing.T, s *Save, _ string, _ string) bool {
+	"Flush (the automatic write after every edit and the 3 s retry)": func(t *testing.T, s *Save, _ string, _ string) bool {
 		return s.Flush().Saved
+	},
+	"FlushAutoPass (the pass at launch)": func(t *testing.T, s *Save, _ string, _ string) bool {
+		return s.FlushAutoPass().Saved
 	},
 	"commit quick (what Flush calls)": func(t *testing.T, s *Save, _ string, _ string) bool {
 		res, err := s.commit(true)
@@ -92,20 +117,105 @@ func TestNoWriteRouteWritesWhileAGameProcessExists(t *testing.T) {
 	}
 }
 
-// With the game gone the same edit is written (the positive control) and says it was queued while the game ran.
-func TestTheQueuedEditIsWrittenOnceTheGameHasClosed(t *testing.T) {
+// The incident case queues the edit with a reason that says what is being waited for; with the game gone, or at its menu after the quiet time, the same edit is written.
+func TestTheQueuedEditIsWrittenWhenTheEvidenceAllows(t *testing.T) {
 	p := makeSave(t, `create table t(a integer);`)
 	s, _ := Open(p)
 	defer s.Close()
 	s.ExecScript(`insert into t values (1)`)
-	fakeGame(t, duneProc, "", spStatus{}, nil)
+	gameSituations["logged out to character selection 23 s ago (the #419 case)"](t)
 	f := s.Flush()
-	if f.Saved || f.Queued != 1 || !strings.Contains(f.Why, "is running") || !strings.Contains(f.Why, "written when the game closes") {
-		t.Fatalf("while the game runs: %+v", f)
+	if f.Saved || f.Queued != 1 || !strings.Contains(f.Why, "wrote its database") || !strings.Contains(f.Why, "edits stay queued") || strings.Contains(f.Why, "is running") {
+		t.Fatalf("just after leaving the world: %+v", f)
 	}
+	// the same game, the player long gone from the world: the queued edit is written without anyone asking
+	fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-10 * time.Minute), LastSaveAt: time.Now().Add(-10 * time.Minute)}, nil)
+	if f := s.Flush(); !f.Saved || f.Queued != 0 {
+		t.Fatalf("at the menu after the quiet time: %+v", f)
+	}
+	s.ExecScript(`insert into t values (2)`)
 	fakeGame(t, nil, "", spStatus{}, nil)
 	if f := s.Flush(); !f.Saved || f.Queued != 0 {
 		t.Fatalf("after the game closed: %+v", f)
+	}
+}
+
+// The positive half of #449: with a game process open at its menu, the evidence satisfied, every route that may write does write.
+func TestWriteRoutesWriteAtTheMenuWhenTheEvidenceAllows(t *testing.T) {
+	for sname, setup := range menuSituations {
+		for ename, enter := range writeEntryPoints {
+			if strings.HasPrefix(ename, "FlushAutoPass") {
+				continue // the pass at launch never writes while a game process exists (TestTheAutomaticPassNeverWritesWhileAGameProcessExists)
+			}
+			t.Run(sname+" / "+ename, func(t *testing.T) {
+				p := makeSave(t, `create table t(a integer);`)
+				s, err := Open(p)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer s.Close()
+				if _, err := s.ExecScript(`insert into t values (1)`); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := s.CommitForTests(); err != nil {
+					t.Fatal(err)
+				}
+				backup := s.Backups()[0]["name"].(string)
+				if _, err := s.ExecScript(`insert into t values (2)`); err != nil {
+					t.Fatal(err)
+				}
+				setup(t)
+				if strings.HasPrefix(ename, "Restore") {
+					if !enter(t, s, p, backup) {
+						t.Fatal("the restore was refused at the menu")
+					}
+					return
+				}
+				before, _ := os.ReadFile(p)
+				if !enter(t, s, p, backup) {
+					t.Fatal("the edit was queued at the menu although the evidence allows the write")
+				}
+				if after, _ := os.ReadFile(p); bytes.Equal(before, after) {
+					t.Fatal("the save file did not change")
+				}
+			})
+		}
+	}
+}
+
+// The automatic pass at launch never writes while any game process exists, however clean the evidence at the menu is; with no process it writes.
+func TestTheAutomaticPassNeverWritesWhileAGameProcessExists(t *testing.T) {
+	for sname, setup := range menuSituations {
+		t.Run(sname, func(t *testing.T) {
+			p := makeSave(t, `create table t(a integer);`)
+			s, _ := Open(p)
+			defer s.Close()
+			s.ExecScript(`insert into t values (1)`)
+			setup(t)
+			before, _ := os.ReadFile(p)
+			f := s.FlushAutoPass()
+			if f.Saved || f.Queued != 1 || !strings.Contains(f.Why, "automatic refill waits for the game to close") {
+				t.Fatalf("the pass wrote or gave another reason: %+v", f)
+			}
+			if after, _ := os.ReadFile(p); !bytes.Equal(before, after) {
+				t.Fatal("the save file changed")
+			}
+			if s.autoPass.Load() {
+				t.Fatal("the automatic-pass mark must be cleared when the write attempt ends")
+			}
+			// the same queue is an ordinary edit for the next ordinary write
+			if f := s.Flush(); !f.Saved {
+				t.Fatalf("the ordinary write at the menu: %+v", f)
+			}
+		})
+	}
+	p := makeSave(t, `create table t(a integer);`)
+	s, _ := Open(p)
+	defer s.Close()
+	s.ExecScript(`insert into t values (1)`)
+	fakeGame(t, nil, "", spStatus{}, nil)
+	if f := s.FlushAutoPass(); !f.Saved {
+		t.Fatalf("with no game process the pass writes: %+v", f)
 	}
 }
 
@@ -209,7 +319,7 @@ func TestTheSaveFileHasOneWriterBehindTheGate(t *testing.T) {
 	// who may reach installBlob, and who may call commit (Flush is the automatic write; CommitForTests only in tests)
 	wantExact := map[string][]string{
 		"installBlob": {"internal/save.Restore", "internal/save.commit"},
-		"commit":      {"internal/save.CommitForTests", "internal/save.Flush"},
+		"commit":      {"internal/save.CommitForTests", "internal/save.flush"},
 		"renameRetry": {"internal/save.installBlob"},
 	}
 	for name, want := range wantExact {
@@ -238,9 +348,9 @@ func TestTheSaveFileHasOneWriterBehindTheGate(t *testing.T) {
 		t.Fatal("installBlob not found")
 	}
 	body := src[i:]
-	g, r := strings.Index(body, "SaveBlocked(s.Path)"), strings.Index(body, "renameRetry(tmp, s.Path)")
+	g, r := strings.Index(body, "s.gate()"), strings.Index(body, "renameRetry(tmp, s.Path)")
 	if g < 0 || r < 0 || g > r {
-		t.Fatalf("installBlob must ask SaveBlocked before the rename (gate at %d, rename at %d)", g, r)
+		t.Fatalf("installBlob must ask the game gate (s.gate) before the rename (gate at %d, rename at %d)", g, r)
 	}
 }
 

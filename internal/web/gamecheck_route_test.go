@@ -55,7 +55,7 @@ func TestGameCheckRouteSaysWhatTheCheckFoundAndTheBannerClearsWhenItWorks(t *tes
 		t.Fatalf("the block went away without a restart: %v", st)
 	}
 	defer save.ActiveSessionForTests()()
-	if _, c, body = gameCheck(t, s, true); !c.Running || !c.Blocked || c.Message != "the game is running: edits will queue" {
+	if _, c, body = gameCheck(t, s, true); !c.Running || !c.Blocked || !strings.HasPrefix(c.Message, "the game is open and edits will queue: a single-player session is active") {
 		t.Fatalf("a running game in a session queues: %s", body)
 	}
 }

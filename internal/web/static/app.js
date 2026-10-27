@@ -53,7 +53,7 @@ function giveToast(r, name, okText) {
 // An edit of the save is written to the game's file as it is made, so a message has nothing to add; act() adds a hint when it finds the edit queued instead (the game is
 // in a single-player session and rewrites the file). NOT_SAVED is that hint for the messages that are built by hand: it reads as the hint while edits are being queued
 // (the last status said so) and as nothing otherwise.
-const QUEUED_HINT = ' (queued: written when the game closes)';
+const QUEUED_HINT = ' (queued: written as soon as the save can be written)';
 // The one sentence that says a blood-sack fill is not proven in the game. It is in the tooltip and in About this, and in the result of every fill that changed a sack, because the fill does not ask first (CR-4).
 const BLOOD_UNCHECKED = ' The fill of blood sacks has not been checked in the game yet.';
 // A disabled button cannot take the keyboard focus, so a reason that is only in its title is never reached from the keyboard or by a screen reader (CR-5). The reason is drawn as text
@@ -353,9 +353,6 @@ function humanReason(raw) {
   const L = r.toLowerCase();
   const map = (text) => ({ text, raw: r });
   if (L.startsWith('could not check whether the game is running')) return map('Could not tell whether Dune: Awakening is running.');
-  if (L.includes('is running; edits are queued and written when the game closes')) return map('Queued: the game is running; applied when it closes.');
-  if (L.includes('single-player session is active')) return map('A single-player session is running, and the game rewrites the save while it runs.');
-  if (L.includes('single-player session just ended')) return map('The single-player session has just ended; the game is still finishing its write of the save.');
   if (L.includes('cannot tell whether the game is using it')) return map('This save is on a network share or a removable drive, so the editor cannot tell whether the game is using it.');
   if (L.includes('the game saved while the edits were being written')) return map('The game saved while the changes were being written; they are put back onto its file next.');
   return { text: endSentence(capFirst(r)), raw: '' };
@@ -424,7 +421,7 @@ async function status() {
   else if (o.gameCheckError && saveBlocked) mainMsg = html`<div><b>Changes cannot be written.</b> ${reason.text}${q ? html` ${q} ${n('change waits', 'changes wait')} in the queue and ${n('is written by itself', 'are written by themselves')} once the check works.` : ''} The editor checks again by itself every few seconds. <button class="b sm" data-act="checkAgain">Check again</button> <button class="b sm" data-act="writeNow">Write now</button></div>`;
   else if (q && !o.held && last && last.stuck) mainMsg = html`<div><b>${q} queued change${n(' cannot', 's cannot')} be written.</b> The game saved after ${n('it was', 'they were')} made, and the editor did not keep ${n('it', 'them')}${o.journalOff ? ' (' + o.journalOff + ')' : ''}, so ${n('it', 'they')} cannot be put back onto the game's file, which is left as it is. Discard the queue and make ${n('the change', 'the changes')} again. <button class="b sm" data-act="discardQueue">Discard queue</button></div>`;
   else if (q && !o.held) mainMsg = html`<div><b>${q} change${n(' is', 's are')} queued.</b> ${reason.text} ${n('It is written to the game file by itself', 'They are written to the game file by themselves')} as soon as it can be written. <button class="b sm" data-act="writeNow">Write now</button></div>`;
-  else if (saveBlocked && !q) mainMsg = html`<div><b>The game is running.</b> Changes you make now are queued and written when the game closes.</div>`;
+  else if (saveBlocked && !q) mainMsg = html`<div><b>Changes you make now are queued.</b> ${reason.text} They are written by themselves as soon as that clears.</div>`;
   // what became of the edits an earlier run (or a reload) put back, and the plain fact when they are not being kept
   // A change that could not be put back is dropped for good: its notice stays, even after the others are written, until it is dismissed.
   const restoredHead = !restored ? html`` : restored.applied > 0
@@ -967,8 +964,8 @@ function autoRefillCard(prefs) {
     ${prefs.lastProblem ? html`<p class="bad">${prefs.lastProblem}</p>` : ''}
     ${prefs.problem ? html`<p class="bad">${prefs.problem}</p>` : ''}
     ${prefs.notice ? html`<p class="warn" role="status" id="settingsnotice">${prefs.notice}</p>` : ''}
-    ${prefs.autoRefillOnOpen && saveBlocked ? html`<p class="mut" id="autowait">Waiting: the save cannot be written yet (see the banner above). The automatic pass runs once the game has closed.</p>` : ''}
-    ${about('bases.autorefill', 'Automatic refill and repair', html`<p class="mut">When the master switch is on, opening the editor runs the jobs ticked above as <b>one edit</b> and <b>saves straight away</b>, like every other change, so it applies the next time the game loads. Every job is ticked by default, the repairs too; the master switch is off until you turn it on. It acts only on what your character owns or carries: your own vehicles, worn equipment, loadout, inventories and bases. It waits while the game is running: nothing is written or queued, and it runs once the game has closed. When nothing needs doing nothing is written. If one job fails, nothing is changed and the error is shown here. The previous file is backed up first. Remembered between runs. The same card is on the Power and Water tabs.</p>`)}</div>`;
+    ${prefs.autoRefillOnOpen && prefs.waiting ? html`<p class="mut" id="autowait">Waiting: the game is open, and this pass never writes while it is. It runs once the game has closed.</p>` : ''}
+    ${about('bases.autorefill', 'Automatic refill and repair', html`<p class="mut">When the master switch is on, opening the editor runs the jobs ticked above as <b>one edit</b> and <b>saves straight away</b>, like every other change, so it applies the next time the game loads. Every job is ticked by default, the repairs too; the master switch is off until you turn it on. It acts only on what your character owns or carries: your own vehicles, worn equipment, loadout, inventories and bases. It waits while the game is open, even at its main menu where an edit you make yourself can be written: nothing is written or queued, and it runs once the game has closed. When nothing needs doing nothing is written. If one job fails, nothing is changed and the error is shown here. The previous file is backed up first. Remembered between runs. The same card is on the Power and Water tabs.</p>`)}</div>`;
 }
 // The console's Land Claim Editor: the claim as a grid of cells turned by the base's own yaw (north at the top), with the totem's cell,
 // the cells it has, and dotted "available" cells next to it. Click an available cell to add it, a chosen one to take it back (what is
@@ -1592,7 +1589,7 @@ const A = {
     try { pv = await api('/api/kits/preview', { name: d.name }); } catch (e) { toast(e.message, true); return; }
     if (!pv.changed) { toast(`Nothing would change: ${kitLines(pv).join('; ') || 'the kit is empty'}.`, 'part'); return; }
     const again = kitApplied.has(d.name) ? ' You applied this kit earlier in this session; applying it again gives all of it again.' : '';
-    const where = saveBlocked ? 'The game is running, so the edit is queued and written when the game closes.' : 'It is written at once, after a backup.';
+    const where = saveBlocked ? 'The save cannot be written right now, so the edit is queued and written as soon as it can be.' : 'It is written at once, after a backup.';
     const ok = await ask({ title: `Apply kit "${d.name}" to the character?`, ok: 'Apply kit', gap: true, list: kitLines(pv),
       body: `This is what would be given${pv.complete ? '' : ', and what would not fit'}. It is one edit. ${where}${again}${pv.volumeNote ? ' ' + pv.volumeNote : ''}` });
     if (!ok) return;
@@ -1733,7 +1730,7 @@ const A = {
   jclear: () => { journeyQ = ''; journeyList(); },
   jset: (d) => act(async () => { await api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }); JB = await api('/api/player/journey/browse'); journeyList(); toast('Journey updated' + NOT_SAVED); }, null),
   autoref: async (d) => {
-    if (!d.on && !(await ask({ title: 'Turn on automatic refill and repair?', body: 'From now on, opening the editor runs the jobs that are ticked on the card (refills water storage and power buildings, repairs your vehicles and your worn equipment and loadout, fills your water containers and your water, and so on) as one edit and saves to your game file immediately, like every other change. The previous file is backed up each time, and nothing happens while the game is running (it runs when the game has closed). It applies to whichever save file the editor opens.', ok: 'Turn on' }))) return;
+    if (!d.on && !(await ask({ title: 'Turn on automatic refill and repair?', body: 'From now on, opening the editor runs the jobs that are ticked on the card (refills water storage and power buildings, repairs your vehicles and your worn equipment and loadout, fills your water containers and your water, and so on) as one edit and saves to your game file immediately, like every other change. The previous file is backed up each time, and nothing happens while the game is open, not even at its menu (it runs when the game has closed). It applies to whichever save file the editor opens.', ok: 'Turn on' }))) return;
     act(async () => { const r = await api('/api/settings', { autoRefillOnOpen: !d.on }); toast('Automatic refill when the editor opens is now ' + (r.autoRefillOnOpen ? 'on' : 'off')); }, null);
   },
   claimShrink: async (d) => {

@@ -237,15 +237,25 @@ func TestCheckGameNowSaysWhatItFound(t *testing.T) {
 	}
 
 	useImages(t, theGame)
+	oldH := fileHeld
+	t.Cleanup(func() { fileHeld = oldH })
+	fileHeld = func(string) (bool, error) { return false, nil }
 	statusFor = func(string) (spStatus, error) { return spStatus{Active: true}, nil }
 	c = CheckGameNow(p)
-	if !c.Running || !c.Blocked || c.Failed || c.Message != "the game is running: edits will queue" || len(c.Processes) != 1 {
+	if !c.Running || !c.Blocked || c.Failed || !strings.HasPrefix(c.Message, "the game is open and edits will queue: a single-player session is active") || len(c.Processes) != 1 {
 		t.Fatalf("running in a session: %+v", c)
 	}
 	statusFor = func(string) (spStatus, error) { return spStatus{}, nil }
 	c = CheckGameNow(p)
-	if !c.Running || !c.Blocked || c.Failed || c.Message != "the game is running: edits will queue" { // a process exists: queued whatever the log says (#419)
+	if !c.Running || c.Blocked || c.Failed || !strings.HasPrefix(c.Message, "the game is open at its menu") || !strings.HasSuffix(c.Message, "edits are written at once") { // #449: the menu, nothing loaded, nothing held
 		t.Fatalf("running at the menu: %+v", c)
+	}
+	statusFor = func(string) (spStatus, error) {
+		return spStatus{EndedAt: time.Now().Add(-23 * time.Second), LastSaveAt: time.Now().Add(-20 * time.Second)}, nil
+	}
+	c = CheckGameNow(p)
+	if !c.Running || !c.Blocked || c.Failed || !strings.Contains(c.Message, "wrote its database 20 seconds ago") { // the #419 case stays queued, and says why
+		t.Fatalf("just left the world: %+v", c)
 	}
 
 	useImages(t, snapFail)

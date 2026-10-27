@@ -47,19 +47,19 @@ test('Automatic refill card: the job descriptions are tooltips, the reason a job
   ui.dom.window.close();
 });
 
-test('Automatic refill card: the waiting line is drawn only while the master switch is on and the save cannot be written', async () => {
+test('Automatic refill card: the waiting line is drawn only while the master switch is on and the pass is waiting for the game to close', async () => {
   let ui = await boot({ get: { '/api/bases/list': BASE7, '/api/settings': prefs() } });
   await bases(ui);
   assert.equal(ui.doc.querySelector('#autowait'), null, 'nothing is blocking: no waiting line');
   ui.dom.window.close();
 
-  const blocked = { path: 'C:\\x\\game.db', pending: [], dirty: false, saveBlocked: true, blockReason: 'Dune.exe is running; edits are queued and written when the game closes', changedOnDisk: false };
-  ui = await boot({ get: { '/api/bases/list': BASE7, '/api/settings': prefs(), '/api/save/state': blocked } });
+  const blocked = { path: 'C:\\x\\game.db', pending: [], dirty: false, saveBlocked: true, blockReason: 'the game wrote its database 20 seconds ago and does that every 60 seconds while a world is loaded; it must be quiet for 3 minutes first (about 160 seconds more); edits stay queued until this clears, or the game closes', changedOnDisk: false };
+  ui = await boot({ get: { '/api/bases/list': BASE7, '/api/settings': prefs({ waiting: true }), '/api/save/state': blocked } });
   await bases(ui);
-  assert.ok(visibleText(ui.doc.querySelector('#main')).includes('Waiting: the save cannot be written yet'), 'the pass is waiting');
+  assert.ok(visibleText(ui.doc.querySelector('#main')).includes('Waiting: the game is open, and this pass never writes while it is'), 'the pass is waiting');
   ui.dom.window.close();
 
-  ui = await boot({ get: { '/api/bases/list': BASE7, '/api/settings': prefs({ autoRefillOnOpen: false }), '/api/save/state': blocked } });
+  ui = await boot({ get: { '/api/bases/list': BASE7, '/api/settings': prefs({ autoRefillOnOpen: false, waiting: true }), '/api/save/state': blocked } });
   await bases(ui);
   assert.equal(ui.doc.querySelector('#autowait'), null, 'switched off: nothing to wait for');
   ui.dom.window.close();
