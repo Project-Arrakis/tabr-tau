@@ -195,6 +195,7 @@ test('Vehicles: Duplicate asks first, says the game has not been shown to accept
   assert.ok(dlg, 'the first press only asks');
   assert.equal(ui.posted.filter((p) => p.path === '/api/vehicles/duplicate').length, 0, 'nothing is sent before the answer');
   assert.ok(dlg.textContent.includes('has not been checked') && /backup/i.test(dlg.textContent), 'the question says it is not proven in the game and that the backup undoes it');
+  assert.ok(dlg.textContent.includes('Only your own permission is copied, not the permission of any other player'), 'the question says which permission the copy gets (CR-10)');
   ui.click('#aok'); await ui.settle();
   assert.deepEqual(ui.posted.filter((p) => p.path === '/api/vehicles/duplicate').map((p) => p.body), [{ id: 152 }]);
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Made vehicle 1700'), ui.doc.querySelector('#toast').textContent);

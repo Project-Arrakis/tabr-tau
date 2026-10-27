@@ -225,7 +225,7 @@ test('every field of the Care package tab has an accessible name, with the edito
 });
 
 // Apply kit (slice 3). The editor's answers are the shape of internal/ops/kit.go.
-const WHOLE = { ok: true, kit: 'Starter', dryRun: false, complete: true, changed: true, requested: 1001, given: 1001, notGiven: [], volumeNote: '',
+const WHOLE = { ok: true, kit: 'Starter', kitHash: '0123456789abcdef', dryRun: false, complete: true, changed: true, requested: 1001, given: 1001, notGiven: [], volumeNote: '',
   lines: [{ template_id: 'SpicedFuelCell', name: 'Spice-infused Fuel Cell', requested: 1000, given: 1000, reason: '', limit: '' }, { template_id: 'Combat_Heavy_Unique_Reinforced_Helmet_06', name: 'Bulwark Helmet', requested: 1, given: 1, reason: '', limit: '' }],
   xp: { requested: 215, applied: 215, levelBefore: 0, levelAfter: 2, capped: false }, skillPoints: { requested: 3, applied: 3, capped: false } };
 const PARTIAL = { ...WHOLE, complete: false, requested: 2001, given: 1500, notGiven: [{ name: 'Spice-infused Fuel Cell', requested: 2000, short: 500, reason: 'the backpack is full' }],
@@ -248,7 +248,7 @@ test('Apply shows the dry run first, applies nothing on Cancel, and applies once
   ui.click('table [data-act="kitApply"]'); await ui.settle();
   await ui.wait(450); // the gap the question keeps against a double click
   ui.click('#aok'); await ui.settle();
-  assert.deepEqual(posts(ui, '/api/kits/apply').map((x) => x.body), [{ name: 'Starter' }]);
+  assert.deepEqual(posts(ui, '/api/kits/apply').map((x) => x.body), [{ name: 'Starter', kitHash: '0123456789abcdef' }], 'the apply carries the hash of the kit the question was about');
   const t = ui.doc.querySelector('#toast');
   assert.ok(t.textContent.includes('Applied kit "Starter": 1,000 x Spice-infused Fuel Cell') && !t.textContent.includes('queued') && !t.querySelector('.part'), t.textContent);
   // a second time says that it was applied before
@@ -303,5 +303,19 @@ test('Apply is off for a kit that cannot be used; a refused preview asks nothing
   ui.click('table [data-act="kitApply"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Nothing would change'));
   assert.equal(posts(ui, '/api/kits/apply').length, 0);
+  ui.dom.window.close();
+});
+
+// CR-3: the kit changed between the question and the answer: the editor refuses (409) and the page says so, with no "Applied" and no further request.
+test('a kit that changed after the question is not applied and the refusal is shown', async () => {
+  const ui = await boot({ get: { '/api/kits': KITS([STARTER]) }, post: { '/api/kits/preview': { ...WHOLE, dryRun: true },
+    '/api/kits/apply': { __fail: 'The kit "Starter" has changed since you were asked. Nothing was applied. Look at the kit and apply it again.', __code: 'conflict', __status: 409 } } });
+  await open(ui);
+  ui.click('table [data-act="kitApply"]'); await ui.settle();
+  await ui.wait(450);
+  ui.click('#aok'); await ui.settle();
+  const t = ui.doc.querySelector('#toast');
+  assert.ok(t.querySelector('.err') && t.textContent.includes('has changed since you were asked') && !t.textContent.includes('Applied kit'), t.textContent);
+  assert.equal(posts(ui, '/api/kits/apply').length, 1);
   ui.dom.window.close();
 });

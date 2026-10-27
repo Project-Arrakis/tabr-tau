@@ -151,6 +151,9 @@ func (o *Ops) SetTaskProgress(a Args) (any, error) {
 	if amt < 0 {
 		return nil, apierr.New(apierr.ErrBadArgument, "amount must be >= 0")
 	}
+	if amt > maxTier { // the game's numbers pass the goal (#363) but not a billion: keep a REAL column to a value it holds exactly (CR-6)
+		return nil, apierr.Newf(apierr.ErrBadArgument, "amount must be at most %s", commas(int64(maxTier)))
+	}
 	if _, err := o.run(fmt.Sprintf("landsraad task %d faction %d progress = %g", t, f, amt), `insert into landsraad_task_faction_contributions(faction_id, task_id, amount) values(?,?,?)
 		on conflict(faction_id, task_id) do update set amount=excluded.amount`, f, t, amt); err != nil {
 		return nil, err
