@@ -12,7 +12,7 @@ afterEach(closeAll);
 
 const css = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'internal', 'web', 'static', 'app.css'), 'utf8');
 // the declarations of the rule whose selector list is exactly this selector
-const rule = (sel) => { const m = css.match(new RegExp('(?:^|})\\s*' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\{([^}]*)\\}', 'm')); return m ? m[1] : null; };
+const rule = (sel) => { const at = css.indexOf(sel + '{'); return at < 0 ? null : css.slice(at + sel.length + 1, css.indexOf('}', at)); };
 
 const BASE7 = [{ base_id: 7, name: 'Base', base_type: 'Advanced Sub-Fief', owner: 'Owner', map: 'HaggaBasin', generators: 0, pieces: 0, placeables: 0, x: 0, y: 0, z: 0 }];
 const claim = (yaw) => [{ totem_id: 7, name: 'Totem', cells: 2, rings: 0, level: 1, irregular: true, maxRings: 5, maxLevel: 5, yaw, segments: [{ x: 1, y: 0 }], grid: [{ x: 0, y: 0, in: true, n: 0 }, { x: 1, y: 0, in: true, n: 3 }] }];
