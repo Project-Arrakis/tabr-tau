@@ -22,7 +22,7 @@ const board = (faction = 1) => ({
 });
 
 async function open(extra = {}, data = board()) {
-  const ui = await boot({ get: { '/api/landsraad': data }, post: { '/api/landsraad/mine-many': { ok: true, changed: 2, noop: false, houses: 2, faction_changed: 0, outcome: 'written' }, ...extra } });
+  const ui = await boot({ get: { '/api/landsraad': data }, post: { '/api/landsraad/mine-many': { ok: true, changed: 2, noop: false, houses: 2, contribution_changed: 2, faction_changed: 0, outcome: 'written' }, ...extra } });
   ui.freeze();
   ui.click('[data-tab="landsraad"]'); await ui.settle();
   return ui;
@@ -58,24 +58,17 @@ test('Choose all houses and Clear the choice', async () => {
   assert.ok([...ui.doc.querySelectorAll('[data-lshouse], [data-lstier]')].every((b) => !b.checked && !b.disabled));
 });
 
-test('Fill chosen asks with the number of houses to type, then sends the highest tier per house, the term and the confirmed count', async () => {
+test('Fill chosen asks nothing: one press sends the highest tier per house, the term and the count, and the result says the rewards are not written (#450)', async () => {
   const ui = await open();
   tick(ui, '[data-lshouse="900"]');                   // all five tiers of Alexin
   tick(ui, '[data-lstier="2400"][data-lsid="901"]');  // single tiers of Thorvald: 2,400 and 3,600
   tick(ui, '[data-lstier="3600"][data-lsid="901"]');
   tick(ui, '[data-lstier="1200"][data-lsid="902"]');  // already above it
   ui.click('[data-act="lsFill"]'); await ui.settle();
-  const dlg = ui.doc.querySelector('#ask [role="dialog"]');
-  assert.ok(dlg, 'a question is asked');
-  assert.equal(mine(ui).length, 0, 'nothing is sent before the answer');
-  assert.ok(dlg.textContent.includes('Fill your contribution on 2 houses?'), dlg.textContent);
-  assert.ok(dlg.textContent.includes('Type fill 2 houses to continue'), dlg.textContent);
-  assert.ok(/rewards themselves are not written/.test(dlg.textContent) && /faction's progress is not changed/.test(dlg.textContent), dlg.textContent);
-  ui.type('fill 2 houses');
-  ui.tick(GAP);
-  ui.click('#aok'); await ui.settle();
+  assert.equal(ui.doc.querySelector('#ask [role="dialog"]'), null, 'no question is asked');
   assert.deepEqual(mine(ui).map((p) => p.body), [{ term_id: 7, items: [{ task_id: 900, tier: 6000 }, { task_id: 901, tier: 3600 }, { task_id: 902, tier: 1200 }], with_faction: false, expected: 2 }]);
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Your contribution raised on 2 houses'), ui.doc.querySelector('#toast').textContent);
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('The rewards themselves are not written'), 'the result stays honest about the rewards');
   assert.ok([...ui.doc.querySelectorAll('[data-lshouse], [data-lstier]')].every((b) => !b.checked), 'the choice is cleared after the fill');
 });
 
@@ -88,22 +81,17 @@ test('with the faction box ticked the faction goal is part of the count and of t
   tick(ui, '#lwf');
   assert.ok(sum(ui).includes('or the faction goal'), sum(ui));
   ui.click('[data-act="lsFill"]'); await ui.settle();
-  assert.ok(ui.doc.querySelector('#ask [role="dialog"]').textContent.includes('Type fill 1 house to continue'));
-  ui.type('fill 1 house'); ui.tick(GAP); ui.click('#aok'); await ui.settle();
+  assert.equal(ui.doc.querySelector('#ask [role="dialog"]'), null, 'no question is asked');
   assert.deepEqual(mine(ui).map((p) => p.body), [{ term_id: 7, items: [{ task_id: 902, tier: 6000 }], with_faction: true, expected: 1 }]);
+  assert.equal(ui.doc.querySelector('#toast').textContent.startsWith('Your contribution'), false, 'the result does not call a faction-only change a contribution change');
 });
 
-test('Cancel sends nothing and keeps the choice; nothing chosen asks nothing', async () => {
+test('nothing chosen sends nothing and asks nothing', async () => {
   const ui = await open();
   ui.click('[data-act="lsFill"]'); await ui.settle();
   assert.equal(ui.doc.querySelector('#ask [role="dialog"]'), null);
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Nothing is chosen'));
-  tick(ui, '[data-lshouse]');
-  ui.click('[data-act="lsFill"]'); await ui.settle();
-  ui.tick(GAP);
-  ui.click('[data-act="askNo"]'); await ui.settle();
   assert.equal(mine(ui).length, 0);
-  assert.equal(ui.doc.querySelector('[data-lshouse="900"]').checked, true, 'the choice is kept');
 });
 
 test('a character in no faction cannot fill: the reason is said and no question is asked', async () => {
@@ -116,10 +104,22 @@ test('a character in no faction cannot fill: the reason is said and no question 
 });
 
 test('a refused fill (the board changed) shows the reason and keeps the choice', async () => {
-  const ui = await open({ '/api/landsraad/mine-many': { __fail: 'the number of houses to fill is now 1, not the 2 you confirmed, so nothing was changed: reload the page and look again', __code: 'conflict', __status: 409 } });
+  const ui = await open({ '/api/landsraad/mine-many': { __fail: 'the number of houses to fill is now 1, not the 2 the page counted, so nothing was changed: reload the page and look again', __code: 'conflict', __status: 409 } });
   tick(ui, '[data-lshouse="900"]'); tick(ui, '[data-lshouse="901"]');
   ui.click('[data-act="lsFill"]'); await ui.settle();
-  ui.type('fill 2 houses'); ui.tick(GAP); ui.click('#aok'); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('nothing was changed'), ui.doc.querySelector('#toast').textContent);
   assert.equal(ui.doc.querySelector('[data-lshouse="900"]').checked, true);
+});
+
+test('the result line says what changed: the contribution on some houses, the faction goal on others, or the faction goal alone (#453)', async () => {
+  let ui = await open({ '/api/landsraad/mine-many': { ok: true, changed: 3, noop: false, houses: 3, contribution_changed: 2, faction_changed: 2, outcome: 'written' } });
+  tick(ui, '[data-lshouse="900"]'); tick(ui, '#lwf');
+  ui.click('[data-act="lsFill"]'); await ui.settle();
+  let t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.includes('Your contribution raised on 2 houses, the faction goal on 2 houses. The rewards themselves are not written.'), t);
+  ui = await open({ '/api/landsraad/mine-many': { ok: true, changed: 1, noop: false, houses: 1, contribution_changed: 0, faction_changed: 1, outcome: 'written' } });
+  tick(ui, '[data-lshouse="902"]'); tick(ui, '#lwf');
+  ui.click('[data-act="lsFill"]'); await ui.settle();
+  t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.startsWith('The faction goal on 1 house. ') && !t.includes('Your contribution'), t);
 });

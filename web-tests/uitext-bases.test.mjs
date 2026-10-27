@@ -29,10 +29,11 @@ test('Power and Water: what the refill buttons do is a tooltip; the "every base"
   let main = await bases(ui);
   moves(main, ['Tops up Fuel-Powered and Spice-Powered Generators (499)', 'Buildings that are only placeholders are left alone']);
   assert.ok(visibleText(main).includes('Refill power (every base)'));
-  assert.equal(ui.doc.querySelector('[data-act="refillGen"]').dataset.confirm, 'Yes, refill power on every base');
+  assert.equal(ui.doc.querySelector('[data-act="refillGen"]').dataset.confirm, undefined, 'a top-up does not ask first (#450)');
   main = await bases(ui, 'water');
   moves(main, ['Fills every Water Cistern, Medium Water Cistern', 'The blood in a Blood Purifier is not touched']);
   assert.ok(visibleText(main).includes('Refill base water (every base)'));
+  assert.equal(ui.doc.querySelector('[data-act="refillWater"]').dataset.confirm, undefined, 'a top-up does not ask first (#450)');
   ui.dom.window.close();
 });
 
