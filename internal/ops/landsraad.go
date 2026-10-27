@@ -441,9 +441,9 @@ func parseFillItems(a Args) ([]fillItem, error) {
 }
 
 // FillMyContributions raises the character's own contribution on several houses of the current term in one edit (args items: [{task_id, tier}], one entry per house with the
-// highest tier chosen for it; with_faction: also raise the faction's progress on each to its goal; term_id: the term the page showed; expected: the number of houses the person
-// confirmed would change). Inside the edit the term is compared with term_id and the houses that would change are counted again with the rules of the single fill; a term or a
-// count that is not the confirmed one is refused with a conflict and nothing is written. A house whose contribution is already at or above its tier does not count and is not
+// highest tier chosen for it; with_faction: also raise the faction's progress on each to its goal; term_id: the term the page showed; expected: the number of houses the page counted would change (the page no longer asks first, #450; the count still guards against a board that changed between the click and the edit).
+// Inside the edit the term is compared with term_id and the houses that would change are counted again with the rules of the single fill; a term or a
+// count that is not the expected one is refused with a conflict and nothing is written. A house whose contribution is already at or above its tier does not count and is not
 // written. Either every house is filled or none is: any refusal rolls the edit back. The reward rows are never written.
 func (o *Ops) FillMyContributions(a Args) (any, error) {
 	items, err := parseFillItems(a)
@@ -491,7 +491,7 @@ func (o *Ops) FillMyContributions(a Args) (any, error) {
 			}
 		}
 		if changed != expected {
-			return apierr.Newf(apierr.ErrConflict, "the number of houses to fill is now %d, not the %d you confirmed, so nothing was changed: reload the page and look again", changed, expected)
+			return apierr.Newf(apierr.ErrConflict, "the number of houses to fill is now %d, not the %d the page counted, so nothing was changed: reload the page and look again", changed, expected)
 		}
 		for _, it := range items {
 			_, _, fch, _, err := fillMine(m, me, it.task, it.tier, withFaction, true)

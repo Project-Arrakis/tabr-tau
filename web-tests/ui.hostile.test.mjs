@@ -520,16 +520,14 @@ test('a far-reaching action needs the word typed, and Escape cancels', async () 
   ui.dom.window.close();
 });
 
-test('the Bases upkeep buttons ask on the button itself (no dialog), then run on the second press: the edit is written and a backup is kept', async () => {
+test('the Bases upkeep buttons: Repair runs on the first press, Clear sand asks on the button itself (no dialog) and runs on the second (#450)', async () => {
   const ui = await boot({ post: { '/api/bases/repair': { ok: true, pieces: 3, placeables: 1 }, '/api/bases/clear-sand': { ok: true, pieces: 2 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:bases"]'); await ui.settle();
   ui.click('[data-bstab="structures"]'); await ui.settle();
   ui.click('[data-act="repairB"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'no dialog');
-  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/repair').length, 0, 'the first press only asks');
-  await new Promise((r) => ui.w.setTimeout(r, 450)); ui.click('[data-act="repairB"]'); await ui.settle();
-  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/repair').length, 1);
+  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/repair').length, 1, 'a top-up runs on the first press');
   ui.click('[data-act="sand"]'); await ui.settle();
   assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 0, 'the first press only asks');
   await new Promise((r) => ui.w.setTimeout(r, 450)); ui.click('[data-act="sand"]'); await ui.settle();
@@ -1589,12 +1587,12 @@ test('base and vehicle upkeep buttons post, and unknown building names stay plai
   ui.click('[data-tab=\"player\"]'); await ui.settle();
   ui.click('[data-sub=\"player:bases\"]'); await ui.settle();
   ui.click('[data-bstab="water"]'); await ui.settle();
-  ui.click('[data-act="refillWater"]'); await new Promise((r) => ui.w.setTimeout(r, 450)); ui.click('[data-act="refillWater"]'); await ui.settle();
+  ui.click('[data-act="refillWater"]'); await ui.settle();
   let toast = ui.doc.querySelector('#toast');
   assert.ok(toast.textContent.includes('Refilled 2 Medium Water Cisterns (1 already full)') && toast.textContent.includes(hostile), toast.textContent);
   assert.equal(toast.querySelector('img'), null);
   ui.click('[data-bstab="power"]'); await ui.settle();
-  ui.click('[data-act="refillGen"]'); await new Promise((r) => ui.w.setTimeout(r, 450)); ui.click('[data-act="refillGen"]'); await ui.settle();
+  ui.click('[data-act="refillGen"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Refilled 2 Omnidirectional Wind Turbines, 1 Windtrap'));
   ui.click('[data-tab=\"player\"]'); await ui.settle();
   ui.click('[data-sub=\"player:vehicles\"]'); await ui.settle();
@@ -2002,35 +2000,39 @@ test('Character > Overview has one Money card for the backpack Solari and the wa
   ui.dom.window.close();
 });
 
-test('a bulk action on every base asks on its own button: the label says what will happen, another press, Escape or leaving cancels, the second press runs it (GRC-2)', async () => {
+test('Clear sand on every base asks on its own button: the label says what will happen, another press, Escape or leaving cancels, the second press runs it (GRC-2); the top-ups on the same page do not ask (#450)', async () => {
   const ui = await boot({ post: { '/api/bases/repair': { ok: true, pieces: 3, placeables: 1 }, '/api/bases/clear-sand': { ok: true, pieces: 2 }, '/api/bases/refill-water': { ok: true, filled: 1, alreadyFull: 0, summary: '1 Cistern' } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:bases"]'); await ui.settle();
   ui.click('[data-bstab="structures"]'); await ui.settle();
-  const btn = () => ui.doc.querySelector('[data-act="repairB"]');
+  const btn = () => ui.doc.querySelector('[data-act="sand"]');
   const was = btn().textContent;
   const sent = (p) => ui.posted.filter((x) => x.path === p).length;
-  ui.click('[data-act="repairB"]'); await ui.settle();
-  assert.equal(btn().textContent, 'Yes, repair every base', 'the button now says what pressing it again does');
+  assert.equal(ui.doc.querySelector('[data-act="repairB"]').dataset.confirm, undefined, 'Repair every base is a top-up: no ask');
+  ui.click('[data-act="sand"]'); await ui.settle();
+  assert.equal(btn().textContent, 'Yes, clear sand on every base', 'the button now says what pressing it again does');
   assert.ok(ui.doc.querySelector('#sr').textContent.includes('Press the button again'), 'and the live region says it aloud');
-  assert.equal(sent('/api/bases/repair'), 0);
+  assert.equal(sent('/api/bases/clear-sand'), 0);
   assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'no dialog opened: the keyboard is not trapped');
   // Escape cancels
   ui.doc.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   assert.equal(btn().textContent, was); assert.equal(btn().dataset.armed, undefined); assert.equal(ui.doc.querySelector('#sr').textContent, '');
-  // pressing a different button cancels the first and arms the second; nothing is sent
-  ui.click('[data-act="repairB"]');
-  ui.click('[data-act="sand"]');
-  assert.equal(btn().textContent, was, 'the first is back');
-  assert.equal(ui.doc.querySelector('[data-act="sand"]').textContent, 'Yes, clear sand on every base');
-  assert.equal(sent('/api/bases/repair') + sent('/api/bases/clear-sand'), 0, 'asking sends nothing');
+  // pressing a different button cancels the ask (the top-up beside it runs at once, being a top-up); the sand is not cleared
+  ui.click('[data-act="sand"]'); await ui.settle();
+  assert.equal(btn().dataset.armed, '1');
+  ui.click('[data-act="repairB"]'); await ui.settle();
+  assert.equal(btn().textContent, was, 'the ask is back to the plain label');
+  assert.equal(sent('/api/bases/repair'), 1, 'the top-up ran on its first press');
+  assert.equal(sent('/api/bases/clear-sand'), 0, 'asking sends nothing');
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Repaired 3 pieces'), 'and says what it did');
   // leaving the button cancels
-  ui.doc.querySelector('[data-act="sand"]').dispatchEvent(new ui.w.FocusEvent('focusout', { bubbles: true }));
-  assert.equal(ui.doc.querySelector('[data-act="sand"]').textContent, 'Clear sand on every base');
+  ui.click('[data-act="sand"]'); await ui.settle();
+  btn().dispatchEvent(new ui.w.FocusEvent('focusout', { bubbles: true }));
+  assert.equal(btn().textContent, was);
   // the second press of the same button runs it once and the page goes back to the plain label
-  ui.click('[data-act="repairB"]'); await new Promise((r) => ui.w.setTimeout(r, 450)); ui.click('[data-act="repairB"]'); await ui.settle();
-  assert.equal(sent('/api/bases/repair'), 1);
-  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Repaired 3 pieces'));
+  ui.click('[data-act="sand"]'); await new Promise((r) => ui.w.setTimeout(r, 450)); ui.click('[data-act="sand"]'); await ui.settle();
+  assert.equal(sent('/api/bases/clear-sand'), 1);
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Cleared 2 pieces'));
   assert.equal(btn().textContent, was);
   ui.dom.window.close();
 });
@@ -2063,16 +2065,16 @@ test('a browser that blocks local storage (it throws on the first touch) still s
 });
 
 test('two presses of an armed bulk button less than 400 ms apart do not run it; a press after the gap does, whatever its click count (review B1, R6 L7)', async () => {
-  const ui = await boot({ post: { '/api/bases/repair': { ok: true, pieces: 3, placeables: 1 } } });
+  const ui = await boot({ post: { '/api/bases/clear-sand': { ok: true, pieces: 2 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:bases"]'); await ui.settle();
   ui.click('[data-bstab="structures"]'); await ui.settle();
-  const btn = () => ui.doc.querySelector('[data-act="repairB"]');
-  const sent = () => ui.posted.filter((x) => x.path === '/api/bases/repair').length;
+  const btn = () => ui.doc.querySelector('[data-act="sand"]');
+  const sent = () => ui.posted.filter((x) => x.path === '/api/bases/clear-sand').length;
   // two clicks back to back: the second is ignored, the button keeps asking
-  ui.click('[data-act="repairB"]'); ui.click('[data-act="repairB"]'); await ui.settle();
+  ui.click('[data-act="sand"]'); ui.click('[data-act="sand"]'); await ui.settle();
   assert.equal(sent(), 0, 'two presses at once are not a decision');
-  assert.equal(btn().textContent, 'Yes, repair every base', 'and it is still asking');
+  assert.equal(btn().textContent, 'Yes, clear sand on every base', 'and it is still asking');
   // the second half of a double click that comes within the gap is the same movement of the hand
   btn().dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true, detail: 2 })); await ui.settle();
   assert.equal(sent(), 0, 'a press within the gap does not run it');

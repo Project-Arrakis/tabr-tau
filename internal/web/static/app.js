@@ -491,8 +491,8 @@ function endAsk(v) {
 document.addEventListener('input', (e) => { if (askState && e.target.id === 'atype') $('#aok').disabled = e.target.value.trim().toLowerCase() !== askState.typed.toLowerCase(); });
 
 // ---------- one-button confirmation
-// A button with data-confirm acts on every base at once and is written at once, so the first press only asks: the same button turns into "Yes, ..." for a few seconds and
-// the second press runs it. Pressing anything else, leaving the button or pressing Escape cancels. It is inline on purpose (no dialog to trap the keyboard) and the
+// A button with data-confirm destroys or resets something (clear a container, clear sand, put a setting back to its default), so the first press only asks: the same button turns into "Yes, ..." for a few seconds and
+// the second press runs it. A top-up (a refill or a repair) never asks: it is written as it is made, the result line says what changed and the backup taken first is the undo. Pressing anything else, leaving the button or pressing Escape cancels. It is inline on purpose (no dialog to trap the keyboard) and the
 // change of wording is also said aloud through the page's live region.
 const ARM_MS = 15000;
 const ARM_GAP_MS = 400; // a second press sooner than this after the first is the same movement of the hand (a double click, a bouncing switch), not a decision
@@ -1095,13 +1095,13 @@ async function basesView() {
       const prefs = await api('/api/settings');
       h.push(html`<div class="card"><h3>Power</h3>${pw.types.length ? tbl([{ k: 'name', label: 'Building' }, { k: 'devices', label: 'Built' },
         { k: 'queued', label: 'Holds', f: (r) => Number(r.queued).toLocaleString() + (r.fuel ? ' ' + itemName(r.fuel) : '') }, { k: 'capacity', label: 'Full', f: (r) => (r.capacity ? Number(r.capacity).toLocaleString() : '-') }, { k: 'empty', label: 'Empty' }], pw.types) : html`<p class="mut">No generators, wind turbines or windtraps built at this base.</p>`}
-        <div class="row">${tip('gentip', 'Tops up Fuel-Powered and Spice-Powered Generators (499), Omnidirectional Wind Turbines (Low-grade Lubricant) and Directional Wind Turbines (Industrial-grade Lubricant), five stacks of 100 and 499 in all, and Windtraps and Large Windtraps (5 filters, always the best filter for the machine). Buildings that are only placeholders are left alone.', html`<button class="b" data-act="refillGen" data-confirm="Yes, refill power on every base" aria-describedby="gentip">Refill power (every base)</button>`)}</div></div>
+        <div class="row">${tip('gentip', 'Tops up Fuel-Powered and Spice-Powered Generators (499), Omnidirectional Wind Turbines (Low-grade Lubricant) and Directional Wind Turbines (Industrial-grade Lubricant), five stacks of 100 and 499 in all, and Windtraps and Large Windtraps (5 filters, always the best filter for the machine). Buildings that are only placeholders are left alone.', html`<button class="b" data-act="refillGen" aria-describedby="gentip">Refill power (every base)</button>`)}</div></div>
     ${autoRefillCard(prefs)}`);
     } else if (bsTab == 'water') {
       const w = await api('/api/bases/water?base=' + id);
       h.push(html`<div class="card"><h3>Water</h3>${w.types.length ? tbl([{ k: 'name', label: 'Building' }, { k: 'devices', label: 'Built' }, { k: 'stored', label: 'Water stored', f: (r) => Number(r.stored).toLocaleString() },
         { k: 'capacity', label: 'Capacity', f: (r) => (r.capacity ? Number(r.capacity).toLocaleString() : '-') }, { k: 'fillPercent', label: 'Fill', f: (r) => (r.fillPercent == null ? '-' : Math.round(r.fillPercent) + '%') }], w.types) : html`<p class="mut">No water storage at this base.</p>`}
-        <div class="row">${tip('watertip', 'Fills every Water Cistern, Medium Water Cistern, Large Water Cistern, Windtrap, Large Windtrap and Blood Purifier to its capacity. The blood in a Blood Purifier is not touched, and a building that is only a placeholder is left alone.', html`<button class="b" data-act="refillWater" data-confirm="Yes, refill water on every base" aria-describedby="watertip">Refill base water (every base)</button>`)}</div></div>
+        <div class="row">${tip('watertip', 'Fills every Water Cistern, Medium Water Cistern, Large Water Cistern, Windtrap, Large Windtrap and Blood Purifier to its capacity. The blood in a Blood Purifier is not touched, and a building that is only a placeholder is left alone.', html`<button class="b" data-act="refillWater" aria-describedby="watertip">Refill base water (every base)</button>`)}</div></div>
     ${autoRefillCard(await api('/api/settings'))}`);
     } else if (bsTab == 'inventory') {
       const inv = await api('/api/bases/inventory?base=' + id);
@@ -1116,7 +1116,7 @@ async function basesView() {
       const b = await api('/api/bases');
       const p = b.pieces || {};
       h.push(html`<div class="card"><h3>Structure health</h3><div class="grid">${kv('Building pieces', p.n)}${kv('Lowest health', fix(p.minh))}${kv('Average health', fix(p.avgh))}${kv('Total sand buildup', fix(p.sand))}</div>
-        <div class="row">${tip('repairbtip', 'Repair sets each piece to the highest health seen for its type.', html`<button class="b" data-act="repairB" data-confirm="Yes, repair every base" aria-describedby="repairbtip">Repair every base to max</button>`)}<button class="b sec" data-act="sand" data-confirm="Yes, clear sand on every base">Clear sand on every base</button></div></div>`);
+        <div class="row">${tip('repairbtip', 'Repair sets each piece to the highest health seen for its type.', html`<button class="b" data-act="repairB" aria-describedby="repairbtip">Repair every base to max</button>`)}<button class="b sec" data-act="sand" data-confirm="Yes, clear sand on every base">Clear sand on every base</button></div></div>`);
       h.push(html`<div class="card"><h3>Placeables (${b.placeables.length})</h3>${tbl([{ k: 'id' }, { k: 'building_type', label: 'Type' }, { k: 'health', label: 'Health', f: (r) => (r.health == null ? '' : fix(r.health)) }], b.placeables, { empty: 'No placeables in this save.' })}</div>
         <div class="card"><h3>Building piece types</h3>${tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], b.types, { empty: 'No building pieces in this save.' })}</div>`);
     } else {
@@ -1767,12 +1767,10 @@ const A = {
     if (!plan.items.length) { toast('Nothing is chosen. Choose houses or single tiers first.'); return; }
     if (!plan.changed) { toast('Nothing to change: your contribution is already at or above what was chosen' + (withFaction ? ' and the faction goal is already reached.' : '.')); return; }
     const n = plan.changed;
-    if (!(await ask({ title: `Fill your contribution on ${nn(n, 'house', 'houses')}?`, ok: 'Fill chosen', typed: `fill ${n} ${n === 1 ? 'house' : 'houses'}`,
-      body: `Your own contribution is raised, on each of ${nn(n, 'house', 'houses')} that is below it, to the highest tier chosen for the house (a house chosen whole is raised to its last tier). A contribution already at or above the tier is not lowered.${withFaction ? " The faction's progress on each is raised to the house goal." : " The faction's progress is not changed."} The rewards themselves are not written; whether the game hands out a tier after it loads the save is not known. One edit, with the usual backup.` }))) return;
     return act(async () => {
       const r = await api('/api/landsraad/mine-many', { term_id: l.term.term_id, items: plan.items, with_faction: withFaction, expected: n });
       LS = { houses: new Set(), tiers: new Set() };
-      toast(r.changed ? `Your contribution raised on ${nn(r.changed, 'house', 'houses')}` + (r.faction_changed ? `, and the faction goal on ${r.faction_changed}` : '') + NOT_SAVED : 'Nothing to change.');
+      toast(r.changed ? `Your contribution raised on ${nn(r.changed, 'house', 'houses')}` + (r.faction_changed ? `, and the faction goal on ${r.faction_changed}` : '') + '. The rewards themselves are not written.' + NOT_SAVED : 'Nothing to change.');
     }, null);
   },
   mfill: (d) => act(async () => { const r = await api('/api/landsraad/mine', { task_id: +d.id, tier: +d.tier, with_faction: !!($('#lwf') || {}).checked }); toast(r.changed ? `Your contribution ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()}` + (r.faction_changed ? ", and your faction's progress is at the house goal" : '') + NOT_SAVED : 'Nothing to change: your contribution is already at or above that tier.'); }, null),

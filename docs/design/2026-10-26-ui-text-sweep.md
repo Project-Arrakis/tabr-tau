@@ -90,7 +90,7 @@ the help is this repository's README; both are covered under their pages.
 | H17 | locked.html | Tabr Tau is running, but this browser tab is not signed in (3 lines) | error | keep (the whole page is this error) |
 | H18 | 495 | A backup of the save is taken before the change is written ... Restore on the Database tab puts it back | background (backup and undo) | keep (inside the reset questions only, not drawn on a page) |
 
-Toasts and the questions that ask first (`ask()`, the two-press buttons) are results, errors and consequences, not permanent text, and are outside this sweep.
+Toasts and the questions that ask first (`ask()`, the two-press buttons) are results, errors and consequences, not permanent text, and are outside this sweep. The two-press ask is kept for what destroys or resets (Clear this container, Clear sand on every base, the config Reset); a top-up (Refill power, Refill base water, Repair every base, Fill chosen on the Landsraad board) does not ask, because it is written as it is made, its result line says what changed and the backup taken first is the undo (#450).
 
 ### Player summary (above every Player page)
 
@@ -207,11 +207,11 @@ Toasts and the questions that ask first (`ask()`, the two-press buttons) are res
 |---|---|---|---|---|
 | B1 | 1046-1048 | The bases table; `Picked up` tag with a title; `No bases yet: build one in the game, then reload.` | state | keep |
 | B2 | 1056 | `No generators, wind turbines or windtraps built at this base.` | state | keep |
-| B3 | 1057 | Refill power: Tops up Fuel-Powered and Spice-Powered Generators (499), Omnidirectional Wind Turbines (Low-grade Lubricant) and Directional ... five stacks of 100 and 499 in all ... Windtraps and Large Windtraps (5 filters ...). Buildings that are only placeholders are left alone. | explanation, limit | tooltip on the button (the label says `every base` and the second press says it again), and the card's About this |
+| B3 | 1057 | Refill power: Tops up Fuel-Powered and Spice-Powered Generators (499), Omnidirectional Wind Turbines (Low-grade Lubricant) and Directional ... five stacks of 100 and 499 in all ... Windtraps and Large Windtraps (5 filters ...). Buildings that are only placeholders are left alone. | explanation, limit | tooltip on the button (the label says `every base`; the button runs on the first press and the result line says what was refilled, #450), and the card's About this |
 | B4 | 1062 | `No water storage at this base.` | state | keep |
 | B5 | 1063 | Refill base water: Fills every Water Cistern, ... Blood Purifier to its capacity. The blood in a Blood Purifier is not touched, and a building that is only a placeholder is left alone. | explanation, limit | tooltip, and the card's About this |
 | B6 | 1072 | Slots used is the items held out of the container's capacity. Only containers that belong to this base are listed. | explanation, limit | delete the first sentence (the column reads `5 of 20`); the second is in the card's About this |
-| B7 | 1078 | These two act on all of your bases, not only the one open above. Repair sets each piece to the highest health seen for its type. | limit (scope), explanation | the scope stays in the buttons (`Repair every base to max`, `Clear sand on every base`, and the second press `Yes, repair every base`); the second sentence is a tooltip on Repair |
+| B7 | 1078 | These two act on all of your bases, not only the one open above. Repair sets each piece to the highest health seen for its type. | limit (scope), explanation | the scope stays in the buttons (`Repair every base to max`, `Clear sand on every base`; Repair runs on the first press and the result line says how many pieces, #450; Clear sand keeps its two-press ask); the second sentence is a tooltip on Repair |
 | B8 | 1085 | Resize by square: `N cells (3 x 3 square), vertical level L` per claim | state | keep |
 | B9 | 1089 | `N pieces inside the claim, M outside.` | state | keep |
 | B10 | 1091 | Cells that hold building pieces are never removed. | limit | tooltip on Shrink claim |
