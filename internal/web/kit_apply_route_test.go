@@ -81,12 +81,12 @@ func TestApplyKitIsWrittenOnceWithABackupAndOneLineInTheWriteLog(t *testing.T) {
 	}
 }
 
-// The regression the operator asked for: nothing writes the save while a game process exists (#419, #421), whatever the game is doing. The kit is accepted and queued as one edit.
+// The regression the operator asked for: nothing writes the save while a game process exists (#419, #421), in the situations that are not the menu (#449). The kit is accepted and queued as one edit.
 func TestApplyKitWhileAGameProcessExistsIsQueuedAndWritesNothing(t *testing.T) {
 	for name, hold := range map[string]func() func(){
-		"a single-player session is active":           save.ActiveSessionForTests,
-		"the game is at its menu (no session in log)": save.GameAtMenuForTests,
-		"the game check cannot say":                   func() func() { return save.FailedGameCheckForTests("process list unavailable") },
+		"a single-player session is active":       save.ActiveSessionForTests,
+		"left the world 23 s ago (the #419 case)": save.GameJustLeftWorldForTests,
+		"the game check cannot say":               func() func() { return save.FailedGameCheckForTests("process list unavailable") },
 	} {
 		t.Run(name, func(t *testing.T) {
 			s, _ := applyServer(t)

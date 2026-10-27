@@ -10,31 +10,49 @@ import (
 	"time"
 )
 
-// Since #419 a write is refused while ANY game process exists (and when the process list cannot be read): the game keeps its own copy of
-// the save's rows in memory, at the menu and in multiplayer too, so a write under it can leave items it cannot move. The log below
-// no longer decides whether to write; it only says which sentence to show (a single-player session rewrites game.db about every five
-// minutes while it runs, and once more when the session ends). The session is read from the game's own log
-// (Saved/Logs/DuneSandbox.log), whose markers were checked against 11 real logs (issue #65):
+// While a game process exists, a write to the save is allowed only when the evidence below says the game is at its menu with the save not loaded (#449; #419 had refused
+// whatever the evidence said, after a write at the character-selection screen 23 s after the player left the world). The session is read from the game's own log
+// (Saved/Logs/DuneSandbox.log), whose markers were checked against 11 real logs (issue #65) and, for the save markers, against 10 leave-the-world events in 11 logs (#449):
 //
 //	start  LogNet: Display: Browse (net mode 0|2): /Game/.../Survival_1?listen        (a local URL ending in ?listen)
 //	end    Browse (net mode N): ...?closed, or a remote  ip:port/...  target          (menu, multiplayer login)
 //	       Delaying Travel (net mode Listen Server): ?closed?delayed_travel
 //	       FPlatformMisc::RequestExit(  /  Log file closed                            (the game is quitting)
+//	save   LogLowLevelPersistence: DB(game.db:0): SaveDatabase - Database saved to disk. Saving again in 60 seconds.
 //
-// The game writes the save for the last time about 3 s after the end marker, so Save stays blocked for spEndGrace
-// after it. A local map without ?listen (a challenge room, the character cave) does not change the state.
+// A local map without ?listen (a challenge room, the character cave) does not change the state. What the logs show about the save markers: while a world is loaded the game
+// writes the database every 60 s (6,679 lines, all "in 60 seconds"). After the end marker there was exactly one more write, between 0.2 s and 6.1 s later, and then none
+// until the next session began (gaps of 40 s to 450 s), when the log shows "Using persistence implementation Sqlite" and "ApplyPatches" and an immediate write: the game opens
+// the database when a session starts, not at the menu. What the logs do not show is a line saying the database was closed or unloaded, nor whether the game keeps a handle on
+// game.db at the menu; the rule below therefore uses the silence of the save markers, not a close marker.
 
-const spEndGrace = 15 * time.Second
+const (
+	// dbQuietFor is how long after the game's last write of the database the editor still treats it as loaded. The game writes every 60 s while it holds a world, so three
+	// intervals without a write is a margin of two missed ones. Evidence: the interval (every log line says 60 s) and the ten leave events (one write within 6.1 s, then silence).
+	// The margin itself is a choice, not a measurement; it also keeps the #419 case queued (the write was 18 s after the game's last one).
+	dbQuietFor = 3 * time.Minute
+	// endedFallbackGrace is used only when the log shows a session that ended but no write after the end marker (the line this rule relies on was not seen, so the
+	// evidence is missing): wait this long after the end marker. NOT MEASURED. It is as long as it is because nothing observed says how long the game may still hold the
+	// save's rows after leaving the world, the incident of #419 shows that seconds are too short, and a wrong guess costs a few minutes of waiting where a wrong guess the
+	// other way costs items that cannot be moved. Six minutes is longer than an earlier note's "about every five minutes" autosave; the logs say 60 s.
+	endedFallbackGrace = 6 * time.Minute
+)
 
 // spTracker is the log state machine. It sees the log line by line and is the only place the markers live.
 type spTracker struct {
-	active  bool
-	endedAt time.Time // log time of the last end marker; zero when none was seen or a session is active
+	active     bool
+	endedAt    time.Time // log time of the last end marker; zero when none was seen or a session is active
+	lastSaveAt time.Time // log time of the last database write line; zero when none was seen
 }
 
 // feed applies one log line.
 func (t *spTracker) feed(line string) {
 	switch {
+	case strings.Contains(line, "SaveDatabase - Database saved to disk"):
+		t.lastSaveAt = logTime(line)
+		if t.lastSaveAt.IsZero() { // no timestamp: count it as just written, which only makes the wait longer
+			t.lastSaveAt = time.Now()
+		}
 	case strings.Contains(line, "Browse (net mode"):
 		target := line[strings.Index(line, "Browse (net mode"):]
 		if i := strings.Index(target, "): "); i >= 0 {
@@ -89,8 +107,9 @@ var spLog struct {
 
 // spStatus is what the log says about the single-player session.
 type spStatus struct {
-	Active  bool
-	EndedAt time.Time
+	Active     bool
+	EndedAt    time.Time
+	LastSaveAt time.Time // the game's last write of the database, from its log; zero when the log shows none
 }
 
 // logPathFor derives Saved/Logs/DuneSandbox.log from the standard save location
@@ -151,22 +170,22 @@ func singlePlayerStatus(savePath string) (spStatus, error) {
 			spLog.tr.feed(strings.TrimRight(line, "\r"))
 		}
 	}
-	return spStatus{Active: spLog.tr.active, EndedAt: spLog.tr.endedAt}, nil
+	return spStatus{Active: spLog.tr.active, EndedAt: spLog.tr.endedAt, LastSaveAt: spLog.tr.lastSaveAt}, nil
 }
 
 // GameState is the answer to "may the save be written now?".
 type GameState struct {
 	Blocked    bool     // Save must not run
-	Reason     string   // why, in a sentence (also set when the game is open but saving is allowed)
-	Mode       string   // none | game_running | single_player | unknown
-	Processes  []string // Dune processes found
+	Reason     string   // why, in a sentence for the page (empty when saving is allowed)
+	Mode       string   // none | menu | single_player | session_ended | game_running | unknown
+	Processes  []string // Dune processes found (also set when saving is allowed: the automatic pass at launch waits for these to be gone)
 	CheckError string   // set when we could not tell
 	// NeedsConfirm is set when the only thing blocking the write is that the save's location cannot be vouched for (a network share, a removable
 	// drive, a folder outside the game's own). ConfirmLocation lifts it.
 	NeedsConfirm bool
 }
 
-// listProcs and statusFor are variables so tests can stand in for the machine.
+// listProcs, statusFor and fileHeld are variables so tests can stand in for the machine.
 var (
 	listProcs = func(fresh bool) ([]string, string) {
 		n := gameProcesses(!fresh) // fresh asks the process list again; the status poll (not fresh) may use the answer of the last gameCacheTTL
@@ -175,6 +194,7 @@ var (
 		return n, gameCache.err
 	}
 	statusFor = singlePlayerStatus
+	fileHeld  = saveFileHeld // gameproc_windows.go / gameproc_other.go
 	nowFunc   = time.Now
 )
 
@@ -193,7 +213,19 @@ func GameStateFor(savePath string, fresh bool) GameState {
 	return g
 }
 
-// processState is the part of GameStateFor that looks at the game's processes and log on this computer.
+// processState is the part of GameStateFor that looks at the game's processes, log and the save file on this computer. With no Dune process the save may be written. With one,
+// the save may be written only when ALL of these hold, checked in this order; the first that fails is the reason shown (#449):
+//
+//  1. the process list could be read (a list that cannot be read is not "no game");
+//  2. the game's log could be read (without it the editor cannot tell whether a world is loaded);
+//  3. the log shows no single-player session running;
+//  4. the game has not written its database for dbQuietFor (the game writes it every 60 s while a world is loaded: this is the "unloaded" signal);
+//  5. if a session ended, the game's last write after it has been seen, or else endedFallbackGrace has passed since it ended (the unmeasured fallback);
+//  6. no other program has the save file open, and that could be checked.
+//
+// Evidence: 2 to 5 are read from the game's own log (see the comment at the top of this file), 6 from the operating system. Not established: that the game does not keep game.db
+// open at its menu in a way the check cannot see, and what the game does with rows it read when a session began (#419 suspected stale rows; the log shows the game opens the
+// database again when the next session starts).
 func processState(savePath string, fresh bool) GameState {
 	procs, perr := listProcs(fresh)
 	if perr != "" {
@@ -202,21 +234,55 @@ func processState(savePath string, fresh bool) GameState {
 	if len(procs) == 0 {
 		return GameState{Mode: "none"}
 	}
-	names := strings.Join(procs, ", ")
-	// The log only chooses the sentence. If it cannot be read the write is refused all the same, because a process exists.
-	sp, _ := statusFor(savePath)
+	wait := func(mode, why string) GameState {
+		return GameState{Blocked: true, Mode: mode, Processes: procs, Reason: why + "; edits stay queued until this clears, or the game closes"}
+	}
+	sp, serr := statusFor(savePath)
+	if serr != nil {
+		return wait("game_running", "the game is open and its log cannot be read ("+shortReason(serr)+"), so the editor cannot tell whether a world is loaded")
+	}
+	now := nowFunc().UTC()
 	if sp.Active {
-		return GameState{Blocked: true, Mode: "single_player", Processes: procs,
-			Reason: "a single-player session is active (" + names + "); go to the menu or multiplayer, or quit the game, then save"}
+		return wait("single_player", "a single-player session is active, and the game rewrites the save every minute while it runs")
 	}
-	if !sp.EndedAt.IsZero() && nowFunc().UTC().Sub(sp.EndedAt) < spEndGrace {
-		return GameState{Blocked: true, Mode: "single_player", Processes: procs,
-			Reason: "the single-player session just ended; wait a few seconds for the game to finish writing the save"}
+	if !sp.LastSaveAt.IsZero() {
+		if since := now.Sub(sp.LastSaveAt); since < dbQuietFor {
+			return wait("session_ended", "the game wrote its database "+approxDuration(since)+" ago and does that every 60 seconds while a world is loaded; it must be quiet for "+approxDuration(dbQuietFor)+" first (about "+approxDuration(dbQuietFor-since)+" more)")
+		}
 	}
-	// A game process that exists blocks the write whatever the log says (#419): the game keeps its own copy of the save's rows in memory, at the menu and in
-	// multiplayer as well, and a write under it changes rows it believes it owns. The log only chooses the sentence.
-	return GameState{Blocked: true, Mode: "game_running", Processes: procs,
-		Reason: names + " is running; edits are queued and written when the game closes"}
+	if !sp.EndedAt.IsZero() && sp.LastSaveAt.Before(sp.EndedAt) {
+		if since := now.Sub(sp.EndedAt); since < endedFallbackGrace {
+			return wait("session_ended", "the single-player session ended "+approxDuration(since)+" ago and the log does not show the game's last write after it, so the editor waits "+approxDuration(endedFallbackGrace)+" after the end (about "+approxDuration(endedFallbackGrace-since)+" more)")
+		}
+	}
+	held, herr := fileHeld(savePath)
+	if herr != nil {
+		return wait("game_running", "the editor could not check whether another program has the save file open ("+shortReason(herr)+")")
+	}
+	if held {
+		return wait("game_running", "another program, probably the game, has the save file open")
+	}
+	return GameState{Mode: "menu", Processes: procs}
+}
+
+// approxDuration says a wait in words: seconds under two minutes, else whole minutes (rounded up for a time still to wait).
+func approxDuration(d time.Duration) string {
+	if d < 0 {
+		d = 0
+	}
+	if d < 2*time.Minute {
+		return fmt.Sprintf("%d seconds", int(d.Round(time.Second)/time.Second))
+	}
+	return fmt.Sprintf("%d minutes", int((d+59*time.Second)/time.Minute))
+}
+
+// shortReason is an error in one line without the paths of the machine.
+func shortReason(err error) string {
+	s := err.Error()
+	if len(s) > 160 {
+		s = s[:160]
+	}
+	return s
 }
 
 // SaveBlocked is GameStateFor for the checks that gate a write.

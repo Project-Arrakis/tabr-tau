@@ -190,7 +190,7 @@ func TestAutoPassWritesNothingDuringASinglePlayerSession(t *testing.T) {
 	defer save.ActiveSessionForTests()()
 	s.RunStartupTasks()
 	note, warn := s.takeStartup()
-	if !strings.Contains(note, "queued") || !strings.Contains(note, "the game is running") || !strings.Contains(note, "applied when it closes") || !warn {
+	if !strings.Contains(note, "queued") || !strings.Contains(note, "the game is open") || !strings.Contains(note, "applied when it closes") || !warn {
 		t.Fatalf("note %q warn %v", note, warn)
 	}
 	after, _ := os.ReadFile(s.Save.Path)
@@ -207,7 +207,7 @@ func TestAutoPassWaitsForTheGameToCloseWhateverTheLogSays(t *testing.T) {
 	restore := save.GameAtMenuForTests()
 	s.RunStartupTasks()
 	note, warn := s.takeStartup()
-	if note != "Automatic refill queued: the game is running; applied when it closes." || !warn {
+	if note != "Automatic refill queued: the game is open; applied when it closes." || !warn {
 		t.Fatalf("note %q warn %v", note, warn)
 	}
 	after, _ := os.ReadFile(s.Save.Path)

@@ -49,14 +49,30 @@ func ActiveSessionForTests() (restore func()) {
 	return func() { listProcs, statusFor = oldL, oldS }
 }
 
-// GameAtMenuForTests makes the editor believe a Dune process is running while the game's log shows no single-player session (the game at its menu, in
-// multiplayer, or logged out to character selection), so a test in another package can check that a write path still refuses (#419). Test code calls it;
+// GameAtMenuForTests makes the editor believe a Dune process is running while the game sits at its menu: the log shows a session that ended an hour ago and the game's last write
+// of the database just after it, and no program has the save file open. An edit made by hand is written then; the automatic pass at launch is not (#449). Test code calls it;
 // production code never does (the guard test fails if it does). It returns a function that puts the real check back.
 func GameAtMenuForTests() (restore func()) {
-	oldL, oldS := listProcs, statusFor
+	oldL, oldS, oldH := listProcs, statusFor, fileHeld
 	listProcs = func(bool) ([]string, string) { return []string{"DuneSandbox-Win64-Shipping.exe"}, "" }
-	statusFor = func(string) (spStatus, error) { return spStatus{EndedAt: time.Now().Add(-time.Hour)}, nil }
-	return func() { listProcs, statusFor = oldL, oldS }
+	statusFor = func(string) (spStatus, error) {
+		return spStatus{EndedAt: time.Now().Add(-time.Hour), LastSaveAt: time.Now().Add(-time.Hour + 5*time.Second)}, nil
+	}
+	fileHeld = func(string) (bool, error) { return false, nil }
+	return func() { listProcs, statusFor, fileHeld = oldL, oldS, oldH }
+}
+
+// GameJustLeftWorldForTests makes the editor believe a Dune process is running and the player left the world 23 seconds ago, the game's last write of the database 20 seconds
+// ago (the #419 case: the game is open at the character-selection screen). Edits stay queued. Test code calls it; production code never does (the guard test fails if it does).
+// It returns a function that puts the real check back.
+func GameJustLeftWorldForTests() (restore func()) {
+	oldL, oldS, oldH := listProcs, statusFor, fileHeld
+	listProcs = func(bool) ([]string, string) { return []string{"DuneSandbox-Win64-Shipping.exe"}, "" }
+	statusFor = func(string) (spStatus, error) {
+		return spStatus{EndedAt: time.Now().Add(-23 * time.Second), LastSaveAt: time.Now().Add(-20 * time.Second)}, nil
+	}
+	fileHeld = func(string) (bool, error) { return false, nil }
+	return func() { listProcs, statusFor, fileHeld = oldL, oldS, oldH }
 }
 
 // FailedGameCheckForTests makes the process check fail with this reason, so a test in another package can check what the page is told when the game check cannot be made

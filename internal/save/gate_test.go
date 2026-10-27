@@ -13,11 +13,15 @@ import (
 // session is what the game's log says. The previous behaviour is put back when the test ends.
 func fakeGame(t *testing.T, procs []string, perr string, sp spStatus, spErr error) {
 	t.Helper()
-	oldL, oldS, oldN := listProcs, statusFor, nowFunc
+	oldL, oldS, oldN, oldH := listProcs, statusFor, nowFunc, fileHeld
 	listProcs = func(bool) ([]string, string) { return procs, perr }
 	statusFor = func(string) (spStatus, error) { return sp, spErr }
-	t.Cleanup(func() { listProcs, statusFor, nowFunc = oldL, oldS, oldN })
+	fileHeld = func(string) (bool, error) { return false, nil } // nothing holds the file unless a test says so (fakeHeld)
+	t.Cleanup(func() { listProcs, statusFor, nowFunc, fileHeld = oldL, oldS, oldN, oldH })
 }
+
+// fakeHeld stands in for the check of whether another program has the save file open; call it after fakeGame.
+func fakeHeld(held bool, err error) { fileHeld = func(string) (bool, error) { return held, err } }
 
 var duneProc = []string{"DuneSandbox-Win64-Shipping.exe"}
 

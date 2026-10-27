@@ -113,7 +113,7 @@ func (s *Save) installBlob(blob []byte) error {
 	// is seconds, in which a single-player session can start and the game rewrite the file). It is made again right before the rename, which is the step that cannot be undone
 	// by the game's own write: a session that began in between leaves the edits queued instead. It comes before the look at the file on disk, not after, because the check
 	// itself takes time in which the game can save: what the file is must be read last.
-	if blocked, why := SaveBlocked(s.Path); blocked {
+	if blocked, why := s.gate(); blocked {
 		os.Remove(tmp)
 		return apierr.New(apierr.ErrGameBlocked, why)
 	}
@@ -251,4 +251,17 @@ func inspect(raw []byte) (map[string]bool, error) {
 		out[n] = true
 	}
 	return out, stopped(ctx, inspectTimeout, rs.Err())
+}
+
+// gate is the one question every route to the save file asks right before it writes: may the game's file be replaced now? It is GameStateFor, and for the automatic pass at
+// launch (flush(true)) it also refuses while any game process exists, so the pass never writes while the game is open, whatever the evidence says about the menu.
+func (s *Save) gate() (bool, string) {
+	g := GameStateFor(s.Path, true)
+	if g.Blocked {
+		return true, g.Reason
+	}
+	if s.autoPass.Load() && len(g.Processes) > 0 {
+		return true, "the game is open; the automatic refill waits for the game to close"
+	}
+	return false, ""
 }
