@@ -1,8 +1,11 @@
 package ops
 
 import (
+	"errors"
+	"strings"
 	"testing"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
@@ -62,5 +65,22 @@ func TestSetTaskProgressIsNotHeldToTheGoal(t *testing.T) {
 	r, _ := o.S.One(`select amount from landsraad_task_faction_contributions where task_id=900 and faction_id=1`)
 	if r["amount"].(float64) != 6000 {
 		t.Fatalf("an amount above the goal (4000) must be stored as given: %v", r)
+	}
+}
+
+// CR-6: an amount is bounded like a tier is (maxTier); a number that only a hand-made request names is refused and nothing is written.
+func TestSetTaskProgressRefusesAnAmountBeyondTheBound(t *testing.T) {
+	o := landsraadSave(t)
+	for _, amt := range []float64{maxTier + 1, 1e308} {
+		_, err := o.SetTaskProgress(Args{"task_id": 900.0, "faction_id": 1.0, "amount": amt})
+		if !errors.Is(err, apierr.ErrBadArgument) || !strings.Contains(err.Error(), "at most 1,000,000,000") {
+			t.Fatalf("%g: %v", amt, err)
+		}
+	}
+	if r, _ := o.S.One(`select amount from landsraad_task_faction_contributions where task_id=900 and faction_id=1`); r != nil {
+		t.Fatalf("a refused amount was written: %v", r)
+	}
+	if _, err := o.SetTaskProgress(Args{"task_id": 900.0, "faction_id": 1.0, "amount": maxTier}); err != nil {
+		t.Fatalf("the bound itself is allowed: %v", err)
 	}
 }

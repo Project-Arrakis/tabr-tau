@@ -29,13 +29,43 @@ func oneSlotItem(t *testing.T) string {
 
 const noSlotLimitSQL = `update inventories set max_item_count=0 where id=1;`
 
+// boundedWait is how long a bounded-work test waits for the work it started before it fails. It is not a measure of speed (the tests stay off the clock, #386): it is a generous
+// stop, a minute for work that takes well under a second, so that a regression that makes the deadline or the bound stop working fails the test in a minute, and does not hang until
+// the package's own time limit (-timeout 12m in .github/workflows/ci.yml; if a slow runner ever needs more, raise that number first, it was 20 minutes once, #269).
+const boundedWait = time.Minute
+
+// finishes runs fn in a goroutine and waits for it for boundedWait. fn must not call t.Fatal (it is not the test's goroutine): it returns what the test checks.
+func finishes[T any](t *testing.T, what string, fn func() T) T {
+	t.Helper()
+	done := make(chan T, 1)
+	go func() { done <- fn() }()
+	select {
+	case v := <-done:
+		return v
+	case <-time.After(boundedWait):
+		t.Fatalf("%s did not finish within %s: the work is not bounded any more", what, boundedWait)
+		panic("unreachable")
+	}
+}
+
+// answer is what a call of an op gives back.
+type answer struct {
+	v   any
+	err error
+}
+
+func (a answer) unpack() (any, error) { return a.v, a.err }
+
 func TestAWriteStatementThatNeverEndsIsStoppedAndNothingIsChanged(t *testing.T) {
 	o := &Ops{S: testsave.Player(t)}
 	old := SQLWriteTimeout
 	SQLWriteTimeout = 300 * time.Millisecond
 	t.Cleanup(func() { SQLWriteTimeout = old })
 	before := stackOf(t, o, 10)
-	_, err := o.ExecSQL(`update items set stack_size=(with recursive c(x) as (select 1 union all select x+1 from c) select count(*) from c) where id=10`)
+	_, err := finishes(t, "a write statement that never ends", func() answer {
+		v, err := o.ExecSQL(`update items set stack_size=(with recursive c(x) as (select 1 union all select x+1 from c) select count(*) from c) where id=10`)
+		return answer{v, err}
+	}).unpack()
 	if err == nil || !strings.Contains(err.Error(), "was stopped after") || !strings.Contains(err.Error(), "nothing was changed") {
 		t.Fatalf("the statement is stopped and the person is told: %v", err)
 	}
@@ -102,7 +132,10 @@ func TestGivingManyOneSlotItemsReadsTheInventoryOnceNotOncePerPiece(t *testing.T
 func TestAGiveOfMoreStacksThanTheBoundGivesTheBoundAndSaysSoAndTheBoundItselfIsAccepted(t *testing.T) {
 	o := &Ops{S: testsave.PlayerWithSQL(t, noSlotLimitSQL)}
 	tmpl := oneSlotItem(t)
-	r, err := o.GiveItem(Args{"template_id": tmpl, "quantity": float64(maxGiveStacks + 1)})
+	r, err := finishes(t, "a give past the bound", func() answer {
+		v, err := o.GiveItem(Args{"template_id": tmpl, "quantity": float64(maxGiveStacks + 1)})
+		return answer{v, err}
+	}).unpack()
 	if err != nil {
 		t.Fatalf("a give past the bound gives what the bound allows: %v", err)
 	}
@@ -117,7 +150,10 @@ func TestAGiveOfMoreStacksThanTheBoundGivesTheBoundAndSaysSoAndTheBoundItselfIsA
 	}
 	// how long it takes is not what is checked (the inventory is read once per give, which TestGivingManyOneSlotItemsReadsTheInventoryOnceNotOncePerPiece counts): the give is
 	// accepted and every piece is there
-	if _, err := o.GiveItem(Args{"template_id": tmpl, "quantity": float64(maxGiveStacks)}); err != nil {
+	if _, err := finishes(t, "a give of the bound itself", func() answer {
+		v, err := o.GiveItem(Args{"template_id": tmpl, "quantity": float64(maxGiveStacks)})
+		return answer{v, err}
+	}).unpack(); err != nil {
 		t.Fatalf("the bound itself is accepted: %v", err)
 	}
 	if n := mustOne(t, o, `select count(*) n from items where template_id=?`, tmpl)["n"].(int64); n != maxGiveStacks {

@@ -230,3 +230,24 @@ func TestEntityIDsOfACopyKeepThePrefixAndLeaveRoomForTheGame(t *testing.T) {
 		t.Error("an exhausted prefix must be refused")
 	}
 }
+
+// CR-10: the copy gets the character's rank only. Another player's rank on the original (here the rank 2 of actor 203) is not carried over.
+func TestDuplicateVehicleCopiesOnlyTheCharactersRankNotAnotherPlayers(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, duplicateWorld+`
+insert into permission_actor_rank(permission_actor_id,player_id,rank) values (201,203,2);`)}
+	if n := mustOne(t, o, `select count(*) c from permission_actor_rank where permission_actor_id=201`)["c"].(int64); n != 2 {
+		t.Fatalf("the reference has two ranks: %d", n)
+	}
+	r, err := o.DuplicateVehicle(Args{"id": 201.0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := newVehicleID(t, r)
+	rows, _ := o.S.Query(`select player_id p, rank r from permission_actor_rank where permission_actor_id=?`, id)
+	if len(rows) != 1 || rows[0]["p"] != int64(1) || rows[0]["r"] != int64(1) {
+		t.Fatalf("only the character's rank is copied: %v", rows)
+	}
+	if n := mustOne(t, o, `select count(*) c from permission_actor_rank where permission_actor_id=201`)["c"].(int64); n != 2 {
+		t.Fatalf("the reference keeps its ranks: %d", n)
+	}
+}

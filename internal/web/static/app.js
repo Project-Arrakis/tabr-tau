@@ -54,6 +54,11 @@ function giveToast(r, name, okText) {
 // in a single-player session and rewrites the file). NOT_SAVED is that hint for the messages that are built by hand: it reads as the hint while edits are being queued
 // (the last status said so) and as nothing otherwise.
 const QUEUED_HINT = ' (queued: written when the game closes)';
+// The one sentence that says a blood-sack fill is not proven in the game. It is in the tooltip and in About this, and in the result of every fill that changed a sack, because the fill does not ask first (CR-4).
+const BLOOD_UNCHECKED = ' The fill of blood sacks has not been checked in the game yet.';
+// A disabled button cannot take the keyboard focus, so a reason that is only in its title is never reached from the keyboard or by a screen reader (CR-5). The reason is drawn as text
+// next to the control, and the control is described by it: describedBy(id) is that attribute for a control that is off, and nothing for one that is on. The title stays for the pointer.
+const describedBy = (id) => (id ? html`aria-describedby="${id}"` : '');
 const NOT_SAVED = { toString: () => (lastOutcome ? (lastOutcome === 'queued' ? QUEUED_HINT : '') : saveBlocked || lastDirty ? QUEUED_HINT : '') };
 // What Fill hydration says (#371). It edits the save. When the file can be written the edit is in it at once; while the game runs the edit is only queued and is applied
 // when the game closes and loads the save again, so it cannot refill a character who is thirsty now. That case is said plainly and is not a success message: it stays
@@ -579,7 +584,7 @@ async function playerView() {
   if (sub.player == 'vehicles') return vehiclesView();
   return playerSection(sub.player);
 }
-const NO_TRACK_NUMBER = 'This track\'s number is not known yet: see the note above';
+const NO_TRACK_NUMBER = 'Number not known yet: see Track numbers below.';
 // The reset of the character's level and XP (#339): on Character > Overview, beside Give XP. The number it asks the person to confirm is the XP the summary above shows.
 function levelResetCard() {
   const xp = SUMMARY && Number.isInteger(SUMMARY.xp) ? SUMMARY.xp : null;
@@ -643,13 +648,14 @@ function kitsCard() {
     ${KITS.problem ? html`<div class="info" role="alert">${KITS.problem}</div>` : ''}
     ${KITS.notice ? html`<div class="info" role="status" id="settingsnotice">${KITS.notice}</div>` : ''}
     ${list.length >= lim.kits ? html`<p class="mut" id="kitfull">The most kits are kept (${lim.kits}): delete one first.</p>` : ''}
-    <div class="row"><button class="b" data-act="kitNew" ${editing || list.length >= lim.kits ? 'disabled' : ''} title="${list.length >= lim.kits ? 'The most kits are kept: delete one first.' : why}">New kit</button>
-      <label>Import a kit file <input type="file" id="kitFile" ${editing ? 'disabled' : ''}></label>
+    ${editing ? html`<p class="mut" id="kitediting">${why}</p>` : ''}
+    <div class="row"><button class="b" data-act="kitNew" ${describedBy(list.length >= lim.kits ? 'kitfull' : editing ? 'kitediting' : '')} ${editing || list.length >= lim.kits ? 'disabled' : ''} title="${list.length >= lim.kits ? 'The most kits are kept: delete one first.' : why}">New kit</button>
+      <label>Import a kit file <input type="file" id="kitFile" ${describedBy(editing ? 'kitediting' : '')} ${editing ? 'disabled' : ''}></label>
       <button class="b sec" data-act="kitExport" data-name="" ${list.length ? '' : 'disabled'}>Export all kits</button></div>
-    ${tbl([{ k: 'name', label: 'Kit', f: (k) => html`<b>${k.name}</b>${k.problem ? html` <span class="warn">Cannot be used: ${k.problem}</span>` : ''}` },
+    ${tbl([{ k: 'name', label: 'Kit', f: (k) => html`<b>${k.name}</b>${k.problem ? html` <span class="warn" id="kitprob${list.indexOf(k)}">Cannot be used: ${k.problem}</span>` : ''}` },
       { k: 'items', label: 'Items', f: (k) => kitContents(k) }, { k: 'xp', label: 'XP', f: (k) => (k.xp ? Number(k.xp).toLocaleString() : '') },
       { k: 'skillPoints', label: 'Skill points', f: (k) => (k.skillPoints ? Number(k.skillPoints).toLocaleString() : '') }], list,
-      { empty: 'No kits yet. Make one with New kit, or import a kit file.', actions: (k) => html`<button class="b sm" data-act="kitApply" data-name="${k.name}" aria-label="Apply kit ${k.name} to the character" ${k.problem ? 'disabled' : ''} title="${k.problem ? 'This kit cannot be used: ' + k.problem : ''}">Apply</button><button class="b sec sm" data-act="kitEdit" data-name="${k.name}" aria-label="Edit kit ${k.name}" ${editing ? 'disabled' : ''} title="${why}">Edit</button><button class="b sec sm" data-act="kitDup" data-name="${k.name}" aria-label="Duplicate kit ${k.name}">Duplicate</button><button class="b sec sm" data-act="kitExport" data-name="${k.name}" aria-label="Export kit ${k.name}">Export</button><button class="b bad sm" data-act="kitDel" data-name="${k.name}" aria-label="Delete kit ${k.name}">Delete</button>` })}
+      { empty: 'No kits yet. Make one with New kit, or import a kit file.', actions: (k) => html`<button class="b sm" data-act="kitApply" data-name="${k.name}" aria-label="Apply kit ${k.name} to the character" ${describedBy(k.problem ? 'kitprob' + list.indexOf(k) : '')} ${k.problem ? 'disabled' : ''} title="${k.problem ? 'This kit cannot be used: ' + k.problem : ''}">Apply</button><button class="b sec sm" data-act="kitEdit" data-name="${k.name}" aria-label="Edit kit ${k.name}" ${describedBy(editing ? 'kitediting' : '')} ${editing ? 'disabled' : ''} title="${why}">Edit</button><button class="b sec sm" data-act="kitDup" data-name="${k.name}" aria-label="Duplicate kit ${k.name}">Duplicate</button><button class="b sec sm" data-act="kitExport" data-name="${k.name}" aria-label="Export kit ${k.name}">Export</button><button class="b bad sm" data-act="kitDel" data-name="${k.name}" aria-label="Delete kit ${k.name}">Delete</button>` })}
     ${about('carepackage.list', 'Care packages', html`<p class="mut">A care package is a named kit of items, XP and skill points. Kits are kept in the editor's own settings, not in a save, so a new save starts with them. Apply gives a kit to the character in this save as one edit: the items by the rules of Give item (slots, stacks, volume), then the XP and the skill points. It shows what would be given and what would not fit before it asks. Up to ${lim.kits} kits, each with up to ${lim.items} items. A kit file you export is a small text file; one you import is checked first and never replaces a kit you have.</p>`)}</div>`;
 }
 function kitEditor(cat) {
@@ -765,8 +771,8 @@ async function playerSection(s) {
       ${sp.rows.some(known) ? '' : html`<div class="info" id="spnone"><b>No track has a number in this save yet</b>, so the XP controls below are off. Earn a little XP in a track in the game, let it save, reload this tab and assign the track under Track numbers. Keystones work now.</div>`}
       ${tbl([{ k: 'track', label: 'Track' }, { k: 'xp', label: 'XP', f: (r) => (known(r) ? Number(r.xp).toLocaleString() : html`<span class="mut" title="This track's number in your save is not known yet; see below">?</span>`) },
         { k: 'level', label: 'Level', f: (r) => (known(r) ? Math.floor(r.level) : html`<span class="mut">?</span>`) }, { k: 'keystoneOwned', label: 'Keystone', f: keystone },
-        { k: 'add', label: 'Add XP', f: (r) => html`<input id="spx${r.track}" type="number" value="1000" class="w90" aria-label="XP to add to ${r.track}" ${known(r) ? '' : 'disabled'}><button class="b sm" data-act="spAdd" data-t="${r.track}" ${known(r) ? '' : 'disabled'} title="${known(r) ? '' : NO_TRACK_NUMBER}">Add XP</button>` }],
-        sp.rows, { empty: 'This save has no specialization tracks.', actions: (r) => html`<button class="b sec sm" data-act="spMax" data-t="${r.track}" ${known(r) ? '' : 'disabled'} title="${known(r) ? 'The most XP a track holds is ' + Number(sp.maxXp).toLocaleString() : NO_TRACK_NUMBER}">Grant max</button><button class="b bad sm" data-act="spReset" data-t="${r.track}" ${known(r) ? '' : 'disabled'} title="${known(r) ? '' : NO_TRACK_NUMBER}">Reset</button>` })}</div>
+        { k: 'add', label: 'Add XP', f: (r) => html`<input id="spx${r.track}" type="number" value="1000" class="w90" aria-label="XP to add to ${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'}><button class="b sm" data-act="spAdd" data-t="${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'} title="${known(r) ? '' : NO_TRACK_NUMBER}">Add XP</button>${known(r) ? '' : html` <span class="mut" id="spnum${r.track}">${NO_TRACK_NUMBER}</span>`}` }],
+        sp.rows, { empty: 'This save has no specialization tracks.', actions: (r) => html`<button class="b sec sm" data-act="spMax" data-t="${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'} title="${known(r) ? 'The most XP a track holds is ' + Number(sp.maxXp).toLocaleString() : NO_TRACK_NUMBER}">Grant max</button><button class="b bad sm" data-act="spReset" data-t="${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'} title="${known(r) ? '' : NO_TRACK_NUMBER}">Reset</button>` })}</div>
     <div class="card"><h3>Track numbers</h3>
       ${sp.unassigned.length ? html`${sp.unassigned.map((u) => html`<div class="row"><span>Track number <b>${u.number}</b>: ${Number(u.xp).toLocaleString()} XP, level ${Math.floor(u.level)}</span> is
         <select id="spa${u.number}" aria-label="Which specialization track is number ${u.number}">${sp.tracks.map((t) => html`<option>${t}</option>`)}</select><button class="b" data-act="spAssign" data-n="${u.number}">Assign</button></div>`)}` : html`<p class="mut">No specialization XP in your save is waiting to be assigned.</p>`}
@@ -905,7 +911,7 @@ function researchList() {
     <span class="mut">${countText(rows.length, inCat.length, 'entry', 'entries', rsFiltered)}${rows.length > LISTMAX ? `, the first ${LISTMAX} shown` : ''}; ${done} of ${RS.length} entries unlocked in all.</span></div>
     <div class="row">${RSRESET.entries ? tip('rsresetnote', `Puts the research back to what a new character has: every bought entry except the four a new character starts with goes back to not bought, and the ${nn(RSRESET.recipes, 'recipe', 'recipes')} and ${nn(RSRESET.sets, 'building set', 'building sets')} they gave are taken out again. After a typed confirmation, in one edit. Intel is not given back.`, html`<button class="b bad" data-act="rsReset" aria-describedby="rsresetnote">Reset research (${nn(RSRESET.entries, 'entry', 'entries')})</button>`) : html`<button class="b bad" data-act="rsReset" aria-describedby="rsresetnote" disabled>Reset research (${nn(RSRESET.entries, 'entry', 'entries')})</button><span class="mut" id="rsresetnote">Nothing to reset: no entry beyond the four a new character starts with is bought.</span>`}</div>`);
   const state = (r) => (r.unlocked ? html`<span class="ok">Unlocked</span>` : r.purchased ? html`<span class="warn">Purchased, ${r.unlockKind} missing</span>` : html`<span class="mut">Not purchased</span>`);
-  const act = (r) => (!r.actionable ? html`<button class="b sec sm" disabled title="A group marker; unlock its individual entries">Group</button>` : r.unlocked ? '' :
+  const act = (r) => (!r.actionable ? html`<button class="b sec sm" disabled aria-describedby="rsg${String(r.itemKey).replace(/[^A-Za-z0-9_-]/g, '_')}" title="A group marker; unlock its individual entries">Group</button> <span class="mut" id="rsg${String(r.itemKey).replace(/[^A-Za-z0-9_-]/g, '_')}">A group marker; unlock its entries.</span>` : r.unlocked ? '' :
     html`<button class="b sm" data-act="rsUnlock" data-key="${r.itemKey}">${r.needsRepair ? 'Repair unlock' : 'Unlock'}</button>`);
   setHTML($('#rsout'), tbl([{ k: 'name', label: 'Research', f: (r) => html`<span title="${r.itemKey}">${r.name}</span>` }, { k: 'itemKey', label: 'Key', cls: 'mut' }, { k: 'type', label: 'Type' },
     { k: 'productGroup', label: 'Product group' }, { k: 'state', label: 'State', f: state }], rows.slice(0, LISTMAX), { actions: act, empty: 'No research entry matches.' }));
@@ -1156,10 +1162,10 @@ async function vehiclesView() {
   try { fuel = await api('/api/vehicles/fuel'); } catch (e) { fuel = null; }
   const open = v.vehicles.find((r) => r.id == vhOpen) || v.vehicles[0];
   const cat = open && open.cargo ? await loadCatalog(open.cargo.items.map((i) => i.template_id)) : null;
-  const h = [html`<div class="card"><h3>Your vehicles (${v.vehicles.length})</h3>${tbl([{ k: 'name', label: 'Vehicle', f: (r) => html`<b title="${r.name}">${r.type || r.name}</b> <span class="mut">${r.map}</span>${r.stored ? html` <span class="tag" title="The game keeps this vehicle in storage; it keeps only the place it was last in the world.">${r.storedLabel}</span>` : ''}` }, { k: 'type', label: 'Type' },
+  const h = [html`<div class="card"><h3>Your vehicles (${v.vehicles.length})</h3>${tbl([{ k: 'name', label: 'Vehicle', f: (r) => html`<b title="${r.name}">${r.type || r.name}</b> <span class="mut">${r.map}</span>${r.stored ? html` <span class="tag" title="The game keeps this vehicle in storage; it keeps only the place it was last in the world.">${r.storedLabel}</span> <span class="mut" id="vstored${r.id}">Stored: take it out of storage in the game first.</span>` : ''}` }, { k: 'type', label: 'Type' },
     { k: 'condition', label: 'Lowest condition', f: (r) => pctCell(r.condition) }, { k: 'fuel', label: 'Fuel', f: (r) => (r.fuel == null ? '-' : r.fuelMax ? html`${Number(r.fuel).toFixed(1)} of ${Number(r.fuelMax).toLocaleString()} <span class="mut">(${Math.round(r.fuelPercent)}%)</span>` : Number(r.fuel).toFixed(1)) },
     { k: 'x', label: 'Location', f: (r) => html`${fix(r.x)}, ${fix(r.y)}${r.region ? html` <span class="mut">near ${r.region}</span>` : ''}` }], v.vehicles,
-    { actions: (r) => html`<button class="b ${open && open.id == r.id ? '' : 'sec'} sm" data-vhopen="${r.id}">Details</button><button class="b sm" data-act="repairOne" data-id="${r.id}">Repair</button><button class="b sm" data-act="bring" data-id="${r.id}" ${r.stored ? 'disabled' : ''} title="${r.stored ? 'This vehicle is stored; take it out of storage in the game first.' : ''}">Bring to me</button><button class="b sec sm" data-act="dupV" data-id="${r.id}" data-name="${r.type || r.name}" aria-label="Duplicate ${r.type || r.name} ${r.id}" ${r.stored ? 'disabled' : ''} title="${r.stored ? 'This vehicle is stored; take it out of storage in the game first.' : ''}">Duplicate</button>`, empty: 'You have no vehicles in this save yet.' })}
+    { actions: (r) => html`<button class="b ${open && open.id == r.id ? '' : 'sec'} sm" data-vhopen="${r.id}">Details</button><button class="b sm" data-act="repairOne" data-id="${r.id}">Repair</button><button class="b sm" data-act="bring" data-id="${r.id}" ${describedBy(r.stored ? 'vstored' + r.id : '')} ${r.stored ? 'disabled' : ''} title="${r.stored ? 'This vehicle is stored; take it out of storage in the game first.' : ''}">Bring to me</button><button class="b sec sm" data-act="dupV" data-id="${r.id}" data-name="${r.type || r.name}" aria-label="Duplicate ${r.type || r.name} ${r.id}" ${describedBy(r.stored ? 'vstored' + r.id : '')} ${r.stored ? 'disabled' : ''} title="${r.stored ? 'This vehicle is stored; take it out of storage in the game first.' : ''}">Duplicate</button>`, empty: 'You have no vehicles in this save yet.' })}
     <div class="row">${tip('repairvtip', 'Makes every module as good as new: full durability, and the maximum that repairs at a workbench wore down is restored too. 100 repairs every module that is not already as good as new; a lower number repairs only the modules below that share, and says when there were none. A module whose full durability is not known is raised to the maximum it records, or skipped when it records none.', html`<button class="b" data-act="repairV" aria-describedby="repairvtip">Repair all my vehicles</button>`)}<label>Only modules below <input id="rvPct" type="number" min="1" max="100" value="100" class="w70"> % of their full durability</label></div>
     ${v.hidden ? about('vehicles.list', 'Your vehicles', html`<p class="mut">${v.hidden} other vehicle${v.hidden == 1 ? '' : 's'} in the world (not yours) ${v.hidden == 1 ? 'is' : 'are'} not shown.</p>`) : ''}</div>`, refuelCard(fuel)];
   if (open) {
@@ -1273,10 +1279,10 @@ async function landsraadView() {
 let cfgFile = null;
 // The Default and Reset cells of one setting (a file with a table of defaults). A setting with no verified default says so and has no working Reset.
 function defaultCells(e, d) {
-  if (!d || !d.known) return html`<td class="mut">default unknown</td><td><button class="b sec sm" disabled title="No verified default for ${e.key}: it is never reset" aria-label="Reset ${e.key} (default unknown)">Reset</button></td>`;
+  if (!d || !d.known) return html`<td class="mut" id="cfgdef${e.line}">default unknown</td><td><button class="b sec sm" disabled aria-describedby="cfgdef${e.line}" title="No verified default for ${e.key}: it is never reset" aria-label="Reset ${e.key} (default unknown)">Reset</button></td>`;
   const range = d.options ? 'one of ' + d.options.join(', ') : d.min != null || d.max != null ? `range ${d.min == null ? '' : d.min} to ${d.max == null ? 'no upper limit' : d.max}` : '';
   return html`<td class="mono" title="${range}">${d.default}${range ? html` <span class="mut">(${range})</span>` : ''}</td><td>${d.atDefault
-    ? html`<button class="b sec sm" disabled title="Already the default" aria-label="Reset ${e.key} (already the default)">Reset</button>`
+    ? html`<button class="b sec sm" disabled aria-describedby="cfgat${e.line}" title="Already the default" aria-label="Reset ${e.key} (already the default)">Reset</button> <span class="mut" id="cfgat${e.line}">Already the default.</span>`
     : html`<button class="b sec sm" data-act="cfgReset" data-confirm="Yes, reset" data-line="${e.line}" data-key="${e.key}" data-was="${e.value}" data-to="${d.default}" aria-label="Reset ${e.key} to ${d.default}">Reset</button>`}</td>`;
 }
 // The row above the table: Reset all, with what it changes and what it leaves alone.
@@ -1567,7 +1573,7 @@ const A = {
       body: `This is what would be given${pv.complete ? '' : ', and what would not fit'}. It is one edit. ${where}${again}${pv.volumeNote ? ' ' + pv.volumeNote : ''}` });
     if (!ok) return;
     return act(async () => {
-      const r = await api('/api/kits/apply', { name: d.name });
+      const r = await api('/api/kits/apply', { name: d.name, kitHash: pv.kitHash });
       kitApplied.add(d.name);
       const lines = kitLines(r).join('; ');
       if (r.complete) toast(`Applied kit "${d.name}": ${lines}` + NOT_SAVED);
@@ -1591,7 +1597,7 @@ const A = {
     const by = Object.entries(r.byTemplate || {}).sort().map(([k, n]) => `${n} x ${itemName(k)}`).join(', ');
     const un = r.unknown ? ` ${r.unknown} blood ${r.unknown == 1 ? 'sack' : 'sacks'} of an unknown kind ${r.unknown == 1 ? 'was' : 'were'} left alone${(r.skippedUnknown || []).length ? ` (${r.skippedUnknown.join(', ')})` : ''}.` : '';
     const other = r.holdingOther ? ` ${r.holdingOther} holding something other than blood ${r.holdingOther == 1 ? 'was' : 'were'} left alone.` : '';
-    toast((r.filled ? `Filled ${r.filled} blood ${r.filled == 1 ? 'sack' : 'sacks'} (${by}); ${r.alreadyFull} already full.` : `No blood sack needed filling (${r.alreadyFull} already full).`) + un + other + NOT_SAVED);
+    toast((r.filled ? `Filled ${r.filled} blood ${r.filled == 1 ? 'sack' : 'sacks'} (${by}); ${r.alreadyFull} already full.` : `No blood sack needed filling (${r.alreadyFull} already full).`) + un + other + (r.filled ? BLOOD_UNCHECKED : '') + NOT_SAVED);
   }, null),
   fillLiquids: () => act(async () => {
     const box = $('#liqVeh');
@@ -1602,7 +1608,7 @@ const A = {
     if (v) parts.push(nn(v.filled || 0, 'vehicle', 'vehicles'));
     const left = (w.skippedUnknown || []).length + (b.unknown || 0) + (v ? v.unknown || 0 : 0);
     const any = (w.filled || 0) + (b.filled || 0) + (v ? v.filled || 0 : 0);
-    toast((any ? `Filled ${parts.join(', ')}.` : 'Nothing needed filling.') + (r.vehiclesIncluded ? '' : ' Vehicles were not refuelled.') + (left ? ' Some containers, sacks or vehicles of an unknown kind were left alone.' : '') + (any ? NOT_SAVED : ''));
+    toast((any ? `Filled ${parts.join(', ')}.` : 'Nothing needed filling.') + (r.vehiclesIncluded ? '' : ' Vehicles were not refuelled.') + (left ? ' Some containers, sacks or vehicles of an unknown kind were left alone.' : '') + (b.filled ? BLOOD_UNCHECKED : '') + (any ? NOT_SAVED : ''));
   }, null),
   refill: () => act(async () => { const r = await api('/api/player/refill', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} Literjons (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
   delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). It is written at once, after a backup. If the file cannot be written (for example the game is running) it is queued and written when it can be.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
@@ -1743,7 +1749,7 @@ const A = {
   },
   giveCargo: (d) => act(async () => { const tid = needItem('bt'); const r = await api('/api/bases/give', { inventory_id: +d.id, template_id: tid, quantity: +val('bq') }); giveToast(r, itemName(tid), 'Item added'); }, null),
   giveInv: (d) => act(async () => { const tid = needItem('bt'); const r = await api('/api/bases/give', { inventory_id: +d.id, template_id: tid, quantity: +val('bq') }); giveToast(r, itemName(tid), 'Item added'); await A.openInv(d); }, null, false),
-  dupV: async (d) => (await ask({ title: `Duplicate this ${d.name}?`, body: `Makes a copy of this ${d.name} next to you: the same kind, modules and condition, an empty cargo hold, and yours. The copy is built from the rows the game keeps for a vehicle (its actor, permission record, entities, modules and inventories). Whether the game accepts it has not been checked, so try it on a copy of your save first. ${UNDO_NOTE}`, ok: 'Duplicate', danger: true })) && act(async () => { const r = await api('/api/vehicles/duplicate', { id: +d.id }); toast(`Made vehicle ${r.id}: a copy of the ${d.name} next to you, with ${nn(r.modules, 'module', 'modules')} and an empty cargo hold` + NOT_SAVED); }, null),
+  dupV: async (d) => (await ask({ title: `Duplicate this ${d.name}?`, body: `Makes a copy of this ${d.name} next to you: the same kind, modules and condition, an empty cargo hold, and yours. Only your own permission is copied, not the permission of any other player on this vehicle. The serial number and the records of the modules are copied as they are. The copy is built from the rows the game keeps for a vehicle (its actor, permission record, entities, modules and inventories). Whether the game accepts it has not been checked, so try it on a copy of your save first. ${UNDO_NOTE}`, ok: 'Duplicate', danger: true })) && act(async () => { const r = await api('/api/vehicles/duplicate', { id: +d.id }); toast(`Made vehicle ${r.id}: a copy of the ${d.name} next to you, with ${nn(r.modules, 'module', 'modules')} and an empty cargo hold` + NOT_SAVED); }, null),
   bring: (d) => act(() => api('/api/vehicles/bring', { id: +d.id }), 'Vehicle moved next to you'),
   vreset: async (d) => (await ask({ title: d.v ? 'Reset purchase limits for this vendor?' : 'Reset purchase limits for every vendor?', body: d.v ? 'Resets the purchase counters of vendor ' + d.v + '.' : 'Resets the purchase counters of every vendor in the save, not one.', ok: 'Reset' })) && act(() => api('/api/vendors/reset', { vendor_id: d.v }), 'Purchase limits reset'),
   term: () => act(async () => { await api('/api/landsraad/term', { active_decree_id: val('ad'), reigning_faction_id: val('rf') }); }, 'Term updated'),
@@ -1755,6 +1761,7 @@ const A = {
     const l = await api('/api/landsraad'); // the editor's board at the click, not the one drawn earlier
     const withFaction = !!($('#lwf') || {}).checked;
     if (!l.character || l.character.faction_id == null) { toast('Your character is in no faction (Neutral), so it has no Landsraad contribution to fill: assign Atreides or Harkonnen under Admin first.', true); return; }
+    if (!l.term) { toast('This save has no Landsraad term, so there is no board to fill.', true); return; }
     LD = l;
     const plan = lsPlan(l, withFaction);
     if (!plan.items.length) { toast('Nothing is chosen. Choose houses or single tiers first.'); return; }

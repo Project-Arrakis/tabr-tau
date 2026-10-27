@@ -73,6 +73,20 @@ reported_of() {
   echo "unset"
 }
 
+# cell_text TEXT -> TEXT as plain text inside a table cell of docs/roadmap.md. An issue title is written by anyone who can open an issue and the page is committed, so
+# nothing in it may act as markup or HTML: the backslash, the markdown characters and the pipe get a backslash, the angle brackets and the ampersand become entities, and
+# the start of a web address is broken so that the page does not turn a bare address into a link either (a title that is `[text](url)` or an img tag shows as the text it is).
+cell_text() {
+  printf '%s' "$1" | sed \
+    -e 's/\\/\\\\/g' \
+    -e 's/&/\&amp;/g' \
+    -e 's/</\&lt;/g' \
+    -e 's/>/\&gt;/g' \
+    -e 's/[][`*_~|!]/\\&/g' \
+    -e 's,://,\&#58;//,g' \
+    -e 's/\([wW][wW][wW]\)\./\1\&#46;/g'
+}
+
 # section PRIORITY HEADING DESCRIPTION
 section() {
   local want="$1" heading="$2" blurb="$3" count=0 lines="" num labels title prio st status reason cell line
@@ -84,8 +98,8 @@ section() {
     status="${st%%$'\t'*}"
     reason=""
     case "$st" in *$'\t'*) reason="${st#*$'\t'}" ;; esac
-    title="${title//|/\|}"
-    reason="${reason//|/\|}"
+    title="$(cell_text "$title")"
+    reason="$(cell_text "$reason")"
     cell=""
     [ -z "$status" ] || cell="**[${status}]**"
     [ -z "$reason" ] || cell="${cell:+${cell} }${reason}"

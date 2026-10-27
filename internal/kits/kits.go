@@ -5,6 +5,8 @@ package kits
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -313,7 +315,7 @@ func Parse(data []byte) ([]Kit, error) {
 	dec.DisallowUnknownFields()
 	var f file
 	if err := dec.Decode(&f); err != nil {
-		return nil, fmt.Errorf("this is not a kit file: %w", friendly(err))
+		return nil, fmt.Errorf("this is not a kit file: %w", Friendly(err))
 	}
 	if _, err := dec.Token(); err != io.EOF {
 		return nil, errors.New("this is not a kit file: there is more after the first JSON object")
@@ -342,8 +344,8 @@ func Parse(data []byte) ([]Kit, error) {
 	return f.Kits, nil
 }
 
-// friendly puts a decoder's error in the words a person can use: no Go type names.
-func friendly(err error) error {
+// Friendly puts a decoder's error in the words a person can use: no Go type names.
+func Friendly(err error) error {
 	var te *json.UnmarshalTypeError
 	var se *json.SyntaxError
 	switch {
@@ -371,4 +373,17 @@ func Merge(list, imported []Kit) ([]Kit, int, error) {
 		return nil, 0, err
 	}
 	return out, renamed, nil
+}
+
+// Hash is a short fingerprint of the kit as it is used (the name, the items, the XP and the skill points, after Normalize). The page gets it with the dry run and sends it back with
+// the apply, so that a kit that was changed, deleted and made again, or replaced by an import, between the question and the answer is not applied in place of the one that was shown.
+func (k Kit) Hash() string {
+	k.Items = append([]Line{}, k.Items...) // Normalize works in place on the lines: leave the caller's kit alone
+	for i := range k.Items {
+		k.Items[i].Augments = append([]string(nil), k.Items[i].Augments...)
+	}
+	k.Normalize()
+	b, _ := json.Marshal(k) // a Kit holds only strings and numbers: Marshal cannot fail
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:8])
 }

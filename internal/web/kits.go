@@ -54,7 +54,7 @@ func kitArg(raw any) (kits.Kit, error) {
 	dec := json.NewDecoder(bytes.NewReader(b))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&k); err != nil {
-		return k, apierr.Newf(apierr.ErrBadArgument, "kit: %v", err)
+		return k, apierr.Newf(apierr.ErrBadArgument, "kit: %v", kits.Friendly(err)) // no Go type names in the answer (CR-7)
 	}
 	return k, nil
 }
@@ -129,10 +129,19 @@ func (s *Server) kitRoutes() {
 	})
 	// apply: the kit called "name" goes to the character as one edit, written after a backup or queued while a game process exists, like every edit of the save (post does that).
 	// preview: the same, worked out and rolled back: what would be given and what would not fit. It changes nothing, so it is never written or queued.
+	// The preview answers with "kitHash", the fingerprint of the kit it worked out; the apply must send it back as "kitHash" and is refused (409) when the kit in the settings file is
+	// no longer that one: a kit edited, deleted and made again, or replaced by an import in another page, is not applied in place of the one the person was asked about (CR-3).
 	s.post("/api/kits/apply", func(a ops.Args) (any, error) {
 		k, err := s.kitNamed(a)
 		if err != nil {
 			return nil, err
+		}
+		want := a.Str("kitHash")
+		if want == "" {
+			return nil, apierr.New(apierr.ErrBadArgument, "kitHash is missing: a kit is applied as the dry run showed it")
+		}
+		if want != k.Hash() {
+			return nil, apierr.Newf(apierr.ErrConflict, "The kit \"%s\" has changed since you were asked. Nothing was applied. Look at the kit and apply it again.", k.Name)
 		}
 		return s.Ops.ApplyKit(k, false)
 	})
@@ -141,7 +150,11 @@ func (s *Server) kitRoutes() {
 		if err != nil {
 			return nil, err
 		}
-		return s.Ops.ApplyKit(k, true)
+		v, err := s.Ops.ApplyKit(k, true)
+		if m, ok := v.(map[string]any); ok && err == nil {
+			m["kitHash"] = k.Hash()
+		}
+		return v, err
 	})
 	// export: the kit file for the kits named in the query (all when none is), as the JSON object the page offers as a download. It reads the settings and writes nothing.
 	s.get("/api/kits/export", func(r *http.Request) (any, error) {

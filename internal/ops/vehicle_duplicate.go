@@ -16,12 +16,12 @@ import (
 //
 //	actors                  the vehicle, with the reference's class, turn, properties and gas attributes
 //	vehicles                its id
-//	permission_actor        its record (type 2) and permission_actor_rank, which makes it the character's (rank 1)
+//	permission_actor        its record (type 2) and the character's permission_actor_rank (rank 1), which makes it the character's; the ranks of other players are not copied
 //	actor_fgl_entities      two entities, one linked as Actor and one as VehicleInventory, and fgl_entities with their components
 //	vehicle_modules         the modules (chassis, engine, hull, treads, ...), with the reference's stats
 //	inventories             the cargo hold and the component holds, empty, and actor_inventories with their component hashes
 //
-// The cargo of the reference is not copied. Whether the game loads such a copy has not been checked in the game.
+// The cargo of the reference is not copied. The serial number and the blobs of the entities and the modules are copied as the reference has them. Whether the game loads such a copy has not been checked in the game.
 
 var classNameRe = regexp.MustCompile(`^[A-Za-z0-9_]{1,120}$`)
 
@@ -134,7 +134,8 @@ func (o *Ops) DuplicateVehicle(a Args) (any, error) {
 			select ?,actor_name,actor_type,access_level,is_child,edited_by_player_id from permission_actor where actor_id=?`, newID, id); err != nil {
 			return err
 		}
-		if _, err := m.Exec(`insert into permission_actor_rank(permission_actor_id,player_id,rank) select ?,player_id,rank from permission_actor_rank where permission_actor_id=?`, newID, id); err != nil {
+		// only the character's own rank: the copy is the character's, and the rank another player may hold on the original is not carried over to it (CR-10)
+		if _, err := m.Exec(`insert into permission_actor_rank(permission_actor_id,player_id,rank) select ?,player_id,rank from permission_actor_rank where permission_actor_id=? and player_id=?`, newID, id, p.Controller); err != nil {
 			return err
 		}
 		if err := duplicateEntities(m, id, newID); err != nil {

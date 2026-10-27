@@ -65,7 +65,8 @@ jobs:
         # The limit is per test binary and shorter than the job's: a test that hangs ends the run with every goroutine's stack and the
         # name of the running test, long before the job could be cancelled without a word (#437). The suite takes a few minutes here: its
         # test saves are built from a template and the tests do not wait for the disk except where a test is about that (#89, #437),
-        # so 12 minutes is a generous multiple, not an expected time.
+        # so 12 minutes is a generous multiple, not an expected time. If a slow runner ever needs more, raise THIS number first (a slow runner once needed 20, #269), and the job's
+        # timeout-minutes above it with it. The bounded-work tests (internal/ops/bounded_work_test.go) stop waiting after a minute of their own, so they never wait for this limit.
         # Keep this step in PowerShell, not bash: under Git Bash on the runner the tests that hold the save open exclusively (a scanner
         # simulation, readback_unverified_windows_test.go) are not held, so they fail. Tee-Object keeps the log for the next step and
         # the step still fails with go's exit code ($LASTEXITCODE is go's, not Tee-Object's).
