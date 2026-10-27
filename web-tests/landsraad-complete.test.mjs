@@ -1,4 +1,4 @@
-// Complete chosen and Reopen chosen on the Landsraad tab (#451): no question is asked, the faction list starts on the character's own faction, the request carries the term, the
+// Complete chosen and Reopen chosen on the Landsraad tab (#451), and the per-house Complete and Reopen (#455): no question is asked, the faction list starts on the character's own faction, the request carries the term, the
 // houses, the faction and the number the page counted, and the result line says how many houses were done and how many were left alone.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -161,4 +161,40 @@ test('Choose all houses and Clear the choice still work, and the summary follows
   assert.ok(sum(ui).includes('3 houses') && sum(ui).includes('Reopen chosen would reopen 2 houses'), sum(ui));
   ui.click('[data-act="lsNone"]'); await ui.settle();
   assert.equal(sum(ui), 'Nothing is chosen.');
+});
+
+test('per-house Complete acts on the first press, asks nothing, and the result line names the house and the faction (#455)', async () => {
+  const ui = await open({ '/api/landsraad/complete': { ok: true, outcome: 'written' } });
+  const btn = ui.doc.querySelector('[data-act="tdone"][data-id="900"]');
+  assert.equal(btn.textContent.trim(), 'Complete');
+  ui.click('[data-act="tdone"][data-id="900"]'); await ui.settle();
+  noAsk(ui);
+  assert.deepEqual(sent(ui, 'complete').map((p) => p.body), [{ task_id: 900, faction_id: 2, reset: false }]);
+  assert.ok(toast(ui).startsWith('Alexin completed for Harkonnen'), toast(ui));
+  assert.ok(!toast(ui).includes('DA_House'), toast(ui));
+});
+
+test('per-house Complete uses the faction picked in the list', async () => {
+  const ui = await open({ '/api/landsraad/complete': { ok: true, outcome: 'written' } });
+  pick(ui, '#lf', '1');
+  ui.click('[data-act="tdone"][data-id="900"]'); await ui.settle();
+  assert.deepEqual(sent(ui, 'complete').map((p) => p.body), [{ task_id: 900, faction_id: 1, reset: false }]);
+  assert.ok(toast(ui).startsWith('Alexin completed for Atreides'), toast(ui));
+});
+
+test('per-house Reopen acts on the first press, asks nothing, and says which house was reopened (#455)', async () => {
+  const ui = await open({ '/api/landsraad/complete': { ok: true, outcome: 'written' } });
+  const btn = ui.doc.querySelector('[data-act="tdone"][data-id="901"]');
+  assert.equal(btn.textContent.trim(), 'Reopen');
+  ui.click('[data-act="tdone"][data-id="901"]'); await ui.settle();
+  noAsk(ui);
+  assert.deepEqual(sent(ui, 'complete').map((p) => p.body), [{ task_id: 901, faction_id: 2, reset: true }]);
+  assert.ok(toast(ui).startsWith('Thorvald reopened'), toast(ui));
+});
+
+test('per-house Complete refused by the editor shows the reason', async () => {
+  const ui = await open({ '/api/landsraad/complete': { __fail: 'The save changed on disk.', __status: 409 } });
+  ui.click('[data-act="tdone"][data-id="900"]'); await ui.settle();
+  noAsk(ui);
+  assert.ok(toast(ui).includes('The save changed on disk.') && !toast(ui).includes('completed'), toast(ui));
 });

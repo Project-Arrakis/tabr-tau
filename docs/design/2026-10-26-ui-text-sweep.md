@@ -90,7 +90,7 @@ the help is this repository's README; both are covered under their pages.
 | H17 | locked.html | Tabr Tau is running, but this browser tab is not signed in (3 lines) | error | keep (the whole page is this error) |
 | H18 | 495 | A backup of the save is taken before the change is written ... Restore on the Database tab puts it back | background (backup and undo) | keep (inside the reset questions only, not drawn on a page) |
 
-Toasts and the questions that ask first (`ask()`, the two-press buttons) are results, errors and consequences, not permanent text, and are outside this sweep. The two-press ask is kept for what destroys or resets (Clear this container, Clear sand on every base, the config Reset); a top-up (Refill power, Refill base water, Repair every base, Fill chosen on the Landsraad board) does not ask, because it is written as it is made, its result line says what changed and the backup taken first is the undo (#450).
+Toasts and the questions that ask first (`ask()`, the two-press buttons) are results, errors and consequences, not permanent text, and are outside this sweep. The two-press ask is kept for what destroys or resets (Clear this container, Clear sand on every base, the config Reset); a top-up (Refill power, Refill base water, Repair every base, Fill chosen, Complete chosen, Reopen chosen and the per-house Complete and Reopen on the Landsraad board) does not ask, because it is written as it is made, its result line says what changed and the backup taken first is the undo (#450, #455). The player's rule is no confirmation steps.
 
 ### Player summary (above every Player page)
 
@@ -389,6 +389,7 @@ The decisions above stand; where carrying one out showed a better way, the way i
 * **The move between maps** is a separate note under the Teleport row (`#tmapwarn`), drawn while a map other than this one is chosen; the same words are in the Movement card's About this.
 * **About this is the last thing in its card**, which a test checks on every page; on the Landsraad the explanation therefore sits under the table, not above it.
 * **Complete chosen and Reopen chosen** (#451) ask nothing: the result line (how many houses were done, how many were left alone, and for Reopen that faction progress and contributions were not changed) and the automatic backup are the way back. The faction list now starts on the character's own faction and is labelled "Faction for Fill faction goal, Complete and Complete chosen".
+* **The per-house Complete and Reopen** (#455) ask nothing either, as Complete chosen and Reopen chosen do. One press changes that house for the faction in the list (Complete: completed, winner and time; Reopen: they are cleared) and the result line names the house and the faction: "Alexin completed for Harkonnen", "Alexin reopened". The automatic backup is the way back. Fill faction goal, which never asked, is unchanged.
 * **Fill faction goal** keeps the sentence it already had as its tooltip (it said the same as the line that was removed); Complete gained "Marks the house taken, for the chosen faction."
 * **The Database backups line** keeps the backup facts in one sentence; the two-minute detail is in About this. The config warning points at the Backups list below it.
 * **`tip` and `about`** are plain functions, so the map's script (a separate file) can use them.
