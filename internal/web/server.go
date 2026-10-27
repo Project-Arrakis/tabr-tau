@@ -759,6 +759,8 @@ func (s *Server) routes() {
 	s.post("/api/landsraad/mine", o.FillMyContribution)
 	s.post("/api/landsraad/mine-many", o.FillMyContributions)
 	s.post("/api/landsraad/complete", o.CompleteTask)
+	s.post("/api/landsraad/complete-many", o.CompleteChosen)
+	s.post("/api/landsraad/reopen-many", o.ReopenChosen)
 	s.post("/api/landsraad/decree", o.SetDecree)
 	s.post("/api/landsraad/term", o.SetTerm)
 
