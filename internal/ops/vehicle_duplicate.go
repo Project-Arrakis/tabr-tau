@@ -21,7 +21,7 @@ import (
 //	vehicle_modules         the modules (chassis, engine, hull, treads, ...), with the reference's stats
 //	inventories             the cargo hold and the component holds, empty, and actor_inventories with their component hashes
 //
-// The cargo of the reference is not copied. The serial number and the blobs of the entities and the modules are copied as the reference has them. Whether the game loads such a copy has not been checked in the game.
+// The cargo of the reference is not copied. The serial number and the blobs of the entities and the modules are copied as the reference has them. The game was checked once with such a copy (2026-10-27): it loaded a copy of a medium ornithopter, which flew, and an earlier copy of a light ornithopter also worked. Other kinds of vehicle were not tried. A stored vehicle (one in the vehicle backup) is refused, and the check found that refusal right.
 
 var classNameRe = regexp.MustCompile(`^[A-Za-z0-9_]{1,120}$`)
 
