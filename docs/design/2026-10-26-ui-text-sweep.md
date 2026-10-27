@@ -292,6 +292,9 @@ Toasts and the questions that ask first (`ask()`, the two-press buttons) are res
 | L4 | 1228 | Faction [choice] used by the buttons below. Fill faction goal sets that faction's progress to the house goal (it does not set a personal contribution or deliver a reward); Complete marks the house taken. | explanation | the row keeps `Faction for Fill faction goal and Complete`; the rest is a tooltip on each of the two buttons (Fill faction goal already has it as a title) |
 | L5 | 1207 | Each tier line: At T contributed: A x item - reached, recorded as delivered / reached, no delivery recorded in this term / not reached | state | keep |
 | L6 | 1220-1223 | The term tiles, the decree and reigning choices, the decree pool and its state | state | keep |
+| L7 | landsraadView | (#451) Chosen-house summary: ` Complete chosen would complete N houses for <faction>. Reopen chosen would reopen N houses.` after the Fill chosen sentence | state (what the two buttons would do) | keep: the count the buttons will send, in the polite summary line that already exists |
+| L8 | landsraadView | (#451) `No faction is chosen for you: your character is in no faction. Check the faction in the list before you use it.` beside the faction list | state (why the list shows a faction nobody chose) | conditional: drawn only when the character has no faction; the list describes itself by it |
+| L9 | landsraadView | (#451) Tooltips of Complete chosen and Reopen chosen (what each changes and leaves alone, that no question is asked), and a paragraph in the Task board's About this | explanation | tooltip on each button; the paragraph in About this |
 
 ### Config
 
@@ -385,6 +388,7 @@ The decisions above stand; where carrying one out showed a better way, the way i
 * **Several "tooltip on the line" decisions became About this**, because a line of text cannot take the keyboard focus that opens a tooltip: the reason a stored vehicle is not on the Saved map, the idle hint of the map, and the Vehicles line about the world's other vehicles.
 * **The move between maps** is a separate note under the Teleport row (`#tmapwarn`), drawn while a map other than this one is chosen; the same words are in the Movement card's About this.
 * **About this is the last thing in its card**, which a test checks on every page; on the Landsraad the explanation therefore sits under the table, not above it.
+* **Complete chosen and Reopen chosen** (#451) ask nothing: the result line (how many houses were done, how many were left alone, and for Reopen that faction progress and contributions were not changed) and the automatic backup are the way back. The faction list now starts on the character's own faction and is labelled "Faction for Fill faction goal, Complete and Complete chosen".
 * **Fill faction goal** keeps the sentence it already had as its tooltip (it said the same as the line that was removed); Complete gained "Marks the house taken, for the chosen faction."
 * **The Database backups line** keeps the backup facts in one sentence; the two-minute detail is in About this. The config warning points at the Backups list below it.
 * **`tip` and `about`** are plain functions, so the map's script (a separate file) can use them.

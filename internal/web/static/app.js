@@ -1223,12 +1223,35 @@ function lsPlan(l, withFaction) {
   }
   return { items, changed };
 }
+// The faction the page acts for: the one in the faction list (a choice the person made is kept across redraws), else the character's own (#451); 0 when there is none.
+function lsFaction() {
+  const sel = $('#lf');
+  if (sel && sel.value !== '') return +sel.value;
+  const c = LD && LD.character;
+  return c && c.faction_id != null ? +c.faction_id : 0;
+}
+const lsFactionName = (l, id) => ((l.factions || []).find((f) => f.id == id) || {}).name || '';
+// The houses chosen in the Choose column that are on the board (single tiers do not count for Complete chosen and Reopen chosen).
+const lsChosenHouses = (l) => l.tasks.filter((r) => LS.houses.has(r.id));
+// A house is complete for a faction when it is marked complete with that faction as winner and the faction's progress on it is at the house goal; Complete chosen skips those.
+function lsCompleteFor(r, fid) {
+  const fac = (r.contributions || []).find((c) => c.faction_id == fid);
+  return !!r.completed && r.winning_faction_id == fid && Number(fac ? fac.amount : 0) >= Number(r.goal_amount);
+}
+// A house Reopen chosen would change: one that is complete, or still carries a winner or a completion time.
+const lsReopenable = (r) => !!r.completed || r.winning_faction_id != null || r.completion_time != null;
 function lsSummary() {
   if (!LD) return '';
   const single = [...LS.tiers].filter((k) => !LS.houses.has(+k.split(':')[0])).length;
   if (!LS.houses.size && !single) return 'Nothing is chosen.';
   const p = lsPlan(LD, !!($('#lwf') || {}).checked);
-  return `Chosen: ${nn(LS.houses.size, 'house', 'houses')} with all their tiers and ${nn(single, 'single tier', 'single tiers')}. Fill chosen would raise your contribution${$('#lwf') && $('#lwf').checked ? ' or the faction goal' : ''} on ${nn(p.changed, 'house', 'houses')} (the others are already at or above what was chosen).`;
+  let s = `Chosen: ${nn(LS.houses.size, 'house', 'houses')} with all their tiers and ${nn(single, 'single tier', 'single tiers')}. Fill chosen would raise your contribution${$('#lwf') && $('#lwf').checked ? ' or the faction goal' : ''} on ${nn(p.changed, 'house', 'houses')} (the others are already at or above what was chosen).`;
+  if (LS.houses.size) {
+    const fid = lsFaction(), chosen = lsChosenHouses(LD);
+    const reopen = chosen.filter(lsReopenable).length;
+    s += (fid ? ` Complete chosen would complete ${nn(chosen.filter((r) => !lsCompleteFor(r, fid)).length, 'house', 'houses')} for ${lsFactionName(LD, fid)}.` : '') + ` Reopen chosen would reopen ${nn(reopen, 'house', 'houses')}.`;
+  }
+  return s;
 }
 // Puts the boxes and the line of text in step with the choice, without drawing the page again.
 function lsSync() {
@@ -1257,6 +1280,7 @@ async function landsraadView() {
   const fname = (id) => (l.factions.find((f) => f.id == id) || {}).name || id || '—';
   const facOpts = (sel) => l.factions.map((f) => html`<option value="${f.id}" ${f.id == sel ? 'selected' : ''}>${f.name}</option>`);
   const dec = l.decrees;
+  const myFac = l.character && l.character.faction_id != null ? l.character.faction_id : null; // the faction list starts on the character's own (#451)
   setHTML($('#main'), html`<div class="card"><h3>Current term ${t.term_id}</h3><div class="grid">${kv('Start', fmtEpoch(t.start_time))}${kv('End', fmtEpoch(t.end_time))}${kv('Reigning faction', fname(t.reigning_faction_id))}${kv('Active decree', (dec.find((d) => d.id == t.active_decree_id) || {}).decree_name || '—')}${kv('Elected decree', (dec.find((d) => d.id == t.elected_decree_id) || {}).decree_name || '—')}</div>
   <div class="row">Active decree<select id="ad" aria-label="Active decree"><option value="">none</option>${dec.map((d) => html`<option value="${d.id}" ${d.id == t.active_decree_id ? 'selected' : ''}>${d.decree_name}</option>`)}</select>
   Reigning<select id="rf" aria-label="Reigning faction"><option value="">none</option>${facOpts(t.reigning_faction_id)}</select><button class="b" data-act="term">Apply</button></div></div>
@@ -1264,14 +1288,14 @@ async function landsraadView() {
   <div class="card"><h3>Task board (${l.tasks.length})</h3>
   ${l.character && l.character.faction_id == null ? html`<p class="mut" id="lsnofaction">Your character is in no faction (Neutral), so there is nothing to fill: assign Atreides or Harkonnen under Admin first.</p>` : ''}
   <div class="row"><label><input type="checkbox" id="lwf"> Also set my faction's progress on the house to its goal</label></div>
-  <div class="row" role="group" aria-label="Fill several houses or tiers at once"><button class="b sec sm" data-act="lsAll">Choose all houses</button><button class="b sec sm" data-act="lsNone">Clear the choice</button><button class="b" data-act="lsFill">Fill chosen</button><span class="mut" id="lsum" aria-live="polite">${lsSummary()}</span></div>
-  <div class="row">Faction for Fill faction goal and Complete<select id="lf" aria-label="Faction for Fill faction goal and Complete">${facOpts()}</select></div>${tbl([{ k: 'sel', label: 'Choose', f: (r) => lsHouseBox(r) }, { k: 'board_index', label: '#' }, { k: 'house_name', label: 'House', f: (r) => String(r.house_name || '').replace('DA_House', '') }, { k: 'goal_amount', label: 'House goal (faction)', f: (r) => Number(r.goal_amount).toLocaleString() },
+  <div class="row" role="group" aria-label="Act on several houses or tiers at once"><button class="b sec sm" data-act="lsAll">Choose all houses</button><button class="b sec sm" data-act="lsNone">Clear the choice</button><button class="b" data-act="lsFill">Fill chosen</button><button class="b" data-act="lsComplete" title="Marks every house chosen in the Choose column complete for the faction below and sets that faction's progress on it to the house goal (never lowered). A house already complete for it with its progress at the goal is skipped. No question is asked: the result line and the automatic backup are the way back.">Complete chosen</button><button class="b sec" data-act="lsReopen" title="Reopens every house chosen in the Choose column. A faction's progress and your own contribution are not changed. No question is asked.">Reopen chosen</button><span class="mut" id="lsum" aria-live="polite">${lsSummary()}</span></div>
+  <div class="row">Faction for Fill faction goal, Complete and Complete chosen${myFac == null ? html`<select id="lf" aria-label="Faction for Fill faction goal, Complete and Complete chosen" aria-describedby="lsfacnote">${facOpts(myFac)}</select><span class="mut" id="lsfacnote">No faction is chosen for you: your character is in no faction. Check the faction in the list before you use it.</span>` : html`<select id="lf" aria-label="Faction for Fill faction goal, Complete and Complete chosen">${facOpts(myFac)}</select>`}</div>${tbl([{ k: 'sel', label: 'Choose', f: (r) => lsHouseBox(r) }, { k: 'board_index', label: '#' }, { k: 'house_name', label: 'House', f: (r) => String(r.house_name || '').replace('DA_House', '') }, { k: 'goal_amount', label: 'House goal (faction)', f: (r) => Number(r.goal_amount).toLocaleString() },
     { k: 'contributions', label: 'Faction progress', f: (r) => ((r.contributions || []).length ? (r.contributions || []).map((c) => html`<span class="tag">${fname(c.faction_id)}: ${fix(c.amount)} of ${Number(r.goal_amount).toLocaleString()}</span>`) : html`<span class="mut">0 of ${Number(r.goal_amount).toLocaleString()}</span>`) },
     { k: 'player_contributions', label: 'Your contribution', f: (r) => personalCell(r, l) },
     { k: 'completed', label: 'Status', f: (r) => (r.completed ? html`<span class="ok">done (${fname(r.winning_faction_id)})</span>` : 'open') },
     { k: 'rewards', label: 'Reward tiers (personal contribution)', f: (r) => html`<details><summary>${nn((r.rewards || []).length, 'tier', 'tiers')}</summary>${(r.rewards || []).map((x) => tierLine(r, x, l))}</details>` }], l.tasks,
     { empty: 'This save has no Landsraad tasks.', actions: (r) => html`<button class="b sm" data-act="tfill" data-id="${r.id}" data-goal="${r.goal_amount}" title="Set the chosen faction's progress on this house to the house goal (${Number(r.goal_amount).toLocaleString()}). A personal contribution and the reward tiers are not changed.">Fill faction goal</button> <button class="b sm" data-act="tdone" data-id="${r.id}" data-r="${r.completed ? 1 : 0}" title="${r.completed ? '' : 'Marks the house taken, for the chosen faction.'}">${r.completed ? 'Reopen' : 'Complete'}</button>` })}
-  ${about('landsraad.board', 'Task board', html`<p class="mut" id="lscales">Two different scales are shown for each house. <b>House goal (faction)</b> is what the faction needs to take the house (for example 4,000). The <b>reward tiers</b> are set by a player's own contribution, for example from 1,200 up to 6,000, and a contribution can go above the house goal, so the upper tiers can be reached. <b>Your contribution</b> is the row the save keeps under your character's own id; the other rows belong to the simulated players. A tier is reached when your contribution is at least its amount, and "recorded as delivered" means the save holds that item as given to your character for this house in this term. Fill to this tier raises your contribution only (the reward is not written, and the faction's progress only when the box below is ticked). Whether the game hands out a tier when it loads the save after a fill is not known from a save.</p>`)}
+  ${about('landsraad.board', 'Task board', html`<p class="mut" id="lscales">Two different scales are shown for each house. <b>House goal (faction)</b> is what the faction needs to take the house (for example 4,000). The <b>reward tiers</b> are set by a player's own contribution, for example from 1,200 up to 6,000, and a contribution can go above the house goal, so the upper tiers can be reached. <b>Your contribution</b> is the row the save keeps under your character's own id; the other rows belong to the simulated players. A tier is reached when your contribution is at least its amount, and "recorded as delivered" means the save holds that item as given to your character for this house in this term. Fill to this tier raises your contribution only (the reward is not written, and the faction's progress only when the box below is ticked). Whether the game hands out a tier when it loads the save after a fill is not known from a save.</p><p class="mut">Complete chosen marks every house chosen in the Choose column complete for the faction in the list, and sets that faction's progress on it to the house goal (a progress above the goal is kept). Reopen chosen undoes the completion of those houses and changes no faction progress and no contribution. Neither asks first; each is one edit with the usual backup, and its result line says how many houses it changed and how many it left alone.</p>`)}
   </div>`);
 }
 
@@ -1774,6 +1798,35 @@ const A = {
       toast(r.changed ? [mine ? `Your contribution raised on ${nn(mine, 'house', 'houses')}` : '', fac ? `${mine ? 'the faction' : 'The faction'} goal on ${nn(fac, 'house', 'houses')}` : ''].filter(Boolean).join(', ') + '. The rewards themselves are not written.' + NOT_SAVED : 'Nothing to change.');
     }, null);
   },
+  // Complete chosen and Reopen chosen (#451): no question is asked. The result line says what was done and the automatic backup is the way back.
+  lsComplete: async () => {
+    const l = await api('/api/landsraad'); // the editor's board at the click, not the one drawn earlier
+    if (!l.term) { toast('This save has no Landsraad term, so there is no board to change.', true); return; }
+    LD = l;
+    const chosen = lsChosenHouses(l);
+    if (!chosen.length) { toast(lsPlan(l, false).items.length ? 'No whole house is chosen. Complete chosen acts on the houses chosen in the Choose column, not on single tiers.' : 'Nothing is chosen. Choose houses first.'); return; }
+    const fid = lsFaction(), fn = lsFactionName(l, fid);
+    if (!fid) { toast('No faction is chosen. Choose one in the faction list first.', true); return; }
+    const n = chosen.filter((r) => !lsCompleteFor(r, fid)).length;
+    if (!n) { toast(`Nothing to change: ${chosen.length === 1 ? 'the chosen house is' : 'the chosen houses are'} already complete for ${fn} with the progress at the house goal.`); return; }
+    return act(async () => {
+      const r = await api('/api/landsraad/complete-many', { term_id: l.term.term_id, task_ids: chosen.map((x) => x.id), faction_id: fid, expected: n });
+      toast(r.changed ? `Completed ${nn(r.changed, 'house', 'houses')} for ${fn} and set its progress on each to the house goal` + (r.skipped ? `; ${nn(r.skipped, 'house was', 'houses were')} skipped (already complete with the progress at the goal)` : '') + '.' + NOT_SAVED : 'Nothing to change.');
+    }, null);
+  },
+  lsReopen: async () => {
+    const l = await api('/api/landsraad');
+    if (!l.term) { toast('This save has no Landsraad term, so there is no board to change.', true); return; }
+    LD = l;
+    const chosen = lsChosenHouses(l);
+    if (!chosen.length) { toast(lsPlan(l, false).items.length ? 'No whole house is chosen. Reopen chosen acts on the houses chosen in the Choose column, not on single tiers.' : 'Nothing is chosen. Choose houses first.'); return; }
+    const n = chosen.filter(lsReopenable).length;
+    if (!n) { toast(`Nothing to change: ${chosen.length === 1 ? 'the chosen house is' : 'the chosen houses are'} not complete.`); return; }
+    return act(async () => {
+      const r = await api('/api/landsraad/reopen-many', { term_id: l.term.term_id, task_ids: chosen.map((x) => x.id), expected: n });
+      toast(r.changed ? `Reopened ${nn(r.changed, 'house', 'houses')}` + (r.skipped ? `; ${nn(r.skipped, 'house was', 'houses were')} not complete, so left alone` : '') + '. Faction progress and your own contributions were not changed.' + NOT_SAVED : 'Nothing to change.');
+    }, null);
+  },
   mfill: (d) => act(async () => { const r = await api('/api/landsraad/mine', { task_id: +d.id, tier: +d.tier, with_faction: !!($('#lwf') || {}).checked }); toast(r.changed ? `Your contribution ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()}` + (r.faction_changed ? ", and your faction's progress is at the house goal" : '') + NOT_SAVED : 'Nothing to change: your contribution is already at or above that tier.'); }, null),
   tdone: async (d) => (await ask({ title: d.r == '1' ? 'Reset this task?' : 'Complete this task?', body: 'Changes the Landsraad task for the chosen faction.', ok: d.r == '1' ? 'Reset' : 'Complete' })) && act(() => api('/api/landsraad/complete', { task_id: +d.id, faction_id: +val('lf'), reset: d.r == '1' }), 'Task updated'),
   cfgcreate: (d) => act(() => api('/api/config/create', { name: d.n }), 'Created ' + d.n + ' now', true, true),
@@ -1876,7 +1929,7 @@ document.addEventListener('change', (e) => {
   if (t.id == 'skCharge') { skCharge = t.checked; return; }
   if (t.dataset.lshouse !== undefined) { const id = +t.dataset.lshouse; if (t.checked) LS.houses.add(id); else LS.houses.delete(id); lsSync(); return; }
   if (t.dataset.lstier !== undefined) { const k = lsTierKey(+t.dataset.lsid, t.dataset.lstier); if (t.checked) LS.tiers.add(k); else LS.tiers.delete(k); lsSync(); return; }
-  if (t.id == 'lwf') { lsSync(); return; }
+  if (t.id == 'lwf' || t.id == 'lf') { lsSync(); return; }
   if (t.dataset.autojob) { // one job of the automatic pass switched on or off; the card is drawn again from what the server kept
     const key = t.dataset.autojob, on = t.checked, label = ((t.closest('label') || {}).textContent || key).trim();
     act(async () => { try { await api('/api/settings', { [key]: on }); } catch (e) { render('scroll'); throw e; } toast(label + ' is now ' + (on ? 'on' : 'off') + ' for the automatic pass'); }, null);

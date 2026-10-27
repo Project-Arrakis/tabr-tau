@@ -164,6 +164,7 @@ Every write feature has automated tests on a synthetic save built from the game'
 | Automatic repairs and fills when the editor opens, as one edit, each job switchable, the result naming what is switched off (#352) | Tests only | none | `CHANGELOG.md` (#352) |
 | Landsraad: Fill to this tier (#380; the character's own contribution, real-schema save, checked with the integrity test) | Tests only; the fill was run on a copy of a real save and the rows were as expected; not in game, and whether the game hands out the tier after it is not known | none | `CHANGELOG.md` (#380) |
 | Landsraad: choose several houses and single tiers, Fill chosen (#364; the character's own contribution, one edit, real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#364) |
+| Landsraad: Complete chosen and Reopen chosen (#451; the chosen houses are marked complete for a faction with its progress set to the house goal, or reopened, one edit each, no question asked; real-schema save, checked with the integrity test) | Tests only | none | `CHANGELOG.md` (#451) |
 | Structures: Repair all to max, Clear sand; Reset vendors; Landsraad edits; the Database cell editor and write SQL; Config edits; Restore a backup | Tests only | none | `CHANGELOG.md` |
 
 Read-only views are not listed. One of them has a recorded gap: the Saved map's spice and flour sand positions are decoded from field ids and have not been checked against the game for the map shown (`CHANGELOG.md`, #101).
