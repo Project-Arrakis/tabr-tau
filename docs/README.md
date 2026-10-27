@@ -22,6 +22,7 @@ of the repository. Nothing in `docs/` contains account or platform IDs.
 | [`audit/2026-10-07-L2-findings-register.md`](audit/2026-10-07-L2-findings-register.md) | Layer 2 audit of the write pipeline (S0, S1 slices 1-2) |
 | [`audit/2026-10-15-L2-findings-register.md`](audit/2026-10-15-L2-findings-register.md) | Layer 2 audit of everything built since: 93 findings in 25 issue groups, STRIDE report; its dispositions are updated as they are fixed |
 | [`audit/2026-10-22-L2-findings-register.md`](audit/2026-10-22-L2-findings-register.md) | Layer 2 re-audit after write-as-you-go: 14 issue groups, STRIDE per finding, issues #251-#264 |
+| [`audit/2026-10-27-code-review-delta.md`](audit/2026-10-27-code-review-delta.md) | Layer 3 code review of the changes since 2026-10-23: 2 medium and 9 low findings, issues #441-#443 |
 | [`single-player-files.md`](single-player-files.md) | Every file the single-player game keeps, its format and contents, and whether it is safe to edit |
 | [`research/2026-10-25-console-docs-for-the-editor.md`](research/2026-10-25-console-docs-for-the-editor.md) | What the Dune Docker documentation and console code can still teach the offline editor: ranked top 10, traps checked, data files compared (console fork main v1.4.51, upstream v1.4.52) |
 | [`live-test-protocol.md`](live-test-protocol.md) | The pre-registered live experiments and their recorded results |
