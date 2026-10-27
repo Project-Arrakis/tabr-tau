@@ -1242,6 +1242,18 @@ test('A damaged settings file is shown on the automatic refill card, as text', a
   ui.dom.window.close(); ui2.dom.window.close();
 });
 
+test('A settings file restored from its backup copy says so on the automatic refill card, as text (#442)', async () => {
+  const notice = 'the settings file settings.json is damaged (it is empty); the copy from before the last change (settings.json.bak) is used instead <img src=x onerror=window.__pwned=1>';
+  const ui = await boot({ get: { '/api/settings': { autoRefillOnOpen: false, problem: '', notice } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:bases"]'); await ui.settle();
+  const card = ui.doc.querySelector('[data-act="autoref"]').closest('.card');
+  assert.equal(card.querySelector('#settingsnotice').textContent, notice, 'the notice is shown');
+  assert.equal(card.querySelector('img'), null, 'and it is text, not markup');
+  assert.equal(card.querySelector('p.bad'), null, 'it is not a refusal: changes still work');
+  ui.dom.window.close();
+});
+
 test('No Guild or Respawn points in the Player view; Bases: the open base is labelled, others get Open, automatic refill is on Power and Water', async () => {
   const two = [{ base_id: 7, name: 'Base', base_type: 'Advanced Sub-Fief', owner: 'Owner', map: 'HaggaBasin', generators: 0, pieces: 0, placeables: 0, x: 0, y: 0, z: 0 },
     { base_id: 8, name: 'Outpost', base_type: 'Sub-Fief', owner: 'Owner', map: 'HaggaBasin', generators: 0, pieces: 0, placeables: 0, x: 1, y: 1, z: 1 }];

@@ -55,6 +55,7 @@ type Server struct {
 	lastAuto     string // the last automatic save, kept for the Automatic refill card
 	autoWaiting  bool   // the automatic pass is waiting for the game to close (#419); RunAutosave runs it then
 	lastAutoFail string // why the last automatic pass could not finish, kept for the card
+	settingsNote string // the last "settings.json was damaged, the backup copy is used" note that was written to the log (#442)
 
 	// bound is the address the editor listens on, set by BindAddr once it is known ("" until then, as in most tests). It scopes the
 	// session cookie to this port and the accepted Host header to this listener (NET-1, NET-2, SEC-7 of the 2026-10-15 audit).
@@ -560,13 +561,14 @@ func (s *Server) routes() {
 
 	s.get("/api/overview", func(r *http.Request) (any, error) { return o.Overview() })
 	s.get("/api/settings", func(r *http.Request) (any, error) {
-		cur, perr := settings.LoadStrict(s.SettingsPath)
+		cur, note, perr := settings.LoadNote(s.SettingsPath)
 		problem := ""
 		if perr != nil { // reported, not hidden: changing a setting will be refused until the file is fixed or removed
 			problem, cur = perr.Error(), settings.Load(s.SettingsPath)
 		}
 		out := s.autoPrefs(cur)
 		out["problem"] = problem
+		out["notice"] = s.logSettingsNote(note)
 		return out, nil
 	})
 	// The switches of the automatic pass: the master switch and one per job, any of them in one request. A value that is not true or false is
@@ -923,6 +925,18 @@ func (s *Server) retryWaitingPass() {
 
 // autoPrefs is what the Automatic refill card shows: the master switch, the list of jobs with their switches (and, for a job that is not ready,
 // why), and what the last pass did or why it could not finish.
+// logSettingsNote writes the note that the settings come from the backup copy (the file itself was damaged) to the log once per distinct
+// note, and gives it back for the page. The damaged file is kept aside by the next change (#442).
+func (s *Server) logSettingsNote(note string) string {
+	s.startupMu.Lock()
+	defer s.startupMu.Unlock()
+	if note != "" && note != s.settingsNote {
+		log.Printf("settings: %s", note)
+	}
+	s.settingsNote = note
+	return note
+}
+
 func (s *Server) autoPrefs(cur settings.Settings) map[string]any {
 	var jobs []map[string]any
 	for _, j := range ops.AutoJobs() {

@@ -91,8 +91,8 @@ func TestLoadStrictTellsAbsentFromDamaged(t *testing.T) {
 	}
 	empty := filepath.Join(dir, "empty.json")
 	os.WriteFile(empty, []byte(" \n"), 0o600)
-	if _, err := LoadStrict(empty); err != nil {
-		t.Fatalf("an empty file holds nothing to lose: %v", err)
+	if _, err := LoadStrict(empty); err == nil || !strings.Contains(err.Error(), "empty") {
+		t.Fatalf("an empty file is damaged (a crash leaves one; the editor never writes one), got %v", err)
 	}
 	big := filepath.Join(dir, "big.json")
 	os.WriteFile(big, append([]byte(`{"autoRefillOnOpen": true}`), make([]byte, 70<<10)...), 0o600)

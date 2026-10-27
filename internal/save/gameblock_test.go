@@ -246,13 +246,13 @@ func TestTheSaveFileHasOneWriterBehindTheGate(t *testing.T) {
 
 // knownFileWriters are the functions that create or replace files other than the save: none of them writes the save path.
 var knownFileWriters = map[string]bool{
-	"internal/save.writeDurable":   true, // the temp file next to the save and the journal's temp file; the rename into the save is installBlob's
-	"internal/save.skipJournal":    true, // moves an unreadable journal aside
-	"internal/save.writeLogAppend": true, // the editor's own write log
-	"internal/save.lockFile":       true, // the lock file
-	"internal/save.markIncomplete": true, // the journal's incomplete-write mark
-	"internal/config.write":        true, // the game's config files, never the save
-	"internal/settings.save":       true, // the editor's own settings file
-	"internal/gui.AttachConsole":   true, // the console handles of the process
-	"cmd/tabr-tau.runCommand":      true, // decode and encode write the file the person names
+	"internal/save.writeDurable":        true, // the temp file next to the save and the journal's temp file; the rename into the save is installBlob's
+	"internal/save.skipJournal":         true, // moves an unreadable journal aside
+	"internal/save.writeLogAppend":      true, // the editor's own write log
+	"internal/save.lockFile":            true, // the lock file
+	"internal/save.markIncomplete":      true, // the journal's incomplete-write mark
+	"internal/config.write":             true, // the game's config files, never the save
+	"internal/settings.writeFileAtomic": true, // the editor's own settings file, its backup copy and its damaged copy
+	"internal/gui.AttachConsole":        true, // the console handles of the process
+	"cmd/tabr-tau.runCommand":           true, // decode and encode write the file the person names
 }
