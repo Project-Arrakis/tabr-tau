@@ -183,7 +183,7 @@ test('Player > Vehicles shows type, condition, fuel, components and the cargo ho
   ui.dom.window.close();
 });
 
-test('Vehicles: Duplicate asks first, says the game has not been shown to accept the copy, and posts the vehicle once (#112)', async () => {
+test('Vehicles: Duplicate asks first, says what was checked in the game (one medium and one light ornithopter, once) and what was not, and posts the vehicle once (#112)', async () => {
   const v1 = { id: 152, name: 'BP_Sandbike_CHOAM', type: 'Sandbike', map: 'HaggaBasin', x: 1, y: 2, z: 0, condition: 40, fuel: 90.5, components: [], cargo: null };
   const ui = await boot({ get: { '/api/vehicles': { vehicles: [v1], recovered: [], backups: [], hidden: 0 } }, post: { '/api/vehicles/duplicate': { ok: true, id: 1700, modules: 8, inventories: 3 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
@@ -194,7 +194,7 @@ test('Vehicles: Duplicate asks first, says the game has not been shown to accept
   const dlg = ui.doc.querySelector('#ask [role="dialog"]');
   assert.ok(dlg, 'the first press only asks');
   assert.equal(ui.posted.filter((p) => p.path === '/api/vehicles/duplicate').length, 0, 'nothing is sent before the answer');
-  assert.ok(dlg.textContent.includes('has not been checked') && /backup/i.test(dlg.textContent), 'the question says it is not proven in the game and that the backup undoes it');
+  assert.ok(dlg.textContent.includes('checked in the game once, 2026-10-27') && dlg.textContent.includes('medium ornithopter') && dlg.textContent.includes('other kinds of vehicle were not tried') && !dlg.textContent.includes('has not been checked') && /backup/i.test(dlg.textContent), 'the question says what was checked in the game and what was not, and that the backup undoes it');
   assert.ok(dlg.textContent.includes('Only your own permission is copied, not the permission of any other player'), 'the question says which permission the copy gets (CR-10)');
   ui.click('#aok'); await ui.settle();
   assert.deepEqual(ui.posted.filter((p) => p.path === '/api/vehicles/duplicate').map((p) => p.body), [{ id: 152 }]);
@@ -1469,7 +1469,7 @@ test('Teleport to another map: Find asks for that map, lists its places with no 
   sel.value = '0'; sel.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
   ui.click('[data-act="teleport"]'); await ui.settle();
   assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/teleport').map((p) => p.body), [{ x: -300000, y: -590000, z: 1000, map: 'DeepDesert' }]);
-  assert.ok(ui.doc.body.textContent.includes('has not been checked in the game yet'), 'the page says a move between maps is not proven');
+  assert.ok(ui.doc.body.textContent.includes('was checked in the game once (2026-10-27, one character, a throwaway save)') && ui.doc.body.textContent.includes('No other move was checked') && !ui.doc.body.textContent.includes('has not been checked in the game yet'), 'the page says which move between maps was checked and that no other was');
   ui.dom.window.close();
 });
 

@@ -267,8 +267,8 @@ func teleportMapArg(a Args) (string, error) {
 // the player state) on the same map and at the same position, so a move between maps writes all three; a move on one map writes the body
 // only, which is what was checked in the game. The position has to lie inside the destination map's own bounds (Hagga Basin's are much
 // smaller than the Deep Desert's, so a Deep Desert position typed for Hagga Basin is caught; the reverse is not, and the places the page lists
-// for a map are the safe way to choose). Whether the game loads a character
-// moved to another map this way has not been checked in the game.
+// for a map are the safe way to choose). A move to the Deep Desert was checked in the game once (2026-10-27, one character, a throwaway
+// save): the three actors were written as here and the game loaded the character there. No other move was checked.
 func (o *Ops) teleportToMap(p player, dest string, x, y, z, yaw float64, hasYaw bool) (any, error) {
 	cfg, _ := travelMapOf(dest)
 	if x < cfg.MinX || x > cfg.MaxX || y < cfg.MinY || y > cfg.MaxY {

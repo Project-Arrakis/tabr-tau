@@ -33,12 +33,12 @@ test('Admin: the warning about a move between maps is drawn only while another m
   sel.value = 'DeepDesert'; sel.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
   const warn = ui.doc.querySelector('#tmapwarn');
   assert.ok(warn, 'another map: the warning');
-  assert.ok(visibleText(ui.doc.querySelector('#main')).includes('has not been checked in the game yet, so try it on a copy first.'));
+  assert.ok(visibleText(ui.doc.querySelector('#main')).includes('No other move was checked, so try it on a copy first.'));
   assert.ok(warn.textContent.includes('A position typed for the Deep Desert is not accepted for Hagga Basin.'));
   sel.value = ''; sel.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
   assert.equal(ui.doc.querySelector('#tmapwarn'), null);
   // the same warning is always in About this
-  assert.ok(ui.doc.querySelector('details[data-about="admin.movement"]').textContent.includes('has not been checked in the game yet, so try it on a copy first.'));
+  assert.ok(ui.doc.querySelector('details[data-about="admin.movement"]').textContent.includes('No other move was checked, so try it on a copy first.'));
   ui.dom.window.close();
 });
 
