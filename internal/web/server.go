@@ -914,13 +914,46 @@ func (s *Server) retryWaitingPass() {
 	s.startupMu.Lock()
 	waiting := s.autoWaiting
 	s.startupMu.Unlock()
-	if !waiting || s.Save.Dirty() || save.GameStateFor(s.Save.Path, true).Blocked {
+	if !waiting {
+		return
+	}
+	// The switches may have been turned off while the pass waited (the master switch, or every job). Look before the file is read again: the reload below decodes the whole
+	// save under its lock, and with nothing left to run it would be repeated at every tick for as long as the editor runs (#441).
+	if !autoPassWanted(settings.Load(s.SettingsPath)) {
+		s.stopWaitingPass()
+		return
+	}
+	if s.Save.Dirty() || save.GameStateFor(s.Save.Path, true).Blocked {
 		return
 	}
 	if kept, err := s.Save.DiscardIfClean(); err != nil || !kept {
 		return // nothing is queued but the file could not be read, or an edit came in: try again at the next tick
 	}
 	s.RunStartupTasks()
+}
+
+// autoPassWanted says whether the settings ask for an automatic pass at all: the master switch is on and at least one job that can run is switched on.
+func autoPassWanted(cur settings.Settings) bool {
+	if !cur.AutoRefillOnOpen {
+		return false
+	}
+	for _, j := range ops.AutoJobs() {
+		if j.Ready && cur.JobOn(j.Key, j.Default) {
+			return true
+		}
+	}
+	return false
+}
+
+// stopWaitingPass ends the wait of a pass that is not going to run: the person switched it off while it waited. The note that said it was queued is dropped with it, since
+// it would promise a pass that will not happen.
+func (s *Server) stopWaitingPass() {
+	s.startupMu.Lock()
+	defer s.startupMu.Unlock()
+	if s.autoWaiting {
+		s.autoWaiting = false
+		s.startupNote, s.startupWarn = "", false
+	}
 }
 
 // autoPrefs is what the Automatic refill card shows: the master switch, the list of jobs with their switches (and, for a job that is not ready,
@@ -954,6 +987,7 @@ func (s *Server) autoPrefs(cur settings.Settings) map[string]any {
 func (s *Server) RunStartupTasks() {
 	cur := settings.Load(s.SettingsPath)
 	if !cur.AutoRefillOnOpen {
+		s.stopWaitingPass() // a pass that waited and was then switched off must not stay waiting (#441)
 		return
 	}
 	on := func(j ops.AutoJob) bool { return cur.JobOn(j.Key, j.Default) }
@@ -970,6 +1004,7 @@ func (s *Server) RunStartupTasks() {
 		off = " Switched off: " + strings.Join(switchedOff, ", ") + "."
 	}
 	if !anyOn { // the master switch is on but every job is off
+		s.stopWaitingPass()
 		return
 	}
 	set := func(note string, warn bool) {
