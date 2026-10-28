@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/settings"
@@ -27,7 +30,7 @@ insert into fgl_entities(entity_id,components) values (-901, jsonb('{"FWaterStor
 insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (901,-901,'a');
 insert into placeables(id,health,building_type) values (901,1,'WaterCistern_Placeable');`
 
-// QA-8: starting the editor runs the start-up tasks the settings ask for. With the automatic refill on, the empty cistern is
+// QA-8: starting the editor runs the start-up tasks the settings ask for. With the automatic refill on and no wait (a launch delay of zero), the empty cistern is
 // full in the written file when newWebServer returns.
 func TestNewWebServerRunsTheStartupTasks(t *testing.T) {
 	if p := settings.Path(); p == "" {
@@ -38,7 +41,7 @@ func TestNewWebServerRunsTheStartupTasks(t *testing.T) {
 	}
 	t.Cleanup(func() { os.Remove(settings.Path()) })
 	sv := testsave.PlayerWithSQL(t, cisternSQL)
-	ws := newWebServer(sv, t.TempDir(), t.TempDir())
+	ws := newWebServer(sv, t.TempDir(), t.TempDir(), false, 0)
 	if ws == nil || ws.Handler() == nil {
 		t.Fatal("no server")
 	}
@@ -56,6 +59,54 @@ func TestNewWebServerRunsTheStartupTasks(t *testing.T) {
 	row, _ := reopened.One(`select json_extract(components,'$.FWaterStorageComponent[1].m_WaterStored') w from fgl_entities where entity_id=-901`)
 	if w, _ := row["w"].(int64); w != 5000 {
 		t.Fatalf("the cistern in the written file is %v, want 5000", row["w"])
+	}
+}
+
+// #460: the pass at launch does not start while newWebServer runs, so the page is there to stop it; with -no-auto it does not start at all. In both cases the cistern is still
+// empty and no backup was taken.
+func TestNewWebServerDoesNotWriteBeforeThePageCanStopIt(t *testing.T) {
+	for name, tc := range map[string]struct {
+		noAuto bool
+		delay  time.Duration
+	}{
+		"launch delay":   {false, time.Hour},
+		"-no-auto":       {true, 0},
+		"-no-auto delay": {true, time.Hour},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := settings.Save(settings.Path(), settings.Settings{AutoRefillOnOpen: true}); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { os.Remove(settings.Path()) })
+			sv := testsave.PlayerWithSQL(t, cisternSQL)
+			before, err := os.ReadFile(sv.Path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			newWebServer(sv, t.TempDir(), t.TempDir(), tc.noAuto, tc.delay)
+			after, err := os.ReadFile(sv.Path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(before, after) || len(sv.Pending()) != 0 {
+				t.Fatal("the save was written or edited before the page could stop the pass")
+			}
+			if backups, _ := filepath.Glob(filepath.Join(filepath.Dir(sv.Path), "tabr-tau-backups", "*.db")); len(backups) != 0 {
+				t.Fatalf("a backup was taken, so a write was started: %v", backups)
+			}
+		})
+	}
+}
+
+// main reads the -no-auto flag and hands it to newWebServer.
+func TestMainHasTheNoAutoFlag(t *testing.T) {
+	b, err := os.ReadFile("main.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(b)
+	if !strings.Contains(src, `flag.Bool("no-auto"`) || !strings.Contains(src, "newWebServer(s, *cfgDir, editorDir, *noAuto,") {
+		t.Fatal("main must define -no-auto and pass it to newWebServer")
 	}
 }
 

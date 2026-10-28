@@ -49,6 +49,7 @@ func main() {
 	addr := flag.String("addr", "127.0.0.1:8090", "listen address (must be a loopback address: the editor has no login)")
 	noOpen := flag.Bool("no-browser", false, "do not open the browser")
 	forceWeb := flag.Bool("web", false, "use the browser instead of the built-in window (Windows opens its own window by default)")
+	noAuto := flag.Bool("no-auto", false, "do not run the automatic refill and repair pass in this run, whatever the setting says (for scripts, tests and helpers; the setting is not changed)")
 	flag.Usage = usage
 	gui.AttachConsole() // a GUI-subsystem exe has no console of its own; reattach to the parent's so CLI output shows
 	flag.Parse()
@@ -174,7 +175,10 @@ func main() {
 	if p := settings.Path(); p != "" {
 		editorDir = filepath.Dir(p)
 	}
-	ws := newWebServer(s, *cfgDir, editorDir)
+	ws := newWebServer(s, *cfgDir, editorDir, *noAuto, web.LaunchDelay)
+	if *noAuto {
+		fmt.Fprintln(os.Stderr, "note: -no-auto given: the automatic refill and repair pass does not run in this run")
+	}
 	// edits that are waiting (the game was running) are written when the file can be, for as long as the editor runs
 	go ws.RunAutosave(nil)
 	ws.BindAddr(ln.Addr().String()) // the session cookie and the accepted Host header are per port
@@ -227,14 +231,15 @@ func main() {
 	}
 }
 
-// newWebServer builds the editor's server and runs what the settings ask for when the editor opens (the optional refill). It is
-// its own function so a test can prove main does both.
-func newWebServer(s *save.Save, cfgDir, editorDir string) *web.Server {
+// newWebServer builds the editor's server and sets up what the settings ask for when the editor opens (the optional refill): the pass does not start at once but after
+// launchDelay, counted down on the page where Skip and the switch are (#460), and not at all with noAuto. A delay of zero starts it at once. It is its own function so a test
+// can prove main does both.
+func newWebServer(s *save.Save, cfgDir, editorDir string, noAuto bool, launchDelay time.Duration) *web.Server {
 	ws := web.New(s, config.Dir{Path: cfgDir})
 	if editorDir != "" {
 		ws.KeepPendingEdits(editorDir) // before the startup tasks: the edits put back are pending, and the refill leaves a save with pending edits alone
 	}
-	ws.RunStartupTasks()
+	ws.ScheduleLaunchPass(launchDelay, noAuto)
 	return ws
 }
 
