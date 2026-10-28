@@ -482,6 +482,13 @@ Three files under `internal/catalog/` hold data that comes from the game's own i
   unlocks (`DT_ItemTableCustomizations`, `CustomizationItemStats.UnlockableCustomizations`); 625 entries naming 614 distinct customization ids.
   It holds ids only.
 
+A fourth file holds vehicle data from the game's own vehicle tables (added in #401, 2026-10-27, game build 1.5.15.0):
+
+- `internal/catalog/vehicles.json`: for the seven classes of vehicle that appear in saves, the class's actor path, its slots, the game's named templates (tier and the module id of each
+  slot) and one row per module id of those classes (slot, kind, grade, durability of a new module, health, fuel capacity, cargo slots and volume): 398 modules. It holds identifiers and
+  numbers, no names, text, images or code of the game. It is used to write a vehicle's rows into a save. `tools/vehiclegen` makes it from dumps of the tables;
+  `internal/catalog/PROVENANCE.md` ("vehicles.json") lists the tables and the rules.
+
 What can be said from this repository: the two files contain only the game's own identifiers and integers (no names, text, images or code
 of the game); they are embedded in the executable and used to size stacks that Give creates and to unlock cosmetics in the character's
 customization library; the code comments in `internal/catalog/catalog.go` and the pull requests that added them name the game's item

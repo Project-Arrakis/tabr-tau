@@ -40,3 +40,24 @@ files, read-only; nothing in the game is changed by reading them.
 position on using them. The notice for these two files is in `internal/notices/THIRD-PARTY-NOTICES.md` ("Stack sizes and cosmetic unlock ids").
 The game and its data belong to Funcom and this project is unofficial. Whoever refreshes either file should add the game build, the tool and the
 files used to this table in the same pull request.
+
+## vehicles.json (#401)
+
+| File | What it is | Source | Added |
+|---|---|---|---|
+| `vehicles.json` | For the seven classes of vehicle that appear in saves (Sandbike, Buggy, Light, Medium and Carrier ornithopter, Sandcrawler, Container vehicle): the class's actor path, the shape of its rows in a save, its slots, the game's named templates (tier, and the module id of each slot), and one row per module the game's module table lists for the class (slot, kind, grade, whether it is a unique, the durability a new module has, health, critical health, fuel capacity, cargo slots and volume, whether it is a weapon-type module). 7 classes, 398 modules, 24 templates | The game's own vehicle tables: `CDT_BaseVehicleModules` (the module rows), `DT_VehicleSchematics` (the slots of each vehicle), `DT_VehicleTemplates` (the actor class and the names of the templates), `DT_VehicleWeaponModules` (which ids are weapon-type modules), and the module lists of the templates, which a generic reader returns as empty and which were read from the raw package of `DT_VehicleTemplates` | #401, 2026-10-27 |
+
+`vehicles.json` contains only the game's identifiers and numbers (no names, text, images or code of the game). The editor's names for the classes are its own words. It is read by
+`vehicles.go` (the catalog) and `internal/ops/vehicle_spawn.go` (the write) and nothing else. Tank and Treadwheel are in the tables but in no save, and are not in the file.
+
+**Game build.** Build `1.5.15.0` (Steam build `26083551`), read on 2026-10-27; the file records the build and the day (`build`, `read`). A hotfix changes tables: the file has to be made again from the tables of the new build (below), and a save that holds a module id the file does not know is refused, not guessed at.
+
+**How vehicles.json is made.** `tools/vehiclegen` (`go run ./tools/vehiclegen -modules ... -build ... -read ... -out internal/catalog/vehicles.json`; its comment lists the inputs). It reads JSON dumps of the
+four tables above, in the shape any table dump has (a one-element array with a `Rows` object), and the decoded module lists of the templates (`{"<Row>__slots": {"<Template>": [["<slot>", "<module id>"], ...]}}`). Making
+those dumps takes a reader of the game's container files, which this repository does not contain, and the dump of the module lists takes reading the raw package; the tool only turns the dumps into the file and
+refuses a result that is not consistent (`catalog.CheckVehicles`: every template names existing modules of its class, each in the slot of the module row, every mandatory slot filled, the tier equal to the chassis's grade).
+Rules the tool applies: a module is offered when its id ends in a grade from 0 to 6 (grades 7 to 9 are rows of the table that belong to no template and appear in no save; a row with no grade is a faction's own module), placeholder rows
+(`Polarcap`) are left out, and a module's slot is the module row's own slot type (a save keeps only the module id). The one vehicle that is a single module (the container vehicle) has no decoded list; its template is the one row of its model.
+The shape of the rows of a class (the permission name, the component holds and their hashes, the properties the game writes only for that class) is not in the tables: it was read from saves the game wrote, and it is a table in the tool.
+
+**How it was checked.** The module rows reproduce the numbers six vehicles of six classes saved (health, critical health, a full tank, the cargo hold: `vehicles_test.go`), the 98 module ids found in 155 saves are all in the file, the template `T5_Inventory` of the medium ornithopter has exactly the modules of a real vehicle, and the templates `T0` of the Sandbike and the Buggy have exactly the modules of the vehicles the world places (19 of 24 vehicles of a played save are exactly a template). That a vehicle built from these tables loads in the game is **not** yet checked.
