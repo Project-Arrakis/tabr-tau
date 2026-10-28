@@ -106,7 +106,7 @@ test('Overview: the explanations moved to tooltips and the Fill card\'s About th
   const moved = movedText(ui.doc.querySelector('#main'));
   const gone = [
     'A negative number removes', 'kept apart from the Solari stacks', 'The currency of the Scourge event', 'Raises the level as the XP grows', 'never past 2,779',
-    'Fills the character\'s own water to the maximum', 'Fills the sacks you carry to the most blood seen', 'Fills the Literjons, stillsuits and other water containers you carry to their capacity',
+    'Fills the character\'s own water to the maximum', 'Fills the sacks you carry to the capacity of their kind', 'Fills the Literjons, stillsuits and other water containers you carry to their capacity',
     'Fills your Literjons, stillsuits and other water containers, your blood sacks and', 'The fill has not been checked in the game yet',
     'The XP goes back to 0 and the level with it',
   ];
