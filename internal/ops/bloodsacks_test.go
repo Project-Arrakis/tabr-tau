@@ -16,7 +16,7 @@ import (
 //	303 Bloodsack_Unique_Durable_06, 30000 blood (full)                 -> unchanged
 //	304 Bloodsack_01, no fill key at all                                -> 3000
 //	305 Bloodsack_01, key present, empty object                        -> 3000
-//	306 Bloodsack_02, an unknown template                               -> left alone, reported
+//	306 Bloodsack_99, an unlisted template                              -> left alone, reported
 //	307 Bloodsack_Unique_Durable_06 in the loadout, empty              -> 30000
 //	308 Bloodsack_01 holding water                                      -> left alone
 //	309 Bloodsack_01 with an odd record ([])                            -> 3000
@@ -37,7 +37,7 @@ insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,a
   (303,1,1,103,'Bloodsack_Unique_Durable_06',0,1790000000,'{"FFillableItemStats":[[],{"CurrentAmount":30000.0,"FillableType":"Blood"}],` + bsDur + `}',6),
   (304,1,1,104,'Bloodsack_01',0,1790000000,'{` + bsCust + `,` + bsDur + `}',1),
   (305,1,1,105,'Bloodsack_01',0,1790000000,'{"FFillableItemStats":[[],{}],` + bsDur + `}',1),
-  (306,1,1,106,'Bloodsack_02',0,1790000000,'{"FFillableItemStats":[[],{}],` + bsDur + `}',2),
+  (306,1,1,106,'Bloodsack_99',0,1790000000,'{"FFillableItemStats":[[],{}],` + bsDur + `}',2),
   (307,3,1,107,'Bloodsack_Unique_Durable_06',0,1790000000,'{"FFillableItemStats":[[],{}],` + bsDur + `}',6),
   (308,1,1,108,'Bloodsack_01',0,1790000000,'{"FFillableItemStats":[[],{"CurrentAmount":40.0,"FillableType":"Water"}],` + bsDur + `}',1),
   (309,1,1,109,'Bloodsack_01',0,1790000000,'{"FFillableItemStats":[],` + bsDur + `}',1),
@@ -78,7 +78,7 @@ func TestFillBloodSacksFillsEachKnownSackAndOnlyThose(t *testing.T) {
 	if by := m["byTemplate"].(map[string]int); len(by) != 2 || by["Bloodsack_Unique_Durable_06"] != 3 || by["Bloodsack_01"] != 4 {
 		t.Fatalf("filled per template: %v", by)
 	}
-	if sk := m["skippedUnknown"].([]string); len(sk) != 1 || sk[0] != "Bloodsack_02 x1" {
+	if sk := m["skippedUnknown"].([]string); len(sk) != 1 || sk[0] != "Bloodsack_99 x1" {
 		t.Fatalf("the unknown kind is reported: %v", sk)
 	}
 
