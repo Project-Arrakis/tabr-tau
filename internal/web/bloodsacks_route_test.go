@@ -12,11 +12,11 @@ import (
 )
 
 // POST /api/player/fill-blood-sacks and GET /api/player/blood-sacks (issue #60). The test character's backpack (inventory 1) gets three sacks:
-// an empty Bloodsack_Unique_Durable_06 (21), a full Bloodsack_01 (22) and a Bloodsack_02 (23, a template whose capacity is not known).
+// an empty Bloodsack_Unique_Durable_06 (21), a full Bloodsack_01 (22) and a Bloodsack_99 (23, a template the game does not list, so its capacity is not known).
 const bloodRouteSQL = `insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values
   (21,1,1,5,'Bloodsack_Unique_Durable_06',0,1790000000,'{"FFillableItemStats":[[],{}]}',6),
   (22,1,1,6,'Bloodsack_01',0,1790000000,'{"FFillableItemStats":[[],{"CurrentAmount":3000.0,"FillableType":"Blood"}]}',1),
-  (23,1,1,7,'Bloodsack_02',0,1790000000,'{"FFillableItemStats":[[],{}]}',2);`
+  (23,1,1,7,'Bloodsack_99',0,1790000000,'{"FFillableItemStats":[[],{}]}',2);`
 
 func sackStats(t *testing.T, path string, id int) string {
 	t.Helper()

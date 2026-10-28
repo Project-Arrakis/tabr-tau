@@ -30,12 +30,20 @@ var waterCapacity = map[string]float64{
 
 // bloodCapacity is how much blood each blood sack holds when full, in the unit of the save's FFillableItemStats.CurrentAmount.
 //
-// Source: the largest amount seen in a save, not the game's data. A full Bloodsack_Unique_Durable_06 held 30000 and a full Bloodsack_01 held 3000
-// (2026-10-23). Whether that is the true capacity of the sack is not known, and the tool has not yet checked in the game that it accepts a sack
-// filled this way. Every other blood sack template is left alone and reported, because its capacity is unknown (issue #60).
+// Source: the game's item data, the table of fillable items (DT_ItemTableFillables, the row named by the item's template, field MaxAmount),
+// read 2026-10-28 (issue #472; docs/design/2026-10-28-blood-sack-capacity.md has the table and how it was checked against the wiki and saved
+// values). Bloodsack_01 and Bloodsack_Unique_Durable_06 were first entered from the largest amount seen in a save (2026-10-23, issue #60); the table
+// gives the same numbers. A blood sack template that is not listed here is left alone and reported, because its capacity is unknown.
 var bloodCapacity = map[string]float64{
-	"Bloodsack_Unique_Durable_06": 30000,
 	"Bloodsack_01":                3000,
+	"Bloodsack_02":                9000,
+	"Bloodsack_03":                15000,
+	"Bloodsack_T6":                24000,
+	"Bloodsack_Unique_Durable_02": 13000,
+	"Bloodsack_Unique_Durable_03": 16000,
+	"Bloodsack_Unique_Durable_04": 19000,
+	"Bloodsack_Unique_Durable_05": 22000,
+	"Bloodsack_Unique_Durable_06": 30000,
 }
 
 // waterQuery lists the items of the character's own inventories (backpack, worn gear, loadout) that have stats, with what each holds.
