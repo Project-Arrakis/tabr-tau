@@ -13,5 +13,6 @@ echo "The ${count} slowest tests (seconds, test):"
 grep -E '^[[:space:]]*--- (PASS|FAIL|SKIP): ' "$log" |
   sed -E 's/^[[:space:]]*--- (PASS|FAIL|SKIP): (.*) \(([0-9.]+)s\).*$/\3 \2/' |
   sort -rn |
-  head -n "$count" |
-  awk '{ t = $1; $1 = ""; printf "%8.2f %s\n", t, substr($0, 2) }'
+  awk -v n="$count" 'NR <= n { t = $1; $1 = ""; printf "%8.2f %s\n", t, substr($0, 2) }'
+# The last stage reads everything sort writes. With `head -n` there instead, head leaves after n lines, sort is killed by SIGPIPE if it still has output
+# to write, and `set -o pipefail` turns that into exit 141 (a log of about 1,500 tests did it on the Windows runner, #480).
