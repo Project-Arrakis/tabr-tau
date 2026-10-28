@@ -1,6 +1,6 @@
 # Create a vehicle from a template (#401)
 
-Status: slice 1 (data, write, request) built; the page is slice 2. Game build the tables were read from: 1.5.15.0.
+Status: built in two slices: the data, the write and the request (slice 1), and the page on Player > Vehicles (slice 2). Game build the tables were read from: 1.5.15.0.
 
 ## What it does
 
@@ -76,6 +76,19 @@ Nothing snaps a vehicle to the ground: one placed below the terrain falls, one p
   the id, the rows (`rows`), the derived numbers, what was changed from the template, notes, and for the items how many were given and what did not fit. The preview keeps nothing; the apply takes the id the preview named
   (if nothing else was written in between). Both refuse an unknown class, template, slot or module, a module in the wrong slot, an empty mandatory slot, fuel outside 0 to 1, a bad place, an unknown item and items for a
   vehicle with no cargo hold. Apply has no confirmation step.
+
+## The page (Player > Vehicles)
+
+A card **Create a vehicle** with one button, **Create a vehicle...**; nothing else of the form is drawn until it is pressed, and the catalog is not read before. The form opens on the buggy at its top tier:
+
+- **Class**, **Tier** (the Mk number and the rest of the template's name: "Mk6 Combat"; changing either starts the parts again from the template), **Fuel %**.
+- **Change parts** (folded): one list per slot with every part of the class that fits it, uniques marked, storage parts with their slots; an optional slot can be left empty. Only the slots that differ from the template are sent (`uniques`).
+- **Items for the cargo hold**, drawn only while the chosen parts give one: the item box of Give Items, a quantity, Add; each row has a quantity box and Remove.
+- **Preview** asks `spawn-preview` and shows what would be written (the vehicle's id, class, tier, parts, health, fuel, cargo hold, how many items fit, notes, a table of the parts); any change to the form drops it.
+- **Create** posts `spawn` at once: no question is asked (the standing rule for this editor's edits that only add rows; the edit is backed up first, or queued while the game is running, and Restore on the Database tab puts the file back).
+- After a create the form closes and a line stays until dismissed: "Created vehicle N: ... It is written to the save; the game has not loaded it yet." (plus the queue sentence when the edit is queued).
+
+The explanation is in the card's About this and in the tooltips of Preview and Create, not on the page (the word budget of #426 holds).
 
 ## Not proven
 

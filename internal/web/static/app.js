@@ -349,7 +349,7 @@ function keepQueue() {
 // ---------- status bar
 let saveBlocked = false, saveBlockWhy = '', offline = false, lastDirty = false;
 let gwKey = '', lastPending = []; // the banner as last drawn, and the queued changes in words
-const KEEP = { qlist: false, raw: false }; // which of the banner's toggles are open: kept across redraws
+const KEEP = { qlist: false, raw: false, vcparts: false }; // which of the banner's toggles are open: kept across redraws
 // The reasons the editor gives for not writing, as a sentence. The wording the tools and checks use stays available under Details.
 const capFirst = (s) => String(s || '').replace(/^\s*(.)/, (m, c) => c.toUpperCase());
 const endSentence = (s) => (/[.!?]$/.test(s) ? s : s + '.');
@@ -1159,18 +1159,92 @@ function refuelCard(f) {
   return html`<div class="card"><h3>Fuel</h3><div class="row">${tip('refueltip', 'Fills the fuel of your own vehicles to a full tank, never lowering a fuel amount that is already at or above it. A vehicle of any other kind is left alone and counted. Vehicles of other owners and the world\'s vehicles are not touched.', html`<button class="b" data-act="refuelV" aria-describedby="refuelnote refueltip" ${f && !notFull ? 'disabled' : ''}>Refuel all my vehicles</button>`)}<span class="mut" id="refuelnote">${count}${left}${none}</span></div>
     ${about('vehicles.fuel', 'Fuel', html`<p class="mut">The tank sizes were measured in the game (the fuel gauge read 100 % at these amounts): Sandbike 100, Buggy 240, Light Ornithopter 300, Medium Ornithopter 750, Sand Crawler 750, Transport Ornithopter 2500.</p>`)}</div>`;
 }
+// ---------- Create a vehicle from a template (#401). The class, the tier (the Mk number of the parts), a module for any slot, the fuel and the items for the cargo hold are picked here; the rows are
+// written by POST /api/vehicles/spawn as one edit, and POST /api/vehicles/spawn-preview answers what that would write and keeps nothing. The draft lives here, not in the boxes, because the page is drawn again after every action.
+let VC = null; // the last answer of /api/vehicles/catalog: { build, classes: [{ key, label, slots: [{ slot, mandatory, modules }], templates: [{ name, tier, modules, maxHealth, fuel, cargoSlots, cargoVolume }] }] }
+let vcDraft = null; // { cls, tpl, mods: { slot: module id or '' }, fuel (percent), items: [{ item, quantity }] }
+let vcPreview = null; // the preview's answer for the draft as it was when it was asked; any change to the draft drops it
+let vcResult = null; // { r: the answer of the last create, note: what the queue adds to the sentence }
+const SLOT_WORDS = { Chassis: 'Chassis', Generator: 'Generator', Engine: 'Engine', CockpitHull: 'Front hull', BodyHull: 'Rear hull', UtilitySlot1: 'Utility 1', UtilitySlot2: 'Utility 2', UtilitySlot3: 'Utility 3' };
+const slotWord = (s) => SLOT_WORDS[s] || s.replace(/^Locomotion(\d*)$/, (m, n) => 'Locomotion ' + (n || 1)).replace(/^BodyHull(\d)$/, 'Hull $1');
+// "Mk6 Combat" for T6_Combat, "Mk0" for T0, "Container" for the container vehicle's one template.
+const tplWord = (name, tier) => (name === 'Container' ? name : 'Mk' + tier + (name.includes('_') ? ' ' + name.slice(name.indexOf('_') + 1) : ''));
+const vcClass = () => VC.classes.find((c) => c.key === vcDraft.cls);
+const vcTemplate = () => vcClass().templates.find((t) => t.name === vcDraft.tpl);
+const vcDefaults = () => Object.fromEntries(vcClass().slots.map((s) => [s.slot, vcTemplate().modules[s.slot] || '']));
+const vcTop = (c) => c.templates.reduce((a, b) => (b.tier > a.tier ? b : a)).name;
+const vcModName = (m) => (m.name || compName(m.id)) + (m.unique ? ' (unique)' : '') + (m.cargoSlots ? ` (${m.cargoSlots} slots)` : '');
+// What the boxes hold -> the draft.
+function vcSync() {
+  if (!vcDraft || !$('#vcFuel')) return;
+  vcDraft.fuel = Math.min(100, Math.max(0, Number(val('vcFuel')) || 0));
+  document.querySelectorAll('[data-vcslot]').forEach((e) => { vcDraft.mods[e.dataset.vcslot] = e.value; });
+  document.querySelectorAll('[data-vcqty]').forEach((e) => { const l = vcDraft.items[+e.dataset.vcqty]; if (l) l.quantity = Math.max(1, Math.floor(+e.value) || 1); });
+}
+// A class, a tier or a part was changed in the boxes.
+function vcChanged(t) {
+  vcSync();
+  if (t.id === 'vcClass') { vcDraft.cls = t.value; vcDraft.tpl = vcTop(vcClass()); vcDraft.mods = vcDefaults(); }
+  else if (t.id === 'vcTpl') { vcDraft.tpl = t.value; vcDraft.mods = vcDefaults(); }
+  vcPreview = null;
+  render();
+}
+// The request the draft stands for: the template, and a module for each slot that differs from it.
+function vcBody() {
+  const t = vcTemplate(), uniques = {};
+  for (const s of vcClass().slots) { const want = vcDraft.mods[s.slot] || '', def = t.modules[s.slot] || ''; if (want !== def) uniques[s.slot] = want; }
+  const body = { class: vcDraft.cls, template: vcDraft.tpl, fuel: vcDraft.fuel / 100 };
+  if (Object.keys(uniques).length) body.uniques = uniques;
+  if (vcDraft.items.length) body.items = vcDraft.items.map((l) => ({ template_id: l.item, quantity: l.quantity }));
+  return body;
+}
+// What an answer (a preview's or a create's) says about the vehicle, in one sentence.
+function vcSentence(r) {
+  const d = r.derived, n = (v) => Number(v).toLocaleString();
+  const hold = d.cargoSlots ? `a cargo hold of ${nn(d.cargoSlots, 'slot', 'slots')} and volume ${n(d.cargoVolume)}` : 'no cargo hold';
+  const items = r.requested ? `, ${n(r.given)} of ${n(r.requested)} items in the cargo hold` : '';
+  return `${r.label}, ${tplWord(r.template, r.tier)}, ${nn(r.counts.vehicle_modules, 'part', 'parts')}, health ${n(d.maxHealth)}, fuel ${n(d.fuel)} of ${n(d.fuelCapacity)}, ${hold}${items}`;
+}
+function vcShorts(r) { return (r.notGiven || []).map((g) => html`<li>${g.name}: ${Number(g.short).toLocaleString()} did not fit (${g.reason || 'no room'})</li>`); }
+function vehicleCreateCard(cat) {
+  const r = vcResult && vcResult.r;
+  const result = r ? html`<div class="info" role="status" id="vcresult"><b>Created vehicle ${r.id}:</b> ${vcSentence(r)}. It is written to the save; the game has not loaded it yet.${vcResult.note}
+    ${(r.notGiven || []).length || (r.notes || []).length ? html`<ul>${vcShorts(r)}${(r.notes || []).map((x) => html`<li>${x}</li>`)}</ul>` : ''}
+    <button class="b sec sm" data-act="vcDismiss">Dismiss</button></div>` : '';
+  const aboutText = about('vehicles.create', 'Create a vehicle', html`<p class="mut">Writes a new vehicle of yours into the save from the game's own vehicle tables (game build ${VC ? VC.build : '1.5.15.0'}): the same rows the game keeps for a vehicle, which Duplicate also writes. The tier is the Mk number of the parts, so Mk6 is the tier 6 template. A part can be changed for any part of the same slot, a unique or another grade. The vehicle is put next to you. Nothing asks first: it is written at once after a backup, or queued while the game is running. A vehicle made this way has not been loaded in the game yet, so check it on a copy of your save first.</p>`);
+  if (!vcDraft) return html`<div class="card"><h3>Create a vehicle</h3>${result}<div class="row"><button class="b" data-act="vcOpen">Create a vehicle...</button></div>${aboutText}</div>`;
+  const c = vcClass(), t = vcTemplate();
+  const mods = vcDraft.mods;
+  const hold = c.slots.reduce((a, s) => { const m = (s.modules || []).find((x) => x.id === mods[s.slot]); return a + (m ? m.cargoSlots || 0 : 0); }, 0);
+  const p = vcPreview;
+  const picker = hold ? html`<div class="row"><b>Items for the cargo hold</b>${itemPicker('vcItem', cat)}<label>Qty <input id="vcQty" type="number" value="1" min="1" class="w90"></label><button class="b sec" data-act="vcAddItem">Add</button></div>
+    ${vcDraft.items.length ? tbl([{ k: 'item', label: 'Item', f: (l) => itemCell(l.item) }, { k: 'quantity', label: 'Quantity', f: (l) => html`<input type="number" min="1" value="${l.quantity}" data-vcqty="${vcDraft.items.indexOf(l)}" class="w90" aria-label="Quantity of ${itemName(l.item)}">` }], vcDraft.items,
+      { actions: (l) => html`<button class="b bad sm" data-act="vcDelItem" data-id="${vcDraft.items.indexOf(l)}" aria-label="Remove ${itemName(l.item)}">Remove</button>` }) : ''}` : html`<p class="mut" id="vcnohold">These parts give no cargo hold; pick a storage part under Change parts to put items in.</p>`;
+  return html`<div class="card"><h3>Create a vehicle</h3>${result}
+    <div class="row"><label>Class <select id="vcClass">${VC.classes.map((x) => html`<option value="${x.key}" ${x.key === vcDraft.cls ? 'selected' : ''}>${x.label}</option>`)}</select></label>
+      <label>Tier <select id="vcTpl">${c.templates.map((x) => html`<option value="${x.name}" ${x.name === vcDraft.tpl ? 'selected' : ''}>${tplWord(x.name, x.tier)}</option>`)}</select></label>
+      <label>Fuel % <input id="vcFuel" type="number" min="0" max="100" value="${vcDraft.fuel}" class="w90"></label></div>
+    <details class="vcparts" ${KEEP.vcparts ? 'open' : ''}><summary data-keep="vcparts">Change parts</summary>
+      ${c.slots.map((s) => html`<div class="row"><label>${slotWord(s.slot)} <select data-vcslot="${s.slot}">${s.mandatory ? '' : html`<option value="" ${mods[s.slot] ? '' : 'selected'}>(empty)</option>`}${(s.modules || []).map((m) => html`<option value="${m.id}" ${m.id === mods[s.slot] ? 'selected' : ''}>${vcModName(m)}</option>`)}</select></label></div>`)}
+    </details>
+    ${picker}
+    <div class="row">${tip('vcpreviewtip', 'Shows the rows that would be written. Nothing is changed.', html`<button class="b sec" data-act="vcPreview" aria-describedby="vcpreviewtip">Preview</button>`)}${tip('vccreatetip', 'Writes the vehicle to the save now, after a backup, or queues it while the game is running. Nothing asks first.', html`<button class="b" data-act="vcCreate" aria-describedby="vccreatetip">Create</button>`)}<button class="b sec" data-act="vcCancel">Cancel</button></div>
+    ${p ? html`<div class="info" role="status" id="vcpreview"><b>Would create vehicle ${p.id}:</b> ${vcSentence(p)}.
+      ${(p.notGiven || []).length || (p.notes || []).length ? html`<ul>${vcShorts(p)}${(p.notes || []).map((x) => html`<li>${x}</li>`)}</ul>` : ''}
+      ${tbl([{ k: 'slot', label: 'Slot', f: (m) => slotWord(m.slot) }, { k: 'name', label: 'Part', f: (m) => html`<span title="${m.template_id}">${m.name || compName(m.template_id)}</span>` }, { k: 'durability', label: 'Durability', f: (m) => fix(m.durability) }], p.rows.vehicle_modules)}</div>` : ''}${aboutText}</div>`;
+}
 async function vehiclesView() {
   const v = await api('/api/vehicles');
   let fuel = null;
   try { fuel = await api('/api/vehicles/fuel'); } catch (e) { fuel = null; }
   const open = v.vehicles.find((r) => r.id == vhOpen) || v.vehicles[0];
-  const cat = open && open.cargo ? await loadCatalog(open.cargo.items.map((i) => i.template_id)) : null;
+  const cat = (open && open.cargo) || vcDraft ? await loadCatalog(open && open.cargo ? open.cargo.items.map((i) => i.template_id) : []) : null;
   const h = [html`<div class="card"><h3>Your vehicles (${v.vehicles.length})</h3>${tbl([{ k: 'name', label: 'Vehicle', f: (r) => html`<b title="${r.name}">${r.type || r.name}</b> <span class="mut">${r.map}</span>${r.stored ? html` <span class="tag" title="The game keeps this vehicle in storage; it keeps only the place it was last in the world.">${r.storedLabel}</span> <span class="mut" id="vstored${r.id}">Stored: take it out of storage in the game first.</span>` : ''}` }, { k: 'type', label: 'Type' },
     { k: 'condition', label: 'Lowest condition', f: (r) => pctCell(r.condition) }, { k: 'fuel', label: 'Fuel', f: (r) => (r.fuel == null ? '-' : r.fuelMax ? html`${Number(r.fuel).toFixed(1)} of ${Number(r.fuelMax).toLocaleString()} <span class="mut">(${Math.round(r.fuelPercent)}%)</span>` : Number(r.fuel).toFixed(1)) },
     { k: 'x', label: 'Location', f: (r) => html`${fix(r.x)}, ${fix(r.y)}${r.region ? html` <span class="mut">near ${r.region}</span>` : ''}` }], v.vehicles,
     { actions: (r) => html`<button class="b ${open && open.id == r.id ? '' : 'sec'} sm" data-vhopen="${r.id}">Details</button><button class="b sm" data-act="repairOne" data-id="${r.id}">Repair</button><button class="b sm" data-act="bring" data-id="${r.id}" ${describedBy(r.stored ? 'vstored' + r.id : '')} ${r.stored ? 'disabled' : ''} title="${r.stored ? 'This vehicle is stored; take it out of storage in the game first.' : ''}">Bring to me</button><button class="b sec sm" data-act="dupV" data-id="${r.id}" data-name="${r.type || r.name}" aria-label="Duplicate ${r.type || r.name} ${r.id}" ${describedBy(r.stored ? 'vstored' + r.id : '')} ${r.stored ? 'disabled' : ''} title="${r.stored ? 'This vehicle is stored; take it out of storage in the game first.' : ''}">Duplicate</button>`, empty: 'You have no vehicles in this save yet.' })}
     <div class="row">${tip('repairvtip', 'Makes every module as good as new: full durability, and the maximum that repairs at a workbench wore down is restored too. 100 repairs every module that is not already as good as new; a lower number repairs only the modules below that share, and says when there were none. A module whose full durability is not known is raised to the maximum it records, or skipped when it records none.', html`<button class="b" data-act="repairV" aria-describedby="repairvtip">Repair all my vehicles</button>`)}<label>Only modules below <input id="rvPct" type="number" min="1" max="100" value="100" class="w70"> % of their full durability</label></div>
-    ${v.hidden ? about('vehicles.list', 'Your vehicles', html`<p class="mut">${v.hidden} other vehicle${v.hidden == 1 ? '' : 's'} in the world (not yours) ${v.hidden == 1 ? 'is' : 'are'} not shown.</p>`) : ''}</div>`, refuelCard(fuel)];
+    ${v.hidden ? about('vehicles.list', 'Your vehicles', html`<p class="mut">${v.hidden} other vehicle${v.hidden == 1 ? '' : 's'} in the world (not yours) ${v.hidden == 1 ? 'is' : 'are'} not shown.</p>`) : ''}</div>`, refuelCard(fuel), vehicleCreateCard(cat)];
   if (open) {
     const cargo = open.cargo;
     h.push(html`<div class="card"><h3>${open.type || open.name}: ${(open.components || []).length} components</h3>${tbl([{ k: 'template_id', label: 'Component', f: (r) => html`<span title="${r.template_id}">${compName(r.template_id)}</span>` },
@@ -1781,6 +1855,42 @@ const A = {
   giveCargo: (d) => act(async () => { const tid = needItem('bt'); const r = await api('/api/bases/give', { inventory_id: +d.id, template_id: tid, quantity: +val('bq') }); giveToast(r, itemName(tid), 'Item added'); }, null),
   giveInv: (d) => act(async () => { const tid = needItem('bt'); const r = await api('/api/bases/give', { inventory_id: +d.id, template_id: tid, quantity: +val('bq') }); giveToast(r, itemName(tid), 'Item added'); await A.openInv(d); }, null, false),
   dupV: async (d) => (await ask({ title: `Duplicate this ${d.name}?`, body: `Makes a copy of this ${d.name} next to you: the same kind, modules and condition, an empty cargo hold, and yours. Only your own permission is copied, not the permission of any other player on this vehicle. The serial number and the records of the modules are copied as they are. The copy is built from the rows the game keeps for a vehicle (its actor, permission record, entities, modules and inventories). The game loaded a copy of a medium ornithopter and it flew, and an earlier copy of a light ornithopter also worked (checked in the game once, 2026-10-27); other kinds of vehicle were not tried, so try it on a copy of your save first. ${UNDO_NOTE}`, ok: 'Duplicate', danger: true })) && act(async () => { const r = await api('/api/vehicles/duplicate', { id: +d.id }); toast(`Made vehicle ${r.id}: a copy of the ${d.name} next to you, with ${nn(r.modules, 'module', 'modules')} and an empty cargo hold` + NOT_SAVED); }, null),
+  // Create a vehicle (#401). The draft is kept here; Preview asks what Create would write and keeps nothing; Create writes at once (one edit, a backup first, or queued while the game runs) and asks nothing.
+  vcOpen: async () => {
+    if (!VC) VC = await api('/api/vehicles/catalog');
+    const c = VC.classes.find((x) => x.key === 'Buggy') || VC.classes[0];
+    vcDraft = { cls: c.key, tpl: vcTop(c), mods: {}, fuel: 100, items: [] };
+    vcDraft.mods = vcDefaults();
+    vcPreview = null;
+    render();
+  },
+  vcCancel: () => { vcDraft = null; vcPreview = null; render(); },
+  vcDismiss: () => { vcResult = null; render(); },
+  vcAddItem: () => {
+    vcSync();
+    let item;
+    try { item = needItem('vcItem'); } catch (e) { return toast(e.message, 'err'); }
+    vcDraft.items.push({ item, quantity: Math.max(1, Math.floor(+val('vcQty')) || 1) });
+    vcPreview = null;
+    render();
+  },
+  vcDelItem: (d) => { vcSync(); vcDraft.items.splice(+d.id, 1); vcPreview = null; render(); },
+  vcPreview: async () => {
+    vcSync();
+    try { vcPreview = await api('/api/vehicles/spawn-preview', vcBody()); } catch (e) { vcPreview = null; toast(e.message, true); return; }
+    render();
+  },
+  vcCreate: () => {
+    vcSync();
+    const body = vcBody();
+    return act(async () => {
+      const r = await api('/api/vehicles/spawn', body);
+      vcResult = { r, note: String(NOT_SAVED) ? ' ' + String(NOT_SAVED).trim() : '' };
+      vcDraft = null;
+      vcPreview = null;
+      toast(`Created vehicle ${r.id}: ${r.label} next to you` + NOT_SAVED);
+    }, null);
+  },
   bring: (d) => act(() => api('/api/vehicles/bring', { id: +d.id }), 'Vehicle moved next to you'),
   vreset: async (d) => (await ask({ title: d.v ? 'Reset purchase limits for this vendor?' : 'Reset purchase limits for every vendor?', body: d.v ? 'Resets the purchase counters of vendor ' + d.v + '.' : 'Resets the purchase counters of every vendor in the save, not one.', ok: 'Reset' })) && act(() => api('/api/vendors/reset', { vendor_id: d.v }), 'Purchase limits reset'),
   term: () => act(async () => { await api('/api/landsraad/term', { active_decree_id: val('ad'), reigning_faction_id: val('rf') }); }, 'Term updated'),
@@ -1934,6 +2044,7 @@ document.addEventListener('change', (e) => {
   if (t.id == 'gt') { showGiveAugments(); return; }
   if (t.id == 'kitItem') { showGiveAugments('kitItem', 'kitAug', 'ka', 'kag'); return; }
   if (t.id == 'kitFile') { kitImport(t); return; }
+  if (t.id == 'vcClass' || t.id == 'vcTpl' || t.dataset.vcslot !== undefined) { vcChanged(t); return; }
   if (t.id == 'skCharge') { skCharge = t.checked; return; }
   if (t.dataset.lshouse !== undefined) { const id = +t.dataset.lshouse; if (t.checked) LS.houses.add(id); else LS.houses.delete(id); lsSync(); return; }
   if (t.dataset.lstier !== undefined) { const k = lsTierKey(+t.dataset.lsid, t.dataset.lstier); if (t.checked) LS.tiers.add(k); else LS.tiers.delete(k); lsSync(); return; }
