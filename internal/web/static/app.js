@@ -980,6 +980,8 @@ function autoRefillCard(prefs) {
 let LC = null; // { claim, sel: Set of "x,y" to add, rm: Set of "x,y" to remove, level }
 let TD = []; // the places the last Find returned
 const TRAVEL_NOTE = 'A move to another map writes the character\'s controller, body and player state on the new map. A move to the Deep Desert was checked in the game once (2026-10-27, one character, a throwaway save): the game loaded the character there. No other move was checked, so try it on a copy first. A position typed for the Deep Desert is not accepted for Hagga Basin.';
+// What is drawn under Teleport while another map is chosen: the one thing that can hurt, in two sentences. The whole note (what is written, the position rule) is TRAVEL_NOTE, in the Movement card's About this (#426).
+const TRAVEL_WARN = 'Only one move between maps was checked in the game: to the Deep Desert (2026-10-27, one character, a throwaway save). No other move was checked, so try it on a copy first.';
 const TRAVEL_MAPS = [['HaggaBasin', 'Hagga Basin'], ['DeepDesert', 'The Deep Desert']]; // the maps the editor moves the character to (the console offers the same two for an offline player)
 const lcKey = (x, y) => `${x},${y}`;
 const lcNeighbours = (x, y) => [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]];
@@ -1566,7 +1568,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) viewS
 // The note about a move between maps is drawn only while another map is chosen (#426).
 function tmapSync() {
   const sel = $('#tmap'), box = $('#tmapnote');
-  if (box) setHTML(box, sel && sel.value !== '' ? html`<p class="warn" id="tmapwarn">${TRAVEL_NOTE}</p>` : html``);
+  if (box) setHTML(box, sel && sel.value !== '' ? html`<p class="warn" id="tmapwarn">${TRAVEL_WARN}</p>` : html``);
 }
 // render(true) is the redraw after an action (or the page's own refresh from the file): it keeps the place; render('scroll') keeps only the scroll offsets. Any other call is a move to another page, which starts at the top.
 async function render(keepPlace) {
