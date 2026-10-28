@@ -40,7 +40,7 @@ test('Power and Water: what the refill buttons do is a tooltip; the "every base"
 test('Automatic refill card: the job descriptions are tooltips, the reason a job is off, the last result and the problems stay, the long paragraph is in About this', async () => {
   const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/settings': prefs({ last: '2026-10-23 09:00: saved 1 Water Cistern', lastProblem: 'The last pass failed.' }) } });
   const main = await bases(ui);
-  moves(main, ['Fills Water Cisterns, Windtraps and Blood Purifiers to capacity', 'Fills the blood sacks you carry', 'opening the editor runs the jobs ticked above as one edit', 'The previous file is backed up first']);
+  moves(main, ['Fills Water Cisterns, Windtraps and Blood Purifiers to capacity', 'Fills the blood sacks you carry', 'the jobs ticked above run as one edit', 'The previous file is backed up first']);
   const shown = visibleText(main);
   for (const s of ['When the editor opens: on', 'Turn off', 'Base water', 'Fill blood sacks', 'Not available yet: arrives with the blood sack feature.', 'Last automatic save: 2026-10-23 09:00: saved 1 Water Cistern', 'The last pass failed.']) assert.ok(shown.includes(s), 'missing: ' + s);
   assert.ok(ui.doc.querySelector('details[data-about="bases.autorefill"]').textContent.includes('The same card is on the Power and Water tabs'));

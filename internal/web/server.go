@@ -57,6 +57,8 @@ type Server struct {
 	lastAutoFail string // why the last automatic pass could not finish, kept for the card
 	settingsNote string // the last "settings.json was damaged, the backup copy is used" note that was written to the log (#442)
 
+	launch launchPass // the countdown before the automatic pass at launch (#460)
+
 	// bound is the address the editor listens on, set by BindAddr once it is known ("" until then, as in most tests). It scopes the
 	// session cookie to this port and the accepted Host header to this listener (NET-1, NET-2, SEC-7 of the 2026-10-15 audit).
 	bound string
@@ -601,7 +603,16 @@ func (s *Server) routes() {
 		if err != nil {
 			return nil, err
 		}
+		s.launchStatus() // a countdown whose switches were just turned off ends now
 		return s.autoPrefs(next), nil
+	})
+	// The countdown before the automatic pass at launch (#460): its state (the first ask starts the clock), Skip, and "run the pass now".
+	s.get("/api/autopass/launch", func(r *http.Request) (any, error) { return s.launchStatus(), nil })
+	s.post("/api/autopass/skip", func(ops.Args) (any, error) { return s.SkipLaunchPass(), nil })
+	s.post("/api/autopass/run", func(ops.Args) (any, error) {
+		s.RunPassNow()
+		note, warn := s.takeStartup()
+		return map[string]any{"note": note, "warn": warn}, nil
 	})
 	s.get("/api/startup", func(r *http.Request) (any, error) {
 		note, warn := s.takeStartup()
@@ -986,13 +997,16 @@ func (s *Server) autoPrefs(cur settings.Settings) map[string]any {
 	return map[string]any{"autoRefillOnOpen": cur.AutoRefillOnOpen, "jobs": jobs, "last": s.lastAuto, "lastProblem": s.lastAutoFail, "waiting": s.autoWaiting}
 }
 
-// RunStartupTasks does what the editor's settings ask for when it opens. Today that is the automatic pass: with the master switch on, every
+// RunStartupTasks does what the editor's settings ask for when it opens; it is the pass at launch, which the countdown (launchpass.go) starts. See runPass.
+func (s *Server) RunStartupTasks() { s.runPass(false) }
+
+// runPass runs the automatic pass. Today that is the only start-up task: with the master switch on, every
 // job that is switched on (base water and power, repairs, fills; see ops.AutoJobs) runs as ONE edit, which is written straight away like every
 // other edit, so it takes effect the next time the game loads. It waits while a game process exists or the game check cannot say (nothing is written then, #419). A pass that finds nothing
 // to do writes nothing; a job that fails rolls the whole pass back. If the write is refused, the edit stays queued and is written as soon as the file can be.
-func (s *Server) RunStartupTasks() {
+func (s *Server) runPass(manual bool) {
 	cur := settings.Load(s.SettingsPath)
-	if !cur.AutoRefillOnOpen {
+	if !manual && !cur.AutoRefillOnOpen {
 		s.stopWaitingPass() // a pass that waited and was then switched off must not stay waiting (#441)
 		return
 	}
@@ -1009,16 +1023,28 @@ func (s *Server) RunStartupTasks() {
 	if len(switchedOff) > 0 {
 		off = " Switched off: " + strings.Join(switchedOff, ", ") + "."
 	}
-	if !anyOn { // the master switch is on but every job is off
-		s.stopWaitingPass()
-		return
-	}
 	set := func(note string, warn bool) {
 		s.startupMu.Lock()
 		s.startupNote, s.startupWarn = note, warn
 		s.startupMu.Unlock()
 	}
+	if !anyOn { // the master switch is on but every job is off
+		if manual {
+			set("Nothing was run: every job of the automatic pass is switched off.", true)
+			return
+		}
+		s.stopWaitingPass()
+		return
+	}
 	if g := save.GameStateFor(s.Save.Path, true); autoPassMustWait(g) {
+		if manual { // asked for by hand: answered now, not queued for later
+			if len(g.Processes) > 0 {
+				set("The automatic pass was not run: the game is open, and this pass never writes while it is. Run it again once the game has closed.", true)
+			} else {
+				set("The automatic pass was not run: "+g.Reason+".", true)
+			}
+			return
+		}
 		// The pass at launch writes nothing while a game process exists, even at the game's menu where an edit made by hand may be written, or while the check cannot say
 		// (#419, #449). It is not prepared against a file the game is about to rewrite either: it waits, and RunAutosave runs it on the fresh file once the game has closed.
 		s.startupMu.Lock()

@@ -262,3 +262,7 @@ details.about{margin-top:10px}
 details.about summary{font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--mut)}
 details.about[open] summary{margin-bottom:6px}
 details.about p{margin:6px 0}
+/* the countdown before the automatic pass at launch (#460): a bar like the game banner, under it, on every view */
+#launchpass.info{margin:0;border-radius:0;border-left-width:0;border-bottom:1px solid var(--line);padding:10px 20px;position:sticky;top:var(--hdr-h);z-index:4}
+#launchpass .b{margin-left:6px}
+@media (max-width:720px){#launchpass.info{position:static;padding:8px 12px}}

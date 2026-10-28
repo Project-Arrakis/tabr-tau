@@ -462,7 +462,7 @@ function ask({ title, body, pre = '', list = [], ok = 'Confirm', typed = '', dan
 // A question opened with gap: true ignores an OK that comes sooner than ARM_GAP_MS after it opened (the second half of a double click on the button that opened it, a key that repeats).
 const tooSoon = () => !!(askState && askState.gap && Date.now() - askState.at < ARM_GAP_MS);
 // While a question is open the page behind it is inert (not reachable by Tab, by a screen reader's browse keys or by a click) and does not scroll.
-const BEHIND = ['header', '#gamewarn', '#rowarn', '#nav', '#main'];
+const BEHIND = ['header', '#gamewarn', '#launchpass', '#rowarn', '#nav', '#main'];
 function setBehind(on) {
   for (const s of BEHIND) { const e = $(s); if (e) { if (on) e.setAttribute('inert', ''); else e.removeAttribute('inert'); } }
   document.body.classList.toggle('noscroll', on);
@@ -964,8 +964,9 @@ function autoRefillCard(prefs) {
     ${prefs.lastProblem ? html`<p class="bad">${prefs.lastProblem}</p>` : ''}
     ${prefs.problem ? html`<p class="bad">${prefs.problem}</p>` : ''}
     ${prefs.notice ? html`<p class="warn" role="status" id="settingsnotice">${prefs.notice}</p>` : ''}
+    <div class="row"><button class="b" data-act="autoNow" title="Runs the jobs ticked above once, whatever the switch above says. It never writes while the game is open.">Run the automatic pass now</button></div>
     ${prefs.autoRefillOnOpen && prefs.waiting ? html`<p class="mut" id="autowait">Waiting: the game is open, and this pass never writes while it is. It runs once the game has closed.</p>` : ''}
-    ${about('bases.autorefill', 'Automatic refill and repair', html`<p class="mut">When the master switch is on, opening the editor runs the jobs ticked above as <b>one edit</b> and <b>saves straight away</b>, like every other change, so it applies the next time the game loads. Every job is ticked by default, the repairs too; the master switch is off until you turn it on. It acts only on what your character owns or carries: your own vehicles, worn equipment, loadout, inventories and bases. It waits while the game is open, even at its main menu where an edit you make yourself can be written: nothing is written or queued, and it runs once the game has closed. When nothing needs doing nothing is written. If one job fails, nothing is changed and the error is shown here. The previous file is backed up first. Remembered between runs. The same card is on the Power and Water tabs.</p>`)}</div>`;
+    ${about('bases.autorefill', 'Automatic refill and repair', html`<p class="mut">When the master switch is on, opening the editor starts a countdown of 15 seconds at the top of the page; when it ends, the jobs ticked above run as <b>one edit</b> that <b>saves straight away</b>, like every other change, so it applies the next time the game loads. <b>Skip</b> ends the countdown for this run, <b>Turn it off</b> turns the switch off, and starting the editor with <b>-no-auto</b> skips the pass for that run. The countdown starts when the page first shows it, so nothing runs before you can stop it. <b>Run the automatic pass now</b> runs the ticked jobs once, whenever you like. Every job is ticked by default, the repairs too; the master switch is off until you turn it on. It acts only on what your character owns or carries: your own vehicles, worn equipment, loadout, inventories and bases. It waits while the game is open, even at its main menu where an edit you make yourself can be written: nothing is written or queued, and it runs once the game has closed. When nothing needs doing nothing is written. If one job fails, nothing is changed and the error is shown here. The previous file is backed up first. Remembered between runs. The same card is on the Power and Water tabs.</p>`)}</div>`;
 }
 // The console's Land Claim Editor: the claim as a grid of cells turned by the base's own yaw (north at the top), with the totem's cell,
 // the cells it has, and dotted "available" cells next to it. Click an available cell to add it, a chosen one to take it back (what is
@@ -1729,6 +1730,9 @@ const A = {
   jfilter: () => { journeyQ = val('jq'); journeyList(); },
   jclear: () => { journeyQ = ''; journeyList(); },
   jset: (d) => act(async () => { await api('/api/player/journey', { node_id: d.id, complete: d.c == '1' }); JB = await api('/api/player/journey/browse'); journeyList(); toast('Journey updated' + NOT_SAVED); }, null),
+  launchSkip: () => act(async () => { const r = await api('/api/autopass/skip', {}); await launchPoll(); toast(r.skipped ? 'Automatic refill and repair skipped for this run' : 'The automatic pass had already started'); }, null, false, true),
+  launchOff: () => act(async () => { await api('/api/settings', { autoRefillOnOpen: false }); await launchPoll(); toast('Automatic refill when the editor opens is now off'); }, null, true, true),
+  autoNow: () => act(async () => { launchHide(); const r = await api('/api/autopass/run', {}); await launchPoll(); if (r.note) toast(r.note, !!r.warn, 15000); }, null, true, true),
   autoref: async (d) => {
     if (!d.on && !(await ask({ title: 'Turn on automatic refill and repair?', body: 'From now on, opening the editor runs the jobs that are ticked on the card (refills water storage and power buildings, repairs your vehicles and your worn equipment and loadout, fills your water containers and your water, and so on) as one edit and saves to your game file immediately, like every other change. The previous file is backed up each time, and nothing happens while the game is open, not even at its menu (it runs when the game has closed). It applies to whichever save file the editor opens.', ok: 'Turn on' }))) return;
     act(async () => { const r = await api('/api/settings', { autoRefillOnOpen: !d.on }); toast('Automatic refill when the editor opens is now ' + (r.autoRefillOnOpen ? 'on' : 'off')); }, null);
@@ -1957,8 +1961,54 @@ if (hdrEl) { setHdrH(); if (window.ResizeObserver) new ResizeObserver(setHdrH).o
 const autoBox = $('#autorefresh');
 autoBox.checked = autoRefreshOn();
 autoBox.addEventListener('change', () => { try { localStorage.autoRefresh = autoBox.checked ? '1' : '0'; } catch (e) { /* the choice lasts until the page is closed */ } status(); });
+// The countdown before the automatic pass at launch (#460). The pass does not start until the page has shown this bar, and the bar has Skip and a way to turn the switch off. The seconds
+// are counted down here and checked with the editor every few seconds, and again when they run out; the bar goes when the editor says no pass is counting or working.
+let launchMode = '', launchLeft = 0, launchTicker = null, launchTicks = 0, launchBusy = false;
+function launchHide() {
+  if (launchTicker) { clearInterval(launchTicker); launchTicker = null; }
+  launchMode = '';
+  const b = $('#launchpass');
+  if (b) { b.className = 'hide'; setHTML(b, html``); }
+}
+async function launchPoll() {
+  if (launchBusy) return;
+  launchBusy = true;
+  try {
+    let st;
+    try { st = await api('/api/autopass/launch'); } catch (e) { launchHide(); return; }
+    const b = $('#launchpass');
+    const mode = st.pending ? 'count' : st.running ? 'run' : '';
+    if (!mode) {
+      const was = launchMode;
+      launchHide();
+      if (was) { // the countdown ended: the pass ran (or was switched off); say what it did
+        try { const r = await api('/api/startup'); if (r.note) { toast(r.note, !!r.warn, 15000); await status(); await render(true); } } catch (e) { /* the note is optional */ }
+      }
+      return;
+    }
+    launchLeft = st.secondsLeft;
+    if (mode !== launchMode) {
+      launchMode = mode;
+      b.className = 'info';
+      setHTML(b, mode === 'count'
+        ? html`<b>Automatic refill and repair starts in <span id="launchsecs">${launchLeft}</span> s.</b> <button class="b sm" data-act="launchSkip">Skip</button> <button class="b sm sec" data-act="launchOff">Turn it off</button>`
+        : html`<b>Automatic refill and repair is running...</b>`);
+      const sr = $('#sr');
+      if (sr) sr.textContent = mode === 'count' ? 'Automatic refill and repair starts in ' + launchLeft + ' seconds. Skip and Turn it off are at the top of the page.' : 'Automatic refill and repair is running.';
+    } else if ($('#launchsecs')) $('#launchsecs').textContent = String(launchLeft);
+    if (!launchTicker) {
+      launchTicks = 0;
+      launchTicker = setInterval(() => {
+        launchTicks++;
+        if (launchMode === 'count') { launchLeft = Math.max(0, launchLeft - 1); if ($('#launchsecs')) $('#launchsecs').textContent = String(launchLeft); }
+        if (launchMode === 'run' || launchLeft <= 0 || launchTicks % 5 === 0) launchPoll();
+      }, 1000);
+    }
+  } finally { launchBusy = false; }
+}
 status().then(render).then(async () => {
   try { const r = await api('/api/startup'); if (r.note) toast(r.note, !!r.warn, 15000); } catch (e) { /* the note is optional */ }
+  launchPoll();
 }).catch((e) => { // the editor did not answer: "Loading the save..." would stay for ever
   if ($('#loading')) setHTML($('#main'), html`<div class="card bad">The editor did not answer: ${e.message}</div><div class="row mt12"><button class="b" data-act="retry">Try again</button></div>`);
 });
