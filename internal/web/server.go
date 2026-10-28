@@ -724,6 +724,9 @@ func (s *Server) routes() {
 	s.post("/api/vehicles/refuel", func(ops.Args) (any, error) { return o.RefuelVehicles() })
 	s.post("/api/vehicles/bring", o.BringVehicle)
 	s.post("/api/vehicles/duplicate", o.DuplicateVehicle)
+	s.get("/api/vehicles/catalog", func(r *http.Request) (any, error) { return o.VehicleCatalog() })
+	s.post("/api/vehicles/spawn", o.SpawnVehicle)
+	s.post("/api/vehicles/spawn-preview", o.SpawnVehiclePreview)
 	s.post("/api/vehicles/repair", func(a ops.Args) (any, error) {
 		pct := int64(100)
 		if _, has := a["threshold"]; has {

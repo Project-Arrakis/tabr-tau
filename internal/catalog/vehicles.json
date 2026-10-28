@@ -1,0 +1,3957 @@
+{
+ "build": "1.5.15.0",
+ "read": "2026-10-27",
+ "tables": [
+  "CDT_BaseVehicleModules",
+  "DT_VehicleSchematics",
+  "DT_VehicleTemplates",
+  "DT_VehicleWeaponModules"
+ ],
+ "classes": {
+  "Buggy": {
+   "label": "Buggy",
+   "actorClass": "/Game/Dune/Systems/Vehicles/Blueprints/GroundVehicles/BP_Buggy_CHOAM.BP_Buggy_CHOAM_C",
+   "propsKey": "BP_Buggy_CHOAM_C",
+   "permissionName": "##BuggyChoam",
+   "cargoHash": -72424899,
+   "holds": [
+    462019337
+   ],
+   "slots": [
+    {
+     "slot": "Chassis",
+     "mandatory": true
+    },
+    {
+     "slot": "Generator",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "Engine",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "CockpitHull",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "BodyHull",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "UtilitySlot1",
+     "mandatory": false,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "UtilitySlot2",
+     "mandatory": false,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "Locomotion",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "Locomotion2",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "Locomotion3",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "Locomotion4",
+     "mandatory": true,
+     "parent": "Chassis"
+    }
+   ],
+   "templates": [
+    {
+     "name": "T0",
+     "tier": 0,
+     "modules": {
+      "BodyHull": "BuggyHullBack_0",
+      "Chassis": "BuggyChassis_0",
+      "CockpitHull": "BuggyHullFront_0",
+      "Engine": "BuggyEngine_0",
+      "Generator": "BuggyGenerator_0",
+      "Locomotion": "BuggyLocomotionFrontLeft_0",
+      "Locomotion2": "BuggyLocomotionFrontRight_0",
+      "Locomotion3": "BuggyLocomotionBackLeft_0",
+      "Locomotion4": "BuggyLocomotionBackRight_0"
+     }
+    },
+    {
+     "name": "T3_Inventory",
+     "tier": 3,
+     "modules": {
+      "BodyHull": "BuggyHullBack_3",
+      "Chassis": "BuggyChassis_3",
+      "CockpitHull": "BuggyHullFront_3",
+      "Engine": "BuggyEngine_3",
+      "Generator": "BuggyGenerator_3",
+      "Locomotion": "BuggyLocomotionFrontLeft_3",
+      "Locomotion2": "BuggyLocomotionFrontRight_3",
+      "Locomotion3": "BuggyLocomotionBackLeft_3",
+      "Locomotion4": "BuggyLocomotionBackRight_3",
+      "UtilitySlot1": "BuggyInventory_3"
+     }
+    },
+    {
+     "name": "T4_Boost",
+     "tier": 4,
+     "modules": {
+      "BodyHull": "BuggyHullBack_4",
+      "Chassis": "BuggyChassis_4",
+      "CockpitHull": "BuggyHullFront_4",
+      "Engine": "BuggyEngine_4",
+      "Generator": "BuggyGenerator_4",
+      "Locomotion": "BuggyLocomotionFrontLeft_4",
+      "Locomotion2": "BuggyLocomotionFrontRight_4",
+      "Locomotion3": "BuggyLocomotionBackLeft_4",
+      "Locomotion4": "BuggyLocomotionBackRight_4",
+      "UtilitySlot1": "BuggyBoost_4"
+     }
+    },
+    {
+     "name": "T5_Mining",
+     "tier": 5,
+     "modules": {
+      "BodyHull": "BuggyHullBackExtra_5",
+      "Chassis": "BuggyChassis_5",
+      "CockpitHull": "BuggyHullFront_5",
+      "Engine": "BuggyEngine_5",
+      "Generator": "BuggyGenerator_5",
+      "Locomotion": "BuggyLocomotionFrontLeft_5",
+      "Locomotion2": "BuggyLocomotionFrontRight_5",
+      "Locomotion3": "BuggyLocomotionBackLeft_5",
+      "Locomotion4": "BuggyLocomotionBackRight_5",
+      "UtilitySlot1": "BuggyInventory_5",
+      "UtilitySlot2": "BuggyMining_5"
+     }
+    },
+    {
+     "name": "T6_Combat",
+     "tier": 6,
+     "modules": {
+      "BodyHull": "BuggyHullBackExtra_6",
+      "Chassis": "BuggyChassis_6",
+      "CockpitHull": "BuggyHullFront_6",
+      "Engine": "BuggyEngine_6",
+      "Generator": "BuggyGenerator_6",
+      "Locomotion": "BuggyLocomotionFrontLeft_6",
+      "Locomotion2": "BuggyLocomotionFrontRight_6",
+      "Locomotion3": "BuggyLocomotionBackLeft_6",
+      "Locomotion4": "BuggyLocomotionBackRight_6",
+      "UtilitySlot1": "BuggyBoost_6",
+      "UtilitySlot2": "BuggyLauncher_6"
+     }
+    }
+   ]
+  },
+  "ContainerVehicle": {
+   "label": "Container vehicle",
+   "actorClass": "/Game/Dune/Systems/Vehicles/Blueprints/GroundVehicles/BP_ContainerVehicle.BP_ContainerVehicle_C",
+   "propsKey": "BP_ContainerVehicle_C",
+   "permissionName": "##ContainerVehicle",
+   "cargoHash": -72424899,
+   "holds": [
+    462019337
+   ],
+   "slots": [
+    {
+     "slot": "Chassis",
+     "mandatory": true
+    }
+   ],
+   "templates": [
+    {
+     "name": "Container",
+     "tier": 0,
+     "modules": {
+      "Chassis": "ContainerVehicle"
+     }
+    }
+   ]
+  },
+  "OrnithopterLight": {
+   "label": "Light ornithopter",
+   "actorClass": "/Game/Dune/Systems/Vehicles/Blueprints/FlyingVehicles/BP_LightOrnithopter_Choam.BP_LightOrnithopter_Choam_C",
+   "propsKey": "BP_LightOrnithopter_Choam_C",
+   "permissionName": "##LightOrnithopterChoam",
+   "extra": {
+    "WeaponActorComponent": {
+     "m_FavoriteWeaponItemDatabaseId": "!!itm#0"
+    }
+   },
+   "cargoHash": -72424899,
+   "holds": [
+    462019337
+   ],
+   "slots": [
+    {
+     "slot": "Chassis",
+     "mandatory": true
+    },
+    {
+     "slot": "Generator",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "Engine",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "BodyHull",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "CockpitHull",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "Locomotion",
+     "mandatory": true,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "Locomotion2",
+     "mandatory": true,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "Locomotion3",
+     "mandatory": true,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "Locomotion4",
+     "mandatory": true,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "UtilitySlot1",
+     "mandatory": false,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "UtilitySlot2",
+     "mandatory": false,
+     "parent": "CockpitHull"
+    }
+   ],
+   "templates": [
+    {
+     "name": "T0",
+     "tier": 0,
+     "modules": {
+      "BodyHull": "OrnithopterLightHullBack_0",
+      "Chassis": "OrnithopterLightChassis_0",
+      "CockpitHull": "OrnithopterLightHullFront_0",
+      "Engine": "OrnithopterLightEngine_0",
+      "Generator": "OrnithopterLightGenerator_0",
+      "Locomotion": "OrnithopterLightLocomotionFrontLeft_0",
+      "Locomotion2": "OrnithopterLightLocomotionFrontRight_0",
+      "Locomotion3": "OrnithopterLightLocomotionBackLeft_0",
+      "Locomotion4": "OrnithopterLightLocomotionBackRight_0"
+     }
+    },
+    {
+     "name": "T4_Inventory",
+     "tier": 4,
+     "modules": {
+      "BodyHull": "OrnithopterLightHullBack_4",
+      "Chassis": "OrnithopterLightChassis_4",
+      "CockpitHull": "OrnithopterLightHullFront_4",
+      "Engine": "OrnithopterLightEngine_4",
+      "Generator": "OrnithopterLightGenerator_4",
+      "Locomotion": "OrnithopterLightLocomotionFrontLeft_4",
+      "Locomotion2": "OrnithopterLightLocomotionFrontRight_4",
+      "Locomotion3": "OrnithopterLightLocomotionBackLeft_4",
+      "Locomotion4": "OrnithopterLightLocomotionBackRight_4",
+      "UtilitySlot1": "OrnithopterLightInventory_4",
+      "UtilitySlot2": "OrnithopterLightScanner_4"
+     }
+    },
+    {
+     "name": "T5_Boost",
+     "tier": 5,
+     "modules": {
+      "BodyHull": "OrnithopterLightHullBack_5",
+      "Chassis": "OrnithopterLightChassis_5",
+      "CockpitHull": "OrnithopterLightHullFront_5",
+      "Engine": "OrnithopterLightEngine_5",
+      "Generator": "OrnithopterLightGenerator_5",
+      "Locomotion": "OrnithopterLightLocomotionFrontLeft_5",
+      "Locomotion2": "OrnithopterLightLocomotionFrontRight_5",
+      "Locomotion3": "OrnithopterLightLocomotionBackLeft_5",
+      "Locomotion4": "OrnithopterLightLocomotionBackRight_5",
+      "UtilitySlot1": "OrnithopterLightBoost_5",
+      "UtilitySlot2": "OrnithopterLightScanner_4"
+     }
+    },
+    {
+     "name": "T6_Combat",
+     "tier": 6,
+     "modules": {
+      "BodyHull": "OrnithopterLightHullBack_6",
+      "Chassis": "OrnithopterLightChassis_6",
+      "CockpitHull": "OrnithopterLightHullFront_6",
+      "Engine": "OrnithopterLightEngine_6",
+      "Generator": "OrnithopterLightGenerator_6",
+      "Locomotion": "OrnithopterLightLocomotionFrontLeft_6",
+      "Locomotion2": "OrnithopterLightLocomotionFrontRight_6",
+      "Locomotion3": "OrnithopterLightLocomotionBackLeft_6",
+      "Locomotion4": "OrnithopterLightLocomotionBackRight_6",
+      "UtilitySlot1": "OrnithopterLightLauncher_6",
+      "UtilitySlot2": "OrnithopterLightScanner_4"
+     }
+    }
+   ]
+  },
+  "OrnithopterMedium": {
+   "label": "Medium ornithopter",
+   "actorClass": "/Game/Dune/Systems/Vehicles/Blueprints/FlyingVehicles/BP_MediumOrnithopter_CHOAM.BP_MediumOrnithopter_CHOAM_C",
+   "propsKey": "BP_MediumOrnithopter_CHOAM_C",
+   "permissionName": "##MediumOrnithopter",
+   "cargoHash": -72424899,
+   "holds": [
+    462019337
+   ],
+   "slots": [
+    {
+     "slot": "Chassis",
+     "mandatory": true
+    },
+    {
+     "slot": "Generator",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "Engine",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "BodyHull",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "CockpitHull",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "BodyHull2",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "Locomotion",
+     "mandatory": true,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "Locomotion2",
+     "mandatory": true,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "Locomotion3",
+     "mandatory": true,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "Locomotion4",
+     "mandatory": true,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "Locomotion5",
+     "mandatory": true,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "Locomotion6",
+     "mandatory": true,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "UtilitySlot2",
+     "mandatory": false,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "UtilitySlot1",
+     "mandatory": false,
+     "parent": "BodyHull"
+    }
+   ],
+   "templates": [
+    {
+     "name": "T0",
+     "tier": 0,
+     "modules": {
+      "BodyHull": "OrnithopterMediumHull_0",
+      "BodyHull2": "OrnithopterMediumHullBack_0",
+      "Chassis": "OrnithopterMediumChassis_0",
+      "CockpitHull": "OrnithopterMediumHullFront_0",
+      "Engine": "OrnithopterMediumEngine_0",
+      "Generator": "OrnithopterMediumGenerator_0",
+      "Locomotion": "OrnithopterMediumLocomotionFrontLeft_0",
+      "Locomotion2": "OrnithopterMediumLocomotionFrontRight_0",
+      "Locomotion3": "OrnithopterMediumLocomotionCenterLeft_0",
+      "Locomotion4": "OrnithopterMediumLocomotionCenterRight_0",
+      "Locomotion5": "OrnithopterMediumLocomotionBackLeft_0",
+      "Locomotion6": "OrnithopterMediumLocomotionBackRight_0"
+     }
+    },
+    {
+     "name": "T5_Inventory",
+     "tier": 5,
+     "modules": {
+      "BodyHull": "OrnithopterMediumHull_5",
+      "BodyHull2": "OrnithopterMediumHullBack_5",
+      "Chassis": "OrnithopterMediumChassis_5",
+      "CockpitHull": "OrnithopterMediumHullFront_5",
+      "Engine": "OrnithopterMediumEngine_5",
+      "Generator": "OrnithopterMediumGenerator_5",
+      "Locomotion": "OrnithopterMediumLocomotionFrontLeft_5",
+      "Locomotion2": "OrnithopterMediumLocomotionFrontRight_5",
+      "Locomotion3": "OrnithopterMediumLocomotionCenterLeft_5",
+      "Locomotion4": "OrnithopterMediumLocomotionCenterRight_5",
+      "Locomotion5": "OrnithopterMediumLocomotionBackLeft_5",
+      "Locomotion6": "OrnithopterMediumLocomotionBackRight_5",
+      "UtilitySlot1": "OrnithopterMediumBoost_5",
+      "UtilitySlot2": "OrnithopterMediumInventory_5"
+     }
+    },
+    {
+     "name": "T6_Combat",
+     "tier": 6,
+     "modules": {
+      "BodyHull": "OrnithopterMediumHull_6",
+      "BodyHull2": "OrnithopterMediumHullBack_6",
+      "Chassis": "OrnithopterMediumChassis_6",
+      "CockpitHull": "OrnithopterMediumHullFront_6",
+      "Engine": "OrnithopterMediumEngine_6",
+      "Generator": "OrnithopterMediumGenerator_6",
+      "Locomotion": "OrnithopterMediumLocomotionFrontLeft_6",
+      "Locomotion2": "OrnithopterMediumLocomotionFrontRight_6",
+      "Locomotion3": "OrnithopterMediumLocomotionCenterLeft_6",
+      "Locomotion4": "OrnithopterMediumLocomotionCenterRight_6",
+      "Locomotion5": "OrnithopterMediumLocomotionBackLeft_6",
+      "Locomotion6": "OrnithopterMediumLocomotionBackRight_6",
+      "UtilitySlot1": "OrnithopterMediumBoost_5",
+      "UtilitySlot2": "OrnithopterMediumLauncher_6"
+     }
+    }
+   ]
+  },
+  "OrnithopterTransport": {
+   "label": "Carrier ornithopter",
+   "actorClass": "/Game/Dune/Systems/Vehicles/Blueprints/FlyingVehicles/BP_TransportOrnithopter_CHOAM.BP_TransportOrnithopter_CHOAM_C",
+   "propsKey": "BP_TransportOrnithopter_CHOAM_C",
+   "permissionName": "##TranspOrnithopter",
+   "cargoHash": -72424899,
+   "holds": [
+    462019337
+   ],
+   "slots": [
+    {
+     "slot": "Chassis",
+     "mandatory": true
+    },
+    {
+     "slot": "Generator",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "Engine",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "CockpitHull",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "BodyHull",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "BodyHull3",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "BodyHull2",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "BodyHull4",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "Locomotion",
+     "mandatory": true,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "Locomotion2",
+     "mandatory": true,
+     "parent": "BodyHull3"
+    },
+    {
+     "slot": "Locomotion3",
+     "mandatory": true,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "Locomotion4",
+     "mandatory": true,
+     "parent": "BodyHull3"
+    },
+    {
+     "slot": "Locomotion5",
+     "mandatory": true,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "Locomotion6",
+     "mandatory": true,
+     "parent": "BodyHull3"
+    },
+    {
+     "slot": "Locomotion7",
+     "mandatory": true,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "Locomotion8",
+     "mandatory": true,
+     "parent": "BodyHull3"
+    },
+    {
+     "slot": "UtilitySlot1",
+     "mandatory": false,
+     "parent": "CockpitHull"
+    }
+   ],
+   "templates": [
+    {
+     "name": "T0",
+     "tier": 0,
+     "modules": {
+      "BodyHull": "OrnithopterTransportHullFrontLeft_0",
+      "BodyHull2": "OrnithopterTransportHullBackLeft_0",
+      "BodyHull3": "OrnithopterTransportHullFrontRight_0",
+      "BodyHull4": "OrnithopterTransportHullBackRight_0",
+      "Chassis": "OrnithopterTransportChassis_0",
+      "CockpitHull": "OrnithopterTransportHull_0",
+      "Engine": "OrnithopterTransportEngine_0",
+      "Generator": "OrnithopterTransportGenerator_0",
+      "Locomotion": "OrnithopterTransportLocomotionFrontLeft_0",
+      "Locomotion2": "OrnithopterTransportLocomotionFrontRight_0",
+      "Locomotion3": "OrnithopterTransportLocomotionCenterLeft1_0",
+      "Locomotion4": "OrnithopterTransportLocomotionCenterRight1_0",
+      "Locomotion5": "OrnithopterTransportLocomotionCenterLeft2_0",
+      "Locomotion6": "OrnithopterTransportLocomotionCenterRight2_0",
+      "Locomotion7": "OrnithopterTransportLocomotionBackLeft_0",
+      "Locomotion8": "OrnithopterTransportLocomotionBackRight_0"
+     }
+    },
+    {
+     "name": "T6_Boost",
+     "tier": 6,
+     "modules": {
+      "BodyHull": "OrnithopterTransportHullFrontLeft_6",
+      "BodyHull2": "OrnithopterTransportHullBackLeft_6",
+      "BodyHull3": "OrnithopterTransportHullFrontRight_6",
+      "BodyHull4": "OrnithopterTransportHullBackRight_6",
+      "Chassis": "OrnithopterTransportChassis_6",
+      "CockpitHull": "OrnithopterTransportHull_6",
+      "Engine": "OrnithopterTransportEngine_6",
+      "Generator": "OrnithopterTransportGenerator_6",
+      "Locomotion": "OrnithopterTransportLocomotionFrontLeft_6",
+      "Locomotion2": "OrnithopterTransportLocomotionFrontRight_6",
+      "Locomotion3": "OrnithopterTransportLocomotionCenterLeft1_6",
+      "Locomotion4": "OrnithopterTransportLocomotionCenterRight1_6",
+      "Locomotion5": "OrnithopterTransportLocomotionCenterLeft2_6",
+      "Locomotion6": "OrnithopterTransportLocomotionCenterRight2_6",
+      "Locomotion7": "OrnithopterTransportLocomotionBackLeft_6",
+      "Locomotion8": "OrnithopterTransportLocomotionBackRight_6",
+      "UtilitySlot1": "OrnithopterTransportBoost_6"
+     }
+    }
+   ]
+  },
+  "Sandbike": {
+   "label": "Sandbike",
+   "actorClass": "/Game/Dune/Systems/Vehicles/Blueprints/GroundVehicles/BP_Sandbike_CHOAM.BP_Sandbike_CHOAM_C",
+   "propsKey": "BP_Sandbike_CHOAM_C",
+   "permissionName": "##OneManGroundcarChoam",
+   "cargoHash": -72424899,
+   "holds": [
+    462019337,
+    -1011699082
+   ],
+   "slots": [
+    {
+     "slot": "Chassis",
+     "mandatory": true
+    },
+    {
+     "slot": "Generator",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "Engine",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "BodyHull",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "UtilitySlot1",
+     "mandatory": false,
+     "parent": "BodyHull"
+    },
+    {
+     "slot": "Locomotion",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "Locomotion2",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "Locomotion3",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "UtilitySlot2",
+     "mandatory": false,
+     "parent": "BodyHull"
+    }
+   ],
+   "templates": [
+    {
+     "name": "T0",
+     "tier": 0,
+     "modules": {
+      "BodyHull": "SandbikeHull_0",
+      "Chassis": "SandbikeChassis_0",
+      "Engine": "SandbikeEngine_0",
+      "Generator": "SandbikeGenerator_0",
+      "Locomotion": "SandbikeLocomotionFrontLeft_0",
+      "Locomotion2": "SandbikeLocomotionFrontRight_0",
+      "Locomotion3": "SandbikeLocomotionBackCenter_0",
+      "UtilitySlot1": "SandbikeSeat_0"
+     }
+    },
+    {
+     "name": "T1_ExtraSeat",
+     "tier": 1,
+     "modules": {
+      "BodyHull": "SandbikeHull_1",
+      "Chassis": "SandbikeChassis_1",
+      "Engine": "SandbikeEngine_1",
+      "Generator": "SandbikeGenerator_1",
+      "Locomotion": "SandbikeLocomotionFrontLeft_1",
+      "Locomotion2": "SandbikeLocomotionFrontRight_1",
+      "Locomotion3": "SandbikeLocomotionBackCenter_1",
+      "UtilitySlot1": "SandbikeSeat_1"
+     }
+    },
+    {
+     "name": "T2_Inventory",
+     "tier": 2,
+     "modules": {
+      "BodyHull": "SandbikeHull_2",
+      "Chassis": "SandbikeChassis_2",
+      "Engine": "SandbikeEngine_2",
+      "Generator": "SandbikeGenerator_2",
+      "Locomotion": "SandbikeLocomotionFrontLeft_2",
+      "Locomotion2": "SandbikeLocomotionFrontRight_2",
+      "Locomotion3": "SandbikeLocomotionBackCenter_2",
+      "UtilitySlot1": "SandbikeInventory_2"
+     }
+    },
+    {
+     "name": "T3_Boost",
+     "tier": 3,
+     "modules": {
+      "BodyHull": "SandbikeHull_3",
+      "Chassis": "SandbikeChassis_3",
+      "Engine": "SandbikeEngine_3",
+      "Generator": "SandbikeGenerator_3",
+      "Locomotion": "SandbikeLocomotionFrontLeft_3",
+      "Locomotion2": "SandbikeLocomotionFrontRight_3",
+      "Locomotion3": "SandbikeLocomotionBackCenter_3",
+      "UtilitySlot1": "SandbikeBoost_3"
+     }
+    },
+    {
+     "name": "T4_Scanner",
+     "tier": 4,
+     "modules": {
+      "BodyHull": "SandbikeHull_4",
+      "Chassis": "SandbikeChassis_4",
+      "Engine": "SandbikeEngine_4",
+      "Generator": "SandbikeGenerator_4",
+      "Locomotion": "SandbikeLocomotionFrontLeft_4",
+      "Locomotion2": "SandbikeLocomotionFrontRight_4",
+      "Locomotion3": "SandbikeLocomotionBackCenter_4",
+      "UtilitySlot2": "SandbikeScanner_2"
+     }
+    },
+    {
+     "name": "T5",
+     "tier": 5,
+     "modules": {
+      "BodyHull": "SandbikeHull_5",
+      "Chassis": "SandbikeChassis_5",
+      "Engine": "SandbikeEngine_5",
+      "Generator": "SandbikeGenerator_5",
+      "Locomotion": "SandbikeLocomotionFrontLeft_5",
+      "Locomotion2": "SandbikeLocomotionFrontRight_5",
+      "Locomotion3": "SandbikeLocomotionBackCenter_5"
+     }
+    },
+    {
+     "name": "T6",
+     "tier": 6,
+     "modules": {
+      "BodyHull": "SandbikeHull_6",
+      "Chassis": "SandbikeChassis_6",
+      "Engine": "SandbikeEngine_6",
+      "Generator": "SandbikeGenerator_6",
+      "Locomotion": "SandbikeLocomotionFrontLeft_6",
+      "Locomotion2": "SandbikeLocomotionFrontRight_6",
+      "Locomotion3": "SandbikeLocomotionBackCenter_6"
+     }
+    }
+   ]
+  },
+  "Sandcrawler": {
+   "label": "Sandcrawler",
+   "actorClass": "/Game/Dune/Systems/Vehicles/Blueprints/GroundVehicles/BP_SandCrawler_CHOAM.BP_SandCrawler_CHOAM_C",
+   "propsKey": "BP_SandCrawler_CHOAM_C",
+   "permissionName": "##Sandcrawler",
+   "extraOwn": {
+    "m_SpiceInventoryFillState": 0
+   },
+   "cargoHash": -72424899,
+   "holds": [
+    462019337
+   ],
+   "slots": [
+    {
+     "slot": "Chassis",
+     "mandatory": true
+    },
+    {
+     "slot": "Generator",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "Engine",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "Locomotion",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "Locomotion2",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "CockpitHull",
+     "mandatory": true,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "UtilitySlot1",
+     "mandatory": false,
+     "parent": "Chassis"
+    },
+    {
+     "slot": "UtilitySlot2",
+     "mandatory": false,
+     "parent": "Chassis"
+    }
+   ],
+   "templates": [
+    {
+     "name": "T0",
+     "tier": 0,
+     "modules": {
+      "Chassis": "SandcrawlerChassis_0",
+      "CockpitHull": "SandcrawlerHull_0",
+      "Engine": "SandcrawlerEngine_0",
+      "Generator": "SandcrawlerGenerator_0",
+      "Locomotion": "SandcrawlerLocomotionLeft_0",
+      "Locomotion2": "SandcrawlerLocomotionRight_0",
+      "UtilitySlot1": "SandcrawlerSpiceHeader_0",
+      "UtilitySlot2": "SandcrawlerSpiceContainer_0"
+     }
+    },
+    {
+     "name": "T6_Harvesting",
+     "tier": 6,
+     "modules": {
+      "Chassis": "SandcrawlerChassis_6",
+      "CockpitHull": "SandcrawlerHull_6",
+      "Engine": "SandcrawlerEngine_6",
+      "Generator": "SandcrawlerGenerator_6",
+      "Locomotion": "SandcrawlerLocomotionLeft_6",
+      "Locomotion2": "SandcrawlerLocomotionRight_6",
+      "UtilitySlot1": "SandcrawlerSpiceHeader_6",
+      "UtilitySlot2": "SandcrawlerSpiceContainer_6"
+     }
+    }
+   ]
+  }
+ },
+ "modules": {
+  "BuggyBoost_0": {
+   "class": "Buggy",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 1750
+  },
+  "BuggyBoost_3": {
+   "class": "Buggy",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 3,
+   "durability": 1750
+  },
+  "BuggyBoost_4": {
+   "class": "Buggy",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 4,
+   "durability": 1750
+  },
+  "BuggyBoost_5": {
+   "class": "Buggy",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 5,
+   "durability": 1750
+  },
+  "BuggyBoost_6": {
+   "class": "Buggy",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "durability": 1750
+  },
+  "BuggyBoost_Unique_LessHeat_3": {
+   "class": "Buggy",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 3,
+   "unique": true,
+   "durability": 1750
+  },
+  "BuggyBoost_Unique_LessHeat_4": {
+   "class": "Buggy",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 4,
+   "unique": true,
+   "durability": 1750
+  },
+  "BuggyBoost_Unique_LessHeat_5": {
+   "class": "Buggy",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 5,
+   "unique": true,
+   "durability": 1750
+  },
+  "BuggyBoost_Unique_LessHeat_6": {
+   "class": "Buggy",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750
+  },
+  "BuggyChassis_0": {
+   "class": "Buggy",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 0,
+   "durability": 3500,
+   "health": 450,
+   "critical": 150,
+   "fuel": 220
+  },
+  "BuggyChassis_3": {
+   "class": "Buggy",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 3,
+   "durability": 3500,
+   "health": 450,
+   "critical": 150,
+   "fuel": 240
+  },
+  "BuggyChassis_4": {
+   "class": "Buggy",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 4,
+   "durability": 3500,
+   "health": 450,
+   "critical": 150,
+   "fuel": 260
+  },
+  "BuggyChassis_5": {
+   "class": "Buggy",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 5,
+   "durability": 3500,
+   "health": 450,
+   "critical": 150,
+   "fuel": 280
+  },
+  "BuggyChassis_6": {
+   "class": "Buggy",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 6,
+   "durability": 3500,
+   "health": 450,
+   "critical": 150,
+   "fuel": 300
+  },
+  "BuggyEngine_0": {
+   "class": "Buggy",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 0,
+   "durability": 1750
+  },
+  "BuggyEngine_3": {
+   "class": "Buggy",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 3,
+   "durability": 1750
+  },
+  "BuggyEngine_4": {
+   "class": "Buggy",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 4,
+   "durability": 1750
+  },
+  "BuggyEngine_5": {
+   "class": "Buggy",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 5,
+   "durability": 1750
+  },
+  "BuggyEngine_6": {
+   "class": "Buggy",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 6,
+   "durability": 1750
+  },
+  "BuggyEngine_Unique_Accelerate_03": {
+   "class": "Buggy",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 3,
+   "unique": true,
+   "durability": 1750
+  },
+  "BuggyEngine_Unique_Accelerate_04": {
+   "class": "Buggy",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 4,
+   "unique": true,
+   "durability": 1750
+  },
+  "BuggyEngine_Unique_Accelerate_05": {
+   "class": "Buggy",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 5,
+   "unique": true,
+   "durability": 1750
+  },
+  "BuggyEngine_Unique_Accelerate_06": {
+   "class": "Buggy",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750
+  },
+  "BuggyEngine_Unique_Topspeed_6": {
+   "class": "Buggy",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750
+  },
+  "BuggyGenerator_0": {
+   "class": "Buggy",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 0,
+   "durability": 1750
+  },
+  "BuggyGenerator_3": {
+   "class": "Buggy",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 3,
+   "durability": 1750
+  },
+  "BuggyGenerator_4": {
+   "class": "Buggy",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 4,
+   "durability": 1750
+  },
+  "BuggyGenerator_5": {
+   "class": "Buggy",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 5,
+   "durability": 1750
+  },
+  "BuggyGenerator_6": {
+   "class": "Buggy",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 6,
+   "durability": 1750
+  },
+  "BuggyHullBackExtra_0": {
+   "class": "Buggy",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 0,
+   "durability": 2625,
+   "health": 100
+  },
+  "BuggyHullBackExtra_3": {
+   "class": "Buggy",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 3,
+   "durability": 2625,
+   "health": 100
+  },
+  "BuggyHullBackExtra_4": {
+   "class": "Buggy",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 4,
+   "durability": 2625,
+   "health": 100
+  },
+  "BuggyHullBackExtra_5": {
+   "class": "Buggy",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 5,
+   "durability": 2625,
+   "health": 100
+  },
+  "BuggyHullBackExtra_6": {
+   "class": "Buggy",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 6,
+   "durability": 2625,
+   "health": 100
+  },
+  "BuggyHullBack_0": {
+   "class": "Buggy",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 0,
+   "durability": 2625,
+   "health": 100
+  },
+  "BuggyHullBack_3": {
+   "class": "Buggy",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 3,
+   "durability": 2625,
+   "health": 100
+  },
+  "BuggyHullBack_4": {
+   "class": "Buggy",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 4,
+   "durability": 2625,
+   "health": 100
+  },
+  "BuggyHullBack_5": {
+   "class": "Buggy",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 5,
+   "durability": 2625,
+   "health": 100
+  },
+  "BuggyHullBack_6": {
+   "class": "Buggy",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 6,
+   "durability": 2625,
+   "health": 100
+  },
+  "BuggyHullFront_0": {
+   "class": "Buggy",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 0,
+   "durability": 2625,
+   "health": 100
+  },
+  "BuggyHullFront_3": {
+   "class": "Buggy",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 3,
+   "durability": 2625,
+   "health": 100
+  },
+  "BuggyHullFront_4": {
+   "class": "Buggy",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 4,
+   "durability": 2625,
+   "health": 100
+  },
+  "BuggyHullFront_5": {
+   "class": "Buggy",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 5,
+   "durability": 2625,
+   "health": 100
+  },
+  "BuggyHullFront_6": {
+   "class": "Buggy",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 6,
+   "durability": 2625,
+   "health": 100
+  },
+  "BuggyHullFront_Insulated_6": {
+   "class": "Buggy",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 6,
+   "durability": 2625,
+   "health": 100
+  },
+  "BuggyInventory_0": {
+   "class": "Buggy",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 1750,
+   "cargoSlots": 5,
+   "cargoVolume": 500
+  },
+  "BuggyInventory_3": {
+   "class": "Buggy",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 3,
+   "durability": 1750,
+   "cargoSlots": 20,
+   "cargoVolume": 1500
+  },
+  "BuggyInventory_4": {
+   "class": "Buggy",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 4,
+   "durability": 1750,
+   "cargoSlots": 20,
+   "cargoVolume": 2000
+  },
+  "BuggyInventory_5": {
+   "class": "Buggy",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 5,
+   "durability": 1750,
+   "cargoSlots": 20,
+   "cargoVolume": 2500
+  },
+  "BuggyInventory_6": {
+   "class": "Buggy",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "durability": 1750,
+   "cargoSlots": 20,
+   "cargoVolume": 3000
+  },
+  "BuggyInventory_Unique_Capacity_3": {
+   "class": "Buggy",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 3,
+   "unique": true,
+   "durability": 1750,
+   "cargoSlots": 20,
+   "cargoVolume": 1750
+  },
+  "BuggyInventory_Unique_Capacity_4": {
+   "class": "Buggy",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 4,
+   "unique": true,
+   "durability": 1750,
+   "cargoSlots": 25,
+   "cargoVolume": 2250
+  },
+  "BuggyInventory_Unique_Capacity_5": {
+   "class": "Buggy",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 5,
+   "unique": true,
+   "durability": 1750,
+   "cargoSlots": 30,
+   "cargoVolume": 2750
+  },
+  "BuggyInventory_Unique_Capacity_6": {
+   "class": "Buggy",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750,
+   "cargoSlots": 35,
+   "cargoVolume": 3500
+  },
+  "BuggyLauncher_0": {
+   "class": "Buggy",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 1750,
+   "weapon": true
+  },
+  "BuggyLauncher_3": {
+   "class": "Buggy",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 3,
+   "durability": 1750,
+   "weapon": true
+  },
+  "BuggyLauncher_4": {
+   "class": "Buggy",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 4,
+   "durability": 1750,
+   "weapon": true
+  },
+  "BuggyLauncher_5": {
+   "class": "Buggy",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 5,
+   "durability": 1750,
+   "weapon": true
+  },
+  "BuggyLauncher_6": {
+   "class": "Buggy",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 6,
+   "durability": 1750,
+   "weapon": true
+  },
+  "BuggyLocomotionBackLeft_0": {
+   "class": "Buggy",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 1750
+  },
+  "BuggyLocomotionBackLeft_3": {
+   "class": "Buggy",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 3,
+   "durability": 1750
+  },
+  "BuggyLocomotionBackLeft_4": {
+   "class": "Buggy",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 4,
+   "durability": 1750
+  },
+  "BuggyLocomotionBackLeft_5": {
+   "class": "Buggy",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 5,
+   "durability": 1750
+  },
+  "BuggyLocomotionBackLeft_6": {
+   "class": "Buggy",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 1750
+  },
+  "BuggyLocomotionBackRight_0": {
+   "class": "Buggy",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 1750
+  },
+  "BuggyLocomotionBackRight_3": {
+   "class": "Buggy",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 3,
+   "durability": 1750
+  },
+  "BuggyLocomotionBackRight_4": {
+   "class": "Buggy",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 4,
+   "durability": 1750
+  },
+  "BuggyLocomotionBackRight_5": {
+   "class": "Buggy",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 5,
+   "durability": 1750
+  },
+  "BuggyLocomotionBackRight_6": {
+   "class": "Buggy",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 1750
+  },
+  "BuggyLocomotionFrontLeft_0": {
+   "class": "Buggy",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 1750
+  },
+  "BuggyLocomotionFrontLeft_3": {
+   "class": "Buggy",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 3,
+   "durability": 1750
+  },
+  "BuggyLocomotionFrontLeft_4": {
+   "class": "Buggy",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 4,
+   "durability": 1750
+  },
+  "BuggyLocomotionFrontLeft_5": {
+   "class": "Buggy",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 5,
+   "durability": 1750
+  },
+  "BuggyLocomotionFrontLeft_6": {
+   "class": "Buggy",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 1750
+  },
+  "BuggyLocomotionFrontRight_0": {
+   "class": "Buggy",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 1750
+  },
+  "BuggyLocomotionFrontRight_3": {
+   "class": "Buggy",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 3,
+   "durability": 1750
+  },
+  "BuggyLocomotionFrontRight_4": {
+   "class": "Buggy",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 4,
+   "durability": 1750
+  },
+  "BuggyLocomotionFrontRight_5": {
+   "class": "Buggy",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 5,
+   "durability": 1750
+  },
+  "BuggyLocomotionFrontRight_6": {
+   "class": "Buggy",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 1750
+  },
+  "BuggyLocomotion_Unique_ArmoredFastBreaksBackLeft_6": {
+   "class": "Buggy",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750
+  },
+  "BuggyLocomotion_Unique_ArmoredFastBreaksBackRight_6": {
+   "class": "Buggy",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750
+  },
+  "BuggyLocomotion_Unique_ArmoredFastBreaksFrontLeft_6": {
+   "class": "Buggy",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750
+  },
+  "BuggyLocomotion_Unique_ArmoredFastBreaksFrontRight_6": {
+   "class": "Buggy",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750
+  },
+  "BuggyMining_0": {
+   "class": "Buggy",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 1750,
+   "weapon": true
+  },
+  "BuggyMining_3": {
+   "class": "Buggy",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 3,
+   "durability": 1750,
+   "weapon": true
+  },
+  "BuggyMining_4": {
+   "class": "Buggy",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 4,
+   "durability": 1750,
+   "weapon": true
+  },
+  "BuggyMining_5": {
+   "class": "Buggy",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 5,
+   "durability": 1750,
+   "weapon": true
+  },
+  "BuggyMining_6": {
+   "class": "Buggy",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 6,
+   "durability": 1750,
+   "weapon": true
+  },
+  "BuggyMining_Unique_YieldIncrease_03": {
+   "class": "Buggy",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 3,
+   "unique": true,
+   "durability": 1750,
+   "weapon": true
+  },
+  "BuggyMining_Unique_YieldIncrease_04": {
+   "class": "Buggy",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 4,
+   "unique": true,
+   "durability": 1750,
+   "weapon": true
+  },
+  "BuggyMining_Unique_YieldIncrease_05": {
+   "class": "Buggy",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 5,
+   "unique": true,
+   "durability": 1750,
+   "weapon": true
+  },
+  "BuggyMining_Unique_YieldIncrease_06": {
+   "class": "Buggy",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750,
+   "weapon": true
+  },
+  "ContainerVehicle": {
+   "class": "ContainerVehicle",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 0,
+   "durability": 2000,
+   "health": 2000,
+   "critical": 100,
+   "cargoSlots": 150,
+   "cargoVolume": 15000
+  },
+  "OrnithopterLightBoost_0": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 1750
+  },
+  "OrnithopterLightBoost_4": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 4,
+   "durability": 1750
+  },
+  "OrnithopterLightBoost_5": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 5,
+   "durability": 1750
+  },
+  "OrnithopterLightBoost_6": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "durability": 1750
+  },
+  "OrnithopterLightBoost_Unique_BurstSpeed_4": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 4,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightBoost_Unique_BurstSpeed_5": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 5,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightBoost_Unique_BurstSpeed_6": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightBoost_Unique_LessHeat_4": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 4,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightBoost_Unique_LessHeat_5": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 5,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightBoost_Unique_LessHeat_6": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightChassis_0": {
+   "class": "OrnithopterLight",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 0,
+   "durability": 3500,
+   "health": 300,
+   "critical": 100,
+   "fuel": 225
+  },
+  "OrnithopterLightChassis_4": {
+   "class": "OrnithopterLight",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 4,
+   "durability": 3500,
+   "health": 300,
+   "critical": 100,
+   "fuel": 300
+  },
+  "OrnithopterLightChassis_5": {
+   "class": "OrnithopterLight",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 5,
+   "durability": 3500,
+   "health": 300,
+   "critical": 100,
+   "fuel": 350
+  },
+  "OrnithopterLightChassis_6": {
+   "class": "OrnithopterLight",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 6,
+   "durability": 3500,
+   "health": 300,
+   "critical": 100,
+   "fuel": 400
+  },
+  "OrnithopterLightEngine_0": {
+   "class": "OrnithopterLight",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 0,
+   "durability": 1750
+  },
+  "OrnithopterLightEngine_4": {
+   "class": "OrnithopterLight",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 4,
+   "durability": 1750
+  },
+  "OrnithopterLightEngine_5": {
+   "class": "OrnithopterLight",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 5,
+   "durability": 1750
+  },
+  "OrnithopterLightEngine_6": {
+   "class": "OrnithopterLight",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 6,
+   "durability": 1750
+  },
+  "OrnithopterLightGenerator_0": {
+   "class": "OrnithopterLight",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 0,
+   "durability": 1750
+  },
+  "OrnithopterLightGenerator_4": {
+   "class": "OrnithopterLight",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 4,
+   "durability": 1750
+  },
+  "OrnithopterLightGenerator_5": {
+   "class": "OrnithopterLight",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 5,
+   "durability": 1750
+  },
+  "OrnithopterLightGenerator_6": {
+   "class": "OrnithopterLight",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 6,
+   "durability": 1750
+  },
+  "OrnithopterLightHullBack_0": {
+   "class": "OrnithopterLight",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 0,
+   "durability": 2625,
+   "health": 100
+  },
+  "OrnithopterLightHullBack_4": {
+   "class": "OrnithopterLight",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 4,
+   "durability": 2625,
+   "health": 100
+  },
+  "OrnithopterLightHullBack_5": {
+   "class": "OrnithopterLight",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 5,
+   "durability": 2625,
+   "health": 100
+  },
+  "OrnithopterLightHullBack_6": {
+   "class": "OrnithopterLight",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 6,
+   "durability": 2625,
+   "health": 100
+  },
+  "OrnithopterLightHullFront_0": {
+   "class": "OrnithopterLight",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 0,
+   "durability": 2625,
+   "health": 100
+  },
+  "OrnithopterLightHullFront_4": {
+   "class": "OrnithopterLight",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 4,
+   "durability": 2625,
+   "health": 100
+  },
+  "OrnithopterLightHullFront_5": {
+   "class": "OrnithopterLight",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 5,
+   "durability": 2625,
+   "health": 100
+  },
+  "OrnithopterLightHullFront_6": {
+   "class": "OrnithopterLight",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 6,
+   "durability": 2625,
+   "health": 100
+  },
+  "OrnithopterLightHullFront_Insulated_6": {
+   "class": "OrnithopterLight",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 6,
+   "durability": 2625,
+   "health": 100
+  },
+  "OrnithopterLightInventory_0": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 1750,
+   "cargoSlots": 5,
+   "cargoVolume": 500
+  },
+  "OrnithopterLightInventory_4": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 4,
+   "durability": 1750,
+   "cargoSlots": 10,
+   "cargoVolume": 500
+  },
+  "OrnithopterLightInventory_5": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 5,
+   "durability": 1750,
+   "cargoSlots": 10,
+   "cargoVolume": 750
+  },
+  "OrnithopterLightInventory_6": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "durability": 1750,
+   "cargoSlots": 10,
+   "cargoVolume": 1000
+  },
+  "OrnithopterLightInventory_Unique_SpiceCompressor_6": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750,
+   "cargoSlots": 10,
+   "cargoVolume": 1000
+  },
+  "OrnithopterLightLauncher_0": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 1750,
+   "weapon": true
+  },
+  "OrnithopterLightLauncher_4": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 4,
+   "durability": 1750,
+   "weapon": true
+  },
+  "OrnithopterLightLauncher_5": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 5,
+   "durability": 1750,
+   "weapon": true
+  },
+  "OrnithopterLightLauncher_6": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "durability": 1750,
+   "weapon": true
+  },
+  "OrnithopterLightLocomotionBackLeft_0": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionBackLeft_4": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 4,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionBackLeft_5": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 5,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionBackLeft_6": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionBackLeft_Unique_Speed_4": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 4,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionBackLeft_Unique_Speed_5": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 5,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionBackLeft_Unique_Speed_6": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionBackRight_0": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionBackRight_4": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 4,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionBackRight_5": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 5,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionBackRight_6": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionBackRight_Unique_Speed_4": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 4,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionBackRight_Unique_Speed_5": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 5,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionBackRight_Unique_Speed_6": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionFrontLeft_0": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionFrontLeft_4": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 4,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionFrontLeft_5": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 5,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionFrontLeft_6": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionFrontLeft_Unique_Speed_4": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 4,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionFrontLeft_Unique_Speed_5": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 5,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionFrontLeft_Unique_Speed_6": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionFrontRight_0": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionFrontRight_4": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 4,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionFrontRight_5": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 5,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionFrontRight_6": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionFrontRight_Unique_Speed_4": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 4,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionFrontRight_Unique_Speed_5": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 5,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotionFrontRight_Unique_Speed_6": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotion_Unique_DragonflySpeedBoostBackLeft_6": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotion_Unique_DragonflySpeedBoostBackRight_6": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotion_Unique_DragonflySpeedBoostFrontLeft_6": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightLocomotion_Unique_DragonflySpeedBoostFrontRight_6": {
+   "class": "OrnithopterLight",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750
+  },
+  "OrnithopterLightScanner_0": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 1750,
+   "weapon": true
+  },
+  "OrnithopterLightScanner_4": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 4,
+   "durability": 1750,
+   "weapon": true
+  },
+  "OrnithopterLightScanner_5": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 5,
+   "durability": 1750,
+   "weapon": true
+  },
+  "OrnithopterLightScanner_6": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 6,
+   "durability": 1750,
+   "weapon": true
+  },
+  "OrnithopterLightScanner_Unique_OmniDirectional_6": {
+   "class": "OrnithopterLight",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 6,
+   "unique": true,
+   "durability": 1750,
+   "weapon": true
+  },
+  "OrnithopterMediumBoost_0": {
+   "class": "OrnithopterMedium",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 2000
+  },
+  "OrnithopterMediumBoost_5": {
+   "class": "OrnithopterMedium",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 5,
+   "durability": 2000
+  },
+  "OrnithopterMediumBoost_6": {
+   "class": "OrnithopterMedium",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "durability": 2000
+  },
+  "OrnithopterMediumBoost_Unique_BurstSpeed_5": {
+   "class": "OrnithopterMedium",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 5,
+   "unique": true,
+   "durability": 2000
+  },
+  "OrnithopterMediumBoost_Unique_BurstSpeed_6": {
+   "class": "OrnithopterMedium",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "unique": true,
+   "durability": 2000
+  },
+  "OrnithopterMediumBoost_Unique_LessHeat_5": {
+   "class": "OrnithopterMedium",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 5,
+   "unique": true,
+   "durability": 2000
+  },
+  "OrnithopterMediumBoost_Unique_LessHeat_6": {
+   "class": "OrnithopterMedium",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "unique": true,
+   "durability": 2000
+  },
+  "OrnithopterMediumBoost_Unique_VTOLBoost_6": {
+   "class": "OrnithopterMedium",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "unique": true,
+   "durability": 2000
+  },
+  "OrnithopterMediumChassis_0": {
+   "class": "OrnithopterMedium",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 0,
+   "durability": 4000,
+   "health": 450,
+   "critical": 150,
+   "fuel": 450
+  },
+  "OrnithopterMediumChassis_5": {
+   "class": "OrnithopterMedium",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 5,
+   "durability": 4000,
+   "health": 450,
+   "critical": 150,
+   "fuel": 750
+  },
+  "OrnithopterMediumChassis_6": {
+   "class": "OrnithopterMedium",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 6,
+   "durability": 4000,
+   "health": 450,
+   "critical": 150,
+   "fuel": 850
+  },
+  "OrnithopterMediumEngine_0": {
+   "class": "OrnithopterMedium",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 0,
+   "durability": 2000
+  },
+  "OrnithopterMediumEngine_5": {
+   "class": "OrnithopterMedium",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 5,
+   "durability": 2000
+  },
+  "OrnithopterMediumEngine_6": {
+   "class": "OrnithopterMedium",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 6,
+   "durability": 2000
+  },
+  "OrnithopterMediumGenerator_0": {
+   "class": "OrnithopterMedium",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 0,
+   "durability": 2000
+  },
+  "OrnithopterMediumGenerator_5": {
+   "class": "OrnithopterMedium",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 5,
+   "durability": 2000
+  },
+  "OrnithopterMediumGenerator_6": {
+   "class": "OrnithopterMedium",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 6,
+   "durability": 2000
+  },
+  "OrnithopterMediumHullBack_0": {
+   "class": "OrnithopterMedium",
+   "slot": "BodyHull2",
+   "kind": "Body",
+   "grade": 0,
+   "durability": 3000,
+   "health": 100
+  },
+  "OrnithopterMediumHullBack_5": {
+   "class": "OrnithopterMedium",
+   "slot": "BodyHull2",
+   "kind": "Body",
+   "grade": 5,
+   "durability": 3000,
+   "health": 100
+  },
+  "OrnithopterMediumHullBack_6": {
+   "class": "OrnithopterMedium",
+   "slot": "BodyHull2",
+   "kind": "Body",
+   "grade": 6,
+   "durability": 3000,
+   "health": 100
+  },
+  "OrnithopterMediumHullFront_0": {
+   "class": "OrnithopterMedium",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 0,
+   "durability": 3000,
+   "health": 100
+  },
+  "OrnithopterMediumHullFront_5": {
+   "class": "OrnithopterMedium",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 5,
+   "durability": 3000,
+   "health": 100
+  },
+  "OrnithopterMediumHullFront_6": {
+   "class": "OrnithopterMedium",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 6,
+   "durability": 3000,
+   "health": 100
+  },
+  "OrnithopterMediumHullFront_Insulated_6": {
+   "class": "OrnithopterMedium",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 6,
+   "durability": 3000,
+   "health": 100
+  },
+  "OrnithopterMediumHull_0": {
+   "class": "OrnithopterMedium",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 0,
+   "durability": 3000,
+   "health": 100
+  },
+  "OrnithopterMediumHull_5": {
+   "class": "OrnithopterMedium",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 5,
+   "durability": 3000,
+   "health": 100
+  },
+  "OrnithopterMediumHull_6": {
+   "class": "OrnithopterMedium",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 6,
+   "durability": 3000,
+   "health": 100
+  },
+  "OrnithopterMediumInventory_0": {
+   "class": "OrnithopterMedium",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 2000,
+   "cargoSlots": 5,
+   "cargoVolume": 500
+  },
+  "OrnithopterMediumInventory_5": {
+   "class": "OrnithopterMedium",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 5,
+   "durability": 2000,
+   "cargoSlots": 20,
+   "cargoVolume": 2000
+  },
+  "OrnithopterMediumInventory_6": {
+   "class": "OrnithopterMedium",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 6,
+   "durability": 2000,
+   "cargoSlots": 20,
+   "cargoVolume": 2000
+  },
+  "OrnithopterMediumInventory_Unique_SpiceCompressor_6": {
+   "class": "OrnithopterMedium",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 6,
+   "unique": true,
+   "durability": 2000,
+   "cargoSlots": 20,
+   "cargoVolume": 2000
+  },
+  "OrnithopterMediumLauncher_0": {
+   "class": "OrnithopterMedium",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 2000,
+   "weapon": true
+  },
+  "OrnithopterMediumLauncher_5": {
+   "class": "OrnithopterMedium",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 5,
+   "durability": 2000,
+   "weapon": true
+  },
+  "OrnithopterMediumLauncher_6": {
+   "class": "OrnithopterMedium",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 6,
+   "durability": 2000,
+   "weapon": true
+  },
+  "OrnithopterMediumLocomotionBackLeft_0": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion5",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionBackLeft_5": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion5",
+   "kind": "Locomotion",
+   "grade": 5,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionBackLeft_6": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion5",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionBackLeft_Unique_Strafe_5": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion5",
+   "kind": "Locomotion",
+   "grade": 5,
+   "unique": true,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionBackLeft_Unique_Strafe_6": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion5",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionBackRight_0": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion6",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionBackRight_5": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion6",
+   "kind": "Locomotion",
+   "grade": 5,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionBackRight_6": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion6",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionBackRight_Unique_Strafe_5": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion6",
+   "kind": "Locomotion",
+   "grade": 5,
+   "unique": true,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionBackRight_Unique_Strafe_6": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion6",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionCenterLeft_0": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionCenterLeft_5": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 5,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionCenterLeft_6": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionCenterLeft_Unique_Strafe_5": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 5,
+   "unique": true,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionCenterLeft_Unique_Strafe_6": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionCenterRight_0": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionCenterRight_5": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 5,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionCenterRight_6": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionCenterRight_Unique_Strafe_5": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 5,
+   "unique": true,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionCenterRight_Unique_Strafe_6": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionFrontLeft_0": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionFrontLeft_5": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 5,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionFrontLeft_6": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionFrontLeft_Unique_Strafe_5": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 5,
+   "unique": true,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionFrontLeft_Unique_Strafe_6": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionFrontRight_0": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionFrontRight_5": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 5,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionFrontRight_6": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionFrontRight_Unique_Strafe_5": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 5,
+   "unique": true,
+   "durability": 2000
+  },
+  "OrnithopterMediumLocomotionFrontRight_Unique_Strafe_6": {
+   "class": "OrnithopterMedium",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 2000
+  },
+  "OrnithopterTransportBoost_0": {
+   "class": "OrnithopterTransport",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 3000
+  },
+  "OrnithopterTransportBoost_6": {
+   "class": "OrnithopterTransport",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "durability": 3000
+  },
+  "OrnithopterTransportBoost_Unique_BurstSpeed_6": {
+   "class": "OrnithopterTransport",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "unique": true,
+   "durability": 3000
+  },
+  "OrnithopterTransportBoost_Unique_LessHeat_06": {
+   "class": "OrnithopterTransport",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "unique": true,
+   "durability": 3000
+  },
+  "OrnithopterTransportChassis_0": {
+   "class": "OrnithopterTransport",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 0,
+   "durability": 6000,
+   "health": 750,
+   "critical": 250,
+   "fuel": 1350
+  },
+  "OrnithopterTransportChassis_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 6,
+   "durability": 6000,
+   "health": 750,
+   "critical": 250,
+   "fuel": 2500
+  },
+  "OrnithopterTransportEngine_0": {
+   "class": "OrnithopterTransport",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 0,
+   "durability": 3000
+  },
+  "OrnithopterTransportEngine_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 6,
+   "durability": 3000
+  },
+  "OrnithopterTransportGenerator_0": {
+   "class": "OrnithopterTransport",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 0,
+   "durability": 3000
+  },
+  "OrnithopterTransportGenerator_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 6,
+   "durability": 3000
+  },
+  "OrnithopterTransportHullBackLeft_0": {
+   "class": "OrnithopterTransport",
+   "slot": "BodyHull2",
+   "kind": "Body",
+   "grade": 0,
+   "durability": 4500,
+   "health": 250
+  },
+  "OrnithopterTransportHullBackLeft_6": {
+   "class": "OrnithopterTransport",
+   "slot": "BodyHull2",
+   "kind": "Body",
+   "grade": 6,
+   "durability": 4500,
+   "health": 250
+  },
+  "OrnithopterTransportHullBackRight_0": {
+   "class": "OrnithopterTransport",
+   "slot": "BodyHull4",
+   "kind": "Body",
+   "grade": 0,
+   "durability": 4500,
+   "health": 250
+  },
+  "OrnithopterTransportHullBackRight_6": {
+   "class": "OrnithopterTransport",
+   "slot": "BodyHull4",
+   "kind": "Body",
+   "grade": 6,
+   "durability": 4500,
+   "health": 250
+  },
+  "OrnithopterTransportHullFrontLeft_0": {
+   "class": "OrnithopterTransport",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 0,
+   "durability": 4500,
+   "health": 250
+  },
+  "OrnithopterTransportHullFrontLeft_6": {
+   "class": "OrnithopterTransport",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 6,
+   "durability": 4500,
+   "health": 250
+  },
+  "OrnithopterTransportHullFrontRight_0": {
+   "class": "OrnithopterTransport",
+   "slot": "BodyHull3",
+   "kind": "Body",
+   "grade": 0,
+   "durability": 4500,
+   "health": 250
+  },
+  "OrnithopterTransportHullFrontRight_6": {
+   "class": "OrnithopterTransport",
+   "slot": "BodyHull3",
+   "kind": "Body",
+   "grade": 6,
+   "durability": 4500,
+   "health": 250
+  },
+  "OrnithopterTransportHullFront_Insulated_6": {
+   "class": "OrnithopterTransport",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 6,
+   "durability": 4500,
+   "health": 250
+  },
+  "OrnithopterTransportHull_0": {
+   "class": "OrnithopterTransport",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 0,
+   "durability": 4500,
+   "health": 250
+  },
+  "OrnithopterTransportHull_6": {
+   "class": "OrnithopterTransport",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 6,
+   "durability": 4500,
+   "health": 250
+  },
+  "OrnithopterTransportHull_Unique_Armored_6": {
+   "class": "OrnithopterTransport",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 6,
+   "unique": true,
+   "durability": 4500,
+   "health": 250
+  },
+  "OrnithopterTransportLocomotionBackLeft_0": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion7",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionBackLeft_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion7",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionBackLeft_Unique_Speed_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion7",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionBackRight_0": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion8",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionBackRight_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion8",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionBackRight_Unique_Speed_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion8",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionCenterLeft1_0": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionCenterLeft1_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionCenterLeft1_Unique_Speed_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionCenterLeft2_0": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion5",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionCenterLeft2_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion5",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionCenterLeft2_Unique_Speed_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion5",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionCenterRight1_0": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionCenterRight1_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionCenterRight1_Unique_Speed_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionCenterRight2_0": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion6",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionCenterRight2_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion6",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionCenterRight2_Unique_Speed_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion6",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionFrontLeft_0": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionFrontLeft_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionFrontLeft_Unique_Speed_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionFrontRight_0": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionFrontRight_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotionFrontRight_Unique_Speed_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotion_Unique_HighGlideSpeedBackLeft_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion7",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotion_Unique_HighGlideSpeedBackRight_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion8",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotion_Unique_HighGlideSpeedCenterLeft2_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion5",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotion_Unique_HighGlideSpeedCenterLeft_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotion_Unique_HighGlideSpeedCenterRight2_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion6",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotion_Unique_HighGlideSpeedCenterRight_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion4",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotion_Unique_HighGlideSpeedFrontLeft_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 3000
+  },
+  "OrnithopterTransportLocomotion_Unique_HighGlideSpeedFrontRight_6": {
+   "class": "OrnithopterTransport",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 3000
+  },
+  "OrnithopterTransportShield_0": {
+   "class": "OrnithopterTransport",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 3000
+  },
+  "OrnithopterTransportShield_6": {
+   "class": "OrnithopterTransport",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "durability": 3000
+  },
+  "SandbikeBoost_0": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 1000
+  },
+  "SandbikeBoost_1": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 1,
+   "durability": 1000
+  },
+  "SandbikeBoost_2": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 2,
+   "durability": 1000
+  },
+  "SandbikeBoost_3": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 3,
+   "durability": 1000
+  },
+  "SandbikeBoost_4": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 4,
+   "durability": 1000
+  },
+  "SandbikeBoost_5": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 5,
+   "durability": 1000
+  },
+  "SandbikeBoost_6": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "durability": 1000
+  },
+  "SandbikeBoost_Unique_LessHeat_2": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 2,
+   "unique": true,
+   "durability": 1000
+  },
+  "SandbikeBoost_Unique_LessHeat_3": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 3,
+   "unique": true,
+   "durability": 1000
+  },
+  "SandbikeBoost_Unique_LessHeat_4": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 4,
+   "unique": true,
+   "durability": 1000
+  },
+  "SandbikeBoost_Unique_LessHeat_5": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 5,
+   "unique": true,
+   "durability": 1000
+  },
+  "SandbikeBoost_Unique_LessHeat_6": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "unique": true,
+   "durability": 1000
+  },
+  "SandbikeChassis_0": {
+   "class": "Sandbike",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 0,
+   "durability": 2000,
+   "health": 300,
+   "critical": 100,
+   "fuel": 90
+  },
+  "SandbikeChassis_1": {
+   "class": "Sandbike",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 1,
+   "durability": 2000,
+   "health": 300,
+   "critical": 100,
+   "fuel": 100
+  },
+  "SandbikeChassis_2": {
+   "class": "Sandbike",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 2,
+   "durability": 2000,
+   "health": 300,
+   "critical": 100,
+   "fuel": 110
+  },
+  "SandbikeChassis_3": {
+   "class": "Sandbike",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 3,
+   "durability": 2000,
+   "health": 300,
+   "critical": 100,
+   "fuel": 120
+  },
+  "SandbikeChassis_4": {
+   "class": "Sandbike",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 4,
+   "durability": 2000,
+   "health": 300,
+   "critical": 100,
+   "fuel": 130
+  },
+  "SandbikeChassis_5": {
+   "class": "Sandbike",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 5,
+   "durability": 2000,
+   "health": 300,
+   "critical": 100,
+   "fuel": 140
+  },
+  "SandbikeChassis_6": {
+   "class": "Sandbike",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 6,
+   "durability": 2000,
+   "health": 300,
+   "critical": 100,
+   "fuel": 150
+  },
+  "SandbikeEngine_0": {
+   "class": "Sandbike",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 0,
+   "durability": 1000
+  },
+  "SandbikeEngine_1": {
+   "class": "Sandbike",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 1,
+   "durability": 1000
+  },
+  "SandbikeEngine_2": {
+   "class": "Sandbike",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 2,
+   "durability": 1000
+  },
+  "SandbikeEngine_3": {
+   "class": "Sandbike",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 3,
+   "durability": 1000
+  },
+  "SandbikeEngine_4": {
+   "class": "Sandbike",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 4,
+   "durability": 1000
+  },
+  "SandbikeEngine_5": {
+   "class": "Sandbike",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 5,
+   "durability": 1000
+  },
+  "SandbikeEngine_6": {
+   "class": "Sandbike",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 6,
+   "durability": 1000
+  },
+  "SandbikeEngine_Unique_Speed_1": {
+   "class": "Sandbike",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 1,
+   "unique": true,
+   "durability": 1000
+  },
+  "SandbikeEngine_Unique_Speed_2": {
+   "class": "Sandbike",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 2,
+   "unique": true,
+   "durability": 1000
+  },
+  "SandbikeEngine_Unique_Speed_3": {
+   "class": "Sandbike",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 3,
+   "unique": true,
+   "durability": 1000
+  },
+  "SandbikeEngine_Unique_Speed_4": {
+   "class": "Sandbike",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 4,
+   "unique": true,
+   "durability": 1000
+  },
+  "SandbikeEngine_Unique_Speed_5": {
+   "class": "Sandbike",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 5,
+   "unique": true,
+   "durability": 1000
+  },
+  "SandbikeEngine_Unique_Speed_6": {
+   "class": "Sandbike",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 6,
+   "unique": true,
+   "durability": 1000
+  },
+  "SandbikeGenerator_0": {
+   "class": "Sandbike",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 0,
+   "durability": 1000
+  },
+  "SandbikeGenerator_1": {
+   "class": "Sandbike",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 1,
+   "durability": 1000
+  },
+  "SandbikeGenerator_2": {
+   "class": "Sandbike",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 2,
+   "durability": 1000
+  },
+  "SandbikeGenerator_3": {
+   "class": "Sandbike",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 3,
+   "durability": 1000
+  },
+  "SandbikeGenerator_4": {
+   "class": "Sandbike",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 4,
+   "durability": 1000
+  },
+  "SandbikeGenerator_5": {
+   "class": "Sandbike",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 5,
+   "durability": 1000
+  },
+  "SandbikeGenerator_6": {
+   "class": "Sandbike",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 6,
+   "durability": 1000
+  },
+  "SandbikeHull_0": {
+   "class": "Sandbike",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 0,
+   "durability": 1500,
+   "health": 100
+  },
+  "SandbikeHull_1": {
+   "class": "Sandbike",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 1,
+   "durability": 1500,
+   "health": 100
+  },
+  "SandbikeHull_2": {
+   "class": "Sandbike",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 2,
+   "durability": 1500,
+   "health": 100
+  },
+  "SandbikeHull_3": {
+   "class": "Sandbike",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 3,
+   "durability": 1500,
+   "health": 100
+  },
+  "SandbikeHull_4": {
+   "class": "Sandbike",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 4,
+   "durability": 1500,
+   "health": 100
+  },
+  "SandbikeHull_5": {
+   "class": "Sandbike",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 5,
+   "durability": 1500,
+   "health": 100
+  },
+  "SandbikeHull_6": {
+   "class": "Sandbike",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 6,
+   "durability": 1500,
+   "health": 100
+  },
+  "SandbikeHull_Insulated_6": {
+   "class": "Sandbike",
+   "slot": "BodyHull",
+   "kind": "Body",
+   "grade": 6,
+   "durability": 1500,
+   "health": 100
+  },
+  "SandbikeInventory_0": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 1000,
+   "cargoSlots": 5,
+   "cargoVolume": 100
+  },
+  "SandbikeInventory_1": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 1,
+   "durability": 1000,
+   "cargoSlots": 10,
+   "cargoVolume": 250
+  },
+  "SandbikeInventory_2": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 2,
+   "durability": 1000,
+   "cargoSlots": 15,
+   "cargoVolume": 250
+  },
+  "SandbikeInventory_3": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 3,
+   "durability": 1000,
+   "cargoSlots": 15,
+   "cargoVolume": 300
+  },
+  "SandbikeInventory_4": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 4,
+   "durability": 1000,
+   "cargoSlots": 15,
+   "cargoVolume": 350
+  },
+  "SandbikeInventory_5": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 5,
+   "durability": 1000,
+   "cargoSlots": 15,
+   "cargoVolume": 400
+  },
+  "SandbikeInventory_6": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "durability": 1000,
+   "cargoSlots": 15,
+   "cargoVolume": 450
+  },
+  "SandbikeLocomotionBackCenter_0": {
+   "class": "Sandbike",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 1000
+  },
+  "SandbikeLocomotionBackCenter_1": {
+   "class": "Sandbike",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 1,
+   "durability": 1000
+  },
+  "SandbikeLocomotionBackCenter_2": {
+   "class": "Sandbike",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 2,
+   "durability": 1000
+  },
+  "SandbikeLocomotionBackCenter_3": {
+   "class": "Sandbike",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 3,
+   "durability": 1000
+  },
+  "SandbikeLocomotionBackCenter_4": {
+   "class": "Sandbike",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 4,
+   "durability": 1000
+  },
+  "SandbikeLocomotionBackCenter_5": {
+   "class": "Sandbike",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 5,
+   "durability": 1000
+  },
+  "SandbikeLocomotionBackCenter_6": {
+   "class": "Sandbike",
+   "slot": "Locomotion3",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 1000
+  },
+  "SandbikeLocomotionFrontLeft_0": {
+   "class": "Sandbike",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 1000
+  },
+  "SandbikeLocomotionFrontLeft_1": {
+   "class": "Sandbike",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 1,
+   "durability": 1000
+  },
+  "SandbikeLocomotionFrontLeft_2": {
+   "class": "Sandbike",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 2,
+   "durability": 1000
+  },
+  "SandbikeLocomotionFrontLeft_3": {
+   "class": "Sandbike",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 3,
+   "durability": 1000
+  },
+  "SandbikeLocomotionFrontLeft_4": {
+   "class": "Sandbike",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 4,
+   "durability": 1000
+  },
+  "SandbikeLocomotionFrontLeft_5": {
+   "class": "Sandbike",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 5,
+   "durability": 1000
+  },
+  "SandbikeLocomotionFrontLeft_6": {
+   "class": "Sandbike",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 1000
+  },
+  "SandbikeLocomotionFrontRight_0": {
+   "class": "Sandbike",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 1000
+  },
+  "SandbikeLocomotionFrontRight_1": {
+   "class": "Sandbike",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 1,
+   "durability": 1000
+  },
+  "SandbikeLocomotionFrontRight_2": {
+   "class": "Sandbike",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 2,
+   "durability": 1000
+  },
+  "SandbikeLocomotionFrontRight_3": {
+   "class": "Sandbike",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 3,
+   "durability": 1000
+  },
+  "SandbikeLocomotionFrontRight_4": {
+   "class": "Sandbike",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 4,
+   "durability": 1000
+  },
+  "SandbikeLocomotionFrontRight_5": {
+   "class": "Sandbike",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 5,
+   "durability": 1000
+  },
+  "SandbikeLocomotionFrontRight_6": {
+   "class": "Sandbike",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 1000
+  },
+  "SandbikeScanner_0": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 1000,
+   "weapon": true
+  },
+  "SandbikeScanner_1": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 1,
+   "durability": 1000,
+   "weapon": true
+  },
+  "SandbikeScanner_2": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 2,
+   "durability": 1000,
+   "weapon": true
+  },
+  "SandbikeScanner_3": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 3,
+   "durability": 1000,
+   "weapon": true
+  },
+  "SandbikeScanner_4": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 4,
+   "durability": 1000,
+   "weapon": true
+  },
+  "SandbikeScanner_5": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 5,
+   "durability": 1000,
+   "weapon": true
+  },
+  "SandbikeScanner_6": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 6,
+   "durability": 1000,
+   "weapon": true
+  },
+  "SandbikeSeat_0": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 1000
+  },
+  "SandbikeSeat_1": {
+   "class": "Sandbike",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 1,
+   "durability": 1000
+  },
+  "SandcrawlerChassis_0": {
+   "class": "Sandcrawler",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 0,
+   "durability": 5000,
+   "health": 750,
+   "critical": 250,
+   "fuel": 450
+  },
+  "SandcrawlerChassis_6": {
+   "class": "Sandcrawler",
+   "slot": "Chassis",
+   "kind": "Chassis",
+   "grade": 6,
+   "durability": 5000,
+   "health": 750,
+   "critical": 250,
+   "fuel": 750
+  },
+  "SandcrawlerEngine_0": {
+   "class": "Sandcrawler",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 0,
+   "durability": 2500
+  },
+  "SandcrawlerEngine_6": {
+   "class": "Sandcrawler",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 6,
+   "durability": 2500
+  },
+  "SandcrawlerEngine_Unique_Speed_06": {
+   "class": "Sandcrawler",
+   "slot": "Engine",
+   "kind": "Engine",
+   "grade": 6,
+   "unique": true,
+   "durability": 2500
+  },
+  "SandcrawlerGenerator_0": {
+   "class": "Sandcrawler",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 0,
+   "durability": 2500
+  },
+  "SandcrawlerGenerator_6": {
+   "class": "Sandcrawler",
+   "slot": "Generator",
+   "kind": "Generator",
+   "grade": 6,
+   "durability": 2500
+  },
+  "SandcrawlerHull_0": {
+   "class": "Sandcrawler",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 0,
+   "durability": 3750,
+   "health": 100
+  },
+  "SandcrawlerHull_6": {
+   "class": "Sandcrawler",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 6,
+   "durability": 3750,
+   "health": 100
+  },
+  "SandcrawlerHull_Unique_Armored_6": {
+   "class": "Sandcrawler",
+   "slot": "CockpitHull",
+   "kind": "Cockpit",
+   "grade": 6,
+   "unique": true,
+   "durability": 3750,
+   "health": 100
+  },
+  "SandcrawlerLocomotionLeft_0": {
+   "class": "Sandcrawler",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 2500
+  },
+  "SandcrawlerLocomotionLeft_6": {
+   "class": "Sandcrawler",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 2500
+  },
+  "SandcrawlerLocomotionLeft_Unique_WormThreat_06": {
+   "class": "Sandcrawler",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 2500
+  },
+  "SandcrawlerLocomotionRight_0": {
+   "class": "Sandcrawler",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 0,
+   "durability": 2500
+  },
+  "SandcrawlerLocomotionRight_6": {
+   "class": "Sandcrawler",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 6,
+   "durability": 2500
+  },
+  "SandcrawlerLocomotionRight_Unique_WormThreat_06": {
+   "class": "Sandcrawler",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 2500
+  },
+  "SandcrawlerLocomotion_Unique_HeavydutyTracksLeft_6": {
+   "class": "Sandcrawler",
+   "slot": "Locomotion",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 2500
+  },
+  "SandcrawlerLocomotion_Unique_HeavydutyTracksRight_6": {
+   "class": "Sandcrawler",
+   "slot": "Locomotion2",
+   "kind": "Locomotion",
+   "grade": 6,
+   "unique": true,
+   "durability": 2500
+  },
+  "SandcrawlerSpiceContainer_0": {
+   "class": "Sandcrawler",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 3750,
+   "cargoSlots": 15,
+   "cargoVolume": 2250
+  },
+  "SandcrawlerSpiceContainer_6": {
+   "class": "Sandcrawler",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 6,
+   "durability": 3750,
+   "cargoSlots": 20,
+   "cargoVolume": 7500
+  },
+  "SandcrawlerSpiceContainer_Unique_Capacity_6": {
+   "class": "Sandcrawler",
+   "slot": "UtilitySlot2",
+   "kind": "Utility",
+   "grade": 6,
+   "unique": true,
+   "durability": 3750,
+   "cargoSlots": 30,
+   "cargoVolume": 11250
+  },
+  "SandcrawlerSpiceHeader_0": {
+   "class": "Sandcrawler",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 0,
+   "durability": 2500
+  },
+  "SandcrawlerSpiceHeader_6": {
+   "class": "Sandcrawler",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "durability": 2500
+  },
+  "SandcrawlerSpiceHeader_Unique_YieldIncrease_6": {
+   "class": "Sandcrawler",
+   "slot": "UtilitySlot1",
+   "kind": "Utility",
+   "grade": 6,
+   "unique": true,
+   "durability": 2500
+  }
+ }
+}

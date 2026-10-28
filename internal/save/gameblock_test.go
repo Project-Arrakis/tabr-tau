@@ -365,4 +365,5 @@ var knownFileWriters = map[string]bool{
 	"internal/settings.writeFileAtomic": true, // the editor's own settings file, its backup copy and its damaged copy
 	"internal/gui.AttachConsole":        true, // the console handles of the process
 	"cmd/tabr-tau.runCommand":           true, // decode and encode write the file the person names
+	"tools/vehiclegen.main":             true, // the developer tool that makes internal/catalog/vehicles.json from table dumps; it never opens a save
 }
