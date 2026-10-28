@@ -135,6 +135,23 @@ func (o *Ops) Landsraad() (any, error) {
 	}
 	decrees, _ := o.S.Query(`select id, decree_name, disabled, weight from landsraad_decrees order by id`)
 	rotation, _ := o.S.Query(`select decree_id from landsraad_decree_rotation`)
+	// What each decree is in the current term (#448). The pool flag `disabled` is the save's own column and it does not say whether a decree is in effect: in the saves read so
+	// far the term's active decree (SpecialVendorActive_Vehicles) carries disabled = 1 while the base row SpecialVendorActive carries 0. So the term and the rotation are
+	// matched to the rows here by the decree id, never by the name: the five SpecialVendorActive rows are five different decrees.
+	inRot := map[int64]bool{}
+	for _, r := range rotation {
+		if id, ok := r["decree_id"].(int64); ok {
+			inRot[id] = true
+		}
+	}
+	activeID, _ := term["active_decree_id"].(int64)
+	electedID, _ := term["elected_decree_id"].(int64)
+	for _, d := range decrees {
+		id, _ := d["id"].(int64)
+		d["active"] = term["active_decree_id"] != nil && id == activeID
+		d["elected"] = term["elected_decree_id"] != nil && id == electedID
+		d["in_rotation"] = inRot[id]
+	}
 	factions, _ := o.S.Query(`select id, name from factions where name <> 'None' order by id`)
 	return map[string]any{"term": term, "tasks": tasks, "decrees": decrees, "rotation": rotation, "factions": factions, "character": character}, nil
 }
@@ -186,7 +203,8 @@ func (o *Ops) CompleteTask(a Args) (any, error) {
 	return ok(), nil
 }
 
-// SetDecree enables/disables a decree in the pool.
+// SetDecree sets or clears the disabled flag of one decree row in the pool, picked by its id (#448). The flag is the save's own column; it is not whether the decree is
+// in effect (that is the term's active decree). Only the row with that id changes: SpecialVendorActive and its four variants are five rows.
 func (o *Ops) SetDecree(a Args) (any, error) {
 	id, err := a.Int("id")
 	if err != nil {
