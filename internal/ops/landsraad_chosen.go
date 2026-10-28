@@ -2,7 +2,6 @@ package ops
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
@@ -67,6 +66,8 @@ func currentTerm(m *save.Mut, termID int64) error {
 // nothing is written and only the answer is given.
 func completeHouse(m *save.Mut, t save.Row, faction int64, write bool) (changed bool, err error) {
 	id := t["id"]
+	termID, _ := t["term_id"].(int64)
+	clock := clockOfTerm(m, termID)
 	goal, _ := toFloat(t["goal_amount"])
 	have := 0.0
 	fc, err := m.One(`select amount from landsraad_task_faction_contributions where faction_id=? and task_id=?`, faction, id)
@@ -91,7 +92,7 @@ func completeHouse(m *save.Mut, t save.Row, faction int64, write bool) (changed 
 		}
 	}
 	if !doneFor {
-		if _, err := m.Exec(`update landsraad_tasks set completed=1, winning_faction_id=?, completion_time=? where id=?`, faction, time.Now().Unix(), id); err != nil {
+		if _, err := m.Exec(`update landsraad_tasks set completed=1, winning_faction_id=?, completion_time=? where id=?`, faction, clock.arg(), id); err != nil {
 			return false, err
 		}
 	}
@@ -147,9 +148,9 @@ func (o *Ops) CompleteChosen(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	var changed int64
+	var changed, repaired int64
 	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
-		changed = 0
+		changed, repaired = 0, 0
 		f, err := m.One(`select name from factions where id=? and name<>'None'`, faction)
 		if err != nil {
 			return err
@@ -186,11 +187,13 @@ func (o *Ops) CompleteChosen(a Args) (any, error) {
 		if changed > 0 {
 			m.Desc = fmt.Sprintf("landsraad: %d houses completed for %v", changed, f["name"])
 		}
-		return nil
+		var rerr error
+		repaired, rerr = repairCompletionTimes(m, req.term)
+		return rerr
 	}); err != nil {
 		return nil, err
 	}
-	return resetAnswer(changed, map[string]any{"houses": int64(len(req.ids)), "skipped": int64(len(req.ids)) - changed}), nil
+	return resetAnswer(changed, map[string]any{"houses": int64(len(req.ids)), "skipped": int64(len(req.ids)) - changed, "repaired": repaired}), nil
 }
 
 // ReopenChosen reopens several houses of the current term in one edit (args task_ids, term_id, expected as in CompleteChosen): completed is cleared, and so are the winning faction
@@ -200,9 +203,9 @@ func (o *Ops) ReopenChosen(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	var changed int64
+	var changed, repaired int64
 	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
-		changed = 0
+		changed, repaired = 0, 0
 		if err := currentTerm(m, req.term); err != nil {
 			return err
 		}
@@ -232,9 +235,11 @@ func (o *Ops) ReopenChosen(a Args) (any, error) {
 		if changed > 0 {
 			m.Desc = fmt.Sprintf("landsraad: %d houses reopened", changed)
 		}
-		return nil
+		var rerr error
+		repaired, rerr = repairCompletionTimes(m, req.term)
+		return rerr
 	}); err != nil {
 		return nil, err
 	}
-	return resetAnswer(changed, map[string]any{"houses": int64(len(req.ids)), "skipped": int64(len(req.ids)) - changed}), nil
+	return resetAnswer(changed, map[string]any{"houses": int64(len(req.ids)), "skipped": int64(len(req.ids)) - changed, "repaired": repaired}), nil
 }

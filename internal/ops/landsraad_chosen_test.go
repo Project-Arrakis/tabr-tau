@@ -93,7 +93,7 @@ func TestCompleteChosenFillsTheFactionProgressToTheGoalAndCompletesTheHouses(t *
 
 func TestCompleteChosenSkipsAHouseThatIsCompleteForTheFactionWithItsProgressAtTheGoal(t *testing.T) {
 	o := chosenOps(t)
-	setup(t, o, `update landsraad_tasks set completed=1, winning_faction_id=2, completion_time=12345 where id=175`)
+	setup(t, o, `update landsraad_tasks set completed=1, winning_faction_id=2, completion_time=150 where id=175`)
 	setup(t, o, `insert or replace into landsraad_task_faction_contributions(faction_id, task_id, amount) values (2, 175, 4000)`)
 	got, err := o.CompleteChosen(completeArgs(Args{"task_ids": ids(175, 176), "expected": 1.0}))
 	if err != nil {
@@ -102,7 +102,7 @@ func TestCompleteChosenSkipsAHouseThatIsCompleteForTheFactionWithItsProgressAtTh
 	if m := got.(map[string]any); m["changed"].(int64) != 1 || m["skipped"].(int64) != 1 {
 		t.Fatalf("answer: %v", m)
 	}
-	if r := taskRow(t, o, 175); r["ct"].(int64) != 12345 {
+	if r := taskRow(t, o, 175); r["ct"].(int64) != 150 {
 		t.Errorf("a skipped house is not written again: %v", r)
 	}
 	if r := taskRow(t, o, 176); r["completed"].(int64) != 1 {
@@ -124,7 +124,7 @@ func TestCompleteChosenSkipsAHouseThatIsCompleteForTheFactionWithItsProgressAtTh
 
 func TestCompleteChosenFillsTheProgressOfAHouseAlreadyCompleteWithLessThanTheGoalWithoutTouchingItsTime(t *testing.T) {
 	o := chosenOps(t)
-	setup(t, o, `update landsraad_tasks set completed=1, winning_faction_id=2, completion_time=12345 where id=175`)
+	setup(t, o, `update landsraad_tasks set completed=1, winning_faction_id=2, completion_time=150 where id=175`)
 	got, err := o.CompleteChosen(completeArgs(Args{"task_ids": ids(175), "expected": 1.0}))
 	if err != nil {
 		t.Fatal(err)
@@ -135,19 +135,19 @@ func TestCompleteChosenFillsTheProgressOfAHouseAlreadyCompleteWithLessThanTheGoa
 	if v, _ := progress(t, o, 2, 175); v != 4000 {
 		t.Errorf("progress = %v", v)
 	}
-	if r := taskRow(t, o, 175); r["ct"].(int64) != 12345 {
+	if r := taskRow(t, o, 175); r["ct"].(int64) != 150 {
 		t.Errorf("the time of an earlier completion is kept: %v", r)
 	}
 }
 
 func TestCompleteChosenForAnotherFactionTakesTheHouseOver(t *testing.T) {
 	o := chosenOps(t)
-	setup(t, o, `update landsraad_tasks set completed=1, winning_faction_id=2, completion_time=12345 where id=175`)
+	setup(t, o, `update landsraad_tasks set completed=1, winning_faction_id=2, completion_time=150 where id=175`)
 	setup(t, o, `insert or replace into landsraad_task_faction_contributions(faction_id, task_id, amount) values (2, 175, 4000)`)
 	if _, err := o.CompleteChosen(completeArgs(Args{"task_ids": ids(175), "faction_id": 1.0, "expected": 1.0})); err != nil {
 		t.Fatal(err)
 	}
-	if r := taskRow(t, o, 175); r["w"].(int64) != 1 || r["ct"].(int64) == 12345 {
+	if r := taskRow(t, o, 175); r["w"].(int64) != 1 || r["ct"].(int64) == 150 {
 		t.Errorf("the winner is the chosen faction and the time is new: %v", r)
 	}
 	if v, _ := progress(t, o, 1, 175); v != 4000 {
