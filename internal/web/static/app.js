@@ -209,6 +209,11 @@ function subNav(group, items) {
 // about() puts what belongs to a card as a whole in a closed "About this" disclosure; whether it is open is kept per card in the browser's storage.
 function tip(id, text, control) { return html`<span class="tip">${control}<span class="tipbox" role="tooltip" id="${id}">${text}</span></span>`; }
 const aboutKey = (id) => 'about.' + id;
+// What a decree row is in the current term (#448): the term's active decree, its elected decree, a decree in the rotation; read from the term and the rotation by the decree id.
+const decreeTerm = (r) => {
+  const tags = [r.active && 'Active', r.elected && 'Elected', r.in_rotation && 'In rotation'].filter(Boolean);
+  return tags.length ? tags.map((x) => html`<span class="tag">${x}</span> `) : html`<span class="mut">—</span>`;
+};
 function about(id, title, content) { return html`<details class="about" data-about="${id}" ${browserStore.get(aboutKey(id)) === '1' ? 'open' : ''}><summary>About this<span class="sr"> (${title})</span></summary>${content}</details>`; }
 document.addEventListener('toggle', (e) => {
   const d = e.target;
@@ -366,7 +371,7 @@ function queueLine(desc) {
   if ((m = d.match(/^xp \+(\d+)$/))) return `Add ${m[1]} XP`;
   if ((m = d.match(/^intel \+(\d+)$/))) return `Add ${m[1]} Intel`;
   if ((m = d.match(/^unspent skill points = (\d+)$/))) return `Set the unspent skill points to ${m[1]}`;
-  if ((m = d.match(/^decree (\d+) disabled=([01])$/))) return `${m[2] === '1' ? 'Disable' : 'Enable'} decree ${m[1]}`;
+  if ((m = d.match(/^decree (\d+) disabled=([01])$/))) return `Set the pool flag of decree ${m[1]} to ${m[2]}`;
   if ((m = d.match(/^journey (\S+) (completed|reset) \((\d+) rows?\)$/))) return `Journey step ${m[1]}: ${m[2]}`;
   if ((m = d.match(/^moved vehicle (\d+) next to player$/))) return `Move vehicle ${m[1]} next to the character`;
   return capFirst(d);
@@ -1281,7 +1286,8 @@ async function landsraadView() {
   setHTML($('#main'), html`<div class="card"><h3>Current term ${t.term_id}</h3><div class="grid">${kv('Start', fmtEpoch(t.start_time))}${kv('End', fmtEpoch(t.end_time))}${kv('Reigning faction', fname(t.reigning_faction_id))}${kv('Active decree', (dec.find((d) => d.id == t.active_decree_id) || {}).decree_name || '—')}${kv('Elected decree', (dec.find((d) => d.id == t.elected_decree_id) || {}).decree_name || '—')}</div>
   <div class="row">Active decree<select id="ad" aria-label="Active decree"><option value="">none</option>${dec.map((d) => html`<option value="${d.id}" ${d.id == t.active_decree_id ? 'selected' : ''}>${d.decree_name}</option>`)}</select>
   Reigning<select id="rf" aria-label="Reigning faction"><option value="">none</option>${facOpts(t.reigning_faction_id)}</select><button class="b" data-act="term">Apply</button></div></div>
-  <div class="card"><h3>Decree pool</h3>${tbl([{ k: 'id', label: 'ID' }, { k: 'decree_name', label: 'Decree' }, { k: 'disabled', label: 'State', f: (r) => (r.disabled ? html`<span class="mut">disabled</span>` : html`<span class="ok">enabled</span>`) }], dec, { empty: 'This save has no decrees.', actions: (r) => html`<button class="b sec sm" data-act="decree" data-id="${r.id}" data-d="${r.disabled ? 0 : 1}">${r.disabled ? 'Enable' : 'Disable'}</button>` })}</div>
+  <div class="card"><h3>Decree pool</h3>${tbl([{ k: 'id', label: 'ID' }, { k: 'decree_name', label: 'Decree' }, { k: 'active', label: 'In this term', f: (r) => decreeTerm(r) }, { k: 'disabled', label: 'Pool flag (disabled)', f: (r) => html`<span class="mut">${r.disabled ? '1' : '0'}</span>` }], dec, { empty: 'This save has no decrees.', actions: (r) => html`<button class="b sec sm" data-act="decree" data-id="${r.id}" data-d="${r.disabled ? 0 : 1}" title="Sets the pool flag of this one row to ${r.disabled ? 0 : 1}. It does not make the decree active; the Active decree above does.">${r.disabled ? 'Set flag to 0' : 'Set flag to 1'}</button>` })}
+  ${about('landsraad.decrees', 'Decree pool', html`<p class="mut" id="lsdecnote"><b>In this term</b> is read from the current term: <b>Active</b> is the term's active decree, <b>Elected</b> its elected decree, <b>In rotation</b> a decree in the save's decree rotation. <b>Pool flag (disabled)</b> is the save's own <code>disabled</code> column and is shown as stored; it does not say whether a decree is in effect (in the saves read so far the decree in effect carries 1). The special vendor decree is five separate rows: SpecialVendorActive and its variants SpecialVendorActive_Vehicles, _Weapons, _Armor and _Utilities. A button changes the flag of its own row only.</p>`)}</div>
   <div class="card"><h3>Task board (${l.tasks.length})</h3>
   ${l.character && l.character.faction_id == null ? html`<p class="mut" id="lsnofaction">Your character is in no faction (Neutral), so there is nothing to fill: assign Atreides or Harkonnen under Admin first.</p>` : ''}
   <div class="row"><label><input type="checkbox" id="lwf"> Also set my faction's progress on the house to its goal</label></div>
