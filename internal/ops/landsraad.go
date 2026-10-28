@@ -1,10 +1,10 @@
 package ops
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
@@ -178,23 +178,40 @@ func (o *Ops) SetTaskProgress(a Args) (any, error) {
 	return ok(), nil
 }
 
-// CompleteTask marks a task complete for a faction; reset=true reopens it.
+// CompleteTask marks a task complete for a faction; reset=true reopens it. A completion writes the game's own clock into completion_time (see landsraad_clock.go), and the
+// completed tasks of the same term that still hold a time from outside the term's window (the Unix time older editors wrote) are brought onto that clock in the same edit (#465).
 func (o *Ops) CompleteTask(a Args) (any, error) {
 	t, err := a.Int("task_id")
 	if err != nil {
 		return nil, err
 	}
-	var n int64
-	if a.Bool("reset", false) {
-		n, err = o.run(fmt.Sprintf("landsraad task %d reopened", t), `update landsraad_tasks set completed=0, winning_faction_id=null, completion_time=null where id=?`, t)
-	} else {
-		f, ferr := a.Int("faction_id")
-		if ferr != nil {
-			return nil, ferr
+	reset := a.Bool("reset", false)
+	var f int64
+	desc := fmt.Sprintf("landsraad task %d reopened", t)
+	if !reset {
+		if f, err = a.Int("faction_id"); err != nil {
+			return nil, err
 		}
-		n, err = o.run(fmt.Sprintf("landsraad task %d completed for faction %d", t, f), `update landsraad_tasks set completed=1, winning_faction_id=?, completion_time=? where id=?`, f, time.Now().Unix(), t)
+		desc = fmt.Sprintf("landsraad task %d completed for faction %d", t, f)
 	}
-	if err != nil {
+	var n int64
+	if _, err = o.S.Mutate(desc, func(m *save.Mut) error {
+		clock := clockOfTask(m, t) // read before the write, from the task's own term
+		var res sql.Result
+		var err error
+		if reset {
+			res, err = m.Exec(`update landsraad_tasks set completed=0, winning_faction_id=null, completion_time=null where id=?`, t)
+		} else {
+			res, err = m.Exec(`update landsraad_tasks set completed=1, winning_faction_id=?, completion_time=? where id=?`, f, clock.arg(), t)
+		}
+		if err != nil {
+			return err
+		}
+		if n, _ = res.RowsAffected(); n > 0 && clock.ok {
+			_, err = repairCompletionTimes(m, clock.term)
+		}
+		return err
+	}); err != nil {
 		return nil, err
 	}
 	if n == 0 {
