@@ -191,3 +191,25 @@ test('the explanation of Create a vehicle is in About this, not on the page; the
   assert.ok(shown.includes('Create a vehicle') && shown.includes('Change parts'));
   ui.dom.window.close();
 });
+
+test('the preview, the result line and the toast say where the vehicle goes and what it moved away from (#480)', async () => {
+  const place = { map: 'HaggaBasin', x: 1, y: 2, z: 3, words: 'outside your base, 14 m south of you, outside the land claim (base pieces at the first spot)', moved: true, inBase: true, blocked: ['pieces'], claim: 'outside', distance: 1400, nextToCharacter: true };
+  const ui = await boot({ get: GET, post: { '/api/vehicles/spawn-preview': ANSWER({ dryRun: true, place }), '/api/vehicles/spawn': ANSWER({ outcome: 'written', place }) } });
+  await openForm(ui);
+  ui.click('[data-act="vcPreview"]'); await ui.settle();
+  const pv = ui.doc.querySelector('#vcpreview').textContent.replace(/\s+/g, ' ');
+  assert.ok(pv.includes('It goes outside your base, 14 m south of you, outside the land claim (base pieces at the first spot).'), pv);
+  ui.click('[data-act="vcCreate"]'); await ui.settle();
+  const text = ui.doc.querySelector('#vcresult').textContent.replace(/\s+/g, ' ');
+  assert.ok(text.includes('It goes outside your base, 14 m south of you'), text);
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Buggy outside your base, 14 m south of you'), ui.doc.querySelector('#toast').textContent);
+  ui.dom.window.close();
+});
+
+test('an answer with no place still reads "next to you"', async () => {
+  const ui = await boot({ get: GET, post: { '/api/vehicles/spawn-preview': ANSWER({ dryRun: true }) } });
+  await openForm(ui);
+  ui.click('[data-act="vcPreview"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#vcpreview').textContent.replace(/\s+/g, ' ').includes('It goes next to you.'));
+  ui.dom.window.close();
+});
