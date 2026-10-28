@@ -8,11 +8,11 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
-// vehicleTank is how much fuel a full tank holds for each vehicle blueprint, in the unit of the save's
-// FVehicleComponent.CurrentFuel. The save stores no tank size, so these are the numbers the game's own fuel gauge showed 100 % at.
-//
-// Source: measured by filling a vehicle to a known value and reading the gauge in the game, one vehicle of each kind. A class that is not in the
-// table is left alone and reported, never guessed. The Container Vehicle's tank has not been measured and is not listed.
+// vehicleTank is how much fuel a full tank holds for each vehicle blueprint, in the unit of the save's FVehicleComponent.CurrentFuel, measured once per class
+// by filling a vehicle to a known value and reading the fuel gauge in the game. It is only the fallback: the tank follows the grade of the vehicle's chassis, so
+// tankOf takes it from the vehicle's own chassis module first (#469). Each number here is the tank of the grade that was measured: Sandbike Mk1, Buggy Mk3,
+// Light Ornithopter Mk4, Medium Ornithopter Mk5, Sand Crawler and Transport Ornithopter Mk6. A class that is in neither is left alone and reported, never
+// guessed. The Container Vehicle has no fuel and is not listed.
 var vehicleTank = map[string]float64{
 	"BP_MediumOrnithopter_CHOAM_C":    750,
 	"BP_LightOrnithopter_Choam_C":     300,
@@ -29,6 +29,7 @@ var vehicleTank = map[string]float64{
 // vehicleFuelQuery lists the vehicles the character owns (ownedVehicleSQL, the rule of Bring vehicle and Repair) with the fuel of each, one row per vehicle. A vehicle
 // with no vehicle component in its entity has no entity columns.
 const vehicleFuelQuery = `select a.id, a.class, e.entity_id eid,
+		(select group_concat(m.template_id,'|') from vehicle_modules m where m.vehicle_id=a.id) mods,
 		json_type(e.components,'$.FVehicleComponent[1].CurrentFuel') ftype,
 		json_extract(e.components,'$.FVehicleComponent[1].CurrentFuel') fuel
 	from actors a left join fgl_entities e on e.entity_id=(
@@ -48,7 +49,7 @@ type fuelState struct {
 	todo     []fuelTarget   // vehicles of a known class whose fuel is below the tank
 	byClass  map[string]int // todo by class
 	full     int            // vehicles of a known class at or above the tank
-	unknown  map[string]int // vehicles of a class that is not in vehicleTank: left alone
+	unknown  map[string]int // vehicles whose tank neither their chassis nor vehicleTank gives: left alone
 	unknownN int
 	noRecord int // vehicles of a known class with no readable fuel value: left alone
 }
@@ -72,7 +73,7 @@ func lookAtVehicleFuel(query func(string, ...any) ([]save.Row, error), controlle
 	for _, r := range rows {
 		st.total++
 		class := blueprintClass(r["class"])
-		tank, known := vehicleTank[class]
+		tank, known := tankOf(class, splitModuleIDs(r["mods"]))
 		if !known {
 			st.unknown[class]++
 			st.unknownN++
@@ -102,7 +103,7 @@ func (st fuelState) skippedUnknown() []string {
 	return out
 }
 
-// refuelVehiclesTx fills every vehicle in st.todo to its tank, inside the edit m. A value is only ever raised (todo holds nothing at or above the tank), and
+// refuelVehiclesTx fills every vehicle in st.todo to its own tank (tankOf), inside the edit m. A value is only ever raised (todo holds nothing at or above the tank), and
 // jsonb_set writes the one number, leaving the other keys of the component as they were.
 func refuelVehiclesTx(m *save.Mut, controller int64) (fuelState, error) {
 	st, err := lookAtVehicleFuel(m.Query, controller)
@@ -144,8 +145,8 @@ func (o *Ops) VehicleFuel() (any, error) {
 	return map[string]any{"total": st.total, "notFull": len(st.todo), "unknown": st.unknownN, "noFuelRecord": st.noRecord}, nil
 }
 
-// RefuelVehicles fills the fuel of every vehicle the character owns to its tank, in one edit. A vehicle at or above its tank is not rewritten, a vehicle of a
-// class that is not in vehicleTank is left alone and reported, and so is a vehicle with no fuel record. Another owner's vehicles and the world's are never touched.
+// RefuelVehicles fills the fuel of every vehicle the character owns to its tank, in one edit. A vehicle at or above its tank is not rewritten, a vehicle whose
+// tank is not known (no chassis module in the catalog and a class that is not in vehicleTank) is left alone and reported, and so is a vehicle with no fuel record. Another owner's vehicles and the world's are never touched.
 // The vehicles are read inside the edit, so an edit put back onto a newer file is not applied to a list made from an older one.
 func (o *Ops) RefuelVehicles() (any, error) {
 	p, err := o.player()

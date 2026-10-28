@@ -15,7 +15,7 @@ test('Vehicles: the repair and refuel explanations are tooltips, the tank sizes 
   const main = await open(ui);
   const shown = visibleText(main), moved = movedText(main);
   for (const s of ['Makes every module as good as new: full durability', 'A module whose full durability is not known is raised to the maximum it records',
-    'Fills the fuel of your own vehicles to a full tank', 'Vehicles of other owners and the world\'s vehicles are not touched', 'The tank sizes were measured in the game', 'Sandbike 100, Buggy 240',
+    'Fills the fuel of your own vehicles to a full tank', 'Vehicles of other owners and the world\'s vehicles are not touched', 'A tank follows the vehicle\'s chassis grade', 'Sandbike 90 to 150, Buggy 220 to 300',
     'Condition is each module\'s durability against its current maximum']) {
     assert.ok(!shown.includes(s), 'still shown: ' + s);
     assert.ok(moved.includes(s), 'lost, not moved: ' + s);
