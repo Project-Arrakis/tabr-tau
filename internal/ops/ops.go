@@ -655,6 +655,11 @@ func (o *Ops) GiveToInventory(a Args) (any, error) {
 	var out giveOutcome
 	suffix := fmt.Sprintf("to container %d", inv)
 	if _, err := o.S.Mutate(fmt.Sprintf("Give %s x %s %s", commas(qty), itemLabel(tmpl), suffix), func(m *save.Mut) (e error) {
+		if none, e := vehicleHoldEmptyInTx(m, inv); e != nil { // a vehicle with no storage part has a hold of 0 slots: it takes nothing (#483)
+			return e
+		} else if none {
+			return errNoCargoHold
+		}
 		if out, e = giveUpToInTx(m, inv, tmpl, qty, q); e != nil {
 			return e
 		}
