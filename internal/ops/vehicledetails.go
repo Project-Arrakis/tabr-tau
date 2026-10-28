@@ -20,7 +20,7 @@ func vehicleType(name string) string {
 // vehicleDetails adds what the console's vehicle row and its expanded view show, all read from the save and never guessed:
 //
 //	condition  the lowest module condition in percent (current / its decayed maximum), nil when no module has a known maximum
-//	fuel       the current fuel from the vehicle component, nil when there is none (the save stores no tank capacity)
+//	fuel       the current fuel from the vehicle component, nil when there is none; fuelMax and fuelPercent (never above 100) come from the tank of the chassis (tankOf)
 //	components every module with its durability; percent only where the maximum is known
 //	cargo      the cargo hold, the inventory with inventory_type 0 (a vehicle's other inventories are per-component holds with no
 //	           capacity), with its items; nil when the vehicle has none
@@ -31,7 +31,11 @@ func (o *Ops) vehicleDetails(v map[string]any) {
 		from vehicle_modules where vehicle_id=? order by id`, v["id"])
 	var lowest *float64
 	comps := make([]map[string]any, 0, len(mods))
+	moduleIDs := make([]string, 0, len(mods))
 	for _, m := range mods {
+		if id, ok := m["template_id"].(string); ok {
+			moduleIDs = append(moduleIDs, id)
+		}
 		c := map[string]any{"template_id": m["template_id"], "current": m["current"], "max": m["max"], "percent": nil}
 		cur, ok1 := toFloat(m["current"])
 		mx, ok2 := toFloat(m["max"])
@@ -59,9 +63,9 @@ func (o *Ops) vehicleDetails(v map[string]any) {
 		from actor_fgl_entities a join fgl_entities f on f.entity_id=a.entity_id
 		where a.actor_id=? and json_valid(f.components,8) and json_type(f.components,'$.FVehicleComponent') is not null`, v["id"]); len(f) > 0 && f["fuel"] != nil {
 		v["fuel"] = f["fuel"]
-		// where the tank of this kind of vehicle was measured in the game, say how big it is and how full it is; otherwise the number stands alone
+		// where the tank of this vehicle is known (its chassis's, else its class's measured one), say how big it is and how full it is; otherwise the number stands alone
 		if cur, ok := toFloat(f["fuel"]); ok {
-			if tank, known := vehicleTank[blueprintClass(v["class"])]; known && tank > 0 {
+			if tank, known := tankOf(blueprintClass(v["class"]), moduleIDs); known && tank > 0 {
 				v["fuelMax"] = tank
 				v["fuelPercent"] = math.Min(100, cur/tank*100)
 			}

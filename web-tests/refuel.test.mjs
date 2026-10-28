@@ -29,8 +29,8 @@ test('Refuel: the count says how many are not full, the press posts once and the
   assert.ok(note, 'the button is described by the count on the page');
   assert.ok(note.textContent.includes('3 of 5 vehicles are not full.'), note.textContent);
   assert.ok(note.textContent.includes('1 vehicle of an unknown kind will be left alone.'), note.textContent);
-  assert.ok(!note.textContent.includes('Sandbike 100'), 'the tank sizes are not a permanent line (#426)');
-  assert.ok(ui.doc.querySelector('details[data-about="vehicles.fuel"]').textContent.includes('Sandbike 100') && ui.doc.querySelector('details[data-about="vehicles.fuel"]').textContent.includes('Transport Ornithopter 2500'), 'the tank sizes are in the About this of the Fuel card');
+  assert.ok(!note.textContent.includes('Sandbike 90'), 'the tank sizes are not a permanent line (#426)');
+  assert.ok(ui.doc.querySelector('details[data-about="vehicles.fuel"]').textContent.includes('Sandbike 90 to 150') && ui.doc.querySelector('details[data-about="vehicles.fuel"]').textContent.includes('Transport Ornithopter 1350 to 2500'), 'the tank sizes are in the About this of the Fuel card');
   assert.equal(posts(ui, '/api/vehicles/refuel').length, 0, 'nothing is sent before the press');
 
   ui.click('[data-act="refuelV"]'); await ui.settle();
