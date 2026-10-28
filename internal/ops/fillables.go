@@ -11,11 +11,11 @@ import (
 // waterCapacity is how much water each water container holds when full. The unit matches the save's
 // FFillableItemStats.CurrentAmount (a half-full Literjon Mk6 holds 11000 of 20000).
 //
-// Source: read in game by the operator and cross-checked against the item pages of dune.gaming.tools
-// (stat "fillableCapacity"), 2026-10-08. The numbers are game facts; no site content is copied. The site's
-// terms require permission for bulk scraping, so this table is grown one verified item at a time.
-// A container with a fill record that is not listed here is skipped and reported, never guessed. An empty
-// container that is not listed has no record to recognise it by, so it is left alone without a report.
+// Source: the game's item data, the table of fillable items (DT_ItemTableFillables, the row named by the item's template, field MaxAmount, with
+// FillableTypeRestriction Water and bIsContainer true), read 2026-10-28 (issue #482; docs/design/2026-10-28-fillable-capacities.md has the whole table).
+// The first nine entries were first read in game by the operator on 2026-10-08; the table gives the same numbers. A container with a fill record
+// that is not listed here is skipped and reported, never guessed. An empty container that is not listed has no record to recognise it by, so it is left
+// alone without a report.
 var waterCapacity = map[string]float64{
 	"Literjon":                1000,
 	"Literjon_T6":             20000,
@@ -26,6 +26,53 @@ var waterCapacity = map[string]float64{
 	"HighCapacityLiterjon_04": 2250,
 	"HighCapacityLiterjon_05": 2500,
 	"HighCapacityLiterjon_06": 3000,
+	// the other Literjon grades and the Dewpack (issue #482)
+	"Literjon_03": 1100,
+	"Literjon_04": 1200,
+	"Literjon_05": 1300,
+	"Literjon_06": 1400,
+	"Literjon_07": 1500,
+	"Literjon_08": 1600,
+	"Literjon_09": 1700,
+	"Dewpack":     250,
+}
+
+// stillsuitCapacity is the water store of the worn stillsuits and their kin: the rows of the game's table of fillable items whose FillableTypeRestriction
+// is Water and whose bIsContainer is false (issue #482). The suit is not a container the person fills: the game puts the water it recovers into it and
+// changes the amount all the time, and the save keeps no liquid type for it. So the editor shows the amount against this capacity but never writes it
+// (Fill water containers and Fill all liquids leave a suit alone, without reporting it as unknown). 500 each, 1500 for the high capacity suit.
+var stillsuitCapacity = map[string]float64{
+	"AdvancedStillsuit":                    500,
+	"Combat_Nati_FremenExile04_Top":        500,
+	"SimpleStillsuit":                      500,
+	"Stillsuit_Choam_01_Top":               500,
+	"Stillsuit_Choam_02_Top":               500,
+	"Stillsuit_Choam_04_Top":               500,
+	"Stillsuit_Choam_05_Top":               500,
+	"Stillsuit_Choam_06_Top":               500,
+	"Stillsuit_Choam_Unique_Dashed02_Top":  500,
+	"Stillsuit_Choam_Unique_Dashed03_Top":  500,
+	"Stillsuit_Choam_Unique_Dashed04_Top":  500,
+	"Stillsuit_Choam_Unique_Dashed05_Top":  500,
+	"Stillsuit_Choam_Unique_Dashed06_Top":  500,
+	"Stillsuit_Nati_05_Body":               500,
+	"Stillsuit_Nati_06_Body":               500,
+	"Stillsuit_Nati_07_Body":               500,
+	"Stillsuit_Nati_08_Body":               500,
+	"Stillsuit_Nati_Arrakeen05_Body":       500,
+	"Stillsuit_Neut_Leaking01_Top":         500,
+	"Stillsuit_Neut_Patchy02_Top":          500,
+	"Stillsuit_Unique_Armored_01_Top":      500,
+	"Stillsuit_Unique_Armored_02_Top":      500,
+	"Stillsuit_Unique_Armored_03_Top":      500,
+	"Stillsuit_Unique_Armored_04_Top":      500,
+	"Stillsuit_Unique_Armored_05_Top":      500,
+	"Stillsuit_Unique_Armored_06_Top":      500,
+	"Stillsuit_Unique_Efficient_04_Top":    500,
+	"Stillsuit_Unique_Efficient_05_Top":    500,
+	"Stillsuit_Unique_Efficient_06_Top":    500,
+	"Stillsuit_Unique_HighCapacity_06_Top": 1500,
+	"Stillsuit_Unique_ThermalSuit_06_Top":  500,
 }
 
 // bloodCapacity is how much blood each blood sack holds when full, in the unit of the save's FFillableItemStats.CurrentAmount.
@@ -64,6 +111,7 @@ type waterState struct {
 	todo    []waterTarget  // containers of a known kind that are not full
 	full    int            // containers at or above capacity
 	unknown map[string]int // containers with a fill record that are not in waterCapacity: left alone
+	suits   int            // worn stillsuits (stillsuitCapacity): left alone, the game fills them
 }
 
 // lookAtWater sorts the character's containers into what to fill and what to leave alone. query is the edit's own query when it runs inside an edit.
@@ -77,6 +125,10 @@ func lookAtWater(query func(string, ...any) ([]save.Row, error), pawn int64) (wa
 		tpl := fmt.Sprint(r["template_id"])
 		capacity, known := waterCapacity[tpl]
 		if !known {
+			if _, suit := stillsuitCapacity[tpl]; suit { // the game fills a suit itself: not ours to fill, and not a container of unknown size
+				st.suits++
+				continue
+			}
 			// A record without a type or amount is an empty container; blood sacks (issue #60) are not water.
 			if r["has"] != nil && !strings.HasPrefix(tpl, "Bloodsack") { // a container we cannot size
 				if r["kind"] == nil || r["kind"] == "Water" {
@@ -122,7 +174,7 @@ func (st waterState) answer() map[string]any {
 		skipped = append(skipped, fmt.Sprintf("%s x%d", k, n))
 	}
 	sort.Strings(skipped)
-	return map[string]any{"ok": true, "filled": len(st.todo), "alreadyFull": st.full, "skippedUnknown": skipped}
+	return map[string]any{"ok": true, "filled": len(st.todo), "alreadyFull": st.full, "skippedUnknown": skipped, "stillsuits": st.suits}
 }
 
 // RefillContainers fills every water container the player carries to its capacity. A container holding

@@ -12,7 +12,8 @@ import (
 
 // fillOf describes what the container holds, or returns nil when the item is not a liquid container. It never fails: stats that cannot be read count as an
 // empty record. The result has: kind ("Water", "Blood" or "" when an empty container of an unknown kind), amount, state ("empty", "partial", "full",
-// "over" or "unknown" when the capacity is not known) and, when the capacity is known, capacity and percent (rounded; it can exceed 100).
+// "over" or "unknown" when the capacity is not known) and, when the capacity is known, capacity and percent (rounded; it can exceed 100). A worn stillsuit
+// (stillsuitCapacity) is shown against its capacity as Water with "selfFilled" true: the game fills it, the editor never does (issue #482).
 func fillOf(template, stats string) map[string]any {
 	var rec map[string]json.RawMessage
 	hasKey := false
@@ -25,8 +26,9 @@ func fillOf(template, stats string) map[string]any {
 	}
 	_, inWater := waterCapacity[template]
 	_, inBlood := bloodCapacity[template]
+	suitCap, isSuit := stillsuitCapacity[template]
 	sack := strings.HasPrefix(template, "Bloodsack")
-	if !hasKey && !inWater && !inBlood && !sack {
+	if !hasKey && !inWater && !inBlood && !sack && !isSuit {
 		return nil
 	}
 	var d struct {
@@ -45,7 +47,7 @@ func fillOf(template, stats string) map[string]any {
 		switch {
 		case inBlood || sack:
 			kind = "Blood"
-		case inWater:
+		case inWater || isSuit:
 			kind = "Water"
 		}
 	}
@@ -54,6 +56,10 @@ func fillOf(template, stats string) map[string]any {
 	switch kind {
 	case "Water":
 		capacity, known = waterCapacity[template]
+		if isSuit { // the suit keeps no liquid type in the save, so an empty kind above became Water; a suit that says Blood stays unknown
+			capacity, known = suitCap, true
+			out["selfFilled"] = true
+		}
 	case "Blood":
 		capacity, known = bloodCapacity[template]
 	}

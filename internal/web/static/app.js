@@ -291,13 +291,14 @@ function fillCell(r) {
   if (!f) return '';
   const lit = (n) => Number(n).toLocaleString();
   const what = f.kind || 'Liquid';
+  if (f.selfFilled) return html`<span class="mut" title="The game puts the water the suit recovers into it. Fill leaves it alone.">${what} ${lit(Math.round(f.amount))} / ${lit(f.capacity)} (${f.percent}%), the suit fills itself</span>`;
   if (f.state == 'empty') return html`<span class="mut">${what} empty</span>`;
   if (f.capacity == null) return html`<span class="warn" title="The capacity of this container is not known to the editor.">${what} ${lit(f.amount)} (capacity unknown)</span>`;
   return html`<span class="${f.state == 'full' ? 'ok' : f.state == 'over' ? 'warn' : ''}" title="${f.state == 'over' ? 'More than the capacity the editor knows.' : ''}">${what} ${lit(f.amount)} / ${lit(f.capacity)} (${f.percent}%)</span>`;
 }
 // The card header's count of liquid containers in a list of items, and how many of them are not full.
 function fillTotals(items) {
-  const c = items.filter((r) => r.fill);
+  const c = items.filter((r) => r.fill && !r.fill.selfFilled); // a worn stillsuit is not a container the person fills
   if (!c.length) return '';
   const notFull = c.filter((r) => r.fill.state == 'empty' || r.fill.state == 'partial').length, unk = c.filter((r) => r.fill.state == 'unknown').length;
   return `${nn(c.length, 'liquid container', 'liquid containers')}, ${notFull} not full${unk ? `, ${unk} of unknown capacity` : ''}.`;
