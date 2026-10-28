@@ -34,6 +34,45 @@ test(`no page shows more than ${PAGE_WORDS} words to read, or a block of more th
   ui.dom.window.close();
 });
 
+// The pages above are drawn in their default state. A note that is drawn only while it applies (#426) must fit the same limits in the state where it IS drawn, or it could grow without the test noticing.
+const BASE7 = [{ base_id: 7, name: 'Base', base_type: 'Advanced Sub-Fief', owner: 'Owner', map: 'HaggaBasin', generators: 0, pieces: 0, placeables: 0, x: 0, y: 0, z: 0 }];
+const CLAIM = [{ totem_id: 7, name: 'Totem', cells: 2, rings: 0, level: 1, irregular: true, maxRings: 5, maxLevel: 5, yaw: 90, segments: [{ x: 1, y: 0 }], grid: [{ x: 0, y: 0, in: true, n: 0 }, { x: 1, y: 0, in: true, n: 3 }], piecesInClaim: 3, piecesOutside: 0 }];
+const within = (ui, label) => {
+  const main = ui.doc.querySelector('#main');
+  const words = proseWords(main), block = longestBlock(main);
+  assert.ok(words <= PAGE_WORDS, `${label} shows ${words} words to read (limit ${PAGE_WORDS})`);
+  assert.ok(block <= BLOCK_WORDS, `${label} has a block of ${block} words (limit ${BLOCK_WORDS})`);
+};
+const goPlayer = async (ui, sub) => { ui.click('[data-tab="player"]'); await ui.settle(); ui.click(`[data-sub="player:${sub}"]`); await ui.settle(); };
+
+test('a note drawn only while it applies stays inside the limits in that state', async () => {
+  // Admin, another map chosen: the move-between-maps warning appears
+  let ui = await boot({});
+  await goPlayer(ui, 'admin');
+  const sel = ui.doc.querySelector('#tmap');
+  sel.value = 'DeepDesert'; sel.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
+  assert.ok(ui.doc.querySelector('#tmapwarn'), 'the warning is drawn');
+  within(ui, 'Admin with another map chosen');
+  ui.dom.window.close();
+
+  // Land claim editor, a cell chosen: the staking-check warning appears
+  ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/claim': CLAIM } });
+  await goPlayer(ui, 'bases');
+  ui.click('[data-bstab="claim"]'); await ui.settle();
+  ui.doc.querySelector('[data-cell="2,0"]').dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); await ui.settle();
+  assert.ok(ui.doc.querySelector('#lcbypass'), 'the warning is drawn');
+  within(ui, 'Land claim editor with a cell chosen');
+  ui.dom.window.close();
+
+  // Care package, the list full and a settings problem, and the kit editor open
+  ui = await boot({ get: { '/api/kits': { ...KITS, limits: { ...KITS.limits, kits: 1 }, problem: 'The settings file could not be read.' } } });
+  await goPlayer(ui, 'character');
+  ui.click('[data-sub="char:carepackage"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#kitfull'), 'the full-list line is drawn');
+  within(ui, 'Care package with the list full');
+  ui.dom.window.close();
+});
+
 test('opening an About this shows more words, and the words are the same ones that were hidden (the counter sees disclosures)', async () => {
   const ui = await boot({});
   ui.click('[data-tab="player"]'); await ui.settle();

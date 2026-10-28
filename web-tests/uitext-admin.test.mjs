@@ -34,11 +34,13 @@ test('Admin: the warning about a move between maps is drawn only while another m
   const warn = ui.doc.querySelector('#tmapwarn');
   assert.ok(warn, 'another map: the warning');
   assert.ok(visibleText(ui.doc.querySelector('#main')).includes('No other move was checked, so try it on a copy first.'));
-  assert.ok(warn.textContent.includes('A position typed for the Deep Desert is not accepted for Hagga Basin.'));
+  assert.ok(warn.textContent.includes('Only one move between maps was checked in the game: to the Deep Desert') && !warn.textContent.includes('A position typed'), 'two sentences: what was checked and what to do; the position rule is in About this');
+  assert.ok(warn.textContent.split(' ').length <= 40, 'the note under Teleport stays short');
   sel.value = ''; sel.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
   assert.equal(ui.doc.querySelector('#tmapwarn'), null);
-  // the same warning is always in About this
+  // the whole note, with what is written and the position rule, is always in About this
   assert.ok(ui.doc.querySelector('details[data-about="admin.movement"]').textContent.includes('No other move was checked, so try it on a copy first.'));
+  assert.ok(ui.doc.querySelector('details[data-about="admin.movement"]').textContent.includes('A position typed for the Deep Desert is not accepted for Hagga Basin.') && ui.doc.querySelector('details[data-about="admin.movement"]').textContent.includes('controller, body and player state'));
   ui.dom.window.close();
 });
 
