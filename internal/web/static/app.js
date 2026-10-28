@@ -603,7 +603,7 @@ function bloodSacksRow(b) {
   const total = b ? Number(b.total) || 0 : 0, notFull = b ? Number(b.notFull) || 0 : 0, unknown = b ? Number(b.unknown) || 0 : 0;
   const count = !b ? 'The blood sacks could not be counted.' : total || unknown ? `${notFull} of ${total} blood sacks are not full.` : 'No blood sacks in the backpack, worn gear or loadout.';
   const left = unknown ? ` ${unknown} blood ${unknown == 1 ? 'sack' : 'sacks'} of an unknown kind will be left alone.` : '';
-  return html`<div class="row">${tip('bloodtip', 'Fills the sacks you carry to the most blood seen in a save for that kind (the Mk6 unique sack 30000, the basic sack 3000), without changing anything else about them. Water containers are not touched. The fill has not been checked in the game yet.', html`<button class="b sec" data-act="fillBlood" aria-describedby="bloodnote bloodtip" ${b && !notFull ? 'disabled' : ''}>Fill blood sacks</button>`)}<span class="mut" id="bloodnote">${count}${left}</span></div>`;
+  return html`<div class="row">${tip('bloodtip', 'Fills the sacks you carry to the capacity of their kind, taken from the game\'s item data, without changing anything else about them. Water containers are not touched. The fill has not been checked in the game yet.', html`<button class="b sec" data-act="fillBlood" aria-describedby="bloodnote bloodtip" ${b && !notFull ? 'disabled' : ''}>Fill blood sacks</button>`)}<span class="mut" id="bloodnote">${count}${left}</span></div>`;
 }
 // Fill all liquids (issue #349): the water refill, the blood-sack fill and, with the box ticked, the refuel of the character's vehicles, as one edit.
 // The box stays as the person left it until the page is reloaded.
