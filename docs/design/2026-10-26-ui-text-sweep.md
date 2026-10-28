@@ -399,6 +399,42 @@ The decisions above stand; where carrying one out showed a better way, the way i
 
 The code has 41 tooltip sites (39 in `app.js`, 2 in `livemap.js`; the job descriptions, the shrink buttons and the layer buttons are drawn from a list) and 24 closed **About this** disclosures, each remembered per card. Beyond the 168 rows: 33 web tests were added (`uitext*.test.mjs`: the mechanism on every page, then one file per step), and existing tests in 7 files (fillcard, liquids, landsraad-hydration, reset, autojobs, refuel, ui.hostile) were changed on purpose to read a tooltip, an About this or a shorter line instead of a permanent note, and one bug was found and fixed (#429).
 
+## Words on each page, before and after
+
+How much a person has to read on each page, measured the same way before the sweep (the tree at `3f5fc4e`, before #428) and now. "Words to read" is the default view (About this closed, no tooltip shown) without the parts that are data or a way to act: tables, choices, buttons, labels, headings, tab names and the summary tiles. What is left is the lines of state, result, error and queued information. "Longest block" is the longest single run of such text. Both are computed by `proseWords` and `longestBlock` in `web-tests/uitext.mjs`, from the generated fixtures (`go test ./internal/web -run TestDumpUIFixtures`), so anyone can repeat them. The fixtures draw the pages with whatever state they hold: the specialization page is the save with no known track, the customizations page the save with no library, and so on, so the numbers say what a reader sees there, not the most any page could show. The Care package list was measured with no kits (its line then says so).
+
+| Page | Words before | Words now | Longest block before | Longest block now |
+|---|---:|---:|---:|---:|
+| Player > Character > Overview | 287 | 56 | 66 | 13 |
+| Player > Bases > Power / Water | 258 / 249 | 5 / 5 | 132 | 5 |
+| Player > Bases > Land claim | 232 | 40 | 34 | 14 |
+| Player > Vehicles | 221 | 23 | 95 | 17 |
+| Landsraad | 205 | 15 | 155 | 9 |
+| Player > Admin | 201 | 16 | 141 | 6 |
+| Player > Specialization | 195 | 84 | 75 | 42 |
+| Player > Customizations | 121 | 45 | 49 | 17 |
+| Character > Care package | 110 | 0 | 110 | 0 |
+| Character > Inventory | 105 | 8 | 32 | 7 |
+| Saved map | 108 | 23 | 57 | 12 |
+| Player > Research | 93 | 9 | 52 | 9 |
+| Player > Journey | 84 | 19 | 53 | 12 |
+| Config | 76 | 63 | 28 | 33 |
+| Player > Skills | 60 | 28 | 32 | 14 |
+| Database > Save backups | 42 | 31 | 30 | 19 |
+| Database > SQL | 41 | 0 | 41 | 0 |
+| Player > Crafting | 36 | 6 | 23 | 6 |
+| Player > Building sets | 30 | 8 | 15 | 6 |
+| Bases > Structures | 26 | 0 | 26 | 0 |
+| Bases > Inventory | 20 | 0 | 20 | 0 |
+| Database > Tables | 17 | 17 | 16 | 16 |
+| Character > Reputation | 6 | 0 | 6 | 0 |
+
+The worst page went from 287 words to 84. The two pages that were not cut by much are the two whose text is state or error and not explanation: the specialization page of a save whose tracks are not yet known (every line says why a control is off and the one step that turns it on) and Config (the check of the files, each missing section, and the one warning that the game rewrites its config files on exit, with the backup information). They stay as they are, by the rule above.
+
+### The limit that keeps it so
+
+`web-tests/uitext-budget.test.mjs` draws every page and fails when one shows more than **100** words to read, or a block of more than **45**, before any About this is opened. The limit sits just above the worst page now (84 and 42), so the next explanation that is added has to go where the rest went: a tooltip on its control or the card's closed About this. The same test checks that every About this is closed on a fresh load and that the counter does see an open one, so the test cannot pass by counting nothing.
+
 ## By-eye check (what the operator looks at)
 
 Open each page once with About this closed: it should show state, counts, results and what is queued, and each button should show its sentence when the pointer is over it or it has the focus (Tab), and lose it on Escape.

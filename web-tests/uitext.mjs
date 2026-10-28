@@ -48,3 +48,30 @@ export async function eachPage(ui, fn) {
     }
   }
 }
+
+// The words a page SHOWS as text to read before any disclosure is opened (#426): what is left of visibleText() once the parts that are data or controls are taken out. Tables, choices, buttons, labels,
+// headings, tab names and the summary tiles are the page's data and its way to act, not text to read; what remains is the lines of state, result, error and queued information between them.
+// A page's words can only grow here by adding a line a person must read, which is what the limit in uitext-budget.test.mjs is for.
+const NOT_PROSE = /^(table|select|option|datalist|button|h1|h2|h3|h4|summary|nav|header|input|textarea|script|style|template|svg|canvas)$/;
+function proseParts(root) {
+  const blocks = [];
+  let cur = [];
+  const flush = () => { const s = cur.join('').replace(/\s+/g, ' ').trim(); if (s) blocks.push(s); cur = []; };
+  const walk = (n) => {
+    if (n.nodeType === 3) { cur.push(n.nodeValue); return; }
+    if (n.nodeType !== 1) return;
+    const tag = n.tagName.toLowerCase();
+    if (NOT_PROSE.test(tag) || (tag === 'label' && !n.classList.contains('mut'))) return;
+    if (n.hasAttribute('hidden') || n.classList.contains('tipbox') || n.classList.contains('sr') || n.classList.contains('grid')) return;
+    if (tag === 'details' && !n.open) return;
+    const block = /^(p|div|li|label)$/.test(tag) || n.classList.contains('mut');
+    if (block) flush();
+    for (const c of n.childNodes) walk(c);
+    if (block) flush();
+  };
+  walk(root);
+  flush();
+  return blocks;
+}
+export const proseWords = (root) => proseParts(root).reduce((n, b) => n + b.split(' ').length, 0);
+export const longestBlock = (root) => proseParts(root).reduce((m, b) => Math.max(m, b.split(' ').length), 0);
