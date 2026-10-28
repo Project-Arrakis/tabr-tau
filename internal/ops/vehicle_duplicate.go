@@ -92,6 +92,7 @@ func (o *Ops) DuplicateVehicle(a Args) (any, error) {
 	}
 	var newID int64
 	var nMods, nInvs int
+	var placed placement
 	if _, err := o.S.Mutate(fmt.Sprintf("duplicate vehicle %d", id), func(m *save.Mut) error {
 		src, err := m.One(`select class from actors where id=? and id in (`+ownedVehicleSQL+`)`, id, p.Controller)
 		if err != nil {
@@ -114,10 +115,14 @@ func (o *Ops) DuplicateVehicle(a Args) (any, error) {
 		if newID, err = nextID(m, "actors"); err != nil {
 			return err
 		}
-		// next to the character, 800 along x and 150 up, as Bring vehicle puts a vehicle; the turn and everything else are the reference's
+		// next to the character: the old point (800 along x, 150 up) when it is clear, else the nearest clear spot (#480); the turn and everything else are the reference's
+		dim, _ := toInt(me["d"])
+		if placed, err = choosePlace(m.Query, fmt.Sprint(me["map"]), dim, num(me["x"]), num(me["y"]), num(me["z"]), sizeOfActorClass(src["class"]), 0, vehicleType(shortClass(src["class"]))); err != nil {
+			return err
+		}
 		if _, err := m.Exec(`insert into actors(id,class,map,location_x,location_y,location_z,rotation_x,rotation_y,rotation_z,rotation_w,dimension_index,gas_attributes,properties,owner_account_id,serial,state)
-			select ?,class,?,?+800,?,?+150,rotation_x,rotation_y,rotation_z,rotation_w,?,gas_attributes,properties,owner_account_id,serial,state from actors where id=?`,
-			newID, me["map"], me["x"], me["y"], me["z"], me["d"], id); err != nil {
+			select ?,class,?,?,?,?,rotation_x,rotation_y,rotation_z,rotation_w,?,gas_attributes,properties,owner_account_id,serial,state from actors where id=?`,
+			newID, me["map"], placed.X, placed.Y, placed.Z, me["d"], id); err != nil {
 			return err
 		}
 		// a copy that is just set down has not been abandoned since the reference was: its abandoned time is now
@@ -152,7 +157,7 @@ func (o *Ops) DuplicateVehicle(a Args) (any, error) {
 	}); err != nil {
 		return nil, err
 	}
-	return map[string]any{"ok": true, "id": newID, "modules": nMods, "inventories": nInvs}, nil
+	return map[string]any{"ok": true, "id": newID, "modules": nMods, "inventories": nInvs, "place": placed.Info()}, nil
 }
 
 // duplicateEntities copies the entities a vehicle is linked to, under new ids.

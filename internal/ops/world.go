@@ -138,7 +138,8 @@ func (o *Ops) Vehicles() (any, error) {
 	return map[string]any{"vehicles": live, "recovered": rec, "backups": bak, "hidden": hidden["n"]}, nil
 }
 
-// BringVehicle moves one of the player's own vehicles next to the player.
+// BringVehicle moves one of the player's own vehicles next to the player: to the old point (800 along x, 150 up) when it is clear, else to the nearest clear spot, outside a base
+// when the player is in one (#480). The answer says where it went.
 func (o *Ops) BringVehicle(a Args) (any, error) {
 	p, err := o.player()
 	if err != nil {
@@ -154,17 +155,29 @@ func (o *Ops) BringVehicle(a Args) (any, error) {
 	// The player's position is read inside the edit, through its own query: it is kept with the edit, so an edit put back onto a newer file (the player has moved since)
 	// is not applied to the old position.
 	found := false
+	var placed placement
 	_, err = o.S.Mutate(fmt.Sprintf("moved vehicle %d next to player", id), func(m *save.Mut) error {
-		me, err := m.One(`select map, location_x x, location_y y, location_z z from actors where id=?`, p.Pawn)
+		me, err := m.One(`select map, location_x x, location_y y, location_z z, dimension_index d from actors where id=?`, p.Pawn)
 		if err != nil {
 			return err
 		}
 		if me == nil {
 			return errors.New("player position unknown")
 		}
-		res, err := m.Exec(`update actors set map=?, location_x=?+800, location_y=?, location_z=?+150
+		v, err := m.One(`select class from actors where id=? and id in (`+ownedVehicleSQL+`) and id not in (`+storedVehicleSQL+`)`, id, p.Controller)
+		if err != nil {
+			return err
+		}
+		if v == nil {
+			return nil
+		}
+		dim, _ := toInt(me["d"])
+		if placed, err = choosePlace(m.Query, fmt.Sprint(me["map"]), dim, num(me["x"]), num(me["y"]), num(me["z"]), sizeOfActorClass(v["class"]), id, vehicleType(shortClass(v["class"]))); err != nil {
+			return err
+		}
+		res, err := m.Exec(`update actors set map=?, location_x=?, location_y=?, location_z=?
 		where id=? and id in (`+ownedVehicleSQL+`) and id not in (`+storedVehicleSQL+`)`,
-			me["map"], me["x"], me["y"], me["z"], id, p.Controller)
+			me["map"], placed.X, placed.Y, placed.Z, id, p.Controller)
 		if err != nil {
 			return err
 		}
@@ -178,7 +191,7 @@ func (o *Ops) BringVehicle(a Args) (any, error) {
 	if !found {
 		return nil, apierr.New(apierr.ErrNotFound, "vehicle not found among your vehicles")
 	}
-	return ok(), nil
+	return map[string]any{"ok": true, "place": placed.Info()}, nil
 }
 
 // ---------------------------------------------------------------- vendors

@@ -449,16 +449,33 @@ func writeVehicle(m *save.Mut, p player, sp *spawnSpec, d catalog.Derived) (map[
 	if me == nil {
 		return nil, errors.New("player position unknown")
 	}
-	mapName, x, y, z := fmt.Sprint(me["map"]), num(me["x"])+800, num(me["y"]), num(me["z"])+150 // next to the character, as Bring vehicle puts a vehicle
 	if me["map"] == nil || fmt.Sprint(me["map"]) == "" {
 		return nil, errors.New("the character's map is not recorded in this save")
-	}
-	if sp.place != nil {
-		mapName, x, y, z = sp.place.mapName, sp.place.x, sp.place.y, sp.place.z
 	}
 	dim := int64(0)
 	if n, ok := toInt(me["dim"]); ok && n >= 0 {
 		dim = n
+	}
+	// next to the character: the old point (800 along x, 150 up) when it is clear, else the nearest clear spot (#480); or where the request said
+	mapName := fmt.Sprint(me["map"])
+	size := sizeOfClassKey(sp.classKey)
+	var placed placement
+	var x, y, z float64
+	var placeInfo map[string]any
+	if sp.place == nil {
+		if placed, err = choosePlace(m.Query, mapName, dim, num(me["x"]), num(me["y"]), num(me["z"]), size, 0, sp.class.Label); err != nil {
+			return nil, err
+		}
+		mapName, x, y, z = placed.Map, placed.X, placed.Y, placed.Z
+		placeInfo = placed.Info()
+	} else {
+		mapName, x, y, z = sp.place.mapName, sp.place.x, sp.place.y, sp.place.z
+		if w, err := loadPlaceWorld(m.Query, mapName, dim, x, y, 0); err != nil {
+			return nil, err
+		} else if note := w.placeNote(x, y, z, size); note != "" {
+			sp.notes = append(sp.notes, note)
+		}
+		placeInfo = map[string]any{"map": mapName, "x": x, "y": y, "z": z, "words": "where you asked", "moved": false, "inBase": false, "blocked": []string{}, "claim": "", "distance": int64(0)}
 	}
 	rx, ry, rz, rw := yawOnly(num(me["rx"]), num(me["ry"]), num(me["rz"]), num(me["rw"]))
 
@@ -550,7 +567,8 @@ func writeVehicle(m *save.Mut, p player, sp *spawnSpec, d catalog.Derived) (map[
 	// the items in the cargo hold, by the Give Items path (slots, stack sizes, volume)
 	res := map[string]any{"ok": true, "id": id, "class": sp.classKey, "label": sp.class.Label, "template": sp.template.Name, "tier": sp.template.Tier,
 		"changed": sp.changed, "notes": sp.notes, "build": catalog.VehicleBuild(), "complete": true,
-		"place": map[string]any{"map": mapName, "x": x, "y": y, "z": z, "nextToCharacter": sp.place == nil}}
+		"place": placeInfo}
+	placeInfo["nextToCharacter"] = sp.place == nil
 	res["items"], res["requested"], res["given"], res["notGiven"], res["volumeNote"] = []map[string]any{}, int64(0), int64(0), []map[string]any{}, ""
 	if len(sp.lines) > 0 {
 		_, req, got, results, e := giveLinesInTx(m, cargoID, sp.lines)

@@ -1208,13 +1208,15 @@ function vcSentence(r) {
   const items = r.requested ? `, ${n(r.given)} of ${n(r.requested)} items in the cargo hold` : '';
   return `${r.label}, ${tplWord(r.template, r.tier)}, ${nn(r.counts.vehicle_modules, 'part', 'parts')}, health ${n(d.maxHealth)}, fuel ${n(d.fuel)} of ${n(d.fuelCapacity)}, ${hold}${items}`;
 }
+// Where the vehicle goes (#480): the answer's own words, "next to you" when nothing was in the way.
+const whereWords = (r) => (r.place && r.place.words) || 'next to you';
 function vcShorts(r) { return (r.notGiven || []).map((g) => html`<li>${g.name}: ${Number(g.short).toLocaleString()} did not fit (${g.reason || 'no room'})</li>`); }
 function vehicleCreateCard(cat) {
   const r = vcResult && vcResult.r;
-  const result = r ? html`<div class="info" role="status" id="vcresult"><b>Created vehicle ${r.id}:</b> ${vcSentence(r)}. It is written to the save; the game has not loaded it yet.${vcResult.note}
+  const result = r ? html`<div class="info" role="status" id="vcresult"><b>Created vehicle ${r.id}:</b> ${vcSentence(r)}. It goes ${whereWords(r)}. It is written to the save; the game has not loaded it yet.${vcResult.note}
     ${(r.notGiven || []).length || (r.notes || []).length ? html`<ul>${vcShorts(r)}${(r.notes || []).map((x) => html`<li>${x}</li>`)}</ul>` : ''}
     <button class="b sec sm" data-act="vcDismiss">Dismiss</button></div>` : '';
-  const aboutText = about('vehicles.create', 'Create a vehicle', html`<p class="mut">Writes a new vehicle of yours into the save from the game's own vehicle tables (game build ${VC ? VC.build : '1.5.15.0'}): the same rows the game keeps for a vehicle, which Duplicate also writes. The tier is the Mk number of the parts, so Mk6 is the tier 6 template. A part can be changed for any part of the same slot, a unique or another grade. The vehicle is put next to you. Nothing asks first: it is written at once after a backup, or queued while the game is running. A vehicle made this way has not been loaded in the game yet, so check it on a copy of your save first.</p>`);
+  const aboutText = about('vehicles.create', 'Create a vehicle', html`<p class="mut">Writes a new vehicle of yours into the save from the game's own vehicle tables (game build ${VC ? VC.build : '1.5.15.0'}): the same rows the game keeps for a vehicle, which Duplicate also writes. The tier is the Mk number of the parts, so Mk6 is the tier 6 template. A part can be changed for any part of the same slot, a unique or another grade. The vehicle is put next to you, or outside your base when you stand in one. Nothing asks first: it is written at once after a backup, or queued while the game is running. A vehicle made this way has not been loaded in the game yet, so check it on a copy of your save first.</p>`);
   if (!vcDraft) return html`<div class="card"><h3>Create a vehicle</h3>${result}<div class="row"><button class="b" data-act="vcOpen">Create a vehicle...</button></div>${aboutText}</div>`;
   const c = vcClass(), t = vcTemplate();
   const mods = vcDraft.mods;
@@ -1232,7 +1234,7 @@ function vehicleCreateCard(cat) {
     </details>
     ${picker}
     <div class="row">${tip('vcpreviewtip', 'Shows the rows that would be written. Nothing is changed.', html`<button class="b sec" data-act="vcPreview" aria-describedby="vcpreviewtip">Preview</button>`)}${tip('vccreatetip', 'Writes the vehicle to the save now, after a backup, or queues it while the game is running. Nothing asks first.', html`<button class="b" data-act="vcCreate" aria-describedby="vccreatetip">Create</button>`)}<button class="b sec" data-act="vcCancel">Cancel</button></div>
-    ${p ? html`<div class="info" role="status" id="vcpreview"><b>Would create vehicle ${p.id}:</b> ${vcSentence(p)}.
+    ${p ? html`<div class="info" role="status" id="vcpreview"><b>Would create vehicle ${p.id}:</b> ${vcSentence(p)}. It goes ${whereWords(p)}.
       ${(p.notGiven || []).length || (p.notes || []).length ? html`<ul>${vcShorts(p)}${(p.notes || []).map((x) => html`<li>${x}</li>`)}</ul>` : ''}
       ${tbl([{ k: 'slot', label: 'Slot', f: (m) => slotWord(m.slot) }, { k: 'name', label: 'Part', f: (m) => html`<span title="${m.template_id}">${m.name || compName(m.template_id)}</span>` }, { k: 'durability', label: 'Durability', f: (m) => fix(m.durability) }], p.rows.vehicle_modules)}</div>` : ''}${aboutText}</div>`;
 }
@@ -1860,7 +1862,7 @@ const A = {
   },
   giveCargo: (d) => act(async () => { const tid = needItem('bt'); const r = await api('/api/bases/give', { inventory_id: +d.id, template_id: tid, quantity: +val('bq') }); giveToast(r, itemName(tid), 'Item added'); }, null),
   giveInv: (d) => act(async () => { const tid = needItem('bt'); const r = await api('/api/bases/give', { inventory_id: +d.id, template_id: tid, quantity: +val('bq') }); giveToast(r, itemName(tid), 'Item added'); await A.openInv(d); }, null, false),
-  dupV: async (d) => (await ask({ title: `Duplicate this ${d.name}?`, body: `Makes a copy of this ${d.name} next to you: the same kind, modules and condition, an empty cargo hold, and yours. Only your own permission is copied, not the permission of any other player on this vehicle. The serial number and the records of the modules are copied as they are. The copy is built from the rows the game keeps for a vehicle (its actor, permission record, entities, modules and inventories). The game loaded a copy of a medium ornithopter and it flew, and an earlier copy of a light ornithopter also worked (checked in the game once, 2026-10-27); other kinds of vehicle were not tried, so try it on a copy of your save first. ${UNDO_NOTE}`, ok: 'Duplicate', danger: true })) && act(async () => { const r = await api('/api/vehicles/duplicate', { id: +d.id }); toast(`Made vehicle ${r.id}: a copy of the ${d.name} next to you, with ${nn(r.modules, 'module', 'modules')} and an empty cargo hold` + NOT_SAVED); }, null),
+  dupV: async (d) => (await ask({ title: `Duplicate this ${d.name}?`, body: `Makes a copy of this ${d.name} next to you: the same kind, modules and condition, an empty cargo hold, and yours. Only your own permission is copied, not the permission of any other player on this vehicle. The serial number and the records of the modules are copied as they are. The copy is built from the rows the game keeps for a vehicle (its actor, permission record, entities, modules and inventories). The game loaded a copy of a medium ornithopter and it flew, and an earlier copy of a light ornithopter also worked (checked in the game once, 2026-10-27); other kinds of vehicle were not tried, so try it on a copy of your save first. ${UNDO_NOTE}`, ok: 'Duplicate', danger: true })) && act(async () => { const r = await api('/api/vehicles/duplicate', { id: +d.id }); toast(`Made vehicle ${r.id}: a copy of the ${d.name} ${whereWords(r)}, with ${nn(r.modules, 'module', 'modules')} and an empty cargo hold` + NOT_SAVED); }, null),
   // Create a vehicle (#401). The draft is kept here; Preview asks what Create would write and keeps nothing; Create writes at once (one edit, a backup first, or queued while the game runs) and asks nothing.
   vcOpen: async () => {
     if (!VC) VC = await api('/api/vehicles/catalog');
@@ -1894,10 +1896,10 @@ const A = {
       vcResult = { r, note: String(NOT_SAVED) ? ' ' + String(NOT_SAVED).trim() : '' };
       vcDraft = null;
       vcPreview = null;
-      toast(`Created vehicle ${r.id}: ${r.label} next to you` + NOT_SAVED);
+      toast(`Created vehicle ${r.id}: ${r.label} ${whereWords(r)}` + NOT_SAVED);
     }, null);
   },
-  bring: (d) => act(() => api('/api/vehicles/bring', { id: +d.id }), 'Vehicle moved next to you'),
+  bring: (d) => act(async () => { const r = await api('/api/vehicles/bring', { id: +d.id }); toast(`Vehicle moved ${whereWords(r)}` + NOT_SAVED); }, null),
   vreset: async (d) => (await ask({ title: d.v ? 'Reset purchase limits for this vendor?' : 'Reset purchase limits for every vendor?', body: d.v ? 'Resets the purchase counters of vendor ' + d.v + '.' : 'Resets the purchase counters of every vendor in the save, not one.', ok: 'Reset' })) && act(() => api('/api/vendors/reset', { vendor_id: d.v }), 'Purchase limits reset'),
   term: () => act(async () => { await api('/api/landsraad/term', { active_decree_id: val('ad'), reigning_faction_id: val('rf') }); }, 'Term updated'),
   decree: (d) => act(() => api('/api/landsraad/decree', { id: +d.id, disabled: d.d == '1' }), 'Decree updated'),
