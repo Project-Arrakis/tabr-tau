@@ -21,21 +21,29 @@ import (
 //	save   LogLowLevelPersistence: DB(game.db:0): SaveDatabase - Database saved to disk. Saving again in 60 seconds.
 //
 // A local map without ?listen (a challenge room, the character cave) does not change the state. What the logs show about the save markers: while a world is loaded the game
-// writes the database every 60 s (6,679 lines, all "in 60 seconds"). After the end marker there was exactly one more write, between 0.2 s and 6.1 s later, and then none
-// until the next session began (gaps of 40 s to 450 s), when the log shows "Using persistence implementation Sqlite" and "ApplyPatches" and an immediate write: the game opens
-// the database when a session starts, not at the menu. What the logs do not show is a line saying the database was closed or unloaded, nor whether the game keeps a handle on
+// writes the database about every 20 s (the line says "Saving again in 60 seconds"; the measured gaps of 4,900 writes are 20.1 s to 22.7 s). After the end marker there was exactly
+// one more write, between 1.5 s and 6.9 s later (19 exits), and then none until the next session began (menu stays of 41 s to 381 s, and up to 760 s before a quit), when the log
+// shows "Using persistence implementation Sqlite" and "ApplyPatches" and an immediate write: the game opens the database when a session starts, not at the menu. What the logs do not show is a line saying the database was closed or unloaded, nor whether the game keeps a handle on
 // game.db at the menu; the rule below therefore uses the silence of the save markers, not a close marker.
 
 const (
-	// dbQuietFor is how long after the game's last write of the database the editor still treats it as loaded. The game writes every 60 s while it holds a world, so three
-	// intervals without a write is a margin of two missed ones. Evidence: the interval (every log line says 60 s) and the ten leave events (one write within 6.1 s, then silence).
-	// The margin itself is a choice, not a measurement; it also keeps the #419 case queued (the write was 18 s after the game's last one).
+	// dbQuietFor is how long after the game's last write of the database the editor still treats it as loaded, when the log does not show both the end of a session and the
+	// game's last write after it (#470 gives that case the shorter menuWriteGrace). The game writes about every 20 s while it holds a world (the log lines say 60 s; measured
+	// 20.1 s median), so three minutes is many missed intervals. The margin itself is a choice, not a measurement; it also keeps the #419 case queued.
 	dbQuietFor = 3 * time.Minute
 	// endedFallbackGrace is used only when the log shows a session that ended but no write after the end marker (the line this rule relies on was not seen, so the
 	// evidence is missing): wait this long after the end marker. NOT MEASURED. It is as long as it is because nothing observed says how long the game may still hold the
 	// save's rows after leaving the world, the incident of #419 shows that seconds are too short, and a wrong guess costs a few minutes of waiting where a wrong guess the
 	// other way costs items that cannot be moved. Six minutes is longer than an earlier note's "about every five minutes" autosave; the logs say 60 s.
 	endedFallbackGrace = 6 * time.Minute
+	// menuWriteGrace is how long after the end marker the editor waits when the log shows BOTH the end of the session and the game's last write after it (#470). Measured in 19
+	// exits from a world: that last write came 1.5 s to 6.9 s after the end marker, once, and no later write was seen at the menu (stays of up to 760 s). The grace is that
+	// maximum (6.9 s) plus one save interval (the largest gap between two writes while a world is loaded, 22.7 s), 29.6 s, rounded up to 30 s.
+	menuWriteGrace = 30 * time.Second
+	// menuQuietAfterWrite is how long the game must also have been silent since that last write: one save interval, the largest gap seen between two writes (22.7 s) rounded up.
+	// With the writes seen it never binds (the last write is 6.9 s after the end at most, so 30 s after the end is 23 s after it); it only holds the edit back when a write
+	// comes later than anything measured.
+	menuQuietAfterWrite = 23 * time.Second
 )
 
 // spTracker is the log state machine. It sees the log line by line and is the only place the markers live.
@@ -219,8 +227,9 @@ func GameStateFor(savePath string, fresh bool) GameState {
 //  1. the process list could be read (a list that cannot be read is not "no game");
 //  2. the game's log could be read (without it the editor cannot tell whether a world is loaded);
 //  3. the log shows no single-player session running;
-//  4. the game has not written its database for dbQuietFor (the game writes it every 60 s while a world is loaded: this is the "unloaded" signal);
-//  5. if a session ended, the game's last write after it has been seen, or else endedFallbackGrace has passed since it ended (the unmeasured fallback);
+//  4. the game has not written its database for dbQuietFor (the game writes it about every 20 s while a world is loaded: this is the "unloaded" signal) - EXCEPT when the log
+//     shows the session ended and the game's last write after it (#470): then menuWriteGrace has passed since the end and menuQuietAfterWrite since that write, instead;
+//  5. if a session ended and no write after it is in the log, endedFallbackGrace has passed since it ended (the unmeasured fallback);
 //  6. no other program has the save file open, and that could be checked.
 //
 // Evidence: 2 to 5 are read from the game's own log (see the comment at the top of this file), 6 from the operating system. Not established: that the game does not keep game.db
@@ -243,16 +252,30 @@ func processState(savePath string, fresh bool) GameState {
 	}
 	now := nowFunc().UTC()
 	if sp.Active {
-		return wait("single_player", "a single-player session is active, and the game rewrites the save every minute while it runs")
+		return wait("single_player", "a single-player session is active, and the game rewrites the save about every 20 seconds while it runs")
 	}
-	if !sp.LastSaveAt.IsZero() {
-		if since := now.Sub(sp.LastSaveAt); since < dbQuietFor {
-			return wait("session_ended", "the game wrote its database "+approxDuration(since)+" ago and does that every 60 seconds while a world is loaded; it must be quiet for "+approxDuration(dbQuietFor)+" first (about "+approxDuration(dbQuietFor-since)+" more)")
+	endSeen := !sp.EndedAt.IsZero()
+	// "After", not "not before": the log's times are whole seconds, and the periodic write that comes up to a second before the end marker can carry the same second as it. The
+	// game's last write came 1.5 s or more after the marker in every exit measured, so it is always a later second; a tie is read as "not seen", which waits longer.
+	if endSeen && sp.LastSaveAt.After(sp.EndedAt) {
+		// The end of the session and the game's last write after it are both in the log (#470): the short, measured grace.
+		wake := sp.EndedAt.Add(menuWriteGrace)
+		if w := sp.LastSaveAt.Add(menuQuietAfterWrite); w.After(wake) {
+			wake = w
 		}
-	}
-	if !sp.EndedAt.IsZero() && sp.LastSaveAt.Before(sp.EndedAt) {
-		if since := now.Sub(sp.EndedAt); since < endedFallbackGrace {
-			return wait("session_ended", "the single-player session ended "+approxDuration(since)+" ago and the log does not show the game's last write after it, so the editor waits "+approxDuration(endedFallbackGrace)+" after the end (about "+approxDuration(endedFallbackGrace-since)+" more)")
+		if now.Before(wake) {
+			return wait("session_ended", "the game wrote its database "+approxDuration(now.Sub(sp.LastSaveAt))+" ago, the last write after the single-player session ended "+approxDuration(now.Sub(sp.EndedAt))+" ago; the logs show it then stays silent, so the editor waits "+approxDuration(menuWriteGrace)+" after the end and "+approxDuration(menuQuietAfterWrite)+" after that write (about "+approxDuration(wake.Sub(now))+" more)")
+		}
+	} else {
+		if !sp.LastSaveAt.IsZero() {
+			if since := now.Sub(sp.LastSaveAt); since < dbQuietFor {
+				return wait("session_ended", "the game wrote its database "+approxDuration(since)+" ago and does that about every 20 seconds while a world is loaded; it must be quiet for "+approxDuration(dbQuietFor)+" first (about "+approxDuration(dbQuietFor-since)+" more)")
+			}
+		}
+		if endSeen {
+			if since := now.Sub(sp.EndedAt); since < endedFallbackGrace {
+				return wait("session_ended", "the single-player session ended "+approxDuration(since)+" ago and the log does not show the game's last write after it, so the editor waits "+approxDuration(endedFallbackGrace)+" after the end (about "+approxDuration(endedFallbackGrace-since)+" more)")
+			}
 		}
 	}
 	held, herr := fileHeld(savePath)
@@ -271,9 +294,13 @@ func approxDuration(d time.Duration) string {
 		d = 0
 	}
 	if d < 2*time.Minute {
-		return fmt.Sprintf("%d seconds", int(d.Round(time.Second)/time.Second))
+		n := int(d.Round(time.Second) / time.Second)
+		if n == 1 {
+			return "1 second"
+		}
+		return fmt.Sprintf("%d seconds", n)
 	}
-	return fmt.Sprintf("%d minutes", int((d+59*time.Second)/time.Minute))
+	return fmt.Sprintf("%d minutes", int((d+59*time.Second)/time.Minute)) // at least 2 here: d is two minutes or more
 }
 
 // shortReason is an error in one line without the paths of the machine.

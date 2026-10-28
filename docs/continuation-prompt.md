@@ -32,7 +32,7 @@ no AI co-author trailers in commits (operator rule), verify before asserting (12
   `actors.gas_attributes.DuneHydrationAttributeSet.CurrentHydration`.
 - dune-docker uses RMQ only for live commands (give-item, XP, skill points, water, kick, broadcast, teleport, vehicle spawn).
   Single-player equivalents are direct save edits. Multiplayer-only tables (guilds, exchange, world_partition) do not exist.
-- The game rewrites game.db every 60 seconds while a single-player session runs (its log says so) and once more within a few seconds of leaving the world; an edit is never written
+- The game rewrites game.db about every 20 seconds while a single-player session runs (its log says "in 60 seconds"; measured 20 s, #470) and once more 1.5 to 6.9 seconds after leaving the world; an edit is never written
   onto a file the game changed since it was read (`ErrChangedOnDisk`): the queued edits are put back onto the newer file first, and held
   with a reason when they no longer apply. With the game closed, or open at its menu and quiet (see README "How saving works"), edits are written; until then they are queued.
 - Vehicle module durability is absolute and set by the vehicle family and the part (`internal/ops/upkeep.go`); weapons, armor and tools

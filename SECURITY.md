@@ -52,8 +52,8 @@ your computer (they can edit your save directly).
   to find out, so a program placed earlier in the search path cannot answer for it and there is no child process to fail. A check that fails is tried
   again a few times before it blocks anything. If it still cannot be made, the write is refused and the edit waits in the queue, with the reason
   shown; the editor checks again by itself, and **Check again** and **Write now** run the check at once. A write never relies on an older answer.
-- With the game open, a write also needs the game's log (read-only) to show no single-player session and no database write by the game for 3 minutes (6 minutes after a
-  session ended if its last write is not in the log), and the save file not held open by another program (Windows: an open with delete access that allows all sharing, which
+- With the game open, a write also needs the game's log (read-only) to show no single-player session and the game quiet: 30 seconds after the end of a session when the log shows the game's last write after it (measured over 19 exits, #470),
+  else no database write by the game for 3 minutes (6 minutes after a session ended if its last write is not in the log), and the save file not held open by another program (Windows: an open with delete access that allows all sharing, which
   cannot make the other program's own open fail). A log or file check that cannot be made queues the edit. The automatic pass at launch writes only with no game process at all.
   Each route to the save file asks this in one place, right before the rename (#449).
 - Every write is recorded: after the file has been written the editor appends one line to `write-log.jsonl` in its own folder

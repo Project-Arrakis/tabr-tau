@@ -292,9 +292,14 @@ func TestSinglePlayerStatusReportsTheLastWrite(t *testing.T) {
 }
 
 func TestTheRuleConstants(t *testing.T) {
-	// The numbers the page and the PR state. dbQuietFor is three of the game's 60 s intervals; endedFallbackGrace is the unmeasured one.
-	if dbQuietFor != 3*time.Minute || endedFallbackGrace != 6*time.Minute {
-		t.Fatalf("dbQuietFor %v, endedFallbackGrace %v: change the README, the changelog and the PR text with them", dbQuietFor, endedFallbackGrace)
+	// The numbers the page and the PR state. dbQuietFor is the flat margin used when the log does not show both the end and the last write; endedFallbackGrace is the unmeasured
+	// one; menuWriteGrace and menuQuietAfterWrite come from the measurement in docs/design/2026-10-27-menu-write-grace.md (6.9 s + 22.7 s, rounded up).
+	if dbQuietFor != 3*time.Minute || endedFallbackGrace != 6*time.Minute || menuWriteGrace != 30*time.Second || menuQuietAfterWrite != 23*time.Second {
+		t.Fatalf("dbQuietFor %v, endedFallbackGrace %v, menuWriteGrace %v, menuQuietAfterWrite %v: change the README, SECURITY.md, the design note, the changelog and the PR text with them", dbQuietFor, endedFallbackGrace, menuWriteGrace, menuQuietAfterWrite)
+	}
+	// Never below 20 s, and the grace covers the largest end-to-last-write gap measured (6.9 s) plus the largest save interval measured (22.7 s).
+	if menuWriteGrace < 20*time.Second || menuWriteGrace < 6900*time.Millisecond+22700*time.Millisecond || menuQuietAfterWrite < 22700*time.Millisecond {
+		t.Fatalf("the short grace is shorter than the measurement allows: %v, %v", menuWriteGrace, menuQuietAfterWrite)
 	}
 }
 
@@ -324,13 +329,30 @@ func TestGameStateDecisions(t *testing.T) {
 		{name: "the log cannot be read", list: game, statErr: os.ErrPermission, blocked: true, mode: "game_running", reason: "its log cannot be read"},
 		{name: "a session is active", list: game, status: spStatus{Active: true, LastSaveAt: ago(10 * time.Second)}, blocked: true, mode: "single_player", reason: "single-player session is active"},
 		{name: "the #419 case: left the world 23 s ago, the game's last write 20 s ago", list: game, status: spStatus{EndedAt: ago(23 * time.Second), LastSaveAt: ago(20 * time.Second)}, blocked: true, mode: "session_ended", reason: "wrote its database 20 seconds ago"},
-		{name: "ended, the game wrote 2 minutes ago: still not quiet", list: game, status: spStatus{EndedAt: ago(130 * time.Second), LastSaveAt: ago(2 * time.Minute)}, blocked: true, mode: "session_ended", reason: "wrote its database 2 minutes ago"},
-		{name: "ended, quiet for just under the limit", list: game, status: spStatus{EndedAt: ago(10 * time.Minute), LastSaveAt: ago(dbQuietFor - time.Second)}, blocked: true, mode: "session_ended", reason: "wrote its database"},
-		{name: "ended, quiet for exactly the limit: written", list: game, status: spStatus{EndedAt: ago(10 * time.Minute), LastSaveAt: ago(dbQuietFor)}, mode: "menu"},
+		// the end of the session AND the last write after it are in the log: the measured grace (#470)
+		{name: "ended 10 s ago, last write 8 s ago: waits for the grace, 20 s more", list: game, status: spStatus{EndedAt: ago(10 * time.Second), LastSaveAt: ago(8 * time.Second)}, blocked: true, mode: "session_ended", reason: "(about 20 seconds more)"},
+		{name: "ended 5 s ago, last write 3 s ago: the countdown says 25 seconds", list: game, status: spStatus{EndedAt: ago(5 * time.Second), LastSaveAt: ago(3 * time.Second)}, blocked: true, mode: "session_ended", reason: "(about 25 seconds more)"},
+		{name: "ended 29 s ago: one second more", list: game, status: spStatus{EndedAt: ago(29 * time.Second), LastSaveAt: ago(27 * time.Second)}, blocked: true, mode: "session_ended", reason: "(about 1 second more)"},
+		{name: "ended exactly the grace ago: written", list: game, status: spStatus{EndedAt: ago(menuWriteGrace), LastSaveAt: ago(menuWriteGrace - 3*time.Second)}, mode: "menu"},
+		{name: "ended 31 s ago with the write 5 s after the end: written", list: game, status: spStatus{EndedAt: ago(31 * time.Second), LastSaveAt: ago(26 * time.Second)}, mode: "menu"},
+		{name: "the slowest exit measured (last write 6.9 s after the end): written 30 s after the end", list: game, status: spStatus{EndedAt: ago(30 * time.Second), LastSaveAt: ago(23100 * time.Millisecond)}, mode: "menu"},
+		{name: "a write later than anything measured (28 s after the end) holds the edit back one save interval", list: game, status: spStatus{EndedAt: ago(40 * time.Second), LastSaveAt: ago(12 * time.Second)}, blocked: true, mode: "session_ended", reason: "(about 11 seconds more)"},
+		{name: "that late write, 23 s on: written", list: game, status: spStatus{EndedAt: ago(63 * time.Second), LastSaveAt: ago(menuQuietAfterWrite)}, mode: "menu"},
+		{name: "ended, the game wrote 2 minutes ago, 10 s after the end: written", list: game, status: spStatus{EndedAt: ago(130 * time.Second), LastSaveAt: ago(2 * time.Minute)}, mode: "menu"},
+		{name: "ended 10 minutes ago, last write seen: written", list: game, status: spStatus{EndedAt: ago(10 * time.Minute), LastSaveAt: ago(dbQuietFor - time.Second)}, mode: "menu"},
 		{name: "ended long ago with the last write seen: written", list: game, status: spStatus{EndedAt: ago(time.Hour), LastSaveAt: ago(time.Hour - 5*time.Second)}, mode: "menu"},
+		{name: "a write in the same second as the end is the periodic one before it, not the last: the flat quiet time applies", list: game, status: spStatus{EndedAt: ago(time.Minute), LastSaveAt: ago(time.Minute)}, blocked: true, mode: "session_ended", reason: "must be quiet for 3 minutes"},
+		// no end marker: the flat quiet time as before
+		{name: "no end seen, the game wrote 2 minutes ago: still not quiet", list: game, status: spStatus{LastSaveAt: ago(2 * time.Minute)}, blocked: true, mode: "session_ended", reason: "wrote its database 2 minutes ago"},
+		{name: "no end seen, quiet for just under the limit", list: game, status: spStatus{LastSaveAt: ago(dbQuietFor - time.Second)}, blocked: true, mode: "session_ended", reason: "wrote its database"},
+		{name: "no end seen, quiet for exactly the limit: written", list: game, status: spStatus{LastSaveAt: ago(dbQuietFor)}, mode: "menu"},
+		// ended, but the last write is not in the log: the fallback
 		{name: "ended 3 s ago, no write after the end seen: the fallback wait", list: game, status: spStatus{EndedAt: ago(3 * time.Second)}, blocked: true, mode: "session_ended", reason: "does not show the game's last write"},
+		{name: "ended 100 s ago, no write after the end seen: the fallback, not the short grace", list: game, status: spStatus{EndedAt: ago(100 * time.Second), LastSaveAt: ago(40 * time.Minute)}, blocked: true, mode: "session_ended", reason: "waits 6 minutes after the end"},
 		{name: "ended 5 minutes ago, no write after it seen: still the fallback wait", list: game, status: spStatus{EndedAt: ago(5 * time.Minute), LastSaveAt: ago(40 * time.Minute)}, blocked: true, mode: "session_ended", reason: "waits 6 minutes after the end"},
 		{name: "fallback wait over: written", list: game, status: spStatus{EndedAt: ago(endedFallbackGrace), LastSaveAt: ago(40 * time.Minute)}, mode: "menu"},
+		{name: "the game has closed just after the end: written at once", list: none, status: spStatus{EndedAt: ago(2 * time.Second), LastSaveAt: ago(time.Second)}, mode: "none"},
+		{name: "a session is active again after an old end: waits", list: game, status: spStatus{Active: true, EndedAt: ago(time.Hour), LastSaveAt: ago(time.Hour)}, blocked: true, mode: "single_player", reason: "single-player session is active"},
 		{name: "another program has the save file open", list: game, status: spStatus{EndedAt: ago(time.Hour), LastSaveAt: ago(time.Hour)}, held: true, blocked: true, mode: "game_running", reason: "has the save file open"},
 		{name: "the file check cannot be made", list: game, heldErr: os.ErrPermission, blocked: true, mode: "game_running", reason: "could not check whether another program has the save file open"},
 	}
@@ -359,9 +381,79 @@ func TestApproxDuration(t *testing.T) {
 	for _, c := range []struct {
 		d    time.Duration
 		want string
-	}{{0, "0 seconds"}, {-time.Second, "0 seconds"}, {20 * time.Second, "20 seconds"}, {119 * time.Second, "119 seconds"}, {2 * time.Minute, "2 minutes"}, {2*time.Minute + time.Second, "3 minutes"}, {6 * time.Minute, "6 minutes"}} {
+	}{{0, "0 seconds"}, {-time.Second, "0 seconds"}, {time.Second, "1 second"}, {1400 * time.Millisecond, "1 second"}, {20 * time.Second, "20 seconds"}, {25 * time.Second, "25 seconds"}, {119 * time.Second, "119 seconds"}, {2 * time.Minute, "2 minutes"}, {2*time.Minute + time.Second, "3 minutes"}, {6 * time.Minute, "6 minutes"}} {
 		if got := approxDuration(c.d); got != c.want {
 			t.Errorf("%v: %q want %q", c.d, got, c.want)
 		}
+	}
+}
+
+// The same rule, end to end: a fake log on disk (with a periodic write just before the end marker, the end marker, and the game's last write 2 s after it, as in the
+// real exits of #470), the file time of the last write as the log reports it, and the clock moved through the grace (#470).
+func TestMenuGraceFromAFakeLog(t *testing.T) {
+	oldList, oldStatus, oldNow, oldHeld := listProcs, statusFor, nowFunc, fileHeld
+	t.Cleanup(func() { listProcs, statusFor, nowFunc, fileHeld = oldList, oldStatus, oldNow, oldHeld })
+	listProcs = func(bool) ([]string, string) { return []string{"DuneSandbox-Win64-Shipping.exe"}, "" }
+	statusFor = singlePlayerStatus
+	fileHeld = func(string) (bool, error) { return false, nil }
+	periodic := "[2026.10.08-17.10.51:100][604][20424][0]LogLowLevelPersistence: Display: DB(game.db:0): SaveDatabase - Database saved to disk. Saving again in 60 seconds."
+	last := "[2026.10.08-17.10.53:700][604][20424][0]LogLowLevelPersistence: Display: DB(game.db:0): SaveDatabase - Database saved to disk. Saving again in 60 seconds."
+	end := time.Date(2026, 10, 8, 17, 10, 51, 0, time.UTC)
+	at := func(d time.Duration) { nowFunc = func() time.Time { return end.Add(d) } }
+
+	// ended, the last write seen: the short grace, before and after it passes
+	resetSPLog()
+	save, _ := writeLog(t, strings.Join([]string{lnStart, periodic, lnLeave1, last}, "\r\n")+"\r\n")
+	at(10 * time.Second)
+	if g := processState(save, true); !g.Blocked || g.Mode != "session_ended" || !strings.Contains(g.Reason, "(about 20 seconds more)") {
+		t.Fatalf("10 s after the end: %+v", g)
+	}
+	at(menuWriteGrace - time.Second)
+	if g := processState(save, true); !g.Blocked || !strings.Contains(g.Reason, "(about 1 second more)") {
+		t.Fatalf("1 s before the grace is over: %+v", g)
+	}
+	at(menuWriteGrace)
+	if g := processState(save, true); g.Blocked || g.Mode != "menu" {
+		t.Fatalf("the grace is over: %+v", g)
+	}
+
+	// ended, the log shows the periodic write before the end but not the last one: the six-minute fallback, not the grace
+	resetSPLog()
+	save, _ = writeLog(t, strings.Join([]string{lnStart, periodic, lnLeave1}, "\r\n")+"\r\n")
+	at(4 * time.Minute) // past the flat quiet time, inside the fallback
+	if g := processState(save, true); !g.Blocked || !strings.Contains(g.Reason, "does not show the game's last write") || !strings.Contains(g.Reason, "(about 2 minutes more)") {
+		t.Fatalf("no write after the end, 4 minutes on: %+v", g)
+	}
+	at(endedFallbackGrace)
+	if g := processState(save, true); g.Blocked {
+		t.Fatalf("the fallback is over: %+v", g)
+	}
+
+	// the game writes once more at the menu, later than anything measured: the grace restarts from that write
+	resetSPLog()
+	var lp string
+	save, lp = writeLog(t, strings.Join([]string{lnStart, periodic, lnLeave1, last}, "\r\n")+"\r\n")
+	at(menuWriteGrace)
+	if g := processState(save, true); g.Blocked {
+		t.Fatalf("written at the end of the grace: %+v", g)
+	}
+	appendLog(t, lp, "[2026.10.08-17.11.20:000][604][20424][0]LogLowLevelPersistence: Display: DB(game.db:0): SaveDatabase - Database saved to disk. Saving again in 60 seconds.\r\n")
+	at(31 * time.Second) // 20:00 is 29 s after the end; the clock is 2 s after the late write
+	if g := processState(save, true); !g.Blocked || !strings.Contains(g.Reason, "(about 21 seconds more)") {
+		t.Fatalf("a late write must hold the edit back: %+v", g)
+	}
+
+	// a new session started: waits again
+	appendLog(t, lp, lnStart+"\r\n")
+	at(10 * time.Minute)
+	if g := processState(save, true); !g.Blocked || g.Mode != "single_player" {
+		t.Fatalf("a session is active: %+v", g)
+	}
+
+	// the log cannot be read: waits, as before
+	os.Remove(lp)
+	resetSPLog()
+	if g := processState(save, true); !g.Blocked || g.Mode != "game_running" || !strings.Contains(g.Reason, "log cannot be read") {
+		t.Fatalf("no log: %+v", g)
 	}
 }

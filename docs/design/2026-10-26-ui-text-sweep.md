@@ -74,7 +74,7 @@ the help is this repository's README; both are covered under their pages.
 | H1 | index.html:12 | Auto-refresh (box with a title saying what it does) | state | keep (already a tooltip) |
 | H2 | index.html:13 | Discard queue (button with a title) | state | keep (already a tooltip) |
 | H3 | 419-420 | `N queued`, with the list in its title | queued | keep |
-| H4 | 400 | Changes you make now are queued. <the reason: what is being waited for, e.g. the game wrote its database 20 seconds ago and must be quiet for 3 minutes; the single-player session is active; another program has the save file open>. They are written by themselves as soon as that clears. (#449: it said "The game is running ... written when the game closes", which is no longer what is waited for.) | queued | keep |
+| H4 | 400 | Changes you make now are queued. <the reason: what is being waited for, e.g. the game wrote its database 8 seconds ago, the last write after the session ended, so the editor waits 30 seconds after the end (about 20 seconds more; #470), or the game wrote 20 seconds ago and must be quiet for 3 minutes when the log shows no session end; the single-player session is active; another program has the save file open>. They are written by themselves as soon as that clears. (#449: it said "The game is running ... written when the game closes", which is no longer what is waited for.) | queued | keep |
 | H5 | 396 | Changes cannot be written here yet. ... You can keep editing: changes wait in the queue. Allow writing here | error, queued | keep |
 | H6 | 397 | Changes cannot be written. ... The editor checks again by itself every few seconds. Check again, Write now | error, queued | keep |
 | H7 | 398 | N queued changes cannot be written ... Discard the queue | error | keep |
