@@ -24,8 +24,11 @@ var gameSituations = map[string]func(t *testing.T){
 	"logged out to character selection 23 s ago (the #419 case)": func(t *testing.T) {
 		fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-23 * time.Second), LastSaveAt: time.Now().Add(-20 * time.Second)}, nil)
 	},
-	"the session ended 2 minutes ago, the game's last write 100 s ago": func(t *testing.T) {
-		fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-2 * time.Minute), LastSaveAt: time.Now().Add(-100 * time.Second)}, nil)
+	"the session ended 10 s ago, the game's last write 8 s ago (inside the measured grace, #470)": func(t *testing.T) {
+		fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-10 * time.Second), LastSaveAt: time.Now().Add(-8 * time.Second)}, nil)
+	},
+	"the session ended 40 s ago but the game wrote again 12 s ago (later than anything measured)": func(t *testing.T) {
+		fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-40 * time.Second), LastSaveAt: time.Now().Add(-12 * time.Second)}, nil)
 	},
 	"the session ended 1 minute ago, no write after it in the log": func(t *testing.T) {
 		fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-time.Minute)}, nil)
@@ -48,6 +51,9 @@ var menuSituations = map[string]func(t *testing.T){
 	"the game at its menu (no session in the log)": func(t *testing.T) { fakeGame(t, duneProc, "", spStatus{}, nil) },
 	"the session ended an hour ago, its last write seen": func(t *testing.T) {
 		fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-time.Hour), LastSaveAt: time.Now().Add(-time.Hour + 5*time.Second)}, nil)
+	},
+	"the session ended 2 minutes ago, the game's last write 100 s ago (past the measured grace, #470)": func(t *testing.T) {
+		fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-2 * time.Minute), LastSaveAt: time.Now().Add(-100 * time.Second)}, nil)
 	},
 	"the game was quiet for 4 minutes after the session ended": func(t *testing.T) {
 		fakeGame(t, duneProc, "", spStatus{EndedAt: time.Now().Add(-5 * time.Minute), LastSaveAt: time.Now().Add(-4 * time.Minute)}, nil)
