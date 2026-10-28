@@ -23,7 +23,7 @@ func vehicleType(name string) string {
 //	fuel       the current fuel from the vehicle component, nil when there is none; fuelMax and fuelPercent (never above 100) come from the tank of the chassis (tankOf)
 //	components every module with its durability; percent only where the maximum is known
 //	cargo      the cargo hold, the inventory with inventory_type 0 (a vehicle's other inventories are per-component holds with no
-//	           capacity), with its items; nil when the vehicle has none
+//	           capacity), with its items and its room (slots, volume, slots used, and noHold when the vehicle has no storage part: cargolimits.go); nil when the vehicle has none
 func (o *Ops) vehicleDetails(v map[string]any) {
 	mods, _ := o.S.Query(`select id, template_id,
 			json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability') current,
@@ -73,9 +73,20 @@ func (o *Ops) vehicleDetails(v map[string]any) {
 	}
 
 	v["cargo"] = nil
-	if hold, _ := o.S.One(`select id, max_item_count slots from inventories where actor_id=? and inventory_type=0 order by id limit 1`, v["id"]); len(hold) > 0 {
+	if hold, _ := o.S.One(`select id, max_item_count slots, max_item_volume volume from inventories where actor_id=? and inventory_type=0 order by id limit 1`, v["id"]); len(hold) > 0 {
 		items, _ := o.S.Query(`select id, template_id, stack_size, quality_level, position_index from items where inventory_id=? order by position_index`, hold["id"])
-		v["cargo"] = map[string]any{"inventory_id": hold["id"], "slots": hold["slots"], "items": items}
+		// slots: what the vehicle's parts give (cargolimits.go); nil when the hold has no recorded limit. used: the slots in use, the distinct positions of its items
+		// (the count a give works with), which is not the number of rows when the file has two rows in one slot. noHold: the vehicle has no storage part, so Add item is not offered.
+		slots, known := holdSlots(hold["slots"], moduleIDs)
+		used := map[any]bool{}
+		for _, it := range items {
+			used[it["position_index"]] = true
+		}
+		c := map[string]any{"inventory_id": hold["id"], "slots": nil, "volume": hold["volume"], "used": int64(len(used)), "noHold": known && slots == 0, "items": items}
+		if known {
+			c["slots"] = slots
+		}
+		v["cargo"] = c
 	}
 }
 
