@@ -503,7 +503,7 @@ function endAsk(v) {
   if (back && back.isConnected && typeof back.focus === 'function') back.focus(); // return to where the person was
   if (a) a.resolve(v);
 }
-document.addEventListener('input', (e) => { if (askState && e.target.id === 'atype') $('#aok').disabled = e.target.value.trim().toLowerCase() !== askState.typed.toLowerCase(); });
+document.addEventListener('input', (e) => { goKeep(e.target); if (askState && e.target.id === 'atype') $('#aok').disabled = e.target.value.trim().toLowerCase() !== askState.typed.toLowerCase(); });
 
 // ---------- one-button confirmation
 // A button with data-confirm destroys or resets something (clear a container, clear sand, put a setting back to its default), so the first press only asks: the same button turns into "Yes, ..." for a few seconds and
@@ -831,13 +831,14 @@ async function playerSection(s) {
   } else if (s == 'admin') {
     P = await api('/api/player');
     const a = P.actor || {};
+    goSavedMap(a.map || '');
     const fa = await api('/api/player/faction');
     h.push(html`<div class="card"><h3>Faction assignment</h3><div class="row"><b>Current</b><span>${fa.current ? fa.current.name : 'none recorded'}</span>
       <select id="facSel" aria-label="Faction">${fa.options.map((o) => html`<option value="${o.id}" ${fa.current && fa.current.id == o.id ? 'selected' : ''}>${o.name}</option>`)}</select>${tip('factip', 'Changes which faction the character belongs to. Reputation is under Character > Reputation.', html`<button class="b" data-act="faction" aria-describedby="factip">Change faction</button>`)}</div></div>
     <div class="card"><h3>Repair</h3><div class="row"><b>Gear and loadouts</b><button class="b sec" data-goto="character:inventory">Open Character &gt; Inventory</button><b>Vehicles</b><button class="b sec" data-goto="vehicles">Open Vehicles</button></div></div>
-    <div class="card"><h3>Movement</h3><div class="row"><b>Teleport to</b>X<input id="tx" aria-label="Teleport to X" type="number" value="${Math.round(a.x)}">Y<input id="ty" aria-label="Teleport to Y" type="number" value="${Math.round(a.y)}">Z${tip('tztip', 'If you type a Z yourself, stay above the terrain or you may fall through.', html`<input id="tz" aria-label="Teleport to Z" type="number" value="${Math.round(a.z)}" aria-describedby="tztip">`)}Facing ${tip('tyawtip', 'Facing is optional: 0 looks along +X; leave it empty to keep the way the character faces.', html`<input id="tdyaw" aria-label="Facing in degrees" type="number" step="1" placeholder="degrees" class="w90" aria-describedby="tyawtip">`)}Map ${tip('tmaptip', 'Places are on the map chosen in Map (the one the character is on now unless you change it).', html`<select id="tmap" aria-label="Map to move to" aria-describedby="tmaptip"><option value="">This map (${a.map || 'unknown'})</option>${TRAVEL_MAPS.map(([k, v]) => html`<option value="${k}">${v}</option>`)}</select>`)}<button class="b" data-act="teleport">Teleport</button></div>
+    <div class="card"><h3>Movement</h3><div class="row"><b>Teleport to</b>X<input id="tx" aria-label="Teleport to X" type="number" value="${goVal('tx', Math.round(a.x))}">Y<input id="ty" aria-label="Teleport to Y" type="number" value="${goVal('ty', Math.round(a.y))}">Z${tip('tztip', 'If you type a Z yourself, stay above the terrain or you may fall through.', html`<input id="tz" aria-label="Teleport to Z" type="number" value="${goVal('tz', Math.round(a.z))}" aria-describedby="tztip">`)}Facing ${tip('tyawtip', 'Facing is optional: 0 looks along +X; leave it empty to keep the way the character faces.', html`<input id="tdyaw" aria-label="Facing in degrees" type="number" step="1" placeholder="degrees" value="${goVal('tdyaw', '')}" class="w90" aria-describedby="tyawtip">`)}Map ${tip('tmaptip', 'Places are on the map chosen in Map (the one the character is on now unless you change it).', html`<select id="tmap" aria-label="Map to move to" aria-describedby="tmaptip"><option value="" ${goVal('tmap', '') === '' ? 'selected' : ''}>This map (${a.map || 'unknown'})</option>${TRAVEL_MAPS.map(([k, v]) => html`<option value="${k}" ${goVal('tmap', '') === k ? 'selected' : ''}>${v}</option>`)}</select>`)}<button class="b" data-act="teleport">Teleport</button><span id="tdpick" class="mut" role="status"></span></div>
     <div id="tmapnote"></div>
-    <div class="row"><b>Go to a place</b><select id="tdkind" aria-label="Kind of place"><option value="base">Base</option><option value="respawn">Respawn point</option><option value="vehicle">My vehicle</option><option value="marker">Discovered map marker</option></select><input id="tdq" aria-label="Filter the places" placeholder="filter, e.g. cave" class="w150">${tip('findtip', 'Choosing a place fills X, Y and Z.', html`<button class="b sec" data-act="tdFind" aria-describedby="findtip">Find</button>`)}<span id="tdout" class="mut"></span></div>
+    <div class="row"><b>Go to a place</b><select id="tdkind" aria-label="Kind of place">${[['base', 'Base'], ['respawn', 'Respawn point'], ['vehicle', 'My vehicle'], ['marker', 'Discovered map marker']].map(([k, v]) => html`<option value="${k}" ${goVal('tdkind', 'base') === k ? 'selected' : ''}>${v}</option>`)}</select><input id="tdq" aria-label="Filter the places" placeholder="filter, e.g. cave" value="${goVal('tdq', '')}" class="w150">${tip('findtip', 'Choosing a place fills X, Y and Z.', html`<button class="b sec" data-act="tdFind" aria-describedby="findtip">Find</button>`)}<span id="tdout" class="mut"></span></div>
     ${about('admin.movement', 'Movement', html`<p class="mut">Moves the character in the save. The game keeps its own copy of the save in memory while single-player runs and overwrites the file, so the move shows when you next enter single-player.</p><p class="mut">${TRAVEL_NOTE}</p><p class="mut">If you type a Z yourself, stay above the terrain or you may fall through.</p>`)}
     </div>`);
     const ve = await api('/api/vendors');
@@ -992,6 +993,40 @@ function autoRefillCard(prefs) {
 // for removal (shown as red), and Remove takes the marked cells out; the claim must stay connected, and the server refuses a cell with pieces in it as well.
 let LC = null; // { claim, sel: Set of "x,y" to add, rm: Set of "x,y" to remove, level }
 let TD = []; // the places the last Find returned
+let TDR = null; // what the last Find said about them: { map, sameMap, total }
+// The Movement card's boxes (#506). A redraw builds them again from the save, and the save moves on by itself (the game rewrites the character's position every time it saves),
+// so what a person chose or typed here is kept in this object and the card is drawn from it: a value is in GO.vals once the person (or a choice in the list of places) has set it,
+// and the draw uses it instead of the saved position. It is cleared by a successful Teleport (the boxes follow the saved position again) and when the character's map in the
+// save changes while the boxes are meant for "this map". pick is the index in TD of the place chosen in the list, null when none (or the coordinates were typed over it).
+const GO = { vals: {}, pick: null, savedMap: null };
+const GO_IDS = ['tx', 'ty', 'tz', 'tdyaw', 'tmap', 'tdkind', 'tdq'];
+const goVal = (id, saved) => (Object.hasOwn(GO.vals, id) ? GO.vals[id] : saved);
+function goClear() { GO.vals = {}; GO.pick = null; TD = []; TDR = null; }
+function goSavedMap(m) {
+  if (GO.savedMap !== null && GO.savedMap !== m && !GO.vals.tmap) goClear(); // the boxes meant "this map", and this map is another one now
+  GO.savedMap = m;
+}
+function goKeep(t) { // a box was set by the person: remember it; a typed coordinate is no longer the place that was chosen
+  if (!t || !GO_IDS.includes(t.id)) return;
+  GO.vals[t.id] = String(t.value);
+  if (t.id === 'tx' || t.id === 'ty' || t.id === 'tz') { GO.pick = null; const s = $('#tdsel'); if (s) s.value = ''; goNote(); }
+}
+function goSet(id, v) { GO.vals[id] = String(v); const el = $('#' + id); if (el) el.value = String(v); }
+const tdAway = (d) => (TDR && TDR.sameMap ? `${Math.round(d.distance / 100).toLocaleString()} m away` : '');
+// Says which place Teleport is aimed at while a choice from the list stands.
+function goNote() {
+  const n = $('#tdpick'), d = GO.pick === null ? null : TD[GO.pick];
+  if (n) n.textContent = d ? `Selected: ${d.label}${tdAway(d) ? ', ' + tdAway(d) : ''}` : '';
+}
+// The list under Find, drawn from the last answer and the choice made in it, so a redraw of the page loses neither.
+function tdDraw() {
+  const out = $('#tdout');
+  if (!out) return;
+  if (!TDR) { setHTML(out, html``); return; }
+  const more = TDR.total > TD.length ? ` (nearest ${TD.length} of ${TDR.total}; filter to narrow)` : '';
+  setHTML(out, TD.length ? html`<select id="tdsel" aria-label="Place to go to"><option value="">${TD.length} place${TD.length == 1 ? '' : 's'} on ${TDR.map}${TDR.sameMap ? ', nearest first' : ''}${more}</option>${TD.map((d, i) => html`<option value="${i}" ${GO.pick === i ? 'selected' : ''}>${d.label}${tdAway(d) ? ' - ' + tdAway(d) : ''}</option>`)}</select>` : html`None on ${TDR.map}.`);
+}
+function goSync() { tdDraw(); goNote(); }
 const TRAVEL_NOTE = 'A move to another map writes the character\'s controller, body and player state on the new map. A move to the Deep Desert was checked in the game once (2026-10-27, one character, a throwaway save): the game loaded the character there. No other move was checked, so try it on a copy first. A position typed for the Deep Desert is not accepted for Hagga Basin.';
 // What is drawn under Teleport while another map is chosen: the one thing that can hurt, in two sentences. The whole note (what is written, the position rule) is TRAVEL_NOTE, in the Movement card's About this (#426).
 const TRAVEL_WARN = 'Only one move between maps was checked in the game: to the Deep Desert (2026-10-27, one character, a throwaway save). No other move was checked, so try it on a copy first.';
@@ -1659,6 +1694,7 @@ async function render(keepPlace) {
   }
   viewApply(place);
   tmapSync();
+  goSync();
   refocus(keep);
 }
 
@@ -1699,13 +1735,12 @@ const A = {
   xp: () => act(async () => { const r = await api('/api/player/xp', { amount: +val('xpAmt') }); toast(r.applied ? `XP ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()}, level ${r.levelBefore} → ${r.levelAfter}` + (r.skillPointsGained ? `, +${r.skillPointsGained} skill points` : '') + (r.capped ? ' (stopped at level 200)' : '') + NOT_SAVED : 'Already at the last level (200).'); }, null),
   currency: () => act(async () => { const r = await api('/api/player/currency', { currency: +val('curSel'), amount: +val('curAmt') }); toast(`${r.currency == 0 ? 'Solari in wallet' : 'House credit in wallet'} ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()}` + NOT_SAVED); }, null),
   intel: () => act(async () => { const r = await api('/api/player/intel', { amount: +val('intelAmt') }); toast(r.applied ? `Intel ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()}` + (r.capped ? ' (capped at 2,779)' : '') + NOT_SAVED : 'Intel is already at the cap (2,779).'); }, null),
-  teleport: () => act(() => { const body = { x: +val('tx'), y: +val('ty'), z: +val('tz') }; if (val('tdyaw') !== '') body.yaw = +val('tdyaw'); if (val('tmap') !== '') body.map = val('tmap'); return api('/api/player/teleport', body); }, 'Teleport set'),
+  teleport: () => act(async () => { const body = { x: +val('tx'), y: +val('ty'), z: +val('tz') }; if (val('tdyaw') !== '') body.yaw = +val('tdyaw'); if (val('tmap') !== '') body.map = val('tmap'); const r = await api('/api/player/teleport', body); goClear(); return r; }, 'Teleport set'),
   tdFind: async () => {
     try {
       const r = await api(`/api/player/destinations?kind=${encodeURIComponent(val('tdkind'))}&q=${encodeURIComponent(val('tdq'))}&map=${encodeURIComponent(val('tmap'))}`);
-      TD = r.destinations;
-      const more = r.total > TD.length ? ` (nearest ${TD.length} of ${r.total}; filter to narrow)` : '';
-      setHTML($('#tdout'), TD.length ? html`<select id="tdsel"><option value="">${TD.length} place${TD.length == 1 ? '' : 's'} on ${r.map}${r.sameMap ? ', nearest first' : ''}${more}</option>${TD.map((d, i) => html`<option value="${i}">${d.label}${r.sameMap ? ` - ${Math.round(d.distance / 100).toLocaleString()} m away` : ''}</option>`)}</select>` : html`None on ${r.map}.`);
+      TD = r.destinations; TDR = { map: r.map, sameMap: r.sameMap, total: r.total }; GO.pick = null;
+      goSync();
     } catch (e) { toast(e.message, true); }
   },
   augEdit: (d) => act(async () => { const r = await api('/api/items/augment-options', { item_id: +d.id }); r.options.forEach((o) => AUG_NAMES.set(o.id, o.name)); augItem = { ...r, item_id: +d.id }; render(); }, null, false),
@@ -2133,6 +2168,7 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('change', (e) => {
   const t = e.target;
+  goKeep(t);
   if (t.id == 'gt') { showGiveAugments(); return; }
   if (t.id == 'kitItem') { showGiveAugments('kitItem', 'kitAug', 'ka', 'kag'); return; }
   if (t.id == 'kitFile') { kitImport(t); return; }
@@ -2149,7 +2185,7 @@ document.addEventListener('change', (e) => {
   }
   if (t.id == 'rsGrp') { rsGroup = t.value; researchList(); return; }
   if (t.id == 'tmap') { tmapSync(); return; }
-  if (t.id == 'tdsel') { const d = TD[+t.value]; if (d) { $('#tx').value = Math.round(d.x); $('#ty').value = Math.round(d.y); $('#tz').value = Math.round(d.z); } return; }
+  if (t.id == 'tdsel') { const d = t.value === '' ? null : TD[+t.value]; GO.pick = d ? +t.value : null; if (d) { goSet('tx', Math.round(d.x)); goSet('ty', Math.round(d.y)); goSet('tz', Math.round(d.z)); } goNote(); return; }
   if (t.id == 'lcLvl' && LC) { LC.level = +t.value; claimEditorDraw(); return; }
   if (t.id == 'ctgrp') { ctGroup = t.value; catalogList(); return; }
   if (t.id == 'ctexp') { ctExp = t.checked; if (!ctExp && CT.rows.some((r) => r.experimental && r.group == ctGroup)) ctGroup = ''; catalogList(); return; }
