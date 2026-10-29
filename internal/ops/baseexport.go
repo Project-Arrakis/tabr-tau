@@ -46,16 +46,21 @@ func (o *Ops) BaseBackups() (any, error) {
 	for _, r := range rows {
 		tt, _ := r["totem_type"].(string)
 		name, _ := r["backup_name"].(string)
-		if name == "" || name == "None" || strings.HasPrefix(name, "##") {
-			name = totemTypes[strings.ToLower(tt)]
-			if name == "" {
-				name = "Base backup"
-			}
-		}
-		r["name"] = name
+		r["name"] = backupDisplayName(name, tt)
 		delete(r, "totem_type")
 	}
 	return rows, nil
+}
+
+// backupDisplayName is what the Bases tab calls a backup: its own name, or, when the game left its placeholder (empty, "None" or "##Totem_..."), the name of the claim structure.
+func backupDisplayName(name, totemType string) string {
+	if name == "" || name == "None" || strings.HasPrefix(name, "##") {
+		name = totemTypes[strings.ToLower(totemType)]
+		if name == "" {
+			name = "Base backup"
+		}
+	}
+	return name
 }
 
 // BaseExport is a finished file and what to call it.
@@ -215,6 +220,13 @@ func scanRefs(text string, fn func(kind string, id int64)) {
 	walk(v)
 }
 
+// patchesChecksum is a hash of the names of the applied patches, in sorted order: two saves of the same game version have the same one.
+func patchesChecksum(names []string) string {
+	sorted := append([]string(nil), names...)
+	sort.Strings(sorted)
+	return sha256hex([]byte(strings.Join(sorted, "\n")))
+}
+
 func sha256hex(b []byte) string {
 	s := sha256.Sum256(b)
 	return hex.EncodeToString(s[:])
@@ -299,9 +311,7 @@ func (o *Ops) baseManifest(id int64, name string, tabs []exportedTable) (basefil
 		}
 	}
 	m.Source.Patches = basefile.Patches{Count: len(names), Latest: append([]string{}, names[max(0, len(names)-5):]...)}
-	sorted := append([]string(nil), names...)
-	sort.Strings(sorted)
-	m.Source.Patches.Checksum = sha256hex([]byte(strings.Join(sorted, "\n")))
+	m.Source.Patches.Checksum = patchesChecksum(names)
 
 	// References: the strings the game writes inside JSON ("!!act#12") and the owner entity of the pieces and placeables, counted as inside the file, outside it, or null.
 	inside := map[string]map[int64]bool{
