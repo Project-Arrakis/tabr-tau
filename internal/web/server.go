@@ -55,8 +55,6 @@ type Server struct {
 	lastAuto     string // the last automatic save, kept for the Automatic refill card
 	autoWaiting  bool   // the automatic pass is waiting for the game to close (#419); RunAutosave runs it then
 	lastAutoFail string // why the last automatic pass could not finish, kept for the card
-	// EditorVersion is written into a base file so that a file says which version of the editor made it ("" when the caller does not set it).
-	EditorVersion string
 	settingsNote string // the last "settings.json was damaged, the backup copy is used" note that was written to the log (#442)
 
 	launch launchPass // the countdown before the automatic pass at launch (#460)
@@ -65,6 +63,9 @@ type Server struct {
 	// session cookie to this port and the accepted Host header to this listener (NET-1, NET-2, SEC-7 of the 2026-10-15 audit).
 	bound string
 	port  string
+
+	// EditorVersion is written into a base file so that a file says which version of the editor made it ("" when the caller does not set it).
+	EditorVersion string
 }
 
 func New(s *save.Save, cfg config.Dir) *Server {
