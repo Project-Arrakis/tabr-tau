@@ -40,7 +40,19 @@ type Base struct {
 	File *File
 	Rows map[string]*Rows
 	Hash string // SHA-256 of the file's bytes, as text
+
+	// Origin says which program wrote the file: OriginEditor for a tabr-tau-base file, OriginConsole for the console's dune-base-backup file (console.go), which is turned into the same
+	// tables before anything else reads it. Console is set for the second only, and Notes are the things that conversion changed or left out, for the preview to say.
+	Origin  string
+	Console *ConsoleInfo
+	Notes   []string
 }
+
+// The two origins of a base file.
+const (
+	OriginEditor  = "tabr-tau"
+	OriginConsole = "console"
+)
 
 // Of is the rows of a table.
 func (b *Base) Of(name string) *Rows { return b.Rows[name] }
@@ -51,17 +63,31 @@ func Hash(data []byte) string {
 	return hex.EncodeToString(s[:])
 }
 
-// Load checks a file (Check, with these limits) and reads its rows into typed values. It refuses text that is not valid UTF-8, a text cell with a control character in it, a JSON cell
+// Load checks a file (Check, with these limits) and reads its rows into typed values. A file of the console's own format (console.go) is converted to the same tables first, and then
+// goes the same way. It refuses text that is not valid UTF-8, a text cell with a control character in it, a JSON cell
 // that holds a NUL and a number that does not fit its column. It does not look at what the rows mean; Verify does.
 func Load(data []byte, maxBytes, maxRows int) (*Base, error) {
 	if !utf8.Valid(data) {
 		return nil, fmt.Errorf("this is not a base file: it is not valid UTF-8 text")
 	}
+	if isConsoleFile(data) {
+		return loadConsole(data, maxBytes, maxRows)
+	}
 	f, tabs, err := check(data, maxBytes, maxRows)
 	if err != nil {
 		return nil, err
 	}
-	b := &Base{File: f, Rows: map[string]*Rows{}, Hash: Hash(data)}
+	b, err := typeTables(tabs)
+	if err != nil {
+		return nil, err
+	}
+	b.File, b.Hash, b.Origin = f, Hash(data), OriginEditor
+	return b, nil
+}
+
+// typeTables turns the cells of every table into typed values, in the order of Tables.
+func typeTables(tabs map[string]Rowset) (*Base, error) {
+	b := &Base{Rows: map[string]*Rows{}}
 	for _, t := range Tables {
 		rs := &Rows{Table: t, R: make([][]any, len(tabs[t.Name]))}
 		for i, row := range tabs[t.Name] {

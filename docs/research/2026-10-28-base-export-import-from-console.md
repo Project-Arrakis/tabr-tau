@@ -18,8 +18,7 @@ Evidence tags as elsewhere in `docs/`: **[V]** verified against a real save copy
   imported blueprints (`P34`, previewing some imported blueprints crashes the server).
 - **The console cannot make a Solido inside the database from a placed base.** It can write a blueprint *file* from a placed base (positions relative to the claim totem, yaw only)
   and it can import such a file; the file-to-database step is the same code as any other Solido import.
-- **The file should be the editor's own format** (`tabr-tau-base`, version 1, built like the care package kit file). Reading the console's own `dune-base-backup` file is a possible later step but cannot be designed
-  without a real console file, none of which is available here.
+- **The file should be the editor's own format** (`tabr-tau-base`, version 1, built like the care package kit file). Reading the console's own `dune-base-backup` file is a later step: built in #493 once a real console file was available (`internal/basefile/console.go`; see `docs/import-a-base-file.md`).
 
 ## Sources, versions, licence
 
@@ -274,7 +273,7 @@ Where it lives in the UI: Player > Bases (the console puts "Base Backups" at the
 | **2** | **Import** a base file into another save, with preview. Validation, id allocation, reference rewrite, one edit, backup first. **Built** (engine and routes, then the page; `docs/import-a-base-file.md`); the in-game UAT items are **open** | L | **Yes**, the in-game checks below | Items 1-10 of the UAT list (open) |
 | **3** | Solido: list the save's blueprints, export one as a file (M); import a file (L); delete one (S). Needs a save that has one | M + L + S | **Yes**: a Solido must first be made in the game (#111) | Items 11-13 |
 | **4** | Build a Solido **from a placed base**: positions relative to the totem, yaw from the quaternion, claim consoles dropped, holograms skipped. The file is then imported with phase 3 | M | Yes, through phase 3 | Item 14 |
-| 5 (optional) | Delete a base backup (typed word, as the console's "DELETE BACKUP" and its prior backup); read a console `dune-base-backup` file | S; unknown | Yes | Only if a real console file is supplied |
+| 5 (optional) | Delete a base backup (typed word, as the console's "DELETE BACKUP" and its prior backup); read a console `dune-base-backup` file | S; unknown | Yes | The console file reader is **built** (#493, `docs/import-a-base-file.md`, UAT items 7 and 8 open); the delete is not |
 
 Reasoning on the order: phases 1 and 1b are read only and can be proven against the rows that exist; phase 2 has evidence (the pick-up, and the vehicle copy the game already accepted:
 `DuplicateVehicle` was loaded and flown in game on 2026-10-27, `vehicle_duplicate.go:24`); phases 3 and 4 depend on a Solido that no save has.

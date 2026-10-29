@@ -125,3 +125,24 @@ test('a refused import keeps the panel so the person can read why', async () => 
   assert.ok(ui.doc.querySelector('#baseImportPanel'), 'the panel stays');
   ui.dom.window.close();
 });
+
+test('a file of the Dune console says so in the preview, with its name, map and counts, as text', async () => {
+  const from = 'Read from a file of the Dune console (v1.4.52), base backup "<i>My Base</i>", map HaggaBasin, 811 pieces, 204 placeables, 21 stored items, exported 2026-10-25T18:02:57.884Z.';
+  const ui = await boots({ '/api/bases/backups/import-preview': { ...PV, from, file: { origin: 'console' } } });
+  await open(ui);
+  await choose(ui, 'base-backup.json', '{"format":"dune-base-backup"}');
+  const panel = ui.doc.querySelector('#baseImportPanel');
+  const t = panel.textContent;
+  assert.ok(t.includes('the Dune console (v1.4.52)') && t.includes('HaggaBasin') && t.includes('811 pieces') && t.includes('204 placeables') && t.includes('21 stored items'), t);
+  assert.equal(panel.querySelector('p i'), null, 'the name from the file is text');
+  assert.ok(panel.querySelector('[data-act="baseImportGo"]'));
+  ui.dom.window.close();
+});
+
+test('a file of the editor has no console line', async () => {
+  const ui = await boots({ '/api/bases/backups/import-preview': PV });
+  await open(ui);
+  await choose(ui, 'base.json', '{}');
+  assert.ok(!ui.doc.querySelector('#baseImportPanel').textContent.includes('Dune console'));
+  ui.dom.window.close();
+});
