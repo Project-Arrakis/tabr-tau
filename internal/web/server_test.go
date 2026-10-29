@@ -447,7 +447,7 @@ func TestOpenTimeRefillWritesNothingDuringASinglePlayerSession(t *testing.T) {
 	defer save.ActiveSessionForTests()()
 	s.RunStartupTasks()
 	note, warn := s.takeStartup()
-	if note != "Automatic refill queued: the game is open; applied when it closes." || !warn {
+	if !strings.HasPrefix(note, "Automatic refill queued: a single-player session is active, and the game rewrites the save about every 20 seconds while it runs. It runs by itself") || strings.Contains(note, "edits stay queued") || !warn {
 		t.Fatalf("note %q, warn %v", note, warn)
 	}
 	after, _ := os.ReadFile(s.Save.Path)

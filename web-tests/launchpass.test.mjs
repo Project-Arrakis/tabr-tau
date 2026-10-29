@@ -97,13 +97,13 @@ test('The Automatic refill card has Run the automatic pass now: one click, no qu
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Automatic refill saved 2 vehicles'));
 });
 
-test('A refused run (the game is open) is shown as a warning that stays', async () => {
-  const note = 'The automatic pass was not run: the game is open, and this pass never writes while it is. Run it again once the game has closed.';
+test('A refused run (the game may still hold the save) is shown as a warning that stays', async () => {
+  const note = 'The automatic pass was not run: a single-player session is active, and the game rewrites the save about every 20 seconds while it runs. Run it again once that clears.';
   const ui = await boot({ get: { '/api/settings': prefs() }, post: { '/api/autopass/run': { note, warn: true } } });
   await openBases(ui);
   ui.click('[data-act="autoNow"]'); await ui.settle();
   const t = ui.doc.querySelector('#toast div.err');
-  assert.ok(t && t.textContent.includes('the game is open'), 'the warning is an error-style toast, dismissed by hand');
+  assert.ok(t && t.textContent.includes('a single-player session is active'), 'the warning is an error-style toast, dismissed by hand');
 });
 
 test('The page asks about the countdown once at open and not again when nothing counts', async () => {

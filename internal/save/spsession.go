@@ -181,12 +181,15 @@ func singlePlayerStatus(savePath string) (spStatus, error) {
 	return spStatus{Active: spLog.tr.active, EndedAt: spLog.tr.endedAt, LastSaveAt: spLog.tr.lastSaveAt}, nil
 }
 
+// QueuedUntilClears ends the Reason of a game that may still hold the save's rows. A caller that words the wait for itself (the automatic pass at launch, #499) takes it off.
+const QueuedUntilClears = "; edits stay queued until this clears, or the game closes"
+
 // GameState is the answer to "may the save be written now?".
 type GameState struct {
 	Blocked    bool     // Save must not run
 	Reason     string   // why, in a sentence for the page (empty when saving is allowed)
 	Mode       string   // none | menu | single_player | session_ended | game_running | unknown
-	Processes  []string // Dune processes found (also set when saving is allowed: the automatic pass at launch waits for these to be gone)
+	Processes  []string // Dune processes found (also set when saving is allowed)
 	CheckError string   // set when we could not tell
 	// NeedsConfirm is set when the only thing blocking the write is that the save's location cannot be vouched for (a network share, a removable
 	// drive, a folder outside the game's own). ConfirmLocation lifts it.
@@ -244,7 +247,7 @@ func processState(savePath string, fresh bool) GameState {
 		return GameState{Mode: "none"}
 	}
 	wait := func(mode, why string) GameState {
-		return GameState{Blocked: true, Mode: mode, Processes: procs, Reason: why + "; edits stay queued until this clears, or the game closes"}
+		return GameState{Blocked: true, Mode: mode, Processes: procs, Reason: why + QueuedUntilClears}
 	}
 	sp, serr := statusFor(savePath)
 	if serr != nil {

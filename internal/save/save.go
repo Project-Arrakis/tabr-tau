@@ -15,7 +15,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -61,10 +60,7 @@ type Save struct {
 	restored   *Restored
 
 	// the automatic write of pending edits (flush.go): one attempt at a time, and what became of the last
-	flushMu sync.Mutex
-	// autoPass is set while the automatic pass at launch writes (flush(true)): the game gate then also refuses while any game process exists, not only when the evidence
-	// says the game has the save loaded. Set and cleared under flushMu; atomic because CommitForTests reads it without that lock.
-	autoPass  atomic.Bool
+	flushMu   sync.Mutex
 	lastFlush *Flush
 	// the last write the editor made (an automatic one): the hash of the file it wrote, and the backup it was made after. A following write may reuse that backup only while
 	// the file is still the one that write left, so a file the game saved since is never overwritten without a backup of its own.

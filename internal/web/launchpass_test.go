@@ -204,16 +204,28 @@ func TestZeroDelayRunsAtOnce(t *testing.T) {
 	}
 }
 
-// The menu-write rule is the pass's own and is not loosened by the countdown: with a game process at the menu the pass that the countdown starts still waits and writes nothing.
+// The countdown does not loosen the gate: right after leaving the world the pass that the countdown starts still waits and writes nothing; at the menu, long after, it runs (#499).
 func TestTheCountdownKeepsTheGameRule(t *testing.T) {
 	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
-	restore := save.GameAtMenuForTests()
+	restore := save.GameJustLeftWorldForTests()
 	defer restore()
 	before := fileBytes(t, s)
 	s.ScheduleLaunchPass(shortDelay, false)
 	launchState(t, s)
 	waitUntil(t, "the pass to be held back", func() bool { return isWaiting(s) })
 	nothingWritten(t, s, dir, before)
+}
+
+func TestTheCountdownRunsThePassAtTheMenuWithTheGameOpen(t *testing.T) {
+	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
+	defer save.GameAtMenuForTests()()
+	before := fileBytes(t, s)
+	s.ScheduleLaunchPass(shortDelay, false)
+	launchState(t, s)
+	waitUntil(t, "the pass to write", func() bool { return len(logLines(t, dir)) == 1 })
+	if bytes.Equal(before, fileBytes(t, s)) || isWaiting(s) {
+		t.Fatal("the pass did not run at the menu")
+	}
 }
 
 // Run now: one request, no question. It runs the jobs that are switched on although the master switch for the launch is off, and a countdown that is still on does not run it a second time.
@@ -261,19 +273,33 @@ func TestRunNowEndsTheCountdownSoThePassRunsOnce(t *testing.T) {
 	}
 }
 
-// Run now with a game process: answered with the reason, nothing written, and nothing queued for later (unlike the pass at launch).
+// Run now while the game may still hold the save's rows: answered with the reason of the gate, nothing written, and nothing queued for later (unlike the pass at launch).
 func TestRunNowWithTheGameOpenWritesNothingAndQueuesNothing(t *testing.T) {
 	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
-	restore := save.GameAtMenuForTests()
+	restore := save.GameJustLeftWorldForTests()
 	defer restore()
 	before := fileBytes(t, s)
 	w := postEdit(t, s, "/api/autopass/run", `{}`)
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "the game is open") || !strings.Contains(w.Body.String(), `"warn":true`) {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "The automatic pass was not run: the game wrote its database 20 seconds ago") || !strings.Contains(w.Body.String(), `"warn":true`) {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
 	}
 	nothingWritten(t, s, dir, before)
 	if isWaiting(s) {
 		t.Fatal("a pass asked for by hand must not wait for the game")
+	}
+}
+
+// Run now at the game's menu, long after leaving the world: the gate lets a write through, so the pass runs (#499).
+func TestRunNowAtTheMenuWithTheGameOpenRuns(t *testing.T) {
+	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
+	defer save.GameAtMenuForTests()()
+	before := fileBytes(t, s)
+	w := postEdit(t, s, "/api/autopass/run", `{}`)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "Automatic refill saved ") || strings.Contains(w.Body.String(), `"warn":true`) {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	if bytes.Equal(before, fileBytes(t, s)) || len(logLines(t, dir)) != 1 {
+		t.Fatal("the pass did not write once")
 	}
 }
 
