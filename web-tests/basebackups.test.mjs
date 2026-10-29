@@ -87,10 +87,10 @@ test('when the list cannot be read the bases are still shown and the card says w
   ui.dom.window.close();
 });
 
-test('About this on the card names the format and says a file cannot be imported yet', async () => {
+test('About this on the card names the format and says what export and import do', async () => {
   const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/backups': [BACKUP] } });
   const main = await openBases(ui);
   const d = main.querySelector('details[data-about="bases.backups"]');
-  assert.ok(d && d.textContent.includes('tabr-tau-base') && d.textContent.includes('only reads the save') && d.textContent.includes('cannot be imported yet'));
+  assert.ok(d && d.textContent.includes('tabr-tau-base') && d.textContent.includes('only reads the save') && d.textContent.includes('Importing the same file twice adds two backups'));
   ui.dom.window.close();
 });

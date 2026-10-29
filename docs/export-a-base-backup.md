@@ -1,7 +1,7 @@
 # Export a base backup as a file
 
 Player > Bases has a **Base backups** card. It lists the bases the game's own base tool has picked up, and **Export base backup** saves one of them as a file. This is the first step of
-moving a base from one single-player save to another (#475). The file can be opened and read; **importing it into a save is not built yet.** Exporting only reads the save: nothing in
+moving a base from one single-player save to another (#475). The file can be opened and read, and another save can import it (see [`import-a-base-file.md`](import-a-base-file.md)). Exporting only reads the save: nothing in
 the save changes, nothing is written to the game's folder, and nothing asks first.
 
 ## Make a base backup in the game
@@ -59,4 +59,4 @@ The export stops, says why, and writes nothing, when:
 
 The export is tested on a made-up save of the same shape, including every refusal above, and on a copy of a save that holds a real in-game pick-up (1 backup, 44 actors, 174 pieces, 43
 placeables, 53 stored items, 589 rows; the file passes its own check and its counts equal the card's). That check cannot say whether the **game** would accept the rows again; that is what
-importing will need (see `docs/research/2026-10-28-base-export-import-from-console.md`, section 7).
+the import's checks in the game are for (see `docs/research/2026-10-28-base-export-import-from-console.md`, section 7).
