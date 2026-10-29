@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/basefile"
+	cf "github.com/Project-Arrakis/tabr-tau/internal/basefile/consolefixture"
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
@@ -226,5 +227,47 @@ func TestImportIntoTheHostileSaveOfTheFixtures(t *testing.T) {
 	// the list of backups of the hostile save still answers
 	if w := kitGet(t, s, "/api/bases/backups"); w.Code != 200 {
 		t.Fatalf("list after: %d %.200s", w.Code, w.Body.String())
+	}
+}
+
+// The console's own base backup file goes through the same routes (#493): the preview says where it came from, the hash ties the import to it, and it is written once after a backup.
+func TestConsoleFileGoesThroughTheSameRoutes(t *testing.T) {
+	s := importServer(t, "")
+	data := cf.File(nil)
+	before, _ := os.ReadFile(s.Save.Path)
+	w := postEdit(t, s, "/api/bases/backups/import-preview", importBody(t, data, ""))
+	pv := decodeBody(t, w)
+	if w.Code != 200 || pv["dryRun"] != true || pv["fileHash"] != basefile.Hash(data) {
+		t.Fatalf("preview: %d %s", w.Code, w.Body.String())
+	}
+	if from, _ := pv["from"].(string); !strings.Contains(from, `Dune console (v1.4.52), base backup "Test Reserve", map HaggaBasin, 3 pieces, 3 placeables, 3 stored items`) {
+		t.Fatalf("from: %v", pv["from"])
+	}
+	if f := pv["file"].(map[string]any); f["origin"] != "console" {
+		t.Fatalf("file: %v", f)
+	}
+	if c := pv["console"].(map[string]any); c["name"] != "Test Reserve" || c["consoleVersion"] != "v1.4.52" || c["entries"] != float64(len(cf.Entries())) {
+		t.Fatalf("console: %v", c)
+	}
+	if after, _ := os.ReadFile(s.Save.Path); string(after) != string(before) {
+		t.Fatal("the preview wrote the save")
+	}
+	// another file than the previewed one is refused, the previewed one is imported
+	if w := postEdit(t, s, "/api/bases/backups/import", importBody(t, cf.File(func(h cf.Data, e *[]cf.Entry) { h["version"] = 1; cf.DataOf(*e, cf.Chest)["serial"] = 99 }), basefile.Hash(data))); w.Code != 409 {
+		t.Fatalf("a different file: %d %s", w.Code, w.Body.String())
+	}
+	w = postEdit(t, s, "/api/bases/backups/import", importBody(t, data, basefile.Hash(data)))
+	if w.Code != 200 {
+		t.Fatalf("import: %d %s", w.Code, w.Body.String())
+	}
+	if n := backupCount(t, s.Save.Path); n != 1 {
+		t.Fatalf("backups: %d", n)
+	}
+	// a console file with an entry no save can hold is refused with the kind named
+	bad := cf.File(func(h cf.Data, e *[]cf.Entry) {
+		*e = append(*e, cf.Entry{"id": 99, "kind": "TaxInvoice", "data": cf.Data{"totem_id": cf.Totem}})
+	})
+	if w := postEdit(t, s, "/api/bases/backups/import-preview", importBody(t, bad, "")); w.Code != 422 && w.Code != 400 || !strings.Contains(w.Body.String(), "TaxInvoice") {
+		t.Fatalf("refusal: %d %s", w.Code, w.Body.String())
 	}
 }

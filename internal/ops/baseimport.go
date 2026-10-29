@@ -157,11 +157,15 @@ type jsonCell struct {
 
 func importBaseTx(m *save.Mut, b *basefile.Base, p player, dry bool) (map[string]any, string, error) {
 	ctl := p.Controller
-	if r, err := m.One(`select id from actors where id=?`, ctl); err != nil {
+	ctlRow, err := m.One(`select id, dimension_index d from actors where id=?`, ctl)
+	if err != nil {
 		return nil, "", err
-	} else if r == nil {
+	} else if ctlRow == nil {
 		return nil, "", apierr.New(apierr.ErrNotFound, "The character of this save is not among its actors, so the base has no owner to be given to. Nothing was imported.")
 	}
+	// A server numbers its copies of a map (dimension 2, say); a single-player save has one, and every actor of it is in the dimension of its character. The actors of a console file
+	// are put in the character's, so that the base is in the world the game loads.
+	charDim, _ := ctlRow["d"].(int64)
 	T := b.Rows
 	actorsT, entsT, invsT, itemsT := T["actors"], T["fgl_entities"], T["inventories"], T["items"]
 
@@ -206,7 +210,7 @@ func importBaseTx(m *save.Mut, b *basefile.Base, p player, dry bool) (map[string
 		}
 	}
 	oldEnts := sortedIDs(entsT, "entity_id")
-	newEnts, err := newEntityIDs(oldEnts, taken)
+	newEnts, err := newEntityIDs(liftEntityIDs(b, oldEnts, taken), taken)
 	if err != nil {
 		return nil, "", apierr.Newf(apierr.ErrBadArgument, "The entity ids of the base cannot be moved into this save: %v. Nothing was imported.", err)
 	}
@@ -307,6 +311,8 @@ func importBaseTx(m *save.Mut, b *basefile.Base, p player, dry bool) (map[string
 	backup := backupFirst
 	owners := 0
 	notBackedUp := 0
+	otherDim := 0
+	otherDims := map[int64]bool{}
 	{
 		rs := T["base_backups"]
 		for _, r := range rs.R {
@@ -331,7 +337,7 @@ func importBaseTx(m *save.Mut, b *basefile.Base, p player, dry bool) (map[string
 		}
 	}
 	{
-		idc, st, gas, props := actorsT.Col("id"), actorsT.Col("state"), actorsT.Col("gas_attributes"), actorsT.Col("properties")
+		idc, st, gas, props, dimc := actorsT.Col("id"), actorsT.Col("state"), actorsT.Col("gas_attributes"), actorsT.Col("properties"), actorsT.Col("dimension_index")
 		for _, r := range actorsT.R {
 			old := r[idc].(int64)
 			n := cp(r)
@@ -340,6 +346,13 @@ func importBaseTx(m *save.Mut, b *basefile.Base, p player, dry bool) (map[string
 				notBackedUp++
 			}
 			n[st] = int64(basefile.StateBackup)
+			if b.Origin == basefile.OriginConsole {
+				if d, _ := r[dimc].(int64); d != charDim {
+					otherDim++
+					otherDims[d] = true
+				}
+				n[dimc] = charDim
+			}
 			for _, c := range []int{gas, props} {
 				if err := jsonOf(n, c, "actors", "json("+actorsT.Table.Cols[c].Name+")", "id=?", actor[old], fmt.Sprintf("actor %d, %s", old, actorsT.Table.Cols[c].Name)); err != nil {
 					return nil, "", err
@@ -585,6 +598,14 @@ func importBaseTx(m *save.Mut, b *basefile.Base, p player, dry bool) (map[string
 	if notBackedUp > 0 {
 		warns = append(warns, fmt.Sprintf("%d of %d actors in the file were not in the picked-up state (they were standing); all are written as picked up (state 5).", notBackedUp, len(actorsT.R)))
 	}
+	if otherDim > 0 {
+		ds := make([]string, 0, len(otherDims))
+		for d := range otherDims {
+			ds = append(ds, strconv.FormatInt(d, 10))
+		}
+		sort.Strings(ds)
+		warns = append(warns, fmt.Sprintf("%d of %d actors in the file were in dimension %s of the server that wrote it; all are written in dimension %d, the one of this save's character.", otherDim, len(actorsT.R), strings.Join(ds, ", "), charDim))
+	}
 	if toNone > 0 {
 		warns = append(warns, fmt.Sprintf("%d references to an actor that is not in the file (a crafting queue naming the character who started it, for example) were set to none.", toNone))
 	}
@@ -623,6 +644,7 @@ func importBaseTx(m *save.Mut, b *basefile.Base, p player, dry bool) (map[string
 		patchesDiffer = true
 		warns = append(warns, fmt.Sprintf("The save the file came from had %d game patches applied; this save has %d, and they are not the same set. The game may have changed how it stores a base; the editor cannot say whether the game loads it.", src.Count, len(names)))
 	}
+	warns = append(warns, b.Notes...)
 	if n := noRoleActors(T); n > 0 {
 		warns = append(warns, fmt.Sprintf("%d actors in the file are neither a building nor a placeable. They are imported as they are.", n))
 	}
@@ -642,10 +664,41 @@ func importBaseTx(m *save.Mut, b *basefile.Base, p player, dry bool) (map[string
 		"warnings":   warns, "patchesDiffer": patchesDiffer,
 		"fileHash": b.Hash,
 		"file": map[string]any{"format": b.File.Format, "version": b.File.Version, "kind": b.File.Kind, "exportedAt": b.File.ExportedAt, "editor": b.File.Editor,
-			"backupId": strconv.FormatInt(b.File.Manifest.Backup.ID, 10)},
+			"backupId": strconv.FormatInt(b.File.Manifest.Backup.ID, 10), "origin": b.Origin},
+	}
+	if b.Console != nil {
+		// a file of the Dune console: the preview says so, with the name, the map and the counts the console gave it
+		res["console"] = b.Console
+		res["from"] = "Read from a file of " + b.Console.Describe() + ", exported " + b.File.ExportedAt + "."
 	}
 	desc := fmt.Sprintf("Import base backup \"%s\": %d pieces, %d placeables, %d stored items", importLabel(display), sum.Pieces, sum.Placeables, sum.StoredItems)
 	return res, desc, nil
+}
+
+// liftEntityIDs gives the entities of a file of the Dune console the shape of the ids a save holds. The console numbers an entity with a small transfer id (207, 208, ...), where a
+// save's entity ids are a 32-bit prefix and a 32-bit counter (every id of a real save is above 2^53). newEntityIDs keeps the prefix of an id, so small ids would get the prefix 0 and
+// land among the first few hundred numbers. They are put under the prefix of the highest entity the save already holds (its latest session) first, keeping the distances between them.
+// A file of the editor, whose ids already carry a prefix, is left as it is, and so is a save with no entity.
+func liftEntityIDs(b *basefile.Base, ids []int64, taken map[int64]bool) []int64 {
+	if b.Origin != basefile.OriginConsole || len(ids) == 0 {
+		return ids
+	}
+	var top uint64
+	for id := range taken {
+		top = max(top, uint64(id))
+	}
+	prefix := top >> 32
+	if prefix == 0 {
+		return ids
+	}
+	out := make([]int64, len(ids))
+	for i, id := range ids {
+		if id >= 1<<32 {
+			return ids
+		}
+		out[i] = int64(prefix<<32 | uint64(id))
+	}
+	return out
 }
 
 // entityRange says the lowest and highest new entity id as text: an entity id is a 64-bit number, more than a web page holds without rounding.

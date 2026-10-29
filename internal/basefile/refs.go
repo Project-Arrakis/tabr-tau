@@ -18,6 +18,13 @@ var refString = regexp.MustCompile(`^!!([a-z]{3})#(-?[0-9]+)$`)
 // A reference-looking mark inside a longer string: something this editor cannot rewrite safely.
 var refInside = regexp.MustCompile(`!![a-z]{3}#`)
 
+// The console's own file (console.go) writes a reference as "!!act@12", with a transfer id after the @; a file of the console can also hold "!!act#12", an id of the server it came
+// from. Both are read by RewriteMarked.
+var (
+	markedString = regexp.MustCompile(`^!!([a-z]{3})([#@])(-?[0-9]+)$`)
+	markedInside = regexp.MustCompile(`!![a-z]{3}[#@]`)
+)
+
 // MaxJSONDepth is how deeply a JSON cell may nest. The game's own components nest a handful of levels; SQLite's JSON functions stop at 1,000.
 const MaxJSONDepth = 100
 
@@ -25,6 +32,7 @@ const MaxJSONDepth = 100
 type Ref struct {
 	Kind string // "act", "itm", ...
 	ID   int64
+	Sep  byte // '#' for an id of a save, '@' for a transfer id of the console's file
 }
 
 // RewriteRefs returns text with every string that is a whole reference replaced by what fn answers for it. Everything else in the text, to the byte, is left as it was (the order
@@ -32,6 +40,15 @@ type Ref struct {
 // reference inside a longer text, a nesting deeper than MaxJSONDepth, or a reference whose number does not fit 64 bits is an error. fn returns the whole replacement string, such as
 // "!!act#40", or an error to stop.
 func RewriteRefs(text string, fn func(Ref) (string, error)) (string, error) {
+	return rewriteRefs(text, refString, refInside, 2, fn)
+}
+
+// RewriteMarked is RewriteRefs for a text that may hold references of both forms, "!!act#12" and "!!act@12"; fn is told which one it has (Ref.Sep).
+func RewriteMarked(text string, fn func(Ref) (string, error)) (string, error) {
+	return rewriteRefs(text, markedString, markedInside, 3, fn)
+}
+
+func rewriteRefs(text string, whole, inside *regexp.Regexp, numGroup int, fn func(Ref) (string, error)) (string, error) {
 	var out strings.Builder
 	depth := 0
 	last := 0
@@ -66,21 +83,25 @@ func RewriteRefs(text string, fn func(Ref) (string, error)) (string, error) {
 				}
 			}
 			if strings.Contains(s, "!!") {
-				m := refString.FindStringSubmatch(s)
+				m := whole.FindStringSubmatch(s)
 				switch {
 				case m != nil:
-					n, err := strconv.ParseInt(m[2], 10, 64)
+					n, err := strconv.ParseInt(m[numGroup], 10, 64)
 					if err != nil {
 						return "", fmt.Errorf("the reference %q has a number that does not fit", clip(s))
 					}
-					repl, err := fn(Ref{Kind: m[1], ID: n})
+					sep := byte('#')
+					if numGroup == 3 {
+						sep = m[2][0]
+					}
+					repl, err := fn(Ref{Kind: m[1], ID: n, Sep: sep})
 					if err != nil {
 						return "", err
 					}
 					out.WriteString(text[last : i+1])
 					out.WriteString(repl)
 					last = j
-				case refInside.MatchString(s):
+				case inside.MatchString(s):
 					return "", fmt.Errorf("the text %q holds a reference to an id inside other text, which cannot be rewritten safely", clip(s))
 				}
 			}

@@ -1120,6 +1120,7 @@ function baseImportPanel() {
   if (b.err) return html`<div class="info" role="alert" id="baseImportPanel"><b class="bad">${b.name}</b>: ${b.err} <button class="b sec sm" data-act="baseImportCancel">Dismiss</button></div>`;
   const p = b.pv, s = p.summary, n = (v) => Number(v).toLocaleString();
   return html`<div class="info" role="status" id="baseImportPanel"><b>${b.name}: ${p.name}</b>
+    ${p.from ? html`<p>${p.from}</p>` : ''}
     <p>Would add a new base backup of ${n(s.actors)} actors, ${n(s.pieces)} building pieces, ${n(s.placeables)} placeables and ${n(s.storedItems)} stored items (${n(s.rows)} rows) for ${p.owner.character}. Nothing in the save has changed.</p>
     ${p.warnings.length ? html`<ul>${p.warnings.map((w) => html`<li class="warn">${w}</li>`)}</ul>` : ''}
     <div class="row"><button class="b" data-act="baseImportGo">${p.patchesDiffer ? 'Import anyway' : 'Import'}</button><button class="b sec" data-act="baseImportCancel">Cancel</button></div></div>`;
@@ -1135,7 +1136,8 @@ async function baseBackupsCard() {
     <div class="row"><label>Import a base file <input type="file" id="baseFile"></label></div>
     ${baseImportPanel()}
     ${about('bases.backups', 'Base backups', html`<p class="mut">A base backup is what the game's base tool leaves when you pick a base up: its buildings stay in the save and the claim is gone. Export saves one as a <b>tabr-tau-base</b> file (version 1) with every row of the base and its original ids, a manifest of the counts, and a checksum. It only reads the save and changes nothing in it.</p>
-      <p class="mut">Import reads a file like that and adds its base to this save as a new base backup, for the game's Base Reconstruction Tool to place; the editor does not put the pieces in the world. Choosing a file shows what would be added and changes nothing; Import then writes it as one edit, after a backup (or queued while the game runs). Every id in the file gets a new one, the character of this save becomes the owner, and nothing already in the save is changed or replaced. A file that is not a good base file is refused whole. Importing the same file twice adds two backups.</p>`)}</div>`;
+      <p class="mut">Import reads a file like that and adds its base to this save as a new base backup, for the game's Base Reconstruction Tool to place; the editor does not put the pieces in the world. Choosing a file shows what would be added and changes nothing; Import then writes it as one edit, after a backup (or queued while the game runs). Every id in the file gets a new one, the character of this save becomes the owner, and nothing already in the save is changed or replaced. A file that is not a good base file is refused whole. Importing the same file twice adds two backups.</p>
+      <p class="mut">A <b>dune-base-backup</b> file, the base backup export of the self-hosted Dune console, is read the same way: the editor turns it into the same rows (the transform lists become plain columns, the console's ids become new ids), says in the preview that it came from the console, and refuses the whole file for anything it cannot place in a save (market, sinkchart or Solido entries, a field it does not know).</p>`)}</div>`;
 }
 
 let bsTab = 'power', bsOpen = null, bsGroup = 'storage';
