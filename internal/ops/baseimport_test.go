@@ -791,6 +791,9 @@ func TestPreviewWarnsAboutWhatTheEditorChanges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if r.(map[string]any)["patchesDiffer"] != true {
+		t.Error("the preview does not say that the patches differ")
+	}
 	w := strings.Join(r.(map[string]any)["warnings"].([]string), "\n")
 	for _, want := range []string{"1 of 4 actors in the file were not in the picked-up state", "1 references to an actor that is not in the file", "NoSuchThing",
 		"map DeepDesert_1", "had 1 game patches applied; this save has 2"} {
@@ -801,7 +804,7 @@ func TestPreviewWarnsAboutWhatTheEditorChanges(t *testing.T) {
 	// the same patches: no warning about them
 	o2 := target(t, `insert into applied_patches(name,date) values ('P_ONE',1790000001);`)
 	r2, _ := o2.PreviewBaseImport(data)
-	if strings.Contains(strings.Join(r2.(map[string]any)["warnings"].([]string), "\n"), "game patches") {
+	if r2.(map[string]any)["patchesDiffer"] != false || strings.Contains(strings.Join(r2.(map[string]any)["warnings"].([]string), "\n"), "game patches") {
 		t.Error("a warning about patches for the same patches")
 	}
 	// after the import the state is 5 whatever the file said

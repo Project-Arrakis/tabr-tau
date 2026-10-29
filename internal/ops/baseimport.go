@@ -618,7 +618,9 @@ func importBaseTx(m *save.Mut, b *basefile.Base, p player, dry bool) (map[string
 			names = append(names, s)
 		}
 	}
+	patchesDiffer := false
 	if src := b.File.Manifest.Source.Patches; src.Checksum != "" && src.Checksum != patchesChecksum(names) {
+		patchesDiffer = true
 		warns = append(warns, fmt.Sprintf("The save the file came from had %d game patches applied; this save has %d, and they are not the same set. The game may have changed how it stores a base; the editor cannot say whether the game loads it.", src.Count, len(names)))
 	}
 	if n := noRoleActors(T); n > 0 {
@@ -637,8 +639,8 @@ func importBaseTx(m *save.Mut, b *basefile.Base, p player, dry bool) (map[string
 		},
 		"owner":      map[string]any{"controller": ctl, "character": p.Name, "rows": owners},
 		"references": map[string]any{"rewritten": refKinds, "toNone": toNone, "nullKept": nullStayed},
-		"warnings":   warns,
-		"fileHash":   b.Hash,
+		"warnings":   warns, "patchesDiffer": patchesDiffer,
+		"fileHash": b.Hash,
 		"file": map[string]any{"format": b.File.Format, "version": b.File.Version, "kind": b.File.Kind, "exportedAt": b.File.ExportedAt, "editor": b.File.Editor,
 			"backupId": strconv.FormatInt(b.File.Manifest.Backup.ID, 10)},
 	}

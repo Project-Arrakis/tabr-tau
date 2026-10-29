@@ -458,12 +458,7 @@ func allowLongWrite(w http.ResponseWriter) {
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(editWriteWindow)) // a writer that cannot set one keeps the server's timeout
 }
 
-// postArgs reads the JSON object of a POST; when the body is not one it has answered already and says so.
-func postArgs(w http.ResponseWriter, r *http.Request) (ops.Args, bool) {
-	return postArgsMax(w, r, 4<<20)
-}
-
-// postArgsMax is postArgs for a route that takes a larger body (a base file is up to 16 MiB of text, which JSON makes a little longer).
+// postArgsMax reads the JSON object of a POST, a body of up to max bytes (4 MiB for most routes, more for a base file); when the body is not one it has answered already and says so.
 func postArgsMax(w http.ResponseWriter, r *http.Request, max int64) (ops.Args, bool) {
 	a := ops.Args{}
 	r.Body = http.MaxBytesReader(w, r.Body, max)
