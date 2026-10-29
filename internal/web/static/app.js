@@ -349,6 +349,9 @@ function keepQueue() {
 
 // ---------- status bar
 let saveBlocked = false, saveBlockWhy = '', offline = false, lastDirty = false;
+// The open file is not the game's own save (a copy): said in the header, the tab title and the banner, so a copy is never taken for the live save (#498). The native window's title says the same.
+const NOT_LIVE = 'NOT LIVE: a copy';
+let notLive = false;
 let gwKey = '', lastPending = []; // the banner as last drawn, and the queued changes in words
 const KEEP = { qlist: false, raw: false, vcparts: false }; // which of the banner's toggles are open: kept across redraws
 // The reasons the editor gives for not writing, as a sentence. The wording the tools and checks use stays available under Details.
@@ -360,6 +363,7 @@ function humanReason(raw) {
   const map = (text) => ({ text, raw: r });
   if (L.startsWith('could not check whether the game is running')) return map('Could not tell whether Dune: Awakening is running.');
   if (L.includes('cannot tell whether the game is using it')) return map('This save is on a network share or a removable drive, so the editor cannot tell whether the game is using it.');
+  if (L.includes('cannot be sure that no other program or computer is writing this file')) return map('This file is on a network share or a removable drive, so the editor cannot be sure that no other program or computer is writing it.');
   if (L.includes('the game saved while the edits were being written')) return map('The game saved while the changes were being written; they are put back onto its file next.');
   return { text: endSentence(capFirst(r)), raw: '' };
 }
@@ -401,7 +405,13 @@ async function status() {
   lastDirty = !!o.dirty;
   saveBlockWhy = o.blockReason || '';
   $('#path').textContent = String(o.path || '').split(/[\\/]/).pop();
-  $('#path').title = o.path || '';
+  notLive = o.live === false;
+  $('#path').title = (notLive ? "Not the game's save: " : '') + (o.path || '');
+  const nl = $('#notlive');
+  nl.classList.toggle('hide', !notLive);
+  nl.textContent = notLive ? NOT_LIVE : '';
+  nl.title = notLive ? "This file is not the game's save. Edits are written at once and do not reach the game unless it is installed as its game.db." : '';
+  if (document.title !== pageTitle()) document.title = pageTitle();
   const gw = $('#gamewarn');
   const q = o.pending.length;
   const last = o.lastWrite;
@@ -412,7 +422,9 @@ async function status() {
   const restored = o.restored && (o.restored.applied > 0 || (o.restored.conflicts || []).length > 0) ? o.restored : null;
   // Some table is not defined as the editor expects (the game was probably updated): said at open and kept, editing continues.
   const schemaNote = o.schemaNote ? String(o.schemaNote) : '';
-  gw.className = saveBlocked || q || changed || restored || o.writeLogProblem ? 'warn' : schemaNote ? 'info' : 'hide';
+  gw.className = saveBlocked || q || changed || restored || o.writeLogProblem ? 'warn' : schemaNote || notLive ? 'info' : 'hide';
+  const gameFile = notLive ? 'the file' : 'the game file';
+  const notLiveMsg = notLive ? html`<div><b>This is a copy, not the game's save:</b> edits are written at once and do not reach the game unless this file is installed as its game.db. <span class="mono">${o.path}</span></div>` : html``;
   const changedMsg = changed ? html`<div><b>The game saved since this editor opened.</b> What you see here is out of date. <button class="b sm" data-act="reload">Reload now</button></div>` : html``;
   // One banner for the whole state. The reason is said once, as a sentence; the tool's own text, when the sentence replaces it, sits under Details.
   // An edit is written as it is made. While the file cannot be written (a single-player session is running, the location is not confirmed) edits are queued, and the queue is
@@ -426,7 +438,7 @@ async function status() {
   if (o.locationUnconfirmed) mainMsg = html`<div><b>Changes cannot be written here yet.</b> ${reason.text} You can keep editing: changes wait in the queue. <button class="b sm" data-act="confirmLocation">Allow writing here</button></div>`;
   else if (o.gameCheckError && saveBlocked) mainMsg = html`<div><b>Changes cannot be written.</b> ${reason.text}${q ? html` ${q} ${n('change waits', 'changes wait')} in the queue and ${n('is written by itself', 'are written by themselves')} once the check works.` : ''} The editor checks again by itself every few seconds. <button class="b sm" data-act="checkAgain">Check again</button> <button class="b sm" data-act="writeNow">Write now</button></div>`;
   else if (q && !o.held && last && last.stuck) mainMsg = html`<div><b>${q} queued change${n(' cannot', 's cannot')} be written.</b> The game saved after ${n('it was', 'they were')} made, and the editor did not keep ${n('it', 'them')}${o.journalOff ? ' (' + o.journalOff + ')' : ''}, so ${n('it', 'they')} cannot be put back onto the game's file, which is left as it is. Discard the queue and make ${n('the change', 'the changes')} again. <button class="b sm" data-act="discardQueue">Discard queue</button></div>`;
-  else if (q && !o.held) mainMsg = html`<div><b>${q} change${n(' is', 's are')} queued.</b> ${reason.text} ${n('It is written to the game file by itself', 'They are written to the game file by themselves')} as soon as it can be written. <button class="b sm" data-act="writeNow">Write now</button></div>`;
+  else if (q && !o.held) mainMsg = html`<div><b>${q} change${n(' is', 's are')} queued.</b> ${reason.text} ${n('It is written to ' + gameFile + ' by itself', 'They are written to ' + gameFile + ' by themselves')} as soon as it can be written. <button class="b sm" data-act="writeNow">Write now</button></div>`;
   else if (saveBlocked && !q) mainMsg = html`<div><b>Changes you make now are queued.</b> ${reason.text} They are written by themselves as soon as that clears.</div>`;
   // what became of the edits an earlier run (or a reload) put back, and the plain fact when they are not being kept
   // A change that could not be put back is dropped for good: its notice stays, even after the others are written, until it is dismissed.
@@ -442,7 +454,7 @@ async function status() {
   const listMsg = q ? html`<details class="bn-list" ${KEEP.qlist ? 'open' : ''}><summary data-keep="qlist">What is queued (${q})</summary><ul>${lines.map((l) => html`<li>${l}</li>`)}</ul></details>` : html``;
   const rawMsg = reason.raw ? html`<details class="bn-raw" ${KEEP.raw ? 'open' : ''}><summary data-keep="raw">Details (include this if you report a problem)</summary><div class="mono">${reason.raw}</div></details>` : html``;
   lastPending = lines;
-  const banner = html`${changedMsg}${heldMsg}${mainMsg}${restoredMsg}${schemaMsg}${journalMsg}${logMsg}${listMsg}${rawMsg}`;
+  const banner = html`${notLiveMsg}${changedMsg}${heldMsg}${mainMsg}${restoredMsg}${schemaMsg}${journalMsg}${logMsg}${listMsg}${rawMsg}`;
   // redrawn only when it changed: a redraw every few seconds would take the keyboard focus off its buttons
   const key = String(banner).replace(/ ?open>/g, '>').replace(/ >/g, '>'); // a toggle the person opened is already open in the page: that alone is no reason to redraw
   if (key !== gwKey) { gwKey = key; setHTML(gw, banner); }
@@ -1535,7 +1547,7 @@ function pageTitle() {
     if (p) parts.push(p[1]);
   }
   if (parts[0] !== 'Tabr Tau') parts.push('Tabr Tau');
-  return parts.join(' - ');
+  return (notLive ? NOT_LIVE + ' - ' : '') + parts.join(' - ');
 }
 // The page is drawn again after almost every action, which destroys the control that had the keyboard focus. focusSpec notes which control it was
 // (by id, or by its data-* attributes and label) and refocus gives the focus back to the same control in the new page, unless something else took it

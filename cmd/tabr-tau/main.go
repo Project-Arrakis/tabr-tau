@@ -188,6 +188,9 @@ func main() {
 	}
 	bootURL := ws.BootURL(base) // single use, valid for 10 minutes; sets this browser's session cookie
 	fmt.Printf("tabr-tau %s\n  save:   %s\n  config: %s\n  ui:     %s\n", version, s.Path, *cfgDir, bootURL)
+	if !save.IsGamesOwnSave(s.Path) {
+		fmt.Println("  note:   " + notLiveLabel + ": this is not the game's save; edits are written at once and do not reach the game unless this file is installed as its game.db")
+	}
 	srv := web.NewHTTPServer(ws.Handler())
 	if window {
 		// Serve in the background and show the editor in its own window; closing the window ends the program.
@@ -205,7 +208,7 @@ func main() {
 			}
 			return gui.Confirm("TABR TAU", "Some changes are queued because the game is running and have not been written to your save yet. They are kept and written the next time the editor runs with the game closed.\n\nClose now?")
 		}
-		err := gui.Run(bootURL, "TABR TAU - Dune: Awakening save editor", 1280, 860, confirmClose)
+		err := gui.Run(bootURL, windowTitle(s.Path), 1280, 860, confirmClose)
 		if err == nil {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
@@ -229,6 +232,18 @@ func main() {
 	if err := srv.Serve(ln); err != nil {
 		die("error: %v", err)
 	}
+}
+
+// notLiveLabel is what the header, the tab title, the window title and the banner call a save that is not the game's own (the page has the same words).
+const notLiveLabel = "NOT LIVE: a copy"
+
+// windowTitle is the title of the native window. For a save that is not the game's own it says so, with the path, ahead of the product name (#498); for the game's own save it is
+// what it always was.
+func windowTitle(savePath string) string {
+	if save.IsGamesOwnSave(savePath) {
+		return "TABR TAU - Dune: Awakening save editor"
+	}
+	return "TABR TAU - " + notLiveLabel + " - " + savePath + " - Dune: Awakening save editor"
 }
 
 // newWebServer builds the editor's server and sets up what the settings ask for when the editor opens (the optional refill): the pass does not start at once but after
