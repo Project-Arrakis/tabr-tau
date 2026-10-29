@@ -212,6 +212,10 @@ var (
 // GameStateFor decides for the save at savePath. fresh bypasses the process cache (writes use it).
 // Anything it cannot establish blocks the write: a guess must not decide.
 func GameStateFor(savePath string, fresh bool) GameState {
+	// A file the game could not have loaded is not protected by the game's state (#498): no process list, no log, no wait. The location rule below still applies to it.
+	if !IsGamesOwnSave(savePath) {
+		return copyState(savePath)
+	}
 	g := processState(savePath, fresh)
 	if g.Blocked {
 		return g
@@ -222,6 +226,21 @@ func GameStateFor(savePath string, fresh bool) GameState {
 			Reason: why + ", so this computer cannot tell whether the game is using it (here or on another computer); confirm that the game is closed everywhere that can open this save to allow saving"}
 	}
 	return g
+}
+
+// copyState is GameStateFor for a save that is not the game's own (#498): the game's processes, log and handle are not asked, because the game does not open this file, so
+// edits are written at once. What stays is the location rule for a place other programs or computers may write (a network share, a removable drive); the folder rule
+// ("not the game's own folder") is the point of a copy and is not applied.
+func copyState(savePath string) GameState {
+	why := locationFor(savePath)
+	if why == notInGameFolderWhy {
+		why = copyDriveProblem(savePath)
+	}
+	if why != "" && !locationConfirmed(savePath) {
+		return GameState{Blocked: true, NeedsConfirm: true, Mode: "unknown",
+			Reason: why + ", so the editor cannot be sure that no other program or computer is writing this file; confirm that nothing else is using it to allow saving"}
+	}
+	return GameState{Mode: "not_live"}
 }
 
 // processState is the part of GameStateFor that looks at the game's processes, log and the save file on this computer. With no Dune process the save may be written. With one,

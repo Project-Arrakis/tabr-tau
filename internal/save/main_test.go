@@ -26,6 +26,7 @@ var defaultLocationFor = locationFor
 // guard's other rules should not need one. Tests of the location rule put the real check back.
 func TestMain(m *testing.M) {
 	locationFor = func(string) string { return "" }
+	ownSaveFor = func(string) bool { return true } // a test save is the game's own unless the test puts the real rule back (#498)
 	syncFile = func(*os.File) error { return nil } // see realSyncFile
 	// The tests make decoded copies and sweep the temp folder for stale ones: they do it in a folder of their own, never in the developer's.
 	tmp, err := os.MkdirTemp("", "tabr-tau-save-tests-")

@@ -100,6 +100,17 @@ With the game closed, import the file into a **copy** of the save (the editor ma
 7. **A console file:** does the Base Reconstruction Tool list the base backup imported from a real console export of a base, and does redeploy work (the pieces, placeables and the 21 stored items present, the claim established)? Pieces were written with the console's positions and rotations as plain columns.
 8. The console file's actors were in dimension 2 and were written in dimension 0 (the character's): did the base appear where it was exported?
 
+## Testing the import while the game is open (#498)
+
+A save that is not the game's own file is written at once even while the game runs, so a base can be imported into a **copy** and the result looked at without closing the game:
+
+1. Copy the save to a folder outside `%LOCALAPPDATA%\DuneSandbox\Saved\Cloud\PlayerClientStorage\` and start the editor on the copy: `tabr-tau.exe --save <copy>`.
+2. The header must say **NOT LIVE: a copy** between TABR TAU and the file name, and the banner must say the file is a copy and give its path.
+3. Import a base file (or make any edit): the copy's file changes at once (a backup is made first), nothing is queued.
+4. Open the game's own save with the game running: edits are still queued ("a single-player session is active"), and the header carries no such word.
+
+The copy reaches the game only if it is installed as its `game.db` with the game closed.
+
 ## What has been checked
 
 Tests on made-up saves of the shape of a real pick-up (the same save, a save with no base, a save whose id counters are high), the round trip (export, import, export again: the tables
