@@ -331,7 +331,7 @@ func TablesChecksum(tables []byte) (string, error) {
 
 // Assemble is the file: the header fields, the manifest (with the checksum of tables filled in) and the tables, laid out for a person to read. tables is the JSON object of the
 // tables, already built.
-func Assemble(kind string, at time.Time, editor string, m Manifest, tables []byte) ([]byte, error) {
+func Assemble(kind string, at time.Time, editor string, m Manifest, tables []byte, maxBytes int) ([]byte, error) {
 	sum, err := TablesChecksum(tables)
 	if err != nil {
 		return nil, err
@@ -370,8 +370,8 @@ func Assemble(kind string, at time.Time, editor string, m Manifest, tables []byt
 	out.WriteString(",\n  \"tables\": ")
 	out.Write(tables)
 	out.WriteString("\n}\n")
-	if out.Len() > MaxFileBytes {
-		return nil, fmt.Errorf("the file would be %.1f MiB; the most a base file holds is %d MiB", float64(out.Len())/(1<<20), MaxFileBytes>>20)
+	if out.Len() > maxBytes {
+		return nil, fmt.Errorf("the file would be %d bytes; the most a base file holds is %s", out.Len(), sizeWords(maxBytes))
 	}
 	return out.Bytes(), nil
 }
@@ -506,4 +506,12 @@ func clip(s string) string {
 		return string(r[:40]) + "..."
 	}
 	return s
+}
+
+// sizeWords says a size limit in the unit a person reads: whole MiB when it is one, else bytes.
+func sizeWords(n int) string {
+	if n >= 1<<20 && n%(1<<20) == 0 {
+		return fmt.Sprintf("%d MiB", n>>20)
+	}
+	return fmt.Sprintf("%d bytes", n)
 }

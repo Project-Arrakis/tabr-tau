@@ -108,12 +108,12 @@ func (o *Ops) ExportBaseBackup(id int64, at time.Time, editor string) (*BaseExpo
 	total := 0
 	for i, t := range basefile.Tables {
 		// One more row than a file may hold, so that a base over the limit is seen without reading all of it.
-		_, rows, err := o.S.Table(`select ` + t.SelectList() + ` from ` + t.Name + ` where ` + t.ScopeSQL(id) + ` order by ` + t.Order + ` limit ` + strconv.Itoa(basefile.MaxRows+1))
+		_, rows, err := o.S.Table(`select ` + t.SelectList() + ` from ` + t.Name + ` where ` + t.ScopeSQL(id) + ` order by ` + t.Order + ` limit ` + strconv.Itoa(exportRowCap+1))
 		if err != nil {
 			return nil, err
 		}
-		if total += len(rows); total > basefile.MaxRows {
-			return nil, apierr.Newf(apierr.ErrBadArgument, "This base backup holds more than %d rows, more than a base file may hold. Nothing was exported.", basefile.MaxRows)
+		if total += len(rows); total > exportRowCap {
+			return nil, apierr.Newf(apierr.ErrBadArgument, "This base backup holds more than %d rows, more than a base file may hold. Nothing was exported.", exportRowCap)
 		}
 		got[i] = exportedTable{t, rows}
 	}
@@ -149,7 +149,7 @@ func (o *Ops) ExportBaseBackup(id int64, at time.Time, editor string) (*BaseExpo
 	if err != nil {
 		return nil, err
 	}
-	data, err := basefile.Assemble(basefile.KindBackup, at, editor, m, tables.Bytes())
+	data, err := basefile.Assemble(basefile.KindBackup, at, editor, m, tables.Bytes(), exportByteCap)
 	if err != nil {
 		return nil, apierr.Newf(apierr.ErrBadArgument, "The base backup cannot be exported: %v. Nothing was exported.", err)
 	}
@@ -384,3 +384,10 @@ func (o *Ops) baseManifest(id int64, name string, tabs []exportedTable) (basefil
 	}
 	return m, nil
 }
+
+// The limits of a file. They are variables only so that a test can lower them and reach the refusal in milliseconds, instead of building a base of 250,000 rows or 16 MiB; nothing
+// else changes them.
+var (
+	exportRowCap  = basefile.MaxRows
+	exportByteCap = basefile.MaxFileBytes
+)

@@ -348,7 +348,6 @@ func TestExportNameIsCarriedAsTextNotMarkup(t *testing.T) {
 }
 
 func TestExportRefusals(t *testing.T) {
-	bigJSON := `jsonb('{"a":"' || replace(hex(zeroblob(9000000)),'0','a') || '"}')`
 	cases := []struct {
 		name  string
 		world []string
@@ -363,16 +362,9 @@ func TestExportRefusals(t *testing.T) {
 		{"an inventory of an item", []string{`insert into inventories(id,actor_id,item_id,inventory_type) values (7100,701,9001,3);`}, 1, "belongs to an item", apierr.ErrBadArgument},
 		{"a number that is not finite", []string{`update building_instances set health=9e999 where building_id=602 and instance_id=1;`}, 1, "health holds a number that is not finite", apierr.ErrBadArgument},
 		{"JSON that is not valid", []string{`update fgl_entities set components=x'0102ff' where entity_id=5764607523034234881;`}, 1, "components holds data that is not valid JSON", apierr.ErrBadArgument},
-		{"a file over the size limit", []string{`update fgl_entities set components=` + bigJSON + ` where entity_id=5764607523034234881;`,
-			`update fgl_entities set components=` + bigJSON + ` where entity_id=5764607523034234882;`}, 1, "the most a base file holds is 16 MiB", apierr.ErrBadArgument},
-		{"more rows than a file holds", []string{`with recursive c(n) as (select 1 union all select n+1 from c where n<250001) insert into building_instances(building_id,instance_id,building_type) select 602, n+10, 'F' from c;`},
-			1, "more than 250000 rows", apierr.ErrBadArgument},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if testing.Short() && (strings.Contains(c.name, "size limit") || strings.Contains(c.name, "more rows")) {
-				t.Skip("a large save")
-			}
 			o := exportOps(t, c.world...)
 			out, err := o.ExportBaseBackup(c.id, exportAt, "x")
 			if err == nil {
@@ -583,5 +575,45 @@ func TestExportDoesNotWarnAboutAnEmptyInventoryOfAStoredItem(t *testing.T) {
 	}
 	if f.Manifest.NotCarried != (basefile.NotCarried{InventoriesOfStoredItems: 1}) || strings.Contains(strings.Join(f.Manifest.Warnings, "|"), "belong to stored items") {
 		t.Fatalf("%+v %v", f.Manifest.NotCarried, f.Manifest.Warnings)
+	}
+}
+
+// The limits of a file are checked with the caps lowered, so that the refusals are reached in milliseconds and no query comes near its time limit; the real values are asserted once.
+func TestExportLimitsAreTheDocumentedOnes(t *testing.T) {
+	if exportRowCap != 250000 || basefile.MaxRows != 250000 || exportByteCap != 16<<20 || basefile.MaxFileBytes != 16<<20 {
+		t.Fatalf("limits: %d rows, %d bytes", exportRowCap, exportByteCap)
+	}
+}
+
+func TestExportRefusesMoreRowsThanAFileMayHold(t *testing.T) {
+	old := exportRowCap
+	exportRowCap = 50
+	t.Cleanup(func() { exportRowCap = old })
+	o := exportOps(t, `with recursive c(n) as (select 1 union all select n+1 from c where n<60) insert into building_instances(building_id,instance_id,building_type) select 602, n+10, 'F' from c;`)
+	_, err := o.ExportBaseBackup(1, exportAt, "x")
+	if err == nil || !strings.Contains(err.Error(), "more than 50 rows") || !errors.Is(err, apierr.ErrBadArgument) {
+		t.Fatalf("error: %v", err)
+	}
+	if o.S.Dirty() || len(o.S.Ops()) != 0 {
+		t.Fatal("a refused export changed the save")
+	}
+	exportRowCap = 5000 // a few rows under the cap are fine
+	if _, err := o.ExportBaseBackup(1, exportAt, "x"); err != nil {
+		t.Fatalf("under the cap: %v", err)
+	}
+}
+
+func TestExportRefusesAFileOverTheSizeLimit(t *testing.T) {
+	old := exportByteCap
+	exportByteCap = 3000
+	t.Cleanup(func() { exportByteCap = old })
+	o := exportOps(t)
+	_, err := o.ExportBaseBackup(1, exportAt, "x")
+	if err == nil || !strings.Contains(err.Error(), "the most a base file holds is 3000 bytes") || !errors.Is(err, apierr.ErrBadArgument) {
+		t.Fatalf("error: %v", err)
+	}
+	exportByteCap = 16 << 20
+	if _, err := o.ExportBaseBackup(1, exportAt, "x"); err != nil {
+		t.Fatalf("under the cap: %v", err)
 	}
 }
