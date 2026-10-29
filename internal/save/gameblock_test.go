@@ -17,7 +17,8 @@ import (
 
 // #419: the editor's automatic pass wrote the save at the character-selection screen, 23 seconds after the player left the world, while the game process was still
 // running. #419 then refused every write while a game process exists; #449 relaxed that for edits made by hand and for restoring a backup: they are written when the
-// evidence says the game is at its menu with the save unloaded (spsession.go, processState), and queued otherwise. The pass at launch never writes while a process exists.
+// evidence says the game is at its menu with the save unloaded (spsession.go, processState), and queued otherwise. The pass at launch has the same rule since #499 (it
+// writes through Flush).
 
 // gameSituations are the ways a game process can be there that must NOT let a write through.
 var gameSituations = map[string]func(t *testing.T){
@@ -63,11 +64,8 @@ var menuSituations = map[string]func(t *testing.T){
 // writeEntryPoints lists every route by which the editor can put bytes into the save file. A new route must be added here, and
 // TestTheSaveFileHasOneWriterBehindTheGate fails when the code has a route this list does not know about.
 var writeEntryPoints = map[string]func(t *testing.T, s *Save, p string, backup string) (wrote bool){
-	"Flush (the automatic write after every edit and the 3 s retry)": func(t *testing.T, s *Save, _ string, _ string) bool {
+	"Flush (the automatic write after every edit and the 3 s retry, and the pass at launch)": func(t *testing.T, s *Save, _ string, _ string) bool {
 		return s.Flush().Saved
-	},
-	"FlushAutoPass (the pass at launch)": func(t *testing.T, s *Save, _ string, _ string) bool {
-		return s.FlushAutoPass().Saved
 	},
 	"commit quick (what Flush calls)": func(t *testing.T, s *Save, _ string, _ string) bool {
 		res, err := s.commit(true)
@@ -150,9 +148,6 @@ func TestTheQueuedEditIsWrittenWhenTheEvidenceAllows(t *testing.T) {
 func TestWriteRoutesWriteAtTheMenuWhenTheEvidenceAllows(t *testing.T) {
 	for sname, setup := range menuSituations {
 		for ename, enter := range writeEntryPoints {
-			if strings.HasPrefix(ename, "FlushAutoPass") {
-				continue // the pass at launch never writes while a game process exists (TestTheAutomaticPassNeverWritesWhileAGameProcessExists)
-			}
 			t.Run(sname+" / "+ename, func(t *testing.T) {
 				p := makeSave(t, `create table t(a integer);`)
 				s, err := Open(p)
@@ -186,42 +181,6 @@ func TestWriteRoutesWriteAtTheMenuWhenTheEvidenceAllows(t *testing.T) {
 				}
 			})
 		}
-	}
-}
-
-// The automatic pass at launch never writes while any game process exists, however clean the evidence at the menu is; with no process it writes.
-func TestTheAutomaticPassNeverWritesWhileAGameProcessExists(t *testing.T) {
-	for sname, setup := range menuSituations {
-		t.Run(sname, func(t *testing.T) {
-			p := makeSave(t, `create table t(a integer);`)
-			s, _ := Open(p)
-			defer s.Close()
-			s.ExecScript(`insert into t values (1)`)
-			setup(t)
-			before, _ := os.ReadFile(p)
-			f := s.FlushAutoPass()
-			if f.Saved || f.Queued != 1 || !strings.Contains(f.Why, "automatic refill waits for the game to close") {
-				t.Fatalf("the pass wrote or gave another reason: %+v", f)
-			}
-			if after, _ := os.ReadFile(p); !bytes.Equal(before, after) {
-				t.Fatal("the save file changed")
-			}
-			if s.autoPass.Load() {
-				t.Fatal("the automatic-pass mark must be cleared when the write attempt ends")
-			}
-			// the same queue is an ordinary edit for the next ordinary write
-			if f := s.Flush(); !f.Saved {
-				t.Fatalf("the ordinary write at the menu: %+v", f)
-			}
-		})
-	}
-	p := makeSave(t, `create table t(a integer);`)
-	s, _ := Open(p)
-	defer s.Close()
-	s.ExecScript(`insert into t values (1)`)
-	fakeGame(t, nil, "", spStatus{}, nil)
-	if f := s.FlushAutoPass(); !f.Saved {
-		t.Fatalf("with no game process the pass writes: %+v", f)
 	}
 }
 
@@ -325,7 +284,7 @@ func TestTheSaveFileHasOneWriterBehindTheGate(t *testing.T) {
 	// who may reach installBlob, and who may call commit (Flush is the automatic write; CommitForTests only in tests)
 	wantExact := map[string][]string{
 		"installBlob": {"internal/save.Restore", "internal/save.commit"},
-		"commit":      {"internal/save.CommitForTests", "internal/save.flush"},
+		"commit":      {"internal/save.CommitForTests", "internal/save.Flush"},
 		"renameRetry": {"internal/save.installBlob"},
 	}
 	for name, want := range wantExact {

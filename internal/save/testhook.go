@@ -60,7 +60,7 @@ func ActiveSessionForTests() (restore func()) {
 }
 
 // GameAtMenuForTests makes the editor believe a Dune process is running while the game sits at its menu: the log shows a session that ended an hour ago and the game's last write
-// of the database just after it, and no program has the save file open. An edit made by hand is written then; the automatic pass at launch is not (#449). Test code calls it;
+// of the database just after it, and no program has the save file open. An edit made by hand is written then, and so is the automatic pass at launch (#449, #499). Test code calls it;
 // production code never does (the guard test fails if it does). It returns a function that puts the real check back.
 func GameAtMenuForTests() (restore func()) {
 	oldL, oldS, oldH := listProcs, statusFor, fileHeld

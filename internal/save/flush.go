@@ -59,16 +59,9 @@ func (s *Save) setLastFlush(f Flush) Flush {
 // since the edits were made, they are put back onto the newer file first. Otherwise they stay pending (they are kept across restarts, see the journal) and the next call
 // tries again. It is what the editor calls after every edit and every few seconds while edits are waiting, so there is no step where a person has to save. A call with
 // nothing pending changes nothing and returns the zero Flush.
-func (s *Save) Flush() Flush { return s.flush(false) }
-
-// FlushAutoPass is Flush for the automatic pass at launch: the same, except that nothing is written while any game process exists, whatever the evidence says about the menu.
-func (s *Save) FlushAutoPass() Flush { return s.flush(true) }
-
-func (s *Save) flush(autoPass bool) Flush {
+func (s *Save) Flush() Flush {
 	s.flushMu.Lock()
 	defer s.flushMu.Unlock()
-	s.autoPass.Store(autoPass)
-	defer s.autoPass.Store(false)
 	s.mu.Lock()
 	// A write that could not be read back is settled first: if the file is the one that was written, those edits are done with and must not be put in a second time.
 	wrote, wroteBackup, settled := s.settleWrittenLocked()
