@@ -103,9 +103,39 @@ func TestProvenanceNamesTheCatalogCommitAndTheDuplicateRule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"82548d72", "ecffc834", "MTX_IxianTotem_Patent", "first entry", "UniqueThumper_02", "`group`", "`requiredSteamDlc`"} {
+	for _, want := range []string{"82548d72", "ecffc834", "MTX_IxianTotem_Patent", "a9d50345", "739ecaef", "MTX_HalloweenEvent_Skeleton_Patent", "first entry", "UniqueThumper_02", "`group`", "`requiredSteamDlc`"} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("PROVENANCE.md does not say %q", want)
 		}
+	}
+}
+
+// #495: the console's release v1.4.54 added the seven Halloween 2026 building sets. They are in the catalog, they are items of the game
+// (volumes.json is read from the game's tables), and the catalog holds one entry per id.
+func TestTheHalloween2026BuildingSetsAreInTheCatalog(t *testing.T) {
+	want := map[string]string{
+		"MTX_HalloweenEvent_Crucifixion_Patent":    "Decussate Cross",
+		"MTX_HalloweenEvent_Fleshtube_Patent":      "Flesh Sculpting Displays",
+		"MTX_HalloweenEvent_LightPole_Patent":      "Jury-Rigged Light Stand",
+		"MTX_HalloweenEvent_RadiationCrate_Patent": "Sealed Radiation Containment Chest",
+		"MTX_HalloweenEvent_RottingCorpse_Patent":  "Cadaverous Decorations",
+		"MTX_HalloweenEvent_Skeleton_Patent":       "Osseous Decorations",
+		"MTX_HalloweenEvent_VacumBodies_Patent":    "Vacuum-Sealed Body Display",
+	}
+	for id, name := range want {
+		if _, ok := Volume(id); !ok {
+			t.Errorf("%s is expected in the game's item tables (volumes.json); the test's premise is wrong", id)
+		}
+		e, ok := byID[id]
+		if !ok {
+			t.Errorf("%s is in the game's item tables but not in the catalog", id)
+			continue
+		}
+		if e.Name != name || e.Category != "buildings" || e.Source != "BuildingSets" {
+			t.Errorf("%s: %+v", id, e)
+		}
+	}
+	if len(entries) != 2566 || len(byID) != 2566 {
+		t.Errorf("the catalog holds %d entries and %d ids, want 2,566 of each (one entry per id)", len(entries), len(byID))
 	}
 }
