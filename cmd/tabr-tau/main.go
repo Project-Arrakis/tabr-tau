@@ -236,6 +236,7 @@ func main() {
 // can prove main does both.
 func newWebServer(s *save.Save, cfgDir, editorDir string, noAuto bool, launchDelay time.Duration) *web.Server {
 	ws := web.New(s, config.Dir{Path: cfgDir})
+	ws.EditorVersion = version
 	if editorDir != "" {
 		ws.KeepPendingEdits(editorDir) // before the startup tasks: the edits put back are pending, and the refill leaves a save with pending edits alone
 	}

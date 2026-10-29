@@ -519,3 +519,7 @@ header says the console took them from the game's area definitions. The Saved ma
 is near, by the area of the nearest map marker (the way the console labels its vehicles: `mapRegionNames` and `attachVehicleRegions` in
 `console/api/src/duneDb.js`; the code here is written anew). The game's names belong to their owners; this project is unofficial and not affiliated with or
 endorsed by Funcom.
+
+## Base file: which tables a base moves with, and the form of a reference: dune-awakening-selfhost-docker (RedBlink)
+
+`internal/basefile` lists the tables a picked-up base is made of (the base backup, its linked actors, the actors, entities, permission rows, inventories, items, buildings, pieces, placeables, totems and claim segments) and the form of a reference the game writes inside JSON (`!!act#12`, with `#0` as the null reference). Both follow what the Dune Docker console documents for its base backup export (`docs/console/base-backups.md` and `console/api/src/baseBackups.js` of https://github.com/Red-Blink/dune-awakening-selfhost-docker, MIT-licensed under the licence reproduced in the item catalog section above), checked against the rows of real single-player saves. No code or data file was copied: the file format (`tabr-tau-base`) and the code are written anew, and the console's own `dune-base-backup` file is not read. The game's table names belong to their owners; this project is unofficial and not affiliated with or endorsed by Funcom.

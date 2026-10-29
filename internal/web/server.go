@@ -63,6 +63,9 @@ type Server struct {
 	// session cookie to this port and the accepted Host header to this listener (NET-1, NET-2, SEC-7 of the 2026-10-15 audit).
 	bound string
 	port  string
+
+	// EditorVersion is written into a base file so that a file says which version of the editor made it ("" when the caller does not set it).
+	EditorVersion string
 }
 
 func New(s *save.Save, cfg config.Dir) *Server {
@@ -619,6 +622,7 @@ func (s *Server) routes() {
 		return map[string]any{"note": note, "warn": warn}, nil
 	})
 	s.kitRoutes()
+	s.baseBackupRoutes()
 	s.get("/api/catalog/items", func(r *http.Request) (any, error) { return catalog.All(), nil })
 	s.get("/api/save/state", func(r *http.Request) (any, error) { return o.State() })
 
