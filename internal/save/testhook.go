@@ -7,15 +7,25 @@ import "time"
 // init); production code never does. It returns a function that puts the real check back. A test that needs a running game
 // replaces listImages itself, as the tests in this package do.
 func NoGameRunningForTests() (restore func()) {
-	oldOS, oldRun, oldLoc := goos, listImages, locationFor
+	oldOS, oldRun, oldLoc, oldOwn := goos, listImages, locationFor, ownSaveFor
 	goos = "windows"
+	ownSaveFor = func(string) bool { return true }  // a test save lives in a temp folder; it counts as the game's own, as it did before #498, unless the test says otherwise
 	locationFor = func(string) string { return "" } // a test save lives in a temp folder
 	listImages = func() ([]string, error) { return []string{"explorer.exe"}, nil }
 	resetGameCache()
 	return func() {
-		goos, listImages, locationFor = oldOS, oldRun, oldLoc
+		goos, listImages, locationFor, ownSaveFor = oldOS, oldRun, oldLoc, oldOwn
 		resetGameCache()
 	}
+}
+
+// RealOwnSaveCheckForTests puts the real "is this the game's own save" rule back (NoGameRunningForTests makes every test save the game's own, so the many tests of the guard
+// keep testing the guard), so a test can show that a save outside the game's folder is written at once and one inside it still waits. Test code calls it; production code
+// never does (the guard test fails if it does). It returns a function that puts the previous rule back.
+func RealOwnSaveCheckForTests() (restore func()) {
+	old := ownSaveFor
+	ownSaveFor = gamesOwnSave
+	return func() { ownSaveFor = old }
 }
 
 func resetGameCache() {

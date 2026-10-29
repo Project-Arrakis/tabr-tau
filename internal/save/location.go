@@ -21,6 +21,15 @@ func locationProblem(savePath string) string {
 	if goos != "windows" {
 		return ""
 	}
+	p := locationPath(savePath)
+	if why := pathProblem(p); why != "" {
+		return why
+	}
+	return driveProblem(p)
+}
+
+// locationPath is the path as the location rules read it: absolute and with links resolved, on a Windows machine.
+func locationPath(savePath string) string {
 	p := savePath
 	if runtime.GOOS == "windows" { // the path rules of this machine apply only where the path is a Windows path
 		if abs, err := filepath.Abs(p); err == nil {
@@ -30,11 +39,20 @@ func locationProblem(savePath string) string {
 			p = real
 		}
 	}
-	if why := pathProblem(p); why != "" {
-		return why
-	}
-	return driveProblem(p)
+	return p
 }
+
+// copyDriveProblem is the part of locationProblem that pathProblem's "not the game's folder" answer hides: for a save that is not the game's own (a copy), whether the drive
+// it is on is a fixed local disk.
+func copyDriveProblem(savePath string) string {
+	if goos != "windows" {
+		return ""
+	}
+	return driveProblem(locationPath(savePath))
+}
+
+// notInGameFolderWhy is pathProblem's answer for a local path outside the game's own folder.
+const notInGameFolderWhy = `the save is not in the game's own Saved\Cloud\PlayerClientStorage folder`
 
 // pathProblem looks at the spelling of a Windows path only: a UNC path, or a place that is not
 // ...\Saved\Cloud\PlayerClientStorage\<service>\<id>\<file>. It does not depend on the system it runs on.
@@ -56,7 +74,7 @@ func pathProblem(p string) string {
 	}
 	n := len(parts)
 	if n < 6 || !strings.EqualFold(parts[n-6], "Saved") || !strings.EqualFold(parts[n-5], "Cloud") || !strings.EqualFold(parts[n-4], "PlayerClientStorage") {
-		return `the save is not in the game's own Saved\Cloud\PlayerClientStorage folder`
+		return notInGameFolderWhy
 	}
 	return ""
 }

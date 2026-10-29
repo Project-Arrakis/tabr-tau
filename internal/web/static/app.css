@@ -179,6 +179,8 @@ header .mark{width:24px;height:24px;color:var(--acc);flex:none}
 header h1{font-size:14px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--fg)}
 header .path{flex:0 1 260px;min-width:0;padding:3px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel2);text-align:center}
 header #pending{margin-left:auto;color:var(--acc2);font-weight:600}
+header #notlive{flex:none;font-weight:700;letter-spacing:.04em;white-space:nowrap}
+header #notlive.hide{display:none}
 nav{padding:0 20px;gap:2px}
 nav button{padding:13px 16px;font-weight:600;letter-spacing:.01em;border-bottom-width:3px}
 nav button.on{color:var(--fg)}

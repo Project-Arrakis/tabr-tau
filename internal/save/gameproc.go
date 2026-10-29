@@ -175,6 +175,16 @@ type GameCheck struct {
 // CheckGameNow makes the game check at once, never from the cache, and says what it found. It is what Write now and Check again call; the answer is also what the
 // status poll shows next (a failed check is replaced by the next one that works).
 func CheckGameNow(savePath string) GameCheck {
+	if !IsGamesOwnSave(savePath) {
+		g := GameStateFor(savePath, true)
+		c := GameCheck{Processes: []string{}, Blocked: g.Blocked}
+		if g.Blocked {
+			c.Message = "this file is not the game's save, so whether the game is running does not matter here, but " + g.Reason + ": edits will queue"
+		} else {
+			c.Message = "this file is not the game's save, so whether the game is running does not matter here: edits are written at once"
+		}
+		return c
+	}
 	g := GameStateFor(savePath, true)
 	c := GameCheck{Running: len(g.Processes) > 0, Blocked: g.Blocked, Processes: g.Processes, CheckError: g.CheckError}
 	if c.Processes == nil {

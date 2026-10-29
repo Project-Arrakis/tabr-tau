@@ -145,3 +145,26 @@ func TestMainBuildsTheServerThroughNewWebServer(t *testing.T) {
 		t.Fatalf("main must build the server with newWebServer (found %v) and not with web.New (found %v)", viaHelper, direct)
 	}
 }
+
+// The window title says when the open file is not the game's own save (#498), with the same words the page uses; for the game's own save it is the title it always had.
+func TestWindowTitleSaysWhenTheSaveIsNotLive(t *testing.T) {
+	defer save.RealOwnSaveCheckForTests()()
+	local := t.TempDir()
+	t.Setenv("LOCALAPPDATA", local)
+	own := filepath.Join(local, "DuneSandbox", "Saved", "Cloud", "PlayerClientStorage", "FLS_retail", "1", "game.db")
+	if got := windowTitle(own); got != "TABR TAU - Dune: Awakening save editor" || strings.Contains(strings.ToLower(got), "copy") {
+		t.Fatalf("the game's own save keeps its title: %q", got)
+	}
+	copyPath := filepath.Join(t.TempDir(), "game.db")
+	got := windowTitle(copyPath)
+	if !strings.HasPrefix(got, "TABR TAU - NOT LIVE: a copy - "+copyPath) {
+		t.Fatalf("a copy is named in the title, with its path: %q", got)
+	}
+	b, err := os.ReadFile(filepath.Join("..", "..", "internal", "web", "static", "app.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "const NOT_LIVE = '"+notLiveLabel+"';") {
+		t.Fatal("the page and the window must use the same words: " + notLiveLabel)
+	}
+}

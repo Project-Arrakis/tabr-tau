@@ -144,6 +144,7 @@ func (o *Ops) State() (any, error) {
 	g := save.GameStateFor(o.S.Path, false)
 	return map[string]any{
 		"path": o.S.Path, "dirty": o.S.Dirty(), "pending": o.S.Pending(),
+		"live":        save.IsGamesOwnSave(o.S.Path), // false: not the game's own save (a copy); the page says so in the header, the title and the banner
 		"gameRunning": len(g.Processes) > 0, "gameProcesses": g.Processes, "gameCheckError": g.CheckError,
 		"saveBlocked": g.Blocked, "blockReason": g.Reason, "gameMode": g.Mode,
 		"readOnly": o.S.WriteBlocked(), "schemaNote": o.S.SchemaNote(), "changedOnDisk": o.S.ChangedOnDisk(), "locationUnconfirmed": g.NeedsConfirm,
