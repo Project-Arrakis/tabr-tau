@@ -399,7 +399,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 `internal/catalog/items.json` holds the template id, in-game name, category, source, required DLC and resource group of each item, taken from
 `runtime/data/admin-items.json` of https://github.com/Red-Blink/dune-awakening-selfhost-docker (first imported at commit
 db5d7f40, synced on 2026-10-09 with git blob 1bde840c, which adds each item's source and required DLC, and refreshed on 2026-10-25 from commit 82548d72, git blob ecffc834, which adds the Steam id of
-the required DLC and the group of a resource and the item `MTX_IxianTotem_Patent`, added in the project's release v1.4.52). That project is MIT-licensed; its licence is reproduced here as it requires. The game's item names
+the required DLC and the group of a resource and the item `MTX_IxianTotem_Patent`, added in the project's release v1.4.52, and refreshed on 2026-10-29 from commit a9d50345 of that project (release v1.4.54), git blob 739ecaef, which adds the seven Halloween 2026 building sets `MTX_HalloweenEvent_*_Patent`). That project is MIT-licensed; its licence is reproduced here as it requires. The game's item names
 themselves belong to their owners (Funcom); this project is unofficial and not affiliated with or endorsed by Funcom.
 
 ```text
