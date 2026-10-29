@@ -460,8 +460,13 @@ func allowLongWrite(w http.ResponseWriter) {
 
 // postArgs reads the JSON object of a POST; when the body is not one it has answered already and says so.
 func postArgs(w http.ResponseWriter, r *http.Request) (ops.Args, bool) {
+	return postArgsMax(w, r, 4<<20)
+}
+
+// postArgsMax is postArgs for a route that takes a larger body (a base file is up to 16 MiB of text, which JSON makes a little longer).
+func postArgsMax(w http.ResponseWriter, r *http.Request, max int64) (ops.Args, bool) {
 	a := ops.Args{}
-	r.Body = http.MaxBytesReader(w, r.Body, 4<<20)
+	r.Body = http.MaxBytesReader(w, r.Body, max)
 	if err := json.NewDecoder(r.Body).Decode(&a); err != nil && err.Error() != "EOF" {
 		respond(w, nil, apierr.New(apierr.ErrBadRequest, "invalid JSON body"))
 		return nil, false
@@ -469,10 +474,13 @@ func postArgs(w http.ResponseWriter, r *http.Request) (ops.Args, bool) {
 	return a, true
 }
 
-func (s *Server) post(path string, fn func(a ops.Args) (any, error)) {
+func (s *Server) post(path string, fn func(a ops.Args) (any, error)) { s.postMax(path, 4<<20, fn) }
+
+// postMax is post for a route whose body may be as large as max bytes.
+func (s *Server) postMax(path string, max int64, fn func(a ops.Args) (any, error)) {
 	s.mux.HandleFunc("POST "+path, func(w http.ResponseWriter, r *http.Request) {
 		allowLongWrite(w)
-		a, ok := postArgs(w, r)
+		a, ok := postArgsMax(w, r, max)
 		if !ok {
 			return
 		}

@@ -381,84 +381,95 @@ func Assemble(kind string, at time.Time, editor string, m Manifest, tables []byt
 // differ from the manifest, and a checksum that does not match the tables. It returns the file with nothing yet applied to any save. (Checking that every id a row names is in the file
 // belongs to the importer, which is a later step.)
 func Check(data []byte) (*File, error) {
-	if len(data) > MaxFileBytes {
-		return nil, fmt.Errorf("the file is larger than %d MiB: a base file is smaller", MaxFileBytes>>20)
+	f, _, err := check(data, MaxFileBytes, MaxRows)
+	return f, err
+}
+
+// Rowset is the rows of one table as the file holds them: one object per row, each cell still as its JSON text.
+type Rowset = []map[string]json.RawMessage
+
+// check is Check with the limits given (a test lowers them, see ops) and the rows of every table returned, so that a reader does not decode them a second time.
+func check(data []byte, maxBytes, maxRows int) (*File, map[string]Rowset, error) {
+	if len(data) > maxBytes {
+		return nil, nil, fmt.Errorf("the file is larger than %s: a base file is smaller", sizeWords(maxBytes))
 	}
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
 	var f File
 	if err := dec.Decode(&f); err != nil {
-		return nil, fmt.Errorf("this is not a base file: %w", friendly(err))
+		return nil, nil, fmt.Errorf("this is not a base file: %w", friendly(err))
 	}
 	if _, err := dec.Token(); err != io.EOF {
-		return nil, errors.New("this is not a base file: there is more after the first JSON object")
+		return nil, nil, errors.New("this is not a base file: there is more after the first JSON object")
 	}
 	if f.Format != Format {
-		return nil, fmt.Errorf("this is not a base file (its format is %q, not %q)", clip(f.Format), Format)
+		return nil, nil, fmt.Errorf("this is not a base file (its format is %q, not %q)", clip(f.Format), Format)
 	}
 	if f.Version != Version {
-		return nil, fmt.Errorf("this base file is version %d; this editor reads version %d", f.Version, Version)
+		return nil, nil, fmt.Errorf("this base file is version %d; this editor reads version %d", f.Version, Version)
 	}
 	if f.Kind != KindBackup {
-		return nil, fmt.Errorf("this base file is of kind %q; this editor reads %q", clip(f.Kind), KindBackup)
+		return nil, nil, fmt.Errorf("this base file is of kind %q; this editor reads %q", clip(f.Kind), KindBackup)
 	}
 	if _, err := time.Parse(time.RFC3339, f.ExportedAt); err != nil {
-		return nil, errors.New("the file has no valid exportedAt time")
+		return nil, nil, errors.New("the file has no valid exportedAt time")
 	}
 	var tables map[string]json.RawMessage
 	if err := json.Unmarshal(f.Tables, &tables); err != nil {
-		return nil, errors.New("the file has no tables object")
+		return nil, nil, errors.New("the file has no tables object")
 	}
 	for name := range tables {
 		if _, ok := Find(name); !ok {
-			return nil, fmt.Errorf("the file has a table (%s) that a base file does not hold", clip(name))
+			return nil, nil, fmt.Errorf("the file has a table (%s) that a base file does not hold", clip(name))
 		}
 	}
 	total := 0
+	decoded := map[string]Rowset{}
 	for _, t := range Tables {
 		raw, ok := tables[t.Name]
 		if !ok {
-			return nil, fmt.Errorf("the file has no %s table", t.Name)
+			return nil, nil, fmt.Errorf("the file has no %s table", t.Name)
 		}
-		var rows []map[string]json.RawMessage
+		var rows Rowset
 		if err := json.Unmarshal(raw, &rows); err != nil {
-			return nil, fmt.Errorf("the %s table is not a list of rows", t.Name)
+			return nil, nil, fmt.Errorf("the %s table is not a list of rows", t.Name)
 		}
-		if total += len(rows); total > MaxRows {
-			return nil, fmt.Errorf("the file holds more than %d rows", MaxRows)
+		if total += len(rows); total > maxRows {
+			return nil, nil, fmt.Errorf("the file holds more than %d rows", maxRows)
 		}
+		decoded[t.Name] = rows
 		if n := f.Manifest.Counts[t.Name]; n != len(rows) {
-			return nil, fmt.Errorf("the manifest says %d rows in %s; the file has %d", n, t.Name, len(rows))
+			return nil, nil, fmt.Errorf("the manifest says %d rows in %s; the file has %d", n, t.Name, len(rows))
 		}
 		for i, r := range rows {
 			if len(r) != len(t.Cols) {
-				return nil, fmt.Errorf("row %d of %s does not have the columns of the table", i+1, t.Name)
+				return nil, nil, fmt.Errorf("row %d of %s does not have the columns of the table", i+1, t.Name)
 			}
 			for _, c := range t.Cols {
 				cell, ok := r[c.Name]
 				if !ok {
-					return nil, fmt.Errorf("row %d of %s has no %s", i+1, t.Name, c.Name)
+					return nil, nil, fmt.Errorf("row %d of %s has no %s", i+1, t.Name, c.Name)
 				}
 				if err := c.check(cell); err != nil {
-					return nil, fmt.Errorf("row %d of %s: %w", i+1, t.Name, err)
+					return nil, nil, fmt.Errorf("row %d of %s: %w", i+1, t.Name, err)
 				}
 			}
 		}
 	}
 	if len(f.Manifest.Counts) != len(Tables) {
-		return nil, errors.New("the manifest counts a table that a base file does not hold")
+		return nil, nil, errors.New("the manifest counts a table that a base file does not hold")
 	}
 	if total != f.Manifest.Summary.Rows {
-		return nil, fmt.Errorf("the manifest says %d rows in all; the file has %d", f.Manifest.Summary.Rows, total)
+		return nil, nil, fmt.Errorf("the manifest says %d rows in all; the file has %d", f.Manifest.Summary.Rows, total)
 	}
 	sum, err := TablesChecksum(f.Tables)
 	if err != nil {
-		return nil, errors.New("the tables of the file are not valid JSON")
+		return nil, nil, errors.New("the tables of the file are not valid JSON")
 	}
 	if f.Manifest.Checksum.Algorithm != ChecksumAlgorithm || f.Manifest.Checksum.Value != sum {
-		return nil, errors.New("the checksum of the file does not match its tables: the file was changed or cut off")
+		return nil, nil, errors.New("the checksum of the file does not match its tables: the file was changed or cut off")
 	}
-	return &f, nil
+	return &f, decoded, nil
 }
 
 // check refuses a cell that is not of the kind of its column.

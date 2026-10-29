@@ -16,8 +16,13 @@ import (
 
 // postSettings is post for a route that changes only the editor's own files, or nothing: no flush of the save, no outcome in the answer.
 func (s *Server) postSettings(path string, fn func(a ops.Args) (any, error)) {
+	s.postSettingsMax(path, 4<<20, fn)
+}
+
+// postSettingsMax is postSettings for a route whose body may be as large as max bytes.
+func (s *Server) postSettingsMax(path string, max int64, fn func(a ops.Args) (any, error)) {
 	s.mux.HandleFunc("POST "+path, func(w http.ResponseWriter, r *http.Request) {
-		a, ok := postArgs(w, r)
+		a, ok := postArgsMax(w, r, max)
 		if !ok {
 			return
 		}
