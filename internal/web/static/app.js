@@ -1098,6 +1098,32 @@ async function baseBackupDownload(d) {
   setTimeout(() => URL.revokeObjectURL(u), 60000); // the browser reads the blob after the click returns
   toast(`Exported "${d.name}": ${Number(d.pieces).toLocaleString()} pieces, ${Number(d.placeables).toLocaleString()} placeables, ${Number(d.items).toLocaleString()} stored items. Nothing in the save changed.`);
 }
+// Import (phase 2): a base file is chosen, read in the browser as text, and sent to the editor, which checks it whole and answers with a preview (the import, rolled back). Nothing is
+// written until Import is pressed; the file's text is kept in the page only so that Import can send the file that was previewed (with the hash the preview gave).
+let bbImport = null; // { name, text, pv } after a preview, { name, err } after a refusal
+const BASE_FILE_MAX = 16 * 1024 * 1024;
+function baseImportPick(input) {
+  const f = input.files && input.files[0];
+  input.value = '';
+  if (!f) return;
+  if (f.size > BASE_FILE_MAX) { bbImport = { name: f.name, err: 'That file is larger than 16 MiB: a base file is smaller, so this is not one.' }; render(true); return; }
+  (async () => {
+    let text;
+    try { text = await f.text(); } catch (e) { bbImport = { name: f.name, err: 'The file could not be read.' }; render(true); return; }
+    try { bbImport = { name: f.name, text, pv: await api('/api/bases/backups/import-preview', { text }) }; } catch (e) { bbImport = { name: f.name, err: e.message }; }
+    render(true);
+  })();
+}
+function baseImportPanel() {
+  const b = bbImport;
+  if (!b) return '';
+  if (b.err) return html`<div class="info" role="alert" id="baseImportPanel"><b class="bad">${b.name}</b>: ${b.err} <button class="b sec sm" data-act="baseImportCancel">Dismiss</button></div>`;
+  const p = b.pv, s = p.summary, n = (v) => Number(v).toLocaleString();
+  return html`<div class="info" role="status" id="baseImportPanel"><b>${b.name}: ${p.name}</b>
+    <p>Would add a new base backup of ${n(s.actors)} actors, ${n(s.pieces)} building pieces, ${n(s.placeables)} placeables and ${n(s.storedItems)} stored items (${n(s.rows)} rows) for ${p.owner.character}. Nothing in the save has changed.</p>
+    ${p.warnings.length ? html`<ul>${p.warnings.map((w) => html`<li class="warn">${w}</li>`)}</ul>` : ''}
+    <div class="row"><button class="b" data-act="baseImportGo">${p.patchesDiffer ? 'Import anyway' : 'Import'}</button><button class="b sec" data-act="baseImportCancel">Cancel</button></div></div>`;
+}
 async function baseBackupsCard() {
   let list;
   try { list = await api('/api/bases/backups'); } catch (e) { return html`<div class="card"><h3>Base backups</h3><p class="bad" role="alert">${e.message}</p></div>`; }
@@ -1105,8 +1131,11 @@ async function baseBackupsCard() {
   return html`<div class="card"><h3>Base backups (${list.length})</h3>${tbl([{ k: 'backup_id', label: 'ID' }, { k: 'name', label: 'Name' }, { k: 'map', label: 'Map' }, { k: 'actors', label: 'Actors', f: (r) => n(r.actors) },
     { k: 'pieces', label: 'Building pieces', f: (r) => n(r.pieces) }, { k: 'placeables', label: 'Placeables', f: (r) => n(r.placeables) }, { k: 'stored_items', label: 'Stored items', f: (r) => n(r.stored_items) }], list,
     { actions: (r) => html`<button class="b sec sm" data-act="baseBackupExport" data-id="${r.backup_id}" data-name="${r.name}" data-pieces="${r.pieces}" data-placeables="${r.placeables}" data-items="${r.stored_items}">Export base backup</button>`,
-      empty: 'No base backups in this save. Pick a base up with the game\'s base tool, then reload.' })}
-    ${about('bases.backups', 'Base backups', html`<p class="mut">A base backup is what the game's base tool leaves when you pick a base up: its buildings stay in the save and the claim is gone. Export saves one as a <b>tabr-tau-base</b> file (version 1) with every row of the base and its original ids, a manifest of the counts, and a checksum. It only reads the save and changes nothing in it. A file cannot be imported yet.</p>`)}</div>`;
+      empty: "No base backups in this save. Pick a base up with the game's base tool, then reload." })}
+    <div class="row"><label>Import a base file <input type="file" id="baseFile"></label></div>
+    ${baseImportPanel()}
+    ${about('bases.backups', 'Base backups', html`<p class="mut">A base backup is what the game's base tool leaves when you pick a base up: its buildings stay in the save and the claim is gone. Export saves one as a <b>tabr-tau-base</b> file (version 1) with every row of the base and its original ids, a manifest of the counts, and a checksum. It only reads the save and changes nothing in it.</p>
+      <p class="mut">Import reads a file like that and adds its base to this save as a new base backup, for the game's Base Reconstruction Tool to place; the editor does not put the pieces in the world. Choosing a file shows what would be added and changes nothing; Import then writes it as one edit, after a backup (or queued while the game runs). Every id in the file gets a new one, the character of this save becomes the owner, and nothing already in the save is changed or replaced. A file that is not a good base file is refused whole. Importing the same file twice adds two backups.</p>`)}</div>`;
 }
 
 let bsTab = 'power', bsOpen = null, bsGroup = 'storage';
@@ -1698,6 +1727,21 @@ const A = {
   kitDel: async (d) => (await ask({ title: 'Delete kit?', body: `Delete the kit "${d.name}" from the editor's settings. Nothing in any save changes. Export it first to keep a copy.`, ok: 'Delete', danger: true })) && act(() => api('/api/kits/delete', { name: d.name }), `Deleted kit "${d.name}"`, true, true),
   kitExport: (d) => kitDownload(d.name),
   baseBackupExport: (d) => baseBackupDownload(d),
+  baseImportCancel: () => { bbImport = null; render(true); },
+  // Import sends the text that was previewed with the hash the preview gave; the editor refuses it if the text is another file. It asks nothing: it only adds rows.
+  baseImportGo: () => {
+    const b = bbImport;
+    if (!b || !b.pv || b.busy) return;
+    b.busy = true;
+    return act(async () => {
+      try {
+        const r = await api('/api/bases/backups/import', { text: b.text, fileHash: b.pv.fileHash });
+        bbImport = null;
+        const m = r.summary;
+        toast(`Imported "${r.name}" as base backup ${r.ids.backup.first}: ${Number(m.pieces).toLocaleString()} pieces, ${Number(m.placeables).toLocaleString()} placeables, ${Number(m.storedItems).toLocaleString()} stored items. Place it with the Base Reconstruction Tool in the game.` + NOT_SAVED);
+      } finally { b.busy = false; }
+    }, null);
+  },
   // Apply asks the editor what it would do (a dry run: nothing is written), shows that, and applies only after OK. The apply is one edit, written after a backup, or queued while the game runs.
   kitApply: async (d) => {
     let pv;
@@ -2078,6 +2122,7 @@ document.addEventListener('change', (e) => {
   if (t.id == 'gt') { showGiveAugments(); return; }
   if (t.id == 'kitItem') { showGiveAugments('kitItem', 'kitAug', 'ka', 'kag'); return; }
   if (t.id == 'kitFile') { kitImport(t); return; }
+  if (t.id == 'baseFile') { baseImportPick(t); return; }
   if (t.id == 'vcClass' || t.id == 'vcTpl' || t.dataset.vcslot !== undefined) { vcChanged(t); return; }
   if (t.id == 'skCharge') { skCharge = t.checked; return; }
   if (t.dataset.lshouse !== undefined) { const id = +t.dataset.lshouse; if (t.checked) LS.houses.add(id); else LS.houses.delete(id); lsSync(); return; }
