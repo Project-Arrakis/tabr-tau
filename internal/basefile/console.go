@@ -469,16 +469,7 @@ func (d *cd) numbers(key string, n int, nullOK bool) []json.RawMessage {
 	return l
 }
 
-// group reads a key that holds an object with exactly the named numbers, and returns them in the order of names.
-func (d *cd) group(key string, names ...string) []json.RawMessage {
-	v, ok := d.raw(key)
-	if !ok {
-		return nil
-	}
-	return d.groupOf(key, v, names)
-}
-
-// nestedGroup is group for the member sub of an object (an actor's transform is a location and a rotation, each a group of numbers).
+// nestedGroup reads the member sub of an object (an actor's transform is a location and a rotation, each a group of numbers).
 func (d *cd) nestedGroup(key, sub string, names ...string) []json.RawMessage {
 	v, ok := d.raw(key)
 	if !ok {
