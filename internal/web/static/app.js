@@ -1085,6 +1085,30 @@ function claimEditorDraw(focusKey) {
   }
 }
 
+// ---------- BASE BACKUPS (#475, phase 1): the bases the game's own tool picked up, each with a button that saves it as a file. The export only reads the save.
+// The file reaches the browser as text and is saved as it is, never parsed in the page: a 64-bit entity id in it stays exact. The browser's own save dialog says where it goes.
+async function baseBackupDownload(d) {
+  const r = await fetch('/api/bases/backups/export?backup=' + encodeURIComponent(d.id), { credentials: 'same-origin' });
+  if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || r.statusText || 'The export failed'); }
+  const b = await r.blob();
+  const u = URL.createObjectURL(b), l = document.createElement('a');
+  l.href = u;
+  l.download = 'tabr-tau-base-backup-' + String(d.id).replace(/[^0-9]/g, '') + '-' + (String(d.name || '').replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^[._-]+|[._-]+$/g, '').slice(0, 40) || 'base') + '.json';
+  l.click();
+  setTimeout(() => URL.revokeObjectURL(u), 60000); // the browser reads the blob after the click returns
+  toast(`Exported "${d.name}": ${Number(d.pieces).toLocaleString()} pieces, ${Number(d.placeables).toLocaleString()} placeables, ${Number(d.items).toLocaleString()} stored items. Nothing in the save changed.`);
+}
+async function baseBackupsCard() {
+  let list;
+  try { list = await api('/api/bases/backups'); } catch (e) { return html`<div class="card"><h3>Base backups</h3><p class="bad" role="alert">${e.message}</p></div>`; }
+  const n = (v) => Number(v).toLocaleString();
+  return html`<div class="card"><h3>Base backups (${list.length})</h3>${tbl([{ k: 'backup_id', label: 'ID' }, { k: 'name', label: 'Name' }, { k: 'map', label: 'Map' }, { k: 'actors', label: 'Actors', f: (r) => n(r.actors) },
+    { k: 'pieces', label: 'Building pieces', f: (r) => n(r.pieces) }, { k: 'placeables', label: 'Placeables', f: (r) => n(r.placeables) }, { k: 'stored_items', label: 'Stored items', f: (r) => n(r.stored_items) }], list,
+    { actions: (r) => html`<button class="b sec sm" data-act="baseBackupExport" data-id="${r.backup_id}" data-name="${r.name}" data-pieces="${r.pieces}" data-placeables="${r.placeables}" data-items="${r.stored_items}">Export base backup</button>`,
+      empty: 'No base backups in this save. Pick a base up with the game\'s base tool, then reload.' })}
+    ${about('bases.backups', 'Base backups', html`<p class="mut">A base backup is what the game's base tool leaves when you pick a base up: its buildings stay in the save and the claim is gone. Export saves one as a <b>tabr-tau-base</b> file (version 1) with every row of the base and its original ids, a manifest of the counts, and a checksum. It only reads the save and changes nothing in it. A file cannot be imported yet.</p>`)}</div>`;
+}
+
 let bsTab = 'power', bsOpen = null, bsGroup = 'storage';
 async function basesView() {
   const list = await api('/api/bases/list');
@@ -1141,6 +1165,7 @@ async function basesView() {
       if (!claims.length) h.push(html`<p class="mut">This base has no land claim data in the save.</p>`);
     }
   }
+  h.push(await baseBackupsCard());
   setHTML(host(), html`${h}`);
   if (bsTab == 'claim') claimEditorDraw();
 }
@@ -1672,6 +1697,7 @@ const A = {
   kitDup: (d) => act(async () => { const r = await api('/api/kits/duplicate', { name: d.name }); toast(`Made "${r.saved}"`); }, null, true, true),
   kitDel: async (d) => (await ask({ title: 'Delete kit?', body: `Delete the kit "${d.name}" from the editor's settings. Nothing in any save changes. Export it first to keep a copy.`, ok: 'Delete', danger: true })) && act(() => api('/api/kits/delete', { name: d.name }), `Deleted kit "${d.name}"`, true, true),
   kitExport: (d) => kitDownload(d.name),
+  baseBackupExport: (d) => baseBackupDownload(d),
   // Apply asks the editor what it would do (a dry run: nothing is written), shows that, and applies only after OK. The apply is one edit, written after a backup, or queued while the game runs.
   kitApply: async (d) => {
     let pv;
