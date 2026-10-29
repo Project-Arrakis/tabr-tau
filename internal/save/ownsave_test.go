@@ -201,6 +201,7 @@ func TestACopyIsWrittenAtOnceAndTheGamesOwnSaveWaits(t *testing.T) {
 func TestACopyKeepsTheLocationConfirmationButNotTheFolderQuestion(t *testing.T) {
 	defer NoGameRunningForTests()()
 	defer RealOwnSaveCheckForTests()()
+	gameTree(t) // LOCALAPPDATA names a folder, so a save elsewhere is clearly not the game's (unset, every save counts as the game's own)
 	p := makeSave(t, `create table t(a integer);`)
 
 	locationFor = func(string) string { return notInGameFolderWhy }
@@ -222,6 +223,7 @@ func TestACopyKeepsTheLocationConfirmationButNotTheFolderQuestion(t *testing.T) 
 func TestCheckGameNowForACopy(t *testing.T) {
 	defer NoGameRunningForTests()()
 	defer RealOwnSaveCheckForTests()()
+	gameTree(t)
 	defer ActiveSessionForTests()()
 	c := CheckGameNow(makeSave(t, `create table t(a integer);`))
 	if c.Blocked || c.Running || !strings.Contains(c.Message, "not the game's save") || !strings.Contains(c.Message, "written at once") {
