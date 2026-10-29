@@ -81,7 +81,7 @@ func TestSwitchedOffJobWritesNothing(t *testing.T) {
 func TestQueuedPassHonoursTheSwitchesAsTheyAreWhenItRuns(t *testing.T) {
 	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
 	before, _ := os.ReadFile(s.Save.Path)
-	restore := save.GameAtMenuForTests()
+	restore := save.GameJustLeftWorldForTests()
 	s.RunStartupTasks()
 	if note, warn := s.takeStartup(); !warn || !strings.Contains(note, "queued") {
 		t.Fatalf("note %q warn %v", note, warn)
@@ -118,7 +118,7 @@ func TestQueuedPassWithEveryJobOffStaysQuietWhileTheGameIsOpen(t *testing.T) {
 	o := offFlag()
 	s, _ := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true, AutoRefillWater: o, AutoRefillPower: o, AutoRepairVehicles: o, AutoRepairGear: o,
 		AutoFillContainers: o, AutoFillHydration: o, AutoFillBloodSacks: o, AutoRefuelVehicles: o})
-	defer save.GameAtMenuForTests()()
+	defer save.GameJustLeftWorldForTests()()
 	s.RunStartupTasks()
 	if note, _ := s.takeStartup(); note != "" {
 		t.Fatalf("note %q", note)

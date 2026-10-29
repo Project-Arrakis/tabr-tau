@@ -45,7 +45,7 @@ func TestSwitchesTurnedOffWhileTheAutomaticPassWaitsEndTheWaitWithoutReloadingTh
 	} {
 		t.Run(name, func(t *testing.T) {
 			s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
-			restore := save.GameAtMenuForTests()
+			restore := save.GameJustLeftWorldForTests()
 			defer restore()
 			s.RunStartupTasks()
 			if !isWaiting(s) {
@@ -85,7 +85,7 @@ func TestRunStartupTasksClearsTheWaitWhenItFindsNothingSwitchedOn(t *testing.T) 
 	} {
 		t.Run(name, func(t *testing.T) {
 			s, _ := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
-			restore := save.GameAtMenuForTests()
+			restore := save.GameJustLeftWorldForTests()
 			defer restore()
 			s.RunStartupTasks()
 			if !isWaiting(s) {
@@ -105,7 +105,7 @@ func TestRunStartupTasksClearsTheWaitWhenItFindsNothingSwitchedOn(t *testing.T) 
 func TestAJobStillOnKeepsTheWaitingPass(t *testing.T) {
 	off := false
 	s, _ := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
-	restore := save.GameAtMenuForTests()
+	restore := save.GameJustLeftWorldForTests()
 	defer restore()
 	s.RunStartupTasks()
 	settings.Save(s.SettingsPath, settings.Settings{AutoRefillOnOpen: true, AutoRepairVehicles: &off, AutoFillHydration: &off})

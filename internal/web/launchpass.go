@@ -135,7 +135,7 @@ func (s *Server) SkipLaunchPass() map[string]any {
 }
 
 // RunPassNow is the "Run the automatic pass now" button: it ends any countdown (the pass must not run twice) and runs the jobs that are switched on, whether or not the master
-// switch for the launch is on. The write rules are the pass's own: nothing is written while a game process exists, and unlike the pass at launch it is not queued for later.
+// switch for the launch is on. The write rules are those of an edit made by hand (#499): nothing is written while the game may still hold the save's rows, and unlike the pass at launch it is not queued for later.
 func (s *Server) RunPassNow() {
 	l := &s.launch
 	l.mu.Lock()

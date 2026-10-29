@@ -98,7 +98,7 @@ test('The card says it is one edit, skipped during a session, writes nothing whe
   const ui = await boot({ get: { '/api/settings': prefs() } });
   await openBases(ui);
   const t = card(ui).textContent;
-  for (const want of ['one edit', 'saves straight away', 'It waits while the game is open', 'nothing is written or queued', 'When nothing needs doing nothing is written', 'If one job fails, nothing is changed', 'Every job is ticked by default, the repairs too', 'your character owns or carries']) {
+  for (const want of ['one edit', 'saves straight away', 'It waits for what an edit you make yourself waits for', 'nothing is written or queued', 'When nothing needs doing nothing is written', 'If one job fails, nothing is changed', 'Every job is ticked by default, the repairs too', 'your character owns or carries']) {
     assert.ok(t.includes(want), `the card lacks: ${want}`);
   }
 });

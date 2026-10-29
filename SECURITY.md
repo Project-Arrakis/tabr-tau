@@ -43,7 +43,7 @@ your computer (they can edit your save directly).
   themselves once the file can be written. If the game saved meanwhile, the queue is put back onto its newer file only when every edit still
   applies; if the game saved changes that conflict with it, none of it is written and the person is told.
 - The optional automatic pass when the editor opens (master switch off by default, one switch per job) is one edit like any other: the same
-  guards, one backup, one write-log line. It writes nothing while any game process exists (even at the menu, where edits made by hand may be written), writes nothing when nothing needs doing,
+  guards, one backup, one write-log line. It waits, writing nothing, while the check for edits made by hand says the game may still hold the save's rows (#499), writes nothing when nothing needs doing,
   and a failing job rolls the whole pass back. It acts only on what the character owns or carries.
 - There is no review step before a write (the review pane was removed in #238). What stands in its place is the set of guards above at every
   write, the backups (Database > Save backups restores one), the queue with its list and its Discard control, and the confirmations that
@@ -54,7 +54,7 @@ your computer (they can edit your save directly).
   shown; the editor checks again by itself, and **Check again** and **Write now** run the check at once. A write never relies on an older answer.
 - With the game open, a write also needs the game's log (read-only) to show no single-player session and the game quiet: 30 seconds after the end of a session when the log shows the game's last write after it (measured over 19 exits, #470),
   else no database write by the game for 3 minutes (6 minutes after a session ended if its last write is not in the log), and the save file not held open by another program (Windows: an open with delete access that allows all sharing, which
-  cannot make the other program's own open fail). A log or file check that cannot be made queues the edit. The automatic pass at launch writes only with no game process at all.
+  cannot make the other program's own open fail). A log or file check that cannot be made queues the edit. The automatic pass at launch is held to the same check and runs once it passes.
   Each route to the save file asks this in one place, right before the rename (#449).
 - Every write is recorded: after the file has been written the editor appends one line to `write-log.jsonl` in its own folder
   (`%APPDATA%\tabr-tau`): when, how many edits, what they were in words, and the name of the backup taken before (a restore of a backup is

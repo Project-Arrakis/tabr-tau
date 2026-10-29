@@ -53,7 +53,8 @@ type Server struct {
 	startupNote  string // what the open-time refill did, shown once by the UI
 	startupWarn  bool   // the note is a problem or a skip, so the UI keeps it on screen
 	lastAuto     string // the last automatic save, kept for the Automatic refill card
-	autoWaiting  bool   // the automatic pass is waiting for the game to close (#419); RunAutosave runs it then
+	autoWaiting  bool   // the automatic pass is waiting because the game may still hold the save's rows (#419, #499); RunAutosave runs it once that clears
+	autoWaitWhy  string // what it is waiting for, in the words of an edit made by hand (the reason of save.GameStateFor); empty when it is not waiting
 	lastAutoFail string // why the last automatic pass could not finish, kept for the card
 	settingsNote string // the last "settings.json was damaged, the backup copy is used" note that was written to the log (#442)
 
@@ -931,8 +932,9 @@ func (s *Server) RunAutosave(stop <-chan struct{}) {
 	}
 }
 
-// retryWaitingPass runs the automatic pass that was held back because the game was running, once no game process exists and nothing is queued: the file is read
-// again first (the game saved while it ran), so the pass works from what the game left. It does nothing while the game, or the check, is in the way.
+// retryWaitingPass runs the automatic pass that was held back, once the gate for edits made by hand lets a write through (#499) and nothing is queued: the file is read
+// again first (the game saved while it ran), so the pass works from what the game left. It does nothing while the game, or the check, is in the way, and keeps the reason
+// the card shows up to date.
 func (s *Server) retryWaitingPass() {
 	s.startupMu.Lock()
 	waiting := s.autoWaiting
@@ -946,7 +948,16 @@ func (s *Server) retryWaitingPass() {
 		s.stopWaitingPass()
 		return
 	}
-	if s.Save.Dirty() || autoPassMustWait(save.GameStateFor(s.Save.Path, true)) {
+	g := save.GameStateFor(s.Save.Path, true)
+	if g.Blocked {
+		s.startupMu.Lock()
+		if s.autoWaiting {
+			s.autoWaitWhy = waitWhy(g)
+		}
+		s.startupMu.Unlock()
+		return
+	}
+	if s.Save.Dirty() {
 		return
 	}
 	if kept, err := s.Save.DiscardIfClean(); err != nil || !kept {
@@ -955,9 +966,9 @@ func (s *Server) retryWaitingPass() {
 	s.RunStartupTasks()
 }
 
-// autoPassMustWait is the automatic pass's own rule, stricter than the one for edits made by hand (#449): it runs only when no game process exists at all. At the game's
-// menu a manual edit may be written, but the pass at launch never is; the process list must show the game gone, and a check that failed is not "gone".
-func autoPassMustWait(g save.GameState) bool { return g.Blocked || len(g.Processes) > 0 }
+// waitWhy is what a blocked game state is waiting for, in the words the banner uses for an edit made by hand (a session is active, the game wrote N seconds ago, the
+// session ended N ago, another program has the file open, the check cannot be made), without the sentence about edits that belongs to an edit.
+func waitWhy(g save.GameState) string { return strings.TrimSuffix(g.Reason, save.QueuedUntilClears) }
 
 // autoPassWanted says whether the settings ask for an automatic pass at all: the master switch is on and at least one job that can run is switched on.
 func autoPassWanted(cur settings.Settings) bool {
@@ -978,7 +989,7 @@ func (s *Server) stopWaitingPass() {
 	s.startupMu.Lock()
 	defer s.startupMu.Unlock()
 	if s.autoWaiting {
-		s.autoWaiting = false
+		s.autoWaiting, s.autoWaitWhy = false, ""
 		s.startupNote, s.startupWarn = "", false
 	}
 }
@@ -1004,7 +1015,7 @@ func (s *Server) autoPrefs(cur settings.Settings) map[string]any {
 	}
 	s.startupMu.Lock()
 	defer s.startupMu.Unlock()
-	return map[string]any{"autoRefillOnOpen": cur.AutoRefillOnOpen, "jobs": jobs, "last": s.lastAuto, "lastProblem": s.lastAutoFail, "waiting": s.autoWaiting}
+	return map[string]any{"autoRefillOnOpen": cur.AutoRefillOnOpen, "jobs": jobs, "last": s.lastAuto, "lastProblem": s.lastAutoFail, "waiting": s.autoWaiting, "waitingWhy": s.autoWaitWhy}
 }
 
 // RunStartupTasks does what the editor's settings ask for when it opens; it is the pass at launch, which the countdown (launchpass.go) starts. See runPass.
@@ -1012,7 +1023,8 @@ func (s *Server) RunStartupTasks() { s.runPass(false) }
 
 // runPass runs the automatic pass. Today that is the only start-up task: with the master switch on, every
 // job that is switched on (base water and power, repairs, fills; see ops.AutoJobs) runs as ONE edit, which is written straight away like every
-// other edit, so it takes effect the next time the game loads. It waits while a game process exists or the game check cannot say (nothing is written then, #419). A pass that finds nothing
+// other edit, so it takes effect the next time the game loads. It waits while save.GameStateFor says the game may still hold the save's rows, the same gate as an edit made by
+// hand (#499; #419 had it wait for every game process, #449 kept that for the pass), and runs with the game still open once that clears. A pass that finds nothing
 // to do writes nothing; a job that fails rolls the whole pass back. If the write is refused, the edit stays queued and is written as soon as the file can be.
 func (s *Server) runPass(manual bool) {
 	cur := settings.Load(s.SettingsPath)
@@ -1046,29 +1058,23 @@ func (s *Server) runPass(manual bool) {
 		s.stopWaitingPass()
 		return
 	}
-	if g := save.GameStateFor(s.Save.Path, true); autoPassMustWait(g) {
+	if g := save.GameStateFor(s.Save.Path, true); g.Blocked {
+		why := waitWhy(g)
 		if manual { // asked for by hand: answered now, not queued for later
-			if len(g.Processes) > 0 {
-				set("The automatic pass was not run: the game is open, and this pass never writes while it is. Run it again once the game has closed.", true)
-			} else {
-				set("The automatic pass was not run: "+g.Reason+".", true)
-			}
+			set("The automatic pass was not run: "+why+". Run it again once that clears.", true)
 			return
 		}
-		// The pass at launch writes nothing while a game process exists, even at the game's menu where an edit made by hand may be written, or while the check cannot say
-		// (#419, #449). It is not prepared against a file the game is about to rewrite either: it waits, and RunAutosave runs it on the fresh file once the game has closed.
+		// The pass at launch has the gate of an edit made by hand (#499): it writes nothing while the game may still hold the save's rows (a session is active, the game wrote
+		// moments ago, the session ended moments ago, the file is open elsewhere, the process list or the log cannot be read), and not while the check cannot say. It is not prepared
+		// against a file the game is about to rewrite either: it waits, and RunAutosave runs it on the fresh file as soon as the gate lets a write through, the game open or not.
 		s.startupMu.Lock()
-		s.autoWaiting = true
+		s.autoWaiting, s.autoWaitWhy = true, why
 		s.startupMu.Unlock()
-		if len(g.Processes) > 0 {
-			set("Automatic refill queued: the game is open; applied when it closes."+off, true)
-		} else {
-			set("Automatic refill queued: "+g.Reason+". It runs as soon as the file can be written."+off, true)
-		}
+		set("Automatic refill queued: "+why+". It runs by itself, on the file as the game left it, as soon as that clears."+off, true)
 		return
 	}
 	s.startupMu.Lock()
-	s.autoWaiting = false
+	s.autoWaiting, s.autoWaitWhy = false, ""
 	s.startupMu.Unlock()
 	if len(s.Save.Pending()) > 0 { // edits from an earlier run are still waiting: the refill is not mixed into them
 		set("Automatic refill skipped: edits from before are still waiting to be written."+off, true)
@@ -1099,7 +1105,7 @@ func (s *Server) runPass(manual bool) {
 		return
 	}
 	filledText := pass.Summary()
-	res := s.Save.FlushAutoPass()
+	res := s.Save.Flush()
 	if !res.Saved {
 		set(fmt.Sprintf("Automatic refill prepared %s but could not save it yet: %s. It is queued and is written as soon as the file can be.", filledText, res.Why)+notes+off, true)
 		return
