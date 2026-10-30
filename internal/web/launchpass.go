@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/settings"
 )
 
@@ -38,6 +39,13 @@ type launchPass struct {
 // the page says so. With a delay of zero or less the pass runs at once (for tests and callers that have their own wait); otherwise it waits for the countdown.
 func (s *Server) ScheduleLaunchPass(delay time.Duration, skip bool) {
 	if !autoPassWanted(settings.Load(s.SettingsPath)) {
+		return
+	}
+	if !save.IsGamesOwnSave(s.Save.Path) { // a copy is never refilled by itself (#508): no countdown, and the page says why
+		s.launch.mu.Lock()
+		s.launch.phase = launchSkipped
+		s.launch.mu.Unlock()
+		s.NoteStartup(passNotRunOnCopy, false)
 		return
 	}
 	if skip {

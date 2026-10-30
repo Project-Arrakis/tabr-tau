@@ -1015,8 +1015,14 @@ func (s *Server) autoPrefs(cur settings.Settings) map[string]any {
 	}
 	s.startupMu.Lock()
 	defer s.startupMu.Unlock()
-	return map[string]any{"autoRefillOnOpen": cur.AutoRefillOnOpen, "jobs": jobs, "last": s.lastAuto, "lastProblem": s.lastAutoFail, "waiting": s.autoWaiting, "waitingWhy": s.autoWaitWhy}
+	return map[string]any{"autoRefillOnOpen": cur.AutoRefillOnOpen, "jobs": jobs, "last": s.lastAuto, "lastProblem": s.lastAutoFail, "waiting": s.autoWaiting, "waitingWhy": s.autoWaitWhy, "copy": !save.IsGamesOwnSave(s.Save.Path)}
 }
+
+// The automatic pass never runs on a save that is not the game's own (#508): at launch the page is told it was not run, and "Run the automatic pass now" is told why.
+const (
+	passNotRunOnCopy    = "Automatic refill not run: this is a copy, not the game's save."
+	passNotRunOnCopyWhy = "This is a copy, not the game's save: the automatic pass only runs on the game's own save."
+)
 
 // RunStartupTasks does what the editor's settings ask for when it opens; it is the pass at launch, which the countdown (launchpass.go) starts. See runPass.
 func (s *Server) RunStartupTasks() { s.runPass(false) }
@@ -1049,6 +1055,15 @@ func (s *Server) runPass(manual bool) {
 		s.startupMu.Lock()
 		s.startupNote, s.startupWarn = note, warn
 		s.startupMu.Unlock()
+	}
+	if !save.IsGamesOwnSave(s.Save.Path) { // a copy is never refilled or repaired by itself (#508); the manual Fill and Refill buttons are edits by hand and still work
+		s.stopWaitingPass()
+		if manual {
+			set(passNotRunOnCopyWhy, true)
+		} else if anyOn {
+			set(passNotRunOnCopy, false)
+		}
+		return
 	}
 	if !anyOn { // the master switch is on but every job is off
 		if manual {
