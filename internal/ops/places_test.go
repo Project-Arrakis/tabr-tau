@@ -110,8 +110,8 @@ func TestNamedPlacesListTradingPostsByTheirInGameNameAndNothingElseOnTheMap(t *t
 			}
 		}
 	}
-	if len(d) != 4+2+2 {
-		t.Errorf("4 trading posts, 2 bases, 2 vehicles and no taxi hub on this map: %v", labelsOf(d))
+	if len(d) != 4+2+2+2 {
+		t.Errorf("4 trading posts, 2 bases, 2 vehicles and the two hubs (every map offers them, #521): %v", labelsOf(d))
 	}
 }
 
@@ -150,7 +150,7 @@ func TestNamedPlaceFilterMatchesTheName(t *testing.T) {
 func TestNamedPlacesGroupsAndTheirOrder(t *testing.T) {
 	m, d := namedPlacesOf(t, placesOps(t), "", "")
 	groups := m["groups"].([]DestinationGroup)
-	if fmt.Sprint(groups) != fmt.Sprint([]DestinationGroup{{"tradepost", "Trading posts"}, {"base", "Personal bases"}, {"vehicle", "Vehicles"}}) {
+	if fmt.Sprint(groups) != fmt.Sprint([]DestinationGroup{{"tradepost", "Trading posts"}, {"base", "Personal bases"}, {"vehicle", "Vehicles"}, {"taxi", "Taxis"}}) {
 		t.Errorf("only the groups that have places, in the page's order: %+v", groups)
 	}
 	var seen []string
@@ -159,7 +159,7 @@ func TestNamedPlacesGroupsAndTheirOrder(t *testing.T) {
 			seen = append(seen, x.Group)
 		}
 	}
-	if fmt.Sprint(seen) != "[tradepost base vehicle]" {
+	if fmt.Sprint(seen) != "[tradepost base vehicle taxi]" {
 		t.Errorf("a group's places sit together: %v", labelsOf(d))
 	}
 
@@ -182,43 +182,6 @@ func TestNamedPlacesGroupsAndTheirOrder(t *testing.T) {
 	}
 	if vehicles[0].Distance <= 0 || vehicles[1].Distance <= vehicles[0].Distance {
 		t.Errorf("each place shows its distance: %+v", vehicles)
-	}
-}
-
-func TestNamedPlacesTaxiHubsAreOfferedOnTheirOwnMap(t *testing.T) {
-	// the hubs are maps of their own; the character stands in Arrakeen
-	o := placesOps(t, `update actors set map='Arrakeen' where id in (1,2,3);`)
-	m, d := namedPlacesOf(t, o, "", "")
-	if len(d) != 1 || d[0].Label != "Arrakeen Taxi Service" || d[0].Group != groupTaxi || d[0].X != 11495 || d[0].Y != -316 || d[0].Z != 51457 || !d[0].Arrival {
-		t.Fatalf("taxi hub: %v", labelsOf(d))
-	}
-	if g := m["groups"].([]DestinationGroup); len(g) != 1 || g[0].Label != "Taxis" {
-		t.Errorf("groups: %+v", g)
-	}
-	o = placesOps(t, `update actors set map='HarkoVillage' where id in (1,2,3);`)
-	if _, d := namedPlacesOf(t, o, "harko", ""); len(d) != 1 || d[0].Label != "Harko Village Taxi Service" {
-		t.Errorf("the hub's name is its map's name in words: %v", labelsOf(d))
-	} else if d[0].X != -1415 || d[0].Y != 26560 || d[0].Z != 14673.9 || !d[0].Arrival {
-		t.Errorf("a hub is at the game's arrival point for it (#515), not at its marker (-1390, 26838, 14739): %+v", d[0])
-	}
-	// on Hagga Basin there is no hub marker, so there is no Taxis group
-	if m, _ := namedPlacesOf(t, placesOps(t), "", ""); len(m["groups"].([]DestinationGroup)) != 3 {
-		t.Errorf("groups: %+v", m["groups"])
-	}
-}
-
-func TestNamedPlacesOfAnotherMapHaveNoDistance(t *testing.T) {
-	m, d := namedPlacesOf(t, placesOps(t), "", "DeepDesert")
-	if m["sameMap"] != false || len(d) != 3 {
-		t.Fatalf("the Deep Desert's base, vehicle and taxi service point: %v", labelsOf(d))
-	}
-	if d[0].Label != "Far Base #605" || d[1].Label != "Far Buggy #805" || d[2].Label != "Deep Desert Taxi Service" || d[2].Group != groupTaxi {
-		t.Errorf("%v", labelsOf(d))
-	}
-	for _, x := range d {
-		if x.Distance != 0 {
-			t.Errorf("a distance across maps means nothing: %+v", x)
-		}
 	}
 }
 
@@ -300,8 +263,8 @@ func TestPlaceNamesFileIsWellFormed(t *testing.T) {
 	}
 }
 
-// #516: the three Deep Desert keys carry the trading-post tag in the game's table but are the Deep Desert's taxi service points. A marker the save types TradingPost with such
-// a key is listed under Taxis, by the taxi name, and never under Trading posts.
+// #516, #521: the three Deep Desert keys carry the trading-post tag in the game's table but are the Deep Desert's taxi service points. A marker the save types TradingPost with such
+// a key is never a trading post, and it is not listed under Taxis either: the Deep Desert's list has the point from the game's level data, once, whether or not the save has the marker.
 func TestDeepDesertTaxiKeysAreTaxisAndNeverTradingPosts(t *testing.T) {
 	o := placesOps(t, `insert into markers(marker_hash_id,dimension_index,map_name,marker_type,x,y,z,payload) values
 		(32,0,'DeepDesert','TradingPost',-305000.0,-587000.0,40.0,`+payloadSQL(locDeepDesert2)+`),
@@ -313,45 +276,40 @@ func TestDeepDesertTaxiKeysAreTaxisAndNeverTradingPosts(t *testing.T) {
 		if x.Group == groupTradePost || strings.Contains(x.Label, "Tradepost") {
 			t.Errorf("the Deep Desert has no trading post: %+v", x)
 		}
-		if x.Group == groupTaxi {
+		if x.Group == groupTaxi && x.Map == "" {
 			taxis = append(taxis, x.Label)
 		}
 	}
-	// three keys of one name: told apart by the start of the key, as for any group
-	if len(taxis) != 3 {
+	// the three points, once each, named by the taxi name and their grid cell
+	if fmt.Sprint(taxis) != "[Deep Desert Taxi Service (A2) Deep Desert Taxi Service (A5) Deep Desert Taxi Service (A8)]" {
 		t.Fatalf("taxis: %v", taxis)
-	}
-	for _, want := range []string{"Deep Desert Taxi Service (6F72F9)", "Deep Desert Taxi Service (5B1E5F)", "Deep Desert Taxi Service (747ED5)"} {
-		if !strings.Contains(fmt.Sprint(taxis), want) {
-			t.Errorf("taxis: %v, want %q", taxis, want)
-		}
 	}
 	if g := fmt.Sprint(m["groups"]); g != fmt.Sprint([]DestinationGroup{{"base", "Personal bases"}, {"vehicle", "Vehicles"}, {"taxi", "Taxis"}}) {
 		t.Errorf("no Trading posts heading on the Deep Desert: %v", g)
 	}
 	// the filter finds them by the taxi name and not as trading posts
-	if _, d := namedPlacesOf(t, o, "taxi", "DeepDesert"); len(d) != 3 {
+	if _, d := namedPlacesOf(t, o, "deep desert taxi", "DeepDesert"); len(d) != 3 {
 		t.Errorf("taxi: %v", labelsOf(d))
 	}
 	if _, d := namedPlacesOf(t, o, "tradepost", "DeepDesert"); len(d) != 0 {
 		t.Errorf("tradepost: %v", labelsOf(d))
 	}
-	// Hagga Basin: no Taxis heading, and the trading posts are the same as without these markers
+	// Hagga Basin: no Deep Desert taxi, and the trading posts are the same as without these markers
 	m, d = namedPlacesOf(t, o, "", "")
 	var posts []string
 	for _, x := range d {
 		if x.Group == groupTradePost {
 			posts = append(posts, x.Label)
 		}
-		if x.Group == groupTaxi {
-			t.Errorf("a save on Hagga Basin lists no taxi: %+v", x)
+		if x.Group == groupTaxi && strings.Contains(x.Label, "Deep Desert") {
+			t.Errorf("a save on Hagga Basin lists no Deep Desert taxi: %+v", x)
 		}
 	}
 	want := []string{"TradingPost (key " + locUnknownPost + ")", "TradingPost (marker 5)", "Griffin's Reach Tradepost", "Pinnacle Station Tradepost"}
 	if fmt.Sprint(posts) != fmt.Sprint(want) {
 		t.Errorf("trading posts of Hagga Basin: %v, want %v", posts, want)
 	}
-	if len(m["groups"].([]DestinationGroup)) != 3 {
+	if len(m["groups"].([]DestinationGroup)) != 4 { // trading posts, bases, vehicles and the hubs under Taxis
 		t.Errorf("groups: %+v", m["groups"])
 	}
 	// every trading-post key of the file is one of the four Hagga Basin posts
@@ -405,7 +363,7 @@ func TestPlacesWithoutAnArrivalPointKeepTheirMarkerPosition(t *testing.T) {
 	at := map[string]Destination{}
 	for _, x := range d {
 		at[x.Label] = x
-		if x.Group != groupTradePost && x.Arrival {
+		if x.Group != groupTradePost && x.Map == "" && x.Arrival {
 			t.Errorf("only trading posts and hubs have an arrival point: %+v", x)
 		}
 	}
@@ -420,15 +378,15 @@ func TestPlacesWithoutAnArrivalPointKeepTheirMarkerPosition(t *testing.T) {
 	if p := at["Spice Camp #602"]; p.Arrival || p.X != 21 {
 		t.Errorf("%+v", p)
 	}
-	// the Deep Desert taxi service points have no arrival point
-	_, dd := namedPlacesOf(t, placesOps(t), "taxi", "DeepDesert")
-	if len(dd) != 1 || dd[0].Arrival || dd[0].X != -306000 || dd[0].Y != -588000 || dd[0].Z != 40 {
-		t.Errorf("a Deep Desert taxi service point keeps the marker position: %+v", dd)
+	// the Deep Desert taxi service points are at their standing position from deep-desert-taxis.json (#521), which is not a trip arrival point
+	_, dd := namedPlacesOf(t, placesOps(t), "deep desert taxi", "DeepDesert")
+	if len(dd) != 3 || dd[0].Arrival || dd[0].X != -990770 || dd[0].Y != 971700 || dd[0].Z != 17035.5 {
+		t.Errorf("a Deep Desert taxi service point is at its standing position: %+v", dd)
 	}
 	// a hub of a map the file has no arrival point for keeps its marker
 	o := placesOps(t, `update markers set map_name='SomeNewHub' where marker_hash_id=21; update player_markers set map_name='SomeNewHub' where marker_hash_id=21;
 		update actors set map='SomeNewHub' where id in (1,2,3);`)
-	if _, h := namedPlacesOf(t, o, "", ""); len(h) != 1 || h[0].Arrival || h[0].X != 11695 {
+	if _, h := namedPlacesOf(t, o, "some new hub", ""); len(h) != 1 || h[0].Arrival || h[0].X != 11695 {
 		t.Errorf("%+v", h)
 	}
 	// a post whose marker has no position in the save is still left out, arrival point or not
@@ -549,8 +507,19 @@ func TestAnArrivalPointIsNeverUsedForATaxiKey(t *testing.T) {
 	if _, ok := tradePostArrival(locDeepDesert); ok {
 		t.Error("a taxi key is not a trading post")
 	}
-	_, dd := namedPlacesOf(t, placesOps(t), "taxi", "DeepDesert")
-	if len(dd) != 1 || dd[0].Arrival || dd[0].X != -306000 {
+	_, dd := namedPlacesOf(t, placesOps(t), "deep desert taxi", "DeepDesert")
+	if len(dd) != 3 || dd[0].Arrival || dd[0].X != -990770 {
 		t.Errorf("%+v", dd)
 	}
+}
+
+// withoutTaxis drops the Taxis rows, for a test about the other headings (every list has the two hubs now, #521).
+func withoutTaxis(d []Destination) []Destination {
+	var out []Destination
+	for _, x := range d {
+		if x.Group != groupTaxi {
+			out = append(out, x)
+		}
+	}
+	return out
 }

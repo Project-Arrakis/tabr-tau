@@ -371,3 +371,88 @@ test('the Movement card\'s About text says which position is used, once, and not
   assert.equal([...ui.doc.querySelectorAll('#tdsel option')].some((o) => /arrival|marker position/i.test(o.textContent)), false, 'no row repeats it');
   ui.dom.window.close();
 });
+
+// ---- the taxis (#521): the Deep Desert's three points from the game's level data, and the two hubs from every map
+
+// The character is on Hagga Basin and has a trading post; Taxis holds the two hubs, which are another map each.
+const hubs = () => ({ map: 'HaggaBasin', sameMap: true, total: 3, groups: [TP, TAXI],
+  destinations: [
+    { group: 'tradepost', label: 'Pinnacle Station Tradepost', x: -32905.3, y: -313888.6, z: 12053, distance: 315818, arrival: true },
+    { group: 'taxi', label: 'Arrakeen Taxi Service', x: 11495, y: -316, z: 51457, distance: 0, arrival: true, map: 'Arrakeen', otherMap: true },
+    { group: 'taxi', label: 'Harko Village Taxi Service', x: -1415, y: 26560, z: 14673.9, distance: 0, arrival: true, map: 'HarkoVillage', otherMap: true }] });
+
+// The character is in the Deep Desert: its three points, nearest first, then the hubs.
+const taxis = () => ({ map: 'DeepDesert', sameMap: true, total: 5, groups: [TAXI],
+  destinations: [
+    { group: 'taxi', label: 'Deep Desert Taxi Service (A8)', x: 767350, y: 906130, z: 17642.6, distance: 120000 },
+    { group: 'taxi', label: 'Deep Desert Taxi Service (A5)', x: -121120, y: 930720, z: 18149.8, distance: 900000 },
+    { group: 'taxi', label: 'Deep Desert Taxi Service (A2)', x: -990770, y: 971700, z: 17035.5, distance: 1800000 },
+    { group: 'taxi', label: 'Arrakeen Taxi Service', x: 11495, y: -316, z: 51457, distance: 0, arrival: true, map: 'Arrakeen', otherMap: true },
+    { group: 'taxi', label: 'Harko Village Taxi Service', x: -1415, y: 26560, z: 14673.9, distance: 0, arrival: true, map: 'HarkoVillage', otherMap: true }] });
+
+test('the Deep Desert\'s taxis are listed under Taxis with their distances, nearest first, and the hubs say they are another map', async () => {
+  const { ui } = await open(taxis());
+  assert.deepEqual(headings(ui), [{ label: 'Taxis', places: [
+    'Deep Desert Taxi Service (A8) - 1,200 m away', 'Deep Desert Taxi Service (A5) - 9,000 m away', 'Deep Desert Taxi Service (A2) - 18,000 m away',
+    'Arrakeen Taxi Service - another map', 'Harko Village Taxi Service - another map'] }]);
+  choose(ui, '0');
+  assert.deepEqual(fields(ui), ['767350', '906130', '17643']);
+  assert.equal(ui.doc.querySelector('#tmapwarn'), null, 'a point of the map the character is on is no move between maps');
+  ui.click('[data-act="teleport"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/teleport').map((p) => p.body), [{ x: 767350, y: 906130, z: 17643 }], 'no map is sent for a place on this map');
+  ui.dom.window.close();
+});
+
+test('a hub from Hagga Basin fills the boxes with its arrival point, shows the warning about a move between maps and sends its map with Teleport', async () => {
+  const { ui } = await open(hubs());
+  assert.deepEqual(headings(ui)[1], { label: 'Taxis', places: ['Arrakeen Taxi Service - another map', 'Harko Village Taxi Service - another map'] });
+  assert.equal(ui.doc.querySelector('#tmapwarn'), null, 'nothing chosen, no warning');
+  choose(ui, '1');
+  assert.deepEqual(fields(ui), ['11495', '-316', '51457']);
+  assert.equal(note(ui), 'Selected: Arrakeen Taxi Service, another map');
+  const warn = ui.doc.querySelector('#tmapwarn');
+  assert.ok(warn, 'the Map box says "This map", and still the warning is drawn: the hub is another map');
+  assert.match(warn.textContent, /try it on a copy first/);
+  assert.equal(ui.doc.querySelector('#tmap').value, '', 'the Map box was not changed');
+  await ui.w.render(true); await ui.settle();
+  assert.ok(ui.doc.querySelector('#tmapwarn'), 'the warning stays through a redraw');
+  ui.click('[data-act="teleport"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/teleport').map((p) => p.body), [{ x: 11495, y: -316, z: 51457, map: 'Arrakeen' }]);
+  ui.dom.window.close();
+});
+
+test('Harko Village is offered and teleported to the same way, and choosing another place or typing a coordinate takes the warning and the map away', async () => {
+  const { ui } = await open(hubs());
+  choose(ui, '2');
+  assert.deepEqual(fields(ui), ['-1415', '26560', '14674']);
+  assert.ok(ui.doc.querySelector('#tmapwarn'));
+  choose(ui, '0'); // the trading post on this map
+  assert.equal(ui.doc.querySelector('#tmapwarn'), null, 'a place on this map: no warning');
+  choose(ui, '2');
+  type(ui, 'ty', '27000'); // typed over the hub
+  assert.equal(ui.doc.querySelector('#tmapwarn'), null, 'no longer the hub');
+  ui.click('[data-act="teleport"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/teleport').map((p) => p.body), [{ x: -1415, y: 27000, z: 14674 }], 'the typed position is for this map');
+  ui.dom.window.close();
+});
+
+test('a hub chosen from the Deep Desert list is sent with its own map, not the Map box\'s', async () => {
+  const { ui, answers, pick } = await open(hubs());
+  answers['/api/player/destinations'] = taxis();
+  await pick('tmap', 'DeepDesert');
+  assert.ok(ui.doc.querySelector('#tmapwarn'), 'another map is chosen: the warning');
+  choose(ui, '4');
+  ui.click('[data-act="teleport"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/teleport').map((p) => p.body), [{ x: -1415, y: 26560, z: 14674, map: 'HarkoVillage' }]);
+  ui.dom.window.close();
+});
+
+test('the Movement card\'s About text names the Deep Desert taxis and the hubs, and says that a move into another map is not proven', async () => {
+  const { ui } = await open(hubs());
+  const about = ui.doc.querySelector('details[data-about="admin.movement"]').textContent;
+  assert.match(about, /your respawn points and the taxis, under those headings/);
+  assert.match(about, /three Deep Desert taxi service points while the Deep Desert is the map/);
+  assert.match(about, /the two hubs, Arrakeen and Harko Village, from every map/);
+  assert.match(about, /Whether a save edit moves the character into another map is not proven; do it on a copy first, with the game closed, and expect to need the in-game taxi if it does not work\./);
+  ui.dom.window.close();
+});

@@ -1,0 +1,56 @@
+{
+ "source": "the game's own level data: the level DeepDesert_1_Travel, the taxi service markers and the spawn locations beside them (game units, the axes of the save's markers table)",
+ "level": "DeepDesert_1_Travel",
+ "read": "2026-10-30",
+ "grid": {
+  "minX": -1268450,
+  "maxX": 1158400,
+  "minY": -1261434,
+  "maxY": 1165416,
+  "sectors": 9
+ },
+ "taxis": {
+  "5B1E5FA645B571DF9714B2B2F8EDD06B": {
+   "cell": "A2",
+   "marker": {
+    "x": -992239.7,
+    "y": 972498.6,
+    "z": 17048.4
+   },
+   "stand": {
+    "x": -990770,
+    "y": 971700,
+    "z": 17035.5
+   },
+   "observed": false
+  },
+  "6F72F943466BF7C8FC1D3E88853764D5": {
+   "cell": "A5",
+   "marker": {
+    "x": -120609.7,
+    "y": 935241.2,
+    "z": 19138.2
+   },
+   "stand": {
+    "x": -121120,
+    "y": 930720,
+    "z": 18149.8
+   },
+   "observed": false
+  },
+  "747ED59B48C052C7577385A5C8DEC0C1": {
+   "cell": "A8",
+   "marker": {
+    "x": 768375.4,
+    "y": 906402,
+    "z": 17730.3
+   },
+   "stand": {
+    "x": 767350,
+    "y": 906130,
+    "z": 17642.6
+   },
+   "observed": false
+  }
+ }
+}

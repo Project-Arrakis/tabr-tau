@@ -332,4 +332,5 @@ var knownFileWriters = map[string]bool{
 	"cmd/tabr-tau.runCommand":           true, // decode and encode write the file the person names
 	"tools/vehiclegen.main":             true, // the developer tool that makes internal/catalog/vehicles.json from table dumps; it never opens a save
 	"tools/placenamesgen.main":          true, // the developer tool that makes internal/ops/place-names.json from table dumps; it never opens a save
+	"tools/deepdeserttaxisgen.main":     true, // the developer tool that makes internal/ops/deep-desert-taxis.json from a dump of the game's level data; it never opens a save
 }

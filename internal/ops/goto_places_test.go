@@ -44,8 +44,8 @@ func TestBasesAreTheCharactersOwnDeployedBasesOnly(t *testing.T) {
 		t.Fatalf("bases: %v (not the picked-up 602, not another player's 604, not the one the character is only a member of 605, not the one on another map 606, not the one with no owner record 607)", got)
 	}
 	// the Deep Desert has its own: the character's base there
-	if _, d := namedPlacesOf(t, o, "", "DeepDesert"); fmt.Sprint(labelsOf(d)) != "[base: Far Base #606]" {
-		t.Errorf("the Deep Desert: %v", labelsOf(d))
+	if _, d := namedPlacesOf(t, o, "", "DeepDesert"); fmt.Sprint(labelsOf(withoutTaxis(d))) != "[base: Far Base #606]" {
+		t.Errorf("the Deep Desert: %v", labelsOf(withoutTaxis(d)))
 	}
 }
 
@@ -146,8 +146,8 @@ func TestRespawnPointsAreTheCharactersOwnThatExistInTheWorld(t *testing.T) {
 		t.Errorf("%v", got)
 	}
 	_, dd := namedPlacesOf(t, o, "", "DeepDesert")
-	if fmt.Sprint(labelsOf(dd)) != "[respawn: Respawn point #806]" {
-		t.Errorf("the Deep Desert: %v", labelsOf(dd))
+	if fmt.Sprint(labelsOf(withoutTaxis(dd))) != "[respawn: Respawn point #806]" {
+		t.Errorf("the Deep Desert: %v", labelsOf(withoutTaxis(dd)))
 	}
 }
 
@@ -168,14 +168,14 @@ func TestEveryGroupIsInOneListInThePagesOrder(t *testing.T) {
 			order = append(order, x.Group)
 		}
 	}
-	if fmt.Sprint(order) != "[tradepost base vehicle respawn]" {
+	if fmt.Sprint(order) != "[tradepost base vehicle respawn taxi]" {
 		t.Errorf("groups in one list: %v", labelsOf(d))
 	}
 	var keys []string
 	for _, g := range m["groups"].([]DestinationGroup) {
 		keys = append(keys, g.Label)
 	}
-	if fmt.Sprint(keys) != "[Trading posts Personal bases Vehicles Respawn points]" {
+	if fmt.Sprint(keys) != "[Trading posts Personal bases Vehicles Respawn points Taxis]" {
 		t.Errorf("headings: %v", keys)
 	}
 	if _, ok := m["kind"]; ok {
