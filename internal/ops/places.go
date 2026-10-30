@@ -64,8 +64,6 @@ type arrivalPoint struct {
 	Observed *bool
 }
 
-func (a arrivalPoint) coords() (x, y, z float64) { return a.X, a.Y, a.Z }
-
 // placeArrivals are the arrival points: Tradeposts by the place's name (as place-names.json has it; several keys of one place share the point) and Hubs by the hub's map name.
 var placeArrivals = func() struct{ Tradeposts, Hubs map[string]arrivalPoint } {
 	var f struct {
