@@ -15,8 +15,7 @@ import (
 // Go to a place (#500, #519). Admin > Movement > Go to a place is one drop-down of the places a player knows by name: trading posts, the character's own deployed bases, the
 // character's own vehicles that stand in the world, the character's respawn points that exist in the world, and the taxi hubs, each under its heading. Nothing else on the saved map
 // (outposts, camps, resources, hazards, caves, vendors) is offered. Each heading is found by its own function below (tradeAndTaxiPlaces, deployedBasePlaces, worldVehiclePlaces,
-// respawnPlaces), so a new source of places (the Deep Desert's taxi service points and the hubs of every map from the game's level data, #521) is one more function and one more
-// entry in namedPlaces.
+// respawnPlaces, plus deepDesertTaxiPlaces and hubPlaces for the taxis of #521), so a new source of places is one more function and one more entry in namedPlaces.
 //
 // The Deep Desert has no trading post. Three rows of DT_StaticLocationData carry the trading-post tag and belong to the map object DeepDesert_1_Travel; they are the Deep
 // Desert's taxi service points (#516), so place-names.json gives them the kind "taxi" and namedPlaces lists a TradingPost marker with one of those keys under Taxis, never
@@ -32,13 +31,15 @@ import (
 // base in the save), so a marker cannot be tied to the character. The vehicles are the character's own that stand in the world (a stored vehicle, in the vehicle backup or stored for recovery, has no place), named by the name the
 // character gave them or else by the editor's own name for the kind of vehicle. The respawn points are the character's own rows in player_respawn_locations for the map whose locator
 // actor still exists and has not been picked up with a base (respawnPlaces).
-// A taxi hub is a TaxiService marker, which sits on the map of its hub (Arrakeen, Harko Village), so it is offered while the list is for that map; a Deep Desert taxi service
-// point is a marker of the Deep Desert map, so it is offered while the list is for that map and not on Hagga Basin.
+// Taxis (#521). Under the Taxis heading the list has the Deep Desert's three taxi service points while the list is for the Deep Desert (from the game's level data, deep-desert-taxis.json,
+// whether or not the save has a marker for them; a marker the save does have for one is not listed a second time; place_taxis.go) and the two hubs, Arrakeen and Harko Village, from every
+// map (hubPlaces). A hub is another map, so its row says which (onMap) and the page asks for a move into that map. A taxi service marker of a hub's own map is not listed
+// separately: the hub's row stands for it.
 //
 // Arrival points (#515). The game has its own arrival point for each trading post and for the two hubs: where the ornithopter pilot's trip puts a character. Go to a place fills
-// X, Y and Z with that point for a trading post (Pinnacle Station, The Anvil, Griffin's Reach, Crossroads) and for the hub the character is in (Arrakeen, Harko Village), and
-// with the marker's own position for every other place (the character's bases and vehicles, a Deep Desert taxi service point, a post the file does not name). The points are in
-// place-arrivals.json (internal/catalog/PROVENANCE.md, "place-arrivals.json"). A hub is another map: the entry is offered only while the list is for that map, as before.
+// X, Y and Z with that point for a trading post (Pinnacle Station, The Anvil, Griffin's Reach, Crossroads) and for the hubs (Arrakeen, Harko Village), and
+// with the marker's own position for every other place (the character's bases and vehicles, a post the file does not name; a Deep Desert taxi service point is at its standing position from deep-desert-taxis.json). The points are in
+// place-arrivals.json (internal/catalog/PROVENANCE.md, "place-arrivals.json"). A hub is another map; since #521 it is offered from every map (see Taxis above), not only its own.
 
 //go:embed place-names.json
 var rawPlaceNames []byte
@@ -269,7 +270,8 @@ func distinguishNames(all []placeRow, group []int) {
 type placeRow struct {
 	group, label, alias, key string
 	x, y, z                  any
-	arrival                  bool // x, y, z are the game's arrival point for the place, not the marker's position (#515)
+	arrival                  bool   // x, y, z are the game's arrival point for the place, not the marker's position (#515)
+	onMap                    string // the map the place is on when that is not the map the list is for (a hub, #521); "" for a place on the list's own map
 }
 
 // useArrival puts the arrival point in place of the marker's position. A marker with no position in the save is still left out (the place is not in this save as a place), so
@@ -314,7 +316,7 @@ const deployedBaseSQL = `select t.id id, t.landclaim_original_global_location_x 
 // (distinguishNames).
 func (o *Ops) namedPlaces(p player, mp string) ([]placeRow, error) {
 	var out []placeRow
-	for _, find := range []func(player, string) ([]placeRow, error){o.tradeAndTaxiPlaces, o.deployedBasePlaces, o.worldVehiclePlaces, o.respawnPlaces} {
+	for _, find := range []func(player, string) ([]placeRow, error){o.deepDesertTaxiPlaces, o.tradeAndTaxiPlaces, o.hubPlaces, o.deployedBasePlaces, o.worldVehiclePlaces, o.respawnPlaces} {
 		rows, err := find(p, mp)
 		if err != nil {
 			return nil, err
@@ -350,6 +352,9 @@ func (o *Ops) tradeAndTaxiPlaces(p player, mp string) ([]placeRow, error) {
 			group := groupTradePost
 			if key != "" && placeNames[key].Kind == kindTaxi { // the Deep Desert's taxi service points carry the trading-post tag in the game's table (#516)
 				group = groupTaxi
+				if mp == mapDeepDesert && isDeepDesertTaxiKey(key) {
+					continue // the Deep Desert's own list has this point from the game's level data (deepDesertTaxiPlaces), whether or not the save has the marker (#521)
+				}
 			}
 			row := placeRow{group: group, label: label, alias: alias, key: key, x: r["x"], y: r["y"], z: r["z"]}
 			if group == groupTradePost {
@@ -359,11 +364,13 @@ func (o *Ops) tradeAndTaxiPlaces(p player, mp string) ([]placeRow, error) {
 			}
 			out = append(out, row)
 		case "TaxiService":
-			row := placeRow{group: groupTaxi, label: taxiName(mp), x: r["x"], y: r["y"], z: r["z"]}
-			if a, ok := placeArrivals.Hubs[mp]; ok {
-				row.useArrival(a)
+			if _, ok := hubArrival(mp); ok {
+				continue // a hub is offered from every map with its arrival point (hubPlaces), found marker or not (#521)
 			}
-			out = append(out, row)
+			if mp == mapDeepDesert && isListedDeepDesertTaxi(r["x"], r["y"]) {
+				continue // one of the Deep Desert's three points, which deepDesertTaxiPlaces lists from the level data (#521)
+			}
+			out = append(out, placeRow{group: groupTaxi, label: taxiName(mp), x: r["x"], y: r["y"], z: r["z"]})
 		}
 	}
 	return out, nil

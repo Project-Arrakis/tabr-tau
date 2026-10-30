@@ -159,8 +159,8 @@ func TestDestinationListIsCappedAt200AndSaysHowManyThereAre(t *testing.T) {
 		}
 		m := res.(map[string]any)
 		d := m["destinations"].([]Destination)
-		if m["total"].(int) != n || len(d) != 200 {
-			t.Errorf("%d markers: total %v, listed %d, want total %d and 200 listed", n, m["total"], len(d), n)
+		if m["total"].(int) != n+2 || len(d) != 200 { // the 2 more are the two hubs, which every map offers (#521)
+			t.Errorf("%d markers: total %v, listed %d, want total %d and 200 listed", n, m["total"], len(d), n+2)
 		}
 		if d[0].X != 101 || d[199].X != 300 {
 			t.Errorf("%d markers: nearest first, got x %v ... %v", n, d[0].X, d[199].X)

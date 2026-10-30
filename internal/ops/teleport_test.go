@@ -80,7 +80,7 @@ func TestDestinationsListPlacesOnTheCurrentMapNearestFirst(t *testing.T) {
 	for _, d := range all {
 		order = append(order, d.Group)
 	}
-	if fmt.Sprint(order) != "[tradepost base vehicle respawn respawn]" {
+	if fmt.Sprint(order) != "[tradepost base vehicle respawn respawn taxi taxi]" { // the two taxi rows are the hubs, offered from every map (#521)
 		t.Fatalf("one list, the groups in the page's order: %v", labelsOf(all))
 	}
 	if got := listDestinations(t, o, "", "camp"); len(got) != 0 {

@@ -839,7 +839,7 @@ async function playerSection(s) {
     <div class="card"><h3>Movement</h3><div class="row"><b>Teleport to</b>X<input id="tx" aria-label="Teleport to X" type="number" value="${goVal('tx', Math.round(a.x))}">Y<input id="ty" aria-label="Teleport to Y" type="number" value="${goVal('ty', Math.round(a.y))}">Z${tip('tztip', 'If you type a Z yourself, stay above the terrain or you may fall through.', html`<input id="tz" aria-label="Teleport to Z" type="number" value="${goVal('tz', Math.round(a.z))}" aria-describedby="tztip">`)}Facing ${tip('tyawtip', 'Facing is optional: 0 looks along +X; leave it empty to keep the way the character faces.', html`<input id="tdyaw" aria-label="Facing in degrees" type="number" step="1" placeholder="degrees" value="${goVal('tdyaw', '')}" class="w90" aria-describedby="tyawtip">`)}Map ${tip('tmaptip', 'Places are on the map chosen in Map (the one the character is on now unless you change it).', html`<select id="tmap" aria-label="Map to move to" aria-describedby="tmaptip"><option value="" ${goVal('tmap', '') === '' ? 'selected' : ''}>This map (${a.map || 'unknown'})</option>${TRAVEL_MAPS.map(([k, v]) => html`<option value="${k}" ${goVal('tmap', '') === k ? 'selected' : ''}>${v}</option>`)}</select>`)}<button class="b" data-act="teleport">Teleport</button><span id="tdpick" class="mut" role="status"></span></div>
     <div id="tmapnote"></div>
     <div class="row"><b>Go to a place</b><span id="tdout" class="mut"></span></div>
-    ${about('admin.movement', 'Movement', html`<p class="mut">Moves the character in the save. The game keeps its own copy of the save in memory while single-player runs and overwrites the file, so the move shows when you next enter single-player.</p><p class="mut">${TRAVEL_NOTE}</p><p class="mut">Go to a place lists the trading posts you have found, your own bases that stand in the world, your own vehicles that stand in the world, your respawn points and the taxi hubs, under those headings, nearest first. Choosing a place fills X, Y and Z.</p><p class="mut">${PLACE_NOTE}</p><p class="mut">If you type a Z yourself, stay above the terrain or you may fall through.</p>`)}
+    ${about('admin.movement', 'Movement', html`<p class="mut">Moves the character in the save. The game keeps its own copy of the save in memory while single-player runs and overwrites the file, so the move shows when you next enter single-player.</p><p class="mut">${TRAVEL_NOTE}</p><p class="mut">Go to a place lists the trading posts you have found, your own bases that stand in the world, your own vehicles that stand in the world, your respawn points and the taxis, under those headings, nearest first. Taxis are the three Deep Desert taxi service points while the Deep Desert is the map (from the game's level data, named by their grid cell, whether or not your save has found them) and the two hubs, Arrakeen and Harko Village, from every map. Choosing a place fills X, Y and Z.</p><p class="mut">${PLACE_NOTE}</p><p class="mut">If you type a Z yourself, stay above the terrain or you may fall through.</p>`)}
     </div>`);
     const ve = await api('/api/vendors');
     await loadCatalog(ve.stock.map((x) => x.template_id));
@@ -1013,11 +1013,13 @@ function goKeep(t) { // a box was set by the person: remember it; a typed coordi
   if (t.id === 'tx' || t.id === 'ty' || t.id === 'tz') { GO.pick = null; const s = $('#tdsel'); if (s) s.value = ''; goNote(); }
 }
 function goSet(id, v) { GO.vals[id] = String(v); const el = $('#' + id); if (el) el.value = String(v); }
-const tdAway = (d) => (TDR && TDR.sameMap ? `${Math.round(d.distance / 100).toLocaleString()} m away` : '');
+// How far a place is: only for a place on the map the character is on; a hub that is another map says so instead (#521).
+const tdAway = (d) => (d.otherMap ? 'another map' : (TDR && TDR.sameMap) || d.map ? `${Math.round(d.distance / 100).toLocaleString()} m away` : '');
 // Says which place Teleport is aimed at while a choice from the list stands.
 function goNote() {
   const n = $('#tdpick'), d = GO.pick === null ? null : TD[GO.pick];
   if (n) n.textContent = d ? `Selected: ${d.label}${tdAway(d) ? ', ' + tdAway(d) : ''}` : '';
+  tmapSync(); // a hub chosen in the list is another map, whatever the Map box says (#521)
 }
 // The drop-down of places, drawn from the last answer and the choice made in it, so a redraw of the page loses neither.
 function tdDraw() {
@@ -1056,7 +1058,7 @@ async function goPlaces(asked) {
 function goSync() { tdDraw(); goNote(); }
 const TRAVEL_NOTE = 'A move to another map writes the character\'s controller, body and player state on the new map. A move to the Deep Desert was checked in the game once (2026-10-27, one character, a throwaway save): the game loaded the character there. No other move was checked, so try it on a copy first. A position typed for the Deep Desert is not accepted for Hagga Basin.';
 // What is drawn under Teleport while another map is chosen: the one thing that can hurt, in two sentences. The whole note (what is written, the position rule) is TRAVEL_NOTE, in the Movement card's About this (#426).
-const PLACE_NOTE = "For trading posts and hubs the boxes are filled with the point where the game's own ornithopter trip would put you; for other places, with the place's own position. The distance shown is to the point that is used. Two of the trading-post points (Griffin's Reach and Crossroads) are computed from the game's level data and have not been seen in use; the other trading posts and the hubs match trips that were seen. A hub is another map: a save edit is not known to change maps.";
+const PLACE_NOTE = "For trading posts and hubs the boxes are filled with the point where the game's own ornithopter trip would put you; for other places, with the place's own position. The distance shown is to the point that is used. Two of the trading-post points (Griffin's Reach and Crossroads) are computed from the game's level data and have not been seen in use; the other trading posts and the hubs match trips that were seen. A Deep Desert taxi is the spot beside it in the game's level data and nobody has stood there yet. Whether a save edit moves the character into another map is not proven; do it on a copy first, with the game closed, and expect to need the in-game taxi if it does not work.";
 const TRAVEL_WARN = 'Only one move between maps was checked in the game: to the Deep Desert (2026-10-27, one character, a throwaway save). No other move was checked, so try it on a copy first.';
 const TRAVEL_MAPS = [['HaggaBasin', 'Hagga Basin'], ['DeepDesert', 'The Deep Desert']]; // the maps the editor moves the character to (the console offers the same two for an offline player)
 const lcKey = (x, y) => `${x},${y}`;
@@ -1705,7 +1707,8 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) viewS
 // The note about a move between maps is drawn only while another map is chosen (#426).
 function tmapSync() {
   const sel = $('#tmap'), box = $('#tmapnote');
-  if (box) setHTML(box, sel && sel.value !== '' ? html`<p class="warn" id="tmapwarn">${TRAVEL_WARN}</p>` : html``);
+  const hub = GO.pick !== null && TD[GO.pick] && TD[GO.pick].otherMap; // a hub chosen in the list of places is another map too (#521)
+  if (box) setHTML(box, (sel && sel.value !== '') || hub ? html`<p class="warn" id="tmapwarn">${TRAVEL_WARN}</p>` : html``);
 }
 // render(true) is the redraw after an action (or the page's own refresh from the file): it keeps the place; render('scroll') keeps only the scroll offsets. Any other call is a move to another page, which starts at the top.
 async function render(keepPlace) {
@@ -1764,7 +1767,7 @@ const A = {
   xp: () => act(async () => { const r = await api('/api/player/xp', { amount: +val('xpAmt') }); toast(r.applied ? `XP ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()}, level ${r.levelBefore} → ${r.levelAfter}` + (r.skillPointsGained ? `, +${r.skillPointsGained} skill points` : '') + (r.capped ? ' (stopped at level 200)' : '') + NOT_SAVED : 'Already at the last level (200).'); }, null),
   currency: () => act(async () => { const r = await api('/api/player/currency', { currency: +val('curSel'), amount: +val('curAmt') }); toast(`${r.currency == 0 ? 'Solari in wallet' : 'House credit in wallet'} ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()}` + NOT_SAVED); }, null),
   intel: () => act(async () => { const r = await api('/api/player/intel', { amount: +val('intelAmt') }); toast(r.applied ? `Intel ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()}` + (r.capped ? ' (capped at 2,779)' : '') + NOT_SAVED : 'Intel is already at the cap (2,779).'); }, null),
-  teleport: () => act(async () => { const body = { x: +val('tx'), y: +val('ty'), z: +val('tz') }; if (val('tdyaw') !== '') body.yaw = +val('tdyaw'); if (val('tmap') !== '') body.map = val('tmap'); const r = await api('/api/player/teleport', body); goClear(); toast(r.message || ('Teleport set' + NOT_SAVED), r.warn ? 'part' : false, 15000); return r; }, null),
+  teleport: () => act(async () => { const body = { x: +val('tx'), y: +val('ty'), z: +val('tz') }; if (val('tdyaw') !== '') body.yaw = +val('tdyaw'); const pick = GO.pick === null ? null : TD[GO.pick]; if (pick && pick.map) body.map = pick.map; else if (val('tmap') !== '') body.map = val('tmap'); const r = await api('/api/player/teleport', body); goClear(); toast(r.message || ('Teleport set' + NOT_SAVED), r.warn ? 'part' : false, 15000); return r; }, null),
   augEdit: (d) => act(async () => { const r = await api('/api/items/augment-options', { item_id: +d.id }); r.options.forEach((o) => AUG_NAMES.set(o.id, o.name)); augItem = { ...r, item_id: +d.id }; render(); }, null, false),
   augCancel: () => { augItem = null; render(true); },
   augApply: (d) => act(async () => { const r = await api('/api/items/augment', { item_id: +d.id, augments: augPicked('au', augItem.limit), grade: +val('augG'), unlock_slots: $('#augU').checked }); augItem = null; toast(`Augments set (${r.augments})` + (r.slotsUnlocked ? `, ${r.slotsUnlocked} slot keystones unlocked` : '') + NOT_SAVED); }, null),

@@ -41,8 +41,8 @@ func TestDestinationsOfAnotherMapAreThatMapsPlacesAndHaveNoDistance(t *testing.T
 	o := &Ops{S: testsave.PlayerWithSQL(t, teleportWorld+teleportDeepDesert)}
 	r := destinationsOn(t, o, "DeepDesert")
 	d := r["destinations"].([]Destination)
-	// the character's vehicle, its respawn point (the beacon) and the taxi service point; base 701 is not the character's, and the Deep Desert has no trading post (#516)
-	if fmt.Sprint(labelsOf(d)) != "[vehicle: mine #811 respawn: Respawn point #812 taxi: Deep Desert Taxi Service]" {
+	// the character's vehicle, its respawn point (the beacon) and the three taxi service points from the level data (#521) and the two hubs; base 701 is not the character's, and the Deep Desert has no trading post (#516)
+	if fmt.Sprint(labelsOf(d)) != "[vehicle: mine #811 respawn: Respawn point #812 taxi: Deep Desert Taxi Service (A2) taxi: Deep Desert Taxi Service (A5) taxi: Deep Desert Taxi Service (A8) taxi: Arrakeen Taxi Service taxi: Harko Village Taxi Service]" {
 		t.Errorf("places on the Deep Desert: %v", labelsOf(d))
 	}
 	if r["map"] != "DeepDesert" || r["sameMap"] != false {

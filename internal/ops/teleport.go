@@ -18,20 +18,26 @@ import (
 // destinationLimit is the most rows one destination list returns.
 const destinationLimit = 200
 
+// hubArrivalTolerance is how far (game units) each coordinate of a move into a hub may be from the hub's arrival point: the page sends the numbers it was given.
+const hubArrivalTolerance = 1.0
+
 // Destination is one place the character can be moved to.
 type Destination struct {
 	Label    string   `json:"label"`
 	X        float64  `json:"x"`
 	Y        float64  `json:"y"`
 	Z        float64  `json:"z"`
-	Distance float64  `json:"distance"`          // flat distance from the character now, in game units; 0 (not given) for a map the character is not on
-	Group    string   `json:"group,omitempty"`   // the heading of the list the place is under (tradepost, base, vehicle, respawn or taxi)
-	Arrival  bool     `json:"arrival,omitempty"` // X, Y, Z are the game's arrival point for the place (#515), not the marker's position; Distance is to this point
+	Distance float64  `json:"distance"`           // flat distance from the character now, in game units; 0 (not given) for a map the character is not on
+	Group    string   `json:"group,omitempty"`    // the heading of the list the place is under (tradepost, base, vehicle, respawn or taxi)
+	Arrival  bool     `json:"arrival,omitempty"`  // X, Y, Z are the game's arrival point for the place (#515), not the marker's position; Distance is to this point
+	Map      string   `json:"map,omitempty"`      // the map the place is on, given for a hub (#521): a move to it is a move into that map, which the page asks for when it teleports
+	OtherMap bool     `json:"otherMap,omitempty"` // the place is on a map other than the one the character is on now: no distance is given, and the page shows the warning about a move between maps
 	Facing   *float64 `json:"facing,omitempty"`
 }
 
 // TravelMap is a map the character can be moved to: the two the console offers for an offline player (Hagga Basin and the Deep Desert).
-// The social hubs and the dungeons are instances with their own entry; a position in the save is not enough to enter them, so they are not offered.
+// The social hubs and the dungeons are instances with their own entry; a position in the save is not known to be enough to enter them, so the Map box does not offer them. Arrakeen and
+// Harko Village are offered as places instead (#521), to their arrival points only, with the warning that a save edit is not proven to move the character into another map.
 type TravelMap struct {
 	Key     string `json:"key"`
 	Label   string `json:"label"`
@@ -96,7 +102,11 @@ func (o *Ops) Destinations(q, dest string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	var out []Destination
+	type listed struct {
+		d    Destination
+		dist bool // d.Distance means something: the place is on the map the character is on
+	}
+	var rows []listed
 	for _, r := range places {
 		fx, ok1 := toFloat(r.x)
 		fy, ok2 := toFloat(r.y)
@@ -107,24 +117,33 @@ func (o *Ops) Destinations(q, dest string) (any, error) {
 		if q != "" && !strings.Contains(strings.ToLower(r.label), q) && !strings.Contains(strings.ToLower(r.alias), q) {
 			continue
 		}
-		d := Destination{Group: r.group, Label: r.label, X: fx, Y: fy, Z: fz, Arrival: r.arrival}
-		if same {
+		d := Destination{Group: r.group, Label: r.label, X: fx, Y: fy, Z: fz, Arrival: r.arrival, Map: r.onMap, OtherMap: r.onMap != "" && r.onMap != cur}
+		onCur := (r.onMap == "" && same) || (r.onMap != "" && r.onMap == cur) // the place is on the map the character is on
+		if onCur {
 			d.Distance = flatDistance(fx, fy, px, py)
 		}
-		out = append(out, d)
+		rows = append(rows, listed{d, onCur})
 	}
-	sort.SliceStable(out, func(i, j int) bool {
-		if gi, gj := groupIndex(out[i].Group), groupIndex(out[j].Group); gi != gj {
+	sort.SliceStable(rows, func(i, j int) bool {
+		a, b := rows[i], rows[j]
+		if gi, gj := groupIndex(a.d.Group), groupIndex(b.d.Group); gi != gj {
 			return gi < gj
 		}
-		return same && out[i].Distance < out[j].Distance
+		if a.d.OtherMap != b.d.OtherMap {
+			return !a.d.OtherMap // the places on the character's map before the hubs that are another map
+		}
+		if a.dist != b.dist {
+			return a.dist // a place with a distance before one without (the save's order is kept among the others)
+		}
+		return a.dist && a.d.Distance < b.d.Distance
 	})
+	out := make([]Destination, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, r.d)
+	}
 	total := len(out)
 	if len(out) > destinationLimit {
 		out = out[:destinationLimit]
-	}
-	if out == nil {
-		out = []Destination{}
 	}
 	return map[string]any{"map": mp, "sameMap": same, "maps": maps, "total": total, "destinations": out, "groups": groupsOf(out)}, nil
 }
@@ -215,7 +234,9 @@ func teleportMapArg(a Args) (string, error) {
 		return "", nil
 	}
 	if _, ok := travelMapOf(s); !ok {
-		return "", apierr.New(apierr.ErrBadArgument, "map must be HaggaBasin or DeepDesert")
+		if _, hub := hubArrival(s); !hub { // Arrakeen and Harko Village are accepted too, to their arrival point only (teleportToMap, #521)
+			return "", apierr.New(apierr.ErrBadArgument, "map must be HaggaBasin, DeepDesert, Arrakeen or HarkoVillage")
+		}
 	}
 	return s, nil
 }
@@ -225,11 +246,18 @@ func teleportMapArg(a Args) (string, error) {
 // only, which is what was checked in the game. The position has to lie inside the destination map's own bounds (Hagga Basin's are much
 // smaller than the Deep Desert's, so a Deep Desert position typed for Hagga Basin is caught; the reverse is not, and the places the page lists
 // for a map are the safe way to choose). A move to the Deep Desert was checked in the game once (2026-10-27, one character, a throwaway
-// save): the three actors were written as here and the game loaded the character there. No other move was checked.
+// save): the three actors were written as here and the game loaded the character there. No other move was checked. A move into a hub (Arrakeen, Harko Village; #521) is written the
+// same way but is not known to work: the game may load the character in the hub or ignore the map in the save (the operator checks it on a copy).
 func (o *Ops) teleportToMap(p player, dest string, x, y, z, yaw float64, hasYaw bool) (any, error) {
-	cfg, _ := travelMapOf(dest)
-	if x < cfg.MinX || x > cfg.MaxX || y < cfg.MinY || y > cfg.MaxY {
-		return nil, apierr.Newf(apierr.ErrBadArgument, "X %.0f, Y %.0f is outside the %s map (X %.0f to %.0f, Y %.0f to %.0f)", x, y, cfg.Label, cfg.MinX, cfg.MaxX, cfg.MinY, cfg.MaxY)
+	if cfg, ok := travelMapOf(dest); ok {
+		if x < cfg.MinX || x > cfg.MaxX || y < cfg.MinY || y > cfg.MaxY {
+			return nil, apierr.Newf(apierr.ErrBadArgument, "X %.0f, Y %.0f is outside the %s map (X %.0f to %.0f, Y %.0f to %.0f)", x, y, cfg.Label, cfg.MinX, cfg.MaxX, cfg.MinY, cfg.MaxY)
+		}
+	} else if a, hub := hubArrival(dest); !hub {
+		return nil, apierr.New(apierr.ErrBadArgument, "map must be HaggaBasin, DeepDesert, Arrakeen or HarkoVillage")
+	} else if math.Abs(x-a.X) > hubArrivalTolerance || math.Abs(y-a.Y) > hubArrivalTolerance || math.Abs(z-a.Z) > hubArrivalTolerance {
+		// a hub's own bounds are not known, so the editor moves the character into a hub only to the game's arrival point for it, which Go to a place gives
+		return nil, apierr.Newf(apierr.ErrBadArgument, "the editor moves the character into %s only to the game's arrival point for it: choose it in Go to a place", hubName(dest))
 	}
 	desc := fmt.Sprintf("teleport player to %s %.0f, %.0f, %.0f", dest, x, y, z)
 	if hasYaw {
