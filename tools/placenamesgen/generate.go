@@ -17,6 +17,10 @@
 // "taxi" (#516). A trading-post row whose object is not in the table is an error (a new game build added a place: add a line and read the text for it), so a name is never guessed
 // silently.
 //
+// Not made here: the arrival points of Go to a place (#515) are in internal/ops/place-arrivals.json, which is committed and kept by hand. They come from the game's own level data
+// (the destination placement of the ornithopter pilot's trip: the level block's origin plus the destination offset turned by the block's yaw), not from the two tables this tool
+// reads, so this tool neither reads nor writes that file; each entry has an "observed" flag (seen in use in a trip log, or only computed). internal/catalog/PROVENANCE.md has the rule.
+//
 // Usage: go run ./tools/placenamesgen -locations ... -dialogue ... -build ... -read 2026-10-30 -out internal/ops/place-names.json
 package main
 

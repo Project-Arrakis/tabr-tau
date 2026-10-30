@@ -1,0 +1,14 @@
+{
+ "source": "the game's own level data: the destination placement of the ornithopter pilot's trip (level block origin plus the yaw-rotated offset), game units, the axes of the save's markers table",
+ "read": "2026-10-30",
+ "tradeposts": {
+  "Pinnacle Station Tradepost": {"x": -32905.3, "y": -313888.6, "z": 12053.0, "observed": true},
+  "The Anvil Tradepost": {"x": 193966.6, "y": 2552.5, "z": 13515.0, "observed": true},
+  "Griffin's Reach Tradepost": {"x": 23860.4, "y": 227191.3, "z": 8550.0, "observed": false},
+  "Crossroads Tradepost": {"x": -218763.0, "y": -162786.8, "z": 7387.2, "observed": false}
+ },
+ "hubs": {
+  "HarkoVillage": {"x": -1415.0, "y": 26560.0, "z": 14673.9, "observed": true},
+  "Arrakeen": {"x": 11495.0, "y": -316.0, "z": 51457.0, "observed": true}
+ }
+}

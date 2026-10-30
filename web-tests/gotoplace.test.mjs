@@ -201,3 +201,40 @@ test('a heading or a name that holds markup is shown as text', async () => {
   assert.equal(ui.w.__pwned, undefined);
   ui.dom.window.close();
 });
+
+// ---- the arrival points (#515): a trading post or hub is listed at the game's arrival point, and the boxes get that point
+
+const arrival = () => ({ map: 'HaggaBasin', sameMap: true, kind: 'marker', total: 2,
+  groups: [{ key: 'tradepost', label: 'Trading posts' }, { key: 'base', label: 'Personal bases' }],
+  destinations: [
+    // the answer already holds the arrival point for the post (x, y, z) and the distance to it
+    { kind: 'marker', group: 'tradepost', label: 'Pinnacle Station Tradepost', x: -32905.3, y: -313888.6, z: 12053, distance: 315818, arrival: true },
+    { kind: 'marker', group: 'base', label: 'Spice Camp #602', x: 21, y: 31, z: 41, distance: 3000 }] });
+
+test('choosing a named trading post fills the boxes with its arrival point and shows the distance to that point', async () => {
+  const { ui } = await open({ get: { '/api/player/destinations': arrival() } });
+  choose(ui, '0');
+  assert.deepEqual(fields(ui), ['-32905', '-313889', '12053'], 'the boxes hold the arrival point, rounded as every place is');
+  assert.equal(note(ui), 'Selected: Pinnacle Station Tradepost, 3,158 m away', 'the distance is to the point that will be used');
+  await ui.w.render(true); await ui.settle();
+  assert.deepEqual(fields(ui), ['-32905', '-313889', '12053'], 'the choice stays through a redraw (#506)');
+  ui.click('[data-act="teleport"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/teleport').map((p) => p.body), [{ x: -32905, y: -313889, z: 12053 }]);
+  ui.dom.window.close();
+});
+
+test('a place without an arrival point still fills the boxes with its own position', async () => {
+  const { ui } = await open({ get: { '/api/player/destinations': arrival() } });
+  choose(ui, '1');
+  assert.deepEqual(fields(ui), ['21', '31', '41']);
+  ui.dom.window.close();
+});
+
+test('the Movement card\'s About text says which position is used, once, and not in every row', async () => {
+  const { ui } = await open({ get: { '/api/player/destinations': arrival() } });
+  const about = ui.doc.querySelector('details[data-about="admin.movement"]').textContent;
+  assert.match(about, /trading posts and hubs the boxes are filled with the point where the game's own ornithopter trip would put you; for other places, with the place's own position/);
+  assert.match(about, /Griffin's Reach and Crossroads\) are computed from the game's level data and have not been seen in use/);
+  assert.equal([...ui.doc.querySelectorAll('#tdsel option')].some((o) => /arrival|marker position/i.test(o.textContent)), false, 'no row repeats it');
+  ui.dom.window.close();
+});

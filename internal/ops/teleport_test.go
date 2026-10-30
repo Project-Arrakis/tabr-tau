@@ -69,8 +69,15 @@ func TestDestinationsListPlacesOnTheCurrentMapNearestFirst(t *testing.T) {
 	if got := listDestinations(t, o, "marker", "pinn"); len(got) != 1 || got[0].Label != "Pinnacle Station Tradepost" {
 		t.Fatalf("the filter narrows by name: %+v", got)
 	}
-	if want := math.Hypot(300, 300); math.Abs(markers[0].Distance-want) > 1e-6 {
-		t.Fatalf("distance is flat and from the character: %v want %v", markers[0].Distance, want)
+	// #515: the trading post has an arrival point, so the place is that point (not the marker at 400, 500) and the distance shown beside it is the distance to that point
+	if markers[0].X != -32905.3 || markers[0].Y != -313888.6 || markers[0].Z != 12053 || !markers[0].Arrival {
+		t.Fatalf("the trading post is at the game's arrival point: %+v", markers[0])
+	}
+	if want := math.Hypot(-32905.3-100, -313888.6-200); math.Abs(markers[0].Distance-want) > 1e-6 {
+		t.Fatalf("distance is flat, from the character to what will be used (the arrival point): %v want %v", markers[0].Distance, want)
+	}
+	if markers[1].Arrival || markers[1].X != 300 || markers[1].Y != 400 {
+		t.Fatalf("a vehicle keeps its own position: %+v", markers[1])
 	}
 	if _, err := o.Destinations("nowhere", "", ""); err == nil {
 		t.Fatal("an unknown kind must be an error")

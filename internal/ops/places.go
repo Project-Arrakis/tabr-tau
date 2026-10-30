@@ -26,6 +26,11 @@ import (
 // base in the save), so a marker cannot be tied to the character. The vehicles are the character's own that stand in the world (a stored or lost vehicle has no place).
 // A taxi hub is a TaxiService marker, which sits on the map of its hub (Arrakeen, Harko Village), so it is offered while the list is for that map; a Deep Desert taxi service
 // point is a marker of the Deep Desert map, so it is offered while the list is for that map and not on Hagga Basin.
+//
+// Arrival points (#515). The game has its own arrival point for each trading post and for the two hubs: where the ornithopter pilot's trip puts a character. Go to a place fills
+// X, Y and Z with that point for a trading post (Pinnacle Station, The Anvil, Griffin's Reach, Crossroads) and for the hub the character is in (Arrakeen, Harko Village), and
+// with the marker's own position for every other place (the character's bases and vehicles, a Deep Desert taxi service point, a post the file does not name). The points are in
+// place-arrivals.json (internal/catalog/PROVENANCE.md, "place-arrivals.json"). A hub is another map: the entry is offered only while the list is for that map, as before.
 
 //go:embed place-names.json
 var rawPlaceNames []byte
@@ -48,6 +53,38 @@ var placeNames = func() map[string]namedPlace {
 	}
 	return f.Places
 }()
+
+//go:embed place-arrivals.json
+var rawPlaceArrivals []byte
+
+// arrivalPoint is where the game's own trip puts a character, in game units (the axes of the save's markers table). Observed says whether the point was seen in use in a log
+// of an actual trip (true) or was only computed from the level data (false).
+type arrivalPoint struct {
+	X, Y, Z  float64
+	Observed *bool
+}
+
+// placeArrivals are the arrival points: Tradeposts by the place's name (as place-names.json has it; several keys of one place share the point) and Hubs by the hub's map name.
+var placeArrivals = func() struct{ Tradeposts, Hubs map[string]arrivalPoint } {
+	var f struct {
+		Tradeposts map[string]arrivalPoint `json:"tradeposts"`
+		Hubs       map[string]arrivalPoint `json:"hubs"`
+	}
+	if err := json.Unmarshal(rawPlaceArrivals, &f); err != nil {
+		panic("ops: place-arrivals.json is not valid: " + err.Error())
+	}
+	return struct{ Tradeposts, Hubs map[string]arrivalPoint }{f.Tradeposts, f.Hubs}
+}()
+
+// tradePostArrival is the arrival point of the trading post that a LocationKey stands for, or false when the key is not a trading post of the file or its place has none.
+func tradePostArrival(key string) (arrivalPoint, bool) {
+	p, ok := placeNames[key]
+	if !ok || p.Kind != "tradepost" {
+		return arrivalPoint{}, false
+	}
+	a, ok := placeArrivals.Tradeposts[p.Name]
+	return a, ok
+}
 
 // The groups of the places list, in the order the page shows them.
 const (
@@ -189,6 +226,19 @@ func distinguishNames(all []placeRow, group []int) {
 type placeRow struct {
 	group, label, alias, key string
 	x, y, z                  any
+	arrival                  bool // x, y, z are the game's arrival point for the place, not the marker's position (#515)
+}
+
+// useArrival puts the arrival point in place of the marker's position. A marker with no position in the save is still left out (the place is not in this save as a place), so
+// a row whose marker has no numbers keeps them and the caller drops it.
+func (r *placeRow) useArrival(a arrivalPoint) {
+	for _, v := range []any{r.x, r.y, r.z} {
+		if _, ok := toFloat(v); !ok {
+			return
+		}
+	}
+	r.x, r.y, r.z = a.X, a.Y, a.Z
+	r.arrival = true
 }
 
 // groupsOf are the headings that have a place in the list, in the order the page shows them.
@@ -225,9 +275,19 @@ func (o *Ops) namedPlaces(p player, mp string) ([]placeRow, error) {
 			if key != "" && placeNames[key].Kind == kindTaxi { // the Deep Desert's taxi service points carry the trading-post tag in the game's table (#516)
 				group = groupTaxi
 			}
-			out = append(out, placeRow{group: group, label: label, alias: alias, key: key, x: r["x"], y: r["y"], z: r["z"]})
+			row := placeRow{group: group, label: label, alias: alias, key: key, x: r["x"], y: r["y"], z: r["z"]}
+			if group == groupTradePost {
+				if a, ok := tradePostArrival(key); ok {
+					row.useArrival(a)
+				}
+			}
+			out = append(out, row)
 		case "TaxiService":
-			out = append(out, placeRow{group: groupTaxi, label: taxiName(mp), x: r["x"], y: r["y"], z: r["z"]})
+			row := placeRow{group: groupTaxi, label: taxiName(mp), x: r["x"], y: r["y"], z: r["z"]}
+			if a, ok := placeArrivals.Hubs[mp]; ok {
+				row.useArrival(a)
+			}
+			out = append(out, row)
 		}
 	}
 

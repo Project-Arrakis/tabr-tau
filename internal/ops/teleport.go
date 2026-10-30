@@ -25,8 +25,9 @@ type Destination struct {
 	X        float64  `json:"x"`
 	Y        float64  `json:"y"`
 	Z        float64  `json:"z"`
-	Distance float64  `json:"distance"`        // flat distance from the character now, in game units
-	Group    string   `json:"group,omitempty"` // the heading of the named-places list the place is under (tradepost, base, vehicle or taxi); empty for the other lists
+	Distance float64  `json:"distance"`          // flat distance from the character now, in game units
+	Group    string   `json:"group,omitempty"`   // the heading of the named-places list the place is under (tradepost, base, vehicle or taxi); empty for the other lists
+	Arrival  bool     `json:"arrival,omitempty"` // X, Y, Z are the game's arrival point for the place (#515), not the marker's position; Distance is to this point
 	Facing   *float64 `json:"facing,omitempty"`
 }
 
@@ -96,7 +97,7 @@ func (o *Ops) Destinations(kind, q, dest string) (any, error) {
 	}
 	q = strings.ToLower(strings.TrimSpace(q))
 	var out []Destination
-	addIn := func(kind, group, label, alias string, x, y, z any) {
+	addIn := func(kind, group, label, alias string, arrival bool, x, y, z any) {
 		fx, ok1 := toFloat(x)
 		fy, ok2 := toFloat(y)
 		fz, ok3 := toFloat(z)
@@ -106,13 +107,13 @@ func (o *Ops) Destinations(kind, q, dest string) (any, error) {
 		if q != "" && !strings.Contains(strings.ToLower(label), q) && !strings.Contains(strings.ToLower(alias), q) {
 			return
 		}
-		d := Destination{Kind: kind, Group: group, Label: label, X: fx, Y: fy, Z: fz}
+		d := Destination{Kind: kind, Group: group, Label: label, X: fx, Y: fy, Z: fz, Arrival: arrival}
 		if same {
 			d.Distance = flatDistance(fx, fy, px, py)
 		}
 		out = append(out, d)
 	}
-	add := func(kind, label string, x, y, z any) { addIn(kind, "", label, "", x, y, z) }
+	add := func(kind, label string, x, y, z any) { addIn(kind, "", label, "", false, x, y, z) }
 	switch kind {
 	case "base":
 		rows, err := o.S.Query(`select t.id id, t.landclaim_original_global_location_x x, t.landclaim_original_global_location_y y,
@@ -148,7 +149,7 @@ func (o *Ops) Destinations(kind, q, dest string) (any, error) {
 			return nil, err
 		}
 		for _, r := range places {
-			addIn("marker", r.group, r.label, r.alias, r.x, r.y, r.z)
+			addIn("marker", r.group, r.label, r.alias, r.arrival, r.x, r.y, r.z)
 		}
 	default:
 		return nil, apierr.New(apierr.ErrBadArgument, "kind must be base, respawn, vehicle or marker")
