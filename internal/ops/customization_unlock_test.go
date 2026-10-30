@@ -193,3 +193,48 @@ func TestUnlockingIsOneEditInTheReviewAndCanBeDiscarded(t *testing.T) {
 		t.Fatal("discard puts the library back")
 	}
 }
+
+// The four Halloween 2026 cosmetics are not store (MTX_) ids and need no DLC: they are ordinary cosmetics that sit under "Other cosmetics",
+// are not entitlement controlled, and can be unlocked one at a time by id (a set or all skips the "other" group).
+func TestTheHalloween2026CosmeticsAreOrdinaryAndUnlockByTheirId(t *testing.T) {
+	ids := map[string]string{
+		"Halloween2026_Radsuit_Variant":         "Derelict Recovery Suit",
+		"Halloween2026_PlagueDoctorMask_Hood":   "Contagion Cowl",
+		"Halloween2026_PlagueDoctorMask_NoHood": "Contagion Visor",
+		"Swatch_Halloween2026":                  "Hot Zone",
+	}
+	o := libraryOps(t)
+	by := map[string]CatalogRow{}
+	for _, row := range o.customizationRows(map[string]bool{}, nil) {
+		by[row.ID] = row
+	}
+	for id, name := range ids {
+		row, ok := by[id]
+		if !ok {
+			t.Errorf("%s is not listed among the customizations", id)
+			continue
+		}
+		if row.Name != name || !row.Unlockable || row.Entitlement || row.RequiredDLC != "" {
+			t.Errorf("%s: %+v", id, row)
+		}
+	}
+	for id := range ids {
+		r, err := o.UnlockCustomizations(Args{"id": id})
+		m, _ := r.(map[string]any)
+		if err != nil || m["added"] != 1 || m["warning"] != nil || m["skippedEntitlement"] != nil {
+			t.Fatalf("%s: %v %v", id, r, err)
+		}
+		if !libraryIDs(t, o)[id] {
+			t.Fatalf("%s is not in the character's library", id)
+		}
+		// a second time reports that it is already there and adds nothing
+		r, err = o.UnlockCustomizations(Args{"id": id})
+		m, _ = r.(map[string]any)
+		if err != nil || m["added"] != 0 || m["skipped"] == nil {
+			t.Fatalf("%s a second time: %v %v", id, r, err)
+		}
+	}
+	if n := len(libraryIDs(t, o)); n != len(ids)+1 {
+		t.Fatalf("the library holds %d ids, want the old one and the four new ones", n)
+	}
+}

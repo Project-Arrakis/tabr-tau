@@ -135,7 +135,46 @@ func TestTheHalloween2026BuildingSetsAreInTheCatalog(t *testing.T) {
 			t.Errorf("%s: %+v", id, e)
 		}
 	}
-	if len(entries) != 2566 || len(byID) != 2566 {
-		t.Errorf("the catalog holds %d entries and %d ids, want 2,566 of each (one entry per id)", len(entries), len(byID))
+	if len(entries) != 2570 || len(byID) != 2570 {
+		t.Errorf("the catalog holds %d entries and %d ids, want 2,570 of each (one entry per id; 2,566 from the console, 4 Halloween 2026 cosmetics added by hand)", len(entries), len(byID))
+	}
+}
+
+// #495: four Halloween 2026 cosmetics are missing from the console's file. Their names are the customization display names from
+// the game's data, and customization_unlocks.json already unlocks each by the id of the same name.
+func TestTheHalloween2026CosmeticsAreInTheCatalog(t *testing.T) {
+	want := map[string]string{
+		"Halloween2026_Radsuit_Variant":         "Derelict Recovery Suit",
+		"Halloween2026_PlagueDoctorMask_Hood":   "Contagion Cowl",
+		"Halloween2026_PlagueDoctorMask_NoHood": "Contagion Visor",
+		"Swatch_Halloween2026":                  "Hot Zone",
+	}
+	for id, name := range want {
+		e, ok := byID[id]
+		if !ok {
+			t.Errorf("%s is not in the catalog", id)
+			continue
+		}
+		if e.Name != name || e.Category != "customizations" || e.Source != "Customizations" || e.RequiredDLC != "" || e.RequiredSteamDLC != "" {
+			t.Errorf("%s: %+v", id, e)
+		}
+		if got, ok := Name(id); !ok || got != name {
+			t.Errorf("Name(%s) = %q, %v", id, got, ok)
+		}
+		if u := Unlocks(id); len(u) != 1 || u[0] != id {
+			t.Errorf("Unlocks(%s) = %v, want the customization of the same name", id, u)
+		}
+	}
+}
+
+func TestProvenanceNamesTheHalloween2026Cosmetics(t *testing.T) {
+	b, err := os.ReadFile("PROVENANCE.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Halloween2026_Radsuit_Variant", "Halloween2026_PlagueDoctorMask_Hood", "Halloween2026_PlagueDoctorMask_NoHood", "Swatch_Halloween2026", "2,570"} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("PROVENANCE.md does not say %q", want)
+		}
 	}
 }
