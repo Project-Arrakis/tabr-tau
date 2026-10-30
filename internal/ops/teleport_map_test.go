@@ -28,9 +28,9 @@ insert into markers(marker_hash_id,dimension_index,map_name,marker_type,x,y,z) v
 insert into player_markers(player_id,marker_hash_id,dimension_index,map_name,discovery_level,discovery_method) values (1,11,0,'DeepDesert',3,1);
 update markers set payload=` + payloadSQL(locDeepDesert) + ` where marker_hash_id=11;`
 
-func destinationsOn(t *testing.T, o *Ops, kind, mp string) map[string]any {
+func destinationsOn(t *testing.T, o *Ops, mp string) map[string]any {
 	t.Helper()
-	res, err := o.Destinations(kind, "", mp)
+	res, err := o.Destinations("", mp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,31 +39,29 @@ func destinationsOn(t *testing.T, o *Ops, kind, mp string) map[string]any {
 
 func TestDestinationsOfAnotherMapAreThatMapsPlacesAndHaveNoDistance(t *testing.T) {
 	o := &Ops{S: testsave.PlayerWithSQL(t, teleportWorld+teleportDeepDesert)}
-	for kind, want := range map[string]string{"base": "Base #701", "respawn": "BaseTotem", "vehicle": "BP_Buggy #811", "marker": "mine #811"} {
-		r := destinationsOn(t, o, kind, "DeepDesert")
-		d := r["destinations"].([]Destination)
-		if kind == "marker" { // the named places: the character's vehicle and the taxi service point (the base 701 is not the character's; the Deep Desert has no trading post, #516)
-			if len(d) != 2 || d[1].Label != "Deep Desert Taxi Service" || d[1].Group != groupTaxi {
-				t.Errorf("named places on the Deep Desert: %v", labelsOf(d))
-			}
-			d = d[:1]
-		}
-		if r["map"] != "DeepDesert" || r["sameMap"] != false || len(d) != 1 || d[0].Label != want {
-			t.Errorf("%s on the Deep Desert: %v", kind, r)
-		}
-		if d[0].Distance != 0 {
-			t.Errorf("%s: a distance across maps means nothing and is not given: %v", kind, d[0].Distance)
+	r := destinationsOn(t, o, "DeepDesert")
+	d := r["destinations"].([]Destination)
+	// the character's vehicle, its respawn point (the beacon) and the taxi service point; base 701 is not the character's, and the Deep Desert has no trading post (#516)
+	if fmt.Sprint(labelsOf(d)) != "[vehicle: mine #811 respawn: Respawn point #812 taxi: Deep Desert Taxi Service]" {
+		t.Errorf("places on the Deep Desert: %v", labelsOf(d))
+	}
+	if r["map"] != "DeepDesert" || r["sameMap"] != false {
+		t.Errorf("the Deep Desert: %v", r)
+	}
+	for _, x := range d {
+		if x.Distance != 0 {
+			t.Errorf("a distance across maps means nothing and is not given: %+v", x)
 		}
 	}
 	// no map given, or the one the character is on: its own map and the distances from the character
 	for _, mp := range []string{"", "HaggaBasin"} {
-		r := destinationsOn(t, o, "base", mp)
+		r := destinationsOn(t, o, mp)
 		if r["map"] != "HaggaBasin" || r["sameMap"] != true || r["destinations"].([]Destination)[0].Distance == 0 {
 			t.Errorf("map %q: %v", mp, r)
 		}
 	}
 	// the maps the page may offer: the console's two, the one the character is on marked
-	maps := destinationsOn(t, o, "base", "")["maps"].([]TravelMap)
+	maps := destinationsOn(t, o, "")["maps"].([]TravelMap)
 	if len(maps) != 2 || maps[0].Key != "HaggaBasin" || !maps[0].Current || maps[1].Key != "DeepDesert" || maps[1].Current {
 		t.Errorf("maps: %+v", maps)
 	}
@@ -72,7 +70,7 @@ func TestDestinationsOfAnotherMapAreThatMapsPlacesAndHaveNoDistance(t *testing.T
 func TestDestinationsRefuseAMapTheEditorCannotMoveTo(t *testing.T) {
 	o := &Ops{S: testsave.PlayerWithSQL(t, teleportWorld+teleportDeepDesert)}
 	for _, mp := range []string{"PitDungeon", "Arrakeen", "nowhere", "../x", "deepdesert"} {
-		if _, err := o.Destinations("base", "", mp); err == nil {
+		if _, err := o.Destinations("", mp); err == nil {
 			t.Errorf("map %q must be refused", mp)
 		}
 	}

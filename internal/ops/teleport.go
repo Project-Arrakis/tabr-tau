@@ -20,19 +20,15 @@ const destinationLimit = 200
 
 // Destination is one place the character can be moved to.
 type Destination struct {
-	Kind     string   `json:"kind"`
 	Label    string   `json:"label"`
 	X        float64  `json:"x"`
 	Y        float64  `json:"y"`
 	Z        float64  `json:"z"`
-	Distance float64  `json:"distance"`          // flat distance from the character now, in game units
-	Group    string   `json:"group,omitempty"`   // the heading of the named-places list the place is under (tradepost, base, vehicle or taxi); empty for the other lists
+	Distance float64  `json:"distance"`          // flat distance from the character now, in game units; 0 (not given) for a map the character is not on
+	Group    string   `json:"group,omitempty"`   // the heading of the list the place is under (tradepost, base, vehicle, respawn or taxi)
 	Arrival  bool     `json:"arrival,omitempty"` // X, Y, Z are the game's arrival point for the place (#515), not the marker's position; Distance is to this point
 	Facing   *float64 `json:"facing,omitempty"`
 }
-
-// DestinationKinds are the lists the picker offers.
-var DestinationKinds = []string{"base", "respawn", "vehicle", "marker"}
 
 // TravelMap is a map the character can be moved to: the two the console offers for an offline player (Hagga Basin and the Deep Desert).
 // The social hubs and the dungeons are instances with their own entry; a position in the save is not enough to enter them, so they are not offered.
@@ -69,12 +65,12 @@ func (o *Ops) where() (id int64, mp string, x, y float64, err error) {
 
 func flatDistance(x, y, px, py float64) float64 { return math.Hypot(x-px, y-py) }
 
-// Destinations lists places for one kind (base, respawn, vehicle or marker) on the map named dest, or on the character's current map when dest
-// is empty. On the character's own map the places are nearest first; on another map a distance from the character means nothing, so none is
-// given and the places are in the order of the save's tables. q narrows by name (a respawn group, a vehicle class, a place's name).
-// The kind "marker" is the named places (places.go): trading posts, the character's bases, vehicles and taxi hubs, each place under its group, the groups in that order,
-// nearest first within a group; the answer also says which groups have places ("groups").
-func (o *Ops) Destinations(kind, q, dest string) (any, error) {
+// Destinations lists the places the character can go to on the map named dest, or on the character's current map when dest is empty: one list with every group in it
+// (places.go: trading posts, the character's deployed bases, the character's vehicles in the world, the character's respawn points, taxi hubs), each place under its group, the
+// groups in that order. On the character's own map the places of a group are nearest first; on another map a distance from the character means nothing, so none is given and the
+// places are in the order of the save's tables. q narrows by name (a place's name or the other name of a trading post); the page does not send it.
+// The page used to ask for one kind at a time (base, respawn, vehicle or marker, #519); the route no longer reads that parameter, so an old caller gets the whole list.
+func (o *Ops) Destinations(q, dest string) (any, error) {
 	p, err := o.player()
 	if err != nil {
 		return nil, err
@@ -96,74 +92,33 @@ func (o *Ops) Destinations(kind, q, dest string) (any, error) {
 		maps = append(maps, TravelMap{Key: m.Key, Label: m.Label, Current: m.Key == cur})
 	}
 	q = strings.ToLower(strings.TrimSpace(q))
+	places, err := o.namedPlaces(p, mp)
+	if err != nil {
+		return nil, err
+	}
 	var out []Destination
-	addIn := func(kind, group, label, alias string, arrival bool, x, y, z any) {
-		fx, ok1 := toFloat(x)
-		fy, ok2 := toFloat(y)
-		fz, ok3 := toFloat(z)
+	for _, r := range places {
+		fx, ok1 := toFloat(r.x)
+		fy, ok2 := toFloat(r.y)
+		fz, ok3 := toFloat(r.z)
 		if !ok1 || !ok2 || !ok3 {
-			return // a place without coordinates in the save cannot be a destination
+			continue // a place without coordinates in the save cannot be a destination
 		}
-		if q != "" && !strings.Contains(strings.ToLower(label), q) && !strings.Contains(strings.ToLower(alias), q) {
-			return
+		if q != "" && !strings.Contains(strings.ToLower(r.label), q) && !strings.Contains(strings.ToLower(r.alias), q) {
+			continue
 		}
-		d := Destination{Kind: kind, Group: group, Label: label, X: fx, Y: fy, Z: fz, Arrival: arrival}
+		d := Destination{Group: r.group, Label: r.label, X: fx, Y: fy, Z: fz, Arrival: r.arrival}
 		if same {
 			d.Distance = flatDistance(fx, fy, px, py)
 		}
 		out = append(out, d)
 	}
-	add := func(kind, label string, x, y, z any) { addIn(kind, "", label, "", false, x, y, z) }
-	switch kind {
-	case "base":
-		rows, err := o.S.Query(`select t.id id, t.landclaim_original_global_location_x x, t.landclaim_original_global_location_y y,
-			t.landclaim_original_global_location_z z from totems t join actors a on a.id=t.id where a.map=?`, mp)
-		if err != nil {
-			return nil, err
+	sort.SliceStable(out, func(i, j int) bool {
+		if gi, gj := groupIndex(out[i].Group), groupIndex(out[j].Group); gi != gj {
+			return gi < gj
 		}
-		for _, r := range rows {
-			add("base", fmt.Sprintf("Base #%v", r["id"]), r["x"], r["y"], r["z"])
-		}
-	case "respawn":
-		rows, err := o.S.Query(`select pr."group" g, coalesce(pr.locator_location_x, a.location_x) x, coalesce(pr.locator_location_y, a.location_y) y,
-			coalesce(pr.locator_location_z, a.location_z) z from player_respawn_locations pr left join actors a on a.id=pr.locator_actor_id
-			where pr.character_id=? and pr.map=?`, p.Controller, mp)
-		if err != nil {
-			return nil, err
-		}
-		for _, r := range rows {
-			add("respawn", fmt.Sprint(r["g"]), r["x"], r["y"], r["z"])
-		}
-	case "vehicle":
-		rows, err := o.S.Query(`select a.id id, a.class cls, a.location_x x, a.location_y y, a.location_z z from vehicles v join actors a on a.id=v.id
-			where v.id in (`+ownedVehicleSQL+`) and v.id not in (`+storedVehicleSQL+`) and a.map=?`, p.Controller, mp)
-		if err != nil {
-			return nil, err
-		}
-		for _, r := range rows {
-			add("vehicle", fmt.Sprintf("%s #%v", shortClass(r["cls"]), r["id"]), r["x"], r["y"], r["z"])
-		}
-	case "marker":
-		places, err := o.namedPlaces(p, mp)
-		if err != nil {
-			return nil, err
-		}
-		for _, r := range places {
-			addIn("marker", r.group, r.label, r.alias, r.arrival, r.x, r.y, r.z)
-		}
-	default:
-		return nil, apierr.New(apierr.ErrBadArgument, "kind must be base, respawn, vehicle or marker")
-	}
-	if kind == "marker" {
-		sort.SliceStable(out, func(i, j int) bool {
-			if gi, gj := groupIndex(out[i].Group), groupIndex(out[j].Group); gi != gj {
-				return gi < gj
-			}
-			return same && out[i].Distance < out[j].Distance
-		})
-	} else if same {
-		sortByDistance(out)
-	}
+		return same && out[i].Distance < out[j].Distance
+	})
 	total := len(out)
 	if len(out) > destinationLimit {
 		out = out[:destinationLimit]
@@ -171,20 +126,7 @@ func (o *Ops) Destinations(kind, q, dest string) (any, error) {
 	if out == nil {
 		out = []Destination{}
 	}
-	res := map[string]any{"map": mp, "sameMap": same, "maps": maps, "kind": kind, "total": total, "destinations": out}
-	if kind == "marker" {
-		res["groups"] = groupsOf(out)
-	}
-	return res, nil
-}
-
-func sortByDistance(d []Destination) {
-	// insertion-sorted merge would do, but the lists are a few thousand at most
-	for i := 1; i < len(d); i++ {
-		for j := i; j > 0 && d[j].Distance < d[j-1].Distance; j-- {
-			d[j], d[j-1] = d[j-1], d[j]
-		}
-	}
+	return map[string]any{"map": mp, "sameMap": same, "maps": maps, "total": total, "destinations": out, "groups": groupsOf(out)}, nil
 }
 
 // yawQuaternion is the rotation of a character turned by yaw degrees about the vertical axis, as the actors table stores it

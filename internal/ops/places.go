@@ -8,10 +8,15 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
+
+	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 )
 
-// Named places (#500). Admin > Movement > Go to a place lists four kinds of place by the names a player sees: trading posts, the character's own bases, the
-// character's own vehicles and the taxi hubs. Nothing else on the saved map (outposts, camps, resources, hazards, caves, vendors) is offered.
+// Go to a place (#500, #519). Admin > Movement > Go to a place is one drop-down of the places a player knows by name: trading posts, the character's own deployed bases, the
+// character's own vehicles that stand in the world, the character's respawn points that exist in the world, and the taxi hubs, each under its heading. Nothing else on the saved map
+// (outposts, camps, resources, hazards, caves, vendors) is offered. Each heading is found by its own function below (tradeAndTaxiPlaces, deployedBasePlaces, worldVehiclePlaces,
+// respawnPlaces), so a new source of places (the Deep Desert's taxi service points and the hubs of every map from the game's level data, #521) is one more function and one more
+// entry in namedPlaces.
 //
 // The Deep Desert has no trading post. Three rows of DT_StaticLocationData carry the trading-post tag and belong to the map object DeepDesert_1_Travel; they are the Deep
 // Desert's taxi service points (#516), so place-names.json gives them the kind "taxi" and namedPlaces lists a TradingPost marker with one of those keys under Taxis, never
@@ -21,9 +26,12 @@ import (
 // which is the name of a row in the game's own table DT_StaticLocationData. place-names.json says which key is which place; tools/placenamesgen makes it from the game's tables
 // (internal/catalog/PROVENANCE.md, "place-names.json"). A trading post whose key the file does not have is listed with its type and key, not hidden.
 //
-// The personal bases are the character's own totems (a permission record that gives the character the owner rank), at the claim position, with the name the character gave
-// them. The map's HomeBase markers are not used: the TotemId in their payload does not say which base a marker is (the same id sits on several markers, and most ids are not a
-// base in the save), so a marker cannot be tied to the character. The vehicles are the character's own that stand in the world (a stored or lost vehicle has no place).
+// The personal bases are the character's own DEPLOYED totems (a permission record that gives the character the owner rank, and a totem that stands in the world: not one the game's
+// tool picked up, which can keep its totem row and its owner record but has the state 5; deployedBaseSQL), at the claim position, with the name
+// the character gave them. A base backup (the editor's saved base files, or the game's own backup) is never a place to go to. The map's HomeBase markers are not used: the TotemId in their payload does not say which base a marker is (the same id sits on several markers, and most ids are not a
+// base in the save), so a marker cannot be tied to the character. The vehicles are the character's own that stand in the world (a stored vehicle, in the vehicle backup or stored for recovery, has no place), named by the name the
+// character gave them or else by the editor's own name for the kind of vehicle. The respawn points are the character's own rows in player_respawn_locations for the map whose locator
+// actor still exists and has not been picked up with a base (respawnPlaces).
 // A taxi hub is a TaxiService marker, which sits on the map of its hub (Arrakeen, Harko Village), so it is offered while the list is for that map; a Deep Desert taxi service
 // point is a marker of the Deep Desert map, so it is offered while the list is for that map and not on Hagga Basin.
 //
@@ -91,6 +99,7 @@ const (
 	groupTradePost = "tradepost"
 	groupBase      = "base"
 	groupVehicle   = "vehicle"
+	groupRespawn   = "respawn"
 	groupTaxi      = "taxi"
 	kindTaxi       = "taxi" // the kind place-names.json gives a key that is a taxi service point
 )
@@ -105,6 +114,7 @@ var destinationGroups = []DestinationGroup{
 	{groupTradePost, "Trading posts"},
 	{groupBase, "Personal bases"},
 	{groupVehicle, "Vehicles"},
+	{groupRespawn, "Respawn points"},
 	{groupTaxi, "Taxis"},
 }
 
@@ -191,7 +201,7 @@ func taxiName(mapName string) string { return hubName(mapName) + " Taxi Service"
 
 // baseLabel is the label of a base: the name the character gave it, or the game's name for its claim structure when it has none, and its number.
 func baseLabel(id any, name, totemType string) string {
-	if name == "" || name == "None" || strings.HasPrefix(name, "##") {
+	if placeholderName(name) {
 		name = totemTypes[strings.ToLower(totemType)]
 	}
 	if name == "" {
@@ -200,10 +210,43 @@ func baseLabel(id any, name, totemType string) string {
 	return fmt.Sprintf("%s #%v", name, id)
 }
 
-// vehicleLabel is the label of a vehicle: the name the character gave it, or its blueprint name, and its number.
+// placeholderName says whether a stored name is the game's placeholder and not a name a person gave: empty, "None" or "##Something".
+func placeholderName(name string) bool {
+	return name == "" || name == "None" || strings.HasPrefix(name, "##")
+}
+
+// vehicleKindName is the player-facing name of a kind of vehicle: the editor's own name for the class when the vehicle catalog has it ("Sandbike", "Medium ornithopter"), else the
+// class's blueprint name in words ("BP_Sandbike_C" is "Sandbike"). It is never the raw blueprint name.
+func vehicleKindName(class any) string {
+	short := shortClass(class)
+	for _, k := range catalog.VehicleClassKeys() {
+		if c, ok := catalog.VehicleClassFor(k); ok && strings.EqualFold(strings.TrimSuffix(c.PropsKey, "_C"), short) {
+			return c.Label
+		}
+	}
+	n := strings.TrimPrefix(short, "BP_")
+	if i := strings.LastIndex(strings.ToUpper(n), "_CHOAM"); i > 0 && i+len("_CHOAM") == len(n) {
+		n = n[:i]
+	}
+	var b strings.Builder
+	var prev rune
+	for _, r := range strings.ReplaceAll(n, "_", " ") {
+		if b.Len() > 0 && unicode.IsUpper(r) && unicode.IsLower(prev) {
+			b.WriteByte(' ')
+		}
+		b.WriteRune(r)
+		prev = r
+	}
+	if b.Len() == 0 {
+		return "Vehicle"
+	}
+	return b.String()
+}
+
+// vehicleLabel is the label of a vehicle: the name the character gave it, or else the name of its kind, and its number to tell two of a kind apart.
 func vehicleLabel(id, class any, name string) string {
-	if name == "" || name == "None" || strings.HasPrefix(name, "##") {
-		name = shortClass(class)
+	if placeholderName(name) {
+		name = vehicleKindName(class)
 	}
 	return fmt.Sprintf("%s #%v", name, id)
 }
@@ -255,11 +298,44 @@ func groupsOf(list []Destination) []DestinationGroup {
 	return out
 }
 
-// namedPlaces finds the places of the four groups on the map mp for the character p. A trading post or taxi hub is a marker the character has discovered; a base or vehicle
-// is the character's own. A place with no position in the save is left out by the caller. Places that share one name inside a group are told apart (distinguishNames).
+// deployedBaseSQL selects the character's own deployed bases on one map: the totems the character owns (the owner rank, 1, in the totem's permission record) that stand in the
+// world. A base the game's tool picked up can keep its totem row and its permission record, so ownership alone would list it; its actors have the state 5 (pickedUpState), and that
+// leaves it out. The rows it has in base_backup_linked_actors are not used: a base that is claimed again keeps them and is deployed (BaseList says the same: picked up means linked and
+// no permission record). Other players' bases and bases the character is only a member of (a lower rank) are not the character's. It takes the character id and the map name, in that order.
+const deployedBaseSQL = `select t.id id, t.landclaim_original_global_location_x x, t.landclaim_original_global_location_y y, t.landclaim_original_global_location_z z,
+		coalesce(pa.actor_name,'') name, coalesce(tp.building_type,'') totem_type
+	from totems t join actors a on a.id=t.id
+	join permission_actor_rank r on r.permission_actor_id=t.id and r.player_id=? and r.rank=1
+	left join permission_actor pa on pa.actor_id=t.id left join placeables tp on tp.id=t.id
+	where a.map=? and a.state<>5 order by t.id`
+
+// namedPlaces finds the places of every group on the map mp for the character p, group by group. A trading post or taxi hub is a marker the character has discovered; a base,
+// vehicle or respawn point is the character's own. A place with no position in the save is left out by the caller. Places that share one name inside a group are told apart
+// (distinguishNames).
 func (o *Ops) namedPlaces(p player, mp string) ([]placeRow, error) {
 	var out []placeRow
+	for _, find := range []func(player, string) ([]placeRow, error){o.tradeAndTaxiPlaces, o.deployedBasePlaces, o.worldVehiclePlaces, o.respawnPlaces} {
+		rows, err := find(p, mp)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rows...)
+	}
+	for _, g := range destinationGroups {
+		var rows []int
+		for i, r := range out {
+			if r.group == g.Key {
+				rows = append(rows, i)
+			}
+		}
+		distinguishNames(out, rows)
+	}
+	return out, nil
+}
 
+// tradeAndTaxiPlaces: the trading posts and taxi hubs the character has discovered on the map.
+func (o *Ops) tradeAndTaxiPlaces(p player, mp string) ([]placeRow, error) {
+	var out []placeRow
 	marks, err := o.S.Query(`select m.marker_type t, m.marker_hash_id h, m.x x, m.y y, m.z z, hex(substr(m.payload,1,?)) p from markers m
 		join player_markers pm on pm.marker_hash_id=m.marker_hash_id and pm.dimension_index=m.dimension_index and pm.map_name=m.map_name
 		where pm.player_id=? and pm.discovery_level>0 and m.map_name=? and m.marker_type in ('TradingPost','TaxiService') order by m.marker_hash_id`, payloadHead, p.Controller, mp)
@@ -290,41 +366,70 @@ func (o *Ops) namedPlaces(p player, mp string) ([]placeRow, error) {
 			out = append(out, row)
 		}
 	}
+	return out, nil
+}
 
-	bases, err := o.S.Query(`select t.id id, t.landclaim_original_global_location_x x, t.landclaim_original_global_location_y y, t.landclaim_original_global_location_z z,
-			coalesce(pa.actor_name,'') name, coalesce(tp.building_type,'') totem_type
-		from totems t join actors a on a.id=t.id
-		join permission_actor_rank r on r.permission_actor_id=t.id and r.player_id=? and r.rank=1
-		left join permission_actor pa on pa.actor_id=t.id left join placeables tp on tp.id=t.id
-		where a.map=? order by t.id`, p.Controller, mp)
+// deployedBasePlaces: the character's own deployed bases on the map (deployedBaseSQL).
+func (o *Ops) deployedBasePlaces(p player, mp string) ([]placeRow, error) {
+	bases, err := o.S.Query(deployedBaseSQL, p.Controller, mp)
 	if err != nil {
 		return nil, err
 	}
+	var out []placeRow
 	for _, r := range bases {
 		name, _ := r["name"].(string)
 		tt, _ := r["totem_type"].(string)
 		out = append(out, placeRow{group: groupBase, label: baseLabel(r["id"], name, tt), x: r["x"], y: r["y"], z: r["z"]})
 	}
+	return out, nil
+}
 
+// worldVehiclePlaces: the character's own vehicles that stand in the world on the map (owned, and not stored in the vehicle backup or for recovery).
+func (o *Ops) worldVehiclePlaces(p player, mp string) ([]placeRow, error) {
 	vehicles, err := o.S.Query(`select a.id id, a.class cls, a.location_x x, a.location_y y, a.location_z z, coalesce(pa.actor_name,'') name
 		from vehicles v join actors a on a.id=v.id left join permission_actor pa on pa.actor_id=v.id
 		where v.id in (`+ownedVehicleSQL+`) and v.id not in (`+storedVehicleSQL+`) and a.map=? order by a.id`, p.Controller, mp)
 	if err != nil {
 		return nil, err
 	}
+	var out []placeRow
 	for _, r := range vehicles {
 		name, _ := r["name"].(string)
 		out = append(out, placeRow{group: groupVehicle, label: vehicleLabel(r["id"], r["cls"], name), x: r["x"], y: r["y"], z: r["z"]})
 	}
+	return out, nil
+}
 
-	for _, g := range destinationGroups {
-		var rows []int
-		for i, r := range out {
-			if r.group == g.Key {
-				rows = append(rows, i)
-			}
+// respawnPlaces: the character's own respawn points on the map (rows of player_respawn_locations). A row names a locator actor (a beacon, a base's totem, a vehicle) or, for a
+// point the game keeps as bare coordinates, has none. A row whose locator actor is gone from the save, or was picked up with a base (state 5), is
+// stale and is not offered: nothing stands there. A point with an actor goes to the actor's position now, and its name is the name given to the actor or else "Respawn point";
+// a point with no actor goes to its own coordinates and is offered as "Respawn point (group)". A row with no position at all is left out by the caller.
+func (o *Ops) respawnPlaces(p player, mp string) ([]placeRow, error) {
+	rows, err := o.S.Query(`select pr."group" g, pr.locator_actor_id aid, coalesce(pr.locator_name,'') lname, coalesce(pa.actor_name,'') aname,
+			coalesce(a.location_x, pr.locator_location_x) x, coalesce(a.location_y, pr.locator_location_y) y, coalesce(a.location_z, pr.locator_location_z) z
+		from player_respawn_locations pr left join actors a on a.id=pr.locator_actor_id left join permission_actor pa on pa.actor_id=pr.locator_actor_id
+		where pr.character_id=? and pr.map=?
+			and (pr.locator_actor_id is null or (a.id is not null and a.state<>5))
+		order by pr.locator_actor_id, pr."group"`, p.Controller, mp)
+	if err != nil {
+		return nil, err
+	}
+	var out []placeRow
+	for _, r := range rows {
+		name, _ := r["lname"].(string)
+		if placeholderName(name) {
+			name, _ = r["aname"].(string)
 		}
-		distinguishNames(out, rows)
+		if placeholderName(name) {
+			name = "Respawn point"
+		}
+		label := name
+		if r["aid"] != nil {
+			label = fmt.Sprintf("%s #%v", name, r["aid"])
+		} else if g, _ := r["g"].(string); g != "" {
+			label = fmt.Sprintf("%s (%s)", name, g)
+		}
+		out = append(out, placeRow{group: groupRespawn, label: label, x: r["x"], y: r["y"], z: r["z"]})
 	}
 	return out, nil
 }

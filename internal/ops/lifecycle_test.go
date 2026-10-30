@@ -116,7 +116,7 @@ func TestDuplicateRefusesAStoredVehicleAndChangesNothing(t *testing.T) {
 
 func TestStoredVehiclesAreNotTeleportDestinations(t *testing.T) {
 	o := lifecycleOps(t)
-	d := listDestinations(t, o, "vehicle", "")
+	d := listDestinations(t, o, groupVehicle, "")
 	if len(d) != 1 || !strings.Contains(d[0].Label, "#201") {
 		t.Fatalf("only the vehicle in the world: %+v", d)
 	}

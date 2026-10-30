@@ -695,7 +695,7 @@ func (s *Server) routes() {
 	s.get("/api/player", func(r *http.Request) (any, error) { return o.Player() })
 	s.postMaxAfter("/api/player/teleport", 4<<20, o.Teleport, s.teleportAnswer)
 	s.get("/api/player/destinations", func(r *http.Request) (any, error) {
-		return o.Destinations(r.URL.Query().Get("kind"), r.URL.Query().Get("q"), r.URL.Query().Get("map"))
+		return o.Destinations(r.URL.Query().Get("q"), r.URL.Query().Get("map"))
 	})
 	s.get("/api/player/inventory", func(r *http.Request) (any, error) { return o.Inventory() })
 	s.post("/api/player/give", o.GiveItem)
