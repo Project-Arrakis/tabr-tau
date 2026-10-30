@@ -443,6 +443,58 @@ func withOutcome(v any, outcome string) any {
 	return m
 }
 
+// withFields adds fields to an answer that is a JSON object and leaves every other answer as it was.
+func withFields(v any, fields map[string]any) any {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return v
+	}
+	var m map[string]any
+	if json.Unmarshal(b, &m) != nil || m == nil {
+		return v
+	}
+	for k, f := range fields {
+		m[k] = f
+	}
+	return m
+}
+
+// teleportAnswer adds what the page says after a teleport (#501): "message", and "warn" when the person has something to do or to know (the move waits, or a running game will not
+// follow it). The state is asked again after the write, so the words follow what the game is doing now.
+func (s *Server) teleportAnswer(v any, outcome string) any {
+	if outcome == "" {
+		return v
+	}
+	msg, warn := teleportMessage(save.GameStateFor(s.Save.Path, true), outcome, save.IsGamesOwnSave(s.Save.Path))
+	return withFields(v, map[string]any{"message": msg, "warn": warn})
+}
+
+// teleportMessage says what a teleport did and what to do, in one or two short lines. The editor changes the save file; a running game keeps its own copy of the save in memory,
+// so a move written to the file shows only when the game next loads the save. g is the state of the game after the write; outcome is "written" or "queued"; own is whether the
+// file is the game's own save. warn is true when the message asks the person to do something or to wait.
+func teleportMessage(g save.GameState, outcome string, own bool) (msg string, warn bool) {
+	queued := outcome == outcomeQueued
+	switch {
+	case !own && !queued: // a file the game never opens
+		return "Position saved to this file. This is a copy, so the game will not see it unless this file is installed as its game.db.", false
+	case own && g.Mode == "single_player": // a world is running
+		what := "saved in the file"
+		if queued {
+			what = "queued"
+		}
+		return "Position " + what + ", but the running game keeps its own copy of the save: it will not move you now, and the game may overwrite it when it saves. Leave the world, wait about 30 seconds, then teleport and press Continue.", true
+	case queued: // the gate holds the write: say why, as the other edits do
+		why := waitWhy(g)
+		if why == "" {
+			why = "the save cannot be written yet"
+		}
+		return "Position queued: " + why + ". It is written by itself as soon as that clears; press Continue to load it then.", true
+	case g.Mode == "menu":
+		return "Position saved. Press Continue to load it.", false
+	}
+	return "Position saved. You will be there when you load this save.", false
+}
+
 func (s *Server) get(path string, fn func(r *http.Request) (any, error)) {
 	s.mux.HandleFunc("GET "+path, func(w http.ResponseWriter, r *http.Request) {
 		v, err := fn(r)
@@ -474,6 +526,12 @@ func (s *Server) post(path string, fn func(a ops.Args) (any, error)) { s.postMax
 
 // postMax is post for a route whose body may be as large as max bytes.
 func (s *Server) postMax(path string, max int64, fn func(a ops.Args) (any, error)) {
+	s.postMaxAfter(path, max, fn, nil)
+}
+
+// postMaxAfter is postMax for a route whose answer is worded after the write: after gets the answer and the outcome ("written" or "queued", empty when nothing was changed) and
+// gives back the answer to send.
+func (s *Server) postMaxAfter(path string, max int64, fn func(a ops.Args) (any, error), after func(v any, outcome string) any) {
 	s.mux.HandleFunc("POST "+path, func(w http.ResponseWriter, r *http.Request) {
 		allowLongWrite(w)
 		a, ok := postArgsMax(w, r, max)
@@ -492,6 +550,9 @@ func (s *Server) postMax(path string, max int64, fn func(a ops.Args) (any, error
 		}
 		if err == nil {
 			v = withOutcome(v, outcome)
+			if after != nil {
+				v = after(v, outcome)
+			}
 		}
 		respond(w, v, err)
 	})
@@ -632,7 +693,7 @@ func (s *Server) routes() {
 
 	// players
 	s.get("/api/player", func(r *http.Request) (any, error) { return o.Player() })
-	s.post("/api/player/teleport", o.Teleport)
+	s.postMaxAfter("/api/player/teleport", 4<<20, o.Teleport, s.teleportAnswer)
 	s.get("/api/player/destinations", func(r *http.Request) (any, error) {
 		return o.Destinations(r.URL.Query().Get("kind"), r.URL.Query().Get("q"), r.URL.Query().Get("map"))
 	})
