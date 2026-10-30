@@ -3,6 +3,7 @@ package ops
 import (
 	"encoding/hex"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"testing"
@@ -95,8 +96,10 @@ func TestNamedPlacesListTradingPostsByTheirInGameNameAndNothingElseOnTheMap(t *t
 			posts = append(posts, x.Label)
 		}
 	}
-	// nearest first: the post with a key nobody has (marker 3), the post with no payload (5), Pinnacle Station (1), Griffin's Reach (2); Crossroads was never discovered
-	want := []string{"TradingPost (key " + locUnknownPost + ")", "TradingPost (marker 5)", "Pinnacle Station Tradepost", "Griffin's Reach Tradepost"}
+	// nearest first: the post with a key nobody has (marker 3), the post with no payload (5), then Griffin's Reach and Pinnacle Station, ordered by their arrival points
+	// (#515: Griffin's Reach is nearer to the character than Pinnacle Station, though its marker, at 50000, 0, is farther than Pinnacle Station's, at 3000, 4000);
+	// Crossroads was never discovered
+	want := []string{"TradingPost (key " + locUnknownPost + ")", "TradingPost (marker 5)", "Griffin's Reach Tradepost", "Pinnacle Station Tradepost"}
 	if fmt.Sprint(posts) != fmt.Sprint(want) {
 		t.Fatalf("trading posts: %v, want %v", posts, want)
 	}
@@ -191,7 +194,7 @@ func TestNamedPlacesTaxiHubsAreOfferedOnTheirOwnMap(t *testing.T) {
 	// the hubs are maps of their own; the character stands in Arrakeen
 	o := placesOps(t, `update actors set map='Arrakeen' where id in (1,2,3);`)
 	m, d := namedPlacesOf(t, o, "", "")
-	if len(d) != 1 || d[0].Label != "Arrakeen Taxi Service" || d[0].Group != groupTaxi || d[0].X != 11695 {
+	if len(d) != 1 || d[0].Label != "Arrakeen Taxi Service" || d[0].Group != groupTaxi || d[0].X != 11495 || d[0].Y != -316 || d[0].Z != 51457 || !d[0].Arrival {
 		t.Fatalf("taxi hub: %v", labelsOf(d))
 	}
 	if g := m["groups"].([]DestinationGroup); len(g) != 1 || g[0].Label != "Taxis" {
@@ -200,6 +203,8 @@ func TestNamedPlacesTaxiHubsAreOfferedOnTheirOwnMap(t *testing.T) {
 	o = placesOps(t, `update actors set map='HarkoVillage' where id in (1,2,3);`)
 	if _, d := namedPlacesOf(t, o, "harko", ""); len(d) != 1 || d[0].Label != "Harko Village Taxi Service" {
 		t.Errorf("the hub's name is its map's name in words: %v", labelsOf(d))
+	} else if d[0].X != -1415 || d[0].Y != 26560 || d[0].Z != 14673.9 || !d[0].Arrival {
+		t.Errorf("a hub is at the game's arrival point for it (#515), not at its marker (-1390, 26838, 14739): %+v", d[0])
 	}
 	// on Hagga Basin there is no hub marker, so there is no Taxis group
 	if m, _ := namedPlacesOf(t, placesOps(t), "", ""); len(m["groups"].([]DestinationGroup)) != 3 {
@@ -350,7 +355,7 @@ func TestDeepDesertTaxiKeysAreTaxisAndNeverTradingPosts(t *testing.T) {
 			t.Errorf("a save on Hagga Basin lists no taxi: %+v", x)
 		}
 	}
-	want := []string{"TradingPost (key " + locUnknownPost + ")", "TradingPost (marker 5)", "Pinnacle Station Tradepost", "Griffin's Reach Tradepost"}
+	want := []string{"TradingPost (key " + locUnknownPost + ")", "TradingPost (marker 5)", "Griffin's Reach Tradepost", "Pinnacle Station Tradepost"}
 	if fmt.Sprint(posts) != fmt.Sprint(want) {
 		t.Errorf("trading posts of Hagga Basin: %v, want %v", posts, want)
 	}
@@ -366,10 +371,194 @@ func TestDeepDesertTaxiKeysAreTaxisAndNeverTradingPosts(t *testing.T) {
 	}
 }
 
+// #515: Go to a place fills X, Y and Z with the game's own arrival point for a trading post and a hub, and with the marker's position for every other place.
+// The coordinates below are the values of place-arrivals.json, written out so that a change to the file is seen.
+var arrivalWant = map[string][3]float64{
+	locPinnacle:   {-32905.3, -313888.6, 12053.0},
+	locAnvil:      {193966.6, 2552.5, 13515.0},
+	locGriffin:    {23860.4, 227191.3, 8550.0},
+	locCrossroads: {-218763.0, -162786.8, 7387.2},
+}
+
+func TestEachTradingPostWithAnArrivalPointTeleportsToIt(t *testing.T) {
+	for loc, want := range arrivalWant {
+		o := placesOps(t, `update markers set payload=`+payloadSQL(loc)+` where marker_hash_id=1;
+			update player_markers set discovery_level=3 where marker_hash_id=1;`)
+		_, d := namedPlacesOf(t, o, "tradepost", "")
+		var got *Destination
+		for i := range d {
+			if d[i].Group == groupTradePost && d[i].X == want[0] && d[i].Y == want[1] && d[i].Z == want[2] {
+				got = &d[i]
+			}
+			if d[i].Group == groupTradePost && d[i].X == 3000 && d[i].Y == 4000 {
+				t.Errorf("%s: the marker's own position is not offered for a post that has an arrival point: %+v", loc, d[i])
+			}
+		}
+		if got == nil || !got.Arrival {
+			t.Errorf("%s: want the arrival point %v in %v", loc, want, d)
+			continue
+		}
+		if _, err := o.Teleport(Args{"x": got.X, "y": got.Y, "z": got.Z}); err != nil {
+			t.Fatal(err)
+		}
+		r, _ := o.S.One(`select location_x x, location_y y, location_z z from actors where id=2`)
+		if r["x"] != want[0] || r["y"] != want[1] || r["z"] != want[2] {
+			t.Errorf("%s: teleported to %v, want %v", loc, r, want)
+		}
+	}
+}
+
+func TestPlacesWithoutAnArrivalPointKeepTheirMarkerPosition(t *testing.T) {
+	_, d := namedPlacesOf(t, placesOps(t), "", "")
+	at := map[string]Destination{}
+	for _, x := range d {
+		at[x.Label] = x
+		if x.Group != groupTradePost && x.Arrival {
+			t.Errorf("only trading posts and hubs have an arrival point: %+v", x)
+		}
+	}
+	// a post whose key the file does not have, and one with no payload
+	if p := at["TradingPost (key "+locUnknownPost+")"]; p.Arrival || p.X != 800 || p.Y != 900 {
+		t.Errorf("%+v", p)
+	}
+	if p := at["TradingPost (marker 5)"]; p.Arrival || p.X != 1500 || p.Y != 1500 {
+		t.Errorf("%+v", p)
+	}
+	// a base
+	if p := at["Spice Camp #602"]; p.Arrival || p.X != 21 {
+		t.Errorf("%+v", p)
+	}
+	// the Deep Desert taxi service points have no arrival point
+	_, dd := namedPlacesOf(t, placesOps(t), "taxi", "DeepDesert")
+	if len(dd) != 1 || dd[0].Arrival || dd[0].X != -306000 || dd[0].Y != -588000 || dd[0].Z != 40 {
+		t.Errorf("a Deep Desert taxi service point keeps the marker position: %+v", dd)
+	}
+	// a hub of a map the file has no arrival point for keeps its marker
+	o := placesOps(t, `update markers set map_name='SomeNewHub' where marker_hash_id=21; update player_markers set map_name='SomeNewHub' where marker_hash_id=21;
+		update actors set map='SomeNewHub' where id in (1,2,3);`)
+	if _, h := namedPlacesOf(t, o, "", ""); len(h) != 1 || h[0].Arrival || h[0].X != 11695 {
+		t.Errorf("%+v", h)
+	}
+	// a post whose marker has no position in the save is still left out, arrival point or not
+	o = placesOps(t, `update markers set payload=`+payloadSQL(locAnvil)+`, x=NULL where marker_hash_id=1;`)
+	if _, n := namedPlacesOf(t, o, "anvil", ""); len(n) != 0 {
+		t.Errorf("no position in the save, no place: %v", labelsOf(n))
+	}
+}
+
+func TestSeveralKeysOfOnePostAllGetThatPostsArrivalPoint(t *testing.T) {
+	o := placesOps(t, `insert into markers(marker_hash_id,dimension_index,map_name,marker_type,x,y,z,payload) values (41,0,'HaggaBasin','TradingPost',-4000.0,-4000.0,0.0,`+payloadSQL(locPinnacle2)+`);
+		insert into player_markers(player_id,marker_hash_id,dimension_index,map_name,discovery_level,discovery_method) values (1,41,0,'HaggaBasin',3,1);`)
+	_, d := namedPlacesOf(t, o, "pinnacle", "")
+	w := arrivalWant[locPinnacle]
+	if len(d) != 2 {
+		t.Fatalf("%v", labelsOf(d))
+	}
+	for _, x := range d {
+		if x.X != w[0] || x.Y != w[1] || x.Z != w[2] || !x.Arrival {
+			t.Errorf("each key of Pinnacle Station is at its arrival point: %+v", x)
+		}
+	}
+	if d[0].Label == d[1].Label {
+		t.Errorf("the two are still told apart: %v", labelsOf(d))
+	}
+}
+
+// The distance shown beside a place is the distance to what Go to a place will use (the arrival point), so the nearest-first order follows it too.
+func TestDistanceOfANamedPostIsToItsArrivalPoint(t *testing.T) {
+	_, d := namedPlacesOf(t, placesOps(t), "pinnacle", "")
+	if len(d) != 1 {
+		t.Fatalf("%v", labelsOf(d))
+	}
+	w := arrivalWant[locPinnacle]
+	if want := math.Hypot(w[0]-100, w[1]-200); math.Abs(d[0].Distance-want) > 1e-6 {
+		t.Errorf("distance %v, want %v (to the arrival point; the marker is %v away)", d[0].Distance, want, math.Hypot(3000-100, 4000-200))
+	}
+}
+
+// place-arrivals.json is what the arrival points come from, so what it holds is checked: six places (four trading posts and two hubs), finite numbers, an observed flag on each.
+func TestPlaceArrivalsFileIsWellFormed(t *testing.T) {
+	a := placeArrivals
+	if len(a.Tradeposts) != 4 || len(a.Hubs) != 2 {
+		t.Fatalf("%d trading posts and %d hubs", len(a.Tradeposts), len(a.Hubs))
+	}
+	check := func(name string, p arrivalPoint) {
+		for _, v := range []float64{p.X, p.Y, p.Z} {
+			if math.IsNaN(v) || math.IsInf(v, 0) || math.Abs(v) > 1e6 {
+				t.Errorf("%s: %+v", name, p)
+			}
+		}
+		if p.X == 0 && p.Y == 0 && p.Z == 0 {
+			t.Errorf("%s: no point", name)
+		}
+		if p.Observed == nil {
+			t.Errorf("%s: no observed flag", name)
+		}
+	}
+	for name, p := range a.Tradeposts {
+		check(name, p)
+		found := false
+		for _, n := range placeNames {
+			if n.Name == name && n.Kind == "tradepost" {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("%q is not the name of a trading post in place-names.json", name)
+		}
+	}
+	for _, n := range placeNames { // every trading post of the names file has an arrival point, and nothing else has
+		if _, ok := a.Tradeposts[n.Name]; ok != (n.Kind == "tradepost") {
+			t.Errorf("%q: kind %q, has an arrival point: %v", n.Name, n.Kind, ok)
+		}
+	}
+	for _, h := range []string{"Arrakeen", "HarkoVillage"} {
+		p, ok := a.Hubs[h]
+		if !ok {
+			t.Fatalf("no arrival point for %s", h)
+		}
+		check(h, p)
+		if p.Observed == nil || !*p.Observed {
+			t.Errorf("%s: the hub points equal logged trips", h)
+		}
+	}
+	// the two computed points have not been seen in use; the other two posts have
+	notSeen := map[string]bool{"Griffin's Reach Tradepost": true, "Crossroads Tradepost": true}
+	for name, p := range a.Tradeposts {
+		if p.Observed != nil && *p.Observed == notSeen[name] {
+			t.Errorf("%s: observed %v", name, *p.Observed)
+		}
+	}
+	for loc, w := range arrivalWant {
+		if p, ok := tradePostArrival(loc); !ok || p.X != w[0] || p.Y != w[1] || p.Z != w[2] {
+			t.Errorf("%s: %+v", loc, p)
+		}
+	}
+	if _, ok := tradePostArrival(locDeepDesert); ok {
+		t.Error("a Deep Desert taxi service point has no arrival point")
+	}
+	if _, ok := tradePostArrival(locUnknownPost); ok {
+		t.Error("a key the names file does not have has no arrival point")
+	}
+}
+
 func TestHubName(t *testing.T) {
 	for in, want := range map[string]string{"Arrakeen": "Arrakeen", "HarkoVillage": "Harko Village", "": ""} {
 		if got := hubName(in); got != want {
 			t.Errorf("hubName(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// A taxi service point is never given an arrival point, even if the arrival file were to name one: the kind of the key and the group of the row both say no.
+func TestAnArrivalPointIsNeverUsedForATaxiKey(t *testing.T) {
+	placeArrivals.Tradeposts["Deep Desert Taxi Service"] = arrivalPoint{X: 1, Y: 2, Z: 3}
+	defer delete(placeArrivals.Tradeposts, "Deep Desert Taxi Service")
+	if _, ok := tradePostArrival(locDeepDesert); ok {
+		t.Error("a taxi key is not a trading post")
+	}
+	_, dd := namedPlacesOf(t, placesOps(t), "taxi", "DeepDesert")
+	if len(dd) != 1 || dd[0].Arrival || dd[0].X != -306000 {
+		t.Errorf("%+v", dd)
 	}
 }
