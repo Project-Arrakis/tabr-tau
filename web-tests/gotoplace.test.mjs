@@ -238,3 +238,209 @@ test('the Movement card\'s About text says which position is used, once, and not
   assert.equal([...ui.doc.querySelectorAll('#tdsel option')].some((o) => /arrival|marker position/i.test(o.textContent)), false, 'no row repeats it');
   ui.dom.window.close();
 });
+
+// ---- Named places is a drop-down that is filled at once (#519): no filter box and no Find; the other kinds are as they were
+
+// The Movement card, with Named places chosen the way a person chooses it (a change of the kind) and no Find pressed. answers holds the fake answer for the places, which a test may swap;
+// asked holds the address of every request for places.
+async function openPlaces(first = named(), extra = {}) {
+  const answers = { '/api/player/destinations': first };
+  const ui = await boot({ get: answers, post: { '/api/player/teleport': { ok: true }, '/api/save/discard': { ok: true } }, ...extra });
+  const save = await (await ui.w.fetch('/api/player')).json();
+  save.actor = { ...(save.actor || {}), x: 100, y: 200, z: 300, map: 'HaggaBasin' };
+  answers['/api/player'] = save;
+  const asked = [];
+  const realFetch = ui.w.fetch;
+  ui.w.fetch = (u, ...rest) => { if (String(u).startsWith('/api/player/destinations')) asked.push(String(u)); return realFetch(u, ...rest); };
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:admin"]'); await ui.settle();
+  const pick = async (id, v) => { const el = ui.doc.querySelector('#' + id); el.value = v; el.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle(); };
+  return { ui, answers, asked, pick };
+}
+
+test('choosing Named places lists the places at once, under their headings, with no Find pressed and no filter box', async () => {
+  const { ui, asked, pick } = await openPlaces();
+  assert.equal(ui.doc.querySelector('#tdsel'), null, 'nothing is listed before a kind is chosen');
+  assert.deepEqual(asked, []);
+  await pick('tdkind', 'marker');
+  assert.equal(asked.length, 1);
+  assert.match(asked[0], /^\/api\/player\/destinations\?kind=marker&q=&map=$/, 'the places of the character\'s own map, with no filter');
+  assert.deepEqual(headings(ui), [
+    { label: 'Trading posts', places: ['Pinnacle Station Tradepost - 4,488 m away', 'Griffin\'s Reach Tradepost - 52,000 m away'] },
+    { label: 'Personal bases', places: ['Spice Camp #602 - 30 m away'] },
+    { label: 'Vehicles', places: ['Red Runner #802 - 90 m away'] },
+    { label: 'Taxis', places: ['Arrakeen Taxi Service - 10 m away'] }]);
+  assert.equal(ui.doc.querySelector('#tdq'), null, 'no filter box');
+  assert.equal(ui.doc.querySelector('[data-act="tdFind"]'), null, 'no Find button');
+  const sel = ui.doc.querySelector('#tdsel');
+  assert.equal(sel.getAttribute('aria-label'), 'Place to go to', 'the select is labelled');
+  assert.equal(sel.options[0].textContent, '5 places on HaggaBasin, nearest first');
+  ui.dom.window.close();
+});
+
+test('a place chosen in the Named places drop-down fills X, Y and Z (the arrival point where there is one) and stays through a redraw', async () => {
+  const { ui, pick, asked } = await openPlaces(arrival());
+  await pick('tdkind', 'marker');
+  await pick('tdsel', '0');
+  assert.deepEqual(fields(ui), ['-32905', '-313889', '12053']);
+  assert.equal(note(ui), 'Selected: Pinnacle Station Tradepost, 3,158 m away');
+  await pick('tdsel', '1');
+  assert.deepEqual(fields(ui), ['21', '31', '41'], 'a place with no arrival point: its own position');
+  assert.equal(note(ui), 'Selected: Spice Camp #602, 30 m away');
+  const before = asked.length;
+  await ui.w.render(true); await ui.settle();
+  assert.deepEqual(fields(ui), ['21', '31', '41']);
+  assert.equal(ui.doc.querySelector('#tdsel').value, '1');
+  assert.equal(ui.doc.querySelector('#tdsel').selectedOptions[0].parentElement.label, 'Personal bases');
+  assert.equal(ui.doc.querySelector('#tdkind').value, 'marker', 'Named places stays chosen through the redraw');
+  assert.equal(ui.doc.querySelector('[data-act="tdFind"]'), null);
+  assert.equal(asked.length, before + 1, 'the redraw asked for the places again');
+  ui.click('[data-act="teleport"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/teleport').map((p) => p.body), [{ x: 21, y: 31, z: 41 }]);
+  ui.dom.window.close();
+});
+
+test('the Named places drop-down is filled again when the page is drawn, and the chosen place stays chosen by its name', async () => {
+  const { ui, answers, pick } = await openPlaces();
+  await pick('tdkind', 'marker');
+  await pick('tdsel', '1'); // Griffin's Reach Tradepost
+  assert.equal(note(ui), 'Selected: Griffin\'s Reach Tradepost, 52,000 m away');
+  const moved = named(); // the character moved: the order and the distances differ
+  moved.destinations = [moved.destinations[1], moved.destinations[0], ...moved.destinations.slice(2)];
+  moved.destinations[0].distance = 100000;
+  moved.destinations[1].distance = 600000;
+  answers['/api/player/destinations'] = moved;
+  await ui.w.render(true); await ui.settle();
+  assert.deepEqual(headings(ui)[0].places, ['Griffin\'s Reach Tradepost - 1,000 m away', 'Pinnacle Station Tradepost - 6,000 m away']);
+  assert.equal(ui.doc.querySelector('#tdsel').value, '0', 'the same place, in its new position in the list');
+  assert.equal(note(ui), 'Selected: Griffin\'s Reach Tradepost, 1,000 m away');
+  const gone = named(); // the place is no longer in the answer
+  gone.destinations = gone.destinations.filter((x) => x.label !== 'Griffin\'s Reach Tradepost');
+  gone.total = 4;
+  answers['/api/player/destinations'] = gone;
+  await ui.w.render(true); await ui.settle();
+  assert.equal(ui.doc.querySelector('#tdsel').value, '', 'a place that is gone is not shown as chosen');
+  assert.equal(note(ui), '');
+  assert.deepEqual(fields(ui), ['9000', '8000', '70'], 'the boxes keep what they held (#506)');
+  ui.dom.window.close();
+});
+
+test('a refresh that finds nothing new does not draw the drop-down again, so one that is open does not close', async () => {
+  const { ui, answers, pick } = await openPlaces();
+  await pick('tdkind', 'marker');
+  const seen = [];
+  new ui.w.MutationObserver((m) => seen.push(...m)).observe(ui.doc.querySelector('#tdout'), { childList: true, subtree: true });
+  await ui.w.goPlaces(false); await ui.settle();
+  assert.equal(seen.length, 0, 'the same answer: nothing is drawn');
+  const moved = named();
+  moved.destinations[0].distance = 700000;
+  answers['/api/player/destinations'] = moved;
+  await ui.w.goPlaces(false); await ui.settle();
+  assert.ok(seen.length > 0, 'another answer is drawn');
+  ui.dom.window.close();
+});
+
+test('a heading with no place is not drawn in the Named places drop-down', async () => {
+  const some = named();
+  some.groups = [some.groups[0], some.groups[3]];
+  some.destinations = [some.destinations[0], some.destinations[4]];
+  some.total = 2;
+  const { ui, pick } = await openPlaces(some);
+  await pick('tdkind', 'marker');
+  assert.deepEqual(headings(ui).map((g) => g.label), ['Trading posts', 'Taxis']);
+  assert.equal(ui.doc.querySelectorAll('#tdsel optgroup').length, 2);
+  const none = { map: 'HaggaBasin', sameMap: true, kind: 'marker', total: 0, groups: [], destinations: [] };
+  const empty = await openPlaces(none);
+  await empty.pick('tdkind', 'marker');
+  assert.equal(empty.ui.doc.querySelector('#tdsel'), null);
+  assert.equal(empty.ui.doc.querySelector('#tdout').textContent, 'None on HaggaBasin.');
+  ui.dom.window.close(); empty.ui.dom.window.close();
+});
+
+test('choosing another map reloads the Named places drop-down for that map, with the cross-map warning and no distances', async () => {
+  const { ui, answers, asked, pick } = await openPlaces();
+  await pick('tdkind', 'marker');
+  const dd = { map: 'DeepDesert', sameMap: false, kind: 'marker', total: 1, groups: [{ key: 'taxi', label: 'Taxis' }],
+    destinations: [{ kind: 'marker', group: 'taxi', label: 'Deep Desert Taxi Service', x: -300000, y: -590000, z: 1000, distance: 0 }] };
+  answers['/api/player/destinations'] = dd;
+  await pick('tmap', 'DeepDesert');
+  assert.match(asked.at(-1), /^\/api\/player\/destinations\?kind=marker&q=&map=DeepDesert$/);
+  assert.deepEqual(headings(ui), [{ label: 'Taxis', places: ['Deep Desert Taxi Service'] }], 'no distance across maps');
+  assert.equal(ui.doc.querySelector('#tdsel').options[0].textContent, '1 place on DeepDesert');
+  assert.ok(ui.doc.querySelector('#tmapwarn'), 'the warning about a move to another map stays');
+  await pick('tdsel', '0');
+  ui.click('[data-act="teleport"]'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/teleport').map((p) => p.body), [{ x: -300000, y: -590000, z: 1000, map: 'DeepDesert' }]);
+  ui.dom.window.close();
+});
+
+test('a map change with another kind chosen asks for no places, and a Named places list does not stay under another kind', async () => {
+  const { ui, asked, pick } = await openPlaces();
+  await pick('tmap', 'DeepDesert');
+  assert.deepEqual(asked, [], 'Base, Respawn point and My vehicle still wait for Find');
+  await pick('tdkind', 'marker');
+  assert.equal(asked.length, 1);
+  await pick('tdkind', 'base');
+  assert.equal(ui.doc.querySelector('#tdsel'), null);
+  ui.dom.window.close();
+});
+
+test('Base, Respawn point and My vehicle keep the filter box and Find; Named places takes them away and another kind brings them back', async () => {
+  const { ui, asked, pick } = await openPlaces(dest());
+  for (const kind of ['base', 'respawn', 'vehicle']) {
+    await pick('tdkind', kind);
+    assert.ok(ui.doc.querySelector('#tdq'), `${kind}: the filter box`);
+    assert.ok(ui.doc.querySelector('[data-act="tdFind"]'), `${kind}: Find`);
+    assert.equal(ui.doc.querySelector('#tdsel'), null, `${kind}: nothing is listed until Find`);
+  }
+  assert.deepEqual(asked, []);
+  type(ui, 'tdq', 'pinn');
+  ui.click('[data-act="tdFind"]'); await ui.settle();
+  assert.match(asked[0], /kind=vehicle&q=pinn/);
+  assert.equal(ui.doc.querySelectorAll('#tdsel optgroup').length, 0, 'a flat list with no headings, as before');
+  assert.equal(ui.doc.querySelectorAll('#tdsel option').length, 3);
+  await pick('tdkind', 'marker');
+  assert.equal(ui.doc.querySelector('#tdq'), null);
+  assert.equal(ui.doc.querySelector('[data-act="tdFind"]'), null);
+  await pick('tdkind', 'base');
+  assert.equal(ui.doc.querySelector('#tdq').value, 'pinn', 'what was typed in the filter box was kept');
+  assert.ok(ui.doc.querySelector('[data-act="tdFind"]'));
+  ui.dom.window.close();
+});
+
+test('the Movement card\'s About text still says what is true, and nothing in it speaks of searching for Named places', async () => {
+  const { ui, pick } = await openPlaces(arrival());
+  await pick('tdkind', 'marker');
+  const about = ui.doc.querySelector('details[data-about="admin.movement"]').textContent;
+  assert.match(about, /Named places: for trading posts and hubs the boxes are filled with the point where the game's own ornithopter trip would put you/);
+  assert.doesNotMatch(about, /filter|search|Find/i);
+  ui.dom.window.close();
+});
+
+test('a failed request for the Named places says why and leaves no drop-down', async () => {
+  const { ui, pick } = await openPlaces({ __fail: 'the save could not be read' });
+  await pick('tdkind', 'marker');
+  assert.equal(ui.doc.querySelector('#tdsel'), null);
+  assert.ok(ui.doc.body.textContent.includes('the save could not be read'), 'the reason is shown');
+  ui.dom.window.close();
+});
+
+test('an older answer for the Named places that comes late does not replace the newer one', async () => {
+  const { ui, answers, pick } = await openPlaces();
+  const slow = named();
+  const dd = { map: 'DeepDesert', sameMap: false, kind: 'marker', total: 1, groups: [{ key: 'taxi', label: 'Taxis' }],
+    destinations: [{ kind: 'marker', group: 'taxi', label: 'Deep Desert Taxi Service', x: -300000, y: -590000, z: 1000, distance: 0 }] };
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  const realFetch = ui.w.fetch;
+  ui.w.fetch = (u, ...rest) => (String(u).includes('kind=marker&q=&map=&') || String(u).endsWith('kind=marker&q=&map=') ? gate.then(() => realFetch(u, ...rest)) : realFetch(u, ...rest));
+  answers['/api/player/destinations'] = slow;
+  const first = pick('tdkind', 'marker'); // asks for this map's places, and waits
+  await new Promise((r) => ui.w.setTimeout(r, 20));
+  answers['/api/player/destinations'] = dd;
+  await pick('tmap', 'DeepDesert'); // asks again, and is answered at once
+  answers['/api/player/destinations'] = slow;
+  release(); await first; await ui.settle();
+  assert.deepEqual(headings(ui), [{ label: 'Taxis', places: ['Deep Desert Taxi Service'] }], 'the Hagga Basin answer came last and is dropped');
+  ui.dom.window.close();
+});

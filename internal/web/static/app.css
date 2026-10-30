@@ -27,6 +27,7 @@ button.b.sec{background:var(--panel2);color:var(--fg);border:1px solid var(--lin
 button.b.bad{background:var(--bad)}button.b.sm{padding:2px 8px;font-size:12px}
 button:disabled{opacity:.4;cursor:default}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
+.dc{display:contents}
 .mut{color:var(--mut)}.ok{color:var(--ok)}.bad{color:var(--bad)}.mono{font-family:Consolas,monospace;font-size:12px}
 #toast{position:fixed;bottom:16px;right:16px;display:flex;flex-direction:column;gap:6px;z-index:10}
 #toast div{background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--ok);padding:8px 12px;border-radius:6px;max-width:420px}
