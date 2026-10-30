@@ -1423,24 +1423,21 @@ test('there is no Give water button: Fill hydration and Refill Literjons are wha
   ui.dom.window.close();
 });
 
-test('Teleport: Find lists places as text, choosing one fills X Y Z, Facing is sent only when typed', async () => {
+test('Teleport: Go to a place lists places as text at once, choosing one fills X Y Z, Facing is sent only when typed', async () => {
   const hostile = '<img src=x onerror=1>';
-  const dest = { map: 'HaggaBasin', sameMap: true, kind: 'marker', total: 3, destinations: [{ kind: 'marker', label: 'Cave ' + hostile, x: 400.4, y: 500.6, z: 20, distance: 52000 }, { kind: 'marker', label: 'EnemyCamp', x: 9000, y: 9000, z: 30, distance: 900000 }] };
+  const dest = { map: 'HaggaBasin', sameMap: true, total: 3, groups: [{ key: 'tradepost', label: 'Trading posts' }], destinations: [{ group: 'tradepost', label: 'Cave ' + hostile, x: 400.4, y: 500.6, z: 20, distance: 52000 }, { group: 'tradepost', label: 'EnemyCamp', x: 9000, y: 9000, z: 30, distance: 900000 }] };
   const ui = await boot({ get: { '/api/player/destinations': dest }, post: { '/api/player/teleport': { ok: true } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:admin"]'); await ui.settle();
-  ui.doc.querySelector('#tdkind').value = 'marker'; ui.doc.querySelector('#tdq').value = 'cave';
-  ui.click('[data-act="tdFind"]'); await ui.settle();
   assert.equal(ui.doc.querySelector('#tdout img'), null, 'a hostile label is text');
   const sel = ui.doc.querySelector('#tdsel');
-  assert.ok(sel.options[0].textContent.includes('nearest 2 of 3'), sel.options[0].textContent);
+  assert.ok(sel.options[0].textContent.includes('showing 2 of 3'), sel.options[0].textContent);
   assert.ok(sel.options[1].textContent.includes('520 m away'), sel.options[1].textContent);
   sel.value = '0'; sel.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
   assert.deepEqual(['tx', 'ty', 'tz'].map((id) => ui.doc.querySelector('#' + id).value), ['400', '501', '20']);
   ui.click('[data-act="teleport"]'); await ui.settle();
   assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/teleport').map((p) => p.body), [{ x: 400, y: 501, z: 20 }], 'no facing typed, none sent');
-  ui.click('[data-act="tdFind"]'); await ui.settle(); // the page redrew after the move
-  const sel2 = ui.doc.querySelector('#tdsel');
+  const sel2 = ui.doc.querySelector('#tdsel'); // the page redrew after the move and filled the drop-down again
   sel2.value = '0'; sel2.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
   ui.doc.querySelector('#tdyaw').value = '90';
   ui.click('[data-act="teleport"]'); await ui.settle();
@@ -1449,9 +1446,9 @@ test('Teleport: Find lists places as text, choosing one fills X Y Z, Facing is s
   ui.dom.window.close();
 });
 
-test('Teleport to another map: Find asks for that map, lists its places with no distance, and the move carries the map', async () => {
-  const dest = { map: 'DeepDesert', sameMap: false, kind: 'base', total: 1, maps: [{ key: 'HaggaBasin', label: 'Hagga Basin', current: true }, { key: 'DeepDesert', label: 'The Deep Desert', current: false }],
-    destinations: [{ kind: 'base', label: 'Base #701', x: -300000, y: -590000, z: 1000, distance: 0 }] };
+test('Teleport to another map: the drop-down asks for that map, lists its places with no distance, and the move carries the map', async () => {
+  const dest = { map: 'DeepDesert', sameMap: false, total: 1, maps: [{ key: 'HaggaBasin', label: 'Hagga Basin', current: true }, { key: 'DeepDesert', label: 'The Deep Desert', current: false }],
+    groups: [{ key: 'vehicle', label: 'Vehicles' }], destinations: [{ group: 'vehicle', label: 'Buggy #701', x: -300000, y: -590000, z: 1000, distance: 0 }] };
   const ui = await boot({ get: { '/api/player/destinations': dest }, post: { '/api/player/teleport': { ok: true } } });
   const asked = [];
   const f = ui.w.fetch; ui.w.fetch = (p, o) => { asked.push(String(p)); return f(p, o); };
@@ -1460,8 +1457,7 @@ test('Teleport to another map: Find asks for that map, lists its places with no 
   const maps = [...ui.doc.querySelectorAll('#tmap option')].map((o) => o.value);
   assert.deepEqual(maps, ['', 'HaggaBasin', 'DeepDesert'], 'this map first, then the two the console offers');
   assert.ok(ui.doc.querySelector('#tmap option').textContent.startsWith('This map ('), 'the first choice names the map the character is on');
-  ui.doc.querySelector('#tdkind').value = 'base'; ui.doc.querySelector('#tmap').value = 'DeepDesert';
-  ui.click('[data-act="tdFind"]'); await ui.settle();
+  ui.doc.querySelector('#tmap').value = 'DeepDesert'; ui.doc.querySelector('#tmap').dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
   assert.ok(asked.some((u) => u.startsWith('/api/player/destinations?') && u.includes('map=DeepDesert')), asked.filter((u) => u.includes('destinations')).join(' '));
   const sel = ui.doc.querySelector('#tdsel');
   assert.ok(sel.options[0].textContent.includes('1 place on DeepDesert') && !sel.options[0].textContent.includes('nearest first'), sel.options[0].textContent);
@@ -2261,9 +2257,8 @@ test('a question is a named dialog: labelled by its title, the page behind is in
   ui.dom.window.close();
 });
 
-test('Enter in a filter box runs the filter and leaves the cursor in the box: Inventory, Journey, Research, Crafting, Customizations, Database, the teleport finder (#250)', async () => {
-  const dest = { map: 'HaggaBasin', kind: 'marker', total: 1, destinations: [{ kind: 'marker', label: 'Cave', x: 1, y: 2, z: 3, distance: 100 }] };
-  const ui = await boot({ get: { '/api/player/destinations': dest } });
+test('Enter in a filter box runs the filter and leaves the cursor in the box: Inventory, Journey, Research, Crafting, Customizations, Database (#250; the teleport finder is gone since #519)', async () => {
+  const ui = await boot();
   const typeEnter = async (id, text) => {
     const box = ui.doc.querySelector('#' + id);
     assert.ok(box, `a filter box #${id}`);
@@ -2289,10 +2284,7 @@ test('Enter in a filter box runs the filter and leaves the cursor in the box: In
   ui.click('[data-sub="player:customizations"]'); await ui.settle();
   await typeEnter('ctq', 'zzzznomatch');
   ui.click('[data-sub="player:admin"]'); await ui.settle();
-  const q = ui.doc.querySelector('#tdq'); q.focus(); q.value = 'cave';
-  key(ui, q, 'Enter'); await ui.settle();
-  assert.ok(ui.doc.querySelector('#tdout').textContent.includes('1 place'), 'the finder ran');
-  assert.equal(ui.doc.activeElement, ui.doc.querySelector('#tdq'));
+  assert.equal(ui.doc.querySelector('#tdq'), null, 'Go to a place has no filter box any more');
   ui.click('[data-tab="db"]'); await ui.settle();
   await typeEnter('dbq', 'zzz');
   ui.dom.window.close();

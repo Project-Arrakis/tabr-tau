@@ -72,7 +72,7 @@ func placesOps(t *testing.T, extra ...string) *Ops {
 
 func namedPlacesOf(t *testing.T, o *Ops, q, mp string) (map[string]any, []Destination) {
 	t.Helper()
-	res, err := o.Destinations("marker", q, mp)
+	res, err := o.Destinations(q, mp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,11 +108,6 @@ func TestNamedPlacesListTradingPostsByTheirInGameNameAndNothingElseOnTheMap(t *t
 			if strings.Contains(x.Label, bad) {
 				t.Errorf("%q must not be offered: %+v", bad, x)
 			}
-		}
-	}
-	for _, x := range d {
-		if x.Group == groupTradePost && x.Kind != "marker" {
-			t.Errorf("kind: %+v", x)
 		}
 	}
 	if len(d) != 4+2+2 {
@@ -182,7 +177,7 @@ func TestNamedPlacesGroupsAndTheirOrder(t *testing.T) {
 		t.Errorf("bases (not another player's, not the picked-up one, not the one on another map): %+v", bases)
 	}
 	// the character's own vehicles that stand in the world
-	if len(vehicles) != 2 || vehicles[0].Label != "BP_Sandbike #801" || vehicles[1].Label != "Red Runner #802" || vehicles[0].X != 300 || vehicles[0].Z != 50 {
+	if len(vehicles) != 2 || vehicles[0].Label != "Sandbike #801" || vehicles[1].Label != "Red Runner #802" || vehicles[0].X != 300 || vehicles[0].Z != 50 {
 		t.Errorf("vehicles (not the stored one, not another player's, not the one on another map): %+v", vehicles)
 	}
 	if vehicles[0].Distance <= 0 || vehicles[1].Distance <= vehicles[0].Distance {
@@ -320,9 +315,6 @@ func TestDeepDesertTaxiKeysAreTaxisAndNeverTradingPosts(t *testing.T) {
 		}
 		if x.Group == groupTaxi {
 			taxis = append(taxis, x.Label)
-			if x.Kind != "marker" {
-				t.Errorf("kind: %+v", x)
-			}
 		}
 	}
 	// three keys of one name: told apart by the start of the key, as for any group
