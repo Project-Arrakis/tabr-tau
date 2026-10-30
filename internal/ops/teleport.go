@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -24,7 +25,8 @@ type Destination struct {
 	X        float64  `json:"x"`
 	Y        float64  `json:"y"`
 	Z        float64  `json:"z"`
-	Distance float64  `json:"distance"` // flat distance from the character now, in game units
+	Distance float64  `json:"distance"`        // flat distance from the character now, in game units
+	Group    string   `json:"group,omitempty"` // the heading of the named-places list the place is under (tradepost, base, vehicle or taxi); empty for the other lists
 	Facing   *float64 `json:"facing,omitempty"`
 }
 
@@ -68,7 +70,9 @@ func flatDistance(x, y, px, py float64) float64 { return math.Hypot(x-px, y-py) 
 
 // Destinations lists places for one kind (base, respawn, vehicle or marker) on the map named dest, or on the character's current map when dest
 // is empty. On the character's own map the places are nearest first; on another map a distance from the character means nothing, so none is
-// given and the places are in the order of the save's tables. q narrows by name (a marker's type, a respawn group, a vehicle class).
+// given and the places are in the order of the save's tables. q narrows by name (a respawn group, a vehicle class, a place's name).
+// The kind "marker" is the named places (places.go): trading posts, the character's bases, vehicles and taxi hubs, each place under its group, the groups in that order,
+// nearest first within a group; the answer also says which groups have places ("groups").
 func (o *Ops) Destinations(kind, q, dest string) (any, error) {
 	p, err := o.player()
 	if err != nil {
@@ -92,22 +96,23 @@ func (o *Ops) Destinations(kind, q, dest string) (any, error) {
 	}
 	q = strings.ToLower(strings.TrimSpace(q))
 	var out []Destination
-	add := func(kind, label string, x, y, z any) {
+	addIn := func(kind, group, label, alias string, x, y, z any) {
 		fx, ok1 := toFloat(x)
 		fy, ok2 := toFloat(y)
 		fz, ok3 := toFloat(z)
 		if !ok1 || !ok2 || !ok3 {
 			return // a place without coordinates in the save cannot be a destination
 		}
-		if q != "" && !strings.Contains(strings.ToLower(label), q) {
+		if q != "" && !strings.Contains(strings.ToLower(label), q) && !strings.Contains(strings.ToLower(alias), q) {
 			return
 		}
-		d := Destination{Kind: kind, Label: label, X: fx, Y: fy, Z: fz}
+		d := Destination{Kind: kind, Group: group, Label: label, X: fx, Y: fy, Z: fz}
 		if same {
 			d.Distance = flatDistance(fx, fy, px, py)
 		}
 		out = append(out, d)
 	}
+	add := func(kind, label string, x, y, z any) { addIn(kind, "", label, "", x, y, z) }
 	switch kind {
 	case "base":
 		rows, err := o.S.Query(`select t.id id, t.landclaim_original_global_location_x x, t.landclaim_original_global_location_y y,
@@ -138,19 +143,24 @@ func (o *Ops) Destinations(kind, q, dest string) (any, error) {
 			add("vehicle", fmt.Sprintf("%s #%v", shortClass(r["cls"]), r["id"]), r["x"], r["y"], r["z"])
 		}
 	case "marker":
-		rows, err := o.S.Query(`select m.marker_type t, m.x x, m.y y, m.z z from markers m
-			join player_markers pm on pm.marker_hash_id=m.marker_hash_id and pm.dimension_index=m.dimension_index and pm.map_name=m.map_name
-			where pm.player_id=? and pm.discovery_level>0 and m.map_name=?`, p.Controller, mp)
+		places, err := o.namedPlaces(p, mp)
 		if err != nil {
 			return nil, err
 		}
-		for _, r := range rows {
-			add("marker", fmt.Sprint(r["t"]), r["x"], r["y"], r["z"])
+		for _, r := range places {
+			addIn("marker", r.group, r.label, r.alias, r.x, r.y, r.z)
 		}
 	default:
 		return nil, apierr.New(apierr.ErrBadArgument, "kind must be base, respawn, vehicle or marker")
 	}
-	if same {
+	if kind == "marker" {
+		sort.SliceStable(out, func(i, j int) bool {
+			if gi, gj := groupIndex(out[i].Group), groupIndex(out[j].Group); gi != gj {
+				return gi < gj
+			}
+			return same && out[i].Distance < out[j].Distance
+		})
+	} else if same {
 		sortByDistance(out)
 	}
 	total := len(out)
@@ -160,7 +170,11 @@ func (o *Ops) Destinations(kind, q, dest string) (any, error) {
 	if out == nil {
 		out = []Destination{}
 	}
-	return map[string]any{"map": mp, "sameMap": same, "maps": maps, "kind": kind, "total": total, "destinations": out}, nil
+	res := map[string]any{"map": mp, "sameMap": same, "maps": maps, "kind": kind, "total": total, "destinations": out}
+	if kind == "marker" {
+		res["groups"] = groupsOf(out)
+	}
+	return res, nil
 }
 
 func sortByDistance(d []Destination) {

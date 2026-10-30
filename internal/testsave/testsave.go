@@ -325,3 +325,26 @@ func Exec(t testing.TB, s *save.Save, q string, args ...any) {
 
 // OpenSchemaOnly returns an in-memory database holding the real schema and no rows, for tests that inspect structure.
 func OpenSchemaOnly(t testing.TB) *sql.DB { return mem(t) }
+
+// MarkerPayload is the start of a static map marker's payload as the game writes it (checked against the payloads of a real save): a short header, then
+// each key and value as length-prefixed text. locationKey is the 32 hexadecimal digits the payload starts with, tags the text of StaticLocationTags and
+// displayName the localization reference the game puts in DisplayName. The values a test passes are made up; only the layout is the game's.
+func MarkerPayload(locationKey, tags, displayName string) []byte {
+	var b []byte
+	b = append(b, 0xdc, 0x01, 0x3e)
+	b = append(b, 0xb7)
+	b = append(b, "LocationKey"...)
+	b = append(b, 0xc7, byte(len(locationKey)))
+	b = append(b, locationKey...)
+	b = append(b, 0xc7, byte(len("StaticLocationTags")))
+	b = append(b, "StaticLocationTags"...)
+	b = append(b, 0xc7, byte(len(tags)))
+	b = append(b, tags...)
+	b = append(b, 0xc7, byte(len("IntelPickups")))
+	b = append(b, "IntelPickups"...)
+	b = append(b, 0x0b, 0xb7)
+	b = append(b, "DisplayName"...)
+	b = append(b, 0xc8, byte(len(displayName)))
+	b = append(b, displayName...)
+	return b
+}

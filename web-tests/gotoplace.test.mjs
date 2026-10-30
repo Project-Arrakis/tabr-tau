@@ -117,3 +117,87 @@ test('when the character is on another map in the save, boxes meant for this map
   assert.equal(ui.doc.querySelector('#tdsel'), null);
   ui.dom.window.close();
 });
+
+// ---- the Named places list (#500): the places are under four headings, each place by the name a player sees
+
+const named = () => ({ map: 'HaggaBasin', sameMap: true, kind: 'marker', total: 5,
+  groups: [{ key: 'tradepost', label: 'Trading posts' }, { key: 'base', label: 'Personal bases' }, { key: 'vehicle', label: 'Vehicles' }, { key: 'taxi', label: 'Taxis' }],
+  destinations: [
+    { kind: 'marker', group: 'tradepost', label: 'Pinnacle Station Tradepost', x: 1111.4, y: 2222.6, z: 33, distance: 448800 },
+    { kind: 'marker', group: 'tradepost', label: 'Griffin\'s Reach Tradepost', x: 9000, y: 8000, z: 70, distance: 5200000 },
+    { kind: 'marker', group: 'base', label: 'Spice Camp #602', x: 21, y: 31, z: 41, distance: 3000 },
+    { kind: 'marker', group: 'vehicle', label: 'Red Runner #802', x: 300, y: 400, z: 50, distance: 9000 },
+    { kind: 'marker', group: 'taxi', label: 'Arrakeen Taxi Service', x: 11695, y: -258, z: 5, distance: 1000 }] });
+
+const headings = (ui) => [...ui.doc.querySelectorAll('#tdsel optgroup')].map((g) => ({ label: g.label, places: [...g.querySelectorAll('option')].map((o) => o.textContent) }));
+
+test('the Named places list is drawn under its headings, in the order the answer gives, with the name and distance of each place', async () => {
+  const { ui } = await open({ get: { '/api/player/destinations': named() } });
+  assert.deepEqual(headings(ui), [
+    { label: 'Trading posts', places: ['Pinnacle Station Tradepost - 4,488 m away', 'Griffin\'s Reach Tradepost - 52,000 m away'] },
+    { label: 'Personal bases', places: ['Spice Camp #602 - 30 m away'] },
+    { label: 'Vehicles', places: ['Red Runner #802 - 90 m away'] },
+    { label: 'Taxis', places: ['Arrakeen Taxi Service - 10 m away'] }]);
+  assert.equal(ui.doc.querySelector('#tdsel').options[0].textContent, '5 places on HaggaBasin, nearest first', 'the heading option of the list counts the places');
+  assert.equal([...ui.doc.querySelector('#tdkind').options].map((o) => o.textContent).includes('Named places'), true, 'the kind of place is called Named places');
+  ui.dom.window.close();
+});
+
+test('choosing a place under a heading fills X, Y and Z and says which place is selected, whichever group it is in', async () => {
+  const { ui } = await open({ get: { '/api/player/destinations': named() } });
+  choose(ui, '3'); // the vehicle: the value of an option is its place in the answer, not in its group
+  assert.deepEqual(fields(ui), ['300', '400', '50']);
+  assert.equal(note(ui), 'Selected: Red Runner #802, 90 m away');
+  choose(ui, '0');
+  assert.deepEqual(fields(ui), ['1111', '2223', '33']);
+  assert.equal(note(ui), 'Selected: Pinnacle Station Tradepost, 4,488 m away');
+  await ui.w.render(true); await ui.settle();
+  assert.equal(ui.doc.querySelector('#tdsel').value, '0', 'the choice survives a redraw');
+  assert.equal(ui.doc.querySelector('#tdsel').selectedOptions[0].parentElement.label, 'Trading posts');
+  ui.dom.window.close();
+});
+
+test('a heading the answer does not name is not drawn, and the other lists have none', async () => {
+  const two = named();
+  two.groups = two.groups.slice(0, 2);
+  two.destinations = two.destinations.slice(0, 3);
+  two.total = 3;
+  const { ui } = await open({ get: { '/api/player/destinations': two } });
+  assert.deepEqual(headings(ui).map((g) => g.label), ['Trading posts', 'Personal bases']);
+  const flat = await open(); // the default answer of these tests is a list of one kind with no groups
+  assert.equal(flat.ui.doc.querySelectorAll('#tdsel optgroup').length, 0);
+  assert.equal(flat.ui.doc.querySelectorAll('#tdsel option').length, 3);
+  ui.dom.window.close(); flat.ui.dom.window.close();
+});
+
+test('the filter box is sent with Find and the list shows what the filter left', async () => {
+  const answers = { '/api/player/destinations': named() };
+  const { ui } = await open({ get: answers });
+  const asked = [];
+  const realFetch = ui.w.fetch;
+  ui.w.fetch = (u, ...rest) => { asked.push(String(u)); return realFetch(u, ...rest); };
+  const one = named();
+  one.groups = [one.groups[0]];
+  one.destinations = [one.destinations[0]];
+  one.total = 1;
+  answers['/api/player/destinations'] = one;
+  ui.doc.querySelector('#tdkind').value = 'marker';
+  type(ui, 'tdq', 'pinn');
+  ui.click('[data-act="tdFind"]'); await ui.settle();
+  const url = asked.find((u) => u.startsWith('/api/player/destinations?'));
+  assert.ok(url && url.includes('kind=marker') && url.includes('q=pinn'), url);
+  assert.deepEqual(headings(ui), [{ label: 'Trading posts', places: ['Pinnacle Station Tradepost - 4,488 m away'] }]);
+  ui.dom.window.close();
+});
+
+test('a heading or a name that holds markup is shown as text', async () => {
+  const hostile = '"><img src=x onerror=window.__pwned=1>';
+  const d = named();
+  d.groups[0].label = hostile;
+  d.destinations[0].label = hostile + 'Post';
+  const { ui } = await open({ get: { '/api/player/destinations': d } });
+  assert.equal(ui.doc.querySelector('#tdsel img'), null);
+  assert.equal(ui.doc.querySelector('#tdsel optgroup').label, hostile);
+  assert.equal(ui.w.__pwned, undefined);
+  ui.dom.window.close();
+});
