@@ -39,11 +39,11 @@ func destinationsOn(t *testing.T, o *Ops, kind, mp string) map[string]any {
 
 func TestDestinationsOfAnotherMapAreThatMapsPlacesAndHaveNoDistance(t *testing.T) {
 	o := &Ops{S: testsave.PlayerWithSQL(t, teleportWorld+teleportDeepDesert)}
-	for kind, want := range map[string]string{"base": "Base #701", "respawn": "BaseTotem", "vehicle": "BP_Buggy #811", "marker": "Deep Desert Tradepost"} {
+	for kind, want := range map[string]string{"base": "Base #701", "respawn": "BaseTotem", "vehicle": "BP_Buggy #811", "marker": "mine #811"} {
 		r := destinationsOn(t, o, kind, "DeepDesert")
 		d := r["destinations"].([]Destination)
-		if kind == "marker" { // the named places: the trading post and the character's vehicle (the base 701 is not the character's)
-			if len(d) != 2 || d[1].Label != "mine #811" {
+		if kind == "marker" { // the named places: the character's vehicle and the taxi service point (the base 701 is not the character's; the Deep Desert has no trading post, #516)
+			if len(d) != 2 || d[1].Label != "Deep Desert Taxi Service" || d[1].Group != groupTaxi {
 				t.Errorf("named places on the Deep Desert: %v", labelsOf(d))
 			}
 			d = d[:1]

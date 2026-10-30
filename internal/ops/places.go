@@ -13,6 +13,10 @@ import (
 // Named places (#500). Admin > Movement > Go to a place lists four kinds of place by the names a player sees: trading posts, the character's own bases, the
 // character's own vehicles and the taxi hubs. Nothing else on the saved map (outposts, camps, resources, hazards, caves, vendors) is offered.
 //
+// The Deep Desert has no trading post. Three rows of DT_StaticLocationData carry the trading-post tag and belong to the map object DeepDesert_1_Travel; they are the Deep
+// Desert's taxi service points (#516), so place-names.json gives them the kind "taxi" and namedPlaces lists a TradingPost marker with one of those keys under Taxis, never
+// under Trading posts.
+//
 // A trading post's name is not in the save. The save's marker has only the generic type "TradingPost", and its payload starts with a LocationKey (32 hexadecimal digits),
 // which is the name of a row in the game's own table DT_StaticLocationData. place-names.json says which key is which place; tools/placenamesgen makes it from the game's tables
 // (internal/catalog/PROVENANCE.md, "place-names.json"). A trading post whose key the file does not have is listed with its type and key, not hidden.
@@ -20,16 +24,18 @@ import (
 // The personal bases are the character's own totems (a permission record that gives the character the owner rank), at the claim position, with the name the character gave
 // them. The map's HomeBase markers are not used: the TotemId in their payload does not say which base a marker is (the same id sits on several markers, and most ids are not a
 // base in the save), so a marker cannot be tied to the character. The vehicles are the character's own that stand in the world (a stored or lost vehicle has no place).
-// A taxi hub is a TaxiService marker, which sits on the map of its hub (Arrakeen, Harko Village), so it is offered while the list is for that map.
+// A taxi hub is a TaxiService marker, which sits on the map of its hub (Arrakeen, Harko Village), so it is offered while the list is for that map; a Deep Desert taxi service
+// point is a marker of the Deep Desert map, so it is offered while the list is for that map and not on Hagga Basin.
 
 //go:embed place-names.json
 var rawPlaceNames []byte
 
 // namedPlace is what place-names.json says about one LocationKey.
 type namedPlace struct {
-	Name  string `json:"name"`
-	Kind  string `json:"kind"`
-	Alias string `json:"alias"`
+	Name    string `json:"name"`
+	Kind    string `json:"kind"` // "tradepost" or "taxi"
+	Alias   string `json:"alias"`
+	Derived bool   `json:"derived"` // the name was written by the editor, the game's text has none
 }
 
 // placeNames is LocationKey (upper case) -> the place.
@@ -49,6 +55,7 @@ const (
 	groupBase      = "base"
 	groupVehicle   = "vehicle"
 	groupTaxi      = "taxi"
+	kindTaxi       = "taxi" // the kind place-names.json gives a key that is a taxi service point
 )
 
 // DestinationGroup is one heading of the places list.
@@ -118,8 +125,8 @@ func payloadOf(v any) []byte {
 	return b
 }
 
-// tradePostName is the label of a TradingPost marker and the other name the filter matches: the name of its key when the file has it, else its type and key (or, with no
-// key in the payload, its type and the marker's number).
+// tradePostName is the label of a TradingPost marker and the other name the filter matches: the name of its key when the file has it (a trading post's name, or a taxi service
+// point's, #516), else its type and key (or, with no key in the payload, its type and the marker's number).
 func tradePostName(markerType string, key string, markerID any) (label, alias string) {
 	if p, ok := placeNames[key]; ok && key != "" && p.Name != "" {
 		return p.Name, p.Alias
@@ -214,7 +221,11 @@ func (o *Ops) namedPlaces(p player, mp string) ([]placeRow, error) {
 		case "TradingPost":
 			key := markerLocationKey(payloadOf(r["p"]))
 			label, alias := tradePostName("TradingPost", key, r["h"])
-			out = append(out, placeRow{group: groupTradePost, label: label, alias: alias, key: key, x: r["x"], y: r["y"], z: r["z"]})
+			group := groupTradePost
+			if key != "" && placeNames[key].Kind == kindTaxi { // the Deep Desert's taxi service points carry the trading-post tag in the game's table (#516)
+				group = groupTaxi
+			}
+			out = append(out, placeRow{group: group, label: label, alias: alias, key: key, x: r["x"], y: r["y"], z: r["z"]})
 		case "TaxiService":
 			out = append(out, placeRow{group: groupTaxi, label: taxiName(mp), x: r["x"], y: r["y"], z: r["z"]})
 		}

@@ -13,7 +13,8 @@
 // The rule (repeatable, and the same on every run): every row of -locations that carries the tag Exploration.POI.TradePost and has a LocationKey of 32 hexadecimal digits is a
 // trading-post key. The map object of its package name decides which place it is (the table below, one line per object). A place whose name is in the game's text takes that
 // text, without the full stop the dialogue line ends with; a place whose name is not in the game's text takes the name written in the table below and is marked "derived" in
-// the file. A trading-post row whose object is not in the table is an error (a new game build added a place: add a line and read the text for it), so a name is never guessed
+// the file. The table also says what kind a place is: the rows of DeepDesert_1_Travel carry the trading-post tag but are the Deep Desert's Taxi Service points, so their kind is
+// "taxi" (#516). A trading-post row whose object is not in the table is an error (a new game build added a place: add a line and read the text for it), so a name is never guessed
 // silently.
 //
 // Usage: go run ./tools/placenamesgen -locations ... -dialogue ... -build ... -read 2026-10-30 -out internal/ops/place-names.json
@@ -29,12 +30,19 @@ import (
 	"strings"
 )
 
+// kindTradePost and kindTaxi are the kinds a key can have in the file.
+const (
+	kindTradePost = "tradepost"
+	kindTaxi      = "taxi"
+)
+
 // tradePostTag is the tag the game gives a trading post in DT_StaticLocationData.
 const tradePostTag = "Exploration.POI.TradePost"
 
 // place is one line of the rule: the map object a trading-post row belongs to and the name it is given.
 type place struct {
 	Object   string // the map object's name: the part of the row's package name after the last "/" and before the first "."
+	Kind     string // "tradepost" (the default) or "taxi": what the rows of the object are, whatever tag they carry
 	Dialogue string // the key of the pilot's destination choice in the dialogue table; empty for a place whose name is not in the game's text
 	Derived  string // the name used when the game's text does not have one
 	Alias    string // another name the place is known by, matched by the filter and not shown
@@ -42,13 +50,14 @@ type place struct {
 
 // places is the table. Pinnacle Station, Crossroads, Griffin's Reach and The Anvil are the four choices the ornithopter pilot offers (Hagga Basin); Mirzabah's Shadow is the
 // name of the map the post is in, and the game calls the post The Anvil (the post's own marker text is "The Anvil", and its map object is the level of Mirzabah's Shadow). The Deep Desert
-// posts (three in the table, in the level DeepDesert_1_Travel) have no name in the game's text that was found, so they are named by the map they are on.
+// rows (three in the table, in the level DeepDesert_1_Travel) carry the trading-post tag but are the Deep Desert's Taxi Service points (the Deep Desert has no trading post, #516),
+// so their kind is "taxi"; the game's text has no name for them that was found, so they are named by the map they are on.
 var places = []place{
 	{Object: "CB_Arrakis_Generic_M_05_PinnacleStation_MarkerName", Dialogue: "DIALOGUE/DIALOGUE_OPTION_D6TNQ"},
 	{Object: "CB_Arrakis_Generic_S_02_TP_Crossroads_MarkerName", Dialogue: "DIALOGUE/DIALOGUE_OPTION_LFRWB"},
 	{Object: "CB_Arrakis_Generic_S_14_TP_GriffinsReach_Gameplay", Dialogue: "DIALOGUE/DIALOGUE_OPTION_X4D2Y"},
 	{Object: "CB_Trading_Post_MirzabahsShadow_Gameplay", Dialogue: "DIALOGUE/DIALOGUE_OPTION_WI65H", Alias: "Mirzabah's Shadow"},
-	{Object: "DeepDesert_1_Travel", Derived: "Deep Desert Tradepost"},
+	{Object: "DeepDesert_1_Travel", Kind: kindTaxi, Derived: "Deep Desert Taxi Service"},
 }
 
 // Place is one entry of the file.
@@ -150,7 +159,10 @@ func Generate(in Inputs) (*File, error) {
 		if !ok {
 			return nil, fmt.Errorf("trading-post row %s belongs to the object %q, which the rule has no line for: add one (and read the game's text for the name)", key, objectOf(row.Package))
 		}
-		e := Place{Kind: "tradepost", Alias: p.Alias}
+		e := Place{Kind: kindTradePost, Alias: p.Alias}
+		if p.Kind != "" {
+			e.Kind = p.Kind
+		}
 		if p.Dialogue != "" {
 			t, ok := text[p.Dialogue]
 			if !ok {

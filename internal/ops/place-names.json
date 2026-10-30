@@ -33,13 +33,13 @@
    "kind": "tradepost"
   },
   "5B1E5FA645B571DF9714B2B2F8EDD06B": {
-   "name": "Deep Desert Tradepost",
-   "kind": "tradepost",
+   "name": "Deep Desert Taxi Service",
+   "kind": "taxi",
    "derived": true
   },
   "6F72F943466BF7C8FC1D3E88853764D5": {
-   "name": "Deep Desert Tradepost",
-   "kind": "tradepost",
+   "name": "Deep Desert Taxi Service",
+   "kind": "taxi",
    "derived": true
   },
   "6FD413DB48DC86C9095C9FAF56A2BB0E": {
@@ -47,8 +47,8 @@
    "kind": "tradepost"
   },
   "747ED59B48C052C7577385A5C8DEC0C1": {
-   "name": "Deep Desert Tradepost",
-   "kind": "tradepost",
+   "name": "Deep Desert Taxi Service",
+   "kind": "taxi",
    "derived": true
   },
   "84AAE0014040BCD05E16849A140E4CF5": {

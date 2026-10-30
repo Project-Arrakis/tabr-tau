@@ -74,8 +74,17 @@ func TestGenerateNamesTheTradingPostRowsOnly(t *testing.T) {
 	if p := f.Places[anvilLoc]; p.Name != "The Anvil Tradepost" || p.Alias != "Mirzabah's Shadow" || p.Derived {
 		t.Errorf("the post of the Mirzabah's Shadow level is The Anvil: %+v", p)
 	}
-	if p := f.Places[desertLoc]; p.Name != "Deep Desert Tradepost" || !p.Derived {
-		t.Errorf("a name that is not in the game's text is marked derived: %+v", p)
+	// the rows of the object DeepDesert_1_Travel carry the trading-post tag but are the Deep Desert's taxi service points (#516)
+	if p := f.Places[desertLoc]; p.Name != "Deep Desert Taxi Service" || p.Kind != "taxi" || !p.Derived {
+		t.Errorf("a taxi service point, named by the map it is on and marked derived: %+v", p)
+	}
+	for k, p := range f.Places {
+		if p.Kind == "tradepost" && strings.Contains(p.Name, "Deep Desert") {
+			t.Errorf("%s: the Deep Desert has no trading post: %+v", k, p)
+		}
+		if k != desertLoc && p.Kind != "tradepost" {
+			t.Errorf("%s: only the Deep Desert object is a taxi: %+v", k, p)
+		}
 	}
 	if f.Build != "b" || f.Read != "2026-10-30" || len(f.Tables) != 2 {
 		t.Errorf("provenance: %+v", f)
