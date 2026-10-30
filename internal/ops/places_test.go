@@ -18,7 +18,9 @@ const (
 	locGriffin     = "1546D0AC43DF1AADFA14E5A2C5C56D19"
 	locAnvil       = "2445CEFC45F16149BFD5D78C80841113"
 	locCrossroads  = "00271320416D180DAAF847BB767C31A6"
-	locDeepDesert  = "6F72F943466BF7C8FC1D3E88853764D5"
+	locDeepDesert  = "6F72F943466BF7C8FC1D3E88853764D5" // one of the three Deep Desert taxi service points (#516)
+	locDeepDesert2 = "5B1E5FA645B571DF9714B2B2F8EDD06B"
+	locDeepDesert3 = "747ED59B48C052C7577385A5C8DEC0C1"
 	locUnknownPost = "ABCDEF0123456789ABCDEF0123456789" // a made-up key that no table has
 )
 
@@ -29,7 +31,7 @@ func payloadSQL(key string) string {
 }
 
 // placesWorld: trading posts (three named ones, one with a key nobody has, one never discovered, one with no payload), things the list must not offer (an outpost, a camp, a
-// cave, a resource, a vendor, a hazard, a HomeBase marker), a taxi hub on another map; bases (two of the character's, another player's, one the character is only a member of, one picked up, one on another map)
+// cave, a resource, a vendor, a hazard, a HomeBase marker), a taxi hub on another map, and on the Deep Desert a marker the save types TradingPost whose key is a taxi service point (#516); bases (two of the character's, another player's, one the character is only a member of, one picked up, one on another map)
 // and vehicles (two of the character's, one stored, another player's, one on another map).
 var placesWorld = `
 insert into actors(id,class,map,location_x,location_y,location_z,state) values
@@ -208,9 +210,9 @@ func TestNamedPlacesTaxiHubsAreOfferedOnTheirOwnMap(t *testing.T) {
 func TestNamedPlacesOfAnotherMapHaveNoDistance(t *testing.T) {
 	m, d := namedPlacesOf(t, placesOps(t), "", "DeepDesert")
 	if m["sameMap"] != false || len(d) != 3 {
-		t.Fatalf("the Deep Desert's trading post, base and vehicle: %v", labelsOf(d))
+		t.Fatalf("the Deep Desert's base, vehicle and taxi service point: %v", labelsOf(d))
 	}
-	if d[0].Label != "Deep Desert Tradepost" || d[1].Label != "Far Base #605" || d[2].Label != "Far Buggy #805" {
+	if d[0].Label != "Far Base #605" || d[1].Label != "Far Buggy #805" || d[2].Label != "Deep Desert Taxi Service" || d[2].Group != groupTaxi {
 		t.Errorf("%v", labelsOf(d))
 	}
 	for _, x := range d {
@@ -271,18 +273,96 @@ func TestPlaceNamesFileIsWellFormed(t *testing.T) {
 		if strings.TrimSpace(p.Name) == "" || p.Name != strings.TrimSpace(p.Name) || strings.HasSuffix(p.Name, ".") {
 			t.Errorf("%s: name %q", k, p.Name)
 		}
-		if p.Kind != "tradepost" {
+		if p.Kind != "tradepost" && p.Kind != kindTaxi {
 			t.Errorf("%s: kind %q", k, p.Kind)
+		}
+		if (p.Kind == kindTaxi) != strings.Contains(p.Name, "Taxi Service") || (p.Kind == "tradepost") != strings.HasSuffix(p.Name, "Tradepost") {
+			t.Errorf("%s: the name %q does not fit the kind %q", k, p.Name, p.Kind)
 		}
 		byName[p.Name]++
 	}
-	for _, name := range []string{"Pinnacle Station Tradepost", "Crossroads Tradepost", "Griffin's Reach Tradepost", "The Anvil Tradepost", "Deep Desert Tradepost"} {
+	// the Deep Desert has taxi service points and no trading post (#516)
+	for _, k := range []string{locDeepDesert, locDeepDesert2, locDeepDesert3} {
+		if p := placeNames[k]; p.Kind != kindTaxi || p.Name != "Deep Desert Taxi Service" || !p.Derived {
+			t.Errorf("%s: %+v", k, p)
+		}
+	}
+	for _, name := range []string{"Pinnacle Station Tradepost", "Crossroads Tradepost", "Griffin's Reach Tradepost", "The Anvil Tradepost", "Deep Desert Taxi Service"} {
 		if byName[name] == 0 {
 			t.Errorf("no key is named %q: %v", name, byName)
 		}
 	}
 	if placeNames[locPinnacle].Name != "Pinnacle Station Tradepost" || placeNames[locAnvil].Alias != "Mirzabah's Shadow" {
 		t.Errorf("%+v %+v", placeNames[locPinnacle], placeNames[locAnvil])
+	}
+	if byName["Deep Desert Tradepost"] != 0 {
+		t.Errorf("the Deep Desert has no trading post: %v", byName)
+	}
+}
+
+// #516: the three Deep Desert keys carry the trading-post tag in the game's table but are the Deep Desert's taxi service points. A marker the save types TradingPost with such
+// a key is listed under Taxis, by the taxi name, and never under Trading posts.
+func TestDeepDesertTaxiKeysAreTaxisAndNeverTradingPosts(t *testing.T) {
+	o := placesOps(t, `insert into markers(marker_hash_id,dimension_index,map_name,marker_type,x,y,z,payload) values
+		(32,0,'DeepDesert','TradingPost',-305000.0,-587000.0,40.0,`+payloadSQL(locDeepDesert2)+`),
+		(33,0,'DeepDesert','TradingPost',-304000.0,-586000.0,40.0,`+payloadSQL(locDeepDesert3)+`);
+		insert into player_markers(player_id,marker_hash_id,dimension_index,map_name,discovery_level,discovery_method) values (1,32,0,'DeepDesert',3,1),(1,33,0,'DeepDesert',3,1);`)
+	m, d := namedPlacesOf(t, o, "", "DeepDesert")
+	var taxis []string
+	for _, x := range d {
+		if x.Group == groupTradePost || strings.Contains(x.Label, "Tradepost") {
+			t.Errorf("the Deep Desert has no trading post: %+v", x)
+		}
+		if x.Group == groupTaxi {
+			taxis = append(taxis, x.Label)
+			if x.Kind != "marker" {
+				t.Errorf("kind: %+v", x)
+			}
+		}
+	}
+	// three keys of one name: told apart by the start of the key, as for any group
+	if len(taxis) != 3 {
+		t.Fatalf("taxis: %v", taxis)
+	}
+	for _, want := range []string{"Deep Desert Taxi Service (6F72F9)", "Deep Desert Taxi Service (5B1E5F)", "Deep Desert Taxi Service (747ED5)"} {
+		if !strings.Contains(fmt.Sprint(taxis), want) {
+			t.Errorf("taxis: %v, want %q", taxis, want)
+		}
+	}
+	if g := fmt.Sprint(m["groups"]); g != fmt.Sprint([]DestinationGroup{{"base", "Personal bases"}, {"vehicle", "Vehicles"}, {"taxi", "Taxis"}}) {
+		t.Errorf("no Trading posts heading on the Deep Desert: %v", g)
+	}
+	// the filter finds them by the taxi name and not as trading posts
+	if _, d := namedPlacesOf(t, o, "taxi", "DeepDesert"); len(d) != 3 {
+		t.Errorf("taxi: %v", labelsOf(d))
+	}
+	if _, d := namedPlacesOf(t, o, "tradepost", "DeepDesert"); len(d) != 0 {
+		t.Errorf("tradepost: %v", labelsOf(d))
+	}
+	// Hagga Basin: no Taxis heading, and the trading posts are the same as without these markers
+	m, d = namedPlacesOf(t, o, "", "")
+	var posts []string
+	for _, x := range d {
+		if x.Group == groupTradePost {
+			posts = append(posts, x.Label)
+		}
+		if x.Group == groupTaxi {
+			t.Errorf("a save on Hagga Basin lists no taxi: %+v", x)
+		}
+	}
+	want := []string{"TradingPost (key " + locUnknownPost + ")", "TradingPost (marker 5)", "Pinnacle Station Tradepost", "Griffin's Reach Tradepost"}
+	if fmt.Sprint(posts) != fmt.Sprint(want) {
+		t.Errorf("trading posts of Hagga Basin: %v, want %v", posts, want)
+	}
+	if len(m["groups"].([]DestinationGroup)) != 3 {
+		t.Errorf("groups: %+v", m["groups"])
+	}
+	// every trading-post key of the file is one of the four Hagga Basin posts
+	fourPosts := map[string]bool{"Pinnacle Station Tradepost": true, "Crossroads Tradepost": true, "Griffin's Reach Tradepost": true, "The Anvil Tradepost": true}
+	for k, p := range placeNames {
+		if p.Kind == "tradepost" && !fourPosts[p.Name] {
+			t.Errorf("%s: %+v", k, p)
+		}
 	}
 }
 
