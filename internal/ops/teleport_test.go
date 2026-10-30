@@ -9,8 +9,11 @@ import (
 
 // The character stands at 100, 200, 300 on HaggaBasin (the Player fixture). Places: base 601 (east, 5000), base 602 on another map,
 // a respawn point with its own coordinates, one that takes its place from an actor, one with no place at all, an owned vehicle, and
-// markers (two discovered, one not, one on another map).
-const teleportWorld = `
+// markers: a trading post (discovered, named by its payload's LocationKey), a camp (discovered; no group of the list offers it), a trading post that is not discovered
+// and a taxi hub on another map.
+var teleportWorld = teleportWorldBase + `update markers set payload=` + payloadSQL(locPinnacle) + ` where marker_hash_id=1 and map_name='HaggaBasin';`
+
+const teleportWorldBase = `
 insert into actors(id,class,map,location_x,location_y,location_z) values
   (601,'/Game/BP_Totem.BP_Totem_C','HaggaBasin',5000,6000,7),(602,'/Game/BP_Totem.BP_Totem_C','Arrakeen',0,0,0),
   (801,'/Game/Vehicles/BP_Sandbike.BP_Sandbike_C','HaggaBasin',300,400,50),(802,'/Game/Vehicles/BP_Buggy.BP_Buggy_C','HaggaBasin',9,9,9),
@@ -24,8 +27,8 @@ insert into player_respawn_locations(id,character_id,"group",locator_location_x,
   (x'01',1,'Vehicle',150.0,250.0,310.0,'HaggaBasin',0),(x'02',1,'PlayerStart',NULL,NULL,NULL,'HaggaBasin',0);
 insert into player_respawn_locations(id,character_id,"group",locator_actor_id,map,dimension) values (x'03',1,'BaseTotem',803,'HaggaBasin',0);
 insert into markers(marker_hash_id,dimension_index,map_name,marker_type,x,y,z) values
-  (1,0,'HaggaBasin','Cave',400.0,500.0,20.0),(2,0,'HaggaBasin','EnemyCamp',9000.0,9000.0,30.0),(3,0,'HaggaBasin','Cave',100000.0,0.0,0.0),
-  (4,0,'Arrakeen','Cave',1.0,1.0,1.0);
+  (1,0,'HaggaBasin','TradingPost',400.0,500.0,20.0),(2,0,'HaggaBasin','EnemyCamp',9000.0,9000.0,30.0),(3,0,'HaggaBasin','TradingPost',100000.0,0.0,0.0),
+  (4,0,'Arrakeen','TaxiService',1.0,1.0,1.0);
 insert into player_markers(player_id,marker_hash_id,dimension_index,map_name,discovery_level,discovery_method) values
   (1,1,0,'HaggaBasin',3,1),(1,2,0,'HaggaBasin',1,1),(1,4,0,'Arrakeen',3,1);`
 
@@ -57,10 +60,13 @@ func TestDestinationsListPlacesOnTheCurrentMapNearestFirst(t *testing.T) {
 		t.Fatalf("only the character's own vehicle: %+v", vehicles)
 	}
 	markers := listDestinations(t, o, "marker", "")
-	if len(markers) != 2 || markers[0].Label != "Cave" || markers[1].Label != "EnemyCamp" {
-		t.Fatalf("discovered markers on this map, nearest first: %+v", markers)
+	if len(markers) != 2 || markers[0].Label != "Pinnacle Station Tradepost" || markers[0].Group != groupTradePost || markers[1].Label != "mine #801" || markers[1].Group != groupVehicle {
+		t.Fatalf("the named places: the trading post by its name and the character's vehicle (not the camp or the post never discovered): %+v", markers)
 	}
-	if got := listDestinations(t, o, "marker", "camp"); len(got) != 1 || got[0].Label != "EnemyCamp" {
+	if got := listDestinations(t, o, "marker", "camp"); len(got) != 0 {
+		t.Fatalf("a camp is not a named place: %+v", got)
+	}
+	if got := listDestinations(t, o, "marker", "pinn"); len(got) != 1 || got[0].Label != "Pinnacle Station Tradepost" {
 		t.Fatalf("the filter narrows by name: %+v", got)
 	}
 	if want := math.Hypot(300, 300); math.Abs(markers[0].Distance-want) > 1e-6 {

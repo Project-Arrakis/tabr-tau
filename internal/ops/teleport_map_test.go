@@ -12,8 +12,8 @@ import (
 // ---- the map (#67): the Deep Desert as a destination, and the move between maps
 
 // The character stands on HaggaBasin (teleportWorld). The Deep Desert holds a base, a vehicle of the character, a respawn point and two
-// markers (one discovered); a dungeon holds a base too. Positions are in each map's own space.
-const teleportDeepDesert = `
+// markers (one discovered; the trading post, which the named places list offers); a dungeon holds a base too. Positions are in each map's own space.
+var teleportDeepDesert = `
 insert into actors(id,class,map,location_x,location_y,location_z) values
   (701,'/Game/BP_Totem.BP_Totem_C','DeepDesert',-300000,-590000,1000),(702,'/Game/BP_Totem.BP_Totem_C','PitDungeon',5,5,5),
   (811,'/Game/Vehicles/BP_Buggy.BP_Buggy_C','DeepDesert',-310000,-585000,2000),(812,'/Game/Beacon.Beacon_C','DeepDesert',-305000,-587000,10);
@@ -24,8 +24,9 @@ insert into permission_actor(actor_id,actor_name,actor_type,access_level,is_chil
 insert into permission_actor_rank(permission_actor_id,player_id,rank) values (811,1,1);
 insert into player_respawn_locations(id,character_id,"group",locator_actor_id,map,dimension) values (x'11',1,'BaseTotem',812,'DeepDesert',0);
 insert into markers(marker_hash_id,dimension_index,map_name,marker_type,x,y,z) values
-  (11,0,'DeepDesert','SpiceField',-306000.0,-588000.0,40.0),(12,0,'DeepDesert','Cave',-1.0,-1.0,0.0);
-insert into player_markers(player_id,marker_hash_id,dimension_index,map_name,discovery_level,discovery_method) values (1,11,0,'DeepDesert',3,1);`
+  (11,0,'DeepDesert','TradingPost',-306000.0,-588000.0,40.0),(12,0,'DeepDesert','Cave',-1.0,-1.0,0.0);
+insert into player_markers(player_id,marker_hash_id,dimension_index,map_name,discovery_level,discovery_method) values (1,11,0,'DeepDesert',3,1);
+update markers set payload=` + payloadSQL(locDeepDesert) + ` where marker_hash_id=11;`
 
 func destinationsOn(t *testing.T, o *Ops, kind, mp string) map[string]any {
 	t.Helper()
@@ -38,9 +39,15 @@ func destinationsOn(t *testing.T, o *Ops, kind, mp string) map[string]any {
 
 func TestDestinationsOfAnotherMapAreThatMapsPlacesAndHaveNoDistance(t *testing.T) {
 	o := &Ops{S: testsave.PlayerWithSQL(t, teleportWorld+teleportDeepDesert)}
-	for kind, want := range map[string]string{"base": "Base #701", "respawn": "BaseTotem", "vehicle": "BP_Buggy #811", "marker": "SpiceField"} {
+	for kind, want := range map[string]string{"base": "Base #701", "respawn": "BaseTotem", "vehicle": "BP_Buggy #811", "marker": "Deep Desert Tradepost"} {
 		r := destinationsOn(t, o, kind, "DeepDesert")
 		d := r["destinations"].([]Destination)
+		if kind == "marker" { // the named places: the trading post and the character's vehicle (the base 701 is not the character's)
+			if len(d) != 2 || d[1].Label != "mine #811" {
+				t.Errorf("named places on the Deep Desert: %v", labelsOf(d))
+			}
+			d = d[:1]
+		}
 		if r["map"] != "DeepDesert" || r["sameMap"] != false || len(d) != 1 || d[0].Label != want {
 			t.Errorf("%s on the Deep Desert: %v", kind, r)
 		}

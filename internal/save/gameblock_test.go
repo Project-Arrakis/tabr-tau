@@ -331,4 +331,5 @@ var knownFileWriters = map[string]bool{
 	"internal/gui.AttachConsole":        true, // the console handles of the process
 	"cmd/tabr-tau.runCommand":           true, // decode and encode write the file the person names
 	"tools/vehiclegen.main":             true, // the developer tool that makes internal/catalog/vehicles.json from table dumps; it never opens a save
+	"tools/placenamesgen.main":          true, // the developer tool that makes internal/ops/place-names.json from table dumps; it never opens a save
 }

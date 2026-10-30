@@ -838,7 +838,7 @@ async function playerSection(s) {
     <div class="card"><h3>Repair</h3><div class="row"><b>Gear and loadouts</b><button class="b sec" data-goto="character:inventory">Open Character &gt; Inventory</button><b>Vehicles</b><button class="b sec" data-goto="vehicles">Open Vehicles</button></div></div>
     <div class="card"><h3>Movement</h3><div class="row"><b>Teleport to</b>X<input id="tx" aria-label="Teleport to X" type="number" value="${goVal('tx', Math.round(a.x))}">Y<input id="ty" aria-label="Teleport to Y" type="number" value="${goVal('ty', Math.round(a.y))}">Z${tip('tztip', 'If you type a Z yourself, stay above the terrain or you may fall through.', html`<input id="tz" aria-label="Teleport to Z" type="number" value="${goVal('tz', Math.round(a.z))}" aria-describedby="tztip">`)}Facing ${tip('tyawtip', 'Facing is optional: 0 looks along +X; leave it empty to keep the way the character faces.', html`<input id="tdyaw" aria-label="Facing in degrees" type="number" step="1" placeholder="degrees" value="${goVal('tdyaw', '')}" class="w90" aria-describedby="tyawtip">`)}Map ${tip('tmaptip', 'Places are on the map chosen in Map (the one the character is on now unless you change it).', html`<select id="tmap" aria-label="Map to move to" aria-describedby="tmaptip"><option value="" ${goVal('tmap', '') === '' ? 'selected' : ''}>This map (${a.map || 'unknown'})</option>${TRAVEL_MAPS.map(([k, v]) => html`<option value="${k}" ${goVal('tmap', '') === k ? 'selected' : ''}>${v}</option>`)}</select>`)}<button class="b" data-act="teleport">Teleport</button><span id="tdpick" class="mut" role="status"></span></div>
     <div id="tmapnote"></div>
-    <div class="row"><b>Go to a place</b><select id="tdkind" aria-label="Kind of place">${[['base', 'Base'], ['respawn', 'Respawn point'], ['vehicle', 'My vehicle'], ['marker', 'Discovered map marker']].map(([k, v]) => html`<option value="${k}" ${goVal('tdkind', 'base') === k ? 'selected' : ''}>${v}</option>`)}</select><input id="tdq" aria-label="Filter the places" placeholder="filter, e.g. cave" value="${goVal('tdq', '')}" class="w150">${tip('findtip', 'Choosing a place fills X, Y and Z.', html`<button class="b sec" data-act="tdFind" aria-describedby="findtip">Find</button>`)}<span id="tdout" class="mut"></span></div>
+    <div class="row"><b>Go to a place</b><select id="tdkind" aria-label="Kind of place">${[['base', 'Base'], ['respawn', 'Respawn point'], ['vehicle', 'My vehicle'], ['marker', 'Named places']].map(([k, v]) => html`<option value="${k}" ${goVal('tdkind', 'base') === k ? 'selected' : ''}>${v}</option>`)}</select><input id="tdq" aria-label="Filter the places" placeholder="filter, e.g. pinnacle" value="${goVal('tdq', '')}" class="w150">${tip('findtip', 'Choosing a place fills X, Y and Z.', html`<button class="b sec" data-act="tdFind" aria-describedby="findtip">Find</button>`)}<span id="tdout" class="mut"></span></div>
     ${about('admin.movement', 'Movement', html`<p class="mut">Moves the character in the save. The game keeps its own copy of the save in memory while single-player runs and overwrites the file, so the move shows when you next enter single-player.</p><p class="mut">${TRAVEL_NOTE}</p><p class="mut">If you type a Z yourself, stay above the terrain or you may fall through.</p>`)}
     </div>`);
     const ve = await api('/api/vendors');
@@ -994,7 +994,7 @@ function autoRefillCard(prefs) {
 // for removal (shown as red), and Remove takes the marked cells out; the claim must stay connected, and the server refuses a cell with pieces in it as well.
 let LC = null; // { claim, sel: Set of "x,y" to add, rm: Set of "x,y" to remove, level }
 let TD = []; // the places the last Find returned
-let TDR = null; // what the last Find said about them: { map, sameMap, total }
+let TDR = null; // what the last Find said about them: { map, sameMap, total, groups } (groups: the headings of the Named places list that have a place, in order; empty for the other lists)
 // The Movement card's boxes (#506). A redraw builds them again from the save, and the save moves on by itself (the game rewrites the character's position every time it saves),
 // so what a person chose or typed here is kept in this object and the card is drawn from it: a value is in GO.vals once the person (or a choice in the list of places) has set it,
 // and the draw uses it instead of the saved position. It is cleared by a successful Teleport (the boxes follow the saved position again) and when the character's map in the
@@ -1025,7 +1025,11 @@ function tdDraw() {
   if (!out) return;
   if (!TDR) { setHTML(out, html``); return; }
   const more = TDR.total > TD.length ? ` (nearest ${TD.length} of ${TDR.total}; filter to narrow)` : '';
-  setHTML(out, TD.length ? html`<select id="tdsel" aria-label="Place to go to"><option value="">${TD.length} place${TD.length == 1 ? '' : 's'} on ${TDR.map}${TDR.sameMap ? ', nearest first' : ''}${more}</option>${TD.map((d, i) => html`<option value="${i}" ${GO.pick === i ? 'selected' : ''}>${d.label}${tdAway(d) ? ' - ' + tdAway(d) : ''}</option>`)}</select>` : html`None on ${TDR.map}.`);
+  const opt = (d, i) => html`<option value="${i}" ${GO.pick === i ? 'selected' : ''}>${d.label}${tdAway(d) ? ' - ' + tdAway(d) : ''}</option>`;
+  // The Named places list is in groups (Trading posts, Personal bases, Vehicles, Taxis; #500), each under its heading; the value of an option is still its place in TD.
+  const groups = TDR.groups || [];
+  const body = groups.length ? groups.map((g) => html`<optgroup label="${g.label}">${TD.map((d, i) => (d.group === g.key ? opt(d, i) : ''))}</optgroup>`) : TD.map(opt);
+  setHTML(out, TD.length ? html`<select id="tdsel" aria-label="Place to go to"><option value="">${TD.length} place${TD.length == 1 ? '' : 's'} on ${TDR.map}${TDR.sameMap ? ', nearest first' : ''}${more}</option>${body}</select>` : html`None on ${TDR.map}.`);
 }
 function goSync() { tdDraw(); goNote(); }
 const TRAVEL_NOTE = 'A move to another map writes the character\'s controller, body and player state on the new map. A move to the Deep Desert was checked in the game once (2026-10-27, one character, a throwaway save): the game loaded the character there. No other move was checked, so try it on a copy first. A position typed for the Deep Desert is not accepted for Hagga Basin.';
@@ -1740,7 +1744,7 @@ const A = {
   tdFind: async () => {
     try {
       const r = await api(`/api/player/destinations?kind=${encodeURIComponent(val('tdkind'))}&q=${encodeURIComponent(val('tdq'))}&map=${encodeURIComponent(val('tmap'))}`);
-      TD = r.destinations; TDR = { map: r.map, sameMap: r.sameMap, total: r.total }; GO.pick = null;
+      TD = r.destinations; TDR = { map: r.map, sameMap: r.sameMap, total: r.total, groups: r.groups || [] }; GO.pick = null;
       goSync();
     } catch (e) { toast(e.message, true); }
   },

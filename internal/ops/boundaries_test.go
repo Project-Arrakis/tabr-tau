@@ -149,7 +149,7 @@ func TestDestinationListIsCappedAt200AndSaysHowManyThereAre(t *testing.T) {
 	// markers a player has discovered, nearest first; the list is capped but the total is the real count
 	for _, n := range []int{200, 201} {
 		sql := fmt.Sprintf(`with recursive n(i) as (select 1 union all select i+1 from n where i<%d)
-			insert into markers(marker_hash_id,dimension_index,map_name,marker_type,x,y,z) select i,0,'HaggaBasin','Cave',100.0+i,200.0,0.0 from n;
+			insert into markers(marker_hash_id,dimension_index,map_name,marker_type,x,y,z) select i,0,'HaggaBasin','TradingPost',100.0+i,200.0,0.0 from n;
 			with recursive n(i) as (select 1 union all select i+1 from n where i<%d)
 			insert into player_markers(player_id,marker_hash_id,dimension_index,map_name,discovery_level,discovery_method) select 1,i,0,'HaggaBasin',3,1 from n;`, n, n)
 		o := &Ops{S: testsave.PlayerWithSQL(t, sql)}

@@ -1,0 +1,74 @@
+{
+ "build": "not recorded (the game as installed on 2026-10-30)",
+ "read": "2026-10-30",
+ "tables": [
+  "DT_StaticLocationData",
+  "ST_Localization_Dialogue"
+ ],
+ "places": {
+  "00271320416D180DAAF847BB767C31A6": {
+   "name": "Crossroads Tradepost",
+   "kind": "tradepost"
+  },
+  "04562129415514A156EB829659631E33": {
+   "name": "The Anvil Tradepost",
+   "kind": "tradepost",
+   "alias": "Mirzabah's Shadow"
+  },
+  "09D3DED34D48F0AB2994DE853D7B2FCF": {
+   "name": "Pinnacle Station Tradepost",
+   "kind": "tradepost"
+  },
+  "1546D0AC43DF1AADFA14E5A2C5C56D19": {
+   "name": "Griffin's Reach Tradepost",
+   "kind": "tradepost"
+  },
+  "2445CEFC45F16149BFD5D78C80841113": {
+   "name": "The Anvil Tradepost",
+   "kind": "tradepost",
+   "alias": "Mirzabah's Shadow"
+  },
+  "293E8B214EB4B7FAA31540911ABC0BAF": {
+   "name": "Pinnacle Station Tradepost",
+   "kind": "tradepost"
+  },
+  "5B1E5FA645B571DF9714B2B2F8EDD06B": {
+   "name": "Deep Desert Tradepost",
+   "kind": "tradepost",
+   "derived": true
+  },
+  "6F72F943466BF7C8FC1D3E88853764D5": {
+   "name": "Deep Desert Tradepost",
+   "kind": "tradepost",
+   "derived": true
+  },
+  "6FD413DB48DC86C9095C9FAF56A2BB0E": {
+   "name": "Crossroads Tradepost",
+   "kind": "tradepost"
+  },
+  "747ED59B48C052C7577385A5C8DEC0C1": {
+   "name": "Deep Desert Tradepost",
+   "kind": "tradepost",
+   "derived": true
+  },
+  "84AAE0014040BCD05E16849A140E4CF5": {
+   "name": "Pinnacle Station Tradepost",
+   "kind": "tradepost"
+  },
+  "C0090F88458324408E2EDB9F455F5111": {
+   "name": "The Anvil Tradepost",
+   "kind": "tradepost",
+   "alias": "Mirzabah's Shadow"
+  },
+  "E3A969F649C10BBA658A759FF9140847": {
+   "name": "The Anvil Tradepost",
+   "kind": "tradepost",
+   "alias": "Mirzabah's Shadow"
+  },
+  "F084ECF848AE48243928868FBB99E03E": {
+   "name": "The Anvil Tradepost",
+   "kind": "tradepost",
+   "alias": "Mirzabah's Shadow"
+  }
+ }
+}
