@@ -36,7 +36,7 @@ func TestAutoPassNothingNeededTextNamesWhatWasSwitchedOff(t *testing.T) {
 	s, _ := autoServer(t, `select 1;`, settings.Settings{AutoRefillOnOpen: true, AutoRepairGear: offFlag()})
 	s.RunStartupTasks()
 	note, _ := s.takeStartup()
-	if !strings.Contains(note, "Switched off: Repair worn equipment and loadout.") {
+	if !strings.Contains(note, "Switched off: Repair worn equipment, loadout and backpack.") {
 		t.Fatalf("note %q", note)
 	}
 	s, _ = autoServer(t, `select 1;`, settings.Settings{AutoRefillOnOpen: true})
@@ -46,10 +46,15 @@ func TestAutoPassNothingNeededTextNamesWhatWasSwitchedOff(t *testing.T) {
 	}
 }
 
+// The starter knife in the test character's backpack is at 10 durability, which the gear repair job would repair; this makes it full, so the
+// vehicle job is the only one with work to do.
+const knifeFullSQL = `update items set stats='{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":100.0}]}' where id=11;
+`
+
 // A job that is switched off writes nothing: with the only job that has work to do switched off, the file, the backups, the queue and the write log
 // stay exactly as they were.
 func TestSwitchedOffJobWritesNothing(t *testing.T) {
-	s, dir := autoServer(t, twoVehiclesSQL, settings.Settings{AutoRefillOnOpen: true, AutoRepairVehicles: offFlag()})
+	s, dir := autoServer(t, twoVehiclesSQL+knifeFullSQL, settings.Settings{AutoRefillOnOpen: true, AutoRepairVehicles: offFlag()})
 	before, _ := os.ReadFile(s.Save.Path)
 	s.RunStartupTasks()
 	after, _ := os.ReadFile(s.Save.Path)
@@ -69,7 +74,7 @@ func TestSwitchedOffJobWritesNothing(t *testing.T) {
 		}
 		return r["v"]
 	}
-	on, _ := autoServer(t, twoVehiclesSQL, settings.Settings{AutoRefillOnOpen: true})
+	on, _ := autoServer(t, twoVehiclesSQL+knifeFullSQL, settings.Settings{AutoRefillOnOpen: true})
 	on.RunStartupTasks()
 	if worn(s.Save.Path) == worn(on.Save.Path) {
 		t.Fatalf("the switch makes no difference (%v): the fixture proves nothing", worn(s.Save.Path))

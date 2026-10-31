@@ -756,7 +756,7 @@ async function playerSection(s) {
       <div class="row">${augGradeSel('augG')}<label><input type="checkbox" id="augU" checked> Also unlock the augment slots (specialization keystones)</label>
       ${tip('augtip', 'Pick what to apply; an augment already on the item keeps its grade, new ones get the grade below. Choose (none) in every slot to remove them all.', html`<button class="b" data-act="augApply" data-id="${augItem.item_id}" aria-describedby="augtip">Apply</button>`)}<button class="b sec" data-act="augCancel">Cancel</button></div></div>` : '';
     h.push(augCard);
-    h.push(html`<div class="card"><h3>Repair</h3><div class="row">${tip('repairtip', 'Everything you wear and everything in your loadout is made as good as new: full durability, with a maximum that repairs wore down restored. The backpack is not touched.', html`<button class="b" data-act="repair" aria-describedby="repairtip">Repair all worn items and loadouts</button>`)}</div></div>`);
+    h.push(html`<div class="card"><h3>Repair</h3><div class="row">${tip('repairtip', 'Everything you wear, everything in your loadout and everything in your backpack is made as good as new: full durability, with a maximum that repairs wore down restored. Chests and the items of other characters are not touched.', html`<button class="b" data-act="repair" aria-describedby="repairtip">Repair all worn items, loadouts and backpack</button>`)}</div></div>`);
     h.push(html`<div class="card"><h3>Give item</h3><div class="row">${itemPicker("gt", cat)}
     Qty<input id="gq" aria-label="Quantity to give" type="number" value="1" min="1">Grade<select id="gg" aria-label="Grade of the item to give">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b" data-act="give">Give</button><button class="b sec" data-act="queueAdd">Add to queue</button></div>
     <div class="row" id="gaug"></div>
@@ -1597,6 +1597,14 @@ async function dbView() {
 }
 
 // ---------- render + events
+// What the gear repair says: the backpack items are counted apart from the worn and loadout items, and only when there are any.
+function gearRepairText(r) {
+  const b = r.backpackRepaired || 0;
+  if (!b) return `Repaired ${r.repaired} items`;
+  const bp = `${b} backpack ${b === 1 ? 'item' : 'items'}`;
+  return r.repaired ? `Repaired ${r.repaired} worn or loadout ${r.repaired === 1 ? 'item' : 'items'} and ${bp}` : `Repaired ${bp}`;
+}
+
 // What a vehicle repair says. "Repaired 0" alone does not tell whether nothing was below the threshold or nothing could be repaired (UX-03).
 function repairMsg(r, scope, pct) {
   const skipped = r.withoutKnownMax ? ` ${r.withoutKnownMax} modules have no known maximum and were left alone${(r.withoutKnownMaxTemplates || []).length ? ' (' + r.withoutKnownMaxTemplates.join(', ') + ')' : ''}.` : '';
@@ -1844,7 +1852,7 @@ const A = {
     giveToast(r, itemName(tid), 'Item added');
   }, null),
   faction: () => act(async () => { const r = await api('/api/player/faction', { faction_id: +val('facSel') }); toast(`Faction set to ${r.faction}` + NOT_SAVED); }, null),
-  repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(`Repaired ${r.repaired} items` + NOT_SAVED); }, null),
+  repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(gearRepairText(r) + NOT_SAVED); }, null),
   fillWater: () => act(async () => { const r = await api('/api/player/hydration', {}); const m = hydrationMessage(r); toast(m.text, m.warn ? 'part' : false); }, null),
   fillBlood: () => act(async () => {
     const r = await api('/api/player/fill-blood-sacks', {});

@@ -292,17 +292,65 @@ insert into vehicle_modules(id,vehicle_id,template_id,stats) values
 	}
 }
 
-// The backpack is not part of "worn equipment and loadout" (what RepairGear covers): an item there is left alone.
-func TestAutoPassGearRepairLeavesTheBackpackAlone(t *testing.T) {
+// The job repairs the worn equipment, the loadout and the character's own backpack, and says how many of each apart (#524). A chest, another
+// actor's worn item and an item that is already full are left alone.
+func TestAutoPassGearRepairCountsTheBackpackApart(t *testing.T) {
 	o := &Ops{S: testsave.PlayerWithSQL(t, autoFixture+`
+insert into actors(id,class,map) values (240,'/Game/BP_StorageChest.BP_StorageChest_C','HaggaBasin'),(241,'/Game/BP_Npc.BP_Npc_C','HaggaBasin');
+insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (40,240,0,10,1000.0),(41,241,1,10,1000.0);
 insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values
-  (221,1,1,4,'Tool',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":5.0,"MaxDurability":100.0}]}',0);`)}
-	if _, err := o.RunAutoPass(onlyJobs("repair-gear")); err != nil {
+  (221,1,1,5,'Tool',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":5.0,"MaxDurability":100.0}]}',0),
+  (223,1,1,6,'Spare',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":6.0,"MaxDurability":100.0}]}',0),
+  (224,1,1,7,'Full',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":100.0,"MaxDurability":100.0}]}',0),
+  (225,40,1,0,'ChestTool',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":7.0,"MaxDurability":100.0}]}',0),
+  (226,41,1,0,'OtherWorn',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":8.0,"MaxDurability":100.0}]}',0);`)}
+	p, err := o.RunAutoPass(onlyJobs("repair-gear"))
+	if err != nil {
 		t.Fatal(err)
 	}
-	if c := mustOne(t, o, `select json_extract(stats,'$.FItemStackAndDurabilityStats[1].CurrentDurability') c from items where id=221`)["c"].(float64); c != 5 {
-		t.Fatalf("a backpack item was repaired: %v", c)
+	cur := func(id int) float64 {
+		return mustOne(t, o, `select json_extract(stats,'$.FItemStackAndDurabilityStats[1].CurrentDurability') c from items where id=?`, id)["c"].(float64)
 	}
+	if cur(221) != 100 || cur(223) != 100 || cur(224) != 100 || cur(225) != 7 || cur(226) != 8 {
+		t.Fatalf("the backpack items are repaired, the chest's and the other actor's are not: %v %v %v %v %v", cur(221), cur(223), cur(224), cur(225), cur(226))
+	}
+	if got := p.Summary(); got != "2 worn or loadout items repaired, 3 backpack items repaired" {
+		t.Fatalf("the backpack is counted apart from the worn and loadout items: %q", got)
+	}
+}
+
+// The starter knife of the test character (a backpack item at 10 durability) made full, so a test counts only the items it adds.
+const knifeFull = `update items set stats='{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":100.0}]}' where id=11;
+`
+
+// With nothing in the backpack to repair, the text is what it was before the backpack was covered; with only backpack items it names only them.
+func TestAutoPassGearRepairText(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, autoFixture+knifeFull)}
+	p, err := o.RunAutoPass(onlyJobs("repair-gear"))
+	if err != nil || p.Summary() != "2 worn or loadout items repaired" {
+		t.Fatalf("%q %v", p.Summary(), err)
+	}
+	o = &Ops{S: testsave.PlayerWithSQL(t, knifeFull+`
+insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values
+  (221,1,1,5,'Tool',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":5.0,"MaxDurability":100.0}]}',0);`)}
+	p, err = o.RunAutoPass(onlyJobs("repair-gear"))
+	if err != nil || p.Summary() != "1 backpack item repaired" {
+		t.Fatalf("%q %v", p.Summary(), err)
+	}
+}
+
+// The job says it covers the backpack (#524), and keeps its id and switch key so no saved setting is lost.
+func TestAutoJobGearRepairDescribesTheBackpack(t *testing.T) {
+	for _, j := range AutoJobs() {
+		if j.ID != "repair-gear" {
+			continue
+		}
+		if j.Label != "Repair worn equipment, loadout and backpack" || !strings.Contains(j.Desc, "backpack") || strings.Contains(j.Desc, "not the items") || j.Key != "autoRepairGear" {
+			t.Fatalf("%+v", j)
+		}
+		return
+	}
+	t.Fatal("no repair-gear job")
 }
 
 // The registry and the settings agree: same keys in the same order, unique ids, every job described, a job that is not ready says why and has no

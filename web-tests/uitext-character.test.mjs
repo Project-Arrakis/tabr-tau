@@ -18,14 +18,14 @@ test('Inventory: the explanations are tooltips or in About this, the pointer lin
   await sub(ui, 'char:inventory');
   const main = ui.doc.querySelector('#main');
   const shown = visibleText(main), moved = movedText(main);
-  for (const s of ['Everything you wear and everything in your loadout is made as good as new', 'Pick an item by its in-game name',
+  for (const s of ['Everything you wear, everything in your loadout and everything in your backpack is made as good as new', 'Pick an item by its in-game name',
     'Removes the 1 item in Backpack, with everything attached to them', 'The fill actions (Fill hydration, Fill blood sacks, Refill Literjons, Fill all liquids) are on Character > Overview']) {
     assert.ok(!shown.includes(s), 'still shown: ' + s);
     assert.ok(moved.includes(s), 'lost, not moved: ' + s);
   }
   assert.ok(!shown.includes('The fill actions are on the Character tab') && !moved.includes('The fill actions are on the Character tab'), 'the old pointer is gone');
   assert.equal(ui.doc.querySelector('#fillmoved'), null);
-  for (const s of ['Inventory: 2 items carried', '2 items', '2 of 35 slots used', 'Repair all worn items and loadouts', 'Clear this container', 'Also remove currency']) assert.ok(shown.includes(s), 'missing from the default view: ' + s);
+  for (const s of ['Inventory: 2 items carried', '2 items', '2 of 35 slots used', 'Repair all worn items, loadouts and backpack', 'Clear this container', 'Also remove currency']) assert.ok(shown.includes(s), 'missing from the default view: ' + s);
   // the way back to the fill actions is one click away, in the card's About this
   assert.ok(ui.doc.querySelector('details[data-about="inventory.card"] [data-goto="character:overview"]'));
   ui.click('details[data-about="inventory.card"] [data-goto="character:overview"]'); await ui.settle();

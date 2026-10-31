@@ -820,43 +820,73 @@ func readGearDurability(stats string) (d gearDurability, ok bool) {
 	return d, d.hasCur
 }
 
-// RepairGear raises the durability of everything the character wears (inventory type 1) and carries as a loadout (type 15) to
-// its maximum. The backpack (type 0) and the other inventories are left alone.
+// RepairGear raises the durability of everything the character wears (inventory type 1), carries as a loadout (type 15) and carries in
+// the backpack (type 0) to its maximum. Only the character's own actor is looked at: chests, other actors' items and the storage of
+// vehicles are left alone.
 //
 // The items are read and repaired in one transaction (audit L2 G09), and only the durability keys that change are written, each with
 // json_set on the item's own text (audit L2 G10): every other part of the stats document, its key order, 64-bit integers and floats such
 // as 100.0 keep exactly the text the game wrote.
+//
+// The result counts the worn and loadout items ("scanned", "repaired") apart from the backpack items ("backpackScanned", "backpackRepaired").
 func (o *Ops) RepairGear() (any, error) {
 	p, err := o.player()
 	if err != nil {
 		return nil, err
 	}
-	var scanned, repaired int
+	var g gearRepair
 	_, err = o.S.Mutate("repair gear", func(m *save.Mut) error {
 		var err error
-		if scanned, repaired, err = repairGearTx(m, p.Pawn); err != nil {
+		if g, err = repairGearTx(m, p.Pawn); err != nil {
 			return err
 		}
-		m.Desc = fmt.Sprintf("repair gear: %d items", repaired)
+		m.Desc = fmt.Sprintf("repair gear: %d items", g.repaired)
+		if g.backpackRepaired > 0 {
+			m.Desc += fmt.Sprintf(", %d backpack items", g.backpackRepaired)
+		}
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"ok": true, "scanned": scanned, "repaired": repaired}, nil
+	return map[string]any{"ok": true, "scanned": g.scanned, "repaired": g.repaired, "backpackScanned": g.backpackScanned, "backpackRepaired": g.backpackRepaired}, nil
+}
+
+// gearRepair is what repairGearTx did: how many worn and loadout items it looked at and repaired, and the same for the backpack.
+type gearRepair struct {
+	scanned, repaired                 int // worn (type 1) and loadout (type 15)
+	backpackScanned, backpackRepaired int // backpack (type 0)
+}
+
+// summary says what a repair did in a few words, the backpack apart from the worn and loadout items ("" when nothing was repaired).
+func (g gearRepair) summary() string {
+	var parts []string
+	if g.repaired > 0 {
+		parts = append(parts, many(g.repaired, "worn or loadout item repaired", "worn or loadout items repaired"))
+	}
+	if g.backpackRepaired > 0 {
+		parts = append(parts, many(g.backpackRepaired, "backpack item repaired", "backpack items repaired"))
+	}
+	return strings.Join(parts, ", ")
 }
 
 // repairGearTx is RepairGear inside the edit m, for the character whose pawn actor is pawn: it returns how many items it looked at and how
-// many it repaired. An item at its full durability is not written.
-func repairGearTx(m *save.Mut, pawn int64) (scanned, repaired int, err error) {
+// many it repaired, the worn and loadout items apart from the backpack. An item at its full durability is not written.
+func repairGearTx(m *save.Mut, pawn int64) (gearRepair, error) {
 	const rec = `$.FItemStackAndDurabilityStats[1].`
-	rows, err := m.Query(`select i.id, i.stats from items i join inventories v on v.id=i.inventory_id
-		where v.actor_id=? and v.inventory_type in (1,15)`, pawn)
+	var g gearRepair
+	rows, err := m.Query(`select i.id, i.stats, v.inventory_type from items i join inventories v on v.id=i.inventory_id
+		where v.actor_id=? and v.inventory_type in (0,1,15)`, pawn)
 	if err != nil {
-		return 0, 0, err
+		return g, err
 	}
-	scanned = len(rows)
 	for _, r := range rows {
+		backpack := r["inventory_type"] == int64(0)
+		if backpack {
+			g.backpackScanned++
+		} else {
+			g.scanned++
+		}
 		d, ok := readGearDurability(fmt.Sprint(r["stats"]))
 		if !ok {
 			continue
@@ -883,11 +913,15 @@ func repairGearTx(m *save.Mut, pawn int64) (scanned, repaired int, err error) {
 			q, args = `update items set stats=json_set(stats,'`+rec+`DecayedMaxDurability',?) where id=?`, []any{target, r["id"]}
 		}
 		if _, err := m.Exec(q, args...); err != nil {
-			return 0, 0, err
+			return gearRepair{}, err
 		}
-		repaired++
+		if backpack {
+			g.backpackRepaired++
+		} else {
+			g.repaired++
+		}
 	}
-	return scanned, repaired, nil
+	return g, nil
 }
 
 // removeSolariInTx takes want Solari out of the player's backpack stacks, from the last slot back, deleting a stack it empties. It refuses (and changes nothing) when the

@@ -123,7 +123,7 @@ The Power and Water tabs of a base have an **Automatic refill and repair when th
 | Base water | fills Water Cisterns, Windtraps and Blood Purifiers to capacity |
 | Base power | tops up generators, wind turbines and windtraps |
 | Repair vehicles | repairs every part of your own vehicles to full durability |
-| Repair worn equipment and loadout | repairs what you wear and your loadout; the items in your backpack are not touched |
+| Repair worn equipment, loadout and backpack | repairs what you wear, your loadout and the items in your backpack (not chests, other characters or vehicle storage); the result counts the backpack items apart ("3 backpack items repaired") |
 | Fill water containers | fills the Literjons and other water containers you carry (the 17 kinds in the game's item data; a worn stillsuit is shown but left alone, the game fills it; any other kind is left alone and reported) |
 | Fill your water | fills the character's own water |
 | Fill blood sacks | fills the blood sacks you carry (the nine kinds in the game's item data; any other kind is left alone and reported) |

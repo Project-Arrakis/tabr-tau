@@ -131,7 +131,7 @@ Toasts and the questions that ask first (`ask()`, the two-press buttons) are res
 | I3 | 515 | Clear this container, container not empty: Removes the N items in X, with everything attached to them. The Solari Coin stack is kept unless the box is ticked. Two presses, then type the count. | explanation, limit | tooltip on Clear this container (the box `Also remove currency` and the two presses say the rest) |
 | I4 | 515 | Clear this container, empty: `X is empty: nothing to clear.` | state (why the button is off) | keep |
 | I5 | 704 | Augments card: Holds up to N. Pick what to apply; an augment already on the item keeps its grade, new ones get the grade below. Choose (none) in every slot to remove them all. | limit, explanation | `Holds up to N` is kept as state; the rest is a tooltip on Apply |
-| I6 | 709 | Repair: Everything you wear and everything in your loadout is made as good as new: full durability, with a maximum that repairs wore down restored. The backpack is not touched. | explanation, limit | tooltip on Repair all worn items and loadouts |
+| I6 | 709 | Repair: Everything you wear, everything in your loadout and everything in your backpack is made as good as new: full durability, with a maximum that repairs wore down restored. Chests and the items of other characters are not touched. | explanation, limit | tooltip on Repair all worn items, loadouts and backpack |
 | I7 | 714 | Give item: Pick an item by its in-game name. Items already in your save that the catalog does not know are listed by their template id; any valid template id can also be typed. | explanation | disclosure (the Give item card's About this; the box's placeholder already says to type a name) |
 | I8 | 713 | `Queue (N)` with its items | state | keep |
 

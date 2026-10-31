@@ -1508,7 +1508,7 @@ test('Tables sort by any clicked header: text, numbers as numbers, descending on
   ui.dom.window.close();
 });
 
-test('Repair all worn items and loadouts on the Inventory tab; Vehicles Repair one and all; claim cells drawn as a grid; Structures and vendors moved', async () => {
+test('Repair all worn items, loadouts and backpack on the Inventory tab; Vehicles Repair one and all; claim cells drawn as a grid; Structures and vendors moved', async () => {
   const claim = [{ totem_id: 7, name: 'Totem', cells: 3, rings: 0, level: 1, irregular: true, maxRings: 5, maxLevel: 5, piecesInClaim: 2, piecesOutside: 1, yaw: 0, segments: [{ x: -1, y: 0 }, { x: 1, y: 0 }],
     grid: [{ x: -1, y: 0, in: true, n: 0 }, { x: 0, y: 0, in: true, n: 2 }, { x: 1, y: 0, in: true, n: 0 }, { x: 3, y: 1, in: false, n: 1 }] }];
   const veh = { vehicles: [{ id: 41, name: 'BP_Sandbike', type: 'Sandbike', map: 'HaggaBasin', condition: 60, fuel: 10, x: 1, y: 2, components: [], cargo: null }], hidden: 0, recovered: [], backups: [] };
@@ -1536,6 +1536,20 @@ test('Repair all worn items and loadouts on the Inventory tab; Vehicles Repair o
   assert.ok(ui.doc.querySelector('[data-act="vreset"]'), 'vendor limits are on Admin');
   assert.equal(ui.doc.querySelector('[data-tab="extras"]'), null, 'no Extras tab any more');
   ui.dom.window.close();
+});
+
+test('Repair gear counts the backpack items apart from the worn and loadout items (#524)', async () => {
+  for (const [reply, want] of [[{ ok: true, repaired: 2, backpackRepaired: 3 }, 'Repaired 2 worn or loadout items and 3 backpack items'],
+    [{ ok: true, repaired: 0, backpackRepaired: 1 }, 'Repaired 1 backpack item'], [{ ok: true, repaired: 4, backpackRepaired: 0 }, 'Repaired 4 items']]) {
+    const ui = await boot({ post: { '/api/player/repair': reply } });
+    ui.click('[data-tab="player"]'); await ui.settle();
+    ui.click('[data-sub="char:inventory"]'); await ui.settle();
+    ui.click('[data-act="repair"]'); await ui.settle();
+    const t = ui.doc.querySelector('#toast').textContent;
+    assert.ok(t.includes(want), t);
+    if (!reply.backpackRepaired) assert.ok(!t.includes('backpack'), t);
+    ui.dom.window.close();
+  }
 });
 
 test('Land Claim Editor: click available cells to add them, click again to take back, keep them connected, level, Apply posts', async () => {
