@@ -70,14 +70,14 @@ func AutoJobs() []AutoJob {
 				}
 				return many(int(n), "vehicle part repaired", "vehicle parts repaired"), "", nil
 			}},
-		{ID: "repair-gear", Label: "Repair worn equipment and loadout", Key: "autoRepairGear", Default: true, Ready: true, noun: "worn equipment and loadout", repairs: true,
-			Desc: "Repairs what you wear and your loadout (not the items in your backpack).",
+		{ID: "repair-gear", Label: "Repair worn equipment, loadout and backpack", Key: "autoRepairGear", Default: true, Ready: true, noun: "worn equipment, loadout and backpack", repairs: true,
+			Desc: "Repairs what you wear, your loadout and the items in your backpack.",
 			run: func(m *save.Mut, c player) (string, string, error) {
-				_, n, err := repairGearTx(m, c.Pawn)
-				if err != nil || n == 0 {
+				g, err := repairGearTx(m, c.Pawn)
+				if err != nil {
 					return "", "", err
 				}
-				return many(n, "worn or loadout item repaired", "worn or loadout items repaired"), "", nil
+				return g.summary(), "", nil
 			}},
 		{ID: "fill-containers", Label: "Fill water containers", Key: "autoFillContainers", Default: true, Ready: true, noun: "water containers",
 			Desc: "Fills the Literjons and other water containers you carry.",

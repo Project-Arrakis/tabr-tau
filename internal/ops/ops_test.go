@@ -155,7 +155,7 @@ func TestSolariAddRemove(t *testing.T) {
 	}
 }
 
-func TestRepairGearRepairsWornItemsAndLoadoutsOnly(t *testing.T) {
+func TestRepairGearRepairsWornItemsLoadoutsAndTheBackpackOnly(t *testing.T) {
 	dur := func(cur float64) string {
 		return fmt.Sprintf(`{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":%.1f,"MaxDurability":100.0}]}`, cur)
 	}
@@ -169,19 +169,19 @@ insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,a
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.(map[string]any)["repaired"].(int) != 3 {
-		t.Fatalf("worn (201, 207) and loadout (203) items: %v", r)
+	if m := r.(map[string]any); m["repaired"].(int) != 3 || m["scanned"].(int) != 3 || m["backpackRepaired"].(int) != 2 || m["backpackScanned"].(int) != 3 {
+		t.Fatalf("worn (201, 207) and loadout (203) items, and the backpack items (the starter knife and 206) counted apart: %v", r)
 	}
 	cur := func(id int) float64 {
 		row, _ := o.S.One(`select stats from items where id=?`, id)
 		c, _ := durability(row["stats"].(string))
 		return c.(float64)
 	}
-	if cur(201) != 100 || cur(203) != 100 || cur(207) != 100 {
-		t.Fatalf("worn and loadout items are at full durability: %v %v %v", cur(201), cur(203), cur(207))
+	if cur(201) != 100 || cur(203) != 100 || cur(207) != 100 || cur(206) != 100 {
+		t.Fatalf("worn, loadout and backpack items are at full durability: %v %v %v %v", cur(201), cur(203), cur(207), cur(206))
 	}
-	if cur(205) != 30 || cur(206) != 40 {
-		t.Fatalf("items outside types 1 and 15 are left alone: %v %v", cur(205), cur(206))
+	if cur(205) != 30 {
+		t.Fatalf("items outside types 0, 1 and 15 are left alone: %v", cur(205))
 	}
 	row, _ := o.S.One(`select stats from items where id=207`)
 	if !strings.Contains(row["stats"].(string), "AppliedAugments") {
@@ -371,5 +371,67 @@ func TestAStackEditCannotPassTheStackSize(t *testing.T) {
 	}
 	if _, err := o.SetItem(Args{"id": id, "stack_size": 500.0}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// The backpack is the character's own (inventory type 0 of the pawn): a chest, another actor's worn gear and the storage of a vehicle are
+// not repaired, an item that is already full is skipped, and the counts keep the backpack apart from the worn and loadout items.
+func TestRepairGearBackpackIsTheCharactersOwnOnly(t *testing.T) {
+	dur := func(cur float64) string {
+		return fmt.Sprintf(`{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":%.1f,"MaxDurability":100.0}]}`, cur)
+	}
+	o := &Ops{S: testsave.PlayerWithSQL(t, `
+insert into actors(id,class,map) values (240,'/Game/BP_StorageChest.BP_StorageChest_C','HaggaBasin'),(241,'/Game/BP_Npc.BP_Npc_C','HaggaBasin'),(242,'/Game/BP_Buggy_CHOAM.BP_Buggy_CHOAM_C','HaggaBasin');
+insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (21,2,1,10,1000.0),(40,240,0,10,1000.0),(41,241,1,10,1000.0),(42,242,0,10,1000.0);
+insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values
+  (501,1,1,5,'BackpackTool',0,1790000000,'`+dur(40)+`',0),
+  (502,1,1,6,'BackpackFull',0,1790000000,'`+dur(100)+`',0),
+  (503,1,1,7,'BackpackPlain',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{}]}',0),
+  (504,40,1,0,'ChestTool',0,1790000000,'`+dur(40)+`',0),
+  (505,41,1,0,'OtherWorn',0,1790000000,'`+dur(40)+`',0),
+  (506,42,1,0,'VehicleStored',0,1790000000,'`+dur(40)+`',0),
+  (507,21,1,0,'Helmet',0,1790000000,'`+dur(10)+`',0);`)}
+	r, err := o.RepairGear()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := r.(map[string]any)
+	if m["repaired"].(int) != 1 || m["scanned"].(int) != 1 || m["backpackRepaired"].(int) != 2 || m["backpackScanned"].(int) != 5 {
+		t.Fatalf("one worn item and two backpack items (the starter knife and 501) repaired, five backpack items looked at: %v", m)
+	}
+	cur := func(id int) float64 {
+		row, _ := o.S.One(`select stats from items where id=?`, id)
+		c, _ := durability(row["stats"].(string))
+		return c.(float64)
+	}
+	if cur(501) != 100 || cur(507) != 100 {
+		t.Fatalf("the backpack item and the worn item are repaired: %v %v", cur(501), cur(507))
+	}
+	if cur(504) != 40 || cur(505) != 40 || cur(506) != 40 {
+		t.Fatalf("a chest, another actor's worn item and a vehicle's storage are left alone: %v %v %v", cur(504), cur(505), cur(506))
+	}
+	if cur(502) != 100 {
+		t.Fatalf("a full item stays as it was: %v", cur(502))
+	}
+	if n := len(o.S.Pending()); n != 1 || !strings.Contains(fmt.Sprint(o.S.Pending()), "repair gear: 1 items, 2 backpack items") {
+		t.Fatalf("one pending edit that names both counts: %v", o.S.Pending())
+	}
+}
+
+// An item at full durability in the backpack alone is not an edit: nothing is repaired and nothing is written.
+func TestRepairGearBackpackFullItemIsNotWritten(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, `
+update items set stats='{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":100.0}]}' where id=11;
+insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values
+  (511,1,1,5,'BackpackFull',0,1790000000,'{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":100.0,"MaxDurability":100.0}]}',0);`)}
+	r, err := o.RepairGear()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m := r.(map[string]any); m["backpackRepaired"].(int) != 0 || m["backpackScanned"].(int) != 3 {
+		t.Fatalf("%v", m)
+	}
+	if o.S.Dirty() {
+		t.Fatalf("nothing was repaired, so nothing is written: %v", o.S.Pending())
 	}
 }
