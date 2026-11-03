@@ -17,7 +17,7 @@ The refill and repair buttons are not per base. They work on the whole save:
 | Repair all to max (`RepairBuildings`) | every building piece and placeable: raised to the best health seen for its type |
 | Clear sand (`ClearSand`) | every building piece |
 
-A single-player save has one player and one world, and the base list is a view of it, not a boundary: whole-save is the intended behaviour, and the buttons and docs say "all bases". True per-base scoping is deferred, with that reason. The Power and Water tabs of one base only read; they show the same devices the refill writes (a device's fuel inventory is one shared definition, the first inventory of type 3, `powerInventorySQL`).
+A single-player save has one player and one world, and the base list is a view of it, not a boundary: whole-save is the intended behaviour of the refill buttons, and the buttons and docs say "all bases". (Repair all to max and Clear sand are no longer in this table's whole-save group on the Structures tab: since #526 they act on the open base, and the whole-save versions are separate buttons in a Whole save card.) The Power and Water tabs of one base only read; they show the same devices the refill writes (a device's fuel inventory is one shared definition, the first inventory of type 3, `powerInventorySQL`).
 
 ## The start-up auto-refill
 

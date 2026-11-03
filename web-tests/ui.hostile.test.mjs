@@ -520,6 +520,7 @@ test('a far-reaching action needs the word typed, and Escape cancels', async () 
   ui.dom.window.close();
 });
 
+const OPEN_BASE = baseFixtures['/api/bases/list'].body[0].base_id; // the base the Bases page opens first
 test('the Bases upkeep buttons: Repair runs on the first press, Clear sand asks on the button itself (no dialog) and runs on the second (#450)', async () => {
   const ui = await boot({ post: { '/api/bases/repair': { ok: true, pieces: 3, placeables: 1 }, '/api/bases/clear-sand': { ok: true, pieces: 2 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
@@ -527,12 +528,13 @@ test('the Bases upkeep buttons: Repair runs on the first press, Clear sand asks 
   ui.click('[data-bstab="structures"]'); await ui.settle();
   ui.click('[data-act="repairB"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'no dialog');
-  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/repair').length, 1, 'a top-up runs on the first press');
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/bases/repair').map((p) => p.body), [{ base_id: OPEN_BASE }], 'a top-up runs on the first press, for the open base only');
   ui.click('[data-act="sand"]'); await ui.settle();
   assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 0, 'the first press only asks');
   await new Promise((r) => ui.w.setTimeout(r, 450)); ui.click('[data-act="sand"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'no dialog');
-  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').length, 1);
+  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/bases/clear-sand').map((p) => p.body), [{ base_id: OPEN_BASE }]);
+  assert.equal(ui.posted.filter((p) => p.path === '/api/bases/repair-all' || p.path === '/api/bases/clear-sand-all').length, 0, 'the whole-save routes are not reached from this base\'s buttons');
   ui.dom.window.close();
 });
 
@@ -1351,16 +1353,16 @@ test('Specialization on a new save says why the XP controls are off and what to 
 });
 
 test('an empty table says what is empty in its own words on Structures, Landsraad and the config backups (UX-38)', async () => {
-  const bases = JSON.parse(JSON.stringify(baseFixtures['/api/bases'].body));
+  const bases = JSON.parse(JSON.stringify(baseFixtures['/api/bases/structures'].body));
   bases.placeables = []; bases.types = [];
   const lands = JSON.parse(JSON.stringify(baseFixtures['/api/landsraad'].body));
   lands.decrees = [];
-  const ui = await boot({ get: { '/api/bases': bases, '/api/bases/list': BASE7, '/api/landsraad': lands, '/api/config/backups': [] } });
+  const ui = await boot({ get: { '/api/bases/structures': bases, '/api/bases/list': BASE7, '/api/landsraad': lands, '/api/config/backups': [] } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:bases"]'); await ui.settle();
   ui.click('[data-bstab="structures"]'); await ui.settle();
   let t = ui.doc.querySelector('#main').textContent;
-  assert.ok(t.includes('No placeables in this save.') && t.includes('No building pieces in this save.'), t.slice(0, 300));
+  assert.ok(t.includes('No placeables at this base.') && t.includes('No building pieces at this base.'), t.slice(0, 300));
   ui.click('[data-tab="landsraad"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#main').textContent.includes('This save has no decrees.'));
   ui.click('[data-tab="config"]'); await ui.settle();
@@ -1697,10 +1699,10 @@ test('the land claim questions say the change is written at once after a backup,
 });
 
 test('Structures and Vehicles have no edit boxes on single pieces or vehicles (#155)', async () => {
-  const bases = { totems: [], pieces: { n: 2, minh: 5600, avgh: 6300, sand: 0 }, types: [{ building_type: 'Sardaukar_Foundation', n: 1, minh: 7000, maxh: 7000, avgh: 7000 }],
+  const bases = { base_id: 7, pieces: { n: 2, minh: 5600, avgh: 6300, sand: 0 }, unowned: { pieces: { n: 0 }, types: [], placeables: [] }, save: { pieces: 2, placeables: 2 }, types: [{ building_type: 'Sardaukar_Foundation', n: 1, minh: 7000, maxh: 7000, avgh: 7000 }],
     placeables: [{ id: 5, class: 'c', building_type: 'Generator_Placeable', health: 2500, x: 1, y: 2, z: 3 }, { id: 6, class: 'c', building_type: 'WaterCistern_Placeable', health: 1250, x: 1, y: 2, z: 3 }] };
   const veh = { vehicles: [], hidden: 0, backups: [], recovered: [{ vehicle_id: 77, vehicle_name: 'Sandbike', chassis_durability: 100, time_stored: 't', reason: 0 }] };
-  const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases': bases, '/api/vehicles': veh } });
+  const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/structures': bases, '/api/vehicles': veh } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:bases"]'); await ui.settle();
   ui.click('[data-bstab="structures"]'); await ui.settle();
@@ -2010,7 +2012,7 @@ test('Character > Overview has one Money card for the backpack Solari and the wa
   ui.dom.window.close();
 });
 
-test('Clear sand on every base asks on its own button: the label says what will happen, another press, Escape or leaving cancels, the second press runs it (GRC-2); the top-ups on the same page do not ask (#450)', async () => {
+test('Clear sand on this base asks on its own button: the label says what will happen, another press, Escape or leaving cancels, the second press runs it (GRC-2); the top-ups on the same page do not ask (#450)', async () => {
   const ui = await boot({ post: { '/api/bases/repair': { ok: true, pieces: 3, placeables: 1 }, '/api/bases/clear-sand': { ok: true, pieces: 2 }, '/api/bases/refill-water': { ok: true, filled: 1, alreadyFull: 0, summary: '1 Cistern' } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:bases"]'); await ui.settle();
@@ -2018,9 +2020,9 @@ test('Clear sand on every base asks on its own button: the label says what will 
   const btn = () => ui.doc.querySelector('[data-act="sand"]');
   const was = btn().textContent;
   const sent = (p) => ui.posted.filter((x) => x.path === p).length;
-  assert.equal(ui.doc.querySelector('[data-act="repairB"]').dataset.confirm, undefined, 'Repair every base is a top-up: no ask');
+  assert.equal(ui.doc.querySelector('[data-act="repairB"]').dataset.confirm, undefined, 'Repair this base is a top-up: no ask');
   ui.click('[data-act="sand"]'); await ui.settle();
-  assert.equal(btn().textContent, 'Yes, clear sand on every base', 'the button now says what pressing it again does');
+  assert.equal(btn().textContent, 'Yes, clear sand on this base', 'the button now says what pressing it again does');
   assert.ok(ui.doc.querySelector('#sr').textContent.includes('Press the button again'), 'and the live region says it aloud');
   assert.equal(sent('/api/bases/clear-sand'), 0);
   assert.ok(ui.doc.querySelector('#ask').classList.contains('hide'), 'no dialog opened: the keyboard is not trapped');
@@ -2084,7 +2086,7 @@ test('two presses of an armed bulk button less than 400 ms apart do not run it; 
   // two clicks back to back: the second is ignored, the button keeps asking
   ui.click('[data-act="sand"]'); ui.click('[data-act="sand"]'); await ui.settle();
   assert.equal(sent(), 0, 'two presses at once are not a decision');
-  assert.equal(btn().textContent, 'Yes, clear sand on every base', 'and it is still asking');
+  assert.equal(btn().textContent, 'Yes, clear sand on this base', 'and it is still asking');
   // the second half of a double click that comes within the gap is the same movement of the hand
   btn().dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true, detail: 2 })); await ui.settle();
   assert.equal(sent(), 0, 'a press within the gap does not run it');

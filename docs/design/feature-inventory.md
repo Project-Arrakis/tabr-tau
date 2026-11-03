@@ -574,12 +574,13 @@ Routes tabr-tau serves today (`internal/web/server.go`). Anything here with no c
 review / commit / restore pipeline, `.ini` editing, land-claim expand and shrink, base repair and sand clearing, vendor
 resets, write SQL and the automatic refill.
 
-- `/api/bases`
+- `/api/bases/structures`
 - `/api/bases/claim`
 - `/api/bases/claim/apply`
 - `/api/bases/claim/expand`
 - `/api/bases/claim/shrink`
 - `/api/bases/clear-sand`
+- `/api/bases/clear-sand-all`
 - `/api/bases/give`
 - `/api/bases/health`
 - `/api/bases/inventory`
@@ -588,6 +589,7 @@ resets, write SQL and the automatic refill.
 - `/api/bases/refill-generators`
 - `/api/bases/refill-water`
 - `/api/bases/repair`
+- `/api/bases/repair-all`
 - `/api/bases/storage`
 - `/api/bases/storage/items`
 - `/api/bases/water`

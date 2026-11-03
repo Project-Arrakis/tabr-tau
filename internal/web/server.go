@@ -767,12 +767,26 @@ func (s *Server) routes() {
 	s.get("/api/player/recipes", func(r *http.Request) (any, error) { return o.Recipes() })
 
 	// bases
-	s.get("/api/bases", func(r *http.Request) (any, error) { return o.Bases() })
+	s.get("/api/bases/structures", func(r *http.Request) (any, error) { return o.BaseStructures(int64(qint(r, "base", 0))) })
 	s.get("/api/bases/storage", func(r *http.Request) (any, error) { return o.Storage() })
 	s.get("/api/bases/storage/items", func(r *http.Request) (any, error) { return o.StorageItems(int64(qint(r, "inventory", 0))) })
 	s.post("/api/bases/give", o.GiveToInventory)
-	s.post("/api/bases/repair", func(ops.Args) (any, error) { return o.RepairBuildings() })
-	s.post("/api/bases/clear-sand", func(ops.Args) (any, error) { return o.ClearSand() })
+	s.post("/api/bases/repair", func(a ops.Args) (any, error) {
+		id, err := a.Int("base_id")
+		if err != nil {
+			return nil, err
+		}
+		return o.RepairBase(id)
+	})
+	s.post("/api/bases/repair-all", func(ops.Args) (any, error) { return o.RepairBuildings() })
+	s.post("/api/bases/clear-sand", func(a ops.Args) (any, error) {
+		id, err := a.Int("base_id")
+		if err != nil {
+			return nil, err
+		}
+		return o.ClearSandBase(id)
+	})
+	s.post("/api/bases/clear-sand-all", func(ops.Args) (any, error) { return o.ClearSand() })
 	s.get("/api/bases/claim", func(r *http.Request) (any, error) { return o.LandClaims() })
 	s.get("/api/player/summary", func(r *http.Request) (any, error) { return o.Summary() })
 	s.get("/api/bases/list", func(r *http.Request) (any, error) { return o.BaseList() })

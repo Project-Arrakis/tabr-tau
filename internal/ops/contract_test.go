@@ -19,10 +19,11 @@ func TestReadPathsMatchRealSchema(t *testing.T) {
 	save.SetSQLErrorHook(func(q string, err error) { errs = append(errs, err.Error()+"  <-  "+oneLine(q)) })
 	t.Cleanup(func() { save.SetSQLErrorHook(nil) })
 
+	testsave.Exec(t, s, `insert into actors(id,class,map) values (990001,'t','HaggaBasin'); insert into totems(id) values (990001)`)
 	o := &Ops{S: s}
 	reads := map[string]func() (any, error){
 		"Overview": o.Overview, "Player": o.Player, "Inventory": o.Inventory, "Factions": o.Factions, "Specs": func() (any, error) { return o.Specs(map[string]int64{"Combat": 0}) },
-		"Tutorials": o.Tutorials, "Tags": o.Tags, "Recipes": o.Recipes, "Bases": o.Bases, "Storage": o.Storage,
+		"Tutorials": o.Tutorials, "Tags": o.Tags, "Recipes": o.Recipes, "BaseStructures": func() (any, error) { return o.BaseStructures(990001) }, "Storage": o.Storage,
 		"Vehicles": o.Vehicles, "Vendors": o.Vendors, "Landsraad": o.Landsraad, "Tables": o.Tables,
 		"Journey":      func() (any, error) { return o.Journey("") },
 		"StorageItems": func() (any, error) { return o.StorageItems(1) },
