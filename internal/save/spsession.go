@@ -1,6 +1,7 @@
 package save
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -111,6 +112,7 @@ var spLog struct {
 	offset int64
 	tr     spTracker
 	rest   string // an unfinished last line
+	skip   bool   // the line in rest is past maxLogLine: the rest of it is dropped up to its end
 }
 
 // spStatus is what the log says about the single-player session.
@@ -133,7 +135,42 @@ func logPathFor(savePath string) (string, error) {
 	return filepath.Join(d, "Logs", "DuneSandbox.log"), nil
 }
 
-// singlePlayerStatus reads whatever the game appended to its log since the last call.
+// The log is read in pieces of logChunk bytes, whatever its size, so a long session (a game log grows about 70 MB an hour, #530) is never held in memory as a whole and never
+// refused for its size. A line longer than maxLogLine is read as its first maxLogLine bytes (the time and the marker are at the start of a line); the log's own lines are far
+// shorter. Variables so tests can use small values.
+var (
+	logChunk   = 4 << 20
+	maxLogLine = 1 << 20
+)
+
+// absorb feeds the tracker with the complete lines in b, which follows what was read before; an unfinished last line waits in spLog.rest. The caller holds spLog's lock.
+func absorb(b []byte) {
+	for len(b) > 0 {
+		i := bytes.IndexByte(b, '\n')
+		var seg []byte
+		if i < 0 {
+			seg = b
+		} else {
+			seg = b[:i]
+		}
+		if !spLog.skip { // a line past maxLogLine keeps its head only
+			if room := maxLogLine - len(spLog.rest); len(seg) > room {
+				seg = seg[:max(room, 0)]
+				spLog.skip = true
+			}
+			spLog.rest += string(seg)
+		}
+		if i < 0 {
+			return
+		}
+		spLog.tr.feed(strings.TrimRight(spLog.rest, "\r"))
+		spLog.rest, spLog.skip = "", false
+		b = b[i+1:]
+	}
+}
+
+// singlePlayerStatus reads whatever the game appended to its log since the last call, in chunks, whatever the size of the file: only a log that cannot be read at all is an
+// error (and then the edit is queued, see processState).
 func singlePlayerStatus(savePath string) (spStatus, error) {
 	lp, err := logPathFor(savePath)
 	if err != nil {
@@ -150,32 +187,30 @@ func singlePlayerStatus(savePath string) (spStatus, error) {
 	if err != nil {
 		return spStatus{}, fmt.Errorf("cannot read the game log: %w", err)
 	}
-	const maxLog = 256 << 20
-	if st.Size() > maxLog {
-		return spStatus{}, fmt.Errorf("the game log is larger than %d MiB", maxLog>>20)
-	}
 	hb := make([]byte, 160)
 	hn, _ := f.ReadAt(hb, 0)
 	head := string(hb[:hn])
 	if lp != spLog.path || st.Size() < spLog.offset || head != spLog.head { // another file, a shorter one, or a new game run
-		spLog.path, spLog.head, spLog.offset, spLog.tr, spLog.rest = lp, head, 0, spTracker{}, ""
+		spLog.path, spLog.head, spLog.offset, spLog.tr, spLog.rest, spLog.skip = lp, head, 0, spTracker{}, "", false
 	}
 	if _, err := f.Seek(spLog.offset, io.SeekStart); err != nil {
 		return spStatus{}, fmt.Errorf("cannot read the game log: %w", err)
 	}
-	b, err := io.ReadAll(io.LimitReader(f, maxLog))
-	if err != nil {
-		return spStatus{}, fmt.Errorf("cannot read the game log: %w", err)
-	}
-	spLog.offset += int64(len(b))
-	text := spLog.rest + string(b)
-	nl := strings.LastIndexByte(text, '\n')
-	if nl < 0 {
-		spLog.rest = text
-	} else {
-		spLog.rest = text[nl+1:]
-		for _, line := range strings.Split(text[:nl], "\n") {
-			spLog.tr.feed(strings.TrimRight(line, "\r"))
+	// Up to the size seen above: what the game appends meanwhile is the next call's. Each chunk is applied before the next is read, so an error part-way keeps what was read
+	// (the offset only moves over bytes that were fed) and the next call goes on from there.
+	r := io.LimitReader(f, st.Size()-spLog.offset)
+	buf := make([]byte, logChunk)
+	for {
+		n, err := r.Read(buf)
+		if n > 0 {
+			spLog.offset += int64(n)
+			absorb(buf[:n])
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return spStatus{}, fmt.Errorf("cannot read the game log: %w", err)
 		}
 	}
 	return spStatus{Active: spLog.tr.active, EndedAt: spLog.tr.endedAt, LastSaveAt: spLog.tr.lastSaveAt}, nil
