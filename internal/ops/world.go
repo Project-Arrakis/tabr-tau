@@ -90,7 +90,8 @@ func (o *Ops) ClearSand() (any, error) {
 const ownedVehicleSQL = `select pa.actor_id from permission_actor pa join permission_actor_rank r on r.permission_actor_id=pa.actor_id
 	where r.rank=1 and r.player_id=? and pa.actor_id in (select id from vehicles)`
 
-// Vehicles lists the player's own vehicles (and the character's recovered and backup vehicles). World vehicles are not listed; their
+// Vehicles lists the player's own vehicles and every stored vehicle of the character ("stored": the recovered ones, the one in the vehicle backup and the ones whose state says
+// stored, from storedVehicles; "recovered" and "backups" are the raw rows, kept for compatibility). World vehicles are not listed; their
 // number is returned so the page can say how many are hidden.
 func (o *Ops) Vehicles() (any, error) {
 	p, err := o.player()
@@ -103,13 +104,18 @@ func (o *Ops) Vehicles() (any, error) {
 		return nil, err
 	}
 	rf := o.regionFinder()
+	stored := storedVehicles(o.S.Query, o.S.One, p.Controller)
+	kinds := map[int64]string{}
+	for _, sv := range stored {
+		kinds[sv["vehicle_id"].(int64)] = sv["kind"].(string)
+	}
 	for _, v := range live {
 		v["name"] = shortClass(v["class"])
 		v["type"] = vehicleType(fmt.Sprint(v["name"]))
 		if m, ok := v["map"].(string); ok {
 			rf.label(v, m, "x", "y")
 		}
-		if kind := o.storedKind(v["id"].(int64)); kind != "" {
+		if kind := kinds[v["id"].(int64)]; kind != "" {
 			v["stored"], v["storedLabel"] = kind, storedLabel(kind)
 		}
 		o.vehicleDetails(v)
@@ -122,7 +128,7 @@ func (o *Ops) Vehicles() (any, error) {
 	rec, _ := o.S.Query(`select vehicle_id, vehicle_name, time_stored, chassis_durability, customization_id, reason from recovered_vehicles
 		where character_id=? order by time_stored`, p.Controller)
 	bak, _ := o.S.Query(`select vehicle_id, customization_id from backup_vehicles where character_id=?`, p.Controller)
-	return map[string]any{"vehicles": live, "recovered": rec, "backups": bak, "hidden": hidden["n"]}, nil
+	return map[string]any{"vehicles": live, "recovered": rec, "backups": bak, "stored": stored, "hidden": hidden["n"]}, nil
 }
 
 // BringVehicle moves one of the player's own vehicles next to the player: to the old point (800 along x, 150 up) when it is clear, else to the nearest clear spot, outside a base

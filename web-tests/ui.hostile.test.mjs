@@ -1701,7 +1701,8 @@ test('the land claim questions say the change is written at once after a backup,
 test('Structures and Vehicles have no edit boxes on single pieces or vehicles (#155)', async () => {
   const bases = { base_id: 7, pieces: { n: 2, minh: 5600, avgh: 6300, sand: 0 }, unowned: { pieces: { n: 0 }, types: [], placeables: [] }, save: { pieces: 2, placeables: 2 }, types: [{ building_type: 'Sardaukar_Foundation', n: 1, minh: 7000, maxh: 7000, avgh: 7000 }],
     placeables: [{ id: 5, class: 'c', building_type: 'Generator_Placeable', health: 2500, x: 1, y: 2, z: 3 }, { id: 6, class: 'c', building_type: 'WaterCistern_Placeable', health: 1250, x: 1, y: 2, z: 3 }] };
-  const veh = { vehicles: [], hidden: 0, backups: [], recovered: [{ vehicle_id: 77, vehicle_name: 'Sandbike', chassis_durability: 100, time_stored: 't', reason: 0 }] };
+  const rec77 = { vehicle_id: 77, vehicle_name: 'Sandbike', chassis_durability: 100, time_stored: 't', reason: 0 };
+  const veh = { vehicles: [], hidden: 0, backups: [], recovered: [rec77], stored: [{ ...rec77, kind: 'recovery', label: 'Stored for recovery', type: 'Sandbike' }] };
   const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/structures': bases, '/api/vehicles': veh } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:bases"]'); await ui.settle();
