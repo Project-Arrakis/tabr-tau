@@ -61,7 +61,7 @@ func (o *Ops) BaseStructures(baseID int64) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	placeables, err := o.placeableRows("p." + ownedByBase, baseID)
+	placeables, err := o.placeableRows("p."+ownedByBase, baseID)
 	if err != nil {
 		return nil, err
 	}
