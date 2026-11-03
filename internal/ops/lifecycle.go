@@ -26,10 +26,8 @@ const (
 const storedVehicleSQL = `select id from actors where id in (select id from vehicles) and state in (2, 4)
 	union select vehicle_id from backup_vehicles union select vehicle_id from recovered_vehicles`
 
-// storedKind says how a vehicle is stored: "backup" (in the vehicle backup), "recovery" (stored for recovery) or "" (not stored). The table row decides first, the state next.
-func (o *Ops) storedKind(id int64) string { return storedKindBy(o.S.One, id) }
-
-// storedKindBy is storedKind with the reader to use: inside an edit the save is locked, so the edit's own reader must be used (a read through the save would wait for itself).
+// storedKindBy says how a vehicle is stored: "backup" (in the vehicle backup), "recovery" (stored for recovery) or "" (not stored). The table row decides first, the state next.
+// It takes the reader to use: inside an edit the save is locked, so the edit's own reader must be used (a read through the save would wait for itself).
 func storedKindBy(one func(string, ...any) (save.Row, error), id int64) string {
 	if r, _ := one(`select 1 x from recovered_vehicles where vehicle_id=?`, id); r != nil {
 		return "recovery"
@@ -45,6 +43,50 @@ func storedKindBy(one func(string, ...any) (save.Row, error), id int64) string {
 		return "recovery"
 	}
 	return ""
+}
+
+// storedVehicles lists every vehicle of a character that is stored, one entry each, from the three places the save says so: the character's rows in recovered_vehicles, the
+// character's row in backup_vehicles, and the character's own vehicles (ownedVehicleSQL) whose actor state says stored with no row for the character (#528). The kind of each
+// entry is storedKindBy's, so the label on a vehicle's row and this list cannot differ. An entry carries vehicle_id, kind, label, type (from the actor's class, else the row's
+// name) and, only where the save has them, vehicle_name, chassis_durability, time_stored, reason and customization_id. Recovered ones come first, oldest stored first.
+func storedVehicles(q func(string, ...any) ([]save.Row, error), one func(string, ...any) (save.Row, error), character any) []map[string]any {
+	out := []map[string]any{}
+	seen := map[int64]bool{}
+	add := func(r save.Row) {
+		id, ok := r["vehicle_id"].(int64)
+		if !ok || seen[id] {
+			return
+		}
+		seen[id] = true
+		kind := storedKindBy(one, id)
+		e := map[string]any{"vehicle_id": id, "kind": kind, "label": storedLabel(kind)}
+		if c, ok := r["class"].(string); ok && c != "" {
+			e["type"] = vehicleType(shortClass(c))
+		} else if n, ok := r["vehicle_name"].(string); ok && n != "" {
+			e["type"] = vehicleType(n)
+		}
+		for _, k := range []string{"vehicle_name", "chassis_durability", "time_stored", "reason", "customization_id"} {
+			if v, ok := r[k]; ok && v != nil {
+				e[k] = v
+			}
+		}
+		out = append(out, e)
+	}
+	rec, _ := q(`select r.vehicle_id, r.vehicle_name, r.time_stored, r.chassis_durability, r.customization_id, r.reason, a.class
+		from recovered_vehicles r left join actors a on a.id=r.vehicle_id where r.character_id=? order by r.time_stored, r.vehicle_id`, character)
+	for _, r := range rec {
+		add(r)
+	}
+	bak, _ := q(`select b.vehicle_id, b.customization_id, a.class from backup_vehicles b left join actors a on a.id=b.vehicle_id where b.character_id=? order by b.vehicle_id`, character)
+	for _, r := range bak {
+		add(r)
+	}
+	st, _ := q(`select a.id vehicle_id, a.class from actors a where a.id in (`+ownedVehicleSQL+`) and a.id in (`+storedVehicleSQL+`)
+		and a.id not in (select vehicle_id from recovered_vehicles where character_id=?) and a.id not in (select vehicle_id from backup_vehicles where character_id=?) order by a.id`, character, character, character)
+	for _, r := range st {
+		add(r)
+	}
+	return out
 }
 
 func storedLabel(kind string) string {

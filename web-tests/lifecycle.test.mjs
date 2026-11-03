@@ -43,3 +43,42 @@ test('the Saved map says how many stored vehicles it does not show', async () =>
   none.click('[data-tab="livemap"]'); await none.settle();
   assert.ok(!none.doc.querySelector('#main').textContent.includes('are stored'));
 });
+
+// #528: the card lists every stored vehicle (recovered, in the vehicle backup, stored by state only) with its kind, and its count is the rows shown.
+const sv = (id, kind, extra) => ({ vehicle_id: id, kind, label: kind === 'backup' ? 'In the vehicle backup' : 'Stored for recovery', type: 'Buggy', ...extra });
+const storedCard = (ui) => [...ui.doc.querySelectorAll('#main .card')].find((c) => c.querySelector('h3') && c.querySelector('h3').textContent.startsWith('Recovered and stored vehicles'));
+
+test('the stored vehicles card lists the recovered, the backed-up and the state-only vehicle, with a kind column and a count of the rows', async () => {
+  const stored = [sv(301, 'recovery', { vehicle_name: 'BP_Buggy_CHOAM', chassis_durability: 0.5, time_stored: 1700000000, reason: 1 }),
+    sv(302, 'backup', { type: 'LightOrnithopter' }), sv(303, 'backup', { type: 'Sandbike' })];
+  const ui = await boot({ get: { '/api/vehicles': { vehicles: [veh(303, { stored: 'backup', storedLabel: 'In the vehicle backup' })], hidden: 0, recovered: [], backups: [], stored },
+    '/api/vehicles/fuel': { total: 1, notFull: 0, unknown: 0, noFuelRecord: 0 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:vehicles"]'); await ui.settle();
+  const card = storedCard(ui);
+  assert.ok(card, 'the card is drawn');
+  assert.equal(card.querySelector('h3').textContent, 'Recovered and stored vehicles (3)');
+  assert.ok(!card.textContent.includes('No vehicle has been recovered or stored.'));
+  const heads = [...card.querySelectorAll('th')].map((h) => h.textContent);
+  assert.ok(heads.includes('Kind') && heads.includes('Vehicle'), heads.join(','));
+  const rows = [...card.querySelectorAll('tbody tr')];
+  assert.equal(rows.length, 3, 'the title counts the rows shown');
+  const kindCol = heads.indexOf('Kind');
+  const cells = (r) => [...r.querySelectorAll('td')].map((c) => c.textContent);
+  assert.deepEqual(rows.map((r) => cells(r)[kindCol]), ['Stored for recovery', 'In the vehicle backup', 'In the vehicle backup']);
+  assert.deepEqual(rows.map((r) => cells(r)[heads.indexOf('Vehicle')]), ['Buggy', 'LightOrnithopter', 'Sandbike']);
+  assert.equal(cells(rows[1])[heads.indexOf('Chassis durability')], '-', 'what the save does not have is a dash');
+  assert.equal(cells(rows[0])[heads.indexOf('Chassis durability')], '0.5');
+  // the vehicle table says the same about the vehicle it lists
+  assert.ok([...ui.doc.querySelectorAll('#main table tbody tr')].some((r) => r.textContent.includes('In the vehicle backup') && r.querySelector('[data-act="bring"]')));
+});
+
+test('the stored vehicles card says so only when no vehicle is stored, and then counts 0', async () => {
+  const ui = await boot({ get: { '/api/vehicles': { vehicles: [veh(1)], hidden: 0, recovered: [], backups: [], stored: [] }, '/api/vehicles/fuel': { total: 1, notFull: 0, unknown: 0, noFuelRecord: 0 } } });
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:vehicles"]'); await ui.settle();
+  const card = storedCard(ui);
+  assert.equal(card.querySelector('h3').textContent, 'Recovered and stored vehicles (0)');
+  assert.ok(card.textContent.includes('No vehicle has been recovered or stored.'));
+  assert.equal(card.querySelectorAll('tbody tr').length, 0);
+});

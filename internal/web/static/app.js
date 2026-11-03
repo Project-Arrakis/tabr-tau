@@ -1411,7 +1411,9 @@ async function vehiclesView() {
       { k: 'quality_level', label: 'Grade' }], cargo.items, { actions: (r) => html`<button class="b bad sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` }) : noHold ? '' : html`<p class="mut">The cargo hold is empty.</p>`}
       ${noHold ? '' : html`<div class="row">${itemPicker('bt', cat)}Qty<input id="bq" aria-label="Quantity to add" type="number" value="1" min="1"><button class="b" data-act="giveCargo" data-id="${cargo.inventory_id}">Add item</button></div>`}${noHold && !n ? '' : clearRow(cargo.inventory_id, hold, cargo.items)}` : html`<p class="mut">This vehicle has no cargo hold.</p>`}</div>`);
   }
-  h.push(html`<div class="card"><h3>Recovered and stored vehicles (${v.recovered.length})</h3>${tbl([{ k: 'vehicle_id', label: 'ID' }, { k: 'vehicle_name', label: 'Name' }, { k: 'chassis_durability', label: 'Chassis durability' }, { k: 'time_stored', label: 'Stored at', f: (r) => fmtEpoch(r.time_stored) }, { k: 'reason', label: 'Reason code' }], v.recovered, { empty: 'No vehicle has been recovered or stored.' })}</div>`);
+  // Every stored vehicle of the character in one list (#528): the recovered ones, the one in the vehicle backup and the ones whose state says stored; the count is the rows shown.
+  const stored = v.stored || [];
+  h.push(html`<div class="card"><h3>Recovered and stored vehicles (${stored.length})</h3>${tbl([{ k: 'vehicle_id', label: 'ID' }, { k: 'label', label: 'Kind' }, { k: 'type', label: 'Vehicle', f: (r) => (r.type || '-') }, { k: 'vehicle_name', label: 'Name', f: (r) => (r.vehicle_name == null ? '-' : r.vehicle_name) }, { k: 'chassis_durability', label: 'Chassis durability', f: (r) => (r.chassis_durability == null ? '-' : r.chassis_durability) }, { k: 'time_stored', label: 'Stored at', f: (r) => (r.time_stored == null ? '-' : fmtEpoch(r.time_stored)) }, { k: 'reason', label: 'Reason code', f: (r) => (r.reason == null ? '-' : r.reason) }], stored, { empty: 'No vehicle has been recovered or stored.' })}</div>`);
   setHTML(host(), html`${h}`);
 }
 
