@@ -19,21 +19,6 @@ func shortClass(c any) string {
 
 // ---------------------------------------------------------------- bases
 
-// Bases summarises claimed bases (totems), building pieces and placeables.
-func (o *Ops) Bases() (any, error) {
-	totems, err := o.S.Query(`select t.id totem_id, a.map, t.landclaim_original_global_location_x x, t.landclaim_original_global_location_y y,
-		t.landclaim_original_global_location_z z, t.landclaim_vertical_level level from totems t join actors a on a.id=t.id`)
-	if err != nil {
-		return nil, err
-	}
-	pieces, _ := o.S.One(`select count(*) n, coalesce(min(health),0) minh, coalesce(avg(health),0) avgh, coalesce(sum(sand_buildup),0) sand from building_instances`)
-	types, _ := o.S.Query(`select building_type, count(*) n, min(health) minh, max(health) maxh, round(avg(health)) avgh
-		from building_instances group by building_type order by n desc`)
-	placeables, _ := o.S.Query(`select p.id, a.class, p.building_type, p.health, a.location_x x, a.location_y y, a.location_z z
-		from placeables p join actors a on a.id=p.id order by p.building_type`)
-	return map[string]any{"totems": totems, "pieces": pieces, "types": types, "placeables": placeables}, nil
-}
-
 // Storage lists every non-player inventory (containers, machines, vehicles) that holds items.
 func (o *Ops) StorageItems(inv int64) (any, error) {
 	items, err := o.S.Query(`select id, template_id, stack_size, quality_level, position_index, stats from items where inventory_id=? order by position_index`, inv)
@@ -47,7 +32,8 @@ func (o *Ops) StorageItems(inv int64) (any, error) {
 	return items, nil
 }
 
-// RepairBuildings sets every building piece to the highest health seen for its type.
+// RepairBuildings sets every building piece and placeable of the whole save to the highest health seen for its type. It is the
+// save-wide action; the Structures tab offers it apart from the open base's own, RepairBase (#526).
 //
 // The best health of each type is worked out once, by one grouped scan, and the pieces are joined to it. The statement used to look the
 // maximum up again for every piece with a correlated subquery over the whole table (and again in its own WHERE), so it grew with the square
@@ -78,6 +64,7 @@ func (o *Ops) RepairBuildings() (any, error) {
 	return map[string]any{"ok": true, "pieces": n, "placeables": mm}, nil
 }
 
+// ClearSand clears the sand buildup of every building piece of the whole save (the save-wide action; ClearSandBase is one base's).
 func (o *Ops) ClearSand() (any, error) {
 	var n int64
 	_, err := o.S.Mutate("", func(m *save.Mut) error {

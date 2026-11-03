@@ -28,7 +28,7 @@ export async function boot({ post = {}, get = {}, session = {}, local = {}, pre 
   const clock = { now: null };
   w.Date.now = () => (clock.now === null ? realNow() : clock.now);
   let inflight = 0;
-  const posted = [], fetched = [];
+  const posted = [], fetched = [], fetchedUrls = [];
   w.fetch = async (p, opt = {}) => {
     inflight++;
     try {
@@ -41,7 +41,7 @@ export async function boot({ post = {}, get = {}, session = {}, local = {}, pre 
         if (b.__fail) return fail(b);
         return { ok: true, status: 200, statusText: 'OK', json: async () => b };
       }
-      fetched.push(u.pathname);
+      fetched.push(u.pathname); fetchedUrls.push(u.pathname + u.search);
       const g = get[u.pathname];
       if (g && g.__fail) return fail(g);
       if (g) return { ok: true, status: 200, statusText: 'OK', json: async () => g, blob: async () => new w.Blob(['x']) };
@@ -64,7 +64,7 @@ export async function boot({ post = {}, get = {}, session = {}, local = {}, pre 
   const wait = (ms) => new Promise((r) => w.setTimeout(r, ms));
   const freeze = () => { clock.now = realNow(); };
   const tick = (ms) => { clock.now = (clock.now === null ? realNow() : clock.now) + ms; };
-  return { dom, w, doc: w.document, settle, posted, fetched, click, type, wait, freeze, tick };
+  return { dom, w, doc: w.document, settle, posted, fetched, fetchedUrls, click, type, wait, freeze, tick };
 }
 
 // The minimum gap a second press must respect (app.js ARM_GAP_MS is 400 ms); tests wait a little longer.

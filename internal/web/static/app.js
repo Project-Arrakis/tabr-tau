@@ -1250,13 +1250,26 @@ async function basesView() {
         { actions: (r) => html`<button class="b sec sm" data-act="openInv" data-id="${r.inventory_id}" data-name="${r.name}">Open</button>`, empty: 'No containers in this group.' })}
         ${about('bases.inventory', 'Inventory', html`<p class="mut">Only containers that belong to this base are listed.</p>`)}</div><div id="inv"></div>`);
     } else if (bsTab == 'structures') {
-      // tabr-tau's own base tools (the console's base view has no equivalent): structure health, repair all, sand, placeables, piece types.
-      const b = await api('/api/bases');
+      // The open base's own structures (#526): the health card, the placeables and the piece types list only what this base's totem owns. Pieces no base owns are listed apart,
+      // and the only whole-save figures and buttons are in the last card, labelled as such.
+      const b = await api('/api/bases/structures?base=' + id);
       const p = b.pieces || {};
-      h.push(html`<div class="card"><h3>Structure health</h3><div class="grid">${kv('Building pieces', p.n)}${kv('Lowest health', fix(p.minh))}${kv('Average health', fix(p.avgh))}${kv('Total sand buildup', fix(p.sand))}</div>
-        <div class="row">${tip('repairbtip', 'Repair sets each piece to the highest health seen for its type.', html`<button class="b" data-act="repairB" aria-describedby="repairbtip">Repair every base to max</button>`)}<button class="b sec" data-act="sand" data-confirm="Yes, clear sand on every base">Clear sand on every base</button></div></div>`);
-      h.push(html`<div class="card"><h3>Placeables (${b.placeables.length})</h3>${tbl([{ k: 'id' }, { k: 'building_type', label: 'Type' }, { k: 'health', label: 'Health', f: (r) => (r.health == null ? '' : fix(r.health)) }], b.placeables, { empty: 'No placeables in this save.' })}</div>
-        <div class="card"><h3>Building piece types</h3>${tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], b.types, { empty: 'No building pieces in this save.' })}</div>`);
+      const un = b.unowned || {}, up = un.pieces || {};
+      const sv = b.save || {};
+      const otherPieces = Math.max(0, (Number(sv.pieces) || 0) - (Number(p.n) || 0) - (Number(up.n) || 0));
+      const otherPlaceables = Math.max(0, (Number(sv.placeables) || 0) - b.placeables.length - (un.placeables || []).length);
+      h.push(html`<div class="card"><h3>Structure health</h3>${Number(p.n) ? html`<div class="grid">${kv('Building pieces', p.n)}${kv('Lowest health', fix(p.minh))}${kv('Average health', fix(p.avgh))}${kv('Total sand buildup', fix(p.sand))}</div>` : html`<p class="mut">This base has no building pieces.</p>`}
+        <div class="row">${tip('repairbtip', 'Raises the pieces and placeables of this base to the highest health seen for their type anywhere in the save. Other bases are not changed, and nothing is lowered.', html`<button class="b" data-act="repairB" data-id="${id}" aria-describedby="repairbtip">Repair this base to max</button>`)}<button class="b sec" data-act="sand" data-id="${id}" data-confirm="Yes, clear sand on this base">Clear sand on this base</button></div>
+        ${about('bases.structures', 'Structures', html`<p class="mut">The health card, the placeables and the piece types list only what belongs to this base: the pieces and placeables whose owner is this base's totem. Pieces that no base owns are listed apart under Not part of any base and are never counted into a base. Repair this base to max and Clear sand on this base change only this base's rows. The highest health of a type is looked up over the whole save, so a base whose pieces are all worn is still repaired. The last card has the whole-save counts and the two buttons that act on every base.</p>`)}</div>`);
+      h.push(html`<div class="card"><h3>Placeables (${b.placeables.length})</h3>${tbl([{ k: 'id' }, { k: 'building_type', label: 'Type' }, { k: 'health', label: 'Health', f: (r) => (r.health == null ? '' : fix(r.health)) }], b.placeables, { empty: 'No placeables at this base.' })}</div>
+        <div class="card"><h3>Building piece types</h3>${tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], b.types, { empty: 'No building pieces at this base.' })}</div>`);
+      if (Number(up.n) || (un.placeables || []).length) {
+        h.push(html`<div class="card"><h3>Not part of any base</h3><p class="mut">${Number(up.n) || 0} building pieces and ${(un.placeables || []).length} placeables have no owner that is a base. They are not counted above, and the buttons for this base leave them alone.</p>
+          ${Number(up.n) ? tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], un.types || []) : ''}
+          ${(un.placeables || []).length ? tbl([{ k: 'id' }, { k: 'building_type', label: 'Type' }, { k: 'health', label: 'Health', f: (r) => (r.health == null ? '' : fix(r.health)) }], un.placeables) : ''}</div>`);
+      }
+      h.push(html`<div class="card"><h3>Whole save</h3><p class="mut">The save has ${sv.pieces} building pieces and ${sv.placeables} placeables: ${p.n} building pieces and ${b.placeables.length} placeables at this base, ${otherPieces} and ${otherPlaceables} at other bases, ${Number(up.n) || 0} and ${(un.placeables || []).length} at no base.</p>
+        <div class="row">${tip('repairalltip', 'Raises every building piece and placeable in the save, at every base and at no base, to the highest health seen for its type.', html`<button class="b sec" data-act="repairAll" aria-describedby="repairalltip">Repair every base to max</button>`)}<button class="b sec" data-act="sandAll" data-confirm="Yes, clear sand on every base">Clear sand on every base</button></div></div>`);
     } else {
       const claims = (await api('/api/bases/claim')).filter((c) => c.totem_id == id);
       LC = claims.length ? { claim: claims[0], sel: new Set(), rm: new Set(), level: claims[0].level } : null;
@@ -2004,8 +2017,10 @@ const A = {
   }, null),
   repairOne: (d) => act(async () => { const r = await api('/api/vehicles/repair', { vehicle_id: +d.id }); toast(repairMsg(r, 'modules of this vehicle') + (r.repaired ? NOT_SAVED : '')); }, null),
   repairV: () => act(async () => { const pct = $('#rvPct'); const n = pct ? +pct.value : 100; const r = await api('/api/vehicles/repair', pct && n < 100 ? { threshold: n } : {}); toast(repairMsg(r, 'vehicle modules', n) + (r.repaired ? NOT_SAVED : '')); }, null),
-  repairB: () => act(async () => { const r = await api('/api/bases/repair', {}); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables` + NOT_SAVED); }, null),
-  sand: () => act(async () => { const r = await api('/api/bases/clear-sand', {}); toast(`Cleared ${r.pieces} pieces` + NOT_SAVED); }, null),
+  repairB: (d) => act(async () => { const r = await api('/api/bases/repair', { base_id: +d.id }); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables at this base` + NOT_SAVED); }, null),
+  repairAll: () => act(async () => { const r = await api('/api/bases/repair-all', {}); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables in the whole save` + NOT_SAVED); }, null),
+  sand: (d) => act(async () => { const r = await api('/api/bases/clear-sand', { base_id: +d.id }); toast(`Cleared ${r.pieces} pieces at this base` + NOT_SAVED); }, null),
+  sandAll: () => act(async () => { const r = await api('/api/bases/clear-sand-all', {}); toast(`Cleared ${r.pieces} pieces in the whole save` + NOT_SAVED); }, null),
   openInv: async (d) => {
     const it = await api('/api/bases/storage/items?inventory=' + encodeURIComponent(d.id));
     const cat = await loadCatalog(it.map((r) => r.template_id));

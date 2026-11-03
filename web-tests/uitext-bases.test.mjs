@@ -92,9 +92,10 @@ test('Resize by square, Inventory and Structures: limits are tooltips or in Abou
   assert.ok(!visibleText(main).includes('Slots used is the items held out of'), 'the column says 5 of 20');
   assert.ok(!movedText(main).includes('Slots used is the items held out of'));
   main = await bases(ui, 'structures');
-  moves(main, ['Repair sets each piece to the highest health seen for its type']);
+  moves(main, ['Raises the pieces and placeables of this base to the highest health seen for their type anywhere in the save', 'Raises every building piece and placeable in the save, at every base and at no base', 'Pieces that no base owns are listed apart']);
   const shown = visibleText(main);
-  assert.ok(shown.includes('Repair every base to max') && shown.includes('Clear sand on every base'), 'the scope is in the labels');
+  assert.ok(shown.includes('Repair this base to max') && shown.includes('Clear sand on this base'), 'the scope of the open base is in the labels');
+  assert.ok(shown.includes('Whole save') && shown.includes('Repair every base to max') && shown.includes('Clear sand on every base'), 'the whole-save controls are apart, in their own card, with their own labels');
   assert.ok(!shown.includes('These two act on all of your bases'));
   ui.dom.window.close();
 });

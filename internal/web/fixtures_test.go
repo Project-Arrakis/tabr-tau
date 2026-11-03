@@ -21,7 +21,7 @@ import (
 var uiRoutes = []string{
 	"/api/overview", "/api/save/state", "/api/player", "/api/player/summary", "/api/player/inventory", "/api/player/blood-sacks", "/api/player/factions", "/api/player/building-sets", "/api/player/customizations", "/api/player/research", "/api/player/crafting", "/api/player/skills", "/api/player/journey/browse", "/api/player/faction", "/api/player/specs",
 	"/api/player/tutorials", "/api/player/tags", "/api/player/recipes", "/api/player/journey",
-	"/api/catalog/items", "/api/settings", "/api/autopass/launch", "/api/bases", "/api/bases/list", "/api/bases/power?base=900001", "/api/bases/water?base=900001", "/api/bases/inventory?base=900001", "/api/bases/claim", "/api/bases/storage", "/api/bases/storage/items?inventory=1", "/api/livemap", "/api/vehicles", "/api/vendors", "/api/landsraad",
+	"/api/catalog/items", "/api/settings", "/api/autopass/launch", "/api/bases/structures?base=900001", "/api/bases/list", "/api/bases/power?base=900001", "/api/bases/water?base=900001", "/api/bases/inventory?base=900001", "/api/bases/claim", "/api/bases/storage", "/api/bases/storage/items?inventory=1", "/api/livemap", "/api/vehicles", "/api/vendors", "/api/landsraad",
 	"/api/vehicles/fuel", "/api/vehicles/catalog", "/api/player/liquids", "/api/kits", "/api/bases/backups",
 	"/api/db/tables", "/api/save/backups",
 	"/api/config/validate", "/api/config/files",
@@ -97,7 +97,7 @@ func TestDumpUIFixtures(t *testing.T) {
 	}
 	t.Logf("fixture routes: %d, answered 200: %d", len(out), ok)
 	// views whose rows come from text in the save must actually carry the hostile text, or the browser test checks nothing there
-	for _, route := range []string{"/api/player/skills", "/api/player/research", "/api/player/crafting", "/api/player/inventory", "/api/bases/water", "/api/bases/inventory", "/api/vehicles"} {
+	for _, route := range []string{"/api/player/skills", "/api/player/research", "/api/player/crafting", "/api/player/inventory", "/api/bases/water", "/api/bases/inventory", "/api/bases/structures", "/api/vehicles"} {
 		v, found := out[route]
 		if !found || !strings.Contains(mustJSON(t, v.(map[string]any)["body"]), "__pwned") {
 			t.Errorf("%s does not carry the hostile text; the fixture is not feeding that view", route)
