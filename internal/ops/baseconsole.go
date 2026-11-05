@@ -16,12 +16,16 @@ import (
 //   - a base the game's tool already picked up, written from its backup record as it is.
 //
 // Both only read the save and write nothing, in the save or anywhere else. The file is made by basefile.WriteConsole and then read back by the editor's own reader for console
-// files (basefile.Load and Verify), and the counts must agree, before it is handed out.
+// files (basefile.Load and Verify), and the counts must agree, before it is handed out. Before that, basefile.CheckConsoleStrict applies the console's rule for ids (no "!!kind#N",
+// only "!!kind@N" that names an entry of the file, or the owner placeholder, or none) to the text; the console refuses a file that has a "#" id, which the editor's reader would take.
 
 const (
 	consolePickedUp = "This base has been picked up with the game's base tool. Export it from Base backups instead."
 	noOwnerMessage  = "This base has no owner (nobody holds rank 1 over it), so it cannot be saved as a base backup."
 )
+
+// strictConsoleCheck is the console's rule for ids, run on every file before it is handed out; a variable so that a test can show a file that fails it is refused.
+var strictConsoleCheck = basefile.CheckConsoleStrict
 
 // consoleFileName is the name offered for a console file: fixed words, what it is of, its number and the base's name with everything but letters, digits, dot, dash and underscore
 // taken out.
@@ -331,6 +335,10 @@ func (o *Ops) finishConsoleFile(opsAtStart int, rows map[string][][]any, h basef
 	if err != nil {
 		return nil, apierr.Newf(apierr.ErrBadArgument, "The base cannot be exported as a console file: %v. Nothing was exported.", err)
 	}
+	// The console's own rule for ids, applied to the finished text: the editor's reader below takes a "#" id that the console refuses (#538).
+	if _, err := strictConsoleCheck(res.Data); err != nil {
+		return nil, apierr.Newf(apierr.ErrBadArgument, "The base cannot be exported as a console file: %v. Nothing was exported.", err)
+	}
 	// What the editor reads back must be what was written. A file its own reader refuses is not handed out.
 	b, err := basefile.Load(res.Data, exportByteCap, exportRowCap)
 	if err == nil {
@@ -346,7 +354,7 @@ func (o *Ops) finishConsoleFile(opsAtStart int, rows map[string][][]any, h basef
 			s.Pieces, s.Placeables, s.StoredItems, res.Pieces, res.Placeables, res.Items)
 	}
 	if res.FarActors > 0 {
-		notes = append(notes, fmt.Sprintf("%d references name an actor that is not in the base (a crafting queue that names a character, say); they are written as the save holds them.", res.FarActors))
+		notes = append(notes, fmt.Sprintf("%d references name an actor that is not in the base (a crafting queue that names a character, say); they are written as no reference, which the console imports as none.", res.FarActors))
 	}
 	if res.NulledRefs > 0 {
 		notes = append(notes, fmt.Sprintf("%d references name an item, inventory or entity that is not in the base; they are written as no reference.", res.NulledRefs))

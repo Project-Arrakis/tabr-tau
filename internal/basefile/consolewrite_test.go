@@ -1,6 +1,7 @@
 package basefile
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"regexp"
@@ -160,14 +161,14 @@ func TestConsoleWriterTreatsReferencesLikeTheGamesOwnExport(t *testing.T) {
 			cc = i
 		}
 	}
-	// an actor outside the file stays as it is; an item or inventory outside the file becomes the null reference; null stays null
+	// a reference to anything outside the file, and the null reference, are the console's null reference "@0"; no "#" form is left (#538)
 	m["fgl_entities"][0][cc] = `{"A":"!!act#9999","B":"!!itm#8888","C":"!!inv#7777","D":"!!act#0","E":"!!itm#0"}`
 	res, err := WriteConsole(headerOf(), m, MaxFileBytes, MaxRows)
 	if err != nil {
 		t.Fatal(err)
 	}
 	s := string(res.Data)
-	for _, w := range []string{`"A":"!!act#9999"`, `"B":"!!itm#0"`, `"C":"!!inv#0"`, `"D":"!!act#0"`, `"E":"!!itm#0"`} {
+	for _, w := range []string{`"A":"!!act@0"`, `"B":"!!itm@0"`, `"C":"!!inv@0"`, `"D":"!!act@0"`, `"E":"!!itm@0"`} {
 		if !strings.Contains(s, w) {
 			t.Errorf("file does not say %s", w)
 		}
@@ -196,5 +197,46 @@ func TestConsoleFileHeaderHasWhatTheConsoleChecksAndNothingPrivate(t *testing.T)
 	// the owner and the account of the actors are not in it
 	if strings.Contains(s, "owner_account_id\":1") || strings.Contains(s, "partition_id") {
 		t.Error("a column that must not travel is in the file")
+	}
+}
+
+// The console's own file records, per row, that the game's arrays are 0-based ("__lb"), on the pieces' transform and the totem's original location; the importing server restores
+// the bounds from it, and the game reads some of those arrays by index (#538, compared with a file the console made).
+func TestConsoleFileNotesTheZeroBasedArraysAsTheConsoleDoes(t *testing.T) {
+	res, err := WriteConsole(headerOf(), rowsOf(loadFixture(t, nil)), MaxFileBytes, MaxRows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var f struct {
+		Entries []struct {
+			Kind string         `json:"kind"`
+			Data map[string]any `json:"data"`
+		} `json:"entries"`
+	}
+	if err := json.Unmarshal(res.Data, &f); err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]int{}
+	for _, e := range f.Entries {
+		lb, has := e.Data["__lb"]
+		switch e.Kind {
+		case "BuildingInstance":
+			seen[e.Kind]++
+			if m, _ := lb.(map[string]any); !has || len(m) != 1 || m["transform"] != float64(0) {
+				t.Errorf("a piece: __lb %v", lb)
+			}
+		case "Totem":
+			seen[e.Kind]++
+			if m, _ := lb.(map[string]any); !has || len(m) != 1 || m["landclaim_original_global_location"] != float64(0) {
+				t.Errorf("the totem: __lb %v", lb)
+			}
+		default:
+			if has {
+				t.Errorf("%s has __lb %v", e.Kind, lb)
+			}
+		}
+	}
+	if seen["BuildingInstance"] != res.Pieces || seen["Totem"] != 1 {
+		t.Errorf("seen %v", seen)
 	}
 }

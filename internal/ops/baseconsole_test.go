@@ -2,6 +2,7 @@ package ops
 
 import (
 	"encoding/json"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -219,7 +220,7 @@ func TestStandingBaseExportShapesTheEntriesLikeAPickUp(t *testing.T) {
 		}
 	}
 	text := string(out.Data)
-	if !strings.Contains(text, `"InstigatorActorId":"!!act#2"`) || !strings.Contains(text, `"Spare":"!!act#0"`) || strings.Contains(text, `!!itm#9003`) || !strings.Contains(text, `"ItemUniqueId":"!!itm@`) {
+	if !strings.Contains(text, `"InstigatorActorId":"!!act@0"`) || !strings.Contains(text, `"Spare":"!!act@0"`) || strings.Contains(text, `!!itm#9003`) || !strings.Contains(text, `"ItemUniqueId":"!!itm@`) {
 		t.Errorf("references: %s", text)
 	}
 	found := false
@@ -403,5 +404,118 @@ func TestPickedUpBaseConsoleExportRefusesALoneSolido(t *testing.T) {
 	o := exportOps(t, `update items set template_id='BuildingBlueprint_CopyDevice' where id=9001;`)
 	if _, err := o.ExportBaseBackupConsole(1, exportAt, "x"); err == nil || !strings.Contains(err.Error(), "Solido") {
 		t.Errorf("err %v", err)
+	}
+}
+
+// localFormsIn lists every string value (and key) of every entry of a console file that holds an id in the local form "!!kind#N", by a walk over the nested JSON.
+func localFormsIn(t *testing.T, data []byte) []string {
+	t.Helper()
+	var f struct {
+		Entries []struct {
+			ID   int64 `json:"id"`
+			Data any   `json:"data"`
+		} `json:"entries"`
+	}
+	if err := json.Unmarshal(data, &f); err != nil {
+		t.Fatal(err)
+	}
+	local := regexp.MustCompile(`!![a-z]{3}#`)
+	var found []string
+	var walk func(v any, where string)
+	walk = func(v any, where string) {
+		switch x := v.(type) {
+		case string:
+			if local.MatchString(x) {
+				found = append(found, where+" = "+x)
+			}
+		case []any:
+			for _, c := range x {
+				walk(c, where+".*")
+			}
+		case map[string]any:
+			for k, c := range x {
+				if local.MatchString(k) {
+					found = append(found, where+" key "+k)
+				}
+				walk(c, where+"."+k)
+			}
+		}
+	}
+	for _, e := range f.Entries {
+		walk(e.Data, "entry "+strconv.FormatInt(e.ID, 10))
+	}
+	return found
+}
+
+// A weapon component with no favourite weapon (#538: "!!itm#0"), a crafting queue whose job was queued by a character who is not in the base, and the totem's own id: none of them
+// may leave a local-form id in the file, for a standing base and for a picked-up one.
+const weaponAndQueuedJob = `update actors set properties=jsonb('{"WeaponActorComponent":{"m_FavoriteWeaponItemDatabaseId":"!!itm#0","m_Spare":["!!itm#0"]}}') where id=701;
+	update fgl_entities set components=jsonb('{"FItemCraftingComponent":[[],[{"RequestsQueue":[{"InstigatorActorId":"!!act#2","ItemUniqueId":"!!itm#9003"},{"InstigatorActorId":"!!act#0"}]}]]}') where entity_id=5764607523034234891;`
+
+func TestConsoleExportLeavesNoLocalFormIdInAnyString(t *testing.T) {
+	for name, export := range map[string]func(t *testing.T) *BaseExport{
+		"a standing base": func(t *testing.T) *BaseExport {
+			return mustStanding(t, standingOps(t, weaponAndQueuedJob), 601)
+		},
+		"a picked-up base": func(t *testing.T) *BaseExport {
+			out, err := exportOps(t, weaponAndQueuedJob).ExportBaseBackupConsole(1, exportAt, "test-1.2.3")
+			if err != nil {
+				t.Fatal(err)
+			}
+			return out
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			out := export(t)
+			if left := localFormsIn(t, out.Data); len(left) > 0 {
+				t.Fatalf("local-form ids left in the file: %v", left)
+			}
+			text := string(out.Data)
+			for _, w := range []string{`"m_FavoriteWeaponItemDatabaseId":"!!itm@0"`, `"m_Spare":["!!itm@0"]`, `"InstigatorActorId":"!!act@0"`, `"ItemUniqueId":"!!itm@`} {
+				if !strings.Contains(text, w) {
+					t.Errorf("the file does not say %s", w)
+				}
+			}
+			// the strict check, run on the finished text, takes it, and every id it names exists
+			st, err := basefile.CheckConsoleStrict(out.Data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if st.NoneRefs < 4 || st.Refs <= st.NoneRefs {
+				t.Errorf("strict counts %+v", st)
+			}
+		})
+	}
+}
+
+func TestConsoleExportIsRefusedWhenTheStrictCheckFails(t *testing.T) {
+	defer func(f func([]byte) (*basefile.ConsoleStrict, error)) { strictConsoleCheck = f }(strictConsoleCheck)
+	// the file as it was made, with one id put back in the local form: the check sees the tampered text, whatever the writer did
+	strictConsoleCheck = func(data []byte) (*basefile.ConsoleStrict, error) {
+		return basefile.CheckConsoleStrict([]byte(strings.Replace(string(data), `"m_FavoriteWeaponItemDatabaseId":"!!itm@0"`, `"m_FavoriteWeaponItemDatabaseId":"!!itm#0"`, 1)))
+	}
+	for name, export := range map[string]struct {
+		world  func(t *testing.T) *Ops
+		export func(o *Ops) (*BaseExport, error)
+	}{
+		"a standing base":  {func(t *testing.T) *Ops { return standingOps(t, weaponAndQueuedJob) }, func(o *Ops) (*BaseExport, error) { return o.ExportStandingBaseConsole(601, exportAt, "test-1.2.3") }},
+		"a picked-up base": {func(t *testing.T) *Ops { return exportOps(t, weaponAndQueuedJob) }, func(o *Ops) (*BaseExport, error) { return o.ExportBaseBackupConsole(1, exportAt, "test-1.2.3") }},
+	} {
+		t.Run(name, func(t *testing.T) {
+			o := export.world(t)
+			before := dumpSave(t, o.S)
+			out, err := export.export(o)
+			if err == nil || out != nil {
+				t.Fatalf("exported: %+v", out)
+			}
+			for _, w := range []string{"non-transfer id !!itm#0", "m_FavoriteWeaponItemDatabaseId", "Nothing was exported"} {
+				if !strings.Contains(err.Error(), w) {
+					t.Errorf("error %q does not say %q", err, w)
+				}
+			}
+			if dumpSave(t, o.S) != before {
+				t.Error("a refused export changed the save")
+			}
+		})
 	}
 }
