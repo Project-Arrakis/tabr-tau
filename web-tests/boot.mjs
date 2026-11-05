@@ -44,7 +44,7 @@ export async function boot({ post = {}, get = {}, session = {}, local = {}, pre 
       fetched.push(u.pathname); fetchedUrls.push(u.pathname + u.search);
       const g = get[u.pathname];
       if (g && g.__fail) return fail(g);
-      if (g) return { ok: true, status: 200, statusText: 'OK', json: async () => g, blob: async () => new w.Blob(['x']) };
+      if (g) return { ok: true, status: 200, statusText: 'OK', json: async () => g, blob: async () => new w.Blob(['x']), headers: { get: (k) => (g.__headers && g.__headers[k]) ?? null } }; // __headers: the response headers a test wants the page to see
       const f = fixtures[u.pathname];
       const status = f ? f.status : 404;
       return { ok: status < 400, status, statusText: f ? 'OK' : 'Not Found', json: async () => (f ? f.body : { error: 'not in fixtures: ' + u.pathname }), blob: async () => new w.Blob(['x']) };

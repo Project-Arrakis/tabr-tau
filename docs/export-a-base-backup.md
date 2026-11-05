@@ -8,7 +8,7 @@ the save changes, nothing is written to the game's folder, and nothing asks firs
 
 A base backup is what the game leaves when you pick a base up with its base tool (shown in the item list as "Base Reconstruction Tool"). The buildings stay in the save, the claim is gone,
 and the game keeps a record of the base's parts. Pick a base up, let the game save, close the game, and open the editor (or press reload in it). A base that is still standing is not a
-backup and is not listed (exporting a standing base is a later step).
+backup and is not listed here; the Bases list can export it as the Dune console's file (see [`export-a-base-for-the-console.md`](export-a-base-for-the-console.md), #534).
 
 ## Export one
 
