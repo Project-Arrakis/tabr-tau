@@ -219,14 +219,55 @@ document.addEventListener('toggle', (e) => {
   const d = e.target;
   if (d && d.matches && d.matches('details.about[data-about]')) { if (d.open) browserStore.set(aboutKey(d.dataset.about), '1'); else browserStore.remove(aboutKey(d.dataset.about)); }
 }, true);
-// Escape puts a tooltip away without moving the focus or the pointer; it comes back when the pointer or the focus leaves and returns.
+// Where a tooltip goes (#536). A tooltip is drawn with position:fixed, so the scroll box a table sits in neither clips it nor counts it in its scroll size, and nothing moves when
+// it opens. This pure function computes where: all numbers are in viewport pixels. anchor is the control's rectangle {left, top, right, bottom}, box the tooltip's size {width, height},
+// view the window {width, height}. The tooltip goes below the control (overlapping its edge by 2 px, so the pointer can travel into the tooltip), flips above when it would run
+// past the bottom and there is more room above, and is clamped to the window on every side (margin 8 px). A tooltip taller than the window is cut by the CSS max-height.
+function placeTip(anchor, box, view, margin = 8, overlap = 2) {
+  const maxLeft = Math.max(margin, view.width - box.width - margin);
+  const left = Math.min(Math.max(anchor.left, margin), maxLeft);
+  const below = anchor.bottom - overlap, above = anchor.top + overlap - box.height;
+  const roomBelow = view.height - margin - below, roomAbove = anchor.top + overlap - margin;
+  const flip = box.height > roomBelow && roomAbove > roomBelow;
+  let top = flip ? above : below;
+  top = Math.min(Math.max(top, margin), Math.max(margin, view.height - box.height - margin));
+  return { left, top, side: flip ? 'above' : 'below' };
+}
+// One tooltip is open at a time (hover or keyboard focus on its control). It is placed from the rectangle of its wrapper when it opens and put away on blur, on Escape and
+// when anything scrolls or the window is resized (it would no longer be next to its control). Escape puts it away without moving the focus or the pointer; it comes back
+// when the pointer or the focus leaves and returns.
+let tipOpen = null;
+function closeTip() { if (tipOpen) { tipOpen.classList.remove('open'); tipOpen = null; } }
+function openTip(t) {
+  if (tipOpen === t || t.classList.contains('closed')) return;
+  closeTip();
+  const box = t.querySelector('.tipbox');
+  if (!box) return;
+  t.classList.add('open');
+  tipOpen = t;
+  box.style.left = '0px'; box.style.top = '0px'; // measured at the corner, where it has the most room to wrap
+  const r = t.getBoundingClientRect(), s = box.getBoundingClientRect(), de = document.documentElement;
+  const p = placeTip(r, { width: s.width, height: s.height }, { width: de.clientWidth || window.innerWidth, height: de.clientHeight || window.innerHeight });
+  box.style.left = p.left + 'px'; box.style.top = p.top + 'px';
+}
+const tipOf = (e) => (e.target && e.target.closest ? e.target.closest('.tip') : null);
+document.addEventListener('mouseover', (e) => { const t = tipOf(e); if (t) openTip(t); });
+document.addEventListener('focusin', (e) => { const t = tipOf(e); if (t) openTip(t); });
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  document.querySelectorAll('.tip').forEach((t) => { if (t.contains(document.activeElement) || t.matches(':hover')) t.classList.add('closed'); });
+  document.querySelectorAll('.tip').forEach((t) => { if (t.contains(document.activeElement) || t.matches(':hover') || t === tipOpen) t.classList.add('closed'); });
+  closeTip();
 });
-const reopenTip = (e) => { const t = e.target && e.target.closest && e.target.closest('.tip'); if (t && !t.contains(e.relatedTarget)) t.classList.remove('closed'); };
-document.addEventListener('focusout', reopenTip);
-document.addEventListener('mouseout', reopenTip);
+const leaveTip = (e) => {
+  const t = tipOf(e);
+  if (!t || t.contains(e.relatedTarget)) return;
+  t.classList.remove('closed');
+  if (t === tipOpen && !(e.type === 'mouseout' && t.contains(document.activeElement)) && !(e.type === 'focusout' && t.matches(':hover'))) closeTip();
+};
+document.addEventListener('focusout', leaveTip);
+document.addEventListener('mouseout', leaveTip);
+window.addEventListener('scroll', (e) => { if (tipOpen && !(e.target && e.target.nodeType === 1 && tipOpen.contains(e.target))) closeTip(); }, true);
+window.addEventListener('resize', closeTip);
 
 // ---------- generic renderers
 // Every table sorts by the header that is clicked: once ascending, again descending, a third time back to the original order. The rows

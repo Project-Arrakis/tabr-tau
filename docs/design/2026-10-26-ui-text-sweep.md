@@ -39,7 +39,7 @@ Nothing that protects the person is deleted. The queued state, the backup and un
 Two small pieces, built from what the page already has (no new library, no script that draws a floating box):
 
 1. **Tooltip** (`.tip`). The control is wrapped in `<span class="tip">`; next to it is `<span class="tipbox" role="tooltip" id="...">` with one or two sentences, and the control points at it with `aria-describedby`. The box is
-   hidden by default, shown by CSS on hover and on keyboard focus (`:hover`, `:focus-within`), so a keyboard user sees it on Tab, and a screen reader reads it as the control's description whether or not it is drawn. This replaces today's
+   hidden by default, opened by a small script on hover and on keyboard focus (#536; it was CSS `:hover` and `:focus-within` until a tooltip in a table was clipped by the table's scroll box), so a keyboard user sees it on Tab, and a screen reader reads it as the control's description whether or not it is drawn. This replaces today's
    `<span class="mut" id="...note">` that is already tied to its button with `aria-describedby`: the ids stay, the text stops being drawn all the time. The native `title=` on a control that already has one stays as it is (it is a tooltip too).
 2. **About this** (`details.about`). The last element of a card: `<details class="about"><summary>About this</summary>...</details>`, closed by default, opened with Enter or Space (the browser's own disclosure, so it is
    keyboard accessible without code). For the text that is about the card and not about one control: several sentences, a list of what is left alone, where a number comes from. The open or closed choice is remembered per page
@@ -393,6 +393,7 @@ The decisions above stand; where carrying one out showed a better way, the way i
 * **Fill faction goal** keeps the sentence it already had as its tooltip (it said the same as the line that was removed); Complete gained "Marks the house taken, for the chosen faction."
 * **The Database backups line** keeps the backup facts in one sentence; the two-minute detail is in About this. The config warning points at the Backups list below it.
 * **`tip` and `about`** are plain functions, so the map's script (a separate file) can use them.
+* **A tooltip is drawn on top of the page, not inside the box around its control** (#536). `.tipbox` is `position:fixed`, which an `overflow:auto` ancestor (a table's `.scroll` box) neither clips nor counts in its scroll size, so opening one never adds a scrollbar or moves a row. The page keeps one open at a time and places it when it opens, with the pure function `placeTip(anchor, box, view)` in `app.js`: below the control, above it when there is no room below and more above, clamped to the window with an 8 px margin (a narrow window included); a box taller than the window scrolls inside itself. It is put away on blur, Escape, a scroll anywhere and a resize. A disabled button inside a `.tip` has `pointer-events:none`, so the wrapper still receives the hover. There is no motion, so nothing to turn off for `prefers-reduced-motion`. `web-tests/tooltip.test.mjs` tests the placement and the open and close rules.
 * **A bug found by the sweep** (the Journey lists could not be switched before the filter was used) is #429, fixed in the step that touched that code, with its own test.
 
 ## What shipped, in numbers
