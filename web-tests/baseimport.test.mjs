@@ -9,8 +9,8 @@ test.afterEach(() => closeAll());
 const BASE7 = [{ base_id: 7, name: 'Base', base_type: 'Advanced Sub-Fief', owner: 'Owner', map: 'HaggaBasin', generators: 0, pieces: 0, placeables: 0, x: 0, y: 0, z: 0 }];
 const PV = {
   ok: true, dryRun: true, changed: true, name: 'Advanced Sub-Fief', state: 5, fileHash: 'abc123', patchesDiffer: false,
-  summary: { actors: 56, pieces: 179, placeables: 55, storedItems: 99, entities: 86, rows: 736 },
-  owner: { controller: 1, character: 'Shiya', rows: 233 }, warnings: [], ids: { backup: { first: 3, last: 3, count: 1 } },
+  summary: { actors: 14, pieces: 160, placeables: 11, storedItems: 8, entities: 20, rows: 300 },
+  owner: { controller: 1, character: 'Test Character', rows: 90 }, warnings: [], ids: { backup: { first: 3, last: 3, count: 1 } },
 };
 const open = async (ui) => {
   ui.click('[data-tab="player"]'); await ui.settle();
@@ -49,7 +49,7 @@ test('choosing a file posts it for a preview, shows the counts and the warnings,
   const panel = ui.doc.querySelector('#baseImportPanel');
   assert.ok(panel, 'a preview panel');
   const t = panel.textContent;
-  assert.ok(t.includes('56 actors') && t.includes('179 building pieces') && t.includes('55 placeables') && t.includes('99 stored items') && t.includes('736 rows') && t.includes('Shiya'), t);
+  assert.ok(t.includes('14 actors') && t.includes('160 building pieces') && t.includes('11 placeables') && t.includes('8 stored items') && t.includes('300 rows') && t.includes('Test Character'), t);
   assert.ok(t.includes('Nothing in the save has changed.'), t);
   assert.equal(panel.querySelectorAll('li').length, 2);
   assert.equal(panel.querySelector('li b'), null, 'a warning is text, not markup');
@@ -67,7 +67,7 @@ test('Import sends the previewed text with its hash, asks nothing, and says wher
   assert.deepEqual(ui.posted[1].body, { text: '{"x":1}', fileHash: 'abc123' });
   assert.equal(ui.doc.querySelector('#atype'), null, 'no typed confirmation');
   const toast = ui.doc.querySelector('#toast').textContent;
-  assert.ok(toast.includes('Imported "Advanced Sub-Fief" as base backup 3') && toast.includes('179 pieces') && toast.includes('Base Reconstruction Tool'), toast);
+  assert.ok(toast.includes('Imported "Advanced Sub-Fief" as base backup 3') && toast.includes('160 pieces') && toast.includes('Base Reconstruction Tool'), toast);
   assert.ok(!toast.includes('queued'), toast);
   assert.equal(ui.doc.querySelector('#baseImportPanel'), null, 'the panel is gone after the import');
   ui.dom.window.close();
@@ -127,13 +127,13 @@ test('a refused import keeps the panel so the person can read why', async () => 
 });
 
 test('a file of the Dune console says so in the preview, with its name, map and counts, as text', async () => {
-  const from = 'Read from a file of the Dune console (v1.4.52), base backup "<i>My Base</i>", map HaggaBasin, 811 pieces, 204 placeables, 21 stored items, exported 2026-10-25T18:02:57.884Z.';
+  const from = 'Read from a file of the Dune console (v1.4.52), base backup "<i>My Base</i>", map HaggaBasin, 520 pieces, 31 placeables, 6 stored items, exported 2026-01-01T00:00:00.000Z.';
   const ui = await boots({ '/api/bases/backups/import-preview': { ...PV, from, file: { origin: 'console' } } });
   await open(ui);
   await choose(ui, 'base-backup.json', '{"format":"dune-base-backup"}');
   const panel = ui.doc.querySelector('#baseImportPanel');
   const t = panel.textContent;
-  assert.ok(t.includes('the Dune console (v1.4.52)') && t.includes('HaggaBasin') && t.includes('811 pieces') && t.includes('204 placeables') && t.includes('21 stored items'), t);
+  assert.ok(t.includes('the Dune console (v1.4.52)') && t.includes('HaggaBasin') && t.includes('520 pieces') && t.includes('31 placeables') && t.includes('6 stored items'), t);
   assert.equal(panel.querySelector('p i'), null, 'the name from the file is text');
   assert.ok(panel.querySelector('[data-act="baseImportGo"]'));
   ui.dom.window.close();

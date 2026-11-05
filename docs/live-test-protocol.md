@@ -124,7 +124,7 @@ Reference set (template ids, worn container, positions 0-4 armor, 6-9 utility):
 | `E5-augment-stats` | Game closed. Copy the `stats.FAugmentedItemStats` entry from the `E0` row (or from a reference row obtained in game) onto the E1 item. Snapshot. | T9 |
 | `E6-game-augment` | Launch, inspect the item, screenshot augments and stats, quit. Snapshot. | T9 |
 
-### Phase E results (2026-10-07, one run, operator's own save)
+### Phase E results (2026-10-07, one run, on a copy of a played save)
 
 Done by direct SQL on a decoded copy, using the multiplayer row layout (full `stats` JSON, `quality_level`, ids from
 `items_id_sequencer`), not by tabr-tau's Give item. Existing worn and loadout items were moved to free backpack
@@ -133,9 +133,9 @@ slots, not deleted. The edited file was written back with the game closed, after
 | ID | Result | Evidence |
 |---|---|---|
 | T7 | PASS (direct SQL route) | Items present and usable after a game load. |
-| T8 | PASS | Nine rows inserted into the worn container (`inventory_type = 1`) at positions 0-4 and 6-9. After the game loaded and re-saved the file, all nine rows were still there with the same ids, `template_id`, `quality_level` and augment data; the operator confirmed the set shows as worn. |
+| T8 | PASS | The reference rows were inserted into the worn container (`inventory_type = 1`) at the armor and utility positions. After the game loaded and re-saved the file, all of them were still there with the same ids, `template_id`, `quality_level` and augment data; the operator confirmed the set shows as worn. |
 | T9 | PASS | `FAugmentedItemStats` (two `T6_Augment_Armor*` entries per armor piece) survived the game's own load and save, and the operator confirmed the gear. |
-| Loadout | PASS (not a pre-registered test) | Eight rows inserted into the loadout container (`inventory_type = 15`), including two augmented weapons; the operator confirmed the loadout worked in game. |
+| Loadout | PASS (not a pre-registered test) | Rows inserted into the loadout container (`inventory_type = 15`), including augmented weapons; the operator confirmed the loadout worked in game. |
 
 Not shown by this run: that tabr-tau's own Give item produces the same rows (T1/T1b still open), a crash-log check,
 and any template whose name differs between the multiplayer and single-player builds. Foreign-key checks were clean
@@ -171,6 +171,6 @@ Do not use `--no-redact` for anything that leaves your machine.
 
 ## Already-known evidence (no live test needed)
 
-`autosave/2.bak -> 9.bak` in the sample shows: hydration `43.64 -> 26.40`, `HeatExhaustion 0 -> 20.42`,
-`TechKnowledgePoints 19 -> 0`, 14 new actors, 141 new `building_instances`. Autosave slots are usable as free
+Two autosave slots of a played sample differ as play progresses: hydration falls, `HeatExhaustion` rises,
+`TechKnowledgePoints` are spent, and new actors and `building_instances` appear. Autosave slots are usable as free
 time-series data and as fixtures for `snapdiff` tests.

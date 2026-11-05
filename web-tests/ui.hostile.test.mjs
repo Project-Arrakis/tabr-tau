@@ -122,16 +122,16 @@ for (const confused of [false, true]) for (const [tabName, ...subs] of VIEWS) {
 
 test('the Player Summary shows what the save holds, above the Player tabs', async () => {
   const summary = {
-    name: 'Tester', status: 'Offline', map: 'HaggaBasin', faction: 'Harkonnen', guild: null, level: 71, xp: 41221,
-    skillPoints: { unspent: 9, total: 70 }, intel: { points: 333, max: 2779 },
+    name: 'Tester', status: 'Offline', map: 'HaggaBasin', faction: 'Harkonnen', guild: null, level: 36, xp: 20000,
+    skillPoints: { unspent: 5, total: 35 }, intel: { points: 300, max: 2779 },
     vitals: { health: 112.5, healthMinMax: 150, hydration: 52.5, maxHydration: 100, spiceAddiction: 0, maxSpiceAddiction: 10 },
     identity: { platform: 'Steam', platformId: 'P1', funcomId: 'F1', flsId: 'L1' }, ids: { actor: 2, account: 1, controller: 1, playerState: 3 },
-    currency: [{ label: 'Solari in wallet', balance: 591227 }, { label: 'Solari in backpack', balance: 95470 }, { label: 'House credit in wallet', balance: 0 }],
+    currency: [{ label: 'Solari in wallet', balance: 250000 }, { label: 'Solari in backpack', balance: 40000 }, { label: 'House credit in wallet', balance: 0 }],
   };
   const ui = await boot({ get: { '/api/player/summary': summary } });
   ui.click('[data-tab="player"]'); await ui.settle();
   const text = ui.doc.querySelector('#main').textContent;
-  for (const want of ['Player summary', 'Harkonnen', '71', '41,221', '9 unspent, 70 earned', '333 of 2,779', '112.5 (max 150 or more)', '52.5 of 100', 'Steam ID', 'Solari in wallet', '591,227', 'Solari in backpack', '95,470', 'House credit in wallet']) {
+  for (const want of ['Player summary', 'Harkonnen', '36', '20,000', '5 unspent, 35 earned', '300 of 2,779', '112.5 (max 150 or more)', '52.5 of 100', 'Steam ID', 'Solari in wallet', '250,000', 'Solari in backpack', '40,000', 'House credit in wallet']) {
     assert.ok(text.includes(want), `the summary should show ${want}`);
   }
   assert.ok(ui.doc.querySelector('[data-sub="player:bases"]'), 'the Player tabs are still there');
@@ -278,13 +278,13 @@ test('Character > Inventory shows the console groups, a filter, slot usage and a
 
 test('Give XP and Give currency post their amounts and report the result', async () => {
   const ui = await boot({ post: {
-    '/api/player/xp': { ok: true, before: 41221, after: 42221, applied: 1000, levelBefore: 71, levelAfter: 72, skillPointsGained: 1, capped: false },
+    '/api/player/xp': { ok: true, before: 20000, after: 21000, applied: 1000, levelBefore: 36, levelAfter: 37, skillPointsGained: 1, capped: false },
     '/api/player/currency': { ok: true, currency: 1, before: 0, after: 250 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.doc.querySelector('#xpAmt').value = '1000';
   ui.click('[data-act="xp"]'); await ui.settle();
   let toast = ui.doc.querySelector('#toast').textContent;
-  assert.ok(toast.includes('41,221') && toast.includes('42,221') && toast.includes('level 71 → 72') && toast.includes('+1 skill points'), toast);
+  assert.ok(toast.includes('20,000') && toast.includes('21,000') && toast.includes('level 36 → 37') && toast.includes('+1 skill points'), toast);
   ui.doc.querySelector('#curSel').value = '1'; ui.doc.querySelector('#curAmt').value = '250';
   ui.click('[data-act="currency"]'); await ui.settle();
   toast = ui.doc.querySelector('#toast').textContent;
@@ -1991,12 +1991,12 @@ test('a count says what it counts, and "N of N" appears only while a filter narr
 });
 
 test('the Player Summary labels its numbers: skill points unspent and earned, Intel against its cap', async () => {
-  const summary = { name: 'T', status: 'Offline', map: 'HaggaBasin', faction: null, level: null, xp: 10, skillPoints: { unspent: 9, total: 70 }, intel: { points: 333, max: 2779 },
+  const summary = { name: 'T', status: 'Offline', map: 'HaggaBasin', faction: null, level: null, xp: 10, skillPoints: { unspent: 5, total: 35 }, intel: { points: 300, max: 2779 },
     vitals: { health: 112.5, healthMinMax: 150, hydration: 52.5, maxHydration: 100, spiceAddiction: 0, maxSpiceAddiction: 10 }, identity: {}, ids: {}, currency: [] };
   const ui = await boot({ get: { '/api/player/summary': summary } });
   await goTo(ui, 'player');
   const t = ui.doc.querySelector('#sumcard').textContent;
-  for (const want of ['9 unspent, 70 earned', '333 of 2,779', '112.5 (max 150 or more)', '52.5 of 100']) assert.ok(t.includes(want), `${want} in ${t}`);
+  for (const want of ['5 unspent, 35 earned', '300 of 2,779', '112.5 (max 150 or more)', '52.5 of 100']) assert.ok(t.includes(want), `${want} in ${t}`);
   assert.ok(/Level\s*-/.test(t), 'a missing level shows a dash like the other tiles: ' + t);
   ui.dom.window.close();
 });

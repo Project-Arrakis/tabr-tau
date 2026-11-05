@@ -122,33 +122,33 @@ test('Reset skills: a no-op answer says nothing was changed', async () => {
 
 // ---- Level and XP, on Character > Overview
 
-const summary = (o = {}) => ({ name: 'Tester', status: 'Offline', map: 'HaggaBasin', faction: 'Neutral', level: 71, xp: 41221, skillPoints: { unspent: 9, total: 70 },
+const summary = (o = {}) => ({ name: 'Tester', status: 'Offline', map: 'HaggaBasin', faction: 'Neutral', level: 36, xp: 20000, skillPoints: { unspent: 5, total: 35 },
   intel: { points: 1, max: 2779 }, vitals: {}, identity: {}, ids: {}, currency: [], ...o });
 
 test('Reset level and XP: names the XP, says what happens to the skill points, and sends the XP that was confirmed', async () => {
-  const ui = await boot({ get: { '/api/player/summary': summary() }, post: { '/api/player/level/reset': { ok: true, changed: 41221, noop: false, levelBefore: 71 } } }); ui.freeze();
+  const ui = await boot({ get: { '/api/player/summary': summary() }, post: { '/api/player/level/reset': { ok: true, changed: 20000, noop: false, levelBefore: 36 } } }); ui.freeze();
   ui.click('[data-tab="player"]'); await ui.settle();
   const btn = ui.doc.querySelector('[data-act="lvReset"]');
   assert.ok(btn, 'the Character overview has the button');
-  assert.equal(btn.textContent.trim(), 'Reset level and XP (41,221 XP)');
+  assert.equal(btn.textContent.trim(), 'Reset level and XP (20,000 XP)');
   assert.equal(btn.disabled, false);
   assert.ok(btn.classList.contains('bad'));
   assert.ok(ui.doc.getElementById(btn.getAttribute('aria-describedby')));
   ui.click('[data-act="lvReset"]'); await ui.settle();
   const text = ui.doc.querySelector('#ask').textContent;
-  assert.ok(text.includes('Reset level 71 and 41,221 XP to 0?'));
-  assert.ok(text.includes('Type reset 41221 xp to continue'));
-  assert.ok(text.includes('total 70') && text.includes('unspent now 9'), 'the skill points that can be taken back are named');
+  assert.ok(text.includes('Reset level 36 and 20,000 XP to 0?'));
+  assert.ok(text.includes('Type reset 20000 xp to continue'));
+  assert.ok(text.includes('total 35') && text.includes('unspent now 5'), 'the skill points that can be taken back are named');
   assert.ok(text.includes('only from the points you have not spent') && text.includes('never drops below what your skills hold'), 'the dialog says that spent points stay');
   assert.ok(/backup/i.test(text));
   assert.equal(posts(ui, '/api/player/level/reset').length, 0);
-  ui.type('reset 41221 xp');
+  ui.type('reset 20000 xp');
   ui.click('#aok'); await ui.settle();
   assert.equal(posts(ui, '/api/player/level/reset').length, 0, 'an OK within the gap is ignored');
   ui.tick(GAP);
   ui.click('#aok'); await ui.settle();
-  assert.deepEqual(posts(ui, '/api/player/level/reset').map((p) => p.body), [{ expected: 41221 }]);
-  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Level 71 and 41,221 XP reset to 0'));
+  assert.deepEqual(posts(ui, '/api/player/level/reset').map((p) => p.body), [{ expected: 20000 }]);
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Level 36 and 20,000 XP reset to 0'));
 });
 
 test('Reset level and XP: off, with its reason, when the character has no XP or the save has no level record', async () => {
@@ -201,12 +201,12 @@ test('Reset XP of all known tracks: off when no known track has XP', async () =>
 });
 
 test('Reset level and XP: a refusal because the XP changed is shown and the page is read again', async () => {
-  const ui = await boot({ get: { '/api/player/summary': summary() }, post: { '/api/player/level/reset': { __fail: 'the XP to reset is now 100, not the 41221 you confirmed, so nothing was changed: reload the page and look again', __code: 'conflict', __status: 409 } } }); ui.freeze();
+  const ui = await boot({ get: { '/api/player/summary': summary() }, post: { '/api/player/level/reset': { __fail: 'the XP to reset is now 100, not the 20000 you confirmed, so nothing was changed: reload the page and look again', __code: 'conflict', __status: 409 } } }); ui.freeze();
   ui.click('[data-tab="player"]'); await ui.settle();
   const reads = () => ui.fetched.filter((p) => p === '/api/player/summary').length;
   const before = reads();
   ui.click('[data-act="lvReset"]'); await ui.settle();
-  ui.type('reset 41221 xp'); ui.tick(GAP);
+  ui.type('reset 20000 xp'); ui.tick(GAP);
   ui.click('#aok'); await ui.settle(); await ui.wait(20); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast .err').textContent.includes('you confirmed'));
   assert.ok(reads() > before);
@@ -328,11 +328,11 @@ test('Reset research: a refusal because the count changed redraws the page', asy
 });
 
 test('Reset level and XP: the answer says how many skill points stayed because they are spent', async () => {
-  const ui = await boot({ get: { '/api/player/summary': summary() }, post: { '/api/player/level/reset': { ok: true, changed: 41221, noop: false, levelBefore: 71, pointsTaken: 9, pointsKept: 62 } } }); ui.freeze();
+  const ui = await boot({ get: { '/api/player/summary': summary() }, post: { '/api/player/level/reset': { ok: true, changed: 20000, noop: false, levelBefore: 36, pointsTaken: 5, pointsKept: 31 } } }); ui.freeze();
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-act="lvReset"]'); await ui.settle();
-  ui.type('reset 41221 xp');
+  ui.type('reset 20000 xp');
   ui.tick(GAP);
   ui.click('#aok'); await ui.settle();
-  assert.ok(ui.doc.querySelector('#toast').textContent.includes('62 skill points could not be taken back because they are spent in skills'), ui.doc.querySelector('#toast').textContent);
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('31 skill points could not be taken back because they are spent in skills'), ui.doc.querySelector('#toast').textContent);
 });

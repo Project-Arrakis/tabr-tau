@@ -28,7 +28,7 @@ const (
 	// KindBackup is a base that the game's own tool picked up (a row in base_backups and its linked actors, state 5).
 	KindBackup = "base-backup"
 
-	// MaxFileBytes is the largest file the editor writes or reads. A base of 1,400 pieces is well under 2 MiB; the Dune Docker console caps an upload at 32 MiB.
+	// MaxFileBytes is the largest file the editor writes or reads. A base of a thousand pieces or so is well under 2 MiB; the Dune Docker console caps an upload at 32 MiB.
 	MaxFileBytes = 16 << 20
 	// MaxRows is the most rows a file may hold, over all tables (the console uses the same number of entries).
 	MaxRows = 250000

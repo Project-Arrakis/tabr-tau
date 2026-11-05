@@ -13,12 +13,12 @@ import (
 )
 
 // Create a vehicle from a template (#401). The fixture is a character (pawn at 100, 200, 300 on HaggaBasin, facing 90 degrees) who owns one medium ornithopter written as the
-// game wrote vehicle 578 of a real save (the same properties, entity components, 14 modules, a cargo hold of 20 slots and 2000 volume, one component hold), and a world vehicle
+// game writes one (the same properties, entity components, 14 modules, a cargo hold of 20 slots and 2000 volume, one component hold), and a world vehicle
 // that is nobody's.
 
 func entID(prefix uint32, low uint32) int64 { return int64(uint64(prefix)<<32 | uint64(low)) }
 
-const realMediumProps = `{"BP_MediumOrnithopter_CHOAM_C":{"m_HarnessedVehicleId":"!!act#0","m_InitialFuel":0.0,"m_InitialHealth":0.0,"m_SpawnerName":"","m_CustomizationId":"None","m_AbandonedTimestamp":"2026.10.19-03.56.03","m_bIsInSafezone":true},"DamageableActorComponent":{"m_CurrentMaxHealth":750.0,"m_TotalMaxHealth":750.0},"EncounterActorComponent":{"m_OwningEncounterUid":{"EncounterUid":"None"}}}`
+const realMediumProps = `{"BP_MediumOrnithopter_CHOAM_C":{"m_HarnessedVehicleId":"!!act#0","m_InitialFuel":0.0,"m_InitialHealth":0.0,"m_SpawnerName":"","m_CustomizationId":"None","m_AbandonedTimestamp":"2026.01.01-00.00.00","m_bIsInSafezone":true},"DamageableActorComponent":{"m_CurrentMaxHealth":750.0,"m_TotalMaxHealth":750.0},"EncounterActorComponent":{"m_OwningEncounterUid":{"EncounterUid":"None"}}}`
 
 const realMediumEntity = `{"FAggroControllerComponent":[0,{"m_TotalDamageDone":0.0}],"FBiomeWeatherModifierComponent":[0,{"CurrentTemperatureModifier":1.0,"CurrentSandBuildupModifier":0.0,"m_CurrentSandColor":{"r":0.428689,"G":0.145263,"B":0.06859,"A":1.0}}],"FHealthComponent":[0,{"m_CurrentHealth":750.0,"m_MaxDownButNotOutStateHealth":150.0,"m_CurrentDownButNotOutStateHealth":150.0}],"FShelterComponent":[0,{"m_IsShelteredTraceResults":[true,true,true,true,true,true,true,true,true],"m_ShelteredPercentage":1.0}],"FVehicleComponent":[0,{"CurrentFuel":750.0,"RemainingTimeUntilDespawn":0.0}]}`
 
@@ -28,11 +28,11 @@ var realMediumModules = strings.Fields(`OrnithopterMediumChassis_5 OrnithopterMe
 
 func spawnWorldSQL() string {
 	var b strings.Builder
-	prefix := uint32(0xb1270da9)
+	prefix := uint32(0x0a1b2c3d)
 	fmt.Fprintf(&b, `
 update actors set rotation_x=0.0, rotation_y=0.0, rotation_z=0.7071067811865476, rotation_w=0.7071067811865476 where id=2;
 insert into actors(id,class,map,location_x,location_y,location_z,rotation_x,rotation_y,rotation_z,rotation_w,dimension_index,gas_attributes,properties,serial,state) values
- (578,'/Game/Dune/Systems/Vehicles/Blueprints/FlyingVehicles/BP_MediumOrnithopter_CHOAM.BP_MediumOrnithopter_CHOAM_C','DeepDesert',-311808.95,-587767.15,3528.84,-0.0,0.0,-1.0,0.06,0,jsonb('{}'),jsonb('%s'),679,0),
+ (578,'/Game/Dune/Systems/Vehicles/Blueprints/FlyingVehicles/BP_MediumOrnithopter_CHOAM.BP_MediumOrnithopter_CHOAM_C','DeepDesert',-300000.0,-590000.0,3500.0,-0.0,0.0,-1.0,0.06,0,jsonb('{}'),jsonb('%s'),679,0),
  (579,'/Game/Dune/Systems/Vehicles/Blueprints/GroundVehicles/BP_Buggy_CHOAM.BP_Buggy_CHOAM_C','HaggaBasin',5000,6000,7000,0,0,0,1,0,jsonb('{}'),jsonb('{}'),5,0);
 insert into vehicles(id) values (578),(579);
 insert into permission_actor(actor_id,actor_name,actor_type,access_level,is_child,edited_by_player_id) values (578,'##MediumOrnithopter',2,3,0,0);
@@ -41,7 +41,7 @@ insert into fgl_entities(entity_id,components) values (%d, jsonb('%s')), (%d, js
 insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (578,%d,'Actor'),(578,%d,'VehicleInventory');
 insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (506,578,0,20,2000.0),(507,578,NULL,NULL,NULL);
 insert into actor_inventories(inventory_id,component_name_hash) values (506,-72424899),(507,462019337);`,
-		realMediumProps, entID(prefix, 664255), realMediumEntity, entID(prefix, 664253), entID(0x11111111, 900000), entID(prefix, 664255), entID(prefix, 664253))
+		realMediumProps, entID(prefix, 500255), realMediumEntity, entID(prefix, 500253), entID(0x11111111, 900000), entID(prefix, 500255), entID(prefix, 500253))
 	for i, id := range realMediumModules {
 		fmt.Fprintf(&b, "\ninsert into vehicle_modules(id,vehicle_id,template_id,stats) values (%d,578,'%s',jsonb('{\"FVehicleModuleDurabilityStats\":[[],{\"CurrentDurability\":1.0}],\"FCustomizationStats\":[[],{\"SwatchId\":\"Sardaukar Global\"}]}'));", 204+i, id)
 	}
@@ -224,9 +224,9 @@ func TestSpawnBuggyT5MiningAndT6Combat(t *testing.T) {
 	assertDBSound(t, o)
 }
 
-// The operator's buggy: Mk6 (tier 6, the T6_Combat template) with three uniques in place of stock parts and a cargo of items. The item ids the game's catalog uses for two of them
+// A Mk6 buggy (tier 6, the T6_Combat template) with three uniques in place of stock parts and a cargo of items. The item ids the game's catalog uses for two of them
 // spell the grade with a zero; the rows are told apart in the answer.
-func TestSpawnTheOperatorsMkSixBuggyWithUniquesAndCargo(t *testing.T) {
+func TestSpawnAMkSixBuggyWithUniquesAndCargo(t *testing.T) {
 	o := spawnOps(t)
 	a := Args{
 		"class": "Buggy", "template": "T6_Combat",
@@ -394,13 +394,13 @@ func TestSpawnEveryClassWritesAVehicleThatIsSound(t *testing.T) {
 // Entity ids: they take the prefix of the newest vehicle, count from above everything the prefix already has, and are distinct for every vehicle made.
 func TestSpawnEntityIDsShareThePrefixAndAreUnique(t *testing.T) {
 	o := spawnOps(t)
-	ref := entID(0xb1270da9, 664255)
+	ref := entID(0x0a1b2c3d, 500255)
 	var seen = map[int64]bool{}
 	for i := 0; i < 3; i++ {
 		id, _ := spawn(t, o, Args{"class": "Sandbike", "template": "T0"})
 		for slot, e := range viewOf(t, o, id).entities {
 			eid := e["e"].(int64)
-			if eid>>32 != ref>>32 || eid&0xFFFFFFFF <= 664255 || seen[eid] {
+			if eid>>32 != ref>>32 || eid&0xFFFFFFFF <= 500255 || seen[eid] {
 				t.Errorf("%s entity %x", slot, eid)
 			}
 			seen[eid] = true

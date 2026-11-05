@@ -16,7 +16,7 @@ backup and is not listed here; the Bases list can export it as the Dune console'
 2. Each row shows the backup's number, its name, the map, and the counts the file will hold: **Actors**, **Building pieces**, **Placeables** and **Stored items**.
 3. Press **Export base backup** on the row. The browser saves `tabr-tau-base-backup-<number>-<name>.json`; the editor does not choose the folder, your browser's download setting does
    (the editor's own window asks where to put it or uses its download folder, like the care package file).
-4. A message repeats the counts: "Exported ...: 174 pieces, 43 placeables, 53 stored items. Nothing in the save changed."
+4. A message repeats the counts: "Exported ...: 200 pieces, 40 placeables, 50 stored items. Nothing in the save changed."
 
 To check the file, open it in a text editor. The numbers under `"summary"` are the numbers on the row, and each table lists its rows, one to a line.
 
@@ -52,11 +52,11 @@ The export stops, says why, and writes nothing, when:
 - the backup has no actors linked to it, or names an actor that is not in the save (a damaged backup);
 - a storage of the base holds a Solido blueprint (its rows are not carried yet), or an inventory of the base belongs to an item or a vehicle;
 - a number in the base is not finite, or a JSON value in it is not valid;
-- the base is over the limits of a file: 250,000 rows or 16 MiB (a base of about 1,400 pieces is under 2 MiB);
+- the base is over the limits of a file: 250,000 rows or 16 MiB (an ordinary base is far under both);
 - the save was edited while the file was being made (try again).
 
 ## What has been checked
 
-The export is tested on a made-up save of the same shape, including every refusal above, and on a copy of a save that holds a real in-game pick-up (1 backup, 44 actors, 174 pieces, 43
-placeables, 53 stored items, 589 rows; the file passes its own check and its counts equal the card's). That check cannot say whether the **game** would accept the rows again; that is what
+The export is tested on a made-up save of the same shape, including every refusal above, and on a copy of a save that holds a real in-game pick-up (the file passes its own check and its
+counts equal the card's). That check cannot say whether the **game** would accept the rows again; that is what
 the import's checks in the game are for (see `docs/research/2026-10-28-base-export-import-from-console.md`, section 7).

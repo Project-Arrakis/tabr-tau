@@ -5,7 +5,7 @@ Status: built. The table is `bloodCapacity` in `internal/ops/fillables.go`; the 
 ## Problem
 
 Fill blood sacks knew two capacities, `Bloodsack_01` (3000) and `Bloodsack_Unique_Durable_06` (30000), both "the largest amount seen in a save". Every other blood sack was left alone and reported
-("4 blood sacks of an unknown kind will be left alone"), so a character carrying four `Bloodsack_02` could not fill them. The wiki lists the capacities by name only (no internal ids), so the
+("N blood sacks of an unknown kind will be left alone"), so a character carrying `Bloodsack_02` could not fill them. The wiki lists the capacities by name only (no internal ids), so the
 mapping from a template to a capacity was a guess from the order of the names until the game's own data gave it.
 
 ## Source
@@ -32,7 +32,7 @@ rows equal the nine on the wiki. The ordering of the ids is the ordering of the 
 ## Cross-check against saves
 
 * The two capacities already in use (`Bloodsack_01` 3000, `Bloodsack_Unique_Durable_06` 30000), which were entered from the largest amount seen in a save, are the same in the item data.
-* A copy of a played save holds four `Bloodsack_02`; the largest amount in them is 1466, which is below 9000 and so does not contradict it. A save shows only what a sack happened to hold, so it
+* A copy of a played save holds `Bloodsack_02` sacks that are only partly full, which does not contradict the capacity. A save shows only what a sack happened to hold, so it
   cannot confirm a capacity above it; the item data does.
 * There is no template in the data for which the editor has a capacity and the data does not, and none the other way round.
 
@@ -52,7 +52,7 @@ lowered, and only the character's own inventories are looked at. The tooltip on 
 * the table is exactly the nine rows above (the numbers are written a second time in the test, so a change to the table must change a test);
 * for each of the nine templates: an empty record, no record at all and a partly full sack are filled to the capacity with every other key of the stats untouched; a full sack and a sack holding water
   are not rewritten; a second press finds nothing to do and is not an edit;
-* the case of the issue: four `Bloodsack_02` (one holding 1466, two with durability only, one with an empty record) are counted as not full and filled to 9000;
+* the case of the issue: four `Bloodsack_02` (one partly full, two with durability only, one with an empty record) are counted as not full and filled to 9000;
 * templates the data does not list (`Bloodsack_04`, `Bloodsack_Unique_Durable_01`, `Bloodsack_Unique_Durable_07`, `Bloodsack_99`) are left alone and reported; the earlier tests that used
   `Bloodsack_02` and `Bloodsack_03` as "unknown" use `Bloodsack_99`;
 * the inventory view (`fillOf`) shows a partly full, an empty and a full sack of the new templates with their capacity and percent.

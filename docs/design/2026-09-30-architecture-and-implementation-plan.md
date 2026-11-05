@@ -42,7 +42,7 @@ Class: **WORKS** identical schema, **ADAPT** SQL changes, **NEW** needs a JSONB/
 | ID | Feature | dune-docker mechanism | SP mechanism | Class | Evidence | Status |
 |---|---|---|---|---|---|---|
 | P1 | Give item (by template) | RMQ `AddItemToInventory` or SQL insert | `items`+`inventories` insert, `items_id_sequencer` | ADAPT | [V] insert; [T] game accepts and fill-level stats | ✅ partial (no stats/catalog) |
-| P2 | Item catalog/search | `admin-items.json` | embedded snapshot of the Dune Docker catalog (id, name, category; MIT, RedBlink) used by one shared picker; ids in the save the catalog lacks stay selectable by id | NEW | [V] 2,551 items, 82 of the 85 templates in the sample save are covered; licence in the notices | ✅ (names); stack sizes and volumes ◻ |
+| P2 | Item catalog/search | `admin-items.json` | embedded snapshot of the Dune Docker catalog (id, name, category; MIT, RedBlink) used by one shared picker; ids in the save the catalog lacks stay selectable by id | NEW | [V] 2,551 items, nearly all templates in the sample save are covered; licence in the notices | ✅ (names); stack sizes and volumes ◻ |
 | P3 | Edit/delete/repair item | SQL | same | ADAPT | [V] | ✅ |
 | P4 | Augment / pre-augmented gear | SQL + `augment-compatibility.json` | `items.stats` text JSON | ADAPT | [V] augment data checked byte for byte against a real item; not yet in game | ✅ Character > Inventory Augments editor, Give item takes augments (#96) |
 | P5 | Solari / currency | SQL | `items` (Solari item) | WORKS | [V] | ✅ |
@@ -63,15 +63,15 @@ Class: **WORKS** identical schema, **ADAPT** SQL changes, **NEW** needs a JSONB/
 | B1 | List bases, land claim, totems | `totems`, `buildings` | WORKS | [V] | ✅ |
 | B2 | Storage contents give/fill/remove | `inventories`/`items` | ADAPT | [V] | ✅ |
 | B3 | Repair buildings, clear sand | `building_instances.health`, sand fields | ADAPT | [V] | ✅ |
-| B4 | Machine water/fuel refill (cisterns, generators; #63) | JSONB `FWaterStorageComponent.m_WaterStored`; generator fuel items | NEW | [V] structure in the sample (16 cisterns, 5 generators); [V] live PASS 2026-10-08 (#63, PR #64) | ✅ verified; wind turbines ◻ |
+| B4 | Machine water/fuel refill (cisterns, generators; #63) | JSONB `FWaterStorageComponent.m_WaterStored`; generator fuel items | NEW | [V] structure in the sample (cisterns and generators); [V] live PASS 2026-10-08 (#63, PR #64) | ✅ verified; wind turbines ◻ |
 | B5 | Base/vehicle permissions | `permission_actor*` | N/A | multiplayer concept, **cut 2026-10-07** | never |
 | B6 | Blueprints import/export | `building_blueprints` and related (`building_blueprint_*`; all empty in sample) | ADAPT | [I] | deferred: needs a save that has blueprints; low SP value (**2026-10-07**) |
 | B7 | Delete base completely | cascades + trigger | ADAPT, **high risk** | [I] | **cut 2026-10-07** (demolish in game; pieces stay editable in the Database tab) |
 | B8 | Fully repair a base | `building_instances.health`, `placeables.health` | ADAPT | [V] column; "full" = highest health seen for the type (in the sample every type shares one max, so this holds); [T] a type with every piece damaged has no reference | ✅ (#56) |
 | B9 | Give items to base chests | `inventories`/`items` (same as B2) | ADAPT | [V] | ✅ (full stats follow S3) |
-| B10 | Increase land-claim size | `landclaim_segments` (one row per extra 10x10-foundation cell, the totem's own cell (0,0) is implicit), `totems.landclaim_vertical_level` | ADAPT | [V] same tables and constants as the Dune Docker Land Claim Editor; the sample save has 1 totem, 0 extra cells; [V] live PASS 2026-10-08 (#57, PR #68): 3x3 expansion usable and kept | ✅ verified (expand); [V] shrink live PASS 2026-10-08 (PR #76); the game's own Staking Units add cells in `landclaim_segments` and raise `landclaim_vertical_level`, confirming the model; picking individual cells ◻ |
-| V1 | Vehicles list/bring/durability/refuel | `vehicles`, `actors` | ADAPT | [I] 0 vehicles in sample | ✅ partial (untested) |
-| V2 | Repair a vehicle (modules) | `vehicle_modules.stats` JSONB `FVehicleModuleDurabilityStats` (`CurrentDurability` to `DecayedMaxDurability`) | NEW | [V] structure (9 vehicles, 75 modules); the original per-template maximum is not in the save, so decay is not undone; [V] live PASS 2026-10-08 (#56, PR #64) | ✅ verified; chassis health/wrecks ◻ |
+| B10 | Increase land-claim size | `landclaim_segments` (one row per extra 10x10-foundation cell, the totem's own cell (0,0) is implicit), `totems.landclaim_vertical_level` | ADAPT | [V] same tables and constants as the Dune Docker Land Claim Editor; the sample save has a totem and no extra cells; [V] live PASS 2026-10-08 (#57, PR #68): 3x3 expansion usable and kept | ✅ verified (expand); [V] shrink live PASS 2026-10-08 (PR #76); the game's own Staking Units add cells in `landclaim_segments` and raise `landclaim_vertical_level`, confirming the model; picking individual cells ◻ |
+| V1 | Vehicles list/bring/durability/refuel | `vehicles`, `actors` | ADAPT | [I] no vehicles in the first sample | ✅ partial (untested) |
+| V2 | Repair a vehicle (modules) | `vehicle_modules.stats` JSONB `FVehicleModuleDurabilityStats` (`CurrentDurability` to `DecayedMaxDurability`) | NEW | [V] structure (vehicles with modules in a later sample); the original per-template maximum is not in the save, so decay is not undone; [V] live PASS 2026-10-08 (#56, PR #64) | ✅ verified; chassis health/wrecks ◻ |
 | W1 | Resource/spice fields | `resource_nodes`, `resourcefield_state` | ADAPT | [V] rows exist | ◻ P5 |
 | W2 | Sandstorm / Coriolis schedule | SQLite-only tables | NEW | [V] tables exist | parked behind P1 (**2026-10-07**) |
 | W3 | Map fog reveal | `FogOfWar/*.data` bitmap | NEW | [V] format; [I] layout | parked behind P1 (**2026-10-07**) |
@@ -81,7 +81,7 @@ Class: **WORKS** identical schema, **ADAPT** SQL changes, **NEW** needs a JSONB/
 | ID | Feature | SP mechanism | Class | Evidence | Status |
 |---|---|---|---|---|---|
 | L1 | Landsraad term/decree/tasks/rewards | `landsraad_*` | WORKS/ADAPT | [V] | ✅ |
-| L2 | Simulated-guild contributions | `landsraad_task_*_contributions`, `landsraad_simulated_guilds` (60) | NEW | [V] | **cut 2026-10-07** (edits numbers the game invents) |
+| L2 | Simulated-guild contributions | `landsraad_task_*_contributions`, `landsraad_simulated_guilds` | NEW | [V] | **cut 2026-10-07** (edits numbers the game invents) |
 | E1 | Vendor stock/limits/restock | `vendor_stock_*` (empty in sample) | WORKS | [V] schema | ✅ |
 | E2 | Dune Exchange market | none | N/A | [V] | never |
 | C1 | Difficulty/rate multipliers | `Config\Windows\ServerCustomSettings.ini` | NEW | [V] present with custom values; [T] game applies changes | ✅ raw editor; typed editor only if the P6 live test shows SP applies the file (**2026-10-07**) |
@@ -247,7 +247,7 @@ Layer 2 audit at the end of S1, S3, P4 and P5; Layer 3 before each tagged releas
 3. Where does fill level live for liquid containers? (Phase B)
 4. Does `Config\Windows\ServerCustomSettings.ini` apply to single-player at runtime, and when is it re-read? (P6 test)
 5. Which file is authoritative (`game.db` vs `autosave/N.bak`), and does Steam Cloud interfere? (T5)
-6. Is `items.volume_override` used in single-player (NULL in all 65 sample items)?
+6. Is `items.volume_override` used in single-player (NULL in all sample items)?
 7. Catalog provenance and per-file licence/attribution; is Funcom-derived content present? (GRC-5)
 8. ~~Does `modernc.org/sqlite` v1.60.1 bundle SQLite >= 3.45?~~ **Answered [V, inferred from the cached older v1.56.0 whose CHANGELOG states SQLite 3.53.3; v1.60.1 is newer].** Still add a startup/test assertion on `select sqlite_version()` >= 3.45, because the scratch JSONB write test used Python's SQLite 3.46.1, not the Go driver.
 9. Does `player()` resolve the pawn the way the game links it (`player_state.id` is the controller id, not the pawn id)? (QA-2d)

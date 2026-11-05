@@ -25,7 +25,7 @@ import (
 
 var classNameRe = regexp.MustCompile(`^[A-Za-z0-9_]{1,120}$`)
 
-// abandonedStamp is the time format of a vehicle's m_AbandonedTimestamp property ("2026.10.21-23.11.10", UTC).
+// abandonedStamp is the time format of a vehicle's m_AbandonedTimestamp property ("2026.01.02-03.04.05", UTC).
 const abandonedStamp = "2006.01.02-15.04.05"
 
 // nextID is the id the next row of an AUTOINCREMENT table gets: above the largest id in use and above the table's sequence (a row the game deleted left its number

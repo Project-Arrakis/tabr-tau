@@ -9,7 +9,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
-// #403: the game gives every actor a lifecycle state (actors.state). Read from real saves (24 saves of one played character, 2026-10-25): a vehicle in the
+// #403: the game gives every actor a lifecycle state (actors.state). Read from played saves: a vehicle in the
 // character's vehicle backup (backup_vehicles) has state 2, a vehicle stored for recovery (recovered_vehicles) has state 4, an ordinary vehicle 0. The
 // backup one keeps its owner record (the character still ranks as its owner) and its last position, so it looked like a vehicle standing in the world.
 //

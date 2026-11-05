@@ -244,7 +244,7 @@ func TestAWornStillsuitIsLeftAloneByEveryFillButton(t *testing.T) {
 	}
 	for i, tpl := range sortedKeys(gameSuitCapacity) {
 		base := 3000 + i*10
-		row(base, tpl, `{"FFillableItemStats":[[],{"CurrentAmount":140.765075}],`+bsDur+`}`) // as the game saves it: no liquid type, an amount that moves
+		row(base, tpl, `{"FFillableItemStats":[[],{"CurrentAmount":140.5}],`+bsDur+`}`) // as the game saves it: no liquid type, an amount that moves
 		row(base+1, tpl, `{"FFillableItemStats":[[],{"CurrentAmount":`+strconv.FormatFloat(gameSuitCapacity[tpl], 'f', 1, 64)+`}],`+bsDur+`}`)
 		row(base+2, tpl, `{"FFillableItemStats":[[],{}],`+bsDur+`}`)
 		row(base+3, tpl, `{`+bsDur+`}`)
@@ -291,9 +291,9 @@ func TestAWornStillsuitIsLeftAloneByEveryFillButton(t *testing.T) {
 func TestAStillsuitShowsItsWaterAgainstTheGamesCapacityAndSaysItFillsItself(t *testing.T) {
 	for _, tpl := range sortedKeys(gameSuitCapacity) {
 		c := gameSuitCapacity[tpl]
-		got := fillOf(tpl, `{"FFillableItemStats":[[],{"CurrentAmount":140.765075}]}`)
+		got := fillOf(tpl, `{"FFillableItemStats":[[],{"CurrentAmount":140.5}]}`)
 		if got == nil || got["kind"] != "Water" || got["state"] != "partial" || got["selfFilled"] != true || got["capacity"].(float64) != c ||
-			got["percent"].(float64) != math.Floor(140.765075/c*100+0.5) || got["amount"].(float64) != 140.765075 {
+			got["percent"].(float64) != math.Floor(140.5/c*100+0.5) || got["amount"].(float64) != 140.5 {
 			t.Errorf("%s with water: %v", tpl, got)
 		}
 		if got := fillOf(tpl, `{"FFillableItemStats":[[],{"CurrentAmount":`+ftoa(c)+`}]}`); got["state"] != "full" || got["selfFilled"] != true {
@@ -321,12 +321,12 @@ func TestAStillsuitShowsItsWaterAgainstTheGamesCapacityAndSaysItFillsItself(t *t
 	}
 }
 
-// The Inventory read for the operator's case: a worn Menol's Stillsuit Garment holding 140.765075, a Literjon_03 and an unlisted container.
+// The Inventory read for a mixed case: a worn Menol's Stillsuit Garment holding 140.5, a Literjon_03 and an unlisted container.
 func TestInventoryShowsMenolsGarmentAndTheNewLiterjon(t *testing.T) {
 	s := testsave.PlayerWithSQL(t, `
 insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (21,2,1,10,1000.0);
 insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values
-  (201,21,1,0,'Stillsuit_Unique_Armored_02_Top',0,1790000000,'{"FFillableItemStats":[[],{"CurrentAmount":140.765075}]}',1),
+  (201,21,1,0,'Stillsuit_Unique_Armored_02_Top',0,1790000000,'{"FFillableItemStats":[[],{"CurrentAmount":140.5}]}',1),
   (202,21,1,1,'Literjon_03',0,1790000000,'{"FFillableItemStats":[[],{"CurrentAmount":550.0,"FillableType":"Water"}]}',1),
   (203,21,1,2,'Mystery_Flask',0,1790000000,'{"FFillableItemStats":[[],{"CurrentAmount":5.0,"FillableType":"Water"}]}',1);`)
 	before, _ := s.One(`select stats from items where id=201`)

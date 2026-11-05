@@ -15,7 +15,7 @@ export (`tabr-tau-base`, see [`export-a-base-backup.md`](export-a-base-backup.md
 | The **Base backups** card, **Export for console** next to **Export base backup** | A base the game's tool already picked up | The backup as the game left it |
 
 The browser saves `tabr-tau-console-base-<number>-<name>.json` (the totem's number) or `tabr-tau-console-backup-<number>-<name>.json` (the backup's number); the folder is your browser's
-download setting. A message repeats what the file holds: "Exported ...: 2,150 pieces, 128 placeables, 273 stored items. Nothing in the save changed." Anything the editor wants you to know about
+download setting. A message repeats what the file holds: "Exported ...: 2,000 pieces, 100 placeables, 200 stored items. Nothing in the save changed." Anything the editor wants you to know about
 the file is added to that message.
 
 ## A standing base, entry by entry

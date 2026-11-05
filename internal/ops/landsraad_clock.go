@@ -6,13 +6,13 @@ import (
 
 // ---------------------------------------------------------------- the clock of landsraad_tasks.completion_time (#465)
 //
-// The column is not Unix time. In every save read (46 files, 203 distinct completed rows the game wrote) it holds whole seconds of the game's play clock, the same clock as
+// The column is not Unix time. In every save read (many files, every completed row the game wrote) it holds whole seconds of the game's play clock, the same clock as
 // the term's start_time / end_time: every one of those values lies inside its own term's window. The play clock counts the seconds the game has run: the save keeps it as
 //
 //	(universe_lastactive_timestamp - universe_time_timestamp - down_time_accumulation) / 1,000,000
 //
 // of the farm_variables row (all three in microseconds). Read at the moment of the save, that value lies inside the latest term in every save read and is never below the
-// largest completion_time the game wrote in it (for example 318,093 against the largest game-written 312,412 in a term of 305,395 to 341,395). A task that is open holds NULL
+// largest completion_time the game wrote in it (a value a little above the largest game-written one, inside the term's window). A task that is open holds NULL
 // in completion_time (and NULL in winning_faction_id); the game never wrote 0. See docs/design/landsraad-completion-clock.md for the evidence.
 
 // gameClockNow is the play clock at the time of the save in whole seconds. ok is false when the save has no farm_variables row or the numbers do not make a clock.

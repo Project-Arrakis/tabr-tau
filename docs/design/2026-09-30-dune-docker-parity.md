@@ -4,8 +4,7 @@ Status: DRAFT (2026-09-30). Evidence-based; nothing here is implemented by this 
 
 ## 1. How single-player actually runs (verified from client logs)
 
-Two client sessions with no online play (`DuneSandbox-backup-2026.09.29-23.37.40.log`,
-`...-2026.09.30-00.14.10.log`) show:
+Client sessions with no online play (rotated `DuneSandbox-backup-*.log` files) show:
 
 - The map is hosted inside the game process: `Browse ... Survival_1?listen`, `net mode Listen Server`.
 - `LogCorePersistence: Using persistence implementation Sqlite` (the server uses Postgres).
@@ -20,7 +19,7 @@ Independent corroboration: Manuel Vortex, "We Opened a Dune: Awakening Solo Save
 tables, 60 simulated Landsraad guilds (30 Atreides / 30 Harkonnen), and that health/skills/research/machine
 state are JSONB in actor/component entities readable with `json()`. It is read-only analysis and gives
 no write procedure. Our sample matches: 96 tables incl. `sqlite_sequence`/`sqlite_stat1` = 94 application
-tables; 60 rows in `landsraad_simulated_guilds`.
+tables, and a populated `landsraad_simulated_guilds`.
 
 Conclusion: single-player has no RMQ, no gateway, no battlegroup director. Items are given
 by writing to the save database. There is no message bus to reproduce.
@@ -30,7 +29,7 @@ Caveat: this comes from log evidence only. Game code was not inspected.
 ## 2. Save format
 
 `FLS_retail\<steamid>\game.db` = 8-byte header (`uint32 1`, `uint32 size`) + zlib stream of a
-SQLite 3 database. Sample decoded to 1,765,376 bytes, 96 tables. Also present:
+SQLite 3 database. The sample has 96 tables. Also present:
 `game_prepatch.db`, `autosave/0..9.bak`, `SOLO/` (per-dimension client files such as
 `Level.json`, `WornItems.json`, `FactionId.json`), `ClientPersistence/*.data`.
 
@@ -44,9 +43,9 @@ All are display/UI state, not gameplay state. None duplicates what `game.db` hol
 
 | File | Format | Contents |
 |---|---|---|
-| `ClientPersistence/*.data` (3) and `SOLO/ClientPersistence/*.data` (1) | `uint32 LE length` + zlib -> JSON (`DataVersion: 1`) | per-battlegroup last-played date/location/faction (incl. a `SOLO` entry, `m_LastLocation` "Hagga Basin South"); already-seen popups; closing-server warnings; new-keystone popup flags |
-| `SOLO/FogOfWar/<Map>_FogOfWarTrail.data` | raw zlib (no prefix) -> 262,144 bytes, a bitmap; 60,568 bits set in `HaggaBasin` | map-reveal trail. Editable in principle (reveal/reset map); cell layout not yet mapped |
-| `SOLO/Level.json`, `FactionId.json`, `CurrentDimension`, `MostRecentDimension`, `CcAndPbeCheckpoint.json` | plain text, 1-4 bytes | character-select display values (`Level.json` = `7`, faction `None`). Do not treat as source of truth: real XP is in `game.db` |
+| `ClientPersistence/*.data` and `SOLO/ClientPersistence/*.data` | `uint32 LE length` + zlib -> JSON (`DataVersion: 1`) | per-battlegroup last-played date/location/faction (incl. a `SOLO` entry); already-seen popups; closing-server warnings; new-keystone popup flags |
+| `SOLO/FogOfWar/<Map>_FogOfWarTrail.data` | raw zlib (no prefix) -> 262,144 bytes, a bitmap | map-reveal trail. Editable in principle (reveal/reset map); cell layout not yet mapped |
+| `SOLO/Level.json`, `FactionId.json`, `CurrentDimension`, `MostRecentDimension`, `CcAndPbeCheckpoint.json` | plain text, 1-4 bytes | character-select display values (character level, faction). Do not treat as source of truth: real XP is in `game.db` |
 | `SOLO/WornItems.json`, `ClothedAppearance.json` | JSON | cosmetic equipped-item list for the character-select screen |
 
 The other `FLS_retail\<steamid>\<battlegroup-id>` folders are the same client-side caches for online
@@ -159,7 +158,7 @@ water refill (`baseInventory`, `baseContainerSlots`, `getBaseLandClaim`, `update
 | Update / delete / augment / repair inventory items; remove from storage | `inventories` |
 | Player list, profile, vitals, position, progression, intel, recipes, research | `actors` (position split to `location_*`/`rotation_*`), `player_state` |
 | Teleport player, live-map players/bases/vehicles/storage | `actors.transform` -> `location_x/y/z` + quaternion |
-| Vehicles: list, storage, refuel, repair decay, delete | `actors`, `inventories`; the sample save has 0 vehicles, so untestable here |
+| Vehicles: list, storage, refuel, repair decay, delete | `actors`, `inventories`; the first sample save had no vehicles, so untestable there |
 | Add faction reputation / repair reputation | `actors`; `player_faction_reputation` is empty in the sample |
 | Base container add/delete | `building_instances`, `inventories` |
 | Landsraad overview | `landsraad_decree_term` has SQLite-only `decree_reroll_attempts` |
@@ -172,7 +171,7 @@ water refill (`baseInventory`, `baseContainerSlots`, `getBaseLandClaim`, `update
 |---|---|---|
 | Guilds: list, members, add/remove/promote/demote, disband, real faction via guild | `guilds`, `guild_members` | N/A (single-player has `landsraad_simulated_guilds` only) |
 | Online players, live-map partitions/services/POIs/spice/flour fields, combat partitions, refill queue | `world_partition`, `active_server_ids`, `farm_state` | N/A: single local world |
-| Base/vehicle permissions list & set, permission candidates, transfer to system custodian, delete base completely | `map_names` (also uses `world_partition`) | ADAPT-candidate: `permission_actor*` exist (16 rows); `map_names` only resolves a map name, SQLite stores text. Re-check per function |
+| Base/vehicle permissions list & set, permission candidates, transfer to system custodian, delete base completely | `map_names` (also uses `world_partition`) | ADAPT-candidate: `permission_actor*` exist; `map_names` only resolves a map name, SQLite stores text. Re-check per function |
 | Flush base child access | `world_partition` | N/A |
 | Item audit log, cheater tracking, player playtime | `item_audit_log`, `cheater_tracking`, `console_player_playtime` | N/A (console-added, not game tables) |
 | Dune Exchange (market seed/buyback/listings/stats) | `dune_exchange_*` | N/A |
@@ -180,8 +179,8 @@ water refill (`baseInventory`, `baseContainerSlots`, `getBaseLandClaim`, `update
 | Kick, broadcast, map chat, MOTD, restart warning | RMQ | N/A |
 
 ### Data present in the sample save (what can actually be exercised)
-1 account/character, 102 actors, 65 items, 32 inventories, 38 placeables, 1 totem (land claim),
-25 Landsraad tasks, 2,221 journey nodes, 399 markers, 41 resource nodes, 16 permission rows.
+One account/character, with actors, items, inventories, placeables, a totem (land claim),
+Landsraad tasks, journey nodes, markers, resource nodes and permission rows.
 Empty: vehicles, vendor stock, specialization tracks, reputation, blueprints, base backups,
 virtual currency balances, recovered vehicles, landclaim_segments. A test save with a vehicle
 and some progression is needed to verify those paths.

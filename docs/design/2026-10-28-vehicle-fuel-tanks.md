@@ -55,8 +55,8 @@ A vehicle made by Create a vehicle is full at its chassis's capacity by the same
 ## Cross-checks
 
 * **Catalog.** Every chassis row of `vehicles.json` (24 rows: 23 with a tank and the Container Vehicle) has the capacity of the same row of the game's table. The catalog has no chassis of grade 7 to 9 and none of Treadwheel, Tank or the seekers.
-* **Saves.** 208 vehicle rows over 14 played-save copies were compared with the derived tank. None holds more than its tank. The full ones sit exactly at it: Sandbike Mk1 100, Mk5 140; Buggy Mk3 240; Light Ornithopter Mk4 300;
-  Medium Ornithopter Mk5 750; Sand Crawler Mk6 750; Transport Ornithopter Mk6 2500. A created Mk6 buggy in one copy holds 240 (what the old Refuel gave it), in another 295.4: both below 300.
+* **Saves.** Vehicle rows over many played-save copies were compared with the derived tank. None holds more than its tank. The full ones sit exactly at it: Sandbike Mk1 100, Mk5 140; Buggy Mk3 240; Light Ornithopter Mk4 300;
+  Medium Ornithopter Mk5 750; Sand Crawler Mk6 750; Transport Ornithopter Mk6 2500. A created Mk6 buggy in one copy holds 240 (what the old Refuel gave it), in another a little under 300: both below the tank.
   The Mk5 Sandbike at 140 and the six vehicles of the #401 tests are the real rows the tests use.
 * **Wiki.** The vehicle pages of the wiki give no fuel figure, so there is nothing on it to compare.
 * **The measured table.** All six numbers of `vehicleTank` are the capacity of one chassis row (Sandbike Mk1, Buggy Mk3, Light Mk4, Medium Mk5, Sand Crawler Mk6, Transport Mk6), which is why they were right for the vehicle that was measured and wrong for every other grade.
@@ -84,7 +84,7 @@ A fuel value that was above the new, smaller tank (a Mk0 vehicle holding more th
 * the 23 chassis rows are written a second time in the test (class by grade), and `tankOf` and the catalog must equal them; the catalog has no template chassis the table lacks;
 * `tankOf` falls back to the class for no modules, for modules without a chassis, for a chassis the catalog does not know (Mk7, a made-up grade) and for the chassis of another class, and returns nothing known for the Container Vehicle and for
   a class nobody knows;
-* a save with the real vehicles of the #401 tests (578, 1828, 1859, 1599, 1616, 1634, with their chassis) and the created Mk6 buggy (at 240 and at a quarter, 75), a Mk3 buggy and a Mk1 Sandbike: each is filled to its chassis tank
+* a save with the real vehicles of the #401 tests (with their chassis) and the created Mk6 buggy (at 240 and at a quarter, 75), a Mk3 buggy and a Mk1 Sandbike: each is filled to its chassis tank
   (Mk6 buggy 300, Mk5 Sandbike 140, Mk1 Sandbike 100, the others as before), only the fuel number of a record changes, a value above the tank stays, a vehicle nothing knows is untouched and reported, and a second press writes and logs nothing;
 * one vehicle for each of the 23 chassis, filled from empty: the fuel, `fuelMax` and a percent of 100 all agree;
 * the Vehicles list: Mk6 buggy at 240 reads 300 and 80 %, a vehicle above its tank reads 100 %, a vehicle nobody knows shows its fuel with no maximum;

@@ -13,7 +13,7 @@ Evidence tags as elsewhere in `docs/`: **[V]** verified against a real save copy
   plain columns (no arrays, so the console's array-bound repair does not exist here), `actors` has no partition column, and the market-era tables (`tax_invoice`, `sinkcharts`,
   `world_partition`) are absent. The id remapping that the console leaves to Funcom's SQL functions has to be written in Go; it is a few hundred lines, and the editor already
   has the id allocators it needs (`nextID`, `newEntityIDs`, the item sequencer).
-- **The base backup is the right unit and should come first.** The game's own pick-up tool exists in single player, a real pick-up is in the operator's saves, and the
+- **The base backup is the right unit and should come first.** The game's own pick-up tool exists in single player, a real pick-up exists in a played save, and the
   console documents exactly what a pick-up does. A Solido blueprint has **no sample in any save** (still true, see section 3) and the console itself has an open crash report for
   imported blueprints (`P34`, previewing some imported blueprints crashes the server).
 - **The console cannot make a Solido inside the database from a placed base.** It can write a blueprint *file* from a placed base (positions relative to the claim totem, yaw only)
@@ -132,7 +132,7 @@ and the console's own test schema (`console/api/test-support/baseBackupFixture.j
 | `building_blueprint_placeables` | `transform` real[6] (X, Y, Z, Yaw, Pitch, Roll; the order the console had to find out) | six **named** columns `transform_x/y/z/yaw/pitch/roll` | **different**, and better: no axis ambiguity |
 | `building_blueprint_pentashields` | `scale` smallint[3] | `scale_x/y/z` | **different** |
 | `player_state` | a view with the controller, pawn and state actor ids | a table with `player_controller_id`, `player_pawn_id`, `player_state_id` | same ids |
-| `applied_patches` | `name`, `date` | `name`, `date` (INTEGER); 28 rows in each of the three copies read | same |
+| `applied_patches` | `name`, `date` | `name`, `date` (INTEGER) | same |
 | `world_partition`, `map_names` | present | absent | missing (not needed) |
 
 What follows from the table:
@@ -158,68 +158,61 @@ game's code, lines 9-14):
 The game's own list of references that *may* point outside the exported set is not in the clone (the stand-in lists two paths, `baseBackupFixture.js:273-280`); the real list can only be
 learned from the data (section 4).
 
-## 3. What the operator's real saves contain
+## 3. What real played saves contain
 
-Sixteen read-only copies of the operator's saves were counted (decompressed SQLite copies made for earlier tests; the live save folder was not touched).
+A number of read-only copies of played single-player saves were counted (decompressed SQLite copies; no live save folder was touched). What they hold, in general terms:
 
-| Copies | `base_backups` | `base_backup_linked_actors` | the four blueprint tables | Solido items (`BuildingBlueprint_CopyDevice`) | `buildings` | `building_instances` | `placeables` | `totems` |
-|---|---|---|---|---|---|---|---|---|
-| 3 autosaves of 25-26 Oct | 0 | 0 | 0 | 0 | 5 | 1,407 | 150 | 3 |
-| 3 copies of 27 Oct (real save, a layout test, a simulated vehicle copy) | 0 | 0 | 0 | 0 | 5 | 1,404 | 150 | 3 |
-| a restored older save | 0 | 0 | 0 | 0 | 2 | 571 | 108 | 2 |
-| 5 small single-base copies | 0 | 0 | 0 | 0 | 1 | 174 to 486 | 16 to 91 | 1 |
-| 2 further single-base copies (178 pieces, 43 and 45 placeables) | 0 | 0 | 0 | 0 | 1 | 178 | 43 to 45 | 1 |
-| a new character with no base | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| **one copy taken after an in-game pick-up (27 Oct)** | **1** | **44** | 0 | 0 | 1 | 174 | 43 | 1 |
+- Saves with a base hold `buildings`, `building_instances`, `placeables` and `totems` rows; a save with a new character and no base holds none of them. Every save studied held exactly one
+  character (`player_state` = 1 row), and most held one or two `BaseBackupTool` items, shown in the catalog as "Base Reconstruction Tool".
+- `base_backups` and `base_backup_linked_actors` were empty in every save except one that had been played past an in-game pick-up.
+- No save held a Solido item (`BuildingBlueprint_CopyDevice`) or a row in any of the four blueprint tables.
 
-(All 16 copies hold exactly one character, `player_state` = 1 row; 14 of them hold one or two `BaseBackupTool` items, shown in the catalog as "Base Reconstruction Tool".)
-
-**The blocker "no save has blueprints" is still true.** All four blueprint tables are empty and no copy holds a Solido item, in all 16 copies. #111 stays blocked for the Solido shape; the
+**The blocker "no save has blueprints" is still true.** All four blueprint tables are empty and no studied save holds a Solido item. #111 stays blocked for the Solido shape; the
 base backup has a real sample.
 
-**The picked-up base, concretely** (1 backup, 44 linked actors, 589 rows in all):
+**The picked-up base, concretely.** One backup row, a few dozen linked actors, a couple of hundred pieces, a few dozen placeables:
 
 | Table | Rows | Links |
 |---|---|---|
-| `base_backups` | 1: `player_id` = the character's *controller* actor id, name `##Totem_Small_Placeable` (the game's placeholder for an unnamed claim), `last_edited_by_player_id` = the controller | |
-| `base_backup_linked_actors` | 44 | `id` -> backup; `actor_id` -> 1 building actor + 43 placeables (one of them the totem) |
-| `actors` | 44, all with `state` 5, map HaggaBasin, no owner account, serial numbers kept | |
-| `buildings` | 1 (`owner_id` empty) | `id` = the building actor |
-| `building_instances` | 174 | `building_id` -> the building actor; `owner_entity_id` = **one** entity, the totem's `Actor`-slot entity |
-| `placeables` | 43 (43 with `has_buildable_support`, none a hologram) | `id` -> actor; `owner_entity_id` = the same totem entity |
-| `totems` | 1 | `id` = the totem actor; vertical level 0 |
-| `fgl_entities` + `actor_fgl_entities` | 68 + 68 (slots `Actor`, `ContainerInventory`, `ItemCraftingStation`, `OutcomeInventory`, `ItemCraftingComponent`); the building actor has no entity | `actor_id` -> actor |
-| `permission_actor` | 42: the placeables' own rows, all `is_child` = 1; **none for the totem** | no `permission_actor_rank` row points at any of them |
-| `inventories` + `actor_inventories` | 25 + 25 | `actor_id` -> placeable |
-| `items` | 53 (oil, scrap, bars, components) | `inventory_id` -> inventory |
-| `landclaim_segments` | 0 (this base had none before either) | |
+| `base_backups` | one: `player_id` = the character's *controller* actor id, name `##Totem_Small_Placeable` (the game's placeholder for an unnamed claim), `last_edited_by_player_id` = the controller | |
+| `base_backup_linked_actors` | one per actor of the base | `id` -> backup; `actor_id` -> one building actor + the placeables (one of them the totem) |
+| `actors` | all linked actors with `state` 5, no owner account, serial numbers kept | |
+| `buildings` | one (`owner_id` empty) | `id` = the building actor |
+| `building_instances` | a couple of hundred | `building_id` -> the building actor; `owner_entity_id` = **one** entity, the totem's `Actor`-slot entity |
+| `placeables` | a few dozen, all with `has_buildable_support`, none a hologram | `id` -> actor; `owner_entity_id` = the same totem entity |
+| `totems` | one | `id` = the totem actor; vertical level 0 |
+| `fgl_entities` + `actor_fgl_entities` | the same number in each (slots `Actor`, `ContainerInventory`, `ItemCraftingStation`, `OutcomeInventory`, `ItemCraftingComponent`); the building actor has no entity | `actor_id` -> actor |
+| `permission_actor` | the placeables' own rows, all `is_child` = 1; **none for the totem** | no `permission_actor_rank` row points at any of them |
+| `inventories` + `actor_inventories` | the same number in each | `actor_id` -> placeable |
+| `items` | the contents of the storages (oil, scrap, bars, components) | `inventory_id` -> inventory |
+| `landclaim_segments` | none (this base had none before either) | |
 
 Findings from the rows:
 
-- **The console's description of a pick-up holds in single player.** [V] Compared with a copy of the same save from before the pick-up (`actors.state` 0 for the same 44 actors), the building pieces and the placeables are unchanged (174 pieces and 43 placeables,
-  same health and positions sums), the totem's permission row and its rank row are gone, and a backup row and 44 links exist. (The two copies also differ in unrelated play progress, so this is not a
+- **The console's description of a pick-up holds in single player.** [V] Compared with a copy of the same save from before the pick-up (`actors.state` 0 for the same actors), the building pieces and the placeables are unchanged (same counts,
+  same health and positions sums), the totem's permission row and its rank row are gone, and a backup row and its links exist. (The two copies also differ in unrelated play progress, so this is not a
   controlled before/after; it agrees with every statement of the console's page.)
-- **`actors.state` follows the console's enum order.** [V] 0 normal, 1 travel, 2 vehicle backup, 4 vehicle recovery, 5 base backup, 6 simulated Landsraad actor (60 actors of class `LandsraadSimulatedGuild`
-  in every copy). The vehicles in `recovered_vehicles` have state 4 and the one in `backup_vehicles` has state 2; a vehicle with state 1 is in neither. This also answers step 1 of #403.
-- **A base is identified by one entity.** All 174 pieces and all 43 placeables name the same entity (the totem's `Actor` slot) as `owner_entity_id`, and the building actor holds the pieces. A
-  placed base can have several building actors under one totem (in the real copy, one totem has a single building of 312 pieces, the Deep Desert totem has two, of 758 and 228 pieces, and the third has two, of 1 and 105).
+- **`actors.state` follows the console's enum order.** [V] 0 normal, 1 travel, 2 vehicle backup, 4 vehicle recovery, 5 base backup, 6 simulated Landsraad actor (actors of class `LandsraadSimulatedGuild`
+  in every save). The vehicles in `recovered_vehicles` have state 4 and those in `backup_vehicles` have state 2; a vehicle with state 1 is in neither. This also answers step 1 of #403.
+- **A base is identified by one entity.** Every piece and every placeable of the picked-up base names the same entity (the totem's `Actor` slot) as `owner_entity_id`, and the building actor holds the pieces. A
+  placed base can have several building actors under one totem (seen in played saves, including the Deep Desert totem).
 - **Entity ids are 64-bit, prefix and counter.** Every id is above 2^53; they share a 32-bit prefix per session and count up in the low 32 bits (`internal/ops/vehicle_duplicate.go:45-77` already works with this).
   The page must never parse them as JavaScript numbers (the console's rule (a), `base-backups.md:167-172`).
 - **The "sticky" `!!` strings are present, in fewer places than the console's tests suggest.** [V] In these saves: `actors.properties` of the totem holds `m_SelfUniqueID = "!!act#<its own id>"`
-  (one per totem); crafting stations hold `ItemUniqueId = "!!itm#<item id>"` in the `ItemCraftingComponent` entity (1,600 in the real copy's large ore refinery, **every one pointing at an item in
-  the same station**) and `InstigatorActorId = "!!act#2"` (the **character's pawn**, in a queued recipe, so a base can carry a reference to the character); vehicles and loot containers hold `m_HarnessedVehicleId`
-  and `m_AllowedAccessPlayerId` (mostly `!!act#0`, the null reference). `items.stats` holds none in any copy, and no `!!inv`, `!!fgl` or `!!bbp` string was found. The console's
+  (one per totem); crafting stations hold `ItemUniqueId = "!!itm#<item id>"` in the `ItemCraftingComponent` entity (many in a large ore refinery, **every one pointing at an item in
+  the same station**) and `InstigatorActorId = "!!act#<pawn id>"` (the **character's pawn**, in a queued recipe, so a base can carry a reference to the character); vehicles and loot containers hold `m_HarnessedVehicleId`
+  and `m_AllowedAccessPlayerId` (mostly `!!act#0`, the null reference). `items.stats` holds none in any save studied, and no `!!inv`, `!!fgl` or `!!bbp` string was found. The console's
   `FSinkchartsStats.CreatorPlayerId` and `FTotemLandclaimComponent.m_OwnerActor` paths do not occur here. The three kinds seen are `act`, `itm` and the null form `#0`.
-- **Pieces are never tilted.** [V] 0 of 1,404 + 571 pieces and 0 of 150 + 108 placeables have a non-zero x or y quaternion component, so a yaw-only export (what the console does for a Solido) loses nothing in these saves.
-- **A placed base can hold holograms**: 3 of the real copy's 150 placeables are `is_hologram` = 1 (unfinished placements). The console's live export does not mention them.
-- **`items_id_sequencer`** is far above `sqlite_sequence` for items (39,987,823 against 39,900,668 in the real copy): the game counts item ids by its own table, as `giveRowsInTx` already does (`internal/ops/ops.go:399-421`).
+- **Pieces are never tilted.** [V] No piece and no placeable in the saves studied has a non-zero x or y quaternion component, so a yaw-only export (what the console does for a Solido) loses nothing in these saves.
+- **A placed base can hold holograms**: a few placeables in a played save are `is_hologram` = 1 (unfinished placements). The console's live export does not mention them.
+- **`items_id_sequencer`** is far above `sqlite_sequence` for items in a played save: the game counts item ids by its own table, as `giveRowsInTx` already does (`internal/ops/ops.go:399-421`).
 
 ## 4. Problems between two saves, what the console did, what is open
 
 | Problem | What the console did | In single player |
 |---|---|---|
 | **Ids are local integers** (actors, inventories, items, entities, backups, blueprints) | Funcom's helpers allocate new ids from the target's sequences and rewrite every reference in 21 steps over 20 kinds of rows, in dependency order (`IMPORT_ORDER`, 68-90; `top_level_import`) | Rewrite in Go. Actors, inventories, backups: `nextID` (max of the table and `sqlite_sequence` + 1, `vehicle_duplicate.go:33`). Items: the item sequencer, bumped (`ops.go:399-421`). Entities: `newEntityIDs` (keep the prefix, start above every counter the save has, `vehicle_duplicate.go:48`), checked against every id in the save. Same-lineage saves (a backup of the same save) *will* collide if ids are kept, so every id is remapped and none is kept |
-| **Ownership** (ranks, `base_backups.player_id`, raw player ids) | The owner is a placeholder; ranks may point only at it; the backup's `player_id` becomes the receiving player's *controller*; every non-zero raw player id becomes the receiving player (`ENTRY_REFS` 127-157, `PLAYER_ID_COLUMNS` 159-167) | Same rules; the target is the save's only character (`player_state`; ids 1/2/3 in these saves, not assumed). A pick-up leaves **no rank rows** for the base, so the ownership of a backup is `base_backups.player_id` alone. [V] |
+| **Ownership** (ranks, `base_backups.player_id`, raw player ids) | The owner is a placeholder; ranks may point only at it; the backup's `player_id` becomes the receiving player's *controller*; every non-zero raw player id becomes the receiving player (`ENTRY_REFS` 127-157, `PLAYER_ID_COLUMNS` 159-167) | Same rules; the target is the save's only character (`player_state`; its ids are read, not assumed). A pick-up leaves **no rank rows** for the base, so the ownership of a backup is `base_backups.player_id` alone. [V] |
 | **A file that hangs rows off the receiving player** (an inventory of arbitrary items on the character) | Every reference column must resolve to the right kind of entry inside the file; the placeholder may be referenced only by the backup record and a rank (`validateBaseBackupFile`, 800-886) | Port this check whole. It is the core of the "untrusted file" rule |
 | **References inside JSON** (`!!act#N`, `!!itm#N`) | Rewritten in all JSON columns; `#0` stays null; an id not in the file is an error unless the path is on a short allowed list | The same walk over the four JSON columns. **Open:** the real list of allowed outside references is not readable; the data shows one case that matters, `InstigatorActorId` = the character's pawn in a crafting queue. Plan: show every outside reference in the preview, set it to the null reference `!!act#0`, and ask the operator to test a station with a queued job ([T]) |
 | **Partitions and map** | `partition_id` set to null; the game places by the redeploying player's map | No partition column. The game redeploys only on the map it was saved on (`base-backups.md:303-307`, read from the totem actor's `map`). The Deep Desert layout can differ between saves [T] |
@@ -229,7 +222,7 @@ Findings from the rows:
 | **Items in storage** | Carried with the inventories; stored Solidos travel with their blueprint rows | Items carry all columns (`position_index`, `stats`, `volume_override`, `is_new`, `acquisition_time`). A storage that holds a Solido item has no blueprint rows to go with it in any copy; refuse that case until the Solido phase exists |
 | **Sticky data in JSON stats** | `HAS_TAGGED_ID` limits the rewrite to rows that hold a tagged id (45) | Same, for speed; the totem's own `m_SelfUniqueID` and a station's `ItemUniqueId` list are the real cases |
 | **Exact numbers** | Entries never pass through JavaScript numbers (Postgres renders the file) | Go decodes the file with integer types; the page sends the file text to the server and gets back only counts and strings |
-| **Game version** | The file carries the game build, Steam build id, a patches checksum and the latest patch names; a mismatch is a 409 the user can override (902-916, `upgradeEnvelope` 788) | The save has `applied_patches` (28 rows, e.g. `DA_25872_CleanupOrphanedFglEntities`); the file carries a checksum of the sorted names, their count and the latest names. The game build is not in the save, so it is not claimed |
+| **Game version** | The file carries the game build, Steam build id, a patches checksum and the latest patch names; a mismatch is a 409 the user can override (902-916, `upgradeEnvelope` 788) | The save has `applied_patches` (e.g. `DA_25872_CleanupOrphanedFglEntities`); the file carries a checksum of the sorted names, their count and the latest names. The game build is not in the save, so it is not claimed |
 | **What makes an import fail or corrupt the save** | Not listed in one place by the console | See below |
 
 What can make an imported base fail to load or damage the save (derived from the schema and the console's rules):
@@ -249,7 +242,7 @@ The care package already has the shape this feature needs, in code. The base fil
 | Need | The care package does (`origin/main`) | Base file |
 |---|---|---|
 | A named, versioned file | `format "tabr-tau-kits"`, `version 1` (`internal/kits/kits.go:274`), refused if another format or version | `format "tabr-tau-base"`, `version 1`, plus `kind` (`base-backup`, later `solido`), `exportedAt`, the editor version and the patches summary |
-| Size cap | `MaxFileBytes` 64 KiB (`kits.go:33`) | A larger cap, because a base is megabytes (the console caps the upload at 32 MiB, `server.js:7487`; a base of 1,400 pieces is far below that). Propose 16 MiB, and an entry cap (the console uses 250,000, `baseBackups.js:40`) |
+| Size cap | `MaxFileBytes` 64 KiB (`kits.go:33`) | A larger cap, because a base is megabytes (the console caps the upload at 32 MiB, `server.js:7487`; a base of a thousand pieces or so is far below that). Propose 16 MiB, and an entry cap (the console uses 250,000, `baseBackups.js:40`) |
 | Strict parse | `DisallowUnknownFields`, one JSON object, nothing after it (`kits.go:315`) | Same, per kind and per column: an allowlist of table and column names, **no SQL, table or column name ever comes from the file** |
 | Whole-file validation before anything is kept | `Parse` refuses the file whole (`kits.go:310`) | Port `validateBaseBackupFile`: allowed kinds, ids unique, one backup record, one totem, every reference inside the file at the right kind, the owner placeholder reachable only from the backup record, every actor linked to the backup, string and JSON size and depth caps, finite numbers |
 | Import never replaces | `Merge` keeps an imported kit under another name (`kits.go:362`) | An import only **adds** rows, with new ids; it never touches an existing base. Not destructive, so no confirmation |
@@ -268,7 +261,7 @@ Where it lives in the UI: Player > Bases (the console puts "Base Backups" at the
 
 | Phase | What | Size | Needs the game? | What the operator verifies |
 |---|---|---|---|---|
-| **1** | List the save's base backups and **export one** as a `tabr-tau-base` file. Read only. The collector walks the 44-actor set to its 14 tables, remaps ids to transfer ids, rewrites the JSON references, writes the version summary | M | Only to make a backup: pick a base up in the game once | Open the file; counts match the Bases view; the totem, a storage and a station are in it. Nothing in the save changes |
+| **1** | List the save's base backups and **export one** as a `tabr-tau-base` file. Read only. The collector walks the backup's linked-actor set to its tables, remaps ids to transfer ids, rewrites the JSON references, writes the version summary | M | Only to make a backup: pick a base up in the game once | Open the file; counts match the Bases view; the totem, a storage and a station are in it. Nothing in the save changes |
 | **1b** | (Built as #534, steps 1 and 2, as the console's file and not the editor's own: `docs/export-a-base-for-the-console.md`.) Export a **placed** base directly as the same file (pick-up rules: the totem, the placeables with buildable support, the pieces the totem owns, state 5, no totem permission rows). Golden test: the export of the placed copy equals the export of its real pick-up (such a pair exists) | S to M | No | None beyond phase 2, which is where it is proven |
 | **2** | **Import** a base file into another save, with preview. Validation, id allocation, reference rewrite, one edit, backup first. **Built** (engine and routes, then the page; `docs/import-a-base-file.md`); the in-game UAT items are **open** | L | **Yes**, the in-game checks below | Items 1-10 of the UAT list (open) |
 | **3** | Solido: list the save's blueprints, export one as a file (M); import a file (L); delete one (S). Needs a save that has one | M + L + S | **Yes**: a Solido must first be made in the game (#111) | Items 11-13 |
@@ -297,7 +290,7 @@ renumbered); keep the file text out of the browser's number parser.
 12. Solido: does an **editor-written Solido preview and place** without the console's `P34`-style crash? [T]
 13. Solido: does the item need to be in the backpack at a particular slot, and does a blueprint with its player id set to the pawn behave? [T]
 14. A Solido built from a placed base: placed with the right orientation and offset, and without the claim console? [T]
-15. Does `totems.last_backup_timestamp` (non-zero in one real totem, zero in the others) matter to the tool? [T]
+15. Does `totems.last_backup_timestamp` (non-zero in some totems of played saves, zero in others) matter to the tool? [T]
 
 ## Notes
 

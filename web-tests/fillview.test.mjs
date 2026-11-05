@@ -53,7 +53,7 @@ test('Inventory: a group with no liquid container has no count and nothing break
 // Issue #482: a worn stillsuit is shown against the game's capacity and says the suit fills itself; it is not counted as a container that Fill could do anything about.
 test('Inventory: a stillsuit shows its water and that the suit fills itself, and the header does not count it', async () => {
   const items = [
-    item(1, 'Stillsuit_Unique_Armored_02_Top', { kind: 'Water', amount: 140.765075, state: 'partial', capacity: 500, percent: 28, selfFilled: true }),
+    item(1, 'Stillsuit_Unique_Armored_02_Top', { kind: 'Water', amount: 140.5, state: 'partial', capacity: 500, percent: 28, selfFilled: true }),
     item(2, 'Literjon_03', { kind: 'Water', amount: 550, state: 'partial', capacity: 1100, percent: 50 }),
   ];
   const ui = await boot({ get: { '/api/player/inventory': { ...INV, items } } });

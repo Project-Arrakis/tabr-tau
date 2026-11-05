@@ -5,14 +5,14 @@ Status: built. The rule is in `internal/ops/cargolimits.go`; the card reads it i
 
 ## Problem
 
-On Player > Vehicles the cargo hold card offered Add item for every vehicle that has a hold row, and the give accepted 5,000 Carbon Ore for a Sandbike that has no storage part. The card then read "10 of 0 slots used".
+On Player > Vehicles the cargo hold card offered Add item for every vehicle that has a hold row, and the give accepted thousands of Carbon Ore for a Sandbike that has no storage part. The card then read "N of 0 slots used".
 
 The give works from the inventory row's `max_item_count` and `max_item_volume` (`giveUpToInTx`, #345 and #357). It treats a count of 0 or less as "no limit recorded", which is right for the player's inventories and
 the containers of a base (the game writes -1 there for "no limit"), and wrong for a vehicle: the hold row of a vehicle with no storage part says 0 slots and 0.0 volume, and means that it holds nothing.
 
 ## What the saves hold
 
-Sixteen copies of single-player saves were read (decoded to plain SQLite, read only). Every vehicle in them has its hold as an `inventories` row with `inventory_type` 0 on the vehicle's actor; the per-component
+Many copies of single-player saves were read (decoded to plain SQLite, read only). Every vehicle in them has its hold as an `inventories` row with `inventory_type` 0 on the vehicle's actor; the per-component
 inventories have no type and no limits. The hold row carries the room: `max_item_count` is the slots and `max_item_volume` the volume.
 
 The values per kind of vehicle and parts, as stored, and what `catalog.DeriveVehicle` (the sum of `cargoSlots` and `cargoVolume` over the vehicle's modules) gives for the same modules. They are equal in every case seen:
@@ -45,7 +45,7 @@ The storage parts of the catalog (slots / volume), by kind and grade; a vehicle'
 Two things follow. A hold is not a function of the chassis alone: the same Sandbike chassis has a hold of 0 or 15 slots depending on whether it has the storage part. And the Mk6 buggy's volume and slots meet: 35 stacks
 of 500 Carbon Ore (0.2 volume a unit) are 17,500 units and 3,500 volume.
 
-The 5,000 Carbon Ore the operator gave to a Sandbike (10 stacks of 500) are in a save written after the newest copy studied, so there is no copy of that save; the tests build the same rows (a Sandbike with the modules of
+The Carbon Ore that was given to a Sandbike without a storage part is in a save written after the newest copy studied, so there is no copy of that save; the tests build the same rows (a Sandbike with the modules of
 a real one, a hold row of 0 and 0.0, and ten stacks of `DolomiteRock`, the in-game Carbon Ore).
 
 ## Containers of a base

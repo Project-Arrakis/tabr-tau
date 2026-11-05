@@ -17,7 +17,7 @@ Stays visible, always:
 
 | Kind | Example |
 |---|---|
-| **State** of a control or of the save | `Hydration is 85.1 of 100`, `12 items`, `When the editor opens: off`, `Nothing to reset: the character has no XP` (the reason a button is off) |
+| **State** of a control or of the save | `Hydration is N of 100`, `12 items`, `When the editor opens: off`, `Nothing to reset: the character has no XP` (the reason a button is off) |
 | **Result** of an action | the toasts and result lines, as they read today |
 | **Error** | every refusal and every failed check, as it reads today |
 | **Queued or pending** | the banner, `N queued`, the `(queued: written as soon as the save can be written)` hint (#449: it no longer says "when the game closes", because an edit is also written at the menu once the game is quiet), `Pending horizontal` |
@@ -109,7 +109,7 @@ Toasts and the questions that ask first (`ask()`, the two-press buttons) are res
 | O4 | 675 | The currency of the Scourge event (item HalloweenCoin). It is added to the stack in your backpack, and to a new stack when it does not fit; as much as fits is given. | explanation, limit | tooltip on Give Blood Marks (the label already has this as a title) |
 | O5 | 676 | Give XP: Raises the level as the XP grows and adds one skill point per level gained; stops at level 200. | explanation, limit | tooltip on Give |
 | O6 | 676 | Give Intel: Adds Intel for the research tree, never past 2,779. All of these apply when the game next loads the save. | limit, background | tooltip on Give (cap); the second sentence is true of every edit and is in the banner and the result lines: delete |
-| O7 | 590 | Fill hydration: `Hydration is 85.1 of 100.` | state | delete (the summary tile above shows the same number) |
+| O7 | 590 | Fill hydration: `Hydration is N of 100.` | state | delete (the summary tile above shows the same number) |
 | O8 | 588 | `The summary shows no hydration for the character, so this may be refused.` | error | conditional (already only when there is no hydration) |
 | O9 | 590 | `Fills the character's own water to the maximum.` (and the button's title: queued while the game runs, will not help a thirsty character now) | explanation | tooltip on Fill hydration (the title becomes the tooltip, so it shows on focus too) |
 | O10 | 571 | Blood sacks: `N of M blood sacks are not full.` / `No blood sacks ...` / `could not be counted` | state | keep |

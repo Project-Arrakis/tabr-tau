@@ -10,13 +10,13 @@ import (
 // FHealthComponent on the DuneCharacter entity, Intel in actors.properties, hydration in gas_attributes, a faction row owned
 // by the controller and a virtual currency balance. The fixture already gives the pawn 100 Solari Coin.
 const summaryWorld = `
-insert into fgl_entities(entity_id,components) values (-10, jsonb('{"FLevelComponent":[[],{"TotalXPEarned":41221,"TotalSkillPoints":70,"UnspentSkillPoints":9}],"FHealthComponent":[[],{"m_CurrentHealth":112.5}]}'));
+insert into fgl_entities(entity_id,components) values (-10, jsonb('{"FLevelComponent":[[],{"TotalXPEarned":20000,"TotalSkillPoints":35,"UnspentSkillPoints":5}],"FHealthComponent":[[],{"m_CurrentHealth":112.5}]}'));
 insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (2,-10,'DuneCharacter');
-update actors set properties=jsonb('{"TechKnowledgePlayerComponent":{"m_TechKnowledgePoints":333}}'),
+update actors set properties=jsonb('{"TechKnowledgePlayerComponent":{"m_TechKnowledgePoints":300}}'),
   gas_attributes=jsonb('{"DuneHydrationAttributeSet":{"CurrentHydration":{"CurrentValue":52.5}},"DuneSpiceAddictionAttributeSet":{"SpiceAddictionLevel":{"CurrentValue":0.0}}}') where id=2;
 insert into factions(id,name) values (2,'Harkonnen');
 insert into player_faction(actor_id,faction_id,utc_time_faction_change) values (1,2,1);
-insert into player_virtual_currency_balances(player_controller_id,currency_id,balance) values (1,0,591227);`
+insert into player_virtual_currency_balances(player_controller_id,currency_id,balance) values (1,0,250000);`
 
 func TestSummaryReadsTheCharacterFromTheSave(t *testing.T) {
 	o := &Ops{S: testsave.PlayerWithSQL(t, summaryWorld)}
@@ -28,14 +28,14 @@ func TestSummaryReadsTheCharacterFromTheSave(t *testing.T) {
 	if s["name"] != "Tester" || s["map"] != "HaggaBasin" || s["faction"] != "Harkonnen" || s["status"] != "Offline" {
 		t.Fatalf("identity: %v", s)
 	}
-	// 41,221 XP is level 71, and a level-71 character has 70 skill points in total.
-	if s["xp"].(int64) != 41221 || s["level"].(int) != 71 {
+	// 20,000 XP is level 36, and a level-36 character has 35 skill points in total.
+	if s["xp"].(int64) != 20000 || s["level"].(int) != 36 {
 		t.Fatalf("xp and level: %v %v", s["xp"], s["level"])
 	}
-	if sp := s["skillPoints"].(map[string]any); sp["unspent"].(int64) != 9 || sp["total"].(int64) != 70 {
+	if sp := s["skillPoints"].(map[string]any); sp["unspent"].(int64) != 5 || sp["total"].(int64) != 35 {
 		t.Fatalf("skill points: %v", sp)
 	}
-	if in := s["intel"].(map[string]any); in["points"].(int64) != 333 || in["max"].(int) != 2779 {
+	if in := s["intel"].(map[string]any); in["points"].(int64) != 300 || in["max"].(int) != 2779 {
 		t.Fatalf("intel: %v", in)
 	}
 	v := s["vitals"].(map[string]any)
@@ -55,7 +55,7 @@ func TestSummaryReadsTheCharacterFromTheSave(t *testing.T) {
 	want := []struct {
 		label string
 		n     int64
-	}{{"Solari in wallet", 591227}, {"Solari in backpack", 100}, {"House credit in wallet", 0}}
+	}{{"Solari in wallet", 250000}, {"Solari in backpack", 100}, {"House credit in wallet", 0}}
 	if len(tiles) != len(want) {
 		t.Fatalf("currency tiles: %v", tiles)
 	}

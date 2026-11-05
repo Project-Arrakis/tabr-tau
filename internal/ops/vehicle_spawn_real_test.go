@@ -74,7 +74,7 @@ func TestComposeVehiclesOnACopyOfARealSave(t *testing.T) {
 		"crawler T6":          {"class": "Sandcrawler", "template": "T6_Harvesting"},
 		"sandbike T5":         {"class": "Sandbike", "template": "T5"},
 		"container":           {"class": "ContainerVehicle", "template": "Container"},
-		"operator's Mk6 buggy": {"class": "Buggy", "template": "T6_Combat", "uniques": map[string]any{
+		"Mk6 buggy, uniques, cargo": {"class": "Buggy", "template": "T6_Combat", "uniques": map[string]any{
 			"Engine": "BuggyEngine_Unique_Accelerate_06", "UtilitySlot1": "BuggyInventory_Unique_Capacity_06", "UtilitySlot2": "BuggyMining_Unique_YieldIncrease_06"},
 			"items": []any{map[string]any{"template_id": "MelangeSpice", "quantity": 25.0}}},
 	} {

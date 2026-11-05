@@ -26,8 +26,8 @@ One edit (the ordinary one: a backup first, or queued while the game is running)
 
 ## Numbers derived from the modules
 
-`catalog.DeriveVehicle` is the one rule used both to write and to check. Each was checked against vehicles of real saves (six vehicles of six classes in the tests, eleven
-vehicles of seven classes when it was found):
+`catalog.DeriveVehicle` is the one rule used both to write and to check. Each was checked against vehicles of real saves (vehicles of several classes in the tests, and
+again when it was found):
 
 | Saved value | Rule |
 |---|---|
@@ -76,15 +76,14 @@ three choose the spot by a search; the rules are in [Where a vehicle goes](#wher
 
 ### What went wrong (evidence from a save, 2026-10-28)
 
-A copy of a single-player save, taken after Create a vehicle had put a Mk6 buggy next to the character in a base (Hagga Basin; centimetres):
+A copy of a single-player save, taken after Create a vehicle had put a Mk6 buggy next to the character in a base (centimetres):
 
-- The character stood at (179,628, -36,142, 8,554.4). The base is one building of 178 pieces: a 5 x 5 block of foundations, 512 apart on a grid turned 40 degrees (22 foundations; the other three cells are stairs and ramps at the same level), all at z 8,165.9;
-  two courses of walls and windows round it (z 8,549.9 and 8,933.9), floors at 9,317.9, two more courses (9,701.9, and 10,085.9 with the floor), ramps and a roof piece up to 10,853.9. The sub-fief's claim is one cell (5,120 across) about its totem's origin.
-- The character was in the ground-floor room, in cell (0, 1.25) of that grid (cell units of 512 from the middle foundation), 4 cm above the foundation top (8,549.9): the saved z of the character is the level of the feet.
-- The old default point, (180,428, -36,142, 8,704), is in cell (1.21, 0.25): inside the 25.6 m square of the base, in the same room, 154 above the floor and 614 under the floor of the next storey; the walls round that room are 660 away. A
-  buggy is about 4 m across: it was set down in a closed room, and the game's physics moved it (it was found in the middle of the base, cell (-0.08, 0.10), at z 8,804, 254 above the floor). Nothing about the spot was outdoors.
-- Heights: a foundation stands 384 high from its z; each course of walls is 384 (the courses of this base are at 384, 768, 1,152, 1,536 and 1,920 above the foundations' z); a floor's z is its top surface (placeables on it stand 3.5 above it).
-  The base's stairs and ramps start at the foundations' z, so the ground outside is at about that level: the ground-floor room is a storey above it.
+- The base is one building: a block of foundations on a grid turned off the compass axes (some cells are stairs and ramps at the same level), two courses of walls and windows round it, floors, and more courses, ramps and a roof piece above. The sub-fief's claim is one cell (5,120 across) about its totem's origin.
+- The character was in the ground-floor room, standing on the foundation top: the saved z of the character is the level of the feet.
+- The old default point (x + 800, same y, z + 150) is inside the square of the base, in the same room, a little above the floor and well under the floor of the next storey; the walls round that room are a few metres away. A
+  buggy is about 4 m across: it was set down in a closed room, and the game's physics moved it (it was found in the middle of the base, a little above the floor). Nothing about the spot was outdoors.
+- Heights: a foundation stands 384 high from its z; each course of walls is 384; a floor's z is its top surface (placeables on it stand 3.5 above it).
+  The base's stairs and ramps start at the foundations' z, so the ground outside is at about that level.
 
 What the save knows: `building_instances` (type, place and turn of each piece), `placeables`, the other vehicles' places, `totems` and `landclaim_segments` (the claim's cells, with the totem's origin and yaw, as the Land claim editor reads them). What it
 does not know: the terrain, and the level's own props (rocks, cliffs, ruins). A point can still be inside a rock, and a base standing on a slope has ground at other heights than its foundations'; a vehicle in the wrong place is moved with Bring vehicle.
@@ -139,9 +138,9 @@ North is up and east is +x, as in the Land claim editor.
 
 ### Aircraft (#540)
 
-#### What went wrong (2026-11-05, single player)
+#### What went wrong (#540, single player)
 
-Create a vehicle put a Light ornithopter about 22 m under a standing character, inside rock. The #480 search had found a spot clear of base pieces, but the terrain is not in a save, so a point
+Create a vehicle put a Light ornithopter far under a standing character, inside rock. The #480 search had found a spot clear of base pieces, but the terrain is not in a save, so a point
 with nothing built near it can still be under the ground or inside a cliff. The height outside a base (the character's feet and 150, or the foundation level and 250 in a base) is a guess about the ground, and it is wrong on a slope or beside a rock formation.
 
 #### The console's rule

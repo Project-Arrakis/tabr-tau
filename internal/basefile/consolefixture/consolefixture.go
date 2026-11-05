@@ -87,7 +87,7 @@ func Header() Data {
 		"format":  "dune-base-backup",
 		"source":  Data{"map": "HaggaBasin", "name": "Test Reserve", "counts": Data{"items": 3, "pieces": 3, "placeables": 3}, "rawName": "Test Reserve", "backupId": 2, "ownerName": "", "totemType": "Totem_Placeable"},
 		"console": Data{"buildId": "0d27f4befd09ca28", "version": "v1.4.52"},
-		"version": 1, "exportedAt": "2026-10-25T18:02:57.884Z", "ownerPlaceholderTransferId": Placeholder,
+		"version": 1, "exportedAt": "2026-01-01T00:00:00.000Z", "ownerPlaceholderTransferId": Placeholder,
 	}
 }
 

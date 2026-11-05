@@ -13,7 +13,7 @@ import (
 //
 // Source: the game's item data, the table of fillable items (DT_ItemTableFillables, the row named by the item's template, field MaxAmount, with
 // FillableTypeRestriction Water and bIsContainer true), read 2026-10-28 (issue #482; docs/design/2026-10-28-fillable-capacities.md has the whole table).
-// The first nine entries were first read in game by the operator on 2026-10-08; the table gives the same numbers. A container with a fill record
+// The first nine entries were first read in game; the table gives the same numbers. A container with a fill record
 // that is not listed here is skipped and reported, never guessed. An empty container that is not listed has no record to recognise it by, so it is left
 // alone without a report.
 var waterCapacity = map[string]float64{
