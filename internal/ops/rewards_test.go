@@ -18,16 +18,16 @@ func intelNow(t *testing.T, o *Ops) int64 {
 }
 
 func TestAddIntelAddsAndKeepsTheRestOfTheRecord(t *testing.T) {
-	o := intelOps(t, 333)
+	o := intelOps(t, 300)
 	r, err := o.AddIntel(Args{"amount": 100.0})
 	if err != nil {
 		t.Fatal(err)
 	}
 	res := r.(map[string]any)
-	if res["before"].(int64) != 333 || res["after"].(int64) != 433 || res["applied"].(int64) != 100 || res["capped"] != false {
+	if res["before"].(int64) != 300 || res["after"].(int64) != 400 || res["applied"].(int64) != 100 || res["capped"] != false {
 		t.Fatalf("result: %v", res)
 	}
-	if intelNow(t, o) != 433 {
+	if intelNow(t, o) != 400 {
 		t.Fatal("the save was not changed")
 	}
 	row := mustOne(t, o, `select json_extract(properties,'$.Other.keep') k, json_extract(properties,'$.TechKnowledgePlayerComponent.m_NextTechTreeUpgradeIndex') i, typeof(properties) ty from actors where id=2`)
@@ -88,15 +88,15 @@ func balance(t *testing.T, o *Ops, id int) any {
 }
 
 func TestAddCurrencyAddsToTheBalanceAndCreatesAMissingWallet(t *testing.T) {
-	o := &Ops{S: testsave.PlayerWithSQL(t, `insert into player_virtual_currency_balances(player_controller_id,currency_id,balance) values (1,0,591227);`)}
+	o := &Ops{S: testsave.PlayerWithSQL(t, `insert into player_virtual_currency_balances(player_controller_id,currency_id,balance) values (1,0,250000);`)}
 	r, err := o.AddCurrency(Args{"currency": 0.0, "amount": 1000.0})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res := r.(map[string]any); res["before"].(int64) != 591227 || res["after"].(int64) != 592227 {
+	if res := r.(map[string]any); res["before"].(int64) != 250000 || res["after"].(int64) != 251000 {
 		t.Fatalf("result: %v", res)
 	}
-	if balance(t, o, 0).(int64) != 592227 {
+	if balance(t, o, 0).(int64) != 251000 {
 		t.Fatal("the balance was not changed")
 	}
 	if balance(t, o, 1) != nil {
@@ -105,7 +105,7 @@ func TestAddCurrencyAddsToTheBalanceAndCreatesAMissingWallet(t *testing.T) {
 	if _, err := o.AddCurrency(Args{"currency": 1.0, "amount": 50.0}); err != nil {
 		t.Fatal(err)
 	}
-	if balance(t, o, 1).(int64) != 50 || balance(t, o, 0).(int64) != 592227 {
+	if balance(t, o, 1).(int64) != 50 || balance(t, o, 0).(int64) != 251000 {
 		t.Fatalf("wallets: %v %v", balance(t, o, 0), balance(t, o, 1))
 	}
 	assertDBSound(t, o)

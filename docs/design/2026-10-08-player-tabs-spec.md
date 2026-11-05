@@ -11,7 +11,7 @@ default is to keep a control, not cut it.
 Source: console v1.4.47 (`console/web/src/features/players/*`, `features/bases/*`, `features/vehicles/*`, API in `console/api/src`),
 read from its code and rendered locally against fake data. Rule for "applies to single-player" below: the console itself talks only
 to Postgres and runs live actions over RabbitMQ, neither of which exists in a single-player save. What matters is whether the **same
-data lives in the SQLite save**, which was checked read-only against a real save on 2026-10-08 (counts in the last column).
+data lives in the SQLite save**, which was checked read-only against a real save on 2026-10-08 (result in the third column).
 
 Status: **Have** (in tabr-tau), **Build** (data is in the save; direct edit), **Cut** (server or multiplayer only), **Later** (applies,
 needs more research or a live check in game).
@@ -21,14 +21,14 @@ needs more research or a live check in game).
 | Console shows | Source in the save | Real save check | tabr-tau |
 |---|---|---|---|
 | Character name, status (Online / Offline), map, guild | `player_state`, `actors`; guild does not exist in single-player | name, map present | Build (guild shown as "-") |
-| Level, XP | `fgl_entities.components` `FLevelComponent[1].TotalXPEarned`, slot `DuneCharacter`; level from the console's 201-entry XP table | XP 41,221 | Build |
-| Skill points (unspent / total) | `FLevelComponent[1].UnspentSkillPoints`, `TotalSkillPoints` | 9 / 70 | Build |
-| Available Intel (cap 2,779) | `actors.properties` `TechKnowledgePlayerComponent.m_TechKnowledgePoints` | 333 | Build |
-| Health (current / estimated max), Hydration, Spice Addiction | `FHealthComponent[1].m_CurrentHealth`; `actors.gas_attributes` Hydration and SpiceAddiction sets; max health = 150 + Vitality tiers from the Combat specialization level (always shown as estimated) | health 112.3 | Build |
+| Level, XP | `fgl_entities.components` `FLevelComponent[1].TotalXPEarned`, slot `DuneCharacter`; level from the console's 201-entry XP table | present | Build |
+| Skill points (unspent / total) | `FLevelComponent[1].UnspentSkillPoints`, `TotalSkillPoints` | present | Build |
+| Available Intel (cap 2,779) | `actors.properties` `TechKnowledgePlayerComponent.m_TechKnowledgePoints` | present | Build |
+| Health (current / estimated max), Hydration, Spice Addiction | `FHealthComponent[1].m_CurrentHealth`; `actors.gas_attributes` Hydration and SpiceAddiction sets; max health = 150 + Vitality tiers from the Combat specialization level (always shown as estimated) | present | Build |
 | Faction alignment, faction standings (reputation, estimated rank, story limit) | `player_faction`, `player_faction_reputation`, `factions`, `journey_story_node`, `player_tags` | tables present | Have reputation; Build alignment; rank estimate Later |
 | Platform, Funcom, FLS ID | `accounts` | present | Have (shown today) |
 | DB player, account, controller, player-state ids | `actors`, `player_state` | present | Build |
-| Currency tiles: Solari Credit, Solari Coin, secondary currency | `player_virtual_currency_balances` (credit); `SolarisCoin` item stacks (coin) | credit 591,227; coin 95,470 | Build (both tiles; they are different balances) |
+| Currency tiles: Solari Credit, Solari Coin, secondary currency | `player_virtual_currency_balances` (credit); `SolarisCoin` item stacks (coin) | both present | Build (both tiles; they are different balances) |
 
 ## Character
 
@@ -47,10 +47,10 @@ needs more research or a live check in game).
 
 | Tab | Console | Single-player data | tabr-tau |
 |---|---|---|---|
-| Crafting | Crafting Schematics table (recipe, recipe id, source, grade, Unlock), filter, category rail (Essentials, Water Discipline, Combat, Construction, Exploration, Vehicles), reload; 383+ schematics from the console's item catalog | `actors.properties` `CraftingRecipesLibraryActorComponent.m_KnownItemRecipes` (173 known) | Build |
-| Research | Research table (name, item key, type, product group, Research / Repair Unlock), filters, category rail incl. Augmentations / Uniques | `TechKnowledgePlayerComponent.m_TechKnowledge.m_TechKnowledgeData` (365 entries, 229 Purchased); unlock also adds the linked recipe or building set | Build |
+| Crafting | Crafting Schematics table (recipe, recipe id, source, grade, Unlock), filter, category rail (Essentials, Water Discipline, Combat, Construction, Exploration, Vehicles), reload; 383+ schematics from the console's item catalog | `actors.properties` `CraftingRecipesLibraryActorComponent.m_KnownItemRecipes` (known recipes) | Build |
+| Research | Research table (name, item key, type, product group, Research / Repair Unlock), filters, category rail incl. Augmentations / Uniques | `TechKnowledgePlayerComponent.m_TechKnowledge.m_TechKnowledgeData` (entries with a purchased flag); unlock also adds the linked recipe or building set | Build |
 | Building Sets | Table of 213 building-set unlocks with group, requires, status; the console delivers a patent token item rather than writing the unlock | learned building sets / buildable pieces tables | Have the learned list; Build the Grant (item delivery or direct unlock, to decide) |
-| Customizations | 342 cosmetics in 5 sets (Atreides, Harkonnen, Smuggler, Dune Man, Filmic Archive); Grant / Grant Set / Grant All; delivers token items | item rows (none held now) | Build as item delivery; entitlement or DLC cosmetics are only delivered tokens, ownership cannot be verified |
+| Customizations | 342 cosmetics in 5 sets (Atreides, Harkonnen, Smuggler, Dune Man, Filmic Archive); Grant / Grant Set / Grant All; delivers token items | item rows | Build as item delivery; entitlement or DLC cosmetics are only delivered tokens, ownership cannot be verified |
 
 Catalogs used by the console (MIT, RedBlink) and already embedded in tabr-tau's notices model: `admin-items.json` (items, schematics,
 building sets, customizations), `admin-skill-modules.json` (145 skill modules), `journey-tags.json`. Names, categories and groups are
@@ -60,9 +60,9 @@ the console's own regex heuristics, not game data; keep that note.
 
 | Tab | Console | Single-player data | tabr-tau |
 |---|---|---|---|
-| Skills | Skill Point Controls (set unspent points); Skill Browser by school (Trooper, Mentat, Planetologist, Bene Gesserit, Swordmaster) and tree, rank bars per skill, Save / Discard, Restore Starter Skills presets | `FLevelComponent[1].ModuleData` (146 modules; `SkillPointsSpent` is cumulative, rank comes from the point ladder in `admin-skill-modules.json`) | Build |
+| Skills | Skill Point Controls (set unspent points); Skill Browser by school (Trooper, Mentat, Planetologist, Bene Gesserit, Swordmaster) and tree, rank bars per skill, Save / Discard, Restore Starter Skills presets | `FLevelComponent[1].ModuleData` (`SkillPointsSpent` is cumulative, rank comes from the point ladder in `admin-skill-modules.json`) | Build |
 | Specialization | Table Track, XP, Level, Keystone, Add XP, Grant Max, Reset; Grant / Reset All Keystones | `specialization_tracks` (empty in this save), `specialization_keystones_map`, `purchased_specialization_keystones` | Have track set; Build keystones, Add XP, Grant Max, Reset |
-| Journey | Journey Browser: Story, Contracts, Codex, Tutorial trees, filter, Complete / Reset per node, status, tags, depends-on | `journey_story_node` (2,221 nodes), `player_tags`, `tutorials` (118), `tutorial_per_player` | Have complete / reset; Build tree view, depends-on, contracts, codex |
+| Journey | Journey Browser: Story, Contracts, Codex, Tutorial trees, filter, Complete / Reset per node, status, tags, depends-on | `journey_story_node`, `player_tags`, `tutorials`, `tutorial_per_player` | Have complete / reset; Build tree view, depends-on, contracts, codex |
 | Blueprints | Player Blueprints (import, export, delete, select all) and Browse community blueprints (online catalog) | `building_blueprints` and 3 child tables (empty in this save) | Build player blueprints; Cut community browse (needs the internet; revisit) |
 
 ## Bases (console: embedded Bases panel, issue #94)
@@ -86,7 +86,7 @@ the **Extras** tab, not into a console tab.
 Console: list of the player's vehicles (Vehicle, Type, Lowest Condition %, Fuel %, Location), expandable component cards, **View
 Contents** (cargo hold, slot list or grid, delete stack / selected / all). Access filter and Owner column are moot for one owner.
 
-tabr-tau: owned vehicles only (#92, owner = rank 1 in `permission_actor_rank`; the real save has 13 vehicles, 1 owned). Have bring, repair,
+tabr-tau: owned vehicles only (#92, owner = rank 1 in `permission_actor_rank`). Have bring, repair,
 chassis durability. Build: Type, condition %, fuel %, location columns; components; cargo hold view and delete (`inventory_type = 0`, never
 the module link). Refuel exists in the console API but has no screen there: `actors.properties[<class>].m_InitialFuel = 1.0`.
 

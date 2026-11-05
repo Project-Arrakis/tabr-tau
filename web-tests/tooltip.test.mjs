@@ -153,7 +153,7 @@ test('moving from the button into its tooltip keeps it open; opening another clo
 });
 
 test('the Base backups card works the same', async () => {
-  const BACKUP = { backup_id: 3, name: 'Sub-Fief', backup_name: '##Totem_Small_Placeable', map: 'HaggaBasin', actors: 44, picked_up: 44, pieces: 1174, placeables: 43, stored_items: 53 };
+  const BACKUP = { backup_id: 3, name: 'Sub-Fief', backup_name: '##Totem_Small_Placeable', map: 'HaggaBasin', actors: 12, picked_up: 12, pieces: 1250, placeables: 9, stored_items: 7 };
   const ui = await openBases({ '/api/bases/list': LIST, '/api/bases/backups': [BACKUP] });
   const w = ui.doc.querySelector('#bbctip3').closest('.tip');
   assert.ok(w.closest('.scroll'), 'inside a scroll box');

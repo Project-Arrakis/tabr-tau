@@ -71,7 +71,7 @@ and a handful of concrete defects.
 31. **[Accuracy, med]** Solari appears under three names in four places (Summary tiles "Solari Credit", "Solari Coin", "House Credit"; Overview "Solari in backpack"; Quick rewards "Give currency"). The code is right but a player cannot tell which to edit. One Currency card with three labelled rows.
 32. **[Friendly, med]** With saving blocked ("You can keep editing", `app.js:245`) edits will later hit "changed on disk" (audit UX-01); auto-refresh also drops a half-made Land Claim selection (`LC.sel`). Dim edit controls when blocked and do not auto-refresh while a claim selection is open.
 33. **[Friendly, med]** Config dead end in window mode: "pass `--config <folder>`" with no command line and no folder picker (`app.js:790`; `locked.html:13`). Add a folder chooser or explain the shortcut.
-34. **[Professional, med]** Casing and wording are inconsistent: Title Case ("Specialization Tracks", "Grant All Keystones", "Player Admin Actions") against sentence case ("Unlock all research", "Quick rewards"); toasts mix "Hydration 70.1 -> 100." and "XP 1 to 2"; "row(s)" (`app.js:924, 1027`). Sentence case, one arrow style, a short style guide.
+34. **[Professional, med]** Casing and wording are inconsistent: Title Case ("Specialization Tracks", "Grant All Keystones", "Player Admin Actions") against sentence case ("Unlock all research", "Quick rewards"); toasts mix "Hydration 50.0 -> 100." and "XP 1 to 2"; "row(s)" (`app.js:924, 1027`). Sentence case, one arrow style, a short style guide.
 35. **[Redundancy, med]** Land Claim has two overlapping editors (the grid and "Resize by square", `app.js:660-673, 722-729`) and drifting terms ("Horizontal segments" `cells - 1` against "N cells"). Merge them; use "cells" consistently.
 36. **[Redundancy, med]** The Automatic refill card appears on both the Power and Water sub-tabs of every base (`app.js:606-610, 695, 701`) and is the one write that bypasses Review. A single Settings home.
 37. **[Friendly, med]** Landsraad actions are inconsistent: the faction select feeds Fill goal and Complete, only Complete confirms, Term Apply does not, and "Reigning", "Active decree" and "Elected decree" are not explained (`app.js:774-782`). Label the selector "Act as faction", put the faction on each button, apply one confirmation policy.
@@ -82,7 +82,7 @@ and a handful of concrete defects.
 42. **[Professional, low]** Internal ids appear in visible columns and tooltips (Research "Key", Crafting "Recipe id", "Item id", "FLS ID", "DB player", "Player controller"). Hide behind a "Show ids" toggle.
 43. **[Friendly, low]** "Give item" mixes Give, Add to queue, Give water, Fill hydration and Refill Literjons in one row (`app.js:408`). Split into Give item and Top-ups.
 44. **[Polish, low]** Leftovers: unused `A.spec` (`app.js:927`); the map icon list repeated in `livemap.js`, `app.css` (about 60 `.lm-i-*` rules) and a server-side listing; hard-coded `.warn` and `.info` colours with a blue that clashes with the palette; no favicon; `<title>` does not change per tab.
-45. **[Accuracy, low]** Wording nits: "Auto-refresh" does not say what it refreshes; "Health 85.0 (max at least 150)" reads awkwardly; "Skill points 9 / 70" is not labelled unspent over total; the Skills "Charge for changes" box defaults off, so rank changes do not spend points unless ticked.
+45. **[Accuracy, low]** Wording nits: "Auto-refresh" does not say what it refreshes; "Health h (max at least m)" reads awkwardly; "Skill points n / 70" is not labelled unspent over total; the Skills "Charge for changes" box defaults off, so rank changes do not spend points unless ticked.
 
 ## Quick wins (each under an hour)
 
@@ -142,13 +142,13 @@ diamond as the card-title divider, a dune-ridge underline on the active tab, Fre
 
 Microcopy in a restrained in-universe voice (each keeps the plain meaning in the same sentence):
 
-1. Save success: "Saved to the game. Backup kept as game-20261018-1203.db."
+1. Save success: "Saved to the game. Backup kept as game-YYYYMMDD-HHMM.db."
 2. Discard confirm: "Every edit since the file was loaded is dropped, as if the wind had covered your tracks. The file on disk is not touched."
 3. Game-running banner: "The game is running in single-player, so saving is paused. Close the game or return to its menu, then save."
 4. Water refill: "Water is life: fills every cistern, windtrap and Blood Purifier to capacity."
 5. Map hint: "Hover a marker to read the sand. Drag to pan, scroll to zoom."
 6. Empty base list: "No base founded in this save yet."
 7. Lost connection: "Lost contact with the editor. Saving is paused until it answers."
-8. Landsraad: eyebrow "Landsraad term 14"; "Reigning" relabelled "Ruling faction".
+8. Landsraad: eyebrow "Landsraad term N"; "Reigning" relabelled "Ruling faction".
 9. Config warning: "Close Dune before editing: the game rewrites these files when it exits."
 10. Locked page: "This tab is not signed in. Open the one-time link tabr-tau printed when it started; it opens the door for a few minutes."

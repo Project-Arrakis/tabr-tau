@@ -17,7 +17,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
-// Export of a picked-up base (#475, phase 1). The world is the shape of a real pick-up (see docs/research/2026-10-28-base-export-import-from-console.md section 3): a totem, a
+// Export of a picked-up base (#475, phase 1). The world is the shape of a real pick-up in miniature (see docs/research/2026-10-28-base-export-import-from-console.md section 3): a totem, a
 // building actor that holds the pieces, two placeables with entities (a storage and a crafting station), the entities with 64-bit ids, and a second base that is still placed and
 // must not be in the file.
 const (
@@ -535,13 +535,6 @@ func TestExportOfARealPickedUpBase(t *testing.T) {
 	st, _ := o.S.One(`select count(*) n from actors where state=5`)
 	if int64(f.Manifest.Counts["actors"]) > st["n"].(int64) {
 		t.Errorf("the file holds %d actors, the save has %d in state 5", f.Manifest.Counts["actors"], st["n"])
-	}
-	// the operator's save from 2026-10-27 held one backup with 44 actors; when this copy is that one the counts are known
-	if f.Manifest.Counts["base_backup_linked_actors"] == 44 && len(list) == 1 {
-		want := basefile.Summary{Actors: 44, Pieces: 174, Placeables: 43, StoredItems: 53, Entities: 68, Rows: 589}
-		if f.Manifest.Summary != want {
-			t.Errorf("the known pick-up has %+v, the export %+v", want, f.Manifest.Summary)
-		}
 	}
 	// nothing private reaches the file: the character's name and the account's ids
 	if p, err := o.player(); err == nil && p.Name != "" && strings.Contains(string(out.Data), p.Name) {

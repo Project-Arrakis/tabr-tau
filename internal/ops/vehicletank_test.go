@@ -124,11 +124,11 @@ func tankOps(t *testing.T, vs []tankVehicle) *Ops {
 	return &Ops{S: testsave.PlayerWithSQL(t, refuelWorld(fv)+vehicleWorldFuel+b.String())}
 }
 
-// The real vehicles of the operator's saves (the rows the #401 tests use: 578, 1828, 1859, 1599, 1616, 1634) and the created Mk6 buggy, with the fuel they had.
+// One vehicle of each class with a module set the game's templates give (the ids are rows of the fixture), and the created Mk6 buggy, with the fuel they had.
 var tankFleet = []tankVehicle{
-	{578, "BP_MediumOrnithopter_CHOAM_C", []string{"OrnithopterMediumChassis_5", "OrnithopterMediumEngine_5", "OrnithopterMediumGenerator_5"}, "221.203079"},
+	{578, "BP_MediumOrnithopter_CHOAM_C", []string{"OrnithopterMediumChassis_5", "OrnithopterMediumEngine_5", "OrnithopterMediumGenerator_5"}, "221.0"},
 	{1828, "BP_Sandbike_CHOAM_C", []string{"SandbikeChassis_5", "SandbikeEngine_5", "SandbikeGenerator_5"}, "0.0"},
-	{1859, "BP_LightOrnithopter_Choam_C", []string{"OrnithopterLightChassis_4", "OrnithopterLightEngine_4"}, "275.75354"},
+	{1859, "BP_LightOrnithopter_Choam_C", []string{"OrnithopterLightChassis_4", "OrnithopterLightEngine_4"}, "275.0"},
 	{1599, "BP_SandCrawler_CHOAM_C", []string{"SandcrawlerChassis_6", "SandcrawlerEngine_Unique_Speed_06"}, "0.0"},
 	{1616, "BP_TransportOrnithopter_CHOAM_C", []string{"OrnithopterTransportChassis_6", "OrnithopterTransportEngine_6"}, "100.0"},
 	{1634, "BP_ContainerVehicle_C", []string{"ContainerVehicle"}, "0.0"},

@@ -339,66 +339,20 @@ func TestPlaceBringVehicleAndDuplicateUseTheSameSearch(t *testing.T) {
 	}
 }
 
-// ---- the operator's base
+// ---- the synthetic base (vehicle_place_base_test.go)
 
-func operatorBaseOps(t *testing.T) *Ops {
-	t.Helper()
-	var b strings.Builder
-	b.WriteString(`insert into actors(id,class,map,location_x,location_y,location_z) values (7001,'/Game/Dune/Systems/Building/Pieces/BP_DuneBuildingBase.BP_DuneBuildingBase_C','HaggaBasin',180036.51,-36637.14,8165.93);
-insert into buildings(id) values (7001);
-insert into actors(id,class,map,location_x,location_y,location_z) values (7002,'/Game/Dune/Systems/Building/Pieces/BP_TotemSmall.BP_TotemSmall_C','HaggaBasin',180160.77,-35163.03,8552.27);
-insert into totems(id,landclaim_vertical_level,landclaim_original_global_location_x,landclaim_original_global_location_y,landclaim_original_global_location_z,landclaim_original_global_yaw_rotation) values (7002,0,179799.65625,-36676.69140625,9321.4833984375,-140.0);
-insert into actors(id,class,map,location_x,location_y,location_z,rotation_z,rotation_w) values (129,'/Game/Dune/Systems/Vehicles/Blueprints/GroundVehicles/BP_Sandbike_CHOAM.BP_Sandbike_CHOAM_C','HaggaBasin',180762.18,-36755.99,8648.34,0.644,0.765);
-insert into vehicles(id) values (129);
-`)
-	n := 0
-	for _, ln := range strings.Split(strings.TrimSpace(operatorBasePieces), "\n") {
-		f := strings.Fields(ln)
-		n++
-		fmt.Fprintf(&b, "insert into building_instances(building_id,instance_id,building_type,location_x,location_y,location_z,rotation_z,rotation_w) values (7001,%d,'%s',%s,%s,%s,%s,%s);\n", n, f[0], f[1], f[2], f[3], f[4], f[5])
-	}
-	n = 0
-	for _, ln := range strings.Split(strings.TrimSpace(operatorBasePlaceables), "\n") {
-		f := strings.Fields(ln)
-		fmt.Fprintf(&b, "insert into actors(id,class,map,location_x,location_y,location_z) values (%d,'/Game/Dune/Systems/Building/Placeables/BP_%s.BP_%s_C','HaggaBasin',%s,%s,%s);\ninsert into placeables(id,building_type,is_hologram) values (%d,'%s',0);\n", 7100+n, f[0], f[0], f[1], f[2], f[3], 7100+n, f[0])
-		n++
-	}
-	fmt.Fprintf(&b, "update actors set location_x=%v, location_y=%v, location_z=%v, rotation_z=-0.9731622855552838, rotation_w=0.2301198947783881 where id=2;\n", operatorCharX, operatorCharY, operatorCharZ)
-	return placeOps(t, b.String())
-}
-
-const (
-	operatorCharX, operatorCharY, operatorCharZ = 179628.34, -36141.70, 8554.42
-	operatorFoundationZ                         = 8165.93
-	operatorGridX, operatorGridY                = 180036.51, -36637.14 // the middle foundation; the grid is turned 40 degrees about it
-	operatorHalfBase                            = 1280.0               // 5 cells of 512 across
-)
-
-// gridUV is a point in the base's own frame: along the foundation rows and across them, in centimetres from the middle foundation.
-func gridUV(x, y float64) (float64, float64) {
-	s, c := math.Sincos(40 * math.Pi / 180)
-	dx, dy := x-operatorGridX, y-operatorGridY
-	return dx*c + dy*s, -dx*s + dy*c
-}
-
-// baseGap is how far (x, y) is from the 5 x 5 block of foundations (0 on it).
-func baseGap(x, y float64) float64 {
-	u, v := gridUV(x, y)
-	return math.Hypot(math.Max(math.Abs(u)-operatorHalfBase, 0), math.Max(math.Abs(v)-operatorHalfBase, 0))
-}
-
-func TestPlaceOperatorBaseTheOldPointWasInsideTheBase(t *testing.T) {
-	o := operatorBaseOps(t)
+func TestPlaceSynthBaseTheOldPointWasInsideTheBase(t *testing.T) {
+	o := synthBaseOps(t)
 	// the evidence: the old point (character + 800 along x, + 150 up) is in the ground-floor room of the 5 x 5 base, under two floors, and no vehicle fits there as a way out
-	ox, oy, oz := operatorCharX+800, operatorCharY, operatorCharZ+150
-	if u, v := gridUV(ox, oy); math.Abs(u) > operatorHalfBase || math.Abs(v) > operatorHalfBase {
+	ox, oy, oz := synthCharX+800, synthCharY, synthCharZ+150
+	if u, v := gridUV(ox, oy); math.Abs(u) > synthHalfBase || math.Abs(v) > synthHalfBase {
 		t.Fatalf("the old point is outside the base: %v %v", u, v)
 	}
-	w, err := loadPlaceWorld(o.S.Query, "HaggaBasin", 0, operatorCharX, operatorCharY, 0)
+	w, err := loadPlaceWorld(o.S.Query, "HaggaBasin", 0, synthCharX, synthCharY, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if in, _ := w.onPieces(operatorCharX, operatorCharY, operatorCharZ); !in {
+	if in, _ := w.onPieces(synthCharX, synthCharY, synthCharZ); !in {
 		t.Fatalf("the character is on the base")
 	}
 	for _, key := range []string{"Sandbike", "Buggy", "OrnithopterTransport"} {
@@ -408,14 +362,14 @@ func TestPlaceOperatorBaseTheOldPointWasInsideTheBase(t *testing.T) {
 	}
 }
 
-func TestPlaceOperatorBaseEveryClassGoesOutsideAtTheFoundationLevel(t *testing.T) {
+func TestPlaceSynthBaseEveryClassGoesOutsideAtTheFoundationLevel(t *testing.T) {
 	var gaps []float64
-	w, err := loadPlaceWorld(operatorBaseOps(t).S.Query, "HaggaBasin", 0, operatorCharX, operatorCharY, 0)
+	w, err := loadPlaceWorld(synthBaseOps(t).S.Query, "HaggaBasin", 0, synthCharX, synthCharY, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, key := range []string{"Sandbike", "Buggy", "OrnithopterLight", "OrnithopterMedium", "OrnithopterTransport", "Sandcrawler"} {
-		o := operatorBaseOps(t)
+		o := synthBaseOps(t)
 		id, r := spawn(t, o, Args{"class": key, "template": "T0"})
 		x, y, z := xyz(t, o, id)
 		sz := vehicleSizes[key]
@@ -424,13 +378,13 @@ func TestPlaceOperatorBaseEveryClassGoesOutsideAtTheFoundationLevel(t *testing.T
 			t.Errorf("%s: %v from the base, needs %v", key, gap, sz.Radius+placeMargin)
 		}
 		flies := vehicleSizes[key].Flies
-		if !flies && math.Abs(z-(operatorFoundationZ+placeGroundDrop)) > 0.01 {
-			t.Errorf("%s: z %v, want the foundation level %v and the drop", key, z, operatorFoundationZ+placeGroundDrop)
+		if !flies && math.Abs(z-(synthFoundationZ+placeGroundDrop)) > 0.01 {
+			t.Errorf("%s: z %v, want the foundation level %v and the drop", key, z, synthFoundationZ+placeGroundDrop)
 		}
-		if flies && z < operatorCharZ+flyingVehicleZOffset {
-			t.Errorf("%s: z %v, an aircraft is %v above the character's %v", key, z, flyingVehicleZOffset, operatorCharZ)
+		if flies && z < synthCharZ+flyingVehicleZOffset {
+			t.Errorf("%s: z %v, an aircraft is %v above the character's %v", key, z, flyingVehicleZOffset, synthCharZ)
 		}
-		if d := math.Hypot(x-operatorCharX, y-operatorCharY); d > placeMaxRadius {
+		if d := math.Hypot(x-synthCharX, y-synthCharY); d > placeMaxRadius {
 			t.Errorf("%s: %v from the character", key, d)
 		}
 		p := placeOf(r)
@@ -459,7 +413,7 @@ func TestPlaceOperatorBaseEveryClassGoesOutsideAtTheFoundationLevel(t *testing.T
 	}
 	// without the claim each class is as near the base as its size lets it be, and a bigger one is no nearer
 	for _, key := range []string{"Sandbike", "Buggy", "OrnithopterLight", "OrnithopterMedium", "OrnithopterTransport", "Sandcrawler"} {
-		o := operatorBaseOps(t)
+		o := synthBaseOps(t)
 		testsave.Exec(t, o.S, `delete from totems`)
 		id, _ := spawn(t, o, Args{"class": key, "template": "T0"})
 		x, y, _ := xyz(t, o, id)
@@ -475,13 +429,13 @@ func TestPlaceOperatorBaseEveryClassGoesOutsideAtTheFoundationLevel(t *testing.T
 	}
 }
 
-func TestPlaceOperatorBaseBringAndDuplicate(t *testing.T) {
-	o := operatorBaseOps(t)
+func TestPlaceSynthBaseBringAndDuplicate(t *testing.T) {
+	o := synthBaseOps(t)
 	if _, err := o.BringVehicle(Args{"id": 578.0}); err != nil {
 		t.Fatal(err)
 	}
 	x, y, z := xyz(t, o, 578)
-	if baseGap(x, y) < 1200+placeMargin || z < operatorCharZ+flyingVehicleZOffset {
+	if baseGap(x, y) < 1200+placeMargin || z < synthCharZ+flyingVehicleZOffset {
 		t.Errorf("brought to %v %v %v: %v from the base", x, y, z, baseGap(x, y))
 	}
 	d, err := o.DuplicateVehicle(Args{"id": 578.0})
@@ -489,25 +443,25 @@ func TestPlaceOperatorBaseBringAndDuplicate(t *testing.T) {
 		t.Fatal(err)
 	}
 	cx, cy, cz := xyz(t, o, d.(map[string]any)["id"].(int64))
-	if baseGap(cx, cy) < 1200+placeMargin || cz < operatorCharZ+flyingVehicleZOffset || math.Hypot(cx-x, cy-y) < 1200+1200 {
+	if baseGap(cx, cy) < 1200+placeMargin || cz < synthCharZ+flyingVehicleZOffset || math.Hypot(cx-x, cy-y) < 1200+1200 {
 		t.Errorf("the copy at %v %v %v: %v from the base, %v from the original", cx, cy, cz, baseGap(cx, cy), math.Hypot(cx-x, cy-y))
 	}
 }
 
 func TestPlaceOnTheSecondFloorTheVehicleStillGoesToTheGround(t *testing.T) {
-	o := operatorBaseOps(t)
-	// the character on the second floor (floor top 9317.93 + 4), at the middle of the base
-	testsave.Exec(t, o.S, `update actors set location_x=180036.51, location_y=-36637.14, location_z=9322 where id=2`)
+	o := synthBaseOps(t)
+	// the character on the second floor (floor top synthFoundationZ + 1152 + 4), at the middle of the base
+	testsave.Exec(t, o.S, fmt.Sprintf(`update actors set location_x=%v, location_y=%v, location_z=%v where id=2`, synthGridX, synthGridY, synthFoundationZ+1156))
 	id, r := spawn(t, o, Args{"class": "Buggy", "template": "T6_Combat"})
 	x, y, z := xyz(t, o, id)
-	if baseGap(x, y) < 500 || math.Abs(z-(operatorFoundationZ+placeGroundDrop)) > 0.01 || placeOf(r)["inBase"] != true {
+	if baseGap(x, y) < 500 || math.Abs(z-(synthFoundationZ+placeGroundDrop)) > 0.01 || placeOf(r)["inBase"] != true {
 		t.Errorf("%v %v %v %v", x, y, z, placeOf(r))
 	}
 }
 
 func TestPlaceTheSearchIsFast(t *testing.T) {
-	o := operatorBaseOps(t)
-	w, err := loadPlaceWorld(o.S.Query, "HaggaBasin", 0, operatorCharX, operatorCharY, 0)
+	o := synthBaseOps(t)
+	w, err := loadPlaceWorld(o.S.Query, "HaggaBasin", 0, synthCharX, synthCharY, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -516,7 +470,7 @@ func TestPlaceTheSearchIsFast(t *testing.T) {
 	}
 	// the worst case the base gives: the biggest vehicle, from the middle of the base
 	for i := 0; i < 20; i++ {
-		if _, err := w.choose(charPose{X: 180036.51, Y: -36637.14, Z: 9322}, vehicleSizes["Sandcrawler"], "sandcrawler"); err != nil {
+		if _, err := w.choose(charPose{X: synthGridX, Y: synthGridY, Z: synthFoundationZ + 1156}, vehicleSizes["Sandcrawler"], "sandcrawler"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -551,10 +505,10 @@ func TestPlaceShapesOfTheKindsOfPiece(t *testing.T) {
 			t.Errorf("%s: %v %v %v %v %v", c.typ, hx, hy, below, high, f)
 		}
 	}
-	// every kind of piece of the operator's base is modelled
-	for _, ln := range strings.Split(strings.TrimSpace(operatorBasePieces), "\n") {
-		if hx, _, _, _, _ := shapeOf(strings.Fields(ln)[0]); hx <= 0 {
-			t.Errorf("%s", ln)
+	// every kind of piece of the synthetic base is modelled
+	for _, p := range synthBasePieces() {
+		if hx, _, _, _, _ := shapeOf(p.typ); hx <= 0 {
+			t.Errorf("%s", p.typ)
 		}
 	}
 }

@@ -25,7 +25,7 @@ Importing the same file twice adds two backups, each with its own ids. A file th
 The self-hosted Dune console can export a base backup as a `dune-base-backup` file (version 1; written by console v1.4.52 when this was built). Choose it the same way. The editor sees the
 format name, turns the file into the same rows a `tabr-tau-base` file holds, and then everything above and below applies unchanged: the strict read, the size and row caps, the checks, the
 preview with its hash, the backup before the write, new ids, one edit, no question. The preview starts with a line that says the file came from the console, with its name, map and the counts
-the console gave it ("Read from a file of the Dune console (v1.4.52), base backup "My Base", map HaggaBasin, 811 pieces, 204 placeables, 21 stored items, exported ...").
+the console gave it ("Read from a file of the Dune console (v1.4.52), base backup "My Base", map HaggaBasin, 800 pieces, 200 placeables, 20 stored items, exported ...").
 
 What the conversion does:
 
@@ -40,7 +40,7 @@ What the conversion does:
 | `"!!act#12"` strings inside JSON (an id on the console's server, which names nothing in the file) | The null reference `!!act#0` for an actor (counted in the preview); any other kind refuses the file |
 | the owner placeholder (an `act` entry with no data) and the backup's `player_id` | The character of this save, like the owner of an editor file |
 | entity ids (small numbers in the console's file, where a save's are 64-bit) | New 64-bit ids under the prefix of the save's latest entity, above every counter the save holds |
-| `dimension_index` (a server numbers its copies of a map; the file has 2) | The dimension of this save's character (0 in every save seen), and the preview says how many actors were moved |
+| `dimension_index` (a server numbers its copies of a map; the file has a non-zero number) | The dimension of this save's character (0 in a single-player save), and the preview says how many actors were moved |
 | `owner_account_id`, `partition_id`, a null `exchange_id`, `item_id` or `vehicle_module_id` | Left out: the save has no such column |
 | the console's `__lb` note of array lower bounds | Left out: nothing in a save is an array |
 
@@ -48,7 +48,7 @@ The file is refused whole, with the entry named and the save unchanged, when: it
 blueprint kinds) or one this editor does not know; an entry has a field this editor does not know, lacks one, or holds a value of the wrong kind (a text for a number, a list of the wrong
 length); an inventory belongs to an item, a vehicle module or the market; an id is used twice; the placeholder carries data or is referenced where only the backup record may name it; and for
 everything the other sections list (an id outside the file, an actor not linked to the backup, a stored Solido item, and so on). The rank (`PermissionActorRank`) and claim segment
-(`LandclaimSegment`) kinds are read from the console's documented columns; the real file above has none of either, so they are tested with made-up rows only.
+(`LandclaimSegment`) kinds are read from the console's documented columns; the console file this reader was built from has none of either, so they are tested with made-up rows only.
 
 The preview also says the game build the console's server ran (a save does not record which build wrote it, so the editor cannot tell whether the components are stored the same way), and
 when the file's own counts differ from its entries.
@@ -97,8 +97,8 @@ With the game closed, import the file into a **copy** of the save (the editor ma
 4. After a session, are the imported rows still there and unchanged?
 5. Importing the **same file twice**: are both listed, and can both be redeployed?
 6. A Deep Desert base into a save whose layout differs; a file from an older patch set.
-7. **A console file:** does the Base Reconstruction Tool list the base backup imported from a real console export of a base, and does redeploy work (the pieces, placeables and the 21 stored items present, the claim established)? Pieces were written with the console's positions and rotations as plain columns.
-8. The console file's actors were in dimension 2 and were written in dimension 0 (the character's): did the base appear where it was exported?
+7. **A console file:** does the Base Reconstruction Tool list the base backup imported from a real console export of a base, and does redeploy work (the pieces, placeables and stored items present, the claim established)? Pieces were written with the console's positions and rotations as plain columns.
+8. The console file's actors were in a non-zero dimension and were written in dimension 0 (the character's): did the base appear where it was exported?
 
 ## Testing the import while the game is open (#498)
 
@@ -115,6 +115,6 @@ The copy reaches the game only if it is installed as its `game.db` with the game
 
 Tests on made-up saves of the shape of a real pick-up (the same save, a save with no base, a save whose id counters are high), the round trip (export, import, export again: the tables
 are equal once ids are renumbered), every refusal leaving the save byte-identical, the preview leaving it byte-identical, the routes and the page in a browser engine; and the real
-export of a base (56 actors, 179 pieces, 55 placeables, 99 stored items, 736 rows) imported into copies of two real saves, previewed, imported, exported again and compared, then written
-to a file and read back; and the real console export of a base (205 actors, 811 pieces, 204 placeables, 21 stored items, 2,006 rows) imported into copies of three real saves, with the foreign-key
+export of a base imported into copies of played saves, previewed, imported, exported again and compared, then written
+to a file and read back; and a real console export of a base imported into copies of played saves, with the foreign-key
 check and the integrity check passing, and exported again as an editor file. None of that says what the **game** does with the rows: that is the list above.

@@ -10,20 +10,20 @@ import (
 // ---- Level and XP of the character
 
 func TestResetLevelPutsXpAtZeroAndTakesBackTheSkillPointsTheLevelsGave(t *testing.T) {
-	o := xpOps(t, 41221, 70, 9) // level 71
+	o := xpOps(t, 20000, 35, 5) // level 36
 	before := digest(t, o, nil, -10)
-	r, err := o.ResetLevel(Args{"expected": 41221.0})
+	r, err := o.ResetLevel(Args{"expected": 20000.0})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m := r.(map[string]any); m["changed"].(int64) != 41221 || m["noop"] != false || m["levelBefore"].(int) != 71 {
+	if m := r.(map[string]any); m["changed"].(int64) != 20000 || m["noop"] != false || m["levelBefore"].(int) != 36 {
 		t.Fatalf("answer: %v", m)
 	}
-	// 71 levels gave 71 points (the rule Give XP follows), but only 9 are unspent: the other 61 are spent in skills and stay, and the total still covers them
-	if xp, total, unspent := levelState(t, o); xp != 0 || total != 61 || unspent != 0 {
+	// 36 levels gave 36 points (the rule Give XP follows), but only 5 are unspent: the other 30 are spent in skills and stay, and the total still covers them
+	if xp, total, unspent := levelState(t, o); xp != 0 || total != 30 || unspent != 0 {
 		t.Fatalf("state after: xp=%d total=%d unspent=%d", xp, total, unspent)
 	}
-	if m := r.(map[string]any); m["pointsTaken"].(int64) != 9 || m["pointsKept"].(int64) != 62 {
+	if m := r.(map[string]any); m["pointsTaken"].(int64) != 5 || m["pointsKept"].(int64) != 31 {
 		t.Fatalf("the answer says how many points were taken and how many stayed: %v", m)
 	}
 	row := mustOne(t, o, `select json_extract(components,'$.FLevelComponent[1].LastViewedSkillTree') v, json_extract(components,'$.FLevelComponent[1].ModuleData."Skills.Key.Mentat1".SkillPointsSpent') x,
@@ -34,7 +34,7 @@ func TestResetLevelPutsXpAtZeroAndTakesBackTheSkillPointsTheLevelsGave(t *testin
 	if digest(t, o, nil, -10) != before {
 		t.Fatal("something outside the level record changed")
 	}
-	if p := o.S.Pending(); len(p) != 1 || p[0] != "reset level and xp (41221 XP, level 71 to 0)" {
+	if p := o.S.Pending(); len(p) != 1 || p[0] != "reset level and xp (20000 XP, level 36 to 0)" {
 		t.Fatalf("one write-log entry: %q", p)
 	}
 	assertDBSound(t, o)
@@ -55,7 +55,7 @@ func TestResetLevelNeverLeavesFewerTotalPointsThanAreSpent(t *testing.T) {
 	for _, c := range []struct{ xp, total, unspent int }{
 		{1000, 20, 0},   // level 4, every point spent: nothing can be taken back
 		{1000, 20, 2},   // two unspent: two taken, not four
-		{41221, 70, 9},  // level 71, nine unspent
+		{20000, 35, 5},  // level 36, five unspent
 		{1000, 3, 3},    // fewer points than the levels gave: only the three that exist
 		{1000, 100, 50}, // plenty: the four levels' points come off both
 	} {

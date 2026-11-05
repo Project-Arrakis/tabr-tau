@@ -1,237 +1,233 @@
 package ops
 
-// The shape of a real single-player base (a sub-fief on Hagga Basin: a 5 x 5 block of foundations, two storeys of walls and windows, floors, a ramp roof), trimmed to what the
-// placement search reads: piece type, place and turn, and the placeables' type and place. Taken from a save of 2026-10-28 in which Create a vehicle had put a buggy inside it (#480).
-// The foundations are 512 apart on a grid turned 40 degrees; they stand at z 8165.93, the first wall course at 8549.93, a storey of two courses is 768, the floors are at 9317.93
-// and 10085.93. The character stood in the ground-floor room, 4 cm above the foundation top, at operatorCharX/Y/Z.
+import (
+	"fmt"
+	"math"
+	"strings"
+	"testing"
+)
 
-// type x y z rotation_z rotation_w
-const operatorBasePieces = `
-Sardaukar_Door_Frame_Tall 181017.05 -35814.38 8549.93 0.422618 -0.906308
-Sardaukar_Floor 181479.16 -36763.36 8933.93 -0.906308 -0.422618
-Sardaukar_Floor 180162.72 -35194.5 8933.93 -0.906308 -0.422618
-Sardaukar_Floor 180820.94 -35978.93 9317.93 0.422618 -0.906308
-Sardaukar_Floor 180428.72 -36308.04 9317.93 0.422618 -0.906308
-Sardaukar_Floor 180036.5 -36637.14 9317.93 0.422618 -0.906308
-Sardaukar_Floor 179644.3 -36966.25 9317.93 0.422618 -0.906308
-Sardaukar_Floor 179252.08 -37295.36 9317.93 0.422618 -0.906308
-Sardaukar_Floor 180162.72 -35194.5 9317.93 0.422618 -0.906308
-Sardaukar_Floor 179770.5 -35523.61 9317.93 0.422618 -0.906308
-Sardaukar_Floor 179378.3 -35852.72 9317.93 0.422618 -0.906308
-Sardaukar_Floor 178986.09 -36181.82 9317.93 0.422618 -0.906308
-Sardaukar_Floor 178593.88 -36510.93 9317.93 0.422618 -0.906308
-Sardaukar_Floor 179910.3 -38079.79 9317.93 0.422618 -0.906308
-Sardaukar_Floor 180302.52 -37750.68 9317.93 0.422618 -0.906308
-Sardaukar_Floor 180694.73 -37421.57 9317.93 0.422618 -0.906308
-Sardaukar_Floor 181479.16 -36763.36 9317.93 0.422618 -0.906308
-Sardaukar_Floor 181086.94 -37092.47 9317.93 0.422618 -0.906308
-Sardaukar_Floor 181479.16 -36763.36 10085.93 0.422618 -0.906308
-Sardaukar_Floor 181086.94 -37092.47 10085.93 0.422618 -0.906308
-Sardaukar_Floor 180694.73 -37421.57 10085.93 0.422618 -0.906308
-Sardaukar_Floor 180302.52 -37750.68 10085.93 0.422618 -0.906308
-Sardaukar_Floor 179910.3 -38079.79 10085.93 0.422618 -0.906308
-Sardaukar_Floor 179252.08 -37295.36 10085.93 0.422618 -0.906308
-Sardaukar_Floor 179644.3 -36966.25 10085.93 0.422618 -0.906308
-Sardaukar_Floor 180036.5 -36637.14 10085.93 0.422618 -0.906308
-Sardaukar_Floor 180428.72 -36308.04 10085.93 0.422618 -0.906308
-Sardaukar_Floor 180820.94 -35978.93 10085.93 0.422618 -0.906308
-Sardaukar_Floor 180162.72 -35194.5 10085.93 0.422618 -0.906308
-Sardaukar_Floor 179770.5 -35523.61 10085.93 0.422618 -0.906308
-Sardaukar_Floor 179378.3 -35852.72 10085.93 0.422618 -0.906308
-Sardaukar_Floor 178986.08 -36181.82 10085.93 0.422618 -0.906308
-Sardaukar_Floor 178593.88 -36510.93 10085.93 0.422618 -0.906308
-Sardaukar_Floor_02 178922.97 -36903.14 10085.93 0.422618 -0.906308
-Sardaukar_Floor_02 179707.41 -36244.93 10085.93 0.422618 -0.906308
-Sardaukar_Floor_02 180099.63 -35915.82 10085.93 0.422618 -0.906308
-Sardaukar_Floor_02 180491.83 -35586.72 10085.93 0.422618 -0.906308
-Sardaukar_Floor_02 181150.05 -36371.14 10085.93 0.422618 -0.906308
-Sardaukar_Floor_02 180757.83 -36700.25 10085.93 0.422618 -0.906308
-Sardaukar_Floor_02 180365.61 -37029.35 10085.93 0.422618 -0.906308
-Sardaukar_Floor_02 179973.39 -37358.46 10085.93 0.422618 -0.906308
-Sardaukar_Floor_02 179581.19 -37687.58 9317.93 0.422618 -0.906308
-Sardaukar_Floor_02 179973.41 -37358.47 9317.93 0.422618 -0.906308
-Sardaukar_Floor_02 180365.61 -37029.36 9317.93 0.422618 -0.906308
-Sardaukar_Floor_02 180757.83 -36700.25 9317.93 0.422618 -0.906308
-Sardaukar_Floor_02 180099.63 -35915.82 9317.93 0.422618 -0.906308
-Sardaukar_Floor_02 179707.41 -36244.93 9317.93 0.422618 -0.906308
-Sardaukar_Floor_02 179315.19 -36574.04 9317.93 0.422618 -0.906308
-Sardaukar_Floor_02 178922.97 -36903.14 9317.93 0.422618 -0.906308
-Sardaukar_Floor_02 179581.19 -37687.58 10085.93 -0.906308 -0.422618
-Sardaukar_Floor_02 179315.19 -36574.04 10085.93 -0.34202 -0.939693
-Sardaukar_Foundation 180036.5 -36637.14 8165.93 0.422618 -0.906308
-Sardaukar_Foundation 180365.61 -37029.36 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 180694.73 -37421.57 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 179707.41 -36244.93 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 179378.3 -35852.72 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 178986.08 -36181.82 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 178593.88 -36510.93 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 179910.3 -38079.79 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 180302.52 -37750.68 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 181086.94 -37092.47 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 181479.16 -36763.36 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 181150.05 -36371.14 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 180820.94 -35978.93 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 180491.83 -35586.72 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 180162.72 -35194.5 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 179770.5 -35523.61 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 180099.63 -35915.82 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 180428.72 -36308.04 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 180757.83 -36700.25 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 179973.41 -37358.47 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 179644.3 -36966.25 8165.93 -0.939693 0.34202
-Sardaukar_Foundation 179315.19 -36574.04 8165.93 -0.939693 0.34202
-Sardaukar_Garage_Door_Frame 179448.19 -37130.8 8549.93 0.906308 0.422618
-Sardaukar_Ramp 179707.41 -36244.93 10469.93 -0.34202 -0.939693
-Sardaukar_Ramp 179644.3 -36966.25 10469.93 -0.906308 -0.422618
-Sardaukar_Ramp 180365.61 -37029.35 10469.93 -0.939693 0.34202
-Sardaukar_Ramp 180428.72 -36308.04 10469.93 0.422618 -0.906308
-Sardaukar_Ramp 178922.97 -36903.14 8165.93 0.906308 0.422618
-Sardaukar_Ramp 179581.19 -37687.57 8165.93 0.906308 0.422618
-Sardaukar_Ramp_Corner 180099.63 -35915.82 10469.93 -0.34202 -0.939693
-Sardaukar_Ramp_Corner 179315.19 -36574.04 10469.93 -0.906308 -0.422618
-Sardaukar_Ramp_Corner 179973.41 -37358.47 10469.93 -0.939693 0.34202
-Sardaukar_Ramp_Corner 180757.83 -36700.25 10469.93 0.422618 -0.906308
-Sardaukar_Rooftop_01 180036.5 -36637.14 10853.93 -0.34202 -0.939693
-Sardaukar_Stairs 179770.5 -35523.61 8549.93 -0.906308 -0.422618
-Sardaukar_Stairs 181086.94 -37092.47 8549.93 -0.906308 -0.422618
-Sardaukar_Stairs 181150.05 -36371.14 8933.93 -0.939693 0.34202
-Sardaukar_Stairs 180491.83 -35586.72 8933.93 -0.34202 -0.939693
-Sardaukar_Stairs 179252.08 -37295.36 8165.93 0.906308 0.422618
-Sardaukar_Wall_01 179150.63 -36377.93 10085.93 -0.34202 -0.939693
-Sardaukar_Wall_01 179542.84 -36048.82 10085.93 -0.34202 -0.939693
-Sardaukar_Wall_01 179935.06 -35719.71 10085.93 -0.34202 -0.939693
-Sardaukar_Wall_01 180295.73 -35751.27 10085.93 0.422618 -0.906308
-Sardaukar_Wall_01 180624.83 -36143.48 10085.93 0.422618 -0.906308
-Sardaukar_Wall_01 180953.94 -36535.7 10085.93 0.422618 -0.906308
-Sardaukar_Wall_01 180922.39 -36896.36 10085.93 -0.939693 0.34202
-Sardaukar_Wall_01 180530.17 -37225.46 10085.93 -0.939693 0.34202
-Sardaukar_Wall_01 180137.95 -37554.57 10085.93 -0.939693 0.34202
-Sardaukar_Wall_01 179777.3 -37523.02 10085.93 -0.906308 -0.422618
-Sardaukar_Wall_01 179119.08 -36738.59 10085.93 -0.906308 -0.422618
-Sardaukar_Wall_01 179448.19 -37130.8 10085.93 -0.906308 -0.422618
-Sardaukar_Window 179998.17 -34998.39 8549.93 -0.34202 -0.939693
-Sardaukar_Window 179213.73 -35656.61 8549.93 -0.34202 -0.939693
-Sardaukar_Window 178429.31 -36314.82 8549.93 -0.34202 -0.939693
-Sardaukar_Window 180074.86 -38275.9 8549.93 -0.939693 0.34202
-Sardaukar_Window 180859.27 -37617.68 8549.93 -0.939693 0.34202
-Sardaukar_Window 181643.7 -36959.46 8549.93 -0.939693 0.34202
-Sardaukar_Window 181346.16 -36206.59 8549.93 0.422618 -0.906308
-Sardaukar_Window 180687.95 -35422.16 8549.93 0.422618 -0.906308
-Sardaukar_Window 180687.95 -35422.16 8933.93 0.422618 -0.906308
-Sardaukar_Window 181346.16 -36206.59 8933.93 0.422618 -0.906308
-Sardaukar_Window 181643.7 -36959.46 8933.93 -0.939693 0.34202
-Sardaukar_Window 180859.27 -37617.68 8933.93 -0.939693 0.34202
-Sardaukar_Window 180074.86 -38275.9 8933.93 -0.939693 0.34202
-Sardaukar_Window 178429.31 -36314.82 8933.93 -0.34202 -0.939693
-Sardaukar_Window 179213.75 -35656.61 8933.93 -0.34202 -0.939693
-Sardaukar_Window 179998.17 -34998.39 8933.93 -0.34202 -0.939693
-Sardaukar_Window 179998.17 -34998.39 9317.93 -0.34202 -0.939693
-Sardaukar_Window 179998.17 -34998.39 9701.93 -0.34202 -0.939693
-Sardaukar_Window 179213.75 -35656.61 9317.93 -0.34202 -0.939693
-Sardaukar_Window 179213.75 -35656.61 9701.93 -0.34202 -0.939693
-Sardaukar_Window 178429.31 -36314.82 9317.93 -0.34202 -0.939693
-Sardaukar_Window 178429.31 -36314.82 9701.93 -0.34202 -0.939693
-Sardaukar_Window 178726.86 -37067.7 9317.93 -0.906308 -0.422618
-Sardaukar_Window 178726.86 -37067.7 9701.93 -0.906308 -0.422618
-Sardaukar_Window 179385.08 -37852.13 9317.93 -0.906308 -0.422618
-Sardaukar_Window 179385.08 -37852.13 9701.93 -0.906308 -0.422618
-Sardaukar_Window 180074.86 -38275.9 9317.93 -0.939693 0.34202
-Sardaukar_Window 180074.86 -38275.9 9701.93 -0.939693 0.34202
-Sardaukar_Window 181643.7 -36959.46 9317.93 -0.939693 0.34202
-Sardaukar_Window 181643.7 -36959.46 9701.93 -0.939693 0.34202
-Sardaukar_Window 181346.16 -36206.59 9317.93 0.422618 -0.906308
-Sardaukar_Window 181346.16 -36206.59 9701.93 0.422618 -0.906308
-Sardaukar_Window 180687.95 -35422.16 9317.93 0.422618 -0.906308
-Sardaukar_Window 180687.95 -35422.16 9701.93 0.422618 -0.906308
-Sardaukar_Window 179745.75 -37883.68 8549.93 0.34202 0.939693
-Sardaukar_Window 179745.75 -37883.68 8933.93 0.34202 0.939693
-Sardaukar_Window 180859.27 -37617.68 9317.93 -0.939693 0.34202
-Sardaukar_Window 180859.27 -37617.68 9701.93 -0.939693 0.34202
-Sardaukar_Window_L 180358.83 -35029.95 8549.93 0.422618 -0.906308
-Sardaukar_Window_L 179605.95 -35327.5 8549.93 -0.34202 -0.939693
-Sardaukar_Window_L 178821.53 -35985.71 8549.93 -0.34202 -0.939693
-Sardaukar_Window_L 178397.77 -36675.48 8549.93 -0.906308 -0.422618
-Sardaukar_Window_L 179714.19 -38244.34 8549.93 -0.906308 -0.422618
-Sardaukar_Window_L 180467.06 -37946.79 8549.93 -0.939693 0.34202
-Sardaukar_Window_L 181251.48 -37288.57 8549.93 -0.939693 0.34202
-Sardaukar_Window_L 181675.27 -36598.81 8549.93 0.422618 -0.906308
-Sardaukar_Window_L 179605.95 -35327.5 8933.93 -0.34202 -0.939693
-Sardaukar_Window_L 178821.53 -35985.71 8933.93 -0.34202 -0.939693
-Sardaukar_Window_L 178397.77 -36675.48 8933.93 -0.906308 -0.422618
-Sardaukar_Window_L 179714.19 -38244.34 8933.93 -0.906308 -0.422618
-Sardaukar_Window_L 180467.06 -37946.79 8933.93 -0.939693 0.34202
-Sardaukar_Window_L 181251.48 -37288.57 8933.93 -0.939693 0.34202
-Sardaukar_Window_L 181675.27 -36598.81 8933.93 0.422618 -0.906308
-Sardaukar_Window_L 180358.83 -35029.95 8933.93 0.422618 -0.906308
-Sardaukar_Window_L 180358.83 -35029.95 9317.93 0.422618 -0.906308
-Sardaukar_Window_L 180358.83 -35029.95 9701.93 0.422618 -0.906308
-Sardaukar_Window_L 179605.95 -35327.5 9317.93 -0.34202 -0.939693
-Sardaukar_Window_L 179605.95 -35327.5 9701.93 -0.34202 -0.939693
-Sardaukar_Window_L 178821.53 -35985.71 9317.93 -0.34202 -0.939693
-Sardaukar_Window_L 178821.53 -35985.71 9701.93 -0.34202 -0.939693
-Sardaukar_Window_L 178397.77 -36675.48 9317.93 -0.906308 -0.422618
-Sardaukar_Window_L 178397.77 -36675.48 9701.93 -0.906308 -0.422618
-Sardaukar_Window_L 179055.97 -37459.91 9317.93 -0.906308 -0.422618
-Sardaukar_Window_L 179055.97 -37459.91 9701.93 -0.906308 -0.422618
-Sardaukar_Window_L 179714.19 -38244.34 9317.93 -0.906308 -0.422618
-Sardaukar_Window_L 179714.19 -38244.34 9701.93 -0.906308 -0.422618
-Sardaukar_Window_L 180467.06 -37946.79 9317.93 -0.939693 0.34202
-Sardaukar_Window_L 180467.06 -37946.79 9701.93 -0.939693 0.34202
-Sardaukar_Window_L 181675.27 -36598.81 9317.93 0.422618 -0.906308
-Sardaukar_Window_L 181675.27 -36598.81 9701.93 0.422618 -0.906308
-Sardaukar_Window_L 181017.05 -35814.38 9317.93 0.422618 -0.906308
-Sardaukar_Window_L 181017.05 -35814.38 9701.93 0.422618 -0.906308
-Sardaukar_Window_L 178758.42 -36707.04 8549.93 -0.939693 0.34202
-Sardaukar_Window_L 178758.42 -36707.04 8933.93 -0.939693 0.34202
-Sardaukar_Window_L 181251.48 -37288.57 9317.93 -0.939693 0.34202
-Sardaukar_Window_L 181251.48 -37288.57 9701.93 -0.939693 0.34202
-`
+// A synthetic base for the placement tests (#480, #540): invented coordinates, built by the code below, not copied from any save. It has the shapes the placement search has to
+// cope with: a 5 x 5 block of foundations (512 apart) on a grid turned 30 degrees, a ring of walls, windows and door frames in two storeys, a full floor at the top of each storey,
+// a rooftop piece, stairs inside, ramps on the outside, and placeables on both floors. The foundations stand at synthFoundationZ, a wall course is 384, so the first course is at +384,
+// the second at +768, the first floor at +1152 and the roof floor at +1920 (a storey is 768).
+//
+// The grid is described in its own frame (u along the foundation rows, v across them, in centimetres from the middle foundation), and synthXY turns that into the map's x and y.
 
-// type x y z
-const operatorBasePlaceables = `
-BloodWaterExtractor_Placeable 180279.86 -37791.18 8552.27
-BloodWaterExtractor_Placeable 180485.15 -37630.12 8552.27
-Developer_StorageContainer_Placeable 179980.27 -35903.88 8552.27
-Developer_StorageContainer_Placeable 179007.22 -36681.32 9321.48
-Fabricator_Placeable 178916.37 -36236.82 8552.27
-Generator_Placeable 180839.44 -36604.34 10089.48
-Generator_Placeable 180671 -36737.84 10089.48
-Generator_Placeable 180512.18 -36886.14 10089.48
-Generator_Placeable 180341.76 -37024.72 10089.48
-Generator_Placeable 180175.68 -37169.59 10089.48
-Generator_Placeable 180005.76 -37307.71 10089.48
-Generator_Placeable 180505.7 -36211.07 10089.48
-Generator_Placeable 180331.55 -36346.03 10089.48
-Generator_Placeable 180172.13 -36498.16 10089.48
-Generator_Placeable 179993.04 -36641.92 10089.48
-Generator_Placeable 179834.72 -36787.76 10089.48
-Generator_Placeable 179634.21 -36951.25 10089.48
-MTX_Sardaukar_GarageDoor_Placeable 179448.19 -37130.8 8549.93
-MTX_Sardaukar_TallDoor_Placeable 181017.05 -35814.37 8549.93
-Recycler_Placeable 179108.86 -35938.55 8552.27
-SmallChemicalRefinery_Placeable 179374.73 -35845.11 9321.48
-SmallOreRefinery_Placeable 178587.93 -36365.86 9321.48
-SmallOreRefinery_Placeable 178706.58 -36490.72 9321.48
-SpiceSilo_Placeable 180053.06 -35533.86 8552.27
-SpiceSilo_Placeable 178999.11 -35971.6 9321.48
-SpiceSilo_Placeable 179976.18 -35597.52 8552.27
-Totem_Small_Placeable 180160.77 -35163.03 8552.27
-WaterCistern_Placeable 181193.43 -36159.27 8552.27
-WaterCistern_Placeable 180533.49 -35373.17 8552.27
-WaterCistern_Placeable 180045.33 -37581.74 8552.27
-WaterCistern_Placeable 179112.16 -36468.59 8552.27
-WaterCistern_Placeable 181651.9 -36692.99 8552.27
-WaterCistern_Placeable 181580.83 -36752.84 8552.27
-WaterCistern_Placeable 181505.57 -36812.73 8552.27
-WaterCistern_Placeable 181434.61 -36875.26 8552.27
-WaterCistern_Placeable 181363.33 -36933.79 8552.27
-WaterCistern_Placeable 181288.92 -36998.88 8552.27
-WaterCistern_Placeable 181522.43 -36672.74 8552.27
-WaterCistern_Placeable 181441.46 -36724.56 8552.27
-WaterCistern_Placeable 181370.21 -36779.04 8552.27
-WaterCistern_Placeable 181293.18 -36831.32 8552.27
-WaterCistern_Placeable 181310.4 -36695.99 8552.27
-WaterCistern_Placeable 181386 -36637.18 8552.27
-WaterCistern_Placeable 181293.1 -36583.76 8552.27
-WaterCistern_Placeable 180941.44 -35874.47 9321.48
-`
+const (
+	synthGridX, synthGridY = 40000.0, 25000.0 // the middle foundation
+	synthGridTurnDeg       = 30.0             // the grid is turned this much about it
+	synthFoundationZ       = 2000.0
+	synthHalfBase          = 1280.0 // 5 cells of 512 across, half of it
+
+	// the character stands in the ground-floor room, a few centimetres above the foundation top, facing out of the base along the grid's own -u
+	synthCharU, synthCharV = -300.0, 450.0
+	synthCharZ             = synthFoundationZ + 388.0
+	synthFaceDeg           = 210.0 // the character's yaw: the grid's -u (the grid is turned 30)
+)
+
+// synthXY is the map position of the point (u, v) of the base's own frame.
+func synthXY(u, v float64) (float64, float64) {
+	s, c := math.Sincos(synthGridTurnDeg * math.Pi / 180)
+	return synthGridX + u*c - v*s, synthGridY + u*s + v*c
+}
+
+var synthCharX, synthCharY = synthXY(synthCharU, synthCharV)
+
+// synthPiece is a piece of the synthetic base in the base's own frame.
+type synthPiece struct {
+	typ     string
+	u, v, z float64
+	turn    float64 // degrees about the grid's own axes
+}
+
+// synthPlaceable is a placeable of the synthetic base; level is 0 on the ground floor and 1 on the first floor.
+type synthPlaceable struct {
+	typ   string
+	u, v  float64
+	level int
+}
+
+// synthBasePieces builds the pieces: foundations, the wall ring of two storeys, the floors, a rooftop, stairs and ramps.
+func synthBasePieces() []synthPiece {
+	var ps []synthPiece
+	cells := []float64{-1024, -512, 0, 512, 1024}
+	for _, u := range cells {
+		for _, v := range cells {
+			ps = append(ps, synthPiece{"Sardaukar_Foundation", u, v, synthFoundationZ, 0})
+		}
+	}
+	// the wall ring: 20 edge positions, two courses to a storey, the course types vary so every kind of wall piece is in it
+	type edge struct{ u, v, turn float64 }
+	var ring []edge
+	for _, c := range cells {
+		ring = append(ring, edge{c, -synthHalfBase, 0}, edge{c, synthHalfBase, 0}, edge{-synthHalfBase, c, 90}, edge{synthHalfBase, c, 90})
+	}
+	for i, e := range ring {
+		for _, z := range []float64{384, 768, 1152, 1536} {
+			typ := "Sardaukar_Window"
+			switch {
+			case z == 384 && i == 3:
+				typ = "Sardaukar_Door_Frame_Tall"
+			case z == 384 && i == 6:
+				typ = "Sardaukar_Garage_Door_Frame"
+			case (i+int(z/384))%3 == 0:
+				typ = "Sardaukar_Wall_01"
+			case (i+int(z/384))%3 == 1:
+				typ = "Sardaukar_Window_L"
+			}
+			ps = append(ps, synthPiece{typ, e.u, e.v, synthFoundationZ + z, e.turn})
+		}
+	}
+	// a full floor at the top of each storey, of both floor kinds
+	for _, z := range []float64{1152, 1920} {
+		for i, u := range cells {
+			for j, v := range cells {
+				typ := "Sardaukar_Floor"
+				if (i+j)%4 == 0 {
+					typ = "Sardaukar_Floor_02"
+				}
+				ps = append(ps, synthPiece{typ, u, v, synthFoundationZ + z, 0})
+			}
+		}
+	}
+	ps = append(ps, synthPiece{"Sardaukar_Rooftop_01", 0, 0, synthFoundationZ + 2688, 0})
+	// stairs inside, at the ground floor
+	ps = append(ps, synthPiece{"Sardaukar_Stairs", -1024, -1024, synthFoundationZ + 384, 90}, synthPiece{"Sardaukar_Stairs", -1024, -512, synthFoundationZ + 384, 90})
+	// ramps on the outside, along one side and turning the corner
+	for _, u := range []float64{-512, 0, 512} {
+		ps = append(ps, synthPiece{"Sardaukar_Ramp", u, 1536, synthFoundationZ, 0})
+	}
+	ps = append(ps, synthPiece{"Sardaukar_Ramp_Corner", 1024, 1536, synthFoundationZ, 0})
+	return ps
+}
+
+// synthBasePlaceables builds the placeables: storage, water, power and refining things on both floors.
+func synthBasePlaceables() []synthPlaceable {
+	var ps []synthPlaceable
+	for k := 0; k < 9; k++ {
+		ps = append(ps, synthPlaceable{"WaterCistern_Placeable", 1000, -1000 + 250*float64(k), 0}, synthPlaceable{"WaterCistern_Placeable", 760, -1000 + 250*float64(k), 0})
+	}
+	for k := 0; k < 6; k++ {
+		ps = append(ps, synthPlaceable{"Generator_Placeable", -1000 + 400*float64(k), -700, 1}, synthPlaceable{"Generator_Placeable", -1000 + 400*float64(k), 700, 1})
+	}
+	ps = append(ps,
+		synthPlaceable{"BloodWaterExtractor_Placeable", -600, 1050, 0}, synthPlaceable{"BloodWaterExtractor_Placeable", -300, 1050, 0},
+		synthPlaceable{"Developer_StorageContainer_Placeable", -900, -200, 0}, synthPlaceable{"Developer_StorageContainer_Placeable", -900, 200, 1},
+		synthPlaceable{"Fabricator_Placeable", 300, -1100, 0}, synthPlaceable{"Recycler_Placeable", 600, -1100, 0},
+		synthPlaceable{"SpiceSilo_Placeable", 0, -1100, 0}, synthPlaceable{"SpiceSilo_Placeable", 100, 1100, 0}, synthPlaceable{"SpiceSilo_Placeable", -300, 1100, 1},
+		synthPlaceable{"SmallChemicalRefinery_Placeable", 400, 0, 1}, synthPlaceable{"SmallOreRefinery_Placeable", 0, 0, 1}, synthPlaceable{"SmallOreRefinery_Placeable", -300, 0, 1},
+		// at the two door frames of the ring
+		synthPlaceable{"MTX_Sardaukar_GarageDoor_Placeable", -1280, -512, 0}, synthPlaceable{"MTX_Sardaukar_TallDoor_Placeable", 1280, -1024, 0},
+	)
+	return ps
+}
+
+const (
+	synthBuildingID  = 7001
+	synthTotemID     = 7002
+	synthBikeID      = 129
+	synthPlaceableID = 7100 // the first placeable's actor id
+)
+
+// synthBaseOps is a save with the synthetic base, a land claim around it, a sandbike inside it and the character in the ground-floor room.
+func synthBaseOps(t *testing.T) *Ops {
+	t.Helper()
+	var b strings.Builder
+	fmt.Fprintf(&b, `insert into actors(id,class,map,location_x,location_y,location_z) values (%d,'/Game/Dune/Systems/Building/Pieces/BP_DuneBuildingBase.BP_DuneBuildingBase_C','HaggaBasin',%v,%v,%v);
+insert into buildings(id) values (%d);
+`, synthBuildingID, synthGridX, synthGridY, synthFoundationZ, synthBuildingID)
+	// the totem stands in a corner of the ground floor; its claim is one cell of 5,120 about an origin near the middle of the base, turned with the grid
+	tx, ty := synthXY(900, -950)
+	ox, oy := synthGridX-250, synthGridY-50
+	fmt.Fprintf(&b, `insert into actors(id,class,map,location_x,location_y,location_z) values (%d,'/Game/Dune/Systems/Building/Pieces/BP_TotemSmall.BP_TotemSmall_C','HaggaBasin',%v,%v,%v);
+insert into totems(id,landclaim_vertical_level,landclaim_original_global_location_x,landclaim_original_global_location_y,landclaim_original_global_location_z,landclaim_original_global_yaw_rotation) values (%d,0,%v,%v,%v,%v);
+`, synthTotemID, tx, ty, synthFoundationZ+386, synthTotemID, ox, oy, synthFoundationZ+1155, synthGridTurnDeg-180)
+	bx, by := synthXY(460, -520)
+	sh, sc := math.Sincos(synthGridTurnDeg * math.Pi / 360)
+	fmt.Fprintf(&b, `insert into actors(id,class,map,location_x,location_y,location_z,rotation_z,rotation_w) values (%d,'/Game/Dune/Systems/Vehicles/Blueprints/GroundVehicles/BP_Sandbike_CHOAM.BP_Sandbike_CHOAM_C','HaggaBasin',%v,%v,%v,%v,%v);
+insert into vehicles(id) values (%d);
+`, synthBikeID, bx, by, synthFoundationZ+480, sh, sc, synthBikeID)
+	for i, p := range synthBasePieces() {
+		x, y := synthXY(p.u, p.v)
+		h := (synthGridTurnDeg + p.turn) * math.Pi / 360
+		fmt.Fprintf(&b, "insert into building_instances(building_id,instance_id,building_type,location_x,location_y,location_z,rotation_z,rotation_w) values (%d,%d,'%s',%v,%v,%v,%v,%v);\n",
+			synthBuildingID, i+1, p.typ, x, y, p.z, math.Sin(h), math.Cos(h))
+	}
+	for i, p := range synthBasePlaceables() {
+		x, y := synthXY(p.u, p.v)
+		z := synthFoundationZ + 386 + 769*float64(p.level)
+		fmt.Fprintf(&b, "insert into actors(id,class,map,location_x,location_y,location_z) values (%d,'/Game/Dune/Systems/Building/Placeables/BP_%s.BP_%s_C','HaggaBasin',%v,%v,%v);\ninsert into placeables(id,building_type,is_hologram) values (%d,'%s',0);\n",
+			synthPlaceableID+i, p.typ, p.typ, x, y, z, synthPlaceableID+i, p.typ)
+	}
+	// the character, facing along the grid's -u
+	fh, fc := math.Sincos(synthFaceDeg * math.Pi / 360)
+	fmt.Fprintf(&b, "update actors set location_x=%v, location_y=%v, location_z=%v, rotation_z=%v, rotation_w=%v where id=2;\n", synthCharX, synthCharY, synthCharZ, fh, fc)
+	return placeOps(t, b.String())
+}
+
+// gridUV is a point in the base's own frame: along the foundation rows and across them, in centimetres from the middle foundation.
+func gridUV(x, y float64) (float64, float64) {
+	s, c := math.Sincos(synthGridTurnDeg * math.Pi / 180)
+	dx, dy := x-synthGridX, y-synthGridY
+	return dx*c + dy*s, -dx*s + dy*c
+}
+
+// baseGap is how far (x, y) is from the 5 x 5 block of foundations (0 on it).
+func baseGap(x, y float64) float64 {
+	u, v := gridUV(x, y)
+	return math.Hypot(math.Max(math.Abs(u)-synthHalfBase, 0), math.Max(math.Abs(v)-synthHalfBase, 0))
+}
+
+func TestSynthBaseIsAsBuilt(t *testing.T) {
+	ps, pl := synthBasePieces(), synthBasePlaceables()
+	kinds := map[string]bool{}
+	for _, p := range ps {
+		kinds[p.typ] = true
+	}
+	for _, k := range []string{"Sardaukar_Foundation", "Sardaukar_Wall_01", "Sardaukar_Window", "Sardaukar_Window_L", "Sardaukar_Door_Frame_Tall", "Sardaukar_Garage_Door_Frame",
+		"Sardaukar_Floor", "Sardaukar_Floor_02", "Sardaukar_Rooftop_01", "Sardaukar_Stairs", "Sardaukar_Ramp", "Sardaukar_Ramp_Corner"} {
+		if !kinds[k] {
+			t.Errorf("no %s in the synthetic base", k)
+		}
+	}
+	if len(ps)+len(pl) < 200 {
+		t.Errorf("the synthetic base is too small to be a fair test of the search: %d pieces, %d placeables", len(ps), len(pl))
+	}
+	x, y := synthXY(300, -700)
+	if u, v := gridUV(x, y); math.Abs(u-300) > 1e-6 || math.Abs(v+700) > 1e-6 {
+		t.Errorf("the frame does not round-trip: %v %v", u, v)
+	}
+}
+
+// The reach of what keeps a vehicle out, on a hand-made world of single solids (no save): a piece a long way above a vehicle's top is no obstacle and one close above is; a margin is
+// kept around a wall; a placeable blocks at the vehicle's own height.
+func TestPlaceWhatReachesAVehicle(t *testing.T) {
+	bike := vehicleSizes["Sandbike"]
+	floor := func(z float64) *placeWorld {
+		hx, hy, below, above, f := shapeOf("Sardaukar_Floor")
+		return &placeWorld{solids: []solid{{cos: 1, hx: hx, hy: hy, z0: z - below, z1: z + above, kind: "piece", foundation: f}}}
+	}
+	if bl := floor(1000).blockers(0, 0, 300, bike); len(bl) != 1 || bl[0] != "pieces" {
+		t.Errorf("a floor 7 m over a sandbike: %v", bl)
+	}
+	if bl := floor(5000).blockers(0, 0, 300, bike); len(bl) != 0 {
+		t.Errorf("a floor 47 m over a sandbike: %v", bl)
+	}
+	hx, hy, below, above, _ := shapeOf("Sardaukar_Wall_01")
+	wall := &placeWorld{solids: []solid{{cos: 1, hx: hx, hy: hy, z0: 500 - below, z1: 500 + above, kind: "piece"}}}
+	reach := hy + bike.Radius + placeMargin // from the wall's middle line to the nearest centre that is clear
+	if bl := wall.blockers(0, reach-5, 500, bike); len(bl) == 0 {
+		t.Errorf("5 cm inside the margin of a wall is not refused")
+	}
+	if bl := wall.blockers(0, reach+5, 500, bike); len(bl) != 0 {
+		t.Errorf("5 cm outside the margin of a wall is refused: %v", bl)
+	}
+	pl := &placeWorld{solids: []solid{{x: 0, y: 0, hx: 250, round: true, z0: 450, z1: 900, kind: "placeable"}}}
+	if bl := pl.blockers(300, 0, 500, bike); len(bl) != 1 || bl[0] != "placeables" {
+		t.Errorf("a placeable at the vehicle's height: %v", bl)
+	}
+	if bl := pl.blockers(250+bike.Radius+placeMargin+5, 0, 500, bike); len(bl) != 0 {
+		t.Errorf("a placeable out of reach: %v", bl)
+	}
+}

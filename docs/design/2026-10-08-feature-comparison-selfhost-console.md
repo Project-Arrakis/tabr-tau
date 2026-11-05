@@ -122,7 +122,7 @@ fabricator inputs, **3** fuel and module slots (generators, wind turbines, windt
 
 | Console behaviour | tabr-tau today | Gap |
 |---|---|---|
-| Lists only real storage, grouped Storage / Refining / Crafting / Other, from an explicit `building_type` allowlist with player-facing names (a `GenericContainer` is a "Chest", a `SpiceSilo` is a "Small Storage Container") | Lists **every** inventory of every non-player actor: in the real save that is 120 rows, of which 13 are storage containers; the rest are generator and turbine fuel slots, refineries, vehicle holds and per-component holds | **Yes (#75).** Filter by the allowlist; show the label, not the class name |
+| Lists only real storage, grouped Storage / Refining / Crafting / Other, from an explicit `building_type` allowlist with player-facing names (a `GenericContainer` is a "Chest", a `SpiceSilo` is a "Small Storage Container") | Lists **every** inventory of every non-player actor: in a played save only a minority are storage containers; the rest are generator and turbine fuel slots, refineries, vehicle holds and per-component holds | **Yes (#75).** Filter by the allowlist; show the label, not the class name |
 | Shows capacity as slots used / slots available (`max_item_count`; the second refinery inventory has `-1` and is hidden) | Shows "Total units" = sum of stack sizes (#74); no slots-used column beyond "Slots" | **Yes (#74).** Show items / slots, and volume where the save has it |
 | Container overlay: slot grid with grade, durability, augments | Open storage: item table | Partial: no slot number, grade or augment |
 | Add item to a plain Storage container (new row at the next free slot) | Add item box | Partial: its list differs from the Give-item picker (#73) |
@@ -132,9 +132,9 @@ fabricator inputs, **3** fuel and module slots (generators, wind turbines, windt
 
 ### Vehicles
 
-The real save has 13 vehicles. Each owns **one** inventory with `inventory_type = 0` (the cargo hold; 15 slots at most here) and
-**23** further inventories with `inventory_type` NULL (per-component holds with no capacity). `inventories.vehicle_module_id` is
-empty (0 rows), exactly as the console documents, so the cargo hold must be found through `actor_id` and `inventory_type = 0`,
+In the real save each vehicle owns **one** inventory with `inventory_type = 0` (the cargo hold) and
+further inventories with `inventory_type` NULL (per-component holds with no capacity). `inventories.vehicle_module_id` is
+empty, exactly as the console documents, so the cargo hold must be found through `actor_id` and `inventory_type = 0`,
 never through the module link. Taking any inventory of the vehicle without the `inventory_type = 0` filter can report an empty hold.
 
 | Console behaviour | tabr-tau today | Gap |
@@ -151,19 +151,19 @@ never through the module link. Taking any inventory of the vehicle without the `
 
 ### Who owns a vehicle (the key fact)
 
-`actors.owner_account_id` is **NULL for every vehicle** in the real save (13 of 13), so it cannot tell your vehicle from the vehicles
+`actors.owner_account_id` is **NULL for every vehicle** in the real save, so it cannot tell your vehicle from the vehicles
 the game scatters around the world. Ownership is in the permission tables, as in the console:
 
 - A player vehicle has a `permission_actor` row with `actor_type = 2` and a `permission_actor_rank` row (`rank = 1`, the owner) that
-  names the player's character (`player_state.id`). In this save exactly **1** of the 13 vehicles has them; it also has a
+  names the player's character (`player_state.id`). In the sample only the player's own vehicle has them; it also has a
   `backup_vehicles` row and grade-1 modules (`SandbikeChassis_1`, `SandbikeEngine_1`, ...).
-  Operator-confirmed (2026-10-08): the player owns exactly one vehicle, a Sandbike, and the other 12 are world vehicles.
-- The other **12** have no permission row and no `owner_account_id`: they are the random world vehicles, with grade-0 modules
+  Operator-confirmed (2026-10-08): the other vehicles in the sample are world vehicles.
+- The other vehicles have no permission row and no `owner_account_id`: they are the random world vehicles, with grade-0 modules
   (`SandbikeChassis_0`, ...). They are unowned, and the game may despawn or respawn them.
 
 Consequences for tabr-tau: the Vehicles tab should mark the owned vehicle (join `permission_actor` / `permission_actor_rank` on the
 character) and show the rest as "world vehicles"; "Repair all vehicles" and "Bring a vehicle" should default to the owned ones
-(today they act on all 13, so repairing "all" also repairs the world vehicles); and the Permissions card removed in #84 only
+(today they act on every vehicle, so repairing "all" also repairs the world vehicles); and the Permissions card removed in #84 only
 hid the display, since this ownership data is still read for the vehicle view. The grade is the module template's suffix
 (`_0`, `_1`, ...); there is no single grade column.
 

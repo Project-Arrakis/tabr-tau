@@ -7,7 +7,7 @@ import { boot, closeAll } from './boot.mjs';
 test.afterEach(() => closeAll());
 
 const BASE7 = [{ base_id: 7, name: 'Base', base_type: 'Advanced Sub-Fief', owner: 'Owner', map: 'HaggaBasin', generators: 0, pieces: 0, placeables: 0, x: 0, y: 0, z: 0 }];
-const BACKUP = { backup_id: 3, name: 'Sub-Fief', backup_name: '##Totem_Small_Placeable', map: 'HaggaBasin', actors: 44, picked_up: 44, pieces: 1174, placeables: 43, stored_items: 53 };
+const BACKUP = { backup_id: 3, name: 'Sub-Fief', backup_name: '##Totem_Small_Placeable', map: 'HaggaBasin', actors: 12, picked_up: 12, pieces: 1250, placeables: 9, stored_items: 7 };
 const openBases = async (ui) => {
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:bases"]'); await ui.settle();
@@ -30,7 +30,7 @@ test('the Bases tab lists the base backups with the counts the file will hold, a
   assert.ok(card, 'there is a Base backups card');
   assert.equal(card.querySelector('h3').textContent, 'Base backups (1)');
   const cells = [...card.querySelectorAll('tbody td')].map((td) => td.textContent.trim());
-  assert.deepEqual(cells.slice(0, 7), ['3', 'Sub-Fief', 'HaggaBasin', '44', (1174).toLocaleString(), '43', '53']);
+  assert.deepEqual(cells.slice(0, 7), ['3', 'Sub-Fief', 'HaggaBasin', '12', (1250).toLocaleString(), '9', '7']);
   const heads = [...card.querySelectorAll('th')].map((th) => th.textContent.trim());
   assert.deepEqual(heads.slice(0, 7), ['ID', 'Name', 'Map', 'Actors', 'Building pieces', 'Placeables', 'Stored items']);
   const b = card.querySelector('[data-act="baseBackupExport"]');
@@ -60,8 +60,8 @@ test('Export base backup asks the editor for that backup and hands the file to t
   assert.deepEqual(s.names, ['tabr-tau-base-backup-5-b_Evil_b_base.json']);
   assert.ok(!/[\/<>"]/.test(s.names[0]));
   const t = ui.doc.querySelector('#toast').textContent;
-  assert.ok(t.includes('1,174 pieces') || t.includes('1174 pieces'), t);
-  assert.ok(t.includes('43 placeables') && t.includes('53 stored items') && t.includes('Nothing in the save changed.'), t);
+  assert.ok(t.includes('1,250 pieces') || t.includes('1250 pieces'), t);
+  assert.ok(t.includes('9 placeables') && t.includes('7 stored items') && t.includes('Nothing in the save changed.'), t);
   assert.equal(ui.posted.length, 0, 'an export posts nothing');
   assert.ok(!ui.doc.querySelector('#toast').textContent.includes('queued'), 'an export is never queued');
   ui.dom.window.close();
@@ -131,7 +131,7 @@ test('Export for console on a base asks for that totem, saves the file under a s
 });
 
 test('Export for console on a base backup asks for the console format of that backup and says what the file holds', async () => {
-  const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/backups': [BACKUP], '/api/bases/backups/export': { __headers: HDR({ ...COUNTS, pieces: 1174, placeables: 43, storedItems: 53 }, ['1 references name an actor that is not in the base.']) } } });
+  const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/backups': [BACKUP], '/api/bases/backups/export': { __headers: HDR({ ...COUNTS, pieces: 1250, placeables: 9, storedItems: 7 }, ['1 references name an actor that is not in the base.']) } } });
   const s = spy(ui);
   const main = await openBases(ui);
   const card = [...main.querySelectorAll('.card')].find((c) => c.querySelector('h3') && c.querySelector('h3').textContent.startsWith('Base backups'));
@@ -141,7 +141,7 @@ test('Export for console on a base backup asks for the console format of that ba
   assert.deepEqual(s.urls.filter((u) => u.includes('/export')), ['/api/bases/backups/export?format=console&backup=3']);
   assert.deepEqual(s.names, ['tabr-tau-console-backup-3-Sub-Fief.json']);
   const t = ui.doc.querySelector('#toast').textContent;
-  assert.ok((t.includes('1,174 pieces') || t.includes('1174 pieces')) && t.includes('43 placeables') && t.includes('53 stored items') && t.includes('1 references name an actor that is not in the base.'), t);
+  assert.ok((t.includes('1,250 pieces') || t.includes('1250 pieces')) && t.includes('9 placeables') && t.includes('7 stored items') && t.includes('1 references name an actor that is not in the base.'), t);
   assert.equal(ui.posted.length, 0);
   ui.dom.window.close();
 });

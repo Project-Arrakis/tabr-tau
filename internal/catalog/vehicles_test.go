@@ -8,7 +8,7 @@ import (
 
 // #401: the vehicle catalog is made from the game's own tables (tools/vehiclegen). These tests pin what it says against what real saves show.
 
-// moduleIDsInSaves are the 98 module ids found in the vehicles of 155 saves (the world's vehicles and the character's own).
+// moduleIDsInSaves are the 98 module ids found in the vehicles of the saves studied (the world's vehicles and the character's own).
 var moduleIDsInSaves = strings.Fields(`BuggyChassis_0 BuggyChassis_3 BuggyEngine_0 BuggyEngine_4 BuggyGenerator_0 BuggyGenerator_4 BuggyHullBackExtra_3 BuggyHullBack_0 BuggyHullFront_0 BuggyHullFront_3
 BuggyInventory_4 BuggyInventory_5 BuggyInventory_Unique_Capacity_6 BuggyLocomotionBackLeft_0 BuggyLocomotionBackLeft_3 BuggyLocomotionBackRight_0 BuggyLocomotionBackRight_3
 BuggyLocomotionFrontLeft_0 BuggyLocomotionFrontLeft_3 BuggyLocomotionFrontRight_0 BuggyLocomotionFrontRight_3 BuggyMining_4 BuggyMining_6 ContainerVehicle
@@ -120,8 +120,8 @@ func TestResolveModuleAcceptsBothSpellingsOfAGrade(t *testing.T) {
 	}
 }
 
-// The four parts of the operator's buggy: which module row each is, and the slot it sits in.
-func TestTheOperatorsMkSixBuggyPartsAreRows(t *testing.T) {
+// The four parts of a Mk6 buggy with uniques: which module row each is, and the slot it sits in.
+func TestMkSixBuggyPartsAreRows(t *testing.T) {
 	for item, want := range map[string]struct {
 		row, slot string
 		cargo     int64
@@ -167,20 +167,20 @@ type golden struct {
 	volume     float64
 }
 
-// goldens are vehicles of real saves (read from copies of them) with the numbers the game saved for each; the rules must give the same numbers from the module ids alone.
+// goldens are vehicles as the game saves them, with the numbers it saved for each; the rules must give the same numbers from the module ids alone.
 var goldens = []golden{
-	{"medium ornithopter 578 (T5_Inventory)", strings.Fields(`OrnithopterMediumChassis_5 OrnithopterMediumHullFront_5 OrnithopterMediumHullBack_5 OrnithopterMediumGenerator_5 OrnithopterMediumHull_5
+	{"medium ornithopter (T5_Inventory)", strings.Fields(`OrnithopterMediumChassis_5 OrnithopterMediumHullFront_5 OrnithopterMediumHullBack_5 OrnithopterMediumGenerator_5 OrnithopterMediumHull_5
 		OrnithopterMediumLocomotionBackLeft_5 OrnithopterMediumLocomotionBackRight_5 OrnithopterMediumLocomotionCenterLeft_5 OrnithopterMediumLocomotionCenterRight_5
 		OrnithopterMediumLocomotionFrontLeft_5 OrnithopterMediumLocomotionFrontRight_5 OrnithopterMediumInventory_5 OrnithopterMediumEngine_5 OrnithopterMediumBoost_5`), 750, 150, 750, 20, 2000},
-	{"light ornithopter 1859 (a T4 with a unique)", strings.Fields(`OrnithopterLightChassis_4 OrnithopterLightHullBack_4 OrnithopterLightHullFront_4 OrnithopterLightEngine_4 OrnithopterLightLocomotionFrontLeft_4
+	{"light ornithopter (a T4 with a unique)", strings.Fields(`OrnithopterLightChassis_4 OrnithopterLightHullBack_4 OrnithopterLightHullFront_4 OrnithopterLightEngine_4 OrnithopterLightLocomotionFrontLeft_4
 		OrnithopterLightLocomotionBackLeft_4 OrnithopterLightLocomotionBackRight_4 OrnithopterLightLocomotionFrontRight_4 OrnithopterLightGenerator_4 OrnithopterLightScanner_4
 		OrnithopterLightBoost_Unique_LessHeat_4`), 500, 100, 300, 0, 0},
-	{"container vehicle 1634", []string{"ContainerVehicle"}, 2000, 100, 0, 150, 15000},
-	{"Mk5 sandbike 1828", strings.Fields(`SandbikeChassis_5 SandbikeGenerator_5 SandbikeLocomotionBackCenter_5 SandbikeLocomotionFrontLeft_5 SandbikeLocomotionFrontRight_5 SandbikeHull_5
+	{"container vehicle", []string{"ContainerVehicle"}, 2000, 100, 0, 150, 15000},
+	{"Mk5 sandbike", strings.Fields(`SandbikeChassis_5 SandbikeGenerator_5 SandbikeLocomotionBackCenter_5 SandbikeLocomotionFrontLeft_5 SandbikeLocomotionFrontRight_5 SandbikeHull_5
 		SandbikeBoost_5 SandbikeEngine_5`), 400, 100, 140, 0, 0},
-	{"sandcrawler 1599 (T6_Harvesting with uniques)", strings.Fields(`SandcrawlerChassis_6 SandcrawlerEngine_Unique_Speed_06 SandcrawlerGenerator_6 SandcrawlerHull_6 SandcrawlerLocomotionLeft_Unique_WormThreat_06
+	{"sandcrawler (T6_Harvesting with uniques)", strings.Fields(`SandcrawlerChassis_6 SandcrawlerEngine_Unique_Speed_06 SandcrawlerGenerator_6 SandcrawlerHull_6 SandcrawlerLocomotionLeft_Unique_WormThreat_06
 		SandcrawlerLocomotionRight_Unique_WormThreat_06 SandcrawlerSpiceContainer_Unique_Capacity_6 SandcrawlerSpiceHeader_6`), 850, 250, 750, 30, 11250},
-	{"carrier ornithopter 1616 (T6_Boost with uniques)", strings.Fields(`OrnithopterTransportChassis_6 OrnithopterTransportEngine_6 OrnithopterTransportGenerator_6 OrnithopterTransportHullBackLeft_6
+	{"carrier ornithopter (T6_Boost with uniques)", strings.Fields(`OrnithopterTransportChassis_6 OrnithopterTransportEngine_6 OrnithopterTransportGenerator_6 OrnithopterTransportHullBackLeft_6
 		OrnithopterTransportHullBackRight_6 OrnithopterTransportHullFrontLeft_6 OrnithopterTransportHullFrontRight_6 OrnithopterTransportHull_6 OrnithopterTransportBoost_Unique_LessHeat_06
 		OrnithopterTransportLocomotionBackLeft_Unique_Speed_6 OrnithopterTransportLocomotionBackRight_Unique_Speed_6 OrnithopterTransportLocomotionCenterLeft1_Unique_Speed_6
 		OrnithopterTransportLocomotionCenterLeft2_Unique_Speed_6 OrnithopterTransportLocomotionCenterRight1_Unique_Speed_6 OrnithopterTransportLocomotionCenterRight2_Unique_Speed_6

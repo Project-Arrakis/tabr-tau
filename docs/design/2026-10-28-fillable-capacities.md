@@ -8,7 +8,7 @@ The Inventory table showed "Menol's Stillsuit Garment: Liquid 500 (capacity unkn
 
 ## Source
 
-The game's item data: the table of fillable items, `DT_ItemTableFillables` (row structure `FillableItemTableRow`), one row per item template, row name = the template id, with `FillableStats` = `MaxAmount`, `CurrentAmount` (the starting amount), `FillableType` (always `None`: nothing held yet), `FillableTypeRestriction` (the liquid the item takes) and `bIsContainer`. A row has no other field: no minimum, no "no player fill" flag. Read from the game's data files (game build 1.5.15.x) on 2026-10-28, with the game closed; nothing was written to the game. The related table `DT_FillableTypes` names exactly three liquids: `Water`, `Blood` and `Fuel`; no row of the fillable table restricts to `Fuel` (vehicle fuel is a different mechanism). The unit is the one the save uses for `FFillableItemStats.CurrentAmount` (a Literjon Mk6 row says 20000 and a save holds 17910 of it).
+The game's item data: the table of fillable items, `DT_ItemTableFillables` (row structure `FillableItemTableRow`), one row per item template, row name = the template id, with `FillableStats` = `MaxAmount`, `CurrentAmount` (the starting amount), `FillableType` (always `None`: nothing held yet), `FillableTypeRestriction` (the liquid the item takes) and `bIsContainer`. A row has no other field: no minimum, no "no player fill" flag. Read from the game's data files (game build 1.5.15.x) on 2026-10-28, with the game closed; nothing was written to the game. The related table `DT_FillableTypes` names exactly three liquids: `Water`, `Blood` and `Fuel`; no row of the fillable table restricts to `Fuel` (vehicle fuel is a different mechanism). The unit is the one the save uses for `FFillableItemStats.CurrentAmount` (a Literjon Mk6 row says 20000).
 
 58 rows: 9 take Blood, 49 take Water, none take anything else.
 
@@ -79,7 +79,7 @@ The nine `waterCapacity` entries that existed (`Literjon` 1000, `Literjon_T6` 20
 
 ## Cross-check against saves
 
-Played-save copies (read-only, 22 files) hold these templates with a fill record. The largest amount seen never exceeds the table: `HighCapacityLiterjon_02` 1750 (full), `HighCapacityLiterjon_03` 1750 of 2000, `HighCapacityLiterjon_06` 3000 (full), `Literjon_T6` 17910 of 20000, `Bloodsack_01` 3000, `Bloodsack_02` 9000, `Bloodsack_Unique_Durable_06` 30000. A suit's record is `{"CurrentAmount": 140.765075}`: Menol's Stillsuit Garment (`Stillsuit_Unique_Armored_02_Top`, 8 copies) peaks at 500 and the Efficient suit (`Stillsuit_Unique_Efficient_04_Top`, 7 copies) at 500, the table's number. No save holds `Literjon_03` to `_09` or the `Dewpack`, so those capacities rest on the game's data alone.
+Played-save copies (read-only) hold these templates with a fill record. The largest amount seen never exceeds the table, for the high capacity Literjons, the Literjon Mk6 and the blood sacks. A suit's record is a single `CurrentAmount` number with a fraction: Menol's Stillsuit Garment (`Stillsuit_Unique_Armored_02_Top`) and the Efficient suit (`Stillsuit_Unique_Efficient_04_Top`) peak at 500, the table's number. No save holds `Literjon_03` to `_09` or the `Dewpack`, so those capacities rest on the game's data alone.
 
 ## The stillsuit decision: shown with its capacity, never filled by the editor
 
@@ -87,13 +87,13 @@ What the data says about a stillsuit's "Liquid":
 
 * It is water (`FillableTypeRestriction` Water) in the same unit as a Literjon, 500 for almost every suit and 1500 for the high capacity one.
 * It is **not a container**: all 31 suit rows have `bIsContainer` false, every Literjon, Decajon, Dewpack and blood sack row has it true.
-* The save keeps **no liquid type** for it: the record is `{"CurrentAmount": 140.765075}`, with no `FillableType` (every container that holds something writes one), and the amount is a fraction. It is not a number a person sets; it is the water the suit has recovered, and the game changes it all the time while the suit is worn.
+* The save keeps **no liquid type** for it: the record is a single `CurrentAmount` number, with no `FillableType` (every container that holds something writes one), and the amount is a fraction. It is not a number a person sets; it is the water the suit has recovered, and the game changes it all the time while the suit is worn.
 
 So it is not what Fill is for: Fill water containers and Fill all liquids fill things the person carries to hold water. A suit's reservoir is filled by the game, from the wearer; writing 500 into the save would be undone by the game's next change, and there is no evidence that the game accepts a value it did not produce. The editor therefore leaves a suit alone in every fill button.
 
 What changed so that this is said in plain words:
 
-* The Inventory and the base container tables read the suit's amount against the game's capacity: "Water 141 / 500 (28%), the suit fills itself" (was "Water 140.765075 (capacity unknown)"). The amount is shown rounded.
+* The Inventory and the base container tables read the suit's amount against the game's capacity: "Water N / 500 (P%), the suit fills itself" (was "Water" followed by the unrounded amount and "(capacity unknown)"). The amount is shown rounded.
 * The card header ("N liquid containers, M not full") does not count a suit: Fill could do nothing about it.
 * Fill water containers and Fill all liquids no longer list a suit among "Left alone, capacity unknown"; the answer carries the number of suits seen (`stillsuits`) and the count beside Fill all liquids does not include them.
 
@@ -103,15 +103,15 @@ A suit template that is not one of the 31 rows is treated as before: its amount 
 
 The capacity of a base water device is in the game's placeable data, `CDT_PlaceableData_Functional`, field `m_WaterCapacity` of the row named by the building type (for the devices that store water, `m_bCanStoreWater` true). The editor's numbers (first taken from the Dune Docker console's table) were compared:
 
-| Building type | `m_WaterCapacity` in the game's data | `waterDeviceCapacity` | Largest stored amount in the saves |
+| Building type | `m_WaterCapacity` in the game's data | `waterDeviceCapacity` | Any save above it |
 |---|---|---|---|
-| `WaterCistern_Placeable` | 5000 | 5000 | 5000 |
-| `MediumWaterCistern_Placeable` | 25000 | 25000 | 25000 |
-| `LargeWaterCistern_Placeable` | 100000 | 100000 | 100000 |
-| `Windtrap_Placeable` | 500 | 500 | 500 |
-| `LargeWindtrap_Placeable` | 500 | 500 | 500 |
-| `BloodWaterExtractor_Placeable` | 1000 | 1000 | 1000 |
-| `BloodWaterExtractionAdvanced_Placeable` | 1000 | 1000 | 1000 |
+| `WaterCistern_Placeable` | 5000 | 5000 | no |
+| `MediumWaterCistern_Placeable` | 25000 | 25000 | no |
+| `LargeWaterCistern_Placeable` | 100000 | 100000 | no |
+| `Windtrap_Placeable` | 500 | 500 | no |
+| `LargeWindtrap_Placeable` | 500 | 500 | no |
+| `BloodWaterExtractor_Placeable` | 1000 | 1000 | no |
+| `BloodWaterExtractionAdvanced_Placeable` | 1000 | 1000 | no |
 
 **No disagreement.** The data also lists water stores the editor does not know and that no save copy holds with a water component: `SmallInsulatedCistern_Placeable` 2500, `MediumInsulatedCistern_Placeable` 7500 and the four Stilltent kinds (`Stilltent_Placeable`, `CamouflagedStilltent_Placeable`, `ProtectiveStilltent_Placeable`, `Stilltent_Placeable_Unique_01`) 200. They are left out of `waterDeviceCapacity` for now: a base water fill reports a device it does not know ("Left alone, capacity unknown") and nothing in the saves shows how the game stores their water; they are a candidate for a follow-up once a save holds one. (The blood extractors' own blood tank, `m_Capacity` 6000 and 24000 in their blueprints, is a different store and not part of this fill.)
 
@@ -125,8 +125,8 @@ The Refill Literjons button, Fill water containers, Fill blood sacks and Fill al
 * for each of the 17 water containers: an empty record, no record at all and a partly full container are filled to the capacity with every other key untouched; a full container, one holding blood and one above its capacity are not rewritten; a second press finds nothing to do and is not an edit;
 * templates the data does not list (`Literjon_02`, `Literjon_10`, `Literjon_11`, `Dewpack_02`) are left alone and reported (the ones with a record), and `Literjon_03` beside them is filled to 1100;
 * for each of the 31 suits (a record as the game saves it, a full one, an empty record, no record): Fill water containers and Fill all liquids write nothing, report no unknown container, and the count beside Fill all liquids does not include them;
-* the inventory view (`fillOf`) shows each suit as Water against its capacity, marked as filled by the suit, with its percent; a suit holding blood or one the data does not list is not marked or sized; the inventory read of the case in the issue (Menol's Stillsuit Garment holding 140.765075 gives 28% of 500);
-* the page (`web-tests/fillview.test.mjs`): the suit's line reads "Water 141 / 500 (28%), the suit fills itself", never "capacity unknown", and the header counts only the real containers.
+* the inventory view (`fillOf`) shows each suit as Water against its capacity, marked as filled by the suit, with its percent; a suit holding blood or one the data does not list is not marked or sized; the inventory read of the case in the issue (Menol's Stillsuit Garment holding a fractional amount gives its percent of 500);
+* the page (`web-tests/fillview.test.mjs`): the suit's line reads "Water N / 500 (P%), the suit fills itself", never "capacity unknown", and the header counts only the real containers.
 
 ## To check in the game
 
