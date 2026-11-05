@@ -60,15 +60,18 @@ func xyz(t *testing.T, o *Ops, id int64) (float64, float64, float64) {
 func placeOf(r map[string]any) map[string]any { return r["place"].(map[string]any) }
 
 func TestPlaceOutdoorsWithNothingNearIsTheOldPoint(t *testing.T) {
-	o := placeOps(t, "")
-	id, r := spawn(t, o, Args{"class": "OrnithopterTransport", "template": "T0"})
-	x, y, z := xyz(t, o, id)
-	if x != 900 || y != 200 || z != 450 {
-		t.Errorf("outdoors the vehicle goes where it always did, whatever its size: %v %v %v", x, y, z)
-	}
-	p := placeOf(r)
-	if p["words"] != "next to you" || p["moved"] != false || p["inBase"] != false || p["nextToCharacter"] != true || len(p["blocked"].([]string)) != 0 {
-		t.Errorf("the answer: %v", p)
+	// a ground vehicle: where it always went, whatever its size (an aircraft goes ahead and up: vehicle_place_flying_test.go)
+	for _, key := range []string{"Sandbike", "Buggy", "Sandcrawler"} {
+		o := placeOps(t, "")
+		id, r := spawn(t, o, Args{"class": key, "template": "T0"})
+		x, y, z := xyz(t, o, id)
+		if x != 900 || y != 200 || z != 450 {
+			t.Errorf("%s: outdoors the vehicle goes where it always did, whatever its size: %v %v %v", key, x, y, z)
+		}
+		p := placeOf(r)
+		if p["words"] != "8 m east of you" || p["moved"] != false || p["inBase"] != false || p["inAir"] != false || p["nextToCharacter"] != true || len(p["blocked"].([]string)) != 0 {
+			t.Errorf("%s: the answer: %v", key, p)
+		}
 	}
 }
 
@@ -285,22 +288,22 @@ func TestPlaceAGivenPlaceInTheOpenHasNoNote(t *testing.T) {
 }
 
 func TestPlaceBringVehicleAndDuplicateUseTheSameSearch(t *testing.T) {
-	// outdoors, nothing near: as before
+	// outdoors, nothing near: the medium ornithopter 578 is an aircraft, so it goes 30 m ahead (the character faces south) and 7 m up (#540)
 	o := placeOps(t, "")
 	r, err := o.BringVehicle(Args{"id": 578.0})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if x, y, z := xyz(t, o, 578); x != 900 || y != 200 || z != 450 || placeOf(r.(map[string]any))["words"] != "next to you" {
+	if x, y, z := xyz(t, o, 578); math.Abs(x-100) > 0.001 || math.Abs(y-3200) > 0.001 || z != 1000 || placeOf(r.(map[string]any))["words"] != "30 m south of you and 7 m above you; it starts in the air and the game settles it" {
 		t.Errorf("bring outdoors: %v %v %v %v", x, y, z, r)
 	}
-	// the copy of a vehicle that stands at the old point is put beside it, not on it
+	// the copy of a vehicle that stands there is put beside it, not on it
 	d, err := o.DuplicateVehicle(Args{"id": 578.0})
 	if err != nil {
 		t.Fatal(err)
 	}
 	cx, cy, cz := xyz(t, o, d.(map[string]any)["id"].(int64))
-	if dd := math.Hypot(cx-900, cy-200); dd < 1200+placeMargin+1200 || cz != 450 {
+	if dd := math.Hypot(cx-100, cy-3200); dd < 1200+placeMargin+1200 || cz != 1000 {
 		t.Errorf("the copy is %v from the original, at %v", dd, cz)
 	}
 	if w := placeOf(d.(map[string]any))["words"].(string); !strings.Contains(w, "another vehicle at the first spot") {
@@ -420,14 +423,21 @@ func TestPlaceOperatorBaseEveryClassGoesOutsideAtTheFoundationLevel(t *testing.T
 		if gap < sz.Radius+placeMargin {
 			t.Errorf("%s: %v from the base, needs %v", key, gap, sz.Radius+placeMargin)
 		}
-		if math.Abs(z-(operatorFoundationZ+placeGroundDrop)) > 0.01 {
+		flies := vehicleSizes[key].Flies
+		if !flies && math.Abs(z-(operatorFoundationZ+placeGroundDrop)) > 0.01 {
 			t.Errorf("%s: z %v, want the foundation level %v and the drop", key, z, operatorFoundationZ+placeGroundDrop)
+		}
+		if flies && z < operatorCharZ+flyingVehicleZOffset {
+			t.Errorf("%s: z %v, an aircraft is %v above the character's %v", key, z, flyingVehicleZOffset, operatorCharZ)
 		}
 		if d := math.Hypot(x-operatorCharX, y-operatorCharY); d > placeMaxRadius {
 			t.Errorf("%s: %v from the character", key, d)
 		}
 		p := placeOf(r)
-		if p["inBase"] != true || p["moved"] != true || !strings.HasPrefix(p["words"].(string), "outside your base, ") || !strings.Contains(p["words"].(string), "base pieces") || !strings.Contains(p["words"].(string), "at the first spot)") {
+		if p["inBase"] != true || !strings.HasPrefix(p["words"].(string), "outside your base, ") {
+			t.Errorf("%s: %v", key, p)
+		}
+		if !flies && (p["moved"] != true || !strings.Contains(p["words"].(string), "base pieces") || !strings.Contains(p["words"].(string), "at the first spot)")) {
 			t.Errorf("%s: %v", key, p)
 		}
 		// the claim is one cell of 5,120 about the totem's origin: the small ones get out of it within 30 m, the big ones cannot and stay just outside the base
@@ -439,7 +449,11 @@ func TestPlaceOperatorBaseEveryClassGoesOutsideAtTheFoundationLevel(t *testing.T
 		if (key == "Sandbike" || key == "Buggy") && (p["claim"] != "outside" || inClaim) {
 			t.Errorf("%s: %v", key, p)
 		}
-		if (key == "OrnithopterMedium" || key == "OrnithopterTransport" || key == "Sandcrawler") && p["claim"] != "inside" {
+		if (key == "Sandcrawler") && p["claim"] != "inside" {
+			t.Errorf("%s: %v", key, p)
+		}
+		// an aircraft starts 30 m out, and the claim is left within the same reach plus that shift
+		if flies && p["claim"] != "outside" {
 			t.Errorf("%s: %v", key, p)
 		}
 	}
@@ -467,7 +481,7 @@ func TestPlaceOperatorBaseBringAndDuplicate(t *testing.T) {
 		t.Fatal(err)
 	}
 	x, y, z := xyz(t, o, 578)
-	if baseGap(x, y) < 1200+placeMargin || math.Abs(z-(operatorFoundationZ+placeGroundDrop)) > 0.01 {
+	if baseGap(x, y) < 1200+placeMargin || z < operatorCharZ+flyingVehicleZOffset {
 		t.Errorf("brought to %v %v %v: %v from the base", x, y, z, baseGap(x, y))
 	}
 	d, err := o.DuplicateVehicle(Args{"id": 578.0})
@@ -475,7 +489,7 @@ func TestPlaceOperatorBaseBringAndDuplicate(t *testing.T) {
 		t.Fatal(err)
 	}
 	cx, cy, cz := xyz(t, o, d.(map[string]any)["id"].(int64))
-	if baseGap(cx, cy) < 1200+placeMargin || math.Abs(cz-(operatorFoundationZ+placeGroundDrop)) > 0.01 || math.Hypot(cx-x, cy-y) < 1200+1200 {
+	if baseGap(cx, cy) < 1200+placeMargin || cz < operatorCharZ+flyingVehicleZOffset || math.Hypot(cx-x, cy-y) < 1200+1200 {
 		t.Errorf("the copy at %v %v %v: %v from the base, %v from the original", cx, cy, cz, baseGap(cx, cy), math.Hypot(cx-x, cy-y))
 	}
 }
@@ -502,7 +516,7 @@ func TestPlaceTheSearchIsFast(t *testing.T) {
 	}
 	// the worst case the base gives: the biggest vehicle, from the middle of the base
 	for i := 0; i < 20; i++ {
-		if _, err := w.choose(180036.51, -36637.14, 9322, vehicleSizes["Sandcrawler"], "sandcrawler"); err != nil {
+		if _, err := w.choose(charPose{X: 180036.51, Y: -36637.14, Z: 9322}, vehicleSizes["Sandcrawler"], "sandcrawler"); err != nil {
 			t.Fatal(err)
 		}
 	}

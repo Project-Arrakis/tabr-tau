@@ -463,7 +463,7 @@ func writeVehicle(m *save.Mut, p player, sp *spawnSpec, d catalog.Derived) (map[
 	var x, y, z float64
 	var placeInfo map[string]any
 	if sp.place == nil {
-		if placed, err = choosePlace(m.Query, mapName, dim, num(me["x"]), num(me["y"]), num(me["z"]), size, 0, sp.class.Label); err != nil {
+		if placed, err = choosePlace(m.Query, mapName, dim, poseOf(me), size, 0, sp.class.Label); err != nil {
 			return nil, err
 		}
 		mapName, x, y, z = placed.Map, placed.X, placed.Y, placed.Z
@@ -475,7 +475,7 @@ func writeVehicle(m *save.Mut, p player, sp *spawnSpec, d catalog.Derived) (map[
 		} else if note := w.placeNote(x, y, z, size); note != "" {
 			sp.notes = append(sp.notes, note)
 		}
-		placeInfo = map[string]any{"map": mapName, "x": x, "y": y, "z": z, "words": "where you asked", "moved": false, "inBase": false, "blocked": []string{}, "claim": "", "distance": int64(0)}
+		placeInfo = map[string]any{"map": mapName, "x": x, "y": y, "z": z, "words": "where you asked", "moved": false, "inBase": false, "blocked": []string{}, "claim": "", "distance": int64(0), "up": int64(0), "inAir": false}
 	}
 	rx, ry, rz, rw := yawOnly(num(me["rx"]), num(me["ry"]), num(me["rz"]), num(me["rw"]))
 

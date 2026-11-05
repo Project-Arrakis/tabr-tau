@@ -27,23 +27,34 @@ import (
 //   - A character who stands on, in or under a base piece is "in a base". The vehicle then goes to the ground outside the base: the level is that of the nearest foundation's
 //     bottom (the stairs and ramps of a base start there, so the ground is there) plus a drop, and a point outside the land claim the character is in is preferred when there is one
 //     within 30 m. A character outdoors keeps the old height, 150 above their feet.
+//   - An aircraft (an ornithopter) is the exception (#540): it is put at least 30 m ahead of the character, along the character's facing, and at least 7 m above the character's height,
+//     in the air, for the game to settle. The same clear-spot search runs from that point, with the vehicle's height as it is there.
 
 // vehicleSize is the footprint of a vehicle class: the radius of a circle that holds the vehicle at any heading, and its height, in centimetres. The game's tables carry no sizes, so the
 // numbers are chosen (see the design note): about the vehicle's half-diagonal with its wings out, a little generous, larger for the big ones.
-type vehicleSize struct{ Radius, Height float64 }
+//
+// Flies says the vehicle is an aircraft: an ornithopter. Create, Bring and Duplicate put an aircraft in the air, ahead of the character (#540, below). The class table has no flag for it,
+// so it is told here, once, by the class key (every ornithopter key begins with "Ornithopter") and, for a vehicle whose class is not in the table, by "ornithopter" in its class name.
+type vehicleSize struct {
+	Radius, Height float64
+	Flies          bool
+}
 
 var vehicleSizes = map[string]vehicleSize{
-	"Sandbike":             {250, 200},
-	"Buggy":                {400, 300},
-	"OrnithopterLight":     {800, 450},
-	"OrnithopterMedium":    {1200, 550},
-	"OrnithopterTransport": {1800, 800},
-	"Sandcrawler":          {2200, 1000},
-	"ContainerVehicle":     {450, 350},
+	"Sandbike":             {250, 200, false},
+	"Buggy":                {400, 300, false},
+	"OrnithopterLight":     {800, 450, true},
+	"OrnithopterMedium":    {1200, 550, true},
+	"OrnithopterTransport": {1800, 800, true},
+	"Sandcrawler":          {2200, 1000, false},
+	"ContainerVehicle":     {450, 350, false},
 }
 
 // unknownVehicleSize is for a vehicle whose class is not one of the seven (a world vehicle of another kind).
-var unknownVehicleSize = vehicleSize{500, 400}
+var unknownVehicleSize = vehicleSize{500, 400, false}
+
+// unknownFlyingSize is for a vehicle whose class is not in the table but whose name says it is an ornithopter: the largest ornithopter's footprint, and it flies.
+var unknownFlyingSize = vehicleSize{1800, 800, true}
 
 func sizeOfClassKey(key string) vehicleSize {
 	if s, ok := vehicleSizes[key]; ok {
@@ -59,6 +70,9 @@ func sizeOfActorClass(class any) vehicleSize {
 		if vc, ok := catalog.VehicleClassFor(k); ok && vc.ActorClass == c {
 			return sizeOfClassKey(k)
 		}
+	}
+	if strings.Contains(strings.ToLower(c), "ornithopter") {
+		return unknownFlyingSize
 	}
 	return unknownVehicleSize
 }
@@ -80,6 +94,15 @@ const (
 	placeGroundSearch = 6000.0 // a foundation farther than this from the vehicle does not tell the ground there
 	pieceHalfCell     = 256.0
 	pieceStorey       = 384.0
+)
+
+// Flying vehicles (#540). The placement cannot see the terrain or the level's rocks, so a point 22 m under a standing character, inside rock, was once chosen for an ornithopter. The
+// console's published rule for a flying vehicle is followed instead: the vehicle is put well ahead of the character and well above, in the air, and the game settles it. The values are
+// those of the console's admin script: DUNE_ADMIN_FLYING_VEHICLE_MIN_OFFSET is 3000 (centimetres, at least 30 m ahead along the character's facing) and
+// DUNE_ADMIN_FLYING_VEHICLE_Z_OFFSET is 700 (7 m above the character's height).
+const (
+	flyingVehicleMinOffset = 3000.0 // at least this far ahead of the character, in the plan
+	flyingVehicleZOffset   = 700.0  // at least this far above the character's height
 )
 
 // solid is something a vehicle cannot be put in.
@@ -360,6 +383,34 @@ func outsideClaims(cl []placeClaim, cx, cy, r float64) bool {
 	return true
 }
 
+// charPose is where the character is and which way it faces. Fx, Fy is a unit vector on the ground plane; HasFacing is false when the saved rotation cannot tell (all zero, or
+// pointing straight up or down), and then the search starts from its usual direction.
+type charPose struct {
+	X, Y, Z   float64
+	Fx, Fy    float64
+	HasFacing bool
+}
+
+// facingOf reads the facing from a saved rotation (x, y, z, w): forward = (1 - 2(qy² + qz²), 2(qx·qy + qw·qz)), normalised on the ground plane, which is the maths the console uses.
+func facingOf(qx, qy, qz, qw float64) (fx, fy float64, ok bool) {
+	if qx == 0 && qy == 0 && qz == 0 && qw == 0 { // no rotation was saved
+		return 0, 0, false
+	}
+	fx, fy = 1-2*(qy*qy+qz*qz), 2*(qx*qy+qw*qz)
+	n := math.Hypot(fx, fy)
+	if math.IsNaN(n) || math.IsInf(n, 0) || n < 1e-6 {
+		return 0, 0, false
+	}
+	return fx / n, fy / n, true
+}
+
+// poseOf reads a character's pose from an actors row with the columns x, y, z and rx, ry, rz, rw.
+func poseOf(row map[string]any) charPose {
+	p := charPose{X: num(row["x"]), Y: num(row["y"]), Z: num(row["z"])}
+	p.Fx, p.Fy, p.HasFacing = facingOf(num(row["rx"]), num(row["ry"]), num(row["rz"]), num(row["rw"]))
+	return p
+}
+
 // placement is where a vehicle goes and what was done to find the spot.
 type placement struct {
 	Map     string
@@ -370,6 +421,8 @@ type placement struct {
 	Claim   string   // "outside": the spot is outside the land claim the character is in; "inside": it could not be; "": the character is in no claim, or not in a base
 	Dist    float64  // from the character, in the plan, in centimetres
 	Bearing string
+	Up      float64 // above the character's height, in centimetres (negative: below it)
+	Air     bool    // an aircraft, set down in the air for the game to settle (#540)
 }
 
 var compass8 = []string{"north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"}
@@ -395,16 +448,16 @@ func listWords(ks []string) string {
 	return strings.Join(ws, "")
 }
 
-// Words says in one sentence where the vehicle goes, in the editor's own style.
+// Words says in one sentence where the vehicle goes, in the editor's own style: how far and which way from the character, how high for an aircraft, and that the game settles it.
 func (p placement) Words() string {
-	if !p.Moved {
-		return "next to you"
-	}
 	var b strings.Builder
 	if p.InBase {
 		b.WriteString("outside your base, ")
 	}
 	fmt.Fprintf(&b, "%d m %s of you", int(math.Round(p.Dist/100)), p.Bearing)
+	if p.Air {
+		fmt.Fprintf(&b, " and %d m above you", int(math.Round(p.Up/100)))
+	}
 	switch p.Claim {
 	case "outside":
 		b.WriteString(", outside the land claim")
@@ -416,25 +469,29 @@ func (p placement) Words() string {
 	} else if p.InBase {
 		b.WriteString(" (you are inside a base)")
 	}
+	if p.Air {
+		b.WriteString("; it starts in the air and the game settles it")
+	}
 	return b.String()
 }
 
 // Info is the answer's description of the place.
 func (p placement) Info() map[string]any {
 	return map[string]any{"map": p.Map, "x": p.X, "y": p.Y, "z": p.Z, "words": p.Words(), "moved": p.Moved, "inBase": p.InBase,
-		"blocked": append([]string{}, p.Blocked...), "claim": p.Claim, "distance": math.Round(p.Dist)}
+		"blocked": append([]string{}, p.Blocked...), "claim": p.Claim, "distance": math.Round(p.Dist), "up": math.Round(p.Up), "inAir": p.Air}
 }
 
-// choosePlace finds the place for a vehicle of the given size next to the character, which is at (cx, cy, cz) on the map. exclude is the vehicle that is being moved.
-func choosePlace(query rowReader, mapName string, dim int64, cx, cy, cz float64, sz vehicleSize, exclude int64, label string) (placement, error) {
-	w, err := loadPlaceWorld(query, mapName, dim, cx, cy, exclude)
+// choosePlace finds the place for a vehicle of the given size next to the character, which stands at pose on the map. exclude is the vehicle that is being moved.
+func choosePlace(query rowReader, mapName string, dim int64, pose charPose, sz vehicleSize, exclude int64, label string) (placement, error) {
+	w, err := loadPlaceWorld(query, mapName, dim, pose.X, pose.Y, exclude)
 	if err != nil {
 		return placement{}, err
 	}
-	return w.choose(cx, cy, cz, sz, label)
+	return w.choose(pose, sz, label)
 }
 
-func (w *placeWorld) choose(cx, cy, cz float64, sz vehicleSize, label string) (placement, error) {
+func (w *placeWorld) choose(pose charPose, sz vehicleSize, label string) (placement, error) {
+	cx, cy, cz := pose.X, pose.Y, pose.Z
 	inBase, buildings := w.onPieces(cx, cy, cz)
 	start := 0.0
 	if inBase {
@@ -449,7 +506,27 @@ func (w *placeWorld) choose(cx, cy, cz float64, sz vehicleSize, label string) (p
 			start = math.Atan2(cy-sy/n, cx-sx/n)
 		}
 	}
+	// the first ring and the height. A ground vehicle starts at the old point, 800 along the start direction and 150 above the character's feet (in a base: the ground outside, below).
+	// An aircraft (#540) starts on the console's rule: at least 30 m ahead along the character's facing and at least 7 m above the character's height, so it begins in the air.
+	firstRing := placeStartRadius
+	claimReach := placeClaimReach
+	if sz.Flies {
+		firstRing = math.Max(placeStartRadius, flyingVehicleMinOffset)
+		claimReach += firstRing - placeStartRadius
+		if pose.HasFacing {
+			start = math.Atan2(pose.Fy, pose.Fx)
+		}
+	}
 	zAt := func(x, y float64) float64 {
+		if sz.Flies {
+			z := cz + flyingVehicleZOffset
+			if inBase {
+				if g, ok := w.groundAt(x, y, buildings); ok {
+					z = math.Max(z, g+placeGroundDrop)
+				}
+			}
+			return z
+		}
 		if inBase {
 			if g, ok := w.groundAt(x, y, buildings); ok {
 				return g + placeGroundDrop
@@ -457,8 +534,12 @@ func (w *placeWorld) choose(cx, cy, cz float64, sz vehicleSize, label string) (p
 		}
 		return cz + placeDrop
 	}
-	// what is at the old default point, which is what the person is told was in the way
-	lx, ly, lz := cx+placeStartRadius, cy, cz+placeDrop
+	// what is at the first spot, which is what the person is told was in the way
+	lx, ly, lz := cx+placeStartRadius, cy, cz+placeDrop // the old default point: always east of the character
+	if sz.Flies {
+		lx, ly = cx+firstRing*math.Cos(start), cy+firstRing*math.Sin(start)
+		lz = zAt(lx, ly)
+	}
 	legacy := w.blocked(lx, ly, lz, sz)
 	var claims []placeClaim
 	if inBase {
@@ -466,7 +547,7 @@ func (w *placeWorld) choose(cx, cy, cz float64, sz vehicleSize, label string) (p
 	}
 	r := sz.Radius + placeMargin
 	var first *placement
-	for ring := placeStartRadius; ring <= placeMaxRadius; ring += placeStep {
+	for ring := firstRing; ring <= placeMaxRadius; ring += placeStep {
 		count := int(math.Max(12, math.Ceil(2*math.Pi*ring/400)))
 		for i := 0; i < count; i++ {
 			// the ring's own order: the start direction, then alternately to either side of it
@@ -480,7 +561,7 @@ func (w *placeWorld) choose(cx, cy, cz float64, sz vehicleSize, label string) (p
 			if len(w.blocked(x, y, z, sz)) > 0 {
 				continue
 			}
-			p := placement{Map: w.mapName, X: x, Y: y, Z: z, InBase: inBase, Blocked: legacy, Dist: ring, Bearing: bearingWord(x-cx, y-cy)}
+			p := placement{Map: w.mapName, X: x, Y: y, Z: z, InBase: inBase, Blocked: legacy, Dist: ring, Bearing: bearingWord(x-cx, y-cy), Up: z - cz, Air: sz.Flies}
 			p.Moved = math.Abs(x-lx) > 0.5 || math.Abs(y-ly) > 0.5 || math.Abs(z-lz) > 0.5
 			if len(claims) == 0 {
 				return p, nil
@@ -493,11 +574,11 @@ func (w *placeWorld) choose(cx, cy, cz float64, sz vehicleSize, label string) (p
 			if first == nil {
 				first = &p
 			}
-			if ring >= placeClaimReach {
+			if ring >= claimReach {
 				return *first, nil
 			}
 		}
-		if first != nil && ring+placeStep > placeClaimReach {
+		if first != nil && ring+placeStep > claimReach {
 			return *first, nil
 		}
 	}

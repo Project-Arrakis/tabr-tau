@@ -206,6 +206,17 @@ test('the preview, the result line and the toast say where the vehicle goes and 
   ui.dom.window.close();
 });
 
+test('an aircraft in the air says how far ahead and how high, and that the game settles it (#540)', async () => {
+  const place = { map: 'HaggaBasin', x: 1, y: 2, z: 3, words: '30 m south of you and 7 m above you; it starts in the air and the game settles it', moved: false, inBase: false, blocked: [], claim: '', distance: 3000, up: 700, inAir: true, nextToCharacter: true };
+  const ui = await boot({ get: GET, post: { '/api/vehicles/spawn-preview': ANSWER({ dryRun: true, place }), '/api/vehicles/spawn': ANSWER({ outcome: 'written', place }) } });
+  await openForm(ui);
+  ui.click('[data-act="vcPreview"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#vcpreview').textContent.replace(/\s+/g, ' ').includes('It goes 30 m south of you and 7 m above you; it starts in the air and the game settles it.'));
+  ui.click('[data-act="vcCreate"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#vcresult').textContent.replace(/\s+/g, ' ').includes('It goes 30 m south of you and 7 m above you; it starts in the air and the game settles it.'));
+  ui.dom.window.close();
+});
+
 test('an answer with no place still reads "next to you"', async () => {
   const ui = await boot({ get: GET, post: { '/api/vehicles/spawn-preview': ANSWER({ dryRun: true }) } });
   await openForm(ui);

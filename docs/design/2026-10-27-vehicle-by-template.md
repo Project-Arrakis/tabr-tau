@@ -67,7 +67,7 @@ the rear hull `BuggyHullBackExtra_6` (already the template's) and the stock Mk6 
 ## Place
 
 Default: next to the character, facing as the character does. Or `place: {map, x, y, z}` (centimetres, finite, within 5,000,000), which is used exactly as given (the answer adds a note when the place has base pieces, buildings or another
-vehicle within reach of the vehicle). Nothing snaps a vehicle to the ground: one placed below the terrain falls, one placed high drops.
+vehicle within reach of the vehicle). Nothing snaps a vehicle to the ground: one placed below the terrain falls, one placed high drops. An aircraft is never put at ground level: see [Aircraft](#aircraft-540).
 
 "Next to the character" used to be a blind point: the character's map, `x + 800`, same `y`, `z + 150`, which Bring vehicle and Duplicate vehicle also used. In a base that point is inside it (#480, below). Since then the
 three choose the spot by a search; the rules are in [Where a vehicle goes](#where-a-vehicle-goes-480).
@@ -134,17 +134,54 @@ They were not measured in the game; a wrong radius makes the vehicle too close t
 ### What the answer says
 
 `place` in the answer of the preview and of the create (and of Bring vehicle and Duplicate vehicle) holds `map`, `x`, `y`, `z`, `words`, `moved`, `inBase`, `blocked` (what was at the old point: `pieces`, `placeables`, `vehicles`), `claim`
-(`outside`, `inside` or empty) and `distance`. `words` is the sentence the page shows: "next to you"; "9 m north of you (base pieces at the first spot)"; "outside your base, 14 m south of you, outside the land claim (base pieces and things you built at the first spot)".
+(`outside`, `inside` or empty), `distance`, and (#540) `up` and `inAir`. `words` is the sentence the page shows: "8 m east of you"; "9 m north of you (base pieces at the first spot)"; "outside your base, 14 m south of you, outside the land claim (base pieces and things you built at the first spot)".
 North is up and east is +x, as in the Land claim editor.
+
+### Aircraft (#540)
+
+#### What went wrong (2026-11-05, single player)
+
+Create a vehicle put a Light ornithopter about 22 m under a standing character, inside rock. The #480 search had found a spot clear of base pieces, but the terrain is not in a save, so a point
+with nothing built near it can still be under the ground or inside a cliff. The height outside a base (the character's feet and 150, or the foundation level and 250 in a base) is a guess about the ground, and it is wrong on a slope or beside a rock formation.
+
+#### The console's rule
+
+The self-hosted console's admin script (`spawn_vehicle_command`) spawns a vehicle 10 m in front of the character's live position and facing, at the character's own height, and lets the game server place it. For a flying vehicle it uses a forward distance of at
+least 30 m and a lift of 7 m: its published values `DUNE_ADMIN_FLYING_VEHICLE_MIN_OFFSET` = 3000 and `DUNE_ADMIN_FLYING_VEHICLE_Z_OFFSET` = 700 (centimetres). It has no terrain or rock check either; the distance and the lift are what keep an aircraft out of the ground.
+
+#### The rule in the editor
+
+Create a vehicle, Bring vehicle and Duplicate vehicle all follow it for an aircraft (`flyingVehicleMinOffset` 3000 and `flyingVehicleZOffset` 700 in `internal/ops/vehicle_place.go`, named for the console's values):
+
+- **Which vehicles.** `vehicleSize.Flies` is true for the three ornithopter classes (Light, Medium, Carrier: every class key that begins with `Ornithopter`), and, for a vehicle whose class is not in the vehicle table, when its class name contains
+  "ornithopter" (it then has the footprint of the Carrier). The editor had no other notion of an aircraft, so this is the one place that says it. Sandbike, Buggy, Sandcrawler, Container vehicle and every other class are ground vehicles.
+- **Forward.** The character's facing is read from the saved rotation with the console's maths: forward = (1 - 2(qy² + qz²), 2(qx·qy + qw·qz)), normalised on the ground plane. If the rotation is missing (all zero) or points straight up or down, there is no facing and the
+  search starts in its usual direction (east, or away from the middle of the base for a character in one).
+- **Height.** The aircraft's z is the character's z (the level of the feet) plus 700, so it starts in the air and the game settles it. In a base it is never lower than the ground outside plus 250 either (which is below the character, so the 700 wins).
+- **The search.** The rings start at 3000 instead of 800 and go on in steps of 400 to 8000 as before; the first candidate is the point 30 m ahead along the facing, then the points of the ring alternately to either side of it, then the next ring. The clear-spot test
+  (the rules above: base pieces, placeables, other vehicles, shut in) is made at the position the aircraft would have, at its height, so a roof slab 20 m under the point does not block it and a slab at the character's own level does. The refusal ("there is no clear spot for a ...
+  within 80 m of the character ...") is as before, and nothing is written. The preference for a point outside the land claim a character in a base is in has the same reach, 30 m, counted from the first ring (so up to 52 m from the character).
+- **Ground vehicles are not changed.** Outdoors the old point (800 along x, 150 above the feet) is still the first candidate; in a base the ground rule is still the nearest foundation's bottom plus 250. A ground vehicle is never put below the character's height unless the
+  character is on, in or under a base piece the editor knows (then the foundation rule applies, as in #480).
+
+#### What the answer says
+
+Every answer now says where the vehicle is from the character, also when nothing was in the way: "8 m east of you" (it used to say "next to you"). An aircraft adds its height and that it will settle:
+"30 m south of you and 7 m above you; it starts in the air and the game settles it". `place` holds `up` (centimetres above the character's feet) and `inAir` besides the fields above. The page shows `words` as before ("It goes ...").
+
+#### Not known
+
+The terrain below the aircraft is still not read. 7 m is the console's number, not a measure of the ground: on a steep cliff 30 m ahead the ground can be more than 7 m above the character's height, and the aircraft would then start inside the rock or fall
+the other way from the way the console does. Whether the game settles an aircraft that starts in the air in a saved game as the console's server does is the operator's check (below).
 
 ### Bring vehicle and Duplicate vehicle
 
-Both use the same search, from the character's position at the time of the edit. Bring vehicle does not count the vehicle it moves as an obstacle (bringing it again leaves it where it is); Duplicate does count the original (the copy is put beside it).
+Both use the same search (and the aircraft rule above), from the character's position and facing at the time of the edit. Bring vehicle does not count the vehicle it moves as an obstacle (bringing it again leaves it where it is); Duplicate does count the original (the copy is put beside it).
 The footprint comes from the vehicle's own class. A vehicle that is stored is still refused, as before.
 
 ### Not known, and open
 
-- Terrain and the level's props (above). The height outside a base is the foundation level plus 250; where the ground is more than 250 higher there, the vehicle appears under it and falls; where it is lower, the vehicle drops.
+- Terrain and the level's props (above). The height of a ground vehicle outside a base is the character's feet plus 150 (in a base: the foundation level plus 250); where the ground is higher there, the vehicle appears under it and falls; where it is lower, the vehicle drops. An aircraft starts 7 m above the character instead (#540).
 - Whether the game's own placing of a vehicle would have moved it. The footprints are chosen, not measured.
 - Not tested in the game: the operator checks it by standing in a base, creating a buggy and a Carrier ornithopter or a Sandcrawler, and seeing that neither is in a wall or on another floor.
 
@@ -179,6 +216,7 @@ No vehicle composed from the tables has been loaded in the game. What is proven 
 With a backup of the save and the game closed while the editor writes, for each class in turn:
 
 1. Create the vehicle next to the character; load the save: it is there, on the ground, the right model. Then stand on the upper floor of a base and create a buggy and a Carrier ornithopter or Sandcrawler (#480): neither is in a wall, in a room or on another floor, and the page said where each went.
+1b. (#540) In the open, and then next to a rock formation, create a Light ornithopter. The page says "30 m ... of you and 7 m above you; it starts in the air and the game settles it". Load the save: the aircraft is in the air or on the ground, never inside rock or under the terrain. Bring it and Duplicate it from the same places: the same.
 2. Get in: fuel gauge full, health full, the modules present and usable (boost, scanner, weapon), the cargo hold has the expected slots.
 3. Open the vehicle's module panel: every slot lists the expected module and grade, durability full.
 4. Drive or fly 2 minutes; leave it; save and quit to the menu; reload: it is still there, fuel burnt, nothing doubled.
