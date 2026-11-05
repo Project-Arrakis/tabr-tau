@@ -132,7 +132,7 @@ func (o *Ops) Vehicles() (any, error) {
 }
 
 // BringVehicle moves one of the player's own vehicles next to the player: to the old point (800 along x, 150 up) when it is clear, else to the nearest clear spot, outside a base
-// when the player is in one (#480). The answer says where it went.
+// when the player is in one (#480). An aircraft goes at least 30 m ahead and at least 7 m up, in the air (#540). The answer says where it went.
 func (o *Ops) BringVehicle(a Args) (any, error) {
 	p, err := o.player()
 	if err != nil {
@@ -150,7 +150,7 @@ func (o *Ops) BringVehicle(a Args) (any, error) {
 	found := false
 	var placed placement
 	_, err = o.S.Mutate(fmt.Sprintf("moved vehicle %d next to player", id), func(m *save.Mut) error {
-		me, err := m.One(`select map, location_x x, location_y y, location_z z, dimension_index d from actors where id=?`, p.Pawn)
+		me, err := m.One(`select map, location_x x, location_y y, location_z z, rotation_x rx, rotation_y ry, rotation_z rz, rotation_w rw, dimension_index d from actors where id=?`, p.Pawn)
 		if err != nil {
 			return err
 		}
@@ -165,7 +165,7 @@ func (o *Ops) BringVehicle(a Args) (any, error) {
 			return nil
 		}
 		dim, _ := toInt(me["d"])
-		if placed, err = choosePlace(m.Query, fmt.Sprint(me["map"]), dim, num(me["x"]), num(me["y"]), num(me["z"]), sizeOfActorClass(v["class"]), id, vehicleType(shortClass(v["class"]))); err != nil {
+		if placed, err = choosePlace(m.Query, fmt.Sprint(me["map"]), dim, poseOf(me), sizeOfActorClass(v["class"]), id, vehicleType(shortClass(v["class"]))); err != nil {
 			return err
 		}
 		res, err := m.Exec(`update actors set map=?, location_x=?, location_y=?, location_z=?
