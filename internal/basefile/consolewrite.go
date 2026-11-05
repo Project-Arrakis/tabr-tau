@@ -11,7 +11,7 @@ import (
 
 // Writing the self-hosted Dune console's own base backup file (#534): format "dune-base-backup", version 1, the inverse of console.go. The rows of a base, as Tables lists them,
 // become entries[] of {id, kind, data}: every id is a transfer id (small, from 1, handed out here), a column that names another row holds the transfer id of that row, a string
-// inside a JSON column that names an id is written "!!act@12", and the owner is a placeholder entry that carries no data. The shape of each kind is the one the reader in console.go
+// inside a JSON column that names an id is written "!!act@12" (the null reference "!!act@0"; no "#" form is ever left), and the owner is a placeholder entry that carries no data. The shape of each kind is the one the reader in console.go
 // takes (which is the shape of a real export of console v1.4.52); a file this writes is read back by it, and the caller is expected to do that before it hands the file out.
 //
 // Nothing here knows a save: the caller reads the rows and decides which belong to the file (a base that is still standing needs different rows from one that was picked up).
@@ -39,8 +39,8 @@ type ConsoleResult struct {
 	Items      int
 	Entities   int
 	Entries    int // all entries, the placeholder counted
-	FarActors  int // references "!!act#N" to an actor that is not in the file; written as they are, the way the game's own export leaves them
-	NulledRefs int // references of another kind to a row that is not in the file; written as the null reference
+	FarActors  int // references "!!act#N" to an actor that is not in the file (a queued job's instigator); written as the null reference "!!act@0"
+	NulledRefs int // references of another kind to a row that is not in the file; written as the null reference too
 }
 
 // WriteConsole turns the rows into the console's file. tabs holds, for each table of Tables, the rows with the cells in the order of Table.Cols (int64, float64, string, nil; a JSON
@@ -222,9 +222,12 @@ func (o *jobj) done() ([]byte, error) {
 
 func itoaBytes(n int64) []byte { return strconv.AppendInt(nil, n, 10) }
 
-// refs writes a JSON column's text with every reference "!!act#12" that names a row of the file as "!!act@T". #0 stays the null reference. A reference to an actor that is not in
-// the file stays as it is (the game's own export leaves such ids alone; the reader here turns them into none). A reference of any other kind that names nothing in the file is
-// written as the null reference, because the reader refuses an id of another server for those.
+// refs writes a JSON column's text with every reference "!!act#12" in the one form the console takes, a transfer id after an @ (#538): a reference that names a row of the file is
+// "!!act@T"; the null reference "!!act#0" is "!!act@0", the way the console's own export writes a missing reference; and a reference to a row that is not in the file (a crafting
+// queue that names the character who queued it, an actor of the single-player save that is no part of the base) is also "!!act@0", no reference. It is not the owner placeholder: the
+// console's import turns the placeholder into the importing player's controller, while a queue names the character's pawn, so the placeholder would name the wrong actor; the null
+// reference is what the console's own export writes for a reference it may leave outside the base. No "!!kind#N" is ever left in the text; the strict check (CheckConsoleStrict)
+// makes sure of it before a file is handed out.
 func (w *cwriter) refs(text string) (string, error) {
 	return RewriteRefs(text, func(r Ref) (string, error) {
 		s := "!!" + r.Kind
@@ -232,7 +235,7 @@ func (w *cwriter) refs(text string) (string, error) {
 		case r.ID < 0:
 			return "", fmt.Errorf("a reference %s#%d is not an id", s, r.ID)
 		case r.ID == 0:
-			return s + "#0", nil
+			return s + "@0", nil
 		}
 		if m := w.ids[r.Kind]; m != nil {
 			if t, ok := m[r.ID]; ok {
@@ -241,10 +244,10 @@ func (w *cwriter) refs(text string) (string, error) {
 		}
 		if r.Kind == "act" {
 			w.far++
-			return s + "#" + strconv.FormatInt(r.ID, 10), nil
+		} else {
+			w.nulled++
 		}
-		w.nulled++
-		return s + "#0", nil
+		return s + "@0", nil
 	})
 }
 
@@ -416,6 +419,8 @@ func (w *cwriter) entry(kind string, c *ctab, r []any) ([]byte, error) {
 			t = append(t, v)
 		}
 		o.put("transform", list(t), nil)
+		// the game writes its arrays 0-based and the console records that per row; without the note the importing server stores 1-based arrays (the game reads some of them by index)
+		o.put("__lb", []byte(`{"transform":0}`), nil)
 	case "Placeable":
 		a, err := w.target("act", c, r, "id", false)
 		o.put("id", a, err)
@@ -455,6 +460,7 @@ func (w *cwriter) entry(kind string, c *ctab, r []any) ([]byte, error) {
 			o.put("landclaim_original_global_location", []byte("null"), nil)
 		case 0:
 			o.put("landclaim_original_global_location", list(loc), nil)
+			o.put("__lb", []byte(`{"landclaim_original_global_location":0}`), nil)
 		default:
 			o.put("landclaim_original_global_location", nil, errors.New("the totem's original location is partly empty"))
 		}
