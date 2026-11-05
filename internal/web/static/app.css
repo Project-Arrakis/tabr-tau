@@ -257,8 +257,9 @@ header .path:empty{display:none}
 }
 /* Text that is not shown all the time (#426): a tooltip on one control (hover and keyboard focus; Escape puts it away), and an "About this" disclosure for a card */
 .tip{position:relative;display:inline-block}
-.tipbox{display:none;position:absolute;z-index:6;left:0;top:calc(100% - 2px);width:max-content;max-width:min(360px,80vw);padding:6px 10px;background:var(--panel2);color:var(--fg);border:1px solid var(--line-strong);border-radius:6px;box-shadow:var(--sh);font-size:12px;font-weight:400;line-height:1.4;text-align:left;white-space:normal;cursor:default}
-.tip:hover .tipbox,.tip:focus-within .tipbox{display:block}
+.tipbox{display:none;position:fixed;z-index:6;left:0;top:0;width:max-content;max-width:min(360px,calc(100vw - 16px));max-height:calc(100vh - 16px);overflow:auto;padding:6px 10px;background:var(--panel2);color:var(--fg);border:1px solid var(--line-strong);border-radius:6px;box-shadow:var(--sh);font-size:12px;font-weight:400;line-height:1.4;text-align:left;white-space:normal;cursor:default}
+.tip.open .tipbox{display:block}
+.tip button:disabled{pointer-events:none}
 .tip.closed .tipbox{display:none}
 details.about{margin-top:10px}
 details.about summary{font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--mut)}
