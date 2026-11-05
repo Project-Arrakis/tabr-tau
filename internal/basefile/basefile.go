@@ -158,6 +158,13 @@ func (t Table) SelectList() string {
 	return strings.Join(parts, ", ")
 }
 
+// ScopeSQLFor is the where-clause of a table for a base that is given as a set of actors and not as a backup: actors is a select of actor ids (a base that is still standing has no
+// backup record). The ids in it are numbers made by the caller, never text from a request. It is meant for the tables whose scope runs through the actors; the two tables of the
+// backup record itself have none.
+func (t Table) ScopeSQLFor(actors string) string {
+	return strings.ReplaceAll(t.Scope, scopeA, "("+actors+")")
+}
+
 // Value is the text of one cell of a row as the file holds it. v is what the query returned for the column. A JSON cell is compacted so that the same data always gives the same
 // bytes; text must be valid UTF-8 (an invalid sequence would be changed on its way into JSON), a number must be finite.
 func (c Column) Value(v any) ([]byte, error) {

@@ -1,7 +1,9 @@
 package web
 
 import (
+	"encoding/json"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -20,6 +22,12 @@ func (s *Server) baseBackupRoutes() {
 			respond(w, nil, apierr.New(apierr.ErrBadArgument, "backup must be the number of a base backup of this save"))
 			return
 		}
+		// format=console writes the Dune console's own file (#534) instead of the editor's
+		if r.URL.Query().Get("format") == "console" {
+			out, err := s.Ops.ExportBaseBackupConsole(id, s.now(), s.EditorVersion)
+			sendBaseFile(w, out, err)
+			return
+		}
 		out, err := s.Ops.ExportBaseBackup(id, s.now(), s.EditorVersion)
 		if err != nil {
 			respond(w, nil, err)
@@ -28,6 +36,17 @@ func (s *Server) baseBackupRoutes() {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Content-Disposition", `attachment; filename="`+safeFilename(out.FileName)+`"`)
 		w.Write(out.Data) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter (JSON built by encoding/json, sent as an attachment with nosniff)
+	})
+
+	// A base that is still standing, as the Dune console's base backup file (#534). "base" is the totem's number, as the Bases list shows it. Read only, like the exports above.
+	s.mux.HandleFunc("GET /api/bases/console-export", func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.ParseInt(r.URL.Query().Get("base"), 10, 64)
+		if err != nil || id <= 0 {
+			respond(w, nil, apierr.New(apierr.ErrBadArgument, "base must be the number of a base in this save"))
+			return
+		}
+		out, err := s.Ops.ExportStandingBaseConsole(id, s.now(), s.EditorVersion)
+		sendBaseFile(w, out, err)
 	})
 
 	// Import (#475, phase 2). "text" is the content of a base file; the editor reads and checks it whole, so a file that is not a good base file changes nothing. Preview works out what
@@ -55,6 +74,27 @@ func (s *Server) baseBackupRoutes() {
 		}
 		return s.Ops.PreviewBaseImport(data)
 	})
+}
+
+// sendBaseFile answers with a console file as a download. The counts of what it holds and the notes about it travel in two headers (ASCII only: the notes are escaped), so that the page
+// can say what it saved without reading the file, which it never parses.
+func sendBaseFile(w http.ResponseWriter, out *ops.BaseExport, err error) {
+	if err != nil {
+		respond(w, nil, err)
+		return
+	}
+	sm := out.Summary
+	counts, _ := json.Marshal(map[string]int{"actors": sm.Actors, "pieces": sm.Pieces, "placeables": sm.Placeables, "storedItems": sm.StoredItems, "entities": sm.Entities, "entries": sm.Rows})
+	notes := out.Notes
+	if notes == nil {
+		notes = []string{}
+	}
+	nb, _ := json.Marshal(notes)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+safeFilename(out.FileName)+`"`)
+	w.Header().Set("X-Base-Counts", string(counts))
+	w.Header().Set("X-Base-Notes", url.QueryEscape(string(nb)))
+	w.Write(out.Data) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter (JSON built by the editor, sent as an attachment with nosniff)
 }
 
 // baseImportBodyMax is the largest request body of the import routes: the 16 MiB a base file may be, written as a JSON string (quotes and line ends are escaped), with room.

@@ -91,3 +91,95 @@ func TestBaseBackupRoutesNeedTheSessionLikeEveryOtherRoute(t *testing.T) {
 		}
 	}
 }
+
+// The Dune console's file (#534): a base that is still standing, and a backup in the console's format. Both only read the save.
+
+const placedAt = `update actors set location_x=1,location_y=2,location_z=3,rotation_x=0,rotation_y=0,rotation_z=0,rotation_w=1; update building_instances set location_x=1,location_y=2,location_z=3,rotation_x=0,rotation_y=0,rotation_z=0,rotation_w=1;`
+
+const standingRouteWorld = `
+insert into actors(id,class,map,state) values (601,'/Game/BP_Totem.BP_Totem_C','HaggaBasin',0),(602,'/Game/BP_Building.BP_Building_C','HaggaBasin',0);
+insert into fgl_entities(entity_id,components) values (5764607523034234881, jsonb('{}'));
+insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (601,5764607523034234881,'Actor');
+insert into placeables(id,owner_entity_id,building_type,has_buildable_support) values (601,5764607523034234881,'Totem_Small_Placeable',1);
+insert into totems(id) values (601);
+insert into buildings(id) values (602);
+insert into building_instances(building_id,instance_id,building_type,owner_entity_id) values (602,1,'Foundation',5764607523034234881),(602,2,'Wall',5764607523034234881);
+insert into permission_actor(actor_id,actor_name,actor_type,access_level,is_child) values (601,'My base',1,3,0);
+insert into permission_actor_rank(permission_actor_id,player_id,rank) values (601,1,1);` + placedAt
+
+func TestStandingBaseConsoleExportRouteSendsTheFileAndItsCounts(t *testing.T) {
+	s := backupServer(t, standingRouteWorld)
+	before, _ := os.ReadFile(s.Save.Path)
+	w := kitGet(t, s, "/api/bases/console-export?base=601")
+	if w.Code != 200 || w.Header().Get("Content-Type") != "application/json" || w.Header().Get("X-Content-Type-Options") != "nosniff" ||
+		w.Header().Get("Content-Disposition") != `attachment; filename="tabr-tau-console-base-601-My_base.json"` {
+		t.Fatalf("export: %d %v", w.Code, w.Header())
+	}
+	b, err := basefile.Load(w.Body.Bytes(), basefile.MaxFileBytes, basefile.MaxRows)
+	if err == nil {
+		err = b.Verify()
+	}
+	if err != nil || b.Origin != basefile.OriginConsole || b.Console.SourceKind != "live-base" || b.Console.Name != "My base" {
+		t.Fatalf("the file: %v %+v", err, b.Console)
+	}
+	var counts map[string]int
+	if err := json.Unmarshal([]byte(w.Header().Get("X-Base-Counts")), &counts); err != nil || counts["pieces"] != 2 || counts["placeables"] != 1 || counts["actors"] != 2 || counts["storedItems"] != 0 || counts["entries"] != 12 {
+		t.Errorf("counts header %q: %v", w.Header().Get("X-Base-Counts"), err)
+	}
+	if h := w.Header().Get("X-Base-Notes"); h != "%5B%5D" {
+		t.Errorf("notes header %q", h)
+	}
+	untouched(t, s, before)
+}
+
+func TestConsoleExportRoutesRefuseWhatTheyCannotMake(t *testing.T) {
+	s := backupServer(t, standingRouteWorld)
+	for route, want := range map[string]int{
+		"/api/bases/console-export":                         422,
+		"/api/bases/console-export?base=abc":                422,
+		"/api/bases/console-export?base=-1":                 422,
+		"/api/bases/console-export?base=1;drop":             422,
+		"/api/bases/console-export?base=99":                 404,
+		"/api/bases/backups/export?backup=9&format=console": 404,
+	} {
+		w := kitGet(t, s, route)
+		if w.Code != want || w.Header().Get("Content-Disposition") != "" || decodeBody(t, w)["error"] == nil {
+			t.Errorf("%s: %d %s", route, w.Code, w.Body.String())
+		}
+	}
+	// a base that was picked up is exported from Base backups, and says so
+	p := backupServer(t, backupWorld)
+	w := kitGet(t, p, "/api/bases/console-export?base=601")
+	if m := decodeBody(t, w); w.Code != 409 || !strings.Contains(m["error"].(string), "Export it from Base backups") {
+		t.Errorf("a picked-up base: %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestPickedUpBaseConsoleExportRouteSendsTheConsolesFile(t *testing.T) {
+	s := backupServer(t, backupWorld+placedAt)
+	before, _ := os.ReadFile(s.Save.Path)
+	w := kitGet(t, s, "/api/bases/backups/export?backup=1&format=console")
+	if w.Code != 200 || w.Header().Get("Content-Disposition") != `attachment; filename="tabr-tau-console-backup-1-My_base.json"` {
+		t.Fatalf("export: %d %v %s", w.Code, w.Header(), w.Body.String())
+	}
+	b, err := basefile.Load(w.Body.Bytes(), basefile.MaxFileBytes, basefile.MaxRows)
+	if err == nil {
+		err = b.Verify()
+	}
+	if err != nil || b.Console.Kinds["BuildingInstance"] != 1 || b.Console.SourceKind != "" {
+		t.Fatalf("the file: %v %+v", err, b.Console)
+	}
+	// without format the editor's own file, as before
+	if w := kitGet(t, s, "/api/bases/backups/export?backup=1"); !strings.Contains(w.Header().Get("Content-Disposition"), "tabr-tau-base-backup-1") {
+		t.Errorf("the default export changed: %v", w.Header())
+	}
+	untouched(t, s, before)
+}
+
+func TestConsoleExportRouteNeedsTheSession(t *testing.T) {
+	s := backupServer(t, standingRouteWorld)
+	w := do(t, s, "GET", "http://127.0.0.1/api/bases/console-export?base=601", loop, map[string]string{"Host": "127.0.0.1:8090"}, nil)
+	if w.Code != 403 {
+		t.Errorf("without the session: %d", w.Code)
+	}
+}

@@ -1175,6 +1175,27 @@ async function baseBackupDownload(d) {
   setTimeout(() => URL.revokeObjectURL(u), 60000); // the browser reads the blob after the click returns
   toast(`Exported "${d.name}": ${Number(d.pieces).toLocaleString()} pieces, ${Number(d.placeables).toLocaleString()} placeables, ${Number(d.items).toLocaleString()} stored items. Nothing in the save changed.`);
 }
+// The Dune console's own file (#534), from a base that is still standing (Bases list) or from a base backup (Base backups card). The editor answers with the file and, in two headers,
+// the counts of what the file holds and any notes about it; the file itself is saved as it is and never parsed here. d.kind is 'base' (d.id is the totem) or 'backup'.
+const consoleFileName = (kind, id, name) => 'tabr-tau-console-' + kind + '-' + String(id).replace(/[^0-9]/g, '') + '-' + (String(name || '').replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^[._-]+|[._-]+$/g, '').slice(0, 40) || 'base') + '.json';
+async function baseConsoleDownload(d) {
+  const url = d.kind === 'backup' ? '/api/bases/backups/export?format=console&backup=' + encodeURIComponent(d.id) : '/api/bases/console-export?base=' + encodeURIComponent(d.id);
+  const r = await fetch(url, { credentials: 'same-origin' });
+  if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || r.statusText || 'The export failed'); }
+  let counts = null, notes = [];
+  try { counts = JSON.parse(r.headers.get('X-Base-Counts')); } catch (e) { /* the numbers of the row are used */ }
+  try { notes = JSON.parse(decodeURIComponent(r.headers.get('X-Base-Notes') || '[]')); } catch (e) { notes = []; }
+  const b = await r.blob();
+  const u = URL.createObjectURL(b), l = document.createElement('a');
+  l.href = u;
+  l.download = consoleFileName(d.kind, d.id, d.name);
+  l.click();
+  setTimeout(() => URL.revokeObjectURL(u), 60000);
+  const n = (v) => Number(v).toLocaleString();
+  const c = counts || { pieces: d.pieces, placeables: d.placeables, storedItems: d.items };
+  const items = c.storedItems == null ? '' : `, ${n(c.storedItems)} stored items`;
+  toast(`Exported "${d.name}" for the Dune console: ${n(c.pieces)} pieces, ${n(c.placeables)} placeables${items}. Nothing in the save changed.${notes.length ? ' ' + notes.join(' ') : ''}`, null, notes.length ? 15000 : 3500);
+}
 // Import (phase 2): a base file is chosen, read in the browser as text, and sent to the editor, which checks it whole and answers with a preview (the import, rolled back). Nothing is
 // written until Import is pressed; the file's text is kept in the page only so that Import can send the file that was previewed (with the hash the preview gave).
 let bbImport = null; // { name, text, pv } after a preview, { name, err } after a refusal
@@ -1208,12 +1229,14 @@ async function baseBackupsCard() {
   const n = (v) => Number(v).toLocaleString();
   return html`<div class="card"><h3>Base backups (${list.length})</h3>${tbl([{ k: 'backup_id', label: 'ID' }, { k: 'name', label: 'Name' }, { k: 'map', label: 'Map' }, { k: 'actors', label: 'Actors', f: (r) => n(r.actors) },
     { k: 'pieces', label: 'Building pieces', f: (r) => n(r.pieces) }, { k: 'placeables', label: 'Placeables', f: (r) => n(r.placeables) }, { k: 'stored_items', label: 'Stored items', f: (r) => n(r.stored_items) }], list,
-    { actions: (r) => html`<button class="b sec sm" data-act="baseBackupExport" data-id="${r.backup_id}" data-name="${r.name}" data-pieces="${r.pieces}" data-placeables="${r.placeables}" data-items="${r.stored_items}">Export base backup</button>`,
+    { actions: (r) => html`<button class="b sec sm" data-act="baseBackupExport" data-id="${r.backup_id}" data-name="${r.name}" data-pieces="${r.pieces}" data-placeables="${r.placeables}" data-items="${r.stored_items}">Export base backup</button>
+      ${tip('bbctip' + r.backup_id, "Saves this backup as a Dune console base backup file, for a Dune server to import. Reads the save and changes nothing.", html`<button class="b sec sm" data-act="baseConsoleExport" data-kind="backup" data-id="${r.backup_id}" data-name="${r.name}" data-pieces="${r.pieces}" data-placeables="${r.placeables}" data-items="${r.stored_items}" aria-describedby="bbctip${r.backup_id}">Export for console</button>`)}`,
       empty: "No base backups in this save. Pick a base up with the game's base tool, then reload." })}
     <div class="row"><label>Import a base file <input type="file" id="baseFile"></label></div>
     ${baseImportPanel()}
     ${about('bases.backups', 'Base backups', html`<p class="mut">A base backup is what the game's base tool leaves when you pick a base up: its buildings stay in the save and the claim is gone. Export saves one as a <b>tabr-tau-base</b> file (version 1) with every row of the base and its original ids, a manifest of the counts, and a checksum. It only reads the save and changes nothing in it.</p>
       <p class="mut">Import reads a file like that and adds its base to this save as a new base backup, for the game's Base Reconstruction Tool to place; the editor does not put the pieces in the world. Choosing a file shows what would be added and changes nothing; Import then writes it as one edit, after a backup (or queued while the game runs). Every id in the file gets a new one, the character of this save becomes the owner, and nothing already in the save is changed or replaced. A file that is not a good base file is refused whole. Importing the same file twice adds two backups.</p>
+      <p class="mut"><b>Export for console</b> saves a base as a <b>dune-base-backup</b> file (version 1), the base backup file of the self-hosted Dune console, which a self-hosted Dune server can import. On the Bases list it works for a base that is still standing: the file holds what a pick-up followed by an export in the Dune console would give (every actor of the base in the backed-up state, only the pieces its totem owns, its storage and crafting stations, the claim, and the owner as a placeholder that the importing player replaces). On a base backup it writes the backup as it is. It only reads the save. The editor reads the file it made before it hands it out; whether a game accepts it can only be tried in a game. A Solido blueprint file is not written yet.</p>
       <p class="mut">A <b>dune-base-backup</b> file, the base backup export of the self-hosted Dune console, is read the same way: the editor turns it into the same rows (the transform lists become plain columns, every id in it becomes a new id), says in the preview that it came from the Dune console, and refuses the whole file for anything it cannot place in a save (market, sinkchart or Solido entries, a field it does not know).</p>`)}</div>`;
 }
 
@@ -1224,7 +1247,7 @@ async function basesView() {
   const base = list.find((x) => x.base_id == id);
   const h = [html`<div class="card"><h3>Bases (${list.length})</h3>${tbl([{ k: 'base_id', label: 'ID' }, { k: 'name', label: 'Base name', f: (r) => html`${r.name}${r.picked_up ? html` <span class="tag" title="Picked up with the game's base tool: its buildings are still in the save, but nobody has claimed it.">Picked up</span>` : ''}` }, { k: 'base_type', label: 'Base type' }, { k: 'owner', label: 'Owner' }, { k: 'map', label: 'Map' },
     { k: 'generators', label: 'Generators' }, { k: 'pieces', label: 'Building pieces' }, { k: 'placeables', label: 'Placeables' }, { k: 'x', label: 'Coordinates', f: (r) => html`${fix(r.x)}, ${fix(r.y)}, ${fix(r.z)}${r.region ? html` <span class="mut">near ${r.region}</span>` : ''}` }], list,
-    { actions: (r) => (r.base_id == id ? html`<span class="tag">Open below</span>` : html`<button class="b sec sm" data-bsopen="${r.base_id}">Open</button>`), empty: 'No bases yet: build one in the game, then reload.' })}</div>`];
+    { actions: (r) => html`${r.base_id == id ? html`<span class="tag">Open below</span>` : html`<button class="b sec sm" data-bsopen="${r.base_id}">Open</button>`}${r.picked_up ? '' : tip('bcetip' + r.base_id, "Saves this base, with what is stored in it, as a Dune console base backup file, for a Dune server to import. Reads the save and changes nothing.", html`<button class="b sec sm" data-act="baseConsoleExport" data-kind="base" data-id="${r.base_id}" data-name="${r.name}" data-pieces="${r.pieces}" data-placeables="${r.placeables}" aria-describedby="bcetip${r.base_id}">Export for console</button>`)}`, empty: 'No bases yet: build one in the game, then reload.' })}</div>`];
   if (base) {
     const tabs = [['power', 'Power'], ['water', 'Water'], ['inventory', 'Inventory'], ['claim', 'Land claim editor'], ['structures', 'Structures']];
     h.push(html`<div class="card"><h3>${base.name} (#${base.base_id})</h3><div class="sub">${tabs.map(([k, v]) => html`<button data-bstab="${k}" class="${bsTab == k ? 'on' : ''}">${v}</button>`)}</div></div>`);
@@ -1824,6 +1847,7 @@ const A = {
   kitDel: async (d) => (await ask({ title: 'Delete kit?', body: `Delete the kit "${d.name}" from the editor's settings. Nothing in any save changes. Export it first to keep a copy.`, ok: 'Delete', danger: true })) && act(() => api('/api/kits/delete', { name: d.name }), `Deleted kit "${d.name}"`, true, true),
   kitExport: (d) => kitDownload(d.name),
   baseBackupExport: (d) => baseBackupDownload(d),
+  baseConsoleExport: (d) => baseConsoleDownload(d),
   baseImportCancel: () => { bbImport = null; render(true); },
   // Import sends the text that was previewed with the hash the preview gave; the editor refuses it if the text is another file. It asks nothing: it only adds rows.
   baseImportGo: () => {

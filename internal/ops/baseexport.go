@@ -68,6 +68,7 @@ type BaseExport struct {
 	Data     []byte
 	FileName string
 	Summary  basefile.Summary
+	Notes    []string // what the caller should say about the file (console files only)
 }
 
 var fileNameBad = regexp.MustCompile(`[^A-Za-z0-9._-]+`)

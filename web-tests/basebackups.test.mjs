@@ -94,3 +94,81 @@ test('About this on the card names the format and says what export and import do
   assert.ok(d && d.textContent.includes('tabr-tau-base') && d.textContent.includes('only reads the save') && d.textContent.includes('Importing the same file twice adds two backups'));
   ui.dom.window.close();
 });
+
+// The Dune console's file (#534): Export for console on a standing base (Bases list) and on a base backup (Base backups card). Both only read the save.
+const HDR = (c, notes = []) => ({ 'X-Base-Counts': JSON.stringify(c), 'X-Base-Notes': encodeURIComponent(JSON.stringify(notes)) });
+const COUNTS = { actors: 4, pieces: 312, placeables: 41, storedItems: 9, entities: 40, entries: 600 };
+
+test('every standing base on the list has Export for console, a base the game picked up does not, and the sentence is a tooltip', async () => {
+  const list = [{ ...BASE7[0], base_id: 7, name: 'Home' }, { ...BASE7[0], base_id: 8, name: 'Old', picked_up: true }];
+  const ui = await boot({ get: { '/api/bases/list': list, '/api/bases/backups': [] } });
+  const main = await openBases(ui);
+  const buttons = [...main.querySelectorAll('[data-act="baseConsoleExport"]')];
+  assert.equal(buttons.length, 1);
+  assert.equal(buttons[0].textContent.trim(), 'Export for console');
+  assert.deepEqual([buttons[0].dataset.kind, buttons[0].dataset.id, buttons[0].dataset.name], ['base', '7', 'Home']);
+  const tipBox = main.querySelector('#' + buttons[0].getAttribute('aria-describedby'));
+  assert.ok(tipBox && tipBox.getAttribute('role') === 'tooltip' && tipBox.textContent.includes('Reads the save and changes nothing'));
+  assert.ok(![...main.querySelectorAll('.card')][0].textContent.replace(tipBox.textContent, '').includes('Dune console'), 'the sentence is not on the page itself');
+  assert.equal(ui.posted.length, 0);
+  ui.dom.window.close();
+});
+
+test('Export for console on a base asks for that totem, saves the file under a safe name and repeats the counts of the file', async () => {
+  const list = [{ ...BASE7[0], base_id: 970, name: '../<b>Evil</b> "base"', pieces: 1, placeables: 1 }];
+  const ui = await boot({ get: { '/api/bases/list': list, '/api/bases/backups': [], '/api/bases/console-export': { __headers: HDR(COUNTS) } } });
+  const s = spy(ui);
+  await openBases(ui);
+  ui.click('[data-act="baseConsoleExport"]'); await ui.settle();
+  assert.deepEqual(s.urls.filter((u) => u.includes('console-export')), ['/api/bases/console-export?base=970']);
+  assert.equal(s.blobs.length, 1);
+  assert.deepEqual(s.names, ['tabr-tau-console-base-970-b_Evil_b_base.json']);
+  assert.ok(!/[\/<>"]/.test(s.names[0]));
+  const t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.includes('312 pieces') && t.includes('41 placeables') && t.includes('9 stored items') && t.includes('Nothing in the save changed.') && t.includes('Dune console'), t);
+  assert.equal(ui.posted.length, 0, 'an export posts nothing');
+  ui.dom.window.close();
+});
+
+test('Export for console on a base backup asks for the console format of that backup and says what the file holds', async () => {
+  const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/backups': [BACKUP], '/api/bases/backups/export': { __headers: HDR({ ...COUNTS, pieces: 1174, placeables: 43, storedItems: 53 }, ['1 references name an actor that is not in the base.']) } } });
+  const s = spy(ui);
+  const main = await openBases(ui);
+  const card = [...main.querySelectorAll('.card')].find((c) => c.querySelector('h3') && c.querySelector('h3').textContent.startsWith('Base backups'));
+  assert.equal(card.querySelectorAll('[data-act]').length >= 2, true);
+  assert.equal(card.querySelector('[data-act="baseBackupExport"]').textContent.trim(), 'Export base backup', 'the editor\'s own export is still there');
+  ui.click('[data-act="baseConsoleExport"][data-kind="backup"]'); await ui.settle();
+  assert.deepEqual(s.urls.filter((u) => u.includes('/export')), ['/api/bases/backups/export?format=console&backup=3']);
+  assert.deepEqual(s.names, ['tabr-tau-console-backup-3-Sub-Fief.json']);
+  const t = ui.doc.querySelector('#toast').textContent;
+  assert.ok((t.includes('1,174 pieces') || t.includes('1174 pieces')) && t.includes('43 placeables') && t.includes('53 stored items') && t.includes('1 references name an actor that is not in the base.'), t);
+  assert.equal(ui.posted.length, 0);
+  ui.dom.window.close();
+});
+
+test('without the headers the numbers of the row are used, and a refusal shows its reason and saves nothing', async () => {
+  let ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/backups': [], '/api/bases/console-export': {} } });
+  let s = spy(ui);
+  await openBases(ui);
+  ui.click('[data-act="baseConsoleExport"]'); await ui.settle();
+  assert.equal(s.blobs.length, 1);
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('0 pieces'));
+  ui.dom.window.close();
+
+  ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/backups': [], '/api/bases/console-export': { __fail: 'This base has no owner (nobody holds rank 1 over it), so it cannot be saved as a base backup.', __status: 409 } } });
+  s = spy(ui);
+  await openBases(ui);
+  ui.click('[data-act="baseConsoleExport"]'); await ui.settle();
+  assert.equal(s.blobs.length, 0);
+  assert.equal(s.names.length, 0);
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('has no owner'));
+  ui.dom.window.close();
+});
+
+test('About this on the card names the console file, what it holds, and that the Solido file is not written yet', async () => {
+  const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/backups': [BACKUP] } });
+  const main = await openBases(ui);
+  const d = main.querySelector('details[data-about="bases.backups"]');
+  assert.ok(d && d.textContent.includes('Export for console') && d.textContent.includes('dune-base-backup') && d.textContent.includes('owner as a placeholder') && d.textContent.includes('Solido blueprint file is not written yet'));
+  ui.dom.window.close();
+});
