@@ -7,6 +7,7 @@ import (
 
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/fillables"
+	"github.com/Project-Arrakis/tabr-tau/kit/schema"
 )
 
 // The capacities of the fillable items are the game's own table of them (DT_ItemTableFillables, the row named by the item's template, field MaxAmount), kept in the kit module as
@@ -54,9 +55,9 @@ func init() {
 
 // waterQuery lists the items of the character's own inventories (backpack, worn gear, loadout) that have stats, with what each holds.
 const waterQuery = `select i.id, i.template_id,
-		cast(json_extract(i.stats,'$.FFillableItemStats[1].CurrentAmount') as real) amount,
-		json_extract(i.stats,'$.FFillableItemStats[1].FillableType') kind,
-		json_extract(i.stats,'$.FFillableItemStats') has
+		cast(json_extract(i.stats,'` + schema.FillableCurrentAmount + `') as real) amount,
+		json_extract(i.stats,'` + schema.FillableLiquid + `') kind,
+		json_extract(i.stats,'` + schema.FillableKey + `') has
 		from items i join inventories v on v.id=i.inventory_id
 		where v.actor_id=? and json_valid(i.stats) order by i.id`
 
@@ -117,9 +118,9 @@ func refillContainersTx(m *save.Mut, pawn int64) (waterState, error) {
 	for _, t := range st.todo {
 		// json_set keeps every other key and writes the number the way the game does (20000.0).
 		if _, err := m.Exec(`update items set stats=case
-				when json_extract(stats,'$.FFillableItemStats') is null
-				then json_set(stats,'$.FFillableItemStats',json_array(json_array(),json_object('CurrentAmount',?,'FillableType','Water')))
-				else json_set(stats,'$.FFillableItemStats[1].CurrentAmount',?,'$.FFillableItemStats[1].FillableType','Water') end
+				when json_extract(stats,'`+schema.FillableKey+`') is null
+				then json_set(stats,'`+schema.FillableKey+`',json_array(json_array(),json_object('CurrentAmount',?,'FillableType','Water')))
+				else json_set(stats,'`+schema.FillableCurrentAmount+`',?,'`+schema.FillableLiquid+`','Water') end
 				where id=?`, t.cap, t.cap, t.id); err != nil {
 			return st, err
 		}

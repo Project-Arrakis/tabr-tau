@@ -8,6 +8,7 @@ import (
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/kit/schema"
 )
 
 // waterDeviceCapacity is how much water each base device stores when full (FWaterStorageComponent.m_WaterStored),
@@ -317,8 +318,8 @@ var templateMaxDurability = func() []struct {
 }()
 
 const (
-	moduleCurrent = `json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability')`
-	moduleDecayed = `json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability')`
+	moduleCurrent = `json_extract(stats,'` + schema.VehicleModuleCurrentDurability + `')`
+	moduleDecayed = `json_extract(stats,'` + schema.VehicleModuleDecayedMaxDurability + `')`
 )
 
 // moduleRuleSQL is a module template's full durability from the tables above, or null for a template they do not cover. The scrap tier
@@ -369,7 +370,7 @@ func (o *Ops) RepairVehiclesWhere(pct, vehicleID int64) (any, error) {
 		}
 	}
 	max := moduleMaxSQL()
-	scope := ` from vehicle_modules where vehicle_id in (` + ownedVehicleSQL + `) and json_valid(stats,8) and json_type(stats,'$.FVehicleModuleDurabilityStats') is not null and (? = 0 or vehicle_id = ?)`
+	scope := ` from vehicle_modules where vehicle_id in (` + ownedVehicleSQL + `) and json_valid(stats,8) and json_type(stats,'` + schema.VehicleModuleDurabilityKey + `') is not null and (? = 0 or vehicle_id = ?)`
 	rows, err := o.S.Query(`select count(*) total,
 		coalesce(sum(case when `+max+` is not null and coalesce(`+moduleCurrent+`,0) < `+max+` * ?/100.0 then 1 else 0 end),0) repairable,
 		coalesce(sum(case when `+max+` is null then 1 else 0 end),0) nomax`+scope, pct, p.Controller, vehicleID, vehicleID)
@@ -413,9 +414,9 @@ func repairVehiclesTx(m *save.Mut, controller, pct, vehicleID int64) (int64, err
 	// at or above the full value is never written, so a repair cannot lower it)
 	res, err := m.Exec(`update vehicle_modules set stats=case
 			when `+moduleDecayed+` is not null and `+moduleDecayed+` < `+max+` then
-				jsonb_set(jsonb_set(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability', `+max+`),'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability', `+max+`)
-			else jsonb_set(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability', `+max+`) end
-		where vehicle_id in (`+ownedVehicleSQL+`) and json_valid(stats,8) and json_type(stats,'$.FVehicleModuleDurabilityStats') is not null
+				jsonb_set(jsonb_set(stats,'`+schema.VehicleModuleCurrentDurability+`', `+max+`),'`+schema.VehicleModuleDecayedMaxDurability+`', `+max+`)
+			else jsonb_set(stats,'`+schema.VehicleModuleCurrentDurability+`', `+max+`) end
+		where vehicle_id in (`+ownedVehicleSQL+`) and json_valid(stats,8) and json_type(stats,'`+schema.VehicleModuleDurabilityKey+`') is not null
 		and `+max+` is not null
 		and coalesce(`+moduleCurrent+`,0) < `+max+` * ?/100.0 and (? = 0 or vehicle_id = ?)`, controller, pct, vehicleID, vehicleID)
 	if err != nil {

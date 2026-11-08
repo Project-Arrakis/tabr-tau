@@ -6,6 +6,7 @@ import (
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/kit/schema"
 )
 
 // The game's lifecycle state of a vehicle (#403). Every actor has an integer state (actors.state, 0 for an ordinary actor). Read from real saves (24
@@ -17,13 +18,13 @@ import (
 // A stored vehicle keeps its last position, and a vehicle in the vehicle backup keeps its owner record, so by ownership alone it looks like a vehicle standing in
 // the world. It is stored when its state is 2 or 4, or when the character has a row for it in backup_vehicles or recovered_vehicles.
 const (
-	stateVehicleBackup   = 2
-	stateVehicleRecovery = 4
+	stateVehicleBackup   = schema.StateVehicleBackup
+	stateVehicleRecovery = schema.StateVehicleRecovery
 )
 
 // storedVehicleSQL selects the ids of the vehicles that are stored (no parameters). A vehicle in the recovery table is "recovery" and one in the backup table
 // "backup"; the state decides when there is no row.
-const storedVehicleSQL = `select id from actors where id in (select id from vehicles) and state in (2, 4)
+const storedVehicleSQL = `select id from actors where id in (select id from vehicles) and state in (` + schema.StoredStates + `)
 	union select vehicle_id from backup_vehicles union select vehicle_id from recovered_vehicles`
 
 // storedKindBy says how a vehicle is stored: "backup" (in the vehicle backup), "recovery" (stored for recovery) or "" (not stored). The table row decides first, the state next.

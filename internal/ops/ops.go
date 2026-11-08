@@ -17,6 +17,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/augments"
 	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/kit/schema"
 )
 
 // SQLite JSONB encodings used by journey state columns.
@@ -873,7 +874,7 @@ func (g gearRepair) summary() string {
 // repairGearTx is RepairGear inside the edit m, for the character whose pawn actor is pawn: it returns how many items it looked at and how
 // many it repaired, the worn and loadout items apart from the backpack. An item at its full durability is not written.
 func repairGearTx(m *save.Mut, pawn int64) (gearRepair, error) {
-	const rec = `$.FItemStackAndDurabilityStats[1].`
+	const rec = schema.ItemDurability
 	var g gearRepair
 	rows, err := m.Query(`select i.id, i.stats, v.inventory_type from items i join inventories v on v.id=i.inventory_id
 		where v.actor_id=? and v.inventory_type in (0,1,15)`, pawn)

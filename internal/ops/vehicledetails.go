@@ -3,6 +3,8 @@ package ops
 import (
 	"math"
 	"strings"
+
+	"github.com/Project-Arrakis/tabr-tau/kit/schema"
 )
 
 // vehicleType is the kind of vehicle from its blueprint name: "BP_Sandbike_CHOAM" is a "Sandbike".
@@ -26,8 +28,8 @@ func vehicleType(name string) string {
 //	           capacity), with its items and its room (slots, volume, slots used, and noHold when the vehicle has no storage part: cargolimits.go); nil when the vehicle has none
 func (o *Ops) vehicleDetails(v map[string]any) {
 	mods, _ := o.S.Query(`select id, template_id,
-			json_extract(stats,'$.FVehicleModuleDurabilityStats[1].CurrentDurability') current,
-			coalesce(json_extract(stats,'$.FVehicleModuleDurabilityStats[1].DecayedMaxDurability'), json_extract(stats,'$.FVehicleModuleDurabilityStats[1].MaxDurability')) max
+			json_extract(stats,'`+schema.VehicleModuleCurrentDurability+`') current,
+			coalesce(json_extract(stats,'`+schema.VehicleModuleDecayedMaxDurability+`'), json_extract(stats,'`+schema.VehicleModuleMaxDurability+`')) max
 		from vehicle_modules where vehicle_id=? order by id`, v["id"])
 	var lowest *float64
 	comps := make([]map[string]any, 0, len(mods))
