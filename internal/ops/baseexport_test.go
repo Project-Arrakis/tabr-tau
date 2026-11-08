@@ -15,6 +15,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/basefile"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
+	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
 // Export of a picked-up base (#475, phase 1). The world is the shape of a real pick-up in miniature (see docs/research/2026-10-28-base-export-import-from-console.md section 3): a totem, a
@@ -497,7 +498,7 @@ func TestExportOfARealPickedUpBase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	blob, err := save.Encode(raw)
+	blob, err := savefile.Encode(raw)
 	if err != nil {
 		t.Fatal(err)
 	}

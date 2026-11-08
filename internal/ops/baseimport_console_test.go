@@ -11,6 +11,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/basefile"
 	cf "github.com/Project-Arrakis/tabr-tau/internal/basefile/consolefixture"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
 // Import of the Dune console's own base backup file (#493): converted by internal/basefile to the tables of a base file, then the same preview, checks and import.
@@ -245,7 +246,7 @@ func TestImportOfARealConsoleFileIntoACopyOfARealSave(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	blob, err := save.Encode(raw)
+	blob, err := savefile.Encode(raw)
 	if err != nil {
 		t.Fatal(err)
 	}

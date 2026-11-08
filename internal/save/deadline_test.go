@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
 // S7c of #40: a read of the working copy (Table, Query, One), the soundness check of a decoded save (inspect) and the list of tables each have a deadline. They hold the save's lock,
@@ -60,7 +62,7 @@ func TestInspectOfADecodedSaveHasADeadline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := Decode(b)
+	raw, err := savefile.Decode(b)
 	if err != nil {
 		t.Fatal(err)
 	}

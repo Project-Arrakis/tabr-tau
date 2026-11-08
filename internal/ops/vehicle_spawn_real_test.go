@@ -8,6 +8,7 @@ import (
 
 	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
 // A test against a real save. TAU_REAL_SAVE_SQLITE names a COPY of a save the game wrote, already decoded to a plain SQLite file (never a live save: the test writes into it, after
@@ -23,7 +24,7 @@ func realSaveCopy(t *testing.T) *Ops {
 	if err != nil {
 		t.Fatal(err)
 	}
-	blob, err := save.Encode(raw)
+	blob, err := savefile.Encode(raw)
 	if err != nil {
 		t.Fatal(err)
 	}

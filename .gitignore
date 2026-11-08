@@ -44,3 +44,7 @@ __pycache__/
 
 # agent worktrees (full copies of the repository) are never part of it
 .claude/
+
+# local multi-module work (see kit/README.md)
+go.work
+go.work.sum

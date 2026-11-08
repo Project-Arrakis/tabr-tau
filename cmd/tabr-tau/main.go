@@ -22,6 +22,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/settings"
 	"github.com/Project-Arrakis/tabr-tau/internal/web"
 	"github.com/Project-Arrakis/tabr-tau/internal/winpath"
+	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
 var version = "dev"
@@ -273,7 +274,7 @@ func runCommand(args []string) error {
 		if err != nil {
 			return err
 		}
-		raw, err := save.Decode(b)
+		raw, err := savefile.Decode(b)
 		if err != nil {
 			return err
 		}
@@ -286,7 +287,7 @@ func runCommand(args []string) error {
 		if err != nil {
 			return err
 		}
-		blob, err := save.Encode(b)
+		blob, err := savefile.Encode(b)
 		if err != nil {
 			return err
 		}

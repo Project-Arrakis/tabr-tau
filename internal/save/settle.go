@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"os"
 	"time"
+
+	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
 // An automatic write replaces the file and then reads it back to compare. When the file cannot be read back (another program holds it for longer than the retries last) the write is
@@ -21,7 +23,7 @@ func (s *Save) settleWrittenLocked() (wrote []string, backup string, settled boo
 		return nil, "", false
 	}
 	st, statErr := os.Stat(s.Path) // taken before the read, as load does: a rewrite in between is then seen as a change
-	b, err := readCapped(s.Path)
+	b, err := savefile.ReadCapped(s.Path)
 	if err != nil {
 		return nil, "", false // still not readable: the write stays unverified
 	}

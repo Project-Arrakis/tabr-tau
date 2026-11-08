@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
 // quickBackupEvery is how recent the backup of the last automatic write must be for the next to go without a new one: a burst of edits is one restore point, taken before the
@@ -170,7 +172,7 @@ func (s *Save) canReuseBackup() bool {
 	if s.lastBackup == "" || s.diskHash != s.lastWrote || time.Since(s.lastBackupT) >= quickBackupEvery {
 		return false
 	}
-	b, err := readCapped(s.lastBackup)
+	b, err := savefile.ReadCapped(s.lastBackup)
 	return err == nil && hashOf(b) == s.lastBackupHash
 }
 

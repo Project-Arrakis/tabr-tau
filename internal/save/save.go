@@ -1,3 +1,7 @@
+// Package save reads and writes Dune: Awakening client saves.
+//
+// game.db, game_prepatch.db and autosave/*.bak share one container, which the savefile package of the kit module decodes and
+// encodes; this package opens the SQLite database inside it, edits it and writes it back.
 package save
 
 import (
@@ -18,6 +22,7 @@ import (
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
+	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 	_ "modernc.org/sqlite"
 )
 
@@ -260,14 +265,14 @@ func (s *Save) load() error {
 	// The file's size and time are taken before its content is read: if the game rewrites the file in between, the recorded time is the older one, so the next look at the file
 	// finds it different from what was loaded (taken after the read, the new time would be recorded against the old content and the change would go unseen).
 	st, statErr := os.Stat(s.Path)
-	blob, err := readCapped(s.Path)
+	blob, err := savefile.ReadCapped(s.Path)
 	if err != nil {
 		return err
 	}
 	if afterLoadRead != nil {
 		afterLoadRead()
 	}
-	raw, err := Decode(blob)
+	raw, err := savefile.Decode(blob)
 	if err != nil {
 		return err
 	}
@@ -342,7 +347,7 @@ func (s *Save) ChangedOnDisk() bool {
 	if st.Size() == s.changedSize && st.ModTime().Equal(s.changedMod) {
 		return true // this very file was already read and found different
 	}
-	b, err := readCapped(s.Path)
+	b, err := savefile.ReadCapped(s.Path)
 	if err != nil {
 		return true
 	}
@@ -383,14 +388,14 @@ func (s *Save) WithBaseline(fn func(orig, current *sql.DB) error) error {
 	if s.rdb == nil {
 		return errors.New("no save is loaded")
 	}
-	blob, err := readCapped(s.Path)
+	blob, err := savefile.ReadCapped(s.Path)
 	if err != nil {
 		return err
 	}
 	if hashOf(blob) != s.diskHash {
 		return errors.New("the file changed on disk since it was loaded, so the state as loaded is no longer available")
 	}
-	raw, err := Decode(blob)
+	raw, err := savefile.Decode(blob)
 	if err != nil {
 		return err
 	}
@@ -630,7 +635,7 @@ func (s *Save) backupNamed(tag string) (string, [32]byte, error) {
 	}
 	ext := filepath.Ext(s.Path)
 	base := strings.TrimSuffix(filepath.Base(s.Path), ext)
-	b, err := readCapped(s.Path)
+	b, err := savefile.ReadCapped(s.Path)
 	if err != nil {
 		return "", [32]byte{}, err
 	}
@@ -638,7 +643,7 @@ func (s *Save) backupNamed(tag string) (string, [32]byte, error) {
 	if err := writeDurable(dest, b, 0o600); err != nil {
 		return "", [32]byte{}, err
 	}
-	if back, err := readCapped(dest); err != nil || !bytes.Equal(back, b) {
+	if back, err := savefile.ReadCapped(dest); err != nil || !bytes.Equal(back, b) {
 		os.Remove(dest)
 		return "", [32]byte{}, apierr.New(apierr.ErrWriteFailed, "backup verification failed; nothing was changed")
 	}
@@ -671,7 +676,7 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 			return nil, apierr.New(apierr.ErrGameBlocked, why)
 		}
 	}
-	cur, err := readCapped(s.Path)
+	cur, err := savefile.ReadCapped(s.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -686,11 +691,11 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	blob, err := Encode(raw)
+	blob, err := savefile.Encode(raw)
 	if err != nil {
 		return nil, err
 	}
-	if back, err := Decode(blob); err != nil || !bytes.Equal(back, raw) {
+	if back, err := savefile.Decode(blob); err != nil || !bytes.Equal(back, raw) {
 		return nil, apierr.New(apierr.ErrIntegrity, "round-trip verification failed; nothing written")
 	}
 	if err := s.requireFreeSpace(int64(len(cur)) + int64(len(blob))); err != nil {
@@ -803,11 +808,11 @@ func (s *Save) Restore(name string) error {
 	if st, err := os.Lstat(bp); err != nil || !st.Mode().IsRegular() {
 		return errors.New("no such backup")
 	}
-	b, err := readCapped(bp)
+	b, err := savefile.ReadCapped(bp)
 	if err != nil {
 		return err
 	}
-	raw, err := Decode(b)
+	raw, err := savefile.Decode(b)
 	if err != nil {
 		return err
 	}
@@ -815,14 +820,14 @@ func (s *Save) Restore(name string) error {
 	if err != nil {
 		return fmt.Errorf("backup is not a sound save: %w", err)
 	}
-	cur, err := readCapped(s.Path)
+	cur, err := savefile.ReadCapped(s.Path)
 	if err != nil {
 		return err
 	}
 	if hashOf(cur) != s.diskHash {
 		return ErrChangedOnDisk
 	}
-	curRaw, err := Decode(cur)
+	curRaw, err := savefile.Decode(cur)
 	if err != nil {
 		return err
 	}

@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+
+	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
 // OpenReadOnly decodes a save (game.db, an autosave .bak, a folder holding game.db, or an already plain SQLite
@@ -14,13 +16,13 @@ func OpenReadOnly(path string) (*sql.DB, func(), error) {
 	if st, err := os.Stat(path); err == nil && st.IsDir() {
 		path = filepath.Join(path, "game.db")
 	}
-	b, err := readCapped(path)
+	b, err := savefile.ReadCapped(path)
 	if err != nil {
 		return nil, nil, err
 	}
 	raw := b
 	if !bytes.HasPrefix(b, []byte("SQLite format 3\x00")) {
-		if raw, err = Decode(b); err != nil {
+		if raw, err = savefile.Decode(b); err != nil {
 			return nil, nil, err
 		}
 	}
