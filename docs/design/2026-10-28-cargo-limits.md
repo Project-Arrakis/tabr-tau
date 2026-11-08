@@ -15,7 +15,7 @@ the containers of a base (the game writes -1 there for "no limit"), and wrong fo
 Many copies of single-player saves were read (decoded to plain SQLite, read only). Every vehicle in them has its hold as an `inventories` row with `inventory_type` 0 on the vehicle's actor; the per-component
 inventories have no type and no limits. The hold row carries the room: `max_item_count` is the slots and `max_item_volume` the volume.
 
-The values per kind of vehicle and parts, as stored, and what `catalog.DeriveVehicle` (the sum of `cargoSlots` and `cargoVolume` over the vehicle's modules) gives for the same modules. They are equal in every case seen:
+The values per kind of vehicle and parts, as stored, and what `vehicles.Derive` (kit/gamedata/vehicles) (the sum of `cargoSlots` and `cargoVolume` over the vehicle's modules) gives for the same modules. They are equal in every case seen:
 
 | Vehicle and its storage part | Stored slots | Stored volume | Catalog slots | Catalog volume |
 |---|---|---|---|---|

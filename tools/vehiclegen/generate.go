@@ -1,6 +1,6 @@
-// Command vehiclegen makes internal/catalog/vehicles.json (#401) from dumps of the game's own vehicle tables. The file is the editor's catalog of vehicle templates and
+// Command vehiclegen makes kit/gamedata/vehicles/vehicles.json (#401) from dumps of the game's own vehicle tables. The file is the editor's catalog of vehicle templates and
 // modules; this tool is how it is made again after a game update. It reads only JSON files, never the game: producing the dumps takes a reader of the game's content files,
-// which this repository does not contain (see internal/catalog/PROVENANCE.md, "How vehicles.json is made").
+// which this repository does not contain (see kit/PROVENANCE.md, "vehicles.json").
 //
 // Inputs (all JSON, the shape a table dump has: a one-element array whose Rows object is keyed by row name):
 //
@@ -11,7 +11,7 @@
 //	             {"<Row>__slots": {"<TemplateName>": [["<slot type>", "<module id>"], ...]}}
 //	-weapons     DT_VehicleWeaponModules: the module ids that are weapon-type modules
 //
-// Usage: go run ./tools/vehiclegen -modules ... -build 1.5.15.0 -read 2026-10-27 -out internal/catalog/vehicles.json
+// Usage: go run ./tools/vehiclegen -modules ... -build 1.5.15.0 -read 2026-10-27 -out kit/gamedata/vehicles/vehicles.json
 package main
 
 import (
@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
+	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/vehicles"
 )
 
 // shape is what a class's rows look like in a save, which the tables do not say; it was read from saves the game wrote (the same for every vehicle of the class).
@@ -122,7 +122,7 @@ var gradeRe = regexp.MustCompile(`_(\d+)$`)
 var tierRe = regexp.MustCompile(`^T(\d+)`)
 
 // Generate makes the catalog from the dumps.
-func Generate(in Inputs) (*catalog.VehicleData, error) {
+func Generate(in Inputs) (*vehicles.Data, error) {
 	modRows, err := readRows(in.Modules)
 	if err != nil {
 		return nil, err
@@ -155,13 +155,13 @@ func Generate(in Inputs) (*catalog.VehicleData, error) {
 		}
 		rows[id] = r
 	}
-	out := &catalog.VehicleData{
+	out := &vehicles.Data{
 		Build: in.Build, Read: in.Read,
 		Tables:  []string{"CDT_BaseVehicleModules", "DT_VehicleSchematics", "DT_VehicleTemplates", "DT_VehicleWeaponModules"},
-		Classes: map[string]*catalog.VehicleClass{}, Modules: map[string]catalog.VehicleModule{},
+		Classes: map[string]*vehicles.Class{}, Modules: map[string]vehicles.Module{},
 	}
 	for _, sh := range shapes {
-		c := &catalog.VehicleClass{Label: sh.label, PermissionName: sh.permission, CargoHash: cargoHash, Holds: sh.holds, Extra: sh.extra, ExtraOwn: sh.extraOwn}
+		c := &vehicles.Class{Label: sh.label, PermissionName: sh.permission, CargoHash: cargoHash, Holds: sh.holds, Extra: sh.extra, ExtraOwn: sh.extraOwn}
 		var tr templateRow
 		raw, ok := tplRows[sh.templateRow]
 		if !ok {
@@ -189,7 +189,7 @@ func Generate(in Inputs) (*catalog.VehicleData, error) {
 			if p == "Uninitialized" {
 				p = ""
 			}
-			c.Slots = append(c.Slots, catalog.VehicleSlot{Slot: suffix(s.Key, "EVehicleModuleType::"), Mandatory: s.Value.Mandatory, Parent: p})
+			c.Slots = append(c.Slots, vehicles.Slot{Slot: suffix(s.Key, "EVehicleModuleType::"), Mandatory: s.Value.Mandatory, Parent: p})
 		}
 		// the module rows of the model
 		inTemplate := map[string]bool{}
@@ -221,7 +221,7 @@ func Generate(in Inputs) (*catalog.VehicleData, error) {
 			if len(l) == 0 {
 				return nil, fmt.Errorf("%s/%s: the template has no decoded module list", sh.key, tp.Key)
 			}
-			t := catalog.VehicleTemplate{Name: tp.Key, Modules: map[string]string{}}
+			t := vehicles.Template{Name: tp.Key, Modules: map[string]string{}}
 			if m := tierRe.FindStringSubmatch(tp.Key); m != nil {
 				t.Tier, _ = strconv.Atoi(m[1])
 			}
@@ -256,7 +256,7 @@ func Generate(in Inputs) (*catalog.VehicleData, error) {
 				continue // placeholder rows
 			}
 			kind := suffix(r.Static.Class, "EVehicleModuleClass::")
-			m := catalog.VehicleModule{
+			m := vehicles.Module{
 				Class: sh.key, Slot: suffix(r.Static.Type, "EVehicleModuleType::"), Kind: kind, Grade: g,
 				Unique: strings.Contains(id, "_Unique_"), Durability: r.Durability.Max,
 			}
@@ -276,7 +276,7 @@ func Generate(in Inputs) (*catalog.VehicleData, error) {
 		}
 		out.Classes[sh.key] = c
 	}
-	if err := catalog.CheckVehicles(out); err != nil {
+	if err := vehicles.Check(out); err != nil {
 		return nil, errors.New("the generated catalog is not consistent: " + err.Error())
 	}
 	return out, nil

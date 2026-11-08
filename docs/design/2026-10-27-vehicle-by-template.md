@@ -26,7 +26,7 @@ One edit (the ordinary one: a backup first, or queued while the game is running)
 
 ## Numbers derived from the modules
 
-`catalog.DeriveVehicle` is the one rule used both to write and to check. Each was checked against vehicles of real saves (vehicles of several classes in the tests, and
+`vehicles.Derive` (kit/gamedata/vehicles) is the one rule used both to write and to check. Each was checked against vehicles of real saves (vehicles of several classes in the tests, and
 again when it was found):
 
 | Saved value | Rule |

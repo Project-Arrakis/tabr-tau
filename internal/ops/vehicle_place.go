@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
-	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/vehicles"
 )
 
 // Where a vehicle goes (#480). Create a vehicle, Bring vehicle and Duplicate vehicle all put a vehicle "next to the character": 800 along x and 150 up. Taken blind that point can be
@@ -66,8 +66,8 @@ func sizeOfClassKey(key string) vehicleSize {
 // sizeOfActorClass is the size of the vehicle whose actors.class is class.
 func sizeOfActorClass(class any) vehicleSize {
 	c, _ := class.(string)
-	for _, k := range catalog.VehicleClassKeys() {
-		if vc, ok := catalog.VehicleClassFor(k); ok && vc.ActorClass == c {
+	for _, k := range vehicles.ClassKeys() {
+		if vc, ok := vehicles.ClassFor(k); ok && vc.ActorClass == c {
 			return sizeOfClassKey(k)
 		}
 	}

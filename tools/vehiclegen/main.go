@@ -1,16 +1,16 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
+
+	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/vehicles"
 )
 
 func main() {
 	var in Inputs
-	out := flag.String("out", "internal/catalog/vehicles.json", "where to write the catalog")
+	out := flag.String("out", "kit/gamedata/vehicles/vehicles.json", "where to write the catalog")
 	flag.StringVar(&in.Modules, "modules", "", "CDT_BaseVehicleModules dump")
 	flag.StringVar(&in.Schematics, "schematics", "", "DT_VehicleSchematics dump")
 	flag.StringVar(&in.Templates, "templates", "", "DT_VehicleTemplates dump")
@@ -28,14 +28,12 @@ func main() {
 		fmt.Fprintln(os.Stderr, "vehiclegen:", err)
 		os.Exit(1)
 	}
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetIndent("", " ")
-	if err := enc.Encode(d); err != nil {
+	b, err := vehicles.Marshal(d)
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "vehiclegen:", err)
 		os.Exit(1)
 	}
-	if err := os.WriteFile(*out, buf.Bytes(), 0o644); err != nil {
+	if err := os.WriteFile(*out, b, 0o644); err != nil {
 		fmt.Fprintln(os.Stderr, "vehiclegen:", err)
 		os.Exit(1)
 	}

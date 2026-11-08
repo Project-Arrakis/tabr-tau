@@ -1,6 +1,8 @@
-package catalog
+package vehicles
 
 import (
+	"bytes"
+	"encoding/json"
 	"sort"
 	"strings"
 	"testing"
@@ -29,17 +31,17 @@ SandcrawlerGenerator_6 SandcrawlerHull_6 SandcrawlerLocomotionLeft_Unique_WormTh
 SandcrawlerSpiceHeader_6`)
 
 func TestVehicleCatalogIsConsistentAndNamesItsBuild(t *testing.T) {
-	if err := CheckVehicles(&vehicleData); err != nil {
+	if err := Check(data); err != nil {
 		t.Fatal(err)
 	}
-	if VehicleBuild() != "1.5.15.0" || vehicleData.Read == "" {
-		t.Errorf("the file records the game build and the day it was read: %q %q", vehicleData.Build, vehicleData.Read)
+	if Build() != "1.5.15.0" || data.Read == "" {
+		t.Errorf("the file records the game build and the day it was read: %q %q", data.Build, data.Read)
 	}
 	want := []string{"Sandbike", "Buggy", "OrnithopterLight", "OrnithopterMedium", "OrnithopterTransport", "Sandcrawler", "ContainerVehicle"}
-	if got := VehicleClassKeys(); strings.Join(got, ",") != strings.Join(want, ",") {
+	if got := ClassKeys(); strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("the seven classes that appear in saves, and no others (Tank and Treadwheel never have): %v", got)
 	}
-	for id, m := range vehicleData.Modules {
+	for id, m := range data.Modules {
 		if strings.Contains(m.Class, "Tank") || strings.Contains(m.Class, "Tread") || strings.Contains(id, "Tank") || strings.Contains(id, "Treadwheel") {
 			t.Errorf("%s: Tank and Treadwheel stay off", id)
 		}
@@ -57,19 +59,16 @@ func TestEveryModuleIDSeenInSavesIsInTheCatalog(t *testing.T) {
 		t.Fatalf("the list of ids seen in saves has %d entries, want 98", len(moduleIDsInSaves))
 	}
 	for _, id := range moduleIDsInSaves {
-		if _, ok := VehicleModuleFor(id); !ok {
+		if _, ok := ModuleFor(id); !ok {
 			t.Errorf("%s is in a real save but not in the catalog", id)
 		}
 	}
 }
 
-// What "Mk6" is. The module ids the game's items use for a grade-6 part end in _6 (BuggyChassis_6 is the item "Buggy Chassis Mk6"), a template's tier is the grade of its chassis,
+// What "Mk6" is. The module ids the game's items use for a grade-6 part end in _6 (BuggyChassis_6 is the game's Mk6 buggy chassis), a template's tier is the grade of its chassis,
 // and the template name begins with that number: Mk6 is tier 6 is the T6 template of the class.
 func TestMkSixIsTierSixIsTheGradeSixChassis(t *testing.T) {
-	if n, _ := Name("BuggyChassis_6"); n != "Buggy Chassis Mk6" {
-		t.Fatalf("the item catalog names BuggyChassis_6 %q", n)
-	}
-	b, _ := VehicleClassFor("Buggy")
+	b, _ := ClassFor("Buggy")
 	tpl, ok := b.Template("T6_Combat")
 	if !ok || tpl.Tier != 6 {
 		t.Fatalf("the buggy's top template: %+v %v", tpl, ok)
@@ -79,19 +78,16 @@ func TestMkSixIsTierSixIsTheGradeSixChassis(t *testing.T) {
 	}
 	for _, slot := range []string{"Chassis", "Generator", "Engine", "CockpitHull", "BodyHull", "Locomotion", "Locomotion2", "Locomotion3", "Locomotion4", "UtilitySlot1", "UtilitySlot2"} {
 		id := tpl.Modules[slot]
-		m, _ := VehicleModuleFor(id)
+		m, _ := ModuleFor(id)
 		if m.Grade != 6 || !strings.HasSuffix(id, "_6") {
 			t.Errorf("T6_Combat %s: %s is grade %d", slot, id, m.Grade)
 		}
-		if n := ModuleName(id); !strings.HasSuffix(n, "Mk6") {
-			t.Errorf("%s is %q, not a Mk6 part", id, n)
-		}
 	}
 	// in every class a template of tier N has the chassis of grade N
-	for _, key := range VehicleClassKeys() {
-		c, _ := VehicleClassFor(key)
+	for _, key := range ClassKeys() {
+		c, _ := ClassFor(key)
 		for _, t2 := range c.Templates {
-			ch, _ := VehicleModuleFor(t2.Modules["Chassis"])
+			ch, _ := ModuleFor(t2.Modules["Chassis"])
 			if ch.Grade != t2.Tier {
 				t.Errorf("%s/%s: tier %d, chassis grade %d", key, t2.Name, t2.Tier, ch.Grade)
 			}
@@ -133,13 +129,13 @@ func TestMkSixBuggyPartsAreRows(t *testing.T) {
 		"BuggyMining_Unique_YieldIncrease_06": {"BuggyMining_Unique_YieldIncrease_06", "UtilitySlot2", 0, true},
 	} {
 		row, ok := ResolveModule("Buggy", item)
-		m, _ := VehicleModuleFor(row)
+		m, _ := ModuleFor(row)
 		if !ok || row != want.row || m.Slot != want.slot || m.CargoSlots != want.cargo || m.Weapon != want.weapon || m.Grade != 6 {
 			t.Errorf("%s: row %q slot %q cargo %d weapon %v grade %d", item, row, m.Slot, m.CargoSlots, m.Weapon, m.Grade)
 		}
 	}
 	// both utility slots hang from the rear hull in the game's slot table, and the game's own T5 and T6 buggies fill both on the "Extra" rear hull
-	b, _ := VehicleClassFor("Buggy")
+	b, _ := ClassFor("Buggy")
 	parents := map[string]string{}
 	for _, s := range b.Slots {
 		parents[s.Slot] = s.Parent
@@ -189,7 +185,7 @@ var goldens = []golden{
 
 func TestDeriveVehicleReproducesTheNumbersRealVehiclesSaved(t *testing.T) {
 	for _, g := range goldens {
-		d, err := DeriveVehicle(g.modules)
+		d, err := Derive(g.modules)
 		if err != nil {
 			t.Errorf("%s: %v", g.name, err)
 			continue
@@ -199,10 +195,10 @@ func TestDeriveVehicleReproducesTheNumbersRealVehiclesSaved(t *testing.T) {
 		}
 	}
 	// a vehicle needs a chassis, and every module must be one the catalog knows
-	if _, err := DeriveVehicle([]string{"BuggyEngine_6"}); err == nil {
+	if _, err := Derive([]string{"BuggyEngine_6"}); err == nil {
 		t.Error("no chassis")
 	}
-	if _, err := DeriveVehicle([]string{"BuggyChassis_6", "NotAModule"}); err == nil {
+	if _, err := Derive([]string{"BuggyChassis_6", "NotAModule"}); err == nil {
 		t.Error("unknown module")
 	}
 }
@@ -221,7 +217,7 @@ type Tpl = map[string]string
 
 // A template is exactly the module set of the real vehicle it is: the medium ornithopter T5_Inventory is vehicle 578, and the T0 sandbike and buggy are the vehicles the world places.
 func TestTemplatesAreTheModuleSetsOfRealVehicles(t *testing.T) {
-	mc, _ := VehicleClassFor("OrnithopterMedium")
+	mc, _ := ClassFor("OrnithopterMedium")
 	tpl, _ := mc.Template("T5_Inventory")
 	want := append([]string(nil), goldens[0].modules...)
 	sort.Strings(want)
@@ -233,7 +229,7 @@ func TestTemplatesAreTheModuleSetsOfRealVehicles(t *testing.T) {
 		"Buggy":    strings.Fields(`BuggyChassis_0 BuggyEngine_0 BuggyGenerator_0 BuggyHullBack_0 BuggyHullFront_0 BuggyLocomotionBackLeft_0 BuggyLocomotionBackRight_0 BuggyLocomotionFrontLeft_0 BuggyLocomotionFrontRight_0`),
 	}
 	for class, want := range world {
-		c, _ := VehicleClassFor(class)
+		c, _ := ClassFor(class)
 		tpl, _ := c.Template("T0")
 		sort.Strings(want)
 		if got := ids(tpl.Modules); strings.Join(got, " ") != strings.Join(want, " ") {
@@ -257,18 +253,18 @@ func TestWorkedExamplesDeriveAsComputedFromTheTables(t *testing.T) {
 		{"Buggy", "T5_Mining", 11, 650, 150, 280, 20, 2500, []string{"BuggyMining_5"}},
 		{"Buggy", "T6_Combat", 11, 650, 150, 300, 0, 0, []string{"BuggyLauncher_6"}},
 	} {
-		cl, _ := VehicleClassFor(c.class)
+		cl, _ := ClassFor(c.class)
 		tp, ok := cl.Template(c.tpl)
 		if !ok || len(tp.Modules) != c.modules {
 			t.Errorf("%s/%s: %d modules", c.class, c.tpl, len(tp.Modules))
 			continue
 		}
-		d, err := DeriveVehicle(ids(tp.Modules))
+		d, err := Derive(ids(tp.Modules))
 		if err != nil || d.MaxHealth != c.health || d.Critical != c.crit || d.Fuel != c.fuel || d.CargoSlots != c.slots || d.CargoVolume != c.volume {
 			t.Errorf("%s/%s: %+v %v", c.class, c.tpl, d, err)
 		}
 		for _, w := range c.weaponModuleIDs {
-			if m, _ := VehicleModuleFor(w); !m.Weapon {
+			if m, _ := ModuleFor(w); !m.Weapon {
 				t.Errorf("%s is a weapon-type module (its stats carry the weapon part)", w)
 			}
 		}
@@ -276,14 +272,196 @@ func TestWorkedExamplesDeriveAsComputedFromTheTables(t *testing.T) {
 }
 
 func TestEveryNewModuleHasADurabilityAndTheClassesHaveTheirRowShape(t *testing.T) {
-	for _, key := range VehicleClassKeys() {
-		c, _ := VehicleClassFor(key)
+	for _, key := range ClassKeys() {
+		c, _ := ClassFor(key)
 		if !strings.HasPrefix(c.ActorClass, "/Game/Dune/Systems/Vehicles/Blueprints/") || !strings.HasSuffix(c.ActorClass, "."+c.PropsKey) || !strings.HasPrefix(c.PermissionName, "##") {
 			t.Errorf("%s: %+v", key, c)
 		}
 	}
-	sb, _ := VehicleClassFor("Sandbike")
+	sb, _ := ClassFor("Sandbike")
 	if len(sb.Holds) != 2 {
 		t.Errorf("the sandbike has two component holds: %v", sb.Holds)
+	}
+}
+
+// The fuel tanks of the chassis, written a second time here from the game's module table (CDT_BaseVehicleModules, field m_FuelCapacity of the Chassis rows, game build
+// 1.5.15.x): 23 chassis of six vehicles. A change to the snapshot has to change this table too.
+var chassisTanks = map[string]map[string]float64{
+	"BP_Sandbike_CHOAM_C": {
+		"SandbikeChassis_0": 90, "SandbikeChassis_1": 100, "SandbikeChassis_2": 110, "SandbikeChassis_3": 120, "SandbikeChassis_4": 130, "SandbikeChassis_5": 140, "SandbikeChassis_6": 150,
+	},
+	"BP_Buggy_CHOAM_C": {
+		"BuggyChassis_0": 220, "BuggyChassis_3": 240, "BuggyChassis_4": 260, "BuggyChassis_5": 280, "BuggyChassis_6": 300,
+	},
+	"BP_LightOrnithopter_Choam_C": {
+		"OrnithopterLightChassis_0": 225, "OrnithopterLightChassis_4": 300, "OrnithopterLightChassis_5": 350, "OrnithopterLightChassis_6": 400,
+	},
+	"BP_MediumOrnithopter_CHOAM_C": {
+		"OrnithopterMediumChassis_0": 450, "OrnithopterMediumChassis_5": 750, "OrnithopterMediumChassis_6": 850,
+	},
+	"BP_TransportOrnithopter_CHOAM_C": {
+		"OrnithopterTransportChassis_0": 1350, "OrnithopterTransportChassis_6": 2500,
+	},
+	"BP_SandCrawler_CHOAM_C": {
+		"SandcrawlerChassis_0": 450, "SandcrawlerChassis_6": 750,
+	},
+}
+
+func TestTheSnapshotHasTheCountsOfTheGamesTables(t *testing.T) {
+	if len(data.Classes) != 7 || len(data.Modules) != 398 {
+		t.Errorf("%d classes and %d modules, want 7 and 398", len(data.Classes), len(data.Modules))
+	}
+	templates, chassis, withTank := 0, 0, 0
+	for _, c := range data.Classes {
+		templates += len(c.Templates)
+	}
+	for _, m := range data.Modules {
+		if m.Kind == "Chassis" {
+			chassis++
+			if m.Fuel > 0 {
+				withTank++
+			}
+		}
+	}
+	if templates != 24 || chassis != 24 || withTank != 23 {
+		t.Errorf("%d templates, %d chassis rows, %d with a tank; want 24, 24 and 23 (the Container vehicle has none)", templates, chassis, withTank)
+	}
+	if data.Tables == nil || data.Read == "" {
+		t.Error("the snapshot names the tables and the day they were read")
+	}
+}
+
+func TestChassisTanksAreTheGamesTableForEveryVehicleAndGrade(t *testing.T) {
+	got := ChassisTanks()
+	if len(got) != len(chassisTanks) {
+		t.Errorf("%d vehicles, want %d: %v", len(got), len(chassisTanks), got)
+	}
+	rows := 0
+	for bp, want := range chassisTanks {
+		if len(got[bp]) != len(want) {
+			t.Errorf("%s: %d chassis, want %d", bp, len(got[bp]), len(want))
+		}
+		for id, tank := range want {
+			rows++
+			if got[bp][id] != tank {
+				t.Errorf("%s %s: %v, want %v", bp, id, got[bp][id], tank)
+			}
+			if f, ok := ChassisFuel(bp, id); !ok || f != tank {
+				t.Errorf("ChassisFuel(%s, %s) = %v %v, want %v", bp, id, f, ok, tank)
+			}
+		}
+	}
+	if rows != 23 {
+		t.Errorf("%d rows typed above, want 23", rows)
+	}
+	if _, ok := got["BP_ContainerVehicle_C"]; ok {
+		t.Error("the Container vehicle has no tank and is not a key")
+	}
+	// the caller gets a copy
+	got["BP_Buggy_CHOAM_C"]["BuggyChassis_6"] = 1
+	if f, _ := ChassisFuel("BP_Buggy_CHOAM_C", "BuggyChassis_6"); f != 300 {
+		t.Errorf("changing the copy changed the catalog: %v", f)
+	}
+	if ChassisTanks()["BP_Buggy_CHOAM_C"]["BuggyChassis_6"] != 300 {
+		t.Error("changing the copy changed the next copy")
+	}
+}
+
+func TestChassisFuelAnswersOnlyForAChassisWithATankOfThatVehicle(t *testing.T) {
+	for name, c := range map[string]struct{ bp, id string }{
+		"not a row":                    {"BP_Buggy_CHOAM_C", "BuggyChassis_77"},
+		"a grade the game has no row":  {"BP_Buggy_CHOAM_C", "BuggyChassis_1"},
+		"a module that is no chassis":  {"BP_Buggy_CHOAM_C", "BuggyEngine_6"},
+		"the chassis of another":       {"BP_Sandbike_CHOAM_C", "BuggyChassis_6"},
+		"the container vehicle":        {"BP_ContainerVehicle_C", "ContainerVehicle"},
+		"an unknown vehicle":           {"BP_Mystery_C", "BuggyChassis_6"},
+		"empty":                        {"", ""},
+		"the blueprint without a tank": {"", "BuggyChassis_6"},
+	} {
+		if f, ok := ChassisFuel(c.bp, c.id); ok || f != 0 {
+			t.Errorf("%s: %v %v", name, f, ok)
+		}
+	}
+}
+
+// Derive reads the same tanks: the fuel of a vehicle made from a template is the tank of its chassis.
+func TestDeriveGivesTheTankOfTheChassis(t *testing.T) {
+	for _, tanks := range chassisTanks {
+		for id, tank := range tanks {
+			m, _ := ModuleFor(id)
+			if m.Kind != "Chassis" {
+				t.Errorf("%s is a %s", id, m.Kind)
+			}
+			d, err := Derive([]string{id})
+			if err != nil || d.Fuel != tank {
+				t.Errorf("%s: %+v %v, want a tank of %v", id, d, err, tank)
+			}
+		}
+	}
+}
+
+// The text of the snapshot is its canonical form, byte for byte, so a refreshed snapshot shows only what changed; the same text parses back to the same catalog.
+func TestTheSnapshotIsInCanonicalFormAndRoundTrips(t *testing.T) {
+	out, err := Marshal(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(out, snapshot) {
+		t.Fatalf("vehicles.json is not the canonical text of its own content (%d bytes against %d); make it with Marshal", len(snapshot), len(out))
+	}
+	back, err := Parse(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, _ := Marshal(back)
+	if !bytes.Equal(again, out) || len(back.Modules) != len(data.Modules) || len(back.Classes) != len(data.Classes) {
+		t.Error("Marshal then Parse changed the catalog")
+	}
+	if bytes.Contains(snapshot, []byte("\r")) {
+		t.Error("the snapshot has CRLF line ends (.gitattributes keeps it LF)")
+	}
+}
+
+func TestParseRefusesWhatCheckRefusesAndUnknownFields(t *testing.T) {
+	var d Data
+	if err := json.Unmarshal(snapshot, &d); err != nil {
+		t.Fatal(err)
+	}
+	for name, mutate := range map[string]func(*Data){
+		"no build": func(d *Data) { d.Build = "" },
+		"a module of a class the file lacks": func(d *Data) {
+			m := d.Modules["BuggyChassis_6"]
+			m.Class = "Nope"
+			d.Modules["BuggyChassis_6"] = m
+		},
+		"a module with no durability": func(d *Data) {
+			m := d.Modules["BuggyChassis_6"]
+			m.Durability = 0
+			d.Modules["BuggyChassis_6"] = m
+		},
+		"a template naming a module that is not a row": func(d *Data) { d.Classes["Buggy"].Templates[0].Modules["Engine"] = "NoSuchEngine_0" },
+	} {
+		var c Data
+		if err := json.Unmarshal(snapshot, &c); err != nil {
+			t.Fatal(err)
+		}
+		mutate(&c)
+		b, err := Marshal(&c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Parse(b); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+	extra := bytes.Replace(snapshot, []byte(`"build"`), []byte(`"surprise": 1, "build"`), 1)
+	if _, err := Parse(extra); err == nil {
+		t.Error("an unknown field was accepted")
+	}
+	if _, err := Parse([]byte("{}")); err == nil {
+		t.Error("an empty catalog was accepted")
+	}
+	if _, err := Parse([]byte("not json")); err == nil {
+		t.Error("garbage was accepted")
 	}
 }
