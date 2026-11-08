@@ -4,6 +4,18 @@ Tags of this module are `kit/vX.Y.Z`. The module is version 0.x: until v1.0.0 an
 
 Each tag needs an entry here whose heading is `## vX.Y.Z` followed by the date: the release workflow uses the entry as the release notes and fails without it.
 
+## v0.6.0 (2026-11-08)
+
+New package, backward compatible: nothing in `savefile`, `durable`, `gamedata/fillables`, `gamedata/vehicles` or `gamedata/regions` changed. Refs #561.
+
+- New package `webguard`: the small rules a program that serves its page only to this computer puts in front of its routes. Mechanism only; the policy stays in the program.
+  - `Host(hostport)`: a host or host:port names this computer (`localhost` in any case, or any loopback address, with or without brackets and port; nothing is resolved). `Peer(remote)`: the connection comes from a loopback address (the address must carry a port).
+  - `AllowedNavigation(origin, raw)` and `OriginOf(raw)`: where a window with no address bar may go (the program's own origin, an in-page blob of it, the blank page); refuses user info, backslashes, spaces and control characters, and any scheme but http and https. Moved from the editor's `internal/gui` without a change.
+  - `SecurityHeaders(w, Policy)`: the Content-Security-Policy (`DefaultCSP`, which shows and allows nothing, when the `Policy` names none), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and `Cross-Origin-Resource-Policy: same-origin` always; `X-Frame-Options` and `Cache-Control` when the `Policy` names them.
+  - `SameOrigin(r, OriginPolicy)`: Fetch Metadata and `Origin` of a request that changes something. `Sec-Fetch-Site` must be empty or `same-origin`; an `Origin` must be an http address whose host and port are the request's `Host`. `OriginPolicy{AllowFetchSiteNone, FoldHostCase}` is where two programs differ; the zero value is the strictest. `JSONRequest(r)`: the content type is `application/json` by its parsed media type.
+- Not here: `Content-Security-Policy` text, accepted Host names beyond `Host`, tokens and cookies, routes, request size limits (a one-line `http.MaxBytesReader` in the standard library) and the JSON answer writer (its content type and its failure answer are the program's).
+- The editor's request guard and window now call this package; its own tests pin the guard input by input and pass unchanged.
+
 ## v0.5.0 (2026-11-08)
 
 New package, backward compatible: nothing in `savefile`, `durable`, `gamedata/fillables` or `gamedata/vehicles` changed. Refs #559.

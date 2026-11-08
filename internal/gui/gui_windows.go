@@ -14,6 +14,8 @@ import (
 
 	"github.com/jchv/go-webview2"
 	"github.com/jchv/go-webview2/pkg/edge"
+
+	"github.com/Project-Arrakis/tabr-tau/kit/webguard"
 )
 
 // Supported reports whether a native window can be opened on this platform.
@@ -50,7 +52,7 @@ func Run(url, title string, width, height uint, confirmClose func() bool) error 
 	// request itself, so a page outside the origin is replaced by a short "blocked" page before it is loaded (guardNavigation). The script below is the second layer, for the
 	// ways a page can ask for a new window (window.open, a link or a form aimed at another window), which that hook does not see: they are made to stay in this window,
 	// where the hook judges them. Developer tools and the context menu are off (Debug false above).
-	guardNavigation(w, OriginOf(url))
+	guardNavigation(w, webguard.OriginOf(url))
 	w.Init(`(function () {
   window.open = function () { return null; };
   function stay(e) {
@@ -81,7 +83,7 @@ func guardNavigation(w webview2.WebView, origin string) {
 	}
 	env := ch.Environment()
 	ch.WebResourceRequestedCallback = func(req *edge.ICoreWebView2WebResourceRequest, args *edge.ICoreWebView2WebResourceRequestedEventArgs) {
-		if uri, err := req.GetUri(); err == nil && AllowedNavigation(origin, uri) {
+		if uri, err := req.GetUri(); err == nil && webguard.AllowedNavigation(origin, uri) {
 			return
 		}
 		resp, err := env.CreateWebResourceResponse(BlockedPage(origin), 403, "Forbidden", "Content-Type: text/html; charset=utf-8")
