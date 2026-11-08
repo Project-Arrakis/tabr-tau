@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/kit/durable"
 )
 
 // bomStr is the UTF-8 byte order mark.
@@ -312,23 +313,9 @@ func (d Dir) write(name, text string) error {
 		}
 		d.pruneBackups(stem)
 	}
-	// a temp file of its own name (a leftover of a crash, or another program's file, is never written over), in the folder of the file so that the rename stays on one disk
-	f, err := os.CreateTemp(filepath.Dir(p), filepath.Base(p)+".tabr-*.tmp")
-	if err != nil {
-		return err
-	}
-	tmp := f.Name()
-	if _, err := f.WriteString(text); err != nil {
-		f.Close()
-		os.Remove(tmp)
-		return err
-	}
-	if err := f.Close(); err != nil {
-		os.Remove(tmp)
-		return err
-	}
-	if err := os.Rename(tmp, p); err != nil {
-		os.Remove(tmp)
+	// A temp file of its own name (a leftover of a crash, or another program's file, is never written over) in the folder of the file so that the rename stays on one disk; the
+	// text is flushed to the disk before it replaces the file, the rename is tried again while another program holds the file, and the folder is flushed after it (kit/durable).
+	if err := durable.WriteFile(p, []byte(text), 0o600, configWriteOptions(p)); err != nil {
 		return err
 	}
 	// read back, as a save is: the file must be what was written. A program that holds or rewrites the file at that moment is told to the person, with the backup that holds the old text.
@@ -348,6 +335,18 @@ func (d Dir) write(name, text string) error {
 		return fmt.Errorf("%s was written, but the file now holds other text than was written (another program changed it?); the copy taken before the edit is in tabr-tau-backups", name)
 	}
 	return nil
+}
+
+// configHooks lets a test inject faults into the steps of a config write (a rename that fails, a flush that fails). Production code never sets it.
+var configHooks durable.Hooks
+
+// configWriteOptions is how the config file p is replaced: the temp file is named name.ini.tabr-N.tmp (what SweepStaleTemps recognises), the rename is tried six times with a
+// growing pause, and the folder is flushed.
+func configWriteOptions(p string) durable.Options {
+	o := durable.Defaults()
+	o.TempPattern = filepath.Base(p) + ".tabr-*.tmp"
+	o.Hooks = configHooks
+	return o
 }
 
 // readConfigFile and the read-back pause are variables so a test can make the read-back fail.

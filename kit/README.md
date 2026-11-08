@@ -13,6 +13,7 @@ go get github.com/Project-Arrakis/tabr-tau/kit@latest
 | Package | What it does |
 |---|---|
 | `savefile` | Reads and writes the container around a save: `Decode` (container to SQLite bytes), `Encode` (SQLite bytes to container) and `ReadCapped` (reads a file without ever holding more than `Limit`, 256 MiB, of it). Every input is treated as untrusted. |
+| `durable` | Replaces a file so that a crash or a power cut leaves the old one or the new one, never part of either: `WriteFile` (temp file in the same folder, fsync, rename with retries, folder flush), its two halves `WriteNew` and `Rename` for a caller that checks something between the flush and the rename, and `SyncDir`. Test hooks for every step. Since v0.2.0. |
 
 ```go
 blob, err := savefile.ReadCapped(path) // refuses an oversized file from its size
@@ -21,6 +22,13 @@ if err != nil {
 }
 db, err := savefile.Decode(blob) // the SQLite database inside; a plain SQLite file passes through
 ```
+
+```go
+// the new bytes are flushed to the disk before they replace the file; the rename is tried six times while another program holds the file
+err := durable.WriteFile(path, data, 0o600, durable.Defaults())
+```
+
+`durable.Defaults()` is six tries of the rename with a growing pause (150, 300 ... ms) and a flush of the folder afterwards. The flush of the folder is a no-op on Windows, where Go cannot open a folder for it and NTFS journals the rename itself. The zero `durable.Options{}` is one try, no pause, no folder flush. The package does not read the file back and does not keep backups: what to compare and what to keep are the caller's decisions.
 
 ## Rules of this module
 

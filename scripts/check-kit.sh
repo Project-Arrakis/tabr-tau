@@ -49,7 +49,9 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 
+	"github.com/Project-Arrakis/tabr-tau/kit/durable"
 	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
@@ -66,6 +68,25 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println("consumer: round trip ok")
+
+	dir, err := os.MkdirTemp("", "consumer-durable-")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	defer os.RemoveAll(dir)
+	p := filepath.Join(dir, "f")
+	for _, text := range []string{"one", "two"} {
+		if err := durable.WriteFile(p, []byte(text), 0o600, durable.Defaults()); err != nil {
+			fmt.Fprintln(os.Stderr, "durable write failed:", err)
+			os.Exit(1)
+		}
+	}
+	if got, err := os.ReadFile(p); err != nil || string(got) != "two" {
+		fmt.Fprintln(os.Stderr, "durable write did not replace the file:", err)
+		os.Exit(1)
+	}
+	fmt.Println("consumer: durable write ok")
 }
 GO
 (cd "$tmp/consumer" && go run .)

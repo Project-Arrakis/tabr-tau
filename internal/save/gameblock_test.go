@@ -223,7 +223,7 @@ func TestJournalReplayDoesNotWriteWhileAGameProcessExists(t *testing.T) {
 func TestTheSaveFileHasOneWriterBehindTheGate(t *testing.T) {
 	root := filepath.Join("..", "..")
 	callers := map[string][]string{} // function called -> "pkg.Func" of the functions that call it
-	watch := map[string]bool{"installBlob": true, "renameRetry": true, "commit": true, "Rename": true, "WriteFile": true, "OpenFile": true, "Create": true, "Truncate": true}
+	watch := map[string]bool{"installBlob": true, "renameRetry": true, "commit": true, "Rename": true, "WriteFile": true, "WriteNew": true, "OpenFile": true, "Create": true, "Truncate": true}
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -232,6 +232,12 @@ func TestTheSaveFileHasOneWriterBehindTheGate(t *testing.T) {
 			switch d.Name() {
 			case ".git", ".claude", "node_modules", "web-tests", "testsave":
 				return filepath.SkipDir
+			case "kit":
+				// kit is a library: its functions write the path their caller gives them and know nothing of the save. What is watched is the calls into it (durable.Rename,
+				// durable.WriteFile, durable.WriteNew), below.
+				if filepath.Dir(path) == root {
+					return filepath.SkipDir
+				}
 			}
 			return nil
 		}
@@ -259,8 +265,9 @@ func TestTheSaveFileHasOneWriterBehindTheGate(t *testing.T) {
 				switch fun := c.Fun.(type) {
 				case *ast.SelectorExpr:
 					name = fun.Sel.Name
-					if name == "Rename" || name == "WriteFile" || name == "OpenFile" || name == "Create" || name == "Truncate" {
-						if x, ok := fun.X.(*ast.Ident); !ok || x.Name != "os" {
+					if name == "Rename" || name == "WriteFile" || name == "WriteNew" || name == "OpenFile" || name == "Create" || name == "Truncate" {
+						// the os function, or kit/durable's (the editor's renames and file writes go through it)
+						if x, ok := fun.X.(*ast.Ident); !ok || (x.Name != "os" && x.Name != "durable") {
 							return true // a method of something else with that name, not the os function
 						}
 					}
@@ -295,10 +302,10 @@ func TestTheSaveFileHasOneWriterBehindTheGate(t *testing.T) {
 	}
 	// the other writers of files are the known ones: none of them is given the save's path (the journal, the write log, the backups, the work copy, the
 	// lock, the config files, the command line's decode and encode of a file the person names)
-	for _, name := range []string{"Rename", "WriteFile", "OpenFile", "Create", "Truncate"} {
+	for _, name := range []string{"Rename", "WriteFile", "WriteNew", "OpenFile", "Create", "Truncate"} {
 		for _, c := range callers[name] {
 			if !knownFileWriters[c] {
-				t.Errorf("os.%s is called from %s, which is not a known file writer: if it can reach the save file it must go through installBlob", name, c)
+				t.Errorf("os.%s (or durable.%[1]s) is called from %s, which is not a known file writer: if it can reach the save file it must go through installBlob", name, c)
 			}
 		}
 	}
@@ -322,6 +329,7 @@ func TestTheSaveFileHasOneWriterBehindTheGate(t *testing.T) {
 // knownFileWriters are the functions that create or replace files other than the save: none of them writes the save path.
 var knownFileWriters = map[string]bool{
 	"internal/save.writeDurable":        true, // the temp file next to the save and the journal's temp file; the rename into the save is installBlob's
+	"internal/save.renameRetry":         true, // the rename of that temp file into the save: its only caller is installBlob, which asks the game gate first (wantExact above)
 	"internal/save.skipJournal":         true, // moves an unreadable journal aside
 	"internal/save.writeLogAppend":      true, // the editor's own write log
 	"internal/save.lockFile":            true, // the lock file

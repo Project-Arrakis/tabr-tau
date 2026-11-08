@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
+	"github.com/Project-Arrakis/tabr-tau/kit/durable"
 	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
@@ -24,41 +25,30 @@ var (
 
 const renameAttempts = 6
 
+// durableOpts is how the editor replaces files: six tries of the rename with a growing pause, and the hooks above so that tests can inject faults. The steps themselves are
+// kit/durable's.
+func durableOpts() durable.Options {
+	return durable.Options{
+		Attempts: renameAttempts,
+		Pause:    renameBackoff,
+		Growing:  true,
+		Hooks:    durable.Hooks{Rename: fsRename, SyncFile: syncFile},
+	}
+}
+
 // writeDurable writes data to a new file (exclusive create, so an existing file is never overwritten), flushes it
 // to stable storage and closes it.
 func writeDurable(path string, data []byte, mode os.FileMode) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
-	if err != nil {
-		return err
-	}
-	if _, err := f.Write(data); err != nil {
-		f.Close()
-		os.Remove(path)
-		return err
-	}
-	if err := syncFile(f); err != nil {
-		f.Close()
-		os.Remove(path)
-		return err
-	}
-	if err := f.Close(); err != nil {
-		os.Remove(path)
-		return err
-	}
-	return nil
+	return durable.WriteNew(path, data, mode, durableOpts())
 }
 
 // renameRetry retries with a growing pause: on Windows an antivirus scanner, OneDrive or the game itself can hold
 // the destination for a moment.
 func renameRetry(from, to string) error {
-	var err error
-	for i := 1; i <= renameAttempts; i++ {
-		if err = fsRename(from, to); err == nil {
-			return nil
-		}
-		time.Sleep(renameBackoff * time.Duration(i))
+	if err := durable.Rename(from, to, durableOpts()); err != nil {
+		return apierr.Wrap(apierr.ErrWriteFailed, fmt.Sprintf("could not replace %s (is another program holding it?): %v", filepath.Base(to), err), err)
 	}
-	return apierr.Wrap(apierr.ErrWriteFailed, fmt.Sprintf("could not replace %s (is another program holding it?): %v", filepath.Base(to), err), err)
+	return nil
 }
 
 // tmpPath is a unique sibling name; the ".tabr-*.tmp" pattern is what cleanStaleTemps removes.
