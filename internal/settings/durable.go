@@ -7,15 +7,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"time"
+
+	"github.com/Project-Arrakis/tabr-tau/kit/durable"
 )
 
 // Hooks so tests can inject faults (a crash between the temp file and the rename, a failing sync). Production code never changes them.
 var (
 	syncFile     = func(f *os.File) error { return f.Sync() }
-	syncDir      = syncDirectory
+	syncDir      = func(dir string) { _ = durable.SyncDir(dir) }
 	beforeRename = func(dst string) {}
 	now          = time.Now
 )
@@ -73,52 +74,20 @@ func readSettings(path string) fileRead {
 // writeFileAtomic replaces path with data so that a crash at any moment leaves either the old file or the new one, never a part of
 // either: the data goes to a temp file in the same folder, is flushed to stable storage (Sync) and closed, the temp file is renamed
 // over the target (with short retries: on Windows a virus scanner or the indexer can hold the target for a moment) and the folder is
-// synced where the system allows it, so the rename itself survives a power loss. The same steps as the save file (internal/save).
+// synced where the system allows it, so the rename itself survives a power loss. The steps are kit/durable's, the same as for the
+// save file (internal/save).
 func writeFileAtomic(path string, data []byte) error {
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, "settings-*.tmp") // mode 0600
-	if err != nil {
-		return err
-	}
-	name := tmp.Name()
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(name)
-		return err
-	}
-	if err := syncFile(tmp); err != nil {
-		tmp.Close()
-		os.Remove(name)
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		os.Remove(name)
-		return err
-	}
-	beforeRename(path)
-	for i := 0; i < 8; i++ {
-		if err = os.Rename(name, path); err == nil {
-			syncDir(dir)
-			return nil
-		}
-		time.Sleep(25 * time.Millisecond)
-	}
-	os.Remove(name)
-	return err
-}
-
-// syncDirectory flushes the folder entry of a rename on systems that can (Linux, macOS). Windows cannot open a folder for a flush from
-// Go, and NTFS journals the rename itself; elsewhere a failure here is not a reason to fail a write that has already landed.
-func syncDirectory(dir string) {
-	if runtime.GOOS == "windows" {
-		return
-	}
-	d, err := os.Open(dir)
-	if err != nil {
-		return
-	}
-	d.Sync()
-	d.Close()
+	return durable.WriteFile(path, data, 0o600, durable.Options{
+		Attempts:    8,
+		Pause:       25 * time.Millisecond,
+		SyncDir:     true,
+		TempPattern: "settings-*.tmp", // sweepTemps removes what a crash leaves under this name
+		Hooks: durable.Hooks{
+			SyncFile:     syncFile,
+			SyncDir:      func(dir string) error { syncDir(dir); return nil },
+			BeforeRename: beforeRename,
+		},
+	})
 }
 
 // sweepTemps removes temp files that a crash left in the settings folder. A file younger than a minute may belong to a write that is
