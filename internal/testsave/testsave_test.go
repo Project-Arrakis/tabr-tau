@@ -16,7 +16,7 @@ func TestEmbeddedSchemaMatchesEvidenceFile(t *testing.T) {
 	// Line endings do not matter here: a checkout may turn one file into CRLF (.gitattributes pins both to LF; this is the belt to those braces).
 	norm := func(s string) string { return strings.ReplaceAll(s, "\r\n", "\n") }
 	if norm(string(want)) != norm(Schema()) {
-		t.Fatal("internal/save/schema.sql differs from docs/evidence/single-player-schema.ddl.sql; copy one over the other")
+		t.Fatal("kit/schema/schema.sql differs from docs/evidence/single-player-schema.ddl.sql; copy one over the other")
 	}
 }
 

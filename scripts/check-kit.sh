@@ -50,12 +50,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/kit/durable"
 	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/fillables"
 	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/regions"
 	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/vehicles"
 	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
+	"github.com/Project-Arrakis/tabr-tau/kit/schema"
 	"github.com/Project-Arrakis/tabr-tau/kit/webguard"
 )
 
@@ -116,6 +118,13 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println("consumer: webguard rules ok")
+
+	if !strings.Contains(schema.DDL(), "CREATE TABLE vehicle_modules (") || schema.VehicleModules.Table != "vehicle_modules" ||
+		schema.VehicleModuleCurrentDurability != "$.FVehicleModuleDurabilityStats[1].CurrentDurability" || schema.StoredStates != "2, 4" {
+		fmt.Fprintln(os.Stderr, "schema failed")
+		os.Exit(1)
+	}
+	fmt.Println("consumer: schema ok")
 }
 GO
 (cd "$tmp/consumer" && go run .)

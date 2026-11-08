@@ -14,7 +14,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
-const schema = `
+const handSchema = `
 create table player_state(id integer primary key, account_id integer, character_name text, player_pawn_id integer);
 create table actors(id integer primary key, class text, map text, location_x real, location_y real, location_z real, owner_account_id integer);
 create table inventories(id integer primary key, actor_id integer, item_id integer, inventory_type integer, max_item_count integer, max_item_volume real);
@@ -46,7 +46,7 @@ func newOps(t *testing.T, extra ...string) *Ops {
 	if trigger == "" {
 		t.Fatal("game trigger not found in the known schema")
 	}
-	if _, err := db.Exec(schema + "create table actor_fgl_entities(actor_id integer, entity_id integer, slot_name text);" + trigger); err != nil {
+	if _, err := db.Exec(handSchema + "create table actor_fgl_entities(actor_id integer, entity_id integer, slot_name text);" + trigger); err != nil {
 		t.Fatal(err)
 	}
 	for _, q := range extra {

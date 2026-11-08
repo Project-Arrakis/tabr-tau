@@ -9,7 +9,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
-	_ "embed"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -23,6 +22,7 @@ import (
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
+	"github.com/Project-Arrakis/tabr-tau/kit/schema"
 	_ "modernc.org/sqlite"
 )
 
@@ -108,10 +108,9 @@ type Op struct {
 	At   time.Time `json:"at"`
 }
 
-// KnownSchema is the DDL of the real single-player game database (tables, indexes and the game's one trigger).
-//
-//go:embed schema.sql
-var KnownSchema string
+// KnownSchema is the DDL of the real single-player game database (tables, indexes and the game's one trigger). The kit module holds the
+// file (kit/schema/schema.sql); docs/evidence/single-player-schema.ddl.sql is its evidence copy, compared with it byte for byte by a test.
+var KnownSchema = schema.DDL()
 
 // WriteBlocked reports why this save is read-only, or "" when edits are allowed. A save carrying triggers, views
 // or virtual tables the editor does not know could run hidden logic whenever an ordinary edit touches a table, and

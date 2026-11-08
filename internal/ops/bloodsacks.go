@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/kit/schema"
 )
 
 // Filling blood sacks (issue #60, the second half of the Player tab's refills). A blood sack keeps its fill level exactly where a Literjon keeps its water, in the
@@ -14,8 +15,8 @@ import (
 
 // bloodSackQuery lists the blood sacks of the character's own inventories (backpack, worn gear, loadout: the same scope as the water refill), whatever they hold.
 const bloodSackQuery = `select i.id, i.template_id,
-		cast(json_extract(i.stats,'$.FFillableItemStats[1].CurrentAmount') as real) amount,
-		json_extract(i.stats,'$.FFillableItemStats[1].FillableType') kind
+		cast(json_extract(i.stats,'` + schema.FillableCurrentAmount + `') as real) amount,
+		json_extract(i.stats,'` + schema.FillableLiquid + `') kind
 		from items i join inventories v on v.id=i.inventory_id
 		where v.actor_id=? and json_valid(i.stats) and i.template_id like 'Bloodsack%' order by i.id`
 
@@ -101,8 +102,8 @@ func fillBloodSacksTx(m *save.Mut, pawn int64) (bloodSackState, error) {
 		// The record is changed in place when it has the [header, values] pair; a missing or odd record is replaced by a whole new pair.
 		if _, err := m.Exec(`update items set stats=case
 			when json_type(stats,'$.FFillableItemStats[1]')='object'
-			then json_set(stats,'$.FFillableItemStats[1].CurrentAmount',?,'$.FFillableItemStats[1].FillableType','Blood')
-			else json_set(stats,'$.FFillableItemStats',json_array(json_array(),json_object('CurrentAmount',?,'FillableType','Blood'))) end
+			then json_set(stats,'`+schema.FillableCurrentAmount+`',?,'`+schema.FillableLiquid+`','Blood')
+			else json_set(stats,'`+schema.FillableKey+`',json_array(json_array(),json_object('CurrentAmount',?,'FillableType','Blood'))) end
 			where id=?`, t.cap, t.cap, t.id); err != nil {
 			return st, err
 		}

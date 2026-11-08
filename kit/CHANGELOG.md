@@ -4,6 +4,17 @@ Tags of this module are `kit/vX.Y.Z`. The module is version 0.x: until v1.0.0 an
 
 Each tag needs an entry here whose heading is `## vX.Y.Z` followed by the date: the release workflow uses the entry as the release notes and fails without it.
 
+## v0.7.0 (2026-11-08)
+
+New package, backward compatible: nothing in `savefile`, `durable`, `gamedata/*` or `webguard` changed. Refs #563.
+
+- New package `schema`: the shape of a single-player save for a program that reads or writes one with SQL. Text and numbers only: no SQLite driver, no row of any save.
+  - `DDL()`: the schema of a real save as the game wrote it (94 tables, their indexes and the game's one trigger), as one script that runs into an empty database. The file moved from the editor's `internal/save/schema.sql` without a change (the same git blob); a test pins its hash, its table count and that it holds no row.
+  - Names of the tables and columns that programs' SQL touches, one variable per table (`schema.Actors.State`, `schema.VehicleModules.Stats`, `schema.PermissionActorRank.PlayerID`); a test checks every one against the DDL.
+  - The JSON paths of the durability record of a vehicle module and of an item and of the fillable record (`VehicleModuleDurability`, `ItemDurability`, `Fillable` with their `Key` forms and whole-field paths), the actor states of a stored vehicle (`StateVehicleBackup`, `StateVehicleRecovery`, `StoredStates`) and the inventory types of a character's own gear (`GearInventoryTypes`).
+- Not here: a program's rules over those names. Which vehicles a character owns and which vehicles are stored are written differently by the two programs that use the module, so each keeps its SQL; a test-save builder needs a SQLite driver and is not part of this module.
+- The editor now embeds nothing itself: `save.KnownSchema` is `schema.DDL()`, and its SQL takes the shared paths and states from here.
+
 ## v0.6.0 (2026-11-08)
 
 New package, backward compatible: nothing in `savefile`, `durable`, `gamedata/fillables`, `gamedata/vehicles` or `gamedata/regions` changed. Refs #561.
