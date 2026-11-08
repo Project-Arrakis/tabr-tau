@@ -56,6 +56,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/regions"
 	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/vehicles"
 	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
+	"github.com/Project-Arrakis/tabr-tau/kit/webguard"
 )
 
 func main() {
@@ -108,6 +109,13 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println("consumer: regions lookup ok")
+
+	if !webguard.Host("localhost:8090") || webguard.Host("example.com") || !webguard.Peer("127.0.0.1:5") || webguard.Peer("192.168.0.4:5") ||
+		webguard.OriginOf("http://127.0.0.1:8090/x") != "http://127.0.0.1:8090" || webguard.AllowedNavigation("http://127.0.0.1:8090", "http://example.com/") {
+		fmt.Fprintln(os.Stderr, "webguard rules failed")
+		os.Exit(1)
+	}
+	fmt.Println("consumer: webguard rules ok")
 }
 GO
 (cd "$tmp/consumer" && go run .)

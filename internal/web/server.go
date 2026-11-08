@@ -15,10 +15,8 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/settings"
 	"io/fs"
 	"log"
-	"mime"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -31,6 +29,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
 	"github.com/Project-Arrakis/tabr-tau/internal/ops"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/kit/webguard"
 )
 
 //go:embed static/*
@@ -193,7 +192,7 @@ func (s *Server) Handler() http.Handler {
 			http.Error(w, "forbidden host", http.StatusForbidden)
 			return
 		}
-		if !isLoopbackPeer(r.RemoteAddr) {
+		if !webguard.Peer(r.RemoteAddr) {
 			http.Error(w, "forbidden: this editor only accepts connections from this computer", http.StatusForbidden)
 			return
 		}
@@ -203,12 +202,12 @@ func (s *Server) Handler() http.Handler {
 				writeJSON(w, http.StatusForbidden, map[string]any{"error": notSignedIn, "code": "not_signed_in"})
 				return
 			}
-			if !sameOriginRequest(r) {
+			if !webguard.SameOrigin(r, sameOriginPolicy) {
 				http.Error(w, "forbidden: cross-origin request", http.StatusForbidden)
 				return
 			}
 			if r.Method != http.MethodGet && r.Method != http.MethodHead {
-				if mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mt != "application/json" {
+				if !webguard.JSONRequest(r) {
 					http.Error(w, "Content-Type must be application/json", http.StatusUnsupportedMediaType)
 					return
 				}
@@ -241,16 +240,19 @@ func recoverPanic(next http.Handler) http.Handler {
 
 // setSecurityHeaders applies to every response, including errors. The CSP allows only same-origin scripts and
 // styles (no inline code, no eval), same-origin connections, and forbids framing, base tags, plugins and forms.
-func setSecurityHeaders(w http.ResponseWriter) {
-	h := w.Header()
-	h.Set("Cache-Control", "no-store")
-	h.Set("X-Frame-Options", "DENY")
-	h.Set("X-Content-Type-Options", "nosniff")
-	h.Set("Referrer-Policy", "no-referrer")
-	h.Set("Cross-Origin-Resource-Policy", "same-origin")
-	h.Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'; "+
-		"frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'none'")
+func setSecurityHeaders(w http.ResponseWriter) { webguard.SecurityHeaders(w, headerPolicy) }
+
+// headerPolicy is this editor's part of its response headers; the rest (nosniff, no referrer, same-origin resource policy) is the kit's.
+var headerPolicy = webguard.Policy{
+	ContentSecurityPolicy: "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'; " +
+		"frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'none'",
+	FrameOptions: "DENY",
+	CacheControl: "no-store",
 }
+
+// sameOriginPolicy is this editor's choice for the same-origin test: a request the person started in the address bar (Sec-Fetch-Site
+// none) passes, and the host of Origin is compared with the Host header without regard to case. The session cookie still gates both.
+var sameOriginPolicy = webguard.OriginPolicy{AllowFetchSiteNone: true, FoldHostCase: true}
 
 func hostAllowed(hostport string) bool {
 	host, _, err := net.SplitHostPort(hostport)
@@ -262,32 +264,6 @@ func hostAllowed(hostport string) bool {
 		return true
 	}
 	return false
-}
-
-func isLoopbackPeer(remote string) bool {
-	host, _, err := net.SplitHostPort(remote)
-	if err != nil {
-		return false
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
-}
-
-// sameOriginRequest rejects browser requests that originate from another site. Requests without Origin and
-// Sec-Fetch-Site headers (curl, the address bar) are allowed; the token still gates them.
-func sameOriginRequest(r *http.Request) bool {
-	switch r.Header.Get("Sec-Fetch-Site") {
-	case "", "same-origin", "none":
-	default:
-		return false
-	}
-	if o := r.Header.Get("Origin"); o != "" {
-		u, err := url.Parse(o)
-		if err != nil || u.Scheme != "http" || !strings.EqualFold(u.Host, r.Host) {
-			return false
-		}
-	}
-	return true
 }
 
 // writeJSON marshals first and only then writes the status line, so a value JSON cannot carry (a NaN or infinite number that

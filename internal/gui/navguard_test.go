@@ -3,6 +3,8 @@ package gui
 import (
 	"strings"
 	"testing"
+
+	"github.com/Project-Arrakis/tabr-tau/kit/webguard"
 )
 
 const editor = "http://127.0.0.1:8090"
@@ -19,7 +21,7 @@ func TestAllowedNavigation(t *testing.T) {
 		"about:blank",
 	}
 	for _, u := range allowed {
-		if !AllowedNavigation(editor, u) {
+		if !webguard.AllowedNavigation(editor, u) {
 			t.Errorf("must be allowed: %q", u)
 		}
 	}
@@ -64,7 +66,7 @@ func TestAllowedNavigation(t *testing.T) {
 		"http://127.0.0.1:8090/a\x7fb",          // and DEL
 	}
 	for _, u := range refused {
-		if AllowedNavigation(editor, u) {
+		if webguard.AllowedNavigation(editor, u) {
 			t.Errorf("must be refused: %q", u)
 		}
 	}
@@ -73,24 +75,24 @@ func TestAllowedNavigation(t *testing.T) {
 // With no usable origin to compare with, nothing is allowed (except the blank page).
 func TestNothingIsAllowedWithoutAnOrigin(t *testing.T) {
 	for _, o := range []string{"", "not a url", "file:///x", "http://", "ftp://127.0.0.1:8090"} {
-		if AllowedNavigation(o, "http://127.0.0.1:8090/") {
+		if webguard.AllowedNavigation(o, "http://127.0.0.1:8090/") {
 			t.Errorf("origin %q: nothing may be allowed", o)
 		}
 	}
-	if AllowedNavigation("ftp://127.0.0.1:8090", "ftp://127.0.0.1:8090/") || AllowedNavigation("ws://127.0.0.1:8090", "ws://127.0.0.1:8090/") {
+	if webguard.AllowedNavigation("ftp://127.0.0.1:8090", "ftp://127.0.0.1:8090/") || webguard.AllowedNavigation("ws://127.0.0.1:8090", "ws://127.0.0.1:8090/") {
 		t.Error("only http and https origins are ever accepted")
 	}
-	if !AllowedNavigation("", "about:blank") {
+	if !webguard.AllowedNavigation("", "about:blank") {
 		t.Error("the blank page is always fine")
 	}
 }
 
 // The default port of a scheme is the port: an origin written without one matches an address written with it.
 func TestDefaultPortsAreEqualToTheirNumber(t *testing.T) {
-	if !AllowedNavigation("http://127.0.0.1", "http://127.0.0.1:80/") || !AllowedNavigation("https://127.0.0.1:443", "https://127.0.0.1/") {
+	if !webguard.AllowedNavigation("http://127.0.0.1", "http://127.0.0.1:80/") || !webguard.AllowedNavigation("https://127.0.0.1:443", "https://127.0.0.1/") {
 		t.Error("a default port written out or left out is the same origin")
 	}
-	if AllowedNavigation("http://127.0.0.1", "https://127.0.0.1/") {
+	if webguard.AllowedNavigation("http://127.0.0.1", "https://127.0.0.1/") {
 		t.Error("http and https are different origins")
 	}
 }
@@ -129,12 +131,12 @@ func TestOriginOf(t *testing.T) {
 		"":                                 "",
 		"127.0.0.1:8090":                   "",
 	} {
-		if got := OriginOf(in); got != want {
+		if got := webguard.OriginOf(in); got != want {
 			t.Errorf("OriginOf(%q) = %q, want %q", in, got, want)
 		}
 	}
 	// the origin it gives is one AllowedNavigation accepts for the same address
-	if o := OriginOf("http://127.0.0.1:8090/boot?t=abc"); !AllowedNavigation(o, "http://127.0.0.1:8090/boot?t=abc") {
+	if o := webguard.OriginOf("http://127.0.0.1:8090/boot?t=abc"); !webguard.AllowedNavigation(o, "http://127.0.0.1:8090/boot?t=abc") {
 		t.Error("the opening address must be allowed")
 	}
 }
