@@ -15,6 +15,7 @@ go get github.com/Project-Arrakis/tabr-tau/kit@latest
 | `savefile` | Reads and writes the container around a save: `Decode` (container to SQLite bytes), `Encode` (SQLite bytes to container) and `ReadCapped` (reads a file without ever holding more than `Limit`, 256 MiB, of it). Every input is treated as untrusted. |
 | `durable` | Replaces a file so that a crash or a power cut leaves the old one or the new one, never part of either: `WriteFile` (temp file in the same folder, fsync, rename with retries, folder flush), its two halves `WriteNew` and `Rename` for a caller that checks something between the flush and the rename, and `SyncDir`. Test hooks for every step. Since v0.2.0. |
 | `gamedata/fillables` | The game's table of fillable items (`DT_ItemTableFillables`): for each item template the most it holds, the amount a new item starts with, the liquid it takes (`fillables.Water`, `fillables.Blood`) and whether it is a container. `Table()`, `Lookup(template)`, `Source()`, and `Parse` and `Marshal` for the snapshot's text. Since v0.3.0. |
+| `gamedata/vehicles` | The game's vehicle tables for the seven vehicle classes that appear in saves: each class's actor path and row shape, slots and named templates, and one row per module (slot, kind, grade, durability, health, fuel tank, cargo). `ClassFor`, `ModuleFor`, `ModulesFor`, `ResolveModule`, `Derive` (the numbers a vehicle's rows hold, from its module ids), `Check`, `ChassisFuel` and `ChassisTanks` (the 23 chassis tanks), and `Parse` and `Marshal` for the snapshot's text. Since v0.4.0. |
 
 ```go
 blob, err := savefile.ReadCapped(path) // refuses an oversized file from its size
@@ -26,6 +27,7 @@ db, err := savefile.Decode(blob) // the SQLite database inside; a plain SQLite f
 
 ```go
 row, ok := fillables.Lookup("Literjon_T6") // {MaxAmount: 20000, Restriction: "Water", Container: true}
+fuel, ok := vehicles.ChassisFuel("BP_Buggy_CHOAM_C", "BuggyChassis_6") // 300, true
 ```
 
 ```go

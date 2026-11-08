@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
+	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/vehicles"
 )
 
 // Go to a place (#500, #519). Admin > Movement > Go to a place is one drop-down of the places a player knows by name: trading posts, the character's own deployed bases, the
@@ -220,8 +220,8 @@ func placeholderName(name string) bool {
 // class's blueprint name in words ("BP_Sandbike_C" is "Sandbike"). It is never the raw blueprint name.
 func vehicleKindName(class any) string {
 	short := shortClass(class)
-	for _, k := range catalog.VehicleClassKeys() {
-		if c, ok := catalog.VehicleClassFor(k); ok && strings.EqualFold(strings.TrimSuffix(c.PropsKey, "_C"), short) {
+	for _, k := range vehicles.ClassKeys() {
+		if c, ok := vehicles.ClassFor(k); ok && strings.EqualFold(strings.TrimSuffix(c.PropsKey, "_C"), short) {
 			return c.Label
 		}
 	}

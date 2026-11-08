@@ -12,7 +12,7 @@ holds 140, the table said 100. Each number in `vehicleTank` is the tank of the o
 ## Source
 
 The game's module table, `CDT_BaseVehicleModules` (row structure `BaseVehicleModuleTableRow`, the composite of the per-class module tables), field `m_StaticData.m_FuelCapacity` of the **Chassis** row of each class and grade.
-It is the same table `internal/catalog/vehicles.json` (#401, #467) was made from, which carries it as `fuel` on the chassis rows. Read from the game's data files (game build 1.5.15.x) on 2026-10-28. The table has 674 rows; every
+It is the same table `kit/gamedata/vehicles/vehicles.json` (#401, #467) was made from, which carries it as `fuel` on the chassis rows. Read from the game's data files (game build 1.5.15.x) on 2026-10-28. The table has 674 rows; every
 row that is not a chassis has the default capacity (1000, or 0), so the chassis row is the only one that sets a tank. The unit is the one the save uses for `FVehicleComponent.CurrentFuel`.
 
 The vehicle blueprints (`BP_*_CHOAM` and the base classes) hold no capacity: only `m_InitialFuel` (the fraction a vehicle is spawned with, 0 or 1) and `m_RefuelRate` (how fast a refuelling station fills it, 150 to 400).
@@ -50,7 +50,7 @@ A vehicle's tank (`tankOf`):
 3. else the vehicle is left alone and reported as of an unknown kind, as before (the Container Vehicle, which has no fuel; a class the editor does not know).
 
 Refuel raises a fuel amount to the tank and never lowers one that is already at or above it. The Fuel column shows `fuelMax` (the tank) and `fuelPercent` (never above 100).
-A vehicle made by Create a vehicle is full at its chassis's capacity by the same rule (`catalog.DeriveVehicle`), so Create and Refuel agree.
+A vehicle made by Create a vehicle is full at its chassis's capacity by the same rule (`vehicles.Derive` (kit/gamedata/vehicles)), so Create and Refuel agree.
 
 ## Cross-checks
 

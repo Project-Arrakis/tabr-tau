@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
-	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
+	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/vehicles"
 )
 
 // Create a vehicle from a template (#401). The fixture is a character (pawn at 100, 200, 300 on HaggaBasin, facing 90 degrees) who owns one medium ornithopter written as the
@@ -371,8 +371,8 @@ func TestSpawnPlacesTheVehicleNextToTheCharacterOrWhereAsked(t *testing.T) {
 // The Sandbike has two component holds, the container vehicle one module and a big cargo hold; the carrier has seventeen modules.
 func TestSpawnEveryClassWritesAVehicleThatIsSound(t *testing.T) {
 	o := spawnOps(t)
-	for _, key := range catalog.VehicleClassKeys() {
-		c, _ := catalog.VehicleClassFor(key)
+	for _, key := range vehicles.ClassKeys() {
+		c, _ := vehicles.ClassFor(key)
 		for _, tp := range c.Templates {
 			id, _ := spawn(t, o, Args{"class": key, "template": tp.Name})
 			v := viewOf(t, o, id)
@@ -582,7 +582,7 @@ func TestVehicleCatalogAnswerNamesTheBuildClassesTiersAndOptions(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := r.(map[string]any)
-	if m["build"] != catalog.VehicleBuild() {
+	if m["build"] != vehicles.Build() {
 		t.Error("build")
 	}
 	classes := m["classes"].([]map[string]any)

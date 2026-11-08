@@ -3,7 +3,7 @@ package ops
 import (
 	"strings"
 
-	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
+	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/vehicles"
 )
 
 // tankOf is how much fuel a full tank of one vehicle holds, in the unit of FVehicleComponent.CurrentFuel (#469). The tank follows the grade of the vehicle's
@@ -13,15 +13,10 @@ import (
 // moduleIDs are the template ids of the vehicle's modules; class is the blueprint name of the vehicle ("BP_Buggy_CHOAM_C").
 func tankOf(class string, moduleIDs []string) (tank float64, known bool) {
 	for _, id := range moduleIDs {
-		m, ok := catalog.VehicleModuleFor(id)
-		if !ok || m.Kind != "Chassis" || m.Fuel <= 0 {
-			continue
+		// a chassis row with a tank, of this vehicle's own class (a chassis of another class is not this vehicle's tank)
+		if f, ok := vehicles.ChassisFuel(class, id); ok {
+			return f, true
 		}
-		// a chassis of another class than the vehicle's own is not this vehicle's tank
-		if c, ok := catalog.VehicleClassFor(m.Class); ok && c.PropsKey != class {
-			continue
-		}
-		return m.Fuel, true
 	}
 	if t, ok := vehicleTank[class]; ok && t > 0 {
 		return t, true

@@ -2,12 +2,12 @@ package ops
 
 import (
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
-	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/vehicles"
 )
 
 // The cargo hold of a vehicle has the room its parts give (#483). The game stores that room on the hold's own inventory row: max_item_count is the slots and max_item_volume the volume,
-// and in every vehicle of the saves studied (docs/design/2026-10-28-cargo-limits.md) they equal what catalog.DeriveVehicle sums over the vehicle's modules. A vehicle with no storage part
+// and in every vehicle of the saves studied (docs/design/2026-10-28-cargo-limits.md) they equal what vehicles.Derive sums over the vehicle's modules. A vehicle with no storage part
 // has a hold row with 0 and 0.0: it holds nothing. That is different from the other inventories, where 0 (and -1) mean "no limit recorded", so a give that read 0 as "no limit" put
 // 5000 Carbon Ore into a Sandbike. The rule is in one place, here, for the card (vehicleDetails) and for the give (GiveToInventory).
 
@@ -24,7 +24,7 @@ func holdSlots(stored any, moduleIDs []string) (slots int64, known bool) {
 		}
 		return n, true
 	}
-	if d, err := catalog.DeriveVehicle(moduleIDs); err == nil {
+	if d, err := vehicles.Derive(moduleIDs); err == nil {
 		return d.CargoSlots, true
 	}
 	return 0, false

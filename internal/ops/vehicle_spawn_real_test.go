@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/vehicles"
 	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
@@ -136,7 +136,7 @@ func TestTemplateModuleSetsMatchTheRealVehiclesOfACopy(t *testing.T) {
 			continue
 		}
 		checked++
-		c, _ := catalog.VehicleClassFor(cls)
+		c, _ := vehicles.ClassFor(cls)
 		for _, tpl := range c.Templates {
 			var tids []string
 			for _, id := range tpl.Modules {
@@ -156,8 +156,8 @@ func TestTemplateModuleSetsMatchTheRealVehiclesOfACopy(t *testing.T) {
 }
 
 func vehicleClassKeyOf(class any) (string, bool) {
-	for _, key := range catalog.VehicleClassKeys() {
-		c, _ := catalog.VehicleClassFor(key)
+	for _, key := range vehicles.ClassKeys() {
+		c, _ := vehicles.ClassFor(key)
 		if blueprintClass(c.ActorClass) == blueprintClass(class) {
 			return key, true
 		}

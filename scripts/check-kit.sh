@@ -53,6 +53,7 @@ import (
 
 	"github.com/Project-Arrakis/tabr-tau/kit/durable"
 	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/fillables"
+	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/vehicles"
 	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
@@ -94,6 +95,12 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println("consumer: fillables lookup ok")
+
+	if f, ok := vehicles.ChassisFuel("BP_Buggy_CHOAM_C", "BuggyChassis_6"); !ok || f != 300 || len(vehicles.ChassisTanks()) != 6 {
+		fmt.Fprintln(os.Stderr, "vehicles chassis tank failed:", f, ok)
+		os.Exit(1)
+	}
+	fmt.Println("consumer: vehicles chassis tank ok")
 }
 GO
 (cd "$tmp/consumer" && go run .)

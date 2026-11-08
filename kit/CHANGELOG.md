@@ -4,6 +4,16 @@ Tags of this module are `kit/vX.Y.Z`. The module is version 0.x: until v1.0.0 an
 
 Each tag needs an entry here whose heading is `## vX.Y.Z` followed by the date: the release workflow uses the entry as the release notes and fails without it.
 
+## v0.4.0 (2026-11-08)
+
+New package, backward compatible: nothing in `savefile`, `durable` or `gamedata/fillables` changed. Refs #555.
+
+- New package `gamedata/vehicles`: the game's vehicle tables for the seven classes that appear in saves (7 classes, 398 module rows, 24 templates), moved from the editor's `internal/catalog` without a change of the data. Types `Data`, `Class`, `Slot`, `Template`, `Module` and `Derived`; lookups `Build`, `Read`, `ClassKeys`, `ClassFor`, `ModuleFor`, `ModulesFor`, `ResolveModule`, `BodyUtilitySeen` and `ModuleBase`; `Derive` (health, critical health, a full tank and the cargo hold of a vehicle from its module ids) and `Check` (the catalog's consistency rules).
+- New for programs that need only the fuel tanks: `ChassisFuel(blueprint, moduleID)` (the tank of a Chassis row, when it belongs to that vehicle) and `ChassisTanks()` (a copy of blueprint -> chassis id -> tank: 6 vehicles, 23 chassis, grades 0 to 6; the Container vehicle has none).
+- `Parse` reads the snapshot's text, strictly (unknown fields refused, then `Check`), and `Marshal` writes it in one canonical form; the snapshot in the module is byte for byte that form.
+- The data is a snapshot of the tables as read from the installed game's content files (build 1.5.15.0); the editor's vehicle catalog and its refuel code now read it from here.
+- What a program does with a vehicle whose modules list no known chassis, or two, is not decided here. `ModuleName` (the in-game name of a module) needs item names and stays in the editor.
+
 ## v0.3.0 (2026-11-08)
 
 New package, backward compatible: nothing in `savefile` or `durable` changed. Refs #551.

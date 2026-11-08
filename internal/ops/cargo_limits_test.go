@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
-	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
+	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/vehicles"
 )
 
 // The room in a vehicle's cargo hold (#483). The numbers below are those of real vehicles in saves the game wrote (docs/design/2026-10-28-cargo-limits.md):
@@ -150,7 +150,7 @@ func TestTheStoredRoomOfRealVehiclesIsWhatTheCatalogDerives(t *testing.T) {
 		{"Sandcrawler with the big spice container", []string{"SandcrawlerChassis_6", "SandcrawlerSpiceContainer_Unique_Capacity_6"}, 30, 11250},
 		{"Container vehicle", []string{"ContainerVehicle"}, 150, 15000},
 	} {
-		d, err := catalog.DeriveVehicle(c.modules)
+		d, err := vehicles.Derive(c.modules)
 		if err != nil {
 			t.Errorf("%s: %v", c.name, err)
 			continue

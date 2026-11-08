@@ -15,6 +15,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/vehicles"
 )
 
 // Create a vehicle from a template (#401): the console's Spawn Vehicle for a single-player save. The editor cannot ask the game to spawn one, so the vehicle is written as the rows
@@ -26,8 +27,8 @@ import (
 //	vehicle_modules                      one row per module of the template, with the stats of a new module
 //	inventories, actor_inventories       the cargo hold and the component holds, and the items put in the cargo hold
 //
-// What the template is (class, tier, the module of each slot) comes from the game's own tables (internal/catalog/vehicles.json). Every number that is not an id or a place follows
-// from the modules by the rules of catalog.DeriveVehicle: health, critical health, a full tank, the cargo hold, and a new module's durability. The edit is one transaction. After
+// What the template is (class, tier, the module of each slot) comes from the game's own tables (kit/gamedata/vehicles/vehicles.json). Every number that is not an id or a place follows
+// from the modules by the rules of vehicles.Derive: health, critical health, a full tank, the cargo hold, and a new module's durability. The edit is one transaction. After
 // the rows are written it checks that the foreign keys of the tables it touched hold as they did before, and works the numbers out again from the modules it wrote and compares
 // them with what it wrote; a difference undoes the whole edit.
 //
@@ -99,8 +100,8 @@ func jsonText(v any) (string, error) {
 // spawnSpec is a request that has passed its checks.
 type spawnSpec struct {
 	classKey string
-	class    *catalog.VehicleClass
-	template catalog.VehicleTemplate
+	class    *vehicles.Class
+	template vehicles.Template
 	modules  map[string]string // slot -> module id, after the changes the request made to the template
 	changed  []map[string]any  // what the request changed in the template: slot, from, to
 	fuel     float64           // a fraction of a full tank
@@ -118,7 +119,7 @@ type spawnPlace struct {
 // ({map, x, y, z}; default next to the character) and "items" ([{template_id, quantity, quality}]).
 func (o *Ops) spawnSpecFrom(a Args) (*spawnSpec, error) {
 	key := a.Str("class")
-	cls, ok := catalog.VehicleClassFor(key)
+	cls, ok := vehicles.ClassFor(key)
 	if !ok {
 		return nil, apierr.Newf(apierr.ErrBadArgument, "unknown vehicle class %q: pick one from the list", clip(key))
 	}
@@ -161,11 +162,11 @@ func (o *Ops) spawnSpecFrom(a Args) (*spawnSpec, error) {
 				}
 				continue
 			}
-			id, ok := catalog.ResolveModule(sp.classKey, want)
+			id, ok := vehicles.ResolveModule(sp.classKey, want)
 			if !ok {
 				return nil, apierr.Newf(apierr.ErrBadArgument, "%q is not a module of the %s in the game's table", clip(want), strings.ToLower(cls.Label))
 			}
-			m, _ := catalog.VehicleModuleFor(id)
+			m, _ := vehicles.ModuleFor(id)
 			if m.Slot != slot {
 				return nil, apierr.Newf(apierr.ErrBadArgument, "%s goes in the %s slot, not %s", id, m.Slot, slot)
 			}
@@ -236,7 +237,7 @@ func (o *Ops) spawnSpecFrom(a Args) (*spawnSpec, error) {
 		}
 	}
 	ids := sp.moduleIDs()
-	d, err := catalog.DeriveVehicle(ids)
+	d, err := vehicles.Derive(ids)
 	if err != nil {
 		return nil, apierr.New(apierr.ErrBadArgument, err.Error())
 	}
@@ -246,7 +247,7 @@ func (o *Ops) spawnSpecFrom(a Args) (*spawnSpec, error) {
 	// the game's templates always use the same hull for the same utility slots: say so when a request builds a combination none of them has
 	if body := sp.modules["BodyHull"]; body != "" {
 		for _, slot := range []string{"UtilitySlot1", "UtilitySlot2", "UtilitySlot3"} {
-			if sp.modules[slot] != "" && cls.HasSlot(slot) && !catalog.BodyUtilitySeen(cls, catalog.ModuleBase(body), slot) {
+			if sp.modules[slot] != "" && cls.HasSlot(slot) && !vehicles.BodyUtilitySeen(cls, vehicles.ModuleBase(body), slot) {
 				sp.notes = append(sp.notes, fmt.Sprintf("none of the game's templates puts a module in %s with the rear hull %s; the game's slot table allows it, but it has not been seen built", slot, body))
 			}
 		}
@@ -273,7 +274,7 @@ func clip(s string) string {
 }
 
 // moduleStats is the stats a new module has: its durability at the table's maximum, the swatch of a player's vehicle, and the weapon stats of a weapon-type module.
-func moduleStats(m catalog.VehicleModule) (string, error) {
+func moduleStats(m vehicles.Module) (string, error) {
 	dur, err := jsonText(jf(m.Durability))
 	if err != nil {
 		return "", err
@@ -343,7 +344,7 @@ func sortedKV(m map[string]any) omap {
 	return out
 }
 
-func vehicleProperties(sp *spawnSpec, d catalog.Derived, abandoned string) (string, error) {
+func vehicleProperties(sp *spawnSpec, d vehicles.Derived, abandoned string) (string, error) {
 	// the order the game writes them in: the class's own extras (the sandcrawler's spice fill) first, then the common ones
 	own := append(sortedKV(sp.class.ExtraOwn), []kv{
 		{"m_HarnessedVehicleId", "!!act#0"}, {"m_InitialFuel", 0.0}, {"m_InitialHealth", 0.0}, {"m_SpawnerName", ""}, {"m_CustomizationId", "None"},
@@ -409,7 +410,7 @@ func (o *Ops) spawnVehicle(a Args, dry bool) (any, error) {
 	if p.Pawn == 0 {
 		return nil, errors.New("this save has no character body to put the vehicle next to")
 	}
-	d, err := catalog.DeriveVehicle(sp.moduleIDs())
+	d, err := vehicles.Derive(sp.moduleIDs())
 	if err != nil {
 		return nil, err
 	}
@@ -437,7 +438,7 @@ func (o *Ops) spawnVehicle(a Args, dry bool) (any, error) {
 }
 
 // writeVehicle writes the rows inside the caller's edit, checks them and answers with them.
-func writeVehicle(m *save.Mut, p player, sp *spawnSpec, d catalog.Derived) (map[string]any, error) {
+func writeVehicle(m *save.Mut, p player, sp *spawnSpec, d vehicles.Derived) (map[string]any, error) {
 	fkBefore, err := vehicleFKViolations(m)
 	if err != nil {
 		return nil, err
@@ -531,7 +532,7 @@ func writeVehicle(m *save.Mut, p player, sp *spawnSpec, d catalog.Derived) (map[
 	}
 	var modRows []map[string]any
 	for i, mid := range sp.moduleIDs() {
-		mod, _ := catalog.VehicleModuleFor(mid)
+		mod, _ := vehicles.ModuleFor(mid)
 		stats, err := moduleStats(mod)
 		if err != nil {
 			return nil, err
@@ -566,7 +567,7 @@ func writeVehicle(m *save.Mut, p player, sp *spawnSpec, d catalog.Derived) (map[
 
 	// the items in the cargo hold, by the Give Items path (slots, stack sizes, volume)
 	res := map[string]any{"ok": true, "id": id, "class": sp.classKey, "label": sp.class.Label, "template": sp.template.Name, "tier": sp.template.Tier,
-		"changed": sp.changed, "notes": sp.notes, "build": catalog.VehicleBuild(), "complete": true,
+		"changed": sp.changed, "notes": sp.notes, "build": vehicles.Build(), "complete": true,
 		"place": placeInfo}
 	placeInfo["nextToCharacter"] = sp.place == nil
 	res["items"], res["requested"], res["given"], res["notGiven"], res["volumeNote"] = []map[string]any{}, int64(0), int64(0), []map[string]any{}, ""
@@ -660,7 +661,7 @@ func newVehicleEntityIDs(m *save.Mut, p player) (actorEnt, invEnt int64, err err
 }
 
 // verifyVehicle reads the rows back and works the numbers out again from the modules it finds there.
-func verifyVehicle(m *save.Mut, id int64, sp *spawnSpec, want catalog.Derived) error {
+func verifyVehicle(m *save.Mut, id int64, sp *spawnSpec, want vehicles.Derived) error {
 	mods, err := m.Query(`select template_id t from vehicle_modules where vehicle_id=? order by id`, id)
 	if err != nil {
 		return err
@@ -669,7 +670,7 @@ func verifyVehicle(m *save.Mut, id int64, sp *spawnSpec, want catalog.Derived) e
 	for _, r := range mods {
 		ids = append(ids, fmt.Sprint(r["t"]))
 	}
-	got, err := catalog.DeriveVehicle(ids)
+	got, err := vehicles.Derive(ids)
 	if err != nil {
 		return err
 	}
@@ -726,13 +727,13 @@ func readVehicleRows(m *save.Mut, id int64) (map[string]any, error) {
 // VehicleCatalog describes what can be built, for the page: the game build, and for each class its slots, its templates and, for each slot, the modules that fit it.
 func (o *Ops) VehicleCatalog() (any, error) {
 	var classes []map[string]any
-	for _, key := range catalog.VehicleClassKeys() {
-		c, _ := catalog.VehicleClassFor(key)
+	for _, key := range vehicles.ClassKeys() {
+		c, _ := vehicles.ClassFor(key)
 		slots := make([]map[string]any, 0, len(c.Slots))
 		for _, s := range c.Slots {
 			var opts []map[string]any
-			for _, id := range catalog.ModulesFor(key, s.Slot) {
-				mod, _ := catalog.VehicleModuleFor(id)
+			for _, id := range vehicles.ModulesFor(key, s.Slot) {
+				mod, _ := vehicles.ModuleFor(id)
 				opts = append(opts, map[string]any{"id": id, "name": catalog.ModuleName(id), "grade": mod.Grade, "unique": mod.Unique, "cargoSlots": mod.CargoSlots, "cargoVolume": mod.CargoVolume, "weapon": mod.Weapon})
 			}
 			slots = append(slots, map[string]any{"slot": s.Slot, "mandatory": s.Mandatory, "parent": s.Parent, "modules": opts})
@@ -745,10 +746,10 @@ func (o *Ops) VehicleCatalog() (any, error) {
 					mods = append(mods, id)
 				}
 			}
-			dv, _ := catalog.DeriveVehicle(mods)
+			dv, _ := vehicles.Derive(mods)
 			tpls = append(tpls, map[string]any{"name": t.Name, "tier": t.Tier, "modules": t.Modules, "maxHealth": dv.MaxHealth, "fuel": dv.Fuel, "cargoSlots": dv.CargoSlots, "cargoVolume": dv.CargoVolume})
 		}
 		classes = append(classes, map[string]any{"key": key, "label": c.Label, "slots": slots, "templates": tpls})
 	}
-	return map[string]any{"build": catalog.VehicleBuild(), "classes": classes}, nil
+	return map[string]any{"build": vehicles.Build(), "classes": classes}, nil
 }

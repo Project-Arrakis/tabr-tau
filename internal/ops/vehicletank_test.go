@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
+	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/vehicles"
 )
 
 // The tank follows the grade of the vehicle's chassis (#469): a Mk6 buggy holds 300, a Mk5 Sandbike 140. The numbers below are written a second time here, from the
@@ -25,11 +25,11 @@ var chassisTanks = map[string]float64{
 // classOfChassis is the blueprint name of the class each chassis belongs to.
 func classOfChassis(t *testing.T, id string) string {
 	t.Helper()
-	m, ok := catalog.VehicleModuleFor(id)
+	m, ok := vehicles.ModuleFor(id)
 	if !ok {
 		t.Fatalf("%s is not in the catalog", id)
 	}
-	c, ok := catalog.VehicleClassFor(m.Class)
+	c, ok := vehicles.ClassFor(m.Class)
 	if !ok {
 		t.Fatalf("%s: no class %s", id, m.Class)
 	}
@@ -45,7 +45,7 @@ func TestTankOfEveryCatalogChassisIsTheTableOfTheGame(t *testing.T) {
 	}
 	// the catalog has no chassis with a tank that this table lacks (the container vehicle has none), and none the other way round
 	n := 0
-	for _, key := range catalog.VehicleClassKeys() {
+	for _, key := range vehicles.ClassKeys() {
 		for _, tpl := range mustClass(t, key).Templates {
 			id := tpl.Modules["Chassis"]
 			if _, ok := chassisTanks[id]; !ok && key != "ContainerVehicle" {
@@ -54,7 +54,7 @@ func TestTankOfEveryCatalogChassisIsTheTableOfTheGame(t *testing.T) {
 		}
 	}
 	for id := range chassisTanks {
-		m, _ := catalog.VehicleModuleFor(id)
+		m, _ := vehicles.ModuleFor(id)
 		if m.Kind != "Chassis" || m.Fuel != chassisTanks[id] {
 			t.Errorf("%s: catalog kind %s fuel %v", id, m.Kind, m.Fuel)
 		}
@@ -65,9 +65,9 @@ func TestTankOfEveryCatalogChassisIsTheTableOfTheGame(t *testing.T) {
 	}
 }
 
-func mustClass(t *testing.T, key string) *catalog.VehicleClass {
+func mustClass(t *testing.T, key string) *vehicles.Class {
 	t.Helper()
-	c, ok := catalog.VehicleClassFor(key)
+	c, ok := vehicles.ClassFor(key)
 	if !ok {
 		t.Fatalf("no class %s", key)
 	}
