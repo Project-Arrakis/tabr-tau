@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Project-Arrakis/tabr-tau/kit/gamefolder"
+	"github.com/Project-Arrakis/tabr-tau/kit/sessionlog"
 )
 
 // Lines copied in shape from real client logs (issue #65); ids and addresses are synthetic.
@@ -50,26 +53,26 @@ func TestTrackerSessions(t *testing.T) {
 		{"back in after a menu visit", []string{lnStart, lnLeave2, lnStart}, true},
 	}
 	for _, c := range cases {
-		if got := run(c.lines...).active; got != c.active {
+		if got := run(c.lines...).SPActive; got != c.active {
 			t.Errorf("%s: active=%v want %v", c.name, got, c.active)
 		}
 	}
 	tr := run(lnStart, lnLeave1)
-	if want := time.Date(2026, 10, 8, 17, 10, 51, 0, time.UTC); !tr.endedAt.Equal(want) {
-		t.Fatalf("end time %v want %v", tr.endedAt, want)
+	if want := time.Date(2026, 10, 8, 17, 10, 51, 0, time.UTC); !tr.EndedAt.Equal(want) {
+		t.Fatalf("end time %v want %v", tr.EndedAt, want)
 	}
-	if !run(lnStart).endedAt.IsZero() {
+	if !run(lnStart).EndedAt.IsZero() {
 		t.Fatal("an active session has no end time")
 	}
 }
 
 func TestLogPathFor(t *testing.T) {
 	p := filepath.Join("C:", "Users", "x", "AppData", "Local", "DuneSandbox", "Saved", "Cloud", "PlayerClientStorage", "FLS_retail", "123", "game.db")
-	got, err := logPathFor(p)
+	got, err := gamefolder.LogPathFor(p)
 	if err != nil || filepath.Base(got) != "DuneSandbox.log" || filepath.Base(filepath.Dir(got)) != "Logs" || filepath.Base(filepath.Dir(filepath.Dir(got))) != "Saved" {
 		t.Fatalf("%q %v", got, err)
 	}
-	if _, err := logPathFor(filepath.Join("tmp", "somewhere", "game.db")); err == nil {
+	if _, err := gamefolder.LogPathFor(filepath.Join("tmp", "somewhere", "game.db")); err == nil {
 		t.Fatal("a save outside the standard folder has no known log")
 	}
 }
@@ -201,34 +204,34 @@ func TestSinglePlayerStatusAcrossSplitReads(t *testing.T) {
 // QA-6: the tracker's smaller rules.
 func TestTrackerEdgeRules(t *testing.T) {
 	// an end marker with no session open changes nothing, and records no end time
-	if tr := run(lnLeave2, lnExit, lnClosed); tr.active || !tr.endedAt.IsZero() {
+	if tr := run(lnLeave2, lnExit, lnClosed); tr.SPActive || !tr.EndedAt.IsZero() {
 		t.Fatalf("an end with no session open must not record an end: %+v", tr)
 	}
 	// starting a session clears the earlier end time
-	if tr := run(lnStart, lnLeave2, lnStart); !tr.active || !tr.endedAt.IsZero() {
+	if tr := run(lnStart, lnLeave2, lnStart); !tr.SPActive || !tr.EndedAt.IsZero() {
 		t.Fatalf("a new session has no end time: %+v", tr)
 	}
 	// a repeated end marker keeps the first end time
 	tr := run(lnStart, lnLeave1, lnLeave2)
-	if want := time.Date(2026, 10, 8, 17, 10, 51, 0, time.UTC); !tr.endedAt.Equal(want) {
-		t.Fatalf("the first end time stands, got %v", tr.endedAt)
+	if want := time.Date(2026, 10, 8, 17, 10, 51, 0, time.UTC); !tr.EndedAt.Equal(want) {
+		t.Fatalf("the first end time stands, got %v", tr.EndedAt)
 	}
 	// an end line without a timestamp counts as just ended
 	noStamp := "LogNet: Display: Browse (net mode 2): /Game/Dune/Maps/CharacterSelectionCave/CB_CS_Cave?closed"
 	before := time.Now()
 	tr = run(lnStart, noStamp)
-	if tr.active || tr.endedAt.Before(before.Add(-time.Second)) {
+	if tr.SPActive || tr.EndedAt.Before(before.Add(-time.Second)) {
 		t.Fatalf("no timestamp: end counts as now, got %+v", tr)
 	}
 	// "?closed" only means the end when the line is a Browse line, and a Delaying Travel without ?closed (a challenge room) is no end
-	if tr := run(lnStart, "[2026.10.08-17.00.00:000]LogNet: Display: Something?closed"); !tr.active {
+	if tr := run(lnStart, "[2026.10.08-17.00.00:000]LogNet: Display: Something?closed"); !tr.SPActive {
 		t.Fatal("?closed outside a Browse line is not an end")
 	}
-	if tr := run(lnStart, lnRoom); !tr.active {
+	if tr := run(lnStart, lnRoom); !tr.SPActive {
 		t.Fatal("a challenge room is no end")
 	}
 	// a local map without ?listen changes nothing, also while a session is open
-	if tr := run(lnStart, lnCave); !tr.active {
+	if tr := run(lnStart, lnCave); !tr.SPActive {
 		t.Fatal("the character cave inside a session is not an end")
 	}
 }
@@ -248,9 +251,9 @@ func TestLogTime(t *testing.T) {
 		{"[abcdefghijklmnopqrs:686]rest", false},
 		{"", false},
 	} {
-		got := logTime(c.line)
+		got := sessionlog.LogTime(c.line)
 		if c.ok && !got.Equal(want) || !c.ok && !got.IsZero() {
-			t.Errorf("logTime(%q) = %v, ok want %v", c.line, got, c.ok)
+			t.Errorf("sessionlog.LogTime(%q) = %v, ok want %v", c.line, got, c.ok)
 		}
 	}
 }
@@ -263,21 +266,21 @@ const (
 
 func TestTrackerRecordsTheGamesLastWriteOfTheDatabase(t *testing.T) {
 	tr := run(lnStart, lnSave0, lnLeave2, lnSave1)
-	if want := time.Date(2026, 10, 8, 17, 10, 54, 0, time.UTC); !tr.lastSaveAt.Equal(want) {
-		t.Fatalf("last write %v want %v", tr.lastSaveAt, want)
+	if want := time.Date(2026, 10, 8, 17, 10, 54, 0, time.UTC); !tr.LastSaveAt.Equal(want) {
+		t.Fatalf("last write %v want %v", tr.LastSaveAt, want)
 	}
-	if tr.endedAt.IsZero() || !tr.lastSaveAt.After(tr.endedAt) {
-		t.Fatalf("the write after the end marker must be seen after it: ended %v, saved %v", tr.endedAt, tr.lastSaveAt)
+	if tr.EndedAt.IsZero() || !tr.LastSaveAt.After(tr.EndedAt) {
+		t.Fatalf("the write after the end marker must be seen after it: ended %v, saved %v", tr.EndedAt, tr.LastSaveAt)
 	}
-	if !run(lnStart, lnLeave2).lastSaveAt.IsZero() {
+	if !run(lnStart, lnLeave2).LastSaveAt.IsZero() {
 		t.Fatal("no write line, no write time")
 	}
-	if tr := run(lnStart, lnNoise); !tr.lastSaveAt.IsZero() {
+	if tr := run(lnStart, lnNoise); !tr.LastSaveAt.IsZero() {
 		t.Fatal("other lines are not writes")
 	}
 	// a line without a timestamp counts as just written, which only lengthens the wait
-	if tr := run("LogLowLevelPersistence: Display: DB(game.db:0): SaveDatabase - Database saved to disk."); time.Since(tr.lastSaveAt) > time.Minute || tr.lastSaveAt.IsZero() {
-		t.Fatalf("an untimed write line: %v", tr.lastSaveAt)
+	if tr := run("LogLowLevelPersistence: Display: DB(game.db:0): SaveDatabase - Database saved to disk."); time.Since(tr.LastSaveAt) > time.Minute || tr.LastSaveAt.IsZero() {
+		t.Fatalf("an untimed write line: %v", tr.LastSaveAt)
 	}
 }
 

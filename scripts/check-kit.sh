@@ -56,8 +56,10 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/fillables"
 	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/regions"
 	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/vehicles"
+	"github.com/Project-Arrakis/tabr-tau/kit/gamefolder"
 	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 	"github.com/Project-Arrakis/tabr-tau/kit/schema"
+	"github.com/Project-Arrakis/tabr-tau/kit/sessionlog"
 	"github.com/Project-Arrakis/tabr-tau/kit/webguard"
 )
 
@@ -125,6 +127,26 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println("consumer: schema ok")
+
+	if gamefolder.LogPath(gamefolder.SavedDir(`C:\L`)) != filepath.Join(`C:\L`, "DuneSandbox", "Saved", "Logs", "DuneSandbox.log") {
+		fmt.Fprintln(os.Stderr, "gamefolder failed")
+		os.Exit(1)
+	}
+	if _, err := gamefolder.LogPathFor(filepath.Join("elsewhere", "game.db")); err == nil {
+		fmt.Fprintln(os.Stderr, "gamefolder accepted a save outside the tree")
+		os.Exit(1)
+	}
+	fmt.Println("consumer: gamefolder ok")
+
+	var tr sessionlog.Tracker
+	tr.Feed(sessionlog.Policy{}, "[2026.10.08-16.22.23:461]LogNet: Display: Browse (net mode 0): /Game/Dune/Maps/Arrakis/SOC_1/Survival_1?listen", nil)
+	started := tr.SPActive
+	tr.Feed(sessionlog.Policy{}, "[2026.10.08-17.10.52:973]LogNet: Display: Browse (net mode 2): /Game/Dune/Maps/CharacterSelectionCave/CB_CS_Cave?closed", nil)
+	if !started || tr.SPActive || tr.EndedAt.IsZero() || sessionlog.Classify(sessionlog.Policy{Strict: true}, "[x]LogChat: Display: A: LogNet: Display: Browse (net mode 0): /Game/X?listen") != sessionlog.NoEvent {
+		fmt.Fprintln(os.Stderr, "sessionlog failed")
+		os.Exit(1)
+	}
+	fmt.Println("consumer: sessionlog ok")
 }
 GO
 (cd "$tmp/consumer" && go run .)

@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Project-Arrakis/tabr-tau/kit/gamefolder"
+	"github.com/Project-Arrakis/tabr-tau/kit/sessionlog"
 )
 
 // While a game process exists, a write to the save is allowed only when the evidence below says the game is at its menu with the save not loaded (#449; #419 had refused
@@ -26,6 +28,8 @@ import (
 // one more write, between 1.5 s and 6.9 s later (19 exits), and then none until the next session began (menu stays of 41 s to 381 s, and up to 760 s before a quit), when the log
 // shows "Using persistence implementation Sqlite" and "ApplyPatches" and an immediate write: the game opens the database when a session starts, not at the menu. What the logs do not show is a line saying the database was closed or unloaded, nor whether the game keeps a handle on
 // game.db at the menu; the rule below therefore uses the silence of the save markers, not a close marker.
+//
+// The markers and the transitions of the state machine are in the kit (kit/sessionlog, read here with the zero Policy: a marker counts wherever it stands in a line, and the write line is a marker), the log path in kit/gamefolder; the waits below are this editor's.
 
 const (
 	// dbQuietFor is how long after the game's last write of the database the editor still treats it as loaded, when the log does not show both the end of a session and the
@@ -47,61 +51,15 @@ const (
 	menuQuietAfterWrite = 23 * time.Second
 )
 
-// spTracker is the log state machine. It sees the log line by line and is the only place the markers live.
-type spTracker struct {
-	active     bool
-	endedAt    time.Time // log time of the last end marker; zero when none was seen or a session is active
-	lastSaveAt time.Time // log time of the last database write line; zero when none was seen
-}
+// spPolicy is how the editor reads the log: a marker counts wherever it stands in a line, and the line of the game's write of the database is a marker. The markers
+// and the transitions are in kit/sessionlog; what the editor does with the end time and the last write (the waits above) stays here.
+var spPolicy = sessionlog.Policy{}
+
+// spTracker is the log state machine of the kit (kit/sessionlog) read under the editor's policy: SPActive, EndedAt and LastSaveAt are the three answers the waits use.
+type spTracker struct{ sessionlog.Tracker }
 
 // feed applies one log line.
-func (t *spTracker) feed(line string) {
-	switch {
-	case strings.Contains(line, "SaveDatabase - Database saved to disk"):
-		t.lastSaveAt = logTime(line)
-		if t.lastSaveAt.IsZero() { // no timestamp: count it as just written, which only makes the wait longer
-			t.lastSaveAt = time.Now()
-		}
-	case strings.Contains(line, "Browse (net mode"):
-		target := line[strings.Index(line, "Browse (net mode"):]
-		if i := strings.Index(target, "): "); i >= 0 {
-			target = target[i+3:]
-		}
-		switch {
-		case strings.Contains(target, "?closed") || !strings.HasPrefix(target, "/"):
-			t.end(line)
-		case strings.Contains(target, "?listen"):
-			t.active, t.endedAt = true, time.Time{}
-		}
-	case strings.Contains(line, "Delaying Travel (net mode Listen Server): ?closed"),
-		strings.Contains(line, "FPlatformMisc::RequestExit("),
-		strings.Contains(line, "Log file closed"):
-		t.end(line)
-	}
-}
-
-func (t *spTracker) end(line string) {
-	if !t.active {
-		return
-	}
-	t.active = false
-	t.endedAt = logTime(line)
-	if t.endedAt.IsZero() { // no timestamp: count it as just ended, which only makes the wait longer
-		t.endedAt = time.Now()
-	}
-}
-
-// logTime parses the "[2026.10.08-17.10.51:686]" prefix (UTC); zero when absent.
-func logTime(line string) time.Time {
-	if len(line) < 25 || line[0] != '[' {
-		return time.Time{}
-	}
-	tm, err := time.Parse("2006.01.02-15.04.05", line[1:20])
-	if err != nil {
-		return time.Time{}
-	}
-	return tm
-}
+func (t *spTracker) feed(line string) { t.Tracker.Feed(spPolicy, line, nil) }
 
 // spLog follows one log file and keeps the tracker between reads, so the 15 MB log is read once and then only
 // what the game appended.
@@ -120,19 +78,6 @@ type spStatus struct {
 	Active     bool
 	EndedAt    time.Time
 	LastSaveAt time.Time // the game's last write of the database, from its log; zero when the log shows none
-}
-
-// logPathFor derives Saved/Logs/DuneSandbox.log from the standard save location
-// (Saved/Cloud/PlayerClientStorage/FLS_retail/<id>/game.db). A save kept anywhere else has no known log.
-func logPathFor(savePath string) (string, error) {
-	d := filepath.Dir(savePath)
-	for i := 0; i < 4; i++ {
-		d = filepath.Dir(d)
-	}
-	if !strings.EqualFold(filepath.Base(d), "Saved") {
-		return "", fmt.Errorf("the save is not in the game's standard folder, so its log cannot be found")
-	}
-	return filepath.Join(d, "Logs", "DuneSandbox.log"), nil
 }
 
 // The log is read in pieces of logChunk bytes, whatever its size, so a long session (a game log grows about 70 MB an hour, #530) is never held in memory as a whole and never
@@ -172,7 +117,7 @@ func absorb(b []byte) {
 // singlePlayerStatus reads whatever the game appended to its log since the last call, in chunks, whatever the size of the file: only a log that cannot be read at all is an
 // error (and then the edit is queued, see processState).
 func singlePlayerStatus(savePath string) (spStatus, error) {
-	lp, err := logPathFor(savePath)
+	lp, err := gamefolder.LogPathFor(savePath)
 	if err != nil {
 		return spStatus{}, err
 	}
@@ -213,7 +158,7 @@ func singlePlayerStatus(savePath string) (spStatus, error) {
 			return spStatus{}, fmt.Errorf("cannot read the game log: %w", err)
 		}
 	}
-	return spStatus{Active: spLog.tr.active, EndedAt: spLog.tr.endedAt, LastSaveAt: spLog.tr.lastSaveAt}, nil
+	return spStatus{Active: spLog.tr.SPActive, EndedAt: spLog.tr.EndedAt, LastSaveAt: spLog.tr.LastSaveAt}, nil
 }
 
 // QueuedUntilClears ends the Reason of a game that may still hold the save's rows. A caller that words the wait for itself (the automatic pass at launch, #499) takes it off.

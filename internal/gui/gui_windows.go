@@ -15,6 +15,7 @@ import (
 	"github.com/jchv/go-webview2"
 	"github.com/jchv/go-webview2/pkg/edge"
 
+	"github.com/Project-Arrakis/tabr-tau/kit/gamefolder"
 	"github.com/Project-Arrakis/tabr-tau/kit/webguard"
 )
 
@@ -262,7 +263,7 @@ func PickFile(title string) (string, error) {
 	t, _ := syscall.UTF16PtrFromString(title)
 	var dir *uint16
 	if base := os.Getenv("LOCALAPPDATA"); base != "" {
-		dir, _ = syscall.UTF16PtrFromString(filepath.Join(base, "DuneSandbox", "Saved", "Cloud", "PlayerClientStorage"))
+		dir, _ = syscall.UTF16PtrFromString(gamefolder.ClientStorageDir(gamefolder.SavedDir(base)))
 	}
 	const ofnFileMustExist, ofnPathMustExist, ofnNoChangeDir, ofnExplorer = 0x1000, 0x800, 0x8, 0x80000
 	ofn := openFileName{

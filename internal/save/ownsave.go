@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/Project-Arrakis/tabr-tau/kit/gamefolder"
 )
 
 // Which file is the game's own (#498). The game-running guard protects a file the game could have loaded. A save somewhere else (a copy kept for testing, a backup opened
@@ -60,7 +62,7 @@ func gamesOwnSave(path string) bool {
 	if strings.TrimSpace(local) == "" {
 		return true
 	}
-	tree := filepath.Join(local, "DuneSandbox", "Saved", "Cloud", "PlayerClientStorage")
+	tree := gamefolder.ClientStorageDir(gamefolder.SavedDir(local))
 	roots := []string{tree}
 	if real, _, ok := resolveExisting(tree); ok && real != tree {
 		roots = append(roots, real)

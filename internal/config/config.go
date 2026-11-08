@@ -17,6 +17,7 @@ import (
 
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/kit/durable"
+	"github.com/Project-Arrakis/tabr-tau/kit/gamefolder"
 )
 
 // bomStr is the UTF-8 byte order mark.
@@ -44,7 +45,7 @@ const keepConfigBackups = 60
 
 // DefaultDir is %LOCALAPPDATA%\DuneSandbox\Saved\Config\Windows.
 func DefaultDir() string {
-	return filepath.Join(os.Getenv("LOCALAPPDATA"), "DuneSandbox", "Saved", "Config", "Windows")
+	return gamefolder.ConfigDir(gamefolder.SavedDir(os.Getenv("LOCALAPPDATA")))
 }
 
 func (d Dir) file(name string) (string, error) {
