@@ -53,6 +53,7 @@ import (
 
 	"github.com/Project-Arrakis/tabr-tau/kit/durable"
 	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/fillables"
+	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/regions"
 	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/vehicles"
 	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
@@ -101,6 +102,12 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println("consumer: vehicles chassis tank ok")
+
+	if regions.Name("HaggaBasin", 3) != "Hagga Rift" || regions.Name("HaggaBasin", 0) != "" || len(regions.Names("HaggaBasin")) != 12 {
+		fmt.Fprintln(os.Stderr, "regions lookup failed")
+		os.Exit(1)
+	}
+	fmt.Println("consumer: regions lookup ok")
 }
 GO
 (cd "$tmp/consumer" && go run .)

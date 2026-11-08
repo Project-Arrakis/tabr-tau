@@ -4,6 +4,14 @@ Tags of this module are `kit/vX.Y.Z`. The module is version 0.x: until v1.0.0 an
 
 Each tag needs an entry here whose heading is `## vX.Y.Z` followed by the date: the release workflow uses the entry as the release notes and fails without it.
 
+## v0.5.0 (2026-11-08)
+
+New package, backward compatible: nothing in `savefile`, `durable`, `gamedata/fillables` or `gamedata/vehicles` changed. Refs #559.
+
+- New package `gamedata/regions`: the names of the 12 areas of the Hagga Basin by the area number that a save's map markers carry (`markers.area_id`). `Name(map, id)` (an empty string for area 0, an id with no name or a map with no names), `Names(map)` (a copy; nil for a map with no names), `Maps()`, and `Parse` for the table's text (strict: whole-number ids, no empty name, no empty map). The table, `hagga-regions.json`, moved from the editor's `internal/ops` without a change.
+- The data is a copy of a data file of an MIT-licensed project (the Dune Docker console), so `NOTICE` now carries that project's copyright and licence text and `PROVENANCE.md` has a row for it. The module still has no third-party dependency and no third-party code.
+- Which place gets which region (the editor takes the area of the nearest marker that has a named area) is not decided here.
+
 ## v0.4.0 (2026-11-08)
 
 New package, backward compatible: nothing in `savefile`, `durable` or `gamedata/fillables` changed. Refs #555.
