@@ -1,49 +1,20 @@
 package ops
 
 import (
-	_ "embed"
-	"encoding/json"
 	"math"
 	"sort"
-	"strconv"
+
+	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/regions"
 )
 
 // Region names (#406). The Hagga Basin is cut into 12 named sub-regions; the save's markers carry the number of the region they stand in
-// (markers.area_id) and the character's discovered regions are in map_areas, but neither says a name. hagga-regions.json is the Dune Docker
-// console's table of those names (MIT; see the notices): the console took them from the game's own area definitions. A place is given the region
+// (markers.area_id) and the character's discovered regions are in map_areas, but neither says a name. The table of those names is the kit's
+// gamedata/regions (the Dune Docker console's hagga-regions.json, MIT; see the notices): the console took them from the game's own area definitions. A place is given the region
 // of the nearest map marker that has a named area, which is how the console labels its vehicles; it is a good guess, not the game's own answer, so the
 // page calls it "near". Only the Hagga Basin has names; the Deep Desert and the other maps have none, and a thing there gets no region.
-//
-//go:embed hagga-regions.json
-var rawRegions []byte
-
-// regionTable is map name -> area id -> name.
-var regionTable = func() map[string]map[int64]string {
-	var file map[string]json.RawMessage
-	if err := json.Unmarshal(rawRegions, &file); err != nil {
-		panic("ops: hagga-regions.json is not valid: " + err.Error())
-	}
-	out := map[string]map[int64]string{}
-	for mapName, raw := range file {
-		var areas map[string]string
-		if json.Unmarshal(raw, &areas) != nil { // "_comment" is a string, not a table
-			continue
-		}
-		names := map[int64]string{}
-		for k, v := range areas {
-			if id, err := strconv.ParseInt(k, 10, 64); err == nil && v != "" {
-				names[id] = v
-			}
-		}
-		if len(names) > 0 {
-			out[mapName] = names
-		}
-	}
-	return out
-}()
 
 // regionNamesOf is the area id -> name table of one map, or nil when the map has none.
-func regionNamesOf(mapName string) map[int64]string { return regionTable[mapName] }
+func regionNamesOf(mapName string) map[int64]string { return regions.Names(mapName) }
 
 // regionPoint is a marker that stands in a named area.
 type regionPoint struct {
@@ -99,7 +70,7 @@ func (f *regionFinder) name(mapName string, x, y any) string {
 	if best < 0 {
 		return ""
 	}
-	return regionNamesOf(mapName)[best]
+	return regions.Name(mapName, best)
 }
 
 // label puts the region on a row that has map, x and y (the keys are given because the lists name them differently).

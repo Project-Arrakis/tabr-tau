@@ -16,6 +16,7 @@ go get github.com/Project-Arrakis/tabr-tau/kit@latest
 | `durable` | Replaces a file so that a crash or a power cut leaves the old one or the new one, never part of either: `WriteFile` (temp file in the same folder, fsync, rename with retries, folder flush), its two halves `WriteNew` and `Rename` for a caller that checks something between the flush and the rename, and `SyncDir`. Test hooks for every step. Since v0.2.0. |
 | `gamedata/fillables` | The game's table of fillable items (`DT_ItemTableFillables`): for each item template the most it holds, the amount a new item starts with, the liquid it takes (`fillables.Water`, `fillables.Blood`) and whether it is a container. `Table()`, `Lookup(template)`, `Source()`, and `Parse` and `Marshal` for the snapshot's text. Since v0.3.0. |
 | `gamedata/vehicles` | The game's vehicle tables for the seven vehicle classes that appear in saves: each class's actor path and row shape, slots and named templates, and one row per module (slot, kind, grade, durability, health, fuel tank, cargo). `ClassFor`, `ModuleFor`, `ModulesFor`, `ResolveModule`, `Derive` (the numbers a vehicle's rows hold, from its module ids), `Check`, `ChassisFuel` and `ChassisTanks` (the 23 chassis tanks), and `Parse` and `Marshal` for the snapshot's text. Since v0.4.0. |
+| `gamedata/regions` | The names of the 12 areas of the Hagga Basin by the area number that a save's map markers carry (`markers.area_id`): `Name(map, id)`, `Names(map)`, `Maps()`, and `Parse` for the table's text. Area 0 and an id with no name give no name. Since v0.5.0. |
 
 ```go
 blob, err := savefile.ReadCapped(path) // refuses an oversized file from its size
@@ -28,6 +29,7 @@ db, err := savefile.Decode(blob) // the SQLite database inside; a plain SQLite f
 ```go
 row, ok := fillables.Lookup("Literjon_T6") // {MaxAmount: 20000, Restriction: "Water", Container: true}
 fuel, ok := vehicles.ChassisFuel("BP_Buggy_CHOAM_C", "BuggyChassis_6") // 300, true
+area := regions.Name("HaggaBasin", 3) // "Hagga Rift"
 ```
 
 ```go
@@ -40,7 +42,7 @@ err := durable.WriteFile(path, data, 0o600, durable.Defaults())
 ## Rules of this module
 
 - **Standard library only.** The module has no third-party dependency and never imports an `internal` package of the editor. A test fails if either changes. A program that uses it therefore never has to move its other dependencies to match.
-- **Contents are listed in [PROVENANCE.md](PROVENANCE.md).** Code written for this project, and (later) tables of the game's identifiers and numbers. No game artwork, no saves.
+- **Contents are listed in [PROVENANCE.md](PROVENANCE.md).** Code written for this project, tables of the game's identifiers and numbers, and one data file of an MIT-licensed project with its licence in [NOTICE](NOTICE). No game artwork, no saves.
 - **Tags.** `kit/vX.Y.Z`, made by the repository owner from `main` after the checks pass. The tag workflow tests the module again and creates a GitHub release from the matching CHANGELOG entry.
 - **Licence.** MIT, as the repository ([LICENSE](LICENSE), [NOTICE](NOTICE)). Unofficial: not affiliated with or endorsed by Funcom.
 

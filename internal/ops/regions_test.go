@@ -135,13 +135,13 @@ func TestNoMarkersMeansNoRegion(t *testing.T) {
 	}
 }
 
-// The data file is the console's, unchanged, and has its notice.
+// The data file is the console's, unchanged (it now lives in the kit module, which carries the licence in kit/NOTICE), and has its notice here too.
 func TestTheRegionFileHasItsNotice(t *testing.T) {
 	b, err := os.ReadFile("../notices/THIRD-PARTY-NOTICES.md")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"internal/ops/hagga-regions.json", "hagga-regions.json", "82548d72"} {
+	for _, want := range []string{"kit/gamedata/regions/hagga-regions.json", "hagga-regions.json", "82548d72"} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("the notices do not say %q", want)
 		}

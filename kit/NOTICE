@@ -7,9 +7,42 @@ Licensed under the MIT Licence (see LICENSE). This module is part of the tabr-ta
 This is an unofficial project. It is not affiliated with or endorsed by Funcom.
 Dune: Awakening and its names belong to their owners.
 
-The module contains code only (and, in later versions, tables of the game's identifiers and numbers).
-It contains no game artwork, no text taken from the game, and no saves. See PROVENANCE.md for where
-each part comes from.
+The module contains code and tables of the game's identifiers, names and numbers.
+It contains no game artwork and no saves. See PROVENANCE.md for where each part comes from.
 
 The module imports the Go standard library only. It has no third-party dependency, so it carries no
-third-party licence text. A test (boundary_test.go) fails if that ever changes; a change would be listed here first.
+third-party code. A test (boundary_test.go) fails if that ever changes; a change would be listed here first.
+
+Third-party data
+----------------
+
+gamedata/regions/hagga-regions.json is a copy, unchanged, of runtime/data/hagga-regions.json of
+https://github.com/Red-Blink/dune-awakening-selfhost-docker (commit 82548d72), which is MIT-licensed.
+It gives the names of the 12 areas of the Hagga Basin, keyed by the area number that the game's map
+markers carry; the file's own header says the names were taken from the game's area definitions.
+The licence of that project is reproduced here as it requires:
+
+MIT License
+
+Copyright (c) 2026 RedBlink
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+The game's names belong to their owners; this module is unofficial and not affiliated with or
+endorsed by Funcom.
