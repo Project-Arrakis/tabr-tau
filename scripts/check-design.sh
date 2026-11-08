@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# Checks that the design module (./design) stands on its own.
+#
+#   1. The editor's go.mod does not require the design module (nothing in the editor depends on it yet): the module is checked
+#      as published, never through a replace that would hide a missing tag.
+#   2. A clean export of the tracked files of ./design (what a tag would publish) vets and passes its own tests, and carries
+#      the files a tag must carry.
+#   3. A small program outside the repository builds and runs against that export, serves the stylesheet and reads it.
+#      Nothing from the editor may be needed.
+#
+# Needs a Go toolchain and git. Run from anywhere inside the repository, after the files are committed (step 2 uses HEAD):
+#   bash scripts/check-design.sh
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+export GOWORK=off
+
+if grep -Eq 'tabr-tau/design' go.mod; then
+  echo "ERROR: the editor's go.mod names the design module; add the replace/tag rules to this script before the editor adopts it" >&2
+  exit 1
+fi
+echo "the editor does not depend on ./design"
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+git archive HEAD design | tar -x -C "$tmp"
+for f in go.mod LICENSE NOTICE VERSION CHANGELOG.md assets/tokens.css; do
+  if [ ! -s "$tmp/design/$f" ]; then
+    echo "ERROR: design/$f is missing or empty in the export" >&2
+    exit 1
+  fi
+done
+(cd "$tmp/design" && go vet ./... && go test -count=1 ./...)
+
+# the version files agree with each other (the tests check the same; this fails the job with a plain message first)
+version="$(tr -d '[:space:]' < "$tmp/design/VERSION")"
+if ! grep -q "^## ${version}\( \|$\)" "$tmp/design/CHANGELOG.md"; then
+  echo "ERROR: design/CHANGELOG.md has no entry '## ${version}'" >&2
+  exit 1
+fi
+if ! grep -q "const Version = \"${version}\"" "$tmp/design/design.go"; then
+  echo "ERROR: design.Version is not ${version}" >&2
+  exit 1
+fi
+
+mkdir "$tmp/consumer"
+cat > "$tmp/consumer/go.mod" <<'MOD'
+module example.test/consumer
+
+go 1.26.0
+
+require github.com/Project-Arrakis/tabr-tau/design v0.0.0-00010101000000-000000000000
+
+replace github.com/Project-Arrakis/tabr-tau/design => ../design
+MOD
+cat > "$tmp/consumer/main.go" <<'GO'
+package main
+
+import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
+
+	"github.com/Project-Arrakis/tabr-tau/design"
+)
+
+func main() {
+	mux := http.NewServeMux()
+	mux.Handle("/design/", http.StripPrefix("/design/", design.Handler()))
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, httptest.NewRequest("GET", "/design/tokens.css", nil))
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "--c-ground:") || w.Body.String() != string(design.Tokens()) {
+		fmt.Fprintln(os.Stderr, "the stylesheet was not served:", w.Code)
+		os.Exit(1)
+	}
+	fmt.Println("consumer: tokens served by", design.Version)
+}
+GO
+(cd "$tmp/consumer" && go run .)
+echo "design checks passed"

@@ -1,0 +1,14 @@
+design: shared design tokens (and, later, components) for the Tabr programs
+Copyright (c) 2026 Project Arrakis contributors
+
+Licensed under the MIT Licence (see LICENSE). This module is part of the tabr-tau repository
+(https://github.com/Project-Arrakis/tabr-tau) and is versioned with tags of the form design/vX.Y.Z.
+
+This is an unofficial project. It is not affiliated with or endorsed by Funcom.
+Dune: Awakening and its names belong to their owners.
+
+The module contains a stylesheet and Go code only. It contains no game artwork, no text taken from the game,
+no font, no logo and no third-party code. See PROVENANCE.md for where each part comes from.
+
+The module imports the Go standard library only. It has no third-party dependency, so it carries no
+third-party licence text. A test (boundary_test.go) fails if that ever changes; a change would be listed here first.
