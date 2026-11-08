@@ -16,7 +16,7 @@ import (
 func spPinCorpus() []string {
 	rng := rand.New(rand.NewPCG(1, 2))
 	prefixes := []string{"", "[x]", "[2026.10.08-17.57.43:218][ 14][1][0]", "[2026.10.08-17.57.44:218]", "[2026.10.08-17.58.01:218][1]", "[a][b]", "[2026.10.09-01.02.03:004][9][9][9]", " [x]", "\xef\xbb\xbf", "[" + strings.Repeat("q", 41) + "]"}
-	cats := []string{"", "LogNet: Display: ", "LogChat: Display: Mallory: ", "LogBattlEye: Display: ", "LogWindows: Log: ", "Log: ", "LogLowLevelPersistence: DB(game.db:0): "}
+	cats := []string{"", "LogNet: Display: ", "LogChat: Display: Player: ", "LogOther: Display: ", "LogWindows: Log: ", "Log: ", "LogLowLevelPersistence: DB(game.db:0): "}
 	bodies := []string{
 		"Browse (net mode 0): /Game/Dune/Maps/Arrakis/SOC_1/Survival_1?listen",
 		"Browse (net mode 2): /Game/Dune/Maps/SocialHubs/Arrakeen/SH_Arrakeen?listen?flowtype=Travel",
@@ -30,7 +30,7 @@ func spPinCorpus() []string {
 		"Delaying Travel (net mode Listen Server): /Game/Dune/Maps/ChallengeRoom/X?delayed_travel",
 		"FPlatformMisc::RequestExit(0, <NoCallSiteInfo>)", "Log file closed",
 		"SaveDatabase - Database saved to disk. Saving again in 60 seconds.",
-		"BEClientPrintMessage:Initialized", "nothing of interest", "",
+		"OtherClient: Initialized", "nothing of interest", "",
 	}
 	lines := make([]string, 60000)
 	for i := range lines {

@@ -142,7 +142,7 @@ func main() {
 	tr.Feed(sessionlog.Policy{}, "[2026.10.08-16.22.23:461]LogNet: Display: Browse (net mode 0): /Game/Dune/Maps/Arrakis/SOC_1/Survival_1?listen", nil)
 	started := tr.SPActive
 	tr.Feed(sessionlog.Policy{}, "[2026.10.08-17.10.52:973]LogNet: Display: Browse (net mode 2): /Game/Dune/Maps/CharacterSelectionCave/CB_CS_Cave?closed", nil)
-	if !started || tr.SPActive || tr.EndedAt.IsZero() || sessionlog.Classify(sessionlog.Policy{Strict: true}, "[x]LogChat: Display: A: LogNet: Display: Browse (net mode 0): /Game/X?listen") != sessionlog.NoEvent {
+	if !started || tr.SPActive || tr.EndedAt.IsZero() || sessionlog.Classify(sessionlog.Policy{Strict: true}, "[x]LogChat: Display: Player: LogNet: Display: Browse (net mode 0): /Game/X?listen") != sessionlog.NoEvent {
 		fmt.Fprintln(os.Stderr, "sessionlog failed")
 		os.Exit(1)
 	}

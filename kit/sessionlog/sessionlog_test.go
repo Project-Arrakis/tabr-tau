@@ -28,7 +28,7 @@ var (
 )
 
 func TestClassify(t *testing.T) {
-	chat := "[x]LogChat: Display: Mallory: "
+	chat := "[x]LogChat: Display: Player: "
 	cases := []struct {
 		name         string
 		line         string
