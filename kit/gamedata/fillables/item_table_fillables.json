@@ -1,0 +1,411 @@
+{
+ "source": "DT_ItemTableFillables (/Game/Dune/Systems/Items/DT_ItemTableFillables), read from the installed game's content files on disk, read-only, on 2026-10-25 (game build 1.5.15.x); nothing was written to the game",
+ "rows": [
+  {
+   "name": "AdvancedStillsuit",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Bloodsack_01",
+   "maxAmount": 3000,
+   "currentAmount": 0,
+   "restriction": "Blood",
+   "container": true
+  },
+  {
+   "name": "Bloodsack_02",
+   "maxAmount": 9000,
+   "currentAmount": 0,
+   "restriction": "Blood",
+   "container": true
+  },
+  {
+   "name": "Bloodsack_03",
+   "maxAmount": 15000,
+   "currentAmount": 0,
+   "restriction": "Blood",
+   "container": true
+  },
+  {
+   "name": "Bloodsack_T6",
+   "maxAmount": 24000,
+   "currentAmount": 0,
+   "restriction": "Blood",
+   "container": true
+  },
+  {
+   "name": "Bloodsack_Unique_Durable_02",
+   "maxAmount": 13000,
+   "currentAmount": 0,
+   "restriction": "Blood",
+   "container": true
+  },
+  {
+   "name": "Bloodsack_Unique_Durable_03",
+   "maxAmount": 16000,
+   "currentAmount": 0,
+   "restriction": "Blood",
+   "container": true
+  },
+  {
+   "name": "Bloodsack_Unique_Durable_04",
+   "maxAmount": 19000,
+   "currentAmount": 0,
+   "restriction": "Blood",
+   "container": true
+  },
+  {
+   "name": "Bloodsack_Unique_Durable_05",
+   "maxAmount": 22000,
+   "currentAmount": 0,
+   "restriction": "Blood",
+   "container": true
+  },
+  {
+   "name": "Bloodsack_Unique_Durable_06",
+   "maxAmount": 30000,
+   "currentAmount": 0,
+   "restriction": "Blood",
+   "container": true
+  },
+  {
+   "name": "Combat_Nati_FremenExile04_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Decajon",
+   "maxAmount": 10000,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": true
+  },
+  {
+   "name": "Dewpack",
+   "maxAmount": 250,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": true
+  },
+  {
+   "name": "HighCapacityLiterjon",
+   "maxAmount": 1500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": true
+  },
+  {
+   "name": "HighCapacityLiterjon_02",
+   "maxAmount": 1750,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": true
+  },
+  {
+   "name": "HighCapacityLiterjon_03",
+   "maxAmount": 2000,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": true
+  },
+  {
+   "name": "HighCapacityLiterjon_04",
+   "maxAmount": 2250,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": true
+  },
+  {
+   "name": "HighCapacityLiterjon_05",
+   "maxAmount": 2500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": true
+  },
+  {
+   "name": "HighCapacityLiterjon_06",
+   "maxAmount": 3000,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": true
+  },
+  {
+   "name": "Literjon",
+   "maxAmount": 1000,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": true
+  },
+  {
+   "name": "Literjon_03",
+   "maxAmount": 1100,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": true
+  },
+  {
+   "name": "Literjon_04",
+   "maxAmount": 1200,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": true
+  },
+  {
+   "name": "Literjon_05",
+   "maxAmount": 1300,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": true
+  },
+  {
+   "name": "Literjon_06",
+   "maxAmount": 1400,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": true
+  },
+  {
+   "name": "Literjon_07",
+   "maxAmount": 1500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": true
+  },
+  {
+   "name": "Literjon_08",
+   "maxAmount": 1600,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": true
+  },
+  {
+   "name": "Literjon_09",
+   "maxAmount": 1700,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": true
+  },
+  {
+   "name": "Literjon_T6",
+   "maxAmount": 20000,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": true
+  },
+  {
+   "name": "SimpleStillsuit",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Choam_01_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Choam_02_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Choam_04_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Choam_05_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Choam_06_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Choam_Unique_Dashed02_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Choam_Unique_Dashed03_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Choam_Unique_Dashed04_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Choam_Unique_Dashed05_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Choam_Unique_Dashed06_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Nati_05_Body",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Nati_06_Body",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Nati_07_Body",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Nati_08_Body",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Nati_Arrakeen05_Body",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Neut_Leaking01_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Neut_Patchy02_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Unique_Armored_01_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Unique_Armored_02_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Unique_Armored_03_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Unique_Armored_04_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Unique_Armored_05_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Unique_Armored_06_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Unique_Efficient_04_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Unique_Efficient_05_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Unique_Efficient_06_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Unique_HighCapacity_06_Top",
+   "maxAmount": 1500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "Stillsuit_Unique_ThermalSuit_06_Top",
+   "maxAmount": 500,
+   "currentAmount": 0,
+   "restriction": "Water",
+   "container": false
+  },
+  {
+   "name": "WaterPack_Consumable",
+   "maxAmount": 100,
+   "currentAmount": 100,
+   "restriction": "Water",
+   "container": false
+  }
+ ]
+}

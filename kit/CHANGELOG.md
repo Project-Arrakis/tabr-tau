@@ -4,6 +4,14 @@ Tags of this module are `kit/vX.Y.Z`. The module is version 0.x: until v1.0.0 an
 
 Each tag needs an entry here whose heading is `## vX.Y.Z` followed by the date: the release workflow uses the entry as the release notes and fails without it.
 
+## v0.3.0 (2026-11-08)
+
+New package, backward compatible: nothing in `savefile` or `durable` changed. Refs #551.
+
+- New package `gamedata/fillables`: the game's table of fillable items (`DT_ItemTableFillables`), 58 rows sorted by name. Each row is an item template with the most it holds (`MaxAmount`), the amount a new item starts with (`CurrentAmount`, 0 except for the consumable `WaterPack_Consumable`), the liquid it takes (`fillables.Water` or `fillables.Blood`) and whether it is a container (the worn stillsuits are not). `Table()` returns a copy of the rows, `Lookup(template)` one row and `Source()` where the snapshot came from. `Parse` reads and `Marshal` writes the snapshot's text (rows sorted by name, one space of indent, a final newline), so a refreshed snapshot has one format.
+- The data is a snapshot of the table as read from the installed game's content files (build 1.5.15.x); the values are the ones the editor already carried in its capacity maps, and the editor now builds those maps from this table.
+- Which rows a program fills, and what it does with the stillsuits, is not decided here.
+
 ## v0.2.0 (2026-11-08)
 
 New package, backward compatible: nothing in `savefile` changed. Refs #549.

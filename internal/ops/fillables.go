@@ -6,91 +6,50 @@ import (
 	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/fillables"
 )
 
-// waterCapacity is how much water each water container holds when full. The unit matches the save's
+// The capacities of the fillable items are the game's own table of them (DT_ItemTableFillables, the row named by the item's template, field MaxAmount), kept in the kit module as
+// kit/gamedata/fillables (a snapshot of the table, read from the installed game's content files; issues #472, #482 and #551; docs/design/2026-10-28-fillable-capacities.md
+// and docs/design/2026-10-28-blood-sack-capacity.md have the whole table). The editor sorts the rows into three maps by the rule it has always followed, and tests that pin
+// every number a second time (fillable_capacity_test.go, bloodsack_capacity_test.go) keep a change of the table from going unnoticed. The unit matches the save's
 // FFillableItemStats.CurrentAmount (a half-full Literjon Mk6 holds 11000 of 20000).
 //
-// Source: the game's item data, the table of fillable items (DT_ItemTableFillables, the row named by the item's template, field MaxAmount, with
-// FillableTypeRestriction Water and bIsContainer true), read 2026-10-28 (issue #482; docs/design/2026-10-28-fillable-capacities.md has the whole table).
-// The first nine entries were first read in game; the table gives the same numbers. A container with a fill record
-// that is not listed here is skipped and reported, never guessed. An empty container that is not listed has no record to recognise it by, so it is left
-// alone without a report.
-var waterCapacity = map[string]float64{
-	"Literjon":                1000,
-	"Literjon_T6":             20000,
-	"Decajon":                 10000,
-	"HighCapacityLiterjon":    1500,
-	"HighCapacityLiterjon_02": 1750,
-	"HighCapacityLiterjon_03": 2000,
-	"HighCapacityLiterjon_04": 2250,
-	"HighCapacityLiterjon_05": 2500,
-	"HighCapacityLiterjon_06": 3000,
-	// the other Literjon grades and the Dewpack (issue #482)
-	"Literjon_03": 1100,
-	"Literjon_04": 1200,
-	"Literjon_05": 1300,
-	"Literjon_06": 1400,
-	"Literjon_07": 1500,
-	"Literjon_08": 1600,
-	"Literjon_09": 1700,
-	"Dewpack":     250,
-}
+// A container with a fill record that is not in the maps is skipped and reported, never guessed. An empty container that is not listed has no record to recognise it by, so it
+// is left alone without a report.
+var (
+	// waterCapacity is how much water each water container holds when full: the rows whose liquid is Water and that are containers (the Literjons of every grade, the Decajon and
+	// the Dewpack). The first nine were first read in game; the table gives the same numbers.
+	waterCapacity = map[string]float64{}
 
-// stillsuitCapacity is the water store of the worn stillsuits and their kin: the rows of the game's table of fillable items whose FillableTypeRestriction
-// is Water and whose bIsContainer is false (issue #482). The suit is not a container the person fills: the game puts the water it recovers into it and
-// changes the amount all the time, and the save keeps no liquid type for it. So the editor shows the amount against this capacity but never writes it
-// (Fill water containers and Fill all liquids leave a suit alone, without reporting it as unknown). 500 each, 1500 for the high capacity suit.
-var stillsuitCapacity = map[string]float64{
-	"AdvancedStillsuit":                    500,
-	"Combat_Nati_FremenExile04_Top":        500,
-	"SimpleStillsuit":                      500,
-	"Stillsuit_Choam_01_Top":               500,
-	"Stillsuit_Choam_02_Top":               500,
-	"Stillsuit_Choam_04_Top":               500,
-	"Stillsuit_Choam_05_Top":               500,
-	"Stillsuit_Choam_06_Top":               500,
-	"Stillsuit_Choam_Unique_Dashed02_Top":  500,
-	"Stillsuit_Choam_Unique_Dashed03_Top":  500,
-	"Stillsuit_Choam_Unique_Dashed04_Top":  500,
-	"Stillsuit_Choam_Unique_Dashed05_Top":  500,
-	"Stillsuit_Choam_Unique_Dashed06_Top":  500,
-	"Stillsuit_Nati_05_Body":               500,
-	"Stillsuit_Nati_06_Body":               500,
-	"Stillsuit_Nati_07_Body":               500,
-	"Stillsuit_Nati_08_Body":               500,
-	"Stillsuit_Nati_Arrakeen05_Body":       500,
-	"Stillsuit_Neut_Leaking01_Top":         500,
-	"Stillsuit_Neut_Patchy02_Top":          500,
-	"Stillsuit_Unique_Armored_01_Top":      500,
-	"Stillsuit_Unique_Armored_02_Top":      500,
-	"Stillsuit_Unique_Armored_03_Top":      500,
-	"Stillsuit_Unique_Armored_04_Top":      500,
-	"Stillsuit_Unique_Armored_05_Top":      500,
-	"Stillsuit_Unique_Armored_06_Top":      500,
-	"Stillsuit_Unique_Efficient_04_Top":    500,
-	"Stillsuit_Unique_Efficient_05_Top":    500,
-	"Stillsuit_Unique_Efficient_06_Top":    500,
-	"Stillsuit_Unique_HighCapacity_06_Top": 1500,
-	"Stillsuit_Unique_ThermalSuit_06_Top":  500,
-}
+	// stillsuitCapacity is the water store of the worn stillsuits and their kin: the rows whose liquid is Water and that are not containers (issue #482). The suit is not a
+	// container the person fills: the game puts the water it recovers into it and changes the amount all the time, and the save keeps no liquid type for it. So the editor shows
+	// the amount against this capacity but never writes it (Fill water containers and Fill all liquids leave a suit alone, without reporting it as unknown). 500 each, 1500 for
+	// the high capacity suit.
+	stillsuitCapacity = map[string]float64{}
 
-// bloodCapacity is how much blood each blood sack holds when full, in the unit of the save's FFillableItemStats.CurrentAmount.
-//
-// Source: the game's item data, the table of fillable items (DT_ItemTableFillables, the row named by the item's template, field MaxAmount),
-// read 2026-10-28 (issue #472; docs/design/2026-10-28-blood-sack-capacity.md has the table and how it was checked against the wiki and saved
-// values). Bloodsack_01 and Bloodsack_Unique_Durable_06 were first entered from the largest amount seen in a save (2026-10-23, issue #60); the table
-// gives the same numbers. A blood sack template that is not listed here is left alone and reported, because its capacity is unknown.
-var bloodCapacity = map[string]float64{
-	"Bloodsack_01":                3000,
-	"Bloodsack_02":                9000,
-	"Bloodsack_03":                15000,
-	"Bloodsack_T6":                24000,
-	"Bloodsack_Unique_Durable_02": 13000,
-	"Bloodsack_Unique_Durable_03": 16000,
-	"Bloodsack_Unique_Durable_04": 19000,
-	"Bloodsack_Unique_Durable_05": 22000,
-	"Bloodsack_Unique_Durable_06": 30000,
+	// bloodCapacity is how much blood each blood sack holds when full, in the unit of the save's FFillableItemStats.CurrentAmount: the rows whose liquid is Blood. Bloodsack_01
+	// and Bloodsack_Unique_Durable_06 were first entered from the largest amount seen in a save (2026-10-23, issue #60); the table gives the same numbers. A blood sack template
+	// that is not listed is left alone and reported, because its capacity is unknown.
+	bloodCapacity = map[string]float64{}
+)
+
+// notFillableByThisRule are the table rows that belong to none of the three maps: WaterPack_Consumable is drunk, it is not a container and not a worn suit, and it has never been
+// in the maps (a fill of it would be a fill of something the person is about to use up).
+var notFillableByThisRule = map[string]bool{"WaterPack_Consumable": true}
+
+func init() {
+	for _, r := range fillables.Table() {
+		switch {
+		case notFillableByThisRule[r.Name]:
+		case r.Restriction == fillables.Blood && r.Container:
+			bloodCapacity[r.Name] = float64(r.MaxAmount)
+		case r.Restriction == fillables.Water && r.Container:
+			waterCapacity[r.Name] = float64(r.MaxAmount)
+		case r.Restriction == fillables.Water:
+			stillsuitCapacity[r.Name] = float64(r.MaxAmount)
+		}
+	}
 }
 
 // waterQuery lists the items of the character's own inventories (backpack, worn gear, loadout) that have stats, with what each holds.
