@@ -1,6 +1,6 @@
 # How much every fillable item holds, and what Fill does with a stillsuit (#482)
 
-Status: built. The tables are `waterCapacity` and `stillsuitCapacity` in `internal/ops/fillables.go` (the blood sacks' `bloodCapacity` is from #472); the tests are in `internal/ops/fillable_capacity_test.go` and `web-tests/fillview.test.mjs`. Nothing here has been checked in the game yet.
+Status: built. The tables are `waterCapacity` and `stillsuitCapacity` in `internal/ops/fillables.go` (since #551 filled from the table kept in `kit/gamedata/fillables`, not typed there) (the blood sacks' `bloodCapacity` is from #472); the tests are in `internal/ops/fillable_capacity_test.go` and `web-tests/fillview.test.mjs`. Nothing here has been checked in the game yet.
 
 ## Problem
 

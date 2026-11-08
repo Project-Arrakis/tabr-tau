@@ -4,3 +4,5 @@ internal/save/schema.sql text eol=lf
 docs/evidence/single-player-schema.ddl.sql text eol=lf
 # Shell scripts run under bash on the Windows runner too: a CRLF checkout would break them (#437).
 *.sh text eol=lf
+# The fillable-items snapshot is compared byte for byte with its canonical form by a test, so it is LF in every checkout (#551).
+kit/gamedata/**/*.json text eol=lf

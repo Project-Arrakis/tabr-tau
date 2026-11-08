@@ -52,6 +52,7 @@ import (
 	"path/filepath"
 
 	"github.com/Project-Arrakis/tabr-tau/kit/durable"
+	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/fillables"
 	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
@@ -87,6 +88,12 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println("consumer: durable write ok")
+
+	if r, ok := fillables.Lookup("Literjon_T6"); !ok || r.MaxAmount != 20000 || r.Restriction != fillables.Water || !r.Container {
+		fmt.Fprintln(os.Stderr, "fillables lookup failed:", r, ok)
+		os.Exit(1)
+	}
+	fmt.Println("consumer: fillables lookup ok")
 }
 GO
 (cd "$tmp/consumer" && go run .)

@@ -1,6 +1,6 @@
 # How much each blood sack holds (#472)
 
-Status: built. The table is `bloodCapacity` in `internal/ops/fillables.go`; the tests are in `internal/ops/bloodsack_capacity_test.go`. The fill has not been checked in the game for the new templates.
+Status: built. The table is `bloodCapacity` in `internal/ops/fillables.go` (since #551 filled from the table kept in `kit/gamedata/fillables`, not typed there); the tests are in `internal/ops/bloodsack_capacity_test.go`. The fill has not been checked in the game for the new templates.
 
 ## Problem
 
