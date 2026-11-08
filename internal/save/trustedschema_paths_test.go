@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
 // Every connection that opens a save file runs with trusted_schema OFF (register 2026-09-30 F-03, review R6 L3): the working copy, its read-only handle, the baseline copy, the
@@ -35,7 +37,7 @@ func TestEveryConnectionThatOpensASaveDoesNotTrustItsSchema(t *testing.T) {
 	name := f.Name()
 	defer os.Remove(name)
 	blob, _ := os.ReadFile(p)
-	raw, err := Decode(blob)
+	raw, err := savefile.Decode(blob)
 	if err != nil {
 		t.Fatal(err)
 	}

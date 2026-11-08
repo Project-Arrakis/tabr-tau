@@ -76,6 +76,63 @@ jobs:
         shell: bash
         run: bash scripts/slowest-tests.sh test.log 10
 
+  # The kit module (./kit) is a separate Go module: `go test ./...` at the top skips it, so it has its own jobs (#547).
+  kit:
+    name: kit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: kit
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # the editor's go.mod names the newest patch release; kit/go.mod asks only for the oldest Go it supports
+          go-version-file: go.mod
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then echo "Not gofmt-formatted:"; echo "$unformatted"; exit 1; fi
+      - name: go mod verify
+        run: go mod verify
+      - name: go vet
+        run: go vet ./...
+      - name: staticcheck
+        run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.1 ./...
+      - name: go test (race, coverage; includes the standard-library-only and no-internal-import tests)
+        run: go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+      - name: coverage summary
+        run: go tool cover -func=coverage.out | tail -1
+      - name: fuzz Decode for a short while
+        run: go test -run '^$' -fuzz '^FuzzDecode$' -fuzztime 20s ./savefile
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+      - name: the editor builds against the module in the tree; a clean export of ./kit builds, tests and is usable on its own
+        working-directory: .
+        run: bash scripts/check-kit.sh
+
+  kit-windows:
+    name: kit-windows
+    runs-on: windows-2025
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: kit
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: go vet
+        run: go vet ./...
+      - name: go test
+        run: go test -count=1 -timeout 5m ./...
+
   govulncheck:
     name: govulncheck
     runs-on: ubuntu-24.04

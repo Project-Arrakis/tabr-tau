@@ -1,9 +1,14 @@
-// Package save reads and writes Dune: Awakening client saves.
+// Package savefile reads and writes the container that Dune: Awakening client saves are stored in.
 //
 // game.db, game_prepatch.db and autosave/*.bak share one container: a
 // little-endian uint32 flag (1), a little-endian uint32 uncompressed size and a
-// zlib stream whose payload is a plain SQLite 3 database.
-package save
+// zlib stream whose payload is a plain SQLite 3 database. Decode and Encode
+// convert between that container and the SQLite bytes; ReadCapped reads a file
+// without ever holding more than Limit bytes of it.
+//
+// Every input is treated as untrusted: a save is a file people share, and a
+// small file can claim to hold a huge database.
+package savefile
 
 import (
 	"bytes"
@@ -19,28 +24,31 @@ var sqliteMagic = []byte("SQLite format 3\x00")
 
 const flagZlib = 1
 
-// maxDecoded is the largest save (compressed or decoded) that Decode accepts.
-// Real saves decode to ~2 MB; the cap only exists to stop hostile files.
-var maxDecoded = int64(256 << 20)
+// Limit is the largest save, in bytes, that Decode, Encode and ReadCapped accept, compressed or decoded. Real saves decode to about
+// 2 MB; the cap only exists to stop hostile files.
+const Limit = 256 << 20
 
-// readCapped reads a file the user pointed the editor at, refusing one over maxDecoded from its size before any byte is read, and never
-// reading more than maxDecoded+1 bytes even when the size changes under it. os.ReadFile would read a multi-gigabyte file in full and only
-// then let Decode say it is too big (SEC-6 of the 2026-10-15 audit).
-func readCapped(path string) ([]byte, error) {
+// limit is Limit as the functions use it. It is a variable only so that this package's tests can lower it.
+var limit int64 = Limit
+
+// ReadCapped reads a file a person pointed the program at, refusing one over Limit from its size before any byte is read, and never
+// reading more than Limit+1 bytes even when the size changes under it. os.ReadFile would read a multi-gigabyte file in full and only
+// then let Decode say it is too big (finding SEC-6 of the editor's 2026-10-15 audit).
+func ReadCapped(path string) ([]byte, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	if st, err := f.Stat(); err == nil && st.Size() > maxDecoded {
-		return nil, fmt.Errorf("file is %d bytes, over the %d byte limit", st.Size(), maxDecoded)
+	if st, err := f.Stat(); err == nil && st.Size() > limit {
+		return nil, fmt.Errorf("file is %d bytes, over the %d byte limit", st.Size(), limit)
 	}
-	b, err := io.ReadAll(io.LimitReader(f, maxDecoded+1))
+	b, err := io.ReadAll(io.LimitReader(f, limit+1))
 	if err != nil {
 		return nil, err
 	}
-	if int64(len(b)) > maxDecoded {
-		return nil, fmt.Errorf("file is over the %d byte limit", maxDecoded)
+	if int64(len(b)) > limit {
+		return nil, fmt.Errorf("file is over the %d byte limit", limit)
 	}
 	return b, nil
 }
@@ -49,11 +57,11 @@ func readCapped(path string) ([]byte, error) {
 // already a plain SQLite database is returned unchanged.
 //
 // The input is untrusted (users share saves): the declared size is checked against
-// maxDecoded before any decompression, and the stream is read through a limit of
+// Limit before any decompression, and the stream is read through a limit of
 // declared size + 1, so a small file can never expand into unbounded memory.
 func Decode(blob []byte) ([]byte, error) {
-	if int64(len(blob)) > maxDecoded {
-		return nil, fmt.Errorf("file is %d bytes, over the %d byte limit", len(blob), maxDecoded)
+	if int64(len(blob)) > limit {
+		return nil, fmt.Errorf("file is %d bytes, over the %d byte limit", len(blob), limit)
 	}
 	if bytes.HasPrefix(blob, sqliteMagic) {
 		return blob, nil
@@ -66,8 +74,8 @@ func Decode(blob []byte) ([]byte, error) {
 	if flag != flagZlib {
 		return nil, fmt.Errorf("unknown container flag %d", flag)
 	}
-	if int64(size) > maxDecoded {
-		return nil, fmt.Errorf("declared size %d exceeds the %d byte limit", size, maxDecoded)
+	if int64(size) > limit {
+		return nil, fmt.Errorf("declared size %d exceeds the %d byte limit", size, limit)
 	}
 	zr, err := zlib.NewReader(bytes.NewReader(blob[8:]))
 	if err != nil {
@@ -99,8 +107,8 @@ func Encode(raw []byte) ([]byte, error) {
 	if !bytes.HasPrefix(raw, sqliteMagic) {
 		return nil, errors.New("refusing to encode a non-SQLite payload")
 	}
-	if int64(len(raw)) > maxDecoded {
-		return nil, fmt.Errorf("payload is %d bytes, over the %d byte limit", len(raw), maxDecoded)
+	if int64(len(raw)) > limit {
+		return nil, fmt.Errorf("payload is %d bytes, over the %d byte limit", len(raw), limit)
 	}
 	var buf bytes.Buffer
 	hdr := make([]byte, 8)

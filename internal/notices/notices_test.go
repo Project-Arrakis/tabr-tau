@@ -26,6 +26,10 @@ func TestEveryModuleHasItsLicenceText(t *testing.T) {
 	re := regexp.MustCompile(`(?m)^\s+([a-z0-9.\-]+\.[a-z]+/\S+)\s+v`)
 	found := 0
 	for _, m := range re.FindAllStringSubmatch(string(gomod), -1) {
+		// The nested modules of this repository (kit) are the project's own code under its own LICENSE, not a third party's.
+		if strings.HasPrefix(m[1], "github.com/Project-Arrakis/tabr-tau/") {
+			continue
+		}
 		found++
 		if !strings.Contains(Text, "## "+m[1]+" ") {
 			t.Errorf("go.mod requires %s but THIRD-PARTY-NOTICES.md has no licence section for it", m[1])

@@ -19,6 +19,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/basefile"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
+	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
 // Import of a base file (#475, phase 2). The source is the made-up pick-up of baseexport_test.go (exportWorld); the targets are real-schema saves with one character.
@@ -863,7 +864,7 @@ func TestImportOfARealBaseFileIntoACopyOfARealSave(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	blob, err := save.Encode(raw)
+	blob, err := savefile.Encode(raw)
 	if err != nil {
 		t.Fatal(err)
 	}

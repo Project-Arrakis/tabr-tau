@@ -18,6 +18,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
 var schemaSQL = save.KnownSchema
@@ -96,7 +97,7 @@ func build(t testing.TB, fn func(db *sql.DB)) *save.Save {
 	if err != nil {
 		t.Fatal(err)
 	}
-	blob, err := save.Encode(raw)
+	blob, err := savefile.Encode(raw)
 	if err != nil {
 		t.Fatal(err)
 	}

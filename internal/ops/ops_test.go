@@ -11,6 +11,7 @@ import (
 
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
+	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
 const schema = `
@@ -55,7 +56,7 @@ func newOps(t *testing.T, extra ...string) *Ops {
 	}
 	db.Close()
 	raw, _ := os.ReadFile(plain)
-	blob, _ := save.Encode(raw)
+	blob, _ := savefile.Encode(raw)
 	p := filepath.Join(dir, "game.db")
 	os.WriteFile(p, blob, 0o644)
 	s, err := save.Open(p)

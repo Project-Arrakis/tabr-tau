@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
+	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
 // Hooks so tests can inject faults (a locked file, a failing reload). Production code never changes them.
@@ -117,7 +118,7 @@ func (s *Save) installBlob(blob []byte) error {
 		os.Remove(tmp)
 		return apierr.New(apierr.ErrGameBlocked, why)
 	}
-	cur, err := readCapped(s.Path)
+	cur, err := savefile.ReadCapped(s.Path)
 	if err != nil {
 		os.Remove(tmp)
 		return err
@@ -167,7 +168,7 @@ func readBackRetry(path string) ([]byte, error) {
 		if i > 0 {
 			time.Sleep(readBackBackoff * time.Duration(i))
 		}
-		if b, err = readCapped(path); err == nil {
+		if b, err = savefile.ReadCapped(path); err == nil {
 			return b, nil
 		}
 	}

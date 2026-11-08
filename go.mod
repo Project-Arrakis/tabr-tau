@@ -3,6 +3,9 @@ module github.com/Project-Arrakis/tabr-tau
 go 1.26.10
 
 require (
+	// kit is the nested module in ./kit (see the replace line below). The version is a placeholder: the replace makes the code in the tree
+	// the one that is built and tested. Nothing depends on this root module, so the replace never reaches another program.
+	github.com/Project-Arrakis/tabr-tau/kit v0.0.0-00010101000000-000000000000
 	github.com/jchv/go-webview2 v0.0.0-20260205173254-56598839c808
 	modernc.org/sqlite v1.61.1
 )
@@ -19,3 +22,5 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
+
+replace github.com/Project-Arrakis/tabr-tau/kit => ./kit

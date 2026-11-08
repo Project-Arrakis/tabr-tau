@@ -1,0 +1,90 @@
+name: kit release
+
+# A tag of the form kit/vX.Y.Z publishes version X.Y.Z of the kit module (./kit). Only the repository owner makes the tag, from main,
+# after the CI jobs of that commit are green (see kit/README.md). This workflow checks the tag again, runs the module's tests again,
+# creates a GitHub release from the matching entry of kit/CHANGELOG.md, and asks the Go module proxy for the version so that it
+# can be fetched with `go get`. A bad tag is never moved: it is answered by a new tag and a `retract` line in kit/go.mod.
+on:
+  push:
+    tags:
+      - 'kit/v*'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify the tag and the module
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: The tag is kit/vX.Y.Z (major 0 or 1, optional pre-release part)
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ! [[ "$TAG" =~ ^kit/v[01]\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "ERROR: '$TAG' is not kit/vX.Y.Z with X of 0 or 1" >&2
+            exit 1
+          fi
+      - name: The tagged commit is on main
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD; then
+            echo "ERROR: the tagged commit $GITHUB_SHA is not on main" >&2
+            exit 1
+          fi
+      - name: The changelog has an entry for this version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: bash scripts/kit-release-notes.sh "$TAG" > /dev/null
+      - name: go vet and go test (race) in kit
+        working-directory: kit
+        run: |
+          go vet ./...
+          go test -race -count=1 ./...
+      - name: The editor builds against the module; a clean export of kit stands on its own
+        run: bash scripts/check-kit.sh
+
+  release:
+    name: create the release and warm the module proxy
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Create the GitHub release (not marked as the latest release, that stays with the editor)
+        env:
+          TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash scripts/kit-release-notes.sh "$TAG" > "$RUNNER_TEMP/notes.md"
+          flags=(--latest=false)
+          if [[ "$TAG" == *-* ]]; then flags+=(--prerelease); fi
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --title "kit ${TAG#kit/}" --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}"
+      - name: Ask the Go module proxy for the version (it caches the module and the checksum database records it)
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir "$RUNNER_TEMP/probe" && cd "$RUNNER_TEMP/probe"
+          export GOWORK=off GOFLAGS= GOPROXY=https://proxy.golang.org
+          go mod init example.test/probe
+          for try in 1 2 3 4 5 6; do
+            if go list -m "github.com/Project-Arrakis/tabr-tau/kit@${TAG#kit/}"; then exit 0; fi
+            echo "the proxy does not have it yet (try $try)"; sleep $((20 * try))
+          done
+          echo "ERROR: the Go module proxy did not return the version" >&2
+          exit 1

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+
+	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
 // makeSave writes a container holding the real game schema plus ddl (a toy table "t") and returns its path.
@@ -69,7 +71,7 @@ func saveTemplate(ddl string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	blob, err := Encode(raw)
+	blob, err := savefile.Encode(raw)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +85,7 @@ func TestCodecRoundTripAndHeader(t *testing.T) {
 	if blob[0] != 1 || blob[1] != 0 || blob[2] != 0 || blob[3] != 0 {
 		t.Fatalf("flag bytes wrong: % x", blob[:4])
 	}
-	raw, err := Decode(blob)
+	raw, err := savefile.Decode(blob)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,19 +93,19 @@ func TestCodecRoundTripAndHeader(t *testing.T) {
 	if int(size) != len(raw) {
 		t.Fatalf("size header %d != payload %d", size, len(raw))
 	}
-	again, _ := Encode(raw)
-	if back, _ := Decode(again); !bytes.Equal(back, raw) {
+	again, _ := savefile.Encode(raw)
+	if back, _ := savefile.Decode(again); !bytes.Equal(back, raw) {
 		t.Fatal("round trip mismatch")
 	}
 }
 
 func TestDecodeRejectsGarbage(t *testing.T) {
 	for _, b := range [][]byte{nil, []byte("short"), append([]byte{9, 0, 0, 0, 1, 0, 0, 0}, 0x78, 0x9c, 0, 0)} {
-		if _, err := Decode(b); err == nil {
+		if _, err := savefile.Decode(b); err == nil {
 			t.Fatalf("expected error for %v", b)
 		}
 	}
-	if _, err := Encode([]byte("not sqlite")); err == nil {
+	if _, err := savefile.Encode([]byte("not sqlite")); err == nil {
 		t.Fatal("Encode must refuse non-SQLite payloads")
 	}
 }

@@ -1,4 +1,4 @@
-package save
+package savefile
 
 import (
 	"bytes"
@@ -32,9 +32,9 @@ func sqlitePayload(n int) []byte {
 
 func withLimit(t *testing.T, n int64) {
 	t.Helper()
-	old := maxDecoded
-	maxDecoded = n
-	t.Cleanup(func() { maxDecoded = old })
+	old := limit
+	limit = n
+	t.Cleanup(func() { limit = old })
 }
 
 func TestDecodeRoundTripRealSize(t *testing.T) {
@@ -136,7 +136,7 @@ func FuzzDecode(f *testing.F) {
 		if !bytes.HasPrefix(out, sqliteMagic) {
 			t.Fatalf("Decode succeeded on a payload without the SQLite magic")
 		}
-		if int64(len(out)) > maxDecoded {
+		if int64(len(out)) > limit {
 			t.Fatalf("Decode returned %d bytes, over the cap", len(out))
 		}
 	})
