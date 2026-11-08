@@ -1,0 +1,100 @@
+/* Tabr design tokens, version 0.1.0.
+   Colour, type, spacing, shape, elevation and motion are defined here and nowhere else; a program that uses this file adds layout, not values.
+   Names: --c- colour, --t- type, --s- space, --r- radius, --e- elevation, --mo- motion.
+   The dark theme is the default. The light theme follows the system setting, or is forced with data-theme="light" on the root element
+   (data-theme="dark" forces the dark one). The two light blocks below must stay identical; a test compares them.
+   Every text colour is 4.5:1 or better on the three surfaces, and --c-rule is 3:1 or better on them, in both themes (a test checks it). */
+
+:root {
+  color-scheme: dark;
+
+  /* surfaces: the page behind everything; a panel, the side panel and the header; a card inside a panel, a control, a hovered row */
+  --c-ground: #100d0b;
+  --c-panel: #1a1511;
+  --c-raised: #241c15;
+
+  /* the boundary of a control and a panel edge */
+  --c-rule: #7a6853;
+
+  /* text: normal, and quiet (counts, units, captions) */
+  --c-text: #efe6d8;
+  --c-dim: #a89a86;
+
+  /* accents: spice marks the primary action and the active state; sky is information */
+  --c-spice: #e8873a;
+  --c-sky: #5cc8ff;
+
+  /* status: always with a word or a shape as well, never colour alone */
+  --c-ok: #6fbf8a;
+  --c-warn: #e8b64a;
+  --c-bad: #e5694f;
+
+  /* type: the body face is the system face; a bundled face is a later decision */
+  --t-body: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --t-xs: 11px;
+  --t-sm: 12px;
+  --t-md: 13px;
+  --t-base: 14px;
+  --t-lg: 15px;
+  --t-xl: 18px;
+
+  /* spacing: a 4 px grid */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+
+  /* shape */
+  --r-1: 2px;
+  --r-2: 4px;
+  --r-3: 6px;
+  --r-4: 8px;
+  --r-pill: 999px;
+
+  /* elevation: e-1 is the faint highlight along the top edge of a card, e-2 the shadow of a floating part (a banner, a popover) */
+  --e-1: 0 1px 0 rgba(255, 255, 255, .02) inset;
+  --e-2: 0 2px 10px rgba(0, 0, 0, .45);
+
+  /* motion: how long a change takes to show */
+  --mo-fast: 120ms;
+  --mo-base: 200ms;
+  --mo-slow: 320ms;
+}
+
+/* the light theme, by the system setting */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --c-ground: #f4efe6;
+    --c-panel: #fffaf1;
+    --c-raised: #f0e8da;
+    --c-rule: #857559;
+    --c-text: #2a2118;
+    --c-dim: #665a49;
+    --c-spice: #a8501a;
+    --c-sky: #0b6397;
+    --c-ok: #2a7448;
+    --c-warn: #7f5700;
+    --c-bad: #b03a28;
+    --e-2: 0 2px 10px rgba(60, 40, 10, .18);
+  }
+}
+
+/* the light theme, forced */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --c-ground: #f4efe6;
+  --c-panel: #fffaf1;
+  --c-raised: #f0e8da;
+  --c-rule: #857559;
+  --c-text: #2a2118;
+  --c-dim: #665a49;
+  --c-spice: #a8501a;
+  --c-sky: #0b6397;
+  --c-ok: #2a7448;
+  --c-warn: #7f5700;
+  --c-bad: #b03a28;
+  --e-2: 0 2px 10px rgba(60, 40, 10, .18);
+}
