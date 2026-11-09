@@ -4,6 +4,16 @@ Tags of this module are `kit/vX.Y.Z`. The module is version 0.x: until v1.0.0 an
 
 Each tag needs an entry here whose heading is `## vX.Y.Z` followed by the date: the release workflow uses the entry as the release notes and fails without it.
 
+## v0.9.0 (2026-11-08)
+
+One new package, backward compatible: nothing in `savefile`, `durable`, `gamedata/*`, `webguard`, `schema`, `gamefolder` or `sessionlog` changed. Refs #568.
+
+- New package `ddgrid`: the lettered grid the game draws over the Deep Desert (A1 to I9) for a world position. `Cell(x, y)` is the square a position is in ("G4"), or an empty string outside the grid or when either number is NaN or infinite. The frame is exported as constants: `N` (9), `MinX` (-1,268,450), `MaxX` (1,158,400), `MaxY` (1,163,467), `MinY` (-1,259,486), `CellW` (269,650) and `CellH` (269,217). A cell owns its north and west edges; the east and south edges of the whole grid are outside. Columns count from the west, rows are letters from the largest y (A) to the smallest (I).
+  - The cells are not square and the grid is not the squared-up rectangle of a map picture (north edge 1,165,416, rows 269,650 high): the columns are the same, but a row border of the picture differs from the grid's by 1,949 units at the north edge, 433 fewer for each row further south, and 1,948 units the other way at the south edge. A program that draws a picture keeps the picture's rectangle for pixels and uses `Cell` for the letter.
+  - The five numbers are those of the sector grid of the Dune Docker console (MIT), measured in the game; `NOTICE` and `PROVENANCE.md` say so. The code is written for this project.
+  - Not here: the picture's rectangle, which cells a program offers (the editor's taxi generator offers only row A) and the conversion between a save's columns and a position.
+- The editor's taxi generator (`tools/deepdeserttaxisgen`) counts its cell letters with `Cell`; before this it counted them on the picture's rectangle. The answers were pinned first; they differ only between the two sets of row borders, and the three committed taxi points are well inside row A.
+
 ## v0.8.0 (2026-11-08)
 
 Two new packages, backward compatible: nothing in `savefile`, `durable`, `gamedata/*`, `webguard` or `schema` changed. Refs #565.

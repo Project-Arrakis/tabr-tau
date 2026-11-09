@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
+	"github.com/Project-Arrakis/tabr-tau/kit/ddgrid"
 )
 
 // #521: Go to a place lists the Deep Desert's three taxi service points from the game's level data (deep-desert-taxis.json) whenever the chosen map is the Deep Desert, and offers the
@@ -251,7 +252,7 @@ func TestTeleportIntoAHubWritesTheThreeActorsAtTheArrivalPointAndNothingElse(t *
 	}
 }
 
-// deep-desert-taxis.json is what the points come from, so what it holds is checked: the three taxi keys of place-names.json, each in row A of the grid the editor draws the Deep Desert on,
+// deep-desert-taxis.json is what the points come from, so what it holds is checked: the three taxi keys of place-names.json, each in row A of the game's Deep Desert grid (kit/ddgrid),
 // the standing position beside the marker and in the same cell, finite numbers, an observed flag on each, and nothing for the other maps.
 func TestDeepDesertTaxisFileIsWellFormed(t *testing.T) {
 	hex32 := regexp.MustCompile(`^[0-9A-F]{32}$`)
@@ -265,7 +266,6 @@ func TestDeepDesertTaxisFileIsWellFormed(t *testing.T) {
 		t.Fatalf("%d taxi keys in place-names.json, %d points", len(taxiKeys), len(deepDesertTaxis))
 	}
 	dd := findMap("DeepDesert")
-	cw, ch := (dd.MaxX-dd.MinX)/9, (dd.MaxY-dd.MinY)/9
 	cells := map[string]bool{}
 	for _, k := range taxiKeys {
 		tx, ok := deepDesertTaxis[k]
@@ -282,13 +282,12 @@ func TestDeepDesertTaxisFileIsWellFormed(t *testing.T) {
 		} else if *tx.Observed {
 			t.Errorf("%s: nobody has stood there yet, so observed is false", k)
 		}
-		// the Deep Desert grid of the editor: nine columns along X, nine rows along Y with A at the greatest Y
+		// the Deep Desert grid of the game: nine columns along X, nine rows along Y with A at the greatest Y
 		cell := func(x, y float64) string {
-			c, r := int(math.Floor((x-dd.MinX)/cw))+1, int(math.Floor((dd.MaxY-y)/ch))
-			if c < 1 || c > 9 || r < 0 || r > 8 {
-				return "outside"
+			if c := ddgrid.Cell(x, y); c != "" {
+				return c
 			}
-			return fmt.Sprintf("%c%d", 'A'+r, c)
+			return "outside"
 		}
 		if got := cell(tx.Marker.X, tx.Marker.Y); got != tx.Cell || !strings.HasPrefix(tx.Cell, "A") {
 			t.Errorf("%s: the marker is in %s, the file says %q, and a Deep Desert taxi is in row A", k, got, tx.Cell)

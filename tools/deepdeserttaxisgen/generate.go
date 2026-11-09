@@ -17,9 +17,10 @@
 //  2. A standing place is a spawn location: an actor of the class BP_StaticSpawnLocation_C. The marker's spawn location is the nearest one, within 10,000 units (100 m), and two markers
 //     may not have the same one. The standing position is the spawn location's first slot (m_Slots[0] of its StaticSpawnLocationComponent: the slot at the actor's own place, turned
 //     by the actor's yaw) added to the actor's root RelativeLocation.
-//  3. The grid cell. The Deep Desert grid is the one the editor draws its Deep Desert picture on: nine sectors across (columns 1 to 9 along X) and nine down (rows along Y, A at the
-//     greatest Y, I at the least), the rectangle of internal/ops/livemap.go (the constants below; a test in internal/ops pins them to that file). A point outside the bottom row (row A)
-//     is an error: the Deep Desert's taxis are in row A, and a point that is not there is not offered.
+//  3. The grid cell. The Deep Desert grid is the game's lettered one, package kit/ddgrid: nine sectors across (columns 1 to 9 along X) and nine down (rows along Y, A at the greatest Y,
+//     I at the least). Its rows are not the equal parts of the picture's rectangle (internal/ops/livemap.go), so a point near a row border can have another letter than the
+//     rectangle would give; the file's "grid" record still names the picture's rectangle (the constants below; a test in internal/ops pins them to that file). A point outside the
+//     top row (row A) is an error: the Deep Desert's taxis are in row A, and a point that is not there is not offered.
 //
 // Numbers are rounded to one decimal. Every point is written with "observed": false: nobody has stood there yet. When the operator has, set that to true by hand in the committed
 // file and keep it when the file is made again.
@@ -36,9 +37,12 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/Project-Arrakis/tabr-tau/kit/ddgrid"
 )
 
-// The Deep Desert rectangle of internal/ops/livemap.go (liveMaps, "DeepDesert") and the number of sectors on a side.
+// The Deep Desert picture's rectangle of internal/ops/livemap.go (liveMaps, "DeepDesert"), which the file records as its "grid", and the number of sectors on a side. The cell letters
+// do not come from it but from kit/ddgrid.
 const (
 	gridMinX, gridMaxX = -1268450.0, 1158400.0
 	gridMinY, gridMaxY = -1261434.0, 1165416.0
@@ -133,17 +137,13 @@ func readJSON(path string, v any) error {
 	return nil
 }
 
-// Cell is the grid cell of a point, or an error when it is outside the grid or not in row A.
+// Cell is the grid cell of a point (the game's grid, kit/ddgrid), or an error when it is outside the grid (a number that is not finite is outside) or not in row A.
 func Cell(x, y float64) (string, error) {
-	w := (gridMaxX - gridMinX) / gridSectors
-	h := (gridMaxY - gridMinY) / gridSectors
-	col := int(math.Floor((x-gridMinX)/w)) + 1
-	row := int(math.Floor((gridMaxY - y) / h)) // 0 for the row at the greatest Y
-	if col < 1 || col > gridSectors || row < 0 || row >= gridSectors {
+	cell := ddgrid.Cell(x, y)
+	if cell == "" {
 		return "", fmt.Errorf("the point %.1f, %.1f is outside the Deep Desert grid", x, y)
 	}
-	cell := fmt.Sprintf("%c%d", 'A'+row, col)
-	if row != 0 {
+	if cell[0] != 'A' {
 		return cell, fmt.Errorf("the point %.1f, %.1f is in %s, not in row A: it is not offered", x, y, cell)
 	}
 	return cell, nil
