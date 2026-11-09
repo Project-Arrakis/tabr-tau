@@ -5,7 +5,7 @@
 // south edge -1,261,434, rows 269,650 high) has the same columns, but its row borders differ from the grid's by 1,949 units at the north edge, by 433 fewer for each row
 // further south, and by 1,948 units the other way at the south edge. Near a row border the two therefore give different letters; this package is the grid, not the picture.
 //
-// The frame is that of the sector grid of the Dune Docker console (liveMapSector.js in https://github.com/Red-Blink/dune-awakening-selfhost-docker, MIT, copyright RedBlink;
+// The frame is that of the sector grid of the Dune Docker console (console/api/src/liveMapSector.js in https://github.com/Red-Blink/dune-awakening-selfhost-docker, MIT, copyright RedBlink;
 // see NOTICE), which measured it in the game. Columns count from the west, rows are letters from the largest y (A) to the smallest (I). A cell owns its north and west edges:
 // a position exactly on the border between rows A and B is in B, and one exactly on the border between columns 1 and 2 is in column 2; the east and south edges of the whole
 // grid are outside it.
