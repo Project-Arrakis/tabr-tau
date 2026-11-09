@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -182,5 +183,67 @@ func TestCellRowsAndColumns(t *testing.T) {
 	}
 	if _, err := Cell(-2e6, 0); err == nil {
 		t.Error("outside the grid")
+	}
+}
+
+// The pins below describe Cell as it was before the cell letters moved to the shared module: the picture's squared-up rectangle (west edge -1,268,450, north edge 1,165,416,
+// nine columns 269,650 wide and nine rows 269,650 high). They were written first, so that the move can be shown to change the letter only near a row border.
+const (
+	pinCellMinX = -1268450.0
+	pinCellMaxY = 1165416.0
+	pinCellSize = 269650.0
+)
+
+func TestCellPinOldRectangleBordersOneUnitEitherSide(t *testing.T) {
+	for row := 0; row <= 9; row++ {
+		border := pinCellMaxY - float64(row)*pinCellSize
+		above, errAbove := Cell(0, border+1)
+		below, errBelow := Cell(0, border-1)
+		if row > 0 {
+			want := "ABCDEFGHI"[row-1:row] + "5"
+			if above != want {
+				t.Errorf("row border %d: above is %q, want %q", row, above, want)
+			}
+		} else if above != "" || errAbove == nil {
+			t.Errorf("north edge: above is %q, %v", above, errAbove)
+		}
+		if row < 9 {
+			want := "ABCDEFGHI"[row:row+1] + "5"
+			if below != want {
+				t.Errorf("row border %d: below is %q, want %q", row, below, want)
+			}
+			if (row == 0) != (errBelow == nil) { // only row A is offered
+				t.Errorf("row border %d: below is %q with error %v", row, below, errBelow)
+			}
+		} else if below != "" || errBelow == nil {
+			t.Errorf("south edge: below is %q, %v", below, errBelow)
+		}
+	}
+	for col := 0; col <= 9; col++ {
+		border := pinCellMinX + float64(col)*pinCellSize
+		y := pinCellMaxY - 1000
+		left, _ := Cell(border-1, y)
+		on, _ := Cell(border, y)
+		right, _ := Cell(border+1, y)
+		var wantLeft, wantOn string
+		if col > 0 {
+			wantLeft = "A" + string(rune('0'+col))
+		}
+		if col < 9 {
+			wantOn = "A" + string(rune('1'+col))
+		}
+		if left != wantLeft || on != wantOn || right != wantOn {
+			t.Errorf("column border %d: %q %q %q, want %q %q %q", col, left, on, right, wantLeft, wantOn, wantOn)
+		}
+	}
+}
+
+func TestCellPinNumbersThatAreNotOrdinary(t *testing.T) {
+	// A number that is not finite is outside the grid (on the 64-bit Intel and AMD machines this tool runs on; the old code relied on the conversion of such a number to an integer).
+	nan, inf := math.NaN(), math.Inf(1)
+	for _, c := range []struct{ x, y float64 }{{nan, 0}, {0, nan}, {inf, 0}, {-inf, 0}, {0, inf}, {0, -inf}, {1e300, 0}, {0, -1e300}} {
+		if got, err := Cell(c.x, c.y); got != "" || err == nil {
+			t.Errorf("Cell(%v, %v) = %q, %v: want outside the grid", c.x, c.y, got, err)
+		}
 	}
 }
