@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
+	"github.com/Project-Arrakis/tabr-tau/kit/gamefolder"
 	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 	"github.com/Project-Arrakis/tabr-tau/kit/schema"
 	_ "modernc.org/sqlite"
@@ -863,7 +864,5 @@ func (s *Save) Restore(name string) error {
 
 // Discover finds game.db under the default Dune client storage location.
 func Discover() []string {
-	base := filepath.Join(os.Getenv("LOCALAPPDATA"), "DuneSandbox", "Saved", "Cloud", "PlayerClientStorage")
-	m, _ := filepath.Glob(filepath.Join(base, "*", "*", "game.db"))
-	return m
+	return gamefolder.Saves(gamefolder.SavedDir(os.Getenv("LOCALAPPDATA")), "")
 }

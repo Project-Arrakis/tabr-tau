@@ -4,6 +4,16 @@ Tags of this module are `kit/vX.Y.Z`. The module is version 0.x: until v1.0.0 an
 
 Each tag needs an entry here whose heading is `## vX.Y.Z` followed by the date: the release workflow uses the entry as the release notes and fails without it.
 
+## v0.8.0 (2026-11-08)
+
+Two new packages, backward compatible: nothing in `savefile`, `durable`, `gamedata/*`, `webguard` or `schema` changed. Refs #565.
+
+- New package `gamefolder`: where the game keeps its files, as rules over strings given by the caller (nothing reads the environment or a process). `SavedDir(localAppData)` (`DuneSandbox\Saved`), `ClientStorageDir`, `ConfigDir`, `LogsDir`, `LogPath` (`Saved\Logs\DuneSandbox.log`), `LogPathFor(savePath)` (the log of a save kept in the standard tree; an error for a save anywhere else), `Saves(saved, service)` (the `game.db` files of the tree in name order; an empty service means every service) and `NewestSave(saved)` (the newest `FLS_retail\<id>\game.db` by modification time; of two with the same time the first in name order). The error of `NewestSave` and `LogPathFor` are the words the two programs already used.
+- New package `sessionlog`: the lines of the game's log that mark a single-player session, and the state they give. `Classify(Policy, line)` says which marker a line is (`Start`, `Menu`, `RemoteBrowse`, `DelayedClose`, `Exit`, `DatabaseSaved` or `NoEvent`), `Body(line)` takes off the logger's bracketed prefixes, `State` (`SPActive`, `Remote`, `Ended`, `Last`) with `State.Apply(Event)` holds what the markers say so far and compares with `==`, `Tracker` adds the log time of the end of a session and of the last write of the database (`Feed(Policy, line, now)`; a line with no time stamp counts as `now()`, `time.Now` when nil), and `LogTime(line)` reads the stamp. No file, no process, no clock of its own.
+  - The two programs that read this log were compared line by line first. They agree on every marker's text, on the order in which a line that holds two markers is read, and on every transition. They differ in two rules, which are the `Policy`: `Strict` (the browse marker counts only at the start of the line's text, after the logger's bracketed prefixes and the category `LogNet: Display: `; the other end markers count anywhere in the line either way) and `IgnoreSaves` (the database write line is not a marker). The zero `Policy{}` is the wide reading with the write line, which is what the editor did.
+  - Not here: how long a program waits after a write or an end, what it refuses, and the follower that reads a growing log file (the two programs' followers differ in what they compare, how much they hold and how long a line may be, and each stays with its owner).
+- The editor's tracker is `sessionlog.Tracker` under `Policy{}`, `logPathFor` is `gamefolder.LogPathFor`, and `Discover`, the game's own-save tree, the config folder and the file dialog's start folder take their paths from `gamefolder`. The editor's tracker tests pass with only their field names changed, a pin written from the old code (60000 seeded lines) passes, and the old and the new tracker agreed on 60000 seeded lines before the old one was deleted.
+
 ## v0.7.0 (2026-11-08)
 
 New package, backward compatible: nothing in `savefile`, `durable`, `gamedata/*` or `webguard` changed. Refs #563.
