@@ -23,7 +23,8 @@ type mapConfig struct {
 var liveMaps = []mapConfig{
 	{Key: "HaggaBasin", Label: "Hagga Basin", Image: "/maps/hagga-basin.png", Width: 4096, Height: 4096,
 		MinX: -456752.21, MaxX: 354547.46, MinY: -450630.14, MaxY: 353821.95},
-	// The Deep Desert rectangle is the in-game sector grid, squared up (console liveMapSector.js).
+	// The Deep Desert rectangle is the in-game sector grid, squared up (console liveMapSector.js). It maps a position to a pixel of the picture; the game's lettered grid itself, whose
+	// rows are not the equal parts of this rectangle, is kit/ddgrid.
 	{Key: "DeepDesert", Label: "The Deep Desert", Image: "/maps/deep-desert.png", Width: 4096, Height: 4096,
 		MinX: -1268450, MaxX: 1158400, MinY: -1261434, MaxY: 1165416},
 }

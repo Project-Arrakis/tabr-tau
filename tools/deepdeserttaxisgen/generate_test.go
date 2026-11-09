@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"math"
 	"os"
 	"path/filepath"
@@ -70,7 +71,7 @@ func namesFile(t *testing.T, dir string, keys ...string) string {
 	return write(t, dir, "names.json", obj{"places": places})
 }
 
-// Grid cells on the Deep Desert rectangle: row A is the one at the greatest Y; column 5 is the middle one.
+// Grid cells on the Deep Desert grid (kit/ddgrid): row A is the one at the greatest Y; column 5 is the middle one.
 const (
 	rowAY = 1000000.0 // inside row A
 	colX5 = -120000.0 // inside column 5
@@ -170,11 +171,11 @@ func TestCellRowsAndColumns(t *testing.T) {
 		want string
 		ok   bool
 	}{
-		{-1268450 + 1, 1165416 - 1, "A1", true},
-		{1158400 - 1, 1165416 - 1, "A9", true},
+		{-1268450 + 1, 1163467 - 1, "A1", true},
+		{1158400 - 1, 1163467 - 1, "A9", true},
 		{-120000, 1000000, "A5", true},
-		{-120000, 1165416 - 269650.0 - 1, "B5", false}, // row B is a valid cell but not row A
-		{0, -1261434 + 1, "I5", false},
+		{-120000, 1163467 - 269217.0 - 1, "B5", false}, // row B is a valid cell but not row A
+		{0, -1259486 + 1, "I5", false},
 	} {
 		got, err := Cell(c.x, c.y)
 		if got != c.want || (err == nil) != c.ok {
@@ -186,60 +187,109 @@ func TestCellRowsAndColumns(t *testing.T) {
 	}
 }
 
-// The pins below describe Cell as it was before the cell letters moved to the shared module: the picture's squared-up rectangle (west edge -1,268,450, north edge 1,165,416,
-// nine columns 269,650 wide and nine rows 269,650 high). They were written first, so that the move can be shown to change the letter only near a row border.
-const (
-	pinCellMinX = -1268450.0
-	pinCellMaxY = 1165416.0
-	pinCellSize = 269650.0
-)
-
-func TestCellPinOldRectangleBordersOneUnitEitherSide(t *testing.T) {
-	for row := 0; row <= 9; row++ {
-		border := pinCellMaxY - float64(row)*pinCellSize
-		above, errAbove := Cell(0, border+1)
-		below, errBelow := Cell(0, border-1)
-		if row > 0 {
-			want := "ABCDEFGHI"[row-1:row] + "5"
-			if above != want {
-				t.Errorf("row border %d: above is %q, want %q", row, above, want)
-			}
-		} else if above != "" || errAbove == nil {
-			t.Errorf("north edge: above is %q, %v", above, errAbove)
-		}
-		if row < 9 {
-			want := "ABCDEFGHI"[row:row+1] + "5"
-			if below != want {
-				t.Errorf("row border %d: below is %q, want %q", row, below, want)
-			}
-			if (row == 0) != (errBelow == nil) { // only row A is offered
-				t.Errorf("row border %d: below is %q with error %v", row, below, errBelow)
-			}
-		} else if below != "" || errBelow == nil {
-			t.Errorf("south edge: below is %q, %v", below, errBelow)
-		}
+// squaredUpCell is Cell as it was before the cell letters moved to the shared module: the grid counted on the picture's squared-up rectangle (west edge -1,268,450, north edge
+// 1,165,416, nine columns 269,650 wide and nine rows 269,650 high). It stays here so that the difference between the two can be tested; it is the code that pinned the answers
+// before the move.
+func squaredUpCell(x, y float64) (string, error) {
+	w := (gridMaxX - gridMinX) / gridSectors
+	h := (gridMaxY - gridMinY) / gridSectors
+	col := int(math.Floor((x-gridMinX)/w)) + 1
+	row := int(math.Floor((gridMaxY - y) / h))
+	if col < 1 || col > gridSectors || row < 0 || row >= gridSectors {
+		return "", errOutside
 	}
-	for col := 0; col <= 9; col++ {
-		border := pinCellMinX + float64(col)*pinCellSize
-		y := pinCellMaxY - 1000
-		left, _ := Cell(border-1, y)
-		on, _ := Cell(border, y)
-		right, _ := Cell(border+1, y)
-		var wantLeft, wantOn string
-		if col > 0 {
-			wantLeft = "A" + string(rune('0'+col))
-		}
-		if col < 9 {
-			wantOn = "A" + string(rune('1'+col))
-		}
-		if left != wantLeft || on != wantOn || right != wantOn {
-			t.Errorf("column border %d: %q %q %q, want %q %q %q", col, left, on, right, wantLeft, wantOn, wantOn)
+	cell := string(rune('A'+row)) + string(rune('0'+col))
+	if row != 0 {
+		return cell, errNotRowA
+	}
+	return cell, nil
+}
+
+var errOutside, errNotRowA = errors.New("outside"), errors.New("not row A")
+
+// The row borders of the game's grid (north edge 1,163,467, rows 269,217 high) and of the picture's rectangle (north edge 1,165,416, rows 269,650 high). Row A of the game's grid
+// ends at y 894,250, row A of the rectangle at y 895,766.
+func TestCellIsTheGamesGridAndRowAIsTheOnlyRowOffered(t *testing.T) {
+	for _, c := range []struct {
+		x, y float64
+		want string
+		ok   bool
+	}{
+		{-1268450, 1163467, "A1", true},    // the north-west corner: a cell owns its north and west edges
+		{-1268450, 1163467 + 1, "", false}, // one unit north of the grid
+		{1158400 - 1, 1163467, "A9", true}, // just inside the east edge
+		{1158400, 1163467, "", false},      // the east edge is outside
+		{-120000, 894251, "A5", true},      // one unit inside row A
+		{-120000, 894250, "B5", false},     // on the border: row B owns its north edge, and only row A is offered
+		{-120000, 895765, "A5", true},      // row B of the picture's rectangle, row A of the game's grid
+		{0, 1163467 - 9*269217 + 1, "I5", false},
+		{0, 1163467 - 9*269217, "", false}, // the south edge is outside
+	} {
+		got, err := Cell(c.x, c.y)
+		if got != c.want || (err == nil) != c.ok {
+			t.Errorf("Cell(%v, %v) = %q, %v; want %q, ok %v", c.x, c.y, got, err, c.want, c.ok)
 		}
 	}
 }
 
-func TestCellPinNumbersThatAreNotOrdinary(t *testing.T) {
-	// A number that is not finite is outside the grid (on the 64-bit Intel and AMD machines this tool runs on; the old code relied on the conversion of such a number to an integer).
+// The move changed the letter only where the game's grid and the picture's rectangle disagree: near a row border, and in the 1,949 units past the picture's north edge and the 1,948
+// before its south edge. Everywhere else (every x, every y at least 2,000 units from a border) the two give the same cell and the same error. The positions are on a fixed grid of
+// points and a seeded scatter.
+func TestCellAgreesWithThePictureRectangleExceptNearRowBorders(t *testing.T) {
+	const gameMaxY, gameH, picMaxY, picH = 1163467.0, 269217.0, 1165416.0, 269650.0
+	nearBorder := func(y float64) bool {
+		for k := 0; k <= 9; k++ {
+			lo, hi := gameMaxY-float64(k)*gameH, picMaxY-float64(k)*picH
+			if lo > hi {
+				lo, hi = hi, lo
+			}
+			if y >= lo-1 && y <= hi+1 {
+				return true
+			}
+		}
+		return false
+	}
+	differ, agree := 0, 0
+	check := func(x, y float64) {
+		a, ea := Cell(x, y)
+		b, eb := squaredUpCell(x, y)
+		if a == b && (ea == nil) == (eb == nil) {
+			agree++
+			return
+		}
+		differ++
+		if !nearBorder(y) {
+			t.Errorf("(%v, %v): now %q %v, before %q %v, and y is not between two row borders", x, y, a, ea, b, eb)
+		}
+	}
+	for x := -1.4e6; x < 1.3e6; x += 54321.5 {
+		for y := -1.4e6; y < 1.3e6; y += 3001.25 {
+			check(x, y)
+		}
+	}
+	state := uint64(12345)
+	for i := 0; i < 20000; i++ {
+		state = state*6364136223846793005 + 1442695040888963407
+		x := -1.4e6 + float64(state>>40)/float64(1<<24)*2.7e6
+		state = state*6364136223846793005 + 1442695040888963407
+		y := -1.4e6 + float64(state>>40)/float64(1<<24)*2.7e6
+		check(x, y)
+	}
+	if differ == 0 || agree == 0 {
+		t.Errorf("%d differ, %d agree: the test does not cover both", differ, agree)
+	}
+	// the border bands themselves are where the answers move: halfway between the borders of the same index, the two name different rows
+	for k := 1; k < 9; k++ {
+		y := ((gameMaxY - float64(k)*gameH) + (picMaxY - float64(k)*picH)) / 2
+		a, _ := Cell(0, y)
+		b, _ := squaredUpCell(0, y)
+		if a == b {
+			t.Errorf("row border %d, y %.0f: both say %q", k, y, a)
+		}
+	}
+}
+
+func TestCellNumbersThatAreNotOrdinaryAreOutside(t *testing.T) {
 	nan, inf := math.NaN(), math.Inf(1)
 	for _, c := range []struct{ x, y float64 }{{nan, 0}, {0, nan}, {inf, 0}, {-inf, 0}, {0, inf}, {0, -inf}, {1e300, 0}, {0, -1e300}} {
 		if got, err := Cell(c.x, c.y); got != "" || err == nil {

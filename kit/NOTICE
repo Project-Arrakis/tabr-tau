@@ -20,6 +20,11 @@ gamedata/regions/hagga-regions.json is a copy, unchanged, of runtime/data/hagga-
 https://github.com/Red-Blink/dune-awakening-selfhost-docker (commit 82548d72), which is MIT-licensed.
 It gives the names of the 12 areas of the Hagga Basin, keyed by the area number that the game's map
 markers carry; the file's own header says the names were taken from the game's area definitions.
+The five numbers of the Deep Desert's lettered grid in ddgrid/ddgrid.go (the cells on a side, the west and
+north edges, the width and the height of a cell) are those of the sector grid in liveMapSector.js of the same
+project, which measured them in the game. The code around them is written for this project; the numbers are
+listed here because they come from that file.
+
 The licence of that project is reproduced here as it requires:
 
 MIT License

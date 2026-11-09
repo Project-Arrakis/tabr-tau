@@ -52,6 +52,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Project-Arrakis/tabr-tau/kit/ddgrid"
 	"github.com/Project-Arrakis/tabr-tau/kit/durable"
 	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/fillables"
 	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/regions"
@@ -147,6 +148,12 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println("consumer: sessionlog ok")
+
+	if ddgrid.Cell(0, 0) != "E5" || ddgrid.Cell(ddgrid.MinX, ddgrid.MaxY) != "A1" || ddgrid.Cell(ddgrid.MaxX, 0) != "" || ddgrid.Cell(ddgrid.MinX+ddgrid.CellW-1, ddgrid.MinY+1) != "I1" {
+		fmt.Fprintln(os.Stderr, "ddgrid failed")
+		os.Exit(1)
+	}
+	fmt.Println("consumer: ddgrid ok")
 }
 GO
 (cd "$tmp/consumer" && go run .)
