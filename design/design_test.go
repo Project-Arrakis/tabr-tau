@@ -22,18 +22,14 @@ func TestTokensIsACopy(t *testing.T) {
 }
 
 func TestAssetsAreRootedAtTheAssetsFolder(t *testing.T) {
-	var names []string
-	err := fs.WalkDir(Assets, ".", func(p string, d fs.DirEntry, err error) error {
-		if err == nil && !d.IsDir() {
-			names = append(names, p)
-		}
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
+	if _, err := fs.Stat(Assets, TokensFile); err != nil {
+		t.Errorf("Assets has no %s at its root: %v", TokensFile, err)
 	}
-	if len(names) != 1 || names[0] != TokensFile {
-		t.Errorf("version 0.1.0 holds the tokens only; Assets has %v", names)
+	if _, err := fs.Stat(Assets, "assets/tokens.css"); err == nil {
+		t.Error("Assets is rooted one folder too high: it has assets/tokens.css")
+	}
+	if got := len(assetNames(t, "")); got < 12 {
+		t.Errorf("Assets holds %d files", got)
 	}
 }
 

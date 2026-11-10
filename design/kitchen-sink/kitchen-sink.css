@@ -1,0 +1,48 @@
+/* The kitchen sink: layout for the page that shows one of every token and component. Layout only: every colour is a token of the look. Classes start with x- (an app's own layout). */
+body { height: auto; min-height: 100%; }
+.x-wrap { max-width: 1040px; margin: 0 auto; padding: var(--s-4); display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--s-4); align-items: start; }
+.x-wide { grid-column: 1 / -1; }
+.x-stack { display: flex; flex-direction: column; gap: var(--s-3); }
+.x-inline { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; }
+.x-label { color: var(--c-dim); font: 700 var(--t-xs) var(--t-body); letter-spacing: .12em; text-transform: uppercase; margin: 0 0 var(--s-1); }
+.x-sw { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.x-sw span { display: grid; place-items: end start; width: 92px; height: 52px; padding: 4px 6px; border: 1px solid var(--c-hair); border-radius: var(--r-2); font: 600 var(--t-xs) var(--t-mono); }
+.x-sw .x-ground { background: var(--c-ground); }
+.x-sw .x-panel { background: var(--c-panel); }
+.x-sw .x-raised { background: var(--c-raised); }
+.x-sw .x-sunken { background: var(--c-sunken); }
+.x-sw .x-rule { background: var(--c-panel); border-color: var(--c-rule); }
+.x-sw .x-hair { background: var(--c-panel); border-color: var(--c-hair); }
+.x-sw .x-spice { background: var(--c-spice); color: var(--c-on-spice); }
+.x-sw .x-gold { background: var(--c-gold); color: var(--c-ground); }
+.x-sw .x-sky { background: var(--c-sky); color: var(--c-ground); }
+.x-sw .x-ok { background: var(--c-ok); color: var(--c-ground); }
+.x-sw .x-warn { background: var(--c-warn); color: var(--c-ground); }
+.x-sw .x-bad { background: var(--c-bad); color: var(--c-ground); }
+.x-sw .x-m-player { background: var(--m-player); color: var(--m-ink); }
+.x-sw .x-m-worm { background: var(--m-worm); color: var(--m-ink); }
+.x-sw .x-m-giant { background: var(--m-giant); color: var(--m-ink); }
+.x-sw .x-m-vehicle { background: var(--m-vehicle); color: var(--m-ink); }
+.x-sw .x-m-storm { background: var(--m-storm); color: var(--m-ink); }
+.x-sw .x-m-live { background: var(--m-live); color: var(--m-ink); }
+.x-sw .x-m-spice { background: var(--m-spice); color: var(--m-ink); }
+.x-sw .x-m-ore { background: var(--m-ore); color: var(--m-ink); }
+.d-swatch.x-m-live { background: var(--m-live); }
+.x-scale p { margin: 0; }
+.x-title18 { font-size: var(--t-xl); font-weight: 600; }
+.x-large15 { font-size: var(--t-lg); }
+.x-small12 { font-size: var(--t-sm); }
+.x-xsmall11 { font-size: var(--t-xs); }
+.x-mono12 { font-family: var(--t-mono); font-size: var(--t-sm); }
+.x-flush { margin: 0; }
+.x-flex { display: flex; }
+.x-right { text-align: right; }
+.x-static { position: static; }
+.x-rel { position: relative; }
+.x-tip-demo { padding-top: 70px; }
+.x-card-demo { position: relative; height: 110px; }
+.x-card-demo .d-card { position: absolute; left: 0; top: 0; }
+.x-stage { position: relative; display: flex; height: 190px; overflow: hidden; border: 1px solid var(--c-hair); background: var(--c-sunken); }
+.x-stage .d-rail { --rail-w: 200px; }
+.x-choice { display: flex; flex-wrap: wrap; gap: var(--s-3); align-items: center; }
+.x-choice .x-label { margin: 0; }

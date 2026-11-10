@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tabr design: kitchen sink</title>
+<!-- One of every token and component of the design module, with neutral sample text. Serve the design folder with any static file server on a loopback address and open this page; it
+     asks for nothing outside the module. No inline style, no inline script: layout is in kitchen-sink.css and the small behaviour is in kitchen-sink.js. A test reads this page: every class of the components is used here. -->
+<link rel="stylesheet" href="../assets/tokens-fremen.css" id="lk-tokens">
+<link rel="stylesheet" href="../assets/components-fremen.css" id="lk-components">
+<link rel="stylesheet" href="../assets/components.css">
+<link rel="stylesheet" href="../assets/motion.css">
+<link rel="stylesheet" href="kitchen-sink.css">
+<script src="kitchen-sink.js" defer></script>
+</head>
+<body>
+<header class="d-bar">
+  <a class="d-mark" href="#top"><svg aria-hidden="true"><use href="../assets/icons.svg#i-mark"/></svg><span class="d-word">Tabr<small>Kitchen sink</small></span></a>
+  <nav class="d-nav" aria-label="Pages"><a href="#top" aria-current="page">Page</a><a href="#top">Another</a><button type="button">A button</button></nav>
+  <span class="d-spacer"></span>
+  <span class="d-fname">sample-file-with-a-long-name.sav</span>
+  <span class="d-pill live">Live</span><span class="d-pill warn">Searching</span><span class="d-pill">Waiting</span><span class="d-pill paused">Paused</span><span class="d-pill offline">Offline</span>
+  <button class="d-btn icon quiet" type="button" data-theme-toggle aria-label="Switch between the dark and the light theme"><svg class="d-i"><use href="../assets/icons.svg#i-bulb"/></svg></button>
+</header>
+
+<main class="x-wrap" id="top">
+  <section class="d-panel x-wide"><h2 class="d-head">Look, theme, motion, headings</h2><div class="d-body x-stack">
+    <div class="x-choice"><p class="x-label">Look</p>
+      <div class="d-seg" role="group" aria-label="Look" data-switch="look"><button type="button" data-value="fremen" aria-pressed="true">Fremen</button><button type="button" data-value="awakening" aria-pressed="false">Awakening</button><button type="button" data-value="sietch" aria-pressed="false">Sietch</button></div>
+      <p class="x-label">Motion</p>
+      <div class="d-seg" role="group" aria-label="Motion" data-switch="motion"><button type="button" data-value="full" aria-pressed="false">Full</button><button type="button" data-value="calm" aria-pressed="false">Calm</button><button type="button" data-value="off" aria-pressed="false">Off</button></div>
+      <p class="x-label">Headings</p>
+      <div class="d-seg" role="group" aria-label="Headings" data-switch="heading-font"><button type="button" data-value="dune-rise" aria-pressed="true">Dune Rise</button><button type="button" data-value="system" aria-pressed="false">System</button></div>
+    </div>
+  </div></section>
+
+  <section class="d-panel x-wide"><h2 class="d-head">Tokens</h2><div class="d-body x-stack">
+    <div><p class="x-label">Surfaces and lines</p><div class="x-sw">
+      <span class="x-ground">ground</span><span class="x-panel">panel</span><span class="x-raised">raised</span><span class="x-sunken">sunken</span><span class="x-rule">rule</span><span class="x-hair">hair</span></div></div>
+    <div><p class="x-label">Accents and status</p><div class="x-sw">
+      <span class="x-spice">spice</span><span class="x-gold">gold</span><span class="x-sky">sky</span><span class="x-ok">ok</span><span class="x-warn">warn</span><span class="x-bad">bad</span></div></div>
+    <div><p class="x-label">Map meanings (the same in both themes)</p><div class="x-sw">
+      <span class="x-m-player">player</span><span class="x-m-worm">worm</span><span class="x-m-giant">giant</span><span class="x-m-vehicle">vehicle</span><span class="x-m-storm">storm</span><span class="x-m-live">live</span><span class="x-m-spice">spice</span><span class="x-m-ore">ore</span></div></div>
+    <div class="x-scale"><p class="x-label">Type</p>
+      <p class="d-display">Display</p>
+      <p class="x-title18">Title 18</p><p class="x-large15">Large 15</p><p>Body 13 &middot; The quick brown fox 0123456789</p><p class="d-dim x-small12">Small 12 &middot; counts, units, captions</p><p class="d-dim x-xsmall11">Extra small 11 &middot; the smallest text</p><p class="x-mono12">Mono 12 &middot; A1 &middot; x 1,000 &middot; y 2,000</p></div>
+    <span class="d-cut x-inline">A part with the cut of the look (a plain box in the looks that have none)</span>
+    <hr class="d-rule">
+  </div></section>
+
+  <section class="d-panel"><h2 class="d-head">Buttons</h2><div class="d-body x-stack">
+    <div class="x-inline"><button class="d-btn primary" type="button">Primary</button><button class="d-btn" type="button">Secondary</button><button class="d-btn quiet" type="button">Quiet</button><button class="d-btn danger" type="button">Danger</button><button class="d-btn" type="button" disabled>Disabled</button></div>
+    <div class="x-inline"><button class="d-btn" type="button"><svg class="d-i"><use href="../assets/icons.svg#i-drop"/></svg>With icon</button><button class="d-btn busy" type="button" disabled>Working</button><button class="d-btn icon" type="button" aria-label="Zoom in"><svg class="d-i"><use href="../assets/icons.svg#i-plus"/></svg></button><button class="d-btn sm" type="button">Small</button></div>
+    <div class="d-btns"><button class="d-btn" type="button">A button that may wrap to two lines</button><button class="d-btn" type="button">Another one</button></div>
+    <div class="d-seg" role="group" aria-label="Segmented"><button type="button" aria-pressed="true">One</button><button type="button" aria-pressed="false">Two</button><button type="button" aria-pressed="false">Three</button></div>
+  </div></section>
+
+  <section class="d-panel"><h2 class="d-head">Switches and fields</h2><div class="d-body x-stack">
+    <div class="x-inline"><label class="d-field"><input class="d-toggle" type="checkbox" checked> On</label><label class="d-field"><input class="d-toggle" type="checkbox"> Off</label><label class="d-field"><input class="d-toggle" type="checkbox" data-indeterminate> Some</label><label class="d-field"><input class="d-toggle" type="checkbox" disabled> Disabled</label><label class="d-field"><input class="d-toggle dashed" type="checkbox"> Needs its parent on</label></div>
+    <label class="d-search"><svg class="d-i"><use href="../assets/icons.svg#i-search"/></svg><input class="d-input" type="search" placeholder="Find an item" aria-label="Find an item"><kbd>/</kbd></label>
+    <div class="x-inline"><select class="d-select" aria-label="A list"><option>A list</option><option>Another</option></select><label class="d-field">Refill under <input class="d-input num" type="number" value="25"> %</label></div>
+    <label class="d-field x-flex">Slider <input class="d-range" type="range" min="10" max="90" value="25"></label>
+  </div></section>
+
+  <section class="d-panel"><h2 class="d-head">List rows<span class="d-count">3 off</span></h2><div class="d-body">
+    <ul class="d-rows">
+      <li class="d-row"><svg class="d-i"><use href="../assets/icons.svg#i-pin"/></svg><span class="d-swatch x-m-live"></span><span class="d-name">On, with live count</span><span class="d-live">2</span><span class="d-count">14</span><input class="d-toggle" type="checkbox" checked aria-label="On"></li>
+      <li class="d-row off"><svg class="d-i"><use href="../assets/icons.svg#i-grid"/></svg><span class="d-name">Off: dimmed and struck through</span><span class="d-count">9</span><input class="d-toggle" type="checkbox" aria-label="Off"></li>
+      <li class="d-row empty"><svg class="d-i"><use href="../assets/icons.svg#i-panel"/></svg><span class="d-name">Nothing here now</span><span class="d-live none">0</span><input class="d-toggle" type="checkbox" checked aria-label="Empty"></li>
+      <li class="d-row child d-enter"><svg class="d-i"><use href="../assets/icons.svg#i-pin"/></svg><span class="d-name">A child row</span><span class="d-count">3</span><input class="d-toggle" type="checkbox" checked aria-label="Child"></li>
+      <li class="d-row d-flash"><svg class="d-i"><use href="../assets/icons.svg#i-refresh"/></svg><span class="d-name">A row that has just changed</span><span class="d-count">1</span></li>
+    </ul>
+  </div></section>
+
+  <section class="d-panel"><h2 class="d-head">Meters and loading</h2><div class="d-body x-stack">
+    <div class="d-meter" data-v="92"><svg class="d-i"><use href="../assets/icons.svg#i-heart"/></svg><span class="d-name">Meter, ok</span><span class="d-val">921<small> / 1,000</small></span><span class="d-bar-track"><i></i></span></div>
+    <div class="d-meter water low" data-v="31"><svg class="d-i"><use href="../assets/icons.svg#i-drop"/></svg><span class="d-name">Meter, low</span><span class="d-val">31<small> / 100</small></span><span class="d-bar-track"><i></i></span></div>
+    <div class="d-meter water crit" data-v="9"><svg class="d-i"><use href="../assets/icons.svg#i-drop"/></svg><span class="d-name">Meter, critical</span><span class="d-val">9<small> / 100</small></span><span class="d-bar-track"><i></i></span></div>
+    <div class="d-meter spice no-ease" data-v="12"><svg class="d-i"><use href="../assets/icons.svg#i-flask"/></svg><span class="d-name">Meter, accent</span><span class="d-val">1,204<small> / 10,000</small></span><span class="d-bar-track"><i></i></span></div>
+    <div class="d-meter unread" data-v="0"><svg class="d-i"><use href="../assets/icons.svg#i-bolt"/></svg><span class="d-name">Meter, not read</span><span class="d-val">&mdash;</span><span class="d-bar-track"><i></i></span></div>
+    <svg class="d-spark" viewBox="0 0 240 40" preserveAspectRatio="none" role="img" aria-label="A sparkline"><line x1="0" x2="240" y1="12" y2="12"/><path d="M0 34 L30 33 L60 30 L90 31 L120 26 L150 24 L180 22 L210 20 L240 18"/></svg>
+    <div class="d-skel-row" aria-hidden="true"><span class="d-skel ic"></span><span class="d-skel"></span></div>
+  </div></section>
+
+  <section class="d-panel"><h2 class="d-head">Badges, chips, certainty</h2><div class="d-body x-stack">
+    <div class="x-inline"><span class="d-badge">S</span><span class="d-badge">M</span><span class="d-badge">L</span><span class="d-badge ok">Ok</span><span class="d-badge warn">Warn</span><span class="d-badge bad">Bad</span></div>
+    <div class="x-inline"><span class="d-scope live">Scope A</span><span class="d-scope save">Scope B</span><span class="d-scope">Scope C</span></div>
+    <div class="x-inline"><span class="d-live">Live 2</span><span class="d-live none">Live 0</span><span class="x-inline"><i class="d-cert live"></i>Live</span><span class="x-inline"><i class="d-cert saved"></i>Saved</span><span class="x-inline"><i class="d-cert possible"></i>Possible</span></div>
+    <div class="d-seg wrap3" role="group" aria-label="How sure"><span class="d-tt"><button type="button" aria-pressed="true" aria-describedby="tip-live"><i class="d-cert live"></i><span class="d-lab">Live</span></button><span class="d-tip" role="tooltip" id="tip-live">What the game shows now</span></span><span class="d-tt"><button type="button" aria-pressed="true" aria-describedby="tip-saved"><i class="d-cert saved"></i><span class="d-lab">Saved</span></button><span class="d-tip" role="tooltip" id="tip-saved">What the save remembers</span></span><span class="d-tt"><button type="button" aria-pressed="false" aria-describedby="tip-possible"><i class="d-cert possible"></i><span class="d-lab">Possible</span></button><span class="d-tip" role="tooltip" id="tip-possible">What may be there</span></span></div>
+    <div class="x-inline"><kbd class="d-kbd">/</kbd><kbd class="d-kbd">Esc</kbd><kbd class="d-kbd">&larr; &rarr;</kbd></div>
+    <p class="d-sr">Text for assistive technology only</p>
+  </div></section>
+
+  <section class="d-panel x-tip-demo"><h2 class="d-head">Tooltip, hover card, popover</h2><div class="d-body x-stack">
+    <div class="x-inline">
+      <span class="d-tt shown start"><button class="d-btn" type="button" aria-describedby="tip-a">Hover or Tab here</button><span class="d-tip" role="tooltip" id="tip-a"><b>Sample action</b><span class="d-dim">Does one thing, said in a few words.</span></span></span>
+      <span class="d-tt below end"><button class="d-btn icon" type="button" aria-label="Info" aria-describedby="tip-b" data-pop="pop-demo"><svg class="d-i"><use href="../assets/icons.svg#i-info"/></svg></button><span class="d-tip" role="tooltip" id="tip-b">Opens a longer note</span></span>
+      <span class="d-tt right"><button class="d-btn icon" type="button" aria-label="Next" aria-describedby="tip-c"><svg class="d-i"><use href="../assets/icons.svg#i-right"/></svg></button><span class="d-tip" role="tooltip" id="tip-c">To the right</span></span>
+      <span class="d-tt left"><button class="d-btn icon" type="button" aria-label="Back" aria-describedby="tip-d"><svg class="d-i"><use href="../assets/icons.svg#i-left"/></svg></button><span class="d-tip" role="tooltip" id="tip-d">To the left</span></span>
+      <span class="d-tt dismissed"><button class="d-btn icon" type="button" aria-label="Dismissed" aria-describedby="tip-e"><svg class="d-i"><use href="../assets/icons.svg#i-x"/></svg></button><span class="d-tip" role="tooltip" id="tip-e">Hidden by Esc until the pointer or focus leaves</span></span>
+    </div>
+    <div id="pop-demo" class="d-pop x-rel" hidden><h4>A longer note</h4><p>When a thing needs more than a line, it goes here, opened on purpose. It never sits in a tooltip.</p></div>
+    <div class="x-card-demo"><div class="d-card pinned"><div class="d-title"><svg class="d-i"><use href="../assets/icons.svg#i-pin"/></svg><span>Sample item</span></div><div class="d-sub">Sample detail &middot; 41% left &middot; ends in about 14 min</div><div class="d-where">A1 &middot; x 1,000 &middot; y 2,000</div><div class="d-hint">Esc to unpin</div></div></div>
+  </div></section>
+
+  <section class="d-panel"><h2 class="d-head">Banners, alerts, toasts</h2><div class="d-body x-stack">
+    <div class="d-banner"><svg class="d-i"><use href="../assets/icons.svg#i-warn"/></svg><span><b>Not live.</b> Showing the sample as left at 10:31.</span></div>
+    <div class="d-banner info"><svg class="d-i"><use href="../assets/icons.svg#i-info"/></svg><span><b>Sample banner.</b> It states one fact and can end with a link.</span></div>
+    <div class="d-banner bad"><svg class="d-i"><use href="../assets/icons.svg#i-warn"/></svg><span><b>Sample error banner.</b></span></div>
+    <button class="d-alert" type="button"><svg class="d-i"><use href="../assets/icons.svg#i-info"/></svg><span class="d-text"><b>Sample alert</b><span>One line of detail</span></span></button>
+    <button class="d-alert bad is-new" type="button"><svg class="d-i"><use href="../assets/icons.svg#i-warn"/></svg><span class="d-text"><b>Sample urgent alert, new</b><span>One line of detail</span></span></button>
+    <button class="d-alert info" type="button"><svg class="d-i"><use href="../assets/icons.svg#i-info"/></svg><span class="d-text"><b>Sample information alert</b><span>One line of detail</span></span></button>
+    <div class="d-toasts x-static" role="group" aria-label="Toast samples">
+      <div class="d-toast"><svg class="d-i d-pop-in"><use href="../assets/icons.svg#i-check"/></svg><span>Sample done: 31 &rarr; 100</span></div>
+      <div class="d-toast warn"><svg class="d-i"><use href="../assets/icons.svg#i-warn"/></svg><span>Sample partly done: 1 skipped</span></div>
+      <div class="d-toast bad"><svg class="d-i"><use href="../assets/icons.svg#i-x"/></svg><span>Sample failure. Nothing was changed. Try again.</span></div>
+      <div class="d-toast"><svg class="d-fx" viewBox="0 0 24 24" aria-hidden="true"><defs><clipPath id="fx-water"><path d="M12 2.5C12 2.5 5.5 9.4 5.5 14a6.5 6.5 0 0 0 13 0C18.5 9.4 12 2.5 12 2.5Z"/></clipPath></defs><g clip-path="url(#fx-water)"><rect class="lvl" x="0" y="0" width="24" height="24"/></g><path class="shell" d="M12 2.5C12 2.5 5.5 9.4 5.5 14a6.5 6.5 0 0 0 13 0C18.5 9.4 12 2.5 12 2.5Z"/><path class="chk" d="M8.6 13.4l2.7 2.7 4.5-5.1"/></svg><span>Water filled: 31 &rarr; 100</span></div>
+      <div class="d-toast"><svg class="d-fx fuel" viewBox="0 0 24 24" aria-hidden="true"><defs><clipPath id="fx-can"><path d="M6.5 3.5h8l3 3v14h-11z"/></clipPath></defs><g clip-path="url(#fx-can)"><rect class="lvl" x="0" y="0" width="24" height="24"/></g><path class="shell" d="M6.5 3.5h8l3 3v14h-11z"/><path class="chk" d="M8.6 13.4l2.7 2.7 4.5-5.1"/></svg><span>Fuel filled: 20 &rarr; 100</span></div>
+      <div class="d-toast out"><svg class="d-fx repair" viewBox="0 0 24 24" aria-hidden="true"><defs><clipPath id="fx-shield"><path d="M12 2.8l7 2.9v5.6c0 4.3-2.9 7.7-7 9.3-4.1-1.6-7-5-7-9.3V5.7z"/></clipPath></defs><g clip-path="url(#fx-shield)"><rect class="lvl" x="0" y="0" width="24" height="24"/></g><path class="shell" d="M12 2.8l7 2.9v5.6c0 4.3-2.9 7.7-7 9.3-4.1-1.6-7-5-7-9.3V5.7z"/><path class="chk" d="M8.6 13.4l2.7 2.7 4.5-5.1"/></svg><span>Repaired: 58 &rarr; 100 (leaving)</span></div>
+    </div>
+    <button class="d-alert leaving" type="button"><svg class="d-i"><use href="../assets/icons.svg#i-info"/></svg><span class="d-text"><b>An alert that is leaving</b><span>One line of detail</span></span></button>
+  </div></section>
+
+  <section class="d-panel"><h2 class="d-head">Tabs, disclosure, table, key/value</h2><div class="d-body x-stack">
+    <div class="d-seg full has-ind" data-seg="k" role="tablist"><button role="tab" aria-selected="true" data-pane="k1" class="pop">First 3</button><button role="tab" aria-selected="false" data-pane="k2">Second 2</button><span class="d-ind"></span></div>
+    <p id="k1" class="d-dim x-flush">First tab content.</p><p id="k2" class="d-dim x-flush" hidden>Second tab content.</p>
+    <details class="d-more"><summary>More</summary><p class="d-dim x-flush">A short disclosure for one card.</p></details>
+    <dl class="d-kv"><dt>Position</dt><dd>A1 &middot; x 1,000 &middot; y 2,000</dd><dt>Region</dt><dd>Sample region</dd><dt>Updated</dt><dd>3 s ago</dd></dl>
+    <table class="d-table"><thead><tr><th>Item</th><th class="x-right">Quantity</th></tr></thead><tbody><tr><td>Sample item A</td><td class="x-right d-num">3</td></tr><tr><td>Sample item B</td><td class="x-right d-num">240</td></tr></tbody></table>
+  </div></section>
+
+  <section class="d-panel"><h2 class="d-heading"><button class="d-head" type="button" aria-expanded="true" aria-controls="fold-1">A folding card<span class="d-count">3</span><svg class="d-i d-chev"><use href="../assets/icons.svg#i-chev"/></svg></button></h2><div class="d-body d-fold" id="fold-1"><p class="d-dim x-flush">The head is a button inside a heading, so heading navigation still lists the card. Its body is hidden when it is folded.</p></div></section>
+
+  <section class="d-panel"><h2 class="d-head">Dialog and empty state</h2><div class="d-body x-stack">
+    <button class="d-btn" type="button" data-open-dialog="confirm">Open the dialog</button>
+    <div class="d-empty"><svg class="d-i"><use href="../assets/icons.svg#i-mark"/></svg><h3>Nothing to show yet</h3><span>Say why it is empty and what to do next.</span></div>
+  </div></section>
+
+  <section class="d-panel x-wide"><h2 class="d-head">Tiles</h2><div class="d-body">
+    <div class="d-tiles">
+      <a class="d-tile d-cut" href="#top"><span class="d-tile-ic"><svg class="d-i lg"><use href="../assets/icons.svg#i-map"/></svg></span><b>Map</b><span>Places, storms and worms</span></a>
+      <a class="d-tile d-cut" href="#top"><span class="d-tile-ic"><svg class="d-i lg"><use href="../assets/icons.svg#i-save"/></svg></span><b>Editor</b><span>Edit the save file</span></a>
+    </div>
+  </div></section>
+
+  <section class="d-panel x-wide"><h2 class="d-head">Rail and drawer</h2><div class="d-body x-stack">
+    <div class="x-stage">
+      <div class="d-rail" id="demo-rail"><div class="d-rail-in"><p class="x-flush">A rail holds panels. Under 760 px wide it lies over the page as a drawer.</p><button class="d-btn" type="button">A control in the rail</button></div></div>
+      <button class="d-edge d-cut-tab" type="button" aria-expanded="true" aria-controls="demo-rail" aria-label="Hide the rail" data-collapse="demo-rail"><svg class="d-i sm"><use href="../assets/icons.svg#i-left"/></svg></button>
+    </div>
+    <div class="d-rail shut"><div class="d-rail-in"><button class="d-btn" type="button">Not reachable while the rail is shut</button></div></div>
+  </div></section>
+</main>
+
+<dialog id="confirm" class="d-modal" aria-labelledby="cm-t"><form method="dialog"><h3 id="cm-t">Confirm</h3><p>A sentence of consequence. The default answer is Cancel.</p><div class="d-actions"><button class="d-btn quiet" value="cancel" autofocus>Cancel</button><button class="d-btn primary" value="ok">Replace</button></div></form></dialog>
+</body>
+</html>

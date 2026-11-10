@@ -1,0 +1,168 @@
+/* Tabr design tokens, version 0.2.0: the Fremen look (the default look). Dark ("stillsuit night") and Dayside (light).
+   Direction: a desaturated grey-brown charcoal ground, stillsuit-grey panels with a faint woven texture drawn in CSS, bone and sand text, a deep cobalt (blue within blue) as the primary accent
+   and rust orange as the secondary accent: spice, warnings and the live-resource colours, never the colour of the main action. Sand ochre for dividers. Dayside: sun-bleached sand, dark umber text, deep blue, rust.
+   The structure of the grounds and of the Dayside values follows the MIT-licensed editor themes of FedaykinDev (NOTICE has the notice); the rest is written for this module. Nothing of Funcom's is used.
+   Rules: colour, type, spacing, radius, elevation and motion are defined HERE and nowhere else. An app adds layout, never a colour.
+   Every name the other looks define is defined here too; the Fremen-only names are --c-blue, --c-on-blue, --c-rust, --c-stitch and --weave, used by components-fremen.css only.
+   Mapping of the shared names: --c-spice is the primary accent as text, border and focus light (the light tint of the blue on dark, the deep blue on Dayside), --c-on-spice the label on a fill of it;
+   --c-blue is the fill of a primary button or a switch that is on, --c-on-blue its label; --c-rust is the spice and warning orange; --c-gold is the heading sand; --c-bronze is the ochre divider; --c-sky is information.
+   Every text token is 4.5:1 or better on ground, panel, raised and sunken in both themes; --c-rule, --c-bronze and --c-focus are 3:1 or better on panel and raised (a test checks it). */
+
+:root {
+  color-scheme: dark;
+
+  /* surfaces: the dark theme is the default here too ("Stillsuit night": grey-brown charcoal, flatter and lighter than Awakening) */
+  --c-ground: #1c1b1a;   /* the page behind everything */
+  --c-panel:  #282726;   /* a panel, the side panel, the header: stillsuit grey-brown */
+  --c-raised: #343331;   /* a row on hover, a popover, a card inside a panel */
+  --c-sunken: #151313;   /* an input, the map's own backdrop */
+  --c-scrim:  rgba(20, 16, 15, .78);
+
+  /* lines: a control's boundary must be 3:1; a decorative divider need not be */
+  --c-rule: #9a866f;     /* the boundary of a control (input, button, switch): worn sand-grey */
+  --c-hair: #4a3d34;     /* a divider, a panel edge: dark ochre-grey */
+  --c-bronze: #a98b63;   /* sand ochre: the dashed seam under a heading, the app bar's stitch */
+  --c-stitch: #6b5c4e;   /* the dashed inner stitching of panels and cards (decorative) */
+
+  /* text */
+  --c-text:    #e8dcc8;  /* pale bone */
+  --c-dim:     #c9b79c;  /* quiet text: counts, units, captions */
+  --c-on-spice: #0c1830; /* the label on a fill of --c-spice (the light blue tint) */
+
+  /* accents: blue-within-blue is the one primary thing, the active state and the light of focus and hover; rust is spice, warnings and live resources; sand marks headings; sky is information only */
+  --c-spice: #7bb6ff;    /* the PRIMARY accent as text, border, focus light (the light tint of the blue; the name is kept so every page and component works) */
+  --c-blue:  #2a5cab;    /* the PRIMARY accent as a fill: a primary button, a switch that is on */
+  --c-on-blue: #f8f2e6;  /* bone label on the blue fill */
+  --c-rust:  #e8883f;    /* the SECONDARY accent: spice (the resource), warnings, live-resource colours */
+  --c-gold:  #d9c3a0;    /* headings and the wordmark: sand */
+  --c-sky:   #84b8c4;
+  --c-glow:  rgba(80, 140, 230, .28);  /* the blue light: focus, hover, selected */
+  /* what a switch that is on is made of (the palette menu clamps them: fill 3:1 against the off track, knob 3:1 against the fill); defaults are the look's own accent fill and label */
+  --c-switch: var(--c-blue);
+  --c-on-switch: var(--c-on-blue);
+  --k-boost: 1;          /* multiplier of the accent tints (selected segment, current tab, pressed button, hovered row); 1 = the look's own, a palette may raise it so its accent shows */
+  --aura: 120, 140, 210; /* r, g, b of the faint light at the top of the page (--vignette) */
+
+  /* status: always paired with an icon or a word, never colour alone */
+  --c-ok:   #8ab872;
+  --c-warn: #e8a85c;
+  --c-bad:  #f77c74;
+
+  --c-focus: #8fc0ff;
+
+  /* the dust field outside the map picture, and the haze that melts the picture's edge into it (map page, "Dust edge"): grey-brown dust */
+  --c-dust-1: #2b2926;   /* the field */
+  --c-dust-2: #413e3a;   /* a cloud in it, and the haze */
+  --c-dust-3: #6e6256;   /* the lightest cloud */
+
+  /* map semantics: the same in both themes and in all three looks, because the map picture is the same (they keep the meaning they have today) */
+  --m-ink:     #14161a;  /* the dark under-stroke of every glyph */
+  --m-halo:    #ffffff;
+  --m-player:  #ffd24a;
+  --m-worm:    #e8743b;
+  --m-giant:   #ff3b30;
+  --m-vehicle: #4aa3ff;
+  --m-storm:   #d9b25a;
+  --m-live:    #3ddc5a;  /* the live dot and the infected ring */
+  --m-spice:   #b58cff;
+  --m-ore:     #5fbf8f;
+
+  /* type: system faces only (research note, D2 is still open). A humanist stack for labels and body alike; the numbers stay tabular (font-variant-numeric in components) */
+  --t-display: "Segoe UI", "Trebuchet MS", system-ui, sans-serif;
+  --t-body:    "Segoe UI Variable Text", "Segoe UI", "Trebuchet MS", system-ui, sans-serif;
+  --t-mono:    "Cascadia Mono", Consolas, ui-monospace, monospace;
+  --t-xs: 11px; --t-sm: 12px; --t-md: 13px; --t-lg: 15px; --t-xl: 18px; --t-2xl: 24px;
+  --t-track-caps: .12em;  /* letter-spacing of the small-caps headings (Awakening: .22em) */
+  --t-heading: "Dune Rise", var(--t-display);  /* headings and caps labels; html[data-heading-font="system"] puts the plain display stack back */
+  --t-track-heading: .02em; /* letter-spacing of the headings in Dune Rise, which is wide */
+
+  /* spacing: a 4 px grid */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px;
+
+  /* shape: small radii, no cut corners; the switch is a pill */
+  --r-1: 2px;   /* chips, rows */
+  --r-2: 3px;   /* controls */
+  --r-3: 4px;   /* panels, popovers */
+  --r-pill: 999px;
+  --hit: 32px;       /* the least a pointer has to hit */
+  --hit-dense: 28px; /* a dense list row (WCAG 2.2 asks 24) */
+
+  /* elevation: ordinary soft shadows (nothing is clipped in this look, so a shadow is never cut) */
+  --e-1: 0 1px 0 rgba(255, 255, 255, .03) inset;
+  --e-2: 0 6px 16px rgba(0, 0, 0, .45);
+  --e-3: 0 16px 40px rgba(0, 0, 0, .55);
+
+  /* surface texture, CSS only: a woven stillsuit cloth, two sets of very thin diagonal threads, far below any text contrast. --grain is the name the pages already use for "the surface texture" */
+  --weave: repeating-linear-gradient(45deg, rgba(232, 220, 200, .022) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, rgba(0, 0, 0, .14) 0 1px, transparent 1px 4px);
+  --grain: var(--weave);
+  --vignette: radial-gradient(130% 80% at 50% -10%, rgba(var(--aura), .05), transparent 60%), radial-gradient(140% 120% at 50% 50%, transparent 60%, rgba(0, 0, 0, .3) 100%);
+
+  /* motion: it says that something changed, it never decorates. Switched by html[data-motion] (Full, Calm, Off; dune/motion.css) and by prefers-reduced-motion. Every duration comes from a token below. */
+  --mo-fast: 120ms; --mo-base: 200ms; --mo-slow: 320ms;
+  --mo-ease: cubic-bezier(.2, .7, .2, 1);
+  --mo-ease-io: cubic-bezier(.65, 0, .35, 1);                 /* a camera flight */
+  --mo-fill: 400ms;                                           /* a bar filling */
+  --mo-tick: 400ms;                                           /* a number counting up (read by the page's script) */
+  --mo-flash: 1000ms;                                         /* a row highlight fading (Keep-alive refill) */
+  --mo-water: 1200ms;                                         /* the drop in the water toast filling */
+  --mo-attn: 1200ms;                                          /* one cycle of the new-alert border pulse (runs twice, then still) */
+  --mo-ping-once: 900ms;                                      /* the one ping ring of a thing that appears, or arrives */
+  --mo-delay: 250ms;                                          /* tooltip delay */
+  --mo-fly-min: 450ms; --mo-fly-max: 900ms; --mo-fly-calm: 200ms; /* a camera flight: short to long, and in Calm */
+  --mo-shift: 8px;                                            /* how far an entry slides; 0 in Calm */
+  --mo-breathe: 2.4s; --mo-spin: 700ms; --mo-ping-player: 2.4s; --mo-ping-giant: 1.6s; --mo-drift: 140s; --mo-shimmer: 1.4s; --mo-low: 3.6s; /* the periods of the loops (Full only) */
+  /* names of version 0.1.0 that this look does not need itself, kept so that a program written against that version can link this file instead of tokens.css */
+  --t-base: 14px;
+  --r-4: var(--r-3);
+}
+
+/* the light theme ("Dayside": sun-bleached sand, dark umber text, deep blue, rust), by the system setting, or forced with data-theme="light" */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --c-ground: #e8e0d0; --c-panel: #f5f2ea; --c-raised: #ded4c0; --c-sunken: #faf8f3;
+    --c-scrim: rgba(50, 32, 20, .5);
+    --c-rule: #7d6648; --c-hair: #b8a890; --c-bronze: #8b7355; --c-stitch: #b5a283;
+    --c-text: #2c2416; --c-dim: #4a3f2e; --c-on-spice: #ffffff;
+    --c-spice: #1a4590; --c-blue: #1a4590; --c-on-blue: #ffffff; --c-rust: #8f3a1c; --c-gold: #5e4a28; --c-sky: #1f5a6e; --c-glow: rgba(31, 78, 153, .22);
+    --c-ok: #2f5e3c; --c-warn: #7e3e08; --c-bad: #9e2c1c;
+    --c-focus: #143a78;
+    --c-dust-1: #d4c8b0; --c-dust-2: #e3dac8; --c-dust-3: #f0eadc;
+    --e-1: 0 1px 0 rgba(255, 255, 255, .6) inset;
+    --e-2: 0 6px 16px rgba(60, 45, 20, .2);
+    --e-3: 0 16px 40px rgba(60, 45, 20, .28);
+    --weave: repeating-linear-gradient(45deg, rgba(74, 48, 32, .035) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, rgba(255, 255, 255, .35) 0 1px, transparent 1px 4px);
+    --vignette: radial-gradient(130% 80% at 50% -10%, rgba(255, 255, 255, .5), transparent 60%), radial-gradient(140% 120% at 50% 50%, transparent 60%, rgba(110, 95, 60, .09) 100%);
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --c-ground: #e8e0d0; --c-panel: #f5f2ea; --c-raised: #ded4c0; --c-sunken: #faf8f3;
+  --c-scrim: rgba(50, 32, 20, .5);
+  --c-rule: #7d6648; --c-hair: #b8a890; --c-bronze: #8b7355; --c-stitch: #b5a283;
+  --c-text: #2c2416; --c-dim: #4a3f2e; --c-on-spice: #ffffff;
+  --c-spice: #1a4590; --c-blue: #1a4590; --c-on-blue: #ffffff; --c-rust: #8f3a1c; --c-gold: #5e4a28; --c-sky: #1f5a6e; --c-glow: rgba(31, 78, 153, .22);
+  --c-ok: #2f5e3c; --c-warn: #7e3e08; --c-bad: #9e2c1c;
+  --c-focus: #143a78;
+  --c-dust-1: #d4c8b0; --c-dust-2: #e3dac8; --c-dust-3: #f0eadc;
+  --e-1: 0 1px 0 rgba(255, 255, 255, .6) inset;
+  --e-2: 0 6px 16px rgba(60, 45, 20, .2);
+  --e-3: 0 16px 40px rgba(60, 45, 20, .28);
+  --weave: repeating-linear-gradient(45deg, rgba(74, 48, 32, .035) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, rgba(255, 255, 255, .35) 0 1px, transparent 1px 4px);
+  --vignette: radial-gradient(130% 80% at 50% -10%, rgba(255, 255, 255, .5), transparent 60%), radial-gradient(140% 120% at 50% 50%, transparent 60%, rgba(110, 95, 60, .09) 100%);
+}
+
+/* prefers-reduced-motion and the Motion setting: motion.css */
+
+/* Headings: Dune Rise by Fontswan, SIL Open Font License 1.1 (fonts/DuneRise-OFL.txt travels with the file; the file is used as it is: no subsetting, no conversion).
+   One weight, capitals-height letters, wide; it has no percent sign, middle dot, dash, arrow or accent, and any glyph it lacks falls to the next family of --t-heading one glyph at a time.
+   It is used for headings and caps labels on fixed strings only (the list is at the end of components-fremen.css), never for body text, numbers, buttons, inputs or names that come from a save or a user.
+   It is on by default; html[data-heading-font="system"] turns it off. The file is fetched only when a heading asks for it. */
+@font-face {
+  font-family: "Dune Rise";
+  src: url('fonts/DuneRise.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+html[data-heading-font="system"] { --t-heading: var(--t-display); }
