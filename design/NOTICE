@@ -1,4 +1,4 @@
-design: shared design tokens (and, later, components) for the Tabr programs
+design: shared design tokens, components and icons for the Tabr programs
 Copyright (c) 2026 Project Arrakis contributors
 
 Licensed under the MIT Licence (see LICENSE). This module is part of the tabr-tau repository
@@ -7,8 +7,42 @@ Licensed under the MIT Licence (see LICENSE). This module is part of the tabr-ta
 This is an unofficial project. It is not affiliated with or endorsed by Funcom.
 Dune: Awakening and its names belong to their owners.
 
-The module contains a stylesheet and Go code only. It contains no game artwork, no text taken from the game,
-no font, no logo and no third-party code. See PROVENANCE.md for where each part comes from.
+The module contains stylesheets, drawn SVG files, one typeface and Go code. It contains no game artwork, no text taken from the game,
+no logo and no third-party code. See PROVENANCE.md for where each part comes from.
 
-The module imports the Go standard library only. It has no third-party dependency, so it carries no
-third-party licence text. A test (boundary_test.go) fails if that ever changes; a change would be listed here first.
+The module imports the Go standard library only. It has no third-party dependency, so it carries no third-party Go licence text.
+A test (boundary_test.go) fails if that ever changes; a change would be listed here first.
+
+Two third-party works are part of the module, and their notices travel with every copy of it:
+
+1. The typeface Dune Rise (assets/fonts/DuneRise.ttf), used unmodified for headings.
+
+   Copyright (c) 2021, Fontswan (https://fontswan.com), with Reserved Font Name Dune Rise.
+   Licensed under the SIL Open Font License, Version 1.1. The full licence text is in assets/fonts/DuneRise-OFL.txt, next to the font.
+   The font file is used as it is: it is not subset, converted or changed, because the Reserved Font Name forbids a modified version
+   under that name. It is not sold by itself.
+
+2. Values of a colour palette. The grounds and the Dayside colours of the Fremen look (assets/tokens-fremen.css) follow the
+   fan-made editor themes of the repository btriapitsyn/zed-fedaykin-themes, which are under the MIT Licence:
+
+   MIT License
+
+   Copyright (c) 2025 FedaykinDev
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included in all
+   copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.

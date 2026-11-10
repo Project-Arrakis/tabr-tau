@@ -1,0 +1,135 @@
+/* Tabr components, version 0.2.0: the parts every look shares. Link it after the look's own sheet (tokens-LOOK.css, components-LOOK.css, components.css, motion.css), so that it can adjust what the look drew.
+   It holds: touch sizes, the larger target of a switch, tooltips that can be reached and dismissed, the tile, the rail and its drawer, the type specimen, the contrast preference and the forced-colours block.
+   Every colour is a token or a system colour; every class starts with d-. An app may add layout in classes that start with x- and nothing else. Print is not supported: these are live views. */
+
+/* ---- Targets and sizes: the pointer needs 32 px, a finger 44 px; nothing a person can press is under 24 px ---- */
+/* a switch is 30 x 16 px, so its target reaches past the drawn track (at least 36 x 28 px; the whole row is also a target where the switch sits in a row or a label) */
+.d-toggle::before { content: ""; position: absolute; inset: -6px -3px; }
+@media (pointer: coarse) {
+  :root { --hit: 44px; --hit-dense: 44px; }
+  .d-btn.sm, .d-seg button { min-height: var(--hit); }
+  .d-toggle::before { inset: -14px -7px; }
+}
+
+/* ---- Tooltip: reachable and dismissible (WCAG 1.4.13) ----
+   The tip takes the pointer, so it stays while the pointer moves onto it; a bridge over the gap keeps the hover on the part while the pointer crosses; Esc (the app adds .dismissed to the .d-tt) hides it until the pointer or focus leaves.
+   The trigger carries aria-describedby naming the tip's id, and the tip has role="tooltip" and its text as plain text, so a hidden tip is still its description. */
+.d-tt > .d-tip { pointer-events: auto; }
+.d-tt:is(:hover, :focus-within)::after { content: ""; position: absolute; z-index: 19; left: -8px; right: -8px; bottom: 100%; height: 10px; }
+.d-tt.below:is(:hover, :focus-within)::after { bottom: auto; top: 100%; }
+.d-tt.right:is(:hover, :focus-within)::after { left: 100%; right: auto; top: -8px; bottom: -8px; width: 10px; height: auto; }
+.d-tt.left:is(:hover, :focus-within)::after { left: auto; right: 100%; top: -8px; bottom: -8px; width: 10px; height: auto; }
+html .d-tt.dismissed > .d-tip { opacity: 0; visibility: hidden; transition: none; }
+
+/* ---- A heading that holds a folding head: <h2 class="d-heading"><button class="d-head" aria-expanded>, so that heading navigation lists the card ---- */
+.d-heading { margin: 0; font: inherit; }
+
+/* ---- Type specimen and heading size: the largest heading (the page title or a display line) ---- */
+.d-display { margin: 0; font: 700 var(--t-2xl)/1.2 var(--t-display); letter-spacing: .2em; text-transform: uppercase; color: var(--c-gold); }
+
+/* ---- Tile: a link or button with an icon, a title and one line, on a raised surface ---- */
+.d-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--s-3); }
+.d-tile { display: grid; grid-template-columns: 40px 1fr; gap: 0 var(--s-3); align-items: center; min-width: 0; padding: var(--s-3); border: 1px solid var(--c-hair); border-radius: var(--r-3); background-color: var(--c-raised); color: var(--c-text); text-decoration: none; transition: border-color var(--mo-fast), box-shadow var(--mo-fast); }
+.d-tile:hover { --edge: var(--c-spice); border-color: var(--c-spice); }
+.d-tile .d-tile-ic { grid-row: 1 / 3; display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--r-3); background: color-mix(in srgb, var(--c-spice) 16%, transparent); color: var(--c-spice); }
+.d-tile b { font-size: var(--t-lg); }
+.d-tile span:not(.d-tile-ic) { color: var(--c-dim); font-size: var(--t-sm); }
+.d-tile b, .d-tile span { overflow-wrap: anywhere; }
+
+/* ---- Rail and drawer: a side panel that folds away, and under 760 px wide lies over the page as a drawer ----
+   <div class="d-rail"><div class="d-rail-in">...</div></div>, with .shut on the rail when it is folded. A rail that is shut hides its content from the keyboard and from assistive technology.
+   --rail-w sets the width (356 px by default). The collapse tab is a button.d-edge.d-cut-tab beside the rail; the app places it. */
+.d-rail { position: relative; display: flex; flex: none; width: var(--rail-w, 356px); overflow: hidden; background-color: var(--c-ground); background-image: var(--grain, none); border-right: 1px solid var(--c-hair); transition: width var(--mo-slow) var(--mo-ease); }
+.d-rail.shut { width: 0; border-right-width: 0; }
+.d-rail.shut > .d-rail-in { visibility: hidden; transition: visibility 0s linear var(--mo-slow); }
+.d-rail-in { flex: none; box-sizing: border-box; width: var(--rail-w, 356px); height: 100%; overflow-x: hidden; overflow-y: auto; padding: var(--s-3); display: flex; flex-direction: column; gap: var(--s-3); }
+.d-rail-in > * { flex: none; min-width: 0; }
+:where(.d-rail-in *) { min-width: 0; }
+.d-edge { position: absolute; left: 0; top: 14px; z-index: 6; width: 24px; height: 40px; padding: 0; display: grid; place-items: center; background-color: var(--c-panel); border: 1px solid var(--c-hair); border-left: 0; border-radius: 0 var(--r-3) var(--r-3) 0; color: var(--c-dim); cursor: pointer; }
+.d-edge:hover { color: var(--c-text); border-color: var(--edge, var(--c-rule)); }
+.d-edge .d-i { transition: transform var(--mo-base) var(--mo-ease); }
+.d-edge[aria-expanded="false"] .d-i { transform: rotate(180deg); }
+@media (max-width: 760px) {
+  .d-rail { position: absolute; z-index: 12; left: 0; top: 0; bottom: 0; width: min(var(--rail-w, 356px), 88vw); }
+  .d-rail.shut { width: 0; }
+  .d-rail-in { width: min(var(--rail-w, 356px), 88vw); }
+}
+
+/* ---- More contrast asked for: real edges, no texture ---- */
+@media (prefers-contrast: more) {
+  :root:root { --c-hair: var(--c-rule); --grain: none; --weave: none; --vignette: none; }
+}
+
+/* ---- Forced colours (Windows high contrast): the platform replaces the palette with system colours and drops background images and shadows, so everything that the looks draw with a gradient, a
+   shadow or a fill gets a real border, and every state that a fill shows also shows in a border width, a label colour or a mark. The outline stays. ---- */
+@media (forced-colors: active) {
+  :focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+  .d-panel, .d-card, .d-pop, .d-modal, .d-alert, .d-toast, .d-btn, .d-input, .d-select, .d-seg, .d-pill, .d-scope, .d-badge, .d-cut, .d-tile, .d-edge, .d-tt > .d-tip, .d-banner, .d-spark, .d-kbd {
+    clip-path: none; background-image: none; box-shadow: none; border: 1px solid CanvasText; border-radius: 0;
+  }
+  .d-bar { border-bottom: 1px solid CanvasText; background-image: none; }
+  .d-bar::after, .d-head::after, .d-panel::before, .d-panel::after, .d-card::before, .d-card::after, .d-pop::before, .d-pop::after, .d-modal::before, .d-modal::after { display: none; }
+  .d-head { border-bottom: 1px solid CanvasText; }
+  .d-head::before { background: CanvasText; forced-color-adjust: none; }
+  .d-btn { color: ButtonText; background-color: ButtonFace; border-color: ButtonText; }
+  .d-btn.primary { border-width: 3px; }
+  .d-btn.danger { border-style: double; border-width: 3px; }
+  .d-btn.quiet { border-style: dashed; }
+  .d-btn:hover:not(:disabled), .d-btn.quiet:hover:not(:disabled) { color: HighlightText; background-color: Highlight; border-color: Highlight; }
+  .d-btn:disabled { color: GrayText; border-color: GrayText; opacity: 1; }
+  .d-btn.busy::after { border-color: currentColor; border-right-color: transparent; }
+  .d-input, .d-select { color: FieldText; background-color: Field; border-color: FieldText; }
+  .d-input:focus, .d-select:focus { border-color: Highlight; border-width: 2px; }
+  .d-toggle { background-color: Canvas; border: 2px solid ButtonText; box-shadow: none; }
+  .d-toggle::after { background-color: ButtonText; forced-color-adjust: none; }
+  .d-toggle:checked { background-color: Highlight; border-color: Highlight; }
+  .d-toggle:checked::after { background-color: HighlightText; }
+  .d-toggle:indeterminate { border-color: Highlight; border-style: dashed; }
+  .d-toggle:indeterminate::after { background-color: Highlight; }
+  .d-toggle:disabled { border-color: GrayText; opacity: 1; }
+  .d-toggle:disabled::after { background-color: GrayText; }
+  .d-toggle.dashed:not(:checked) { border-style: dashed; }
+  .d-seg button { color: ButtonText; border-right-color: ButtonText; }
+  .d-seg button[aria-pressed="true"], .d-seg button[aria-selected="true"] { color: HighlightText; background-color: Highlight; box-shadow: none; text-decoration: underline; }
+  .d-seg.has-ind button[aria-selected="true"] { text-decoration: underline; }
+  .d-row:hover, .d-table tr:hover td { background-color: Canvas; outline: 1px solid Highlight; box-shadow: none; }
+  .d-row.off .d-name { text-decoration: line-through; color: GrayText; }
+  .d-nav a, .d-nav button { color: LinkText; }
+  .d-nav [aria-current="page"] { color: Highlight; background: none; box-shadow: none; border-bottom: 3px solid Highlight; }
+  .d-pill { color: CanvasText; }
+  .d-pill::before { background-color: CanvasText; forced-color-adjust: none; }
+  .d-pill.offline::before { background-color: Canvas; box-shadow: none; border: 2px solid CanvasText; }
+  .d-pill.paused { border-style: dashed; }
+  .d-pill.live { border-width: 3px; }
+  .d-live::before { background-color: CanvasText; forced-color-adjust: none; }
+  .d-cert.live { background-color: CanvasText; forced-color-adjust: none; }
+  .d-cert.saved { border: 2px dashed CanvasText; }
+  .d-cert.possible { border: 2px solid CanvasText; }
+  .d-meter .d-bar-track { border: 1px solid CanvasText; background: Canvas; }
+  .d-meter .d-bar-track i { background-color: Highlight; box-shadow: none; forced-color-adjust: none; }
+  .d-meter .d-bar-track::after { display: none; }
+  .d-meter.low .d-val, .d-meter.crit .d-val { text-decoration: underline; }
+  .d-meter.crit .d-val::before { background-color: CanvasText; color: Canvas; forced-color-adjust: none; }
+  .d-banner, .d-alert { border-left-width: 6px; }
+  .d-alert.bad, .d-banner.bad { border-left-style: double; }
+  .d-alert.info, .d-banner.info { border-left-style: dotted; }
+  .d-toast { border-left-width: 6px; }
+  .d-toast.warn { border-left-style: dashed; }
+  .d-toast.bad { border-left-style: double; }
+  .d-card.pinned { border: 3px solid Highlight; }
+  .d-range::-webkit-slider-runnable-track { background: CanvasText; }
+  .d-range::-webkit-slider-thumb { background: Highlight; border-color: CanvasText; forced-color-adjust: none; }
+  .d-spark path, .d-spark line { stroke: CanvasText; }
+  .d-fx .shell { stroke: CanvasText; }
+  .d-fx .lvl { fill: Highlight; forced-color-adjust: none; }
+  .d-skel { background: GrayText; forced-color-adjust: none; }
+  .d-skel::after { display: none; }
+  .d-tile .d-tile-ic { background: none; border: 1px solid CanvasText; color: CanvasText; }
+  .d-tile:hover { border-color: Highlight; border-width: 3px; }
+  dialog.d-modal::backdrop { background: rgba(0, 0, 0, .6); }
+  .d-rail { background-image: none; border-right: 1px solid CanvasText; }
+  .d-table th { border-bottom: 1px solid CanvasText; }
+  .d-table td { border-bottom: 1px solid GrayText; }
+  .d-rule { background: CanvasText; }
+  .d-more > summary::before { border-color: CanvasText; }
+}

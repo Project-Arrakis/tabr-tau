@@ -52,8 +52,15 @@ jobs:
         env:
           TAG: ${{ github.ref_name }}
         run: bash scripts/design-release-notes.sh "$TAG" > /dev/null
+      - name: The heading font is in the module, unmodified (its sha256 equals design/assets/fonts/SHA256SUMS)
+        working-directory: design/assets/fonts
+        run: |
+          if [ ! -s DuneRise.ttf ]; then echo "ERROR: design/assets/fonts/DuneRise.ttf is missing; a tag carries the font" >&2; exit 1; fi
+          sha256sum --check SHA256SUMS
       - name: go vet and go test (race) in design
         working-directory: design
+        env:
+          DESIGN_RELEASE: "1"
         run: |
           go vet ./...
           go test -race -count=1 ./...

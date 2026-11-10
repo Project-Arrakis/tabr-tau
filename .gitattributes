@@ -6,3 +6,9 @@ docs/evidence/single-player-schema.ddl.sql text eol=lf
 *.sh text eol=lf
 # The fillable-items snapshot is compared byte for byte with its canonical form by a test, so it is LF in every checkout (#551).
 kit/gamedata/**/*.json text eol=lf
+# The design module's files are served as they are and one of them is hashed: text stays LF and the font stays binary in every checkout (#572).
+design/assets/*.css text eol=lf
+design/assets/*.svg text eol=lf
+design/assets/fonts/*.txt text eol=lf
+design/assets/fonts/SHA256SUMS text eol=lf
+design/assets/fonts/*.ttf binary

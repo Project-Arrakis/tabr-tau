@@ -1,0 +1,113 @@
+/* Tabr motion, version 0.2.0: for every look (link it after the look's two sheets and components.css; a look switch does not swap it).
+   The rules: motion shows cause and effect, marks a rare change, or shows that something is alive. One thing moves at a time. 120 to 250 ms for a change, up to 400 ms for a bar filling,
+   ease-out. Nothing loops but the Live dot, the busy ring, a loading shimmer and what an app marks with data-loop, and every loop stops outside Full. Not wanted: looping glows, hover zoom, springs,
+   particles, page transitions, confetti, sounds.
+
+   THE MOTION SETTING sets html[data-motion] before the first paint (an external script in the head; no inline script):
+     full  everything below.
+     calm  no loop, no slide, no ping, no counting: short fades only (about 150 ms).
+     off   no animation and no transition at all; every state change is instant.
+   The system setting prefers-reduced-motion makes Calm the default with no script at all, unless the person has picked something: an app sets html[data-motion-src="user"] when it stores a choice,
+   and the choice then wins. An app marks its own looping decorations with the attribute data-loop (on the element, or on the element that owns the ::before or ::after); Calm and Off stop them.
+   Every duration is a --mo-* token (tokens-*.css); Calm and Off re-define the tokens here. A test reads this file: every looping animation of the module has its selector in the list below, and no loop is faster than 333 ms. */
+
+/* ---- the tokens in Calm ---- */
+html[data-motion="calm"] {
+  --mo-base: 150ms; --mo-slow: 150ms; --mo-fill: 150ms; --mo-tick: 0.01ms; --mo-flash: 400ms; --mo-water: 0.01ms; --mo-attn: 0.01ms; --mo-ping-once: 0.01ms;
+  --mo-shift: 0px; --mo-pop: 1;
+}
+html[data-motion="off"] {
+  --mo-fast: 0.01ms; --mo-base: 0.01ms; --mo-slow: 0.01ms; --mo-fill: 0.01ms; --mo-tick: 0.01ms; --mo-flash: 0.01ms; --mo-water: 0.01ms; --mo-attn: 0.01ms; --mo-ping-once: 0.01ms;
+  --mo-delay: 0.01ms; --mo-fly-min: 0.01ms; --mo-fly-max: 0.01ms; --mo-fly-calm: 0.01ms; --mo-shift: 0px; --mo-pop: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion-src="user"]):not([data-motion="off"]) {
+    --mo-base: 150ms; --mo-slow: 150ms; --mo-fill: 150ms; --mo-tick: 0.01ms; --mo-flash: 400ms; --mo-water: 0.01ms; --mo-attn: 0.01ms; --mo-ping-once: 0.01ms;
+    --mo-shift: 0px; --mo-pop: 1;
+  }
+}
+
+/* ---- the loops (and the decorative one-shots) that Calm and Off switch off: the Live dot, the busy ring, the loading shimmer, the low-bar pulse, the row flash, and whatever an app marks with data-loop ---- */
+html[data-motion="calm"] .d-pill.live::before, html[data-motion="off"] .d-pill.live::before,
+html[data-motion="calm"] .d-btn.busy::after, html[data-motion="off"] .d-btn.busy::after,
+html[data-motion="calm"] .d-skel::after, html[data-motion="off"] .d-skel::after,
+html[data-motion="calm"] .d-meter.low .d-bar-track i, html[data-motion="off"] .d-meter.low .d-bar-track i,
+html[data-motion="calm"] .d-flash, html[data-motion="off"] .d-flash,
+html[data-motion="calm"] [data-loop], html[data-motion="off"] [data-loop],
+html[data-motion="calm"] [data-loop]::before, html[data-motion="off"] [data-loop]::before,
+html[data-motion="calm"] [data-loop]::after, html[data-motion="off"] [data-loop]::after { animation: none; }
+html[data-motion="calm"] .d-btn.busy::after, html[data-motion="off"] .d-btn.busy::after { border-right-color: currentColor; } /* a still ring says "busy" without turning */
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion-src="user"]) .d-pill.live::before,
+  html:not([data-motion-src="user"]) .d-btn.busy::after,
+  html:not([data-motion-src="user"]) .d-skel::after,
+  html:not([data-motion-src="user"]) .d-meter.low .d-bar-track i,
+  html:not([data-motion-src="user"]) .d-flash,
+  html:not([data-motion-src="user"]) [data-loop],
+  html:not([data-motion-src="user"]) [data-loop]::before,
+  html:not([data-motion-src="user"]) [data-loop]::after { animation: none; }
+  html:not([data-motion-src="user"]) .d-btn.busy::after { border-right-color: currentColor; }
+}
+
+/* ---- Off: nothing animates and nothing eases ---- */
+html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="off"] *::after,
+html[data-motion="off"] ::backdrop { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+
+/* ---- a hidden tab or a minimised window stops every animation that is still running: the app sets html[data-doc-hidden] while the document is hidden ---- */
+html[data-doc-hidden] *, html[data-doc-hidden] *::before, html[data-doc-hidden] *::after { animation-play-state: paused !important; }
+
+/* ---- toasts: enter (d-in, in the look's sheet), leave, and the result icons (a drop, a can and a shield that fill; see icons.svg and the kitchen sink) ---- */
+.d-toast.out { animation: d-out var(--mo-base) var(--mo-ease) forwards; }
+@keyframes d-out { to { opacity: 0; transform: translateY(calc(var(--mo-shift, 8px) * -.5)); } }
+@keyframes d-fade { from { opacity: 0; } }
+.d-toast .d-fx { width: 22px; height: 22px; flex: none; overflow: visible; color: var(--c-sky); }
+.d-toast .d-fx.fuel { color: var(--c-warn); }
+.d-toast .d-fx.repair { color: var(--c-ok); }
+.d-fx .shell { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+.d-fx .lvl { fill: currentColor; opacity: .85; animation: d-lvl var(--mo-water) var(--mo-ease) backwards; } /* settled (full) is the plain state; the animation only fills it up from the old level */
+@keyframes d-lvl { from { transform: translateY(var(--lvl-from, 70%)); } }
+.d-fx .chk { fill: none; stroke: var(--c-on-blue, var(--c-ground)); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 20; animation: d-draw var(--mo-base) var(--mo-ease) var(--mo-water) backwards; }
+@keyframes d-draw { from { stroke-dashoffset: 20; } }
+.d-toast .d-pop-in { animation: d-pop var(--mo-base) var(--mo-ease) backwards; }
+@keyframes d-pop { from { opacity: 0; transform: scale(var(--mo-pop, .6)); } }
+
+/* ---- the modal's scrim fades in with it ---- */
+dialog.d-modal[open]::backdrop { animation: d-fade var(--mo-base) var(--mo-ease); }
+
+/* ---- a new alert: slides in once (d-in), then its edge pulses twice and is still ---- */
+.d-alert.is-new { --attn: var(--c-warn); animation: d-in var(--mo-base) var(--mo-ease), d-attn var(--mo-attn) var(--mo-ease) var(--mo-base) 2; }
+.d-alert.bad.is-new { --attn: var(--c-bad); }
+.d-alert.info.is-new { --attn: var(--c-sky); }
+@keyframes d-attn { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--attn) 70%, transparent); } to { box-shadow: 0 0 0 6px transparent; } }
+html[data-motion="calm"] .d-alert.is-new, html[data-motion="off"] .d-alert.is-new { animation: d-in var(--mo-base) var(--mo-ease); }
+.d-alert.leaving { overflow: hidden; animation: d-out var(--mo-base) var(--mo-ease) forwards; }
+
+/* ---- vitals: the bar eases to the new value (--mo-fill, in the look's sheet); a number counts up (script); below the warning threshold the bar breathes slowly three times, then is still ---- */
+.d-meter.no-ease .d-bar-track i { transition: none; }
+.d-meter.low .d-bar-track i { animation: d-low var(--mo-low) ease-in-out 3; }
+@keyframes d-low { 50% { opacity: .5; } }
+
+/* ---- a row that lights up and fades over about a second (a refill, a change that has just arrived) ---- */
+.d-flash { animation: d-flash var(--mo-flash) ease-out 1; }
+@keyframes d-flash { from { background-color: color-mix(in srgb, var(--c-spice) 22%, var(--c-sunken)); box-shadow: inset 0 0 14px color-mix(in srgb, var(--c-spice) 35%, transparent); } }
+
+/* ---- loading skeleton (a quiet shimmer in the list until the first answer) and rows that arrive ---- */
+.d-skel-row { display: flex; align-items: center; gap: var(--s-2); min-height: var(--hit-dense, 32px); padding: 2px var(--s-2); }
+.d-skel { position: relative; display: block; height: 12px; border-radius: var(--r-2, 3px); background: var(--c-hair); overflow: hidden; }
+.d-skel.ic { width: 18px; height: 18px; flex: none; }
+.d-skel::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--c-text) 14%, transparent), transparent); transform: translateX(-100%); animation: d-shimmer var(--mo-shimmer) linear infinite; }
+@keyframes d-shimmer { to { transform: translateX(100%); } }
+.d-enter { animation: d-in var(--mo-base) var(--mo-ease) backwards; }
+
+/* ---- tabs and segments: the underline slides to the chosen one (an app puts the .d-ind in) ---- */
+:where(.d-seg[data-seg]) { position: relative; }
+.d-seg .d-ind { position: absolute; left: 0; bottom: 0; height: 2px; width: var(--w, 0); transform: translateX(var(--x, 0)); background: var(--c-spice); pointer-events: none; transition: transform var(--mo-base) var(--mo-ease), width var(--mo-base) var(--mo-ease); }
+.d-seg.has-ind button[aria-selected="true"] { box-shadow: none; }
+
+/* ---- certainty chips and other pressed buttons: the state eases, the dot pops once ---- */
+.d-seg button .d-cert { transition: opacity var(--mo-fast) var(--mo-ease), transform var(--mo-fast) var(--mo-ease), background-color var(--mo-fast) var(--mo-ease), border-color var(--mo-fast) var(--mo-ease); }
+.d-seg button.pop .d-cert { animation: d-pop-dot var(--mo-base) var(--mo-ease); }
+@keyframes d-pop-dot { 50% { transform: scale(1.35); } }
+
+/* ---- hover lift on a tile: a shadow, only where there is a hover; none in Calm and Off ---- */
+@media (hover: hover) { .d-tile:hover { box-shadow: var(--e-2); } }

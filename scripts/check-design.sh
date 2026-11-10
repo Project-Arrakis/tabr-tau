@@ -26,7 +26,7 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 git archive HEAD design | tar -x -C "$tmp"
-for f in go.mod LICENSE NOTICE VERSION CHANGELOG.md assets/tokens.css; do
+for f in go.mod LICENSE NOTICE PROVENANCE.md VERSION CHANGELOG.md assets/tokens.css assets/tokens-fremen.css assets/components-fremen.css assets/components.css assets/motion.css assets/icons.svg assets/fonts/DuneRise-OFL.txt assets/fonts/SHA256SUMS kitchen-sink/index.html; do
   if [ ! -s "$tmp/design/$f" ]; then
     echo "ERROR: design/$f is missing or empty in the export" >&2
     exit 1
