@@ -32,6 +32,9 @@ func diskFiles(t *testing.T) []string {
 			}
 			return nil
 		}
+		if d.Name() == "coverage.out" || d.Name() == "go.work" || d.Name() == "go.work.sum" {
+			return nil // made by a test run or by a developer, never part of the module (they are in .gitignore)
+		}
 		out = append(out, filepath.ToSlash(p))
 		return nil
 	})
