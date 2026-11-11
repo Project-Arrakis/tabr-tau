@@ -238,6 +238,18 @@ details.about p{margin:6px 0}
 .x-saved[hidden]{display:none}
 .x-saved .d-fx{width:18px;height:18px;color:var(--ok)}
 .x-saved .d-fx .chk{stroke:var(--ok);animation:d-draw var(--mo-base) var(--mo-ease) backwards}
-.x-motion{display:inline-flex;align-items:center;gap:6px;font-size:var(--t-sm)}
-.x-motion[hidden]{display:none}
-.x-motion .d-seg button{min-height:32px;font-size:var(--t-xs)}
+/* the Theme menu and the bulb in the header (#570): layout and the menu's own look; the buttons are the module's d-btn. Only the module's tokens are used, so the menu follows every look and both themes.
+   The behaviour is theme-menu.js; the choices are look-boot.js and motion-boot.js. */
+.theme-host{display:inline-flex;align-items:center;gap:var(--s-1);position:relative}
+.x-thmenu{position:fixed;z-index:400;box-sizing:border-box;width:288px;max-width:calc(100vw - 16px);max-height:min(78vh,560px);overflow-y:auto;overscroll-behavior:contain;padding:4px 4px 8px;background-color:var(--c-raised);color:var(--c-text);border:1px solid var(--c-rule);border-radius:var(--r-3);box-shadow:var(--e-3)}
+.x-thmenu[hidden]{display:none}
+.x-thmenu .x-thg{margin:8px 8px 2px;padding:0;color:var(--c-dim);font:700 var(--t-xs)/1.2 var(--t-body);letter-spacing:.12em;text-transform:uppercase}
+.x-thmenu [role="menuitemradio"]{display:flex;align-items:center;gap:8px;width:100%;min-height:32px;margin:0;padding:0 8px;box-sizing:border-box;border:0;border-radius:var(--r-2);background:none;color:var(--c-text);font:500 var(--t-md)/1.2 var(--t-body);text-align:left;cursor:pointer}
+.x-thmenu [role="menuitemradio"]:hover,.x-thmenu [role="menuitemradio"]:focus{background-color:color-mix(in srgb,var(--c-spice) 10%,var(--c-panel));outline:none}
+.x-thmenu [role="menuitemradio"]:focus-visible{outline:2px solid var(--c-focus);outline-offset:-2px}
+.x-thmenu .x-thdot{flex:none;width:14px;height:14px;box-sizing:border-box;border:1.5px solid var(--c-rule);border-radius:50%}
+.x-thmenu [aria-checked="true"] .x-thdot{border-color:var(--c-spice);background:radial-gradient(circle,var(--c-spice) 0 38%,transparent 42%)}
+.x-thmenu .x-thname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (pointer:coarse){.x-thmenu [role="menuitemradio"]{min-height:44px}}
+@media (max-width:520px){#theme-btn{max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+@media (forced-colors:active){.x-thmenu [aria-checked="true"] .x-thdot{border-color:Highlight;background:Highlight}}

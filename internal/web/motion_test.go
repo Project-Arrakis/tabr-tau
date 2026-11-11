@@ -44,8 +44,8 @@ func TestTheMotionScriptIsInTheHeadBeforeTheStylesheets(t *testing.T) {
 	if strings.Index(page, `src="/app.js"`) < strings.Index(page, "</head>") {
 		t.Error("app.js must come after the head")
 	}
-	if !strings.Contains(page, `id="motion-host"`) || !strings.Contains(page, `id="savedmark"`) || !strings.Contains(page, `id="toast" class="d-toasts"`) {
-		t.Error("the page lost the Motion control, the written mark or the toast region")
+	if !strings.Contains(page, `id="theme-host"`) || !strings.Contains(page, `id="savedmark"`) || !strings.Contains(page, `id="toast" class="d-toasts"`) {
+		t.Error("the page lost the Theme menu host, the written mark or the toast region")
 	}
 }
 

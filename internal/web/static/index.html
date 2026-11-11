@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="/design/components.css">
 <link rel="stylesheet" href="/design/motion.css">
 <link rel="stylesheet" href="/app.css">
+<script src="/look-boot.js"></script>
 </head>
 <body>
 <header class="d-bar">
@@ -19,8 +20,8 @@
   <span id="pending" class="mut d-pill"></span>
   <span class="x-saved" id="savedmark" hidden><svg class="d-fx" viewBox="0 0 24 24" aria-hidden="true"><path class="chk" d="M8.6 13.4l2.7 2.7 4.5-5.1"/></svg>Written</span>
   <label class="mut" title="When the game saves and no changes are queued, reload the file and redraw this page"><input type="checkbox" id="autorefresh" class="d-toggle" checked> Auto-refresh</label>
-  <span class="x-motion mut" hidden>Motion <span class="d-seg" id="motion-host" role="group" aria-label="Motion" title="How much the page moves. Full: everything. Calm: short fades only. Off: nothing moves."><button type="button" data-value="full" aria-pressed="false">Full</button><button type="button" data-value="calm" aria-pressed="false">Calm</button><button type="button" data-value="off" aria-pressed="false">Off</button></span></span>
   <button class="b sec d-btn sm" id="btnDiscard" hidden title="Drop the changes that are waiting for the game to close">Discard queue</button>
+  <span class="theme-host" id="theme-host"></span>
 </header>
 <div id="gamewarn" class="hide"></div>
 <div id="launchpass" class="hide"></div>
@@ -32,6 +33,7 @@
 <div id="sr" class="sr" role="status" aria-live="polite"></div>
 <script src="/html.js"></script>
 <script src="/livemap.js"></script>
+<script src="/theme-menu.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
