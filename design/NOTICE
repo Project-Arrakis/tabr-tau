@@ -22,8 +22,10 @@ Two third-party works are part of the module, and their notices travel with ever
    The font file is used as it is: it is not subset, converted or changed, because the Reserved Font Name forbids a modified version
    under that name. It is not sold by itself.
 
-2. Values of a colour palette. The grounds and the Dayside colours of the Fremen look (assets/tokens-fremen.css) follow the
-   fan-made editor themes of the repository btriapitsyn/zed-fedaykin-themes, which are under the MIT Licence:
+2. Values of colour palettes. The grounds and the Dayside colours of the Fremen look (assets/tokens-fremen.css) follow the
+   fan-made editor themes of the repository btriapitsyn/zed-fedaykin-themes, and the eighteen palettes of assets/palettes.css are made
+   from the colours of those themes (alpha removed, and moved toward white or black where a contrast check needs it). The themes are
+   under the MIT Licence:
 
    MIT License
 

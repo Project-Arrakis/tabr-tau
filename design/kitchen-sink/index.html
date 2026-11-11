@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="../assets/tokens-fremen.css" id="lk-tokens">
 <link rel="stylesheet" href="../assets/components-fremen.css" id="lk-components">
 <link rel="stylesheet" href="../assets/components.css">
+<link rel="stylesheet" href="../assets/palettes.css">
 <link rel="stylesheet" href="../assets/motion.css">
 <link rel="stylesheet" href="kitchen-sink.css">
 <script src="kitchen-sink.js" defer></script>
@@ -24,9 +25,12 @@
 </header>
 
 <main class="x-wrap" id="top">
-  <section class="d-panel x-wide"><h2 class="d-head">Look, theme, motion, headings</h2><div class="d-body x-stack">
+  <section class="d-panel x-wide"><h2 class="d-head">Look, colours, theme, motion, headings</h2><div class="d-body x-stack">
     <div class="x-choice"><p class="x-label">Look</p>
       <div class="d-seg" role="group" aria-label="Look" data-switch="look"><button type="button" data-value="fremen" aria-pressed="true">Fremen</button><button type="button" data-value="awakening" aria-pressed="false">Awakening</button><button type="button" data-value="sietch" aria-pressed="false">Sietch</button></div>
+      <p class="x-label">Colours</p>
+      <select class="d-select" aria-label="Colours" data-palette-select><option value="none">The look's own</option><optgroup label="Planet"><option value="warm-charcoal">Arrakis Incandescent</option><option value="umber-sand">Sandworm</option><option value="deep-teal">Kaitain</option><option value="storm-blue">Caladan Storm</option><option value="ember-red">Salusa Secundus</option><option value="circuit-indigo">Ix Technology</option></optgroup><optgroup label="House &amp; faction"><option value="mono-grey">Giedi Prime</option><option value="cold-slate">Harkonnen</option><option value="navy-blue">House Atreides</option><option value="violet-iron">Sardaukar Imperial</option><option value="ink-blue">Bene Gesserit</option></optgroup><optgroup label="Character"><option value="desert-dusk">Muad'Dib</option><option value="sand-linen">Fremen Sietch</option></optgroup><optgroup label="Guild &amp; commerce"><option value="void-violet">Guild Navigator</option><option value="steel-night">Spacing Guild</option></optgroup><optgroup label="Mystical &amp; mental"><option value="deep-ocean">Water of Life</option><option value="paper-grey">Mentat</option><option value="copper-cyan">Spice Vision</option></optgroup></select>
+      <p class="x-note">A palette recolours the look and applies in its own theme: the two light ones show in the light theme only (the bulb in the header switches the theme).</p>
       <p class="x-label">Motion</p>
       <div class="d-seg" role="group" aria-label="Motion" data-switch="motion"><button type="button" data-value="full" aria-pressed="false">Full</button><button type="button" data-value="calm" aria-pressed="false">Calm</button><button type="button" data-value="off" aria-pressed="false">Off</button></div>
       <p class="x-label">Headings</p>

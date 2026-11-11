@@ -17,6 +17,7 @@ go get github.com/Project-Arrakis/tabr-tau/design@latest
 | `components-fremen.css`, `components-awakening.css`, `components-sietch.css` | The components, as each look draws them. |
 | `components.css` | What the looks share: touch sizes, reachable tooltips, tile, rail and drawer, the more-contrast rule and the forced-colours block. |
 | `motion.css` | The Motion setting and every keyframe. |
+| `palettes.css` | Eighteen colour palettes that recolour a look: `html[data-palette="ID"]`, colours only, in the palette's own theme (see "Choosing a palette"). |
 | `icons.svg` | The icon sprite. |
 | `grain.svg` | The tile of the Awakening look's surface grain. |
 | `fonts/DuneRise.ttf`, `fonts/DuneRise-OFL.txt`, `fonts/SHA256SUMS` | The heading typeface (unmodified), its licence and its checksum. |
@@ -53,6 +54,24 @@ files, _ := design.LookFiles(design.DefaultLook) // tokens-fremen.css, component
 
 A program that lets its user switch looks swaps the first two hrefs for the names `design.LookFiles` gives, taken from a fixed table. A stored or typed string is never used to build a file name, a selector or markup; read it against the list `design.Looks()` and fall back to the default.
 
+### Choosing a palette
+
+A palette recolours whatever look is linked, in the theme it belongs to: sixteen are dark palettes and two (Fremen Sietch, Mentat) are light ones that apply in Dayside only. It changes colour tokens and nothing else. Link `palettes.css` after the look's files and put the id on the root element; remove the attribute for the look's own colours.
+
+```go
+for _, p := range design.Palettes() { // Arrakis Incandescent first; p.ID, p.Name, p.Group, p.Theme
+	_ = p
+}
+files, ok := design.PaletteFiles(stored) // palettes.css for a palette's id, none for design.NoPalette, ok false for any other string
+```
+
+```html
+<link rel="stylesheet" href="/design/palettes.css">
+<html data-palette="warm-charcoal">
+```
+
+The ids describe the colours (`warm-charcoal`, `sand-linen`); show `Name` to the person. `Group` is a heading to list the palettes under and `Theme` says where it applies, so a menu can offer a light palette only while the light theme is showing. A palette's colours are in the stylesheet, and its comment says which of them were moved from the source values to pass the contrast checks. A program reads a stored id against `design.Palettes()` (or `design.PaletteFiles`), never builds a file name or a selector from it, and falls back to no palette.
+
 `design.Tokens()` returns `tokens.css` as bytes; `design.Assets` is an `fs.FS` rooted at the assets folder; `design.Version` is the version. A program keeps its own names as aliases while it moves over (`--bg: var(--c-ground)`), so that nothing it already styles has to change at once.
 
 ### What the program's content security policy needs
@@ -72,6 +91,7 @@ The module does not store anything. A program that remembers a look, a theme, th
 |---|---|---|
 | `data-theme` | `dark`, `light` | forces a theme; absent follows the system |
 | `data-heading-font` | `dune-rise`, `system` | the heading face; absent is `dune-rise` |
+| `data-palette` | an id of `design.Palettes()` | the colour palette; absent is the look's own colours |
 | `data-motion` | `full`, `calm`, `off` | the Motion setting |
 | `data-motion-src` | `user` | set when the person chose a Motion value; without it the system setting `prefers-reduced-motion` makes Calm the default |
 | `data-doc-hidden` | present or absent | set while the document is hidden; pauses every running animation |

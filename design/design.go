@@ -10,7 +10,7 @@ import (
 
 // Version is the version of this module. It equals the contents of the VERSION file and the newest heading of CHANGELOG.md (a test checks
 // both), and on a tag build the tag design/vX.Y.Z (the release workflow checks that).
-const Version = "v0.2.0"
+const Version = "v0.3.0"
 
 // TokensFile is the path of the stylesheet with the tokens of version 0.1.0 inside Assets. It is unchanged since that version, so a program
 // written against it keeps its look. The three looks have their own files (see Looks and LookFiles).
