@@ -1,6 +1,6 @@
 module github.com/Project-Arrakis/tabr-tau
 
-go 1.26.10
+go 1.26.11
 
 require (
 	// design is the nested module in ./design (see the replace line below), the shared look of the programs: the editor serves its files from /design/. The version is a placeholder, as for kit.
