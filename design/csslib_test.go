@@ -320,6 +320,7 @@ func contrast(a, b rgba) float64 {
 // palette holds the custom properties of a look in one theme, with var() references resolved.
 type palette struct {
 	look, theme string
+	pal         string // the id of the palette laid over the look, or ""
 	raw         map[string]string
 }
 
@@ -382,7 +383,8 @@ func (p palette) color(t *testing.T, name string) rgba {
 var looks = []string{"fremen", "awakening", "sietch"}
 var themes = []string{"dark", "light"}
 
-// forEachPalette runs fn as a subtest for every look and theme.
+// forEachPalette runs fn as a subtest for every look and theme, and then for every look with each of the palettes laid over it (in the palette's
+// own theme).
 func forEachPalette(t *testing.T, fn func(t *testing.T, p palette)) {
 	t.Helper()
 	for _, l := range looks {
@@ -391,6 +393,34 @@ func forEachPalette(t *testing.T, fn func(t *testing.T, p palette)) {
 			t.Run(l+"/"+th, func(t *testing.T) { fn(t, p) })
 		}
 	}
+	for _, l := range looks {
+		for _, pal := range Palettes() {
+			p := loadPaletteOver(t, l, pal)
+			t.Run(l+"/"+pal.ID, func(t *testing.T) { fn(t, p) })
+		}
+	}
+}
+
+// loadPaletteOver is the look in the palette's theme with the palette's tokens laid over it, as the browser resolves them: the palette's
+// selectors are more specific than the look's, so every token the palette declares wins.
+func loadPaletteOver(t *testing.T, look string, pal Palette) palette {
+	t.Helper()
+	p := loadPalette(t, look, pal.Theme)
+	p.pal = pal.ID
+	forced := `:root[data-palette="` + pal.ID + `"][data-theme="` + pal.Theme + `"]`
+	n := 0
+	for _, r := range readCSS(t, PalettesFile) {
+		if r.at == "" && r.selector == forced {
+			n++
+			for _, d := range r.decls {
+				p.raw[d.name] = d.value
+			}
+		}
+	}
+	if n != 1 {
+		t.Fatalf("%s has %d blocks %s, want 1", PalettesFile, n, forced)
+	}
+	return p
 }
 
 // px reads a value such as "11px" or "var(--hit)" (resolved through the palette) as a number of pixels.

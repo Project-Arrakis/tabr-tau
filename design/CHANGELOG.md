@@ -4,6 +4,18 @@ Tags of this module are `design/vX.Y.Z`. The module is version 0.x: until v1.0.0
 
 Each tag needs an entry here whose heading is `## vX.Y.Z` followed by the date: the release workflow uses the entry as the release notes and fails without it.
 
+## v0.3.0 (2026-11-11)
+
+Palettes: eighteen sets of colours that recolour a look.
+
+- **Eighteen palettes in one new file, `assets/palettes.css`.** A palette is chosen with `html[data-palette="ID"]` and changes colour tokens only (the names the looks already define, plus `accent-color` and `scrollbar-color`): no type, space, shape, motion, texture or component, so a layout never moves. It applies in its own theme: sixteen palettes in the dark theme and two, Fremen Sietch and Mentat, in Dayside (the light theme); in the other theme a palette is simply not in effect. Its selectors are more specific than the looks', so the order of the stylesheets does not matter, and removing the attribute gives the look's own colours back. Arrakis Incandescent is first.
+- **Ids describe the colours** (`warm-charcoal`, `sand-linen`, `paper-grey`, `deep-teal` and so on); the franchise names are the labels only, in `design.Palettes`.
+- **Values.** The colours of each palette are those of the fan-made editor themes under the MIT Licence that NOTICE already names (alpha removed). A colour is moved toward white (dark palettes) or toward black (Dayside palettes) only where a check needs it, in steps of 4 %, and the comment of each palette in the file names the colours it moved. The checks: text and quiet text 5.1:1 on the four surfaces and 4.6:1 on every tint a component draws; the accent, gold, sky, ok, warn and bad colours 4.6:1; the boundary of a control and the focus ring 3:1; the fill of a primary button and of a switch that is on, with a label that holds on it, also when hovered. `--k-boost` (a token the looks already define) is raised by a palette as far as the text on the stronger accent tints allows. The file is generated from a table and these rules (`palettes_gen_test.go`; `go test -run TestPalettesCSSIsGenerated -update-palettes` writes it) and a test fails when the committed file differs.
+- **Go API.** `design.PalettesFile`, `design.Palette` (`ID`, `Name`, `Group`, `Theme`), `design.Palettes()` (the order to show them, grouped), `design.PaletteFiles(id)` (the stylesheet to link after the look's files; none for `design.NoPalette`; a refusal for any other string, like `LookFiles`), `design.ThemeDark`, `design.ThemeLight` and `design.NoPalette`. `design.Version` is v0.3.0.
+- **Kitchen sink.** A Colours list (the look's own colours, then the palettes by group) on the first panel.
+- **Tests.** The contrast tests of 0.2.0 (every text, line and focus token on the four surfaces, and the tints, hover mixes and fills the components compute) now run for each of the eighteen palettes on each of the three looks, with the palette's tint strength; and new tests of the stylesheet's structure (two blocks per palette with the same values, only the names a palette may set), of its specificity over the looks, and of the list against the stylesheet and the kitchen sink.
+- **Nothing else changes.** Every other file of 0.2.0 is as it was.
+
 ## v0.2.0 (2026-11-09)
 
 The Look: three looks with their components, the icons, the heading typeface, the Motion setting and the checks. Refs #572, #573, #574.
