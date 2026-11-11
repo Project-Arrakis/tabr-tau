@@ -1,6 +1,6 @@
 module github.com/Project-Arrakis/tabr-tau
 
-go 1.26.10
+go 1.26.11
 
 require (
 	// kit is the nested module in ./kit (see the replace line below). The version is a placeholder: the replace makes the code in the tree
