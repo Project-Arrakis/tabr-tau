@@ -2487,3 +2487,19 @@ document.addEventListener('keydown', (e) => {
   }
 });
 document.addEventListener('mousedown', (e) => { if (askState && e.target === $('#ask')) endAsk(false); });
+// ---------- the Motion setting (#571): Full, Calm or Off, kept by /motion-boot.js; this is only its control, in #motion-host (the three buttons are in the page)
+function drawMotion() {
+  const host = $('#motion-host');
+  if (!host) return;
+  const m = window.TauMotion;
+  host.closest('.x-motion').hidden = !m; // without the script there is nothing to set
+  if (!m) return;
+  const now = m.mode();
+  host.querySelectorAll('button[data-value]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.value === now ? 'true' : 'false'));
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest && e.target.closest('#motion-host button[data-value]');
+  if (b && window.TauMotion) window.TauMotion.set(b.dataset.value);
+});
+document.addEventListener('taumotion', drawMotion);
+drawMotion();
