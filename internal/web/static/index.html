@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tabr Tau</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script src="/motion-boot.js"></script>
 <link rel="stylesheet" href="/design/tokens-fremen.css">
 <link rel="stylesheet" href="/design/components-fremen.css">
 <link rel="stylesheet" href="/design/components.css">
@@ -16,7 +17,9 @@
   <svg class="mark" viewBox="0 0 24 24" role="presentation"><path d="M16.5 4.8a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 1 0 0-6.4zM1.5 18.5c3.6-5.4 7.4-5.6 10.4-2.4 2.4 2.5 5.8 2.7 10.6-1.6v7H1.5z"/></svg>
   <h1>Tabr Tau</h1><span class="warn hide" id="notlive"></span><span class="path" id="path"></span>
   <span id="pending" class="mut d-pill"></span>
+  <span class="x-saved" id="savedmark" hidden><svg class="d-fx" viewBox="0 0 24 24" aria-hidden="true"><path class="chk" d="M8.6 13.4l2.7 2.7 4.5-5.1"/></svg>Written</span>
   <label class="mut" title="When the game saves and no changes are queued, reload the file and redraw this page"><input type="checkbox" id="autorefresh" class="d-toggle" checked> Auto-refresh</label>
+  <span class="x-motion mut" hidden>Motion <span class="d-seg" id="motion-host" role="group" aria-label="Motion" title="How much the page moves. Full: everything. Calm: short fades only. Off: nothing moves."><button type="button" data-value="full" aria-pressed="false">Full</button><button type="button" data-value="calm" aria-pressed="false">Calm</button><button type="button" data-value="off" aria-pressed="false">Off</button></span></span>
   <button class="b sec d-btn sm" id="btnDiscard" hidden title="Drop the changes that are waiting for the game to close">Discard queue</button>
 </header>
 <div id="gamewarn" class="hide"></div>
@@ -25,7 +28,7 @@
 <nav id="nav" class="d-nav"></nav>
 <main id="main"><p class="mut" id="loading" role="status">Loading the save...</p></main>
 <div id="ask" class="hide"></div>
-<div id="toast" aria-live="polite"></div>
+<div id="toast" class="d-toasts" aria-live="polite"></div>
 <div id="sr" class="sr" role="status" aria-live="polite"></div>
 <script src="/html.js"></script>
 <script src="/livemap.js"></script>
