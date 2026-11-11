@@ -530,7 +530,7 @@ Since #534 the editor also writes that file (`internal/basefile/consolewrite.go`
 
 ## Design module: the Dune Rise typeface (Fontswan) and the Fremen palette values (FedaykinDev)
 
-The separate Go module `design/` of this repository (the shared look of the Tabr programs; it is not part of the editor's code yet) carries two third-party works. Their notices are repeated here so that they travel with every program that adopts the module, and they are in `design/NOTICE` and next to the files.
+The separate Go module `design/` of this repository (the shared look of the Tabr programs; since #570 the editor is built with it: the module's files are compiled into the editor and served to its page from the editor's own address as /design/..., the heading typeface as /design/fonts/DuneRise.ttf and its licence text beside it as /design/fonts/DuneRise-OFL.txt) carries two third-party works. Their notices are repeated here so that they travel with every program that adopts the module, and they are in `design/NOTICE` and next to the files.
 
 **Dune Rise** (`design/assets/fonts/DuneRise.ttf`), used unmodified for headings: Copyright (c) 2021, Fontswan (https://fontswan.com), with Reserved Font Name Dune Rise. SIL Open Font License, Version 1.1, reproduced here in full (and in `design/assets/fonts/DuneRise-OFL.txt`). The font is not subset, converted or changed, and it is not sold by itself.
 

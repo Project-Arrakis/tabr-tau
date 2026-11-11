@@ -1,56 +1,72 @@
-:root{--bg:#14110d;--panel:#1e1913;--panel2:#26200f;--line:#3a3022;--fg:#eadfc8;--mut:#9a8d75;--acc:#d9902f;--acc2:#f0b45a;--ok:#6fbf73;--bad:#e0604f;--warn:#e8b64a;--in:#100d09}
-@media (prefers-color-scheme:light){:root{--bg:#f6f1e6;--panel:#fffaf0;--panel2:#f0e6d0;--line:#d8ccb2;--fg:#2b2416;--mut:#6f634d;--acc:#b56d10;--acc2:#8c5208;--ok:#24702f;--bad:#b83a2a;--warn:#9a6a00;--in:#fff}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,Segoe UI,sans-serif}
-header{display:flex;gap:12px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5;flex-wrap:wrap}
-header h1{font-size:16px;margin:0;color:var(--acc2);letter-spacing:.5px}
-header .path{color:var(--mut);font-size:12px;flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-nav{display:flex;gap:2px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto}
-nav button{background:none;border:0;color:var(--mut);padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent;font:inherit}
-nav button.on{color:var(--acc2);border-color:var(--acc)}
-main{padding:16px;max-width:1300px;margin:0 auto}
-.sub{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
-.sub button{background:var(--panel);border:1px solid var(--line);color:var(--fg);padding:5px 12px;border-radius:14px;cursor:pointer;font:inherit}
-.sub button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:14px}
-.card h3{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut)}
+/* The look comes from the shared design module: /design/tokens-LOOK.css, components-LOOK.css, components.css and motion.css are linked before this file (#570). This file adds LAYOUT and the page's own parts;
+   every colour, radius, shadow, type size and time below is a module token. The names in the next block are this page's own and stay (its scripts and tests use them); each one is an alias of a module
+   token, so a look, or Dayside, changes the whole page at once. --acc is the accent as text and border, --acc2 the sand of headings and links, --fill and --on-fill an accent fill and its label. */
+:root{--bg:var(--c-ground);--panel:var(--c-panel);--panel2:var(--c-raised);--in:var(--c-sunken);--line:var(--c-hair);--line-strong:var(--c-rule);--fg:var(--c-text);--mut:var(--c-dim);--mut-tint:var(--c-dim);--acc:var(--c-spice);--acc2:var(--c-gold);--fill:var(--c-switch);--on-fill:var(--c-on-switch);--ok:var(--c-ok);--bad:var(--c-bad);--warn:var(--c-warn);--focus:var(--c-focus);--hdr-h:56px;--r:var(--r-3);--sh:var(--e-2)}
+*{box-sizing:border-box}
+html,body{height:auto;min-height:100%}
+body{margin:0;background-color:var(--bg);color:var(--fg);font:var(--t-base)/1.5 var(--t-body);-webkit-font-smoothing:antialiased}
+header.d-bar{display:flex;gap:14px;align-items:center;padding:0 20px;min-height:var(--hdr-h);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+header .mark{width:24px;height:24px;color:var(--c-gold);flex:none}
+header h1{margin:0;font:700 var(--t-base)/1.2 var(--t-display);letter-spacing:.16em;text-transform:uppercase;color:var(--c-gold)}
+header .path{color:var(--mut);font-size:var(--t-sm);flex:0 1 260px;min-width:0;padding:3px 12px;border:1px solid var(--line);border-radius:var(--r-2);background:var(--panel2);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header #pending{margin-left:auto;font-weight:600}
+header #pending:empty{display:none}
+header #pending:not(:empty){color:var(--c-warn);border-color:var(--c-warn)}
+header #notlive{flex:none;font-weight:700;letter-spacing:.04em;white-space:nowrap}
+header #notlive.hide{display:none}
+nav{display:flex;gap:2px;padding:0 20px;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto}
+nav button{flex:none;font-weight:600}
+main{padding:20px;max-width:1300px;margin:0 auto}
+.sub{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.sub button{background:var(--panel);border:1px solid var(--line-strong);color:var(--fg);padding:6px 14px;border-radius:var(--r-2);cursor:pointer;font:inherit;font-weight:500}
+.sub button.on{background:color-mix(in srgb,var(--acc) calc(14% * var(--k-boost,1)),var(--panel2));color:var(--fg);border-color:var(--acc);box-shadow:inset 0 -2px 0 var(--acc)}
+.card{padding:16px 18px;margin-bottom:16px}
+.card h3{margin:0 0 12px;font:700 var(--t-xs)/1.2 var(--t-display);letter-spacing:var(--t-track-caps);text-transform:uppercase;color:var(--c-gold)}
+.card h3.d-head{padding:0;margin:0 0 var(--s-3)}
+.card h3.mt14{margin-top:14px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
-.kv{background:var(--panel2);border-radius:6px;padding:8px 10px}.kv b{display:block;font-size:11px;color:var(--mut);font-weight:500;text-transform:uppercase}
-.kv span{font-size:16px;word-break:break-all}
-table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
-th{font-size:11px;text-transform:uppercase;color:var(--mut);position:sticky;top:0;background:var(--panel)}
+.kv{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-2);padding:9px 12px}.kv b{display:block;font-size:var(--t-xs);color:var(--mut);font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.kv span{font-size:var(--t-lg);font-weight:600;word-break:break-all}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:var(--t-xs);text-transform:uppercase;letter-spacing:.06em;color:var(--mut);position:sticky;top:0;background:var(--panel)}
 tr:hover td{background:var(--panel2)}
-.scroll{max-height:60vh;overflow:auto;border:1px solid var(--line);border-radius:6px}
-input,select,textarea{background:var(--in);color:var(--fg);border:1px solid var(--line);border-radius:5px;padding:5px 8px;font:inherit}
-input[type=number]{width:110px}textarea{width:100%;font:12px/1.4 Consolas,monospace}
-button.b{background:var(--acc);color:#fff;border:0;border-radius:5px;padding:6px 12px;cursor:pointer;font:inherit}
-button.b.sec{background:var(--panel2);color:var(--fg);border:1px solid var(--line)}
-button.b.bad{background:var(--bad)}button.b.sm{padding:2px 8px;font-size:12px}
-button:disabled{opacity:.4;cursor:default}
+.scroll{max-height:60vh;overflow:auto;border:1px solid var(--line);border-radius:var(--r-2)}
+input,select,textarea{background:var(--in);color:var(--fg);border:1px solid var(--line-strong);border-radius:var(--r-2);padding:6px 10px;font:inherit}
+input[type=number]{width:110px}textarea{width:100%;font:12px/1.4 var(--t-mono)}
+input[type=checkbox],input[type=radio]{accent-color:var(--c-switch)}
+button:disabled{cursor:default}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
-.mut{color:var(--mut)}.ok{color:var(--ok)}.bad{color:var(--bad)}.mono{font-family:Consolas,monospace;font-size:12px}
-#toast{position:fixed;bottom:16px;right:16px;display:flex;flex-direction:column;gap:6px;z-index:10}
-#toast div{background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--ok);padding:8px 12px;border-radius:6px;max-width:420px}
-#toast div.err{border-left-color:var(--bad)}
-#toast div.part{border-left-color:var(--warn)}
-.tag{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:1px 8px;margin:2px;font-size:12px}
+.mut{color:var(--mut)}.ok{color:var(--ok)}.bad{color:var(--bad)}.mono{font-family:var(--t-mono);font-size:var(--t-sm)}
+.tag{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-2);padding:1px 8px;margin:2px;font-size:var(--t-sm)}
 .hide{display:none}
-.info{background:#1d3347;color:#bfe0ff;padding:8px 12px;border-radius:6px;margin-bottom:12px}
-#gamewarn.info{margin:0;border-radius:0;border-bottom:1px solid var(--line)}
-.warn{background:#4a2f10;color:#ffd9a0;padding:8px 12px;border-radius:6px;margin-bottom:12px}
 details summary{cursor:pointer;color:var(--acc2)}
+/* banners: a tinted band with a coloured edge; the colours are the module's status tokens, the words are always there as well (colour is never the only sign) */
+.warn,.info{padding:8px 12px;margin-bottom:12px;border-radius:var(--r-2);border-left:4px solid var(--warn);background:color-mix(in srgb,var(--warn) 14%,var(--panel));color:var(--fg)}
+.info{border-left-color:var(--c-sky);background:color-mix(in srgb,var(--c-sky) 12%,var(--panel))}
+.warn b,.info b{color:var(--fg)}
+.warn .mut,.info .mut,.warn.mut,.info.mut{color:var(--mut-tint)}
+#gamewarn.info{margin:0;border-radius:0;border-bottom:1px solid var(--line)}
+#gamewarn.warn{margin:0;border-radius:0;border-bottom:1px solid var(--line);position:sticky;top:var(--hdr-h);z-index:4}
+#gamewarn.warn,#gamewarn.info{border-radius:0;border-left-width:0;border-left-color:transparent;border-bottom:1px solid var(--line);padding:10px 20px}
+#gamewarn.warn{background:color-mix(in srgb,var(--warn) 16%,var(--panel))}
+#gamewarn.info{background:color-mix(in srgb,var(--c-sky) 12%,var(--panel))}
+span.warn,td .warn{display:inline-block;padding:1px 8px;margin:0;border-radius:var(--r-2);font-size:var(--t-sm);border-left:0;background:color-mix(in srgb,var(--warn) 16%,var(--panel))}
 /* replaces the former inline styles; selectors are as specific as the rules they must beat */
 input.w70{width:70px}input.w80{width:80px}input.w90{width:90px}input.w100{width:100px}input.w150{width:150px}
 input.cfgv{width:100%;min-width:220px}
-.row.mt12{margin-top:12px}.card h3.mt14{margin-top:14px}.mut.mb8{margin-bottom:8px}
+.row.mt12{margin-top:12px}.mut.mb8{margin-bottom:8px}
 ul.tight{margin:6px 0}
 .locked{max-width:560px;margin:15vh auto;padding:0 16px}
-
-#gamewarn.warn{margin:0;border-radius:0;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:4}
-#toast div{display:flex;gap:8px;align-items:flex-start}#toast div span{flex:1}
+/* results of an action: one live region for all of them (#toast), a toast each; an error stays until it is dismissed */
+#toast{position:fixed;bottom:16px;right:16px;display:flex;flex-direction:column;gap:6px;z-index:10}
+#toast div{display:flex;gap:8px;align-items:flex-start;background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--ok);padding:8px 12px;border-radius:var(--r-2);box-shadow:var(--sh);max-width:420px}
+#toast div.err{border-left-color:var(--bad)}
+#toast div.part{border-left-color:var(--warn)}
+#toast div span{flex:1;overflow-wrap:anywhere}
 #toast button.x{background:none;border:0;color:var(--fg);cursor:pointer;font-size:18px;line-height:1;padding:0 2px}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:8;overflow:auto;padding:4vh 16px}
-.mbox{background:var(--panel);border:1px solid var(--line);border-radius:8px;max-width:860px;margin:0 auto;padding:16px}
-.mbox h3.big{margin:0 0 8px;font-size:18px;color:var(--acc2);text-transform:none;letter-spacing:0}.mbox h3{margin:14px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut)}
+.modal{position:fixed;inset:0;background:var(--c-scrim);z-index:8;overflow:auto;padding:4vh 16px}
+.mbox{max-width:860px;margin:0 auto;padding:16px;background-color:var(--panel);border:1px solid var(--line);border-radius:var(--r-3);box-shadow:var(--e-3)}
+.mbox h3.big{margin:0 0 8px;font-size:var(--t-xl);color:var(--acc2);text-transform:none;letter-spacing:0}.mbox h3{margin:14px 0 6px;font-size:var(--t-xs);text-transform:uppercase;letter-spacing:.1em;color:var(--mut)}
 body.noscroll{overflow:hidden}
 .modal.top{z-index:9}.mbox.small{max-width:480px;margin-top:12vh}
 .ind1{margin-left:16px}
@@ -156,77 +172,25 @@ th.sd::after{content:" \25BC";font-size:9px}
 /* the +x and +y labels are filled text, not stroked: without a stroke width an SVG stroke is one unit, a whole cell, which made the label a solid block (#457) */
 .lc-axis-t.lc-axis-x,.lc-axis-t.lc-axis-y{stroke:none}
 .lc-key{display:inline-block;width:12px;height:12px;border:1px solid var(--line);vertical-align:middle;margin:0 3px 0 10px}
-/* UI review round 1: tokens for contrast, visible focus, hover, a banner that sticks below the header, readable inline badges */
-:root{--on-acc:#1a0e03;--mut-tint:#b5a98f;--line-strong:#7d6a4e;--focus:#f0b45a;--hdr-h:56px;color-scheme:dark}
-@media (prefers-color-scheme:light){:root{--acc:#a44f07;--on-acc:#fff;--mut-tint:#675c47;--line-strong:#85724f;--focus:#8c5208;color-scheme:light}}
-input,select,textarea{border-color:var(--line-strong)}
-button.b{color:var(--on-acc)}button.b.sec{color:var(--fg)}button.b.bad{color:var(--on-acc)}
-.sub button.on{color:var(--on-acc)}
-:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-button.b:hover:not(:disabled){filter:brightness(1.12)}button.b:active:not(:disabled){transform:translateY(1px)}
-nav button:hover,.sub button:hover:not(.on){color:var(--fg);border-color:var(--acc)}
-.rankbar{color:var(--acc2)}
-#gamewarn.warn{top:var(--hdr-h)}
-span.warn,td .warn{display:inline-block;padding:1px 8px;margin:0;border-radius:10px;font-size:12px}
-#toast div span{overflow-wrap:anywhere}
-pre.sqlpre{max-height:30vh;overflow:auto;white-space:pre-wrap;word-break:break-word;background:var(--in);border:1px solid var(--line-strong);border-radius:5px;padding:8px;font:12px/1.4 Consolas,monospace;margin:6px 0}
-
-/* UI pass (design round 2): one Dune look for the whole page: type, spacing, a header with a mark, tabs that read as levels, cards, banners */
-:root{--r:10px;--sh:0 2px 10px rgba(0,0,0,.4)}
-body{font-family:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
-header{padding:0 20px;min-height:var(--hdr-h);gap:14px}
-header .mark{width:24px;height:24px;color:var(--acc);flex:none}
-header h1{font-size:14px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--fg)}
-header .path{flex:0 1 260px;min-width:0;padding:3px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel2);text-align:center}
-header #pending{margin-left:auto;color:var(--acc2);font-weight:600}
-header #notlive{flex:none;font-weight:700;letter-spacing:.04em;white-space:nowrap}
-header #notlive.hide{display:none}
-nav{padding:0 20px;gap:2px}
-nav button{padding:13px 16px;font-weight:600;letter-spacing:.01em;border-bottom-width:3px}
-nav button.on{color:var(--fg)}
-main{padding:20px}
-.sub{gap:8px;margin-bottom:14px}
-.sub button{padding:6px 14px;font-weight:500}
-.card{border-radius:var(--r);padding:16px 18px;margin-bottom:16px;box-shadow:0 1px 0 rgba(255,255,255,.02) inset}
-.card h3{font-size:11px;font-weight:700;letter-spacing:.1em;margin-bottom:12px}
-.grid{gap:10px}
-.kv{border:1px solid var(--line);border-radius:8px;padding:9px 12px}
-.kv b{font-size:11px;letter-spacing:.05em}
-.kv span{font-size:15px;font-weight:600}
+/* the details that are not in the module: a banner that sticks below the header, a SQL box, a focus mark on an armed button */
+pre.sqlpre{max-height:30vh;overflow:auto;white-space:pre-wrap;word-break:break-word;background:var(--in);border:1px solid var(--line-strong);border-radius:var(--r-2);padding:8px;font:var(--t-sm)/1.4 var(--t-mono);margin:6px 0}
 details.ids{margin-top:14px}
-details.ids summary{font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--mut)}
+details.ids summary{font-size:var(--t-sm);font-weight:600;letter-spacing:.04em;color:var(--mut)}
 details.ids[open] summary{margin-bottom:10px}
-th{padding:8px 10px;letter-spacing:.06em}
-td{padding:8px 10px}
-.scroll{border-radius:8px}
-input,select,textarea{border-radius:6px;padding:6px 10px}
-button.b{border-radius:6px;padding:7px 14px;font-weight:600}
-button.b.sec{border:1px solid var(--line-strong)}
-button.b.sm{padding:3px 10px}
-.warn,.info{border-radius:8px;border-left:4px solid var(--warn);background:color-mix(in srgb,var(--warn) 14%,var(--panel));color:var(--fg)}
-.info{border-left-color:var(--acc2);background:color-mix(in srgb,var(--acc2) 12%,var(--panel))}
-.warn b,.info b{color:var(--fg)}
-#gamewarn.warn,#gamewarn.info{border-radius:0;border-left-width:0;border-left-color:transparent;border-bottom:1px solid var(--line);padding:10px 20px}
-#gamewarn.warn{background:color-mix(in srgb,var(--warn) 16%,var(--panel))}
-#gamewarn.info{background:color-mix(in srgb,var(--acc2) 12%,var(--panel))}
-#toast div{border-radius:8px;box-shadow:var(--sh)}
-.mbox{border-radius:12px;box-shadow:var(--sh)}
-span.warn,td .warn{border-left:0;background:color-mix(in srgb,var(--warn) 22%,var(--panel))}
-.warn .mut,.info .mut,.warn.mut,.info.mut{color:var(--mut-tint)}
-header .mark path{fill:currentColor}
 #gamewarn{max-height:45vh;overflow:auto}
 #gamewarn details{margin-top:6px}
-#gamewarn details summary{color:var(--fg);font-size:12px;font-weight:600}
+#gamewarn details summary{color:var(--fg);font-size:var(--t-sm);font-weight:600}
 #gamewarn ul,.mbox ul.qlist{margin:6px 0 0;padding-left:20px}
 #gamewarn .bn-raw .mono{overflow-wrap:anywhere;margin-top:4px}
 .mbox ul.qlist{max-height:30vh;overflow:auto;margin:8px 0}
 .sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 button[data-armed]{outline:2px solid var(--focus);outline-offset:2px}
+.sub button:hover:not(.on){color:var(--fg);border-color:var(--acc)}
 /* Accessibility: a 32 px minimum for every control a pointer or a finger has to hit; the focus ring is not clipped by a scrolling table */
 button,input:not([type=checkbox]):not([type=radio]),select{min-height:32px}
-button.b.sm,.lm-layer{min-height:32px}
+button.d-btn.sm,.lm-layer{min-height:32px}
 .row label,header label,label.mut{display:inline-flex;align-items:center;gap:6px;min-height:32px}
-input[type=checkbox],input[type=radio]{width:18px;height:18px;margin:0}
+input[type=checkbox]:not(.d-toggle),input[type=radio]{width:18px;height:18px;margin:0}
 a[data-act]{display:inline-block;padding:6px 4px}
 #toast button.x{min-width:32px;min-height:32px}
 th[tabindex]:focus-visible{outline-offset:-2px}
@@ -234,13 +198,12 @@ th[tabindex]:hover{color:var(--fg)}
 /* Small screens (UX-37): the header and the banner scroll away instead of taking a quarter of the screen; the header is two rows; padding is tighter; sub-tab rows scroll sideways */
 header .path:empty{display:none}
 @media (max-width:720px){
-  header{position:static;padding:6px 12px;gap:8px}
-  header h1{font-size:13px;letter-spacing:.12em}
+  header.d-bar{position:static;padding:6px 12px;gap:8px}
+  header h1{font-size:var(--t-md);letter-spacing:.12em}
   header .path{flex:1 1 140px;order:3}
   header #pending{margin-left:auto}
   #gamewarn.warn,#gamewarn.info{position:static;padding:8px 12px}
   nav{padding:0 8px}
-  nav button{padding:10px 12px}
   main{padding:10px}
   .card{padding:12px;margin-bottom:12px}
   .sub{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
@@ -257,12 +220,12 @@ header .path:empty{display:none}
 }
 /* Text that is not shown all the time (#426): a tooltip on one control (hover and keyboard focus; Escape puts it away), and an "About this" disclosure for a card */
 .tip{position:relative;display:inline-block}
-.tipbox{display:none;position:fixed;z-index:6;left:0;top:0;width:max-content;max-width:min(360px,calc(100vw - 16px));max-height:calc(100vh - 16px);overflow:auto;padding:6px 10px;background:var(--panel2);color:var(--fg);border:1px solid var(--line-strong);border-radius:6px;box-shadow:var(--sh);font-size:12px;font-weight:400;line-height:1.4;text-align:left;white-space:normal;cursor:default}
+.tipbox{display:none;position:fixed;z-index:6;left:0;top:0;width:max-content;max-width:min(360px,calc(100vw - 16px));max-height:calc(100vh - 16px);overflow:auto;padding:6px 10px;background:var(--panel2);color:var(--fg);border:1px solid var(--line-strong);border-radius:var(--r-2);box-shadow:var(--sh);font-size:var(--t-sm);font-weight:400;line-height:1.4;text-align:left;white-space:normal;cursor:default}
 .tip.open .tipbox{display:block}
 .tip button:disabled{pointer-events:none}
 .tip.closed .tipbox{display:none}
 details.about{margin-top:10px}
-details.about summary{font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--mut)}
+details.about summary{font-size:var(--t-sm);font-weight:600;letter-spacing:.04em;color:var(--mut)}
 details.about[open] summary{margin-bottom:6px}
 details.about p{margin:6px 0}
 /* the countdown before the automatic pass at launch (#460): a bar like the game banner, under it, on every view */
