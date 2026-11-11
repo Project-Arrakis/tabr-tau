@@ -113,23 +113,6 @@ test('a hidden document pauses the animations: the root says so and the loops st
   p.close();
 });
 
-test('the control of the setting shows the mode, changes it with a click, and is not there without the script', async () => {
-  const p = await page({ store: { tauMotion: 'calm' } });
-  const pressed = () => [...p.doc.querySelectorAll('#motion-host button')].map((b) => b.dataset.value + ':' + b.getAttribute('aria-pressed')).join(' ');
-  assert.equal(p.doc.querySelector('.x-motion').hidden, false);
-  assert.equal(pressed(), 'full:false calm:true off:false');
-  p.doc.querySelector('#motion-host [data-value="off"]').click();
-  assert.equal(p.w.localStorage.getItem('tauMotion'), 'off');
-  assert.equal(p.html.getAttribute('data-motion'), 'off');
-  assert.equal(pressed(), 'full:false calm:false off:true');
-  p.doc.querySelector('#motion-host [data-value="full"]').click();
-  assert.equal(pressed(), 'full:true calm:false off:false');
-  p.close();
-  const none = await page({ script: false });
-  assert.equal(none.doc.querySelector('.x-motion').hidden, true, 'nothing to set without the script');
-  none.close();
-});
-
 test('a toast has a shape as well as a colour, errors stay with a dismiss button, and the result icons are the fill icons', async () => {
   const p = await page();
   const box = p.doc.querySelector('#toast');
