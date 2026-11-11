@@ -1,0 +1,1304 @@
+/* Tabr design palettes, version 0.3.0: eighteen sets of colours that recolour a look. Link this file after the files of a look and set html[data-palette="ID"] (the ids are design.Palettes).
+   A palette changes colour tokens only: no type, space, shape, motion, texture or component. It applies in its own theme: a dark palette in the dark theme, a light one in Dayside (the light theme),
+   and not at all in the other; removing the attribute gives the look's own colours back. The selectors are more specific than the looks' own, so the order of the files does not matter.
+   The values are the colours of the fan-made editor themes under the MIT Licence that NOTICE names (alpha removed), moved toward white (dark palettes) or toward black (Dayside palettes) in steps of 4 %
+   only where a check of this module needed it: every text colour 4.5:1 on the four surfaces and on every tint a component draws, the boundary of a control and the focus ring 3:1. The comment of each
+   palette names the colours that were moved. This file is generated (palettes_gen_test.go holds the table and the rules, and a test compares the file with what they make).
+   Names: --c-spice is the accent as text, border and focus light; --c-blue the accent as the fill of a primary button in the Fremen look; --c-switch the fill of a switch that is on; --k-boost the strength of
+   the accent tints. accent-color and scrollbar-color are inherited, so a native checkbox, the range and every scrollbar follow. */
+
+/* Arrakis Incandescent (Planet), dark. Moved to pass the checks: bad, dim. */
+:root[data-palette="warm-charcoal"][data-theme="dark"] {
+  --c-ground: #151313;
+  --c-panel: #1c1b1a;
+  --c-raised: #282726;
+  --c-sunken: #151313;
+  --c-scrim: rgba(21, 19, 19, .78);
+  --c-hair: #343331;
+  --c-rule: #878580;
+  --c-bronze: #878580;
+  --c-stitch: #343331;
+  --c-text: #cecdc3;
+  --c-dim: #a9a7a4;
+  --c-spice: #5a96bc;
+  --c-on-spice: #101010;
+  --c-blue: #5a96bc;
+  --c-on-blue: #101010;
+  --c-focus: #5a96bc;
+  --c-gold: #e2ad4a;
+  --c-rust: #e8b04b;
+  --c-sky: #5a96bc;
+  --c-ok: #7fb069;
+  --c-warn: #e8b04b;
+  --c-bad: #cd796d;
+  --c-glow: rgba(90, 150, 188, .28);
+  --c-dust-1: #151313;
+  --c-dust-2: #1c1b1a;
+  --c-dust-3: #282726;
+  --c-switch: #5a96bc;
+  --c-on-switch: #101010;
+  --k-boost: 1.5;
+  --aura: 90, 150, 188;
+  accent-color: var(--c-spice);
+  scrollbar-color: var(--c-rule) var(--c-ground);
+}
+@media not (prefers-color-scheme: light) {
+  :root[data-palette="warm-charcoal"]:not([data-theme="light"]) {
+    --c-ground: #151313;
+    --c-panel: #1c1b1a;
+    --c-raised: #282726;
+    --c-sunken: #151313;
+    --c-scrim: rgba(21, 19, 19, .78);
+    --c-hair: #343331;
+    --c-rule: #878580;
+    --c-bronze: #878580;
+    --c-stitch: #343331;
+    --c-text: #cecdc3;
+    --c-dim: #a9a7a4;
+    --c-spice: #5a96bc;
+    --c-on-spice: #101010;
+    --c-blue: #5a96bc;
+    --c-on-blue: #101010;
+    --c-focus: #5a96bc;
+    --c-gold: #e2ad4a;
+    --c-rust: #e8b04b;
+    --c-sky: #5a96bc;
+    --c-ok: #7fb069;
+    --c-warn: #e8b04b;
+    --c-bad: #cd796d;
+    --c-glow: rgba(90, 150, 188, .28);
+    --c-dust-1: #151313;
+    --c-dust-2: #1c1b1a;
+    --c-dust-3: #282726;
+    --c-switch: #5a96bc;
+    --c-on-switch: #101010;
+    --k-boost: 1.5;
+    --aura: 90, 150, 188;
+    accent-color: var(--c-spice);
+    scrollbar-color: var(--c-rule) var(--c-ground);
+  }
+}
+
+/* Sandworm (Planet), dark. Moved to pass the checks: bad, dim, rule. */
+:root[data-palette="umber-sand"][data-theme="dark"] {
+  --c-ground: #1a1611;
+  --c-panel: #221e17;
+  --c-raised: #342d22;
+  --c-sunken: #1a1611;
+  --c-scrim: rgba(26, 22, 17, .78);
+  --c-hair: #5a4a36;
+  --c-rule: #8a775e;
+  --c-bronze: #8a775e;
+  --c-stitch: #5a4a36;
+  --c-text: #e8dcc4;
+  --c-dim: #b5a792;
+  --c-spice: #5ca7e8;
+  --c-on-spice: #101010;
+  --c-blue: #5ca7e8;
+  --c-on-blue: #101010;
+  --c-focus: #5ca7e8;
+  --c-gold: #e8b88c;
+  --c-rust: #e8a85c;
+  --c-sky: #6cb4ee;
+  --c-ok: #8ca674;
+  --c-warn: #e8a85c;
+  --c-bad: #d88163;
+  --c-glow: rgba(92, 167, 232, .28);
+  --c-dust-1: #1a1611;
+  --c-dust-2: #221e17;
+  --c-dust-3: #342d22;
+  --c-switch: #5ca7e8;
+  --c-on-switch: #101010;
+  --k-boost: 1;
+  --aura: 92, 167, 232;
+  accent-color: var(--c-spice);
+  scrollbar-color: var(--c-rule) var(--c-ground);
+}
+@media not (prefers-color-scheme: light) {
+  :root[data-palette="umber-sand"]:not([data-theme="light"]) {
+    --c-ground: #1a1611;
+    --c-panel: #221e17;
+    --c-raised: #342d22;
+    --c-sunken: #1a1611;
+    --c-scrim: rgba(26, 22, 17, .78);
+    --c-hair: #5a4a36;
+    --c-rule: #8a775e;
+    --c-bronze: #8a775e;
+    --c-stitch: #5a4a36;
+    --c-text: #e8dcc4;
+    --c-dim: #b5a792;
+    --c-spice: #5ca7e8;
+    --c-on-spice: #101010;
+    --c-blue: #5ca7e8;
+    --c-on-blue: #101010;
+    --c-focus: #5ca7e8;
+    --c-gold: #e8b88c;
+    --c-rust: #e8a85c;
+    --c-sky: #6cb4ee;
+    --c-ok: #8ca674;
+    --c-warn: #e8a85c;
+    --c-bad: #d88163;
+    --c-glow: rgba(92, 167, 232, .28);
+    --c-dust-1: #1a1611;
+    --c-dust-2: #221e17;
+    --c-dust-3: #342d22;
+    --c-switch: #5ca7e8;
+    --c-on-switch: #101010;
+    --k-boost: 1;
+    --aura: 92, 167, 232;
+    accent-color: var(--c-spice);
+    scrollbar-color: var(--c-rule) var(--c-ground);
+  }
+}
+
+/* Kaitain (Planet), dark. Moved to pass the checks: bad, dim. */
+:root[data-palette="deep-teal"][data-theme="dark"] {
+  --c-ground: #0f191c;
+  --c-panel: #021015;
+  --c-raised: #081e26;
+  --c-sunken: #0f191c;
+  --c-scrim: rgba(15, 25, 28, .78);
+  --c-hair: #1b3743;
+  --c-rule: #5e8c80;
+  --c-bronze: #5e8c80;
+  --c-stitch: #1b3743;
+  --c-text: #a8bcc9;
+  --c-dim: #8ca1b3;
+  --c-spice: #3f9aca;
+  --c-on-spice: #101010;
+  --c-blue: #3f9aca;
+  --c-on-blue: #101010;
+  --c-focus: #3f9aca;
+  --c-gold: #d4a52a;
+  --c-rust: #ccad31;
+  --c-sky: #55a2c2;
+  --c-ok: #4a9a4a;
+  --c-warn: #ccad31;
+  --c-bad: #d06363;
+  --c-glow: rgba(63, 154, 202, .28);
+  --c-dust-1: #0f191c;
+  --c-dust-2: #021015;
+  --c-dust-3: #081e26;
+  --c-switch: #3f9aca;
+  --c-on-switch: #101010;
+  --k-boost: 1.75;
+  --aura: 63, 154, 202;
+  accent-color: var(--c-spice);
+  scrollbar-color: var(--c-rule) var(--c-ground);
+}
+@media not (prefers-color-scheme: light) {
+  :root[data-palette="deep-teal"]:not([data-theme="light"]) {
+    --c-ground: #0f191c;
+    --c-panel: #021015;
+    --c-raised: #081e26;
+    --c-sunken: #0f191c;
+    --c-scrim: rgba(15, 25, 28, .78);
+    --c-hair: #1b3743;
+    --c-rule: #5e8c80;
+    --c-bronze: #5e8c80;
+    --c-stitch: #1b3743;
+    --c-text: #a8bcc9;
+    --c-dim: #8ca1b3;
+    --c-spice: #3f9aca;
+    --c-on-spice: #101010;
+    --c-blue: #3f9aca;
+    --c-on-blue: #101010;
+    --c-focus: #3f9aca;
+    --c-gold: #d4a52a;
+    --c-rust: #ccad31;
+    --c-sky: #55a2c2;
+    --c-ok: #4a9a4a;
+    --c-warn: #ccad31;
+    --c-bad: #d06363;
+    --c-glow: rgba(63, 154, 202, .28);
+    --c-dust-1: #0f191c;
+    --c-dust-2: #021015;
+    --c-dust-3: #081e26;
+    --c-switch: #3f9aca;
+    --c-on-switch: #101010;
+    --k-boost: 1.75;
+    --aura: 63, 154, 202;
+    accent-color: var(--c-spice);
+    scrollbar-color: var(--c-rule) var(--c-ground);
+  }
+}
+
+/* Caladan Storm (Planet), dark. Moved to pass the checks: dim, rule. */
+:root[data-palette="storm-blue"][data-theme="dark"] {
+  --c-ground: #0d1117;
+  --c-panel: #161b22;
+  --c-raised: #272e38;
+  --c-sunken: #0d1117;
+  --c-scrim: rgba(13, 17, 23, .78);
+  --c-hair: #484f5b;
+  --c-rule: #747b86;
+  --c-bronze: #747b86;
+  --c-stitch: #484f5b;
+  --c-text: #e6edf3;
+  --c-dim: #a2a9b1;
+  --c-spice: #58a6ff;
+  --c-on-spice: #101010;
+  --c-blue: #58a6ff;
+  --c-on-blue: #101010;
+  --c-focus: #58a6ff;
+  --c-gold: #ff9b54;
+  --c-rust: #ffa657;
+  --c-sky: #79c0ff;
+  --c-ok: #7ee787;
+  --c-warn: #ffa657;
+  --c-bad: #ff7b72;
+  --c-glow: rgba(88, 166, 255, .28);
+  --c-dust-1: #0d1117;
+  --c-dust-2: #161b22;
+  --c-dust-3: #272e38;
+  --c-switch: #58a6ff;
+  --c-on-switch: #101010;
+  --k-boost: 1;
+  --aura: 88, 166, 255;
+  accent-color: var(--c-spice);
+  scrollbar-color: var(--c-rule) var(--c-ground);
+}
+@media not (prefers-color-scheme: light) {
+  :root[data-palette="storm-blue"]:not([data-theme="light"]) {
+    --c-ground: #0d1117;
+    --c-panel: #161b22;
+    --c-raised: #272e38;
+    --c-sunken: #0d1117;
+    --c-scrim: rgba(13, 17, 23, .78);
+    --c-hair: #484f5b;
+    --c-rule: #747b86;
+    --c-bronze: #747b86;
+    --c-stitch: #484f5b;
+    --c-text: #e6edf3;
+    --c-dim: #a2a9b1;
+    --c-spice: #58a6ff;
+    --c-on-spice: #101010;
+    --c-blue: #58a6ff;
+    --c-on-blue: #101010;
+    --c-focus: #58a6ff;
+    --c-gold: #ff9b54;
+    --c-rust: #ffa657;
+    --c-sky: #79c0ff;
+    --c-ok: #7ee787;
+    --c-warn: #ffa657;
+    --c-bad: #ff7b72;
+    --c-glow: rgba(88, 166, 255, .28);
+    --c-dust-1: #0d1117;
+    --c-dust-2: #161b22;
+    --c-dust-3: #272e38;
+    --c-switch: #58a6ff;
+    --c-on-switch: #101010;
+    --k-boost: 1;
+    --aura: 88, 166, 255;
+    accent-color: var(--c-spice);
+    scrollbar-color: var(--c-rule) var(--c-ground);
+  }
+}
+
+/* Salusa Secundus (Planet), dark. Moved to pass the checks: bad, dim, rule. */
+:root[data-palette="ember-red"][data-theme="dark"] {
+  --c-ground: #0f0d0d;
+  --c-panel: #1a1616;
+  --c-raised: #2e2828;
+  --c-sunken: #0f0d0d;
+  --c-scrim: rgba(15, 13, 13, .78);
+  --c-hair: #524848;
+  --c-rule: #7d7171;
+  --c-bronze: #7d7171;
+  --c-stitch: #524848;
+  --c-text: #e8d6d6;
+  --c-dim: #b19d9d;
+  --c-spice: #ff6b6b;
+  --c-on-spice: #101010;
+  --c-blue: #ff6b6b;
+  --c-on-blue: #101010;
+  --c-focus: #ff6b6b;
+  --c-gold: #ffb86c;
+  --c-rust: #ffa500;
+  --c-sky: #ff8c42;
+  --c-ok: #c78860;
+  --c-warn: #ffa500;
+  --c-bad: #ff5858;
+  --c-glow: rgba(255, 107, 107, .28);
+  --c-dust-1: #0f0d0d;
+  --c-dust-2: #1a1616;
+  --c-dust-3: #2e2828;
+  --c-switch: #ff6b6b;
+  --c-on-switch: #101010;
+  --k-boost: 1;
+  --aura: 255, 107, 107;
+  accent-color: var(--c-spice);
+  scrollbar-color: var(--c-rule) var(--c-ground);
+}
+@media not (prefers-color-scheme: light) {
+  :root[data-palette="ember-red"]:not([data-theme="light"]) {
+    --c-ground: #0f0d0d;
+    --c-panel: #1a1616;
+    --c-raised: #2e2828;
+    --c-sunken: #0f0d0d;
+    --c-scrim: rgba(15, 13, 13, .78);
+    --c-hair: #524848;
+    --c-rule: #7d7171;
+    --c-bronze: #7d7171;
+    --c-stitch: #524848;
+    --c-text: #e8d6d6;
+    --c-dim: #b19d9d;
+    --c-spice: #ff6b6b;
+    --c-on-spice: #101010;
+    --c-blue: #ff6b6b;
+    --c-on-blue: #101010;
+    --c-focus: #ff6b6b;
+    --c-gold: #ffb86c;
+    --c-rust: #ffa500;
+    --c-sky: #ff8c42;
+    --c-ok: #c78860;
+    --c-warn: #ffa500;
+    --c-bad: #ff5858;
+    --c-glow: rgba(255, 107, 107, .28);
+    --c-dust-1: #0f0d0d;
+    --c-dust-2: #1a1616;
+    --c-dust-3: #2e2828;
+    --c-switch: #ff6b6b;
+    --c-on-switch: #101010;
+    --k-boost: 1;
+    --aura: 255, 107, 107;
+    accent-color: var(--c-spice);
+    scrollbar-color: var(--c-rule) var(--c-ground);
+  }
+}
+
+/* Ix Technology (Planet), dark. Moved to pass the checks: sky, accent, dim, fill, switch. */
+:root[data-palette="circuit-indigo"][data-theme="dark"] {
+  --c-ground: #0a0c0f;
+  --c-panel: #121517;
+  --c-raised: #242930;
+  --c-sunken: #0a0c0f;
+  --c-scrim: rgba(10, 12, 15, .78);
+  --c-hair: #4a5361;
+  --c-rule: #6b7585;
+  --c-bronze: #6b7585;
+  --c-stitch: #4a5361;
+  --c-text: #e8ecf0;
+  --c-dim: #99a1af;
+  --c-spice: #8894ba;
+  --c-on-spice: #101010;
+  --c-blue: #6878a8;
+  --c-on-blue: #000000;
+  --c-focus: #8894ba;
+  --c-gold: #ffb86c;
+  --c-rust: #f1b644;
+  --c-sky: #8894ba;
+  --c-ok: #50fa7b;
+  --c-warn: #f1b644;
+  --c-bad: #ff5555;
+  --c-glow: rgba(98, 114, 164, .28);
+  --c-dust-1: #0a0c0f;
+  --c-dust-2: #121517;
+  --c-dust-3: #242930;
+  --c-switch: #6878a8;
+  --c-on-switch: #000000;
+  --k-boost: 1;
+  --aura: 98, 114, 164;
+  accent-color: var(--c-spice);
+  scrollbar-color: var(--c-rule) var(--c-ground);
+}
+@media not (prefers-color-scheme: light) {
+  :root[data-palette="circuit-indigo"]:not([data-theme="light"]) {
+    --c-ground: #0a0c0f;
+    --c-panel: #121517;
+    --c-raised: #242930;
+    --c-sunken: #0a0c0f;
+    --c-scrim: rgba(10, 12, 15, .78);
+    --c-hair: #4a5361;
+    --c-rule: #6b7585;
+    --c-bronze: #6b7585;
+    --c-stitch: #4a5361;
+    --c-text: #e8ecf0;
+    --c-dim: #99a1af;
+    --c-spice: #8894ba;
+    --c-on-spice: #101010;
+    --c-blue: #6878a8;
+    --c-on-blue: #000000;
+    --c-focus: #8894ba;
+    --c-gold: #ffb86c;
+    --c-rust: #f1b644;
+    --c-sky: #8894ba;
+    --c-ok: #50fa7b;
+    --c-warn: #f1b644;
+    --c-bad: #ff5555;
+    --c-glow: rgba(98, 114, 164, .28);
+    --c-dust-1: #0a0c0f;
+    --c-dust-2: #121517;
+    --c-dust-3: #242930;
+    --c-switch: #6878a8;
+    --c-on-switch: #000000;
+    --k-boost: 1;
+    --aura: 98, 114, 164;
+    accent-color: var(--c-spice);
+    scrollbar-color: var(--c-rule) var(--c-ground);
+  }
+}
+
+/* Giedi Prime (House & faction), dark. Moved to pass the checks: sky, ok, warn, bad, dim. */
+:root[data-palette="mono-grey"][data-theme="dark"] {
+  --c-ground: #0a0a0a;
+  --c-panel: #121212;
+  --c-raised: #252525;
+  --c-sunken: #0a0a0a;
+  --c-scrim: rgba(10, 10, 10, .78);
+  --c-hair: #2a2a2a;
+  --c-rule: #7c7c7c;
+  --c-bronze: #7c7c7c;
+  --c-stitch: #2a2a2a;
+  --c-text: #d4d4d4;
+  --c-dim: #9e9e9e;
+  --c-spice: #969696;
+  --c-on-spice: #101010;
+  --c-blue: #969696;
+  --c-on-blue: #101010;
+  --c-focus: #969696;
+  --c-gold: #e3bdad;
+  --c-rust: #a28f70;
+  --c-sky: #8293ae;
+  --c-ok: #769776;
+  --c-warn: #a28f70;
+  --c-bad: #ae8282;
+  --c-glow: rgba(150, 150, 150, .28);
+  --c-dust-1: #0a0a0a;
+  --c-dust-2: #121212;
+  --c-dust-3: #252525;
+  --c-switch: #969696;
+  --c-on-switch: #101010;
+  --k-boost: 1;
+  --aura: 150, 150, 150;
+  accent-color: var(--c-spice);
+  scrollbar-color: var(--c-rule) var(--c-ground);
+}
+@media not (prefers-color-scheme: light) {
+  :root[data-palette="mono-grey"]:not([data-theme="light"]) {
+    --c-ground: #0a0a0a;
+    --c-panel: #121212;
+    --c-raised: #252525;
+    --c-sunken: #0a0a0a;
+    --c-scrim: rgba(10, 10, 10, .78);
+    --c-hair: #2a2a2a;
+    --c-rule: #7c7c7c;
+    --c-bronze: #7c7c7c;
+    --c-stitch: #2a2a2a;
+    --c-text: #d4d4d4;
+    --c-dim: #9e9e9e;
+    --c-spice: #969696;
+    --c-on-spice: #101010;
+    --c-blue: #969696;
+    --c-on-blue: #101010;
+    --c-focus: #969696;
+    --c-gold: #e3bdad;
+    --c-rust: #a28f70;
+    --c-sky: #8293ae;
+    --c-ok: #769776;
+    --c-warn: #a28f70;
+    --c-bad: #ae8282;
+    --c-glow: rgba(150, 150, 150, .28);
+    --c-dust-1: #0a0a0a;
+    --c-dust-2: #121212;
+    --c-dust-3: #252525;
+    --c-switch: #969696;
+    --c-on-switch: #101010;
+    --k-boost: 1;
+    --aura: 150, 150, 150;
+    accent-color: var(--c-spice);
+    scrollbar-color: var(--c-rule) var(--c-ground);
+  }
+}
+
+/* Harkonnen (House & faction), dark. Moved to pass the checks: bad, accent, rule. */
+:root[data-palette="cold-slate"][data-theme="dark"] {
+  --c-ground: #090a0c;
+  --c-panel: #1a1b21;
+  --c-raised: #282931;
+  --c-sunken: #090a0c;
+  --c-scrim: rgba(9, 10, 12, .78);
+  --c-hair: #46474f;
+  --c-rule: #787980;
+  --c-bronze: #787980;
+  --c-stitch: #46474f;
+  --c-text: #d4d7de;
+  --c-dim: #b8bcc8;
+  --c-spice: #7797c2;
+  --c-on-spice: #101010;
+  --c-blue: #6b8ebd;
+  --c-on-blue: #101010;
+  --c-focus: #7797c2;
+  --c-gold: #d2d895;
+  --c-rust: #c4c7a0;
+  --c-sky: #8fa9d0;
+  --c-ok: #8fb5a3;
+  --c-warn: #c4c7a0;
+  --c-bad: #cb7e7f;
+  --c-glow: rgba(107, 142, 189, .28);
+  --c-dust-1: #090a0c;
+  --c-dust-2: #1a1b21;
+  --c-dust-3: #282931;
+  --c-switch: #6b8ebd;
+  --c-on-switch: #101010;
+  --k-boost: 2;
+  --aura: 107, 142, 189;
+  accent-color: var(--c-spice);
+  scrollbar-color: var(--c-rule) var(--c-ground);
+}
+@media not (prefers-color-scheme: light) {
+  :root[data-palette="cold-slate"]:not([data-theme="light"]) {
+    --c-ground: #090a0c;
+    --c-panel: #1a1b21;
+    --c-raised: #282931;
+    --c-sunken: #090a0c;
+    --c-scrim: rgba(9, 10, 12, .78);
+    --c-hair: #46474f;
+    --c-rule: #787980;
+    --c-bronze: #787980;
+    --c-stitch: #46474f;
+    --c-text: #d4d7de;
+    --c-dim: #b8bcc8;
+    --c-spice: #7797c2;
+    --c-on-spice: #101010;
+    --c-blue: #6b8ebd;
+    --c-on-blue: #101010;
+    --c-focus: #7797c2;
+    --c-gold: #d2d895;
+    --c-rust: #c4c7a0;
+    --c-sky: #8fa9d0;
+    --c-ok: #8fb5a3;
+    --c-warn: #c4c7a0;
+    --c-bad: #cb7e7f;
+    --c-glow: rgba(107, 142, 189, .28);
+    --c-dust-1: #090a0c;
+    --c-dust-2: #1a1b21;
+    --c-dust-3: #282931;
+    --c-switch: #6b8ebd;
+    --c-on-switch: #101010;
+    --k-boost: 2;
+    --aura: 107, 142, 189;
+    accent-color: var(--c-spice);
+    scrollbar-color: var(--c-rule) var(--c-ground);
+  }
+}
+
+/* House Atreides (House & faction), dark. Moved to pass the checks: sky, bad, accent, dim, rule. */
+:root[data-palette="navy-blue"][data-theme="dark"] {
+  --c-ground: #11161c;
+  --c-panel: #191f27;
+  --c-raised: #28333d;
+  --c-sunken: #11161c;
+  --c-scrim: rgba(17, 22, 28, .78);
+  --c-hair: #3f4d5c;
+  --c-rule: #6e7d8d;
+  --c-bronze: #6e7d8d;
+  --c-stitch: #3f4d5c;
+  --c-text: #e4edf7;
+  --c-dim: #9eacbb;
+  --c-spice: #629bf8;
+  --c-on-spice: #101010;
+  --c-blue: #3b82f6;
+  --c-on-blue: #101010;
+  --c-focus: #629bf8;
+  --c-gold: #22d3ee;
+  --c-rust: #f59e0b;
+  --c-sky: #629bf8;
+  --c-ok: #10b981;
+  --c-warn: #f59e0b;
+  --c-bad: #f37878;
+  --c-glow: rgba(59, 130, 246, .28);
+  --c-dust-1: #11161c;
+  --c-dust-2: #191f27;
+  --c-dust-3: #28333d;
+  --c-switch: #3b82f6;
+  --c-on-switch: #101010;
+  --k-boost: 1;
+  --aura: 59, 130, 246;
+  accent-color: var(--c-spice);
+  scrollbar-color: var(--c-rule) var(--c-ground);
+}
+@media not (prefers-color-scheme: light) {
+  :root[data-palette="navy-blue"]:not([data-theme="light"]) {
+    --c-ground: #11161c;
+    --c-panel: #191f27;
+    --c-raised: #28333d;
+    --c-sunken: #11161c;
+    --c-scrim: rgba(17, 22, 28, .78);
+    --c-hair: #3f4d5c;
+    --c-rule: #6e7d8d;
+    --c-bronze: #6e7d8d;
+    --c-stitch: #3f4d5c;
+    --c-text: #e4edf7;
+    --c-dim: #9eacbb;
+    --c-spice: #629bf8;
+    --c-on-spice: #101010;
+    --c-blue: #3b82f6;
+    --c-on-blue: #101010;
+    --c-focus: #629bf8;
+    --c-gold: #22d3ee;
+    --c-rust: #f59e0b;
+    --c-sky: #629bf8;
+    --c-ok: #10b981;
+    --c-warn: #f59e0b;
+    --c-bad: #f37878;
+    --c-glow: rgba(59, 130, 246, .28);
+    --c-dust-1: #11161c;
+    --c-dust-2: #191f27;
+    --c-dust-3: #28333d;
+    --c-switch: #3b82f6;
+    --c-on-switch: #101010;
+    --k-boost: 1;
+    --aura: 59, 130, 246;
+    accent-color: var(--c-spice);
+    scrollbar-color: var(--c-rule) var(--c-ground);
+  }
+}
+
+/* Sardaukar Imperial (House & faction), dark. Moved to pass the checks: sky, bad, accent, dim, rule. */
+:root[data-palette="violet-iron"][data-theme="dark"] {
+  --c-ground: #0c0c0e;
+  --c-panel: #141418;
+  --c-raised: #26262e;
+  --c-sunken: #0c0c0e;
+  --c-scrim: rgba(12, 12, 14, .78);
+  --c-hair: #4a4a58;
+  --c-rule: #707081;
+  --c-bronze: #707081;
+  --c-stitch: #4a4a58;
+  --c-text: #e8e8f0;
+  --c-dim: #9d9db2;
+  --c-spice: #a980d2;
+  --c-on-spice: #101010;
+  --c-blue: #9d6fcc;
+  --c-on-blue: #101010;
+  --c-focus: #a980d2;
+  --c-gold: #ffd700;
+  --c-rust: #ffaa40;
+  --c-sky: #9983ce;
+  --c-ok: #6b9e6b;
+  --c-warn: #ffaa40;
+  --c-bad: #ff5050;
+  --c-glow: rgba(157, 111, 204, .28);
+  --c-dust-1: #0c0c0e;
+  --c-dust-2: #141418;
+  --c-dust-3: #26262e;
+  --c-switch: #9d6fcc;
+  --c-on-switch: #101010;
+  --k-boost: 1;
+  --aura: 157, 111, 204;
+  accent-color: var(--c-spice);
+  scrollbar-color: var(--c-rule) var(--c-ground);
+}
+@media not (prefers-color-scheme: light) {
+  :root[data-palette="violet-iron"]:not([data-theme="light"]) {
+    --c-ground: #0c0c0e;
+    --c-panel: #141418;
+    --c-raised: #26262e;
+    --c-sunken: #0c0c0e;
+    --c-scrim: rgba(12, 12, 14, .78);
+    --c-hair: #4a4a58;
+    --c-rule: #707081;
+    --c-bronze: #707081;
+    --c-stitch: #4a4a58;
+    --c-text: #e8e8f0;
+    --c-dim: #9d9db2;
+    --c-spice: #a980d2;
+    --c-on-spice: #101010;
+    --c-blue: #9d6fcc;
+    --c-on-blue: #101010;
+    --c-focus: #a980d2;
+    --c-gold: #ffd700;
+    --c-rust: #ffaa40;
+    --c-sky: #9983ce;
+    --c-ok: #6b9e6b;
+    --c-warn: #ffaa40;
+    --c-bad: #ff5050;
+    --c-glow: rgba(157, 111, 204, .28);
+    --c-dust-1: #0c0c0e;
+    --c-dust-2: #141418;
+    --c-dust-3: #26262e;
+    --c-switch: #9d6fcc;
+    --c-on-switch: #101010;
+    --k-boost: 1;
+    --aura: 157, 111, 204;
+    accent-color: var(--c-spice);
+    scrollbar-color: var(--c-rule) var(--c-ground);
+  }
+}
+
+/* Bene Gesserit (House & faction), dark. Moved to pass the checks: sky, ok, bad, accent, dim, switch, rule. */
+:root[data-palette="ink-blue"][data-theme="dark"] {
+  --c-ground: #08090d;
+  --c-panel: #101318;
+  --c-raised: #20252e;
+  --c-sunken: #08090d;
+  --c-scrim: rgba(8, 9, 13, .78);
+  --c-hair: #404854;
+  --c-rule: #6d7483;
+  --c-bronze: #6d7483;
+  --c-stitch: #404854;
+  --c-text: #e0e4e8;
+  --c-dim: #969dab;
+  --c-spice: #7092b1;
+  --c-on-spice: #101010;
+  --c-blue: #2c5f8d;
+  --c-on-blue: #ffffff;
+  --c-focus: #7092b1;
+  --c-gold: #c9934e;
+  --c-rust: #c9934e;
+  --c-sky: #6e96b1;
+  --c-ok: #77956c;
+  --c-warn: #c9934e;
+  --c-bad: #bb7c7c;
+  --c-glow: rgba(44, 95, 141, .28);
+  --c-dust-1: #08090d;
+  --c-dust-2: #101318;
+  --c-dust-3: #20252e;
+  --c-switch: #567fa4;
+  --c-on-switch: #000000;
+  --k-boost: 1;
+  --aura: 44, 95, 141;
+  accent-color: var(--c-spice);
+  scrollbar-color: var(--c-rule) var(--c-ground);
+}
+@media not (prefers-color-scheme: light) {
+  :root[data-palette="ink-blue"]:not([data-theme="light"]) {
+    --c-ground: #08090d;
+    --c-panel: #101318;
+    --c-raised: #20252e;
+    --c-sunken: #08090d;
+    --c-scrim: rgba(8, 9, 13, .78);
+    --c-hair: #404854;
+    --c-rule: #6d7483;
+    --c-bronze: #6d7483;
+    --c-stitch: #404854;
+    --c-text: #e0e4e8;
+    --c-dim: #969dab;
+    --c-spice: #7092b1;
+    --c-on-spice: #101010;
+    --c-blue: #2c5f8d;
+    --c-on-blue: #ffffff;
+    --c-focus: #7092b1;
+    --c-gold: #c9934e;
+    --c-rust: #c9934e;
+    --c-sky: #6e96b1;
+    --c-ok: #77956c;
+    --c-warn: #c9934e;
+    --c-bad: #bb7c7c;
+    --c-glow: rgba(44, 95, 141, .28);
+    --c-dust-1: #08090d;
+    --c-dust-2: #101318;
+    --c-dust-3: #20252e;
+    --c-switch: #567fa4;
+    --c-on-switch: #000000;
+    --k-boost: 1;
+    --aura: 44, 95, 141;
+    accent-color: var(--c-spice);
+    scrollbar-color: var(--c-rule) var(--c-ground);
+  }
+}
+
+/* Muad'Dib (Character), dark. Moved to pass the checks: dim, rule. */
+:root[data-palette="desert-dusk"][data-theme="dark"] {
+  --c-ground: #0f0e0c;
+  --c-panel: #181614;
+  --c-raised: #2a2822;
+  --c-sunken: #0f0e0c;
+  --c-scrim: rgba(15, 14, 12, .78);
+  --c-hair: #4e4a40;
+  --c-rule: #7a7465;
+  --c-bronze: #7a7465;
+  --c-stitch: #4e4a40;
+  --c-text: #e8e2d0;
+  --c-dim: #a8a08e;
+  --c-spice: #4a9eff;
+  --c-on-spice: #101010;
+  --c-blue: #4a9eff;
+  --c-on-blue: #101010;
+  --c-focus: #4a9eff;
+  --c-gold: #d4a85c;
+  --c-rust: #e8a85c;
+  --c-sky: #5ca8e8;
+  --c-ok: #7ca668;
+  --c-warn: #e8a85c;
+  --c-bad: #d67e60;
+  --c-glow: rgba(74, 158, 255, .28);
+  --c-dust-1: #0f0e0c;
+  --c-dust-2: #181614;
+  --c-dust-3: #2a2822;
+  --c-switch: #4a9eff;
+  --c-on-switch: #101010;
+  --k-boost: 1;
+  --aura: 74, 158, 255;
+  accent-color: var(--c-spice);
+  scrollbar-color: var(--c-rule) var(--c-ground);
+}
+@media not (prefers-color-scheme: light) {
+  :root[data-palette="desert-dusk"]:not([data-theme="light"]) {
+    --c-ground: #0f0e0c;
+    --c-panel: #181614;
+    --c-raised: #2a2822;
+    --c-sunken: #0f0e0c;
+    --c-scrim: rgba(15, 14, 12, .78);
+    --c-hair: #4e4a40;
+    --c-rule: #7a7465;
+    --c-bronze: #7a7465;
+    --c-stitch: #4e4a40;
+    --c-text: #e8e2d0;
+    --c-dim: #a8a08e;
+    --c-spice: #4a9eff;
+    --c-on-spice: #101010;
+    --c-blue: #4a9eff;
+    --c-on-blue: #101010;
+    --c-focus: #4a9eff;
+    --c-gold: #d4a85c;
+    --c-rust: #e8a85c;
+    --c-sky: #5ca8e8;
+    --c-ok: #7ca668;
+    --c-warn: #e8a85c;
+    --c-bad: #d67e60;
+    --c-glow: rgba(74, 158, 255, .28);
+    --c-dust-1: #0f0e0c;
+    --c-dust-2: #181614;
+    --c-dust-3: #2a2822;
+    --c-switch: #4a9eff;
+    --c-on-switch: #101010;
+    --k-boost: 1;
+    --aura: 74, 158, 255;
+    accent-color: var(--c-spice);
+    scrollbar-color: var(--c-rule) var(--c-ground);
+  }
+}
+
+/* Fremen Sietch (Character), light. Moved to pass the checks: gold, sky, ok, warn, bad, accent, dim, fill, switch. */
+:root[data-palette="sand-linen"][data-theme="light"] {
+  --c-ground: #faf8f3;
+  --c-panel: #f5f2ea;
+  --c-raised: #e8e0d0;
+  --c-sunken: #faf8f3;
+  --c-scrim: rgba(250, 248, 243, .5);
+  --c-hair: #b8a890;
+  --c-rule: #8b7355;
+  --c-bronze: #8b7355;
+  --c-stitch: #b8a890;
+  --c-text: #2c2416;
+  --c-dim: #625642;
+  --c-spice: #1d6786;
+  --c-on-spice: #ffffff;
+  --c-blue: #1d6786;
+  --c-on-blue: #ffffff;
+  --c-focus: #1d6786;
+  --c-gold: #805a34;
+  --c-rust: #9e4908;
+  --c-sky: #22667e;
+  --c-ok: #3e684b;
+  --c-warn: #9e4908;
+  --c-bad: #ab390b;
+  --c-glow: rgba(30, 107, 140, .28);
+  --c-dust-1: #faf8f3;
+  --c-dust-2: #f5f2ea;
+  --c-dust-3: #e8e0d0;
+  --c-switch: #1d6786;
+  --c-on-switch: #ffffff;
+  --k-boost: 1;
+  --aura: 30, 107, 140;
+  accent-color: var(--c-spice);
+  scrollbar-color: var(--c-rule) var(--c-ground);
+}
+@media (prefers-color-scheme: light) {
+  :root[data-palette="sand-linen"]:not([data-theme="dark"]) {
+    --c-ground: #faf8f3;
+    --c-panel: #f5f2ea;
+    --c-raised: #e8e0d0;
+    --c-sunken: #faf8f3;
+    --c-scrim: rgba(250, 248, 243, .5);
+    --c-hair: #b8a890;
+    --c-rule: #8b7355;
+    --c-bronze: #8b7355;
+    --c-stitch: #b8a890;
+    --c-text: #2c2416;
+    --c-dim: #625642;
+    --c-spice: #1d6786;
+    --c-on-spice: #ffffff;
+    --c-blue: #1d6786;
+    --c-on-blue: #ffffff;
+    --c-focus: #1d6786;
+    --c-gold: #805a34;
+    --c-rust: #9e4908;
+    --c-sky: #22667e;
+    --c-ok: #3e684b;
+    --c-warn: #9e4908;
+    --c-bad: #ab390b;
+    --c-glow: rgba(30, 107, 140, .28);
+    --c-dust-1: #faf8f3;
+    --c-dust-2: #f5f2ea;
+    --c-dust-3: #e8e0d0;
+    --c-switch: #1d6786;
+    --c-on-switch: #ffffff;
+    --k-boost: 1;
+    --aura: 30, 107, 140;
+    accent-color: var(--c-spice);
+    scrollbar-color: var(--c-rule) var(--c-ground);
+  }
+}
+
+/* Guild Navigator (Guild & commerce), dark. Moved to pass the checks: dim, rule. */
+:root[data-palette="void-violet"][data-theme="dark"] {
+  --c-ground: #050308;
+  --c-panel: #0d0a14;
+  --c-raised: #1e1a26;
+  --c-sunken: #050308;
+  --c-scrim: rgba(5, 3, 8, .78);
+  --c-hair: #3f3848;
+  --c-rule: #71697a;
+  --c-bronze: #71697a;
+  --c-stitch: #3f3848;
+  --c-text: #f0e8ff;
+  --c-dim: #a092b6;
+  --c-spice: #4ca8ff;
+  --c-on-spice: #101010;
+  --c-blue: #4ca8ff;
+  --c-on-blue: #101010;
+  --c-focus: #4ca8ff;
+  --c-gold: #c8884c;
+  --c-rust: #ffa94d;
+  --c-sky: #5ca7ff;
+  --c-ok: #69db7c;
+  --c-warn: #ffa94d;
+  --c-bad: #ff6b6b;
+  --c-glow: rgba(76, 168, 255, .28);
+  --c-dust-1: #050308;
+  --c-dust-2: #0d0a14;
+  --c-dust-3: #1e1a26;
+  --c-switch: #4ca8ff;
+  --c-on-switch: #101010;
+  --k-boost: 1.25;
+  --aura: 76, 168, 255;
+  accent-color: var(--c-spice);
+  scrollbar-color: var(--c-rule) var(--c-ground);
+}
+@media not (prefers-color-scheme: light) {
+  :root[data-palette="void-violet"]:not([data-theme="light"]) {
+    --c-ground: #050308;
+    --c-panel: #0d0a14;
+    --c-raised: #1e1a26;
+    --c-sunken: #050308;
+    --c-scrim: rgba(5, 3, 8, .78);
+    --c-hair: #3f3848;
+    --c-rule: #71697a;
+    --c-bronze: #71697a;
+    --c-stitch: #3f3848;
+    --c-text: #f0e8ff;
+    --c-dim: #a092b6;
+    --c-spice: #4ca8ff;
+    --c-on-spice: #101010;
+    --c-blue: #4ca8ff;
+    --c-on-blue: #101010;
+    --c-focus: #4ca8ff;
+    --c-gold: #c8884c;
+    --c-rust: #ffa94d;
+    --c-sky: #5ca7ff;
+    --c-ok: #69db7c;
+    --c-warn: #ffa94d;
+    --c-bad: #ff6b6b;
+    --c-glow: rgba(76, 168, 255, .28);
+    --c-dust-1: #050308;
+    --c-dust-2: #0d0a14;
+    --c-dust-3: #1e1a26;
+    --c-switch: #4ca8ff;
+    --c-on-switch: #101010;
+    --k-boost: 1.25;
+    --aura: 76, 168, 255;
+    accent-color: var(--c-spice);
+    scrollbar-color: var(--c-rule) var(--c-ground);
+  }
+}
+
+/* Spacing Guild (Guild & commerce), dark. Moved to pass the checks: bad, accent, dim, rule. */
+:root[data-palette="steel-night"][data-theme="dark"] {
+  --c-ground: #0a0b0d;
+  --c-panel: #12141a;
+  --c-raised: #24272e;
+  --c-sunken: #0a0b0d;
+  --c-scrim: rgba(10, 11, 13, .78);
+  --c-hair: #484e58;
+  --c-rule: #6e7681;
+  --c-bronze: #6e7681;
+  --c-stitch: #484e58;
+  --c-text: #e8ecf4;
+  --c-dim: #99a2af;
+  --c-spice: #5194e3;
+  --c-on-spice: #101010;
+  --c-blue: #4a90e2;
+  --c-on-blue: #101010;
+  --c-focus: #5194e3;
+  --c-gold: #ff9940;
+  --c-rust: #ffaa40;
+  --c-sky: #5ca7ff;
+  --c-ok: #6bc46d;
+  --c-warn: #ffaa40;
+  --c-bad: #ea6563;
+  --c-glow: rgba(74, 144, 226, .28);
+  --c-dust-1: #0a0b0d;
+  --c-dust-2: #12141a;
+  --c-dust-3: #24272e;
+  --c-switch: #4a90e2;
+  --c-on-switch: #101010;
+  --k-boost: 1.25;
+  --aura: 74, 144, 226;
+  accent-color: var(--c-spice);
+  scrollbar-color: var(--c-rule) var(--c-ground);
+}
+@media not (prefers-color-scheme: light) {
+  :root[data-palette="steel-night"]:not([data-theme="light"]) {
+    --c-ground: #0a0b0d;
+    --c-panel: #12141a;
+    --c-raised: #24272e;
+    --c-sunken: #0a0b0d;
+    --c-scrim: rgba(10, 11, 13, .78);
+    --c-hair: #484e58;
+    --c-rule: #6e7681;
+    --c-bronze: #6e7681;
+    --c-stitch: #484e58;
+    --c-text: #e8ecf4;
+    --c-dim: #99a2af;
+    --c-spice: #5194e3;
+    --c-on-spice: #101010;
+    --c-blue: #4a90e2;
+    --c-on-blue: #101010;
+    --c-focus: #5194e3;
+    --c-gold: #ff9940;
+    --c-rust: #ffaa40;
+    --c-sky: #5ca7ff;
+    --c-ok: #6bc46d;
+    --c-warn: #ffaa40;
+    --c-bad: #ea6563;
+    --c-glow: rgba(74, 144, 226, .28);
+    --c-dust-1: #0a0b0d;
+    --c-dust-2: #12141a;
+    --c-dust-3: #24272e;
+    --c-switch: #4a90e2;
+    --c-on-switch: #101010;
+    --k-boost: 1.25;
+    --aura: 74, 144, 226;
+    accent-color: var(--c-spice);
+    scrollbar-color: var(--c-rule) var(--c-ground);
+  }
+}
+
+/* Water of Life (Mystical & mental), dark. Moved to pass the checks: dim, rule. */
+:root[data-palette="deep-ocean"][data-theme="dark"] {
+  --c-ground: #0a0e14;
+  --c-panel: #111621;
+  --c-raised: #202938;
+  --c-sunken: #0a0e14;
+  --c-scrim: rgba(10, 14, 20, .78);
+  --c-hair: #3f4e66;
+  --c-rule: #677792;
+  --c-bronze: #677792;
+  --c-stitch: #3f4e66;
+  --c-text: #e8f0ff;
+  --c-dim: #98a7c1;
+  --c-spice: #5eb3ff;
+  --c-on-spice: #101010;
+  --c-blue: #5eb3ff;
+  --c-on-blue: #101010;
+  --c-focus: #5eb3ff;
+  --c-gold: #ffd700;
+  --c-rust: #feca57;
+  --c-sky: #54a0ff;
+  --c-ok: #48dbfb;
+  --c-warn: #feca57;
+  --c-bad: #ff6b9d;
+  --c-glow: rgba(94, 179, 255, .28);
+  --c-dust-1: #0a0e14;
+  --c-dust-2: #111621;
+  --c-dust-3: #202938;
+  --c-switch: #5eb3ff;
+  --c-on-switch: #101010;
+  --k-boost: 1;
+  --aura: 94, 179, 255;
+  accent-color: var(--c-spice);
+  scrollbar-color: var(--c-rule) var(--c-ground);
+}
+@media not (prefers-color-scheme: light) {
+  :root[data-palette="deep-ocean"]:not([data-theme="light"]) {
+    --c-ground: #0a0e14;
+    --c-panel: #111621;
+    --c-raised: #202938;
+    --c-sunken: #0a0e14;
+    --c-scrim: rgba(10, 14, 20, .78);
+    --c-hair: #3f4e66;
+    --c-rule: #677792;
+    --c-bronze: #677792;
+    --c-stitch: #3f4e66;
+    --c-text: #e8f0ff;
+    --c-dim: #98a7c1;
+    --c-spice: #5eb3ff;
+    --c-on-spice: #101010;
+    --c-blue: #5eb3ff;
+    --c-on-blue: #101010;
+    --c-focus: #5eb3ff;
+    --c-gold: #ffd700;
+    --c-rust: #feca57;
+    --c-sky: #54a0ff;
+    --c-ok: #48dbfb;
+    --c-warn: #feca57;
+    --c-bad: #ff6b9d;
+    --c-glow: rgba(94, 179, 255, .28);
+    --c-dust-1: #0a0e14;
+    --c-dust-2: #111621;
+    --c-dust-3: #202938;
+    --c-switch: #5eb3ff;
+    --c-on-switch: #101010;
+    --k-boost: 1;
+    --aura: 94, 179, 255;
+    accent-color: var(--c-spice);
+    scrollbar-color: var(--c-rule) var(--c-ground);
+  }
+}
+
+/* Mentat (Mystical & mental), light. Moved to pass the checks: gold, sky, ok, warn, dim, rule. */
+:root[data-palette="paper-grey"][data-theme="light"] {
+  --c-ground: #fafafa;
+  --c-panel: #f4f4f4;
+  --c-raised: #e8e8e8;
+  --c-sunken: #fafafa;
+  --c-scrim: rgba(250, 250, 250, .5);
+  --c-hair: #c0c0c0;
+  --c-rule: #848484;
+  --c-bronze: #848484;
+  --c-stitch: #c0c0c0;
+  --c-text: #1a1a1a;
+  --c-dim: #585858;
+  --c-spice: #0550ae;
+  --c-on-spice: #ffffff;
+  --c-blue: #0550ae;
+  --c-on-blue: #ffffff;
+  --c-focus: #0550ae;
+  --c-gold: #c7212c;
+  --c-rust: #885b00;
+  --c-sky: #0861c9;
+  --c-ok: #187533;
+  --c-warn: #885b00;
+  --c-bad: #a40e26;
+  --c-glow: rgba(5, 80, 174, .28);
+  --c-dust-1: #fafafa;
+  --c-dust-2: #f4f4f4;
+  --c-dust-3: #e8e8e8;
+  --c-switch: #0550ae;
+  --c-on-switch: #ffffff;
+  --k-boost: 1.25;
+  --aura: 5, 80, 174;
+  accent-color: var(--c-spice);
+  scrollbar-color: var(--c-rule) var(--c-ground);
+}
+@media (prefers-color-scheme: light) {
+  :root[data-palette="paper-grey"]:not([data-theme="dark"]) {
+    --c-ground: #fafafa;
+    --c-panel: #f4f4f4;
+    --c-raised: #e8e8e8;
+    --c-sunken: #fafafa;
+    --c-scrim: rgba(250, 250, 250, .5);
+    --c-hair: #c0c0c0;
+    --c-rule: #848484;
+    --c-bronze: #848484;
+    --c-stitch: #c0c0c0;
+    --c-text: #1a1a1a;
+    --c-dim: #585858;
+    --c-spice: #0550ae;
+    --c-on-spice: #ffffff;
+    --c-blue: #0550ae;
+    --c-on-blue: #ffffff;
+    --c-focus: #0550ae;
+    --c-gold: #c7212c;
+    --c-rust: #885b00;
+    --c-sky: #0861c9;
+    --c-ok: #187533;
+    --c-warn: #885b00;
+    --c-bad: #a40e26;
+    --c-glow: rgba(5, 80, 174, .28);
+    --c-dust-1: #fafafa;
+    --c-dust-2: #f4f4f4;
+    --c-dust-3: #e8e8e8;
+    --c-switch: #0550ae;
+    --c-on-switch: #ffffff;
+    --k-boost: 1.25;
+    --aura: 5, 80, 174;
+    accent-color: var(--c-spice);
+    scrollbar-color: var(--c-rule) var(--c-ground);
+  }
+}
+
+/* Spice Vision (Mystical & mental), dark. Moved to pass the checks: bad, dim, rule. */
+:root[data-palette="copper-cyan"][data-theme="dark"] {
+  --c-ground: #140f0a;
+  --c-panel: #1c1611;
+  --c-raised: #2e251f;
+  --c-sunken: #140f0a;
+  --c-scrim: rgba(20, 15, 10, .78);
+  --c-hair: #524438;
+  --c-rule: #7f6e5e;
+  --c-bronze: #7f6e5e;
+  --c-stitch: #524438;
+  --c-text: #ffedc6;
+  --c-dim: #b3a186;
+  --c-spice: #00bfff;
+  --c-on-spice: #101010;
+  --c-blue: #00bfff;
+  --c-on-blue: #101010;
+  --c-focus: #00bfff;
+  --c-gold: #ffd700;
+  --c-rust: #ffa502;
+  --c-sky: #00bfff;
+  --c-ok: #26de81;
+  --c-warn: #ffa502;
+  --c-bad: #ff4e5e;
+  --c-glow: rgba(0, 191, 255, .28);
+  --c-dust-1: #140f0a;
+  --c-dust-2: #1c1611;
+  --c-dust-3: #2e251f;
+  --c-switch: #00bfff;
+  --c-on-switch: #101010;
+  --k-boost: 1.25;
+  --aura: 0, 191, 255;
+  accent-color: var(--c-spice);
+  scrollbar-color: var(--c-rule) var(--c-ground);
+}
+@media not (prefers-color-scheme: light) {
+  :root[data-palette="copper-cyan"]:not([data-theme="light"]) {
+    --c-ground: #140f0a;
+    --c-panel: #1c1611;
+    --c-raised: #2e251f;
+    --c-sunken: #140f0a;
+    --c-scrim: rgba(20, 15, 10, .78);
+    --c-hair: #524438;
+    --c-rule: #7f6e5e;
+    --c-bronze: #7f6e5e;
+    --c-stitch: #524438;
+    --c-text: #ffedc6;
+    --c-dim: #b3a186;
+    --c-spice: #00bfff;
+    --c-on-spice: #101010;
+    --c-blue: #00bfff;
+    --c-on-blue: #101010;
+    --c-focus: #00bfff;
+    --c-gold: #ffd700;
+    --c-rust: #ffa502;
+    --c-sky: #00bfff;
+    --c-ok: #26de81;
+    --c-warn: #ffa502;
+    --c-bad: #ff4e5e;
+    --c-glow: rgba(0, 191, 255, .28);
+    --c-dust-1: #140f0a;
+    --c-dust-2: #1c1611;
+    --c-dust-3: #2e251f;
+    --c-switch: #00bfff;
+    --c-on-switch: #101010;
+    --k-boost: 1.25;
+    --aura: 0, 191, 255;
+    accent-color: var(--c-spice);
+    scrollbar-color: var(--c-rule) var(--c-ground);
+  }
+}

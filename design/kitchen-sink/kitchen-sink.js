@@ -11,6 +11,8 @@
     awakening: ['tokens-awakening.css', 'components-awakening.css'],
     sietch: ['tokens-sietch.css', 'components-sietch.css']
   };
+  // The palettes are a fixed list too: the ids of design.Palettes, in its order (a test compares them). The look's own colours are "none", which removes the attribute.
+  var PALETTES = ['warm-charcoal', 'umber-sand', 'deep-teal', 'storm-blue', 'ember-red', 'circuit-indigo', 'mono-grey', 'cold-slate', 'navy-blue', 'violet-iron', 'ink-blue', 'desert-dusk', 'sand-linen', 'void-violet', 'steel-night', 'deep-ocean', 'paper-grey', 'copper-cyan'];
   var VALUES = { look: Object.keys(FILES), motion: ['full', 'calm', 'off'], 'heading-font': ['dune-rise', 'system'] };
 
   function setLook(look) {
@@ -19,6 +21,11 @@
     t.setAttribute('href', '../assets/' + FILES[look][0]);
     c.setAttribute('href', '../assets/' + FILES[look][1]);
     root.setAttribute('data-look', look);
+  }
+  function setPalette(id) {
+    if (id === 'none') { root.removeAttribute('data-palette'); return; }
+    if (PALETTES.indexOf(id) < 0) return;
+    root.setAttribute('data-palette', id);
   }
   function setValue(group, value) {
     if (VALUES[group].indexOf(value) < 0) return;
@@ -35,6 +42,10 @@
       setValue(group, b.getAttribute('data-value'));
       all('button[data-value]', seg).forEach(function (o) { o.setAttribute('aria-pressed', String(o === b)); });
     });
+  });
+
+  all('select[data-palette-select]').forEach(function (s) {
+    s.addEventListener('change', function () { setPalette(s.value); });
   });
 
   all('[data-theme-toggle]').forEach(function (b) {
