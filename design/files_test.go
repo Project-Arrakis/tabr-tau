@@ -59,11 +59,11 @@ func withExt(files []string, exts ...string) []string {
 
 // ---- what is in the package, and how it is served ----
 
-func TestAssetsHoldTheFilesOfVersion020(t *testing.T) {
+func TestAssetsHoldTheFilesOfVersion030(t *testing.T) {
 	got := assetNames(t, "")
 	want := []string{
 		"components-awakening.css", "components-fremen.css", "components-sietch.css", "components.css", "fonts/DuneRise-OFL.txt", "fonts/SHA256SUMS",
-		"grain.svg", "icons.svg", "motion.css", "tokens-awakening.css", "tokens-fremen.css", "tokens-sietch.css", "tokens.css",
+		"grain.svg", "icons.svg", "motion.css", "palettes.css", "tokens-awakening.css", "tokens-fremen.css", "tokens-sietch.css", "tokens.css",
 	}
 	if _, err := os.Stat("assets/fonts/DuneRise.ttf"); err == nil {
 		want = append(want, "fonts/DuneRise.ttf")

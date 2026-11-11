@@ -208,12 +208,21 @@ func TestContrastOfDerivedStates(t *testing.T) {
 			check(tint.col+" icon on its "+tint.name+" tint", c(tint.col), bg, 3)
 		}
 		// the accent tints of a hovered or selected part, over raised and over the panel (the bar of the nav); at most 20 %
+		// (a palette may multiply them by --k-boost, so the tint is as strong as the components make it)
+		boost := 1.0
+		if v, ok := p.raw["--k-boost"]; ok {
+			f, err := strconv.ParseFloat(v, 64)
+			if err != nil || f < 1 || f > 2 {
+				t.Fatalf("--k-boost is %q, want a number from 1 to 2", v)
+			}
+			boost = f
+		}
 		for _, pct := range []float64{8, 9, 10, 12, 16, 20} {
 			for _, base := range []string{"--c-raised", "--c-panel"} {
-				bg := mix(c("--c-spice"), pct, c(base))
-				check("--c-text on spice "+itoa(pct)+"% over "+base, c("--c-text"), bg, 4.5)
+				bg := mix(c("--c-spice"), pct*boost, c(base))
+				check("--c-text on spice "+itoa(pct*boost)+"% over "+base, c("--c-text"), bg, 4.5)
 				if pct <= 12 {
-					check("--c-dim on spice "+itoa(pct)+"% over "+base, c("--c-dim"), bg, 4.5)
+					check("--c-dim on spice "+itoa(pct*boost)+"% over "+base, c("--c-dim"), bg, 4.5)
 				}
 			}
 		}
