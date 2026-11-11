@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Project-Arrakis/tabr-tau/design"
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 	"github.com/Project-Arrakis/tabr-tau/internal/settings"
@@ -558,6 +559,10 @@ func (s *Server) routes() {
 			w.Write(b) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter (embedded, fixed, non-HTML asset; nosniff + CSP set)
 		})
 	}
+
+	// The shared design module's files (the tokens and components of the looks, the motion rules, the icon sprite and the heading typeface), embedded in the binary from the module in the tree
+	// and served read-only from this origin: the page links the files of design.DefaultLook (#570). design.Handler lists no folder and sends each file with its own type.
+	s.mux.Handle("/design/", http.StripPrefix("/design/", design.Handler()))
 
 	// The Live Map's marker icons: the files of the embedded maps/icons folder, listed once here. The list comes from the build, never
 	// from the request, so a request can only name a file that was embedded (anything else is a 404).

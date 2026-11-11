@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Checks that the design module (./design) stands on its own.
 #
-#   1. The editor's go.mod does not require the design module (nothing in the editor depends on it yet): the module is checked
-#      as published, never through a replace that would hide a missing tag.
+#   1. The editor's go.mod requires the design module and replaces it with ./design, so a pull request builds and serves the files in the tree (the editor adopted the
+#      module with the Look slice, #570), and the editor builds against them.
 #   2. A clean export of the tracked files of ./design (what a tag would publish) vets and passes its own tests, and carries
 #      the files a tag must carry.
 #   3. A small program outside the repository builds and runs against that export, serves the stylesheet and reads it.
@@ -16,11 +16,16 @@ root="$(git rev-parse --show-toplevel)"
 cd "$root"
 export GOWORK=off
 
-if grep -Eq 'tabr-tau/design' go.mod; then
-  echo "ERROR: the editor's go.mod names the design module; add the replace/tag rules to this script before the editor adopts it" >&2
+mod=github.com/Project-Arrakis/tabr-tau/design
+replaced="$(go list -m -f '{{if .Replace}}{{.Replace.Path}}{{end}}' "$mod")"
+if [ "$replaced" != "./design" ]; then
+  echo "ERROR: go.mod must replace $mod with ./design (found '$replaced')" >&2
   exit 1
 fi
-echo "the editor does not depend on ./design"
+echo "go.mod replaces $mod with ./design"
+
+go build ./...
+echo "the editor builds against ./design"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT

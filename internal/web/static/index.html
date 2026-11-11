@@ -5,20 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tabr Tau</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/design/tokens-fremen.css">
+<link rel="stylesheet" href="/design/components-fremen.css">
+<link rel="stylesheet" href="/design/components.css">
+<link rel="stylesheet" href="/design/motion.css">
 <link rel="stylesheet" href="/app.css">
 </head>
 <body>
-<header>
+<header class="d-bar">
   <svg class="mark" viewBox="0 0 24 24" role="presentation"><path d="M16.5 4.8a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 1 0 0-6.4zM1.5 18.5c3.6-5.4 7.4-5.6 10.4-2.4 2.4 2.5 5.8 2.7 10.6-1.6v7H1.5z"/></svg>
   <h1>Tabr Tau</h1><span class="warn hide" id="notlive"></span><span class="path" id="path"></span>
-  <span id="pending" class="mut"></span>
-  <label class="mut" title="When the game saves and no changes are queued, reload the file and redraw this page"><input type="checkbox" id="autorefresh" checked> Auto-refresh</label>
-  <button class="b sec" id="btnDiscard" hidden title="Drop the changes that are waiting for the game to close">Discard queue</button>
+  <span id="pending" class="mut d-pill"></span>
+  <label class="mut" title="When the game saves and no changes are queued, reload the file and redraw this page"><input type="checkbox" id="autorefresh" class="d-toggle" checked> Auto-refresh</label>
+  <button class="b sec d-btn sm" id="btnDiscard" hidden title="Drop the changes that are waiting for the game to close">Discard queue</button>
 </header>
 <div id="gamewarn" class="hide"></div>
 <div id="launchpass" class="hide"></div>
 <div id="rowarn" class="hide"></div>
-<nav id="nav"></nav>
+<nav id="nav" class="d-nav"></nav>
 <main id="main"><p class="mut" id="loading" role="status">Loading the save...</p></main>
 <div id="ask" class="hide"></div>
 <div id="toast" aria-live="polite"></div>

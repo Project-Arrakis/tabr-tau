@@ -10,28 +10,6 @@ import (
 	"testing"
 )
 
-// themeTokens reads the colour tokens of the stylesheet the way the cascade does: every top-level :root block in order, and for the light theme the prefers-color-scheme:light
-// blocks on top of them.
-func themeTokens(t *testing.T, css string) (dark, light map[string]string) {
-	t.Helper()
-	dark, light = map[string]string{}, map[string]string{}
-	decl := regexp.MustCompile(`(--[a-z0-9-]+):(#[0-9a-fA-F]{6})`)
-	for _, m := range regexp.MustCompile(`(?m)^:root\{([^}]*)\}`).FindAllStringSubmatch(css, -1) {
-		for _, d := range decl.FindAllStringSubmatch(m[1], -1) {
-			dark[d[1]] = d[2]
-		}
-	}
-	for k, v := range dark {
-		light[k] = v
-	}
-	for _, m := range regexp.MustCompile(`@media \(prefers-color-scheme:light\)\{:root\{([^}]*)\}\}`).FindAllStringSubmatch(css, -1) {
-		for _, d := range decl.FindAllStringSubmatch(m[1], -1) {
-			light[d[1]] = d[2]
-		}
-	}
-	return dark, light
-}
-
 func rgbOf(hex string) [3]float64 {
 	var c [3]float64
 	for i := 0; i < 3; i++ {
@@ -77,15 +55,14 @@ func surfaces(t *testing.T, css string, theme map[string]string) map[string]stri
 }
 
 // Review 2026-10-23 B2: text colours reach 4.5:1 in BOTH themes on every surface they are drawn on, the tinted banners included (the muted colour on a warning or info banner was
-// 3.84 to 4.18:1 in the dark theme, and the light accent on the beige tiles 4.37:1).
+// 3.84 to 4.18:1 in the dark theme, and the light accent on the beige tiles 4.37:1). The colours are the design module's, for every look it has (#570).
 func TestTextColoursReachFourPointFiveInBothThemesOnEverySurface(t *testing.T) {
 	b, err := os.ReadFile("static/app.css")
 	if err != nil {
 		t.Fatal(err)
 	}
 	css := strings.ReplaceAll(string(b), "\r", "")
-	dark, light := themeTokens(t, css)
-	for name, theme := range map[string]map[string]string{"dark": dark, "light": light} {
+	forEachLookTheme(t, func(t *testing.T, theme map[string]string) {
 		surf := surfaces(t, css, theme)
 		names := make([]string, 0, len(surf))
 		for k := range surf {
@@ -96,7 +73,7 @@ func TestTextColoursReachFourPointFiveInBothThemesOnEverySurface(t *testing.T) {
 			for _, s := range names {
 				if strings.HasPrefix(s, "--") { // the page and the panels: every text colour
 					if c := contrast(theme[text], surf[s]); c < 4.5 {
-						t.Errorf("%s theme: %s (%s) on %s (%s) is %.2f:1; text needs 4.5:1", name, text, theme[text], s, surf[s], c)
+						t.Errorf("%s (%s) on %s (%s) is %.2f:1; text needs 4.5:1", text, theme[text], s, surf[s], c)
 					}
 				}
 			}
@@ -108,15 +85,15 @@ func TestTextColoursReachFourPointFiveInBothThemesOnEverySurface(t *testing.T) {
 			}
 			for _, text := range []string{"--fg", "--mut-tint"} {
 				if theme[text] == "" {
-					t.Fatalf("%s theme: %s is not defined", name, text)
+					t.Fatalf("%s is not defined", text)
 				}
 				if c := contrast(theme[text], surf[s]); c < 4.5 {
-					t.Errorf("%s theme: %s (%s) on the banner %q (%s) is %.2f:1; text needs 4.5:1", name, text, theme[text], s, surf[s], c)
+					t.Errorf("%s (%s) on the banner %q (%s) is %.2f:1; text needs 4.5:1", text, theme[text], s, surf[s], c)
 				}
 			}
 		}
-		if !regexp.MustCompile(`\.warn \.mut[^{]*\{color:var\(--mut-tint\)\}`).MatchString(css) {
-			t.Error("the muted text on a banner must use --mut-tint")
-		}
+	})
+	if !regexp.MustCompile(`\.warn \.mut[^{]*\{color:var\(--mut-tint\)\}`).MatchString(css) {
+		t.Error("the muted text on a banner must use --mut-tint")
 	}
 }

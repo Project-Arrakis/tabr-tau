@@ -1,10 +1,13 @@
 package web
 
 import (
+	"io/fs"
 	"os"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/Project-Arrakis/tabr-tau/design"
 )
 
 // Every colour the stylesheet uses must be defined: an undefined variable makes the rule invalid at computed time, so a warning banner is drawn with no background and no border
@@ -16,6 +19,16 @@ func TestEveryCSSVariableTheStylesheetUsesIsDefined(t *testing.T) {
 	}
 	css := string(b)
 	defined := map[string]bool{}
+	// the names the design module's look files define (#570): app.css uses them and aliases some of them
+	for _, look := range design.Looks() {
+		tok, err := fs.ReadFile(design.Assets, "tokens-"+look+".css")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range regexp.MustCompile(`(--[a-z0-9-]+)\s*:`).FindAllStringSubmatch(string(tok), -1) {
+			defined[m[1]] = true
+		}
+	}
 	for _, m := range regexp.MustCompile(`(--[a-z0-9-]+)\s*:`).FindAllStringSubmatch(css, -1) {
 		defined[m[1]] = true
 	}

@@ -19,7 +19,7 @@ func TestSmallScreensUnstickTheHeaderAndTheBanner(t *testing.T) {
 	if m == nil {
 		t.Fatal("no @media (max-width:720px) block")
 	}
-	for _, want := range []string{"header{position:static", "#gamewarn.warn,#gamewarn.info{position:static", ".sub{flex-wrap:nowrap;overflow-x:auto"} {
+	for _, want := range []string{"header.d-bar{position:static", "#gamewarn.warn,#gamewarn.info{position:static", ".sub{flex-wrap:nowrap;overflow-x:auto"} {
 		if !strings.Contains(m[1], want) {
 			t.Errorf("the small-screen rules lack %q", want)
 		}
