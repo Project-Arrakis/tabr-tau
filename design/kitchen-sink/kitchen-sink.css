@@ -5,6 +5,7 @@ body { height: auto; min-height: 100%; }
 .x-stack { display: flex; flex-direction: column; gap: var(--s-3); }
 .x-inline { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; }
 .x-label { color: var(--c-dim); font: 700 var(--t-xs) var(--t-body); letter-spacing: .12em; text-transform: uppercase; margin: 0 0 var(--s-1); }
+.x-note { flex-basis: 100%; margin: 0; color: var(--c-dim); font: var(--t-sm) var(--t-body); }
 .x-sw { display: flex; flex-wrap: wrap; gap: var(--s-2); }
 .x-sw span { display: grid; place-items: end start; width: 92px; height: 52px; padding: 4px 6px; border: 1px solid var(--c-hair); border-radius: var(--r-2); font: 600 var(--t-xs) var(--t-mono); }
 .x-sw .x-ground { background: var(--c-ground); }

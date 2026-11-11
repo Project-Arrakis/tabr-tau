@@ -1,7 +1,7 @@
-// Package design carries the shared look of the Tabr programs as files embedded in the binary that imports it. Version 0.2.0 holds the
+// Package design carries the shared look of the Tabr programs as files embedded in the binary that imports it. Version 0.3.0 holds the
 // tokens of version 0.1.0 (assets/tokens.css, unchanged), three looks (Fremen, the default, Awakening and Sietch), each with tokens, components
-// and a dark and a light theme, the components they share, the Motion setting, an icon sprite, a grain picture and the heading typeface Dune
-// Rise with its licence. See README.md for how a program links a look.
+// and a dark and a light theme, the components they share, the Motion setting, eighteen colour palettes that recolour a look, an icon sprite,
+// a grain picture and the heading typeface Dune Rise with its licence. See README.md for how a program links a look and chooses a palette.
 //
 // A program serves the files from its own origin, next to its own files, so that its content security policy does not change:
 //
