@@ -28,9 +28,9 @@ let fixtures = baseFixtures;
 const read = (n) => fs.readFileSync(path.join(static_, n), 'utf8');
 
 // Allowlists: anything else appearing in the rendered DOM is an injection.
-const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h3 ul li code table thead tbody tr th td input select option datalist button details summary textarea br label canvas svg g rect text path'.split(' '));
-const SCRIPTS = new Set(['/html.js', '/livemap.js', '/app.js']); // the only scripts the page may contain, both same-origin files
-const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live aria-label aria-labelledby aria-describedby aria-sort aria-current aria-pressed inert tabindex label checked open viewbox x y rx transform d'.split(' '));
+const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h3 ul li code table thead tbody tr th td input select option datalist button details summary textarea br label canvas svg g rect text path defs clippath'.split(' '));
+const SCRIPTS = new Set(['/motion-boot.js', '/html.js', '/livemap.js', '/app.js']); // the only scripts the page may contain, all same-origin files (the Motion setting's file is in the head)
+const ATTRS = new Set('lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live aria-label aria-labelledby aria-describedby aria-sort aria-current aria-pressed inert tabindex label checked open viewbox x y rx transform d hidden aria-hidden clip-path'.split(' '));
 
 export function assertClean(doc, label) {
   const bad = [];

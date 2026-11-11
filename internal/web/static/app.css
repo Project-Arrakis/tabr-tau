@@ -57,12 +57,11 @@ input.cfgv{width:100%;min-width:220px}
 .row.mt12{margin-top:12px}.mut.mb8{margin-bottom:8px}
 ul.tight{margin:6px 0}
 .locked{max-width:560px;margin:15vh auto;padding:0 16px}
-/* results of an action: one live region for all of them (#toast), a toast each; an error stays until it is dismissed */
-#toast{position:fixed;bottom:16px;right:16px;display:flex;flex-direction:column;gap:6px;z-index:10}
-#toast div{display:flex;gap:8px;align-items:flex-start;background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--ok);padding:8px 12px;border-radius:var(--r-2);box-shadow:var(--sh);max-width:420px}
-#toast div.err{border-left-color:var(--bad)}
-#toast div.part{border-left-color:var(--warn)}
-#toast div span{flex:1;overflow-wrap:anywhere}
+/* results of an action: one live region for all of them (#toast, the module's d-toasts), a toast each (the module's d-toast); an error stays until it is dismissed */
+#toast .d-toast span{flex:1;overflow-wrap:anywhere}
+#toast .d-toast .d-i{color:var(--ok)}
+#toast .d-toast.warn .d-i{color:var(--warn)}
+#toast .d-toast.bad .d-i{color:var(--bad)}
 #toast button.x{background:none;border:0;color:var(--fg);cursor:pointer;font-size:18px;line-height:1;padding:0 2px}
 .modal{position:fixed;inset:0;background:var(--c-scrim);z-index:8;overflow:auto;padding:4vh 16px}
 .mbox{max-width:860px;margin:0 auto;padding:16px;background-color:var(--panel);border:1px solid var(--line);border-radius:var(--r-3);box-shadow:var(--e-3)}
@@ -216,7 +215,7 @@ header .path:empty{display:none}
   .lc-side{flex-basis:100%}
   .mbox.small{margin-top:4vh}
   #toast{left:12px;right:12px}
-  #toast div{max-width:none}
+  #toast .d-toast{max-width:none}
 }
 /* Text that is not shown all the time (#426): a tooltip on one control (hover and keyboard focus; Escape puts it away), and an "About this" disclosure for a card */
 .tip{position:relative;display:inline-block}
@@ -232,3 +231,13 @@ details.about p{margin:6px 0}
 #launchpass.info{margin:0;border-radius:0;border-left-width:0;border-bottom:1px solid var(--line);padding:10px 20px;position:sticky;top:var(--hdr-h);z-index:4}
 #launchpass .b{margin-left:6px}
 @media (max-width:720px){#launchpass.info{position:static;padding:8px 12px}}
+/* motion (#571): the count of queued changes bumps once (played in Full only), a write that went through is shown by a drawn check for a moment, and the control of the Motion setting. The durations are the module's tokens; Calm and Off cut them there. */
+.x-bump{animation:x-bump var(--mo-base) var(--mo-ease)}
+@keyframes x-bump{40%{transform:scale(1.18)}}
+.x-saved{display:inline-flex;align-items:center;gap:4px;color:var(--ok);font-size:var(--t-sm)}
+.x-saved[hidden]{display:none}
+.x-saved .d-fx{width:18px;height:18px;color:var(--ok)}
+.x-saved .d-fx .chk{stroke:var(--ok);animation:d-draw var(--mo-base) var(--mo-ease) backwards}
+.x-motion{display:inline-flex;align-items:center;gap:6px;font-size:var(--t-sm)}
+.x-motion[hidden]{display:none}
+.x-motion .d-seg button{min-height:32px;font-size:var(--t-xs)}

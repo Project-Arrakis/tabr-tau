@@ -24,11 +24,66 @@ async function api(path, body) {
   if (body !== undefined && j && (j.outcome === 'written' || j.outcome === 'queued')) lastOutcome = j.outcome;
   return j;
 }
-function toast(msg, err, ms = 3500) {
+// ---------- motion (#571)
+// window.TauMotion comes from /motion-boot.js, a file in the head: what the page does is Full, Calm or Off, written on the root element, where the design module's motion.css reads it.
+// A mark that asks for the eye (a count that bumps, a row that lights up) is for Full only; a change that eases (a toast that fades) is for Full and Calm; in Off every change is
+// instant. A page without that file (a test) has no limit of its own and is treated as Full. Nothing here loops, nothing moves the layout, and nothing changes what is written to a save.
+const motionOn = (kind) => { const m = window.TauMotion; return !m || (kind === 'ease' ? m.eases() : m.marks()); };
+// Plays a one-shot animation class on an element and takes it off again (after ms, so that the same mark can play the next time too).
+function playMark(el, cls, ms) {
+  if (!el || !motionOn('mark')) return;
+  el.classList.remove(cls);
+  void el.offsetWidth; // a class that is put back at once only plays again after a reflow
+  el.classList.add(cls);
+  setTimeout(() => el.classList.remove(cls), ms);
+}
+// The result icons of a toast (the design module's fill icons, motion.css .d-fx): a drop, a can or a shield whose level rises while the toast comes in and settles with a check. The shapes
+// are the module's; the animation is its CSS (a fade in Calm, nothing in Off). The level starts at --lvl-from, set through the CSSOM (the policy has no inline style).
+const SVGNS = 'http://www.w3.org/2000/svg';
+const FX_SHAPE = { water: 'M12 2.5C12 2.5 5.5 9.4 5.5 14a6.5 6.5 0 0 0 13 0C18.5 9.4 12 2.5 12 2.5Z', fuel: 'M6.5 3.5h8l3 3v14h-11z', repair: 'M12 2.8l7 2.9v5.6c0 4.3-2.9 7.7-7 9.3-4.1-1.6-7-5-7-9.3V5.7z' };
+const MARK_PATHS = { ok: ['M5 12.5l4.5 4.5L19 7.5'], warn: ['M12 4l9 16H3z', 'M12 10v4.5M12 17.4v.3'], bad: ['M6 6l12 12M18 6L6 18'] };
+let fxUid = 0;
+function svgEl(tag, attrs, parent) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k of Object.keys(attrs)) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function fxIcon(kind, from) {
+  const id = 'd-fx-clip-' + ++fxUid;
+  const svg = svgEl('svg', { class: 'd-fx ' + kind, viewBox: '0 0 24 24', 'aria-hidden': 'true' });
+  const clip = svgEl('clipPath', { id }, svgEl('defs', {}, svg));
+  svgEl('path', { d: FX_SHAPE[kind] }, clip);
+  const lvl = svgEl('rect', { class: 'lvl', x: '0', y: '0', width: '24', height: '24' }, svgEl('g', { 'clip-path': 'url(#' + id + ')' }, svg));
+  lvl.style.setProperty('--lvl-from', 100 - Math.max(0, Math.min(100, from === undefined ? 30 : from)) + '%');
+  svgEl('path', { class: 'shell', d: FX_SHAPE[kind] }, svg);
+  svgEl('path', { class: 'chk', d: 'M8.6 13.4l2.7 2.7 4.5-5.1' }, svg);
+  return svg;
+}
+// a shape as well as a colour for what a toast says: a check, a warning triangle or a cross
+function markIcon(kind) {
+  const svg = svgEl('svg', { class: 'd-i d-pop-in', viewBox: '0 0 24 24', 'aria-hidden': 'true' });
+  for (const d of MARK_PATHS[kind]) svgEl('path', { d }, svg);
+  return svg;
+}
+// A toast leaves with the module's d-out (a fade); in Off it is gone at once. The timer is the way out where no animation ends (a window that is not shown).
+function leaveToast(d) {
+  if (!d.isConnected) return;
+  if (!motionOn('ease')) { d.remove(); return; }
+  d.classList.add('out');
+  setTimeout(() => d.remove(), 260);
+}
+// A toast: what an action did, in words. err: true (an error: stays until it is dismissed), 'part' (a warning that stays: part of a give went in), or false. fx is { kind: 'water' | 'fuel' | 'repair', from }:
+// a result that went well and filled or repaired something shows the fill icon of that kind instead of the check.
+function toast(msg, err, ms = 3500, fx = null) {
   const d = document.createElement('div');
-  const part = err === 'part'; // part of a give went in: a warning that stays until it is dismissed, not a failure
+  const part = err === 'part';
+  const kind = !err ? 'ok' : part ? 'warn' : 'bad';
   d.setAttribute('role', err && !part ? 'alert' : 'status');
-  if (err) d.className = part ? 'part' : 'err';
+  d.className = 'd-toast' + (kind === 'ok' ? '' : ' ' + kind) + (err ? (part ? ' part' : ' err') : '');
+  const fxKind = kind === 'ok' && fx && Object.hasOwn(FX_SHAPE, fx.kind) ? fx.kind : '';
+  if (fxKind) d.setAttribute('data-fx', fxKind);
+  d.append(fxKind ? fxIcon(fxKind, fx.from) : markIcon(kind));
   const t = document.createElement('span');
   t.textContent = msg;
   d.append(t);
@@ -40,9 +95,11 @@ function toast(msg, err, ms = 3500) {
     x.setAttribute('aria-label', 'Dismiss this message');
     x.onclick = () => d.remove();
     d.append(x);
-  } else setTimeout(() => d.remove(), ms);
+  } else setTimeout(() => leaveToast(d), ms);
   $('#toast').append(d);
 }
+// the fill icons for a result that filled or repaired something
+const FX_WATER = { kind: 'water' }, FX_FUEL = { kind: 'fuel' }, FX_REPAIR = { kind: 'repair' };
 // What a give did, in words: okText when all of it went in, else how much did and why not more (a give puts in as much as fits). The answer carries requested, given and reason.
 function giveToast(r, name, okText) {
   const n = (v) => Number(v).toLocaleString();
@@ -107,6 +164,7 @@ async function editInput(t, fn, okMsg, immediate = false) {
     t.defaultValue = t.value;
     if (t.dataset.orig !== undefined) t.dataset.orig = t.value;
   }
+  if (!failed) playMark(t.closest('tr') || t, 'd-flash', 1100); // the change was applied: its row lights up and fades (Full only)
 }
 const val = (id) => $('#' + id).value;
 
@@ -394,6 +452,7 @@ let saveBlocked = false, saveBlockWhy = '', offline = false, lastDirty = false;
 const NOT_LIVE = 'NOT LIVE: a copy';
 let notLive = false;
 let gwKey = '', lastPending = []; // the banner as last drawn, and the queued changes in words
+let lastQueued = null, lastWriteAt = null; // how many changes waited at the last poll, and when the last write that went through was made (null: no poll yet)
 const KEEP = { qlist: false, raw: false, vcparts: false }; // which of the banner's toggles are open: kept across redraws
 // The reasons the editor gives for not writing, as a sentence. The wording the tools and checks use stays available under Details.
 const capFirst = (s) => String(s || '').replace(/^\s*(.)/, (m, c) => c.toUpperCase());
@@ -438,6 +497,15 @@ async function autoRefresh(o) {
     if (r && r.kept) return; // an edit was made while the status was being read: nothing is thrown away
     await render(true);
   } catch (e) { /* the next poll shows the banner and tries again */ } finally { autoBusy = false; }
+}
+// A write that went through since the last poll: a check is drawn by the status bar for a moment (the words stay with the check, so Off still says it).
+let writtenTimer = 0;
+function showWritten() {
+  const m = $('#savedmark');
+  if (!m) return;
+  m.hidden = false; // shown again, the check is drawn again
+  clearTimeout(writtenTimer);
+  writtenTimer = setTimeout(() => { m.hidden = true; }, 3000);
 }
 async function status() {
   const o = await api('/api/save/state');
@@ -501,6 +569,10 @@ async function status() {
   if (key !== gwKey) { gwKey = key; setHTML(gw, banner); }
   $('#pending').textContent = q ? `${q} queued` : '';
   $('#pending').title = lines.join('\n');
+  if (lastQueued !== null && q > lastQueued) playMark($('#pending'), 'x-bump', 450); // a change joined the queue: the count bumps once (Full only)
+  lastQueued = q;
+  const wroteAt = last && last.saved && last.at ? String(last.at) : '';
+  if (wroteAt) { if (lastWriteAt !== null && lastWriteAt !== wroteAt) showWritten(); lastWriteAt = wroteAt; } else if (lastWriteAt === null) lastWriteAt = '';
   $('#btnDiscard').hidden = !o.dirty;
   const ro = $('#rowarn');
   // A queue that is not kept on disk (the journal is off) is lost when the browser tab closes: ask first (the native window asks through its own close handler).
@@ -1932,8 +2004,8 @@ const A = {
     giveToast(r, itemName(tid), 'Item added');
   }, null),
   faction: () => act(async () => { const r = await api('/api/player/faction', { faction_id: +val('facSel') }); toast(`Faction set to ${r.faction}` + NOT_SAVED); }, null),
-  repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(gearRepairText(r) + NOT_SAVED); }, null),
-  fillWater: () => act(async () => { const r = await api('/api/player/hydration', {}); const m = hydrationMessage(r); toast(m.text, m.warn ? 'part' : false); }, null),
+  repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(gearRepairText(r) + NOT_SAVED, false, undefined, FX_REPAIR); }, null),
+  fillWater: () => act(async () => { const r = await api('/api/player/hydration', {}); const m = hydrationMessage(r); toast(m.text, m.warn ? 'part' : false, undefined, FX_WATER); }, null),
   fillBlood: () => act(async () => {
     const r = await api('/api/player/fill-blood-sacks', {});
     const by = Object.entries(r.byTemplate || {}).sort().map(([k, n]) => `${n} x ${itemName(k)}`).join(', ');
@@ -1950,7 +2022,7 @@ const A = {
     if (v) parts.push(nn(v.filled || 0, 'vehicle', 'vehicles'));
     const left = (w.skippedUnknown || []).length + (b.unknown || 0) + (v ? v.unknown || 0 : 0);
     const any = (w.filled || 0) + (b.filled || 0) + (v ? v.filled || 0 : 0);
-    toast((any ? `Filled ${parts.join(', ')}.` : 'Nothing needed filling.') + (r.vehiclesIncluded ? '' : ' Vehicles were not refuelled.') + (left ? ' Some containers, sacks or vehicles of an unknown kind were left alone.' : '') + (b.filled ? BLOOD_UNCHECKED : '') + (any ? NOT_SAVED : ''));
+    toast((any ? `Filled ${parts.join(', ')}.` : 'Nothing needed filling.') + (r.vehiclesIncluded ? '' : ' Vehicles were not refuelled.') + (left ? ' Some containers, sacks or vehicles of an unknown kind were left alone.' : '') + (b.filled ? BLOOD_UNCHECKED : '') + (any ? NOT_SAVED : ''), false, undefined, any ? FX_WATER : null);
   }, null),
   refill: () => act(async () => { const r = await api('/api/player/refill', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} Literjons (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
   delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). It is written at once, after a backup. If the file cannot be written (for example the game is running) it is queued and written when it can be.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
@@ -2080,12 +2152,12 @@ const A = {
     const by = Object.entries(r.byClass || {}).sort().map(([k, n]) => `${n} x ${vehKind(k)}`).join(', ');
     const un = r.unknown ? ` ${r.unknown} ${r.unknown == 1 ? 'vehicle' : 'vehicles'} of an unknown kind ${r.unknown == 1 ? 'was' : 'were'} left alone${(r.skippedUnknown || []).length ? ` (${r.skippedUnknown.map((x) => vehKind(x.replace(/ x\d+$/, '')) + x.replace(/^.* (x\d+)$/, ' $1')).join(', ')})` : ''}.` : '';
     const none = r.noFuelRecord ? ` ${r.noFuelRecord} ${r.noFuelRecord == 1 ? 'vehicle has' : 'vehicles have'} no fuel record and ${r.noFuelRecord == 1 ? 'was' : 'were'} left alone.` : '';
-    toast((r.filled ? `Refuelled ${r.filled} ${r.filled == 1 ? 'vehicle' : 'vehicles'} (${by}); ${r.alreadyFull} already full.` : r.total ? `No vehicle needed fuel (${r.alreadyFull} already full).` : 'You have no vehicles in this save.') + un + none + (r.filled ? NOT_SAVED : ''));
+    toast((r.filled ? `Refuelled ${r.filled} ${r.filled == 1 ? 'vehicle' : 'vehicles'} (${by}); ${r.alreadyFull} already full.` : r.total ? `No vehicle needed fuel (${r.alreadyFull} already full).` : 'You have no vehicles in this save.') + un + none + (r.filled ? NOT_SAVED : ''), false, undefined, r.filled ? FX_FUEL : null);
   }, null),
-  repairOne: (d) => act(async () => { const r = await api('/api/vehicles/repair', { vehicle_id: +d.id }); toast(repairMsg(r, 'modules of this vehicle') + (r.repaired ? NOT_SAVED : '')); }, null),
-  repairV: () => act(async () => { const pct = $('#rvPct'); const n = pct ? +pct.value : 100; const r = await api('/api/vehicles/repair', pct && n < 100 ? { threshold: n } : {}); toast(repairMsg(r, 'vehicle modules', n) + (r.repaired ? NOT_SAVED : '')); }, null),
-  repairB: (d) => act(async () => { const r = await api('/api/bases/repair', { base_id: +d.id }); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables at this base` + NOT_SAVED); }, null),
-  repairAll: () => act(async () => { const r = await api('/api/bases/repair-all', {}); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables in the whole save` + NOT_SAVED); }, null),
+  repairOne: (d) => act(async () => { const r = await api('/api/vehicles/repair', { vehicle_id: +d.id }); toast(repairMsg(r, 'modules of this vehicle') + (r.repaired ? NOT_SAVED : ''), false, undefined, r.repaired ? FX_REPAIR : null); }, null),
+  repairV: () => act(async () => { const pct = $('#rvPct'); const n = pct ? +pct.value : 100; const r = await api('/api/vehicles/repair', pct && n < 100 ? { threshold: n } : {}); toast(repairMsg(r, 'vehicle modules', n) + (r.repaired ? NOT_SAVED : ''), false, undefined, r.repaired ? FX_REPAIR : null); }, null),
+  repairB: (d) => act(async () => { const r = await api('/api/bases/repair', { base_id: +d.id }); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables at this base` + NOT_SAVED, false, undefined, FX_REPAIR); }, null),
+  repairAll: () => act(async () => { const r = await api('/api/bases/repair-all', {}); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables in the whole save` + NOT_SAVED, false, undefined, FX_REPAIR); }, null),
   sand: (d) => act(async () => { const r = await api('/api/bases/clear-sand', { base_id: +d.id }); toast(`Cleared ${r.pieces} pieces at this base` + NOT_SAVED); }, null),
   sandAll: () => act(async () => { const r = await api('/api/bases/clear-sand-all', {}); toast(`Cleared ${r.pieces} pieces in the whole save` + NOT_SAVED); }, null),
   openInv: async (d) => {
@@ -2415,3 +2487,19 @@ document.addEventListener('keydown', (e) => {
   }
 });
 document.addEventListener('mousedown', (e) => { if (askState && e.target === $('#ask')) endAsk(false); });
+// ---------- the Motion setting (#571): Full, Calm or Off, kept by /motion-boot.js; this is only its control, in #motion-host (the three buttons are in the page)
+function drawMotion() {
+  const host = $('#motion-host');
+  if (!host) return;
+  const m = window.TauMotion;
+  host.closest('.x-motion').hidden = !m; // without the script there is nothing to set
+  if (!m) return;
+  const now = m.mode();
+  host.querySelectorAll('button[data-value]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.value === now ? 'true' : 'false'));
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest && e.target.closest('#motion-host button[data-value]');
+  if (b && window.TauMotion) window.TauMotion.set(b.dataset.value);
+});
+document.addEventListener('taumotion', drawMotion);
+drawMotion();
