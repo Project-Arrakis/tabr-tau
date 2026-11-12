@@ -571,7 +571,7 @@ async function status() {
   const key = String(banner).replace(/ ?open>/g, '>').replace(/ >/g, '>'); // a toggle the person opened is already open in the page: that alone is no reason to redraw
   if (key !== gwKey) { gwKey = key; setHTML(gw, banner); }
   $('#pending').textContent = q ? `${q} queued` : '';
-  $('#pending').title = lines.join('\n');
+  $('#pending').title = q ? lines.join('\n') + '\n(click to open the list)' : '';
   if (lastQueued !== null && q > lastQueued) playMark($('#pending'), 'x-bump', 450); // a change joined the queue: the count bumps once (Full only)
   lastQueued = q;
   const wroteAt = last && last.saved && last.at ? String(last.at) : '';
@@ -662,6 +662,8 @@ async function resetArea({ count, title, body, list = [], typed, ok, path, extra
 }
 
 // ---------- the queue: an edit is written to the game's file as it is made; while the file cannot be written (the game is in a single-player session) edits wait here
+// the "N queued" chip opens the list of queued changes in the banner (#597); it is hidden when nothing is queued
+$('#pending').onclick = () => { KEEP.qlist = true; const d = $('#gamewarn .bn-list'); if (!d) return; d.open = true; d.scrollIntoView({ block: 'nearest' }); d.querySelector('summary').focus(); };
 $('#btnDiscard').onclick = async () => { if (await ask({ title: 'Discard the queued changes?', body: `${lastPending.length === 1 ? 'This change is' : lastPending.length > 1 ? `These ${lastPending.length} changes are` : 'The queued changes are'} waiting for the game to close and would be dropped. The game file is not touched.`, list: lastPending, ok: 'Discard', danger: true })) act(() => api('/api/save/discard', {}), 'Discarded', true, true); };
 
 // ---------- clear a container (#338)

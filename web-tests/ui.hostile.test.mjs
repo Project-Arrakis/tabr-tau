@@ -407,6 +407,19 @@ test('an active single-player session queues the edits and the banner says how m
   ui.dom.window.close();
 });
 
+test('the N queued chip is a button that opens the list of queued changes (#597)', async () => {
+  const why = `a single-player session is active ${ATK}`;
+  const ui = await boot({ get: { '/api/save/state': queuedState({ ...sessionBlock, lastWrite: { saved: false, queued: 2, why } }) } });
+  const chip = ui.doc.querySelector('#pending');
+  assert.equal(chip.tagName, 'BUTTON');
+  assert.ok(chip.title.endsWith('(click to open the list)'), chip.title);
+  const list = ui.doc.querySelector('#gamewarn .bn-list');
+  assert.equal(list.open, false, 'the list starts closed');
+  chip.click();
+  assert.equal(ui.doc.querySelector('#gamewarn .bn-list').open, true, 'a click opens the list');
+  ui.dom.window.close();
+});
+
 test('a queue with nothing listed shows a notice and no Discard queue button, and the Discard question never says 0 changes (#592)', async () => {
   const ui = await boot({ get: { '/api/save/state': queuedState({ dirty: true, pending: [] }) } });
   assert.equal(ui.doc.querySelector('#btnDiscard').hidden, true);
