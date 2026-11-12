@@ -88,7 +88,7 @@ func TestQueuedPassHonoursTheSwitchesAsTheyAreWhenItRuns(t *testing.T) {
 	before, _ := os.ReadFile(s.Save.Path)
 	restore := save.GameJustLeftWorldForTests()
 	s.RunStartupTasks()
-	if note, warn := s.takeStartup(); !warn || !strings.Contains(note, "queued") {
+	if note, warn := s.takeStartup(); warn || !strings.Contains(note, "queued") {
 		t.Fatalf("note %q warn %v", note, warn)
 	}
 	// the operator switches two jobs off while the game is open

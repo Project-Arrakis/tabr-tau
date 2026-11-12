@@ -1141,7 +1141,7 @@ func (s *Server) runPass(manual bool) {
 		s.startupMu.Lock()
 		s.autoWaiting, s.autoWaitWhy = true, why
 		s.startupMu.Unlock()
-		set("Automatic refill queued: "+why+". It runs by itself, on the file as the game left it, as soon as that clears."+off, true)
+		set("Automatic refill queued: "+why+". It runs by itself, on the file as the game left it, as soon as that clears."+off, false)
 		return
 	}
 	s.startupMu.Lock()
