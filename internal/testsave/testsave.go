@@ -196,8 +196,9 @@ func PlayerWithSQL(t testing.TB, extra string) *save.Save {
 // every TEXT column. Constraint failures abort the test: the real schema is the authority.
 func fill(t testing.TB, db *sql.DB, text string) { fillWhere(t, db, text, false) }
 
-// fillWhere is fill; with onlyEmpty it leaves a table alone that already has a row (the tables the newer layout adds are filled after the conversion).
-func fillWhere(t testing.TB, db *sql.DB, text string, onlyEmpty bool) {
+// fillWhere is fill; with onlyNewer it fills only the tables that the newer layout adds, after the conversion has made them (the others were filled before it; map_names got its
+// row from the conversion of the generic markers row).
+func fillWhere(t testing.TB, db *sql.DB, text string, onlyNewer bool) {
 	t.Helper()
 	rows, err := db.Query(`select name from sqlite_master where type='table' and name not like 'sqlite_%' order by name`)
 	if err != nil {
@@ -210,15 +211,15 @@ func fillWhere(t testing.TB, db *sql.DB, text string, onlyEmpty bool) {
 		tables = append(tables, n)
 	}
 	rows.Close()
+	older := map[string]bool{}
+	if onlyNewer {
+		for _, o := range objectsOfDDL(t, save.KnownSchema) {
+			older[o.name] = true
+		}
+	}
 	for _, tb := range tables {
-		if onlyEmpty {
-			var n int
-			if err := db.QueryRow(fmt.Sprintf(`select count(*) from "%s"`, tb)).Scan(&n); err != nil { // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query
-				t.Fatal(err)
-			}
-			if n > 0 {
-				continue
-			}
+		if onlyNewer && (older[tb] || tb == "map_names") {
+			continue
 		}
 		ci, err := db.Query(`select name, upper(type) from pragma_table_info(?)`, tb)
 		if err != nil {
