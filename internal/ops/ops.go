@@ -143,8 +143,9 @@ func (o *Ops) player() (player, error) {
 // State is the small, cheap status the UI polls: no table scans, only what the header and the save pane need.
 func (o *Ops) State() (any, error) {
 	g := save.GameStateFor(o.S.Path, false)
+	dirty, pending := o.S.QueueState()
 	return map[string]any{
-		"path": o.S.Path, "dirty": o.S.Dirty(), "pending": o.S.Pending(),
+		"path": o.S.Path, "dirty": dirty, "pending": pending,
 		"live":        save.IsGamesOwnSave(o.S.Path), // false: not the game's own save (a copy); the page says so in the header, the title and the banner
 		"gameRunning": len(g.Processes) > 0, "gameProcesses": g.Processes, "gameCheckError": g.CheckError,
 		"saveBlocked": g.Blocked, "blockReason": g.Reason, "gameMode": g.Mode,
@@ -170,8 +171,9 @@ func (o *Ops) Overview() (any, error) {
 	}
 	p, _ := o.player()
 	g := save.GameStateFor(o.S.Path, false)
+	dirty, pending := o.S.QueueState()
 	return map[string]any{
-		"path": o.S.Path, "dirty": o.S.Dirty(), "pending": o.S.Pending(), "tables": counts,
+		"path": o.S.Path, "dirty": dirty, "pending": pending, "tables": counts,
 		"player": p.Name, "gameRunning": len(g.Processes) > 0, "gameProcesses": g.Processes, "saveBlocked": g.Blocked, "blockReason": g.Reason,
 		"gameMode": g.Mode, "readOnly": o.S.WriteBlocked(),
 	}, nil

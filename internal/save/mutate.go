@@ -344,16 +344,18 @@ func (s *Save) mutateLocked(desc string, cascade bool, fn func(m *Mut) error) (i
 	n := after - before
 	if n > 0 {
 		s.dirty = true
-		if m.Desc != "" {
-			now := time.Now()
-			s.ops = append(s.ops, Op{Desc: m.Desc, Rows: n, At: now})
-			if m.lossy {
-				s.stopJournal("an edit used a value the journal cannot keep (" + m.Desc + ")")
-			} else {
-				s.recordOp(opRec{Desc: m.Desc, Rows: n, At: now, Cascade: cascade, Stmts: m.stmts})
-			}
-		} else if s.journalPath != "" {
-			s.stopJournal("an edit changed rows without a description")
+		// An edit that changed rows is always listed: the queue is what the person sees, and a change that is waiting to be written with nothing
+		// listed cannot be told apart from a queue that is empty (the Discard question would say "0 changes"). Every edit the editor makes names itself;
+		// one that did not still gets a line, with the rows it changed, so it is listed, kept in the journal and put back like any other.
+		if m.Desc == "" {
+			m.Desc = fmt.Sprintf("unnamed change (%d rows)", n)
+		}
+		now := time.Now()
+		s.ops = append(s.ops, Op{Desc: m.Desc, Rows: n, At: now})
+		if m.lossy {
+			s.stopJournal("an edit used a value the journal cannot keep (" + m.Desc + ")")
+		} else {
+			s.recordOp(opRec{Desc: m.Desc, Rows: n, At: now, Cascade: cascade, Stmts: m.stmts})
 		}
 	}
 	return n, nil

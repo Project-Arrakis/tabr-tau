@@ -407,6 +407,17 @@ test('an active single-player session queues the edits and the banner says how m
   ui.dom.window.close();
 });
 
+test('a queue with nothing listed shows a notice and no Discard queue button, and the Discard question never says 0 changes (#592)', async () => {
+  const ui = await boot({ get: { '/api/save/state': queuedState({ dirty: true, pending: [] }) } });
+  assert.equal(ui.doc.querySelector('#btnDiscard').hidden, true);
+  assert.ok(ui.doc.querySelector('#gamewarn').textContent.includes('Unlisted changes are waiting to be written.'));
+  assert.equal(ui.doc.querySelector('#pending').textContent, '', 'no count chip for a queue with nothing listed');
+  ui.click('#btnDiscard'); await ui.settle(); // even a click that reaches the hidden button (a shortcut) must not say 0
+  const ask = ui.doc.querySelector('#ask');
+  assert.ok(!ask || !/0 changes/.test(ask.textContent), ask && ask.textContent);
+  ui.dom.window.close();
+});
+
 test('Write now asks the server to try again and says what came of it; Discard queue asks first', async () => {
   const ui = await boot({ get: { '/api/save/state': queuedState(sessionBlock) }, post: { '/api/save/flush': { saved: false, queued: 2, why: 'a single-player session is active' }, '/api/save/discard': { ok: true } } });
   ui.click('[data-act="writeNow"]'); await ui.settle();
