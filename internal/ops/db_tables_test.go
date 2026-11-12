@@ -28,12 +28,17 @@ func withoutRowidTables(t *testing.T, o *Ops) map[string]bool {
 func TestTablesViewWorksOnAllRealSchemaTables(t *testing.T) {
 	o := &Ops{S: testsave.Filled(t)} // one row in every table
 	names := testsave.TableNames(t)
-	if len(names) != 94 {
-		t.Fatalf("the real schema has %d tables, the test expects 94", len(names))
+	// the game's newer layout (#588) has three more tables, one of them WITHOUT ROWID (map_names)
+	wantTables, wantWithoutRowid := 94, 61
+	if testsave.DefaultLayout() == testsave.LayoutMapNameID {
+		wantTables, wantWithoutRowid = 97, 62
+	}
+	if len(names) != wantTables {
+		t.Fatalf("the real schema has %d tables, the test expects %d", len(names), wantTables)
 	}
 	wr := withoutRowidTables(t, o)
-	if len(wr) != 61 {
-		t.Fatalf("%d WITHOUT ROWID tables, the test expects 61", len(wr))
+	if len(wr) != wantWithoutRowid {
+		t.Fatalf("%d WITHOUT ROWID tables, the test expects %d", len(wr), wantWithoutRowid)
 	}
 	edited := 0
 	for _, name := range names {

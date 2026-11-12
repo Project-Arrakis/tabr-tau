@@ -46,6 +46,11 @@ jobs:
         run: go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
       - name: coverage summary
         run: go tool cover -func=coverage.out | tail -1
+      - name: go test (the game's newer save layout, #588)
+        # every test that builds a save runs again with the layout the game has written since its update of early November 2026 (markers.map_name_id, map_names)
+        run: go test -count=1 ./internal/save/... ./internal/ops/... ./internal/diff/... ./internal/web/... ./internal/testsave/...
+        env:
+          TABR_TEST_LAYOUT: map_names
 
   windows:
     name: windows

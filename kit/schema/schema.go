@@ -14,9 +14,21 @@ import _ "embed"
 //go:embed schema.sql
 var ddl string
 
-// DDL is the schema of the game's single-player database: 94 tables, their indexes and the game's one trigger, as the CREATE statements
-// the game wrote, in an order that runs as one script into an empty database.
+//go:embed schema_map_names.sql
+var ddlMapNames string
+
+// DDL is the schema of the game's single-player database as it was until the game's update of early November 2026: 94 tables, their indexes and
+// the game's one trigger, as the CREATE statements the game wrote, in an order that runs as one script into an empty database. In this layout
+// markers and player_markers carry the map as text (the column map_name). It is unchanged since v0.7.0; a save the current game writes has the
+// layout of DDLMapNames. A program that reads saves of both tells them apart by the columns of markers (map_name or map_name_id), never by a
+// game version.
 func DDL() string { return ddl }
+
+// DDLMapNames is the schema of a save written by the game after its update of early November 2026: 97 tables, their indexes and the game's one
+// trigger, in the same shape as DDL. Against DDL: markers and player_markers have map_name_id (an integer) in place of map_name, and the names
+// are in the new table map_names (map_name_id, map_name); landsraad_one_time_house_rewards and landsraad_player_one_time_house_rewards are new;
+// and a few indexes were added or dropped. Every other table is defined as in DDL. Since v0.10.0.
+func DDLMapNames() string { return ddlMapNames }
 
 // Table and column names. Each variable is one table: Table is its name and the other fields are columns of it, so a query can be written
 // as "select " + schema.Actors.State + " from " + schema.Actors.Table. A test checks every name against DDL(): a name that is not in the
@@ -50,6 +62,11 @@ var (
 
 	Vehicles = struct{ Table, ID string }{"vehicles", "id"}
 )
+
+// MapNames is the table that only the layout of DDLMapNames has (a test checks it against DDLMapNames()). There markers.map_name_id and
+// player_markers.map_name_id are integers that refer to MapNames.MapNameID, and MapNames.MapName is the text that the tables of DDL carry
+// directly as markers.map_name and player_markers.map_name.
+var MapNames = struct{ Table, MapNameID, MapName string }{"map_names", "map_name_id", "map_name"}
 
 // The JSON records of a save. An item's or a module's stats (and an entity's components) are JSON in which each record is a two-element
 // array, [[], {fields}], and the fields are in element 1. A Key constant is the path of the whole record (null or missing when the record

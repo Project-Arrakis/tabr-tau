@@ -9,21 +9,23 @@ import (
 // The embedded DDL must be byte-identical to the evidence file, so the fixture can never drift from the
 // documented real schema. Update both together (docs/evidence/single-player-schema.ddl.sql is the source).
 func TestEmbeddedSchemaMatchesEvidenceFile(t *testing.T) {
-	want, err := os.ReadFile("../../docs/evidence/single-player-schema.ddl.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Line endings do not matter here: a checkout may turn one file into CRLF (.gitattributes pins both to LF; this is the belt to those braces).
-	norm := func(s string) string { return strings.ReplaceAll(s, "\r\n", "\n") }
-	if norm(string(want)) != norm(Schema()) {
-		t.Fatal("kit/schema/schema.sql differs from docs/evidence/single-player-schema.ddl.sql; copy one over the other")
+	for l, file := range map[Layout]string{LayoutMapName: "single-player-schema.ddl.sql", LayoutMapNameID: "single-player-schema-map-names.ddl.sql"} {
+		want, err := os.ReadFile("../../docs/evidence/" + file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Line endings do not matter here: a checkout may turn one file into CRLF (.gitattributes pins both to LF; this is the belt to those braces).
+		norm := func(s string) string { return strings.ReplaceAll(s, "\r\n", "\n") }
+		if norm(string(want)) != norm(SchemaFor(l)) {
+			t.Fatalf("the kit's DDL of layout %v differs from docs/evidence/%s; copy one over the other", l, file)
+		}
 	}
 }
 
 func TestRealSchemaShape(t *testing.T) {
 	names := TableNames(t)
-	if len(names) != 94 {
-		t.Fatalf("real schema has %d application tables, want 94 (the audited count)", len(names))
+	if want := map[Layout]int{LayoutMapName: 94, LayoutMapNameID: 97}[DefaultLayout()]; len(names) != want {
+		t.Fatalf("real schema has %d application tables, want %d (the audited count)", len(names), want)
 	}
 	have := map[string]bool{}
 	for _, n := range names {

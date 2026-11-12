@@ -183,5 +183,5 @@ func addHostileStorage(t *testing.T, sv *save.Save) {
 	}
 	testsave.Exec(t, sv, `insert into permission_actor(actor_id,actor_name,actor_type,access_level,is_child) values (900002,?,1,3,1)`, testsave.HostileText)
 	// a map marker on the player's map whose type is the hostile text, so the Live Map view is exercised
-	testsave.Exec(t, sv, `insert into markers(marker_hash_id,dimension_index,map_name,marker_type,x,y,z) values (900003,0,'HaggaBasin',?,1000,2000,0)`, testsave.HostileText)
+	testsave.AddMarker(t, sv, 900003, "HaggaBasin", testsave.HostileText, 1000, 2000, 0)
 }
