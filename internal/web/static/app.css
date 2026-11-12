@@ -250,6 +250,12 @@ details.about p{margin:6px 0}
 .x-thmenu .x-thdot{flex:none;width:14px;height:14px;box-sizing:border-box;border:1.5px solid var(--c-rule);border-radius:50%}
 .x-thmenu [aria-checked="true"] .x-thdot{border-color:var(--c-spice);background:radial-gradient(circle,var(--c-spice) 0 38%,transparent 42%)}
 .x-thmenu .x-thname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* the Colours group: a heading for each group of palettes, the words that say a palette is not in effect in this theme, and the note under the menu */
+.x-thmenu .x-thsub{margin:6px 8px 0;padding:0;color:var(--c-dim);font:400 var(--t-xs)/1.3 var(--t-body)}
+.x-thmenu .x-thtag{flex:none;color:var(--c-dim);font:400 var(--t-xs)/1.2 var(--t-body);white-space:nowrap}
+.x-thmenu .x-thtag[hidden]{display:none}
+.x-thmenu .x-thoff .x-thname{color:var(--c-dim)}
+.x-thmenu .x-thnote{margin:6px 8px 2px;color:var(--c-dim);font:400 var(--t-sm)/1.3 var(--t-body)}
 @media (pointer:coarse){.x-thmenu [role="menuitemradio"]{min-height:44px}}
 @media (max-width:520px){#theme-btn{max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
 @media (forced-colors:active){.x-thmenu [aria-checked="true"] .x-thdot{border-color:Highlight;background:Highlight}}

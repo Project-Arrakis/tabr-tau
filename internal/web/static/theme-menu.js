@@ -1,8 +1,10 @@
-// The Theme menu and the bulb in the header of the editor (#570, slice 3).
+// The Theme menu and the bulb in the header of the editor (#570, slice 3; Colours: #587).
 // look-boot.js (in the head) keeps and applies the choices; motion-boot.js keeps the Motion setting; this file is only the control. It builds, in #theme-host:
 //   the bulb          a button that switches between Dark and Dayside (the page follows the system until it is pressed once)
-//   the Theme button  opens a menu of four groups, each a list of radio items: Look (Fremen, Awakening, Sietch), Dark / Dayside (follow the system, Dark, Dayside), Font (System, Dune Rise:
-//                     headings) and Motion (Full, Calm, Off)
+//   the Theme button  opens a menu of five groups, each a list of radio items: Look (Fremen, Awakening, Sietch), Dark / Dayside (follow the system, Dark, Dayside), Colours (None, then the 18
+//                     palettes of the design module under their group headings), Font (System, Dune Rise: headings) and Motion (Full, Calm, Off)
+// A palette applies in its own theme only (16 are dark, 2 are Dayside palettes). One that is not in effect in the theme shown now stays pickable and says so: its item carries the words "Dayside only"
+// or "Dark only" and a tooltip, and the button's own tooltip says the palette is not applied.
 // The menu is a role="menu" popover: Arrow Up and Down, Home and End move, Enter or Space picks (the menu stays open, so a combination can be tried), Escape closes it and gives the focus back to
 // the button, Tab leaves it, a click outside closes it. It is placed under the button inside the window and scrolls when it is taller than the window; its items are 44 px high on a touch screen.
 // Built with createElement and textContent only (no markup from a string); the icon is an inline SVG built here, so it does not wait for the module's sprite file.
@@ -20,6 +22,9 @@
   const LOOK_ORDER = ['fremen', 'awakening', 'sietch'];
   const THEME_NAMES = { system: 'Follow the system', dark: 'Dark', light: 'Dayside' };
   const FONT_NAMES = { system: 'System', 'dune-rise': 'Dune Rise: headings' };
+  const PALETTES = L.PALETTES;
+  const PALETTE_NAMES = Object.fromEntries(PALETTES.map((p) => [p.id, p.name]));
+  const THEME_WORD = { dark: 'Dark', light: 'Dayside' };
   const MOTION_NAMES = { full: 'Full', calm: 'Calm', off: 'Off' };
   const MOTION_TIPS = {
     full: 'Every animation: the count that bumps, the row that lights up, toasts that fade and fill. The default when the system does not ask for less',
@@ -29,6 +34,7 @@
   const GROUPS = [
     { id: 'look', title: 'Look', values: LOOK_ORDER, names: LOOK_NAMES },
     { id: 'theme', title: 'Dark / Dayside', values: ['system', 'dark', 'light'], names: THEME_NAMES },
+    { id: 'palette', title: 'Colours', palettes: true },
     { id: 'font', title: 'Font', values: ['system', 'dune-rise'], names: FONT_NAMES },
     { id: 'motion', title: 'Motion', values: ['full', 'calm', 'off'], names: MOTION_NAMES, tips: MOTION_TIPS },
   ];
@@ -37,6 +43,7 @@
   const current = (group) => {
     if (group === 'look') return L.look();
     if (group === 'theme') return L.themePicked() ? L.theme() : 'system';
+    if (group === 'palette') return L.palette() || 'none';
     if (group === 'font') return L.font();
     return M ? M.mode() : 'full';
   };
@@ -44,6 +51,7 @@
     if (group === 'look') L.setLook(value);
     else if (group === 'theme') { if (value === 'system') L.followSystem(); else L.setTheme(value); }
     else if (group === 'font') L.setFont(value);
+    else if (group === 'palette') L.setPalette(value === 'none' ? null : value);
     else if (M) M.set(value);
   };
 
@@ -84,8 +92,56 @@
   menu.id = 'theme-menu';
   menu.className = 'x-thmenu';
   menu.setAttribute('role', 'menu');
-  menu.setAttribute('aria-label', 'Theme: look, dark or dayside, font, motion');
+  menu.setAttribute('aria-label', 'Theme: look, dark or dayside, colours, font, motion');
   menu.hidden = true;
+
+  // one radio item: a dot and a name (and, for a palette, the tag that says it is not in effect now)
+  const radio = (group, value, label) => {
+    const it = doc.createElement('button');
+    it.type = 'button';
+    it.setAttribute('role', 'menuitemradio');
+    it.setAttribute('data-thgroup', group);
+    it.setAttribute('data-thvalue', value);
+    it.setAttribute('aria-checked', 'false');
+    it.tabIndex = -1;
+    const dot = doc.createElement('span');
+    dot.className = 'x-thdot';
+    dot.setAttribute('aria-hidden', 'true');
+    const name = doc.createElement('span');
+    name.className = 'x-thname';
+    name.textContent = label;
+    it.appendChild(dot);
+    it.appendChild(name);
+    return it;
+  };
+  // the Colours group: None, then each group of the module under its heading, in the module's order
+  const buildPalettes = (box, headId) => {
+    box.appendChild(radio('palette', 'none', 'None (the look\u2019s own)'));
+    let inner = null;
+    let last = null;
+    PALETTES.forEach((p) => {
+      if (p.group !== last) {
+        last = p.group;
+        const sub = doc.createElement('div');
+        sub.className = 'x-thsub';
+        sub.id = headId + '-' + (box.querySelectorAll('[role="group"]').length + 1);
+        sub.setAttribute('role', 'presentation');
+        sub.textContent = p.group;
+        inner = doc.createElement('div');
+        inner.setAttribute('role', 'group');
+        inner.setAttribute('aria-labelledby', sub.id);
+        box.appendChild(sub);
+        box.appendChild(inner);
+      }
+      const it = radio('palette', p.id, p.name);
+      it.setAttribute('data-ththeme', p.theme);
+      const tag = doc.createElement('span');
+      tag.className = 'x-thtag';
+      tag.hidden = true;
+      it.appendChild(tag);
+      inner.appendChild(it);
+    });
+  };
 
   GROUPS.forEach((g) => {
     const head = doc.createElement('div');
@@ -97,44 +153,52 @@
     const box = doc.createElement('div');
     box.setAttribute('role', 'group');
     box.setAttribute('aria-labelledby', head.id);
+    if (g.palettes) {
+      buildPalettes(box, head.id);
+      menu.appendChild(box);
+      return;
+    }
     g.values.forEach((v) => {
-      const it = doc.createElement('button');
-      it.type = 'button';
-      it.setAttribute('role', 'menuitemradio');
-      it.setAttribute('data-thgroup', g.id);
-      it.setAttribute('data-thvalue', v);
-      it.setAttribute('aria-checked', 'false');
-      it.tabIndex = -1;
+      const it = radio(g.id, v, g.names[v]);
       if (g.tips) it.title = g.tips[v];
-      const dot = doc.createElement('span');
-      dot.className = 'x-thdot';
-      dot.setAttribute('aria-hidden', 'true');
-      const name = doc.createElement('span');
-      name.className = 'x-thname';
-      name.textContent = g.names[v];
-      it.appendChild(dot);
-      it.appendChild(name);
       box.appendChild(it);
     });
     menu.appendChild(box);
   });
+  const note = doc.createElement('p');
+  note.className = 'x-thnote';
+  note.textContent = 'A palette applies in its own theme only: 16 are dark, 2 are Dayside palettes (Fremen Sietch, Mentat).';
+  menu.appendChild(note);
   host.appendChild(bulb);
   host.appendChild(btn);
   host.appendChild(menu);
 
   const items = () => Array.prototype.slice.call(menu.querySelectorAll('[role="menuitemradio"]'));
-  const words = () => 'Look: ' + LOOK_NAMES[L.look()] + '. ' + (L.themePicked() ? (L.theme() === 'light' ? 'Dayside' : 'Dark') : 'Dark or Dayside by the system') + '. Font: ' + FONT_NAMES[L.font()] + '. Motion: ' + MOTION_NAMES[current('motion')] + '.';
+  const chosen = () => PALETTES.find((p) => p.id === L.palette()) || null;
+  const colours = () => { const p = chosen(); return p ? p.name + (L.paletteShows() ? '' : ' (not applied: it shows in ' + THEME_WORD[p.theme] + ' only)') : 'None'; };
+  const words = () => 'Look: ' + LOOK_NAMES[L.look()] + '. ' + (L.themePicked() ? (L.theme() === 'light' ? 'Dayside' : 'Dark') : 'Dark or Dayside by the system') + '. Colours: ' + colours() + '. Font: ' + FONT_NAMES[L.font()] + '. Motion: ' + MOTION_NAMES[current('motion')] + '.';
   const refresh = () => {
     const dayside = L.theme() === 'light';
     bulb.replaceChildren(icon(dayside));
     const to = dayside ? 'Dark' : 'Dayside';
     bulb.setAttribute('aria-label', 'Switch to ' + to);
     bulb.title = 'Switch to ' + to + (L.themePicked() ? '' : ' (now it follows the system)');
-    btn.textContent = 'Theme: ' + LOOK_NAMES[L.look()];
+    btn.textContent = 'Theme: ' + LOOK_NAMES[L.look()] + (chosen() ? ' \u00b7 ' + chosen().name : '');
     btn.setAttribute('aria-label', 'Theme. ' + words() + ' Open the menu');
     btn.title = words();
     items().forEach((it) => {
       it.setAttribute('aria-checked', String(it.getAttribute('data-thvalue') === current(it.getAttribute('data-thgroup'))));
+      // a palette that is not in effect in the theme shown now says so
+      const own = it.getAttribute('data-ththeme');
+      if (own) {
+        const off = own !== L.theme();
+        const tag = it.querySelector('.x-thtag');
+        it.classList.toggle('x-thoff', off);
+        tag.hidden = !off;
+        tag.textContent = off ? THEME_WORD[own] + ' only' : '';
+        if (off) it.title = PALETTE_NAMES[it.getAttribute('data-thvalue')] + ' is a ' + THEME_WORD[own] + ' palette: it shows in ' + THEME_WORD[own] + ' only. Now the look\u2019s own colours show; the choice is kept.';
+        else it.removeAttribute('title');
+      }
     });
   };
 

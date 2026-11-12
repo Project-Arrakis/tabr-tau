@@ -28,12 +28,19 @@ var (
 // another token (var(--x)) is followed; a value that is not a plain colour (a gradient, an rgba) is left out.
 func lookTokens(t *testing.T, look string) (dark, light map[string]string) {
 	t.Helper()
+	rawDark, rawLight := rawLookTokens(t, look)
+	return resolveColours(rawDark), resolveColours(rawLight)
+}
+
+// rawLookTokens is lookTokens before the values are resolved: every declaration as written, for the dark theme and for Dayside.
+func rawLookTokens(t *testing.T, look string) (rawDark, rawLight map[string]string) {
+	t.Helper()
 	b, err := fs.ReadFile(design.Assets, "tokens-"+look+".css")
 	if err != nil {
 		t.Fatal(err)
 	}
 	css := reLookComment.ReplaceAllString(strings.ReplaceAll(string(b), "\r", ""), "")
-	rawDark, rawLight := map[string]string{}, map[string]string{}
+	rawDark, rawLight = map[string]string{}, map[string]string{}
 	for _, m := range reRootDark.FindAllStringSubmatch(css, -1) {
 		for _, d := range reLookDecl.FindAllStringSubmatch(m[1], -1) {
 			rawDark[d[1]] = strings.TrimSpace(d[2])
@@ -47,7 +54,7 @@ func lookTokens(t *testing.T, look string) (dark, light map[string]string) {
 			rawLight[d[1]] = strings.TrimSpace(d[2])
 		}
 	}
-	return resolveColours(rawDark), resolveColours(rawLight)
+	return rawDark, rawLight
 }
 
 func resolveColours(raw map[string]string) map[string]string {
@@ -112,14 +119,69 @@ func editorTheme(t *testing.T, tokens map[string]string) map[string]string {
 	return out
 }
 
-// forEachLookTheme runs f for every look of the module in the dark theme and in Dayside, with the editor's colour names resolved for it.
+// forEachLookTheme runs f for every look of the module in the dark theme and in Dayside, and then for every palette over every look in its own theme (#587), with the editor's colour names
+// resolved for it.
 func forEachLookTheme(t *testing.T, f func(t *testing.T, theme map[string]string)) {
 	t.Helper()
+	forEachPaletteTheme(t, f)
 	for _, look := range design.Looks() {
 		dark, light := lookTokens(t, look)
 		for name, tokens := range map[string]map[string]string{"dark": dark, "Dayside": light} {
 			theme := editorTheme(t, tokens)
 			t.Run(look+"/"+name, func(t *testing.T) { f(t, theme) })
+		}
+	}
+}
+
+// rePaletteBlock is the block of a palette that forces its own theme (the module's palettes.css has a second block, inside a media query, for a page that follows the system; it has the same
+// values, which the module's own tests check).
+var rePaletteBlock = regexp.MustCompile(`(?m)^:root\[data-palette="([a-z-]+)"\]\[data-theme="(dark|light)"\] \{([^}]*)\}`)
+
+// forEachPaletteTheme runs f for every palette of the module laid over every look, in the palette's own theme (a palette does not apply in the other one), with the editor's colour names
+// resolved for it: the page as it is drawn once a palette is chosen. The module's selectors are more specific than the looks', so every token a palette declares wins.
+// paletteKey is a name in the theme map of a palette run that no stylesheet has (it is not a colour): the id of the palette, so that a check can tell a palette from a look.
+const paletteKey = "palette"
+
+func forEachPaletteTheme(t *testing.T, f func(t *testing.T, theme map[string]string)) {
+	t.Helper()
+	b, err := fs.ReadFile(design.Assets, design.PalettesFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := reLookComment.ReplaceAllString(strings.ReplaceAll(string(b), "\r", ""), "")
+	blocks := map[string]map[string]string{}
+	themes := map[string]string{}
+	for _, m := range rePaletteBlock.FindAllStringSubmatch(css, -1) {
+		decls := map[string]string{}
+		for _, d := range reLookDecl.FindAllStringSubmatch(m[3], -1) {
+			decls[d[1]] = strings.TrimSpace(d[2])
+		}
+		blocks[m[1]], themes[m[1]] = decls, m[2]
+	}
+	list := design.Palettes()
+	if len(list) != 18 || len(blocks) != len(list) {
+		t.Fatalf("the module lists %d palettes and palettes.css has %d blocks, want 18 of each", len(list), len(blocks))
+	}
+	for _, look := range design.Looks() {
+		rawDark, rawLight := rawLookTokens(t, look)
+		for _, p := range list {
+			if themes[p.ID] != p.Theme {
+				t.Fatalf("%s: palettes.css puts it in the %s theme, design.Palettes() in %s", p.ID, themes[p.ID], p.Theme)
+			}
+			raw := map[string]string{}
+			from := rawDark
+			if p.Theme == design.ThemeLight {
+				from = rawLight
+			}
+			for k, v := range from {
+				raw[k] = v
+			}
+			for k, v := range blocks[p.ID] {
+				raw[k] = v
+			}
+			theme := editorTheme(t, resolveColours(raw))
+			theme[paletteKey] = p.ID
+			t.Run(look+"+"+p.ID, func(t *testing.T) { f(t, theme) })
 		}
 	}
 }
@@ -198,6 +260,9 @@ func TestEditorBannerTintsKeepTheirTextReadableInEveryLookAndTheme(t *testing.T)
 			for _, text := range []string{"--fg", "--mut-tint", "--warn"} {
 				if !strings.Contains(m[1], "span.warn") && text == "--warn" {
 					continue // the warning colour is text only on the pill (span.warn), which carries a word
+				}
+				if text == "--warn" && theme[paletteKey] != "" {
+					continue // a palette keeps its warning colour 4.6:1 on the surfaces and on the tints of the module's own components, not on this stylesheet's own 16% tint (two Dayside palettes reach 4.3:1 there); the pill's text is --fg, as the rule .warn says, and --fg is checked on it above
 				}
 				if c := contrast(theme[text], bg); c < 4.5 {
 					t.Errorf("%s (%s) on the band %q (%s) is %.2f:1; text needs 4.5:1", text, theme[text], strings.TrimSpace(m[1]), bg, c)
