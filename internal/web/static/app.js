@@ -531,7 +531,9 @@ async function status() {
   const restored = o.restored && (o.restored.applied > 0 || (o.restored.conflicts || []).length > 0) ? o.restored : null;
   // Some table is not defined as the editor expects (the game was probably updated): said at open and kept, editing continues.
   const schemaNote = o.schemaNote ? String(o.schemaNote) : '';
-  gw.className = saveBlocked || q || changed || restored || o.writeLogProblem ? 'warn' : schemaNote || notLive ? 'info' : 'hide';
+  // Waiting to be written with nothing listed (#592): said as a plain fact. There is nothing to discard, so no Discard button is offered for it.
+  const unlisted = !!o.dirty && !q && !o.held;
+  gw.className = saveBlocked || q || unlisted || changed || restored || o.writeLogProblem ? 'warn' : schemaNote || notLive ? 'info' : 'hide';
   const gameFile = notLive ? 'the file' : 'the game file';
   const notLiveMsg = notLive ? html`<div><b>This is a copy, not the game's save:</b> edits are written at once and do not reach the game unless this file is installed as its game.db. <span class="mono">${o.path}</span></div>` : html``;
   const changedMsg = changed ? html`<div><b>The game saved since this editor opened.</b> What you see here is out of date. <button class="b sm d-btn primary sm" data-act="reload">Reload now</button></div>` : html``;
@@ -541,6 +543,7 @@ async function status() {
   const reason = why ? humanReason(why) : { text: '', raw: '' };
   const n = (one, many) => (q === 1 ? one : many);
   // a queue the editor could not put back onto the game's newer file: none of it was written
+  const unlistedMsg = unlisted ? html`<div><b>Unlisted changes are waiting to be written.</b> They are written by themselves as soon as the file can be written. <button class="b sm d-btn primary sm" data-act="writeNow">Write now</button></div>` : html``;
   const heldMsg = o.held ? html`<div><b>${q} queued change${q > 1 ? 's were' : ' was'} not written.</b> The game saved changes that conflict with ${q > 1 ? 'them' : 'it'}, so the editor left the game's file as it is.
     ${(o.held.conflicts || []).map((c) => html`<div>${c.desc}: ${c.why}</div>`)} <button class="b sm d-btn primary sm" data-act="discardQueue">Discard queue</button></div>` : html``;
   let mainMsg = html``;
@@ -563,7 +566,7 @@ async function status() {
   const listMsg = q ? html`<details class="bn-list" ${KEEP.qlist ? 'open' : ''}><summary data-keep="qlist">What is queued (${q})</summary><ul>${lines.map((l) => html`<li>${l}</li>`)}</ul></details>` : html``;
   const rawMsg = reason.raw ? html`<details class="bn-raw" ${KEEP.raw ? 'open' : ''}><summary data-keep="raw">Details (include this if you report a problem)</summary><div class="mono">${reason.raw}</div></details>` : html``;
   lastPending = lines;
-  const banner = html`${notLiveMsg}${changedMsg}${heldMsg}${mainMsg}${restoredMsg}${schemaMsg}${journalMsg}${logMsg}${listMsg}${rawMsg}`;
+  const banner = html`${notLiveMsg}${changedMsg}${heldMsg}${mainMsg}${unlistedMsg}${restoredMsg}${schemaMsg}${journalMsg}${logMsg}${listMsg}${rawMsg}`;
   // redrawn only when it changed: a redraw every few seconds would take the keyboard focus off its buttons
   const key = String(banner).replace(/ ?open>/g, '>').replace(/ >/g, '>'); // a toggle the person opened is already open in the page: that alone is no reason to redraw
   if (key !== gwKey) { gwKey = key; setHTML(gw, banner); }
@@ -573,7 +576,7 @@ async function status() {
   lastQueued = q;
   const wroteAt = last && last.saved && last.at ? String(last.at) : '';
   if (wroteAt) { if (lastWriteAt !== null && lastWriteAt !== wroteAt) showWritten(); lastWriteAt = wroteAt; } else if (lastWriteAt === null) lastWriteAt = '';
-  $('#btnDiscard').hidden = !o.dirty;
+  $('#btnDiscard').hidden = !(q > 0 || o.held); // only when something is listed to drop (or a held queue); a queue with nothing listed has the notice above instead
   const ro = $('#rowarn');
   // A queue that is not kept on disk (the journal is off) is lost when the browser tab closes: ask first (the native window asks through its own close handler).
   window.onbeforeunload = o.dirty && o.journalOff ? (e) => { e.preventDefault(); e.returnValue = ''; } : null;
@@ -659,7 +662,7 @@ async function resetArea({ count, title, body, list = [], typed, ok, path, extra
 }
 
 // ---------- the queue: an edit is written to the game's file as it is made; while the file cannot be written (the game is in a single-player session) edits wait here
-$('#btnDiscard').onclick = async () => { if (await ask({ title: 'Discard the queued changes?', body: `These ${lastPending.length} ${lastPending.length === 1 ? 'change is' : 'changes are'} waiting for the game to close and would be dropped. The game file is not touched.`, list: lastPending, ok: 'Discard', danger: true })) act(() => api('/api/save/discard', {}), 'Discarded', true, true); };
+$('#btnDiscard').onclick = async () => { if (await ask({ title: 'Discard the queued changes?', body: `${lastPending.length === 1 ? 'This change is' : lastPending.length > 1 ? `These ${lastPending.length} changes are` : 'The queued changes are'} waiting for the game to close and would be dropped. The game file is not touched.`, list: lastPending, ok: 'Discard', danger: true })) act(() => api('/api/save/discard', {}), 'Discarded', true, true); };
 
 // ---------- clear a container (#338)
 // One row under a container's item list: a box for the currency, and a button that asks twice (the two-press rule of data-confirm, then a typed count). The count

@@ -423,6 +423,27 @@ func (s *Save) Dirty() bool {
 	return s.dirty || s.held != nil
 }
 
+// QueueState is Dirty and Pending read together, under one lock. Read one after the other (two locks), a write that finished in between gave a queue that was
+// waiting and had nothing listed, which the page showed as a Discard button for "0 changes". It returns what the person sees as the queue: the held queue's
+// edits while one is held, otherwise the pending edits.
+func (s *Save) QueueState() (dirty bool, pending []string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	dirty = s.dirty || s.held != nil
+	if s.held != nil {
+		pending = make([]string, len(s.held.ops))
+		for i, o := range s.held.ops {
+			pending[i] = o.Desc
+		}
+		return dirty, pending
+	}
+	pending = make([]string, len(s.ops))
+	for i, o := range s.ops {
+		pending[i] = o.Desc
+	}
+	return dirty, pending
+}
+
 func (s *Save) Pending() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()

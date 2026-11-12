@@ -81,6 +81,40 @@ test('a held queue lists the conflicts and offers Discard queue, once', async ()
   b.close();
 });
 
+// #592: waiting to be written with nothing listed is a notice, never a Discard button for "0 changes".
+test('waiting to be written with nothing listed says so, and offers no Discard queue', async () => {
+  const b = await banner({ dirty: true, pending: [] });
+  assert.match(b.text, /Unlisted changes are waiting to be written./);
+  assert.equal(b.gw.className, 'warn');
+  assert.equal(b.doc.querySelector('[data-act="discardQueue"]'), null, 'nothing is listed to discard');
+  assert.equal(b.doc.querySelector('#btnDiscard').hidden, true, 'the header has no Discard queue button either');
+  assert.ok(!/0 changes/.test(b.text));
+  assert.equal(b.gw.querySelectorAll('.bn-list').length, 0, 'there is no list to show');
+  b.close();
+});
+
+test('with nothing waiting there is no notice and no Discard queue', async () => {
+  const b = await banner({ dirty: false, pending: [] });
+  assert.ok(!/Unlisted changes/.test(b.text));
+  assert.equal(b.doc.querySelector('#btnDiscard').hidden, true);
+  b.close();
+});
+
+test('a listed queue offers Discard queue in the header and has no unlisted notice', async () => {
+  const b = await banner({ dirty: true, pending: ['solari +5'] });
+  assert.equal(b.doc.querySelector('#btnDiscard').hidden, false);
+  assert.ok(!/Unlisted changes/.test(b.text));
+  assert.match(b.text, /1 change is queued/);
+  b.close();
+});
+
+test('a held queue keeps the Discard queue button, and is not called unlisted', async () => {
+  const b = await banner({ dirty: true, pending: ['Add row 3'], held: { conflicts: [{ desc: 'add row 3', why: 'the game used that id' }] } });
+  assert.equal(b.doc.querySelector('#btnDiscard').hidden, false);
+  assert.ok(!/Unlisted changes/.test(b.text));
+  b.close();
+});
+
 test('a write that could not be recorded in the write log says so, and that the game file was written', async () => {
   const b = await banner({ writeLogProblem: 'the write could not be recorded in the write log (open write-log.jsonl: access is denied)' });
   assert.equal(b.gw.className, 'warn');
