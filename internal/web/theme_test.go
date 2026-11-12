@@ -137,7 +137,7 @@ func TestTheThemeScriptsKeepToTheRules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"'tauLook'", "'tauTheme'", "'tauFont'", "list.indexOf(v) >= 0 ? v : null", "'data-look'", "'data-theme'", "'data-heading-font'"} {
+	for _, want := range []string{"'tauLook'", "'tauTheme'", "'tauFont'", "'tauPalette'", "list.indexOf(v) >= 0 ? v : null", "'data-look'", "'data-theme'", "'data-heading-font'", "'data-palette'"} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("look-boot.js lacks %s", want)
 		}
@@ -159,27 +159,33 @@ func TestTheThemeMenuIsReadableInEveryLookAndTheme(t *testing.T) {
 	if regexp.MustCompile(`#[0-9a-fA-F]{3,8}\b`).MatchString(menu) {
 		t.Error("the Theme menu rules use a colour of their own: use the module's tokens")
 	}
-	for _, look := range design.Looks() {
-		dark, light := lookTokens(t, look)
-		for name, tok := range map[string]map[string]string{"dark": dark, "Dayside": light} {
-			for _, c := range []struct {
-				fg, bg string
-				min    float64
-				what   string
-			}{
-				{"--c-text", "--c-raised", 4.5, "item text"},
-				{"--c-dim", "--c-raised", 4.5, "group title"},
-				{"--c-spice", "--c-raised", 3, "the dot of the chosen item"},
-				{"--c-rule", "--c-raised", 3, "the ring of an item"},
-				{"--c-focus", "--c-raised", 3, "the focus ring"},
-			} {
-				if tok[c.fg] == "" || tok[c.bg] == "" {
-					t.Fatalf("%s/%s: %s or %s is not defined", look, name, c.fg, c.bg)
-				}
-				if r := contrast(tok[c.fg], tok[c.bg]); r < c.min {
-					t.Errorf("%s/%s: %s (%s on %s) is %.2f:1, needs %.1f:1", look, name, c.what, tok[c.fg], tok[c.bg], r, c.min)
-				}
+	check := func(t *testing.T, label string, tok map[string]string) {
+		t.Helper()
+		for _, c := range []struct {
+			fg, bg string
+			min    float64
+			what   string
+		}{
+			{"--c-text", "--c-raised", 4.5, "item text"},
+			{"--c-dim", "--c-raised", 4.5, "group title, the Colours headings, the tag and the note"},
+			{"--c-spice", "--c-raised", 3, "the dot of the chosen item"},
+			{"--c-rule", "--c-raised", 3, "the ring of an item"},
+			{"--c-focus", "--c-raised", 3, "the focus ring"},
+		} {
+			if tok[c.fg] == "" || tok[c.bg] == "" {
+				t.Fatalf("%s: %s or %s is not defined", label, c.fg, c.bg)
+			}
+			if r := contrast(tok[c.fg], tok[c.bg]); r < c.min {
+				t.Errorf("%s: %s (%s on %s) is %.2f:1, needs %.1f:1", label, c.what, tok[c.fg], tok[c.bg], r, c.min)
 			}
 		}
 	}
+	for _, look := range design.Looks() {
+		dark, light := lookTokens(t, look)
+		for name, tok := range map[string]map[string]string{"dark": dark, "Dayside": light} {
+			check(t, look+"/"+name, tok)
+		}
+	}
+	// and with every palette laid over every look, in its own theme (#587)
+	forEachPaletteTheme(t, func(t *testing.T, tok map[string]string) { check(t, tok[paletteKey], tok) })
 }

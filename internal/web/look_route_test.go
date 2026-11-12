@@ -15,7 +15,7 @@ import (
 func TestTheDesignModuleIsServedFromTheEditorsOwnOrigin(t *testing.T) {
 	s := newTestServer(t)
 	hdr := map[string]string{"Host": "127.0.0.1:8090"}
-	types := map[string]string{"tokens-fremen.css": "text/css", "components-fremen.css": "text/css", "components.css": "text/css", "motion.css": "text/css", "icons.svg": "image/svg+xml", "fonts/DuneRise.ttf": "font/ttf", "fonts/DuneRise-OFL.txt": "text/plain"}
+	types := map[string]string{"tokens-fremen.css": "text/css", "components-fremen.css": "text/css", "components.css": "text/css", "motion.css": "text/css", "palettes.css": "text/css", "icons.svg": "image/svg+xml", "fonts/DuneRise.ttf": "font/ttf", "fonts/DuneRise-OFL.txt": "text/plain"}
 	for name, ct := range types {
 		want, err := fs.ReadFile(design.Assets, name)
 		if err != nil {

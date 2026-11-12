@@ -43,7 +43,7 @@ async function page(opts = {}) {
   const key = (el, k) => el.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
   return { w, doc: w.document, html, wait, hrefs, key, mq, close: () => w.close() };
 }
-const FREMEN = ['/design/tokens-fremen.css', '/design/components-fremen.css', '/design/components.css', '/design/motion.css', '/app.css'];
+const FREMEN = ['/design/tokens-fremen.css', '/design/components-fremen.css', '/design/components.css', '/design/motion.css', '/design/palettes.css', '/app.css'];
 
 test('with nothing chosen the page is Fremen with Dune Rise headings and follows the system theme', async () => {
   const p = await page();
@@ -90,12 +90,12 @@ test('a switch of look puts the new links in beside the old and drops the old on
   assert.equal(p.w.TauLook.setLook('awakening'), true);
   assert.equal(p.w.localStorage.getItem('tauLook'), 'awakening');
   assert.equal(p.html.getAttribute('data-look'), 'awakening');
-  assert.deepEqual({ ...heard }, { look: 'awakening', theme: 'dark', picked: false, font: 'dune-rise' });
+  assert.deepEqual({ ...heard }, { look: 'awakening', theme: 'dark', picked: false, font: 'dune-rise', palette: null });
   const next = [...p.doc.querySelectorAll('link[data-look-next]')];
   assert.deepEqual(next.map((l) => l.getAttribute('href')), ['/design/tokens-awakening.css', '/design/components-awakening.css']);
   assert.ok(p.hrefs().includes('/design/tokens-fremen.css'), 'the old look is still there while the new one loads');
   next.forEach((l) => l.dispatchEvent(new p.w.Event('load')));
-  assert.deepEqual(p.hrefs(), ['/design/tokens-awakening.css', '/design/components-awakening.css', '/design/components.css', '/design/motion.css', '/app.css']);
+  assert.deepEqual(p.hrefs(), ['/design/tokens-awakening.css', '/design/components-awakening.css', '/design/components.css', '/design/motion.css', '/design/palettes.css', '/app.css']);
   assert.equal(p.doc.querySelectorAll('link[data-look-next]').length, 0);
   p.close();
 });
@@ -161,10 +161,10 @@ test('the Theme menu is in the header with a bulb and a button, closed, and its 
   assert.equal(btn.textContent, 'Theme: Fremen');
   assert.equal(bulb.getAttribute('aria-label'), 'Switch to Dayside');
   const groups = [...menu.querySelectorAll('.x-thg')].map((g) => g.textContent);
-  assert.deepEqual(groups, ['Look', 'Dark / Dayside', 'Font', 'Motion']);
+  assert.deepEqual(groups, ['Look', 'Dark / Dayside', 'Colours', 'Font', 'Motion']);
   const items = [...menu.querySelectorAll('[role="menuitemradio"]')];
-  assert.deepEqual(items.map((i) => i.dataset.thgroup + ':' + i.dataset.thvalue), ['look:fremen', 'look:awakening', 'look:sietch', 'theme:system', 'theme:dark', 'theme:light', 'font:system', 'font:dune-rise', 'motion:full', 'motion:calm', 'motion:off']);
-  assert.deepEqual(items.filter((i) => i.getAttribute('aria-checked') === 'true').map((i) => i.dataset.thgroup + ':' + i.dataset.thvalue), ['look:fremen', 'theme:system', 'font:dune-rise', 'motion:full']);
+  assert.deepEqual(items.filter((i) => i.dataset.thgroup !== 'palette').map((i) => i.dataset.thgroup + ':' + i.dataset.thvalue), ['look:fremen', 'look:awakening', 'look:sietch', 'theme:system', 'theme:dark', 'theme:light', 'font:system', 'font:dune-rise', 'motion:full', 'motion:calm', 'motion:off']);
+  assert.deepEqual(items.filter((i) => i.getAttribute('aria-checked') === 'true').map((i) => i.dataset.thgroup + ':' + i.dataset.thvalue), ['look:fremen', 'theme:system', 'palette:none', 'font:dune-rise', 'motion:full']);
   assert.ok(items.every((i) => i.tabIndex === -1), 'one stop in the menu once it is open, not before');
   p.close();
 });
@@ -232,11 +232,11 @@ test('the menu shows what a kept choice was, and follows a change made in anothe
   const p = await page({ store: { tauLook: 'awakening', tauTheme: 'light', tauMotion: 'calm' } });
   const menu = p.doc.querySelector('#theme-menu');
   const checked = () => [...menu.querySelectorAll('[aria-checked="true"]')].map((i) => i.dataset.thgroup + ':' + i.dataset.thvalue).join(' ');
-  assert.equal(checked(), 'look:awakening theme:light font:dune-rise motion:calm');
+  assert.equal(checked(), 'look:awakening theme:light palette:none font:dune-rise motion:calm');
   p.w.localStorage.setItem('tauLook', 'sietch');
   p.w.dispatchEvent(new p.w.StorageEvent('storage', { key: 'tauLook' }));
   assert.equal(p.html.getAttribute('data-look'), 'sietch');
-  assert.equal(checked(), 'look:sietch theme:light font:dune-rise motion:calm');
+  assert.equal(checked(), 'look:sietch theme:light palette:none font:dune-rise motion:calm');
   p.close();
 });
 
