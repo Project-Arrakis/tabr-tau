@@ -190,7 +190,7 @@ func TestAutoPassWritesNothingDuringASinglePlayerSession(t *testing.T) {
 	defer save.ActiveSessionForTests()()
 	s.RunStartupTasks()
 	note, warn := s.takeStartup()
-	if !strings.Contains(note, "queued") || !strings.Contains(note, "a single-player session is active") || strings.Contains(note, "applied when it closes") || strings.Contains(note, "edits stay queued") || !warn {
+	if !strings.Contains(note, "queued") || !strings.Contains(note, "a single-player session is active") || strings.Contains(note, "applied when it closes") || strings.Contains(note, "edits stay queued") || warn {
 		t.Fatalf("note %q warn %v", note, warn)
 	}
 	after, _ := os.ReadFile(s.Save.Path)
@@ -230,7 +230,7 @@ func TestAutoPassWaitsInTheGraceAfterLeavingTheWorldAndRunsWhenItEnds(t *testing
 	restore := save.GameJustLeftWorldForTests()
 	s.RunStartupTasks()
 	note, warn := s.takeStartup()
-	if !warn || !strings.HasPrefix(note, "Automatic refill queued: the game wrote its database 20 seconds ago, the last write after the single-player session ended 23 seconds ago;") ||
+	if warn || !strings.HasPrefix(note, "Automatic refill queued: the game wrote its database 20 seconds ago, the last write after the single-player session ended 23 seconds ago;") ||
 		!strings.Contains(note, "It runs by itself") || strings.Contains(note, "the game is open") || strings.Contains(note, "applied when it closes") || strings.Contains(note, "edits stay queued") {
 		t.Fatalf("note %q warn %v", note, warn)
 	}
@@ -301,7 +301,7 @@ func TestAutoPassWaitsWhenTheGameCheckFails(t *testing.T) {
 	before, _ := os.ReadFile(s.Save.Path)
 	defer save.FailedGameCheckForTests("process snapshot: access denied")()
 	s.RunStartupTasks()
-	if note, warn := s.takeStartup(); !warn || !strings.Contains(note, "queued") || !strings.Contains(note, "could not check whether the game is running (process snapshot: access denied)") {
+	if note, warn := s.takeStartup(); warn || !strings.Contains(note, "queued") || !strings.Contains(note, "could not check whether the game is running (process snapshot: access denied)") {
 		t.Fatalf("note %q warn %v", note, warn)
 	}
 	if after, _ := os.ReadFile(s.Save.Path); !bytes.Equal(before, after) || s.Save.Dirty() {
