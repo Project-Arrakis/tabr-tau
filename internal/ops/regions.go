@@ -39,7 +39,7 @@ func (f *regionFinder) load(mapName string) []regionPoint {
 	names := regionNamesOf(mapName)
 	var pts []regionPoint
 	if names != nil {
-		rows, _ := f.o.S.Query(`select x, y, area_id from markers where map_name=? and area_id is not null and area_id<>0 and x is not null and y is not null`, mapName)
+		rows, _ := f.o.S.Query(`select x, y, area_id from `+f.o.S.MarkersTable()+` where map_name=? and area_id is not null and area_id<>0 and x is not null and y is not null`, mapName)
 		for _, r := range rows {
 			x, ok1 := toFloat(r["x"])
 			y, ok2 := toFloat(r["y"])

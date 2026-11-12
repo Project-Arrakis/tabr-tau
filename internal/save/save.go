@@ -41,6 +41,7 @@ type Save struct {
 	rdb        *sql.DB        // separate read-only connection for the SQL console
 	blocked    string         // why writes are refused (unknown database objects), or ""
 	schemaDiff string         // a warning that some table is not defined as the editor expects (DBA-16); never blocks
+	mapNameIDs bool           // markers carries map_name_id (the game's newer layout, #588) and not map_name; decided from the columns when the save was loaded
 	fkBase     map[string]int // dangling references present before the current edit (see Mutate)
 	diskHash   [32]byte
 	diskSize   int64 // size and modification time of the file when diskHash was taken: a cheap first test for "changed on disk"
@@ -112,6 +113,11 @@ type Op struct {
 // KnownSchema is the DDL of the real single-player game database (tables, indexes and the game's one trigger). The kit module holds the
 // file (kit/schema/schema.sql); docs/evidence/single-player-schema.ddl.sql is its evidence copy, compared with it byte for byte by a test.
 var KnownSchema = schema.DDL()
+
+// KnownSchemaMapNames is the DDL of the layout the game has written since its update of early November 2026 (kit/schema/schema_map_names.sql; its evidence copy is
+// docs/evidence/single-player-schema-map-names.ddl.sql): markers.map_name_id and the map_names table in place of markers.map_name, and two Landsraad reward tables (#588).
+// The editor reads saves of both layouts (markers.go); KnownSchema stays the one its tests build saves from unless a test asks for this one.
+var KnownSchemaMapNames = schema.DDLMapNames()
 
 // WriteBlocked reports why this save is read-only, or "" when edits are allowed. A save carrying triggers, views
 // or virtual tables the editor does not know could run hidden logic whenever an ordinary edit touches a table, and
@@ -290,6 +296,7 @@ func (s *Save) load() error {
 	rdb.SetConnMaxLifetime(0)
 	blocked := fingerprint(db)
 	note := schemaNote(db)
+	byID := markersHaveMapNameID(db)
 	base, fkErr := fkCounts(db)
 	if fkErr != nil && blocked == "" { // never hide a more specific reason (unknown database objects)
 		blocked = "the save's foreign-key state could not be read: " + fkErr.Error()
@@ -303,7 +310,7 @@ func (s *Save) load() error {
 		os.Remove(s.work)
 	}
 	s.work, s.db, s.rdb = work, db, rdb
-	s.blocked, s.fkBase, s.schemaDiff = blocked, base, note
+	s.blocked, s.fkBase, s.schemaDiff, s.mapNameIDs = blocked, base, note, byID
 	s.diskHash = hashOf(blob)
 	s.diskSize, s.diskMod = 0, time.Time{}
 	s.changedSize, s.changedMod = 0, time.Time{}

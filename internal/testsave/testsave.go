@@ -21,7 +21,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
-var schemaSQL = save.KnownSchema
+var schemaSQL = SchemaFor(DefaultLayout())
 
 // Every test binary that builds saves here is independent of whether the developer has the game open (issue #102): the process
 // check reports no game unless a test says otherwise.
@@ -53,14 +53,18 @@ func TableNames(t testing.TB) []string {
 	return out
 }
 
-func mem(t testing.TB) *sql.DB {
+func mem(t testing.TB) *sql.DB { return memDDL(t, schemaSQL) }
+
+func memIn(t testing.TB, l Layout) *sql.DB { return memDDL(t, SchemaFor(l)) }
+
+func memDDL(t testing.TB, ddl string) *sql.DB {
 	t.Helper()
 	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
 	db.SetMaxOpenConns(1)
-	if _, err := db.Exec(schemaSQL); err != nil {
+	if _, err := db.Exec(ddl); err != nil {
 		t.Fatalf("real schema failed to load: %v", err)
 	}
 	return db
@@ -68,7 +72,13 @@ func mem(t testing.TB) *sql.DB {
 
 // build creates a real-schema database, lets fn populate it, and opens it as a save. The working files live in
 // t.TempDir() and are removed with the test.
-func build(t testing.TB, fn func(db *sql.DB)) *save.Save {
+func build(t testing.TB, fn func(db *sql.DB)) *save.Save { return buildIn(t, DefaultLayout(), fn) }
+
+// buildIn is build in a layout. A test's statements are written for the older layout, the one the template has; the newer layout is made from it afterwards (toMapNameID).
+func buildIn(t testing.TB, l Layout, fn func(db *sql.DB)) *save.Save { return buildThen(t, l, fn, nil) }
+
+// buildThen is buildIn with a step that runs on the database after the conversion to the newer layout, for what only that layout has.
+func buildThen(t testing.TB, l Layout, fn, after func(db *sql.DB)) *save.Save {
 	t.Helper()
 	dir := t.TempDir()
 	plain := filepath.Join(dir, "p.sqlite")
@@ -89,6 +99,12 @@ func build(t testing.TB, fn func(db *sql.DB)) *save.Save {
 	}
 	if fn != nil {
 		fn(db)
+	}
+	if l == LayoutMapNameID {
+		toMapNameID(t, db)
+		if after != nil {
+			after(db)
+		}
 	}
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
@@ -141,7 +157,7 @@ func schemaTemplate(t testing.TB) []byte {
 			templateErr = err
 			return
 		}
-		if _, err := db.Exec(schemaSQL); err != nil {
+		if _, err := db.Exec(save.KnownSchema); err != nil {
 			db.Close()
 			templateErr = fmt.Errorf("real schema failed to load: %w", err)
 			return
@@ -178,7 +194,10 @@ func PlayerWithSQL(t testing.TB, extra string) *save.Save {
 
 // fill inserts exactly one row into every table, choosing values by declared column type. text is used for
 // every TEXT column. Constraint failures abort the test: the real schema is the authority.
-func fill(t testing.TB, db *sql.DB, text string) {
+func fill(t testing.TB, db *sql.DB, text string) { fillWhere(t, db, text, false) }
+
+// fillWhere is fill; with onlyEmpty it leaves a table alone that already has a row (the tables the newer layout adds are filled after the conversion).
+func fillWhere(t testing.TB, db *sql.DB, text string, onlyEmpty bool) {
 	t.Helper()
 	rows, err := db.Query(`select name from sqlite_master where type='table' and name not like 'sqlite_%' order by name`)
 	if err != nil {
@@ -192,6 +211,15 @@ func fill(t testing.TB, db *sql.DB, text string) {
 	}
 	rows.Close()
 	for _, tb := range tables {
+		if onlyEmpty {
+			var n int
+			if err := db.QueryRow(fmt.Sprintf(`select count(*) from "%s"`, tb)).Scan(&n); err != nil { // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query
+				t.Fatal(err)
+			}
+			if n > 0 {
+				continue
+			}
+		}
 		ci, err := db.Query(`select name, upper(type) from pragma_table_info(?)`, tb)
 		if err != nil {
 			t.Fatal(err)
@@ -229,12 +257,12 @@ func fill(t testing.TB, db *sql.DB, text string) {
 // Hostile is the real schema with one row in every table, every TEXT value set to HostileText. Used to prove
 // that nothing in the API or UI trusts save contents.
 func Hostile(t testing.TB) *save.Save {
-	return build(t, func(db *sql.DB) { fill(t, db, HostileText) })
+	return buildThen(t, DefaultLayout(), func(db *sql.DB) { fill(t, db, HostileText) }, func(db *sql.DB) { fillWhere(t, db, HostileText, true) })
 }
 
 // Filled is like Hostile but with harmless text, for tests that need populated tables.
 func Filled(t testing.TB) *save.Save {
-	return build(t, func(db *sql.DB) { fill(t, db, "x") })
+	return buildThen(t, DefaultLayout(), func(db *sql.DB) { fill(t, db, "x") }, func(db *sql.DB) { fillWhere(t, db, "x", true) })
 }
 
 // Player is the real schema with a small, consistent single-player world that mirrors how the game links a
@@ -243,7 +271,16 @@ func Filled(t testing.TB) *save.Save {
 func Player(t testing.TB) *save.Save { return buildPlayer(t, "") }
 
 func buildPlayer(t testing.TB, extra string) *save.Save {
-	return build(t, func(db *sql.DB) {
+	return buildPlayerIn(t, DefaultLayout(), extra)
+}
+
+func buildPlayerIn(t testing.TB, l Layout, extra string) *save.Save {
+	return buildIn(t, l, playerRows(t, extra))
+}
+
+// playerRows is the step that puts the Player() world into a database of the older layout, then runs extra.
+func playerRows(t testing.TB, extra string) func(db *sql.DB) {
+	return func(db *sql.DB) {
 		fill1(t, db, "accounts", map[string]any{"id": 1, "user": "u", "funcom_id": "FUNCOM-TEST", "takeoverable": 0, "platform_id": "PLATFORM-TEST", "platform_name": "Tester"})
 		const pc, pawn, pstate = 1, 2, 3
 		for id, class := range map[int]string{
@@ -267,7 +304,7 @@ func buildPlayer(t testing.TB, extra string) *save.Save {
 				t.Fatalf("extra SQL failed: %v\n%s", err, extra)
 			}
 		}
-	})
+	}
 }
 
 // fill1 inserts one row. Columns not named in set: nullable columns get NULL (so foreign keys and CHECKs that

@@ -4,6 +4,19 @@ Tags of this module are `kit/vX.Y.Z`. The module is version 0.x: until v1.0.0 an
 
 Each tag needs an entry here whose heading is `## vX.Y.Z` followed by the date: the release workflow uses the entry as the release notes and fails without it.
 
+## v0.10.0 (unreleased)
+
+Backward compatible: `schema.DDL()` and every other name of every package are unchanged. Refs #588.
+
+- `schema`: the game changed the layout of its save in an update of early November 2026, and `DDL()` holds the layout before it. New `DDLMapNames()` is the DDL of a save the game writes now (97 tables, the game's one trigger, schema only, read from a copy of a real save; no row). Against `DDL()`:
+  - `markers` and `player_markers` have `map_name_id` (an integer) in place of `map_name`, and are keyed on it (`player_markers` refers to `markers` by it); the names are in the new table `map_names (map_name_id, map_name)`, whose id is the first column.
+  - New tables `landsraad_one_time_house_rewards` and `landsraad_player_one_time_house_rewards`.
+  - Index changes: added `journey_story_node_cooldown_story_node_id_idx`, `landsraad_player_one_time_house_rewards_term_id_idx` and `marker_map_name_id_idx`; six indexes of the first layout are gone (`building_instances_building_id_fk_idx`, `dialogue_taken_nodes_player_id_fk_idx`, `dungeon_completion_players_player_id`, `player_markers_player_id_fk_idx`, `player_respawn_locations_id_fkey_idx` and `specialization_keystones_map_idx`).
+  - Every other table is defined exactly as in `DDL()` (a test compares the column lists).
+- New `schema.MapNames` (the table and its two columns), checked against `DDLMapNames()`.
+- A program that reads saves of both layouts decides by the columns of `markers` (`pragma table_info(markers)` has `map_name_id` or `map_name`), never by a game version. Saves of the old layout still exist, in backups and on machines where the game has not been updated.
+- Not here: the rule for reading a marker's map in either layout. The editor does it with a table expression that joins `map_names` and gives `map_name` back; a second program does it with the map id as a parameter. Each stays with its program.
+
 ## v0.9.0 (2026-11-08)
 
 One new package, backward compatible: nothing in `savefile`, `durable`, `gamedata/*`, `webguard`, `schema`, `gamefolder` or `sessionlog` changed. Refs #568.

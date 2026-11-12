@@ -12,3 +12,6 @@ design/assets/*.svg text eol=lf
 design/assets/fonts/*.txt text eol=lf
 design/assets/fonts/SHA256SUMS text eol=lf
 design/assets/fonts/*.ttf binary
+# The newer layout's DDL and its evidence copy are compared byte for byte too, so they are LF in every checkout (#588).
+kit/schema/schema_map_names.sql text eol=lf
+docs/evidence/single-player-schema-map-names.ddl.sql text eol=lf

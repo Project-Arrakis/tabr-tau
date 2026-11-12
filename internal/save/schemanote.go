@@ -33,23 +33,36 @@ func tableDefinitions(db interface {
 	return out, rs.Err()
 }
 
-var knownTables = sync.OnceValues(func() (map[string]string, error) {
-	db, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		return nil, err
+// The game changed the layout of its save in an update of early November 2026 (markers.map_name became markers.map_name_id with a map_names table, and two Landsraad
+// tables appeared, #588). The editor knows both layouts, KnownSchema (before) and KnownSchemaMapNames (since), and compares a save with each: a save is known when it matches
+// either one exactly, and otherwise the note names the differences from the layout it is nearest to.
+var knownTables = sync.OnceValues(func() ([]map[string]string, error) {
+	var out []map[string]string
+	for _, ddl := range []string{KnownSchema, KnownSchemaMapNames} {
+		db, err := sql.Open("sqlite", ":memory:")
+		if err != nil {
+			return nil, err
+		}
+		db.SetMaxOpenConns(1)
+		if _, err := db.Exec(ddl); err != nil {
+			db.Close()
+			return nil, err
+		}
+		defs, err := tableDefinitions(db)
+		db.Close()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, defs)
 	}
-	defer db.Close()
-	db.SetMaxOpenConns(1)
-	if _, err := db.Exec(KnownSchema); err != nil {
-		return nil, err
-	}
-	return tableDefinitions(db)
+	return out, nil
 })
 
 // schemaNote says, in a sentence for the person, which tables of db are not defined as in the game's schema the editor was built against, or "" when all are (or when the
-// comparison could not be made: the fingerprint reports a save that cannot be read, and a note that cannot be trusted is not shown).
+// comparison could not be made: the fingerprint reports a save that cannot be read, and a note that cannot be trusted is not shown). The editor knows two layouts of the
+// game's save; a save that matches either gives "", and any other save is described by its differences from the layout with fewer of them.
 func schemaNote(db *sql.DB) string {
-	want, err := knownTables()
+	layouts, err := knownTables()
 	if err != nil {
 		return ""
 	}
@@ -57,6 +70,22 @@ func schemaNote(db *sql.DB) string {
 	if err != nil {
 		return ""
 	}
+	var best string
+	bestN := -1
+	for _, want := range layouts {
+		note, n := schemaDifferences(want, got)
+		if n == 0 {
+			return ""
+		}
+		if bestN < 0 || n < bestN {
+			best, bestN = note, n
+		}
+	}
+	return best
+}
+
+// schemaDifferences compares the definitions of a save's tables with one known layout: how many tables differ, and the sentence that says which.
+func schemaDifferences(want, got map[string]string) (string, int) {
 	var differ, extra, missing []string
 	for k, v := range got {
 		if w, ok := want[k]; !ok {
@@ -72,7 +101,7 @@ func schemaNote(db *sql.DB) string {
 	}
 	n := len(differ) + len(extra) + len(missing)
 	if n == 0 {
-		return ""
+		return "", 0
 	}
 	var parts []string
 	list := func(label string, names []string) {
@@ -89,7 +118,7 @@ func schemaNote(db *sql.DB) string {
 	list("defined differently:", differ)
 	list("not known to this editor:", extra)
 	list("missing:", missing)
-	return fmt.Sprintf("This save's tables are not all defined as in the game this editor was built against (%s). The game may have been updated since. You can keep editing; if a screen reports an error about a column, restore the newest backup from the Backups list and tell the maintainers which game version you have.", strings.Join(parts, "; "))
+	return fmt.Sprintf("This save's tables are not all defined as in the game this editor was built against (%s). The game may have been updated since. You can keep editing; if a screen reports an error about a column, restore the newest backup from the Backups list and tell the maintainers which game version you have.", strings.Join(parts, "; ")), n
 }
 
 // SchemaNote is the sentence schemaNote made when the save was loaded, or "". It is a warning only: it never makes the save read-only.

@@ -129,8 +129,9 @@ func (o *Ops) LiveMap(key string) (any, error) {
 	out["storage"] = storage
 
 	// The game's own map markers; d is the discovery level for this character (0 when never discovered).
-	out["markers"], _ = o.S.Query(`select m.marker_type t, m.x, m.y, coalesce(pm.discovery_level,0) d from markers m
-		left join player_markers pm on pm.marker_hash_id=m.marker_hash_id and pm.dimension_index=m.dimension_index and pm.player_id=?
+	// the markers of the map, from either layout of the save (#588): the discovery rows are matched on the marker's own map name, which both layouts give as map_name
+	out["markers"], _ = o.S.Query(`select m.marker_type t, m.x, m.y, coalesce(pm.discovery_level,0) d from `+o.S.MarkersTable()+` m
+		left join `+o.S.PlayerMarkersTable()+` pm on pm.marker_hash_id=m.marker_hash_id and pm.dimension_index=m.dimension_index and pm.map_name=m.map_name and pm.player_id=?
 		where m.map_name=? and m.x is not null and m.y is not null order by m.marker_type, m.marker_hash_id`, p.Controller, cfg.Key)
 	out["resourceFields"] = o.resourceFields(cfg)
 	return out, nil

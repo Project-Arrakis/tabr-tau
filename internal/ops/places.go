@@ -338,8 +338,8 @@ func (o *Ops) namedPlaces(p player, mp string) ([]placeRow, error) {
 // tradeAndTaxiPlaces: the trading posts and taxi hubs the character has discovered on the map.
 func (o *Ops) tradeAndTaxiPlaces(p player, mp string) ([]placeRow, error) {
 	var out []placeRow
-	marks, err := o.S.Query(`select m.marker_type t, m.marker_hash_id h, m.x x, m.y y, m.z z, hex(substr(m.payload,1,?)) p from markers m
-		join player_markers pm on pm.marker_hash_id=m.marker_hash_id and pm.dimension_index=m.dimension_index and pm.map_name=m.map_name
+	marks, err := o.S.Query(`select m.marker_type t, m.marker_hash_id h, m.x x, m.y y, m.z z, hex(substr(m.payload,1,?)) p from `+o.S.MarkersTable()+` m
+		join `+o.S.PlayerMarkersTable()+` pm on pm.marker_hash_id=m.marker_hash_id and pm.dimension_index=m.dimension_index and pm.map_name=m.map_name
 		where pm.player_id=? and pm.discovery_level>0 and m.map_name=? and m.marker_type in ('TradingPost','TaxiService') order by m.marker_hash_id`, payloadHead, p.Controller, mp)
 	if err != nil {
 		return nil, err

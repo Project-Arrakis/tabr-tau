@@ -123,7 +123,8 @@ func main() {
 	fmt.Println("consumer: webguard rules ok")
 
 	if !strings.Contains(schema.DDL(), "CREATE TABLE vehicle_modules (") || schema.VehicleModules.Table != "vehicle_modules" ||
-		schema.VehicleModuleCurrentDurability != "$.FVehicleModuleDurabilityStats[1].CurrentDurability" || schema.StoredStates != "2, 4" {
+		schema.VehicleModuleCurrentDurability != "$.FVehicleModuleDurabilityStats[1].CurrentDurability" || schema.StoredStates != "2, 4" ||
+		!strings.Contains(schema.DDLMapNames(), "CREATE TABLE map_names (") || strings.Contains(schema.DDL(), "CREATE TABLE map_names (") || schema.MapNames.Table != "map_names" {
 		fmt.Fprintln(os.Stderr, "schema failed")
 		os.Exit(1)
 	}

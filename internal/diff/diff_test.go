@@ -286,27 +286,30 @@ func TestEveryColumnIsClassified(t *testing.T) {
 		"account_id": true, "owner_account_id": true, "slot_name": true, "npc_name": true, "house_name": true,
 		"channel_name": true, "base_backup_name": true, "vehicle_name": true, "story_node_id": true, "template_id": true,
 		"learned_building_set": true, "building_type": true, "name": true, "takeoverable": true, "user_id": true,
-		"profile_name": true, "class_name": true, "map_name": true, "map": true, "faction_name": true,
+		"profile_name": true, "class_name": true, "map_name": true, "map": true, "faction_name": true, "map_name_id": true,
 		// reviewed 2026-10-07 against schema.sql: names of game objects, not people
 		"component_name_hash": true, "selected_channel_name": true, "package_name": true, "actor_name": true,
 		"encounter_name": true, "decree_name": true, "locator_name": true, "locator_name_index": true,
 	}
-	db := testsave.OpenSchemaOnly(t)
-	rows, err := db.Query(`select m.name, p.name from sqlite_master m, pragma_table_info(m.name) p where m.type='table' and m.name not like 'sqlite_%'`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer rows.Close()
-	var unclassified []string
-	for rows.Next() {
-		var tab, col string
-		rows.Scan(&tab, &col)
-		if looksPersonal.MatchString(col) && !diff.IsPersonalColumn(col) && !reviewed[col] {
-			unclassified = append(unclassified, tab+"."+col)
+	for _, l := range testsave.Layouts { // both layouts the game's save has had (#588)
+		db := testsave.OpenSchemaOnlyIn(t, l)
+		rows, err := db.Query(`select m.name, p.name from sqlite_master m, pragma_table_info(m.name) p where m.type='table' and m.name not like 'sqlite_%'`)
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
-	if len(unclassified) > 0 {
-		t.Fatalf("columns that look personal but are neither masked nor reviewed (add to diff.redactColumns or to this test's reviewed list): %v", unclassified)
+		var unclassified []string
+		for rows.Next() {
+			var tab, col string
+			rows.Scan(&tab, &col)
+			if looksPersonal.MatchString(col) && !diff.IsPersonalColumn(col) && !reviewed[col] {
+				unclassified = append(unclassified, tab+"."+col)
+			}
+		}
+		rows.Close()
+		db.Close()
+		if len(unclassified) > 0 {
+			t.Fatalf("layout %v: columns that look personal but are neither masked nor reviewed (add to diff.redactColumns or to this test's reviewed list): %v", l, unclassified)
+		}
 	}
 }
 
