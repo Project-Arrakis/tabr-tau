@@ -484,14 +484,26 @@ details.about .abt b{color:var(--c-text)}
 .tapply{display:inline-flex;align-items:center;gap:var(--s-2)}
 #tresult{margin:0 0 var(--s-2);font-size:var(--t-sm);color:var(--c-ok);min-height:1.2em}
 .dp{list-style:none;margin:0;padding:0}
-.dp li{display:grid;grid-template-columns:2.2rem minmax(0,2fr) minmax(0,1.2fr) 6rem 8.5rem;gap:var(--s-2) var(--s-4);align-items:center;padding:6px 8px;border-bottom:1px solid var(--c-hair)}
+.dp li{display:grid;grid-template-columns:2.2rem minmax(0,2fr) minmax(0,1.2fr) 6rem 8.5rem 14rem;gap:var(--s-2) var(--s-4);align-items:center;padding:6px 8px;border-bottom:1px solid var(--c-hair)}
+.dp .mkc{display:flex;align-items:center;gap:8px;min-width:0}
+.dp .mkc .src{display:none}
+.dp .mk{white-space:normal;text-align:left}
+.dp .mk-on{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 10px;color:var(--c-ok);font:600 var(--t-sm) var(--t-display)}
+.tpend{margin:8px 0 0;padding:6px 8px;border:1px dashed var(--c-spice);border-radius:var(--r-2);font-size:var(--t-sm)}
+.tpend .undo{margin-left:8px}
+@media (max-width:1100px){
+  .dp li{grid-template-columns:2.2rem minmax(0,2fr) minmax(0,1.2fr) 6rem 8.5rem;grid-template-areas:"i d t f b" ". m m m m"}
+  .dp li>:nth-child(1){grid-area:i}.dp li>:nth-child(2){grid-area:d}.dp li>:nth-child(3){grid-area:t}.dp li>:nth-child(4){grid-area:f}.dp li>:nth-child(5){grid-area:b}.dp li>:nth-child(6){grid-area:m}
+  .dp .dh>span:nth-child(6){display:none}
+  .dp .mkc .src{display:inline-block}
+}
 .dp .dh{font:600 var(--t-xs) var(--t-display);letter-spacing:.08em;text-transform:uppercase;color:var(--c-dim);border-bottom:1px solid var(--c-rule)}
 .dp .dh .src{margin-left:4px}
 .dp .fl{font-variant-numeric:tabular-nums}
 @media (max-width:640px){
   .dp .dh{display:none}
-  .dp li{grid-template-columns:2rem minmax(0,1fr) auto;grid-template-areas:"i d b" ". t f"}
-  .dp li>:nth-child(1){grid-area:i}.dp li>:nth-child(2){grid-area:d}.dp li>:nth-child(3){grid-area:t}.dp li>:nth-child(4){grid-area:f;white-space:nowrap}.dp li>:nth-child(5){grid-area:b}
+  .dp li{grid-template-columns:2rem minmax(0,1fr) auto;grid-template-areas:"i d b" ". t f" ". m m"}
+  .dp li>:nth-child(1){grid-area:i}.dp li>:nth-child(2){grid-area:d}.dp li>:nth-child(3){grid-area:t}.dp li>:nth-child(4){grid-area:f;white-space:nowrap}.dp li>:nth-child(5){grid-area:b}.dp li>:nth-child(6){grid-area:m}
   .dp li>:nth-child(4)::before{content:"Pool flag "}
   .qa{min-height:44px}
   .tdp .kv{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -515,7 +527,8 @@ details.about .abt b{color:var(--c-text)}
 /* hierarchy and alignment (review fix) */
 .hend{font:600 var(--t-xs) var(--t-display);letter-spacing:.08em;text-transform:uppercase;color:var(--c-dim)}
 .tdp>summary h2.head::before{display:none}
-.dp li{grid-template-columns:2.2rem minmax(0,2fr) minmax(0,1.2fr) 7.5rem 8.5rem}
+.dp li{grid-template-columns:2.2rem minmax(0,2fr) minmax(0,1.2fr) 7.5rem 8.5rem 14rem}
+@media (max-width:1100px){.dp li{grid-template-columns:2.2rem minmax(0,2fr) minmax(0,1.2fr) 7.5rem 8.5rem}}
 .dp .dh>span:nth-child(4){white-space:nowrap}
 @media (max-width:640px){.dp li{grid-template-columns:2rem minmax(0,1fr) auto}}
 /* earlier terms: on a phone each house is a short block instead of a table that scrolls sideways (review fix) */
@@ -555,9 +568,10 @@ details.about .abt b{color:var(--c-text)}
     <span class="tapply"><button type="button" class="qa btnp" id="tapply">Apply</button><span class="src src-write" title="Writes to the save in the real editor: the active decree and the reigning faction of the current term (landsraad_decree_term). Here it changes only what the page shows.">writes</span></span>
   </div>
   <p id="tresult" role="status"></p>
+  <p class="tpend" id="tpend" hidden></p>
   <h3 class="head">Decree pool</h3>
   <ul class="dp" id="dp" role="list"></ul>
-  <details class="about"><summary>About term and decrees</summary><div class="abt"><p><b>Apply</b> sets the term’s active decree and its reigning faction together: one row, the current term in <code>landsraad_decree_term</code>, and an empty choice clears that field. The faction drop-down starts on your own faction, and any faction can be chosen.</p><p><b>In this term</b> is read from the current term: <b>Active</b> is the term’s active decree, <b>Elected</b> its elected decree, <b>In rotation</b> a decree in the save’s decree rotation. <b>Pool flag</b> is the save’s own <code>disabled</code> column, shown as stored; it does not say whether a decree is in effect. A <b>Set flag</b> button changes the flag of its own row only; it does not make the decree active, the Active decree above does.</p></div></details>
+  <details class="about"><summary>About term and decrees</summary><div class="abt"><p><b>Apply</b> sets the term’s active decree and its reigning faction together: one row, the current term in <code>landsraad_decree_term</code>, and an empty choice clears that field. The faction drop-down starts on your own faction, and any faction can be chosen.</p><p><b>Make active for ...</b> on a pool row does the same as the Active decree drop-down and Apply for that row’s decree, for the faction in the Reigning faction drop-down; a decree belongs to a faction (the reigning faction), not to a house.</p><p><b>In this term</b> is read from the current term: <b>Active</b> is the term’s active decree, <b>Elected</b> its elected decree, <b>In rotation</b> a decree in the save’s decree rotation. <b>Pool flag</b> is the save’s own <code>disabled</code> column, shown as stored; it does not say whether a decree is in effect. A <b>Set flag</b> button changes the flag of its own row only; it does not make the decree active, the Active decree above does.</p></div></details>
   </div></details></section>
 <section class="panel" aria-labelledby="h-glance"><h2 class="head" id="h-glance">Current term 11 at a glance <span class="cnt">character in Atreides <span class="src src-save" title="Read from the save: player_faction">save</span></span></h2>
   <div class="glance" role="group" aria-label="Your houses this term: click one to list them">
@@ -1432,6 +1446,19 @@ details.about .abt b{color:var(--c-text)}
       var nb = document.querySelector('#dp button[data-flag="' + d.id + '"]'); if (nb) nb.focus();
       return;
     }
+    if (b.hasAttribute('data-mk')) {
+      if (b.getAttribute('aria-disabled') === 'true') { tsay(b.title); return; }
+      var md = dById(+b.getAttribute('data-mk')), mf = +$('rf').value || 0;
+      TERM.active = md.id; TERM.rf = mf; $('rf').value = String(mf); syncAd(); renderTerm();
+      tsay(md.n + ' made the active decree for ' + FAC[mf] + ': pending');
+      var ub = $('tundo'); if (ub) ub.focus();
+      return;
+    }
+    if (b.id === 'tundo') {
+      TERM.active = TERM0.active; TERM.rf = TERM0.rf; $('rf').value = String(TERM.rf); syncAd(); renderTerm();
+      tsay('Active decree and reigning faction restored to what the save holds');
+      return;
+    }
     if (b.id === 'tapply') {
       var na = +$('ad').value || 0, nr = +$('rf').value || 0;
       if (na === TERM.active && nr === TERM.rf) { tsay('Nothing to change'); return; }
@@ -1467,7 +1494,7 @@ details.about .abt b{color:var(--c-text)}
   });
 
   // term and decrees (sample data): one term row with the active decree, the elected decree and the reigning faction, and the decree pool
-  var TERM = { active: 6, elected: 10, rf: 2 };
+  var TERM = { active: 6, elected: 10, rf: 2 }, TERM0 = { active: 6, elected: 10, rf: 2 };
   // the eleven decrees of the pool (landsraad_decrees): the names are readable forms of the ids, except the Refining Contract, which is the game's own name (#608)
   var D = [
     { id: 1, n: 'Experience Rate Increase', k: 'ExperienceRateIncrease', rot: 1, dis: 1 },
@@ -1497,17 +1524,29 @@ details.about .abt b{color:var(--c-text)}
     $('t-ad').textContent = a ? a.n : '—'; $('t-adk').textContent = a ? a.k : '';
     $('t-ed').textContent = e ? e.n : '—'; $('t-edk').textContent = e ? e.k : '';
     $('tsum').textContent = 'Term 11 · ' + rf + ' · ' + (a ? a.n : 'no active decree');
-    var h = '<li class="dh" aria-hidden="true"><span>ID</span><span>Decree <span class="src src-save" title="Read from the save: landsraad_decrees.decree_name">save</span></span><span>In this term <span class="src src-save" title="Read from the save: active, elected, rotation">save</span></span><span>Pool flag <span class="src src-save" title="Read from the save: the disabled column, as stored">save</span></span><span>Change <span class="src src-write" title="Writes to the save in the real editor: the disabled column of that one decree row. Here it changes only what the page shows.">writes</span></span></li>';
+    var h = '<li class="dh" aria-hidden="true"><span>ID</span><span>Decree <span class="src src-save" title="Read from the save: landsraad_decrees.decree_name">save</span></span><span>In this term <span class="src src-save" title="Read from the save: active, elected, rotation">save</span></span><span>Pool flag <span class="src src-save" title="Read from the save: the disabled column, as stored">save</span></span><span>Change <span class="src src-write" title="Writes to the save in the real editor: the disabled column of that one decree row. Here it changes only what the page shows.">writes</span></span><span>Make active <span class="src src-write" title="Writes to the save in the real editor: the active decree and the reigning faction of the current term (landsraad_decree_term), the same as Apply. Here it changes only what the page shows.">writes</span></span></li>';
+    var fsel = +$('rf').value || 0, fname = fsel ? FAC[fsel] : '';
     D.forEach(function (d) {
       var tg = [];
       if (d.id === TERM.active) tg.push('Active'); if (d.id === TERM.elected) tg.push('Elected'); if (d.rot) tg.push('In rotation');
       h += '<li><span class="mut">' + d.id + '</span><span class="dc"><span class="dn"' + (d.tip ? ' title="' + d.tip + '"' : '') + '>' + d.n + '</span>' + idLine(d.k) + '</span><span>' +
         (tg.length ? tg.map(function (x) { return '<span class="tag">' + x + '</span> '; }).join('') : '<span class="mut">not in this term</span>') + '</span>' +
         '<span class="fl mut">' + d.dis + '</span>' +
-        '<button type="button" class="qa" data-flag="' + d.id + '" title="Sets the pool flag of this one row to ' + (d.dis ? 0 : 1) + '. It does not make the decree active; the Active decree above does.">Set flag to ' + (d.dis ? 0 : 1) + '</button></li>';
+        '<button type="button" class="qa" data-flag="' + d.id + '" title="Sets the pool flag of this one row to ' + (d.dis ? 0 : 1) + '. It does not make the decree active; Make active on the row or the Active decree above does.">Set flag to ' + (d.dis ? 0 : 1) + '</button>' +
+        '<span class="mkc">' + (d.id === TERM.active && fsel === TERM.rf ? '<span class="mk-on" title="This decree is already the active decree of the term for ' + fname + '"><span aria-hidden="true">✓</span> Active</span>'
+          : '<button type="button" class="qa mk" data-mk="' + d.id + '"' + (fsel ? '' : ' aria-disabled="true"') + ' title="' + (fsel ? 'Makes ' + d.n + ' the active decree of the term for ' + fname + ', the same as the Active decree drop-down and Apply. It writes landsraad_decree_term; here only the page changes.' : 'Choose a reigning faction above first') + '">' + (fsel ? 'Make active for ' + fname : 'Make active (choose a faction)') + '</button>') +
+        '<span class="src src-write" title="Writes to the save in the real editor: the active decree and the reigning faction of the current term, the same as Apply">writes</span></span></li>';
     });
     $('dp').innerHTML = h;
+    var pt = [];
+    if (TERM.active !== TERM0.active) pt.push('active decree ' + (a ? a.n : 'none') + ' (was ' + (dById(TERM0.active) ? dById(TERM0.active).n : 'none') + ')');
+    if (TERM.rf !== TERM0.rf) pt.push('reigning faction ' + rf + ' (was ' + (TERM0.rf ? FAC[TERM0.rf] : 'none') + ')');
+    var tp = $('tpend'); tp.hidden = !pt.length;
+    tp.innerHTML = pt.length ? 'Pending (sample, not written): ' + pt.join('; ') + '. <button type="button" class="undo" id="tundo">Undo</button>' : '';
+    if (pt.length) $('tsum').textContent += ' · pending';
   }
+  function syncAd() { var a = dById(TERM.active); $('ad').value = String(TERM.active); $('adid').textContent = a ? a.k : ''; }
+  $('rf').addEventListener('change', function () { renderTerm(); });
   $('ad').addEventListener('change', function () { var d = dById(+this.value); $('adid').innerHTML = d ? d.k : ''; });
 
   function clearOnly() {

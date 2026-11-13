@@ -95,6 +95,8 @@ A closed panel above the board (its heading line shows the term, the reigning fa
 
 The decree pool lists all 11 decrees of the save. The names are readable forms of the ids, except "CHOAM Refining Contract", which is the game's own name; they stay readable forms until checked in game (#608).
 
+**Make active for <faction>** (on every pool row) does what the Active decree drop-down and Apply do, for that row's decree: it makes the decree the active decree of the term, for the faction chosen in the Reigning faction drop-down (which starts on your own faction); the label follows the drop-down. A decree belongs to a faction (the reigning faction), not to a house. It carries a **writes** mark and shows as pending with Undo; the row that is already active for that faction shows "Active" instead of a button, and the Set flag button of each row is unchanged. It writes the same rows as Apply: `landsraad_decree_term`, `active_decree_id` and `reigning_faction_id` of the current term row, and nothing else.
+
 The reigning faction is one field of the term row, so "for which faction" is the Reigning faction drop-down: the decree is set on the term, and the faction chosen is recorded as the one reigning in it.
 
 ## Reading the pages
