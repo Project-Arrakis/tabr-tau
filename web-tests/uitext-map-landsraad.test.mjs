@@ -33,7 +33,7 @@ test('Landsraad: the nine-sentence explanation of the scales is in About this, w
   for (const s of ['Task board (2)', 'Nothing is chosen.', 'Faction for Fill faction goal, Complete and Complete chosen', 'Fill chosen', 'Choose all houses']) assert.ok(shown.includes(s), 'missing: ' + s);
   assert.ok(!shown.includes('Choose houses (all their tiers) or single tiers, then Fill chosen'));
   assert.ok(!shown.includes('used by the buttons below'));
-  assert.ok(ui.doc.querySelector('[data-act="tfill"]').title.includes('A personal contribution and the reward tiers are not changed'), 'the sentence about Fill faction goal is on the button');
+  assert.ok(ui.doc.querySelector('[data-act="tfill"]').title.includes('The reward items themselves are not written'), 'the sentence about Fill faction goal is on the button');
   assert.equal(ui.doc.querySelector('[data-act="tdone"]').title, 'Marks the house taken, for the chosen faction.');
   ui.dom.window.close();
 

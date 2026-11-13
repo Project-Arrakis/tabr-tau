@@ -23,7 +23,7 @@ function holdWindowScroll(w, y) {
 }
 
 async function openLandsraad(extra = {}) {
-  const ui = await boot({ get: { '/api/landsraad': landsraad() }, post: { '/api/landsraad/progress': { ok: true } }, ...extra });
+  const ui = await boot({ get: { '/api/landsraad': landsraad() }, post: { '/api/landsraad/faction-goal': { ok: true, changed: 1, noop: false, house: 'Alexin', tier: 6000, progress_changed: true, completed_changed: true, contribution_changed: true, contribution_before: 0, has_character: true, outcome: 'written' } }, ...extra });
   if (!ui.doc.querySelector('#lf')) { ui.click('[data-tab="landsraad"]'); await ui.settle(); }
   assert.ok(ui.doc.querySelector('#lf'), 'the Landsraad tab is open');
   return ui;
@@ -39,7 +39,7 @@ test('an action on the Landsraad tab keeps the scroll offsets, the chosen factio
   const before = ui.doc.querySelector('#lf');
 
   ui.click('[data-act="tfill"][data-id="105"]'); await ui.settle();
-  const sent = ui.posted.filter((p) => p.path === '/api/landsraad/progress');
+  const sent = ui.posted.filter((p) => p.path === '/api/landsraad/faction-goal');
   assert.equal(sent.length, 1);
   assert.equal(sent[0].body.faction_id, 2, 'the faction that was chosen is the one sent');
   assert.notEqual(ui.doc.querySelector('#lf'), before, 'the tab was drawn again');
