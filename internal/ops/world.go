@@ -131,7 +131,7 @@ func (o *Ops) Vehicles() (any, error) {
 	return map[string]any{"vehicles": live, "recovered": rec, "backups": bak, "stored": stored, "hidden": hidden["n"]}, nil
 }
 
-// BringVehicle moves one of the player's own vehicles next to the player: to the old point (800 along x, 150 up) when it is clear, else to the nearest clear spot, outside a base
+// BringVehicle moves one of the player's own vehicles next to the player: to the point 10 m ahead along the facing (800 along x when the facing is unknown), 150 up, when it is clear, else to the nearest clear spot, outside a base
 // when the player is in one (#480). An aircraft goes at least 30 m ahead and at least 7 m up, in the air (#540). The answer says where it went.
 func (o *Ops) BringVehicle(a Args) (any, error) {
 	p, err := o.player()

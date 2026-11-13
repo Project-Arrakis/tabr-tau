@@ -11,7 +11,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
-// Where a vehicle goes (#480). The fixture is the one of the Create a vehicle tests: the character at (100, 200, 300) on Hagga Basin, so the old default point is (900, 200) and 450 up.
+// Where a vehicle goes (#480). The fixture is the one of the Create a vehicle tests: the character at (100, 200, 300) on Hagga Basin, so the character faces +y (south) and the first spot for a ground vehicle is (100, 1200), 10 m ahead, and 450 up.
 
 type testPiece struct {
 	typ     string
@@ -45,6 +45,21 @@ func longWall(x, y0, y1, z float64) []testPiece {
 	return ps
 }
 
+// rowWall is a wall along x at y, from x0 to x1, 512 a piece: the wall 10 m ahead of the character of the fixture, who faces +y.
+func rowWall(y, x0, x1, z float64) []testPiece {
+	var ps []testPiece
+	for x := x0; x <= x1; x += 512 {
+		ps = append(ps, testPiece{"Sardaukar_Wall_01", x, y, z, 0})
+	}
+	return ps
+}
+
+// rowWallDistance is how far (x, y) is from rowWall(1200, -2900, 3100, ..).
+func rowWallDistance(x, y float64) float64 {
+	ex := math.Max(math.Max(-2900-256-x, x-(3100+256)), 0)
+	return math.Hypot(math.Max(math.Abs(y-1200)-40, 0), ex)
+}
+
 // wallDistance is how far (x, y) is from the long wall of longWall(900, -2900, 3100, ..): the thickness is 80 and the pieces are 512 long.
 func wallDistance(x, y float64) float64 {
 	ey := math.Max(math.Max(-2900-256-y, y-(3100+256)), 0)
@@ -59,31 +74,31 @@ func xyz(t *testing.T, o *Ops, id int64) (float64, float64, float64) {
 
 func placeOf(r map[string]any) map[string]any { return r["place"].(map[string]any) }
 
-func TestPlaceOutdoorsWithNothingNearIsTheOldPoint(t *testing.T) {
+func TestPlaceOutdoorsWithNothingNearIsTenMetresAhead(t *testing.T) {
 	// a ground vehicle: where it always went, whatever its size (an aircraft goes ahead and up: vehicle_place_flying_test.go)
 	for _, key := range []string{"Sandbike", "Buggy", "Sandcrawler"} {
 		o := placeOps(t, "")
 		id, r := spawn(t, o, Args{"class": key, "template": "T0"})
 		x, y, z := xyz(t, o, id)
-		if x != 900 || y != 200 || z != 450 {
-			t.Errorf("%s: outdoors the vehicle goes where it always did, whatever its size: %v %v %v", key, x, y, z)
+		if math.Abs(x-100) > 1e-6 || math.Abs(y-1200) > 1e-6 || z != 450 {
+			t.Errorf("%s: outdoors the vehicle goes 10 m ahead of the character, whatever its size: %v %v %v", key, x, y, z)
 		}
 		p := placeOf(r)
-		if p["words"] != "8 m east of you" || p["moved"] != false || p["inBase"] != false || p["inAir"] != false || p["nextToCharacter"] != true || len(p["blocked"].([]string)) != 0 {
+		if p["words"] != "10 m south of you" || p["moved"] != false || p["inBase"] != false || p["inAir"] != false || p["nextToCharacter"] != true || len(p["blocked"].([]string)) != 0 {
 			t.Errorf("%s: the answer: %v", key, p)
 		}
 	}
 }
 
-func TestPlaceAWallAtTheOldPointMovesTheVehicleAway(t *testing.T) {
-	o := placeOps(t, piecesSQL(7001, longWall(900, -2900, 3100, 300)))
+func TestPlaceAWallAtTheFirstSpotMovesTheVehicleAway(t *testing.T) {
+	o := placeOps(t, piecesSQL(7001, rowWall(1200, -2900, 3100, 300)))
 	prev, err := o.SpawnVehiclePreview(Args{"class": "Buggy", "template": "T0"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	id, r := spawn(t, o, Args{"class": "Buggy", "template": "T0"})
 	x, y, z := xyz(t, o, id)
-	if d := wallDistance(x, y); d < 500 {
+	if d := rowWallDistance(x, y); d < 500 {
 		t.Errorf("the buggy is %v from the wall at (%v, %v); it needs its radius of 400 and a margin of 100", d, x, y)
 	}
 	if z != 450 {
@@ -99,11 +114,11 @@ func TestPlaceAWallAtTheOldPointMovesTheVehicleAway(t *testing.T) {
 }
 
 func TestPlaceAFloorAtOneAndAHalfMetresUpIsNotDrivenInto(t *testing.T) {
-	// a floor slab 150 above the character's feet, at the old point: the vehicle's body would be in it
-	o := placeOps(t, piecesSQL(7001, []testPiece{{"Sardaukar_Floor", 900, 200, 450, 0}}))
+	// a floor slab 150 above the character's feet, at the first spot (10 m ahead): the vehicle's body would be in it
+	o := placeOps(t, piecesSQL(7001, []testPiece{{"Sardaukar_Floor", 100, 1200, 450, 0}}))
 	id, r := spawn(t, o, Args{"class": "Sandbike", "template": "T0"})
 	x, y, z := xyz(t, o, id)
-	if math.Abs(x-900) < 256+350 && math.Abs(y-200) < 256+350 {
+	if math.Abs(x-100) < 256+350 && math.Abs(y-1200) < 256+350 {
 		t.Errorf("the sandbike is under or on the floor: %v %v", x, y)
 	}
 	if z != 450 || placeOf(r)["moved"] != true {
@@ -127,11 +142,11 @@ func TestPlaceAClosedRingOfWallsIsNotAPlaceToPutAVehicle(t *testing.T) {
 	if w := placeOf(r)["words"].(string); !strings.Contains(w, "base pieces at the first spot") {
 		t.Errorf("words: %s", w)
 	}
-	// with a gap in the ring there is a way out and the old point is fine
-	o = placeOps(t, piecesSQL(7001, ps[:12]))
+	// with a gap in the ring on the side the character faces there is a way out and the spot ahead is fine
+	o = placeOps(t, piecesSQL(7001, ps[12:]))
 	id, r = spawn(t, o, Args{"class": "Buggy", "template": "T0"})
-	if x, y, _ = xyz(t, o, id); x != 900 || y != 200 {
-		t.Errorf("a ring with a gap of half its length: %v %v (%v)", x, y, placeOf(r))
+	if x, y, _ = xyz(t, o, id); math.Abs(x-100) > 1e-6 || math.Abs(y-1200) > 1e-6 {
+		t.Errorf("a ring open on the side the character faces: %v %v (%v)", x, y, placeOf(r))
 	}
 }
 
@@ -164,7 +179,7 @@ func TestPlaceBiggerVehiclesKeepMoreClearance(t *testing.T) {
 	}
 }
 
-func TestPlaceAnotherVehicleAtTheOldPointIsAvoided(t *testing.T) {
+func TestPlaceAnotherVehicleAtTheFirstSpotIsAvoided(t *testing.T) {
 	o := placeOps(t, "")
 	first, _ := spawn(t, o, Args{"class": "Sandbike", "template": "T0"})
 	second, r := spawn(t, o, Args{"class": "Buggy", "template": "T0"})
@@ -180,7 +195,7 @@ func TestPlaceAnotherVehicleAtTheOldPointIsAvoided(t *testing.T) {
 	o = placeOps(t, `insert into actors(id,class,map,location_x,location_y,location_z,state) values (590,'/Game/Dune/Systems/Vehicles/Blueprints/GroundVehicles/BP_Buggy_CHOAM.BP_Buggy_CHOAM_C','HaggaBasin',900,200,450,2);
 		insert into vehicles(id) values (590);`)
 	id, _ := spawn(t, o, Args{"class": "Buggy", "template": "T0"})
-	if x, y, _ := xyz(t, o, id); x != 900 || y != 200 {
+	if x, y, _ := xyz(t, o, id); math.Abs(x-100) > 1e-6 || math.Abs(y-1200) > 1e-6 {
 		t.Errorf("a stored vehicle keeps only the place it was last in: %v %v", x, y)
 	}
 }
