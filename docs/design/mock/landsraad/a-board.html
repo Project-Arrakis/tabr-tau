@@ -239,6 +239,9 @@ a.tile .now{display:none;position:absolute;top:8px;right:8px;padding:0 8px;borde
 .btnp{background:var(--c-fill);color:var(--c-on-fill);border-color:var(--c-spice)}
 .acts{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-top:10px;border-top:1px dashed var(--c-hair)}
 .acts .qa{min-height:36px}
+/* quick-action buttons: one width per kind, so Fill, Complete and Reopen line up from row to row */
+.c-qa .qa{width:6rem}
+.acts .qa,.actbar .actrow .qa{width:8.5rem}
 .tc{font:600 var(--t-xs) var(--t-display);background:transparent;cursor:pointer;height:auto;min-height:46px;padding:4px 2px;gap:1px;align-content:center;text-align:center}
 .tc:hover{border-color:var(--c-spice)}
 .tc:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
@@ -395,12 +398,12 @@ a.tile .now{display:none;position:absolute;top:8px;right:8px;padding:0 8px;borde
 .hist td.n{font-variant-numeric:tabular-nums}
 /* between a phone and a wide desktop the row is two lines tall: faction status sits under the tiers, the quick actions and the chevron keep their columns */
 @media (min-width:901px){
-  .rowhead,.sum{grid-template-columns:8.5rem 10rem minmax(0,1fr) 9.5rem 1.6rem}
+  .rowhead,.sum{grid-template-columns:8.5rem 10rem minmax(0,1fr) 12.5rem 1.6rem}
   .sum .c-house{grid-column:1;grid-row:1/3}.sum .c-loc{grid-column:2;grid-row:1/3}.sum .c-my{grid-column:3;grid-row:1}.sum .c-hs{grid-column:3;grid-row:2}.sum .c-qa{grid-column:4;grid-row:1/3}.sum .chev{grid-column:5;grid-row:1/3}
   .rowhead [data-col="status"]{grid-column:3;grid-row:2}
   .rowhead .hend{grid-column:4/span 2}
 }
-@media (min-width:1200px){.rowhead,.sum{grid-template-columns:9.5rem 13rem minmax(0,1fr) 9.5rem 1.6rem}}
+@media (min-width:1200px){.rowhead,.sum{grid-template-columns:9.5rem 13rem minmax(0,1fr) 12.5rem 1.6rem}}
 @media (max-width:900px){
   .rowhead{display:flex;flex-wrap:wrap;gap:2px 14px;padding:0 10px 6px;align-items:center}
   .hc3{display:contents}
@@ -412,6 +415,7 @@ a.tile .now{display:none;position:absolute;top:8px;right:8px;padding:0 8px;borde
   .more{grid-template-columns:1fr}
   .c-qa{grid-area:a;justify-content:flex-start;flex-wrap:wrap}
   .qa{min-height:44px;padding:0 14px}
+  .c-qa .qa{width:6.5rem}
   .acts .qa{min-height:44px}
   .tc{min-height:56px}
   .mt{min-height:44px;margin:-14px 0;padding:0 3px}
