@@ -474,6 +474,19 @@ details.about .abt b{color:var(--c-text)}
   details.about>summary{min-height:40px}
   .stack{height:20px;border-radius:10px}
 }
+/* phones and small tablets: every control has a 44 px hit area (review fix) */
+@media (max-width:900px){
+  .seg span,.btnl span,.btnr,.sorth,.chk,.ctl select,.actbar select,.tctl select,.undo,.qa,.linkb{min-height:44px}
+  details>summary,details.about>summary,.tdp>summary{min-height:44px}
+  .seg span{min-width:44px;justify-content:center}
+  .sorth{padding:0 6px}
+  .undoq::after{inset:-12px -6px}
+  .cw .pick{transform:scale(1.84);transform-origin:center}
+  .stack a::before{content:"";position:absolute;inset:-12px 0}
+  .mt{min-width:44px}
+  .meter i{width:32px;height:14px}.meter i.top{width:36px}
+  .meter i.top.on::after{inset:-1px 0 0;line-height:14px}
+}
 </style>
 </head>
 <body>
