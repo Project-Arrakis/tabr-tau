@@ -40,19 +40,23 @@ func TestImportRefusesValuesOutOfRange(t *testing.T) {
 		{"two items in one slot", func() []byte {
 			return editFile(t, good, func(tb map[string][]map[string]any) { rowWhere(tb, "items", "id", 9002)["position_index"] = jnum(0) })
 		}, "slot 0 of inventory 7001 already holds another item"},
-		{"a slot at the end of the inventory", item(func(r map[string]any) { r["position_index"] = jnum(20) }), "slot 20 is outside inventory 7001, which has 20 slots"},
-		{"a slot far outside", item(func(r map[string]any) { r["position_index"] = num("9000000000000000000") }), "outside inventory 7001"},
+		{"a slot far outside", item(func(r map[string]any) { r["position_index"] = num("9000000000000000000") }), "above the highest slot allowed"},
 		{"a slot far outside an inventory with no slot count", func() []byte {
 			return editFile(t, good, func(tb map[string][]map[string]any) {
 				rowWhere(tb, "inventories", "id", 7001)["max_item_count"] = nil
 				rowWhere(tb, "items", "id", 9001)["position_index"] = jnum(basefile.MaxSlot + 1)
 			})
 		}, "above the highest slot allowed"},
-		{"a negative slot count", func() []byte {
+		{"a slot count below the one the game writes for none", func() []byte {
 			return editFile(t, good, func(tb map[string][]map[string]any) {
-				rowWhere(tb, "inventories", "id", 7001)["max_item_count"] = jnum(-1)
+				rowWhere(tb, "inventories", "id", 7001)["max_item_count"] = jnum(-2)
 			})
-		}, "slot count of -1"},
+		}, "slot count of -2"},
+		{"a slot count that is huge", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) {
+				rowWhere(tb, "inventories", "id", 7001)["max_item_count"] = num("9000000000000000000")
+			})
+		}, "which is not a count"},
 		{"a piece with a health of 1e300", func() []byte {
 			return editFile(t, good, func(tb map[string][]map[string]any) { tb["building_instances"][0]["health"] = num("1e300") })
 		}, "the health of this building piece is 1e+300"},
@@ -105,6 +109,7 @@ func TestImportAcceptsValuesAtTheLimits(t *testing.T) {
 	edge := editFile(t, good, func(tb map[string][]map[string]any) {
 		r := rowWhere(tb, "items", "id", 9001)
 		r["template_id"], r["stack_size"], r["position_index"] = "SteelBar", jnum(500), jnum(19) // the last slot of 20, a full stack
+		rowWhere(tb, "items", "id", 9002)["position_index"] = jnum(basefile.MaxSlot)
 		tb["building_instances"][0]["health"] = json.Number("1000000")
 		tb["building_instances"][1]["health"] = json.Number("0")
 		rowWhere(tb, "placeables", "id", 701)["health"] = json.Number("1000000")
@@ -174,5 +179,35 @@ func TestRepairBaseNeverCopiesAHealthOutOfRange(t *testing.T) {
 	pl := healths(t, o, `select health h from placeables order by id`)
 	if pl[0] != 1250 || pl[1] != 1250 || pl[2] != 1e300 || pl[3] != 40 {
 		t.Fatalf("placeable healths %v", pl)
+	}
+}
+
+// Regression (#613, found on a real save): the game writes max_item_count = -1 for most inventories (3,783 of about 4,200 in the save it was found on; 233 are NULL, 22 are 0, the rest
+// 5 to 1,000), meaning no slot count is stated, and its own character inventory holds a few items a little past its count. A base with inventories like that exports as a console
+// file and imports again: none of these is a reason to refuse it.
+func TestExportAndImportOfABaseWhoseInventoriesStateNoSlotCount(t *testing.T) {
+	for _, count := range []string{"-1", "null", "0"} {
+		t.Run("max_item_count "+count, func(t *testing.T) {
+			world := "update inventories set max_item_count=" + count + " where id in (7001,7002);"
+			o := standingOps(t, world)
+			out, err := o.ExportStandingBaseConsole(601, exportAt, "test-1.2.3")
+			if err != nil {
+				t.Fatalf("console export: %v", err)
+			}
+			if _, err := o.PreviewBaseImport(out.Data); err != nil {
+				t.Fatalf("the console file does not import: %v", err)
+			}
+			ed := exportedFile(t, world)
+			t.Run("editor file", func(t *testing.T) { mustImport(t, target(t), ed) })
+		})
+	}
+	// items past the end of a stated count are the game's own (the character's gear), and are allowed
+	o := standingOps(t, "update inventories set max_item_count=1 where id=7001;")
+	out, err := o.ExportStandingBaseConsole(601, exportAt, "test-1.2.3")
+	if err != nil {
+		t.Fatalf("an item past its inventory's slot count: %v", err)
+	}
+	if _, err := o.PreviewBaseImport(out.Data); err != nil {
+		t.Fatalf("an item past its inventory's slot count: %v", err)
 	}
 }

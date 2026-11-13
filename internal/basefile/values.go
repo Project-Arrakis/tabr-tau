@@ -12,8 +12,8 @@ import (
 
 // The values of a base file (#613, audit D3-1). Verify (load.go) checks the ids and what they point at; this checks the numbers, which a hand-edited or foreign file can set to
 // anything: a stack of 9e18, two items in one slot, a health of 1e300 that the repair functions would copy onto every piece of the type. The rules are the ones the editor's own
-// give paths keep (a slot holds no more than the item's stack size, an inventory holds the slots its max_item_count says, one item to a slot), and a ceiling for the figures the
-// game's tables do not give us per item.
+// give paths keep (a slot holds no more than the item's stack size, one item to a slot), and a ceiling for the figures the game's tables do not give us per item. Every rule was
+// run over the whole of a real save (30,627 items, 3,457 pieces, 230 placeables): none of them refuses anything the game wrote.
 
 // The ceilings. The real figures seen are far below them (a foundation 7,000, a placeable 2,500, gear durability 100); the ceilings are there to refuse the absurd, not to model
 // the game. A stack of an item the catalog does not know is held to the largest stack the catalog knows (100,000).
@@ -24,8 +24,11 @@ const (
 	MaxItemDurability = 1_000_000.0
 	// MaxUnknownStack is the most of one item the file may put in a slot when the catalog does not know the item.
 	MaxUnknownStack = 100_000
-	// MaxSlot is the highest slot an item may be in when its inventory states no slot count (0 or NULL means no limit in the game's own rows).
+	// MaxSlot is the highest slot an item may be in when its inventory states no slot count, and the largest slot count an inventory may state (the largest the game's own saves hold
+	// is 1,000).
 	MaxSlot = 100_000
+	// NoSlotCount is the value the game writes in max_item_count when no slot count is stated (as do 0 and NULL).
+	NoSlotCount = -1
 )
 
 // verifyValues refuses a file whose numbers are out of range. It runs after the ids and names have been checked, so every template and building type it prints is a plain name.
@@ -51,14 +54,15 @@ func (b *Base) verifyValues() error {
 	// items: the stack, the slot, the durability
 	inv := b.Rows["inventories"]
 	ic, mc := inv.Col("id"), inv.Col("max_item_count")
-	slots := make(map[int64]int64, len(inv.R)) // inventory id -> its slot count, 0 for none stated
+	// The game's own saves hold -1 (the large majority of inventories), 0 or NULL where no slot count is stated; those are all "no limit stated". Anything below -1 or above MaxSlot is
+	// not a count. The slot an item is in is NOT held to the count: a real save holds a few items a little past the end of their inventory's count (the character's own gear), so a
+	// slot is checked for being one to an item and below MaxSlot only.
 	for _, r := range inv.R {
 		id, _ := r[ic].(int64)
 		n, _ := r[mc].(int64)
-		if n < 0 {
+		if n < NoSlotCount || n > MaxSlot {
 			return fmt.Errorf("inventory %d has a slot count of %d, which is not a count", id, n)
 		}
-		slots[id] = n
 	}
 	it := b.Rows["items"]
 	tc, sc, pc, ivc, stc := it.Col("template_id"), it.Col("stack_size"), it.Col("position_index"), it.Col("inventory_id"), it.Col("stats")
@@ -72,9 +76,7 @@ func (b *Base) verifyValues() error {
 		if stack > limit {
 			return fmt.Errorf("row %d of items: a stack of %d %s is more than one slot holds (%d)", i+1, stack, clip(tpl), limit)
 		}
-		if n := slots[iv]; n > 0 && pos >= n {
-			return fmt.Errorf("row %d of items: slot %d is outside inventory %d, which has %d slots", i+1, pos, iv, n)
-		} else if pos > MaxSlot {
+		if pos > MaxSlot {
 			return fmt.Errorf("row %d of items: slot %d is above the highest slot allowed (%d)", i+1, pos, MaxSlot)
 		}
 		k := [2]int64{iv, pos}
