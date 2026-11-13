@@ -23,6 +23,24 @@ Points of the issues:
 * (c) Mouse-over / pop-up with the house's location (#599). A and C: pop-up with a schematic map and the spot; B: the map itself with dots.
 * (d) Per-term history (#440). A: a closed card with a list per term; C: a tab per term.
 
+## Kept decisions (mock-up A)
+
+Decisions taken on this page. A change to the page keeps all of them; the page is checked against this list at 390 and 1280 px before and after every revision.
+
+* Houses are always alphabetical by default (and break ties in every sort). Every column heading sorts: house, location, state, tiers reached, next tier, faction status.
+* Each row has a house symbol (crest tile).
+* The bar above the list has: Show (All, What is left, Not started, In progress, Finished), House (Any, Open, Taken), a By region grouping button, Expand all and Collapse all, and Jump to house with the "N of 25 houses shown" count at the right. There is no Find box.
+* Three glance cards and a proportional bar (green Finished, blue In progress, dashed Not started), with tooltips; the cards and the bar segments filter the list when clicked.
+* Reward tiers are clickable in the collapsed meter and in the opened row: cumulative, click the highest reached tier again to remove it, a pending state with Undo.
+* Per house: Fill faction goal, Complete and Reopen in the opened row; Fill and Complete (Reopen once taken) on the collapsed row.
+* A faction drop-down that starts on your own faction and lets any faction be chosen. The bulk bar has Choose column, Choose all houses, Clear the choice, Fill chosen, Complete chosen and Reopen chosen. There is no "also set faction progress" checkbox.
+* Fill changes your contribution and tiers; Complete takes the house for the chosen faction; Fill faction goal does both.
+* "Term and decrees" panel, closed by default: term, reigning faction, active and elected decree, the Active decree and Reigning faction drop-downs with Apply, the decree pool with a Set flag button per row, and writes marks.
+* Location: hover shows a quick peek; a click opens the map dialog with Open in Saved map. No "open?" mark on the location.
+* House name card (experimental), from the symbol and the name together.
+* Long explanations live only in closed "About ..." disclosures; the notes on the page are one short line each.
+* A pending change shows as a row tint and a compact chip in the State cell. The text "board place" does not appear.
+
 ## Actions on the board (mock-up A, refs #599, #440, #609)
 
 Everything on this page is sample data, and **the buttons change only what the page shows**: nothing is saved, and a reload brings the sample back. The page keeps a small made-up state per house, so the tiles, the stacked bar, the counts, the facts and the sort order follow every click. In the real editor these controls would write to the save, which is why each carries a **writes** mark.
