@@ -16,6 +16,36 @@ func TestGameTableDatasetsHaveANotice(t *testing.T) {
 	}
 }
 
+// Every file of data taken from the game that is embedded in the executable is named in the notices (audit 2026-11-13, D11-3).
+// The list is checked against the disk, so a game-derived file added without an entry has to be added to this list and to the notices.
+func TestEveryEmbeddedGameDataFileHasANotice(t *testing.T) {
+	for _, file := range []string{
+		"internal/catalog/stacks.json",
+		"internal/catalog/volumes.json",
+		"internal/catalog/customization_unlocks.json",
+		"kit/gamedata/vehicles/vehicles.json",
+		"kit/gamedata/regions/hagga-regions.json",
+		"kit/gamedata/fillables/item_table_fillables.json",
+		"internal/ops/place-names.json",
+		"internal/ops/place-arrivals.json",
+		"internal/ops/deep-desert-taxis.json",
+		"kit/schema/schema.sql",
+		"kit/schema/schema_map_names.sql",
+	} {
+		if _, err := os.Stat("../../" + file); err != nil {
+			t.Errorf("%s is listed here as embedded game data but is not on disk: %v", file, err)
+		}
+		if !strings.Contains(Text, file) {
+			t.Errorf("%s holds data taken from the game but THIRD-PARTY-NOTICES.md does not name it", file)
+		}
+	}
+	for _, must := range []string{"DT_StaticLocationData", "ST_Localization_Dialogue", "DeepDesert_1_Travel", "DT_ItemTableFillables", "select sql from sqlite_master", "not affiliated with or endorsed by Funcom"} {
+		if !strings.Contains(Text, must) {
+			t.Errorf("expected %q in the notices", must)
+		}
+	}
+}
+
 // Every module the project depends on must have its licence reproduced, so adding a dependency without its notice
 // fails here.
 func TestEveryModuleHasItsLicenceText(t *testing.T) {

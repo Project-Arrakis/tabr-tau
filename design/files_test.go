@@ -359,7 +359,28 @@ func TestNoticeCarriesTheThirdPartyWorks(t *testing.T) {
 
 var imageExts = []string{".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".bmp", ".tif", ".tiff", ".avif", ".heic", ".psd", ".dds", ".tga", ".svgz"}
 
-var privateWords = regexp.MustCompile(`(?i)\b(trainer|operator|memory|companion|funcom's art)\b|docs/design|c:\\users|/users/|/home/|projrects|\.claude|work/contrast|review script|not in this repository`)
+var privateWords = regexp.MustCompile(`(?i)funcom's art|docs/design|c:\\users|/users/|/home/|projrects|\.claude|work/contrast|review script|not in this repository`)
+
+// privateTokens are words that belong to the maintainers' private context, kept as SHA-256 digests of the lower-case word so that this file does not spell them out.
+var privateTokens = map[string]bool{
+	"06ea17a8981d25b0315ff17bd1ebad3d95c15a3f8b764eaadb93612d9b61a54e": true,
+	"06e55b633481f7bb072957eabcf110c972e86691c3cfedabe088024bffe42f23": true,
+	"c064fbca9d9de8dd9bb0624984403b28d0da807a69365d4f7fb09123ecb0c405": true,
+	"c989edf18246e9c8cdd647369a4835f7dd9a0f47b8e755d37b16431fc5035981": true,
+}
+
+var wordRE = regexp.MustCompile(`[A-Za-z][A-Za-z0-9]*`)
+
+func privateToken(s string) string {
+	for _, w := range wordRE.FindAllString(s, -1) {
+		sum := sha256.Sum256([]byte(strings.ToLower(w)))
+		if privateTokens[hex.EncodeToString(sum[:])] {
+			return w
+		}
+	}
+	return ""
+}
+
 var issueRE = regexp.MustCompile(`(?:^|[\s(])#(\d{2,5})\b`)
 
 // issues of this repository that the module may name; any other number needs a line here, put there on purpose.
@@ -384,7 +405,11 @@ func TestPublicSafety(t *testing.T) {
 			continue
 		}
 		s := readFile(t, f)
-		if m := privateWords.FindString(s); m != "" {
+		m := privateWords.FindString(s)
+		if m == "" {
+			m = privateToken(s)
+		}
+		if m != "" {
 			t.Errorf("%s contains %q, which belongs to private context", f, m)
 		}
 		if strings.HasSuffix(f, ".css") || strings.HasSuffix(f, ".svg") {

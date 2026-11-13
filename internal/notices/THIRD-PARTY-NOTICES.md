@@ -500,6 +500,20 @@ affiliated with or endorsed by Funcom; the game, its item tables and its names b
 editor can write values the game itself accepts. If you hold the rights and want either file changed or removed, open an issue on this
 repository.
 
+## Place names, arrival points, taxi points, fillable items and the save's table layout: taken from the game's own data
+
+Five more groups of embedded files hold data that comes from the game itself and not from the Dune Docker console. They are embedded in the executable.
+
+- `internal/ops/place-names.json` (added in #500, 2026-10-30): for 14 location keys, the name of the place the key stands for (a trading post or, for three keys, a Deep Desert taxi service point). The names are the game's own short text for places, read from the game's tables `DT_StaticLocationData` (which keys are trading posts) and `ST_Localization_Dialogue` (the names the ornithopter pilot's destination list shows); the three Deep Desert names are the editor's own words, marked `derived` in the file. It holds four place names of the game's text, location keys and a kind; nothing else of the game's text.
+- `internal/ops/place-arrivals.json` (added in #515, 2026-10-30): for six places (four trading posts and the hubs Arrakeen and Harko Village), the point where a trip arrives, in game units. The numbers come from the game's own level data (the destination placement the pilot's trip uses). It holds numbers and place names only.
+- `internal/ops/deep-desert-taxis.json` (added in #521, 2026-10-30): for the three Deep Desert taxi service points, the grid cell, the marker position and the standing position beside it, from the game's level `DeepDesert_1_Travel`. It holds location keys and numbers only.
+- `kit/gamedata/fillables/item_table_fillables.json` (added in #551): the game's table of fillable items, `DT_ItemTableFillables`: 58 rows of an item template id, the most it holds, the amount a new item starts with, the liquid it takes and whether it is a container. It holds names (the game's own identifiers) and whole numbers; no artwork, no text, no save. It was read from the installed game's content files, read-only, on 2026-10-25 (game build 1.5.15.x).
+- `kit/schema/schema.sql` and `kit/schema/schema_map_names.sql` (the first extracted on 2026-09-30, the second on 2026-11-12; embedded since #563 and #588): the CREATE statements of the tables, indexes and trigger of the game's single-player save database, in the layout before and after the game's early-November 2026 update, taken with `select sql from sqlite_master` from real single-player saves. They are structure only: table, column and index names and types, no row and no value of any save (a test checks that there is no `INSERT`).
+
+What can be said from this repository: `place-names.json` and `deep-desert-taxis.json` are made by this project's tools (`tools/placenamesgen`, `tools/deepdeserttaxisgen`) from JSON dumps of the game's tables and level, read from the installed game read-only; `place-arrivals.json` is a committed file that no tool writes; the fillables file is pinned by a test against its canonical form. Nothing in the game is changed by reading its data. `internal/catalog/PROVENANCE.md` and `kit/PROVENANCE.md` hold the same facts next to the files.
+
+What the repository does not record, and this notice therefore does not state: the game build of the three files under `internal/ops/`, the tool and the files used to read the game's tables, and any licence or terms-of-service position on using the data. This project is unofficial and not affiliated with or endorsed by Funcom; the game, its tables, its names and its text belong to their owners, and the files are included only so the editor can show and write values the game itself accepts. If you hold the rights and want any of these files changed or removed, open an issue on this repository.
+
 ## Default values of the single-player settings: dune-awakening-selfhost-docker (RedBlink)
 
 `internal/config/defaults.go` lists, for the 45 keys of `[/Script/DuneSandbox.UserServerCustomSettings]` in `ServerCustomSettings.ini`, the default value, the allowed
