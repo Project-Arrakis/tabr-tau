@@ -1257,6 +1257,12 @@ details.about .abt b{color:var(--c-text)}
       return c || x.name.localeCompare(y.name);
     });
     list.forEach(function (r, i) { r.el.style.order = i; });
+    // the document order follows the visible order, so the Tab key walks the rows top to bottom
+    var ul = list[0].el.parentNode, now = [].slice.call(ul.children), ae = document.activeElement;
+    if (list.some(function (r, i) { return now[i] !== r.el; })) {
+      list.forEach(function (r) { ul.appendChild(r.el); });
+      if (ae && ae !== document.body && document.contains(ae) && document.activeElement !== ae) ae.focus({ preventScroll: true });
+    }
   }
   function setSort(c, d) {
     m.setAttribute('data-sort', c); m.setAttribute('data-dir', d);
