@@ -83,35 +83,33 @@ func TestFillFactionGoalRefusalsCarryTheirCodesAndWriteNothing(t *testing.T) {
 	}
 }
 
-// D1-1 of the delta audit (#611): the character (Harkonnen, 2) asks for a house for Atreides (1). The route refuses with a bad-argument answer that says why; the file is byte for byte as
-// it was, no backup was made, nothing waits in the queue and no line was written to the write log.
-func TestFillFactionGoalForAFactionTheCharacterIsNotInIsRefusedAndTheSaveIsUntouched(t *testing.T) {
+// D1-1 of the delta audit (#611): the character (Harkonnen, 2) fills house 175 for Atreides (1). The faction's progress and win are written (one edit, backup, log line); the character's
+// own rows are exactly as they were (1,300 under faction 2, no row under faction 1) and the answer says the personal row was skipped.
+func TestFillFactionGoalForAFactionTheCharacterIsNotInWritesTheWinAndNoPersonalRow(t *testing.T) {
 	s := New(testsave.PlayerWithSQL(t, landsraadChosenWorld), config.Dir{Path: t.TempDir()})
 	dir := t.TempDir()
 	s.KeepPendingEdits(dir)
-	before, err := os.ReadFile(s.Save.Path)
+	w := postEdit(t, s, "/api/landsraad/faction-goal", `{"task_id":175,"faction_id":1,"term_id":7}`)
+	m := decodeBody(t, w)
+	if w.Code != 200 || m["outcome"] != "written" || m["changed"] != float64(1) || m["personal_skipped"] != true || m["contribution_changed"] != false || m["faction"] != "Atreides" {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	if h := houseRows(t, s.Save.Path, 175, 1); h.completed != 1 || h.winner != 1 || !h.hasProgress || h.progress != 4000 {
+		t.Fatalf("won by Atreides with the progress at the goal: %+v", h)
+	}
+	if got := landsraadMineAmounts(t, s.Save.Path); len(got) != 2 || got[1] != 1300 || got[50] != 3000 {
+		t.Fatalf("no contribution row was added or changed: %v", got)
+	}
+	chk, err := save.Open(s.Save.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	w := postEdit(t, s, "/api/landsraad/faction-goal", `{"task_id":175,"faction_id":1,"term_id":7}`)
-	m := decodeBody(t, w)
-	if msg, _ := m["error"].(string); w.Code != 422 || m["code"] != "bad_argument" || m["outcome"] != nil || !strings.Contains(msg, "not in Atreides") || !strings.Contains(msg, "nothing was changed") {
-		t.Fatalf("%d %s", w.Code, w.Body.String())
+	defer chk.Close()
+	if n, _ := chk.One(`select count(*) n from landsraad_task_player_contributions where faction_id=1`); n["n"].(int64) != 1 { // the simulated guild's row of the fixture only
+		t.Fatalf("a row of the character's under Atreides: %v", n)
 	}
-	if after, _ := os.ReadFile(s.Save.Path); string(after) != string(before) {
-		t.Fatal("the save file was written")
-	}
-	if got := landsraadMineAmounts(t, s.Save.Path); len(got) != 2 || got[1] != 1300 || got[50] != 3000 {
-		t.Fatalf("no contribution row was added: %v", got)
-	}
-	if h := houseRows(t, s.Save.Path, 175, 1); h.completed != 0 || h.hasWinner || h.hasProgress {
-		t.Fatalf("the house is as it was: %+v", h)
-	}
-	if len(s.Save.Backups()) != 0 || s.Save.Dirty() || len(s.Save.Pending()) != 0 {
-		t.Fatal("a refusal made a backup or queued an edit")
-	}
-	if b, err := os.ReadFile(dir + string(os.PathSeparator) + "write-log.jsonl"); err == nil && len(b) != 0 {
-		t.Fatalf("a line was written to the write log: %s", b)
+	if len(s.Save.Backups()) == 0 {
+		t.Fatal("a backup was made before the write")
 	}
 }
 

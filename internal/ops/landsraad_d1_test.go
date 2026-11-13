@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-
-	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 )
 
 // Group D1 of the delta audit (#611), on the world of landsraad_goal_test.go: the character (player 1) is in Harkonnen (2); Atreides is 1.
@@ -33,57 +31,105 @@ func goalTables(t *testing.T, o *Ops) string {
 	return b.String()
 }
 
-// D1-1: a faction the character is not in is refused, with a clear message, and the save is not touched.
-func TestFillFactionGoalRefusesAFactionTheCharacterIsNotInAndWritesNothing(t *testing.T) {
+// D1-1: for a faction the character is not in, Fill faction goal writes the faction's progress and the win, and no row of the character's (the character's own faction is unchanged,
+// see landsraad_goal_test.go). The result says the personal row was skipped.
+func TestFillFactionGoalForAnotherFactionWritesTheFactionsWinAndNoPersonalRow(t *testing.T) {
 	o := goalOps(t)
 	before := goalTables(t, o)
 	got, err := o.FillFactionGoal(goalArgs(176, 1)) // the character is in Harkonnen; 1 is Atreides
-	if err == nil || !errors.Is(err, apierr.ErrBadArgument) {
-		t.Fatalf("want a bad-argument refusal, got %v, %v", got, err)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if msg := err.Error(); !strings.Contains(msg, "not in Atreides") || !strings.Contains(msg, "nothing was changed") {
-		t.Fatalf("the message says who and that nothing changed: %s", msg)
+	m := got.(map[string]any)
+	if m["changed"].(int64) != 1 || m["faction"] != "Atreides" || m["progress_changed"] != true || m["completed_changed"] != true || m["contribution_changed"] != false ||
+		m["personal_skipped"] != true || m["has_character"] != true {
+		t.Fatalf("answer: %v", m)
 	}
-	if after := goalTables(t, o); after != before {
-		t.Fatalf("a refusal leaves the save as it was:\n%s\n--- after\n%s", before, after)
+	if h := houseRow(t, o, 176); h["c"].(int64) != 1 || h["w"].(int64) != 1 || h["ct"].(int64) != 150 {
+		t.Fatalf("won by the chosen faction at the play clock: %v", h)
 	}
-	if o.S.Dirty() {
-		t.Fatal("a refusal queued or made a write")
+	if v, _ := progress(t, o, 1, 176); v != 4000 {
+		t.Fatalf("the chosen faction's progress is the goal: %v", v)
+	}
+	if _, has := progress(t, o, 2, 176); has {
+		t.Fatal("the character's own faction got a progress row")
+	}
+	// the whole before/after: only the house and the faction's progress row changed; the personal and reward tables are as they were
+	after := goalTables(t, o)
+	for _, q := range []string{"landsraad_task_player_contributions", "landsraad_house_rewards"} {
+		if section(before, q) != section(after, q) {
+			t.Fatalf("%s changed:\n%s\n--- after\n%s", q, section(before, q), section(after, q))
+		}
 	}
 	if n := mustOne(t, o, `select count(*) n from landsraad_task_player_contributions where task_id=176`); n["n"].(int64) != 0 {
 		t.Fatal("no contribution row under the other faction")
 	}
 }
 
-// The case the audit reproduced: house 175 has the character's 1,300 under faction 2; a fill for faction 1 must not add the row (1, 1, 6000) beside it.
+// the section of goalTables for one table: the lines from its query up to the next query
+func section(text, table string) string {
+	i := strings.Index(text, "from "+table)
+	if i < 0 {
+		return ""
+	}
+	rest := text[i:]
+	if j := strings.Index(rest[1:], "select "); j >= 0 {
+		return rest[:j+1]
+	}
+	return rest
+}
+
+// The case the audit reproduced: house 175 has the character's 1,300 under faction 2; a fill for faction 1 must not add the row (1, 1, 175, 6000) beside it.
 func TestFillFactionGoalForAnotherFactionDoesNotAddAContributionRowNextToTheCharactersOwn(t *testing.T) {
 	o := goalOps(t)
-	if _, err := o.FillFactionGoal(goalArgs(175, 1)); err == nil {
-		t.Fatal("refused")
+	if _, err := o.FillFactionGoal(goalArgs(175, 1)); err != nil {
+		t.Fatal(err)
 	}
 	rows, _ := o.S.Query(`select faction_id f, amount a from landsraad_task_player_contributions where player_id=1 and task_id=175`)
 	if len(rows) != 1 || rows[0]["f"].(int64) != 2 || rows[0]["a"].(float64) != 1300 {
 		t.Fatalf("the character's rows are as they were: %v", rows)
 	}
+	if h := houseRow(t, o, 175); h["w"].(int64) != 1 {
+		t.Fatalf("the faction still won the house: %v", h)
+	}
+	// and a second run for the character's own faction then writes its row, as before
+	if _, err := o.FillFactionGoal(goalArgs(175, 2)); err != nil {
+		t.Fatal(err)
+	}
+	if c := contribution(t, o, 1, 175); c != 6000 {
+		t.Fatalf("own faction: %v", c)
+	}
 }
 
-func TestFillFactionGoalRefusesAFactionForACharacterInNoFaction(t *testing.T) {
+func TestFillFactionGoalForACharacterInNoFactionWritesTheFactionPartAndNoPersonalRow(t *testing.T) {
 	o := goalOps(t)
 	setup(t, o, `delete from player_faction`)
 	before := goalTables(t, o)
-	if _, err := o.FillFactionGoal(goalArgs(176, 2)); err == nil || !errors.Is(err, apierr.ErrBadArgument) {
-		t.Fatalf("a Neutral character is in no faction: %v", err)
+	got, err := o.FillFactionGoal(goalArgs(176, 2))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if goalTables(t, o) != before {
-		t.Fatal("nothing is written")
+	if m := got.(map[string]any); m["personal_skipped"] != true || m["completed_changed"] != true || m["contribution_changed"] != false {
+		t.Fatalf("answer: %v", m)
+	}
+	after := goalTables(t, o)
+	if section(before, "landsraad_task_player_contributions") != section(after, "landsraad_task_player_contributions") {
+		t.Fatal("a Neutral character gets no personal row")
+	}
+	if h := houseRow(t, o, 176); h["w"].(int64) != 2 {
+		t.Fatalf("the house is won: %v", h)
 	}
 }
 
-// The character's own faction is still filled, and a save with no character still gets the faction part for any faction (no personal row is written either way).
+// The character's own faction is filled as before, personal row included.
 func TestFillFactionGoalForTheCharactersOwnFactionStillWritesTheRow(t *testing.T) {
 	o := goalOps(t)
-	if _, err := o.FillFactionGoal(goalArgs(176, 2)); err != nil {
+	got, err := o.FillFactionGoal(goalArgs(176, 2))
+	if err != nil {
 		t.Fatal(err)
+	}
+	if m := got.(map[string]any); m["personal_skipped"] != false || m["contribution_changed"] != true {
+		t.Fatalf("answer: %v", m)
 	}
 	if c := contribution(t, o, 1, 176); c != 6000 {
 		t.Fatalf("own faction: %v", c)
@@ -97,7 +143,7 @@ func TestFillFactionGoalWithNoCharacterStillCompletesForAnyFactionWithoutAPerson
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m := got.(map[string]any); m["has_character"] != false || m["completed_changed"] != true || m["contribution_changed"] != false {
+	if m := got.(map[string]any); m["has_character"] != false || m["completed_changed"] != true || m["contribution_changed"] != false || m["personal_skipped"] != false {
 		t.Fatalf("answer: %v", m)
 	}
 	if n := mustOne(t, o, `select count(*) n from landsraad_task_player_contributions where task_id=176`); n["n"].(int64) != 0 {

@@ -1,5 +1,5 @@
-// Landsraad reads and writes that fail say so (#611): a failed read of the board shows its error and no board, and a Fill faction goal that the editor refuses (a faction the character
-// is not in) shows the editor's reason and no success line.
+// Landsraad page of #611: a failed read of the board shows its error and no board; Fill faction goal for a faction the character is not in says that the faction won and
+// that the personal contribution was not recorded, and the faction list starts on the character's own faction.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { boot, closeAll } from './boot.mjs';
@@ -19,8 +19,7 @@ test('a Landsraad read that fails shows its error in place of the board, with a 
   assert.ok(!/This save has no Landsraad tasks/.test(main.textContent), 'it does not read as an empty board');
 });
 
-test('Fill faction goal for a faction the character is not in shows the editor\'s reason and no success line', async () => {
-  const msg = 'your character is not in Atreides, so nothing was changed: Fill faction goal records your own contribution under the faction, and the editor writes no contribution row of yours for a faction your character is not in.';
+test('Fill faction goal for a faction the character is not in says the faction won and that the personal contribution was not recorded', async () => {
   const board = {
     term: { term_id: 7, start_time: 1, end_time: 2, reigning_faction_id: 1, active_decree_id: 1, elected_decree_id: 1 },
     factions: [{ id: 1, name: 'Atreides' }, { id: 2, name: 'Harkonnen' }],
@@ -28,12 +27,17 @@ test('Fill faction goal for a faction the character is not in shows the editor\'
     decrees: [{ id: 1, decree_name: 'Decree A', disabled: 0 }], rotation: [],
     tasks: [{ id: 900, board_index: 0, house_name: 'DA_HouseAlexin', goal_amount: 4000, completed: 0, winning_faction_id: null, completion_time: null, contributions: [], player_contributions: [], my_contribution: 0, my_recorded: false, rewards: [] }],
   };
-  const ui = await boot({ get: { '/api/landsraad': board }, post: { '/api/landsraad/faction-goal': { __fail: msg, __status: 422, __code: 'bad_argument' } } });
+  const answer = { ok: true, changed: 1, noop: false, house: 'Alexin', faction: 'Atreides', tier: 6000, progress_changed: true, completed_changed: true, contribution_changed: false, contribution_before: 0, has_character: true, personal_skipped: true, outcome: 'written' };
+  const ui = await boot({ get: { '/api/landsraad': board }, post: { '/api/landsraad/faction-goal': answer } });
   ui.click('[data-tab="landsraad"]'); await ui.settle();
-  ui.doc.querySelector('#lf').value = '1'; // Atreides, not the character's own faction
+  const sel = ui.doc.querySelector('#lf');
+  assert.equal(sel.value, '2', 'the list starts on the character\'s own faction (Harkonnen)');
+  const note = ui.doc.querySelector('#lsfaceffect').textContent;
+  assert.ok(/own faction also records your contribution/.test(note) && /another faction it records that faction's win and progress and skips your own contribution/.test(note), note);
+  sel.value = '1'; // Atreides, not the character's own faction
   ui.click('[data-act="tfill"][data-id="900"]'); await ui.settle();
   const t = ui.doc.querySelector('#toast').textContent;
-  assert.ok(t.includes('not in Atreides') && t.includes('nothing was changed') && !t.includes('completed'), t);
+  assert.ok(t.includes('Atreides won this house; your own contribution was not recorded because your character is not in Atreides') && !t.includes('your contribution 0'), t);
   const sent = ui.posted.filter((p) => p.path === '/api/landsraad/faction-goal');
   assert.equal(sent.length, 1);
   assert.equal(sent[0].body.faction_id, 1);
