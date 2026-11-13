@@ -11,7 +11,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/vehicles"
 )
 
-// Where a vehicle goes (#480). Create a vehicle, Bring vehicle and Duplicate vehicle all put a vehicle "next to the character": 800 along x and 150 up. Taken blind that point can be
+// Where a vehicle goes (#480). Create a vehicle, Bring vehicle and Duplicate vehicle all put a vehicle "next to the character": it used to be 800 along x and 150 up, and is now 10 m ahead along the facing (#480) and 150 up. Taken blind that point can be
 // inside a base wall, in the ground-floor room of a base, or on another storey. This file chooses the spot by search instead: the old point is the first candidate, then rings of
 // growing radius around the character, and the first candidate with room for the vehicle is taken. Everything it knows comes from the save (the base pieces and placeables, the other
 // vehicles, the land claims); the terrain and the level's own props are not in a save, so a point can still be inside a rock. The design note says what each number rests on.
@@ -78,7 +78,8 @@ func sizeOfActorClass(class any) vehicleSize {
 }
 
 const (
-	placeStartRadius  = 800.0  // the first candidate is the old default: 800 along x
+	placeStartRadius  = 800.0  // the first candidate when the facing is unknown, or the character is in a base: 800 along x
+	placeAheadRadius  = 1000.0 // the first candidate for a ground vehicle outdoors: 10 m ahead, the console's own distance (#480)
 	placeStep         = 400.0  // the rings grow by this much
 	placeMaxRadius    = 8000.0 // the farthest candidate from the character: 80 m
 	placeDrop         = 150.0  // above the character's feet, as before
@@ -506,10 +507,17 @@ func (w *placeWorld) choose(pose charPose, sz vehicleSize, label string) (placem
 			start = math.Atan2(cy-sy/n, cx-sx/n)
 		}
 	}
-	// the first ring and the height. A ground vehicle starts at the old point, 800 along the start direction and 150 above the character's feet (in a base: the ground outside, below).
+	// the first ring and the height. A ground vehicle outdoors starts 10 m ahead along the character's facing (800 along x when the facing is unknown) and 150 above the character's feet (in a base: the ground outside, below).
 	// An aircraft (#540) starts on the console's rule: at least 30 m ahead along the character's facing and at least 7 m above the character's height, so it begins in the air.
 	firstRing := placeStartRadius
 	claimReach := placeClaimReach
+	// A ground vehicle for a character outdoors goes where the console puts it: 10 m ahead along the character's facing (#480). Its height stays the character's feet plus placeDrop: the
+	// console leaves the settling to the game server, and the editor cannot see the terrain.
+	ahead := !sz.Flies && !inBase && pose.HasFacing
+	if ahead {
+		firstRing = placeAheadRadius
+		start = math.Atan2(pose.Fy, pose.Fx)
+	}
 	if sz.Flies {
 		firstRing = math.Max(placeStartRadius, flyingVehicleMinOffset)
 		claimReach += firstRing - placeStartRadius
@@ -535,8 +543,8 @@ func (w *placeWorld) choose(pose charPose, sz vehicleSize, label string) (placem
 		return cz + placeDrop
 	}
 	// what is at the first spot, which is what the person is told was in the way
-	lx, ly, lz := cx+placeStartRadius, cy, cz+placeDrop // the old default point: always east of the character
-	if sz.Flies {
+	lx, ly, lz := cx+placeStartRadius, cy, cz+placeDrop // the old default point: east of the character
+	if sz.Flies || ahead {
 		lx, ly = cx+firstRing*math.Cos(start), cy+firstRing*math.Sin(start)
 		lz = zAt(lx, ly)
 	}

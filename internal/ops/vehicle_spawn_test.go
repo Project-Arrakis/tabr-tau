@@ -342,12 +342,12 @@ func TestPreviewWritesNothingAndTheApplyWritesTheSameRows(t *testing.T) {
 	}
 }
 
-// Place: next to the character by default (the character's map, +800 along x, same y, +150 up, facing as the character does), or where the request says.
+// Place: by default 10 m ahead of the character along its facing, +150 up, facing as the character does, or where the request says.
 func TestSpawnPlacesTheVehicleNextToTheCharacterOrWhereAsked(t *testing.T) {
 	o := spawnOps(t)
 	id, _ := spawn(t, o, Args{"class": "Sandbike", "template": "T0"})
 	a := viewOf(t, o, id).actor
-	if a["map"] != "HaggaBasin" || a["x"] != 900.0 || a["y"] != 200.0 || a["z"] != 450.0 || a["rx"] != 0.0 || a["ry"] != 0.0 {
+	if a["map"] != "HaggaBasin" || !near(a["x"], 100.0) || !near(a["y"], 1200.0) || a["z"] != 450.0 || a["rx"] != 0.0 || a["ry"] != 0.0 {
 		t.Errorf("place: %v", a)
 	}
 	// the character's 90 degrees about the vertical axis

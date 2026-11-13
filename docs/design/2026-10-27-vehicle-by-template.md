@@ -66,7 +66,7 @@ the rear hull `BuggyHullBackExtra_6` (already the template's) and the stock Mk6 
 
 ## Place
 
-Default: next to the character, facing as the character does. Or `place: {map, x, y, z}` (centimetres, finite, within 5,000,000), which is used exactly as given (the answer adds a note when the place has base pieces, buildings or another
+Default: 10 m ahead of the character along its facing, facing as the character does (the first spot when it is clear; else the nearest clear one). Or `place: {map, x, y, z}` (centimetres, finite, within 5,000,000), which is used exactly as given (the answer adds a note when the place has base pieces, buildings or another
 vehicle within reach of the vehicle). Nothing snaps a vehicle to the ground: one placed below the terrain falls, one placed high drops. An aircraft is never put at ground level: see [Aircraft](#aircraft-540).
 
 "Next to the character" used to be a blind point: the character's map, `x + 800`, same `y`, `z + 150`, which Bring vehicle and Duplicate vehicle also used. In a base that point is inside it (#480, below). Since then the
@@ -160,12 +160,12 @@ Create a vehicle, Bring vehicle and Duplicate vehicle all follow it for an aircr
 - **The search.** The rings start at 3000 instead of 800 and go on in steps of 400 to 8000 as before; the first candidate is the point 30 m ahead along the facing, then the points of the ring alternately to either side of it, then the next ring. The clear-spot test
   (the rules above: base pieces, placeables, other vehicles, shut in) is made at the position the aircraft would have, at its height, so a roof slab 20 m under the point does not block it and a slab at the character's own level does. The refusal ("there is no clear spot for a ...
   within 80 m of the character ...") is as before, and nothing is written. The preference for a point outside the land claim a character in a base is in has the same reach, 30 m, counted from the first ring (so up to 52 m from the character).
-- **Ground vehicles are not changed.** Outdoors the old point (800 along x, 150 above the feet) is still the first candidate; in a base the ground rule is still the nearest foundation's bottom plus 250. A ground vehicle is never put below the character's height unless the
+- **Ground vehicles (#480).** Outdoors, with a facing that can be read, a ground vehicle starts 10 m ahead of the character along the facing (the console's own distance for a ground vehicle, `placeAheadRadius` 1000) and 150 above the feet: the console leaves the settling to the game server, the editor cannot see the terrain, so the 150 stays. With no usable facing the old point (800 along x) is the first candidate. In a base the ground rule is still the nearest foundation's bottom plus 250. A ground vehicle is never put below the character's height unless the
   character is on, in or under a base piece the editor knows (then the foundation rule applies, as in #480).
 
 #### What the answer says
 
-Every answer now says where the vehicle is from the character, also when nothing was in the way: "8 m east of you" (it used to say "next to you"). An aircraft adds its height and that it will settle:
+Every answer now says where the vehicle is from the character, also when nothing was in the way: "10 m south of you" (it used to say "next to you"). An aircraft adds its height and that it will settle:
 "30 m south of you and 7 m above you; it starts in the air and the game settles it". `place` holds `up` (centimetres above the character's feet) and `inAir` besides the fields above. The page shows `words` as before ("It goes ...").
 
 #### Not known

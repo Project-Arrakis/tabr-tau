@@ -115,7 +115,7 @@ func (o *Ops) DuplicateVehicle(a Args) (any, error) {
 		if newID, err = nextID(m, "actors"); err != nil {
 			return err
 		}
-		// next to the character: the old point (800 along x, 150 up) when it is clear, else the nearest clear spot (#480); an aircraft goes ahead and up (#540); the turn and everything else are the reference's
+		// next to the character: the point 10 m ahead along the facing (800 along x when the facing is unknown), 150 up, when it is clear, else the nearest clear spot (#480); an aircraft goes ahead and up (#540); the turn and everything else are the reference's
 		dim, _ := toInt(me["d"])
 		if placed, err = choosePlace(m.Query, fmt.Sprint(me["map"]), dim, poseOf(me), sizeOfActorClass(src["class"]), 0, vehicleType(shortClass(src["class"]))); err != nil {
 			return err

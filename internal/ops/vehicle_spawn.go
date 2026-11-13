@@ -457,7 +457,7 @@ func writeVehicle(m *save.Mut, p player, sp *spawnSpec, d vehicles.Derived) (map
 	if n, ok := toInt(me["dim"]); ok && n >= 0 {
 		dim = n
 	}
-	// next to the character: the old point (800 along x, 150 up) when it is clear, else the nearest clear spot (#480); or where the request said
+	// next to the character: the point 10 m ahead along the facing (800 along x when the facing is unknown), 150 up, when it is clear, else the nearest clear spot (#480); or where the request said
 	mapName := fmt.Sprint(me["map"])
 	size := sizeOfClassKey(sp.classKey)
 	var placed placement
