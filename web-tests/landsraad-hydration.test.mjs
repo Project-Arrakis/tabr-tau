@@ -25,7 +25,7 @@ const landsraad = () => ({
 });
 
 async function openLandsraad() {
-  const ui = await boot({ get: { '/api/landsraad': landsraad() }, post: { '/api/landsraad/progress': { ok: true, outcome: 'written' }, '/api/landsraad/mine': { ok: true, before: 0, after: 1200, changed: true, faction_changed: false, outcome: 'written' } } });
+  const ui = await boot({ get: { '/api/landsraad': landsraad() }, post: { '/api/landsraad/faction-goal': { ok: true, changed: 1, noop: false, house: 'Alexin', tier: 6000, progress_changed: true, completed_changed: true, contribution_changed: true, contribution_before: 0, has_character: true, outcome: 'written' }, '/api/landsraad/mine': { ok: true, before: 0, after: 1200, changed: true, faction_changed: false, outcome: 'written' } } });
   ui.click('[data-tab="landsraad"]'); await ui.settle();
   return ui;
 }
@@ -84,16 +84,16 @@ test('Fill to this tier sends the task and the tier, and the faction goal only w
   assert.equal(sent[1].body.with_faction, true);
 });
 
-test('the fill button says it fills the faction goal and sends the goal, nothing about a personal contribution', async () => {
+test('the fill button says it completes the house at the highest reward and sends the house, the faction and the term, no amount', async () => {
   const ui = await openLandsraad();
   const btn = ui.doc.querySelector('[data-act="tfill"][data-id="900"]');
   assert.equal(btn.textContent.trim(), 'Fill faction goal');
-  assert.ok(/personal contribution and the reward tiers are not changed/.test(btn.title), btn.title);
+  assert.ok(/at the highest reward/.test(btn.title) && /highest reward tier \(never lowered\)/.test(btn.title) && /reward items themselves are not written/.test(btn.title), btn.title);
   ui.click('[data-act="tfill"][data-id="900"]'); await ui.settle();
-  const sent = ui.posted.filter((p) => p.path === '/api/landsraad/progress');
+  const sent = ui.posted.filter((p) => p.path === '/api/landsraad/faction-goal');
   assert.equal(sent.length, 1);
-  assert.deepEqual(Object.keys(sent[0].body).sort(), ['amount', 'faction_id', 'task_id']);
-  assert.equal(sent[0].body.amount, 4000);
+  assert.deepEqual(Object.keys(sent[0].body).sort(), ['faction_id', 'task_id', 'term_id']);
+  assert.equal(sent[0].body.task_id, 900);
 });
 
 async function fillHydration(post) {

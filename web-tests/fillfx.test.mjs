@@ -191,7 +191,7 @@ const actionTable = () => {
 // the actions that look like a fill or a repair but are something else, with the reason (a new name here is a decision, not a way round the test)
 const NOT_FILLS = {
   mfill: 'Landsraad: raises a contribution to a reward tier, a number, not a container, a tank or an item',
-  tfill: 'Landsraad: sets the faction progress on a house to its goal',
+  tfill: 'Landsraad: completes a house for a faction at the highest reward tier, numbers on a board, not a container, a tank or an item',
   lsFill: 'Landsraad: the same, for the chosen houses',
   rsUnlock: 'Research: purchases or repairs an unlock record, nothing is filled or worn',
   autoref: 'the switch of the automatic pass',

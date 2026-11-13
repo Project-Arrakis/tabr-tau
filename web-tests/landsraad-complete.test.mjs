@@ -32,7 +32,7 @@ async function open(extra = {}, data = board()) {
     post: {
       '/api/landsraad/complete-many': { ok: true, changed: 2, skipped: 1, noop: false, houses: 3, outcome: 'written' },
       '/api/landsraad/reopen-many': { ok: true, changed: 2, skipped: 1, noop: false, houses: 3, outcome: 'written' },
-      '/api/landsraad/progress': { ok: true, outcome: 'written' },
+      '/api/landsraad/faction-goal': { ok: true, changed: 1, noop: false, house: 'Alexin', tier: 6000, progress_changed: true, completed_changed: true, contribution_changed: true, contribution_before: 0, has_character: true, outcome: 'written' },
       ...extra,
     },
   });
@@ -62,12 +62,13 @@ test('the faction list starts on the character own faction, also for the per-row
   assert.equal(ui.doc.querySelector('#lf').value, '2');
   assert.equal(ui.doc.querySelector('#lsfacnote'), null);
   ui.click('[data-act="tfill"][data-id="900"]'); await ui.settle();
-  assert.deepEqual(sent(ui, 'progress').map((p) => p.body), [{ task_id: 900, faction_id: 2, amount: 4000 }]);
+  assert.deepEqual(sent(ui, 'faction-goal').map((p) => p.body), [{ task_id: 900, faction_id: 2, term_id: 7 }]);
   ui.w.close();
   ui = await open({}, board(1));
   assert.equal(ui.doc.querySelector('#lf').value, '1');
   ui.click('[data-act="tfill"][data-id="900"]'); await ui.settle();
-  assert.deepEqual(sent(ui, 'progress').map((p) => p.body), [{ task_id: 900, faction_id: 1, amount: 4000 }]);
+  assert.deepEqual(sent(ui, 'faction-goal').map((p) => p.body), [{ task_id: 900, faction_id: 1, term_id: 7 }]);
+  assert.equal(sent(ui, 'progress').length, 0, 'the old progress route is not used by the button');
 });
 
 test('a character in no faction: the list is left as it is and the page says no faction is chosen for the person', async () => {
@@ -197,4 +198,43 @@ test('per-house Complete refused by the editor shows the reason', async () => {
   ui.click('[data-act="tdone"][data-id="900"]'); await ui.settle();
   noAsk(ui);
   assert.ok(toast(ui).includes('The save changed on disk.') && !toast(ui).includes('completed'), toast(ui));
+});
+
+test('Fill faction goal completes the house at the highest reward on the first press, asks nothing, and the result line says what changed (#601)', async () => {
+  const ui = await open();
+  const btn = ui.doc.querySelector('[data-act="tfill"][data-id="900"]');
+  assert.ok(!btn.hasAttribute('data-confirm') && !btn.hasAttribute('data-ask'));
+  ui.click('[data-act="tfill"][data-id="900"]'); await ui.settle();
+  noAsk(ui);
+  const t = toast(ui);
+  assert.ok(t.includes('Alexin completed for Harkonnen at the highest reward') && t.includes("the faction's progress set to the house goal") && t.includes('the house marked complete') && t.includes('your contribution 0 → 6,000') && t.includes('reward items themselves are not written'), t);
+});
+
+test('Fill faction goal on a house that is already at the top says Nothing to change', async () => {
+  const ui = await open({ '/api/landsraad/faction-goal': { ok: true, changed: 0, noop: true, house: 'Thorvald', tier: 6000, progress_changed: false, completed_changed: false, contribution_changed: false, has_character: true, outcome: 'written' } });
+  ui.click('[data-act="tfill"][data-id="901"]'); await ui.settle();
+  const t = toast(ui);
+  assert.ok(t.startsWith('Nothing to change: Thorvald is already complete for Harkonnen at the highest reward (6,000)'), t);
+});
+
+test('Fill faction goal says only what changed when part of the state was already there', async () => {
+  const ui = await open({ '/api/landsraad/faction-goal': { ok: true, changed: 1, noop: false, house: 'Hurata', tier: 6000, progress_changed: true, completed_changed: false, contribution_changed: false, has_character: true, outcome: 'written' } });
+  ui.click('[data-act="tfill"][data-id="902"]'); await ui.settle();
+  const t = toast(ui);
+  assert.ok(t.includes("the faction's progress set to the house goal") && !t.includes('marked complete') && !t.includes('your contribution'), t);
+});
+
+test('Fill faction goal with no faction chosen asks for one and sends nothing', async () => {
+  const ui = await open({}, board(null));
+  ui.doc.querySelector('#lf').value = '';
+  ui.click('[data-act="tfill"][data-id="900"]'); await ui.settle();
+  assert.equal(sent(ui, 'faction-goal').length, 0);
+  assert.ok(toast(ui).startsWith('No faction is chosen'), toast(ui));
+});
+
+test('Fill faction goal refused by the editor shows the reason and no success line', async () => {
+  const ui = await open({ '/api/landsraad/faction-goal': { __fail: 'The Landsraad term is not the one you were shown.', __status: 409 } });
+  ui.click('[data-act="tfill"][data-id="900"]'); await ui.settle();
+  noAsk(ui);
+  assert.ok(toast(ui).includes('not the one you were shown') && !toast(ui).includes('completed'), toast(ui));
 });
