@@ -1,11 +1,11 @@
 // Package schema is the shape of a Dune: Awakening single-player save for a program that reads or writes one with SQL: the DDL of a real
-// save, the names of the tables and columns that programs' SQL uses, and the pieces of SQL text that two programs write the same way.
+// save, the names of the tables and columns that programs' SQL uses, and the pieces of SQL text that programs write the same way.
 //
 // It is text and numbers only. It opens no database and imports no SQLite driver: a program loads DDL() into a database of its own
 // choosing (a plain in-memory one in a test, say) and builds its queries from the names and fragments here. The DDL is the schema only
 // (CREATE statements extracted from a save's sqlite_master); no row of any save is in the module.
 //
-// What is not here is a program's rule. Which vehicles a character owns and which vehicles are stored are questions that two programs
+// What is not here is a program's rule. Which vehicles a character owns and which vehicles are stored are questions that programs
 // answer with different SQL, because the rule is the program's; this package gives the names such a rule is written with.
 package schema
 

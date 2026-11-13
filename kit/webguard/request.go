@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// OriginPolicy is where two programs that use SameOrigin differ. The zero value is the strictest.
+// OriginPolicy is where programs that use SameOrigin differ. The zero value is the strictest.
 type OriginPolicy struct {
 	// AllowFetchSiteNone lets "Sec-Fetch-Site: none" pass: a request the person started in the browser itself (the address bar, a
 	// bookmark). The strictest policy refuses it, so only a request made by the page counts.

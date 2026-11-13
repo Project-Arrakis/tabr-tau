@@ -3,8 +3,6 @@
 
 Status: research and reference, 2026-11-12. Structure only: this page holds table and column names, types, keys, indexes and relationships. No row, name, id, coordinate or item of any save is in it.
 
-Related document: `save-database-trainer.md`, kept in the repository of a second program that reads these saves (named here only; it is not part of this repository). Where the two differ in scope: this page describes the database and the editor's use of it; the other adds that program's reads.
-
 ## 1. What this is, and where it comes from
 
 The single-player game keeps its world in one SQLite database. This page describes that database as a database administrator would: every table and column, the keys and foreign keys, the indexes and the trigger, how the tables relate, what a program has to keep true when it writes, what the game rewrites on its own, and how the older layout differs from the newer one.

@@ -67,7 +67,7 @@ func (e Event) Ends() bool {
 	return e == Menu || e == RemoteBrowse || e == DelayedClose || e == Exit
 }
 
-// Policy is where two programs that read the same log differ. The zero value is the wide reading: a marker counts wherever it stands in
+// Policy is where programs that read the same log differ. The zero value is the wide reading: a marker counts wherever it stands in
 // the line, and the database write line is a marker.
 type Policy struct {
 	// Strict makes the browse marker count only at the start of the line's text: after the bracketed prefixes of the logger (time,
