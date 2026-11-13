@@ -37,10 +37,17 @@ function playMark(el, cls, ms) {
   el.classList.add(cls);
   setTimeout(() => el.classList.remove(cls), ms);
 }
-// The result icons of a toast (the design module's fill icons, motion.css .d-fx): a drop, a can or a shield whose level rises while the toast comes in and settles with a check. The shapes
-// are the module's; the animation is its CSS (a fade in Calm, nothing in Off). The level starts at --lvl-from, set through the CSSOM (the policy has no inline style).
+// The result icons of a toast and of the button that was pressed (the design module's fill icons, motion.css .d-fx): a drop (water), a heart (health), a bolt (stamina), a ring (the fills
+// together), a can (fuel) or a shield (repair) whose level rises while the toast comes in and settles with a check. The shapes are the module's; the animation is its CSS. They are for
+// Motion = Full only (fullMotion): Calm and Off show the plain check. The level starts at --lvl-from, set through the CSSOM (the policy has no inline style).
 const SVGNS = 'http://www.w3.org/2000/svg';
-const FX_SHAPE = { water: 'M12 2.5C12 2.5 5.5 9.4 5.5 14a6.5 6.5 0 0 0 13 0C18.5 9.4 12 2.5 12 2.5Z', fuel: 'M6.5 3.5h8l3 3v14h-11z', repair: 'M12 2.8l7 2.9v5.6c0 4.3-2.9 7.7-7 9.3-4.1-1.6-7-5-7-9.3V5.7z' };
+const FX_SHAPE = { water: 'M12 2.5C12 2.5 5.5 9.4 5.5 14a6.5 6.5 0 0 0 13 0C18.5 9.4 12 2.5 12 2.5Z', fuel: 'M6.5 3.5h8l3 3v14h-11z', repair: 'M12 2.8l7 2.9v5.6c0 4.3-2.9 7.7-7 9.3-4.1-1.6-7-5-7-9.3V5.7z',
+  health: 'M12 20.4C12 20.4 3.6 15 3.6 8.9A4.4 4.4 0 0 1 12 7a4.4 4.4 0 0 1 8.4 1.9C20.4 15 12 20.4 12 20.4Z', stamina: 'M13.4 2.8L5.8 13.4h5.1l-1.1 7.8 7.7-10.6h-5.1z', all: 'M12 3.2a8.8 8.8 0 1 0 0 17.6 8.8 8.8 0 0 0 0-17.6Z' };
+// Which icon each fill, repair and refuel action plays, keyed by the ACTION that was pressed (its data-act), never by the words or the numbers of the result. A new fill or repair
+// action has to be added here: web-tests/fillfx.test.mjs reads the action table and fails for one that is missing. Fill all liquids is the three fills together (water, blood, fuel): the ring.
+const FX_OF = { fillWater: 'water', refill: 'water', fillBlood: 'water', fillLiquids: 'all', refillWater: 'water', refillGen: 'fuel', refuelV: 'fuel', repair: 'repair', repairOne: 'repair', repairV: 'repair', repairB: 'repair', repairAll: 'repair' };
+// Motion = Full is the only mode that plays the fill icons (the setting, or the system's reduced motion, makes it Calm). A page without /motion-boot.js has no limit of its own.
+const fullMotion = () => { const m = window.TauMotion; return !m || m.mode() === 'full'; };
 const MARK_PATHS = { ok: ['M5 12.5l4.5 4.5L19 7.5'], warn: ['M12 4l9 16H3z', 'M12 10v4.5M12 17.4v.3'], bad: ['M6 6l12 12M18 6L6 18'] };
 let fxUid = 0;
 function svgEl(tag, attrs, parent) {
@@ -73,21 +80,22 @@ function leaveToast(d) {
   d.classList.add('out');
   setTimeout(() => d.remove(), 260);
 }
-// A toast: what an action did, in words. err: true (an error: stays until it is dismissed), 'part' (a warning that stays: part of a give went in), or false. fx is { kind: 'water' | 'fuel' | 'repair', from }:
-// a result that went well and filled or repaired something shows the fill icon of that kind instead of the check.
+// A toast: what an action did, in words. err: true (an error, red: stays until it is dismissed), 'part' (a warning that stays: part of a give went in), 'note' (an amber notice with no icon that
+// leaves by itself: the action wrote nothing, because everything was already as it should be) or false. fx is { kind, from } with a kind of FX_SHAPE: a result that went well and filled or repaired
+// something shows the fill icon of that kind instead of the check, in Motion = Full only; never on a warning or an error.
 function toast(msg, err, ms = 3500, fx = null) {
   const d = document.createElement('div');
-  const part = err === 'part';
-  const kind = !err ? 'ok' : part ? 'warn' : 'bad';
-  d.setAttribute('role', err && !part ? 'alert' : 'status');
-  d.className = 'd-toast' + (kind === 'ok' ? '' : ' ' + kind) + (err ? (part ? ' part' : ' err') : '');
-  const fxKind = kind === 'ok' && fx && Object.hasOwn(FX_SHAPE, fx.kind) ? fx.kind : '';
+  const part = err === 'part', note = err === 'note';
+  const kind = !err ? 'ok' : part || note ? 'warn' : 'bad';
+  d.setAttribute('role', err && !part && !note ? 'alert' : 'status');
+  d.className = 'd-toast' + (kind === 'ok' ? '' : ' ' + kind) + (err ? (part ? ' part' : note ? ' note' : ' err') : '');
+  const fxKind = kind === 'ok' && fx && Object.hasOwn(FX_SHAPE, fx.kind) && fullMotion() ? fx.kind : '';
   if (fxKind) d.setAttribute('data-fx', fxKind);
   d.append(fxKind ? fxIcon(fxKind, fx.from) : markIcon(kind));
   const t = document.createElement('span');
   t.textContent = msg;
   d.append(t);
-  if (err) { // an error stays until it is dismissed: a message that vanishes in seconds is easy to miss
+  if (err && !note) { // an error stays until it is dismissed: a message that vanishes in seconds is easy to miss
     const x = document.createElement('button');
     x.className = 'x';
     x.textContent = '\u00d7';
@@ -95,11 +103,49 @@ function toast(msg, err, ms = 3500, fx = null) {
     x.setAttribute('aria-label', 'Dismiss this message');
     x.onclick = () => d.remove();
     d.append(x);
-  } else setTimeout(() => leaveToast(d), ms);
+  } else setTimeout(() => leaveToast(d), note ? Math.max(ms, 6000) : ms);
   $('#toast').append(d);
 }
-// the fill icons for a result that filled or repaired something
-const FX_WATER = { kind: 'water' }, FX_FUEL = { kind: 'fuel' }, FX_REPAIR = { kind: 'repair' };
+// The same icon on the button that was pressed (Motion = Full only). The button has no icon of its own to take the place of, so for a moment the icon sits in a round chip in the middle of the button
+// and the label is made clear (colour only: the words, the title and the aria are untouched), then the button is as it was. The chip is out of the flow (absolute), so nothing moves. The motion is
+// the toast's: the module's CSS. One timer takes the overlay away; a second press starts it again.
+const FX_HOLD_MS = 2200; // the drop fills in about 1.2 s and the check is drawn after it
+const fxOnButton = new WeakMap(); // button -> { svg, timer }
+function clearButtonFx(btn) {
+  const cur = fxOnButton.get(btn);
+  if (!cur) return;
+  clearTimeout(cur.timer);
+  cur.svg.remove();
+  btn.classList.remove('x-fxing');
+  fxOnButton.delete(btn);
+}
+function buttonFx(btn, kind) {
+  if (!btn || !btn.isConnected || !Object.hasOwn(FX_SHAPE, kind) || !fullMotion()) return false;
+  clearButtonFx(btn);
+  const svg = fxIcon(kind, 30);
+  svg.classList.add('x-btnfx');
+  btn.classList.add('x-fxing');
+  btn.appendChild(svg);
+  fxOnButton.set(btn, { svg, timer: setTimeout(() => clearButtonFx(btn), FX_HOLD_MS) });
+  return true;
+}
+// What was pressed last (the data-act and the id of the row), and the icon that is waiting for the page to be drawn again: an action redraws the page after it has said what it did, which
+// replaces the button, so the icon is played on the button that is there when the redraw is done (act()).
+let lastPress = null, fxPending = null;
+// The toast of a fill, a refill, a refuel or a repair. name is the data-act of the action, and the icon comes from it (FX_OF), never from the result. wrote: something was written. When it
+// was, the result is a success (green, with the icon, even where the rest was already full); when nothing was, it is an amber notice with no icon (level 'note', or 'part' for one that stays).
+function fillToast(name, wrote, msg, level = 'note') {
+  if (!wrote) { toast(msg, level); return; }
+  toast(msg, false, undefined, { kind: FX_OF[name] });
+  fxPending = { act: name, id: lastPress && lastPress.act === name ? lastPress.id : undefined };
+}
+function playFx() {
+  const p = fxPending;
+  fxPending = null;
+  if (!p || !FX_OF[p.act]) return;
+  const btn = [...document.querySelectorAll('[data-act="' + p.act + '"]')].find((b) => p.id === undefined || b.dataset.id === p.id);
+  if (btn) buttonFx(btn, FX_OF[p.act]);
+}
 // What a give did, in words: okText when all of it went in, else how much did and why not more (a give puts in as much as fits). The answer carries requested, given and reason.
 function giveToast(r, name, okText) {
   const n = (v) => Number(v).toLocaleString();
@@ -137,7 +183,8 @@ async function act(fn, okMsg, refresh = true, immediate = false) {
     if (refresh) await render(true);
     return r;
   }
-  catch (e) { toast(e.message, true); }
+  catch (e) { fxPending = null; toast(e.message, true); }
+  finally { playFx(); }
 }
 // What a box edited in place said before it was changed, and the sentence that reports the change: "Spice Melange: stack 5 → 10. To undo, set it back to 5."
 // There is no undo of its own: the old value is shown so that the person can type it again, and the backup holds the file as it was.
@@ -2009,14 +2056,14 @@ const A = {
     giveToast(r, itemName(tid), 'Item added');
   }, null),
   faction: () => act(async () => { const r = await api('/api/player/faction', { faction_id: +val('facSel') }); toast(`Faction set to ${r.faction}` + NOT_SAVED); }, null),
-  repair: () => act(async () => { const r = await api('/api/player/repair', {}); toast(gearRepairText(r) + NOT_SAVED, false, undefined, FX_REPAIR); }, null),
-  fillWater: () => act(async () => { const r = await api('/api/player/hydration', {}); const m = hydrationMessage(r); toast(m.text, m.warn ? 'part' : false, undefined, FX_WATER); }, null),
+  repair: () => act(async () => { const r = await api('/api/player/repair', {}); fillToast('repair', (r.repaired || 0) + (r.backpackRepaired || 0) > 0, gearRepairText(r) + NOT_SAVED); }, null),
+  fillWater: () => act(async () => { const r = await api('/api/player/hydration', {}); const m = hydrationMessage(r); fillToast('fillWater', !m.warn && Math.round(r.before * 10) !== Math.round(r.after * 10), m.text, m.warn ? 'part' : 'note'); }, null),
   fillBlood: () => act(async () => {
     const r = await api('/api/player/fill-blood-sacks', {});
     const by = Object.entries(r.byTemplate || {}).sort().map(([k, n]) => `${n} x ${itemName(k)}`).join(', ');
     const un = r.unknown ? ` ${r.unknown} blood ${r.unknown == 1 ? 'sack' : 'sacks'} of an unknown kind ${r.unknown == 1 ? 'was' : 'were'} left alone${(r.skippedUnknown || []).length ? ` (${r.skippedUnknown.join(', ')})` : ''}.` : '';
     const other = r.holdingOther ? ` ${r.holdingOther} holding something other than blood ${r.holdingOther == 1 ? 'was' : 'were'} left alone.` : '';
-    toast((r.filled ? `Filled ${r.filled} blood ${r.filled == 1 ? 'sack' : 'sacks'} (${by}); ${r.alreadyFull} already full.` : `No blood sack needed filling (${r.alreadyFull} already full).`) + un + other + (r.filled ? BLOOD_UNCHECKED : '') + NOT_SAVED);
+    fillToast('fillBlood', r.filled > 0, (r.filled ? `Filled ${r.filled} blood ${r.filled == 1 ? 'sack' : 'sacks'} (${by}); ${r.alreadyFull} already full.` : `No blood sack needed filling (${r.alreadyFull} already full).`) + un + other + (r.filled ? BLOOD_UNCHECKED : '') + NOT_SAVED);
   }, null),
   fillLiquids: () => act(async () => {
     const box = $('#liqVeh');
@@ -2027,9 +2074,9 @@ const A = {
     if (v) parts.push(nn(v.filled || 0, 'vehicle', 'vehicles'));
     const left = (w.skippedUnknown || []).length + (b.unknown || 0) + (v ? v.unknown || 0 : 0);
     const any = (w.filled || 0) + (b.filled || 0) + (v ? v.filled || 0 : 0);
-    toast((any ? `Filled ${parts.join(', ')}.` : 'Nothing needed filling.') + (r.vehiclesIncluded ? '' : ' Vehicles were not refuelled.') + (left ? ' Some containers, sacks or vehicles of an unknown kind were left alone.' : '') + (b.filled ? BLOOD_UNCHECKED : '') + (any ? NOT_SAVED : ''), false, undefined, any ? FX_WATER : null);
+    fillToast('fillLiquids', any > 0, (any ? `Filled ${parts.join(', ')}.` : 'Nothing needed filling.') + (r.vehiclesIncluded ? '' : ' Vehicles were not refuelled.') + (left ? ' Some containers, sacks or vehicles of an unknown kind were left alone.' : '') + (b.filled ? BLOOD_UNCHECKED : '') + (any ? NOT_SAVED : ''));
   }, null),
-  refill: () => act(async () => { const r = await api('/api/player/refill', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast(`Filled ${r.filled} Literjons (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
+  refill: () => act(async () => { const r = await api('/api/player/refill', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; fillToast('refill', r.filled > 0, `Filled ${r.filled} Literjons (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
   delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). It is written at once, after a backup. If the file cannot be written (for example the game is running) it is queued and written when it can be.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
   clearInv: async (d) => {
     const cur = !!($('#clrCur') && $('#clrCur').checked);
@@ -2150,19 +2197,19 @@ const A = {
     if (!(await ask({ title: 'Expand this land claim?', body: `Adds ${what}. It is written at once, after the usual backup.`, ok: 'Expand claim' }))) return;
     act(async () => { const r = await api('/api/bases/claim/expand', body); toast(`Claim now ${r.totalCells} cells, level ${r.level} (+${r.added} cells)` + NOT_SAVED); });
   },
-  refillWater: () => act(async () => { const r = await api('/api/bases/refill-water', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; toast((r.filled ? `Refilled ${r.summary} (${r.alreadyFull} already full).` : `All ${r.alreadyFull} water buildings were already full.`) + sk + NOT_SAVED); }, null),
-  refillGen: () => act(async () => { const r = await api('/api/bases/refill-generators', {}); toast((r.filled ? `Refilled ${r.summary} (${r.alreadyFull} already full).` : `All ${r.alreadyFull} power buildings were already full.`) + ((r.skipped || []).length ? ` No free slot: ${r.skipped.join(', ')}.` : '') + NOT_SAVED); }, null),
+  refillWater: () => act(async () => { const r = await api('/api/bases/refill-water', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; fillToast('refillWater', r.filled > 0, (r.filled ? `Refilled ${r.summary} (${r.alreadyFull} already full).` : `All ${r.alreadyFull} water buildings were already full.`) + sk + NOT_SAVED); }, null),
+  refillGen: () => act(async () => { const r = await api('/api/bases/refill-generators', {}); fillToast('refillGen', r.filled > 0, (r.filled ? `Refilled ${r.summary} (${r.alreadyFull} already full).` : `All ${r.alreadyFull} power buildings were already full.`) + ((r.skipped || []).length ? ` No free slot: ${r.skipped.join(', ')}.` : '') + NOT_SAVED); }, null),
   refuelV: () => act(async () => {
     const r = await api('/api/vehicles/refuel', {});
     const by = Object.entries(r.byClass || {}).sort().map(([k, n]) => `${n} x ${vehKind(k)}`).join(', ');
     const un = r.unknown ? ` ${r.unknown} ${r.unknown == 1 ? 'vehicle' : 'vehicles'} of an unknown kind ${r.unknown == 1 ? 'was' : 'were'} left alone${(r.skippedUnknown || []).length ? ` (${r.skippedUnknown.map((x) => vehKind(x.replace(/ x\d+$/, '')) + x.replace(/^.* (x\d+)$/, ' $1')).join(', ')})` : ''}.` : '';
     const none = r.noFuelRecord ? ` ${r.noFuelRecord} ${r.noFuelRecord == 1 ? 'vehicle has' : 'vehicles have'} no fuel record and ${r.noFuelRecord == 1 ? 'was' : 'were'} left alone.` : '';
-    toast((r.filled ? `Refuelled ${r.filled} ${r.filled == 1 ? 'vehicle' : 'vehicles'} (${by}); ${r.alreadyFull} already full.` : r.total ? `No vehicle needed fuel (${r.alreadyFull} already full).` : 'You have no vehicles in this save.') + un + none + (r.filled ? NOT_SAVED : ''), false, undefined, r.filled ? FX_FUEL : null);
+    fillToast('refuelV', r.filled > 0, (r.filled ? `Refuelled ${r.filled} ${r.filled == 1 ? 'vehicle' : 'vehicles'} (${by}); ${r.alreadyFull} already full.` : r.total ? `No vehicle needed fuel (${r.alreadyFull} already full).` : 'You have no vehicles in this save.') + un + none + (r.filled ? NOT_SAVED : ''));
   }, null),
-  repairOne: (d) => act(async () => { const r = await api('/api/vehicles/repair', { vehicle_id: +d.id }); toast(repairMsg(r, 'modules of this vehicle') + (r.repaired ? NOT_SAVED : ''), false, undefined, r.repaired ? FX_REPAIR : null); }, null),
-  repairV: () => act(async () => { const pct = $('#rvPct'); const n = pct ? +pct.value : 100; const r = await api('/api/vehicles/repair', pct && n < 100 ? { threshold: n } : {}); toast(repairMsg(r, 'vehicle modules', n) + (r.repaired ? NOT_SAVED : ''), false, undefined, r.repaired ? FX_REPAIR : null); }, null),
-  repairB: (d) => act(async () => { const r = await api('/api/bases/repair', { base_id: +d.id }); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables at this base` + NOT_SAVED, false, undefined, FX_REPAIR); }, null),
-  repairAll: () => act(async () => { const r = await api('/api/bases/repair-all', {}); toast(`Repaired ${r.pieces} pieces, ${r.placeables} placeables in the whole save` + NOT_SAVED, false, undefined, FX_REPAIR); }, null),
+  repairOne: (d) => act(async () => { const r = await api('/api/vehicles/repair', { vehicle_id: +d.id }); fillToast('repairOne', r.repaired > 0, repairMsg(r, 'modules of this vehicle') + (r.repaired ? NOT_SAVED : '')); }, null),
+  repairV: () => act(async () => { const pct = $('#rvPct'); const n = pct ? +pct.value : 100; const r = await api('/api/vehicles/repair', pct && n < 100 ? { threshold: n } : {}); fillToast('repairV', r.repaired > 0, repairMsg(r, 'vehicle modules', n) + (r.repaired ? NOT_SAVED : '')); }, null),
+  repairB: (d) => act(async () => { const r = await api('/api/bases/repair', { base_id: +d.id }); fillToast('repairB', r.pieces + r.placeables > 0, `Repaired ${r.pieces} pieces, ${r.placeables} placeables at this base` + NOT_SAVED); }, null),
+  repairAll: () => act(async () => { const r = await api('/api/bases/repair-all', {}); fillToast('repairAll', r.pieces + r.placeables > 0, `Repaired ${r.pieces} pieces, ${r.placeables} placeables in the whole save` + NOT_SAVED); }, null),
   sand: (d) => act(async () => { const r = await api('/api/bases/clear-sand', { base_id: +d.id }); toast(`Cleared ${r.pieces} pieces at this base` + NOT_SAVED); }, null),
   sandAll: () => act(async () => { const r = await api('/api/bases/clear-sand-all', {}); toast(`Cleared ${r.pieces} pieces in the whole save` + NOT_SAVED); }, null),
   openInv: async (d) => {
@@ -2347,7 +2394,7 @@ document.addEventListener('click', (e) => {
   const s = e.target.closest('[data-sub]');
   if (s) { const [g, k] = s.dataset.sub.split(':'); if (GROUPS.includes(g)) { sub[g] = k; render(); } return; }
   const a = D(e);
-  if (a) { e.preventDefault(); if (Object.hasOwn(A, a.dataset.act)) Promise.resolve().then(() => A[a.dataset.act](a.dataset)).catch((err) => toast(err.message, true)); }
+  if (a) { e.preventDefault(); lastPress = { act: a.dataset.act, id: a.dataset.id }; if (Object.hasOwn(A, a.dataset.act)) Promise.resolve().then(() => A[a.dataset.act](a.dataset)).catch((err) => toast(err.message, true)); }
   const x = e.target.closest('[data-export]');
   if (x) {
     e.preventDefault();
