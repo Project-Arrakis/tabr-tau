@@ -32,7 +32,10 @@ func TestImportRefusesValuesOutOfRange(t *testing.T) {
 		{"a stack of 9e18", item(func(r map[string]any) { r["stack_size"] = num("9000000000000000000") }), "is more than one slot holds"},
 		{"a stack above the item's stack size", item(func(r map[string]any) { r["template_id"] = "SteelBar"; r["stack_size"] = jnum(501) }), "a stack of 501 SteelBar is more than one slot holds (500)"},
 		{"a stack of an item that does not stack", item(func(r map[string]any) { r["template_id"] = "HighCapacityLiterjon_06"; r["stack_size"] = jnum(2) }), "is more than one slot holds (1)"},
-		{"a stack of an item the catalog does not know", item(func(r map[string]any) { r["template_id"] = "NoSuchItemInTheCatalog"; r["stack_size"] = jnum(basefile.MaxUnknownStack + 1) }), "is more than one slot holds (100000)"},
+		{"a stack of an item the catalog does not know", item(func(r map[string]any) {
+			r["template_id"] = "NoSuchItemInTheCatalog"
+			r["stack_size"] = jnum(basefile.MaxUnknownStack + 1)
+		}), "is more than one slot holds (100000)"},
 		{"a negative stack", item(func(r map[string]any) { r["stack_size"] = jnum(-3) }), "stack size"},
 		{"two items in one slot", func() []byte {
 			return editFile(t, good, func(tb map[string][]map[string]any) { rowWhere(tb, "items", "id", 9002)["position_index"] = jnum(0) })
@@ -46,7 +49,9 @@ func TestImportRefusesValuesOutOfRange(t *testing.T) {
 			})
 		}, "above the highest slot allowed"},
 		{"a negative slot count", func() []byte {
-			return editFile(t, good, func(tb map[string][]map[string]any) { rowWhere(tb, "inventories", "id", 7001)["max_item_count"] = jnum(-1) })
+			return editFile(t, good, func(tb map[string][]map[string]any) {
+				rowWhere(tb, "inventories", "id", 7001)["max_item_count"] = jnum(-1)
+			})
 		}, "slot count of -1"},
 		{"a piece with a health of 1e300", func() []byte {
 			return editFile(t, good, func(tb map[string][]map[string]any) { tb["building_instances"][0]["health"] = num("1e300") })

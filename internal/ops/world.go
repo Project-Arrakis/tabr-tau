@@ -51,14 +51,14 @@ func (o *Ops) RepairBuildings() (any, error) {
 	var n, mm int64
 	_, err := o.S.Mutate("", func(m *save.Mut) error {
 		res, err := m.Exec(`update building_instances set health=best.top
-			from `+bestHealthOf("building_instances")+` best
+			from ` + bestHealthOf("building_instances") + ` best
 			where building_instances.building_type=best.bt and building_instances.health < best.top`)
 		if err != nil {
 			return err
 		}
 		n, _ = res.RowsAffected()
 		res2, err := m.Exec(`update placeables set health=best.top
-			from `+bestHealthOf("placeables")+` best
+			from ` + bestHealthOf("placeables") + ` best
 			where placeables.building_type=best.bt and placeables.health < best.top`)
 		if err != nil {
 			return err
