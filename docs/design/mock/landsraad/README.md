@@ -93,6 +93,8 @@ A closed panel above the board (its heading line shows the term, the reigning fa
 | Apply (Active decree and Reigning faction) | `landsraad_decree_term`: `active_decree_id` and `reigning_faction_id` of the current (latest) term row, both from the two drop-downs in one edit; "none" clears the field to NULL. `elected_decree_id` and `end_time` are not touched by this control. |
 | Set flag to 0 / 1 | `landsraad_decrees`: the `disabled` column of that one decree row (picked by its id) only. It does not make the decree active; the Active decree does that. |
 
+The decree pool lists all 11 decrees of the save. The names are readable forms of the ids, except "CHOAM Refining Contract", which is the game's own name; they stay readable forms until checked in game (#608).
+
 The reigning faction is one field of the term row, so "for which faction" is the Reigning faction drop-down: the decree is set on the term, and the faction chosen is recorded as the one reigning in it.
 
 ## Reading the pages

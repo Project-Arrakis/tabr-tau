@@ -1467,14 +1467,27 @@ details.about .abt b{color:var(--c-text)}
   });
 
   // term and decrees (sample data): one term row with the active decree, the elected decree and the reigning faction, and the decree pool
-  var TERM = { active: 2, elected: 3, rf: 1 };
+  var TERM = { active: 6, elected: 10, rf: 2 };
+  // the eleven decrees of the pool (landsraad_decrees): the names are readable forms of the ids, except the Refining Contract, which is the game's own name (#608)
   var D = [
     { id: 1, n: 'Experience Rate Increase', k: 'ExperienceRateIncrease', rot: 1, dis: 1 },
-    { id: 2, n: 'Repair and Refining Times', k: 'RepairAndRefiningTimes', rot: 0, dis: 1 },
-    { id: 3, n: 'Drop Inventory on Defeat', k: 'DropInventoryOnDefeatActive', rot: 0, dis: 1 },
-    { id: 4, n: 'Special Vendor: Vehicles', k: 'SpecialVendorActive_Vehicles', rot: 1, dis: 0 },
-    { id: 5, n: 'Special Vendor', k: 'SpecialVendorActive', rot: 0, dis: 0 }
+    { id: 2, n: 'Ranged Damage Increased', k: 'RangedDamageIncreased', rot: 0, dis: 1 },
+    { id: 3, n: 'Melee Damage Increased', k: 'MeleeDamageIncreased', rot: 0, dis: 1 },
+    { id: 4, n: 'Crafting Cost Reduced', k: 'CraftingCostReduced', rot: 0, dis: 1 },
+    { id: 5, n: 'Drop Inventory on Defeat', k: 'DropInventoryOnDefeatActive', rot: 1, dis: 0 },
+    { id: 6, n: 'CHOAM Refining Contract', k: 'RepairAndRefiningTimes', rot: 0, dis: 1, tip: 'In game: repair costs and refining times are reduced by 75%' },
+    { id: 7, n: 'Special Vendor', k: 'SpecialVendorActive', rot: 0, dis: 1 },
+    { id: 8, n: 'Special Vendor: Vehicles', k: 'SpecialVendorActive_Vehicles', rot: 0, dis: 1 },
+    { id: 9, n: 'Special Vendor: Weapons', k: 'SpecialVendorActive_Weapons', rot: 0, dis: 1 },
+    { id: 10, n: 'Special Vendor: Armor', k: 'SpecialVendorActive_Armor', rot: 1, dis: 1 },
+    { id: 11, n: 'Special Vendor: Utilities', k: 'SpecialVendorActive_Utilities', rot: 0, dis: 1 }
   ];
+  (function () {
+    var sel = $('ad'), h = '<option value="">none</option>';
+    D.forEach(function (x) { h += '<option value="' + x.id + '">' + x.n + '</option>'; });
+    sel.innerHTML = h; sel.value = String(TERM.active); $('rf').value = String(TERM.rf);
+    $('adid').textContent = dById(TERM.active).k;
+  })();
   function dById(i) { for (var k = 0; k < D.length; k++) if (D[k].id === i) return D[k]; return null; }
   function idLine(k) { return '<small class="did" title="The game’s internal id, kept for support">' + k + '</small>'; }
   function tsay(t) { $('tresult').textContent = t + ' (sample data; nothing is written)'; }
@@ -1488,7 +1501,7 @@ details.about .abt b{color:var(--c-text)}
     D.forEach(function (d) {
       var tg = [];
       if (d.id === TERM.active) tg.push('Active'); if (d.id === TERM.elected) tg.push('Elected'); if (d.rot) tg.push('In rotation');
-      h += '<li><span class="mut">' + d.id + '</span><span class="dc"><span class="dn">' + d.n + '</span>' + idLine(d.k) + '</span><span>' +
+      h += '<li><span class="mut">' + d.id + '</span><span class="dc"><span class="dn"' + (d.tip ? ' title="' + d.tip + '"' : '') + '>' + d.n + '</span>' + idLine(d.k) + '</span><span>' +
         (tg.length ? tg.map(function (x) { return '<span class="tag">' + x + '</span> '; }).join('') : '<span class="mut">not in this term</span>') + '</span>' +
         '<span class="fl mut">' + d.dis + '</span>' +
         '<button type="button" class="qa" data-flag="' + d.id + '" title="Sets the pool flag of this one row to ' + (d.dis ? 0 : 1) + '. It does not make the decree active; the Active decree above does.">Set flag to ' + (d.dis ? 0 : 1) + '</button></li>';
