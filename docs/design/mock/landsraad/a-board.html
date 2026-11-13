@@ -525,7 +525,6 @@ details.about .abt b{color:var(--c-text)}
     <span><span class="lbl">Rows</span><label class="btnl"><input type="checkbox" id="xall" form="rowsf"><span>Expand all</span></label> <button type="reset" form="rowsf" class="btnr">Collapse all</button></span>
   </div>
   <div class="actbar" role="group" aria-label="Actions on the board (sample data)">
-    <p class="actrow"><label class="chk"><input type="checkbox" id="lwf"> Also set my faction's progress on the house to its goal</label></p>
     <div class="actrow" role="group" aria-label="Act on several houses at once"><button type="button" class="qa" id="b-all">Choose all houses</button><button type="button" class="qa" id="b-none">Clear the choice</button><button type="button" class="qa btnp" id="b-fill" title="Raises your contribution on every chosen house to its highest reward tier (never lowered). The reward items themselves are not written.">Fill chosen</button><button type="button" class="qa btnp" id="b-complete" title="Marks every chosen house complete for the faction below and sets that faction's progress on it to the house goal (never lowered).">Complete chosen</button><button type="button" class="qa btnp" id="b-reopen" title="Undoes the completion of the chosen houses; no progress and no contribution is changed.">Reopen chosen</button> <span class="src src-write" title="Writes to the save: your contribution, the faction progress, completed and winner">writes</span></div>
     <div class="actrow"><label for="fac">Faction for Fill and Complete</label><select id="fac"><option value="1" selected>Atreides (you)</option><option value="2">Harkonnen</option></select><span class="note">starts on your own faction</span></div>
     <p id="lsum" aria-live="polite">Nothing is chosen.</p>
@@ -533,7 +532,7 @@ details.about .abt b{color:var(--c-text)}
     <p id="pendbar" hidden><span id="pendn"></span> <button type="button" class="undo" id="undoall" style="margin:0 0 0 6px">Undo all</button></p>
     <p class="legend2"><b>Tiers.</b> Click a tier to give it; click the highest reached tier again to remove it. <b>Rewards are not written</b> (open question, tau #609).</p>
     <details class="about"><summary>About tiers</summary><div class="abt"><p>Click a tier (the boxes in the opened row, or the five small boxes in the row itself) to give your character that tier: your contribution is raised to that tier's threshold, and contribution is cumulative, so <b>click tier 3 and tiers 1 to 3 are reached</b>. Click the highest reached tier again to remove it (the contribution drops to the tier below, or to none for tier 1). A change shows as pending (outlined, "will be reached" or "will be removed") with an Undo until it is written; the Choose box on each row picks houses for the bulk buttons.</p><p><b>Open question (tau #609):</b> rewards that the game's representative hands out to the inventory depend on the save's delivery rows, which are not understood yet; until that is proven a tier click changes "reached" only.</p></div></details>
-    <details class="about"><summary>About Fill and Complete</summary><div class="abt"><p>Fill, Complete and Reopen act for the faction chosen above. It starts on your character's own faction. For another faction, Fill and Complete record that faction's win and progress and skip your own contribution row. The checkbox "Also set my faction's progress on the house to its goal" adds the faction progress to the action. Everything here is sample data and the buttons change only what this page shows.</p></div></details>
+    <details class="about"><summary>About Fill and Complete</summary><div class="abt"><p>Fill, Complete and Reopen act for the faction chosen above. It starts on your character's own faction. For another faction, Fill and Complete record that faction's win and progress and skip your own contribution row. <b>Fill chosen</b> changes your contribution and tiers only. <b>Complete chosen</b> takes the house for the chosen faction: its progress goes to the goal, and the winner and the completion are set. <b>Fill faction goal</b> on one house does both in one click. Everything here is sample data and the buttons change only what this page shows.</p></div></details>
   </div>
   <div class="findbar" role="group" aria-label="Jump to a house">
     <span class="f"><label class="lbl" for="jump">Jump to house</label><select id="jump"><option value="">Choose a house</option><option value="alexin">Alexin</option><option value="argosaz">Argosaz</option><option value="dyvetz">Dyvetz</option><option value="ecaz">Ecaz</option><option value="hagal">Hagal</option><option value="hurata">Hurata</option><option value="imota">Imota</option><option value="kenola">Kenola</option><option value="lindaren">Lindaren</option><option value="maros">Maros</option><option value="mikarrol">Mikarrol</option><option value="moritani">Moritani</option><option value="mutelli">Mutelli</option><option value="novebruns">Novebruns</option><option value="richese">Richese</option><option value="sor">Sor</option><option value="spinnette">Spinnette</option><option value="taligari">Taligari</option><option value="thorvald">Thorvald</option><option value="tseida">Tseida</option><option value="varota">Varota</option><option value="vernius">Vernius</option><option value="wallach">Wallach</option><option value="wayku">Wayku</option><option value="wydras">Wydras</option></select></span>
@@ -1127,7 +1126,7 @@ details.about .abt b{color:var(--c-text)}
   function $(id) { return document.getElementById(id); }
   var m = document.querySelector('.m'), els = [].slice.call(document.querySelectorAll('.row'));
   var jump = $('jump'), only = $('only'), shown = $('shown'), nomatch = $('nomatch');
-  var fac = $('fac'), lwf = $('lwf'), lsum = $('lsum'), result = $('result'), pendbar = $('pendbar'), grp = $('g-reg');
+  var fac = $('fac'), lsum = $('lsum'), result = $('result'), pendbar = $('pendbar'), grp = $('g-reg');
   var heads = [].slice.call(document.querySelectorAll('[role=columnheader][data-col]'));
   var opened = null, wasOpen = false;
   function f(n) { return Number(n).toLocaleString('en-US'); }
@@ -1260,9 +1259,9 @@ details.about .abt b{color:var(--c-text)}
   function updateSum() {
     var ch = picked();
     if (!ch.length) { lsum.textContent = 'Nothing is chosen.'; return; }
-    var F = curF(), wf = lwf.checked, fill = 0, comp = 0, reop = 0;
-    ch.forEach(function (r) { var c = r.cur; if (c.mine < T[4] || (wf && c.p1 < GOAL)) fill++; if (!completeFor(c, F)) comp++; if (c.win) reop++; });
-    lsum.textContent = 'Chosen: ' + nn(ch.length, 'house', 'houses') + ' with all their tiers. Fill chosen would raise your contribution' + (wf ? ' or the faction goal' : '') + ' on ' + nn(fill, 'house', 'houses') + ' (the others are already at or above what was chosen). Complete chosen would complete ' + nn(comp, 'house', 'houses') + ' for ' + FAC[F] + '. Reopen chosen would reopen ' + nn(reop, 'house', 'houses') + '.';
+    var F = curF(), fill = 0, comp = 0, reop = 0;
+    ch.forEach(function (r) { var c = r.cur; if (c.mine < T[4]) fill++; if (!completeFor(c, F)) comp++; if (c.win) reop++; });
+    lsum.textContent = 'Chosen: ' + nn(ch.length, 'house', 'houses') + ' with all their tiers. Fill chosen would raise your contribution on ' + nn(fill, 'house', 'houses') + ' (the others are already at or above what was chosen). Complete chosen would complete ' + nn(comp, 'house', 'houses') + ' for ' + FAC[F] + '. Reopen chosen would reopen ' + nn(reop, 'house', 'houses') + '.';
   }
   function updatePend() {
     var n = R.filter(function (r) { return pendingText(r); }).length;
@@ -1286,7 +1285,7 @@ details.about .abt b{color:var(--c-text)}
   function doReopen(r) { if (!r.cur.win) return false; r.cur.win = 0; return true; }
   function doTier(r, i) {
     var c = r.cur, n = tiersOf(c.mine);
-    if (i > n) { c.mine = T[i - 1]; if (lwf.checked && c.p1 < GOAL) c.p1 = GOAL; return 'Tier ' + i + ' of House ' + r.name + ': your contribution is raised to ' + f(c.mine) + ', tiers ' + (i === 1 ? '1' : '1 to ' + i) + ' reached'; }
+    if (i > n) { c.mine = T[i - 1]; return 'Tier ' + i + ' of House ' + r.name + ': your contribution is raised to ' + f(c.mine) + ', tiers ' + (i === 1 ? '1' : '1 to ' + i) + ' reached'; }
     if (i === n) { c.mine = i > 1 ? T[i - 2] : 0; return 'Tier ' + i + ' of House ' + r.name + ' removed: your contribution drops to ' + (c.mine ? f(c.mine) : 'none'); }
     return 'To remove tiers of House ' + r.name + ', click the highest reached tier (tier ' + n + ')';
   }
@@ -1352,7 +1351,7 @@ details.about .abt b{color:var(--c-text)}
       var F2 = curF(), done = 0;
       ch.forEach(function (x) {
         var c = x.cur, ok2 = false;
-        if (id === 'b-fill') { if (c.mine < T[4]) { c.mine = T[4]; ok2 = true; } if (lwf.checked && c.p1 < GOAL) { c.p1 = GOAL; ok2 = true; } }
+        if (id === 'b-fill') { if (c.mine < T[4]) { c.mine = T[4]; ok2 = true; } }
         else if (id === 'b-complete') ok2 = doComplete(x, F2); else ok2 = doReopen(x);
         if (ok2) done++;
         render(x);
@@ -1368,7 +1367,6 @@ details.about .abt b{color:var(--c-text)}
     else if (t === grp) resort();
     else if (t.classList && t.classList.contains('pick')) updateSum();
     else if (t === fac) { R.forEach(render); updateSum(); }
-    else if (t === lwf) updateSum();
   });
 
   // term and decrees (sample data): one term row with the active decree, the elected decree and the reigning faction, and the decree pool
