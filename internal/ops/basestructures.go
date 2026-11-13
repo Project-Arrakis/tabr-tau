@@ -92,7 +92,7 @@ func (o *Ops) BaseStructures(baseID int64) (any, error) {
 //
 // The rule for the target: the highest health of a type is looked up over the whole save (the same figure RepairBuildings uses), but only
 // rows owned by this base are written. A base whose every wall is worn is therefore still repaired, which a maximum taken from the base's
-// own pieces would not do. Nothing is ever lowered, and the other bases' rows and the unowned ones are not touched.
+// own pieces would not do. A health outside 0 to basefile.MaxPieceHealth is never taken as the best (#613). Nothing is ever lowered, and the other bases' rows and the unowned ones are not touched.
 func (o *Ops) RepairBase(baseID int64) (any, error) {
 	if err := o.requireTotem(baseID); err != nil {
 		return nil, err
@@ -100,14 +100,14 @@ func (o *Ops) RepairBase(baseID int64) (any, error) {
 	var n, mm int64
 	_, err := o.S.Mutate("", func(m *save.Mut) error {
 		res, err := m.Exec(`update building_instances set health=best.top
-			from (select building_type bt, max(health) top from building_instances where building_type is not null group by building_type) best
+			from `+bestHealthOf("building_instances")+` best
 			where building_instances.building_type=best.bt and building_instances.health < best.top and building_instances.`+ownedByBase, baseID)
 		if err != nil {
 			return err
 		}
 		n, _ = res.RowsAffected()
 		res2, err := m.Exec(`update placeables set health=best.top
-			from (select building_type bt, max(health) top from placeables where building_type is not null group by building_type) best
+			from `+bestHealthOf("placeables")+` best
 			where placeables.building_type=best.bt and placeables.health < best.top and placeables.is_hologram=0 and placeables.`+ownedByBase, baseID)
 		if err != nil {
 			return err

@@ -189,7 +189,8 @@ var required = map[string][]string{
 // Verify checks what only the whole file can tell. It refuses, with the row and the reason: a NULL where the game's schema has NOT NULL; an id that is not positive where the game
 // wants one; an id used by two rows; a row that names an id that is not a row of the file (every reference of a base points inside the base; the references inside JSON are the
 // importer's, see RewriteRefs); an actor of another state than 0 or 5; an actor class that is not a name of the game's or is a player's; text that is not plain; a Solido blueprint
-// in a storage (its rows are not carried); and a file that is not one base backup with all its actors.
+// in a storage (its rows are not carried); a file that is not one base backup with all its actors; and numbers out of range (verifyValues, values.go: stacks, slots, health and
+// durability).
 func (b *Base) Verify() error {
 	for _, t := range Tables {
 		rs := b.Rows[t.Name]
@@ -433,7 +434,7 @@ func (b *Base) Verify() error {
 			}
 		}
 	}
-	return nil
+	return b.verifyValues()
 }
 
 func uniquePairs(b *Base, table, c1, c2 string) error {
