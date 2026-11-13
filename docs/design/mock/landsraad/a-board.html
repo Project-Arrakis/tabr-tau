@@ -262,17 +262,16 @@ a.tile .now{display:none;position:absolute;top:8px;right:8px;padding:0 8px;borde
 #lsum{margin:0 0 var(--s-2);font-size:var(--t-sm)}
 #result{margin:0 0 var(--s-2);font-size:var(--t-sm);color:var(--c-ok)}
 #pendbar{margin:0 0 var(--s-2);font-size:var(--t-sm)}
-.findbar{display:flex;flex-wrap:wrap;gap:var(--s-2) var(--s-4);align-items:center;margin:0 0 var(--s-3)}
-.findbar .f{display:inline-flex;gap:var(--s-2);align-items:center;flex-wrap:nowrap}
-.findbar .lbl{font:600 var(--t-xs) var(--t-display);letter-spacing:.1em;text-transform:uppercase;color:var(--c-dim);white-space:nowrap}
-.findbar select{min-height:var(--hit);padding:0 10px;border:1px solid var(--c-rule);border-radius:var(--r-2);background:var(--c-sunken);color:var(--c-text);font:var(--t-md) var(--t-body)}
-.findbar select:focus-visible{outline:2px solid var(--c-focus);outline-offset:1px}
-.onlybar{flex-basis:100%;padding:var(--s-2) var(--s-3);border-left:3px solid var(--c-spice);background:color-mix(in srgb,var(--c-spice) 10%,var(--c-panel));border-radius:var(--r-2);font-size:var(--t-sm)}
+.ctl .f{display:inline-flex;gap:var(--s-2);align-items:center;flex-wrap:nowrap}
+.ctl .lbl{white-space:nowrap}
+.ctl select{min-height:var(--hit);padding:0 10px;border:1px solid var(--c-rule);border-radius:var(--r-2);background:var(--c-sunken);color:var(--c-text);font:var(--t-md) var(--t-body)}
+.ctl select:focus-visible{outline:2px solid var(--c-focus);outline-offset:1px}
+.onlybar{margin:0 0 var(--s-3);padding:var(--s-2) var(--s-3);border-left:3px solid var(--c-spice);background:color-mix(in srgb,var(--c-spice) 10%,var(--c-panel));border-radius:var(--r-2);font-size:var(--t-sm)}
 .onlybar a{color:var(--c-spice);font-weight:600}
 .nolist{padding:var(--s-3);border:1px dashed var(--c-rule);border-radius:var(--r-2);color:var(--c-dim);margin:var(--s-2) 0}
 .m[data-only] .row:not(.only){display:none!important}
 .m[data-only] .row.only{display:block!important}
-.shown{margin:0 0 var(--s-2);font-size:var(--t-sm);color:var(--c-dim)}
+.ctl .shown{margin-left:auto;font-size:var(--t-xs);color:var(--c-dim);white-space:nowrap}
 .row{position:relative;border-bottom:1px solid var(--c-hair);order:var(--o-house-asc-0)}
 .sum{cursor:pointer}
 .sum:hover{background:var(--c-raised)}
@@ -401,7 +400,6 @@ a.tile .now{display:none;position:absolute;top:8px;right:8px;padding:0 8px;borde
 }
 @media (max-width:640px){
   .glance{grid-template-columns:1fr}
-  .findbar .f{flex-wrap:wrap}
   a.tile{display:flex;align-items:baseline;gap:12px}
   a.tile .now{position:static}
   .hist .term>summary{grid-template-columns:1fr}
@@ -523,6 +521,8 @@ details.about .abt b{color:var(--c-text)}
     <span><span class="lbl">House</span><span class="seg"><label><input type="radio" name="h" id="h-any" checked><span>Any</span></label><label><input type="radio" name="h" id="h-open"><span>Open <em id="e-open">15</em></span></label><label><input type="radio" name="h" id="h-taken"><span>Taken <em id="e-taken">10</em></span></label></span></span>
     <span><span class="lbl">Group</span><label class="btnl"><input type="checkbox" id="g-reg"><span>By region</span></label></span>
     <span><span class="lbl">Rows</span><label class="btnl"><input type="checkbox" id="xall" form="rowsf"><span>Expand all</span></label> <button type="reset" form="rowsf" class="btnr">Collapse all</button></span>
+    <span class="f"><label class="lbl" for="jump">Jump to house</label><select id="jump"><option value="">Choose a house</option><option value="alexin">Alexin</option><option value="argosaz">Argosaz</option><option value="dyvetz">Dyvetz</option><option value="ecaz">Ecaz</option><option value="hagal">Hagal</option><option value="hurata">Hurata</option><option value="imota">Imota</option><option value="kenola">Kenola</option><option value="lindaren">Lindaren</option><option value="maros">Maros</option><option value="mikarrol">Mikarrol</option><option value="moritani">Moritani</option><option value="mutelli">Mutelli</option><option value="novebruns">Novebruns</option><option value="richese">Richese</option><option value="sor">Sor</option><option value="spinnette">Spinnette</option><option value="taligari">Taligari</option><option value="thorvald">Thorvald</option><option value="tseida">Tseida</option><option value="varota">Varota</option><option value="vernius">Vernius</option><option value="wallach">Wallach</option><option value="wayku">Wayku</option><option value="wydras">Wydras</option></select></span>
+    <span class="shown" id="shown" aria-live="polite">25 of 25 houses shown</span>
   </div>
   <div class="actbar" role="group" aria-label="Actions on the board (sample data)">
     <div class="actrow" role="group" aria-label="Act on several houses at once"><button type="button" class="qa" id="b-all">Choose all houses</button><button type="button" class="qa" id="b-none">Clear the choice</button><button type="button" class="qa btnp" id="b-fill" title="Raises your contribution on every chosen house to its highest reward tier (never lowered). The reward items themselves are not written.">Fill chosen</button><button type="button" class="qa btnp" id="b-complete" title="Marks every chosen house complete for the faction below and sets that faction's progress on it to the house goal (never lowered).">Complete chosen</button><button type="button" class="qa btnp" id="b-reopen" title="Undoes the completion of the chosen houses; no progress and no contribution is changed.">Reopen chosen</button> <span class="src src-write" title="Writes to the save: your contribution, the faction progress, completed and winner">writes</span></div>
@@ -534,11 +534,7 @@ details.about .abt b{color:var(--c-text)}
     <details class="about"><summary>About tiers</summary><div class="abt"><p>Click a tier (the boxes in the opened row, or the five small boxes in the row itself) to give your character that tier: your contribution is raised to that tier's threshold, and contribution is cumulative, so <b>click tier 3 and tiers 1 to 3 are reached</b>. Click the highest reached tier again to remove it (the contribution drops to the tier below, or to none for tier 1). A change shows as pending (outlined, "will be reached" or "will be removed") with an Undo until it is written; the Choose box on each row picks houses for the bulk buttons.</p><p><b>Open question (tau #609):</b> rewards that the game's representative hands out to the inventory depend on the save's delivery rows, which are not understood yet; until that is proven a tier click changes "reached" only.</p></div></details>
     <details class="about"><summary>About Fill and Complete</summary><div class="abt"><p>Fill, Complete and Reopen act for the faction chosen above. It starts on your character's own faction. For another faction, Fill and Complete record that faction's win and progress and skip your own contribution row. <b>Fill chosen</b> changes your contribution and tiers only. <b>Complete chosen</b> takes the house for the chosen faction: its progress goes to the goal, and the winner and the completion are set. <b>Fill faction goal</b> on one house does both in one click. Everything here is sample data and the buttons change only what this page shows.</p></div></details>
   </div>
-  <div class="findbar" role="group" aria-label="Jump to a house">
-    <span class="f"><label class="lbl" for="jump">Jump to house</label><select id="jump"><option value="">Choose a house</option><option value="alexin">Alexin</option><option value="argosaz">Argosaz</option><option value="dyvetz">Dyvetz</option><option value="ecaz">Ecaz</option><option value="hagal">Hagal</option><option value="hurata">Hurata</option><option value="imota">Imota</option><option value="kenola">Kenola</option><option value="lindaren">Lindaren</option><option value="maros">Maros</option><option value="mikarrol">Mikarrol</option><option value="moritani">Moritani</option><option value="mutelli">Mutelli</option><option value="novebruns">Novebruns</option><option value="richese">Richese</option><option value="sor">Sor</option><option value="spinnette">Spinnette</option><option value="taligari">Taligari</option><option value="thorvald">Thorvald</option><option value="tseida">Tseida</option><option value="varota">Varota</option><option value="vernius">Vernius</option><option value="wallach">Wallach</option><option value="wayku">Wayku</option><option value="wydras">Wydras</option></select></span>
-    <span class="onlybar" id="only" hidden>Showing only House <b id="onlyname"></b>, opened. The filters are ignored while this is on. <a id="showall" href="#show-all">Show all houses</a></span>
-  </div>
-  <p class="shown" id="shown" aria-live="polite">25 of 25 houses shown</p>
+  <p class="onlybar" id="only" hidden>Showing only House <b id="onlyname"></b>, opened. The filters are ignored while this is on. <a id="showall" href="#show-all">Show all houses</a></p>
   <p class="nolist" id="nomatch" hidden>No house matches. Change the filters.</p>
   <div role="table" aria-label="Houses, current term"><div role="rowgroup"><div class="rowhead" role="row"><span class="pickh" aria-hidden="true">Choose</span><span class="sortlbl">Sort by</span><div role="columnheader" data-col="house" aria-sort="ascending"><button type="button" class="sorth">House <span class="ar" aria-hidden="true"></span></button><span class="src src-save" title="Read from the save: landsraad_tasks.house_name">save</span></div><div role="columnheader" data-col="location" aria-sort="none"><button type="button" class="sorth">Location <span class="ar" aria-hidden="true"></span></button></div><div class="hc3"><div role="columnheader" data-col="state" aria-sort="none"><button type="button" class="sorth">State <span class="ar" aria-hidden="true"></span></button></div><div role="columnheader" data-col="tiers" aria-sort="none"><button type="button" class="sorth">Tiers <span class="ar" aria-hidden="true"></span></button><span class="src src-derived" title="Worked out by the editor from fields the save holds: tiers reached from your contribution">derived</span></div><div role="columnheader" data-col="next" aria-sort="none"><button type="button" class="sorth">Next tier <span class="ar" aria-hidden="true"></span></button></div></div><div role="columnheader" data-col="status" aria-sort="none"><button type="button" class="sorth">Faction status <span class="ar" aria-hidden="true"></span></button><span class="src src-save" title="Read from the save: completed, winning_faction_id, faction contributions">save</span></div><div class="hend"><span class="mut" style="font-weight:500;letter-spacing:0;text-transform:none">Quick actions</span></div></div></div>
   <form id="rowsf" action="#h-board" role="none"><ul class="rows" role="rowgroup">
