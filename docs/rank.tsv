@@ -1,0 +1,23 @@
+# number<TAB>rank<TAB>reason. Read by scripts/roadmap-gen.sh; the operator reorders this file.
+# One line per ranked issue: change the rank numbers (1 = work first) or move a line; the page sorts by rank within each priority.
+# Rule: data loss or safety first; then blocks playing; then wrong information shown on screen; then a daily annoyance; then polish; a tie goes to the smaller job.
+# An issue that is not listed here is simply unranked (shown as -); it is not an error. Keep each line to a single row with real tab characters.
+480	1	Safety: Create a vehicle puts it blind into a base wall or onto the floor above; the vehicle can be lost.
+506	2	Wrong information on screen: choosing a place does not change the Teleport fields; small.
+501	3	Wrong information on screen: Teleport set does not say a running game will not move; small.
+516	4	Wrong information on screen: the three Deep Desert keys are named Tradepost but are taxi points; the smallest fix.
+465	5	Data correctness: Landsraad Complete writes completion_time on the wrong clock into the save.
+483	6	Data correctness: Add item accepts items into a vehicle with no storage part and writes an impossible state.
+540	7	Safety: Create a vehicle can place it below the terrain, inside rock; same family as #480.
+508	8	Wrong information on screen: the automatic refill on a copy says it saved to the game.
+572	9	Safety: the design module must serve every file type explicitly, no data: URLs, tags protected; hardening.
+499	10	Blocks playing: the automatic refill at launch waits for the game to close even at the menu.
+498	11	Blocks playing: edits to a save that is not the game's own file wait while the game runs; show a copy and write at once.
+469	12	Wrong information on screen: Refuel fills to a fixed tank per class, so a Mk6 buggy reads full at 240 of 300.
+482	13	Wrong information on screen: Fill leaves other liquid containers alone; the whole fillable table should be read.
+495	14	Wrong information on screen: the item catalog lacks the 7 Halloween 2026 building sets; a small refresh.
+470	15	Daily annoyance: edits wait 3 minutes for the game to be quiet after leaving the world.
+521	16	Daily annoyance: Go to a place does not list the Deep Desert taxis or Harko Village and Arrakeen.
+574	17	Accessibility, severity high: the design module's focus ring, tooltips and contrast need checks before components ship.
+584	18	Polish: editor wording pass, cut duplicated and boilerplate text (25 findings).
+56	19	Feature: full repair for bases and vehicles; needs a save with a wrecked vehicle, so last.
