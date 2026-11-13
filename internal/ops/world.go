@@ -3,9 +3,11 @@ package ops
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
+	"github.com/Project-Arrakis/tabr-tau/internal/basefile"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
@@ -32,7 +34,14 @@ func (o *Ops) StorageItems(inv int64) (any, error) {
 	return items, nil
 }
 
-// RepairBuildings sets every building piece and placeable of the whole save to the highest health seen for its type. It is the
+// bestHealthOf is the derived table of the repair: the best health seen for each type of the table (building_instances or placeables), counting only a health that is a number from 0
+// to basefile.MaxPieceHealth. A piece with a health outside that range (a file or an edit put 1e300 there) is not a "best seen" and is never copied: what the repair writes is always
+// inside the range. The ceiling is written into the text (it is a constant of the program, not an argument), so that the statement stays one that needs no arguments of its own.
+func bestHealthOf(table string) string {
+	return `(select building_type bt, max(health) top from ` + table + ` where building_type is not null and health >= 0 and health <= ` + strconv.FormatFloat(basefile.MaxPieceHealth, 'f', 0, 64) + ` group by building_type)`
+}
+
+// RepairBuildings sets every building piece and placeable of the whole save to the highest health seen for its type, among the healths from 0 to basefile.MaxPieceHealth (#613). It is the
 // save-wide action; the Structures tab offers it apart from the open base's own, RepairBase (#526).
 //
 // The best health of each type is worked out once, by one grouped scan, and the pieces are joined to it. The statement used to look the
@@ -42,14 +51,14 @@ func (o *Ops) RepairBuildings() (any, error) {
 	var n, mm int64
 	_, err := o.S.Mutate("", func(m *save.Mut) error {
 		res, err := m.Exec(`update building_instances set health=best.top
-			from (select building_type bt, max(health) top from building_instances where building_type is not null group by building_type) best
+			from `+bestHealthOf("building_instances")+` best
 			where building_instances.building_type=best.bt and building_instances.health < best.top`)
 		if err != nil {
 			return err
 		}
 		n, _ = res.RowsAffected()
 		res2, err := m.Exec(`update placeables set health=best.top
-			from (select building_type bt, max(health) top from placeables where building_type is not null group by building_type) best
+			from `+bestHealthOf("placeables")+` best
 			where placeables.building_type=best.bt and placeables.health < best.top`)
 		if err != nil {
 			return err
