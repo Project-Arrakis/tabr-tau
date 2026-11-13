@@ -38,7 +38,8 @@ func topTier(m *save.Mut, taskID int64) (float64, error) {
 // FillFactionGoal completes one house of the current term for a faction at the highest reward (args task_id, faction_id, term_id: the term the page showed). The faction's
 // progress is raised to the house goal, the house is marked complete with the faction as winner and the play clock as the time (the code of Complete chosen), and the character's own
 // contribution under that faction is raised to the highest reward tier of the house (the code of Fill chosen). Nothing is lowered and no reward row is written. A house that is
-// already in that state changes nothing. A save with no character gets the first two only. It is one edit.
+// already in that state changes nothing. A save with no character gets the first two only. For a character that is not in the chosen faction the whole edit is refused
+// and nothing is written: the character's contribution row is never written under a faction the character is not in (D1-1, #611). It is one edit.
 func (o *Ops) FillFactionGoal(a Args) (any, error) {
 	taskID, e1 := a.Int("task_id")
 	faction, e2 := a.Int("faction_id")
@@ -47,6 +48,9 @@ func (o *Ops) FillFactionGoal(a Args) (any, error) {
 		return nil, err
 	}
 	me, perr := o.player() // no character: the faction part is still written, the personal part is not
+	if perr != nil && !errors.Is(perr, errNoPlayer) {
+		return nil, perr // a read that failed or a record with no usable id is not "no character": nothing is written (D1-9, #611)
+	}
 	var progressDone, completedDone, mineDone bool
 	var top, before float64
 	var house, fname string
@@ -60,6 +64,15 @@ func (o *Ops) FillFactionGoal(a Args) (any, error) {
 			return apierr.New(apierr.ErrBadArgument, "that faction is not one the Landsraad has")
 		}
 		fname = fmt.Sprint(f["name"])
+		if perr == nil { // the character's own contribution row is written under the faction of the edit, so it must be the character's own faction (D1-1, #611)
+			own, err := m.One(`select f.name from player_faction pf join factions f on f.id=pf.faction_id where pf.actor_id=? and f.name<>'None' and f.id=?`, me.Controller, faction)
+			if err != nil {
+				return err
+			}
+			if own == nil {
+				return apierr.Newf(apierr.ErrBadArgument, "your character is not in %s, so nothing was changed: Fill faction goal records your own contribution under the faction, and the editor writes no contribution row of yours for a faction your character is not in. Choose your own faction in the faction list; Complete chosen can complete a house for another faction without a personal row", fname)
+			}
+		}
 		if err := currentTerm(m, termID); err != nil {
 			return err
 		}
