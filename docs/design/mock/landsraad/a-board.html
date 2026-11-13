@@ -493,6 +493,19 @@ details.about .abt b{color:var(--c-text)}
 .dp li{grid-template-columns:2.2rem minmax(0,2fr) minmax(0,1.2fr) 7.5rem 8.5rem}
 .dp .dh>span:nth-child(4){white-space:nowrap}
 @media (max-width:640px){.dp li{grid-template-columns:2rem minmax(0,1fr) auto}}
+/* earlier terms: on a phone each house is a short block instead of a table that scrolls sideways (review fix) */
+@media (max-width:640px){
+  .hist details>table,.hist table{display:block;overflow:visible}
+  .hist table thead{display:none}
+  .hist table tbody,.hist table tr,.hist table td{display:block}
+  .hist table tr{padding:8px 12px;border-top:1px solid var(--c-hair)}
+  .hist table td{padding:1px 0;border:0}
+  .hist table td:first-child{font-weight:600;font-size:var(--t-md)}
+  .hist table td:nth-child(2)::before{content:"Your contribution: ";color:var(--c-dim)}
+  .hist table td:nth-child(3)::before{content:"Tiers: ";color:var(--c-dim)}
+  .hist table td:nth-child(4)::before{content:"House status: ";color:var(--c-dim)}
+  .hist table td:nth-child(5)::before{content:"Last payout: ";color:var(--c-dim)}
+}
 </style>
 </head>
 <body>
