@@ -25,7 +25,7 @@ Pull requests are not reviewed by a second person before merge. The repository h
 
 ## Compensating controls (what stands in for peer review)
 
-1. **The owner reads and approves each code pull request** before it merges; nothing code-bearing is merged without the owner's explicit approval. Docs-only changes are merged on green CI at the owner's word.
+1. **The owner reads and approves each code pull request** before it merges; nothing code-bearing is merged without the owner's explicit approval. Docs-only changes merge on green CI under the owner's standing agreement of 2026-11-14.
 2. **CI on every pull request,** which must be green before merge: build, tests, the commit-message policy check, static analysis and secret scanning, with every action pinned to a commit SHA.
 3. **Every change is tracked:** a pull request references its tracking issue and states its risk (Critical, High, Medium, Low) and blast radius in the body.
 4. **Periodic audits** (Decision 1) catch what a per-change review would have: independent reviews from several viewpoints and a high-effort code review, with written registers.
