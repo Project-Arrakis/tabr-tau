@@ -183,6 +183,11 @@ func (o *Ops) LandsraadApply(a Args) (any, error) {
 				}
 			}
 			if it.mineTo != nil {
+				// the contribution is the character's, under its own faction: a request that fills it while completing the house for another faction is refused (Fill faction goal under
+				// another faction records that faction's win and skips the personal row, and no reward row is written)
+				if it.completeFor != nil && *it.completeFor != me.faction {
+					return apierr.Newf(apierr.ErrBadArgument, "%v: your own contribution counts for your own faction, so it cannot be changed in the same step as completing the house for another faction", houseOf(t))
+				}
 				row, err := m.One(`select amount from landsraad_task_player_contributions where player_id=? and faction_id=? and task_id=?`, me.player, me.faction, it.task)
 				if err != nil {
 					return err

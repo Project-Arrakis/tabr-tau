@@ -260,3 +260,22 @@ func TestRewardsASwatchWonThisTermIsNotReplacedByTheTaskItemAfterARemoval(t *tes
 		t.Fatalf("the one-time row changed: %s", got)
 	}
 }
+
+// Fill under another faction: the contribution is the character's, under its own faction, so a request that raises it while completing the house for another faction (what
+// Fill faction goal sent before the page stopped doing that) is refused as a whole, and nothing is written (#628, #609).
+func TestRewardsFillWithAnotherFactionChosenIsRefusedAndWritesNothing(t *testing.T) {
+	o := rewardOps(t, "")
+	rBefore, eBefore, oBefore := rows(t, o, `select * from landsraad_house_rewards order by 1,2,4`), events(t, o), oneTimeRows(t, o)
+	cBefore := rows(t, o, `select * from landsraad_task_player_contributions order by 1,2,3`)
+	if _, err := o.LandsraadApply(applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0, "complete_for": 1.0}))); err == nil {
+		t.Fatal("raising the contribution while completing for another faction was accepted")
+	}
+	if rows(t, o, `select * from landsraad_house_rewards order by 1,2,4`) != rBefore || events(t, o) != eBefore || oneTimeRows(t, o) != oBefore ||
+		rows(t, o, `select * from landsraad_task_player_contributions order by 1,2,3`) != cBefore {
+		t.Fatal("a refused request changed the save")
+	}
+	// the same house, the character's own faction (2): both parts are written, with the rewards
+	if m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0, "complete_for": 2.0}))); m["reward_rows"].(int64) != 4 {
+		t.Fatalf("answer: %v", m)
+	}
+}
