@@ -29,11 +29,9 @@ async function openLandsraad(extra = {}) {
   return ui;
 }
 
-test('an action on the Landsraad tab keeps the scroll offsets, the chosen faction and the opened list', async () => {
+test('an action on the Landsraad tab keeps the page offset, the chosen faction and the opened list', async () => {
   const ui = await openLandsraad();
   const y = holdWindowScroll(ui.w, 640);
-  const box = [...ui.doc.querySelectorAll('#main .scroll')].pop();
-  box.scrollTop = 175;
   ui.doc.querySelector('#lsb-fac').value = '2';
   const det = ui.doc.querySelector('#main details'); det.open = true;
   const before = ui.doc.querySelector('#lsb-fac');
@@ -45,7 +43,6 @@ test('an action on the Landsraad tab keeps the scroll offsets, the chosen factio
   assert.equal(sent[0].body.houses[0].complete_for, 2, 'the faction that was chosen is the one sent');
   assert.notEqual(ui.doc.querySelector('#lsb-fac'), before, 'the tab was drawn again');
   assert.equal(ui.doc.querySelector('#lsb-fac').value, '2', 'the faction stays chosen');
-  assert.equal([...ui.doc.querySelectorAll('#main .scroll')].pop().scrollTop, 175, 'the table keeps its offset');
   assert.equal(y(), 640, 'the page keeps its offset');
   assert.equal(ui.doc.querySelector('#main details').open, true, 'the opened list stays open');
 });
@@ -72,19 +69,36 @@ test('a ticked box and typed text are put back on a redrawn page, but a value th
   assert.equal(ui.doc.querySelector('[aria-label="Stack"]').value, '9', 'a box whose value the save changed shows the new value');
 });
 
-test('a move to another tab starts at the top', async () => {
+test('a scrolling table keeps its offset over a redraw, and the box is told apart by the heading of its card', async () => {
   const ui = await openLandsraad();
-  holdWindowScroll(ui.w, 500);
-  [...ui.doc.querySelectorAll('#main .scroll')].pop().scrollTop = 99;
+  const main = ui.doc.querySelector('#main');
+  const page = () => '<div class="card"><h3>First box</h3><div class="scroll"><p>a</p></div></div><div class="card"><h3>Second box</h3><div class="scroll"><p>b</p></div></div>';
+  main.innerHTML = page();
+  const [a, b] = [...main.querySelectorAll('.scroll')];
+  a.scrollTop = 175; b.scrollTop = 40; b.scrollLeft = 5;
+  const snap = ui.w.viewSnapshot();
+  main.innerHTML = page();
+  ui.w.viewApply(snap);
+  const [a2, b2] = [...main.querySelectorAll('.scroll')];
+  assert.equal(a2.scrollTop, 175);
+  assert.deepEqual([b2.scrollTop, b2.scrollLeft], [40, 5]);
+});
+
+test('a place kept for one tab is not put on another tab', async () => {
+  const ui = await openLandsraad();
+  const main = ui.doc.querySelector('#main');
+  main.insertAdjacentHTML('beforeend', '<div class="card"><h3>Box</h3><div class="scroll"><p>a</p></div></div>');
+  main.querySelector('.scroll').scrollTop = 99;
+  const snap = ui.w.viewSnapshot();
   ui.click('[data-tab="config"]'); await ui.settle();
-  ui.click('[data-tab="landsraad"]'); await ui.settle();
-  assert.equal([...ui.doc.querySelectorAll('#main .scroll')].pop().scrollTop, 0, 'a tab opened again starts at the top');
+  main.insertAdjacentHTML('beforeend', '<div class="card"><h3>Box</h3><div class="scroll"><p>a</p></div></div>');
+  ui.w.viewApply(snap);
+  assert.equal(main.querySelector('.scroll').scrollTop, 0, 'a tab opened again starts at the top');
 });
 
 test('a refresh of the page comes back to the same tab, offsets and choices', async () => {
   const first = await openLandsraad();
   holdWindowScroll(first.w, 880);
-  [...first.doc.querySelectorAll('#main .scroll')].pop().scrollTop = 210;
   first.doc.querySelector('#lsb-fac').value = '2';
   first.doc.querySelector('#main details').open = true;
   first.w.dispatchEvent(new first.w.Event('pagehide'));
@@ -99,7 +113,6 @@ test('a refresh of the page comes back to the same tab, offsets and choices', as
   assert.equal(scrolledTo, 880, 'the page is scrolled to where it was');
   assert.ok(ui.doc.querySelector('#lsb-fac'), 'the same tab is open after the refresh');
   assert.equal(ui.doc.querySelector('#lsb-fac').value, '2', 'the chosen faction is back');
-  assert.equal([...ui.doc.querySelectorAll('#main .scroll')].pop().scrollTop, 210, 'the table is where it was');
   assert.equal(ui.doc.querySelector('#main details').open, true);
 });
 
