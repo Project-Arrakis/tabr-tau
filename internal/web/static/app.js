@@ -1690,9 +1690,262 @@ function tierLine(r, x, l) {
   const state = x.delivered ? html`<span class="ok">reached, recorded as delivered</span>` : x.reached ? html`<span class="mut">reached, no delivery recorded in this term</span>` : html`<span class="mut">not reached</span>`;
   return html`<div>${box} At ${Number(x.threshold).toLocaleString()} contributed: ${Number(x.amount).toLocaleString()} × ${itemName(x.template_id)} · ${state} ${x.reached || !can ? '' : html`<button class="b sec sm d-btn sm" data-act="mfill" data-id="${r.id}" data-tier="${x.threshold}" title="Raise your contribution to this house to ${Number(x.threshold).toLocaleString()}. The reward itself is not written.">Fill to this tier</button>`}</div>`;
 }
+// ---------- LANDSRAAD board (tau #599, design of record: docs/design/mock/landsraad/a-board.html)
+// One list of the houses of the current term, alphabetical by default, every row collapsed to one line and opened to the tiers with their rewards, the factions' progress and the
+// place. The page reads the save through /api/landsraad and draws every row once; the filters, the sort, the grouping and the jump only show, hide and order the rows.
+const LB = { sort: 'house', dir: 'asc', show: 'all', hs: 'any', group: false, jump: '', open: new Set(), all: false };
+const LB_GLYPH = { new: '○', part: '◐', done: '✓' }, LB_WORD = { new: 'Not started', part: 'In progress', done: 'Top tier' };
+const LB_STW = { not_reached: 'Not reached', waiting: 'Waiting to collect', delivered: 'Delivered', no_row: 'Reached, no delivery recorded' };
+const LB_STL = { not_reached: 'not reached', waiting: 'reached, waiting to collect at the house representative', delivered: 'reached, delivered', no_row: 'reached, no delivery recorded' };
+const lbF = (n) => Number(n).toLocaleString('en-US');
+const lbNameOf = (r) => String(r.house_name || '').replace(/^DA_House/, '');
+const lbMark = (kind, tip) => html`<span class="src src-${kind}" title="${tip}">${kind === 'write' ? 'writes' : kind}</span>`;
+function lbAbout(id, title, content) { return html`<details class="about" data-about="${id}" ${browserStore.get(aboutKey(id)) === '1' ? 'open' : ''}><summary>About ${title}</summary><div class="abt">${content}</div></details>`; }
+// One house as the board needs it, from the task the server returned.
+function lbHouse(r, l) {
+  const tiers = (r.rewards || []).map((x) => ({
+    th: Number(x.threshold), amount: Number(x.shown_amount != null ? x.shown_amount : x.amount), tmpl: x.shown_template_id || x.template_id, swatch: !!x.swatch,
+    reached: !!x.reached, state: x.reward_state || (x.reached ? 'no_row' : 'not_reached'),
+  }));
+  const mine = Number(r.my_contribution || 0), reached = tiers.filter((t) => t.reached).length;
+  const prog = {};
+  for (const c of r.contributions || []) prog[c.faction_id] = Number(c.amount) || 0;
+  const loc = r.location || { known: false };
+  const state = mine <= 0 ? 'new' : tiers.length && reached === tiers.length ? 'done' : 'part';
+  return { id: r.id, name: lbNameOf(r), task: r, mine, tiers, reached, state, goal: Number(r.goal_amount) || 0, prog, win: r.winning_faction_id, taken: !!r.completed || r.winning_faction_id != null,
+    loc, region: loc.known ? loc.map : '', area: loc.known ? loc.area : '', held: !!r.swatch_held };
+}
+const lbRText = (t) => lbF(t.amount) + ' ' + itemName(t.tmpl);
+// the next-tier text is two pieces that never break inside: on a wide row they sit on one line, on a phone the second piece moves down
+function lbNextParts(h) {
+  for (const t of h.tiers) if (h.mine < t.th) return ['next ' + lbF(t.th) + ' · ' + lbRText(t) + ',', lbF(t.th - h.mine) + ' more'];
+  const top = h.tiers.length ? h.tiers[h.tiers.length - 1].th : 0;
+  return [h.mine > top ? 'above the top tier' : 'top tier reached'];
+}
+function lbNextReward(h) { for (const t of h.tiers) if (h.mine < t.th) return lbF(t.th) + ': ' + lbRText(t); return 'top tier reached'; }
+const lbWaiting = (h) => { const w = h.tiers.filter((t) => t.state === 'waiting').map(lbRText); return w.length ? w.join(', ') : 'nothing waiting'; };
+function lbLead(h, ids) { // the faction with the most progress, when it is one faction
+  let best = 0, who = null, tie = false;
+  for (const id of ids) { const p = h.prog[id] || 0; if (p > best) { best = p; who = id; tie = false; } else if (p === best && p > 0) tie = true; }
+  return tie ? null : who;
+}
+const lbFacName = (l, id) => ((l.factions || []).find((f) => f.id == id) || {}).name || (id == null ? '' : 'Faction ' + id);
+function lbHsText(h, l) {
+  const mineF = l.character ? l.character.faction_id : null;
+  if (h.taken) return 'Taken' + (h.win != null ? ' · ' + lbFacName(l, h.win) + (mineF != null && h.win == mineF ? ' (yours)' : '') : '');
+  const ld = lbLead(h, (l.factions || []).map((f) => f.id));
+  return 'Open' + (ld != null ? ' · ' + lbFacName(l, ld) + ' ahead' : '');
+}
+function lbAreaFull(h) { return !h.loc.known ? 'not mapped yet' : h.loc.area === h.loc.map ? h.loc.area : h.loc.area + ' (' + h.loc.map + ')'; }
+const lbMeter = (h) => html`<span class="meter${h.tiers.length && h.reached === h.tiers.length ? ' full' : ''}" role="img" aria-label="${h.reached} of ${h.tiers.length} tiers reached">${h.tiers.map((t, i) => html`<i class="${t.reached ? 'on' : ''}${i === h.tiers.length - 1 ? ' top' : ''}" title="${'Tier ' + (i + 1) + ': ' + lbF(t.th)}"></i>`)}</span>`;
+const lbPin = (h) => (h.loc.known ? html`<span class="pin" data-px="${(Number(h.loc.x) * 100).toFixed(1)}" data-py="${(Number(h.loc.y) * 100).toFixed(1)}"></span>` : '');
+const lbMiniMap = (h) => (h.loc.known ? html`<span class="minimap"><svg viewBox="0 0 120 90" role="img" aria-label="Schematic of ${h.loc.map} (not to scale)" focusable="false"><path class="m-fill" d="M8 34 L28 12 L66 6 L102 20 L114 50 L98 80 L56 86 L22 78 L6 56 Z"/><text class="m-txt" x="117" y="88" text-anchor="end" font-size="3.4">schematic, not to scale</text></svg>${lbPin(h)}</span>` : '');
+function lbPlaceDetails(h) {
+  if (!h.loc.known) return html`<p class="cap">The place of this house is not in the editor yet: the table of the house representatives' positions is still to be built.</p>`;
+  return html`${lbMiniMap(h)}<dl><dt>Region</dt><dd>${lbAreaFull(h)}</dd><dt>Place</dt><dd>${h.loc.place || '—'}</dd></dl>`;
+}
+function lbRow(h, l, hue) {
+  const ids = (l.factions || []).map((f) => f.id), open = LB.open.has(h.id);
+  const tierBoxes = h.tiers.map((t, i) => {
+    const isTop = i === h.tiers.length - 1, st = t.state;
+    const rid = 'Reward: ' + lbRText(t) + (t.swatch ? ' (the house swatch, as the character does not hold it yet)' : isTop && h.tiers.length ? '' : '') + '. Game id: ' + t.tmpl + '.';
+    return html`<div class="tc${isTop ? ' top' : ''}${t.reached ? ' on' : ''}${st === 'waiting' ? ' wt' : ''}${st === 'delivered' ? ' dv' : ''}" role="group" aria-label="Tier ${i + 1}, ${lbF(t.th)}, reward ${lbRText(t)}, ${LB_STL[st]}" title="${rid}"><span class="tv">${lbF(t.th)}</span><span class="rw">${lbRText(t)}</span><span class="pl">${LB_STW[st]}</span></div>`;
+  });
+  const topT = h.tiers[h.tiers.length - 1], swl = !topT ? '' : topT.swatch ? (h.held ? 'Swatch won this term: the top tier is the house swatch' : 'Swatch not held yet: the top tier is the house swatch') : 'Swatch held: the top tier is the house’s own item';
+  const hs = lbHsText(h, l), ld = lbLead(h, ids);
+  const fbs = (l.factions || []).map((f, k) => {
+    const p = h.prog[f.id] || 0;
+    return html`<div class="fb ${k === 0 ? 'a' : 'h'}${ld == f.id ? ' lead' : ''}"><span class="fl">${f.name}</span><span class="trk"><i data-w="${h.goal ? Math.min(100, Math.round(p / h.goal * 100)) : 0}"></i></span><span class="fv">${lbF(p)}</span></div>`;
+  });
+  const locText = h.loc.known ? html`<span class="ln">${h.loc.area}</span>${h.loc.area === h.loc.map ? '' : html`<span class="lm">${h.loc.map}</span>`}` : html`<span class="ln mut">not mapped yet</span>`;
+  return html`<li class="hr" id="lsrow-${h.id}" data-id="${h.id}" data-my="${h.state}" data-hs="${h.taken ? 'taken' : 'open'}"><div class="cw">
+    <input type="checkbox" class="xc vh" id="lsx-${h.id}" aria-label="Show details of House ${h.name}" ${open ? 'checked' : ''}>
+    <label for="lsx-${h.id}" class="sum">
+      <span class="c-house"><span class="hw"><button type="button" class="hn" aria-expanded="false" title="Details: next reward, waiting to collect, faction race, place (experimental)"><span class="crest" data-hue="${hue}" aria-hidden="true">${h.name.slice(0, 2)}</span><b>${h.name}</b></button><span class="hcard" role="group" aria-label="House ${h.name}, details (experimental)"><button type="button" class="hcl" aria-label="Close the card">×</button><h4>House ${h.name}</h4><dl><dt>Next reward</dt><dd>${lbNextReward(h)}</dd><dt>Waiting to collect</dt><dd>${lbWaiting(h)}</dd><dt>Faction race</dt><dd>${(l.factions || []).map((f) => html`${f.name} ${lbF(h.prog[f.id] || 0)} of ${lbF(h.goal)}<br>`)}${h.taken ? 'Finished by ' + (h.win != null ? lbFacName(l, h.win) : 'a faction') : 'Not finished by either faction'}</dd><dt>Place</dt><dd>${h.loc.known ? lbAreaFull(h) + (h.loc.place ? ' · ' + h.loc.place : '') : 'not mapped yet'}</dd></dl><span class="fine">Experimental card. Click the place for the map.</span></span></span></span>
+      <span class="c-loc"><span class="loc"><button type="button" class="loc-t" data-lb="map" data-id="${h.id}" aria-haspopup="dialog" title="${h.loc.known ? 'Click for the full map of ' + lbAreaFull(h) + '.' : 'The place of this house is not in the editor yet.'}"><svg viewBox="0 0 12 14" aria-hidden="true" focusable="false"><path d="M6 0C2.7 0 0 2.6 0 5.8 0 10 6 14 6 14s6-4 6-8.2C12 2.6 9.3 0 6 0Zm0 8a2.2 2.2 0 1 1 0-4.4A2.2 2.2 0 0 1 6 8Z" fill="currentColor"/></svg><span>${locText}</span></button></span></span>
+      <span class="c-my"><span class="line"><span class="st st-${h.state}"><span aria-hidden="true">${LB_GLYPH[h.state]}</span> ${LB_WORD[h.state]}</span>${lbMeter(h)}<span class="mut">${h.reached} of ${h.tiers.length} tiers</span></span><span class="amt"><b class="js-mine${h.mine > 0 ? '' : ' mut'}">${h.mine > 0 ? lbF(h.mine) : 'none recorded'}</b>${h.mine > 0 ? html` <span class="mut js-next">· ${lbNextParts(h).map((p, k) => html`${k ? ' ' : ''}<span class="nx">${p}</span>`)}</span>` : ''}</span></span>
+      <span class="c-hs"><span class="tag">${hs}</span></span>
+      <span class="chev" aria-hidden="true"></span>
+    </label>
+    <div class="more" ${open ? '' : 'hidden'}>
+      <div><h4>Tiers and rewards ${lbMark('derived', 'Worked out by the editor from fields the save holds: reached = contribution at least the threshold')} ${lbMark('save', 'Read from the save: landsraad_task_rewards (the reward item and amount of each tier)')}</h4><div class="tiers">${tierBoxes}</div><p class="cap"><i class="lg lg-dl" aria-hidden="true"></i> delivered · <i class="lg lg-wt" aria-hidden="true"></i> waiting to collect ${lbMark('save', 'Read from the save: landsraad_house_rewards. An amount above 0 is a reward waiting at the house representative; amount 0 is collected.')} · ✓ reached</p><p class="cap swl">${swl}</p></div>
+      <div><h4>House status and faction progress ${lbMark('save', 'Read from the save: completed, winning_faction_id, faction contributions')}</h4><span class="tag">${hs}</span><div class="fbs">${fbs}</div><p class="cap">of the house goal, ${lbF(h.goal)}</p></div>
+      <div><h4>Where</h4>${lbPlaceDetails(h)}</div>
+    </div>
+  </div></li>`;
+}
+const lbCounts = (hs) => {
+  const c = { new: 0, part: 0, done: 0, taken: 0, open: 0, tiers: 0, tierTotal: 0, total: 0, byFac: {} };
+  for (const h of hs) { c[h.state]++; if (h.taken) { c.taken++; if (h.win != null) c.byFac[h.win] = (c.byFac[h.win] || 0) + 1; } else c.open++; c.tiers += h.reached; c.tierTotal += h.tiers.length; c.total += h.mine; }
+  return c;
+};
+const lbShowOf = (hs, k) => hs.filter((h) => (k === 'all' ? true : k === 'left' ? h.state !== 'done' : h.state === k));
+function lbGlance(hs, l, c) {
+  const n = hs.length || 1, mineF = l.character ? l.character.faction_id : null;
+  const tile = (k, cls, n_, glyph, word) => html`<a class="tile ${cls}" href="#lsb-board" data-lb="show" data-show="${k}" title="${k === 'done' ? 'Top tier (all tiers) reached by your contribution' : ''}" aria-label="Show the ${n_} ${word.toLowerCase()} houses in the list"><span class="now">showing</span><div class="n">${n_}</div><div class="l"><span aria-hidden="true">${glyph}</span> ${k === 'done' ? 'Top tier reached' : word}</div></a>`;
+  const seg = (k, cls, n_, word) => html`<a class="${cls}" href="#lsb-board" data-lb="show" data-show="${k}" data-w="${n_ / n * 100}" data-tip="${n_} ${word.toLowerCase()}" aria-label="Show the ${n_} ${word.toLowerCase()} houses in the list"></a>`;
+  const byFac = (l.factions || []).map((f, i) => html`${i ? ', ' : ''}${f.name} <b>${c.byFac[f.id] || 0}</b>${mineF != null && f.id == mineF ? ' (you)' : ''}`);
+  return html`<section class="card d-panel" aria-labelledby="lsb-glance"><h2 class="d-head" id="lsb-glance">Current term ${(l.term || {}).term_id} at a glance <span class="cnt">${l.character ? html`character in ${l.character.faction_id != null ? lbFacName(l, l.character.faction_id) : 'no faction'} ${lbMark('save', 'Read from the save: player_faction')}` : 'no character in this save'}</span></h2>
+  <div class="glance grid" role="group" aria-label="Your houses this term: click one to list them">${tile('done', 'done', c.done, '✓', 'Top tier')}${tile('part', 'part', c.part, '◐', 'In progress')}${tile('new', 'new', c.new, '○', 'Not started')}</div>
+  <div class="stack mt12" role="group" aria-label="${c.done} top tier, ${c.part} in progress, ${c.new} not started. Click a segment to list those houses">${seg('done', 'd', c.done, 'Top tier')}${seg('part', 'p', c.part, 'In progress')}${seg('new', 'u', c.new, 'Not started')}</div>
+  <p class="sleg" aria-hidden="true"><span><i class="sw d"></i>Top tier</span><span><i class="sw p"></i>In progress</span><span><i class="sw u"></i>Not started</span></p>
+  <p class="explain">Your contribution, <b>${nn(hs.length, 'house', 'houses')}</b> (${c.done} + ${c.part} + ${c.new}). Click a card or the bar to list them. ${lbMark('derived', 'Worked out by the editor from fields the save holds: tiers reached from your contribution')}<span class="back"><a href="#lsb-board" data-lb="show" data-show="all">Show all ${hs.length} houses again</a></span></p>
+  ${lbAbout('lsb.counts', 'the counts', html`<p>The three numbers count the ${hs.length} houses by <b>your contribution in the current term</b>: <b>top tier reached</b> = every tier reached by your contribution, <b>in progress</b> = some contribution but below the top tier, <b>not started</b> = nothing recorded. They add up to ${hs.length}. “Open” is used only for a house no faction has taken, in the houses-taken line below.</p>`)}
+  <div class="facts grid"><span>By faction, not by your contribution: houses taken: ${byFac}, open <b>${c.open}</b> ${lbMark('save', 'Read from the save: landsraad_tasks.completed, winning_faction_id')}</span><span>Tiers reached: <b>${c.tiers}</b> of <b>${c.tierTotal}</b> ${lbMark('derived', 'Worked out by the editor from fields the save holds: tiers per house')}</span><span>Contributed in all: <b>${lbF(c.total)}</b> ${lbMark('save', 'Read from the save: landsraad_task_player_contributions')}</span></div></section>`;
+}
+function lbHistory(l) {
+  const e = l.earlier_terms || [], tm = l.terms || [];
+  const rows = e.map((t) => {
+    const hs = t.houses, done = hs.filter((x) => x.tier_count && x.tiers_reached === x.tier_count).length, mineF = l.character ? l.character.faction_id : null;
+    const hours = Math.round((Number(t.end_time) - Number(t.start_time)) / 3600);
+    return html`<details class="term"><summary><b>Term ${t.term_id}</b><span class="sum2"><span><b>${hs.length}</b> ${hs.length === 1 ? 'house' : 'houses'} with your contribution</span><span><b>${done}</b> top tier</span><span><b>${hs.length - done}</b> in progress</span><span><b>${hs.filter((x) => x.winning_faction_id != null && x.winning_faction_id == mineF).length}</b> taken by your faction</span><span><b>${hs.filter((x) => x.paid_in_term).length}</b> last paid out in this term</span></span></summary>
+      <table><thead><tr><th>House</th><th>Your contribution</th><th>Tiers</th><th>House status</th><th>Last payout</th></tr></thead><tbody>${hs.map((x) => html`<tr><td>${lbNameOf(x)}</td><td class="n">${lbF(x.my_contribution)}</td><td><span class="meter${x.tier_count && x.tiers_reached === x.tier_count ? ' full' : ''}" role="img" aria-label="${x.tiers_reached} of ${x.tier_count} tiers reached">${Array.from({ length: x.tier_count }, (_, i) => html`<i class="${i < x.tiers_reached ? 'on' : ''}${i === x.tier_count - 1 ? ' top' : ''}"></i>`)}</span> <span class="mut">${x.tiers_reached} of ${x.tier_count}</span></td><td>${x.completed || x.winning_faction_id != null ? 'Taken' + (x.winning_faction_id != null ? ' · ' + lbFacName(l, x.winning_faction_id) : '') : 'Open at term end'}</td><td>${x.paid_in_term ? 'in this term' : html`<span class="mut">not in this term</span>`}</td></tr>`)}</tbody></table>
+      <p class="mut plc">Play clock ${lbF(t.start_time)} to ${lbF(t.end_time)} s (${hours} h of play time) ${lbMark('save', 'Read from the save: landsraad_decree_term')}. No calendar date is stored.</p></details>`;
+  });
+  return html`<section class="card d-panel hist" aria-labelledby="lsb-hist"><h2 class="d-head" id="lsb-hist">Earlier terms <span class="cnt">opens on demand ${lbMark('save', 'Read from the save: landsraad_decree_term and contributions of earlier terms')}</span></h2>
+  <p class="line1 mb8">${tm.length < 2 ? 'This save holds only the current term.' : e.length ? 'Terms with a row of yours; open one for its houses.' : 'No earlier term has a row of yours.'}</p>
+  ${lbAbout('lsb.hist', 'earlier terms', html`<p>Terms with no row of yours are not listed. If a save holds only the current term this card says so instead. A term's rows say what the contribution was; they do not say which terms paid out (only the time of the last payout per house is kept).</p>`)}
+  ${rows}</section>`;
+}
+const LB_SHOWS = [['all', 'All'], ['left', 'What is left'], ['new', '○ Not started'], ['part', '◐ In progress'], ['done', '✓ Top tier']];
+function lbPage(l) {
+  const hs = l.tasks.map((r) => lbHouse(r, l)).sort((a, b) => a.name.localeCompare(b.name));
+  const c = lbCounts(hs), N = hs.length, term = l.term || {};
+  const hue = (h) => { let x = 0; for (const ch of h.name) x = (x * 31 + ch.charCodeAt(0)) % 360; return x; };
+  const col = (k, label, mark) => html`<div role="columnheader" data-col="${k}" aria-sort="${LB.sort === k ? (LB.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button type="button" class="sorth" data-lb="sort" data-col="${k}">${label} <span class="ar" aria-hidden="true"></span></button>${mark || ''}</div>`;
+  const seg = (k, label, n_) => html`<a href="#lsb-board" data-lb="show" data-show="${k}" ${LB.show === k ? html`aria-current="true"` : ''}><span>${label} <em>${n_}</em></span></a>`;
+  const board = html`<section class="card d-panel" aria-labelledby="lsb-board" id="lsb-board"><h2 class="d-head" id="lsb-board-h">Task board <span class="cnt">${nn(N, 'house', 'houses')}</span></h2>
+  <div class="ctl grid" role="group" aria-label="Filter and sort the board">
+    <span><span class="lbl">Show</span><span class="seg">${LB_SHOWS.map(([k, t]) => seg(k, t, lbShowOf(hs, k).length))}</span></span>
+    <span><span class="lbl">House</span><span class="seg">${[['any', 'Any', N], ['open', 'Open', c.open], ['taken', 'Taken', c.taken]].map(([k, t, n_]) => html`<label><input type="radio" name="lbhs" data-lb="hs" value="${k}" ${LB.hs === k ? 'checked' : ''}><span>${t} <em>${n_}</em></span></label>`)}</span></span>
+    <span><span class="lbl">Group</span><label class="btnl"><input type="checkbox" data-lb="group" ${LB.group ? 'checked' : ''}><span>By region</span></label></span>
+    <span><span class="lbl">Rows</span><button type="button" class="btnr" data-lb="expand">Expand all</button> <button type="button" class="btnr" data-lb="collapse">Collapse all</button></span>
+    <span class="f"><label class="lbl" for="lsb-jump">Jump to house</label><select id="lsb-jump" data-lb="jump"><option value="">Choose a house</option>${hs.map((h) => html`<option value="${h.id}" ${String(LB.jump) === String(h.id) ? 'selected' : ''}>${h.name}</option>`)}</select></span>
+    <span class="shown" id="lsb-shown" aria-live="polite">${N} of ${N} houses shown</span>
+  </div>
+  <p class="line1">Click a row to open it.</p>
+  <p class="onlybar" id="lsb-only" hidden>Showing only House <b id="lsb-onlyname"></b>, opened. The filters are ignored while this is on. <a href="#lsb-board" data-lb="showall">Show all houses</a></p>
+  <p class="nolist" id="lsb-nomatch" hidden>No house matches the filters. <button type="button" class="linkb" data-lb="showall">Show all houses</button></p>
+  <div role="table" aria-label="Houses, current term"><div role="rowgroup"><div class="rowhead" role="row"><span class="sortlbl">Sort by</span>${col('house', 'House', lbMark('save', 'Read from the save: landsraad_tasks.house_name'))}${col('location', 'Location')}<div class="hc3">${col('state', 'State')}${col('tiers', 'Tiers', lbMark('derived', 'Worked out by the editor from fields the save holds: tiers reached from your contribution'))}${col('next', 'Next tier')}</div>${col('status', 'Faction status', lbMark('save', 'Read from the save: completed, winning_faction_id, faction contributions'))}<span class="hend" aria-hidden="true"></span></div></div>
+  <ul class="rows" role="rowgroup" id="lsb-rows">${hs.map((h) => lbRow(h, l, hue(h)))}</ul></div>
+  ${lbAbout('lsb.board', 'the board', html`<p>Every row starts collapsed. Click a row (or press Space on it) to open it; Expand all opens every row, Collapse all closes them again. A <b>tier</b> is reached when your contribution is at least its amount; contribution is cumulative. <b>Delivered</b> means the save holds the reward as collected (amount 0 in the delivery rows), <b>Waiting to collect</b> that it waits at the house representative (an amount above 0). The top tier shows the house swatch while the character does not hold it, and the house's own item once it is held. With a mouse, hover a place for a quick look at where the house is; the open row shows the same on touch and keyboard.</p>`)}
+  </section>`;
+  return html`<div class="lsb" id="lsb" data-ro="1" data-sort="${LB.sort}" data-dir="${LB.dir}">${lbGlance(hs, l, c)}${board}${lbHistory(l)}
+  <dialog class="mapdlg" id="lsb-map" aria-labelledby="lsb-mapttl"><div class="mwrap"><div class="mhead"><h3 id="lsb-mapttl">Map</h3><button type="button" class="qa" data-lb="mapx" aria-label="Close the map">Close</button></div><div class="pop popm" id="lsb-mapbody"></div></div></dialog></div>`;
+}
+// Order, hide and show the rows from LB, and put the counts in step. The rows are drawn once; this only moves and hides them.
+function lbSyncOpen() { document.querySelectorAll('.lsb .hr').forEach((li) => { const x = li.querySelector('.xc'), m = li.querySelector('.more'); if (x && m) m.hidden = !x.checked; }); }
+function lbApply() {
+  const root = $('#lsb'), ul = $('#lsb-rows');
+  if (!root || !ul || !LD) return;
+  const hs = LD.tasks.map((r) => lbHouse(r, LD)), by = new Map(hs.map((h) => [String(h.id), h]));
+  const key = (h) => {
+    const next = () => { for (const t of h.tiers) if (h.mine < t.th) return t.th - h.mine; return 1e9; };
+    const mineF = LD.character ? LD.character.faction_id : null, ld = lbLead(h, (LD.factions || []).map((f) => f.id));
+    switch (LB.sort) {
+      case 'location': return h.area || '￿'; // a house with no place yet sorts last
+      case 'state': return { new: 0, part: 1, done: 2 }[h.state];
+      case 'tiers': return h.reached;
+      case 'next': return next();
+      case 'status': return h.taken ? (h.win != null && h.win == mineF ? 0 : 1) : ld != null && ld == mineF ? 2 : ld != null ? 3 : 4;
+      default: return h.name;
+    }
+  };
+  const list = hs.slice().sort((x, y) => {
+    if (LB.group) { const d = (x.region || '￿').localeCompare(y.region || '￿'); if (d) return d; }
+    const a = key(x), b = key(y);
+    let c = typeof a === 'string' ? a.localeCompare(b) : a - b;
+    if (LB.dir === 'desc') c = -c;
+    return c || x.name.localeCompare(y.name);
+  });
+  const only = LB.jump ? by.get(String(LB.jump)) : null;
+  let shown = 0;
+  for (const h of list) {
+    const li = $('#lsrow-' + h.id);
+    if (!li) continue;
+    ul.appendChild(li); // the document order follows the visible order, so the Tab key walks the rows top to bottom
+    const vis = only ? only === h : (LB.show === 'all' || (LB.show === 'left' ? h.state !== 'done' : h.state === LB.show)) && (LB.hs === 'any' || (LB.hs === 'taken') === h.taken);
+    li.hidden = !vis;
+    if (vis) shown++;
+  }
+  root.dataset.sort = LB.sort; root.dataset.dir = LB.dir;
+  if (LB.show !== 'all' && !only) root.setAttribute('data-filtered', ''); else root.removeAttribute('data-filtered');
+  root.toggleAttribute('data-all', LB.all);
+  lbSyncOpen();
+  root.querySelectorAll('[role=columnheader][data-col]').forEach((e) => e.setAttribute('aria-sort', e.dataset.col === LB.sort ? (LB.dir === 'asc' ? 'ascending' : 'descending') : 'none'));
+  root.querySelectorAll('[data-lb=show][data-show]').forEach((e) => { if (e.closest('.seg') || e.classList.contains('tile') || e.closest('.stack')) { if (e.dataset.show === LB.show) e.setAttribute('aria-current', 'true'); else e.removeAttribute('aria-current'); } });
+  const sh = $('#lsb-shown'); if (sh) sh.textContent = `${shown} of ${hs.length} houses shown`;
+  const nm = $('#lsb-nomatch'); if (nm) nm.hidden = shown !== 0;
+  const ob = $('#lsb-only'); if (ob) { ob.hidden = !only; if (only) $('#lsb-onlyname').textContent = only.name; }
+}
+function lbCloseCards() { document.querySelectorAll('.lsb .hw.open').forEach((w) => { w.classList.remove('open'); const b = w.querySelector('.hn'); if (b) b.setAttribute('aria-expanded', 'false'); }); }
+function lbOpenMap(h) {
+  const dlg = $('#lsb-map'), body = $('#lsb-mapbody');
+  if (!dlg || !body) return;
+  setHTML(body, html`<h4>House ${h.name}</h4>${lbPlaceDetails(h)}${h.loc.known ? html`<p class="fine mnote">The pin marks the house representative (schematic, not to scale).</p>` : ''}`);
+  lbStyles(body);
+  $('#lsb-mapttl').textContent = h.loc.known ? 'Map: ' + lbAreaFull(h) : 'Map: ' + h.name;
+  if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+  lbMapFrom = document.activeElement;
+}
+let lbMapFrom = null;
+function lbClick(e) {
+  const t = e.target.closest ? e.target : null;
+  if (!t) return;
+  if (!t.closest('.hw.open')) lbCloseCards();
+  const b = t.closest('[data-lb], .hn, .hcl');
+  if (t.closest('.hcard') ) { e.preventDefault(); }
+  if (!b) return;
+  if (b.classList.contains('hn')) { e.preventDefault(); const hw = b.closest('.hw'), was = hw.classList.contains('open'); lbCloseCards(); if (!was) { hw.removeAttribute('data-esc'); hw.classList.add('open'); b.setAttribute('aria-expanded', 'true'); } return; }
+  if (b.classList.contains('hcl')) { e.preventDefault(); const hb = b.closest('.hw').querySelector('.hn'); lbCloseCards(); hb.focus(); return; }
+  const k = b.dataset.lb;
+  if (k === 'map') { e.preventDefault(); const h = LD.tasks.map((r) => lbHouse(r, LD)).find((x) => String(x.id) === b.dataset.id); if (h) lbOpenMap(h); return; }
+  if (k === 'mapx') { const d = $('#lsb-map'); if (d.close) d.close(); else d.removeAttribute('open'); if (lbMapFrom) lbMapFrom.focus(); return; }
+  if (k === 'show') { e.preventDefault(); LB.show = b.dataset.show; LB.jump = ''; lbApply(); const j = $('#lsb-jump'); if (j) j.value = ''; const bd = $('#lsb-board'); if (bd && bd.scrollIntoView) bd.scrollIntoView(); return; }
+  if (k === 'showall') { e.preventDefault(); LB.show = 'all'; LB.hs = 'any'; LB.jump = ''; const j = $('#lsb-jump'); if (j) j.value = ''; const a = document.querySelector('.lsb [data-lb=hs][value=any]'); if (a) a.checked = true; lbApply(); return; }
+  if (k === 'sort') { const c = b.dataset.col; LB.dir = LB.sort === c && LB.dir === 'asc' ? 'desc' : 'asc'; LB.sort = c; lbApply(); return; }
+  if (k === 'expand' || k === 'collapse') { LB.all = k === 'expand'; document.querySelectorAll('.lsb .xc').forEach((x) => { x.checked = LB.all; x.dispatchEvent(new Event('change', { bubbles: true })); }); lbApply(); }
+}
+function lbChange(e) {
+  const t = e.target, k = t.dataset ? t.dataset.lb : '';
+  if (t.classList && t.classList.contains('xc')) { const id = +t.id.replace('lsx-', ''); if (t.checked) LB.open.add(id); else LB.open.delete(id); lbSyncOpen(); return; }
+  if (k === 'hs') { LB.hs = t.value; lbApply(); }
+  else if (k === 'group') { LB.group = t.checked; lbApply(); }
+  else if (k === 'jump') {
+    if (LB.jump) { const prev = document.getElementById('lsx-' + LB.jump); if (prev && !LB.open.has(+LB.jump)) prev.checked = false; }
+    LB.jump = t.value;
+    if (LB.jump) { const x = document.getElementById('lsx-' + LB.jump); if (x) x.checked = true; }
+    lbApply();
+  }
+}
+// The few measured values (a bar's width, a pin's place, a house symbol's colour) are set through the style object after the page is drawn: the page's policy allows no style attribute.
+function lbStyles(root) {
+  root.querySelectorAll('[data-w]').forEach((e) => { e.style.width = e.dataset.w + '%'; });
+  root.querySelectorAll('[data-hue]').forEach((e) => { e.style.setProperty('--h', e.dataset.hue); });
+  root.querySelectorAll('[data-px]').forEach((e) => { e.style.left = e.dataset.px + '%'; e.style.top = e.dataset.py + '%'; });
+}
+function lbWire() {
+  const root = $('#lsb');
+  if (!root) return;
+  lbStyles(root);
+  root.addEventListener('click', lbClick);
+  root.addEventListener('change', lbChange);
+  root.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const d = $('#lsb-map'); if (d && d.open) return;
+    const a = document.activeElement, w = a && a.closest ? a.closest('.hw') : null;
+    lbCloseCards(); if (w) { w.setAttribute('data-esc', ''); const hb = w.querySelector('.hn'); if (hb && a !== hb) hb.focus(); }
+  });
+  const clearEsc = (e) => { const w = e.target.closest ? e.target.closest('.hw') : null; root.querySelectorAll('.hw[data-esc]').forEach((x) => { if (x !== w) x.removeAttribute('data-esc'); }); };
+  root.addEventListener('mouseover', clearEsc); root.addEventListener('focusin', clearEsc);
+  const dlg = $('#lsb-map');
+  if (dlg) dlg.addEventListener('click', (e) => { if (e.target === dlg && dlg.close) dlg.close(); });
+  lbApply();
+}
+
 async function landsraadView() {
   const l = await api('/api/landsraad');
-  await loadCatalog(l.tasks.flatMap((x) => (x.rewards || []).map((y) => y.template_id)));
+  await loadCatalog(l.tasks.flatMap((x) => (x.rewards || []).flatMap((y) => [y.template_id, y.shown_template_id])));
   const onBoard = new Set(l.tasks.map((x) => x.id));
   LS.houses = new Set([...LS.houses].filter((id) => onBoard.has(id)));
   LS.tiers = new Set([...LS.tiers].filter((k) => onBoard.has(+k.split(':')[0])));
@@ -1702,7 +1955,7 @@ async function landsraadView() {
   const facOpts = (sel) => l.factions.map((f) => html`<option value="${f.id}" ${f.id == sel ? 'selected' : ''}>${f.name}</option>`);
   const dec = l.decrees;
   const myFac = l.character && l.character.faction_id != null ? l.character.faction_id : null; // the faction list starts on the character's own (#451)
-  setHTML($('#main'), html`<div class="card d-panel"><h3>Current term ${t.term_id}</h3><div class="grid">${kv('Start', fmtEpoch(t.start_time))}${kv('End', fmtEpoch(t.end_time))}${kv('Reigning faction', fname(t.reigning_faction_id))}${kv('Active decree', (dec.find((d) => d.id == t.active_decree_id) || {}).decree_name || '—')}${kv('Elected decree', (dec.find((d) => d.id == t.elected_decree_id) || {}).decree_name || '—')}</div>
+  const prev = html`<div class="card d-panel"><h3>Current term ${t.term_id}</h3><div class="grid">${kv('Start', fmtEpoch(t.start_time))}${kv('End', fmtEpoch(t.end_time))}${kv('Reigning faction', fname(t.reigning_faction_id))}${kv('Active decree', (dec.find((d) => d.id == t.active_decree_id) || {}).decree_name || '—')}${kv('Elected decree', (dec.find((d) => d.id == t.elected_decree_id) || {}).decree_name || '—')}</div>
   <div class="row">Active decree<select id="ad" aria-label="Active decree"><option value="">none</option>${dec.map((d) => html`<option value="${d.id}" ${d.id == t.active_decree_id ? 'selected' : ''}>${d.decree_name}</option>`)}</select>
   Reigning<select id="rf" aria-label="Reigning faction"><option value="">none</option>${facOpts(t.reigning_faction_id)}</select><button class="b d-btn primary" data-act="term">Apply</button></div></div>
   <div class="card d-panel"><h3 class="d-head">Decree pool</h3>${tbl([{ k: 'id', label: 'ID' }, { k: 'decree_name', label: 'Decree' }, { k: 'active', label: 'In this term', f: (r) => decreeTerm(r) }, { k: 'disabled', label: 'Pool flag (disabled)', f: (r) => html`<span class="mut">${r.disabled ? '1' : '0'}</span>` }], dec, { empty: 'This save has no decrees.', actions: (r) => html`<button class="b sec sm d-btn sm" data-act="decree" data-id="${r.id}" data-d="${r.disabled ? 0 : 1}" title="Sets the pool flag of this one row to ${r.disabled ? 0 : 1}. It does not make the decree active; the Active decree above does.">${r.disabled ? 'Set flag to 0' : 'Set flag to 1'}</button>` })}
@@ -1718,7 +1971,9 @@ async function landsraadView() {
     { k: 'rewards', label: 'Reward tiers (personal contribution)', f: (r) => html`<details><summary>${nn((r.rewards || []).length, 'tier', 'tiers')}</summary>${(r.rewards || []).map((x) => tierLine(r, x, l))}</details>` }], l.tasks,
     { empty: 'This save has no Landsraad tasks.', actions: (r) => html`<button class="b sm d-btn primary sm" data-act="tfill" data-id="${r.id}" data-name="${lsName(r)}" title="Completes this house for the chosen faction at the highest reward: the faction's progress goes to the house goal (${Number(r.goal_amount).toLocaleString()}), the house is marked complete for it, and your contribution under that faction goes to the highest reward tier (never lowered). For a faction your character is not in, the faction wins the house but your own contribution row is skipped. The reward items themselves are not written.">Fill faction goal</button> <button class="b sm d-btn primary sm" data-act="tdone" data-id="${r.id}" data-name="${lsName(r)}" data-r="${r.completed ? 1 : 0}" title="${r.completed ? '' : 'Marks the house taken, for the chosen faction.'}">${r.completed ? 'Reopen' : 'Complete'}</button>` })}
   ${about('landsraad.board', 'Task board', html`<p class="mut" id="lscales">Two different scales are shown for each house. <b>House goal (faction)</b> is what the faction needs to take the house (for example 4,000). The <b>reward tiers</b> are set by a player's own contribution, for example from 1,200 up to 6,000, and a contribution can go above the house goal, so the upper tiers can be reached. <b>Your contribution</b> is the row the save keeps under your character's own id; the other rows belong to the simulated players. A tier is reached when your contribution is at least its amount, and "recorded as delivered" means the save holds that item as given to your character for this house in this term. Fill to this tier raises your contribution only (the reward is not written, and the faction's progress only when the box below is ticked). Fill faction goal on a house row completes that house for the faction in the list: the faction's progress goes to the house goal and the house is marked complete for it. For your character's own faction your contribution under it also goes to the highest tier (nothing is lowered). For another faction your own contribution is skipped and not recorded, so a rival faction can win houses; the game's reaction to a win with no contribution of yours is not known. Whether the game hands out a tier when it loads the save after a fill is not known from a save.</p><p class="mut">Complete chosen marks every house chosen in the Choose column complete for the faction in the list, and sets that faction's progress on it to the house goal (a progress above the goal is kept). Reopen chosen undoes the completion of those houses and changes no faction progress and no contribution. Neither asks first; each is one edit with the usual backup, and its result line says how many houses it changed and how many it left alone.</p>`)}
-  </div>`);
+  </div>`;
+  setHTML($('#main'), html`${lbPage(l)}<details class="lsb-prev"><summary>Previous controls (term, decrees, the first task board)</summary>${prev}</details>`);
+  lbWire();
 }
 
 // ---------- CONFIG (.ini)

@@ -102,6 +102,11 @@ func (o *Ops) Landsraad() (any, error) {
 		}
 	}
 	termStart, _ := toFloat(term["start_time"])
+	termID, _ := term["term_id"].(int64)
+	one, err := readOneTime(o, mineID)
+	if err != nil {
+		return nil, err
+	}
 	rewards, err := o.S.Query(`select task_id, threshold, template_id, amount from landsraad_task_rewards order by task_id, threshold`)
 	if err != nil {
 		return nil, readFailed("the reward tiers", err)
@@ -157,6 +162,7 @@ func (o *Ops) Landsraad() (any, error) {
 			r["delivered"] = deliv
 		}
 		t["rewards"] = tiers
+		boardTask(t, tiers, delivered, one, termID, termStart)
 	}
 	decrees, err := o.S.Query(`select id, decree_name, disabled, weight from landsraad_decrees order by id`)
 	if err != nil {
@@ -187,7 +193,11 @@ func (o *Ops) Landsraad() (any, error) {
 	if err != nil {
 		return nil, readFailed("the factions", err)
 	}
-	return map[string]any{"term": term, "tasks": tasks, "decrees": decrees, "rotation": rotation, "factions": factions, "character": character}, nil
+	terms, earlier, err := termHistory(o, mineID)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"term": term, "tasks": tasks, "decrees": decrees, "rotation": rotation, "factions": factions, "character": character, "terms": terms, "earlier_terms": earlier}, nil
 }
 
 // SetTaskProgress sets a faction's contribution to a task (the faction's progress towards the house goal, not a player's own contribution). The amount is

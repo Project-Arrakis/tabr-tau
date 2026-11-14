@@ -47,6 +47,10 @@ test('every About this is closed on a fresh load, is named, and is the last thin
       assert.equal(d.open, false, `${label}: ${d.dataset.about} opens by itself`);
       assert.ok(d.dataset.about, `${label}: an About this has no key`);
       const s = d.querySelector('summary');
+      if (d.closest('.lsb')) { // the Landsraad board: several disclosures in a card, each named by what it is about ("About tiers"), in the board's own place
+        assert.ok(s && /^About \w/.test(s.textContent), `${label}: ${d.dataset.about}`);
+        continue;
+      }
       assert.ok(s && s.textContent.startsWith('About this'), `${label}: ${d.dataset.about}`);
       assert.ok(s.querySelector('.sr'), `${label}: ${d.dataset.about} does not say which card it is about`);
       assert.equal(d.parentElement.lastElementChild, d, `${label}: ${d.dataset.about} is not the last thing in its card`);
