@@ -25,7 +25,7 @@ Pull requests are not reviewed by a second person before merge. The repository h
 
 ## Compensating controls (what stands in for peer review)
 
-$new
+1. **The owner approves code pull requests, with an overnight exception.** By day nothing code-bearing is merged without the owner's explicit word. Overnight (22:00 to 07:00 local, or a run the owner has declared overnight) code pull requests may merge on green CI, with one extra guard: a pull request that writes to a save or the game, changes security or CI controls, or carries a High label also needs a clean high-effort code review before it merges. Docs-only changes merge on green CI at any time, under the owner's standing agreement of 2026-11-14 (the overnight rule for code was agreed the same day). Automated workers open pull requests and never merge them.
 2. **CI on every pull request,** which must be green before merge: build, tests, the commit-message policy check, static analysis and secret scanning, with every action pinned to a commit SHA.
 3. **Every change is tracked:** a pull request references its tracking issue and states its risk (Critical, High, Medium, Low) and blast radius in the body.
 4. **Periodic audits** (Decision 1) catch what a per-change review would have: independent reviews from several viewpoints and a high-effort code review, with written registers.
