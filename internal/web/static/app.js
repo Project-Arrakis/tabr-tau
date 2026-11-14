@@ -1660,7 +1660,8 @@ function lbNextParts(h) {
   return [h.mine > top ? 'above the top tier' : 'top tier reached'];
 }
 function lbNextReward(h) { for (const t of h.tiers) if (h.mine < t.th) return lbF(t.th) + ': ' + lbRText(t); return 'top tier reached'; }
-const lbWaiting = (h) => { const w = h.tiers.filter((t) => t.state === 'waiting').map(lbRText); return w.length ? w.join(', ') : 'nothing waiting'; };
+// one reward per line (#666): each waiting reward is its own block, so a long item name wraps inside its own line and never runs into the next reward
+const lbWaiting = (h) => { const w = h.tiers.filter((t) => t.state === 'waiting').map(lbRText); return w.length ? w.map((r) => html`<span class="hrw">${r}</span>`) : 'nothing waiting'; };
 function lbLead(h, ids) { // the faction with the most progress, when it is one faction
   let best = 0, who = null, tie = false;
   for (const id of ids) { const p = h.prog[id] || 0; if (p > best) { best = p; who = id; tie = false; } else if (p === best && p > 0) tie = true; }
