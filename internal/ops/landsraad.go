@@ -10,6 +10,12 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
+// readFailed says which read of the Landsraad page failed. A read that fails is an error of the page, never an empty board: a board drawn from a failed read would offer Fill and
+// Complete against a picture that is not the save (D1-2 of the delta audit, #611).
+func readFailed(what string, err error) error {
+	return fmt.Errorf("the Landsraad page could not read %s from the save: %w", what, err)
+}
+
 // Landsraad returns the current term, the task board with faction progress and
 // rewards, and the decree list.
 //
@@ -25,7 +31,10 @@ import (
 // ("mine"), a task carries it as my_contribution, and each tier says whether it is reached (the contribution is at least the tier) and whether the save records it as
 // delivered. Only the current term's tasks are returned: the save keeps the boards of the earlier terms too, and a fill of one of those would change nothing the game uses.
 func (o *Ops) Landsraad() (any, error) {
-	term, _ := o.S.One(`select * from landsraad_decree_term order by term_id desc limit 1`)
+	term, err := o.S.One(`select * from landsraad_decree_term order by term_id desc limit 1`)
+	if err != nil {
+		return nil, readFailed("the Landsraad term", err)
+	}
 	taskQ, taskArgs := `select t.id, t.board_index, t.house_name, t.goal_amount, t.completed, t.winning_faction_id, t.sysselraad, t.completion_time
 		from landsraad_tasks t order by t.board_index`, []any(nil)
 	if tid, ok := term["term_id"].(int64); ok {
@@ -35,21 +44,28 @@ func (o *Ops) Landsraad() (any, error) {
 	}
 	tasks, err := o.S.Query(taskQ, taskArgs...)
 	if err != nil {
-		return nil, err
+		return nil, readFailed("the Landsraad tasks", err)
 	}
 	var character map[string]any
 	var mineID, mineFaction int64
 	if p, perr := o.player(); perr == nil {
 		mineID = p.Controller
 		character = map[string]any{"player_id": p.Controller, "name": p.Name, "faction_id": nil}
-		if f, _ := o.S.One(`select pf.faction_id id from player_faction pf join factions f on f.id=pf.faction_id where pf.actor_id=? and f.name<>'None'`, p.Controller); f != nil {
+		f, ferr := o.S.One(`select pf.faction_id id from player_faction pf join factions f on f.id=pf.faction_id where pf.actor_id=? and f.name<>'None'`, p.Controller)
+		if ferr != nil {
+			return nil, readFailed("your character's faction", ferr)
+		}
+		if f != nil {
 			if id, ok := f["id"].(int64); ok {
 				mineFaction = id
 				character["faction_id"] = id
 			}
 		}
 	}
-	contrib, _ := o.S.Query(`select task_id, faction_id, amount from landsraad_task_faction_contributions`)
+	contrib, err := o.S.Query(`select task_id, faction_id, amount from landsraad_task_faction_contributions`)
+	if err != nil {
+		return nil, readFailed("the factions' progress", err)
+	}
 	byTask := map[int64][]map[string]any{}
 	for _, c := range contrib {
 		t, ok := c["task_id"].(int64)
@@ -58,7 +74,10 @@ func (o *Ops) Landsraad() (any, error) {
 		}
 		byTask[t] = append(byTask[t], map[string]any{"faction_id": c["faction_id"], "amount": c["amount"]})
 	}
-	pc, _ := o.S.Query(`select task_id, player_id, faction_id, amount from landsraad_task_player_contributions order by task_id, player_id`)
+	pc, err := o.S.Query(`select task_id, player_id, faction_id, amount from landsraad_task_player_contributions order by task_id, player_id`)
+	if err != nil {
+		return nil, readFailed("the personal contributions", err)
+	}
 	byPlayer := map[int64][]map[string]any{}
 	for _, c := range pc {
 		t, ok := c["task_id"].(int64)
@@ -74,13 +93,19 @@ func (o *Ops) Landsraad() (any, error) {
 	// what the save records as delivered to the character: one row per house and item, the amounts of every term added up, with the time of the last delivery
 	delivered := map[string]save.Row{}
 	if mineID != 0 {
-		drows, _ := o.S.Query(`select house_name, template_id, amount, last_updated from landsraad_house_rewards where player_id=?`, mineID)
+		drows, err := o.S.Query(`select house_name, template_id, amount, last_updated from landsraad_house_rewards where player_id=?`, mineID)
+		if err != nil {
+			return nil, readFailed("the rewards delivered to your character", err)
+		}
 		for _, d := range drows {
 			delivered[fmt.Sprint(d["house_name"])+"\x00"+fmt.Sprint(d["template_id"])] = d
 		}
 	}
 	termStart, _ := toFloat(term["start_time"])
-	rewards, _ := o.S.Query(`select task_id, threshold, template_id, amount from landsraad_task_rewards order by task_id, threshold`)
+	rewards, err := o.S.Query(`select task_id, threshold, template_id, amount from landsraad_task_rewards order by task_id, threshold`)
+	if err != nil {
+		return nil, readFailed("the reward tiers", err)
+	}
 	rw := map[int64][]any{}
 	for _, r := range rewards {
 		t, ok := r["task_id"].(int64)
@@ -133,8 +158,14 @@ func (o *Ops) Landsraad() (any, error) {
 		}
 		t["rewards"] = tiers
 	}
-	decrees, _ := o.S.Query(`select id, decree_name, disabled, weight from landsraad_decrees order by id`)
-	rotation, _ := o.S.Query(`select decree_id from landsraad_decree_rotation`)
+	decrees, err := o.S.Query(`select id, decree_name, disabled, weight from landsraad_decrees order by id`)
+	if err != nil {
+		return nil, readFailed("the decrees", err)
+	}
+	rotation, err := o.S.Query(`select decree_id from landsraad_decree_rotation`)
+	if err != nil {
+		return nil, readFailed("the decree rotation", err)
+	}
 	// What each decree is in the current term (#448). The pool flag `disabled` is the save's own column and it does not say whether a decree is in effect: in the saves read so
 	// far the term's active decree (SpecialVendorActive_Vehicles) carries disabled = 1 while the base row SpecialVendorActive carries 0. So the term and the rotation are
 	// matched to the rows here by the decree id, never by the name: the five SpecialVendorActive rows are five different decrees.
@@ -152,7 +183,10 @@ func (o *Ops) Landsraad() (any, error) {
 		d["elected"] = term["elected_decree_id"] != nil && id == electedID
 		d["in_rotation"] = inRot[id]
 	}
-	factions, _ := o.S.Query(`select id, name from factions where name <> 'None' order by id`)
+	factions, err := o.S.Query(`select id, name from factions where name <> 'None' order by id`)
+	if err != nil {
+		return nil, readFailed("the factions", err)
+	}
 	return map[string]any{"term": term, "tasks": tasks, "decrees": decrees, "rotation": rotation, "factions": factions, "character": character}, nil
 }
 

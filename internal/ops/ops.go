@@ -117,6 +117,9 @@ type player struct {
 // player finds the character. The pawn is the actor the game itself links from player_state (player_pawn_id); only a
 // save where that link is empty falls back to the account's first PlayerCharacter actor (issue #33). The controller is
 // player_state.id, which equals player_controller_id on every save checked.
+// errNoPlayer is the answer of player() for a save that has no player_state row, told apart from a failed read or an unusable row (D1-9, #611).
+var errNoPlayer = errors.New("no player found in this save")
+
 func (o *Ops) player() (player, error) {
 	r, err := o.S.One(`select ps.id controller, ps.account_id account, ps.character_name name,
 		coalesce((select a.id from actors a where a.id=ps.player_pawn_id),
@@ -126,7 +129,7 @@ func (o *Ops) player() (player, error) {
 		return player{}, err
 	}
 	if r == nil {
-		return player{}, errors.New("no player found in this save")
+		return player{}, errNoPlayer
 	}
 	// the save is data from outside: a column the game declares NOT NULL can hold anything in a file built by hand
 	ctl, ok1 := r["controller"].(int64)

@@ -38,7 +38,9 @@ func topTier(m *save.Mut, taskID int64) (float64, error) {
 // FillFactionGoal completes one house of the current term for a faction at the highest reward (args task_id, faction_id, term_id: the term the page showed). The faction's
 // progress is raised to the house goal, the house is marked complete with the faction as winner and the play clock as the time (the code of Complete chosen), and the character's own
 // contribution under that faction is raised to the highest reward tier of the house (the code of Fill chosen). Nothing is lowered and no reward row is written. A house that is
-// already in that state changes nothing. A save with no character gets the first two only. It is one edit.
+// already in that state changes nothing. A save with no character gets the first two only. For a faction the character is not in (or a character in no faction)
+// the first two are written and the character's contribution row is skipped: it is never written under a faction the character is not in (D1-1, #611), and the answer says so
+// (personal_skipped). How the game reacts to a win with no personal contribution is not verified in game. It is one edit.
 func (o *Ops) FillFactionGoal(a Args) (any, error) {
 	taskID, e1 := a.Int("task_id")
 	faction, e2 := a.Int("faction_id")
@@ -47,7 +49,10 @@ func (o *Ops) FillFactionGoal(a Args) (any, error) {
 		return nil, err
 	}
 	me, perr := o.player() // no character: the faction part is still written, the personal part is not
-	var progressDone, completedDone, mineDone bool
+	if perr != nil && !errors.Is(perr, errNoPlayer) {
+		return nil, perr // a read that failed or a record with no usable id is not "no character": nothing is written (D1-9, #611)
+	}
+	var progressDone, completedDone, mineDone, personalSkipped bool
 	var top, before float64
 	var house, fname string
 	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
@@ -60,6 +65,15 @@ func (o *Ops) FillFactionGoal(a Args) (any, error) {
 			return apierr.New(apierr.ErrBadArgument, "that faction is not one the Landsraad has")
 		}
 		fname = fmt.Sprint(f["name"])
+		ownFaction := false // the character's row is written only under the character's own faction (D1-1, #611)
+		if perr == nil {
+			own, err := m.One(`select f.name from player_faction pf join factions f on f.id=pf.faction_id where pf.actor_id=? and f.name<>'None' and f.id=?`, me.Controller, faction)
+			if err != nil {
+				return err
+			}
+			ownFaction = own != nil
+		}
+		personalSkipped = perr == nil && !ownFaction
 		if err := currentTerm(m, termID); err != nil {
 			return err
 		}
@@ -81,7 +95,7 @@ func (o *Ops) FillFactionGoal(a Args) (any, error) {
 			progressDone = true
 		}
 		completedDone = !(t["completed"] == int64(1) && t["winning_faction_id"] == faction)
-		if perr == nil && top > 0 {
+		if perr == nil && ownFaction && top > 0 {
 			cur, err := m.One(`select amount from landsraad_task_player_contributions where player_id=? and faction_id=? and task_id=?`, me.Controller, faction, taskID)
 			if err != nil {
 				return err
@@ -107,6 +121,9 @@ func (o *Ops) FillFactionGoal(a Args) (any, error) {
 			}
 		}
 		m.Desc = fmt.Sprintf("landsraad %s: completed for %s at the top tier", house, fname)
+		if personalSkipped {
+			m.Desc = fmt.Sprintf("landsraad %s: completed for %s, no personal contribution (not your faction)", house, fname)
+		}
 		if _, err := repairCompletionTimes(m, termID); err != nil {
 			return err
 		}
@@ -121,6 +138,6 @@ func (o *Ops) FillFactionGoal(a Args) (any, error) {
 	return resetAnswer(changed, map[string]any{
 		"house": house, "faction": fname, "tier": top,
 		"progress_changed": progressDone, "completed_changed": completedDone, "contribution_changed": mineDone, "contribution_before": before,
-		"has_character": perr == nil,
+		"has_character": perr == nil, "personal_skipped": personalSkipped,
 	}), nil
 }

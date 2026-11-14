@@ -128,25 +128,6 @@ func TestFillFactionGoalWritesOnlyWhatIsMissing(t *testing.T) {
 	}
 }
 
-func TestFillFactionGoalForAnotherFactionWritesThatFactionsRowsOnly(t *testing.T) {
-	o := goalOps(t)
-	if _, err := o.FillFactionGoal(goalArgs(176, 1)); err != nil {
-		t.Fatal(err)
-	}
-	if h := houseRow(t, o, 176); h["w"].(int64) != 1 {
-		t.Fatalf("won by the chosen faction: %v", h)
-	}
-	if v, _ := progress(t, o, 1, 176); v != 4000 {
-		t.Fatalf("the chosen faction's progress: %v", v)
-	}
-	if r := mustOne(t, o, `select faction_id f, amount a from landsraad_task_player_contributions where player_id=1 and task_id=176`); r["f"].(int64) != 1 || r["a"].(float64) != 6000 {
-		t.Fatalf("the character's row is under the chosen faction: %v", r)
-	}
-	if _, has := progress(t, o, 2, 176); has {
-		t.Fatal("the character's own faction got a row")
-	}
-}
-
 func TestFillFactionGoalOnAHouseWithNoTierStillCompletesIt(t *testing.T) {
 	o := goalOps(t)
 	setup(t, o, `delete from landsraad_task_rewards where task_id=176`)

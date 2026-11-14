@@ -82,3 +82,45 @@ func TestFillFactionGoalRefusalsCarryTheirCodesAndWriteNothing(t *testing.T) {
 		t.Fatal("no refusal changed anything")
 	}
 }
+
+// D1-1 of the delta audit (#611): the character (Harkonnen, 2) fills house 175 for Atreides (1). The faction's progress and win are written (one edit, backup, log line); the character's
+// own rows are exactly as they were (1,300 under faction 2, no row under faction 1) and the answer says the personal row was skipped.
+func TestFillFactionGoalForAFactionTheCharacterIsNotInWritesTheWinAndNoPersonalRow(t *testing.T) {
+	s := New(testsave.PlayerWithSQL(t, landsraadChosenWorld), config.Dir{Path: t.TempDir()})
+	dir := t.TempDir()
+	s.KeepPendingEdits(dir)
+	w := postEdit(t, s, "/api/landsraad/faction-goal", `{"task_id":175,"faction_id":1,"term_id":7}`)
+	m := decodeBody(t, w)
+	if w.Code != 200 || m["outcome"] != "written" || m["changed"] != float64(1) || m["personal_skipped"] != true || m["contribution_changed"] != false || m["faction"] != "Atreides" {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	if h := houseRows(t, s.Save.Path, 175, 1); h.completed != 1 || h.winner != 1 || !h.hasProgress || h.progress != 4000 {
+		t.Fatalf("won by Atreides with the progress at the goal: %+v", h)
+	}
+	if got := landsraadMineAmounts(t, s.Save.Path); len(got) != 2 || got[1] != 1300 || got[50] != 3000 {
+		t.Fatalf("no contribution row was added or changed: %v", got)
+	}
+	chk, err := save.Open(s.Save.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer chk.Close()
+	if n, _ := chk.One(`select count(*) n from landsraad_task_player_contributions where faction_id=1`); n["n"].(int64) != 1 { // the simulated guild's row of the fixture only
+		t.Fatalf("a row of the character's under Atreides: %v", n)
+	}
+	if len(s.Save.Backups()) == 0 {
+		t.Fatal("a backup was made before the write")
+	}
+}
+
+// D1-2: a read of the Landsraad page that fails is an error the page can show, not a board with nothing on it.
+func TestTheLandsraadPageAnswersAFailedReadWithItsErrorNotAnEmptyBoard(t *testing.T) {
+	s := New(testsave.PlayerWithSQL(t, landsraadChosenWorld+`drop table landsraad_task_rewards;`), config.Dir{Path: t.TempDir()})
+	h := map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}
+	w := do(t, s, "GET", "http://127.0.0.1/api/landsraad", loop, h, nil)
+	m := decodeBody(t, w)
+	msg, _ := m["error"].(string)
+	if w.Code < 400 || m["tasks"] != nil || !strings.Contains(msg, "could not read the reward tiers") {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+}
