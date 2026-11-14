@@ -317,6 +317,7 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .fb .trk i{display:block;height:100%}
 .lsb .fb.a .trk i{background:var(--c-sky)}
 .lsb .fb.h .trk i{background:var(--c-rust)}
+.lsb .fb.s .trk i{background:repeating-linear-gradient(45deg,var(--c-gold) 0 3px,color-mix(in srgb,var(--c-gold) 40%,var(--c-sunken)) 3px 6px)}
 .lsb .fb .fv{text-align:right;font-variant-numeric:tabular-nums}
 .lsb .fb.lead .fl,.lsb .fb.lead .fv{font-weight:700;color:var(--c-text)}
 .lsb .fb:not(.lead){color:var(--c-dim)}
@@ -612,7 +613,7 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 @media (max-width:640px){
 .lsb .d-head{flex-wrap:wrap}
 .lsb .d-head::after{display:none}
-.lsb .d-head .cnt{white-space:normal;order:2}
+.lsb .d-head .cnt{order:2}
 .lsb .glance{grid-template-columns:1fr}
 .lsb a.tile{display:flex;align-items:baseline;gap:12px}
 .lsb a.tile .now{position:static}
@@ -770,3 +771,7 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 @media (min-width:901px){.lsb .mt{min-width:24px}}
 /* the segments of the bar keep a 44 px hit area on a phone: this comes after the base rule above, which would otherwise win */
 @media (max-width:900px){.lsb .stack a::before{inset:-14px 0}}
+.lsb .sorth:disabled{opacity:.5;cursor:default}
+.lsb .btnl input:disabled,.lsb .btnl input:disabled+span{cursor:not-allowed}
+.lsb .btnl input:disabled+span{opacity:.5;border-style:dashed}
+@media (max-width:640px){.lsb .d-head .cnt{white-space:normal}} /* after the base rule, which is nowrap */
