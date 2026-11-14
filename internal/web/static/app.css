@@ -418,7 +418,7 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb [hidden]{display:none!important}
 .lsb .hend{grid-column:span 2}
 .lsb .cw{position:static;display:grid;grid-template-columns:56px minmax(0,1fr)}
-.lsb .cw .pick{grid-column:1;grid-row:1;justify-self:center;align-self:center;width:22px;height:22px;margin:0;accent-color:var(--c-spice);cursor:pointer}
+.lsb .cw .pick{grid-column:1;grid-row:1;justify-self:center;align-self:center;width:24px;height:24px;margin:0;accent-color:var(--c-spice);cursor:pointer}
 .lsb .cw .sum{grid-column:2;grid-row:1;padding-left:16px;border-left:1px dashed var(--c-hair)}
 .lsb .cw .more{grid-column:1/-1;grid-row:2}
 .lsb .rowhead{position:relative;padding-left:73px}
@@ -756,21 +756,10 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .seg input:checked+span{color:var(--c-text);background:color-mix(in srgb,var(--c-spice) 9%,var(--c-raised));box-shadow:inset 0 -2px 0 var(--c-spice)}
 .lsb .tc[data-na]{opacity:.55;cursor:default}
 .lsb .nodata{padding:var(--s-3);border:1px dashed var(--c-rule);border-radius:var(--r-2);color:var(--c-dim)}
-/* read-only board (the first release of the new tab): no Choose column and no quick buttons yet */
-.lsb[data-ro] .cw{grid-template-columns:minmax(0,1fr)}
-.lsb[data-ro] .cw .sum{grid-column:1;padding-left:10px;border-left:0}
-.lsb[data-ro] .cw .more{grid-column:1}
-.lsb[data-ro] .rowhead{padding-left:10px}
-.lsb[data-ro] .pickh,.lsb[data-ro] .c-qa,.lsb[data-ro] .hend{display:none}
-@media (min-width:901px){
-  .lsb[data-ro] .rowhead,.lsb[data-ro] .sum{grid-template-columns:7.5rem 8.5rem minmax(0,1fr) 1.6rem}
-  .lsb[data-ro] .sum .chev{grid-column:4}
-}
-@media (min-width:1200px){.lsb[data-ro] .rowhead,.lsb[data-ro] .sum{grid-template-columns:7.5rem 11rem minmax(0,1fr) 1.6rem}}
-@media (max-width:900px){.lsb[data-ro] .sum{grid-template-areas:"h v" "l l" "m m" "s s"}}
 .lsb .mt12{margin-top:var(--s-3)}
 .lsb .mb8{margin:0 0 var(--s-2)}
 .lsb .plc{margin:6px 12px 10px;font-size:var(--t-xs)}
 .lsb .stack a::before{content:"";position:absolute;inset:-4px 0}
 .lsb .xc:checked~.more,.lsb[data-all] .more{display:grid}
 .lsb .xc:checked+.sum .chev,.lsb[data-all] .chev{transform:rotate(225deg)}
+@media (min-width:901px){.lsb .mt{min-width:24px}}

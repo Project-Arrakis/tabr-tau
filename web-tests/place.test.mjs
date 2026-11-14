@@ -23,9 +23,9 @@ function holdWindowScroll(w, y) {
 }
 
 async function openLandsraad(extra = {}) {
-  const ui = await boot({ get: { '/api/landsraad': landsraad() }, post: { '/api/landsraad/faction-goal': { ok: true, changed: 1, noop: false, house: 'Alexin', tier: 6000, progress_changed: true, completed_changed: true, contribution_changed: true, contribution_before: 0, has_character: true, outcome: 'written' } }, ...extra });
-  if (!ui.doc.querySelector('#lf')) { ui.click('[data-tab="landsraad"]'); await ui.settle(); }
-  assert.ok(ui.doc.querySelector('#lf'), 'the Landsraad tab is open');
+  const ui = await boot({ get: { '/api/landsraad': landsraad() }, post: { '/api/landsraad/apply': { ok: true, changed: 1, noop: false, house: 'Alexin', tier: 6000, progress_changed: true, completed_changed: true, contribution_changed: true, contribution_before: 0, has_character: true, outcome: 'written' } }, ...extra });
+  if (!ui.doc.querySelector('#lsb-fac')) { ui.click('[data-tab="landsraad"]'); await ui.settle(); }
+  assert.ok(ui.doc.querySelector('#lsb-fac'), 'the Landsraad tab is open');
   return ui;
 }
 
@@ -34,16 +34,17 @@ test('an action on the Landsraad tab keeps the scroll offsets, the chosen factio
   const y = holdWindowScroll(ui.w, 640);
   const box = [...ui.doc.querySelectorAll('#main .scroll')].pop();
   box.scrollTop = 175;
-  ui.doc.querySelector('#lf').value = '2';
+  ui.doc.querySelector('#lsb-fac').value = '2';
   const det = ui.doc.querySelector('#main details'); det.open = true;
-  const before = ui.doc.querySelector('#lf');
+  const before = ui.doc.querySelector('#lsb-fac');
 
-  ui.click('[data-act="tfill"][data-id="105"]'); await ui.settle();
-  const sent = ui.posted.filter((p) => p.path === '/api/landsraad/faction-goal');
+  ui.click('.qa-cr[data-id="105"]'); await ui.settle(); // Complete: staged for the faction that was chosen
+  ui.click('[data-lb=write]'); await ui.settle();
+  const sent = ui.posted.filter((p) => p.path === '/api/landsraad/apply');
   assert.equal(sent.length, 1);
-  assert.equal(sent[0].body.faction_id, 2, 'the faction that was chosen is the one sent');
-  assert.notEqual(ui.doc.querySelector('#lf'), before, 'the tab was drawn again');
-  assert.equal(ui.doc.querySelector('#lf').value, '2', 'the faction stays chosen');
+  assert.equal(sent[0].body.houses[0].complete_for, 2, 'the faction that was chosen is the one sent');
+  assert.notEqual(ui.doc.querySelector('#lsb-fac'), before, 'the tab was drawn again');
+  assert.equal(ui.doc.querySelector('#lsb-fac').value, '2', 'the faction stays chosen');
   assert.equal([...ui.doc.querySelectorAll('#main .scroll')].pop().scrollTop, 175, 'the table keeps its offset');
   assert.equal(y(), 640, 'the page keeps its offset');
   assert.equal(ui.doc.querySelector('#main details').open, true, 'the opened list stays open');
@@ -84,7 +85,7 @@ test('a refresh of the page comes back to the same tab, offsets and choices', as
   const first = await openLandsraad();
   holdWindowScroll(first.w, 880);
   [...first.doc.querySelectorAll('#main .scroll')].pop().scrollTop = 210;
-  first.doc.querySelector('#lf').value = '2';
+  first.doc.querySelector('#lsb-fac').value = '2';
   first.doc.querySelector('#main details').open = true;
   first.w.dispatchEvent(new first.w.Event('pagehide'));
   const saved = first.w.sessionStorage.getItem('tabr-tau-view');
@@ -96,8 +97,8 @@ test('a refresh of the page comes back to the same tab, offsets and choices', as
   let scrolledTo = null;
   const ui = await boot({ get: { '/api/landsraad': landsraad() }, ...w2, pre: (w) => { w.scrollTo = (x, y) => { scrolledTo = y; }; } });
   assert.equal(scrolledTo, 880, 'the page is scrolled to where it was');
-  assert.ok(ui.doc.querySelector('#lf'), 'the same tab is open after the refresh');
-  assert.equal(ui.doc.querySelector('#lf').value, '2', 'the chosen faction is back');
+  assert.ok(ui.doc.querySelector('#lsb-fac'), 'the same tab is open after the refresh');
+  assert.equal(ui.doc.querySelector('#lsb-fac').value, '2', 'the chosen faction is back');
   assert.equal([...ui.doc.querySelectorAll('#main .scroll')].pop().scrollTop, 210, 'the table is where it was');
   assert.equal(ui.doc.querySelector('#main details').open, true);
 });
@@ -105,7 +106,7 @@ test('a refresh of the page comes back to the same tab, offsets and choices', as
 test('a place in the session storage that is not of the right shape is ignored', async () => {
   for (const bad of ['not json', '{"tab":"landsraad"}', '{"tab":"landsraad","y":"x","boxes":[],"ctl":{},"det":{},"sub":{}}', '[]', 'null']) {
     const ui = await boot({ get: { '/api/landsraad': landsraad() }, session: { 'tabr-tau-view': bad }, local: { tab: 'landsraad' } });
-    assert.ok(ui.doc.querySelector('#lf'), 'the page starts as usual: ' + bad);
+    assert.ok(ui.doc.querySelector('#lsb-fac'), 'the page starts as usual: ' + bad);
     assert.equal(ui.w.sessionStorage.getItem('tabr-tau-view'), null, 'the stored place is used once');
     closeAll();
   }

@@ -190,15 +190,11 @@ const actionTable = () => {
 };
 // the actions that look like a fill or a repair but are something else, with the reason (a new name here is a decision, not a way round the test)
 const NOT_FILLS = {
-  mfill: 'Landsraad: raises a contribution to a reward tier, a number, not a container, a tank or an item',
-  tfill: 'Landsraad: completes a house for a faction at the highest reward tier, numbers on a board, not a container, a tank or an item',
-  lsFill: 'Landsraad: the same, for the chosen houses',
   rsUnlock: 'Research: purchases or repairs an unlock record, nothing is filled or worn',
   autoref: 'the switch of the automatic pass',
   autoNow: 'the automatic pass: runs the jobs that are ticked and reports in its own banner (a later piece of #571)',
   launchSkip: 'ends the countdown of the automatic pass',
   launchOff: 'turns the automatic pass off',
-  lsAll: 'Landsraad: chooses houses', lsNone: 'Landsraad: clears the choice', lsComplete: 'Landsraad', lsReopen: 'Landsraad',
 };
 
 test('every action of the editor that fills, refills, refuels or repairs has an animation, and the list in this file is the table of app.js', () => {
