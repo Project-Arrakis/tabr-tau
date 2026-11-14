@@ -80,7 +80,7 @@
   --mo-ease-io: cubic-bezier(.65, 0, .35, 1);                 /* a camera flight */
   --mo-fill: 400ms;                                           /* a bar filling */
   --mo-tick: 400ms;                                           /* a number counting up (read by the page's script) */
-  --mo-flash: 1000ms;                                         /* a row highlight fading (Keep-alive refill) */
+  --mo-flash: 1000ms;                                         /* a row highlight fading */
   --mo-water: 1200ms;                                         /* the drop in the water toast filling */
   --mo-attn: 1200ms;                                          /* one cycle of the new-alert border pulse (runs twice, then still) */
   --mo-ping-once: 900ms;                                      /* the one ping ring of a thing that appears, or arrives */

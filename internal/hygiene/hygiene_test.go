@@ -1,65 +1,134 @@
-// Package hygiene holds a test over the whole public repository: nothing tracked in it may name the maintainers' private tooling.
 package hygiene
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
+	"bytes"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
-// privateTokens are names that must not appear in any text file of this repository (audit 2026-11-13, D11-1). They are kept as
-// SHA-256 digests of the lower-case token, so this file does not name what it keeps out. A token is a run of letters, digits,
-// hyphens and underscores, so a file name with an extension or a possessive is caught by its stem.
-var privateTokens = map[string]string{
-	"f3d5bd2b82bcb38fd930d9baeb8ca4438470c53b3e31b70f947c85fff36f5e72": "a private program's name",
-	"9d0b5d30f807e1081a0a75a3e5fa0b29ee086315ad3d42e963a4782b8ef2abfe": "a private program's name",
-	"bb5865066104da838c54688c4450dd4069e65b065048f59e5a31fab81e228180": "a private program's name",
-	"463bbf36edbb88cc27a7138ee858b33da2874e02f1038581a1ce7698d069eb4f": "a file of a private program",
-	"603804cfd7a43745f9dc3053241ba70591aa5784d455fad1c40233dcb191e8e2": "a way of reading the live game's memory",
-}
+// fixtureWord is a word of this test's own: the tests prove the check against a digest of it, so no real reserved word is spelled here.
+const fixtureWord = "zorblax"
 
-var tokenRE = regexp.MustCompile(`[A-Za-z0-9][A-Za-z0-9_-]*`)
+func fixtureChecker() *Checker { return NewWithDigests(Digest(fixtureWord), Digest("two", "parts")) }
 
-var textExts = map[string]bool{
-	".md": true, ".go": true, ".js": true, ".mjs": true, ".html": true, ".css": true, ".yml": true, ".yaml": true, ".json": true,
-	".txt": true, ".sh": true, ".ps1": true, ".toml": true, ".mod": true, ".sum": true, ".sql": true, ".tsv": true, ".svg": true,
-	".py": true, ".ini": true, ".cfg": true, ".gitignore": true, ".gitattributes": true,
-}
-
-// leak returns the first private token in s, or "".
-func leak(s string) (token, what string) {
-	for _, w := range tokenRE.FindAllString(s, -1) {
-		sum := sha256.Sum256([]byte(strings.ToLower(w)))
-		if what, ok := privateTokens[hex.EncodeToString(sum[:])]; ok {
-			return w, what
+func TestCheckFindsAReservedWordWhereverItIsWritten(t *testing.T) {
+	c := fixtureChecker()
+	for _, s := range []string{
+		fixtureWord,
+		"see " + fixtureWord + ".exe for the details",
+		"`" + fixtureWord + "`'s repository",
+		strings.ToUpper(fixtureWord),
+		"- Zorblax's notes",
+		"a pair: Two PARTS",
+		"line one\nline two " + fixtureWord,
+	} {
+		if len(c.Check(s)) == 0 {
+			t.Errorf("Check(%q) found nothing", s)
 		}
 	}
-	return "", ""
-}
-
-func TestLeakFindsWhatItKeepsOut(t *testing.T) {
-	// the digests are of words this file does not spell, so the check is proved against a word built from parts
-	name := strings.Join([]string{"tabr", "trainer"}, "-")
-	for _, s := range []string{name, "see " + name + ".exe", "`" + name + "`'s repo", strings.ToUpper(name)} {
-		if tok, _ := leak(s); tok == "" {
-			t.Errorf("leak(%q) found nothing", s)
-		}
-	}
-	for _, s := range []string{"", "a tabr-tau editor", "the NPC trainers of the map"} {
-		if tok, _ := leak(s); tok != "" {
-			t.Errorf("leak(%q) = %q, want nothing", s, tok)
+	for _, s := range []string{"", "a tabr-tau editor", "the NPC trainers of the map", "two other parts", "zorblaxes are a different word"} {
+		if h := c.Check(s); len(h) != 0 {
+			t.Errorf("Check(%q) = %d hits, want none", s, len(h))
 		}
 	}
 }
 
-// No tracked text file of the repository (docs, code and comments, web files, workflows, issue templates, changelogs) names a private tool.
-func TestNoPrivateToolIsNamedInThePublicRepository(t *testing.T) {
+func TestCheckReportsTheLine(t *testing.T) {
+	h := fixtureChecker().Check("a\nb\nc " + fixtureWord + "\nd")
+	if len(h) != 1 || h[0].Line != 3 || h[0].Kind != KindReserved {
+		t.Fatalf("hits = %+v, want one reserved word on line 3", h)
+	}
+}
+
+func TestBuiltInDigestsAreWellFormed(t *testing.T) {
+	// the built-in list is hashed; this pins its shape without spelling a word: 64 lower-case hex characters, no duplicates
+	seen := map[string]bool{}
+	for _, d := range reservedDigests {
+		if len(d) != 64 || !isHex(d) || seen[d] {
+			t.Errorf("digest %q is not 64 distinct lower-case hex characters", d)
+		}
+		seen[d] = true
+	}
+	if len(New("").digests) != len(reservedDigests) {
+		t.Error("New with no extra digests must hold the built-in list only")
+	}
+}
+
+func TestExtraDigestsComeFromTheEnvironmentValue(t *testing.T) {
+	extra := Digest(fixtureWord)
+	c := New(" " + strings.ToUpper(extra) + ";not-a-digest,\n" + Digest("a", "b") + "\r\n")
+	if len(c.Check("x "+fixtureWord)) == 0 || len(c.Check("a b")) == 0 {
+		t.Error("an extra digest (any case, any separator) must be honoured")
+	}
+	if len(c.digests) != len(reservedDigests)+2 {
+		t.Errorf("held %d digests, want the built-in ones and exactly two extra", len(c.digests))
+	}
+	if len(New("").Check(fixtureWord)) != 0 {
+		t.Error("without the extra list the fixture word is not reserved")
+	}
+}
+
+func TestProfilePaths(t *testing.T) {
+	c := fixtureChecker()
+	bad := []string{
+		`C:\Users@\jane.doe\AppData\Local\Game\Logs`,
+		`the folder c:/users@/jdoe/Documents is`,
+		`"D:\Users@\Pat Smith\x"`,
+		`open /Users@/jdoe/Library/x`,
+		`see (/home@/jdoe/.config)`,
+		`path=/home@/jdoe`,
+	}
+	for _, s := range bad {
+		s = strings.ReplaceAll(s, "@", "") // the marker keeps this file from containing a profile path itself
+		h := c.Check(s)
+		if len(h) != 1 || h[0].Kind != KindProfilePath {
+			t.Errorf("Check(%q) = %+v, want one profile path", s, h)
+		}
+	}
+	good := []string{
+		`%USERPROFILE%\AppData\Local`, `$HOME/.config`, `C:\Users\<name>\x`, `C:\Users\Public\Documents`, `C:\Users\you\x`,
+		`/home/runner/work/tabr-tau`, `~/.config`, `C:\Users\%USERNAME%\x`, `the /users/ pattern`, `/home/<you>/x`, `C:\Users\Default\NTUSER.DAT`,
+		`https://example.com/users/jdoe`, `a/home/jdoe`,
+	}
+	for _, s := range good {
+		if h := c.Check(s); len(h) != 0 {
+			t.Errorf("Check(%q) = %+v, want nothing", s, h)
+		}
+	}
+}
+
+func TestAttribution(t *testing.T) {
+	for _, s := range []string{"Co-Authored-By: Some Assistant <noreply@anthropic.com>", "text\nco-authored-by: x (Claude)", "Generated with [Claude Code](https://x)", "  generated by ChatGPT"} {
+		if len(CheckAttribution(s)) == 0 {
+			t.Errorf("CheckAttribution(%q) found nothing", s)
+		}
+	}
+	for _, s := range []string{"", "Co-authored-by: Pat Human <pat@example.com>", "refs #1; the generated code is formatted", "a note about an assistant"} {
+		if h := CheckAttribution(s); len(h) != 0 {
+			t.Errorf("CheckAttribution(%q) = %+v, want nothing", s, h)
+		}
+	}
+}
+
+// isText reports whether a file's bytes are text to scan: valid UTF-8 with no NUL byte. Binary files (images, fonts, archives) are not.
+func isText(b []byte) bool {
+	head := b
+	if len(head) > 8192 {
+		head = head[:8192]
+	}
+	return !bytes.Contains(head, []byte{0}) && utf8.Valid(b)
+}
+
+// No tracked file of the repository names a reserved word or a personal profile path, in its text or in its path: docs, code and comments,
+// test names and fixtures, web files, workflows, issue and pull request templates, labels and changelogs. Any file that is text is read,
+// whatever its extension (CODEOWNERS and LICENSE have none), so a new kind of file is covered without a change here.
+func TestNoReservedWordIsInThePublicRepository(t *testing.T) {
 	root := filepath.Join("..", "..")
+	c := New(os.Getenv("PUBLIC_TEXT_EXTRA_DIGESTS"))
 	checked := 0
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -72,9 +141,13 @@ func TestNoPrivateToolIsNamedInThePublicRepository(t *testing.T) {
 			}
 			return nil
 		}
-		ext := strings.ToLower(filepath.Ext(d.Name()))
-		if !textExts[ext] && !textExts[strings.ToLower(d.Name())] {
+		if d.Name() == ".git" { // a worktree's pointer file holds the checkout's own path, which is not tracked
 			return nil
+		}
+		rel, _ := filepath.Rel(root, p)
+		rel = filepath.ToSlash(rel)
+		for _, h := range c.Check(rel) {
+			t.Errorf("the path %s breaks the public text rule (%s); the report names the rule, never the text", rel, h.Kind)
 		}
 		if info, err := d.Info(); err != nil || info.Size() > 8<<20 {
 			return nil
@@ -83,10 +156,12 @@ func TestNoPrivateToolIsNamedInThePublicRepository(t *testing.T) {
 		if err != nil {
 			return err
 		}
+		if !isText(b) {
+			return nil
+		}
 		checked++
-		rel, _ := filepath.Rel(root, p)
-		if tok, what := leak(string(b)); tok != "" {
-			t.Errorf("%s names %q (%s); the public repository never names a private tool", filepath.ToSlash(rel), tok, what)
+		for _, h := range c.Check(string(b)) {
+			t.Errorf("%s:%d breaks the public text rule (%s); the report names the rule, never the text", rel, h.Line, h.Kind)
 		}
 		return nil
 	})
@@ -95,5 +170,38 @@ func TestNoPrivateToolIsNamedInThePublicRepository(t *testing.T) {
 	}
 	if checked < 100 {
 		t.Fatalf("only %d files were checked; the walk is wrong", checked)
+	}
+}
+
+// The workflow that runs the check on issue and pull request text must exist and name the events that matter, so it cannot be dropped by accident.
+func TestThePublicTextWorkflowCoversIssuesPullRequestsAndComments(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "public-text.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	for _, want := range []string{"issues:", "issue_comment:", "pull_request:", "pull_request_review:", "pull_request_review_comment:", "edited", "./cmd/publictextcheck"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("public-text.yml does not mention %q", want)
+		}
+	}
+	if strings.Contains(s, "pull_request_target") {
+		t.Error("public-text.yml must not use pull_request_target: it would run with a write token over text from a fork")
+	}
+	for _, bad := range []string{"github.event.issue.title", "github.event.issue.body", "github.event.comment.body", "github.event.review.body", "github.event.pull_request.title", "github.event.pull_request.body", "github.event.pull_request.head.ref", "github.head_ref"} {
+		if strings.Contains(s, bad) {
+			t.Errorf("public-text.yml must read the event from the payload file, never interpolate %s into a step", bad)
+		}
+	}
+}
+
+func TestPhrasesOfUpToFourWordsAndTheTextIsKeptAsWritten(t *testing.T) {
+	c := NewWithDigests(Digest("Alpha", "beta", "gamma", "delta"))
+	h := c.Check("so Alpha Beta, gamma  delta here") // punctuation and spaces between the words do not hide a phrase
+	if len(h) != 1 || h[0].Text != "Alpha Beta gamma delta" {
+		t.Fatalf("hits = %+v, want the four-word phrase as written", h)
+	}
+	if len(c.Check("alpha beta gamma")) != 0 || len(c.Check("beta gamma delta")) != 0 {
+		t.Error("a part of the phrase must not be a hit")
 	}
 }
