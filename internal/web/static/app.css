@@ -317,6 +317,7 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .fb .trk i{display:block;height:100%}
 .lsb .fb.a .trk i{background:var(--c-sky)}
 .lsb .fb.h .trk i{background:var(--c-rust)}
+.lsb .fb.s .trk i{background:repeating-linear-gradient(45deg,var(--c-gold) 0 3px,color-mix(in srgb,var(--c-gold) 40%,var(--c-sunken)) 3px 6px)}
 .lsb .fb .fv{text-align:right;font-variant-numeric:tabular-nums}
 .lsb .fb.lead .fl,.lsb .fb.lead .fv{font-weight:700;color:var(--c-text)}
 .lsb .fb:not(.lead){color:var(--c-dim)}
@@ -458,9 +459,9 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .actbar .note{font-size:var(--t-sm);color:var(--c-dim)}
 .lsb .actbar .legend2{margin:var(--s-2) 0 0;padding-top:var(--s-2);border-top:1px dashed var(--c-hair);font-size:var(--t-sm);color:var(--c-dim)}
 .lsb .actbar .legend2 b{color:var(--c-text)}
-.lsb #lsum{margin:0 0 var(--s-2);font-size:var(--t-sm)}
-.lsb #result{margin:0 0 var(--s-2);font-size:var(--t-sm);color:var(--c-ok)}
-.lsb #pendbar{margin:0 0 var(--s-2);font-size:var(--t-sm)}
+.lsb #lsb-sum{margin:0 0 var(--s-2);font-size:var(--t-sm)}
+.lsb #lsb-result{margin:0 0 var(--s-2);font-size:var(--t-sm);color:var(--c-ok)}
+.lsb #lsb-pendbar{margin:0 0 var(--s-2);font-size:var(--t-sm)}
 .lsb .ctl .f{display:inline-flex;gap:var(--s-2);align-items:center;flex-wrap:nowrap}
 .lsb .ctl .lbl{white-space:nowrap}
 .lsb .ctl select{min-height:var(--hit);padding:0 10px;border:1px solid var(--c-rule);border-radius:var(--r-2);background:var(--c-sunken);color:var(--c-text);font:var(--t-md) var(--t-body)}
@@ -610,15 +611,18 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .pickh{position:static;width:auto;display:inline-flex;margin-right:14px;order:-1}
 }
 @media (max-width:640px){
+.lsb .d-head{flex-wrap:wrap}
+.lsb .d-head::after{display:none}
+.lsb .d-head .cnt{order:2}
 .lsb .glance{grid-template-columns:1fr}
 .lsb a.tile{display:flex;align-items:baseline;gap:12px}
 .lsb a.tile .now{position:static}
 .lsb .hist .term>summary{grid-template-columns:1fr}
 .lsb .seg span{padding:0 9px}
 }
-.lsb .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:var(--s-3);margin-bottom:var(--s-3)}
-.lsb .kv>div{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
-.lsb .kv .mut{font:600 var(--t-xs) var(--t-display);letter-spacing:.08em;text-transform:uppercase}
+.lsb .tkv{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:var(--s-3);margin-bottom:var(--s-3)}
+.lsb .tkv>div{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.lsb .tkv .mut{font:600 var(--t-xs) var(--t-display);letter-spacing:.08em;text-transform:uppercase}
 .lsb .dn{font-weight:600}
 .lsb .did{display:block;font:var(--t-xs) var(--t-mono);color:var(--c-dim);overflow-wrap:anywhere}
 .lsb .dec{list-style:none;margin:0;padding:0}
@@ -668,7 +672,7 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .tctl select:focus-visible{outline:2px solid var(--c-focus);outline-offset:1px}
 .lsb .tctl .did{min-height:1.3em}
 .lsb .tapply{display:inline-flex;align-items:center;gap:var(--s-2)}
-.lsb #tresult{margin:0 0 var(--s-2);font-size:var(--t-sm);color:var(--c-ok);min-height:1.2em}
+.lsb #lsb-tresult{margin:0 0 var(--s-2);font-size:var(--t-sm);color:var(--c-ok);min-height:1.2em}
 .lsb .dp{list-style:none;margin:0;padding:0}
 .lsb .dp li{display:grid;grid-template-columns:2.2rem minmax(0,2fr) minmax(0,1.2fr) 6rem 8.5rem 14rem;gap:var(--s-2) var(--s-4);align-items:center;padding:6px 8px;border-bottom:1px solid var(--c-hair)}
 .lsb .dp .mkc{display:flex;align-items:center;gap:8px;min-width:0}
@@ -702,7 +706,7 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .dp li>:nth-child(6){grid-area:m}
 .lsb .dp li>:nth-child(4)::before{content:"Pool flag "}
 .lsb .qa{min-height:44px}
-.lsb .tdp .kv{grid-template-columns:repeat(2,minmax(0,1fr))}
+.lsb .tdp .tkv{grid-template-columns:repeat(2,minmax(0,1fr))}
 .lsb .tctl select{min-width:0;width:100%}
 .lsb .tctl .fld{flex:1 1 100%}
 .lsb details.about>summary{min-height:40px}
@@ -765,3 +769,9 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .xc:checked~.more,.lsb[data-all] .more{display:grid}
 .lsb .xc:checked+.sum .chev,.lsb[data-all] .chev{transform:rotate(225deg)}
 @media (min-width:901px){.lsb .mt{min-width:24px}}
+/* the segments of the bar keep a 44 px hit area on a phone: this comes after the base rule above, which would otherwise win */
+@media (max-width:900px){.lsb .stack a::before{inset:-14px 0}}
+.lsb .sorth:disabled{opacity:.5;cursor:default}
+.lsb .btnl input:disabled,.lsb .btnl input:disabled+span{cursor:not-allowed}
+.lsb .btnl input:disabled+span{opacity:.5;border-style:dashed}
+@media (max-width:640px){.lsb .d-head .cnt{white-space:normal}} /* after the base rule, which is nowrap */

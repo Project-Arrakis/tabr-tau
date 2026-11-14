@@ -241,3 +241,41 @@ func TestRewardsNothingIsLoweredAndAnotherPlayersRowsAreKept(t *testing.T) {
 		t.Fatalf("a contribution above the top tier is not lowered: %v", c)
 	}
 }
+
+// The board shows the swatch as this term's top reward while the swatch was won in this term (landsraad_board.go), so giving the top tier again after a removal must not write the
+// task's own item instead: the swatch was already delivered in this term, and nothing is written.
+func TestRewardsASwatchWonThisTermIsNotReplacedByTheTaskItemAfterARemoval(t *testing.T) {
+	o := rewardOps(t, "")
+	fillKenola(t, o, nil)
+	before := houseRewards(t, o, "DA_HouseKenola")
+	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 6000.0, "mine_to": 4800.0, "lower": true})))
+	m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 4800.0, "mine_to": 6000.0})))
+	if m["reward_rows"].(int64) != 0 || m["rewards_already_given"].(int64) != 1 {
+		t.Fatalf("answer: %v", m)
+	}
+	if got := houseRewards(t, o, "DA_HouseKenola"); got != before {
+		t.Fatalf("the top tier was delivered again as another item:\n%s\n%s", before, got)
+	}
+	if got := oneTimeRows(t, o); got != "map[house_name:DA_HouseKenola player_id:1 template_id:Kenola_Placeables_Swatch term_id:7]\n" {
+		t.Fatalf("the one-time row changed: %s", got)
+	}
+}
+
+// Fill under another faction: the contribution is the character's, under its own faction, so a request that raises it while completing the house for another faction (what
+// Fill faction goal sent before the page stopped doing that) is refused as a whole, and nothing is written (#628, #609).
+func TestRewardsFillWithAnotherFactionChosenIsRefusedAndWritesNothing(t *testing.T) {
+	o := rewardOps(t, "")
+	rBefore, eBefore, oBefore := rows(t, o, `select * from landsraad_house_rewards order by 1,2,4`), events(t, o), oneTimeRows(t, o)
+	cBefore := rows(t, o, `select * from landsraad_task_player_contributions order by 1,2,3`)
+	if _, err := o.LandsraadApply(applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0, "complete_for": 1.0}))); err == nil {
+		t.Fatal("raising the contribution while completing for another faction was accepted")
+	}
+	if rows(t, o, `select * from landsraad_house_rewards order by 1,2,4`) != rBefore || events(t, o) != eBefore || oneTimeRows(t, o) != oBefore ||
+		rows(t, o, `select * from landsraad_task_player_contributions order by 1,2,3`) != cBefore {
+		t.Fatal("a refused request changed the save")
+	}
+	// the same house, the character's own faction (2): both parts are written, with the rewards
+	if m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0, "complete_for": 2.0}))); m["reward_rows"].(int64) != 4 {
+		t.Fatalf("answer: %v", m)
+	}
+}

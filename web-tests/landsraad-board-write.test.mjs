@@ -222,3 +222,21 @@ test('Fill faction goal in the opened row stages the top tier and the win; for a
   const p = text(by(ui, 'Thorvald').querySelector('.more .pend'));
   assert.ok(p.includes('house taken by Harkonnen') && !p.includes('your contribution'), p);
 });
+
+test('with another faction chosen, Fill and Fill chosen change nothing of yours and nothing is sent for the contribution; Complete and Fill faction goal act for that faction', async () => {
+  const ui = await open(board(), { '/api/landsraad/apply': { ok: true, changed: 1, houses: 1, skipped: 0, contribution_raised: 0, contribution_lowered: 0, completed: 1, reopened: 0, reward_rows: 0, events: 0 } });
+  select(ui, '#lsb-fac', 2); await ui.settle();
+  const off = quick(ui, 'Alexin', 'qa-fill');
+  assert.equal(off.getAttribute('aria-disabled'), 'true');
+  assert.ok(off.title.includes('Off while Harkonnen is chosen') && off.title.includes('Atreides'), off.title);
+  click(ui, off); await ui.settle();
+  assert.ok(!by(ui, 'Alexin').hasAttribute('data-pend'), 'Fill staged nothing');
+  by(ui, 'Alexin').querySelector('.pick').click(); by(ui, 'Thorvald').querySelector('.pick').click(); await ui.settle();
+  assert.ok(text(ui.doc.querySelector('#lsb-sum')).includes('Fill chosen changes 0,'), text(ui.doc.querySelector('#lsb-sum')));
+  click(ui, '[data-lb=bulk][data-do=fill]'); await ui.settle();
+  assert.equal(ui.doc.querySelectorAll('#lsb-rows > li[data-pend]').length, 0, 'Fill chosen staged nothing');
+  click(ui, by(ui, 'Alexin').querySelector('.act-fill')); await ui.settle();
+  click(ui, ui.doc.querySelector('[data-lb=write]')); await ui.settle();
+  const w = writes(ui);
+  assert.deepEqual(w[0].body.houses, [{ task_id: 900, was_mine: 0, was_done: false, was_win: null, complete_for: 2 }], 'no mine_to: no contribution and so no reward row');
+});

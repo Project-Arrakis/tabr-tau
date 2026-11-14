@@ -159,3 +159,27 @@ func TestBoardOnlyTheCurrentTermIsAMissingHistory(t *testing.T) {
 		t.Fatalf("earlier terms = %v", e)
 	}
 }
+
+func TestBoardLocationGivesTheDistanceFromYouOnlyOnTheSameMapWithAMapping(t *testing.T) {
+	o := rewardOps(t, "")
+	m := findMap("HaggaBasin")
+	// the test character stands at (100, 200) on the Hagga Basin; the house is 30,000 and 40,000 centimetres away along the two axes
+	fx, fy := (100+30000-m.MinX)/(m.MaxX-m.MinX), (200+40000-m.MinY)/(m.MaxY-m.MinY)
+	houseLocations["DA_HouseMaros"] = houseLocation{Map: "Hagga Basin", Area: "Sample Area", Place: "somewhere", X: fx, Y: fy}
+	houseLocations["DA_HouseKenola"] = houseLocation{Map: "Deep Desert", Area: "Sample Area", X: .5, Y: .5}
+	houseLocations["DA_HouseVernius"] = houseLocation{Map: "Arrakeen", Area: "Arrakeen", X: .5, Y: .5}
+	defer func() {
+		delete(houseLocations, "DA_HouseMaros")
+		delete(houseLocations, "DA_HouseKenola")
+		delete(houseLocations, "DA_HouseVernius")
+	}()
+	d, ok := taskByID(t, o, 174)["location"].(map[string]any)["from_you_cm"].(float64)
+	if !ok || d < 49999 || d > 50001 {
+		t.Fatalf("distance = %v", taskByID(t, o, 174)["location"])
+	}
+	for _, id := range []int64{175, 176} {
+		if loc := taskByID(t, o, id)["location"].(map[string]any); loc["known"] != true || loc["from_you_cm"] != nil {
+			t.Fatalf("task %d: another map or a hub has no distance: %v", id, loc)
+		}
+	}
+}

@@ -227,3 +227,64 @@ test('the longer explanations sit in closed About disclosures', async () => {
   assert.ok(abouts.length >= 3);
   assert.ok(abouts.every((d) => !d.open && /^About /.test(text(d.querySelector('summary')))));
 });
+
+test('the place has a quick peek for a mouse (the lines of the dialog) only where the position is known', async () => {
+  const known = { known: true, map: 'Hagga Basin', area: 'The O’dham', place: 'north rim', x: 0.25, y: 0.5 };
+  const ui = await open(board({ tasks: [house(900, 'Alexin', 0), house(901, 'Thorvald', 100, { location: known })] }));
+  assert.equal(ui.doc.querySelector('#lsrow-900 .loc .pop'), null, 'no peek for a house with no position');
+  const pop = ui.doc.querySelector('#lsrow-901 .loc > .pop');
+  assert.ok(pop, 'the peek is in the place');
+  assert.equal(pop.getAttribute('aria-hidden'), 'true', 'the peek is mouse only; the dialog is the way in for the keyboard and touch');
+  assert.ok(text(pop).includes('The O’dham (Hagga Basin)') && text(pop).includes('north rim') && text(pop).includes('Click the place for the full map'), text(pop));
+  assert.equal(pop.querySelector('.pin').style.left, '25%');
+  assert.ok(ui.doc.querySelector('#lsrow-901 [data-lb=map]').title.includes('Hover for a quick peek'));
+});
+
+test('a save with no houses in the term says so in place of the board controls', async () => {
+  const ui = await open(board({ tasks: [] }));
+  const b = ui.doc.querySelector('#lsb-board');
+  assert.ok(b.querySelector('.nodata') && text(b).includes('no Landsraad houses'), text(b));
+  assert.equal(b.querySelectorAll('button, select, input').length, 0, 'no control is offered against an empty board');
+});
+
+test('the stylesheet styles the status lines by the ids the board draws, and keeps the term facts apart from the Player tab\'s .kv cards', async () => {
+  const fs = await import('node:fs');
+  const css = fs.readFileSync(new URL('../internal/web/static/app.css', import.meta.url), 'utf8');
+  const js = fs.readFileSync(new URL('../internal/web/static/app.js', import.meta.url), 'utf8');
+  for (const id of ['lsb-sum', 'lsb-result', 'lsb-pendbar', 'lsb-tresult']) {
+    assert.ok(js.includes('id="' + id + '"'), id + ' is drawn');
+    assert.ok(css.includes('.lsb #' + id + '{'), id + ' is styled');
+  }
+  assert.ok(!/\.lsb \.kv\b/.test(css), 'the global .kv card (boxed, 11px values, words broken anywhere) must not meet the term facts');
+});
+
+test('when no house has a place yet the board says so once: no place in every row, Group by region and the Location sort are off with the reason', async () => {
+  const ui = await open();
+  assert.ok(text(ui.doc.querySelector('#lsb-nolocs')).includes('places of the houses are not in the editor yet'));
+  assert.ok(!text(ui.doc.querySelector('#lsb-rows')).includes('not mapped yet'), 'no row says it');
+  assert.equal(ui.doc.querySelectorAll('#lsb-rows .loc-t').length, 0);
+  assert.equal(ui.doc.querySelectorAll('.lsb .more h4').length, rows(ui).length * 2, 'no Where block per opened row');
+  const g = ui.doc.querySelector('[data-lb=group]');
+  assert.ok(g.disabled && ui.doc.querySelector('#lsb-grp-hint'), 'Group by region is off with a hint');
+  assert.ok(ui.doc.querySelector('[data-col=location] .sorth').disabled);
+  const known = { known: true, map: 'Hagga Basin', area: 'The O’dham', place: 'rim', x: 0.25, y: 0.5 };
+  const ui2 = await open(board({ tasks: [house(900, 'Alexin', 0, { location: known }), house(901, 'Thorvald', 100)] }));
+  assert.equal(ui2.doc.querySelector('#lsb-nolocs'), null);
+  assert.ok(!ui2.doc.querySelector('[data-lb=group]').disabled);
+  assert.ok(text(ui2.doc.querySelector('#lsrow-901 .c-loc')).includes('not mapped yet'), 'with some places known, a house without one still says so');
+});
+
+test('the map dialog and the peek give the distance from you, and the dialog opens the Saved map at the house', async () => {
+  const known = { known: true, map: 'Hagga Basin', map_key: 'HaggaBasin', area: 'The O’dham', place: 'north rim', x: 0.25, y: 0.5, from_you_cm: 281000 };
+  const far = { known: true, map: 'Deep Desert', map_key: 'DeepDesert', area: 'The Sink', place: '', x: 0.5, y: 0.5 };
+  const hub = { known: true, map: 'Arrakeen', map_key: '', area: 'Arrakeen', place: '', x: 0.5, y: 0.5 };
+  const ui = await open(board({ tasks: [house(900, 'Alexin', 0, { location: known }), house(901, 'Thorvald', 100, { location: far }), house(902, 'Hurata', 0, { location: hub })] }));
+  assert.ok(text(ui.doc.querySelector('#lsrow-900 .loc > .pop')).includes('From youabout 2.8 km'), text(ui.doc.querySelector('#lsrow-900 .loc > .pop')));
+  click(ui, '#lsrow-900 [data-lb=map]');
+  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('From youabout 2.8 km'));
+  assert.ok(ui.doc.querySelector('#lsb-mapbody [data-lb=mapopen]'), 'Open in Saved map');
+  click(ui, '#lsrow-901 [data-lb=map]');
+  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('From younot worked out'), 'another map: no invented distance');
+  click(ui, '#lsrow-902 [data-lb=map]');
+  assert.equal(ui.doc.querySelector('#lsb-mapbody [data-lb=mapopen]'), null, 'a hub has no Saved map picture');
+});

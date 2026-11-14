@@ -37,9 +37,13 @@ test('the panel is closed, its heading line names the term, the reigning faction
   const d = ui.doc.querySelector('#lsb-tdp');
   assert.ok(d && !d.open, 'closed by default');
   assert.equal(text(d.querySelector('summary')), 'Term and decrees Term 10 · Harkonnen · Special Vendor: Vehicles');
-  const kv = text(d.querySelector('.kv'));
+  const kv = text(d.querySelector('.tkv'));
   assert.ok(kv.includes('Term10') && kv.includes('Reigning factionHarkonnen') && kv.includes('Active decreeSpecial Vendor: VehiclesSpecialVendorActive_Vehicles') && kv.includes('Elected decreeDrop Inventory on DefeatDropInventoryOnDefeatActive'), kv);
   assert.ok(!ui.doc.querySelector('.lsb-prev'), 'the old section of previous controls is gone');
+  // the window is on the play clock, drawn in seconds with a thousands separator as the mock-up does
+  const ui2 = await open(landsraad({ term: { term_id: 10, start_time: 360000, end_time: 396000, reigning_faction_id: 2, active_decree_id: 8, elected_decree_id: 5 } }));
+  const kv2 = text(ui2.doc.querySelector('.tkv'));
+  assert.ok(kv2.includes('Start360,000 s') && kv2.includes('End396,000 s'), kv2);
 });
 
 test('decrees are shown by a readable name with the internal id as a small second line; the Refining Contract carries the game\'s own name', async () => {

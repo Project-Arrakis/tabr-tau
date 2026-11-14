@@ -48,8 +48,16 @@ func (o *Ops) Landsraad() (any, error) {
 	}
 	var character map[string]any
 	var mineID, mineFaction int64
+	var here *charPlace // where the character stands, for the distance to a house (nil when it is not known)
 	if p, perr := o.player(); perr == nil {
 		mineID = p.Controller
+		if at, aerr := o.S.One(`select map, location_x x, location_y y from actors where id=?`, p.Pawn); aerr == nil && at != nil {
+			x, okx := toFloat(at["x"])
+			y, oky := toFloat(at["y"])
+			if m, _ := at["map"].(string); okx && oky && m != "" {
+				here = &charPlace{Map: m, X: x, Y: y}
+			}
+		}
 		character = map[string]any{"player_id": p.Controller, "name": p.Name, "faction_id": nil}
 		f, ferr := o.S.One(`select pf.faction_id id from player_faction pf join factions f on f.id=pf.faction_id where pf.actor_id=? and f.name<>'None'`, p.Controller)
 		if ferr != nil {
@@ -162,7 +170,7 @@ func (o *Ops) Landsraad() (any, error) {
 			r["delivered"] = deliv
 		}
 		t["rewards"] = tiers
-		boardTask(t, tiers, delivered, one, termID, termStart)
+		boardTask(t, tiers, delivered, one, termID, termStart, here)
 	}
 	decrees, err := o.S.Query(`select id, decree_name, disabled, weight from landsraad_decrees order by id`)
 	if err != nil {
