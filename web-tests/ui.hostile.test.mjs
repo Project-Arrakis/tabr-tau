@@ -28,7 +28,7 @@ let fixtures = baseFixtures;
 const read = (n) => fs.readFileSync(path.join(static_, n), 'utf8');
 
 // Allowlists: anything else appearing in the rendered DOM is an injection.
-const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h2 h3 h4 ul li code table thead tbody tr th td input select option datalist button details summary textarea br label canvas svg g rect text path defs clippath section i em dl dt dd dialog'.split(' '));
+const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h2 h3 h4 ul li code small table thead tbody tr th td input select option datalist button details summary textarea br label canvas svg g rect text path defs clippath section i em dl dt dd dialog'.split(' '));
 const SCRIPTS = new Set(['/motion-boot.js', '/look-boot.js', '/theme-menu.js', '/html.js', '/livemap.js', '/app.js']); // the only scripts the page may contain, all same-origin files (the Motion and Look scripts are in the head, the Theme menu's before the page's)
 const ATTRS = new Set('aria-disabled stroke stroke-width stroke-linecap stroke-linejoin for aria-expanded aria-haspopup focusable fill lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live aria-label aria-labelledby aria-describedby aria-sort aria-current aria-pressed inert tabindex label checked open viewbox x y rx transform d hidden aria-hidden clip-path'.split(' '));
 

@@ -315,10 +315,6 @@ function subNav(group, items) {
 function tip(id, text, control) { return html`<span class="tip">${control}<span class="tipbox" role="tooltip" id="${id}">${text}</span></span>`; }
 const aboutKey = (id) => 'about.' + id;
 // What a decree row is in the current term (#448): the term's active decree, its elected decree, a decree in the rotation; read from the term and the rotation by the decree id.
-const decreeTerm = (r) => {
-  const tags = [r.active && 'Active', r.elected && 'Elected', r.in_rotation && 'In rotation'].filter(Boolean);
-  return tags.length ? tags.map((x) => html`<span class="tag">${x}</span> `) : html`<span class="mut">—</span>`;
-};
 function about(id, title, content) { return html`<details class="about" data-about="${id}" ${browserStore.get(aboutKey(id)) === '1' ? 'open' : ''}><summary>About this<span class="sr"> (${title})</span></summary>${content}</details>`; }
 document.addEventListener('toggle', (e) => {
   const d = e.target;
@@ -1815,6 +1811,62 @@ function lbHistory(l) {
   ${rows}</section>`;
 }
 const LB_SHOWS = [['all', 'All'], ['left', 'What is left'], ['new', '○ Not started'], ['part', '◐ In progress'], ['done', '✓ Top tier']];
+// ---- the term and decrees panel (part 4): the term's facts, the Active decree and Reigning faction controls, and the decree pool. A write goes to the save at once, as the other
+// term controls always did; the decree flag stays a button per row (the pool flag is shown as stored, and what the game does with it is not known, #634).
+const DECREE_NAME = { RepairAndRefiningTimes: 'CHOAM Refining Contract' }; // the game's own name for it (#608); the others are readable forms of the ids until checked in game
+const DECREE_TIP = { RepairAndRefiningTimes: 'In game: repair costs and refining times are reduced by 75%' };
+function decreeLabel(key) {
+  const k = String(key == null ? '' : key);
+  if (Object.prototype.hasOwnProperty.call(DECREE_NAME, k)) return DECREE_NAME[k];
+  const [base, ...rest] = k.split('_'), small = new Set(['And', 'On', 'Of', 'The', 'In', 'To', 'For']);
+  const b = base.replace(/(.)Active$/, '$1').replace(/([a-z0-9])([A-Z])/g, '$1 $2').split(' ').map((w, i) => (i && small.has(w) ? w.toLowerCase() : w)).join(' ');
+  return rest.length ? b + ': ' + rest.join(' ') : b;
+}
+const LT = { ad: undefined, rf: undefined, say: '', open: false }; // what the two drop-downs were set to (kept over a redraw), and the line that says what was written
+// the two drop-downs: what was chosen, else the term's active decree and the character's own faction (the term's reigning faction when the character has none)
+function lbTermSel(l) {
+  const t = l.term || {}, facs = (l.factions || []).map((f) => String(f.id)), decs = (l.decrees || []).map((d) => String(d.id));
+  const own = lbCan(l) ? String(l.character.faction_id) : t.reigning_faction_id != null ? String(t.reigning_faction_id) : '';
+  const rf = LT.rf !== undefined && (LT.rf === '' || facs.includes(LT.rf)) ? LT.rf : own;
+  const ad = LT.ad !== undefined && (LT.ad === '' || decs.includes(LT.ad)) ? LT.ad : t.active_decree_id != null ? String(t.active_decree_id) : '';
+  return { ad, rf };
+}
+function lbTerm(l) {
+  const t = l.term;
+  if (!t) return html`<section class="card d-panel" aria-labelledby="lsb-term-h"><h2 class="d-head" id="lsb-term-h">Term and decrees <span class="cnt">this save has no Landsraad term</span></h2></section>`;
+  const dec = l.decrees || [], by = (i) => dec.find((d) => d.id == i), a = by(t.active_decree_id), e = by(t.elected_decree_id), sel = lbTermSel(l);
+  const own = lbCan(l) ? l.character.faction_id : null, rfName = t.reigning_faction_id != null ? lbFacName(l, t.reigning_faction_id) : 'none';
+  const fname = sel.rf !== '' ? lbFacName(l, +sel.rf) : '';
+  const idLine = (d) => (d ? html`<small class="did" title="The game's internal id, kept for support">${d.decree_name}</small>` : '');
+  const nm = (d) => (d ? decreeLabel(d.decree_name) : '—');
+  const row = (d) => {
+    const tg = [d.active && 'Active', d.elected && 'Elected', d.in_rotation && 'In rotation'].filter(Boolean), n = d.disabled ? 0 : 1, lab = decreeLabel(d.decree_name);
+    const on = d.id == t.active_decree_id && sel.rf !== '' && sel.rf === String(t.reigning_faction_id == null ? '' : t.reigning_faction_id);
+    const tip = DECREE_TIP[d.decree_name] || '';
+    const mkTip = sel.rf !== '' ? `Makes ${lab} the active decree of the term for ${fname}, the same as the Active decree drop-down and Apply` : 'Choose a reigning faction above first';
+    const mk = on
+      ? html`<span class="mk-on" title="This decree is already the active decree of the term for ${fname}"><span aria-hidden="true">✓</span> Active</span>`
+      : html`<button type="button" class="qa mk" data-lb="tmk" data-id="${d.id}" data-fk="tm:${d.id}" aria-disabled="${sel.rf === '' ? 'true' : 'false'}" title="${mkTip}">${sel.rf !== '' ? 'Make active for ' + fname : 'Make active (choose a faction)'}</button>`;
+    return html`<li><span class="mut">${d.id}</span><span class="dc"><span class="dn" ${tip ? html`title="${tip}"` : ''}>${lab}</span>${idLine(d)}</span><span>${tg.length ? tg.map((x) => html`<span class="tag">${x}</span> `) : html`<span class="mut">not in this term</span>`}</span><span class="fl mut">${d.disabled ? 1 : 0}</span><button type="button" class="qa" data-lb="tflag" data-id="${d.id}" data-d="${n}" data-fk="tf:${d.id}" title="Sets the pool flag of this one row to ${n}. It does not make the decree active; Make active on the row or the Active decree above does.">Set flag to ${n}</button><span class="mkc">${mk}${lbMark('write', 'Writes to the save: the active decree and the reigning faction of the current term (landsraad_decree_term), the same as Apply')}</span></li>`;
+  };
+  return html`<section class="card d-panel" aria-labelledby="lsb-term-h"><details class="tdp" id="lsb-tdp" ${LT.open ? 'open' : ''}><summary><h2 class="d-head" id="lsb-term-h">Term and decrees <span class="cnt">Term ${t.term_id} · ${rfName} · ${a ? nm(a) : 'no active decree'}</span></h2></summary>
+  <div class="tbody">
+  <div class="kv"><div><span class="mut">Term</span><b>${t.term_id}</b>${lbMark('save', 'Read from the save: landsraad_decree_term')}</div><div><span class="mut">Start</span><b>${fmtEpoch(t.start_time)}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.start_time (play clock)')}</div><div><span class="mut">End</span><b>${fmtEpoch(t.end_time)}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.end_time (play clock)')}</div><div><span class="mut">Reigning faction</span><b>${rfName}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.reigning_faction_id')}</div><div><span class="mut">Active decree</span><span class="dn">${nm(a)}</span>${idLine(a)}</div><div><span class="mut">Elected decree</span><span class="dn">${nm(e)}</span>${idLine(e)}</div></div>
+  <div class="tctl" role="group" aria-label="Set the term's active decree and reigning faction">
+    <label class="fld"><span class="lbl">Active decree</span><select id="lsb-tad" data-lb="tad"><option value="">none</option>${dec.map((d) => html`<option value="${d.id}" ${String(d.id) === sel.ad ? 'selected' : ''}>${decreeLabel(d.decree_name)}</option>`)}</select>${idLine(by(sel.ad))}</label>
+    <label class="fld"><span class="lbl">Reigning faction</span><select id="lsb-trf" data-lb="trf"><option value="">none</option>${(l.factions || []).map((f) => html`<option value="${f.id}" ${String(f.id) === sel.rf ? 'selected' : ''}>${f.name}${own != null && f.id == own ? ' (you)' : ''}</option>`)}</select><small class="mut">any faction can be chosen</small></label>
+    <span class="tapply"><button type="button" class="qa btnp" data-lb="tapply" data-fk="tapply">Apply</button>${lbMark('write', 'Writes to the save: the active decree and the reigning faction of the current term (landsraad_decree_term)')}</span>
+  </div>
+  <p id="lsb-tresult" role="status">${LT.say}</p>
+  <h3 class="d-head">Decree pool</h3>
+  <ul class="dp" role="list"><li class="dh" aria-hidden="true"><span>ID</span><span>Decree ${lbMark('save', 'Read from the save: landsraad_decrees.decree_name')}</span><span>In this term ${lbMark('save', 'Read from the save: active, elected, rotation')}</span><span>Pool flag ${lbMark('save', 'Read from the save: the disabled column, as stored')}</span><span>Change ${lbMark('write', 'Writes to the save: the disabled column of that one decree row')}</span><span>Make active ${lbMark('write', 'Writes to the save: the active decree and the reigning faction of the current term, the same as Apply')}</span></li>${dec.map(row)}</ul>
+  ${dec.length ? '' : html`<p class="mut">This save has no decrees.</p>`}
+  ${lbAbout('lsb.term', 'term and decrees', html`<p><b>Apply</b> sets the term's active decree and its reigning faction together: one row, the current term in <code>landsraad_decree_term</code>, and an empty choice clears that field. The faction drop-down starts on your own faction, and any faction can be chosen.</p><p><b>Make active for ...</b> on a pool row does the same as the Active decree drop-down and Apply for that row's decree, for the faction in the Reigning faction drop-down; a decree belongs to a faction (the reigning faction), not to a house.</p><p id="lsdecnote"><b>In this term</b> is read from the current term: <b>Active</b> is the term's active decree, <b>Elected</b> its elected decree, <b>In rotation</b> a decree in the save's decree rotation. <b>Pool flag</b> is the save's own <code>disabled</code> column, shown as stored; it does not say whether a decree is in effect. A <b>Set flag</b> button changes the flag of its own row only; it does not make the decree active, the Active decree above does. The special vendor decree is five separate rows (SpecialVendorActive and its _Vehicles, _Weapons, _Armor and _Utilities variants).</p>`)}
+  </div></details></section>`;
+}
+async function lbTermWrite(body, say) {
+  return act(async () => { await api('/api/landsraad/term', body); LT.say = say; }, 'Term updated');
+}
 function lbInner(l) {
   const hs = l.tasks.map((r) => lbHouse(r, l)).sort((a, b) => a.name.localeCompare(b.name));
   const c = lbCounts(hs), N = hs.length, term = l.term || {};
@@ -1838,7 +1890,7 @@ function lbInner(l) {
   <ul class="rows" role="rowgroup" id="lsb-rows">${hs.map((h) => lbRow(h, l, hue(h)))}</ul></div>
   ${lbAbout('lsb.board', 'the board', html`<p>Every row starts collapsed. Click a row (or press Space on it) to open it; Expand all opens every row, Collapse all closes them again. A <b>tier</b> is reached when your contribution is at least its amount; contribution is cumulative. <b>Delivered</b> means the save holds the reward as collected (amount 0 in the delivery rows), <b>Waiting to collect</b> that it waits at the house representative (an amount above 0). The top tier shows the house swatch while the character does not hold it, and the house's own item once it is held. With a mouse, hover a place for a quick look at where the house is; the open row shows the same on touch and keyboard.</p>`)}
   </section>`;
-  return html`${lbGlance(hs, l, c)}${board}${lbHistory(l)}
+  return html`${lbTerm(l)}${lbGlance(hs, l, c)}${board}${lbHistory(l)}
   <dialog class="mapdlg" id="lsb-map" aria-labelledby="lsb-mapttl"><div class="mwrap"><div class="mhead"><h3 id="lsb-mapttl">Map</h3><button type="button" class="qa" data-lb="mapx" aria-label="Close the map">Close</button></div><div class="pop popm" id="lsb-mapbody"></div></div></dialog>`;
 }
 const lbPage = (l) => html`<div class="lsb" id="lsb" data-sort="${LB.sort}" data-dir="${LB.dir}">${lbInner(l)}</div>`;
@@ -1981,6 +2033,15 @@ function lbClick(e) {
     return;
   }
   if (k === 'write') { lbWrite(); return; }
+  if (k === 'tapply' || k === 'tmk') {
+    e.preventDefault();
+    if (b.getAttribute('aria-disabled') === 'true') { LT.say = b.title; const r = $('#lsb-tresult'); if (r) r.textContent = b.title; return; }
+    const sel = lbTermSel(LD), ad = k === 'tmk' ? String(b.dataset.id) : sel.ad, rf = sel.rf, dn = (id) => { const d = (LD.decrees || []).find((x) => String(x.id) === id); return d ? decreeLabel(d.decree_name) : 'none'; };
+    LT.ad = ad; LT.rf = rf;
+    lbTermWrite({ active_decree_id: ad, reigning_faction_id: rf }, `Applied: active decree ${dn(ad)}, reigning faction ${rf === '' ? 'none' : lbFacName(LD, +rf)}`);
+    return;
+  }
+  if (k === 'tflag') { e.preventDefault(); const id = +b.dataset.id, n = b.dataset.d === '1'; act(async () => { await api('/api/landsraad/decree', { id, disabled: n }); LT.say = `Decree ${id}: pool flag set to ${n ? 1 : 0}`; }, 'Decree updated'); return; }
   if (k === 'map') { e.preventDefault(); const h = LD.tasks.map((r) => lbHouse(r, LD)).find((x) => String(x.id) === b.dataset.id); if (h) lbOpenMap(h); return; }
   if (k === 'mapx') { const d = $('#lsb-map'); if (d.close) d.close(); else d.removeAttribute('open'); if (lbMapFrom) lbMapFrom.focus(); return; }
   if (k === 'show') { e.preventDefault(); LB.show = b.dataset.show; LB.jump = ''; lbApply(); const j = $('#lsb-jump'); if (j) j.value = ''; const bd = $('#lsb-board'); if (bd && bd.scrollIntoView) bd.scrollIntoView(); return; }
@@ -1993,6 +2054,8 @@ function lbChange(e) {
   if (t.classList && t.classList.contains('xc')) { const id = +t.id.replace('lsx-', ''); if (t.checked) LB.open.add(id); else LB.open.delete(id); lbSyncOpen(); return; }
   if (k === 'pick') { const id = +t.dataset.id; if (t.checked) LP.pick.add(id); else LP.pick.delete(id); lbApply(); return; }
   if (k === 'fac') { LP.fac = +t.value; lbRedraw(); return; }
+  if (k === 'tad') { LT.ad = t.value; const d = (LD.decrees || []).find((x) => String(x.id) === t.value), l = t.closest('label'), s = l && l.querySelector('.did'); if (s) s.textContent = d ? d.decree_name : ''; return; }
+  if (k === 'trf') { LT.rf = t.value; lbRedraw(); return; }
   if (k === 'hs') { LB.hs = t.value; lbApply(); }
   else if (k === 'group') { LB.group = t.checked; lbApply(); }
   else if (k === 'jump') {
@@ -2014,6 +2077,7 @@ function lbWire() {
   lbStyles(root);
   root.addEventListener('click', lbClick);
   root.addEventListener('change', lbChange);
+  root.addEventListener('toggle', (e) => { if (e.target && e.target.id === 'lsb-tdp') LT.open = e.target.open; }, true); // the panel stays open over a write
   root.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     const d = $('#lsb-map'); if (d && d.open) return;
@@ -2037,17 +2101,7 @@ async function landsraadView() {
     if (!cur || cur.mine !== w.mine || cur.done !== w.done || cur.win !== w.win) { LP.pend.delete(id); LP.snap.delete(id); LP.say = 'A house changed in the save since you staged it, so its staged changes were dropped.'; }
   }
   for (const id of [...LP.pick]) if (!onBoard.has(id)) LP.pick.delete(id);
-  const t = l.term || {};
-  const fname = (id) => (l.factions.find((f) => f.id == id) || {}).name || id || '—';
-  const facOpts = (sel) => l.factions.map((f) => html`<option value="${f.id}" ${f.id == sel ? 'selected' : ''}>${f.name}</option>`);
-  const dec = l.decrees;
-  const prev = html`<div class="card d-panel"><h3>Current term ${t.term_id}</h3><div class="grid">${kv('Start', fmtEpoch(t.start_time))}${kv('End', fmtEpoch(t.end_time))}${kv('Reigning faction', fname(t.reigning_faction_id))}${kv('Active decree', (dec.find((d) => d.id == t.active_decree_id) || {}).decree_name || '—')}${kv('Elected decree', (dec.find((d) => d.id == t.elected_decree_id) || {}).decree_name || '—')}</div>
-  <div class="row">Active decree<select id="ad" aria-label="Active decree"><option value="">none</option>${dec.map((d) => html`<option value="${d.id}" ${d.id == t.active_decree_id ? 'selected' : ''}>${d.decree_name}</option>`)}</select>
-  Reigning<select id="rf" aria-label="Reigning faction"><option value="">none</option>${facOpts(t.reigning_faction_id)}</select><button class="b d-btn primary" data-act="term">Apply</button></div></div>
-  <div class="card d-panel"><h3 class="d-head">Decree pool</h3>${tbl([{ k: 'id', label: 'ID' }, { k: 'decree_name', label: 'Decree' }, { k: 'active', label: 'In this term', f: (r) => decreeTerm(r) }, { k: 'disabled', label: 'Pool flag (disabled)', f: (r) => html`<span class="mut">${r.disabled ? '1' : '0'}</span>` }], dec, { empty: 'This save has no decrees.', actions: (r) => html`<button class="b sec sm d-btn sm" data-act="decree" data-id="${r.id}" data-d="${r.disabled ? 0 : 1}" title="Sets the pool flag of this one row to ${r.disabled ? 0 : 1}. It does not make the decree active; the Active decree above does.">${r.disabled ? 'Set flag to 0' : 'Set flag to 1'}</button>` })}
-  ${about('landsraad.decrees', 'Decree pool', html`<p class="mut" id="lsdecnote"><b>In this term</b> is read from the current term: <b>Active</b> is the term's active decree, <b>Elected</b> its elected decree, <b>In rotation</b> a decree in the save's decree rotation. <b>Pool flag (disabled)</b> is the save's own <code>disabled</code> column and is shown as stored; it does not say whether a decree is in effect (in the saves read so far the decree in effect carries 1). The special vendor decree is five separate rows: SpecialVendorActive and its variants SpecialVendorActive_Vehicles, _Weapons, _Armor and _Utilities. A button changes the flag of its own row only.</p>`)}</div>
-`;
-  setHTML($('#main'), html`${lbPage(l)}<details class="lsb-prev"><summary>Previous controls (term and decrees)</summary>${prev}</details>`);
+  setHTML($('#main'), lbPage(l));
   lbWire();
 }
 
@@ -2589,8 +2643,6 @@ const A = {
   },
   bring: (d) => act(async () => { const r = await api('/api/vehicles/bring', { id: +d.id }); toast(`Vehicle moved ${whereWords(r)}` + NOT_SAVED); }, null),
   vreset: async (d) => (await ask({ title: d.v ? 'Reset purchase limits for this vendor?' : 'Reset purchase limits for every vendor?', body: d.v ? 'Resets the purchase counters of vendor ' + d.v + '.' : 'Resets the purchase counters of every vendor in the save, not one.', ok: 'Reset' })) && act(() => api('/api/vendors/reset', { vendor_id: d.v }), 'Purchase limits reset'),
-  term: () => act(async () => { await api('/api/landsraad/term', { active_decree_id: val('ad'), reigning_faction_id: val('rf') }); }, 'Term updated'),
-  decree: (d) => act(() => api('/api/landsraad/decree', { id: +d.id, disabled: d.d == '1' }), 'Decree updated'),
   cfgcreate: (d) => act(() => api('/api/config/create', { name: d.n }), 'Created ' + d.n + ' now', true, true),
   cfgadd: () => act(() => api('/api/config/set', { name: cfgFile, section: val('cs').replace(/^\[|\]$/g, ''), key: val('ck').trim(), value: val('cv') }), 'Added to the config file now', true, true),
   cfgReset: (d) => act(async () => { await api('/api/config/reset', { name: cfgFile, line: +d.line, key: d.key }); toast(`${d.key}: ${brief(d.was)} → ${brief(d.to)} (the game's default). To undo, set it back to ${brief(d.was)}. The file was written now, after a backup.`); }, null, true, true),
