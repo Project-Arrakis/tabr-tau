@@ -762,7 +762,7 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb #lsb-result.bad,.lsb #lsb-tresult.bad{color:var(--c-bad)}
 .lsb.running{cursor:progress}
 .lsb.running .qa,.lsb.running .mt,.lsb.running .tc,.lsb.running select{cursor:progress}
-.lsb .qa.busy,.lsb .mt.busy,.lsb .tc.busy{opacity:.8;cursor:progress}
+.lsb .qa.busy,.lsb .mt.busy,.lsb .tc.busy{opacity:.9;cursor:progress}
 .lsb .qa.busy::after{content:"…"}
 .lsb .confirm{display:flex;flex-wrap:wrap;gap:var(--s-2) var(--s-3);align-items:center;margin:0 0 var(--s-2);padding:var(--s-2) var(--s-3);border:1px solid var(--c-spice);border-radius:var(--r-2);background:var(--c-sunken)}
 .lsb .confirm b{font:600 var(--t-md) var(--t-display);color:var(--c-text)}
@@ -773,3 +773,4 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb details.dphid>summary::before{content:"\25B8";color:var(--c-spice);font-size:var(--t-sm)}
 .lsb details.dphid[open]>summary::before{content:"\25BE"}
 .lsb details.dphid>summary:hover{color:var(--c-text)}
+@media (max-width:900px){.lsb details.dphid>summary{min-height:44px}} /* after its base rule above */

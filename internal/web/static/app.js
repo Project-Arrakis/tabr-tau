@@ -1949,7 +1949,8 @@ async function lbRun(b, call, say, focusFk) {
       try { const t = await call(); ok = true; say(t); toast(t + NOT_SAVED); } catch (e) { conflict = e.code === 'conflict'; say(e.message, true); throw e; }
     }, null);
   } finally { LP.busy = false; }
-  if (!ok) {
+  if (ok) { const r = $('#lsb'); if (r && r.classList.contains('running')) lbRunning(false, b); } // the board was not drawn again (the re-read failed): it is usable again
+  else {
     lbRunning(false, b);
     if (conflict) { try { await render(true); } catch (e) { /* the message above stays */ } } else lbRedraw(); // a house that changed meanwhile is shown as it is now
   }
@@ -2086,7 +2087,7 @@ function lbClick(e) {
   if (k === 'pickno') { lbCancelConfirm(); LP.pick.clear(); document.querySelectorAll('#lsb .pick').forEach((pk) => { pk.checked = false; }); lbApply(); return; }
   if (k === 'bulk') { e.preventDefault(); if (LP.busy) { lbSay(LB_WAIT); return; } lbBulk(b, b.dataset.do); return; }
   if (k === 'cyes') { e.preventDefault(); if (LP.busy) { lbSay(LB_WAIT); return; } lbConfirmYes(); return; }
-  if (k === 'cno') { e.preventDefault(); const a = LP.confirm && LP.confirm.act; lbCancelConfirm(); lbSay('Cancelled. Nothing was written.'); if (a) lbFocusFk('b-' + a); return; }
+  if (k === 'cno') { e.preventDefault(); if (LP.busy) { lbSay(LB_WAIT); return; } const a = LP.confirm && LP.confirm.act; lbCancelConfirm(); lbSay('Cancelled. Nothing was written.'); if (a) lbFocusFk('b-' + a); return; }
   if (k === 'tapply' || k === 'tmk') {
     e.preventDefault();
     if (b.getAttribute('aria-disabled') === 'true') { LT.say = b.title; const r = $('#lsb-tresult'); if (r) r.textContent = b.title; return; }

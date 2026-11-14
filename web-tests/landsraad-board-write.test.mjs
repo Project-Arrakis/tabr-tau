@@ -319,3 +319,18 @@ test('after a write the row is drawn from the saved data, and the focus stays on
   assert.ok(text(by(ui, 'Thorvald').querySelector('.c-hs')).includes('Taken · Atreides (yours)'));
   assert.equal(ui.doc.activeElement.dataset.fk, 'qc:901', 'the focus is on the same place, now the Reopen button');
 });
+
+test('Cancel is ignored while the write of the bulk question runs: it does not say "Cancelled" about a write that goes on', async () => {
+  const ui = await open(board(), { '/api/landsraad/apply': { ...OK, changed: 3, houses: 3, contribution_raised: 0, completed: 3, reward_rows: 0 } });
+  const h = hold(ui);
+  click(ui, '[data-lb=pickall]');
+  click(ui, '[data-lb=bulk][data-do=complete]'); await ui.settle();
+  click(ui, '[data-lb=cyes]'); await ui.settle();
+  assert.equal(h.started, 1);
+  click(ui, '[data-lb=cno]');
+  assert.ok(!result(ui).startsWith('Cancelled'), result(ui));
+  assert.equal(result(ui), 'A write is still running. Wait for it to finish, then click again.');
+  h.release(); await ui.settle();
+  assert.equal(writes(ui).length, 1);
+  assert.ok(result(ui).startsWith('Complete chosen: 3 houses completed'), result(ui));
+});
