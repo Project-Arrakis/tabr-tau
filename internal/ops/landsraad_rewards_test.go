@@ -241,3 +241,22 @@ func TestRewardsNothingIsLoweredAndAnotherPlayersRowsAreKept(t *testing.T) {
 		t.Fatalf("a contribution above the top tier is not lowered: %v", c)
 	}
 }
+
+// The board shows the swatch as this term's top reward while the swatch was won in this term (landsraad_board.go), so giving the top tier again after a removal must not write the
+// task's own item instead: the swatch was already delivered in this term, and nothing is written.
+func TestRewardsASwatchWonThisTermIsNotReplacedByTheTaskItemAfterARemoval(t *testing.T) {
+	o := rewardOps(t, "")
+	fillKenola(t, o, nil)
+	before := houseRewards(t, o, "DA_HouseKenola")
+	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 6000.0, "mine_to": 4800.0, "lower": true})))
+	m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 4800.0, "mine_to": 6000.0})))
+	if m["reward_rows"].(int64) != 0 || m["rewards_already_given"].(int64) != 1 {
+		t.Fatalf("answer: %v", m)
+	}
+	if got := houseRewards(t, o, "DA_HouseKenola"); got != before {
+		t.Fatalf("the top tier was delivered again as another item:\n%s\n%s", before, got)
+	}
+	if got := oneTimeRows(t, o); got != "map[house_name:DA_HouseKenola player_id:1 template_id:Kenola_Placeables_Swatch term_id:7]\n" {
+		t.Fatalf("the one-time row changed: %s", got)
+	}
+}

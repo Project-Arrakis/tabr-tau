@@ -91,17 +91,20 @@ func deliverContribution(m *save.Mut, me myLandsraad, t save.Row, before, after,
 		tmpl, amt := fmt.Sprint(r["template_id"]), asInt(r["amount"])
 		sw := false
 		if haveSwatchTables && th == topTh {
-			held, err := m.One(`select 1 x from landsraad_player_one_time_house_rewards where player_id=? and house_name=?`, me.player, house)
+			held, err := m.One(`select term_id from landsraad_player_one_time_house_rewards where player_id=? and house_name=?`, me.player, house)
 			if err != nil {
 				return res, err
 			}
-			if held == nil {
+			// the swatch is the top reward while it is not held, and also in the term in which it was won (the board shows it that way); a tier given again in that term is then the
+			// swatch again, which the once-per-term rule below finds already delivered
+			heldTerm, _ := held["term_id"].(int64)
+			if held == nil || heldTerm == termID {
 				s, err := m.One(`select template_id, amount from landsraad_one_time_house_rewards where house_name=? and threshold=?`, house, int64(th))
 				if err != nil {
 					return res, err
 				}
 				if s != nil {
-					tmpl, amt, sw = fmt.Sprint(s["template_id"]), asInt(s["amount"]), true
+					tmpl, amt, sw = fmt.Sprint(s["template_id"]), asInt(s["amount"]), held == nil
 				}
 			}
 		}
