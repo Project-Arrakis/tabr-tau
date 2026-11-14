@@ -10,7 +10,7 @@ import (
 
 // ---------------------------------------------------------------- the board's write (part 2 of the tab rework, refs #599, #440)
 //
-// The board stages its changes on the page and writes them in one request. Each house in the request carries what the page showed (was_*) and what it wants:
+// The board writes each click at once (#641), as one request with one house or several (a bulk button). Each house in the request carries what the page showed (was_*) and what it wants:
 //
 //	mine_to       the character's own contribution to the house, under the character's own faction. It must be 0 or one of the house's reward thresholds.
 //	              A value above the recorded one raises it (the code of Fill chosen). A value below it is a tier removal: it is refused unless the request says lower: true,
@@ -110,7 +110,7 @@ func parseApplyItems(a Args) ([]applyItem, error) {
 	return out, nil
 }
 
-// LandsraadApply writes the staged changes of the board (args term_id: the term the page showed; houses: the list described above). It is one edit and it is refused as a whole
+// LandsraadApply writes the board's change (args term_id: the term the page showed; houses: the list described above). It is one edit and it is refused as a whole
 // when the term, or any house, is no longer what the page showed.
 func (o *Ops) LandsraadApply(a Args) (any, error) {
 	termID, err := a.Int("term_id")

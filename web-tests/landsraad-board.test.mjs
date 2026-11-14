@@ -251,7 +251,7 @@ test('the stylesheet styles the status lines by the ids the board draws, and kee
   const fs = await import('node:fs');
   const css = fs.readFileSync(new URL('../internal/web/static/app.css', import.meta.url), 'utf8');
   const js = fs.readFileSync(new URL('../internal/web/static/app.js', import.meta.url), 'utf8');
-  for (const id of ['lsb-sum', 'lsb-result', 'lsb-pendbar', 'lsb-tresult']) {
+  for (const id of ['lsb-sum', 'lsb-result', 'lsb-tresult']) {
     assert.ok(js.includes('id="' + id + '"'), id + ' is drawn');
     assert.ok(css.includes('.lsb #' + id + '{'), id + ' is styled');
   }
