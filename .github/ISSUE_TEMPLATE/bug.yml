@@ -2,6 +2,10 @@ name: Bug
 description: Something does not work. Do not attach saves, snapshots, Game.ini or logs; they contain account IDs.
 labels: ["bug"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        This page is public. Write about this editor only: do not name other tools or projects that are not public, and do not paste a path under your own user profile (write `%USERPROFILE%\...` instead). A check reads this text and fails when it breaks that rule; edit the text and it runs again.
   - type: textarea
     id: what
     attributes:

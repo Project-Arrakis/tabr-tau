@@ -2,6 +2,10 @@ name: Audit / security finding
 description: A defect or risk found by an audit, review or test. Never attach saves, snapshots, logs or screenshots that contain account IDs.
 labels: ["audit"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        This page is public. Write about this editor only: do not name other tools or projects that are not public, and do not paste a path under your own user profile (write `%USERPROFILE%\...` instead). A check reads this text and fails when it breaks that rule; edit the text and it runs again.
   - type: dropdown
     id: severity
     attributes:

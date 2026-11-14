@@ -1,0 +1,54 @@
+name: Public text
+
+# The public-text rule over text that is not a tracked file: titles and bodies of issues and pull requests, comments and reviews (audit
+# 2026-11-14 F1, #653). The tracked files are covered by internal/hygiene in the CI workflow. The check reads the event payload from the
+# runner's file, never from an expression in a command, so text written by a stranger is data and never code. The job runs on the plain
+# pull_request event (not the variant that runs with a write token over a fork's text): this
+# job has a read-only token and no secret it could leak to a fork's code. It runs again when the text is edited. Add the check named
+# "public-text" to the required checks of the branch rule for main, so a pull request cannot merge while its title or body fails it.
+on:
+  issues:
+    types: [opened, edited, reopened]
+  issue_comment:
+    types: [created, edited]
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+  pull_request_review:
+    types: [submitted, edited]
+  pull_request_review_comment:
+    types: [created, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-text-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number }}-${{ github.event.comment.id || github.event.review.id || '0' }}
+  cancel-in-progress: true
+
+jobs:
+  public-text:
+    name: public-text
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Title, body, comment and review text carry nothing the public-text rule forbids (and a pull request carries no AI attribution line)
+        # GITHUB_EVENT_NAME and GITHUB_EVENT_PATH are set by the runner. The extra digest list is an optional repository secret (empty for a fork's pull request).
+        env:
+          PUBLIC_TEXT_EXTRA_DIGESTS: ${{ secrets.PUBLIC_TEXT_EXTRA_DIGESTS }}
+        run: go run ./cmd/publictextcheck
+      - name: The commit messages of the pull request carry nothing the rule forbids
+        if: github.event_name == 'pull_request'
+        env:
+          PUBLIC_TEXT_EXTRA_DIGESTS: ${{ secrets.PUBLIC_TEXT_EXTRA_DIGESTS }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git log --format='%H%x00%B%x01' "${BASE_SHA}..${HEAD_SHA}" > "${RUNNER_TEMP}/commits.log"
+          go run ./cmd/publictextcheck -commits "${RUNNER_TEMP}/commits.log"
