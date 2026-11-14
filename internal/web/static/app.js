@@ -1607,9 +1607,9 @@ let LD = null; // the Landsraad read the board shows
 // One list of the houses of the current term, alphabetical by default, every row collapsed to one line and opened to the tiers with their rewards, the factions' progress and the
 // place. The page reads the save through /api/landsraad and draws every row once; the filters, the sort, the grouping and the jump only show, hide and order the rows.
 const LB = { sort: 'house', dir: 'asc', show: 'all', hs: 'any', group: false, jump: '', open: new Set(), all: false };
-// What the board has staged and not written yet (part 2 of the tab rework): per house a small record {mine?, cf?, reopen?} (the contribution the person wants, the faction the house
-// is to be completed for, a reopen). The rows show the staged state; the Write button sends it in one request; Undo takes a house's record away.
-const LP = { fac: null, pend: new Map(), snap: new Map(), pick: new Set(), say: '' };
+// Every click on the board writes at once (#641): there is no staged state. LP holds only what the page remembers between redraws: the faction chosen for Fill and Complete, the
+// houses with a tick in their Choose box, the line that says what the last click did, whether a write is running (a second click waits) and an open bulk question ({ act, F, n, ids }).
+const LP = { fac: null, pick: new Set(), say: '', bad: false, busy: false, confirm: null };
 const LB_GLYPH = { new: '○', part: '◐', done: '✓' }, LB_WORD = { new: 'Not started', part: 'In progress', done: 'Top tier' };
 const LB_STW = { not_reached: 'Not reached', waiting: 'Waiting to collect', delivered: 'Delivered', no_row: 'Reached, no delivery recorded' };
 const LB_STL = { not_reached: 'not reached', waiting: 'reached, waiting to collect at the house representative', delivered: 'reached, delivered', no_row: 'reached, no delivery recorded' };
@@ -1622,34 +1622,24 @@ const LB_SYM = new Map(['alexin', 'argosaz', 'dyvetz', 'ecaz', 'hagal', 'hurata'
 LB_SYM.set('mikarrol', 'mikkarol'); // the game's own spelling of the house the save writes as Mikkarol
 const lbSym = (name) => LB_SYM.get(String(name).toLowerCase()) || '';
 const lbCrest = (name, hue) => { const f = lbSym(name); return html`<span class="crest" data-hue="${hue}" aria-hidden="true">${f ? html`<img src="/houses/${f}.webp" alt="" width="28" height="28" decoding="async">` : String(name).slice(0, 2)}</span>`; };
+const LB_WAIT = 'A write is still running. Wait for it to finish, then click again.';
+const LB_REOPEN_TIP = 'Reopen this house: clears the completion and the winner. Progress and your contribution stay as they are, so the faction’s progress stays at the goal and a house that was taken by another faction is not given back to it.';
 const crTipC = (fn) => `Complete for ${fn}: taken by ${fn}, progress to the goal`;
-const lbMark = (kind, tip) => html`<span class="src src-${kind}" title="${tip}">${kind === 'write' ? 'writes' : kind}</span>`;
+const lbMark = (kind, tip) => html`<span class="src src-${kind}" title="${tip}">${kind}</span>`;
 function lbAbout(id, title, content) { return html`<details class="about" data-about="${id}" ${browserStore.get(aboutKey(id)) === '1' ? 'open' : ''}><summary>About ${title}</summary><div class="abt">${content}</div></details>`; }
 // One house as the board needs it, from the task the server returned.
 const lbTaken = (c) => !!c.done || c.win != null;
 const lbCan = (l) => !!(l && l.character && l.character.faction_id != null); // the contribution is the character's, under its own faction
-function lbCur(was, p, goal) {
-  const c = { mine: was.mine, done: was.done, win: was.win, prog: { ...was.prog } };
-  if (!p) return c;
-  if (p.mine !== undefined) c.mine = p.mine;
-  if (p.reopen) { c.done = false; c.win = null; }
-  if (p.cf != null) { c.done = true; c.win = p.cf; c.prog[p.cf] = Math.max(c.prog[p.cf] || 0, goal); }
-  return c;
-}
 function lbHouse(r, l) {
   const goal = Number(r.goal_amount) || 0, prog = {};
   for (const c of r.contributions || []) prog[c.faction_id] = Number(c.amount) || 0;
-  const was = { mine: Number(r.my_contribution || 0), done: !!r.completed, win: r.winning_faction_id == null ? null : r.winning_faction_id, prog };
-  const p = LP.pend.get(r.id) || null, cur = lbCur(was, p, goal);
-  const tiers = (r.rewards || []).map((x) => {
-    const th = Number(x.threshold), w = !!x.reached, now = cur.mine >= th;
-    return { th, amount: Number(x.shown_amount != null ? x.shown_amount : x.amount), tmpl: x.shown_template_id || x.template_id, swatch: !!x.swatch,
-      reached: now, was: w, add: now && !w, rem: !now && w, state: x.reward_state || (w ? 'no_row' : 'not_reached') };
-  });
-  const mine = cur.mine, reached = tiers.filter((t) => t.reached).length;
+  const mine = Number(r.my_contribution || 0), done = !!r.completed, win = r.winning_faction_id == null ? null : r.winning_faction_id;
+  const tiers = (r.rewards || []).map((x) => ({ th: Number(x.threshold), amount: Number(x.shown_amount != null ? x.shown_amount : x.amount), tmpl: x.shown_template_id || x.template_id, swatch: !!x.swatch,
+    reached: mine >= Number(x.threshold), state: x.reward_state || (x.reached ? 'no_row' : 'not_reached') }));
+  const reached = tiers.filter((t) => t.reached).length;
   const loc = r.location || { known: false };
   const state = mine <= 0 ? 'new' : tiers.length && reached === tiers.length ? 'done' : 'part';
-  return { id: r.id, name: lbNameOf(r), task: r, mine, tiers, reached, state, goal, prog: cur.prog, win: cur.win, done: cur.done, taken: lbTaken(cur), was, pending: !!p,
+  return { id: r.id, name: lbNameOf(r), task: r, mine, tiers, reached, state, goal, prog, win, done, taken: lbTaken({ done, win }),
     loc, region: loc.known ? loc.map : '', area: loc.known ? loc.area : '', held: !!r.swatch_held };
 }
 const lbRText = (t) => lbF(t.amount) + ' ' + itemName(t.tmpl);
@@ -1677,47 +1667,35 @@ const lbFillOff = (h, l) => !lbCan(l) || lbTop(h) <= 0 || h.mine >= lbTop(h);
 // your contribution counts for your own faction: with another faction chosen, Fill changes nothing of yours and writes no reward rows (Complete and Fill faction goal act for that faction)
 const lbOwnF = (l, F) => lbCan(l) && F == l.character.faction_id;
 const lbFillOffF = (h, l, F) => lbFillOff(h, l) || !lbOwnF(l, F);
-// what the tiers a change would reach add as reward rows (each tier's shown item, so the swatch rule of the 6,000 tier applies)
-const lbPendAdd = (h) => (h.mine > h.was.mine ? h.tiers.filter((x) => x.add).map(lbRText) : []);
-function lbPendText(h, l) {
-  const p = [], w = h.was;
-  if (h.mine !== w.mine) {
-    const a = h.tiers.filter((t) => t.was).length, b = h.reached;
-    const t = b > a ? ` (${b - a > 1 ? 'tiers ' + (a + 1) + ' to ' + b : 'tier ' + b} will be reached)` : b < a ? ` (${a - b > 1 ? 'tiers ' + (b + 1) + ' to ' + a : 'tier ' + a} will be removed)` : '';
-    p.push(`your contribution ${lbF(w.mine)} → ${lbF(h.mine)}${t}`);
-  }
-  for (const f of l.factions || []) if ((h.prog[f.id] || 0) !== (w.prog[f.id] || 0)) p.push(`${f.name} progress ${lbF(w.prog[f.id] || 0)} → ${lbF(h.prog[f.id] || 0)}`);
-  if (h.win !== w.win || h.done !== w.done) p.push(h.taken ? 'house taken by ' + (h.win != null ? lbFacName(l, h.win) : 'a faction') : 'house reopened');
-  return p.join('; ');
-}
-// Stage one action on one house (kind: fill, complete, reopen, fillgoal, tier with i). Returns false when it changes nothing. Nothing is ever lowered except by the removal of the highest tier.
-function lbStage(h, l, kind, F, i) {
-  const was = h.was, prev = JSON.stringify(LP.pend.get(h.id) || null), p = { ...(LP.pend.get(h.id) || {}) };
+// What one click asks the save for (the item of /api/landsraad/apply), worked out from the house as the page shows it: kind is fill, complete, reopen, fillgoal or tier (with i, the
+// tier number). Returns null when the click would change nothing. Nothing is ever lowered except by the removal of the highest tier (lower: true).
+function lbItem(h, l, kind, F, i) {
+  const it = { task_id: h.id, was_mine: h.mine, was_done: h.done, was_win: h.win };
   if (kind === 'tier') {
-    const n = h.reached, ths = h.tiers.map((t) => t.th);
-    if (!lbCan(l)) return false;
-    if (i > n) p.mine = ths[i - 1]; else if (i === n) p.mine = i > 1 ? ths[i - 2] : 0; else return false;
+    if (!lbCan(l)) return null;
+    const ths = h.tiers.map((t) => t.th), n = h.reached;
+    if (i > n) it.mine_to = ths[i - 1]; else if (i === n) { it.mine_to = i > 1 ? ths[i - 2] : 0; it.lower = true; } else return null;
   }
-  if ((kind === 'fill' || kind === 'fillgoal') && !lbFillOff(h, l) && lbOwnF(l, F)) p.mine = Math.max(lbTop(h), was.mine); // never below what the save holds
-  if ((kind === 'complete' || kind === 'fillgoal') && !lbDoneFor(h, F)) { p.cf = F; delete p.reopen; }
-  if (kind === 'reopen' && lbTaken(h)) { delete p.cf; if (lbTaken(was)) p.reopen = true; }
-  if (p.mine !== undefined && p.mine === was.mine) delete p.mine;
-  if (p.cf != null && was.done && was.win == p.cf && (was.prog[p.cf] || 0) >= h.goal) delete p.cf;
-  if (Object.keys(p).length) { LP.pend.set(h.id, p); if (!LP.snap.has(h.id)) LP.snap.set(h.id, { mine: was.mine, done: was.done, win: was.win }); } else { LP.pend.delete(h.id); LP.snap.delete(h.id); }
-  return JSON.stringify(Object.keys(p).length ? p : null) !== prev;
+  if ((kind === 'fill' || kind === 'fillgoal') && !lbFillOffF(h, l, F)) it.mine_to = lbTop(h); // Fill is off at the top tier, so this never lowers
+  if ((kind === 'complete' || kind === 'fillgoal') && !lbDoneFor(h, F)) it.complete_for = F;
+  if (kind === 'reopen' && h.taken) it.reopen = true;
+  return it.mine_to !== undefined || it.complete_for !== undefined || it.reopen ? it : null;
 }
-// The request the Write button sends: per house what the page showed and what it wants.
-function lbItems() {
-  const out = [];
-  for (const r of (LD || {}).tasks || []) {
-    const p = LP.pend.get(r.id);
-    if (!p) continue;
-    const w = LP.snap.get(r.id) || lbHouse(r, LD).was, it = { task_id: r.id, was_mine: w.mine, was_done: w.done, was_win: w.win };
-    if (p.mine !== undefined && p.mine !== w.mine) { it.mine_to = p.mine; if (p.mine < w.mine) it.lower = true; }
-    if (p.cf != null) it.complete_for = p.cf; else if (p.reopen) it.reopen = true;
-    if (it.mine_to !== undefined || it.complete_for !== undefined || it.reopen) out.push(it);
+// the sentence for what a click changed, from the house as it was shown and the request that was sent
+function lbChangeText(h, l, it) {
+  const p = [];
+  if (it.mine_to !== undefined) {
+    const a = h.reached, b = h.tiers.filter((t) => t.th <= it.mine_to).length;
+    const t = b > a ? ' (' + (b - a > 1 ? 'tiers ' + (a + 1) + ' to ' + b : 'tier ' + b) + ' reached)' : b < a ? ' (' + (a - b > 1 ? 'tiers ' + (b + 1) + ' to ' + a : 'tier ' + a) + ' removed)' : '';
+    p.push('your contribution ' + lbF(h.mine) + ' → ' + lbF(it.mine_to) + t);
   }
-  return out;
+  if (it.complete_for != null) {
+    const have = h.prog[it.complete_for] || 0;
+    if (have < h.goal) p.push(lbFacName(l, it.complete_for) + ' progress ' + lbF(have) + ' → ' + lbF(h.goal));
+    p.push('house taken by ' + lbFacName(l, it.complete_for));
+  }
+  if (it.reopen) p.push('house reopened (progress stays as it is)');
+  return p.join('; ');
 }
 const lbFacName = (l, id) => ((l.factions || []).find((f) => f.id == id) || {}).name || (id == null ? '' : 'Faction ' + id);
 function lbHsText(h, l) {
@@ -1727,7 +1705,7 @@ function lbHsText(h, l) {
   return 'Open' + (ld != null ? ' · ' + lbFacName(l, ld) + ' ahead' : '');
 }
 function lbAreaFull(h) { return !h.loc.known ? 'not mapped yet' : h.loc.area === h.loc.map ? h.loc.area : h.loc.area + ' (' + h.loc.map + ')'; }
-const lbTierWord = (t) => (t.add ? 'will be reached' : t.rem ? 'will be removed' : LB_STL[t.state]);
+const lbTierWord = (t) => LB_STL[t.state];
 function lbTierTip(h, t, i, can) {
   const n = h.reached;
   if (!can) return 'Your character is in no faction, so there is no contribution of yours to change.';
@@ -1735,7 +1713,7 @@ function lbTierTip(h, t, i, can) {
     : i === n ? `Remove tier ${i}: your contribution drops to ${i > 1 ? lbF(h.tiers[i - 2].th) : 'none'}`
       : `Tier ${i} is reached. To remove tiers, click the highest reached tier (tier ${n}).`;
 }
-const lbMeter = (h, can) => html`<span class="meter mb${h.tiers.length && h.reached === h.tiers.length ? ' full' : ''}" role="group" aria-label="${h.reached} of ${h.tiers.length} tiers reached">${h.tiers.map((t, i) => html`<button type="button" class="mt" data-lb="tier" data-id="${h.id}" data-t="${i + 1}" data-fk="mt:${h.id}:${i + 1}" aria-pressed="${t.reached ? 'true' : 'false'}" aria-disabled="${can ? 'false' : 'true'}" title="${lbF(t.th) + ': ' + lbRText(t) + '. Tier ' + (i + 1) + ', ' + lbTierWord(t) + '. ' + lbTierTip(h, t, i + 1, can)}" aria-label="${'Tier ' + (i + 1) + ', ' + lbF(t.th) + ', reward ' + lbRText(t) + ', House ' + h.name + ', ' + lbTierWord(t) + '. ' + lbTierTip(h, t, i + 1, can)}"><i class="${t.reached && t.was ? 'on' : ''}${t.add ? ' add' : ''}${t.rem ? ' rem' : ''}${i === h.tiers.length - 1 ? ' top' : ''}"></i></button>`)}</span>`;
+const lbMeter = (h, can) => html`<span class="meter mb${h.tiers.length && h.reached === h.tiers.length ? ' full' : ''}" role="group" aria-label="${h.reached} of ${h.tiers.length} tiers reached">${h.tiers.map((t, i) => html`<button type="button" class="mt" data-lb="tier" data-id="${h.id}" data-t="${i + 1}" data-fk="mt:${h.id}:${i + 1}" aria-pressed="${t.reached ? 'true' : 'false'}" aria-disabled="${can ? 'false' : 'true'}" title="${lbF(t.th) + ': ' + lbRText(t) + '. Tier ' + (i + 1) + ', ' + lbTierWord(t) + '. ' + lbTierTip(h, t, i + 1, can)}" aria-label="${'Tier ' + (i + 1) + ', ' + lbF(t.th) + ', reward ' + lbRText(t) + ', House ' + h.name + ', ' + lbTierWord(t) + '. ' + lbTierTip(h, t, i + 1, can)}"><i class="${t.reached ? 'on' : ''}${i === h.tiers.length - 1 ? ' top' : ''}"></i></button>`)}</span>`;
 const lbPin = (h) => (h.loc.known ? html`<span class="pin" data-px="${(Number(h.loc.x) * 100).toFixed(1)}" data-py="${(Number(h.loc.y) * 100).toFixed(1)}"></span>` : '');
 const lbMiniMap = (h) => (h.loc.known ? html`<span class="minimap"><svg viewBox="0 0 120 90" role="img" aria-label="Schematic of ${h.loc.map} (not to scale)" focusable="false"><path class="m-fill" d="M8 34 L28 12 L66 6 L102 20 L114 50 L98 80 L56 86 L22 78 L6 56 Z"/><text class="m-txt" x="117" y="88" text-anchor="end" font-size="3.4">schematic, not to scale</text></svg>${lbPin(h)}</span>` : '');
 // the quick peek on the place (mouse hover only, see the .pop rules): the same lines as the dialog, drawn once per row; the dialog is the way in for a touch screen and the keyboard
@@ -1758,17 +1736,16 @@ const LB_ICON = {
 };
 function lbRow(h, l, hue, noLocs) {
   const ids = (l.factions || []).map((f) => f.id), open = LB.open.has(h.id), can = lbCan(l), F = lbFacId(l), fn = lbFacName(l, F), ownF = can && F == l.character.faction_id;
-  const pt = h.pending ? lbPendText(h, l) : '', pa = h.pending ? lbPendAdd(h) : [];
   const off = (b) => (b ? 'true' : 'false');
   const fillOff = lbFillOffF(h, l, F), fillTip = fillOff ? (!can ? 'Your character is in no faction, so there is no contribution of yours to fill' : !ownF ? `Off while ${fn} is chosen: Fill raises your own contribution, which counts for ${lbFacName(l, l.character.faction_id)}. Complete or Fill faction goal act for ${fn}.` : 'Nothing to change: your contribution is already at the top tier') : 'Fill: raises your contribution to the top tier (never lowered)';
   const doneF = lbDoneFor(h, F), goalOff = (fillOff || !ownF) && doneF;
   const goalTip = goalOff ? 'Nothing to change for ' + fn : `Fill faction goal for ${fn}: progress to the goal, house taken by ${fn}` + (ownF ? ', your contribution to the top tier' : '; your own contribution row is skipped');
-  const crTip = h.taken ? 'Reopen this house (no change to progress or contribution)' : `Complete for ${fn}: taken by ${fn}, progress to the goal`;
+  const crTip = h.taken ? LB_REOPEN_TIP : `Complete for ${fn}: taken by ${fn}, progress to the goal`;
   const tierBoxes = h.tiers.map((t, i) => {
     const isTop = i === h.tiers.length - 1, st = t.state;
     const rid = 'Reward: ' + lbRText(t) + (t.swatch ? ' (the house swatch, as the character does not hold it yet)' : isTop && h.tiers.length ? '' : '') + '. Game id: ' + t.tmpl + '.';
     const tip = lbTierTip(h, t, i + 1, can), word = lbTierWord(t);
-    return html`<button type="button" class="tc${isTop ? ' top' : ''}${t.reached && t.was ? ' on' : ''}${t.add ? ' add' : ''}${t.rem ? ' rem' : ''}${t.was && st === 'waiting' ? ' wt' : ''}${t.was && st === 'delivered' ? ' dv' : ''}" data-lb="tier" data-id="${h.id}" data-t="${i + 1}" data-fk="tc:${h.id}:${i + 1}" aria-pressed="${t.reached ? 'true' : 'false'}" aria-disabled="${can ? 'false' : 'true'}" aria-label="Tier ${i + 1}, ${lbF(t.th)}, reward ${lbRText(t)}, ${word}. ${tip}" title="${rid} ${tip}"><span class="tv">${lbF(t.th)}</span><span class="rw">${lbRText(t)}</span><span class="pl">${t.add ? 'will be reached' : t.rem ? 'will be removed' : LB_STW[st]}</span></button>`;
+    return html`<button type="button" class="tc${isTop ? ' top' : ''}${t.reached ? ' on' : ''}${t.reached && st === 'waiting' ? ' wt' : ''}${t.reached && st === 'delivered' ? ' dv' : ''}" data-lb="tier" data-id="${h.id}" data-t="${i + 1}" data-fk="tc:${h.id}:${i + 1}" aria-pressed="${t.reached ? 'true' : 'false'}" aria-disabled="${can ? 'false' : 'true'}" aria-label="Tier ${i + 1}, ${lbF(t.th)}, reward ${lbRText(t)}, ${word}. ${tip}" title="${rid} ${tip}"><span class="tv">${lbF(t.th)}</span><span class="rw">${lbRText(t)}</span><span class="pl">${LB_STW[st]}</span></button>`;
   });
   const topT = h.tiers[h.tiers.length - 1], swl = !topT ? '' : topT.swatch ? (h.held ? 'Swatch won this term: the top tier is the house swatch' : 'Swatch not held yet: the top tier is the house swatch') : 'Swatch held: the top tier is the house’s own item';
   const hs = lbHsText(h, l), ld = lbLead(h, ids);
@@ -1777,22 +1754,22 @@ function lbRow(h, l, hue, noLocs) {
     return html`<div class="fb ${k === 0 ? 'a' : k === 1 ? 'h' : 's'}${ld == f.id ? ' lead' : ''}"><span class="fl">${f.name}</span><span class="trk"><i data-w="${h.goal ? Math.min(100, Math.round(p / h.goal * 100)) : 0}"></i></span><span class="fv">${lbF(p)}</span></div>`;
   });
   const locText = h.loc.known ? html`<span class="ln">${h.loc.area}</span>${h.loc.area === h.loc.map ? '' : html`<span class="lm">${h.loc.map}</span>`}` : html`<span class="ln mut">not mapped yet</span>`;
-  return html`<li class="hr" id="lsrow-${h.id}" data-id="${h.id}" data-my="${h.state}" data-hs="${h.taken ? 'taken' : 'open'}" ${h.pending ? 'data-pend' : ''}><div class="cw">
+  return html`<li class="hr" id="lsrow-${h.id}" data-id="${h.id}" data-my="${h.state}" data-hs="${h.taken ? 'taken' : 'open'}"><div class="cw">
     <input type="checkbox" class="pick" data-lb="pick" data-id="${h.id}" data-fk="pk:${h.id}" aria-label="Choose House ${h.name}" ${LP.pick.has(h.id) ? 'checked' : ''}>
     <input type="checkbox" class="xc vh" id="lsx-${h.id}" aria-label="Show details of House ${h.name}" ${open ? 'checked' : ''}>
     <label for="lsx-${h.id}" class="sum">
       <span class="c-house"><span class="hw"><button type="button" class="hn" aria-expanded="false" title="Details: next reward, waiting to collect, faction race, place (experimental)">${lbCrest(h.name, hue)}<b>${h.name}</b></button><span class="hcard" role="group" aria-label="House ${h.name}, details (experimental)"><button type="button" class="hcl" aria-label="Close the card">×</button><h4>House ${h.name}</h4><dl><dt>Next reward</dt><dd>${lbNextReward(h)}</dd><dt>Waiting to collect</dt><dd>${lbWaiting(h)}</dd><dt>Faction race</dt><dd>${(l.factions || []).map((f) => html`${f.name} ${lbF(h.prog[f.id] || 0)} of ${lbF(h.goal)}<br>`)}${h.taken ? 'Finished by ' + (h.win != null ? lbFacName(l, h.win) : 'a faction') : 'Not finished by either faction'}</dd>${noLocs ? '' : html`<dt>Place</dt><dd>${h.loc.known ? lbAreaFull(h) + (h.loc.place ? ' · ' + h.loc.place : '') : 'not mapped yet'}</dd>`}</dl><span class="fine">Experimental card.${noLocs ? '' : ' Click the place for the map.'}</span></span></span></span>
       <span class="c-loc">${noLocs ? html`<span class="mut" aria-hidden="true">—</span>` : html`<span class="loc"><button type="button" class="loc-t" data-lb="map" data-id="${h.id}" aria-haspopup="dialog" title="${h.loc.known ? 'Click for the full map of ' + lbAreaFull(h) + '. Hover for a quick peek.' : 'The place of this house is not in the editor yet.'}"><svg viewBox="0 0 12 14" aria-hidden="true" focusable="false"><path d="M6 0C2.7 0 0 2.6 0 5.8 0 10 6 14 6 14s6-4 6-8.2C12 2.6 9.3 0 6 0Zm0 8a2.2 2.2 0 1 1 0-4.4A2.2 2.2 0 0 1 6 8Z" fill="currentColor"/></svg><span>${locText}</span></button>${lbPeek(h)}</span>`}</span>
-      <span class="c-my"><span class="line"><span class="st st-${h.state}"><span aria-hidden="true">${LB_GLYPH[h.state]}</span> ${LB_WORD[h.state]}</span>${h.pending ? html`<span class="pendtag">Pending <button type="button" class="undoq" data-lb="undo" data-id="${h.id}" data-fk="unq:${h.id}">Undo</button></span>` : ''}${lbMeter(h, can)}<span class="mut">${h.reached} of ${h.tiers.length} tiers</span></span><span class="amt"><b class="js-mine${h.mine > 0 ? '' : ' mut'}">${h.mine > 0 ? lbF(h.mine) : 'none recorded'}</b>${h.mine > 0 ? html` <span class="mut js-next">· ${lbNextParts(h).map((p, k) => html`${k ? ' ' : ''}<span class="nx">${p}</span>`)}</span>` : ''}</span></span>
+      <span class="c-my"><span class="line"><span class="st st-${h.state}"><span aria-hidden="true">${LB_GLYPH[h.state]}</span> ${LB_WORD[h.state]}</span>${lbMeter(h, can)}<span class="mut">${h.reached} of ${h.tiers.length} tiers</span></span><span class="amt"><b class="js-mine${h.mine > 0 ? '' : ' mut'}">${h.mine > 0 ? lbF(h.mine) : 'none recorded'}</b>${h.mine > 0 ? html` <span class="mut js-next">· ${lbNextParts(h).map((p, k) => html`${k ? ' ' : ''}<span class="nx">${p}</span>`)}</span>` : ''}</span></span>
       <span class="c-hs"><span class="tag">${hs}</span></span>
       <span class="c-qa"><button type="button" class="qa qa-fill" data-lb="qa" data-do="fill" data-id="${h.id}" data-fk="qf:${h.id}" aria-disabled="${off(fillOff)}" title="${fillTip}">${LB_ICON.fill}<span class="ql">Fill</span></button><button type="button" class="qa qa-cr" data-lb="qa" data-do="${h.taken ? 'reopen' : 'complete'}" data-id="${h.id}" data-fk="qc:${h.id}" aria-disabled="${off(false)}" title="${crTip}">${h.taken ? LB_ICON.reopen : LB_ICON.complete}<span class="ql">${h.taken ? 'Reopen' : 'Complete'}</span></button></span>
       <span class="chev" aria-hidden="true"></span>
     </label>
     <div class="more" ${open ? '' : 'hidden'}>
-      <div><h4>Tiers and rewards ${lbMark('derived', 'Worked out by the editor from fields the save holds: reached = contribution at least the threshold')} ${lbMark('save', 'Read from the save: landsraad_task_rewards (the reward item and amount of each tier)')}</h4><div class="tiers">${tierBoxes}</div><p class="cap"><i class="lg lg-dl" aria-hidden="true"></i> delivered · <i class="lg lg-wt" aria-hidden="true"></i> waiting to collect ${lbMark('save', 'Read from the save: landsraad_house_rewards. An amount above 0 is a reward waiting at the house representative; amount 0 is collected.')} · ✓ reached</p><p class="cap swl">${swl}</p>${pt ? html`<p class="pend">Pending: ${pt}.</p><button type="button" class="undo" data-lb="undo" data-id="${h.id}" data-fk="und:${h.id}">Undo</button>${pa.length ? html`<p class="cap padd-h">Would add, as reward rows waiting at the house representative:</p><ul class="padd">${pa.map((x) => html`<li>${x}</li>`)}</ul>` : ''}` : ''}</div>
+      <div><h4>Tiers and rewards ${lbMark('derived', 'Worked out by the editor from fields the save holds: reached = contribution at least the threshold')} ${lbMark('save', 'Read from the save: landsraad_task_rewards (the reward item and amount of each tier)')}</h4><div class="tiers">${tierBoxes}</div><p class="cap"><i class="lg lg-dl" aria-hidden="true"></i> delivered · <i class="lg lg-wt" aria-hidden="true"></i> waiting to collect ${lbMark('save', 'Read from the save: landsraad_house_rewards. An amount above 0 is a reward waiting at the house representative; amount 0 is collected.')} · ✓ reached</p><p class="cap swl">${swl}</p></div>
       <div><h4>House status and faction progress ${lbMark('save', 'Read from the save: completed, winning_faction_id, faction contributions')}</h4><span class="tag">${hs}</span><div class="fbs">${fbs}</div><p class="cap">of the house goal, ${lbF(h.goal)}</p></div>
       ${noLocs ? '' : html`<div><h4>Where</h4>${lbPlaceDetails(h)}</div>`}
-      <div class="acts"><button type="button" class="qa act-fill" data-lb="qa" data-do="fillgoal" data-id="${h.id}" data-fk="af:${h.id}" aria-disabled="${off(goalOff)}" title="${goalTip}">${LB_ICON.fill}<span class="ql">Fill faction goal</span></button><button type="button" class="qa act-complete" data-lb="qa" data-do="complete" data-id="${h.id}" data-fk="ac:${h.id}" aria-disabled="${off(doneF)}" title="${doneF ? 'Already complete for ' + fn + ': nothing to change' : crTipC(fn)}">${LB_ICON.complete}<span class="ql">Complete</span></button><button type="button" class="qa act-reopen" data-lb="qa" data-do="reopen" data-id="${h.id}" data-fk="ar:${h.id}" aria-disabled="${off(!h.taken)}" title="${h.taken ? 'Reopen this house (no change to progress or contribution)' : 'The house is open: nothing to change'}">${LB_ICON.reopen}<span class="ql">Reopen</span></button><span class="mut fine">for the faction chosen above the list ${lbMark('write', 'Writes to the save when you press Write: the rows named in About Fill and Complete')}</span></div>
+      <div class="acts"><button type="button" class="qa act-fill" data-lb="qa" data-do="fillgoal" data-id="${h.id}" data-fk="af:${h.id}" aria-disabled="${off(goalOff)}" title="${goalTip}">${LB_ICON.fill}<span class="ql">Fill faction goal</span></button><button type="button" class="qa act-complete" data-lb="qa" data-do="complete" data-id="${h.id}" data-fk="ac:${h.id}" aria-disabled="${off(doneF)}" title="${doneF ? 'Already complete for ' + fn + ': nothing to change' : crTipC(fn)}">${LB_ICON.complete}<span class="ql">Complete</span></button><button type="button" class="qa act-reopen" data-lb="qa" data-do="reopen" data-id="${h.id}" data-fk="ar:${h.id}" aria-disabled="${off(!h.taken)}" title="${h.taken ? LB_REOPEN_TIP : 'The house is open: nothing to change'}">${LB_ICON.reopen}<span class="ql">Reopen</span></button><span class="mut fine">for the faction chosen above the list</span></div>
     </div>
   </div></li>`;
 }
@@ -1841,7 +1818,10 @@ function decreeLabel(key) {
   const b = base.replace(/(.)Active$/, '$1').replace(/([a-z0-9])([A-Z])/g, '$1 $2').split(' ').map((w, i) => (i && small.has(w) ? w.toLowerCase() : w)).join(' ');
   return rest.length ? b + ': ' + rest.join(' ') : b;
 }
-const LT = { ad: undefined, rf: undefined, say: '', open: false }; // what the two drop-downs were set to (kept over a redraw), and the line that says what was written
+// The plain SpecialVendorActive decree has no category and an effect nobody has checked (#634). Its row stays in the data and in the Active decree drop-down and is never changed or deleted;
+// the pool list shows it only inside a closed disclosure, with the same buttons. The four category vendors stay in the list.
+const LB_HIDDEN_DECREE = 'SpecialVendorActive';
+const LT = { ad: undefined, rf: undefined, say: '', bad: false, open: false, hidOpen: false }; // what the two drop-downs were set to (kept over a redraw), and the line that says what was written
 // the two drop-downs: what was chosen, else the term's active decree and the character's own faction (the term's reigning faction when the character has none)
 function lbTermSel(l) {
   const t = l.term || {}, facs = (l.factions || []).map((f) => String(f.id)), decs = (l.decrees || []).map((d) => String(d.id));
@@ -1858,6 +1838,7 @@ function lbTerm(l) {
   const fname = sel.rf !== '' ? lbFacName(l, +sel.rf) : '';
   const idLine = (d) => (d ? html`<small class="did" title="The game's internal id, kept for support">${d.decree_name}</small>` : '');
   const nm = (d) => (d ? decreeLabel(d.decree_name) : '—');
+  const hidden = dec.filter((d) => d.decree_name === LB_HIDDEN_DECREE), shown = dec.filter((d) => d.decree_name !== LB_HIDDEN_DECREE); // the plain vendor decree is only in the closed list under the pool (#634)
   const row = (d) => {
     const tg = [d.active && 'Active', d.elected && 'Elected', d.in_rotation && 'In rotation'].filter(Boolean), n = d.disabled ? 0 : 1, lab = decreeLabel(d.decree_name);
     const on = d.id == t.active_decree_id && sel.rf !== '' && sel.rf === String(t.reigning_faction_id == null ? '' : t.reigning_faction_id);
@@ -1866,7 +1847,7 @@ function lbTerm(l) {
     const mk = on
       ? html`<span class="mk-on" title="This decree is already the active decree of the term for ${fname}"><span aria-hidden="true">✓</span> Active</span>`
       : html`<button type="button" class="qa mk" data-lb="tmk" data-id="${d.id}" data-fk="tm:${d.id}" aria-disabled="${sel.rf === '' ? 'true' : 'false'}" title="${mkTip}">${sel.rf !== '' ? 'Make active for ' + fname : 'Make active (choose a faction)'}</button>`;
-    return html`<li><span class="mut">${d.id}</span><span class="dc"><span class="dn" ${tip ? html`title="${tip}"` : ''}>${lab}</span>${idLine(d)}</span><span>${tg.length ? tg.map((x) => html`<span class="tag">${x}</span> `) : html`<span class="mut">not in this term</span>`}</span><span class="fl mut">${d.disabled ? 1 : 0}</span><button type="button" class="qa" data-lb="tflag" data-id="${d.id}" data-d="${n}" data-fk="tf:${d.id}" title="Sets the pool flag of this one row to ${n}. It does not make the decree active; Make active on the row or the Active decree above does.">Set flag to ${n}</button><span class="mkc">${mk}${lbMark('write', 'Writes to the save: the active decree and the reigning faction of the current term (landsraad_decree_term), the same as Apply')}</span></li>`;
+    return html`<li><span class="mut">${d.id}</span><span class="dc"><span class="dn" ${tip ? html`title="${tip}"` : ''}>${lab}</span>${idLine(d)}</span><span>${tg.length ? tg.map((x) => html`<span class="tag">${x}</span> `) : html`<span class="mut">not in this term</span>`}</span><span class="fl mut">${d.disabled ? 1 : 0}</span><button type="button" class="qa" data-lb="tflag" data-id="${d.id}" data-d="${n}" data-fk="tf:${d.id}" title="Sets the pool flag of this one row to ${n}. It does not make the decree active; Make active on the row or the Active decree above does.">Set flag to ${n}</button><span class="mkc">${mk}</span></li>`;
   };
   return html`<section class="card d-panel" aria-labelledby="lsb-term-h"><details class="tdp" id="lsb-tdp" ${LT.open ? 'open' : ''}><summary><h2 class="d-head" id="lsb-term-h">Term and decrees <span class="cnt">Term ${t.term_id} · ${rfName} · ${a ? nm(a) : 'no active decree'}</span></h2></summary>
   <div class="tbody">
@@ -1874,18 +1855,17 @@ function lbTerm(l) {
   <div class="tctl" role="group" aria-label="Set the term's active decree and reigning faction">
     <label class="fld"><span class="lbl">Active decree</span><select id="lsb-tad" data-lb="tad"><option value="">none</option>${dec.map((d) => html`<option value="${d.id}" ${String(d.id) === sel.ad ? 'selected' : ''}>${decreeLabel(d.decree_name)}</option>`)}</select>${idLine(by(sel.ad))}</label>
     <label class="fld"><span class="lbl">Reigning faction</span><select id="lsb-trf" data-lb="trf"><option value="">none</option>${(l.factions || []).map((f) => html`<option value="${f.id}" ${String(f.id) === sel.rf ? 'selected' : ''}>${f.name}${own != null && f.id == own ? ' (you)' : ''}</option>`)}</select><small class="mut">any faction can be chosen</small></label>
-    <span class="tapply"><button type="button" class="qa btnp" data-lb="tapply" data-fk="tapply">Apply</button>${lbMark('write', 'Writes to the save: the active decree and the reigning faction of the current term (landsraad_decree_term)')}</span>
+    <span class="tapply"><button type="button" class="qa btnp" data-lb="tapply" data-fk="tapply">Apply</button></span>
   </div>
-  <p id="lsb-tresult" role="status">${LT.say}</p>
+  <p id="lsb-tresult" role="status" ${LT.bad ? html`class="bad"` : ''}>${LT.say}</p>
   <h3 class="d-head">Decree pool</h3>
-  <ul class="dp" role="list"><li class="dh" aria-hidden="true"><span>ID</span><span>Decree ${lbMark('save', 'Read from the save: landsraad_decrees.decree_name')}</span><span>In this term ${lbMark('save', 'Read from the save: active, elected, rotation')}</span><span>Pool flag ${lbMark('save', 'Read from the save: the disabled column, as stored')}</span><span>Change ${lbMark('write', 'Writes to the save: the disabled column of that one decree row')}</span><span>Make active ${lbMark('write', 'Writes to the save: the active decree and the reigning faction of the current term, the same as Apply')}</span></li>${dec.map(row)}</ul>
+  <ul class="dp" role="list"><li class="dh" aria-hidden="true"><span>ID</span><span>Decree ${lbMark('save', 'Read from the save: landsraad_decrees.decree_name')}</span><span>In this term ${lbMark('save', 'Read from the save: active, elected, rotation')}</span><span>Pool flag ${lbMark('save', 'Read from the save: the disabled column, as stored')}</span><span>Change</span><span>Make active</span></li>${shown.map(row)}</ul>
+  ${hidden.length ? html`<details class="dphid" id="lsb-dphid" ${LT.hidOpen ? 'open' : ''}><summary>Hidden: Special Vendor, no category (effect unverified)</summary><ul class="dp" role="list">${hidden.map(row)}</ul></details>` : ''}
   ${dec.length ? '' : html`<p class="mut">This save has no decrees.</p>`}
-  ${lbAbout('lsb.term', 'term and decrees', html`<p><b>Apply</b> sets the term's active decree and its reigning faction together: one row, the current term in <code>landsraad_decree_term</code>, and an empty choice clears that field. The faction drop-down starts on your own faction, and any faction can be chosen.</p><p><b>Make active for ...</b> on a pool row does the same as the Active decree drop-down and Apply for that row's decree, for the faction in the Reigning faction drop-down; a decree belongs to a faction (the reigning faction), not to a house.</p><p id="lsdecnote"><b>In this term</b> is read from the current term: <b>Active</b> is the term's active decree, <b>Elected</b> its elected decree, <b>In rotation</b> a decree in the save's decree rotation. <b>Pool flag</b> is the save's own <code>disabled</code> column, shown as stored; it does not say whether a decree is in effect. A <b>Set flag</b> button changes the flag of its own row only; it does not make the decree active, the Active decree above does. The special vendor decree is five separate rows (SpecialVendorActive and its _Vehicles, _Weapons, _Armor and _Utilities variants).</p>`)}
+  ${lbAbout('lsb.term', 'term and decrees', html`<p><b>Apply</b> sets the term's active decree and its reigning faction together: one row, the current term in <code>landsraad_decree_term</code>, and an empty choice clears that field. The faction drop-down starts on your own faction, and any faction can be chosen.</p><p><b>Make active for ...</b> on a pool row does the same as the Active decree drop-down and Apply for that row's decree, for the faction in the Reigning faction drop-down; a decree belongs to a faction (the reigning faction), not to a house.</p><p id="lsdecnote"><b>In this term</b> is read from the current term: <b>Active</b> is the term's active decree, <b>Elected</b> its elected decree, <b>In rotation</b> a decree in the save's decree rotation. <b>Pool flag</b> is the save's own <code>disabled</code> column, shown as stored; it does not say whether a decree is in effect. A <b>Set flag</b> button changes the flag of its own row only; it does not make the decree active, the Active decree above does. The special vendor decree is five separate rows: the four category rows (_Vehicles, _Weapons, _Armor and _Utilities) are in the list; the plain SpecialVendorActive row has no category and an effect that is not verified, so it is kept in the closed list under the pool, with the same controls, in case the game uses it.</p>`)}
   </div></details></section>`;
 }
-async function lbTermWrite(body, say) {
-  return act(async () => { await api('/api/landsraad/term', body); LT.say = say; }, 'Term updated');
-}
+function lbTSay(t, bad) { LT.say = t; LT.bad = !!bad; const r = $('#lsb-tresult'); if (r) { r.textContent = t; r.classList.toggle('bad', !!bad); } }
 function lbInner(l) {
   const hs = l.tasks.map((r) => lbHouse(r, l)).sort((a, b) => a.name.localeCompare(b.name));
   const c = lbCounts(hs), N = hs.length, term = l.term || {};
@@ -1922,16 +1902,16 @@ function lbSumText(hs, l) {
   return `Chosen: ${nn(ch.length, 'house', 'houses')}. Fill chosen changes ${ch.filter((h) => !lbFillOffF(h, l, F)).length}, Complete chosen changes ${ch.filter((h) => !lbDoneFor(h, F)).length} for ${lbFacName(l, F)}, Reopen chosen changes ${ch.filter((h) => h.taken).length}.`;
 }
 function lbActbar(hs, l) {
-  const F = lbFacId(l), mineF = lbCan(l) ? l.character.faction_id : null, n = LP.pend.size;
+  const F = lbFacId(l), mineF = lbCan(l) ? l.character.faction_id : null, cf = LP.confirm;
   return html`<div class="actbar" role="group" aria-label="Actions on the board">
-    <div class="actrow" role="group" aria-label="Act on several houses at once"><button type="button" class="qa" data-lb="pickall" data-fk="b-all">Choose all houses</button><button type="button" class="qa" data-lb="pickno" data-fk="b-none">Clear the choice</button><button type="button" class="qa btnp" data-lb="bulk" data-do="fill" data-fk="b-fill" title="Raises your contribution on every chosen house to its highest reward tier (never lowered). Does nothing while another faction is chosen.">Fill chosen</button><button type="button" class="qa btnp" data-lb="bulk" data-do="complete" data-fk="b-complete" title="Marks every chosen house complete for the faction below and sets that faction's progress on it to the house goal (never lowered).">Complete chosen</button><button type="button" class="qa" data-lb="bulk" data-do="reopen" data-fk="b-reopen" title="Undoes the completion of the chosen houses; no progress and no contribution is changed.">Reopen chosen</button> ${lbMark('write', 'Stages the change on the page; it is written to the save when you press Write')}</div>
-    <div class="actrow"><label for="lsb-fac">Faction for Fill and Complete</label><select id="lsb-fac" data-lb="fac" data-fk="fac">${(l.factions || []).map((f) => html`<option value="${f.id}" ${f.id == F ? 'selected' : ''}>${f.name}${f.id == mineF ? ' (you)' : ''}</option>`)}</select><span class="note">starts on your own faction</span></div>
+    <div class="actrow" role="group" aria-label="Act on several houses at once"><button type="button" class="qa" data-lb="pickall" data-fk="b-all">Choose all houses</button><button type="button" class="qa" data-lb="pickno" data-fk="b-none">Clear the choice</button><button type="button" class="qa btnp" data-lb="bulk" data-do="fill" data-fk="b-fill" title="Raises your contribution on every chosen house to its highest reward tier (never lowered). Does nothing while another faction is chosen.">Fill chosen</button><button type="button" class="qa btnp" data-lb="bulk" data-do="complete" data-fk="b-complete" title="Marks every chosen house complete for the faction below and sets that faction's progress on it to the house goal (never lowered).">Complete chosen</button><button type="button" class="qa" data-lb="bulk" data-do="reopen" data-fk="b-reopen" title="Reopens the chosen houses: clears the completion and the winner. Progress and contributions stay as they are, so this does not set back what Complete wrote.">Reopen chosen</button></div>
+    ${cf ? html`<p id="lsb-confirm" class="confirm" role="group" aria-label="Confirm: ${cf.q}"><b>${cf.q}</b> <button type="button" class="qa btnp" data-lb="cyes" data-fk="c-yes">Yes</button><button type="button" class="qa" data-lb="cno" data-fk="c-no">Cancel</button></p>` : ''}
+    <div class="actrow"><label for="lsb-fac">Faction for Fill and Complete</label><select id="lsb-fac" data-lb="fac" data-fk="fac">${(l.factions || []).map((f) => html`<option value="${f.id}" ${f.id == F ? 'selected' : ''}>${f.name}${f.id == mineF ? ' (you)' : ''}</option>`)}</select><span class="note" title="The faction of the next Fill faction goal, Complete or bulk click. Choosing it writes nothing.">starts on your own faction</span></div>
     <p id="lsb-sum" aria-live="polite">${lbSumText(hs, l)}</p>
-    <p id="lsb-result" role="status">${LP.say}</p>
-    ${n ? html`<p id="lsb-pendbar"><span>${nn(n, 'house has', 'houses have')} pending changes.</span> <button type="button" class="qa btnp" data-lb="write" data-fk="b-write">Write ${nn(n, 'house', 'houses')}</button> <button type="button" class="undo" data-lb="undoall" data-fk="b-undo">Undo all</button></p>` : ''}
-    <p class="legend2"><b>Tiers.</b> Click a tier to give it; click the highest reached tier again to remove it.</p>
-    ${lbAbout('lsb.tiers', 'tiers', html`<p>Click a tier (the boxes in the opened row, or the five small boxes in the row itself) to give your character that tier: your contribution is raised to that tier's threshold, and contribution is cumulative, so <b>click tier 3 and tiers 1 to 3 are reached</b>. Click the highest reached tier again to remove it (the contribution drops to the tier below, or to none for tier 1). A change shows as pending (outlined, "will be reached" or "will be removed") with an Undo; the Write button sends everything that is pending; the Choose box on each row picks houses for the bulk buttons.</p><p><b>Rewards.</b> Each tier box shows what the tier gives, under its threshold, by the game's item name (the internal id is in the tooltip). A reached tier is <b>Delivered</b> (collected, amount 0 in the delivery rows) or <b>Waiting to collect</b> at the house representative (amount above 0); a tier not reached yet says so. The 6,000 tier shows the house swatch while the character does not hold it yet, and the house's own item once the swatch is held. Giving a tier also writes what the game writes for it: one progress event, and one reward row for each tier crossed, waiting at the house representative (the 6,000 tier follows the swatch rule). Removing a tier writes no reward rows, and a tier is given once per term.</p>`)}
-    ${lbAbout('lsb.fill', 'Fill and Complete', html`<p>Fill, Complete and Reopen act for the faction chosen above. It starts on your character's own faction. <b>Fill</b> and <b>Fill chosen</b> raise your own contribution to the top tier (never lowered). They change nothing while another faction is chosen: your contribution counts for your own faction, so no contribution and no reward row is written for another. <b>Complete</b> and <b>Complete chosen</b> take the house for the chosen faction: its progress goes to the goal, and the winner and the completion are set; for another faction this records that faction's win and progress and skips your own contribution row. <b>Fill faction goal</b> on one house does both in one click. <b>Reopen</b> clears the completion and the winner and leaves progress and contribution as they are. A staged change is not written yet; the Write button sends all of them as one edit, and it is refused as a whole if a house is no longer what you were shown.</p>`)}
+    <p id="lsb-result" role="status" ${LP.bad ? html`class="bad"` : ''}>${LP.say}</p>
+    <p class="legend2" title="Every click writes to the save at once, with a backup first. There is no pending state, no Undo and no Write button."><b>Writes at once.</b> Click a tier to give it; click the highest reached tier again to remove it.</p>
+    ${lbAbout('lsb.tiers', 'tiers', html`<p>Click a tier (the boxes in the opened row, or the five small boxes in the row itself) to give your character that tier: your contribution is raised to that tier's threshold, and contribution is cumulative, so <b>click tier 3 and tiers 1 to 3 are reached</b>. Click the highest reached tier again to remove it (the contribution drops to the tier below, or to none for tier 1). Each click is written to the save at once, with a backup first; there is no pending state and no Write button. Removing a tier lowers the contribution only: the reward rows that giving the tier wrote stay in the save, so a removal does not take them back. The Choose box on each row picks houses for the bulk buttons.</p><p><b>Rewards.</b> Each tier box shows what the tier gives, under its threshold, by the game's item name (the internal id is in the tooltip). A reached tier is <b>Delivered</b> (collected, amount 0 in the delivery rows) or <b>Waiting to collect</b> at the house representative (amount above 0); a tier not reached yet says so. The 6,000 tier shows the house swatch while the character does not hold it yet, and the house's own item once the swatch is held. Giving a tier also writes what the game writes for it: one progress event, and one reward row for each tier crossed, waiting at the house representative (the 6,000 tier follows the swatch rule). Removing a tier writes no reward rows, and a tier is given once per term.</p>`)}
+    ${lbAbout('lsb.fill', 'Fill and Complete', html`<p>Fill, Complete and Reopen act for the faction chosen above. It starts on your character's own faction. <b>Fill</b> and <b>Fill chosen</b> raise your own contribution to the top tier (never lowered). They change nothing while another faction is chosen: your contribution counts for your own faction, so no contribution and no reward row is written for another. <b>Complete</b> and <b>Complete chosen</b> take the house for the chosen faction: its progress goes to the goal, and the winner and the completion are set; for another faction this records that faction's win and progress and skips your own contribution row. <b>Fill faction goal</b> on one house does both in one click. <b>Reopen</b> clears the completion and the winner and leaves progress and contribution as they are. Each click is written at once, and it is refused if the house is no longer what you were shown. A button for several houses asks first ("Complete 7 houses?") and writes them as one edit: either every house is changed or none is. <b>Reopen does not undo a Complete completely:</b> it clears the completion and the winner, but the faction's progress that Complete raised to the goal stays there, and a house that was taken by another faction is left open rather than given back to it. Reopen writes or removes no reward rows.</p>`)}
   </div>`;
 }
 // Draw the board again from the loaded data and what is staged, and put the focus back on the control that had it.
@@ -1947,19 +1927,80 @@ function lbRedraw() {
   lbApply();
   if (fk) { const n = root.querySelector('[data-fk="' + fk + '"]'); if (n && n.focus) n.focus(); }
 }
-function lbSay(t) { LP.say = t; const r = $('#lsb-result'); if (r) r.textContent = t; }
-async function lbWrite() {
-  const items = lbItems();
-  if (!items.length) { lbSay('Nothing is pending.'); return; }
+function lbSay(t, bad) { LP.say = t; LP.bad = !!bad; const r = $('#lsb-result'); if (r) { r.textContent = t; r.classList.toggle('bad', !!bad); } }
+// One write from the board (#641). The pressed control is marked busy and the board ignores a second click until the answer is in; the page is then read again from the save, so the
+// rows show what is stored. The line that says what happened goes through say(): the board's result line, or the term panel's. An error shows its text as the editor gave it.
+function lbRunning(on, b) {
+  const root = $('#lsb');
+  if (!root) return;
+  root.classList.toggle('running', on);
+  if (on) root.setAttribute('aria-busy', 'true'); else root.removeAttribute('aria-busy');
+  if (b) { b.classList.toggle('busy', on); if (on) { if (b.getAttribute('aria-disabled') === 'true') b.dataset.keepoff = '1'; b.setAttribute('aria-disabled', 'true'); } else { if (!b.dataset.keepoff) b.removeAttribute('aria-disabled'); delete b.dataset.keepoff; } }
+  root.querySelectorAll('#lsb-fac, #lsb-tad, #lsb-trf').forEach((x) => { x.disabled = on; });
+}
+async function lbRun(b, call, say, focusFk) {
+  if (LP.busy) { say('A write is still running. Wait for it to finish, then click again.'); return false; }
+  LP.busy = true;
+  lbRunning(true, b);
+  say('Writing…');
+  let ok = false, conflict = false;
+  try {
+    await act(async () => {
+      try { const t = await call(); ok = true; say(t); toast(t + NOT_SAVED); } catch (e) { conflict = e.code === 'conflict'; say(e.message, true); throw e; }
+    }, null);
+  } finally { LP.busy = false; }
+  if (!ok) {
+    lbRunning(false, b);
+    if (conflict) { try { await render(true); } catch (e) { /* the message above stays */ } } else lbRedraw(); // a house that changed meanwhile is shown as it is now
+  }
+  // the focus goes back to the control that was pressed; a control that turned into another one (Complete into Reopen) or went away (Make active on the row that is now active) has a next best
+  for (const fk of [].concat(focusFk || [])) { const n = document.querySelector('#lsb [data-fk="' + fk + '"]'); if (n && n.focus) { n.focus({ preventScroll: true }); break; } }
+  return ok;
+}
+// One request to /api/landsraad/apply for one house or several (one edit, one backup, all or none). hs: the houses as they were shown, by id.
+function lbSend(b, items, label, hs, focusFk) {
   const l = LD;
-  if (!l.term) { toast('This save has no Landsraad term, so there is no board to change.', true); return; }
-  return act(async () => {
+  if (!l.term) { const t = 'This save has no Landsraad term, so there is no board to change.'; lbSay(t); toast(t, true); return Promise.resolve(false); }
+  LP.confirm = null;
+  return lbRun(b, async () => {
     const r = await api('/api/landsraad/apply', { term_id: l.term.term_id, houses: items });
-    LP.pend.clear(); LP.snap.clear(); LP.pick.clear(); LP.say = '';
-    const parts = [r.contribution_raised ? `your contribution raised on ${nn(r.contribution_raised, 'house', 'houses')}` : '', r.contribution_lowered ? `lowered on ${nn(r.contribution_lowered, 'house', 'houses')} (a tier removed)` : '',
-      r.reward_rows ? `${nn(r.reward_rows, 'reward row', 'reward rows')} written` : '', r.completed ? `${nn(r.completed, 'house', 'houses')} completed` : '', r.reopened ? `${nn(r.reopened, 'house', 'houses')} reopened` : ''].filter(Boolean);
-    toast(r.changed ? `Board written: ${parts.join(', ')}.` + NOT_SAVED : 'Nothing to change: the houses were already in that state.');
-  }, null);
+    if (!r.changed) return label + ': nothing to change, ' + (items.length > 1 ? 'the houses were' : 'the house was') + ' already in that state.';
+    const rows = r.reward_rows ? nn(r.reward_rows, 'reward row', 'reward rows') + ' written' : '';
+    if (items.length === 1 && hs.get(items[0].task_id)) return label + ': ' + lbChangeText(hs.get(items[0].task_id), l, items[0]) + (rows ? '; ' + rows : '') + '.';
+    const parts = [r.contribution_raised ? 'your contribution raised on ' + nn(r.contribution_raised, 'house', 'houses') : '', r.contribution_lowered ? 'lowered on ' + nn(r.contribution_lowered, 'house', 'houses') + ' (a tier removed)' : '',
+      rows, r.completed ? nn(r.completed, 'house', 'houses') + ' completed' : '', r.reopened ? nn(r.reopened, 'house', 'houses') + ' reopened' : ''].filter(Boolean);
+    return label + ': ' + parts.join(', ') + '.';
+  }, lbSay, focusFk);
+}
+const LB_BULK = { fill: ['Fill chosen', 'Fill'], complete: ['Complete chosen', 'Complete'], reopen: ['Reopen chosen', 'Reopen'] };
+function lbBulkItems(act_, ids, F) {
+  const hs = new Map(LD.tasks.filter((r) => ids.has(r.id)).map((r) => [r.id, lbHouse(r, LD)]));
+  return { hs, items: [...hs.values()].map((h) => lbItem(h, LD, act_, F)).filter(Boolean) };
+}
+const lbBulkQ = (act_, n, F) => LB_BULK[act_][1] + ' ' + nn(n, 'house', 'houses') + (act_ === 'complete' ? ' for ' + lbFacName(LD, F) : '') + '?';
+function lbCancelConfirm() { if (!LP.confirm) return; LP.confirm = null; const c = $('#lsb-confirm'); if (c) c.remove(); }
+function lbFocusFk(fk) { const n = $('#lsb [data-fk="' + fk + '"]'); if (n && n.focus) n.focus({ preventScroll: true }); }
+function lbBulk(b, act_) {
+  const F = lbFacId(LD), ids = new Set(LP.pick);
+  if (!ids.size) { lbSay('Nothing is chosen, so there is nothing to ' + act_ + '.'); return; }
+  const { hs, items } = lbBulkItems(act_, ids, F);
+  if (!items.length) { lbSay(LB_BULK[act_][0] + ': nothing to change on the chosen houses.'); return; }
+  if (items.length === 1) { lbSend(b, items, LB_BULK[act_][0], hs, 'b-' + act_); return; } // a single house needs no question
+  LP.confirm = { act: act_, F, ids: items.map((x) => x.task_id), n: items.length, q: lbBulkQ(act_, items.length, F) };
+  lbRedraw();
+  lbFocusFk('c-no'); // the safe answer has the focus, so a stray Enter does not write
+}
+function lbConfirmYes() {
+  const c = LP.confirm;
+  if (!c) return;
+  const { hs, items } = lbBulkItems(c.act, new Set(c.ids), c.F);
+  if (items.length !== c.n) { // the houses are not what the question named: ask again with the count as it is now
+    if (!items.length) { LP.confirm = null; lbSay('Nothing to change any more.'); lbRedraw(); lbFocusFk('b-' + c.act); return; }
+    LP.confirm = { ...c, ids: items.map((x) => x.task_id), n: items.length, q: lbBulkQ(c.act, items.length, c.F) };
+    lbSay('The houses changed since the question was asked. Check the count and answer again.'); lbRedraw(); lbFocusFk('c-no');
+    return;
+  }
+  lbSend($('#lsb [data-fk="c-yes"]'), items, LB_BULK[c.act][0], hs, 'b-' + c.act);
 }
 // Order, hide and show the rows from LB, and put the counts in step. The rows are drawn once; this only moves and hides them.
 function lbSyncOpen() { document.querySelectorAll('.lsb .hr').forEach((li) => { const x = li.querySelector('.xc'), m = li.querySelector('.more'); if (x && m) m.hidden = !x.checked; }); }
@@ -2033,37 +2074,28 @@ function lbClick(e) {
     e.preventDefault(); // a button inside the row's label must not open or close the row
     const r = LD.tasks.find((x) => String(x.id) === b.dataset.id);
     if (!r) return;
-    if (b.getAttribute('aria-disabled') === 'true') { lbSay(b.title || 'Nothing to change'); return; }
-    const h = lbHouse(r, LD), F = lbFacId(LD), i = +b.dataset.t;
-    const ch = lbStage(h, LD, k === 'tier' ? 'tier' : b.dataset.do, F, i);
-    const now = lbHouse(r, LD);
-    lbSay(ch ? `House ${h.name}: ${lbPendText(now, LD) || 'back to what the save holds'}.` : k === 'tier' ? `To remove tiers of House ${h.name}, click the highest reached tier (tier ${h.reached}).` : `House ${h.name}: nothing to change.`);
-    lbRedraw();
+    if (b.getAttribute('aria-disabled') === 'true') { lbSay(LP.busy ? LB_WAIT : b.title || 'Nothing to change'); return; }
+    if (LP.busy) { lbSay(LB_WAIT); return; }
+    const h = lbHouse(r, LD), F = lbFacId(LD), i = +b.dataset.t, kind = k === 'tier' ? 'tier' : b.dataset.do;
+    const it = lbItem(h, LD, kind, F, i);
+    if (!it) { lbSay(k === 'tier' ? `To remove tiers of House ${h.name}, click the highest reached tier (tier ${h.reached}).` : `House ${h.name}: nothing to change.`); return; }
+    lbSend(b, [it], 'House ' + h.name, new Map([[h.id, h]]), b.dataset.fk);
     return;
   }
-  if (k === 'undo') { e.preventDefault(); const id = +b.dataset.id; LP.pend.delete(id); LP.snap.delete(id); const h = LD.tasks.find((x) => x.id === id); lbSay(h ? `House ${lbNameOf(h)}: the staged changes are undone.` : ''); lbRedraw(); return; }
-  if (k === 'undoall') { LP.pend.clear(); LP.snap.clear(); lbSay('All houses are as the save holds them.'); lbRedraw(); return; }
-  if (k === 'pickall') { document.querySelectorAll('#lsb-rows > li:not([hidden])').forEach((li) => { LP.pick.add(+li.dataset.id); const pk = li.querySelector('.pick'); if (pk) pk.checked = true; }); lbApply(); return; }
-  if (k === 'pickno') { LP.pick.clear(); document.querySelectorAll('#lsb .pick').forEach((pk) => { pk.checked = false; }); lbApply(); return; }
-  if (k === 'bulk') {
-    const act_ = b.dataset.do, hs = LD.tasks.map((r) => lbHouse(r, LD)).filter((h) => LP.pick.has(h.id)), F = lbFacId(LD);
-    if (!hs.length) { lbSay(`Nothing is chosen, so there is nothing to ${act_}.`); return; }
-    let n = 0;
-    for (const h of hs) if (lbStage(lbHouse(LD.tasks.find((r) => r.id === h.id), LD), LD, act_, F)) n++;
-    lbSay(`${act_ === 'fill' ? 'Fill chosen' : act_ === 'complete' ? 'Complete chosen for ' + lbFacName(LD, F) : 'Reopen chosen'}: ${nn(n, 'house', 'houses')} staged, ${nn(hs.length - n, 'house', 'houses')} left alone.`);
-    lbRedraw();
-    return;
-  }
-  if (k === 'write') { lbWrite(); return; }
+  if (k === 'pickall') { lbCancelConfirm(); document.querySelectorAll('#lsb-rows > li:not([hidden])').forEach((li) => { LP.pick.add(+li.dataset.id); const pk = li.querySelector('.pick'); if (pk) pk.checked = true; }); lbApply(); return; }
+  if (k === 'pickno') { lbCancelConfirm(); LP.pick.clear(); document.querySelectorAll('#lsb .pick').forEach((pk) => { pk.checked = false; }); lbApply(); return; }
+  if (k === 'bulk') { e.preventDefault(); if (LP.busy) { lbSay(LB_WAIT); return; } lbBulk(b, b.dataset.do); return; }
+  if (k === 'cyes') { e.preventDefault(); if (LP.busy) { lbSay(LB_WAIT); return; } lbConfirmYes(); return; }
+  if (k === 'cno') { e.preventDefault(); const a = LP.confirm && LP.confirm.act; lbCancelConfirm(); lbSay('Cancelled. Nothing was written.'); if (a) lbFocusFk('b-' + a); return; }
   if (k === 'tapply' || k === 'tmk') {
     e.preventDefault();
     if (b.getAttribute('aria-disabled') === 'true') { LT.say = b.title; const r = $('#lsb-tresult'); if (r) r.textContent = b.title; return; }
     const sel = lbTermSel(LD), ad = k === 'tmk' ? String(b.dataset.id) : sel.ad, rf = sel.rf, dn = (id) => { const d = (LD.decrees || []).find((x) => String(x.id) === id); return d ? decreeLabel(d.decree_name) : 'none'; };
     LT.ad = ad; LT.rf = rf;
-    lbTermWrite({ active_decree_id: ad, reigning_faction_id: rf }, `Applied: active decree ${dn(ad)}, reigning faction ${rf === '' ? 'none' : lbFacName(LD, +rf)}`);
+    lbRun(b, async () => { await api('/api/landsraad/term', { active_decree_id: ad, reigning_faction_id: rf }); return `Applied: active decree ${dn(ad)}, reigning faction ${rf === '' ? 'none' : lbFacName(LD, +rf)}.`; }, lbTSay, k === 'tmk' ? [b.dataset.fk, 'tf:' + b.dataset.id] : b.dataset.fk);
     return;
   }
-  if (k === 'tflag') { e.preventDefault(); const id = +b.dataset.id, n = b.dataset.d === '1'; act(async () => { await api('/api/landsraad/decree', { id, disabled: n }); LT.say = `Decree ${id}: pool flag set to ${n ? 1 : 0}`; }, 'Decree updated'); return; }
+  if (k === 'tflag') { e.preventDefault(); const id = +b.dataset.id, n = b.dataset.d === '1'; lbRun(b, async () => { await api('/api/landsraad/decree', { id, disabled: n }); return `Decree ${id}: pool flag set to ${n ? 1 : 0}.`; }, lbTSay, b.dataset.fk); return; }
   if (k === 'map') { e.preventDefault(); const h = LD.tasks.map((r) => lbHouse(r, LD)).find((x) => String(x.id) === b.dataset.id); if (h) lbOpenMap(h); return; }
   if (k === 'mapopen') { e.preventDefault(); const h = LD.tasks.map((r) => lbHouse(r, LD)).find((x) => String(x.id) === b.dataset.id); if (h && h.loc.known && h.loc.map_key && window.liveMapShow) { const d = $('#lsb-map'); if (d.close) d.close(); window.liveMapShow(h.loc.map_key, Number(h.loc.x), Number(h.loc.y), h.name); tab = 'livemap'; browserStore.set('tab', tab); render(); } return; }
   if (k === 'mapx') { const d = $('#lsb-map'); if (d.close) d.close(); else d.removeAttribute('open'); if (lbMapFrom) lbMapFrom.focus(); return; }
@@ -2075,8 +2107,8 @@ function lbClick(e) {
 function lbChange(e) {
   const t = e.target, k = t.dataset ? t.dataset.lb : '';
   if (t.classList && t.classList.contains('xc')) { const id = +t.id.replace('lsx-', ''); if (t.checked) LB.open.add(id); else LB.open.delete(id); lbSyncOpen(); return; }
-  if (k === 'pick') { const id = +t.dataset.id; if (t.checked) LP.pick.add(id); else LP.pick.delete(id); lbApply(); return; }
-  if (k === 'fac') { LP.fac = +t.value; lbRedraw(); return; }
+  if (k === 'pick') { const id = +t.dataset.id; lbCancelConfirm(); if (t.checked) LP.pick.add(id); else LP.pick.delete(id); lbApply(); return; }
+  if (k === 'fac') { lbCancelConfirm(); LP.fac = +t.value; lbRedraw(); return; }
   if (k === 'tad') { LT.ad = t.value; const d = (LD.decrees || []).find((x) => String(x.id) === t.value), l = t.closest('label'), s = l && l.querySelector('.did'); if (s) s.textContent = d ? d.decree_name : ''; return; }
   if (k === 'trf') { LT.rf = t.value; lbRedraw(); return; }
   if (k === 'hs') { LB.hs = t.value; lbApply(); }
@@ -2100,9 +2132,10 @@ function lbWire() {
   lbStyles(root);
   root.addEventListener('click', lbClick);
   root.addEventListener('change', lbChange);
-  root.addEventListener('toggle', (e) => { if (e.target && e.target.id === 'lsb-tdp') LT.open = e.target.open; }, true); // the panel stays open over a write
+  root.addEventListener('toggle', (e) => { if (e.target && e.target.id === 'lsb-tdp') LT.open = e.target.open; else if (e.target && e.target.id === 'lsb-dphid') LT.hidOpen = e.target.open; }, true); // the panel stays open over a write
   root.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (LP.confirm && !LP.busy) { const a = LP.confirm.act; lbCancelConfirm(); lbSay('Cancelled. Nothing was written.'); lbFocusFk('b-' + a); return; }
     const d = $('#lsb-map'); if (d && d.open) return;
     const a = document.activeElement, w = a && a.closest ? a.closest('.hw') : null;
     lbCloseCards(); if (w) { w.setAttribute('data-esc', ''); const hb = w.querySelector('.hn'); if (hb && a !== hb) hb.focus(); }
@@ -2119,10 +2152,6 @@ async function landsraadView() {
   await loadCatalog(l.tasks.flatMap((x) => (x.rewards || []).flatMap((y) => [y.template_id, y.shown_template_id])));
   const onBoard = new Set(l.tasks.map((x) => x.id));
   LD = l;
-  for (const [id, w] of [...LP.snap]) {
-    const r = l.tasks.find((x) => x.id === id), cur = r ? lbHouse(r, l).was : null;
-    if (!cur || cur.mine !== w.mine || cur.done !== w.done || cur.win !== w.win) { LP.pend.delete(id); LP.snap.delete(id); LP.say = 'A house changed in the save since you staged it, so its staged changes were dropped.'; }
-  }
   for (const id of [...LP.pick]) if (!onBoard.has(id)) LP.pick.delete(id);
   setHTML($('#main'), lbPage(l));
   lbWire();

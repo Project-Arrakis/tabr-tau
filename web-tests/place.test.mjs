@@ -37,7 +37,6 @@ test('an action on the Landsraad tab keeps the page offset, the chosen faction a
   const before = ui.doc.querySelector('#lsb-fac');
 
   ui.click('.qa-cr[data-id="105"]'); await ui.settle(); // Complete: staged for the faction that was chosen
-  ui.click('[data-lb=write]'); await ui.settle();
   const sent = ui.posted.filter((p) => p.path === '/api/landsraad/apply');
   assert.equal(sent.length, 1);
   assert.equal(sent[0].body.houses[0].complete_for, 2, 'the faction that was chosen is the one sent');
