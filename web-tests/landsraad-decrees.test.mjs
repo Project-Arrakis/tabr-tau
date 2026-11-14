@@ -150,3 +150,32 @@ test('a save without a term says so, and a hostile decree name is shown as text'
   assert.ok(!ui.doc.querySelector('#lsb-tdp img'), 'no element was made from the name');
   assert.ok(text(poolRow(ui, 1)).includes('<img src=x onerror=alert(1)>'));
 });
+
+test('the plain SpecialVendorActive row is out of the pool list and sits in a closed disclosure under it with the same controls; the four category vendors stay in the list', async () => {
+  const ui = await open();
+  const pool = ui.doc.querySelector('#lsb-tdp ul.dp');
+  const inPool = [...pool.querySelectorAll('[data-lb="tflag"]')].map((b) => +b.dataset.id);
+  assert.ok(!inPool.includes(7), 'decree 7 is not in the pool list');
+  assert.deepEqual(inPool, [1, 2, 3, 4, 5, 6, 8, 9, 10, 11], 'the other ten stay, with the four category vendors');
+  const d = ui.doc.querySelector('#lsb-dphid');
+  assert.ok(d && !d.open, 'a closed disclosure under the pool');
+  assert.equal(text(d.querySelector('summary')), 'Hidden: Special Vendor, no category (effect unverified)');
+  assert.ok(!pool.contains(d), 'it is not part of the pool list');
+  const row = d.querySelector('[data-lb="tflag"][data-id="7"]').closest('li');
+  assert.ok(text(row).includes('Special Vendor') && text(row).includes('SpecialVendorActive'));
+  assert.ok(row.querySelector('[data-lb="tmk"][data-id="7"]'), 'Make active is there');
+  // the row stays in the data: the Active decree drop-down still lists it
+  assert.ok([...ui.doc.querySelectorAll('#lsb-tad option')].some((o) => o.value === '7'));
+  // reachable: Set flag and Make active work from the disclosure
+  d.open = true;
+  ui.click('#lsb-dphid [data-lb="tflag"][data-id="7"]'); await ui.settle();
+  assert.deepEqual(posted(ui, '/api/landsraad/decree').map((p) => p.body), [{ id: 7, disabled: true }]);
+  ui.click('#lsb-dphid [data-lb="tmk"][data-id="7"]'); await ui.settle();
+  assert.deepEqual(posted(ui, '/api/landsraad/term').map((p) => p.body), [{ active_decree_id: '7', reigning_faction_id: '1' }]);
+});
+
+test('a save without the plain vendor decree draws no hidden disclosure', async () => {
+  const without = decrees().filter((d) => d.decree_name !== 'SpecialVendorActive');
+  const ui = await open(landsraad({ decrees: without }));
+  assert.equal(ui.doc.querySelector('#lsb-dphid'), null);
+});
