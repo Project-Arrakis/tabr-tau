@@ -682,6 +682,12 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .dp .mkc .src{display:none}
 .lsb .dp .mk{white-space:normal;text-align:left}
 .lsb .dp .mk-on{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 10px;color:var(--c-ok);font:600 var(--t-sm) var(--t-display)}
+.lsb details.dphid{margin:var(--s-2) 0 0}
+.lsb details.dphid>summary{display:flex;align-items:center;gap:6px;min-height:var(--hit);list-style:none;cursor:pointer;color:var(--c-dim);font:600 var(--t-sm) var(--t-display)}
+.lsb details.dphid>summary::-webkit-details-marker{display:none}
+.lsb details.dphid>summary::before{content:"\25B8";color:var(--c-spice);font-size:var(--t-sm)}
+.lsb details.dphid[open]>summary::before{content:"\25BE"}
+.lsb details.dphid>summary:hover{color:var(--c-text)}
 .lsb .tpend{margin:8px 0 0;padding:6px 8px;border:1px dashed var(--c-spice);border-radius:var(--r-2);font-size:var(--t-sm)}
 .lsb .tpend .undo{margin-left:8px}
 @media (max-width:1100px){

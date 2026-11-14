@@ -1841,7 +1841,10 @@ function decreeLabel(key) {
   const b = base.replace(/(.)Active$/, '$1').replace(/([a-z0-9])([A-Z])/g, '$1 $2').split(' ').map((w, i) => (i && small.has(w) ? w.toLowerCase() : w)).join(' ');
   return rest.length ? b + ': ' + rest.join(' ') : b;
 }
-const LT = { ad: undefined, rf: undefined, say: '', open: false }; // what the two drop-downs were set to (kept over a redraw), and the line that says what was written
+// The plain SpecialVendorActive decree has no category and an effect nobody has checked (#634). Its row stays in the data and in the Active decree drop-down and is never changed or deleted;
+// the pool list shows it only inside a closed disclosure, with the same buttons. The four category vendors stay in the list.
+const LB_HIDDEN_DECREE = 'SpecialVendorActive';
+const LT = { ad: undefined, rf: undefined, say: '', open: false, hidOpen: false }; // what the two drop-downs were set to (kept over a redraw), and the line that says what was written
 // the two drop-downs: what was chosen, else the term's active decree and the character's own faction (the term's reigning faction when the character has none)
 function lbTermSel(l) {
   const t = l.term || {}, facs = (l.factions || []).map((f) => String(f.id)), decs = (l.decrees || []).map((d) => String(d.id));
@@ -1858,6 +1861,7 @@ function lbTerm(l) {
   const fname = sel.rf !== '' ? lbFacName(l, +sel.rf) : '';
   const idLine = (d) => (d ? html`<small class="did" title="The game's internal id, kept for support">${d.decree_name}</small>` : '');
   const nm = (d) => (d ? decreeLabel(d.decree_name) : '—');
+  const hidden = dec.filter((d) => d.decree_name === LB_HIDDEN_DECREE), shown = dec.filter((d) => d.decree_name !== LB_HIDDEN_DECREE); // the plain vendor decree is only in the closed list under the pool (#634)
   const row = (d) => {
     const tg = [d.active && 'Active', d.elected && 'Elected', d.in_rotation && 'In rotation'].filter(Boolean), n = d.disabled ? 0 : 1, lab = decreeLabel(d.decree_name);
     const on = d.id == t.active_decree_id && sel.rf !== '' && sel.rf === String(t.reigning_faction_id == null ? '' : t.reigning_faction_id);
@@ -1878,9 +1882,10 @@ function lbTerm(l) {
   </div>
   <p id="lsb-tresult" role="status">${LT.say}</p>
   <h3 class="d-head">Decree pool</h3>
-  <ul class="dp" role="list"><li class="dh" aria-hidden="true"><span>ID</span><span>Decree ${lbMark('save', 'Read from the save: landsraad_decrees.decree_name')}</span><span>In this term ${lbMark('save', 'Read from the save: active, elected, rotation')}</span><span>Pool flag ${lbMark('save', 'Read from the save: the disabled column, as stored')}</span><span>Change ${lbMark('write', 'Writes to the save: the disabled column of that one decree row')}</span><span>Make active ${lbMark('write', 'Writes to the save: the active decree and the reigning faction of the current term, the same as Apply')}</span></li>${dec.map(row)}</ul>
+  <ul class="dp" role="list"><li class="dh" aria-hidden="true"><span>ID</span><span>Decree ${lbMark('save', 'Read from the save: landsraad_decrees.decree_name')}</span><span>In this term ${lbMark('save', 'Read from the save: active, elected, rotation')}</span><span>Pool flag ${lbMark('save', 'Read from the save: the disabled column, as stored')}</span><span>Change ${lbMark('write', 'Writes to the save: the disabled column of that one decree row')}</span><span>Make active ${lbMark('write', 'Writes to the save: the active decree and the reigning faction of the current term, the same as Apply')}</span></li>${shown.map(row)}</ul>
+  ${hidden.length ? html`<details class="dphid" id="lsb-dphid" ${LT.hidOpen ? 'open' : ''}><summary>Hidden: Special Vendor, no category (effect unverified)</summary><ul class="dp" role="list">${hidden.map(row)}</ul></details>` : ''}
   ${dec.length ? '' : html`<p class="mut">This save has no decrees.</p>`}
-  ${lbAbout('lsb.term', 'term and decrees', html`<p><b>Apply</b> sets the term's active decree and its reigning faction together: one row, the current term in <code>landsraad_decree_term</code>, and an empty choice clears that field. The faction drop-down starts on your own faction, and any faction can be chosen.</p><p><b>Make active for ...</b> on a pool row does the same as the Active decree drop-down and Apply for that row's decree, for the faction in the Reigning faction drop-down; a decree belongs to a faction (the reigning faction), not to a house.</p><p id="lsdecnote"><b>In this term</b> is read from the current term: <b>Active</b> is the term's active decree, <b>Elected</b> its elected decree, <b>In rotation</b> a decree in the save's decree rotation. <b>Pool flag</b> is the save's own <code>disabled</code> column, shown as stored; it does not say whether a decree is in effect. A <b>Set flag</b> button changes the flag of its own row only; it does not make the decree active, the Active decree above does. The special vendor decree is five separate rows (SpecialVendorActive and its _Vehicles, _Weapons, _Armor and _Utilities variants).</p>`)}
+  ${lbAbout('lsb.term', 'term and decrees', html`<p><b>Apply</b> sets the term's active decree and its reigning faction together: one row, the current term in <code>landsraad_decree_term</code>, and an empty choice clears that field. The faction drop-down starts on your own faction, and any faction can be chosen.</p><p><b>Make active for ...</b> on a pool row does the same as the Active decree drop-down and Apply for that row's decree, for the faction in the Reigning faction drop-down; a decree belongs to a faction (the reigning faction), not to a house.</p><p id="lsdecnote"><b>In this term</b> is read from the current term: <b>Active</b> is the term's active decree, <b>Elected</b> its elected decree, <b>In rotation</b> a decree in the save's decree rotation. <b>Pool flag</b> is the save's own <code>disabled</code> column, shown as stored; it does not say whether a decree is in effect. A <b>Set flag</b> button changes the flag of its own row only; it does not make the decree active, the Active decree above does. The special vendor decree is five separate rows: the four category rows (_Vehicles, _Weapons, _Armor and _Utilities) are in the list; the plain SpecialVendorActive row has no category and an effect that is not verified, so it is kept in the closed list under the pool, with the same controls, in case the game uses it.</p>`)}
   </div></details></section>`;
 }
 async function lbTermWrite(body, say) {
@@ -2100,7 +2105,7 @@ function lbWire() {
   lbStyles(root);
   root.addEventListener('click', lbClick);
   root.addEventListener('change', lbChange);
-  root.addEventListener('toggle', (e) => { if (e.target && e.target.id === 'lsb-tdp') LT.open = e.target.open; }, true); // the panel stays open over a write
+  root.addEventListener('toggle', (e) => { if (e.target && e.target.id === 'lsb-tdp') LT.open = e.target.open; else if (e.target && e.target.id === 'lsb-dphid') LT.hidOpen = e.target.open; }, true); // the panel stays open over a write
   root.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     const d = $('#lsb-map'); if (d && d.open) return;
