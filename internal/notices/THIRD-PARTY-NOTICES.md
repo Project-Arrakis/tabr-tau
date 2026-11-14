@@ -461,6 +461,8 @@ covered by that licence and not licensed by this project.** They are included on
 use (showing where things are on the map), and will be removed on request (open an issue on the repository). The owner decided on 2026-10-15 to keep them with this notice. This project is unofficial and not affiliated with or
 endorsed by Funcom.
 
+The Landsraad tab shows a symbol for each of the 25 houses (`internal/web/static/houses/`, 64 px pictures taken from the game's own interface pictures of the houses). They are Dune: Awakening game art, which belongs to Funcom; they are not covered by any licence in this file and not licensed by this project. They are included only so the board can show which house is which, and will be removed on request (open an issue on the repository). This project is unofficial and not affiliated with or endorsed by Funcom.
+
 ## Other data and rules taken from the console and from game-data sites
 
 Besides the files named above, some tables and rules in `internal/ops`, `internal/skills`, `internal/journey` and `internal/augments`

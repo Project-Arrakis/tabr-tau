@@ -481,6 +481,9 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .hn{position:relative;display:flex;align-items:center;gap:10px;max-width:100%;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .lsb .hn::after{content:"";position:absolute;inset:-6px -4px}
 .lsb .hn:hover b,.lsb .hn[aria-expanded="true"] b{color:var(--c-spice)}
+.lsb .crest img{display:block;width:28px;height:28px}
+:root[data-theme="light"] .lsb .crest img{filter:brightness(0) opacity(.8)}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .lsb .crest img{filter:brightness(0) opacity(.8)}}
 .lsb .hn:hover .crest,.lsb .hn[aria-expanded="true"] .crest{box-shadow:0 0 0 2px var(--c-spice)}
 .lsb .hn:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
 .lsb .hcard{display:none;position:absolute;left:0;top:100%;margin-top:6px;z-index:42;width:min(320px,calc(100vw - 32px));padding:var(--s-3);background:var(--c-raised);border:1px solid var(--c-rule);border-radius:var(--r-3);box-shadow:var(--e-3);font:400 var(--t-sm)/1.4 var(--t-display);text-align:left;color:var(--c-text);cursor:default}

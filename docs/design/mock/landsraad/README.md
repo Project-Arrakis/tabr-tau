@@ -28,7 +28,7 @@ Points of the issues:
 Decisions taken on this page. A change to the page keeps all of them; the page is checked against this list at 390 and 1280 px before and after every revision.
 
 * Houses are always alphabetical by default (and break ties in every sort). Every column heading sorts: house, location, state, tiers reached, next tier, faction status.
-* Each row has a house symbol (crest tile).
+* Each row has a house symbol (crest tile). In the build it is the house's real symbol at 32 px (a 64 px picture, sharp on a high-density screen), with the name beside it and the symbol and name together as the one 44 px button that opens the house card; the picture is decoration (empty alternative text), the name carries the meaning. A house with no picture keeps the two letters in the tile. The picture is looked up in a fixed list by house name, never built from it. On a light look the symbol is drawn dark.
 * The bar above the list has: Show (All, What is left, Not started, In progress, Top tier), House (Any, Open, Taken), a By region grouping button, Expand all and Collapse all, and Jump to house with the "N of 25 houses shown" count at the right. There is no Find box.
 * Three glance cards and a proportional bar (green Top tier, blue In progress, dashed Not started), with tooltips; the cards and the bar segments filter the list when clicked.
 * Reward tiers are clickable in the collapsed meter and in the opened row: cumulative, click the highest reached tier again to remove it, a pending state with Undo.
