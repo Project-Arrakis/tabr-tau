@@ -60,6 +60,8 @@ test('a tier click stages the change: nothing is sent, the row shows it as pendi
   assert.equal(row.dataset.my, 'done');
   assert.equal(+ui.doc.querySelector('.glance .tile.done .n').textContent, 2, 'the tiles follow the staged state');
   assert.ok(text(row.querySelector('.more .pend')).includes('4,700 → 6,000 (tiers 4 to 5 will be reached)'), text(row.querySelector('.more .pend')));
+  assert.equal(row.querySelectorAll('.more .padd li').length, 2, 'the opened row lists the rewards the two tiers would add');
+  assert.ok(text(row.querySelector('.more .padd li:last-child')).includes('Swatch'), 'the 6,000 tier shows the swatch while it is not held');
   assert.ok(tc(ui, 'Thorvald', 5).classList.contains('add') && text(tc(ui, 'Thorvald', 5)).includes('will be reached'));
   assert.equal(ui.doc.querySelector('#lsb-pendbar').textContent.includes('1 house has pending changes'), true);
   // Undo on the row takes it back
@@ -120,7 +122,7 @@ test('Complete and Reopen stage for the faction in the list, which starts on the
 });
 
 test('Write sends every staged house in one request, with what the page showed, and clears the staging', async () => {
-  const ui = await open(board(), { '/api/landsraad/apply': { ok: true, changed: 3, houses: 3, skipped: 0, contribution_raised: 2, contribution_lowered: 0, completed: 1, reopened: 0 } });
+  const ui = await open(board(), { '/api/landsraad/apply': { ok: true, changed: 3, houses: 3, skipped: 0, contribution_raised: 2, contribution_lowered: 0, completed: 1, reopened: 0, reward_rows: 5, events: 2 } });
   click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
   click(ui, tier(ui, 'Thorvald', 5)); await ui.settle();
   click(ui, quick(ui, 'Thorvald', 'qa-cr')); await ui.settle();
@@ -134,6 +136,7 @@ test('Write sends every staged house in one request, with what the page showed, 
   ]);
   assert.equal(ui.doc.querySelector('#lsb-pendbar'), null, 'the staging is cleared once it is written');
   assert.ok(ui.doc.body.textContent.includes('Board written'), 'the answer is reported');
+  assert.ok(ui.doc.body.textContent.includes('5 reward rows written'), 'the reward rows are reported');
 });
 
 test('a removal is sent with the flag that allows lowering; Fill after a removal goes back to what the save holds and never below it', async () => {

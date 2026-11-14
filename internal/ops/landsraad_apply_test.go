@@ -14,15 +14,21 @@ import (
 // 176 (Vernius) is open with no row of any kind. The play clock is 150 s, inside the term's window.
 
 // boardRows is every row the board's write can touch, in a fixed order, as one string.
-func boardRows(t *testing.T, o *Ops) string {
+func boardRows(t *testing.T, o *Ops) string { return boardTables(t, o, true) }
+
+// boardTables is boardRows with or without the delivery rows (the rewards of part 3 are written by the same request).
+func boardTables(t *testing.T, o *Ops, withRewards bool) string {
 	t.Helper()
 	var out string
-	for _, q := range []string{
+	qs := []string{
 		`select id, completed, winning_faction_id, completion_time from landsraad_tasks order by id`,
 		`select player_id, faction_id, task_id, amount from landsraad_task_player_contributions order by player_id, faction_id, task_id`,
 		`select faction_id, task_id, amount from landsraad_task_faction_contributions order by faction_id, task_id`,
-		`select player_id, house_name, amount, template_id, last_updated from landsraad_house_rewards order by player_id, house_name, template_id`,
-	} {
+	}
+	if withRewards {
+		qs = append(qs, `select player_id, house_name, amount, template_id, last_updated from landsraad_house_rewards order by player_id, house_name, template_id`)
+	}
+	for _, q := range qs {
 		rows, err := o.S.Query(q)
 		if err != nil {
 			t.Fatal(err)
@@ -103,15 +109,12 @@ func TestApplyFillRaisesTheContributionToTheTopTierAndNothingElse(t *testing.T) 
 	}
 }
 
-func TestApplyEveryActionLeavesTheRewardRowsAlone(t *testing.T) {
-	// part 2 writes no reward rows (they are part 3): the delivery rows are the same before and after each action
+func TestApplyOnlyARaisedContributionWritesRewardRows(t *testing.T) {
+	// the delivery rows are the same before and after a removal, a Complete and a Reopen; a raised contribution writes them (landsraad_rewards_test.go)
 	for name, hs := range map[string][]map[string]any{
-		"fill":        {house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0})},
-		"tier give":   {house(176, Args{"mine_to": 3600.0})},
 		"tier remove": {house(174, Args{"was_mine": 7850.0, "mine_to": 4800.0, "lower": true})},
 		"complete":    {house(175, Args{"complete_for": 1.0})},
 		"reopen":      {house(174, Args{"was_done": true, "reopen": true})},
-		"fill goal":   {house(176, Args{"mine_to": 6000.0, "complete_for": 2.0})},
 	} {
 		o := goalOps(t)
 		before := rewardRows(t, o)
@@ -236,7 +239,8 @@ func TestApplyFillFactionGoalLeavesTheStateOfTheExistingButton(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustApply(t, b, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0, "complete_for": 2.0})))
-	if boardRows(t, a) != boardRows(t, b) {
+	// the existing button writes no reward rows; the board's write does (part 3), so only the other tables are compared
+	if boardTables(t, a, false) != boardTables(t, b, false) {
 		t.Fatalf("Fill faction goal and the board's write leave different rows:\n%s\n---\n%s", boardRows(t, a), boardRows(t, b))
 	}
 }
