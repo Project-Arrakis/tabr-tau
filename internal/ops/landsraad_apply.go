@@ -23,7 +23,7 @@ import (
 // mine_to = that tier's threshold, and the removal of the highest tier is mine_to = the tier below it, or 0, with lower: true.
 //
 // Before anything is written the term and every house are compared with what the page showed (was_mine, was_done, was_win); a difference is a conflict and nothing is
-// written. It is one edit: either every house is done or none is. No reward row is written by this part.
+// written. It is one edit: either every house is done or none is. A contribution that is raised also writes the event and the reward rows (landsraad_rewards.go).
 
 type applyItem struct {
 	task        int64
@@ -137,8 +137,10 @@ func (o *Ops) LandsraadApply(a Args) (any, error) {
 		}
 	}
 	var houses, changed, raised, lowered, completed, reopened int64
+	var rw rewardResult
 	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
 		houses, changed, raised, lowered, completed, reopened = 0, 0, 0, 0, 0, 0
+		rw = rewardResult{}
 		if err := currentTerm(m, termID); err != nil {
 			return err
 		}
@@ -220,12 +222,33 @@ func (o *Ops) LandsraadApply(a Args) (any, error) {
 				to := *it.mineTo
 				switch {
 				case to > s.cur:
+					// how far the same change takes the faction's own progress (the event records it)
+					facDelta := 0.0
+					if it.completeFor != nil && *it.completeFor == me.faction {
+						goal, _ := toFloat(s.t["goal_amount"])
+						have := 0.0
+						if fc, err := m.One(`select amount from landsraad_task_faction_contributions where faction_id=? and task_id=?`, me.faction, it.task); err != nil {
+							return err
+						} else if fc != nil {
+							have, _ = toFloat(fc["amount"])
+						}
+						facDelta = max(goal-have, 0)
+					}
 					if _, err := m.Exec(`insert into landsraad_task_player_contributions(player_id, faction_id, task_id, amount) values(?,?,?,?)
 						on conflict(player_id, faction_id, task_id) do update set amount=excluded.amount`, me.player, me.faction, it.task, to); err != nil {
 						return err
 					}
 					raised++
 					did = true
+					clock := clockOfTerm(m, termID)
+					if !clock.ok {
+						return apierr.New(apierr.ErrBadArgument, "the save has no record of this term, so the rewards cannot be timed: nothing was changed")
+					}
+					rr, err := deliverContribution(m, me, s.t, s.cur, to, facDelta, clock)
+					if err != nil {
+						return err
+					}
+					rw.add(rr)
 				case to < s.cur && to == 0:
 					if _, err := m.Exec(`delete from landsraad_task_player_contributions where player_id=? and faction_id=? and task_id=?`, me.player, me.faction, it.task); err != nil {
 						return err
@@ -273,7 +296,7 @@ func (o *Ops) LandsraadApply(a Args) (any, error) {
 	}); err != nil {
 		return nil, err
 	}
-	return resetAnswer(changed, map[string]any{"houses": houses, "skipped": houses - changed, "contribution_raised": raised, "contribution_lowered": lowered, "completed": completed, "reopened": reopened}), nil
+	return resetAnswer(changed, map[string]any{"houses": houses, "skipped": houses - changed, "contribution_raised": raised, "contribution_lowered": lowered, "completed": completed, "reopened": reopened, "events": rw.events, "reward_rows": rw.rewardRows, "swatches": rw.swatches, "rewards_already_given": rw.skipped}), nil
 }
 
 // houseOf names a task row's house for a message.

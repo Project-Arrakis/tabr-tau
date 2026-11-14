@@ -449,6 +449,8 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .undoq{position:relative;margin:0 0 0 2px;min-height:20px;padding:0 6px;border-radius:var(--r-1);font:600 var(--t-xs)/18px var(--t-display);text-transform:none;letter-spacing:0}
 .lsb .undoq::after{content:"";position:absolute;inset:-4px -3px}
 .lsb .hr[data-pend]{background:color-mix(in srgb,var(--c-spice) 7%,transparent);box-shadow:inset 3px 0 0 var(--c-spice)}
+.lsb .padd-h{margin:8px 0 0}
+.lsb .padd{margin:2px 0 0;padding-left:20px;font-size:var(--t-sm)}
 .lsb .pendtag{display:inline-flex;align-items:center;gap:4px;padding:1px 3px 1px 8px;border:1px dashed var(--c-spice);border-radius:var(--r-2);font:600 var(--t-sm)/1.5 var(--t-display);white-space:nowrap;color:var(--c-spice);text-transform:uppercase;letter-spacing:.06em}
 .lsb .actbar{margin:0 0 var(--s-3);padding:var(--s-3);border:1px solid var(--c-hair);border-radius:var(--r-3);background:var(--c-raised)}
 .lsb .actbar .actrow{display:flex;flex-wrap:wrap;gap:var(--s-2) var(--s-3);align-items:center;margin:0 0 var(--s-2)}
