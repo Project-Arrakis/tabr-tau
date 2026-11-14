@@ -40,7 +40,7 @@ body {
 .d-pill.offline::before { background: transparent; box-shadow: inset 0 0 0 2px currentColor; }
 @keyframes d-breathe { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--c-ok) 45%, transparent); } 60% { box-shadow: 0 0 0 5px transparent; } }
 
-/* scope chip: says what an action changes (the live game, or the save file) */
+/* scope chip: says what an action changes (one place or another) */
 .d-scope { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border: 1px solid var(--c-hair); border-radius: var(--r-1); font: 700 var(--t-xs)/1.6 var(--t-body); letter-spacing: .12em; text-transform: uppercase; color: var(--c-dim); }
 .d-scope.live { color: var(--c-ok); border-color: color-mix(in srgb, var(--c-ok) 55%, var(--c-hair)); }
 .d-scope.save { color: var(--c-sky); border-color: color-mix(in srgb, var(--c-sky) 55%, var(--c-hair)); }

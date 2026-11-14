@@ -359,26 +359,39 @@ func TestNoticeCarriesTheThirdPartyWorks(t *testing.T) {
 
 var imageExts = []string{".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".bmp", ".tif", ".tiff", ".avif", ".heic", ".psd", ".dds", ".tga", ".svgz"}
 
-var privateWords = regexp.MustCompile(`(?i)funcom's art|docs/design|c:\\users|/users/|/home/|projrects|\.claude|work/contrast|review script|not in this repository`)
+// A path under a personal profile; the other reserved words and phrases are digests, so this file does not spell them.
+var privateWords = regexp.MustCompile(`(?i)c:\\users|/users/|/home/`)
 
-// privateTokens are words that belong to the maintainers' private context, kept as SHA-256 digests of the lower-case word so that this file does not spell them out.
-var privateTokens = map[string]bool{
+// reservedDigests are SHA-256 digests of lower-case reserved words and phrases (up to four words in a row, joined by one space). A report names the
+// file and never the text.
+var reservedDigests = map[string]bool{
 	"06ea17a8981d25b0315ff17bd1ebad3d95c15a3f8b764eaadb93612d9b61a54e": true,
 	"06e55b633481f7bb072957eabcf110c972e86691c3cfedabe088024bffe42f23": true,
 	"c064fbca9d9de8dd9bb0624984403b28d0da807a69365d4f7fb09123ecb0c405": true,
 	"c989edf18246e9c8cdd647369a4835f7dd9a0f47b8e755d37b16431fc5035981": true,
+	"f7c797b02e33b99c0c31fe90c26d58c36eb57b99c068028b8c67b3908c5b1e01": true,
+	"c857d09db23e6822e3600bc06ad8d58f92ed62bc8efd81c753f77048662cb97d": true,
+	"da182ddba7f3b92d5780d543c44d2bcb0e400735486af73221f23b19c2a1f0e8": true,
+	"9d68e857a23bf30a7be9591e75755e05c353db12dbf6cc34bfb69ee72a559b80": true,
+	"56ab30fa0c6104ade9296f88f9c5e44c145a1bf9d8d9403f59a1b26adebd97af": true,
+	"20cabea1f0d3d419d6045737ccc85dcc54f962b536b5fe6f4b2667f4422a4d49": true,
+	"7764be7a6b274539c3d5faebe17914b87712f3c25e365f343f9136640f4259dd": true,
 }
 
 var wordRE = regexp.MustCompile(`[A-Za-z][A-Za-z0-9]*`)
 
-func privateToken(s string) string {
-	for _, w := range wordRE.FindAllString(s, -1) {
-		sum := sha256.Sum256([]byte(strings.ToLower(w)))
-		if privateTokens[hex.EncodeToString(sum[:])] {
-			return w
+// reserved reports whether s holds a reserved word or phrase.
+func reserved(s string) bool {
+	words := wordRE.FindAllString(strings.ToLower(s), -1)
+	for i := range words {
+		for n := 1; n <= 4 && i+n <= len(words); n++ {
+			sum := sha256.Sum256([]byte(strings.Join(words[i:i+n], " ")))
+			if reservedDigests[hex.EncodeToString(sum[:])] {
+				return true
+			}
 		}
 	}
-	return ""
+	return false
 }
 
 var issueRE = regexp.MustCompile(`(?:^|[\s(])#(\d{2,5})\b`)
@@ -405,12 +418,8 @@ func TestPublicSafety(t *testing.T) {
 			continue
 		}
 		s := readFile(t, f)
-		m := privateWords.FindString(s)
-		if m == "" {
-			m = privateToken(s)
-		}
-		if m != "" {
-			t.Errorf("%s contains %q, which belongs to private context", f, m)
+		if privateWords.MatchString(s) || reserved(s) {
+			t.Errorf("%s breaks the public text rule (a reserved word, phrase or profile path); the report names the file, never the text", f)
 		}
 		if strings.HasSuffix(f, ".css") || strings.HasSuffix(f, ".svg") {
 			continue // hex colours and ids look like issue numbers
