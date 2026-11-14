@@ -22,27 +22,12 @@ const board = (faction) => ({
 });
 const go = async (ui, tab) => { ui.click(`[data-tab="${tab}"]`); await ui.settle(); return ui.doc.querySelector('#main'); };
 
-test('Landsraad: the nine-sentence explanation of the scales is in About this, with its words; the faction line is drawn only when there is no faction', async () => {
-  let ui = await boot({ get: { '/api/landsraad': board(1) } });
-  let main = await go(ui, 'landsraad');
-  ui.doc.querySelector('.lsb-prev').open = true; // the first board's controls sit in the closed "Previous controls" disclosure until the new board writes
+test('Landsraad: the long explanations of the board are in About this, with their words, and the short lines and the buttons stay in view', async () => {
+  const ui = await boot({ get: { '/api/landsraad': board(1) } });
+  const main = await go(ui, 'landsraad');
   const shown = visibleText(main), moved = movedText(main);
-  for (const s of ['Two different scales are shown for each house', 'Whether the game hands out a tier when it loads the save after a fill is not known from a save']) { assert.ok(moved.includes(s), 'lost, not moved: ' + s); }
-  assert.ok(!shown.includes('Two different scales are shown for each house'));
-  assert.ok(ui.doc.querySelector('#lscales').closest('details.about'));
-  assert.equal(ui.doc.querySelector('#lsnofaction'), null, 'the character has a faction: no line');
-  for (const s of ['Task board (2)', 'Nothing is chosen.', 'Faction for Fill faction goal, Complete and Complete chosen', 'Fill chosen', 'Choose all houses']) assert.ok(shown.includes(s), 'missing: ' + s);
-  assert.ok(!shown.includes('Choose houses (all their tiers) or single tiers, then Fill chosen'));
-  assert.ok(!shown.includes('used by the buttons below'));
-  assert.ok(ui.doc.querySelector('[data-act="tfill"]').title.includes('The reward items themselves are not written'), 'the sentence about Fill faction goal is on the button');
-  assert.equal(ui.doc.querySelector('[data-act="tdone"]').title, 'Marks the house taken, for the chosen faction.');
-  ui.dom.window.close();
-
-  ui = await boot({ get: { '/api/landsraad': board(null) } });
-  main = await go(ui, 'landsraad');
-  ui.doc.querySelector('.lsb-prev').open = true;
-  assert.ok(visibleText(main).includes('Your character is in no faction (Neutral), so there is nothing to fill: assign Atreides or Harkonnen under Admin first.'), 'why Fill is off stays in view');
-  assert.ok(!ui.doc.querySelector('#lscales').textContent.includes('Neutral'), 'it is no longer inside the explanation');
+  for (const s of ['contribution is cumulative, so', 'A staged change is not written yet']) { assert.ok(moved.includes(s), 'lost, not moved: ' + s); assert.ok(!shown.includes(s), 'still shown: ' + s); }
+  for (const s of ['Nothing is chosen.', 'Faction for Fill and Complete', 'Fill chosen', 'Complete chosen', 'Reopen chosen', 'Choose all houses', 'Clear the choice']) assert.ok(shown.includes(s), 'missing: ' + s);
   ui.dom.window.close();
 });
 

@@ -840,6 +840,7 @@ func (s *Server) routes() {
 	s.post("/api/landsraad/faction-goal", o.FillFactionGoal)
 	s.post("/api/landsraad/complete-many", o.CompleteChosen)
 	s.post("/api/landsraad/reopen-many", o.ReopenChosen)
+	s.post("/api/landsraad/apply", o.LandsraadApply)
 	s.post("/api/landsraad/decree", o.SetDecree)
 	s.post("/api/landsraad/term", o.SetTerm)
 

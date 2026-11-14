@@ -136,16 +136,16 @@ test('CR-8: a Landsraad board with tasks and no term row is answered in words, b
   const task = { id: 900, board_index: 0, house_name: 'DA_HouseAlexin', goal_amount: 4000, completed: 0, contributions: [], player_contributions: [], my_contribution: 0, my_recorded: false,
     rewards: TIERS.map((threshold) => ({ threshold, amount: 1, template_id: 'Item.A', reached: false, delivered: false })) };
   const board = { term: null, factions: [{ id: 1, name: 'Atreides' }], character: { player_id: 1, name: 'Tester', faction_id: 1 }, decrees: [], rotation: [], tasks: [task] };
-  const ui = await boot({ get: { '/api/landsraad': board }, post: { '/api/landsraad/mine-many': { ok: true, changed: 1 } } });
+  const ui = await boot({ get: { '/api/landsraad': board }, post: { '/api/landsraad/apply': { ok: true, changed: 1 } } });
   ui.freeze();
   ui.click('[data-tab="landsraad"]'); await ui.settle();
-  const box = ui.doc.querySelector('[data-lshouse="900"]');
-  assert.ok(box, 'the board is drawn without a term');
-  box.checked = true; box.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
-  ui.click('[data-act="lsFill"]'); await ui.settle();
+  const fill = ui.doc.querySelector('.qa-fill[data-id="900"]');
+  assert.ok(fill, 'the board is drawn without a term');
+  fill.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); await ui.settle(); // staged: the page needs no term for that
+  ui.doc.querySelector('[data-lb=write]').dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); await ui.settle();
   const t = ui.doc.querySelector('#toast');
   assert.ok(t.textContent.includes('no Landsraad term') && t.querySelector('.err') && !/null|undefined|Cannot read/.test(t.textContent), t.textContent);
   assert.equal(ui.doc.querySelector('#ask [role="dialog"]'), null, 'no question is asked');
-  assert.equal(posts(ui, '/api/landsraad/mine-many').length, 0);
+  assert.equal(posts(ui, '/api/landsraad/apply').length, 0);
   ui.dom.window.close();
 });

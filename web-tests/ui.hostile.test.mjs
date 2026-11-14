@@ -30,7 +30,7 @@ const read = (n) => fs.readFileSync(path.join(static_, n), 'utf8');
 // Allowlists: anything else appearing in the rendered DOM is an injection.
 const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h2 h3 h4 ul li code table thead tbody tr th td input select option datalist button details summary textarea br label canvas svg g rect text path defs clippath section i em dl dt dd dialog'.split(' '));
 const SCRIPTS = new Set(['/motion-boot.js', '/look-boot.js', '/theme-menu.js', '/html.js', '/livemap.js', '/app.js']); // the only scripts the page may contain, all same-origin files (the Motion and Look scripts are in the head, the Theme menu's before the page's)
-const ATTRS = new Set('for aria-expanded aria-haspopup focusable fill lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live aria-label aria-labelledby aria-describedby aria-sort aria-current aria-pressed inert tabindex label checked open viewbox x y rx transform d hidden aria-hidden clip-path'.split(' '));
+const ATTRS = new Set('aria-disabled stroke stroke-width stroke-linecap stroke-linejoin for aria-expanded aria-haspopup focusable fill lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live aria-label aria-labelledby aria-describedby aria-sort aria-current aria-pressed inert tabindex label checked open viewbox x y rx transform d hidden aria-hidden clip-path'.split(' '));
 
 export function assertClean(doc, label) {
   const bad = [];
@@ -1955,7 +1955,7 @@ test('Landsraad shows the term as dates and a reward as the item\'s name; Admin 
   await goTo(ui, 'landsraad');
   const t = ui.doc.querySelector('#main').textContent;
   assert.ok(!t.includes('1790000000') && /2026|2027/.test(t), 'Start and End are dates: ' + t.slice(0, 200));
-  assert.ok(t.includes('5 × Solari') && !t.includes('SolarisCoin'), 'the reward is named, not an id');
+  assert.ok(t.includes('5 Solari') && !t.includes('SolarisCoin'), 'the reward is named, not an id');
   await goTo(ui, 'player', 'player:admin');
   const a = ui.doc.querySelector('#main').textContent;
   assert.ok(a.includes('Solari') && !a.includes('SolarisCoin'), 'the vendor table shows the item name');
