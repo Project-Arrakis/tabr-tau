@@ -564,17 +564,21 @@ func (s *Server) routes() {
 	// and served read-only from this origin: the page links the files of design.DefaultLook (#570). design.Handler lists no folder and sends each file with its own type.
 	s.mux.Handle("/design/", http.StripPrefix("/design/", design.Handler()))
 
-	// The Live Map's marker icons: the files of the embedded maps/icons folder, listed once here. The list comes from the build, never
-	// from the request, so a request can only name a file that was embedded (anything else is a 404).
-	if icons, err := static.ReadDir("static/maps/icons"); err == nil {
+	// The Live Map's marker icons and the Landsraad tab's house symbols: the files of the embedded maps/icons and houses folders, listed once
+	// here. The list comes from the build, never from the request, so a request can only name a file that was embedded (anything else is a 404).
+	for _, folder := range []string{"maps/icons", "houses"} {
+		icons, err := static.ReadDir("static/" + folder)
+		if err != nil {
+			continue
+		}
 		for _, e := range icons {
 			name := e.Name()
 			ctype := map[string]string{".webp": "image/webp", ".png": "image/png"}[strings.ToLower(filepath.Ext(name))]
 			if e.IsDir() || ctype == "" {
 				continue
 			}
-			file, ct := "static/maps/icons/"+name, ctype
-			s.mux.HandleFunc("GET /maps/icons/"+name, func(w http.ResponseWriter, r *http.Request) {
+			file, ct := "static/"+folder+"/"+name, ctype
+			s.mux.HandleFunc("GET /"+folder+"/"+name, func(w http.ResponseWriter, r *http.Request) {
 				b, err := static.ReadFile(file)
 				if err != nil {
 					http.NotFound(w, r)
