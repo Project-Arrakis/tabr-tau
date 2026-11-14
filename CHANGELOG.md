@@ -1,4 +1,5 @@
-# Changelog
+# Changel- **Landsraad tab: review fixes against the mock-up** (refs #599, #609; the reward fix is a save write path). The quick peek on the place (mouse hover) is drawn; the status lines under the bulk bar and the term facts are styled as in the mock-up (the term facts no longer meet the Player tab's card style, and Start and End read as play-clock seconds); headings wrap on a phone so the term panel no longer makes the page scroll sideways at 390 px; the bar segments keep a 44 px hit area on a phone; a save with no houses in the term says so. Giving the top tier again after a removal, in the term in which the swatch was won, no longer writes the task's own item in place of the swatch: nothing is written, as the swatch was already delivered in that term.
+og
 
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/), tags `v0.x` until the first audited release.
