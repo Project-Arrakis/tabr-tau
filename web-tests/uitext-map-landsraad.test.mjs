@@ -25,6 +25,7 @@ const go = async (ui, tab) => { ui.click(`[data-tab="${tab}"]`); await ui.settle
 test('Landsraad: the nine-sentence explanation of the scales is in About this, with its words; the faction line is drawn only when there is no faction', async () => {
   let ui = await boot({ get: { '/api/landsraad': board(1) } });
   let main = await go(ui, 'landsraad');
+  ui.doc.querySelector('.lsb-prev').open = true; // the first board's controls sit in the closed "Previous controls" disclosure until the new board writes
   const shown = visibleText(main), moved = movedText(main);
   for (const s of ['Two different scales are shown for each house', 'Whether the game hands out a tier when it loads the save after a fill is not known from a save']) { assert.ok(moved.includes(s), 'lost, not moved: ' + s); }
   assert.ok(!shown.includes('Two different scales are shown for each house'));
@@ -39,6 +40,7 @@ test('Landsraad: the nine-sentence explanation of the scales is in About this, w
 
   ui = await boot({ get: { '/api/landsraad': board(null) } });
   main = await go(ui, 'landsraad');
+  ui.doc.querySelector('.lsb-prev').open = true;
   assert.ok(visibleText(main).includes('Your character is in no faction (Neutral), so there is nothing to fill: assign Atreides or Harkonnen under Admin first.'), 'why Fill is off stays in view');
   assert.ok(!ui.doc.querySelector('#lscales').textContent.includes('Neutral'), 'it is no longer inside the explanation');
   ui.dom.window.close();
