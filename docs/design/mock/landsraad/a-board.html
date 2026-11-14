@@ -298,7 +298,7 @@ a.tile .now{display:none;position:absolute;top:8px;right:8px;padding:0 8px;borde
 .hw[data-esc]>.hcard{display:none!important}
 .hcard h4{margin:0 28px 6px 0;font:700 var(--t-md) var(--t-display);color:var(--c-gold)}
 .hcard dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:4px 10px}
-.hcard dt{color:var(--c-dim)}.hcard dd{margin:0}
+.hcard dt{color:var(--c-dim)}.hcard dd{margin:0}.hcard dd .hrw{display:block}
 .hcard .fine{display:block;margin:8px 0 0;color:var(--c-dim);font-size:var(--t-xs)}
 .hcl{display:none;position:absolute;top:6px;right:6px;min-width:28px;min-height:28px;padding:0;border:1px solid var(--c-rule);border-radius:var(--r-2);background:var(--c-raised);color:var(--c-text);font:600 var(--t-md) var(--t-display);cursor:pointer}
 .hw.open .hcl{display:block}
@@ -1242,7 +1242,7 @@ details.about .abt b{color:var(--c-text)}
   function nextParts(r) { var x = r.cur.mine; for (var i = 0; i < 5; i++) if (x < T[i]) return ['next ' + f(T[i]) + ' · ' + rtext(r, i + 1) + ',', f(T[i] - x) + ' more']; return [x > T[4] ? 'above the top tier' : 'top tier reached']; }
   function nextText(r) { return nextParts(r).join(' '); }
   function nextReward(r) { var x = r.cur.mine; for (var i = 0; i < 5; i++) if (x < T[i]) return f(T[i]) + ': ' + rtext(r, i + 1); return 'top tier reached'; }
-  function waitText(r) { var o = []; for (var i = 1; i <= 5; i++) if (tstate(r, i) === 'wait') o.push(rtext(r, i)); return o.length ? o.join(', ') : 'nothing waiting'; }
+  function waitText(r) { var o = []; for (var i = 1; i <= 5; i++) if (tstate(r, i) === 'wait') o.push(rtext(r, i)); return o.length ? o.map(function (x) { return '<span class="hrw">' + x + '</span>'; }).join('') : 'nothing waiting'; }
   function lead(c) { return c.p1 > c.p2 ? 1 : c.p2 > c.p1 ? 2 : 0; }
   function hsText(c) { return c.win ? 'Taken · ' + FAC[c.win] + (c.win === MINE ? ' (yours)' : '') : 'Open' + (lead(c) ? ' · ' + FAC[lead(c)] + ' ahead' : ''); }
   function completeFor(c, F) { return c.win === F && c['p' + F] >= GOAL; }

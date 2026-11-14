@@ -1,6 +1,7 @@
 // The new Landsraad board (#599): one list of the houses, alphabetical, collapsed rows that open to the tiers with their rewards, the filters, the sort, the jump and the earlier terms.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { boot, closeAll } from './boot.mjs';
 
 afterEach(closeAll);
@@ -183,6 +184,30 @@ test('the house name card names the next reward, what waits, the faction race an
   assert.equal(hw.querySelector('.hn').getAttribute('aria-expanded'), 'true');
   click(ui, '#lsrow-903 .hcl');
   assert.ok(!hw.classList.contains('open'));
+});
+
+test('the house name card lists each waiting reward on its own line, and says so in words when nothing waits (#666)', async () => {
+  const data = board({ tasks: [
+    house(903, 'Wayku', 6500, {}, { 1200: 'delivered', 2400: 'delivered', 3600: 'waiting', 4800: 'waiting', 6000: 'waiting' }),
+    house(900, 'Alexin', 0),
+    house(901, 'Thorvald', 4700, {}, { 1200: 'delivered', 2400: 'delivered', 3600: 'waiting' }),
+  ] });
+  const ui = await open(data);
+  const waitingOf = (id) => {
+    const dts = [...ui.doc.querySelectorAll('#lsrow-' + id + ' .hcard dt')];
+    return dts.find((d) => text(d) === 'Waiting to collect').nextElementSibling;
+  };
+  const dd = waitingOf(903);
+  const lines = [...dd.querySelectorAll('.hrw')];
+  assert.deepEqual(lines.map((l) => text(l)), ['50 Precision Range Finder', '1 Improved Holtzman Actuator', '1 House Alexin Placeables Swatch'], 'one line per waiting reward, in tier order');
+  assert.equal(dd.children.length, 3, 'nothing but the reward lines inside');
+  assert.ok(!dd.innerHTML.includes(', '), 'no comma-joined run is left');
+  const css = fs.readFileSync(new URL('../internal/web/static/app.css', import.meta.url), 'utf8');
+  assert.ok(css.includes('.lsb .hcard dd .hrw{display:block}'), 'the stylesheet draws each reward as its own block');
+  assert.equal(waitingOf(901).querySelectorAll('.hrw').length, 1);
+  const none = waitingOf(900);
+  assert.equal(none.querySelectorAll('.hrw').length, 0);
+  assert.equal(text(none), 'nothing waiting');
 });
 
 test('earlier terms: the terms with a contribution of the character, each with its houses; a save with one term says so', async () => {
