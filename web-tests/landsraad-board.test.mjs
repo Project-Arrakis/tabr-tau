@@ -227,3 +227,33 @@ test('the longer explanations sit in closed About disclosures', async () => {
   assert.ok(abouts.length >= 3);
   assert.ok(abouts.every((d) => !d.open && /^About /.test(text(d.querySelector('summary')))));
 });
+
+test('the place has a quick peek for a mouse (the lines of the dialog) only where the position is known', async () => {
+  const known = { known: true, map: 'Hagga Basin', area: 'The O’dham', place: 'north rim', x: 0.25, y: 0.5 };
+  const ui = await open(board({ tasks: [house(900, 'Alexin', 0), house(901, 'Thorvald', 100, { location: known })] }));
+  assert.equal(ui.doc.querySelector('#lsrow-900 .loc .pop'), null, 'no peek for a house with no position');
+  const pop = ui.doc.querySelector('#lsrow-901 .loc > .pop');
+  assert.ok(pop, 'the peek is in the place');
+  assert.equal(pop.getAttribute('aria-hidden'), 'true', 'the peek is mouse only; the dialog is the way in for the keyboard and touch');
+  assert.ok(text(pop).includes('The O’dham (Hagga Basin)') && text(pop).includes('north rim') && text(pop).includes('Click the place for the full map'), text(pop));
+  assert.equal(pop.querySelector('.pin').style.left, '25%');
+  assert.ok(ui.doc.querySelector('#lsrow-901 [data-lb=map]').title.includes('Hover for a quick peek'));
+});
+
+test('a save with no houses in the term says so in place of the board controls', async () => {
+  const ui = await open(board({ tasks: [] }));
+  const b = ui.doc.querySelector('#lsb-board');
+  assert.ok(b.querySelector('.nodata') && text(b).includes('no Landsraad houses'), text(b));
+  assert.equal(b.querySelectorAll('button, select, input').length, 0, 'no control is offered against an empty board');
+});
+
+test('the stylesheet styles the status lines by the ids the board draws, and keeps the term facts apart from the Player tab\'s .kv cards', async () => {
+  const fs = await import('node:fs');
+  const css = fs.readFileSync(new URL('../internal/web/static/app.css', import.meta.url), 'utf8');
+  const js = fs.readFileSync(new URL('../internal/web/static/app.js', import.meta.url), 'utf8');
+  for (const id of ['lsb-sum', 'lsb-result', 'lsb-pendbar', 'lsb-tresult']) {
+    assert.ok(js.includes('id="' + id + '"'), id + ' is drawn');
+    assert.ok(css.includes('.lsb #' + id + '{'), id + ' is styled');
+  }
+  assert.ok(!/\.lsb \.kv\b/.test(css), 'the global .kv card (boxed, 11px values, words broken anywhere) must not meet the term facts');
+});
