@@ -1,7 +1,6 @@
 package ops
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -159,12 +158,13 @@ func (o *Ops) BringVehicle(a Args) (any, error) {
 	found := false
 	var placed placement
 	_, err = o.S.Mutate(fmt.Sprintf("moved vehicle %d next to player", id), func(m *save.Mut) error {
-		me, err := m.One(`select map, location_x x, location_y y, location_z z, rotation_x rx, rotation_y ry, rotation_z rz, rotation_w rw, dimension_index d from actors where id=?`, p.Pawn)
+		// the character's place: the map and dimension of the controller, the body's position, and a refusal when the body is not where the player is (#654)
+		here, err := readCharacterPlace(m.One, p, true)
 		if err != nil {
 			return err
 		}
-		if me == nil {
-			return errors.New("player position unknown")
+		if here.Parked != nil {
+			return here.Parked
 		}
 		v, err := m.One(`select class from actors where id=? and id in (`+ownedVehicleSQL+`) and id not in (`+storedVehicleSQL+`)`, id, p.Controller)
 		if err != nil {
@@ -173,13 +173,12 @@ func (o *Ops) BringVehicle(a Args) (any, error) {
 		if v == nil {
 			return nil
 		}
-		dim, _ := toInt(me["d"])
-		if placed, err = choosePlace(m.Query, fmt.Sprint(me["map"]), dim, poseOf(me), sizeOfActorClass(v["class"]), id, vehicleType(shortClass(v["class"]))); err != nil {
+		if placed, err = choosePlace(m.Query, here.Map, here.Dim, poseOf(here.Body), sizeOfActorClass(v["class"]), id, vehicleType(shortClass(v["class"]))); err != nil {
 			return err
 		}
-		res, err := m.Exec(`update actors set map=?, location_x=?, location_y=?, location_z=?
+		res, err := m.Exec(`update actors set map=?, dimension_index=?, location_x=?, location_y=?, location_z=?
 		where id=? and id in (`+ownedVehicleSQL+`) and id not in (`+storedVehicleSQL+`)`,
-			me["map"], placed.X, placed.Y, placed.Z, id, p.Controller)
+			here.Map, here.Dim, placed.X, placed.Y, placed.Z, id, p.Controller)
 		if err != nil {
 			return err
 		}

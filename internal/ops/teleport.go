@@ -54,19 +54,17 @@ func travelMapOf(key string) (mapConfig, bool) {
 	return mapConfig{}, false
 }
 
-// where returns the character's pawn id, map and position.
-func (o *Ops) where() (id int64, mp string, x, y float64, err error) {
-	p, err := o.player()
+// where returns where the character is (characterPlace): the map the player is on is the controller's, the position the body's when the three actors agree. An answer with no map
+// means the save does not say where the character is.
+func (o *Ops) where(p player) (characterPlace, error) {
+	cp, err := readCharacterPlace(o.S.One, p, true)
 	if err != nil {
-		return 0, "", 0, 0, err
+		return cp, err
 	}
-	r, err := o.S.One(`select map, location_x x, location_y y from actors where id=?`, p.Pawn)
-	if err != nil || r == nil {
-		return 0, "", 0, 0, apierr.New(apierr.ErrNotFound, "the character's body was not found in this save")
+	if cp.Map == "" {
+		return cp, apierr.New(apierr.ErrNotFound, "the character's place was not found in this save")
 	}
-	fx, _ := toFloat(r["x"])
-	fy, _ := toFloat(r["y"])
-	return p.Pawn, fmt.Sprint(r["map"]), fx, fy, nil
+	return cp, nil
 }
 
 func flatDistance(x, y, px, py float64) float64 { return math.Hypot(x-px, y-py) }
@@ -81,10 +79,12 @@ func (o *Ops) Destinations(q, dest string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, cur, px, py, err := o.where()
+	here, err := o.where(p)
 	if err != nil {
 		return nil, err
 	}
+	cur := here.Map
+	px, py := here.pos()
 	mp := cur
 	if dest != "" {
 		if _, ok := travelMapOf(dest); !ok && dest != cur {
@@ -145,7 +145,11 @@ func (o *Ops) Destinations(q, dest string) (any, error) {
 	if len(out) > destinationLimit {
 		out = out[:destinationLimit]
 	}
-	return map[string]any{"map": mp, "sameMap": same, "maps": maps, "total": total, "destinations": out, "groups": groupsOf(out)}, nil
+	res := map[string]any{"map": mp, "sameMap": same, "maps": maps, "total": total, "destinations": out, "groups": groupsOf(out)}
+	if here.Parked != nil {
+		res["parked"] = here.Parked.Error() // the body is not where the player is: the distances are from the player (the controller), and a move of the character is refused or made on all three actors
+	}
+	return res, nil
 }
 
 // yawQuaternion is the rotation of a character turned by yaw degrees about the vertical axis, as the actors table stores it
@@ -184,28 +188,48 @@ func (o *Ops) Teleport(a Args) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if dest != "" {
-		_, cur, _, _, err := o.where()
+	// The whole move is one edit that reads where the character is inside it (#654, G-008): the map the player is on (the controller's), whether the body is there and standing in the
+	// world. The reads are kept with the edit, so an edit put back onto a newer file in which the character is on another map is held, not applied with the old map's numbers.
+	_, err = o.S.Mutate(desc, func(m *save.Mut) error {
+		here, err := readCharacterPlace(m.One, p, false)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		if dest != cur {
-			return o.teleportToMap(p, dest, x, y, z, yaw, hasYaw)
+		if here.Parked != nil {
+			// a body on another map than the player is moved by the move between maps, which writes all three actors to the map the person named; a move on one map would move the
+			// body only and leave it where the player is not. A body that is not standing in the world (its state is not 0) is not moved by the editor.
+			if !here.ParkedMap {
+				return here.Parked
+			}
+			if dest == "" {
+				return apierr.Newf(apierr.ErrBadArgument, "this save holds the character's body on another map (%s) than the one the player is on (%s), so a move on one map would move only the body. Choose the map to move to: the editor then moves the body, the controller and the player state there together. Nothing was changed.", orNone(mapOfRow(here.Body)), here.Map)
+			}
 		}
-	}
-	if !hasYaw {
-		if _, err := o.run(desc, `update actors set location_x=?, location_y=?, location_z=? where id=?`, x, y, z, p.Pawn); err != nil {
-			return nil, err
+		if dest != "" && (dest != here.Map || here.Parked != nil) {
+			m.Desc = teleportMapDesc(dest, x, y, z, yaw, hasYaw)
+			return teleportToMap(m, p, dest, x, y, z, yaw, hasYaw)
 		}
-		return ok(), nil
-	}
-	qx, qy, qz, qw := yawQuaternion(yaw)
-	if _, err := o.run(desc+fmt.Sprintf(" facing %.0f degrees", yaw),
-		`update actors set location_x=?, location_y=?, location_z=?, rotation_x=?, rotation_y=?, rotation_z=?, rotation_w=? where id=?`,
-		x, y, z, qx, qy, qz, qw, p.Pawn); err != nil {
+		if !hasYaw {
+			_, err := m.Exec(`update actors set location_x=?, location_y=?, location_z=? where id=?`, x, y, z, p.Pawn)
+			return err
+		}
+		qx, qy, qz, qw := yawQuaternion(yaw)
+		m.Desc = desc + fmt.Sprintf(" facing %.0f degrees", yaw)
+		_, err = m.Exec(`update actors set location_x=?, location_y=?, location_z=?, rotation_x=?, rotation_y=?, rotation_z=?, rotation_w=? where id=?`,
+			x, y, z, qx, qy, qz, qw, p.Pawn)
+		return err
+	})
+	if err != nil {
 		return nil, err
 	}
 	return ok(), nil
+}
+
+func mapOfRow(r save.Row) string {
+	if r == nil || r["map"] == nil {
+		return ""
+	}
+	return fmt.Sprint(r["map"])
 }
 
 // teleportYaw reads the optional facing: absent, null or empty means "keep the way the character faces".
@@ -241,55 +265,55 @@ func teleportMapArg(a Args) (string, error) {
 	return s, nil
 }
 
-// teleportToMap moves the character to another map. A save the game wrote keeps the character's three actors (the controller, the body and
+// teleportMapDesc is the journal line of a move to another map.
+func teleportMapDesc(dest string, x, y, z, yaw float64, hasYaw bool) string {
+	desc := fmt.Sprintf("teleport player to %s %.0f, %.0f, %.0f", dest, x, y, z)
+	if hasYaw {
+		desc += fmt.Sprintf(" facing %.0f degrees", yaw)
+	}
+	return desc
+}
+
+// teleportToMap moves the character to another map, inside the caller's edit. A save the game wrote keeps the character's three actors (the controller, the body and
 // the player state) on the same map and at the same position, so a move between maps writes all three; a move on one map writes the body
 // only, which is what was checked in the game. The position has to lie inside the destination map's own bounds (Hagga Basin's are much
 // smaller than the Deep Desert's, so a Deep Desert position typed for Hagga Basin is caught; the reverse is not, and the places the page lists
 // for a map are the safe way to choose). A move to the Deep Desert was checked in the game once (2026-10-27, one character, a throwaway
 // save): the three actors were written as here and the game loaded the character there. No other move was checked. A move into a hub (Arrakeen, Harko Village; #521) is written the
 // same way but is not known to work: the game may load the character in the hub or ignore the map in the save (the operator checks it on a copy).
-func (o *Ops) teleportToMap(p player, dest string, x, y, z, yaw float64, hasYaw bool) (any, error) {
+func teleportToMap(m *save.Mut, p player, dest string, x, y, z, yaw float64, hasYaw bool) error {
 	if cfg, ok := travelMapOf(dest); ok {
 		if x < cfg.MinX || x > cfg.MaxX || y < cfg.MinY || y > cfg.MaxY {
-			return nil, apierr.Newf(apierr.ErrBadArgument, "X %.0f, Y %.0f is outside the %s map (X %.0f to %.0f, Y %.0f to %.0f)", x, y, cfg.Label, cfg.MinX, cfg.MaxX, cfg.MinY, cfg.MaxY)
+			return apierr.Newf(apierr.ErrBadArgument, "X %.0f, Y %.0f is outside the %s map (X %.0f to %.0f, Y %.0f to %.0f)", x, y, cfg.Label, cfg.MinX, cfg.MaxX, cfg.MinY, cfg.MaxY)
 		}
 	} else if a, hub := hubArrival(dest); !hub {
-		return nil, apierr.New(apierr.ErrBadArgument, "map must be HaggaBasin, DeepDesert, Arrakeen or HarkoVillage")
+		return apierr.New(apierr.ErrBadArgument, "map must be HaggaBasin, DeepDesert, Arrakeen or HarkoVillage")
 	} else if math.Abs(x-a.X) > hubArrivalTolerance || math.Abs(y-a.Y) > hubArrivalTolerance || math.Abs(z-a.Z) > hubArrivalTolerance {
 		// a hub's own bounds are not known, so the editor moves the character into a hub only to the game's arrival point for it, which Go to a place gives
-		return nil, apierr.Newf(apierr.ErrBadArgument, "the editor moves the character into %s only to the game's arrival point for it: choose it in Go to a place", hubName(dest))
+		return apierr.Newf(apierr.ErrBadArgument, "the editor moves the character into %s only to the game's arrival point for it: choose it in Go to a place", hubName(dest))
 	}
-	desc := fmt.Sprintf("teleport player to %s %.0f, %.0f, %.0f", dest, x, y, z)
+	r, err := m.Query(`select ps.player_controller_id c, ps.player_pawn_id b, ps.player_state_id s,
+		(select count(*) from actors where id in (ps.player_controller_id, ps.player_pawn_id, ps.player_state_id)) n from player_state ps where ps.id=?`, p.Controller)
+	if err != nil {
+		return err
+	}
+	if len(r) == 0 {
+		return errors.New("the character's record was not found in this save")
+	}
+	if n, _ := toInt(r[0]["n"]); n != 3 {
+		return errors.New("this save does not hold all three of the character's actors (controller, body and player state), so a move to another map is refused: moving only some of them would split the character between two maps")
+	}
+	c, _ := toInt(r[0]["c"])
+	b, _ := toInt(r[0]["b"])
+	s, _ := toInt(r[0]["s"])
+	if _, err := m.Exec(`update actors set map=?, dimension_index=0, location_x=?, location_y=?, location_z=? where id in (?,?,?)`, dest, x, y, z, c, b, s); err != nil {
+		return err
+	}
 	if hasYaw {
-		desc += fmt.Sprintf(" facing %.0f degrees", yaw)
-	}
-	if _, err := o.S.Mutate(desc, func(m *save.Mut) error {
-		r, err := m.Query(`select ps.player_controller_id c, ps.player_pawn_id b, ps.player_state_id s,
-			(select count(*) from actors where id in (ps.player_controller_id, ps.player_pawn_id, ps.player_state_id)) n from player_state ps where ps.id=?`, p.Controller)
-		if err != nil {
+		qx, qy, qz, qw := yawQuaternion(yaw)
+		if _, err := m.Exec(`update actors set rotation_x=?, rotation_y=?, rotation_z=?, rotation_w=? where id=?`, qx, qy, qz, qw, b); err != nil {
 			return err
 		}
-		if len(r) == 0 {
-			return errors.New("the character's record was not found in this save")
-		}
-		if n, _ := toInt(r[0]["n"]); n != 3 {
-			return errors.New("this save does not hold all three of the character's actors (controller, body and player state), so a move to another map is refused: moving only some of them would split the character between two maps")
-		}
-		c, _ := toInt(r[0]["c"])
-		b, _ := toInt(r[0]["b"])
-		s, _ := toInt(r[0]["s"])
-		if _, err := m.Exec(`update actors set map=?, dimension_index=0, location_x=?, location_y=?, location_z=? where id in (?,?,?)`, dest, x, y, z, c, b, s); err != nil {
-			return err
-		}
-		if hasYaw {
-			qx, qy, qz, qw := yawQuaternion(yaw)
-			if _, err := m.Exec(`update actors set rotation_x=?, rotation_y=?, rotation_z=?, rotation_w=? where id=?`, qx, qy, qz, qw, b); err != nil {
-				return err
-			}
-		}
-		return nil
-	}); err != nil {
-		return nil, err
 	}
-	return ok(), nil
+	return nil
 }
