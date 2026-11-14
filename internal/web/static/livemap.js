@@ -266,6 +266,10 @@
       ctx.globalAlpha = 1;
       if (big) { ctx.lineWidth = 1.5 / lm.scale; ctx.strokeStyle = '#000'; ctx.stroke(); }
     }
+    if (lm.focus && lm.focus.key === lm.map) { // the place chosen on the Landsraad board: a ring that keeps its size on screen
+      ctx.beginPath(); ctx.arc(lm.focus.fx * cfg.width, lm.focus.fy * cfg.height, 14 / lm.scale, 0, Math.PI * 2);
+      ctx.lineWidth = 3 / lm.scale; ctx.strokeStyle = '#ffd54a'; ctx.stroke();
+    }
   }
 
   function lmNearest(c, mx, my) {
@@ -350,6 +354,7 @@
   async function liveMapView() {
     const d = await api('/api/livemap?map=' + encodeURIComponent(lm.map));
     lm.data = d;
+    if (lm.focus && lm.focus.fresh) { lm.focus.fresh = false; lm.view = { z: 4, cx: lm.focus.fx * d.config.width, cy: lm.focus.fy * d.config.height }; } // opened from the Landsraad board: centred on the house
     lm.points = lmBuildPoints(d);
     const counts = {};
     for (const p of lm.points) counts[p.g] = (counts[p.g] || 0) + 1;
@@ -375,7 +380,7 @@
 
   document.addEventListener('click', (e) => {
     const m = e.target.closest('[data-lmmap]');
-    if (m) { lm.map = m.dataset.lmmap; lm.view = null; render(); return; }
+    if (m) { lm.map = m.dataset.lmmap; lm.view = null; lm.focus = null; render(); return; }
     const z = e.target.closest('[data-lmz]');
     if (z) { if (z.dataset.lmz === 'in') lmZoom(1.2); else if (z.dataset.lmz === 'out') lmZoom(1 / 1.2); else lmReset(); return; }
     const g = e.target.closest('[data-lmg]');
@@ -385,5 +390,6 @@
   });
 
   window.liveMapView = liveMapView;
+  window.liveMapShow = (key, fx, fy, label) => { lm.map = key; lm.view = null; lm.focus = { key, fx, fy, label, fresh: true }; }; // the Landsraad board opens the Saved map at a house
   window.liveMapState = () => ({ scale: lm.scale, ox: lm.ox, oy: lm.oy, w: lm.w, h: lm.h, dpr: lm.dpr, view: lm.view && { ...lm.view } }); // read-only, for the tests
 })();

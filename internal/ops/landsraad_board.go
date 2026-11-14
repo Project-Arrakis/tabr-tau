@@ -58,9 +58,9 @@ func readOneTime(o *Ops, player int64) (oneTime, error) {
 }
 
 // boardTask adds to one task what the board needs: the place, the swatch facts and the state of every tier.
-func boardTask(t save.Row, tiers []any, delivered map[string]save.Row, one oneTime, termID int64, termStart float64) {
+func boardTask(t save.Row, tiers []any, delivered map[string]save.Row, one oneTime, termID int64, termStart float64, here *charPlace) {
 	house := fmt.Sprint(t["house_name"])
-	t["location"] = locationOf(house)
+	t["location"] = locationOf(house, here)
 	sw, hasSwatch := one.swatch[house]
 	heldTerm, held := one.held[house]
 	t["swatch_held"] = held
