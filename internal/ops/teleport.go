@@ -143,13 +143,35 @@ func (o *Ops) Destinations(q, dest string) (any, error) {
 	}
 	total := len(out)
 	if len(out) > destinationLimit {
-		out = out[:destinationLimit]
+		out = capKeepingOtherMaps(out, destinationLimit)
 	}
 	res := map[string]any{"map": mp, "sameMap": same, "maps": maps, "total": total, "destinations": out, "groups": groupsOf(out)}
 	if here.Parked != nil {
 		res["parked"] = here.Parked.Error() // the body is not where the player is: the distances are from the player (the controller), and a move of the character is refused or made on all three actors
 	}
 	return res, nil
+}
+
+// capKeepingOtherMaps cuts the list to limit rows. The places on another map (the hubs, #521) are the last rows of the list and would be the first to go, which would hide them
+// while they exist (#607); they are kept and the places of the shown map give way instead, in the order they were in.
+func capKeepingOtherMaps(list []Destination, limit int) []Destination {
+	other := 0
+	for _, d := range list {
+		if d.OtherMap {
+			other++
+		}
+	}
+	room := max(limit-other, 0)
+	out := make([]Destination, 0, limit)
+	for _, d := range list {
+		if d.OtherMap {
+			out = append(out, d)
+		} else if room > 0 {
+			out = append(out, d)
+			room--
+		}
+	}
+	return out
 }
 
 // yawQuaternion is the rotation of a character turned by yaw degrees about the vertical axis, as the actors table stores it
