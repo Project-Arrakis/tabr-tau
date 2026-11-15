@@ -700,7 +700,7 @@ async function resetArea({ count, title, body, list = [], typed, ok, path, extra
     try {
       const r = await api(path, { expected: count, ...extra });
       toast((r.noop ? none : done(r)) + NOT_SAVED);
-    } catch (e) { if (e.code === 'conflict') setTimeout(render, 0); throw e; }
+    } catch (e) { if (e.code === 'conflict') setTimeout(() => render('scroll'), 0); throw e; }
   }, null);
 }
 
@@ -2247,7 +2247,16 @@ function refocus(s) {
   const pool = s.id ? [document.getElementById(s.id)] : [...document.querySelectorAll('#main ' + s.tag + ', #nav ' + s.tag)];
   const same = pool.filter((n) => n && s.data.every(([k, v]) => n.getAttribute(k) === v));
   const n = same.find((x) => (x.getAttribute('aria-label') || x.textContent || '').trim().slice(0, 60) === s.label) || same[0];
-  if (n && typeof n.focus === 'function') n.focus({ preventScroll: true });
+  if (n && typeof n.focus === 'function') { n.focus({ preventScroll: true }); intoView(n); }
+}
+// The focus went back to a control that the kept offset left where it was; the page moves only when that control is off the screen or under the sticky header (#686).
+function intoView(n) {
+  const r = n.getBoundingClientRect();
+  if (!r.width && !r.height) return; // not laid out (hidden, or no layout at all)
+  let top = 0;
+  document.querySelectorAll('header, #gamewarn, #launchpass').forEach((b) => { top = Math.max(top, b.getBoundingClientRect().bottom); });
+  const by = r.top < top ? r.top - top - 8 : r.bottom > window.innerHeight ? r.bottom - window.innerHeight + 8 : 0;
+  if (by) window.scrollTo(window.scrollX, Math.max(0, window.scrollY + by));
 }
 // The page is drawn again after an action, and that must not cost the person their place (#365): the scroll offset of the page and of every scrolling table, the
 // choices made in the page that the save does not hold (a ticked box, a chosen faction, text typed in a box) and the lists that were opened. viewSnapshot notes them before
@@ -2350,6 +2359,8 @@ async function render(keepPlace) {
 }
 
 const D = (e) => e.target.closest('[data-act]');
+// A new search or another page of rows starts at the top of the table's own box; the page offset is kept (#686).
+function dbRowsTop() { const b = $('#dbout .scroll'); if (b) { b.scrollTop = 0; b.scrollLeft = 0; } }
 // A failed SQL statement shows its reason where the result goes, and the earlier result is cleared so it cannot be read as the answer (register 2026-10-07, UX-5).
 function sqlFailed(e) { const out = $('#sqlout'); if (out) setHTML(out, html`<p class="bad">${e.message}</p>`); }
 
@@ -2387,17 +2398,17 @@ const A = {
   currency: () => act(async () => { const r = await api('/api/player/currency', { currency: +val('curSel'), amount: +val('curAmt') }); toast(`${r.currency == 0 ? 'Solari in wallet' : 'House credit in wallet'} ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()}` + NOT_SAVED); }, null),
   intel: () => act(async () => { const r = await api('/api/player/intel', { amount: +val('intelAmt') }); toast(r.applied ? `Intel ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()}` + (r.capped ? ' (capped at 2,779)' : '') + NOT_SAVED : 'Intel is already at the cap (2,779).'); }, null),
   teleport: () => act(async () => { const body = { x: +val('tx'), y: +val('ty'), z: +val('tz') }; if (val('tdyaw') !== '') body.yaw = +val('tdyaw'); const pick = GO.pick === null ? null : TD[GO.pick]; if (pick && pick.map) body.map = pick.map; else if (val('tmap') !== '') body.map = val('tmap'); const r = await api('/api/player/teleport', body); goClear(); toast(r.message || ('Teleport set' + NOT_SAVED), r.warn ? 'part' : false, 15000); return r; }, null),
-  augEdit: (d) => act(async () => { const r = await api('/api/items/augment-options', { item_id: +d.id }); r.options.forEach((o) => AUG_NAMES.set(o.id, o.name)); augItem = { ...r, item_id: +d.id }; render(); }, null, false),
+  augEdit: (d) => act(async () => { const r = await api('/api/items/augment-options', { item_id: +d.id }); r.options.forEach((o) => AUG_NAMES.set(o.id, o.name)); augItem = { ...r, item_id: +d.id }; render('scroll'); }, null, false),
   augCancel: () => { augItem = null; render(true); },
   augApply: (d) => act(async () => { const r = await api('/api/items/augment', { item_id: +d.id, augments: augPicked('au', augItem.limit), grade: +val('augG'), unlock_slots: $('#augU').checked }); augItem = null; toast(`Augments set (${r.augments})` + (r.slotsUnlocked ? `, ${r.slotsUnlocked} slot keystones unlocked` : '') + NOT_SAVED); }, null),
-  queueAdd: () => { let t; try { t = needItem('gt'); } catch (e) { return toast(e.message, 'err'); } const e = { template_id: t, quantity: Math.max(1, +val('gq') || 1), quality: +val('gg') }; const ids = augPicked('ga', 3); if (ids.length) { e.augments = ids; e.grade = +val('gag'); } giveQueue.push(e); keepQueue(); render(); },
+  queueAdd: () => { let t; try { t = needItem('gt'); } catch (e) { return toast(e.message, 'err'); } const e = { template_id: t, quantity: Math.max(1, +val('gq') || 1), quality: +val('gg') }; const ids = augPicked('ga', 3); if (ids.length) { e.augments = ids; e.grade = +val('gag'); } giveQueue.push(e); keepQueue(); render('scroll'); },
   // Care package (#417). These change the editor's settings and never the save, so they are immediate: nothing is queued.
-  kitNew: () => { kitDraft = { was: '', name: '', items: [], xp: 0, skillPoints: 0 }; render(); },
+  kitNew: () => { kitDraft = { was: '', name: '', items: [], xp: 0, skillPoints: 0 }; render('scroll'); },
   kitEdit: (d) => {
     const k = KITS && KITS.kits.find((x) => x.name === d.name);
     if (!k) { toast('That kit is no longer in the list.', true); return render(true); }
     kitDraft = { was: k.name, name: k.name, items: k.items.map((l) => ({ ...l, augments: (l.augments || []).slice() })), xp: k.xp || 0, skillPoints: k.skillPoints || 0 };
-    render();
+    render('scroll');
   },
   kitCancel: () => { kitDraft = null; render(true); },
   kitAddLine: () => {
@@ -2408,9 +2419,9 @@ const A = {
     const ids = augPicked('ka', 12);
     if (ids.length) { line.augments = ids; line.augmentGrade = +val('kag'); }
     kitDraft.items.push(line);
-    render();
+    render('scroll');
   },
-  kitDelLine: (d) => { kitSync(); kitDraft.items.splice(+d.id, 1); render(); },
+  kitDelLine: (d) => { kitSync(); kitDraft.items.splice(+d.id, 1); render('scroll'); },
   kitSave: () => {
     kitSync();
     const d = kitDraft;
@@ -2508,8 +2519,8 @@ const A = {
   tut: (d) => act(async () => { await api('/api/player/tutorials', { id: +d.id, complete: d.c == '1' }); JB = await api('/api/player/journey/browse'); journeyList(); toast('Tutorial updated' + NOT_SAVED); }, null),
   tagAdd: () => act(() => api('/api/player/tags', { tag: val('tag').trim(), add: true }), 'Tag added'),
   tagDel: (d) => act(() => api('/api/player/tags', { tag: d.tag, add: false }), 'Tag removed'),
-  invfilter: () => { invQ = val('invq'); return render(); },
-  invclear: () => { invQ = ''; render(); },
+  invfilter: () => { invQ = val('invq'); return render('scroll'); },
+  invclear: () => { invQ = ''; render('scroll'); },
   skPoints: () => act(async () => { const r = await api('/api/player/skills/points', { points: +val('skPts') }); toast(`Unspent skill points ${r.before} → ${r.after}` + NOT_SAVED); }, null),
   skStarter: () => act(async () => { const r = await api('/api/player/skills/starter', { school: skSchool }); toast(r.changed ? `Restored ${r.changed} starter skills` + NOT_SAVED : 'The starter skills are already learned.'); }, null),
   ctfilter: () => { ctQ = val('ctq'); catalogList(); },
@@ -2678,9 +2689,9 @@ const A = {
   cfgdel: async (d) => (await ask({ title: 'Delete config line?', body: 'Delete ' + d.key + ' from ' + cfgFile + '. A backup of the file is made first.', ok: 'Delete', danger: true })) && act(() => api('/api/config/delete', { name: cfgFile, line: +d.line, key: d.key }), 'Deleted from the config file now', true, true),
   cfgraw: async () => (await ask({ title: 'Replace the whole file?', body: 'Everything in ' + cfgFile + ' is replaced by the text in the box. It is written now, after a backup of the file is made. Close the game first.', ok: 'Replace file', danger: true })) && act(() => api('/api/config/raw', { name: cfgFile, text: val('raw') }), 'File written now (the previous text is in Backups)', true, true),
   cfgrestore: async (d) => (await ask({ title: 'Restore config backup?', body: 'Replace ' + cfgFile + ' with ' + d.b + '. Close the game first.', ok: 'Restore', danger: true })) && act(() => api('/api/config/restore', { name: cfgFile, backup: d.b }), 'Config file restored now', true, true),
-  dbgo: () => { dbQ = val('dbq'); dbOff = 0; return render(); },
-  dbprev: () => { dbOff = Math.max(0, dbOff - 100); render(); },
-  dbnext: () => { dbOff += 100; render(); },
+  dbgo: async () => { dbQ = val('dbq'); dbOff = 0; await render('scroll'); dbRowsTop(); },
+  dbprev: async () => { dbOff = Math.max(0, dbOff - 100); await render('scroll'); dbRowsTop(); },
+  dbnext: async () => { dbOff += 100; await render('scroll'); dbRowsTop(); },
   runsql: async () => {
     window.lastSql = val('sql');
     try {
@@ -2738,13 +2749,13 @@ document.addEventListener('click', (e) => {
   const vo = e.target.closest('[data-vhopen]');
   if (vo) { vcSync(); vhOpen = +vo.dataset.vhopen; render('scroll'); return; }
   const bo = e.target.closest('[data-bsopen]');
-  if (bo) { bsOpen = +bo.dataset.bsopen; render(); return; }
+  if (bo) { bsOpen = +bo.dataset.bsopen; render('scroll'); return; }
   const bt = e.target.closest('[data-bstab]');
-  if (bt) { bsTab = bt.dataset.bstab; render(); return; }
+  if (bt) { bsTab = bt.dataset.bstab; render('scroll'); return; }
   const bg = e.target.closest('[data-bsgrp]');
-  if (bg) { bsGroup = bg.dataset.bsgrp; render(); return; }
+  if (bg) { bsGroup = bg.dataset.bsgrp; render('scroll'); return; }
   const ig = e.target.closest('[data-invg]');
-  if (ig) { invG = ig.dataset.invg; render(); return; }
+  if (ig) { invG = ig.dataset.invg; render('scroll'); return; }
   const s = e.target.closest('[data-sub]');
   if (s) { const [g, k] = s.dataset.sub.split(':'); if (GROUPS.includes(g)) { sub[g] = k; render(); } return; }
   const a = D(e);
@@ -2785,7 +2796,7 @@ document.addEventListener('change', (e) => {
   else if (t.classList.contains('cfgv')) editInput(t, () => api('/api/config/set', { name: cfgFile, section: t.dataset.section, key: t.dataset.key, value: t.value, line: +t.dataset.line }), changedMsg(t, t.dataset.key + ' written to the config file now:'), true);
   else if (t.classList.contains('dbc')) editInput(t, async () => {
     try { return await api('/api/db/update', { table: dbTable, ...(t.dataset.kind == '_key_' ? { key: t.dataset.rowid } : { rowid: +t.dataset.rowid }), column: t.dataset.col, value: t.value === '' && t.hasAttribute('data-null') ? null : t.value, expected: t.dataset.orig }); }
-    catch (e) { if (e.code === 'conflict') setTimeout(render, 0); throw e; } // the table is out of date: show it as it is now
+    catch (e) { if (e.code === 'conflict') setTimeout(() => render('scroll'), 0); throw e; } // the table is out of date: show it as it is now
   }, changedMsg(t, 'Database ' + dbTable + '.' + t.dataset.col + ':'));
   else if (t.id == 'cfgsel') { cfgFile = t.value; render(); }
   else if (t.id == 'dbsel') { dbTable = t.value; dbOff = 0; dbQ = ''; render(); }
