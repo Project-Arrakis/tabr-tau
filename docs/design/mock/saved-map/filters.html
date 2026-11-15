@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Saved map filters mock-up</title>
+<meta name="description" content="Static mock-up of the Saved map's filters, with example data only. Refs #679.">
+<style>
+:root{color-scheme:light;--c-ground:#f4efe6;--c-panel:#fffaf1;--c-raised:#f0e8da;--c-sunken:#e9e1d0;--c-rule:#857559;--c-hair:#d8ccb2;--c-text:#2a2118;--c-dim:#665a49;--c-fill:#a8501a;--c-on-fill:#fff;--c-focus:#8c5208;--c-ok:#2a7448;--c-warn:#7f5700;--c-sky:#0b6397;--c-bad:#b03a28;--c-track:#a89878;--c-knob:#fff;
+  --k-yours:#b87d00;--k-veh:#0b6397;--k-store:#8a6a2c;--k-poi:#4a5fb0;--k-spice:#b5560c;--k-res:#2e7d52;--k-obj:#8a7400;--k-intel:#0b7a9a;--k-enemy:#b03a28;--k-ctrl:#a0447a;--k-rep:#5f8a1c;--k-trade:#8a5a2c;--k-haz:#c0392b;--k-base:#5560b8;--k-other:#6b7580;
+  --t-body:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;--t-mono:"Cascadia Mono",Consolas,ui-monospace,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--c-ground:#1c1b1a;--c-panel:#282726;--c-raised:#343331;--c-sunken:#151313;--c-rule:#9a866f;--c-hair:#4a3d34;--c-text:#e8dcc8;--c-dim:#c9b79c;--c-fill:#2a5cab;--c-on-fill:#f8f2e6;--c-focus:#8fc0ff;--c-ok:#8ab872;--c-warn:#e8a85c;--c-sky:#84b8c4;--c-bad:#f77c74;--c-track:#6b5c4e;--c-knob:#e8dcc8;
+  --k-yours:#ffd24a;--k-veh:#4ec9ff;--k-store:#d6a45a;--k-poi:#7fc4ff;--k-spice:#e8871e;--k-res:#5fbf8f;--k-obj:#f2c94c;--k-intel:#6ec6ff;--k-enemy:#ff7a5c;--k-ctrl:#e08cc0;--k-rep:#a8d65a;--k-trade:#d4a373;--k-haz:#ff6b5b;--k-base:#8c9eff;--k-other:#9aa4b2}}
+:root[data-theme="dark"]{color-scheme:dark;--c-ground:#1c1b1a;--c-panel:#282726;--c-raised:#343331;--c-sunken:#151313;--c-rule:#9a866f;--c-hair:#4a3d34;--c-text:#e8dcc8;--c-dim:#c9b79c;--c-fill:#2a5cab;--c-on-fill:#f8f2e6;--c-focus:#8fc0ff;--c-ok:#8ab872;--c-warn:#e8a85c;--c-sky:#84b8c4;--c-bad:#f77c74;--c-track:#6b5c4e;--c-knob:#e8dcc8;
+  --k-yours:#ffd24a;--k-veh:#4ec9ff;--k-store:#d6a45a;--k-poi:#7fc4ff;--k-spice:#e8871e;--k-res:#5fbf8f;--k-obj:#f2c94c;--k-intel:#6ec6ff;--k-enemy:#ff7a5c;--k-ctrl:#e08cc0;--k-rep:#a8d65a;--k-trade:#d4a373;--k-haz:#ff6b5b;--k-base:#8c9eff;--k-other:#9aa4b2}
+*{box-sizing:border-box}
+html{background:var(--c-ground)}
+body{margin:0;background:var(--c-ground);color:var(--c-text);font:14px/1.45 var(--t-body);min-width:320px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px 48px}
+h1{font-size:20px;margin:0}
+h2{font-size:15px;margin:0}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:12px 0}
+.top .sp{flex:1}
+.banner{background:var(--c-raised);border:1px solid var(--c-rule);border-left:4px solid var(--c-warn);border-radius:4px;padding:8px 12px;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;min-height:36px}
+button,select,input[type=search],input[type=text]{font:inherit;color:var(--c-text)}
+.btn{min-height:40px;padding:0 14px;background:var(--c-raised);border:1px solid var(--c-rule);border-radius:4px;cursor:pointer}
+.btn:hover:not(:disabled){border-color:var(--c-text)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn.primary{background:var(--c-fill);color:var(--c-on-fill);border-color:var(--c-fill)}
+:focus-visible{outline:3px solid var(--c-focus);outline-offset:2px}
+.shell{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;align-items:start}
+.card{background:var(--c-panel);border:1px solid var(--c-hair);border-radius:4px;padding:12px}
+.card+.card{margin-top:12px}
+.mapcard{position:sticky;top:8px}
+.mapbar{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.mapbar .btn{min-height:36px;padding:0 10px}
+.map{display:block;width:100%;height:auto;border:1px solid var(--c-hair);border-radius:4px;background:var(--c-sunken)}
+.map .hatch{stroke:var(--c-hair);stroke-width:1}
+.map .lbl{fill:var(--c-dim);font:12px var(--t-body)}
+.pt{stroke:var(--c-ground);stroke-width:1.5}
+.pt.u{opacity:.4}
+.pt-poi{fill:var(--k-poi)}.pt-spice{fill:var(--k-spice)}.pt-res{fill:var(--k-res)}.pt-obj{fill:var(--k-obj)}.pt-enemy{fill:var(--k-enemy)}.pt-ctrl{fill:var(--k-ctrl)}.pt-rep{fill:var(--k-rep)}.pt-trade{fill:var(--k-trade)}.pt-haz{fill:var(--k-haz)}.pt-base{fill:var(--k-base)}.pt-other{fill:var(--k-other)}.pt-yours{fill:var(--k-yours)}.pt-veh{fill:var(--k-veh)}.pt-store{fill:var(--k-store)}
+.shell:has(#g-poi:not(:checked)) .pt-poi{display:none}
+.shell:has(#g-spice:not(:checked)) .pt-spice{display:none}
+.shell:has(#g-res:not(:checked)) .pt-res{display:none}
+.shell:has(#g-obj:not(:checked)) .pt-obj{display:none}
+.shell:has(#g-enemy:not(:checked)) .pt-enemy{display:none}
+.shell:has(#g-ctrl:not(:checked)) .pt-ctrl{display:none}
+.shell:has(#g-rep:not(:checked)) .pt-rep{display:none}
+.shell:has(#g-trade:not(:checked)) .pt-trade{display:none}
+.shell:has(#g-haz:not(:checked)) .pt-haz{display:none}
+.shell:has(#g-base:not(:checked)) .pt-base{display:none}
+.shell:has(#g-other:not(:checked)) .pt-other{display:none}
+.shell:has(#g-yours:not(:checked)) .pt-yours{display:none}
+.shell:has(#g-veh:not(:checked)) .pt-veh{display:none}
+.shell:has(#chip-saved:not(:checked)) .pt{display:none}
+.shell:has(#d-unseen:not(:checked)) .pt.u{display:none}
+.mut{color:var(--c-dim)}
+.note{color:var(--c-dim);font-size:13px;margin:6px 0}
+/* filters panel */
+.fhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.fhead h2{flex:1}
+.badge{min-width:24px;padding:2px 8px;border-radius:10px;background:var(--c-raised);border:1px solid var(--c-rule);font-size:12px}
+.badge:empty{display:none}
+.part{border-top:1px solid var(--c-hair);padding:10px 0}
+.part:first-of-type{border-top:0}
+.rv{font:11px var(--t-mono);color:var(--c-dim);letter-spacing:.02em}
+.ph{display:flex;align-items:baseline;gap:8px;margin:0 0 6px;font-size:13px;font-weight:600}
+.chips{display:flex;gap:6px}
+.chips label{position:relative;flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border:1px solid var(--c-rule);border-radius:4px;background:var(--c-raised);cursor:pointer;padding:0 6px;text-align:center}
+.chips label:has(input:checked){background:var(--c-fill);color:var(--c-on-fill);border-color:var(--c-fill);font-weight:600}
+.chips label:has(input:disabled){opacity:.6;cursor:not-allowed}
+.chips label:has(input:focus-visible){outline:3px solid var(--c-focus);outline-offset:2px}
+.chips input{position:absolute;opacity:0;width:1px;height:1px}
+.chips small{display:block;font-size:11px;font-weight:400}
+.find{display:flex;gap:6px}
+.find input{flex:1;min-height:44px;padding:0 10px;background:var(--c-sunken);border:1px solid var(--c-rule);border-radius:4px}
+.bulk{display:flex;gap:6px}
+.bulk .btn{flex:1;min-height:44px}
+.grp{border:1px solid var(--c-hair);border-radius:4px;margin:6px 0;background:var(--c-panel)}
+.grp>summary{display:flex;align-items:center;gap:8px;min-height:44px;padding:4px 10px;cursor:pointer;list-style:none;font-weight:600}
+.grp>summary::-webkit-details-marker{display:none}
+.chev{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid var(--c-dim);flex:none;transition:transform .12s}
+.grp:not([open])>summary .chev{transform:rotate(-90deg)}
+.items{border-top:1px solid var(--c-hair);padding:2px 10px 4px 26px}
+.row{display:flex;align-items:center;gap:8px;min-height:44px;padding:4px 0;cursor:pointer;font-weight:400}
+.row+.row{border-top:1px dotted var(--c-hair)}
+.nm{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px}
+.nm .t{font-weight:inherit}
+.why{flex-basis:100%;font-size:12px;font-weight:400;color:var(--c-dim)}
+.dot{flex:none;width:12px;height:12px;border-radius:50%;background:var(--c-dim)}
+.dot.none{background:transparent;border:1px dashed var(--c-dim)}
+.k-yours{background:var(--k-yours)}.k-veh{background:var(--k-veh)}.k-store{background:var(--k-store)}.k-poi{background:var(--k-poi)}.k-spice{background:var(--k-spice)}.k-res{background:var(--k-res)}.k-obj{background:var(--k-obj)}.k-intel{background:var(--k-intel)}.k-enemy{background:var(--k-enemy)}.k-ctrl{background:var(--k-ctrl)}.k-rep{background:var(--k-rep)}.k-trade{background:var(--k-trade)}.k-haz{background:var(--k-haz)}.k-base{background:var(--k-base)}.k-other{background:var(--k-other)}
+.n{flex:none;min-width:36px;text-align:right;font:12px var(--t-mono);color:var(--c-dim)}
+.dis,.dis .t{color:var(--c-dim)}
+.dis .sw{opacity:.55}
+.dis{cursor:not-allowed}
+.pill{font:600 11px var(--t-body);padding:1px 7px;border-radius:9px;border:1px solid currentColor;white-space:nowrap}
+.pill::before{content:"";display:inline-block;width:7px;height:7px;margin-right:5px;border-radius:50%;background:currentColor;vertical-align:baseline}
+.pill.save{color:var(--c-ok)}
+.pill.part{color:var(--c-warn)}
+.pill.part::before{border-radius:0;transform:rotate(45deg) scale(.9)}
+.pill.none{color:var(--c-dim)}
+.pill.none::before{background:transparent;border:1.5px solid currentColor;width:6px;height:6px}
+.pill.only{color:var(--c-sky)}
+.pill.only::before{border-radius:1px}
+body:has(#marks:not(:checked)) .pill,body:has(#marks:not(:checked)) .rv{display:none}
+/* the switch */
+.sw{appearance:none;-webkit-appearance:none;flex:none;position:relative;width:40px;height:24px;margin:0;border-radius:12px;background:var(--c-track);border:1px solid var(--c-rule);cursor:pointer;transition:background .12s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--c-knob);transition:transform .12s}
+.sw:checked{background:var(--c-fill);border-color:var(--c-fill)}
+.sw:checked::after{transform:translateX(16px)}
+.sw:indeterminate{background:var(--c-fill);opacity:.7}
+.sw:indeterminate::after{transform:translateX(8px)}
+.sw:disabled{cursor:not-allowed}
+.two{flex-basis:100%;display:flex;gap:6px;margin-top:4px}
+.two select{flex:1;min-height:36px;background:var(--c-sunken);border:1px solid var(--c-hair);border-radius:4px}
+.fold{border:1px solid var(--c-hair);border-radius:4px;margin:6px 0}
+.fold>summary{min-height:44px;padding:4px 10px;display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;list-style:none}
+.fold>summary::-webkit-details-marker{display:none}
+.fold:not([open])>summary .chev{transform:rotate(-90deg)}
+.fold>.body{padding:2px 10px 8px;border-top:1px solid var(--c-hair)}
+.sets{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.sets select{flex:1 1 140px;min-height:44px;background:var(--c-sunken);border:1px solid var(--c-rule);border-radius:4px;padding:0 6px}
+.sets input[type=text]{flex:1 1 140px;min-height:44px;padding:0 10px;background:var(--c-sunken);border:1px solid var(--c-rule);border-radius:4px}
+.sets .btn{min-height:44px}
+[hidden]{display:none!important}
+.legend{display:flex;flex-wrap:wrap;gap:6px 10px;margin:4px 0 8px;font-size:12px;color:var(--c-dim)}
+.counts{display:flex;flex-wrap:wrap;gap:6px 12px;margin:6px 0}
+@media (max-width:860px){.shell{grid-template-columns:minmax(0,1fr)}.mapcard{position:static}}
+@media (max-width:420px){.wrap{padding:0 16px 40px}.items{padding-left:12px}.chips small{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Saved map: filters (mock-up)</h1>
+    <span class="sp"></span>
+    <label class="ctl"><input type="checkbox" id="marks" checked> Show data-source marks</label>
+    <button type="button" class="btn" id="theme">Theme: Auto</button>
+  </header>
+  <p class="banner"><b>Mock-up.</b> Every number and place on this page is example data. It reads no save and makes no request. Marks beside each row say where its data would come from; the switch above hides them. Without scripts the folds and switches still work; the group switches, Show all, Hide all, Find and Saved filters need the small inline script.</p>
+
+  <div class="shell">
+    <section class="card mapcard" aria-labelledby="mt">
+      <h2 id="mt">Saved map</h2>
+      <div class="mapbar">
+        <button type="button" class="btn primary">Hagga Basin</button><button type="button" class="btn">The Deep Desert</button>
+        <button type="button" class="btn" aria-label="Zoom in">+</button><button type="button" class="btn" aria-label="Zoom out">&minus;</button><button type="button" class="btn">Fit</button>
+      </div>
+      <p class="note">The save as of its last write, not the running game.</p>
+      <svg class="map" viewBox="0 0 420 300" role="img" aria-label="Example map picture with example marker dots. It is not a real map.">
+        <rect width="420" height="300" fill="none"/>
+        <g class="hatch"><path d="M0 60H420M0 120H420M0 180H420M0 240H420M70 0V300M140 0V300M210 0V300M280 0V300M350 0V300"/></g>
+        <circle class="pt pt-poi" cx="60" cy="50" r="5"/><circle class="pt pt-poi u" cx="150" cy="90" r="5"/><circle class="pt pt-poi" cx="320" cy="60" r="5"/><circle class="pt pt-poi u" cx="270" cy="210" r="5"/><circle class="pt pt-poi" cx="90" cy="230" r="5"/><circle class="pt pt-spice" cx="120" cy="150" r="5"/><circle class="pt pt-spice" cx="200" cy="130" r="5"/><circle class="pt pt-spice u" cx="300" cy="150" r="5"/><circle class="pt pt-spice" cx="220" cy="250" r="5"/><circle class="pt pt-spice" cx="360" cy="230" r="5"/><circle class="pt pt-res" cx="40" cy="120" r="5"/><circle class="pt pt-res u" cx="70" cy="180" r="5"/><circle class="pt pt-res" cx="180" cy="40" r="5"/><circle class="pt pt-res" cx="250" cy="90" r="5"/><circle class="pt pt-res" cx="340" cy="110" r="5"/><circle class="pt pt-res" cx="150" cy="200" r="5"/><circle class="pt pt-res u" cx="310" cy="270" r="5"/><circle class="pt pt-obj" cx="100" cy="100" r="5"/><circle class="pt pt-obj u" cx="230" cy="170" r="5"/><circle class="pt pt-obj" cx="380" cy="150" r="5"/><circle class="pt pt-enemy" cx="210" cy="70" r="5"/><circle class="pt pt-enemy u" cx="140" cy="260" r="5"/><circle class="pt pt-enemy" cx="350" cy="190" r="5"/><circle class="pt pt-ctrl" cx="50" cy="260" r="5"/><circle class="pt pt-ctrl" cx="280" cy="30" r="5"/><circle class="pt pt-rep" cx="190" cy="190" r="5"/><circle class="pt pt-rep u" cx="330" cy="25" r="5"/><circle class="pt pt-trade" cx="110" cy="70" r="5"/><circle class="pt pt-trade" cx="260" cy="270" r="5"/><circle class="pt pt-haz u" cx="30" cy="210" r="5"/><circle class="pt pt-haz" cx="300" cy="100" r="5"/><circle class="pt pt-haz" cx="175" cy="120" r="5"/><circle class="pt pt-other u" cx="380" cy="60" r="5"/><circle class="pt pt-base" cx="205" cy="205" r="5"/><circle class="pt pt-yours" cx="200" cy="215" r="7"/><circle class="pt pt-veh" cx="190" cy="225" r="5"/><circle class="pt pt-store" cx="210" cy="230" r="5"/>
+        <text class="lbl" x="8" y="292">Example picture, example places</text>
+      </svg>
+      <p class="note">Hover a marker for details. Drag to move, scroll or press + and - to zoom, 0 to fit. (Unchanged from today.)</p>
+      <p class="note">1 of your vehicles is stored (in the vehicle backup or waiting for recovery) and not shown.</p>
+    </section>
+
+    <aside aria-label="Filters">
+      <section class="card" id="filters">
+        <div class="fhead"><h2>Filters</h2><span class="badge" id="badge" aria-live="polite"></span></div>
+        <div class="legend rv"><span><b class="pill save">From the save</b></span><span><b class="pill part">Partly</b></span><span><b class="pill none">No save data</b></span><span><b class="pill only">Save only</b> (no switch in the reference map)</span></div>
+
+        <section class="part" aria-label="Certainty"><p class="ph"><span>Show</span><span class="rv">part 2</span></p>
+          <div class="chips" role="group" aria-label="Certainty">
+            <label><input type="checkbox" id="chip-live" disabled aria-describedby="chip-why"><span>Live<small>loaded now</small></span></label>
+            <label><input type="checkbox" id="chip-saved" checked><span>Saved<small>from your save</small></span></label>
+            <label><input type="checkbox" id="chip-poss" disabled aria-describedby="chip-why"><span>Possible<small>could be there</small></span></label>
+          </div>
+          <p class="note" id="chip-why">Fixed places are always shown. Live and Possible are off: the save is not the running game and has no list of places where a thing could appear. <span class="rv">Live and Possible: No save data. Saved: From the save.</span></p>
+        </section>
+
+        <section class="part" aria-label="Find"><p class="ph"><span>Find</span><span class="rv">part 3</span></p>
+          <div class="find"><input id="q" type="search" placeholder="Find a known place&hellip;" autocomplete="off" spellcheck="false" aria-label="Search places"></div>
+          <p class="note" id="qnote" hidden>Map shows matches only &middot; <button type="button" class="btn" id="qclear" style="min-height:32px;padding:0 10px">Clear</button></p>
+          <p class="note" id="qnone" hidden>Nothing matches.</p>
+        </section>
+
+        <section class="part" aria-label="Show all or hide all"><p class="ph"><span>All kinds</span><span class="rv">part 4</span></p>
+          <div class="bulk"><button type="button" class="btn" id="show-all">Show all</button><button type="button" class="btn" id="hide-all">Hide all</button></div>
+        </section>
+
+        <section class="part" aria-label="Live layers"><p class="ph"><span>Live layers</span><span class="rv">part 5</span></p>
+          <details class="grp dis" open data-g="g-creat"><summary><span class="chev" aria-hidden="true"></span><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Creatures</span><b class="pill none">No save data</b><span class="why">Needs the running game</span></span><span class="n gn"></span><input type="checkbox" class="sw gsw" role="switch" id="g-creat" disabled aria-label="Creatures"></summary><div class="items"><label class="row dis" data-name="sandworms"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Sandworms</span><b class="pill none">No save data</b><span class="why" id="r-4-why">Worms are not in the save</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="Sandworms" aria-describedby="r-4-why"></label><label class="row dis" data-name="people"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">People</span><b class="pill none">No save data</b><span class="why" id="r-5-why">Other characters are not in the save</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="People" aria-describedby="r-5-why"></label><label class="row dis" data-name="infected"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Infected</span><b class="pill none">No save data</b><span class="why" id="r-6-why">Not in the save</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="Infected" aria-describedby="r-6-why"></label></div></details><details class="grp" open data-g="g-veh"><summary><span class="chev" aria-hidden="true"></span><i class="dot k-veh" aria-hidden="true"></i><span class="nm"><span class="t">Vehicles</span><b class="pill part">Partly</b><span class="why">Yours only, not every vehicle the game has loaded. Stored ones are counted, not placed</span></span><span class="n gn">4</span><input type="checkbox" class="sw gsw" role="switch" id="g-veh" checked aria-label="Vehicles"></summary><div class="items"><label class="row" data-name="sandbike"><i class="dot k-veh" aria-hidden="true"></i><span class="nm"><span class="t">Sandbike</span><b class="pill only">Save only</b></span><span class="n" data-n="2">2</span><input type="checkbox" class="sw" role="switch" checked aria-label="Sandbike"></label><label class="row" data-name="buggy"><i class="dot k-veh" aria-hidden="true"></i><span class="nm"><span class="t">Buggy</span><b class="pill only">Save only</b></span><span class="n" data-n="1">1</span><input type="checkbox" class="sw" role="switch" checked aria-label="Buggy"></label><label class="row" data-name="ornithopter"><i class="dot k-veh" aria-hidden="true"></i><span class="nm"><span class="t">Ornithopter</span><b class="pill only">Save only</b></span><span class="n" data-n="1">1</span><input type="checkbox" class="sw" role="switch" checked aria-label="Ornithopter"></label></div></details><details class="grp dis" open data-g="g-wthr"><summary><span class="chev" aria-hidden="true"></span><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Weather</span><b class="pill part">Partly</b><span class="why">One storm row, shown disabled for now</span></span><span class="n gn"></span><input type="checkbox" class="sw gsw" role="switch" id="g-wthr" disabled aria-label="Weather"></summary><div class="items"><label class="row dis" data-name="sandstorms"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Sandstorms</span><b class="pill part">Partly</b><span class="why" id="r-10-why">The save has the storm’s start, end and times; the line is a later step</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="Sandstorms" aria-describedby="r-10-why"></label><label class="row dis" data-name="animate storms"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Animate storms</span><b class="pill none">No save data</b><span class="why" id="r-11-why">Needs a storm drawn</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="Animate storms" aria-describedby="r-11-why"></label><label class="row dis" data-name="storm covers icons"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Storm covers icons</span><b class="pill none">No save data</b><span class="why" id="r-12-why">Needs a storm drawn</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="Storm covers icons" aria-describedby="r-12-why"></label></div></details><details class="grp dis" open data-g="g-treas"><summary><span class="chev" aria-hidden="true"></span><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Treasure</span><b class="pill none">No save data</b><span class="why">No place in the tables the editor reads</span></span><span class="n gn"></span><input type="checkbox" class="sw gsw" role="switch" id="g-treas" disabled aria-label="Treasure"></summary><div class="items"><label class="row dis" data-name="buried treasure"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Buried treasure</span><b class="pill none">No save data</b><span class="why" id="r-13-why">Not found in the save with a place</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="Buried treasure" aria-describedby="r-13-why"></label><label class="row dis" data-name="loot"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Loot</span><b class="pill none">No save data</b><span class="why" id="r-14-why">Not found in the save with a place</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="Loot" aria-describedby="r-14-why"></label></div></details>
+        </section>
+
+        <section class="part" aria-label="Overmap places"><p class="ph"><span>Overmap places</span><span class="rv">part 6</span></p>
+          <div class="find"><input type="search" placeholder="Search the places&hellip;" disabled aria-label="Search the overmap places by name" aria-describedby="ovl-why"></div>
+          <div class="bulk" style="margin-top:6px"><button type="button" class="btn" disabled aria-describedby="ovl-why">Show all places</button><button type="button" class="btn" disabled aria-describedby="ovl-why">Hide all places</button></div>
+          <p class="note" id="ovl-why"><b class="pill none">No save data</b> The game&rsquo;s own place list is in its files, not the save, and the Saved map has no overmap.</p>
+        </section>
+
+        <section class="part" aria-label="Kinds of places"><p class="ph"><span>Kinds of places</span><span class="rv">part 7</span></p>
+          <details class="grp" open data-g="g-yours"><summary><span class="chev" aria-hidden="true"></span><i class="dot k-yours" aria-hidden="true"></i><span class="nm"><span class="t">Yours</span><b class="pill only">Save only</b><span class="why">The character, your base and your storage: the save has them, the reference map has no switch for them</span></span><span class="n gn">8</span><input type="checkbox" class="sw gsw" role="switch" id="g-yours" checked aria-label="Yours"></summary><div class="items"><label class="row" data-name="character"><i class="dot k-yours" aria-hidden="true"></i><span class="nm"><span class="t">Character</span><b class="pill only">Save only</b></span><span class="n" data-n="1">1</span><input type="checkbox" class="sw" role="switch" checked aria-label="Character"></label><label class="row" data-name="your base"><i class="dot k-base" aria-hidden="true"></i><span class="nm"><span class="t">Your base</span><b class="pill only">Save only</b></span><span class="n" data-n="1">1</span><input type="checkbox" class="sw" role="switch" checked aria-label="Your base"></label><label class="row" data-name="storage container"><i class="dot k-store" aria-hidden="true"></i><span class="nm"><span class="t">Storage container</span><b class="pill only">Save only</b></span><span class="n" data-n="6">6</span><input type="checkbox" class="sw" role="switch" checked aria-label="Storage container"></label></div></details><details class="grp" open data-g="g-poi"><summary><span class="chev" aria-hidden="true"></span><i class="dot k-poi" aria-hidden="true"></i><span class="nm"><span class="t">Points of interest</span><b class="pill part">Partly</b><span class="why">No fallen ships: they are not in the save</span></span><span class="n gn">23</span><input type="checkbox" class="sw gsw" role="switch" id="g-poi" checked aria-label="Points of interest"></summary><div class="items"><label class="row" data-name="cave"><i class="dot k-poi" aria-hidden="true"></i><span class="nm"><span class="t">Cave</span></span><span class="n" data-n="12">12</span><input type="checkbox" class="sw" role="switch" checked aria-label="Cave"></label><label class="row" data-name="ecolab"><i class="dot k-poi" aria-hidden="true"></i><span class="nm"><span class="t">Ecolab</span></span><span class="n" data-n="3">3</span><input type="checkbox" class="sw" role="switch" checked aria-label="Ecolab"></label><label class="row" data-name="shipwreck"><i class="dot k-poi" aria-hidden="true"></i><span class="nm"><span class="t">Shipwreck</span></span><span class="n" data-n="6">6</span><input type="checkbox" class="sw" role="switch" checked aria-label="Shipwreck"></label><label class="row" data-name="sietch"><i class="dot k-poi" aria-hidden="true"></i><span class="nm"><span class="t">Sietch</span></span><span class="n" data-n="2">2</span><input type="checkbox" class="sw" role="switch" checked aria-label="Sietch"></label></div></details><details class="grp dis" open data-g="g-other-places"><summary><span class="chev" aria-hidden="true"></span><i class="dot k-poi" aria-hidden="true"></i><span class="nm"><span class="t">Other places</span><b class="pill none">No save data</b><span class="why">The game’s place headings are not in the save</span></span><span class="n gn"></span><input type="checkbox" class="sw gsw" role="switch" id="g-other-places" disabled aria-label="Other places"></summary></details><details class="grp" open data-g="g-spice"><summary><span class="chev" aria-hidden="true"></span><i class="dot k-spice" aria-hidden="true"></i><span class="nm"><span class="t">Spice</span><b class="pill part">Partly</b><span class="why">Fields that are up now, sized by the yield left</span></span><span class="n gn">23</span><input type="checkbox" class="sw gsw" role="switch" id="g-spice" checked aria-label="Spice"></summary><div class="items"><label class="row" data-name="spice field, large"><i class="dot k-spice" aria-hidden="true"></i><span class="nm"><span class="t">Spice field, large</span></span><span class="n" data-n="4">4</span><input type="checkbox" class="sw" role="switch" checked aria-label="Spice field, large"></label><label class="row" data-name="spice field, medium"><i class="dot k-spice" aria-hidden="true"></i><span class="nm"><span class="t">Spice field, medium</span></span><span class="n" data-n="7">7</span><input type="checkbox" class="sw" role="switch" checked aria-label="Spice field, medium"></label><label class="row" data-name="spice field, small"><i class="dot k-spice" aria-hidden="true"></i><span class="nm"><span class="t">Spice field, small</span></span><span class="n" data-n="12">12</span><input type="checkbox" class="sw" role="switch" checked aria-label="Spice field, small"></label></div></details><details class="grp" open data-g="g-res"><summary><span class="chev" aria-hidden="true"></span><i class="dot k-res" aria-hidden="true"></i><span class="nm"><span class="t">Resources</span><b class="pill part">Partly</b><span class="why">Markers the save has; fixed nodes are under “Saved and Possible, by part”</span></span><span class="n gn">42</span><input type="checkbox" class="sw gsw" role="switch" id="g-res" checked aria-label="Resources"></summary><div class="items"><label class="row" data-name="azurite"><i class="dot k-res" aria-hidden="true"></i><span class="nm"><span class="t">Azurite</span></span><span class="n" data-n="14">14</span><input type="checkbox" class="sw" role="switch" checked aria-label="Azurite"></label><label class="row" data-name="basalt"><i class="dot k-res" aria-hidden="true"></i><span class="nm"><span class="t">Basalt</span></span><span class="n" data-n="9">9</span><input type="checkbox" class="sw" role="switch" checked aria-label="Basalt"></label><label class="row" data-name="flour sand"><i class="dot k-res" aria-hidden="true"></i><span class="nm"><span class="t">Flour sand</span></span><span class="n" data-n="5">5</span><input type="checkbox" class="sw" role="switch" checked aria-label="Flour sand"></label><label class="row" data-name="jasmium"><i class="dot k-res" aria-hidden="true"></i><span class="nm"><span class="t">Jasmium</span></span><span class="n" data-n="3">3</span><input type="checkbox" class="sw" role="switch" checked aria-label="Jasmium"></label><label class="row" data-name="scrap metal"><i class="dot k-res" aria-hidden="true"></i><span class="nm"><span class="t">Scrap metal</span></span><span class="n" data-n="11">11</span><input type="checkbox" class="sw" role="switch" checked aria-label="Scrap metal"></label></div></details><details class="grp" open data-g="g-obj"><summary><span class="chev" aria-hidden="true"></span><i class="dot k-obj" aria-hidden="true"></i><span class="nm"><span class="t">Objectives</span><b class="pill save">From the save</b></span><span class="n gn">14</span><input type="checkbox" class="sw gsw" role="switch" id="g-obj" checked aria-label="Objectives"></summary><div class="items"><label class="row" data-name="exploration point"><i class="dot k-obj" aria-hidden="true"></i><span class="nm"><span class="t">Exploration point</span></span><span class="n" data-n="8">8</span><input type="checkbox" class="sw" role="switch" checked aria-label="Exploration point"></label><label class="row" data-name="survey point"><i class="dot k-obj" aria-hidden="true"></i><span class="nm"><span class="t">Survey point</span></span><span class="n" data-n="6">6</span><input type="checkbox" class="sw" role="switch" checked aria-label="Survey point"></label></div></details><details class="grp dis" open data-g="g-intel"><summary><span class="chev" aria-hidden="true"></span><i class="dot k-intel" aria-hidden="true"></i><span class="nm"><span class="t">Intel</span><b class="pill none">No save data</b><span class="why">The save numbers the pickups but gives them no place</span></span><span class="n gn"></span><input type="checkbox" class="sw gsw" role="switch" id="g-intel" disabled aria-label="Intel"></summary></details><details class="grp" open data-g="g-enemy"><summary><span class="chev" aria-hidden="true"></span><i class="dot k-enemy" aria-hidden="true"></i><span class="nm"><span class="t">Enemy bases</span><b class="pill save">From the save</b></span><span class="n gn">12</span><input type="checkbox" class="sw gsw" role="switch" id="g-enemy" checked aria-label="Enemy bases"></summary><div class="items"><label class="row" data-name="enemy camp"><i class="dot k-enemy" aria-hidden="true"></i><span class="nm"><span class="t">Enemy camp</span></span><span class="n" data-n="7">7</span><input type="checkbox" class="sw" role="switch" checked aria-label="Enemy camp"></label><label class="row" data-name="enemy outpost"><i class="dot k-enemy" aria-hidden="true"></i><span class="nm"><span class="t">Enemy outpost</span></span><span class="n" data-n="4">4</span><input type="checkbox" class="sw" role="switch" checked aria-label="Enemy outpost"></label><label class="row" data-name="harkonnen fortress"><i class="dot k-enemy" aria-hidden="true"></i><span class="nm"><span class="t">Harkonnen fortress</span></span><span class="n" data-n="1">1</span><input type="checkbox" class="sw" role="switch" checked aria-label="Harkonnen fortress"></label></div></details><details class="grp" open data-g="g-ctrl"><summary><span class="chev" aria-hidden="true"></span><i class="dot k-ctrl" aria-hidden="true"></i><span class="nm"><span class="t">Control points</span><b class="pill save">From the save</b></span><span class="n gn">5</span><input type="checkbox" class="sw gsw" role="switch" id="g-ctrl" checked aria-label="Control points"></summary><div class="items"><label class="row" data-name="control point"><i class="dot k-ctrl" aria-hidden="true"></i><span class="nm"><span class="t">Control point</span></span><span class="n" data-n="5">5</span><input type="checkbox" class="sw" role="switch" checked aria-label="Control point"></label></div></details><details class="grp" open data-g="g-rep"><summary><span class="chev" aria-hidden="true"></span><i class="dot k-rep" aria-hidden="true"></i><span class="nm"><span class="t">Representatives</span><b class="pill save">From the save</b></span><span class="n gn">13</span><input type="checkbox" class="sw gsw" role="switch" id="g-rep" checked aria-label="Representatives"></summary><div class="items"><label class="row" data-name="house representative"><i class="dot k-rep" aria-hidden="true"></i><span class="nm"><span class="t">House representative</span></span><span class="n" data-n="13">13</span><input type="checkbox" class="sw" role="switch" checked aria-label="House representative"></label></div></details><details class="grp" open data-g="g-trn"><summary><span class="chev" aria-hidden="true"></span><i class="dot k-rep" aria-hidden="true"></i><span class="nm"><span class="t">Trainers</span><b class="pill save">From the save</b></span><span class="n gn">5</span><input type="checkbox" class="sw gsw" role="switch" id="g-trn" checked aria-label="Trainers"></summary><div class="items"><label class="row" data-name="mentat trainer"><i class="dot k-rep" aria-hidden="true"></i><span class="nm"><span class="t">Mentat trainer</span></span><span class="n" data-n="1">1</span><input type="checkbox" class="sw" role="switch" checked aria-label="Mentat trainer"></label><label class="row" data-name="swordmaster trainer"><i class="dot k-rep" aria-hidden="true"></i><span class="nm"><span class="t">Swordmaster trainer</span></span><span class="n" data-n="1">1</span><input type="checkbox" class="sw" role="switch" checked aria-label="Swordmaster trainer"></label><label class="row" data-name="planetologist trainer"><i class="dot k-rep" aria-hidden="true"></i><span class="nm"><span class="t">Planetologist trainer</span></span><span class="n" data-n="1">1</span><input type="checkbox" class="sw" role="switch" checked aria-label="Planetologist trainer"></label><label class="row" data-name="trooper trainer"><i class="dot k-rep" aria-hidden="true"></i><span class="nm"><span class="t">Trooper trainer</span></span><span class="n" data-n="1">1</span><input type="checkbox" class="sw" role="switch" checked aria-label="Trooper trainer"></label><label class="row" data-name="bene gesserit trainer"><i class="dot k-rep" aria-hidden="true"></i><span class="nm"><span class="t">Bene Gesserit trainer</span></span><span class="n" data-n="1">1</span><input type="checkbox" class="sw" role="switch" checked aria-label="Bene Gesserit trainer"></label></div></details><details class="grp" open data-g="g-trade"><summary><span class="chev" aria-hidden="true"></span><i class="dot k-trade" aria-hidden="true"></i><span class="nm"><span class="t">Trade &amp; travel</span><b class="pill part">Partly</b><span class="why">Trading posts and taxi services; vendors where the save has a marker</span></span><span class="n gn">9</span><input type="checkbox" class="sw gsw" role="switch" id="g-trade" checked aria-label="Trade &amp; travel"></summary><div class="items"><label class="row" data-name="trading post"><i class="dot k-trade" aria-hidden="true"></i><span class="nm"><span class="t">Trading post</span></span><span class="n" data-n="6">6</span><input type="checkbox" class="sw" role="switch" checked aria-label="Trading post"></label><label class="row" data-name="taxi service"><i class="dot k-trade" aria-hidden="true"></i><span class="nm"><span class="t">Taxi service</span></span><span class="n" data-n="3">3</span><input type="checkbox" class="sw" role="switch" checked aria-label="Taxi service"></label></div></details><details class="grp dis" open data-g="g-travel"><summary><span class="chev" aria-hidden="true"></span><i class="dot k-trade" aria-hidden="true"></i><span class="nm"><span class="t">Travel destinations</span><b class="pill none">No save data</b><span class="why">These are places of the overmap, which the Saved map does not offer</span></span><span class="n gn"></span><input type="checkbox" class="sw gsw" role="switch" id="g-travel" disabled aria-label="Travel destinations"></summary></details><details class="grp" open data-g="g-haz"><summary><span class="chev" aria-hidden="true"></span><i class="dot k-haz" aria-hidden="true"></i><span class="nm"><span class="t">Hazards</span><b class="pill save">From the save</b></span><span class="n gn">9</span><input type="checkbox" class="sw gsw" role="switch" id="g-haz" checked aria-label="Hazards"></summary><div class="items"><label class="row" data-name="radiation"><i class="dot k-haz" aria-hidden="true"></i><span class="nm"><span class="t">Radiation</span></span><span class="n" data-n="4">4</span><input type="checkbox" class="sw" role="switch" checked aria-label="Radiation"></label><label class="row" data-name="quicksand"><i class="dot k-haz" aria-hidden="true"></i><span class="nm"><span class="t">Quicksand</span></span><span class="n" data-n="5">5</span><input type="checkbox" class="sw" role="switch" checked aria-label="Quicksand"></label></div></details><details class="grp" open data-g="g-base"><summary><span class="chev" aria-hidden="true"></span><i class="dot k-base" aria-hidden="true"></i><span class="nm"><span class="t">Player bases</span><b class="pill save">From the save</b></span><span class="n gn">1</span><input type="checkbox" class="sw gsw" role="switch" id="g-base" checked aria-label="Player bases"></summary><div class="items"><label class="row" data-name="your base"><i class="dot k-base" aria-hidden="true"></i><span class="nm"><span class="t">Your base</span></span><span class="n" data-n="1">1</span><input type="checkbox" class="sw" role="switch" checked aria-label="Your base"></label></div></details><details class="grp" open data-g="g-other"><summary><span class="chev" aria-hidden="true"></span><i class="dot k-other" aria-hidden="true"></i><span class="nm"><span class="t">Other</span><b class="pill save">From the save</b></span><span class="n gn">3</span><input type="checkbox" class="sw gsw" role="switch" id="g-other" checked aria-label="Other"></summary><div class="items"><label class="row" data-name="other marker"><i class="dot k-other" aria-hidden="true"></i><span class="nm"><span class="t">Other marker</span></span><span class="n" data-n="3">3</span><input type="checkbox" class="sw" role="switch" checked aria-label="Other marker"></label></div></details>
+        </section>
+
+        <details class="fold" open><summary><span class="chev" aria-hidden="true"></span>Saved and Possible, by part <span class="rv">part 8</span></summary><div class="body">
+          <label class="row dis" data-name="possible ships"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Possible ships</span><b class="pill none">No save data</b><span class="why" id="r-45-why">Places where a ship could come down are not in the save</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="Possible ships" aria-describedby="r-45-why"></label><label class="row dis" data-name="inactive fields"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Inactive fields</span><b class="pill none">No save data</b><span class="why" id="r-46-why">Only fields that are up are in the save</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="Inactive fields" aria-describedby="r-46-why"></label><label class="row dis" data-name="fixed resource nodes"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Fixed resource nodes</span><b class="pill none">No save data</b><span class="why" id="r-47-why">The layout’s node list is not in the save</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="Fixed resource nodes" aria-describedby="r-47-why"></label><label class="row dis" data-name="pickups and nodes"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Pickups and nodes</span><b class="pill none">No save data</b><span class="why" id="r-48-why">The save keeps no record of earlier visits</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="Pickups and nodes" aria-describedby="r-48-why"></label><label class="row dis" data-name="resource markers"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Resource markers</span><b class="pill none">No save data</b><span class="why" id="r-49-why">The save’s markers are always drawn</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="Resource markers" aria-describedby="r-49-why"></label><label class="row dis" data-name="treasure places"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Treasure places</span><b class="pill none">No save data</b><span class="why" id="r-50-why">No place in the save</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="Treasure places" aria-describedby="r-50-why"></label><label class="row dis" data-name="possible event sites"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Possible event sites</span><b class="pill none">No save data</b><span class="why" id="r-51-why">Not in the save</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="Possible event sites" aria-describedby="r-51-why"></label>
+        </div></details>
+
+        <details class="fold" open><summary><span class="chev" aria-hidden="true"></span>Map display <span class="rv">part 9</span></summary><div class="body">
+          <label class="row" data-name="places not discovered yet"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Places not discovered yet</span><b class="pill save">From the save</b><span class="why" id="r-52-why">Undiscovered ones are drawn faded</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" id="d-unseen" checked aria-label="Places not discovered yet" aria-describedby="r-52-why"></label><label class="row" data-name="show places beyond the picture"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Show places beyond the picture</span><b class="pill part">Partly</b><span class="why" id="r-53-why">Positions outside the picture exist</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" aria-label="Show places beyond the picture" aria-describedby="r-53-why"></label><label class="row dis" data-name="terrain picture"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Terrain picture</span><b class="pill none">No save data</b><span class="why" id="r-54-why">One picture for each map</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="Terrain picture" aria-describedby="r-54-why"></label><label class="row dis" data-name="terrain relief"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Terrain relief</span><b class="pill none">No save data</b><span class="why" id="r-55-why">Not in the save</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="Terrain relief" aria-describedby="r-55-why"></label><div class="row dis stack" data-name="resource density"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Resource density</span><b class="pill none">No save data</b><span class="why" id="dens-why">Not in the save</span><span class="two"><select disabled aria-label="Deep Desert layout" aria-describedby="dens-why"><option>Layout</option></select><select disabled aria-label="Resource" aria-describedby="dens-why"><option>Resource</option></select></span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="Resource density" aria-describedby="dens-why"></div><label class="row" data-name="highlight on hover"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Highlight on hover</span><b class="pill save">From the save</b><span class="why" id="r-56-why">Pointing at a row rings its markers and dims the rest</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" aria-label="Highlight on hover" aria-describedby="r-56-why"></label><label class="row dis" data-name="pulse rings"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Pulse rings</span><b class="pill none">No save data</b><span class="why" id="r-57-why">Follows the running game</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" disabled aria-label="Pulse rings" aria-describedby="r-57-why"></label>
+        </div></details>
+
+        <details class="fold" open><summary><span class="chev" aria-hidden="true"></span>Saved filters <span class="rv">part 10</span></summary><div class="body">
+          <div class="sets"><select id="fsets" aria-label="Saved filters"><option value="">Saved filters</option><option value="@default">Default view</option></select><button type="button" class="btn" id="fsave">Save as&hellip;</button><button type="button" class="btn" id="fdel" disabled>Delete</button></div>
+          <div class="sets" id="fnamerow" hidden><input type="text" id="fname" maxlength="40" placeholder="Name this filter" aria-label="Name for the filter" autocomplete="off" spellcheck="false"><button type="button" class="btn primary" id="fnameok">Save</button><button type="button" class="btn" id="fnameno">Cancel</button></div>
+          <label class="row"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">Default for this map</span><b class="pill save">From the save</b><span class="why">Kept in this browser for this map; nothing is written to a save</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" id="fdef" disabled aria-label="Default for this map"></label>
+          <p class="note" id="fdefnote" role="status"></p>
+          <button type="button" class="btn" id="fdefclear" hidden>Clear default</button>
+          <details class="fold"><summary><span class="chev" aria-hidden="true"></span>Also use on&hellip;</summary><div class="body">
+            <label class="row"><i class="dot none" aria-hidden="true"></i><span class="nm"><span class="t">The Deep Desert</span></span><span class="n"></span><input type="checkbox" class="sw" role="switch" aria-label="Also use on The Deep Desert"></label>
+          </div></details>
+          <p class="note">In this mock a saved filter lasts until the page is closed.</p>
+        </div></details>
+      </section>
+    </aside>
+  </div>
+
+  <section class="card" style="margin-top:16px" aria-labelledby="rn">
+    <h2 id="rn">Review notes</h2>
+    <p class="note">The panel has the parts of the reference map&rsquo;s filters section in the same order. Counts from the inventory (<code>filters-inventory.md</code>): 62 groups and controls; <b>24</b> have what they need in the save, <b>8</b> have some of it, <b>30</b> have none and are shown disabled with the reason. A group &ldquo;Yours&rdquo; (the character, your base, storage) and vehicle kinds are save data the reference map has no switch for.</p>
+    <p class="note">The chips of today&rsquo;s page (Character, Your vehicles, Your base, Storage containers, Spice fields, Flour sand, Ore and minerals, Salvage, Plants, Enemy camps, Places, Trainers and House representatives, Hazards, Other) are replaced by the groups above; &ldquo;Hide undiscovered markers&rdquo; becomes &ldquo;Places not discovered yet&rdquo;.</p>
+  </section>
+</div>
+<script>
+(function(){
+  var root=document.documentElement;
+  var $=function(s,c){return (c||document).querySelector(s)};
+  var $$=function(s,c){return Array.prototype.slice.call((c||document).querySelectorAll(s))};
+  // theme: Auto, Light, Dark (kept only for this page view)
+  var tb=$('#theme'),modes=['auto','light','dark'],mi=0;
+  tb.addEventListener('click',function(){mi=(mi+1)%3;if(modes[mi]==='auto')root.removeAttribute('data-theme');else root.setAttribute('data-theme',modes[mi]);tb.textContent='Theme: '+modes[mi][0].toUpperCase()+modes[mi].slice(1)});
+  function rowsOf(g){return $$('.items .sw:not(:disabled)',g)}
+  function recount(){
+    var off=0;
+    $$('.grp').forEach(function(g){
+      var sws=rowsOf(g);
+      if(!sws.length)return;
+      var on=sws.filter(function(s){return s.checked}).length;
+      off+=sws.length-on;
+      var gs=$('summary .gsw',g);
+      if(gs&&!gs.disabled){gs.checked=on>0;gs.indeterminate=on>0&&on<sws.length}
+      var tot=0,shown=0;
+      sws.forEach(function(s){var n=Number(s.closest('.row').querySelector('.n').getAttribute('data-n'))||0;tot+=n;if(s.checked)shown+=n});
+      var gn=$('summary .gn',g);
+      if(gn&&tot)gn.textContent=shown===tot?String(tot):shown+' / '+tot;
+      sws.forEach(function(s){var c=s.closest('.row').querySelector('.n');var n=Number(c.getAttribute('data-n'));if(n)c.textContent=s.checked?String(n):'0 / '+n});
+    });
+    $('#badge').textContent=off?off+' off':'';
+  }
+  $$('.gsw').forEach(function(gs){gs.addEventListener('change',function(){var g=gs.closest('.grp');rowsOf(g).forEach(function(s){s.checked=gs.checked});recount()})});
+  $$('.items .sw').forEach(function(s){s.addEventListener('change',recount)});
+  function setAll(on){
+    $$('.grp .sw:not(:disabled)').forEach(function(s){s.checked=on;s.indeterminate=false});
+    var u=$('#d-unseen');u.checked=on;$('#chip-saved').checked=on;
+    recount();
+  }
+  $('#show-all').addEventListener('click',function(){setAll(true)});
+  $('#hide-all').addEventListener('click',function(){setAll(false)});
+  // find: narrows the rows shown by name
+  var q=$('#q'),qn=$('#qnote'),none=$('#qnone');
+  function find(){
+    var w=q.value.trim().toLowerCase().split(/\s+/).filter(Boolean),hits=0;
+    qn.hidden=!w.length;
+    $$('.grp').forEach(function(g){
+      var any=false,gname=(g.querySelector('summary .t').textContent||'').toLowerCase();
+      $$('.items .row',g).forEach(function(r){var h=(r.getAttribute('data-name')+' '+gname);var ok=w.every(function(x){return h.indexOf(x)>-1});r.hidden=!ok;if(ok){any=true;hits++}});
+      var gm=w.length&&!any&&!w.every(function(x){return gname.indexOf(x)>-1});
+      g.hidden=!!gm;
+      if(w.length&&any)g.open=true;
+    });
+    none.hidden=!(w.length&&!hits);
+  }
+  q.addEventListener('input',find);
+  $('#qclear').addEventListener('click',function(){q.value='';find();q.focus()});
+  // saved filters: kept in memory for this page view only
+  var sets={},sel=$('#fsets'),nr=$('#fnamerow'),nm=$('#fname'),del=$('#fdel'),def=$('#fdef'),defclr=$('#fdefclear'),defn=$('#fdefnote'),defName='';
+  function snap(){var o={};$$('.grp .sw').forEach(function(s,i){o[i]=s.checked});return o}
+  function restore(o){$$('.grp .sw').forEach(function(s,i){if(!s.disabled&&i in o)s.checked=o[i]});recount()}
+  function sync(){var p=sel.value;del.disabled=!(p&&sets[p]);def.disabled=!(p&&sets[p]);def.checked=!!p&&p===defName;defclr.hidden=!defName;defn.textContent=defName?'Opens with "'+defName+'" each time you arrive on this map.':''}
+  $('#fsave').addEventListener('click',function(){nr.hidden=false;nm.focus()});
+  $('#fnameno').addEventListener('click',function(){nr.hidden=true;nm.value=''});
+  $('#fnameok').addEventListener('click',function(){var n=nm.value.trim();if(!n)return;if(!sets[n]){var o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o)}sets[n]=snap();sel.value=n;nr.hidden=true;nm.value='';sync()});
+  sel.addEventListener('change',function(){var p=sel.value;if(p==='@default'){setAll(true)}else if(sets[p]){restore(sets[p])}sync()});
+  del.addEventListener('click',function(){var p=sel.value;if(!sets[p])return;delete sets[p];if(defName===p)defName='';$$('option',sel).forEach(function(o){if(o.value===p)o.remove()});sel.value='';sync()});
+  def.addEventListener('change',function(){defName=def.checked?sel.value:'';sync()});
+  defclr.addEventListener('click',function(){defName='';sync()});
+  recount();sync();
+})();
+</script>
+</body>
+</html>
