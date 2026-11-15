@@ -231,24 +231,132 @@ func TestNoReservedWordIsInThePublicRepository(t *testing.T) {
 
 // The workflow that runs the check on issue and pull request text must exist and name the events that matter, so it cannot be dropped by accident.
 func TestThePublicTextWorkflowCoversIssuesPullRequestsAndComments(t *testing.T) {
-	b, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "public-text.yml"))
+	for _, file := range []string{"public-text.yml", "public-text-discussion.yml"} {
+		s := readWorkflow(t, file)
+		for _, want := range []string{"edited", "./cmd/publictextcheck"} {
+			if !strings.Contains(s, want) {
+				t.Errorf("%s does not mention %q", file, want)
+			}
+		}
+		if strings.Contains(s, "pull_request_target") {
+			t.Errorf("%s must not use pull_request_target: it would run with a write token over text from a fork", file)
+		}
+		for _, bad := range []string{"github.event.issue.title", "github.event.issue.body", "github.event.comment.body", "github.event.review.body", "github.event.pull_request.title", "github.event.pull_request.body", "github.event.pull_request.head.ref", "github.head_ref"} {
+			if strings.Contains(s, bad) {
+				t.Errorf("%s must read the event from the payload file, never interpolate %s into a step", file, bad)
+			}
+		}
+	}
+	// Between them the two workflows still cover every event the check covered before the split (#701).
+	all := readWorkflow(t, "public-text.yml") + readWorkflow(t, "public-text-discussion.yml")
+	for _, want := range []string{"issues:", "issue_comment:", "pull_request:", "pull_request_review:", "pull_request_review_comment:"} {
+		if !strings.Contains(all, "\n  "+want+"\n") {
+			t.Errorf("no public-text workflow runs on %q", want)
+		}
+	}
+}
+
+// Two check runs with one name on one head commit: the newest decides (and GitHub's documentation warns that one job name in several
+// workflows gives ambiguous results). A review run checks less than a pull request run, so it must never report under the name of the
+// required check, not even as a skipped job (#701). The required check "public-text" belongs to the workflow that runs on the
+// pull_request event and on nothing else, and no other job or workflow in the repository may use that name.
+func TestThePublicTextCheckNameBelongsToThePullRequestWorkflowAlone(t *testing.T) {
+	pr := readWorkflow(t, "public-text.yml")
+	if got := workflowEvents(pr); len(got) != 1 || got[0] != "pull_request" {
+		t.Errorf("public-text.yml must run on the pull_request event only, it runs on %v", got)
+	}
+	if got := workflowJobNames(pr); len(got) != 1 || got[0] != "public-text" {
+		t.Errorf("public-text.yml must hold one job named public-text, it holds %v", got)
+	}
+	if strings.Contains(pr, "\n        if:") || strings.Contains(pr, "\n    if:") {
+		t.Error("public-text.yml must not skip a step or the job on a condition: every run of the required check checks the same things")
+	}
+	if !strings.Contains(pr, "-commits") {
+		t.Error("public-text.yml must check the commit messages of the pull request")
+	}
+
+	disc := readWorkflow(t, "public-text-discussion.yml")
+	for _, e := range workflowEvents(disc) {
+		if e == "pull_request" {
+			t.Error("public-text-discussion.yml must not run on the pull_request event: that is the required check's event")
+		}
+	}
+	if got := workflowJobNames(disc); len(got) != 1 || got[0] != "public-text-discussion" {
+		t.Errorf("public-text-discussion.yml must hold one job named public-text-discussion, it holds %v", got)
+	}
+
+	files, err := filepath.Glob(filepath.Join("..", "..", ".github", "workflows", "*.yml"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no workflow files found: %v", err)
+	}
+	for _, f := range files {
+		base := filepath.Base(f)
+		if base == "public-text.yml" {
+			continue
+		}
+		s := readWorkflow(t, base)
+		for _, n := range workflowJobNames(s) {
+			if n == "public-text" {
+				t.Errorf("%s has a job named public-text: that name is the required check of public-text.yml alone", base)
+			}
+		}
+	}
+}
+
+func readWorkflow(t *testing.T, name string) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", name))
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := string(b)
-	for _, want := range []string{"issues:", "issue_comment:", "pull_request:", "pull_request_review:", "pull_request_review_comment:", "edited", "./cmd/publictextcheck"} {
-		if !strings.Contains(s, want) {
-			t.Errorf("public-text.yml does not mention %q", want)
+	return strings.ReplaceAll(string(b), "\r\n", "\n")
+}
+
+// workflowEvents lists the event names under the top-level "on:" key of a workflow (block style, two-space indent, as the repository writes them).
+func workflowEvents(s string) []string {
+	var out []string
+	in := false
+	for _, line := range strings.Split(s, "\n") {
+		switch {
+		case line == "on:":
+			in = true
+		case in && strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "   ") && strings.HasSuffix(line, ":"):
+			out = append(out, strings.TrimSuffix(strings.TrimSpace(line), ":"))
+		case in && line != "" && !strings.HasPrefix(line, " "):
+			in = false
 		}
 	}
-	if strings.Contains(s, "pull_request_target") {
-		t.Error("public-text.yml must not use pull_request_target: it would run with a write token over text from a fork")
-	}
-	for _, bad := range []string{"github.event.issue.title", "github.event.issue.body", "github.event.comment.body", "github.event.review.body", "github.event.pull_request.title", "github.event.pull_request.body", "github.event.pull_request.head.ref", "github.head_ref"} {
-		if strings.Contains(s, bad) {
-			t.Errorf("public-text.yml must read the event from the payload file, never interpolate %s into a step", bad)
+	return out
+}
+
+// workflowJobNames lists the "name:" of every job (the line indented four spaces right under a job id), or the job id when it has none.
+func workflowJobNames(s string) []string {
+	var out []string
+	in := false
+	id := ""
+	named := false
+	flush := func() {
+		if id != "" && !named {
+			out = append(out, id)
 		}
 	}
+	for _, line := range strings.Split(s, "\n") {
+		switch {
+		case line == "jobs:":
+			in = true
+		case in && line != "" && !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "#"):
+			flush()
+			in, id = false, ""
+		case in && strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "   ") && strings.HasSuffix(line, ":"):
+			flush()
+			id, named = strings.TrimSuffix(strings.TrimSpace(line), ":"), false
+		case in && strings.HasPrefix(line, "    name:"):
+			named = true
+			out = append(out, strings.Trim(strings.TrimSpace(strings.TrimPrefix(line, "    name:")), `"'`))
+		}
+	}
+	flush()
+	return out
 }
 
 func TestPhrasesOfUpToFourWordsAndTheTextIsKeptAsWritten(t *testing.T) {
