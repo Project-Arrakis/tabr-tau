@@ -1,4 +1,5 @@
-# Changelog
+# Changel- **A table box starts at its top when it shows other rows: another inventory group, the inventory filter and Clear, another base, a base's sub-tab or inventory group, an opened vehicle** (#697, audit finding L3-02; page only, nothing in a save write path changes). #687 kept the scroll offset of every table box across these redraws, which put the old offset onto the new rows and could hide the first rows of a short list. The page offset is still kept; a redraw that shows the same rows (the give queue, the kit editors, a refused change) still keeps the box offsets too.
+og
 
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/), tags `v0.x` until the first audited release.
