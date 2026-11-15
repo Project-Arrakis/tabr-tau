@@ -101,12 +101,13 @@ func lineOfHouse(house string) string {
 	return houseLine[name]
 }
 
-// ceilSteps is ceil(x / step) for x >= 0 and step > 0.
-func ceilSteps(x, step float64) int64 {
+// ceilSteps is ceil(x / step) as a float, for x >= 0 and step > 0. It stays a float so that the caller compares it with the cap before it is turned into a whole number: a step so
+// small that the quotient does not fit an int64 must be refused, not wrapped round.
+func ceilSteps(x, step float64) float64 {
 	if x <= 0 || step <= 0 {
 		return 0
 	}
-	return int64(math.Ceil(x/step - 1e-9))
+	return math.Ceil(x/step - 1e-9)
 }
 
 // eventsOf is the sum of player_progress of the character's own events for the task: the contribution the game's own record of this character's missions covers.
@@ -162,10 +163,11 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 	if step <= 0 {
 		return res, false, apierr.New(apierr.ErrBadArgument, zeroContributionProblem)
 	}
-	missions := ceilSteps(after, step) - ceilSteps(lo, step)
-	if missions > maxMissionsAtOnce {
-		return res, false, apierr.Newf(apierr.ErrBadArgument, "%v: this change stands for %d missions, more than the %d one change may grant. Nothing was changed; click the tiers one at a time, or set LandsraadContributionMultiplier in ServerCustomSettings.ini (Config tab) nearer to 1.", houseOf(t), missions, maxMissionsAtOnce)
+	// compared as a float, before it becomes a whole number: a tiny step makes the quotient overflow, and NaN (infinity minus infinity) is refused too
+	if span := ceilSteps(after, step) - ceilSteps(lo, step); !(span <= maxMissionsAtOnce) {
+		return res, false, apierr.Newf(apierr.ErrBadArgument, "%v: this change stands for more than the %d missions one change may grant. Nothing was changed; click the tiers one at a time, or set LandsraadContributionMultiplier in ServerCustomSettings.ini (Config tab) nearer to 1.", houseOf(t), maxMissionsAtOnce)
 	}
+	missions := int64(ceilSteps(after, step) - ceilSteps(lo, step))
 	gained := after - lo
 
 	// 1. the faction's contribution, while the house is open, and the completion the faction's progress brings

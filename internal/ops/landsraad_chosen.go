@@ -44,7 +44,7 @@ func chosenTask(m *save.Mut, taskID, termID int64) (save.Row, error) {
 		return nil, apierr.New(apierr.ErrNotFound, "task not found")
 	}
 	if t["term_id"] != termID {
-		return nil, apierr.New(apierr.ErrConflict, "a chosen house belongs to an earlier term, so nothing was changed: reload the page and look again")
+		return nil, apierr.New(apierr.ErrConflict, "a chosen house belongs to an earlier term, so nothing was changed. The board was read again; check it and click again")
 	}
 	return t, nil
 }
@@ -56,7 +56,7 @@ func currentTerm(m *save.Mut, termID int64) error {
 		return err
 	}
 	if term == nil || term["term_id"] != termID {
-		return apierr.New(apierr.ErrConflict, "the Landsraad term is not the one you were shown, so nothing was changed: reload the page and look again")
+		return apierr.New(apierr.ErrConflict, "the Landsraad term is not the one you were shown, so nothing was changed. The board was read again; check it and click again")
 	}
 	return nil
 }

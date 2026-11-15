@@ -254,6 +254,10 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 						doneByRaise = true
 					}
 					rw.add(rr)
+					// the cap is on the whole request, not only on each house: many houses, each under it, must not add up to more than one change may grant
+					if rw.missions > maxMissionsAtOnce {
+						return apierr.Newf(apierr.ErrBadArgument, "this request stands for more than the %d missions one change may grant, counting every house in it. Nothing was changed; fill fewer houses at once, or set LandsraadContributionMultiplier in ServerCustomSettings.ini (Config tab) nearer to 1.", maxMissionsAtOnce)
+					}
 				case to < s.cur && to == 0:
 					if _, err := m.Exec(`delete from landsraad_task_player_contributions where player_id=? and faction_id=? and task_id=?`, me.player, me.faction, it.task); err != nil {
 						return err

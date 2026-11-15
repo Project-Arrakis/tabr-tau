@@ -433,3 +433,41 @@ func TestGrantTheBoardReadSaysWhatTheCharactersEventsCover(t *testing.T) {
 		}
 	}
 }
+
+// The cap of 1,000 missions is on the whole request, not on each house: houses that are each under it must not add up to more than one change may grant.
+func TestGrantTheCapCountsEveryHouseOfTheRequest(t *testing.T) {
+	o := rewardOps(t, "")
+	before := grantRows(t, o)
+	g := GrantSettings{ContributionMultiplier: 0.01, SpecializationXPMultiplier: 1} // a step of 10: Kenola 1,300 to 6,000 is 470 missions, Vernius 0 to 6,000 is 600
+	each := []map[string]any{house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0}), house(176, Args{"mine_to": 6000.0})}
+	for _, h := range each { // each house alone is under the cap (a fresh copy for each)
+		if _, err := rewardOps(t, "").LandsraadApplyWith(g, applyArgs(h)); err != nil {
+			t.Fatalf("one house is under the cap: %v", err)
+		}
+	}
+	_, err := o.LandsraadApplyWith(g, applyArgs(each...))
+	if err == nil || !strings.Contains(err.Error(), "counting every house in it") || !strings.Contains(err.Error(), "Nothing was changed") || !strings.Contains(err.Error(), "fill fewer houses at once") {
+		t.Fatalf("two houses over the cap together: %v", err)
+	}
+	if grantRows(t, o) != before {
+		t.Fatal("a refused request changed the save")
+	}
+}
+
+// A step so small that the number of missions does not fit a whole number is refused, not wrapped round into a negative count that still writes rows.
+func TestGrantRefusesAStepTooSmallToCount(t *testing.T) {
+	for _, m := range []float64{1e-300, 1e-320, 1e-6} {
+		o := rewardOps(t, "")
+		before := grantRows(t, o)
+		g := GrantSettings{ContributionMultiplier: m, SpecializationXPMultiplier: 1}
+		for name, h := range map[string]map[string]any{"from a contribution": house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0}), "from none": house(176, Args{"mine_to": 6000.0})} {
+			_, err := o.LandsraadApplyWith(g, applyArgs(h))
+			if err == nil || !strings.Contains(err.Error(), "more than the 1000 missions one change may grant") || !strings.Contains(err.Error(), "Nothing was changed") {
+				t.Fatalf("multiplier %g %s: %v", m, name, err)
+			}
+			if grantRows(t, o) != before {
+				t.Fatalf("multiplier %g %s: a refused request changed the save", m, name)
+			}
+		}
+	}
+}
