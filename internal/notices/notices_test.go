@@ -29,6 +29,7 @@ func TestEveryEmbeddedGameDataFileHasANotice(t *testing.T) {
 		"internal/ops/place-names.json",
 		"internal/ops/place-arrivals.json",
 		"internal/ops/deep-desert-taxis.json",
+		"internal/ops/landsraad_fixed_places.go",
 		"kit/schema/schema.sql",
 		"kit/schema/schema_map_names.sql",
 	} {

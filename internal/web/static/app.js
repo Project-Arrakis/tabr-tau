@@ -1754,7 +1754,7 @@ function lbFromYou(h) {
   return m >= 1000 ? `about ${(m / 1000).toFixed(1)} km` : `about ${m} m`;
 }
 function lbPlaceDetails(h) {
-  if (!h.loc.known) return html`<p class="cap">The location of this house is unknown: the save holds no map marker for its representative. Nothing to fix: the editor does not guess a place.</p>`;
+  if (!h.loc.known) return html`<p class="cap">The location of this house is unknown: the save holds no map marker for its representative and the editor has no fixed place for it. Nothing to fix: the editor does not guess a place.</p>`;
   return html`${lbMiniMap(h)}<dl><dt>Region</dt><dd>${lbAreaFull(h)}</dd>${h.loc.place ? html`<dt>Place</dt><dd>${h.loc.place}</dd>` : ''}<dt>From you</dt><dd>${lbFromYou(h)}</dd></dl>`;
 }
 const LB_ICON = {
@@ -2018,7 +2018,7 @@ function lbCloseCards() { document.querySelectorAll('.lsb .hw.open').forEach((w)
 function lbOpenMap(h) {
   const dlg = $('#lsb-map'), body = $('#lsb-mapbody');
   if (!dlg || !body) return;
-  setHTML(body, html`<h4>House ${h.name}</h4>${lbPlaceDetails(h)}${h.loc.known && h.loc.map_key ? html`<p class="fine mnote">The pin marks the house representative (schematic, not to scale).</p>` : ''}${h.loc.known && h.loc.map_key ? html`<div class="mfoot"><button type="button" class="linkb" data-lb="mapopen" data-id="${h.id}">Open in Saved map</button></div>` : ''}`);
+  setHTML(body, html`<h4>House ${h.name}</h4>${lbPlaceDetails(h)}${h.loc.known ? (h.loc.map_key ? html`<p class="fine mnote">The pin marks the house representative (schematic, not to scale).</p>` : html`<p class="fine mnote">The Saved map has no picture of ${h.loc.map} yet, so there is no pin and no map link for this house.</p>`) : ''}${h.loc.known && h.loc.map_key ? html`<div class="mfoot"><button type="button" class="linkb" data-lb="mapopen" data-id="${h.id}">Open in Saved map</button></div>` : ''}`);
   lbStyles(body);
   $('#lsb-mapttl').textContent = h.loc.known ? 'Map: ' + lbAreaFull(h) : 'Location: House ' + h.name;
   if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');

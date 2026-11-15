@@ -4,19 +4,20 @@ import (
 	"math"
 	"strings"
 
+	"github.com/Project-Arrakis/tabr-tau/kit/ddgrid"
 	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/regions"
 )
 
 // ---------------------------------------------------------------- where a house is (refs #639)
 //
 // The save has no column for the place of a house, but it holds the house representatives as map markers: marker type "HouseRepresentative<Name>", one row per representative, with the
-// map, the position and the number of the area the marker stands in. The Saved map draws the same rows. The board reads them each time it is read, so nothing is stored in the editor
-// and no position is invented: a house whose representative has no marker in the save is shown as "location unknown".
+// map, the position and the number of the area the marker stands in. The Saved map draws the same rows. The board reads them each time it is read. A representative the character has not found
+// yet has no marker, so for such a house the fixed place of landsraad_fixed_places.go is used; a marker in the save always wins. A house in neither is shown as "location unknown".
 //
 // The save names a house "DA_House<Name>" and its marker "HouseRepresentative<Name>". One name is spelled differently in the two (houseMarkerName).
 
 // houseLocation is where the representative of one house is: the map ("Hagga Basin", "Deep Desert", "Harko Village", "Arrakeen"), the named area of the map (the main text of the row: the
-// marker's own area on the Hagga Basin, the map's name elsewhere), the finer place (the save has none, so it is empty), and the position as a fraction of the schematic map (0 to 1,
+// area on the Hagga Basin, the map's name elsewhere), the finer place (the Deep Desert's grid tile, or the tradepost a representative stands in; empty otherwise), and the position as a fraction of the schematic map (0 to 1,
 // from the left and from the top; only on a map the editor has a picture for, see houseMapKey).
 type houseLocation struct {
 	Map, Area, Place string
@@ -53,9 +54,9 @@ func (o *Ops) houseLocations() (map[string]houseLocation, error) {
 	byName := map[string]houseLocation{}
 	for _, r := range rows {
 		typ, _ := r["t"].(string)
-		name := strings.TrimPrefix(typ, houseMarkerPrefix)
+		name := canonicalHouse(strings.TrimPrefix(typ, houseMarkerPrefix))
 		mapName, _ := r["map"].(string)
-		label, ok := houseMapLabel[mapName]
+		_, ok := houseMapLabel[mapName]
 		x, okx := toFloat(r["x"])
 		y, oky := toFloat(r["y"])
 		if name == "" || !ok || !okx || !oky || math.IsNaN(x) || math.IsNaN(y) {
@@ -64,22 +65,15 @@ func (o *Ops) houseLocations() (map[string]houseLocation, error) {
 		if _, dup := byName[name]; dup {
 			continue
 		}
-		l := houseLocation{Map: label, Area: label}
-		if a, ok := r["area"].(int64); ok {
-			if n := regions.Name(mapName, a); n != "" {
-				l.Area = n
-			}
-		}
-		if key, ok := houseMapKey[label]; ok {
-			if m := findMap(key); m.Key == key {
-				fx, fy := (x-m.MinX)/(m.MaxX-m.MinX), (y-m.MinY)/(m.MaxY-m.MinY)
-				// a marker beyond the edge of the picture gets no pin, no distance and no map link: the row still gives its area
-				if fx >= 0 && fx <= 1 && fy >= 0 && fy <= 1 {
-					l.X, l.Y, l.Pinned = fx, fy, true
-				}
-			}
-		}
+		area, _ := r["area"].(int64)
+		l := placeAt(mapName, x, y, area, "")
 		byName[name] = l
+	}
+	// a house the save has no marker for gets its fixed place; a marker, even one on another map than the fixed place, is never replaced
+	for name, f := range fixedHousePlaces {
+		if _, has := byName[name]; !has {
+			byName[name] = placeAt(f.Map, f.X, f.Y, f.Area, f.Place)
+		}
 	}
 	// by the save's spelling of the house, and by the marker's own (a save may use either)
 	out := make(map[string]houseLocation, len(byName))
@@ -92,6 +86,40 @@ func (o *Ops) houseLocations() (map[string]houseLocation, error) {
 		}
 	}
 	return out, nil
+}
+
+// canonicalHouse is the marker's spelling of a house name: a save may write the marker with the save's own spelling ("Mikkarol") or the game's ("Mikarrol").
+func canonicalHouse(name string) string {
+	if m, ok := houseMarkerName[name]; ok {
+		return m
+	}
+	return name
+}
+
+// placeAt is the place of a representative at a position of a map (the save's map name): its map and area, and on a map the editor has a picture for the pin as a fraction of the
+// picture. The Hagga Basin area comes from the area number (the map's name when the number has no name), a Deep Desert place says its grid tile. place, when it is not empty, says
+// what the position is (a tradepost the representative stands in).
+func placeAt(mapName string, x, y float64, areaID int64, place string) houseLocation {
+	label := houseMapLabel[mapName]
+	l := houseLocation{Map: label, Area: label, Place: place}
+	if n := regions.Name(mapName, areaID); n != "" {
+		l.Area = n
+	}
+	if mapName == "DeepDesert" && l.Place == "" {
+		if c := ddgrid.Cell(x, y); c != "" {
+			l.Place = "tile " + c
+		}
+	}
+	if key, ok := houseMapKey[label]; ok {
+		if m := findMap(key); m.Key == key {
+			fx, fy := (x-m.MinX)/(m.MaxX-m.MinX), (y-m.MinY)/(m.MaxY-m.MinY)
+			// a position beyond the edge of the picture gets no pin, no distance and no map link: the row still gives its area
+			if fx >= 0 && fx <= 1 && fy >= 0 && fy <= 1 {
+				l.X, l.Y, l.Pinned = fx, fy, true
+			}
+		}
+	}
+	return l
 }
 
 // distanceFromYou is the straight-line distance in centimetres from the character to the house representative, when both are on the same map and the map has a mapping:
