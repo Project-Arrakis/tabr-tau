@@ -17,10 +17,12 @@ import (
 // The save names a house "DA_House<Name>" and its marker "HouseRepresentative<Name>". One name is spelled differently in the two (houseMarkerName).
 
 // houseLocation is where the representative of one house is: the map ("Hagga Basin", "Deep Desert", "Harko Village", "Arrakeen"), the named area of the map (the main text of the row: the
-// area on the Hagga Basin, the map's name elsewhere), the finer place (the Deep Desert's grid tile, or the tradepost a representative stands in; empty otherwise), and the position as a fraction of the schematic map (0 to 1,
+// area on the Hagga Basin, the map's name elsewhere), the finer place (the tradepost a representative stands in, from public guides; empty otherwise; the Deep Desert's grid cell is Cell), and the position as a fraction of the schematic map (0 to 1,
 // from the left and from the top; only on a map the editor has a picture for, see houseMapKey).
 type houseLocation struct {
 	Map, Area, Place string
+	Cell             string // the Deep Desert's lettered grid cell ("B8"), the editor's own words for it; empty elsewhere
+	Unconfirmed      bool   // Place is from public guides and not confirmed in the game
 	X, Y             float64
 	Pinned           bool // X and Y are inside the picture of a map the editor has one for: only then are the pin, the distance and the map link given
 }
@@ -97,18 +99,16 @@ func canonicalHouse(name string) string {
 }
 
 // placeAt is the place of a representative at a position of a map (the save's map name): its map and area, and on a map the editor has a picture for the pin as a fraction of the
-// picture. The Hagga Basin area comes from the area number (the map's name when the number has no name), a Deep Desert place says its grid tile. place, when it is not empty, says
+// picture. The Hagga Basin area comes from the area number (the map's name when the number has no name), a Deep Desert place says its grid cell. place, when it is not empty, says
 // what the position is (a tradepost the representative stands in).
 func placeAt(mapName string, x, y float64, areaID int64, place string) houseLocation {
 	label := houseMapLabel[mapName]
-	l := houseLocation{Map: label, Area: label, Place: place}
+	l := houseLocation{Map: label, Area: label, Place: place, Unconfirmed: place != ""}
 	if n := regions.Name(mapName, areaID); n != "" {
 		l.Area = n
 	}
-	if mapName == "DeepDesert" && l.Place == "" {
-		if c := ddgrid.Cell(x, y); c != "" {
-			l.Place = "tile " + c
-		}
+	if mapName == "DeepDesert" {
+		l.Cell = ddgrid.Cell(x, y)
 	}
 	if key, ok := houseMapKey[label]; ok {
 		if m := findMap(key); m.Key == key {
@@ -144,7 +144,7 @@ func locationOf(house string, table map[string]houseLocation, here *charPlace) m
 	if !ok {
 		return map[string]any{"known": false}
 	}
-	out := map[string]any{"known": true, "map": l.Map, "area": l.Area, "place": l.Place, "map_key": ""}
+	out := map[string]any{"known": true, "map": l.Map, "area": l.Area, "place": l.Place, "map_key": "", "cell": l.Cell, "unconfirmed": l.Unconfirmed}
 	if l.Pinned {
 		out["map_key"], out["x"], out["y"] = houseMapKey[l.Map], l.X, l.Y
 	}

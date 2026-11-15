@@ -63,8 +63,8 @@ func TestBoardLocationComesFromTheHouseRepresentativeMarker(t *testing.T) {
 		if hub["known"] != true || hub["map"] != "Arrakeen" || hub["area"] != "Arrakeen" || hub["map_key"] != "" || hub["x"] != nil || hub["y"] != nil || hub["from_you_cm"] != nil {
 			t.Fatalf("Varota = %v", hub)
 		}
-		// the Deep Desert has a picture but no area names: the row says the grid tile the marker is in (a marker of the save wins over the fixed place of the house)
-		if dd := taskByID(t, o, 178)["location"].(map[string]any); dd["known"] != true || dd["map"] != "Deep Desert" || dd["area"] != "Deep Desert" || dd["map_key"] != "DeepDesert" || dd["x"] == nil || dd["place"] != "tile E5" {
+		// the Deep Desert has a picture but no area names: the row says the grid cell the marker is in (a marker of the save wins over the fixed place of the house)
+		if dd := taskByID(t, o, 178)["location"].(map[string]any); dd["known"] != true || dd["map"] != "Deep Desert" || dd["area"] != "Deep Desert" || dd["map_key"] != "DeepDesert" || dd["x"] == nil || dd["cell"] != "E5" {
 			t.Fatalf("Wayku = %v", dd)
 		}
 	})
@@ -163,11 +163,15 @@ func TestBoardLocationOfAHubOrDeepDesertHouseWithoutAMarker(t *testing.T) {
 		o := &Ops{S: testsave.PlayerWithSQLIn(t, l, mineWorld+`insert into landsraad_tasks(id, term_id, board_index, house_name, goal_amount, completed) values
 			(300, 7, 20, 'DA_HouseWallach', 4000, 0), (301, 7, 21, 'DA_HouseSpinette', 4000, 0), (303, 7, 23, 'DA_HouseWayku', 4000, 0),
 			(304, 7, 24, 'DA_HouseTseida', 4000, 0), (305, 7, 25, 'DA_HouseMikkarol', 4000, 0);`)}
-		for id, want := range map[int64][3]string{300: {"Arrakeen", "Arrakeen", ""}, 301: {"Harko Village", "Harko Village", ""}, 174: {"Deep Desert", "Deep Desert", "tile B8"}, 303: {"Deep Desert", "Deep Desert", "tile A2"},
-			304: {"Hagga Basin", "Eastern Vermillius Gap", "The Anvil Tradepost"}, 305: {"Hagga Basin", "Jabal Eifrit Al-janub", ""}} {
+		for id, want := range map[int64][4]string{300: {"Arrakeen", "Arrakeen", "", ""}, 301: {"Harko Village", "Harko Village", "", ""}, 174: {"Deep Desert", "Deep Desert", "", "B8"}, 303: {"Deep Desert", "Deep Desert", "", "A2"},
+			304: {"Hagga Basin", "Eastern Vermillius Gap", "The Anvil Tradepost", ""}, 305: {"Hagga Basin", "Jabal Eifrit Al-janub", "", ""}} {
 			loc := taskByID(t, o, id)["location"].(map[string]any)
-			if loc["known"] != true || loc["map"] != want[0] || loc["area"] != want[1] || loc["place"] != want[2] {
+			if loc["known"] != true || loc["map"] != want[0] || loc["area"] != want[1] || loc["place"] != want[2] || loc["cell"] != want[3] {
 				t.Fatalf("task %d = %v, want %v", id, loc, want)
+			}
+			// only Tseida's place (the tradepost) is from public guides and not confirmed in the game
+			if loc["unconfirmed"] != (id == 304) {
+				t.Fatalf("task %d: unconfirmed = %v", id, loc["unconfirmed"])
 			}
 			hub := want[0] == "Arrakeen" || want[0] == "Harko Village"
 			if hub && (loc["map_key"] != "" || loc["x"] != nil || loc["from_you_cm"] != nil) {
@@ -240,8 +244,8 @@ func TestEveryHouseHasAPlaceAndAWayToItsMap(t *testing.T) {
 			if loc["map_key"] == "" || !okx || !oky || x < 0 || x > 1 || y < 0 || y > 1 {
 				t.Errorf("House %s: its place cannot be opened on its map: %v", name, loc)
 			}
-			if label == "Deep Desert" && !strings.HasPrefix(fmt.Sprint(loc["place"]), "tile ") {
-				t.Errorf("House %s: a Deep Desert house names its tile: %v", name, loc)
+			if label == "Deep Desert" && (fmt.Sprint(loc["cell"]) == "" || loc["place"] != "") {
+				t.Errorf("House %s: a Deep Desert house names its grid cell: %v", name, loc)
 			}
 		}
 	})
@@ -273,8 +277,8 @@ func TestFixedHousePlacesHoldEveryHouse(t *testing.T) {
 				t.Errorf("%s: a Hagga Basin place has a pin inside the picture and a named area: %+v", name, l)
 			}
 		case "DeepDesert":
-			if !l.Pinned || !strings.HasPrefix(l.Place, "tile ") {
-				t.Errorf("%s: a Deep Desert place has a pin and a grid tile: %+v", name, l)
+			if !l.Pinned || l.Cell == "" {
+				t.Errorf("%s: a Deep Desert place has a pin and a grid cell: %+v", name, l)
 			}
 		default:
 			if l.Pinned || l.Area != l.Map {

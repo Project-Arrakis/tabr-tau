@@ -1808,6 +1808,10 @@ function lbHsText(h, l) {
   const ld = lbLead(h, (l.factions || []).map((f) => f.id));
   return 'Open' + (ld != null ? ' · ' + lbFacName(l, ld) + ' ahead' : '');
 }
+// a place on a map the Saved map has no picture of (Arrakeen, Harko Village): it has a name and no pin, distance or map link
+const lbHub = (h) => h.loc.known && !h.loc.map_key;
+// the second line of the Location column: the Deep Desert's grid cell, a named place, and the map when the first line is an area of it
+const lbSub = (h) => (h.loc.known ? [h.loc.cell ? 'Grid cell ' + h.loc.cell : '', h.loc.place, h.loc.area === h.loc.map ? '' : h.loc.map].filter(Boolean).join(' · ') : '');
 function lbAreaFull(h) { return !h.loc.known ? 'location unknown' : h.loc.area === h.loc.map ? h.loc.area : h.loc.area + ' (' + h.loc.map + ')'; }
 const lbTierWord = (t) => (t.add ? 'will be reached' : t.rem ? 'will be removed' : LB_STL[t.state]);
 function lbTierTip(h, t, i, can) {
@@ -1822,7 +1826,7 @@ const lbMeter = (h, can) => html`<span class="meter mb${h.tiers.length && h.reac
 const lbPin = (h) => (h.loc.known && h.loc.map_key ? html`<span class="pin" data-px="${(Number(h.loc.x) * 100).toFixed(1)}" data-py="${(Number(h.loc.y) * 100).toFixed(1)}"></span>` : '');
 const lbMiniMap = (h) => (h.loc.known && h.loc.map_key ? html`<span class="minimap"><svg viewBox="0 0 120 90" role="img" aria-label="Schematic of ${h.loc.map} (not to scale)" focusable="false"><path class="m-fill" d="M8 34 L28 12 L66 6 L102 20 L114 50 L98 80 L56 86 L22 78 L6 56 Z"/><text class="m-txt" x="117" y="88" text-anchor="end" font-size="3.4">schematic, not to scale</text></svg>${lbPin(h)}</span>` : '');
 // the quick peek on the place (mouse hover only, see the .pop rules): the same lines as the dialog, drawn once per row; the dialog is the way in for a touch screen and the keyboard
-const lbPeek = (h) => (h.loc.known ? html`<span class="pop" aria-hidden="true"><h4>House ${h.name}</h4>${lbPlaceDetails(h)}<span class="fine">Quick peek. Click the place for the full map.</span></span>` : '');
+const lbPeek = (h) => (h.loc.known ? html`<span class="pop" aria-hidden="true"><h4>House ${h.name}</h4>${lbPlaceDetails(h)}<span class="fine">Quick peek. Click the place for ${lbHub(h) ? 'details' : 'the full map'}.</span></span>` : '');
 // the distance from the character to the house representative: the save holds the character's place in centimetres, and the house representative's marker its place, as a fraction of its map
 function lbFromYou(h) {
   const c = h.loc.from_you_cm;
@@ -1832,7 +1836,7 @@ function lbFromYou(h) {
 }
 function lbPlaceDetails(h) {
   if (!h.loc.known) return html`<p class="cap">The location of this house is unknown: the save holds no map marker for its representative and the editor has no fixed place for it. Nothing to fix: the editor does not guess a place.</p>`;
-  return html`${lbMiniMap(h)}<dl><dt>Region</dt><dd>${lbAreaFull(h)}</dd>${h.loc.place ? html`<dt>Place</dt><dd>${h.loc.place}</dd>` : ''}<dt>From you</dt><dd>${lbFromYou(h)}</dd></dl>`;
+  return html`${lbMiniMap(h)}<dl><dt>Region</dt><dd>${lbAreaFull(h)}</dd>${h.loc.cell ? html`<dt>Grid cell</dt><dd>${h.loc.cell}</dd>` : ''}${h.loc.place ? html`<dt>Place</dt><dd>${h.loc.place}</dd>` : ''}${lbHub(h) ? '' : html`<dt>From you</dt><dd>${lbFromYou(h)}</dd>`}</dl>${h.loc.unconfirmed ? html`<p class="pnote">This place is from public guides and is not confirmed in the game.</p>` : ''}`;
 }
 const LB_ICON = {
   fill: html`<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M6 10V2M2.5 5.5 6 2l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
@@ -1859,13 +1863,13 @@ function lbRow(h, l, hue, noLocs) {
     const p = h.prog[f.id] || 0;
     return html`<div class="fb ${k === 0 ? 'a' : k === 1 ? 'h' : 's'}${ld == f.id ? ' lead' : ''}"><span class="fl">${f.name}</span><span class="trk"><i data-w="${h.goal ? Math.min(100, Math.round(p / h.goal * 100)) : 0}"></i></span><span class="fv">${lbF(p)}</span></div>`;
   });
-  const locText = h.loc.known ? html`<span class="ln">${h.loc.area}</span>${h.loc.area === h.loc.map ? '' : html`<span class="lm">${h.loc.map}</span>`}` : html`<span class="ln mut">location unknown</span>`;
+  const locText = h.loc.known ? html`<span class="ln">${h.loc.area}</span>${lbSub(h) ? html`<span class="lm">${lbSub(h)}</span>` : ''}` : html`<span class="ln mut">location unknown</span>`;
   return html`<li class="hr" id="lsrow-${h.id}" data-id="${h.id}" data-my="${h.state}" data-hs="${h.taken ? 'taken' : 'open'}" ${h.pending ? 'data-pend' : ''}><div class="cw">
     <input type="checkbox" class="pick" data-lb="pick" data-id="${h.id}" data-fk="pk:${h.id}" aria-label="Choose House ${h.name}" ${LP.pick.has(h.id) ? 'checked' : ''}>
     <input type="checkbox" class="xc vh" id="lsx-${h.id}" aria-label="Show details of House ${h.name}" ${open ? 'checked' : ''}>
     <label for="lsx-${h.id}" class="sum">
-      <span class="c-house"><span class="hw"><button type="button" class="hn" aria-expanded="false" title="Details: next reward, waiting to collect, faction race, place (experimental)">${lbCrest(h.name, hue)}<b>${h.name}</b></button><span class="hcard" role="group" aria-label="House ${h.name}, details (experimental)"><button type="button" class="hcl" aria-label="Close the card">×</button><h4>House ${h.name}</h4><dl><dt>Next reward</dt><dd>${lbNextReward(h)}</dd><dt>Waiting to collect</dt><dd>${lbWaiting(h)}</dd><dt>Faction race</dt><dd>${(l.factions || []).map((f) => html`${f.name} ${lbF(h.prog[f.id] || 0)} of ${lbF(h.goal)}<br>`)}${h.taken ? 'Finished by ' + (h.win != null ? lbFacName(l, h.win) : 'a faction') : 'Not finished by either faction'}</dd>${noLocs ? '' : html`<dt>Place</dt><dd>${h.loc.known ? lbAreaFull(h) + (h.loc.place ? ' · ' + h.loc.place : '') : 'location unknown'}</dd>`}</dl><span class="fine">Experimental card.${noLocs ? '' : ' Click the place for the map.'}</span></span></span></span>
-      <span class="c-loc">${noLocs ? html`<span class="mut" aria-hidden="true">—</span>` : html`<span class="loc"><button type="button" class="loc-t" data-lb="map" data-id="${h.id}" aria-haspopup="dialog" title="${h.loc.known ? 'Click for the full map of ' + lbAreaFull(h) + '. Hover for a quick peek.' : 'The location of this house is unknown: the save holds no map marker for its representative.'}"><svg viewBox="0 0 12 14" aria-hidden="true" focusable="false"><path d="M6 0C2.7 0 0 2.6 0 5.8 0 10 6 14 6 14s6-4 6-8.2C12 2.6 9.3 0 6 0Zm0 8a2.2 2.2 0 1 1 0-4.4A2.2 2.2 0 0 1 6 8Z" fill="currentColor"/></svg><span>${locText}</span></button>${lbPeek(h)}</span>`}</span>
+      <span class="c-house"><span class="hw"><button type="button" class="hn" aria-expanded="false" title="Details: next reward, waiting to collect, faction race, place (experimental)">${lbCrest(h.name, hue)}<b>${h.name}</b></button><span class="hcard" role="group" aria-label="House ${h.name}, details (experimental)"><button type="button" class="hcl" aria-label="Close the card">×</button><h4>House ${h.name}</h4><dl><dt>Next reward</dt><dd>${lbNextReward(h)}</dd><dt>Waiting to collect</dt><dd>${lbWaiting(h)}</dd><dt>Faction race</dt><dd>${(l.factions || []).map((f) => html`${f.name} ${lbF(h.prog[f.id] || 0)} of ${lbF(h.goal)}<br>`)}${h.taken ? 'Finished by ' + (h.win != null ? lbFacName(l, h.win) : 'a faction') : 'Not finished by either faction'}</dd>${noLocs ? '' : html`<dt>Place</dt><dd>${h.loc.known ? lbAreaFull(h) + (h.loc.cell ? ' · grid cell ' + h.loc.cell : '') + (h.loc.place ? ' · ' + h.loc.place : '') + (h.loc.unconfirmed ? ' (from public guides, not confirmed in the game)' : '') : 'location unknown'}</dd>`}</dl><span class="fine">Experimental card.${noLocs ? '' : lbHub(h) ? ' Click the place for details.' : ' Click the place for the map.'}</span></span></span></span>
+      <span class="c-loc">${noLocs ? html`<span class="mut" aria-hidden="true">—</span>` : html`<span class="loc"><button type="button" class="loc-t" data-lb="map" data-id="${h.id}" aria-haspopup="dialog" aria-label="${'House ' + h.name + ': ' + (h.loc.known ? lbAreaFull(h) + (lbSub(h) ? ', ' + lbSub(h) : '') + '. ' + (lbHub(h) ? 'Show details of the place' : 'Show the map') : 'location unknown. Show why')}" title="${h.loc.known ? (lbHub(h) ? 'Click for details of ' + lbAreaFull(h) + ' (the Saved map has no picture of it). Hover for a quick peek.' : 'Click for the full map of ' + lbAreaFull(h) + '. Hover for a quick peek.') : 'The location of this house is unknown: the save holds no map marker for its representative and the editor has no fixed place for it.'}"><svg viewBox="0 0 12 14" aria-hidden="true" focusable="false"><path d="M6 0C2.7 0 0 2.6 0 5.8 0 10 6 14 6 14s6-4 6-8.2C12 2.6 9.3 0 6 0Zm0 8a2.2 2.2 0 1 1 0-4.4A2.2 2.2 0 0 1 6 8Z" fill="currentColor"/></svg><span>${locText}</span></button>${lbPeek(h)}</span>`}</span>
       <span class="c-my"><span class="line"><span class="st st-${h.state}"><span aria-hidden="true">${LB_GLYPH[h.state]}</span> ${LB_WORD[h.state]}</span>${h.pending ? html`<span class="pendtag">Pending <button type="button" class="undoq" data-lb="undo" data-id="${h.id}" data-fk="unq:${h.id}">Undo</button></span>` : ''}${lbMeter(h, can)}<span class="mut">${h.reached} of ${h.tiers.length} tiers</span></span><span class="amt"><b class="js-mine${h.mine > 0 ? '' : ' mut'}">${h.mine > 0 ? lbF(h.mine) : 'none recorded'}</b>${h.mine > 0 ? html` <span class="mut js-next">· ${lbNextParts(h).map((p, k) => html`${k ? ' ' : ''}<span class="nx">${p}</span>`)}</span>` : ''}</span></span>
       <span class="c-hs"><span class="tag">${hs}</span></span>
       <span class="c-qa"><button type="button" class="qa qa-fill" data-lb="qa" data-do="fill" data-id="${h.id}" data-fk="qf:${h.id}" aria-disabled="${off(fillOff)}" title="${fillTip}">${LB_ICON.fill}<span class="ql">Fill</span></button><button type="button" class="qa qa-cr" data-lb="qa" data-do="${h.taken ? 'reopen' : 'complete'}" data-id="${h.id}" data-fk="qc:${h.id}" aria-disabled="${off(false)}" title="${crTip}">${h.taken ? LB_ICON.reopen : LB_ICON.complete}<span class="ql">${h.taken ? 'Reopen' : 'Complete'}</span></button></span>
@@ -1980,13 +1984,13 @@ function lbInner(l) {
   <div class="ctl grid" role="group" aria-label="Filter and sort the board">
     <span><span class="lbl">Show</span><span class="seg">${LB_SHOWS.map(([k, t]) => seg(k, t, lbShowOf(hs, k).length))}</span></span>
     <span><span class="lbl">House</span><span class="seg">${[['any', 'Any', N], ['open', 'Open', c.open], ['taken', 'Taken', c.taken]].map(([k, t, n_]) => html`<label><input type="radio" name="lbhs" data-lb="hs" value="${k}" ${LB.hs === k ? 'checked' : ''}><span>${t} <em>${n_}</em></span></label>`)}</span></span>
-    <span><span class="lbl">Group</span><label class="btnl" ${noLocs ? html`title="Off: the save holds no map marker for any house representative"` : ''}><input type="checkbox" data-lb="group" ${noLocs ? 'disabled' : ''} ${LB.group && !noLocs ? 'checked' : ''}><span>By region</span></label>${noLocs ? html`<span class="note" id="lsb-grp-hint">needs a house location in the save</span>` : ''}</span>
+    <span><span class="lbl">Group</span><label class="btnl" ${noLocs ? html`title="Off: no place is known for any house"` : ''}><input type="checkbox" data-lb="group" ${noLocs ? 'disabled' : ''} ${LB.group && !noLocs ? 'checked' : ''}><span>By region</span></label>${noLocs ? html`<span class="note" id="lsb-grp-hint">needs a place for the houses</span>` : ''}</span>
     <span><span class="lbl">Rows</span><button type="button" class="btnr" data-lb="expand">Expand all</button> <button type="button" class="btnr" data-lb="collapse">Collapse all</button></span>
     <span class="f"><label class="lbl" for="lsb-jump">Jump to house</label><select id="lsb-jump" data-lb="jump"><option value="">Choose a house</option>${hs.map((h) => html`<option value="${h.id}" ${String(LB.jump) === String(h.id) ? 'selected' : ''}>${h.name}</option>`)}</select></span>
     <span class="shown" id="lsb-shown" aria-live="polite">${N} of ${N} houses shown</span>
   </div>
   <p class="line1">Click a row to open it.</p>
-  ${noLocs ? html`<p class="line1" id="lsb-nolocs">The save holds no map marker for any house representative, so the Location column is empty and the houses cannot be grouped by region.</p>` : ''}
+  ${noLocs ? html`<p class="line1" id="lsb-nolocs">No house has a place, so the Location column is empty and the houses cannot be grouped by region.</p>` : ''}
   ${lbActbar(hs, l)}
   <p class="onlybar" id="lsb-only" hidden>Showing only House <b id="lsb-onlyname"></b>, opened. The filters are ignored while this is on. <a href="#lsb-board" data-lb="showall">Show all houses</a></p>
   <p class="nolist" id="lsb-nomatch" hidden>No house matches the filters. <button type="button" class="linkb" data-lb="showall">Show all houses</button></p>
@@ -2062,6 +2066,7 @@ function lbApply() {
       default: return h.name;
     }
   };
+  ul.querySelectorAll('li.grp').forEach((g) => g.remove()); // the region headings are drawn again below
   const list = hs.slice().sort((x, y) => {
     if (LB.group) { const d = (x.region || '￿').localeCompare(y.region || '￿'); if (d) return d; }
     const a = key(x), b = key(y);
@@ -2080,6 +2085,25 @@ function lbApply() {
     if (vis) shown++;
     else if (LP.pick.delete(h.id)) { const pk = li.querySelector('.pick'); if (pk) pk.checked = false; }
   }
+  if (LB.group) { // one heading per region, with the number of houses shown in it
+    const count = new Map();
+    for (const h of list) if (!$('#lsrow-' + h.id).hidden) count.set(h.region, (count.get(h.region) || 0) + 1);
+    let last = null;
+    for (const h of list) {
+      const li = $('#lsrow-' + h.id);
+      if (!li || li.hidden || h.region === last) continue;
+      last = h.region;
+      const g = document.createElement('li');
+      g.className = 'grp';
+      const t = document.createElement('h4');
+      t.textContent = (h.region || 'Location unknown') + ' ';
+      const n = document.createElement('em');
+      n.textContent = String(count.get(h.region));
+      t.appendChild(n);
+      g.appendChild(t);
+      ul.insertBefore(g, li);
+    }
+  }
   root.dataset.sort = LB.sort; root.dataset.dir = LB.dir;
   if (LB.show !== 'all' && !only) root.setAttribute('data-filtered', ''); else root.removeAttribute('data-filtered');
   root.toggleAttribute('data-all', LB.all);
@@ -2095,9 +2119,9 @@ function lbCloseCards() { document.querySelectorAll('.lsb .hw.open').forEach((w)
 function lbOpenMap(h) {
   const dlg = $('#lsb-map'), body = $('#lsb-mapbody');
   if (!dlg || !body) return;
-  setHTML(body, html`<h4>House ${h.name}</h4>${lbPlaceDetails(h)}${h.loc.known ? (h.loc.map_key ? html`<p class="fine mnote">The pin marks the house representative (schematic, not to scale).</p>` : html`<p class="fine mnote">The Saved map has no picture of ${h.loc.map} yet, so there is no pin and no map link for this house.</p>`) : ''}${h.loc.known && h.loc.map_key ? html`<div class="mfoot"><button type="button" class="linkb" data-lb="mapopen" data-id="${h.id}">Open in Saved map</button></div>` : ''}`);
+  setHTML(body, html`<h4>House ${h.name}</h4>${lbPlaceDetails(h)}${h.loc.known ? (h.loc.map_key ? html`<p class="fine mnote">The pin marks the house representative (schematic, not to scale).</p>` : html`<p class="pnote">House ${h.name}'s representative is in ${h.loc.map}. The Saved map has no picture of ${h.loc.map}, so there is no pin and no map link for this house.</p>`) : ''}${h.loc.known && h.loc.map_key ? html`<div class="mfoot"><button type="button" class="linkb" data-lb="mapopen" data-id="${h.id}" aria-label="Open House ${h.name} in the Saved map">Open in Saved map</button></div>` : ''}`);
   lbStyles(body);
-  $('#lsb-mapttl').textContent = h.loc.known ? 'Map: ' + lbAreaFull(h) : 'Location: House ' + h.name;
+  $('#lsb-mapttl').textContent = h.loc.known ? (lbHub(h) ? 'Place: ' : 'Map: ') + lbAreaFull(h) : 'Location: House ' + h.name;
   if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
   lbMapFrom = document.activeElement;
 }
@@ -2126,7 +2150,7 @@ function lbClick(e) {
   }
   if (k === 'undo') { e.preventDefault(); const id = +b.dataset.id; LP.pend.delete(id); LP.snap.delete(id); const h = LD.tasks.find((x) => x.id === id); lbSay(h ? `House ${lbNameOf(h)}: the staged changes are undone.` : ''); lbRedraw(); return; }
   if (k === 'undoall') { LP.pend.clear(); LP.snap.clear(); lbSay('All houses are as the save holds them.'); lbRedraw(); return; }
-  if (k === 'pickall') { document.querySelectorAll('#lsb-rows > li:not([hidden])').forEach((li) => { LP.pick.add(+li.dataset.id); const pk = li.querySelector('.pick'); if (pk) pk.checked = true; }); lbApply(); return; }
+  if (k === 'pickall') { document.querySelectorAll('#lsb-rows > li.hr:not([hidden])').forEach((li) => { LP.pick.add(+li.dataset.id); const pk = li.querySelector('.pick'); if (pk) pk.checked = true; }); lbApply(); return; }
   if (k === 'pickno') { LP.pick.clear(); document.querySelectorAll('#lsb .pick').forEach((pk) => { pk.checked = false; }); lbApply(); return; }
   if (k === 'bulk') {
     const act_ = b.dataset.do, hs = LD.tasks.map((r) => lbHouse(r, LD)).filter((h) => LP.pick.has(h.id)), F = lbFacId(LD);

@@ -10,8 +10,8 @@ package ops
 // Harko Village, Arrakeen, the Deep Desert; the same world positions in centimetres as the save's markers, which the 18 houses with a marker in the save checked agree with to within 2 centimetres).
 // The Deep Desert has the same two representatives in every layout of the map. The area number of a Hagga Basin house is the number the save's own markers carry in that spot; the name of
 // the area comes from the kit's table (kit/gamedata/regions), as for a marker. Three houses are not in the reference map's list of representatives: Maros and Wayku (Deep Desert; their position is in its Deep Desert data files, the same in every layout, and falls in the
-// tiles the public guides give, B8 and A2) and House Tseida, which has a control point there and no representative, and two public guides to the representatives (credited in internal/notices/THIRD-PARTY-NOTICES.md; location facts only) put it inside The Anvil Tradepost, so its position is that tradepost's own position
-// on the reference map (the same place the save marks as TradingPost; Place says so). The tile of a Deep Desert house is worked out from its position with kit/ddgrid.
+// grid cells the public guides give, B8 and A2) and House Tseida, which has a control point there and no representative, and two public guides to the representatives (credited in internal/notices/THIRD-PARTY-NOTICES.md; location facts only) put it inside The Anvil Tradepost, so its position is that tradepost's own position
+// on the reference map (the same place the save marks as TradingPost; Place says so). The grid cell of a Deep Desert house is worked out from its position with kit/ddgrid.
 //
 // Keys are the house's name as the marker spells it (the save's "Mikkarol" is "Mikarrol" here, see houseMarkerName); houseLocations turns them into the save's "DA_House<Name>".
 
