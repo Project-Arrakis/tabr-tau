@@ -10,9 +10,9 @@
   The snapshot contains account/platform IDs: send only to a host you control, to an UNPRIVILEGED account
   (do not use root on a shared or production host), and delete both copies when the experiment ends.
 .PARAMETER Target
-  user@host:/absolute/remote/dir   e.g. tabrdrop@192.0.2.10:/home/tabrdrop/incoming
+  user@host:/absolute/remote/dir   e.g. tabrdrop@192.0.2.10:/home/<account>/incoming
 .EXAMPLE
-  .\send-snapshot.ps1 -SnapshotDir "$env:USERPROFILE\tabr-tau-snapshots\A0-baseline" -Target tabrdrop@192.0.2.10:/home/tabrdrop/incoming
+  .\send-snapshot.ps1 -SnapshotDir "$env:USERPROFILE\tabr-tau-snapshots\A0-baseline" -Target tabrdrop@192.0.2.10:/home/<account>/incoming
 #>
 param(
   [Parameter(Mandatory)][string]$SnapshotDir,
