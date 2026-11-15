@@ -95,6 +95,14 @@ The file holds identifiers, names and numbers only. It is read by `internal/ops/
 
 **`observed`** is `false` on all three: nobody has stood at these points in the game yet. **Not checked in the game**: that a character put at a standing position stands on the ground, and that the point is the one beside the taxi; the operator's check (on a copy) is listed in the issue. The level also holds six overland arrival destinations (`Overland_to_DeepDesert1_*`) for trips into the Deep Desert; they are not used here.
 
+## landsraad_fixed_places.go (the Landsraad board's fixed house places)
+
+| File | What it is | Source | Added |
+|---|---|---|---|
+| `internal/ops/landsraad_fixed_places.go` | For each of the 25 Landsraad houses, where its representative stands: the save's map name, the world position in game units (the axes of the save's `markers` table) and, on the Hagga Basin, the area number; for Tseida a words field ("The Anvil Tradepost") because its position is the tradepost's | The game's fixed map places as shown by the reference map (https://dune.gaming.tools, read 2026-11-15). Checked against the 18 representatives that have a marker in a real save (position, map and area number agree to within 2 cm); Tseida's place from the public guides named in `internal/notices/THIRD-PARTY-NOTICES.md` (location facts only) | this change (refs #639) |
+
+It is used only by `internal/ops/landsraad_locations.go`, for a house whose representative has no marker in the save; a marker in the save always wins. The file holds house names, map names and numbers only. Not checked in the game: that the position of The Anvil Tradepost is where Tseida's representative stands (the reference map has a control point of the house 700 cm from it, no representative).
+
 ## vehicles.json (#401, moved in #555)
 
 The vehicle tables (`vehicles.json`) moved to the kit module as `kit/gamedata/vehicles/vehicles.json`, unchanged. Its source, build and the way `tools/vehiclegen` makes it are in `kit/PROVENANCE.md`; `vehicles.go` there reads it and `internal/ops/vehicle_spawn.go` writes a vehicle from it.

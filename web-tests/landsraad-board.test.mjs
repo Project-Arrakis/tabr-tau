@@ -318,6 +318,7 @@ test('the map dialog and the peek give the distance from you, and the dialog ope
   assert.equal(ui.doc.querySelector('#lsb-mapbody .pin'), null, 'a hub has no picture, so no pin is drawn on a made-up one');
   assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('Arrakeen') && !text(ui.doc.querySelector('#lsb-mapbody')).includes('Place'), 'the name of the hub, and no empty Place line');
   assert.ok(!text(ui.doc.querySelector('#lsb-mapbody')).includes('The pin marks'), 'a hub dialog does not point at a pin that is not there');
+  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('The Saved map has no picture of Arrakeen yet'), 'a hub dialog says why it has no pin or map link');
   assert.ok(text(ui.doc.querySelector('#lsb-mapttl')).startsWith('Map: '), 'a place has a map title');
   click(ui, '#lsrow-900 [data-lb=map]');
   assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('The pin marks'), 'a house with a picture says what the pin is');
