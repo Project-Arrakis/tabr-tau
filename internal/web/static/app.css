@@ -272,9 +272,14 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .x-thmenu .x-thsub{margin:6px 8px 0;padding:0;color:var(--c-dim);font:400 var(--t-xs)/1.3 var(--t-body)}
 .x-thmenu .x-thtag{flex:none;color:var(--c-dim);font:400 var(--t-xs)/1.2 var(--t-body);white-space:nowrap}
 .x-thmenu .x-thtag[hidden]{display:none}
+/* the filter of the Colours group: a row that stays at the top of the menu while the list under it scrolls, the box, and the line that counts; an item the filter hides is hidden for real (the item's own display would show it) */
+.x-thmenu [hidden]{display:none !important}
+.x-thmenu .x-thfindrow{position:sticky;top:0;z-index:1;margin:0;padding:6px 8px 4px;background-color:var(--c-raised)}
+.x-thmenu .x-thfind{box-sizing:border-box;width:100%;min-height:32px;font:500 var(--t-md)/1.2 var(--t-body)}
+.x-thmenu .x-thcount{margin:3px 0 0;color:var(--c-dim);font:400 var(--t-xs)/1.3 var(--t-body)}
 .x-thmenu .x-thoff .x-thname{color:var(--c-dim)}
 .x-thmenu .x-thnote{margin:6px 8px 2px;color:var(--c-dim);font:400 var(--t-sm)/1.3 var(--t-body)}
-@media (pointer:coarse){.x-thmenu [role="menuitemradio"]{min-height:44px}}
+@media (pointer:coarse){.x-thmenu [role="menuitemradio"],.x-thmenu .x-thfind{min-height:44px}}
 @media (max-width:520px){#theme-btn{max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
 @media (forced-colors:active){.x-thmenu [aria-checked="true"] .x-thdot{border-color:Highlight;background:Highlight}}
 /* ---------- Landsraad board (issue 599): scoped to .lsb, ported from docs/design/mock/landsraad/a-board.html */

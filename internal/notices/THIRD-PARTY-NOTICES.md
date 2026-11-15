@@ -674,3 +674,11 @@ SOFTWARE.
 ```
 
 The names of the looks and of the game belong to their owners; this project is unofficial and not affiliated with or endorsed by Funcom.
+
+## Design module: the dye palettes (colour values from a public wiki page)
+
+The forty-two palettes of the groups **House dyes** (27) and **Outfit dyes** (15) in `design/assets/palettes.css` (the Colours list of the Theme menu; #683) are made from the four armour-dye colours that the community wiki for the game publishes for each swatch. Source page of both groups: https://awakening.wiki/Module:Swatches/data (the data module), listed on https://awakening.wiki/Swatches; the values were read from it on 2026-11-15 and only the colour values and the swatch names are used.
+
+The colours are facts about how the game looks; no text, table, image or code of the wiki is copied. The wiki states that its content is available under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 unless otherwise noted; that licence covers the wiki's own text and presentation, which this project does not use, and it is named here so that the source is credited. The rules that turn four dye colours into a palette, and the contrast checks that move any colour that needs it, are this project's own (`design/palettes_dyes_test.go`, `design/palettes_gen_test.go`); the full note is in `design/NOTICE` and `design/PROVENANCE.md`.
+
+The names of the Houses, swatches and the game belong to their owners; this project is unofficial and not affiliated with or endorsed by Funcom.

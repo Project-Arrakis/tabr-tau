@@ -39,7 +39,7 @@ func TestThePaletteTableOfTheBootScriptIsTheModulesOwn(t *testing.T) {
 		}
 	}
 	want := design.Palettes()
-	if len(want) != 18 || want[0].Name != "Arrakis Incandescent" {
+	if len(want) != 60 || want[0].Name != "Arrakis Incandescent" {
 		t.Fatalf("the module lists %d palettes, the first %q", len(want), want[0].Name)
 	}
 	if len(rows) != len(want) {

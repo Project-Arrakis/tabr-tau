@@ -17,7 +17,7 @@ go get github.com/Project-Arrakis/tabr-tau/design@latest
 | `components-fremen.css`, `components-awakening.css`, `components-sietch.css` | The components, as each look draws them. |
 | `components.css` | What the looks share: touch sizes, reachable tooltips, tile, rail and drawer, the more-contrast rule and the forced-colours block. |
 | `motion.css` | The Motion setting and every keyframe. |
-| `palettes.css` | Eighteen colour palettes that recolour a look: `html[data-palette="ID"]`, colours only, in the palette's own theme (see "Choosing a palette"). |
+| `palettes.css` | Sixty colour palettes that recolour a look: `html[data-palette="ID"]`, colours only, in the palette's own theme (see "Choosing a palette"). |
 | `icons.svg` | The icon sprite. |
 | `grain.svg` | The tile of the Awakening look's surface grain. |
 | `fonts/DuneRise.ttf`, `fonts/DuneRise-OFL.txt`, `fonts/SHA256SUMS` | The heading typeface (unmodified), its licence and its checksum. |
@@ -56,7 +56,7 @@ A program that lets its user switch looks swaps the first two hrefs for the name
 
 ### Choosing a palette
 
-A palette recolours whatever look is linked, in the theme it belongs to: sixteen are dark palettes and two (Fremen Sietch, Mentat) are light ones that apply in Dayside only. It changes colour tokens and nothing else. Link `palettes.css` after the look's files and put the id on the root element; remove the attribute for the look's own colours.
+A palette recolours whatever look is linked, in the theme it belongs to: fifty-eight are dark palettes and two (Fremen Sietch, Mentat) are light ones that apply in Dayside only. It changes colour tokens and nothing else. Link `palettes.css` after the look's files and put the id on the root element; remove the attribute for the look's own colours.
 
 ```go
 for _, p := range design.Palettes() { // Arrakis Incandescent first; p.ID, p.Name, p.Group, p.Theme

@@ -397,7 +397,7 @@ func reserved(s string) bool {
 var issueRE = regexp.MustCompile(`(?:^|[\s(])#(\d{2,5})\b`)
 
 // issues of this repository that the module may name; any other number needs a line here, put there on purpose.
-var publicIssues = map[string]bool{"553": true, "572": true, "573": true, "574": true}
+var publicIssues = map[string]bool{"553": true, "572": true, "573": true, "574": true, "683": true}
 
 func TestPublicSafety(t *testing.T) {
 	files := diskFiles(t)

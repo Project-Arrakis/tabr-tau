@@ -76,6 +76,15 @@ func TestEveryModuleHasItsLicenceText(t *testing.T) {
 }
 
 // The item catalog notice names the commits and blobs the file was copied from (#405).
+// The dye palettes of the design module name the public page their colours were read from (#683).
+func TestDyePaletteNoticeNamesItsSourcePage(t *testing.T) {
+	for _, must := range []string{"https://awakening.wiki/Module:Swatches/data", "https://awakening.wiki/Swatches", "House dyes", "Outfit dyes", "Creative Commons Attribution-NonCommercial-ShareAlike 4.0"} {
+		if !strings.Contains(Text, must) {
+			t.Errorf("expected %q in the notices", must)
+		}
+	}
+}
+
 func TestItemCatalogNoticeNamesTheRefresh(t *testing.T) {
 	for _, must := range []string{"82548d72", "ecffc834", "v1.4.52", "MTX_IxianTotem_Patent", "1bde840c", "a9d50345", "739ecaef", "v1.4.54"} {
 		if !strings.Contains(Text, must) {

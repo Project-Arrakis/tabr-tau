@@ -1,4 +1,4 @@
-// The Colours group of the Theme menu (#587, refs #570): the eighteen palettes of the design module (palettes.css) recolour the look in their own theme. look-boot.js reads one stored word
+// The Colours group of the Theme menu (#587, refs #570): the sixty palettes of the design module (palettes.css; #683: the first eighteen and the 42 dye palettes) recolour the look in their own theme. look-boot.js reads one stored word
 // (tauPalette) before the first paint into html[data-palette], theme-menu.js offers them under their group headings, and the module's stylesheet does the recolouring. Tested in jsdom by
 // attribute, class and focus assertions; how the colours look is the operator's check. The table of palettes in look-boot.js is compared with the module's own list by a Go test
 // (internal/web/colours_test.go) and, here, with the ids and themes in the module's stylesheet.
@@ -16,7 +16,7 @@ const files = { motion: read('motion-boot.js'), look: read('look-boot.js'), menu
 const pages = { 'index.html': read('index.html'), 'locked.html': read('locked.html') };
 const appCss = read('app.css');
 const KEY = 'tauPalette';
-const GROUPS = ['Planet', 'House & faction', 'Character', 'Guild & commerce', 'Mystical & mental'];
+const GROUPS = ['Planet', 'House & faction', 'Character', 'Guild & commerce', 'Mystical & mental', 'House dyes', 'Outfit dyes'];
 
 // the module's stylesheet: the palette ids with the one theme each applies in, in file order
 const moduleCss = fs.readFileSync(path.join(here, '..', 'design', 'assets', 'palettes.css'), 'utf8').replace(/\r\n/g, '\n');
@@ -50,10 +50,10 @@ const both = (fn) => { for (const page of Object.keys(pages)) fn(page); };
 
 // ---- the table ----
 
-test('the table in look-boot.js lists the 18 palettes of the module: Arrakis Incandescent first, the module\'s ids and themes in the module\'s order, groups kept together', () => {
+test('the table in look-boot.js lists the 60 palettes of the module: Arrakis Incandescent first, the module\'s ids and themes in the module\'s order, groups kept together', () => {
   const p = open('index.html', { menu: false });
   const table = p.w.TauLook.PALETTES;
-  assert.equal(table.length, 18);
+  assert.equal(table.length, 60);
   assert.deepEqual([table[0].id, table[0].name], ['warm-charcoal', 'Arrakis Incandescent']);
   assert.deepEqual(plain(table.map((t) => [t.id, t.theme])), moduleBlocks.map((b) => [b.id, b.theme]), 'the ids and themes are those of palettes.css, in its order');
   assert.deepEqual(plain(table.filter((t) => t.theme === 'light').map((t) => t.name)), ['Fremen Sietch', 'Mentat']);
@@ -141,7 +141,7 @@ test('a page whose storage throws still works: no palette, and a choice lasts un
 
 // ---- the menu ----
 
-test('the Colours group sits after Dark / Dayside: None, then the five groups of the module under their headings, each palette one radio item, Arrakis Incandescent first', () => {
+test('the Colours group sits after Dark / Dayside: the filter box, None, then the seven groups of the module under their headings, each palette one radio item, Arrakis Incandescent first', () => {
   const p = open('index.html');
   const heads = [...p.d.querySelectorAll('#theme-menu .x-thg')].map((h) => h.textContent);
   assert.deepEqual(heads, ['Look', 'Dark / Dayside', 'Colours', 'Font', 'Motion']);
@@ -157,14 +157,14 @@ test('the Colours group sits after Dark / Dayside: None, then the five groups of
     assert.equal(inner.getAttribute('aria-labelledby'), sub.id, 'each run of palettes is a group named by its heading');
   }
   const list = p.palettes();
-  assert.equal(list.length, 19);
+  assert.equal(list.length, 61);
   assert.deepEqual(list.map((i) => i.getAttribute('data-thvalue')), ['none', ...plain(p.w.TauLook.PALETTES.map((t) => t.id))]);
   assert.equal(list[0].querySelector('.x-thname').textContent, 'None (the look’s own)');
   assert.equal(list[1].querySelector('.x-thname').textContent, 'Arrakis Incandescent');
   assert.deepEqual(list.slice(1).map((i) => i.querySelector('.x-thname').textContent), plain(p.w.TauLook.PALETTES.map((t) => t.name)));
   assert.ok(list.every((i) => i.getAttribute('role') === 'menuitemradio' && i.type === 'button'));
   assert.equal(list.filter((i) => i.getAttribute('aria-checked') === 'true').length, 1);
-  assert.match(p.d.querySelector('#theme-menu .x-thnote').textContent, /own theme only: 16 are dark, 2 are Dayside/);
+  assert.match(p.d.querySelector('#theme-menu .x-thnote').textContent, /own theme only: 58 are dark, 2 are Dayside palettes \(Fremen Sietch, Mentat\)/);
   assert.equal(p.$('theme-menu').getAttribute('aria-label'), 'Theme: look, dark or dayside, colours, font, motion');
   p.w.close();
 });
@@ -326,4 +326,210 @@ test('the new code builds no markup from a string, makes no regular expression f
   assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(rules), 'no colour of its own in the Colours rules');
   for (const n of new Set([...rules.matchAll(/var\((--[a-z0-9-]+)/g)].map((m) => m[1]))) assert.ok(/^--(c|t|s|r|e)-/.test(n), n + ' is a token of the module');
   for (const cls of ['x-thsub', 'x-thtag', 'x-thoff', 'x-thnote']) assert.ok(appCss.includes('.' + cls), 'app.css styles .' + cls);
+});
+
+// ---- the dye palettes and the contrast of every palette (#683) ----
+
+// WCAG 2 contrast of two #rrggbb colours
+const lum = (hex) => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+// each palette's tokens as the browser reads them: the block that forces its own theme
+const tokensOf = Object.fromEntries([...moduleCss.matchAll(/^:root\[data-palette="([a-z-]+)"\]\[data-theme="(?:dark|light)"\] \{\n([\s\S]*?)\n\}/gm)]
+  .map((m) => [m[1], Object.fromEntries([...m[2].matchAll(/^\s*(--[a-z0-9-]+): (#[0-9a-f]{6});$/gm)].map((d) => [d[1], d[2]]))]));
+
+test('every palette keeps its text readable: WCAG AA (4.5:1) for body, quiet and status text on all four surfaces, 3:1 for the control boundary and the focus ring, 4.5:1 for the label on a fill', () => {
+  const table = open('index.html', { menu: false }).w.TauLook.PALETTES;
+  assert.equal(Object.keys(tokensOf).length, table.length, 'every palette has a block with plain hex colours');
+  const bad = [];
+  const surfaces = ['--c-ground', '--c-panel', '--c-raised', '--c-sunken'];
+  for (const t of table) {
+    const k = tokensOf[t.id];
+    for (const text of ['--c-text', '--c-dim', '--c-gold', '--c-spice', '--c-sky', '--c-ok', '--c-warn', '--c-bad']) {
+      for (const surface of surfaces) {
+        const r = ratio(k[text], k[surface]);
+        if (!(r >= 4.5)) bad.push(`${t.id}: ${text} on ${surface} is ${r.toFixed(2)}:1`);
+      }
+    }
+    for (const line of ['--c-rule', '--c-focus']) {
+      for (const surface of surfaces) {
+        const r = ratio(k[line], k[surface]);
+        if (!(r >= 3)) bad.push(`${t.id}: ${line} on ${surface} is ${r.toFixed(2)}:1`);
+      }
+    }
+    for (const [on, fill] of [['--c-on-spice', '--c-spice'], ['--c-on-switch', '--c-switch'], ['--c-on-blue', '--c-blue']]) {
+      const r = ratio(k[on], k[fill]);
+      if (!(r >= 4.5)) bad.push(`${t.id}: ${on} on ${fill} is ${r.toFixed(2)}:1`);
+    }
+  }
+  assert.deepEqual(bad, []);
+});
+
+test('the 42 dye palettes: House dyes (27) and Outfit dyes (15) after the first eighteen, all dark, ids of the form dye-words, names and ids unique, the first eighteen untouched', () => {
+  const table = plain(open('index.html', { menu: false }).w.TauLook.PALETTES);
+  assert.equal(table[0].id, 'warm-charcoal');
+  assert.equal(table[17].id, 'copper-cyan');
+  assert.deepEqual([...new Set(table.slice(0, 18).map((t) => t.group))], GROUPS.slice(0, 5));
+  const dyes = table.slice(18);
+  assert.equal(dyes.length, 42);
+  assert.equal(dyes.filter((t) => t.group === 'House dyes').length, 27);
+  assert.equal(dyes.filter((t) => t.group === 'Outfit dyes').length, 15);
+  assert.ok(dyes.every((t) => t.theme === 'dark' && /^dye(-[a-z]+)+$/.test(t.id)));
+  assert.equal(new Set(table.map((t) => t.id)).size, 60);
+  assert.equal(new Set(table.map((t) => t.name)).size, 60, 'no two palettes share a label');
+  assert.ok(dyes.some((t) => t.name === 'House Atreides dyes') && dyes.some((t) => t.name === 'Fremen Sietch dyes'), 'a name that repeats one of the first eighteen says dyes');
+});
+
+// ---- the filter box ----
+
+const shown = (p) => p.palettes().filter((i) => !i.hidden).map((i) => i.getAttribute('data-thvalue'));
+const type = (p, text) => { const s = p.$('theme-filter'); s.value = text; s.dispatchEvent(new p.w.Event('input', { bubbles: true })); };
+const countText = (p) => p.d.querySelector('#theme-menu .x-thcount').textContent;
+
+test('the Colours group has a filter box and a count line (a polite status), in front of None; with nothing typed all 60 palettes and every heading show', () => {
+  const p = open('index.html');
+  const box = p.$('theme-filter');
+  assert.ok(box, 'a filter box');
+  assert.equal(box.type, 'search');
+  assert.equal(box.getAttribute('aria-label'), 'Filter colours by name, group, Dark or Dayside');
+  assert.equal(box.placeholder, 'Filter colours');
+  const status = p.d.querySelector('#theme-menu .x-thcount');
+  assert.equal(status.getAttribute('role'), 'status');
+  assert.equal(status.getAttribute('aria-live'), 'polite');
+  assert.equal(status.textContent, '60 palettes');
+  assert.ok(box.compareDocumentPosition(p.item('palette', 'none')) & p.w.Node.DOCUMENT_POSITION_FOLLOWING, 'the box comes before None');
+  assert.equal(shown(p).length, 61);
+  assert.equal([...p.d.querySelectorAll('#theme-menu .x-thsub')].filter((s) => s.hidden).length, 0);
+  p.w.close();
+});
+
+test('typing narrows the list by name, group and the words Dark and Dayside, in any case and with any punctuation; a heading with nothing left goes; None stays; the line counts', () => {
+  const p = open('index.html');
+  type(p, 'KENOLA');
+  assert.deepEqual(shown(p), ['none', 'dye-kenola']);
+  assert.equal(countText(p), '1 of 60 palettes');
+  const subs = [...p.d.querySelectorAll('#theme-menu .x-thsub')];
+  assert.deepEqual(subs.filter((s) => !s.hidden).map((s) => s.textContent), ['House dyes']);
+  assert.ok(subs.filter((s) => s.hidden).every((s) => s.nextElementSibling.hidden), 'the group of a hidden heading is hidden too');
+  type(p, 'muaddib'); // the apostrophe does not matter
+  assert.deepEqual(shown(p), ['none', 'desert-dusk']);
+  type(p, 'outfit dyes');
+  assert.equal(shown(p).length, 16);
+  assert.equal(countText(p), '15 of 60 palettes');
+  type(p, 'house atreides'); // both words, in any place: the old palette and the dyes of the House
+  assert.deepEqual(shown(p), ['none', 'navy-blue', 'dye-olive-sage']);
+  type(p, 'dayside');
+  assert.deepEqual(shown(p), ['none', 'sand-linen', 'paper-grey']);
+  type(p, '  DAYSIDE   sietch ');
+  assert.deepEqual(shown(p), ['none', 'sand-linen']);
+  type(p, 'zzzz');
+  assert.deepEqual(shown(p), ['none']);
+  assert.equal(countText(p), 'No palette matches');
+  assert.ok([...p.d.querySelectorAll('#theme-menu .x-thsub')].every((s) => s.hidden), 'no heading is left');
+  type(p, '');
+  assert.equal(shown(p).length, 61);
+  assert.equal(countText(p), '60 palettes');
+  p.w.close();
+});
+
+test('the chosen palette stays listed when the filter does not match it, and picking from a filtered list works and is kept', () => {
+  const p = open('index.html', { store: { [KEY]: 'violet-iron' } });
+  type(p, 'wydras');
+  assert.deepEqual(shown(p), ['none', 'violet-iron', 'dye-wydras']);
+  assert.equal(countText(p), '1 of 60 palettes', 'the count is of the matches');
+  p.item('palette', 'dye-wydras').click();
+  assert.equal(p.attr('data-palette'), 'dye-wydras');
+  assert.equal(p.w.localStorage.getItem(KEY), 'dye-wydras');
+  assert.deepEqual(shown(p), ['none', 'dye-wydras'], 'the old choice is no longer kept; the new one is');
+  assert.equal(p.$('theme-btn').textContent, 'Theme: Fremen · House Wydras');
+  p.w.close();
+});
+
+test('the keyboard: the arrows walk from the box through the shown items only, Space and Enter in the box type or do nothing and pick nothing, Escape clears the box and then closes the menu', () => {
+  const p = open('index.html');
+  const btn = p.$('theme-btn');
+  btn.focus();
+  p.key(btn, 'ArrowDown');
+  type(p, 'sor');
+  const box = p.$('theme-filter');
+  box.focus();
+  const ids = shown(p);
+  assert.ok(ids.includes('dye-sor') && ids[0] === 'none');
+  p.key(box, 'ArrowDown');
+  assert.equal(p.d.activeElement, p.item('palette', 'none'), 'down from the box is None');
+  p.key(p.d.activeElement, 'ArrowDown');
+  assert.equal(p.d.activeElement, p.item('palette', ids[1]), 'then the first match, skipping every hidden item');
+  p.key(p.d.activeElement, 'ArrowUp');
+  p.key(p.d.activeElement, 'ArrowUp');
+  assert.equal(p.d.activeElement, box, 'up from None is the box');
+  p.key(box, 'ArrowUp');
+  assert.equal(p.d.activeElement, p.item('theme', 'light'), 'up from the box is the last item before it');
+  box.focus();
+  const before = p.attr('data-palette');
+  const space = new p.w.KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true });
+  box.dispatchEvent(space);
+  assert.equal(space.defaultPrevented, false, 'a space is typed, not taken');
+  const enter = new p.w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+  box.dispatchEvent(enter);
+  assert.equal(p.attr('data-palette'), before, 'Enter in the box picks nothing');
+  p.key(box, 'Escape');
+  assert.equal(box.value, '', 'the first Escape clears the box');
+  assert.equal(p.$('theme-menu').hidden, false, 'and leaves the menu open');
+  assert.equal(shown(p).length, 61);
+  p.key(box, 'Escape');
+  assert.equal(p.$('theme-menu').hidden, true, 'the next Escape closes it');
+  assert.equal(p.d.activeElement, btn);
+  p.w.close();
+});
+
+test('a letter typed on a palette item moves the focus to the box; closing the menu clears the box so that it opens on the whole list', () => {
+  const p = open('index.html');
+  p.$('theme-btn').click();
+  const it = p.item('palette', 'storm-blue');
+  it.focus();
+  p.key(it, 'k');
+  assert.equal(p.d.activeElement, p.$('theme-filter'));
+  type(p, 'kenola');
+  p.key(p.$('theme-filter'), 'Escape');
+  p.key(p.$('theme-filter'), 'Escape');
+  p.$('theme-btn').click();
+  assert.equal(p.$('theme-filter').value, '');
+  assert.equal(shown(p).length, 61);
+  const none = p.item('palette', 'none');
+  none.focus();
+  p.key(none, 'k');
+  assert.equal(p.d.activeElement, p.$('theme-filter'), 'None is in the group too');
+  const look = p.item('look', 'sietch');
+  look.focus();
+  p.key(look, 'k');
+  assert.equal(p.d.activeElement, look, 'a letter on another group does nothing');
+  p.w.close();
+});
+
+test('a palette chosen from the dyes is there when the page is opened again, and a dye id that is not exactly on the list is ignored like any other word', () => {
+  const first = open('index.html');
+  first.item('palette', 'dye-hot-zone').click();
+  const kept = { [KEY]: first.w.localStorage.getItem(KEY) };
+  assert.deepEqual(kept, { [KEY]: 'dye-hot-zone' });
+  first.w.close();
+  const again = open('index.html', { store: kept });
+  assert.equal(again.attr('data-palette'), 'dye-hot-zone');
+  assert.equal(again.item('palette', 'dye-hot-zone').getAttribute('aria-checked'), 'true');
+  again.w.close();
+  for (const bad of ['dye-hot-zone ', 'DYE-HOT-ZONE', 'dye-', 'dye-hot-zone.css']) {
+    const junk = open('index.html', { store: { [KEY]: bad }, menu: false });
+    assert.equal(junk.attr('data-palette'), null, bad);
+    junk.w.close();
+  }
+});
+
+test('the filter works in Dayside too: a dark palette is still listed and says Dark only, and nothing is hidden by the theme', () => {
+  const p = open('index.html', { light: true });
+  type(p, 'sunset');
+  assert.deepEqual(shown(p), ['none', 'dye-sunset-dye']);
+  assert.equal(p.tag('dye-sunset-dye').textContent, 'Dark only');
+  assert.equal(p.tag('dye-sunset-dye').hidden, false);
+  p.w.close();
 });
