@@ -1520,7 +1520,7 @@ function vcChanged(t) {
   if (t.id === 'vcClass') { vcDraft.cls = t.value; vcDraft.tpl = vcTop(vcClass()); vcDraft.mods = vcDefaults(); }
   else if (t.id === 'vcTpl') { vcDraft.tpl = t.value; vcDraft.mods = vcDefaults(); }
   vcPreview = null;
-  render();
+  render('scroll'); // the same page: the scroll offset and the focused box stay, and the boxes are drawn from the draft (#650)
 }
 // The request the draft stands for: the template, and a module for each slot that differs from it.
 function vcBody() {
@@ -2636,23 +2636,23 @@ const A = {
     vcDraft = { cls: c.key, tpl: vcTop(c), mods: {}, fuel: 100, items: [] };
     vcDraft.mods = vcDefaults();
     vcPreview = null;
-    render();
+    render('scroll');
   },
-  vcCancel: () => { vcDraft = null; vcPreview = null; render(); },
-  vcDismiss: () => { vcResult = null; render(); },
+  vcCancel: () => { vcDraft = null; vcPreview = null; render('scroll'); },
+  vcDismiss: () => { vcResult = null; render('scroll'); },
   vcAddItem: () => {
     vcSync();
     let item;
     try { item = needItem('vcItem'); } catch (e) { return toast(e.message, 'err'); }
     vcDraft.items.push({ item, quantity: Math.max(1, Math.floor(+val('vcQty')) || 1) });
     vcPreview = null;
-    render();
+    render('scroll');
   },
-  vcDelItem: (d) => { vcSync(); vcDraft.items.splice(+d.id, 1); vcPreview = null; render(); },
+  vcDelItem: (d) => { vcSync(); vcDraft.items.splice(+d.id, 1); vcPreview = null; render('scroll'); },
   vcPreview: async () => {
     vcSync();
     try { vcPreview = await api('/api/vehicles/spawn-preview', vcBody()); } catch (e) { vcPreview = null; toast(e.message, true); return; }
-    render();
+    render('scroll');
   },
   vcCreate: () => {
     vcSync();
@@ -2736,7 +2736,7 @@ document.addEventListener('click', (e) => {
   const jg = e.target.closest('[data-jgrp]');
   if (jg) { if (JGROUPS.some(([k]) => k == jg.dataset.jgrp)) { jgrp = jg.dataset.jgrp; journeyList(); } return; }
   const vo = e.target.closest('[data-vhopen]');
-  if (vo) { vhOpen = +vo.dataset.vhopen; render(); return; }
+  if (vo) { vcSync(); vhOpen = +vo.dataset.vhopen; render('scroll'); return; }
   const bo = e.target.closest('[data-bsopen]');
   if (bo) { bsOpen = +bo.dataset.bsopen; render(); return; }
   const bt = e.target.closest('[data-bstab]');
