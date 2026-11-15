@@ -1754,7 +1754,7 @@ function lbFromYou(h) {
   return m >= 1000 ? `about ${(m / 1000).toFixed(1)} km` : `about ${m} m`;
 }
 function lbPlaceDetails(h) {
-  if (!h.loc.known) return html`<p class="cap">The location of this house is unknown: the save holds no map marker for its representative.</p>`;
+  if (!h.loc.known) return html`<p class="cap">The location of this house is unknown: the save holds no map marker for its representative. Nothing to fix: the editor does not guess a place.</p>`;
   return html`${lbMiniMap(h)}<dl><dt>Region</dt><dd>${lbAreaFull(h)}</dd>${h.loc.place ? html`<dt>Place</dt><dd>${h.loc.place}</dd>` : ''}<dt>From you</dt><dd>${lbFromYou(h)}</dd></dl>`;
 }
 const LB_ICON = {
@@ -1903,7 +1903,7 @@ function lbInner(l) {
   <div class="ctl grid" role="group" aria-label="Filter and sort the board">
     <span><span class="lbl">Show</span><span class="seg">${LB_SHOWS.map(([k, t]) => seg(k, t, lbShowOf(hs, k).length))}</span></span>
     <span><span class="lbl">House</span><span class="seg">${[['any', 'Any', N], ['open', 'Open', c.open], ['taken', 'Taken', c.taken]].map(([k, t, n_]) => html`<label><input type="radio" name="lbhs" data-lb="hs" value="${k}" ${LB.hs === k ? 'checked' : ''}><span>${t} <em>${n_}</em></span></label>`)}</span></span>
-    <span><span class="lbl">Group</span><label class="btnl" ${noLocs ? html`title="Off: the save holds no map marker for any house representative"` : ''}><input type="checkbox" data-lb="group" ${noLocs ? 'disabled' : ''} ${LB.group && !noLocs ? 'checked' : ''}><span>By region</span></label>${noLocs ? html`<span class="note" id="lsb-grp-hint">needs the places of the houses</span>` : ''}</span>
+    <span><span class="lbl">Group</span><label class="btnl" ${noLocs ? html`title="Off: the save holds no map marker for any house representative"` : ''}><input type="checkbox" data-lb="group" ${noLocs ? 'disabled' : ''} ${LB.group && !noLocs ? 'checked' : ''}><span>By region</span></label>${noLocs ? html`<span class="note" id="lsb-grp-hint">needs a house location in the save</span>` : ''}</span>
     <span><span class="lbl">Rows</span><button type="button" class="btnr" data-lb="expand">Expand all</button> <button type="button" class="btnr" data-lb="collapse">Collapse all</button></span>
     <span class="f"><label class="lbl" for="lsb-jump">Jump to house</label><select id="lsb-jump" data-lb="jump"><option value="">Choose a house</option>${hs.map((h) => html`<option value="${h.id}" ${String(LB.jump) === String(h.id) ? 'selected' : ''}>${h.name}</option>`)}</select></span>
     <span class="shown" id="lsb-shown" aria-live="polite">${N} of ${N} houses shown</span>
@@ -2018,9 +2018,9 @@ function lbCloseCards() { document.querySelectorAll('.lsb .hw.open').forEach((w)
 function lbOpenMap(h) {
   const dlg = $('#lsb-map'), body = $('#lsb-mapbody');
   if (!dlg || !body) return;
-  setHTML(body, html`<h4>House ${h.name}</h4>${lbPlaceDetails(h)}${h.loc.known ? html`<p class="fine mnote">The pin marks the house representative (schematic, not to scale).</p>` : ''}${h.loc.known && h.loc.map_key ? html`<div class="mfoot"><button type="button" class="linkb" data-lb="mapopen" data-id="${h.id}">Open in Saved map</button></div>` : ''}`);
+  setHTML(body, html`<h4>House ${h.name}</h4>${lbPlaceDetails(h)}${h.loc.known && h.loc.map_key ? html`<p class="fine mnote">The pin marks the house representative (schematic, not to scale).</p>` : ''}${h.loc.known && h.loc.map_key ? html`<div class="mfoot"><button type="button" class="linkb" data-lb="mapopen" data-id="${h.id}">Open in Saved map</button></div>` : ''}`);
   lbStyles(body);
-  $('#lsb-mapttl').textContent = h.loc.known ? 'Map: ' + lbAreaFull(h) : 'Map: ' + h.name;
+  $('#lsb-mapttl').textContent = h.loc.known ? 'Map: ' + lbAreaFull(h) : 'Location: House ' + h.name;
   if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
   lbMapFrom = document.activeElement;
 }

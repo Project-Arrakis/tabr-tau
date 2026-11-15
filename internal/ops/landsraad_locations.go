@@ -21,6 +21,7 @@ import (
 type houseLocation struct {
 	Map, Area, Place string
 	X, Y             float64
+	Pinned           bool // X and Y are inside the picture of a map the editor has one for: only then are the pin, the distance and the map link given
 }
 
 // houseMarkerPrefix is the start of the type of the marker of a house representative.
@@ -42,10 +43,10 @@ type charPlace struct {
 }
 
 // houseLocations reads the places of the house representatives from the save's map markers, by the house name as the save writes it ("DA_HouseAlexin"). A house with no marker is not in
-// the table. When two markers carry the same house, the first by map and marker id is used, so the answer does not change between reads.
+// the table. When two markers carry the same house, the first by map name (alphabetical), marker id and dimension is used, so the answer does not change between reads. Like the Saved map, this does not filter on the dimension.
 func (o *Ops) houseLocations() (map[string]houseLocation, error) {
 	rows, err := o.S.Query(`select m.marker_type t, m.map_name map, m.x x, m.y y, m.area_id area from `+o.S.MarkersTable()+` m
-		where m.marker_type like ? and m.x is not null and m.y is not null order by m.map_name, m.marker_hash_id, m.dimension_index`, houseMarkerPrefix+"%")
+		where glob(?, m.marker_type) and m.x is not null and m.y is not null order by m.map_name, m.marker_hash_id, m.dimension_index`, houseMarkerPrefix+"*")
 	if err != nil {
 		return nil, readFailed("the house representatives' markers", err)
 	}
@@ -71,21 +72,24 @@ func (o *Ops) houseLocations() (map[string]houseLocation, error) {
 		}
 		if key, ok := houseMapKey[label]; ok {
 			if m := findMap(key); m.Key == key {
-				l.X, l.Y = (x-m.MinX)/(m.MaxX-m.MinX), (y-m.MinY)/(m.MaxY-m.MinY)
+				fx, fy := (x-m.MinX)/(m.MaxX-m.MinX), (y-m.MinY)/(m.MaxY-m.MinY)
+				// a marker beyond the edge of the picture gets no pin, no distance and no map link: the row still gives its area
+				if fx >= 0 && fx <= 1 && fy >= 0 && fy <= 1 {
+					l.X, l.Y, l.Pinned = fx, fy, true
+				}
 			}
 		}
 		byName[name] = l
 	}
-	// by the save's spelling of the house
+	// by the save's spelling of the house, and by the marker's own (a save may use either)
 	out := make(map[string]houseLocation, len(byName))
 	for name, l := range byName {
-		house := name
+		out["DA_House"+name] = l
 		for saveName, markerName := range houseMarkerName {
 			if markerName == name {
-				house = saveName
+				out["DA_House"+saveName] = l
 			}
 		}
-		out["DA_House"+house] = l
 	}
 	return out, nil
 }
@@ -94,7 +98,7 @@ func (o *Ops) houseLocations() (map[string]houseLocation, error) {
 // the table's fraction of the map becomes a world position the way the Saved map draws it (x = MinX + fx * (MaxX - MinX), y likewise).
 func distanceFromYou(l houseLocation, here *charPlace) (float64, bool) {
 	key, ok := houseMapKey[l.Map]
-	if !ok || here == nil || here.Map != key {
+	if !ok || !l.Pinned || here == nil || here.Map != key {
 		return 0, false
 	}
 	m := findMap(key)
@@ -112,9 +116,9 @@ func locationOf(house string, table map[string]houseLocation, here *charPlace) m
 	if !ok {
 		return map[string]any{"known": false}
 	}
-	out := map[string]any{"known": true, "map": l.Map, "area": l.Area, "place": l.Place, "map_key": houseMapKey[l.Map]}
-	if _, mapped := houseMapKey[l.Map]; mapped {
-		out["x"], out["y"] = l.X, l.Y
+	out := map[string]any{"known": true, "map": l.Map, "area": l.Area, "place": l.Place, "map_key": ""}
+	if l.Pinned {
+		out["map_key"], out["x"], out["y"] = houseMapKey[l.Map], l.X, l.Y
 	}
 	if d, ok := distanceFromYou(l, here); ok {
 		out["from_you_cm"] = math.Round(d)

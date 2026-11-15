@@ -167,6 +167,7 @@ test('the place: a house with no position says so and its map dialog explains; o
   click(ui, '#lsrow-900 [data-lb=map]');
   assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('location of this house is unknown'));
   assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('no map marker'), 'it says why');
+  assert.equal(text(ui.doc.querySelector('#lsb-mapttl')), 'Location: House Alexin', 'no map is named when there is none');
   assert.equal(ui.doc.querySelector('#lsb-mapbody .pin'), null, 'no position is drawn that is not known');
   click(ui, '#lsrow-901 [data-lb=map]');
   assert.equal(ui.doc.querySelector('#lsb-mapbody .pin').style.left, '25%');
@@ -292,6 +293,7 @@ test('when no house has a place yet the board says so once: no place in every ro
   assert.equal(ui.doc.querySelectorAll('.lsb .more h4').length, rows(ui).length * 2, 'no Where block per opened row');
   const g = ui.doc.querySelector('[data-lb=group]');
   assert.ok(g.disabled && ui.doc.querySelector('#lsb-grp-hint'), 'Group by region is off with a hint');
+  assert.ok(text(ui.doc.querySelector('#lsb-grp-hint')).includes('needs a house location in the save'));
   assert.ok(ui.doc.querySelector('[data-col=location] .sorth').disabled);
   const known = { known: true, map: 'Hagga Basin', area: 'The O’dham', place: 'rim', x: 0.25, y: 0.5 };
   const ui2 = await open(board({ tasks: [house(900, 'Alexin', 0, { location: known }), house(901, 'Thorvald', 100)] }));
@@ -315,4 +317,8 @@ test('the map dialog and the peek give the distance from you, and the dialog ope
   assert.equal(ui.doc.querySelector('#lsb-mapbody [data-lb=mapopen]'), null, 'a hub has no Saved map picture');
   assert.equal(ui.doc.querySelector('#lsb-mapbody .pin'), null, 'a hub has no picture, so no pin is drawn on a made-up one');
   assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('Arrakeen') && !text(ui.doc.querySelector('#lsb-mapbody')).includes('Place'), 'the name of the hub, and no empty Place line');
+  assert.ok(!text(ui.doc.querySelector('#lsb-mapbody')).includes('The pin marks'), 'a hub dialog does not point at a pin that is not there');
+  assert.ok(text(ui.doc.querySelector('#lsb-mapttl')).startsWith('Map: '), 'a place has a map title');
+  click(ui, '#lsrow-900 [data-lb=map]');
+  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('The pin marks'), 'a house with a picture says what the pin is');
 });

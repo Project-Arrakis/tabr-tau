@@ -145,4 +145,3 @@ func TestBoardOnlyTheCurrentTermIsAMissingHistory(t *testing.T) {
 		t.Fatalf("earlier terms = %v", e)
 	}
 }
-
