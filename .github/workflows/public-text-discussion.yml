@@ -1,13 +1,20 @@
 name: Public text of discussions
 
 # The public-text rule over text that is not a pull request's own: titles and bodies of issues, comments and reviews (audit 2026-11-14 F1, #653;
-# #701). It is a separate workflow with its own check name, public-text-discussion, and that check is NOT a required check: it tells a
-# maintainer that a comment or review needs an edit. It must never share the name "public-text" with the pull request workflow
+# #701), and, since #704, the comment on a commit, the tag name, name and notes of a release, and the name of a branch or tag that is created
+# without a pull request. It is a separate workflow with its own check name, public-text-discussion, and that check is NOT a required check: it tells a
+# maintainer that a comment, a release or a ref name needs an edit. It must never share the name "public-text" with the pull request workflow
 # (public-text.yml): two runs with one check name on one head commit make the newest result decide, and a review run checks less than the
 # pull request run (no commit messages), so it could hide a failed pull request run, or a stranger's comment could turn the required check
 # red. The check reads the event payload from the runner's file, never from an expression in a command, so text written by a stranger is data
 # and never code. The events are the plain ones (no variant that runs with a write token over a fork's text): the job has a read-only token
-# and no secret it could leak. It runs again when the text is edited.
+# and no secret it could leak. It runs again when the text is edited. The commit messages of a push to main are read by public-text-push.yml.
+#
+# Left out on purpose (#704): discussions and their comments (the repository has discussions turned off; add the discussion and
+# discussion_comment events here, and a payload test, if that ever changes), and the names and descriptions of labels and milestones, which
+# are made on the site and are short, maintainer-written text with no event this check reads. A release or a created ref runs the workflow
+# file as it is at that tag or branch, so the check reaches only a ref made after this file was merged into it, and GitHub starts no run when
+# more than three tags are pushed at once; neither is a gap this file can close.
 on:
   issues:
     types: [opened, edited, reopened]
@@ -17,12 +24,18 @@ on:
     types: [submitted, edited]
   pull_request_review_comment:
     types: [created, edited]
+  commit_comment:
+    types: [created]
+  release:
+    types: [created, published, edited]
+  create:
 
 permissions:
   contents: read
 
+# The group holds numbers and ids only, never text a stranger wrote (a ref name is text, so a create event is grouped by its run).
 concurrency:
-  group: public-text-discussion-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number }}-${{ github.event.comment.id || github.event.review.id || '0' }}
+  group: public-text-discussion-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number || github.event.release.id || github.run_id }}-${{ github.event.comment.id || github.event.review.id || '0' }}
   cancel-in-progress: true
 
 jobs:
@@ -37,7 +50,7 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - name: Title, body, comment and review text carry nothing the public-text rule forbids
+      - name: Title, body, comment, review, release and ref-name text carry nothing the public-text rule forbids
         # GITHUB_EVENT_NAME and GITHUB_EVENT_PATH are set by the runner. The extra digest list is an optional repository secret (empty for a fork's pull request).
         env:
           PUBLIC_TEXT_EXTRA_DIGESTS: ${{ secrets.PUBLIC_TEXT_EXTRA_DIGESTS }}

@@ -529,3 +529,86 @@ func TestTheFileScanFailsForATextFileItCannotReadAndSkipsBinary(t *testing.T) {
 		t.Error("a UTF-16 mark with an odd number of bytes after it must fail the scan")
 	}
 }
+
+// The text a stranger can write must never reach a shell or an expression: every ${{ }} in a public-text workflow holds a secret, a number,
+// an id or a commit id, and nothing else. The comparison is exact, so a new expression (a title, a body, a ref name, a commit message) fails
+// until it is reviewed and added here on purpose (#704).
+func TestPublicTextWorkflowsInterpolateOnlyNumbersIdsAndShas(t *testing.T) {
+	allowed := map[string]bool{
+		"secrets.PUBLIC_TEXT_EXTRA_DIGESTS":  true,
+		"github.event.pull_request.number":   true,
+		"github.event.pull_request.base.sha": true,
+		"github.event.pull_request.head.sha": true,
+		"github.event.before":                true,
+		"github.sha":                         true,
+		"github.run_id":                      true,
+		"github.event_name":                  true,
+		"github.event.issue.number":          true,
+		"github.event.release.id":            true,
+		"github.event.comment.id":            true,
+		"github.event.review.id":             true,
+		"github.event.issue.number || github.event.pull_request.number || github.event.release.id || github.run_id": true,
+		"github.event.comment.id || github.event.review.id || '0'":                                                  true,
+	}
+	files, err := filepath.Glob(filepath.Join("..", "..", ".github", "workflows", "public-text*.yml"))
+	if err != nil || len(files) < 3 {
+		t.Fatalf("expected at least the three public-text workflows, found %v (%v)", files, err)
+	}
+	for _, f := range files {
+		s := readWorkflow(t, filepath.Base(f))
+		for rest := s; ; {
+			i := strings.Index(rest, "${{")
+			if i < 0 {
+				break
+			}
+			rest = rest[i+3:]
+			j := strings.Index(rest, "}}")
+			if j < 0 {
+				t.Errorf("%s: an unclosed expression", filepath.Base(f))
+				break
+			}
+			if e := strings.TrimSpace(rest[:j]); !allowed[e] {
+				t.Errorf("%s interpolates %q: only numbers, ids, commit ids and the digest secret may reach a workflow expression", filepath.Base(f), e)
+			}
+			rest = rest[j+2:]
+		}
+		if !strings.Contains(s, "\npermissions:\n  contents: read\n") {
+			t.Errorf("%s must hold the read-only token (permissions: contents: read)", filepath.Base(f))
+		}
+	}
+}
+
+// The surfaces added by #704 stay covered: a comment on a commit, a release and a created branch or tag run in the discussion workflow, and the
+// commit messages of a push to main run in their own workflow whose check is not the required one.
+func TestPublicTextCoversCommitCommentsReleasesCreatesAndPushes(t *testing.T) {
+	disc := readWorkflow(t, "public-text-discussion.yml")
+	got := strings.Join(workflowEvents(disc), " ")
+	for _, want := range []string{"commit_comment", "release", "create"} {
+		if !strings.Contains(" "+got+" ", " "+want+" ") {
+			t.Errorf("public-text-discussion.yml does not run on %q (it runs on %s)", want, got)
+		}
+	}
+	push := readWorkflow(t, "public-text-push.yml")
+	if ev := workflowEvents(push); len(ev) != 1 || ev[0] != "push" {
+		t.Errorf("public-text-push.yml must run on the push event only, it runs on %v", ev)
+	}
+	if !strings.Contains(push, "\n    branches: [main]\n") {
+		t.Error("public-text-push.yml must run on pushes to main")
+	}
+	if n := workflowJobNames(push); len(n) != 1 || n[0] != "public-text-push" {
+		t.Errorf("public-text-push.yml must hold one job named public-text-push, it holds %v", n)
+	}
+	for _, want := range []string{"fetch-depth: 0", "-commits", "./cmd/publictextcheck", "BEFORE_SHA", "HEAD_SHA"} {
+		if !strings.Contains(push, want) {
+			t.Errorf("public-text-push.yml does not mention %q", want)
+		}
+	}
+	for _, f := range []string{"public-text.yml", "public-text-discussion.yml", "public-text-push.yml"} {
+		s := readWorkflow(t, f)
+		for _, bad := range []string{"github.event.release.name", "github.event.release.body", "github.event.release.tag_name", "github.event.comment.body", "github.event.ref", "github.ref_name", "github.ref}", "github.event.head_commit", "github.event.commits"} {
+			if strings.Contains(s, bad) {
+				t.Errorf("%s must not interpolate %s into a step: text written by a stranger is read from the payload file or from git", f, bad)
+			}
+		}
+	}
+}

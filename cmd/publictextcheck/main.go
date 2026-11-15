@@ -1,5 +1,6 @@
 // publictextcheck applies the public-text rule (package internal/hygiene) to text that is not a tracked file: the title and body of an issue or a
-// pull request, a comment or a review, and commit messages. CI runs it before merge on every such event (.github/workflows/public-text.yml).
+// pull request, a comment or a review, a release, the name of a created branch or tag, and commit messages. CI runs it on every such event
+// (.github/workflows/public-text.yml, public-text-discussion.yml and public-text-push.yml).
 //
 //	publictextcheck                       the event of the running workflow (GITHUB_EVENT_NAME, GITHUB_EVENT_PATH)
 //	publictextcheck -items FILE           a JSON array of issues or pull requests as `gh issue list --json` writes them (a one-off scan)
@@ -149,10 +150,19 @@ type event struct {
 	Review *struct {
 		Body string `json:"body"`
 	} `json:"review"`
+	Release *struct {
+		TagName string `json:"tag_name"`
+		Name    string `json:"name"`
+		Body    string `json:"body"`
+	} `json:"release"`
+	// Ref and RefType are the name and the kind (branch or tag) of what a create event made. Other events carry a top-level ref of their own
+	// (a push, a manual run), so the field is read for the create event only.
+	Ref     string `json:"ref"`
+	RefType string `json:"ref_type"`
 }
 
 // eventTexts lists the public text of a workflow event payload: the title and body of the issue or pull request, the branch name of a pull
-// request, and the body of the comment or review the event is about.
+// request, the body of the comment or review the event is about, the tag name, name and notes of a release, and the name a create event made.
 func eventTexts(name string, payload []byte) ([]text, error) {
 	var ev event
 	if err := json.Unmarshal(payload, &ev); err != nil {
@@ -179,8 +189,21 @@ func eventTexts(name string, payload []byte) ([]text, error) {
 	if r := ev.Review; r != nil {
 		out = append(out, text{name + " review", r.Body, false})
 	}
+	if r := ev.Release; r != nil {
+		out = append(out,
+			text{name + " tag name", r.TagName, false},
+			text{name + " name", r.Name, false},
+			text{name + " notes", r.Body, false})
+	}
+	if name == "create" && ev.Ref != "" {
+		kind := "ref"
+		if ev.RefType == "branch" || ev.RefType == "tag" {
+			kind = ev.RefType
+		}
+		out = append(out, text{"created " + kind + " name", ev.Ref, false})
+	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("the event %q carries no issue, pull request, comment or review text", name)
+		return nil, fmt.Errorf("the event %q carries no issue, pull request, comment, review, release or created-ref text", name)
 	}
 	return out, nil
 }
@@ -212,7 +235,10 @@ func itemTexts(b []byte) ([]text, error) {
 		if it.Number == 0 {
 			id = it.HTMLURL + it.URL
 		}
-		out = append(out, text{id + " title", it.Title, false}, text{id + " body", it.Body, false})
+		// A pull request in the JSON of `gh pr list` carries headRefName and an issue does not: its title and body become the squash message,
+		// so the attribution rule applies to them here as it does in the event check.
+		isPR := it.HeadRefName != ""
+		out = append(out, text{id + " title", it.Title, isPR}, text{id + " body", it.Body, isPR})
 		if it.HeadRefName != "" {
 			out = append(out, text{id + " branch name", it.HeadRefName, false})
 		}

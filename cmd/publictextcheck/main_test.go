@@ -217,3 +217,59 @@ func TestCommitMessagesOfAGitLog(t *testing.T) {
 		t.Errorf("code=%d out=%q", code, out.String())
 	}
 }
+
+// A comment on a commit, the tag name, name and notes of a release, and the name of a created branch or tag are checked (#704).
+func TestCommitCommentsReleasesAndCreatedRefsAreChecked(t *testing.T) {
+	for name, c := range map[string]struct{ event, payload, want string }{
+		"commit comment":  {"commit_comment", `{"comment":{"body":"see ` + word + `","commit_id":"abc"}}`, "commit_comment comment, line 1: reserved word"},
+		"release notes":   {"release", `{"release":{"tag_name":"v1","name":"v1","body":"line\nmentions ` + word + `"}}`, "release notes, line 2: reserved word"},
+		"release name":    {"release", `{"release":{"tag_name":"v1","name":"` + word + ` build","body":"ok"}}`, "release name, line 1: reserved word"},
+		"release tag":     {"release", `{"release":{"tag_name":"v1-` + word + `","name":"v1","body":"ok"}}`, "release tag name, line 1: reserved word"},
+		"release profile": {"release", `{"release":{"tag_name":"v1","name":"v1","body":"saved at ` + prof + `"}}`, "release notes, line 1: path under a personal profile"},
+		"created branch":  {"create", `{"ref":"fix/` + word + `","ref_type":"branch"}`, "created branch name, line 1: reserved word"},
+		"created tag":     {"create", `{"ref":"` + word + `-1","ref_type":"tag"}`, "created tag name, line 1: reserved word"},
+	} {
+		code, out, _ := runEvent(t, c.event, c.payload, nil)
+		if code != 1 || !strings.Contains(out, c.want) || strings.Contains(strings.ToLower(out), word) {
+			t.Errorf("%s: code=%d out=%q, want %q and no repeated word", name, code, out, c.want)
+		}
+	}
+	for name, c := range map[string]struct{ event, payload, want string }{
+		"commit comment": {"commit_comment", `{"comment":{"body":"looks right to me"}}`, "1 text(s) checked"},
+		"release":        {"release", `{"release":{"tag_name":"v1.2.0","name":"v1.2.0","body":null}}`, "3 text(s) checked"},
+		"created branch": {"create", `{"ref":"fix/704-events","ref_type":"branch"}`, "1 text(s) checked"},
+	} {
+		if code, out, _ := runEvent(t, c.event, c.payload, nil); code != 0 || !strings.Contains(out, c.want) {
+			t.Errorf("clean %s: code=%d out=%q", name, code, out)
+		}
+	}
+	// the top-level ref of a push or a manual run is not a created name, and a create event with nothing to read is refused, not passed
+	if code, _, _ := runEvent(t, "push", `{"ref":"refs/heads/`+word+`"}`, nil); code != 2 {
+		t.Errorf("a push payload was read as text: code=%d", code)
+	}
+	if code, _, _ := runEvent(t, "create", `{}`, nil); code != 2 {
+		t.Errorf("a create payload with no ref passed: code=%d", code)
+	}
+}
+
+// In the one-off scan a pull request (it has headRefName) gets the attribution rule on its title and body, as in the event check (#704).
+func TestItemsScanAppliesTheAttributionRuleToPullRequestsOnly(t *testing.T) {
+	items := `[
+ {"number":1,"title":"ok","body":"Generated with [Claude Code](https://x)","headRefName":"fix/x"},
+ {"number":2,"title":"ok","body":"Co-Authored-By: A Bot <noreply@anthropic.com>","headRefName":"fix/y"},
+ {"number":3,"title":"ok","body":"Generated with a tool, said the report"}
+]`
+	p := filepath.Join(t.TempDir(), "items.json")
+	if err := os.WriteFile(p, []byte(items), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var out, errb bytes.Buffer
+	code := run([]string{"-items", p}, env(nil), &out, &errb)
+	got := out.String()
+	if code != 1 || !strings.Contains(got, "#1 body, line 1: AI attribution line") || !strings.Contains(got, "#2 body, line 1: AI attribution line") {
+		t.Errorf("code=%d out=%q", code, got)
+	}
+	if strings.Contains(got, "#3 ") {
+		t.Errorf("an issue was held to the pull request attribution rule: %q", got)
+	}
+}
