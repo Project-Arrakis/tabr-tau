@@ -160,12 +160,14 @@ test('a tier says what it gives, by the game’s name, and where it stands: not 
 });
 
 test('the place: a house with no position says so and its map dialog explains; one with a position shows the area and the pin', async () => {
-  const known = { known: true, map: 'Hagga Basin', area: 'The O’dham', place: 'north rim', x: 0.25, y: 0.5 };
+  const known = { known: true, map: 'Hagga Basin', map_key: 'HaggaBasin', area: 'The O’dham', place: 'north rim', x: 0.25, y: 0.5 };
   const ui = await open(board({ tasks: [house(900, 'Alexin', 0), house(901, 'Thorvald', 100, { location: known })] }));
-  assert.ok(text(ui.doc.querySelector('#lsrow-900 .c-loc')).includes('not mapped yet'));
+  assert.ok(text(ui.doc.querySelector('#lsrow-900 .c-loc')).includes('location unknown'));
   assert.ok(text(ui.doc.querySelector('#lsrow-901 .c-loc')).includes('The O’dham') && text(ui.doc.querySelector('#lsrow-901 .c-loc')).includes('Hagga Basin'));
   click(ui, '#lsrow-900 [data-lb=map]');
-  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('not in the editor yet'));
+  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('location of this house is unknown'));
+  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('no map marker'), 'it says why');
+  assert.equal(text(ui.doc.querySelector('#lsb-mapttl')), 'Location: House Alexin', 'no map is named when there is none');
   assert.equal(ui.doc.querySelector('#lsb-mapbody .pin'), null, 'no position is drawn that is not known');
   click(ui, '#lsrow-901 [data-lb=map]');
   assert.equal(ui.doc.querySelector('#lsb-mapbody .pin').style.left, '25%');
@@ -254,7 +256,7 @@ test('the longer explanations sit in closed About disclosures', async () => {
 });
 
 test('the place has a quick peek for a mouse (the lines of the dialog) only where the position is known', async () => {
-  const known = { known: true, map: 'Hagga Basin', area: 'The O’dham', place: 'north rim', x: 0.25, y: 0.5 };
+  const known = { known: true, map: 'Hagga Basin', map_key: 'HaggaBasin', area: 'The O’dham', place: 'north rim', x: 0.25, y: 0.5 };
   const ui = await open(board({ tasks: [house(900, 'Alexin', 0), house(901, 'Thorvald', 100, { location: known })] }));
   assert.equal(ui.doc.querySelector('#lsrow-900 .loc .pop'), null, 'no peek for a house with no position');
   const pop = ui.doc.querySelector('#lsrow-901 .loc > .pop');
@@ -285,18 +287,19 @@ test('the stylesheet styles the status lines by the ids the board draws, and kee
 
 test('when no house has a place yet the board says so once: no place in every row, Group by region and the Location sort are off with the reason', async () => {
   const ui = await open();
-  assert.ok(text(ui.doc.querySelector('#lsb-nolocs')).includes('places of the houses are not in the editor yet'));
-  assert.ok(!text(ui.doc.querySelector('#lsb-rows')).includes('not mapped yet'), 'no row says it');
+  assert.ok(text(ui.doc.querySelector('#lsb-nolocs')).includes('no map marker for any house representative'));
+  assert.ok(!text(ui.doc.querySelector('#lsb-rows')).includes('location unknown'), 'no row says it');
   assert.equal(ui.doc.querySelectorAll('#lsb-rows .loc-t').length, 0);
   assert.equal(ui.doc.querySelectorAll('.lsb .more h4').length, rows(ui).length * 2, 'no Where block per opened row');
   const g = ui.doc.querySelector('[data-lb=group]');
   assert.ok(g.disabled && ui.doc.querySelector('#lsb-grp-hint'), 'Group by region is off with a hint');
+  assert.ok(text(ui.doc.querySelector('#lsb-grp-hint')).includes('needs a house location in the save'));
   assert.ok(ui.doc.querySelector('[data-col=location] .sorth').disabled);
   const known = { known: true, map: 'Hagga Basin', area: 'The O’dham', place: 'rim', x: 0.25, y: 0.5 };
   const ui2 = await open(board({ tasks: [house(900, 'Alexin', 0, { location: known }), house(901, 'Thorvald', 100)] }));
   assert.equal(ui2.doc.querySelector('#lsb-nolocs'), null);
   assert.ok(!ui2.doc.querySelector('[data-lb=group]').disabled);
-  assert.ok(text(ui2.doc.querySelector('#lsrow-901 .c-loc')).includes('not mapped yet'), 'with some places known, a house without one still says so');
+  assert.ok(text(ui2.doc.querySelector('#lsrow-901 .c-loc')).includes('location unknown'), 'with some places known, a house without one still says so');
 });
 
 test('the map dialog and the peek give the distance from you, and the dialog opens the Saved map at the house', async () => {
@@ -312,4 +315,10 @@ test('the map dialog and the peek give the distance from you, and the dialog ope
   assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('From younot worked out'), 'another map: no invented distance');
   click(ui, '#lsrow-902 [data-lb=map]');
   assert.equal(ui.doc.querySelector('#lsb-mapbody [data-lb=mapopen]'), null, 'a hub has no Saved map picture');
+  assert.equal(ui.doc.querySelector('#lsb-mapbody .pin'), null, 'a hub has no picture, so no pin is drawn on a made-up one');
+  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('Arrakeen') && !text(ui.doc.querySelector('#lsb-mapbody')).includes('Place'), 'the name of the hub, and no empty Place line');
+  assert.ok(!text(ui.doc.querySelector('#lsb-mapbody')).includes('The pin marks'), 'a hub dialog does not point at a pin that is not there');
+  assert.ok(text(ui.doc.querySelector('#lsb-mapttl')).startsWith('Map: '), 'a place has a map title');
+  click(ui, '#lsrow-900 [data-lb=map]');
+  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('The pin marks'), 'a house with a picture says what the pin is');
 });

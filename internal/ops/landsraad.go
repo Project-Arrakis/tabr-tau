@@ -141,6 +141,10 @@ func (o *Ops) Landsraad() (any, error) {
 		}
 		rw[t] = append(rw[t], r)
 	}
+	places, err := o.houseLocations() // where the house representatives are, from the save's map markers (#639)
+	if err != nil {
+		return nil, err
+	}
 	for _, t := range tasks {
 		id, _ := t["id"].(int64)
 		t["contributions"] = byTask[id]
@@ -186,7 +190,7 @@ func (o *Ops) Landsraad() (any, error) {
 			r["delivered"] = deliv
 		}
 		t["rewards"] = tiers
-		boardTask(t, tiers, delivered, one, termID, termStart, here)
+		boardTask(t, tiers, delivered, one, termID, termStart, places, here)
 	}
 	decrees, err := o.S.Query(`select id, decree_name, disabled, weight from landsraad_decrees order by id`)
 	if err != nil {
