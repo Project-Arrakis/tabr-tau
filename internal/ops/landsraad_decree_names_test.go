@@ -59,6 +59,9 @@ func TestDecreeNamesAreTheGamesOwn(t *testing.T) {
 	if p["display_name"] != "Special Vendor" || p["name_known"] != false {
 		t.Errorf("SpecialVendorActive: %v known %v", p["display_name"], p["name_known"])
 	}
+	if rows["RangedDamageIncreased"]["variant"] != "Ranged" || rows["MeleeDamageIncreased"]["variant"] != "Melee" || rows["CraftingCostReduced"]["variant"] != "" {
+		t.Errorf("variant: Ranged %v, Melee %v, Crafting %v", rows["RangedDamageIncreased"]["variant"], rows["MeleeDamageIncreased"]["variant"], rows["CraftingCostReduced"]["variant"])
+	}
 	if rows["RangedDamageIncreased"]["display_name"] == rows["MeleeDamageIncreased"]["display_name"] {
 		t.Error("the Ranged and Melee decrees share one game name and must be told apart")
 	}

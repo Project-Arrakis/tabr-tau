@@ -6,9 +6,9 @@ import (
 )
 
 // The names players know for the Landsraad decrees (#608). The save holds only the game's internal id of a decree (landsraad_decrees.decree_name); the name and the effect line the
-// game shows are in its own table DT_LandsraadDecrees, copied once into decree-names.json (internal/catalog/PROVENANCE.md, "decree-names.json"). The Landsraad read adds three
-// fields to every decree row: display_name (the game's name, with the variant in brackets where two decrees share one name), effect (the game's one-line effect, when it has one)
-// and name_known (false when the name is not the game's: an id that is not in the file, and the plain SpecialVendorActive row, which has no row in the game's table). A decree id
+// game shows are in its own table DT_LandsraadDecrees, copied once into decree-names.json (internal/catalog/PROVENANCE.md, "decree-names.json"). The Landsraad read adds four
+// fields to every decree row: display_name (the game's name, with the variant in brackets where two decrees share one name), variant (that bracketed word, empty when there is none;
+// the game does not have it), effect (the game's one-line effect, when it has one) and name_known (false when the name is not the game's: an id that is not in the file, and the plain SpecialVendorActive row, which has no row in the game's table). A decree id
 // the file does not have is still returned, with name_known false and no display_name, and the page then shows a readable form of the id.
 
 //go:embed decree-names.json
