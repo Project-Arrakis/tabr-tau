@@ -21,8 +21,9 @@ type characterPlace struct {
 	// Parked is nil when the controller, the body and the player state are on one map and the body's state is 0, so the body's position is the player's.
 	// Otherwise it is the plain sentence to refuse "next to the character" with (a kind of ErrBadArgument): the body is somewhere the player is not.
 	Parked error
-	// ParkedMap is true when Parked is only about the three actors being on different maps (the body's state is 0); a move that writes all three actors to a map the person
-	// named puts them on one map, so it may go on. A body whose state is not 0 is not that case.
+	// ParkedMap is true when Parked is only about the three actors being on different maps and the body's state is 0 (standing in the world); a move that writes all three actors
+	// to a map the person named puts them on one map, so it may go on. A body whose state is not 0 is never that case, whatever map it is on: it is refused (#692), because moving a
+	// body that is not standing in the world has not been checked in the game.
 	ParkedMap bool
 }
 
@@ -107,15 +108,25 @@ func readCharacterPlace(one func(string, ...any) (save.Row, error), p player, wi
 		refuse("the character's body was not found in this save. Nothing was changed.")
 	case c.Map == "":
 		refuse("the character's map is not recorded in this save. Nothing was changed.")
+	case bodyState(c.Body) != 0:
+		// one rule for a body that is not standing in the world, on the player's map or on another: it is refused, and a move between maps does not take it along (#692)
+		n := bodyState(c.Body)
+		if mapOf(c.Body) != c.Map {
+			refuse("the character's body is not standing in the world in this save (its state is %d) and it is on another map than the one the player is on (the body is on %s, the player on %s), so the editor does not put anything next to the character or move it. Nothing was changed.", n, orNone(mapOf(c.Body)), c.Map)
+		} else {
+			refuse("the character's body is not standing in the world in this save (its state is %d), so the editor does not put anything next to the character or move it. Nothing was changed.", n)
+		}
 	case mapOf(c.Body) != c.Map || (st != nil && mapOf(st) != c.Map):
 		c.ParkedMap = true
 		refuse("this save holds the character's body on another map than the one the player is on (the body is on %s, the player on %s), so the editor does not put anything next to the character: it would end up where you cannot reach it. Nothing was changed.", orNone(mapOf(c.Body)), c.Map)
-	default:
-		if n, _ := toInt(c.Body["st"]); n != 0 {
-			refuse("the character's body is not standing in the world in this save (its state is %d), so the editor does not put anything next to the character. Nothing was changed.", n)
-		}
 	}
 	return c, nil
+}
+
+// bodyState is the body's state column (0 = standing in the world); a body that was not read counts as 0 here, the refusal for a missing body comes first.
+func bodyState(r save.Row) int64 {
+	n, _ := toInt(r["st"])
+	return n
 }
 
 func orNone(s string) string {
