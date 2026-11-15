@@ -1506,6 +1506,7 @@ let vcSeq = 0; // counts the changes that decide what the preview is: an answer 
 let vcTimer = 0; // the wait after the last part picked in the preview table, so a key held or pressed twice asks once
 let vcPicked = []; // the slots picked in the table whose answer is not in yet
 let vcBusy = false; // a part was picked in the preview table (#672) and its preview is not in yet: Create waits
+let vcCreating = false; // a Create is on its way to the editor and its answer is not in: a second press (a double click) must not write a second vehicle (#740)
 let vcPartNote = null; // { slots, text }: why the last parts picked in the preview table were not taken, until the next change
 const VC_PICK_WAIT = 600; // ms; the arrow keys on a closed list change the value at every press
 let vcResult = null; // { r: the answer of the last create, note: what the queue adds to the sentence }
@@ -1556,7 +1557,7 @@ function vcBusyShow(on) {
   const w = $('#vcwait'), box = $('#vcpreview'), create = document.querySelector('[data-act="vcCreate"]');
   if (w) w.hidden = !on;
   if (box) box.setAttribute('aria-busy', on ? 'true' : 'false');
-  if (create) { create.disabled = on; create.setAttribute('aria-describedby', 'vccreatetip' + (on ? ' vcwait' : '')); }
+  if (create) { create.disabled = on || vcCreating; create.setAttribute('aria-describedby', 'vccreatetip' + (on ? ' vcwait' : '')); }
 }
 const vcPartName = (slot) => { const s = vcClass().slots.find((x) => x.slot === slot), m = s && (s.modules || []).find((x) => x.id === vcDraft.mods[slot]); return m ? vcModName(m) : 'empty'; };
 // A part was picked in the preview table (#672). The draft takes it at once (and so does the same box in Change parts), and after a short wait with no other pick the preview is asked again for the whole draft;
@@ -1600,6 +1601,11 @@ async function vcAskPick(seq) {
   }
   render('scroll');
 }
+// One id for each form (#740): Create sends it, and the editor gives a second request with the same id and the same body the first one's answer instead of writing another vehicle.
+function vcRequestId() {
+  try { if (globalThis.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) { /* an older browser: the fallback below */ }
+  return 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+}
 // The request the draft stands for: the template, and a module for each slot that differs from it.
 function vcBody() {
   const t = vcTemplate(), uniques = {};
@@ -1641,7 +1647,7 @@ function vehicleCreateCard(cat) {
       ${c.slots.map((s) => html`<div class="row"><label>${slotWord(s.slot)} <select data-vcslot="${s.slot}">${vcSlotOptions(s, mods[s.slot])}</select></label></div>`)}
     </details>
     ${picker}
-    <div class="row">${tip('vcpreviewtip', 'Shows the rows that would be written. Nothing is changed.', html`<button class="b sec d-btn" data-act="vcPreview" aria-describedby="vcpreviewtip">Preview</button>`)}${tip('vccreatetip', 'Writes the vehicle to the save now, after a backup, or queues it while the game is running. Nothing asks first.', html`<button class="b d-btn primary" data-act="vcCreate" aria-describedby="vccreatetip${vcBusy ? ' vcwait' : ''}" ${vcBusy ? 'disabled' : ''}>Create</button>`)}<button class="b sec d-btn" data-act="vcCancel">Cancel</button></div>
+    <div class="row">${tip('vcpreviewtip', 'Shows the rows that would be written. Nothing is changed.', html`<button class="b sec d-btn" data-act="vcPreview" aria-describedby="vcpreviewtip">Preview</button>`)}${tip('vccreatetip', 'Writes the vehicle to the save now, after a backup, or queues it while the game is running. Nothing asks first.', html`<button class="b d-btn primary" data-act="vcCreate" aria-describedby="vccreatetip${vcBusy ? ' vcwait' : ''}" ${vcBusy || vcCreating ? 'disabled' : ''}>Create</button>`)}<button class="b sec d-btn" data-act="vcCancel">Cancel</button></div>
     ${p ? html`<div class="info" id="vcpreview" aria-busy="${vcBusy ? 'true' : 'false'}"><div role="status"><b>Would create vehicle ${p.id}:</b> ${vcSentence(p)}. It goes ${whereWords(p)}.
       <p class="mut" id="vcwait" ${vcBusy ? '' : 'hidden'}>Updating the preview...</p>
       ${(p.notGiven || []).length || (p.notes || []).length ? html`<ul>${vcShorts(p)}${(p.notes || []).map((x) => html`<li>${x}</li>`)}</ul>` : ''}</div>
@@ -2874,7 +2880,7 @@ const A = {
   vcOpen: async () => {
     if (!VC) VC = await api('/api/vehicles/catalog');
     const c = VC.classes.find((x) => x.key === 'Buggy') || VC.classes[0];
-    vcDraft = { cls: c.key, tpl: vcTop(c), mods: {}, fuel: 100, items: [] };
+    vcDraft = { cls: c.key, tpl: vcTop(c), mods: {}, fuel: 100, items: [], requestId: vcRequestId() };
     vcDraft.mods = vcDefaults();
     vcDrop();
     render('scroll');
@@ -2898,18 +2904,28 @@ const A = {
     render('scroll');
   },
   vcCreate: () => {
+    if (vcCreating) return;
     if (vcBusy) return toast('The preview is updating. Press Create when it has finished.', 'note');
     vcSync();
     // Create writes what the preview shows: when the form no longer makes the request the preview was asked with (a fuel or quantity edit, say), the preview goes and has to be asked again
     if (vcPreview && JSON.stringify(vcBody()) !== vcPreviewKey) { vcDrop(); render('scroll'); return toast('The form changed after the preview. Press Preview, then Create.', 'note'); }
     const body = vcBody();
+    body.requestId = vcDraft.requestId;
+    // The button is off and a second press does nothing until the answer is in: one press, one vehicle (#740)
+    vcCreating = true;
+    const create = document.querySelector('[data-act="vcCreate"]');
+    if (create) create.disabled = true;
     return act(async () => {
       const r = await api('/api/vehicles/spawn', body);
       vcResult = { r, note: String(NOT_SAVED) ? ' ' + String(NOT_SAVED).trim() : '' };
       vcDraft = null;
       vcDrop();
       toast(`Created vehicle ${r.id}: ${r.label} ${whereWords(r)}` + NOT_SAVED);
-    }, null);
+    }, null).finally(() => {
+      vcCreating = false;
+      const again = document.querySelector('[data-act="vcCreate"]');
+      if (again) again.disabled = vcBusy;
+    });
   },
   bring: (d) => act(async () => { const r = await api('/api/vehicles/bring', { id: +d.id }); toast(`Vehicle moved ${whereWords(r)}` + NOT_SAVED); }, null),
   vreset: async (d) => (await ask({ title: d.v ? 'Reset purchase limits for this vendor?' : 'Reset purchase limits for every vendor?', body: d.v ? 'Resets the purchase counters of vendor ' + d.v + '.' : 'Resets the purchase counters of every vendor in the save, not one.', ok: 'Reset' })) && act(() => api('/api/vendors/reset', { vendor_id: d.v }), 'Purchase limits reset'),

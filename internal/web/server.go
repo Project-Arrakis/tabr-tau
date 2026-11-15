@@ -900,13 +900,17 @@ func (s *Server) routes() {
 			if !cleaned {
 				return map[string]any{"ok": true, "kept": true}, nil
 			}
+			ops.ForgetSpawnAnswers(s.Save)
 			return map[string]any{"ok": true}, nil
 		}
-		return map[string]any{"ok": true}, s.Save.Discard()
+		err := s.Save.Discard()
+		ops.ForgetSpawnAnswers(s.Save) // the vehicles Create answered for are gone with the edits (#740)
+		return map[string]any{"ok": true}, err
 	})
 	// Reload now with unsaved edits: the file is read again and the edits are put back onto it where they still apply.
 	s.post("/api/save/rebase", func(ops.Args) (any, error) {
 		r, err := s.Save.Rebase()
+		ops.ForgetSpawnAnswers(s.Save) // an edit that could not be put back is gone, so an id is not answered with a vehicle that is not there (#740)
 		if err != nil {
 			return nil, err
 		}
@@ -923,7 +927,11 @@ func (s *Server) routes() {
 		return map[string]any{"ok": true}, nil
 	})
 	s.get("/api/save/backups", func(r *http.Request) (any, error) { return s.Save.Backups(), nil })
-	s.post("/api/save/restore", func(a ops.Args) (any, error) { return map[string]any{"ok": true}, s.Save.Restore(a.Str("name")) })
+	s.post("/api/save/restore", func(a ops.Args) (any, error) {
+		err := s.Save.Restore(a.Str("name"))
+		ops.ForgetSpawnAnswers(s.Save) // (#740)
+		return map[string]any{"ok": true}, err
+	})
 
 	// game config (.ini)
 	s.get("/api/config/validate", func(r *http.Request) (any, error) { return s.Cfg.Validate(), nil })
@@ -1033,6 +1041,7 @@ func (s *Server) retryWaitingPass() {
 	if kept, err := s.Save.DiscardIfClean(); err != nil || !kept {
 		return // nothing is queued but the file could not be read, or an edit came in: try again at the next tick
 	}
+	ops.ForgetSpawnAnswers(s.Save)
 	s.RunStartupTasks()
 }
 
