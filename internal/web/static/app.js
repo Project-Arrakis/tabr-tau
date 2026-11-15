@@ -2342,12 +2342,13 @@ function tmapSync() {
   const hub = GO.pick !== null && TD[GO.pick] && TD[GO.pick].otherMap; // a hub chosen in the list of places is another map too (#521)
   if (box) setHTML(box, (sel && sel.value !== '') || hub ? html`<p class="warn" id="tmapwarn">${TRAVEL_WARN}</p>` : html``);
 }
-// render(true) is the redraw after an action: it keeps the place; render('scroll') keeps only the scroll offsets. Any other call is a move to another page, which starts at the top.
+// render(true) is the redraw after an action (or the page's own refresh from the file): it keeps the place; render('scroll') keeps only the scroll offsets; render('rows') keeps only the page offset, for a change that shows other rows in a table box (the old offset of a box is not put back onto them, #697). Any other call is a move to another page, which starts at the top.
 // auto is the page's own refresh from the file: it keeps the place the same way, but the page is never scrolled to the refocused control (#696).
 async function render(keepPlace, auto) {
   const keep = focusSpec(document.activeElement);
-  const place = keepPlace === true || keepPlace === 'scroll' ? viewSnapshot() : reloaded;
-  if (place && keepPlace === 'scroll') place.ctl = {}; // a redraw to show what the save holds (a refused change): the boxes go back to it, only the place is kept
+  const place = keepPlace === true || keepPlace === 'scroll' || keepPlace === 'rows' ? viewSnapshot() : reloaded;
+  if (place && keepPlace === 'rows') place.boxes = {}; // other rows in the table boxes: they start at their top
+  if (place && (keepPlace === 'scroll' || keepPlace === 'rows')) place.ctl = {}; // a redraw to show what the save holds (a refused change): the boxes go back to it, only the place is kept
   reloaded = null;
   document.title = pageTitle();
   drawNav();
@@ -2524,8 +2525,8 @@ const A = {
   tut: (d) => act(async () => { await api('/api/player/tutorials', { id: +d.id, complete: d.c == '1' }); JB = await api('/api/player/journey/browse'); journeyList(); toast('Tutorial updated' + NOT_SAVED); }, null),
   tagAdd: () => act(() => api('/api/player/tags', { tag: val('tag').trim(), add: true }), 'Tag added'),
   tagDel: (d) => act(() => api('/api/player/tags', { tag: d.tag, add: false }), 'Tag removed'),
-  invfilter: () => { invQ = val('invq'); return render('scroll'); },
-  invclear: () => { invQ = ''; render('scroll'); },
+  invfilter: () => { invQ = val('invq'); return render('rows'); },
+  invclear: () => { invQ = ''; render('rows'); },
   skPoints: () => act(async () => { const r = await api('/api/player/skills/points', { points: +val('skPts') }); toast(`Unspent skill points ${r.before} → ${r.after}` + NOT_SAVED); }, null),
   skStarter: () => act(async () => { const r = await api('/api/player/skills/starter', { school: skSchool }); toast(r.changed ? `Restored ${r.changed} starter skills` + NOT_SAVED : 'The starter skills are already learned.'); }, null),
   ctfilter: () => { ctQ = val('ctq'); catalogList(); },
@@ -2752,15 +2753,15 @@ document.addEventListener('click', (e) => {
   const jg = e.target.closest('[data-jgrp]');
   if (jg) { if (JGROUPS.some(([k]) => k == jg.dataset.jgrp)) { jgrp = jg.dataset.jgrp; journeyList(); } return; }
   const vo = e.target.closest('[data-vhopen]');
-  if (vo) { vcSync(); vhOpen = +vo.dataset.vhopen; render('scroll'); return; }
+  if (vo) { vcSync(); vhOpen = +vo.dataset.vhopen; render('rows'); return; }
   const bo = e.target.closest('[data-bsopen]');
-  if (bo) { bsOpen = +bo.dataset.bsopen; render('scroll'); return; }
+  if (bo) { bsOpen = +bo.dataset.bsopen; render('rows'); return; }
   const bt = e.target.closest('[data-bstab]');
-  if (bt) { bsTab = bt.dataset.bstab; render('scroll'); return; }
+  if (bt) { bsTab = bt.dataset.bstab; render('rows'); return; }
   const bg = e.target.closest('[data-bsgrp]');
-  if (bg) { bsGroup = bg.dataset.bsgrp; render('scroll'); return; }
+  if (bg) { bsGroup = bg.dataset.bsgrp; render('rows'); return; }
   const ig = e.target.closest('[data-invg]');
-  if (ig) { invG = ig.dataset.invg; render('scroll'); return; }
+  if (ig) { invG = ig.dataset.invg; render('rows'); return; }
   const s = e.target.closest('[data-sub]');
   if (s) { const [g, k] = s.dataset.sub.split(':'); if (GROUPS.includes(g)) { sub[g] = k; render(); } return; }
   const a = D(e);

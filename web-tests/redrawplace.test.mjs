@@ -177,6 +177,44 @@ test('the refocused control is scrolled into view only when it is off the screen
   }
 });
 
+// A table box keeps its scroll offset across a redraw that shows the same rows, and starts at its top when the redraw shows other rows (#697).
+const boxOf = (ui) => ui.doc.querySelector('#main .scroll');
+
+test('Character inventory: another group and Filter and Clear start the table box at its top, the page offset stays', async () => {
+  const ui = await boot({ get: { '/api/player/inventory': INV, '/api/catalog/items': ITEMS } });
+  await go(ui, '[data-tab="player"]', '[data-sub="char:inventory"]');
+  for (const [sel, y] of [['[data-invg="character"]', 900], ['[data-invg="backpack"]', 640]]) {
+    assert.ok(boxOf(ui), 'there is a table box before ' + sel);
+    boxOf(ui).scrollTop = 300; boxOf(ui).scrollLeft = 7;
+    const at = await press(ui, sel, y);
+    assert.equal(at(), y, sel + ' keeps the page offset');
+    if (boxOf(ui)) assert.deepEqual([boxOf(ui).scrollTop, boxOf(ui).scrollLeft], [0, 0], sel + ': the other rows start at the top of their box');
+  }
+  set(ui, '#invq', 'spice');
+  boxOf(ui).scrollTop = 300;
+  let at = await press(ui, '[data-act="invfilter"]', 700);
+  assert.equal(at(), 700);
+  assert.equal(boxOf(ui).scrollTop, 0, 'Filter: the filtered rows start at the top');
+  boxOf(ui).scrollTop = 300;
+  at = await press(ui, '[data-act="invclear"]', 700);
+  assert.equal(at(), 700);
+  assert.equal(boxOf(ui).scrollTop, 0, 'Clear: the rows start at the top');
+});
+
+test('Bases: another inventory group, a sub-tab and another base start the table box at its top, the page offset stays', async () => {
+  const ui = await boot({ get: BASES });
+  await go(ui, '[data-tab="player"]', '[data-sub="player:bases"]', '[data-bstab="inventory"]');
+  assert.ok(boxOf(ui), 'the containers are in a table box');
+  boxOf(ui).scrollTop = 300;
+  let at = await press(ui, '[data-bsgrp="other"]', 640);
+  assert.equal(at(), 640);
+  assert.equal(boxOf(ui).scrollTop, 0, 'a base inventory group: its containers start at the top');
+  boxOf(ui).scrollTop = 300;
+  at = await press(ui, '[data-bsopen="8"]', 640);
+  assert.equal(at(), 640);
+  assert.equal(boxOf(ui).scrollTop, 0, 'another base: its table starts at the top');
+});
+
 // The page's own refresh from the file (about every twenty seconds while the game runs) gives the focus back to the control that had it, but must never
 // scroll the page to it: the person pressed a button near the top, scrolled down to read, and the refresh must not pull the page back up (#696).
 const fixtureState = () => JSON.parse(fs.readFileSync(nodePath.join(nodePath.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'ui-fixtures.json'), 'utf8'))['/api/save/state'].body;
