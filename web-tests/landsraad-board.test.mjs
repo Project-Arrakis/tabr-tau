@@ -40,7 +40,7 @@ async function open(data = board()) {
   ui.click('[data-tab="landsraad"]'); await ui.settle();
   return ui;
 }
-const rows = (ui) => [...ui.doc.querySelectorAll('#lsb-rows > li')];
+const rows = (ui) => [...ui.doc.querySelectorAll('#lsb-rows > li.hr')];
 const visible = (ui) => rows(ui).filter((r) => !r.hidden).map((r) => r.querySelector('.hn b').textContent);
 const text = (el) => el.textContent.replace(/\s+/g, ' ').trim();
 const click = (ui, sel) => { const el = ui.doc.querySelector(sel); assert.ok(el, 'no ' + sel); el.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
@@ -287,13 +287,13 @@ test('the stylesheet styles the status lines by the ids the board draws, and kee
 
 test('when no house has a place yet the board says so once: no place in every row, Group by region and the Location sort are off with the reason', async () => {
   const ui = await open();
-  assert.ok(text(ui.doc.querySelector('#lsb-nolocs')).includes('no map marker for any house representative'));
+  assert.ok(text(ui.doc.querySelector('#lsb-nolocs')).includes('No house has a place'));
   assert.ok(!text(ui.doc.querySelector('#lsb-rows')).includes('location unknown'), 'no row says it');
   assert.equal(ui.doc.querySelectorAll('#lsb-rows .loc-t').length, 0);
   assert.equal(ui.doc.querySelectorAll('.lsb .more h4').length, rows(ui).length * 2, 'no Where block per opened row');
   const g = ui.doc.querySelector('[data-lb=group]');
   assert.ok(g.disabled && ui.doc.querySelector('#lsb-grp-hint'), 'Group by region is off with a hint');
-  assert.ok(text(ui.doc.querySelector('#lsb-grp-hint')).includes('needs a house location in the save'));
+  assert.ok(text(ui.doc.querySelector('#lsb-grp-hint')).includes('needs a place for the houses'));
   assert.ok(ui.doc.querySelector('[data-col=location] .sorth').disabled);
   const known = { known: true, map: 'Hagga Basin', area: 'The O’dham', place: 'rim', x: 0.25, y: 0.5 };
   const ui2 = await open(board({ tasks: [house(900, 'Alexin', 0, { location: known }), house(901, 'Thorvald', 100)] }));
@@ -318,7 +318,49 @@ test('the map dialog and the peek give the distance from you, and the dialog ope
   assert.equal(ui.doc.querySelector('#lsb-mapbody .pin'), null, 'a hub has no picture, so no pin is drawn on a made-up one');
   assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('Arrakeen') && !text(ui.doc.querySelector('#lsb-mapbody')).includes('Place'), 'the name of the hub, and no empty Place line');
   assert.ok(!text(ui.doc.querySelector('#lsb-mapbody')).includes('The pin marks'), 'a hub dialog does not point at a pin that is not there');
-  assert.ok(text(ui.doc.querySelector('#lsb-mapttl')).startsWith('Map: '), 'a place has a map title');
+  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('The Saved map has no picture of Arrakeen'), 'a hub dialog says why it has no pin or map link');
+  assert.equal(text(ui.doc.querySelector('#lsb-mapttl')), 'Place: Arrakeen', 'a hub has no map to name in its title');
   click(ui, '#lsrow-900 [data-lb=map]');
   assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('The pin marks'), 'a house with a picture says what the pin is');
+});
+
+test('a hub row promises no map: its title, tooltip, peek, card and accessible name say details, and there is no From you line', async () => {
+  const hub = { known: true, map: 'Arrakeen', map_key: '', area: 'Arrakeen', place: '', cell: '', unconfirmed: false };
+  const ui = await open(board({ tasks: [house(900, 'Alexin', 0, { location: hub })] }));
+  const btn = ui.doc.querySelector('#lsrow-900 .loc-t');
+  assert.ok(!/full map/.test(btn.title) && /details of Arrakeen/.test(btn.title), btn.title);
+  assert.ok(btn.getAttribute('aria-label').startsWith('House Alexin: Arrakeen'), btn.getAttribute('aria-label'));
+  assert.ok(text(ui.doc.querySelector('#lsrow-900 .pop')).includes('Click the place for details') && !/full map/.test(text(ui.doc.querySelector('#lsrow-900 .pop'))));
+  assert.ok(text(ui.doc.querySelector('#lsrow-900 .hcard')).includes('Click the place for details') && !/for the map/.test(text(ui.doc.querySelector('#lsrow-900 .hcard'))));
+  click(ui, '#lsrow-900 [data-lb=map]');
+  const body = text(ui.doc.querySelector('#lsb-mapbody'));
+  assert.ok(!body.includes('From you'), 'the From you line is not shown where there is no picture');
+  assert.ok(body.includes("House Alexin's representative is in Arrakeen"), body);
+  assert.ok(ui.doc.querySelector('#lsb-mapbody .pnote'), 'the note has the normal caption size class');
+});
+
+test('a Deep Desert row names its grid cell; Tseida-like places say they are from public guides; the open link names the house', async () => {
+  const dd = { known: true, map: 'Deep Desert', map_key: 'DeepDesert', area: 'Deep Desert', place: '', cell: 'B8', unconfirmed: false, x: 0.5, y: 0.5 };
+  const tr = { known: true, map: 'Hagga Basin', map_key: 'HaggaBasin', area: 'Eastern Vermillius Gap', place: 'The Anvil Tradepost', cell: '', unconfirmed: true, x: 0.5, y: 0.5 };
+  const ui = await open(board({ tasks: [house(900, 'Maros', 0, { location: dd }), house(901, 'Tseida', 0, { location: tr })] }));
+  assert.ok(text(ui.doc.querySelector('#lsrow-900 .c-loc .lm')).includes('Grid cell B8'), 'the cell is in the row');
+  assert.ok(text(ui.doc.querySelector('#lsrow-901 .c-loc .lm')).includes('The Anvil Tradepost'), 'the place is in the row');
+  click(ui, '#lsrow-900 [data-lb=map]');
+  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('Grid cell') && text(ui.doc.querySelector('#lsb-mapbody')).includes('B8'));
+  assert.equal(ui.doc.querySelector('#lsb-mapbody [data-lb=mapopen]').getAttribute('aria-label'), 'Open House Maros in the Saved map');
+  assert.ok(!text(ui.doc.querySelector('#lsb-mapbody')).includes('public guides'), 'a confirmed place has no hedge');
+  click(ui, '#lsrow-901 [data-lb=map]');
+  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('from public guides and is not confirmed in the game'));
+  assert.ok(text(ui.doc.querySelector('#lsrow-901 .pop')).includes('not confirmed in the game'), 'the peek says it too');
+});
+
+test('Group by region draws one heading per region with the number of houses in it', async () => {
+  const mk = (map, key) => ({ known: true, map, map_key: key, area: map, place: '', cell: '', unconfirmed: false, x: 0.5, y: 0.5 });
+  const ui = await open(board({ tasks: [house(900, 'Alexin', 0, { location: mk('Harko Village', '') }), house(901, 'Thorvald', 0, { location: mk('Hagga Basin', 'HaggaBasin') }), house(902, 'Hurata', 0, { location: mk('Hagga Basin', 'HaggaBasin') })] }));
+  assert.equal(ui.doc.querySelectorAll('#lsb-rows li.grp').length, 0, 'no headings until asked');
+  click(ui, '[data-lb=group]');
+  const heads = [...ui.doc.querySelectorAll('#lsb-rows li.grp h4')].map((h) => text(h));
+  assert.deepEqual(heads, ['Hagga Basin 2', 'Harko Village 1']);
+  click(ui, '[data-lb=group]');
+  assert.equal(ui.doc.querySelectorAll('#lsb-rows li.grp').length, 0, 'the headings go when grouping is off');
 });

@@ -354,6 +354,7 @@
   async function liveMapView() {
     const d = await api('/api/livemap?map=' + encodeURIComponent(lm.map));
     lm.data = d;
+    const fromBoard = !!(lm.focus && lm.focus.fresh), boardHouse = lm.focus ? lm.focus.label : '';
     if (lm.focus && lm.focus.fresh) { lm.focus.fresh = false; lm.view = { z: 4, cx: lm.focus.fx * d.config.width, cy: lm.focus.fy * d.config.height }; } // opened from the Landsraad board: centred on the house
     lm.points = lmBuildPoints(d);
     const counts = {};
@@ -369,13 +370,14 @@
           <button class="b sec d-btn" data-lmz="in" aria-label="Zoom in">+</button><button class="b sec d-btn" data-lmz="out" aria-label="Zoom out">&minus;</button><button class="b sec d-btn" data-lmz="fit">Fit</button></div>
         <p class="mut">The save as of its last write, not the running game.</p>
         ${d.storedVehicles ? html`<p class="mut">${d.storedVehicles} of your ${d.storedVehicles == 1 ? 'vehicles is' : 'vehicles are'} stored (in the vehicle backup or waiting for recovery) and not shown.</p>` : ''}
-        <div class="lm-wrap"><canvas id="lmc" class="lm" tabindex="0" role="img" aria-label="${'Saved map of ' + d.config.label + '. Press plus and minus to zoom, 0 to show the whole map, the arrow keys to move.'}"></canvas></div>
+        <div class="lm-wrap"><canvas id="lmc" class="lm" tabindex="0" role="img" aria-label="${'Saved map of ' + d.config.label + (boardHouse && lm.focus.key === lm.map ? ', centred on House ' + boardHouse : '') + '. Press plus and minus to zoom, 0 to show the whole map, the arrow keys to move.'}"></canvas></div>
         <p class="mut" id="lminfo"></p>
         <div class="row">${groups.map((g) => (g.id == 'spice' || g.id == 'flour' ? (b) => tip('lmtip-' + g.id, LM_SAND_NOTE, b) : (b) => b)(html`<button class="lm-layer ${lm.hidden.has(g.id) ? 'off' : 'on'}" data-lmg="${g.id}" ${g.id == 'spice' || g.id == 'flour' ? html`aria-describedby="lmtip-${g.id}"` : ''} aria-pressed="${lm.hidden.has(g.id) ? 'false' : 'true'}">${LM_GROUP_ICON[g.id] ? html`<span class="lm-ic lm-i-${LM_GROUP_ICON[g.id].replace(/\.[a-z]+$/, '').toLowerCase()}"></span>` : html`<span class="lm-sw lm-c-${g.id}"></span>`}${g.label} (${counts[g.id]})</button>`))}</div>
         ${about('livemap.card', 'Saved map', html`<p class="mut">${LM_HINT}</p>${d.storedVehicles ? html`<p class="mut">The game keeps only the place a stored vehicle was last in the world.</p>` : ''}`)}</div>
       ${lmRegionsCard(d)}
       <div class="card d-panel"><h3>Markers on this map (${types.length} types)</h3>${tbl([{ k: 'type', label: 'Marker', f: (r) => { const f = lmIconByType(r.type); const name = html`<span title="${r.type}">${lmTypeName(r.type)}</span>`; return f ? html`<span class="lm-ic lm-i-${f.replace(/\.[a-z]+$/, '').toLowerCase()}"></span>${name}` : name; } }, { k: 'group', label: 'Group', f: (r) => (LM_GROUPS.find((g) => g.id == r.group) || {}).label || r.group }, { k: 'n', label: 'Markers' }, { k: 'found', label: 'Discovered' }], types)}</div>`);
     lmMount();
+    if (fromBoard) { const c = $('#lmc'); if (c) c.focus({ preventScroll: true }); } // opened from the Landsraad board: the keyboard lands on the map, not on the page body
   }
 
   document.addEventListener('click', (e) => {
