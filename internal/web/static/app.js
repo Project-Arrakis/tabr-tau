@@ -1501,6 +1501,8 @@ function refuelCard(f) {
 let VC = null; // the last answer of /api/vehicles/catalog: { build, classes: [{ key, label, slots: [{ slot, mandatory, modules }], templates: [{ name, tier, modules, maxHealth, fuel, cargoSlots, cargoVolume }] }] }
 let vcDraft = null; // { cls, tpl, mods: { slot: module id or '' }, fuel (percent), items: [{ item, quantity }] }
 let vcPreview = null; // the preview's answer for the draft as it was when it was asked; any change to the draft drops it
+let vcBusy = false; // a preview is being asked for after a part was picked in the preview table (#672): Create waits for it
+let vcPartNote = null; // { slot, text }: why the last part picked in the preview table was not taken, until the next change
 let vcResult = null; // { r: the answer of the last create, note: what the queue adds to the sentence }
 const SLOT_WORDS = { Chassis: 'Chassis', Generator: 'Generator', Engine: 'Engine', CockpitHull: 'Front hull', BodyHull: 'Rear hull', UtilitySlot1: 'Utility 1', UtilitySlot2: 'Utility 2', UtilitySlot3: 'Utility 3' };
 const slotWord = (s) => SLOT_WORDS[s] || s.replace(/^Locomotion(\d*)$/, (m, n) => 'Locomotion ' + (n || 1)).replace(/^BodyHull(\d)$/, 'Hull $1');
@@ -1524,7 +1526,40 @@ function vcChanged(t) {
   if (t.id === 'vcClass') { vcDraft.cls = t.value; vcDraft.tpl = vcTop(vcClass()); vcDraft.mods = vcDefaults(); }
   else if (t.id === 'vcTpl') { vcDraft.tpl = t.value; vcDraft.mods = vcDefaults(); }
   vcPreview = null;
+  vcPartNote = null;
   render('scroll'); // the same page: the scroll offset and the focused box stay, and the boxes are drawn from the draft (#650)
+}
+// The options of one slot's part box, the same for the Change parts box and the preview table's (#672): the parts that fit the slot of this class, the cargo-hold and unique labels, and (empty) for an optional slot.
+const vcSlotOptions = (s, cur) => html`${s.mandatory ? '' : html`<option value="" ${cur ? '' : 'selected'}>(empty)</option>`}${(s.modules || []).map((m) => html`<option value="${m.id}" ${m.id === cur ? 'selected' : ''}>${vcModName(m)}</option>`)}`;
+// The rows of the preview table: the rows the answer lists, then an optional slot that holds no part, so a part can be put there from the table too.
+function vcPartRows(p) {
+  const rows = p.rows.vehicle_modules.slice(), have = new Set(rows.map((m) => m.slot));
+  for (const s of vcClass().slots) if (!have.has(s.slot) && !s.mandatory && (s.modules || []).length) rows.push({ slot: s.slot, template_id: '', name: '', durability: null });
+  return rows;
+}
+// A part was picked in the preview table (#672). The draft takes it and the preview is asked again for the whole draft; the answer replaces the table without leaving the preview. A refusal puts the old
+// part back, keeps the old preview and says the reason; nothing is written either way. One request at a time: Create waits for it, and a second pick meanwhile is put back.
+async function vcPartPicked(t) {
+  const slot = t.dataset.vcprev;
+  if (vcBusy) { toast('Wait for the preview to update, then pick again.', true); render('scroll'); return; }
+  vcSync();
+  const draft = vcDraft, was = draft.mods[slot] || '';
+  if ((t.value || '') === was) return;
+  draft.mods[slot] = t.value;
+  vcPartNote = null;
+  vcBusy = true;
+  const box = $('#vcpreview'), create = document.querySelector('[data-act="vcCreate"]');
+  if (box) box.setAttribute('aria-busy', 'true');
+  if (create) create.disabled = true;
+  try {
+    const answer = await api('/api/vehicles/spawn-preview', vcBody());
+    if (vcDraft === draft) vcPreview = answer;
+  } catch (e) {
+    if (vcDraft === draft) { draft.mods[slot] = was; vcPartNote = { slot, text: e.message }; }
+  } finally {
+    vcBusy = false;
+  }
+  if (vcDraft === draft) render('scroll');
 }
 // The request the draft stands for: the template, and a module for each slot that differs from it.
 function vcBody() {
@@ -1564,13 +1599,14 @@ function vehicleCreateCard(cat) {
       <label>Tier <select id="vcTpl">${c.templates.map((x) => html`<option value="${x.name}" ${x.name === vcDraft.tpl ? 'selected' : ''}>${tplWord(x.name, x.tier)}</option>`)}</select></label>
       <label>Fuel % <input id="vcFuel" type="number" min="0" max="100" value="${vcDraft.fuel}" class="w90"></label></div>
     <details class="vcparts" ${KEEP.vcparts ? 'open' : ''}><summary data-keep="vcparts">Change parts</summary>
-      ${c.slots.map((s) => html`<div class="row"><label>${slotWord(s.slot)} <select data-vcslot="${s.slot}">${s.mandatory ? '' : html`<option value="" ${mods[s.slot] ? '' : 'selected'}>(empty)</option>`}${(s.modules || []).map((m) => html`<option value="${m.id}" ${m.id === mods[s.slot] ? 'selected' : ''}>${vcModName(m)}</option>`)}</select></label></div>`)}
+      ${c.slots.map((s) => html`<div class="row"><label>${slotWord(s.slot)} <select data-vcslot="${s.slot}">${vcSlotOptions(s, mods[s.slot])}</select></label></div>`)}
     </details>
     ${picker}
-    <div class="row">${tip('vcpreviewtip', 'Shows the rows that would be written. Nothing is changed.', html`<button class="b sec d-btn" data-act="vcPreview" aria-describedby="vcpreviewtip">Preview</button>`)}${tip('vccreatetip', 'Writes the vehicle to the save now, after a backup, or queues it while the game is running. Nothing asks first.', html`<button class="b d-btn primary" data-act="vcCreate" aria-describedby="vccreatetip">Create</button>`)}<button class="b sec d-btn" data-act="vcCancel">Cancel</button></div>
-    ${p ? html`<div class="info" role="status" id="vcpreview"><b>Would create vehicle ${p.id}:</b> ${vcSentence(p)}. It goes ${whereWords(p)}.
-      ${(p.notGiven || []).length || (p.notes || []).length ? html`<ul>${vcShorts(p)}${(p.notes || []).map((x) => html`<li>${x}</li>`)}</ul>` : ''}
-      ${tbl([{ k: 'slot', label: 'Slot', f: (m) => slotWord(m.slot) }, { k: 'name', label: 'Part', f: (m) => html`<span title="${m.template_id}">${m.name || compName(m.template_id)}</span>` }, { k: 'durability', label: 'Durability', f: (m) => fix(m.durability) }], p.rows.vehicle_modules)}</div>` : ''}${aboutText}</div>`;
+    <div class="row">${tip('vcpreviewtip', 'Shows the rows that would be written. Nothing is changed.', html`<button class="b sec d-btn" data-act="vcPreview" aria-describedby="vcpreviewtip">Preview</button>`)}${tip('vccreatetip', 'Writes the vehicle to the save now, after a backup, or queues it while the game is running. Nothing asks first.', html`<button class="b d-btn primary" data-act="vcCreate" aria-describedby="vccreatetip" ${vcBusy ? 'disabled' : ''}>Create</button>`)}<button class="b sec d-btn" data-act="vcCancel">Cancel</button></div>
+    ${p ? html`<div class="info" id="vcpreview" aria-busy="${vcBusy ? 'true' : 'false'}"><div role="status"><b>Would create vehicle ${p.id}:</b> ${vcSentence(p)}. It goes ${whereWords(p)}.
+      ${(p.notGiven || []).length || (p.notes || []).length ? html`<ul>${vcShorts(p)}${(p.notes || []).map((x) => html`<li>${x}</li>`)}</ul>` : ''}</div>
+      ${vcPartNote ? html`<p class="bad" role="alert" id="vcpartnote">${slotWord(vcPartNote.slot)} was not changed: ${vcPartNote.text}</p>` : ''}
+      ${tbl([{ k: 'slot', label: 'Slot', f: (m) => slotWord(m.slot) }, { k: 'name', label: 'Part', f: (m) => html`<select data-vcprev="${m.slot}" aria-label="Part for ${slotWord(m.slot)}" title="${m.template_id}">${vcSlotOptions(c.slots.find((x) => x.slot === m.slot) || {}, mods[m.slot])}</select>` }, { k: 'durability', label: 'Durability', f: (m) => fix(m.durability) }], vcPartRows(p))}</div>` : ''}${aboutText}</div>`;
 }
 async function vehiclesView() {
   const v = await api('/api/vehicles');
@@ -2654,9 +2690,10 @@ const A = {
     vcDraft = { cls: c.key, tpl: vcTop(c), mods: {}, fuel: 100, items: [] };
     vcDraft.mods = vcDefaults();
     vcPreview = null;
+    vcPartNote = null;
     render('scroll');
   },
-  vcCancel: () => { vcDraft = null; vcPreview = null; render('scroll'); },
+  vcCancel: () => { vcDraft = null; vcPreview = null; vcPartNote = null; render('scroll'); },
   vcDismiss: () => { vcResult = null; render('scroll'); },
   vcAddItem: () => {
     vcSync();
@@ -2664,15 +2701,18 @@ const A = {
     try { item = needItem('vcItem'); } catch (e) { return toast(e.message, 'err'); }
     vcDraft.items.push({ item, quantity: Math.max(1, Math.floor(+val('vcQty')) || 1) });
     vcPreview = null;
+    vcPartNote = null;
     render('scroll');
   },
-  vcDelItem: (d) => { vcSync(); vcDraft.items.splice(+d.id, 1); vcPreview = null; render('scroll'); },
+  vcDelItem: (d) => { vcSync(); vcDraft.items.splice(+d.id, 1); vcPreview = null; vcPartNote = null; render('scroll'); },
   vcPreview: async () => {
     vcSync();
+    vcPartNote = null;
     try { vcPreview = await api('/api/vehicles/spawn-preview', vcBody()); } catch (e) { vcPreview = null; toast(e.message, true); return; }
     render('scroll');
   },
   vcCreate: () => {
+    if (vcBusy) return toast('Wait for the preview to update, then press Create.', true);
     vcSync();
     const body = vcBody();
     return act(async () => {
@@ -2785,6 +2825,7 @@ document.addEventListener('change', (e) => {
   if (t.id == 'kitFile') { kitImport(t); return; }
   if (t.id == 'baseFile') { baseImportPick(t); return; }
   if (t.id == 'vcClass' || t.id == 'vcTpl' || t.dataset.vcslot !== undefined) { vcChanged(t); return; }
+  if (t.dataset.vcprev !== undefined) { vcPartPicked(t); return; }
   if (t.id == 'skCharge') { skCharge = t.checked; return; }
   if (t.dataset.autojob) { // one job of the automatic pass switched on or off; the card is drawn again from what the server kept
     const key = t.dataset.autojob, on = t.checked, label = ((t.closest('label') || {}).textContent || key).trim();

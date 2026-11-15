@@ -659,3 +659,128 @@ func TestSpawnIDsAreAboveEverythingInUseAndTheSequences(t *testing.T) {
 	}
 	assertDBSound(t, o)
 }
+
+// Replace parts in the preview table (#672). The page asks the preview again with one part changed and Create writes the same request, so what it relies on is pinned here: every part the
+// catalog offers for a slot is accepted by the preview and shows in its rows, a swap changes the derived figures the page prints, a refusal has a plain reason and changes nothing, and
+// a previewed swap and the Create of it write the same parts.
+func previewRows(t *testing.T, r any) []map[string]any {
+	t.Helper()
+	rows, ok := r.(map[string]any)["rows"].(map[string]any)["vehicle_modules"].([]map[string]any)
+	if !ok {
+		t.Fatalf("the preview lists the module rows: %v", r)
+	}
+	return rows
+}
+
+func previewPartIn(t *testing.T, r any, slot string) string {
+	t.Helper()
+	for _, m := range previewRows(t, r) {
+		if m["slot"] == slot {
+			return m["template_id"].(string)
+		}
+	}
+	return ""
+}
+
+func TestEveryPartTheCatalogOffersForASlotIsAcceptedByThePreviewAndShowsInItsRows(t *testing.T) {
+	o := spawnOps(t)
+	cat, err := o.VehicleCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	asked := 0
+	for _, c := range cat.(map[string]any)["classes"].([]map[string]any) {
+		tpls := c["templates"].([]map[string]any)
+		tpl := tpls[len(tpls)-1]["name"].(string)
+		for _, s := range c["slots"].([]map[string]any) {
+			for _, m := range s["modules"].([]map[string]any) {
+				a := Args{"class": c["key"], "template": tpl, "uniques": map[string]any{s["slot"].(string): m["id"]}}
+				r, err := o.SpawnVehiclePreview(a)
+				if err != nil {
+					t.Errorf("%v: the catalog offers %v for %v but the preview refuses it: %v", c["key"], m["id"], s["slot"], err)
+					continue
+				}
+				if got := previewPartIn(t, r, s["slot"].(string)); got != m["id"] {
+					t.Errorf("%v: the preview shows %q in %v, the request was %v", c["key"], got, s["slot"], m["id"])
+				}
+				asked++
+			}
+		}
+	}
+	if asked < 50 {
+		t.Fatalf("only %d parts were asked for", asked)
+	}
+	if o.S.Dirty() {
+		t.Fatal("a preview changes nothing")
+	}
+}
+
+func TestAPartSwapChangesWhatThePreviewSaysAndCreateWritesTheSamePartsAsThePreviewShowed(t *testing.T) {
+	o := spawnOps(t)
+	base := Args{"class": "Buggy", "template": "T6_Combat"}
+	r0, err := o.SpawnVehiclePreview(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	swap := Args{"class": "Buggy", "template": "T6_Combat", "uniques": map[string]any{"UtilitySlot1": "BuggyInventory_6", "Engine": "BuggyEngine_Unique_Accelerate_06"}}
+	r1, err := o.SpawnVehiclePreview(swap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d0, d1 := r0.(map[string]any)["derived"], r1.(map[string]any)["derived"]
+	if fmt.Sprint(d0) == fmt.Sprint(d1) {
+		t.Fatalf("a storage part and another engine change the derived figures: %v", d0)
+	}
+	if got := fmt.Sprint(d1); strings.Contains(got, "cargoSlots:0 ") {
+		t.Errorf("the storage part gives a cargo hold, which the page prints: %s", got)
+	}
+	if previewPartIn(t, r0, "UtilitySlot1") == previewPartIn(t, r1, "UtilitySlot1") || previewPartIn(t, r1, "Engine") != "BuggyEngine_Unique_Accelerate_06" {
+		t.Error("the rows of the preview carry the swapped parts")
+	}
+	if o.S.Dirty() {
+		t.Fatal("a preview changes nothing")
+	}
+	id, res := spawn(t, o, swap)
+	if res["id"] != r1.(map[string]any)["id"] {
+		t.Errorf("Create takes the id the last preview named: %v vs %v", res["id"], r1.(map[string]any)["id"])
+	}
+	var shown []string
+	for _, m := range previewRows(t, r1) {
+		shown = append(shown, m["template_id"].(string))
+	}
+	if v := viewOf(t, o, id); !sameSet(v.modules, shown) {
+		t.Errorf("Create wrote other parts than the preview showed:\n wrote  %v\n shown  %v", sortedCopy(v.modules), sortedCopy(shown))
+	}
+	if fmt.Sprint(res["derived"]) != fmt.Sprint(d1) {
+		t.Errorf("the figures of the write are the figures of the preview: %v vs %v", res["derived"], d1)
+	}
+}
+
+func TestAPartTheSlotDoesNotTakeIsRefusedByThePreviewWithAPlainReasonAndNothingChanges(t *testing.T) {
+	o := spawnOps(t)
+	storage := Args{"class": "Buggy", "template": "T6_Combat", "uniques": map[string]any{"UtilitySlot1": "BuggyInventory_6"}, "items": []any{map[string]any{"template_id": "MelangeSpice", "quantity": 5.0}}}
+	if _, err := o.SpawnVehiclePreview(storage); err != nil {
+		t.Fatalf("the buggy with a storage part takes items: %v", err)
+	}
+	for name, c := range map[string]struct {
+		a    Args
+		want string
+	}{
+		"an engine in a utility slot":                          {Args{"class": "Buggy", "template": "T6_Combat", "uniques": map[string]any{"UtilitySlot1": "BuggyEngine_6"}}, "goes in the Engine slot, not UtilitySlot1"},
+		"a part of another class":                              {Args{"class": "Buggy", "template": "T6_Combat", "uniques": map[string]any{"Engine": "SandbikeEngine_1"}}, "is not a module of the buggy"},
+		"a mandatory slot emptied":                             {Args{"class": "Buggy", "template": "T6_Combat", "uniques": map[string]any{"Engine": ""}}, "cannot be left empty"},
+		"the storage part swapped away while items are listed": {Args{"class": "Buggy", "template": "T6_Combat", "uniques": map[string]any{"UtilitySlot1": "BuggyBoost_6"}, "items": storage["items"]}, "has no cargo hold, so items cannot be put in it"},
+	} {
+		_, err := o.SpawnVehiclePreview(c.a)
+		wantRefusal(t, err, apierr.ErrBadArgument, name)
+		if !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: the reason is %q, want it to say %q", name, err.Error(), c.want)
+		}
+		if _, cerr := o.SpawnVehicle(c.a); cerr == nil || cerr.Error() != err.Error() {
+			t.Errorf("%s: Create refuses it in the same words: %v", name, cerr)
+		}
+	}
+	if o.S.Dirty() {
+		t.Fatal("a refused request must not change the save")
+	}
+}

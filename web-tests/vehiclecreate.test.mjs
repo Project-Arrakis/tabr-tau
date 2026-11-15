@@ -275,3 +275,157 @@ test('adding an item, previewing and opening another vehicle keep the page offse
   assert.ok(ui.doc.querySelector('[data-vcqty]'), 'the draft is kept');
   ui.dom.window.close();
 });
+
+// ---------- Replace parts in the preview table (#672)
+const SWAPPED = (o = {}) => ANSWER({
+  dryRun: true, derived: { maxHealth: 700, critical: 160, fuel: 300, fuelCapacity: 300, cargoSlots: 20, cargoVolume: 3000 }, requested: 0, given: 0,
+  rows: { vehicle_modules: [{ slot: 'Engine', template_id: 'BuggyEngine_Unique_Accelerate_06', name: 'Bluddshot Buggy Engine Mk6', durability: 2100 }, { slot: 'Chassis', template_id: 'BuggyChassis_6', name: 'Buggy Chassis Mk6', durability: 3500 }, { slot: 'UtilitySlot1', template_id: 'BuggyInventory_6', name: 'Buggy Storage Mk6', durability: 900 }] }, ...o,
+});
+const optionIds = (ui, sel) => [...ui.doc.querySelectorAll(sel + ' option')].map((o) => o.value);
+async function openPreview(ui) { await openForm(ui); ui.click('[data-act="vcPreview"]'); await ui.settle(); assert.ok(ui.doc.querySelector('#vcpreview')); }
+
+test('each row of the preview table has a part box with only the parts that fit its slot, labelled as in Change parts; an empty optional slot gets a row too', async () => {
+  const ui = await boot({ get: GET, post: { '/api/vehicles/spawn-preview': ANSWER({ dryRun: true }) } });
+  await openPreview(ui);
+  const engine = ui.doc.querySelector('#vcpreview select[data-vcprev="Engine"]');
+  assert.ok(engine, 'the Engine row has a part box');
+  assert.equal(engine.getAttribute('aria-label'), 'Part for Engine');
+  assert.equal(engine.value, 'BuggyEngine_6');
+  assert.deepEqual(optionIds(ui, '#vcpreview [data-vcprev="Engine"]'), ['BuggyEngine_6', 'BuggyEngine_Unique_Accelerate_06'], 'only the engines of the buggy');
+  assert.equal(engine.selectedOptions[0].textContent, 'Buggy Engine Mk6');
+  assert.ok([...engine.options].some((o) => o.textContent === 'Bluddshot Buggy Engine Mk6 (unique)'));
+  assert.equal(ui.doc.querySelector('#vcpreview [data-vcprev="Chassis"] option[value=""]'), null, 'a mandatory slot cannot be emptied');
+  const util = ui.doc.querySelector('#vcpreview [data-vcprev="UtilitySlot2"]');
+  assert.ok(util, 'an optional slot with no part in the answer still has a row');
+  assert.ok(util.querySelector('option[value=""]'));
+  assert.deepEqual(optionIds(ui, '#vcpreview [data-vcprev="UtilitySlot2"]'), ['', 'BuggyLauncher_6', 'BuggyMining_Unique_YieldIncrease_06']);
+  assert.ok([...ui.doc.querySelector('#vcpreview [data-vcprev="UtilitySlot1"]').options].some((o) => o.textContent === 'Buggy Storage Mk6 (20 slots)'), 'a part that gives a cargo hold is labelled');
+  assert.equal(posts(ui, '/api/vehicles/spawn').length, 0);
+  ui.dom.window.close();
+});
+
+test('picking a part in the preview asks for the preview again, redraws the sentence and the table in place, and keeps the offset and the focus', async () => {
+  const post = { '/api/vehicles/spawn-preview': ANSWER({ dryRun: true }) };
+  const ui = await boot({ get: GET, post });
+  await openPreview(ui);
+  post['/api/vehicles/spawn-preview'] = SWAPPED();
+  const y = holdWindowScroll(ui.w, 1300);
+  await pick(ui, '#vcpreview [data-vcprev="UtilitySlot1"]', 'BuggyInventory_6');
+  const asks = posts(ui, '/api/vehicles/spawn-preview');
+  assert.equal(asks.length, 2, 'the preview was asked for again');
+  assert.deepEqual(asks[1].body, { class: 'Buggy', template: 'T6_Combat', fuel: 1, uniques: { UtilitySlot1: 'BuggyInventory_6' } });
+  const text = ui.doc.querySelector('#vcpreview').textContent.replace(/\s+/g, ' ');
+  assert.ok(text.includes('health 700') && text.includes('a cargo hold of 20 slots and volume 3,000'), text);
+  assert.ok(ui.doc.querySelector('#vcpreview').textContent.includes('2,100'), 'the durability column is the new answer');
+  assert.equal(ui.doc.querySelector('[data-vcprev="UtilitySlot1"]').value, 'BuggyInventory_6');
+  assert.equal(ui.doc.activeElement, ui.doc.querySelector('[data-vcprev="UtilitySlot1"]'), 'the focus stays on the box that was changed');
+  assert.equal(y(), 1300, 'the offset stays');
+  assert.equal(ui.doc.querySelector('[data-vcslot="UtilitySlot1"]').value, 'BuggyInventory_6', 'Change parts shows the same part');
+  assert.ok(ui.doc.querySelector('#vcItem') && !ui.doc.querySelector('#vcnohold'), 'the cargo hold of the new part lets items be picked');
+  assert.equal(ui.doc.querySelector('#vcpartnote'), null);
+  assert.equal(posts(ui, '/api/vehicles/spawn').length, 0, 'nothing is written by a pick');
+  ui.dom.window.close();
+});
+
+test('a part picked in Change parts shows in the preview table after the next Preview, and the two boxes of a slot always agree', async () => {
+  const post = { '/api/vehicles/spawn-preview': ANSWER({ dryRun: true }) };
+  const ui = await boot({ get: GET, post });
+  await openPreview(ui);
+  await change(ui, '[data-vcslot="Engine"]', 'BuggyEngine_Unique_Accelerate_06');
+  assert.equal(ui.doc.querySelector('#vcpreview'), null, 'a change in Change parts still drops the preview');
+  ui.click('[data-act="vcPreview"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('[data-vcprev="Engine"]').value, 'BuggyEngine_Unique_Accelerate_06');
+  ui.dom.window.close();
+});
+
+test('a part the server refuses is put back, the old preview stays and the reason is said where the box is; nothing is written', async () => {
+  const post = { '/api/vehicles/spawn-preview': ANSWER({ dryRun: true }) };
+  const ui = await boot({ get: GET, post });
+  await openForm(ui);
+  await change(ui, '[data-vcslot="UtilitySlot1"]', 'BuggyInventory_6');
+  set(ui, '#vcItem', 'Spice Melange'); set(ui, '#vcQty', '10');
+  ui.click('[data-act="vcAddItem"]'); await ui.settle();
+  ui.click('[data-act="vcPreview"]'); await ui.settle();
+  const before = ui.doc.querySelector('#vcpreview').textContent;
+  post['/api/vehicles/spawn-preview'] = { __fail: 'this buggy has no cargo hold, so items cannot be put in it: pick a storage module for it first', __code: 'bad_argument' };
+  await pick(ui, '#vcpreview [data-vcprev="UtilitySlot1"]', 'BuggyBoost_6');
+  const note = ui.doc.querySelector('#vcpartnote');
+  assert.ok(note && note.getAttribute('role') === 'alert', 'the reason is an alert');
+  assert.ok(note.textContent.includes('Utility 1 was not changed: this buggy has no cargo hold'), note.textContent);
+  assert.equal(ui.doc.querySelector('[data-vcprev="UtilitySlot1"]').value, 'BuggyInventory_6', 'the old part is back');
+  assert.equal(ui.doc.querySelector('[data-vcslot="UtilitySlot1"]').value, 'BuggyInventory_6');
+  assert.equal(ui.doc.activeElement, ui.doc.querySelector('[data-vcprev="UtilitySlot1"]'), 'the focus stays');
+  assert.ok(ui.doc.querySelector('#vcpreview').textContent.startsWith(before.slice(0, 40)), 'the old preview is still there');
+  assert.equal(posts(ui, '/api/vehicles/spawn').length, 0);
+  // the next change clears the note
+  post['/api/vehicles/spawn-preview'] = SWAPPED();
+  await pick(ui, '#vcpreview [data-vcprev="Engine"]', 'BuggyEngine_Unique_Accelerate_06');
+  assert.equal(ui.doc.querySelector('#vcpartnote'), null);
+  ui.dom.window.close();
+});
+
+test('Create writes exactly the parts the preview table shows, and the same request the last preview was asked with', async () => {
+  const post = { '/api/vehicles/spawn-preview': ANSWER({ dryRun: true }), '/api/vehicles/spawn': ANSWER({ outcome: 'written' }) };
+  const ui = await boot({ get: GET, post });
+  await openPreview(ui);
+  post['/api/vehicles/spawn-preview'] = SWAPPED();
+  await pick(ui, '#vcpreview [data-vcprev="Engine"]', 'BuggyEngine_Unique_Accelerate_06');
+  post['/api/vehicles/spawn-preview'] = SWAPPED();
+  await pick(ui, '#vcpreview [data-vcprev="UtilitySlot1"]', 'BuggyInventory_6');
+  const shown = Object.fromEntries([...ui.doc.querySelectorAll('#vcpreview [data-vcprev]')].map((e) => [e.dataset.vcprev, e.value]));
+  const asks = posts(ui, '/api/vehicles/spawn-preview');
+  ui.click('[data-act="vcCreate"]'); await ui.settle();
+  const made = posts(ui, '/api/vehicles/spawn');
+  assert.equal(made.length, 1);
+  assert.deepEqual(made[0].body, asks[asks.length - 1].body, 'the request of Create is the request of the last preview');
+  assert.deepEqual(made[0].body.uniques, { Engine: 'BuggyEngine_Unique_Accelerate_06', UtilitySlot1: 'BuggyInventory_6' });
+  for (const [slot, id] of Object.entries(made[0].body.uniques)) assert.equal(shown[slot], id, slot + ' is what the table shows');
+  assert.ok(ui.doc.querySelector('#vcresult'));
+  ui.dom.window.close();
+});
+
+test('Create does not go while a preview asked after a pick is still on its way; a second pick meanwhile is put back', async () => {
+  const post = { '/api/vehicles/spawn-preview': ANSWER({ dryRun: true }), '/api/vehicles/spawn': ANSWER({ outcome: 'written' }) };
+  const ui = await boot({ get: GET, post });
+  await openPreview(ui);
+  const real = ui.w.fetch;
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  ui.w.fetch = (p, o) => (String(p).includes('spawn-preview') ? gate.then(() => real(p, o)) : real(p, o));
+  post['/api/vehicles/spawn-preview'] = SWAPPED();
+  const box = ui.doc.querySelector('[data-vcprev="Engine"]');
+  box.value = 'BuggyEngine_Unique_Accelerate_06';
+  box.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
+  await ui.wait(20);
+  assert.equal(ui.doc.querySelector('#vcpreview').getAttribute('aria-busy'), 'true');
+  assert.equal(ui.doc.querySelector('[data-act="vcCreate"]').disabled, true);
+  ui.doc.querySelector('[data-act="vcCreate"]').disabled = false; // even a Create that gets through the disabled button does nothing
+  ui.click('[data-act="vcCreate"]'); await ui.wait(20);
+  assert.equal(posts(ui, '/api/vehicles/spawn').length, 0, 'Create waits');
+  const other = ui.doc.querySelector('[data-vcprev="UtilitySlot2"]');
+  other.value = '';
+  other.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
+  await ui.wait(20);
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Wait for the preview to update'));
+  release(); await ui.settle();
+  assert.equal(ui.doc.querySelector('#vcpreview').getAttribute('aria-busy'), 'false');
+  assert.equal(ui.doc.querySelector('[data-vcprev="UtilitySlot2"]').value, 'BuggyLauncher_6', 'the second pick was put back');
+  ui.click('[data-act="vcCreate"]'); await ui.settle();
+  assert.deepEqual(posts(ui, '/api/vehicles/spawn')[0].body.uniques, { Engine: 'BuggyEngine_Unique_Accelerate_06' });
+  ui.dom.window.close();
+});
+
+test('Cancel discards the parts picked in the preview: the next form starts from the template again', async () => {
+  const post = { '/api/vehicles/spawn-preview': ANSWER({ dryRun: true }) };
+  const ui = await boot({ get: GET, post });
+  await openPreview(ui);
+  post['/api/vehicles/spawn-preview'] = SWAPPED();
+  await pick(ui, '#vcpreview [data-vcprev="Engine"]', 'BuggyEngine_Unique_Accelerate_06');
+  ui.click('[data-act="vcCancel"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('#vcpreview'), null);
+  assert.equal(posts(ui, '/api/vehicles/spawn').length, 0);
+  ui.click('[data-act="vcOpen"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('[data-vcslot="Engine"]').value, 'BuggyEngine_6');
+  assert.equal(ui.doc.querySelector('#vcpreview'), null);
+  ui.dom.window.close();
+});
