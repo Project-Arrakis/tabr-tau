@@ -538,7 +538,7 @@ async function autoRefresh(o) {
   try {
     const r = await api('/api/save/discard', { ifClean: true });
     if (r && r.kept) return; // an edit was made while the status was being read: nothing is thrown away
-    await render(true);
+    await render(true, true); // the page's own redraw: the focus goes back, the page is not moved (#696)
   } catch (e) { /* the next poll shows the banner and tries again */ } finally { autoBusy = false; }
 }
 // A write that went through since the last poll: a check is drawn by the status bar for a moment (the words stay with the check, so Off still says it).
@@ -558,6 +558,7 @@ async function status() {
   saveBlockWhy = o.blockReason || '';
   $('#path').textContent = String(o.path || '').split(/[\\/]/).pop();
   notLive = o.live === false;
+  $('#savename').hidden = !$('#path').textContent;
   $('#path').title = (notLive ? "Not the game's save: " : '') + (o.path || '');
   const nl = $('#notlive');
   nl.classList.toggle('hide', !notLive);
@@ -700,7 +701,7 @@ async function resetArea({ count, title, body, list = [], typed, ok, path, extra
     try {
       const r = await api(path, { expected: count, ...extra });
       toast((r.noop ? none : done(r)) + NOT_SAVED);
-    } catch (e) { if (e.code === 'conflict') setTimeout(render, 0); throw e; }
+    } catch (e) { if (e.code === 'conflict') setTimeout(() => render('scroll'), 0); throw e; }
   }, null);
 }
 
@@ -998,6 +999,7 @@ async function playerSection(s) {
       <select id="facSel" aria-label="Faction">${fa.options.map((o) => html`<option value="${o.id}" ${fa.current && fa.current.id == o.id ? 'selected' : ''}>${o.name}</option>`)}</select>${tip('factip', 'Changes which faction the character belongs to. Reputation is under Character > Reputation.', html`<button class="b d-btn primary" data-act="faction" aria-describedby="factip">Change faction</button>`)}</div></div>
     <div class="card d-panel"><h3 class="d-head">Repair</h3><div class="row"><b>Gear and loadouts</b><button class="b sec d-btn" data-goto="character:inventory">Open Character &gt; Inventory</button><b>Vehicles</b><button class="b sec d-btn" data-goto="vehicles">Open Vehicles</button></div></div>
     <div class="card d-panel"><h3 class="d-head">Movement</h3><div class="row"><b>Teleport to</b>X<input id="tx" aria-label="Teleport to X" type="number" value="${goVal('tx', Math.round(a.x))}">Y<input id="ty" aria-label="Teleport to Y" type="number" value="${goVal('ty', Math.round(a.y))}">Z${tip('tztip', 'If you type a Z yourself, stay above the terrain or you may fall through.', html`<input id="tz" aria-label="Teleport to Z" type="number" value="${goVal('tz', Math.round(a.z))}" aria-describedby="tztip">`)}Facing ${tip('tyawtip', 'Facing is optional: 0 looks along +X; leave it empty to keep the way the character faces.', html`<input id="tdyaw" aria-label="Facing in degrees" type="number" step="1" placeholder="degrees" value="${goVal('tdyaw', '')}" class="w90" aria-describedby="tyawtip">`)}Map ${tip('tmaptip', 'Places are on the map chosen in Map (the one the character is on now unless you change it).', html`<select id="tmap" aria-label="Map to move to" aria-describedby="tmaptip"><option value="" ${goVal('tmap', '') === '' ? 'selected' : ''}>This map (${a.map || 'unknown'})</option>${TRAVEL_MAPS.map(([k, v]) => html`<option value="${k}" ${goVal('tmap', '') === k ? 'selected' : ''}>${v}</option>`)}</select>`)}<button class="b d-btn primary" data-act="teleport">Teleport</button><span id="tdpick" class="mut" role="status"></span></div>
+    ${a.parked ? html`<p class="mut" id="tparked">This save keeps the character's body away from the player: on another map${a.bodyMap && a.bodyMap !== a.map ? ` (${a.bodyMap})` : ''}, or not standing in the world. This map and the X, Y and Z above are where the player is.</p>` : html``}
     <div id="tmapnote"></div>
     <div class="row"><b>Go to a place</b><span id="tdout" class="mut"></span></div>
     ${about('admin.movement', 'Movement', html`<p class="mut">Moves the character in the save. The game keeps its own copy of the save in memory while single-player runs and overwrites the file, so the move shows when you next enter single-player.</p><p class="mut">${TRAVEL_NOTE}</p><p class="mut">Go to a place lists the trading posts you have found, your own bases that stand in the world, your own vehicles that stand in the world, your respawn points and the taxis, under those headings, nearest first. Taxis are the three Deep Desert taxi service points while the Deep Desert is the map (from the game's level data, named by their grid cell, whether or not your save has found them) and the two hubs, Arrakeen and Harko Village, from every map. Choosing a place fills X, Y and Z.</p><p class="mut">${PLACE_NOTE}</p><p class="mut">If you type a Z yourself, stay above the terrain or you may fall through.</p>`)}
@@ -1120,12 +1122,14 @@ function catalogList() {
   const rows = visible.filter((r) => (ctFilter == 'all' || (ctFilter == 'have' ? have(r) : !have(r))) && (!ctGroup || (bs ? r.group == ctGroup : r.groupId == ctGroup))
     && ctQ.split(/\s+/).filter(Boolean).every((w) => (r.name + ' ' + r.id + ' ' + r.group).toLowerCase().includes(w.toLowerCase())));
   const nHave = visible.filter(have).length;
+  // Building sets: the word "learned" counts only the sets the save lists as learned; a set held only in an inventory is not learned until it is used in the game.
+  const nLearned = bs ? visible.filter((r) => r.learned).length : 0, nOnlyInv = bs ? nHave - nLearned : 0;
   const cards = bs ? '' : html`<div class="row">${CT.groups.map((g) => html`<div class="card d-panel setcard ${ctGroup == g.id ? 'on' : ''}"><button class="b sec sm d-btn sm" data-ctg="${g.id}">${g.name}</button>
       <div class="mut">${g.count} cosmetics${g.requirement ? ' · ' + g.requirement : ''}</div>${CT.libraryAvailable ? html`<button class="b sm d-btn primary sm" data-act="ctUnlockSet" data-id="${g.id}" data-name="${g.name}">Unlock set</button> ` : ''}<button class="b sec sm d-btn sm" data-act="ctGrantSet" data-id="${g.id}" data-name="${g.name}">Give as items</button></div>`)}</div>`;
   setHTML($('#cthead'), html`${cards}<div class="sub">${[['all', 'All', visible.length], ['have', bs ? 'Learned or in inventory' : 'Unlocked or in inventory', nHave], ['missing', 'Not owned', visible.length - nHave]].map(([k, v, n]) => html`<button data-ctf="${k}" class="${ctFilter == k ? 'on' : ''}">${v} (${n})</button>`)}</div>
     <div class="row"><input id="ctq" aria-label="Filter the list" placeholder="Filter by name, item id or group" size="34" value="${ctQ}"><button class="b sec d-btn" data-act="ctfilter">Filter</button><button class="b sec d-btn" data-act="ctclear">Clear</button>
     ${bs ? html`<select id="ctgrp" aria-label="Show one group"><option value="">All groups</option>${groupNames.map((g) => html`<option ${g == ctGroup ? 'selected' : ''}>${g}</option>`)}</select><label><input type="checkbox" id="ctexp" ${ctExp ? 'checked' : ''}> Show experimental</label>` : (ctGroup ? html`<button class="b sec d-btn" data-ctg="">All sets</button>` : '')}
-    <span class="mut">${countText(rows.length, visible.length, 'item', 'items', !!(ctQ.trim() || ctGroup || ctFilter != 'all'))}${rows.length > LISTMAX ? `, the first ${LISTMAX} shown` : ''}.</span></div>`);
+    <span class="mut">${countText(rows.length, visible.length, 'item', 'items', !!(ctQ.trim() || ctGroup || ctFilter != 'all'))}${rows.length > LISTMAX ? `, the first ${LISTMAX} shown` : ''}; ${bs ? `${nLearned.toLocaleString()} of ${visible.length.toLocaleString()} learned${nOnlyInv ? ` (${nOnlyInv.toLocaleString()} more only in an inventory)` : ''}` : `${nHave.toLocaleString()} of ${visible.length.toLocaleString()} ${CT.libraryAvailable ? 'unlocked or in inventory' : 'in inventory'}`}.</span></div>`);
   setHTML($('#ctout'), tbl([{ k: 'name', label: bs ? 'Building set' : 'Customization', f: (r) => html`<span title="${r.id}">${r.name}</span>${r.experimental ? html` <span class="tag">experimental</span>` : ''}` }, { k: 'id', label: 'Item id', cls: 'mut' },
     { k: 'group', label: bs ? 'Group' : 'Set' }, { k: 'requiredDlc', label: 'Requires', f: (r) => r.requiredDlc || (r.entitlement ? 'Account entitlement' : '') },
     { k: 'learned', label: 'State', f: (r) => (r.learned ? html`<span class="ok">Learned</span>` : r.unlocked ? html`<span class="ok">Unlocked</span>` : r.inInventory ? html`<span class="warn">In inventory</span>` : html`<span class="mut">Not owned</span>`) }], rows.slice(0, LISTMAX),
@@ -1520,7 +1524,7 @@ function vcChanged(t) {
   if (t.id === 'vcClass') { vcDraft.cls = t.value; vcDraft.tpl = vcTop(vcClass()); vcDraft.mods = vcDefaults(); }
   else if (t.id === 'vcTpl') { vcDraft.tpl = t.value; vcDraft.mods = vcDefaults(); }
   vcPreview = null;
-  render();
+  render('scroll'); // the same page: the scroll offset and the focused box stay, and the boxes are drawn from the draft (#650)
 }
 // The request the draft stands for: the template, and a module for each slot that differs from it.
 function vcBody() {
@@ -1650,7 +1654,8 @@ function lbNextParts(h) {
   return [h.mine > top ? 'above the top tier' : 'top tier reached'];
 }
 function lbNextReward(h) { for (const t of h.tiers) if (h.mine < t.th) return lbF(t.th) + ': ' + lbRText(t); return 'top tier reached'; }
-const lbWaiting = (h) => { const w = h.tiers.filter((t) => t.state === 'waiting').map(lbRText); return w.length ? w.join(', ') : 'nothing waiting'; };
+// one reward per line (#666): each waiting reward is its own block, so a long item name wraps inside its own line and never runs into the next reward
+const lbWaiting = (h) => { const w = h.tiers.filter((t) => t.state === 'waiting').map(lbRText); return w.length ? w.map((r) => html`<span class="hrw">${r}</span>`) : 'nothing waiting'; };
 function lbLead(h, ids) { // the faction with the most progress, when it is one faction
   let best = 0, who = null, tie = false;
   for (const id of ids) { const p = h.prog[id] || 0; if (p > best) { best = p; who = id; tie = false; } else if (p === best && p > 0) tie = true; }
@@ -2224,7 +2229,7 @@ async function dbView() {
       const why = d.tableLocked || locked.get(cols[i]);
       return html`<td>${b ? html`<span class="mut mono">${v}</span>` : why ? html`<span class="mono" title="${why}">${v}</span>` : html`<input class="dbc" aria-label="${cols[i]}, row ${r[0]}" value="${v}" data-rowid="${r[0]}" data-kind="${d.columns[0]}" data-col="${cols[i]}" data-orig="${v}" ${v === null ? 'data-null' : ''} size="${Math.max(6, Math.min(40, String(v ?? '').length + 2))}">`}</td>`;
     })}</tr>`)}</tbody></table></div>
-      <div class="row"><button class="b sec d-btn" data-act="dbprev" ${dbOff <= 0 ? 'disabled' : ''}>Previous</button><button class="b sec d-btn" data-act="dbnext" ${dbOff + 100 >= d.total ? 'disabled' : ''}>Next</button></div>
+      ${d.total > 100 || dbOff > 0 ? html`<div class="row"><button class="b sec d-btn" data-act="dbprev" ${dbOff <= 0 ? 'disabled' : ''}>Previous</button><button class="b sec d-btn" data-act="dbnext" ${dbOff + 100 >= d.total ? 'disabled' : ''}>Next</button></div>` : ''}
       ${!d.tableLocked && locked.size ? about('db.tables', 'Tables', html`<p class="mut">Plain text columns are read-only (primary keys, links to other tables and account identity); hover a value for the reason.</p>`) : ''}`);
     return;
   } else if (s == 'sql') {
@@ -2271,12 +2276,22 @@ function focusSpec(el) {
   if (!el.id && !data.length) return null;
   return { id: el.id, tag: el.tagName, data, label: (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 60) };
 }
-function refocus(s) {
+// scroll is true only for a redraw that follows the person's own action; the page's own refresh (about every twenty seconds while the game runs) gives the focus back and never moves the page (#696).
+function refocus(s, scroll) {
   if (!s || (document.activeElement && document.activeElement !== document.body)) return;
   const pool = s.id ? [document.getElementById(s.id)] : [...document.querySelectorAll('#main ' + s.tag + ', #nav ' + s.tag)];
   const same = pool.filter((n) => n && s.data.every(([k, v]) => n.getAttribute(k) === v));
   const n = same.find((x) => (x.getAttribute('aria-label') || x.textContent || '').trim().slice(0, 60) === s.label) || same[0];
-  if (n && typeof n.focus === 'function') n.focus({ preventScroll: true });
+  if (n && typeof n.focus === 'function') { n.focus({ preventScroll: true }); if (scroll) intoView(n); }
+}
+// The focus went back to a control that the kept offset left where it was; the page moves only when that control is off the screen or under the sticky header (#686).
+function intoView(n) {
+  const r = n.getBoundingClientRect();
+  if (!r.width && !r.height) return; // not laid out (hidden, or no layout at all)
+  let top = 0;
+  document.querySelectorAll('header, #gamewarn, #launchpass').forEach((b) => { top = Math.max(top, b.getBoundingClientRect().bottom); });
+  const by = r.top < top ? r.top - top - 8 : r.bottom > window.innerHeight ? r.bottom - window.innerHeight + 8 : 0;
+  if (by) window.scrollTo(window.scrollX, Math.max(0, window.scrollY + by));
 }
 // The page is drawn again after an action, and that must not cost the person their place (#365): the scroll offset of the page and of every scrolling table, the
 // choices made in the page that the save does not hold (a ticked box, a chosen faction, text typed in a box) and the lists that were opened. viewSnapshot notes them before
@@ -2358,11 +2373,13 @@ function tmapSync() {
   const hub = GO.pick !== null && TD[GO.pick] && TD[GO.pick].otherMap; // a hub chosen in the list of places is another map too (#521)
   if (box) setHTML(box, (sel && sel.value !== '') || hub ? html`<p class="warn" id="tmapwarn">${TRAVEL_WARN}</p>` : html``);
 }
-// render(true) is the redraw after an action (or the page's own refresh from the file): it keeps the place; render('scroll') keeps only the scroll offsets. Any other call is a move to another page, which starts at the top.
-async function render(keepPlace) {
+// render(true) is the redraw after an action (or the page's own refresh from the file): it keeps the place; render('scroll') keeps only the scroll offsets; render('rows') keeps only the page offset, for a change that shows other rows in a table box (the old offset of a box is not put back onto them, #697). Any other call is a move to another page, which starts at the top.
+// auto is the page's own refresh from the file: it keeps the place the same way, but the page is never scrolled to the refocused control (#696).
+async function render(keepPlace, auto) {
   const keep = focusSpec(document.activeElement);
-  const place = keepPlace === true || keepPlace === 'scroll' ? viewSnapshot() : reloaded;
-  if (place && keepPlace === 'scroll') place.ctl = {}; // a redraw to show what the save holds (a refused change): the boxes go back to it, only the place is kept
+  const place = keepPlace === true || keepPlace === 'scroll' || keepPlace === 'rows' ? viewSnapshot() : reloaded;
+  if (place && keepPlace === 'rows') place.boxes = {}; // other rows in the table boxes: they start at their top
+  if (place && (keepPlace === 'scroll' || keepPlace === 'rows')) place.ctl = {}; // a redraw to show what the save holds (a refused change): the boxes go back to it, only the place is kept
   reloaded = null;
   document.title = pageTitle();
   drawNav();
@@ -2375,10 +2392,12 @@ async function render(keepPlace) {
   tmapSync();
   goSync();
   if (tab === 'player' && $('#tdout')) goPlaces(false);
-  refocus(keep);
+  refocus(keep, !auto);
 }
 
 const D = (e) => e.target.closest('[data-act]');
+// A new search or another page of rows starts at the top of the table's own box; the page offset is kept (#686).
+function dbRowsTop() { const b = $('#dbout .scroll'); if (b) { b.scrollTop = 0; b.scrollLeft = 0; } }
 // A failed SQL statement shows its reason where the result goes, and the earlier result is cleared so it cannot be read as the answer (register 2026-10-07, UX-5).
 function sqlFailed(e) { const out = $('#sqlout'); if (out) setHTML(out, html`<p class="bad">${e.message}</p>`); }
 
@@ -2416,17 +2435,17 @@ const A = {
   currency: () => act(async () => { const r = await api('/api/player/currency', { currency: +val('curSel'), amount: +val('curAmt') }); toast(`${r.currency == 0 ? 'Solari in wallet' : 'House credit in wallet'} ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()}` + NOT_SAVED); }, null),
   intel: () => act(async () => { const r = await api('/api/player/intel', { amount: +val('intelAmt') }); toast(r.applied ? `Intel ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()}` + (r.capped ? ' (capped at 2,779)' : '') + NOT_SAVED : 'Intel is already at the cap (2,779).'); }, null),
   teleport: () => act(async () => { const body = { x: +val('tx'), y: +val('ty'), z: +val('tz') }; if (val('tdyaw') !== '') body.yaw = +val('tdyaw'); const pick = GO.pick === null ? null : TD[GO.pick]; if (pick && pick.map) body.map = pick.map; else if (val('tmap') !== '') body.map = val('tmap'); const r = await api('/api/player/teleport', body); goClear(); toast(r.message || ('Teleport set' + NOT_SAVED), r.warn ? 'part' : false, 15000); return r; }, null),
-  augEdit: (d) => act(async () => { const r = await api('/api/items/augment-options', { item_id: +d.id }); r.options.forEach((o) => AUG_NAMES.set(o.id, o.name)); augItem = { ...r, item_id: +d.id }; render(); }, null, false),
+  augEdit: (d) => act(async () => { const r = await api('/api/items/augment-options', { item_id: +d.id }); r.options.forEach((o) => AUG_NAMES.set(o.id, o.name)); augItem = { ...r, item_id: +d.id }; render('scroll'); }, null, false),
   augCancel: () => { augItem = null; render(true); },
   augApply: (d) => act(async () => { const r = await api('/api/items/augment', { item_id: +d.id, augments: augPicked('au', augItem.limit), grade: +val('augG'), unlock_slots: $('#augU').checked }); augItem = null; toast(`Augments set (${r.augments})` + (r.slotsUnlocked ? `, ${r.slotsUnlocked} slot keystones unlocked` : '') + NOT_SAVED); }, null),
-  queueAdd: () => { let t; try { t = needItem('gt'); } catch (e) { return toast(e.message, 'err'); } const e = { template_id: t, quantity: Math.max(1, +val('gq') || 1), quality: +val('gg') }; const ids = augPicked('ga', 3); if (ids.length) { e.augments = ids; e.grade = +val('gag'); } giveQueue.push(e); keepQueue(); render(); },
+  queueAdd: () => { let t; try { t = needItem('gt'); } catch (e) { return toast(e.message, 'err'); } const e = { template_id: t, quantity: Math.max(1, +val('gq') || 1), quality: +val('gg') }; const ids = augPicked('ga', 3); if (ids.length) { e.augments = ids; e.grade = +val('gag'); } giveQueue.push(e); keepQueue(); render('scroll'); },
   // Care package (#417). These change the editor's settings and never the save, so they are immediate: nothing is queued.
-  kitNew: () => { kitDraft = { was: '', name: '', items: [], xp: 0, skillPoints: 0 }; render(); },
+  kitNew: () => { kitDraft = { was: '', name: '', items: [], xp: 0, skillPoints: 0 }; render('scroll'); },
   kitEdit: (d) => {
     const k = KITS && KITS.kits.find((x) => x.name === d.name);
     if (!k) { toast('That kit is no longer in the list.', true); return render(true); }
     kitDraft = { was: k.name, name: k.name, items: k.items.map((l) => ({ ...l, augments: (l.augments || []).slice() })), xp: k.xp || 0, skillPoints: k.skillPoints || 0 };
-    render();
+    render('scroll');
   },
   kitCancel: () => { kitDraft = null; render(true); },
   kitAddLine: () => {
@@ -2437,9 +2456,9 @@ const A = {
     const ids = augPicked('ka', 12);
     if (ids.length) { line.augments = ids; line.augmentGrade = +val('kag'); }
     kitDraft.items.push(line);
-    render();
+    render('scroll');
   },
-  kitDelLine: (d) => { kitSync(); kitDraft.items.splice(+d.id, 1); render(); },
+  kitDelLine: (d) => { kitSync(); kitDraft.items.splice(+d.id, 1); render('scroll'); },
   kitSave: () => {
     kitSync();
     const d = kitDraft;
@@ -2537,8 +2556,8 @@ const A = {
   tut: (d) => act(async () => { await api('/api/player/tutorials', { id: +d.id, complete: d.c == '1' }); JB = await api('/api/player/journey/browse'); journeyList(); toast('Tutorial updated' + NOT_SAVED); }, null),
   tagAdd: () => act(() => api('/api/player/tags', { tag: val('tag').trim(), add: true }), 'Tag added'),
   tagDel: (d) => act(() => api('/api/player/tags', { tag: d.tag, add: false }), 'Tag removed'),
-  invfilter: () => { invQ = val('invq'); return render(); },
-  invclear: () => { invQ = ''; render(); },
+  invfilter: () => { invQ = val('invq'); return render('rows'); },
+  invclear: () => { invQ = ''; render('rows'); },
   skPoints: () => act(async () => { const r = await api('/api/player/skills/points', { points: +val('skPts') }); toast(`Unspent skill points ${r.before} → ${r.after}` + NOT_SAVED); }, null),
   skStarter: () => act(async () => { const r = await api('/api/player/skills/starter', { school: skSchool }); toast(r.changed ? `Restored ${r.changed} starter skills` + NOT_SAVED : 'The starter skills are already learned.'); }, null),
   ctfilter: () => { ctQ = val('ctq'); catalogList(); },
@@ -2665,23 +2684,23 @@ const A = {
     vcDraft = { cls: c.key, tpl: vcTop(c), mods: {}, fuel: 100, items: [] };
     vcDraft.mods = vcDefaults();
     vcPreview = null;
-    render();
+    render('scroll');
   },
-  vcCancel: () => { vcDraft = null; vcPreview = null; render(); },
-  vcDismiss: () => { vcResult = null; render(); },
+  vcCancel: () => { vcDraft = null; vcPreview = null; render('scroll'); },
+  vcDismiss: () => { vcResult = null; render('scroll'); },
   vcAddItem: () => {
     vcSync();
     let item;
     try { item = needItem('vcItem'); } catch (e) { return toast(e.message, 'err'); }
     vcDraft.items.push({ item, quantity: Math.max(1, Math.floor(+val('vcQty')) || 1) });
     vcPreview = null;
-    render();
+    render('scroll');
   },
-  vcDelItem: (d) => { vcSync(); vcDraft.items.splice(+d.id, 1); vcPreview = null; render(); },
+  vcDelItem: (d) => { vcSync(); vcDraft.items.splice(+d.id, 1); vcPreview = null; render('scroll'); },
   vcPreview: async () => {
     vcSync();
     try { vcPreview = await api('/api/vehicles/spawn-preview', vcBody()); } catch (e) { vcPreview = null; toast(e.message, true); return; }
-    render();
+    render('scroll');
   },
   vcCreate: () => {
     vcSync();
@@ -2707,9 +2726,9 @@ const A = {
   cfgdel: async (d) => (await ask({ title: 'Delete config line?', body: 'Delete ' + d.key + ' from ' + cfgFile + '. A backup of the file is made first.', ok: 'Delete', danger: true })) && act(() => api('/api/config/delete', { name: cfgFile, line: +d.line, key: d.key }), 'Deleted from the config file now', true, true),
   cfgraw: async () => (await ask({ title: 'Replace the whole file?', body: 'Everything in ' + cfgFile + ' is replaced by the text in the box. It is written now, after a backup of the file is made. Close the game first.', ok: 'Replace file', danger: true })) && act(() => api('/api/config/raw', { name: cfgFile, text: val('raw') }), 'File written now (the previous text is in Backups)', true, true),
   cfgrestore: async (d) => (await ask({ title: 'Restore config backup?', body: 'Replace ' + cfgFile + ' with ' + d.b + '. Close the game first.', ok: 'Restore', danger: true })) && act(() => api('/api/config/restore', { name: cfgFile, backup: d.b }), 'Config file restored now', true, true),
-  dbgo: () => { dbQ = val('dbq'); dbOff = 0; return render(); },
-  dbprev: () => { dbOff = Math.max(0, dbOff - 100); render(); },
-  dbnext: () => { dbOff += 100; render(); },
+  dbgo: async () => { dbQ = val('dbq'); dbOff = 0; await render('scroll'); dbRowsTop(); },
+  dbprev: async () => { dbOff = Math.max(0, dbOff - 100); await render('scroll'); dbRowsTop(); },
+  dbnext: async () => { dbOff += 100; await render('scroll'); dbRowsTop(); },
   runsql: async () => {
     window.lastSql = val('sql');
     try {
@@ -2765,15 +2784,15 @@ document.addEventListener('click', (e) => {
   const jg = e.target.closest('[data-jgrp]');
   if (jg) { if (JGROUPS.some(([k]) => k == jg.dataset.jgrp)) { jgrp = jg.dataset.jgrp; journeyList(); } return; }
   const vo = e.target.closest('[data-vhopen]');
-  if (vo) { vhOpen = +vo.dataset.vhopen; render(); return; }
+  if (vo) { vcSync(); vhOpen = +vo.dataset.vhopen; render('rows'); return; }
   const bo = e.target.closest('[data-bsopen]');
-  if (bo) { bsOpen = +bo.dataset.bsopen; render(); return; }
+  if (bo) { bsOpen = +bo.dataset.bsopen; render('rows'); return; }
   const bt = e.target.closest('[data-bstab]');
-  if (bt) { bsTab = bt.dataset.bstab; render(); return; }
+  if (bt) { bsTab = bt.dataset.bstab; render('rows'); return; }
   const bg = e.target.closest('[data-bsgrp]');
-  if (bg) { bsGroup = bg.dataset.bsgrp; render(); return; }
+  if (bg) { bsGroup = bg.dataset.bsgrp; render('rows'); return; }
   const ig = e.target.closest('[data-invg]');
-  if (ig) { invG = ig.dataset.invg; render(); return; }
+  if (ig) { invG = ig.dataset.invg; render('rows'); return; }
   const s = e.target.closest('[data-sub]');
   if (s) { const [g, k] = s.dataset.sub.split(':'); if (GROUPS.includes(g)) { sub[g] = k; render(); } return; }
   const a = D(e);
@@ -2814,7 +2833,7 @@ document.addEventListener('change', (e) => {
   else if (t.classList.contains('cfgv')) editInput(t, () => api('/api/config/set', { name: cfgFile, section: t.dataset.section, key: t.dataset.key, value: t.value, line: +t.dataset.line }), changedMsg(t, t.dataset.key + ' written to the config file now:'), true);
   else if (t.classList.contains('dbc')) editInput(t, async () => {
     try { return await api('/api/db/update', { table: dbTable, ...(t.dataset.kind == '_key_' ? { key: t.dataset.rowid } : { rowid: +t.dataset.rowid }), column: t.dataset.col, value: t.value === '' && t.hasAttribute('data-null') ? null : t.value, expected: t.dataset.orig }); }
-    catch (e) { if (e.code === 'conflict') setTimeout(render, 0); throw e; } // the table is out of date: show it as it is now
+    catch (e) { if (e.code === 'conflict') setTimeout(() => render('scroll'), 0); throw e; } // the table is out of date: show it as it is now
   }, changedMsg(t, 'Database ' + dbTable + '.' + t.dataset.col + ':'));
   else if (t.id == 'cfgsel') { cfgFile = t.value; render(); }
   else if (t.id == 'dbsel') { dbTable = t.value; dbOff = 0; dbQ = ''; render(); }

@@ -51,11 +51,12 @@ func (o *Ops) Landsraad() (any, error) {
 	var here *charPlace // where the character stands, for the distance to a house (nil when it is not known)
 	if p, perr := o.player(); perr == nil {
 		mineID = p.Controller
-		if at, aerr := o.S.One(`select map, location_x x, location_y y from actors where id=?`, p.Pawn); aerr == nil && at != nil {
-			x, okx := toFloat(at["x"])
-			y, oky := toFloat(at["y"])
-			if m, _ := at["map"].(string); okx && oky && m != "" {
-				here = &charPlace{Map: m, X: x, Y: y}
+		// where the character stands: the player's map and the body's position, none when the body is not where the player is (#654)
+		if at, aerr := readCharacterPlace(o.S.One, p, true); aerr == nil && at.Parked == nil {
+			x, okx := toFloat(at.Body["x"])
+			y, oky := toFloat(at.Body["y"])
+			if okx && oky {
+				here = &charPlace{Map: at.Map, X: x, Y: y}
 			}
 		}
 		character = map[string]any{"player_id": p.Controller, "name": p.Name, "faction_id": nil}

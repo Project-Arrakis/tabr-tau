@@ -443,22 +443,21 @@ func writeVehicle(m *save.Mut, p player, sp *spawnSpec, d vehicles.Derived) (map
 	if err != nil {
 		return nil, err
 	}
-	me, err := m.One(`select map, location_x x, location_y y, location_z z, dimension_index dim, rotation_x rx, rotation_y ry, rotation_z rz, rotation_w rw from actors where id=?`, p.Pawn)
+	// the character's place: the controller's map and dimension, the body's position; "next to the character" is refused when the body is not where the player is (#654).
+	// A place the person gave is theirs, so it goes on; it takes the character's dimension and facing.
+	here, err := readCharacterPlace(m.One, p, true)
 	if err != nil {
 		return nil, err
 	}
-	if me == nil {
+	if here.Body == nil {
 		return nil, errors.New("player position unknown")
 	}
-	if me["map"] == nil || fmt.Sprint(me["map"]) == "" {
-		return nil, errors.New("the character's map is not recorded in this save")
+	if here.Parked != nil && sp.place == nil {
+		return nil, here.Parked
 	}
-	dim := int64(0)
-	if n, ok := toInt(me["dim"]); ok && n >= 0 {
-		dim = n
-	}
+	me, dim := here.Body, here.Dim
 	// next to the character: the point 10 m ahead along the facing (800 along x when the facing is unknown), 150 up, when it is clear, else the nearest clear spot (#480); or where the request said
-	mapName := fmt.Sprint(me["map"])
+	mapName := here.Map
 	size := sizeOfClassKey(sp.classKey)
 	var placed placement
 	var x, y, z float64

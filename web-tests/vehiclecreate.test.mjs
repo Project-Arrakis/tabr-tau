@@ -224,3 +224,54 @@ test('an answer with no place still reads "next to you"', async () => {
   assert.ok(ui.doc.querySelector('#vcpreview').textContent.replace(/\s+/g, ' ').includes('It goes next to you.'));
   ui.dom.window.close();
 });
+
+// jsdom has no layout, so the offset is a number the test holds. A change inside the page is not a move to another page (#650): the scroll offset stays and the box that was changed keeps the focus.
+function holdWindowScroll(w, y) {
+  let at = y;
+  Object.defineProperty(w, 'scrollY', { get: () => at, configurable: true });
+  w.scrollTo = (x, yy) => { at = yy; };
+  // a browser that draws the page again from nothing starts it at the top, unless the page puts the offset back
+  new w.MutationObserver(() => { at = 0; }).observe(w.document.querySelector('#main'), { childList: true });
+  return () => at;
+}
+const pick = async (ui, sel, v) => { const el = ui.doc.querySelector(sel); el.focus(); await change(ui, sel, v); };
+
+test('changing a part, the tier or the class keeps the page offset and the focus on the box that was changed', async () => {
+  const ui = await boot({ get: GET });
+  await openForm(ui);
+  ui.doc.querySelector('details.vcparts').open = true;
+  const y = holdWindowScroll(ui.w, 1545);
+  await pick(ui, '[data-vcslot="Engine"]', 'BuggyEngine_Unique_Accelerate_06');
+  assert.equal(y(), 1545, 'a part swap keeps the offset');
+  assert.equal(ui.doc.activeElement, ui.doc.querySelector('[data-vcslot="Engine"]'), 'the focus is on the part box');
+  assert.equal(ui.doc.querySelector('[data-vcslot="Engine"]').value, 'BuggyEngine_Unique_Accelerate_06');
+  assert.equal(ui.doc.querySelector('details.vcparts').open, true, 'the parts stay unfolded');
+  await pick(ui, '#vcTpl', 'T0');
+  assert.equal(y(), 1545, 'a tier change keeps the offset');
+  assert.equal(ui.doc.activeElement, ui.doc.querySelector('#vcTpl'));
+  await pick(ui, '#vcClass', 'Sandbike');
+  assert.equal(y(), 1545, 'a class change keeps the offset');
+  assert.equal(ui.doc.activeElement, ui.doc.querySelector('#vcClass'));
+  assert.equal(ui.doc.querySelector('#vcClass').value, 'Sandbike');
+  ui.dom.window.close();
+});
+
+test('adding an item, previewing and opening another vehicle keep the page offset; the item box is empty after the add', async () => {
+  const two = { ...VEH, vehicles: [...VEH.vehicles, { ...VEH.vehicles[0], id: 42 }] };
+  const ui = await boot({ get: { ...GET, '/api/vehicles': two }, post: { '/api/vehicles/spawn-preview': ANSWER({ dryRun: true }) } });
+  await openForm(ui);
+  await change(ui, '[data-vcslot="UtilitySlot1"]', 'BuggyInventory_6');
+  const y = holdWindowScroll(ui.w, 900);
+  set(ui, '#vcItem', 'Spice Melange');
+  ui.click('[data-act="vcAddItem"]'); await ui.settle();
+  assert.equal(ui.doc.querySelectorAll('[data-vcqty]').length, 1);
+  assert.equal(ui.doc.querySelector('#vcItem').value, '', 'the item box is empty again');
+  assert.equal(y(), 900);
+  ui.click('[data-act="vcPreview"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#vcpreview'));
+  assert.equal(y(), 900);
+  ui.click('[data-vhopen="42"]'); await ui.settle();
+  assert.equal(y(), 900, 'opening another vehicle keeps the offset');
+  assert.ok(ui.doc.querySelector('[data-vcqty]'), 'the draft is kept');
+  ui.dom.window.close();
+});

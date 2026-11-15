@@ -17,6 +17,7 @@
 ## Checklist
 - [ ] No save, `Game.ini`, snapshot, log, or screenshot containing account/platform IDs is included
 - [ ] No AI co-author trailers or attribution lines in any commit message
+- [ ] The title, the description and the commits name no other tool or project that is not public and carry no path under a personal profile (the `public-text` check reads them)
 - [ ] Failing test written first for a bug fix or security finding
 - [ ] `CHANGELOG.md` updated (or "no user-visible change" stated above)
 - [ ] Nothing here touches a live save without the game-running and on-disk-change checks

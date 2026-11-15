@@ -105,24 +105,23 @@ func (o *Ops) DuplicateVehicle(a Args) (any, error) {
 			return err
 		}
 		cls := blueprintClass(src["class"])
-		me, err := m.One(`select map, location_x x, location_y y, location_z z, rotation_x rx, rotation_y ry, rotation_z rz, rotation_w rw, dimension_index d from actors where id=?`, p.Pawn)
+		here, err := readCharacterPlace(m.One, p, true) // the controller's map and dimension, the body's position; refused when the body is not where the player is (#654)
 		if err != nil {
 			return err
 		}
-		if me == nil {
-			return errors.New("player position unknown")
+		if here.Parked != nil {
+			return here.Parked
 		}
 		if newID, err = nextID(m, "actors"); err != nil {
 			return err
 		}
 		// next to the character: the point 10 m ahead along the facing (800 along x when the facing is unknown), 150 up, when it is clear, else the nearest clear spot (#480); an aircraft goes ahead and up (#540); the turn and everything else are the reference's
-		dim, _ := toInt(me["d"])
-		if placed, err = choosePlace(m.Query, fmt.Sprint(me["map"]), dim, poseOf(me), sizeOfActorClass(src["class"]), 0, vehicleType(shortClass(src["class"]))); err != nil {
+		if placed, err = choosePlace(m.Query, here.Map, here.Dim, poseOf(here.Body), sizeOfActorClass(src["class"]), 0, vehicleType(shortClass(src["class"]))); err != nil {
 			return err
 		}
 		if _, err := m.Exec(`insert into actors(id,class,map,location_x,location_y,location_z,rotation_x,rotation_y,rotation_z,rotation_w,dimension_index,gas_attributes,properties,owner_account_id,serial,state)
 			select ?,class,?,?,?,?,rotation_x,rotation_y,rotation_z,rotation_w,?,gas_attributes,properties,owner_account_id,serial,state from actors where id=?`,
-			newID, me["map"], placed.X, placed.Y, placed.Z, me["d"], id); err != nil {
+			newID, here.Map, placed.X, placed.Y, placed.Z, here.Dim, id); err != nil {
 			return err
 		}
 		// a copy that is just set down has not been abandoned since the reference was: its abandoned time is now

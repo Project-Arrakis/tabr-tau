@@ -25,7 +25,13 @@ func (o *Ops) Summary() (any, error) {
 		}
 		out["ids"] = map[string]any{"actor": p.Pawn, "account": p.Account, "controller": p.Controller, "playerState": st["player_state_id"]}
 	}
-	if a, _ := o.S.One(`select map from actors where id=?`, p.Pawn); len(a) > 0 {
+	// the map is the one the player is on, the controller's, as for every action that works from the character's place (#699); "parked" says when the body is somewhere else
+	if here, err := readCharacterPlace(o.S.One, p, false); err == nil && here.Map != "" {
+		out["map"] = here.Map
+		if here.Parked != nil {
+			out["parked"] = here.Parked.Error()
+		}
+	} else if a, _ := o.S.One(`select map from actors where id=?`, p.Pawn); len(a) > 0 {
 		out["map"] = a["map"]
 	}
 	if acc, _ := o.S.One(`select platform_name, platform_id, funcom_id, "user" fls_id from accounts where id=?`, p.Account); len(acc) > 0 {
