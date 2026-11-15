@@ -538,7 +538,7 @@ async function autoRefresh(o) {
   try {
     const r = await api('/api/save/discard', { ifClean: true });
     if (r && r.kept) return; // an edit was made while the status was being read: nothing is thrown away
-    await render(true);
+    await render(true, true); // the page's own redraw: the focus goes back, the page is not moved (#696)
   } catch (e) { /* the next poll shows the banner and tries again */ } finally { autoBusy = false; }
 }
 // A write that went through since the last poll: a check is drawn by the status bar for a moment (the words stay with the check, so Off still says it).
@@ -2243,12 +2243,13 @@ function focusSpec(el) {
   if (!el.id && !data.length) return null;
   return { id: el.id, tag: el.tagName, data, label: (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 60) };
 }
-function refocus(s) {
+// scroll is true only for a redraw that follows the person's own action; the page's own refresh (about every twenty seconds while the game runs) gives the focus back and never moves the page (#696).
+function refocus(s, scroll) {
   if (!s || (document.activeElement && document.activeElement !== document.body)) return;
   const pool = s.id ? [document.getElementById(s.id)] : [...document.querySelectorAll('#main ' + s.tag + ', #nav ' + s.tag)];
   const same = pool.filter((n) => n && s.data.every(([k, v]) => n.getAttribute(k) === v));
   const n = same.find((x) => (x.getAttribute('aria-label') || x.textContent || '').trim().slice(0, 60) === s.label) || same[0];
-  if (n && typeof n.focus === 'function') { n.focus({ preventScroll: true }); intoView(n); }
+  if (n && typeof n.focus === 'function') { n.focus({ preventScroll: true }); if (scroll) intoView(n); }
 }
 // The focus went back to a control that the kept offset left where it was; the page moves only when that control is off the screen or under the sticky header (#686).
 function intoView(n) {
@@ -2339,8 +2340,9 @@ function tmapSync() {
   const hub = GO.pick !== null && TD[GO.pick] && TD[GO.pick].otherMap; // a hub chosen in the list of places is another map too (#521)
   if (box) setHTML(box, (sel && sel.value !== '') || hub ? html`<p class="warn" id="tmapwarn">${TRAVEL_WARN}</p>` : html``);
 }
-// render(true) is the redraw after an action (or the page's own refresh from the file): it keeps the place; render('scroll') keeps only the scroll offsets. Any other call is a move to another page, which starts at the top.
-async function render(keepPlace) {
+// render(true) is the redraw after an action: it keeps the place; render('scroll') keeps only the scroll offsets. Any other call is a move to another page, which starts at the top.
+// auto is the page's own refresh from the file: it keeps the place the same way, but the page is never scrolled to the refocused control (#696).
+async function render(keepPlace, auto) {
   const keep = focusSpec(document.activeElement);
   const place = keepPlace === true || keepPlace === 'scroll' ? viewSnapshot() : reloaded;
   if (place && keepPlace === 'scroll') place.ctl = {}; // a redraw to show what the save holds (a refused change): the boxes go back to it, only the place is kept
@@ -2356,7 +2358,7 @@ async function render(keepPlace) {
   tmapSync();
   goSync();
   if (tab === 'player' && $('#tdout')) goPlaces(false);
-  refocus(keep);
+  refocus(keep, !auto);
 }
 
 const D = (e) => e.target.closest('[data-act]');
