@@ -1809,8 +1809,8 @@ function lbGrantSay(g) {
   if (!g) return '';
   if (g.problem) return 'Will be refused: ' + g.problem;
   const rw = g.rewards ? nn(g.rewards, 'reward', 'rewards') + ' waiting at the house representative' : '';
-  if (!g.missions) return 'Grants no missions: your own earlier progress already counts for this ground' + (rw ? '; ' + rw : '') + '.';
-  return 'Grants ' + nn(g.missions, 'mission', 'missions') + ': ' + lbGrantList(g) + (rw ? ', ' + rw : '') + '.';
+  if (!g.missions) return 'Writes no missions: your own earlier progress already counts for this ground' + (rw ? '; ' + rw : '') + '.';
+  return 'Writes ' + nn(g.missions, 'mission', 'missions') + ': ' + lbGrantList(g) + (rw ? ', ' + rw : '') + '.';
 }
 const lbGrantShort = (g) => (!g ? '' : g.problem ? 'will be refused' : g.missions ? nn(g.missions, 'mission', 'missions') + ': +' + lbF(g.solari) + ' Solari' : 'no missions');
 function lbHsText(h, l) {
@@ -1857,7 +1857,7 @@ function lbGrantCaption(fillGr, nextGr, h) {
   const p = [];
   if (fillGr) p.push('Fill and Fill faction goal: ' + lbGrantSay(fillGr));
   if (nextGr) p.push('Next tier (tier ' + (h.reached + 1) + '): ' + lbGrantSay(nextGr));
-  if (!p.length) return 'Nothing to grant on this house: your contribution is at the top tier, or no faction is chosen for it.';
+  if (!p.length) return 'Nothing to write on this house: your contribution is at the top tier, or no faction is chosen for it.';
   return p.join(' ') + ' Written at once. ' + GRANT_UNCHECKED;
 }
 function lbRow(h, l, hue, noLocs) {
@@ -2041,7 +2041,7 @@ function lbActbar(hs, l) {
       <p><b>What a raise writes</b>, in one edit with a backup first:</p>
       <ul><li>your contribution, raised to the tier;</li><li>one progress event, and the game's progress cursor moved to it;</li><li>the same ground added to your faction's progress while the house is open (the house is taken when that reaches the goal);</li><li>one reward for each tier crossed, waiting at the house representative (the 6,000 tier follows the swatch rule);</li><li>for each mission: 6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization line of the house.</li></ul>
       <p>A mission is 1,000 contribution times <code>LandsraadContributionMultiplier</code>, and the XP is scaled by <code>LandsraadSpecializationXpMultiplier</code>; both are read from ServerCustomSettings.ini (1 when the key is absent), and a click is refused with the reason when a value cannot be used. The daily and weekly mission limits of the game are not applied.</p>
-      <p><b>What it does not write:</b> your character's own XP and your faction standing. A tier is paid once: the tiers your own events for the house already crossed are not paid again, also after a removal, so a second Fill grants nothing. <b>Removing a tier</b> lowers the contribution only, writes no reward and takes back nothing the tier paid.</p>
+      <p><b>What it does not write:</b> your character's own XP and your faction standing. A tier is paid once: the tiers your own events for the house already crossed are not paid again, also after a removal, so a second Fill writes nothing. <b>Removing a tier</b> lowers the contribution only, writes no reward and takes back nothing the tier paid.</p>
       <p><b>Not checked in the game yet.</b> ${GRANT_UNCHECKED} <b>Going back:</b> ${undoNote()}</p>`)}
     ${lbAbout('lsb.fill', 'Fill and Complete', html`<p>Fill, Complete and Reopen act for the faction chosen above. It starts on your character's own faction.</p>
       <p><b>Fill</b> and <b>Fill chosen</b> raise your own contribution to the top tier (never lowered) and write what the missions that reach it pay (see Tiers). They change nothing while another faction is chosen: your contribution counts for your own faction, so no contribution and no reward is written for another.</p>
@@ -2151,7 +2151,12 @@ function lbBulkItems(act_, ids, F, i) {
 // What a set of requests grants, from the houses as they are shown: the sum, or the first reason one of them would be refused.
 function lbGrantOfItems(items, hs) {
   const gs = items.map((it) => { const h = hs.get(it.task_id); return it.mine_to !== undefined && h && it.mine_to > h.mine ? lbGrantOf(h, LD, h.mine, it.mine_to) : null; });
-  return gs.find((g) => g && g.problem) || lbGrantSum(gs);
+  const bad = gs.find((g) => g && g.problem);
+  if (bad) return bad;
+  const sum = lbGrantSum(gs), max = LD.grant ? LD.grant.max_missions : 0;
+  // the cap is on the whole request, counting every house in it
+  if (max && sum.missions > max) return { problem: `This request stands for ${lbF(sum.missions)} missions in all, more than the ${lbF(max)} one change may grant, so nothing is changed. Fill fewer houses at once, or set LandsraadContributionMultiplier in ServerCustomSettings.ini (Config tab) nearer to 1.` };
+  return sum;
 }
 // The question before a write and the name of the button that answers it: what it does, to how many houses, and for a raise what it grants. one: a click on one house (its name is in the
 // question), not a bulk button.

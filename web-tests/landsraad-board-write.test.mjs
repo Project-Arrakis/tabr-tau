@@ -414,13 +414,13 @@ test('before any click the board says what Fill, Fill faction goal and each tier
   assert.equal(text(al.querySelector('.qg')), '6 missions: +36,000 Solari', 'a visible line under the quick buttons');
   assert.equal(quick(ui, 'Alexin', 'qa-fill').getAttribute('aria-describedby'), 'qg-900 lsb-legend');
   const cap = text(al.querySelector('#lsg-900'));
-  assert.ok(cap.includes('Fill and Fill faction goal: Grants 6 missions: +36,000 Solari, +6,000 House Scrip, +9,000 Crafting XP, 5 rewards waiting at the house representative.'), cap);
-  assert.ok(cap.includes('Next tier (tier 1): Grants 2 missions: +12,000 Solari, +2,000 House Scrip, +3,000 Crafting XP, 1 reward waiting at the house representative.'), cap);
+  assert.ok(cap.includes('Fill and Fill faction goal: Writes 6 missions: +36,000 Solari, +6,000 House Scrip, +9,000 Crafting XP, 5 rewards waiting at the house representative.'), cap);
+  assert.ok(cap.includes('Next tier (tier 1): Writes 2 missions: +12,000 Solari, +2,000 House Scrip, +3,000 Crafting XP, 1 reward waiting at the house representative.'), cap);
   assert.ok(cap.includes('Written at once.') && cap.includes('not been checked in the game yet'), cap);
   assert.equal(al.querySelector('.act-fill').getAttribute('aria-describedby'), 'lsg-900 lsb-legend');
   // each tier box that would grant shows it as text, and its accessible name carries it
   assert.equal(text(tier(ui, 'Alexin', 5).querySelector('.gr')), '6 missions: +36,000 Solari');
-  assert.ok(tier(ui, 'Alexin', 5).getAttribute('aria-label').includes('Grants 6 missions: +36,000 Solari'));
+  assert.ok(tier(ui, 'Alexin', 5).getAttribute('aria-label').includes('Writes 6 missions: +36,000 Solari'));
   assert.equal(tier(ui, 'Alexin', 1).querySelector('.gr').textContent, '2 missions: +12,000 Solari');
   // the highest reached tier says what a click does; a tier the character's own events already cover grants no missions
   assert.equal(text(tier(ui, 'Thorvald', 3).querySelector('.gr')), 'click removes it; takes back nothing it paid');
@@ -438,7 +438,7 @@ test('the ground the character own events already cover is not counted again in 
   // Thorvald is at 4,700 and its own events cover 6,000: a raise to 6,000 stands for no mission
   const ui = await open(withGrant({}, { 901: 6000 }), {});
   assert.equal(text(by(ui, 'Thorvald').querySelector('.qg')), 'no missions');
-  assert.ok(text(by(ui, 'Thorvald').querySelector('#lsg-901')).includes('Grants no missions: your own earlier progress already counts for this ground'));
+  assert.ok(text(by(ui, 'Thorvald').querySelector('#lsg-901')).includes('Writes no missions: your own earlier progress already counts for this ground'));
 });
 
 test('a setting the editor cannot use, or a house with no line, is said before the click as a refusal', async () => {
@@ -458,7 +458,7 @@ test('a click on one house that would grant ten missions or more asks first, wit
   click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
   assert.deepEqual(writes(ui), [], 'asking writes nothing');
   const q = ui.doc.querySelector('#lsb-confirm');
-  assert.equal(text(q.querySelector('b')), 'Fill House Alexin? Grants 12 missions: +72,000 Solari, +12,000 House Scrip, +18,000 Crafting XP, 5 rewards waiting at the house representative. Written at once, with a backup first.');
+  assert.equal(text(q.querySelector('b')), 'Fill House Alexin? Writes 12 missions: +72,000 Solari, +12,000 House Scrip, +18,000 Crafting XP, 5 rewards waiting at the house representative. Written at once, with a backup first.');
   assert.deepEqual([...q.querySelectorAll('button')].map(text), ['Fill House Alexin', 'Cancel']);
   assert.equal(ui.doc.activeElement.dataset.fk, 'c-no');
   click(ui, '[data-lb=cno]'); await ui.settle();
@@ -490,7 +490,7 @@ test('the bulk question carries the totals of the raise and names its button by 
   click(ui, '[data-lb=bulk][data-do=fill]'); await ui.settle();
   const q = ui.doc.querySelector('#lsb-confirm');
   // Alexin 6 missions and 5 rewards, Thorvald 1 and 2, Hurata (1,300 to 6,000) 4 and 4; Wayku is above the top tier and is not asked about
-  assert.equal(text(q.querySelector('b')), 'Fill 3 houses? Grants 11 missions: +66,000 Solari, +11,000 House Scrip, +1,500 Combat XP, +9,000 Crafting XP, +6,000 Exploration XP, 11 rewards waiting at the house representative. Written at once, with a backup first.');
+  assert.equal(text(q.querySelector('b')), 'Fill 3 houses? Writes 11 missions: +66,000 Solari, +11,000 House Scrip, +1,500 Combat XP, +9,000 Crafting XP, +6,000 Exploration XP, 11 rewards waiting at the house representative. Written at once, with a backup first.');
   assert.deepEqual([...q.querySelectorAll('button')].map(text), ['Fill 3 houses', 'Cancel']);
   // a refusal the editor would give is in the question too
   const bad = withGrant({ problem: 'LandsraadContributionMultiplier is 0. Nothing was changed.' });
@@ -503,8 +503,18 @@ test('the About text says what a raise writes and what it does not, names both s
   const ui = await open();
   const about = text(ui.doc.querySelector('[data-about="lsb.tiers"] .abt'));
   for (const s of ['A tier click pays what its missions pay', '6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization line of the house', 'LandsraadContributionMultiplier', 'LandsraadSpecializationXpMultiplier',
-    'The daily and weekly mission limits of the game are not applied', 'so a second Fill grants nothing', 'your character\'s own XP and your faction standing', 'takes back nothing the tier paid', 'Not checked in the game yet',
+    'The daily and weekly mission limits of the game are not applied', 'so a second Fill writes nothing', 'your character\'s own XP and your faction standing', 'takes back nothing the tier paid', 'Not checked in the game yet',
     'Restore on the Database tab (Save backups) puts it back']) assert.ok(about.includes(s), s);
   assert.ok(ui.doc.querySelectorAll('[data-about="lsb.tiers"] .abt p').length >= 4 && ui.doc.querySelector('[data-about="lsb.tiers"] .abt ul'), 'the long paragraph is split into a list and short paragraphs');
   assert.ok(text(ui.doc.querySelector('[data-about="lsb.fill"] .abt')).includes('asks first'));
+});
+
+test('the bulk question says it will be refused when the houses together stand for more missions than one change may write', async () => {
+  // a step of 10: Alexin alone is 600 missions, Hurata 470, together over the 1,000 of one change
+  const ui = await open(withGrant({ step: 10 }), {});
+  click(ui, '[data-lb=pickall]');
+  click(ui, '[data-lb=bulk][data-do=fill]'); await ui.settle();
+  const q = text(ui.doc.querySelector('#lsb-confirm b'));
+  assert.ok(q.includes('Will be refused: This request stands for') && q.includes('more than the 1,000 one change may grant') && q.includes('Fill fewer houses at once'), q);
+  assert.deepEqual(writes(ui), []);
 });
