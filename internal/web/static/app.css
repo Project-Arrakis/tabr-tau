@@ -794,3 +794,8 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .btnl input:disabled,.lsb .btnl input:disabled+span{cursor:not-allowed}
 .lsb .btnl input:disabled+span{opacity:.5;border-style:dashed}
 @media (max-width:640px){.lsb .d-head .cnt{white-space:normal}} /* after the base rule, which is nowrap */
+#vcwait[hidden]{display:none}
+#vcpreview td select{width:100%;min-width:0;max-width:18rem}
+#vcpreview select[aria-invalid=true]{border-color:var(--bad)}
+@media (max-width:720px){#vcpreview td{min-width:0}}
+@media (pointer:coarse){#vcpreview td select{min-height:44px}}
