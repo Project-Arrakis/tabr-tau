@@ -578,15 +578,23 @@ func TestPublicTextWorkflowsInterpolateOnlyNumbersIdsAndShas(t *testing.T) {
 	}
 }
 
-// The surfaces added by #704 stay covered: a comment on a commit, a release and a created branch or tag run in the discussion workflow, and the
+// The surfaces added by #704 stay covered: a release and a created branch or tag run in the discussion workflow, and the
 // commit messages of a push to main run in their own workflow whose check is not the required one.
 func TestPublicTextCoversCommitCommentsReleasesCreatesAndPushes(t *testing.T) {
 	disc := readWorkflow(t, "public-text-discussion.yml")
 	got := strings.Join(workflowEvents(disc), " ")
-	for _, want := range []string{"commit_comment", "release", "create"} {
+	for _, want := range []string{"release", "create"} {
 		if !strings.Contains(" "+got+" ", " "+want+" ") {
 			t.Errorf("public-text-discussion.yml does not run on %q (it runs on %s)", want, got)
 		}
+	}
+	// A comment on a commit has no workflow trigger: GitHub refuses a file that names one, and the whole workflow stops for every event.
+	if strings.Contains(" "+got+" ", " commit_comment ") {
+		t.Error("public-text-discussion.yml must not name commit_comment: it is not a workflow trigger and GitHub refuses the file")
+	}
+	// A published release also fires created, so listing created only runs the check twice.
+	if !strings.Contains(disc, "\n  release:\n    types: [published, edited]\n") {
+		t.Error("public-text-discussion.yml must run on release types published and edited only")
 	}
 	push := readWorkflow(t, "public-text-push.yml")
 	if ev := workflowEvents(push); len(ev) != 1 || ev[0] != "push" {
