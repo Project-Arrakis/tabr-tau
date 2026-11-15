@@ -1,0 +1,46 @@
+name: Public text of pushes
+
+# The public-text rule over the commit messages of a push to main that did not come through a pull request check (#704): a direct push, or a
+# merge whose message differs from the title and body the pull request check read. The pull request workflow (public-text.yml) reads the
+# commit messages of a pull request; the CI workflow reads the pushed messages for the attribution line only. The check name here is
+# public-text-push and it is NOT a required check (a required check cannot gate a push that has already landed): it tells a maintainer that a
+# message on main needs a follow-up. It must never share the name "public-text" (see public-text.yml). Only numbers and commit ids reach
+# the shell, through env; the commit messages are read from git by the program and are data, never code. The token is read-only and the job
+# has no secret it could leak beyond the optional extra digest list.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-text-push-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  public-text-push:
+    name: public-text-push
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: The commit messages of the push carry nothing the public-text rule forbids
+        env:
+          PUBLIC_TEXT_EXTRA_DIGESTS: ${{ secrets.PUBLIC_TEXT_EXTRA_DIGESTS }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          # A new branch has an all-zero "before" and a forced push can name a commit that is gone: in both cases read the head commit alone.
+          if git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+            git log --format='%H%x00%B%x01' "${BEFORE_SHA}..${HEAD_SHA}" > "${RUNNER_TEMP}/commits.log"
+          else
+            git log -n 1 --format='%H%x00%B%x01' "${HEAD_SHA}" > "${RUNNER_TEMP}/commits.log"
+          fi
+          go run ./cmd/publictextcheck -commits "${RUNNER_TEMP}/commits.log"
