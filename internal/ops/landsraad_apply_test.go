@@ -87,24 +87,24 @@ func wantApplyError(t *testing.T, o *Ops, a Args, kind error) {
 	}
 }
 
-func TestApplyFillRaisesTheContributionToTheTopTierAndNothingElse(t *testing.T) {
+func TestApplyFillRaisesTheContributionToTheTopTierAndGrantsTheMissionsItStandsFor(t *testing.T) {
 	o := goalOps(t)
 	before := boardRows(t, o)
 	m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0})))
-	if m["changed"].(int64) != 1 || m["contribution_raised"].(int64) != 1 || m["completed"].(int64) != 0 {
+	if m["changed"].(int64) != 1 || m["contribution_raised"].(int64) != 1 || m["completed"].(int64) != 1 {
 		t.Fatalf("answer: %v", m)
 	}
 	if c := contribution(t, o, 1, 175); c != 6000 {
 		t.Fatalf("the contribution is the top tier: %v", c)
 	}
-	if h := houseRow(t, o, 175); h["c"].(int64) != 0 || h["w"] != nil || h["ct"] != nil {
-		t.Fatalf("Fill does not take the house: %v", h)
+	// a mission adds what the character gained to the faction too, and the house is taken by the event that takes the faction to the goal (4,000): 1,000 + 4,700
+	if h := houseRow(t, o, 175); h["c"].(int64) != 1 || h["w"].(int64) != 2 || h["ct"].(int64) != 150 {
+		t.Fatalf("Fill takes the house when the faction reaches the goal: %v", h)
 	}
-	if v, _ := progress(t, o, 2, 175); v != 1000 {
-		t.Fatalf("Fill does not touch the faction's progress: %v", v)
+	if v, _ := progress(t, o, 2, 175); v != 5700 {
+		t.Fatalf("the faction gained what the character gained: %v", v)
 	}
-	after := boardRows(t, o)
-	if after == before {
+	if boardRows(t, o) == before {
 		t.Fatal("nothing changed")
 	}
 }
@@ -135,11 +135,12 @@ func TestApplyTierGiveCreatesTheRowAndRaisesIt(t *testing.T) {
 	if c := contribution(t, o, 1, 176); c != 4800 {
 		t.Fatalf("tier 4: %v", c)
 	}
-	if v, ok := progress(t, o, 2, 176); ok {
-		t.Fatalf("a tier click writes no faction progress: %v", v)
+	// each click adds what it gained to the faction (3,600, then 1,200 more); the second takes the faction past the goal of 4,000 and so takes the house
+	if v, _ := progress(t, o, 2, 176); v != 4800 {
+		t.Fatalf("the faction gained what the character gained: %v", v)
 	}
-	if h := houseRow(t, o, 176); h["c"].(int64) != 0 {
-		t.Fatalf("a tier click does not take the house: %v", h)
+	if h := houseRow(t, o, 176); h["c"].(int64) != 1 || h["w"].(int64) != 2 {
+		t.Fatalf("the click that takes the faction to the goal takes the house: %v", h)
 	}
 }
 

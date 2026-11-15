@@ -70,7 +70,7 @@ What each action would write in the real editor (the same rules as today's Fill,
 
 | Action | Rows it touches |
 |---|---|
-| Tier click (give) | the character's row in `landsraad_task_player_contributions`, plus one reward row in `landsraad_house_rewards` for each tier crossed |
+| Tier click (give) | the character's row in `landsraad_task_player_contributions`, plus what the missions it stands for grant (tau #652): the faction's progress raised by the same amount while the house is open (and the house taken when it reaches the goal), one event in `landsraad_task_progress` with its link and the cursor, one reward row in `landsraad_house_rewards` for each tier the character's own events had not crossed, 6,000 Solari and 1,000 House Scrip per mission in `player_virtual_currency_balances`, 1,500 times the specialization setting per mission in `specialization_tracks` (the line of the house) |
 | Tier click (remove) | the character's row in `landsraad_task_player_contributions` only (the page lists no reward rows for a removal) |
 | Fill | the character's contribution raised to the top tier (never lowered), one reward row in `landsraad_house_rewards` for each tier crossed, the faction's progress in `landsraad_task_faction_contributions` set to the goal, and the house marked taken by that faction in `landsraad_tasks` (`completed`, `winning_faction_id`, completion time); for another faction the character's own row is skipped |
 | Complete | `landsraad_tasks` (`completed`, `winning_faction_id`, completion time) and the faction's progress set to the goal |

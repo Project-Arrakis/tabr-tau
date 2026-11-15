@@ -334,3 +334,40 @@ test('Cancel is ignored while the write of the bulk question runs: it does not s
   assert.equal(writes(ui).length, 1);
   assert.ok(result(ui).startsWith('Complete chosen: 3 houses completed'), result(ui));
 });
+
+// What a raise grants (refs #609, #652): the missions it stands for, what they paid, and the warning when tiers were left out because they were already delivered (#656).
+test('the result line and the toast name the missions a raise granted: Solari, House Scrip and the specialization XP by line', async () => {
+  const ui = await open(board(), { '/api/landsraad/apply': { ...OK, completed: 1, reward_rows: 3, missions: 3, solari: 18000, house_scrip: 3000, specialization_xp: { Exploration: 9000 }, rewards_already_given: 0 } });
+  click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
+  const r = result(ui);
+  assert.ok(r.includes('3 reward rows written; 3 missions granted: +18,000 Solari, +3,000 House Scrip, +9,000 Exploration XP'), r);
+  assert.ok(r.includes('house taken, its faction reached the goal'), r);
+  assert.ok(!r.includes('Warning'), r);
+  assert.ok(toasts(ui).some((t) => t.includes('3 missions granted: +18,000 Solari')), 'the toast says it too');
+});
+
+test('a raise whose tiers were already delivered says so as a warning and grants nothing', async () => {
+  const ui = await open(board(), { '/api/landsraad/apply': { ...OK, reward_rows: 0, events: 0, missions: 0, solari: 0, house_scrip: 0, specialization_xp: {}, rewards_already_given: 2 } });
+  click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
+  const r = result(ui);
+  assert.ok(r.includes('Warning: 2 reward tiers not written, already delivered'), r);
+  assert.ok(!r.includes('granted'), r);
+  assert.ok(toasts(ui).some((t) => t.includes('Warning: 2 reward tiers not written, already delivered')), 'the toast carries the warning');
+});
+
+test('a bulk write sums the missions of every house and names each specialization line', async () => {
+  const ui = await open(board(), { '/api/landsraad/apply': { ...OK, changed: 2, houses: 2, contribution_raised: 2, reward_rows: 6, missions: 5, solari: 30000, house_scrip: 5000, specialization_xp: { Crafting: 3000, Gathering: 4500 }, rewards_already_given: 1 } });
+  click(ui, '[data-lb=pickall]');
+  click(ui, '[data-lb=bulk][data-do=fill]'); await ui.settle();
+  click(ui, '[data-lb=cyes]'); await ui.settle();
+  const r = result(ui);
+  assert.ok(r.includes('5 missions granted: +30,000 Solari, +5,000 House Scrip, +3,000 Crafting XP, +4,500 Gathering XP'), r);
+  assert.ok(r.includes('Warning: 1 reward tier not written, already delivered'), r);
+});
+
+test('the About text says what a raise grants, that the mission limits of the game are not applied and that a second Fill grants nothing', async () => {
+  const ui = await open();
+  const about = text(ui.doc.querySelector('#lsb'));
+  for (const s of ['6,000 Solari and 1,000 House Scrip in your wallet for each mission', 'on the specialization line of the house', 'The daily and weekly mission limits of the game are not applied',
+    'so a second Fill grants nothing', 'Not written: your character\'s own experience and faction standing']) assert.ok(about.includes(s), s);
+});

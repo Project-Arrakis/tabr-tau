@@ -23,7 +23,7 @@ import (
 // mine_to = that tier's threshold, and the removal of the highest tier is mine_to = the tier below it, or 0, with lower: true.
 //
 // Before anything is written the term and every house are compared with what the page showed (was_mine, was_done, was_win); a difference is a conflict and nothing is
-// written. It is one edit: either every house is done or none is. A contribution that is raised also writes the event and the reward rows (landsraad_rewards.go).
+// written. It is one edit: either every house is done or none is. A contribution that is raised also grants what the missions it stands for grant (landsraad_grant.go): the faction's share and the completion it brings, an event and the cursor, the reward rows of the tiers the character's own events had not crossed, the wallets and the specialization XP; one transaction, so a failure at any step leaves nothing behind.
 
 type applyItem struct {
 	task        int64
@@ -110,9 +110,14 @@ func parseApplyItems(a Args) ([]applyItem, error) {
 	return out, nil
 }
 
-// LandsraadApply writes the board's change (args term_id: the term the page showed; houses: the list described above). It is one edit and it is refused as a whole
-// when the term, or any house, is no longer what the page showed.
+// LandsraadApply is LandsraadApplyWith with the stock settings (both multipliers 1, the measured track numbers).
 func (o *Ops) LandsraadApply(a Args) (any, error) {
+	return o.LandsraadApplyWith(DefaultGrantSettings(), a)
+}
+
+// LandsraadApplyWith writes the board's change (args term_id: the term the page showed; houses: the list described above). It is one edit and it is refused as a whole
+// when the term, or any house, is no longer what the page showed. g gives the amounts a mission stands for (landsraad_grant.go).
+func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 	termID, err := a.Int("term_id")
 	if err != nil {
 		return nil, err
@@ -227,18 +232,8 @@ func (o *Ops) LandsraadApply(a Args) (any, error) {
 				to := *it.mineTo
 				switch {
 				case to > s.cur:
-					// how far the same change takes the faction's own progress (the event records it)
-					facDelta := 0.0
-					if it.completeFor != nil && *it.completeFor == me.faction {
-						goal, _ := toFloat(s.t["goal_amount"])
-						have := 0.0
-						if fc, err := m.One(`select amount from landsraad_task_faction_contributions where faction_id=? and task_id=?`, me.faction, it.task); err != nil {
-							return err
-						} else if fc != nil {
-							have, _ = toFloat(fc["amount"])
-						}
-						facDelta = max(goal-have, 0)
-					}
+					// the character's own row is raised to the tier; the missions it stands for are then granted (landsraad_grant.go): the faction's share and the completion it
+					// brings, the event with its player link and the cursor, the reward rows, the two wallets and the specialization track
 					if _, err := m.Exec(`insert into landsraad_task_player_contributions(player_id, faction_id, task_id, amount) values(?,?,?,?)
 						on conflict(player_id, faction_id, task_id) do update set amount=excluded.amount`, me.player, me.faction, it.task, to); err != nil {
 						return err
@@ -249,9 +244,12 @@ func (o *Ops) LandsraadApply(a Args) (any, error) {
 					if !clock.ok {
 						return apierr.New(apierr.ErrBadArgument, "the save has no record of this term, so the rewards cannot be timed: nothing was changed")
 					}
-					rr, err := deliverContribution(m, me, s.t, s.cur, to, facDelta, clock)
+					rr, done, err := grantRaise(m, me, s.t, s.cur, to, it.completeFor != nil && *it.completeFor == me.faction, clock, g)
 					if err != nil {
 						return err
+					}
+					if done {
+						completed++
 					}
 					rw.add(rr)
 				case to < s.cur && to == 0:
@@ -301,7 +299,16 @@ func (o *Ops) LandsraadApply(a Args) (any, error) {
 	}); err != nil {
 		return nil, err
 	}
-	return resetAnswer(changed, map[string]any{"houses": houses, "skipped": houses - changed, "contribution_raised": raised, "contribution_lowered": lowered, "completed": completed, "reopened": reopened, "events": rw.events, "reward_rows": rw.rewardRows, "swatches": rw.swatches, "rewards_already_given": rw.skipped}), nil
+	return resetAnswer(changed, map[string]any{"houses": houses, "skipped": houses - changed, "contribution_raised": raised, "contribution_lowered": lowered, "completed": completed, "reopened": reopened, "events": rw.events, "reward_rows": rw.rewardRows, "swatches": rw.swatches, "rewards_already_given": rw.skipped,
+		"missions": rw.missions, "solari": rw.solari, "house_scrip": rw.scrip, "specialization_xp": specAnswer(rw.spec)}), nil
+}
+
+// specAnswer is the specialization XP that was added, by line, as the answer carries it (never nil, so the page can read it).
+func specAnswer(m map[string]int64) map[string]int64 {
+	if m == nil {
+		return map[string]int64{}
+	}
+	return m
 }
 
 // houseOf names a task row's house for a message.

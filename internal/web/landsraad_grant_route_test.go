@@ -1,0 +1,98 @@
+package web
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/Project-Arrakis/tabr-tau/internal/config"
+	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
+)
+
+// The board's write scales a mission by the two Landsraad multipliers of ServerCustomSettings.ini, read from the folder the editor already edits (1 where the key or the file is
+// not there), and refuses with the reason when a value is not a number from 0 to 10 (refs #609, #652).
+
+func grantTotals(t *testing.T, path string) (solari, scrip, xp int64) {
+	t.Helper()
+	chk, err := save.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer chk.Close()
+	for cur, dst := range map[int64]*int64{0: &solari, 1: &scrip} {
+		r, err := chk.One(`select balance b from player_virtual_currency_balances where player_controller_id=1 and currency_id=?`, cur)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r != nil {
+			*dst = r["b"].(int64)
+		}
+	}
+	r, err := chk.One(`select xp_amount x from specialization_tracks where player_id=1 and track_type=2`) // Kenola raises Gathering, track 2
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r != nil {
+		xp = r["x"].(int64)
+	}
+	return
+}
+
+func grantServer(t *testing.T, ini string) *Server {
+	t.Helper()
+	cfg := t.TempDir()
+	if ini != "" {
+		if err := os.WriteFile(filepath.Join(cfg, "ServerCustomSettings.ini"), []byte(ini), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return New(testsave.PlayerWithSQL(t, landsraadChosenWorld), config.Dir{Path: cfg})
+}
+
+const grantFill = `{"term_id":7,"houses":[{"task_id":175,"was_mine":1300,"mine_to":6000}]}`
+
+func TestTheBoardsWriteScalesAMissionByTheSettingsFile(t *testing.T) {
+	s := grantServer(t, "[/Script/DuneSandbox.UserServerCustomSettings]\r\nLandsraadContributionMultiplier=2.000000\r\nLandsraadSpecializationXpMultiplier=2.000000\r\nGatheringAmount=1.000000\r\n")
+	w := postEdit(t, s, "/api/landsraad/apply", grantFill)
+	m := decodeBody(t, w)
+	// the step is 2,000: the 2nd and the 3rd mission cross 1,300 to 6,000; each gives 6,000 Solari, 1,000 House Scrip and 1,500 x 2 XP
+	if w.Code != 200 || m["missions"] != float64(2) || m["solari"] != float64(12000) || m["house_scrip"] != float64(2000) {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	if solari, scrip, xp := grantTotals(t, s.Save.Path); solari != 12000 || scrip != 2000 || xp != 6000 {
+		t.Fatalf("the save: %d %d %d", solari, scrip, xp)
+	}
+}
+
+func TestTheBoardsWriteUsesTheStockAmountsWhenTheFileHasNoKey(t *testing.T) {
+	for name, ini := range map[string]string{"no file": "", "no key": "[/Script/DuneSandbox.UserServerCustomSettings]\nGatheringAmount=1.000000\n",
+		"the key in another section": "[Other]\nLandsraadContributionMultiplier=5.000000\n"} {
+		s := grantServer(t, ini)
+		w := postEdit(t, s, "/api/landsraad/apply", grantFill)
+		if w.Code != 200 {
+			t.Fatalf("%s: %d %s", name, w.Code, w.Body.String())
+		}
+		// step 1,000: ceil(6000 / 1000) - ceil(1300 / 1000) = 4 missions, 1,500 XP each
+		if solari, scrip, xp := grantTotals(t, s.Save.Path); solari != 24000 || scrip != 4000 || xp != 6000 {
+			t.Errorf("%s: the save: %d %d %d", name, solari, scrip, xp)
+		}
+	}
+}
+
+func TestTheBoardsWriteRefusesAMultiplierItCannotReadAndWritesNothing(t *testing.T) {
+	for _, v := range []string{"abc", "-1", "11", "NaN", "Inf", ""} {
+		s := grantServer(t, "[/Script/DuneSandbox.UserServerCustomSettings]\nLandsraadSpecializationXpMultiplier="+v+"\n")
+		w := postEdit(t, s, "/api/landsraad/apply", grantFill)
+		if w.Code != 422 || !strings.Contains(w.Body.String(), "LandsraadSpecializationXpMultiplier") || !strings.Contains(w.Body.String(), "Nothing was changed") {
+			t.Errorf("%q: %d %s", v, w.Code, w.Body.String())
+		}
+		if got := landsraadMineAmounts(t, s.Save.Path); got[1] != 1300 {
+			t.Errorf("%q: the contribution changed: %v", v, got)
+		}
+		if solari, scrip, xp := grantTotals(t, s.Save.Path); solari != 0 || scrip != 0 || xp != 0 {
+			t.Errorf("%q: something was granted: %d %d %d", v, solari, scrip, xp)
+		}
+	}
+}

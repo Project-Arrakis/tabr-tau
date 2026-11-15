@@ -75,8 +75,8 @@ func TestRewardsFillDeliversEveryTierCrossedAndTheSwatchInsteadOfTheTopItem(t *t
 	if got := oneTimeRows(t, o); got != "map[house_name:DA_HouseKenola player_id:1 template_id:Kenola_Placeables_Swatch term_id:7]\n" {
 		t.Fatalf("the one-time row: %s", got)
 	}
-	if got, w := events(t, o), "map[faction_id:2 faction_progress:0 guild_progress:0 id:1 l.player_id:1 player_progress:4700 task_id:175 timestamp:150]\n"; got != fmt.Sprint(w) && got != "map[faction_id:2 faction_progress:0 guild_progress:0 id:1 player_id:1 player_progress:4700 task_id:175 timestamp:150]\n" {
-		t.Fatalf("the event: %s", got)
+	if got := events(t, o); got != "map[faction_id:2 faction_progress:4700 guild_progress:0 id:1 player_id:1 player_progress:6000 task_id:175 timestamp:150]\n" {
+		t.Fatalf("the event (the faction gains what the character gained; the event also covers the 1,300 that stood there without an event): %s", got)
 	}
 	if houseRewards(t, o, "DA_HouseMaros") != maros {
 		t.Fatal("another house's rows were touched")
@@ -127,7 +127,7 @@ func TestRewardsAHouseWithoutASwatchRowDeliversTheTaskItem(t *testing.T) {
 func TestRewardsFillFactionGoalRecordsTheFactionsShareInTheEvent(t *testing.T) {
 	o := rewardOps(t, "")
 	fillKenola(t, o, Args{"complete_for": 2.0})
-	if got := events(t, o); got != "map[faction_id:2 faction_progress:3000 guild_progress:0 id:1 player_id:1 player_progress:4700 task_id:175 timestamp:150]\n" {
+	if got := events(t, o); got != "map[faction_id:2 faction_progress:3000 guild_progress:0 id:1 player_id:1 player_progress:6000 task_id:175 timestamp:150]\n" {
 		t.Fatalf("the event: %s", got)
 	}
 	if h := houseRow(t, o, 175); h["c"].(int64) != 1 || h["w"].(int64) != 2 || h["ct"].(int64) != 150 {
@@ -136,7 +136,7 @@ func TestRewardsFillFactionGoalRecordsTheFactionsShareInTheEvent(t *testing.T) {
 	// the same request on a house the faction is already at the goal on adds nothing to the faction's share
 	o = rewardOps(t, `update landsraad_task_faction_contributions set amount=4000 where task_id=175`)
 	fillKenola(t, o, Args{"complete_for": 2.0})
-	if got := events(t, o); got != "map[faction_id:2 faction_progress:0 guild_progress:0 id:1 player_id:1 player_progress:4700 task_id:175 timestamp:150]\n" {
+	if got := events(t, o); got != "map[faction_id:2 faction_progress:0 guild_progress:0 id:1 player_id:1 player_progress:6000 task_id:175 timestamp:150]\n" {
 		t.Fatalf("the event: %s", got)
 	}
 }
@@ -153,7 +153,7 @@ func TestRewardsATierGiveOnAHouseWithoutAContributionRowDeliversFromTheFirstTier
 	if got := houseRewards(t, o, "DA_HouseVernius"); got != want {
 		t.Fatalf("rows:\n%s\nwant\n%s", got, want)
 	}
-	if got := events(t, o); got != "map[faction_id:2 faction_progress:0 guild_progress:0 id:1 player_id:1 player_progress:3600 task_id:176 timestamp:150]\n" {
+	if got := events(t, o); got != "map[faction_id:2 faction_progress:3600 guild_progress:0 id:1 player_id:1 player_progress:3600 task_id:176 timestamp:150]\n" {
 		t.Fatalf("the event: %s", got)
 	}
 	if oneTimeRows(t, o) != "" {
@@ -209,15 +209,15 @@ func TestRewardsAnEarlierTermsRowIsMergedWhenWaitingAndSetWhenCollected(t *testi
 	}
 }
 
-func TestRewardsTheEventIdIsAboveEveryEventAndTheCursorWhichIsNotMoved(t *testing.T) {
+func TestRewardsTheEventIdIsAboveEveryEventAndTheCursorMovesToIt(t *testing.T) {
 	o := rewardOps(t, `insert into landsraad_task_progress(id, faction_id, task_id, faction_progress, guild_progress, player_progress, timestamp) values (3, 2, 174, 0, 0, 100, 120);
 		insert into landsraad_task_progress_processed(id, last_processed_id) values (1, 7);`)
 	fillKenola(t, o, nil)
 	if got := rows(t, o, `select id from landsraad_task_progress order by id`); got != "map[id:3]\nmap[id:8]\n" {
 		t.Fatalf("the new event is above the cursor: %s", got)
 	}
-	if got := rows(t, o, `select id, last_processed_id from landsraad_task_progress_processed`); got != "map[id:1 last_processed_id:7]\n" {
-		t.Fatalf("the cursor is left as it was: %s", got)
+	if got := rows(t, o, `select id, last_processed_id from landsraad_task_progress_processed`); got != "map[id:1 last_processed_id:8]\n" {
+		t.Fatalf("the cursor moves to the new event, as in the game's own saves: %s", got)
 	}
 	if got := rows(t, o, `select progress_id, player_id from landsraad_task_progress_player`); got != "map[player_id:1 progress_id:8]\n" {
 		t.Fatalf("the link: %s", got)

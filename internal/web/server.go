@@ -844,7 +844,9 @@ func (s *Server) routes() {
 	s.post("/api/landsraad/faction-goal", o.FillFactionGoal)
 	s.post("/api/landsraad/complete-many", o.CompleteChosen)
 	s.post("/api/landsraad/reopen-many", o.ReopenChosen)
-	s.post("/api/landsraad/apply", o.LandsraadApply)
+	// the board's write goes through the same write path as every other edit (one transaction, the queue and the backup of Save); the two multipliers it scales a mission's
+	// contribution and specialization XP by are read from the settings file the editor already edits, 1 where the key is not in it
+	s.post("/api/landsraad/apply", func(a ops.Args) (any, error) { return o.LandsraadApplyWith(s.grantSettings(), a) })
 	s.post("/api/landsraad/decree", o.SetDecree)
 	s.post("/api/landsraad/term", o.SetTerm)
 
@@ -1221,3 +1223,24 @@ func (s *Server) takeStartup() (string, bool) {
 }
 
 func (s *Server) takeStartupNote() string { n, _ := s.takeStartup(); return n }
+
+// grantSettings is what a Landsraad write scales a mission by: LandsraadContributionMultiplier and LandsraadSpecializationXpMultiplier of ServerCustomSettings.ini (1 when the
+// file or the key is not there) and the specialization track numbers the editor learned. A value that is not a number from 0 to 10 is not guessed at: the write that needs it is
+// refused with the reason (Problem).
+func (s *Server) grantSettings() ops.GrantSettings {
+	g := ops.DefaultGrantSettings()
+	g.TrackNumbers = settings.Load(s.SettingsPath).TrackNumbers
+	for _, k := range []struct {
+		key string
+		dst *float64
+	}{{"LandsraadContributionMultiplier", &g.ContributionMultiplier}, {"LandsraadSpecializationXpMultiplier", &g.SpecializationXPMultiplier}} {
+		v, found, err := s.Cfg.Number("ServerCustomSettings.ini", config.DefaultSection, k.key, 0, 10)
+		switch {
+		case err != nil:
+			g.Problem = "The Landsraad amounts cannot be worked out: " + err.Error() + ". Nothing was changed; correct the value in ServerCustomSettings.ini (Config tab) and try again."
+		case found:
+			*k.dst = v
+		}
+	}
+	return g
+}
