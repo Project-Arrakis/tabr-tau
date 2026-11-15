@@ -2,12 +2,13 @@ package hygiene
 
 import (
 	"bytes"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"unicode/utf8"
+	"unicode/utf16"
 )
 
 // fixtureWord is a word of this test's own: the tests prove the check against a digest of it, so no real reserved word is spelled here.
@@ -81,6 +82,22 @@ func TestProfilePaths(t *testing.T) {
 		`open /Users@/jdoe/Library/x`,
 		`see (/home@/jdoe/.config)`,
 		`path=/home@/jdoe`,
+		// the other ways to write the same folder (#700)
+		`bash: /c/Users@/jdoe/proj/x.sh: No such file`,
+		`at /mnt/c/Users@/jdoe/proj/x.go:12`,
+		`at /cygdrive/d/Users@/jdoe/x`,
+		`at file:///home@/jdoe/proj/x.mjs:3:9`,
+		`at file:///Users@/jdoe/proj/x.mjs`,
+		`at file://localhost/Users@/jdoe/x`,
+		`PATH=/usr/bin:/home@/jdoe/bin`,
+		`dirs [/home@/jdoe/a]`,
+		`dir>/Users@/jdoe/a`,
+		`\\host\Users@\jdoe\Documents`,
+		`\\host\C$\Users@\jdoe\Documents`,
+		`\\wsl$\Ubuntu\home@\jdoe\x`,
+		`file:///C:/Users@/jdoe/x`,
+		// account names that are first names are accounts, not placeholders
+		`C:\Users@\john\x`, `C:\Users@\jane\x`, `/home@/alice/x`, `/Users@/bob/x`,
 	}
 	for _, s := range bad {
 		s = strings.ReplaceAll(s, "@", "") // the marker keeps this file from containing a profile path itself
@@ -93,6 +110,8 @@ func TestProfilePaths(t *testing.T) {
 		`%USERPROFILE%\AppData\Local`, `$HOME/.config`, `C:\Users\<name>\x`, `C:\Users\Public\Documents`, `C:\Users\you\x`,
 		`/home/runner/work/tabr-tau`, `~/.config`, `C:\Users\%USERNAME%\x`, `the /users/ pattern`, `/home/<you>/x`, `C:\Users\Default\NTUSER.DAT`,
 		`https://example.com/users/jdoe`, `a/home/jdoe`,
+		`http://localhost:8080/home/jdoe`, `https://example.com/mnt/c/users/jdoe`, `host:/home/<account>/x`, `/home/runner:/usr/bin`, `/home/user:/bin`,
+		`file:///home/you/x`, `${ROOT}/home/jdoe`, `\\host\share\Users\Public`, `../home/jdoe`, `~/users/jdoe`, `/c/Users/<name>/x`,
 	}
 	for _, s := range good {
 		if h := c.Check(s); len(h) != 0 {
@@ -114,13 +133,45 @@ func TestAttribution(t *testing.T) {
 	}
 }
 
-// isText reports whether a file's bytes are text to scan: valid UTF-8 with no NUL byte. Binary files (images, fonts, archives) are not.
-func isText(b []byte) bool {
+// textExtensions are the extensions of files that are text by kind: one of them that cannot be read as text fails the scan instead of being skipped.
+var textExtensions = map[string]bool{
+	".go": true, ".md": true, ".txt": true, ".json": true, ".yml": true, ".yaml": true, ".html": true, ".htm": true, ".css": true, ".js": true,
+	".mjs": true, ".cjs": true, ".ts": true, ".sql": true, ".sh": true, ".ps1": true, ".toml": true, ".csv": true, ".xml": true, ".svg": true,
+	".mod": true, ".sum": true, ".ini": true, ".cfg": true, ".log": true, ".tsv": true, ".bat": true, ".cmd": true, ".ddl": true,
+}
+
+// scanText returns the text of a file's bytes for the scan, and whether the file is text at all. A file that starts with a two-byte byte-order
+// mark is decoded from UTF-16; a file with no NUL byte is text whether or not it is valid UTF-8 (the rules are ASCII, so a stray byte only
+// splits a word, and the checker also joins the words on either side of it); a file with a NUL byte in its first 8 KiB and no such mark is
+// binary (images, fonts, archives). err is set for a file that starts with a mark but is not whole UTF-16, and for a file with a known text
+// extension that is not text, so that neither is skipped without a word; it names the path only.
+func scanText(path string, b []byte) (text string, isText bool, err error) {
+	if len(b) >= 2 && (b[0] == 0xFF && b[1] == 0xFE || b[0] == 0xFE && b[1] == 0xFF) {
+		body := b[2:]
+		if len(body)%2 != 0 {
+			return "", false, fmt.Errorf("%s starts with a UTF-16 byte-order mark but is not whole UTF-16 text", path)
+		}
+		u := make([]uint16, len(body)/2)
+		for i := range u {
+			if b[0] == 0xFF {
+				u[i] = uint16(body[2*i]) | uint16(body[2*i+1])<<8
+			} else {
+				u[i] = uint16(body[2*i])<<8 | uint16(body[2*i+1])
+			}
+		}
+		return string(utf16.Decode(u)), true, nil
+	}
 	head := b
 	if len(head) > 8192 {
 		head = head[:8192]
 	}
-	return !bytes.Contains(head, []byte{0}) && utf8.Valid(b)
+	if bytes.Contains(head, []byte{0}) {
+		if textExtensions[strings.ToLower(filepath.Ext(path))] {
+			return "", false, fmt.Errorf("%s has a text extension but holds NUL bytes and no UTF-16 byte-order mark, so it cannot be scanned", path)
+		}
+		return "", false, nil
+	}
+	return string(b), true, nil
 }
 
 // No tracked file of the repository names a reserved word or a personal profile path, in its text or in its path: docs, code and comments,
@@ -156,11 +207,16 @@ func TestNoReservedWordIsInThePublicRepository(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if !isText(b) {
+		text, isText, err := scanText(rel, b)
+		if err != nil {
+			t.Error(err) // a known text file that cannot be read as text fails the scan; the message names the path only
+			return nil
+		}
+		if !isText {
 			return nil
 		}
 		checked++
-		for _, h := range c.Check(string(b)) {
+		for _, h := range c.Check(text) {
 			t.Errorf("%s:%d breaks the public text rule (%s); the report names the rule, never the text", rel, h.Line, h.Kind)
 		}
 		return nil
@@ -175,24 +231,132 @@ func TestNoReservedWordIsInThePublicRepository(t *testing.T) {
 
 // The workflow that runs the check on issue and pull request text must exist and name the events that matter, so it cannot be dropped by accident.
 func TestThePublicTextWorkflowCoversIssuesPullRequestsAndComments(t *testing.T) {
-	b, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "public-text.yml"))
+	for _, file := range []string{"public-text.yml", "public-text-discussion.yml"} {
+		s := readWorkflow(t, file)
+		for _, want := range []string{"edited", "./cmd/publictextcheck"} {
+			if !strings.Contains(s, want) {
+				t.Errorf("%s does not mention %q", file, want)
+			}
+		}
+		if strings.Contains(s, "pull_request_target") {
+			t.Errorf("%s must not use pull_request_target: it would run with a write token over text from a fork", file)
+		}
+		for _, bad := range []string{"github.event.issue.title", "github.event.issue.body", "github.event.comment.body", "github.event.review.body", "github.event.pull_request.title", "github.event.pull_request.body", "github.event.pull_request.head.ref", "github.head_ref"} {
+			if strings.Contains(s, bad) {
+				t.Errorf("%s must read the event from the payload file, never interpolate %s into a step", file, bad)
+			}
+		}
+	}
+	// Between them the two workflows still cover every event the check covered before the split (#701).
+	all := readWorkflow(t, "public-text.yml") + readWorkflow(t, "public-text-discussion.yml")
+	for _, want := range []string{"issues:", "issue_comment:", "pull_request:", "pull_request_review:", "pull_request_review_comment:"} {
+		if !strings.Contains(all, "\n  "+want+"\n") {
+			t.Errorf("no public-text workflow runs on %q", want)
+		}
+	}
+}
+
+// Two check runs with one name on one head commit: the newest decides (and GitHub's documentation warns that one job name in several
+// workflows gives ambiguous results). A review run checks less than a pull request run, so it must never report under the name of the
+// required check, not even as a skipped job (#701). The required check "public-text" belongs to the workflow that runs on the
+// pull_request event and on nothing else, and no other job or workflow in the repository may use that name.
+func TestThePublicTextCheckNameBelongsToThePullRequestWorkflowAlone(t *testing.T) {
+	pr := readWorkflow(t, "public-text.yml")
+	if got := workflowEvents(pr); len(got) != 1 || got[0] != "pull_request" {
+		t.Errorf("public-text.yml must run on the pull_request event only, it runs on %v", got)
+	}
+	if got := workflowJobNames(pr); len(got) != 1 || got[0] != "public-text" {
+		t.Errorf("public-text.yml must hold one job named public-text, it holds %v", got)
+	}
+	if strings.Contains(pr, "\n        if:") || strings.Contains(pr, "\n    if:") {
+		t.Error("public-text.yml must not skip a step or the job on a condition: every run of the required check checks the same things")
+	}
+	if !strings.Contains(pr, "-commits") {
+		t.Error("public-text.yml must check the commit messages of the pull request")
+	}
+
+	disc := readWorkflow(t, "public-text-discussion.yml")
+	for _, e := range workflowEvents(disc) {
+		if e == "pull_request" {
+			t.Error("public-text-discussion.yml must not run on the pull_request event: that is the required check's event")
+		}
+	}
+	if got := workflowJobNames(disc); len(got) != 1 || got[0] != "public-text-discussion" {
+		t.Errorf("public-text-discussion.yml must hold one job named public-text-discussion, it holds %v", got)
+	}
+
+	files, err := filepath.Glob(filepath.Join("..", "..", ".github", "workflows", "*.yml"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no workflow files found: %v", err)
+	}
+	for _, f := range files {
+		base := filepath.Base(f)
+		if base == "public-text.yml" {
+			continue
+		}
+		s := readWorkflow(t, base)
+		for _, n := range workflowJobNames(s) {
+			if n == "public-text" {
+				t.Errorf("%s has a job named public-text: that name is the required check of public-text.yml alone", base)
+			}
+		}
+	}
+}
+
+func readWorkflow(t *testing.T, name string) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", name))
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := string(b)
-	for _, want := range []string{"issues:", "issue_comment:", "pull_request:", "pull_request_review:", "pull_request_review_comment:", "edited", "./cmd/publictextcheck"} {
-		if !strings.Contains(s, want) {
-			t.Errorf("public-text.yml does not mention %q", want)
+	return strings.ReplaceAll(string(b), "\r\n", "\n")
+}
+
+// workflowEvents lists the event names under the top-level "on:" key of a workflow (block style, two-space indent, as the repository writes them).
+func workflowEvents(s string) []string {
+	var out []string
+	in := false
+	for _, line := range strings.Split(s, "\n") {
+		switch {
+		case line == "on:":
+			in = true
+		case in && strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "   ") && strings.HasSuffix(line, ":"):
+			out = append(out, strings.TrimSuffix(strings.TrimSpace(line), ":"))
+		case in && line != "" && !strings.HasPrefix(line, " "):
+			in = false
 		}
 	}
-	if strings.Contains(s, "pull_request_target") {
-		t.Error("public-text.yml must not use pull_request_target: it would run with a write token over text from a fork")
-	}
-	for _, bad := range []string{"github.event.issue.title", "github.event.issue.body", "github.event.comment.body", "github.event.review.body", "github.event.pull_request.title", "github.event.pull_request.body", "github.event.pull_request.head.ref", "github.head_ref"} {
-		if strings.Contains(s, bad) {
-			t.Errorf("public-text.yml must read the event from the payload file, never interpolate %s into a step", bad)
+	return out
+}
+
+// workflowJobNames lists the "name:" of every job (the line indented four spaces right under a job id), or the job id when it has none.
+func workflowJobNames(s string) []string {
+	var out []string
+	in := false
+	id := ""
+	named := false
+	flush := func() {
+		if id != "" && !named {
+			out = append(out, id)
 		}
 	}
+	for _, line := range strings.Split(s, "\n") {
+		switch {
+		case line == "jobs:":
+			in = true
+		case in && line != "" && !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "#"):
+			flush()
+			in, id = false, ""
+		case in && strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "   ") && strings.HasSuffix(line, ":"):
+			flush()
+			id, named = strings.TrimSuffix(strings.TrimSpace(line), ":"), false
+		case in && strings.HasPrefix(line, "    name:"):
+			named = true
+			out = append(out, strings.Trim(strings.TrimSpace(strings.TrimPrefix(line, "    name:")), `"'`))
+		}
+	}
+	flush()
+	return out
 }
 
 func TestPhrasesOfUpToFourWordsAndTheTextIsKeptAsWritten(t *testing.T) {
@@ -203,5 +367,165 @@ func TestPhrasesOfUpToFourWordsAndTheTextIsKeptAsWritten(t *testing.T) {
 	}
 	if len(c.Check("alpha beta gamma")) != 0 || len(c.Check("beta gamma delta")) != 0 {
 		t.Error("a part of the phrase must not be a hit")
+	}
+}
+
+// with writes s with the placeholder # replaced by the character of that code point (the file holds no invisible character itself).
+func with(s string, cp rune) string { return strings.ReplaceAll(s, "#", string(cp)) }
+
+// A hyphenated reserved name is found when it is written with a part added, with a space, with markup, with another dash or with a hidden
+// character in it (#689). The fixture name is made up; the entry is the digest of "zor-blax".
+func TestAHyphenatedNameIsFoundInEveryWayItIsWritten(t *testing.T) {
+	c := NewWithDigests(Digest("zor-blax"))
+	for _, s := range []string{
+		"zor-blax",
+		"fix/zor-blax-crash",                     // a part added after
+		"feature/new-zor-blax",                   // a part added before
+		"zor-blax-notes.md", "zor_blax_notes.md", // file names
+		"zor blax",
+		"**zor**-blax", "zor-**blax**", "_zor_ blax", "`zor` `blax`",
+		"zor_blax",
+		"zor\nblax", "zor\r\nblax", // a line break where the hyphen was
+		"ZOR-Blax", "Zor Blax's notes",
+	} {
+		if len(c.Check(s)) == 0 {
+			t.Errorf("Check(%q) found nothing", s)
+		}
+	}
+	for _, cp := range []rune{
+		0x2010, 0x2011, 0x2013, 0x2014, 0x2212, 0xFE63, 0xFF0D, // dashes, the minus sign, the full-width hyphen
+		0x200B, 0x200D, 0x00AD, 0xFEFF, 0x202E, 0x2060, // zero-width characters, the soft hyphen, the byte-order mark, a direction mark
+	} {
+		for _, form := range []string{"zor#blax", "zor#-blax", "zor-#blax", "fix/zor#blax-crash"} {
+			if s := with(form, cp); len(c.Check(s)) == 0 {
+				t.Errorf("Check(%q) found nothing", s)
+			}
+		}
+	}
+	if s := "zo" + string(rune(0x0301)) + "r-blax"; len(c.Check(s)) == 0 { // a combining mark inside a letter
+		t.Errorf("Check(%q) found nothing", s)
+	}
+	if s := string([]rune{0xFF5A, 0xFF4F, 0xFF52}) + "-blax"; len(c.Check(s)) == 0 { // full-width letters
+		t.Errorf("Check(%q) found nothing", s)
+	}
+	for _, s := range []string{"zor", "blax", "zor-bla", "zorro-blax", "zor blaxes", "azor-blax", "zor-blaxes", "zor and blax", "zor, then blax", "x zor"} {
+		if h := c.Check(s); len(h) != 0 {
+			t.Errorf("Check(%q) = %+v, want none", s, h)
+		}
+	}
+}
+
+// A reserved single word is found when it is written in parts (#689): a hyphen, an underscore, a space or markup inside it.
+func TestASingleWordIsFoundWhenWrittenInParts(t *testing.T) {
+	c := NewWithDigests(Digest(fixtureWord))
+	for _, s := range []string{"zor-blax", "zor_blax", "zor blax", "**zor**blax", "zor\x80blax", "a-zor-blax-b", "zorb-lax", "zorbl_ax"} {
+		if len(c.Check(s)) == 0 {
+			t.Errorf("Check(%q) found nothing", s)
+		}
+	}
+	if len(c.Check("zorbla xx")) != 0 || len(c.Check("zorb")) != 0 {
+		t.Error("words that do not make the word are not a hit")
+	}
+}
+
+// A phrase is found over a line break, LF or CRLF, and the hit is on the line of its first word (#702).
+func TestAPhraseIsFoundOverALineBreak(t *testing.T) {
+	c := NewWithDigests(Digest("two", "parts"), Digest("Alpha", "beta", "gamma", "delta"))
+	for _, s := range []string{"two\nparts", "two\r\nparts", "two\n\nparts", "wrapped at fixed width, two\nparts of it", "Alpha beta\r\ngamma\ndelta", "Alpha\nbeta gamma delta"} {
+		h := c.Check(s)
+		if len(h) != 1 || h[0].Kind != KindReserved {
+			t.Errorf("Check(%q) = %+v, want one reserved phrase", s, h)
+		}
+	}
+	h := c.Check("a\nb\nc two\r\nparts\nd")
+	if len(h) != 1 || h[0].Line != 3 {
+		t.Errorf("hits = %+v, want one on line 3, the line of the first word", h)
+	}
+	if h := c.Check("two\nother parts"); len(h) != 0 {
+		t.Errorf("hits = %+v, want none", h)
+	}
+}
+
+func TestFoldKeepsLineEndsAndFoldsHiddenForms(t *testing.T) {
+	in := "a" + string(rune(0x200B)) + "b" + string(rune(0x2013)) + "c" + string(rune(0x2212)) + "d\n" + string([]rune{0xFF21, 0xFF11}) + "\r\n\te" + string(rune(0x0301))
+	if got, want := fold(in, " "), "a b-c-d\nA1\r\n\te"; got != want {
+		t.Errorf("fold(in, \" \") = %q, want %q", got, want)
+	}
+	if got, want := fold(in, ""), "ab-c-d\nA1\r\n\te"; got != want {
+		t.Errorf("fold(in, \"\") = %q, want %q", got, want)
+	}
+}
+
+// A hidden character inside the folder name or the account name does not break the path rule.
+func TestAHiddenCharacterDoesNotHideAProfilePath(t *testing.T) {
+	for _, s := range []string{`C:\Us#ers@\jdoe\x`, `/ho#me@/jdoe/x`, `C:\Users@\jd#oe\x`, `/c/Users@/jdoe#/x`} {
+		s = strings.ReplaceAll(s, "@", "") // the marker keeps this file from containing a profile path itself
+		s = with(s, 0x200B)
+		if h := NewWithDigests().Check(s); len(h) != 1 || h[0].Kind != KindProfilePath {
+			t.Errorf("Check(%q) = %+v, want one profile path", s, h)
+		}
+	}
+}
+
+// utf16Of encodes s as UTF-16 with a byte-order mark, little-endian (what an older Windows shell redirect writes) or big-endian.
+func utf16Of(s string, bigEndian bool) []byte {
+	out := []byte{0xFF, 0xFE}
+	if bigEndian {
+		out = []byte{0xFE, 0xFF}
+	}
+	for _, u := range utf16.Encode([]rune(s)) {
+		if bigEndian {
+			out = append(out, byte(u>>8), byte(u))
+		} else {
+			out = append(out, byte(u), byte(u>>8))
+		}
+	}
+	return out
+}
+
+// The file scan reads a file in a two-byte encoding and a file with one stray byte, and fails for a text file it cannot read (#703).
+func TestTheFileScanReadsWhatItUsedToSkip(t *testing.T) {
+	c := fixtureChecker()
+	line := "a log line with " + fixtureWord + " in it\n"
+	for name, b := range map[string][]byte{
+		"x.txt (UTF-16LE with a mark)": utf16Of(line, false),
+		"x.log (UTF-16BE with a mark)": utf16Of(line, true),
+		"x.md (a stray byte)":          []byte("caf\xe9 " + line),
+		"x.go (a stray byte inside)":   []byte("zor\x80blax and " + line),
+		"x (UTF-8 with a mark)":        append([]byte{0xEF, 0xBB, 0xBF}, line...),
+	} {
+		path := name[:strings.Index(name, " ")]
+		text, isText, err := scanText(path, b)
+		if err != nil || !isText {
+			t.Errorf("%s: scanText = (%v, %v), want text", name, isText, err)
+			continue
+		}
+		if len(c.Check(text)) == 0 {
+			t.Errorf("%s: the reserved word was not found", name)
+		}
+	}
+	// a UTF-16 file whose text is a path under a profile is found too
+	p := strings.ReplaceAll(`C:\Users@\jdoe\x`, "@", "")
+	if text, ok, err := scanText("x.txt", utf16Of(p, false)); err != nil || !ok || len(c.Check(text)) != 1 {
+		t.Errorf("a profile path in a UTF-16 file was not found (%v, %v)", ok, err)
+	}
+}
+
+func TestTheFileScanFailsForATextFileItCannotReadAndSkipsBinary(t *testing.T) {
+	nul := []byte("abc\x00def")
+	for _, path := range []string{"notes.txt", "NOTES.MD", "a/b/data.json", "w.yml", "x.go"} {
+		if _, _, err := scanText(path, nul); err == nil {
+			t.Errorf("%s: a text file with NUL bytes and no mark must fail the scan", path)
+		} else if strings.Contains(err.Error(), "abc") {
+			t.Errorf("%s: the error must name the path, not the content: %v", path, err)
+		}
+	}
+	for _, path := range []string{"a.png", "font.woff2", "x.zip", "LICENSE.bin", "noextension"} {
+		if _, isText, err := scanText(path, nul); err != nil || isText {
+			t.Errorf("%s: binary file = (%v, %v), want skipped without error", path, isText, err)
+		}
+	}
+	if _, _, err := scanText("x.txt", []byte{0xFF, 0xFE, 'a'}); err == nil {
+		t.Error("a UTF-16 mark with an odd number of bytes after it must fail the scan")
 	}
 }

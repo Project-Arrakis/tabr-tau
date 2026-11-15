@@ -13,9 +13,21 @@ test('Building sets: the count line ends with how many are learned, like the Cra
   const sets = { rows: [row({ id: 'A', name: 'A', learned: true }), row({ id: 'B', name: 'B', inInventory: true }), row({ id: 'C', name: 'C' }), row({ id: 'D', name: 'D', learned: true })], newPieces: [] };
   const ui = await boot({ get: { '/api/player/building-sets': sets } });
   await open(ui, 'player', 'buildingsets');
-  assert.equal(count(ui), '4 items; 3 of 4 learned.');
+  assert.equal(count(ui), '4 items; 2 of 4 learned (1 more only in an inventory).');
   ui.click('[data-ctf="missing"]'); await ui.settle();
-  assert.equal(count(ui), '1 of 4 items match; 3 of 4 learned.');
+  assert.equal(count(ui), '1 of 4 items match; 2 of 4 learned (1 more only in an inventory).');
+});
+
+test('Building sets: a set held only in an inventory is not counted as learned, and a list with none says nothing extra', async () => {
+  const rows = [row({ id: 'A', name: 'A', learned: true }), row({ id: 'B', name: 'B', inInventory: true }), row({ id: 'C', name: 'C', inInventory: true })];
+  let ui = await boot({ get: { '/api/player/building-sets': { rows, newPieces: [] } } });
+  await open(ui, 'player', 'buildingsets');
+  assert.equal(count(ui), '3 items; 1 of 3 learned (2 more only in an inventory).');
+  assert.equal(ui.doc.querySelector('[data-ctf="have"]').textContent, 'Learned or in inventory (3)');
+  ui.dom.window.close();
+  ui = await boot({ get: { '/api/player/building-sets': { rows: [row({ id: 'A', name: 'A', learned: true }), row({ id: 'C', name: 'C' })], newPieces: [] } } });
+  await open(ui, 'player', 'buildingsets');
+  assert.equal(count(ui), '2 items; 1 of 2 learned.');
 });
 
 test('Building sets: a long list keeps the "first N shown" part before the learned count', async () => {

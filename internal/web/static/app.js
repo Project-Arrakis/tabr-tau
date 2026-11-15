@@ -538,7 +538,7 @@ async function autoRefresh(o) {
   try {
     const r = await api('/api/save/discard', { ifClean: true });
     if (r && r.kept) return; // an edit was made while the status was being read: nothing is thrown away
-    await render(true);
+    await render(true, true); // the page's own redraw: the focus goes back, the page is not moved (#696)
   } catch (e) { /* the next poll shows the banner and tries again */ } finally { autoBusy = false; }
 }
 // A write that went through since the last poll: a check is drawn by the status bar for a moment (the words stay with the check, so Off still says it).
@@ -1121,12 +1121,14 @@ function catalogList() {
   const rows = visible.filter((r) => (ctFilter == 'all' || (ctFilter == 'have' ? have(r) : !have(r))) && (!ctGroup || (bs ? r.group == ctGroup : r.groupId == ctGroup))
     && ctQ.split(/\s+/).filter(Boolean).every((w) => (r.name + ' ' + r.id + ' ' + r.group).toLowerCase().includes(w.toLowerCase())));
   const nHave = visible.filter(have).length;
+  // Building sets: the word "learned" counts only the sets the save lists as learned; a set held only in an inventory is not learned until it is used in the game.
+  const nLearned = bs ? visible.filter((r) => r.learned).length : 0, nOnlyInv = bs ? nHave - nLearned : 0;
   const cards = bs ? '' : html`<div class="row">${CT.groups.map((g) => html`<div class="card d-panel setcard ${ctGroup == g.id ? 'on' : ''}"><button class="b sec sm d-btn sm" data-ctg="${g.id}">${g.name}</button>
       <div class="mut">${g.count} cosmetics${g.requirement ? ' · ' + g.requirement : ''}</div>${CT.libraryAvailable ? html`<button class="b sm d-btn primary sm" data-act="ctUnlockSet" data-id="${g.id}" data-name="${g.name}">Unlock set</button> ` : ''}<button class="b sec sm d-btn sm" data-act="ctGrantSet" data-id="${g.id}" data-name="${g.name}">Give as items</button></div>`)}</div>`;
   setHTML($('#cthead'), html`${cards}<div class="sub">${[['all', 'All', visible.length], ['have', bs ? 'Learned or in inventory' : 'Unlocked or in inventory', nHave], ['missing', 'Not owned', visible.length - nHave]].map(([k, v, n]) => html`<button data-ctf="${k}" class="${ctFilter == k ? 'on' : ''}">${v} (${n})</button>`)}</div>
     <div class="row"><input id="ctq" aria-label="Filter the list" placeholder="Filter by name, item id or group" size="34" value="${ctQ}"><button class="b sec d-btn" data-act="ctfilter">Filter</button><button class="b sec d-btn" data-act="ctclear">Clear</button>
     ${bs ? html`<select id="ctgrp" aria-label="Show one group"><option value="">All groups</option>${groupNames.map((g) => html`<option ${g == ctGroup ? 'selected' : ''}>${g}</option>`)}</select><label><input type="checkbox" id="ctexp" ${ctExp ? 'checked' : ''}> Show experimental</label>` : (ctGroup ? html`<button class="b sec d-btn" data-ctg="">All sets</button>` : '')}
-    <span class="mut">${countText(rows.length, visible.length, 'item', 'items', !!(ctQ.trim() || ctGroup || ctFilter != 'all'))}${rows.length > LISTMAX ? `, the first ${LISTMAX} shown` : ''}; ${nHave.toLocaleString()} of ${visible.length.toLocaleString()} ${bs ? 'learned' : CT.libraryAvailable ? 'unlocked or in inventory' : 'in inventory'}.</span></div>`);
+    <span class="mut">${countText(rows.length, visible.length, 'item', 'items', !!(ctQ.trim() || ctGroup || ctFilter != 'all'))}${rows.length > LISTMAX ? `, the first ${LISTMAX} shown` : ''}; ${bs ? `${nLearned.toLocaleString()} of ${visible.length.toLocaleString()} learned${nOnlyInv ? ` (${nOnlyInv.toLocaleString()} more only in an inventory)` : ''}` : `${nHave.toLocaleString()} of ${visible.length.toLocaleString()} ${CT.libraryAvailable ? 'unlocked or in inventory' : 'in inventory'}`}.</span></div>`);
   setHTML($('#ctout'), tbl([{ k: 'name', label: bs ? 'Building set' : 'Customization', f: (r) => html`<span title="${r.id}">${r.name}</span>${r.experimental ? html` <span class="tag">experimental</span>` : ''}` }, { k: 'id', label: 'Item id', cls: 'mut' },
     { k: 'group', label: bs ? 'Group' : 'Set' }, { k: 'requiredDlc', label: 'Requires', f: (r) => r.requiredDlc || (r.entitlement ? 'Account entitlement' : '') },
     { k: 'learned', label: 'State', f: (r) => (r.learned ? html`<span class="ok">Learned</span>` : r.unlocked ? html`<span class="ok">Unlocked</span>` : r.inInventory ? html`<span class="warn">In inventory</span>` : html`<span class="mut">Not owned</span>`) }], rows.slice(0, LISTMAX),
@@ -2243,12 +2245,13 @@ function focusSpec(el) {
   if (!el.id && !data.length) return null;
   return { id: el.id, tag: el.tagName, data, label: (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 60) };
 }
-function refocus(s) {
+// scroll is true only for a redraw that follows the person's own action; the page's own refresh (about every twenty seconds while the game runs) gives the focus back and never moves the page (#696).
+function refocus(s, scroll) {
   if (!s || (document.activeElement && document.activeElement !== document.body)) return;
   const pool = s.id ? [document.getElementById(s.id)] : [...document.querySelectorAll('#main ' + s.tag + ', #nav ' + s.tag)];
   const same = pool.filter((n) => n && s.data.every(([k, v]) => n.getAttribute(k) === v));
   const n = same.find((x) => (x.getAttribute('aria-label') || x.textContent || '').trim().slice(0, 60) === s.label) || same[0];
-  if (n && typeof n.focus === 'function') { n.focus({ preventScroll: true }); intoView(n); }
+  if (n && typeof n.focus === 'function') { n.focus({ preventScroll: true }); if (scroll) intoView(n); }
 }
 // The focus went back to a control that the kept offset left where it was; the page moves only when that control is off the screen or under the sticky header (#686).
 function intoView(n) {
@@ -2340,7 +2343,8 @@ function tmapSync() {
   if (box) setHTML(box, (sel && sel.value !== '') || hub ? html`<p class="warn" id="tmapwarn">${TRAVEL_WARN}</p>` : html``);
 }
 // render(true) is the redraw after an action (or the page's own refresh from the file): it keeps the place; render('scroll') keeps only the scroll offsets; render('rows') keeps only the page offset, for a change that shows other rows in a table box (the old offset of a box is not put back onto them, #697). Any other call is a move to another page, which starts at the top.
-async function render(keepPlace) {
+// auto is the page's own refresh from the file: it keeps the place the same way, but the page is never scrolled to the refocused control (#696).
+async function render(keepPlace, auto) {
   const keep = focusSpec(document.activeElement);
   const place = keepPlace === true || keepPlace === 'scroll' || keepPlace === 'rows' ? viewSnapshot() : reloaded;
   if (place && keepPlace === 'rows') place.boxes = {}; // other rows in the table boxes: they start at their top
@@ -2357,7 +2361,7 @@ async function render(keepPlace) {
   tmapSync();
   goSync();
   if (tab === 'player' && $('#tdout')) goPlaces(false);
-  refocus(keep);
+  refocus(keep, !auto);
 }
 
 const D = (e) => e.target.closest('[data-act]');

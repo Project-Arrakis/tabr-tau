@@ -3,6 +3,9 @@
 // offset is a number the test holds, and a redraw from nothing puts it at 0 unless the page puts it back.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import nodePath from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { boot, closeAll, GAP } from './boot.mjs';
 
 afterEach(closeAll);
@@ -210,4 +213,40 @@ test('Bases: another inventory group, a sub-tab and another base start the table
   at = await press(ui, '[data-bsopen="8"]', 640);
   assert.equal(at(), 640);
   assert.equal(boxOf(ui).scrollTop, 0, 'another base: its table starts at the top');
+});
+
+// The page's own refresh from the file (about every twenty seconds while the game runs) gives the focus back to the control that had it, but must never
+// scroll the page to it: the person pressed a button near the top, scrolled down to read, and the refresh must not pull the page back up (#696).
+const fixtureState = () => JSON.parse(fs.readFileSync(nodePath.join(nodePath.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'ui-fixtures.json'), 'utf8'))['/api/save/state'].body;
+
+test('the automatic refresh keeps the focus and does not scroll the page; a press still scrolls its control into view', async () => {
+  const state = { ...fixtureState(), changedOnDisk: false, dirty: false, pending: [] };
+  const ui = await boot({ get: { ...BASES, '/api/save/state': state } });
+  await go(ui, '[data-tab="player"]', '[data-sub="player:bases"]');
+  // the control is far below the screen, so a scroll to it would be seen as a change of offset
+  const proto = ui.w.HTMLElement.prototype;
+  proto.getBoundingClientRect = function () {
+    if (this.tagName === 'HEADER') return { top: 0, bottom: 56, width: 1000, height: 56 };
+    if (this.getAttribute && this.getAttribute('data-bstab') === 'water') return { top: 1500, bottom: 1530, width: 80, height: 30 };
+    return { top: 0, bottom: 0, width: 0, height: 0 };
+  };
+  const scrolls = [];
+  const at = holdWindowScroll(ui.w, 0);
+  const hold = ui.w.scrollTo;
+  ui.w.scrollTo = (x, y) => { scrolls.push(y); hold(x, y); };
+  const el = ui.doc.querySelector('[data-bstab="water"]'); assert.ok(el);
+  el.focus();
+  // the person presses the control (still on screen for this press), then scrolls down with the wheel to read
+  ui.w.scrollTo(0, 900); scrolls.length = 0;
+  ui.click('[data-bstab="water"]'); await ui.settle();
+  focused(ui, '[data-bstab="water"]');
+  assert.equal(at(), 900 + 1530 - 768 + 8, 'the press of a control that is off the screen still brings it into view');
+  ui.w.scrollTo(0, 1500); scrolls.length = 0; // the person scrolled on with the wheel
+  // the game rewrote the file: the next status poll sees it and the page reloads and redraws by itself
+  state.changedOnDisk = true;
+  await ui.w.status(); await ui.settle();
+  assert.ok(ui.posted.some((p) => p.path === '/api/save/discard'), 'the automatic refresh ran');
+  focused(ui, '[data-bstab="water"]');
+  assert.equal(at(), 1500, 'the page offset is the one the person left');
+  assert.deepEqual(scrolls.filter((y) => y !== 1500), [], 'the refresh moved the page only to put the kept offset back');
 });
