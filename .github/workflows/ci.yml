@@ -43,7 +43,9 @@ jobs:
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-H=windowsgui -s -w" -o /dev/null ./cmd/tabr-tau
           GOOS=windows GOARCH=386 CGO_ENABLED=0 go vet ./internal/gui/ ./cmd/...
       - name: go test (race, coverage)
-        run: go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+        # The limit is per test binary. internal/ops alone took 412 to 592 s here under -race with coverage (31 s without), so go's default of 10 minutes failed the job on a slow runner (#756).
+        # 20 minutes is about twice the slowest run seen and the job's timeout-minutes above still covers all its steps; if a runner ever needs more, raise this number first, then that one.
+        run: go test -race -count=1 -timeout 20m -covermode=atomic -coverprofile=coverage.out ./...
       - name: coverage summary
         run: go tool cover -func=coverage.out | tail -1
       - name: go test (the game's newer save layout, #588)
