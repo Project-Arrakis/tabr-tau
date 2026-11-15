@@ -159,8 +159,8 @@ func forEachPaletteTheme(t *testing.T, f func(t *testing.T, theme map[string]str
 		blocks[m[1]], themes[m[1]] = decls, m[2]
 	}
 	list := design.Palettes()
-	if len(list) != 60 || len(blocks) != len(list) {
-		t.Fatalf("the module lists %d palettes and palettes.css has %d blocks, want 60 of each", len(list), len(blocks))
+	if len(list) != 18 || len(blocks) != len(list) {
+		t.Fatalf("the module lists %d palettes and palettes.css has %d blocks, want 18 of each", len(list), len(blocks))
 	}
 	for _, look := range design.Looks() {
 		rawDark, rawLight := rawLookTokens(t, look)

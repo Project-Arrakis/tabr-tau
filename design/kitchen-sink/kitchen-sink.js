@@ -12,7 +12,7 @@
     sietch: ['tokens-sietch.css', 'components-sietch.css']
   };
   // The palettes are a fixed list too: the ids of design.Palettes, in its order (a test compares them). The look's own colours are "none", which removes the attribute.
-  var PALETTES = ['warm-charcoal', 'umber-sand', 'deep-teal', 'storm-blue', 'ember-red', 'circuit-indigo', 'mono-grey', 'cold-slate', 'navy-blue', 'violet-iron', 'ink-blue', 'desert-dusk', 'sand-linen', 'void-violet', 'steel-night', 'deep-ocean', 'paper-grey', 'copper-cyan', 'dye-olive-sage', 'dye-iron-crimson', 'dye-alexin', 'dye-argosaz', 'dye-dyvetz', 'dye-ecaz', 'dye-hagal', 'dye-hurata', 'dye-imota', 'dye-kenola', 'dye-lindaren', 'dye-maros', 'dye-mikarrol', 'dye-moritani', 'dye-mutelli', 'dye-novebruns', 'dye-richese', 'dye-sor', 'dye-spinnette', 'dye-taligari', 'dye-thorvald', 'dye-tseida', 'dye-varota', 'dye-vernius', 'dye-wallach', 'dye-wayku', 'dye-wydras', 'dye-sunset-dye', 'dye-dusk-rider', 'dye-blue-dasher', 'dye-maula', 'dye-choam', 'dye-vermillius-gap', 'dye-smuggler', 'dye-water-shipper-utility', 'dye-scriveners', 'dye-sand-rust', 'dye-ixian-garment', 'dye-resplendent-seraph', 'dye-palatial-servitors', 'dye-ash-brass', 'dye-hot-zone'];
+  var PALETTES = ['warm-charcoal', 'umber-sand', 'deep-teal', 'storm-blue', 'ember-red', 'circuit-indigo', 'mono-grey', 'cold-slate', 'navy-blue', 'violet-iron', 'ink-blue', 'desert-dusk', 'sand-linen', 'void-violet', 'steel-night', 'deep-ocean', 'paper-grey', 'copper-cyan'];
   var VALUES = { look: Object.keys(FILES), motion: ['full', 'calm', 'off'], 'heading-font': ['dune-rise', 'system'] };
 
   function setLook(look) {

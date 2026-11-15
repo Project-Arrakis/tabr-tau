@@ -4,16 +4,6 @@ Tags of this module are `design/vX.Y.Z`. The module is version 0.x: until v1.0.0
 
 Each tag needs an entry here whose heading is `## vX.Y.Z` followed by the date: the release workflow uses the entry as the release notes and fails without it.
 
-## v0.4.0 (2026-11-15)
-
-Palettes: forty-two dye palettes in two new groups, sixty in all.
-
-- **Forty-two new palettes in `assets/palettes.css`**, in two new groups listed after the first eighteen: **House dyes** (27: the 25 Landsraad Houses, Atreides and Harkonnen) and **Outfit dyes** (15: Sunset Dye, Dusk Rider, Blue Dasher, Maula, CHOAM, Vermillius Gap, Smuggler, Water Shipper Utility, Scriveners', Fremen Sietch, Ixian Garment, Resplendent Seraph, Palatial Servitors, Sardaukar Tactical, Hot Zone). All are dark palettes. The first eighteen are unchanged, in value and in order.
-- **Values.** Each palette is made from the four armour-dye colours the community wiki publishes for that swatch (https://awakening.wiki/Module:Swatches/data; colour values only, which are facts about the game's look). The rules are in `palettes_dyes_test.go`; the contrast rules of `palettes_gen_test.go` then move any colour that a check needs, exactly as for the first eighteen. The source page of each group is in NOTICE and PROVENANCE.md.
-- **Ids** are `dye-` and the name of the swatch, or colour words where the name is a franchise word the module keeps out of ids (`dye-olive-sage`, `dye-iron-crimson`, `dye-sand-rust`, `dye-ash-brass`). A label that would repeat one of the first eighteen says "dyes" (House Atreides dyes, House Harkonnen dyes, Fremen Sietch dyes).
-- **Go API.** Unchanged: `design.Palettes()` lists sixty palettes now, grouped (each group in one run).
-- **Tests.** The contrast tests of 0.3.0 run for each of the sixty palettes on each of the three looks; a test fails when a palette group has no source line in NOTICE and PROVENANCE.md.
-
 ## v0.3.0 (2026-11-11)
 
 Palettes: eighteen sets of colours that recolour a look.

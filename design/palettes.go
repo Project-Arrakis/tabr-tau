@@ -1,8 +1,8 @@
 package design
 
-// The palettes of the module: sixty sets of colours, each a recolouring of whatever look is linked. A palette changes colour tokens and
+// The palettes of the module: eighteen sets of colours, each a recolouring of whatever look is linked. A palette changes colour tokens and
 // nothing else (no type, space, shape, motion, texture or component); it is chosen by html[data-palette="ID"] and applies in its own theme only.
-// All sixty are in one stylesheet, assets/palettes.css, which a program links after the look's files.
+// All eighteen are in one stylesheet, assets/palettes.css, which a program links after the look's files.
 
 // PalettesFile is the stylesheet of the palettes, as a path inside Assets.
 const PalettesFile = "palettes.css"
@@ -44,48 +44,6 @@ var palettes = []Palette{
 	{ID: "deep-ocean", Name: "Water of Life", Group: "Mystical & mental", Theme: ThemeDark},
 	{ID: "paper-grey", Name: "Mentat", Group: "Mystical & mental", Theme: ThemeLight},
 	{ID: "copper-cyan", Name: "Spice Vision", Group: "Mystical & mental", Theme: ThemeDark},
-	{ID: "dye-olive-sage", Name: "House Atreides dyes", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-iron-crimson", Name: "House Harkonnen dyes", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-alexin", Name: "House Alexin", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-argosaz", Name: "House Argosaz", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-dyvetz", Name: "House Dyvetz", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-ecaz", Name: "House Ecaz", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-hagal", Name: "House Hagal", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-hurata", Name: "House Hurata", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-imota", Name: "House Imota", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-kenola", Name: "House Kenola", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-lindaren", Name: "House Lindaren", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-maros", Name: "House Maros", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-mikarrol", Name: "House Mikarrol", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-moritani", Name: "House Moritani", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-mutelli", Name: "House Mutelli", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-novebruns", Name: "House Novebruns", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-richese", Name: "House Richese", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-sor", Name: "House Sor", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-spinnette", Name: "House Spinnette", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-taligari", Name: "House Taligari", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-thorvald", Name: "House Thorvald", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-tseida", Name: "House Tseida", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-varota", Name: "House Varota", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-vernius", Name: "House Vernius", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-wallach", Name: "House Wallach", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-wayku", Name: "House Wayku", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-wydras", Name: "House Wydras", Group: "House dyes", Theme: ThemeDark},
-	{ID: "dye-sunset-dye", Name: "Sunset Dye", Group: "Outfit dyes", Theme: ThemeDark},
-	{ID: "dye-dusk-rider", Name: "Dusk Rider", Group: "Outfit dyes", Theme: ThemeDark},
-	{ID: "dye-blue-dasher", Name: "Blue Dasher", Group: "Outfit dyes", Theme: ThemeDark},
-	{ID: "dye-maula", Name: "Maula", Group: "Outfit dyes", Theme: ThemeDark},
-	{ID: "dye-choam", Name: "CHOAM", Group: "Outfit dyes", Theme: ThemeDark},
-	{ID: "dye-vermillius-gap", Name: "Vermillius Gap", Group: "Outfit dyes", Theme: ThemeDark},
-	{ID: "dye-smuggler", Name: "Smuggler", Group: "Outfit dyes", Theme: ThemeDark},
-	{ID: "dye-water-shipper-utility", Name: "Water Shipper Utility", Group: "Outfit dyes", Theme: ThemeDark},
-	{ID: "dye-scriveners", Name: "Scriveners'", Group: "Outfit dyes", Theme: ThemeDark},
-	{ID: "dye-sand-rust", Name: "Fremen Sietch dyes", Group: "Outfit dyes", Theme: ThemeDark},
-	{ID: "dye-ixian-garment", Name: "Ixian Garment", Group: "Outfit dyes", Theme: ThemeDark},
-	{ID: "dye-resplendent-seraph", Name: "Resplendent Seraph", Group: "Outfit dyes", Theme: ThemeDark},
-	{ID: "dye-palatial-servitors", Name: "Palatial Servitors", Group: "Outfit dyes", Theme: ThemeDark},
-	{ID: "dye-ash-brass", Name: "Sardaukar Tactical", Group: "Outfit dyes", Theme: ThemeDark},
-	{ID: "dye-hot-zone", Name: "Hot Zone", Group: "Outfit dyes", Theme: ThemeDark},
 }
 
 // Palettes lists the palettes in the order to show them (Arrakis Incandescent first, then by group). The slice is a copy that the caller may

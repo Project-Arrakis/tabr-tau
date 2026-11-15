@@ -15,8 +15,7 @@ import (
 //	go test -run TestPalettesCSSIsGenerated -update-palettes
 //
 // The table holds the thirteen colours of each palette as they come from their source (the grounds, lines, text, accent and status colours of
-// the fan-made editor themes under the MIT Licence that NOTICE names; alpha channels removed, nothing else changed; the forty-two dye palettes
-// are made by the rules of palettes_dyes_test.go from the dye colours of the wiki page that NOTICE names). The rules then move a
+// the fan-made editor themes under the MIT Licence that NOTICE names; alpha channels removed, nothing else changed). The rules then move a
 // colour toward white (a dark palette) or toward black (a light palette), in steps of 4 %, only as far as the checks of this module need, and
 // the generated file says in a comment which colours of a palette were moved.
 
@@ -26,14 +25,9 @@ type paletteSource struct {
 	id, name, group, theme                               string
 	ground, panel, raised, hair, rule, text, dim, accent string
 	ok, warn, bad, info, secondary                       string
-	// band: the editor's own tinted bands (a chosen Landsraad tile is the accent at 22 % on the panel) are checked too. The first eighteen were made before the
-	// check and keep their values, so it is set for the dye palettes only.
-	band bool
 }
 
-var paletteSources = append(append([]paletteSource(nil), fedaykinSources...), dyeSources()...)
-
-var fedaykinSources = []paletteSource{
+var paletteSources = []paletteSource{
 	{id: "warm-charcoal", name: "Arrakis Incandescent", group: "Planet", theme: "dark", ground: "#151313", panel: "#1c1b1a", raised: "#282726", hair: "#343331", rule: "#878580", text: "#cecdc3", dim: "#878580", accent: "#5a96bc", ok: "#7fb069", warn: "#e8b04b", bad: "#c15849", info: "#5a96bc", secondary: "#e2ad4a"},
 	{id: "umber-sand", name: "Sandworm", group: "Planet", theme: "dark", ground: "#1a1611", panel: "#221e17", raised: "#342d22", hair: "#5a4a36", rule: "#7a6548", text: "#e8dcc4", dim: "#9e8b6f", accent: "#5ca7e8", ok: "#8ca674", warn: "#e8a85c", bad: "#d67c5c", info: "#6cb4ee", secondary: "#e8b88c"},
 	{id: "deep-teal", name: "Kaitain", group: "Planet", theme: "dark", ground: "#0f191c", panel: "#021015", raised: "#081e26", hair: "#1b3743", rule: "#5e8c80", text: "#a8bcc9", dim: "#8299ac", accent: "#3f9aca", ok: "#4a9a4a", warn: "#ccad31", bad: "#cc5555", info: "#55a2c2", secondary: "#d4a52a"},
@@ -219,13 +213,9 @@ func palDerive(t *testing.T, s paletteSource, rules palRules) paletteTokens {
 	holds := func(v rgba, pcts []float64) bool {
 		return palMin(v, surf...) >= 5.1 && palMin(v, statusTints...) >= 4.6 && palMin(v, accentTints(pcts, 1)...) >= 4.6
 	}
-	var band []float64
-	if s.band {
-		band = []float64{22}
-	}
 	textRaw, dimRaw := palRGB(t, s.text), palRGB(t, s.dim)
-	text := palUntil(textRaw, toward, func(v rgba) bool { return holds(v, append([]float64{8, 9, 10, 12, 16, 20}, band...)) })
-	dim := palUntil(dimRaw, toward, func(v rgba) bool { return holds(v, append([]float64{8, 9, 10, 12}, band...)) })
+	text := palUntil(textRaw, toward, func(v rgba) bool { return holds(v, []float64{8, 9, 10, 12, 16, 20}) })
+	dim := palUntil(dimRaw, toward, func(v rgba) bool { return holds(v, []float64{8, 9, 10, 12}) })
 	note("text", textRaw, text)
 	note("dim", dimRaw, dim)
 
@@ -304,10 +294,10 @@ func palDerive(t *testing.T, s paletteSource, rules palRules) paletteTokens {
 
 // ---- the stylesheet ----
 
-const palettesHeader = `/* Tabr design palettes, version 0.4.0: sixty sets of colours that recolour a look. Link this file after the files of a look and set html[data-palette="ID"] (the ids are design.Palettes).
+const palettesHeader = `/* Tabr design palettes, version 0.3.0: eighteen sets of colours that recolour a look. Link this file after the files of a look and set html[data-palette="ID"] (the ids are design.Palettes).
    A palette changes colour tokens only: no type, space, shape, motion, texture or component. It applies in its own theme: a dark palette in the dark theme, a light one in Dayside (the light theme),
    and not at all in the other; removing the attribute gives the look's own colours back. The selectors are more specific than the looks' own, so the order of the files does not matter.
-   The values of the first eighteen are the colours of the fan-made editor themes under the MIT Licence that NOTICE names (alpha removed); the other forty-two are made from the dye colours of the wiki page that NOTICE names (palettes_dyes_test.go); both are moved toward white (dark palettes) or toward black (Dayside palettes) in steps of 4 %
+   The values are the colours of the fan-made editor themes under the MIT Licence that NOTICE names (alpha removed), moved toward white (dark palettes) or toward black (Dayside palettes) in steps of 4 %
    only where a check of this module needed it: every text colour 4.5:1 on the four surfaces and on every tint a component draws, the boundary of a control and the focus ring 3:1. The comment of each
    palette names the colours that were moved. This file is generated (palettes_gen_test.go holds the table and the rules, and a test compares the file with what they make).
    Names: --c-spice is the accent as text, border and focus light; --c-blue the accent as the fill of a primary button in the Fremen look; --c-switch the fill of a switch that is on; --k-boost the strength of

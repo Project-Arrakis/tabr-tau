@@ -22,11 +22,8 @@ var paletteNames = []string{
 
 func TestPalettesListAndAPI(t *testing.T) {
 	ps := Palettes()
-	if len(ps) != 60 {
-		t.Fatalf("%d palettes, want 60 (the first 18, then the 42 dye palettes)", len(ps))
-	}
-	if len(dyeSets) != 42 {
-		t.Fatalf("%d dye sets, want the 42 swatches of the wiki page", len(dyeSets))
+	if len(ps) != 18 {
+		t.Fatalf("%d palettes, want 18", len(ps))
 	}
 	if ps[0].ID != "warm-charcoal" || ps[0].Name != "Arrakis Incandescent" {
 		t.Errorf("the first palette is %+v, want Arrakis Incandescent", ps[0])
@@ -245,34 +242,5 @@ func TestEveryPaletteIsInTheKitchenSink(t *testing.T) {
 		if ids[i] == ids[i-1] {
 			t.Errorf("id %s twice", ids[i])
 		}
-	}
-}
-
-// Every group of palettes names the page its colours come from, in NOTICE and in PROVENANCE.md (#683): the first five groups name the MIT-licensed
-// editor themes, the two dye groups the public wiki page of the swatches. A group added without a source line fails here.
-func TestEveryPaletteGroupHasItsSourceInTheNotices(t *testing.T) {
-	notice, prov := readFile(t, "NOTICE"), readFile(t, "PROVENANCE.md")
-	first := map[string]bool{"Planet": true, "House & faction": true, "Character": true, "Guild & commerce": true, "Mystical & mental": true}
-	groups := map[string]int{}
-	for _, p := range Palettes() {
-		groups[p.Group]++
-	}
-	for g, n := range groups {
-		source, in := "https://awakening.wiki/Module:Swatches/data", false
-		if first[g] {
-			source, in = "btriapitsyn/zed-fedaykin-themes", true
-		}
-		if !strings.Contains(notice, source) || !strings.Contains(prov, source) {
-			t.Errorf("group %q (%d palettes): NOTICE and PROVENANCE.md must both name its source %s", g, n, source)
-		}
-		if !in && !strings.Contains(notice, g) {
-			t.Errorf("group %q is not named in NOTICE", g)
-		}
-		if !in && !strings.Contains(prov, g) {
-			t.Errorf("group %q is not named in PROVENANCE.md", g)
-		}
-	}
-	if groups["House dyes"] != 27 || groups["Outfit dyes"] != 15 || len(groups) != 7 {
-		t.Errorf("the groups are %v, want the first five, House dyes 27 and Outfit dyes 15", groups)
 	}
 }
