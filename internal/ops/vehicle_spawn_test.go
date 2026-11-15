@@ -769,7 +769,7 @@ func TestAPartTheSlotDoesNotTakeIsRefusedByThePreviewWithAPlainReasonAndNothingC
 		"an engine in a utility slot":                          {Args{"class": "Buggy", "template": "T6_Combat", "uniques": map[string]any{"UtilitySlot1": "BuggyEngine_6"}}, "goes in the Engine slot, not UtilitySlot1"},
 		"a part of another class":                              {Args{"class": "Buggy", "template": "T6_Combat", "uniques": map[string]any{"Engine": "SandbikeEngine_1"}}, "is not a module of the buggy"},
 		"a mandatory slot emptied":                             {Args{"class": "Buggy", "template": "T6_Combat", "uniques": map[string]any{"Engine": ""}}, "cannot be left empty"},
-		"the storage part swapped away while items are listed": {Args{"class": "Buggy", "template": "T6_Combat", "uniques": map[string]any{"UtilitySlot1": "BuggyBoost_6"}, "items": storage["items"]}, "has no cargo hold, so items cannot be put in it"},
+		"the storage part swapped away while items are listed": {Args{"class": "Buggy", "template": "T6_Combat", "uniques": map[string]any{"UtilitySlot1": "BuggyBoost_6"}, "items": storage["items"]}, "has no cargo hold, so items cannot be put in it. Give it a storage part, or remove the items"},
 	} {
 		_, err := o.SpawnVehiclePreview(c.a)
 		wantRefusal(t, err, apierr.ErrBadArgument, name)
