@@ -116,3 +116,20 @@ func TestTheBoardsWriteRefusesAContributionMultiplierOfZero(t *testing.T) {
 		t.Fatalf("the contribution changed: %v", got)
 	}
 }
+
+// The board read carries what a raise grants, so the page can say it before the click: the step, what a mission pays, the reason a raise would be refused, and for each house its
+// line and the contribution its own events already cover.
+func TestTheBoardReadCarriesWhatARaiseGrants(t *testing.T) {
+	s := grantServer(t, "[/Script/DuneSandbox.UserServerCustomSettings]\nLandsraadContributionMultiplier=2.000000\nLandsraadSpecializationXpMultiplier=3.000000\n")
+	body := postEditGet(t, s, "/api/landsraad")
+	for _, want := range []string{`"step":2000`, `"solari":6000`, `"scrip":1000`, `"xp":4500`, `"max_missions":1000`, `"problem":""`, `"line":"Gathering"`, `"my_events":0`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the board read has no %s: %s", want, body)
+		}
+	}
+	// a setting the editor cannot use is said in the read
+	s = grantServer(t, "[/Script/DuneSandbox.UserServerCustomSettings]\nLandsraadContributionMultiplier=0\n")
+	if body = postEditGet(t, s, "/api/landsraad"); !strings.Contains(body, `"problem":"The Landsraad amounts cannot be worked out: LandsraadContributionMultiplier in ServerCustomSettings.ini is 0`) {
+		t.Errorf("the problem is not in the read: %s", body)
+	}
+}

@@ -110,6 +110,19 @@ func (o *Ops) Landsraad() (any, error) {
 			delivered[fmt.Sprint(d["house_name"])+"\x00"+fmt.Sprint(d["template_id"])] = d
 		}
 	}
+	// the sum of the character's own progress events per house: the ground a raise already counts as paid (#656), for the page to work out what a click grants
+	events := map[int64]float64{}
+	if mineID != 0 && hasTable(o, "landsraad_task_progress") && hasTable(o, "landsraad_task_progress_player") {
+		er, err := o.S.Query(`select p.task_id, sum(p.player_progress) s from landsraad_task_progress p join landsraad_task_progress_player l on l.progress_id=p.id where l.player_id=? group by p.task_id`, mineID)
+		if err != nil {
+			return nil, readFailed("the progress events of your character", err)
+		}
+		for _, e := range er {
+			if tid, ok := e["task_id"].(int64); ok {
+				events[tid], _ = toFloat(e["s"])
+			}
+		}
+	}
 	termStart, _ := toFloat(term["start_time"])
 	termID, _ := term["term_id"].(int64)
 	one, err := readOneTime(o, mineID)
@@ -131,6 +144,8 @@ func (o *Ops) Landsraad() (any, error) {
 	for _, t := range tasks {
 		id, _ := t["id"].(int64)
 		t["contributions"] = byTask[id]
+		t["my_events"] = events[id]
+		t["line"] = lineOfHouse(fmt.Sprint(t["house_name"]))
 		t["player_contributions"] = byPlayer[id]
 		// the character's own contribution: the row of the faction the character is in now (a Fill writes that row)
 		my, has := 0.0, false

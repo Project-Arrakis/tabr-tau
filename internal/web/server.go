@@ -836,7 +836,13 @@ func (s *Server) routes() {
 	s.post("/api/player/skills/max", o.MaxSkills)
 	s.get("/api/vendors", func(r *http.Request) (any, error) { return o.Vendors() })
 	s.post("/api/vendors/reset", o.ResetVendors)
-	s.get("/api/landsraad", func(r *http.Request) (any, error) { return o.Landsraad() })
+	s.get("/api/landsraad", func(r *http.Request) (any, error) {
+		v, err := o.Landsraad()
+		if m, ok := v.(map[string]any); ok && err == nil {
+			m["grant"] = s.grantSettings().Preview() // what a raise grants, for the line before the click
+		}
+		return v, err
+	})
 	s.post("/api/landsraad/progress", o.SetTaskProgress)
 	s.post("/api/landsraad/mine", o.FillMyContribution)
 	s.post("/api/landsraad/mine-many", o.FillMyContributions)

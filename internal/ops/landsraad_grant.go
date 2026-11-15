@@ -160,7 +160,7 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 	}
 	step := missionContribution * g.ContributionMultiplier
 	if step <= 0 {
-		return res, false, apierr.New(apierr.ErrBadArgument, "LandsraadContributionMultiplier is 0, so a mission adds no contribution and the missions a click stands for cannot be counted. Nothing was changed; set it to a number above 0 in ServerCustomSettings.ini (Config tab) and try again.")
+		return res, false, apierr.New(apierr.ErrBadArgument, zeroContributionProblem)
 	}
 	missions := ceilSteps(after, step) - ceilSteps(lo, step)
 	if missions > maxMissionsAtOnce {
@@ -296,3 +296,24 @@ func addSpecialization(m *save.Mut, controller, number, xp int64) (int64, error)
 	}
 	return next - have, upsertSpecInTx(m, controller, number, next, level)
 }
+
+// Preview is what the board page needs to say, before a click, what a raise will grant: the size of a mission step in contribution, what one mission pays and the reason a raise would be
+// refused (the same reasons grantRaise gives that do not depend on the house). The page works out the missions of a click from these and from the contribution and the character's own
+// events of the house, with the arithmetic of grantRaise.
+func (g GrantSettings) Preview() map[string]any {
+	p := map[string]any{"step": missionContribution * g.ContributionMultiplier, "solari": int64(missionSolari), "scrip": int64(missionScrip),
+		"xp": int64(math.Round(missionSpecXP * g.SpecializationXPMultiplier)), "max_missions": int64(maxMissionsAtOnce), "problem": ""}
+	switch {
+	case g.Problem != "":
+		p["problem"] = g.Problem
+	case g.ContributionMultiplier <= 0:
+		p["problem"] = zeroContributionProblem
+	case g.SpecializationXPMultiplier > 0:
+		if err := g.checkTracks(); err != nil {
+			p["problem"] = err.Error()
+		}
+	}
+	return p
+}
+
+const zeroContributionProblem = "LandsraadContributionMultiplier is 0, so a mission adds no contribution and the missions a click stands for cannot be counted. Nothing was changed; set it to a number above 0 in ServerCustomSettings.ini (Config tab) and try again."

@@ -419,3 +419,17 @@ func TestGrantFillFactionGoalGivesTheFactionWhatAPlainFillGives(t *testing.T) {
 		t.Fatalf("a faction short of the goal: %v", got)
 	}
 }
+
+func TestGrantTheBoardReadSaysWhatTheCharactersEventsCover(t *testing.T) {
+	o := rewardOps(t, "")
+	applyWith(t, o, DefaultGrantSettings(), house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0}))
+	v, err := o.Landsraad()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, x := range v.(map[string]any)["tasks"].([]map[string]any) {
+		if x["id"] == int64(175) && (x["my_events"] != 6000.0 || x["line"] != "Gathering") {
+			t.Fatalf("Kenola: my_events %v, line %v", x["my_events"], x["line"])
+		}
+	}
+}
