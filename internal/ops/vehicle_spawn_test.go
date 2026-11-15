@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -782,5 +783,144 @@ func TestAPartTheSlotDoesNotTakeIsRefusedByThePreviewWithAPlainReasonAndNothingC
 	}
 	if o.S.Dirty() {
 		t.Fatal("a refused request must not change the save")
+	}
+}
+
+// One form makes one vehicle (#740): a second Create with the same requestId and the same request (a double click, a retry after a lost answer) gets the first answer and writes
+// nothing. Another body, another id, or a Create that was refused is a new request.
+func TestARepeatedCreateOfTheSameFormWritesOneVehicle(t *testing.T) {
+	o := spawnOps(t)
+	vehicles := func() int64 { return mustOne(t, o, `select count(*) c from vehicles`)["c"].(int64) }
+	before := vehicles()
+	a := func(id string) Args {
+		return Args{"class": "Buggy", "template": "T0", "fuel": 1.0, "requestId": id}
+	}
+	first, _ := spawn(t, o, a("form-1"))
+	if vehicles() != before+1 {
+		t.Fatalf("the first Create writes a vehicle: %d -> %d", before, vehicles())
+	}
+	again, ans := spawn(t, o, a("form-1"))
+	if again != first || ans["repeat"] != true {
+		t.Fatalf("the repeat gets the first answer: %d then %d, %v", first, again, ans["repeat"])
+	}
+	if vehicles() != before+1 {
+		t.Fatalf("the repeat writes nothing: %d vehicles", vehicles())
+	}
+	// the same id with another body is another request
+	b := a("form-1")
+	b["fuel"] = 0.5
+	other, _ := spawn(t, o, b)
+	if other == first || vehicles() != before+2 {
+		t.Fatalf("another body is written: %d, %d vehicles", other, vehicles())
+	}
+	// another id is another form
+	third, _ := spawn(t, o, a("form-2"))
+	if third == first || third == other || vehicles() != before+3 {
+		t.Fatalf("another form is written: %d, %d vehicles", third, vehicles())
+	}
+	// without an id nothing is remembered, as before
+	n1, _ := spawn(t, o, Args{"class": "Buggy", "template": "T0"})
+	n2, _ := spawn(t, o, Args{"class": "Buggy", "template": "T0"})
+	if n1 == n2 {
+		t.Fatalf("no id, no memory: %d %d", n1, n2)
+	}
+}
+
+func TestARefusedCreateIsNotRememberedAndABadRequestIdIsRefused(t *testing.T) {
+	o := spawnOps(t)
+	bad := Args{"class": "Buggy", "template": "T0", "uniques": map[string]any{"Engine": "BuggyBoost_4"}, "requestId": "form-9"}
+	if _, err := o.SpawnVehicle(bad); err == nil {
+		t.Fatal("a module in the wrong slot is refused")
+	}
+	good := Args{"class": "Buggy", "template": "T0", "requestId": "form-9"}
+	if _, ans := spawn(t, o, good); ans["repeat"] == true {
+		t.Fatal("a refused Create leaves nothing to repeat")
+	}
+	for _, id := range []any{"", "a b", strings.Repeat("x", 65), 7.0} {
+		if _, err := o.SpawnVehicle(Args{"class": "Buggy", "template": "T0", "requestId": id}); err == nil {
+			t.Errorf("requestId %v is refused", id)
+		}
+	}
+	// a preview ignores the id: it asks what Create would write and never uses up the id
+	if _, err := o.SpawnVehiclePreview(Args{"class": "Buggy", "template": "T0", "requestId": "form-10"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ans := spawn(t, o, Args{"class": "Buggy", "template": "T0", "requestId": "form-10"}); ans["repeat"] == true {
+		t.Fatal("a preview does not count as the Create")
+	}
+}
+
+// A vehicle that a discard dropped is not answered as a repeat (#740): the id is a new request and writes again, and the vehicle it makes is a real one.
+func TestAnIdWhoseVehicleWasDiscardedWritesAgain(t *testing.T) {
+	o := spawnOps(t)
+	vehicles := func() int64 { return mustOne(t, o, `select count(*) c from vehicles`)["c"].(int64) }
+	before := vehicles()
+	a := Args{"class": "Buggy", "template": "T0", "requestId": "form-d"}
+	first, _ := spawn(t, o, a)
+	if err := o.S.Discard(); err != nil {
+		t.Fatal(err)
+	}
+	if vehicles() != before {
+		t.Fatalf("the discard dropped the vehicle: %d", vehicles())
+	}
+	again, ans := spawn(t, o, a)
+	if ans["repeat"] == true || vehicles() != before+1 {
+		t.Fatalf("the repeat after a discard writes again: %d, repeat %v, %d vehicles", again, ans["repeat"], vehicles())
+	}
+	_ = first
+	// and the page-side drop: the ledger is emptied, so a vehicle that took the same id for another request is not taken for the answer
+	ForgetSpawnAnswers(o.S)
+	if _, ans := spawn(t, o, a); ans["repeat"] == true || vehicles() != before+2 {
+		t.Fatalf("a forgotten id writes again: repeat %v, %d vehicles", ans["repeat"], vehicles())
+	}
+}
+
+func TestACreateThatFailedAfterTheSpecWasCheckedIsNotRemembered(t *testing.T) {
+	defer func() { afterVehicleRows = nil }()
+	o := spawnOps(t)
+	a := Args{"class": "Buggy", "template": "T4_Boost", "requestId": "form-f"}
+	afterVehicleRows = func(m *save.Mut, id int64) error { return fmt.Errorf("a row went wrong") }
+	if _, err := o.SpawnVehicle(a); err == nil {
+		t.Fatal("the write failed")
+	}
+	afterVehicleRows = nil
+	before := mustOne(t, o, `select count(*) c from vehicles`)["c"].(int64)
+	_, ans := spawn(t, o, a)
+	if ans["repeat"] == true || mustOne(t, o, `select count(*) c from vehicles`)["c"].(int64) != before+1 {
+		t.Fatalf("a failed Create leaves nothing to repeat: %v", ans["repeat"])
+	}
+}
+
+// Two requests of one form at the same moment (a double click that reaches the editor together): one vehicle, and both get its id.
+func TestTwoCreatesOfOneFormAtOnceMakeOneVehicle(t *testing.T) {
+	o := spawnOps(t)
+	before := mustOne(t, o, `select count(*) c from vehicles`)["c"].(int64)
+	a := Args{"class": "Buggy", "template": "T0", "requestId": "form-c"}
+	ids := make([]int64, 2)
+	repeats := make([]bool, 2)
+	var wg sync.WaitGroup
+	for i := range ids {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			r, err := o.SpawnVehicle(a)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			m := r.(map[string]any)
+			ids[i], _ = m["id"].(int64)
+			repeats[i], _ = m["repeat"].(bool)
+		}()
+	}
+	wg.Wait()
+	if ids[0] == 0 || ids[0] != ids[1] {
+		t.Fatalf("both get the same vehicle: %v", ids)
+	}
+	if repeats[0] == repeats[1] {
+		t.Fatalf("exactly one of them is the write: %v", repeats)
+	}
+	if n := mustOne(t, o, `select count(*) c from vehicles`)["c"].(int64); n != before+1 {
+		t.Fatalf("one vehicle was written, got %d", n-before)
 	}
 }

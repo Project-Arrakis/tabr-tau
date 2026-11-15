@@ -187,7 +187,7 @@ The footprint comes from the vehicle's own class. A vehicle that is stored is st
 ## Request
 
 - `GET /api/vehicles/catalog`: the game build; for each class its slots, its templates (tier, modules, health, fuel, cargo) and for each slot the modules that fit.
-- `POST /api/vehicles/spawn-preview` and `POST /api/vehicles/spawn` with `{class, template, uniques?, fuel? (0 to 1, default 1), place?, items?: [{template_id, quantity, quality?}]}`. Both answer with
+- `POST /api/vehicles/spawn-preview` and `POST /api/vehicles/spawn` with `{class, template, uniques?, fuel? (0 to 1, default 1), place?, items?: [{template_id, quantity, quality?}], requestId?}`. `requestId` (1 to 64 letters, digits, - or _; Create only, #740) names one form: a repeat of the same request with the same id gets the first answer (`repeat: true`) and writes nothing; the same id with another request writes again. The answers are kept in memory only (the last 16) and are forgotten when the editor restarts, and when Discard, Restore or a reload drops the vehicle. Both answer with
   the id, the rows (`rows`), the derived numbers, what was changed from the template, notes, and for the items how many were given and what did not fit. The preview keeps nothing; the apply takes the id the preview named
   (if nothing else was written in between). Both refuse an unknown class, template, slot or module, a module in the wrong slot, an empty mandatory slot, fuel outside 0 to 1, a bad place, an unknown item and items for a
   vehicle with no cargo hold. Apply has no confirmation step.

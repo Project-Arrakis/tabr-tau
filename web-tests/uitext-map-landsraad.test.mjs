@@ -26,7 +26,7 @@ test('Landsraad: the long explanations of the board are in About this, with thei
   const ui = await boot({ get: { '/api/landsraad': board(1) } });
   const main = await go(ui, 'landsraad');
   const shown = visibleText(main), moved = movedText(main);
-  for (const s of ['contribution is cumulative, so', 'A staged change is not written yet']) { assert.ok(moved.includes(s), 'lost, not moved: ' + s); assert.ok(!shown.includes(s), 'still shown: ' + s); }
+  for (const s of ['contribution is cumulative, so', 'Each click is written at once']) { assert.ok(moved.includes(s), 'lost, not moved: ' + s); assert.ok(!shown.includes(s), 'still shown: ' + s); }
   for (const s of ['Nothing is chosen.', 'Faction for Fill and Complete', 'Fill chosen', 'Complete chosen', 'Reopen chosen', 'Choose all houses', 'Clear the choice']) assert.ok(shown.includes(s), 'missing: ' + s);
   ui.dom.window.close();
 });
