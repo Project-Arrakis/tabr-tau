@@ -196,8 +196,9 @@ func (o *Ops) Teleport(a Args) (any, error) {
 			return err
 		}
 		if here.Parked != nil {
-			// a body on another map than the player is moved by the move between maps, which writes all three actors to the map the person named; a move on one map would move the
-			// body only and leave it where the player is not. A body that is not standing in the world (its state is not 0) is not moved by the editor.
+			// a body on another map than the player, standing in the world (its state is 0), is moved by the move between maps, which writes all three actors to the map the person
+			// named; a move on one map would move the body only and leave it where the player is not. A body that is not standing in the world (its state is not 0) is not moved by
+			// the editor, on any map: readCharacterPlace does not set ParkedMap for it (#692).
 			if !here.ParkedMap {
 				return here.Parked
 			}
