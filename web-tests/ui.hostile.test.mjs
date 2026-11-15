@@ -1487,7 +1487,7 @@ test('Teleport to another map: the drop-down asks for that map, lists its places
   ui.doc.querySelector('#tmap').value = 'DeepDesert'; ui.doc.querySelector('#tmap').dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
   assert.ok(asked.some((u) => u.startsWith('/api/player/destinations?') && u.includes('map=DeepDesert')), asked.filter((u) => u.includes('destinations')).join(' '));
   const sel = ui.doc.querySelector('#tdsel');
-  assert.ok(sel.options[0].textContent.includes('1 place on DeepDesert') && !sel.options[0].textContent.includes('nearest first'), sel.options[0].textContent);
+  assert.ok(sel.options[0].textContent.includes('1 place on the Deep Desert') && !sel.options[0].textContent.includes('nearest first'), sel.options[0].textContent);
   assert.ok(!sel.options[1].textContent.includes('m away'), 'no distance across maps: ' + sel.options[1].textContent);
   sel.value = '0'; sel.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
   ui.click('[data-act="teleport"]'); await ui.settle();

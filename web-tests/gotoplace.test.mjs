@@ -64,7 +64,7 @@ test('Go to a place is one drop-down that is filled at once, under its headings,
     { label: 'Taxis', places: ['Arrakeen Taxi Service - 10 m away'] }]);
   const sel = ui.doc.querySelector('#tdsel');
   assert.equal(sel.getAttribute('aria-label'), 'Place to go to', 'the select is labelled');
-  assert.equal(sel.options[0].textContent, '6 places on HaggaBasin, nearest first', 'the first option counts the places');
+  assert.equal(sel.options[0].textContent, '6 places on Hagga Basin, nearest first', 'the first option counts the places');
   assert.equal(sel.value, '', 'nothing is chosen until the person chooses');
   assert.equal(ui.doc.querySelector('#tdkind'), null, 'no kind of place');
   assert.equal(ui.doc.querySelector('#tdq'), null, 'no filter box');
@@ -102,7 +102,7 @@ test('a heading the answer does not name is not drawn', async () => {
 test('a map with no place says so and draws no drop-down', async () => {
   const { ui } = await open({ map: 'HaggaBasin', sameMap: true, total: 0, groups: [], destinations: [] });
   assert.equal(ui.doc.querySelector('#tdsel'), null);
-  assert.equal(ui.doc.querySelector('#tdout').textContent, 'No places on HaggaBasin.');
+  assert.equal(ui.doc.querySelector('#tdout').textContent, 'No places on Hagga Basin.');
   ui.dom.window.close();
 });
 
@@ -298,7 +298,7 @@ test('choosing another map reloads the drop-down for that map, with the cross-ma
   await pick('tmap', 'DeepDesert');
   assert.equal(asked.at(-1), '/api/player/destinations?map=DeepDesert');
   assert.deepEqual(headings(ui), [{ label: 'Taxis', places: ['Deep Desert Taxi Service'] }], 'no distance across maps');
-  assert.equal(ui.doc.querySelector('#tdsel').options[0].textContent, '1 place on DeepDesert');
+  assert.equal(ui.doc.querySelector('#tdsel').options[0].textContent, '1 place on the Deep Desert');
   assert.ok(ui.doc.querySelector('#tmapwarn'), 'the warning about a move to another map stays');
   await pick('tdsel', '0');
   ui.click('[data-act="teleport"]'); await ui.settle();
@@ -394,7 +394,7 @@ test('the Deep Desert\'s taxis are listed under Taxis with their distances, near
   const { ui } = await open(taxis());
   assert.deepEqual(headings(ui), [
     { label: 'Taxis', places: ['Deep Desert Taxi Service (A8) - 1,200 m away', 'Deep Desert Taxi Service (A5) - 9,000 m away', 'Deep Desert Taxi Service (A2) - 18,000 m away'] },
-    { label: 'Other maps (a move between maps is not proven)', places: ['Arrakeen Taxi Service - another map', 'Harko Village Taxi Service - another map'] }]);
+    { label: 'Other maps (moves there are untested)', places: ['Arrakeen Taxi Service - another map', 'Harko Village Taxi Service - another map'] }]);
   choose(ui, '0');
   assert.deepEqual(fields(ui), ['767350', '906130', '17643']);
   assert.equal(ui.doc.querySelector('#tmapwarn'), null, 'a point of the map the character is on is no move between maps');
@@ -407,26 +407,27 @@ test('the Deep Desert\'s taxis are listed under Taxis with their distances, near
 test('the count is of the places on the map shown; the other-map hub rows are counted apart', async () => {
   const { ui } = await open(taxis());
   const first = ui.doc.querySelector('#tdsel option').textContent;
-  assert.equal(first, '3 places on DeepDesert, nearest first, and 2 on other maps');
-  assert.doesNotMatch(first, /5 places/);
+  assert.equal(first, '3 places on the Deep Desert, 2 on other maps, nearest first');
+  assert.doesNotMatch(first, /5 places/);
+  assert.ok(first.indexOf('2 on other maps') < first.indexOf('nearest first'), 'the other-map number comes before the filler a phone cuts off');
   ui.dom.window.close();
 });
 
 test('a map with one place of its own and the hubs says "1 place", and a map with only the hubs says "No places on" it', async () => {
   const one = taxis(); one.destinations = [one.destinations[0], ...one.destinations.slice(3)]; one.total = 3;
   const a = await open(one);
-  assert.equal(a.ui.doc.querySelector('#tdsel option').textContent, '1 place on DeepDesert, nearest first, and 2 on other maps');
+  assert.equal(a.ui.doc.querySelector('#tdsel option').textContent, '1 place on the Deep Desert, 2 on other maps');
   a.ui.dom.window.close();
   const none = taxis(); none.destinations = none.destinations.slice(3); none.total = 2;
   const b = await open(none);
-  assert.equal(b.ui.doc.querySelector('#tdsel option').textContent, 'No places on DeepDesert, and 2 on other maps');
-  assert.deepEqual(headings(b.ui).map((h) => h.label), ['Other maps (a move between maps is not proven)'], 'no empty Taxis heading');
+  assert.equal(b.ui.doc.querySelector('#tdsel option').textContent, 'No places on the Deep Desert, 2 on other maps');
+  assert.deepEqual(headings(b.ui).map((h) => h.label), ['Other maps (moves there are untested)'], 'no empty Taxis heading');
   b.ui.dom.window.close();
 });
 
 test('a hub from Hagga Basin fills the boxes with its arrival point, shows the warning about a move between maps and sends its map with Teleport', async () => {
   const { ui } = await open(hubs());
-  assert.deepEqual(headings(ui)[1], { label: 'Other maps (a move between maps is not proven)', places: ['Arrakeen Taxi Service - another map', 'Harko Village Taxi Service - another map'] });
+  assert.deepEqual(headings(ui)[1], { label: 'Other maps (moves there are untested)', places: ['Arrakeen Taxi Service - another map', 'Harko Village Taxi Service - another map'] });
   assert.equal(ui.doc.querySelector('#tmapwarn'), null, 'nothing chosen, no warning');
   choose(ui, '1');
   assert.deepEqual(fields(ui), ['11495', '-316', '51457']);
@@ -473,7 +474,8 @@ test('the Movement card\'s About text names the Deep Desert taxis and the hubs, 
   const about = ui.doc.querySelector('details[data-about="admin.movement"]').textContent;
   assert.match(about, /your respawn points and the taxis, under those headings/);
   assert.match(about, /three Deep Desert taxi service points while the Deep Desert is the map/);
-  assert.match(about, /the two hubs, Arrakeen and Harko Village, from every map/);
+  assert.match(about, /The two hubs, Arrakeen and Harko Village, are another map from every map: they are listed last, under "Other maps \(moves there are untested\)", and the count at the top of the list does not include them/);
+  assert.doesNotMatch(about, /and the two hubs/, 'the hubs are no longer part of Taxis');
   assert.match(about, /Whether a save edit moves the character into another map is not proven; do it on a copy first, with the game closed, and expect to need the in-game taxi if it does not work\./);
   ui.dom.window.close();
 });
@@ -491,7 +493,7 @@ test('the Movement card names the player\'s map and fills in the player\'s posit
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:admin"]'); await ui.settle();
   assert.deepEqual(fields(ui), ['-300000', '-590000', '3500'], 'the player\'s position, which the server measures from');
-  assert.match(ui.doc.querySelector('#tmap option').textContent, /This map \(DeepDesert\)/);
+  assert.match(ui.doc.querySelector('#tmap option').textContent, /This map \(the Deep Desert\)/);
   const n = ui.doc.querySelector('#tparked');
   assert.ok(n, 'a note says that the body is not where the player is');
   assert.match(n.textContent, /Overland/);
