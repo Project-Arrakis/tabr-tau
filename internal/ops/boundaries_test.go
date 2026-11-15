@@ -162,8 +162,9 @@ func TestDestinationListIsCappedAt200AndSaysHowManyThereAre(t *testing.T) {
 		if m["total"].(int) != n+2 || len(d) != 200 { // the 2 more are the two hubs, which every map offers (#521)
 			t.Errorf("%d markers: total %v, listed %d, want total %d and 200 listed", n, m["total"], len(d), n+2)
 		}
-		if d[0].X != 101 || d[199].X != 300 {
-			t.Errorf("%d markers: nearest first, got x %v ... %v", n, d[0].X, d[199].X)
+		// the two hubs are other maps and stay in the list (#607): the 198 nearest markers are listed before them
+		if d[0].X != 101 || d[197].X != 298 || d[197].OtherMap || !d[198].OtherMap || !d[199].OtherMap {
+			t.Errorf("%d markers: nearest first with the two hubs last, got x %v ... %v, other map at 197/198/199: %v %v %v", n, d[0].X, d[197].X, d[197].OtherMap, d[198].OtherMap, d[199].OtherMap)
 		}
 	}
 }
