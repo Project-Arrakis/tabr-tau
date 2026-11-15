@@ -27,6 +27,7 @@ const ANSWER = (o = {}) => ({
 });
 const GET = { '/api/vehicles': VEH, '/api/vehicles/fuel': { total: 1, notFull: 0, unknown: 0, noFuelRecord: 0 }, '/api/vehicles/catalog': CATALOG, '/api/catalog/items': ITEMS };
 const posts = (ui, p) => ui.posted.filter((x) => x.path === p);
+const noId = (x) => { const { requestId, ...b } = x.body; return b; }; // the request without the id Create gives each form (#740)
 const set = (ui, sel, v) => { const el = ui.doc.querySelector(sel); assert.ok(el, sel); el.value = v; return el; };
 const change = async (ui, sel, v) => { const el = set(ui, sel, v); el.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle(); };
 async function openVehicles(ui) { ui.click('[data-tab="player"]'); await ui.settle(); ui.click('[data-sub="player:vehicles"]'); await ui.settle(); }
@@ -102,7 +103,8 @@ test('Create posts once with no question asked, the form closes, and the result 
   await ui.settle();
   const p = posts(ui, '/api/vehicles/spawn');
   assert.equal(p.length, 1);
-  assert.deepEqual(p[0].body, { class: 'Buggy', template: 'T6_Combat', fuel: 1, uniques: { UtilitySlot1: 'BuggyInventory_Unique_Capacity_6' } });
+  assert.deepEqual(noId(p[0]), { class: 'Buggy', template: 'T6_Combat', fuel: 1, uniques: { UtilitySlot1: 'BuggyInventory_Unique_Capacity_6' } });
+  assert.match(p[0].body.requestId, /^[A-Za-z0-9_-]{1,64}$/, 'Create gives the form an id the editor can use to know a repeat');
   assert.equal(ui.doc.querySelector('#ask [role="dialog"]'), null, 'nothing is asked first');
   assert.equal(ui.doc.querySelector('#vcClass'), null, 'the form closed');
   const r = ui.doc.querySelector('#vcresult');
@@ -402,7 +404,7 @@ test('two parts picked within the wait are asked together; a pick made while an 
   ui.click('[data-act="vcCreate"]'); await ui.settle();
   const made = posts(ui, '/api/vehicles/spawn');
   assert.equal(made.length, 1);
-  assert.deepEqual(made[0].body, asks[2].body, 'Create writes the request of the answer that was used, not of the late one');
+  assert.deepEqual(noId(made[0]), asks[2].body, 'Create writes the request of the answer that was used, not of the late one');
   ui.dom.window.close();
 });
 
@@ -460,7 +462,7 @@ test('Create writes exactly the parts the preview table shows, and the same requ
   ui.click('[data-act="vcCreate"]'); await ui.settle();
   const made = posts(ui, '/api/vehicles/spawn');
   assert.equal(made.length, 1);
-  assert.deepEqual(made[0].body, asks[asks.length - 1].body, 'the request of Create is the request of the last preview');
+  assert.deepEqual(noId(made[0]), asks[asks.length - 1].body, 'the request of Create is the request of the last preview');
   assert.deepEqual(made[0].body.uniques, { Engine: 'BuggyEngine_Unique_Accelerate_06', UtilitySlot1: 'BuggyInventory_6' });
   for (const [slot, id] of Object.entries(made[0].body.uniques)) assert.equal(shown[slot], id, slot + ' is what the table shows');
   assert.ok(ui.doc.querySelector('#vcresult'));
@@ -505,7 +507,7 @@ const noStaleTable = (ui) => {
     ui.click('[data-act="vcCreate"]');
     return ui.settle().then(() => {
       const made = posts(ui, '/api/vehicles/spawn');
-      if (made.length) assert.deepEqual(made[0].body, asks[asks.length - 1].body, 'Create writes the request the table was asked with');
+      if (made.length) assert.deepEqual(noId(made[0]), asks[asks.length - 1].body, 'Create writes the request the table was asked with');
     });
   }
   return Promise.resolve();
@@ -607,5 +609,58 @@ test('Cancel discards the parts picked in the preview: the next form starts from
   ui.click('[data-act="vcOpen"]'); await ui.settle();
   assert.equal(ui.doc.querySelector('[data-vcslot="Engine"]').value, 'BuggyEngine_6');
   assert.equal(ui.doc.querySelector('#vcpreview'), null);
+  ui.dom.window.close();
+});
+
+// A double click on Create wrote two vehicles (#740): the second press came before the first answer, and nothing stopped it.
+function gateSpawn(ui) {
+  const real = ui.w.fetch;
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  ui.w.fetch = (p, o) => (/\/api\/vehicles\/spawn$/.test(String(p)) ? gate.then(() => real(p, o)) : real(p, o));
+  return release;
+}
+
+test('a double click on Create writes one vehicle: the button is off while the write is on its way and a second press does nothing', async () => {
+  const ui = await boot({ get: GET, post: { '/api/vehicles/spawn': ANSWER({ outcome: 'written' }) } });
+  await openForm(ui);
+  const release = gateSpawn(ui);
+  ui.click('[data-act="vcCreate"]');
+  ui.click('[data-act="vcCreate"]');
+  ui.click('[data-act="vcCreate"]');
+  await ui.wait(20);
+  assert.equal(ui.doc.querySelector('[data-act="vcCreate"]').disabled, true, 'Create is off while the answer is not in');
+  release(); await ui.settle();
+  assert.equal(posts(ui, '/api/vehicles/spawn').length, 1, 'one press, one request');
+  assert.ok(ui.doc.querySelector('#vcresult'), 'the result is shown');
+  ui.dom.window.close();
+});
+
+test('a Create that is refused turns the button back on, and the next press is a new request with the same form id', async () => {
+  const post = { '/api/vehicles/spawn': { __fail: 'the save is busy', __status: 409 } };
+  const ui = await boot({ get: GET, post });
+  await openForm(ui);
+  ui.click('[data-act="vcCreate"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('[data-act="vcCreate"]').disabled, false, 'Create is on again after a refusal');
+  assert.ok(ui.doc.querySelector('#vcClass'), 'the form stays');
+  post['/api/vehicles/spawn'] = ANSWER({ outcome: 'written' });
+  ui.click('[data-act="vcCreate"]'); await ui.settle();
+  const made = posts(ui, '/api/vehicles/spawn');
+  assert.equal(made.length, 2);
+  assert.match(made[0].body.requestId, /^[A-Za-z0-9_-]{1,64}$/, 'the id is there');
+  assert.equal(made[0].body.requestId, made[1].body.requestId, 'one form, one id: the editor can tell a repeat of it');
+  assert.ok(ui.doc.querySelector('#vcresult'));
+  ui.dom.window.close();
+});
+
+test('a second form gets its own id, so a vehicle made after another one is a new vehicle', async () => {
+  const ui = await boot({ get: GET, post: { '/api/vehicles/spawn': ANSWER({ outcome: 'written' }) } });
+  await openForm(ui);
+  ui.click('[data-act="vcCreate"]'); await ui.settle();
+  ui.click('[data-act="vcOpen"]'); await ui.settle();
+  ui.click('[data-act="vcCreate"]'); await ui.settle();
+  const made = posts(ui, '/api/vehicles/spawn');
+  assert.equal(made.length, 2);
+  assert.notEqual(made[0].body.requestId, made[1].body.requestId);
   ui.dom.window.close();
 });

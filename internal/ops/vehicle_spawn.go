@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -398,11 +399,118 @@ func (o *Ops) SpawnVehicle(a Args) (any, error) { return o.spawnVehicle(a, false
 // is kept. The answer's id is the id the vehicle would get now.
 func (o *Ops) SpawnVehiclePreview(a Args) (any, error) { return o.spawnVehicle(a, true) }
 
+// spawnAnswers remembers the answers of the last Creates that came with a requestId (#740). The page gives each form one requestId, so a second request for the same form
+// (a double click, a retry after a lost answer) gets the first one's answer and writes nothing: one form makes one vehicle. A request with the same id and another body is a
+// different request and is written. Only a Create that succeeded is remembered, so one that failed can be sent again. The ledger is kept in memory only.
+type spawnLedger struct {
+	sync.Mutex
+	seen  map[spawnAsked]map[string]any
+	order []spawnAsked
+}
+
+var spawnAnswers = spawnLedger{seen: map[spawnAsked]map[string]any{}}
+
+type spawnAsked struct {
+	s    *save.Save
+	id   string
+	body string
+}
+
+const maxSpawnAnswers = 16
+
+// forget drops one remembered answer. The caller holds the lock.
+func (l *spawnLedger) forget(key spawnAsked) {
+	delete(l.seen, key)
+	for i, k := range l.order {
+		if k == key {
+			l.order = append(l.order[:i], l.order[i+1:]...)
+			break
+		}
+	}
+}
+
+// ForgetSpawnAnswers empties the ledger of a save. It is called when edits that were made are dropped (Discard, Restore, Rebase), so that an id whose vehicle is gone is not answered as a repeat.
+func ForgetSpawnAnswers(s *save.Save) {
+	spawnAnswers.Lock()
+	defer spawnAnswers.Unlock()
+	for k := range spawnAnswers.seen {
+		if k.s == s {
+			spawnAnswers.forget(k)
+		}
+	}
+}
+
+// spawnedStillThere says whether the vehicle an earlier answer names is still a vehicle of the working copy.
+func (o *Ops) spawnedStillThere(prev map[string]any) bool {
+	id, ok := prev["id"].(int64)
+	if !ok {
+		return false
+	}
+	r, err := o.S.One(`select 1 c from vehicles where id=?`, id)
+	return err == nil && r != nil
+}
+
+var requestIDRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
 func (o *Ops) spawnVehicle(a Args, dry bool) (any, error) {
 	sp, err := o.spawnSpecFrom(a)
 	if err != nil {
 		return nil, err
 	}
+	if !dry {
+		if rid, has := a["requestId"]; has && rid != nil {
+			id, _ := rid.(string)
+			if !requestIDRe.MatchString(id) {
+				return nil, apierr.New(apierr.ErrBadArgument, "requestId must be 1 to 64 letters, digits, - or _")
+			}
+			rest := Args{}
+			for k, v := range a {
+				if k != "requestId" {
+					rest[k] = v
+				}
+			}
+			b, err := json.Marshal(rest)
+			if err != nil {
+				return nil, apierr.New(apierr.ErrBadArgument, "the request cannot be read")
+			}
+			key := spawnAsked{o.S, id, string(b)}
+			// held through the edit in memory (not through the write of the file that follows it), so that a second request of the same form waits for the first edit and then gets its answer
+			spawnAnswers.Lock()
+			defer spawnAnswers.Unlock()
+			prev, ok := spawnAnswers.seen[key]
+			if ok && !o.spawnedStillThere(prev) {
+				// the vehicle is gone (a discard, a restore or a rebase dropped the edit that made it): the id is a new request, not a repeat
+				spawnAnswers.forget(key)
+				ok = false
+			}
+			if ok {
+				again := make(map[string]any, len(prev)+1)
+				for k, v := range prev {
+					again[k] = v
+				}
+				again["repeat"] = true
+				return again, nil
+			}
+			res, err := o.spawnWrite(sp, dry)
+			if err != nil {
+				return nil, err
+			}
+			if m, ok := res.(map[string]any); ok {
+				spawnAnswers.forget(key)
+				spawnAnswers.seen[key] = m
+				spawnAnswers.order = append(spawnAnswers.order, key)
+				if len(spawnAnswers.order) > maxSpawnAnswers {
+					delete(spawnAnswers.seen, spawnAnswers.order[0])
+					spawnAnswers.order = spawnAnswers.order[1:]
+				}
+			}
+			return res, nil
+		}
+	}
+	return o.spawnWrite(sp, dry)
+}
+
+func (o *Ops) spawnWrite(sp *spawnSpec, dry bool) (any, error) {
 	p, err := o.player()
 	if err != nil {
 		return nil, err
