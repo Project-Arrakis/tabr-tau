@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -398,11 +399,77 @@ func (o *Ops) SpawnVehicle(a Args) (any, error) { return o.spawnVehicle(a, false
 // is kept. The answer's id is the id the vehicle would get now.
 func (o *Ops) SpawnVehiclePreview(a Args) (any, error) { return o.spawnVehicle(a, true) }
 
+// spawnAnswers remembers the answers of the last Creates that came with a requestId (#740). The page gives each form one requestId, so a second request for the same form
+// (a double click, a retry after a lost answer) gets the first one's answer and writes nothing: one form makes one vehicle. A request with the same id and another body is a
+// different request and is written. Only a Create that succeeded is remembered, so one that failed can be sent again. The ledger is kept in memory only.
+var spawnAnswers = struct {
+	sync.Mutex
+	seen  map[spawnAsked]map[string]any
+	order []spawnAsked
+}{seen: map[spawnAsked]map[string]any{}}
+
+type spawnAsked struct {
+	s    *save.Save
+	id   string
+	body string
+}
+
+const maxSpawnAnswers = 16
+
+var requestIDRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
 func (o *Ops) spawnVehicle(a Args, dry bool) (any, error) {
 	sp, err := o.spawnSpecFrom(a)
 	if err != nil {
 		return nil, err
 	}
+	if !dry {
+		if rid, has := a["requestId"]; has && rid != nil {
+			id, _ := rid.(string)
+			if !requestIDRe.MatchString(id) {
+				return nil, apierr.New(apierr.ErrBadArgument, "requestId must be 1 to 64 letters, digits, - or _")
+			}
+			rest := Args{}
+			for k, v := range a {
+				if k != "requestId" {
+					rest[k] = v
+				}
+			}
+			b, err := json.Marshal(rest)
+			if err != nil {
+				return nil, apierr.New(apierr.ErrBadArgument, "the request cannot be read")
+			}
+			key := spawnAsked{o.S, id, string(b)}
+			// held through the write, so that a second request of the same form waits for the first and then gets its answer
+			spawnAnswers.Lock()
+			defer spawnAnswers.Unlock()
+			if prev, ok := spawnAnswers.seen[key]; ok {
+				again := make(map[string]any, len(prev)+1)
+				for k, v := range prev {
+					again[k] = v
+				}
+				again["repeat"] = true
+				return again, nil
+			}
+			res, err := o.spawnWrite(sp, dry)
+			if err != nil {
+				return nil, err
+			}
+			if m, ok := res.(map[string]any); ok {
+				spawnAnswers.seen[key] = m
+				spawnAnswers.order = append(spawnAnswers.order, key)
+				if len(spawnAnswers.order) > maxSpawnAnswers {
+					delete(spawnAnswers.seen, spawnAnswers.order[0])
+					spawnAnswers.order = spawnAnswers.order[1:]
+				}
+			}
+			return res, nil
+		}
+	}
+	return o.spawnWrite(sp, dry)
+}
+
+func (o *Ops) spawnWrite(sp *spawnSpec, dry bool) (any, error) {
 	p, err := o.player()
 	if err != nil {
 		return nil, err

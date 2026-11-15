@@ -114,3 +114,17 @@ func TestTheVehicleCatalogRouteListsTheClassesTheirTiersAndModules(t *testing.T)
 		t.Error("Tank and Treadwheel are not offered")
 	}
 }
+
+// A double click on Create wrote two vehicles (#740). The page sends one requestId for a form; the same request sent twice makes one vehicle, and the second answer is the first.
+func TestTheSameCreateSentTwiceMakesOneVehicle(t *testing.T) {
+	s := spawnServer(t)
+	body := `{"class":"Sandbike","template":"T0","requestId":"form-1"}`
+	a := decodeBody(t, postEdit(t, s, "/api/vehicles/spawn", body))
+	b := decodeBody(t, postEdit(t, s, "/api/vehicles/spawn", body))
+	if a["ok"] != true || b["ok"] != true || a["id"] != b["id"] {
+		t.Fatalf("the second answer is the first: %v %v", a, b)
+	}
+	if n := vehiclesInFile(t, s.Save.Path); n != 1 {
+		t.Fatalf("one vehicle in the file, got %d", n)
+	}
+}
