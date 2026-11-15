@@ -307,10 +307,6 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .meter i.on{background:var(--c-spice);border-color:var(--c-spice)}
 .lsb .meter.full i.on{background:var(--c-ok);border-color:var(--c-ok)}
 .lsb .meter i.top{width:19px;position:relative}
-.lsb .meter.mb{gap:0}
-.lsb .mt{display:inline-flex;align-items:center;justify-content:center;min-height:24px;margin:-4px 0;padding:0 1px;border:0;border-radius:var(--r-2);background:none;color:inherit;cursor:pointer}
-.lsb .mt:hover i{border-color:var(--c-spice);box-shadow:0 0 0 2px var(--c-glow)}
-.lsb .mt:focus-visible{outline:2px solid var(--c-focus);outline-offset:0}
 .lsb .amt .js-next{white-space:nowrap}
 .lsb .amt .nx{white-space:nowrap}
 .lsb .meter i.top.on::after{content:"\2713";position:absolute;inset:-3px 0 0;text-align:center;font:700 10px/12px var(--t-display);color:var(--c-ground)}
@@ -591,7 +587,6 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .c-qa .qa{width:6.5rem}
 .lsb .acts .qa{min-height:44px}
 .lsb .tc{min-height:56px}
-.lsb .mt{min-height:44px;margin:-14px 0;padding:0 3px}
 .lsb .loc-t::after{inset:-13px -4px}
 .lsb .mapdlg .qa,.lsb .linkb{min-height:44px}
 .lsb .cw{grid-template-columns:48px minmax(0,1fr)}
@@ -707,7 +702,6 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .sorth{padding:0 6px}
 .lsb .cw .pick{transform:scale(1.84);transform-origin:center}
 .lsb .stack a::before{content:"";position:absolute;inset:-12px 0}
-.lsb .mt{min-width:44px}
 .lsb .meter i{width:32px;height:14px}
 .lsb .meter i.top{width:36px}
 .lsb .meter i.top.on::after{inset:-1px 0 0;line-height:14px}
@@ -755,7 +749,6 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .stack a::before{content:"";position:absolute;inset:-4px 0}
 .lsb .xc:checked~.more,.lsb[data-all] .more{display:grid}
 .lsb .xc:checked+.sum .chev,.lsb[data-all] .chev{transform:rotate(225deg)}
-@media (min-width:901px){.lsb .mt{min-width:24px}}
 /* the segments of the bar keep a 44 px hit area on a phone: this comes after the base rule above, which would otherwise win */
 @media (max-width:900px){.lsb .stack a::before{inset:-14px 0}}
 .lsb .sorth:disabled{opacity:.5;cursor:default}
@@ -766,9 +759,9 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 /* Every click writes at once: the board while a write runs, the bulk question, and the closed list of the hidden decree */
 .lsb #lsb-result.bad,.lsb #lsb-tresult.bad{color:var(--c-bad)}
 .lsb.running{cursor:progress}
-.lsb.running .qa,.lsb.running .mt,.lsb.running .tc,.lsb.running select{cursor:progress}
-.lsb .qa.busy,.lsb .mt.busy,.lsb .tc.busy{opacity:.9;cursor:progress}
-.lsb .qa.busy::after{content:"…"}
+.lsb.running .qa,.lsb.running .tc,.lsb.running select{cursor:progress}
+.lsb .qa.busy,.lsb .tc.busy{opacity:.9;cursor:progress}
+.lsb .qa.busy::after{content:"…";content:"…" / ""} /* the second declaration gives the dots an empty text alternative where it is supported: they are not read as part of the button name */
 .lsb .confirm{display:flex;flex-wrap:wrap;gap:var(--s-2) var(--s-3);align-items:center;margin:0 0 var(--s-2);padding:var(--s-2) var(--s-3);border:1px solid var(--c-spice);border-radius:var(--r-2);background:var(--c-sunken)}
 .lsb .confirm b{font:600 var(--t-md) var(--t-display);color:var(--c-text)}
 .lsb .actbar .confirm .qa{width:auto;min-width:5.5rem;min-height:44px}
@@ -779,3 +772,13 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb details.dphid[open]>summary::before{content:"\25BE"}
 .lsb details.dphid>summary:hover{color:var(--c-text)}
 @media (max-width:900px){.lsb details.dphid>summary{min-height:44px}} /* after its base rule above */
+
+/* What a raise grants is said before the click: a line under the quick buttons, a line in each tier box that would grant, the opened row's caption, and the result line in the warning colour */
+.lsb .c-qa{flex-wrap:wrap}
+.lsb .c-qa .qg{flex-basis:100%;margin:0;text-align:right;font-size:var(--t-xs);line-height:1.25;color:var(--c-dim)}
+.lsb .c-qa .qg:empty{display:none}
+.lsb .tc .gr{display:block;font:500 var(--t-xs)/1.2 var(--t-display);color:var(--c-dim)}
+.lsb .tc .gr.rm{color:var(--c-warn)}
+.lsb .cap.grantcap{margin-top:var(--s-2);color:var(--c-text)}
+.lsb #lsb-result.warn,.lsb #lsb-tresult.warn{color:var(--c-warn)}
+.lsb #lsb-result:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}

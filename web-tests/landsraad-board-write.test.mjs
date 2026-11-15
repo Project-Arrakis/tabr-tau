@@ -44,7 +44,8 @@ async function open(data = board(), post = {}) {
 const by = (ui, name) => [...ui.doc.querySelectorAll('#lsb-rows > li')].find((r) => r.querySelector('.hn b').textContent === name);
 const text = (el) => el.textContent.replace(/\s+/g, ' ').trim();
 const click = (ui, el) => { if (typeof el === 'string') el = ui.doc.querySelector(el); assert.ok(el, 'no element'); el.focus(); el.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
-const tier = (ui, name, i) => by(ui, name).querySelector(`.meter .mt[data-t="${i}"]`);
+// the tier boxes are in the opened row: open it, as a person does
+const tier = (ui, name, i) => { const r = by(ui, name), x = r.querySelector('.xc'); if (!x.checked) { x.checked = true; x.dispatchEvent(new ui.w.Event('change', { bubbles: true })); } return r.querySelector(`.tc[data-t="${i}"]`); };
 const quick = (ui, name, which) => by(ui, name).querySelector('.c-qa .' + which);
 const select = (ui, sel, v) => { const el = ui.doc.querySelector(sel); el.value = String(v); el.dispatchEvent(new ui.w.Event('change', { bubbles: true })); };
 const writes = (ui) => ui.posted.filter((p) => p.path === '/api/landsraad/apply');
@@ -67,13 +68,13 @@ test('a tier click writes at once: one request with what the page showed, no sta
   click(ui, tier(ui, 'Thorvald', 5)); await ui.settle();
   assert.deepEqual(writes(ui).map((w) => w.body), [{ term_id: 7, houses: [{ task_id: 901, was_mine: 4700, was_done: false, was_win: null, mine_to: 6000 }] }]);
   assert.equal(boardFetches(ui), before + 1, 'the row is read again from the save');
-  assert.ok(result(ui).startsWith('House Thorvald: your contribution 4,700 → 6,000 (tiers 4 to 5 reached); 2 reward rows written'), result(ui));
+  assert.ok(result(ui).startsWith('House Thorvald: your contribution 4,700 → 6,000 (tiers 4 to 5 reached); 2 rewards now waiting at the house representative'), result(ui));
   assert.ok(toasts(ui).some((t) => t.includes('House Thorvald: your contribution 4,700 → 6,000')), 'a toast says what was written');
   // nothing of the staging is left on the page
   for (const sel of ['.pendtag', '.undo', '.undoq', '[data-lb=write]', '[data-lb=undo]', '[data-lb=undoall]', '#lsb-pendbar', '.pend', '[data-pend]', '.src-write', '.tc.add', '.tc.rem']) assert.equal(ui.doc.querySelector(sel), null, sel + ' is gone');
   const shown = ui.doc.querySelector('#lsb').cloneNode(true); shown.querySelectorAll('details.about').forEach((d) => d.remove()); // the About text may say there is none
   assert.ok(!/Pending|Undo|Write [0-9]|Write button|WRITES/.test(text(shown)), "no word of the staging on the board");
-  assert.equal(ui.doc.activeElement.dataset.fk, 'mt:901:5', 'the focus stays on the control that was pressed');
+  assert.equal(ui.doc.activeElement.dataset.fk, 'tc:901:5', 'the focus stays on the control that was pressed');
 });
 
 test('the highest reached tier clicked again is a removal sent with the flag that allows lowering; a lower reached tier writes nothing and says how to remove', async () => {
@@ -125,7 +126,7 @@ test('the tooltip and the About text of Reopen say it does not set back what Com
   assert.ok(by(ui, 'Hurata').querySelector('.act-reopen').title.includes('progress stays at the goal'));
   assert.ok(ui.doc.querySelector('[data-lb=bulk][data-do=reopen]').title.includes('does not set back what Complete wrote'));
   const about = text(ui.doc.querySelector('[data-about="lsb.fill"] .abt'));
-  assert.ok(about.includes('Reopen does not undo a Complete completely') && about.includes('writes or removes no reward rows'), about);
+  assert.ok(about.includes('It does not undo a Complete completely') && about.includes('writes or removes no reward'), about);
 });
 
 test('while a write runs the control is busy and disabled, a second click is ignored with a line that says so, and the board is usable again after it', async () => {
@@ -185,8 +186,8 @@ test('a bulk button for more than one house asks first with the count; Cancel an
   click(ui, '[data-lb=bulk][data-do=complete]'); await ui.settle();
   const q = ui.doc.querySelector('#lsb-confirm');
   assert.ok(q, 'the question is shown');
-  assert.equal(text(q.querySelector('b')), 'Complete 3 houses for Atreides?');
-  assert.deepEqual([...q.querySelectorAll('button')].map(text), ['Yes', 'Cancel']);
+  assert.equal(text(q.querySelector('b')), 'Complete 3 houses for Atreides? Written at once, with a backup first.');
+  assert.deepEqual([...q.querySelectorAll('button')].map(text), ['Complete 3 houses', 'Cancel']);
   assert.deepEqual(writes(ui), [], 'asking writes nothing');
   assert.equal(ui.doc.activeElement.dataset.fk, 'c-no', 'the safe answer has the focus');
   click(ui, '[data-lb=cno]'); await ui.settle();
@@ -222,10 +223,10 @@ test('Fill chosen and Reopen chosen ask with their own count; one chosen house i
   const ui = await open(board(), { '/api/landsraad/apply': { ...OK, changed: 2, houses: 2 } });
   click(ui, '[data-lb=pickall]');
   click(ui, '[data-lb=bulk][data-do=fill]'); await ui.settle();
-  assert.equal(text(ui.doc.querySelector('#lsb-confirm b')), 'Fill 3 houses?');
+  assert.equal(text(ui.doc.querySelector('#lsb-confirm b')), 'Fill 3 houses? Written at once, with a backup first.');
   click(ui, '[data-lb=cno]'); await ui.settle();
   click(ui, '[data-lb=bulk][data-do=reopen]'); await ui.settle();
-  assert.equal(text(ui.doc.querySelector('#lsb-confirm b')), 'Reopen 2 houses?');
+  assert.equal(text(ui.doc.querySelector('#lsb-confirm b')), 'Reopen 2 houses? Written at once, with a backup first.');
   click(ui, '[data-lb=cyes]'); await ui.settle();
   assert.deepEqual(writes(ui)[0].body.houses, [
     { task_id: 903, was_mine: 6500, was_done: true, was_win: 1, reopen: true },
@@ -335,24 +336,56 @@ test('Cancel is ignored while the write of the bulk question runs: it does not s
   assert.ok(result(ui).startsWith('Complete chosen: 3 houses completed'), result(ui));
 });
 
-// What a raise grants (refs #609, #652): the missions it stands for, what they paid, and the warning when tiers were left out because they were already delivered (#656).
-test('the result line and the toast name the missions a raise granted: Solari, House Scrip and the specialization XP by line', async () => {
-  const ui = await open(board(), { '/api/landsraad/apply': { ...OK, completed: 1, reward_rows: 3, missions: 3, solari: 18000, house_scrip: 3000, specialization_xp: { Exploration: 9000 }, rewards_already_given: 0 } });
+// What a raise grants (refs #609, #652): said before the click, written in the result, and the warning when rewards were left out because they were already delivered (#656).
+const GRANT = { step: 1000, solari: 6000, scrip: 1000, xp: 1500, max_missions: 1000, problem: '' };
+const LINES = { Wayku: 'Gathering', Alexin: 'Crafting', Thorvald: 'Combat', Hurata: 'Exploration' };
+// the board read as the editor sends it: every house with its line and the contribution its own events cover, and the grant object
+const withGrant = (g = {}, events = {}) => {
+  const b = board();
+  b.tasks.forEach((t) => { t.line = LINES[t.house_name.replace('DA_House', '')]; t.my_events = events[t.id] || 0; });
+  b.grant = { ...GRANT, ...g };
+  return b;
+};
+const GRANTED = { ...OK, completed: 1, reward_rows: 3, missions: 3, solari: 18000, house_scrip: 3000, specialization_xp: { Exploration: 9000 }, rewards_already_given: 0 };
+
+test('the result line says what was written, in words that do not claim the pay-out is checked, and the toast is one short line', async () => {
+  const ui = await open(board(), { '/api/landsraad/apply': GRANTED });
   click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
   const r = result(ui);
-  assert.ok(r.includes('3 reward rows written; 3 missions granted: +18,000 Solari, +3,000 House Scrip, +9,000 Exploration XP'), r);
+  assert.ok(r.includes('3 rewards now waiting at the house representative; 3 missions written: +18,000 Solari, +3,000 House Scrip, +9,000 Exploration XP'), r);
   assert.ok(r.includes('house taken, its faction reached the goal'), r);
-  assert.ok(!r.includes('Warning'), r);
-  assert.ok(toasts(ui).some((t) => t.includes('3 missions granted: +18,000 Solari')), 'the toast says it too');
+  assert.ok(r.includes('has not been checked in the game yet'), 'the pay-out is said to be unchecked: ' + r);
+  assert.ok(!/granted|Warning/.test(r), r);
+  assert.deepEqual(toasts(ui), ['House Alexin: 3 missions written.']);
+  assert.equal(ui.doc.querySelector('#lsb-result').getAttribute('class'), null, 'a plain success is not drawn as a warning');
+  assert.equal(ui.doc.querySelector('#sr').textContent, r, 'the result is announced');
 });
 
-test('a raise whose tiers were already delivered says so as a warning and grants nothing', async () => {
+test('while the game runs the result says the change is queued, never that anything was written or granted', async () => {
+  const ui = await open(board(), { '/api/landsraad/apply': { ...GRANTED, outcome: 'queued' } });
+  click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
+  const r = result(ui);
+  assert.ok(r.includes('3 missions to write: +18,000 Solari') && r.includes('3 rewards to leave waiting at the house representative'), r);
+  assert.ok(r.includes('queued: written as soon as the save can be written'), 'the hint is in the result line, not only in the toast: ' + r);
+  assert.ok(!/granted|missions written|now waiting/.test(r), r);
+  assert.equal(ui.doc.querySelector('#lsb-result').className, 'warn', 'a queued change is not drawn as a success');
+  const t = ui.doc.querySelector('.d-toast');
+  assert.ok(t.classList.contains('note') && t.textContent.includes('queued') && !t.textContent.includes('written.'), t.className + ' ' + t.textContent);
+});
+
+test('a raise whose rewards were already delivered says so as a warning with a next step, and says that no missions were written', async () => {
   const ui = await open(board(), { '/api/landsraad/apply': { ...OK, reward_rows: 0, events: 0, missions: 0, solari: 0, house_scrip: 0, specialization_xp: {}, rewards_already_given: 2 } });
   click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
   const r = result(ui);
-  assert.ok(r.includes('Warning: 2 reward tiers not written, already delivered'), r);
-  assert.ok(!r.includes('granted'), r);
-  assert.ok(toasts(ui).some((t) => t.includes('Warning: 2 reward tiers not written, already delivered')), 'the toast carries the warning');
+  assert.ok(r.includes('No missions written: your own earlier progress on this house already counts for this ground'), r);
+  assert.ok(r.includes('Warning: 2 rewards were left out: earlier progress on this house already counted for them. Nothing to do'), r);
+  assert.ok(!/granted|tiers? not written|delivered/.test(r), r);
+  assert.equal(ui.doc.querySelector('#lsb-result').className, 'warn');
+  const t = ui.doc.querySelector('.d-toast');
+  assert.ok(t.classList.contains('note') && t.textContent.includes('Warning: 2 rewards were left out'), 'the toast is a warning, not a success: ' + t.className + ' ' + t.textContent);
+  const one = await open(board(), { '/api/landsraad/apply': { ...OK, reward_rows: 0, missions: 0, rewards_already_given: 1 } });
+  click(one, quick(one, 'Alexin', 'qa-fill')); await one.settle();
+  assert.ok(result(one).includes('Warning: 1 reward was left out: earlier progress on this house already counted for it.'), result(one));
 });
 
 test('a bulk write sums the missions of every house and names each specialization line', async () => {
@@ -361,13 +394,117 @@ test('a bulk write sums the missions of every house and names each specializatio
   click(ui, '[data-lb=bulk][data-do=fill]'); await ui.settle();
   click(ui, '[data-lb=cyes]'); await ui.settle();
   const r = result(ui);
-  assert.ok(r.includes('5 missions granted: +30,000 Solari, +5,000 House Scrip, +3,000 Crafting XP, +4,500 Gathering XP'), r);
-  assert.ok(r.includes('Warning: 1 reward tier not written, already delivered'), r);
+  assert.ok(r.includes('5 missions written: +30,000 Solari, +5,000 House Scrip, +3,000 Crafting XP, +4,500 Gathering XP'), r);
+  assert.ok(r.includes('Warning: 1 reward was left out'), r);
 });
 
-test('the About text says what a raise grants, that the mission limits of the game are not applied and that a second Fill grants nothing', async () => {
+test('a removal says in its tooltip and in its result that it takes back nothing the tier paid', async () => {
+  const ui = await open(board(), { '/api/landsraad/apply': { ...OK, contribution_raised: 0, contribution_lowered: 1, reward_rows: 0 } });
+  const t3 = tier(ui, 'Thorvald', 3); // the highest reached tier of Thorvald (4,700): clicking it removes it
+  assert.ok(t3.title.includes('Remove tier 3') && t3.title.includes('takes back nothing the tier paid') && t3.title.includes('restore the backup'), t3.title);
+  assert.ok(t3.getAttribute('aria-label').includes('takes back nothing the tier paid'));
+  click(ui, t3); await ui.settle();
+  assert.ok(result(ui).includes('(tier 3 removed)') && result(ui).includes('takes back nothing the tier paid') && result(ui).includes('restore the backup'), result(ui));
+  assert.deepEqual(toasts(ui), ['House Thorvald: tier removed. Nothing it paid was taken back.']);
+});
+
+test('before any click the board says what Fill, Fill faction goal and each tier grant, in text tied to the control, and that it writes at once and is not checked in the game', async () => {
+  const ui = await open(withGrant({}, { 901: 4700 }), {});
+  const al = by(ui, 'Alexin');
+  assert.equal(text(al.querySelector('.qg')), '6 missions: +36,000 Solari', 'a visible line under the quick buttons');
+  assert.equal(quick(ui, 'Alexin', 'qa-fill').getAttribute('aria-describedby'), 'qg-900 lsb-legend');
+  const cap = text(al.querySelector('#lsg-900'));
+  assert.ok(cap.includes('Fill and Fill faction goal: Grants 6 missions: +36,000 Solari, +6,000 House Scrip, +9,000 Crafting XP, 5 rewards waiting at the house representative.'), cap);
+  assert.ok(cap.includes('Next tier (tier 1): Grants 2 missions: +12,000 Solari, +2,000 House Scrip, +3,000 Crafting XP, 1 reward waiting at the house representative.'), cap);
+  assert.ok(cap.includes('Written at once.') && cap.includes('not been checked in the game yet'), cap);
+  assert.equal(al.querySelector('.act-fill').getAttribute('aria-describedby'), 'lsg-900 lsb-legend');
+  // each tier box that would grant shows it as text, and its accessible name carries it
+  assert.equal(text(tier(ui, 'Alexin', 5).querySelector('.gr')), '6 missions: +36,000 Solari');
+  assert.ok(tier(ui, 'Alexin', 5).getAttribute('aria-label').includes('Grants 6 missions: +36,000 Solari'));
+  assert.equal(tier(ui, 'Alexin', 1).querySelector('.gr').textContent, '2 missions: +12,000 Solari');
+  // the highest reached tier says what a click does; a tier the character's own events already cover grants no missions
+  assert.equal(text(tier(ui, 'Thorvald', 3).querySelector('.gr')), 'click removes it; takes back nothing it paid');
+  assert.equal(text(tier(ui, 'Thorvald', 4).querySelector('.gr')), 'no missions');
+  // the standing line is text, not a tooltip
+  const legend = text(ui.doc.querySelector('#lsb-legend'));
+  assert.ok(legend.includes('Writes at once, with a backup first') && legend.includes('a raise also pays its missions') && legend.includes('Not checked in the game yet'), legend);
+  assert.ok(ui.doc.querySelector('[data-lb=bulk][data-do=fill]').title.includes('The question shows the totals'));
+  // the closed row's meter is a picture, not five small buttons
+  assert.equal(ui.doc.querySelector('.meter button'), null);
+  assert.equal(ui.doc.querySelector('.meter').getAttribute('role'), 'img');
+});
+
+test('the ground the character own events already cover is not counted again in what a click says it grants', async () => {
+  // Thorvald is at 4,700 and its own events cover 6,000: a raise to 6,000 stands for no mission
+  const ui = await open(withGrant({}, { 901: 6000 }), {});
+  assert.equal(text(by(ui, 'Thorvald').querySelector('.qg')), 'no missions');
+  assert.ok(text(by(ui, 'Thorvald').querySelector('#lsg-901')).includes('Grants no missions: your own earlier progress already counts for this ground'));
+});
+
+test('a setting the editor cannot use, or a house with no line, is said before the click as a refusal', async () => {
+  const bad = 'The Landsraad amounts cannot be worked out: LandsraadContributionMultiplier in ServerCustomSettings.ini is "x", not a number from 0 to 10. Nothing was changed; correct the value in ServerCustomSettings.ini (Config tab) and try again.';
+  const ui = await open(withGrant({ problem: bad }), {});
+  assert.equal(text(by(ui, 'Alexin').querySelector('.qg')), 'will be refused');
+  assert.ok(text(by(ui, 'Alexin').querySelector('#lsg-900')).includes('Will be refused: ' + bad));
+  const b2 = withGrant(); b2.tasks[1].line = '';
+  const ui2 = await open(b2, {});
+  const cap = text(by(ui2, 'Alexin').querySelector('#lsg-900'));
+  assert.ok(cap.includes('has no specialization line in the editor') && cap.includes('use Complete for this one'), cap);
+});
+
+test('a click on one house that would grant ten missions or more asks first, with the totals and a button named for the action; Cancel writes nothing and returns the focus', async () => {
+  // a mission step of 500: Alexin 0 to 6,000 is 12 missions (72,000 Solari)
+  const ui = await open(withGrant({ step: 500 }), { '/api/landsraad/apply': { ...GRANTED, missions: 12, solari: 72000, house_scrip: 12000, specialization_xp: { Crafting: 18000 } } });
+  click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
+  assert.deepEqual(writes(ui), [], 'asking writes nothing');
+  const q = ui.doc.querySelector('#lsb-confirm');
+  assert.equal(text(q.querySelector('b')), 'Fill House Alexin? Grants 12 missions: +72,000 Solari, +12,000 House Scrip, +18,000 Crafting XP, 5 rewards waiting at the house representative. Written at once, with a backup first.');
+  assert.deepEqual([...q.querySelectorAll('button')].map(text), ['Fill House Alexin', 'Cancel']);
+  assert.equal(ui.doc.activeElement.dataset.fk, 'c-no');
+  click(ui, '[data-lb=cno]'); await ui.settle();
+  assert.deepEqual(writes(ui), []);
+  assert.equal(ui.doc.activeElement.dataset.fk, 'qf:900', 'the focus goes back to the control that was pressed');
+  // answering writes the request the page showed, and the question is gone
+  click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
+  click(ui, '[data-lb=cyes]'); await ui.settle();
+  assert.deepEqual(writes(ui).map((w) => w.body.houses), [[{ task_id: 900, was_mine: 0, was_done: false, was_win: null, mine_to: 6000 }]]);
+  assert.equal(ui.doc.querySelector('#lsb-confirm'), null);
+  // a tier click that would grant as much asks the same way; Fill faction goal names the faction
+  const ui2 = await open(withGrant({ step: 500 }), { '/api/landsraad/apply': GRANTED });
+  click(ui2, tier(ui2, 'Alexin', 5)); await ui2.settle();
+  assert.equal(text(ui2.doc.querySelector('#lsb-confirm b')).split('?')[0], 'Give tier 5 on House Alexin');
+  click(ui2, '[data-lb=cno]'); await ui2.settle();
+  click(ui2, by(ui2, 'Alexin').querySelector('.act-fill')); await ui2.settle();
+  assert.equal(text(ui2.doc.querySelector('#lsb-confirm b')).split('?')[0], 'Fill faction goal on House Alexin for Atreides');
+  assert.deepEqual(writes(ui2), []);
+  // below the threshold a click writes at once, as before
+  const ui3 = await open(withGrant({}), { '/api/landsraad/apply': GRANTED });
+  click(ui3, quick(ui3, 'Alexin', 'qa-fill')); await ui3.settle();
+  assert.equal(ui3.doc.querySelector('#lsb-confirm'), null);
+  assert.equal(writes(ui3).length, 1);
+});
+
+test('the bulk question carries the totals of the raise and names its button by the action', async () => {
+  const ui = await open(withGrant({}, { 901: 4700 }), { '/api/landsraad/apply': { ...OK, changed: 3, houses: 3, contribution_raised: 3 } });
+  click(ui, '[data-lb=pickall]');
+  click(ui, '[data-lb=bulk][data-do=fill]'); await ui.settle();
+  const q = ui.doc.querySelector('#lsb-confirm');
+  // Alexin 6 missions and 5 rewards, Thorvald 1 and 2, Hurata (1,300 to 6,000) 4 and 4; Wayku is above the top tier and is not asked about
+  assert.equal(text(q.querySelector('b')), 'Fill 3 houses? Grants 11 missions: +66,000 Solari, +11,000 House Scrip, +1,500 Combat XP, +9,000 Crafting XP, +6,000 Exploration XP, 11 rewards waiting at the house representative. Written at once, with a backup first.');
+  assert.deepEqual([...q.querySelectorAll('button')].map(text), ['Fill 3 houses', 'Cancel']);
+  // a refusal the editor would give is in the question too
+  const bad = withGrant({ problem: 'LandsraadContributionMultiplier is 0. Nothing was changed.' });
+  const ui2 = await open(bad, {});
+  click(ui2, '[data-lb=pickall]'); click(ui2, '[data-lb=bulk][data-do=fill]'); await ui2.settle();
+  assert.ok(text(ui2.doc.querySelector('#lsb-confirm b')).includes('Will be refused: LandsraadContributionMultiplier is 0.'));
+});
+
+test('the About text says what a raise writes and what it does not, names both settings, that the mission limits are not applied, that the pay-out is not checked, and the way back', async () => {
   const ui = await open();
-  const about = text(ui.doc.querySelector('#lsb'));
-  for (const s of ['6,000 Solari and 1,000 House Scrip in your wallet for each mission', 'on the specialization line of the house', 'The daily and weekly mission limits of the game are not applied',
-    'so a second Fill grants nothing', 'Not written: your character\'s own experience and faction standing']) assert.ok(about.includes(s), s);
+  const about = text(ui.doc.querySelector('[data-about="lsb.tiers"] .abt'));
+  for (const s of ['A tier click pays what its missions pay', '6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization line of the house', 'LandsraadContributionMultiplier', 'LandsraadSpecializationXpMultiplier',
+    'The daily and weekly mission limits of the game are not applied', 'so a second Fill grants nothing', 'your character\'s own XP and your faction standing', 'takes back nothing the tier paid', 'Not checked in the game yet',
+    'Restore on the Database tab (Save backups) puts it back']) assert.ok(about.includes(s), s);
+  assert.ok(ui.doc.querySelectorAll('[data-about="lsb.tiers"] .abt p').length >= 4 && ui.doc.querySelector('[data-about="lsb.tiers"] .abt ul'), 'the long paragraph is split into a list and short paragraphs');
+  assert.ok(text(ui.doc.querySelector('[data-about="lsb.fill"] .abt')).includes('asks first'));
 });
