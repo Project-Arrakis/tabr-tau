@@ -96,3 +96,23 @@ func TestTheBoardsWriteRefusesAMultiplierItCannotReadAndWritesNothing(t *testing
 		}
 	}
 }
+
+func TestTheBoardsWriteNamesEveryMultiplierItCannotUse(t *testing.T) {
+	s := grantServer(t, "[/Script/DuneSandbox.UserServerCustomSettings]\nLandsraadContributionMultiplier=abc\nLandsraadSpecializationXpMultiplier=11\n")
+	w := postEdit(t, s, "/api/landsraad/apply", grantFill)
+	b := w.Body.String()
+	if w.Code != 422 || !strings.Contains(b, "LandsraadContributionMultiplier") || !strings.Contains(b, "LandsraadSpecializationXpMultiplier") || !strings.Contains(b, "Nothing was changed") {
+		t.Fatalf("both bad values: %d %s", w.Code, b)
+	}
+}
+
+func TestTheBoardsWriteRefusesAContributionMultiplierOfZero(t *testing.T) {
+	s := grantServer(t, "[/Script/DuneSandbox.UserServerCustomSettings]\nLandsraadContributionMultiplier=0.000000\n")
+	w := postEdit(t, s, "/api/landsraad/apply", grantFill)
+	if w.Code != 422 || !strings.Contains(w.Body.String(), "LandsraadContributionMultiplier") || !strings.Contains(w.Body.String(), "is 0") {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	if got := landsraadMineAmounts(t, s.Save.Path); got[1] != 1300 {
+		t.Fatalf("the contribution changed: %v", got)
+	}
+}

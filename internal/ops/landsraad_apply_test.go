@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
+	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
 // The board's write (part 2 of the tab rework, refs #599, #440): every action runs on a copy of a save (the test database) and the rows it leaves are asserted.
@@ -240,7 +241,24 @@ func TestApplyFillFactionGoalLeavesTheStateOfTheExistingButton(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustApply(t, b, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0, "complete_for": 2.0})))
-	// the existing button writes no reward rows; the board's write does (part 3), so only the other tables are compared
+	// the existing button writes no reward rows; the board's write does (part 3), so only the other tables are compared. The faction's contribution is not: the board's write adds what
+	// the character gained (as a plain Fill and a mission do, #751) and takes it to the goal at least, the existing button sets it to the goal; both are checked on their own
+	factionOf := func(o *Ops) float64 {
+		r, err := o.S.One(`select amount a from landsraad_task_faction_contributions where faction_id=2 and task_id=175`)
+		if err != nil || r == nil {
+			t.Fatal(err, r)
+		}
+		return r["a"].(float64)
+	}
+	if factionOf(a) != 4000 || factionOf(b) != 5700 {
+		t.Fatalf("the faction's contribution: existing button %v, board %v", factionOf(a), factionOf(b))
+	}
+	if _, err := b.S.Mutate("test", func(m *save.Mut) error {
+		_, err := m.Exec(`update landsraad_task_faction_contributions set amount=4000 where faction_id=2 and task_id=175`)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if boardTables(t, a, false) != boardTables(t, b, false) {
 		t.Fatalf("Fill faction goal and the board's write leave different rows:\n%s\n---\n%s", boardRows(t, a), boardRows(t, b))
 	}

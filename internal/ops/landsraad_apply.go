@@ -184,7 +184,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 			if it.completeFor != nil || it.reopen {
 				done := t["completed"] == int64(1)
 				if done != it.wasDone || t["winning_faction_id"] != it.wasWin {
-					return apierr.Newf(apierr.ErrConflict, "house %v was taken or reopened since you looked, so nothing was changed: reload the page and look again", houseOf(t))
+					return apierr.Newf(apierr.ErrConflict, "house %v was taken or reopened since you looked, so nothing was changed. The board was read again; check it and click again", houseOf(t))
 				}
 			}
 			if it.mineTo != nil {
@@ -204,7 +204,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 					}
 				}
 				if s.cur != it.wasMine {
-					return apierr.Newf(apierr.ErrConflict, "your contribution to %v is not what you were shown, so nothing was changed: reload the page and look again", houseOf(t))
+					return apierr.Newf(apierr.ErrConflict, "your contribution to %v is not what you were shown, so nothing was changed. The board was read again; check it and click again", houseOf(t))
 				}
 				to := *it.mineTo
 				if to != float64(int64(to)) {
@@ -228,6 +228,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 		for _, s := range steps {
 			it := s.it
 			did := false
+			doneByRaise := false // grantRaise took the house for the character's faction: the completion below must not be made, or counted, a second time (#751)
 			if it.mineTo != nil {
 				to := *it.mineTo
 				switch {
@@ -250,6 +251,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 					}
 					if done {
 						completed++
+						doneByRaise = true
 					}
 					rw.add(rr)
 				case to < s.cur && to == 0:
@@ -266,7 +268,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 					did = true
 				}
 			}
-			if it.completeFor != nil {
+			if it.completeFor != nil && !doneByRaise {
 				c, err := completeHouse(m, s.t, *it.completeFor, true)
 				if err != nil {
 					return err

@@ -1230,17 +1230,25 @@ func (s *Server) takeStartupNote() string { n, _ := s.takeStartup(); return n }
 func (s *Server) grantSettings() ops.GrantSettings {
 	g := ops.DefaultGrantSettings()
 	g.TrackNumbers = settings.Load(s.SettingsPath).TrackNumbers
+	var problems []string
 	for _, k := range []struct {
-		key string
-		dst *float64
-	}{{"LandsraadContributionMultiplier", &g.ContributionMultiplier}, {"LandsraadSpecializationXpMultiplier", &g.SpecializationXPMultiplier}} {
+		key  string
+		dst  *float64
+		zero string // what a 0 would mean, when 0 cannot be used
+	}{{"LandsraadContributionMultiplier", &g.ContributionMultiplier, "a mission would add no contribution and the missions a click stands for could not be counted"},
+		{"LandsraadSpecializationXpMultiplier", &g.SpecializationXPMultiplier, ""}} {
 		v, found, err := s.Cfg.Number("ServerCustomSettings.ini", config.DefaultSection, k.key, 0, 10)
 		switch {
 		case err != nil:
-			g.Problem = "The Landsraad amounts cannot be worked out: " + err.Error() + ". Nothing was changed; correct the value in ServerCustomSettings.ini (Config tab) and try again."
+			problems = append(problems, err.Error())
+		case found && v == 0 && k.zero != "":
+			problems = append(problems, k.key+" in ServerCustomSettings.ini is 0, so "+k.zero)
 		case found:
 			*k.dst = v
 		}
+	}
+	if len(problems) > 0 {
+		g.Problem = "The Landsraad amounts cannot be worked out: " + strings.Join(problems, "; and ") + ". Nothing was changed; correct the value in ServerCustomSettings.ini (Config tab) and try again."
 	}
 	return g
 }

@@ -63,6 +63,23 @@ func (g GrantSettings) track(line string) int64 {
 	return measuredTrackNumbers[line]
 }
 
+// specializationLines are the five lines in the order the Specialization tab lists them; the order only fixes which two lines a refusal names first.
+var specializationLines = []string{"Crafting", "Gathering", "Exploration", "Combat", "Sabotage"}
+
+// checkTracks refuses the settings when two lines would write to the same track number. The number of a line is the learned one where there is one and the measured one otherwise, so
+// one learned number can land on the measured number of another line (#750); the XP of both lines would then go to one row and the other row would never be written.
+func (g GrantSettings) checkTracks() error {
+	seen := map[int64]string{}
+	for _, line := range specializationLines {
+		n := g.track(line)
+		if other, dup := seen[n]; dup {
+			return apierr.Newf(apierr.ErrBadArgument, "The specialization track numbers are not usable: %s and %s both use number %d, so the experience of a mission could be written to the wrong line. Nothing was changed; correct the assignment on the Specialization tab and try again.", other, line, n)
+		}
+		seen[n] = line
+	}
+	return nil
+}
+
 // houseLine is the specialization line each house raises, keyed by the name the save writes without the DA_House prefix. Source: the public community Landsraad tracker
 // (htwsguild.com/Molbork/lr_tracker.html, read 2026-11-14, recorded on #609 and #646), five houses per line; the save's spelling of two names differs from the tracker's
 // (Mikkarol for Mikarrol, Spinette for Spinnette). Two missions on Argosaz (Exploration, track 3) and one on Mikkarol (Combat, track 4) agree with it; the save itself holds no link
@@ -134,15 +151,20 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 	}
 	line := lineOfHouse(house)
 	if line == "" && g.SpecializationXPMultiplier > 0 {
-		return res, false, apierr.Newf(apierr.ErrBadArgument, "%v is not a house the editor knows a specialization line for, so the experience a mission gives cannot be written: nothing was changed", houseOf(t))
+		return res, false, apierr.Newf(apierr.ErrBadArgument, "%v is not a house the editor knows a specialization line for, so the experience a mission gives cannot be written. Nothing was changed; choose only other houses, or use Complete for this one.", houseOf(t))
+	}
+	if g.SpecializationXPMultiplier > 0 {
+		if err := g.checkTracks(); err != nil {
+			return res, false, err
+		}
 	}
 	step := missionContribution * g.ContributionMultiplier
-	missions := int64(1)
-	if step > 0 {
-		missions = ceilSteps(after, step) - ceilSteps(lo, step)
+	if step <= 0 {
+		return res, false, apierr.New(apierr.ErrBadArgument, "LandsraadContributionMultiplier is 0, so a mission adds no contribution and the missions a click stands for cannot be counted. Nothing was changed; set it to a number above 0 in ServerCustomSettings.ini (Config tab) and try again.")
 	}
+	missions := ceilSteps(after, step) - ceilSteps(lo, step)
 	if missions > maxMissionsAtOnce {
-		return res, false, apierr.Newf(apierr.ErrBadArgument, "%v: this change stands for %d missions, more than the %d one change may grant, so nothing was changed", houseOf(t), missions, maxMissionsAtOnce)
+		return res, false, apierr.Newf(apierr.ErrBadArgument, "%v: this change stands for %d missions, more than the %d one change may grant. Nothing was changed; click the tiers one at a time, or set LandsraadContributionMultiplier in ServerCustomSettings.ini (Config tab) nearer to 1.", houseOf(t), missions, maxMissionsAtOnce)
 	}
 	gained := after - lo
 
@@ -154,10 +176,13 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 		facBefore, _ = toFloat(fc["amount"])
 	}
 	open := t["completed"] != int64(1)
-	// a house the same request completes for the character's faction takes the faction to the goal (Fill faction goal, never lowered); otherwise the faction gains what the character
-	// gained while the house is open, as a mission adds it (an event after the completion carries no faction progress)
+	// the faction gains what the character gained while the house is open, as a mission adds it (an event after the completion carries no faction progress); a house the same request
+	// completes for the character's faction (Fill faction goal) is also taken to the goal at least, never lowered
 	facNew := facBefore
 	switch {
+	case completeMine && open:
+		// the same as a plain Fill (the faction gains what the character gained, as the game adds a whole event), and never less than the goal (#751)
+		facNew = max(facBefore+gained, goal)
 	case completeMine:
 		facNew = max(facBefore, goal)
 	case open:

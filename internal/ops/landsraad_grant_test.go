@@ -247,7 +247,7 @@ func TestGrantRefusalsLeaveNothingAndSayWhy(t *testing.T) {
 		insert into landsraad_task_rewards(task_id, threshold, template_id, amount) values (177, 1200, 'SolarisCoin', 1);`)
 	before := grantRows(t, o)
 	_, err := o.LandsraadApplyWith(doubled(), applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0}), house(177, Args{"mine_to": 1200.0})))
-	if err == nil || !strings.Contains(err.Error(), "Nobody is not a house the editor knows a specialization line for") || !strings.Contains(err.Error(), "nothing was changed") {
+	if err == nil || !strings.Contains(err.Error(), "Nobody is not a house the editor knows a specialization line for") || !strings.Contains(err.Error(), "Nothing was changed") {
 		t.Fatalf("an unknown house: %v", err)
 	}
 	if grantRows(t, o) != before {
@@ -344,5 +344,78 @@ func TestGrantTheHouseLineTableCoversEveryHouseFiveToALine(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join("..", "web", "static", "houses")); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// #750: the number of a line is the learned one or the measured one, line by line; two lines on one number would write the XP of both to one row
+func TestGrantRefusesTwoLinesOnTheSameTrackNumber(t *testing.T) {
+	o := rewardOps(t, "")
+	before := grantRows(t, o)
+	g := doubled()
+	g.TrackNumbers = map[string]int64{"Crafting": 2} // Gathering falls back to the measured 2
+	_, err := o.LandsraadApplyWith(g, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0})))
+	if err == nil || !strings.Contains(err.Error(), "Crafting and Gathering both use number 2") || !strings.Contains(err.Error(), "Nothing was changed") || !strings.Contains(err.Error(), "Specialization tab") {
+		t.Fatalf("two lines on one number: %v", err)
+	}
+	if grantRows(t, o) != before {
+		t.Fatal("a refused request changed the save")
+	}
+	// a removal needs no track number
+	if _, err := o.LandsraadApplyWith(g, applyArgs(house(174, Args{"was_mine": 7850.0, "mine_to": 4800.0, "lower": true}))); err != nil {
+		t.Fatalf("a removal needs no track numbers: %v", err)
+	}
+	// with no XP multiplier nothing is written to a track, so the numbers do not matter
+	g.SpecializationXPMultiplier = 0
+	if _, err := o.LandsraadApplyWith(g, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0}))); err != nil {
+		t.Fatalf("no XP, no track: %v", err)
+	}
+}
+
+func TestGrantAcceptsLearnedNumbersThatAreAFullDifferentPermutation(t *testing.T) {
+	o := rewardOps(t, "")
+	g := doubled()
+	// Gathering moves to 5 and Sabotage to 2, Crafting to 4 and Combat to 1: five different numbers, none of them the measured ones for its own line
+	g.TrackNumbers = map[string]int64{"Crafting": 4, "Gathering": 5, "Exploration": 3, "Combat": 1, "Sabotage": 2}
+	m := applyWith(t, o, g, house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0}))
+	if m["specialization_xp"].(map[string]int64)["Gathering"] != 6000 {
+		t.Fatalf("answer: %v", m)
+	}
+	if xp, _, has := track(t, o, 5); !has || xp != 6000 {
+		t.Fatalf("Gathering's learned number 5: %d %v", xp, has)
+	}
+	if _, _, has := track(t, o, 2); has {
+		t.Fatal("the measured number of Gathering was written")
+	}
+}
+
+// #751.1: one house taken by the raise is one completion
+func TestGrantFillFactionGoalCountsTheHouseOnce(t *testing.T) {
+	o := rewardOps(t, "")
+	m := applyWith(t, o, DefaultGrantSettings(), house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0, "complete_for": 2.0}))
+	if m["completed"].(int64) != 1 {
+		t.Fatalf("completed: %v", m["completed"])
+	}
+}
+
+// #751.2: Fill faction goal leaves the faction where a plain Fill would (what the character gained is added), and never below the goal
+func TestGrantFillFactionGoalGivesTheFactionWhatAPlainFillGives(t *testing.T) {
+	plain, goal := rewardOps(t, ""), rewardOps(t, "")
+	applyWith(t, plain, DefaultGrantSettings(), house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0}))
+	applyWith(t, goal, DefaultGrantSettings(), house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0, "complete_for": 2.0}))
+	fac := func(o *Ops) float64 {
+		r, err := o.S.One(`select amount a from landsraad_task_faction_contributions where faction_id=2 and task_id=175`)
+		if err != nil || r == nil {
+			t.Fatal(err, r)
+		}
+		return r["a"].(float64)
+	}
+	if fac(plain) != 5700 || fac(goal) != 5700 {
+		t.Fatalf("the faction: plain %v, goal %v", fac(plain), fac(goal))
+	}
+	// a faction short of the goal after the gain is brought up to it
+	small := rewardOps(t, "")
+	applyWith(t, small, DefaultGrantSettings(), house(175, Args{"was_mine": 1300.0, "mine_to": 2400.0, "complete_for": 2.0}))
+	if got := fac(small); got != 4000 {
+		t.Fatalf("a faction short of the goal: %v", got)
 	}
 }

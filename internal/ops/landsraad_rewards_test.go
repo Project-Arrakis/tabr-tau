@@ -127,16 +127,16 @@ func TestRewardsAHouseWithoutASwatchRowDeliversTheTaskItem(t *testing.T) {
 func TestRewardsFillFactionGoalRecordsTheFactionsShareInTheEvent(t *testing.T) {
 	o := rewardOps(t, "")
 	fillKenola(t, o, Args{"complete_for": 2.0})
-	if got := events(t, o); got != "map[faction_id:2 faction_progress:3000 guild_progress:0 id:1 player_id:1 player_progress:6000 task_id:175 timestamp:150]\n" {
+	if got := events(t, o); got != "map[faction_id:2 faction_progress:4700 guild_progress:0 id:1 player_id:1 player_progress:6000 task_id:175 timestamp:150]\n" {
 		t.Fatalf("the event: %s", got)
 	}
 	if h := houseRow(t, o, 175); h["c"].(int64) != 1 || h["w"].(int64) != 2 || h["ct"].(int64) != 150 {
 		t.Fatalf("taken: %v", h)
 	}
-	// the same request on a house the faction is already at the goal on adds nothing to the faction's share
+	// the same request on an open house the faction is already at the goal on: the faction still gains what the character gained, as a plain Fill gives it (#751)
 	o = rewardOps(t, `update landsraad_task_faction_contributions set amount=4000 where task_id=175`)
 	fillKenola(t, o, Args{"complete_for": 2.0})
-	if got := events(t, o); got != "map[faction_id:2 faction_progress:0 guild_progress:0 id:1 player_id:1 player_progress:6000 task_id:175 timestamp:150]\n" {
+	if got := events(t, o); got != "map[faction_id:2 faction_progress:4700 guild_progress:0 id:1 player_id:1 player_progress:6000 task_id:175 timestamp:150]\n" {
 		t.Fatalf("the event: %s", got)
 	}
 }
