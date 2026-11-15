@@ -21,6 +21,11 @@ const parkedBodySQL = `
 update actors set map='DeepDesert', location_x=-300000.0, location_y=-590000.0, location_z=3500.0 where id in (1,3);
 update actors set map='Overland', location_x=50.0, location_y=60.0, location_z=70.0, state=1 where id=2;`
 
+// the body is on another map than the player and standing in the world (state 0): the one case in which a move to a named map may go on (it writes all three actors there)
+const parkedStandingBodySQL = `
+update actors set map='DeepDesert', location_x=-300000.0, location_y=-590000.0, location_z=3500.0 where id in (1,3);
+update actors set map='Overland', location_x=50.0, location_y=60.0, location_z=70.0, state=0 where id=2;`
+
 // the same character, the three actors on the Deep Desert and the body standing (state 0): the ordinary case, on a map other than Hagga Basin
 const standingOnDeepDesertSQL = `
 update actors set map='DeepDesert', location_x=-300000.0, location_y=-590000.0, location_z=3500.0 where id in (1,2,3);`
@@ -151,6 +156,9 @@ func TestCharacterPlaceReadsControllerBodyAndPlayerState(t *testing.T) {
 		{"player state on another map", `update actors set map='Overland' where id=3;`, true, true, "HaggaBasin"},
 		{"controller on another map than the body", `update actors set map='DeepDesert' where id=1;`, true, true, "DeepDesert"},
 		{"body not standing", `update actors set state=4 where id=2;`, true, false, "HaggaBasin"},
+		// #692: a body that is not standing is refused whatever its map; it is never the "maps differ only" case that a move between maps may go on from
+		{"body on another map and not standing", parkedBodySQL, true, false, "DeepDesert"},
+		{"player state on another map, body not standing", `update actors set map='Overland' where id=3; update actors set state=1 where id=2;`, true, false, "HaggaBasin"},
 		{"body without a map", `update actors set map=NULL where id=2;`, true, true, "HaggaBasin"},
 		{"controller without a map", `update actors set map=NULL where id=1;`, true, false, ""},
 	}
@@ -175,7 +183,7 @@ func TestCharacterPlaceReadsControllerBodyAndPlayerState(t *testing.T) {
 
 func TestTeleportOfAParkedBodyMovesAllThreeActorsOrRefuses(t *testing.T) {
 	// a move on one map would move the body only and leave it where the player is not: no map, no move
-	o := &Ops{S: testsave.PlayerWithSQL(t, parkedBodySQL)}
+	o := &Ops{S: testsave.PlayerWithSQL(t, parkedStandingBodySQL)}
 	before := characterActors(t, o)
 	if _, err := o.Teleport(Args{"x": 10.0, "y": 20.0, "z": 30.0}); err == nil || !strings.Contains(err.Error(), "Choose the map") {
 		t.Fatalf("a move of a parked body on no named map must be refused with the way out: %v", err)
@@ -183,24 +191,33 @@ func TestTeleportOfAParkedBodyMovesAllThreeActorsOrRefuses(t *testing.T) {
 	if after := characterActors(t, o); after != before {
 		t.Errorf("a refusal changes nothing:\n before %s\n after  %s", before, after)
 	}
-	// the map the player is on, named: the move is a move between maps and puts the three actors on it together (the state of the body is not touched)
+	// the map the player is on, named: the move is a move between maps and puts the three actors on it together (the body stands, its state is 0)
 	if _, err := o.Teleport(Args{"x": -300500.0, "y": -590500.0, "z": 1500.0, "map": "DeepDesert"}); err != nil {
 		t.Fatal(err)
 	}
 	if got, want := playerActorMaps(t, o), "1:DeepDesert/0@-300500,-590500,1500 2:DeepDesert/0@-300500,-590500,1500 3:DeepDesert/0@-300500,-590500,1500"; got != want {
 		t.Errorf("the three actors after the move:\n got %s\nwant %s", got, want)
 	}
-	// a body that is not standing in the world is not moved by the editor at all
-	o = &Ops{S: testsave.PlayerWithSQL(t, bodyNotStandingSQL)}
-	before = characterActors(t, o)
-	if _, err := o.Teleport(Args{"x": 10.0, "y": 20.0, "z": 30.0}); err == nil {
-		t.Fatal("a body that is not standing must not be moved")
-	}
-	if _, err := o.Teleport(Args{"x": -300500.0, "y": -590500.0, "z": 1500.0, "map": "DeepDesert"}); err == nil {
-		t.Fatal("a body that is not standing must not be moved to another map either")
-	}
-	if after := characterActors(t, o); after != before {
-		t.Errorf("a refusal changes nothing:\n before %s\n after  %s", before, after)
+	// a body that is not standing in the world is not moved by the editor at all: one rule, on the player's map and on another (#692)
+	for name, sql := range map[string]string{"on the player's map": bodyNotStandingSQL, "on another map (the travel map)": parkedBodySQL} {
+		o = &Ops{S: testsave.PlayerWithSQL(t, sql)}
+		before = characterActors(t, o)
+		if _, err := o.Teleport(Args{"x": 10.0, "y": 20.0, "z": 30.0}); err == nil {
+			t.Fatalf("a body that is not standing must not be moved (%s)", name)
+		}
+		_, err := o.Teleport(Args{"x": -300500.0, "y": -590500.0, "z": 1500.0, "map": "DeepDesert"})
+		if err == nil {
+			t.Fatalf("a body that is not standing must not be moved to another map either (%s)", name)
+		}
+		if !errors.Is(err, apierr.ErrBadArgument) || !strings.Contains(err.Error(), "not standing in the world") || !strings.Contains(err.Error(), "Nothing was changed") {
+			t.Errorf("%s: the refusal says why and that nothing was changed: %v", name, err)
+		}
+		if after := characterActors(t, o); after != before {
+			t.Errorf("%s: a refusal changes nothing:\n before %s\n after  %s", name, before, after)
+		}
+		if o.S.Dirty() {
+			t.Errorf("%s: a refusal leaves no pending edit", name)
+		}
 	}
 }
 
