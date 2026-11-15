@@ -317,7 +317,7 @@ test('after a write the row is drawn from the saved data, and the focus stays on
   assert.equal(text(quick(ui, 'Thorvald', 'qa-cr')), 'Complete');
   click(ui, quick(ui, 'Thorvald', 'qa-cr')); await ui.settle();
   assert.equal(text(quick(ui, 'Thorvald', 'qa-cr')), 'Reopen', 'the row shows what the save holds now');
-  assert.ok(text(by(ui, 'Thorvald').querySelector('.c-hs')).includes('Taken · Atreides (yours)'));
+  assert.ok(text(by(ui, 'Thorvald').querySelector('.c-hs')).includes('Taken · Atreides (your faction)'));
   assert.equal(ui.doc.activeElement.dataset.fk, 'qc:901', 'the focus is on the same place, now the Reopen button');
 });
 
@@ -525,15 +525,21 @@ test('with another faction chosen the tier boxes are off with the reason and wri
   for (const i of [1, 3, 5]) {
     const b = tier(ui, 'Thorvald', i);
     assert.equal(b.getAttribute('aria-disabled'), 'true', 'tier ' + i);
-    assert.ok(b.title.includes('Off while Harkonnen is chosen') && b.title.includes('your own contribution') && b.title.includes('Atreides'), b.title);
-    assert.ok(b.getAttribute('aria-label').includes('Off while Harkonnen is chosen'));
+    assert.ok(b.title.startsWith('Off while Harkonnen is chosen') && b.title.includes('your own contribution') && b.title.includes('Atreides'), b.title);
+    assert.ok(!b.title.includes('Reward') && !b.title.includes('Game id'), 'the title is the reason only');
+    assert.ok(b.getAttribute('aria-label').endsWith(', off') && !b.getAttribute('aria-label').includes('Off while'), 'the name is short, the reason is in the caption');
+    assert.equal(b.getAttribute('aria-describedby'), 'lsg-901');
     assert.equal(b.querySelector('.gr'), null, 'no promise of a grant on a box that does nothing');
   }
   click(ui, tier(ui, 'Thorvald', 5)); await ui.settle();
   click(ui, tier(ui, 'Thorvald', 2)); await ui.settle(); // the highest reached tier is the one that removes
   assert.deepEqual(writes(ui), [], 'no tier click wrote anything');
-  assert.ok(result(ui).includes('Off while Harkonnen is chosen'), result(ui));
+  assert.ok(result(ui).startsWith('Off while Harkonnen is chosen'), result(ui));
   assert.ok(text(ui.doc.querySelector('#lsg-901')).includes('Fill and the tiers are off while Harkonnen is chosen'), text(ui.doc.querySelector('#lsg-901')));
+  // the guard alone: even if a click got through, the request builder sends nothing for a tier of another faction
+  const data = board(), h = ui.w.lbHouse(data.tasks.find((x) => x.id === 901), data);
+  assert.equal(ui.w.lbItem(h, data, 'tier', 2, 5), null);
+  assert.notEqual(ui.w.lbItem(h, data, 'tier', 1, 5), null, 'own faction: the same click is a request');
   select(ui, '#lsb-fac', 1); await ui.settle();
   assert.equal(tier(ui, 'Thorvald', 5).getAttribute('aria-disabled'), 'false');
   click(ui, tier(ui, 'Thorvald', 5)); await ui.settle();

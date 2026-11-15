@@ -6,6 +6,8 @@ The colour tokens are the editor's own names and values (`design/assets/tokens-*
 
 Filters, sorting, term tabs and the location pop-up are done with CSS only (radio buttons, `:has()` and `:hover`); the pop-up is the quick peek on a mouse hover, and a click, an Enter key or a phone tap on the place opens the full map (see "Location: hover and click").
 
+Note: the editor now puts the current-term glance cards above the Term and decrees panel (#668); the order of the panels in these mock-ups is the older one.
+
 ## Files
 
 | File | What it shows | Covers |

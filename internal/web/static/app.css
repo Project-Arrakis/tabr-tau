@@ -449,7 +449,7 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .c-qa .qa{width:6rem}
 .lsb .acts .qa,.lsb .actbar .actrow .qa{width:8.5rem}
 .lsb .tc{font:600 var(--t-xs) var(--t-display);background:transparent;cursor:pointer;height:auto;min-height:46px;padding:4px 2px;gap:1px;align-content:center;text-align:center}
-.lsb .tc:hover{border-color:var(--c-spice)}
+.lsb .tc:not([aria-disabled="true"]):hover{border-color:var(--c-spice)}
 .lsb .tc:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
 .lsb .tc .pl{display:block;min-height:10px;font:500 10px/1.1 var(--t-display);letter-spacing:0}
 .lsb .actbar{margin:0 0 var(--s-3);padding:var(--s-3);border:1px solid var(--c-hair);border-radius:var(--r-3);background:var(--c-raised)}
@@ -761,6 +761,9 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .tgt{display:block;height:0;scroll-margin-top:12px}
 .lsb .seg input:checked+span{color:var(--c-text);background:color-mix(in srgb,var(--c-spice) 9%,var(--c-raised));box-shadow:inset 0 -2px 0 var(--c-spice)}
 .lsb .tc[data-na]{opacity:.55;cursor:default}
+/* a tier box that does nothing now (another faction chosen, or no faction): dimmed, dashed, no pointer, no hover colour; the reward text stays readable */
+.lsb .tc[aria-disabled="true"]{opacity:.55;cursor:not-allowed;border-style:dashed}
+.lsb .facts .fi{white-space:nowrap}
 .lsb .nodata{padding:var(--s-3);border:1px dashed var(--c-rule);border-radius:var(--r-2);color:var(--c-dim)}
 .lsb .mt12{margin-top:var(--s-3)}
 .lsb .mb8{margin:0 0 var(--s-2)}
