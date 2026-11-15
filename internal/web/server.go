@@ -836,7 +836,13 @@ func (s *Server) routes() {
 	s.post("/api/player/skills/max", o.MaxSkills)
 	s.get("/api/vendors", func(r *http.Request) (any, error) { return o.Vendors() })
 	s.post("/api/vendors/reset", o.ResetVendors)
-	s.get("/api/landsraad", func(r *http.Request) (any, error) { return o.Landsraad() })
+	s.get("/api/landsraad", func(r *http.Request) (any, error) {
+		v, err := o.Landsraad()
+		if m, ok := v.(map[string]any); ok && err == nil {
+			m["grant"] = s.grantSettings().Preview() // what a raise grants, for the line before the click
+		}
+		return v, err
+	})
 	s.post("/api/landsraad/progress", o.SetTaskProgress)
 	s.post("/api/landsraad/mine", o.FillMyContribution)
 	s.post("/api/landsraad/mine-many", o.FillMyContributions)
@@ -844,7 +850,9 @@ func (s *Server) routes() {
 	s.post("/api/landsraad/faction-goal", o.FillFactionGoal)
 	s.post("/api/landsraad/complete-many", o.CompleteChosen)
 	s.post("/api/landsraad/reopen-many", o.ReopenChosen)
-	s.post("/api/landsraad/apply", o.LandsraadApply)
+	// the board's write goes through the same write path as every other edit (one transaction, the queue and the backup of Save); the two multipliers it scales a mission's
+	// contribution and specialization XP by are read from the settings file the editor already edits, 1 where the key is not in it
+	s.post("/api/landsraad/apply", func(a ops.Args) (any, error) { return o.LandsraadApplyWith(s.grantSettings(), a) })
 	s.post("/api/landsraad/decree", o.SetDecree)
 	s.post("/api/landsraad/term", o.SetTerm)
 
@@ -1230,3 +1238,32 @@ func (s *Server) takeStartup() (string, bool) {
 }
 
 func (s *Server) takeStartupNote() string { n, _ := s.takeStartup(); return n }
+
+// grantSettings is what a Landsraad write scales a mission by: LandsraadContributionMultiplier and LandsraadSpecializationXpMultiplier of ServerCustomSettings.ini (1 when the
+// file or the key is not there) and the specialization track numbers the editor learned. A value that is not a number from 0 to 10 is not guessed at: the write that needs it is
+// refused with the reason (Problem).
+func (s *Server) grantSettings() ops.GrantSettings {
+	g := ops.DefaultGrantSettings()
+	g.TrackNumbers = settings.Load(s.SettingsPath).TrackNumbers
+	var problems []string
+	for _, k := range []struct {
+		key  string
+		dst  *float64
+		zero string // what a 0 would mean, when 0 cannot be used
+	}{{"LandsraadContributionMultiplier", &g.ContributionMultiplier, "a mission would add no contribution and the missions a click stands for could not be counted"},
+		{"LandsraadSpecializationXpMultiplier", &g.SpecializationXPMultiplier, ""}} {
+		v, found, err := s.Cfg.Number("ServerCustomSettings.ini", config.DefaultSection, k.key, 0, 10)
+		switch {
+		case err != nil:
+			problems = append(problems, err.Error())
+		case found && v == 0 && k.zero != "":
+			problems = append(problems, k.key+" in ServerCustomSettings.ini is 0, so "+k.zero)
+		case found:
+			*k.dst = v
+		}
+	}
+	if len(problems) > 0 {
+		g.Problem = "The Landsraad amounts cannot be worked out: " + strings.Join(problems, "; and ") + ". Nothing was changed; correct the value in ServerCustomSettings.ini (Config tab) and try again."
+	}
+	return g
+}

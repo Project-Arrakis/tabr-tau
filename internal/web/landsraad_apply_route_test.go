@@ -18,7 +18,7 @@ func TestTheBoardsWriteIsOneEditAndAStaleHouseRefusesIt(t *testing.T) {
 	body := `{"term_id":7,"houses":[{"task_id":175,"was_mine":1300,"mine_to":6000},{"task_id":176,"complete_for":2}]}`
 	w := postEdit(t, s, "/api/landsraad/apply", body)
 	m := decodeBody(t, w)
-	if w.Code != 200 || m["ok"] != true || m["outcome"] != "written" || m["changed"] != float64(2) || m["contribution_raised"] != float64(1) || m["completed"] != float64(1) {
+	if w.Code != 200 || m["ok"] != true || m["outcome"] != "written" || m["changed"] != float64(2) || m["contribution_raised"] != float64(1) || m["completed"] != float64(2) {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
 	}
 	if got := landsraadMineAmounts(t, s.Save.Path); got[1] != 6000 || got[50] != 3000 {

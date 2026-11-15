@@ -10,7 +10,7 @@ import (
 
 // ---------------------------------------------------------------- the board's write (part 2 of the tab rework, refs #599, #440)
 //
-// The board stages its changes on the page and writes them in one request. Each house in the request carries what the page showed (was_*) and what it wants:
+// The board writes each click at once (#641), as one request with one house or several (a bulk button). Each house in the request carries what the page showed (was_*) and what it wants:
 //
 //	mine_to       the character's own contribution to the house, under the character's own faction. It must be 0 or one of the house's reward thresholds.
 //	              A value above the recorded one raises it (the code of Fill chosen). A value below it is a tier removal: it is refused unless the request says lower: true,
@@ -23,7 +23,7 @@ import (
 // mine_to = that tier's threshold, and the removal of the highest tier is mine_to = the tier below it, or 0, with lower: true.
 //
 // Before anything is written the term and every house are compared with what the page showed (was_mine, was_done, was_win); a difference is a conflict and nothing is
-// written. It is one edit: either every house is done or none is. A contribution that is raised also writes the event and the reward rows (landsraad_rewards.go).
+// written. It is one edit: either every house is done or none is. A contribution that is raised also grants what the missions it stands for grant (landsraad_grant.go): the faction's share and the completion it brings, an event and the cursor, the reward rows of the tiers the character's own events had not crossed, the wallets and the specialization XP; one transaction, so a failure at any step leaves nothing behind.
 
 type applyItem struct {
 	task        int64
@@ -110,9 +110,14 @@ func parseApplyItems(a Args) ([]applyItem, error) {
 	return out, nil
 }
 
-// LandsraadApply writes the staged changes of the board (args term_id: the term the page showed; houses: the list described above). It is one edit and it is refused as a whole
-// when the term, or any house, is no longer what the page showed.
+// LandsraadApply is LandsraadApplyWith with the stock settings (both multipliers 1, the measured track numbers).
 func (o *Ops) LandsraadApply(a Args) (any, error) {
+	return o.LandsraadApplyWith(DefaultGrantSettings(), a)
+}
+
+// LandsraadApplyWith writes the board's change (args term_id: the term the page showed; houses: the list described above). It is one edit and it is refused as a whole
+// when the term, or any house, is no longer what the page showed. g gives the amounts a mission stands for (landsraad_grant.go).
+func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 	termID, err := a.Int("term_id")
 	if err != nil {
 		return nil, err
@@ -179,7 +184,7 @@ func (o *Ops) LandsraadApply(a Args) (any, error) {
 			if it.completeFor != nil || it.reopen {
 				done := t["completed"] == int64(1)
 				if done != it.wasDone || t["winning_faction_id"] != it.wasWin {
-					return apierr.Newf(apierr.ErrConflict, "house %v was taken or reopened since you looked, so nothing was changed: reload the page and look again", houseOf(t))
+					return apierr.Newf(apierr.ErrConflict, "house %v was taken or reopened since you looked, so nothing was changed. The board was read again; check it and click again", houseOf(t))
 				}
 			}
 			if it.mineTo != nil {
@@ -199,7 +204,7 @@ func (o *Ops) LandsraadApply(a Args) (any, error) {
 					}
 				}
 				if s.cur != it.wasMine {
-					return apierr.Newf(apierr.ErrConflict, "your contribution to %v is not what you were shown, so nothing was changed: reload the page and look again", houseOf(t))
+					return apierr.Newf(apierr.ErrConflict, "your contribution to %v is not what you were shown, so nothing was changed. The board was read again; check it and click again", houseOf(t))
 				}
 				to := *it.mineTo
 				if to != float64(int64(to)) {
@@ -223,22 +228,13 @@ func (o *Ops) LandsraadApply(a Args) (any, error) {
 		for _, s := range steps {
 			it := s.it
 			did := false
+			doneByRaise := false // grantRaise took the house for the character's faction: the completion below must not be made, or counted, a second time (#751)
 			if it.mineTo != nil {
 				to := *it.mineTo
 				switch {
 				case to > s.cur:
-					// how far the same change takes the faction's own progress (the event records it)
-					facDelta := 0.0
-					if it.completeFor != nil && *it.completeFor == me.faction {
-						goal, _ := toFloat(s.t["goal_amount"])
-						have := 0.0
-						if fc, err := m.One(`select amount from landsraad_task_faction_contributions where faction_id=? and task_id=?`, me.faction, it.task); err != nil {
-							return err
-						} else if fc != nil {
-							have, _ = toFloat(fc["amount"])
-						}
-						facDelta = max(goal-have, 0)
-					}
+					// the character's own row is raised to the tier; the missions it stands for are then granted (landsraad_grant.go): the faction's share and the completion it
+					// brings, the event with its player link and the cursor, the reward rows, the two wallets and the specialization track
 					if _, err := m.Exec(`insert into landsraad_task_player_contributions(player_id, faction_id, task_id, amount) values(?,?,?,?)
 						on conflict(player_id, faction_id, task_id) do update set amount=excluded.amount`, me.player, me.faction, it.task, to); err != nil {
 						return err
@@ -249,11 +245,19 @@ func (o *Ops) LandsraadApply(a Args) (any, error) {
 					if !clock.ok {
 						return apierr.New(apierr.ErrBadArgument, "the save has no record of this term, so the rewards cannot be timed: nothing was changed")
 					}
-					rr, err := deliverContribution(m, me, s.t, s.cur, to, facDelta, clock)
+					rr, done, err := grantRaise(m, me, s.t, s.cur, to, it.completeFor != nil && *it.completeFor == me.faction, clock, g)
 					if err != nil {
 						return err
 					}
+					if done {
+						completed++
+						doneByRaise = true
+					}
 					rw.add(rr)
+					// the cap is on the whole request, not only on each house: many houses, each under it, must not add up to more than one change may grant
+					if rw.missions > maxMissionsAtOnce {
+						return apierr.Newf(apierr.ErrBadArgument, "this request stands for more than the %d missions one change may grant, counting every house in it. Nothing was changed; fill fewer houses at once, or set LandsraadContributionMultiplier in ServerCustomSettings.ini (Config tab) nearer to 1.", maxMissionsAtOnce)
+					}
 				case to < s.cur && to == 0:
 					if _, err := m.Exec(`delete from landsraad_task_player_contributions where player_id=? and faction_id=? and task_id=?`, me.player, me.faction, it.task); err != nil {
 						return err
@@ -268,7 +272,7 @@ func (o *Ops) LandsraadApply(a Args) (any, error) {
 					did = true
 				}
 			}
-			if it.completeFor != nil {
+			if it.completeFor != nil && !doneByRaise {
 				c, err := completeHouse(m, s.t, *it.completeFor, true)
 				if err != nil {
 					return err
@@ -301,7 +305,16 @@ func (o *Ops) LandsraadApply(a Args) (any, error) {
 	}); err != nil {
 		return nil, err
 	}
-	return resetAnswer(changed, map[string]any{"houses": houses, "skipped": houses - changed, "contribution_raised": raised, "contribution_lowered": lowered, "completed": completed, "reopened": reopened, "events": rw.events, "reward_rows": rw.rewardRows, "swatches": rw.swatches, "rewards_already_given": rw.skipped}), nil
+	return resetAnswer(changed, map[string]any{"houses": houses, "skipped": houses - changed, "contribution_raised": raised, "contribution_lowered": lowered, "completed": completed, "reopened": reopened, "events": rw.events, "reward_rows": rw.rewardRows, "swatches": rw.swatches, "rewards_already_given": rw.skipped,
+		"missions": rw.missions, "solari": rw.solari, "house_scrip": rw.scrip, "specialization_xp": specAnswer(rw.spec)}), nil
+}
+
+// specAnswer is the specialization XP that was added, by line, as the answer carries it (never nil, so the page can read it).
+func specAnswer(m map[string]int64) map[string]int64 {
+	if m == nil {
+		return map[string]int64{}
+	}
+	return m
 }
 
 // houseOf names a task row's house for a message.
