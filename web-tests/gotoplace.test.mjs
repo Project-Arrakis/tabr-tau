@@ -392,9 +392,9 @@ const taxis = () => ({ map: 'DeepDesert', sameMap: true, total: 5, groups: [TAXI
 
 test('the Deep Desert\'s taxis are listed under Taxis with their distances, nearest first, and the hubs say they are another map', async () => {
   const { ui } = await open(taxis());
-  assert.deepEqual(headings(ui), [{ label: 'Taxis', places: [
-    'Deep Desert Taxi Service (A8) - 1,200 m away', 'Deep Desert Taxi Service (A5) - 9,000 m away', 'Deep Desert Taxi Service (A2) - 18,000 m away',
-    'Arrakeen Taxi Service - another map', 'Harko Village Taxi Service - another map'] }]);
+  assert.deepEqual(headings(ui), [
+    { label: 'Taxis', places: ['Deep Desert Taxi Service (A8) - 1,200 m away', 'Deep Desert Taxi Service (A5) - 9,000 m away', 'Deep Desert Taxi Service (A2) - 18,000 m away'] },
+    { label: 'Other maps (a move between maps is not proven)', places: ['Arrakeen Taxi Service - another map', 'Harko Village Taxi Service - another map'] }]);
   choose(ui, '0');
   assert.deepEqual(fields(ui), ['767350', '906130', '17643']);
   assert.equal(ui.doc.querySelector('#tmapwarn'), null, 'a point of the map the character is on is no move between maps');
@@ -403,9 +403,30 @@ test('the Deep Desert\'s taxis are listed under Taxis with their distances, near
   ui.dom.window.close();
 });
 
+// #607: the first option counts the places of the map shown; the hub rows of other maps are counted apart and listed under their own heading.
+test('the count is of the places on the map shown; the other-map hub rows are counted apart', async () => {
+  const { ui } = await open(taxis());
+  const first = ui.doc.querySelector('#tdsel option').textContent;
+  assert.equal(first, '3 places on DeepDesert, nearest first, and 2 on other maps');
+  assert.doesNotMatch(first, /5 places/);
+  ui.dom.window.close();
+});
+
+test('a map with one place of its own and the hubs says "1 place", and a map with only the hubs says "No places on" it', async () => {
+  const one = taxis(); one.destinations = [one.destinations[0], ...one.destinations.slice(3)]; one.total = 3;
+  const a = await open(one);
+  assert.equal(a.ui.doc.querySelector('#tdsel option').textContent, '1 place on DeepDesert, nearest first, and 2 on other maps');
+  a.ui.dom.window.close();
+  const none = taxis(); none.destinations = none.destinations.slice(3); none.total = 2;
+  const b = await open(none);
+  assert.equal(b.ui.doc.querySelector('#tdsel option').textContent, 'No places on DeepDesert, and 2 on other maps');
+  assert.deepEqual(headings(b.ui).map((h) => h.label), ['Other maps (a move between maps is not proven)'], 'no empty Taxis heading');
+  b.ui.dom.window.close();
+});
+
 test('a hub from Hagga Basin fills the boxes with its arrival point, shows the warning about a move between maps and sends its map with Teleport', async () => {
   const { ui } = await open(hubs());
-  assert.deepEqual(headings(ui)[1], { label: 'Taxis', places: ['Arrakeen Taxi Service - another map', 'Harko Village Taxi Service - another map'] });
+  assert.deepEqual(headings(ui)[1], { label: 'Other maps (a move between maps is not proven)', places: ['Arrakeen Taxi Service - another map', 'Harko Village Taxi Service - another map'] });
   assert.equal(ui.doc.querySelector('#tmapwarn'), null, 'nothing chosen, no warning');
   choose(ui, '1');
   assert.deepEqual(fields(ui), ['11495', '-316', '51457']);
