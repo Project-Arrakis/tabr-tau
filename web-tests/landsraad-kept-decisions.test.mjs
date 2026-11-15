@@ -47,7 +47,7 @@ test('the staging decisions are replaced by "every click writes at once": no pen
 test('the hidden Special Vendor decision names the label, the four vendors that stay and that the row is never changed', () => {
   const h = bullets.find((b) => b.includes('**The plain Special Vendor decree is hidden'));
   assert.ok(h);
-  for (const s of ['Hidden: Special Vendor, no category (effect unverified)', 'Vehicles, Weapons, Armor, Utilities', 'never changed or deleted', 'same Make active and Set flag controls']) assert.ok(h.includes(s), s);
+  for (const s of ['Hidden: the plain SpecialVendorActive row (no game name, no category, effect unverified)', 'Vehicles, Weapons, Armor, Utilities', 'never changed or deleted', 'same Make active and Set flag controls']) assert.ok(h.includes(s), s);
 });
 
 test('Reopen does not promise an undo: the README, and the table of what it writes, say what it leaves', () => {
