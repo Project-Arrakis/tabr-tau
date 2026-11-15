@@ -175,7 +175,7 @@ test('the flag button of one row sends that row only', async () => {
 test('the reigning faction drop-down starts on the character\'s own faction; Apply sends the two drop-downs in one request', async () => {
   const ui = await open();
   assert.equal(ui.doc.querySelector('#lsb-trf').value, '1', 'the character is in Atreides');
-  assert.ok(text(ui.doc.querySelector('#lsb-trf')).includes('Atreides (you)'));
+  assert.ok(text(ui.doc.querySelector('#lsb-trf')).includes('Atreides (your faction)'));
   assert.equal(ui.doc.querySelector('#lsb-tad').value, '8');
   const panel = ui.doc.querySelector('#lsb-tdp'); panel.open = true; panel.dispatchEvent(new ui.w.Event('toggle'));
   select(ui, '#lsb-tad', 6);

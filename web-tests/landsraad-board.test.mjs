@@ -162,10 +162,10 @@ test('a tier says what it gives, by the game’s name, and where it stands: not 
 test('the place: a house with no position says so and its map dialog explains; one with a position shows the area and the pin', async () => {
   const known = { known: true, map: 'Hagga Basin', map_key: 'HaggaBasin', area: 'The O’dham', place: 'north rim', x: 0.25, y: 0.5 };
   const ui = await open(board({ tasks: [house(900, 'Alexin', 0), house(901, 'Thorvald', 100, { location: known })] }));
-  assert.ok(text(ui.doc.querySelector('#lsrow-900 .c-loc')).includes('location unknown'));
+  assert.ok(text(ui.doc.querySelector('#lsrow-900 .c-loc')).includes('not mapped yet'));
   assert.ok(text(ui.doc.querySelector('#lsrow-901 .c-loc')).includes('The O’dham') && text(ui.doc.querySelector('#lsrow-901 .c-loc')).includes('Hagga Basin'));
   click(ui, '#lsrow-900 [data-lb=map]');
-  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('location of this house is unknown'));
+  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('This house is not mapped yet'));
   assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('no map marker'), 'it says why');
   assert.equal(text(ui.doc.querySelector('#lsb-mapttl')), 'Location: House Alexin', 'no map is named when there is none');
   assert.equal(ui.doc.querySelector('#lsb-mapbody .pin'), null, 'no position is drawn that is not known');
@@ -288,18 +288,18 @@ test('the stylesheet styles the status lines by the ids the board draws, and kee
 test('when no house has a place yet the board says so once: no place in every row, Group by region and the Location sort are off with the reason', async () => {
   const ui = await open();
   assert.ok(text(ui.doc.querySelector('#lsb-nolocs')).includes('No house has a place'));
-  assert.ok(!text(ui.doc.querySelector('#lsb-rows')).includes('location unknown'), 'no row says it');
-  assert.equal(ui.doc.querySelectorAll('#lsb-rows .loc-t').length, 0);
+  assert.equal(ui.doc.querySelectorAll('#lsb-rows .loc-t').length, 0, 'no place button in any row');
   assert.equal(ui.doc.querySelectorAll('.lsb .more h4').length, rows(ui).length * 2, 'no Where block per opened row');
   const g = ui.doc.querySelector('[data-lb=group]');
   assert.ok(g.disabled && ui.doc.querySelector('#lsb-grp-hint'), 'Group by region is off with a hint');
-  assert.ok(text(ui.doc.querySelector('#lsb-grp-hint')).includes('needs a place for the houses'));
+  assert.equal(text(ui.doc.querySelector('#lsb-grp-hint')), 'Group by region is off: it needs a place for the houses.', 'the note is a full sentence (#670)');
+  assert.ok(rows(ui).every((r) => text(r.querySelector('.c-loc')) === 'not mapped yet'), 'each Location cell says it, not a bare dash (#669), the same words as a single house without a place');
   assert.ok(ui.doc.querySelector('[data-col=location] .sorth').disabled);
   const known = { known: true, map: 'Hagga Basin', area: 'The O’dham', place: 'rim', x: 0.25, y: 0.5 };
   const ui2 = await open(board({ tasks: [house(900, 'Alexin', 0, { location: known }), house(901, 'Thorvald', 100)] }));
   assert.equal(ui2.doc.querySelector('#lsb-nolocs'), null);
   assert.ok(!ui2.doc.querySelector('[data-lb=group]').disabled);
-  assert.ok(text(ui2.doc.querySelector('#lsrow-901 .c-loc')).includes('location unknown'), 'with some places known, a house without one still says so');
+  assert.ok(text(ui2.doc.querySelector('#lsrow-901 .c-loc')).includes('not mapped yet'), 'with some places known, a house without one still says so');
 });
 
 test('the map dialog and the peek give the distance from you, and the dialog opens the Saved map at the house', async () => {
@@ -363,4 +363,21 @@ test('Group by region draws one heading per region with the number of houses in 
   assert.deepEqual(heads, ['Hagga Basin 2', 'Harko Village 1']);
   click(ui, '[data-lb=group]');
   assert.equal(ui.doc.querySelectorAll('#lsb-rows li.grp').length, 0, 'the headings go when grouping is off');
+});
+
+test('the glance line says what its numbers count: houses taken by each faction, your faction named, then the houses still open (#665)', async () => {
+  const ui = await open();
+  const facts = [...ui.doc.querySelectorAll('.lsb .facts > span')].map((e) => text(e));
+  assert.ok(facts[0].startsWith('Houses taken by each faction: Atreides 1 (your faction) · Harkonnen 1 · 2 still open'), facts[0]);
+  assert.ok(!facts[0].includes('By faction, not by'), 'no contrast against something not yet seen');
+  assert.ok(!facts[0].includes('(you)'), 'no bare (you)');
+  const items = [...ui.doc.querySelectorAll('.lsb .facts > span:first-child .fi')].map((e) => text(e));
+  assert.deepEqual(items, ['Atreides 1 (your faction) ·', 'Harkonnen 1 ·', '2 still open'], 'each count stays whole when the line wraps');
+  assert.ok(text(ui.doc.querySelector('#lsb-actbar, .actbar #lsb-fac')).includes('Atreides (your faction)'), 'the faction drop-down says it the same way');
+});
+
+test('the current-term glance cards come before the Term and decrees panel, then the board and the earlier terms (#668)', async () => {
+  const ui = await open();
+  const order = [...ui.doc.querySelectorAll('#lsb > section')].map((e) => e.getAttribute('aria-labelledby'));
+  assert.deepEqual(order.slice(0, 4), ['lsb-glance', 'lsb-term-h', 'lsb-board', 'lsb-hist']);
 });
