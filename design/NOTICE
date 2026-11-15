@@ -7,7 +7,7 @@ Licensed under the MIT Licence (see LICENSE). This module is part of the tabr-ta
 This is an unofficial project. It is not affiliated with or endorsed by Funcom.
 Dune: Awakening and its names belong to their owners.
 
-The module contains stylesheets, drawn SVG files, one typeface and Go code. It contains no game artwork, no text taken from the game,
+The module contains stylesheets, drawn SVG files, one typeface and Go code. It contains no game artwork, no game text other than the names of the Houses and dye swatches used as labels,
 no logo and no third-party code. See PROVENANCE.md for where each part comes from.
 
 The module imports the Go standard library only. It has no third-party dependency, so it carries no third-party Go licence text.
@@ -57,9 +57,12 @@ Three third-party sources are part of the module, and their notices travel with 
      https://awakening.wiki/Swatches. Taken on 2026-11-15: only the colour values (four hex codes for each of the 42 swatches) and the
      swatch names.
 
-   The colours are facts about how the game looks. No text, table layout, image or code of the wiki is copied into the module. The wiki
-   states that its content is available under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 unless otherwise noted; that
-   licence covers the wiki's own text and presentation, which this module does not use, and it is named here so that the source is
-   credited. The palettes are derived by the rules of palettes_dyes_test.go (the darkest dye becomes the page, the most vivid light dyes
-   become the accents, every text colour is moved until the contrast checks hold), so the values are this module's own work after the
-   dye colours. Each source page is recorded for each palette group here and in PROVENANCE.md.
+   No prose, image or code of the wiki is copied. palettes_dyes_test.go holds the swatch names and the four colour values of each of the
+   42 swatches, in the order the wiki lists them, as the starting values of the generator. The wiki states that its content is available
+   under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 unless otherwise noted (https://creativecommons.org/licenses/by-nc-sa/4.0/).
+   The page does not name its owner. This project treats the colour values as facts about the game and does not offer these palettes under
+   that licence. Not yet confirmed with the wiki's owners; see issue #683.
+
+   The palettes are made by the rules of palettes_dyes_test.go (the darkest dye becomes the page, the most vivid light dyes become the
+   accents, every text colour is moved until the contrast checks hold): the palette values are made by this project's rules from those
+   colours. Each source page is recorded for each palette group here and in PROVENANCE.md.

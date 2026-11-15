@@ -75,16 +75,25 @@ func TestEveryModuleHasItsLicenceText(t *testing.T) {
 	}
 }
 
-// The item catalog notice names the commits and blobs the file was copied from (#405).
-// The dye palettes of the design module name the public page their colours were read from (#683).
-func TestDyePaletteNoticeNamesItsSourcePage(t *testing.T) {
-	for _, must := range []string{"https://awakening.wiki/Module:Swatches/data", "https://awakening.wiki/Swatches", "House dyes", "Outfit dyes", "Creative Commons Attribution-NonCommercial-ShareAlike 4.0"} {
+// The dye palettes of the design module name the public page their colours were read from (#683), and the notices say where the question of the wiki's licence stands: a
+// permission line or "Not yet confirmed". The line cannot be dropped without this test failing, so a merge never hides an open question.
+func TestDyePaletteNoticeNamesItsSourcePageAndTheStateOfTheLicenceQuestion(t *testing.T) {
+	for _, must := range []string{"https://awakening.wiki/Module:Swatches/data", "https://awakening.wiki/Swatches", "House dyes", "Outfit dyes", "Creative Commons Attribution-NonCommercial-ShareAlike 4.0", "https://creativecommons.org/licenses/by-nc-sa/4.0/"} {
 		if !strings.Contains(Text, must) {
 			t.Errorf("expected %q in the notices", must)
 		}
 	}
+	if !strings.Contains(Text, "Permission: ") && !strings.Contains(Text, "Not yet confirmed with the wiki's owners") {
+		t.Error("the notices name neither the permission of the wiki's owners nor that it is not yet confirmed")
+	}
+	for _, mustNot := range []string{"No text, table layout, image or code of the wiki", "this module's own work", "which this module does not use"} {
+		if strings.Contains(Text, mustNot) {
+			t.Errorf("the notices still say %q", mustNot)
+		}
+	}
 }
 
+// The item catalog notice names the commits and blobs the file was copied from (#405).
 func TestItemCatalogNoticeNamesTheRefresh(t *testing.T) {
 	for _, must := range []string{"82548d72", "ecffc834", "v1.4.52", "MTX_IxianTotem_Patent", "1bde840c", "a9d50345", "739ecaef", "v1.4.54"} {
 		if !strings.Contains(Text, must) {

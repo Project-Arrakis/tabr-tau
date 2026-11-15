@@ -6,6 +6,8 @@ Each tag needs an entry here whose heading is `## vX.Y.Z` followed by the date: 
 
 ## v0.4.0 (2026-11-15)
 
+On hold: do not tag until the licence question of the dye colours (NOTICE item 3, issue #683) is settled.
+
 Palettes: forty-two dye palettes in two new groups, sixty in all.
 
 - **Forty-two new palettes in `assets/palettes.css`**, in two new groups listed after the first eighteen: **House dyes** (27: the 25 Landsraad Houses, Atreides and Harkonnen) and **Outfit dyes** (15: Sunset Dye, Dusk Rider, Blue Dasher, Maula, CHOAM, Vermillius Gap, Smuggler, Water Shipper Utility, Scriveners', Fremen Sietch, Ixian Garment, Resplendent Seraph, Palatial Servitors, Sardaukar Tactical, Hot Zone). All are dark palettes. The first eighteen are unchanged, in value and in order.
