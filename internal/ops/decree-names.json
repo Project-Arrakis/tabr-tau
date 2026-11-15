@@ -1,0 +1,18 @@
+{
+  "source": "The game's own data table DT_LandsraadDecrees (the Name and EffectText columns, English text), read from the installed game read-only; see internal/catalog/PROVENANCE.md, decree-names.json",
+  "game_build": "26592269",
+  "read": "2026-11-15",
+  "decrees": {
+    "ExperienceRateIncrease": { "name": "Scholarly Collaboration", "effect": "Experience gain is increased by 50%" },
+    "RangedDamageIncreased": { "name": "In Honor of the Fallen", "variant": "Ranged", "effect": "Ranged weapon damage increased by 33%" },
+    "MeleeDamageIncreased": { "name": "In Honor of the Fallen", "variant": "Melee", "effect": "Melee weapon damage increased by 33%" },
+    "CraftingCostReduced": { "name": "CHOAM Production Contract", "effect": "Crafting costs are reduced by 25%" },
+    "DropInventoryOnDefeatActive": { "name": "The Right of Salvage", "effect": "All items are dropped and can be looted by anyone when defeated in PVP zones in the Deep Desert" },
+    "RepairAndRefiningTimes": { "name": "CHOAM Refining Contract", "effect": "Repair costs and refining times are reduced by 75%" },
+    "SpecialVendorActive_Vehicles": { "name": "Exclusive Vehicle Import Rights", "effect": "Access to a Landsraad Vehicle Vendor" },
+    "SpecialVendorActive_Weapons": { "name": "Exclusive Weapon Import Rights", "effect": "Access to a Landsraad Weapon Vendor" },
+    "SpecialVendorActive_Armor": { "name": "Exclusive Armor Import Rights", "effect": "Access to a Landsraad Armor Vendor" },
+    "SpecialVendorActive_Utilities": { "name": "Exclusive Tool Import Rights", "effect": "Access to a Landsraad Tool Vendor" },
+    "SpecialVendorActive": { "name": "Special Vendor", "derived": true }
+  }
+}

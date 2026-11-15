@@ -216,6 +216,9 @@ func (o *Ops) Landsraad() (any, error) {
 		d["active"] = term["active_decree_id"] != nil && id == activeID
 		d["elected"] = term["elected_decree_id"] != nil && id == electedID
 		d["in_rotation"] = inRot[id]
+		key, _ := d["decree_name"].(string)
+		name, effect, known := decreeDisplay(key)
+		d["display_name"], d["effect"], d["name_known"], d["variant"] = name, effect, known, decreeNames[key].Variant
 	}
 	factions, err := o.S.Query(`select id, name from factions where name <> 'None' order by id`)
 	if err != nil {
