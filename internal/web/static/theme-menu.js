@@ -4,8 +4,9 @@
 //   the Theme button  opens a menu of five groups, each a list of radio items: Look (Fremen, Awakening, Sietch), Dark / Dayside (follow the system, Dark, Dayside), Colours (a filter box, None, then the 60
 //                     palettes of the design module under their group headings), Font (System, Dune Rise: headings) and Motion (Full, Calm, Off)
 // The filter box of Colours (#683) keeps the palettes whose name, group or theme word (Dark, Dayside) holds every word typed, in any case; a group with none left loses its heading, the chosen palette and
-// None always stay, and a line says "N of 60 palettes" (a polite live region). Arrow Down and Up walk through the box and the items, Escape clears the box first and closes the menu on the next press,
-// and a letter typed on a palette item moves to the box.
+// None always stay (the chosen one is marked "(chosen)" when it is shown only for that), and a line says "N of M palettes", or what to do when none match (a polite live region). Arrow Down and Up walk
+// through the box and the items, Enter in the box moves to the first match (it picks nothing), Escape clears the box first and closes the menu on the next press, a Clear button (44 px) empties the box, and
+// a letter typed on a palette item moves to the box. The box stays at the top of the menu while the list scrolls, and an item the arrows reach is scrolled clear of it (WCAG 2.4.11).
 // A palette applies in its own theme only (58 are dark, 2 are Dayside palettes). One that is not in effect in the theme shown now stays pickable and says so: its item carries the words "Dayside only"
 // or "Dark only" and a tooltip, and the button's own tooltip says the palette is not applied.
 // The menu is a role="menu" popover: Arrow Up and Down, Home and End move, Enter or Space picks (the menu stays open, so a combination can be tried), Escape closes it and gives the focus back to
@@ -122,6 +123,7 @@
   const HAY = Object.fromEntries(PALETTES.map((p) => [p.id, fold(p.name + ' ' + p.group + ' ' + THEME_WORD[p.theme] + (p.theme === 'light' ? ' light' : ''))]));
   let search = null;
   let count = null;
+  let clear = null;
   // the Colours group: the filter, None, then each group of the module under its heading, in the module's order
   const buildPalettes = (outer, headId) => {
     const row = doc.createElement('div');
@@ -135,12 +137,22 @@
     search.spellcheck = false;
     search.tabIndex = -1;
     search.setAttribute('aria-label', 'Filter colours by name, group, Dark or Dayside');
-    search.setAttribute('aria-controls', 'theme-g-palette-list');
     count = doc.createElement('p');
     count.className = 'x-thcount';
     count.setAttribute('role', 'status');
     count.setAttribute('aria-live', 'polite');
-    row.appendChild(search);
+    clear = doc.createElement('button');
+    clear.type = 'button';
+    clear.className = 'd-btn quiet x-thclear';
+    clear.textContent = 'Clear';
+    clear.setAttribute('aria-label', 'Clear filter');
+    clear.tabIndex = -1;
+    clear.hidden = true;
+    const field = doc.createElement('div');
+    field.className = 'x-thfindbox';
+    field.appendChild(search);
+    field.appendChild(clear);
+    row.appendChild(field);
     row.appendChild(count);
     outer.appendChild(row);
     const box = doc.createElement('div');
@@ -170,6 +182,11 @@
       tag.className = 'x-thtag';
       tag.hidden = true;
       it.appendChild(tag);
+      const kept = doc.createElement('span');
+      kept.className = 'x-thtag x-thkept';
+      kept.textContent = '(chosen)';
+      kept.hidden = true;
+      it.appendChild(kept);
       inner.appendChild(it);
     });
   };
@@ -218,13 +235,19 @@
       if (it.getAttribute('data-thgroup') !== 'palette' || id === 'none') return;
       const hit = terms.every((t) => HAY[id].indexOf(t) >= 0);
       if (hit) shown += 1;
-      it.hidden = !(hit || it.getAttribute('aria-checked') === 'true');
+      const only = !hit && it.getAttribute('aria-checked') === 'true'; // shown for being the chosen one
+      it.hidden = !(hit || only);
+      it.setAttribute('data-thonly', String(only));
+      const mark = it.querySelector('.x-thkept');
+      if (mark) mark.hidden = !only;
     });
+    clear.hidden = !search.value;
     Array.prototype.forEach.call(menu.querySelectorAll('.x-thsub'), (sub) => {
       const inner = sub.nextElementSibling;
       sub.hidden = inner.hidden = !inner.querySelector('[role="menuitemradio"]:not([hidden])');
     });
-    count.textContent = terms.length ? (shown ? shown + ' of ' + PALETTES.length + ' palettes' : 'No palette matches') : PALETTES.length + ' palettes';
+    const typed = search.value.trim();
+    count.textContent = terms.length ? (shown ? shown + ' of ' + PALETTES.length + ' palettes' : 'No palette matches \u201c' + (typed.length > 24 ? typed.slice(0, 24) + '\u2026' : typed) + '\u201d. Clear the box to see all ' + PALETTES.length + '.') : PALETTES.length + ' palettes';
   };
   const chosen = () => PALETTES.find((p) => p.id === L.palette()) || null;
   const colours = () => { const p = chosen(); return p ? p.name + (L.paletteShows() ? '' : ' (not applied: it shows in ' + THEME_WORD[p.theme] + ' only)') : 'None'; };
@@ -270,6 +293,8 @@
     list.forEach((x) => { x.tabIndex = -1; });
     list[i].tabIndex = 0;
     list[i].focus();
+    const row = menu.querySelector('.x-thfindrow');
+    if (row && row.offsetHeight) menu.style.setProperty('--thfind-h', (row.offsetHeight + 8) + 'px'); // the row of the box covers the top of the list: an item is scrolled below it
     try { list[i].scrollIntoView({ block: 'nearest' }); } catch (e) { /* no layout */ }
   };
   const open = (last) => {
@@ -301,6 +326,7 @@
     it.focus();
   });
   if (search) search.addEventListener('input', applyFilter);
+  if (clear) clear.addEventListener('click', () => { search.value = ''; applyFilter(); search.focus(); });
   menu.addEventListener('keydown', (e) => {
     const k = e.key;
     if (search && e.target === search) {
@@ -308,7 +334,11 @@
       const around = ring();
       const at = around.indexOf(search);
       if (k === 'ArrowDown' || k === 'ArrowUp') { e.preventDefault(); focusItem(around, (at + (k === 'ArrowDown' ? 1 : -1) + around.length) % around.length); }
-      else if (k === 'Enter') e.preventDefault();
+      else if (k === 'Enter') {
+        e.preventDefault(); // Enter picks nothing: it moves to the first match
+        const first = allItems().find((it) => it.getAttribute('data-thgroup') === 'palette' && it.getAttribute('data-thvalue') !== 'none' && !it.hidden && it.getAttribute('data-thonly') !== 'true');
+        if (first) focusItem(ring(), ring().indexOf(first));
+      }
       else if (k === 'Escape') {
         e.preventDefault();
         e.stopPropagation();

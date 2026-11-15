@@ -426,7 +426,7 @@ test('typing narrows the list by name, group and the words Dark and Dayside, in 
   assert.deepEqual(shown(p), ['none', 'sand-linen']);
   type(p, 'zzzz');
   assert.deepEqual(shown(p), ['none']);
-  assert.equal(countText(p), 'No palette matches');
+  assert.match(countText(p), /^No palette matches \u201czzzz\u201d\. Clear the box to see all 60\.$/);
   assert.ok([...p.d.querySelectorAll('#theme-menu .x-thsub')].every((s) => s.hidden), 'no heading is left');
   type(p, '');
   assert.equal(shown(p).length, 61);
@@ -531,5 +531,57 @@ test('the filter works in Dayside too: a dark palette is still listed and says D
   assert.deepEqual(shown(p), ['none', 'dye-sunset-dye']);
   assert.equal(p.tag('dye-sunset-dye').textContent, 'Dark only');
   assert.equal(p.tag('dye-sunset-dye').hidden, false);
+  p.w.close();
+});
+
+// ---- the Clear button, the empty-result line, the chosen mark, Enter and the scroll margin of the filter box (the same as for the first 18, over all 60) ----
+
+const clearBtn = (p) => p.d.querySelector('#theme-menu .x-thclear');
+
+test('when nothing matches, the line says so on the screen and what to do; the Clear button (44 px, named) then shows, empties the box, puts the focus back in it and brings all 60 back', () => {
+  const p = open('index.html');
+  p.$('theme-btn').click();
+  assert.equal(clearBtn(p).hidden, true, 'nothing to clear yet');
+  assert.equal(clearBtn(p).getAttribute('aria-label'), 'Clear filter');
+  type(p, 'zzzz');
+  assert.deepEqual(shown(p), ['none']);
+  assert.equal(countText(p), 'No palette matches \u201czzzz\u201d. Clear the box to see all 60.');
+  assert.equal(clearBtn(p).hidden, false);
+  clearBtn(p).click();
+  assert.equal(p.$('theme-filter').value, '');
+  assert.equal(p.d.activeElement, p.$('theme-filter'));
+  assert.equal(shown(p).length, 61);
+  assert.equal(clearBtn(p).hidden, true);
+  assert.equal(countText(p), '60 palettes');
+  assert.match(appCss, /\.x-thclear\{flex:none;min-width:44px;min-height:44px/);
+  p.w.close();
+});
+
+test('the chosen palette, shown only because it is chosen, says "(chosen)"; Enter in the box moves to the first real match and picks nothing', () => {
+  const p = open('index.html', { store: { [KEY]: 'violet-iron' } });
+  p.$('theme-btn').click();
+  type(p, 'wydras');
+  const mark = (id) => p.item('palette', id).querySelector('.x-thkept');
+  assert.equal(mark('violet-iron').hidden, false);
+  assert.equal(mark('violet-iron').textContent, '(chosen)');
+  assert.equal(mark('dye-wydras').hidden, true, 'a match is not marked');
+  const box = p.$('theme-filter');
+  box.focus();
+  box.dispatchEvent(new p.w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  assert.equal(p.d.activeElement, p.item('palette', 'dye-wydras'), 'Enter goes to the first match, skipping the chosen one shown for that');
+  assert.equal(p.attr('data-palette'), 'violet-iron', 'and picks nothing');
+  p.w.close();
+});
+
+test('an item the arrows reach is scrolled clear of the row of the box: the palettes carry a scroll margin the height of the row, which is measured when an item gets the focus (WCAG 2.4.11)', () => {
+  assert.match(appCss, /\.x-thmenu \[data-thgroup="palette"\]\{scroll-margin-top:var\(--thfind-h\)\}/);
+  assert.match(appCss, /\.x-thmenu\{--thfind-h:\d+px\}/);
+  assert.ok(files.menu.includes("setProperty('--thfind-h'"));
+  const p = open('index.html');
+  p.w.HTMLElement.prototype.scrollIntoView = function () {};
+  Object.defineProperty(p.w.HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return this.classList && this.classList.contains('x-thfindrow') ? 72 : 0; } });
+  p.$('theme-btn').click();
+  p.key(p.item('palette', 'none'), 'ArrowDown');
+  assert.equal(p.$('theme-menu').style.getPropertyValue('--thfind-h'), '80px');
   p.w.close();
 });
