@@ -518,3 +518,25 @@ test('the bulk question says it will be refused when the houses together stand f
   assert.ok(q.includes('Will be refused: This request stands for') && q.includes('more than the 1,000 one change may grant') && q.includes('Fill fewer houses at once'), q);
   assert.deepEqual(writes(ui), []);
 });
+
+test('with another faction chosen the tier boxes are off with the reason and write nothing; with your own faction they work again (#667)', async () => {
+  const ui = await open(board(), { '/api/landsraad/apply': OK });
+  select(ui, '#lsb-fac', 2); await ui.settle();
+  for (const i of [1, 3, 5]) {
+    const b = tier(ui, 'Thorvald', i);
+    assert.equal(b.getAttribute('aria-disabled'), 'true', 'tier ' + i);
+    assert.ok(b.title.includes('Off while Harkonnen is chosen') && b.title.includes('your own contribution') && b.title.includes('Atreides'), b.title);
+    assert.ok(b.getAttribute('aria-label').includes('Off while Harkonnen is chosen'));
+    assert.equal(b.querySelector('.gr'), null, 'no promise of a grant on a box that does nothing');
+  }
+  click(ui, tier(ui, 'Thorvald', 5)); await ui.settle();
+  click(ui, tier(ui, 'Thorvald', 2)); await ui.settle(); // the highest reached tier is the one that removes
+  assert.deepEqual(writes(ui), [], 'no tier click wrote anything');
+  assert.ok(result(ui).includes('Off while Harkonnen is chosen'), result(ui));
+  assert.ok(text(ui.doc.querySelector('#lsg-901')).includes('Fill and the tiers are off while Harkonnen is chosen'), text(ui.doc.querySelector('#lsg-901')));
+  select(ui, '#lsb-fac', 1); await ui.settle();
+  assert.equal(tier(ui, 'Thorvald', 5).getAttribute('aria-disabled'), 'false');
+  click(ui, tier(ui, 'Thorvald', 5)); await ui.settle();
+  assert.equal(writes(ui).length, 1);
+  assert.equal(writes(ui)[0].body.houses[0].mine_to, 6000);
+});

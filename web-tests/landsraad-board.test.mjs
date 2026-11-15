@@ -293,7 +293,8 @@ test('when no house has a place yet the board says so once: no place in every ro
   assert.equal(ui.doc.querySelectorAll('.lsb .more h4').length, rows(ui).length * 2, 'no Where block per opened row');
   const g = ui.doc.querySelector('[data-lb=group]');
   assert.ok(g.disabled && ui.doc.querySelector('#lsb-grp-hint'), 'Group by region is off with a hint');
-  assert.ok(text(ui.doc.querySelector('#lsb-grp-hint')).includes('needs a place for the houses'));
+  assert.equal(text(ui.doc.querySelector('#lsb-grp-hint')), 'Group by region is off: it needs a place for the houses.', 'the note is a full sentence (#670)');
+  assert.ok(rows(ui).every((r) => text(r.querySelector('.c-loc')) === 'not mapped yet'), 'each Location cell says it, not a bare dash (#669)');
   assert.ok(ui.doc.querySelector('[data-col=location] .sorth').disabled);
   const known = { known: true, map: 'Hagga Basin', area: 'The O’dham', place: 'rim', x: 0.25, y: 0.5 };
   const ui2 = await open(board({ tasks: [house(900, 'Alexin', 0, { location: known }), house(901, 'Thorvald', 100)] }));
@@ -363,4 +364,18 @@ test('Group by region draws one heading per region with the number of houses in 
   assert.deepEqual(heads, ['Hagga Basin 2', 'Harko Village 1']);
   click(ui, '[data-lb=group]');
   assert.equal(ui.doc.querySelectorAll('#lsb-rows li.grp').length, 0, 'the headings go when grouping is off');
+});
+
+test('the glance line says what its numbers count: houses taken by each faction, your faction named, then the houses still open (#665)', async () => {
+  const ui = await open();
+  const facts = [...ui.doc.querySelectorAll('.lsb .facts > span')].map((e) => text(e));
+  assert.ok(facts[0].startsWith('Houses taken by each faction: Atreides 1 (your faction) · Harkonnen 1 · 2 still open'), facts[0]);
+  assert.ok(!facts[0].includes('By faction, not by'), 'no contrast against something not yet seen');
+  assert.ok(!facts[0].includes('(you)'), 'no bare (you)');
+});
+
+test('the current-term glance cards come before the Term and decrees panel, then the board and the earlier terms (#668)', async () => {
+  const ui = await open();
+  const order = [...ui.doc.querySelectorAll('#lsb > section')].map((e) => e.getAttribute('aria-labelledby'));
+  assert.deepEqual(order.slice(0, 4), ['lsb-glance', 'lsb-term-h', 'lsb-board', 'lsb-hist']);
 });

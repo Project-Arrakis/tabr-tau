@@ -456,6 +456,8 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .actbar .actrow{display:flex;flex-wrap:wrap;gap:var(--s-2) var(--s-3);align-items:center;margin:0 0 var(--s-2)}
 .lsb .actbar select{min-height:var(--hit);padding:0 10px;border:1px solid var(--c-rule);border-radius:var(--r-2);background:var(--c-sunken);color:var(--c-text);font:var(--t-md) var(--t-body)}
 .lsb .actbar .note{font-size:var(--t-sm);color:var(--c-dim)}
+/* the note after a filter control (the Group by region note): a gap from the button, and a line of its own when the row is narrow */
+.lsb .ctl .note{margin-left:var(--s-3);font-size:var(--t-sm);color:var(--c-dim);overflow-wrap:anywhere}
 .lsb .actbar .legend2{margin:var(--s-2) 0 0;padding-top:var(--s-2);border-top:1px dashed var(--c-hair);font-size:var(--t-sm);color:var(--c-dim)}
 .lsb .actbar .legend2 b{color:var(--c-text)}
 .lsb #lsb-sum{margin:0 0 var(--s-2);font-size:var(--t-sm)}
