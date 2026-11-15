@@ -98,3 +98,13 @@ The file holds identifiers, names and numbers only. It is read by `internal/ops/
 ## vehicles.json (#401, moved in #555)
 
 The vehicle tables (`vehicles.json`) moved to the kit module as `kit/gamedata/vehicles/vehicles.json`, unchanged. Its source, build and the way `tools/vehiclegen` makes it are in `kit/PROVENANCE.md`; `vehicles.go` there reads it and `internal/ops/vehicle_spawn.go` writes a vehicle from it.
+
+## decree-names.json (#608)
+
+| File | What it is | Source | Added |
+|---|---|---|---|
+| `internal/ops/decree-names.json` | For the 11 Landsraad decree ids of a single-player save (`landsraad_decrees.decree_name`), the name the game shows and, for ten of them, its one-line effect (`{"name", "variant"?, "effect"?, "derived"?}`) | The game's own data table `DT_LandsraadDecrees`: the `Name` and `EffectText` columns (English text) of its 10 rows | #608, 2026-11-15 |
+
+The save holds only the game's internal id of a decree, so the Landsraad tab used to show readable forms of the ids (`Experience Rate Increase`). The game's table names every decree: `ExperienceRateIncrease` is "Scholarly Collaboration", `RangedDamageIncreased` and `MeleeDamageIncreased` are both "In Honor of the Fallen" (the file adds `variant`, Ranged or Melee, and the editor shows it in brackets so the two can be told apart), `CraftingCostReduced` is "CHOAM Production Contract", `DropInventoryOnDefeatActive` is "The Right of Salvage", `RepairAndRefiningTimes` is "CHOAM Refining Contract", and the four `SpecialVendorActive_*` rows are "Exclusive Vehicle, Weapon, Armor and Tool Import Rights". The plain `SpecialVendorActive` row has no row in the game's table; its entry, "Special Vendor", is the editor's own wording and is marked `derived`, and the page says "name unconfirmed" beside it. The game's table also has a longer narrative text for each decree; it is not copied. The names were cross-checked against the community wiki's Landsraad page (awakening.wiki, read 2026-11-15; its licence is CC BY-NC-SA 4.0, so none of its text is copied): all ten names agree.
+
+**Game build:** `26592269` (the installed game's Steam manifest `appmanifest_1172710.acf`, read on 2026-11-15, last updated on 2026-11-12, target build equal to the installed one); the table was read on 2026-11-15, read-only, from the installed game's content files. The tool and the exact files are not part of this repository (the same rule as for `place-names.json`). To refresh: read `DT_LandsraadDecrees` again after a game update, compare the row names with the keys of the file, and add any new row; a decree id the file does not have still shows (as a readable form of the id, marked "name unconfirmed"), and a test fails when a decree id of the test save has no entry.

@@ -101,7 +101,7 @@ A closed panel above the board (its heading line shows the term, the reigning fa
 | Apply (Active decree and Reigning faction) | `landsraad_decree_term`: `active_decree_id` and `reigning_faction_id` of the current (latest) term row, both from the two drop-downs in one edit; "none" clears the field to NULL. `elected_decree_id` and `end_time` are not touched by this control. |
 | Set flag to 0 / 1 | `landsraad_decrees`: the `disabled` column of that one decree row (picked by its id) only. It does not make the decree active; the Active decree does that. |
 
-The decree pool lists all 11 decrees of the save. The names are readable forms of the ids, except "CHOAM Refining Contract", which is the game's own name; they stay readable forms until checked in game (#608).
+The decree pool lists all 11 decrees of the save. In the editor the names are the game's own (read from the game's decree table, #608; see `internal/catalog/PROVENANCE.md`, "decree-names.json"); the mock-up pages keep their readable forms of the ids.
 
 **Make active for <faction>** (on every pool row) does what the Active decree drop-down and Apply do, for that row's decree: it makes the decree the active decree of the term, for the faction chosen in the Reigning faction drop-down (which starts on your own faction); the label follows the drop-down. A decree belongs to a faction (the reigning faction), not to a house. It carries a **writes** mark (in the mock-up it shows as pending with Undo; in the editor it writes at once, see Kept decisions); the row that is already active for that faction shows "Active" instead of a button, and the Set flag button of each row is unchanged. It writes the same rows as Apply: `landsraad_decree_term`, `active_decree_id` and `reigning_faction_id` of the current term row, and nothing else.
 
@@ -132,7 +132,7 @@ The sample data is made up, and so are all the numbers on the pages (the counts 
 
 ## Names the game shows (refs #608)
 
-The decree pool, the active and elected decree and every other Landsraad label are drawn with the name a player knows ("Repair and Refining Times"), with the internal id (`RepairAndRefiningTimes`) as a small monospace second line. The names in these pages are readable forms of the ids, not the game's own wording: the exact in-game wording is an open question until the catalog data or the game's strings are checked. A name that cannot be confirmed would say so on the page. Mock-up A draws the controls of the term card, the decree pool and the task board; B and C show the term card and pool as display only. #608 stays open: the names are readable forms of the ids, not confirmed wording.
+The decree pool, the active and elected decree and every other Landsraad label are drawn with the name a player knows ("Repair and Refining Times"), with the internal id (`RepairAndRefiningTimes`) as a small monospace second line. The names in these mock-up pages are readable forms of the ids; the editor itself shows the game's own names (#608: read from the game's decree table), and a name that cannot be confirmed says "name unconfirmed" on the page. Mock-up A draws the controls of the term card, the decree pool and the task board; B and C show the term card and pool as display only.
 
 ## Reference
 

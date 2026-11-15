@@ -1943,15 +1943,26 @@ function lbHistory(l) {
 const LB_SHOWS = [['all', 'All'], ['left', 'What is left'], ['new', '○ Not started'], ['part', '◐ In progress'], ['done', '✓ Top tier']];
 // ---- the term and decrees panel (part 4): the term's facts, the Active decree and Reigning faction controls, and the decree pool. A write goes to the save at once, as the other
 // term controls always did; the decree flag stays a button per row (the pool flag is shown as stored, and what the game does with it is not known, #634).
-const DECREE_NAME = { RepairAndRefiningTimes: 'CHOAM Refining Contract' }; // the game's own name for it (#608); the others are readable forms of the ids until checked in game
-const DECREE_TIP = { RepairAndRefiningTimes: 'In game: repair costs and refining times are reduced by 75%' };
-function decreeLabel(key) {
-  const k = String(key == null ? '' : key);
-  if (Object.prototype.hasOwnProperty.call(DECREE_NAME, k)) return DECREE_NAME[k];
+// A decree is shown by the name the game shows (#608): the server sends display_name and effect from the game's own decree table, name_known is false when the name is not the game's
+// (the plain SpecialVendorActive row has no row in that table). An id the table does not have comes through with no display_name and shows as a readable form of the id; it never breaks the page.
+function decreeLabel(d) {
+  const o = d && typeof d === 'object' ? d : { decree_name: d };
+  if (o.display_name) return String(o.display_name);
+  const k = String(o.decree_name == null ? '' : o.decree_name);
   const [base, ...rest] = k.split('_'), small = new Set(['And', 'On', 'Of', 'The', 'In', 'To', 'For']);
   const b = base.replace(/(.)Active$/, '$1').replace(/([a-z0-9])([A-Z])/g, '$1 $2').split(' ').map((w, i) => (i && small.has(w) ? w.toLowerCase() : w)).join(' ');
   return rest.length ? b + ': ' + rest.join(' ') : b;
 }
+// The tooltip of a decree's name: what the game says it does, and, where the name is not the game's, that it is not.
+function decreeTip(d) {
+  if (!d) return '';
+  const parts = [];
+  if (d.effect) parts.push('In game: ' + d.effect);
+  if (d.name_known === false) parts.push(d.display_name ? "This name is not the game's: the game's decree table has no row for this decree." : "No game name known for this decree id; the name shown is a readable form of the id.");
+  return parts.join('. ');
+}
+const decreeNameEl = (d) => html`<span class="dn" ${decreeTip(d) ? html`title="${decreeTip(d)}"` : ''}>${decreeLabel(d)}</span>`;
+const decreeUnsure = (d) => (d && d.name_known === false ? html` <small class="mut du">name unconfirmed</small>` : '');
 // The plain SpecialVendorActive decree has no category and an effect nobody has checked (#634). Its row stays in the data and in the Active decree drop-down and is never changed or deleted;
 // the pool list shows it only inside a closed disclosure, with the same buttons. The four category vendors stay in the list.
 const LB_HIDDEN_DECREE = 'SpecialVendorActive';
@@ -1971,23 +1982,22 @@ function lbTerm(l) {
   const own = lbCan(l) ? l.character.faction_id : null, rfName = t.reigning_faction_id != null ? lbFacName(l, t.reigning_faction_id) : 'none';
   const fname = sel.rf !== '' ? lbFacName(l, +sel.rf) : '';
   const idLine = (d) => (d ? html`<small class="did" title="The game's internal id, kept for support">${d.decree_name}</small>` : '');
-  const nm = (d) => (d ? decreeLabel(d.decree_name) : '—');
+  const nm = (d) => (d ? decreeLabel(d) : '—');
   const hidden = dec.filter((d) => d.decree_name === LB_HIDDEN_DECREE), shown = dec.filter((d) => d.decree_name !== LB_HIDDEN_DECREE); // the plain vendor decree is only in the closed list under the pool (#634)
   const row = (d) => {
-    const tg = [d.active && 'Active', d.elected && 'Elected', d.in_rotation && 'In rotation'].filter(Boolean), n = d.disabled ? 0 : 1, lab = decreeLabel(d.decree_name);
+    const tg = [d.active && 'Active', d.elected && 'Elected', d.in_rotation && 'In rotation'].filter(Boolean), n = d.disabled ? 0 : 1, lab = decreeLabel(d);
     const on = d.id == t.active_decree_id && sel.rf !== '' && sel.rf === String(t.reigning_faction_id == null ? '' : t.reigning_faction_id);
-    const tip = DECREE_TIP[d.decree_name] || '';
     const mkTip = sel.rf !== '' ? `Makes ${lab} the active decree of the term for ${fname}, the same as the Active decree drop-down and Apply` : 'Choose a reigning faction above first';
     const mk = on
       ? html`<span class="mk-on" title="This decree is already the active decree of the term for ${fname}"><span aria-hidden="true">✓</span> Active</span>`
       : html`<button type="button" class="qa mk" data-lb="tmk" data-id="${d.id}" data-fk="tm:${d.id}" aria-disabled="${sel.rf === '' ? 'true' : 'false'}" title="${mkTip}">${sel.rf !== '' ? 'Make active for ' + fname : 'Make active (choose a faction)'}</button>`;
-    return html`<li><span class="mut">${d.id}</span><span class="dc"><span class="dn" ${tip ? html`title="${tip}"` : ''}>${lab}</span>${idLine(d)}</span><span>${tg.length ? tg.map((x) => html`<span class="tag">${x}</span> `) : html`<span class="mut">not in this term</span>`}</span><span class="fl mut">${d.disabled ? 1 : 0}</span><button type="button" class="qa" data-lb="tflag" data-id="${d.id}" data-d="${n}" data-fk="tf:${d.id}" title="Sets the pool flag of this one row to ${n}. It does not make the decree active; Make active on the row or the Active decree above does.">Set flag to ${n}</button><span class="mkc">${mk}</span></li>`;
+    return html`<li><span class="mut">${d.id}</span><span class="dc">${decreeNameEl(d)}${idLine(d)}${decreeUnsure(d)}</span><span>${tg.length ? tg.map((x) => html`<span class="tag">${x}</span> `) : html`<span class="mut">not in this term</span>`}</span><span class="fl mut">${d.disabled ? 1 : 0}</span><button type="button" class="qa" data-lb="tflag" data-id="${d.id}" data-d="${n}" data-fk="tf:${d.id}" title="Sets the pool flag of this one row to ${n}. It does not make the decree active; Make active on the row or the Active decree above does.">Set flag to ${n}</button><span class="mkc">${mk}</span></li>`;
   };
   return html`<section class="card d-panel" aria-labelledby="lsb-term-h"><details class="tdp" id="lsb-tdp" ${LT.open ? 'open' : ''}><summary><h2 class="d-head" id="lsb-term-h">Term and decrees <span class="cnt">Term ${t.term_id} · ${rfName} · ${a ? nm(a) : 'no active decree'}</span></h2></summary>
   <div class="tbody">
-  <div class="tkv"><div><span class="mut">Term</span><b>${t.term_id}</b>${lbMark('save', 'Read from the save: landsraad_decree_term')}</div><div><span class="mut">Start</span><b>${lbClock(t.start_time)}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.start_time (play clock)')}</div><div><span class="mut">End</span><b>${lbClock(t.end_time)}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.end_time (play clock)')}</div><div><span class="mut">Reigning faction</span><b>${rfName}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.reigning_faction_id')}</div><div><span class="mut">Active decree</span><span class="dn">${nm(a)}</span>${idLine(a)}</div><div><span class="mut">Elected decree</span><span class="dn">${nm(e)}</span>${idLine(e)}</div></div>
+  <div class="tkv"><div><span class="mut">Term</span><b>${t.term_id}</b>${lbMark('save', 'Read from the save: landsraad_decree_term')}</div><div><span class="mut">Start</span><b>${lbClock(t.start_time)}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.start_time (play clock)')}</div><div><span class="mut">End</span><b>${lbClock(t.end_time)}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.end_time (play clock)')}</div><div><span class="mut">Reigning faction</span><b>${rfName}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.reigning_faction_id')}</div><div><span class="mut">Active decree</span>${a ? decreeNameEl(a) : html`<span class="dn">—</span>`}${idLine(a)}${decreeUnsure(a)}</div><div><span class="mut">Elected decree</span>${e ? decreeNameEl(e) : html`<span class="dn">—</span>`}${idLine(e)}${decreeUnsure(e)}</div></div>
   <div class="tctl" role="group" aria-label="Set the term's active decree and reigning faction">
-    <label class="fld"><span class="lbl">Active decree</span><select id="lsb-tad" data-lb="tad"><option value="">none</option>${dec.map((d) => html`<option value="${d.id}" ${String(d.id) === sel.ad ? 'selected' : ''}>${decreeLabel(d.decree_name)}</option>`)}</select>${idLine(by(sel.ad))}</label>
+    <label class="fld"><span class="lbl">Active decree</span><select id="lsb-tad" data-lb="tad"><option value="">none</option>${dec.map((d) => html`<option value="${d.id}" ${String(d.id) === sel.ad ? 'selected' : ''}>${decreeLabel(d)}</option>`)}</select>${idLine(by(sel.ad))}</label>
     <label class="fld"><span class="lbl">Reigning faction</span><select id="lsb-trf" data-lb="trf"><option value="">none</option>${(l.factions || []).map((f) => html`<option value="${f.id}" ${String(f.id) === sel.rf ? 'selected' : ''}>${f.name}${own != null && f.id == own ? ' (you)' : ''}</option>`)}</select><small class="mut">any faction can be chosen</small></label>
     <span class="tapply"><button type="button" class="qa btnp" data-lb="tapply" data-fk="tapply">Apply</button></span>
   </div>
@@ -2295,7 +2305,7 @@ function lbClick(e) {
   if (k === 'tapply' || k === 'tmk') {
     e.preventDefault();
     if (b.getAttribute('aria-disabled') === 'true') { LT.say = b.title; const r = $('#lsb-tresult'); if (r) r.textContent = b.title; return; }
-    const sel = lbTermSel(LD), ad = k === 'tmk' ? String(b.dataset.id) : sel.ad, rf = sel.rf, dn = (id) => { const d = (LD.decrees || []).find((x) => String(x.id) === id); return d ? decreeLabel(d.decree_name) : 'none'; };
+    const sel = lbTermSel(LD), ad = k === 'tmk' ? String(b.dataset.id) : sel.ad, rf = sel.rf, dn = (id) => { const d = (LD.decrees || []).find((x) => String(x.id) === id); return d ? decreeLabel(d) : 'none'; };
     LT.ad = ad; LT.rf = rf;
     lbRun(b, async () => { await api('/api/landsraad/term', { active_decree_id: ad, reigning_faction_id: rf }); return `Applied: active decree ${dn(ad)}, reigning faction ${rf === '' ? 'none' : lbFacName(LD, +rf)}.`; }, lbTSay, k === 'tmk' ? [b.dataset.fk, 'tf:' + b.dataset.id] : b.dataset.fk);
     return;
