@@ -192,7 +192,15 @@ func (o *Ops) Player() (any, error) {
 	out := map[string]any{"controllerId": p.Controller, "pawnId": p.Pawn, "accountId": p.Account, "name": p.Name}
 	out["account"], _ = o.S.One(`select funcom_id, platform_name, platform_id from accounts where id=?`, p.Account)
 	out["state"], _ = o.S.One(`select online_status, life_state, last_login_time, character_state from player_state where id=?`, p.Controller)
-	out["actor"], _ = o.S.One(`select map, location_x x, location_y y, location_z z, dimension_index from actors where id=?`, p.Pawn)
+	// the character's place is read the way every action reads it (#699): the controller's map, the body's position when the three actors agree; "parked" says when they do not
+	if here, err := readCharacterPlace(o.S.One, p, true); err == nil {
+		if a, ok := here.answer(); ok {
+			out["actor"] = a
+		}
+	}
+	if out["actor"] == nil { // the save does not say where the character is: the body's row, as before
+		out["actor"], _ = o.S.One(`select map, location_x x, location_y y, location_z z, dimension_index from actors where id=?`, p.Pawn)
+	}
 	out["respawns"], _ = o.S.Query(`select "group", locator_name, locator_actor_id, map, last_used_timestamp from player_respawn_locations where character_id=?`, p.Controller)
 	out["solari"] = o.solari(p)
 	out["bloodMarks"] = o.bloodMarks(p)
