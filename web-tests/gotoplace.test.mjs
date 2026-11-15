@@ -456,3 +456,22 @@ test('the Movement card\'s About text names the Deep Desert taxis and the hubs, 
   assert.match(about, /Whether a save edit moves the character into another map is not proven; do it on a copy first, with the game closed, and expect to need the in-game taxi if it does not work\./);
   ui.dom.window.close();
 });
+
+// ---- the Movement card takes the character's place from the player's answer (#699)
+
+test('the Movement card names the player\'s map and fills in the player\'s position, and says when the body is somewhere else', async () => {
+  const { ui, get } = await open(named());
+  const { parked, bodyMap, ...plain } = get['/api/player'].actor; // the generated save may itself be parked: an ordinary answer has neither
+  get['/api/player'].actor = plain;
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:admin"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('#tparked'), null, 'an ordinary character: no note');
+  get['/api/player'].actor = { ...get['/api/player'].actor, map: 'DeepDesert', x: -300000, y: -590000, z: 3500, bodyMap: 'Overland', parked: 'the body is on Overland' };
+  ui.click('[data-tab="player"]'); await ui.settle();
+  ui.click('[data-sub="player:admin"]'); await ui.settle();
+  assert.deepEqual(fields(ui), ['-300000', '-590000', '3500'], 'the player\'s position, which the server measures from');
+  assert.match(ui.doc.querySelector('#tmap option').textContent, /This map \(DeepDesert\)/);
+  const n = ui.doc.querySelector('#tparked');
+  assert.ok(n, 'a note says that the body is not where the player is');
+  assert.match(n.textContent, /Overland/);
+});

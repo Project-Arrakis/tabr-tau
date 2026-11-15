@@ -30,11 +30,35 @@ type characterPlace struct {
 // pos gives the player's position: the body's when the three agree (the editor's same-map move writes the body only, so the body is the newer of the two), the controller's
 // when they do not.
 func (c characterPlace) pos() (x, y float64) {
+	x, y, _ = c.xyz()
+	return x, y
+}
+
+// xyz is pos with the height: the same row, the body's when the three agree and the controller's when they do not.
+func (c characterPlace) xyz() (x, y, z float64) {
 	r := c.Body
 	if c.Parked != nil && c.Ctl != nil {
 		r = c.Ctl
 	}
-	return num(r["x"]), num(r["y"])
+	return num(r["x"]), num(r["y"]), num(r["z"])
+}
+
+// answer is the character's place as the player page, the summary and the saved map give it (#699): the map and the position are the ones every action that works from the
+// character's place uses (the map is the controller's; the position is the body's when the three agree, else the controller's). When they do not agree, "parked" holds the plain
+// sentence (the same one the actions refuse with) and "bodyMap" the map the body is on, so the page can say so. ok is false when the save does not say where the character is.
+func (c characterPlace) answer() (res map[string]any, ok bool) {
+	if c.Ctl == nil || c.Map == "" {
+		return nil, false
+	}
+	x, y, z := c.xyz()
+	res = map[string]any{"map": c.Map, "x": x, "y": y, "z": z, "dimension_index": c.Dim}
+	if c.Parked != nil {
+		res["parked"] = c.Parked.Error()
+		if c.Body != nil {
+			res["bodyMap"] = mapOfRow(c.Body)
+		}
+	}
+	return res, true
 }
 
 const characterActorCols = `map, location_x x, location_y y, location_z z, rotation_x rx, rotation_y ry, rotation_z rz, rotation_w rw, dimension_index d, state st`
