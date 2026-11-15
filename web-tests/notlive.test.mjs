@@ -31,12 +31,12 @@ async function page(state) {
   return { doc, w, text, shown, close: () => w.close() };
 }
 
-test('a copy: the header says NOT LIVE: a copy, next to TABR TAU and before the file name, and the tab title says it', async () => {
+test('a copy: the header says NOT LIVE: a copy, next to TABR TAU and before the file name label, and the tab title says it', async () => {
   const p = await page({ live: false, path: 'C:\\reports\\import-test\\game.db' });
   assert.ok(p.shown('#notlive'), 'visible');
   assert.equal(p.text('#notlive'), 'NOT LIVE: a copy');
   const header = [...p.doc.querySelector('header').children].map((e) => e.id || e.tagName.toLowerCase());
-  assert.ok(header.indexOf('h1') < header.indexOf('notlive') && header.indexOf('notlive') < header.indexOf('path'), 'order in the header: ' + header.join(' '));
+  assert.ok(header.indexOf('h1') < header.indexOf('notlive') && header.indexOf('notlive') < header.indexOf('savename'), 'order in the header: ' + header.join(' '));
   assert.equal(p.text('#path'), 'game.db');
   assert.equal(p.doc.querySelector('#path').title, "Not the game's save: C:\\reports\\import-test\\game.db");
   assert.ok(p.doc.title.startsWith('NOT LIVE: a copy - '), p.doc.title);

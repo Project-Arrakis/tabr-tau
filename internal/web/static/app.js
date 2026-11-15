@@ -558,6 +558,7 @@ async function status() {
   saveBlockWhy = o.blockReason || '';
   $('#path').textContent = String(o.path || '').split(/[\\/]/).pop();
   notLive = o.live === false;
+  $('#savename').hidden = !$('#path').textContent;
   $('#path').title = (notLive ? "Not the game's save: " : '') + (o.path || '');
   const nl = $('#notlive');
   nl.classList.toggle('hide', !notLive);
@@ -1125,7 +1126,7 @@ function catalogList() {
   setHTML($('#cthead'), html`${cards}<div class="sub">${[['all', 'All', visible.length], ['have', bs ? 'Learned or in inventory' : 'Unlocked or in inventory', nHave], ['missing', 'Not owned', visible.length - nHave]].map(([k, v, n]) => html`<button data-ctf="${k}" class="${ctFilter == k ? 'on' : ''}">${v} (${n})</button>`)}</div>
     <div class="row"><input id="ctq" aria-label="Filter the list" placeholder="Filter by name, item id or group" size="34" value="${ctQ}"><button class="b sec d-btn" data-act="ctfilter">Filter</button><button class="b sec d-btn" data-act="ctclear">Clear</button>
     ${bs ? html`<select id="ctgrp" aria-label="Show one group"><option value="">All groups</option>${groupNames.map((g) => html`<option ${g == ctGroup ? 'selected' : ''}>${g}</option>`)}</select><label><input type="checkbox" id="ctexp" ${ctExp ? 'checked' : ''}> Show experimental</label>` : (ctGroup ? html`<button class="b sec d-btn" data-ctg="">All sets</button>` : '')}
-    <span class="mut">${countText(rows.length, visible.length, 'item', 'items', !!(ctQ.trim() || ctGroup || ctFilter != 'all'))}${rows.length > LISTMAX ? `, the first ${LISTMAX} shown` : ''}.</span></div>`);
+    <span class="mut">${countText(rows.length, visible.length, 'item', 'items', !!(ctQ.trim() || ctGroup || ctFilter != 'all'))}${rows.length > LISTMAX ? `, the first ${LISTMAX} shown` : ''}; ${nHave.toLocaleString()} of ${visible.length.toLocaleString()} ${bs ? 'learned' : CT.libraryAvailable ? 'unlocked or in inventory' : 'in inventory'}.</span></div>`);
   setHTML($('#ctout'), tbl([{ k: 'name', label: bs ? 'Building set' : 'Customization', f: (r) => html`<span title="${r.id}">${r.name}</span>${r.experimental ? html` <span class="tag">experimental</span>` : ''}` }, { k: 'id', label: 'Item id', cls: 'mut' },
     { k: 'group', label: bs ? 'Group' : 'Set' }, { k: 'requiredDlc', label: 'Requires', f: (r) => r.requiredDlc || (r.entitlement ? 'Account entitlement' : '') },
     { k: 'learned', label: 'State', f: (r) => (r.learned ? html`<span class="ok">Learned</span>` : r.unlocked ? html`<span class="ok">Unlocked</span>` : r.inInventory ? html`<span class="warn">In inventory</span>` : html`<span class="mut">Not owned</span>`) }], rows.slice(0, LISTMAX),
@@ -2195,7 +2196,7 @@ async function dbView() {
       const why = d.tableLocked || locked.get(cols[i]);
       return html`<td>${b ? html`<span class="mut mono">${v}</span>` : why ? html`<span class="mono" title="${why}">${v}</span>` : html`<input class="dbc" aria-label="${cols[i]}, row ${r[0]}" value="${v}" data-rowid="${r[0]}" data-kind="${d.columns[0]}" data-col="${cols[i]}" data-orig="${v}" ${v === null ? 'data-null' : ''} size="${Math.max(6, Math.min(40, String(v ?? '').length + 2))}">`}</td>`;
     })}</tr>`)}</tbody></table></div>
-      <div class="row"><button class="b sec d-btn" data-act="dbprev" ${dbOff <= 0 ? 'disabled' : ''}>Previous</button><button class="b sec d-btn" data-act="dbnext" ${dbOff + 100 >= d.total ? 'disabled' : ''}>Next</button></div>
+      ${d.total > 100 || dbOff > 0 ? html`<div class="row"><button class="b sec d-btn" data-act="dbprev" ${dbOff <= 0 ? 'disabled' : ''}>Previous</button><button class="b sec d-btn" data-act="dbnext" ${dbOff + 100 >= d.total ? 'disabled' : ''}>Next</button></div>` : ''}
       ${!d.tableLocked && locked.size ? about('db.tables', 'Tables', html`<p class="mut">Plain text columns are read-only (primary keys, links to other tables and account identity); hover a value for the reason.</p>`) : ''}`);
     return;
   } else if (s == 'sql') {
