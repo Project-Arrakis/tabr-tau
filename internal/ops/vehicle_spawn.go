@@ -242,7 +242,7 @@ func (o *Ops) spawnSpecFrom(a Args) (*spawnSpec, error) {
 		return nil, apierr.New(apierr.ErrBadArgument, err.Error())
 	}
 	if len(sp.lines) > 0 && d.CargoSlots == 0 {
-		return nil, apierr.Newf(apierr.ErrBadArgument, "this %s has no cargo hold, so items cannot be put in it: pick a storage module for it first", strings.ToLower(cls.Label))
+		return nil, apierr.Newf(apierr.ErrBadArgument, "this %s has no cargo hold, so items cannot be put in it. Give it a storage part, or remove the items", strings.ToLower(cls.Label))
 	}
 	// the game's templates always use the same hull for the same utility slots: say so when a request builds a combination none of them has
 	if body := sp.modules["BodyHull"]; body != "" {
