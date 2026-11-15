@@ -12,7 +12,7 @@ Every Landsraad house raises one of five skill lines when its missions are compl
 
 | What | Where | Notes |
 |---|---|---|
-| The character's XP and level in a line | `specialization_tracks` (`player_id`, `track_type`, `xp_amount`, `level`) | Primary key (`player_id`, `track_type`). `track_type` is a bare integer, `xp_amount` an integer, `level` a REAL. Documented in `docs/save-database.md`; read and written today by `internal/ops/specialization.go`. |
+| The character's XP and level in a line | `specialization_tracks` (`player_id`, `track_type`, `xp_amount`, `level`) | `player_id` is the controller actor id of the character; the editor reads the first row of `player_state` (`player()` in `internal/ops/ops.go`). Primary key (`player_id`, `track_type`). `track_type` is a bare integer, `xp_amount` an integer, `level` a REAL. Documented in `docs/save-database.md`; read and written today by `internal/ops/specialization.go`. |
 | Which number is which line | measured, not stored | The save does not name the lines. Measured on #609: 1 Crafting, 2 Gathering, 3 Exploration, 4 Combat, 5 Sabotage. The editor today learns the numbers per save (`TrackNumbers` in `internal/settings/settings.go`, the Assign button on the Specialization tab). |
 | A row for a line | created by the first XP in it | A line the character never earned XP in has no row. Seen again on a check copy: one row only (track 1, 36,100 XP, level 87.05). A write must insert, not only update (the third #609 sample created track 4 that way). |
 | The keystones of a line | `specialization_keystones_map` (`name`), `purchased_specialization_keystones` | 205 keystones, 41 per line, named by line (`Combat_CombatKeystone_SkillPoint1`, and so on). Not needed for the Landsraad tab. |
@@ -24,7 +24,7 @@ Level arithmetic: the editor's XP table (`specCumulativeXP` in `internal/ops/spe
 
 ## 3. Which house raises which line
 
-Source: the public community Landsraad tracker, read from its page source and recorded on #609 (comment of 2026-11-14), to be stored in the repository with this provenance. It is the only source in the repository's reach; this step did not read the game's own data tables for it (#646 asks for that as the preferred source, with the community pages as a cross-check by eye). Two samples agree with it: House Argosaz raised track 3 (Exploration) and House Mikkarol raised track 4 (Combat).
+Source: the public community Landsraad tracker (`https://htwsguild.com/Molbork/lr_tracker.html`), read from its page source on 2026-11-14 and recorded on #609, to be stored in the repository with this provenance. It is the only source in the repository's reach; this step did not read the game's own data tables for it (#646 asks for that as the preferred source, with the community pages as a cross-check by eye). Two samples agree with it: House Argosaz raised track 3 (Exploration) and House Mikkarol raised track 4 (Combat).
 
 The table uses the names the save writes. Two differ from the tracker's spelling: the save has `Mikkarol` (tracker: Mikarrol) and `Spinette` (tracker: Spinnette). The house symbol files and the board already use the save's spelling; mock-up A's sample data uses the tracker's. The recommendation is to key everything by the save's name.
 
@@ -55,7 +55,7 @@ What the game shows, in plain words: the Skills screen has a Specializations pag
 
 Reuse. The icons are the game publisher's artwork. The repository already ships some game pictures (two map pictures, the marker icons and the 25 house symbols) under `docs/art-notice.md`, which says they are not covered by the MIT licence, are not licensed by this project and are removed on request. Adding five more would widen that notice, and the community page's pictures are not ours to reuse at all.
 
-Recommendation: draw five original, simple glyphs (24 by 24, one stroke weight, `currentColor`), each with a different silhouette and always next to the line's name, so meaning never rests on the picture or on colour alone. The mock-up draws such glyphs as inline SVG, as a first proposal for the design review; they borrow only the plain ideas (blades, gear and crate, compass, crystal, wrench), not any drawing. Nothing is ripped from the game's files or from a website.
+Recommendation: draw five original, simple glyphs (24 by 24, one stroke weight, `currentColor`), each with a different silhouette and always next to the line's name, so meaning never rests on the picture or on colour alone. The mock-up draws such glyphs as inline SVG, as a first proposal for the design review; they borrow only the plain ideas (blades, gear and crate, compass, crystal, wrench), not any drawing. Nothing is copied from the game or from a website.
 
 ## 6. Known and unknown
 
@@ -73,35 +73,45 @@ Unknown
 
 ## 7. The mock-up
 
-`d-specialization.html`: a static page, inline CSS and SVG, no script, no external request. Light and dark follow the system through the editor's colour tokens, with a mock-up control to force either. It works at 375 px (the control bar and the rows wrap, targets are 44 px).
+`d-specialization.html`: a static page, inline CSS and SVG, no script, no external request. Light and dark follow the system through the editor's colour tokens, with a mock-up control to force either. The CSS-only controls need `:has()` (Chrome 105, Safari 15.4, Firefox 121 or newer); without it the page shows the default view.
 
-* Header summary: one card per line with its glyph, name, the character's level, a bar to the cap and a note ("no XP yet" for a line without a row).
-* Every house row: the line's glyph and name and the level next to the house, then the region and the tier meter as on the present board. A tooltip on the level gives the exact value.
-* Controls: Sort by (House, Specialization, Level), Order (Ascending, Descending), Group by (None, Region, Specialization). House, Ascending, None is the board's present order and the starting view.
-* Group headers show the line's glyph, name, level and house count.
-* The levels, tiers and states are made up and marked as example data; the house to line link is the tracker's table.
+* Header summary: one card per line with its glyph, name, the character's level (whole number, rounded down), the exact value as visible text, a bar to the cap and a note ("no XP in this line yet" for a line without a row). Two cards per row at 375 px.
+* Every house row: house, then the line's glyph and name, the level, the region and the tier meter with its word as on the present board. The meter stays on a phone (it wraps to its own line).
+* Sort: the headings House, Specialization and Level, in mock-up A's pattern (click for ascending, again for descending). Group by: None, Region, Specialization, one control. A Reset view button returns to House, ascending, no grouping, which is the board's present order. The existing Show, House and Jump controls are drawn inactive above, so the 375 px fit of the whole control area is visible.
+* A line above the list names both parts of the order (for example "Groups: lowest level first. Houses inside: A to Z").
+* Each of the 18 views (3 groupings times 6 sorts) is its own section in the HTML, so the reading and focus order match the screen in every view. A group is a `section` with a real `h3` and a `ul`. The page cannot keep focus on the control used, set `aria-sort` or announce the change; those need script (D15). A banner at the top says so.
+* Every panel carries a visible "Example data" tag; the badge text is "save (example)"; a legend under the heading explains the marks without hovering. Text is 12 px or more, targets are 44 px on a phone and on any touch screen, and the bars and meters keep a visible fill in forced-colours mode.
+* The levels, tiers and states are made up; the house to line link is the tracker's table.
 
 ## 8. Open decisions, with a recommended default
 
+Reviewed on #745. Where the review's suggestion was taken, the entry says so; the one place where this page keeps another default is D18.
+
 | # | Decision | Recommended default |
 |---|---|---|
-| D1 | Icon source | Original simple glyphs, drawn for the editor, never the game's art; the five final glyphs go through the design review. |
+| D1 | Icon source | Original simple glyphs, drawn for the editor, never the game's art; the five final glyphs go through the design review, rendered in greyscale at 16, 22 and 34 px first. Never show a glyph or a colour without the line's name (the red, brown and green lines are close for red-green colour blindness). The mock-up gives Exploration a four-point star and Crafting a gear, so the two no longer share a ring. |
 | D2 | Where the house to line table lives | A fixed table in `internal/ops` next to the location table, keyed by the save's house name, with the tracker as provenance in a comment, and a test that all 25 houses are covered, five per line. Replace it if the game's own data turns out to hold the link. |
-| D3 | The track numbers | Preset the measured numbers (1 Crafting, 2 Gathering, 3 Exploration, 4 Combat, 5 Sabotage) as the default for every save, and keep Assign as an override for a save that disagrees. |
-| D4 | How the level reads | Whole number, "Lv 64", with the exact value in the tooltip; "Lv 100 max" at the cap; "Lv 0" and "no XP yet" for a line without a row. |
-| D5 | What "Sort by Specialization" does | Orders the lines as the Specialization tab does (Combat, Crafting, Exploration, Gathering, Sabotage), houses of a line A to Z. Ascending first. |
-| D6 | What "Sort by Level" does | The character's level in the house's line, lowest first on the first click (the lines to level next), ties by line then house. Descending on the second. |
-| D7 | Default view | Unchanged: House, Ascending, no grouping, alphabetical. |
-| D8 | Grouping | One choice at a time, None, Region or Specialization; the present "Group by region" switch becomes the Region choice. No nested grouping now. Sort applies inside each group. |
-| D9 | Group header | Glyph, line, the character's level, number of houses. No progress bar. |
+| D3 | The track numbers | Preset the measured numbers (1 Crafting, 2 Gathering, 3 Exploration, 4 Combat, 5 Sabotage) for every save, keep Assign as an override, and show one line under the header cards while Assign has not been used ("Line numbers assumed (preset), check on the Specialization tab"). The preset rests on few samples (1, 2 and 5 from a move to the cap, 3 and 4 from one mission each), so a wrong one would show another line's level with no sign of error. Review point taken. |
+| D4 | How the level reads | Whole number rounded down ("Lv 64" for 64.37, not rounded up), the exact value as visible text in the header cards (a tooltip on a row is only a bonus), "Lv 100 max" at the cap, "Lv 0, no XP yet" for a line with no row, and "Lv -, not read" when the numbers were never set or the character has no rows to read (see D17). |
+| D5 | What the Specialization heading sorts | The lines in the Specialization tab's order (Combat, Crafting, Exploration, Gathering, Sabotage), houses of a line A to Z; first click ascending. Taken into D16. |
+| D6 | What the Level heading sorts | The character's level in the house's line. The five houses of a line share one level, so this really orders the lines by level; inside a line the order stays line, then house. First click lowest first (the lines to level next). |
+| D7 | Default view | Unchanged: House, ascending, no grouping, alphabetical. |
+| D8 | Grouping and what the sort does to it | One Group by control: None, Region, Specialization. With Specialization the sort orders the groups and the houses inside are A to Z; with Region the four regions keep one fixed order and the sort orders the houses inside each; with House the direction only reverses the houses. The region order is Arrakeen, Harko Village, Hagga Basin, Deep Desert, the same as mock-up A's region view (hubs first, then the open maps), kept so the two pages agree; alphabetical would put Deep Desert and Hagga Basin first. The line above the list states both parts. No nested grouping now. |
+| D9 | Group header | A real `h3` with glyph, line, the character's level and the number of houses. No bar. |
 | D10 | A filter by line (show only Combat houses) | Not in this mock-up; park it as a follow-up if sort and grouping are not enough. |
 | D11 | House names | The save's spelling (Mikkarol, Spinette) everywhere, including the mock-ups' sample data. |
-| D12 | Phone | Glyph, line name and level stay visible on 375 px (second line of the row); the tier meter hides, its word stays. |
-| D13 | Preview of the level after a Fill or a tier click | Later, with the write design of #609/#656: the pending text names the line and the XP (for example "Exploration +3,000 XP, level 64 to 68"). Not part of this issue's page. |
+| D12 | Phone | Glyph, line name and level stay visible; the row is four short lines (house, line and level, region, tier meter and state). The tier meter is not hidden, so whatever sets a tier in the editor keeps its 44 px target. Headings become a "Sort by" row as in mock-up A. The existing Show, House and Jump controls are drawn above the new ones in the mock-up. Optional follow-up: fold the controls into one closed "View" disclosure whose summary names the current view. |
+| D13 | Preview after a Fill or a tier click | Later, with the write design of #609/#656: the pending text names the line and the XP (for example "Exploration +3,000 XP, level 64 to 68"). It also says that the write moves the other four houses of that line in Sort by Level. Not part of this issue's page. |
 | D14 | Respect the daily and weekly mission limits when writing | Ignore them, as the other Landsraad writes do, and say so in the write design note; revisit only if the limits are confirmed. |
+| D15 | How the editor re-orders | Sort and group re-render the DOM in the displayed order with script: one `section` per group with a real `h3` and a `ul` of rows, never CSS `order` (keyboard focus and screen readers follow the HTML order, WCAG 1.3.2 and 2.4.3, and the rows carry controls). After a change, focus stays on the control that was used, `aria-sort` is set on the heading, and the page updates the text of the order line itself (an `aria-live` region announces text changes, not CSS changes). This mock-up uses 18 prebuilt views only because it has no script. |
+| D16 | One sort model | Specialization and Level are two more sortable headings in mock-up A's existing pattern (click for ascending, again for descending, `aria-sort`), plus one Group by control (None, Region, Specialization). No separate Sort by and Order radio groups; that is fewer controls and A's headings are kept. This replaces the radio model of the first version of this mock-up; mock-up A needs no change except the two new headings and the Group control replacing its region switch. |
+| D17 | A house or line with no value | Three cases. (1) A line with no row in the save: "Lv 0, no XP yet". (2) The line numbers never set, or the character has no specialization rows to read: "Lv -, not read", never 0. (3) A house the table does not know (a new house after a patch): shown with "Line unknown" and sorted last; the table test fails loudly, because D2 says exactly 25 houses, five per line. The level is read for the one character the editor works with: the first row of `player_state`, whose controller id is `specialization_tracks.player_id` (the same character the Specialization tab reads). |
+| D18 | Is the view remembered | Yes, per browser: the last sort and Group by are kept in the browser's own storage and nothing else (no other board state, never in the save). The board still opens at the default view when nothing is stored or storage is blocked, and Reset view clears the stored choice. The review suggested not remembering it; the default stays "remembered" because a player who levels one line wants the same grouping on the next visit, and the default view is one click away. |
 
 ## 9. Sources
 
-* #646 and #609 (measurements, settings multipliers, track numbers, tracker data of 2026-11-14), `docs/save-database.md`, `internal/ops/specialization.go`, `internal/settings/settings.go`, `internal/config/defaults.go`, `internal/ops/landsraad_locations.go`, `docs/art-notice.md`.
+* #646 and #609 (measurements, settings multipliers, track numbers, tracker data), `docs/save-database.md`, `internal/ops/specialization.go`, `internal/ops/ops.go` (`player()`), `internal/settings/settings.go`, `internal/config/defaults.go`, `internal/ops/landsraad_locations.go`, `docs/art-notice.md`.
 * A read-only check copy of a single-player save, for the table shapes, the 25 house names, the keystone names and one level value.
-* The community Landsraad tracker (house to line and regions) and the community specializations page (icon descriptions, cross-check by eye only).
+* The community Landsraad tracker, `https://htwsguild.com/Molbork/lr_tracker.html`, a public page by its author, read from its page source on 2026-11-14 for the house to line link and the regions. The tracker's author is credited here and in the table's comment when it is stored.
+* The community specializations page, `https://dune.gaming.tools/specializations`, for the five names and a look at the icons by eye only; it refuses automated reads, so nothing was taken from it.
+* The community specialization calculator, `https://htwsguild.com/Molbork/spec_time_calc.html`, and a community specialization guide on method.gg, quoted on #609 for perks and the unverified daily and weekly limits; neither is used for any value here.
