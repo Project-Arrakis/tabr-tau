@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"strings"
@@ -187,6 +188,61 @@ func TestBoardLocationOfAMarkerBeatsTheFixedPlace(t *testing.T) {
 		loc := taskByID(t, o, 175)["location"].(map[string]any)
 		if loc["area"] != "Sheol" || math.Abs(loc["x"].(float64)-(1000-m.MinX)/(m.MaxX-m.MinX)) > 1e-9 {
 			t.Fatalf("the marker must win: %v", loc)
+		}
+	})
+}
+
+// The operator's rule: no house may lack a place or a way to its map. A save with no marker at all must give all 25 houses a place from the table alone, and each place must be one the
+// editor can open: a map, and on a map with a picture the pin (a fraction inside the picture) and the map link, and the grid tile on the Deep Desert. The only places that cannot be opened
+// on a picture are the two hubs, which the Saved map has no picture of yet (#758); the test names them so that adding a hub map makes it fail until the list is shortened.
+func TestEveryHouseHasAPlaceAndAWayToItsMap(t *testing.T) {
+	hubsWithoutPicture := map[string]bool{"Arrakeen": true, "Harko Village": true}
+	eachLayout(t, func(t *testing.T, l testsave.Layout) {
+		var ids = map[string]int64{"Maros": 174, "Kenola": 175} // the two houses mineWorld already has
+		var insert []string
+		next := int64(400)
+		for name := range fixedHousePlaces {
+			saveName := name
+			for save, marker := range houseMarkerName {
+				if marker == name {
+					saveName = save
+				}
+			}
+			if _, ok := ids[name]; ok {
+				continue
+			}
+			ids[name] = next
+			insert = append(insert, fmt.Sprintf("(%d, 7, %d, 'DA_House%s', 4000, 0)", next, next, saveName))
+			next++
+		}
+		o := &Ops{S: testsave.PlayerWithSQLIn(t, l, mineWorld+"insert into landsraad_tasks(id, term_id, board_index, house_name, goal_amount, completed) values "+strings.Join(insert, ", ")+";")}
+		if len(ids) != 25 {
+			t.Fatalf("%d houses, want 25", len(ids))
+		}
+		for name, id := range ids {
+			loc := taskByID(t, o, id)["location"].(map[string]any)
+			if loc["known"] != true {
+				t.Errorf("House %s has no place with no marker in the save: %v", name, loc)
+				continue
+			}
+			label, _ := loc["map"].(string)
+			if label == "" || loc["area"] == "" {
+				t.Errorf("House %s: no map or area: %v", name, loc)
+			}
+			if hubsWithoutPicture[label] {
+				if loc["map_key"] != "" || loc["x"] != nil {
+					t.Errorf("House %s: a hub has no picture to pin on: %v", name, loc)
+				}
+				continue
+			}
+			x, okx := loc["x"].(float64)
+			y, oky := loc["y"].(float64)
+			if loc["map_key"] == "" || !okx || !oky || x < 0 || x > 1 || y < 0 || y > 1 {
+				t.Errorf("House %s: its place cannot be opened on its map: %v", name, loc)
+			}
+			if label == "Deep Desert" && !strings.HasPrefix(fmt.Sprint(loc["place"]), "tile ") {
+				t.Errorf("House %s: a Deep Desert house names its tile: %v", name, loc)
+			}
 		}
 	})
 }
