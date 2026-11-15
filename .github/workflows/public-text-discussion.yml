@@ -1,0 +1,44 @@
+name: Public text of discussions
+
+# The public-text rule over text that is not a pull request's own: titles and bodies of issues, comments and reviews (audit 2026-11-14 F1, #653;
+# #701). It is a separate workflow with its own check name, public-text-discussion, and that check is NOT a required check: it tells a
+# maintainer that a comment or review needs an edit. It must never share the name "public-text" with the pull request workflow
+# (public-text.yml): two runs with one check name on one head commit make the newest result decide, and a review run checks less than the
+# pull request run (no commit messages), so it could hide a failed pull request run, or a stranger's comment could turn the required check
+# red. The check reads the event payload from the runner's file, never from an expression in a command, so text written by a stranger is data
+# and never code. The events are the plain ones (no variant that runs with a write token over a fork's text): the job has a read-only token
+# and no secret it could leak. It runs again when the text is edited.
+on:
+  issues:
+    types: [opened, edited, reopened]
+  issue_comment:
+    types: [created, edited]
+  pull_request_review:
+    types: [submitted, edited]
+  pull_request_review_comment:
+    types: [created, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-text-discussion-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number }}-${{ github.event.comment.id || github.event.review.id || '0' }}
+  cancel-in-progress: true
+
+jobs:
+  public-text-discussion:
+    name: public-text-discussion
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Title, body, comment and review text carry nothing the public-text rule forbids
+        # GITHUB_EVENT_NAME and GITHUB_EVENT_PATH are set by the runner. The extra digest list is an optional repository secret (empty for a fork's pull request).
+        env:
+          PUBLIC_TEXT_EXTRA_DIGESTS: ${{ secrets.PUBLIC_TEXT_EXTRA_DIGESTS }}
+        run: go run ./cmd/publictextcheck
