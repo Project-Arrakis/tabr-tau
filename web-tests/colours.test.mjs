@@ -1,6 +1,6 @@
 // The Colours group of the Theme menu (#587, refs #570): the eighteen palettes of the design module (palettes.css) recolour the look in their own theme. look-boot.js reads one stored word
 // (tauPalette) before the first paint into html[data-palette], theme-menu.js offers them under their group headings, and the module's stylesheet does the recolouring. Tested in jsdom by
-// attribute, class and focus assertions; how the colours look is the operator's check. The table of palettes in look-boot.js is compared with the module's own list by a Go test
+// attribute, class and focus assertions; how the colours look is the maintainer's visual check in a real browser. The table of palettes in look-boot.js is compared with the module's own list by a Go test
 // (internal/web/colours_test.go) and, here, with the ids and themes in the module's stylesheet.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -326,4 +326,231 @@ test('the new code builds no markup from a string, makes no regular expression f
   assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(rules), 'no colour of its own in the Colours rules');
   for (const n of new Set([...rules.matchAll(/var\((--[a-z0-9-]+)/g)].map((m) => m[1]))) assert.ok(/^--(c|t|s|r|e)-/.test(n), n + ' is a token of the module');
   for (const cls of ['x-thsub', 'x-thtag', 'x-thoff', 'x-thnote']) assert.ok(appCss.includes('.' + cls), 'app.css styles .' + cls);
+});
+
+// ---- the contrast of every palette, and the filter box of the Colours list (#683) ----
+
+// WCAG 2 contrast of two #rrggbb colours
+const lum = (hex) => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+// each palette's tokens as the browser reads them: the block that forces its own theme
+const tokensOf = Object.fromEntries([...moduleCss.matchAll(/^:root\[data-palette="([a-z-]+)"\]\[data-theme="(?:dark|light)"\] \{\n([\s\S]*?)\n\}/gm)]
+  .map((m) => [m[1], Object.fromEntries([...m[2].matchAll(/^\s*(--[a-z0-9-]+): (#[0-9a-f]{6});$/gm)].map((d) => [d[1], d[2]]))]));
+
+test('every palette keeps its text readable: WCAG AA (4.5:1) for body, quiet and status text on all four surfaces, 3:1 for the control boundary and the focus ring, 4.5:1 for the label on a fill', () => {
+  const table = open('index.html', { menu: false }).w.TauLook.PALETTES;
+  assert.equal(Object.keys(tokensOf).length, table.length, 'every palette has a block with plain hex colours');
+  const bad = [];
+  const surfaces = ['--c-ground', '--c-panel', '--c-raised', '--c-sunken'];
+  for (const t of table) {
+    const k = tokensOf[t.id];
+    for (const text of ['--c-text', '--c-dim', '--c-gold', '--c-spice', '--c-sky', '--c-ok', '--c-warn', '--c-bad']) {
+      for (const surface of surfaces) {
+        const r = ratio(k[text], k[surface]);
+        if (!(r >= 4.5)) bad.push(`${t.id}: ${text} on ${surface} is ${r.toFixed(2)}:1`);
+      }
+    }
+    for (const line of ['--c-rule', '--c-focus']) {
+      for (const surface of surfaces) {
+        const r = ratio(k[line], k[surface]);
+        if (!(r >= 3)) bad.push(`${t.id}: ${line} on ${surface} is ${r.toFixed(2)}:1`);
+      }
+    }
+    for (const [on, fill] of [['--c-on-spice', '--c-spice'], ['--c-on-switch', '--c-switch'], ['--c-on-blue', '--c-blue']]) {
+      const r = ratio(k[on], k[fill]);
+      if (!(r >= 4.5)) bad.push(`${t.id}: ${on} on ${fill} is ${r.toFixed(2)}:1`);
+    }
+  }
+  assert.deepEqual(bad, []);
+});
+
+const shown = (p) => p.palettes().filter((i) => !i.hidden).map((i) => i.getAttribute('data-thvalue'));
+const type = (p, text) => { const s = p.$('theme-filter'); s.value = text; s.dispatchEvent(new p.w.Event('input', { bubbles: true })); };
+const countText = (p) => p.d.querySelector('#theme-menu .x-thcount').textContent;
+const clearBtn = (p) => p.d.querySelector('#theme-menu .x-thclear');
+
+test('the Colours group has a filter box, a Clear button and a count line (a polite status), in front of None; with nothing typed every palette and every heading show', () => {
+  const p = open('index.html');
+  const box = p.$('theme-filter');
+  assert.ok(box, 'a filter box');
+  assert.equal(box.type, 'search');
+  assert.equal(box.getAttribute('aria-label'), 'Filter colours by name, group, Dark or Dayside');
+  assert.equal(box.placeholder, 'Filter colours');
+  const status = p.d.querySelector('#theme-menu .x-thcount');
+  assert.equal(status.getAttribute('role'), 'status');
+  assert.equal(status.getAttribute('aria-live'), 'polite');
+  assert.equal(status.textContent, '18 palettes');
+  assert.ok(box.compareDocumentPosition(p.item('palette', 'none')) & p.w.Node.DOCUMENT_POSITION_FOLLOWING, 'the box comes before None');
+  assert.equal(shown(p).length, 19);
+  assert.equal([...p.d.querySelectorAll('#theme-menu .x-thsub')].filter((s) => s.hidden).length, 0);
+  assert.equal(clearBtn(p).hidden, true, 'nothing to clear yet');
+  assert.equal(clearBtn(p).getAttribute('aria-label'), 'Clear filter');
+  assert.equal(clearBtn(p).type, 'button');
+  p.w.close();
+});
+
+test('typing narrows the list by name, group and the words Dark and Dayside, in any case and with any punctuation; a heading with nothing left goes; None stays; the line counts', () => {
+  const p = open('index.html');
+  type(p, 'CALADAN');
+  assert.deepEqual(shown(p), ['none', 'storm-blue']);
+  assert.equal(countText(p), '1 of 18 palettes');
+  const subs = [...p.d.querySelectorAll('#theme-menu .x-thsub')];
+  assert.deepEqual(subs.filter((s) => !s.hidden).map((s) => s.textContent), ['Planet']);
+  assert.ok(subs.filter((s) => s.hidden).every((s) => s.nextElementSibling.hidden), 'the group of a hidden heading is hidden too');
+  type(p, 'muaddib'); // the apostrophe does not matter
+  assert.deepEqual(shown(p), ['none', 'desert-dusk']);
+  type(p, 'planet'); // a group name
+  assert.equal(shown(p).length, 7);
+  assert.equal(countText(p), '6 of 18 palettes');
+  type(p, 'house atreides'); // both words, in any place
+  assert.deepEqual(shown(p), ['none', 'navy-blue']);
+  type(p, 'dayside');
+  assert.deepEqual(shown(p), ['none', 'sand-linen', 'paper-grey']);
+  type(p, '  DAYSIDE   sietch ');
+  assert.deepEqual(shown(p), ['none', 'sand-linen']);
+  type(p, '');
+  assert.equal(shown(p).length, 19);
+  assert.equal(countText(p), '18 palettes');
+  p.w.close();
+});
+
+test('when nothing matches, the line says so on the screen and what to do; the Clear button then shows, empties the box, puts the focus back in it and brings every palette back', () => {
+  const p = open('index.html');
+  p.$('theme-btn').click();
+  type(p, 'zzzz');
+  assert.deepEqual(shown(p), ['none']);
+  assert.equal(countText(p), 'No palette matches “zzzz”. Clear the box to see all 18.');
+  assert.ok([...p.d.querySelectorAll('#theme-menu .x-thsub')].every((s) => s.hidden), 'no heading is left');
+  type(p, 'z'.repeat(40));
+  assert.match(countText(p), /^No palette matches “zzzzzzzzzzzzzzzzzzzzzzzz…”\./, 'a long word is cut in the line');
+  assert.equal(clearBtn(p).hidden, false);
+  clearBtn(p).click();
+  assert.equal(p.$('theme-filter').value, '');
+  assert.equal(p.d.activeElement, p.$('theme-filter'));
+  assert.equal(shown(p).length, 19);
+  assert.equal(clearBtn(p).hidden, true);
+  assert.equal(countText(p), '18 palettes');
+  p.w.close();
+});
+
+test('the chosen palette stays listed when the filter does not match it and says "(chosen)" then; picking from a filtered list works and is kept', () => {
+  const p = open('index.html', { store: { [KEY]: 'violet-iron' } });
+  type(p, 'caladan');
+  assert.deepEqual(shown(p), ['none', 'storm-blue', 'violet-iron'], 'in the order of the list');
+  assert.equal(countText(p), '1 of 18 palettes', 'the count is of the matches');
+  const mark = (id) => p.item('palette', id).querySelector('.x-thkept');
+  assert.equal(mark('violet-iron').hidden, false);
+  assert.equal(mark('violet-iron').textContent, '(chosen)');
+  assert.equal(mark('storm-blue').hidden, true, 'a match is not marked');
+  p.item('palette', 'storm-blue').click();
+  assert.equal(p.attr('data-palette'), 'storm-blue');
+  assert.equal(p.w.localStorage.getItem(KEY), 'storm-blue');
+  assert.deepEqual(shown(p), ['none', 'storm-blue'], 'the old choice is no longer kept; the new one is');
+  assert.equal(mark('storm-blue').hidden, true);
+  assert.equal(p.$('theme-btn').textContent, 'Theme: Fremen · Caladan Storm');
+  p.w.close();
+});
+
+test('the keyboard: the arrows walk from the box through the shown items only, Space in the box is typed, Enter moves to the first match and picks nothing, Escape clears the box and then closes the menu', () => {
+  const p = open('index.html');
+  const btn = p.$('theme-btn');
+  btn.focus();
+  p.key(btn, 'ArrowDown');
+  type(p, 'guild');
+  const box = p.$('theme-filter');
+  box.focus();
+  const ids = shown(p);
+  assert.deepEqual(ids, ['none', 'void-violet', 'steel-night']);
+  p.key(box, 'ArrowDown');
+  assert.equal(p.d.activeElement, p.item('palette', 'none'), 'down from the box is None');
+  p.key(p.d.activeElement, 'ArrowDown');
+  assert.equal(p.d.activeElement, p.item('palette', 'void-violet'), 'then the first match, skipping every hidden item');
+  p.key(p.d.activeElement, 'ArrowUp');
+  p.key(p.d.activeElement, 'ArrowUp');
+  assert.equal(p.d.activeElement, box, 'up from None is the box');
+  p.key(box, 'ArrowUp');
+  assert.equal(p.d.activeElement, p.item('theme', 'light'), 'up from the box is the last item before it');
+  box.focus();
+  const before = p.attr('data-palette');
+  const space = new p.w.KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true });
+  box.dispatchEvent(space);
+  assert.equal(space.defaultPrevented, false, 'a space is typed, not taken');
+  const enter = new p.w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+  box.dispatchEvent(enter);
+  assert.equal(p.d.activeElement, p.item('palette', 'void-violet'), 'Enter goes to the first match');
+  assert.equal(p.attr('data-palette'), before, 'and picks nothing');
+  box.focus();
+  type(p, 'zzzz');
+  box.dispatchEvent(new p.w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  assert.equal(p.d.activeElement, box, 'with no match Enter stays where it is');
+  p.key(box, 'Escape');
+  assert.equal(box.value, '', 'the first Escape clears the box');
+  assert.equal(p.$('theme-menu').hidden, false, 'and leaves the menu open');
+  assert.equal(shown(p).length, 19);
+  p.key(box, 'Escape');
+  assert.equal(p.$('theme-menu').hidden, true, 'the next Escape closes it');
+  assert.equal(p.d.activeElement, btn);
+  p.w.close();
+});
+
+test('with a chosen palette shown only because it is chosen, Enter in the box skips it for the first real match', () => {
+  const p = open('index.html', { store: { [KEY]: 'warm-charcoal' } });
+  p.$('theme-btn').click();
+  type(p, 'guild');
+  const box = p.$('theme-filter');
+  box.focus();
+  box.dispatchEvent(new p.w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  assert.equal(p.d.activeElement, p.item('palette', 'void-violet'));
+  p.w.close();
+});
+
+test('a letter typed on a palette item moves the focus to the box; closing the menu clears the box so that it opens on the whole list', () => {
+  const p = open('index.html');
+  p.$('theme-btn').click();
+  const it = p.item('palette', 'storm-blue');
+  it.focus();
+  p.key(it, 'k');
+  assert.equal(p.d.activeElement, p.$('theme-filter'));
+  type(p, 'guild');
+  p.key(p.$('theme-filter'), 'Escape');
+  p.key(p.$('theme-filter'), 'Escape');
+  p.$('theme-btn').click();
+  assert.equal(p.$('theme-filter').value, '');
+  assert.equal(shown(p).length, 19);
+  const none = p.item('palette', 'none');
+  none.focus();
+  p.key(none, 'k');
+  assert.equal(p.d.activeElement, p.$('theme-filter'), 'None is in the group too');
+  const look = p.item('look', 'sietch');
+  look.focus();
+  p.key(look, 'k');
+  assert.equal(p.d.activeElement, look, 'a letter on another group does nothing');
+  p.w.close();
+});
+
+test('an item the arrows reach is scrolled clear of the row of the box: the palettes carry a scroll margin the height of the row, and the row height is measured when an item gets the focus (WCAG 2.4.11)', () => {
+  assert.match(appCss, /\.x-thmenu \[data-thgroup="palette"\]\{scroll-margin-top:var\(--thfind-h\)\}/);
+  assert.match(appCss, /\.x-thmenu\{--thfind-h:\d+px\}/, 'a height to start from, until the row is measured');
+  assert.match(appCss, /\.x-thfindrow\{position:sticky;top:0;/);
+  assert.ok(files.menu.includes("setProperty('--thfind-h'"), 'the height of the row is measured, not guessed');
+  const p = open('index.html');
+  p.w.HTMLElement.prototype.scrollIntoView = function () {};
+  Object.defineProperty(p.w.HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return this.classList && this.classList.contains('x-thfindrow') ? 72 : 0; } });
+  p.$('theme-btn').click();
+  p.item('palette', 'none').focus();
+  p.key(p.item('palette', 'none'), 'ArrowDown');
+  assert.equal(p.$('theme-menu').style.getPropertyValue('--thfind-h'), '80px');
+  p.w.close();
+});
+
+test('the filter works in Dayside too: a dark palette is still listed and says Dark only, and nothing is hidden by the theme', () => {
+  const p = open('index.html', { light: true });
+  type(p, 'caladan');
+  assert.deepEqual(shown(p), ['none', 'storm-blue']);
+  assert.equal(p.tag('storm-blue').textContent, 'Dark only');
+  assert.equal(p.tag('storm-blue').hidden, false);
+  p.w.close();
 });

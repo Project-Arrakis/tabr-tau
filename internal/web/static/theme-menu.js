@@ -1,9 +1,13 @@
 // The Theme menu and the bulb in the header of the editor (#570, slice 3; Colours: #587).
 // look-boot.js (in the head) keeps and applies the choices; motion-boot.js keeps the Motion setting; this file is only the control. It builds, in #theme-host:
 //   the bulb          a button that switches between Dark and Dayside (the page follows the system until it is pressed once)
-//   the Theme button  opens a menu of five groups, each a list of radio items: Look (Fremen, Awakening, Sietch), Dark / Dayside (follow the system, Dark, Dayside), Colours (None, then the 18
+//   the Theme button  opens a menu of five groups, each a list of radio items: Look (Fremen, Awakening, Sietch), Dark / Dayside (follow the system, Dark, Dayside), Colours (a filter box, None, then the 60
 //                     palettes of the design module under their group headings), Font (System, Dune Rise: headings) and Motion (Full, Calm, Off)
-// A palette applies in its own theme only (16 are dark, 2 are Dayside palettes). One that is not in effect in the theme shown now stays pickable and says so: its item carries the words "Dayside only"
+// The filter box of Colours (#683) keeps the palettes whose name, group or theme word (Dark, Dayside) holds every word typed, in any case; a group with none left loses its heading, the chosen palette and
+// None always stay (the chosen one is marked "(chosen)" when it is shown only for that), and a line says "N of M palettes", or what to do when none match (a polite live region). Arrow Down and Up walk
+// through the box and the items, Enter in the box moves to the first match (it picks nothing), Escape clears the box first and closes the menu on the next press, a Clear button (44 px) empties the box, and
+// a letter typed on a palette item moves to the box. The box stays at the top of the menu while the list scrolls, and an item the arrows reach is scrolled clear of it (WCAG 2.4.11).
+// A palette applies in its own theme only (58 are dark, 2 are Dayside palettes). One that is not in effect in the theme shown now stays pickable and says so: its item carries the words "Dayside only"
 // or "Dark only" and a tooltip, and the button's own tooltip says the palette is not applied.
 // The menu is a role="menu" popover: Arrow Up and Down, Home and End move, Enter or Space picks (the menu stays open, so a combination can be tried), Escape closes it and gives the focus back to
 // the button, Tab leaves it, a click outside closes it. It is placed under the button inside the window and scrolls when it is taller than the window; its items are 44 px high on a touch screen.
@@ -114,8 +118,47 @@
     it.appendChild(name);
     return it;
   };
-  // the Colours group: None, then each group of the module under its heading, in the module's order
-  const buildPalettes = (box, headId) => {
+  // the filter of the Colours group: what each palette is searched by (name, group, theme word), and the box and the line that counts
+  const fold = (s) => String(s).toLowerCase().replace(/['\u2019]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  const HAY = Object.fromEntries(PALETTES.map((p) => [p.id, fold(p.name + ' ' + p.group + ' ' + THEME_WORD[p.theme] + (p.theme === 'light' ? ' light' : ''))]));
+  let search = null;
+  let count = null;
+  let clear = null;
+  // the Colours group: the filter, None, then each group of the module under its heading, in the module's order
+  const buildPalettes = (outer, headId) => {
+    const row = doc.createElement('div');
+    row.className = 'x-thfindrow';
+    search = doc.createElement('input');
+    search.type = 'search';
+    search.id = 'theme-filter';
+    search.className = 'd-input x-thfind';
+    search.placeholder = 'Filter colours';
+    search.autocomplete = 'off';
+    search.spellcheck = false;
+    search.tabIndex = -1;
+    search.setAttribute('aria-label', 'Filter colours by name, group, Dark or Dayside');
+    count = doc.createElement('p');
+    count.className = 'x-thcount';
+    count.setAttribute('role', 'status');
+    count.setAttribute('aria-live', 'polite');
+    clear = doc.createElement('button');
+    clear.type = 'button';
+    clear.className = 'd-btn quiet x-thclear';
+    clear.textContent = 'Clear';
+    clear.setAttribute('aria-label', 'Clear filter');
+    clear.tabIndex = -1;
+    clear.hidden = true;
+    const field = doc.createElement('div');
+    field.className = 'x-thfindbox';
+    field.appendChild(search);
+    field.appendChild(clear);
+    row.appendChild(field);
+    row.appendChild(count);
+    outer.appendChild(row);
+    const box = doc.createElement('div');
+    box.id = 'theme-g-palette-list';
+    box.setAttribute('role', 'presentation');
+    outer.appendChild(box);
     box.appendChild(radio('palette', 'none', 'None (the look\u2019s own)'));
     let inner = null;
     let last = null;
@@ -139,6 +182,11 @@
       tag.className = 'x-thtag';
       tag.hidden = true;
       it.appendChild(tag);
+      const kept = doc.createElement('span');
+      kept.className = 'x-thtag x-thkept';
+      kept.textContent = '(chosen)';
+      kept.hidden = true;
+      it.appendChild(kept);
       inner.appendChild(it);
     });
   };
@@ -167,13 +215,40 @@
   });
   const note = doc.createElement('p');
   note.className = 'x-thnote';
-  note.textContent = 'A palette applies in its own theme only: 16 are dark, 2 are Dayside palettes (Fremen Sietch, Mentat).';
+  const lightNames = PALETTES.filter((p) => p.theme === 'light').map((p) => p.name);
+  note.textContent = 'A palette applies in its own theme only: ' + (PALETTES.length - lightNames.length) + ' are dark, ' + lightNames.length + ' are Dayside palettes (' + lightNames.join(', ') + ').';
   menu.appendChild(note);
   host.appendChild(bulb);
   host.appendChild(btn);
   host.appendChild(menu);
 
-  const items = () => Array.prototype.slice.call(menu.querySelectorAll('[role="menuitemradio"]'));
+  const allItems = () => Array.prototype.slice.call(menu.querySelectorAll('[role="menuitemradio"]'));
+  const items = () => Array.prototype.slice.call(menu.querySelectorAll('[role="menuitemradio"]:not([hidden])'));
+  // the places the arrows walk through: the filter box and the items that are shown, in the order of the page
+  const ring = () => Array.prototype.slice.call(menu.querySelectorAll('input.x-thfind, [role="menuitemradio"]:not([hidden])'));
+  const applyFilter = () => {
+    if (!search) return;
+    const terms = fold(search.value).split(' ').filter(Boolean);
+    let shown = 0;
+    allItems().forEach((it) => {
+      const id = it.getAttribute('data-thvalue');
+      if (it.getAttribute('data-thgroup') !== 'palette' || id === 'none') return;
+      const hit = terms.every((t) => HAY[id].indexOf(t) >= 0);
+      if (hit) shown += 1;
+      const only = !hit && it.getAttribute('aria-checked') === 'true'; // shown for being the chosen one
+      it.hidden = !(hit || only);
+      it.setAttribute('data-thonly', String(only));
+      const mark = it.querySelector('.x-thkept');
+      if (mark) mark.hidden = !only;
+    });
+    clear.hidden = !search.value;
+    Array.prototype.forEach.call(menu.querySelectorAll('.x-thsub'), (sub) => {
+      const inner = sub.nextElementSibling;
+      sub.hidden = inner.hidden = !inner.querySelector('[role="menuitemradio"]:not([hidden])');
+    });
+    const typed = search.value.trim();
+    count.textContent = terms.length ? (shown ? shown + ' of ' + PALETTES.length + ' palettes' : 'No palette matches \u201c' + (typed.length > 24 ? typed.slice(0, 24) + '\u2026' : typed) + '\u201d. Clear the box to see all ' + PALETTES.length + '.') : PALETTES.length + ' palettes';
+  };
   const chosen = () => PALETTES.find((p) => p.id === L.palette()) || null;
   const colours = () => { const p = chosen(); return p ? p.name + (L.paletteShows() ? '' : ' (not applied: it shows in ' + THEME_WORD[p.theme] + ' only)') : 'None'; };
   const words = () => 'Look: ' + LOOK_NAMES[L.look()] + '. ' + (L.themePicked() ? (L.theme() === 'light' ? 'Dayside' : 'Dark') : 'Dark or Dayside by the system') + '. Colours: ' + colours() + '. Font: ' + FONT_NAMES[L.font()] + '. Motion: ' + MOTION_NAMES[current('motion')] + '.';
@@ -186,7 +261,7 @@
     btn.textContent = 'Theme: ' + LOOK_NAMES[L.look()] + (chosen() ? ' \u00b7 ' + chosen().name : '');
     btn.setAttribute('aria-label', 'Theme. ' + words() + ' Open the menu');
     btn.title = words();
-    items().forEach((it) => {
+    allItems().forEach((it) => {
       it.setAttribute('aria-checked', String(it.getAttribute('data-thvalue') === current(it.getAttribute('data-thgroup'))));
       // a palette that is not in effect in the theme shown now says so
       const own = it.getAttribute('data-ththeme');
@@ -200,6 +275,7 @@
         else it.removeAttribute('title');
       }
     });
+    applyFilter();
   };
 
   const place = () => {
@@ -217,6 +293,8 @@
     list.forEach((x) => { x.tabIndex = -1; });
     list[i].tabIndex = 0;
     list[i].focus();
+    const row = menu.querySelector('.x-thfindrow');
+    if (row && row.offsetHeight) menu.style.setProperty('--thfind-h', (row.offsetHeight + 8) + 'px'); // the row of the box covers the top of the list: an item is scrolled below it
     try { list[i].scrollIntoView({ block: 'nearest' }); } catch (e) { /* no layout */ }
   };
   const open = (last) => {
@@ -232,6 +310,7 @@
     if (menu.hidden) return;
     menu.hidden = true;
     btn.setAttribute('aria-expanded', 'false');
+    if (search && search.value) { search.value = ''; applyFilter(); }
     if (back) btn.focus();
   };
 
@@ -246,21 +325,41 @@
     pick(it.getAttribute('data-thgroup'), it.getAttribute('data-thvalue'));
     it.focus();
   });
+  if (search) search.addEventListener('input', applyFilter);
+  if (clear) clear.addEventListener('click', () => { search.value = ''; applyFilter(); search.focus(); });
   menu.addEventListener('keydown', (e) => {
-    const list = items();
-    const i = list.indexOf(doc.activeElement);
     const k = e.key;
+    if (search && e.target === search) {
+      // in the filter box the keys type; the arrows leave it, Enter picks nothing, Escape clears it first
+      const around = ring();
+      const at = around.indexOf(search);
+      if (k === 'ArrowDown' || k === 'ArrowUp') { e.preventDefault(); focusItem(around, (at + (k === 'ArrowDown' ? 1 : -1) + around.length) % around.length); }
+      else if (k === 'Enter') {
+        e.preventDefault(); // Enter picks nothing: it moves to the first match
+        const first = allItems().find((it) => it.getAttribute('data-thgroup') === 'palette' && it.getAttribute('data-thvalue') !== 'none' && !it.hidden && it.getAttribute('data-thonly') !== 'true');
+        if (first) focusItem(ring(), ring().indexOf(first));
+      }
+      else if (k === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (search.value) { search.value = ''; applyFilter(); } else close(true);
+      } else if (k === 'Tab') close(false);
+      return;
+    }
+    const list = ring();
+    const i = list.indexOf(doc.activeElement);
     if (k === 'ArrowDown' || k === 'ArrowUp' || k === 'Home' || k === 'End') {
       e.preventDefault();
       focusItem(list, k === 'Home' ? 0 : k === 'End' ? list.length - 1 : (i + (k === 'ArrowDown' ? 1 : -1) + list.length) % list.length);
     } else if (k === 'Enter' || k === ' ') {
       e.preventDefault();
-      if (list[i]) pick(list[i].getAttribute('data-thgroup'), list[i].getAttribute('data-thvalue'));
+      if (list[i] && list[i] !== search) pick(list[i].getAttribute('data-thgroup'), list[i].getAttribute('data-thvalue'));
     } else if (k === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
       close(true);
     } else if (k === 'Tab') close(false);
+    else if (k.length === 1 && /[a-z0-9]/i.test(k) && !e.ctrlKey && !e.metaKey && !e.altKey && search && doc.activeElement && doc.activeElement.getAttribute('data-thgroup') === 'palette') search.focus(); // the letter goes on into the box
   });
   doc.addEventListener('click', (e) => { if (!menu.hidden && !menu.contains(e.target) && e.target !== btn) close(false); });
   doc.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(true); });
