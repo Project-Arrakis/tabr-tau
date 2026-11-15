@@ -124,7 +124,32 @@ func TestTheSameCreateSentTwiceMakesOneVehicle(t *testing.T) {
 	if a["ok"] != true || b["ok"] != true || a["id"] != b["id"] {
 		t.Fatalf("the second answer is the first: %v %v", a, b)
 	}
+	if a["repeat"] == true || b["repeat"] != true {
+		t.Fatalf("the first answer is the write and the second is the repeat: %v %v", a["repeat"], b["repeat"])
+	}
 	if n := vehiclesInFile(t, s.Save.Path); n != 1 {
 		t.Fatalf("one vehicle in the file, got %d", n)
+	}
+}
+
+// A Create that is queued while the game runs and is then thrown away is gone: the same id and request is a new Create, not a repeat answered with a vehicle that is nowhere (#740).
+func TestACreateThatWasDiscardedIsNotAnsweredAsARepeat(t *testing.T) {
+	restore := save.ActiveSessionForTests()
+	defer restore()
+	s := spawnServer(t)
+	body := `{"class":"Sandbike","template":"T0","requestId":"form-1"}`
+	a := decodeBody(t, postEdit(t, s, "/api/vehicles/spawn", body))
+	if a["outcome"] != "queued" {
+		t.Fatalf("the Create waits in the queue: %v", a)
+	}
+	if w := postEdit(t, s, "/api/save/discard", `{}`); w.Code != 200 {
+		t.Fatalf("discard: %d %s", w.Code, w.Body.String())
+	}
+	b := decodeBody(t, postEdit(t, s, "/api/vehicles/spawn", body))
+	if b["ok"] != true || b["repeat"] == true || b["outcome"] != "queued" {
+		t.Fatalf("after a discard the same Create is written again: %v", b)
+	}
+	if p := s.Save.Pending(); len(p) != 1 {
+		t.Fatalf("one vehicle waits, got %v", p)
 	}
 }

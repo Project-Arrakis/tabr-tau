@@ -647,6 +647,7 @@ test('a Create that is refused turns the button back on, and the next press is a
   ui.click('[data-act="vcCreate"]'); await ui.settle();
   const made = posts(ui, '/api/vehicles/spawn');
   assert.equal(made.length, 2);
+  assert.match(made[0].body.requestId, /^[A-Za-z0-9_-]{1,64}$/, 'the id is there');
   assert.equal(made[0].body.requestId, made[1].body.requestId, 'one form, one id: the editor can tell a repeat of it');
   assert.ok(ui.doc.querySelector('#vcresult'));
   ui.dom.window.close();
