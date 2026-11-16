@@ -3,6 +3,7 @@
 package save
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -286,6 +287,9 @@ func TestTheNotesOfAnUnverifiedWriteAreHandedOverWhenTheFileIsRecognised(t *test
 	if got := values(t, k.got); len(got) != 2 || got[0] != 1 || got[1] != 2 {
 		t.Fatalf("each note once, in order: %v", got)
 	}
+	if k.got[0].Again || k.got[1].Again {
+		t.Fatal("a delivery in the same run is a first one, not a repeat")
+	}
 }
 
 // A restart that finds the file to be the one the edits were written as hands over their notes, and only theirs: the edit made after the write is put back with its note.
@@ -311,7 +315,47 @@ func TestARestartAfterAnUnverifiedWriteHandsOverTheNotesOfWhatWasWritten(t *test
 	if got := values(t, k.got); len(got) != 1 || got[0] != 1 {
 		t.Fatalf("the written edit's note is handed over, the later one waits: %v", got)
 	}
+	if !k.got[0].Again {
+		t.Fatal("a delivery from a journal is marked as a possible repeat")
+	}
 	if got := s2.PendingNotes("x"); len(got) != 1 {
 		t.Fatalf("the put-back edit's note is pending: %v", got)
+	}
+}
+
+// A sink that cannot take the notes of an unverified write that is recognised later does not lose them silently: the answer of that attempt carries a warning, the problem stays on the save
+// (the page shows it), and the notes are handed over at a later delivery (review of #798, N3).
+func TestTheNotesOfAnUnverifiedWriteThatTheSinkRefusesAreWarnedAboutAndKept(t *testing.T) {
+	defer NoGameRunningForTests()()
+	p := makeSave(t, `create table ev(n integer); insert into ev values (0);`)
+	s := openJournaled(t, p, t.TempDir())
+	var k sunk
+	fail := true
+	s.SetNoteSink(func(n []Note) error {
+		if fail {
+			return errors.New("busy")
+		}
+		return k.sink(n)
+	})
+	addNotedEvent(t, s, 1)
+	release := holdAfterRename(t, p)
+	if f := s.Flush(); f.Saved {
+		t.Fatalf("unverified: %+v", f)
+	}
+	release()
+	f := s.Flush()
+	if !f.Saved || !strings.Contains(f.Warning, "could not be recorded") {
+		t.Fatalf("the settling had no way to say the note was not recorded: %+v", f)
+	}
+	if !strings.Contains(s.NotesProblem(), "could not be recorded") {
+		t.Fatalf("the problem stays on the save: %q", s.NotesProblem())
+	}
+	fail = false
+	addNotedEvent(t, s, 2)
+	if f := s.Flush(); !f.Saved || f.Warning != "" {
+		t.Fatalf("the next write: %+v", f)
+	}
+	if got := values(t, k.got); len(got) != 2 || got[0] != 1 || got[1] != 2 || s.NotesProblem() != "" {
+		t.Fatalf("the kept note goes first: %v, problem %q", got, s.NotesProblem())
 	}
 }

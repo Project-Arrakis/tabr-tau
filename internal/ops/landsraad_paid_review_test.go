@@ -7,7 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
@@ -114,23 +116,78 @@ func TestPaidTheCapIsTheSameInTheWriteAndOnTheBoard(t *testing.T) {
 	}
 }
 
-// A backup restored through the editor empties the record, so a raise after it is paid in full even where rows stand again.
-func TestPaidARestoredBackupEmptiesTheRecord(t *testing.T) {
+// An editor restore does not empty the record (review of #798, N1): the restored file shows by its own rows how far the record is still true. Undoing a restore brings back the file the
+// raise left, so the record of that raise must still be there; restoring the backup from before the raise cuts the record to nothing by the cap, and a raise then pays in full.
+func TestPaidUndoingAnEditorRestoreKeepsTheRecordAndRestoringBeforeTheRaiseDoesNot(t *testing.T) {
 	o, path := paidOps(t, "")
 	fillKenolaDoubled(t, o, 1300, 6000)
 	flush(t, o)
-	if f := readPaid(t, path); len(f.Entries) != 1 {
-		t.Fatalf("record: %+v", f)
-	}
 	bs := o.S.Backups()
 	if len(bs) == 0 {
 		t.Fatal("no backup")
 	}
+	if err := o.S.Restore(bs[0]["name"].(string)); err != nil { // the file as it was before the raise
+		t.Fatal(err)
+	}
+	if got := taskByID(t, o, 175)["my_paid"]; got != 0.0 {
+		t.Fatalf("the board trusts a record of a raise the restored file does not hold: %v", got)
+	}
+	bs = o.S.Backups() // the newest is the one the restore took: the file the raise left
 	if err := o.S.Restore(bs[0]["name"].(string)); err != nil {
 		t.Fatal(err)
 	}
-	if f := readPaid(t, path); len(f.Entries) != 0 {
-		t.Fatalf("the record outlived the restore: %+v", f)
+	if f := readPaid(t, path); len(f.Entries) != 1 || f.Entries[0].Paid != 6000 {
+		t.Fatalf("the record was lost by a restore: %+v", f)
+	}
+	if got := taskByID(t, o, 175)["my_paid"]; got != 6000.0 {
+		t.Fatalf("the file is the one the raise left, so its record counts: %v", got)
+	}
+	removeTo(t, o, 6000, 1200)
+	flush(t, o)
+	m := fillKenolaDoubled(t, o, 1200, 6000)
+	if i64(t, m, "missions") != 0 || i64(t, m, "reward_rows") != 0 || i64(t, m, "solari") != 0 {
+		t.Fatalf("a raise on the file the undo brought back paid again: %v", m)
+	}
+}
+
+// House A paid on Monday, house B on Tuesday; Tuesday's backup from before the write is put back. A's record stays (its rows stand), B's is cut (its rows are gone) and B is paid in full.
+func TestPaidRestoringTheBackupBeforeASecondHousePaidKeepsTheFirstHousesRecord(t *testing.T) {
+	o, path := paidOps(t, "")
+	fillKenolaDoubled(t, o, 1300, 6000) // Monday
+	flush(t, o)
+	bk := filepath.Join(filepath.Dir(o.S.Path), "tabr-tau-backups")
+	if err := os.MkdirAll(bk, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	pre, err := os.ReadFile(o.S.Path) // the file as Tuesday's write finds it
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bk, "tuesday-before.db"), pre, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	applyWith(t, o, doubled(), house(176, Args{"was_mine": 0.0, "mine_to": 4800.0})) // Tuesday
+	flush(t, o)
+	if f := readPaid(t, path); len(f.Entries) != 2 {
+		t.Fatalf("both houses are on record: %+v", f)
+	}
+	if err := o.S.Restore("tuesday-before.db"); err != nil {
+		t.Fatal(err)
+	}
+	if got := taskByID(t, o, 175)["my_paid"]; got != 6000.0 {
+		t.Fatalf("Monday's house is on the restored file and stays on record: %v", got)
+	}
+	if got := taskByID(t, o, 176)["my_paid"]; got != 0.0 {
+		t.Fatalf("Tuesday's house is not on the restored file: %v", got)
+	}
+	removeTo(t, o, 6000, 1200)
+	flush(t, o)
+	if m := fillKenolaDoubled(t, o, 1200, 6000); i64(t, m, "missions") != 0 || i64(t, m, "reward_rows") != 0 {
+		t.Fatalf("Monday's house paid again after the restore: %v", m)
+	}
+	m := applyWith(t, o, doubled(), house(176, Args{"was_mine": 0.0, "mine_to": 4800.0}))
+	if i64(t, m, "reward_rows") != 4 {
+		t.Fatalf("Tuesday's house is paid in full on the restored file: %v", m)
 	}
 }
 
@@ -191,7 +248,7 @@ func TestPaidAnImplausibleEntryIsLeftOutWhenTheFileIsRead(t *testing.T) {
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if got := l.snapshot(); len(got) != 1 || got[0].House != "Good" {
+	if got, _ := l.snapshot(); len(got) != 1 || got[0].House != "Good" {
 		t.Fatalf("only the plausible entry is read: %+v", got)
 	}
 }
@@ -211,7 +268,7 @@ func TestPaidAFileThatCannotBeReadIsNeverRebuiltFromTheNotesAlone(t *testing.T) 
 	oldOpen, oldPause := paidOpen, paidReadPause
 	paidReadPause = 0
 	defer func() { paidOpen, paidReadPause = oldOpen, oldPause }()
-	fails := 2
+	fails := 1
 	paidOpen = func(p string) (*os.File, error) {
 		if fails > 0 {
 			fails--
@@ -252,5 +309,119 @@ func TestPaidTheRecordIsReadOncePerRequestAndOncePerBoardRead(t *testing.T) {
 	}
 	if n := paidReads.Load() - before; n != 1 {
 		t.Fatalf("a board read read the record %d times", n)
+	}
+}
+
+func unreadable(failures *int) func(string) (*os.File, error) {
+	return func(p string) (*os.File, error) {
+		if failures != nil {
+			if *failures <= 0 {
+				return os.Open(p)
+			}
+			*failures--
+		}
+		return nil, &os.PathError{Op: "open", Path: p, Err: errors.New("sharing violation")}
+	}
+}
+
+// N2: a record that cannot be read when a raise runs is not "nothing paid": the read is tried again, and then the raise is refused with nothing written. A read that works on the second
+// try goes on. The board, which only shows, reads it as nothing paid.
+func TestPaidARecordThatCannotBeReadRefusesTheRaiseAndNothingIsWritten(t *testing.T) {
+	o, _ := paidOps(t, "")
+	oldOpen, oldPause := paidOpen, paidReadPause
+	paidReadPause = 0
+	defer func() { paidOpen, paidReadPause = oldOpen, oldPause }()
+	paidOpen = unreadable(nil)
+	_, err := o.LandsraadApplyWith(doubled(), applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0})))
+	if !errors.Is(err, apierr.ErrWriteFailed) {
+		t.Fatalf("a record that cannot be read refuses the raise: %v", err)
+	}
+	if strings.Contains(err.Error(), "sharing violation") || strings.Contains(err.Error(), os.TempDir()) {
+		t.Fatalf("the answer names the file or the system's words: %v", err)
+	}
+	if got := rows(t, o, `select amount from landsraad_task_player_contributions where player_id=1 and task_id=175`); !strings.Contains(got, "1300") {
+		t.Fatalf("something was written: %s", got)
+	}
+	if o.S.Dirty() {
+		t.Fatal("an edit is queued")
+	}
+	if got := taskByID(t, o, 175)["my_paid"]; got != 0.0 {
+		t.Fatalf("the board reads an unreadable record as nothing paid: %v", got)
+	}
+	one := 1
+	paidOpen = unreadable(&one)
+	m := fillKenolaDoubled(t, o, 1300, 6000)
+	if i64(t, m, "missions") != 2 {
+		t.Fatalf("a read that works on the second try goes on: %v", m)
+	}
+}
+
+// N4: a note that comes again (a journal that outlived the write) merges only; what it asks to replace is not replaced, or the first part of a batch would lower what the whole batch
+// recorded.
+func TestPaidANoteThatComesAgainNeverLowersWhatIsRecorded(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "p.json")
+	l := NewPaidLedger(path, `C:\X\game.db`)
+	note := func(paid float64, replace, again bool) save.Note {
+		b, _ := json.Marshal(paidNote{Player: 1, Term: 7, House: "A", Faction: 2, Paid: paid, Replace: replace})
+		return save.Note{Kind: paidNoteKind, Data: b, Again: again}
+	}
+	if err := l.Record([]save.Note{note(1200, true, false), note(6000, false, false)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Record([]save.Note{note(1200, true, true)}); err != nil { // the journal holds only the first of the two
+		t.Fatal(err)
+	}
+	if got := l.recorded(1, 7, "A"); got != 6000 {
+		t.Fatalf("a prefix of the batch lowered the record: %v", got)
+	}
+	if err := l.Record([]save.Note{note(900, true, false)}); err != nil {
+		t.Fatal(err)
+	}
+	if got := l.recorded(1, 7, "A"); got != 900 {
+		t.Fatalf("a first delivery still replaces: %v", got)
+	}
+}
+
+// N5: the boundary of "this term" is real: a write with no usable play clock stamps its rows with exactly the start of the term, and those rows stand.
+func TestPaidARowWrittenExactlyAtTheStartOfTheTermStandsAndOneBeforeItDoesNot(t *testing.T) {
+	o, _ := paidOps(t, "")
+	fillKenolaDoubled(t, o, 1300, 6000)
+	flush(t, o)
+	check := func(stamp int, want float64) {
+		t.Helper()
+		setup(t, o, `update landsraad_house_rewards set last_updated=? where player_id=1 and house_name='DA_HouseKenola'`, stamp)
+		got, err := standingTierSQL(o.S.One, 1, 175, "DA_HouseKenola", 100)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != want {
+			t.Fatalf("rows stamped %d: the write's cap is %v, want %v", stamp, got, want)
+		}
+		if board := taskByID(t, o, 175)["my_paid"]; board != want {
+			t.Fatalf("rows stamped %d: the board says %v, want %v", stamp, board, want)
+		}
+	}
+	check(100, 6000)
+	check(99, 0)
+}
+
+// The cap holds the record only when it is above the rows that stand: equal to them it is trusted whole, and a raise that pays does not replace it.
+func TestPaidARecordEqualToWhatStandsIsTrustedAndNotMarkedUntrusted(t *testing.T) {
+	rec := []paidNote{{Player: 1, Term: 7, House: "A", Faction: 2, Paid: 6000}}
+	if paid, untrusted := trustedPaid(rec, nil, 1, 7, "A", 6000); paid != 6000 || untrusted {
+		t.Fatalf("equal: %v %v", paid, untrusted)
+	}
+	if paid, untrusted := trustedPaid(rec, nil, 1, 7, "A", 4800); paid != 4800 || !untrusted {
+		t.Fatalf("above what stands: %v %v", paid, untrusted)
+	}
+	if paid, untrusted := trustedPaid(nil, nil, 1, 7, "A", 4800); paid != 0 || untrusted {
+		t.Fatalf("no record: %v %v", paid, untrusted)
+	}
+}
+
+// N6: a read that fails is tried again once after a short pause, because the save's lock is held while it waits.
+func TestPaidAFailingReadWaitsOnlyAShortWhile(t *testing.T) {
+	if wait := time.Duration(paidReadTries-1) * paidReadPause; paidReadTries < 2 || wait > 100*time.Millisecond {
+		t.Fatalf("%d tries, %v pause: %v of waiting under the save's lock", paidReadTries, paidReadPause, wait)
 	}
 }

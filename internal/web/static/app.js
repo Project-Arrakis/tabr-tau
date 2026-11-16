@@ -585,7 +585,7 @@ async function status() {
   const schemaNote = o.schemaNote ? String(o.schemaNote) : '';
   // Waiting to be written with nothing listed (#592): said as a plain fact. There is nothing to discard, so no Discard button is offered for it.
   const unlisted = !!o.dirty && !q && !o.held;
-  gw.className = saveBlocked || q || unlisted || changed || restored || o.writeLogProblem ? 'warn' : schemaNote || notLive ? 'info' : 'hide';
+  gw.className = saveBlocked || q || unlisted || changed || restored || o.writeLogProblem || o.notesProblem ? 'warn' : schemaNote || notLive ? 'info' : 'hide';
   const gameFile = notLive ? 'the file' : 'the game file';
   const notLiveMsg = notLive ? html`<div><b>This is a copy, not the game's save:</b> edits are written at once and do not reach the game unless this file is installed as its game.db. <span class="mono">${o.path}</span></div>` : html``;
   const changedMsg = changed ? html`<div><b>The game saved since this editor opened.</b> What you see here is out of date. <button class="b sm d-btn primary sm" data-act="reload">Reload now</button></div>` : html``;
@@ -614,11 +614,12 @@ async function status() {
   const journalMsg = o.journalOff && o.dirty ? html`<div class="mut">These queued changes are not kept if the editor is closed: ${o.journalOff}.</div>` : html``;
   const schemaMsg = schemaNote ? html`<div><b>This save is not quite the one this editor knows.</b> ${schemaNote}</div>` : html``;
   const logMsg = o.writeLogProblem ? html`<div class="mut">${capFirst(o.writeLogProblem)}. The game's file was written; only the record of it is missing.</div>` : html``;
+  const notesMsg = o.notesProblem ? html`<div class="mut">${capFirst(o.notesProblem)}. The game's file was written; only the editor's own record of the ground a Landsraad raise paid is behind.</div>` : html``;
   const lines = o.pending.map(queueLine);
   const listMsg = q ? html`<details class="bn-list" ${KEEP.qlist ? 'open' : ''}><summary data-keep="qlist">What is queued (${q})</summary><ul>${lines.map((l) => html`<li>${l}</li>`)}</ul></details>` : html``;
   const rawMsg = reason.raw ? html`<details class="bn-raw" ${KEEP.raw ? 'open' : ''}><summary data-keep="raw">Details (include this if you report a problem)</summary><div class="mono">${reason.raw}</div></details>` : html``;
   lastPending = lines;
-  const banner = html`${notLiveMsg}${changedMsg}${heldMsg}${mainMsg}${unlistedMsg}${restoredMsg}${schemaMsg}${journalMsg}${logMsg}${listMsg}${rawMsg}`;
+  const banner = html`${notLiveMsg}${changedMsg}${heldMsg}${mainMsg}${unlistedMsg}${restoredMsg}${schemaMsg}${journalMsg}${logMsg}${notesMsg}${listMsg}${rawMsg}`;
   // redrawn only when it changed: a redraw every few seconds would take the keyboard focus off its buttons
   const key = String(banner).replace(/ ?open>/g, '>').replace(/ >/g, '>'); // a toggle the person opened is already open in the page: that alone is no reason to redraw
   if (key !== gwKey) { gwKey = key; setHTML(gw, banner); }

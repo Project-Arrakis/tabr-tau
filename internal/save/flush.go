@@ -76,7 +76,11 @@ func (s *Save) Flush() Flush {
 	}
 	s.mu.Unlock()
 	if settled && !dirty {
-		return s.setLastFlush(Flush{At: time.Now(), Saved: true, Ops: wrote, Backup: wroteBackup})
+		f := Flush{At: time.Now(), Saved: true, Ops: wrote, Backup: wroteBackup}
+		if p := s.NotesProblem(); p != "" { // the settling handed the notes of those edits over, and the sink could not take them
+			f.Warning = "saved, but " + p
+		}
+		return s.setLastFlush(f)
 	}
 	if !dirty {
 		return Flush{}

@@ -16,6 +16,10 @@ import (
 type Note struct {
 	Kind string          `json:"kind"`
 	Data json.RawMessage `json:"data"`
+	// Again says that the note may have been handed to the sink before: it comes from a journal that outlived the write (the editor was closed between the write and the removal of the
+	// journal), or from a write that was recognised afterwards, and the journal may hold only a first part of the edits that write held. A sink treats such a note as one it may already
+	// have, so only what is safe to apply twice, or after a later state, may come of it. It is not kept in the journal.
+	Again bool `json:"-"`
 }
 
 // Note attaches a note to the edit. It is kept only if the edit is committed and changed something; a note of an edit that fails is dropped with it.
@@ -74,10 +78,6 @@ func notesOf(ops []Op) []Note {
 	return out
 }
 
-// NoteSaveReplaced is the kind of the note the save hands to the sink when it replaces the game's file wholesale (a backup was restored): what was recorded about the file that was
-// there says nothing about the one that is now.
-const NoteSaveReplaced = "save.replaced"
-
 // maxUndelivered bounds the notes kept for a sink that keeps failing.
 const maxUndelivered = 1000
 
@@ -100,25 +100,34 @@ func (s *Save) deliver(add []Note) string {
 			n = n[len(n)-maxUndelivered:]
 		}
 		s.undelivered = n
+		problem := "a note of the written edits could not be recorded (" + shortErr(err) + "); it is tried again at the next write"
 		log.Printf("notes of written edits could not be recorded (kept for the next write): %s", shortErr(err))
-		return "a note of the written edits could not be recorded (" + shortErr(err) + "); it is tried again at the next write"
+		s.notesProblem = problem
+		return problem
 	}
 	s.undelivered = nil
+	s.notesProblem = ""
 	return ""
 }
 
-// deliverReplaced tells the sink that the game's file was replaced wholesale. The caller holds s.mu.
-func (s *Save) deliverReplaced() {
-	if s.sink != nil {
-		s.deliver([]Note{{Kind: NoteSaveReplaced, Data: json.RawMessage("null")}})
-	}
+// NotesProblem says why the notes of written edits could not be handed over ("" when they were, or when there is no sink). It outlives the write that found it, so a path that has no answer
+// to carry a warning (the settling of an unverified write, a journal that outlived a write at start) is still seen, and it goes when a later delivery succeeds. The notes are kept in memory
+// only: a restart before that delivery loses them.
+func (s *Save) NotesProblem() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.notesProblem
 }
 
 // deliverRecNotes is deliverNotes for edits kept in the journal (the editor was closed between the write and the removal of the journal). The caller holds s.mu.
 func (s *Save) deliverRecNotes(recs []opRec) {
 	ops := make([]Op, len(recs))
 	for i, r := range recs {
-		ops[i] = Op{notes: r.Notes}
+		ops[i] = Op{notes: make([]Note, len(r.Notes))}
+		for j, n := range r.Notes {
+			n.Again = true // the journal outlived the write: they may have been handed over before
+			ops[i].notes[j] = n
+		}
 	}
 	s.deliverNotes(ops)
 }

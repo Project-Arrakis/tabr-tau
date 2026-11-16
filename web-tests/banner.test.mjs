@@ -122,6 +122,13 @@ test('a write that could not be recorded in the write log says so, and that the 
   b.close();
 });
 
+test('a note of the written edits that could not be recorded says so, and that the game file was written', async () => {
+  const b = await banner({ notesProblem: 'a note of the written edits could not be recorded (the record could not be read); it is tried again at the next write' });
+  assert.equal(b.gw.className, 'warn');
+  assert.match(b.text, /A note of the written edits could not be recorded \(the record could not be read\); it is tried again at the next write\. The game's file was written; only the editor's own record of the ground a Landsraad raise paid is behind\./);
+  b.close();
+});
+
 test('with nothing wrong with the write log the banner stays hidden', async () => {
   const b = await banner({ writeLogProblem: '' });
   assert.equal(b.gw.className, 'hide');

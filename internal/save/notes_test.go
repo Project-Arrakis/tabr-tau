@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -251,18 +252,20 @@ func TestNotesASinkThatFailsKeepsThemForTheNextWriteAndSaysSo(t *testing.T) {
 	}
 }
 
-// A restored backup replaces the game's file wholesale: the sink is told, after the file is replaced.
-func TestNotesARestoredBackupTellsTheSinkTheFileWasReplaced(t *testing.T) {
+// A restored backup is not told to the sink: what the editor recorded stays, because the restored file shows by its own rows how far the record is still true (the ops package caps
+// the record at the rows that stand). Undoing a restore must not lose a record that the file it brings back still holds (review of #798).
+func TestNotesARestoredBackupHandsNothingToTheSink(t *testing.T) {
 	defer NoGameRunningForTests()()
 	p := makeSave(t, journalDDL)
 	s, _ := Open(p)
 	defer s.Close()
+	var k sunk
+	s.SetNoteSink(k.sink)
 	noteEdit(t, s, 1, "x", 1)
 	if f := s.Flush(); !f.Saved {
 		t.Fatalf("flush: %+v", f)
 	}
-	var k sunk
-	s.SetNoteSink(k.sink)
+	k.got = nil
 	bs := s.Backups()
 	if len(bs) == 0 {
 		t.Fatal("no backup")
@@ -270,8 +273,52 @@ func TestNotesARestoredBackupTellsTheSinkTheFileWasReplaced(t *testing.T) {
 	if err := s.Restore(bs[0]["name"].(string)); err != nil {
 		t.Fatal(err)
 	}
-	if len(k.got) != 1 || k.got[0].Kind != NoteSaveReplaced {
-		t.Fatalf("the sink was not told the file was replaced: %v", k.got)
+	if len(k.got) != 0 {
+		t.Fatalf("the sink was handed something by a restore: %v", k.got)
+	}
+}
+
+// A first delivery is not marked as a repeat; the problem of a sink that fails stays on the save until a delivery succeeds, and the notes kept for it are bounded, newest kept.
+func TestNotesAFirstDeliveryIsNotARepeatAndAFailingSinkKeepsTheNewestNotes(t *testing.T) {
+	defer NoGameRunningForTests()()
+	p := makeSave(t, journalDDL)
+	s, _ := Open(p)
+	defer s.Close()
+	var k sunk
+	s.SetNoteSink(k.sink)
+	noteEdit(t, s, 1, "x", 1)
+	if f := s.Flush(); !f.Saved || len(k.got) != 1 || k.got[0].Again {
+		t.Fatalf("a delivery after a write is a first one: %+v %+v", f, k.got)
+	}
+	k.got = nil
+	fail := true
+	s.SetNoteSink(func(n []Note) error {
+		if fail {
+			return errors.New("busy")
+		}
+		return k.sink(n)
+	})
+	s.mu.Lock()
+	for i := 0; i < maxUndelivered+5; i++ {
+		s.deliver([]Note{{Kind: "x", Data: json.RawMessage(`{"v":` + strconv.Itoa(i) + `}`)}})
+	}
+	kept := append([]Note(nil), s.undelivered...)
+	s.mu.Unlock()
+	if len(kept) != maxUndelivered {
+		t.Fatalf("kept %d notes, the bound is %d", len(kept), maxUndelivered)
+	}
+	if got := values(t, kept); got[0] != 5 || got[len(got)-1] != maxUndelivered+4 {
+		t.Fatalf("the oldest notes are the ones dropped: first %d last %d", got[0], got[len(got)-1])
+	}
+	if p := s.NotesProblem(); !strings.Contains(p, "could not be recorded") {
+		t.Fatalf("the problem is kept on the save: %q", p)
+	}
+	fail = false
+	s.mu.Lock()
+	s.deliver(nil)
+	s.mu.Unlock()
+	if p := s.NotesProblem(); p != "" || len(k.got) != maxUndelivered {
+		t.Fatalf("a delivery that goes through clears it: %q, %d handed over", p, len(k.got))
 	}
 }
 
@@ -309,5 +356,8 @@ func TestNotesAnIncompleteJournalOfAWrittenQueueHandsOverItsNotes(t *testing.T) 
 	}
 	if got := values(t, k.got); len(got) != 1 || got[0] != 77 {
 		t.Fatalf("the notes of the written edits are handed over: %v", got)
+	}
+	if !k.got[0].Again {
+		t.Fatal("a journal that outlived the write may have delivered before: its notes are marked as a repeat")
 	}
 }

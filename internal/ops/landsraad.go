@@ -148,7 +148,7 @@ func (o *Ops) Landsraad() (any, error) {
 	// the ground the editor itself paid (landsraad_paid.go), queued raises included, for the page to work out what a click grants: it is trusted only while a reward row of this term stands for the house
 	// (the queued notes are read before the file: a write that lands in between moves a note from the queue into the file, and the other order could see neither)
 	queuedPaid := pendingPaid(o.S.PendingNotes(paidNoteKind))
-	filePaid := o.Paid.snapshot()
+	filePaid, _ := o.Paid.snapshot() // a record that could not be read shows as nothing paid here (a read); the write refuses instead
 	for _, t := range tasks {
 		id, _ := t["id"].(int64)
 		t["contributions"] = byTask[id]

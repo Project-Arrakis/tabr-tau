@@ -149,7 +149,13 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 	var rw rewardResult
 	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
 		houses, changed, raised, lowered, completed, reopened, repaired = 0, 0, 0, 0, 0, 0, 0
-		recorded := o.Paid.snapshot() // the editor's record of the ground it paid, read once for the request, under the lock the sink writes it under (landsraad_paid.go)
+		var recorded []paidNote
+		if needMe { // the editor's record of the ground it paid, read once for the request, under the lock the sink writes it under (landsraad_paid.go); a record that could not be read refuses the raise
+			var err error
+			if recorded, err = o.Paid.snapshot(); err != nil {
+				return apierr.New(apierr.ErrWriteFailed, err.Error()+"; try again in a moment")
+			}
+		}
 		replaced, names, done = nil, nil, nil
 		rw = rewardResult{}
 		if err := currentTerm(m, termID); err != nil {

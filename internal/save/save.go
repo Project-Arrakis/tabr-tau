@@ -57,7 +57,8 @@ type Save struct {
 	// sink receives the notes of the edits that were written (notes.go)
 	sink func([]Note) error
 	// undelivered are the notes of written edits that the sink could not take; they go with the next delivery
-	undelivered []Note
+	undelivered  []Note
+	notesProblem string // why the last delivery failed, "" when it did not (NotesProblem)
 
 	// the journal of pending edits (journal.go): where it is kept, what has been kept, and what became of the edits found in it at start
 	journalPath string
@@ -909,7 +910,6 @@ func (s *Save) Restore(name string) error {
 	s.noteDisk(b)
 	// a restore is a write to the game's file like any other, and is recorded like one: after the file has been replaced, with the backup that holds the file as it was
 	s.appendWriteLogLocked(Flush{At: time.Now(), Saved: true, Ops: []string{"restored the backup " + name}, Backup: bak})
-	s.deliverReplaced() // what the editor recorded about the file that was there says nothing about this one (notes.go)
 	if err := reloadAfterCommit(s); err != nil {
 		// The file on disk is the restored backup but the working copy is stale: refuse further edits so the
 		// stale copy can never be saved over the restore.

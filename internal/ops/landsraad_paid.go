@@ -29,11 +29,11 @@ import (
 //	key           term + house + faction + character; the value is the highest contribution whose ground the editor paid there (a tier's threshold). A lookup takes the highest
 //	              under any faction: the ground was paid to the character, whatever faction it was in
 //	written       through the repo's durable replace (temp file, flush, rename, folder flush), by the sink of the save's notes, after the file of the game was written and never before
-//	read          a file that is missing, not readable, not this format or of another save is read as "nothing paid": the guards of #776 (the character's own events, the ground
+//	read          a file that is missing, not this format or of another save is read as "nothing paid": the guards of #776 (the character's own events, the ground
 //	              under another faction) still apply, and a raise then pays as it did before this file existed. A read never repairs, moves or deletes it. An entry that is not
 //	              plausible (no term, no house, a ground that is not a number or beyond any tier) is left out
 //	a removal     lowers the contribution and nothing here: the record is what was paid, not what stands
-//	a restore     a backup put back by the editor empties the record (the save hands the sink a note that its file was replaced)
+//	a restore     is not signalled: a backup put back (by the editor or by hand) is told apart from the file it replaced only by the cap below, which cuts the record to the rows the restored file shows and keeps it where they stand (an undo of a restore must keep it)
 //	trusted only  as far as the save shows it (see standingTier): the record is capped at the highest reward tier of the house whose item has a reward row of this character written in
 //	              this term. A save put back by other means (a backup copied by hand, a game rollback, another character in the same file) then has no row for what the record says, and
 //	              the ground above the cap is paid as if the record were not there. When a raise pays under a record that was capped, its note REPLACES what was recorded for the house
@@ -50,10 +50,11 @@ const (
 	paidMaxHouseLen = 80
 )
 
-// paidReadTries and paidReadPause are how long Record tries a file that cannot be read (another program holds it for a moment) before it gives up. A test sets the pause to 0.
+// paidReadTries and paidReadPause are how long a read tries a file that cannot be read (another program holds it for a moment) before it gives up: two tries and one pause of 50 ms, because
+// the save's lock is held while it waits. A test sets the pause to 0.
 var (
-	paidReadTries = 4
-	paidReadPause = 75 * time.Millisecond
+	paidReadTries = 2
+	paidReadPause = 50 * time.Millisecond
 )
 
 // paidOpen opens the file and paidReads counts the reads; a test replaces the first to make a read fail and looks at the second. Production code never changes them.
@@ -135,23 +136,48 @@ func (l *PaidLedger) read() ([]paidNote, error) {
 	return out, nil
 }
 
-// snapshot is what the file records now, read once: a request takes it once and asks it for every house. A ledger that is nil, has no path, or whose file cannot be used gives nothing.
-func (l *PaidLedger) snapshot() []paidNote {
+// readRetry reads the file, trying again once when it could not be read this time. A file that does not exist, or is not a whole file of this format for this save, reads as nothing
+// recorded (nil, nil); any other failure is returned as an error, so nothing is built on, or from, a record that was not seen.
+func (l *PaidLedger) readRetry() ([]paidNote, error) {
+	var es []paidNote
+	var err error
+	for try := 0; try < paidReadTries; try++ {
+		if try > 0 {
+			time.Sleep(paidReadPause)
+		}
+		es, err = l.read()
+		if err == nil {
+			return es, nil
+		}
+		if errors.Is(err, os.ErrNotExist) || errors.Is(err, errPaidFile) {
+			return nil, nil
+		}
+	}
+	return nil, err
+}
+
+// errPaidUnreadable is what a raise is refused with when the record could not be read: paying on, as if nothing had been paid, could pay the same ground twice.
+var errPaidUnreadable = errors.New("the editor's own record of the Landsraad ground it paid could not be read, so nothing was changed")
+
+// snapshot is what the file records now, read once: a request takes it once and asks it for every house. A ledger that is nil or has no path gives nothing, and so does a file that is
+// missing or not usable. A file that could not be read (another program holds it) is an error after a short retry: the caller refuses the raise and says why.
+func (l *PaidLedger) snapshot() ([]paidNote, error) {
 	if l == nil || l.path == "" {
-		return nil
+		return nil, nil
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	es, err := l.read()
+	es, err := l.readRetry()
 	if err != nil {
-		return nil
+		return nil, errPaidUnreadable
 	}
-	return es
+	return es, nil
 }
 
 // recorded is the highest ground recorded for the character on the house in the term, under any faction, or 0. It reads the file; the editor's own code asks a snapshot.
 func (l *PaidLedger) recorded(player, term int64, house string) float64 {
-	return highestPaid(l.snapshot(), player, term, house)
+	es, _ := l.snapshot()
+	return highestPaid(es, player, term, house)
 }
 
 func highestPaid(es []paidNote, player, term int64, house string) float64 {
@@ -209,30 +235,28 @@ func pendingPaid(raw []json.RawMessage) []paidNote {
 	return out
 }
 
-// Record is the sink of the save's notes: it merges the paid-ground notes of the edits that were just written into the file, in order, and empties it when the save says its file was
-// replaced wholesale. Only the entries of the term the notes belong to are kept. Notes of other kinds are not its concern. A file that is missing, or not this format or this save's,
-// is started anew; a file that could not be read (another program holds it) is tried again a few times and then left as it is with an error, which the save keeps the notes for: a
-// record is never rebuilt from an unreadable file, or the other houses' ground would be lost. A file that cannot be written is an error too.
+// Record is the sink of the save's notes: it merges the paid-ground notes of the edits that were just written into the file, in order. Only the entries of the term the notes belong
+// to are kept. Notes of other kinds are not its concern. A note that comes again (it may have been recorded before: Note.Again) merges only: what it asks to replace is not replaced, or
+// a later, higher state would be lowered by the first part of the batch. A file that is missing, or not this format or this save's, is started anew; a file that could not be read
+// (another program holds it) is tried again once and then left as it is with an error, which the save keeps the notes for: a record is never rebuilt from an unreadable file, or the
+// other houses' ground would be lost. A file that cannot be written is an error too.
 func (l *PaidLedger) Record(notes []save.Note) error {
 	if l == nil || l.path == "" {
 		return nil
 	}
-	type item struct {
-		clear bool
-		note  paidNote
-	}
-	var seq []item
+	var seq []paidNote
 	cur := int64(0)
 	for _, n := range notes {
-		switch n.Kind {
-		case save.NoteSaveReplaced:
-			seq = append(seq, item{clear: true})
-		case paidNoteKind:
-			var p paidNote
-			if err := json.Unmarshal(n.Data, &p); err == nil && p.valid() {
-				seq = append(seq, item{note: p})
-				cur = max(cur, p.Term)
+		if n.Kind != paidNoteKind {
+			continue
+		}
+		var p paidNote
+		if err := json.Unmarshal(n.Data, &p); err == nil && p.valid() {
+			if n.Again {
+				p.Replace = false
 			}
+			seq = append(seq, p)
+			cur = max(cur, p.Term)
 		}
 	}
 	if len(seq) == 0 {
@@ -240,53 +264,22 @@ func (l *PaidLedger) Record(notes []save.Note) error {
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	var old []paidNote
-	var err error
-	for try := 0; try < paidReadTries; try++ {
-		if try > 0 {
-			time.Sleep(paidReadPause * time.Duration(try))
-		}
-		old, err = l.read()
-		if err == nil || errors.Is(err, os.ErrNotExist) || errors.Is(err, errPaidFile) {
-			break
-		}
-	}
-	missing := errors.Is(err, os.ErrNotExist)
-	switch {
-	case err == nil:
-	case missing, errors.Is(err, errPaidFile):
-		old = nil
-	default:
+	old, err := l.readRetry()
+	if err != nil {
 		return fmt.Errorf("the record of the Landsraad ground paid could not be read: %w", err)
 	}
 	// the entries of any other term than the one these notes belong to are of a save that is not this one
 	entries := old[:0:0]
 	for _, e := range old {
-		if cur == 0 || e.Term == cur {
+		if e.Term == cur {
 			entries = append(entries, e)
 		}
 	}
-	changed := len(entries) != len(old)
-	for _, it := range seq {
-		if it.clear {
-			changed = changed || len(entries) > 0
-			entries = nil
-			continue
-		}
-		entries = mergePaid(entries, []paidNote{it.note})
-		changed = true
-	}
-	if !changed || (missing && len(entries) == 0) { // nothing to write: nothing recorded and no file to empty
-		return nil
-	}
+	entries = mergePaid(entries, seq)
 	if len(entries) > paidMaxEntries {
 		entries = entries[len(entries)-paidMaxEntries:]
 	}
-	out := paidFile{Version: paidFileVersion, Save: l.save, Entries: entries}
-	if out.Entries == nil {
-		out.Entries = []paidNote{}
-	}
-	b, err := json.Marshal(out)
+	b, err := json.Marshal(paidFile{Version: paidFileVersion, Save: l.save, Entries: entries})
 	if err != nil {
 		return err
 	}
