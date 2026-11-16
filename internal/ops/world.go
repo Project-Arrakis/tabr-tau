@@ -75,7 +75,7 @@ func (o *Ops) RepairBuildings() (any, error) {
 		res, err := m.Exec(`update building_instances set health=best.top
 			from ` + bestHealthOf("building_instances") + ` best
 			where building_instances.building_type=best.bt and building_instances.health < best.top
-				and `+notInBackup("building_instances", "building_id"))
+				and ` + notInBackup("building_instances", "building_id"))
 		if err != nil {
 			return err
 		}
@@ -83,7 +83,7 @@ func (o *Ops) RepairBuildings() (any, error) {
 		res2, err := m.Exec(`update placeables set health=best.top
 			from ` + bestHealthOf("placeables") + ` best
 			where placeables.building_type=best.bt and placeables.health < best.top and placeables.is_hologram=0
-				and `+notInBackup("placeables", "id"))
+				and ` + notInBackup("placeables", "id"))
 		if err != nil {
 			return err
 		}
