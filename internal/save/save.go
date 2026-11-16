@@ -58,7 +58,7 @@ type Save struct {
 	sink func([]Note) error
 	// undelivered are the notes of written edits that the sink could not take; they go with the next delivery
 	undelivered  []Note
-	notesDropped bool // a failing sink pushed notes over maxUndelivered and the oldest were dropped: what they recorded is unknown for the rest of the session (NotesDropped)
+	notesDropped bool   // a failing sink pushed notes over maxUndelivered and the oldest were dropped: what they recorded is unknown for the rest of the session (NotesDropped)
 	notesProblem string // why the last delivery failed, "" when it did not (NotesProblem)
 
 	// the journal of pending edits (journal.go): where it is kept, what has been kept, and what became of the edits found in it at start
