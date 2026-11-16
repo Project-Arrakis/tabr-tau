@@ -204,7 +204,7 @@ func TestPaidANoteThatReplacesDropsTheOtherFactionsEntryToo(t *testing.T) {
 
 // Record keeps the entries of the term its notes belong to: a term that went backwards (a backup of an earlier term was put back) still records, and an absurd term in the file does
 // not stop it.
-func TestPaidATermThatGoesBackwardsOrIsAbsurdDoesNotStopRecording(t *testing.T) {
+func TestPaidATermThatGoesBackwardsOrIsAbsurdDoesNotStopRecordingOrTakeOtherTermsAway(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "p.json")
 	l := NewPaidLedger(path, `C:\X\game.db`)
 	note := func(term int64, house string, paid float64) save.Note {
@@ -217,8 +217,8 @@ func TestPaidATermThatGoesBackwardsOrIsAbsurdDoesNotStopRecording(t *testing.T) 
 	if err := l.Record([]save.Note{note(7, "A", 1200)}); err != nil {
 		t.Fatal(err)
 	}
-	if l.recorded(1, 7, "A") != 1200 || l.recorded(1, 9, "A") != 0 {
-		t.Fatalf("a note of an earlier term is lost, or the entry of the later one stays: %v %v", l.recorded(1, 7, "A"), l.recorded(1, 9, "A"))
+	if l.recorded(1, 7, "A") != 1200 || l.recorded(1, 9, "A") != 3000 || l.recorded(1, 9, "B") != 2000 {
+		t.Fatalf("a note of an earlier term is lost, or the later term's record went with it: %v %v %v", l.recorded(1, 7, "A"), l.recorded(1, 9, "A"), l.recorded(1, 9, "B"))
 	}
 	huge := `{"version":1,"save":"c:\\x\\game.db","entries":[{"player":1,"term":9000000000000000000,"house":"Z","faction":2,"paid":1200},{"player":1,"term":7,"house":"A","faction":2,"paid":1200}]}`
 	if err := os.WriteFile(path, []byte(huge), 0o600); err != nil {
@@ -227,7 +227,7 @@ func TestPaidATermThatGoesBackwardsOrIsAbsurdDoesNotStopRecording(t *testing.T) 
 	if err := l.Record([]save.Note{note(8, "C", 600)}); err != nil {
 		t.Fatal(err)
 	}
-	if l.recorded(1, 8, "C") != 600 || l.recorded(1, 9000000000000000000, "Z") != 0 {
+	if l.recorded(1, 8, "C") != 600 || l.recorded(1, 7, "A") != 1200 {
 		t.Fatalf("an absurd term in the file stopped the recording: %+v", readPaid(t, path))
 	}
 }

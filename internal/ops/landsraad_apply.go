@@ -149,12 +149,19 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 	var rw rewardResult
 	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
 		houses, changed, raised, lowered, completed, reopened, repaired = 0, 0, 0, 0, 0, 0, 0
+		// the editor's record of the ground it paid (landsraad_paid.go), read at most once for the request, under the lock the sink writes it under, and only when a house is raised: a
+		// removal pays nothing and needs no record, so a record that cannot be read does not stop it. A raise that cannot read it is refused with nothing written.
 		var recorded []paidNote
-		if needMe { // the editor's record of the ground it paid, read once for the request, under the lock the sink writes it under (landsraad_paid.go); a record that could not be read refuses the raise
-			var err error
-			if recorded, err = o.Paid.snapshot(); err != nil {
-				return apierr.New(apierr.ErrWriteFailed, err.Error()+"; try again in a moment")
+		recordedRead := false
+		paidNow := func() ([]paidNote, error) {
+			if !recordedRead {
+				es, err := o.Paid.snapshot()
+				if err != nil {
+					return nil, err
+				}
+				recorded, recordedRead = es, true
 			}
+			return recorded, nil
 		}
 		replaced, names, done = nil, nil, nil
 		rw = rewardResult{}
@@ -256,6 +263,10 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 				to := *it.mineTo
 				switch {
 				case to > s.cur:
+						recordedNow, err := paidNow()
+						if err != nil {
+							return apierr.New(apierr.ErrWriteFailed, err.Error())
+						}
 					// the character's own row is raised to the tier; the missions it stands for are then granted (landsraad_grant.go): the faction's share and the completion it
 					// brings, the reward rows, the two wallets and the specialization track
 					if _, err := m.Exec(`insert into landsraad_task_player_contributions(player_id, faction_id, task_id, amount) values(?,?,?,?)
@@ -269,7 +280,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 					if !clock.ok {
 						return apierr.New(apierr.ErrBadArgument, "the save has no record of this term, so the rewards cannot be timed: nothing was changed")
 					}
-					rr, done, err := grantRaise(m, me, s.t, s.cur, to, it.completeFor != nil && *it.completeFor == me.faction, clock, g, recorded)
+					rr, done, err := grantRaise(m, me, s.t, s.cur, to, it.completeFor != nil && *it.completeFor == me.faction, clock, g, recordedNow)
 					if err != nil {
 						return err
 					}

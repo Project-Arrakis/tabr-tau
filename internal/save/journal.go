@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -390,13 +391,20 @@ func (s *Save) readMark() (incompleteMark, bool) {
 // journalWriteTries is how many times a journal write is attempted before the journal is given up for the session.
 const journalWriteTries = 4
 
-// shortErr is an error's message without the folder names of a path error, which the page would show.
+// The folders of an absolute path in a text: a drive path (also \\?\ and \\.\), a network path, or a path from the root of a Unix file system. What is left is the file's name.
+var (
+	driveDirs = regexp.MustCompile(`(?:\\\\[?.]\\)?[A-Za-z]:[\\/](?:[^\\/:*?"<>|\r\n]+[\\/])*`)
+	uncDirs   = regexp.MustCompile(`\\\\[^\\/:*?"<>|\r\n]+\\(?:[^\\/:*?"<>|\r\n]+[\\/])+`)
+	unixDirs  = regexp.MustCompile(`(^|[\s"'(])/(?:[^/\r\n:"']+/)+`)
+)
+
+// shortErr is an error's message without the folders of any path in it (of a path error, a link error such as a failed rename that names two paths, or any error that wraps or quotes
+// one), which the page, the warning of a write and the log would show with the name of the person's account. The file names stay.
 func shortErr(err error) string {
-	var pe *os.PathError
-	if errors.As(err, &pe) {
-		return pe.Op + " " + filepath.Base(pe.Path) + ": " + pe.Err.Error()
-	}
-	return err.Error()
+	s := err.Error()
+	s = driveDirs.ReplaceAllString(s, "")
+	s = uncDirs.ReplaceAllString(s, "")
+	return unixDirs.ReplaceAllString(s, "$1")
 }
 
 // oneStatement says whether q is a single SQL statement: a ';' ends a statement only outside a quoted text or name ('...', "...", `...`, [...]) and outside a comment

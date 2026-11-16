@@ -580,13 +580,13 @@ test('ground the editor paid before is not counted in what a click grants, and t
   const ui = await open(b, {});
   assert.equal(text(by(ui, 'Thorvald').querySelector('.qg')), 'no missions');
   const cap = text(by(ui, 'Thorvald').querySelector('#lsg-901'));
-  assert.ok(cap.includes('Writes no missions') && cap.includes('1 mission not paid: the editor already paid that ground in an earlier raise, and removing a tier does not take it back.'), cap);
+  assert.ok(cap.includes('Writes no missions') && cap.includes('1 mission not paid: the save shows that ground as already paid (the editor recorded it in an earlier raise), and removing a tier does not take it back.'), cap);
   // paid ground below the target: only the part above it is written, and the part below is named
   const b2 = withGrant();
   b2.tasks.forEach((t) => { if (t.id === 900) t.my_paid = 2400; });
   const ui2 = await open(b2, {});
   const al = text(by(ui2, 'Alexin').querySelector('#lsg-900'));
-  assert.ok(al.includes('Fill and Fill faction goal: Writes 3 missions: +18,000 Solari') && al.includes('3 missions not paid: the editor already paid that ground'), al);
+  assert.ok(al.includes('Fill and Fill faction goal: Writes 3 missions: +18,000 Solari') && al.includes('3 missions not paid: the save shows that ground as already paid'), al);
   assert.equal(text(by(ui2, 'Alexin').querySelector('.qg')), '3 missions: +18,000 Solari');
 });
 
@@ -594,10 +594,10 @@ test('the result of a write says how many missions were not paid because that gr
   const ui = await open(withGrant(), { '/api/landsraad/apply': { ...OK, reward_rows: 0, missions: 0, solari: 0, house_scrip: 0, specialization_xp: {}, rewards_already_given: 2, missions_paid_before: 3, ground_paid_before: 3000 } });
   click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
   const r = result(ui);
-  assert.ok(r.includes('No missions written') && r.includes('3 missions not paid: the editor already paid that ground in an earlier raise, and removing a tier does not take it back.'), r);
+  assert.ok(r.includes('No missions written') && r.includes('3 missions not paid: the save shows that ground as already paid (the editor recorded it in an earlier raise), and removing a tier does not take it back.'), r);
   const part = await open(withGrant(), { '/api/landsraad/apply': { ...GRANTED, missions: 1, solari: 6000, house_scrip: 1000, missions_paid_before: 2, ground_paid_before: 2000 } });
   click(part, quick(part, 'Alexin', 'qa-fill')); await part.settle();
-  assert.ok(result(part).includes('1 mission written: +6,000 Solari, +1,000 House Scrip') && result(part).includes('2 missions not paid: the editor already paid that ground'), result(part));
+  assert.ok(result(part).includes('1 mission written: +6,000 Solari, +1,000 House Scrip') && result(part).includes('2 missions not paid: the save shows that ground as already paid'), result(part));
   // an answer that paid everything has no such sentence
   const full = await open(withGrant(), { '/api/landsraad/apply': GRANTED });
   click(full, quick(full, 'Alexin', 'qa-fill')); await full.settle();

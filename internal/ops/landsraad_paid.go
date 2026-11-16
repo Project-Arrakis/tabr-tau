@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -38,7 +39,8 @@ import (
 //	              this term. A save put back by other means (a backup copied by hand, a game rollback, another character in the same file) then has no row for what the record says, and
 //	              the ground above the cap is paid as if the record were not there. When a raise pays under a record that was capped, its note REPLACES what was recorded for the house
 //	              (the old high-water mark is of a save that is gone) instead of being merged into it.
-//	terms         only the entries of the term the notes of a write belong to are kept: a record of any other term, earlier or later, is of a save that is not this one
+//	terms         the term is part of the key, so a write in another term (a backup of an earlier term put back and raised once) leaves this term's entries alone; only the bound of
+//	              4,096 entries evicts, the oldest terms first and never the term being written
 //
 // The cap is an upper bound and not a proof: the same item at two tiers, or a row the game wrote for the same item, can stand for a tier it did not pay.
 
@@ -157,7 +159,7 @@ func (l *PaidLedger) readRetry() ([]paidNote, error) {
 }
 
 // errPaidUnreadable is what a raise is refused with when the record could not be read: paying on, as if nothing had been paid, could pay the same ground twice.
-var errPaidUnreadable = errors.New("the editor's own record of the Landsraad ground it paid could not be read, so nothing was changed")
+var errPaidUnreadable = errors.New("the editor's own record of the Landsraad ground it paid could not be read (another program may be holding the file), so this raise was refused and nothing was written; try again in a moment")
 
 // snapshot is what the file records now, read once: a request takes it once and asks it for every house. A ledger that is nil or has no path gives nothing, and so does a file that is
 // missing or not usable. A file that could not be read (another program holds it) is an error after a short retry: the caller refuses the raise and says why.
@@ -223,6 +225,42 @@ func mergePaid(entries, notes []paidNote) []paidNote {
 	return out
 }
 
+// evictPaid keeps entries within max: the entries of the oldest terms go first, whole terms at a time as far as that is needed, and the entries of keepTerm (the term being written) never
+// go while any other remains. Only when keepTerm alone is above the bound are its oldest entries dropped.
+func evictPaid(entries []paidNote, keepTerm int64, max int) []paidNote {
+	if len(entries) <= max {
+		return entries
+	}
+	seen := map[int64]bool{}
+	var terms []int64
+	for _, e := range entries {
+		if e.Term != keepTerm && !seen[e.Term] {
+			seen[e.Term] = true
+			terms = append(terms, e.Term)
+		}
+	}
+	sort.Slice(terms, func(i, j int) bool { return terms[i] < terms[j] })
+	for _, term := range terms {
+		if len(entries) <= max {
+			break
+		}
+		kept := entries[:0:0]
+		drop := len(entries) - max
+		for _, e := range entries {
+			if e.Term == term && drop > 0 {
+				drop--
+				continue
+			}
+			kept = append(kept, e)
+		}
+		entries = kept
+	}
+	if len(entries) > max {
+		entries = entries[len(entries)-max:]
+	}
+	return entries
+}
+
 // pendingPaid decodes the notes of queued edits that are not written yet.
 func pendingPaid(raw []json.RawMessage) []paidNote {
 	var out []paidNote
@@ -235,8 +273,8 @@ func pendingPaid(raw []json.RawMessage) []paidNote {
 	return out
 }
 
-// Record is the sink of the save's notes: it merges the paid-ground notes of the edits that were just written into the file, in order. Only the entries of the term the notes belong
-// to are kept. Notes of other kinds are not its concern. A note that comes again (it may have been recorded before: Note.Again) merges only: what it asks to replace is not replaced, or
+// Record is the sink of the save's notes: it merges the paid-ground notes of the edits that were just written into the file, in order. The entries of other
+// terms are left as they are (the term is part of the key); only the bound of 4,096 entries evicts, oldest terms first. Notes of other kinds are not its concern. A note that comes again (it may have been recorded before: Note.Again) merges only: what it asks to replace is not replaced, or
 // a later, higher state would be lowered by the first part of the batch. A file that is missing, or not this format or this save's, is started anew; a file that could not be read
 // (another program holds it) is tried again once and then left as it is with an error, which the save keeps the notes for: a record is never rebuilt from an unreadable file, or the
 // other houses' ground would be lost. A file that cannot be written is an error too.
@@ -268,17 +306,9 @@ func (l *PaidLedger) Record(notes []save.Note) error {
 	if err != nil {
 		return fmt.Errorf("the record of the Landsraad ground paid could not be read: %w", err)
 	}
-	// the entries of any other term than the one these notes belong to are of a save that is not this one
-	entries := old[:0:0]
-	for _, e := range old {
-		if e.Term == cur {
-			entries = append(entries, e)
-		}
-	}
-	entries = mergePaid(entries, seq)
-	if len(entries) > paidMaxEntries {
-		entries = entries[len(entries)-paidMaxEntries:]
-	}
+	// the term is part of the key, so the entries of other terms are left as they are: a write in another term (a backup of last week put back, one raise there, and the file put back
+	// again) must not take this term's record with it. Only the bound makes room, oldest terms first and never the term of these notes.
+	entries := evictPaid(mergePaid(old, seq), cur, paidMaxEntries)
 	b, err := json.Marshal(paidFile{Version: paidFileVersion, Save: l.save, Entries: entries})
 	if err != nil {
 		return err

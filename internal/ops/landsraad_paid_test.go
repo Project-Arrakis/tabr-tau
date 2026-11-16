@@ -244,7 +244,7 @@ func TestPaidTheBoardShowsTheGroundPaidForThePageToCount(t *testing.T) {
 	}
 }
 
-func TestPaidTheRecordKeepsTheHighestAndDropsEarlierTerms(t *testing.T) {
+func TestPaidTheRecordKeepsTheHighestAndLeavesOtherTermsAlone(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "p.json")
 	l := NewPaidLedger(path, `C:\X\game.db`)
 	note := func(term, faction int64, house string, paid float64) save.Note {
@@ -260,8 +260,15 @@ func TestPaidTheRecordKeepsTheHighestAndDropsEarlierTerms(t *testing.T) {
 	if err := l.Record([]save.Note{note(7, 2, "B", 1200)}); err != nil {
 		t.Fatal(err)
 	}
-	if l.recorded(1, 6, "A") != 0 || l.recorded(1, 7, "B") != 1200 {
-		t.Fatalf("an earlier term's record is dropped: %v %v", l.recorded(1, 6, "A"), l.recorded(1, 7, "B"))
+	if l.recorded(1, 6, "A") != 3000 || l.recorded(1, 7, "B") != 1200 {
+		t.Fatalf("a write in another term leaves the first term's record alone: %v %v", l.recorded(1, 6, "A"), l.recorded(1, 7, "B"))
+	}
+	// and back in the first term, the second's record is still there
+	if err := l.Record([]save.Note{note(6, 2, "C", 600)}); err != nil {
+		t.Fatal(err)
+	}
+	if l.recorded(1, 7, "B") != 1200 || l.recorded(1, 6, "C") != 600 {
+		t.Fatalf("a write back in the first term took the second term's record with it: %v %v", l.recorded(1, 7, "B"), l.recorded(1, 6, "C"))
 	}
 	if l.recorded(2, 7, "B") != 0 {
 		t.Fatal("another character's record counted")

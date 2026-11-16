@@ -352,7 +352,7 @@ func collectPaths(err error, out *[]string) {
 //	game_running      409  the game-running check refused the write, or could not be made
 //	read_only         409  this save was opened for reading only
 //	integrity_failed  500  the edited save failed its own checks (integrity check, round trip); nothing was written
-//	write_failed      500  the file could not be written or replaced (a disk fault, or another program holding the file); the edits stay queued
+//	write_failed      500  the file could not be written or replaced (a disk fault, or another program holding the file); the edits stay queued, except where nothing was queued: a Landsraad raise refused because the editor's own record of the ground it paid could not be read writes and queues nothing
 //	bad_argument      422  a value of the request is missing, of the wrong type, out of range or not allowed
 //	not_found         404  the thing the request names is not in the save
 //	bad_request       400  the request body is not JSON
