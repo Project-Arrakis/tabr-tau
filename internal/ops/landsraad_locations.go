@@ -71,13 +71,22 @@ func (o *Ops) houseLocations() (map[string]houseLocation, error) {
 		l := placeAt(mapName, x, y, area, "")
 		byName[name] = l
 	}
-	// a house the save has no marker for gets its fixed place; a marker, even one on another map than the fixed place, is never replaced
+	return houseTable(byName), nil
+}
+
+// fixedHouseLocations is the table of places when the markers cannot be read (a save without a usable markers table, or without a column the query names): only the fixed place of each house (#820).
+func fixedHouseLocations() map[string]houseLocation {
+	return houseTable(map[string]houseLocation{})
+}
+
+// houseTable gives a house the save has no marker for its fixed place (a marker, even one on another map than the fixed place, is never replaced) and keys the result by the save's
+// spelling of the house and by the marker's own (a save may use either).
+func houseTable(byName map[string]houseLocation) map[string]houseLocation {
 	for name, f := range fixedHousePlaces {
 		if _, has := byName[name]; !has {
 			byName[name] = placeAt(f.Map, f.X, f.Y, f.Area, f.Place)
 		}
 	}
-	// by the save's spelling of the house, and by the marker's own (a save may use either)
 	out := make(map[string]houseLocation, len(byName))
 	for name, l := range byName {
 		out["DA_House"+name] = l
@@ -87,7 +96,7 @@ func (o *Ops) houseLocations() (map[string]houseLocation, error) {
 			}
 		}
 	}
-	return out, nil
+	return out
 }
 
 // canonicalHouse is the marker's spelling of a house name: a save may write the marker with the save's own spelling ("Mikkarol") or the game's ("Mikarrol").
