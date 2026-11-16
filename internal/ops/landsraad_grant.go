@@ -225,8 +225,7 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 	case completeMine && open:
 		// the same as a plain Fill (the faction gains what the character gained, as the game adds a whole event), and never less than the goal (#751)
 		facNew = max(facBefore+gained, goal)
-	case completeMine:
-		facNew = max(facBefore, goal)
+	// a house that is not open gains nothing from the raise; completeHouse below takes the faction to the goal at least and never lowers it, so it needs no case here
 	case open:
 		facNew = facBefore + gained
 	}
