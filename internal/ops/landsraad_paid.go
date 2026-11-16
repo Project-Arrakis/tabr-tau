@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -33,7 +34,10 @@ import (
 //	written       through the repo's durable replace (temp file, flush, rename, folder flush), by the sink of the save's notes, after the file of the game was written and never before
 //	read          a file that is missing, not this format or of another save is read as "nothing paid": the guards of #776 (the character's own events, the ground
 //	              under another faction) still apply, and a raise then pays as it did before this file existed. A read never repairs, moves or deletes it. An entry that is not
-//	              plausible (no term, no house, a ground that is not a number or beyond any tier) is left out
+//	              plausible (no term, no house, a ground that is not a number or beyond any tier) is left out. A file of a NEWER version (a later build wrote it) is not read as
+//	              nothing: a raise is refused and nothing is written or replaced, so the newer record survives until a build that reads it, or the person, deals with it
+//	a file kept   a file that is damaged, too large, of an older version or of another save is not destroyed by the next write: it is moved aside (its name + ".damaged-" + the time, in
+//	              the same folder) before the new file is written, and the write is an error if it cannot be moved (#811)
 //	a removal     lowers the contribution and nothing here: the record is what was paid, not what stands
 //	a restore     is not signalled: a backup put back (by the editor or by hand) is told apart from the file it replaced only by the cap below, which cuts the record to the rows the restored file shows and keeps it where they stand (an undo of a restore must keep it)
 //	trusted only  as far as the save shows it (see standingTier): the record is capped at the highest reward tier of the house whose item has a reward row of this character written in
@@ -106,6 +110,17 @@ func PaidLedgerName(hash string) string { return "landsraad-paid-" + hash + ".js
 
 var errPaidFile = errors.New("the Landsraad paid-ground file is not usable")
 
+// errPaidNewer is a file whose version is above paidFileVersion: a later build of the editor wrote it, and this build cannot tell what it holds. It is not read as "nothing paid" and is
+// never replaced (#811).
+var errPaidNewer = errors.New("the Landsraad paid-ground file was written by a newer version of the editor")
+
+// errPaidNewerRefused is what a raise is refused with when the record is of a newer version: paying on, as if nothing had been paid, could pay the same ground twice, and the next write
+// would replace the newer record.
+var errPaidNewerRefused = errors.New("the editor's own record of the Landsraad ground it paid was written by a newer version of the editor, so this raise was refused and nothing was written. Use the newer version, or move the file landsraad-paid-*.json in the editor's own folder aside (the raise then pays as if nothing had been recorded)")
+
+// paidClock is the time the name of a file that is moved aside carries; a test replaces it.
+var paidClock = time.Now
+
 // read returns the valid entries of the file. A file that does not exist, or is not a whole file of this format for this save, is an error of its own kind (errPaidFile or
 // os.ErrNotExist): the caller reads that as "nothing paid". Any other error is a file that could not be read this time.
 func (l *PaidLedger) read() ([]paidNote, error) {
@@ -121,6 +136,13 @@ func (l *PaidLedger) read() ([]paidNote, error) {
 	}
 	if len(b) > paidMaxBytes {
 		return nil, fmt.Errorf("%w: it is larger than %d bytes", errPaidFile, paidMaxBytes)
+	}
+	// the version first, from the one field: a later build may have changed the rest of the format, and such a file must not read as damaged
+	var head struct {
+		Version int `json:"version"`
+	}
+	if json.Unmarshal(b, &head) == nil && head.Version > paidFileVersion {
+		return nil, fmt.Errorf("%w (version %d)", errPaidNewer, head.Version)
 	}
 	var pf paidFile
 	if err := json.Unmarshal(b, &pf); err != nil {
@@ -139,8 +161,9 @@ func (l *PaidLedger) read() ([]paidNote, error) {
 	return out, nil
 }
 
-// readRetry reads the file, trying again once when it could not be read this time. A file that does not exist, or is not a whole file of this format for this save, reads as nothing
-// recorded (nil, nil); any other failure is returned as an error, so nothing is built on, or from, a record that was not seen.
+// readRetry reads the file, trying again once when it could not be read this time. A file that does not exist reads as nothing recorded (nil, nil). A file that is not a whole file of
+// this format for this save (errPaidFile) or is of a newer version (errPaidNewer) is returned as that error, for the caller to decide: a read takes the first as nothing paid, a write
+// moves it aside, and the newer one is never replaced. Any other failure is an error too, so nothing is built on, or from, a record that was not seen.
 func (l *PaidLedger) readRetry() ([]paidNote, error) {
 	var es []paidNote
 	var err error
@@ -152,11 +175,30 @@ func (l *PaidLedger) readRetry() ([]paidNote, error) {
 		if err == nil {
 			return es, nil
 		}
-		if errors.Is(err, os.ErrNotExist) || errors.Is(err, errPaidFile) {
+		if errors.Is(err, os.ErrNotExist) {
 			return nil, nil
+		}
+		if errors.Is(err, errPaidFile) || errors.Is(err, errPaidNewer) {
+			return nil, err
 		}
 	}
 	return nil, err
+}
+
+// moveAside renames a file that is of no use to this build (damaged, of another save, of an older version) to a name next to it, so that the next write does not destroy it (#811).
+func (l *PaidLedger) moveAside() error {
+	stamp := paidClock().UTC().Format("20060102T150405.000000")
+	to := l.path + ".damaged-" + stamp
+	for i := 1; ; i++ {
+		if _, err := os.Lstat(to); errors.Is(err, os.ErrNotExist) {
+			break
+		}
+		if i > 99 {
+			return fmt.Errorf("no free name to keep the old file under (%s)", to)
+		}
+		to = fmt.Sprintf("%s.damaged-%s-%d", l.path, stamp, i)
+	}
+	return os.Rename(l.path, to)
 }
 
 // errPaidUnreadable is what a raise is refused with when the record could not be read: paying on, as if nothing had been paid, could pay the same ground twice.
@@ -174,10 +216,15 @@ func (l *PaidLedger) snapshot() ([]paidNote, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	es, err := l.readRetry()
-	if err != nil {
-		return nil, errPaidUnreadable
+	switch {
+	case err == nil:
+		return es, nil
+	case errors.Is(err, errPaidNewer):
+		return nil, errPaidNewerRefused
+	case errors.Is(err, errPaidFile):
+		return nil, nil // read as nothing paid; the next write moves the file aside
 	}
-	return es, nil
+	return nil, errPaidUnreadable
 }
 
 // recorded is the highest ground recorded for the character on the house in the term, under any faction, or 0. It reads the file; the editor's own code asks a snapshot.
@@ -290,7 +337,8 @@ func pendingPaid(notes []save.Note) []paidNote {
 
 // Record is the sink of the save's notes: it merges the paid-ground notes of the edits that were just written into the file, in order. The entries of other
 // terms are left as they are (the term is part of the key); only the bound of 4,096 entries evicts, oldest terms first. Notes of other kinds are not its concern. A note that comes again (it may have been recorded before: Note.Again) merges only: what it asks to replace is not replaced, or
-// a later, higher state would be lowered by the first part of the batch. A file that is missing, or not this format or this save's, is started anew; a file that could not be read
+// a later, higher state would be lowered by the first part of the batch. A file that is missing is started anew; one that is damaged, or not this format or this save's, is moved aside first (moveAside, #811), and one of a newer version is left as it is with an error;
+// a file that could not be read
 // (another program holds it) is tried again once and then left as it is with an error, which the save keeps the notes for: a record is never rebuilt from an unreadable file, or the
 // other houses' ground would be lost. A file that cannot be written is an error too.
 func (l *PaidLedger) Record(notes []save.Note) error {
@@ -311,7 +359,17 @@ func (l *PaidLedger) Record(notes []save.Note) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	old, err := l.readRetry()
-	if err != nil {
+	switch {
+	case err == nil:
+	case errors.Is(err, errPaidNewer):
+		return fmt.Errorf("the record of the Landsraad ground paid was left as it is: %w", err)
+	case errors.Is(err, errPaidFile):
+		if mv := l.moveAside(); mv != nil {
+			return fmt.Errorf("the record of the Landsraad ground paid is not usable (%v) and could not be kept aside: %w", err, mv)
+		}
+		log.Printf("the Landsraad paid-ground file was not usable (%v); it was moved aside and a new one is started", err)
+		old = nil
+	default:
 		return fmt.Errorf("the record of the Landsraad ground paid could not be read: %w", err)
 	}
 	// the term is part of the key, so the entries of other terms are left as they are: a write in another term (a backup of last week put back, one raise there, and the file put back
