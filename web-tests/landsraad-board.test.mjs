@@ -44,6 +44,8 @@ const rows = (ui) => [...ui.doc.querySelectorAll('#lsb-rows > li.hr')];
 const visible = (ui) => rows(ui).filter((r) => !r.hidden).map((r) => r.querySelector('.hn b').textContent);
 const text = (el) => el.textContent.replace(/\s+/g, ' ').trim();
 const click = (ui, sel) => { const el = ui.doc.querySelector(sel); assert.ok(el, 'no ' + sel); el.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
+// records what the board asks the Saved map to show (the board calls window.liveMapShow before it changes the tab)
+const spyMap = (ui) => { const calls = []; const real = ui.w.liveMapShow; ui.w.liveMapShow = (...a) => { calls.push(a); real(...a); }; return calls; };
 
 test('the board lists every house alphabetically with its state, tiers and next reward; it writes nothing', async () => {
   const ui = await open();
@@ -159,20 +161,21 @@ test('a tier says what it gives, by the game’s name, and where it stands: not 
   assert.ok(ui2.doc.querySelector('#lsrow-900 .swl').textContent.includes('Swatch held'));
 });
 
-test('the place: a house with no position says so and its map dialog explains; one with a position shows the area and the pin', async () => {
+test('the place: a house with no position says so and does not open anything; one with a position shows the area and the pin in its opened row', async () => {
   const known = { known: true, map: 'Hagga Basin', map_key: 'HaggaBasin', area: 'The O’dham', place: 'north rim', x: 0.25, y: 0.5 };
   const ui = await open(board({ tasks: [house(900, 'Alexin', 0), house(901, 'Thorvald', 100, { location: known })] }));
   assert.ok(text(ui.doc.querySelector('#lsrow-900 .c-loc')).includes('not mapped yet'));
   assert.ok(text(ui.doc.querySelector('#lsrow-901 .c-loc')).includes('The O’dham') && text(ui.doc.querySelector('#lsrow-901 .c-loc')).includes('Hagga Basin'));
+  const calls = spyMap(ui);
   click(ui, '#lsrow-900 [data-lb=map]');
-  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('This house is not mapped yet'));
-  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('no map marker'), 'it says why');
-  assert.equal(text(ui.doc.querySelector('#lsb-mapttl')), 'Location: House Alexin', 'no map is named when there is none');
-  assert.equal(ui.doc.querySelector('#lsb-mapbody .pin'), null, 'no position is drawn that is not known');
-  click(ui, '#lsrow-901 [data-lb=map]');
-  assert.equal(ui.doc.querySelector('#lsb-mapbody .pin').style.left, '25%');
-  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('north rim'));
+  assert.equal(ui.doc.querySelector('dialog'), null, 'no window is opened');
+  assert.ok(text(ui.doc.querySelector('#lsb-result')).includes('no map marker'), 'the status line says why');
+  assert.deepEqual(calls, [], 'nothing is opened on the Saved map');
+  assert.ok(ui.doc.querySelector('#lsrow-900 .more').textContent.includes('This house is not mapped yet'), 'the opened row explains it too');
+  assert.equal(ui.doc.querySelector('#lsrow-900 .more .pin'), null, 'no position is drawn that is not known');
   assert.equal(ui.doc.querySelector('#lsrow-901 .more .minimap .pin').style.top, '50%');
+  assert.equal(ui.doc.querySelector('#lsrow-901 .more .minimap .pin').style.left, '25%');
+  assert.ok(text(ui.doc.querySelector('#lsrow-901 .more')).includes('north rim'));
 });
 
 test('the house name card names the next reward, what waits, the faction race and the place, and opens on a click', async () => {
@@ -255,14 +258,14 @@ test('the longer explanations sit in closed About disclosures', async () => {
   assert.ok(abouts.every((d) => !d.open && /^About /.test(text(d.querySelector('summary')))));
 });
 
-test('the place has a quick peek for a mouse (the lines of the dialog) only where the position is known', async () => {
+test('the place has a quick peek for a mouse (the same lines as the opened row) only where the position is known', async () => {
   const known = { known: true, map: 'Hagga Basin', map_key: 'HaggaBasin', area: 'The O’dham', place: 'north rim', x: 0.25, y: 0.5 };
   const ui = await open(board({ tasks: [house(900, 'Alexin', 0), house(901, 'Thorvald', 100, { location: known })] }));
   assert.equal(ui.doc.querySelector('#lsrow-900 .loc .pop'), null, 'no peek for a house with no position');
   const pop = ui.doc.querySelector('#lsrow-901 .loc > .pop');
   assert.ok(pop, 'the peek is in the place');
-  assert.equal(pop.getAttribute('aria-hidden'), 'true', 'the peek is mouse only; the dialog is the way in for the keyboard and touch');
-  assert.ok(text(pop).includes('The O’dham (Hagga Basin)') && text(pop).includes('north rim') && text(pop).includes('Click the place for the full map'), text(pop));
+  assert.equal(pop.getAttribute('aria-hidden'), 'true', 'the peek is mouse only; the opened row is the way in for the keyboard and touch');
+  assert.ok(text(pop).includes('The O’dham (Hagga Basin)') && text(pop).includes('north rim') && text(pop).includes('Click the place to open the Saved map'), text(pop));
   assert.equal(pop.querySelector('.pin').style.left, '25%');
   assert.ok(ui.doc.querySelector('#lsrow-901 [data-lb=map]').title.includes('Hover for a quick peek'));
 });
@@ -302,55 +305,115 @@ test('when no house has a place yet the board says so once: no place in every ro
   assert.ok(text(ui2.doc.querySelector('#lsrow-901 .c-loc')).includes('not mapped yet'), 'with some places known, a house without one still says so');
 });
 
-test('the map dialog and the peek give the distance from you, and the dialog opens the Saved map at the house', async () => {
+test('the peek and the opened row give the distance from you in plain words; a click on a place with a picture opens the Saved map there, with no window in between', async () => {
   const known = { known: true, map: 'Hagga Basin', map_key: 'HaggaBasin', area: 'The O’dham', place: 'north rim', x: 0.25, y: 0.5, from_you_cm: 281000 };
   const far = { known: true, map: 'Deep Desert', map_key: 'DeepDesert', area: 'The Sink', place: '', x: 0.5, y: 0.5 };
   const hub = { known: true, map: 'Arrakeen', map_key: '', area: 'Arrakeen', place: '', x: 0.5, y: 0.5 };
   const ui = await open(board({ tasks: [house(900, 'Alexin', 0, { location: known }), house(901, 'Thorvald', 100, { location: far }), house(902, 'Hurata', 0, { location: hub })] }));
   assert.ok(text(ui.doc.querySelector('#lsrow-900 .loc > .pop')).includes('From youabout 2.8 km'), text(ui.doc.querySelector('#lsrow-900 .loc > .pop')));
+  assert.ok(text(ui.doc.querySelector('#lsrow-900 .more')).includes('From youabout 2.8 km'));
+  const far1 = text(ui.doc.querySelector('#lsrow-901 .more'));
+  assert.ok(far1.includes('From younot known (your character is on another map, or has no saved position)'), 'another map: no invented distance, in plain words: ' + far1);
+  assert.ok(!/not worked out/.test(ui.doc.body.textContent), 'the old wording is gone');
+  assert.ok(!text(ui.doc.querySelector('#lsrow-902 .more')).includes('From you'), 'a hub has no From you line');
+  const calls = spyMap(ui);
   click(ui, '#lsrow-900 [data-lb=map]');
-  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('From youabout 2.8 km'));
-  assert.ok(ui.doc.querySelector('#lsb-mapbody [data-lb=mapopen]'), 'Open in Saved map');
-  click(ui, '#lsrow-901 [data-lb=map]');
-  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('From younot worked out'), 'another map: no invented distance');
-  click(ui, '#lsrow-902 [data-lb=map]');
-  assert.equal(ui.doc.querySelector('#lsb-mapbody [data-lb=mapopen]'), null, 'a hub has no Saved map picture');
-  assert.equal(ui.doc.querySelector('#lsb-mapbody .pin'), null, 'a hub has no picture, so no pin is drawn on a made-up one');
-  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('Arrakeen') && !text(ui.doc.querySelector('#lsb-mapbody')).includes('Place'), 'the name of the hub, and no empty Place line');
-  assert.ok(!text(ui.doc.querySelector('#lsb-mapbody')).includes('The pin marks'), 'a hub dialog does not point at a pin that is not there');
-  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('The Saved map has no picture of Arrakeen'), 'a hub dialog says why it has no pin or map link');
-  assert.equal(text(ui.doc.querySelector('#lsb-mapttl')), 'Place: Arrakeen', 'a hub has no map to name in its title');
-  click(ui, '#lsrow-900 [data-lb=map]');
-  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('The pin marks'), 'a house with a picture says what the pin is');
+  await ui.settle();
+  assert.deepEqual(calls, [['HaggaBasin', 0.25, 0.5, 'Alexin']], 'the Saved map is shown at the house, in one click');
+  assert.equal(ui.doc.querySelector('dialog'), null, 'no window');
+  assert.equal(ui.doc.querySelector('#lsb'), null, 'the Landsraad page is left');
+  assert.equal(ui.doc.querySelector('[data-tab=livemap]').getAttribute('aria-current'), 'page', 'the Saved map tab is the open one');
 });
 
-test('a hub row promises no map: its title, tooltip, peek, card and accessible name say details, and there is no From you line', async () => {
-  const hub = { known: true, map: 'Arrakeen', map_key: '', area: 'Arrakeen', place: '', cell: '', unconfirmed: false };
+test('a hub (a place the Saved map has no picture of) is muted, says why in its tooltip and name, and a click opens nothing', async () => {
+  const hub = { known: true, map: 'Harko Village', map_key: '', area: 'Harko Village', place: '', cell: '', unconfirmed: false };
   const ui = await open(board({ tasks: [house(900, 'Alexin', 0, { location: hub })] }));
   const btn = ui.doc.querySelector('#lsrow-900 .loc-t');
-  assert.ok(!/full map/.test(btn.title) && /details of Arrakeen/.test(btn.title), btn.title);
-  assert.ok(btn.getAttribute('aria-label').startsWith('House Alexin: Arrakeen'), btn.getAttribute('aria-label'));
-  assert.ok(text(ui.doc.querySelector('#lsrow-900 .pop')).includes('Click the place for details') && !/full map/.test(text(ui.doc.querySelector('#lsrow-900 .pop'))));
-  assert.ok(text(ui.doc.querySelector('#lsrow-900 .hcard')).includes('Click the place for details') && !/for the map/.test(text(ui.doc.querySelector('#lsrow-900 .hcard'))));
+  const why = 'The Saved map has no picture of Harko Village yet.';
+  assert.ok(btn.classList.contains('off'), 'muted, not link-styled');
+  assert.equal(btn.getAttribute('aria-disabled'), 'true');
+  assert.equal(btn.title, why);
+  assert.ok(btn.getAttribute('aria-label').startsWith('House Alexin: Harko Village') && btn.getAttribute('aria-label').includes(why), btn.getAttribute('aria-label'));
+  assert.ok(text(ui.doc.querySelector('#lsrow-900 .pop')).includes(why) && !/open the Saved map/.test(text(ui.doc.querySelector('#lsrow-900 .pop'))));
+  assert.ok(text(ui.doc.querySelector('#lsrow-900 .hcard')).includes(why) && !/open the Saved map/.test(text(ui.doc.querySelector('#lsrow-900 .hcard'))));
+  const calls = spyMap(ui);
   click(ui, '#lsrow-900 [data-lb=map]');
-  const body = text(ui.doc.querySelector('#lsb-mapbody'));
-  assert.ok(!body.includes('From you'), 'the From you line is not shown where there is no picture');
-  assert.ok(body.includes("House Alexin's representative is in Arrakeen"), body);
-  assert.ok(ui.doc.querySelector('#lsb-mapbody .pnote'), 'the note has the normal caption size class');
+  assert.deepEqual(calls, [], 'nothing is opened on the Saved map');
+  assert.equal(ui.doc.querySelector('dialog'), null, 'no window');
+  assert.ok(ui.doc.querySelector('#lsb'), 'the Landsraad page stays');
+  assert.equal(text(ui.doc.querySelector('#lsb-result')), why, 'the status line says it');
+  assert.ok(ui.doc.querySelector('#lsb-result').classList.contains('warn'), 'in the warning colour, not the green of a done write');
+  assert.equal(text(ui.doc.querySelector('#lsrow-900 .loc .lnote')), why, 'and the reason is shown next to the place, where the click was, not only at the top of the page');
+  assert.ok(ui.doc.querySelector('#lsrow-900 .loc .lnote').getAttribute('role') === 'status');
+  assert.ok(ui.doc.querySelector('#lsrow-900 .loc-t svg'), 'the pin icon stays on the dimmed place');
+  assert.ok(text(ui.doc.querySelector('#lsrow-900 .loc-t .cue')) === 'no map picture', 'a cue in words, not only a colour');
+  const more = text(ui.doc.querySelector('#lsrow-900 .more'));
+  assert.ok(more.includes(why) && more.includes('no pin or map link') && !more.includes('From you'), more);
+  assert.equal(ui.doc.querySelector('#lsrow-900 .more .pin'), null, 'no pin is drawn on a made-up picture');
 });
 
-test('a Deep Desert row names its grid cell; Tseida-like places say they are from public guides; the open link names the house', async () => {
+test('the click on a place that cannot be opened shows its reason next to it, in the warning colour; so does a Saved map that is not ready', async () => {
+  const known = { known: true, map: 'Hagga Basin', map_key: 'HaggaBasin', area: 'The O’dham', place: 'north rim', x: 0.25, y: 0.5 };
+  const none = { known: false };
+  const ui = await open(board({ tasks: [house(900, 'Alexin', 0, { location: none }), house(901, 'Thorvald', 100, { location: known })] }));
+  assert.equal(text(ui.doc.querySelector('#lsrow-900 .loc .lnote')), '', 'nothing is said before a click');
+  click(ui, '#lsrow-900 [data-lb=map]');
+  assert.ok(text(ui.doc.querySelector('#lsrow-900 .loc .lnote')).includes('no map marker'));
+  assert.ok(ui.doc.querySelector('#lsb-result').classList.contains('warn'));
+  assert.equal(ui.doc.querySelector('#lsrow-901 .loc .lnote'), null, 'a place that opens has no note');
+  ui.w.liveMapShow = undefined;
+  click(ui, '#lsrow-901 [data-lb=map]');
+  assert.equal(text(ui.doc.querySelector('#lsrow-901 .loc .lnote')), 'The Saved map is not ready yet.');
+  assert.equal(text(ui.doc.querySelector('#lsb-result')), 'The Saved map is not ready yet.');
+  assert.ok(ui.doc.querySelector('#lsb-result').classList.contains('warn'));
+  assert.ok(ui.doc.querySelector('#lsb'), 'the page stays');
+});
+
+test('the About text of the board says what a click on a place does', async () => {
+  const ui = await open();
+  assert.ok(text(ui.doc.querySelector('.lsb')).includes('A click on a place opens the Saved map at the house'));
+});
+
+test('a place with a picture reads as a link to the Saved map: not muted, and its name and tooltip say it opens the Saved map', async () => {
+  const known = { known: true, map: 'Hagga Basin', map_key: 'HaggaBasin', area: 'The O’dham', place: 'north rim', x: 0.25, y: 0.5 };
+  const ui = await open(board({ tasks: [house(900, 'Alexin', 0, { location: known })] }));
+  const btn = ui.doc.querySelector('#lsrow-900 .loc-t');
+  assert.ok(!btn.classList.contains('off') && !btn.hasAttribute('aria-disabled'));
+  assert.equal(btn.tagName, 'BUTTON', 'a real button: Enter and Space work, and it takes focus');
+  assert.ok(btn.getAttribute('aria-label').endsWith('Open in the Saved map'), btn.getAttribute('aria-label'));
+  assert.ok(btn.title.startsWith('Open The O’dham (Hagga Basin) in the Saved map'), btn.title);
+  assert.ok(!btn.hasAttribute('aria-haspopup'), 'it opens no window');
+});
+
+test('the place button works from the keyboard: a button takes the Enter/Space click, with and without a picture', async () => {
+  const known = { known: true, map: 'Deep Desert', map_key: 'DeepDesert', area: 'Deep Desert', place: '', cell: 'B8', x: 0.5, y: 0.75 };
+  const hub = { known: true, map: 'Arrakeen', map_key: '', area: 'Arrakeen', place: '' };
+  const ui = await open(board({ tasks: [house(900, 'Maros', 0, { location: known }), house(901, 'Hurata', 0, { location: hub }), house(902, 'Alexin', 0)] }));
+  const calls = spyMap(ui);
+  for (const id of [901, 902]) {
+    const b = ui.doc.querySelector('#lsrow-' + id + ' .loc-t');
+    b.focus();
+    assert.equal(ui.doc.activeElement, b, 'the muted place still takes focus, so its reason can be read and heard');
+    b.click(); // what Enter and Space do on a button
+  }
+  assert.deepEqual(calls, []);
+  assert.equal(ui.doc.querySelector('dialog'), null);
+  const b = ui.doc.querySelector('#lsrow-900 .loc-t');
+  b.focus();
+  b.click();
+  await ui.settle();
+  assert.deepEqual(calls, [['DeepDesert', 0.5, 0.75, 'Maros']]);
+});
+
+test('a Deep Desert row names its grid cell; Tseida-like places say they are from public guides', async () => {
   const dd = { known: true, map: 'Deep Desert', map_key: 'DeepDesert', area: 'Deep Desert', place: '', cell: 'B8', unconfirmed: false, x: 0.5, y: 0.5 };
   const tr = { known: true, map: 'Hagga Basin', map_key: 'HaggaBasin', area: 'Eastern Vermillius Gap', place: 'The Anvil Tradepost', cell: '', unconfirmed: true, x: 0.5, y: 0.5 };
   const ui = await open(board({ tasks: [house(900, 'Maros', 0, { location: dd }), house(901, 'Tseida', 0, { location: tr })] }));
   assert.ok(text(ui.doc.querySelector('#lsrow-900 .c-loc .lm')).includes('Grid cell B8'), 'the cell is in the row');
   assert.ok(text(ui.doc.querySelector('#lsrow-901 .c-loc .lm')).includes('The Anvil Tradepost'), 'the place is in the row');
-  click(ui, '#lsrow-900 [data-lb=map]');
-  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('Grid cell') && text(ui.doc.querySelector('#lsb-mapbody')).includes('B8'));
-  assert.equal(ui.doc.querySelector('#lsb-mapbody [data-lb=mapopen]').getAttribute('aria-label'), 'Open House Maros in the Saved map');
-  assert.ok(!text(ui.doc.querySelector('#lsb-mapbody')).includes('public guides'), 'a confirmed place has no hedge');
-  click(ui, '#lsrow-901 [data-lb=map]');
-  assert.ok(text(ui.doc.querySelector('#lsb-mapbody')).includes('from public guides and is not confirmed in the game'));
+  assert.ok(text(ui.doc.querySelector('#lsrow-900 .more')).includes('Grid cell') && text(ui.doc.querySelector('#lsrow-900 .more')).includes('B8'));
+  assert.ok(!text(ui.doc.querySelector('#lsrow-900 .more')).includes('public guides'), 'a confirmed place has no hedge');
+  assert.ok(text(ui.doc.querySelector('#lsrow-901 .more')).includes('from public guides and is not confirmed in the game'));
   assert.ok(text(ui.doc.querySelector('#lsrow-901 .pop')).includes('not confirmed in the game'), 'the peek says it too');
 });
 
