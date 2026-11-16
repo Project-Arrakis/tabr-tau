@@ -156,6 +156,7 @@ func (o *Ops) DuplicateVehicle(a Args) (any, error) {
 	}); err != nil {
 		return nil, err
 	}
+	dropSpawnAnswersNaming(o.S, newID) // an answer of the repeat memory of Create a vehicle that names this id is stale (#760)
 	return map[string]any{"ok": true, "id": newID, "modules": nMods, "inventories": nInvs, "place": placed.Info()}, nil
 }
 
