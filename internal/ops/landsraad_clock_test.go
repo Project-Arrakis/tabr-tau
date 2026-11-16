@@ -109,18 +109,6 @@ func TestWithoutAPlayClockTheTermStartIsWritten(t *testing.T) {
 	}
 }
 
-func TestWithoutTheTermNoTimeIsWritten(t *testing.T) {
-	// the toy save of ops_test.go has no term: a completed task gets NULL, never a time from another clock
-	o := newOps(t)
-	if _, err := o.CompleteTask(Args{"task_id": 1.0, "faction_id": 2.0}); err != nil {
-		t.Fatal(err)
-	}
-	r := mustOne(t, o, `select completed c, completion_time ct from landsraad_tasks where id=1`)
-	if r["c"].(int64) != 1 || r["ct"] != nil {
-		t.Fatalf("%v", r)
-	}
-}
-
 func TestReopenGivesTheShapeOfAnOpenRowTheGameWrote(t *testing.T) {
 	o := clockOps(t)
 	// a row the game wrote complete is reopened to completed 0, NULL winner and NULL time (the game's open rows hold NULL, never 0)

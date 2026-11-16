@@ -522,6 +522,14 @@ function queueLine(desc) {
   if ((m = d.match(/^decree (\d+) disabled=([01])$/))) return `Set the pool flag of decree ${m[1]} to ${m[2]}`;
   if ((m = d.match(/^journey (\S+) (completed|reset) \((\d+) rows?\)$/))) return `Journey step ${m[1]}: ${m[2]}`;
   if ((m = d.match(/^moved vehicle (\d+) next to player$/))) return `Move vehicle ${m[1]} next to the character`;
+  // Landsraad edits name their houses and factions (#611): several houses, then one house
+  // "landsraad: 3 houses completed for Atreides; replaces ...; houses: A, B, C": what was done and the short facts first, the list of houses last
+  if ((m = d.match(/^landsraad: (\d+) houses? (completed|reopened|changed from the board)(?: for ([^;]+))?((?:; .*)?)$/))) {
+    const hm = m[4].match(/(?:^|; )houses: (.+)$/), facts = hm ? m[4].slice(0, hm.index) : m[4], n = +m[1];
+    const verb = m[2] === 'completed' ? 'Complete' : m[2] === 'reopened' ? 'Reopen' : 'Change';
+    return `${verb} ${n} Landsraad ${n === 1 ? 'house' : 'houses'}${m[2] === 'changed from the board' ? ' from the board' : ''}${m[3] ? ' for ' + m[3] : ''}${hm ? ': ' + hm[1] : ''}${facts}`;
+  }
+  if ((m = d.match(/^landsraad (?!term |task )([^:]+): (.+)$/))) return `${m[1]} (Landsraad): ${capFirst(m[2])}`;
   return capFirst(d);
 }
 // The game rewrites game.db about every twenty seconds while a session runs. With nothing queued the editor reads the new file by itself and
@@ -588,8 +596,8 @@ async function status() {
   const n = (one, many) => (q === 1 ? one : many);
   // a queue the editor could not put back onto the game's newer file: none of it was written
   const unlistedMsg = unlisted ? html`<div><b>Unlisted changes are waiting to be written.</b> They are written by themselves as soon as the file can be written. <button class="b sm d-btn primary sm" data-act="writeNow">Write now</button></div>` : html``;
-  const heldMsg = o.held ? html`<div><b>${q} queued change${q > 1 ? 's were' : ' was'} not written.</b> The game saved changes that conflict with ${q > 1 ? 'them' : 'it'}, so the editor left the game's file as it is.
-    ${(o.held.conflicts || []).map((c) => html`<div>${c.desc}: ${c.why}</div>`)} <button class="b sm d-btn primary sm" data-act="discardQueue">Discard queue</button></div>` : html``;
+  const heldMsg = o.held ? html`<div><b>${q} queued change${q > 1 ? 's were' : ' was'} not written.</b> The game saved changes that conflict with ${q > 1 ? 'them' : 'it'}, so the editor left the game's file as it is. Discard the queue and make the change${q > 1 ? 's' : ''} again.
+    ${(o.held.conflicts || []).map((c) => html`<div>${queueLine(c.desc)}: ${c.why}</div>`)} <button class="b sm d-btn primary sm" data-act="discardQueue">Discard queue</button></div>` : html``;
   let mainMsg = html``;
   if (o.locationUnconfirmed) mainMsg = html`<div><b>Changes cannot be written here yet.</b> ${reason.text} You can keep editing: changes wait in the queue. <button class="b sm d-btn primary sm" data-act="confirmLocation">Allow writing here</button></div>`;
   else if (o.gameCheckError && saveBlocked) mainMsg = html`<div><b>Changes cannot be written.</b> ${reason.text}${q ? html` ${q} ${n('change waits', 'changes wait')} in the queue and ${n('is written by itself', 'are written by themselves')} once the check works.` : ''} The editor checks again by itself every few seconds. <button class="b sm d-btn primary sm" data-act="checkAgain">Check again</button> <button class="b sm d-btn primary sm" data-act="writeNow">Write now</button></div>`;
@@ -602,7 +610,7 @@ async function status() {
     ? html`<b>${restored.applied} change${restored.applied === 1 ? ' was' : 's were'} put back${restored.rebased ? ' onto the newer file the game saved' : ''}.</b> ${restored.written ? (restored.applied === 1 ? 'It has been written.' : 'They have been written.') : 'They are written like any other change.'}`
     : html`<b>${(restored.conflicts || []).length === 1 ? 'A queued change was' : 'Queued changes were'} not kept.</b>`;
   const restoredMsg = restored ? html`<div>${restoredHead}
-    ${(restored.conflicts || []).map((c) => html`<div>Could not put back: ${c.desc} (${c.why}). Make it again.</div>`)} <button class="b sm d-btn primary sm" data-act="dismissRestored">OK</button></div>` : html``;
+    ${(restored.conflicts || []).map((c) => html`<div>Could not put back: ${queueLine(c.desc)} (${c.why}). Make it again.</div>`)} <button class="b sm d-btn primary sm" data-act="dismissRestored">OK</button></div>` : html``;
   const journalMsg = o.journalOff && o.dirty ? html`<div class="mut">These queued changes are not kept if the editor is closed: ${o.journalOff}.</div>` : html``;
   const schemaMsg = schemaNote ? html`<div><b>This save is not quite the one this editor knows.</b> ${schemaNote}</div>` : html``;
   const logMsg = o.writeLogProblem ? html`<div class="mut">${capFirst(o.writeLogProblem)}. The game's file was written; only the record of it is missing.</div>` : html``;
@@ -2165,7 +2173,11 @@ async function lbSend(b, items, label, hs, focusFk) {
   LP.confirm = null;
   const ok = await lbRun(b, async () => {
     const r = await api('/api/landsraad/apply', { term_id: l.term.term_id, houses: items });
-    if (!r.changed) return label + ': nothing to change, ' + (items.length > 1 ? 'the houses were' : 'the house was') + ' already in that state.';
+    // a win taken from another faction, and the other completion times the clock repair moved (D1-3, D1-4, #611): said in the result line, also when nothing else changed
+    const repairNote = r.repaired > 0 ? nn(r.repaired, 'other completion time', 'other completion times') + " put back inside the term's window" : '';
+    if (!r.changed) return label + ': nothing to change, ' + (items.length > 1 ? 'the houses were' : 'the house was') + ' already in that state' + (repairNote ? '; ' + repairNote : '') + '.';
+    const takenNote = (r.replaced || []).length ? 'replaces the win of ' + r.replaced.map((x) => x.previous_winner + ' on ' + x.house).join(', ') : '';
+    const extra = [takenNote, repairNote].filter(Boolean).map((x) => '; ' + x).join('');
     const queued = String(NOT_SAVED) !== ''; // the game is running: the change is queued, so nothing here may say it is in the save
     const rows = r.reward_rows ? nn(r.reward_rows, 'reward', 'rewards') + (queued ? ' to leave' : ' now') + ' waiting at the house representative' : '';
     // what the missions of a raise write (landsraad_grant.go), and the warning when rewards were left out because the character's own events already crossed them (#656)
@@ -2173,11 +2185,11 @@ async function lbSend(b, items, label, hs, focusFk) {
     const warn = left ? 'Warning: ' + nn(left, 'reward', 'rewards') + (left === 1 ? ' was' : ' were') + ' left out: earlier progress on this house already counted for ' + (left === 1 ? 'it' : 'them') + '. Nothing to do' : '';
     const tail = (r.contribution_lowered ? ' ' + LB_REMOVE_NOTE : '') + (r.missions ? ' ' + GRANT_UNCHECKED : '');
     let text;
-    if (items.length === 1 && hs.get(items[0].task_id)) text = label + ': ' + lbChangeText(hs.get(items[0].task_id), l, items[0]) + (r.completed && items[0].complete_for == null ? '; house taken, its faction reached the goal' : '') + (rows ? '; ' + rows : '') + (grant ? '; ' + grant : '') + (warn ? '; ' + warn : '') + '.' + tail;
+    if (items.length === 1 && hs.get(items[0].task_id)) text = label + ': ' + lbChangeText(hs.get(items[0].task_id), l, items[0]) + (r.completed && items[0].complete_for == null ? '; house taken, its faction reached the goal' : '') + (rows ? '; ' + rows : '') + (grant ? '; ' + grant : '') + (warn ? '; ' + warn : '') + extra + '.' + tail;
     else {
       const parts = [r.contribution_raised ? 'your contribution raised on ' + nn(r.contribution_raised, 'house', 'houses') : '', r.contribution_lowered ? 'lowered on ' + nn(r.contribution_lowered, 'house', 'houses') + ' (a tier removed)' : '',
         rows, grant, r.completed ? nn(r.completed, 'house', 'houses') + ' completed' : '', r.reopened ? nn(r.reopened, 'house', 'houses') + ' reopened' : '', warn].filter(Boolean);
-      text = label + ': ' + parts.join(', ') + '.' + tail;
+      text = label + ': ' + parts.join(', ') + extra + '.' + tail;
     }
     // the toast is one short line; the whole sentence stays in the result line
     const short = r.missions ? label + ': ' + nn(r.missions, 'mission', 'missions') + (queued ? ' queued.' : ' written.') : r.contribution_lowered ? label + ': tier removed. Nothing it paid was taken back.' : '';

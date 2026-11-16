@@ -54,9 +54,10 @@ func (o *Ops) FillFactionGoal(a Args) (any, error) {
 	}
 	var progressDone, completedDone, mineDone, personalSkipped bool
 	var top, before float64
-	var house, fname string
+	var house, fname, prevWinner string
+	var repaired int64
 	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
-		progressDone, completedDone, mineDone = false, false, false
+		progressDone, completedDone, mineDone, prevWinner, repaired = false, false, false, "", 0
 		f, err := m.One(`select name from factions where id=? and name<>'None'`, faction)
 		if err != nil {
 			return err
@@ -82,6 +83,9 @@ func (o *Ops) FillFactionGoal(a Args) (any, error) {
 			return err
 		}
 		house = strings.TrimPrefix(fmt.Sprint(t["house_name"]), "DA_House")
+		if prevWinner, err = replacedWinner(m, t, faction); err != nil {
+			return err
+		}
 		if top, err = topTier(m, taskID); err != nil {
 			return err
 		}
@@ -124,9 +128,10 @@ func (o *Ops) FillFactionGoal(a Args) (any, error) {
 		if personalSkipped {
 			m.Desc = fmt.Sprintf("landsraad %s: completed for %s, no personal contribution (not your faction)", house, fname)
 		}
-		if _, err := repairCompletionTimes(m, termID); err != nil {
+		if repaired, err = repairCompletionTimes(m, termID); err != nil {
 			return err
 		}
+		m.Desc = landsraadDesc(m.Desc, replacedOf(house, prevWinner), repaired, nil)
 		return nil
 	}); err != nil {
 		return nil, err
@@ -138,6 +143,6 @@ func (o *Ops) FillFactionGoal(a Args) (any, error) {
 	return resetAnswer(changed, map[string]any{
 		"house": house, "faction": fname, "tier": top,
 		"progress_changed": progressDone, "completed_changed": completedDone, "contribution_changed": mineDone, "contribution_before": before,
-		"has_character": perr == nil, "personal_skipped": personalSkipped,
+		"has_character": perr == nil, "personal_skipped": personalSkipped, "previous_winner": nilIfEmpty(prevWinner), "repaired": repaired,
 	}), nil
 }

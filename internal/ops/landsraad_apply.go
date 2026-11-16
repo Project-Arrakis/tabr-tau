@@ -3,6 +3,7 @@ package ops
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
@@ -141,10 +142,14 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 			return nil, err
 		}
 	}
-	var houses, changed, raised, lowered, completed, reopened int64
+	var houses, changed, raised, lowered, completed, reopened, repaired int64
+	var replaced []replacedWin
+	var names []string // the houses that changed, and what was done to each, for the description (D1-6, #611)
+	var done []string
 	var rw rewardResult
 	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
-		houses, changed, raised, lowered, completed, reopened = 0, 0, 0, 0, 0, 0
+		houses, changed, raised, lowered, completed, reopened, repaired = 0, 0, 0, 0, 0, 0, 0
+		replaced, names, done = nil, nil, nil
 		rw = rewardResult{}
 		if err := currentTerm(m, termID); err != nil {
 			return err
@@ -227,7 +232,18 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 		}
 		for _, s := range steps {
 			it := s.it
+			if it.completeFor != nil { // a win of another faction that this completion takes away is named in the answer and the write log (D1-3, #611)
+				prev, err := replacedWinner(m, s.t, *it.completeFor)
+				if err != nil {
+					return err
+				}
+				if prev != "" {
+					replaced = append(replaced, replacedWin{house: houseOf(s.t), winner: prev})
+				}
+			}
 			did := false
+			// what was done to this house, in words
+			var what []string
 			doneByRaise := false // grantRaise took the house for the character's faction: the completion below must not be made, or counted, a second time (#751)
 			if it.mineTo != nil {
 				to := *it.mineTo
@@ -241,6 +257,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 					}
 					raised++
 					did = true
+					what = append(what, fmt.Sprintf("your contribution %g -> %g", s.cur, to))
 					clock := clockOfTerm(m, termID)
 					if !clock.ok {
 						return apierr.New(apierr.ErrBadArgument, "the save has no record of this term, so the rewards cannot be timed: nothing was changed")
@@ -252,6 +269,11 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 					if done {
 						completed++
 						doneByRaise = true
+						if it.completeFor != nil {
+							what = append(what, "completed for "+facName[*it.completeFor])
+						} else {
+							what = append(what, "completed, its faction reached the goal") // the raise itself took the house (the faction's progress)
+						}
 					}
 					rw.add(rr)
 					// the cap is on the whole request, not only on each house: many houses, each under it, must not add up to more than one change may grant
@@ -264,12 +286,14 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 					}
 					lowered++
 					did = true
+					what = append(what, fmt.Sprintf("your contribution %g -> 0", s.cur))
 				case to < s.cur:
 					if _, err := m.Exec(`update landsraad_task_player_contributions set amount=? where player_id=? and faction_id=? and task_id=?`, to, me.player, me.faction, it.task); err != nil {
 						return err
 					}
 					lowered++
 					did = true
+					what = append(what, fmt.Sprintf("your contribution %g -> %g", s.cur, to))
 				}
 			}
 			if it.completeFor != nil && !doneByRaise {
@@ -280,6 +304,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 				if c {
 					completed++
 					did = true
+					what = append(what, "completed for "+facName[*it.completeFor])
 				}
 			}
 			if it.reopen {
@@ -290,22 +315,31 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 				if c {
 					reopened++
 					did = true
+					what = append(what, "reopened")
 				}
 			}
 			houses++
 			if did {
 				changed++
+				names = append(names, houseOf(s.t))
+				done = append(done, strings.Join(what, ", "))
 			}
 		}
-		if changed > 0 {
-			m.Desc = fmt.Sprintf("landsraad: %d houses changed from the board", changed)
+		var rerr error
+		repaired, rerr = repairCompletionTimes(m, termID)
+		switch {
+		case changed == 1: // one house: what was done to it
+			m.Desc = landsraadDesc(fmt.Sprintf("landsraad %s: %s", names[0], done[0]), replaced, repaired, nil)
+		case changed > 1:
+			m.Desc = landsraadDesc(fmt.Sprintf("landsraad: %d houses changed from the board", changed), replaced, repaired, names)
+		case repaired > 0:
+			m.Desc = landsraadDesc("landsraad", nil, repaired, nil)
 		}
-		_, rerr := repairCompletionTimes(m, termID)
 		return rerr
 	}); err != nil {
 		return nil, err
 	}
-	return resetAnswer(changed, map[string]any{"houses": houses, "skipped": houses - changed, "contribution_raised": raised, "contribution_lowered": lowered, "completed": completed, "reopened": reopened, "events": rw.events, "reward_rows": rw.rewardRows, "swatches": rw.swatches, "rewards_already_given": rw.skipped,
+	return resetAnswer(changed, map[string]any{"houses": houses, "skipped": houses - changed, "contribution_raised": raised, "contribution_lowered": lowered, "completed": completed, "reopened": reopened, "repaired": repaired, "replaced": replacedAnswer(replaced), "events": rw.events, "reward_rows": rw.rewardRows, "swatches": rw.swatches, "rewards_already_given": rw.skipped,
 		"missions": rw.missions, "solari": rw.solari, "house_scrip": rw.scrip, "specialization_xp": specAnswer(rw.spec)}), nil
 }
 
@@ -321,7 +355,13 @@ func specAnswer(m map[string]int64) map[string]int64 {
 func houseOf(t save.Row) string {
 	s := fmt.Sprint(t["house_name"])
 	if len(s) > 8 && s[:8] == "DA_House" {
-		return s[8:]
+		s = s[8:]
+	}
+	if r := []rune(s); len(r) > maxHouseName { // a name from a save built by hand must not fill a description
+		s = string(r[:maxHouseName]) + "..."
 	}
 	return s
 }
+
+// maxHouseName bounds a house name in a message or a description.
+const maxHouseName = 40

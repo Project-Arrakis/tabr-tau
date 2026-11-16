@@ -1,7 +1,6 @@
 package ops
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
@@ -236,6 +235,8 @@ func (o *Ops) SetTaskProgress(a Args) (any, error) {
 
 // CompleteTask marks a task complete for a faction; reset=true reopens it. A completion writes the game's own clock into completion_time (see landsraad_clock.go), and the
 // completed tasks of the same term that still hold a time from outside the term's window (the Unix time older editors wrote) are brought onto that clock in the same edit (#465).
+// As Fill chosen does, it refuses a house of an earlier term and a faction the Landsraad does not have (the faction None), and it says in the answer and the write log which
+// other faction's win it takes away and how many other completion times it moved (D1-3, D1-4 and D1-5, #611).
 func (o *Ops) CompleteTask(a Args) (any, error) {
 	t, err := a.Int("task_id")
 	if err != nil {
@@ -250,30 +251,62 @@ func (o *Ops) CompleteTask(a Args) (any, error) {
 		}
 		desc = fmt.Sprintf("landsraad task %d completed for faction %d", t, f)
 	}
-	var n int64
+	var prev string
+	var repaired int64
 	if _, err = o.S.Mutate(desc, func(m *save.Mut) error {
-		clock := clockOfTask(m, t) // read before the write, from the task's own term
-		var res sql.Result
-		var err error
-		if reset {
-			res, err = m.Exec(`update landsraad_tasks set completed=0, winning_faction_id=null, completion_time=null where id=?`, t)
-		} else {
-			res, err = m.Exec(`update landsraad_tasks set completed=1, winning_faction_id=?, completion_time=? where id=?`, f, clock.arg(), t)
-		}
+		prev, repaired = "", 0
+		task, err := m.One(`select id, term_id, house_name, completed, winning_faction_id from landsraad_tasks where id=?`, t)
 		if err != nil {
 			return err
 		}
-		if n, _ = res.RowsAffected(); n > 0 && clock.ok {
-			_, err = repairCompletionTimes(m, clock.term)
+		if task == nil {
+			return apierr.New(apierr.ErrNotFound, "task not found")
 		}
-		return err
+		term, err := m.One(`select term_id from landsraad_decree_term order by term_id desc limit 1`)
+		if err != nil {
+			return err
+		}
+		if term == nil {
+			return apierr.New(apierr.ErrNotFound, "this save has no Landsraad term")
+		}
+		if task["term_id"] != term["term_id"] {
+			return apierr.New(apierr.ErrConflict, "that house belongs to an earlier term: only the current term's houses can be changed; reload the page")
+		}
+		house := houseOf(task)
+		head := "landsraad"
+		clock := clockOfTask(m, t) // read before the write, from the task's own term
+		if reset {
+			head = fmt.Sprintf("landsraad %s: reopened", house)
+			if _, err = m.Exec(`update landsraad_tasks set completed=0, winning_faction_id=null, completion_time=null where id=?`, t); err != nil {
+				return err
+			}
+		} else {
+			fac, err := m.One(`select name from factions where id=? and name<>'None'`, f)
+			if err != nil {
+				return err
+			}
+			if fac == nil {
+				return apierr.New(apierr.ErrBadArgument, "that faction is not one the Landsraad has")
+			}
+			if prev, err = replacedWinner(m, task, f); err != nil {
+				return err
+			}
+			head = fmt.Sprintf("landsraad %s: completed for %v", house, fac["name"])
+			if _, err = m.Exec(`update landsraad_tasks set completed=1, winning_faction_id=?, completion_time=? where id=?`, f, clock.arg(), t); err != nil {
+				return err
+			}
+		}
+		if clock.ok {
+			if repaired, err = repairCompletionTimes(m, clock.term); err != nil {
+				return err
+			}
+		}
+		m.Desc = landsraadDesc(head, replacedOf(house, prev), repaired, nil)
+		return nil
 	}); err != nil {
 		return nil, err
 	}
-	if n == 0 {
-		return nil, apierr.New(apierr.ErrNotFound, "task not found")
-	}
-	return ok(), nil
+	return map[string]any{"ok": true, "previous_winner": nilIfEmpty(prev), "repaired": repaired}, nil
 }
 
 // SetDecree sets or clears the disabled flag of one decree row in the pool, picked by its id (#448). The flag is the save's own column; it is not whether the decree is
@@ -328,12 +361,20 @@ func (o *Ops) SetTerm(a Args) (any, error) {
 	// The term is looked up inside the edit, through its own query, so it is kept with the edit: put back onto a newer file with another term, the edit is not applied to the
 	// old term's id.
 	_, err = o.S.Mutate("landsraad term", func(m *save.Mut) error {
-		term, err := m.One(`select term_id from landsraad_decree_term order by term_id desc limit 1`)
+		term, err := m.One(`select term_id, start_time from landsraad_decree_term order by term_id desc limit 1`)
 		if err != nil {
 			return err
 		}
 		if term == nil {
 			return errors.New("no Landsraad term in this save")
+		}
+		// a term that ends before it starts has no window: the completion times and the clock repair are worked out from it (D1-4, #611)
+		if start, ok := toFloat(term["start_time"]); ok {
+			for _, e := range edits {
+				if end, isInt := e.val.(int64); e.col == "end_time" && isInt && float64(end) < start {
+					return apierr.Newf(apierr.ErrBadArgument, "end_time %d is before the term's start_time %d: the term would end before it starts", end, int64(start))
+				}
+			}
 		}
 		m.Desc = fmt.Sprintf("landsraad term %v: %s", term["term_id"], strings.Join(parts, ", "))
 		for _, e := range edits {
