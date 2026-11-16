@@ -76,9 +76,11 @@ func statFileTime(savePath string) (mod time.Time, own bool, err error) {
 // The quiet of the save file must be observed, not only computed from the clock (#612): after a sleep or a hibernation, or when the clock is set forward, the file's time is far
 // in the past and looks like a long quiet although the game may have been writing until the moment the computer slept. So the editor remembers, per save, when it last
 // evaluated the gate with a game process present and what the file looked like, and holds for observeQuietFor from the first evaluation, from the first one after a gap of more
-// than observeGap (a clock that went backward is a gap), and from a change of the file's time that is not the editor's own write.
+// than observeGap (a clock that went backward by a second or more is a gap; a reading less than a second early counts as the same moment), and from a change of the file's time that is not the editor's own write.
 const (
 	observeGap = 30 * time.Second
+	// clockSkew is how far before the last evaluation a clock reading may be and still be the same moment: two threads read the clock, then take the lock in the other order.
+	clockSkew = time.Second
 )
 
 // observeQuietFor is how long the editor must have watched the file, evaluating the gate at least every observeGap and seeing the file unchanged, before a game process's quiet
@@ -103,6 +105,11 @@ func observeFile(savePath string, now, mod time.Time, own bool, terr error) time
 	defer observed.Unlock()
 	k := ownKey(savePath)
 	o, ok := observed.m[k]
+	// Two evaluations made at nearly the same moment (the page's status poll and the autosave's tick) read the clock before they take this lock, so the later reading can get the
+	// lock first and the earlier one arrive after it. That is not a clock that went backward: a reading less than clockSkew before the last one counts as the last one (#779).
+	if ok && now.Before(o.lastAt) && o.lastAt.Sub(now) < clockSkew {
+		now = o.lastAt
+	}
 	switch {
 	case !ok, now.Before(o.lastAt), now.Sub(o.lastAt) > observeGap, terr != nil:
 		o = observation{from: now}
