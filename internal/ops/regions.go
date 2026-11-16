@@ -81,7 +81,7 @@ func (f *regionFinder) label(row map[string]any, mapName string, xk, yk string) 
 }
 
 // discoveredAreas is the character's discovered areas of one map, by name. named says whether the map has area names at all; total is how many it
-// has; discovered are the names found (sorted); other counts discovered areas that have no name.
+// has; discovered are the names found (sorted); other counts discovered areas that have no name (area 0 is the game's "no area", not a region, and is left out).
 func (o *Ops) discoveredAreas(characterID int64, mapName string) map[string]any {
 	names := regionNamesOf(mapName)
 	out := map[string]any{"named": names != nil, "total": len(names), "discovered": []string{}, "other": 0}
@@ -92,7 +92,7 @@ func (o *Ops) discoveredAreas(characterID int64, mapName string) map[string]any 
 	found := []string{}
 	other := 0
 	for _, r := range rows {
-		if a, ok := r["area_id"].(int64); ok {
+		if a, ok := r["area_id"].(int64); ok && a != 0 {
 			if n, named := names[a]; named {
 				found = append(found, n)
 			} else {
