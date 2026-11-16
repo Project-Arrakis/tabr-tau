@@ -938,9 +938,10 @@ func (s *Server) routes() {
 			// the file was replaced by another one: the vehicles Create answered for may be gone from it, or another vehicle may have their id (#740)
 			ops.ForgetSpawnAnswers(s.Save)
 		}
-		// A refused restore (edits queued, game running, no such backup) read nothing and the working copy is as it was. One that replaced the file and could not read it back
-		// returns an error too and does not block the editor: the working copy is not reloaded, the answers stay, and an answer whose id another vehicle takes later is dropped
-		// where that vehicle is written (#760).
+		// An error leaves the answers as they are, on purpose (#760). A refused restore (edits queued, game running, no such backup) read nothing. One that reloaded the file and
+		// failed blocks the editor until it is restarted, which empties the memory. One that replaced the file and could not read it back does not reload the working copy; the
+		// next refresh loads the restored file with the answers intact, and each answer is then checked against the vehicle it made (same id, class and entities, not just the
+		// same id), so a different vehicle under a remembered id is never taken for it.
 		return map[string]any{"ok": true}, err
 	})
 

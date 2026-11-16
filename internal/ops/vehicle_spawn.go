@@ -440,10 +440,15 @@ func ForgetSpawnAnswers(s *save.Save) {
 	}
 }
 
-// PruneSpawnAnswers drops the answers of a save whose vehicle is not in the working copy, and keeps the others. It is for a reload that dropped only some of the edits (Reload now
-// with a conflict): the Create that was put back, or written earlier, keeps its answer, so a retry after a lost answer still writes nothing (#760). An answer is dropped only when
-// the working copy was read and the vehicle is not in it; a read that failed keeps it.
+// PruneSpawnAnswers drops the answers of a save whose own vehicle is not in the working copy, and keeps the others. It is for a reload that dropped only some of the edits (a
+// Discard of a queue, a Reload now with a conflict): a Create that was put back, or written earlier, keeps its answer, so a retry after a lost answer still writes nothing (#760).
+// "Its own vehicle" is the one the answer made (vehicleThere), not any vehicle with the same id: the game may have taken the id. An answer is dropped only when the working copy
+// was read and the vehicle is not in it; a read that failed keeps it. While a queue is held the working copy is the game's file, which has none of the held Creates, so nothing
+// is dropped then.
 func PruneSpawnAnswers(s *save.Save) {
+	if s.Held() != nil {
+		return
+	}
 	spawnAnswers.Lock()
 	defer spawnAnswers.Unlock()
 	for k, prev := range spawnAnswers.seen {
@@ -456,20 +461,86 @@ func PruneSpawnAnswers(s *save.Save) {
 	}
 }
 
-// vehicleThere says whether the vehicle an earlier answer names is a vehicle of the working copy, and whether the working copy could be read to find out.
+// SpawnAnswerCount is how many answers the repeat memory holds for a save (for tests and diagnostics).
+func SpawnAnswerCount(s *save.Save) int {
+	spawnAnswers.Lock()
+	defer spawnAnswers.Unlock()
+	n := 0
+	for k := range spawnAnswers.seen {
+		if k.s == s {
+			n++
+		}
+	}
+	return n
+}
+
+// dropSpawnAnswersNamingHeld drops every answer of a save that names a vehicle id. Ids are reused (the next one is the highest plus one), so once a vehicle has taken an id, an answer
+// of another form that names it is stale: a retry of that form must write, not be answered with this vehicle. The caller holds the lock.
+func dropSpawnAnswersNamingHeld(s *save.Save, id int64) {
+	for k, v := range spawnAnswers.seen {
+		if pid, ok := v["id"].(int64); ok && k.s == s && pid == id {
+			spawnAnswers.forget(k)
+		}
+	}
+}
+
+// dropSpawnAnswersNaming is dropSpawnAnswersNamingHeld for a vehicle written outside the memory (a Create without an id, Duplicate vehicle).
+func dropSpawnAnswersNaming(s *save.Save, id int64) {
+	spawnAnswers.Lock()
+	defer spawnAnswers.Unlock()
+	dropSpawnAnswersNamingHeld(s, id)
+}
+
+// spawnIdentity is what makes a vehicle the one a Create made, apart from its id: the class of its actor and the entities linked to it, which the Create gave ids no entity of
+// the save had. A vehicle the game made under the same id has other entities.
+func spawnIdentity(prev map[string]any) (class string, entities string, ok bool) {
+	rows, _ := prev["rows"].(map[string]any)
+	acts, _ := rows["actors"].([]save.Row)
+	ents, _ := rows["entities"].([]save.Row)
+	if len(acts) != 1 || len(ents) == 0 {
+		return "", "", false
+	}
+	class, _ = acts[0]["class"].(string)
+	var parts []string
+	for _, e := range ents {
+		parts = append(parts, fmt.Sprintf("%v=%v", e["slot_name"], e["entity_id"]))
+	}
+	return class, strings.Join(parts, ","), class != ""
+}
+
+// vehicleThere says whether the vehicle an earlier answer made is a vehicle of the working copy (the same id, class and entities, not just the same id), and whether the working
+// copy could be read to find out.
 func vehicleThere(s *save.Save, prev map[string]any) (there, read bool) {
 	id, ok := prev["id"].(int64)
 	if !ok {
 		return false, true
 	}
-	r, err := s.One(`select 1 c from vehicles where id=?`, id)
+	r, err := s.One(`select class from actors where id=? and id in (select id from vehicles)`, id)
 	if err != nil {
 		return false, false
 	}
-	return r != nil, true
+	if r == nil {
+		return false, true
+	}
+	wantClass, wantEnts, ok := spawnIdentity(prev)
+	if !ok {
+		return true, true // an answer without its rows: the id is all there is to go by
+	}
+	if c, _ := r["class"].(string); c != wantClass {
+		return false, true
+	}
+	ents, err := s.Query(`select slot_name, entity_id from actor_fgl_entities where actor_id=? order by slot_name`, id)
+	if err != nil {
+		return false, false
+	}
+	var parts []string
+	for _, e := range ents {
+		parts = append(parts, fmt.Sprintf("%v=%v", e["slot_name"], e["entity_id"]))
+	}
+	return strings.Join(parts, ",") == wantEnts, true
 }
 
-// spawnedStillThere says whether the vehicle an earlier answer names is still a vehicle of the working copy.
+// spawnedStillThere says whether the vehicle an earlier answer made is still a vehicle of the working copy.
 func (o *Ops) spawnedStillThere(prev map[string]any) bool {
 	there, _ := vehicleThere(o.S, prev)
 	return there
@@ -523,14 +594,9 @@ func (o *Ops) spawnVehicle(a Args, dry bool) (any, error) {
 			}
 			if m, ok := res.(map[string]any); ok {
 				spawnAnswers.forget(key)
-				// Ids are reused (the next one is the highest plus one): an answer of another form that names the id this vehicle took is stale, and a retry of that form must
-				// write, not be answered with this vehicle (#760).
+				// an answer of another form that names the id this vehicle took is stale (#760)
 				if id, ok := m["id"].(int64); ok {
-					for k, v := range spawnAnswers.seen {
-						if pid, ok := v["id"].(int64); ok && k.s == o.S && pid == id {
-							spawnAnswers.forget(k)
-						}
-					}
+					dropSpawnAnswersNamingHeld(o.S, id)
 				}
 				spawnAnswers.seen[key] = m
 				spawnAnswers.order = append(spawnAnswers.order, key)
@@ -542,7 +608,13 @@ func (o *Ops) spawnVehicle(a Args, dry bool) (any, error) {
 			return res, nil
 		}
 	}
-	return o.spawnWrite(sp, dry)
+	res, err := o.spawnWrite(sp, dry)
+	if m, ok := res.(map[string]any); err == nil && ok && !dry {
+		if id, ok := m["id"].(int64); ok { // the lock is taken after the write, not during it
+			dropSpawnAnswersNaming(o.S, id)
+		}
+	}
+	return res, err
 }
 
 func (o *Ops) spawnWrite(sp *spawnSpec, dry bool) (any, error) {

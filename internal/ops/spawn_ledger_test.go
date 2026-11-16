@@ -137,11 +137,14 @@ func TestAStaleAnswerIsNotHandedOutForAnotherFormsVehicle(t *testing.T) {
 	if ans["repeat"] == true || again == second || vehicles() != before+2 {
 		t.Fatalf("the retry of the first form writes its own vehicle: %d, repeat %v, %d vehicles", again, ans["repeat"], vehicles())
 	}
-	// and an answer of another save is not touched by this save's write
-	other := spawnOps(t)
-	spawn(t, other, Args{"class": "Buggy", "template": "T0", "requestId": "form-x"})
-	spawn(t, o, Args{"class": "Buggy", "template": "T0", "requestId": "form-y"})
-	if !ledgerHas(other.S, "form-x") {
+	// and an answer of another save that names the same id is not touched by this save's write
+	a, b := spawnOps(t), spawnOps(t)
+	x, _ := spawn(t, b, Args{"class": "Buggy", "template": "T0", "requestId": "form-x"})
+	y, _ := spawn(t, a, Args{"class": "Buggy", "template": "T0", "requestId": "form-y"})
+	if x != y {
+		t.Fatalf("the two saves give the same id (this is what the test needs): %d %d", x, y)
+	}
+	if !ledgerHas(b.S, "form-x") || !ledgerHas(a.S, "form-y") {
 		t.Fatal("another save's answers are not touched")
 	}
 }
@@ -152,7 +155,13 @@ func TestPruneSpawnAnswersKeepsTheAnswersOfVehiclesThatAreThere(t *testing.T) {
 	other := spawnOps(t)
 	keep, _ := spawn(t, o, Args{"class": "Buggy", "template": "T0", "requestId": "form-k"})
 	gone, _ := spawn(t, o, Args{"class": "Buggy", "template": "T0", "requestId": "form-g"})
-	spawn(t, other, Args{"class": "Buggy", "template": "T0", "requestId": "form-o"})
+	// the other save's vehicle has an id this save does not have
+	spawn(t, other, Args{"class": "Buggy", "template": "T0"})
+	spawn(t, other, Args{"class": "Buggy", "template": "T0"})
+	theirs, _ := spawn(t, other, Args{"class": "Buggy", "template": "T0", "requestId": "form-o"})
+	if theirs == keep || theirs == gone {
+		t.Fatalf("the other save's id is one this save lacks: %d %d %d", keep, gone, theirs)
+	}
 	if _, err := o.S.MutateCascade("remove a vehicle", func(m *save.Mut) error {
 		_, err := m.Exec(`delete from vehicles where id=?`, gone)
 		return err
@@ -165,5 +174,128 @@ func TestPruneSpawnAnswersKeepsTheAnswersOfVehiclesThatAreThere(t *testing.T) {
 	}
 	if seen, order := ledgerEntries(o.S); seen != 1 || order != 1 {
 		t.Fatalf("the ledger stays consistent: %d answers, %d in the order", seen, order)
+	}
+}
+
+// gameTakesTheId is the game writing a vehicle of its own under an id: a row in actors and in vehicles, of the class given.
+func gameTakesTheId(t *testing.T, o *Ops, id int64, class string) {
+	t.Helper()
+	if _, err := o.S.Mutate("a vehicle of the game's", func(m *save.Mut) error {
+		if _, err := m.Exec(`insert into actors(id,class,map,state) values (?,?,'HaggaBasin',0)`, id, class); err != nil {
+			return err
+		}
+		_, err := m.Exec(`insert into vehicles(id) values (?)`, id)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A vehicle the game made under the id of a Create that was dropped is not that Create's vehicle: the answer is dropped by a prune and a retry writes the Create again (#760). It
+// is the case with another class and the worst case, the same class (the entities tell them apart).
+func TestAVehicleOfTheGameUnderTheIdOfADroppedCreateIsNotTakenForIt(t *testing.T) {
+	for name, class := range map[string]string{"another class": "/Game/Dune/Systems/Vehicles/Blueprints/GroundVehicles/BP_Sandbike.BP_Sandbike_C", "the same class": ""} {
+		t.Run(name, func(t *testing.T) {
+			for _, how := range []string{"prune", "retry"} {
+				t.Run(how, func(t *testing.T) {
+					o := spawnOps(t)
+					a := Args{"class": "Buggy", "template": "T0", "requestId": "form-1"}
+					first, ans := spawn(t, o, a)
+					if class == "" {
+						class = ans["rows"].(map[string]any)["actors"].([]save.Row)[0]["class"].(string)
+					}
+					if err := o.S.Discard(); err != nil { // the Create is dropped
+						t.Fatal(err)
+					}
+					gameTakesTheId(t, o, first, class)
+					if how == "prune" {
+						PruneSpawnAnswers(o.S)
+						if ledgerHas(o.S, "form-1") {
+							t.Fatal("the answer names a vehicle that is not the Create's: it is dropped")
+						}
+					}
+					again, ans := spawn(t, o, a)
+					if ans["repeat"] == true || again == first {
+						t.Fatalf("the retry writes the Create again, it is not answered with the game's vehicle: %d, repeat %v", again, ans["repeat"])
+					}
+					if mustOne(t, o, `select count(*) c from vehicles where id=?`, again)["c"].(int64) != 1 {
+						t.Fatal("the vehicle of the retry is in the working copy")
+					}
+				})
+			}
+		})
+	}
+}
+
+// The Create's own vehicle that was put back, or is in the file, keeps its answer through a prune.
+func TestPruneSpawnAnswersKeepsTheCreatesOwnVehicle(t *testing.T) {
+	o := spawnOps(t)
+	first, _ := spawn(t, o, Args{"class": "Buggy", "template": "T0", "requestId": "form-1"})
+	PruneSpawnAnswers(o.S)
+	again, ans := spawn(t, o, Args{"class": "Buggy", "template": "T0", "requestId": "form-1"})
+	if again != first || ans["repeat"] != true {
+		t.Fatalf("the answer of a vehicle that is there stays: %d %d %v", first, again, ans["repeat"])
+	}
+}
+
+// A queue that is held shows the game's file, which has none of the held Creates: nothing is pruned then.
+func TestPruneSpawnAnswersDropsNothingWhileTheQueueIsHeld(t *testing.T) {
+	o := spawnOps(t)
+	o.S.EnableJournal(filepath.Join(t.TempDir(), "pending.json"))
+	restore := save.ActiveSessionForTests()
+	spawn(t, o, Args{"class": "Buggy", "template": "T0", "requestId": "form-h"})
+	restore()
+	other, err := save.Open(o.S.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := other.Mutate("the game's entity", func(m *save.Mut) error {
+		_, err := m.Exec(`insert into fgl_entities(entity_id,components) values (8300000000000099, jsonb('{}'))`)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := other.CommitForTests(); err != nil {
+		t.Fatal(err)
+	}
+	other.Close()
+	if f := o.S.Flush(); f.Saved || o.S.Held() == nil {
+		t.Fatalf("the queue is held: %+v", f)
+	}
+	PruneSpawnAnswers(o.S)
+	if !ledgerHas(o.S, "form-h") {
+		t.Fatal("a held queue's answers are kept")
+	}
+}
+
+// A vehicle made without the memory (a Create without an id, Duplicate vehicle) that takes the id of an answer drops that answer: the memory only forgets by id otherwise (#760).
+func TestAVehicleMadeOutsideTheMemoryDropsTheAnswersThatNameItsId(t *testing.T) {
+	for _, how := range []string{"create without an id", "duplicate vehicle"} {
+		t.Run(how, func(t *testing.T) {
+			o := spawnOps(t)
+			first, _ := spawn(t, o, Args{"class": "Buggy", "template": "T0", "requestId": "form-1"})
+			if err := o.S.Discard(); err != nil { // the Create is dropped and the memory is not told
+				t.Fatal(err)
+			}
+			if !ledgerHas(o.S, "form-1") {
+				t.Fatal("the answer is still there (this is what the test needs)")
+			}
+			var taken int64
+			if how == "duplicate vehicle" {
+				r, err := o.DuplicateVehicle(Args{"id": 578.0})
+				if err != nil {
+					t.Fatal(err)
+				}
+				taken = r.(map[string]any)["id"].(int64)
+			} else {
+				taken, _ = spawn(t, o, Args{"class": "Buggy", "template": "T0"})
+			}
+			if taken != first {
+				t.Fatalf("the new vehicle takes the id (this is what the test needs): %d %d", first, taken)
+			}
+			if ledgerHas(o.S, "form-1") {
+				t.Fatal("the answer that names the id the new vehicle took is dropped")
+			}
+		})
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
+	"github.com/Project-Arrakis/tabr-tau/internal/ops"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/settings"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
@@ -69,6 +70,9 @@ func TestACreateThatWasDiscardedWritesAgainEvenWhenAnotherFormTookItsId(t *testi
 	}
 	if w := postEdit(t, s, "/api/save/discard", `{}`); w.Code != 200 {
 		t.Fatalf("discard: %d %s", w.Code, w.Body.String())
+	}
+	if n := ops.SpawnAnswerCount(s.Save); n != 0 {
+		t.Fatalf("the Discard dropped the answer of the Create it threw away, %d left", n)
 	}
 	b := create(t, s, ledgerForm2)
 	if b["id"] != a["id"] {
@@ -165,6 +169,9 @@ func TestAReloadThatPutsTheCreateBackKeepsItsAnswer(t *testing.T) {
 	if w.Code != 200 || r == nil || r["applied"] != float64(1) || r["conflicts"] != nil {
 		t.Fatalf("the Create is put back: %d %s", w.Code, w.Body.String())
 	}
+	if n := ops.SpawnAnswerCount(s.Save); n != 1 {
+		t.Fatalf("the answer of the Create that was put back stays, %d answers", n)
+	}
 	b := create(t, s, ledgerForm1)
 	if b["repeat"] != true || b["id"] != a["id"] || len(s.Save.Pending()) != 1 {
 		t.Fatalf("the retry is answered with the vehicle that was put back: %v", b)
@@ -186,6 +193,9 @@ func TestAReloadThatDroppedTheCreateLetsItWriteAgain(t *testing.T) {
 	}
 	if s.Save.Dirty() || vehiclesInFile(t, s.Save.Path) != 0 {
 		t.Fatal("nothing of it is left")
+	}
+	if n := ops.SpawnAnswerCount(s.Save); n != 0 {
+		t.Fatalf("the answer of the Create that was dropped is gone, %d answers", n)
 	}
 	b := create(t, s, ledgerForm2)
 	if b["id"] != a["id"] {
@@ -233,7 +243,7 @@ func TestARestoreForgetsTheAnswersOfCreatesAndARefusedOneKeepsThem(t *testing.T)
 	if m := decodeBody(t, w); w.Code != 409 || m["code"] != "queued" {
 		t.Fatalf("the restore is refused while an edit is queued: %d %s", w.Code, w.Body.String())
 	}
-	if b := create(t, s, ledgerForm1); b["repeat"] != true || b["id"] != a["id"] {
+	if b := create(t, s, ledgerForm1); b["repeat"] != true || b["id"] != a["id"] || ops.SpawnAnswerCount(s.Save) != 1 {
 		t.Fatalf("a refused restore keeps the answer: %v", b)
 	}
 	if err := s.Save.Discard(); err != nil { // the waiting edit goes; the Create is in the file
@@ -243,6 +253,9 @@ func TestARestoreForgetsTheAnswersOfCreatesAndARefusedOneKeepsThem(t *testing.T)
 	w = postEdit(t, s, "/api/save/restore", `{"name":"`+name+`"}`)
 	if w.Code != 200 || vehiclesInFile(t, s.Save.Path) != 0 {
 		t.Fatalf("the restore put the older file back: %d %s", w.Code, w.Body.String())
+	}
+	if n := ops.SpawnAnswerCount(s.Save); n != 0 {
+		t.Fatalf("the restore replaced the file and the memory is emptied, %d answers", n)
 	}
 	b := create(t, s, ledgerForm2)
 	if b["id"] != a["id"] {
@@ -271,6 +284,9 @@ func TestACreateRetriedWhileTheQueueIsHeldIsRefusedAndTheQueueIsDiscardedLater(t
 	}
 	if w := postEdit(t, s, "/api/save/discard", `{}`); w.Code != 200 || s.Save.Held() != nil {
 		t.Fatalf("the held queue is discarded: %d %s", w.Code, w.Body.String())
+	}
+	if n := ops.SpawnAnswerCount(s.Save); n != 0 {
+		t.Fatalf("the discarded queue took its answers with it, %d left", n)
 	}
 	b := create(t, s, ledgerForm2)
 	if b["id"] != a["id"] {
@@ -385,6 +401,9 @@ func TestAReloadThatDroppedAnotherEditKeepsTheAnswerOfTheCreateThatWasPutBack(t 
 	if w.Code != 200 || r == nil || r["applied"] != float64(1) || r["conflicts"] == nil {
 		t.Fatalf("the Create is put back and the other edit is dropped: %d %s", w.Code, w.Body.String())
 	}
+	if n := ops.SpawnAnswerCount(s.Save); n != 1 {
+		t.Fatalf("the answer of the Create that was put back stays, %d answers", n)
+	}
 	b := create(t, s, ledgerForm1)
 	if b["repeat"] != true || b["id"] != a["id"] {
 		t.Fatalf("the retry is answered with the Create that was put back: %v", b)
@@ -433,5 +452,91 @@ func TestACreateRefusedWhileTheQueueWasHeldIsAnsweredAfterTheQueueIsWritten(t *t
 	b := create(t, s, ledgerForm1)
 	if b["repeat"] != true || b["id"] != a["id"] || vehiclesInFile(t, s.Save.Path) != 1 {
 		t.Fatalf("the retry gets the first answer and writes nothing: %v, %d vehicles", b, vehiclesInFile(t, s.Save.Path))
+	}
+}
+
+// A Discard that throws away an unrelated edit leaves the answer of a Create that is already in the file (a retry after a lost answer still gets its answer and writes nothing),
+// and one that throws away a queued Create takes only that answer.
+func TestADiscardKeepsTheAnswersOfWrittenCreatesAndDropsThoseOfQueuedOnes(t *testing.T) {
+	s := spawnServer(t)
+	a := create(t, s, ledgerForm1) // written
+	if a["outcome"] != "written" {
+		t.Fatalf("the Create is in the file: %v", a)
+	}
+	if _, err := s.Save.Mutate("an unrelated edit", func(m *save.Mut) error {
+		_, err := m.Exec(`update items set stack_size=stack_size+1 where template_id='SolarisCoin'`)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if w := postEdit(t, s, "/api/save/discard", `{}`); w.Code != 200 {
+		t.Fatalf("discard: %d %s", w.Code, w.Body.String())
+	}
+	if n := ops.SpawnAnswerCount(s.Save); n != 1 {
+		t.Fatalf("the answer of the Create in the file stays, %d answers", n)
+	}
+	if b := create(t, s, ledgerForm1); b["repeat"] != true || b["id"] != a["id"] || vehiclesInFile(t, s.Save.Path) != 1 {
+		t.Fatalf("the retry gets the first answer and writes nothing: %v, %d vehicles", b, vehiclesInFile(t, s.Save.Path))
+	}
+	// a queued Create is thrown away with its answer, the written one keeps its own
+	restore := save.ActiveSessionForTests()
+	defer restore()
+	q := create(t, s, ledgerForm2)
+	if q["outcome"] != "queued" || ops.SpawnAnswerCount(s.Save) != 2 {
+		t.Fatalf("the second Create waits: %v", q)
+	}
+	if w := postEdit(t, s, "/api/save/discard", `{}`); w.Code != 200 {
+		t.Fatalf("discard: %d %s", w.Code, w.Body.String())
+	}
+	if n := ops.SpawnAnswerCount(s.Save); n != 1 {
+		t.Fatalf("only the answer of the queued Create goes, %d answers", n)
+	}
+	if b := create(t, s, ledgerForm1); b["repeat"] != true || b["id"] != a["id"] {
+		t.Fatalf("the written Create keeps its answer: %v", b)
+	}
+}
+
+// A vehicle the game wrote under the id of a Create that was dropped is not that Create's vehicle (#760): after Discard and after Reload now the answer is dropped, and a retry
+// writes the Create again instead of being answered with the game's vehicle.
+func TestAVehicleOfTheGameUnderTheIdOfADroppedCreateIsNotTakenForIt(t *testing.T) {
+	for _, how := range []string{"discard", "reload"} {
+		t.Run(how, func(t *testing.T) {
+			restore := save.ActiveSessionForTests()
+			s := ledgerServer(t)
+			a := create(t, s, ledgerForm1) // queued
+			class := a["rows"].(map[string]any)["actors"].([]any)[0].(map[string]any)["class"].(string)
+			restore() // the game closes, having written a vehicle of its own under the id of the queued one
+			other, err := save.Open(s.Save.Path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := other.Mutate("the game's vehicle", func(m *save.Mut) error {
+				if _, err := m.Exec(`insert into actors(id,class,map,state) values (?,?,'HaggaBasin',0)`, a["id"], class); err != nil {
+					return err
+				}
+				_, err := m.Exec(`insert into vehicles(id) values (?)`, a["id"])
+				return err
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := other.CommitForTests(); err != nil {
+				t.Fatal(err)
+			}
+			other.Close()
+			route := "/api/save/discard"
+			if how == "reload" {
+				route = "/api/save/rebase"
+			}
+			if w := postEdit(t, s, route, `{}`); w.Code != 200 {
+				t.Fatalf("%s: %d %s", route, w.Code, w.Body.String())
+			}
+			if n := ops.SpawnAnswerCount(s.Save); n != 0 {
+				t.Fatalf("the answer names the game's vehicle, not the Create's: it is dropped, %d answers", n)
+			}
+			b := create(t, s, ledgerForm1)
+			if b["repeat"] == true || b["id"] == a["id"] || vehiclesInFile(t, s.Save.Path) != 2 {
+				t.Fatalf("the retry writes the Create again next to the game's vehicle: %v, %d vehicles", b, vehiclesInFile(t, s.Save.Path))
+			}
+		})
 	}
 }
