@@ -746,3 +746,39 @@ test('boxes nobody typed in are drawn from the draft as before: an answer change
   assert.equal(posts(ui, '/api/vehicles/spawn').length, 1, 'with nothing typed the preview still matches and Create writes');
   ui.dom.window.close();
 });
+
+test('keys typed while the page is being drawn again (the answer is in, the boxes are not replaced yet) are kept too', async () => {
+  const post = { '/api/vehicles/spawn-preview': SWAPPED(), '/api/vehicles/spawn': ANSWER({ outcome: 'written' }) };
+  const ui = await boot({ get: GET, post });
+  const release = await holdForm(ui, post, SWAPPED({ id: 1873 }));
+  typeIn(ui, '#vcItem', 'Sp', 2);
+  // the next key arrives while the redraw is asking the editor for its data: it goes to the box that is about to go
+  const prev = ui.w.fetch;
+  let typedLate = false;
+  ui.w.fetch = (p, o) => { if (!typedLate && !String(p).includes('spawn-preview')) { typedLate = true; typeIn(ui, '#vcItem', 'Spi', 3); } return prev(p, o); };
+  release(); await ui.settle();
+  ui.w.fetch = prev;
+  assert.ok(typedLate, 'the key was typed during the redraw');
+  assert.equal(ui.doc.querySelector('#vcItem').value, 'Spi');
+  assert.equal(ui.doc.activeElement, ui.doc.querySelector('#vcItem'));
+  assert.equal(ui.doc.querySelector('#vcItem').selectionStart, 3, 'the caret is after the last key');
+  ui.dom.window.close();
+});
+
+test('Create that finds the form changed after the preview keeps the text typed in the item and Qty boxes', async () => {
+  const post = { '/api/vehicles/spawn-preview': SWAPPED(), '/api/vehicles/spawn': ANSWER({ outcome: 'written' }) };
+  const ui = await boot({ get: GET, post });
+  await openForm(ui);
+  await change(ui, '[data-vcslot="UtilitySlot1"]', 'BuggyInventory_6');
+  ui.click('[data-act="vcPreview"]'); await ui.settle();
+  typeIn(ui, '#vcFuel', '40'); // the fuel is not in the preview
+  typeIn(ui, '#vcItem', 'Spice', 5);
+  typeIn(ui, '#vcQty', '9');
+  ui.click('[data-act="vcCreate"]'); await ui.settle();
+  assert.equal(posts(ui, '/api/vehicles/spawn').length, 0, 'nothing is written');
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('The form changed after the preview'));
+  assert.equal(ui.doc.querySelector('#vcItem').value, 'Spice', 'the typed item name is still there');
+  assert.equal(ui.doc.querySelector('#vcQty').value, '9');
+  assert.equal(ui.doc.querySelector('#vcFuel').value, '40');
+  ui.dom.window.close();
+});
