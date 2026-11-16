@@ -431,6 +431,72 @@ func TestGrantFillFactionGoalGivesTheFactionWhatAPlainFillGives(t *testing.T) {
 	}
 }
 
+// #751: Fill faction goal on a house another faction took. The house is not open, so the faction gains nothing from the raise (no event after a completion carries faction progress)
+// and is taken to the goal by the completion alone, not to goal plus what the character gained; the house is counted once.
+func TestGrantFillFactionGoalOnAHouseTheOtherFactionTookCountsItOnceAndBringsTheFactionToTheGoal(t *testing.T) {
+	o := rewardOps(t, `update landsraad_tasks set completed=1, winning_faction_id=1, completion_time=140 where id=175;`)
+	m := applyWith(t, o, DefaultGrantSettings(), house(175, Args{"was_done": true, "was_win": 1.0, "was_mine": 1300.0, "mine_to": 6000.0, "complete_for": 2.0}))
+	if m["completed"].(int64) != 1 || m["houses"].(int64) != 1 || m["changed"].(int64) != 1 {
+		t.Fatalf("answer: %v", m)
+	}
+	if v, _ := progress(t, o, 2, 175); v != 4000 {
+		t.Fatalf("the faction's progress (its 1,000 taken to the goal; the house was not open for the 4,700 gained): %v", v)
+	}
+	if h := houseRow(t, o, 175); h["c"].(int64) != 1 || h["w"].(int64) != 2 {
+		t.Fatalf("the house was not taken for the faction: %v", h)
+	}
+	// a faction already past the goal is not lowered
+	o = rewardOps(t, `update landsraad_tasks set completed=1, winning_faction_id=1, completion_time=140 where id=175;
+		update landsraad_task_faction_contributions set amount=4500 where task_id=175 and faction_id=2;`)
+	applyWith(t, o, DefaultGrantSettings(), house(175, Args{"was_done": true, "was_win": 1.0, "was_mine": 1300.0, "mine_to": 6000.0, "complete_for": 2.0}))
+	if v, _ := progress(t, o, 2, 175); v != 4500 {
+		t.Fatalf("a faction above the goal was changed: %v", v)
+	}
+}
+
+// #751: Fill faction goal when the character's own events already cover the ground (the raise pays nothing): the house is still taken, once, and the faction is at the goal at
+// least, which a plain Fill (that gains nothing here) would not do. Never lower than a plain Fill.
+func TestGrantFillFactionGoalOnGroundTheEventsCoverCountsTheHouseOnceAndPaysNothingTwice(t *testing.T) {
+	const covered = `insert into landsraad_task_progress(id, faction_id, task_id, faction_progress, guild_progress, player_progress, timestamp) values (5, 2, 175, 0, 0, 6000, 120);
+		insert into landsraad_task_progress_player(progress_id, player_id) values (5, 1);`
+	plain, goal := rewardOps(t, covered), rewardOps(t, covered)
+	applyWith(t, plain, DefaultGrantSettings(), house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0}))
+	m := applyWith(t, goal, DefaultGrantSettings(), house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0, "complete_for": 2.0}))
+	if m["completed"].(int64) != 1 || m["missions"].(int64) != 0 || m["reward_rows"].(int64) != 0 || m["solari"].(int64) != 0 {
+		t.Fatalf("answer: %v", m)
+	}
+	if wallet(t, goal, 0) != 0 || wallet(t, goal, 1) != 0 {
+		t.Fatal("ground the events cover was paid again")
+	}
+	pf, _ := progress(t, plain, 2, 175)
+	gf, _ := progress(t, goal, 2, 175)
+	if pf != 1000 || gf != 4000 || gf < pf {
+		t.Fatalf("the faction: plain %v, goal %v", pf, gf)
+	}
+	if h := houseRow(t, goal, 175); h["c"].(int64) != 1 || h["w"].(int64) != 2 {
+		t.Fatalf("the house was not taken for the faction: %v", h)
+	}
+}
+
+// #751: Fill faction goal on a house that is already the character's faction's, with the faction's progress still short of the goal. The raise pays something, the faction's progress
+// is taken to the goal, and the answer and the write log say the house was completed (as they do for Complete alone), counted once.
+func TestGrantFillFactionGoalOnAHouseOfTheCharactersFactionBelowTheGoalSaysItWasCompleted(t *testing.T) {
+	o := rewardOps(t, `update landsraad_tasks set completed=1, winning_faction_id=2, completion_time=140 where id=175;`)
+	m := applyWith(t, o, DefaultGrantSettings(), house(175, Args{"was_done": true, "was_win": 2.0, "was_mine": 1300.0, "mine_to": 6000.0, "complete_for": 2.0}))
+	if m["completed"].(int64) != 1 || m["contribution_raised"].(int64) != 1 || m["missions"].(int64) == 0 {
+		t.Fatalf("answer: %v", m)
+	}
+	if v, _ := progress(t, o, 2, 175); v != 4000 {
+		t.Fatalf("the faction's progress: %v", v)
+	}
+	if h := houseRow(t, o, 175); h["c"].(int64) != 1 || h["w"].(int64) != 2 || h["ct"].(int64) != 140 {
+		t.Fatalf("the house: %v", h)
+	}
+	if d := lastEdit(t, o); d != "landsraad Kenola: your contribution 1300 -> 6000, completed for Harkonnen" {
+		t.Fatalf("write log %q", d)
+	}
+}
+
 // The character's events are the game's own: a raise leaves them as they are (#655), so the board reads the same ground after a raise as before it.
 func TestGrantTheBoardReadSaysWhatTheCharactersEventsCover(t *testing.T) {
 	o := rewardOps(t, `insert into landsraad_task_progress(id, faction_id, task_id, faction_progress, guild_progress, player_progress, timestamp) values (5, 2, 175, 0, 0, 1300, 120);
