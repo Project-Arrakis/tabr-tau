@@ -90,6 +90,23 @@ func TestImportRefusesValuesOutOfRange(t *testing.T) {
 				rowWhere(tb, "items", "id", 9002)["stats"] = map[string]any{"FItemStackAndDurabilityStats": []any{[]any{}, map[string]any{"DecayedMaxDurability": num("1e999")}}}
 			})
 		}, "DecayedMaxDurability is a number the editor cannot hold"},
+		{"a durability of 1e300 beside another key of another shape", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) {
+				rowWhere(tb, "items", "id", 9002)["stats"] = map[string]any{
+					"FItemStackAndDurabilityStats": []any{[]any{}, map[string]any{"CurrentDurability": num("1e300")}},
+					"SomethingElse":                "text, not an array",
+				}
+			})
+		}, "CurrentDurability is 1e+300"},
+		{"a negative durability beside a key that holds a number", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) {
+				rowWhere(tb, "items", "id", 9002)["stats"] = map[string]any{
+					"FItemStackAndDurabilityStats": []any{[]any{}, map[string]any{"MaxDurability": num("-5")}},
+					"Another":                      map[string]any{"a": 1},
+					"Count":                        7,
+				}
+			})
+		}, "MaxDurability is -5"},
 		{"text longer than the limit", func() []byte {
 			return editFile(t, good, func(tb map[string][]map[string]any) {
 				rowWhere(tb, "permission_actor", "actor_id", 701)["actor_name"] = strings.Repeat("a", basefile.MaxText+1)

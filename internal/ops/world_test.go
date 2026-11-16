@@ -9,10 +9,13 @@ import (
 // The whole-save, one-click operations had no tests at all (QA-3 of the 2026-10-15 audit). Each one is checked with rows it must change and
 // rows it must not.
 const buildingWorld = `
-insert into actors(id,class,map) values (801,'c','HaggaBasin'),(802,'c','HaggaBasin'),(851,'c','HaggaBasin'),(852,'c','HaggaBasin'),(853,'c','HaggaBasin');
-insert into building_instances(building_id,instance_id,building_type,health,sand_buildup) values
-  (801,1,'Foundation',7000.0,0),(801,2,'Foundation',3500.0,40),(801,3,'Wall',5600.0,0),(802,1,'Wall',1000.0,12),(802,2,'Wall',2000.0,0);
-insert into placeables(id,health,building_type) values (851,1250.0,'WaterCistern_Placeable'),(852,300.0,'WaterCistern_Placeable'),(853,2500.0,'Generator_Placeable');`
+insert into actors(id,class,map) values (601,'t','HaggaBasin'),(801,'c','HaggaBasin'),(802,'c','HaggaBasin'),(851,'c','HaggaBasin'),(852,'c','HaggaBasin'),(853,'c','HaggaBasin');
+insert into totems(id) values (601);
+insert into fgl_entities(entity_id,components) values (-601, jsonb('{}'));
+insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (601,-601,'Actor');
+insert into building_instances(building_id,instance_id,building_type,health,sand_buildup,owner_entity_id) values
+  (801,1,'Foundation',7000.0,0,-601),(801,2,'Foundation',3500.0,40,-601),(801,3,'Wall',5600.0,0,-601),(802,1,'Wall',1000.0,12,-601),(802,2,'Wall',2000.0,0,-601);
+insert into placeables(id,health,building_type,owner_entity_id) values (851,1250.0,'WaterCistern_Placeable',-601),(852,300.0,'WaterCistern_Placeable',-601),(853,2500.0,'Generator_Placeable',-601);`
 
 func healths(t *testing.T, o *Ops, q string) []float64 {
 	t.Helper()
