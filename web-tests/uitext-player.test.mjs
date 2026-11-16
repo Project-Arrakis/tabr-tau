@@ -78,7 +78,7 @@ test('Skills: the three-numbers note is in About this; the reset explanation is 
 test('Specialization: the 90-word paragraph is in About this, the dead-end note is shorter and drawn only while no track has a number, the unknown-rows line stays', async () => {
   let ui = await boot({ get: { '/api/player/specs': specs(2, [{ number: 7, xp: 900, level: 8 }]) } });
   let main = await page(ui, 'specialization');
-  moves(main, ['The game\'s own database names its specialization tracks', 'Removes the XP of every track whose number is known']);
+  moves(main, ['Your save stores only a number for each specialization track', 'Removes the XP of every track whose number is known']);
   assert.ok(!visibleText(main).includes('Changes are written to the game file as you make them'));
   assert.ok(!movedText(main).includes('Changes are written to the game file as you make them'), 'deleted for good: the banner and the results say it');
   assert.equal(ui.doc.querySelector('#spnone'), null, 'some track has a number: no dead-end note');
@@ -86,7 +86,7 @@ test('Specialization: the 90-word paragraph is in About this, the dead-end note 
   assert.deepEqual(ui.doc.querySelector('[data-act="spResetAll"]').getAttribute('aria-describedby').split(' '), ['spresettip', 'spresetleft']);
   assert.ok(ui.doc.querySelector('[data-act="spMax"]').title.includes('44,182'), 'Max XP is on Grant max');
   // the raw-row warning is still inside its own closed disclosure
-  const adv = [...ui.doc.querySelectorAll('details')].find((d) => d.textContent.includes('A wrong number changes another track'));
+  const adv = [...ui.doc.querySelectorAll('details')].find((d) => d.textContent.includes('Nothing checks that the two match'));
   assert.ok(adv && !adv.open);
   ui.dom.window.close();
 

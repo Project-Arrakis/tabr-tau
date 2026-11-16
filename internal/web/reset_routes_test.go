@@ -166,3 +166,33 @@ func TestResetJourneyRoute(t *testing.T) {
 		t.Fatalf("nothing to do: %d %s", w.Code, w.Body.String())
 	}
 }
+
+// A save with nothing assigned in the settings still has a number for every track (the measured ones), so the Specialization tab needs no assignment (#708).
+func TestSpecsRouteUsesTheMeasuredNumbersWhereNothingIsAssigned(t *testing.T) {
+	s := New(testsave.PlayerWithSQL(t, resetCharacter+`
+		insert into specialization_tracks(player_id,track_type,xp_amount,level) values (1,2,3000,19.0);`), config.Dir{Path: t.TempDir()})
+	s.SettingsPath = filepath.Join(t.TempDir(), "settings.json")
+	w := do(t, s, "GET", "http://127.0.0.1/api/player/specs", loop, map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}, nil)
+	m := decodeBody(t, w)
+	rows, _ := m["rows"].([]any)
+	if w.Code != 200 || len(rows) != 5 {
+		t.Fatalf("the read: %d %s", w.Code, w.Body.String())
+	}
+	want := map[string]float64{"Crafting": 1, "Gathering": 2, "Exploration": 3, "Combat": 4, "Sabotage": 5}
+	for _, r := range rows {
+		row := r.(map[string]any)
+		if row["number"] != want[row["track"].(string)] {
+			t.Fatalf("%v: number %v", row["track"], row["number"])
+		}
+		if row["track"] == "Gathering" && row["xp"] != float64(3000) {
+			t.Fatalf("Gathering holds the row of number 2: %v", row)
+		}
+	}
+	w = postEdit(t, s, "/api/player/specs/xp", `{"track":"Sabotage","amount":500}`)
+	if w.Code != 200 {
+		t.Fatalf("Add XP to a track nothing was assigned to: %d %s", w.Code, w.Body.String())
+	}
+	if n, err := s.Save.One(`select xp_amount x from specialization_tracks where track_type=5`); err != nil || n["x"].(int64) != 500 {
+		t.Fatalf("the row of number 5: %v %v", n, err)
+	}
+}

@@ -131,6 +131,28 @@ func (o *Ops) Specs(nums map[string]int64) (any, error) {
 	return map[string]any{"rows": rows, "unassigned": unassigned, "maxXp": maxSpecXP, "tracks": SpecTracks, "resetCount": resetCount}, nil
 }
 
+// EffectiveTrackNumbers are the track numbers the Specialization tab works with: the ones the editor learned, and for every track it learned none the number measured
+// in the game (measuredTrackNumbers: 1 Crafting, 2 Gathering, 3 Exploration, 4 Combat, 5 Sabotage). A measured number that a learned number already uses for another track
+// is left out, so two tracks never share a row; that track stays unknown and the tab then offers the assignment. The learned map is not changed.
+func EffectiveTrackNumbers(learned map[string]int64) map[string]int64 {
+	out := make(map[string]int64, len(SpecTracks))
+	used := map[int64]bool{}
+	for t, n := range learned {
+		out[t] = n
+		used[n] = true
+	}
+	for _, t := range SpecTracks {
+		if _, has := out[t]; has {
+			continue
+		}
+		if n, ok := measuredTrackNumbers[t]; ok && !used[n] {
+			out[t] = n
+			used[n] = true
+		}
+	}
+	return out
+}
+
 // trackNumber is the learned number of a track, or an error saying how to learn it.
 func trackNumber(nums map[string]int64, track string) (int64, error) {
 	if !validTrack(track) {

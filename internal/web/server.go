@@ -719,11 +719,11 @@ func (s *Server) routes() {
 	s.post("/api/inventories/clear", o.ClearContainer)
 	s.get("/api/player/factions", func(r *http.Request) (any, error) { return o.Factions() })
 	s.post("/api/player/factions", o.SetReputation)
-	s.get("/api/player/specs", func(r *http.Request) (any, error) { return o.Specs(settings.Load(s.SettingsPath).TrackNumbers) })
-	s.post("/api/player/specs/xp", func(a ops.Args) (any, error) { return o.AddSpecXP(settings.Load(s.SettingsPath).TrackNumbers, a) })
-	s.post("/api/player/specs/max", func(a ops.Args) (any, error) { return o.GrantMaxSpec(settings.Load(s.SettingsPath).TrackNumbers, a) })
-	s.post("/api/player/specs/reset", func(a ops.Args) (any, error) { return o.ResetSpec(settings.Load(s.SettingsPath).TrackNumbers, a) })
-	s.post("/api/player/specs/reset-all", func(a ops.Args) (any, error) { return o.ResetSpecTracks(settings.Load(s.SettingsPath).TrackNumbers, a) })
+	s.get("/api/player/specs", func(r *http.Request) (any, error) { return o.Specs(s.specNums()) })
+	s.post("/api/player/specs/xp", func(a ops.Args) (any, error) { return o.AddSpecXP(s.specNums(), a) })
+	s.post("/api/player/specs/max", func(a ops.Args) (any, error) { return o.GrantMaxSpec(s.specNums(), a) })
+	s.post("/api/player/specs/reset", func(a ops.Args) (any, error) { return o.ResetSpec(s.specNums(), a) })
+	s.post("/api/player/specs/reset-all", func(a ops.Args) (any, error) { return o.ResetSpecTracks(s.specNums(), a) })
 	s.post("/api/player/level/reset", o.ResetLevel)
 	s.post("/api/player/specs/keystones/grant", func(ops.Args) (any, error) { return o.GrantAllKeystones() })
 	s.post("/api/player/specs/keystones/reset", func(ops.Args) (any, error) { return o.ResetAllKeystones() })
@@ -1299,4 +1299,9 @@ func (s *Server) grantSettings() ops.GrantSettings {
 		g.Problem = "The Landsraad amounts cannot be worked out: " + strings.Join(problems, "; and ") + ". Nothing was changed; correct the value in ServerCustomSettings.ini (Config tab) and try again."
 	}
 	return g
+}
+
+// specNums are the track numbers the Specialization tab works with: the ones assigned in the settings, and the measured numbers for every track with none.
+func (s *Server) specNums() map[string]int64 {
+	return ops.EffectiveTrackNumbers(settings.Load(s.SettingsPath).TrackNumbers)
 }

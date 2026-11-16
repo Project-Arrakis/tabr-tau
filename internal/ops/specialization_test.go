@@ -173,3 +173,49 @@ func TestSpecLevelFollowsTheConsolesTable(t *testing.T) {
 		t.Errorf("the level is fractional between levels: %v", l)
 	}
 }
+
+func TestEffectiveTrackNumbersFillsInTheMeasuredNumbersAndKeepsTheLearnedOnes(t *testing.T) {
+	got := EffectiveTrackNumbers(nil)
+	want := map[string]int64{"Crafting": 1, "Gathering": 2, "Exploration": 3, "Combat": 4, "Sabotage": 5}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Fatalf("%s: got %d, want %d", k, got[k], v)
+		}
+	}
+	// a learned number wins over the measured one of the same track
+	got = EffectiveTrackNumbers(map[string]int64{"Combat": 9})
+	if got["Combat"] != 9 || got["Sabotage"] != 5 {
+		t.Fatalf("got %v", got)
+	}
+	// a learned number that is the measured number of another track leaves that track unknown instead of sharing a row
+	got = EffectiveTrackNumbers(map[string]int64{"Combat": 1})
+	if _, has := got["Crafting"]; has || got["Combat"] != 1 {
+		t.Fatalf("Crafting must stay unknown while Combat uses 1: %v", got)
+	}
+	// the learned map is not changed
+	in := map[string]int64{"Combat": 1}
+	EffectiveTrackNumbers(in)
+	if len(in) != 1 {
+		t.Fatalf("learned map was changed: %v", in)
+	}
+}
+
+func TestSpecsOfASaveWithNothingLearnedShowsEveryTrackWithItsMeasuredNumber(t *testing.T) {
+	o := specOps(t)
+	res, err := o.Specs(EffectiveTrackNumbers(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := res.(map[string]any)["rows"].([]SpecRow)
+	for _, r := range rows {
+		if r.Number == nil {
+			t.Fatalf("%s has no number", r.Track)
+		}
+		if r.Track == "Gathering" && (*r.Number != 2 || r.XP != 3000) {
+			t.Fatalf("Gathering: %+v", r)
+		}
+	}
+}
