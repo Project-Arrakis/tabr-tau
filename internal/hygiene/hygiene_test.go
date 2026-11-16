@@ -620,3 +620,33 @@ func TestPublicTextCoversCommitCommentsReleasesCreatesAndPushes(t *testing.T) {
 		}
 	}
 }
+
+// The page that explains the check must keep naming every workflow, every check name and the two switches an operator uses, so a workflow
+// added or renamed without the page fails here (#653).
+func TestThePublicTextPageNamesEveryWorkflowAndCheck(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", "docs", "public-text-check.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := string(b)
+	files, err := filepath.Glob(filepath.Join("..", "..", ".github", "workflows", "public-text*.yml"))
+	if err != nil || len(files) < 3 {
+		t.Fatalf("expected at least the three public-text workflows, found %v (%v)", files, err)
+	}
+	for _, f := range files {
+		base := filepath.Base(f)
+		if !strings.Contains(page, "`"+base+"`") {
+			t.Errorf("docs/public-text-check.md does not name the workflow %s", base)
+		}
+		for _, n := range workflowJobNames(readWorkflow(t, base)) {
+			if !strings.Contains(page, "`"+n+"`") {
+				t.Errorf("docs/public-text-check.md does not name the check %s", n)
+			}
+		}
+	}
+	for _, want := range []string{"PUBLIC_TEXT_EXTRA_DIGESTS", "-items", "-digest", "-show", "permissions: contents: read", "pull_request_target"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("docs/public-text-check.md does not mention %q", want)
+		}
+	}
+}
