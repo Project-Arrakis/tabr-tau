@@ -429,7 +429,7 @@ func (l *spawnLedger) forget(key spawnAsked) {
 	}
 }
 
-// ForgetSpawnAnswers empties the ledger of a save. It is called when edits that were made are dropped (Discard, Restore, Rebase), so that an id whose vehicle is gone is not answered as a repeat.
+// ForgetSpawnAnswers empties the ledger of a save. It is called when edits that were made are dropped (Discard, Restore), so that an id whose vehicle is gone is not answered as a repeat.
 func ForgetSpawnAnswers(s *save.Save) {
 	spawnAnswers.Lock()
 	defer spawnAnswers.Unlock()
@@ -440,14 +440,39 @@ func ForgetSpawnAnswers(s *save.Save) {
 	}
 }
 
-// spawnedStillThere says whether the vehicle an earlier answer names is still a vehicle of the working copy.
-func (o *Ops) spawnedStillThere(prev map[string]any) bool {
+// PruneSpawnAnswers drops the answers of a save whose vehicle is not in the working copy, and keeps the others. It is for a reload that dropped only some of the edits (Reload now
+// with a conflict): the Create that was put back, or written earlier, keeps its answer, so a retry after a lost answer still writes nothing (#760). An answer is dropped only when
+// the working copy was read and the vehicle is not in it; a read that failed keeps it.
+func PruneSpawnAnswers(s *save.Save) {
+	spawnAnswers.Lock()
+	defer spawnAnswers.Unlock()
+	for k, prev := range spawnAnswers.seen {
+		if k.s != s {
+			continue
+		}
+		if there, read := vehicleThere(s, prev); read && !there {
+			spawnAnswers.forget(k)
+		}
+	}
+}
+
+// vehicleThere says whether the vehicle an earlier answer names is a vehicle of the working copy, and whether the working copy could be read to find out.
+func vehicleThere(s *save.Save, prev map[string]any) (there, read bool) {
 	id, ok := prev["id"].(int64)
 	if !ok {
-		return false
+		return false, true
 	}
-	r, err := o.S.One(`select 1 c from vehicles where id=?`, id)
-	return err == nil && r != nil
+	r, err := s.One(`select 1 c from vehicles where id=?`, id)
+	if err != nil {
+		return false, false
+	}
+	return r != nil, true
+}
+
+// spawnedStillThere says whether the vehicle an earlier answer names is still a vehicle of the working copy.
+func (o *Ops) spawnedStillThere(prev map[string]any) bool {
+	there, _ := vehicleThere(o.S, prev)
+	return there
 }
 
 var requestIDRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
@@ -498,6 +523,15 @@ func (o *Ops) spawnVehicle(a Args, dry bool) (any, error) {
 			}
 			if m, ok := res.(map[string]any); ok {
 				spawnAnswers.forget(key)
+				// Ids are reused (the next one is the highest plus one): an answer of another form that names the id this vehicle took is stale, and a retry of that form must
+				// write, not be answered with this vehicle (#760).
+				if id, ok := m["id"].(int64); ok {
+					for k, v := range spawnAnswers.seen {
+						if pid, ok := v["id"].(int64); ok && k.s == o.S && pid == id {
+							spawnAnswers.forget(k)
+						}
+					}
+				}
 				spawnAnswers.seen[key] = m
 				spawnAnswers.order = append(spawnAnswers.order, key)
 				if len(spawnAnswers.order) > maxSpawnAnswers {

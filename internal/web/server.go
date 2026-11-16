@@ -905,7 +905,7 @@ func (s *Server) routes() {
 		}
 		dropped, err := s.Save.DiscardReport()
 		if dropped {
-			ops.ForgetSpawnAnswers(s.Save) // the vehicles Create answered for are gone with the edits (#740)
+			ops.PruneSpawnAnswers(s.Save) // the vehicles of the queued Creates are gone with the edits (#740); the ones already in the file keep their answer (#760)
 		}
 		return map[string]any{"ok": true}, err
 	})
@@ -916,7 +916,8 @@ func (s *Server) routes() {
 			return nil, err // refused before the file was read, or the read failed: the queue is as it was
 		}
 		if r != nil && len(r.Conflicts) > 0 {
-			ops.ForgetSpawnAnswers(s.Save) // an edit that could not be put back is gone, so an id is not answered with a vehicle that is not there (#740)
+			// an edit that could not be put back is gone, so an id is not answered with a vehicle that is not there (#740); the Creates that were put back, or are in the file, keep their answer (#760)
+			ops.PruneSpawnAnswers(s.Save)
 		}
 		return map[string]any{"ok": true, "restored": r}, nil
 	})
@@ -934,10 +935,12 @@ func (s *Server) routes() {
 	s.post("/api/save/restore", func(a ops.Args) (any, error) {
 		err := s.Save.Restore(a.Str("name"))
 		if err == nil {
-			// the file was replaced by an older one: the vehicles Create answered for may be gone from it (#740). A refused restore (edits queued, game running, no such
-			// backup) read nothing, and one that failed after the file was replaced leaves the editor blocked until it is restarted, which empties the ledger anyway (#760).
+			// the file was replaced by another one: the vehicles Create answered for may be gone from it, or another vehicle may have their id (#740)
 			ops.ForgetSpawnAnswers(s.Save)
 		}
+		// A refused restore (edits queued, game running, no such backup) read nothing and the working copy is as it was. One that replaced the file and could not read it back
+		// returns an error too and does not block the editor: the working copy is not reloaded, the answers stay, and an answer whose id another vehicle takes later is dropped
+		// where that vehicle is written (#760).
 		return map[string]any{"ok": true}, err
 	})
 

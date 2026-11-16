@@ -1,6 +1,7 @@
 package web
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -278,5 +279,159 @@ func TestACreateRetriedWhileTheQueueIsHeldIsRefusedAndTheQueueIsDiscardedLater(t
 	c := create(t, s, ledgerForm1)
 	if c["repeat"] == true || vehiclesInFile(t, s.Save.Path) != 2 {
 		t.Fatalf("after the discard the retry writes again: %v, %d vehicles", c, vehiclesInFile(t, s.Save.Path))
+	}
+}
+
+// Ids are reused: the next vehicle takes the highest id plus one. An answer whose vehicle left the working copy without any route being told (the file was replaced from
+// outside and read again; the working copy rebased onto a newer file) must not be handed out for another form's vehicle that took the same id (#760).
+
+func replaceSaveFile(t *testing.T, path string, with []byte) {
+	t.Helper()
+	if err := os.WriteFile(path, with, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAnAnswerOfAVehicleThatLeftTheFileIsNotHandedOutAfterACleanReload(t *testing.T) {
+	s := spawnServer(t)
+	older, err := os.ReadFile(s.Save.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := create(t, s, ledgerForm1)
+	if a["outcome"] != "written" || vehiclesInFile(t, s.Save.Path) != 1 {
+		t.Fatalf("the Create is in the file: %v", a)
+	}
+	replaceSaveFile(t, s.Save.Path, older) // an older file put back from outside
+	if w := postEdit(t, s, "/api/save/discard", `{"ifClean":true}`); w.Code != 200 {
+		t.Fatalf("the refresh: %d %s", w.Code, w.Body.String())
+	}
+	if vehiclesInFile(t, s.Save.Path) != 0 {
+		t.Fatal("the refresh read the older file")
+	}
+	b := create(t, s, ledgerForm2)
+	if b["id"] != a["id"] {
+		t.Fatalf("the second form takes the same id (this is what the test needs): %v %v", a["id"], b["id"])
+	}
+	c := create(t, s, ledgerForm1)
+	if c["repeat"] == true || vehiclesInFile(t, s.Save.Path) != 2 {
+		t.Fatalf("the retry of the first form writes its own vehicle: %v, %d vehicles", c, vehiclesInFile(t, s.Save.Path))
+	}
+}
+
+func TestAnAnswerOfAVehicleThatLeftTheFileIsNotHandedOutAfterAWaitingEditWasRebased(t *testing.T) {
+	s := ledgerServer(t)
+	older, err := os.ReadFile(s.Save.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := create(t, s, ledgerForm1)
+	if a["outcome"] != "written" {
+		t.Fatalf("the Create is written: %v", a)
+	}
+	if _, err := s.Save.Mutate("a waiting edit", func(m *save.Mut) error {
+		_, err := m.Exec(`update items set stack_size=stack_size+1 where template_id='SolarisCoin'`)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	replaceSaveFile(t, s.Save.Path, older) // the file is another one when the waiting edit is written
+	if f := s.Save.Flush(); !f.Saved {
+		t.Fatalf("the waiting edit is put onto the newer file and written: %+v", f)
+	}
+	if vehiclesInFile(t, s.Save.Path) != 0 {
+		t.Fatal("the file the edit was put onto has no vehicle")
+	}
+	b := create(t, s, ledgerForm2)
+	if b["id"] != a["id"] {
+		t.Fatalf("the second form takes the same id (this is what the test needs): %v %v", a["id"], b["id"])
+	}
+	c := create(t, s, ledgerForm1)
+	if c["repeat"] == true || vehiclesInFile(t, s.Save.Path) != 2 {
+		t.Fatalf("the retry of the first form writes its own vehicle: %v, %d vehicles", c, vehiclesInFile(t, s.Save.Path))
+	}
+}
+
+// Reload now that drops one edit and puts the other back (a Create and an unrelated edit, of which the game's file no longer has the row): the Create is still queued and a
+// retry of it is answered; the answer is not forgotten with the edit that was dropped.
+func TestAReloadThatDroppedAnotherEditKeepsTheAnswerOfTheCreateThatWasPutBack(t *testing.T) {
+	restore := save.ActiveSessionForTests()
+	s := ledgerServer(t)
+	a := create(t, s, ledgerForm1)
+	if _, err := s.Save.Mutate("an unrelated edit", func(m *save.Mut) error {
+		_, err := m.Exec(`update items set stack_size=stack_size+1 where template_id='SolarisCoin'`)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	restore() // the game closes, having removed the row the other edit works on
+	other, err := save.Open(s.Save.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := other.Mutate("the game's change", func(m *save.Mut) error {
+		_, err := m.Exec(`delete from items where template_id='SolarisCoin'`)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := other.CommitForTests(); err != nil {
+		t.Fatal(err)
+	}
+	other.Close()
+	w := postEdit(t, s, "/api/save/rebase", `{}`)
+	m := decodeBody(t, w)
+	r, _ := m["restored"].(map[string]any)
+	if w.Code != 200 || r == nil || r["applied"] != float64(1) || r["conflicts"] == nil {
+		t.Fatalf("the Create is put back and the other edit is dropped: %d %s", w.Code, w.Body.String())
+	}
+	b := create(t, s, ledgerForm1)
+	if b["repeat"] != true || b["id"] != a["id"] {
+		t.Fatalf("the retry is answered with the Create that was put back: %v", b)
+	}
+	// the put-back Create is written by the request that follows (the game is closed); the retry wrote nothing more
+	if n := vehiclesInFile(t, s.Save.Path); n != 1 || len(s.Save.Pending()) != 0 {
+		t.Fatalf("one vehicle in the file and nothing waiting, got %d vehicles, %v waiting", n, s.Save.Pending())
+	}
+}
+
+// A Create retried while the queue is held is refused; when the game's next file no longer conflicts the queue is written, and the retry that follows is answered with that
+// vehicle: exactly one vehicle in the file. (The refused retry must not have forgotten the answer.)
+func TestACreateRefusedWhileTheQueueWasHeldIsAnsweredAfterTheQueueIsWritten(t *testing.T) {
+	restore := save.ActiveSessionForTests()
+	s := ledgerServer(t)
+	a := create(t, s, ledgerForm1)
+	restore()
+	gameAddsAnEntity(t, s.Save.Path)
+	if f := s.Save.Flush(); f.Saved || s.Save.Held() == nil {
+		t.Fatalf("the queued Create conflicts with the game's file and is held: %+v", f)
+	}
+	if w := postEdit(t, s, "/api/vehicles/spawn", ledgerForm1); w.Code != 409 || decodeBody(t, w)["code"] != "queue_held" {
+		t.Fatalf("a held queue takes no Create: %d %s", w.Code, w.Body.String())
+	}
+	// the game's next file no longer has what the queue conflicted with
+	other, err := save.Open(s.Save.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := other.Mutate("the game's change", func(m *save.Mut) error {
+		_, err := m.Exec(`delete from fgl_entities where entity_id=8300000000000099`)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := other.CommitForTests(); err != nil {
+		t.Fatal(err)
+	}
+	other.Close()
+	if f := s.Save.Flush(); !f.Saved || s.Save.Held() != nil {
+		t.Fatalf("the queue no longer conflicts and is written: %+v", f)
+	}
+	if vehiclesInFile(t, s.Save.Path) != 1 {
+		t.Fatalf("the held Create is in the file, got %d vehicles", vehiclesInFile(t, s.Save.Path))
+	}
+	b := create(t, s, ledgerForm1)
+	if b["repeat"] != true || b["id"] != a["id"] || vehiclesInFile(t, s.Save.Path) != 1 {
+		t.Fatalf("the retry gets the first answer and writes nothing: %v, %d vehicles", b, vehiclesInFile(t, s.Save.Path))
 	}
 }
