@@ -99,3 +99,15 @@ test('Resize by square, Inventory and Structures: limits are tooltips or in Abou
   assert.ok(!shown.includes('These two act on all of your bases'));
   ui.dom.window.close();
 });
+
+test('Structures: both repair tips and the About text say that placeable holograms are left as they are (#812)', async () => {
+  const ui = await boot({ get: { '/api/bases/list': BASE7 } });
+  const main = await bases(ui, 'structures');
+  const tips = [...main.querySelectorAll('.tipbox')].map((t) => t.textContent.replace(/\s+/g, ' ').trim());
+  const repair = tips.filter((t) => t.startsWith('Raises'));
+  assert.equal(repair.length, 2, 'the two repair tips: ' + tips.join(' | '));
+  for (const t of repair) assert.ok(t.includes('Placeable holograms (unfinished placements) are left as they are'), t);
+  const about = [...main.querySelectorAll('details.about')].map((d) => d.textContent.replace(/\s+/g, ' ')).join(' ');
+  assert.ok(about.includes('both repairs leave placeable holograms (unfinished placements) as they are'), about);
+  ui.dom.window.close();
+});
