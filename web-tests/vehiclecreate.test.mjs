@@ -664,3 +664,121 @@ test('a second form gets its own id, so a vehicle made after another one is a ne
   assert.notEqual(made[0].body.requestId, made[1].body.requestId);
   ui.dom.window.close();
 });
+
+// ---------- Text typed while a pick in the preview table is on its way (#738)
+// A form with a cargo hold and its preview shown; the next answer to the preview is held until release() is called.
+async function holdForm(ui, post, next) {
+  await openForm(ui);
+  await change(ui, '[data-vcslot="UtilitySlot1"]', 'BuggyInventory_6');
+  ui.click('[data-act="vcPreview"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#vcpreview') && ui.doc.querySelector('#vcItem'), 'a preview and a cargo hold');
+  post['/api/vehicles/spawn-preview'] = next;
+  const release = gatePreview(ui, true);
+  fire(ui, '#vcpreview [data-vcprev="Engine"]', 'BuggyEngine_Unique_Accelerate_06');
+  await ui.wait(WAIT); // the request is out and held
+  assert.equal(ui.doc.querySelector('[data-act="vcCreate"]').disabled, true, 'the answer is not in yet');
+  return release;
+}
+// types into a box the way a person does, with the caret where it stands after the last key
+function typeIn(ui, sel, text, caret = text.length) {
+  const el = ui.doc.querySelector(sel);
+  assert.ok(el, sel);
+  el.focus();
+  el.value = text;
+  if (el.type === 'text') el.setSelectionRange(caret, caret);
+  el.dispatchEvent(new ui.w.Event('input', { bubbles: true }));
+  return el;
+}
+
+test('text typed in the item, quantity and fuel boxes while a pick is on its way is still there when the answer is drawn, and the caret stays where it was', async () => {
+  const post = { '/api/vehicles/spawn-preview': SWAPPED(), '/api/vehicles/spawn': ANSWER({ outcome: 'written' }) };
+  const ui = await boot({ get: GET, post });
+  const release = await holdForm(ui, post, SWAPPED({ id: 1871 }));
+  typeIn(ui, '#vcQty', '5');
+  typeIn(ui, '#vcFuel', '40');
+  typeIn(ui, '#vcItem', 'Spice', 2); // the caret is after "Sp"
+  release(); await ui.settle();
+  assert.ok(ui.doc.querySelector('#vcpreview').textContent.includes('Would create vehicle 1871'), 'the answer was drawn');
+  assert.equal(ui.doc.querySelector('#vcItem').value, 'Spice');
+  assert.equal(ui.doc.querySelector('#vcQty').value, '5');
+  assert.equal(ui.doc.querySelector('#vcFuel').value, '40');
+  assert.equal(ui.doc.activeElement, ui.doc.querySelector('#vcItem'), 'the focus stays in the box being typed in');
+  assert.equal(ui.doc.querySelector('#vcItem').selectionStart, 2, 'the caret stays');
+  assert.equal(ui.doc.querySelector('#vcItem').selectionEnd, 2);
+  // the fuel is in the draft, so Create sees that the preview was asked for another figure and writes nothing
+  ui.click('[data-act="vcCreate"]'); await ui.settle();
+  assert.equal(posts(ui, '/api/vehicles/spawn').length, 0, 'nothing is written');
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('The form changed after the preview'));
+  ui.dom.window.close();
+});
+
+test('a refused pick keeps the text typed meanwhile too, and a typed quantity of a line already in the list', async () => {
+  const post = { '/api/vehicles/spawn-preview': SWAPPED(), '/api/vehicles/spawn': ANSWER({ outcome: 'written' }) };
+  const ui = await boot({ get: GET, post });
+  await openForm(ui);
+  await change(ui, '[data-vcslot="UtilitySlot1"]', 'BuggyInventory_6');
+  set(ui, '#vcItem', 'Spice Melange');
+  ui.click('[data-act="vcAddItem"]'); await ui.settle();
+  ui.click('[data-act="vcPreview"]'); await ui.settle();
+  post['/api/vehicles/spawn-preview'] = { __fail: 'no', __code: 'bad_argument' };
+  const release = gatePreview(ui, true);
+  fire(ui, '#vcpreview [data-vcprev="Engine"]', 'BuggyEngine_Unique_Accelerate_06');
+  await ui.wait(WAIT);
+  typeIn(ui, '[data-vcqty="0"]', '12');
+  typeIn(ui, '#vcItem', 'Lit');
+  release(); await ui.settle();
+  assert.ok(ui.doc.querySelector('#vcpartnote'), 'the refusal is said');
+  assert.equal(ui.doc.querySelector('[data-vcprev="Engine"]').value, 'BuggyEngine_Unique_Accelerate_06', 'the parts went back to the ones the old preview shows');
+  assert.equal(ui.doc.querySelector('#vcItem').value, 'Lit');
+  assert.equal(ui.doc.querySelector('[data-vcqty="0"]').value, '12');
+  ui.dom.window.close();
+});
+
+test('boxes nobody typed in are drawn from the draft as before: an answer changes nothing in them', async () => {
+  const post = { '/api/vehicles/spawn-preview': SWAPPED(), '/api/vehicles/spawn': ANSWER({ outcome: 'written' }) };
+  const ui = await boot({ get: GET, post });
+  const release = await holdForm(ui, post, SWAPPED({ id: 1872 }));
+  release(); await ui.settle();
+  assert.equal(ui.doc.querySelector('#vcItem').value, '');
+  assert.equal(ui.doc.querySelector('#vcQty').value, '1');
+  assert.equal(ui.doc.querySelector('#vcFuel').value, '100');
+  ui.click('[data-act="vcCreate"]'); await ui.settle();
+  assert.equal(posts(ui, '/api/vehicles/spawn').length, 1, 'with nothing typed the preview still matches and Create writes');
+  ui.dom.window.close();
+});
+
+test('keys typed while the page is being drawn again (the answer is in, the boxes are not replaced yet) are kept too', async () => {
+  const post = { '/api/vehicles/spawn-preview': SWAPPED(), '/api/vehicles/spawn': ANSWER({ outcome: 'written' }) };
+  const ui = await boot({ get: GET, post });
+  const release = await holdForm(ui, post, SWAPPED({ id: 1873 }));
+  typeIn(ui, '#vcItem', 'Sp', 2);
+  // the next key arrives while the redraw is asking the editor for its data: it goes to the box that is about to go
+  const prev = ui.w.fetch;
+  let typedLate = false;
+  ui.w.fetch = (p, o) => { if (!typedLate && !String(p).includes('spawn-preview')) { typedLate = true; typeIn(ui, '#vcItem', 'Spi', 3); } return prev(p, o); };
+  release(); await ui.settle();
+  ui.w.fetch = prev;
+  assert.ok(typedLate, 'the key was typed during the redraw');
+  assert.equal(ui.doc.querySelector('#vcItem').value, 'Spi');
+  assert.equal(ui.doc.activeElement, ui.doc.querySelector('#vcItem'));
+  assert.equal(ui.doc.querySelector('#vcItem').selectionStart, 3, 'the caret is after the last key');
+  ui.dom.window.close();
+});
+
+test('Create that finds the form changed after the preview keeps the text typed in the item and Qty boxes', async () => {
+  const post = { '/api/vehicles/spawn-preview': SWAPPED(), '/api/vehicles/spawn': ANSWER({ outcome: 'written' }) };
+  const ui = await boot({ get: GET, post });
+  await openForm(ui);
+  await change(ui, '[data-vcslot="UtilitySlot1"]', 'BuggyInventory_6');
+  ui.click('[data-act="vcPreview"]'); await ui.settle();
+  typeIn(ui, '#vcFuel', '40'); // the fuel is not in the preview
+  typeIn(ui, '#vcItem', 'Spice', 5);
+  typeIn(ui, '#vcQty', '9');
+  ui.click('[data-act="vcCreate"]'); await ui.settle();
+  assert.equal(posts(ui, '/api/vehicles/spawn').length, 0, 'nothing is written');
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('The form changed after the preview'));
+  assert.equal(ui.doc.querySelector('#vcItem').value, 'Spice', 'the typed item name is still there');
+  assert.equal(ui.doc.querySelector('#vcQty').value, '9');
+  assert.equal(ui.doc.querySelector('#vcFuel').value, '40');
+  ui.dom.window.close();
+});
