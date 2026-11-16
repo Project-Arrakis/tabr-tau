@@ -130,3 +130,38 @@ func forgetObserved(savePath string) {
 	delete(observed.m, ownKey(savePath))
 	observed.Unlock()
 }
+
+// watchEvery is how often keepWatching evaluates the gate while a write is being prepared: a third of observeGap, so that one late tick still leaves the watch unbroken. A variable
+// so the tests can run it faster than the clock they stand in for.
+var watchEvery = observeGap / 3
+
+// keepWatching evaluates the gate every watchEvery until the returned function is called, which stops it and waits for it to finish. A write holds the save's lock across the hash
+// of the file, the integrity check, the encode and its round trip, the backup and the temp file, and on a large save any one of these can by itself take longer than observeGap;
+// a gate asked once after them would be the first evaluation after a gap, start the watch again and refuse every time, so the edits would never be written while a game process
+// exists (#821). The answers are not used: each evaluation is only the observation that keeps the watch unbroken, and the gates that decide (before the backup, before the
+// rename) are asked as before. passOnly is the rule the queue is written under, taken by the caller under the save's lock.
+func (s *Save) keepWatching(passOnly bool) (stop func()) {
+	quit, done := make(chan struct{}), make(chan struct{})
+	every := watchEvery
+	go func() {
+		defer close(done)
+		t := time.NewTicker(every)
+		defer t.Stop()
+		for {
+			select {
+			case <-quit:
+				return
+			case <-t.C:
+				s.gateFor(passOnly)
+			}
+		}
+	}()
+	return func() {
+		close(quit)
+		<-done
+	}
+}
+
+// prepared is called by a write once the hash of the file, the integrity check and the encode with its round trip are done. Nothing in it as shipped; a variable so a test can make
+// those steps take as long as they would on a large save.
+var prepared = func() {}

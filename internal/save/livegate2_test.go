@@ -253,55 +253,6 @@ func TestAnOutOfOrderEvaluationDoesNotRestartTheWatch(t *testing.T) {
 	}
 }
 
-// #779 (LOW 2, with the real watch): the preparation of the write takes longer than the watch's gap. The clock jumps 31 s after the gate of Flush, as the encode of a large save
-// would; the gate asked after the encode sees the gap, restarts the watch and refuses, before any backup is taken.
-func TestAWriteWhosePreparationOutlastsTheWatchTakesNoBackup(t *testing.T) {
-	p := makeSave(t, `create table t(a integer); insert into t values (1);`)
-	setAge(t, p, time.Hour)
-	s, err := Open(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer s.Close()
-	orig, _ := os.ReadFile(p)
-	gateStubs(t)
-	oldObs := observeQuietFor
-	observeQuietFor = menuQuietAfterWrite
-	t.Cleanup(func() { observeQuietFor = oldObs; forgetObserved(p) })
-	forgetObserved(p)
-	clock := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
-	nowFunc = func() time.Time { return clock }
-	mod := clock.Add(-time.Hour) // one time for the whole test: a changing time would restart the watch itself
-	fileTimeFor = func(string) (time.Time, bool, error) { return mod, false, nil }
-	slow := false
-	statusFor = func(string) (spStatus, error) {
-		if slow { // the first question after the warm-up is Flush's; the encode that follows it is slow
-			slow = false
-			defer func() { clock = clock.Add(31 * time.Second) }()
-		}
-		return spStatus{EndedAt: clock.Add(-time.Hour), LastSaveAt: clock.Add(-time.Hour + 5*time.Second)}, nil
-	}
-	for i := 0; i < 8; i++ { // watched for 70 s without a gap
-		clock = clock.Add(10 * time.Second)
-		processState(p, true)
-	}
-	if g := processState(p, true); g.Blocked {
-		t.Fatalf("the warm-up should have passed the watch: %+v", g)
-	}
-	setA(t, s, 2)
-	slow = true
-	f := s.Flush()
-	if f.Saved || !strings.Contains(f.Why, "only just started watching") {
-		t.Fatalf("the write after a slow preparation must be refused by the watch: %+v", f)
-	}
-	if ents, _ := os.ReadDir(s.backupDir()); len(ents) != 0 {
-		t.Fatalf("a refused write took %d backup(s)", len(ents))
-	}
-	if now, _ := os.ReadFile(p); string(now) != string(orig) {
-		t.Fatal("the file changed")
-	}
-}
-
 // shippedObserveQuietFor is observeQuietFor as shipped: package variables are initialised before TestMain switches the watch off for the tests of the other rules.
 var shippedObserveQuietFor = observeQuietFor
 
