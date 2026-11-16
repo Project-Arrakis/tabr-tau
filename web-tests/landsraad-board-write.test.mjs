@@ -546,3 +546,19 @@ test('with another faction chosen the tier boxes are off with the reason and wri
   assert.equal(writes(ui).length, 1);
   assert.equal(writes(ui)[0].body.houses[0].mine_to, 6000);
 });
+
+test('the result line says which win a completion replaced and how many other completion times were moved (#611)', async () => {
+  const ui = await open(board(), { '/api/landsraad/apply': { ...OK, contribution_raised: 0, completed: 1, reward_rows: 0, replaced: [{ house: 'Hurata', previous_winner: 'Harkonnen' }], repaired: 2 } });
+  click(ui, quick(ui, 'Thorvald', 'qa-cr')); await ui.settle();
+  const r = result(ui);
+  assert.ok(r.includes('; replaces the win of Harkonnen on Hurata'), r);
+  assert.ok(r.includes("; 2 other completion times put back inside the term's window"), r);
+});
+
+test('a write that changed no house but moved other completion times does not say there was nothing to do (#611)', async () => {
+  const ui = await open(board(), { '/api/landsraad/apply': { ...OK, changed: 0, noop: true, contribution_raised: 0, reward_rows: 0, replaced: [], repaired: 1 } });
+  click(ui, quick(ui, 'Thorvald', 'qa-cr')); await ui.settle();
+  const r = result(ui);
+  assert.ok(r.includes('already in that state'), r);
+  assert.ok(r.includes("; 1 other completion time put back inside the term's window"), r);
+});

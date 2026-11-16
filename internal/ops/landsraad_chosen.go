@@ -194,12 +194,13 @@ func (o *Ops) CompleteChosen(a Args) (any, error) {
 				return err
 			}
 		}
-		if changed > 0 {
-			m.Desc = fmt.Sprintf("landsraad: %d houses completed for %v: %s%s", changed, f["name"], listText(names), replacedText(replaced))
-		}
 		var rerr error
 		repaired, rerr = repairCompletionTimes(m, req.term)
-		noteRepair(m, repaired)
+		if changed > 0 {
+			m.Desc = landsraadDesc(fmt.Sprintf("landsraad: %d %s completed for %v", changed, housesWord(changed), f["name"]), replaced, repaired, names)
+		} else if repaired > 0 {
+			m.Desc = landsraadDesc("landsraad", nil, repaired, nil)
+		}
 		return rerr
 	}); err != nil {
 		return nil, err
@@ -245,12 +246,13 @@ func (o *Ops) ReopenChosen(a Args) (any, error) {
 				return err
 			}
 		}
-		if changed > 0 {
-			m.Desc = fmt.Sprintf("landsraad: %d houses reopened: %s", changed, listText(names))
-		}
 		var rerr error
 		repaired, rerr = repairCompletionTimes(m, req.term)
-		noteRepair(m, repaired)
+		if changed > 0 {
+			m.Desc = landsraadDesc(fmt.Sprintf("landsraad: %d %s reopened", changed, housesWord(changed)), nil, repaired, names)
+		} else if repaired > 0 {
+			m.Desc = landsraadDesc("landsraad", nil, repaired, nil)
+		}
 		return rerr
 	}); err != nil {
 		return nil, err

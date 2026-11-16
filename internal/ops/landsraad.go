@@ -273,9 +273,10 @@ func (o *Ops) CompleteTask(a Args) (any, error) {
 			return apierr.New(apierr.ErrConflict, "that house belongs to an earlier term: only the current term's houses can be changed; reload the page")
 		}
 		house := houseOf(task)
+		head := "landsraad"
 		clock := clockOfTask(m, t) // read before the write, from the task's own term
 		if reset {
-			m.Desc = fmt.Sprintf("landsraad %s: reopened", house)
+			head = fmt.Sprintf("landsraad %s: reopened", house)
 			if _, err = m.Exec(`update landsraad_tasks set completed=0, winning_faction_id=null, completion_time=null where id=?`, t); err != nil {
 				return err
 			}
@@ -290,7 +291,7 @@ func (o *Ops) CompleteTask(a Args) (any, error) {
 			if prev, err = replacedWinner(m, task, f); err != nil {
 				return err
 			}
-			m.Desc = fmt.Sprintf("landsraad %s: completed for %v%s", house, fac["name"], replacedText(replacedOf(house, prev)))
+			head = fmt.Sprintf("landsraad %s: completed for %v", house, fac["name"])
 			if _, err = m.Exec(`update landsraad_tasks set completed=1, winning_faction_id=?, completion_time=? where id=?`, f, clock.arg(), t); err != nil {
 				return err
 			}
@@ -299,8 +300,8 @@ func (o *Ops) CompleteTask(a Args) (any, error) {
 			if repaired, err = repairCompletionTimes(m, clock.term); err != nil {
 				return err
 			}
-			noteRepair(m, repaired)
 		}
+		m.Desc = landsraadDesc(head, replacedOf(house, prev), repaired, nil)
 		return nil
 	}); err != nil {
 		return nil, err

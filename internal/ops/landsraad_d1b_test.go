@@ -2,10 +2,13 @@ package ops
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
+	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
 // Group D1 of the delta audit (#611), the rest of it: a win taken away is named (D1-3), the term window and the clock repair are said (D1-4), the single Complete checks term and
@@ -70,7 +73,7 @@ func TestReopenChosenNamesTheHousesItReopens(t *testing.T) {
 	if _, err := o.ReopenChosen(Args{"term_id": 7.0, "task_ids": ids(175, 176), "expected": 1.0}); err != nil {
 		t.Fatal(err)
 	}
-	if d := lastEdit(t, o); d != "landsraad: 1 houses reopened: Kenola" {
+	if d := lastEdit(t, o); d != "landsraad: 1 house reopened; houses: Kenola" {
 		t.Fatalf("only the house that changed is named: %q", d)
 	}
 }
@@ -225,7 +228,7 @@ func TestTheClockRepairIsSaidInTheAnswerAndTheWriteLog(t *testing.T) {
 	if n := got.(map[string]any)["repaired"].(int64); n != 2 {
 		t.Fatalf("answer: %v", got)
 	}
-	if d := lastEdit(t, o); !strings.Contains(d, "2 other completion times of the term put back inside its window") {
+	if d := lastEdit(t, o); !strings.Contains(d, "2 other completion times moved") {
 		t.Fatalf("write log: %q", d)
 	}
 
@@ -250,7 +253,7 @@ func TestTheClockRepairIsSaidInTheAnswerAndTheWriteLog(t *testing.T) {
 	if n := got.(map[string]any)["repaired"].(int64); n != 2 {
 		t.Fatalf("answer: %v", got)
 	}
-	if d := lastEdit(t, o); d != "landsraad: 2 other completion times of the term put back inside its window" {
+	if d := lastEdit(t, o); d != "landsraad: 2 other completion times moved" {
 		t.Fatalf("write log: %q", d)
 	}
 }
@@ -260,7 +263,7 @@ func TestNothingToRepairLeavesTheWriteLogAlone(t *testing.T) {
 	if _, err := o.CompleteChosen(clockArgs(nil)); err != nil {
 		t.Fatal(err)
 	}
-	if d := lastEdit(t, o); strings.Contains(d, "put back") {
+	if d := lastEdit(t, o); strings.Contains(d, "moved") {
 		t.Fatalf("write log: %q", d)
 	}
 }
@@ -272,5 +275,117 @@ func TestAListOfManyHousesInADescriptionIsCutShort(t *testing.T) {
 	}
 	if got := listText([]string{"a", "b"}); got != "a, b" {
 		t.Fatal(got)
+	}
+}
+
+// ---------------------------------------------------------------- the board apply, the only write the page makes
+
+func TestBoardApplyDescribesOneHouseByWhatWasDoneToIt(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		h    map[string]any
+		want string
+	}{
+		{"complete", house(175, Args{"complete_for": 2.0}), "landsraad Kenola: completed for Harkonnen"},
+		{"reopen", house(174, Args{"was_done": true, "reopen": true}), "landsraad Maros: reopened"},
+		{"raise", house(175, Args{"was_mine": 1300.0, "mine_to": 2400.0}), "landsraad Kenola: your contribution 1300 -> 2400"},
+		{"lower", house(175, Args{"was_mine": 1300.0, "mine_to": 1200.0, "lower": true}), "landsraad Kenola: your contribution 1300 -> 1200"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			o := goalOps(t)
+			mustApply(t, o, applyArgs(c.h))
+			if d := lastEdit(t, o); d != c.want {
+				t.Fatalf("write log %q, want %q", d, c.want)
+			}
+		})
+	}
+}
+
+func TestBoardApplyDescribesSeveralHousesByTheirNames(t *testing.T) {
+	o := goalOps(t)
+	mustApply(t, o, applyArgs(house(175, Args{"complete_for": 2.0}), house(176, Args{"complete_for": 2.0})))
+	if d := lastEdit(t, o); d != "landsraad: 2 houses changed from the board; houses: Kenola, Vernius" {
+		t.Fatalf("write log: %q", d)
+	}
+}
+
+func TestBoardApplyOfAHouseAlreadyInThatStateAddsNoDescription(t *testing.T) {
+	o := goalOps(t)
+	mustApply(t, o, applyArgs(house(176, Args{"was_done": false, "reopen": true})))
+	if len(o.S.Pending()) != 0 {
+		t.Fatalf("nothing changed, nothing is queued: %v", o.S.Pending())
+	}
+}
+
+func TestOneHouseIsNotCalledHouses(t *testing.T) {
+	o := goalOps(t)
+	if _, err := o.CompleteChosen(Args{"term_id": 7.0, "task_ids": ids(176), "faction_id": 2.0, "expected": 1.0}); err != nil {
+		t.Fatal(err)
+	}
+	if d := lastEdit(t, o); d != "landsraad: 1 house completed for Harkonnen; houses: Vernius" {
+		t.Fatalf("write log: %q", d)
+	}
+}
+
+func TestWinsTakenAwayAreGroupedByTheFactionThatHeldThem(t *testing.T) {
+	if got := replacedText([]replacedWin{{"A", "Atreides"}, {"B", "Atreides"}, {"C", "Harkonnen"}, {"D", "Atreides"}}); got != "; replaces 4 wins (Atreides: A, B and 1 more; Harkonnen: C)" {
+		t.Fatal(got)
+	}
+	if got := replacedText([]replacedWin{{"A", "Atreides"}}); got != "; replaces the win of Atreides on A" {
+		t.Fatal(got)
+	}
+}
+
+func TestAHouseNameIsClippedInADescription(t *testing.T) {
+	long := strings.Repeat("x", 90)
+	if got := houseOf(map[string]any{"house_name": "DA_House" + long}); len([]rune(got)) != maxHouseName+3 || !strings.HasSuffix(got, "...") {
+		t.Fatal(got)
+	}
+	if got := houseOf(map[string]any{"house_name": "DA_HouseKenola"}); got != "Kenola" {
+		t.Fatal(got)
+	}
+}
+
+// The write log cuts a description at 200 characters: with 25 houses in the request the list is what gets cut, never the wins taken away or the times moved.
+func TestTheWriteLogKeepsTheFactsOfA25HouseDescriptionAndCutsOnlyTheList(t *testing.T) {
+	var names []string
+	var replaced []replacedWin
+	for i := 0; i < 25; i++ {
+		n := fmt.Sprintf("House%02d", i)
+		names = append(names, n)
+		w := "Atreides"
+		if i%2 == 1 {
+			w = "Harkonnen"
+		}
+		replaced = append(replaced, replacedWin{house: n, winner: w})
+	}
+	d := landsraadDesc("landsraad: 25 houses changed from the board", replaced, 3, names)
+	if i := strings.Index(d, "; houses:"); i < 0 || len([]rune(d[:i])) > 190 {
+		t.Fatalf("the facts come first and fit: %q", d)
+	}
+	kept := save.LogDescForTests(d)
+	for _, w := range []string{"replaces 25 wins", "Atreides:", "Harkonnen:", "3 other completion times moved", "; houses: "} {
+		if !strings.Contains(kept, w) {
+			t.Fatalf("the log keeps %q: %q", w, kept)
+		}
+	}
+	if len([]rune(kept)) > 203 {
+		t.Fatalf("the log is cut: %d", len([]rune(kept)))
+	}
+}
+
+// ---------------------------------------------------------------- a save with no term
+
+func TestTheSingleCompleteAndReopenOfASaveWithNoTermAreNotFoundAndWriteNothing(t *testing.T) {
+	// a save whose term row is gone (the foreign keys are off while the fixture is built): there is no current term to change a house of
+	o := &Ops{S: testsave.PlayerWithSQL(t, clockWorld+"\npragma foreign_keys=off;\ndelete from landsraad_decree_term;\n")}
+	before := mustOne(t, o, `select completed c, winning_faction_id w, completion_time ct from landsraad_tasks where id=231`)
+	for _, a := range []Args{{"task_id": 233.0, "faction_id": 2.0}, {"task_id": 231.0, "reset": true}} {
+		if _, err := o.CompleteTask(a); !errors.Is(err, apierr.ErrNotFound) {
+			t.Fatalf("no term is not found: %v", err)
+		}
+	}
+	if after := mustOne(t, o, `select completed c, winning_faction_id w, completion_time ct from landsraad_tasks where id=231`); fmt.Sprint(after) != fmt.Sprint(before) || len(o.S.Pending()) != 0 {
+		t.Fatalf("nothing is written: %v -> %v", before, after)
 	}
 }

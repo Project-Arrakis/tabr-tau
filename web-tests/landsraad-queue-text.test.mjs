@@ -34,19 +34,28 @@ test('queued Landsraad edits are listed with their houses and factions', async (
   const b = await banner({
     dirty: true, saveBlocked: true, blockReason: 'could not check whether the game is running (exit status 1: ERROR: Call cancelled)',
     pending: [
-      'landsraad Kenola: completed for Harkonnen at the top tier; replaces the win of Atreides on Kenola',
-      'landsraad: 3 houses completed for Atreides: Maros, Kenola, Vernius; replaces the win of Harkonnen on Maros',
-      'landsraad: 2 houses reopened: Maros, Kenola',
+      'landsraad Kenola: completed for Harkonnen; replaces the win of Atreides on Kenola',
+      'landsraad: 3 houses completed for Atreides; replaces 2 wins (Harkonnen: Maros, Kenola); 2 other completion times moved; houses: Maros, Kenola, Vernius',
+      'landsraad: 1 house reopened; houses: Kenola',
+      'landsraad: 4 houses changed from the board; houses: A, B, C, D',
       'landsraad Vernius: reopened',
+      'landsraad Kenola: your contribution 1300 -> 6000',
+      'landsraad: 2 other completion times moved',
       'landsraad term 7: end_time = 250',
     ],
-    lastWrite: { saved: false, queued: 5, why: 'could not check whether the game is running (exit status 1: ERROR: Call cancelled)' },
+    lastWrite: { saved: false, queued: 8, why: 'could not check whether the game is running (exit status 1: ERROR: Call cancelled)' },
   });
-  assert.match(b.text, /Kenola \(Landsraad\): Completed for Harkonnen at the top tier; replaces the win of Atreides on Kenola/);
-  assert.match(b.text, /Complete 3 Landsraad houses for Atreides: Maros, Kenola, Vernius; replaces the win of Harkonnen on Maros/);
-  assert.match(b.text, /Reopen 2 Landsraad houses: Maros, Kenola/);
-  assert.match(b.text, /Vernius \(Landsraad\): Reopened/);
-  assert.match(b.text, /Landsraad term 7: end_time = 250/);
+  for (const want of [
+    'Kenola (Landsraad): Completed for Harkonnen; replaces the win of Atreides on Kenola',
+    'Complete 3 Landsraad houses for Atreides: Maros, Kenola, Vernius; replaces 2 wins (Harkonnen: Maros, Kenola); 2 other completion times moved',
+    'Reopen 1 Landsraad house: Kenola',
+    'Change 4 Landsraad houses from the board: A, B, C, D',
+    'Vernius (Landsraad): Reopened',
+    'Kenola (Landsraad): Your contribution 1300 -> 6000',
+    'Landsraad: 2 other completion times moved',
+    'Landsraad term 7: end_time = 250',
+  ]) assert.ok(b.text.includes(want), want + ' in: ' + b.text);
+  assert.ok(!b.text.includes('houses: '), 'the internal marker is not shown');
   b.close();
 });
 
@@ -58,4 +67,15 @@ test('a held queue says the changes have to be made again', async () => {
   assert.match(b.text, /was not written/);
   assert.match(b.text, /Discard the queue and make the change again\./);
   b.close();
+});
+
+test('the held and the restored banners show the conflicts in words too', async () => {
+  const d = 'landsraad: 2 houses completed for Atreides; houses: Maros, Kenola';
+  const h = await banner({ dirty: true, pending: [d], held: { conflicts: [{ desc: d, why: 'the game changed what it was worked out from' }] } });
+  assert.ok(h.text.includes('Complete 2 Landsraad houses for Atreides: Maros, Kenola: the game changed'), h.text);
+  assert.ok(!h.text.includes('houses: '), h.text);
+  h.close();
+  const r = await banner({ restored: { applied: 0, conflicts: [{ desc: d, why: 'the save no longer accepts it' }], rebased: true, written: false } });
+  assert.ok(r.text.includes('Could not put back: Complete 2 Landsraad houses for Atreides: Maros, Kenola (the save no longer accepts it)'), r.text);
+  r.close();
 });

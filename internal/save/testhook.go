@@ -102,3 +102,6 @@ func DeadlinesForTests(d time.Duration) (restore func()) {
 	ReadTimeout, inspectTimeout = d, d
 	return func() { ReadTimeout, inspectTimeout = oldR, oldI }
 }
+
+// LogDescForTests is the description as the write log keeps it (the cleaning and the length limit), so a test in another package can check what survives of a description.
+func LogDescForTests(d string) string { return logDesc(d) }

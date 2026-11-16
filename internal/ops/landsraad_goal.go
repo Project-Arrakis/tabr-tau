@@ -128,11 +128,10 @@ func (o *Ops) FillFactionGoal(a Args) (any, error) {
 		if personalSkipped {
 			m.Desc = fmt.Sprintf("landsraad %s: completed for %s, no personal contribution (not your faction)", house, fname)
 		}
-		m.Desc += replacedText(replacedOf(house, prevWinner))
 		if repaired, err = repairCompletionTimes(m, termID); err != nil {
 			return err
 		}
-		noteRepair(m, repaired)
+		m.Desc = landsraadDesc(m.Desc, replacedOf(house, prevWinner), repaired, nil)
 		return nil
 	}); err != nil {
 		return nil, err

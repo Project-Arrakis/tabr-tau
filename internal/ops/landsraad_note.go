@@ -33,16 +33,28 @@ func replacedWinner(m *save.Mut, t save.Row, faction int64) (string, error) {
 	return fmt.Sprint(f["name"]), nil
 }
 
-// replacedText is the part of a description that names the wins taken away, "" for none.
+// replacedText is the part of a description that names the wins taken away, "" for none. One win is named with its house; several are grouped by the faction that held
+// them, so the part stays short enough for the write log, which cuts a description (the list of houses comes after it, see landsraadDesc).
 func replacedText(r []replacedWin) string {
-	if len(r) == 0 {
+	switch len(r) {
+	case 0:
 		return ""
+	case 1:
+		return "; replaces the win of " + r[0].winner + " on " + r[0].house
 	}
-	parts := make([]string, 0, len(r))
+	var order []string
+	by := map[string][]string{}
 	for _, x := range r {
-		parts = append(parts, x.winner+" on "+x.house)
+		if _, seen := by[x.winner]; !seen {
+			order = append(order, x.winner)
+		}
+		by[x.winner] = append(by[x.winner], x.house)
 	}
-	return "; replaces the win of " + listText(parts)
+	parts := make([]string, 0, len(order))
+	for _, w := range order {
+		parts = append(parts, w+": "+listTextN(by[w], 2))
+	}
+	return fmt.Sprintf("; replaces %d wins (%s)", len(r), strings.Join(parts, "; "))
 }
 
 // replacedAnswer is the list of taken wins as the answer carries it (never nil, so the page can read it).
@@ -55,29 +67,48 @@ func replacedAnswer(r []replacedWin) []map[string]any {
 }
 
 // listText joins names for a description: the first six, then how many more.
-func listText(names []string) string {
-	const show = 6
+func listText(names []string) string { return listTextN(names, 6) }
+
+// listTextN is listText with the number of names shown.
+func listTextN(names []string, show int) string {
 	if len(names) <= show {
 		return strings.Join(names, ", ")
 	}
 	return fmt.Sprintf("%s and %d more", strings.Join(names[:show], ", "), len(names)-show)
 }
 
-// noteRepair adds to the description of the edit what the clock repair did (repairCompletionTimes): it puts every completed house of the term whose time lies outside the term's
-// window back inside it, not only the houses of this request, so the write log says how many.
-func noteRepair(m *save.Mut, n int64) {
-	if n == 0 {
-		return
+// repairText is the part of a description that says what the clock repair did (repairCompletionTimes): it puts every completed house of the term whose time lies outside the
+// term's window back inside it, not only the houses of the request, so the write log says how many.
+func repairText(n int64) string {
+	switch n {
+	case 0:
+		return ""
+	case 1:
+		return "; 1 other completion time moved"
 	}
-	what := fmt.Sprintf("%d other completion times of the term put back inside its window", n)
+	return fmt.Sprintf("; %d other completion times moved", n)
+}
+
+// housesWord is "house" or "houses" for a count.
+func housesWord(n int64) string {
 	if n == 1 {
-		what = "1 other completion time of the term put back inside its window"
+		return "house"
 	}
-	if m.Desc == "" || m.Desc == "landsraad" {
-		m.Desc = "landsraad: " + what
-		return
+	return "houses"
+}
+
+// landsraadDesc builds the description of a Landsraad edit: the head says what was done, then the short facts (the wins taken away, the times moved), and the list of houses last,
+// because the write log cuts a long description and what is cut must be the list, not the facts. A head of just "landsraad" (an edit that only moved times) gets a colon.
+func landsraadDesc(head string, replaced []replacedWin, repaired int64, houses []string) string {
+	facts := replacedText(replaced) + repairText(repaired)
+	if head == "landsraad" && facts != "" {
+		head, facts = "landsraad:", facts[1:] // "; x" -> " x"
 	}
-	m.Desc += "; " + what
+	d := head + facts
+	if len(houses) > 0 {
+		d += "; houses: " + listText(houses)
+	}
+	return d
 }
 
 // replacedOf is the one-house list of taken wins for a winner that may be empty.
