@@ -149,6 +149,20 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 	var rw rewardResult
 	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
 		houses, changed, raised, lowered, completed, reopened, repaired = 0, 0, 0, 0, 0, 0, 0
+		// the editor's record of the ground it paid (landsraad_paid.go), read at most once for the request, under the lock the sink writes it under, and only when a house is raised: a
+		// removal pays nothing and needs no record, so a record that cannot be read does not stop it. A raise that cannot read it is refused with nothing written.
+		var recorded []paidNote
+		recordedRead := false
+		paidNow := func() ([]paidNote, error) {
+			if !recordedRead {
+				es, err := o.Paid.snapshot()
+				if err != nil {
+					return nil, err
+				}
+				recorded, recordedRead = es, true
+			}
+			return recorded, nil
+		}
 		replaced, names, done = nil, nil, nil
 		rw = rewardResult{}
 		if err := currentTerm(m, termID); err != nil {
@@ -249,6 +263,10 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 				to := *it.mineTo
 				switch {
 				case to > s.cur:
+					recordedNow, err := paidNow()
+					if err != nil {
+						return apierr.New(apierr.ErrWriteFailed, err.Error())
+					}
 					// the character's own row is raised to the tier; the missions it stands for are then granted (landsraad_grant.go): the faction's share and the completion it
 					// brings, the reward rows, the two wallets and the specialization track
 					if _, err := m.Exec(`insert into landsraad_task_player_contributions(player_id, faction_id, task_id, amount) values(?,?,?,?)
@@ -262,7 +280,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 					if !clock.ok {
 						return apierr.New(apierr.ErrBadArgument, "the save has no record of this term, so the rewards cannot be timed: nothing was changed")
 					}
-					rr, done, err := grantRaise(m, me, s.t, s.cur, to, it.completeFor != nil && *it.completeFor == me.faction, clock, g)
+					rr, done, err := grantRaise(m, me, s.t, s.cur, to, it.completeFor != nil && *it.completeFor == me.faction, clock, g, recordedNow)
 					if err != nil {
 						return err
 					}
@@ -339,7 +357,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 	}); err != nil {
 		return nil, err
 	}
-	return resetAnswer(changed, map[string]any{"houses": houses, "skipped": houses - changed, "contribution_raised": raised, "contribution_lowered": lowered, "completed": completed, "reopened": reopened, "repaired": repaired, "replaced": replacedAnswer(replaced), "reward_rows": rw.rewardRows, "swatches": rw.swatches, "rewards_already_given": rw.skipped,
+	return resetAnswer(changed, map[string]any{"houses": houses, "skipped": houses - changed, "contribution_raised": raised, "contribution_lowered": lowered, "completed": completed, "reopened": reopened, "repaired": repaired, "replaced": replacedAnswer(replaced), "reward_rows": rw.rewardRows, "swatches": rw.swatches, "rewards_already_given": rw.skipped, "ground_paid_before": rw.paidGround, "missions_paid_before": rw.paidMissions,
 		"missions": rw.missions, "solari": rw.solari, "house_scrip": rw.scrip, "specialization_xp": specAnswer(rw.spec)}), nil
 }
 

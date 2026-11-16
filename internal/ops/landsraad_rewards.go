@@ -20,7 +20,7 @@ import (
 //	                                  the highest tier delivers the task's own item and no row is added
 //
 // A tier is delivered once: the tiers that the character's own events for the task already crossed (the sum of their player_progress, see grantRaise) are delivered, and only the
-// tiers above that ground are written (#656). The editor writes no event (#655), so what it delivered itself is remembered only by the contribution and, for the top tier, by the
+// tiers above that ground are written (#656). The editor writes no event (#655), so what it delivered itself is remembered by the editor's own record of the ground it paid (landsraad_paid.go, #777) and, for the top tier, by the
 // one-time swatch row of this term (a swatch won in this term is not delivered again). A row of the same house and item that is already there says nothing about a tier: a reward collected in a later term, or the same item
 // at two tiers of one task, no longer hides a tier that was not delivered. Nothing here lowers anything. Completing a house adds no reward row by itself, and neither does a
 // contribution for a faction the character is not in.
@@ -30,6 +30,9 @@ type rewardResult struct {
 	rewardRows, swatches, skipped int64
 	missions, solari, scrip       int64
 	spec                          map[string]int64 // the specialization XP that was added, by line
+	// the ground of the raise that was not paid because the editor paid it before (landsraad_paid.go), and the missions it stands for
+	paidGround   float64
+	paidMissions int64
 }
 
 func (r *rewardResult) add(o rewardResult) {
@@ -39,6 +42,8 @@ func (r *rewardResult) add(o rewardResult) {
 	r.missions += o.missions
 	r.solari += o.solari
 	r.scrip += o.scrip
+	r.paidGround += o.paidGround
+	r.paidMissions += o.paidMissions
 	for l, x := range o.spec {
 		if r.spec == nil {
 			r.spec = map[string]int64{}

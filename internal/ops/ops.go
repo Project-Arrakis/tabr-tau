@@ -35,7 +35,11 @@ var (
 )
 
 // Ops bundles operations over one save.
-type Ops struct{ S *save.Save }
+type Ops struct {
+	S *save.Save
+	// Paid is the editor's own record of the Landsraad ground it paid (landsraad_paid.go); nil keeps none, as in a test that does not look at it.
+	Paid *PaidLedger
+}
 
 // Args is a decoded JSON request body.
 type Args map[string]any
@@ -153,7 +157,7 @@ func (o *Ops) State() (any, error) {
 		"gameRunning": len(g.Processes) > 0, "gameProcesses": g.Processes, "gameCheckError": g.CheckError,
 		"saveBlocked": g.Blocked, "blockReason": g.Reason, "gameMode": g.Mode,
 		"readOnly": o.S.WriteBlocked(), "schemaNote": o.S.SchemaNote(), "changedOnDisk": o.S.ChangedOnDisk(), "locationUnconfirmed": g.NeedsConfirm,
-		"restored": o.S.Restored(), "journalOff": o.S.JournalOff(), "writeLogProblem": o.S.WriteLogProblem(),
+		"restored": o.S.Restored(), "journalOff": o.S.JournalOff(), "writeLogProblem": o.S.WriteLogProblem(), "notesProblem": o.S.NotesProblem(),
 		"lastWrite": o.S.LastFlush(), "held": o.S.Held(),
 	}, nil
 }

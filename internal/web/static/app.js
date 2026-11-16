@@ -585,7 +585,7 @@ async function status() {
   const schemaNote = o.schemaNote ? String(o.schemaNote) : '';
   // Waiting to be written with nothing listed (#592): said as a plain fact. There is nothing to discard, so no Discard button is offered for it.
   const unlisted = !!o.dirty && !q && !o.held;
-  gw.className = saveBlocked || q || unlisted || changed || restored || o.writeLogProblem ? 'warn' : schemaNote || notLive ? 'info' : 'hide';
+  gw.className = saveBlocked || q || unlisted || changed || restored || o.writeLogProblem || o.notesProblem ? 'warn' : schemaNote || notLive ? 'info' : 'hide';
   const gameFile = notLive ? 'the file' : 'the game file';
   const notLiveMsg = notLive ? html`<div><b>This is a copy, not the game's save:</b> edits are written at once and do not reach the game unless this file is installed as its game.db. <span class="mono">${o.path}</span></div>` : html``;
   const changedMsg = changed ? html`<div><b>The game saved since this editor opened.</b> What you see here is out of date. <button class="b sm d-btn primary sm" data-act="reload">Reload now</button></div>` : html``;
@@ -614,11 +614,12 @@ async function status() {
   const journalMsg = o.journalOff && o.dirty ? html`<div class="mut">These queued changes are not kept if the editor is closed: ${o.journalOff}.</div>` : html``;
   const schemaMsg = schemaNote ? html`<div><b>This save is not quite the one this editor knows.</b> ${schemaNote}</div>` : html``;
   const logMsg = o.writeLogProblem ? html`<div class="mut">${capFirst(o.writeLogProblem)}. The game's file was written; only the record of it is missing.</div>` : html``;
+  const notesMsg = o.notesProblem ? html`<div class="mut">${capFirst(o.notesProblem)}. The game's file was written; only the editor's own record of the ground a Landsraad raise paid is behind.</div>` : html``;
   const lines = o.pending.map(queueLine);
   const listMsg = q ? html`<details class="bn-list" ${KEEP.qlist ? 'open' : ''}><summary data-keep="qlist">What is queued (${q})</summary><ul>${lines.map((l) => html`<li>${l}</li>`)}</ul></details>` : html``;
   const rawMsg = reason.raw ? html`<details class="bn-raw" ${KEEP.raw ? 'open' : ''}><summary data-keep="raw">Details (include this if you report a problem)</summary><div class="mono">${reason.raw}</div></details>` : html``;
   lastPending = lines;
-  const banner = html`${notLiveMsg}${changedMsg}${heldMsg}${mainMsg}${unlistedMsg}${restoredMsg}${schemaMsg}${journalMsg}${logMsg}${listMsg}${rawMsg}`;
+  const banner = html`${notLiveMsg}${changedMsg}${heldMsg}${mainMsg}${unlistedMsg}${restoredMsg}${schemaMsg}${journalMsg}${logMsg}${notesMsg}${listMsg}${rawMsg}`;
   // redrawn only when it changed: a redraw every few seconds would take the keyboard focus off its buttons
   const key = String(banner).replace(/ ?open>/g, '>').replace(/ >/g, '>'); // a toggle the person opened is already open in the page: that alone is no reason to redraw
   if (key !== gwKey) { gwKey = key; setHTML(gw, banner); }
@@ -1864,19 +1865,23 @@ const GRANT_UNCHECKED = 'The pay-out of a mission (Solari, House Scrip, speciali
 function lbGrantOf(h, l, from, to) {
   const g = l && l.grant;
   if (!g || !(to > from)) return null;
-  const lo = Math.max(from, Number(h.task.my_events) || 0, Number(h.task.my_elsewhere) || 0); // the game's events, and what the character reached under another faction
-  if (!(to > lo)) return { missions: 0, rewards: 0, solari: 0, scrip: 0, xpBy: {} }; // the character's own events already cover this ground
+  const lo0 = Math.max(from, Number(h.task.my_events) || 0, Number(h.task.my_elsewhere) || 0); // the game's events, and what the character reached under another faction
+  const lo = Math.max(lo0, Number(h.task.my_paid) || 0); // and the ground the editor itself paid before: a tier removal does not take it back (#777)
+  const at0 = (x) => (x <= 0 ? 0 : Math.ceil(x / (g.step || 1) - 1e-9));
+  const paidMissions = lo > lo0 && g.step > 0 ? Math.max(0, at0(Math.min(to, lo)) - at0(lo0)) : 0; // the missions this click would pay but for that record
+  if (!(to > lo)) return { missions: 0, rewards: 0, solari: 0, scrip: 0, xpBy: {}, paidMissions }; // the character's own events and the editor's own record already cover this ground
   if (g.problem) return { problem: g.problem };
   const line = h.task.line || '';
   if (!line && g.xp > 0) return { problem: `House ${h.name} has no specialization line in the editor, so a raise on it is refused and nothing is changed. Choose other houses, or use Complete for this one.` };
   const at = (x) => (x <= 0 ? 0 : Math.ceil(x / g.step - 1e-9)), missions = at(to) - at(lo);
   if (missions > g.max_missions) return { problem: `House ${h.name}: this click stands for ${lbF(missions)} missions, more than the ${lbF(g.max_missions)} one change may grant, so nothing is changed. Click the tiers one at a time, or set LandsraadContributionMultiplier in ServerCustomSettings.ini (Config tab) nearer to 1.` };
   const xp = missions * g.xp;
-  return { missions, rewards: h.tiers.filter((t) => t.th > lo && t.th <= to).length, solari: missions * g.solari, scrip: missions * g.scrip, xpBy: xp > 0 && line ? { [line]: xp } : {} };
+  // a swatch won in this term is not delivered again (the write skips it), so the top tier does not count as waiting then
+  return { missions, paidMissions, rewards: h.tiers.filter((t) => t.th > lo && t.th <= to && !(t.swatch && h.held)).length, solari: missions * g.solari, scrip: missions * g.scrip, xpBy: xp > 0 && line ? { [line]: xp } : {} };
 }
 function lbGrantSum(list) { // the grants of several houses as one
-  const s = { missions: 0, rewards: 0, solari: 0, scrip: 0, xpBy: {} };
-  for (const g of list) { if (!g || g.problem) continue; s.missions += g.missions; s.rewards += g.rewards; s.solari += g.solari; s.scrip += g.scrip; for (const k of Object.keys(g.xpBy)) s.xpBy[k] = (s.xpBy[k] || 0) + g.xpBy[k]; }
+  const s = { missions: 0, rewards: 0, solari: 0, scrip: 0, xpBy: {}, paidMissions: 0 };
+  for (const g of list) { if (!g || g.problem) continue; s.paidMissions += g.paidMissions || 0; s.missions += g.missions; s.rewards += g.rewards; s.solari += g.solari; s.scrip += g.scrip; for (const k of Object.keys(g.xpBy)) s.xpBy[k] = (s.xpBy[k] || 0) + g.xpBy[k]; }
   return s;
 }
 const lbGrantList = (g) => ['+' + lbF(g.solari) + ' Solari', '+' + lbF(g.scrip) + ' House Scrip'].concat(Object.keys(g.xpBy).sort().map((k) => '+' + lbF(g.xpBy[k]) + ' ' + k + ' XP')).join(', ');
@@ -1885,9 +1890,12 @@ function lbGrantSay(g) {
   if (!g) return '';
   if (g.problem) return 'Will be refused: ' + g.problem;
   const rw = g.rewards ? nn(g.rewards, 'reward', 'rewards') + ' waiting at the house representative' : '';
-  if (!g.missions) return 'Writes no missions: your own earlier progress already counts for this ground' + (rw ? '; ' + rw : '') + '.';
-  return 'Writes ' + nn(g.missions, 'mission', 'missions') + ': ' + lbGrantList(g) + (rw ? ', ' + rw : '') + '.';
+  const pb = g.paidMissions ? ' ' + lbPaidBefore(g.paidMissions) : ''; // ground the editor paid before is named, so that a click that pays less than it looks is not a surprise (#777)
+  if (!g.missions) return 'Writes no missions: your own earlier progress already counts for this ground' + (rw ? '; ' + rw : '') + '.' + pb;
+  return 'Writes ' + nn(g.missions, 'mission', 'missions') + ': ' + lbGrantList(g) + (rw ? ', ' + rw : '') + '.' + pb;
 }
+// the sentence for missions left unpaid because the editor paid that ground before (a tier removal takes nothing back, so the same raise does not pay it twice)
+const lbPaidBefore = (n) => nn(n, 'mission', 'missions') + ' not paid: the save shows that ground as already paid (the editor recorded it in an earlier raise), and removing a tier does not take it back.';
 const lbGrantShort = (g) => (!g ? '' : g.problem ? 'will be refused' : g.missions ? nn(g.missions, 'mission', 'missions') + ': +' + lbF(g.solari) + ' Solari' : 'no missions');
 function lbHsText(h, l) {
   const mineF = l.character ? l.character.faction_id : null;
@@ -2151,7 +2159,7 @@ function lbActbar(hs, l) {
       <p><b>What a raise writes</b>, in one edit with a backup first:</p>
       <ul><li>your contribution, raised to the tier;</li><li>the same ground added to your faction's progress while the house is open (the house is taken when that reaches the goal);</li><li>one reward for each tier crossed, waiting at the house representative (the 6,000 tier follows the swatch rule);</li><li>for each mission: 6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization line of the house.</li></ul>
       <p>A mission is 1,000 contribution times <code>LandsraadContributionMultiplier</code>, and the XP is scaled by <code>LandsraadSpecializationXpMultiplier</code>; both are read from ServerCustomSettings.ini (1 when the key is absent), and a click is refused with the reason when a value cannot be used. The daily and weekly mission limits of the game are not applied.</p>
-      <p><b>What it does not write:</b> your character's own XP and your faction standing. <b>No progress event is written</b>: the editor adds no event and leaves the game's progress cursor where it is, so the game should find only events of its own at its next cursor step. Whether the game keeps a contribution raised here at that step is not checked in the game. Events an earlier build of the editor wrote stay in the save and still count as ground paid. A second Fill with nothing above your contribution writes nothing, and ground the game's own progress events for the house cover, or that you reached under another faction (a change of faction does not make the old contribution pay again), is never paid again. <b>Removing a tier</b> lowers the contribution only, writes no reward and takes back nothing the tier paid. Because the editor leaves no event of its own, <b>raising a removed tier again pays it again</b>: its missions (Solari, House Scrip, XP), the rewards of the tiers crossed (a house swatch won in this term is not given twice; without the swatch tables, or with a swatch held from an earlier term, the top tier's own item is given again) and, while the house is open, the same ground on your faction's progress again, which can take the house. The tier box is a toggle, so clicking the highest reached tier twice pays twice.</p>
+      <p><b>What it does not write:</b> your character's own XP and your faction standing. <b>No progress event is written</b>: the editor adds no event and leaves the game's progress cursor where it is, so the game should find only events of its own at its next cursor step. Whether the game keeps a contribution raised here at that step is not checked in the game. Events an earlier build of the editor wrote stay in the save and still count as ground paid. A second Fill with nothing above your contribution writes nothing, and ground the game's own progress events for the house cover, or that you reached under another faction (a change of faction does not make the old contribution pay again), is never paid again. <b>Removing a tier</b> lowers the contribution only, writes no reward and takes back nothing the tier paid. Because the editor leaves no event of its own, it remembers the ground it paid in a small file of its own next to its other files (written once the save is written, never in the game's save): <b>raising a removed tier again pays nothing again</b>, and a raise above what was paid pays only the new tiers. The result and the line before a click say how many missions were not paid because that ground was paid before. The same holds for the rewards of the tiers crossed and for your faction's progress. The tier box is a toggle, so clicking the highest reached tier twice pays once. The editor counts that file only as far as the save agrees: ground above the highest tier of the house whose reward the save shows from this term (for example after a backup was put back) is not counted, and a restored backup counts only as far as its own rewards go (undoing a restore keeps what that file already paid, unless a raise was made on the older file in between: the record then follows that raise, and going back to the later file can pay some of its ground again). If the file is missing, damaged or of another save, nothing is taken as paid, and a raise pays as it did before.</p>
       <p><b>Not checked in the game yet.</b> ${GRANT_UNCHECKED} <b>Going back:</b> ${undoNote()}</p>`)}
     ${lbAbout('lsb.fill', 'Fill and Complete', html`<p>Fill, Complete and Reopen act for the faction chosen above. It starts on your character's own faction.</p>
       <p><b>Fill</b> and <b>Fill chosen</b> raise your own contribution to the top tier (never lowered) and write what the missions that reach it pay (see Tiers). They change nothing while another faction is chosen: your contribution counts for your own faction, so no contribution and no reward is written for another.</p>
@@ -2215,9 +2223,10 @@ async function lbRun(b, call, say, focusFk) {
 // the save yet and the sentence says what is to be written. A raise that crossed no mission says so.
 function lbGrantText(r, queued) {
   if (!r) return '';
-  if (!r.missions) return r.contribution_raised ? 'No missions ' + (queued ? 'to write' : 'written') + ': your own earlier progress on this house already counts for this ground' : '';
+  const pb = r.missions_paid_before > 0 ? ' ' + lbPaidBefore(r.missions_paid_before) : '';
+  if (!r.missions) return r.contribution_raised ? 'No missions ' + (queued ? 'to write' : 'written') + ': your own earlier progress on this house already counts for this ground' + pb : '';
   const xp = Object.keys(r.specialization_xp || {}).sort().map((k) => '+' + lbF(r.specialization_xp[k]) + ' ' + k + ' XP');
-  return nn(r.missions, 'mission', 'missions') + (queued ? ' to write' : ' written') + ': ' + ['+' + lbF(r.solari) + ' Solari', '+' + lbF(r.house_scrip) + ' House Scrip'].concat(xp).join(', ');
+  return nn(r.missions, 'mission', 'missions') + (queued ? ' to write' : ' written') + ': ' + ['+' + lbF(r.solari) + ' Solari', '+' + lbF(r.house_scrip) + ' House Scrip'].concat(xp).join(', ') + pb;
 }
 // One request to /api/landsraad/apply for one house or several (one edit, one backup, all or none). hs: the houses as they were shown, by id.
 async function lbSend(b, items, label, hs, focusFk) {

@@ -189,9 +189,9 @@ func TestRewardsNothingIsWrittenForARemovalACompleteOrAnotherFaction(t *testing.
 	}
 }
 
-// The editor writes no event (#655), so it does not remember what it delivered: a removal followed by the same raise delivers the tiers above the lower contribution again (the
-// waiting amount of an item is added to). Only the character's own events, written by the game, and the swatch of this term (the test below) are remembered.
-func TestRewardsATierIsDeliveredAgainAfterARemovalBecauseTheEditorWritesNoEvent(t *testing.T) {
+// The editor writes no event (#655) and remembers the ground it paid itself instead (#777): a removal followed by the same raise does not deliver the tiers again, and the waiting
+// amount of an item is not added to.
+func TestRewardsATierIsNotDeliveredAgainAfterARemoval(t *testing.T) {
 	o := rewardOps(t, "")
 	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 3600.0})))
 	before := houseRewards(t, o, "DA_HouseKenola")
@@ -200,11 +200,11 @@ func TestRewardsATierIsDeliveredAgainAfterARemovalBecauseTheEditorWritesNoEvent(
 		t.Fatal("a removal wrote reward rows")
 	}
 	m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 2400.0, "mine_to": 3600.0})))
-	if m["reward_rows"].(int64) != 1 || m["rewards_already_given"].(int64) != 0 {
+	if m["reward_rows"].(int64) != 0 || m["rewards_already_given"].(int64) != 1 {
 		t.Fatalf("answer: %v", m)
 	}
-	if got := rows(t, o, `select amount from landsraad_house_rewards where player_id=1 and template_id='T6RangeFinder'`); got != "map[amount:100]\n" {
-		t.Fatalf("the 3,600 tier (50) was delivered again on top of the waiting 50: %s (rows before: %s)", got, before)
+	if got := houseRewards(t, o, "DA_HouseKenola"); got != before {
+		t.Fatalf("the 3,600 tier was delivered again: %s (rows before: %s)", got, before)
 	}
 	if got := events(t, o); got != "" {
 		t.Fatalf("an event was written: %s", got)

@@ -54,6 +54,11 @@ type Save struct {
 
 	dirty bool
 	ops   []Op // structured record of the edits applied since load
+	// sink receives the notes of the edits that were written (notes.go)
+	sink func([]Note) error
+	// undelivered are the notes of written edits that the sink could not take; they go with the next delivery
+	undelivered  []Note
+	notesProblem string // why the last delivery failed, "" when it did not (NotesProblem)
 
 	// the journal of pending edits (journal.go): where it is kept, what has been kept, and what became of the edits found in it at start
 	journalPath string
@@ -105,9 +110,10 @@ func noteSQLError(q string, err error) {
 
 // Op is one recorded edit: what it was, how many rows it changed, and when.
 type Op struct {
-	Desc string    `json:"desc"`
-	Rows int64     `json:"rows"`
-	At   time.Time `json:"at"`
+	Desc  string    `json:"desc"`
+	Rows  int64     `json:"rows"`
+	At    time.Time `json:"at"`
+	notes []Note    // what the edit asked to be remembered once it is written (notes.go); not part of the list the page shows
 }
 
 // KnownSchema is the DDL of the real single-player game database (tables, indexes and the game's one trigger). The kit module holds the
@@ -778,6 +784,7 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 	// The file is written. From here a problem is a warning, not a failed save.
 	s.noteDisk(blob)
 	s.dirty = false
+	notesProblem := s.deliverNotes(s.ops) // the notes of the edits that are now in the game's file (notes.go)
 	s.ops = nil
 	s.dropJournal()
 	if r := s.restored; r != nil { // the edits put back are written; the notice of the ones that were not stays until the person has seen it
@@ -790,11 +797,18 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 		}
 	}
 	res := map[string]any{"saved": true, "backup": bak, "ops": ops}
+	if notesProblem != "" {
+		res["warning"] = "saved, but " + notesProblem
+	}
 	if err := reloadAfterCommit(s); err != nil {
 		// The working copy and the recorded state no longer match the file just written; refuse further edits rather than
 		// build them on a copy that is out of date.
 		s.blocked = "the save was written but reloading it failed (" + err.Error() + "); restart the editor"
-		res["warning"] = "saved, but reloading the file failed: " + err.Error() + " (further edits are disabled; restart the editor)"
+		w := "saved, but reloading the file failed: " + err.Error() + " (further edits are disabled; restart the editor)"
+		if notesProblem != "" {
+			w += "; also, " + notesProblem
+		}
+		res["warning"] = w
 	}
 	return res, nil
 }

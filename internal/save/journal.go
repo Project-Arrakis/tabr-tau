@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -60,6 +61,7 @@ type opRec struct {
 	At      time.Time `json:"at"`
 	Cascade bool      `json:"cascade,omitempty"`
 	Stmts   []stmtRec `json:"stmts"`
+	Notes   []Note    `json:"notes,omitempty"` // what the edit asked to be remembered once it is written (notes.go)
 }
 
 type journalFile struct {
@@ -389,13 +391,26 @@ func (s *Save) readMark() (incompleteMark, bool) {
 // journalWriteTries is how many times a journal write is attempted before the journal is given up for the session.
 const journalWriteTries = 4
 
-// shortErr is an error's message without the folder names of a path error, which the page would show.
+// The folders of an absolute path in a text: a drive path (also \\?\ and \\.\), a network path, or a path from the root of a Unix file system. What is left is the file's name.
+//
+// A folder name may hold a space (the name of an account does), so a folder is any text up to a separator, with one exception: a space followed by the start of another path (a space and a
+// separator) ends the text, because that is where the second path of a rename or a link begins, and the first one's file name must stay. The folder part of each path goes; both file names
+// stay. A Unix path or a network path with forward slashes must start at the beginning of the text or after a blank, a quote or a bracket, and have a name straight after its first
+// slash, so a URL (the slashes follow a colon) and prose with a slash between blanks are left as they are.
+var (
+	winSeg    = `(?:[^\\/:*?"<>|\r\n ]| [^\\/:*?"<>|\r\n ])+[\\/]`
+	driveDirs = regexp.MustCompile(`(^|[^A-Za-z0-9])(?:\\\\[?.]\\)?[A-Za-z]:[\\/](?:` + winSeg + `)*`)
+	uncDirs   = regexp.MustCompile(`\\\\(?:[?.]\\UNC\\)?[^\\/:*?"<>|\r\n ]+\\(?:` + winSeg + `)+`)
+	unixDirs  = regexp.MustCompile(`(^|[\s"'(])/{1,2}(?:(?:[^/\s:"'\r\n]| [^/\s:"'\r\n])+/)+`)
+)
+
+// shortErr is an error's message without the folders of any path in it (of a path error, a link error such as a failed rename that names two paths, or any error that wraps or quotes
+// one), which the page, the warning of a write and the log would show with the name of the person's account. The file names stay.
 func shortErr(err error) string {
-	var pe *os.PathError
-	if errors.As(err, &pe) {
-		return pe.Op + " " + filepath.Base(pe.Path) + ": " + pe.Err.Error()
-	}
-	return err.Error()
+	s := err.Error()
+	s = driveDirs.ReplaceAllString(s, "$1")
+	s = uncDirs.ReplaceAllString(s, "")
+	return unixDirs.ReplaceAllString(s, "$1")
 }
 
 // oneStatement says whether q is a single SQL statement: a ';' ends a statement only outside a quoted text or name ('...', "...", `...`, [...]) and outside a comment
@@ -510,6 +525,11 @@ func (s *Save) RestoreJournal() (*Restored, error) {
 		return s.skipJournal("it was kept for a save with another path or spelling of the path"), nil
 	}
 	if j.Writing != "" && j.Writing == hex.EncodeToString(s.diskHash[:]) { // the file is the one these edits were written as: they are in it
+		written := j.Ops
+		if n := j.WritingOps; n > 0 && n < len(j.Ops) {
+			written = j.Ops[:n]
+		}
+		s.deliverRecNotes(written) // these edits are in the file: their notes are handed over now (notes.go)
 		if n := j.WritingOps; n > 0 && n < len(j.Ops) {
 			// the edits made after that write (it could not be read back, and the person went on) are not in it: they are put back onto it
 			r, err := s.putBackAtomic(j.Ops[n:], false, Restored{})
@@ -729,6 +749,7 @@ func (s *Save) replayOp(o opRec) string {
 			return fmt.Errorf("it changed %d rows now and %d before: %w", after-before, o.Rows, errConflict)
 		}
 		m.Desc = o.Desc
+		m.notes = o.Notes
 		return nil
 	}
 	_, err := s.mutateLocked(o.Desc, o.Cascade, run)
@@ -746,6 +767,18 @@ func (s *Save) replayOp(o opRec) string {
 // holds, and the person is told that edits after those may be missing.
 func (s *Save) restoreIncomplete(m incompleteMark) *Restored {
 	if m.Writing != "" && m.Writing == hex.EncodeToString(s.diskHash[:]) {
+		// the edits were written: the notes of the ones the journal still holds are handed over before it goes (the journal may hold only some of them, and the ones it holds are the
+		// ones written first; WritingOps, when it says how many that write held, bounds them)
+		if b, err := os.ReadFile(s.journalPath); err == nil {
+			var j journalFile
+			if json.Unmarshal(b, &j) == nil && j.Version == journalVersion {
+				written := j.Ops
+				if n := j.WritingOps; n > 0 && n < len(written) {
+					written = written[:n]
+				}
+				s.deliverRecNotes(written)
+			}
+		}
 		os.Remove(s.journalPath)
 		os.Remove(s.markPath())
 		return nil

@@ -43,6 +43,7 @@ func (s *Save) settleWrittenLocked() (wrote []string, backup string, settled boo
 		wrote = append(wrote, o.Desc)
 	}
 	backup = s.writingBackup
+	s.deliverNotes(s.ops[:n]) // the edits of that write are in the file: their notes are handed over now
 	var extraOps []Op
 	var extraRecs []opRec
 	extraOps = append(extraOps, s.ops[n:]...)
