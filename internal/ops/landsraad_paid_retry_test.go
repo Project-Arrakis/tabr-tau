@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
@@ -103,11 +104,23 @@ func TestPaidARaiseIsRefusedWhenAFailingRecordDroppedNotes(t *testing.T) {
 		t.Fatal("the save does not say that notes were dropped")
 	}
 	solari := wallet(t, o, 0)
-	if _, err := o.LandsraadApplyWith(doubled(), applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0}))); err == nil || !strings.Contains(err.Error(), "refused") {
-		t.Fatalf("a raise was not refused: %v", err)
+	refused := func(was float64) {
+		t.Helper()
+		_, err := o.LandsraadApplyWith(doubled(), applyArgs(house(175, Args{"was_mine": was, "mine_to": 6000.0})))
+		if !errors.Is(err, errPaidNotesDropped) || !errors.Is(err, apierr.ErrWriteFailed) {
+			t.Fatalf("a raise was not refused with the dropped-notes error of kind write_failed: %v", err)
+		}
+		if wallet(t, o, 0) != solari {
+			t.Fatal("a refused raise wrote")
+		}
 	}
-	if wallet(t, o, 0) != solari {
-		t.Fatal("a refused raise wrote")
-	}
+	refused(1300)
 	removeTo(t, o, 1300, 0) // a removal pays nothing and needs no record
+	// the record works again and the next write hands over what was kept: the notes that were dropped are still unknown, so the refusal stays for the session
+	fail = false
+	flush(t, o)
+	if o.S.NotesProblem() != "" || !o.S.NotesDropped() {
+		t.Fatalf("the kept notes were handed over (problem %q) and the flag must stay (%v)", o.S.NotesProblem(), o.S.NotesDropped())
+	}
+	refused(0)
 }

@@ -145,9 +145,9 @@ func (o *Ops) Landsraad() (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	// the ground the editor itself paid (landsraad_paid.go), queued raises included, for the page to work out what a click grants: it counts only up to the highest tier whose reward row of this term stands for the house (trustedPaid), as in the write
-	// (the queued notes are read before the file: a write that lands in between moves a note from the queue into the file, and the other order could see neither)
-	queuedPaid := pendingPaid(o.S.PendingNotes(paidNoteKind))
+	// the ground the editor itself paid (landsraad_paid.go), raises not recorded yet included (queued, or written and kept for the record), for the page to work out what a click grants: it counts only up to the highest tier whose reward row of this term stands for the house (trustedPaid), as in the write
+	// (the notes not yet recorded are read before the file: a write or a delivery that lands in between moves a note into the file, and the other order could see neither)
+	unrecordedPaid := pendingPaid(o.S.PendingNotes(paidNoteKind))
 	filePaid, _ := o.Paid.snapshot() // a record that could not be read shows as nothing paid here (a read); the write refuses instead
 	for _, t := range tasks {
 		id, _ := t["id"].(int64)
@@ -181,7 +181,7 @@ func (o *Ops) Landsraad() (any, error) {
 		if hasSw {
 			swRow = sw
 		}
-		t["my_paid"], _ = trustedPaid(filePaid, queuedPaid, mineID, termID, house, standingTierRows(rw[id], swRow, delivered, house, termStart))
+		t["my_paid"], _ = trustedPaid(filePaid, unrecordedPaid, mineID, termID, house, standingTierRows(rw[id], swRow, delivered, house, termStart))
 		// a tier is reached when the contribution is at least its threshold; whether it is delivered (and what stands at the house representative) is decided per tier by
 		// tierState in landsraad_board.go: the reward row of this term (#656, #655)
 		tiers := rw[id]

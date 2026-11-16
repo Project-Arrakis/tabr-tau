@@ -134,7 +134,7 @@ func TestPendingNotesAreSeenInsideALaterEditAndGoOnceWritten(t *testing.T) {
 	noteEdit(t, s, 2, "y", 8)
 	var seen []int
 	if _, err := s.Mutate("looks", func(m *Mut) error {
-		seen = values(t, notesOfRaw(m.Pending("x")))
+		seen = values(t, m.Pending("x"))
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -146,14 +146,6 @@ func TestPendingNotesAreSeenInsideALaterEditAndGoOnceWritten(t *testing.T) {
 	if got := s.PendingNotes("x"); len(got) != 0 {
 		t.Fatalf("a written edit's note is still pending: %v", got)
 	}
-}
-
-func notesOfRaw(r []json.RawMessage) []Note {
-	var out []Note
-	for _, d := range r {
-		out = append(out, Note{Data: d})
-	}
-	return out
 }
 
 // An edit kept in the journal keeps its note, and the note is handed over when the put-back edit is written by the next run.
@@ -383,15 +375,15 @@ func TestNotesPendingCountsTheNotesAFailingSinkKept(t *testing.T) {
 		t.Fatalf("the write must go through and the record fail: %+v", f)
 	}
 	noteEdit(t, s, 1, "x", 3) // queued after the failed delivery
-	var seen []json.RawMessage
+	var seen []Note
 	if _, err := s.Mutate("read", func(m *Mut) error { seen = m.Pending("x"); return nil }); err != nil {
 		t.Fatal(err)
 	}
-	if len(seen) != 2 || !strings.Contains(string(seen[0]), `"v":1`) || !strings.Contains(string(seen[1]), `"v":3`) {
-		t.Fatalf("an edit sees the kept note first, then the queued one: %s", seen)
+	if len(seen) != 2 || !strings.Contains(string(seen[0].Data), `"v":1`) || !strings.Contains(string(seen[1].Data), `"v":3`) {
+		t.Fatalf("an edit sees the kept note first, then the queued one: %+v", seen)
 	}
-	if got := s.PendingNotes("y"); len(got) != 1 || !strings.Contains(string(got[0]), `"v":2`) {
-		t.Fatalf("a reader outside an edit sees the kept note of another kind by its own kind: %s", got)
+	if got := s.PendingNotes("y"); len(got) != 1 || !strings.Contains(string(got[0].Data), `"v":2`) {
+		t.Fatalf("a reader outside an edit sees the kept note of another kind by its own kind: %+v", got)
 	}
 	if s.NotesDropped() {
 		t.Fatal("nothing was dropped")
@@ -401,7 +393,7 @@ func TestNotesPendingCountsTheNotesAFailingSinkKept(t *testing.T) {
 		t.Fatalf("flush: %+v", f)
 	}
 	if got := s.PendingNotes("x"); len(got) != 0 {
-		t.Fatalf("a note that was handed over is still counted as pending: %s", got)
+		t.Fatalf("a note that was handed over is still counted as pending: %+v", got)
 	}
 	if got := values(t, k.got); len(got) != 3 {
 		t.Fatalf("handed over: %v", got)
@@ -432,5 +424,74 @@ func TestNotesDroppedPastTheBoundIsSaid(t *testing.T) {
 	s.mu.Unlock()
 	if !s.NotesDropped() {
 		t.Fatal("one past the bound drops the oldest and must say so")
+	}
+}
+
+// The flag stays after the sink works again and the kept notes are handed over: what the dropped notes recorded is not known to anyone, so a reader that counts on the notes must go on
+// refusing until the editor is restarted (#810).
+func TestNotesDroppedStaysAfterTheSinkSucceeds(t *testing.T) {
+	defer NoGameRunningForTests()()
+	p := makeSave(t, journalDDL)
+	s, _ := Open(p)
+	defer s.Close()
+	fail := true
+	s.SetNoteSink(func([]Note) error {
+		if fail {
+			return errors.New("busy")
+		}
+		return nil
+	})
+	s.mu.Lock()
+	over := make([]Note, maxUndelivered+1)
+	for i := range over {
+		over[i] = Note{Kind: "x", Data: json.RawMessage(`{"v":1}`)}
+	}
+	s.deliver(over)
+	s.mu.Unlock()
+	if !s.NotesDropped() {
+		t.Fatal("one past the bound must say so")
+	}
+	fail = false
+	noteEdit(t, s, 1, "x", 2)
+	if f := s.Flush(); !f.Saved || s.NotesProblem() != "" {
+		t.Fatalf("the write must go through and the kept notes be handed over: %+v, problem %q", f, s.NotesProblem())
+	}
+	if got := s.PendingNotes("x"); len(got) != 0 {
+		t.Fatalf("the kept notes were handed over: %v", got)
+	}
+	if !s.NotesDropped() {
+		t.Fatal("the flag must stay for the rest of the session")
+	}
+	if _, err := s.Mutate("read", func(m *Mut) error {
+		if !m.NotesDropped() {
+			t.Error("an edit must see the flag too")
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A kept note that comes from a journal that outlived its write is still marked as one that may come again when a reader asks for the pending notes (#810).
+func TestPendingNotesCarryAgain(t *testing.T) {
+	defer NoGameRunningForTests()()
+	p := makeSave(t, journalDDL)
+	s, _ := Open(p)
+	defer s.Close()
+	s.SetNoteSink(func([]Note) error { return errors.New("busy") })
+	s.mu.Lock()
+	s.deliverRecNotes([]opRec{{Notes: []Note{{Kind: "x", Data: json.RawMessage(`{"v":1}`)}}}})
+	s.mu.Unlock()
+	noteEdit(t, s, 1, "x", 2)
+	got := s.PendingNotes("x")
+	if len(got) != 2 || !got[0].Again || got[1].Again {
+		t.Fatalf("the kept note comes again, the queued one does not: %+v", got)
+	}
+	var in []Note
+	if _, err := s.Mutate("read", func(m *Mut) error { in = m.Pending("x"); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if len(in) != 2 || !in[0].Again || in[1].Again {
+		t.Fatalf("the same inside an edit: %+v", in)
 	}
 }

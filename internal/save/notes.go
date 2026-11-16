@@ -35,7 +35,7 @@ func (m *Mut) Note(kind string, data any) error {
 // Pending returns the notes of the kind that the sink has not recorded yet, oldest first: first the notes of edits that are already written to the game's file but that the sink could
 // not take (they wait for the next write), then the notes of the edits queued (made, not yet written). It is read inside an edit, so it sees what the edits before it asked to be
 // remembered, which is not in the sink's store until they are written and handed over.
-func (m *Mut) Pending(kind string) []json.RawMessage {
+func (m *Mut) Pending(kind string) []Note {
 	if m.s == nil {
 		return nil
 	}
@@ -43,7 +43,7 @@ func (m *Mut) Pending(kind string) []json.RawMessage {
 }
 
 // PendingNotes is Pending for a reader that is not inside an edit.
-func (s *Save) PendingNotes(kind string) []json.RawMessage {
+func (s *Save) PendingNotes(kind string) []Note {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.pendingNotes(kind)
@@ -51,17 +51,17 @@ func (s *Save) PendingNotes(kind string) []json.RawMessage {
 
 // pendingNotes: the caller holds s.mu. A queue that is held (it could not be put onto the game's newer file) is not pending: none of it is in the working copy. The notes a failing
 // sink kept (undelivered) come first: their edits are in the game's file already, so a reader that left them out would count the ground they stand for nowhere (#810).
-func (s *Save) pendingNotes(kind string) []json.RawMessage {
-	var out []json.RawMessage
+func (s *Save) pendingNotes(kind string) []Note {
+	var out []Note
 	for _, n := range s.undelivered {
 		if n.Kind == kind {
-			out = append(out, n.Data)
+			out = append(out, n)
 		}
 	}
 	for _, o := range s.ops {
 		for _, n := range o.notes {
 			if n.Kind == kind {
-				out = append(out, n.Data)
+				out = append(out, n)
 			}
 		}
 	}
