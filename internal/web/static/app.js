@@ -522,6 +522,14 @@ function queueLine(desc) {
   if ((m = d.match(/^decree (\d+) disabled=([01])$/))) return `Set the pool flag of decree ${m[1]} to ${m[2]}`;
   if ((m = d.match(/^journey (\S+) (completed|reset) \((\d+) rows?\)$/))) return `Journey step ${m[1]}: ${m[2]}`;
   if ((m = d.match(/^moved vehicle (\d+) next to player$/))) return `Move vehicle ${m[1]} next to the character`;
+  // Landsraad edits name their houses and factions (#611): several houses, then one house
+  // "landsraad: 3 houses completed for Atreides; replaces ...; houses: A, B, C": what was done and the short facts first, the list of houses last
+  if ((m = d.match(/^landsraad: (\d+) houses? (completed|reopened|changed from the board)(?: for ([^;]+))?((?:; .*)?)$/))) {
+    const hm = m[4].match(/(?:^|; )houses: (.+)$/), facts = hm ? m[4].slice(0, hm.index) : m[4], n = +m[1];
+    const verb = m[2] === 'completed' ? 'Complete' : m[2] === 'reopened' ? 'Reopen' : 'Change';
+    return `${verb} ${n} Landsraad ${n === 1 ? 'house' : 'houses'}${m[2] === 'changed from the board' ? ' from the board' : ''}${m[3] ? ' for ' + m[3] : ''}${hm ? ': ' + hm[1] : ''}${facts}`;
+  }
+  if ((m = d.match(/^landsraad (?!term |task )([^:]+): (.+)$/))) return `${m[1]} (Landsraad): ${capFirst(m[2])}`;
   return capFirst(d);
 }
 // The game rewrites game.db about every twenty seconds while a session runs. With nothing queued the editor reads the new file by itself and
@@ -588,8 +596,8 @@ async function status() {
   const n = (one, many) => (q === 1 ? one : many);
   // a queue the editor could not put back onto the game's newer file: none of it was written
   const unlistedMsg = unlisted ? html`<div><b>Unlisted changes are waiting to be written.</b> They are written by themselves as soon as the file can be written. <button class="b sm d-btn primary sm" data-act="writeNow">Write now</button></div>` : html``;
-  const heldMsg = o.held ? html`<div><b>${q} queued change${q > 1 ? 's were' : ' was'} not written.</b> The game saved changes that conflict with ${q > 1 ? 'them' : 'it'}, so the editor left the game's file as it is.
-    ${(o.held.conflicts || []).map((c) => html`<div>${c.desc}: ${c.why}</div>`)} <button class="b sm d-btn primary sm" data-act="discardQueue">Discard queue</button></div>` : html``;
+  const heldMsg = o.held ? html`<div><b>${q} queued change${q > 1 ? 's were' : ' was'} not written.</b> The game saved changes that conflict with ${q > 1 ? 'them' : 'it'}, so the editor left the game's file as it is. Discard the queue and make the change${q > 1 ? 's' : ''} again.
+    ${(o.held.conflicts || []).map((c) => html`<div>${queueLine(c.desc)}: ${c.why}</div>`)} <button class="b sm d-btn primary sm" data-act="discardQueue">Discard queue</button></div>` : html``;
   let mainMsg = html``;
   if (o.locationUnconfirmed) mainMsg = html`<div><b>Changes cannot be written here yet.</b> ${reason.text} You can keep editing: changes wait in the queue. <button class="b sm d-btn primary sm" data-act="confirmLocation">Allow writing here</button></div>`;
   else if (o.gameCheckError && saveBlocked) mainMsg = html`<div><b>Changes cannot be written.</b> ${reason.text}${q ? html` ${q} ${n('change waits', 'changes wait')} in the queue and ${n('is written by itself', 'are written by themselves')} once the check works.` : ''} The editor checks again by itself every few seconds. <button class="b sm d-btn primary sm" data-act="checkAgain">Check again</button> <button class="b sm d-btn primary sm" data-act="writeNow">Write now</button></div>`;
@@ -602,7 +610,7 @@ async function status() {
     ? html`<b>${restored.applied} change${restored.applied === 1 ? ' was' : 's were'} put back${restored.rebased ? ' onto the newer file the game saved' : ''}.</b> ${restored.written ? (restored.applied === 1 ? 'It has been written.' : 'They have been written.') : 'They are written like any other change.'}`
     : html`<b>${(restored.conflicts || []).length === 1 ? 'A queued change was' : 'Queued changes were'} not kept.</b>`;
   const restoredMsg = restored ? html`<div>${restoredHead}
-    ${(restored.conflicts || []).map((c) => html`<div>Could not put back: ${c.desc} (${c.why}). Make it again.</div>`)} <button class="b sm d-btn primary sm" data-act="dismissRestored">OK</button></div>` : html``;
+    ${(restored.conflicts || []).map((c) => html`<div>Could not put back: ${queueLine(c.desc)} (${c.why}). Make it again.</div>`)} <button class="b sm d-btn primary sm" data-act="dismissRestored">OK</button></div>` : html``;
   const journalMsg = o.journalOff && o.dirty ? html`<div class="mut">These queued changes are not kept if the editor is closed: ${o.journalOff}.</div>` : html``;
   const schemaMsg = schemaNote ? html`<div><b>This save is not quite the one this editor knows.</b> ${schemaNote}</div>` : html``;
   const logMsg = o.writeLogProblem ? html`<div class="mut">${capFirst(o.writeLogProblem)}. The game's file was written; only the record of it is missing.</div>` : html``;
@@ -1803,7 +1811,7 @@ const GRANT_UNCHECKED = 'The pay-out of a mission (Solari, House Scrip, speciali
 function lbGrantOf(h, l, from, to) {
   const g = l && l.grant;
   if (!g || !(to > from)) return null;
-  const lo = Math.max(from, Number(h.task.my_events) || 0);
+  const lo = Math.max(from, Number(h.task.my_events) || 0, Number(h.task.my_elsewhere) || 0); // the game's events, and what the character reached under another faction
   if (!(to > lo)) return { missions: 0, rewards: 0, solari: 0, scrip: 0, xpBy: {} }; // the character's own events already cover this ground
   if (g.problem) return { problem: g.problem };
   const line = h.task.line || '';
@@ -2065,7 +2073,7 @@ function lbInner(l) {
   <p class="nolist" id="lsb-nomatch" hidden>No house matches the filters. <button type="button" class="linkb" data-lb="showall">Show all houses</button></p>
   <div role="table" aria-label="Houses, current term"><div role="rowgroup"><div class="rowhead" role="row"><span class="pickh" aria-hidden="true">Choose</span><span class="sortlbl">Sort by</span>${col('house', 'House', lbMark('save', 'Read from the save: landsraad_tasks.house_name'))}${col('location', 'Location', '', noLocs)}<div class="hc3">${col('state', 'State')}${col('tiers', 'Tiers', lbMark('derived', 'Worked out by the editor from fields the save holds: tiers reached from your contribution'))}${col('next', 'Next tier')}</div>${col('status', 'Faction status', lbMark('save', 'Read from the save: completed, winning_faction_id, faction contributions'))}<span class="hend">Quick actions</span></div></div>
   <ul class="rows" role="rowgroup" id="lsb-rows">${hs.map((h) => lbRow(h, l, hue(h), noLocs))}</ul></div>
-  ${lbAbout('lsb.board', 'the board', html`<p>Every row starts collapsed. Click a row (or press Space on it) to open it; Expand all opens every row, Collapse all closes them again. A <b>tier</b> is reached when your contribution is at least its amount; contribution is cumulative. A reached tier counts as paid when the progress events of your character for the house cover it (or, when the character has no event for the house, when the delivery rows hold its item from this term). <b>Delivered</b> then means the save holds the reward as collected (amount 0 in the delivery rows), <b>Waiting to collect</b> that it waits at the house representative (an amount above 0). <b>Reached, no delivery recorded</b> means no such row of this term, or that the progress events do not cover the tier, so an earlier term's reward, or another tier's waiting amount of the same item, is not taken for this tier's. The top tier shows the house swatch while the character does not hold it, and the house's own item once it is held. With a mouse, hover a place for a quick look at where the house is; the open row shows the same on touch and keyboard.</p>`)}
+  ${lbAbout('lsb.board', 'the board', html`<p>Every row starts collapsed. Click a row (or press Space on it) to open it; Expand all opens every row, Collapse all closes them again. A <b>tier</b> is reached when your contribution is at least its amount; contribution is cumulative. A reached tier counts as paid when the delivery rows hold its item from this term. <b>Delivered</b> then means the save holds the reward as collected (amount 0 in the delivery rows), <b>Waiting to collect</b> that it waits at the house representative (an amount above 0). <b>Reached, no delivery recorded</b> means no such row of this term, so an earlier term's reward is not taken for this tier's. The row is of the item, not of the tier: where two tiers give the same item one row shows both as paid, and a contribution raised by a route that writes no reward (an older build, or the plain Fill routes of the editor's API) can show a tier as delivered when the game or another tier left a row of this term. The top tier shows the house swatch while the character does not hold it, and the house's own item once it is held. With a mouse, hover a place for a quick look at where the house is; the open row shows the same on touch and keyboard.</p>`)}
   </section>`;
   const boardOrNone = N ? board : html`<section class="card d-panel" aria-labelledby="lsb-board-h" id="lsb-board"><h2 class="d-head" id="lsb-board-h">Task board <span class="cnt">0 houses</span></h2><p class="nodata">This save has no Landsraad houses in the current term, so there is nothing to show or change here.</p></section>`;
   return html`${lbGlance(hs, l, c)}${lbTerm(l)}${boardOrNone}${lbHistory(l)}
@@ -2088,9 +2096,9 @@ function lbActbar(hs, l) {
     <p class="legend2" id="lsb-legend"><b>Writes at once</b>, with a backup first; a raise also pays its missions. Not checked in the game yet.</p>
     ${lbAbout('lsb.tiers', 'tiers', html`<p><b>A tier click pays what its missions pay.</b> Click a tier (the boxes in the opened row) to give your character that tier: your contribution is raised to the tier's threshold, and contribution is cumulative, so <b>click tier 3 and tiers 1 to 3 are reached</b>. Click the highest reached tier again to remove it (the contribution drops to the tier below, or to none for tier 1). The Choose box on each row picks houses for the bulk buttons. Each tier box shows what the click grants before you press it.</p>
       <p><b>What a raise writes</b>, in one edit with a backup first:</p>
-      <ul><li>your contribution, raised to the tier;</li><li>one progress event, and the game's progress cursor moved to it;</li><li>the same ground added to your faction's progress while the house is open (the house is taken when that reaches the goal);</li><li>one reward for each tier crossed, waiting at the house representative (the 6,000 tier follows the swatch rule);</li><li>for each mission: 6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization line of the house.</li></ul>
+      <ul><li>your contribution, raised to the tier;</li><li>the same ground added to your faction's progress while the house is open (the house is taken when that reaches the goal);</li><li>one reward for each tier crossed, waiting at the house representative (the 6,000 tier follows the swatch rule);</li><li>for each mission: 6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization line of the house.</li></ul>
       <p>A mission is 1,000 contribution times <code>LandsraadContributionMultiplier</code>, and the XP is scaled by <code>LandsraadSpecializationXpMultiplier</code>; both are read from ServerCustomSettings.ini (1 when the key is absent), and a click is refused with the reason when a value cannot be used. The daily and weekly mission limits of the game are not applied.</p>
-      <p><b>What it does not write:</b> your character's own XP and your faction standing. A tier is paid once: the tiers your own events for the house already crossed are not paid again, also after a removal, so a second Fill writes nothing. <b>Removing a tier</b> lowers the contribution only, writes no reward and takes back nothing the tier paid.</p>
+      <p><b>What it does not write:</b> your character's own XP and your faction standing. <b>No progress event is written</b>: the editor adds no event and leaves the game's progress cursor where it is, so the game should find only events of its own at its next cursor step. Whether the game keeps a contribution raised here at that step is not checked in the game. Events an earlier build of the editor wrote stay in the save and still count as ground paid. A second Fill with nothing above your contribution writes nothing, and ground the game's own progress events for the house cover, or that you reached under another faction (a change of faction does not make the old contribution pay again), is never paid again. <b>Removing a tier</b> lowers the contribution only, writes no reward and takes back nothing the tier paid. Because the editor leaves no event of its own, <b>raising a removed tier again pays it again</b>: its missions (Solari, House Scrip, XP), the rewards of the tiers crossed (a house swatch won in this term is not given twice; without the swatch tables, or with a swatch held from an earlier term, the top tier's own item is given again) and, while the house is open, the same ground on your faction's progress again, which can take the house. The tier box is a toggle, so clicking the highest reached tier twice pays twice.</p>
       <p><b>Not checked in the game yet.</b> ${GRANT_UNCHECKED} <b>Going back:</b> ${undoNote()}</p>`)}
     ${lbAbout('lsb.fill', 'Fill and Complete', html`<p>Fill, Complete and Reopen act for the faction chosen above. It starts on your character's own faction.</p>
       <p><b>Fill</b> and <b>Fill chosen</b> raise your own contribution to the top tier (never lowered) and write what the missions that reach it pay (see Tiers). They change nothing while another faction is chosen: your contribution counts for your own faction, so no contribution and no reward is written for another.</p>
@@ -2165,7 +2173,11 @@ async function lbSend(b, items, label, hs, focusFk) {
   LP.confirm = null;
   const ok = await lbRun(b, async () => {
     const r = await api('/api/landsraad/apply', { term_id: l.term.term_id, houses: items });
-    if (!r.changed) return label + ': nothing to change, ' + (items.length > 1 ? 'the houses were' : 'the house was') + ' already in that state.';
+    // a win taken from another faction, and the other completion times the clock repair moved (D1-3, D1-4, #611): said in the result line, also when nothing else changed
+    const repairNote = r.repaired > 0 ? nn(r.repaired, 'other completion time', 'other completion times') + " put back inside the term's window" : '';
+    if (!r.changed) return label + ': nothing to change, ' + (items.length > 1 ? 'the houses were' : 'the house was') + ' already in that state' + (repairNote ? '; ' + repairNote : '') + '.';
+    const takenNote = (r.replaced || []).length ? 'replaces the win of ' + r.replaced.map((x) => x.previous_winner + ' on ' + x.house).join(', ') : '';
+    const extra = [takenNote, repairNote].filter(Boolean).map((x) => '; ' + x).join('');
     const queued = String(NOT_SAVED) !== ''; // the game is running: the change is queued, so nothing here may say it is in the save
     const rows = r.reward_rows ? nn(r.reward_rows, 'reward', 'rewards') + (queued ? ' to leave' : ' now') + ' waiting at the house representative' : '';
     // what the missions of a raise write (landsraad_grant.go), and the warning when rewards were left out because the character's own events already crossed them (#656)
@@ -2173,11 +2185,11 @@ async function lbSend(b, items, label, hs, focusFk) {
     const warn = left ? 'Warning: ' + nn(left, 'reward', 'rewards') + (left === 1 ? ' was' : ' were') + ' left out: earlier progress on this house already counted for ' + (left === 1 ? 'it' : 'them') + '. Nothing to do' : '';
     const tail = (r.contribution_lowered ? ' ' + LB_REMOVE_NOTE : '') + (r.missions ? ' ' + GRANT_UNCHECKED : '');
     let text;
-    if (items.length === 1 && hs.get(items[0].task_id)) text = label + ': ' + lbChangeText(hs.get(items[0].task_id), l, items[0]) + (r.completed && items[0].complete_for == null ? '; house taken, its faction reached the goal' : '') + (rows ? '; ' + rows : '') + (grant ? '; ' + grant : '') + (warn ? '; ' + warn : '') + '.' + tail;
+    if (items.length === 1 && hs.get(items[0].task_id)) text = label + ': ' + lbChangeText(hs.get(items[0].task_id), l, items[0]) + (r.completed && items[0].complete_for == null ? '; house taken, its faction reached the goal' : '') + (rows ? '; ' + rows : '') + (grant ? '; ' + grant : '') + (warn ? '; ' + warn : '') + extra + '.' + tail;
     else {
       const parts = [r.contribution_raised ? 'your contribution raised on ' + nn(r.contribution_raised, 'house', 'houses') : '', r.contribution_lowered ? 'lowered on ' + nn(r.contribution_lowered, 'house', 'houses') + ' (a tier removed)' : '',
         rows, grant, r.completed ? nn(r.completed, 'house', 'houses') + ' completed' : '', r.reopened ? nn(r.reopened, 'house', 'houses') + ' reopened' : '', warn].filter(Boolean);
-      text = label + ': ' + parts.join(', ') + '.' + tail;
+      text = label + ': ' + parts.join(', ') + extra + '.' + tail;
     }
     // the toast is one short line; the whole sentence stays in the result line
     const short = r.missions ? label + ': ' + nn(r.missions, 'mission', 'missions') + (queued ? ' queued.' : ' written.') : r.contribution_lowered ? label + ': tier removed. Nothing it paid was taken back.' : '';

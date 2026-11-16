@@ -44,6 +44,11 @@ func events(t *testing.T, o *Ops) string {
 		left join landsraad_task_progress_player l on l.progress_id=p.id order by p.id`)
 }
 
+// progressTables is the game's progress queue as one string: the events, their player links and the cursor. The editor writes none of them (#655).
+func progressTables(t *testing.T, o *Ops) string {
+	return events(t, o) + "--\n" + rows(t, o, `select * from landsraad_task_progress_player order by progress_id`) + "--\n" + rows(t, o, `select * from landsraad_task_progress_processed`)
+}
+
 func oneTimeRows(t *testing.T, o *Ops) string {
 	return rows(t, o, `select player_id, house_name, template_id, term_id from landsraad_player_one_time_house_rewards order by player_id, house_name`)
 }
@@ -58,10 +63,11 @@ func fillKenola(t *testing.T, o *Ops, extra Args) map[string]any {
 
 func TestRewardsFillDeliversEveryTierCrossedAndTheSwatchInsteadOfTheTopItem(t *testing.T) {
 	o := rewardOps(t, "")
+	queue := progressTables(t, o)
 	maros, other := houseRewards(t, o, "DA_HouseMaros"), houseRewards(t, o, "DA_HouseKenola")
 	contribs := rows(t, o, `select * from landsraad_task_player_contributions where task_id<>175 order by player_id, task_id`)
 	m := fillKenola(t, o, nil)
-	if m["events"].(int64) != 1 || m["reward_rows"].(int64) != 4 || m["swatches"].(int64) != 1 || m["rewards_already_given"].(int64) != 0 {
+	if _, has := m["events"]; has || m["reward_rows"].(int64) != 4 || m["swatches"].(int64) != 1 || m["rewards_already_given"].(int64) != 0 {
 		t.Fatalf("answer: %v", m)
 	}
 	want := "map[amount:1 last_updated:150 player_id:1 template_id:Kenola_Placeables_Swatch]\n" +
@@ -75,8 +81,8 @@ func TestRewardsFillDeliversEveryTierCrossedAndTheSwatchInsteadOfTheTopItem(t *t
 	if got := oneTimeRows(t, o); got != "map[house_name:DA_HouseKenola player_id:1 template_id:Kenola_Placeables_Swatch term_id:7]\n" {
 		t.Fatalf("the one-time row: %s", got)
 	}
-	if got := events(t, o); got != "map[faction_id:2 faction_progress:4700 guild_progress:0 id:1 player_id:1 player_progress:6000 task_id:175 timestamp:150]\n" {
-		t.Fatalf("the event (the faction gains what the character gained; the event also covers the 1,300 that stood there without an event): %s", got)
+	if got := progressTables(t, o); got != queue {
+		t.Fatalf("a raise wrote an event, a link or moved the cursor (#655):\n%s\n---\n%s", queue, got)
 	}
 	if houseRewards(t, o, "DA_HouseMaros") != maros {
 		t.Fatal("another house's rows were touched")
@@ -124,11 +130,15 @@ func TestRewardsAHouseWithoutASwatchRowDeliversTheTaskItem(t *testing.T) {
 	}
 }
 
-func TestRewardsFillFactionGoalRecordsTheFactionsShareInTheEvent(t *testing.T) {
+func TestRewardsFillFactionGoalTakesTheHouseAndTheFactionGainsWhatTheCharacterGained(t *testing.T) {
 	o := rewardOps(t, "")
+	queue := progressTables(t, o)
 	fillKenola(t, o, Args{"complete_for": 2.0})
-	if got := events(t, o); got != "map[faction_id:2 faction_progress:4700 guild_progress:0 id:1 player_id:1 player_progress:6000 task_id:175 timestamp:150]\n" {
-		t.Fatalf("the event: %s", got)
+	if v, _ := progress(t, o, 2, 175); v != 5700 {
+		t.Fatalf("the faction's progress: %v", v)
+	}
+	if got := progressTables(t, o); got != queue {
+		t.Fatalf("the queue changed: %s", got)
 	}
 	if h := houseRow(t, o, 175); h["c"].(int64) != 1 || h["w"].(int64) != 2 || h["ct"].(int64) != 150 {
 		t.Fatalf("taken: %v", h)
@@ -136,15 +146,16 @@ func TestRewardsFillFactionGoalRecordsTheFactionsShareInTheEvent(t *testing.T) {
 	// the same request on an open house the faction is already at the goal on: the faction still gains what the character gained, as a plain Fill gives it (#751)
 	o = rewardOps(t, `update landsraad_task_faction_contributions set amount=4000 where task_id=175`)
 	fillKenola(t, o, Args{"complete_for": 2.0})
-	if got := events(t, o); got != "map[faction_id:2 faction_progress:4700 guild_progress:0 id:1 player_id:1 player_progress:6000 task_id:175 timestamp:150]\n" {
-		t.Fatalf("the event: %s", got)
+	if v, _ := progress(t, o, 2, 175); v != 8700 {
+		t.Fatalf("the faction's progress (4,000 and the 4,700 the character gained): %v", v)
 	}
 }
 
 func TestRewardsATierGiveOnAHouseWithoutAContributionRowDeliversFromTheFirstTier(t *testing.T) {
 	o := rewardOps(t, "")
+	queue := progressTables(t, o)
 	m := mustApply(t, o, applyArgs(house(176, Args{"mine_to": 3600.0})))
-	if m["reward_rows"].(int64) != 3 || m["events"].(int64) != 1 || m["swatches"].(int64) != 0 {
+	if m["reward_rows"].(int64) != 3 || m["swatches"].(int64) != 0 {
 		t.Fatalf("answer: %v", m)
 	}
 	want := "map[amount:1 last_updated:150 player_id:1 template_id:Schematic.V]\n" +
@@ -153,8 +164,8 @@ func TestRewardsATierGiveOnAHouseWithoutAContributionRowDeliversFromTheFirstTier
 	if got := houseRewards(t, o, "DA_HouseVernius"); got != want {
 		t.Fatalf("rows:\n%s\nwant\n%s", got, want)
 	}
-	if got := events(t, o); got != "map[faction_id:2 faction_progress:3600 guild_progress:0 id:1 player_id:1 player_progress:3600 task_id:176 timestamp:150]\n" {
-		t.Fatalf("the event: %s", got)
+	if got := progressTables(t, o); got != queue {
+		t.Fatalf("the queue changed: %s", got)
 	}
 	if oneTimeRows(t, o) != "" {
 		t.Fatal("no swatch was delivered, so there is no one-time row")
@@ -170,15 +181,17 @@ func TestRewardsNothingIsWrittenForARemovalACompleteOrAnotherFaction(t *testing.
 		"fill above (set)": {house(174, Args{"was_mine": 7850.0, "mine_to": 6000.0, "lower": true})},
 	} {
 		o := rewardOps(t, "")
-		rBefore, eBefore, oBefore := rows(t, o, `select * from landsraad_house_rewards order by 1,2,4`), events(t, o), oneTimeRows(t, o)
+		rBefore, eBefore, oBefore := rows(t, o, `select * from landsraad_house_rewards order by 1,2,4`), progressTables(t, o), oneTimeRows(t, o)
 		mustApply(t, o, applyArgs(hs...))
-		if got := rows(t, o, `select * from landsraad_house_rewards order by 1,2,4`); got != rBefore || events(t, o) != eBefore || oneTimeRows(t, o) != oBefore {
+		if got := rows(t, o, `select * from landsraad_house_rewards order by 1,2,4`); got != rBefore || progressTables(t, o) != eBefore || oneTimeRows(t, o) != oBefore {
 			t.Errorf("%s wrote reward rows or an event", name)
 		}
 	}
 }
 
-func TestRewardsATierIsGivenOncePerTermAlsoAfterARemoval(t *testing.T) {
+// The editor writes no event (#655), so it does not remember what it delivered: a removal followed by the same raise delivers the tiers above the lower contribution again (the
+// waiting amount of an item is added to). Only the character's own events, written by the game, and the swatch of this term (the test below) are remembered.
+func TestRewardsATierIsDeliveredAgainAfterARemovalBecauseTheEditorWritesNoEvent(t *testing.T) {
 	o := rewardOps(t, "")
 	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 3600.0})))
 	before := houseRewards(t, o, "DA_HouseKenola")
@@ -187,11 +200,14 @@ func TestRewardsATierIsGivenOncePerTermAlsoAfterARemoval(t *testing.T) {
 		t.Fatal("a removal wrote reward rows")
 	}
 	m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 2400.0, "mine_to": 3600.0})))
-	if m["reward_rows"].(int64) != 0 || m["rewards_already_given"].(int64) != 1 {
+	if m["reward_rows"].(int64) != 1 || m["rewards_already_given"].(int64) != 0 {
 		t.Fatalf("answer: %v", m)
 	}
-	if got := houseRewards(t, o, "DA_HouseKenola"); got != before {
-		t.Fatalf("the tier was delivered twice:\n%s\n%s", before, got)
+	if got := rows(t, o, `select amount from landsraad_house_rewards where player_id=1 and template_id='T6RangeFinder'`); got != "map[amount:100]\n" {
+		t.Fatalf("the 3,600 tier (50) was delivered again on top of the waiting 50: %s (rows before: %s)", got, before)
+	}
+	if got := events(t, o); got != "" {
+		t.Fatalf("an event was written: %s", got)
 	}
 }
 
@@ -209,18 +225,16 @@ func TestRewardsAnEarlierTermsRowIsMergedWhenWaitingAndSetWhenCollected(t *testi
 	}
 }
 
-func TestRewardsTheEventIdIsAboveEveryEventAndTheCursorMovesToIt(t *testing.T) {
+// The game's own events and its cursor are read, never written (#655): an event of the game stays as it is, the cursor is not moved, and no event or link is added.
+func TestRewardsTheGamesEventsAndCursorAreLeftAsTheyAre(t *testing.T) {
 	o := rewardOps(t, `insert into landsraad_task_progress(id, faction_id, task_id, faction_progress, guild_progress, player_progress, timestamp) values (3, 2, 174, 0, 0, 100, 120);
+		insert into landsraad_task_progress_player(progress_id, player_id) values (3, 1);
 		insert into landsraad_task_progress_processed(id, last_processed_id) values (1, 7);`)
+	queue := progressTables(t, o)
 	fillKenola(t, o, nil)
-	if got := rows(t, o, `select id from landsraad_task_progress order by id`); got != "map[id:3]\nmap[id:8]\n" {
-		t.Fatalf("the new event is above the cursor: %s", got)
-	}
-	if got := rows(t, o, `select id, last_processed_id from landsraad_task_progress_processed`); got != "map[id:1 last_processed_id:8]\n" {
-		t.Fatalf("the cursor moves to the new event, as in the game's own saves: %s", got)
-	}
-	if got := rows(t, o, `select progress_id, player_id from landsraad_task_progress_player`); got != "map[player_id:1 progress_id:8]\n" {
-		t.Fatalf("the link: %s", got)
+	fillKenola(t, o, Args{"was_mine": 6000.0, "mine_to": 6000.0})
+	if got := progressTables(t, o); got != queue {
+		t.Fatalf("the events, their links or the cursor changed:\n%s\n---\n%s", queue, got)
 	}
 }
 
@@ -244,7 +258,7 @@ func TestRewardsNothingIsLoweredAndAnotherPlayersRowsAreKept(t *testing.T) {
 
 // The board shows the swatch as this term's top reward while the swatch was won in this term (landsraad_board.go), so giving the top tier again after a removal must not write the
 // task's own item instead: the swatch was already delivered in this term, and nothing is written.
-func TestRewardsASwatchWonThisTermIsNotReplacedByTheTaskItemAfterARemoval(t *testing.T) {
+func TestRewardsASwatchWonThisTermIsNotReplacedByTheTaskItemAfterARemoval(t *testing.T) { // the one-time row of this term is what remembers it, the editor writes no event (#655)
 	o := rewardOps(t, "")
 	fillKenola(t, o, nil)
 	before := houseRewards(t, o, "DA_HouseKenola")
@@ -265,12 +279,12 @@ func TestRewardsASwatchWonThisTermIsNotReplacedByTheTaskItemAfterARemoval(t *tes
 // Fill faction goal sent before the page stopped doing that) is refused as a whole, and nothing is written (#628, #609).
 func TestRewardsFillWithAnotherFactionChosenIsRefusedAndWritesNothing(t *testing.T) {
 	o := rewardOps(t, "")
-	rBefore, eBefore, oBefore := rows(t, o, `select * from landsraad_house_rewards order by 1,2,4`), events(t, o), oneTimeRows(t, o)
+	rBefore, eBefore, oBefore := rows(t, o, `select * from landsraad_house_rewards order by 1,2,4`), progressTables(t, o), oneTimeRows(t, o)
 	cBefore := rows(t, o, `select * from landsraad_task_player_contributions order by 1,2,3`)
 	if _, err := o.LandsraadApply(applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0, "complete_for": 1.0}))); err == nil {
 		t.Fatal("raising the contribution while completing for another faction was accepted")
 	}
-	if rows(t, o, `select * from landsraad_house_rewards order by 1,2,4`) != rBefore || events(t, o) != eBefore || oneTimeRows(t, o) != oBefore ||
+	if rows(t, o, `select * from landsraad_house_rewards order by 1,2,4`) != rBefore || progressTables(t, o) != eBefore || oneTimeRows(t, o) != oBefore ||
 		rows(t, o, `select * from landsraad_task_player_contributions order by 1,2,3`) != cBefore {
 		t.Fatal("a refused request changed the save")
 	}

@@ -149,8 +149,10 @@ func (o *Ops) CompleteChosen(a Args) (any, error) {
 		return nil, err
 	}
 	var changed, repaired int64
+	var replaced []replacedWin
 	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
-		changed, repaired = 0, 0
+		changed, repaired, replaced = 0, 0, nil
+		var names []string // the houses that change, for the write log
 		f, err := m.One(`select name from factions where id=? and name<>'None'`, faction)
 		if err != nil {
 			return err
@@ -174,6 +176,14 @@ func (o *Ops) CompleteChosen(a Args) (any, error) {
 			}
 			if c {
 				changed++
+				names = append(names, houseOf(t))
+				prev, err := replacedWinner(m, t, faction)
+				if err != nil {
+					return err
+				}
+				if prev != "" {
+					replaced = append(replaced, replacedWin{house: houseOf(t), winner: prev})
+				}
 			}
 		}
 		if changed != req.expected {
@@ -184,16 +194,18 @@ func (o *Ops) CompleteChosen(a Args) (any, error) {
 				return err
 			}
 		}
-		if changed > 0 {
-			m.Desc = fmt.Sprintf("landsraad: %d houses completed for %v", changed, f["name"])
-		}
 		var rerr error
 		repaired, rerr = repairCompletionTimes(m, req.term)
+		if changed > 0 {
+			m.Desc = landsraadDesc(fmt.Sprintf("landsraad: %d %s completed for %v", changed, housesWord(changed), f["name"]), replaced, repaired, names)
+		} else if repaired > 0 {
+			m.Desc = landsraadDesc("landsraad", nil, repaired, nil)
+		}
 		return rerr
 	}); err != nil {
 		return nil, err
 	}
-	return resetAnswer(changed, map[string]any{"houses": int64(len(req.ids)), "skipped": int64(len(req.ids)) - changed, "repaired": repaired}), nil
+	return resetAnswer(changed, map[string]any{"houses": int64(len(req.ids)), "skipped": int64(len(req.ids)) - changed, "repaired": repaired, "replaced": replacedAnswer(replaced)}), nil
 }
 
 // ReopenChosen reopens several houses of the current term in one edit (args task_ids, term_id, expected as in CompleteChosen): completed is cleared, and so are the winning faction
@@ -206,6 +218,7 @@ func (o *Ops) ReopenChosen(a Args) (any, error) {
 	var changed, repaired int64
 	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
 		changed, repaired = 0, 0
+		var names []string // the houses that change, for the write log
 		if err := currentTerm(m, req.term); err != nil {
 			return err
 		}
@@ -222,6 +235,7 @@ func (o *Ops) ReopenChosen(a Args) (any, error) {
 			}
 			if c {
 				changed++
+				names = append(names, houseOf(t))
 			}
 		}
 		if changed != req.expected {
@@ -232,11 +246,13 @@ func (o *Ops) ReopenChosen(a Args) (any, error) {
 				return err
 			}
 		}
-		if changed > 0 {
-			m.Desc = fmt.Sprintf("landsraad: %d houses reopened", changed)
-		}
 		var rerr error
 		repaired, rerr = repairCompletionTimes(m, req.term)
+		if changed > 0 {
+			m.Desc = landsraadDesc(fmt.Sprintf("landsraad: %d %s reopened", changed, housesWord(changed)), nil, repaired, names)
+		} else if repaired > 0 {
+			m.Desc = landsraadDesc("landsraad", nil, repaired, nil)
+		}
 		return rerr
 	}); err != nil {
 		return nil, err

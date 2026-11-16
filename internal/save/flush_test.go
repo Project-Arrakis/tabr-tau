@@ -379,6 +379,9 @@ func TestAQueueThatConflictsWithTheGamesNewerFileIsHeldWholeAndNothingIsWritten(
 	if f.Saved || f.Why == "" || s.Held() == nil {
 		t.Fatalf("the queue is held, not written: %+v", f)
 	}
+	if !strings.Contains(f.Why, "discard the queue and make the changes again") { // D1-8, #611: the person is told to redo the edit
+		t.Fatalf("the held message says the changes have to be made again: %q", f.Why)
+	}
 	if got := rowName(t, s, 3); got != "the game's" {
 		t.Fatalf("the game's row must be untouched in the editor's copy: %q", got)
 	}
