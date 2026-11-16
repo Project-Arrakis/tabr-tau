@@ -263,10 +263,10 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 				to := *it.mineTo
 				switch {
 				case to > s.cur:
-						recordedNow, err := paidNow()
-						if err != nil {
-							return apierr.New(apierr.ErrWriteFailed, err.Error())
-						}
+					recordedNow, err := paidNow()
+					if err != nil {
+						return apierr.New(apierr.ErrWriteFailed, err.Error())
+					}
 					// the character's own row is raised to the tier; the missions it stands for are then granted (landsraad_grant.go): the faction's share and the completion it
 					// brings, the reward rows, the two wallets and the specialization track
 					if _, err := m.Exec(`insert into landsraad_task_player_contributions(player_id, faction_id, task_id, amount) values(?,?,?,?)
