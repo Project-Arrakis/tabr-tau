@@ -80,7 +80,13 @@ func TestLogPathFor(t *testing.T) {
 // writeLog builds Saved/Logs/DuneSandbox.log under a fake standard folder and returns the save path.
 func writeLog(t *testing.T, text string) (savePath, logPath string) {
 	t.Helper()
-	root := filepath.Join(t.TempDir(), "Saved")
+	return writeLogIn(t, t.TempDir(), text)
+}
+
+// writeLogIn is writeLog with the folder that holds the Saved folder chosen by the caller.
+func writeLogIn(t *testing.T, base, text string) (savePath, logPath string) {
+	t.Helper()
+	root := filepath.Join(base, "Saved")
 	savePath = filepath.Join(root, "Cloud", "PlayerClientStorage", "FLS_retail", "1", "game.db")
 	logPath = filepath.Join(root, "Logs", "DuneSandbox.log")
 	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
