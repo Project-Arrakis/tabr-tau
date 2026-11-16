@@ -512,7 +512,7 @@ test('the About text says what a raise writes and what it does not, names both s
   const ui = await open();
   const about = text(ui.doc.querySelector('[data-about="lsb.tiers"] .abt'));
   for (const s of ['A tier click pays what its missions pay', '6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization line of the house', 'LandsraadContributionMultiplier', 'LandsraadSpecializationXpMultiplier',
-    'The daily and weekly mission limits of the game are not applied', 'No progress event is written', 'A second Fill with nothing above your contribution writes nothing', 'raising a removed tier again pays it again', 'your character\'s own XP and your faction standing', 'takes back nothing the tier paid', 'Not checked in the game yet',
+    'The daily and weekly mission limits of the game are not applied', 'No progress event is written', 'A second Fill with nothing above your contribution writes nothing', 'raising a removed tier again pays nothing again', 'your character\'s own XP and your faction standing', 'takes back nothing the tier paid', 'Not checked in the game yet',
     'Restore on the Database tab (Save backups) puts it back']) assert.ok(about.includes(s), s);
   assert.ok(ui.doc.querySelectorAll('[data-about="lsb.tiers"] .abt p').length >= 4 && ui.doc.querySelector('[data-about="lsb.tiers"] .abt ul'), 'the long paragraph is split into a list and short paragraphs');
   assert.ok(text(ui.doc.querySelector('[data-about="lsb.fill"] .abt')).includes('asks first'));
@@ -570,4 +570,46 @@ test('a write that changed no house but moved other completion times does not sa
   const r = result(ui);
   assert.ok(r.includes('already in that state'), r);
   assert.ok(r.includes("; 1 other completion time put back inside the term's window"), r);
+});
+
+// The ground the editor paid before (#777): the board read carries it (my_paid), the line before a click names the missions that would not be paid, and the result says so.
+test('ground the editor paid before is not counted in what a click grants, and the line before the click says so', async () => {
+  // Thorvald is at 4,700 and the editor paid 6,000 before (a tier removal took the contribution down): a raise to 6,000 stands for no mission, and one of them is named as not paid
+  const b = withGrant();
+  b.tasks.forEach((t) => { if (t.id === 901) t.my_paid = 6000; });
+  const ui = await open(b, {});
+  assert.equal(text(by(ui, 'Thorvald').querySelector('.qg')), 'no missions');
+  const cap = text(by(ui, 'Thorvald').querySelector('#lsg-901'));
+  assert.ok(cap.includes('Writes no missions') && cap.includes('1 mission not paid: the editor already paid that ground in an earlier raise, and removing a tier does not take it back.'), cap);
+  // paid ground below the target: only the part above it is written, and the part below is named
+  const b2 = withGrant();
+  b2.tasks.forEach((t) => { if (t.id === 900) t.my_paid = 2400; });
+  const ui2 = await open(b2, {});
+  const al = text(by(ui2, 'Alexin').querySelector('#lsg-900'));
+  assert.ok(al.includes('Fill and Fill faction goal: Writes 3 missions: +18,000 Solari') && al.includes('3 missions not paid: the editor already paid that ground'), al);
+  assert.equal(text(by(ui2, 'Alexin').querySelector('.qg')), '3 missions: +18,000 Solari');
+});
+
+test('the result of a write says how many missions were not paid because that ground was paid before', async () => {
+  const ui = await open(withGrant(), { '/api/landsraad/apply': { ...OK, reward_rows: 0, missions: 0, solari: 0, house_scrip: 0, specialization_xp: {}, rewards_already_given: 2, missions_paid_before: 3, ground_paid_before: 3000 } });
+  click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
+  const r = result(ui);
+  assert.ok(r.includes('No missions written') && r.includes('3 missions not paid: the editor already paid that ground in an earlier raise, and removing a tier does not take it back.'), r);
+  const part = await open(withGrant(), { '/api/landsraad/apply': { ...GRANTED, missions: 1, solari: 6000, house_scrip: 1000, missions_paid_before: 2, ground_paid_before: 2000 } });
+  click(part, quick(part, 'Alexin', 'qa-fill')); await part.settle();
+  assert.ok(result(part).includes('1 mission written: +6,000 Solari, +1,000 House Scrip') && result(part).includes('2 missions not paid: the editor already paid that ground'), result(part));
+  // an answer that paid everything has no such sentence
+  const full = await open(withGrant(), { '/api/landsraad/apply': GRANTED });
+  click(full, quick(full, 'Alexin', 'qa-fill')); await full.settle();
+  assert.ok(!result(full).includes('not paid'), result(full));
+});
+
+test('a swatch won in this term is not counted as a reward waiting in the line before the click', async () => {
+  // the top tier of Alexin is the house swatch (swatch: true); with the swatch held in this term the write skips it, so 4 rewards wait, not 5
+  const held = withGrant(); held.tasks.forEach((t) => { if (t.id === 900) t.swatch_held = true; });
+  const ui = await open(held, {});
+  const cap = text(by(ui, 'Alexin').querySelector('#lsg-900'));
+  assert.ok(cap.includes('Writes 6 missions: +36,000 Solari, +6,000 House Scrip, +9,000 Crafting XP, 4 rewards waiting at the house representative.'), cap);
+  const free = await open(withGrant(), {});
+  assert.ok(text(by(free, 'Alexin').querySelector('#lsg-900')).includes(', 5 rewards waiting at the house representative.'), 'a swatch not held yet is delivered: 5 rewards');
 });
