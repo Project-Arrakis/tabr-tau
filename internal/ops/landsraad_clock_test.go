@@ -37,12 +37,27 @@ func clockOps(t *testing.T, extra ...string) *Ops {
 	return o
 }
 
-func clockArgs(extra Args) Args {
-	a := Args{"term_id": 10.0, "task_ids": ids(233, 234), "faction_id": 2.0, "expected": 2.0}
-	for k, v := range extra {
-		a[k] = v
+// clockApply sends the board's write for houses of term 10 (the clock world) and answers as LandsraadApply does.
+func clockApply(o *Ops, houses ...map[string]any) (any, error) {
+	a := applyArgs(houses...)
+	a["term_id"] = 10.0
+	return o.LandsraadApply(a)
+}
+
+// completeBoth completes the two open houses of the clock world (233 and 234) for Harkonnen; again is true when they are complete already (a second request).
+func completeBoth(o *Ops, again bool) (any, error) {
+	st := Args{}
+	if again {
+		st = Args{"was_done": true, "was_win": 2.0}
 	}
-	return a
+	h := func(id float64) map[string]any {
+		a := Args{"complete_for": 2.0}
+		for k, v := range st {
+			a[k] = v
+		}
+		return house(id, a)
+	}
+	return clockApply(o, h(233), h(234))
 }
 
 func ctOf(t *testing.T, o *Ops, id int64) any {
@@ -50,9 +65,9 @@ func ctOf(t *testing.T, o *Ops, id int64) any {
 	return mustOne(t, o, `select completion_time ct from landsraad_tasks where id=?`, id)["ct"]
 }
 
-func TestCompleteWritesTheGamesPlayClockNotUnixTime(t *testing.T) {
+func TestCompletingAHouseWritesTheGamesPlayClockNotUnixTime(t *testing.T) {
 	o := clockOps(t)
-	if _, err := o.CompleteTask(Args{"task_id": 233.0, "faction_id": 2.0}); err != nil {
+	if _, err := clockApply(o, house(233, Args{"complete_for": 2.0})); err != nil {
 		t.Fatal(err)
 	}
 	r := mustOne(t, o, `select completed c, winning_faction_id w, completion_time ct from landsraad_tasks where id=233`)
@@ -64,9 +79,9 @@ func TestCompleteWritesTheGamesPlayClockNotUnixTime(t *testing.T) {
 	}
 }
 
-func TestCompleteChosenWritesTheGamesPlayClock(t *testing.T) {
+func TestCompletingTwoHousesWritesTheGamesPlayClock(t *testing.T) {
 	o := clockOps(t)
-	got, err := o.CompleteChosen(clockArgs(nil))
+	got, err := completeBoth(o, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +98,7 @@ func TestCompleteChosenWritesTheGamesPlayClock(t *testing.T) {
 func TestTheClockIsHeldInsideTheTermWindow(t *testing.T) {
 	// the term is over (the clock is past its end): the end of the term
 	o := clockOps(t, `update landsraad_decree_term set end_time=310000 where term_id=10`)
-	if _, err := o.CompleteTask(Args{"task_id": 233.0, "faction_id": 2.0}); err != nil {
+	if _, err := clockApply(o, house(233, Args{"complete_for": 2.0})); err != nil {
 		t.Fatal(err)
 	}
 	if ct := ctOf(t, o, 233); ct != int64(310000) {
@@ -91,7 +106,7 @@ func TestTheClockIsHeldInsideTheTermWindow(t *testing.T) {
 	}
 	// the clock is before the term's start (not seen in a save): the start of the term
 	o = clockOps(t, `update landsraad_decree_term set start_time=320000, end_time=356000 where term_id=10`)
-	if _, err := o.CompleteChosen(clockArgs(nil)); err != nil {
+	if _, err := completeBoth(o, false); err != nil {
 		t.Fatal(err)
 	}
 	if ct := ctOf(t, o, 233); ct != int64(320000) {
@@ -101,7 +116,7 @@ func TestTheClockIsHeldInsideTheTermWindow(t *testing.T) {
 
 func TestWithoutAPlayClockTheTermStartIsWritten(t *testing.T) {
 	o := clockOps(t, `delete from farm_variables`)
-	if _, err := o.CompleteTask(Args{"task_id": 233.0, "faction_id": 2.0}); err != nil {
+	if _, err := clockApply(o, house(233, Args{"complete_for": 2.0})); err != nil {
 		t.Fatal(err)
 	}
 	if ct := ctOf(t, o, 233); ct != int64(305395) {
@@ -112,14 +127,14 @@ func TestWithoutAPlayClockTheTermStartIsWritten(t *testing.T) {
 func TestReopenGivesTheShapeOfAnOpenRowTheGameWrote(t *testing.T) {
 	o := clockOps(t)
 	// a row the game wrote complete is reopened to completed 0, NULL winner and NULL time (the game's open rows hold NULL, never 0)
-	if _, err := o.CompleteTask(Args{"task_id": 231.0, "reset": true}); err != nil {
+	if _, err := clockApply(o, house(231, Args{"was_done": true, "was_win": 2.0, "reopen": true})); err != nil {
 		t.Fatal(err)
 	}
 	r := mustOne(t, o, `select completed c, winning_faction_id w, completion_time ct from landsraad_tasks where id=231`)
 	if r["c"].(int64) != 0 || r["w"] != nil || r["ct"] != nil {
 		t.Fatalf("an open row: %v", r)
 	}
-	got, err := o.ReopenChosen(Args{"term_id": 10.0, "task_ids": ids(228), "expected": 1.0})
+	got, err := clockApply(o, house(228, Args{"was_done": true, "was_win": 2.0, "reopen": true}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +176,7 @@ func contains(xs []int64, x int64) bool {
 
 func TestCompleteOneHouseBringsTheEditorsUnixTimesOfTheTermOntoThePlayClock(t *testing.T) {
 	o := clockOps(t)
-	if _, err := o.CompleteTask(Args{"task_id": 233.0, "faction_id": 2.0}); err != nil {
+	if _, err := clockApply(o, house(233, Args{"complete_for": 2.0})); err != nil {
 		t.Fatal(err)
 	}
 	assertRepaired(t, o)
@@ -169,7 +184,7 @@ func TestCompleteOneHouseBringsTheEditorsUnixTimesOfTheTermOntoThePlayClock(t *t
 
 func TestReopenOneHouseBringsTheEditorsUnixTimesOfTheTermOntoThePlayClock(t *testing.T) {
 	o := clockOps(t)
-	if _, err := o.CompleteTask(Args{"task_id": 231.0, "reset": true}); err != nil {
+	if _, err := clockApply(o, house(231, Args{"was_done": true, "was_win": 2.0, "reopen": true})); err != nil {
 		t.Fatal(err)
 	}
 	assertRepaired(t, o, 231)
@@ -178,9 +193,9 @@ func TestReopenOneHouseBringsTheEditorsUnixTimesOfTheTermOntoThePlayClock(t *tes
 	}
 }
 
-func TestCompleteChosenAndReopenChosenRepairTheTermsUnixTimes(t *testing.T) {
+func TestCompletingAndReopeningRepairTheTermsUnixTimes(t *testing.T) {
 	o := clockOps(t)
-	got, err := o.CompleteChosen(clockArgs(nil))
+	got, err := completeBoth(o, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +205,7 @@ func TestCompleteChosenAndReopenChosenRepairTheTermsUnixTimes(t *testing.T) {
 	assertRepaired(t, o)
 
 	o = clockOps(t)
-	got, err = o.ReopenChosen(Args{"term_id": 10.0, "task_ids": ids(231), "expected": 1.0})
+	got, err = clockApply(o, house(231, Args{"was_done": true, "was_win": 2.0, "reopen": true}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +218,7 @@ func TestCompleteChosenAndReopenChosenRepairTheTermsUnixTimes(t *testing.T) {
 func TestARepairNeedsNoConfirmationAndDoesNotChangeTheCountThePageShowed(t *testing.T) {
 	o := clockOps(t)
 	// 228 is complete for faction 2 with its progress at the goal, so it is skipped (expected 0): its Unix time is repaired all the same and nothing is refused
-	got, err := o.CompleteChosen(Args{"term_id": 10.0, "task_ids": ids(228), "faction_id": 2.0, "expected": 0.0})
+	got, err := clockApply(o, house(228, Args{"was_done": true, "was_win": 2.0, "complete_for": 2.0}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,11 +231,11 @@ func TestARepairNeedsNoConfirmationAndDoesNotChangeTheCountThePageShowed(t *test
 
 func TestARepairIsDoneOnce(t *testing.T) {
 	o := clockOps(t)
-	if _, err := o.CompleteChosen(clockArgs(nil)); err != nil {
+	if _, err := completeBoth(o, false); err != nil {
 		t.Fatal(err)
 	}
 	pending := len(o.S.Pending())
-	got, err := o.CompleteChosen(clockArgs(Args{"expected": 0.0}))
+	got, err := completeBoth(o, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +252,7 @@ func TestARepairLeavesAnOpenHouseAndATimeInsideTheWindowAlone(t *testing.T) {
 	if _, err := o.Landsraad(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := o.CompleteTask(Args{"task_id": 233.0, "faction_id": 2.0}); err != nil {
+	if _, err := clockApply(o, house(233, Args{"complete_for": 2.0})); err != nil {
 		t.Fatal(err)
 	}
 	if got := ctOf(t, o, 240); got != int64(330000) {

@@ -192,14 +192,11 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 			if it.completeFor == nil {
 				continue
 			}
-			f, err := m.One(`select name from factions where id=? and name<>'None'`, *it.completeFor)
+			name, err := landsraadFactionName(m.One, *it.completeFor) // the one rule for a faction the Landsraad has (landsraad_factions.go)
 			if err != nil {
 				return err
 			}
-			if f == nil {
-				return apierr.New(apierr.ErrBadArgument, "that faction is not one the Landsraad has")
-			}
-			facName[*it.completeFor] = fmt.Sprint(f["name"])
+			facName[*it.completeFor] = name
 		}
 		type step struct {
 			it  applyItem

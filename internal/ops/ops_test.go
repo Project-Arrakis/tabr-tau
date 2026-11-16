@@ -248,26 +248,18 @@ func TestJourneyCompleteCascadesAndResets(t *testing.T) {
 }
 
 func TestLandsraadTask(t *testing.T) {
-	// house 176 of the world of landsraad_many_test.go: the current term, no rows of any kind (the single Complete needs a real term and faction since D1-5, #611)
+	// house 176 of the world of landsraad_many_test.go: the current term, no rows of any kind; a house is completed and reopened through the board's write
 	o := chosenOps(t)
-	if _, err := o.SetTaskProgress(Args{"task_id": 176.0, "faction_id": 2.0, "amount": 4000.0}); err != nil {
-		t.Fatal(err)
-	}
-	o.SetTaskProgress(Args{"task_id": 176.0, "faction_id": 2.0, "amount": 10.0}) // upsert
+	mustApply(t, o, applyArgs(house(176, Args{"complete_for": 2.0})))
 	r, _ := o.S.One(`select count(*) c, max(amount) a from landsraad_task_faction_contributions where task_id=176`)
-	if r["c"].(int64) != 1 || r["a"].(float64) != 10 {
+	if r["c"].(int64) != 1 || r["a"].(float64) != 4000 {
 		t.Fatalf("%v", r)
-	}
-	if _, err := o.CompleteTask(Args{"task_id": 176.0, "faction_id": 2.0}); err != nil {
-		t.Fatal(err)
 	}
 	r, _ = o.S.One(`select completed, winning_faction_id from landsraad_tasks where id=176`)
 	if r["completed"].(int64) != 1 || r["winning_faction_id"].(int64) != 2 {
 		t.Fatalf("%v", r)
 	}
-	if _, err := o.CompleteTask(Args{"task_id": 176.0, "reset": true}); err != nil {
-		t.Fatal(err)
-	}
+	mustApply(t, o, applyArgs(house(176, Args{"was_done": true, "was_win": 2.0, "reopen": true})))
 	if r, _ = o.S.One(`select completed from landsraad_tasks where id=176`); r["completed"].(int64) != 0 {
 		t.Fatal("reopen failed")
 	}

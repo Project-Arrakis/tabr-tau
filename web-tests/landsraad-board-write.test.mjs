@@ -758,3 +758,21 @@ test('a question about one clicked house is not a bulk question: a filter that h
   click(ui, '[data-lb=cyes]'); await ui.settle();
   assert.deepEqual(sentIds(ui), [900]);
 });
+
+test('no click asks for a change of your own contribution together with a completion for another faction, so one house never refuses the whole request (#657)', async () => {
+  const ui = await open(board(), { '/api/landsraad/apply': OK });
+  const data = board();
+  for (const t of data.tasks) {
+    const h = ui.w.lbHouse(t, data);
+    for (const F of [1, 2]) {
+      for (const kind of ['fill', 'complete', 'reopen', 'fillgoal', 'tier']) {
+        for (const i of kind === 'tier' ? [1, 2, 3, 4, 5] : [undefined]) {
+          const it = ui.w.lbItem(h, data, kind, F, i);
+          if (it && it.mine_to !== undefined && it.complete_for !== undefined) {
+            assert.equal(it.complete_for, data.character.faction_id, `${t.house_name} ${kind} ${i} for faction ${F}: the contribution and the completion are for one faction`);
+          }
+        }
+      }
+    }
+  }
+});
