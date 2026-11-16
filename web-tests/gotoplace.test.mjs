@@ -378,8 +378,8 @@ test('the Movement card\'s About text says which position is used, once, and not
 const hubs = () => ({ map: 'HaggaBasin', sameMap: true, total: 3, groups: [TP, TAXI],
   destinations: [
     { group: 'tradepost', label: 'Pinnacle Station Tradepost', x: -32905.3, y: -313888.6, z: 12053, distance: 315818, arrival: true },
-    { group: 'taxi', label: 'Arrakeen Taxi Service', x: 11495, y: -316, z: 51457, distance: 0, arrival: true, map: 'Arrakeen', otherMap: true },
-    { group: 'taxi', label: 'Harko Village Taxi Service', x: -1415, y: 26560, z: 14673.9, distance: 0, arrival: true, map: 'HarkoVillage', otherMap: true }] });
+    { group: 'taxi', label: 'Arrakeen Taxi Service', x: 11495, y: -316, z: 51457, distance: 0, arrival: true, map: 'Arrakeen', otherMap: true, offList: true },
+    { group: 'taxi', label: 'Harko Village Taxi Service', x: -1415, y: 26560, z: 14673.9, distance: 0, arrival: true, map: 'HarkoVillage', otherMap: true, offList: true }] });
 
 // The character is in the Deep Desert: its three points, nearest first, then the hubs.
 const taxis = () => ({ map: 'DeepDesert', sameMap: true, total: 5, groups: [TAXI],
@@ -387,8 +387,8 @@ const taxis = () => ({ map: 'DeepDesert', sameMap: true, total: 5, groups: [TAXI
     { group: 'taxi', label: 'Deep Desert Taxi Service (A8)', x: 767350, y: 906130, z: 17642.6, distance: 120000 },
     { group: 'taxi', label: 'Deep Desert Taxi Service (A5)', x: -121120, y: 930720, z: 18149.8, distance: 900000 },
     { group: 'taxi', label: 'Deep Desert Taxi Service (A2)', x: -990770, y: 971700, z: 17035.5, distance: 1800000 },
-    { group: 'taxi', label: 'Arrakeen Taxi Service', x: 11495, y: -316, z: 51457, distance: 0, arrival: true, map: 'Arrakeen', otherMap: true },
-    { group: 'taxi', label: 'Harko Village Taxi Service', x: -1415, y: 26560, z: 14673.9, distance: 0, arrival: true, map: 'HarkoVillage', otherMap: true }] });
+    { group: 'taxi', label: 'Arrakeen Taxi Service', x: 11495, y: -316, z: 51457, distance: 0, arrival: true, map: 'Arrakeen', otherMap: true, offList: true },
+    { group: 'taxi', label: 'Harko Village Taxi Service', x: -1415, y: 26560, z: 14673.9, distance: 0, arrival: true, map: 'HarkoVillage', otherMap: true, offList: true }] });
 
 test('the Deep Desert\'s taxis are listed under Taxis with their distances, nearest first, and the hubs say they are another map', async () => {
   const { ui } = await open(taxis());
@@ -497,4 +497,22 @@ test('the Movement card names the player\'s map and fills in the player\'s posit
   const n = ui.doc.querySelector('#tparked');
   assert.ok(n, 'a note says that the body is not where the player is');
   assert.match(n.textContent, /Overland/);
+});
+
+// #825: the character stands in the Arrakeen hub and the Map box is on Hagga Basin. The hub's row has a distance and is not "another map" for the warning's sake (otherMap is false),
+// but it is not a place of the map listed: it is counted apart and listed under Other maps, like the other hub.
+test('a hub the character stands in is counted and listed as another map when another map is the one listed', async () => {
+  const inHub = { map: 'HaggaBasin', sameMap: false, total: 4, groups: [TP, TAXI],
+    destinations: [
+      { group: 'tradepost', label: 'Pinnacle Station Tradepost', x: 1111.4, y: 2222.6, z: 33 },
+      { group: 'taxi', label: 'Hagga Basin Taxi Service', x: 5, y: 6, z: 7 },
+      { group: 'taxi', label: 'Arrakeen Taxi Service', x: 11495, y: -316, z: 51457, distance: 1000, arrival: true, map: 'Arrakeen', offList: true },
+      { group: 'taxi', label: 'Harko Village Taxi Service', x: -1415, y: 26560, z: 14673.9, distance: 0, arrival: true, map: 'HarkoVillage', otherMap: true, offList: true }] };
+  const { ui } = await open(inHub);
+  assert.equal(ui.doc.querySelector('#tdsel option').textContent, '2 places on Hagga Basin, 2 on other maps');
+  assert.deepEqual(headings(ui), [
+    { label: 'Trading posts', places: ['Pinnacle Station Tradepost'] },
+    { label: 'Taxis', places: ['Hagga Basin Taxi Service'] },
+    { label: 'Other maps (moves there are untested)', places: ['Arrakeen Taxi Service - 10 m away', 'Harko Village Taxi Service - another map'] }]);
+  ui.dom.window.close();
 });
