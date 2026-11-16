@@ -35,7 +35,7 @@ const board = (extra = {}) => ({
   ],
   ...extra,
 });
-const OK = { ok: true, changed: 1, houses: 1, skipped: 0, contribution_raised: 1, contribution_lowered: 0, completed: 0, reopened: 0, reward_rows: 2, events: 1, outcome: 'written' };
+const OK = { ok: true, changed: 1, houses: 1, skipped: 0, contribution_raised: 1, contribution_lowered: 0, completed: 0, reopened: 0, reward_rows: 2, outcome: 'written' };
 async function open(data = board(), post = {}) {
   const ui = await boot({ get: { '/api/landsraad': data }, post });
   ui.click('[data-tab="landsraad"]'); await ui.settle();
@@ -374,7 +374,7 @@ test('while the game runs the result says the change is queued, never that anyth
 });
 
 test('a raise whose rewards were already delivered says so as a warning with a next step, and says that no missions were written', async () => {
-  const ui = await open(board(), { '/api/landsraad/apply': { ...OK, reward_rows: 0, events: 0, missions: 0, solari: 0, house_scrip: 0, specialization_xp: {}, rewards_already_given: 2 } });
+  const ui = await open(board(), { '/api/landsraad/apply': { ...OK, reward_rows: 0, missions: 0, solari: 0, house_scrip: 0, specialization_xp: {}, rewards_already_given: 2 } });
   click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
   const r = result(ui);
   assert.ok(r.includes('No missions written: your own earlier progress on this house already counts for this ground'), r);
@@ -441,6 +441,15 @@ test('the ground the character own events already cover is not counted again in 
   assert.ok(text(by(ui, 'Thorvald').querySelector('#lsg-901')).includes('Writes no missions: your own earlier progress already counts for this ground'));
 });
 
+test('what the character reached under another faction is not counted again in what a click says it grants', async () => {
+  // Thorvald: the character reached 6,000 under another faction (my_elsewhere), so a raise to 6,000 under this one stands for no mission
+  const b = withGrant();
+  b.tasks.forEach((t) => { if (t.id === 901) t.my_elsewhere = 6000; });
+  const ui = await open(b, {});
+  assert.equal(text(by(ui, 'Thorvald').querySelector('.qg')), 'no missions');
+  assert.ok(text(by(ui, 'Thorvald').querySelector('#lsg-901')).includes('Writes no missions: your own earlier progress already counts for this ground'));
+});
+
 test('a setting the editor cannot use, or a house with no line, is said before the click as a refusal', async () => {
   const bad = 'The Landsraad amounts cannot be worked out: LandsraadContributionMultiplier in ServerCustomSettings.ini is "x", not a number from 0 to 10. Nothing was changed; correct the value in ServerCustomSettings.ini (Config tab) and try again.';
   const ui = await open(withGrant({ problem: bad }), {});
@@ -503,7 +512,7 @@ test('the About text says what a raise writes and what it does not, names both s
   const ui = await open();
   const about = text(ui.doc.querySelector('[data-about="lsb.tiers"] .abt'));
   for (const s of ['A tier click pays what its missions pay', '6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization line of the house', 'LandsraadContributionMultiplier', 'LandsraadSpecializationXpMultiplier',
-    'The daily and weekly mission limits of the game are not applied', 'so a second Fill writes nothing', 'your character\'s own XP and your faction standing', 'takes back nothing the tier paid', 'Not checked in the game yet',
+    'The daily and weekly mission limits of the game are not applied', 'No progress event is written', 'A second Fill with nothing above your contribution writes nothing', 'raising a removed tier again pays it again', 'your character\'s own XP and your faction standing', 'takes back nothing the tier paid', 'Not checked in the game yet',
     'Restore on the Database tab (Save backups) puts it back']) assert.ok(about.includes(s), s);
   assert.ok(ui.doc.querySelectorAll('[data-about="lsb.tiers"] .abt p').length >= 4 && ui.doc.querySelector('[data-about="lsb.tiers"] .abt ul'), 'the long paragraph is split into a list and short paragraphs');
   assert.ok(text(ui.doc.querySelector('[data-about="lsb.fill"] .abt')).includes('asks first'));

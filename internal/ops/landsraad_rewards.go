@@ -10,9 +10,9 @@ import (
 // ---------------------------------------------------------------- reward delivery for a raised contribution (part 3 of the tab rework, refs #609, #656)
 //
 // What the game leaves in a save when a character's contribution to a house is raised, as read from real saves (the evidence is in the comments of #609). The whole set of writes of
-// a raise (the event, the faction's share, the cursor, the rewards, the wallets and the specialization XP) is in landsraad_grant.go; this file writes the reward rows:
+// a raise (the faction's share, the rewards, the wallets and the specialization XP; no event and no cursor move, #655) is in landsraad_grant.go; this file writes the reward rows:
 //
-//	landsraad_house_rewards           one row per reward tier crossed (player, house, template, amount, last_updated = the event's time): the template and the amount come from
+//	landsraad_house_rewards           one row per reward tier crossed (player, house, template, amount, last_updated = the time of the term's play clock): the template and the amount come from
 //	                                  landsraad_task_rewards of that threshold. An amount above 0 waits at the house representative; the game sets it to 0 when the reward is
 //	                                  collected; rows are one per (player, house, template), so a second delivery of the same item adds to a waiting amount and sets a collected one
 //	the highest tier                  while landsraad_player_one_time_house_rewards has no row of the character for the house, the highest tier delivers the house swatch (the
@@ -20,19 +20,19 @@ import (
 //	                                  the highest tier delivers the task's own item and no row is added
 //
 // A tier is delivered once: the tiers that the character's own events for the task already crossed (the sum of their player_progress, see grantRaise) are delivered, and only the
-// tiers above that ground are written (#656). A row of the same house and item that is already there says nothing about a tier: a reward collected in a later term, or the same item
+// tiers above that ground are written (#656). The editor writes no event (#655), so what it delivered itself is remembered only by the contribution and, for the top tier, by the
+// one-time swatch row of this term (a swatch won in this term is not delivered again). A row of the same house and item that is already there says nothing about a tier: a reward collected in a later term, or the same item
 // at two tiers of one task, no longer hides a tier that was not delivered. Nothing here lowers anything. Completing a house adds no reward row by itself, and neither does a
 // contribution for a faction the character is not in.
 
 // rewardResult says what a delivery wrote.
 type rewardResult struct {
-	events, rewardRows, swatches, skipped int64
-	missions, solari, scrip               int64
-	spec                                  map[string]int64 // the specialization XP that was added, by line
+	rewardRows, swatches, skipped int64
+	missions, solari, scrip       int64
+	spec                          map[string]int64 // the specialization XP that was added, by line
 }
 
 func (r *rewardResult) add(o rewardResult) {
-	r.events += o.events
 	r.rewardRows += o.rewardRows
 	r.swatches += o.swatches
 	r.skipped += o.skipped
@@ -85,6 +85,12 @@ func writeTierRewards(m *save.Mut, me myLandsraad, taskID int64, house string, t
 			held, err := m.One(`select term_id from landsraad_player_one_time_house_rewards where player_id=? and house_name=?`, me.player, house)
 			if err != nil {
 				return res, err
+			}
+			// A swatch won in this term is still this term's top reward (the board shows it so): the top tier was delivered in this term, and with no event of the editor to
+			// remember it (#655) the one-time row is what says so, so the tier is not delivered again, as the task's own item or otherwise.
+			if held != nil && asInt(held["term_id"]) == termID {
+				res.skipped++
+				continue
 			}
 			// the swatch is the top reward while the character does not hold it; once it does, the task's own item is
 			if held == nil {

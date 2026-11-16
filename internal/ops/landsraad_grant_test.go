@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-// What a board write that raises the character's contribution grants (refs #609, #652, #656): the faction's share and the completion, the event and the cursor, the reward rows by
-// tier, the two wallets and the specialization track of the house's line. Every case runs on a copy of a save built from the real schema (the test database); no real save is read.
+// What a board write that raises the character's contribution grants (refs #609, #652, #655, #656): the faction's share and the completion, the reward rows by
+// tier (no event and no cursor move, #655), the two wallets and the specialization track of the house's line. Every case runs on a copy of a save built from the real schema (the test database); no real save is read.
 // World: rewardOps (landsraad_rewards_test.go): the character is player 1 in Harkonnen (2); House Kenola (task 175, Gathering) is open with the faction at 1,000 and the character at
 // 1,300 with no event; the play clock is 150 s.
 
@@ -61,6 +61,7 @@ func doubled() GrantSettings {
 func TestGrantAFillGrantsWhatTheMissionsItStandsForGrant(t *testing.T) {
 	o := rewardOps(t, `insert into player_virtual_currency_balances(player_controller_id, currency_id, balance) values (1, 0, 1000);
 		insert into specialization_tracks(player_id, track_type, xp_amount, level) values (1, 2, 18000, 57.37);`)
+	queue := progressTables(t, o)
 	// Kenola, 1,300 to 6,000 with a mission step of 2,000 (1,000 x 2): the missions that take the character from 1,300 to 6,000 are the 2nd and the 3rd
 	m := applyWith(t, o, doubled(), house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0}))
 	if m["missions"].(int64) != 2 || m["solari"].(int64) != 12000 || m["house_scrip"].(int64) != 2000 || m["specialization_xp"].(map[string]int64)["Gathering"] != 6000 {
@@ -80,15 +81,15 @@ func TestGrantAFillGrantsWhatTheMissionsItStandsForGrant(t *testing.T) {
 	if xp, _, has := track(t, o, 3); has || xp != 0 {
 		t.Fatal("another line's track was created")
 	}
-	// the house side: the faction gained what the character gained (1,000 + 4,700) and the house was taken by the event that took it past the goal
+	// the house side: the faction gained what the character gained (1,000 + 4,700) and the house was taken when the faction went past the goal
 	if v, _ := progress(t, o, 2, 175); v != 5700 {
 		t.Fatalf("faction progress: %v", v)
 	}
 	if h := houseRow(t, o, 175); h["c"].(int64) != 1 || h["w"].(int64) != 2 || h["ct"].(int64) != 150 {
 		t.Fatalf("the house: %v", h)
 	}
-	if got := rows(t, o, `select * from landsraad_task_progress_processed`); got != "map[id:1 last_processed_id:1]\n" {
-		t.Fatalf("the cursor moves to the event: %s", got)
+	if got := progressTables(t, o); got != queue {
+		t.Fatalf("no event, link or cursor move is written (#655): %s", got)
 	}
 }
 
@@ -116,8 +117,11 @@ func TestGrantAtTheStockSettingsAMissionIsOneThousandAndFifteenHundred(t *testin
 	}
 }
 
-func TestGrantASecondFillInTheSameTermGrantsNothingTwice(t *testing.T) {
+// A second Fill grants nothing while the contribution stands. The editor writes no event (#655), so it does not remember ground it paid once the contribution is lowered: a removal
+// and the same raise again grant the missions above the lower contribution again (the reward of the top tier is not repeated: the swatch of this term remembers it).
+func TestGrantASecondFillGrantsNothingTwiceButARaiseAfterARemovalGrantsAgain(t *testing.T) {
 	o := rewardOps(t, "")
+	queue := progressTables(t, o)
 	applyWith(t, o, doubled(), house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0}))
 	after := grantRows(t, o)
 	// the same Fill again: the house is already at the tier, so nothing changes at all
@@ -125,32 +129,32 @@ func TestGrantASecondFillInTheSameTermGrantsNothingTwice(t *testing.T) {
 	if m["changed"].(int64) != 0 || m["missions"].(int64) != 0 || grantRows(t, o) != after {
 		t.Fatalf("a second Fill changed something: %v", m)
 	}
-	// a tier removed and the same Fill again, with the wallets, the track, the events and the reward rows unchanged
+	// a tier removed and the same Fill again: the 4,800 tier is not repeated as a mission (the step is 2,000: ceil(6000/2000) = ceil(4800/2000)), the top tier is the swatch of this term,
+	// delivered already, so no reward row and no wallet change
 	applyWith(t, o, doubled(), house(175, Args{"was_mine": 6000.0, "mine_to": 4800.0, "lower": true}))
 	removed := grantRows(t, o)
 	m = applyWith(t, o, doubled(), house(175, Args{"was_mine": 4800.0, "mine_to": 6000.0}))
-	if m["events"].(int64) != 0 || m["reward_rows"].(int64) != 0 || m["missions"].(int64) != 0 || m["solari"].(int64) != 0 || m["rewards_already_given"].(int64) != 1 {
-		t.Fatalf("a Fill after a removal granted again: %v", m)
+	if _, has := m["events"]; has || m["reward_rows"].(int64) != 0 || m["missions"].(int64) != 0 || m["solari"].(int64) != 0 || m["rewards_already_given"].(int64) != 1 {
+		t.Fatalf("a Fill after a removal of the top tier granted again: %v", m)
 	}
 	// only the contribution went back up
 	if got := grantRows(t, o); got == removed || strings.Replace(got, "amount:6000", "amount:4800", 1) != removed {
 		t.Fatalf("something besides the contribution changed:\n%s\n---\n%s", removed, got)
 	}
-	// removed down to nothing and filled again: still nothing is granted, the events cover the ground
-	applyWith(t, o, doubled(), house(175, Args{"was_mine": 6000.0, "mine_to": 4800.0, "lower": true}))
-	applyWith(t, o, doubled(), house(175, Args{"was_mine": 4800.0, "mine_to": 3600.0, "lower": true}))
-	applyWith(t, o, doubled(), house(175, Args{"was_mine": 3600.0, "mine_to": 2400.0, "lower": true}))
-	applyWith(t, o, doubled(), house(175, Args{"was_mine": 2400.0, "mine_to": 1200.0, "lower": true}))
-	applyWith(t, o, doubled(), house(175, Args{"was_mine": 1200.0, "mine_to": 0.0, "lower": true}))
-	m = applyWith(t, o, doubled(), house(175, Args{"mine_to": 6000.0}))
-	if m["events"].(int64) != 0 || m["missions"].(int64) != 0 || m["rewards_already_given"].(int64) != 5 {
-		t.Fatalf("a Fill after the row was deleted granted again: %v", m)
+	// removed down to nothing and filled again: the editor has no event to remember the ground, so the missions are granted again (3 at a step of 2,000), and the tiers below the top are
+	// delivered again too; the top tier (the swatch of this term) is not
+	for _, st := range [][2]float64{{6000, 4800}, {4800, 3600}, {3600, 2400}, {2400, 1200}, {1200, 0}} {
+		applyWith(t, o, doubled(), house(175, Args{"was_mine": st[0], "mine_to": st[1], "lower": true}))
 	}
-	if wallet(t, o, 0) != 12000 || wallet(t, o, 1) != 2000 {
+	m = applyWith(t, o, doubled(), house(175, Args{"mine_to": 6000.0}))
+	if m["missions"].(int64) != 3 || m["reward_rows"].(int64) != 4 || m["rewards_already_given"].(int64) != 1 {
+		t.Fatalf("a Fill after the row was deleted: %v", m)
+	}
+	if wallet(t, o, 0) != 12000+18000 || wallet(t, o, 1) != 2000+3000 {
 		t.Fatalf("the wallets: %d, %d", wallet(t, o, 0), wallet(t, o, 1))
 	}
-	if n := rows(t, o, `select count(*) n from landsraad_task_progress`); n != "map[n:1]\n" {
-		t.Fatalf("events: %s", n)
+	if got := progressTables(t, o); got != queue {
+		t.Fatalf("the progress tables or the cursor changed (#655): %s", got)
 	}
 }
 
@@ -213,9 +217,12 @@ func TestGrantACollectedThenRaisedHouseIsDecidedPerTier(t *testing.T) {
 	if got := rows(t, o, `select template_id from landsraad_house_rewards where player_id=1 and house_name='DA_HouseKenola'`); got != "map[template_id:Schematic.L]\n" {
 		t.Fatalf("only the 4,800 tier: %s", got)
 	}
-	// the event records the ground that was added beyond the events: the sum of the character's events is the contribution again
-	if got := rows(t, o, `select sum(p.player_progress) s from landsraad_task_progress p join landsraad_task_progress_player l on l.progress_id=p.id where l.player_id=1`); got != "map[s:4800]\n" {
-		t.Fatalf("sum of events: %s", got)
+	// the editor adds no event: the character's events are still the one the game wrote (3,600), and the cursor is not written
+	if got := rows(t, o, `select sum(p.player_progress) s, count(*) n from landsraad_task_progress p join landsraad_task_progress_player l on l.progress_id=p.id where l.player_id=1`); got != "map[n:1 s:3600]\n" {
+		t.Fatalf("events: %s", got)
+	}
+	if got := rows(t, o, `select * from landsraad_task_progress_processed`); got != "" {
+		t.Fatalf("the cursor was written: %s", got)
 	}
 }
 
@@ -225,7 +232,6 @@ func TestGrantAnInterruptedWriteLeavesNothingHalfWritten(t *testing.T) {
 		"the specialization track": `create trigger boom before insert on specialization_tracks begin select raise(abort, 'disk full'); end;`,
 		"the Solari wallet":        `create trigger boom before insert on player_virtual_currency_balances begin select raise(abort, 'disk full'); end;`,
 		"the reward rows":          `create trigger boom before insert on landsraad_house_rewards begin select raise(abort, 'disk full'); end;`,
-		"the cursor":               `create trigger boom before insert on landsraad_task_progress_processed begin select raise(abort, 'disk full'); end;`,
 		"the swatch row":           `create trigger boom before insert on landsraad_player_one_time_house_rewards begin select raise(abort, 'disk full'); end;`,
 	} {
 		o := rewardOps(t, "")
@@ -269,13 +275,18 @@ func TestGrantRefusalsLeaveNothingAndSayWhy(t *testing.T) {
 }
 
 func TestGrantWhatTheFactionGainsAndWhoTakesTheHouse(t *testing.T) {
-	// a house that is open: the event carries the faction's share, and the event after the completion carries none
+	// a house that is open: the faction gains what the character gains, and takes the house when it passes the goal
 	o := rewardOps(t, "")
 	applyWith(t, o, DefaultGrantSettings(), house(176, Args{"mine_to": 3600.0}))
 	applyWith(t, o, DefaultGrantSettings(), house(176, Args{"was_mine": 3600.0, "mine_to": 6000.0}))
-	if got := events(t, o); got != "map[faction_id:2 faction_progress:3600 guild_progress:0 id:1 player_id:1 player_progress:3600 task_id:176 timestamp:150]\n"+
-		"map[faction_id:2 faction_progress:2400 guild_progress:0 id:2 player_id:1 player_progress:2400 task_id:176 timestamp:150]\n" {
-		t.Fatalf("events (the second takes the faction from 3,600 past the goal and records the 2,400 the character added): %s", got)
+	if v, _ := progress(t, o, 2, 176); v != 6000 {
+		t.Fatalf("the faction's progress (3,600 and the 2,400 the character added): %v", v)
+	}
+	if h := houseRow(t, o, 176); h["c"].(int64) != 1 || h["w"].(int64) != 2 {
+		t.Fatalf("the house was not taken by the faction that passed the goal: %v", h)
+	}
+	if got := events(t, o); got != "" {
+		t.Fatalf("an event was written: %s", got)
 	}
 	// a house the other faction took: the faction gains nothing and the winner is left
 	o = rewardOps(t, `update landsraad_tasks set completed=1, winning_faction_id=1, completion_time=140 where id=176;`)
@@ -286,8 +297,8 @@ func TestGrantWhatTheFactionGainsAndWhoTakesTheHouse(t *testing.T) {
 	if h := houseRow(t, o, 176); h["w"].(int64) != 1 || h["ct"].(int64) != 140 {
 		t.Fatalf("the winner changed: %v", h)
 	}
-	if got := events(t, o); !strings.Contains(got, "faction_progress:0") || !strings.Contains(got, "player_progress:3600") {
-		t.Fatalf("the event after the completion carries no faction progress: %s", got)
+	if got := events(t, o); got != "" {
+		t.Fatalf("an event was written: %s", got)
 	}
 	// the wallets and the track are still granted
 	if wallet(t, o, 0) == 0 || wallet(t, o, 1) == 0 {
@@ -420,15 +431,17 @@ func TestGrantFillFactionGoalGivesTheFactionWhatAPlainFillGives(t *testing.T) {
 	}
 }
 
+// The character's events are the game's own: a raise leaves them as they are (#655), so the board reads the same ground after a raise as before it.
 func TestGrantTheBoardReadSaysWhatTheCharactersEventsCover(t *testing.T) {
-	o := rewardOps(t, "")
+	o := rewardOps(t, `insert into landsraad_task_progress(id, faction_id, task_id, faction_progress, guild_progress, player_progress, timestamp) values (5, 2, 175, 0, 0, 1300, 120);
+		insert into landsraad_task_progress_player(progress_id, player_id) values (5, 1);`)
 	applyWith(t, o, DefaultGrantSettings(), house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0}))
 	v, err := o.Landsraad()
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, x := range v.(map[string]any)["tasks"].([]map[string]any) {
-		if x["id"] == int64(175) && (x["my_events"] != 6000.0 || x["line"] != "Gathering") {
+		if x["id"] == int64(175) && (x["my_events"] != 1300.0 || x["line"] != "Gathering") {
 			t.Fatalf("Kenola: my_events %v, line %v", x["my_events"], x["line"])
 		}
 	}
@@ -469,5 +482,72 @@ func TestGrantRefusesAStepTooSmallToCount(t *testing.T) {
 				t.Fatalf("multiplier %g %s: a refused request changed the save", m, name)
 			}
 		}
+	}
+}
+
+// A faction change writes only player_faction; the contribution row is per faction. What the character reached under the old faction is ground already paid, so the same raise under the
+// new faction pays no mission and no reward again (it used to be covered by the editor's event, which is per player and task).
+func TestGrantAFactionChangeDoesNotMakeTheSameRaisePayAgain(t *testing.T) {
+	o := rewardOps(t, "")
+	applyWith(t, o, doubled(), house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0}))
+	solari, scrip, rewardsBefore := wallet(t, o, 0), wallet(t, o, 1), rows(t, o, `select * from landsraad_house_rewards order by 1,2,4`)
+	setup(t, o, `update player_faction set faction_id=1 where actor_id=1`)
+	m := applyWith(t, o, doubled(), house(175, Args{"was_mine": 0.0, "mine_to": 6000.0}))
+	if m["missions"].(int64) != 0 || m["reward_rows"].(int64) != 0 || m["solari"].(int64) != 0 {
+		t.Fatalf("a raise under the new faction paid again: %v", m)
+	}
+	if wallet(t, o, 0) != solari || wallet(t, o, 1) != scrip || rows(t, o, `select * from landsraad_house_rewards order by 1,2,4`) != rewardsBefore {
+		t.Fatal("wallets or reward rows changed")
+	}
+	// the contribution row of the new faction is written, the old one stays
+	if got := rows(t, o, `select faction_id, amount from landsraad_task_player_contributions where player_id=1 and task_id=175 order by faction_id`); got != "map[amount:6000 faction_id:1]\nmap[amount:6000 faction_id:2]\n" {
+		t.Fatalf("contribution rows: %s", got)
+	}
+	if got := events(t, o); got != "" {
+		t.Fatalf("an event was written: %s", got)
+	}
+	// ground reached under the old faction covers only what it reached: a tier above it is paid
+	o = rewardOps(t, "")
+	applyWith(t, o, doubled(), house(175, Args{"was_mine": 1300.0, "mine_to": 2400.0}))
+	setup(t, o, `update player_faction set faction_id=1 where actor_id=1`)
+	if m := applyWith(t, o, doubled(), house(175, Args{"was_mine": 0.0, "mine_to": 4800.0})); m["reward_rows"].(int64) != 2 {
+		t.Fatalf("the tiers above what the old faction reached are paid: %v", m)
+	}
+}
+
+// What the editor does not remember (#655), stated by a test: lowering and raising one tier of an open house adds the same ground to the faction's progress each time, and the tier
+// box being a toggle, a repeat pays again.
+func TestGrantARemovalAndTheSameRaiseAddsTheFactionsProgressAgain(t *testing.T) {
+	o := rewardOps(t, "")
+	applyWith(t, o, DefaultGrantSettings(), house(176, Args{"mine_to": 1200.0}))
+	if v, _ := progress(t, o, 2, 176); v != 1200 {
+		t.Fatalf("faction progress after the first raise: %v", v)
+	}
+	applyWith(t, o, DefaultGrantSettings(), house(176, Args{"was_mine": 1200.0, "mine_to": 0.0, "lower": true}))
+	applyWith(t, o, DefaultGrantSettings(), house(176, Args{"mine_to": 1200.0}))
+	if v, _ := progress(t, o, 2, 176); v != 2400 {
+		t.Fatalf("faction progress after the same raise again (stated in the docs): %v", v)
+	}
+	if wallet(t, o, 0) != 2*2*6000 { // two missions at the stock step for 1,200, paid twice
+		t.Fatalf("Solari: %d", wallet(t, o, 0))
+	}
+}
+
+// Without the swatch tables (the older layout) the top tier delivers the task's own item, and nothing remembers it: after a removal the same raise delivers it again (the amount adds up).
+func TestGrantTheTopTierAfterARemovalWithoutSwatchTablesIsDeliveredAgain(t *testing.T) {
+	o := mineOps(t, goalWorld)
+	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0})))
+	own := func() string {
+		return rows(t, o, `select amount from landsraad_house_rewards where player_id=1 and template_id='Swatch.Kenola'`)
+	}
+	if got := own(); got != "map[amount:1]\n" {
+		t.Fatalf("the task's own item after the first raise: %s", got)
+	}
+	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 6000.0, "mine_to": 4800.0, "lower": true})))
+	if m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 4800.0, "mine_to": 6000.0}))); m["reward_rows"].(int64) != 1 {
+		t.Fatalf("answer: %v", m)
+	}
+	if got := own(); got != "map[amount:2]\n" {
+		t.Fatalf("the top tier's own item is delivered again (stated in the docs): %s", got)
 	}
 }

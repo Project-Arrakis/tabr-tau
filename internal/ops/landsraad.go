@@ -161,8 +161,18 @@ func (o *Ops) Landsraad() (any, error) {
 			}
 		}
 		t["my_contribution"], t["my_recorded"] = my, has
+		// the highest the character reached under another faction: ground a raise does not pay again (grantRaise), for the page to work out what a click grants
+		elsewhere := 0.0
+		for _, c := range byPlayer[id] {
+			if c["mine"] == true && mineFaction != 0 && c["faction_id"] != mineFaction {
+				if a, ok := toFloat(c["amount"]); ok && a > elsewhere {
+					elsewhere = a
+				}
+			}
+		}
+		t["my_elsewhere"] = elsewhere
 		// a tier is reached when the contribution is at least its threshold; whether it is delivered (and what stands at the house representative) is decided per tier by
-		// tierState in landsraad_board.go, the same rule the write uses (#656)
+		// tierState in landsraad_board.go: the reward row of this term (#656, #655)
 		tiers := rw[id]
 		for _, x := range tiers {
 			r := x.(save.Row)
@@ -170,7 +180,7 @@ func (o *Ops) Landsraad() (any, error) {
 			r["reached"] = has && my >= th
 		}
 		t["rewards"] = tiers
-		boardTask(t, tiers, delivered, one, termID, termStart, events[id], haveEvents, places, here)
+		boardTask(t, tiers, delivered, one, termID, termStart, places, here)
 	}
 	decrees, err := o.S.Query(`select id, decree_name, disabled, weight from landsraad_decrees order by id`)
 	if err != nil {

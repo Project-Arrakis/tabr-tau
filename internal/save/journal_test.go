@@ -299,7 +299,7 @@ func TestAJournalOfAnotherSaveOrTamperedWithIsNotUsed(t *testing.T) {
 	dir := t.TempDir()
 	jp := filepath.Join(dir, "pending.json")
 	for name, content := range map[string]string{
-		"another save": `{"version":1,"path":"C:\\other\\game.db","baseHash":"","ops":[{"desc":"x","rows":1,"stmts":[{"q":"update jt set name='bad' where a=1"}]}]}`,
+		"another save": `{"version":2,"path":"C:\\other\\game.db","baseHash":"","ops":[{"desc":"x","rows":1,"stmts":[{"q":"update jt set name='bad' where a=1"}]}]}`,
 		"not json":     `{oops`,
 		"new version":  `{"version":9,"path":"` + strings.ReplaceAll(p, `\`, `\\`) + `","ops":[{"desc":"x","rows":1,"stmts":[{"q":"update jt set name='bad' where a=1"}]}]}`,
 	} {
@@ -326,7 +326,7 @@ func TestAJournalOfAnotherSaveOrTamperedWithIsNotUsed(t *testing.T) {
 		}
 	}
 	// a statement that is not an INSERT, UPDATE, DELETE or REPLACE in a journal of this save is refused when it is replayed
-	tamper := `{"version":1,"path":"` + strings.ReplaceAll(p, `\`, `\\`) + `","baseHash":"","ops":[{"desc":"drop","rows":0,"stmts":[{"q":"drop table jt"}]}]}`
+	tamper := `{"version":2,"path":"` + strings.ReplaceAll(p, `\`, `\\`) + `","baseHash":"","ops":[{"desc":"drop","rows":0,"stmts":[{"q":"drop table jt"}]}]}`
 	if err := os.WriteFile(jp, []byte(tamper), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -337,5 +337,32 @@ func TestAJournalOfAnotherSaveOrTamperedWithIsNotUsed(t *testing.T) {
 	}
 	if row, _ := s.One(`select count(*) c from jt`); row["c"] != int64(2) {
 		t.Fatal("the table must still be there")
+	}
+}
+
+// A journal kept by the build before #655 (version 1) held queued Landsraad raises that wrote a progress event, its player link and the cursor. It is set aside with the notice and never
+// replayed, even for this very save and with edits that would apply.
+func TestAJournalOfTheVersionBeforeTheNoEventChangeIsSetAsideNotReplayed(t *testing.T) {
+	p := makeSave(t, journalDDL)
+	dir := t.TempDir()
+	jp := filepath.Join(dir, "pending.json")
+	old := `{"version":1,"path":"` + strings.ReplaceAll(p, `\`, `\\`) + `","baseHash":"","ops":[{"desc":"landsraad Kenola: your contribution 1300 -> 6000","rows":1,"stmts":[{"q":"update jt set name='from the old build' where a=1"}]}]}`
+	if err := os.WriteFile(jp, []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := openJournaled(t, p, t.TempDir()).One(`select name from jt where a=1`)
+	s := openJournaled(t, p, dir)
+	r, err := s.RestoreJournal()
+	if err != nil || r == nil || r.Applied != 0 || len(r.Conflicts) != 1 || !strings.Contains(r.Conflicts[0].Why, "different version of the editor") {
+		t.Fatalf("an old journal must be set aside with the notice: %+v %v", r, err)
+	}
+	if s.Dirty() || s.Restored() == nil {
+		t.Fatalf("dirty=%v, notice kept=%v", s.Dirty(), s.Restored() != nil)
+	}
+	if after, _ := s.One(`select name from jt where a=1`); after["name"] != before["name"] {
+		t.Fatalf("the old journal was replayed: %v", after)
+	}
+	if m, _ := filepath.Glob(jp + ".skipped*"); len(m) == 0 {
+		t.Fatal("the old journal is kept aside, not deleted")
 	}
 }

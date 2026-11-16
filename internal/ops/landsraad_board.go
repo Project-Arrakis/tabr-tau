@@ -12,9 +12,9 @@ import (
 // The reward of a tier, and where it stands:
 //
 //	reward_state   not_reached | waiting | delivered | no_row
-//	               waiting   the character's own events cover the tier (or the character has no event for the task: tierState) and the row of the item (landsraad_house_rewards, written in this term) holds an amount above 0: it waits at the house representative
-//	               delivered the events cover the tier and the row holds the item with amount 0, written in this term: it was collected
-//	               no_row    the tier is reached and the save does not show it delivered: no row of this term for the item, or the character's events do not cover the tier (a house filled by an older editor, or an item row that only an earlier term or another tier wrote)
+//	               waiting   the tier is reached and the row of the item (landsraad_house_rewards, written in this term) holds an amount above 0: it waits at the house representative
+//	               delivered the tier is reached and the row holds the item with amount 0, written in this term: it was collected
+//	               no_row    the tier is reached and the save has no row of this term for the item (an item row that only an earlier term wrote, or no row at all)
 //	shown_template_id, shown_amount, swatch
 //	               what the game lists as the reward of the tier. For the highest tier it is the house swatch while the character does not hold it yet (landsraad_one_time_house_rewards
 //	               names it), and the task's own item (landsraad_task_rewards) once the swatch is held; the character holds it when landsraad_player_one_time_house_rewards has a row
@@ -58,7 +58,7 @@ func readOneTime(o *Ops, player int64) (oneTime, error) {
 }
 
 // boardTask adds to one task what the board needs: the place, the swatch facts and the state of every tier.
-func boardTask(t save.Row, tiers []any, delivered map[string]save.Row, one oneTime, termID int64, termStart, events float64, haveEvents bool, places map[string]houseLocation, here *charPlace) {
+func boardTask(t save.Row, tiers []any, delivered map[string]save.Row, one oneTime, termID int64, termStart float64, places map[string]houseLocation, here *charPlace) {
 	house := fmt.Sprint(t["house_name"])
 	t["location"] = locationOf(house, places, here)
 	sw, hasSwatch := one.swatch[house]
@@ -83,24 +83,23 @@ func boardTask(t save.Row, tiers []any, delivered map[string]save.Row, one oneTi
 		}
 		r["shown_template_id"], r["shown_amount"], r["swatch"] = tmpl, amount, isSwatch
 		d, hasRow := delivered[house+"\x00"+fmt.Sprint(tmpl)]
-		state := tierState(r["reached"] == true, th, events, haveEvents, d, hasRow, termStart)
+		state := tierState(r["reached"] == true, d, hasRow, termStart)
 		r["reward_state"] = state
 		r["delivered"] = state == "waiting" || state == "delivered" // one answer for both fields, for the item the tier shows (the swatch included)
 	}
 }
 
-// tierState is the one rule for where a tier's reward stands, used by the board's reader for both `delivered` and `reward_state` (#656). It agrees with the write
-// (grantRaise): a tier is delivered when the character's own events for the task cover it (th <= events, the ground the write skips), and the row of its item then says where the
-// reward is: waiting (amount above 0) or collected (amount 0). The row is of the item, not of the tier, and holds every term and every tier of the item; so a row alone never
-// proves a tier: a reward of an earlier term collected in this term (amount 0, a new time) or a waiting amount of the same item from another tier is not this tier's delivery, and
-// a tier the events do not cover reads no_row whatever the row holds. A row written before the term began is never this term's. Where the character has no event for the
-// task at all (a house filled by a build before #652, or a save without the progress tables) there is nothing to cover a tier, so a row written in this term decides alone: the
-// reader cannot say more, and calling such a reward not recorded would invite a second delivery.
-func tierState(reached bool, th, events float64, haveEvents bool, row save.Row, hasRow bool, termStart float64) string {
+// tierState is the one rule for where a tier's reward stands, used by the board's reader for both `delivered` and `reward_state` (#656, #655). A reached tier reads from the row of
+// its item in landsraad_house_rewards: waiting (amount above 0) or collected (amount 0) when the row was written in this term, no_row when there is none or it is of an earlier term
+// (a reward of an earlier term collected in this term has a new time and is this term's). Every raise of the editor from the page writes the reward rows of the tiers it crosses, and
+// the editor writes no progress event (#655), so the row is what says a tier was delivered. Edge: a contribution raised with no reward write (a build before #652, or a route that
+// only sets the contribution) shows a tier as delivered when its item has a row of this term from another tier or from the game, and the same item at two tiers cannot be told
+// apart. The character's own events are not used here; they only decide what a raise pays (grantRaise).
+func tierState(reached bool, row save.Row, hasRow bool, termStart float64) string {
 	if !reached {
 		return "not_reached"
 	}
-	if !hasRow || (haveEvents && events > 0 && th > events) {
+	if !hasRow {
 		return "no_row"
 	}
 	if upd, _ := toFloat(row["last_updated"]); upd < termStart {
