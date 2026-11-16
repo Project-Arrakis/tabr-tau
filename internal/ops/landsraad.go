@@ -59,7 +59,7 @@ func (o *Ops) Landsraad() (any, error) {
 			}
 		}
 		character = map[string]any{"player_id": p.Controller, "name": p.Name, "faction_id": nil}
-		f, ferr := o.S.One(`select pf.faction_id id from player_faction pf join factions f on f.id=pf.faction_id where pf.actor_id=? and f.name<>'None'`, p.Controller)
+		f, ferr := o.S.One(`select pf.faction_id id from player_faction pf join factions f on f.id=pf.faction_id where pf.actor_id=? and `+landsraadFactionCond, p.Controller)
 		if ferr != nil {
 			return nil, readFailed("your character's faction", ferr)
 		}
@@ -221,7 +221,7 @@ func (o *Ops) Landsraad() (any, error) {
 		name, effect, known := decreeDisplay(key)
 		d["display_name"], d["effect"], d["name_known"], d["variant"] = name, effect, known, decreeNames[key].Variant
 	}
-	factions, err := o.S.Query(`select id, name from factions where name <> 'None' order by id`)
+	factions, err := o.landsraadFactions()
 	if err != nil {
 		return nil, readFailed("the factions", err)
 	}
@@ -230,104 +230,6 @@ func (o *Ops) Landsraad() (any, error) {
 		return nil, err
 	}
 	return map[string]any{"term": term, "tasks": tasks, "decrees": decrees, "rotation": rotation, "factions": factions, "character": character, "terms": terms, "earlier_terms": earlier}, nil
-}
-
-// SetTaskProgress sets a faction's contribution to a task (the faction's progress towards the house goal, not a player's own contribution). The amount is
-// written as given: it is not held to the goal, because the game's numbers can pass it (#363).
-func (o *Ops) SetTaskProgress(a Args) (any, error) {
-	t, e1 := a.Int("task_id")
-	f, e2 := a.Int("faction_id")
-	amt, e3 := a.Float("amount")
-	if err := errors.Join(e1, e2, e3); err != nil {
-		return nil, err
-	}
-	if amt < 0 {
-		return nil, apierr.New(apierr.ErrBadArgument, "amount must be >= 0")
-	}
-	if amt > maxTier { // the game's numbers pass the goal (#363) but not a billion: keep a REAL column to a value it holds exactly (CR-6)
-		return nil, apierr.Newf(apierr.ErrBadArgument, "amount must be at most %s", commas(int64(maxTier)))
-	}
-	if _, err := o.run(fmt.Sprintf("landsraad task %d faction %d progress = %g", t, f, amt), `insert into landsraad_task_faction_contributions(faction_id, task_id, amount) values(?,?,?)
-		on conflict(faction_id, task_id) do update set amount=excluded.amount`, f, t, amt); err != nil {
-		return nil, err
-	}
-	return ok(), nil
-}
-
-// CompleteTask marks a task complete for a faction; reset=true reopens it. A completion writes the game's own clock into completion_time (see landsraad_clock.go), and the
-// completed tasks of the same term that still hold a time from outside the term's window (the Unix time older editors wrote) are brought onto that clock in the same edit (#465).
-// As Fill chosen does, it refuses a house of an earlier term and a faction the Landsraad does not have (the faction None), and it says in the answer and the write log which
-// other faction's win it takes away and how many other completion times it moved (D1-3, D1-4 and D1-5, #611).
-func (o *Ops) CompleteTask(a Args) (any, error) {
-	t, err := a.Int("task_id")
-	if err != nil {
-		return nil, err
-	}
-	reset := a.Bool("reset", false)
-	var f int64
-	desc := fmt.Sprintf("landsraad task %d reopened", t)
-	if !reset {
-		if f, err = a.Int("faction_id"); err != nil {
-			return nil, err
-		}
-		desc = fmt.Sprintf("landsraad task %d completed for faction %d", t, f)
-	}
-	var prev string
-	var repaired int64
-	if _, err = o.S.Mutate(desc, func(m *save.Mut) error {
-		prev, repaired = "", 0
-		task, err := m.One(`select id, term_id, house_name, completed, winning_faction_id from landsraad_tasks where id=?`, t)
-		if err != nil {
-			return err
-		}
-		if task == nil {
-			return apierr.New(apierr.ErrNotFound, "task not found")
-		}
-		term, err := m.One(`select term_id from landsraad_decree_term order by term_id desc limit 1`)
-		if err != nil {
-			return err
-		}
-		if term == nil {
-			return apierr.New(apierr.ErrNotFound, "this save has no Landsraad term")
-		}
-		if task["term_id"] != term["term_id"] {
-			return apierr.New(apierr.ErrConflict, "that house belongs to an earlier term: only the current term's houses can be changed; reload the page")
-		}
-		house := houseOf(task)
-		head := "landsraad"
-		clock := clockOfTask(m, t) // read before the write, from the task's own term
-		if reset {
-			head = fmt.Sprintf("landsraad %s: reopened", house)
-			if _, err = m.Exec(`update landsraad_tasks set completed=0, winning_faction_id=null, completion_time=null where id=?`, t); err != nil {
-				return err
-			}
-		} else {
-			fac, err := m.One(`select name from factions where id=? and name<>'None'`, f)
-			if err != nil {
-				return err
-			}
-			if fac == nil {
-				return apierr.New(apierr.ErrBadArgument, "that faction is not one the Landsraad has")
-			}
-			if prev, err = replacedWinner(m, task, f); err != nil {
-				return err
-			}
-			head = fmt.Sprintf("landsraad %s: completed for %v", house, fac["name"])
-			if _, err = m.Exec(`update landsraad_tasks set completed=1, winning_faction_id=?, completion_time=? where id=?`, f, clock.arg(), t); err != nil {
-				return err
-			}
-		}
-		if clock.ok {
-			if repaired, err = repairCompletionTimes(m, clock.term); err != nil {
-				return err
-			}
-		}
-		m.Desc = landsraadDesc(head, replacedOf(house, prev), repaired, nil)
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return map[string]any{"ok": true, "previous_winner": nilIfEmpty(prev), "repaired": repaired}, nil
 }
 
 // SetDecree sets or clears the disabled flag of one decree row in the pool, picked by its id (#448). The flag is the save's own column; it is not whether the decree is
@@ -382,12 +284,22 @@ func (o *Ops) SetTerm(a Args) (any, error) {
 	// The term is looked up inside the edit, through its own query, so it is kept with the edit: put back onto a newer file with another term, the edit is not applied to the
 	// old term's id.
 	_, err = o.S.Mutate("landsraad term", func(m *save.Mut) error {
-		term, err := m.One(`select term_id, start_time from landsraad_decree_term order by term_id desc limit 1`)
+		term, err := m.One(`select term_id, start_time, reigning_faction_id from landsraad_decree_term order by term_id desc limit 1`)
 		if err != nil {
 			return err
 		}
 		if term == nil {
 			return errors.New("no Landsraad term in this save")
+		}
+		for _, e := range edits { // a reigning faction that is set is one the Landsraad has (landsraad_factions.go); clearing it is allowed, and so is leaving the value the row already holds
+			if id, isInt := e.val.(int64); e.col == "reigning_faction_id" && isInt {
+				if held, isHeld := term["reigning_faction_id"].(int64); isHeld && held == id {
+					continue
+				}
+				if _, err := landsraadFactionName(m.One, id); err != nil {
+					return err
+				}
+			}
 		}
 		// a term that ends before it starts has no window: the completion times and the clock repair are worked out from it (D1-4, #611)
 		if start, ok := toFloat(term["start_time"]); ok {
@@ -413,89 +325,17 @@ func (o *Ops) SetTerm(a Args) (any, error) {
 
 // ---------------------------------------------------------------- the character's own contribution (#380)
 
-// myLandsraad is what a fill of the character's contribution needs from the save: the character's player id (the player_state id, which is the id the contribution tables use)
-// and the Landsraad faction the character is in. A character with no faction (Neutral) has none to contribute for, so a fill is refused.
+// myLandsraad is what a change of the character's contribution needs from the save: the character's player id (the player_state id, which is the id the contribution tables use)
+// and the Landsraad faction the character is in. A character with no faction (Neutral) has none to contribute for, so a change is refused.
 type myLandsraad struct{ player, faction int64 }
 
 // maxTier bounds a tier: the tiers in a save are 1,200 to 6,000, and a request names one of them, so this only keeps a hand-built save from carrying a value beyond what a
 // REAL column holds exactly.
 const maxTier = 1e9
 
-// fillMine raises the character's contribution to the task up to the threshold of one of its tiers, inside the edit m, and, when withFaction is true, raises the faction's
-// progress on the task to its goal. It only raises: a contribution that is already at or above the tier is left as it is. The task must belong to the current term. It returns the
-// contribution before and after, and whether the faction's row changed. The rewards are not written: delivering a tier is the game's own act on the contribution.
-func fillMine(m *save.Mut, me myLandsraad, taskID int64, tier float64, withFaction, write bool) (before, after float64, factionChanged bool, house string, err error) {
-	term, err := m.One(`select term_id from landsraad_decree_term order by term_id desc limit 1`)
-	if err != nil {
-		return 0, 0, false, "", err
-	}
-	if term == nil {
-		return 0, 0, false, "", apierr.New(apierr.ErrNotFound, "this save has no Landsraad term")
-	}
-	t, err := m.One(`select id, term_id, house_name, goal_amount from landsraad_tasks where id=?`, taskID)
-	if err != nil {
-		return 0, 0, false, "", err
-	}
-	if t == nil {
-		return 0, 0, false, "", apierr.New(apierr.ErrNotFound, "task not found")
-	}
-	if t["term_id"] != term["term_id"] {
-		return 0, 0, false, "", apierr.New(apierr.ErrConflict, "that house belongs to an earlier term: only the current term's houses can be filled; reload the page")
-	}
-	house = strings.TrimPrefix(fmt.Sprint(t["house_name"]), "DA_House")
-	r, err := m.One(`select 1 x from landsraad_task_rewards where task_id=? and threshold=?`, taskID, int64(tier))
-	if err != nil {
-		return 0, 0, false, "", err
-	}
-	if r == nil || tier != float64(int64(tier)) {
-		return 0, 0, false, "", apierr.Newf(apierr.ErrBadArgument, "%s has no reward tier at %g", house, tier)
-	}
-	cur, err := m.One(`select amount from landsraad_task_player_contributions where player_id=? and faction_id=? and task_id=?`, me.player, me.faction, taskID)
-	if err != nil {
-		return 0, 0, false, "", err
-	}
-	if cur != nil {
-		var ok bool
-		if before, ok = toFloat(cur["amount"]); !ok {
-			return 0, 0, false, "", apierr.Newf(apierr.ErrBadArgument, "your recorded contribution to %s is not a number, so it was not changed", house)
-		}
-	}
-	after = before
-	if before < tier {
-		after = tier
-		if write { // without write this only says what would change
-			if _, err := m.Exec(`insert into landsraad_task_player_contributions(player_id, faction_id, task_id, amount) values(?,?,?,?)
-				on conflict(player_id, faction_id, task_id) do update set amount=excluded.amount`, me.player, me.faction, taskID, after); err != nil {
-				return 0, 0, false, "", err
-			}
-		}
-	}
-	if withFaction {
-		goal, _ := toFloat(t["goal_amount"])
-		fc, err := m.One(`select amount from landsraad_task_faction_contributions where faction_id=? and task_id=?`, me.faction, taskID)
-		if err != nil {
-			return 0, 0, false, "", err
-		}
-		have := 0.0
-		if fc != nil {
-			have, _ = toFloat(fc["amount"])
-		}
-		if have < goal {
-			if write {
-				if _, err := m.Exec(`insert into landsraad_task_faction_contributions(faction_id, task_id, amount) values(?,?,?)
-					on conflict(faction_id, task_id) do update set amount=excluded.amount`, me.faction, taskID, goal); err != nil {
-					return 0, 0, false, "", err
-				}
-			}
-			factionChanged = true
-		}
-	}
-	return before, after, factionChanged, house, nil
-}
-
 // myLandsraadTx reads who the character is for the Landsraad tables, inside the edit.
 func myLandsraadTx(m *save.Mut, p player) (myLandsraad, error) {
-	f, err := m.One(`select pf.faction_id id from player_faction pf join factions f on f.id=pf.faction_id where pf.actor_id=? and f.name<>'None'`, p.Controller)
+	f, err := m.One(`select pf.faction_id id from player_faction pf join factions f on f.id=pf.faction_id where pf.actor_id=? and `+landsraadFactionCond, p.Controller)
 	if err != nil {
 		return myLandsraad{}, err
 	}
@@ -509,164 +349,7 @@ func myLandsraadTx(m *save.Mut, p player) (myLandsraad, error) {
 	return myLandsraad{player: p.Controller, faction: id}, nil
 }
 
-// FillMyContribution raises the character's own contribution to a house up to one of its tiers (args task_id and tier: the threshold, one of the task's tiers; with_faction:
-// also raise the faction's progress to the house goal, false when absent). It writes the character's row of landsraad_task_player_contributions (the faction's progress and
-// the reward rows are not touched unless with_faction asks for the first; the rewards are never written) and is one edit.
-func (o *Ops) FillMyContribution(a Args) (any, error) {
-	id, e1 := a.Int("task_id")
-	tier, e2 := a.Float("tier")
-	withFaction, e3 := strictBool(a, "with_faction", false)
-	if err := errors.Join(e1, e2, e3); err != nil {
-		return nil, err
-	}
-	if tier <= 0 || tier > maxTier {
-		return nil, apierr.New(apierr.ErrBadArgument, "tier must be one of the house's reward tiers")
-	}
-	p, err := o.player()
-	if err != nil {
-		return nil, err
-	}
-	var before, after float64
-	var factionChanged bool
-	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
-		me, err := myLandsraadTx(m, p)
-		if err != nil {
-			return err
-		}
-		var house string
-		if before, after, factionChanged, house, err = fillMine(m, me, id, tier, withFaction, true); err != nil {
-			return err
-		}
-		m.Desc = fmt.Sprintf("landsraad %s: your contribution %g -> %g", house, before, after)
-		if factionChanged {
-			m.Desc += ", faction goal filled"
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return map[string]any{"ok": true, "before": before, "after": after, "changed": after > before || factionChanged, "faction_changed": factionChanged}, nil
-}
-
-// ---------------------------------------------------------------- several houses at once (#364)
+// ---------------------------------------------------------------- the size of one request
 
 // maxFillHouses bounds one request: a board has 25 houses; the limit only keeps a hand-built request from carrying thousands.
 const maxFillHouses = 100
-
-// fillItem is one house of a multi-house fill: the task and the tier its contribution is raised to (the highest tier chosen for it).
-type fillItem struct {
-	task int64
-	tier float64
-}
-
-// parseFillItems reads the list of houses out of a decoded body. Every entry is checked: it must be an object with a whole task_id and a tier, and a house may appear once.
-func parseFillItems(a Args) ([]fillItem, error) {
-	raw, ok := a["items"].([]any)
-	if !ok || len(raw) == 0 {
-		return nil, apierr.New(apierr.ErrBadArgument, "items is required: the houses to fill, each with its task_id and tier")
-	}
-	if len(raw) > maxFillHouses {
-		return nil, apierr.Newf(apierr.ErrBadArgument, "at most %d houses can be filled at once", maxFillHouses)
-	}
-	seen := map[int64]bool{}
-	out := make([]fillItem, 0, len(raw))
-	for _, x := range raw {
-		m, ok := x.(map[string]any)
-		if !ok {
-			return nil, apierr.New(apierr.ErrBadArgument, "each of the items must be an object with task_id and tier")
-		}
-		e := Args(m)
-		id, e1 := e.Int("task_id")
-		tier, e2 := e.Float("tier")
-		if err := errors.Join(e1, e2); err != nil {
-			return nil, err
-		}
-		if tier <= 0 || tier > maxTier {
-			return nil, apierr.New(apierr.ErrBadArgument, "tier must be one of the house's reward tiers")
-		}
-		if seen[id] {
-			return nil, apierr.Newf(apierr.ErrBadArgument, "house %d is in the list twice: send the highest tier chosen for it once", id)
-		}
-		seen[id] = true
-		out = append(out, fillItem{task: id, tier: tier})
-	}
-	return out, nil
-}
-
-// FillMyContributions raises the character's own contribution on several houses of the current term in one edit (args items: [{task_id, tier}], one entry per house with the
-// highest tier chosen for it; with_faction: also raise the faction's progress on each to its goal; term_id: the term the page showed; expected: the number of houses the page counted would change (the page no longer asks first, #450; the count still guards against a board that changed between the click and the edit).
-// Inside the edit the term is compared with term_id and the houses that would change are counted again with the rules of the single fill; a term or a
-// count that is not the expected one is refused with a conflict and nothing is written. A house whose contribution is already at or above its tier does not count and is not
-// written. Either every house is filled or none is: any refusal rolls the edit back. The reward rows are never written.
-func (o *Ops) FillMyContributions(a Args) (any, error) {
-	items, err := parseFillItems(a)
-	if err != nil {
-		return nil, err
-	}
-	withFaction, err := strictBool(a, "with_faction", false)
-	if err != nil {
-		return nil, err
-	}
-	expected, err := expectedCount(a)
-	if err != nil {
-		return nil, err
-	}
-	termID, err := a.Int("term_id")
-	if err != nil {
-		return nil, err
-	}
-	p, err := o.player()
-	if err != nil {
-		return nil, err
-	}
-	var changed int64
-	var factions, mine int64 // houses whose faction progress / own contribution were raised (a house counts in changed when either was)
-	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
-		changed, factions, mine = 0, 0, 0
-		me, err := myLandsraadTx(m, p)
-		if err != nil {
-			return err
-		}
-		term, err := m.One(`select term_id from landsraad_decree_term order by term_id desc limit 1`)
-		if err != nil {
-			return err
-		}
-		if term == nil || term["term_id"] != termID {
-			return apierr.New(apierr.ErrConflict, "the Landsraad term is not the one you were shown, so nothing was changed: reload the page and look again")
-		}
-		for _, it := range items { // first the count, with nothing written
-			before, after, fch, _, err := fillMine(m, me, it.task, it.tier, withFaction, false)
-			if err != nil {
-				return err
-			}
-			if after > before || fch {
-				changed++
-			}
-		}
-		if changed != expected {
-			return apierr.Newf(apierr.ErrConflict, "the number of houses to fill is now %d, not the %d the page counted, so nothing was changed: reload the page and look again", changed, expected)
-		}
-		for _, it := range items {
-			before, after, fch, _, err := fillMine(m, me, it.task, it.tier, withFaction, true)
-			if err != nil {
-				return err
-			}
-			if after > before {
-				mine++
-			}
-			if fch {
-				factions++
-			}
-		}
-		if changed > 0 {
-			m.Desc = fmt.Sprintf("landsraad: your contribution filled on %d houses", mine)
-			if factions > 0 {
-				m.Desc += fmt.Sprintf(", the faction goal on %d", factions)
-			}
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return resetAnswer(changed, map[string]any{"houses": int64(len(items)), "faction_changed": factions, "contribution_changed": mine}), nil
-}

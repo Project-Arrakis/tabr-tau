@@ -219,6 +219,26 @@ test('Make active follows the faction drop-down, and with none chosen it is disa
   assert.ok(text(ui.doc.querySelector('#lsb-tresult')).includes('Choose a reigning faction'));
 });
 
+test('a reigning faction the list does not offer is shown as none, and Apply leaves it alone: the request names no faction and no button names it', async () => {
+  // a character with no faction, and a term whose reigning faction (4) is not one the Landsraad has: the list offers 1 and 2 only
+  const ui = await open(landsraad({ term: { term_id: 10, start_time: 1, end_time: 2, reigning_faction_id: 4, active_decree_id: 8, elected_decree_id: 5 }, character: { player_id: 1, name: 'Tester', faction_id: null } }));
+  assert.equal(ui.doc.querySelector('#lsb-trf').value, '', 'the drop-down shows none, not a faction that is not offered');
+  const panel = ui.doc.querySelector('#lsb-tdp'); panel.open = true; panel.dispatchEvent(new ui.w.Event('toggle'));
+  const b = poolRow(ui, 9).querySelector('[data-lb="tmk"]');
+  assert.equal(text(b), 'Make active (choose a faction)');
+  assert.ok(!/Faction 4/.test(text(ui.doc.querySelector('#lsb-tdp .dp'))), 'no pool row names the faction that is not offered');
+  select(ui, '#lsb-tad', 6);
+  ui.click('#lsb-tdp [data-lb="tapply"]'); await ui.settle();
+  assert.deepEqual(posted(ui, '/api/landsraad/term').map((p) => p.body), [{ active_decree_id: '6' }], 'the faction is not part of the request');
+  assert.ok(text(ui.doc.querySelector('#lsb-tresult')).includes('reigning faction left as it is'), text(ui.doc.querySelector('#lsb-tresult')));
+  // choosing a faction that is offered sends it, and none chosen on purpose clears it
+  select(ui, '#lsb-trf', 2);
+  ui.click('#lsb-tdp [data-lb="tapply"]'); await ui.settle();
+  select(ui, '#lsb-trf', '');
+  ui.click('#lsb-tdp [data-lb="tapply"]'); await ui.settle();
+  assert.deepEqual(posted(ui, '/api/landsraad/term').slice(1).map((p) => p.body), [{ active_decree_id: '6', reigning_faction_id: '2' }, { active_decree_id: '6', reigning_faction_id: '' }]);
+});
+
 test('a save without a term says so, and a hostile decree name is shown as text', async () => {
   let ui = await open(landsraad({ term: null }));
   assert.ok(text(ui.doc.querySelector('#lsb-term-h')).includes('no Landsraad term'));

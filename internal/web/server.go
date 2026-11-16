@@ -852,13 +852,6 @@ func (s *Server) routes() {
 		}
 		return v, err
 	})
-	s.post("/api/landsraad/progress", o.SetTaskProgress)
-	s.post("/api/landsraad/mine", o.FillMyContribution)
-	s.post("/api/landsraad/mine-many", o.FillMyContributions)
-	s.post("/api/landsraad/complete", o.CompleteTask)
-	s.post("/api/landsraad/faction-goal", o.FillFactionGoal)
-	s.post("/api/landsraad/complete-many", o.CompleteChosen)
-	s.post("/api/landsraad/reopen-many", o.ReopenChosen)
 	// the board's write goes through the same write path as every other edit (one transaction, the queue and the backup of Save); the two multipliers it scales a mission's
 	// contribution and specialization XP by are read from the settings file the editor already edits, 1 where the key is not in it
 	s.post("/api/landsraad/apply", func(a ops.Args) (any, error) { return o.LandsraadApplyWith(s.grantSettings(), a) })

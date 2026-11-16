@@ -372,8 +372,8 @@ func TestUpdateRowRefusesInternalTablesAndMissingRows(t *testing.T) {
 
 func TestMissingTargetsAreErrors(t *testing.T) {
 	o := newPlayerOps(t)
-	if _, err := o.CompleteTask(Args{"task_id": float64(99999), "faction_id": float64(1)}); err == nil {
-		t.Error("CompleteTask on a missing task must fail")
+	if _, err := o.LandsraadApply(applyArgs(house(99999, Args{"reopen": true}))); err == nil {
+		t.Error("the board's write on a missing house must fail")
 	}
 	if _, err := o.SetDecree(Args{"id": float64(99999)}); err == nil {
 		t.Error("SetDecree on a missing decree must fail")

@@ -89,14 +89,6 @@ func repairText(n int64) string {
 	return fmt.Sprintf("; %d other completion times moved", n)
 }
 
-// housesWord is "house" or "houses" for a count.
-func housesWord(n int64) string {
-	if n == 1 {
-		return "house"
-	}
-	return "houses"
-}
-
 // landsraadDesc builds the description of a Landsraad edit: the head says what was done, then the short facts (the wins taken away, the times moved), and the list of houses last,
 // because the write log cuts a long description and what is cut must be the list, not the facts. A head of just "landsraad" (an edit that only moved times) gets a colon.
 func landsraadDesc(head string, replaced []replacedWin, repaired int64, houses []string) string {
@@ -123,12 +115,4 @@ func replacedOf(house, winner string) []replacedWin {
 		return nil
 	}
 	return []replacedWin{{house: house, winner: winner}}
-}
-
-// nilIfEmpty gives an answer field no value instead of an empty text.
-func nilIfEmpty(s string) any {
-	if s == "" {
-		return nil
-	}
-	return s
 }

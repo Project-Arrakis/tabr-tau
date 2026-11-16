@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
-	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
 // The board's write (part 2 of the tab rework, refs #599, #440): every action runs on a copy of a save (the test database) and the rows it leaves are asserted.
@@ -235,35 +234,6 @@ func TestApplyReopenClearsTheCompletionAndTouchesNothingElse(t *testing.T) {
 	}
 }
 
-func TestApplyFillFactionGoalLeavesTheStateOfTheExistingButton(t *testing.T) {
-	a, b := goalOps(t), goalOps(t)
-	if _, err := a.FillFactionGoal(goalArgs(175, 2)); err != nil {
-		t.Fatal(err)
-	}
-	mustApply(t, b, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0, "complete_for": 2.0})))
-	// the existing button writes no reward rows; the board's write does (part 3), so only the other tables are compared. The faction's contribution is not: the board's write adds what
-	// the character gained (as a plain Fill and a mission do, #751) and takes it to the goal at least, the existing button sets it to the goal; both are checked on their own
-	factionOf := func(o *Ops) float64 {
-		r, err := o.S.One(`select amount a from landsraad_task_faction_contributions where faction_id=2 and task_id=175`)
-		if err != nil || r == nil {
-			t.Fatal(err, r)
-		}
-		return r["a"].(float64)
-	}
-	if factionOf(a) != 4000 || factionOf(b) != 5700 {
-		t.Fatalf("the faction's contribution: existing button %v, board %v", factionOf(a), factionOf(b))
-	}
-	if _, err := b.S.Mutate("test", func(m *save.Mut) error {
-		_, err := m.Exec(`update landsraad_task_faction_contributions set amount=4000 where faction_id=2 and task_id=175`)
-		return err
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if boardTables(t, a, false) != boardTables(t, b, false) {
-		t.Fatalf("Fill faction goal and the board's write leave different rows:\n%s\n---\n%s", boardRows(t, a), boardRows(t, b))
-	}
-}
-
 func TestApplySeveralHousesAreOneEdit(t *testing.T) {
 	o := goalOps(t)
 	m := mustApply(t, o, applyArgs(
@@ -321,5 +291,36 @@ func TestApplyRefusesWhatIsNotARequest(t *testing.T) {
 		if boardRows(t, o) != before {
 			t.Errorf("%s: wrote something", name)
 		}
+	}
+}
+
+func TestApplyCompleteFillsTheProgressOfAHouseAlreadyCompleteWithLessThanTheGoalWithoutTouchingItsTime(t *testing.T) {
+	o := goalOps(t)
+	setup(t, o, `update landsraad_tasks set completed=1, winning_faction_id=2, completion_time=150 where id=175`)
+	m := mustApply(t, o, applyArgs(house(175, Args{"was_done": true, "was_win": 2.0, "complete_for": 2.0})))
+	if m["changed"].(int64) != 1 {
+		t.Fatalf("answer: %v", m)
+	}
+	if v, _ := progress(t, o, 2, 175); v != 4000 {
+		t.Errorf("progress = %v", v)
+	}
+	if h := houseRow(t, o, 175); h["ct"].(int64) != 150 {
+		t.Errorf("the time of an earlier completion is kept: %v", h)
+	}
+}
+
+func TestApplyCompleteForAnotherFactionTakesTheHouseOver(t *testing.T) {
+	o := goalOps(t)
+	setup(t, o, `update landsraad_tasks set completed=1, winning_faction_id=2, completion_time=100 where id=175`)
+	setup(t, o, `insert or replace into landsraad_task_faction_contributions(faction_id, task_id, amount) values (2, 175, 4000)`)
+	mustApply(t, o, applyArgs(house(175, Args{"was_done": true, "was_win": 2.0, "complete_for": 1.0})))
+	if h := houseRow(t, o, 175); h["w"].(int64) != 1 || h["ct"].(int64) != 150 {
+		t.Errorf("the winner is the chosen faction and the time is the play clock: %v", h)
+	}
+	if v, _ := progress(t, o, 1, 175); v != 4000 {
+		t.Errorf("Atreides progress = %v", v)
+	}
+	if v, _ := progress(t, o, 2, 175); v != 4000 {
+		t.Errorf("the other faction's progress is left: %v", v)
 	}
 }
