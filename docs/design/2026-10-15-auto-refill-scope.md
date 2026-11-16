@@ -14,7 +14,7 @@ The refill and repair buttons are not per base. They work on the whole save:
 |---|---|
 | Refill base water (`RefillBaseWater`) | every built (not hologram) water cistern, windtrap and blood purifier in the save |
 | Refill generators (`RefillGenerators`) | the fuel inventory of every built generator, spice generator, wind turbine and windtrap in the save |
-| Repair all to max (`RepairBuildings`) | every building piece and placeable: raised to the best health seen for its type |
+| Repair all to max (`RepairBuildings`) | every building piece and placeable: raised to the repair target of its type (the best health seen on standing pieces of your own bases, held to a cap per type, #613); placeable holograms are left as they are (#770) |
 | Clear sand (`ClearSand`) | every building piece |
 
 A single-player save has one player and one world, and the base list is a view of it, not a boundary: whole-save is the intended behaviour of the refill buttons, and the buttons and docs say "all bases". (Repair all to max and Clear sand are no longer in this table's whole-save group on the Structures tab: since #526 they act on the open base, and the whole-save versions are separate buttons in a Whole save card.) The Power and Water tabs of one base only read; they show the same devices the refill writes (a device's fuel inventory is one shared definition, the first inventory of type 3, `powerInventorySQL`).
