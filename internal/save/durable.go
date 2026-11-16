@@ -287,6 +287,20 @@ func (s *Save) onlyPassEditsLocked() bool {
 // with the pass's edit makes the queue a hand queue, because a person is then at the page.
 func (s *Save) gate() (bool, string) { return s.gateFor(s.onlyPassEditsLocked()) }
 
+// GateState is the answer the page shows (the status it polls, the overview, Check again): the rule the queue will actually be written under. A queue made only of the automatic
+// pass's edit waits for every game process (UnattendedStateFor); any other queue, or none, has the rule of an edit made by hand (GameStateFor). Asked this way the page and the
+// write agree: with the game open at its menu a pass-only queue is shown as blocked, with the reason the write will give, instead of "edits are written at once" (#819).
+// fresh bypasses the process cache, as in GameStateFor.
+func (s *Save) GateState(fresh bool) GameState {
+	s.mu.Lock()
+	passOnly := s.onlyPassEditsLocked()
+	s.mu.Unlock()
+	if passOnly {
+		return UnattendedStateFor(s.Path, fresh)
+	}
+	return GameStateFor(s.Path, fresh)
+}
+
 func (s *Save) gateFor(passOnly bool) (bool, string) {
 	g := GameStateFor(s.Path, true)
 	if passOnly {

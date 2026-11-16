@@ -149,7 +149,7 @@ func (o *Ops) player() (player, error) {
 
 // State is the small, cheap status the UI polls: no table scans, only what the header and the save pane need.
 func (o *Ops) State() (any, error) {
-	g := save.GameStateFor(o.S.Path, false)
+	g := o.S.GateState(false) // the rule the queue will be written under (a queue of only the automatic pass's edit waits for the game to close)
 	dirty, pending := o.S.QueueState()
 	return map[string]any{
 		"path": o.S.Path, "dirty": dirty, "pending": pending,
@@ -177,7 +177,7 @@ func (o *Ops) Overview() (any, error) {
 		counts[n] = r["c"]
 	}
 	p, _ := o.player()
-	g := save.GameStateFor(o.S.Path, false)
+	g := o.S.GateState(false)
 	dirty, pending := o.S.QueueState()
 	return map[string]any{
 		"path": o.S.Path, "dirty": dirty, "pending": pending, "tables": counts,
