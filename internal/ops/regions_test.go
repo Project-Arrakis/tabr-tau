@@ -26,7 +26,7 @@ insert into markers(marker_hash_id,dimension_index,map_name,marker_type,x,y,z,ar
   (4,0,'HaggaBasin','Cave',9000,9400,0,99),
   (5,0,'DeepDesert','Cave',100,100,0,3);
 insert into map_areas(character_id,area_id,time_discovered,time_first_entered,map) values
-  (1,3,100,100,'HaggaBasin'),(1,12,200,200,'HaggaBasin'),(1,99,300,300,'HaggaBasin'),(1,3,400,400,'DeepDesert');`
+  (1,3,100,100,'HaggaBasin'),(1,12,200,200,'HaggaBasin'),(1,99,300,300,'HaggaBasin'),(1,0,350,350,'HaggaBasin'),(1,3,400,400,'DeepDesert');`
 
 func TestTheRegionNamesAreTheTwelveOfTheHaggaBasin(t *testing.T) {
 	names := regionNamesOf("HaggaBasin")
@@ -90,6 +90,36 @@ func TestTheDiscoveredAreasAreListedByName(t *testing.T) {
 	}
 	if a["other"].(int) != 1 {
 		t.Errorf("one discovered area has no name: %v", a)
+	}
+}
+
+// #788: area id 0 is the game's "no area", not a region, so a discovered row with it is not counted as an area without a name. A real id with no name (99) still is.
+func TestAreaZeroIsNotCountedAsAnAreaWithoutAName(t *testing.T) {
+	cases := []struct {
+		name  string
+		rows  string
+		found string
+		other int
+	}{
+		{"only area 0", `(1,0,1,1,'HaggaBasin')`, "", 0},
+		{"area 0 and a named area", `(1,0,1,1,'HaggaBasin'),(1,3,2,2,'HaggaBasin')`, "Hagga Rift", 0},
+		{"area 0 and an unnamed real id", `(1,0,1,1,'HaggaBasin'),(1,99,2,2,'HaggaBasin')`, "", 1},
+		{"unnamed real id only", `(1,99,2,2,'HaggaBasin')`, "", 1},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			o := &Ops{S: testsave.PlayerWithSQL(t, `insert into map_areas(character_id,area_id,time_discovered,time_first_entered,map) values `+c.rows+`;`)}
+			a := o.discoveredAreas(1, "HaggaBasin")
+			if got := strings.Join(a["discovered"].([]string), ", "); got != c.found {
+				t.Errorf("discovered: %q, want %q", got, c.found)
+			}
+			if a["other"].(int) != c.other {
+				t.Errorf("other: %v, want %d (area 0 is no region)", a["other"], c.other)
+			}
+			if a["total"].(int) != 12 {
+				t.Errorf("total: %v, want the 12 named regions", a["total"])
+			}
+		})
 	}
 }
 
