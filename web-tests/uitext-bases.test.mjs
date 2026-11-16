@@ -107,6 +107,8 @@ test('Structures: both repair tips and the About text say that placeable hologra
   const repair = tips.filter((t) => t.startsWith('Raises'));
   assert.equal(repair.length, 2, 'the two repair tips: ' + tips.join(' | '));
   for (const t of repair) assert.ok(t.includes('Placeable holograms (unfinished placements) are left as they are'), t);
+  const named = repair.filter((t) => t.includes('a base backup'));
+  assert.ok(named.length === 1 && named[0].includes('every building piece'), 'only the save-wide tip names base backups (#815): ' + repair.join(' | '));
   const about = [...main.querySelectorAll('details.about')].map((d) => d.textContent.replace(/\s+/g, ' ')).join(' ');
   assert.ok(about.includes('both repairs leave placeable holograms (unfinished placements) as they are'), about);
   ui.dom.window.close();
