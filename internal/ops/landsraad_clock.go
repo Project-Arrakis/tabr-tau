@@ -39,17 +39,6 @@ type termClock struct {
 	ok                      bool // false when the term is not in the save: nothing can be said about the clock, and a time is not written
 }
 
-// clockOfTask reads the term of a task and the value to write for a completion now. A save without the term (or without the tables) gives ok false, which writes NULL: a time
-// from another clock is worse than none.
-func clockOfTask(m *save.Mut, taskID int64) termClock {
-	r, err := m.One(`select term_id from landsraad_tasks where id=?`, taskID)
-	if err != nil || r == nil {
-		return termClock{}
-	}
-	id, _ := r["term_id"].(int64)
-	return clockOfTerm(m, id)
-}
-
 // clockOfTerm gives the value for a completion now: the play clock at the time of the save, held inside the term's window (the term has started when the editor can reach it,
 // and a term already over takes its end). A save that has the term but no usable clock gets the start of the term, which is inside the window.
 func clockOfTerm(m *save.Mut, termID int64) termClock {

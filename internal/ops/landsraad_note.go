@@ -116,11 +116,3 @@ func replacedOf(house, winner string) []replacedWin {
 	}
 	return []replacedWin{{house: house, winner: winner}}
 }
-
-// nilIfEmpty gives an answer field no value instead of an empty text.
-func nilIfEmpty(s string) any {
-	if s == "" {
-		return nil
-	}
-	return s
-}
