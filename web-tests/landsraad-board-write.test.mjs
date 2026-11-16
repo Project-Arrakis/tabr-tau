@@ -666,3 +666,95 @@ test('a house with no specialization line is refused before the click only when 
   assert.ok(!cap.includes('has no specialization line') && !cap.includes('Will be refused'), cap);
   assert.equal(text(by(ui, 'Alexin').querySelector('.qg')), 'no missions');
 });
+
+// #818: a bulk question names the houses chosen when it was asked. A filter or a jump unticks the rows it hides, so the question must not write them.
+const show = (ui, k) => click(ui, `[data-lb=show][data-show=${k}]`);
+const jump = (ui, id) => { const j = ui.doc.querySelector('#lsb-jump'); j.value = String(id); j.dispatchEvent(new ui.w.Event('change', { bubbles: true })); };
+const sentIds = (ui) => writes(ui).flatMap((w) => w.body.houses.map((h) => h.task_id)).sort();
+
+test('a filter that unticks houses of an open bulk question closes it, and nothing is written for a house that is not chosen (#818)', async () => {
+  const ui = await open(board(), { '/api/landsraad/apply': { ...OK, changed: 3, houses: 3 } });
+  click(ui, '[data-lb=pickall]');
+  click(ui, '[data-lb=bulk][data-do=fill]'); await ui.settle();
+  assert.equal(text(ui.doc.querySelector('#lsb-confirm b')), 'Fill 3 houses? Written at once, with a backup first.');
+  show(ui, 'part'); await ui.settle(); // Alexin (not started) and Wayku (top tier) are hidden and lose their ticks
+  assert.equal(ui.doc.querySelector('#lsb-confirm'), null, 'the question about three houses is gone');
+  assert.ok(text(ui.doc.querySelector('#lsb-sum')).startsWith('Chosen: 2 houses.'), text(ui.doc.querySelector('#lsb-sum')));
+  assert.ok(result(ui).includes('question was closed') && result(ui).includes('Nothing was written'), result(ui));
+  assert.deepEqual(writes(ui), []);
+  // the answer button is gone; asking again names the houses that are chosen now
+  assert.equal(ui.doc.querySelector('[data-lb=cyes]'), null);
+  click(ui, '[data-lb=bulk][data-do=fill]'); await ui.settle();
+  assert.equal(text(ui.doc.querySelector('#lsb-confirm b')), 'Fill 2 houses? Written at once, with a backup first.');
+  click(ui, '[data-lb=cyes]'); await ui.settle();
+  assert.deepEqual(sentIds(ui), [901, 902], 'Thorvald and Hurata only: Alexin is hidden and not chosen');
+});
+
+test('a jump to one house closes an open bulk question, and the House: filter and "Show all houses" do the same (#818)', async () => {
+  const ui = await open(board(), { '/api/landsraad/apply': OK });
+  click(ui, '[data-lb=pickall]');
+  click(ui, '[data-lb=bulk][data-do=complete]'); await ui.settle();
+  assert.equal(text(ui.doc.querySelector('#lsb-confirm b')), 'Complete 3 houses for Atreides? Written at once, with a backup first.');
+  jump(ui, 901); await ui.settle();
+  assert.equal(ui.doc.querySelector('#lsb-confirm'), null);
+  assert.deepEqual(writes(ui), []);
+  // the choice is only Thorvald now; one house is written at once, with no question and no other house
+  click(ui, '[data-lb=bulk][data-do=complete]'); await ui.settle();
+  assert.deepEqual(sentIds(ui), [901]);
+  // the House: Open / Taken filter hides rows by whether a faction holds the house
+  const ui2 = await open(board(), { '/api/landsraad/apply': OK });
+  click(ui2, '[data-lb=pickall]');
+  click(ui2, '[data-lb=bulk][data-do=complete]'); await ui2.settle();
+  const taken = ui2.doc.querySelector('.lsb [data-lb=hs][value=taken]'); taken.checked = true; taken.dispatchEvent(new ui2.w.Event('change', { bubbles: true })); await ui2.settle();
+  assert.equal(ui2.doc.querySelector('#lsb-confirm'), null);
+  assert.deepEqual(writes(ui2), []);
+});
+
+test('a filter that hides only houses the open bulk question does not name leaves the question open, and Yes writes the houses it named (#818)', async () => {
+  const ui = await open(board(), { '/api/landsraad/apply': { ...OK, changed: 3, houses: 3 } });
+  click(ui, '[data-lb=pickall]');
+  click(ui, '[data-lb=bulk][data-do=complete]'); await ui.settle(); // Wayku is complete already: it is chosen but not in the question
+  assert.ok(ui.doc.querySelector('#lsb-confirm'));
+  show(ui, 'left'); await ui.settle(); // hides Wayku only
+  assert.ok(text(ui.doc.querySelector('#lsb-sum')).startsWith('Chosen: 3 houses.'), text(ui.doc.querySelector('#lsb-sum')));
+  assert.equal(text(ui.doc.querySelector('#lsb-confirm b')), 'Complete 3 houses for Atreides? Written at once, with a backup first.');
+  click(ui, '[data-lb=cyes]'); await ui.settle();
+  assert.deepEqual(sentIds(ui), [900, 901, 902]);
+});
+
+test('Yes never writes a house that is not chosen: with the closing of the question out of the way, the answer asks again with the smaller number (#818)', async () => {
+  // the second guard on its own: the page's closing of the question is switched off, so the filter leaves the stale question open and only the check in the answer stands
+  const ui = await open(board(), { '/api/landsraad/apply': { ...OK, changed: 2, houses: 2 } });
+  ui.w.lbCancelConfirm = () => {};
+  click(ui, '[data-lb=pickall]');
+  click(ui, '[data-lb=bulk][data-do=complete]'); await ui.settle();
+  show(ui, 'part'); await ui.settle(); // Alexin is hidden and no longer chosen
+  assert.ok(ui.doc.querySelector('#lsb-confirm'), 'the stale question is still shown');
+  click(ui, '[data-lb=cyes]'); await ui.settle();
+  assert.deepEqual(writes(ui), [], 'the first Yes only asks again');
+  assert.equal(text(ui.doc.querySelector('#lsb-confirm b')), 'Complete 2 houses for Atreides? Written at once, with a backup first.');
+  assert.ok(result(ui).includes('The houses changed since the question was asked'), result(ui));
+  click(ui, '[data-lb=cyes]'); await ui.settle();
+  assert.deepEqual(sentIds(ui), [901, 902], 'Alexin was no longer chosen');
+  // none of the houses of the question is chosen any more: nothing is written
+  const ui2 = await open(board(), { '/api/landsraad/apply': OK });
+  ui2.w.lbCancelConfirm = () => {};
+  click(ui2, '[data-lb=pickall]');
+  click(ui2, '[data-lb=bulk][data-do=complete]'); await ui2.settle();
+  show(ui2, 'done'); await ui2.settle(); // only Wayku stays, and Wayku is not in the question
+  click(ui2, '[data-lb=cyes]'); await ui2.settle();
+  assert.deepEqual(writes(ui2), []);
+  assert.equal(ui2.doc.querySelector('#lsb-confirm'), null);
+  assert.ok(result(ui2).includes('Nothing to change any more'), result(ui2));
+});
+
+test('a question about one clicked house is not a bulk question: a filter that hides the row does not close it or change what Yes writes (#818)', async () => {
+  const ui = await open(withGrant({ step: 500 }), { '/api/landsraad/apply': GRANTED });
+  by(ui, 'Alexin').querySelector('.pick').click(); // Alexin is also ticked in the choice, so the filter will untick it
+  click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
+  assert.ok(text(ui.doc.querySelector('#lsb-confirm b')).startsWith('Fill House Alexin?'));
+  show(ui, 'part'); await ui.settle(); // Alexin is hidden and unticked
+  assert.ok(ui.doc.querySelector('#lsb-confirm'), 'the question names the house itself and stays');
+  click(ui, '[data-lb=cyes]'); await ui.settle();
+  assert.deepEqual(sentIds(ui), [900]);
+});
