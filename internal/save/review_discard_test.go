@@ -1,6 +1,7 @@
 package save
 
 import (
+	"os"
 	"testing"
 	"time"
 )
@@ -65,5 +66,44 @@ func TestDiscardIfCleanReadsTheFileWhenNothingIsQueuedAndKeepsAHeldQueue(t *test
 	}
 	if c, err := s.DiscardIfClean(); err != nil || c || s.Held() == nil {
 		t.Fatalf("a held queue is kept: %v %v held=%v", c, err, s.Held())
+	}
+}
+
+// DiscardReport says whether a queue went with the reload (#760): nothing queued reads the file and reports nothing dropped; a waiting queue and a held queue are dropped and reported.
+func TestDiscardReportSaysWhetherAQueueWasDropped(t *testing.T) {
+	defer NoGameRunningForTests()()
+	p := makeSave(t, journalDDL)
+	s := openJournaled(t, p, t.TempDir())
+	if dropped, err := s.DiscardReport(); err != nil || dropped {
+		t.Fatalf("nothing was queued: %v %v", dropped, err)
+	}
+	if _, err := s.Mutate("rename one", func(m *Mut) error { _, err := m.Exec(`update jt set name='uno' where a=1`); return err }); err != nil {
+		t.Fatal(err)
+	}
+	if dropped, err := s.DiscardReport(); err != nil || !dropped || s.Dirty() || rowName(t, s, 1) == "uno" {
+		t.Fatalf("a waiting edit was dropped: %v %v dirty=%v", dropped, err, s.Dirty())
+	}
+	holdAQueue(t, s, p)
+	if dropped, err := s.DiscardReport(); err != nil || !dropped || s.Held() != nil || s.Dirty() {
+		t.Fatalf("a held queue was dropped: %v %v held=%v", dropped, err, s.Held())
+	}
+}
+
+// A reload that fails (the file cannot be read) drops nothing: the queue is as it was and the report says so.
+func TestDiscardReportOfAFailedReadDropsNothing(t *testing.T) {
+	defer NoGameRunningForTests()()
+	p := makeSave(t, journalDDL)
+	s := openJournaled(t, p, t.TempDir())
+	if _, err := s.Mutate("rename one", func(m *Mut) error { _, err := m.Exec(`update jt set name='uno' where a=1`); return err }); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(p, p+".gone"); err != nil {
+		t.Fatal(err)
+	}
+	if dropped, err := s.DiscardReport(); err == nil || dropped {
+		t.Fatalf("the file cannot be read: %v %v", dropped, err)
+	}
+	if !s.Dirty() || rowName(t, s, 1) != "uno" {
+		t.Fatal("the queue is as it was")
 	}
 }

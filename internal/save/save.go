@@ -608,19 +608,26 @@ func (s *Save) ReadOnlyTable(q string, limit int) ([]string, [][]any, error) {
 // Discard throws away unsaved edits. It waits for an automatic write that is running (flushMu), so the two never interleave. Throwing a queue away also ends the notice of
 // what became of it; with nothing queued (the automatic refresh reading a newer file) the notice of edits dropped earlier stays until it is dismissed.
 func (s *Save) Discard() error {
+	_, err := s.DiscardReport()
+	return err
+}
+
+// DiscardReport is Discard that also says whether edits were thrown away: true when the file was read again and a queue (waiting or held) went with it, false when nothing was
+// queued or the file could not be read (the queue is then still there). It is decided under the same locks as the read, so an edit made a moment before is counted.
+func (s *Save) DiscardReport() (dropped bool, err error) {
 	s.flushMu.Lock()
 	defer s.flushMu.Unlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	queued := s.dirty || s.held != nil
 	if err := s.load(); err != nil {
-		return err
+		return false, err
 	}
 	s.dropJournal()
 	if queued {
 		s.restored = nil
 	}
-	return nil
+	return queued, nil
 }
 
 // DiscardIfClean is Discard for the automatic refresh: it reads the file again only when nothing is queued, and decides that under the same locks that the read takes. A check of
