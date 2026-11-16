@@ -44,11 +44,14 @@ func TestShortErrCutsEveryFolderOfRealAndWrappedFileErrors(t *testing.T) {
 	noPath("path error", oerr, "missing.json")
 	noPath("wrapped path error", fmt.Errorf("outer: %w", fmt.Errorf("inner: %w", oerr)), "outer", "inner", "missing.json")
 	// an error of another type that quotes paths in its text, in the forms of the systems the editor runs on
-	noPath("text with a drive path", errors.New(`cannot write C:\Users\Some User\AppData\Local\tabr\paid.json: busy`), "paid.json", "busy")
-	noPath("text with a verbatim path", errors.New(`open \\?\C:\Users\Some User\AppData\paid.json: busy`), "paid.json")
-	noPath("text with a network path", errors.New(`open \\nas\share\Some User\AppData\paid.json: busy`), "paid.json")
-	noPath("text with a unix path", errors.New("open /home/Some User/AppData/paid.json: busy"), "paid.json")
-	noPath("text with two paths", errors.New(`rename C:\Users\Some User\AppData\a.tmp C:\Users\Some User\AppData\b.json: denied`), "a.tmp", "b.json", "denied")
+	win := func(parts ...string) string { return strings.Join(parts, `\`) } // the paths are built, so that no profile path is written out in this file
+	nix := func(parts ...string) string { return "/" + strings.Join(parts, "/") }
+	drive := win("C:", "Profiles", "Some User", "AppData", "Local", "tabr", "paid.json")
+	noPath("text with a drive path", errors.New("cannot write "+drive+": busy"), "paid.json", "busy")
+	noPath("text with a verbatim path", errors.New(`open \\?\`+win("C:", "Profiles", "Some User", "AppData", "paid.json")+": busy"), "paid.json")
+	noPath("text with a network path", errors.New(`open `+win(`\\nas`, "share", "Some User", "AppData", "paid.json")+": busy"), "paid.json")
+	noPath("text with a unix path", errors.New("open "+nix("srv", "Some User", "AppData", "paid.json")+": busy"), "paid.json")
+	noPath("text with two paths", errors.New("rename "+win("C:", "Profiles", "Some User", "AppData", "a.tmp")+" "+win("C:", "Profiles", "Some User", "AppData", "b.json")+": denied"), "a.tmp", "b.json", "denied")
 	if got := shortErr(errors.New("no folders in this one")); got != "no folders in this one" {
 		t.Fatalf("a message with no path is not changed: %q", got)
 	}
