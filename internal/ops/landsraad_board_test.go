@@ -16,7 +16,7 @@ insert into landsraad_one_time_house_rewards(house_name, threshold, template_id,
 `
 
 // marosEvents is the character's own record for Maros (task 174): one progress event that covers the 7,850 contribution, as the game leaves one for every mission. The reader
-// calls a tier delivered only when such events cover it (tierState, #656), so the fixtures that mean "delivered" carry it.
+// no longer asks the events (tierState, #655); the fixtures keep them as the game leaves them, for the ground a raise does not pay again.
 const marosEvents = `
 insert into landsraad_task_progress(id, faction_id, task_id, faction_progress, guild_progress, player_progress, timestamp) values (1, 2, 174, 0, 0, 7850, 120);
 insert into landsraad_task_progress_player(progress_id, player_id) values (1, 1);

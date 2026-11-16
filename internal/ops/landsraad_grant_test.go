@@ -484,3 +484,70 @@ func TestGrantRefusesAStepTooSmallToCount(t *testing.T) {
 		}
 	}
 }
+
+// A faction change writes only player_faction; the contribution row is per faction. What the character reached under the old faction is ground already paid, so the same raise under the
+// new faction pays no mission and no reward again (it used to be covered by the editor's event, which is per player and task).
+func TestGrantAFactionChangeDoesNotMakeTheSameRaisePayAgain(t *testing.T) {
+	o := rewardOps(t, "")
+	applyWith(t, o, doubled(), house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0}))
+	solari, scrip, rewardsBefore := wallet(t, o, 0), wallet(t, o, 1), rows(t, o, `select * from landsraad_house_rewards order by 1,2,4`)
+	setup(t, o, `update player_faction set faction_id=1 where actor_id=1`)
+	m := applyWith(t, o, doubled(), house(175, Args{"was_mine": 0.0, "mine_to": 6000.0}))
+	if m["missions"].(int64) != 0 || m["reward_rows"].(int64) != 0 || m["solari"].(int64) != 0 {
+		t.Fatalf("a raise under the new faction paid again: %v", m)
+	}
+	if wallet(t, o, 0) != solari || wallet(t, o, 1) != scrip || rows(t, o, `select * from landsraad_house_rewards order by 1,2,4`) != rewardsBefore {
+		t.Fatal("wallets or reward rows changed")
+	}
+	// the contribution row of the new faction is written, the old one stays
+	if got := rows(t, o, `select faction_id, amount from landsraad_task_player_contributions where player_id=1 and task_id=175 order by faction_id`); got != "map[amount:6000 faction_id:1]\nmap[amount:6000 faction_id:2]\n" {
+		t.Fatalf("contribution rows: %s", got)
+	}
+	if got := events(t, o); got != "" {
+		t.Fatalf("an event was written: %s", got)
+	}
+	// ground reached under the old faction covers only what it reached: a tier above it is paid
+	o = rewardOps(t, "")
+	applyWith(t, o, doubled(), house(175, Args{"was_mine": 1300.0, "mine_to": 2400.0}))
+	setup(t, o, `update player_faction set faction_id=1 where actor_id=1`)
+	if m := applyWith(t, o, doubled(), house(175, Args{"was_mine": 0.0, "mine_to": 4800.0})); m["reward_rows"].(int64) != 2 {
+		t.Fatalf("the tiers above what the old faction reached are paid: %v", m)
+	}
+}
+
+// What the editor does not remember (#655), stated by a test: lowering and raising one tier of an open house adds the same ground to the faction's progress each time, and the tier
+// box being a toggle, a repeat pays again.
+func TestGrantARemovalAndTheSameRaiseAddsTheFactionsProgressAgain(t *testing.T) {
+	o := rewardOps(t, "")
+	applyWith(t, o, DefaultGrantSettings(), house(176, Args{"mine_to": 1200.0}))
+	if v, _ := progress(t, o, 2, 176); v != 1200 {
+		t.Fatalf("faction progress after the first raise: %v", v)
+	}
+	applyWith(t, o, DefaultGrantSettings(), house(176, Args{"was_mine": 1200.0, "mine_to": 0.0, "lower": true}))
+	applyWith(t, o, DefaultGrantSettings(), house(176, Args{"mine_to": 1200.0}))
+	if v, _ := progress(t, o, 2, 176); v != 2400 {
+		t.Fatalf("faction progress after the same raise again (stated in the docs): %v", v)
+	}
+	if wallet(t, o, 0) != 2*2*6000 { // two missions at the stock step for 1,200, paid twice
+		t.Fatalf("Solari: %d", wallet(t, o, 0))
+	}
+}
+
+// Without the swatch tables (the older layout) the top tier delivers the task's own item, and nothing remembers it: after a removal the same raise delivers it again (the amount adds up).
+func TestGrantTheTopTierAfterARemovalWithoutSwatchTablesIsDeliveredAgain(t *testing.T) {
+	o := mineOps(t, goalWorld)
+	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0})))
+	own := func() string {
+		return rows(t, o, `select amount from landsraad_house_rewards where player_id=1 and template_id='Swatch.Kenola'`)
+	}
+	if got := own(); got != "map[amount:1]\n" {
+		t.Fatalf("the task's own item after the first raise: %s", got)
+	}
+	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 6000.0, "mine_to": 4800.0, "lower": true})))
+	if m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 4800.0, "mine_to": 6000.0}))); m["reward_rows"].(int64) != 1 {
+		t.Fatalf("answer: %v", m)
+	}
+	if got := own(); got != "map[amount:2]\n" {
+		t.Fatalf("the top tier's own item is delivered again (stated in the docs): %s", got)
+	}
+}

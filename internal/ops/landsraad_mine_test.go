@@ -89,7 +89,7 @@ func TestLandsraadKnowsWhichRecordedContributionIsTheCharacters(t *testing.T) {
 }
 
 func TestLandsraadSaysWhichTiersAreReachedAndDelivered(t *testing.T) {
-	o := mineOps(t, marosEvents+kenolaEvents) // the events cover Maros's tiers: delivered needs them (#656)
+	o := mineOps(t, marosEvents+kenolaEvents) // the events cover Maros's tiers, as the game leaves them
 	flags := func(task map[string]any) (reached, delivered []bool) {
 		for _, x := range task["rewards"].([]any) {
 			r := x.(save.Row)

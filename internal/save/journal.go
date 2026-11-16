@@ -30,8 +30,10 @@ import (
 // UPDATE, DELETE and REPLACE statements are journaled or replayed: an edit that ran anything else (a script, DDL, a pragma) turns the journal off for the session
 // rather than keep part of the edits.
 
+// journalVersion 2: a queued Landsraad raise of version 1 held the statements that wrote a progress event, its player link and the cursor (#655). A journal of version 1 is set
+// aside with the notice and is never replayed, so a queued edit of an earlier build cannot write them after the editor stopped doing so.
 const (
-	journalVersion  = 1
+	journalVersion  = 2
 	journalMaxStmts = 200000
 	journalMaxBytes = 64 << 20
 )

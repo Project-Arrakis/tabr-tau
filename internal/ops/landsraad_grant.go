@@ -25,12 +25,13 @@ import (
 //
 // No progress event (#655). The game saves an event above its cursor (landsraad_task_progress_processed) with its contribution and rewards already applied, but what it does with
 // an event it has not processed is not known, and one written in a shape it never writes could be applied a second time (the contribution added again, a reward handed out again). The
-// editor therefore writes no event, no player link and no cursor move: the contribution row, the faction's row, the reward rows, the wallets and the specialization XP are the whole
-// raise. At its next cursor step the game processes only events of its own; nothing the editor wrote is in its queue, so nothing is applied or delivered a second time by it.
-// Whether the game, on that step, takes the character's contribution from its own events (and so drops what the editor raised above them) is not checked in the game.
-// What the events were also used for is no longer written: the editor's own raise is not remembered, so the ground it paid is counted as paid only while the contribution stands. A
-// tier removal followed by the same raise pays the removed tiers again (the wallets, the XP and the rewards); only the character's own events, written by the game, cover ground
-// for good.
+// editor therefore writes no event, no player link and no cursor move: the contribution row, the faction's row and the completion it brings, the reward rows, the wallets and the
+// specialization XP are the whole raise. At its next cursor step the game should find only events of its own, so nothing the editor wrote should be applied or delivered twice by
+// it; whether the game then keeps a contribution raised here, or works it out again from its own events, is not checked in the game. Events an earlier build wrote stay in the
+// save and still count as ground paid (eventsOf).
+// What the event also did, remember the ground, is gone: the editor leaves no event of its own, so it does not remember what it paid once the contribution is lowered: a tier removal followed by the same raise pays the removed tiers again (the missions: Solari, House Scrip and specialization XP; the reward rows of the tiers crossed, where the top tier's swatch is not given twice when it was won in this term, but where the save has no swatch tables, or the swatch was held from an earlier term, the top tier's own item is delivered again), and, while the house is open, adds the same ground to your faction's progress again, which can take the house; the tier box is a toggle, so clicking the highest reached tier twice pays twice.
+// Ground that stays covered: the character's own events, and the highest contribution the character reached under another faction (otherFactionGround; the contribution row is
+// per faction and a faction change writes only player_faction). Only events of the game, and that other-faction ground, cover ground for good.
 //
 // The number of missions a change stands for is the number of mission steps it takes the character across, worked from the contribution the character's own events already
 // cover: ceil(after / step) - ceil(lo / step), where step is 1,000 times the contribution multiplier and lo is the larger of the contribution before and the sum of the character's
@@ -130,6 +131,17 @@ func eventsOf(m *save.Mut, player, taskID int64) (float64, error) {
 	return s, nil
 }
 
+// otherFactionGround is the character's highest contribution to the task under any faction but the one it is in now (0 when there is none). Called after the row of the current
+// faction was set, so that row is left out.
+func otherFactionGround(m *save.Mut, me myLandsraad, taskID int64) (float64, error) {
+	r, err := m.One(`select coalesce(max(amount),0) a from landsraad_task_player_contributions where player_id=? and task_id=? and faction_id<>?`, me.player, taskID, me.faction)
+	if err != nil {
+		return 0, err
+	}
+	a, _ := toFloat(r["a"])
+	return a, nil
+}
+
 // grantRaise writes what completing the missions a raise stands for grants, inside the edit, after the character's own contribution row was set to after (landsraad_apply.go). The
 // order of the writes is: the faction's contribution and the completion, the reward rows (and the one-time swatch row), the two wallets, the specialization track. No event is
 // written (#655). A change whose ground the character's own events already cover (after is not above lo) writes none of them. completeMine is true when the same request
@@ -148,7 +160,13 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 	if err != nil {
 		return res, false, err
 	}
-	lo := max(before, cover)
+	// what the character reached under another faction counts too: the contribution row is per faction, the editor writes no event (#655) that would cover the ground for the player
+	// whatever the faction, and a faction change (which writes only player_faction) would otherwise let the same raise pay again
+	elsewhere, err := otherFactionGround(m, me, taskID)
+	if err != nil {
+		return res, false, err
+	}
+	lo := max(before, cover, elsewhere)
 	if after <= lo {
 		n, err := m.One(`select count(*) n from landsraad_task_rewards where task_id=? and threshold>? and threshold<=?`, taskID, before, after)
 		if err != nil {

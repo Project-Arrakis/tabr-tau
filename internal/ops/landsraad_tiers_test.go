@@ -109,14 +109,15 @@ func TestTiersTheGamesEventsCoverATierForGood(t *testing.T) {
 	}
 }
 
-// What the board says about a tier is what the write would do: a collected row of an earlier term, or a waiting amount of the same item, is not a delivery of this term's tier.
+// What the board says about a tier: the row of its item written in this term decides (#655); a row of an earlier term is never a delivery of this term's tier. The row is of the item, so
+// the same item at two tiers cannot be told apart (the edge recorded on #772).
 func TestTiersTheBoardReadsWhatTheWriteDoes(t *testing.T) {
 	state := func(o *Ops, th int64) (string, bool) {
 		r := tierOf(t, taskByID(t, o, 175), th)
 		return r["reward_state"].(string), r["delivered"].(bool)
 	}
-	// the character is at 3,600 and the events cover only the first tier (1,200); Solari was collected in this term (written at 120), for an earlier term's tier: it is the delivery
-	// of the 1,200 tier, which the events cover, and not of the 3,600 tier, which they do not
+	// the character is at 3,600 and the events cover only the first tier (1,200); Solari was collected in this term (written at 120): the row of the item decides for every reached tier
+	// that gives Solari, and the events are not asked (the edge: it shows the 3,600 tier as delivered although only the 1,200 one was)
 	o := rewardOps(t, solariTiers+`update landsraad_task_player_contributions set amount=3600 where player_id=1 and task_id=175;
 		insert into landsraad_task_progress(id, faction_id, task_id, faction_progress, guild_progress, player_progress, timestamp) values (5, 2, 175, 0, 0, 1200, 120);
 		insert into landsraad_task_progress_player(progress_id, player_id) values (5, 1);
@@ -124,10 +125,16 @@ func TestTiersTheBoardReadsWhatTheWriteDoes(t *testing.T) {
 	if s, d := state(o, 1200); s != "delivered" || !d {
 		t.Errorf("tier 1,200 is covered by the events: %s %v", s, d)
 	}
-	if s, d := state(o, 3600); s != "no_row" || d {
-		t.Errorf("tier 3,600 is not covered, the collected row of the item is not its delivery: %s %v", s, d)
+	if s, d := state(o, 3600); s != "delivered" || !d {
+		t.Errorf("tier 3,600: the collected row of this term decides: %s %v", s, d)
 	}
-	// after the editor raised the house the events cover the tiers: waiting, then collected, the two fields agree at every step
+	setup(t, o, `update landsraad_house_rewards set last_updated=60 where player_id=1 and template_id='SolarisCoin'`)
+	for _, th := range []int64{1200, 3600} {
+		if s, d := state(o, th); s != "no_row" || d {
+			t.Errorf("tier %d with a row of an earlier term: %s %v", th, s, d)
+		}
+	}
+	// after the editor raised the house (it writes no event, #655) the rows say: waiting, then collected, the two fields agree at every step
 	o = rewardOps(t, solariTiers)
 	raise(t, o, 0, 3600)
 	for _, th := range []int64{1200, 2400, 3600} {
@@ -144,7 +151,7 @@ func TestTiersTheBoardReadsWhatTheWriteDoes(t *testing.T) {
 			t.Errorf("tier %d after the collection: %s %v", th, s, d)
 		}
 	}
-	// a row written before the term began is never this term's delivery, whatever the events cover
+	// a row written before the term began is never this term's delivery
 	setup(t, o, `update landsraad_house_rewards set last_updated=60 where player_id=1 and template_id='SolarisCoin'`)
 	if s, d := state(o, 1200); s != "no_row" || d {
 		t.Errorf("a row written before the term began: %s %v", s, d)
@@ -178,9 +185,9 @@ func TestTiersWithNoEventsTheRowOfThisTermDecides(t *testing.T) {
 	}
 }
 
-// The editor writes no event for a raise (#655), so a tier it raised above the character's events is told by its row alone: waiting where the item of the tier is shown by that tier
-// only. Where another tier shows the same item (Solari here, at three tiers) the row cannot tell the tiers apart and the tier reads no_row, as before (#656).
-func TestTiersATierTheEditorRaisedAboveTheEventsReadsByItsRowWhereTheItemIsUnique(t *testing.T) {
+// The editor writes no event for a raise (#655), so a tier it raised above the character's events is told by its row: waiting, also where the same item is given at several tiers
+// (Solari here, at three tiers) and the house has events of the game.
+func TestTiersATierTheEditorRaisedAboveTheEventsReadsByItsRow(t *testing.T) {
 	o := rewardOps(t, solariTiers+`update landsraad_task_player_contributions set amount=1200 where player_id=1 and task_id=175;
 		insert into landsraad_task_progress(id, faction_id, task_id, faction_progress, guild_progress, player_progress, timestamp) values (5, 2, 175, 0, 0, 1200, 120);
 		insert into landsraad_task_progress_player(progress_id, player_id) values (5, 1);
@@ -196,7 +203,7 @@ func TestTiersATierTheEditorRaisedAboveTheEventsReadsByItsRowWhereTheItemIsUniqu
 		r := tierOf(t, taskByID(t, o, 175), th)
 		return r["reward_state"].(string), r["delivered"].(bool)
 	}
-	for th, want := range map[int64]string{1200: "waiting", 2400: "waiting", 3600: "no_row", 4800: "no_row", 6000: "not_reached"} {
+	for th, want := range map[int64]string{1200: "waiting", 2400: "waiting", 3600: "waiting", 4800: "waiting", 6000: "not_reached"} {
 		if s, d := state(th); s != want || d != (want == "waiting") {
 			t.Errorf("tier %d: %s %v, want %s", th, s, d, want)
 		}
