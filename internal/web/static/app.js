@@ -2702,6 +2702,14 @@ function viewSnapshot() {
   });
   return snap;
 }
+// The offsets of the table boxes that stay as they are after a redraw that shows other rows: only the box that holds the control the person pressed (its own rows are
+// the same, and a list that jumps back to its top hides the button that was just used, #824).
+function heldBoxes(boxes, from) {
+  const kept = {};
+  if (!from || !from.closest) return kept;
+  eachViewPart((kind, e, key) => { if (kind === 'scroll' && e.contains(from) && Object.hasOwn(boxes, key)) kept[key] = boxes[key]; });
+  return kept;
+}
 function viewApply(snap) {
   if (!snap || snap.tab !== tab) return;
   eachViewPart((kind, e, key) => {
@@ -2746,12 +2754,12 @@ function tmapSync() {
   const hub = GO.pick !== null && TD[GO.pick] && TD[GO.pick].otherMap; // a hub chosen in the list of places is another map too (#521)
   if (box) setHTML(box, (sel && sel.value !== '') || hub ? html`<p class="warn" id="tmapwarn">${TRAVEL_WARN}</p>` : html``);
 }
-// render(true) is the redraw after an action (or the page's own refresh from the file): it keeps the place; render('scroll') keeps only the scroll offsets; render('rows') keeps only the page offset, for a change that shows other rows in a table box (the old offset of a box is not put back onto them, #697). Any other call is a move to another page, which starts at the top.
+// render(true) is the redraw after an action (or the page's own refresh from the file): it keeps the place; render('scroll') keeps only the scroll offsets; render('rows') keeps the page offset and the offset of the table box that holds the control pressed (from, or the focused control), for a change that shows other rows in another table box (the old offset of that box is not put back onto them, #697; a list the person scrolled and pressed a button in stays where it is, #824). Any other call is a move to another page, which starts at the top.
 // auto is the page's own refresh from the file: it keeps the place the same way, but the page is never scrolled to the refocused control (#696).
-async function render(keepPlace, auto) {
+async function render(keepPlace, auto, from) {
   const keep = focusSpec(document.activeElement);
   const place = keepPlace === true || keepPlace === 'scroll' || keepPlace === 'rows' ? viewSnapshot() : reloaded;
-  if (place && keepPlace === 'rows') place.boxes = {}; // other rows in the table boxes: they start at their top
+  if (place && keepPlace === 'rows') place.boxes = heldBoxes(place.boxes, from || document.activeElement); // other rows in the table boxes: they start at their top, except the box that holds the control just pressed (#824)
   if (place && (keepPlace === 'scroll' || keepPlace === 'rows')) place.ctl = {}; // a redraw to show what the save holds (a refused change): the boxes go back to it, only the place is kept
   reloaded = null;
   if (keepPlace !== true && keepPlace !== 'scroll' && keepPlace !== 'rows') bsInvOpen = null; // a move to another page: no base container is open there (#731)
@@ -3197,15 +3205,15 @@ document.addEventListener('click', (e) => {
   const jg = e.target.closest('[data-jgrp]');
   if (jg) { if (JGROUPS.some(([k]) => k == jg.dataset.jgrp)) { jgrp = jg.dataset.jgrp; journeyList(); } return; }
   const vo = e.target.closest('[data-vhopen]');
-  if (vo) { vcSync(); vhOpen = +vo.dataset.vhopen; render('rows'); return; }
+  if (vo) { vcSync(); vhOpen = +vo.dataset.vhopen; render('rows', false, vo); return; }
   const bo = e.target.closest('[data-bsopen]');
-  if (bo) { bsOpen = +bo.dataset.bsopen; bsInvOpen = null; render('rows'); return; }
+  if (bo) { bsOpen = +bo.dataset.bsopen; bsInvOpen = null; render('rows', false, bo); return; }
   const bt = e.target.closest('[data-bstab]');
-  if (bt) { bsTab = bt.dataset.bstab; bsInvOpen = null; render('rows'); return; }
+  if (bt) { bsTab = bt.dataset.bstab; bsInvOpen = null; render('rows', false, bt); return; }
   const bg = e.target.closest('[data-bsgrp]');
-  if (bg) { bsGroup = bg.dataset.bsgrp; bsInvOpen = null; render('rows'); return; }
+  if (bg) { bsGroup = bg.dataset.bsgrp; bsInvOpen = null; render('rows', false, bg); return; }
   const ig = e.target.closest('[data-invg]');
-  if (ig) { invG = ig.dataset.invg; render('rows'); return; }
+  if (ig) { invG = ig.dataset.invg; render('rows', false, ig); return; }
   const s = e.target.closest('[data-sub]');
   if (s) { const [g, k] = s.dataset.sub.split(':'); if (GROUPS.includes(g)) { sub[g] = k; render(); } return; }
   const a = D(e);

@@ -204,15 +204,40 @@ test('Character inventory: another group and Filter and Clear start the table bo
 test('Bases: another inventory group, a sub-tab and another base start the table box at its top, the page offset stays', async () => {
   const ui = await boot({ get: BASES });
   await go(ui, '[data-tab="player"]', '[data-sub="player:bases"]', '[data-bstab="inventory"]');
-  assert.ok(boxOf(ui), 'the containers are in a table box');
-  boxOf(ui).scrollTop = 300;
+  const boxIn = (title) => { const c = [...ui.doc.querySelectorAll('#main .card')].find((x) => (x.querySelector('h3') || {}).textContent === title); return c && c.querySelector('.scroll'); };
+  assert.ok(boxIn('Inventory'), 'the containers are in a table box');
+  boxIn('Inventory').scrollTop = 300;
   let at = await press(ui, '[data-bsgrp="other"]', 640);
   assert.equal(at(), 640);
-  assert.equal(boxOf(ui).scrollTop, 0, 'a base inventory group: its containers start at the top');
-  boxOf(ui).scrollTop = 300;
+  assert.equal(boxIn('Inventory').scrollTop, 0, 'a base inventory group: its containers start at the top');
+  boxIn('Inventory').scrollTop = 300;
   at = await press(ui, '[data-bsopen="8"]', 640);
   assert.equal(at(), 640);
-  assert.equal(boxOf(ui).scrollTop, 0, 'another base: its table starts at the top');
+  assert.equal(boxIn('Inventory').scrollTop, 0, 'another base: its table starts at the top');
+});
+
+// The list the button was pressed in keeps its offset: its rows did not change, and a list that jumps back to its top hides the button that has the focus (#824).
+const many = (n, f) => Array.from({ length: n }, (_, i) => f(i + 1));
+const veh = (id) => ({ id, name: 'BP_Sandbike_CHOAM', type: 'Sandbike', map: 'HaggaBasin', condition: 60, fuel: 10, x: 1, y: 2, components: [], cargo: null });
+
+test('Vehicles: Details on a low row keeps the list at its offset, the button keeps the focus and the page offset stays', async () => {
+  const ui = await boot({ get: { '/api/vehicles': { vehicles: many(40, veh), hidden: 0, recovered: [], backups: [] }, '/api/vehicles/fuel': { total: 40, notFull: 0, unknown: 0, noFuelRecord: 0 } } });
+  await go(ui, '[data-tab="player"]', '[data-sub="player:vehicles"]');
+  boxOf(ui).scrollTop = 420; boxOf(ui).scrollLeft = 5;
+  const at = await press(ui, '[data-vhopen="39"]', 800);
+  assert.equal(at(), 800, 'the page offset stays');
+  assert.deepEqual([boxOf(ui).scrollTop, boxOf(ui).scrollLeft], [420, 5], 'the list the button is in keeps its offset');
+  focused(ui, '[data-vhopen="39"]');
+  assert.ok(boxOf(ui).contains(ui.doc.activeElement), 'the focused button is inside that list');
+});
+
+test('Bases: Open on a low row keeps the list of bases at its offset', async () => {
+  const ui = await boot({ get: { '/api/bases/list': many(40, row), '/api/bases/inventory': BASEINV } });
+  await go(ui, '[data-tab="player"]', '[data-sub="player:bases"]');
+  boxOf(ui).scrollTop = 500;
+  const at = await press(ui, '[data-bsopen="38"]', 800);
+  assert.equal(at(), 800);
+  assert.equal(boxOf(ui).scrollTop, 500, 'the list of bases keeps its offset');
 });
 
 // The page's own refresh from the file (about every twenty seconds while the game runs) gives the focus back to the control that had it, but must never
