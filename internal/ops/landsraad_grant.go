@@ -150,7 +150,7 @@ func otherFactionGround(m *save.Mut, me myLandsraad, taskID int64) (float64, err
 // written (#655). A change whose ground the character's own events already cover (after is not above lo) writes none of them. completeMine is true when the same request
 // completes the house for the character's own faction; that completion is made here, so the faction's share is the goal at least. completed says whether this call completed the
 // house.
-func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, completeMine bool, clock termClock, g GrantSettings, ledger *PaidLedger) (res rewardResult, completed bool, err error) {
+func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, completeMine bool, clock termClock, g GrantSettings, recorded []paidNote) (res rewardResult, completed bool, err error) {
 	taskID, _ := t["id"].(int64)
 	house := fmt.Sprint(t["house_name"])
 	termID, _ := t["term_id"].(int64)
@@ -171,7 +171,7 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 	}
 	// what the editor itself paid before and remembers (landsraad_paid.go): a tier removal does not take it back, so the same raise pays only the ground above it (#777); lo0 is the
 	// ground covered without that record
-	paid, err := paidGround(m, ledger, me, termID, house, clock)
+	paid, untrusted, err := paidGround(m, recorded, me, taskID, termID, house, clock)
 	if err != nil {
 		return res, false, err
 	}
@@ -273,8 +273,9 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 		}
 	}
 	// 6. what was paid is remembered, outside the save (landsraad_paid.go): the note goes with this edit, so it is kept only if the edit is, and is handed to the editor's own file
-	// once the game's file has been written. The ground is the whole of what this raise took the contribution to, whatever part of it an earlier raise had already paid.
-	if err := m.Note(paidNoteKind, paidNote{Player: me.player, Term: termID, House: house, Faction: me.faction, Paid: after}); err != nil {
+	// once the game's file has been written. The ground is the whole of what this raise took the contribution to, whatever part of it an earlier raise had already paid; when the record was held back by what the
+	// save shows (landsraad_paid.go), the note replaces it instead of being merged into it.
+	if err := m.Note(paidNoteKind, paidNote{Player: me.player, Term: termID, House: house, Faction: me.faction, Paid: after, Replace: untrusted}); err != nil {
 		return res, false, err
 	}
 	return res, completed, nil

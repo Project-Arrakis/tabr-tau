@@ -149,6 +149,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 	var rw rewardResult
 	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
 		houses, changed, raised, lowered, completed, reopened, repaired = 0, 0, 0, 0, 0, 0, 0
+		recorded := o.Paid.snapshot() // the editor's record of the ground it paid, read once for the request, under the lock the sink writes it under (landsraad_paid.go)
 		replaced, names, done = nil, nil, nil
 		rw = rewardResult{}
 		if err := currentTerm(m, termID); err != nil {
@@ -262,7 +263,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 					if !clock.ok {
 						return apierr.New(apierr.ErrBadArgument, "the save has no record of this term, so the rewards cannot be timed: nothing was changed")
 					}
-					rr, done, err := grantRaise(m, me, s.t, s.cur, to, it.completeFor != nil && *it.completeFor == me.faction, clock, g, o.Paid)
+					rr, done, err := grantRaise(m, me, s.t, s.cur, to, it.completeFor != nil && *it.completeFor == me.faction, clock, g, recorded)
 					if err != nil {
 						return err
 					}
