@@ -323,3 +323,57 @@ func TestBoardLocationGivesTheDistanceFromYouOnlyOnTheSameMapWithAMapping(t *tes
 		}
 	})
 }
+
+// The places are optional (#820): a save whose markers cannot be read still gives the board, the term and the decrees, with every house at its fixed place, and says so.
+func TestBoardReadSurvivesMarkersThatCannotBeRead(t *testing.T) {
+	cases := map[string]string{
+		"no markers table":    `drop table markers;`,
+		"a missing column":    `alter table markers rename column area_id to area_gone;`,
+		"no marker type text": `alter table markers rename column marker_type to type_gone;`,
+	}
+	for name, sql := range cases {
+		t.Run(name, func(t *testing.T) {
+			eachLayout(t, func(t *testing.T, l testsave.Layout) {
+				o := locationOps(t, l, "")
+				if _, err := o.Landsraad(); err != nil {
+					t.Fatalf("the world reads before the markers are broken: %v", err)
+				}
+				setup(t, o, sql)
+				res, err := o.Landsraad()
+				if err != nil {
+					t.Fatalf("the read failed for a save whose markers cannot be read: %v", err)
+				}
+				board := res.(map[string]any)
+				if board["locations_from_markers"] != false {
+					t.Fatalf("the answer does not say the markers were not used: %v", board["locations_from_markers"])
+				}
+				if board["term"] == nil || board["decrees"] == nil || len(board["tasks"].([]map[string]any)) == 0 {
+					t.Fatalf("the board, the term or the decrees are missing: %v", board)
+				}
+				// Kenola, Imota and Mikkarol have fixed places; with no marker read, each is at its fixed place and a marker-only house is not invented
+				wantFixedPin(t, taskByID(t, o, 175)["location"].(map[string]any), "Kenola", "Mysa Tarill")
+				wantFixedPin(t, taskByID(t, o, 179)["location"].(map[string]any), "Imota", "Jabal Eifrit Al-sharq")
+				for _, id := range []int64{174, 176, 177, 178, 180} {
+					if loc := taskByID(t, o, id)["location"].(map[string]any); loc["known"] != true {
+						t.Fatalf("task %d has no fixed place: %v", id, loc)
+					}
+				}
+				if loc := taskByID(t, o, 185)["location"].(map[string]any); loc["known"] != false {
+					t.Fatalf("a house with no fixed place must stay unknown: %v", loc)
+				}
+			})
+		})
+	}
+}
+
+func TestBoardReadSaysTheMarkersWereUsedWhenTheyCanBeRead(t *testing.T) {
+	eachLayout(t, func(t *testing.T, l testsave.Layout) {
+		res, err := locationOps(t, l, "").Landsraad()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.(map[string]any)["locations_from_markers"] != true {
+			t.Fatalf("locations_from_markers = %v", res.(map[string]any)["locations_from_markers"])
+		}
+	})
+}

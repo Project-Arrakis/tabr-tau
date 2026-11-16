@@ -142,8 +142,10 @@ func (o *Ops) Landsraad() (any, error) {
 		rw[t] = append(rw[t], r)
 	}
 	places, err := o.houseLocations() // where the house representatives are, from the save's map markers (#639)
+	placesFromMarkers := true
 	if err != nil {
-		return nil, err
+		// the places are optional: a save whose markers cannot be read still gives the board, the term and the decrees, with the fixed place of each house (#820)
+		places, placesFromMarkers = fixedHouseLocations(), false
 	}
 	// the ground the editor itself paid (landsraad_paid.go), raises not recorded yet included (queued, or written and kept for the record), for the page to work out what a click grants: it counts only up to the highest tier whose reward row of this term stands for the house (trustedPaid), as in the write
 	// (the notes not yet recorded are read before the file: a write or a delivery that lands in between moves a note into the file, and the other order could see neither)
@@ -229,7 +231,7 @@ func (o *Ops) Landsraad() (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"term": term, "tasks": tasks, "decrees": decrees, "rotation": rotation, "factions": factions, "character": character, "terms": terms, "earlier_terms": earlier}, nil
+	return map[string]any{"term": term, "tasks": tasks, "decrees": decrees, "rotation": rotation, "factions": factions, "character": character, "terms": terms, "earlier_terms": earlier, "locations_from_markers": placesFromMarkers}, nil
 }
 
 // SetDecree sets or clears the disabled flag of one decree row in the pool, picked by its id (#448). The flag is the save's own column; it is not whether the decree is
