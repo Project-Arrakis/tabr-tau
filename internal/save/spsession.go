@@ -27,7 +27,7 @@ import (
 // writes the database about every 20 s (the line says "Saving again in 60 seconds"; the measured gaps of 4,900 writes are 20.1 s to 22.7 s). After the end marker there was exactly
 // one more write, between 1.5 s and 6.9 s later (19 exits), and then none until the next session began (menu stays of 41 s to 381 s, and up to 760 s before a quit), when the log
 // shows "Using persistence implementation Sqlite" and "ApplyPatches" and an immediate write: the game opens the database when a session starts, not at the menu. What the logs do not show is a line saying the database was closed or unloaded, nor whether the game keeps a handle on
-// game.db at the menu; the rule below therefore uses the silence of the save markers, not a close marker.
+// game.db at the menu; the rule below therefore uses the silence of the save markers, not a close marker, and since #612 also the save file's own modification time and the editor's observation of it, a second signal that does not depend on the text of the log (processState lists the whole rule).
 //
 // The markers and the transitions of the state machine are in the kit (kit/sessionlog, read here with the zero Policy: a marker counts wherever it stands in a line, and the write line is a marker), the log path in kit/gamefolder; the waits below are this editor's.
 

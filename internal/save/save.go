@@ -693,8 +693,9 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 	// s.mu is held from here to the end, across the hash of the file, the encode and its round trip, the backup, the temp file and the rename with its retries (up to about three
 	// seconds when another program holds the file), and the reload. It is not narrowed because what it protects is one consistent step: the working copy that is encoded is the one
 	// whose edits are then marked written (dirty cleared, the list of edits emptied, the journal dropped), and an edit that came in between would be marked written without
-	// being in the file. What stays slow under it is the encode and the disk; a status read waits that long. The game-running check, a process spawn, is not repeated under the
-	// lock by the automatic write (Flush has just made it, and the check right before the rename, in installBlob, is the one that counts).
+	// being in the file. What stays slow under it is the encode and the disk; a status read waits that long. The game-running check (a read of the process snapshot and the log) is made
+	// again under the lock: by the automatic write after the encode and before its backup (Flush made it before the hash and the encode), by the other write at the top, and by both in
+	// installBlob right before the rename, which is the one that counts.
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.dirty {
@@ -706,7 +707,7 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 	if err := s.requirePlainFile(); err != nil {
 		return nil, err
 	}
-	if !quick { // the automatic write has just passed this check in Flush (without the lock), and installBlob makes it again right before the rename
+	if !quick { // the automatic write made this check in Flush and makes it again below, after the encode; installBlob makes it again right before the rename
 		if blocked, why := s.gate(); blocked {
 			return nil, apierr.New(apierr.ErrGameBlocked, why)
 		}
@@ -738,6 +739,13 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 	}
 	var bak string
 	if quick {
+		// The gate of Flush came before the hash, the integrity check, the encode and its round trip, which on a large save take longer than observeGap (30 s) in the worst case: a
+		// watch that was not asked again in that time starts over and refuses at the gate before the rename, after a backup of its own had been taken for nothing (each refused
+		// attempt then pushing an older automatic restore point out of the ones kept). So the gate is asked again here, after the encode and before the backup: it keeps the watch
+		// continuous and refuses before anything is written (#779).
+		if blocked, why := s.gate(); blocked {
+			return nil, apierr.New(apierr.ErrGameBlocked, why)
+		}
 		bak, err = s.backupIfStale()
 	} else {
 		var sum [32]byte
