@@ -1668,9 +1668,11 @@ async function vcAskPick(seq) {
     for (const s of vcClass().slots) draft.mods[s.slot] = shown[s.slot] || '';
     vcPartNote = { slots: picked, text: err.message };
   }
-  const unwatch = vcTypedWatch(typed);
-  try { await render('scroll'); } finally { unwatch(); }
-  vcTypedPut(typed);
+  await vcRedraw(typed, vcTypedWatch(typed));
+}
+// The redraw that keeps what was typed (#738, #813): the text is put back whether the redraw succeeds or not, and a redraw that fails says so in a toast and does not leave a rejection nobody handles.
+async function vcRedraw(typed, unwatch) {
+  try { await render('scroll'); } catch (e) { toast('The page could not be drawn again: ' + (e && e.message ? e.message : e), true); } finally { unwatch(); vcTypedPut(typed); }
 }
 // One id for each form (#740): Create sends it, and the editor gives a second request with the same id and the same body the first one's answer instead of writing another vehicle.
 function vcRequestId() {
@@ -3097,7 +3099,7 @@ const A = {
       // the redraw takes the item and Qty boxes back to empty: what was typed in them stays (#738)
       const typed = vcTypedTake(), unwatch = vcTypedWatch(typed);
       vcDrop();
-      render('scroll').finally(unwatch).then(() => vcTypedPut(typed));
+      vcRedraw(typed, unwatch);
       return toast('The form changed after the preview. Press Preview, then Create.', 'note');
     }
     const body = vcBody();

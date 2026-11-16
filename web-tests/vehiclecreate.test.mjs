@@ -782,3 +782,52 @@ test('Create that finds the form changed after the preview keeps the text typed 
   assert.equal(ui.doc.querySelector('#vcFuel').value, '40');
   ui.dom.window.close();
 });
+
+// ---------- A redraw that fails keeps the typed text and says so (#813)
+// Makes the next redraw's last step throw, as a page that fails while it is being drawn again does; returns the rejections nobody handled.
+function breakNextRedraw(ui) {
+  const real = ui.w.viewApply, lost = [];
+  const on = (e) => lost.push(e);
+  process.on('unhandledRejection', on);
+  ui.w.viewApply = (...a) => { ui.w.viewApply = real; throw new Error('redraw failed'); };
+  return { lost, done: () => process.off('unhandledRejection', on) };
+}
+
+test('Create that finds the form changed, when the redraw fails, still puts the typed text back, shows the failure and leaves no unhandled rejection', async () => {
+  const post = { '/api/vehicles/spawn-preview': SWAPPED(), '/api/vehicles/spawn': ANSWER({ outcome: 'written' }) };
+  const ui = await boot({ get: GET, post });
+  await openForm(ui);
+  await change(ui, '[data-vcslot="UtilitySlot1"]', 'BuggyInventory_6');
+  ui.click('[data-act="vcPreview"]'); await ui.settle();
+  typeIn(ui, '#vcFuel', '40');
+  typeIn(ui, '#vcItem', 'Spice', 5);
+  typeIn(ui, '#vcQty', '9');
+  const broken = breakNextRedraw(ui);
+  ui.click('[data-act="vcCreate"]'); await ui.settle(); await ui.wait(50);
+  broken.done();
+  assert.deepEqual(broken.lost, [], 'no unhandled rejection');
+  assert.equal(posts(ui, '/api/vehicles/spawn').length, 0, 'nothing is written');
+  const toasts = ui.doc.querySelector('#toast').textContent;
+  assert.ok(toasts.includes('could not be drawn again') && toasts.includes('redraw failed'), 'the failure is said');
+  assert.equal(ui.doc.querySelector('#vcItem').value, 'Spice', 'the typed item name is still there');
+  assert.equal(ui.doc.querySelector('#vcQty').value, '9');
+  assert.equal(ui.doc.querySelector('#vcFuel').value, '40');
+  ui.dom.window.close();
+});
+
+test('a pick whose redraw fails still puts the typed text back, shows the failure and leaves no unhandled rejection', async () => {
+  const post = { '/api/vehicles/spawn-preview': SWAPPED(), '/api/vehicles/spawn': ANSWER({ outcome: 'written' }) };
+  const ui = await boot({ get: GET, post });
+  const release = await holdForm(ui, post, SWAPPED({ id: 1874 }));
+  typeIn(ui, '#vcItem', 'Spice', 5);
+  typeIn(ui, '#vcQty', '7');
+  const broken = breakNextRedraw(ui);
+  release(); await ui.settle(); await ui.wait(50);
+  broken.done();
+  assert.deepEqual(broken.lost, [], 'no unhandled rejection');
+  const toasts = ui.doc.querySelector('#toast').textContent;
+  assert.ok(toasts.includes('could not be drawn again') && toasts.includes('redraw failed'), 'the failure is said');
+  assert.equal(ui.doc.querySelector('#vcItem').value, 'Spice');
+  assert.equal(ui.doc.querySelector('#vcQty').value, '7');
+  ui.dom.window.close();
+});
