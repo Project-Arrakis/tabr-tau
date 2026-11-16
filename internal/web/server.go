@@ -84,6 +84,10 @@ func New(s *save.Save, cfg config.Dir) *Server {
 func (s *Server) KeepPendingEdits(dir string) {
 	h := sha256.Sum256([]byte(strings.ToLower(s.Save.Path)))
 	s.Save.EnableJournal(filepath.Join(dir, "pending-"+hex.EncodeToString(h[:6])+".json"))
+	// what the Landsraad board paid is remembered in a file of the editor's own next to the journal, written once the edit that paid it is in the game's file (#777); the sink is set
+	// before the journal is read, so edits put back from an earlier run hand their notes over as they are written
+	s.Ops.Paid = ops.NewPaidLedger(filepath.Join(dir, ops.PaidLedgerName(hex.EncodeToString(h[:6]))), s.Save.Path)
+	s.Save.SetNoteSink(s.Ops.Paid.Record)
 	s.Save.EnableWriteLog(filepath.Join(dir, "write-log.jsonl"))
 	r, err := s.Save.RestoreJournal()
 	switch {
