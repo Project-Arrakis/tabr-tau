@@ -392,17 +392,23 @@ func (s *Save) readMark() (incompleteMark, bool) {
 const journalWriteTries = 4
 
 // The folders of an absolute path in a text: a drive path (also \\?\ and \\.\), a network path, or a path from the root of a Unix file system. What is left is the file's name.
+//
+// A folder name may hold a space (the name of an account does), so a folder is any text up to a separator, with one exception: a space followed by the start of another path (a space and a
+// separator) ends the text, because that is where the second path of a rename or a link begins, and the first one's file name must stay. The folder part of each path goes; both file names
+// stay. A Unix path or a network path with forward slashes must start at the beginning of the text or after a blank, a quote or a bracket, and have a name straight after its first
+// slash, so a URL (the slashes follow a colon) and prose with a slash between blanks are left as they are.
 var (
-	driveDirs = regexp.MustCompile(`(?:\\\\[?.]\\)?[A-Za-z]:[\\/](?:[^\\/:*?"<>|\r\n]+[\\/])*`)
-	uncDirs   = regexp.MustCompile(`\\\\[^\\/:*?"<>|\r\n]+\\(?:[^\\/:*?"<>|\r\n]+[\\/])+`)
-	unixDirs  = regexp.MustCompile(`(^|[\s"'(])/(?:[^/\r\n:"']+/)+`)
+	winSeg    = `(?:[^\\/:*?"<>|\r\n ]| [^\\/:*?"<>|\r\n ])+[\\/]`
+	driveDirs = regexp.MustCompile(`(^|[^A-Za-z0-9])(?:\\\\[?.]\\)?[A-Za-z]:[\\/](?:` + winSeg + `)*`)
+	uncDirs   = regexp.MustCompile(`\\\\(?:[?.]\\UNC\\)?[^\\/:*?"<>|\r\n ]+\\(?:` + winSeg + `)+`)
+	unixDirs  = regexp.MustCompile(`(^|[\s"'(])/{1,2}(?:(?:[^/\s:"'\r\n]| [^/\s:"'\r\n])+/)+`)
 )
 
 // shortErr is an error's message without the folders of any path in it (of a path error, a link error such as a failed rename that names two paths, or any error that wraps or quotes
 // one), which the page, the warning of a write and the log would show with the name of the person's account. The file names stay.
 func shortErr(err error) string {
 	s := err.Error()
-	s = driveDirs.ReplaceAllString(s, "")
+	s = driveDirs.ReplaceAllString(s, "$1")
 	s = uncDirs.ReplaceAllString(s, "")
 	return unixDirs.ReplaceAllString(s, "$1")
 }
