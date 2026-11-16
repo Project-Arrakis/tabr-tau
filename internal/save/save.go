@@ -731,6 +731,13 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 	}
 	var bak string
 	if quick {
+		// The gate of Flush came before the hash, the integrity check, the encode and its round trip, which on a large save take longer than observeGap (30 s) in the worst case: a
+		// watch that was not asked again in that time starts over and refuses at the gate before the rename, after a backup of its own had been taken for nothing (each refused
+		// attempt then pushing an older automatic restore point out of the ones kept). So the gate is asked again here, after the encode and before the backup: it keeps the watch
+		// continuous and refuses before anything is written (#779).
+		if blocked, why := s.gate(); blocked {
+			return nil, apierr.New(apierr.ErrGameBlocked, why)
+		}
 		bak, err = s.backupIfStale()
 	} else {
 		var sum [32]byte

@@ -130,12 +130,12 @@ func TestTheQuietOfTheFileMustBeObserved(t *testing.T) {
 	if g := at(10 * time.Second); g.Blocked {
 		t.Fatalf("watched again: %+v", g)
 	}
-	// the file's time changes (the game wrote): the watch starts again
-	mod = clock.Add(-5 * time.Second)
-	if g := at(10 * time.Second); !g.Blocked {
-		t.Fatalf("a file that changed was taken for quiet: %+v", g)
+	// the file's time changes to another time that is old enough for the file-quiet rule (a recent time would be held by that rule, not by the watch): only the watch, which sees a
+	// change it cannot explain, holds the next edit, and says so
+	mod = clock.Add(-30 * time.Minute)
+	if g := at(10 * time.Second); !held(g) {
+		t.Fatalf("a file whose time changed to another old time was not watched again: %+v", g)
 	}
-	mod = clock.Add(-time.Hour)
 	for i := 0; i < 6; i++ {
 		at(10 * time.Second)
 	}
@@ -143,7 +143,7 @@ func TestTheQuietOfTheFileMustBeObserved(t *testing.T) {
 		t.Fatalf("quiet again: %+v", g)
 	}
 	// the editor's own write changes the time and does not start the watch again
-	mod, own = clock.Add(-time.Second), true
+	mod, own = clock.Add(-20*time.Minute), true
 	if g := at(3 * time.Second); g.Blocked {
 		t.Fatalf("the editor's own write held the next edit back: %+v", g)
 	}
@@ -153,7 +153,7 @@ func TestTheQuietOfTheFileMustBeObserved(t *testing.T) {
 		t.Fatalf("no game: %+v", g)
 	}
 	listProcs = func(bool) ([]string, string) { return duneProc, "" }
-	own, mod = false, clock.Add(-time.Hour)
+	own = false // the file's time is the same one across the close and the reopen: only the dropped watch can hold this
 	if g := at(3 * time.Second); !held(g) {
 		t.Fatalf("a new game process: %+v", g)
 	}
@@ -176,5 +176,83 @@ func TestAWriteLetThroughOnAnEmptyLogIsNotCalledTheMenu(t *testing.T) {
 	}
 	if g := GameStateFor("x", true); g.Mode != "menu" {
 		t.Fatalf("a log that says the session ended is the menu: %+v", g)
+	}
+}
+
+// #779 (LOW 2): the gate is asked again after the encode and before the backup. Without it, a write whose preparation outlasted the watch's gap was refused at the gate before the
+// rename only after it had taken a backup of its own, and every refused attempt pushed an older automatic restore point out of the ones kept. Here the game's session starts after
+// the gate of Flush: nothing may be written, and no backup may be taken.
+func TestARefusedAutomaticWriteTakesNoBackup(t *testing.T) {
+	p := makeSave(t, `create table t(a integer); insert into t values (1);`)
+	setAge(t, p, time.Hour)
+	s, err := Open(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	orig, _ := os.ReadFile(p)
+	gateStubs(t)
+	fileTimeFor = func(string) (time.Time, bool, error) { return time.Now().Add(-time.Hour), false, nil }
+	asked := 0
+	statusFor = func(string) (spStatus, error) {
+		asked++
+		if asked > 1 { // the first question is the gate of Flush; a session has begun by the second
+			return spStatus{Active: true}, nil
+		}
+		return spStatus{EndedAt: time.Now().Add(-time.Hour), LastSaveAt: time.Now().Add(-time.Hour + 5*time.Second)}, nil
+	}
+	setA(t, s, 2)
+	f := s.Flush()
+	if f.Saved || !strings.Contains(f.Why, "single-player session is active") {
+		t.Fatalf("the write should be refused by the second question: %+v", f)
+	}
+	if asked != 2 {
+		t.Fatalf("the gate was asked %d times, want 2 (Flush, then before the backup): the refusal came too late", asked)
+	}
+	if ents, _ := os.ReadDir(s.backupDir()); len(ents) != 0 {
+		t.Fatalf("a refused write took %d backup(s)", len(ents))
+	}
+	if now, _ := os.ReadFile(p); string(now) != string(orig) {
+		t.Fatal("the file changed")
+	}
+	if !s.Dirty() {
+		t.Fatal("the edit must stay queued")
+	}
+}
+
+// #779 (LOW 5): two evaluations that read the clock a moment apart and take the lock in the other order are not a clock that went backward and do not start the watch again. A
+// real step back (a second or more) still does.
+func TestAnOutOfOrderEvaluationDoesNotRestartTheWatch(t *testing.T) {
+	const p = "skew"
+	forgetObserved(p)
+	t.Cleanup(func() { forgetObserved(p) })
+	t0 := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
+	mod := t0.Add(-time.Hour)
+	if from := observeFile(p, t0, mod, false, nil); !from.Equal(t0) {
+		t.Fatalf("first evaluation starts the watch: %v", from)
+	}
+	observeFile(p, t0.Add(10*time.Second), mod, false, nil)
+	// the poll read the clock 400 ms ago, the tick got the lock first
+	if from := observeFile(p, t0.Add(10*time.Second-400*time.Millisecond), mod, false, nil); !from.Equal(t0) {
+		t.Fatalf("an evaluation 0.4 s out of order restarted the watch at %v", from)
+	}
+	// and the next one in order continues it
+	if from := observeFile(p, t0.Add(20*time.Second), mod, false, nil); !from.Equal(t0) {
+		t.Fatalf("the watch did not continue: %v", from)
+	}
+	// a clock that stepped back by more than the skew is still a gap
+	back := t0.Add(20*time.Second - clockSkew - time.Millisecond)
+	if from := observeFile(p, back, mod, false, nil); !from.Equal(back) {
+		t.Fatalf("a clock that went back %v must restart the watch: %v", clockSkew+time.Millisecond, from)
+	}
+}
+
+// shippedObserveQuietFor is observeQuietFor as shipped: package variables are initialised before TestMain switches the watch off for the tests of the other rules.
+var shippedObserveQuietFor = observeQuietFor
+
+// #779 (LOW 4): the watch's length as shipped is one menuQuietAfterWrite. A default of 0 would pass every other test, which set the real value themselves.
+func TestTheWatchIsOnAsShipped(t *testing.T) {
+	if shippedObserveQuietFor != menuQuietAfterWrite || shippedObserveQuietFor <= 0 {
+		t.Fatalf("observeQuietFor ships as %v, want %v", shippedObserveQuietFor, menuQuietAfterWrite)
 	}
 }
