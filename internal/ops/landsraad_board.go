@@ -12,7 +12,7 @@ import (
 // The reward of a tier, and where it stands:
 //
 //	reward_state   not_reached | waiting | delivered | no_row
-//	               waiting   the character's own events cover the tier (tierState) and the row of the item (landsraad_house_rewards, written in this term) holds an amount above 0: it waits at the house representative
+//	               waiting   the character's own events cover the tier (or the character has no event for the task: tierState) and the row of the item (landsraad_house_rewards, written in this term) holds an amount above 0: it waits at the house representative
 //	               delivered the events cover the tier and the row holds the item with amount 0, written in this term: it was collected
 //	               no_row    the tier is reached and the save does not show it delivered: no row of this term for the item, or the character's events do not cover the tier (a house filled by an older editor, or an item row that only an earlier term or another tier wrote)
 //	shown_template_id, shown_amount, swatch
@@ -93,13 +93,14 @@ func boardTask(t save.Row, tiers []any, delivered map[string]save.Row, one oneTi
 // (grantRaise): a tier is delivered when the character's own events for the task cover it (th <= events, the ground the write skips), and the row of its item then says where the
 // reward is: waiting (amount above 0) or collected (amount 0). The row is of the item, not of the tier, and holds every term and every tier of the item; so a row alone never
 // proves a tier: a reward of an earlier term collected in this term (amount 0, a new time) or a waiting amount of the same item from another tier is not this tier's delivery, and
-// a tier the events do not cover reads no_row whatever the row holds. A row written before the term began is never this term's. A save without the progress tables has no events to
-// consult, so there the row alone decides.
+// a tier the events do not cover reads no_row whatever the row holds. A row written before the term began is never this term's. Where the character has no event for the
+// task at all (a house filled by a build before #652, or a save without the progress tables) there is nothing to cover a tier, so a row written in this term decides alone: the
+// reader cannot say more, and calling such a reward not recorded would invite a second delivery.
 func tierState(reached bool, th, events float64, haveEvents bool, row save.Row, hasRow bool, termStart float64) string {
 	if !reached {
 		return "not_reached"
 	}
-	if !hasRow || (haveEvents && th > events) {
+	if !hasRow || (haveEvents && events > 0 && th > events) {
 		return "no_row"
 	}
 	if upd, _ := toFloat(row["last_updated"]); upd < termStart {

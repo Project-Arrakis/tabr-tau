@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -96,13 +97,17 @@ func TestTiersTheBoardReadsWhatTheWriteDoes(t *testing.T) {
 		r := tierOf(t, taskByID(t, o, 175), th)
 		return r["reward_state"].(string), r["delivered"].(bool)
 	}
-	// the character is at 3,600 by play of an older editor: no events; Solari collected in this term (written at 120) for another term's tier
+	// the character is at 3,600 and the events cover only the first tier (1,200); Solari was collected in this term (written at 120), for an earlier term's tier: it is the delivery
+	// of the 1,200 tier, which the events cover, and not of the 3,600 tier, which they do not
 	o := rewardOps(t, solariTiers+`update landsraad_task_player_contributions set amount=3600 where player_id=1 and task_id=175;
+		insert into landsraad_task_progress(id, faction_id, task_id, faction_progress, guild_progress, player_progress, timestamp) values (5, 2, 175, 0, 0, 1200, 120);
+		insert into landsraad_task_progress_player(progress_id, player_id) values (5, 1);
 		insert into landsraad_house_rewards(player_id, house_name, amount, template_id, last_updated) values (1, 'DA_HouseKenola', 0, 'SolarisCoin', 120);`)
-	for _, th := range []int64{1200, 3600} {
-		if s, d := state(o, th); s != "no_row" || d {
-			t.Errorf("no event covers tier %d, a collected row of the item is not its delivery: %s %v", th, s, d)
-		}
+	if s, d := state(o, 1200); s != "delivered" || !d {
+		t.Errorf("tier 1,200 is covered by the events: %s %v", s, d)
+	}
+	if s, d := state(o, 3600); s != "no_row" || d {
+		t.Errorf("tier 3,600 is not covered, the collected row of the item is not its delivery: %s %v", s, d)
 	}
 	// after the editor raised the house the events cover the tiers: waiting, then collected, the two fields agree at every step
 	o = rewardOps(t, solariTiers)
@@ -125,5 +130,32 @@ func TestTiersTheBoardReadsWhatTheWriteDoes(t *testing.T) {
 	setup(t, o, `update landsraad_house_rewards set last_updated=60 where player_id=1 and template_id='SolarisCoin'`)
 	if s, d := state(o, 1200); s != "no_row" || d {
 		t.Errorf("a row written before the term began: %s %v", s, d)
+	}
+}
+
+// Where the character has no event at all for the house (a house filled by a build before #652), nothing can cover a tier, so a row written in this term decides: waiting while the
+// amount is above 0, delivered when it is 0, and a row of an earlier term reads no_row. The same holds for a save without the progress tables.
+func TestTiersWithNoEventsTheRowOfThisTermDecides(t *testing.T) {
+	state := func(o *Ops, th int64) string { return tierOf(t, taskByID(t, o, 175), th)["reward_state"].(string) }
+	row := func(amount, at int) string {
+		return solariTiers + `update landsraad_task_player_contributions set amount=1300 where player_id=1 and task_id=175;
+			insert into landsraad_house_rewards(player_id, house_name, amount, template_id, last_updated) values (1, 'DA_HouseKenola', ` + fmt.Sprint(amount) + `, 'SolarisCoin', ` + fmt.Sprint(at) + `);`
+	}
+	if got := state(rewardOps(t, row(10000, 120)), 1200); got != "waiting" {
+		t.Errorf("amount above 0, this term: %s", got)
+	}
+	if got := state(rewardOps(t, row(0, 120)), 1200); got != "delivered" {
+		t.Errorf("amount 0, this term: %s", got)
+	}
+	if got := state(rewardOps(t, row(10000, 60)), 1200); got != "no_row" {
+		t.Errorf("a row of an earlier term: %s", got)
+	}
+	// a save without the progress tables
+	o := rewardOps(t, row(10000, 120)+`drop table landsraad_task_progress_player; drop table landsraad_task_progress;`)
+	if got := state(o, 1200); got != "waiting" {
+		t.Errorf("no progress tables, amount above 0: %s", got)
+	}
+	if r := tierOf(t, taskByID(t, o, 175), 1200); r["delivered"] != true {
+		t.Errorf("no progress tables, delivered: %v", r["delivered"])
 	}
 }

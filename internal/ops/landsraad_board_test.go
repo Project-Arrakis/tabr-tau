@@ -22,6 +22,12 @@ insert into landsraad_task_progress(id, faction_id, task_id, faction_progress, g
 insert into landsraad_task_progress_player(progress_id, player_id) values (1, 1);
 `
 
+// kenolaEvents is the same for Kenola (task 175, 1,300): with events of the character in the save, only the character's own row (not the guild's 10,000 Solari) can say a tier was paid.
+const kenolaEvents = `
+insert into landsraad_task_progress(id, faction_id, task_id, faction_progress, guild_progress, player_progress, timestamp) values (2, 2, 175, 0, 0, 1300, 120);
+insert into landsraad_task_progress_player(progress_id, player_id) values (2, 1);
+`
+
 func newerOps(t *testing.T, extra string) *Ops {
 	t.Helper()
 	return &Ops{S: testsave.PlayerWithNewerSQL(t, mineWorld+swatchWorld+extra)}
@@ -41,7 +47,7 @@ func tierOf(t *testing.T, task map[string]any, threshold int64) save.Row {
 
 func TestBoardTierStates(t *testing.T) {
 	// Maros: the character is at 7,850, so all five tiers are reached. The delivery rows hold amounts above 0 (waiting), and two are collected (amount 0, written in this term).
-	o := newerOps(t, marosEvents+`update landsraad_house_rewards set amount=0 where player_id=1 and template_id in ('T6IndustrialPump','Schematic.A');
+	o := newerOps(t, marosEvents+kenolaEvents+`update landsraad_house_rewards set amount=0 where player_id=1 and template_id in ('T6IndustrialPump','Schematic.A');
 		insert into landsraad_task_rewards(task_id, threshold, template_id, amount) values (174, 7000, 'ExtraItem', 1);`)
 	maros := taskByID(t, o, 174)
 	want := map[int64]string{1200: "delivered", 2400: "delivered", 3600: "waiting", 4800: "waiting", 6000: "waiting", 7000: "no_row"}
@@ -62,7 +68,7 @@ func TestBoardTierStates(t *testing.T) {
 
 func TestBoardDeliveryOfAnEarlierTermIsNotThisTerms(t *testing.T) {
 	// a collected row (amount 0) written before this term started does not say the tier of this term was delivered
-	o := newerOps(t, `update landsraad_house_rewards set amount=0, last_updated=10 where player_id=1 and template_id='T6IndustrialPump'`)
+	o := newerOps(t, marosEvents+`update landsraad_house_rewards set amount=0, last_updated=10 where player_id=1 and template_id='T6IndustrialPump'`)
 	if got := tierOf(t, taskByID(t, o, 174), 1200)["reward_state"]; got != "no_row" {
 		t.Fatalf("state = %v, want no_row", got)
 	}
