@@ -370,9 +370,9 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 		repaired, rerr = repairCompletionTimes(m, termID)
 		switch {
 		case changed == 1: // one house: what was done to it
-			m.Desc = landsraadDesc(fmt.Sprintf("landsraad %s: %s", names[0], done[0])+grantDesc(rw), replaced, repaired, nil)
+			m.Desc = landsraadDescG(fmt.Sprintf("landsraad %s: %s", names[0], done[0]), grantDesc(rw, false), replaced, repaired, nil)
 		case changed > 1:
-			m.Desc = landsraadDesc(fmt.Sprintf("landsraad: %d houses changed from the board", changed)+grantDesc(rw), replaced, repaired, names)
+			m.Desc = landsraadDescG(fmt.Sprintf("landsraad: %d houses changed from the board", changed), grantDesc(rw, true), replaced, repaired, names)
 		case repaired > 0:
 			m.Desc = landsraadDesc("landsraad", nil, repaired, nil)
 		}

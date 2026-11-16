@@ -351,23 +351,46 @@ func (g GrantSettings) xpPerMission() int64 {
 	return int64(math.Round(missionSpecXP * g.SpecializationXPMultiplier))
 }
 
-// grantDesc is what the missions of a raise wrote, for the description of the edit (the list of pending changes and the write log): "; 12 missions: +72,000 Solari, +12,000 House
-// Scrip, +18,000 Gathering XP; 3 Sabotage XP not added (last level); 9 reward rows". It is empty for a change that wrote none of it (#752).
-func grantDesc(r rewardResult) string {
+// grantText is what the missions of a raise wrote, for the description of the edit (the list of pending changes and the write log), in two parts: left is what did not fit (the
+// experience of a track at its last level), which goes with the short facts of the description, and paid is the amounts, which come after them. The write log cuts a description at a
+// fixed length, so what a person needs to decide on a restore (the wins taken away, the times moved, the experience left out) must come before the amounts (#752).
+type grantText struct{ left, paid string }
+
+// grantDesc words a raise's pay-out: "; 3 Sabotage XP not added (last level)" and "; 12 missions: +72,000 Solari, +12,000 House Scrip, +18,000 Gathering XP; 9 reward rows". For
+// several houses (several) the experience is one total, to keep the line short. Both parts are empty for a change that wrote none of it.
+func grantDesc(r rewardResult, several bool) grantText {
+	var g grantText
+	total := func(m map[string]int64) (n int64) {
+		for _, x := range m {
+			n += x
+		}
+		return n
+	}
+	switch {
+	case total(r.specLeft) > 0 && several:
+		g.left = "; " + commas(total(r.specLeft)) + " XP not added"
+	case total(r.specLeft) > 0:
+		for _, l := range sortedLines(r.specLeft) {
+			g.left += fmt.Sprintf("; %s %s XP not added (last level)", commas(r.specLeft[l]), l)
+		}
+	}
 	var parts []string
 	if r.missions > 0 {
 		list := []string{"+" + commas(r.solari) + " Solari", "+" + commas(r.scrip) + " House Scrip"}
-		for _, l := range sortedLines(r.spec) {
-			list = append(list, "+"+commas(r.spec[l])+" "+l+" XP")
+		if several {
+			if xp := total(r.spec); xp > 0 {
+				list = append(list, "+"+commas(xp)+" XP")
+			}
+		} else {
+			for _, l := range sortedLines(r.spec) {
+				list = append(list, "+"+commas(r.spec[l])+" "+l+" XP")
+			}
 		}
 		word := "missions"
 		if r.missions == 1 {
 			word = "mission"
 		}
 		parts = append(parts, fmt.Sprintf("%s %s: %s", commas(r.missions), word, strings.Join(list, ", ")))
-	}
-	for _, l := range sortedLines(r.specLeft) {
-		parts = append(parts, fmt.Sprintf("%s %s XP not added (last level)", commas(r.specLeft[l]), l))
 	}
 	if r.rewardRows > 0 {
 		word := "reward rows"
@@ -376,10 +399,10 @@ func grantDesc(r rewardResult) string {
 		}
 		parts = append(parts, fmt.Sprintf("%s %s", commas(r.rewardRows), word))
 	}
-	if len(parts) == 0 {
-		return ""
+	if len(parts) > 0 {
+		g.paid = "; " + strings.Join(parts, "; ")
 	}
-	return "; " + strings.Join(parts, "; ")
+	return g
 }
 
 // sortedLines is the keys of a by-line map in the order of the Specialization tab's lines.
@@ -394,7 +417,7 @@ func sortedLines(m map[string]int64) []string {
 }
 
 // SpecRoom is, for each specialization line, the experience the character's track still has room for before its last level (the board shows what a raise adds, and the server adds
-// no more than fits, #762). A line whose track number the editor cannot tell, or a save with no character or no track table, is left out: the page then shows the uncapped number.
+// no more than fits, #762). Every line is in the map; a save with no character, or with no track table, gives no map at all (nil), and the page then shows the uncapped number.
 func (o *Ops) SpecRoom(g GrantSettings) map[string]int64 {
 	p, err := o.player()
 	if err != nil {

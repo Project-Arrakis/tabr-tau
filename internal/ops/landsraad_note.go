@@ -100,11 +100,17 @@ func housesWord(n int64) string {
 // landsraadDesc builds the description of a Landsraad edit: the head says what was done, then the short facts (the wins taken away, the times moved), and the list of houses last,
 // because the write log cuts a long description and what is cut must be the list, not the facts. A head of just "landsraad" (an edit that only moved times) gets a colon.
 func landsraadDesc(head string, replaced []replacedWin, repaired int64, houses []string) string {
-	facts := replacedText(replaced) + repairText(repaired)
+	return landsraadDescG(head, grantText{}, replaced, repaired, houses)
+}
+
+// landsraadDescG is landsraadDesc with what the missions of a raise wrote (grantDesc): the experience that did not fit goes with the facts, after the wins taken away and the times moved,
+// and the amounts come last before the list of houses, so that the write log's cut takes the amounts and the list before any fact (#752).
+func landsraadDescG(head string, g grantText, replaced []replacedWin, repaired int64, houses []string) string {
+	facts := replacedText(replaced) + repairText(repaired) + g.left
 	if head == "landsraad" && facts != "" {
 		head, facts = "landsraad:", facts[1:] // "; x" -> " x"
 	}
-	d := head + facts
+	d := head + facts + g.paid
 	if len(houses) > 0 {
 		d += "; houses: " + listText(houses)
 	}

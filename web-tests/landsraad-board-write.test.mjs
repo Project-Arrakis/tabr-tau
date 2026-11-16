@@ -650,8 +650,19 @@ test('a raise sends the ground the character own events covered when the page dr
   const ui = await open(withGrant({}, { 900: 1200 }), { '/api/landsraad/apply': OK });
   click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
   assert.equal(writes(ui)[0].body.houses[0].was_events, 1200);
-  // a removal and a Complete are not raises: they send no number
+  // a removal sends the number too (the page sends it for every contribution it writes); the server compares it for a raise only, so it never refuses a removal for it
   const rm = await open(withGrant({}, { 901: 0 }), { '/api/landsraad/apply': { ...OK, contribution_raised: 0, contribution_lowered: 1 } });
   click(rm, tier(rm, 'Thorvald', 3)); await rm.settle();
   assert.equal(writes(rm)[0].body.houses[0].lower, true);
+  assert.equal(writes(rm)[0].body.houses[0].was_events, 0);
+});
+
+test('a house with no specialization line is refused before the click only when the raise pays a mission, as the write refuses it (#762)', async () => {
+  // a mission step of 100,000 and 100 already covered: Alexin 0 to 6,000 crosses no mission step, so no experience is written
+  const b = withGrant({ step: 100000 }, { 900: 100 });
+  b.tasks.forEach((t) => { if (t.id === 900) t.line = ''; });
+  const ui = await open(b, {});
+  const cap = text(by(ui, 'Alexin').querySelector('#lsg-900'));
+  assert.ok(!cap.includes('has no specialization line') && !cap.includes('Will be refused'), cap);
+  assert.equal(text(by(ui, 'Alexin').querySelector('.qg')), 'no missions');
 });

@@ -49,7 +49,7 @@ func TestGrantTheWriteLogNamesTheMissionsAndTheirAmounts(t *testing.T) {
 	// several houses: the totals, the lines in the order of the Specialization tab, and the list of houses last
 	o = rewardOps(t, "")
 	applyWith(t, o, doubled(), house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0}), house(176, Args{"mine_to": 3600.0}))
-	if d := lastEdit(t, o); d != "landsraad: 2 houses changed from the board; 4 missions: +24,000 Solari, +4,000 House Scrip, +6,000 Gathering XP, +6,000 Sabotage XP; 7 reward rows; houses: Kenola, Vernius" {
+	if d := lastEdit(t, o); d != "landsraad: 2 houses changed from the board; 4 missions: +24,000 Solari, +4,000 House Scrip, +12,000 XP; 7 reward rows; houses: Kenola, Vernius" {
 		t.Fatalf("two houses: %q", d)
 	}
 	// ground the character's own events cover pays nothing, and the line says nothing about missions
@@ -103,6 +103,10 @@ func TestGrantTwoHousesOfOneLineShareTheRoomOfTheTrack(t *testing.T) {
 	}
 	if m["missions"].(int64) != 6 || m["solari"].(int64) != 36000 {
 		t.Fatalf("the wallets are paid for both houses: %v", m)
+	}
+	// several houses: the experience is one total, and what did not fit comes before the amounts
+	if d := lastEdit(t, o); d != "landsraad: 2 houses changed from the board; 17,818 XP not added; 6 missions: +36,000 Solari, +6,000 House Scrip, +182 XP; 7 reward rows; houses: Vernius, Wydras" {
+		t.Fatalf("write log %q", d)
 	}
 }
 

@@ -1873,9 +1873,9 @@ function lbGrantOf(h, l, from, to) {
   if (!(to > lo)) return { missions: 0, rewards: 0, solari: 0, scrip: 0, xpBy: {}, paidMissions }; // the character's own events and the editor's own record already cover this ground
   if (g.problem) return { problem: g.problem };
   const line = h.task.line || '';
-  if (!line && g.xp > 0) return { problem: `House ${h.name} has no specialization line in the editor, so a raise on it is refused and nothing is changed. Choose other houses, or use Complete for this one.` };
   const at = (x) => (x <= 0 ? 0 : Math.ceil(x / g.step - 1e-9)), missions = at(to) - at(lo);
   if (missions > g.max_missions) return { problem: `House ${h.name}: this click stands for ${lbF(missions)} missions, more than the ${lbF(g.max_missions)} one change may grant for one house, so nothing is changed. Click the tiers one at a time, or set LandsraadContributionMultiplier in ServerCustomSettings.ini (Config tab) nearer to 1.` };
+  if (!line && g.xp > 0 && missions > 0) return { problem: `House ${h.name} has no specialization line in the editor, so a raise on it that pays a mission is refused and nothing is changed. Choose other houses, or use Complete for this one.` }; // the write refuses only when a mission with experience is written (#762)
   const room = g.room && line && g.room[line] != null ? Number(g.room[line]) : null; // the experience the track still has room for: the write adds no more than fits (#762)
   const xp = room != null ? Math.min(missions * g.xp, Math.max(room, 0)) : missions * g.xp;
   // a swatch won in this term is not delivered again (the write skips it), so the top tier does not count as waiting then
