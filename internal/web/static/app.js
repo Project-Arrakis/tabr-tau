@@ -1551,6 +1551,47 @@ function vcSync() {
   document.querySelectorAll('[data-vcslot]').forEach((e) => { vcDraft.mods[e.dataset.vcslot] = e.value; });
   document.querySelectorAll('[data-vcqty]').forEach((e) => { const l = vcDraft.items[+e.dataset.vcqty]; if (l) l.quantity = Math.max(1, Math.floor(+e.value) || 1); });
 }
+// The page is drawn again when the answer to a pick in the preview table lands (#738), and the person may have typed meanwhile. vcSync puts the fuel and the quantities into the draft; the item box and its Qty
+// are never in the draft. So the text of the boxes the person changed, and the caret of the one that has the focus, are noted before the redraw and put back after it (render gives the focus back itself).
+const VC_BOXES = '#vcItem, #vcQty, #vcFuel, [data-vcqty]';
+const vcBoxKey = (e) => (e.id ? '#' + e.id : '[data-vcqty="' + e.dataset.vcqty + '"]');
+function vcTypedTake() {
+  const out = [];
+  document.querySelectorAll(VC_BOXES).forEach((e) => {
+    const typed = e.value !== e.defaultValue, focus = e === document.activeElement;
+    if (!typed && !focus) return;
+    let start = null, end = null;
+    if (focus) { try { start = e.selectionStart; end = e.selectionEnd; } catch (err) { /* a number box has no caret to read */ } }
+    out.push({ key: vcBoxKey(e), value: typed ? e.value : null, focus, start, end });
+  });
+  return out;
+}
+// The redraw waits for the editor's answers before it replaces the boxes, and keys typed in that time go to the old boxes: they are noted as they are typed, into the same list.
+function vcTypedWatch(typed) {
+  const on = (ev) => {
+    const e = ev.target;
+    if (!e || !e.matches || !e.matches(VC_BOXES)) return;
+    const key = vcBoxKey(e);
+    let t = typed.find((x) => x.key === key);
+    if (!t) typed.push(t = { key });
+    typed.forEach((x) => { x.focus = false; });
+    let start = null, end = null;
+    try { start = e.selectionStart; end = e.selectionEnd; } catch (err) { /* a number box has no caret to read */ }
+    Object.assign(t, { value: e.value, focus: true, start, end });
+  };
+  document.addEventListener('input', on, true);
+  return () => document.removeEventListener('input', on, true);
+}
+function vcTypedPut(typed) {
+  for (const t of typed) {
+    const e = $('#main') && $('#main').querySelector(t.key);
+    if (!e) continue; // the box is gone (the new part has no cargo hold): nothing to put back
+    if (t.value !== null && e.value !== t.value) e.value = t.value;
+    if (!t.focus || e !== document.activeElement) continue;
+    if (t.start !== null) { try { e.setSelectionRange(t.start, t.end); } catch (err) { /* a box with no caret */ } }
+    else if (e.type === 'number' && e.value !== '') { const v = e.value; e.value = ''; e.value = v; } // a number box has no caret to set; typing goes on at its end, where the person was typing
+  }
+}
 // A class, a tier or a part was changed in the boxes.
 function vcChanged(t) {
   vcSync();
@@ -1614,6 +1655,8 @@ async function vcAskPick(seq) {
   if (seq !== vcSeq || vcDraft !== draft) return; // something changed after this request: the change drew the page, and its own answer (if any) decides
   vcBusy = false;
   vcPicked = [];
+  vcSync(); // the fuel and the quantities typed while the request was on its way go into the draft; Create then sees the form no longer matches the preview and asks for a new one (#738)
+  const typed = vcTypedTake();
   if (answer) {
     vcPreview = answer;
     vcPreviewKey = JSON.stringify(asked);
@@ -1624,7 +1667,9 @@ async function vcAskPick(seq) {
     for (const s of vcClass().slots) draft.mods[s.slot] = shown[s.slot] || '';
     vcPartNote = { slots: picked, text: err.message };
   }
-  render('scroll');
+  const unwatch = vcTypedWatch(typed);
+  try { await render('scroll'); } finally { unwatch(); }
+  vcTypedPut(typed);
 }
 // One id for each form (#740): Create sends it, and the editor gives a second request with the same id and the same body the first one's answer instead of writing another vehicle.
 function vcRequestId() {
@@ -3009,7 +3054,13 @@ const A = {
     if (vcBusy) return toast('The preview is updating. Press Create when it has finished.', 'note');
     vcSync();
     // Create writes what the preview shows: when the form no longer makes the request the preview was asked with (a fuel or quantity edit, say), the preview goes and has to be asked again
-    if (vcPreview && JSON.stringify(vcBody()) !== vcPreviewKey) { vcDrop(); render('scroll'); return toast('The form changed after the preview. Press Preview, then Create.', 'note'); }
+    if (vcPreview && JSON.stringify(vcBody()) !== vcPreviewKey) {
+      // the redraw takes the item and Qty boxes back to empty: what was typed in them stays (#738)
+      const typed = vcTypedTake(), unwatch = vcTypedWatch(typed);
+      vcDrop();
+      render('scroll').finally(unwatch).then(() => vcTypedPut(typed));
+      return toast('The form changed after the preview. Press Preview, then Create.', 'note');
+    }
     const body = vcBody();
     body.requestId = vcDraft.requestId;
     // The button is off and a second press does nothing until the answer is in: one press, one vehicle (#740)
