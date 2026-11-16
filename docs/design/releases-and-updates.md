@@ -6,14 +6,16 @@ settings listed in section 9), #577 (packaging the editor for other people: this
 
 The operator's go of 2026-11-16 asked for build numbers, releases and an update function that finds a new release and installs it.
 The decisions proposed on the issue are kept. This note works out how, finds what they touch, and ends with the issues to file and the
-few questions that are the operator's to answer.
+operator's decisions (section 12). Two of those decisions change the design: signing is optional for now (section 6.0), and no
+release goes to the public yet, so the update check ships disabled in public builds (section 4.10).
 
 ## 0. Summary and what was found
 
 Decisions kept as proposed: SemVer plus a build counter and the commit, with the git tag as the one source of truth; a version label in
 the header that opens an About and Releases panel; a poll (not a push) on start and about every 6 hours; notify only, install only after
-a click; SHA-256 and a signature checked against a public key inside the app; the old exe kept for one-click rollback; a skip switch and
-an off switch; nothing about the user or the save is ever sent; a release workflow that runs only after the required checks.
+a click; SHA-256 and, once a public key is embedded in a build, a signature checked against it (until then the signature is optional,
+section 6.0); the old exe kept for one-click rollback; a skip switch and an off switch; nothing about the user or the save is ever
+sent; a release workflow that runs only after the required checks.
 
 No decision is reversed. Four findings about the present repository matter to the build (F1 to F4), and three refinements are added (R1 to R3):
 
@@ -24,8 +26,8 @@ No decision is reversed. Four findings about the present repository matter to th
 | F3 | The build flags live in the maintainer's local build script, which is not in this repository, and CI cross-compiles with its own copy of the flags. | The stamping logic goes into one script in this repository that the local script, CI and the release workflow all call. Otherwise three places can drift (section 1.4). |
 | F4 | The repository already publishes `design/vX.Y.Z` and `kit/vX.Y.Z` releases, created with `--latest=false`. | The editor's own tags are `vX.Y.Z` (no prefix), which cannot collide with those. The poll reads a fixed asset of the latest release, so it must stay true that only editor releases are ever "latest" (section 3.4). |
 | R1 | A signed manifest alone is not enough: an attacker who replays an old signed pointer can hold users on an old, vulnerable version. | The pointer (`latest.json`) is signed too, carries a serial number, and the app refuses anything not newer than what it already runs or has seen (section 8). A replay can delay an update, never move anyone to a worse one. |
-| R2 | If the signing key is a CI secret, anyone who can change the workflow or the runner can sign. | Recommendation: the signing key is never in GitHub. CI builds a draft release; the operator signs it on his own machine and publishes (section 6). Then a stolen repository account or runner cannot produce a release the app accepts. |
-| R3 | #577 asks for the update check to be opt-in; the issue here says "can be turned off". | Recommendation: the app asks once, before any connection is made, and stores the answer (section 4.7). This is question 2 in section 12. |
+| R2 | If the signing key is a CI secret, anyone who can change the workflow or the runner can sign. | Recommendation: the signing key is never in GitHub. CI builds a draft release; the operator signs it on his own machine and publishes (section 6). Then a stolen repository account or runner cannot produce a release the app accepts. Decided (section 12); it applies from the day signing exists (section 6.0). |
+| R3 | #577 asks for the update check to be opt-in; the issue here says "can be turned off". | The app asks once, before any connection is made, and stores the answer (section 4.7). Decided (section 12). |
 
 ## 1. Numbering
 
@@ -130,13 +132,13 @@ Logical layout (what the app and the tools think in):
 
 ```
 stable/
-  latest.json              the pointer the poll reads, signed
-  latest.json.minisig
+  latest.json              the pointer the poll reads (signed once signing exists, section 6.0)
+  latest.json.minisig      optional until a public key is embedded in a build
   v0.14.2/
     notes.md               the release notes (the CHANGELOG section, rendered by a script)
     tabr-tau-0.14.2-windows-amd64.exe
     SHA256SUMS             sha256sum format: one line per file in this folder except itself and the signatures
-    SHA256SUMS.minisig     the signature of SHA256SUMS
+    SHA256SUMS.minisig     the signature of SHA256SUMS (optional until a key is embedded)
     manifest.json          machine-readable: version, build, commit, date, file names, sizes
 ```
 
@@ -157,14 +159,16 @@ channel is not built; the field `channel` exists in the files so that adding one
   "releases": [ { "version": "0.14.2", "date": "2026-11-16", "build": 317, "highlights": ["...", "..."] }, ... up to 10 ] }
 ```
 
-`manifest.json` (the same facts about this one release plus, for each file, its name, size and SHA-256). It is listed in `SHA256SUMS`, so
-its bytes are covered by that signature. File names in both documents match `^[A-Za-z0-9._-]{1,100}$` and are never paths or URLs: the
+`manifest.json` (the same facts about this one release plus, for each file, its name, size and SHA-256, and an optional `signature`
+field: the key id and the name of the signature file; the field is absent in an unsigned release). It is listed in `SHA256SUMS`, so
+its bytes are covered by that signature once there is one. File names in both documents match `^[A-Za-z0-9._-]{1,100}$` and are never paths or URLs: the
 download URL is built by the app from the fixed repository address, the tag and the name.
 
 `SHA256SUMS` is the plain format that `sha256sum --check` reads, so a person can check a download without our tools. `notes.md` is covered
 by it as well.
 
-Signatures use the format of section 6.
+Signatures use the format of section 6. A document can never declare itself unsigned or signed to get a different treatment: whether a
+signature is required depends only on whether the running build has a public key embedded (section 6.0).
 
 ### 3.3 The serial number
 
@@ -196,7 +200,7 @@ check runs only while the editor is open.
   minute does not arrive together).
 - Then about every 6 hours while the editor stays open: 6 hours plus a random 0 to 30 minutes, drawn again each time.
 - On **Check now**, immediately (at most once a minute, so a held button is not a loop).
-- Never when the setting is off or has not been answered (section 4.7).
+- Never when the setting is off or has not been answered (section 4.7), and never in a build that does not carry the check (section 4.10).
 
 ### 4.3 The request
 
@@ -217,13 +221,13 @@ One `GET` of the fixed address of section 3.4 with:
   24 hours, reset on the first good answer. The next scheduled check is never earlier than the wait.
 - No network, DNS failure, timeout, 5xx: fail quietly. No toast, no dialog, no log line above debug level. The panel says "No connection
   (last check <time>)" when the user opens it. The next try follows the same backoff.
-- A body that is not valid JSON, is too large, fails the signature, names another product or channel, or has a lower serial number than
-  the last accepted one: ignored as if there were no answer, with one line in the panel ("The release list could not be verified") and
+- A body that is not valid JSON, is too large, fails the signature (or, in a build that has a key, carries none: section 4.10), names
+  another product or channel, or has a lower serial number than the last accepted one: ignored as if there were no answer, with one line in the panel ("The release list could not be verified") and
   one debug log line. It is never shown as an update.
 
 ### 4.5 When something newer exists
 
-The Go side verifies `latest.json` (section 6), checks that `version` and `build` are both greater than the running ones and that the
+The Go side verifies `latest.json` (section 6; the signature part applies when the build has a key, section 4.10), checks that `version` and `build` are both greater than the running ones and that the
 version is not the skipped one, and stores the result. The page, which polls the editor's own `/api/update/state` like it polls the other
 state, then shows a toast ("Version 0.15.0 is available") once per version, and the dot on the label. A toast is shown at most once for
 a version, and not again after Later; the dot stays until the version is installed or skipped.
@@ -237,10 +241,11 @@ anything.
 
 ### 4.7 The off switch and the first question
 
-The setting `updateCheck` has three states: unanswered, on, off. In the unanswered state no connection is made. The first start of a
+The setting `updateCheck` has three states: unanswered, on, off. In the unanswered state no connection is made. (Decided: ask once, before any
+check, section 12.) The first start of a
 version that has the check shows one question in the About panel and as a quiet banner: "Check GitHub for new releases? The check
 reads one public file and sends nothing about you or your save. You can change this in Settings." with **Yes** and **No**; the
-answer is stored. A user who never answers is never checked. (Whether it should instead start "on" is question 2 of section 12.)
+answer is stored. A user who never answers is never checked.
 
 **Skip this version** stores that version; a later version is offered again. A rollback (section 5.4) skips the version rolled back from.
 
@@ -248,7 +253,7 @@ answer is stored. A user who never answers is never checked. (Whether it should 
 
 All network code is in one new package, `internal/update`, in one file that builds the HTTP client (`client.go`). The rest of the
 package (parsing, signature, hash, version compare, state) is pure and has no network import. The test `TestShippedCodeMakesNoOutbound
-Connections` keeps forbidding the HTTP client, dialers and resolvers everywhere, with one new allowed entry: `internal/update/client.go`.
+Connections` keeps forbidding the HTTP client, dialers and resolvers everywhere, with one new allowed entry: `internal/update/client.go`, which carries the `updatecheck` build tag of section 4.10.
 A second test pins that file: the only hosts in it are constants from one list, every request is a `GET`, the client has a timeout, and
 the package has no function that takes a URL from a caller. README line "makes no outbound network connections (no telemetry, no update
 check)" and the matching SECURITY.md paragraph change to: "the only outbound connection is the update check: one read of a public file
@@ -268,6 +273,33 @@ and of the last good answer, the highest serial number seen, the last verified `
 SHA-256 and version of the previous exe. The file is written with the existing atomic write, holds no identifier and no secret, and a
 missing or damaged file means "start fresh": it never blocks the editor.
 
+### 4.10 Off in public builds, and unsigned releases
+
+Two decisions of 2026-11-16 (section 12) shape this flow until the operator says "go public":
+
+- **No network code in public builds.** No release goes to the public yet, so there is nothing to poll. The code of this section (the
+  client file of 4.8, the schedule, the apply path) sits behind a build tag, `updatecheck`, that the default build and every public
+  build leave out. In such a build the address, the HTTP client and the question of 4.7 are not compiled in, the About panel shows the
+  version only, and the Updates section says "Update checks are not available in this build". The README and SECURITY.md promise
+  ("no outbound connections") therefore stays true and is changed only in the go-public slice (section 11). Tests: the flags that the
+  build script prints do not carry the tag; the package built without the tag has no file that imports an HTTP client or dialer
+  (`go list` of its files); the netguard test of 4.8 passes in both builds. A private build with the tag is the operator's and the CI
+  tests' only way to exercise the check.
+- **A signature is optional until a key is embedded.** `keys.go` holds the public keys (section 6.3); it is empty in a build made before
+  the key ceremony. The rule is decided by that fact alone and never by the downloaded documents:
+  - *No key embedded.* The signature files and the `signature` field are not required and are ignored if present. The check can report
+    a newer release, but the apply step is **off**; a private build may switch it on, and then every apply shows a confirmation that
+    reads "Unsigned release, checksum only", with the version, the SHA-256 and the sentence "This shows the file arrived intact, not who
+    made it", and needs an explicit second click. Everything else in 5.1 still runs (the hash of the stream, the hash from the final
+    file, the serial number).
+  - *A key embedded.* An unsigned `latest.json`, `SHA256SUMS` or release is refused, with the sentence "This release is not signed".
+    There is no downgrade to unsigned: no setting, no flag, no state-file value and no field of a document turns the requirement off,
+    and a test feeds a keyed build every unsigned variant (no signature file, an empty one, `signature` removed from the manifest, a
+    signature of another product) and expects a refusal each time. A second test fails if `keys.go` ever holds fewer keys than the
+    fingerprints listed in SECURITY.md (section 6.3).
+  - The first release that embeds a key reaches older, keyless builds by the checksum-only path or by hand; that one step has no
+    signature to protect it (threat model, "Unsigned period").
+
 ## 5. Applying the update
 
 ### 5.1 Steps
@@ -279,12 +311,14 @@ The user clicks **Update now** in the panel. Then, in the Go side:
    while the editor is closed.
 2. Fetch `latest.json` again and verify it again. If it now names another version, show that version and ask again. (This closes the
    gap between the check and the click, section 8.)
-3. Download `manifest.json`, `SHA256SUMS`, `SHA256SUMS.minisig` and verify the signature. Check that `manifest.json` and the exe appear in
+3. Download `manifest.json`, `SHA256SUMS`, `SHA256SUMS.minisig` and verify the signature (a build with a key refuses a release
+   without one; a build without a key skips this and apply needs the confirmation of section 4.10). Check that `manifest.json` and the exe appear in
    `SHA256SUMS` with the hashes the manifest gives, and that version, build and commit agree between `latest.json`, the manifest and the
    tag in the download address.
 4. Download the exe into the folder of the running exe as `<name>.new`, hashing the stream as it is written, with the size capped at the
    size in the signed manifest (a longer body stops the download). Stop and delete on any mismatch.
-5. Close the file, reopen it with sharing that denies writing, hash it again from that handle and compare with the signed value. The new
+5. Close the file, reopen it with sharing that denies writing, hash it again from that handle and compare with the signed value (the
+   value in `SHA256SUMS`, when there is no signature). The new
    file is never started to check it.
 6. Swap (section 5.3), then start the new exe and exit.
 
@@ -353,6 +387,21 @@ does not match) is not offered.
 
 ## 6. Signing
 
+### 6.0 Signing is optional for now
+
+Decided 2026-11-16 (section 12): there is no key yet, and no release is public. Until the operator runs the key ceremony (6.3) and a
+build embeds the public key:
+
+- The signature files and the `signature` field of the manifest are **optional**: the release tooling may produce them, nothing
+  requires them, and a build without a key ignores them.
+- The one chain is then SHA-256 only: `SHA256SUMS` and the hash of the exe. It proves the file arrived intact; it does not prove who
+  made it. For that reason the apply step is off or confirmed as "unsigned release, checksum only" (section 4.10).
+- The day a build embeds a key, the requirement is permanent for that build and every later one: unsigned releases are refused, with no
+  way back to unsigned (section 4.10, tested). Dropping a key is a reviewed change to `keys.go` and SECURITY.md together (6.3).
+- Authenticode is a later, separate step (6.1).
+
+Everything below (6.1 to 6.5) describes the signed state, which begins at the key ceremony.
+
 ### 6.1 Options
 
 | Option | What it gives | What it costs or risks |
@@ -361,9 +410,9 @@ does not match) is not offered.
 | **Authenticode** certificate | Windows shows a publisher name, and SmartScreen reputation builds up over time. The updater could also check the downloaded exe with the operating system's trust check. | A certificate costs money every year (a standard certificate or a monthly cloud-signing service; current terms to be checked), the key must be in a hardware token or a signing service, and it does not by itself tell the running editor which publisher to trust unless the app also pins the certificate. |
 | Both | Strongest. | Both costs. |
 
-Recommendation: **ed25519 now, Authenticode later and in addition.** The signature is what the updater trusts, because it is the one that
-the app can check by itself with a key it already holds. Authenticode helps the people who download the first exe and see a SmartScreen
-warning; it is a separate decision (question 1 of section 12) and does not change this design.
+Decision: **ed25519 when signing starts, Authenticode later and in addition** (section 12). The signature is what the updater trusts,
+because it is the one that the app can check by itself with a key it already holds. Authenticode helps the people who download the
+first exe and see a SmartScreen warning; it does not change this design.
 
 ### 6.2 What is signed
 
@@ -379,15 +428,18 @@ test vector produced by the tool itself.
 
 ### 6.3 Key custody
 
+Applies from the key ceremony; before it there is no key to keep (6.0).
+
 - The private key is generated on the operator's own machine, protected by a passphrase, and is **never in GitHub**: not as a secret, not
   in a runner, not in a file in the repository.
 - A second key pair (the "next key") is generated at the same time and kept offline (for example on removable media in a safe place),
   encrypted, and never used for a release unless the first is lost or stolen.
-- The app embeds both public keys from its first release (`internal/update/keys.go`, two 32-byte values, a short list, never fetched).
-  A release is valid if signed by either.
+- The app embeds both public keys from the first build made after the ceremony (`internal/update/keys.go`, two 32-byte values, a short
+  list, never fetched; empty before it). A release is valid if signed by either. From that build on, unsigned releases are refused
+  (section 4.10).
 - The fingerprints of both public keys are written in SECURITY.md, so a person can compare the key inside the exe with the project's
   own page. Changing the keys is a change to that file and to `keys.go` in one pull request, and a test compares the two.
-- Who may sign: the operator only. The signing tool (`tools/releasesign`, standard library only, or the `minisign` tool) refuses to sign
+- Who may sign: the operator only, on his own machine (decided, section 12). The signing tool (`tools/releasesign`, standard library only, or the `minisign` tool) refuses to sign
   files it has not first shown the operator (version, commit, the hashes, whether the commit is on `main` and its checks are green).
 
 ### 6.4 Rotation
@@ -437,12 +489,15 @@ Jobs, with permissions `contents: read` unless stated:
    check of the reproducibility aim).
 3. **draft** (needs build; `contents: write`, only this job): creates a **draft** release with those files. A draft is invisible to
    everyone and is never "latest".
-4. The operator signs on his own machine (`tools/releasesign v0.14.2`): it downloads the draft's files, shows what it will sign,
-   signs `SHA256SUMS` and `latest.json`, uploads the two signatures, and publishes the draft with `--latest`. A tag from another person,
-   or a draft no one signs, never reaches users.
+4. **The draft stays a draft until "go public".** No release is published before then (section 12), so a draft is the end of the
+   workflow for now; the exe in it is for the operator's own tests. From "go public" on: the operator signs on his own machine
+   (`tools/releasesign v0.14.2`) once signing exists (6.0): it downloads the draft's files, shows what it will sign, signs `SHA256SUMS`
+   and `latest.json`, uploads the two signatures, and publishes the draft with `--latest`. Before signing exists, the operator may
+   publish an unsigned release only knowingly (checksum only, section 4.10). A tag from another person, or a draft no one publishes,
+   never reaches users.
 5. **verify-published** (a second small workflow on the `published` event; `contents: write` only for the one step that demotes a
-   release): downloads what is public, verifies both signatures with the public keys of `keys.go`, checks every hash, and runs the exe's
-   `--version` against the tag. If anything fails it marks the release as a pre-release (so the poll no longer offers it) and fails
+   release): downloads what is public, verifies both signatures with the public keys of `keys.go` (skipped while `keys.go` is empty; with a
+   key present a missing signature fails the job), checks every hash, and runs the exe's `--version` against the tag. If anything fails it marks the release as a pre-release (so the poll no longer offers it) and fails
    loudly.
 
 Rules that hold for all of it, from the existing `public-text` and CI documents: actions pinned to a commit id and only first-party
@@ -463,14 +518,15 @@ and nothing here defends against that).
 | Downgrade | Serve an older, validly signed release (with a known flaw) as if it were new. | The offer needs `version` and `build` both greater than the running ones, and the serial is greater than the highest ever seen (kept in the state file). The only downgrade is the user's own rollback to a local, previously verified file. | None for a network attacker. |
 | Replay or freeze | Keep serving an old signed `latest.json` so users never learn of a new release. | The panel shows the date of the last good answer, and "last checked" turns into a visible warning after 30 days without one. | A blocked or replayed pointer delays an update; it cannot install anything. Accepted. |
 | Malicious manifest | A crafted `latest.json` or `manifest.json`: path or URL in a file name, huge sizes, deep JSON, text meant to be run, HTML in the notes. | The signature is checked before any field is used. File names match a strict pattern and are only joined to a fixed address by the app. Sizes are capped in the code and the stream is cut at the signed size. JSON is read with a size limit and unknown fields are ignored. Notes are text only, shown with `textContent`, cut to a length. | A signed document is trusted as far as its signer. |
-| MITM | Alter the download on the network. | HTTPS to a short list of hosts with the system roots, no downgrade to HTTP, redirects only inside the list, then the signature and the hash. A MITM that defeats TLS still cannot sign. | Can block (denial). |
-| Key theft | The private key leaves the operator's machine. | Key never in GitHub, passphrase, offline next key, revocation list, section 6.5. | A thief with the key and a network position can serve a bad release to users until it is revoked. |
-| Update server compromise | The repository, a release or the asset host is replaced. | Assets are untrusted until verified; without the key the attacker can only stop updates. | Denial. Lost if the key moves into CI. |
-| Compromised workflow or build | A change to the workflow or a dependency alters the exe in CI. | CI only drafts; the operator signs what he sees (hashes, commit); the release is built twice and compared; actions pinned; the workflow is a high-review change; the published release is verified again. | A malicious change in the source that passes review is signed. That is the review's job, not the updater's. |
+| MITM | Alter the download on the network. | HTTPS to a short list of hosts with the system roots, no downgrade to HTTP, redirects only inside the list, then the signature and the hash. A MITM that defeats TLS still cannot sign. | Can block (denial). In the unsigned period (below) a MITM that defeats TLS can also change the hash file. |
+| Key theft | The private key leaves the operator's machine. | Key never in GitHub, passphrase, offline next key, revocation list, section 6.5. Applies from the key ceremony. | A thief with the key and a network position can serve a bad release to users until it is revoked. |
+| Unsigned period | Until a key is embedded in a build, the hash file and the exe come from the same host, so whoever controls the host (a stolen repository account, a changed asset, a defeated TLS) can serve a matching bad exe and hash file. A release is then trusted as far as the host. A second case: after the key arrives, an attacker offers an unsigned release hoping the app accepts it ("downgrade to unsigned"). | While no key is embedded: no release is public and public builds contain no check (section 4.10), so there is no user to reach; apply is off, or only behind the "Unsigned release, checksum only" confirmation in a private build; the operator reads the hashes he confirms. After a key is embedded: unsigned releases are refused, the requirement depends only on the compiled-in keys and no document, setting or state value can lift it, all tested (4.10). | The first keyed release reaches a keyless build with only a checksum: one step with no signature, done by hand or confirmed. A private keyless build trusts its host entirely until updated. |
+| Update server compromise | The repository, a release or the asset host is replaced. | Assets are untrusted until verified; without the key the attacker can only stop updates. | Denial. Lost if the key moves into CI. Not true in the unsigned period (row above). |
+| Compromised workflow or build | A change to the workflow or a dependency alters the exe in CI. | CI only drafts and nothing is published before "go public"; the operator signs what he sees (hashes, commit) once signing exists; the release is built twice and compared; actions pinned; the workflow is a high-review change; the published release is verified again. | A malicious change in the source that passes review is signed. That is the review's job, not the updater's. |
 | TOCTOU between check and apply | The pointer or the downloaded file changes after it was checked. | The pointer is fetched and verified again at the click. The hash is computed on the stream as written and again from the final file just before the swap, from a handle that denies writing. The exe is never started to verify it. | A same-user program that wins a microsecond race on the folder could swap the file; such a program could write the exe directly. Out of scope above. |
 | Page or program triggers an update | A web page or another local program calls the apply route. | Loopback only, Fetch Metadata and Host guards, the apply route is a `POST` that the guard-pin test lists, and the page asks for a click on a visible button with the version shown. | A local program as the user, out of scope. |
 | Rollback copy tampered | The `.prev.exe` is replaced. | Its hash is checked against the state file before it is offered or used. | A same-user program could change both; out of scope. |
-| Privacy leak | The check tells a third party something about the user. | Section 4.6: a plain request of a public file, a fixed `User-Agent` with no version, no identifiers; off by default until the user answers. | The host sees the IP address and the time. Said in the README. |
+| Privacy leak | The check tells a third party something about the user. | Section 4.6: a plain request of a public file, a fixed `User-Agent` with no version, no identifiers; off until the user answers, and not compiled into public builds before "go public". | The host sees the IP address and the time. Said in the README. |
 | Denial of service on the host | Many users poll at once. | Jitter, 6 hours, ETag, `Retry-After`, a 24 hour cap on backoff. | |
 
 ## 9. What the Settings gear needs (for #850)
@@ -484,6 +540,9 @@ An **Updates** section, with these and nothing else from this feature:
 5. **Previous version**: shows the version kept for rollback and a **Roll back** button, or "none".
 6. A line stating what the check sends (section 4.6), kept in the section, not hidden in a tooltip.
 
+In a build without the `updatecheck` tag (every public build until "go public", section 4.10) the section shows one line, "Update
+checks are not available in this build", and none of the controls.
+
 Where stored: `updateCheck` and `updateSkipped` in `settings.json`; everything else in `update-state.json` (section 4.9). Until the gear
 exists, the switch and the question live in the About panel, so the feature does not wait for #850. Not in Settings: the 6 hour interval,
 the host list, the key, the download folder (a fixed behaviour, not a preference).
@@ -495,6 +554,12 @@ Unit tests, pure Go, run in the existing `go` and `windows` jobs:
 - Version and serial: comparison of releases, pre-releases, build metadata; a development build; downgrade, equal and skipped cases.
 - Document parsing: valid files; unknown fields; wrong `product`, `channel` or schema; names with `..`, slashes, drive letters, control
   characters, over-long names; sizes that are negative, huge or wrong; duplicate keys; deep nesting; a body at and over the limit.
+- Optional signature (section 4.10): a keyless build accepts a release with no signature and ignores one that is present, offers
+  apply only behind the "checksum only" confirmation; a keyed build refuses every unsigned variant (no file, empty file, `signature`
+  removed, another product's signature, a document that claims to be unsigned) and no setting or state value lifts that; `keys.go`
+  never holds fewer keys than SECURITY.md lists.
+- Build tag (section 4.10): the default and public build flags do not carry `updatecheck`; the package built without it has no file that
+  imports an HTTP client, dialer or resolver; the netguard test passes with and without the tag.
 - Signature: a good signature; a flipped byte in the document; in the signature; in the trusted comment; a signature of another release
   glued on; the wrong key; the next key; a revoked key; a truncated file; a test vector made by the `minisign` tool.
 - Hash: the exe, a truncated body, a longer body, a stream that stops, a size that differs from the signed one.
@@ -544,35 +609,52 @@ Slices 4 and 5 and 3 are security-sensitive and get a **high** code review.
    channel only, the test that the stamp reaches the exe. The smallest safe slice: nothing leaves the machine, nothing is replaced.
 2. **The self-replace spike.** A test-only change (no product code) that settles section 5.3: rename a running exe on Windows 10 and 11,
    `ReplaceFileW` or not, the behaviour with a synchronised folder and Defender. The result is written into this note.
-3. **Release workflow, signing tool and keys.** `release.yml`, the verify-published workflow, `tools/releasesign`, `internal/update`'s
-   pure part (parse, verify, version compare) and `keys.go`, the key ceremony, SECURITY.md (release process, fingerprints), the README
-   download and check instructions, the tag ruleset, the first release `v0.1.0` marked pre-release to prove the path. No update check yet.
-4. **The check (notify only).** `internal/update/client.go`, the schedule, state file, the three-state setting and the question, the
-   dot and the toast, the Updates section in the About panel, the narrowed netguard test, the README and SECURITY.md privacy text, and the
-   guard-pin test for the routes.
-5. **Apply and rollback.** Staging, double verification, the swap of section 5.3, restart, rollback, skip, the crash harness and the live
-   tests. Behind a "development build refuses" rule until slice 3's first real release exists.
-6. **Settings gear section** (belongs to #850): moves the three controls into the gear. Authenticode (slice 7) is separate.
-7. **Authenticode signing** (only if the operator buys a certificate or service): signing step in the release path, the SmartScreen
-   guidance, optional `WinVerifyTrust` check in the updater.
+3. **Release workflow and the optional-signature parts.** `release.yml` (drafts only), the verify-published workflow, `internal/update`'s
+   pure part (parse, version compare, hash, and signature verification that is optional while `keys.go` is empty, section 4.10), the
+   tag ruleset, the first release `v0.1.0` **kept as a draft**. No update check yet. The key ceremony, `tools/releasesign`, the
+   fingerprints in SECURITY.md and the first non-empty `keys.go` are a separate step (3b) that the operator starts when he wants to sign
+   (6.0); it is not on the path to anything else.
+4. **The check (notify only).** `internal/update/client.go` behind the `updatecheck` build tag, the schedule, state file, the
+   three-state setting and the question, the dot and the toast, the Updates section in the About panel, the narrowed netguard test,
+   the tests of 4.10. The default and public builds leave the tag out, so this may be built and merged, and nothing reaches a user.
+5. **Apply and rollback.** Staging, double verification, the swap of section 5.3, restart, rollback, skip, the "checksum only"
+   confirmation, the crash harness and the live tests. Behind the same tag and behind a "development build refuses" rule until a real
+   release exists.
+6. **Settings gear section** (belongs to #850): moves the controls into the gear; in a build without the tag it shows the one line of
+   section 9. Authenticode (slice 7) is separate.
+7. **Authenticode signing** (later, only if the operator buys a certificate or service): signing step in the release path, the
+   SmartScreen guidance, optional `WinVerifyTrust` check in the updater.
+8. **Go public.** Only when the operator says "go public": the build script adds the `updatecheck` tag to the public build, the README
+   and SECURITY.md privacy text change ("the only outbound connection is the update check", section 4.8), the download and check
+   instructions go into the README, the first release is published (signed if 3b is done, otherwise as a knowingly unsigned,
+   checksum-only release), and the `--latest` rule of 3.4 and the `design` and `kit` workflow test start to matter.
 
-Order: 1, then 2 and 3 in parallel, then 4, then 5. A release made after slice 3 is downloaded by hand; slices 4 and 5 are what turn it
+What waits for "go public": **slice 8**, and the *shipping* of slices 4, 5 and 6 (their code may land earlier behind the tag, but no
+public build carries it and no release is published before slice 8). Slice 3b waits for the operator's wish to sign, not for "go
+public"; once it is done, a build with the key refuses unsigned releases (4.10). Slices 1, 2 and 3 do not wait.
+
+Order: **1 first** (it is unaffected: no network, nothing replaced), then 2 and 3 in parallel, then 4, then 5, then 6; 3b whenever the
+operator chooses; 8 on his word. A release made after slice 3 stays a private draft; slices 4 and 5 are what turn a published release
 into an update.
 
-## 12. Open questions for the operator
+## 12. Decisions
 
-Only what is really the operator's to decide:
+The operator answered the questions of the first version of this note on 2026-11-16. Four of the six answers concern the editor:
 
-1. **Authenticode.** Buy a code-signing certificate or use a cloud signing service, now, later or never? The design works without it
-   (the ed25519 signature is what the updater trusts); it only affects the SmartScreen warning on a first download by hand and costs money
-   every year.
-2. **Default of the check.** Recommended: ask once, before any connection, and never check until the answer is Yes (section 4.7). It matches
-   #577's "opt-in" and the README's present promise. The alternative is "on until turned off", which is what the issue literally says.
-3. **Who signs.** Recommended: the operator, on his own machine, with the key never in GitHub (section 6.3), which costs one command per
-   release. The alternative is a key in a protected CI environment, which saves that command and gives up the property that a stolen
-   repository account cannot ship a release.
-4. **First version number.** `v0.1.0` for the first release (the CHANGELOG says `v0.x` until the first audited release), or another
-   starting point.
+1. **Authenticode: later.** Not bought now; it is slice 7 and does not change the design (6.1).
+2. **The editor asks once before any check.** No connection is made until the answer is Yes (4.7), which matches #577's "opt-in".
+3. **The operator signs on his own machine** once signing exists, with the key never in GitHub (6.3), one command per release.
+4. **First version: `v0.1.0`** (the CHANGELOG says `v0.x` until the first audited release).
 
-Decided in this note, not asked: the poll, the six hours, the toast and dot, the skip and off switches, rename-and-restart, ed25519 now,
-one channel.
+(The other two answers concern another program and are not part of this note.)
+
+Two changes were made at the same time:
+
+- **Signing is optional for now.** The signature field and files are optional in the manifest and the app until a public key is
+  embedded in a build. Without a key, apply is off or marked "unsigned release, checksum only" behind an explicit confirmation; with a
+  key, unsigned releases are refused and there is no way back (tested). See 4.10, 6.0 and the "Unsigned period" row of section 8.
+- **No release goes to the public yet.** Releases stay draft or private; the update check ships disabled in public builds, with no
+  network code reachable, until the operator says "go public". Slice 1 is unaffected and first; section 11 marks what waits.
+
+Decided in this note, not asked: the poll, the six hours, the toast and dot, the skip and off switches, rename-and-restart, ed25519
+when signing starts, one channel.
