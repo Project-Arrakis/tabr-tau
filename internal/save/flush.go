@@ -137,7 +137,7 @@ func (s *Save) Flush() Flush {
 
 // heldWhy is the sentence for a queue that was held.
 func heldWhy(h *Held) string {
-	why := "the game saved changes that conflict with the queued ones, so none of them was written"
+	why := "the game saved changes that conflict with the queued ones, so none of them was written; discard the queue and make the changes again"
 	if len(h.Conflicts) > 0 {
 		why += " (" + h.Conflicts[0].Desc + ": " + h.Conflicts[0].Why + ")"
 	}

@@ -522,6 +522,9 @@ function queueLine(desc) {
   if ((m = d.match(/^decree (\d+) disabled=([01])$/))) return `Set the pool flag of decree ${m[1]} to ${m[2]}`;
   if ((m = d.match(/^journey (\S+) (completed|reset) \((\d+) rows?\)$/))) return `Journey step ${m[1]}: ${m[2]}`;
   if ((m = d.match(/^moved vehicle (\d+) next to player$/))) return `Move vehicle ${m[1]} next to the character`;
+  // Landsraad edits name their houses and factions (#611): several houses, then one house
+  if ((m = d.match(/^landsraad: (\d+) houses (completed|reopened)(?: for ([^:]+))?: (.+)$/))) return `${m[2] === 'completed' ? 'Complete' : 'Reopen'} ${m[1]} Landsraad ${+m[1] === 1 ? 'house' : 'houses'}${m[3] ? ' for ' + m[3] : ''}: ${m[4]}`;
+  if ((m = d.match(/^landsraad (?!term |task )([^:]+): (.+)$/))) return `${m[1]} (Landsraad): ${capFirst(m[2])}`;
   return capFirst(d);
 }
 // The game rewrites game.db about every twenty seconds while a session runs. With nothing queued the editor reads the new file by itself and
@@ -588,7 +591,7 @@ async function status() {
   const n = (one, many) => (q === 1 ? one : many);
   // a queue the editor could not put back onto the game's newer file: none of it was written
   const unlistedMsg = unlisted ? html`<div><b>Unlisted changes are waiting to be written.</b> They are written by themselves as soon as the file can be written. <button class="b sm d-btn primary sm" data-act="writeNow">Write now</button></div>` : html``;
-  const heldMsg = o.held ? html`<div><b>${q} queued change${q > 1 ? 's were' : ' was'} not written.</b> The game saved changes that conflict with ${q > 1 ? 'them' : 'it'}, so the editor left the game's file as it is.
+  const heldMsg = o.held ? html`<div><b>${q} queued change${q > 1 ? 's were' : ' was'} not written.</b> The game saved changes that conflict with ${q > 1 ? 'them' : 'it'}, so the editor left the game's file as it is. Discard the queue and make the change${q > 1 ? 's' : ''} again.
     ${(o.held.conflicts || []).map((c) => html`<div>${c.desc}: ${c.why}</div>`)} <button class="b sm d-btn primary sm" data-act="discardQueue">Discard queue</button></div>` : html``;
   let mainMsg = html``;
   if (o.locationUnconfirmed) mainMsg = html`<div><b>Changes cannot be written here yet.</b> ${reason.text} You can keep editing: changes wait in the queue. <button class="b sm d-btn primary sm" data-act="confirmLocation">Allow writing here</button></div>`;

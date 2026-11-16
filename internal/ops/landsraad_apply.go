@@ -141,10 +141,12 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 			return nil, err
 		}
 	}
-	var houses, changed, raised, lowered, completed, reopened int64
+	var houses, changed, raised, lowered, completed, reopened, repaired int64
+	var replaced []replacedWin
 	var rw rewardResult
 	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
-		houses, changed, raised, lowered, completed, reopened = 0, 0, 0, 0, 0, 0
+		houses, changed, raised, lowered, completed, reopened, repaired = 0, 0, 0, 0, 0, 0, 0
+		replaced = nil
 		rw = rewardResult{}
 		if err := currentTerm(m, termID); err != nil {
 			return err
@@ -227,6 +229,15 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 		}
 		for _, s := range steps {
 			it := s.it
+			if it.completeFor != nil { // a win of another faction that this completion takes away is named in the answer and the write log (D1-3, #611)
+				prev, err := replacedWinner(m, s.t, *it.completeFor)
+				if err != nil {
+					return err
+				}
+				if prev != "" {
+					replaced = append(replaced, replacedWin{house: houseOf(s.t), winner: prev})
+				}
+			}
 			did := false
 			doneByRaise := false // grantRaise took the house for the character's faction: the completion below must not be made, or counted, a second time (#751)
 			if it.mineTo != nil {
@@ -298,14 +309,16 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 			}
 		}
 		if changed > 0 {
-			m.Desc = fmt.Sprintf("landsraad: %d houses changed from the board", changed)
+			m.Desc = fmt.Sprintf("landsraad: %d houses changed from the board%s", changed, replacedText(replaced))
 		}
-		_, rerr := repairCompletionTimes(m, termID)
+		var rerr error
+		repaired, rerr = repairCompletionTimes(m, termID)
+		noteRepair(m, repaired)
 		return rerr
 	}); err != nil {
 		return nil, err
 	}
-	return resetAnswer(changed, map[string]any{"houses": houses, "skipped": houses - changed, "contribution_raised": raised, "contribution_lowered": lowered, "completed": completed, "reopened": reopened, "events": rw.events, "reward_rows": rw.rewardRows, "swatches": rw.swatches, "rewards_already_given": rw.skipped,
+	return resetAnswer(changed, map[string]any{"houses": houses, "skipped": houses - changed, "contribution_raised": raised, "contribution_lowered": lowered, "completed": completed, "reopened": reopened, "repaired": repaired, "replaced": replacedAnswer(replaced), "events": rw.events, "reward_rows": rw.rewardRows, "swatches": rw.swatches, "rewards_already_given": rw.skipped,
 		"missions": rw.missions, "solari": rw.solari, "house_scrip": rw.scrip, "specialization_xp": specAnswer(rw.spec)}), nil
 }
 
