@@ -1,4 +1,5 @@
-# Changelog
+# Changel- **Vehicles and Bases: Details and Open no longer send the list that was clicked in back to its top** (fixes #824, refs #706, #707; page only, no save write). Since #707 a click that shows other rows in a table box (Details on a vehicle, Open on a base, a base tab or inventory group, an inventory group) dropped the scroll offset of every box, including the list that holds the button just pressed, whose rows had not changed. In a long list the person was thrown back to the top and the focused button was hidden inside the box. The box that holds the pressed control now keeps its offset; the boxes that show other rows still start at their top.
+og
 
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/), tags `v0.x` until the first audited release.
