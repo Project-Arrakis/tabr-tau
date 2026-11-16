@@ -57,7 +57,7 @@ func bestHealthOf(table string) string {
 		left join (select column1 ty, column2 cap from (values ` + capValues(seen) + `)) c on c.ty=s.building_type)`
 }
 
-// RepairBuildings raises every building piece and placeable of the whole save to the repair target of its type (bestHealthOf: the best health seen on standing pieces of the player's own bases, held to the cap of the type, #613). It is the
+// RepairBuildings raises every building piece and placeable of the whole save (a placeable hologram is left as it is, as in RepairBase, #770) to the repair target of its type (bestHealthOf: the best health seen on standing pieces of the player's own bases, held to the cap of the type, #613). It is the
 // save-wide action; the Structures tab offers it apart from the open base's own, RepairBase (#526).
 //
 // The best health of each type is worked out once, by one grouped scan, and the pieces are joined to it. The statement used to look the
@@ -75,7 +75,7 @@ func (o *Ops) RepairBuildings() (any, error) {
 		n, _ = res.RowsAffected()
 		res2, err := m.Exec(`update placeables set health=best.top
 			from ` + bestHealthOf("placeables") + ` best
-			where placeables.building_type=best.bt and placeables.health < best.top`)
+			where placeables.building_type=best.bt and placeables.health < best.top and placeables.is_hologram=0`)
 		if err != nil {
 			return err
 		}

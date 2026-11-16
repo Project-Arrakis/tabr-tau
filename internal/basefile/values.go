@@ -15,7 +15,7 @@ import (
 // give paths keep (a slot holds no more than the item's stack size, one item to a slot), and a ceiling for the figures the game's tables do not give us per item. Every rule was
 // run over the whole of a real save (30,627 items, 3,457 pieces, 230 placeables): none of them refuses anything the game wrote.
 
-// The ceilings. The real figures seen are far below them (a foundation 7,000, a placeable 2,500, gear durability 100); the ceilings are there to refuse the absurd, not to model
+// The ceilings. The real figures seen are far below them (a foundation 7,000, a placeable 20,000, gear durability 100); the ceilings are there to refuse the absurd, not to model
 // the game. A stack of an item the catalog does not know is held to the largest stack the catalog knows (100,000).
 const (
 	// MaxPieceHealth is the most health a building piece or a placeable may have in a file. It is a wide ceiling (the game's figures seen are far below it); what the repair functions copy onto a piece is held to much lower caps of their own (ops/healthcaps.go, #613).
