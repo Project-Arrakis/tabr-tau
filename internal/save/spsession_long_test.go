@@ -17,7 +17,7 @@ func wholeParse(text string) spStatus {
 			tr.feed(strings.TrimRight(line, "\r"))
 		}
 	}
-	return spStatus{Active: tr.SPActive, EndedAt: tr.EndedAt, LastSaveAt: tr.LastSaveAt}
+	return spStatus{Active: tr.SPActive, EndedAt: tr.EndedAt, LastSaveAt: tr.LastSaveAt, MarkerSeen: tr.seen, WritesAfterEnd: tr.writesAfterEnd}
 }
 
 func setChunks(t *testing.T, chunk, maxLine int) {

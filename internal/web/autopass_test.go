@@ -199,13 +199,48 @@ func TestAutoPassWritesNothingDuringASinglePlayerSession(t *testing.T) {
 	}
 }
 
-// #499: the pass has the gate of an edit made by hand. With the game open at its menu, long after the player left the world (the game wrote once more just after the exit and
-// has been silent since), the pass runs at once and the game stays open.
-func TestAutoPassRunsAtTheMenuWithTheGameOpen(t *testing.T) {
+// #612 (G-007): the pass has the gate of an edit made by hand AND waits for every game process, because nobody watches it and the log is the one thing that says a world is
+// loaded. With the game open at its menu, long after the player left the world (the gate of an edit made by hand lets a write through), the pass waits and writes nothing;
+// when the game closes it runs.
+func TestAutoPassWaitsWhileTheGameIsOpenAtTheMenuAndRunsWhenItCloses(t *testing.T) {
+	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
+	before, _ := os.ReadFile(s.Save.Path)
+	restore := save.GameAtMenuForTests()
+	if g := save.GameStateFor(s.Save.Path, true); g.Blocked {
+		t.Fatalf("the gate of an edit made by hand must let a write through here: %+v", g)
+	}
+	s.RunStartupTasks()
+	note, warn := s.takeStartup()
+	if warn || !strings.Contains(note, "Automatic refill queued: the game is open") || !strings.Contains(note, "until the game is closed") || !strings.Contains(note, "It runs by itself") {
+		t.Fatalf("note %q warn %v", note, warn)
+	}
+	if !isWaiting(s) {
+		t.Fatal("the pass should be waiting")
+	}
+	if w := postEditGet(t, s, "/api/settings"); !strings.Contains(w, `"waiting":true`) || !strings.Contains(w, `"waitingWhy":"the game is open`) {
+		t.Fatalf("the card must carry the reason: %s", w)
+	}
+	s.retryWaitingPass() // the game is still open: nothing happens, however often it is retried
+	s.retryWaitingPass()
+	if after, _ := os.ReadFile(s.Save.Path); !bytes.Equal(before, after) || s.Save.Dirty() || len(s.Save.Backups()) != 0 || len(logLines(t, dir)) != 0 || !isWaiting(s) {
+		t.Fatal("the pass wrote while the game was open")
+	}
+	restore() // the game closes
+	s.retryWaitingPass()
+	if note, _ := s.takeStartup(); !strings.Contains(note, "Automatic refill saved ") {
+		t.Fatalf("after the game closed the pass should run: %q", note)
+	}
+	if got := autoPassFile(t, s.Save.Path); got["water"] != int64(5000) || got["gear"] != 100.0 {
+		t.Fatalf("the written file: %v", got)
+	}
+}
+
+// #612: a pass asked for by hand ("Run the automatic pass now") has a person looking, so it keeps the gate of an edit made by hand: with the game open at its menu it runs.
+func TestAutoPassAskedForByHandRunsAtTheMenuWithTheGameOpen(t *testing.T) {
 	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
 	before, _ := os.ReadFile(s.Save.Path)
 	defer save.GameAtMenuForTests()()
-	s.RunStartupTasks()
+	s.RunPassNow()
 	note, warn := s.takeStartup()
 	if warn || !strings.Contains(note, "Automatic refill saved ") || strings.Contains(note, "queued") {
 		t.Fatalf("note %q warn %v", note, warn)
@@ -216,14 +251,11 @@ func TestAutoPassRunsAtTheMenuWithTheGameOpen(t *testing.T) {
 	if after, _ := os.ReadFile(s.Save.Path); bytes.Equal(before, after) || s.Save.Dirty() || len(s.Save.Backups()) != 1 || len(logLines(t, dir)) != 1 {
 		t.Fatal("the pass did not write once at the menu")
 	}
-	if got := autoPassFile(t, s.Save.Path); got["water"] != int64(5000) || got["gear"] != 100.0 {
-		t.Fatalf("the written file: %v", got)
-	}
 }
 
 // #419, #499: the pass ran at the character-selection screen 23 seconds after the player left the world and wrote the save. In that grace (the game wrote its database 20
 // seconds ago, the session ended 23 seconds ago) the pass writes nothing and queues nothing, and the banner and the card say what is waited for in the words of an edit made
-// by hand, not "the game is open". It runs on the freshly read file as soon as the gate lets a write through, with the game still open.
+// by hand, not "the game is open". It runs on the freshly read file once the game is closed (#612: the pass at launch waits for every game process).
 func TestAutoPassWaitsInTheGraceAfterLeavingTheWorldAndRunsWhenItEnds(t *testing.T) {
 	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
 	before, _ := os.ReadFile(s.Save.Path)
@@ -249,10 +281,15 @@ func TestAutoPassWaitsInTheGraceAfterLeavingTheWorldAndRunsWhenItEnds(t *testing
 		t.Fatal("the retry wrote inside the grace")
 	}
 	restore()
-	defer save.GameAtMenuForTests()() // the grace is over: the game is still open, at its menu
+	restoreMenu := save.GameAtMenuForTests() // the grace is over: the game is still open, at its menu, and the pass still waits for it to close (#612)
+	s.retryWaitingPass()
+	if note, _ := s.takeStartup(); note != "" || !isWaiting(s) {
+		t.Fatalf("after the grace the pass must go on waiting while the game is open: %q", note)
+	}
+	restoreMenu() // the game closes
 	s.retryWaitingPass()
 	if note, _ := s.takeStartup(); !strings.Contains(note, "Automatic refill saved ") {
-		t.Fatalf("after the grace the pass should run with the game still open: %q", note)
+		t.Fatalf("after the game closed the pass should run: %q", note)
 	}
 	if isWaiting(s) {
 		t.Fatal("the pass ran, so it is no longer waiting")

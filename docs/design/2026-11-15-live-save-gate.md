@@ -1,0 +1,60 @@
+# The live-save gate no longer rests on the text of the game's log alone
+
+Issue #612 (audit group D2 of `docs/audit/2026-11-13-delta-register.md`, and finding G-007 of the full audit of 2026-11-14). Single player only. This note says what the gate
+read, what changed, and what is not known and needs a check in the game.
+
+## What the gate read
+
+While a game process exists, the editor decides "a world is loaded, so the edit waits" from the game's log (`Saved/Logs/DuneSandbox.log`): a browse line that ends in
+`?listen` starts a session, a `?closed` or remote browse (or an exit line) ends it, and the line of the database write gives the time of the game's last write. If a game update
+rewords those lines, or the game is started with another launch URL, no line matches, the state is empty, and the old code went on to the open-file check and answered "menu":
+an edit was written while a world was loaded, and the game overwrote it about every 20 seconds.
+
+## What changed
+
+| Row | Change |
+|---|---|
+| D2-1 | A second signal that does not depend on any text: the save file's own modification time (the newest of the file and a `-wal` or `-journal` file next to it, when one exists). While a game process exists, the file must have been unchanged for as long as the log's rule says the game has been quiet: 60 seconds after a clean exit (the end marker and exactly one later write), 3 minutes in every other case where the log gives evidence. The editor's own writes move the file's time too, so the editor remembers the size and time of the file it installed (taken right after the rename, dropped when the read-back does not confirm it) and a file that is still that file is not counted as the game's. A time that cannot be read, or that lies in the future, is not quiet. |
+| D2-1 | "No marker ever seen for a running game" is unknown, not "menu". When the log can be read and holds no session line at all (no start, no end, no exit, no write line), the file must have been unchanged for **10 minutes** (`noMarkerQuietFor`); the game is open and nothing in its log says it is idle. |
+| D2-2 | `menuQuietAfterWrite` goes from 23 to 60 seconds. The short wait (30 s after the end and 60 s after the last write) is used only when the log shows **exactly one** write after the end marker, which is what 19 exits from a world showed. With two or more writes after it, the marker was not the end of the world (a local `?closed` browse while the world stayed loaded, a map load without `?listen`), and the longer rules apply: 3 minutes since the last write and 6 minutes after the end. |
+| D2-3 | A browse line ends a session only under the strict reading (the words stand at the start of the line's text, after the logger's prefixes and the category). A line that merely contains them is not an end. Starts keep the wide reading (a spurious start makes the editor wait, the safe direction), and the exit and log-closed markers keep counting anywhere in a line. |
+| G-007 | The automatic pass at launch and its retries (`runPass(false)`, `retryWaitingPass`) are unattended: they wait for **every** game process to be gone (`save.UnattendedStateFor`), whatever the log and the file say, as before #499. A pass asked for by hand (**Run the automatic pass now**) has a person looking and keeps the gate of an edit made by hand. |
+| D2-4 | No change needed (the register says so: a copy is told apart by path, and the function answers "the game's own" when in doubt). |
+| D2-5 | No change (the test hooks are guarded by `TestTestHooksAreNotCalledByProductionCode`; the two new hook lines only stand in for the file's time). |
+
+## Why these numbers
+
+- 60 s after the last write: a little under three of the largest gap between two writes seen while a world is loaded (22.7 s). Waiting costs a minute; a wrong guess costs the edit.
+- 10 min with no marker: longer than the 3-minute flat quiet time, and longer than the "about every five minutes" autosave an older note mentions. Nothing in the log can tell the editor that the game is idle here, so only a long-unchanged file counts.
+- The file-time check never lets anything through that the log blocks: it is an additional condition, checked after the log's rules, before the open-file check.
+
+## What the old rule allowed and the new one does not (all in tests, on synthetic log lines and temp files)
+
+- Game open, log readable, no line matches, file written 20 seconds ago: waits (was: written).
+- Game open, log says the session ended an hour ago, file written 10 seconds ago: waits (was: written).
+- A `?closed` browse while the game goes on writing every 20 seconds: no short wait (was: written 30 s after the browse).
+- A log line of another category that holds the words of a closed browse: not an end.
+- The unattended pass with the game open at its menu: waits for the game to close (was: ran).
+
+## Not known: needs a check in the game
+
+These cannot be settled from the code or from the logs checked so far. The margins above are chosen so that a wrong answer waits longer, not writes sooner.
+
+1. **How often the save file's own modification time moves while a world is loaded.** The log says the game writes its database about every 20 seconds, but the editor has not
+   compared that with the file's time: the game may write the file less often than it writes the database, or keep its writes in a sidecar file the editor does not know
+   (the editor looks at `-wal` and `-journal` next to the file). If the file's time moves only every few minutes, the 60-second and 3-minute margins are then shorter than a
+   file's quiet gap while a world is loaded, and the log's rules are the only guard in those cases. Check: with a world loaded, watch the file's time for ten minutes and note
+   the gaps.
+2. **What the log looks like when the game is started at its menu and no world has been loaded.** If the log then has no session line, the editor waits until the file has been
+   unchanged for 10 minutes before an edit is written (it is queued with the reason meanwhile). If the file has not been written for longer than that, there is no wait. Check:
+   start the game, stay at the menu, and read the log for the lines the editor knows.
+3. **Whether the game holds the file open at its menu** (unchanged from #449): the open-file check is still the last step.
+4. **Whether the editor may relax the unattended pass again** (G-007): once points 1 and 2 are known, the pass could be allowed with the game open at its menu when the file's time
+   is older than the margin. Until then it waits for the game to close.
+
+## Residual risk
+
+- The pass checks "no game process" and then writes through the ordinary gate. A game started in the few milliseconds between the two is covered by the ordinary gate only (the
+  log, and a file unchanged for 10 minutes when the log is still empty).
+- A game that rewrites the file less often than every 10 minutes while a world is loaded, with a log that matches nothing, is not caught. That needs both a reworded log and the
+  file's time failing, and point 1 above would show it.

@@ -121,14 +121,19 @@ func (s *Save) installBlob(blob []byte) error {
 		os.Remove(tmp)
 		return err
 	}
+	// The file's own time is the gate's second signal (#612): the editor says which file it installed, right after the rename, so its time is not taken for the game's. A write
+	// by the game after this changes size or time and the record stops matching; a write that is not confirmed below is forgotten.
+	noteOwnWrite(s.Path)
 	back, err := readBackRetry(s.Path)
 	if err != nil {
+		forgetOwnWrite(s.Path)
 		// The rename went through: the file on disk is, as far as anyone can tell, the edited save. Saying the edits "stay queued" would have them written a second time onto it.
 		return writtenUnverified(err)
 	}
 	if bytes.Equal(back, blob) {
 		return nil
 	}
+	forgetOwnWrite(s.Path)
 	// The file is not what was written. The usual reason is that the game saved right after the rename, so the file now on disk may be the game's newest and must not be
 	// replaced by the copy taken before the edits: look at what is there now and only say what is true. Nothing is written from here.
 	now, rerr := readBackRetry(s.Path)
