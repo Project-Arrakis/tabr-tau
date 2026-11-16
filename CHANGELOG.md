@@ -6,6 +6,7 @@ Versioning: [Semantic Versioning](https://semver.org/), tags `v0.x` until the fi
 ## [Unreleased]
 
 ### Added
+- **Docs: a design note for build numbers, releases and an in-app update check** (docs only, no behaviour change; #806). It settles the version and build counter, the release layout, signing, the release workflow, the swap of the running exe and the build slices, and records that the update check will be the one exception to "no outbound connection" and which places change with it. Nothing is built yet.
 - **Reference pictures for the Landsraad tab in `docs/art/landsraad/`** (docs only; nothing in the editor loads them): the 25 house symbols at 128 px, the five mission lane icons, the five specialization banner icons and 15 decree pictures, with a README that lists every file. Game artwork, covered by `docs/art-notice.md`.
 
 ### Changed
