@@ -145,6 +145,14 @@ func (o *Ops) Landsraad() (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	// the ground the editor itself paid (landsraad_paid.go), queued raises included, for the page to work out what a click grants: it is trusted only while a reward row of this term stands for the house
+	pendingPaid := o.S.PendingNotes(paidNoteKind)
+	standing := map[string]bool{}
+	for _, d := range delivered {
+		if upd, _ := toFloat(d["last_updated"]); upd >= termStart {
+			standing[fmt.Sprint(d["house_name"])] = true
+		}
+	}
 	for _, t := range tasks {
 		id, _ := t["id"].(int64)
 		t["contributions"] = byTask[id]
@@ -171,6 +179,7 @@ func (o *Ops) Landsraad() (any, error) {
 			}
 		}
 		t["my_elsewhere"] = elsewhere
+		t["my_paid"] = paidOf(o.Paid, pendingPaid, mineID, termID, fmt.Sprint(t["house_name"]), standing[fmt.Sprint(t["house_name"])])
 		// a tier is reached when the contribution is at least its threshold; whether it is delivered (and what stands at the house representative) is decided per tier by
 		// tierState in landsraad_board.go: the reward row of this term (#656, #655)
 		tiers := rw[id]

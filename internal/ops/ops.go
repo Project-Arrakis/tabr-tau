@@ -35,7 +35,11 @@ var (
 )
 
 // Ops bundles operations over one save.
-type Ops struct{ S *save.Save }
+type Ops struct {
+	S *save.Save
+	// Paid is the editor's own record of the Landsraad ground it paid (landsraad_paid.go); nil keeps none, as in a test that does not look at it.
+	Paid *PaidLedger
+}
 
 // Args is a decoded JSON request body.
 type Args map[string]any

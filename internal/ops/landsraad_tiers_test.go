@@ -66,29 +66,30 @@ func TestTiersARewardOfAnEarlierTermDoesNotBlockThisTerm(t *testing.T) {
 	}
 }
 
-// A house raised twice: the same tier again pays nothing, a higher tier adds only the tiers above. The editor writes no event (#655), so a removal followed by the same raise pays
-// the tiers above the lower contribution again; only the character's own events, written by the game, cover ground for good (TestTiersTheGamesEventsCoverATierForGood).
-func TestTiersARaisedHouseIsPaidOncePerTierWhileTheContributionStands(t *testing.T) {
+// A house raised twice: the same tier again pays nothing, a higher tier adds only the tiers above, and so does the same raise after a removal: the editor remembers the ground it paid
+// (#777). The character's own events, written by the game, cover ground for good too (TestTiersTheGamesEventsCoverATierForGood).
+func TestTiersARaisedHouseIsPaidOncePerTier(t *testing.T) {
 	o := rewardOps(t, solariTiers)
 	raise(t, o, 0, 3600)
+	first := solari(t, o)
 	// the same contribution again: nothing to do
 	if m := raise(t, o, 3600, 3600); m["changed"].(int64) != 0 {
 		t.Fatalf("the same tier twice changed something: %v", m)
 	}
-	// removed and given again: nothing remembers the tiers, the two tiers above 1,200 are paid again
+	// removed and given again: the tiers above 1,200 were paid, so they are not paid again
 	applyWith(t, o, DefaultGrantSettings(), house(175, Args{"was_mine": 3600.0, "mine_to": 1200.0, "lower": true}))
-	if m := raise(t, o, 1200, 3600); m["reward_rows"].(int64) != 2 || m["rewards_already_given"].(int64) != 0 {
-		t.Fatalf("the tiers above 1,200 were not paid again: %v", m)
+	if m := raise(t, o, 1200, 3600); m["reward_rows"].(int64) != 0 || m["rewards_already_given"].(int64) != 2 {
+		t.Fatalf("the tiers above 1,200 were paid again: %v", m)
 	}
-	if solari(t, o) != "map[amount:11000 last_updated:150]\n" {
-		t.Fatalf("Solari after the repeat: %s", solari(t, o))
+	if solari(t, o) != first {
+		t.Fatalf("Solari after the repeat: %s, was %s", solari(t, o), first)
 	}
 	// a higher tier adds only the new tier
 	if m := raise(t, o, 3600, 4800); m["reward_rows"].(int64) != 1 || m["rewards_already_given"].(int64) != 0 {
 		t.Fatalf("higher tier: %v", m)
 	}
-	if got := solari(t, o); got != "map[amount:16000 last_updated:150]\n" {
-		t.Fatalf("only the 4,800 tier of 5,000 is added: %s", got)
+	if got := solari(t, o); got != "map[amount:15500 last_updated:150]\n" {
+		t.Fatalf("only the 4,800 tier of 5,000 is added to %s: %s", first, got)
 	}
 }
 

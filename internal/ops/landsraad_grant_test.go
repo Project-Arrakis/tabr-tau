@@ -117,9 +117,9 @@ func TestGrantAtTheStockSettingsAMissionIsOneThousandAndFifteenHundred(t *testin
 	}
 }
 
-// A second Fill grants nothing while the contribution stands. The editor writes no event (#655), so it does not remember ground it paid once the contribution is lowered: a removal
-// and the same raise again grant the missions above the lower contribution again (the reward of the top tier is not repeated: the swatch of this term remembers it).
-func TestGrantASecondFillGrantsNothingTwiceButARaiseAfterARemovalGrantsAgain(t *testing.T) {
+// A second Fill grants nothing while the contribution stands, and a removal followed by the same raise grants nothing either: the editor remembers the ground it paid (#777), so
+// the missions, the reward rows and the wallets are not paid again.
+func TestGrantASecondFillAndARaiseAfterARemovalGrantNothingTwice(t *testing.T) {
 	o := rewardOps(t, "")
 	queue := progressTables(t, o)
 	applyWith(t, o, doubled(), house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0}))
@@ -141,17 +141,17 @@ func TestGrantASecondFillGrantsNothingTwiceButARaiseAfterARemovalGrantsAgain(t *
 	if got := grantRows(t, o); got == removed || strings.Replace(got, "amount:6000", "amount:4800", 1) != removed {
 		t.Fatalf("something besides the contribution changed:\n%s\n---\n%s", removed, got)
 	}
-	// removed down to nothing and filled again: the editor has no event to remember the ground, so the missions are granted again (3 at a step of 2,000), and the tiers below the top are
-	// delivered again too; the top tier (the swatch of this term) is not
+	// removed down to nothing and filled again: the ground was paid by the editor, so no mission, no reward row and no wallet change, and the answer says so (#777)
+	paidWallets := [2]int64{wallet(t, o, 0), wallet(t, o, 1)}
 	for _, st := range [][2]float64{{6000, 4800}, {4800, 3600}, {3600, 2400}, {2400, 1200}, {1200, 0}} {
 		applyWith(t, o, doubled(), house(175, Args{"was_mine": st[0], "mine_to": st[1], "lower": true}))
 	}
 	m = applyWith(t, o, doubled(), house(175, Args{"mine_to": 6000.0}))
-	if m["missions"].(int64) != 3 || m["reward_rows"].(int64) != 4 || m["rewards_already_given"].(int64) != 1 {
-		t.Fatalf("a Fill after the row was deleted: %v", m)
+	if m["missions"].(int64) != 0 || m["reward_rows"].(int64) != 0 || m["rewards_already_given"].(int64) != 5 || m["missions_paid_before"].(int64) != 3 || m["ground_paid_before"].(float64) != 6000 {
+		t.Fatalf("a Fill after the row was deleted paid again or did not say why: %v", m)
 	}
-	if wallet(t, o, 0) != 12000+18000 || wallet(t, o, 1) != 2000+3000 {
-		t.Fatalf("the wallets: %d, %d", wallet(t, o, 0), wallet(t, o, 1))
+	if got := [2]int64{wallet(t, o, 0), wallet(t, o, 1)}; got != paidWallets {
+		t.Fatalf("the wallets changed: %v, was %v", got, paidWallets)
 	}
 	if got := progressTables(t, o); got != queue {
 		t.Fatalf("the progress tables or the cursor changed (#655): %s", got)
@@ -515,9 +515,8 @@ func TestGrantAFactionChangeDoesNotMakeTheSameRaisePayAgain(t *testing.T) {
 	}
 }
 
-// What the editor does not remember (#655), stated by a test: lowering and raising one tier of an open house adds the same ground to the faction's progress each time, and the tier
-// box being a toggle, a repeat pays again.
-func TestGrantARemovalAndTheSameRaiseAddsTheFactionsProgressAgain(t *testing.T) {
+// Lowering and raising one tier of an open house does not add the same ground to the faction's progress again, and a repeated click on the highest tier does not pay twice (#777).
+func TestGrantARemovalAndTheSameRaiseDoesNotAddTheFactionsProgressAgain(t *testing.T) {
 	o := rewardOps(t, "")
 	applyWith(t, o, DefaultGrantSettings(), house(176, Args{"mine_to": 1200.0}))
 	if v, _ := progress(t, o, 2, 176); v != 1200 {
@@ -525,16 +524,21 @@ func TestGrantARemovalAndTheSameRaiseAddsTheFactionsProgressAgain(t *testing.T) 
 	}
 	applyWith(t, o, DefaultGrantSettings(), house(176, Args{"was_mine": 1200.0, "mine_to": 0.0, "lower": true}))
 	applyWith(t, o, DefaultGrantSettings(), house(176, Args{"mine_to": 1200.0}))
-	if v, _ := progress(t, o, 2, 176); v != 2400 {
-		t.Fatalf("faction progress after the same raise again (stated in the docs): %v", v)
+	if v, _ := progress(t, o, 2, 176); v != 1200 {
+		t.Fatalf("faction progress after the same raise again: %v", v)
 	}
-	if wallet(t, o, 0) != 2*2*6000 { // two missions at the stock step for 1,200, paid twice
+	if wallet(t, o, 0) != 2*6000 { // two missions at the stock step for 1,200, paid once
 		t.Fatalf("Solari: %d", wallet(t, o, 0))
+	}
+	// a higher tier adds only the ground above what was paid
+	applyWith(t, o, DefaultGrantSettings(), house(176, Args{"was_mine": 1200.0, "mine_to": 2400.0}))
+	if v, _ := progress(t, o, 2, 176); v != 2400 {
+		t.Fatalf("faction progress after a higher tier: %v", v)
 	}
 }
 
-// Without the swatch tables (the older layout) the top tier delivers the task's own item, and nothing remembers it: after a removal the same raise delivers it again (the amount adds up).
-func TestGrantTheTopTierAfterARemovalWithoutSwatchTablesIsDeliveredAgain(t *testing.T) {
+// Without the swatch tables (the older layout) the top tier delivers the task's own item; the editor remembers the ground it paid, so after a removal the same raise does not deliver it again (#777).
+func TestGrantTheTopTierAfterARemovalWithoutSwatchTablesIsNotDeliveredAgain(t *testing.T) {
 	o := mineOps(t, goalWorld)
 	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0})))
 	own := func() string {
@@ -544,10 +548,10 @@ func TestGrantTheTopTierAfterARemovalWithoutSwatchTablesIsDeliveredAgain(t *test
 		t.Fatalf("the task's own item after the first raise: %s", got)
 	}
 	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 6000.0, "mine_to": 4800.0, "lower": true})))
-	if m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 4800.0, "mine_to": 6000.0}))); m["reward_rows"].(int64) != 1 {
+	if m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 4800.0, "mine_to": 6000.0}))); m["reward_rows"].(int64) != 0 || m["rewards_already_given"].(int64) != 1 {
 		t.Fatalf("answer: %v", m)
 	}
-	if got := own(); got != "map[amount:2]\n" {
-		t.Fatalf("the top tier's own item is delivered again (stated in the docs): %s", got)
+	if got := own(); got != "map[amount:1]\n" {
+		t.Fatalf("the top tier's own item is delivered again: %s", got)
 	}
 }

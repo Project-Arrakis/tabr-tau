@@ -336,6 +336,7 @@ var knownFileWriters = map[string]bool{
 	"internal/save.markIncomplete":      true, // the journal's incomplete-write mark
 	"internal/config.write":             true, // the game's config files, never the save
 	"internal/settings.writeFileAtomic": true, // the editor's own settings file, its backup copy and its damaged copy
+	"internal/ops.Record":               true, // the editor's own record of the Landsraad ground it paid (landsraad_paid.go): a file in its own folder, whose path is the journal's folder and never the save's
 	"internal/gui.AttachConsole":        true, // the console handles of the process
 	"cmd/tabr-tau.runCommand":           true, // decode and encode write the file the person names
 	"tools/vehiclegen.main":             true, // the developer tool that makes kit/gamedata/vehicles/vehicles.json from table dumps; it never opens a save

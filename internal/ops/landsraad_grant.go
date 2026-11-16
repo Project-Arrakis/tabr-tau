@@ -29,9 +29,12 @@ import (
 // specialization XP are the whole raise. At its next cursor step the game should find only events of its own, so nothing the editor wrote should be applied or delivered twice by
 // it; whether the game then keeps a contribution raised here, or works it out again from its own events, is not checked in the game. Events an earlier build wrote stay in the
 // save and still count as ground paid (eventsOf).
-// What the event also did, remember the ground, is gone: the editor leaves no event of its own, so it does not remember what it paid once the contribution is lowered: a tier removal followed by the same raise pays the removed tiers again (the missions: Solari, House Scrip and specialization XP; the reward rows of the tiers crossed, where the top tier's swatch is not given twice when it was won in this term, but where the save has no swatch tables, or the swatch was held from an earlier term, the top tier's own item is delivered again), and, while the house is open, adds the same ground to your faction's progress again, which can take the house; the tier box is a toggle, so clicking the highest reached tier twice pays twice.
-// Ground that stays covered: the character's own events, and the highest contribution the character reached under another faction (otherFactionGround; the contribution row is
-// per faction and a faction change writes only player_faction). Only events of the game, and that other-faction ground, cover ground for good.
+// What the event also did, remember the ground, is done elsewhere (#777): the editor records the ground it paid in a small file of its own (landsraad_paid.go), outside the save and the
+// game's tables, attached to the edit that paid it as a note (save.Mut.Note) and written once that edit is in the game's file. A tier removal lowers the contribution and not that record, so
+// the same raise after a removal pays nothing again (the missions, the reward rows of the tiers crossed, the faction's progress), a higher raise pays only the new tiers, and the clicking of
+// the highest tier twice pays once. The answer says how much ground and how many missions were not paid for that reason.
+// Ground that stays covered: the character's own events, the highest contribution the character reached under another faction (otherFactionGround; the contribution row is per faction
+// and a faction change writes only player_faction) and the editor's own record. A record that cannot be used is read as nothing paid and these guards stay.
 //
 // The number of missions a change stands for is the number of mission steps it takes the character across, worked from the contribution the character's own events already
 // cover: ceil(after / step) - ceil(lo / step), where step is 1,000 times the contribution multiplier and lo is the larger of the contribution before and the sum of the character's
@@ -147,7 +150,7 @@ func otherFactionGround(m *save.Mut, me myLandsraad, taskID int64) (float64, err
 // written (#655). A change whose ground the character's own events already cover (after is not above lo) writes none of them. completeMine is true when the same request
 // completes the house for the character's own faction; that completion is made here, so the faction's share is the goal at least. completed says whether this call completed the
 // house.
-func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, completeMine bool, clock termClock, g GrantSettings) (res rewardResult, completed bool, err error) {
+func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, completeMine bool, clock termClock, g GrantSettings, ledger *PaidLedger) (res rewardResult, completed bool, err error) {
 	taskID, _ := t["id"].(int64)
 	house := fmt.Sprint(t["house_name"])
 	termID, _ := t["term_id"].(int64)
@@ -166,13 +169,21 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 	if err != nil {
 		return res, false, err
 	}
-	lo := max(before, cover, elsewhere)
+	// what the editor itself paid before and remembers (landsraad_paid.go): a tier removal does not take it back, so the same raise pays only the ground above it (#777); lo0 is the
+	// ground covered without that record
+	paid, err := paidGround(m, ledger, me, termID, house, clock)
+	if err != nil {
+		return res, false, err
+	}
+	lo0 := max(before, cover, elsewhere)
+	lo := max(lo0, paid)
 	if after <= lo {
 		n, err := m.One(`select count(*) n from landsraad_task_rewards where task_id=? and threshold>? and threshold<=?`, taskID, before, after)
 		if err != nil {
 			return res, false, err
 		}
 		res.skipped = asInt(n["n"])
+		res.notePaidBefore(after, lo0, lo, g)
 		return res, false, nil
 	}
 	if g.Problem != "" {
@@ -197,6 +208,7 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 	}
 	missions := int64(ceilSteps(after, step) - ceilSteps(lo, step))
 	gained := after - lo
+	res.notePaidBefore(after, lo0, lo, g)
 
 	// 1. the faction's contribution, while the house is open, and the completion the faction's progress brings
 	facBefore := 0.0
@@ -259,6 +271,11 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 				res.spec = map[string]int64{line: applied}
 			}
 		}
+	}
+	// 6. what was paid is remembered, outside the save (landsraad_paid.go): the note goes with this edit, so it is kept only if the edit is, and is handed to the editor's own file
+	// once the game's file has been written. The ground is the whole of what this raise took the contribution to, whatever part of it an earlier raise had already paid.
+	if err := m.Note(paidNoteKind, paidNote{Player: me.player, Term: termID, House: house, Faction: me.faction, Paid: after}); err != nil {
+		return res, false, err
 	}
 	return res, completed, nil
 }
