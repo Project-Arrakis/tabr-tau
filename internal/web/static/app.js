@@ -1423,6 +1423,7 @@ async function baseBackupsCard() {
 }
 
 let bsTab = 'power', bsOpen = null, bsGroup = 'storage';
+let bsInvOpen = null; // { id, name }: the container opened with Open in the base's Inventory list. It stays open when the page is drawn again (after a delete, an edit or the page's own refresh) and goes with a move to another base, sub-tab, group or page (#731)
 async function basesView() {
   const list = await api('/api/bases/list');
   const id = list.some((x) => x.base_id == bsOpen) ? bsOpen : (list[0] ? list[0].base_id : null);
@@ -1450,10 +1451,17 @@ async function basesView() {
       const inv = await api('/api/bases/inventory?base=' + id);
       const grp = inv.groups.some((g) => g.id == bsGroup && g.count) ? bsGroup : (inv.groups.find((g) => g.count) || inv.groups[0]).id;
       const rows = inv.containers.filter((c) => c.group == grp);
+      // the container that was open (#731) is built here, before the page is drawn, so the redraw shows it at once: it is not emptied and filled again (no flash, no jump of the page, and the Add item box is never missing while it is typed in)
+      let open = '';
+      if (bsInvOpen) {
+        const c = inv.containers.find((x) => x.inventory_id == bsInvOpen.id);
+        if (!c) bsInvOpen = null; // no longer one of this base's containers
+        else { try { open = await baseInvCard({ id: c.inventory_id, name: c.name }); } catch (e) { bsInvOpen = null; } }
+      }
       h.push(html`<div class="card d-panel"><h3 class="d-head">Inventory</h3><div class="sub">${inv.groups.map((g) => html`<button data-bsgrp="${g.id}" class="${grp == g.id ? 'on' : ''}">${g.label} (${g.count})</button>`)}</div>
         ${tbl([{ k: 'name', label: 'Container' }, { k: 'type', label: 'Type' }, { k: 'items', label: 'Items' }, { k: 'max_item_count', label: 'Slots used', f: (r) => `${r.items} of ${r.max_item_count}` }], rows,
         { actions: (r) => html`<button class="b sec sm d-btn sm" data-act="openInv" data-id="${r.inventory_id}" data-name="${r.name}">Open</button>`, empty: 'No containers in this group.' })}
-        ${about('bases.inventory', 'Inventory', html`<p class="mut">Only containers that belong to this base are listed.</p>`)}</div><div id="inv"></div>`);
+        ${about('bases.inventory', 'Inventory', html`<p class="mut">Only containers that belong to this base are listed.</p>`)}</div><div id="inv">${open}</div>`);
     } else if (bsTab == 'structures') {
       // The open base's own structures (#526): the health card, the placeables and the piece types list only what this base's totem owns. Pieces no base owns are listed apart,
       // and the only whole-save figures and buttons are in the last card, labelled as such.
@@ -2699,6 +2707,7 @@ async function render(keepPlace, auto) {
   if (place && keepPlace === 'rows') place.boxes = {}; // other rows in the table boxes: they start at their top
   if (place && (keepPlace === 'scroll' || keepPlace === 'rows')) place.ctl = {}; // a redraw to show what the save holds (a refused change): the boxes go back to it, only the place is kept
   reloaded = null;
+  if (keepPlace !== true && keepPlace !== 'scroll' && keepPlace !== 'rows') bsInvOpen = null; // a move to another page: no base container is open there (#731)
   document.title = pageTitle();
   drawNav();
   try {
@@ -2718,6 +2727,14 @@ const D = (e) => e.target.closest('[data-act]');
 function dbRowsTop() { const b = $('#dbout .scroll'); if (b) { b.scrollTop = 0; b.scrollLeft = 0; } }
 // A failed SQL statement shows its reason where the result goes, and the earlier result is cleared so it cannot be read as the answer (register 2026-10-07, UX-5).
 function sqlFailed(e) { const out = $('#sqlout'); if (out) setHTML(out, html`<p class="bad">${e.message}</p>`); }
+
+// The card of a base container opened with Open (#731): its items, the box that adds one and the clear row. It is built before the page is drawn, so a redraw puts the container in at once and does not empty it first.
+async function baseInvCard(d) {
+  const it = await api('/api/bases/storage/items?inventory=' + encodeURIComponent(d.id));
+  const cat = await loadCatalog(it.map((r) => r.template_id));
+  return html`<div class="card d-panel"><h3>Inventory ${d.id}</h3>${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" data-name="${itemName(r.template_id)}" class="w90" aria-label="Stack of ${itemName(r.template_id)}">` }, { k: 'fill', label: 'Liquid', f: (r) => fillCell(r) }], it, { empty: 'This container is empty.', actions: (r) => html`<button class="b bad sm d-btn danger sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}" aria-label="Delete ${itemName(r.template_id)}">Delete</button>` })}
+    <div class="row">${itemPicker("bt", cat)}Qty<input id="bq" aria-label="Quantity to add" type="number" value="1" min="1"><button class="b d-btn primary" data-act="giveInv" data-id="${d.id}" data-name="${d.name || ''}">Add item</button></div>${clearRow(d.id, d.name || 'this container', it)}</div>`;
+}
 
 const A = {
   retry: () => render(true),
@@ -2851,7 +2868,18 @@ const A = {
     fillToast('fillLiquids', any > 0, (any ? `Filled ${parts.join(', ')}.` : 'Nothing needed filling.') + (r.vehiclesIncluded ? '' : ' Vehicles were not refuelled.') + (left ? ' Some containers, sacks or vehicles of an unknown kind were left alone.' : '') + (b.filled ? BLOOD_UNCHECKED : '') + (any ? NOT_SAVED : ''));
   }, null),
   refill: () => act(async () => { const r = await api('/api/player/refill', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; fillToast('refill', r.filled > 0, `Filled ${r.filled} Literjons (${r.alreadyFull} already full).${sk}` + NOT_SAVED); }, null),
-  delItem: async (d) => (await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). It is written at once, after a backup. If the file cannot be written (for example the game is running) it is queued and written when it can be.', ok: 'Delete', danger: true })) && act(() => api('/api/items/delete', { id: +d.id }), 'Deleted'),
+  delItem: async (d) => {
+    if (!(await ask({ title: 'Delete item?', body: 'Delete ' + d.name + ' and everything attached to it (its stats and links). It is written at once, after a backup. If the file cannot be written (for example the game is running) it is queued and written when it can be.', ok: 'Delete', danger: true }))) return false;
+    // In a base container that stays open (#731) the row the focus was on is gone after the redraw: the focus goes to the Delete button of the row that took its place (the next one, or the last), else to the box that adds an item.
+    const btns = () => [...document.querySelectorAll('#inv [data-act="delItem"]')];
+    const was = btns().findIndex((b) => b.dataset.id == d.id), hadFocus = was >= 0 && btns()[was] === document.activeElement;
+    const r = await act(() => api('/api/items/delete', { id: +d.id }), 'Deleted');
+    if (hadFocus && (!document.activeElement || document.activeElement === document.body)) {
+      const left = btns(), n = left[Math.min(was, left.length - 1)] || $('#inv #bt');
+      if (n) { n.focus({ preventScroll: true }); intoView(n); }
+    }
+    return r;
+  },
   clearInv: async (d) => {
     const cur = !!($('#clrCur') && $('#clrCur').checked);
     let pv; // what the clear would remove right now, as the editor reads it (the list on the page may be older): the numbers to confirm and the token that binds the items
@@ -2987,10 +3015,9 @@ const A = {
   sand: (d) => act(async () => { const r = await api('/api/bases/clear-sand', { base_id: +d.id }); toast(`Cleared ${r.pieces} pieces at this base` + NOT_SAVED); }, null),
   sandAll: () => act(async () => { const r = await api('/api/bases/clear-sand-all', {}); toast(`Cleared ${r.pieces} pieces in the whole save` + NOT_SAVED); }, null),
   openInv: async (d) => {
-    const it = await api('/api/bases/storage/items?inventory=' + encodeURIComponent(d.id));
-    const cat = await loadCatalog(it.map((r) => r.template_id));
-    setHTML($('#inv'), html`<div class="card d-panel"><h3>Inventory ${d.id}</h3>${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" data-name="${itemName(r.template_id)}" class="w90" aria-label="Stack of ${itemName(r.template_id)}">` }, { k: 'fill', label: 'Liquid', f: (r) => fillCell(r) }], it, { empty: 'This container is empty.', actions: (r) => html`<button class="b bad sm d-btn danger sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` })}
-    <div class="row">${itemPicker("bt", cat)}Qty<input id="bq" aria-label="Quantity to add" type="number" value="1" min="1"><button class="b d-btn primary" data-act="giveInv" data-id="${d.id}" data-name="${d.name || ''}">Add item</button></div>${clearRow(d.id, d.name || 'this container', it)}</div>`);
+    const card = await baseInvCard(d);
+    bsInvOpen = { id: d.id, name: d.name || '' };
+    setHTML($('#inv'), card);
   },
   giveCargo: (d) => act(async () => { const tid = needItem('bt'); const r = await api('/api/bases/give', { inventory_id: +d.id, template_id: tid, quantity: +val('bq') }); giveToast(r, itemName(tid), 'Item added'); }, null),
   giveInv: (d) => act(async () => { const tid = needItem('bt'); const r = await api('/api/bases/give', { inventory_id: +d.id, template_id: tid, quantity: +val('bq') }); giveToast(r, itemName(tid), 'Item added'); await A.openInv(d); }, null, false),
@@ -3125,11 +3152,11 @@ document.addEventListener('click', (e) => {
   const vo = e.target.closest('[data-vhopen]');
   if (vo) { vcSync(); vhOpen = +vo.dataset.vhopen; render('rows'); return; }
   const bo = e.target.closest('[data-bsopen]');
-  if (bo) { bsOpen = +bo.dataset.bsopen; render('rows'); return; }
+  if (bo) { bsOpen = +bo.dataset.bsopen; bsInvOpen = null; render('rows'); return; }
   const bt = e.target.closest('[data-bstab]');
-  if (bt) { bsTab = bt.dataset.bstab; render('rows'); return; }
+  if (bt) { bsTab = bt.dataset.bstab; bsInvOpen = null; render('rows'); return; }
   const bg = e.target.closest('[data-bsgrp]');
-  if (bg) { bsGroup = bg.dataset.bsgrp; render('rows'); return; }
+  if (bg) { bsGroup = bg.dataset.bsgrp; bsInvOpen = null; render('rows'); return; }
   const ig = e.target.closest('[data-invg]');
   if (ig) { invG = ig.dataset.invg; render('rows'); return; }
   const s = e.target.closest('[data-sub]');
