@@ -76,7 +76,7 @@ func statFileTime(savePath string) (mod time.Time, own bool, err error) {
 // The quiet of the save file must be observed, not only computed from the clock (#612): after a sleep or a hibernation, or when the clock is set forward, the file's time is far
 // in the past and looks like a long quiet although the game may have been writing until the moment the computer slept. So the editor remembers, per save, when it last
 // evaluated the gate with a game process present and what the file looked like, and holds for observeQuietFor from the first evaluation, from the first one after a gap of more
-// than observeGap (a clock that went backward is a gap), and from a change of the file's time that is not the editor's own write.
+// than observeGap (a clock that went backward by a second or more is a gap; a reading less than a second early counts as the same moment), and from a change of the file's time that is not the editor's own write.
 const (
 	observeGap = 30 * time.Second
 	// clockSkew is how far before the last evaluation a clock reading may be and still be the same moment: two threads read the clock, then take the lock in the other order.

@@ -240,10 +240,65 @@ func TestAnOutOfOrderEvaluationDoesNotRestartTheWatch(t *testing.T) {
 	if from := observeFile(p, t0.Add(20*time.Second), mod, false, nil); !from.Equal(t0) {
 		t.Fatalf("the watch did not continue: %v", from)
 	}
-	// a clock that stepped back by more than the skew is still a gap
-	back := t0.Add(20*time.Second - clockSkew - time.Millisecond)
+	// the skew is one second, and the edges are pinned with literals: 999 ms early is the same moment, exactly 1 s early is a clock that went back
+	if clockSkew != time.Second {
+		t.Fatalf("clockSkew is %v, want 1s", clockSkew)
+	}
+	if from := observeFile(p, t0.Add(20*time.Second-999*time.Millisecond), mod, false, nil); !from.Equal(t0) {
+		t.Fatalf("a reading 999 ms early restarted the watch at %v", from)
+	}
+	back := t0.Add(20*time.Second - time.Second)
 	if from := observeFile(p, back, mod, false, nil); !from.Equal(back) {
-		t.Fatalf("a clock that went back %v must restart the watch: %v", clockSkew+time.Millisecond, from)
+		t.Fatalf("a clock that went back exactly 1 s must restart the watch: %v", from)
+	}
+}
+
+// #779 (LOW 2, with the real watch): the preparation of the write takes longer than the watch's gap. The clock jumps 31 s after the gate of Flush, as the encode of a large save
+// would; the gate asked after the encode sees the gap, restarts the watch and refuses, before any backup is taken.
+func TestAWriteWhosePreparationOutlastsTheWatchTakesNoBackup(t *testing.T) {
+	p := makeSave(t, `create table t(a integer); insert into t values (1);`)
+	setAge(t, p, time.Hour)
+	s, err := Open(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	orig, _ := os.ReadFile(p)
+	gateStubs(t)
+	oldObs := observeQuietFor
+	observeQuietFor = menuQuietAfterWrite
+	t.Cleanup(func() { observeQuietFor = oldObs; forgetObserved(p) })
+	forgetObserved(p)
+	clock := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
+	nowFunc = func() time.Time { return clock }
+	mod := clock.Add(-time.Hour) // one time for the whole test: a changing time would restart the watch itself
+	fileTimeFor = func(string) (time.Time, bool, error) { return mod, false, nil }
+	slow := false
+	statusFor = func(string) (spStatus, error) {
+		if slow { // the first question after the warm-up is Flush's; the encode that follows it is slow
+			slow = false
+			defer func() { clock = clock.Add(31 * time.Second) }()
+		}
+		return spStatus{EndedAt: clock.Add(-time.Hour), LastSaveAt: clock.Add(-time.Hour + 5*time.Second)}, nil
+	}
+	for i := 0; i < 8; i++ { // watched for 70 s without a gap
+		clock = clock.Add(10 * time.Second)
+		processState(p, true)
+	}
+	if g := processState(p, true); g.Blocked {
+		t.Fatalf("the warm-up should have passed the watch: %+v", g)
+	}
+	setA(t, s, 2)
+	slow = true
+	f := s.Flush()
+	if f.Saved || !strings.Contains(f.Why, "only just started watching") {
+		t.Fatalf("the write after a slow preparation must be refused by the watch: %+v", f)
+	}
+	if ents, _ := os.ReadDir(s.backupDir()); len(ents) != 0 {
+		t.Fatalf("a refused write took %d backup(s)", len(ents))
+	}
+	if now, _ := os.ReadFile(p); string(now) != string(orig) {
+		t.Fatal("the file changed")
 	}
 }
 
