@@ -5,6 +5,9 @@ Versioning: [Semantic Versioning](https://semver.org/), tags `v0.x` until the fi
 
 ## [Unreleased]
 
+### Added
+- **Reference pictures for the Landsraad tab in `docs/art/landsraad/`** (docs only; nothing in the editor loads them): the 25 house symbols at 128 px, the five mission lane icons, the five specialization banner icons and 15 decree pictures, with a README that lists every file. Game artwork, covered by `docs/art-notice.md`.
+
 ### Changed
 - **Base export for the console: described as being for the player's own self-hosted server only** (fixes #658, refs #534; page text and docs only, no save write and no change to what the file holds). The export document, the README, the roadmap line, the two button tips and the Bases help text now say the file is for a self-hosted server of your own, not for a console game and not for a public or another person's server, which matches the README's scope (single-player saves on your own PC). The title of #534 was changed the same way.
 
