@@ -167,10 +167,16 @@ func (p AutoPass) NothingNeeded() string {
 // save has no character for one that needs the character) is skipped with a note. A job that fails stops the pass, rolls everything back and
 // is returned as an *AutoJobError.
 func (o *Ops) RunAutoPass(on func(AutoJob) bool) (AutoPass, error) {
-	return o.runAutoJobs(AutoJobs(), on)
+	return o.runAutoJobs(save.AutoPassDesc, AutoJobs(), on)
 }
 
-func (o *Ops) runAutoJobs(jobs []AutoJob, on func(AutoJob) bool) (AutoPass, error) {
+// RunAutoPassByHand is RunAutoPass for a pass a person asked for ("Run the automatic pass now"): the edit is named so that the write gate treats it as an edit made by hand,
+// not as the unattended pass (save.AutoPassDesc), because a person is looking at the page.
+func (o *Ops) RunAutoPassByHand(on func(AutoJob) bool) (AutoPass, error) {
+	return o.runAutoJobs(save.PassByHandDesc, AutoJobs(), on)
+}
+
+func (o *Ops) runAutoJobs(desc string, jobs []AutoJob, on func(AutoJob) bool) (AutoPass, error) {
 	var todo []AutoJob
 	needChar := false
 	for _, j := range jobs {
@@ -188,7 +194,7 @@ func (o *Ops) runAutoJobs(jobs []AutoJob, on func(AutoJob) bool) (AutoPass, erro
 		c, charErr = o.player()
 	}
 	var out AutoPass
-	n, err := o.S.Mutate("automatic pass", func(m *save.Mut) error {
+	n, err := o.S.Mutate(desc, func(m *save.Mut) error {
 		out = AutoPass{} // the function may be run again by a caller that retries: start from nothing
 		for _, j := range todo {
 			if !j.noChar && charErr != nil {
@@ -209,7 +215,7 @@ func (o *Ops) runAutoJobs(jobs []AutoJob, on func(AutoJob) bool) (AutoPass, erro
 				out.Done = append(out.Done, AutoDone{j.ID, j.Label, did})
 			}
 		}
-		m.Desc = "automatic pass: " + out.Summary()
+		m.Desc = desc + ": " + out.Summary()
 		return nil
 	})
 	if err != nil {

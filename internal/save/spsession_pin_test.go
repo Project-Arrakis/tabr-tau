@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Project-Arrakis/tabr-tau/kit/sessionlog"
 )
 
 // A pin of the session tracker over a seeded corpus of 60000 log lines, taken from the editor's own state machine before it moved to kit/sessionlog (#565): after every line,
@@ -64,9 +66,10 @@ func spPinHash(feed func(string) (bool, time.Time, time.Time)) string {
 const spPinHashWant = "675938c6c84d822167c3013ef8f5598dfe264b43ed93e86501fcc77aff694c0b"
 
 func TestPinTrackerOverASeededCorpus(t *testing.T) {
-	var tr spTracker
+	// The kit tracker under the wide policy: what the editor read with before it ended a session only at a strict browse line (#612, D2-3; see TestStrictEndsOnly).
+	var tr sessionlog.Tracker
 	got := spPinHash(func(l string) (bool, time.Time, time.Time) {
-		tr.feed(l)
+		tr.Feed(spPolicy, l, nil)
 		return tr.SPActive, tr.EndedAt, tr.LastSaveAt
 	})
 	if got != spPinHashWant {

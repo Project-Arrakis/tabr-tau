@@ -198,7 +198,7 @@ func TestAutoPassFailureInTheLastJobRollsEverythingBack(t *testing.T) {
 	jobs = append(jobs, AutoJob{ID: "last", Label: "The last job", Ready: true, noChar: true, run: func(m *save.Mut, c player) (string, string, error) {
 		return "", "", boom
 	}})
-	_, err := o.runAutoJobs(jobs, allJobs)
+	_, err := o.runAutoJobs(save.AutoPassDesc, jobs, allJobs)
 	var je *AutoJobError
 	if !errors.As(err, &je) || je.ID != "last" || je.Label != "The last job" || !errors.Is(err, boom) {
 		t.Fatalf("want a job error naming the last job, got %v", err)
@@ -403,7 +403,7 @@ func TestAutoPassClaimsNothingWhenNoRowChanged(t *testing.T) {
 	jobs := []AutoJob{{ID: "liar", Label: "Liar", Ready: true, noChar: true, noun: "x", run: func(m *save.Mut, c player) (string, string, error) {
 		return "10 things done", "", nil
 	}}}
-	p, err := o.runAutoJobs(jobs, allJobs)
+	p, err := o.runAutoJobs(save.AutoPassDesc, jobs, allJobs)
 	if err != nil || p.Changed || len(p.Done) != 0 || p.Summary() != "" || len(o.S.Pending()) != 0 {
 		t.Fatalf("%+v %v", p, err)
 	}

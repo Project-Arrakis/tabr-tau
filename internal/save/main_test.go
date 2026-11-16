@@ -3,6 +3,7 @@ package save
 import (
 	"os"
 	"testing"
+	"time"
 )
 
 // realSyncFile is the flush to stable storage as shipped (captured before TestMain swaps it). The tests wait for the disk only where
@@ -26,8 +27,10 @@ var defaultLocationFor = locationFor
 // guard's other rules should not need one. Tests of the location rule put the real check back.
 func TestMain(m *testing.M) {
 	locationFor = func(string) string { return "" }
-	ownSaveFor = func(string) bool { return true } // a test save is the game's own unless the test puts the real rule back (#498)
-	syncFile = func(*os.File) error { return nil } // see realSyncFile
+	observeQuietFor = 0                                                                                                    // the tests of the other rules call the gate once; the tests of the watch set the real value (#612)
+	fileTimeFor = func(string) (time.Time, bool, error) { return time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC), false, nil } // a test save was last written long ago unless the test says otherwise (#612)
+	ownSaveFor = func(string) bool { return true }                                                                         // a test save is the game's own unless the test puts the real rule back (#498)
+	syncFile = func(*os.File) error { return nil }                                                                         // see realSyncFile
 	// The tests make decoded copies and sweep the temp folder for stale ones: they do it in a folder of their own, never in the developer's.
 	tmp, err := os.MkdirTemp("", "tabr-tau-save-tests-")
 	if err == nil {

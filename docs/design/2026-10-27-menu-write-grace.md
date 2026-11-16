@@ -45,6 +45,8 @@ to it, and why every case without both the end marker and the write after it kee
 
 ## The rule
 
+> Changed 2026-11-15 (#612, audit D2; see `docs/design/2026-11-15-live-save-gate.md`): `menuQuietAfterWrite` is now **60 seconds**, not 23 (23 s was 0.3 s above the largest write gap seen); the short wait applies only when exactly one write follows the end marker (more than one means the marker was not the end of the world); and the save file's own modification time must be older than the wait as well. The numbers below are the measurements; the waits that follow from them are in the new note.
+
 When the log shows the session ended AND a game write after the end marker (compared by whole log seconds, strictly later: a write in the same second as the end marker is the
 periodic one before it, and is not taken for the last):
 
@@ -58,7 +60,8 @@ Every other case is as before, because the evidence is missing or says something
 |---|---|
 | a single-player session is active | none: never written |
 | the log cannot be read, or the process list cannot be read | none: queued |
-| the session ended and a later write is seen | 30 s after the end and 23 s after that write (new) |
+| the session ended and exactly one later write is seen | 30 s after the end and 60 s after that write (23 s before #612) |
+| the session ended and more than one later write is seen | as "no session end": 3 minutes since the last write, then 6 minutes after the end (#612) |
 | the session ended and no later write is seen | 6 minutes after the end (`endedFallbackGrace`, not measured) |
 | no session end in the log (for example the game was started at the menu) and a write is seen | 3 minutes since the last write (`dbQuietFor`) |
 | the game is closed | written at once |

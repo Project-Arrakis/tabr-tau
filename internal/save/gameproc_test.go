@@ -245,7 +245,9 @@ func TestCheckGameNowSaysWhatItFound(t *testing.T) {
 	if !c.Running || !c.Blocked || c.Failed || !strings.HasPrefix(c.Message, "the game is open and edits will queue: a single-player session is active") || len(c.Processes) != 1 {
 		t.Fatalf("running in a session: %+v", c)
 	}
-	statusFor = func(string) (spStatus, error) { return spStatus{}, nil }
+	statusFor = func(string) (spStatus, error) {
+		return spStatus{EndedAt: time.Now().Add(-time.Hour), LastSaveAt: time.Now().Add(-time.Hour + 5*time.Second)}, nil // the log says the session ended long ago (an empty log is another answer, #612)
+	}
 	c = CheckGameNow(p)
 	if !c.Running || c.Blocked || c.Failed || !strings.HasPrefix(c.Message, "the game is open at its menu") || !strings.HasSuffix(c.Message, "edits are written at once") { // #449: the menu, nothing loaded, nothing held
 		t.Fatalf("running at the menu: %+v", c)
