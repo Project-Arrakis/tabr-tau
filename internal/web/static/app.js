@@ -1543,6 +1543,29 @@ function vcSync() {
   document.querySelectorAll('[data-vcslot]').forEach((e) => { vcDraft.mods[e.dataset.vcslot] = e.value; });
   document.querySelectorAll('[data-vcqty]').forEach((e) => { const l = vcDraft.items[+e.dataset.vcqty]; if (l) l.quantity = Math.max(1, Math.floor(+e.value) || 1); });
 }
+// The page is drawn again when the answer to a pick in the preview table lands (#738), and the person may have typed meanwhile. vcSync puts the fuel and the quantities into the draft; the item box and its Qty
+// are never in the draft. So the text of the boxes the person changed, and the caret of the one that has the focus, are noted before the redraw and put back after it (render gives the focus back itself).
+const VC_BOXES = '#vcItem, #vcQty, #vcFuel, [data-vcqty]';
+const vcBoxKey = (e) => (e.id ? '#' + e.id : '[data-vcqty="' + e.dataset.vcqty + '"]');
+function vcTypedTake() {
+  const out = [];
+  document.querySelectorAll(VC_BOXES).forEach((e) => {
+    const typed = e.value !== e.defaultValue, focus = e === document.activeElement;
+    if (!typed && !focus) return;
+    let start = null, end = null;
+    if (focus) { try { start = e.selectionStart; end = e.selectionEnd; } catch (err) { /* a number box has no caret to read */ } }
+    out.push({ key: vcBoxKey(e), value: typed ? e.value : null, focus, start, end });
+  });
+  return out;
+}
+function vcTypedPut(typed) {
+  for (const t of typed) {
+    const e = $('#main') && $('#main').querySelector(t.key);
+    if (!e) continue; // the box is gone (the new part has no cargo hold): nothing to put back
+    if (t.value !== null && e.value !== t.value) e.value = t.value;
+    if (t.focus && e === document.activeElement && t.start !== null) { try { e.setSelectionRange(t.start, t.end); } catch (err) { /* a box with no caret */ } }
+  }
+}
 // A class, a tier or a part was changed in the boxes.
 function vcChanged(t) {
   vcSync();
@@ -1606,6 +1629,8 @@ async function vcAskPick(seq) {
   if (seq !== vcSeq || vcDraft !== draft) return; // something changed after this request: the change drew the page, and its own answer (if any) decides
   vcBusy = false;
   vcPicked = [];
+  vcSync(); // the fuel and the quantities typed while the request was on its way go into the draft; Create then sees the form no longer matches the preview and asks for a new one (#738)
+  const typed = vcTypedTake();
   if (answer) {
     vcPreview = answer;
     vcPreviewKey = JSON.stringify(asked);
@@ -1616,7 +1641,8 @@ async function vcAskPick(seq) {
     for (const s of vcClass().slots) draft.mods[s.slot] = shown[s.slot] || '';
     vcPartNote = { slots: picked, text: err.message };
   }
-  render('scroll');
+  await render('scroll');
+  vcTypedPut(typed);
 }
 // One id for each form (#740): Create sends it, and the editor gives a second request with the same id and the same body the first one's answer instead of writing another vehicle.
 function vcRequestId() {
