@@ -143,3 +143,28 @@ insert into resourcefield_state(field_id,map,dimension_index,spawn_time,value_re
 		t.Fatalf("200,000 is Large spice and 60,000 is flour sand: %v", by)
 	}
 }
+
+// A save whose controller row has no map, or is missing, while the body's row is whole: the character is drawn from the body's row on the body's map, as the summary does.
+func TestLiveMapDrawsTheCharacterFromTheBodyWhenTheControllerGivesNoPlace(t *testing.T) {
+	for name, sql := range map[string]string{
+		"controller with no map": `update actors set map='' where id=1;`,
+		"controller row missing": `delete from actors where id=1;`,
+	} {
+		o := &Ops{S: testsave.PlayerWithSQL(t, mapWorld+sql)}
+		r, err := o.LiveMap("HaggaBasin")
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		ch, _ := r.(map[string]any)["character"].(map[string]any)
+		if ch == nil || ch["x"].(float64) != 100 || ch["y"].(float64) != 200 || ch["name"] != "Tester" {
+			t.Errorf("%s: the character is drawn from the body's row: %v", name, ch)
+		}
+		r, err = o.LiveMap("DeepDesert")
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if ch := r.(map[string]any)["character"]; ch != nil {
+			t.Errorf("%s: the character is only on the map the body is on: %v", name, ch)
+		}
+	}
+}

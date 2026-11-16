@@ -68,8 +68,10 @@ func (o *Ops) LiveMap(key string) (any, error) {
 
 	out["character"] = nil // the character is only on the map it is on
 	// the character is drawn on the map the player is on (the controller's), at the body's position when the three actors agree and the controller's when they do not (#699)
+	placed := false
 	if here, err := readCharacterPlace(o.S.One, p, true); err == nil {
 		if a, ok := here.answer(); ok {
+			placed = true
 			if here.Parked != nil {
 				out["parked"] = a["parked"]
 			}
@@ -77,8 +79,12 @@ func (o *Ops) LiveMap(key string) (any, error) {
 				out["character"] = map[string]any{"name": p.Name, "x": a["x"], "y": a["y"], "z": a["z"]}
 			}
 		}
-	} else if ch, _ := o.S.One(`select ? name, location_x x, location_y y, location_z z from actors where id=? and map=?`, p.Name, p.Pawn, cfg.Key); len(ch) > 0 {
-		out["character"] = ch
+	}
+	// when the save does not say where the character is (the read failed, there is no controller row, or the controller has no map), the body's own row on the map shown is what there is, as in the summary
+	if !placed {
+		if ch, _ := o.S.One(`select ? name, location_x x, location_y y, location_z z from actors where id=? and map=?`, p.Name, p.Pawn, cfg.Key); len(ch) > 0 {
+			out["character"] = ch
+		}
 	}
 
 	out["vehicles"], _ = o.S.Query(`select a.id, a.class, a.location_x x, a.location_y y from vehicles v join actors a on a.id=v.id
