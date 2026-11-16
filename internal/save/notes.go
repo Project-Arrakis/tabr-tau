@@ -74,17 +74,43 @@ func notesOf(ops []Op) []Note {
 	return out
 }
 
-// deliverNotes hands the notes of edits that have just been written to the sink. The caller holds s.mu.
-func (s *Save) deliverNotes(ops []Op) {
+// NoteSaveReplaced is the kind of the note the save hands to the sink when it replaces the game's file wholesale (a backup was restored): what was recorded about the file that was
+// there says nothing about the one that is now.
+const NoteSaveReplaced = "save.replaced"
+
+// maxUndelivered bounds the notes kept for a sink that keeps failing.
+const maxUndelivered = 1000
+
+// deliverNotes hands the notes of edits that have just been written to the sink, after the ones an earlier delivery could not hand over. The caller holds s.mu. A sink that fails keeps
+// every note for the next delivery (the file is written, the edits cannot be written again); it returns a short sentence for the answer of the write, or "" when all went through.
+func (s *Save) deliverNotes(ops []Op) string {
 	if s.sink == nil {
-		return
+		return ""
 	}
-	n := notesOf(ops)
+	return s.deliver(notesOf(ops))
+}
+
+func (s *Save) deliver(add []Note) string {
+	n := append(append([]Note(nil), s.undelivered...), add...)
 	if len(n) == 0 {
-		return
+		return ""
 	}
 	if err := s.sink(n); err != nil {
-		log.Printf("notes of written edits could not be recorded: %v", err)
+		if len(n) > maxUndelivered {
+			n = n[len(n)-maxUndelivered:]
+		}
+		s.undelivered = n
+		log.Printf("notes of written edits could not be recorded (kept for the next write): %s", shortErr(err))
+		return "a note of the written edits could not be recorded (" + shortErr(err) + "); it is tried again at the next write"
+	}
+	s.undelivered = nil
+	return ""
+}
+
+// deliverReplaced tells the sink that the game's file was replaced wholesale. The caller holds s.mu.
+func (s *Save) deliverReplaced() {
+	if s.sink != nil {
+		s.deliver([]Note{{Kind: NoteSaveReplaced, Data: json.RawMessage("null")}})
 	}
 }
 

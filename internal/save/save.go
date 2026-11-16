@@ -56,6 +56,8 @@ type Save struct {
 	ops   []Op // structured record of the edits applied since load
 	// sink receives the notes of the edits that were written (notes.go)
 	sink func([]Note) error
+	// undelivered are the notes of written edits that the sink could not take; they go with the next delivery
+	undelivered []Note
 
 	// the journal of pending edits (journal.go): where it is kept, what has been kept, and what became of the edits found in it at start
 	journalPath string
@@ -781,7 +783,7 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 	// The file is written. From here a problem is a warning, not a failed save.
 	s.noteDisk(blob)
 	s.dirty = false
-	s.deliverNotes(s.ops) // the notes of the edits that are now in the game's file (notes.go)
+	notesProblem := s.deliverNotes(s.ops) // the notes of the edits that are now in the game's file (notes.go)
 	s.ops = nil
 	s.dropJournal()
 	if r := s.restored; r != nil { // the edits put back are written; the notice of the ones that were not stays until the person has seen it
@@ -794,11 +796,18 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 		}
 	}
 	res := map[string]any{"saved": true, "backup": bak, "ops": ops}
+	if notesProblem != "" {
+		res["warning"] = "saved, but " + notesProblem
+	}
 	if err := reloadAfterCommit(s); err != nil {
 		// The working copy and the recorded state no longer match the file just written; refuse further edits rather than
 		// build them on a copy that is out of date.
 		s.blocked = "the save was written but reloading it failed (" + err.Error() + "); restart the editor"
-		res["warning"] = "saved, but reloading the file failed: " + err.Error() + " (further edits are disabled; restart the editor)"
+		w := "saved, but reloading the file failed: " + err.Error() + " (further edits are disabled; restart the editor)"
+		if notesProblem != "" {
+			w += "; also, " + notesProblem
+		}
+		res["warning"] = w
 	}
 	return res, nil
 }
@@ -900,6 +909,7 @@ func (s *Save) Restore(name string) error {
 	s.noteDisk(b)
 	// a restore is a write to the game's file like any other, and is recorded like one: after the file has been replaced, with the backup that holds the file as it was
 	s.appendWriteLogLocked(Flush{At: time.Now(), Saved: true, Ops: []string{"restored the backup " + name}, Backup: bak})
+	s.deliverReplaced() // what the editor recorded about the file that was there says nothing about this one (notes.go)
 	if err := reloadAfterCommit(s); err != nil {
 		// The file on disk is the restored backup but the working copy is stale: refuse further edits so the
 		// stale copy can never be saved over the restore.

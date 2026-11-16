@@ -1,9 +1,12 @@
 package save
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -202,5 +205,109 @@ func TestNotesGoBackWithTheQueueOntoANewerFile(t *testing.T) {
 	s.Flush()
 	if got := values(t, k.got); len(got) != 1 || got[0] != 5 {
 		t.Fatalf("notes handed over: %v", got)
+	}
+}
+
+// A sink that fails keeps the notes for the next delivery, the answer of the write carries a warning that names no folder, and the next write hands over everything in order (#777).
+func TestNotesASinkThatFailsKeepsThemForTheNextWriteAndSaysSo(t *testing.T) {
+	defer NoGameRunningForTests()()
+	p := makeSave(t, journalDDL)
+	s, _ := Open(p)
+	defer s.Close()
+	var k sunk
+	fail := true
+	s.SetNoteSink(func(n []Note) error {
+		if fail {
+			return &os.PathError{Op: "open", Path: `C:\Users\someone\secret-folder\paid.json`, Err: errors.New("sharing violation")}
+		}
+		return k.sink(n)
+	})
+	noteEdit(t, s, 1, "x", 1)
+	f := s.Flush()
+	if !f.Saved || !strings.Contains(f.Warning, "could not be recorded") || strings.Contains(f.Warning, "secret-folder") || strings.Contains(f.Warning, `C:\`) {
+		t.Fatalf("the write is saved, the warning says what failed and names no folder: %+v", f)
+	}
+	fail = false
+	noteEdit(t, s, 2, "x", 2)
+	if f := s.Flush(); !f.Saved || f.Warning != "" {
+		t.Fatalf("the next write: %+v", f)
+	}
+	if got := values(t, k.got); len(got) != 2 || got[0] != 1 || got[1] != 2 {
+		t.Fatalf("the kept note comes first, then the new one: %v", got)
+	}
+	// a write with no notes also tries again
+	fail = true
+	noteEdit(t, s, 1, "x", 3)
+	s.Flush()
+	fail = false
+	if _, err := s.Exec(`update jt set n=1 where a=2`); err != nil {
+		t.Fatal(err)
+	}
+	if f := s.Flush(); !f.Saved {
+		t.Fatalf("flush: %+v", f)
+	}
+	if got := values(t, k.got); len(got) != 3 || got[2] != 3 {
+		t.Fatalf("a write with no notes of its own hands over the ones that were kept: %v", got)
+	}
+}
+
+// A restored backup replaces the game's file wholesale: the sink is told, after the file is replaced.
+func TestNotesARestoredBackupTellsTheSinkTheFileWasReplaced(t *testing.T) {
+	defer NoGameRunningForTests()()
+	p := makeSave(t, journalDDL)
+	s, _ := Open(p)
+	defer s.Close()
+	noteEdit(t, s, 1, "x", 1)
+	if f := s.Flush(); !f.Saved {
+		t.Fatalf("flush: %+v", f)
+	}
+	var k sunk
+	s.SetNoteSink(k.sink)
+	bs := s.Backups()
+	if len(bs) == 0 {
+		t.Fatal("no backup")
+	}
+	if err := s.Restore(bs[0]["name"].(string)); err != nil {
+		t.Fatal(err)
+	}
+	if len(k.got) != 1 || k.got[0].Kind != NoteSaveReplaced {
+		t.Fatalf("the sink was not told the file was replaced: %v", k.got)
+	}
+}
+
+// A restart that finds a journal marked incomplete and the file to be the one the edits were written as hands over the notes the journal holds before it goes.
+func TestNotesAnIncompleteJournalOfAWrittenQueueHandsOverItsNotes(t *testing.T) {
+	defer NoGameRunningForTests()()
+	p := makeSave(t, journalDDL)
+	dir := t.TempDir()
+	s1 := openJournaled(t, p, dir)
+	noteEdit(t, s1, 1, "x", 77)
+	jp := filepath.Join(dir, "pending.json")
+	kept, err := os.ReadFile(jp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f := s1.Flush(); !f.Saved {
+		t.Fatalf("flush: %+v", f)
+	}
+	s1.Close()
+	// the journal could not be removed after the write, and the mark says which file the edits were written as
+	disk, _ := os.ReadFile(p)
+	h := hashOf(disk)
+	if err := os.WriteFile(jp, kept, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	mark := `{"version":2,"reason":"the kept file could not be removed","writing":"` + hex.EncodeToString(h[:]) + `"}`
+	if err := os.WriteFile(jp+".incomplete", []byte(mark), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s2 := openJournaled(t, p, dir)
+	var k sunk
+	s2.SetNoteSink(k.sink)
+	if r, err := s2.RestoreJournal(); err != nil || r != nil {
+		t.Fatalf("restore: %+v %v", r, err)
+	}
+	if got := values(t, k.got); len(got) != 1 || got[0] != 77 {
+		t.Fatalf("the notes of the written edits are handed over: %v", got)
 	}
 }

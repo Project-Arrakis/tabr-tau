@@ -753,6 +753,18 @@ func (s *Save) replayOp(o opRec) string {
 // holds, and the person is told that edits after those may be missing.
 func (s *Save) restoreIncomplete(m incompleteMark) *Restored {
 	if m.Writing != "" && m.Writing == hex.EncodeToString(s.diskHash[:]) {
+		// the edits were written: the notes of the ones the journal still holds are handed over before it goes (the journal may hold only some of them, and the ones it holds are the
+		// ones written first; WritingOps, when it says how many that write held, bounds them)
+		if b, err := os.ReadFile(s.journalPath); err == nil {
+			var j journalFile
+			if json.Unmarshal(b, &j) == nil && j.Version == journalVersion {
+				written := j.Ops
+				if n := j.WritingOps; n > 0 && n < len(written) {
+					written = written[:n]
+				}
+				s.deliverRecNotes(written)
+			}
+		}
 		os.Remove(s.journalPath)
 		os.Remove(s.markPath())
 		return nil

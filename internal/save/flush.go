@@ -33,7 +33,7 @@ type Flush struct {
 	Why     string    `json:"why,omitempty"`     // why they are waiting
 	Backup  string    `json:"backup,omitempty"`  // the backup the write was made after
 	Ops     []string  `json:"ops,omitempty"`     // what was written
-	Warning string    `json:"warning,omitempty"` // written, but the file could not be read back in (the editor needs a restart)
+	Warning string    `json:"warning,omitempty"` // written, but something after the write needs attention: the file could not be read back in (the editor needs a restart), or a note of the written edits could not be recorded
 	Stuck   bool      `json:"stuck,omitempty"`   // the edits cannot be written and will not be: they were not kept, the game saved, so they can only be discarded and made again
 	// Restored says that the edits were put back onto a newer file first (the game saved since they were made), and which could not be
 	Restored *Restored `json:"restored,omitempty"`
