@@ -523,11 +523,7 @@ func (s *Server) postMaxAfter(path string, max int64, fn func(a ops.Args) (any, 
 		outcome := ""
 		if err == nil && s.Save.Dirty() {
 			// An edit is written to the game's file as it is made, or queued when the file cannot be written; the answer says which.
-			if f := s.Save.Flush(); f.Saved && f.Queued == 0 {
-				outcome = outcomeWritten
-			} else {
-				outcome = outcomeQueued
-			}
+			outcome = outcomeOfFlush(s.Save.Flush(), s.Save.LastFlush())
 		}
 		if err == nil {
 			v = withOutcome(v, outcome)
@@ -1304,4 +1300,20 @@ func (s *Server) grantSettings() ops.GrantSettings {
 // specNums are the track numbers the Specialization tab works with: the ones assigned in the settings, and the measured numbers for every track with none.
 func (s *Server) specNums() map[string]int64 {
 	return ops.EffectiveTrackNumbers(settings.Load(s.SettingsPath).TrackNumbers)
+}
+
+// outcomeOfFlush words what a request's flush came to. A flush that wrote the edits, or left some waiting, says so. A flush that found nothing pending (the zero Flush) is not a
+// queue: the edits this request saw were written, or taken away, by another request between the check and the flush (a repeat of a request that is still being written is
+// answered from memory and makes no edit of its own), so it is read from the last real flush: "written" when that one wrote everything, no outcome otherwise (#826).
+func outcomeOfFlush(f save.Flush, last *save.Flush) string {
+	if f.At.IsZero() {
+		if last != nil && last.Saved && last.Queued == 0 {
+			return outcomeWritten
+		}
+		return ""
+	}
+	if f.Saved && f.Queued == 0 {
+		return outcomeWritten
+	}
+	return outcomeQueued
 }

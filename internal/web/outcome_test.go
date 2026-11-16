@@ -219,3 +219,40 @@ func TestEditRequestsAskForALongerWriteWindowThanTheServersDefault(t *testing.T)
 		t.Fatal("a read keeps the server's timeout")
 	}
 }
+
+// #826: a request that saw pending edits and then found them already written by another request's flush (a repeat of a request that is still being written) gets the zero
+// Flush from its own call. That is not a queue: it reads the last real flush and says "written".
+func TestAFlushThatFindsNothingPendingAfterAnotherRequestWroteItSaysWritten(t *testing.T) {
+	s := New(testsave.Player(t), config.Dir{Path: t.TempDir()})
+	if _, err := s.Ops.AddSolari(map[string]any{"amount": 250.0}); err != nil {
+		t.Fatal(err)
+	}
+	if !s.Save.Dirty() {
+		t.Fatal("the edit should be pending")
+	}
+	// the request that made the edit flushes it ...
+	if first := outcomeOfFlush(s.Save.Flush(), s.Save.LastFlush()); first != outcomeWritten {
+		t.Fatalf("first request: %q", first)
+	}
+	// ... and the repeat, which saw the edit pending before that write finished, flushes after it
+	f := s.Save.Flush()
+	if !f.At.IsZero() {
+		t.Fatalf("nothing was pending, so the flush is empty: %+v", f)
+	}
+	if got := outcomeOfFlush(f, s.Save.LastFlush()); got != outcomeWritten {
+		t.Fatalf("a repeat whose flush finds nothing dirty answers %q, want written", got)
+	}
+}
+
+func TestAnEmptyFlushAfterAQueuedOneSaysNothingAndARealQueuedFlushStillSaysQueued(t *testing.T) {
+	queued := save.Flush{At: time.Now(), Queued: 1, Why: "the game is open"}
+	if got := outcomeOfFlush(queued, &queued); got != outcomeQueued {
+		t.Fatalf("a flush that left the edit waiting: %q", got)
+	}
+	if got := outcomeOfFlush(save.Flush{}, &queued); got != "" {
+		t.Fatalf("an empty flush after a queued one claims nothing: %q", got)
+	}
+	if got := outcomeOfFlush(save.Flush{}, nil); got != "" {
+		t.Fatalf("an empty flush with no flush before it claims nothing: %q", got)
+	}
+}
