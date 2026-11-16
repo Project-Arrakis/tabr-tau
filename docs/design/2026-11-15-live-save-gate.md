@@ -22,7 +22,7 @@ an edit was written while a world was loaded, and the game overwrote it about ev
 | Observed quiet | The quiet is observed, not only computed from the clock. A computer that slept, or a clock set forward, makes an old file time look like a long quiet. The editor remembers, per save, when it last evaluated the gate with a game process present and the file's time then; the first evaluation, one after a gap of more than 30 seconds (a clock that went backward is a gap), one after a file time that changed other than by the editor's own write, or an unreadable time, starts a watch, and a write waits until the watch has lasted `observeQuietFor` (60 s). The status poll and the 3-second autosave tick keep the watch going; with the page closed and nothing queued there is no evaluation, so the first edit after a long idle waits a minute. |
 | Mode | A write let through while the log asserted nothing about a session is answered with the mode `unknown_quiet`, not `menu`, and the check says so; every consumer blocks or allows as before. The unknown state is derived from what the log asserts now (no session active, no end, no write line), not remembered from lines read before. |
 | D2-4 | No change needed (the register says so: a copy is told apart by path, and the function answers "the game's own" when in doubt). |
-| D2-5 | No change (the test hooks are guarded by `TestTestHooksAreNotCalledByProductionCode`; the two new hook lines only stand in for the file's time). |
+| D2-5 | No change to what is guarded (the test hooks are guarded by `TestTestHooksAreNotCalledByProductionCode`). Two of them now also stand in for the file's time (`GameAtMenuForTests`, `GameJustLeftWorldForTests`), and both switch the watch off (`observeQuietFor = 0`), as the tests of the other rules do (#779). |
 
 ## Why these numbers
 
@@ -57,8 +57,8 @@ These cannot be settled from the code or from the logs checked so far. The margi
 ## Residual risk
 
 - The pass checks "no game process" before it builds its edit, and the edit is held to the same rule at every write after that (see G-007). A game started between the check and
-  the write is caught by the write's own gate, not only by the check; what is not caught is a game process the process list does not show.
-- A pass edit queued together with a hand edit is written under the gate of a hand edit: the queue cannot be split, and a person is at the page.
+  the write is caught by the write's own gate, not only by the check; what is not caught is a game process the process list does not show, and a session that begins in the seconds between the last check and the rename (the check itself, the read of the file and the rename take time; no rename can close that window, and a game save inside it is caught by the read-back, which leaves the game's file alone). The automatic write asks the gate again after the encode and before its backup, so a refusal there takes no backup (#779).
+- A pass edit queued together with a hand edit is written under the gate of a hand edit: the queue cannot be split, and a person is at the page. Accepted (#779): the autosave's next tick, not only the request that made the hand edit, then writes the whole queue under that gate, also after a restart that restores it, so the pass's edit can be written with a game process present. Making any queue that holds a pass edit unattended whenever the write is not triggered by a request would need Flush to know what called it, and would hold a person's own edit back for as long as the game is open.
 - The own-file exemption (the file the editor itself installed is not counted as the game's) also applies in the unknown state: after the editor's own write the file's time says
   nothing, so a second edit seconds later is not held back by it. The first write of such a run needed a file unchanged for 10 minutes, and a game that writes afterwards changes
   the file, which stops matching the editor's record.
