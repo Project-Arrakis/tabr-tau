@@ -500,7 +500,10 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .loc-t:hover{color:var(--c-spice);border-bottom-color:var(--c-spice)}
 .lsb .loc-t:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
 .lsb .loc-t svg{width:12px;height:14px;flex:none}
-.lsb .loc-t.off{border-bottom-color:transparent;color:var(--c-dim);cursor:default}
+.lsb .loc-t.off{border-bottom-color:transparent;color:var(--c-dim);cursor:default;font-style:italic}
+.lsb .loc-t .cue{font-style:normal;letter-spacing:.02em}
+.lsb .lnote{display:block;margin-top:2px;font-size:var(--t-xs);color:var(--c-warn)}
+.lsb .lnote:empty{display:none}
 .lsb .loc-t.off:hover{color:var(--c-dim);border-bottom-color:transparent}
 .lsb .c-my{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
 .lsb .c-my .line{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}

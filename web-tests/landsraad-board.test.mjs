@@ -342,9 +342,36 @@ test('a hub (a place the Saved map has no picture of) is muted, says why in its 
   assert.equal(ui.doc.querySelector('dialog'), null, 'no window');
   assert.ok(ui.doc.querySelector('#lsb'), 'the Landsraad page stays');
   assert.equal(text(ui.doc.querySelector('#lsb-result')), why, 'the status line says it');
+  assert.ok(ui.doc.querySelector('#lsb-result').classList.contains('warn'), 'in the warning colour, not the green of a done write');
+  assert.equal(text(ui.doc.querySelector('#lsrow-900 .loc .lnote')), why, 'and the reason is shown next to the place, where the click was, not only at the top of the page');
+  assert.ok(ui.doc.querySelector('#lsrow-900 .loc .lnote').getAttribute('role') === 'status');
+  assert.ok(ui.doc.querySelector('#lsrow-900 .loc-t svg'), 'the pin icon stays on the dimmed place');
+  assert.ok(text(ui.doc.querySelector('#lsrow-900 .loc-t .cue')) === 'no map picture', 'a cue in words, not only a colour');
   const more = text(ui.doc.querySelector('#lsrow-900 .more'));
   assert.ok(more.includes(why) && more.includes('no pin or map link') && !more.includes('From you'), more);
   assert.equal(ui.doc.querySelector('#lsrow-900 .more .pin'), null, 'no pin is drawn on a made-up picture');
+});
+
+test('the click on a place that cannot be opened shows its reason next to it, in the warning colour; so does a Saved map that is not ready', async () => {
+  const known = { known: true, map: 'Hagga Basin', map_key: 'HaggaBasin', area: 'The O’dham', place: 'north rim', x: 0.25, y: 0.5 };
+  const none = { known: false };
+  const ui = await open(board({ tasks: [house(900, 'Alexin', 0, { location: none }), house(901, 'Thorvald', 100, { location: known })] }));
+  assert.equal(text(ui.doc.querySelector('#lsrow-900 .loc .lnote')), '', 'nothing is said before a click');
+  click(ui, '#lsrow-900 [data-lb=map]');
+  assert.ok(text(ui.doc.querySelector('#lsrow-900 .loc .lnote')).includes('no map marker'));
+  assert.ok(ui.doc.querySelector('#lsb-result').classList.contains('warn'));
+  assert.equal(ui.doc.querySelector('#lsrow-901 .loc .lnote'), null, 'a place that opens has no note');
+  ui.w.liveMapShow = undefined;
+  click(ui, '#lsrow-901 [data-lb=map]');
+  assert.equal(text(ui.doc.querySelector('#lsrow-901 .loc .lnote')), 'The Saved map is not ready yet.');
+  assert.equal(text(ui.doc.querySelector('#lsb-result')), 'The Saved map is not ready yet.');
+  assert.ok(ui.doc.querySelector('#lsb-result').classList.contains('warn'));
+  assert.ok(ui.doc.querySelector('#lsb'), 'the page stays');
+});
+
+test('the About text of the board says what a click on a place does', async () => {
+  const ui = await open();
+  assert.ok(text(ui.doc.querySelector('.lsb')).includes('A click on a place opens the Saved map at the house'));
 });
 
 test('a place with a picture reads as a link to the Saved map: not muted, and its name and tooltip say it opens the Saved map', async () => {
