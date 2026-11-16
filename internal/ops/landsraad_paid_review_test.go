@@ -403,6 +403,11 @@ func TestPaidARowWrittenExactlyAtTheStartOfTheTermStandsAndOneBeforeItDoesNot(t 
 	}
 	check(100, 6000)
 	check(99, 0)
+	// the tiers alone, with no swatch row: the first of the two queries has its own boundary
+	check(100, 6000)
+	setup(t, o, `delete from landsraad_house_rewards where player_id=1 and house_name='DA_HouseKenola' and template_id='Kenola_Placeables_Swatch'`)
+	check(100, 4800)
+	check(99, 0)
 }
 
 // The cap holds the record only when it is above the rows that stand: equal to them it is trusted whole, and a raise that pays does not replace it.
@@ -421,7 +426,7 @@ func TestPaidARecordEqualToWhatStandsIsTrustedAndNotMarkedUntrusted(t *testing.T
 
 // N6: a read that fails is tried again once after a short pause, because the save's lock is held while it waits.
 func TestPaidAFailingReadWaitsOnlyAShortWhile(t *testing.T) {
-	if wait := time.Duration(paidReadTries-1) * paidReadPause; paidReadTries < 2 || wait > 100*time.Millisecond {
+	if wait := time.Duration(paidReadTries-1) * paidReadPause; paidReadTries < 2 || wait > 60*time.Millisecond {
 		t.Fatalf("%d tries, %v pause: %v of waiting under the save's lock", paidReadTries, paidReadPause, wait)
 	}
 }
