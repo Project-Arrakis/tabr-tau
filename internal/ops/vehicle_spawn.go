@@ -515,21 +515,21 @@ func vehicleThere(s *save.Save, prev map[string]any) (there, read bool) {
 	if !ok {
 		return false, true
 	}
-	r, err := s.One(`select class from actors where id=? and id in (select id from vehicles)`, id)
+	rows, err := spawnCheckQuery(s, `select class from actors where id=? and id in (select id from vehicles)`, id)
 	if err != nil {
 		return false, false
 	}
-	if r == nil {
+	if len(rows) == 0 {
 		return false, true
 	}
 	wantClass, wantEnts, ok := spawnIdentity(prev)
 	if !ok {
 		return true, true // an answer without its rows: the id is all there is to go by
 	}
-	if c, _ := r["class"].(string); c != wantClass {
+	if c, _ := rows[0]["class"].(string); c != wantClass {
 		return false, true
 	}
-	ents, err := s.Query(`select slot_name, entity_id from actor_fgl_entities where actor_id=? order by slot_name`, id)
+	ents, err := spawnCheckQuery(s, `select slot_name, entity_id from actor_fgl_entities where actor_id=? order by slot_name`, id)
 	if err != nil {
 		return false, false
 	}
@@ -540,10 +540,17 @@ func vehicleThere(s *save.Save, prev map[string]any) (there, read bool) {
 	return strings.Join(parts, ",") == wantEnts, true
 }
 
-// spawnedStillThere says whether the vehicle an earlier answer made is still a vehicle of the working copy.
-func (o *Ops) spawnedStillThere(prev map[string]any) bool {
-	there, _ := vehicleThere(o.S, prev)
-	return there
+// spawnCheckQuery is the one way the repeat check and the prune read the working copy. It is a variable only so that a test can make the read fail (a timeout or an unreadable
+// working copy cannot be made to happen on demand); production code never sets it.
+var spawnCheckQuery = func(s *save.Save, q string, args ...any) ([]save.Row, error) { return s.Query(q, args...) }
+
+// errSpawnCheckUnread is the answer to a repeat of a Create whose check of the earlier vehicle could not read the save (#790).
+var errSpawnCheckUnread = errors.New("the check for a repeat of this Create could not read the save, so nothing was written; the earlier answer is kept, try again")
+
+// spawnedStillThere says whether the vehicle an earlier answer made is still a vehicle of the working copy, and whether the working copy could be read to find out. A caller that
+// gets read=false must not treat there=false as "gone" (#790).
+func (o *Ops) spawnedStillThere(prev map[string]any) (there, read bool) {
+	return vehicleThere(o.S, prev)
 }
 
 var requestIDRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
@@ -574,11 +581,19 @@ func (o *Ops) spawnVehicle(a Args, dry bool) (any, error) {
 			spawnAnswers.Lock()
 			defer spawnAnswers.Unlock()
 			prev, ok := spawnAnswers.seen[key]
-			if ok && !o.spawnedStillThere(prev) {
-				// the vehicle is not in the working copy (a discard, a restore or a rebase dropped the edit that made it): the id is a new request, not a repeat. The entry is not
-				// dropped here but replaced when the write below succeeds: with the queue held the working copy is the game's file, the vehicle is still in the held edits, and a write
-				// that is refused must not forget it (#760).
-				ok = false
+			if ok {
+				there, read := o.spawnedStillThere(prev)
+				if !read {
+					// the working copy could not be read, so nobody knows whether the earlier vehicle is there: a write could make a second one. Refuse, keep the entry and write
+					// nothing; only a read that worked and did not find the vehicle makes this a new request (#790).
+					return nil, errSpawnCheckUnread
+				}
+				if !there {
+					// the vehicle is not in the working copy (a discard, a restore or a rebase dropped the edit that made it): the id is a new request, not a repeat. The entry is not
+					// dropped here but replaced when the write below succeeds: with the queue held the working copy is the game's file, the vehicle is still in the held edits, and a write
+					// that is refused must not forget it (#760).
+					ok = false
+				}
 			}
 			if ok {
 				again := make(map[string]any, len(prev)+1)

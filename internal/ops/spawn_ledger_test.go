@@ -3,6 +3,7 @@ package ops
 import (
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -297,5 +298,117 @@ func TestAVehicleMadeOutsideTheMemoryDropsTheAnswersThatNameItsId(t *testing.T) 
 				t.Fatal("the answer that names the id the new vehicle took is dropped")
 			}
 		})
+	}
+}
+
+// failTheCheckRead makes the read of the repeat check fail for the statements that contain the text given ("" for every one), and puts the real read back when the test ends.
+func failTheCheckRead(t *testing.T, containing string) (restore func()) {
+	t.Helper()
+	real := spawnCheckQuery
+	spawnCheckQuery = func(s *save.Save, q string, args ...any) ([]save.Row, error) {
+		if containing == "" || strings.Contains(q, containing) {
+			return nil, errors.New("the working copy could not be read")
+		}
+		return real(s, q, args...)
+	}
+	restore = func() { spawnCheckQuery = real }
+	t.Cleanup(restore)
+	return restore
+}
+
+// The two reads of the check: the vehicle's row, then its entity links (the second is reached only when the first finds the vehicle).
+var checkReads = map[string]string{"the vehicle's row": "from actors", "the entity links": "actor_fgl_entities"}
+
+// A repeat of a Create whose check could not read the save is refused: nothing is written, the answer stays, and once the save can be read again the same retry is answered with the
+// first vehicle (#790). Before, the failed read counted as "the vehicle is gone" and the retry wrote a second vehicle.
+func TestARepeatWhoseCheckCannotReadTheSaveIsRefusedAndWritesNothing(t *testing.T) {
+	for name, containing := range checkReads {
+		t.Run(name, func(t *testing.T) {
+			o := spawnOps(t)
+			a := Args{"class": "Buggy", "template": "T0", "requestId": "form-u"}
+			first, _ := spawn(t, o, a)
+			count := func() int64 { return mustOne(t, o, `select count(*) c from vehicles`)["c"].(int64) }
+			actors := func() int64 { return mustOne(t, o, `select count(*) c from actors`)["c"].(int64) }
+			vehiclesBefore, actorsBefore, opsBefore := count(), actors(), len(o.S.Pending())
+			restore := failTheCheckRead(t, containing)
+			res, err := o.SpawnVehicle(a)
+			if !errors.Is(err, errSpawnCheckUnread) || res != nil {
+				t.Fatalf("the repeat is refused with the read answer: %v, %v", res, err)
+			}
+			if msg := err.Error(); !strings.Contains(msg, "nothing was written") || !strings.Contains(msg, "could not read the save") {
+				t.Fatalf("the answer says what happened: %q", msg)
+			}
+			if count() != vehiclesBefore || actors() != actorsBefore || len(o.S.Pending()) != opsBefore {
+				t.Fatalf("nothing was written: %d vehicles, %d actors, %d edits (before %d, %d, %d)", count(), actors(), len(o.S.Pending()), vehiclesBefore, actorsBefore, opsBefore)
+			}
+			if !ledgerHas(o.S, "form-u") {
+				t.Fatal("the answer is kept")
+			}
+			if seen, order := ledgerEntries(o.S); seen != 1 || order != 1 {
+				t.Fatalf("the ledger stays consistent: %d answers, %d in the order", seen, order)
+			}
+			restore() // the save can be read again
+			again, ans := spawn(t, o, a)
+			if again != first || ans["repeat"] != true || count() != vehiclesBefore {
+				t.Fatalf("the retry is now answered with the first vehicle: %d (first %d), repeat %v, %d vehicles", again, first, ans["repeat"], count())
+			}
+		})
+	}
+}
+
+// A prune whose check could not read the save keeps every answer: it does not know that the vehicles are gone (#790; the prune always did, this pins it).
+func TestPruneSpawnAnswersKeepsTheAnswersWhenTheCheckCannotReadTheSave(t *testing.T) {
+	for name, containing := range map[string]string{"every read": "", "the vehicle's row": "from actors", "the entity links": "actor_fgl_entities"} {
+		t.Run(name, func(t *testing.T) {
+			o := spawnOps(t)
+			spawn(t, o, Args{"class": "Buggy", "template": "T0", "requestId": "form-p"})
+			spawn(t, o, Args{"class": "Buggy", "template": "T0", "requestId": "form-q"})
+			if containing != "actor_fgl_entities" { // the vehicles are gone from the working copy; for the read of the links they stay, so that the read is reached
+				if err := o.S.Discard(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			failTheCheckRead(t, containing)
+			PruneSpawnAnswers(o.S)
+			if !ledgerHas(o.S, "form-p") || !ledgerHas(o.S, "form-q") {
+				t.Fatal("the answers are kept when the working copy could not be read")
+			}
+			if seen, order := ledgerEntries(o.S); seen != 2 || order != 2 {
+				t.Fatalf("the ledger stays consistent: %d answers, %d in the order", seen, order)
+			}
+		})
+	}
+}
+
+// A read that worked and did not find the vehicle makes the repeat a new request: it writes, and the entry is replaced (the prune drops it). A read that found the vehicle answers
+// the repeat and writes nothing, and the prune keeps the entry (#790).
+func TestARepeatIsAnsweredWhileItsVehicleIsThereAndWrittenOnlyWhenTheReadFindsItGone(t *testing.T) {
+	o := spawnOps(t)
+	a := Args{"class": "Buggy", "template": "T0", "requestId": "form-v"}
+	first, _ := spawn(t, o, a)
+	count := func() int64 { return mustOne(t, o, `select count(*) c from vehicles`)["c"].(int64) }
+	n := count()
+	if same, ans := spawn(t, o, a); same != first || ans["repeat"] != true || count() != n {
+		t.Fatalf("still there: answered with the first vehicle, nothing written: %d, %v, %d vehicles", same, ans["repeat"], count())
+	}
+	PruneSpawnAnswers(o.S)
+	if !ledgerHas(o.S, "form-v") {
+		t.Fatal("the prune keeps the answer of a vehicle that is there")
+	}
+	if _, err := o.S.MutateCascade("remove the vehicle", func(m *save.Mut) error {
+		_, err := m.Exec(`delete from vehicles where id=?`, first)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if count() != n-1 {
+		t.Fatal("the vehicle is gone (this is what the test needs)")
+	}
+	again, ans := spawn(t, o, a)
+	if ans["repeat"] == true || count() != n || !ledgerHas(o.S, "form-v") {
+		t.Fatalf("gone, and the read worked: the retry is a new request and writes: %d, %v, %d vehicles", again, ans["repeat"], count())
+	}
+	if seen, order := ledgerEntries(o.S); seen != 1 || order != 1 {
+		t.Fatalf("the entry was replaced, not doubled: %d answers, %d in the order", seen, order)
 	}
 }
