@@ -1,11 +1,11 @@
 # Export a base as the Dune console's base backup file
 
 Player > Bases has an **Export for console** button. It saves a base as the self-hosted Dune console's own **base backup** file (`format: "dune-base-backup"`, version 1), the file the console's
-Bases page offers as "Base Backup" and its import reads. It is the way a base from a single-player save can go to a multiplayer game (#534, continuing #475). **Whether a multiplayer console
+Bases page offers as "Base Backup" and its import reads. It is for **your own self-hosted Dune server only**: a way to take a base you built in your own single-player save to the server you run yourself (#534, continuing #475). It is not for a console game and not for a public or another person's server, and the editor itself stays a tool for single-player saves on your own PC. **Whether your self-hosted console
 accepts the file, and whether the game redeploys the base from it, has not been tried yet**; what only a game can answer is listed at the end.
 
 Exporting only reads the save: nothing in the save changes, nothing is written to the game's folder, nothing asks first, and it works the same while the game is running. The editor's own
-export (`tabr-tau-base`, see [`export-a-base-backup.md`](export-a-base-backup.md)) is a separate file for another single-player save; this one is for the console.
+export (`tabr-tau-base`, see [`export-a-base-backup.md`](export-a-base-backup.md)) is a separate file for another single-player save; this one is for the console of your own self-hosted server.
 
 ## Two places, two kinds of base
 
@@ -35,6 +35,7 @@ This follows what the console documents for exporting a live base (`exportLiveBa
   transfer id after an `@` (`!!act@12`). No `#` form is left anywhere in the file (#538); the next section has the three cases that were.
 - **Unfinished placements.** A placeable that is still a hologram is kept, as the console's export keeps it. The Bases list does not count holograms, so the file can hold more placeables than
   the row shows; the message says how many of them are holograms.
+- **Your own server only.** The file carries nothing that ties it to a server, and the editor does not check where it is taken. It is meant for the self-hosted server you run yourself; do not import it into a console game or into a public or another person's server.
 - **Game version.** The file says how many game patches the save has applied and the latest five. It leaves the build and the patch checksum empty, because a save holds neither; the console
   therefore asks to import it anyway.
 
@@ -125,10 +126,10 @@ A base exported by the console itself (a standing base, its Download Base) was r
 
 Nothing else was found to differ in a way the console checks. Whether the game redeploys the base is below.
 
-## What only a multiplayer game can answer
+## What only a game on your own self-hosted server can answer
 
-1. Does the console accept the file now (no "Non-transfer id" error; the version check on the game build and the patch checksum, the placeholder owner)? Does the receiving player see the base in the in-game base backup tool
+1. Does your self-hosted console accept the file now (no "Non-transfer id" error; the version check on the game build and the patch checksum, the placeholder owner)? Does the receiving player on your server see the base in the in-game base backup tool
    and redeploy it with pieces, placeables, storage and generators intact?
-2. The save's actors are in dimension 0. Whether a multiplayer server expects another dimension number in the file is not known; the editor writes what the save holds.
-3. A base in a layout that differs from the receiving server's (Deep Desert), and a crafting station with a queued job (its `InstigatorActorId` is written as none: does the job continue?).
+2. The save's actors are in dimension 0. Whether your self-hosted server expects another dimension number in the file is not known; the editor writes what the save holds.
+3. A base in a layout that differs from your server's (Deep Desert), and a crafting station with a queued job (its `InstigatorActorId` is written as none: does the job continue?).
 4. Unfinished placements (holograms): keep them, as written, or drop them?
