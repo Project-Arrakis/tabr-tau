@@ -86,26 +86,69 @@ insert into placeables(id,health,building_type,owner_entity_id) values (853,9000
 
 // A piece whose owner is a totem but whose actor is picked up (state 5) is not standing and is not a source; neither is a piece no base owns, a piece of a foreign owner or a hologram.
 func TestRepairTargetIgnoresPiecesThatAreNotStanding(t *testing.T) {
-	o := capOps(t, `
+	for _, how := range []string{"base", "all"} {
+		t.Run(how, func(t *testing.T) {
+			o := capOps(t, `
 insert into actors(id,class,map,state) values (803,'b','HaggaBasin',5),(804,'b','HaggaBasin',0),(854,'p','HaggaBasin',0);
 insert into building_instances(building_id,instance_id,building_type,health,owner_entity_id) values
   (803,1,'Foundation',8000.0,-601),(804,1,'Foundation',8100.0,NULL),(804,2,'Wall',8100.0,5);
 insert into placeables(id,health,building_type,owner_entity_id,is_hologram) values (854,4000.0,'Cistern',-601,1);`)
-	repairAs(t, o, "all")
-	standingRepaired(t, o)
+			repairAs(t, o, how)
+			standingRepaired(t, o)
+		})
+	}
+}
+
+// A placeable hologram is not a piece to repair (#770): Repair base never wrote one, and Repair every base did (a hologram that stood at 0 went to the built health, 23 of the 37
+// placeables raised on one measured save). Both leave a hologram as it is, whatever its health and whether or not its type has a target, and both still repair the real placeables.
+func TestRepairLeavesPlaceableHologramsAsTheyAre(t *testing.T) {
+	for _, how := range []string{"base", "all"} {
+		t.Run(how, func(t *testing.T) {
+			o := capOps(t, `
+insert into actors(id,class,map,state) values (858,'p','HaggaBasin',0),(859,'p','HaggaBasin',0),(860,'p','HaggaBasin',0);
+insert into placeables(id,health,building_type,owner_entity_id,is_hologram) values
+  (858,0.0,'Cistern',-601,1),(859,100.0,'Cistern',-601,1),(860,0.0,'LargeWindtrap_Placeable',-601,1);`)
+			var res any
+			var err error
+			if how == "base" {
+				res, err = o.RepairBase(601)
+			} else {
+				res, err = o.RepairBuildings()
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			standingRepaired(t, o)
+			if got := healths(t, o, `select health h from placeables where id in (858,859,860) order by id`); got[0] != 0 || got[1] != 100 || got[2] != 0 {
+				t.Fatalf("hologram healths %v, want [0 100 0]", got)
+			}
+			if n := res.(map[string]any)["placeables"].(int64); n != 1 {
+				t.Fatalf("one real placeable is raised, the answer counts %d", n)
+			}
+		})
+	}
 }
 
 // A standing piece above the cap of its type is not spread: the target is the cap. A piece that is already above the cap is not lowered.
 func TestRepairTargetIsClampedToTheCap(t *testing.T) {
 	// Sardaukar_Foundation has a cap of its own (7000 seen, times 1.25 = 8750); Foundation and Cistern are not listed and get the overall cap of their table (8750; 25000);
 	// LargeWindtrap_Placeable has a cap of its own (3500 seen, times 1.25 = 4375).
+	for _, how := range []string{"base", "all"} {
+		t.Run(how, func(t *testing.T) {
+			clampedToTheCap(t, how)
+		})
+	}
+}
+
+func clampedToTheCap(t *testing.T, how string) {
+	t.Helper()
 	o := capOps(t, `
 insert into actors(id,class,map,state) values (805,'b','HaggaBasin',0),(855,'p','HaggaBasin',0),(856,'p','HaggaBasin',0),(857,'p','HaggaBasin',0);
 insert into building_instances(building_id,instance_id,building_type,health,owner_entity_id) values
   (805,1,'Sardaukar_Foundation',900000.0,-601),(805,2,'Sardaukar_Foundation',100.0,-601),(805,3,'Foundation',999999.0,-601);
 insert into placeables(id,health,building_type,owner_entity_id) values
   (855,999999.0,'Cistern',-601),(856,900000.0,'LargeWindtrap_Placeable',-601),(857,10.0,'LargeWindtrap_Placeable',-601);`)
-	repairAs(t, o, "all")
+	repairAs(t, o, how)
 	if got := healths(t, o, `select health h from building_instances where building_type='Sardaukar_Foundation' order by instance_id`); got[0] != 900000 || got[1] != 8750 {
 		t.Fatalf("Sardaukar_Foundation healths %v, want [900000 8750]", got)
 	}
