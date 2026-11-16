@@ -112,7 +112,8 @@ func (o *Ops) Landsraad() (any, error) {
 	}
 	// the sum of the character's own progress events per house: the ground a raise already counts as paid (#656), for the page to work out what a click grants
 	events := map[int64]float64{}
-	if mineID != 0 && hasTable(o, "landsraad_task_progress") && hasTable(o, "landsraad_task_progress_player") {
+	haveEvents := mineID != 0 && hasTable(o, "landsraad_task_progress") && hasTable(o, "landsraad_task_progress_player")
+	if haveEvents {
 		er, err := o.S.Query(`select p.task_id, sum(p.player_progress) s from landsraad_task_progress p join landsraad_task_progress_player l on l.progress_id=p.id where l.player_id=? group by p.task_id`, mineID)
 		if err != nil {
 			return nil, readFailed("the progress events of your character", err)
@@ -161,36 +162,16 @@ func (o *Ops) Landsraad() (any, error) {
 			}
 		}
 		t["my_contribution"], t["my_recorded"] = my, has
-		// a tier is reached when the contribution is at least its threshold; it is delivered when the save holds a delivery of that item for the house made in this term,
-		// of at least the amounts of the reached tiers of the same item (the rows add the amounts of every term up, so this cannot tell two equal items of one house apart)
+		// a tier is reached when the contribution is at least its threshold; whether it is delivered (and what stands at the house representative) is decided per tier by
+		// tierState in landsraad_board.go, the same rule the write uses (#656)
 		tiers := rw[id]
 		for _, x := range tiers {
 			r := x.(save.Row)
 			th, _ := toFloat(r["threshold"])
-			reached := has && my >= th
-			r["reached"] = reached
-			deliv := false
-			if d, ok := delivered[fmt.Sprint(t["house_name"])+"\x00"+fmt.Sprint(r["template_id"])]; ok && reached {
-				if upd, ok := toFloat(d["last_updated"]); ok && upd >= termStart {
-					need := 0.0
-					for _, y := range tiers {
-						yr := y.(save.Row)
-						if yr["template_id"] == r["template_id"] {
-							if yt, _ := toFloat(yr["threshold"]); yt <= th {
-								ya, _ := toFloat(yr["amount"])
-								need += ya
-							}
-						}
-					}
-					if have, ok := toFloat(d["amount"]); ok && have >= need {
-						deliv = true
-					}
-				}
-			}
-			r["delivered"] = deliv
+			r["reached"] = has && my >= th
 		}
 		t["rewards"] = tiers
-		boardTask(t, tiers, delivered, one, termID, termStart, places, here)
+		boardTask(t, tiers, delivered, one, termID, termStart, events[id], haveEvents, places, here)
 	}
 	decrees, err := o.S.Query(`select id, decree_name, disabled, weight from landsraad_decrees order by id`)
 	if err != nil {

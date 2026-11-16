@@ -89,7 +89,7 @@ func TestLandsraadKnowsWhichRecordedContributionIsTheCharacters(t *testing.T) {
 }
 
 func TestLandsraadSaysWhichTiersAreReachedAndDelivered(t *testing.T) {
-	o := mineOps(t, "")
+	o := mineOps(t, marosEvents) // the events cover Maros's tiers: delivered needs them (#656)
 	flags := func(task map[string]any) (reached, delivered []bool) {
 		for _, x := range task["rewards"].([]any) {
 			r := x.(save.Row)
@@ -117,7 +117,7 @@ func TestLandsraadSaysWhichTiersAreReachedAndDelivered(t *testing.T) {
 
 func TestADeliveryFromBeforeThisTermIsNotCountedAsThisTermsTier(t *testing.T) {
 	// the same item delivered in the previous term (last_updated 50, the term began at 100)
-	o := mineOps(t, `update landsraad_house_rewards set last_updated=50 where player_id=1;`)
+	o := mineOps(t, marosEvents+`update landsraad_house_rewards set last_updated=50 where player_id=1;`)
 	for _, x := range taskByID(t, o, 174)["rewards"].([]any) {
 		if x.(save.Row)["delivered"].(bool) {
 			t.Fatalf("delivered before the term began is not this term's: %v", x)
