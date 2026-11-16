@@ -203,3 +203,28 @@ func TestImportedHighHealthBackupDoesNotRaiseTheRepairTarget(t *testing.T) {
 	}
 	standingRepaired(t, o)
 }
+
+// The write of Repair every base leaves the pieces and placeables of an imported backup (picked-up state 5) as they are (#815), as it leaves a placeable hologram: a backup is not part of
+// the bases, so its health is not raised to the target of a type, whether or not a totem's entity owns it. Repair base never reached them (it writes only the pieces of the base asked for).
+func TestRepairLeavesPiecesOfABackupAsTheyAre(t *testing.T) {
+	for _, how := range []string{"base", "all"} {
+		t.Run(how, func(t *testing.T) {
+			o := capOps(t, `
+insert into actors(id,class,map,state) values (602,'t','HaggaBasin',5),(802,'b','HaggaBasin',5),(853,'p','HaggaBasin',5),(854,'p','HaggaBasin',5);
+insert into totems(id) values (602);
+insert into fgl_entities(entity_id,components) values (-602, jsonb('{}'));
+insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (602,-602,'Actor');
+insert into building_instances(building_id,instance_id,building_type,health,owner_entity_id) values
+  (802,1,'Foundation',100.0,NULL),(802,2,'Wall',200.0,-602);
+insert into placeables(id,health,building_type,owner_entity_id) values (853,50.0,'Cistern',-602),(854,60.0,'Cistern',NULL);`)
+			repairAs(t, o, how)
+			standingRepaired(t, o)
+			if got := healths(t, o, `select health h from building_instances where building_id=802 order by instance_id`); got[0] != 100 || got[1] != 200 {
+				t.Fatalf("backup piece healths %v, want [100 200]", got)
+			}
+			if got := healths(t, o, `select health h from placeables where id in (853,854) order by id`); got[0] != 50 || got[1] != 60 {
+				t.Fatalf("backup placeable healths %v, want [50 60]", got)
+			}
+		})
+	}
+}

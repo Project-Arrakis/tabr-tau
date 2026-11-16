@@ -38,6 +38,12 @@ func ownedByAnyBase(alias string) string {
 	return alias + `.owner_entity_id in (select afe.entity_id from actor_fgl_entities afe join totems t on t.id=afe.actor_id)`
 }
 
+// notInBackup is the test, for a row of the table named by table whose actor id is in idCol, that its actor is not in the picked-up state (5, which is what an imported backup is written in):
+// the write of Repair every base leaves such a row as it is (#815), the same way bestHealthOf does not take it as a source. A row with no actor is not a backup and is not left out.
+func notInBackup(table, idCol string) string {
+	return table + `.` + idCol + ` not in (select ba.id from actors ba where ba.state = 5)`
+}
+
 // bestHealthOf is the derived table of the repair: the repair target of each type of the table (building_instances or placeables), as "bt" (the type) and "top" (the target).
 //
 // The target is the best health seen on STANDING pieces of the player's own bases (#613, audit G-009): a piece counts only when a totem's entity owns it and its actor is not in the
@@ -57,7 +63,7 @@ func bestHealthOf(table string) string {
 		left join (select column1 ty, column2 cap from (values ` + capValues(seen) + `)) c on c.ty=s.building_type)`
 }
 
-// RepairBuildings raises every building piece and placeable of the whole save (a placeable hologram is left as it is, as in RepairBase, #770) to the repair target of its type (bestHealthOf: the best health seen on standing pieces of the player's own bases, held to the cap of the type, #613). It is the
+// RepairBuildings raises every building piece and placeable of the whole save (a placeable hologram is left as it is, as in RepairBase, #770, and so is a piece of an imported backup, #815) to the repair target of its type (bestHealthOf: the best health seen on standing pieces of the player's own bases, held to the cap of the type, #613). It is the
 // save-wide action; the Structures tab offers it apart from the open base's own, RepairBase (#526).
 //
 // The best health of each type is worked out once, by one grouped scan, and the pieces are joined to it. The statement used to look the
@@ -68,14 +74,16 @@ func (o *Ops) RepairBuildings() (any, error) {
 	_, err := o.S.Mutate("", func(m *save.Mut) error {
 		res, err := m.Exec(`update building_instances set health=best.top
 			from ` + bestHealthOf("building_instances") + ` best
-			where building_instances.building_type=best.bt and building_instances.health < best.top`)
+			where building_instances.building_type=best.bt and building_instances.health < best.top
+				and ` + notInBackup("building_instances", "building_id"))
 		if err != nil {
 			return err
 		}
 		n, _ = res.RowsAffected()
 		res2, err := m.Exec(`update placeables set health=best.top
 			from ` + bestHealthOf("placeables") + ` best
-			where placeables.building_type=best.bt and placeables.health < best.top and placeables.is_hologram=0`)
+			where placeables.building_type=best.bt and placeables.health < best.top and placeables.is_hologram=0
+				and ` + notInBackup("placeables", "id"))
 		if err != nil {
 			return err
 		}
