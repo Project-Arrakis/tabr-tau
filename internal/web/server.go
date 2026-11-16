@@ -843,7 +843,12 @@ func (s *Server) routes() {
 	s.get("/api/landsraad", func(r *http.Request) (any, error) {
 		v, err := o.Landsraad()
 		if m, ok := v.(map[string]any); ok && err == nil {
-			m["grant"] = s.grantSettings().Preview() // what a raise grants, for the line before the click
+			g := s.grantSettings()
+			pv := g.Preview() // what a raise grants, for the line before the click
+			if room := o.SpecRoom(g); room != nil {
+				pv["room"] = room // the experience each track still has room for, so the line before the click does not overstate near the last level (#762)
+			}
+			m["grant"] = pv
 		}
 		return v, err
 	})
@@ -1274,6 +1279,7 @@ func (s *Server) grantSettings() ops.GrantSettings {
 	g := ops.DefaultGrantSettings()
 	g.TrackNumbers = settings.Load(s.SettingsPath).TrackNumbers
 	var problems []string
+	unreadable := false
 	for _, k := range []struct {
 		key  string
 		dst  *float64
@@ -1281,16 +1287,22 @@ func (s *Server) grantSettings() ops.GrantSettings {
 	}{{"LandsraadContributionMultiplier", &g.ContributionMultiplier, "a mission would add no contribution and the missions a click stands for could not be counted"},
 		{"LandsraadSpecializationXpMultiplier", &g.SpecializationXPMultiplier, ""}} {
 		v, found, err := s.Cfg.Number("ServerCustomSettings.ini", config.DefaultSection, k.key, 0, 10)
+		var bad *config.BadValueError
 		switch {
-		case err != nil:
-			problems = append(problems, err.Error())
+		case errors.As(err, &bad):
+			problems = append(problems, bad.Error())
+		case err != nil: // the file cannot be read: a value to correct is the wrong advice, and the error text holds the full folder (#753)
+			unreadable = true
 		case found && v == 0 && k.zero != "":
 			problems = append(problems, k.key+" in ServerCustomSettings.ini is 0, so "+k.zero)
 		case found:
 			*k.dst = v
 		}
 	}
-	if len(problems) > 0 {
+	switch {
+	case unreadable:
+		g.Problem = "ServerCustomSettings.ini could not be read, so the Landsraad amounts cannot be worked out. Nothing was changed."
+	case len(problems) > 0:
 		g.Problem = "The Landsraad amounts cannot be worked out: " + strings.Join(problems, "; and ") + ". Nothing was changed; correct the value in ServerCustomSettings.ini (Config tab) and try again."
 	}
 	return g

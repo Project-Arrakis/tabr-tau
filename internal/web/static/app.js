@@ -1836,6 +1836,7 @@ function lbItem(h, l, kind, F, i) {
     if (i > n) it.mine_to = ths[i - 1]; else if (i === n) { it.mine_to = i > 1 ? ths[i - 2] : 0; it.lower = true; } else return null;
   }
   if ((kind === 'fill' || kind === 'fillgoal') && !lbFillOffF(h, l, F)) it.mine_to = lbTop(h); // Fill is off at the top tier, so this never lowers
+  if (it.mine_to !== undefined && typeof h.task.my_events === 'number') it.was_events = h.task.my_events; // the ground your own events cover, as shown: the server refuses the raise when it is another number now (#762)
   if ((kind === 'complete' || kind === 'fillgoal') && !lbDoneFor(h, F)) it.complete_for = F;
   if (kind === 'reopen' && h.taken) it.reopen = true;
   return it.mine_to !== undefined || it.complete_for !== undefined || it.reopen ? it : null;
@@ -1872,16 +1873,20 @@ function lbGrantOf(h, l, from, to) {
   if (!(to > lo)) return { missions: 0, rewards: 0, solari: 0, scrip: 0, xpBy: {}, paidMissions }; // the character's own events and the editor's own record already cover this ground
   if (g.problem) return { problem: g.problem };
   const line = h.task.line || '';
-  if (!line && g.xp > 0) return { problem: `House ${h.name} has no specialization line in the editor, so a raise on it is refused and nothing is changed. Choose other houses, or use Complete for this one.` };
   const at = (x) => (x <= 0 ? 0 : Math.ceil(x / g.step - 1e-9)), missions = at(to) - at(lo);
-  if (missions > g.max_missions) return { problem: `House ${h.name}: this click stands for ${lbF(missions)} missions, more than the ${lbF(g.max_missions)} one change may grant, so nothing is changed. Click the tiers one at a time, or set LandsraadContributionMultiplier in ServerCustomSettings.ini (Config tab) nearer to 1.` };
-  const xp = missions * g.xp;
+  if (missions > g.max_missions) return { problem: `House ${h.name}: this click stands for ${lbF(missions)} missions, more than the ${lbF(g.max_missions)} one change may grant for one house, so nothing is changed. Click the tiers one at a time, or set LandsraadContributionMultiplier in ServerCustomSettings.ini (Config tab) nearer to 1.` };
+  if (!line && g.xp > 0 && missions > 0) return { problem: `House ${h.name} has no specialization line in the editor, so a raise on it that pays a mission is refused and nothing is changed. Choose other houses, or use Complete for this one.` }; // the write refuses only when a mission with experience is written (#762)
+  const room = g.room && line && g.room[line] != null ? Number(g.room[line]) : null; // the experience the track still has room for: the write adds no more than fits (#762)
+  const xp = room != null ? Math.min(missions * g.xp, Math.max(room, 0)) : missions * g.xp;
   // a swatch won in this term is not delivered again (the write skips it), so the top tier does not count as waiting then
   return { missions, paidMissions, rewards: h.tiers.filter((t) => t.th > lo && t.th <= to && !(t.swatch && h.held)).length, solari: missions * g.solari, scrip: missions * g.scrip, xpBy: xp > 0 && line ? { [line]: xp } : {} };
 }
 function lbGrantSum(list) { // the grants of several houses as one
   const s = { missions: 0, rewards: 0, solari: 0, scrip: 0, xpBy: {}, paidMissions: 0 };
   for (const g of list) { if (!g || g.problem) continue; s.paidMissions += g.paidMissions || 0; s.missions += g.missions; s.rewards += g.rewards; s.solari += g.solari; s.scrip += g.scrip; for (const k of Object.keys(g.xpBy)) s.xpBy[k] = (s.xpBy[k] || 0) + g.xpBy[k]; }
+  // two houses of one line share one track: together they add no more than the track has room for (#762)
+  const room = LD && LD.grant && LD.grant.room;
+  if (room) for (const k of Object.keys(s.xpBy)) if (room[k] != null) s.xpBy[k] = Math.min(s.xpBy[k], Math.max(Number(room[k]), 0));
   return s;
 }
 const lbGrantList = (g) => ['+' + lbF(g.solari) + ' Solari', '+' + lbF(g.scrip) + ' House Scrip'].concat(Object.keys(g.xpBy).sort().map((k) => '+' + lbF(g.xpBy[k]) + ' ' + k + ' XP')).join(', ');
@@ -2157,8 +2162,8 @@ function lbActbar(hs, l) {
     <p class="legend2" id="lsb-legend"><b>Writes at once</b>, with a backup first; a raise also pays its missions. Not checked in the game yet.</p>
     ${lbAbout('lsb.tiers', 'tiers', html`<p><b>A tier click pays what its missions pay.</b> Click a tier (the boxes in the opened row) to give your character that tier: your contribution is raised to the tier's threshold, and contribution is cumulative, so <b>click tier 3 and tiers 1 to 3 are reached</b>. Click the highest reached tier again to remove it (the contribution drops to the tier below, or to none for tier 1). The Choose box on each row picks houses for the bulk buttons. Each tier box shows what the click grants before you press it.</p>
       <p><b>What a raise writes</b>, in one edit with a backup first:</p>
-      <ul><li>your contribution, raised to the tier;</li><li>the same ground added to your faction's progress while the house is open (the house is taken when that reaches the goal);</li><li>one reward for each tier crossed, waiting at the house representative (the 6,000 tier follows the swatch rule);</li><li>for each mission: 6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization line of the house.</li></ul>
-      <p>A mission is 1,000 contribution times <code>LandsraadContributionMultiplier</code>, and the XP is scaled by <code>LandsraadSpecializationXpMultiplier</code>; both are read from ServerCustomSettings.ini (1 when the key is absent), and a click is refused with the reason when a value cannot be used. The daily and weekly mission limits of the game are not applied.</p>
+      <ul><li>your contribution, raised to the tier;</li><li>the same ground added to your faction's progress while the house is open (the house is taken when that reaches the goal);</li><li>one reward for each tier crossed, waiting at the house representative (the 6,000 tier follows the swatch rule);</li><li>for each mission, as a mission with a Recollection turned in pays it: 6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization line of the house (whether a mission without a Recollection pays the House Scrip and the XP is not known).</li></ul>
+      <p>A mission is 1,000 contribution times <code>LandsraadContributionMultiplier</code>, and the XP is scaled by <code>LandsraadSpecializationXpMultiplier</code>; both are read from the ServerCustomSettings.ini on this computer (1 when the key is absent; the file of the game folder you use here, not necessarily the one a save from another setup was played with), and a click is refused with the reason when a value cannot be used or the file cannot be read. A change counts only the ground you raise from now on: a house raised by an earlier version of the editor already has events that cover its tiers, so a new Fill pays nothing for them, and tiers that version left out stay unpaid. The daily and weekly mission limits of the game are not applied.</p>
       <p><b>What it does not write:</b> your character's own XP and your faction standing. <b>No progress event is written</b>: the editor adds no event and leaves the game's progress cursor where it is, so the game should find only events of its own at its next cursor step. Whether the game keeps a contribution raised here at that step is not checked in the game. Events an earlier build of the editor wrote stay in the save and still count as ground paid. A second Fill with nothing above your contribution writes nothing, and ground the game's own progress events for the house cover, or that you reached under another faction (a change of faction does not make the old contribution pay again), is never paid again. <b>Removing a tier</b> lowers the contribution only, writes no reward and takes back nothing the tier paid. Because the editor leaves no event of its own, it remembers the ground it paid in a small file of its own next to its other files (written once the save is written, never in the game's save): <b>raising a removed tier again pays nothing again</b>, and a raise above what was paid pays only the new tiers. The result and the line before a click say how many missions were not paid because that ground was paid before. The same holds for the rewards of the tiers crossed and for your faction's progress. The tier box is a toggle, so clicking the highest reached tier twice pays once. The editor counts that file only as far as the save agrees: ground above the highest tier of the house whose reward the save shows from this term (for example after a backup was put back) is not counted, and a restored backup counts only as far as its own rewards go (undoing a restore keeps what that file already paid, unless a raise was made on the older file in between: the record then follows that raise, and going back to the later file can pay some of its ground again). If the file is missing, damaged or of another save, nothing is taken as paid, and a raise pays as it did before.</p>
       <p><b>Not checked in the game yet.</b> ${GRANT_UNCHECKED} <b>Going back:</b> ${undoNote()}</p>`)}
     ${lbAbout('lsb.fill', 'Fill and Complete', html`<p>Fill, Complete and Reopen act for the faction chosen above. It starts on your character's own faction.</p>
@@ -2226,7 +2231,12 @@ function lbGrantText(r, queued) {
   const pb = r.missions_paid_before > 0 ? ' ' + lbPaidBefore(r.missions_paid_before) : '';
   if (!r.missions) return r.contribution_raised ? 'No missions ' + (queued ? 'to write' : 'written') + ': your own earlier progress on this house already counts for this ground' + pb : '';
   const xp = Object.keys(r.specialization_xp || {}).sort().map((k) => '+' + lbF(r.specialization_xp[k]) + ' ' + k + ' XP');
-  return nn(r.missions, 'mission', 'missions') + (queued ? ' to write' : ' written') + ': ' + ['+' + lbF(r.solari) + ' Solari', '+' + lbF(r.house_scrip) + ' House Scrip'].concat(xp).join(', ') + pb;
+  return nn(r.missions, 'mission', 'missions') + (queued ? ' to write' : ' written') + ': ' + ['+' + lbF(r.solari) + ' Solari', '+' + lbF(r.house_scrip) + ' House Scrip'].concat(xp).join(', ') + lbXpLeft(r, queued) + pb;
+}
+// the experience that did not fit because a track is at its last level, by line (#752): a raise that filled a house to level a line must not read as a success with no word about it
+function lbXpLeft(r, queued) {
+  const left = r && r.specialization_xp_not_added || {}, ks = Object.keys(left).filter((k) => left[k] > 0).sort();
+  return ks.map((k) => '; ' + k + ' is at its last level, +' + lbF(left[k]) + ' XP ' + (queued ? 'will not be added' : 'not added')).join('');
 }
 // One request to /api/landsraad/apply for one house or several (one edit, one backup, all or none). hs: the houses as they were shown, by id.
 async function lbSend(b, items, label, hs, focusFk) {
@@ -2254,7 +2264,7 @@ async function lbSend(b, items, label, hs, focusFk) {
       text = label + ': ' + parts.join(', ') + extra + '.' + tail;
     }
     // the toast is one short line; the whole sentence stays in the result line
-    const short = r.missions ? label + ': ' + nn(r.missions, 'mission', 'missions') + (queued ? ' queued.' : ' written.') : r.contribution_lowered ? label + ': tier removed. Nothing it paid was taken back.' : '';
+    const short = r.missions ? label + ': ' + nn(r.missions, 'mission', 'missions') + (queued ? ' queued.' : ' written.') + (lbXpLeft(r, queued) ? ' Some XP ' + (queued ? 'will not be added' : 'not added') + ': a track is at its last level.' : '') : r.contribution_lowered ? label + ': tier removed. Nothing it paid was taken back.' : '';
     return { text, short, warn: !!left };
   }, lbSay, focusFk);
   // the result line is at the top of the board and the click may be far below it: bring it into view, and give it the focus when the control that was pressed is no longer there to take it

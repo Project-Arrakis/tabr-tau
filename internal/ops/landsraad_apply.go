@@ -3,6 +3,7 @@ package ops
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -35,6 +36,8 @@ type applyItem struct {
 	lower       bool
 	completeFor *int64
 	reopen      bool
+	stateShown  bool     // the page sent was_done or was_win: the state of the house is compared for every write, not only Complete and Reopen (#762)
+	wasEvents   *float64 // what the page showed as the ground the character's own events cover; compared when a contribution is raised (#762)
 }
 
 func parseApplyItems(a Args) ([]applyItem, error) {
@@ -70,12 +73,22 @@ func parseApplyItems(a Args) ([]applyItem, error) {
 		if r.wasDone, err = strictBool(it, "was_done", false); err != nil {
 			return nil, err
 		}
+		_, hasDone := it["was_done"]
 		if v, has := it["was_win"]; has && v != nil {
 			w, err := it.Int("was_win")
 			if err != nil {
 				return nil, err
 			}
 			r.wasWin = w
+		}
+		_, hasWin := it["was_win"]
+		r.stateShown = hasDone || hasWin
+		if v, has := it["was_events"]; has && v != nil {
+			e, err := it.Float("was_events")
+			if err != nil {
+				return nil, err
+			}
+			r.wasEvents = &e
 		}
 		if _, has := it["mine_to"]; has {
 			v, err := it.Float("mine_to")
@@ -200,7 +213,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 				return err
 			}
 			s := step{it: it, t: t}
-			if it.completeFor != nil || it.reopen {
+			if it.completeFor != nil || it.reopen || it.stateShown { // a raise or a tier removal on a house taken or reopened since the page was drawn is refused too (#762)
 				done := t["completed"] == int64(1)
 				if done != it.wasDone || t["winning_faction_id"] != it.wasWin {
 					return apierr.Newf(apierr.ErrConflict, "house %v was taken or reopened since you looked, so nothing was changed. The board was read again; check it and click again", houseOf(t))
@@ -228,6 +241,16 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 				to := *it.mineTo
 				if to != float64(int64(to)) {
 					return apierr.New(apierr.ErrBadArgument, "mine_to is not a reward tier of the house")
+				}
+				// the ground the character's own events cover decides what a raise pays: a raise whose page showed another number would pay what the sentence before the click did not say (#762)
+				if it.wasEvents != nil && to > s.cur {
+					ev, err := eventsOf(m, me.player, it.task)
+					if err != nil {
+						return err
+					}
+					if math.Abs(ev-*it.wasEvents) > 1e-6 {
+						return apierr.Newf(apierr.ErrConflict, "your earlier progress on %v is not what you were shown, so nothing was changed. The board was read again; check it and click again", houseOf(t))
+					}
 				}
 				if to > 0 {
 					r, err := m.One(`select 1 x from landsraad_task_rewards where task_id=? and threshold=?`, it.task, int64(to))
@@ -347,9 +370,9 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 		repaired, rerr = repairCompletionTimes(m, termID)
 		switch {
 		case changed == 1: // one house: what was done to it
-			m.Desc = landsraadDesc(fmt.Sprintf("landsraad %s: %s", names[0], done[0]), replaced, repaired, nil)
+			m.Desc = landsraadDescG(fmt.Sprintf("landsraad %s: %s", names[0], done[0]), grantDesc(rw, false), replaced, repaired, nil)
 		case changed > 1:
-			m.Desc = landsraadDesc(fmt.Sprintf("landsraad: %d houses changed from the board", changed), replaced, repaired, names)
+			m.Desc = landsraadDescG(fmt.Sprintf("landsraad: %d houses changed from the board", changed), grantDesc(rw, true), replaced, repaired, names)
 		case repaired > 0:
 			m.Desc = landsraadDesc("landsraad", nil, repaired, nil)
 		}
@@ -358,7 +381,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 		return nil, err
 	}
 	return resetAnswer(changed, map[string]any{"houses": houses, "skipped": houses - changed, "contribution_raised": raised, "contribution_lowered": lowered, "completed": completed, "reopened": reopened, "repaired": repaired, "replaced": replacedAnswer(replaced), "reward_rows": rw.rewardRows, "swatches": rw.swatches, "rewards_already_given": rw.skipped, "ground_paid_before": rw.paidGround, "missions_paid_before": rw.paidMissions,
-		"missions": rw.missions, "solari": rw.solari, "house_scrip": rw.scrip, "specialization_xp": specAnswer(rw.spec)}), nil
+		"missions": rw.missions, "solari": rw.solari, "house_scrip": rw.scrip, "specialization_xp": specAnswer(rw.spec), "specialization_xp_not_added": specAnswer(rw.specLeft)}), nil
 }
 
 // specAnswer is the specialization XP that was added, by line, as the answer carries it (never nil, so the page can read it).

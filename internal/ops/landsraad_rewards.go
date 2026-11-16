@@ -30,6 +30,7 @@ type rewardResult struct {
 	rewardRows, swatches, skipped int64
 	missions, solari, scrip       int64
 	spec                          map[string]int64 // the specialization XP that was added, by line
+	specLeft                      map[string]int64 // the specialization XP a mission stood for that did not fit because the track is at its last level, by line (#752)
 	// the ground of the raise that was not paid because the editor paid it before (landsraad_paid.go), and the missions it stands for
 	paidGround   float64
 	paidMissions int64
@@ -49,6 +50,12 @@ func (r *rewardResult) add(o rewardResult) {
 			r.spec = map[string]int64{}
 		}
 		r.spec[l] += x
+	}
+	for l, x := range o.specLeft {
+		if r.specLeft == nil {
+			r.specLeft = map[string]int64{}
+		}
+		r.specLeft[l] += x
 	}
 }
 

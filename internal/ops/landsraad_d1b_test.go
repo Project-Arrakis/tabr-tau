@@ -288,7 +288,7 @@ func TestBoardApplyDescribesOneHouseByWhatWasDoneToIt(t *testing.T) {
 	}{
 		{"complete", house(175, Args{"complete_for": 2.0}), "landsraad Kenola: completed for Harkonnen"},
 		{"reopen", house(174, Args{"was_done": true, "reopen": true}), "landsraad Maros: reopened"},
-		{"raise", house(175, Args{"was_mine": 1300.0, "mine_to": 2400.0}), "landsraad Kenola: your contribution 1300 -> 2400"},
+		{"raise", house(175, Args{"was_mine": 1300.0, "mine_to": 2400.0}), "landsraad Kenola: your contribution 1300 -> 2400; 1 mission: +6,000 Solari, +1,000 House Scrip, +1,500 Gathering XP; 1 reward row"},
 		{"lower", house(175, Args{"was_mine": 1300.0, "mine_to": 1200.0, "lower": true}), "landsraad Kenola: your contribution 1300 -> 1200"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -371,6 +371,48 @@ func TestTheWriteLogKeepsTheFactsOfA25HouseDescriptionAndCutsOnlyTheList(t *test
 	}
 	if len([]rune(kept)) > 203 {
 		t.Fatalf("the log is cut: %d", len([]rune(kept)))
+	}
+}
+
+// The same with what a bulk raise writes: the experience that did not fit comes with the facts, after the wins taken away and the times moved, and the amounts come after those, so the
+// log's cut (200 characters) takes the amounts and the list of houses, never a win taken away, the times moved or the experience that was left out (#752).
+func TestTheWriteLogKeepsTheFactsOfABulkRaiseAndCutsTheAmountsFirst(t *testing.T) {
+	var names []string
+	var replaced []replacedWin
+	for i := 0; i < 25; i++ {
+		n := fmt.Sprintf("House%02d", i)
+		names = append(names, n)
+		w := "Atreides"
+		if i%2 == 1 {
+			w = "Harkonnen"
+		}
+		replaced = append(replaced, replacedWin{house: n, winner: w})
+	}
+	rw := rewardResult{missions: 40, solari: 240000, scrip: 40000, rewardRows: 90,
+		spec:     map[string]int64{"Crafting": 15000, "Gathering": 15000, "Exploration": 15000, "Combat": 15000, "Sabotage": 0},
+		specLeft: map[string]int64{"Sabotage": 17818}}
+	d := landsraadDescG("landsraad: 25 houses changed from the board", grantDesc(rw, true), replaced, 3, names)
+	kept := save.LogDescForTests(d)
+	for _, w := range []string{"replaces 25 wins", "Atreides:", "Harkonnen:", "3 other completion times moved", "17,818 XP not added"} {
+		if !strings.Contains(kept, w) {
+			t.Fatalf("the log keeps %q: %q (%d characters)", w, kept, len([]rune(d)))
+		}
+	}
+	if len([]rune(kept)) > 203 {
+		t.Fatalf("the log is cut: %d", len([]rune(kept)))
+	}
+	// one house retaken, on a track at its last level: the win taken away and the experience left out are kept, the amounts are what is cut
+	one := landsraadDescG("landsraad Kenola: your contribution 1300 -> 6000, completed for Harkonnen", grantDesc(rewardResult{missions: 40, solari: 240000, scrip: 40000, rewardRows: 90,
+		spec: map[string]int64{"Gathering": 15000}, specLeft: map[string]int64{"Gathering": 9000}}, false), replacedOf("Kenola", "Atreides"), 2, nil)
+	kept = save.LogDescForTests(one)
+	for _, w := range []string{"replaces the win of Atreides on Kenola", "2 other completion times moved", "9,000 Gathering XP not added (last level)"} {
+		if !strings.Contains(kept, w) {
+			t.Fatalf("the log keeps %q: %q (%d characters)", w, kept, len([]rune(one)))
+		}
+	}
+	// the full description, the one the page lists, still carries the amounts
+	if !strings.Contains(one, "40 missions: +240,000 Solari") || !strings.Contains(d, "40 missions: +240,000 Solari, +40,000 House Scrip, +60,000 XP; 90 reward rows; houses: ") {
+		t.Fatalf("the amounts are missing from the description: %q / %q", one, d)
 	}
 }
 
