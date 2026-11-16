@@ -1910,6 +1910,13 @@ function lbHsText(h, l) {
 }
 // a place on a map the Saved map has no picture of (Arrakeen, Harko Village): it has a name and no pin, distance or map link
 const lbHub = (h) => h.loc.known && !h.loc.map_key;
+// a click on the place goes to the Saved map only where the Saved map has a picture of the place; the other places say why they cannot
+const lbOnMap = (h) => !!(h.loc.known && h.loc.map_key);
+const lbNoPic = (h) => 'The Saved map has no picture of ' + h.loc.map + ' yet.';
+const lbNoMark = 'This house is not mapped yet: the save holds no map marker for its representative and the editor has no fixed place for it.';
+const lbLocWhy = (h) => (!h.loc.known ? lbNoMark : lbHub(h) ? lbNoPic(h) : '');
+// what a click on the place does, in words: used by the peek and the name card
+const lbLocHint = (h) => (lbOnMap(h) ? 'Click the place to open the Saved map.' : lbLocWhy(h));
 // the second line of the Location column: the Deep Desert's grid cell, a named place, and the map when the first line is an area of it
 const lbSub = (h) => (h.loc.known ? [h.loc.cell ? 'Grid cell ' + h.loc.cell : '', h.loc.place, h.loc.area === h.loc.map ? '' : h.loc.map].filter(Boolean).join(' · ') : '');
 function lbAreaFull(h) { return !h.loc.known ? 'not mapped yet' : h.loc.area === h.loc.map ? h.loc.area : h.loc.area + ' (' + h.loc.map + ')'; }
@@ -1930,17 +1937,17 @@ const lbMeter = (h) => html`<span class="meter mb${h.tiers.length && h.reached =
 const lbPin = (h) => (h.loc.known && h.loc.map_key ? html`<span class="pin" data-px="${(Number(h.loc.x) * 100).toFixed(1)}" data-py="${(Number(h.loc.y) * 100).toFixed(1)}"></span>` : '');
 const lbMiniMap = (h) => (h.loc.known && h.loc.map_key ? html`<span class="minimap"><svg viewBox="0 0 120 90" role="img" aria-label="Schematic of ${h.loc.map} (not to scale)" focusable="false"><path class="m-fill" d="M8 34 L28 12 L66 6 L102 20 L114 50 L98 80 L56 86 L22 78 L6 56 Z"/><text class="m-txt" x="117" y="88" text-anchor="end" font-size="3.4">schematic, not to scale</text></svg>${lbPin(h)}</span>` : '');
 // the quick peek on the place (mouse hover only, see the .pop rules): the same lines as the dialog, drawn once per row; the dialog is the way in for a touch screen and the keyboard
-const lbPeek = (h) => (h.loc.known ? html`<span class="pop" aria-hidden="true"><h4>House ${h.name}</h4>${lbPlaceDetails(h)}<span class="fine">Quick peek. Click the place for ${lbHub(h) ? 'details' : 'the full map'}.</span></span>` : '');
+const lbPeek = (h) => (h.loc.known ? html`<span class="pop" aria-hidden="true"><h4>House ${h.name}</h4>${lbPlaceDetails(h)}<span class="fine">Quick peek. ${lbLocHint(h)}</span></span>` : '');
 // the distance from the character to the house representative: the save holds the character's place in centimetres, and the house representative's marker its place, as a fraction of its map
 function lbFromYou(h) {
   const c = h.loc.from_you_cm;
-  if (c == null) return html`<span class="mut">not worked out (your character is on another map, or this place has no map picture)</span>`;
+  if (c == null) return html`<span class="mut">not known (your character is on another map, or has no saved position)</span>`;
   const m = Math.round(Number(c) / 100);
   return m >= 1000 ? `about ${(m / 1000).toFixed(1)} km` : `about ${m} m`;
 }
 function lbPlaceDetails(h) {
   if (!h.loc.known) return html`<p class="cap">This house is not mapped yet: the save holds no map marker for its representative and the editor has no fixed place for it. Nothing to fix: the editor does not guess a place.</p>`;
-  return html`${lbMiniMap(h)}<dl><dt>Region</dt><dd>${lbAreaFull(h)}</dd>${h.loc.cell ? html`<dt>Grid cell</dt><dd>${h.loc.cell}</dd>` : ''}${h.loc.place ? html`<dt>Place</dt><dd>${h.loc.place}</dd>` : ''}${lbHub(h) ? '' : html`<dt>From you</dt><dd>${lbFromYou(h)}</dd>`}</dl>${h.loc.unconfirmed ? html`<p class="pnote">This place is from public guides and is not confirmed in the game.</p>` : ''}`;
+  return html`${lbMiniMap(h)}<dl><dt>Region</dt><dd>${lbAreaFull(h)}</dd>${h.loc.cell ? html`<dt>Grid cell</dt><dd>${h.loc.cell}</dd>` : ''}${h.loc.place ? html`<dt>Place</dt><dd>${h.loc.place}</dd>` : ''}${lbHub(h) ? '' : html`<dt>From you</dt><dd>${lbFromYou(h)}</dd>`}</dl>${h.loc.unconfirmed ? html`<p class="pnote">This place is from public guides and is not confirmed in the game.</p>` : ''}${lbHub(h) ? html`<p class="pnote">${lbNoPic(h)} There is no pin or map link for this house.</p>` : ''}`;
 }
 const LB_ICON = {
   fill: html`<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M6 10V2M2.5 5.5 6 2l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
@@ -1981,8 +1988,8 @@ function lbRow(h, l, hue, noLocs) {
     <input type="checkbox" class="pick" data-lb="pick" data-id="${h.id}" data-fk="pk:${h.id}" aria-label="Choose House ${h.name}" ${LP.pick.has(h.id) ? 'checked' : ''}>
     <input type="checkbox" class="xc vh" id="lsx-${h.id}" aria-label="Show details of House ${h.name}" ${open ? 'checked' : ''}>
     <label for="lsx-${h.id}" class="sum">
-      <span class="c-house"><span class="hw"><button type="button" class="hn" aria-expanded="false" title="Details: next reward, waiting to collect, faction race, place (experimental)">${lbCrest(h.name, hue)}<b>${h.name}</b></button><span class="hcard" role="group" aria-label="House ${h.name}, details (experimental)"><button type="button" class="hcl" aria-label="Close the card">×</button><h4>House ${h.name}</h4><dl><dt>Next reward</dt><dd>${lbNextReward(h)}</dd><dt>Waiting to collect</dt><dd>${lbWaiting(h)}</dd><dt>Faction race</dt><dd>${(l.factions || []).map((f) => html`${f.name} ${lbF(h.prog[f.id] || 0)} of ${lbF(h.goal)}<br>`)}${h.taken ? 'Finished by ' + (h.win != null ? lbFacName(l, h.win) : 'a faction') : 'Not finished by either faction'}</dd>${noLocs ? '' : html`<dt>Place</dt><dd>${h.loc.known ? lbAreaFull(h) + (h.loc.cell ? ' · grid cell ' + h.loc.cell : '') + (h.loc.place ? ' · ' + h.loc.place : '') + (h.loc.unconfirmed ? ' (from public guides, not confirmed in the game)' : '') : 'not mapped yet'}</dd>`}</dl><span class="fine">Experimental card.${noLocs ? '' : lbHub(h) ? ' Click the place for details.' : ' Click the place for the map.'}</span></span></span></span>
-      <span class="c-loc">${noLocs ? html`<span class="mut">not mapped yet</span>` : html`<span class="loc"><button type="button" class="loc-t" data-lb="map" data-id="${h.id}" aria-haspopup="dialog" aria-label="${'House ' + h.name + ': ' + (h.loc.known ? lbAreaFull(h) + (lbSub(h) ? ', ' + lbSub(h) : '') + '. ' + (lbHub(h) ? 'Show details of the place' : 'Show the map') : 'not mapped yet. Show why')}" title="${h.loc.known ? (lbHub(h) ? 'Click for details of ' + lbAreaFull(h) + ' (the Saved map has no picture of it). Hover for a quick peek.' : 'Click for the full map of ' + lbAreaFull(h) + '. Hover for a quick peek.') : 'This house is not mapped yet: the save holds no map marker for its representative and the editor has no fixed place for it.'}"><svg viewBox="0 0 12 14" aria-hidden="true" focusable="false"><path d="M6 0C2.7 0 0 2.6 0 5.8 0 10 6 14 6 14s6-4 6-8.2C12 2.6 9.3 0 6 0Zm0 8a2.2 2.2 0 1 1 0-4.4A2.2 2.2 0 0 1 6 8Z" fill="currentColor"/></svg><span>${locText}</span></button>${lbPeek(h)}</span>`}</span>
+      <span class="c-house"><span class="hw"><button type="button" class="hn" aria-expanded="false" title="Details: next reward, waiting to collect, faction race, place (experimental)">${lbCrest(h.name, hue)}<b>${h.name}</b></button><span class="hcard" role="group" aria-label="House ${h.name}, details (experimental)"><button type="button" class="hcl" aria-label="Close the card">×</button><h4>House ${h.name}</h4><dl><dt>Next reward</dt><dd>${lbNextReward(h)}</dd><dt>Waiting to collect</dt><dd>${lbWaiting(h)}</dd><dt>Faction race</dt><dd>${(l.factions || []).map((f) => html`${f.name} ${lbF(h.prog[f.id] || 0)} of ${lbF(h.goal)}<br>`)}${h.taken ? 'Finished by ' + (h.win != null ? lbFacName(l, h.win) : 'a faction') : 'Not finished by either faction'}</dd>${noLocs ? '' : html`<dt>Place</dt><dd>${h.loc.known ? lbAreaFull(h) + (h.loc.cell ? ' · grid cell ' + h.loc.cell : '') + (h.loc.place ? ' · ' + h.loc.place : '') + (h.loc.unconfirmed ? ' (from public guides, not confirmed in the game)' : '') : 'not mapped yet'}</dd>`}</dl><span class="fine">Experimental card.${noLocs ? '' : ' ' + lbLocHint(h)}</span></span></span></span>
+      <span class="c-loc">${noLocs ? html`<span class="mut">not mapped yet</span>` : html`<span class="loc"><button type="button" class="loc-t${lbOnMap(h) ? '' : ' off'}" data-lb="map" data-id="${h.id}" ${lbOnMap(h) ? '' : html`aria-disabled="true" data-why="${lbLocWhy(h)}"`} aria-label="${'House ' + h.name + ': ' + (h.loc.known ? lbAreaFull(h) + (lbSub(h) ? ', ' + lbSub(h) : '') + '. ' + (lbOnMap(h) ? 'Open in the Saved map' : lbLocWhy(h)) : 'not mapped yet. ' + lbNoMark)}" title="${lbOnMap(h) ? 'Open ' + lbAreaFull(h) + ' in the Saved map. Hover for a quick peek.' : lbLocWhy(h)}"><svg viewBox="0 0 12 14" aria-hidden="true" focusable="false"><path d="M6 0C2.7 0 0 2.6 0 5.8 0 10 6 14 6 14s6-4 6-8.2C12 2.6 9.3 0 6 0Zm0 8a2.2 2.2 0 1 1 0-4.4A2.2 2.2 0 0 1 6 8Z" fill="currentColor"/></svg><span>${locText}</span></button>${lbPeek(h)}</span>`}</span>
       <span class="c-my"><span class="line"><span class="st st-${h.state}"><span aria-hidden="true">${LB_GLYPH[h.state]}</span> ${LB_WORD[h.state]}</span>${lbMeter(h, can)}<span class="mut">${h.reached} of ${h.tiers.length} tiers</span></span><span class="amt"><b class="js-mine${h.mine > 0 ? '' : ' mut'}">${h.mine > 0 ? lbF(h.mine) : 'none recorded'}</b>${h.mine > 0 ? html` <span class="mut js-next">· ${lbNextParts(h).map((p, k) => html`${k ? ' ' : ''}<span class="nx">${p}</span>`)}</span>` : ''}</span></span>
       <span class="c-hs"><span class="tag">${hs}</span></span>
       <span class="c-qa"><button type="button" class="qa qa-fill" data-lb="qa" data-do="fill" data-id="${h.id}" data-fk="qf:${h.id}" aria-disabled="${off(fillOff)}" aria-describedby="qg-${h.id} lsb-legend" title="${fillTip}">${LB_ICON.fill}<span class="ql">Fill</span></button><button type="button" class="qa qa-cr" data-lb="qa" data-do="${h.taken ? 'reopen' : 'complete'}" data-id="${h.id}" data-fk="qc:${h.id}" aria-disabled="${off(false)}" title="${crTip}">${h.taken ? LB_ICON.reopen : LB_ICON.complete}<span class="ql">${h.taken ? 'Reopen' : 'Complete'}</span></button><span class="qg" id="qg-${h.id}">${fillGr ? lbGrantShort(fillGr) : ''}</span></span>
@@ -2142,8 +2149,7 @@ function lbInner(l) {
   ${lbAbout('lsb.board', 'the board', html`<p>Every row starts collapsed. Click a row (or press Space on it) to open it; Expand all opens every row, Collapse all closes them again. A <b>tier</b> is reached when your contribution is at least its amount; contribution is cumulative. A reached tier counts as paid when the delivery rows hold its item from this term. <b>Delivered</b> then means the save holds the reward as collected (amount 0 in the delivery rows), <b>Waiting to collect</b> that it waits at the house representative (an amount above 0). <b>Reached, no delivery recorded</b> means no such row of this term, so an earlier term's reward is not taken for this tier's. The row is of the item, not of the tier: where two tiers give the same item one row shows both as paid, and a contribution raised by a route that writes no reward (an older build, or the plain Fill routes of the editor's API) can show a tier as delivered when the game or another tier left a row of this term. The top tier shows the house swatch while the character does not hold it, and the house's own item once it is held. With a mouse, hover a place for a quick look at where the house is; the open row shows the same on touch and keyboard.</p>`)}
   </section>`;
   const boardOrNone = N ? board : html`<section class="card d-panel" aria-labelledby="lsb-board-h" id="lsb-board"><h2 class="d-head" id="lsb-board-h">Task board <span class="cnt">0 houses</span></h2><p class="nodata">This save has no Landsraad houses in the current term, so there is nothing to show or change here.</p></section>`;
-  return html`${lbGlance(hs, l, c)}${lbTerm(l)}${boardOrNone}${lbHistory(l)}
-  <dialog class="mapdlg" id="lsb-map" aria-labelledby="lsb-mapttl"><div class="mwrap"><div class="mhead"><h3 id="lsb-mapttl">Map</h3><button type="button" class="qa" data-lb="mapx" aria-label="Close the map">Close</button></div><div class="pop popm" id="lsb-mapbody"></div></div></dialog>`;
+  return html`${lbGlance(hs, l, c)}${lbTerm(l)}${boardOrNone}${lbHistory(l)}`;
 }
 const lbPage = (l) => html`<div class="lsb" id="lsb" data-sort="${LB.sort}" data-dir="${LB.dir}">${lbInner(l)}</div>`;
 function lbSumText(hs, l) {
@@ -2401,16 +2407,13 @@ function lbApply() {
   const ob = $('#lsb-only'); if (ob) { ob.hidden = !only; if (only) $('#lsb-onlyname').textContent = only.name; }
 }
 function lbCloseCards() { document.querySelectorAll('.lsb .hw.open').forEach((w) => { w.classList.remove('open'); const b = w.querySelector('.hn'); if (b) b.setAttribute('aria-expanded', 'false'); }); }
-function lbOpenMap(h) {
-  const dlg = $('#lsb-map'), body = $('#lsb-mapbody');
-  if (!dlg || !body) return;
-  setHTML(body, html`<h4>House ${h.name}</h4>${lbPlaceDetails(h)}${h.loc.known ? (h.loc.map_key ? html`<p class="fine mnote">The pin marks the house representative (schematic, not to scale).</p>` : html`<p class="pnote">House ${h.name}'s representative is in ${h.loc.map}. The Saved map has no picture of ${h.loc.map}, so there is no pin and no map link for this house.</p>`) : ''}${h.loc.known && h.loc.map_key ? html`<div class="mfoot"><button type="button" class="linkb" data-lb="mapopen" data-id="${h.id}" aria-label="Open House ${h.name} in the Saved map">Open in Saved map</button></div>` : ''}`);
-  lbStyles(body);
-  $('#lsb-mapttl').textContent = h.loc.known ? (lbHub(h) ? 'Place: ' : 'Map: ') + lbAreaFull(h) : 'Location: House ' + h.name;
-  if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
-  lbMapFrom = document.activeElement;
+// a click on a place the Saved map has a picture of opens the Saved map centred on the house
+function lbShowOnMap(h) {
+  if (!h || !lbOnMap(h)) return;
+  if (!window.liveMapShow) { lbSay('The Saved map is not ready yet.'); return; }
+  window.liveMapShow(h.loc.map_key, Number(h.loc.x), Number(h.loc.y), h.name);
+  tab = 'livemap'; browserStore.set('tab', tab); render();
 }
-let lbMapFrom = null;
 function lbClick(e) {
   const t = e.target.closest ? e.target : null;
   if (!t) return;
@@ -2447,9 +2450,14 @@ function lbClick(e) {
     return;
   }
   if (k === 'tflag') { e.preventDefault(); const id = +b.dataset.id, n = b.dataset.d === '1'; lbRun(b, async () => { await api('/api/landsraad/decree', { id, disabled: n }); return `Decree ${id}: pool flag set to ${n ? 1 : 0}.`; }, lbTSay, b.dataset.fk); return; }
-  if (k === 'map') { e.preventDefault(); const h = LD.tasks.map((r) => lbHouse(r, LD)).find((x) => String(x.id) === b.dataset.id); if (h) lbOpenMap(h); return; }
-  if (k === 'mapopen') { e.preventDefault(); const h = LD.tasks.map((r) => lbHouse(r, LD)).find((x) => String(x.id) === b.dataset.id); if (h && h.loc.known && h.loc.map_key && window.liveMapShow) { const d = $('#lsb-map'); if (d.close) d.close(); window.liveMapShow(h.loc.map_key, Number(h.loc.x), Number(h.loc.y), h.name); tab = 'livemap'; browserStore.set('tab', tab); render(); } return; }
-  if (k === 'mapx') { const d = $('#lsb-map'); if (d.close) d.close(); else d.removeAttribute('open'); if (lbMapFrom) lbMapFrom.focus(); return; }
+  if (k === 'map') {
+    e.preventDefault();
+    const h = LD.tasks.map((r) => lbHouse(r, LD)).find((x) => String(x.id) === b.dataset.id);
+    if (!h) return;
+    if (b.getAttribute('aria-disabled') === 'true') { lbSay(b.dataset.why || b.title); return; }
+    lbShowOnMap(h);
+    return;
+  }
   if (k === 'show') { e.preventDefault(); LB.show = b.dataset.show; LB.jump = ''; lbApply(); const j = $('#lsb-jump'); if (j) j.value = ''; const bd = $('#lsb-board'); if (bd && bd.scrollIntoView) bd.scrollIntoView(); return; }
   if (k === 'showall') { e.preventDefault(); LB.show = 'all'; LB.hs = 'any'; LB.jump = ''; const j = $('#lsb-jump'); if (j) j.value = ''; const a = document.querySelector('.lsb [data-lb=hs][value=any]'); if (a) a.checked = true; lbApply(); return; }
   if (k === 'sort') { const c = b.dataset.col; LB.dir = LB.sort === c && LB.dir === 'asc' ? 'desc' : 'asc'; LB.sort = c; lbApply(); return; }
@@ -2487,14 +2495,11 @@ function lbWire() {
   root.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (LP.confirm && !LP.busy) { const a = LP.confirm.back; lbCancelConfirm(); lbSay('Cancelled. Nothing was written.'); lbFocusFk(a); return; }
-    const d = $('#lsb-map'); if (d && d.open) return;
     const a = document.activeElement, w = a && a.closest ? a.closest('.hw') : null;
     lbCloseCards(); if (w) { w.setAttribute('data-esc', ''); const hb = w.querySelector('.hn'); if (hb && a !== hb) hb.focus(); }
   });
   const clearEsc = (e) => { const w = e.target.closest ? e.target.closest('.hw') : null; root.querySelectorAll('.hw[data-esc]').forEach((x) => { if (x !== w) x.removeAttribute('data-esc'); }); };
   root.addEventListener('mouseover', clearEsc); root.addEventListener('focusin', clearEsc);
-  const dlg = $('#lsb-map');
-  if (dlg) dlg.addEventListener('click', (e) => { if (e.target === dlg && dlg.close) dlg.close(); });
   lbApply();
 }
 
