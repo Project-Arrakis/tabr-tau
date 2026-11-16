@@ -155,3 +155,20 @@ test('another page and back starts with the container closed', async () => {
   assert.equal(ui.doc.querySelector('#inv').textContent.trim(), '', 'a move to another page: closed');
   ui.dom.window.close();
 });
+
+test('a redraw never shows the open container empty first: it is in the first drawing, and its Delete buttons say which item they delete', async () => {
+  const { get, post } = setup();
+  const ui = await boot({ get, post });
+  await openChest(ui);
+  assert.equal(ui.doc.querySelector('#inv [data-act="delItem"][data-id="12"]').getAttribute('aria-label'), 'Delete Spice Melange');
+  // a watcher on the page: whenever the page has its container place, the container card must be in it (the redraw puts it in with the page, it does not fill it in afterwards)
+  const seen = [];
+  const mo = new ui.w.MutationObserver(() => { const n = ui.doc.querySelector('#inv'); if (n) seen.push(n.textContent.includes('Inventory 1')); });
+  mo.observe(ui.doc.querySelector('#main'), { childList: true, subtree: true });
+  await ui.w.render(true, true);
+  await new Promise((r) => ui.w.setTimeout(r, 0));
+  mo.disconnect();
+  assert.ok(seen.length, 'the page was drawn');
+  assert.ok(seen.every(Boolean), 'the container place was never drawn empty');
+  ui.dom.window.close();
+});
