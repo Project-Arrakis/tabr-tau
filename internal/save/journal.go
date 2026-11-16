@@ -60,6 +60,7 @@ type opRec struct {
 	At      time.Time `json:"at"`
 	Cascade bool      `json:"cascade,omitempty"`
 	Stmts   []stmtRec `json:"stmts"`
+	Notes   []Note    `json:"notes,omitempty"` // what the edit asked to be remembered once it is written (notes.go)
 }
 
 type journalFile struct {
@@ -510,6 +511,11 @@ func (s *Save) RestoreJournal() (*Restored, error) {
 		return s.skipJournal("it was kept for a save with another path or spelling of the path"), nil
 	}
 	if j.Writing != "" && j.Writing == hex.EncodeToString(s.diskHash[:]) { // the file is the one these edits were written as: they are in it
+		written := j.Ops
+		if n := j.WritingOps; n > 0 && n < len(j.Ops) {
+			written = j.Ops[:n]
+		}
+		s.deliverRecNotes(written) // these edits are in the file: their notes are handed over now (notes.go)
 		if n := j.WritingOps; n > 0 && n < len(j.Ops) {
 			// the edits made after that write (it could not be read back, and the person went on) are not in it: they are put back onto it
 			r, err := s.putBackAtomic(j.Ops[n:], false, Restored{})
@@ -729,6 +735,7 @@ func (s *Save) replayOp(o opRec) string {
 			return fmt.Errorf("it changed %d rows now and %d before: %w", after-before, o.Rows, errConflict)
 		}
 		m.Desc = o.Desc
+		m.notes = o.Notes
 		return nil
 	}
 	_, err := s.mutateLocked(o.Desc, o.Cascade, run)

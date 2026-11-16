@@ -154,6 +154,8 @@ type Mut struct {
 	stmts []stmtRec  // what the edit ran, for the journal of pending edits
 	lossy bool       // an argument could not be kept
 	jw    *jsonWatch // the check of the JSON cells this edit writes (its notes are rows changed too, see changes)
+	notes []Note     // what the edit asks to be remembered once it is written (notes.go)
+	s     *Save      // the save, for the notes of the edits already queued (Pending); set by mutateLocked, whose caller holds its lock
 }
 
 // changes is the number of rows the edit has changed so far in its transaction: SQLite's total_changes() less the notes the JSON check has written about the cells the
@@ -303,7 +305,7 @@ func (s *Save) mutateLocked(desc string, cascade bool, fn func(m *Mut) error) (i
 		tx.Rollback()
 		return 0, err
 	}
-	m := &Mut{tx: tx, Desc: desc, keep: s.journalPath != "" && s.journalOff == "", jw: jw}
+	m := &Mut{tx: tx, Desc: desc, keep: s.journalPath != "" && s.journalOff == "", jw: jw, s: s}
 	if err := fn(m); err != nil {
 		tx.Rollback()
 		return 0, err
@@ -351,11 +353,11 @@ func (s *Save) mutateLocked(desc string, cascade bool, fn func(m *Mut) error) (i
 			m.Desc = fmt.Sprintf("unnamed change (%d rows)", n)
 		}
 		now := time.Now()
-		s.ops = append(s.ops, Op{Desc: m.Desc, Rows: n, At: now})
+		s.ops = append(s.ops, Op{Desc: m.Desc, Rows: n, At: now, notes: m.notes})
 		if m.lossy {
 			s.stopJournal("an edit used a value the journal cannot keep (" + m.Desc + ")")
 		} else {
-			s.recordOp(opRec{Desc: m.Desc, Rows: n, At: now, Cascade: cascade, Stmts: m.stmts})
+			s.recordOp(opRec{Desc: m.Desc, Rows: n, At: now, Cascade: cascade, Stmts: m.stmts, Notes: m.notes})
 		}
 	}
 	return n, nil

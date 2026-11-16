@@ -249,3 +249,69 @@ func TestAnUnverifiedWriteThatTurnsOutToBeAnotherFileIsNotTakenForWritten(t *tes
 		t.Fatalf("the edit once (%d) and the game's own row kept (%d)", a, b)
 	}
 }
+
+func addNotedEvent(t *testing.T, s *Save, n int) {
+	t.Helper()
+	if _, err := s.Mutate("add event", func(m *Mut) error {
+		if _, err := m.Exec(`insert into ev values (?)`, n); err != nil {
+			return err
+		}
+		return m.Note("x", map[string]int{"v": n})
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// The notes of an edit written but not yet verified are handed over when the next attempt recognises the file, once, and the notes of an edit made after it wait for their own write
+// (#777).
+func TestTheNotesOfAnUnverifiedWriteAreHandedOverWhenTheFileIsRecognised(t *testing.T) {
+	defer NoGameRunningForTests()()
+	p := makeSave(t, `create table ev(n integer); insert into ev values (0);`)
+	s := openJournaled(t, p, t.TempDir())
+	var k sunk
+	s.SetNoteSink(k.sink)
+	addNotedEvent(t, s, 1)
+	release := holdAfterRename(t, p)
+	if f := s.Flush(); f.Saved {
+		t.Fatalf("unverified: %+v", f)
+	}
+	if len(k.got) != 0 {
+		t.Fatalf("handed over before the file was recognised: %v", k.got)
+	}
+	addNotedEvent(t, s, 2)
+	release()
+	if f := s.Flush(); !f.Saved {
+		t.Fatalf("flush: %+v", f)
+	}
+	if got := values(t, k.got); len(got) != 2 || got[0] != 1 || got[1] != 2 {
+		t.Fatalf("each note once, in order: %v", got)
+	}
+}
+
+// A restart that finds the file to be the one the edits were written as hands over their notes, and only theirs: the edit made after the write is put back with its note.
+func TestARestartAfterAnUnverifiedWriteHandsOverTheNotesOfWhatWasWritten(t *testing.T) {
+	defer NoGameRunningForTests()()
+	p := makeSave(t, `create table ev(n integer); insert into ev values (0);`)
+	dir := t.TempDir()
+	s := openJournaled(t, p, dir)
+	addNotedEvent(t, s, 1)
+	release := holdAfterRename(t, p)
+	if f := s.Flush(); f.Saved {
+		t.Fatalf("unverified: %+v", f)
+	}
+	addNotedEvent(t, s, 2)
+	release()
+	s.Close()
+	s2 := openJournaled(t, p, dir)
+	var k sunk
+	s2.SetNoteSink(k.sink)
+	if r, err := s2.RestoreJournal(); err != nil || r == nil || r.Applied != 1 {
+		t.Fatalf("restore: %+v %v", r, err)
+	}
+	if got := values(t, k.got); len(got) != 1 || got[0] != 1 {
+		t.Fatalf("the written edit's note is handed over, the later one waits: %v", got)
+	}
+	if got := s2.PendingNotes("x"); len(got) != 1 {
+		t.Fatalf("the put-back edit's note is pending: %v", got)
+	}
+}
