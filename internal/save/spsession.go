@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Project-Arrakis/tabr-tau/kit/gamefolder"
 	"github.com/Project-Arrakis/tabr-tau/kit/sessionlog"
@@ -431,11 +432,15 @@ func approxDuration(d time.Duration) string {
 	return fmt.Sprintf("%d minutes", int((d+59*time.Second)/time.Minute)) // at least 2 here: d is two minutes or more
 }
 
-// shortReason is an error in one line without the paths of the machine.
+// shortReason is an error in one line without the folders of any path in it (the page shows the reason, and a folder can hold the name of the person's account), cut to 160 bytes at a character boundary.
 func shortReason(err error) string {
-	s := err.Error()
+	s := shortErr(err)
 	if len(s) > 160 {
-		s = s[:160]
+		i := 160
+		for i > 0 && !utf8.RuneStart(s[i]) {
+			i--
+		}
+		s = s[:i]
 	}
 	return s
 }

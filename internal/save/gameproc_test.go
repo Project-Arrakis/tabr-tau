@@ -4,6 +4,7 @@ import (
 	"errors"
 	"go/parser"
 	"go/token"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -321,5 +322,17 @@ func TestAQueuedEditIsWrittenOnceTheFailingCheckWorksAgain(t *testing.T) {
 	}
 	if fileA(t, p) != 2 {
 		t.Fatal("the file holds the edit")
+	}
+}
+
+// The reason of a check that failed is shown on the page and in the queue: an error that names a file keeps the file name and loses the folders, which hold the name of the person's account (#567).
+func TestFailedGameCheckReasonHasNoFolders(t *testing.T) {
+	sep := "\\"
+	folders := strings.Join([]string{"Users", "Some User", "AppData", "Local"}, sep)
+	useImages(t, imagesAnswer{err: &os.PathError{Op: "open", Path: "C:" + sep + folders + sep + "tasklist.exe", Err: errors.New("denied")}})
+	GameProcessesNow()
+	got := GameCheckError()
+	if got == "" || strings.Contains(got, "Some User") || strings.Contains(got, "AppData") || !strings.Contains(got, "tasklist.exe") {
+		t.Fatalf("the reason must keep the file name and lose the folders: %q", got)
 	}
 }

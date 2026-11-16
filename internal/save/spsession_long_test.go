@@ -1,9 +1,13 @@
 package save
 
 import (
+	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 // A long session makes a long log (about 70 MB an hour, #530). The status is read from what the game added since the last call, in chunks, whatever the size of the file.
@@ -200,8 +204,9 @@ func TestVeryLongLineIsBounded(t *testing.T) {
 	}
 }
 
-// A log that cannot be read at all still fails closed: an error, and the edit is queued with a reason that says so (the other branches of the rule are in spsession_test.go).
-func TestUnreadableLogQueuesTheEdit(t *testing.T) {
+// unreadableLogQueue runs the removed-log case under base (the folder that holds the Saved folder) and returns the state of the game and the log's path.
+func unreadableLogQueue(t *testing.T, base string) (GameState, string) {
+	t.Helper()
 	oldList, oldStatus, oldHeld := listProcs, statusFor, fileHeld
 	t.Cleanup(func() { listProcs, statusFor, fileHeld = oldList, oldStatus, oldHeld })
 	listProcs = func(bool) ([]string, string) { return []string{"DuneSandbox-Win64-Shipping.exe"}, "" }
@@ -209,7 +214,7 @@ func TestUnreadableLogQueuesTheEdit(t *testing.T) {
 	fileHeld = func(string) (bool, error) { return false, nil }
 	setChunks(t, 64, 1<<20)
 	resetSPLog()
-	save, lp := writeLog(t, strings.Join(script(300), "\r\n")+"\r\n")
+	save, lp := writeLogIn(t, base, strings.Join(script(300), "\r\n")+"\r\n")
 	if _, err := singlePlayerStatus(save); err != nil {
 		t.Fatalf("a long log is not an error: %v", err)
 	}
@@ -224,7 +229,53 @@ func TestUnreadableLogQueuesTheEdit(t *testing.T) {
 	if !g.Blocked || g.Mode != "game_running" || !strings.Contains(g.Reason, "its log cannot be read") || !strings.HasSuffix(g.Reason, QueuedUntilClears) {
 		t.Fatalf("the edit must be queued with the reason: %+v", g)
 	}
-	if strings.Contains(g.Reason, "256") || strings.Contains(g.Reason, "larger") {
-		t.Fatalf("no size in the reason: %q", g.Reason)
+	return g, lp
+}
+
+// A log that cannot be read at all still fails closed: an error, and the edit is queued with a reason that says so (the other branches of the rule are in spsession_test.go).
+// The reason carries no size wording (a log of any size is read, #530) and no folder of the machine (#567): the check looks for the wording of a size, not for digits that a
+// folder name may hold, and the folder of the log is checked on its own.
+func TestUnreadableLogQueuesTheEdit(t *testing.T) {
+	base := t.TempDir()
+	g, lp := unreadableLogQueue(t, base)
+	for _, size := range []string{"MiB", "larger than", "too large", "too big"} {
+		if strings.Contains(g.Reason, size) {
+			t.Fatalf("no size in the reason (%q): %q", size, g.Reason)
+		}
+	}
+	if strings.Contains(g.Reason, base) || strings.Contains(g.Reason, filepath.Dir(lp)) {
+		t.Fatalf("no folder of the machine in the reason: %q", g.Reason)
+	}
+	if !strings.Contains(g.Reason, filepath.Base(lp)) {
+		t.Fatalf("the name of the log stays in the reason: %q", g.Reason)
+	}
+}
+
+// A folder whose name holds "256" and "larger" (what the random folder of a test run may hold) must change nothing: the reason shows neither the folder nor those words.
+func TestUnreadableLogReasonIgnoresTheFolderName(t *testing.T) {
+	base := filepath.Join(t.TempDir(), "larger", "256", "larger256")
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	g, _ := unreadableLogQueue(t, base)
+	for _, w := range []string{"256", "larger", "larger256", "Saved"} {
+		if strings.Contains(g.Reason, w) {
+			t.Fatalf("the reason holds %q from the folder: %q", w, g.Reason)
+		}
+	}
+}
+
+// shortReason cuts the folders of the path it is given, keeps the file name, and is cut at a character boundary.
+func TestShortReasonCutsFoldersAndKeepsCharacters(t *testing.T) {
+	sep := "\\"
+	prof := strings.Join([]string{"Users", "Some User", "AppData", "Local"}, sep)
+	err := &os.PathError{Op: "open", Path: "C:" + sep + prof + sep + "DuneSandbox.log", Err: errors.New("denied")}
+	got := shortReason(fmt.Errorf("cannot read the game log: %w", err))
+	if strings.Contains(got, "Some User") || strings.Contains(got, "AppData") || !strings.Contains(got, "DuneSandbox.log") {
+		t.Fatalf("folders must go and the file name stay: %q", got)
+	}
+	long := shortReason(errors.New(strings.Repeat("a", 159) + "é" + strings.Repeat("b", 50)))
+	if !utf8.ValidString(long) || len(long) > 160 {
+		t.Fatalf("a cut must land on a character boundary and within 160 bytes: %d %q", len(long), long)
 	}
 }

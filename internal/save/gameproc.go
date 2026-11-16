@@ -156,7 +156,7 @@ func gameProcesses(useCache bool) []string {
 		// keep showing the last good answer; do not store the failure, so the next poll tries again
 		return gameCache.goodNames
 	default:
-		gameCache.names, gameCache.err = nil, err.Error()
+		gameCache.names, gameCache.err = nil, shortErr(err) // shown in a reason: no folder of the machine
 	}
 	gameCache.at = time.Now()
 	return gameCache.names
