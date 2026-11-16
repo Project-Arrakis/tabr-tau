@@ -714,6 +714,9 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 	if err := s.requirePlainFile(); err != nil {
 		return nil, err
 	}
+	// The gate is evaluated every watchEvery from here until the write returns, so that the watch of the save file stays unbroken however long any one of the steps below takes
+	// (#821): a watch that has not been asked again in more than observeGap starts over, and the gate before the rename would refuse after the work was done.
+	defer s.keepWatching(s.onlyPassEditsLocked())()
 	if !quick { // the automatic write made this check in Flush and makes it again below, after the encode; installBlob makes it again right before the rename
 		if blocked, why := s.gate(); blocked {
 			return nil, apierr.New(apierr.ErrGameBlocked, why)
@@ -741,15 +744,16 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 	if back, err := savefile.Decode(blob); err != nil || !bytes.Equal(back, raw) {
 		return nil, apierr.New(apierr.ErrIntegrity, "round-trip verification failed; nothing written")
 	}
+	prepared() // for tests: the point where the hash, the check and the encode are done
 	if err := s.requireFreeSpace(int64(len(cur)) + int64(len(blob))); err != nil {
 		return nil, err
 	}
 	var bak string
 	if quick {
-		// The gate of Flush came before the hash, the integrity check, the encode and its round trip, which on a large save take longer than observeGap (30 s) in the worst case: a
-		// watch that was not asked again in that time starts over and refuses at the gate before the rename, after a backup of its own had been taken for nothing (each refused
-		// attempt then pushing an older automatic restore point out of the ones kept). So the gate is asked again here, after the encode and before the backup: it keeps the watch
-		// continuous and refuses before anything is written (#779).
+		// The gate of Flush came before the hash, the integrity check, the encode and its round trip. The game may have started a session in that time, and a refusal at the gate
+		// before the rename would come after a backup of its own had been taken for nothing (each refused attempt then pushing an older automatic restore point out of the ones
+		// kept). So the gate is asked again here, after the encode and before the backup, and refuses before anything is written (#779). It is not what keeps the watch of the
+		// file unbroken: that is keepWatching above, which asks the gate every few seconds while these steps run, however long one of them takes (#821).
 		if blocked, why := s.gate(); blocked {
 			return nil, apierr.New(apierr.ErrGameBlocked, why)
 		}
