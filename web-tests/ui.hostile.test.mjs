@@ -1347,7 +1347,7 @@ test('Specialization: every track is listed, unknown numbers disable XP actions,
   ui.dom.window.close();
 });
 
-test('Specialization on a new save says why the XP controls are off and what to do; keystones still work; the raw row is folded and asks first (UX-36)', async () => {
+test('Specialization on a save with no track numbers says why the XP controls are off and what to do; keystones still work; the raw row is folded and has nothing to pick (UX-36)', async () => {
   const row = (o) => ({ track: 'Combat', number: null, xp: 0, level: 0, keystoneOwned: 0, keystoneTotal: 41, granted: false, ...o });
   const specs = { rows: [row({}), row({ track: 'Gathering' })], unassigned: [], maxXp: 44182, tracks: ['Combat', 'Gathering'] };
   const ui = await boot({ get: { '/api/player/specs': specs }, post: { '/api/player/specs': { ok: true } } });
@@ -1361,12 +1361,9 @@ test('Specialization on a new save says why the XP controls are off and what to 
   assert.ok(!ui.doc.querySelector('[data-act="spKeyAll"]').disabled, 'keystones need no numbers');
   const adv = [...ui.doc.querySelectorAll('details')].find((d) => d.textContent.includes('Advanced: set a raw row'));
   assert.ok(adv && !adv.open, 'the raw row is folded');
-  ui.doc.querySelector('#st').value = '3'; ui.doc.querySelector('#sx').value = '500'; ui.doc.querySelector('#sl').value = '2';
-  ui.click('[data-act="specSet"]'); await ui.settle();
-  assert.equal(ui.posted.filter((p) => p.path === '/api/player/specs').length, 0, 'nothing is sent before the answer');
-  assert.ok(ui.doc.querySelector('#ask').textContent.includes('Track number 3') && ui.doc.querySelector('#ask').textContent.includes('500 XP'), ui.doc.querySelector('#ask').textContent);
-  ui.click('#aok'); await ui.settle();
-  assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/specs').map((p) => p.body), [{ track_type: 3, xp: 500, level: 2 }]);
+  assert.equal(ui.doc.querySelector('#st'), null, 'no track has a number: there is no row to pick');
+  assert.ok(adv.textContent.includes('No track has a number in this save yet'), adv.textContent);
+  assert.equal(ui.posted.filter((p) => p.path === '/api/player/specs').length, 0);
   ui.dom.window.close();
   // once a track has a number the note is gone
   const known = { ...specs, rows: [row({ number: 2, xp: 10, level: 1 }), row({ track: 'Gathering' })] };
