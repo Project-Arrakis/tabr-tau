@@ -2,6 +2,8 @@ package ops
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
@@ -16,8 +18,14 @@ import (
 // landsraadFactionIDs are the ids of the factions the Landsraad has.
 var landsraadFactionIDs = []int64{1, 2}
 
-// landsraadFactionCond is the test for a row of the factions table, aliased f, that is a faction the Landsraad has. It holds the ids of landsraadFactionIDs.
-const landsraadFactionCond = `f.id in (1, 2)`
+// landsraadFactionCond is the test for a row of the factions table, aliased f, that is a faction the Landsraad has. It is built from landsraadFactionIDs, so the two cannot differ.
+var landsraadFactionCond = func() string {
+	ids := make([]string, len(landsraadFactionIDs))
+	for i, id := range landsraadFactionIDs {
+		ids[i] = strconv.FormatInt(id, 10)
+	}
+	return "f.id in (" + strings.Join(ids, ", ") + ")"
+}()
 
 // isLandsraadFaction says whether id is the id of a faction the Landsraad has.
 func isLandsraadFaction(id int64) bool {

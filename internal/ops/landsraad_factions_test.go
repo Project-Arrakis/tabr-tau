@@ -107,6 +107,50 @@ func TestTheReigningFactionOfTheTermIsOneTheLandsraadHas(t *testing.T) {
 	}
 }
 
+func TestTheReigningFactionAlreadyHeldIsNotRefusedWhenTheRequestLeavesItAlone(t *testing.T) {
+	o := factionOps(t)
+	setup(t, o, `insert into landsraad_decrees(id, decree_name, disabled, weight) values (1, 'DecreeA', 0, 1), (2, 'DecreeB', 0, 1)`)
+	setup(t, o, `update landsraad_decree_term set reigning_faction_id=4, active_decree_id=1 where term_id=7`) // a save that holds Smuggler as the reigning faction
+	if _, err := o.SetTerm(Args{"active_decree_id": 2.0, "reigning_faction_id": 4.0}); err != nil {
+		t.Fatalf("the same value as the row holds: %v", err)
+	}
+	if r := mustOne(t, o, `select reigning_faction_id f, active_decree_id d from landsraad_decree_term where term_id=7`); r["f"].(int64) != 4 || r["d"].(int64) != 2 {
+		t.Fatalf("the decree changed and the faction stayed: %v", r)
+	}
+	// a change to another id the Landsraad does not have is still refused, and nothing is written
+	queued := len(o.S.Pending())
+	for _, f := range []float64{3, 99} {
+		if _, err := o.SetTerm(Args{"reigning_faction_id": f}); !errors.Is(err, apierr.ErrBadArgument) {
+			t.Errorf("faction %v: %v", f, err)
+		}
+	}
+	if len(o.S.Pending()) != queued {
+		t.Fatal("a refused term wrote something")
+	}
+	// the real factions and clearing still work
+	for _, f := range []any{1.0, 2.0, nil} {
+		if _, err := o.SetTerm(Args{"reigning_faction_id": f}); err != nil {
+			t.Fatalf("%v: %v", f, err)
+		}
+	}
+}
+
+func TestTheFactionConditionIsBuiltFromTheIDs(t *testing.T) {
+	if landsraadFactionCond != "f.id in (1, 2)" {
+		t.Fatalf("condition: %q", landsraadFactionCond)
+	}
+	o := factionOps(t)
+	rows, err := o.S.Query(`select f.id from factions f where ` + landsraadFactionCond + ` order by f.id`)
+	if err != nil || len(rows) != len(landsraadFactionIDs) {
+		t.Fatalf("%v %v", rows, err)
+	}
+	for i, r := range rows {
+		if r["id"].(int64) != landsraadFactionIDs[i] || !isLandsraadFaction(r["id"].(int64)) {
+			t.Fatalf("row %d: %v", i, r)
+		}
+	}
+}
+
 func TestACharacterInAFactionTheLandsraadDoesNotHaveHasNoLandsraadContribution(t *testing.T) {
 	o := factionOps(t)
 	setup(t, o, `update player_faction set faction_id=4 where actor_id=1`) // Smuggler
@@ -118,4 +162,12 @@ func TestACharacterInAFactionTheLandsraadDoesNotHaveHasNoLandsraadContribution(t
 		t.Fatalf("a Smuggler has no Landsraad faction: %v", ch)
 	}
 	wantApplyError(t, o, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 2400.0})), apierr.ErrBadArgument)
+	// the same for the character with no faction (None, 3): nothing is queued by the refusal
+	o = factionOps(t)
+	setup(t, o, `update player_faction set faction_id=3 where actor_id=1`)
+	queued := len(o.S.Pending())
+	wantApplyError(t, o, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 2400.0})), apierr.ErrBadArgument)
+	if len(o.S.Pending()) != queued {
+		t.Fatalf("nothing more is queued: %v", o.S.Pending())
+	}
 }

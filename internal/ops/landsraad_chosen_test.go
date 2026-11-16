@@ -6,7 +6,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
-// Complete chosen and Reopen chosen (#451), on the world of landsraad_mine_test.go plus a third house of the current term (176, Vernius) with no progress row.
+// Completing and reopening the chosen houses (#451, now the board's complete_for and reopen), on the world of landsraad_mine_test.go plus a third house of the current term (176, Vernius) with no progress row.
 // House 174 (Maros) is marked completed but has no winner, and the Harkonnen (2) progress there is 4,250, above the goal of 4,000; 175 (Kenola) is open with 1,000.
 func chosenOps(t *testing.T) *Ops { return mineOps(t, manyWorld) }
 

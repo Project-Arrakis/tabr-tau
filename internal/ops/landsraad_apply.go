@@ -15,7 +15,7 @@ import (
 // The board writes each click at once (#641), as one request with one house or several (a bulk button). Each house in the request carries what the page showed (was_*) and what it wants:
 //
 //	mine_to       the character's own contribution to the house, under the character's own faction. It must be 0 or one of the house's reward thresholds.
-//	              A value above the recorded one raises it (the code of Fill chosen). A value below it is a tier removal: it is refused unless the request says lower: true,
+//	              A value above the recorded one raises it (the raise of the board's write). A value below it is a tier removal: it is refused unless the request says lower: true,
 //	              and then it sets the contribution to that threshold, or deletes the row for 0. Nothing else in the editor lowers a contribution.
 //	complete_for  a faction id: the house is completed for that faction (completeHouse: the faction's progress is raised to the goal, never lowered; the winner and the play
 //	              clock are set). It never writes the character's own row.

@@ -11,7 +11,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
-// Group D1 of the delta audit (#611), the rest of it: a win taken away is named (D1-3), the term window and the clock repair are said (D1-4), the single Complete checks term and
+// Group D1 of the delta audit (#611), the rest of it: a win taken away is named (D1-3), the term window and the clock repair are said (D1-4), a single completion checks term and
 // faction (D1-5) and every Landsraad edit says which houses it is about (D1-6). The worlds are the ones of landsraad_goal_test.go (character in Harkonnen, 2; Atreides is 1;
 // current term 7 of 100 to 200; houses 174, 175, 176; 149 of the earlier term 6) and landsraad_clock_test.go (term 10, two houses holding Unix time). Every test runs on a temp copy.
 
@@ -100,7 +100,7 @@ func TestTheClockRepairIsSaidInTheAnswerAndTheWriteLog(t *testing.T) {
 		t.Fatal(err)
 	}
 	if n := got.(map[string]any)["repaired"].(int64); n != 2 {
-		t.Fatalf("single Complete answer: %v", got)
+		t.Fatalf("single completion answer: %v", got)
 	}
 	if d := lastEdit(t, o); !strings.Contains(d, "2 other completion times") {
 		t.Fatalf("write log: %q", d)

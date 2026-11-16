@@ -2080,10 +2080,10 @@ const decreeSorted = (dec) => [...dec].sort((x, y) => (x.name_known === false) -
 // the pool list shows it only inside a closed disclosure, with the same buttons. The four category vendors stay in the list.
 const LB_HIDDEN_DECREE = 'SpecialVendorActive';
 const LT = { ad: undefined, rf: undefined, say: '', bad: false, open: false, hidOpen: false }; // what the two drop-downs were set to (kept over a redraw), and the line that says what was written
-// the two drop-downs: what was chosen, else the term's active decree and the character's own faction (the term's reigning faction when the character has none)
+// the two drop-downs: what was chosen, else the term's active decree and the character's own faction (the term's reigning faction when the character has none); a faction the list does not offer is shown as none
 function lbTermSel(l) {
   const t = l.term || {}, facs = (l.factions || []).map((f) => String(f.id)), decs = (l.decrees || []).map((d) => String(d.id));
-  const own = lbCan(l) ? String(l.character.faction_id) : t.reigning_faction_id != null ? String(t.reigning_faction_id) : '';
+  const own0 = lbCan(l) ? String(l.character.faction_id) : t.reigning_faction_id != null ? String(t.reigning_faction_id) : '', own = facs.includes(own0) ? own0 : '';
   const rf = LT.rf !== undefined && (LT.rf === '' || facs.includes(LT.rf)) ? LT.rf : own;
   const ad = LT.ad !== undefined && (LT.ad === '' || decs.includes(LT.ad)) ? LT.ad : t.active_decree_id != null ? String(t.active_decree_id) : '';
   return { ad, rf };
@@ -2460,8 +2460,11 @@ function lbClick(e) {
     e.preventDefault();
     if (b.getAttribute('aria-disabled') === 'true') { LT.say = b.title; const r = $('#lsb-tresult'); if (r) r.textContent = b.title; return; }
     const sel = lbTermSel(LD), ad = k === 'tmk' ? String(b.dataset.id) : sel.ad, rf = sel.rf, dn = (id) => { const d = (LD.decrees || []).find((x) => String(x.id) === id); return d ? decreeFull(d) : 'none'; };
-    LT.ad = ad; LT.rf = rf;
-    lbRun(b, async () => { await api('/api/landsraad/term', { active_decree_id: ad, reigning_faction_id: rf }); return `Applied: active decree ${dn(ad)}, reigning faction ${rf === '' ? 'none' : lbFacName(LD, +rf)}.`; }, lbTSay, k === 'tmk' ? [b.dataset.fk, 'tf:' + b.dataset.id] : b.dataset.fk);
+    // the save holds a reigning faction the list does not offer and the drop-down was left alone: the request leaves the faction as it is (the server refuses to set such a faction)
+    const keepRf = rf === '' && LT.rf === undefined && LD.term && LD.term.reigning_faction_id != null;
+    LT.ad = ad; if (!keepRf) LT.rf = rf;
+    const body = keepRf ? { active_decree_id: ad } : { active_decree_id: ad, reigning_faction_id: rf };
+    lbRun(b, async () => { await api('/api/landsraad/term', body); return `Applied: active decree ${dn(ad)}, ${keepRf ? 'reigning faction left as it is' : 'reigning faction ' + (rf === '' ? 'none' : lbFacName(LD, +rf))}.`; }, lbTSay, k === 'tmk' ? [b.dataset.fk, 'tf:' + b.dataset.id] : b.dataset.fk);
     return;
   }
   if (k === 'tflag') { e.preventDefault(); const id = +b.dataset.id, n = b.dataset.d === '1'; lbRun(b, async () => { await api('/api/landsraad/decree', { id, disabled: n }); return `Decree ${id}: pool flag set to ${n ? 1 : 0}.`; }, lbTSay, b.dataset.fk); return; }

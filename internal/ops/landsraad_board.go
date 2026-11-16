@@ -92,7 +92,7 @@ func boardTask(t save.Row, tiers []any, delivered map[string]save.Row, one oneTi
 // tierState is the one rule for where a tier's reward stands, used by the board's reader for both `delivered` and `reward_state` (#656, #655). A reached tier reads from the row of
 // its item in landsraad_house_rewards: waiting (amount above 0) or collected (amount 0) when the row was written in this term, no_row when there is none or it is of an earlier term
 // (a reward of an earlier term collected in this term has a new time and is this term's). Every raise of the editor from the page writes the reward rows of the tiers it crosses, and
-// the editor writes no progress event (#655), so the row is what says a tier was delivered. Edge: a contribution raised with no reward write (a build before #652, or a route that
+// the editor writes no progress event (#655), so the row is what says a tier was delivered. Edge: a contribution raised with no reward write (a build before #652, or a retired route that
 // only sets the contribution) shows a tier as delivered when its item has a row of this term from another tier or from the game, and the same item at two tiers cannot be told
 // apart. The character's own events are not used here; they only decide what a raise pays (grantRaise).
 func tierState(reached bool, row save.Row, hasRow bool, termStart float64) string {

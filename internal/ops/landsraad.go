@@ -284,15 +284,18 @@ func (o *Ops) SetTerm(a Args) (any, error) {
 	// The term is looked up inside the edit, through its own query, so it is kept with the edit: put back onto a newer file with another term, the edit is not applied to the
 	// old term's id.
 	_, err = o.S.Mutate("landsraad term", func(m *save.Mut) error {
-		term, err := m.One(`select term_id, start_time from landsraad_decree_term order by term_id desc limit 1`)
+		term, err := m.One(`select term_id, start_time, reigning_faction_id from landsraad_decree_term order by term_id desc limit 1`)
 		if err != nil {
 			return err
 		}
 		if term == nil {
 			return errors.New("no Landsraad term in this save")
 		}
-		for _, e := range edits { // the reigning faction is one the Landsraad has (landsraad_factions.go); clearing it is allowed
+		for _, e := range edits { // a reigning faction that is set is one the Landsraad has (landsraad_factions.go); clearing it is allowed, and so is leaving the value the row already holds
 			if id, isInt := e.val.(int64); e.col == "reigning_faction_id" && isInt {
+				if held, isHeld := term["reigning_faction_id"].(int64); isHeld && held == id {
+					continue
+				}
 				if _, err := landsraadFactionName(m.One, id); err != nil {
 					return err
 				}
