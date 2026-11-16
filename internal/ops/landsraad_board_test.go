@@ -15,6 +15,19 @@ insert into landsraad_one_time_house_rewards(house_name, threshold, template_id,
   ('DA_HouseMaros', 6000, 'Maros_Placeables_Swatch', 1), ('DA_HouseKenola', 6000, 'Kenola_Placeables_Swatch', 1);
 `
 
+// marosEvents is the character's own record for Maros (task 174): one progress event that covers the 7,850 contribution, as the game leaves one for every mission. The reader
+// calls a tier delivered only when such events cover it (tierState, #656), so the fixtures that mean "delivered" carry it.
+const marosEvents = `
+insert into landsraad_task_progress(id, faction_id, task_id, faction_progress, guild_progress, player_progress, timestamp) values (1, 2, 174, 0, 0, 7850, 120);
+insert into landsraad_task_progress_player(progress_id, player_id) values (1, 1);
+`
+
+// kenolaEvents is the same for Kenola (task 175, 1,300): with events of the character in the save, only the character's own row (not the guild's 10,000 Solari) can say a tier was paid.
+const kenolaEvents = `
+insert into landsraad_task_progress(id, faction_id, task_id, faction_progress, guild_progress, player_progress, timestamp) values (2, 2, 175, 0, 0, 1300, 120);
+insert into landsraad_task_progress_player(progress_id, player_id) values (2, 1);
+`
+
 func newerOps(t *testing.T, extra string) *Ops {
 	t.Helper()
 	return &Ops{S: testsave.PlayerWithNewerSQL(t, mineWorld+swatchWorld+extra)}
@@ -34,7 +47,7 @@ func tierOf(t *testing.T, task map[string]any, threshold int64) save.Row {
 
 func TestBoardTierStates(t *testing.T) {
 	// Maros: the character is at 7,850, so all five tiers are reached. The delivery rows hold amounts above 0 (waiting), and two are collected (amount 0, written in this term).
-	o := newerOps(t, `update landsraad_house_rewards set amount=0 where player_id=1 and template_id in ('T6IndustrialPump','Schematic.A');
+	o := newerOps(t, marosEvents+kenolaEvents+`update landsraad_house_rewards set amount=0 where player_id=1 and template_id in ('T6IndustrialPump','Schematic.A');
 		insert into landsraad_task_rewards(task_id, threshold, template_id, amount) values (174, 7000, 'ExtraItem', 1);`)
 	maros := taskByID(t, o, 174)
 	want := map[int64]string{1200: "delivered", 2400: "delivered", 3600: "waiting", 4800: "waiting", 6000: "waiting", 7000: "no_row"}
@@ -55,7 +68,7 @@ func TestBoardTierStates(t *testing.T) {
 
 func TestBoardDeliveryOfAnEarlierTermIsNotThisTerms(t *testing.T) {
 	// a collected row (amount 0) written before this term started does not say the tier of this term was delivered
-	o := newerOps(t, `update landsraad_house_rewards set amount=0, last_updated=10 where player_id=1 and template_id='T6IndustrialPump'`)
+	o := newerOps(t, marosEvents+`update landsraad_house_rewards set amount=0, last_updated=10 where player_id=1 and template_id='T6IndustrialPump'`)
 	if got := tierOf(t, taskByID(t, o, 174), 1200)["reward_state"]; got != "no_row" {
 		t.Fatalf("state = %v, want no_row", got)
 	}
@@ -90,7 +103,7 @@ func TestBoardSwatchRuleForTheTopTier(t *testing.T) {
 		}
 	})
 	t.Run("won in this term: still the swatch", func(t *testing.T) {
-		o := newerOps(t, own+`insert into landsraad_player_one_time_house_rewards(player_id, house_name, template_id, term_id) values (1, 'DA_HouseMaros', 'Maros_Placeables_Swatch', 7);
+		o := newerOps(t, marosEvents+own+`insert into landsraad_player_one_time_house_rewards(player_id, house_name, template_id, term_id) values (1, 'DA_HouseMaros', 'Maros_Placeables_Swatch', 7);
 			insert into landsraad_house_rewards(player_id, house_name, amount, template_id, last_updated) values (1, 'DA_HouseMaros', 1, 'Maros_Placeables_Swatch', 150);`)
 		top := tierOf(t, taskByID(t, o, 174), 6000)
 		if top["shown_template_id"] != "Maros_Placeables_Swatch" || top["swatch"] != true || top["reward_state"] != "waiting" {
