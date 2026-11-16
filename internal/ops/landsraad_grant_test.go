@@ -492,7 +492,7 @@ func TestGrantFillFactionGoalOnAHouseOfTheCharactersFactionBelowTheGoalSaysItWas
 	if h := houseRow(t, o, 175); h["c"].(int64) != 1 || h["w"].(int64) != 2 || h["ct"].(int64) != 140 {
 		t.Fatalf("the house: %v", h)
 	}
-	if d := lastEdit(t, o); d != "landsraad Kenola: your contribution 1300 -> 6000, completed for Harkonnen" {
+	if d := lastEdit(t, o); d != "landsraad Kenola: your contribution 1300 -> 6000, completed for Harkonnen; 4 missions: +24,000 Solari, +4,000 House Scrip, +6,000 Gathering XP; 4 reward rows" {
 		t.Fatalf("write log %q", d)
 	}
 }

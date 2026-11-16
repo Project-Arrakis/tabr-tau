@@ -3,6 +3,7 @@ package ops
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
@@ -17,7 +18,8 @@ import (
 //	                    raised (the card's 1,000 times LandsraadContributionMultiplier), one landsraad_house_rewards row per reward tier the character's own contribution crossed,
 //	                    and the house completed by the event that takes the faction's progress to the goal
 //	                    (the editor writes the contribution rows and the reward rows, and the completion; NOT the event, its player link or the cursor, see below)
-//	the wallet          +6,000 on currency 0 (Solari) and +1,000 on currency 1 (House Scrip); neither is scaled by a setting
+//	the wallet          +6,000 on currency 0 (Solari) and +1,000 on currency 1 (House Scrip); neither is scaled by a setting. The mission card gives the House Scrip and the specialization XP as the
+//	                    Recollection reward (#609); whether a mission without a Recollection pays them is not known (#745), so the editor writes them as a mission with a Recollection turned in pays
 //	the specialization  +1,500 times LandsraadSpecializationXpMultiplier XP on the track of the house's line, a row created when the line has none
 //
 // What is NOT written: any progress event, its player link and the cursor (#655, below), the character's own XP (+350 on the card, level and skill points follow) and the faction standing (not seen in any save: it was at its maximum in every sample),
@@ -190,23 +192,25 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 		return res, false, apierr.New(apierr.ErrBadArgument, g.Problem)
 	}
 	line := lineOfHouse(house)
-	if line == "" && g.SpecializationXPMultiplier > 0 {
-		return res, false, apierr.Newf(apierr.ErrBadArgument, "%v is not a house the editor knows a specialization line for, so the experience a mission gives cannot be written. Nothing was changed; choose only other houses, or use Complete for this one.", houseOf(t))
-	}
-	if g.SpecializationXPMultiplier > 0 {
-		if err := g.checkTracks(); err != nil {
-			return res, false, err
-		}
-	}
 	step := missionContribution * g.ContributionMultiplier
 	if step <= 0 {
 		return res, false, apierr.New(apierr.ErrBadArgument, zeroContributionProblem)
 	}
 	// compared as a float, before it becomes a whole number: a tiny step makes the quotient overflow, and NaN (infinity minus infinity) is refused too
 	if span := ceilSteps(after, step) - ceilSteps(lo, step); !(span <= maxMissionsAtOnce) {
-		return res, false, apierr.Newf(apierr.ErrBadArgument, "%v: this change stands for more than the %d missions one change may grant. Nothing was changed; click the tiers one at a time, or set LandsraadContributionMultiplier in ServerCustomSettings.ini (Config tab) nearer to 1.", houseOf(t), maxMissionsAtOnce)
+		return res, false, apierr.Newf(apierr.ErrBadArgument, "%v: this change stands for more than the %d missions one change may grant for one house. Nothing was changed; click the tiers one at a time, or set LandsraadContributionMultiplier in ServerCustomSettings.ini (Config tab) nearer to 1.", houseOf(t), maxMissionsAtOnce)
 	}
 	missions := int64(ceilSteps(after, step) - ceilSteps(lo, step))
+	// the experience of a mission needs a line and a usable track only when a mission is written and it carries experience (#762): a raise inside one step, or a multiplier whose
+	// experience rounds to nothing, writes none and is not refused for what it would not write
+	if missions > 0 && g.xpPerMission() > 0 {
+		if line == "" {
+			return res, false, apierr.Newf(apierr.ErrBadArgument, "%v is not a house the editor knows a specialization line for, so the experience a mission gives cannot be written. Nothing was changed; choose only other houses, or use Complete for this one.", houseOf(t))
+		}
+		if err := g.checkTracks(); err != nil {
+			return res, false, err
+		}
+	}
 	gained := after - lo
 	res.notePaidBefore(after, lo0, lo, g)
 
@@ -261,13 +265,16 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 		if err := addWallet(m, me.player, currencyScrip, res.scrip); err != nil {
 			return res, false, err
 		}
-		if xp := missions * int64(math.Round(missionSpecXP*g.SpecializationXPMultiplier)); xp > 0 {
+		if xp := missions * g.xpPerMission(); xp > 0 {
 			applied, err := addSpecialization(m, me.player, g.track(line), xp)
 			if err != nil {
 				return res, false, err
 			}
 			if applied > 0 {
 				res.spec = map[string]int64{line: applied}
+			}
+			if applied < xp { // the track is at its last level: what did not fit is said, so a filled house is not a success line with no word about the experience (#752)
+				res.specLeft = map[string]int64{line: xp - applied}
 			}
 		}
 	}
@@ -323,13 +330,13 @@ func addSpecialization(m *save.Mut, controller, number, xp int64) (int64, error)
 // events of the house, with the arithmetic of grantRaise.
 func (g GrantSettings) Preview() map[string]any {
 	p := map[string]any{"step": missionContribution * g.ContributionMultiplier, "solari": int64(missionSolari), "scrip": int64(missionScrip),
-		"xp": int64(math.Round(missionSpecXP * g.SpecializationXPMultiplier)), "max_missions": int64(maxMissionsAtOnce), "problem": ""}
+		"xp": g.xpPerMission(), "max_missions": int64(maxMissionsAtOnce), "problem": ""}
 	switch {
 	case g.Problem != "":
 		p["problem"] = g.Problem
 	case g.ContributionMultiplier <= 0:
 		p["problem"] = zeroContributionProblem
-	case g.SpecializationXPMultiplier > 0:
+	case g.xpPerMission() > 0:
 		if err := g.checkTracks(); err != nil {
 			p["problem"] = err.Error()
 		}
@@ -338,3 +345,72 @@ func (g GrantSettings) Preview() map[string]any {
 }
 
 const zeroContributionProblem = "LandsraadContributionMultiplier is 0, so a mission adds no contribution and the missions a click stands for cannot be counted. Nothing was changed; set it to a number above 0 in ServerCustomSettings.ini (Config tab) and try again."
+
+// xpPerMission is the specialization XP one mission stands for with these settings (0 when the multiplier makes it round to nothing).
+func (g GrantSettings) xpPerMission() int64 {
+	return int64(math.Round(missionSpecXP * g.SpecializationXPMultiplier))
+}
+
+// grantDesc is what the missions of a raise wrote, for the description of the edit (the list of pending changes and the write log): "; 12 missions: +72,000 Solari, +12,000 House
+// Scrip, +18,000 Gathering XP; 3 Sabotage XP not added (last level); 9 reward rows". It is empty for a change that wrote none of it (#752).
+func grantDesc(r rewardResult) string {
+	var parts []string
+	if r.missions > 0 {
+		list := []string{"+" + commas(r.solari) + " Solari", "+" + commas(r.scrip) + " House Scrip"}
+		for _, l := range sortedLines(r.spec) {
+			list = append(list, "+"+commas(r.spec[l])+" "+l+" XP")
+		}
+		word := "missions"
+		if r.missions == 1 {
+			word = "mission"
+		}
+		parts = append(parts, fmt.Sprintf("%s %s: %s", commas(r.missions), word, strings.Join(list, ", ")))
+	}
+	for _, l := range sortedLines(r.specLeft) {
+		parts = append(parts, fmt.Sprintf("%s %s XP not added (last level)", commas(r.specLeft[l]), l))
+	}
+	if r.rewardRows > 0 {
+		word := "reward rows"
+		if r.rewardRows == 1 {
+			word = "reward row"
+		}
+		parts = append(parts, fmt.Sprintf("%s %s", commas(r.rewardRows), word))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "; " + strings.Join(parts, "; ")
+}
+
+// sortedLines is the keys of a by-line map in the order of the Specialization tab's lines.
+func sortedLines(m map[string]int64) []string {
+	var out []string
+	for _, l := range specializationLines {
+		if _, ok := m[l]; ok {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+// SpecRoom is, for each specialization line, the experience the character's track still has room for before its last level (the board shows what a raise adds, and the server adds
+// no more than fits, #762). A line whose track number the editor cannot tell, or a save with no character or no track table, is left out: the page then shows the uncapped number.
+func (o *Ops) SpecRoom(g GrantSettings) map[string]int64 {
+	p, err := o.player()
+	if err != nil {
+		return nil
+	}
+	room := map[string]int64{}
+	for _, line := range specializationLines {
+		r, err := o.S.One(`select xp_amount xp from specialization_tracks where player_id=? and track_type=?`, p.Controller, g.track(line))
+		if err != nil {
+			return nil
+		}
+		have := int64(0)
+		if r != nil {
+			have = asInt(r["xp"])
+		}
+		room[line] = max(maxSpecXP-have, 0)
+	}
+	return room
+}

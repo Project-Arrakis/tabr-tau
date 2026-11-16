@@ -288,7 +288,7 @@ func TestBoardApplyDescribesOneHouseByWhatWasDoneToIt(t *testing.T) {
 	}{
 		{"complete", house(175, Args{"complete_for": 2.0}), "landsraad Kenola: completed for Harkonnen"},
 		{"reopen", house(174, Args{"was_done": true, "reopen": true}), "landsraad Maros: reopened"},
-		{"raise", house(175, Args{"was_mine": 1300.0, "mine_to": 2400.0}), "landsraad Kenola: your contribution 1300 -> 2400"},
+		{"raise", house(175, Args{"was_mine": 1300.0, "mine_to": 2400.0}), "landsraad Kenola: your contribution 1300 -> 2400; 1 mission: +6,000 Solari, +1,000 House Scrip, +1,500 Gathering XP; 1 reward row"},
 		{"lower", house(175, Args{"was_mine": 1300.0, "mine_to": 1200.0, "lower": true}), "landsraad Kenola: your contribution 1300 -> 1200"},
 	} {
 		t.Run(c.name, func(t *testing.T) {

@@ -476,7 +476,7 @@ test('a click on one house that would grant ten missions or more asks first, wit
   // answering writes the request the page showed, and the question is gone
   click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
   click(ui, '[data-lb=cyes]'); await ui.settle();
-  assert.deepEqual(writes(ui).map((w) => w.body.houses), [[{ task_id: 900, was_mine: 0, was_done: false, was_win: null, mine_to: 6000 }]]);
+  assert.deepEqual(writes(ui).map((w) => w.body.houses), [[{ task_id: 900, was_mine: 0, was_done: false, was_win: null, mine_to: 6000, was_events: 0 }]]);
   assert.equal(ui.doc.querySelector('#lsb-confirm'), null);
   // a tier click that would grant as much asks the same way; Fill faction goal names the faction
   const ui2 = await open(withGrant({ step: 500 }), { '/api/landsraad/apply': GRANTED });
@@ -612,4 +612,46 @@ test('a swatch won in this term is not counted as a reward waiting in the line b
   assert.ok(cap.includes('Writes 6 missions: +36,000 Solari, +6,000 House Scrip, +9,000 Crafting XP, 4 rewards waiting at the house representative.'), cap);
   const free = await open(withGrant(), {});
   assert.ok(text(by(free, 'Alexin').querySelector('#lsg-900')).includes(', 5 rewards waiting at the house representative.'), 'a swatch not held yet is delivered: 5 rewards');
+});
+
+// ---- leftovers of the review of #652 (#752, #762): the experience that did not fit, the preview near the last level, the ground the page showed
+
+test('a track at its last level is said in the result line and the toast: the experience that did not fit is named by line (#752)', async () => {
+  const ui = await open(board(), { '/api/landsraad/apply': { ...GRANTED, specialization_xp: {}, specialization_xp_not_added: { Exploration: 9000 } } });
+  click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
+  const r = result(ui);
+  assert.ok(r.includes('3 missions written: +18,000 Solari, +3,000 House Scrip; Exploration is at its last level, +9,000 XP not added'), r);
+  assert.deepEqual(toasts(ui), ['House Alexin: 3 missions written. Some XP not added: a track is at its last level.']);
+  const q = await open(board(), { '/api/landsraad/apply': { ...GRANTED, outcome: 'queued', specialization_xp: { Exploration: 1500 }, specialization_xp_not_added: { Exploration: 7500 } } });
+  click(q, quick(q, 'Alexin', 'qa-fill')); await q.settle();
+  assert.ok(result(q).includes('+1,500 Exploration XP; Exploration is at its last level, +7,500 XP will not be added'), result(q));
+  // an answer with nothing left over (and an older answer without the field) says nothing about it
+  const none = await open(board(), { '/api/landsraad/apply': { ...GRANTED, specialization_xp_not_added: {} } });
+  click(none, quick(none, 'Alexin', 'qa-fill')); await none.settle();
+  assert.ok(!result(none).includes('last level'), result(none));
+});
+
+test('the line before a click does not promise more experience than the track has room for, one house or several of one line (#762)', async () => {
+  const ui = await open(withGrant({ room: { Crafting: 2000 } }, { 901: 4700 }), {});
+  const cap = text(by(ui, 'Alexin').querySelector('#lsg-900'));
+  assert.ok(cap.includes('Fill and Fill faction goal: Writes 6 missions: +36,000 Solari, +6,000 House Scrip, +2,000 Crafting XP'), cap);
+  assert.ok(!cap.includes('+9,000'), cap);
+  // two houses of one line share the track: together they add no more than its room
+  const b = withGrant({ room: { Crafting: 5000 } });
+  b.tasks.forEach((t) => { if (t.id === 901) t.line = 'Crafting'; });
+  const two = await open(b, {});
+  click(two, '[data-lb=pickall]');
+  click(two, '[data-lb=bulk][data-do=fill]'); await two.settle();
+  const q = text(two.doc.querySelector('#lsb-confirm b'));
+  assert.ok(q.includes('+5,000 Crafting XP') && !q.includes('10,500'), q);
+});
+
+test('a raise sends the ground the character own events covered when the page drew the house, so the server can refuse it when that changed (#762)', async () => {
+  const ui = await open(withGrant({}, { 900: 1200 }), { '/api/landsraad/apply': OK });
+  click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
+  assert.equal(writes(ui)[0].body.houses[0].was_events, 1200);
+  // a removal and a Complete are not raises: they send no number
+  const rm = await open(withGrant({}, { 901: 0 }), { '/api/landsraad/apply': { ...OK, contribution_raised: 0, contribution_lowered: 1 } });
+  click(rm, tier(rm, 'Thorvald', 3)); await rm.settle();
+  assert.equal(writes(rm)[0].body.houses[0].lower, true);
 });
