@@ -2329,7 +2329,9 @@ function lbBulk(b, act_) {
 function lbConfirmYes() {
   const c = LP.confirm;
   if (!c) return;
-  const { hs, items } = lbBulkItems(c.act, new Set(c.ids), c.F, c.i);
+  // a bulk question writes only houses that are chosen now: a filter or a jump unticks the rows it hides, and a house shown as not chosen is not written (#818). A click on one house names itself.
+  const ids = c.one ? c.ids : c.ids.filter((id) => LP.pick.has(id));
+  const { hs, items } = lbBulkItems(c.act, new Set(ids), c.F, c.i);
   if (!items.length) { LP.confirm = null; lbSay('Nothing to change any more.'); lbRedraw(); lbFocusFk(c.back); return; }
   const q = lbAskOf(c.act, items, hs, c.F, c.i, c.one);
   if (items.length !== c.n || q.q !== c.q) { // the houses are not what the question named: ask again, with the count and the amounts as they are now
@@ -2366,7 +2368,7 @@ function lbApply() {
     return c || x.name.localeCompare(y.name);
   });
   const only = LB.jump ? by.get(String(LB.jump)) : null;
-  let shown = 0;
+  let shown = 0, dropped = false;
   for (const h of list) {
     const li = $('#lsrow-' + h.id);
     if (!li) continue;
@@ -2374,8 +2376,12 @@ function lbApply() {
     const vis = only ? only === h : (LB.show === 'all' || (LB.show === 'left' ? h.state !== 'done' : h.state === LB.show)) && (LB.hs === 'any' || (LB.hs === 'taken') === h.taken);
     li.hidden = !vis;
     if (vis) shown++;
-    else if (LP.pick.delete(h.id)) { const pk = li.querySelector('.pick'); if (pk) pk.checked = false; }
+    else if (LP.pick.delete(h.id)) {
+      const pk = li.querySelector('.pick'); if (pk) pk.checked = false;
+      if (LP.confirm && !LP.confirm.one && LP.confirm.ids.includes(h.id)) dropped = true; // the open bulk question named this house
+    }
   }
+  if (dropped) { lbCancelConfirm(); lbSay('The chosen houses changed, so the question was closed. Nothing was written.'); }
   if (LB.group) { // one heading per region, with the number of houses shown in it
     const count = new Map();
     for (const h of list) if (!$('#lsrow-' + h.id).hidden) count.set(h.region, (count.get(h.region) || 0) + 1);
