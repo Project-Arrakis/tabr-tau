@@ -1,0 +1,282 @@
+package web
+
+import (
+	"path/filepath"
+	"testing"
+
+	"github.com/Project-Arrakis/tabr-tau/internal/config"
+	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"github.com/Project-Arrakis/tabr-tau/internal/settings"
+	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
+)
+
+// The repeat ledger of Create a vehicle (#740) is emptied when edits are dropped and only then (#760). Each route that reads the file again is run with a queue and without one:
+// a reload that dropped a Create must let the same form write again, even when another form has taken its vehicle id; a reload that dropped nothing must keep the answer, so a
+// retry after a lost answer does not write a second vehicle. Every test works on a temporary copy; no game is involved (a running game is a flag the tests set).
+
+const (
+	ledgerForm1 = `{"class":"Sandbike","template":"T0","requestId":"form-1"}`
+	ledgerForm2 = `{"class":"Sandbike","template":"T0","requestId":"form-2"}`
+)
+
+// create sends a Create and returns its answer; it must have worked.
+func create(t *testing.T, s *Server, body string) map[string]any {
+	t.Helper()
+	w := postEdit(t, s, "/api/vehicles/spawn", body)
+	m := decodeBody(t, w)
+	if w.Code != 200 || m["ok"] != true {
+		t.Fatalf("Create: %d %s", w.Code, w.Body.String())
+	}
+	return m
+}
+
+// ledgerServer is a server with a journal, so that a queue can be put back by a reload.
+func ledgerServer(t *testing.T) *Server {
+	t.Helper()
+	s := spawnServer(t)
+	s.Save.EnableJournal(filepath.Join(t.TempDir(), "pending.json"))
+	return s
+}
+
+// gameAddsAnEntity is the game writing the file while edits wait: a row in a table the queued Create read, so its put-back conflicts.
+func gameAddsAnEntity(t *testing.T, path string) {
+	t.Helper()
+	other, err := save.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer other.Close()
+	if _, err := other.Mutate("the game's entity", func(m *save.Mut) error {
+		_, err := m.Exec(`insert into fgl_entities(entity_id,components) values (8300000000000099, jsonb('{}'))`)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := other.CommitForTests(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// The sequence of the review: form-1 queued (it has an id), Discard, form-2 takes the id, the retry of form-1 writes again.
+func TestACreateThatWasDiscardedWritesAgainEvenWhenAnotherFormTookItsId(t *testing.T) {
+	restore := save.ActiveSessionForTests()
+	defer restore()
+	s := spawnServer(t)
+	a := create(t, s, ledgerForm1)
+	if a["outcome"] != "queued" {
+		t.Fatalf("the Create waits in the queue: %v", a)
+	}
+	if w := postEdit(t, s, "/api/save/discard", `{}`); w.Code != 200 {
+		t.Fatalf("discard: %d %s", w.Code, w.Body.String())
+	}
+	b := create(t, s, ledgerForm2)
+	if b["id"] != a["id"] {
+		t.Fatalf("the second form takes the same id (this is what the test needs): %v %v", a["id"], b["id"])
+	}
+	c := create(t, s, ledgerForm1)
+	if c["repeat"] == true || c["outcome"] != "queued" {
+		t.Fatalf("the retry of the discarded form writes again, it is not answered with the other form's vehicle: %v", c)
+	}
+	if p := s.Save.Pending(); len(p) != 2 {
+		t.Fatalf("two vehicles wait, got %v", p)
+	}
+}
+
+// A Discard with nothing queued reads the file and drops nothing: the answer of a Create that was written stays.
+func TestADiscardWithNothingQueuedKeepsTheAnswerOfAWrittenCreate(t *testing.T) {
+	s := spawnServer(t)
+	a := create(t, s, ledgerForm1)
+	if a["outcome"] != "written" || vehiclesInFile(t, s.Save.Path) != 1 {
+		t.Fatalf("the Create is in the file: %v", a)
+	}
+	if w := postEdit(t, s, "/api/save/discard", `{}`); w.Code != 200 {
+		t.Fatalf("discard: %d %s", w.Code, w.Body.String())
+	}
+	b := create(t, s, ledgerForm1)
+	if b["repeat"] != true || b["id"] != a["id"] || vehiclesInFile(t, s.Save.Path) != 1 {
+		t.Fatalf("the retry after the reload gets the first answer and writes nothing: %v", b)
+	}
+}
+
+// The automatic refresh sends ifClean: with a queue it keeps everything (so does the ledger); with nothing queued it reads the file and drops nothing.
+func TestTheCleanRefreshKeepsTheAnswersOfCreates(t *testing.T) {
+	t.Run("queue kept", func(t *testing.T) {
+		restore := save.ActiveSessionForTests()
+		defer restore()
+		s := spawnServer(t)
+		a := create(t, s, ledgerForm1)
+		w := postEdit(t, s, "/api/save/discard", `{"ifClean":true}`)
+		if m := decodeBody(t, w); w.Code != 200 || m["kept"] != true {
+			t.Fatalf("a queued edit is kept: %d %s", w.Code, w.Body.String())
+		}
+		b := create(t, s, ledgerForm1)
+		if b["repeat"] != true || b["id"] != a["id"] || len(s.Save.Pending()) != 1 {
+			t.Fatalf("the retry is answered and writes nothing: %v", b)
+		}
+	})
+	t.Run("clean", func(t *testing.T) {
+		s := spawnServer(t)
+		a := create(t, s, ledgerForm1)
+		w := postEdit(t, s, "/api/save/discard", `{"ifClean":true}`)
+		if m := decodeBody(t, w); w.Code != 200 || m["kept"] == true {
+			t.Fatalf("nothing is queued, so the file is read again: %d %s", w.Code, w.Body.String())
+		}
+		b := create(t, s, ledgerForm1)
+		if b["repeat"] != true || b["id"] != a["id"] || vehiclesInFile(t, s.Save.Path) != 1 {
+			t.Fatalf("a lost answer retried after the refresh does not write a second vehicle: %v", b)
+		}
+	})
+}
+
+// The automatic pass that waited for the game reads the file again (nothing queued) before it runs: that reload drops nothing either.
+func TestTheAutomaticRefreshOfAWaitingPassKeepsTheAnswersOfCreates(t *testing.T) {
+	s := New(testsave.PlayerWithSQL(t, spawnRouteWorld), config.Dir{Path: t.TempDir()})
+	s.SettingsPath = filepath.Join(t.TempDir(), "settings.json")
+	if err := settings.Save(s.SettingsPath, settings.Settings{AutoRefillOnOpen: true}); err != nil {
+		t.Fatal(err)
+	}
+	a := create(t, s, ledgerForm1)
+	if vehiclesInFile(t, s.Save.Path) != 1 {
+		t.Fatal("the Create is in the file")
+	}
+	s.startupMu.Lock()
+	s.autoWaiting = true
+	s.startupMu.Unlock()
+	s.retryWaitingPass()
+	if isWaiting(s) {
+		t.Fatal("the pass ran, so the file was read again")
+	}
+	b := create(t, s, ledgerForm1)
+	if b["repeat"] != true || b["id"] != a["id"] || vehiclesInFile(t, s.Save.Path) != 1 {
+		t.Fatalf("the retry after the automatic refresh gets the first answer: %v", b)
+	}
+}
+
+// Reload now (Rebase) that puts every edit back drops nothing: the queued Create is still there and a retry is answered with it.
+func TestAReloadThatPutsTheCreateBackKeepsItsAnswer(t *testing.T) {
+	restore := save.ActiveSessionForTests()
+	defer restore()
+	s := ledgerServer(t)
+	a := create(t, s, ledgerForm1)
+	w := postEdit(t, s, "/api/save/rebase", `{}`)
+	m := decodeBody(t, w)
+	r, _ := m["restored"].(map[string]any)
+	if w.Code != 200 || r == nil || r["applied"] != float64(1) || r["conflicts"] != nil {
+		t.Fatalf("the Create is put back: %d %s", w.Code, w.Body.String())
+	}
+	b := create(t, s, ledgerForm1)
+	if b["repeat"] != true || b["id"] != a["id"] || len(s.Save.Pending()) != 1 {
+		t.Fatalf("the retry is answered with the vehicle that was put back: %v", b)
+	}
+}
+
+// A reload that cannot put the Create back drops it: the same form writes again, even when another form took the vehicle id since.
+func TestAReloadThatDroppedTheCreateLetsItWriteAgain(t *testing.T) {
+	restore := save.ActiveSessionForTests()
+	s := ledgerServer(t)
+	a := create(t, s, ledgerForm1)
+	restore() // the game closes, having written the file meanwhile
+	gameAddsAnEntity(t, s.Save.Path)
+	w := postEdit(t, s, "/api/save/rebase", `{}`)
+	m := decodeBody(t, w)
+	r, _ := m["restored"].(map[string]any)
+	if w.Code != 200 || r == nil || r["applied"] != float64(0) || r["conflicts"] == nil {
+		t.Fatalf("the Create conflicts with the game's file and is dropped: %d %s", w.Code, w.Body.String())
+	}
+	if s.Save.Dirty() || vehiclesInFile(t, s.Save.Path) != 0 {
+		t.Fatal("nothing of it is left")
+	}
+	b := create(t, s, ledgerForm2)
+	if b["id"] != a["id"] {
+		t.Fatalf("the second form takes the same id (this is what the test needs): %v %v", a["id"], b["id"])
+	}
+	c := create(t, s, ledgerForm1)
+	if c["repeat"] == true || vehiclesInFile(t, s.Save.Path) != 2 {
+		t.Fatalf("the retry of the dropped form writes again: %v, %d vehicles", c, vehiclesInFile(t, s.Save.Path))
+	}
+}
+
+// A refused reload (nothing to put back because the edits were not kept) read nothing and dropped nothing: the answer stays.
+func TestARefusedReloadKeepsTheAnswerOfACreate(t *testing.T) {
+	restore := save.ActiveSessionForTests()
+	defer restore()
+	s := spawnServer(t) // no journal: the queued edit cannot be put back, so Reload now is refused and the queue is as it was
+	a := create(t, s, ledgerForm1)
+	if w := postEdit(t, s, "/api/save/rebase", `{}`); w.Code < 400 {
+		t.Fatalf("a reload that cannot keep the edits is refused: %d %s", w.Code, w.Body.String())
+	}
+	b := create(t, s, ledgerForm1)
+	if b["repeat"] != true || b["id"] != a["id"] || len(s.Save.Pending()) != 1 {
+		t.Fatalf("the Create is still queued and the retry is answered: %v", b)
+	}
+}
+
+// Restoring a backup that was made before the Create replaces the file: the vehicle is gone, and so is its answer, even when another form took the id.
+func TestARestoreForgetsTheAnswersOfCreatesAndARefusedOneKeepsThem(t *testing.T) {
+	s := spawnServer(t)
+	a := create(t, s, ledgerForm1)
+	backups := s.Save.Backups()
+	if a["outcome"] != "written" || len(backups) == 0 || vehiclesInFile(t, s.Save.Path) != 1 {
+		t.Fatalf("the Create is written after a backup: %v %v", a, backups)
+	}
+	name, _ := backups[0]["name"].(string)
+
+	// a restore refused because an edit is queued reads nothing: the answer stays
+	if _, err := s.Save.Mutate("a waiting edit", func(m *save.Mut) error {
+		_, err := m.Exec(`update items set stack_size=stack_size+1 where template_id='SolarisCoin'`)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	w := postEdit(t, s, "/api/save/restore", `{"name":"`+name+`"}`)
+	if m := decodeBody(t, w); w.Code != 409 || m["code"] != "queued" {
+		t.Fatalf("the restore is refused while an edit is queued: %d %s", w.Code, w.Body.String())
+	}
+	if b := create(t, s, ledgerForm1); b["repeat"] != true || b["id"] != a["id"] {
+		t.Fatalf("a refused restore keeps the answer: %v", b)
+	}
+	if err := s.Save.Discard(); err != nil { // the waiting edit goes; the Create is in the file
+		t.Fatal(err)
+	}
+
+	w = postEdit(t, s, "/api/save/restore", `{"name":"`+name+`"}`)
+	if w.Code != 200 || vehiclesInFile(t, s.Save.Path) != 0 {
+		t.Fatalf("the restore put the older file back: %d %s", w.Code, w.Body.String())
+	}
+	b := create(t, s, ledgerForm2)
+	if b["id"] != a["id"] {
+		t.Fatalf("the second form takes the same id (this is what the test needs): %v %v", a["id"], b["id"])
+	}
+	c := create(t, s, ledgerForm1)
+	if c["repeat"] == true || vehiclesInFile(t, s.Save.Path) != 2 {
+		t.Fatalf("after a restore the retry of the first form writes again: %v, %d vehicles", c, vehiclesInFile(t, s.Save.Path))
+	}
+}
+
+// A queue that is held takes no new Create. The retry is refused, and the answer is not lost: when the held queue is thrown away, the Create it held is dropped with it and the same
+// form writes again, even when another form has taken the id.
+func TestACreateRetriedWhileTheQueueIsHeldIsRefusedAndTheQueueIsDiscardedLater(t *testing.T) {
+	restore := save.ActiveSessionForTests()
+	s := ledgerServer(t)
+	a := create(t, s, ledgerForm1)
+	restore()
+	gameAddsAnEntity(t, s.Save.Path)
+	if f := s.Save.Flush(); f.Saved || s.Save.Held() == nil {
+		t.Fatalf("the queued Create conflicts with the game's file and is held: %+v", f)
+	}
+	w := postEdit(t, s, "/api/vehicles/spawn", ledgerForm1)
+	if m := decodeBody(t, w); w.Code != 409 || m["code"] != "queue_held" {
+		t.Fatalf("a held queue takes no Create: %d %s", w.Code, w.Body.String())
+	}
+	if w := postEdit(t, s, "/api/save/discard", `{}`); w.Code != 200 || s.Save.Held() != nil {
+		t.Fatalf("the held queue is discarded: %d %s", w.Code, w.Body.String())
+	}
+	b := create(t, s, ledgerForm2)
+	if b["id"] != a["id"] {
+		t.Fatalf("the second form takes the same id (this is what the test needs): %v %v", a["id"], b["id"])
+	}
+	c := create(t, s, ledgerForm1)
+	if c["repeat"] == true || vehiclesInFile(t, s.Save.Path) != 2 {
+		t.Fatalf("after the discard the retry writes again: %v, %d vehicles", c, vehiclesInFile(t, s.Save.Path))
+	}
+}

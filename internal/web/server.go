@@ -900,19 +900,23 @@ func (s *Server) routes() {
 			if !cleaned {
 				return map[string]any{"ok": true, "kept": true}, nil
 			}
-			ops.ForgetSpawnAnswers(s.Save)
+			// nothing was queued, so no edit was dropped: a vehicle Create answered for is in the file, and a retry of it must still get its answer (#760)
 			return map[string]any{"ok": true}, nil
 		}
-		err := s.Save.Discard()
-		ops.ForgetSpawnAnswers(s.Save) // the vehicles Create answered for are gone with the edits (#740)
+		dropped, err := s.Save.DiscardReport()
+		if dropped {
+			ops.ForgetSpawnAnswers(s.Save) // the vehicles Create answered for are gone with the edits (#740)
+		}
 		return map[string]any{"ok": true}, err
 	})
 	// Reload now with unsaved edits: the file is read again and the edits are put back onto it where they still apply.
 	s.post("/api/save/rebase", func(ops.Args) (any, error) {
 		r, err := s.Save.Rebase()
-		ops.ForgetSpawnAnswers(s.Save) // an edit that could not be put back is gone, so an id is not answered with a vehicle that is not there (#740)
 		if err != nil {
-			return nil, err
+			return nil, err // refused before the file was read, or the read failed: the queue is as it was
+		}
+		if r != nil && len(r.Conflicts) > 0 {
+			ops.ForgetSpawnAnswers(s.Save) // an edit that could not be put back is gone, so an id is not answered with a vehicle that is not there (#740)
 		}
 		return map[string]any{"ok": true, "restored": r}, nil
 	})
@@ -929,7 +933,11 @@ func (s *Server) routes() {
 	s.get("/api/save/backups", func(r *http.Request) (any, error) { return s.Save.Backups(), nil })
 	s.post("/api/save/restore", func(a ops.Args) (any, error) {
 		err := s.Save.Restore(a.Str("name"))
-		ops.ForgetSpawnAnswers(s.Save) // (#740)
+		if err == nil {
+			// the file was replaced by an older one: the vehicles Create answered for may be gone from it (#740). A refused restore (edits queued, game running, no such
+			// backup) read nothing, and one that failed after the file was replaced leaves the editor blocked until it is restarted, which empties the ledger anyway (#760).
+			ops.ForgetSpawnAnswers(s.Save)
+		}
 		return map[string]any{"ok": true}, err
 	})
 
@@ -1041,7 +1049,7 @@ func (s *Server) retryWaitingPass() {
 	if kept, err := s.Save.DiscardIfClean(); err != nil || !kept {
 		return // nothing is queued but the file could not be read, or an edit came in: try again at the next tick
 	}
-	ops.ForgetSpawnAnswers(s.Save)
+	// the file was read again with nothing queued: no edit was dropped, so the ledger stays (#760)
 	s.RunStartupTasks()
 }
 

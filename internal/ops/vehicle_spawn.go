@@ -479,8 +479,9 @@ func (o *Ops) spawnVehicle(a Args, dry bool) (any, error) {
 			defer spawnAnswers.Unlock()
 			prev, ok := spawnAnswers.seen[key]
 			if ok && !o.spawnedStillThere(prev) {
-				// the vehicle is gone (a discard, a restore or a rebase dropped the edit that made it): the id is a new request, not a repeat
-				spawnAnswers.forget(key)
+				// the vehicle is not in the working copy (a discard, a restore or a rebase dropped the edit that made it): the id is a new request, not a repeat. The entry is not
+				// dropped here but replaced when the write below succeeds: with the queue held the working copy is the game's file, the vehicle is still in the held edits, and a write
+				// that is refused must not forget it (#760).
 				ok = false
 			}
 			if ok {
