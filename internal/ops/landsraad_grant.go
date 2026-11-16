@@ -34,7 +34,7 @@ import (
 // the same raise after a removal pays nothing again (the missions, the reward rows of the tiers crossed, the faction's progress), a higher raise pays only the new tiers, and the clicking of
 // the highest tier twice pays once. The answer says how much ground and how many missions were not paid for that reason.
 // Ground that stays covered: the character's own events, the highest contribution the character reached under another faction (otherFactionGround; the contribution row is per faction
-// and a faction change writes only player_faction) and the editor's own record. A record that cannot be used is read as nothing paid and these guards stay.
+// and a faction change writes only player_faction) and the editor's own record, which counts only as far as the save shows it (up to the highest tier whose reward row of this term stands; a raise that pays when the cap cut it replaces the record; a restored backup clears it). A record that cannot be used is read as nothing paid and these guards stay.
 //
 // The number of missions a change stands for is the number of mission steps it takes the character across, worked from the contribution the character's own events already
 // cover: ceil(after / step) - ceil(lo / step), where step is 1,000 times the contribution multiplier and lo is the larger of the contribution before and the sum of the character's
