@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/kit/durable"
 )
@@ -161,6 +162,9 @@ func (l *PaidLedger) readRetry() ([]paidNote, error) {
 // errPaidUnreadable is what a raise is refused with when the record could not be read: paying on, as if nothing had been paid, could pay the same ground twice.
 var errPaidUnreadable = errors.New("the editor's own record of the Landsraad ground it paid could not be read (another program may be holding the file), so this raise was refused and nothing was written; try again in a moment")
 
+// errPaidNotesDropped is what a raise is refused with when a record that kept failing lost notes of ground already paid: paying on could pay the same ground twice.
+var errPaidNotesDropped = errors.New("the editor could not record the Landsraad ground it paid for a long time, and some of what it paid is no longer known, so this raise was refused and nothing was written. Raises stay refused until the editor is restarted. First make sure its own folder can be written to (another program may be holding the file, or the disk may be full), then make one more change and wait until the banner about the record is gone: only a write hands over what is still kept. Then restart the editor")
+
 // snapshot is what the file records now, read once: a request takes it once and asks it for every house. A ledger that is nil or has no path gives nothing, and so does a file that is
 // missing or not usable. A file that could not be read (another program holds it) is an error after a short retry: the caller refuses the raise and says why.
 func (l *PaidLedger) snapshot() ([]paidNote, error) {
@@ -261,12 +265,23 @@ func evictPaid(entries []paidNote, keepTerm int64, max int) []paidNote {
 	return entries
 }
 
-// pendingPaid decodes the notes of queued edits that are not written yet.
-func pendingPaid(raw []json.RawMessage) []paidNote {
+// decodePaid reads the paid-ground content of a note; ok is false when the note is of another kind or is not readable. A note that comes again (Note.Again) may have been recorded before,
+// so what it asks to replace is not replaced: the record's merge and the readers of pending notes go through here, so that they cannot differ on that.
+func decodePaid(n save.Note) (p paidNote, ok bool) {
+	if n.Kind != paidNoteKind || json.Unmarshal(n.Data, &p) != nil {
+		return paidNote{}, false
+	}
+	if n.Again {
+		p.Replace = false
+	}
+	return p, true
+}
+
+// pendingPaid decodes the notes the file does not hold yet: the ones a failing record kept after their edits were written, and those of the queued edits.
+func pendingPaid(notes []save.Note) []paidNote {
 	var out []paidNote
-	for _, r := range raw {
-		var p paidNote
-		if json.Unmarshal(r, &p) == nil {
+	for _, n := range notes {
+		if p, ok := decodePaid(n); ok {
 			out = append(out, p)
 		}
 	}
@@ -285,14 +300,7 @@ func (l *PaidLedger) Record(notes []save.Note) error {
 	var seq []paidNote
 	cur := int64(0)
 	for _, n := range notes {
-		if n.Kind != paidNoteKind {
-			continue
-		}
-		var p paidNote
-		if err := json.Unmarshal(n.Data, &p); err == nil && p.valid() {
-			if n.Again {
-				p.Replace = false
-			}
+		if p, ok := decodePaid(n); ok && p.valid() {
 			seq = append(seq, p)
 			cur = max(cur, p.Term)
 		}
@@ -369,7 +377,7 @@ func standingTierRows(tiers []any, swatch save.Row, delivered map[string]save.Ro
 	return best
 }
 
-// trustedPaid is what counts of the record: the ground the file and the queued edits record for the character on the house, held to the highest tier the save shows a reward row
+// trustedPaid is what counts of the record: the ground the file and the notes it has not taken yet (kept after a write, or queued) record for the character on the house, held to the highest tier the save shows a reward row
 // for. untrusted says that the cap cut the record, so a raise that pays under it replaces it.
 func trustedPaid(file []paidNote, pending []paidNote, player, term int64, house string, standing float64) (paid float64, untrusted bool) {
 	rec := highestPaid(mergePaid(file, pending), player, term, house)
@@ -385,6 +393,10 @@ func trustedPaid(file []paidNote, pending []paidNote, player, term int64, house 
 // paidGround is what the editor paid before for the character on the house, inside a raise's edit (see trustedPaid). The save is asked for its reward rows only when something is
 // recorded, so a save with no record is read as before.
 func paidGround(m *save.Mut, file []paidNote, me myLandsraad, taskID, termID int64, house string, clock termClock) (paid float64, untrusted bool, err error) {
+	// a failing sink dropped notes of written edits (past its bound): the ground they stood for is counted nowhere, so a raise is refused rather than paid on a short record (#810)
+	if m.NotesDropped() {
+		return 0, false, apierr.Wrap(apierr.ErrWriteFailed, errPaidNotesDropped.Error(), errPaidNotesDropped)
+	}
 	pending := pendingPaid(m.Pending(paidNoteKind))
 	if highestPaid(mergePaid(file, pending), me.player, termID, house) <= 0 {
 		return 0, false, nil
