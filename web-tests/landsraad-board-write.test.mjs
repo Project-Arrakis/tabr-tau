@@ -503,7 +503,7 @@ test('the About text says what a raise writes and what it does not, names both s
   const ui = await open();
   const about = text(ui.doc.querySelector('[data-about="lsb.tiers"] .abt'));
   for (const s of ['A tier click pays what its missions pay', '6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization line of the house', 'LandsraadContributionMultiplier', 'LandsraadSpecializationXpMultiplier',
-    'The daily and weekly mission limits of the game are not applied', 'so a second Fill writes nothing', 'your character\'s own XP and your faction standing', 'takes back nothing the tier paid', 'Not checked in the game yet',
+    'The daily and weekly mission limits of the game are not applied', 'No progress event is written', 'A second Fill with nothing above your contribution writes nothing', 'raising the same tier again pays its missions and rewards again', 'your character\'s own XP and your faction standing', 'takes back nothing the tier paid', 'Not checked in the game yet',
     'Restore on the Database tab (Save backups) puts it back']) assert.ok(about.includes(s), s);
   assert.ok(ui.doc.querySelectorAll('[data-about="lsb.tiers"] .abt p').length >= 4 && ui.doc.querySelector('[data-about="lsb.tiers"] .abt ul'), 'the long paragraph is split into a list and short paragraphs');
   assert.ok(text(ui.doc.querySelector('[data-about="lsb.fill"] .abt')).includes('asks first'));

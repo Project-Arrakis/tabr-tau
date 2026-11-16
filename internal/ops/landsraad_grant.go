@@ -8,7 +8,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
-// ---------------------------------------------------------------- what completing a mission grants (refs #609, #652, #656)
+// ---------------------------------------------------------------- what completing a mission grants (refs #609, #652, #655, #656)
 //
 // A board write that raises the character's contribution to a house stands for the missions that would have raised it. What one mission leaves in a save was measured on copies of a
 // real save (three missions on three houses, then one more on each of the other lines; the numbers are on #609):
@@ -16,15 +16,25 @@ import (
 //	the house side      one landsraad_task_progress event with its player link, the cursor landsraad_task_progress_processed moved to it, the character's and the faction's contribution
 //	                    raised (the card's 1,000 times LandsraadContributionMultiplier), one landsraad_house_rewards row per reward tier the character's own contribution crossed,
 //	                    and the house completed by the event that takes the faction's progress to the goal
+//	                    (the editor writes the contribution rows and the reward rows, and the completion; NOT the event, its player link or the cursor, see below)
 //	the wallet          +6,000 on currency 0 (Solari) and +1,000 on currency 1 (House Scrip); neither is scaled by a setting
 //	the specialization  +1,500 times LandsraadSpecializationXpMultiplier XP on the track of the house's line, a row created when the line has none
 //
-// What is NOT written: the character's own XP (+350 on the card, level and skill points follow) and the faction standing (not seen in any save: it was at its maximum in every sample),
+// What is NOT written: any progress event, its player link and the cursor (#655, below), the character's own XP (+350 on the card, level and skill points follow) and the faction standing (not seen in any save: it was at its maximum in every sample),
 // and the daily and weekly limits some community guides quote (625 specialization XP a day, 35 missions a week, unverified) are ignored, as every other Landsraad write ignores them.
+//
+// No progress event (#655). The game saves an event above its cursor (landsraad_task_progress_processed) with its contribution and rewards already applied, but what it does with
+// an event it has not processed is not known, and one written in a shape it never writes could be applied a second time (the contribution added again, a reward handed out again). The
+// editor therefore writes no event, no player link and no cursor move: the contribution row, the faction's row, the reward rows, the wallets and the specialization XP are the whole
+// raise. At its next cursor step the game processes only events of its own; nothing the editor wrote is in its queue, so nothing is applied or delivered a second time by it.
+// Whether the game, on that step, takes the character's contribution from its own events (and so drops what the editor raised above them) is not checked in the game.
+// What the events were also used for is no longer written: the editor's own raise is not remembered, so the ground it paid is counted as paid only while the contribution stands. A
+// tier removal followed by the same raise pays the removed tiers again (the wallets, the XP and the rewards); only the character's own events, written by the game, cover ground
+// for good.
 //
 // The number of missions a change stands for is the number of mission steps it takes the character across, worked from the contribution the character's own events already
 // cover: ceil(after / step) - ceil(lo / step), where step is 1,000 times the contribution multiplier and lo is the larger of the contribution before and the sum of the character's
-// own events for the task (the per-tier rule of #656). The same ground is never counted twice, so a second Fill, or a Fill after a removal, grants nothing.
+// own events for the task (the per-tier rule of #656; the events are the game's, the editor writes none, #655). The same ground is not counted twice while the contribution stands, so a second Fill grants nothing; a Fill after a removal grants again what the character's own events do not cover.
 
 const (
 	missionContribution = 1000.0 // the card's Landsraad contribution, before LandsraadContributionMultiplier
@@ -121,9 +131,9 @@ func eventsOf(m *save.Mut, player, taskID int64) (float64, error) {
 }
 
 // grantRaise writes what completing the missions a raise stands for grants, inside the edit, after the character's own contribution row was set to after (landsraad_apply.go). The
-// order of the writes is: the faction's contribution and the completion, the event with its player link and the cursor, the reward rows (and the one-time swatch row), the two wallets,
-// the specialization track. A change whose ground the character's own events already cover (after is not above lo) writes none of them. completeMine is true when the same request
-// completes the house for the character's own faction; that completion is made here, so the event can record the faction's share. completed says whether this call completed the
+// order of the writes is: the faction's contribution and the completion, the reward rows (and the one-time swatch row), the two wallets, the specialization track. No event is
+// written (#655). A change whose ground the character's own events already cover (after is not above lo) writes none of them. completeMine is true when the same request
+// completes the house for the character's own faction; that completion is made here, so the faction's share is the goal at least. completed says whether this call completed the
 // house.
 func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, completeMine bool, clock termClock, g GrantSettings) (res rewardResult, completed bool, err error) {
 	taskID, _ := t["id"].(int64)
@@ -201,35 +211,9 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 			return res, false, err
 		}
 	}
-	facAfter := facBefore
-	if fc, err := m.One(`select amount from landsraad_task_faction_contributions where faction_id=? and task_id=?`, me.faction, taskID); err != nil {
-		return res, false, err
-	} else if fc != nil {
-		facAfter, _ = toFloat(fc["amount"])
-	}
-
-	// 2. the event, its player link and the cursor. The event records after - cover as the character's progress: what this change adds beyond the events and, when the contribution
-	// was ahead of them (a Fill written before the events existed), the gap too, so the sum of the character's events is again the contribution and a later removal and raise cannot
-	// count the same ground twice. The event's id is above every event and above the cursor, and the cursor moves to it (the game's own saves do the same, #609).
-	top, err := m.One(`select coalesce(max(id),0) a, coalesce((select last_processed_id from landsraad_task_progress_processed where id=1),0) b from landsraad_task_progress`)
-	if err != nil {
-		return res, false, err
-	}
-	a, _ := top["a"].(int64)
-	b, _ := top["b"].(int64)
-	id := max(a, b) + 1
-	if _, err := m.Exec(`insert into landsraad_task_progress(id, faction_id, task_id, faction_progress, guild_progress, player_progress, timestamp) values(?,?,?,?,0,?,?)`,
-		id, me.faction, taskID, int64(math.Round(max(facAfter-facBefore, 0))), after-cover, clock.value); err != nil {
-		return res, false, err
-	}
-	if _, err := m.Exec(`insert into landsraad_task_progress_player(progress_id, player_id) values(?,?)`, id, me.player); err != nil {
-		return res, false, err
-	}
-	if _, err := m.Exec(`insert into landsraad_task_progress_processed(id, last_processed_id) values(1,?)
-		on conflict(id) do update set last_processed_id=max(last_processed_id, excluded.last_processed_id)`, id); err != nil {
-		return res, false, err
-	}
-	res.events = 1
+	// 2. no progress event. The editor writes none and does not touch the game's cursor (#655): an event above the cursor is a record the game has not processed, and what the game
+	// does with one is not known, so the contribution and the reward rows below are the whole write. The game's own events are only read (eventsOf), as the ground the character's
+	// own missions already paid.
 
 	// 3. the reward rows of the tiers the events did not cover
 	rr, err := writeTierRewards(m, me, taskID, house, termID, before, lo, after, clock)

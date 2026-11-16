@@ -24,7 +24,7 @@ import (
 // mine_to = that tier's threshold, and the removal of the highest tier is mine_to = the tier below it, or 0, with lower: true.
 //
 // Before anything is written the term and every house are compared with what the page showed (was_mine, was_done, was_win); a difference is a conflict and nothing is
-// written. It is one edit: either every house is done or none is. A contribution that is raised also grants what the missions it stands for grant (landsraad_grant.go): the faction's share and the completion it brings, an event and the cursor, the reward rows of the tiers the character's own events had not crossed, the wallets and the specialization XP; one transaction, so a failure at any step leaves nothing behind.
+// written. It is one edit: either every house is done or none is. A contribution that is raised also grants what the missions it stands for grant (landsraad_grant.go): the faction's share and the completion it brings, the reward rows of the tiers the character's own events had not crossed, the wallets and the specialization XP; one transaction, so a failure at any step leaves nothing behind.
 
 type applyItem struct {
 	task        int64
@@ -250,7 +250,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 				switch {
 				case to > s.cur:
 					// the character's own row is raised to the tier; the missions it stands for are then granted (landsraad_grant.go): the faction's share and the completion it
-					// brings, the event with its player link and the cursor, the reward rows, the two wallets and the specialization track
+					// brings, the reward rows, the two wallets and the specialization track
 					if _, err := m.Exec(`insert into landsraad_task_player_contributions(player_id, faction_id, task_id, amount) values(?,?,?,?)
 						on conflict(player_id, faction_id, task_id) do update set amount=excluded.amount`, me.player, me.faction, it.task, to); err != nil {
 						return err
@@ -339,7 +339,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 	}); err != nil {
 		return nil, err
 	}
-	return resetAnswer(changed, map[string]any{"houses": houses, "skipped": houses - changed, "contribution_raised": raised, "contribution_lowered": lowered, "completed": completed, "reopened": reopened, "repaired": repaired, "replaced": replacedAnswer(replaced), "events": rw.events, "reward_rows": rw.rewardRows, "swatches": rw.swatches, "rewards_already_given": rw.skipped,
+	return resetAnswer(changed, map[string]any{"houses": houses, "skipped": houses - changed, "contribution_raised": raised, "contribution_lowered": lowered, "completed": completed, "reopened": reopened, "repaired": repaired, "replaced": replacedAnswer(replaced), "reward_rows": rw.rewardRows, "swatches": rw.swatches, "rewards_already_given": rw.skipped,
 		"missions": rw.missions, "solari": rw.solari, "house_scrip": rw.scrip, "specialization_xp": specAnswer(rw.spec)}), nil
 }
 
