@@ -68,7 +68,7 @@ Taken once the Now items are done or waiting. Items: 31.
 | - | [#440](https://github.com/Project-Arrakis/tabr-tau/issues/440) | game-state | - | Idea: Landsraad tracker: show which houses the character has completed tasks for |  |  |
 | - | [#475](https://github.com/Project-Arrakis/tabr-tau/issues/475) | base-vehicles | - | Idea: export and import a base between saves (base backup and Solido blueprint), following the console |  |  |
 | - | [#493](https://github.com/Project-Arrakis/tabr-tau/issues/493) | base-vehicles | - | feature: import the console's base backup file (dune-base-backup) |  |  |
-| - | [#534](https://github.com/Project-Arrakis/tabr-tau/issues/534) | base-vehicles | - | feature: export a standing base as a console base backup file (and later a blueprint), so it can be imported into a multiplayer game |  |  |
+| - | [#534](https://github.com/Project-Arrakis/tabr-tau/issues/534) | base-vehicles | - | feature: export a standing base as a console base backup file (and later a blueprint), for the player's own self-hosted server only |  |  |
 | - | [#551](https://github.com/Project-Arrakis/tabr-tau/issues/551) | audit | - | feature: kit/gamedata/fillables, the game's table of fillable items shared by the fill code |  |  |
 | - | [#555](https://github.com/Project-Arrakis/tabr-tau/issues/555) | base-vehicles | - | feature: kit/gamedata/vehicles, the game's vehicle catalog and chassis fuel tanks shared by the vehicle code |  |  |
 | - | [#559](https://github.com/Project-Arrakis/tabr-tau/issues/559) | audit | - | feature: kit/gamedata/regions, the names of the Hagga Basin's 12 areas shared by the place labels |  |  |
