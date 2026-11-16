@@ -74,6 +74,10 @@ func TestAWriteThatCouldNotBeReadBackIsNotAppliedTwice(t *testing.T) {
 	if !strings.Contains(f.Why, "could not be verified") || !strings.Contains(f.Why, "written") {
 		t.Fatalf("the message says the file was written and could not be verified: %q", f.Why)
 	}
+	// #612: a write that could not be read back is not recorded as the editor's own (its time would otherwise hide the game's writes from the gate)
+	if _, own, err := statFileTime(p); err != nil || own {
+		t.Fatalf("an unverified write left the file recorded as the editor's own: own %v, %v", own, err)
+	}
 	release()
 	f2 := s.Flush()
 	if !f2.Saved || f2.Queued != 0 {

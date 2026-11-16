@@ -22,8 +22,15 @@ const (
 	// the words of a browse line inside a line of some other category: not a browse line
 	lgChatMenu   = "[2026.11.01-10.02.00:000][  3][1]LogOther: Display: note: Browse (net mode 2): /Game/Maps/Menu_1?closed"
 	lgChatRemote = "[2026.11.01-10.02.00:000][  3][1]LogOther: Display: note: Browse (net mode 0): 192.0.2.7:7000/Game/Maps/Menu_1"
-	// a line of another category that holds a browse end and also the closing of the log: the exit still counts
+	// a line of another category that holds a browse end and also the closing of the log: neither is at the start of the text
 	lgChatThenClosed = "[2026.11.01-10.02.00:000][  3][1]LogOther: Display: note: Browse (net mode 2): /Game/Maps/Menu_1?closed; Log file closed"
+	// the other end markers as the game writes them, and the same words inside lines of some other category
+	lgExit        = "[2026.11.01-10.06.00:000]LogWindows: Log: FPlatformMisc::RequestExit(0, <NoCallSiteInfo>)"
+	lgClosed      = "[2026.11.01-10.06.01:000][  9][5][0]Log: Log file closed, 11/01/26 10:06:01"
+	lgDelayed     = "[2026.11.01-10.05.00:000][  3][1]LogNet: Display: Delaying Travel (net mode Listen Server): ?closed?delayed_travel"
+	lgChatExit    = "[2026.11.01-10.02.00:000][  3][1]LogOther: Display: note: FPlatformMisc::RequestExit( was not called"
+	lgChatClosed  = "[2026.11.01-10.02.00:000][  3][1]LogOther: Display: note: the Log file closed message is not a log line"
+	lgChatDelayed = "[2026.11.01-10.02.00:000][  3][1]LogOther: Display: note: Delaying Travel (net mode Listen Server): ?closed?delayed_travel"
 )
 
 func feedAll(lines ...string) spTracker {
@@ -73,9 +80,16 @@ func TestStrictEndsOnly(t *testing.T) {
 	if tr := feedAll(lgStart, lgRemote); tr.SPActive || tr.EndedAt.IsZero() {
 		t.Fatalf("a real remote browse did not end the session: %+v", tr.State)
 	}
-	// the exit and the closing of the log keep counting anywhere in a line, even in a line whose browse words are not a browse line
-	if tr := feedAll(lgStart, lgChatThenClosed); tr.SPActive || tr.EndedAt.IsZero() {
-		t.Fatalf("the closing of the log was lost: %+v", tr.State)
+	// the exit, the closing of the log and the delayed close end a session at the start of a line's text, as the game writes them, and not inside another line (D2-3)
+	for name, l := range map[string]string{"exit": lgExit, "log closed": lgClosed, "delayed close": lgDelayed} {
+		if tr := feedAll(lgStart, l); tr.SPActive || tr.EndedAt.IsZero() {
+			t.Fatalf("%s: a real end line did not end the session: %+v", name, tr.State)
+		}
+	}
+	for name, l := range map[string]string{"exit": lgChatExit, "log closed": lgChatClosed, "delayed close": lgChatDelayed, "browse and closed": lgChatThenClosed} {
+		if tr := feedAll(lgStart, l); !tr.SPActive || !tr.EndedAt.IsZero() {
+			t.Fatalf("%s: a line that only contains the words ended the session: %+v", name, tr.State)
+		}
 	}
 	// a start still counts wherever the words stand (the unsafe mistake is a missed start, not a spurious one)
 	other := "[2026.11.01-10.00.00:000][  1][1]LogOther: Display: note: Browse (net mode 0): /Game/Maps/Test_1?listen"
@@ -84,18 +98,26 @@ func TestStrictEndsOnly(t *testing.T) {
 	}
 }
 
-// D2-1 and D2-2: what the tracker keeps besides the state.
+// D2-1 and D2-2: what the log currently asserts (spStatus.seen), and the count of writes after the end.
 func TestTrackerSeenAndWritesAfterEnd(t *testing.T) {
-	if tr := feedAll("[2026.11.01-10.00.00:000]LogOther: nothing of interest", lgChatMenu); tr.seen {
-		t.Fatal("lines that are none of the markers made a marker seen")
+	status := func(tr spTracker) spStatus {
+		return spStatus{Active: tr.SPActive, EndedAt: tr.EndedAt, LastSaveAt: tr.LastSaveAt}
 	}
-	if tr := feedAll(lgStart); !tr.seen {
-		t.Fatal("a start is a marker")
+	if st := status(feedAll("[2026.11.01-10.00.00:000]LogOther: nothing of interest", lgChatMenu)); st.seen() {
+		t.Fatal("lines that are none of the markers made the log assert something")
 	}
-	if tr := feedAll(lgSave); !tr.seen || tr.writesAfterEnd != 0 {
-		t.Fatalf("a write line is a marker, and with no end it is not a write after the end: %+v", tr)
+	if st := status(feedAll(lgStart)); !st.seen() {
+		t.Fatal("a start is asserted")
 	}
-	tr := feedAll(lgStart, lgSave, lgMenu)
+	// a remote browse with no session open ends nothing and asserts nothing: it is not remembered as a marker (LOW 4: nothing is sticky)
+	if st := status(feedAll(lgRemote)); st.seen() {
+		t.Fatal("a remote browse with no session open must not make the state known")
+	}
+	tr := feedAll(lgSave)
+	if st := status(tr); !st.seen() || tr.writesAfterEnd != 0 {
+		t.Fatalf("a write line is asserted, and with no end it is not a write after the end: %+v", tr)
+	}
+	tr = feedAll(lgStart, lgSave, lgMenu)
 	if tr.writesAfterEnd != 0 {
 		t.Fatalf("no write after the end yet: %d", tr.writesAfterEnd)
 	}

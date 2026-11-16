@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
+	"github.com/Project-Arrakis/tabr-tau/internal/ops"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/settings"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
@@ -369,5 +370,36 @@ func TestAutoPassFillsNumericHydrationAsANumber(t *testing.T) {
 	}
 	if l := strings.Join(logLines(t, dir), " "); !strings.Contains(l, "kept as number") {
 		t.Fatalf("the write log does not say the type: %s", l)
+	}
+}
+
+// #612: the pass's own Flush can be refused after the pass has queued its edit (the game was started meanwhile, the rename was held, there was no room). The edit then stays
+// queued, and the next ticks of the autosave must not write it while a game process exists, however the game looks in its log. It is written once the game is closed.
+func TestAQueuedPassEditIsNotWrittenByTheAutosaveWhileTheGameIsOpen(t *testing.T) {
+	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
+	before, _ := os.ReadFile(s.Save.Path)
+	pass, err := s.Ops.RunAutoPass(func(ops.AutoJob) bool { return true }) // the edit is made and queued; the pass's own Flush is not called: it was refused
+	if err != nil || !pass.Changed {
+		t.Fatalf("the pass: %+v %v", pass, err)
+	}
+	if got := s.Save.Pending(); len(got) != 1 || !strings.HasPrefix(got[0], save.AutoPassDesc) {
+		t.Fatalf("pending: %v", got)
+	}
+	restore := save.GameAtMenuForTests() // the game is open, at its menu: the gate of an edit made by hand would let a write through
+	for i := 0; i < 3; i++ {             // the ticks of RunAutosave
+		if res := s.Save.Flush(); res.Saved || !strings.Contains(res.Why, "until the game is closed") {
+			t.Fatalf("tick %d wrote or did not say why not: %+v", i, res)
+		}
+		s.retryWaitingPass()
+	}
+	if after, _ := os.ReadFile(s.Save.Path); !bytes.Equal(before, after) || !s.Save.Dirty() || len(logLines(t, dir)) != 0 {
+		t.Fatal("the queued pass edit was written while the game was open")
+	}
+	restore() // the game closes
+	if res := s.Save.Flush(); !res.Saved {
+		t.Fatalf("with the game closed the queued pass edit must be written: %+v", res)
+	}
+	if got := autoPassFile(t, s.Save.Path); got["water"] != int64(5000) {
+		t.Fatalf("the written file: %v", got)
 	}
 }

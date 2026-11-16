@@ -338,7 +338,7 @@ func TestGameStateDecisions(t *testing.T) {
 		fileErr error
 	}{
 		{name: "no game", list: none, status: spStatus{Active: true}, mode: "none"},
-		{name: "the game at its menu, no session in this log, nothing held: written", list: game, mode: "menu"},
+		{name: "the game at its menu, no session in this log, nothing held: written", list: game, mode: "unknown_quiet"},
 		{name: "the process list cannot be read", list: func(bool) ([]string, string) { return nil, "process snapshot: boom" }, blocked: true, mode: "unknown", reason: "could not check whether the game is running"},
 		{name: "the log cannot be read", list: game, statErr: os.ErrPermission, blocked: true, mode: "game_running", reason: "its log cannot be read"},
 		{name: "a session is active", list: game, status: spStatus{Active: true, LastSaveAt: ago(10 * time.Second)}, blocked: true, mode: "single_player", reason: "single-player session is active"},
@@ -373,13 +373,13 @@ func TestGameStateDecisions(t *testing.T) {
 		// #612, D2-1: the log says nothing about a session, and then the save file's own time is the only evidence
 		{name: "no marker in the log at all, the file written 5 seconds ago: unknown, waits", list: game, fileAge: 5 * time.Second, blocked: true, mode: "game_running", reason: "its log shows no sign of a session"},
 		{name: "no marker, the file written 9 minutes ago: still inside the ten", list: game, fileAge: 9 * time.Minute, blocked: true, mode: "game_running", reason: "(about 60 seconds more)"},
-		{name: "no marker, the file quiet for exactly ten minutes: written", list: game, fileAge: noMarkerQuietFor, mode: "menu"},
-		{name: "no marker, the file quiet for hours: written", list: game, fileAge: 5 * time.Hour, mode: "menu"},
-		{name: "no marker, the file is the one the editor installed: its time says nothing", list: game, fileAge: 5 * time.Second, fileOwn: true, mode: "menu"},
+		{name: "no marker, the file quiet for exactly ten minutes: written", list: game, fileAge: noMarkerQuietFor, mode: "unknown_quiet"},
+		{name: "no marker, the file quiet for hours: written", list: game, fileAge: 5 * time.Hour, mode: "unknown_quiet"},
+		{name: "no marker, the file is the one the editor installed: its time says nothing", list: game, fileAge: 5 * time.Second, fileOwn: true, mode: "unknown_quiet"},
 		{name: "no marker, the file time cannot be read: not quiet", list: game, fileErr: os.ErrPermission, blocked: true, mode: "game_running", reason: "could not read the modification time of the save file"},
 		{name: "a file time in the future (a clock that is wrong) is not quiet", list: game, fileAge: -time.Hour, blocked: true, mode: "game_running", reason: "its log shows no sign of a session"},
-		{name: "a marker was read (an end only), the file written 2 minutes ago, the game open: the flat quiet time of the file", list: game, status: spStatus{MarkerSeen: true}, fileAge: 2 * time.Minute, blocked: true, mode: "session_ended", reason: "the save file changed 2 minutes ago, whatever the log says"},
-		{name: "a marker was read, the file quiet for the flat time: written", list: game, status: spStatus{MarkerSeen: true}, fileAge: dbQuietFor, mode: "menu"},
+		{name: "the log shows an old write only, the file written 2 minutes ago, the game open: the flat quiet time of the file", list: game, status: spStatus{LastSaveAt: ago(time.Hour)}, fileAge: 2 * time.Minute, blocked: true, mode: "session_ended", reason: "the save file changed 2 minutes ago, whatever the log says"},
+		{name: "an old write in the log, the file quiet for the flat time: written", list: game, status: spStatus{LastSaveAt: ago(time.Hour)}, fileAge: dbQuietFor, mode: "menu"},
 		{name: "the log says the game left the world long ago, the file was written 20 seconds ago: the file wins", list: game, status: spStatus{EndedAt: ago(time.Hour), LastSaveAt: ago(time.Hour - 5*time.Second)}, fileAge: 20 * time.Second, blocked: true, mode: "session_ended", reason: "the save file changed 20 seconds ago, whatever the log says"},
 		{name: "a clean end, the file written 30 s ago: the minute of the short grace applies to the file too", list: game, status: spStatus{EndedAt: ago(70 * time.Second), LastSaveAt: ago(65 * time.Second)}, fileAge: 30 * time.Second, blocked: true, mode: "session_ended", reason: "(about 30 seconds more)"},
 		{name: "a clean end, the editor's own file written 30 s ago: written", list: game, status: spStatus{EndedAt: ago(70 * time.Second), LastSaveAt: ago(65 * time.Second)}, fileAge: 30 * time.Second, fileOwn: true, mode: "menu"},

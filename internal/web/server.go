@@ -53,8 +53,8 @@ type Server struct {
 	startupNote  string // what the open-time refill did, shown once by the UI
 	startupWarn  bool   // the note is a problem or a skip, so the UI keeps it on screen
 	lastAuto     string // the last automatic save, kept for the Automatic refill card
-	autoWaiting  bool   // the automatic pass is waiting because the game may still hold the save's rows (#419, #499); RunAutosave runs it once that clears
-	autoWaitWhy  string // what it is waiting for, in the words of an edit made by hand (the reason of save.GameStateFor); empty when it is not waiting
+	autoWaiting  bool   // the automatic pass is waiting because a game process exists or may still hold the save's rows (#419, #499, #612); RunAutosave runs it once that clears
+	autoWaitWhy  string // what it is waiting for, in the words of an edit made by hand (the reason of save.UnattendedStateFor); empty when it is not waiting
 	lastAutoFail string // why the last automatic pass could not finish, kept for the card
 	settingsNote string // the last "settings.json was damaged, the backup copy is used" note that was written to the log (#442)
 
@@ -1010,7 +1010,7 @@ func (s *Server) RunAutosave(stop <-chan struct{}) {
 	}
 }
 
-// retryWaitingPass runs the automatic pass that was held back, once the gate for edits made by hand lets a write through (#499) and nothing is queued: the file is read
+// retryWaitingPass runs the automatic pass that was held back, once no game process exists and the gate for edits made by hand lets a write through (#499, #612; save.UnattendedStateFor) and nothing is queued: the file is read
 // again first (the game saved while it ran), so the pass works from what the game left. It does nothing while the game, or the check, is in the way, and keeps the reason
 // the card shows up to date.
 func (s *Server) retryWaitingPass() {
@@ -1153,7 +1153,9 @@ func (s *Server) runPass(manual bool) {
 		s.stopWaitingPass()
 		return
 	}
-	state := save.UnattendedStateFor // the pass at launch and its retries have nobody watching: they wait for every game process (#612)
+	// The pass at launch and its retries have nobody watching: they wait for every game process (#612). The edit the pass then makes is held to the same rule wherever it is written
+	// from (save.AutoPassDesc, Save.gate): if Flush below is refused it stays queued, and the autosave tick or a restart writes it only once no game process exists.
+	state := save.UnattendedStateFor
 	if manual {
 		state = save.GameStateFor // asked for by hand: the person is looking, the gate of an edit made by hand
 	}
@@ -1180,7 +1182,11 @@ func (s *Server) runPass(manual bool) {
 		set("Automatic refill skipped: edits from before are still waiting to be written."+off, true)
 		return
 	}
-	pass, err := s.Ops.RunAutoPass(on)
+	runJobs := s.Ops.RunAutoPass
+	if manual {
+		runJobs = s.Ops.RunAutoPassByHand // a person is looking: the edit has the gate of an edit made by hand
+	}
+	pass, err := runJobs(on)
 	if err != nil {
 		msg := "Automatic refill could not finish: " + err.Error() + ". Nothing was changed, so none of the other jobs were applied."
 		var je *ops.AutoJobError

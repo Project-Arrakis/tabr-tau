@@ -70,27 +70,48 @@ var spPolicy = sessionlog.Policy{}
 // spStrictPolicy is the reading that counts a browse line only at the start of the line's text, after the logger's bracketed prefixes and the category.
 var spStrictPolicy = sessionlog.Policy{Strict: true}
 
-// spTracker is the log state machine of the kit (kit/sessionlog) read under the editor's policy: SPActive, EndedAt and LastSaveAt are the three answers the waits use. It
-// also keeps whether any marker was ever seen, and how many database writes followed the end of the session.
-type spTracker struct {
-	sessionlog.Tracker
-	seen           bool // a start, an end, an exit or a write line was read (not a line that is none of them)
-	writesAfterEnd int  // database writes seen after the latest end marker; zero while a session is open
+// The other three end markers, anchored to the start of the line's text (after the logger's bracketed prefixes), as the game writes them (#612, D2-3). Read anywhere in a line, a
+// line that merely contained the words ended the session in the state machine, the unsafe direction. A real end line that does not look like these is a missed end, which only
+// makes the editor wait longer.
+const (
+	anchorDelayed = "LogNet: Display: Delaying Travel (net mode Listen Server): ?closed"
+	anchorExit    = "LogWindows: Log: FPlatformMisc::RequestExit("
+	anchorClosed  = "Log: Log file closed"
+)
+
+// endAnchored says whether a line that the wide reading takes for a delayed close, an exit or the closing of the log is one at the start of its text.
+func endAnchored(ev sessionlog.Event, line string) bool {
+	b := sessionlog.Body(line)
+	switch ev {
+	case sessionlog.DelayedClose:
+		return strings.HasPrefix(b, anchorDelayed)
+	case sessionlog.Exit:
+		return strings.HasPrefix(b, anchorExit) || strings.HasPrefix(b, anchorClosed)
+	}
+	return true
 }
 
-// feed applies one log line.
+// spTracker is the log state machine of the kit (kit/sessionlog) read under the editor's policy: SPActive, EndedAt and LastSaveAt are the three answers the waits use. It
+// also keeps how many database writes followed the end of the session.
+type spTracker struct {
+	sessionlog.Tracker
+	writesAfterEnd int // database writes seen after the latest end marker; zero while a session is open
+}
+
+// feed applies one log line. No end marker ends a session unless it stands at the start of the line's text; starts and the write line keep the wide reading (a spurious start
+// or write only makes the editor wait).
 func (t *spTracker) feed(line string) {
 	p := spPolicy
 	ev := sessionlog.Classify(p, line)
 	// A browse line that ends a session under the wide reading but not under the strict one (the words stand in a line of some other category) is not an end: the line is read
-	// under the strict policy instead, which still takes an exit or a closing of the log that stands in it. Starts and writes keep the wide reading.
+	// under the strict policy instead, which still takes an exit or a closing of the log that stands in it, when that stands at the start of the text.
 	if ev == sessionlog.Menu || ev == sessionlog.RemoteBrowse {
 		if strict := sessionlog.Classify(spStrictPolicy, line); strict != ev {
 			p, ev = spStrictPolicy, strict
 		}
 	}
-	if ev != sessionlog.NoEvent {
-		t.seen = true
+	if !endAnchored(ev, line) {
+		return // the words of an end marker inside some other line: not a marker, and (the wide reading puts it after the write and browse lines) no other marker is in it
 	}
 	switch {
 	case ev == sessionlog.Start:
@@ -120,17 +141,13 @@ type spStatus struct {
 	Active     bool
 	EndedAt    time.Time
 	LastSaveAt time.Time // the game's last write of the database, from its log; zero when the log shows none
-	// MarkerSeen says the log showed at least one session line (a start, an end, an exit or a write line). A status with none of these, no end and no write is a log that says
-	// nothing about a session (#612, D2-1); the fields above already imply it when they are set.
-	MarkerSeen bool
 	// WritesAfterEnd is how many database writes the log shows after the latest end marker (one is what leaving a world looks like).
 	WritesAfterEnd int
 }
 
-// seen says whether the log showed any session line at all.
-func (s spStatus) seen() bool {
-	return s.MarkerSeen || s.Active || !s.EndedAt.IsZero() || !s.LastSaveAt.IsZero()
-}
+// seen says whether the log currently asserts anything about a session: one is active, one ended, or the game wrote its database. None of these is a log that says nothing
+// (#612, D2-1), which is not the same as a log that says no world is loaded. It is derived from what the log asserts now, not remembered from lines read before.
+func (s spStatus) seen() bool { return s.Active || !s.EndedAt.IsZero() || !s.LastSaveAt.IsZero() }
 
 // The log is read in pieces of logChunk bytes, whatever its size, so a long session (a game log grows about 70 MB an hour, #530) is never held in memory as a whole and never
 // refused for its size. A line longer than maxLogLine is read as its first maxLogLine bytes (the time and the marker are at the start of a line); the log's own lines are far
@@ -210,7 +227,7 @@ func singlePlayerStatus(savePath string) (spStatus, error) {
 			return spStatus{}, fmt.Errorf("cannot read the game log: %w", err)
 		}
 	}
-	return spStatus{Active: spLog.tr.SPActive, EndedAt: spLog.tr.EndedAt, LastSaveAt: spLog.tr.LastSaveAt, MarkerSeen: spLog.tr.seen, WritesAfterEnd: spLog.tr.writesAfterEnd}, nil
+	return spStatus{Active: spLog.tr.SPActive, EndedAt: spLog.tr.EndedAt, LastSaveAt: spLog.tr.LastSaveAt, WritesAfterEnd: spLog.tr.writesAfterEnd}, nil
 }
 
 // QueuedUntilClears ends the Reason of a game that may still hold the save's rows. A caller that words the wait for itself (the automatic pass at launch, #499) takes it off.
@@ -220,7 +237,7 @@ const QueuedUntilClears = "; edits stay queued until this clears, or the game cl
 type GameState struct {
 	Blocked    bool     // Save must not run
 	Reason     string   // why, in a sentence for the page (empty when saving is allowed)
-	Mode       string   // none | menu | single_player | session_ended | game_running | unknown
+	Mode       string   // none | menu | unknown_quiet | single_player | session_ended | game_running | unknown (unknown_quiet: allowed, but the log said nothing about a session)
 	Processes  []string // Dune processes found (also set when saving is allowed)
 	CheckError string   // set when we could not tell
 	// NeedsConfirm is set when the only thing blocking the write is that the save's location cannot be vouched for (a network share, a removable
@@ -289,7 +306,7 @@ func copyState(savePath string) GameState {
 }
 
 // processState is the part of GameStateFor that looks at the game's processes, log and the save file on this computer. With no Dune process the save may be written. With one,
-// the save may be written only when ALL of these hold, checked in this order; the first that fails is the reason shown (#449):
+// the save may be written only when ALL of these hold, checked in this order; the first that fails is the reason shown (#449, #612):
 //
 //  1. the process list could be read (a list that cannot be read is not "no game");
 //  2. the game's log could be read (without it the editor cannot tell whether a world is loaded);
@@ -297,9 +314,13 @@ func copyState(savePath string) GameState {
 //  4. the game has not written its database for dbQuietFor (the game writes it about every 20 s while a world is loaded: this is the "unloaded" signal) - EXCEPT when the log
 //     shows the session ended and the game's last write after it (#470): then menuWriteGrace has passed since the end and menuQuietAfterWrite since that write, instead;
 //  5. if a session ended and no write after it is in the log, endedFallbackGrace has passed since it ended (the unmeasured fallback);
-//  6. no other program has the save file open, and that could be checked.
+//  6. the save file's own modification time is older than the wait the log asked for (fileQuiet: 10 minutes when the log asserts nothing about a session at all, that is, the
+//     state is unknown), unless the file is the one the editor itself installed (#612);
+//  7. the editor has watched the file without a gap for observeQuietFor (a first evaluation, a sleep or a clock step starts the watch again) (#612);
+//  8. no other program has the save file open, and that could be checked.
 //
-// Evidence: 2 to 5 are read from the game's own log (see the comment at the top of this file), 6 from the operating system. Not established: that the game does not keep game.db
+// A write allowed while the log asserted nothing is answered with the mode unknown_quiet, not menu. Evidence: 2 to 5 are read from the game's own log (see the comment at the
+// top of this file), 6 and 7 from the file's time and the editor's clock, 8 from the operating system. Not established: that the game does not keep game.db
 // open at its menu in a way the check cannot see, and what the game does with rows it read when a session began (#419 suspected stale rows; the log shows the game opens the
 // database again when the next session starts).
 func processState(savePath string, fresh bool) GameState {
@@ -307,17 +328,22 @@ func processState(savePath string, fresh bool) GameState {
 	if perr != "" {
 		return GameState{Blocked: true, Mode: "unknown", CheckError: perr, Reason: "could not check whether the game is running (" + perr + ")"}
 	}
+	now := nowFunc().UTC()
 	if len(procs) == 0 {
+		forgetObserved(savePath)
 		return GameState{Mode: "none"}
 	}
 	wait := func(mode, why string) GameState {
 		return GameState{Blocked: true, Mode: mode, Processes: procs, Reason: why + QueuedUntilClears}
 	}
+	// The save file's time is read once, at every evaluation with a game process (also when the log already blocks), so the editor can tell whether it has been watching the
+	// file without a gap (observeFile, #612).
+	mod, own, terr := fileTimeFor(savePath)
+	watchedFrom := observeFile(savePath, now, mod, own, terr)
 	sp, serr := statusFor(savePath)
 	if serr != nil {
 		return wait("game_running", "the game is open and its log cannot be read ("+shortReason(serr)+"), so the editor cannot tell whether a world is loaded")
 	}
-	now := nowFunc().UTC()
 	if sp.Active {
 		return wait("single_player", "a single-player session is active, and the game rewrites the save about every 20 seconds while it runs")
 	}
@@ -360,7 +386,6 @@ func processState(savePath string, fresh bool) GameState {
 	// The second signal, independent of the log's text (#612, D2-1): the save file's own modification time. The log can say "no session" for a reason that is not true (a game
 	// update that rewords the lines read above), the file cannot be reworded: a game that holds a world rewrites it, and the editor's own writes are told apart (ownWrite). With
 	// no session line in the log at all the state is unknown, and the file must have been quiet much longer. A time that cannot be read is not "quiet".
-	mod, own, terr := fileTimeFor(savePath)
 	switch {
 	case terr != nil:
 		return wait("game_running", "the editor could not read the modification time of the save file ("+shortReason(terr)+"), so it cannot tell whether the game is still writing it")
@@ -371,12 +396,22 @@ func processState(savePath string, fresh bool) GameState {
 		}
 		return wait("session_ended", "the save file changed "+approxDuration(now.Sub(mod))+" ago, whatever the log says; the editor waits until it has been quiet for "+approxDuration(fileQuiet)+" (about "+approxDuration(fileQuiet-now.Sub(mod))+" more)")
 	}
+	// The quiet must have been OBSERVED (#612): the editor's clock and the file's time are the whole of the second signal, and a computer that slept, or a clock that was set
+	// forward, makes an old file time look like a long quiet. When the editor has not evaluated the gate with a game process for more than observeGap (the first evaluation, a
+	// sleep, a clock step), or the file changed since it last looked, it holds for observeQuietFor and sees the file unchanged across it.
+	if observeQuietFor > 0 && now.Sub(watchedFrom) < observeQuietFor {
+		return wait("game_running", "the editor has only just started watching the save file with the game open, so it cannot yet tell that the file is quiet (it waits "+approxDuration(observeQuietFor)+" and sees the file unchanged; about "+approxDuration(observeQuietFor-now.Sub(watchedFrom))+" more)")
+	}
 	held, herr := fileHeld(savePath)
 	if herr != nil {
 		return wait("game_running", "the editor could not check whether another program has the save file open ("+shortReason(herr)+")")
 	}
 	if held {
 		return wait("game_running", "another program, probably the game, has the save file open")
+	}
+	if !sp.seen() {
+		// Allowed, but not because the log said the game is at its menu: it said nothing (#612). Its own mode, so no text says "at its menu".
+		return GameState{Mode: "unknown_quiet", Processes: procs}
 	}
 	return GameState{Mode: "menu", Processes: procs}
 }

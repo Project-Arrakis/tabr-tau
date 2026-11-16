@@ -38,6 +38,10 @@ func TestAReadBackMismatchNeverOverwritesTheGamesNewerFile(t *testing.T) {
 	if !s.Dirty() {
 		t.Fatal("the edits stay queued")
 	}
+	// #612: the file on disk is not the one the editor installed, so its time is not the editor's own (the game's write must count for the gate's file-time check)
+	if _, own, err := statFileTime(p); err != nil || own {
+		t.Fatalf("a read-back that found another file left the file recorded as the editor's own: own %v, %v", own, err)
+	}
 }
 
 // When the replacement did not take effect at all (the file is still the loaded one), the message says that, and nothing is rewritten.
@@ -62,5 +66,8 @@ func TestAReadBackThatFindsThePreviousFileSaysSo(t *testing.T) {
 	}
 	if got, _ := os.ReadFile(p); !bytes.Equal(got, orig) {
 		t.Fatal("the file is the loaded one, untouched")
+	}
+	if _, own, err := statFileTime(p); err != nil || own {
+		t.Fatalf("a replacement that did not take effect left the file recorded as the editor's own: own %v, %v", own, err)
 	}
 }

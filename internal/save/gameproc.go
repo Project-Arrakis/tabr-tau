@@ -196,6 +196,8 @@ func CheckGameNow(savePath string) GameCheck {
 		c.Message = "the check failed again: " + g.CheckError
 	case c.Running && g.Blocked:
 		c.Message = "the game is open and edits will queue: " + g.Reason
+	case c.Running && g.Mode == "unknown_quiet":
+		c.Message = "the game is open and its log shows no sign of a session, but the save file has not changed for a long time and no program has it open: edits are written at once"
 	case c.Running:
 		c.Message = "the game is open at its menu, no world is loaded and no program has the save file open: edits are written at once"
 	case g.Blocked:

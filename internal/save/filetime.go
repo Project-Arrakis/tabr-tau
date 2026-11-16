@@ -72,3 +72,54 @@ func statFileTime(savePath string) (mod time.Time, own bool, err error) {
 	}
 	return mod, own, nil
 }
+
+// The quiet of the save file must be observed, not only computed from the clock (#612): after a sleep or a hibernation, or when the clock is set forward, the file's time is far
+// in the past and looks like a long quiet although the game may have been writing until the moment the computer slept. So the editor remembers, per save, when it last
+// evaluated the gate with a game process present and what the file looked like, and holds for observeQuietFor from the first evaluation, from the first one after a gap of more
+// than observeGap (a clock that went backward is a gap), and from a change of the file's time that is not the editor's own write.
+const (
+	observeGap = 30 * time.Second
+)
+
+// observeQuietFor is how long the editor must have watched the file, evaluating the gate at least every observeGap and seeing the file unchanged, before a game process's quiet
+// is believed: one menuQuietAfterWrite. A variable so the tests of other rules (which call the gate once) can switch it off; the tests of this one use the real value.
+var observeQuietFor = menuQuietAfterWrite
+
+type observation struct {
+	lastAt time.Time // the last evaluation with a game process present
+	from   time.Time // the start of the unbroken watch
+	mod    time.Time // the file's time at the last evaluation
+}
+
+var observed = struct {
+	sync.Mutex
+	m map[string]observation
+}{m: map[string]observation{}}
+
+// observeFile records one evaluation of the gate with a game process present and returns when the unbroken watch of the file began. A gap since the last evaluation, a first
+// evaluation, a file whose time cannot be read, or a time that changed other than by the editor's own write start the watch again at now.
+func observeFile(savePath string, now, mod time.Time, own bool, terr error) time.Time {
+	observed.Lock()
+	defer observed.Unlock()
+	k := ownKey(savePath)
+	o, ok := observed.m[k]
+	switch {
+	case !ok, now.Before(o.lastAt), now.Sub(o.lastAt) > observeGap, terr != nil:
+		o = observation{from: now}
+	case !o.mod.Equal(mod) && !own:
+		o.from = now
+	}
+	o.lastAt = now
+	if terr == nil {
+		o.mod = mod
+	}
+	observed.m[k] = o
+	return o.from
+}
+
+// forgetObserved drops the watch: no game process is present, so the next evaluation with one starts a new watch.
+func forgetObserved(savePath string) {
+	observed.Lock()
+	delete(observed.m, ownKey(savePath))
+	observed.Unlock()
+}
