@@ -18,7 +18,7 @@ import (
 // The ceilings. The real figures seen are far below them (a foundation 7,000, a placeable 2,500, gear durability 100); the ceilings are there to refuse the absurd, not to model
 // the game. A stack of an item the catalog does not know is held to the largest stack the catalog knows (100,000).
 const (
-	// MaxPieceHealth is the most health a building piece or a placeable may have in a file, and the most the repair functions will ever copy onto a piece.
+	// MaxPieceHealth is the most health a building piece or a placeable may have in a file. It is a wide ceiling (the game's figures seen are far below it); what the repair functions copy onto a piece is held to much lower caps of their own (ops/healthcaps.go, #613).
 	MaxPieceHealth = 1_000_000.0
 	// MaxItemDurability is the most an item's durability figures (current, maximum, decayed maximum) may be.
 	MaxItemDurability = 1_000_000.0
@@ -94,14 +94,15 @@ func (b *Base) verifyValues() error {
 }
 
 // durabilityOK checks the durability record of an item's stats text, when it has one: the numbers in it are finite and from 0 to MaxItemDurability. A record or a value of another
-// shape is left to the game, as everywhere else in the stats.
+// shape is left to the game, as everywhere else in the stats. Only the durability key is decoded as an array: another key of any shape (a number, text, an object) beside it does not
+// make the whole text undecodable, so it never lets a bad durability through (#613, audit G-021).
 func durabilityOK(stats string) error {
-	var doc map[string][]json.RawMessage
+	var doc map[string]json.RawMessage
 	if json.Unmarshal([]byte(stats), &doc) != nil {
 		return nil
 	}
-	pair := doc["FItemStackAndDurabilityStats"]
-	if len(pair) < 2 {
+	var pair []json.RawMessage
+	if json.Unmarshal(doc["FItemStackAndDurabilityStats"], &pair) != nil || len(pair) < 2 {
 		return nil
 	}
 	var rec map[string]json.RawMessage

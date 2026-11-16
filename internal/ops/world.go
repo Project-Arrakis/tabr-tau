@@ -33,14 +33,31 @@ func (o *Ops) StorageItems(inv int64) (any, error) {
 	return items, nil
 }
 
-// bestHealthOf is the derived table of the repair: the best health seen for each type of the table (building_instances or placeables), counting only a health that is a number from 0
-// to basefile.MaxPieceHealth. A piece with a health outside that range (a file or an edit put 1e300 there) is not a "best seen" and is never copied: what the repair writes is always
-// inside the range. The ceiling is written into the text (it is a constant of the program, not an argument), so that the statement stays one that needs no arguments of its own.
-func bestHealthOf(table string) string {
-	return `(select building_type bt, max(health) top from ` + table + ` where building_type is not null and health >= 0 and health <= ` + strconv.FormatFloat(basefile.MaxPieceHealth, 'f', 0, 64) + ` group by building_type)`
+// ownedByAnyBase is the test, for a row of the table named by alias, that some totem's entity is its owner: the piece belongs to a base of the player's (the opposite of ownedByNoBase).
+func ownedByAnyBase(alias string) string {
+	return alias + `.owner_entity_id in (select afe.entity_id from actor_fgl_entities afe join totems t on t.id=afe.actor_id)`
 }
 
-// RepairBuildings sets every building piece and placeable of the whole save to the highest health seen for its type, among the healths from 0 to basefile.MaxPieceHealth (#613). It is the
+// bestHealthOf is the derived table of the repair: the repair target of each type of the table (building_instances or placeables), as "bt" (the type) and "top" (the target).
+//
+// The target is the best health seen on STANDING pieces of the player's own bases (#613, audit G-009): a piece counts only when a totem's entity owns it and its actor is not in the
+// picked-up state (5, which is what an imported backup is written in; a backup's pieces have no owner either). A placeable that is a hologram does not count. A health outside 0 to
+// basefile.MaxPieceHealth is never a "best seen". The best of a type is then held to the cap of the type (healthcaps.go): the table's own figure where it has one, else the overall cap of
+// the table, so a standing piece with a health far above what the game gives is not spread to the other pieces of its type. The ceilings are written into the text (they are constants of
+// the program, not arguments), so that the statement stays one that needs no arguments of its own.
+func bestHealthOf(table string) string {
+	idCol, overall, seen, extra := "building_id", MaxRepairPieceHealth, pieceTypeHealthSeen, ""
+	if table == "placeables" {
+		idCol, overall, seen, extra = "id", MaxRepairPlaceableHealth, placeableTypeHealthSeen, " and x.is_hologram=0"
+	}
+	return `(select s.building_type bt, min(s.top, coalesce(c.cap, ` + strconv.FormatFloat(overall, 'f', -1, 64) + `)) top
+		from (select x.building_type, max(x.health) top from ` + table + ` x join actors a on a.id=x.` + idCol + `
+			where x.building_type is not null and x.health >= 0 and x.health <= ` + strconv.FormatFloat(basefile.MaxPieceHealth, 'f', 0, 64) + extra + `
+				and coalesce(a.state,0) <> 5 and ` + ownedByAnyBase("x") + ` group by x.building_type) s
+		left join (select column1 ty, column2 cap from (values ` + capValues(seen) + `)) c on c.ty=s.building_type)`
+}
+
+// RepairBuildings raises every building piece and placeable of the whole save to the repair target of its type (bestHealthOf: the best health seen on standing pieces of the player's own bases, held to the cap of the type, #613). It is the
 // save-wide action; the Structures tab offers it apart from the open base's own, RepairBase (#526).
 //
 // The best health of each type is worked out once, by one grouped scan, and the pieces are joined to it. The statement used to look the
