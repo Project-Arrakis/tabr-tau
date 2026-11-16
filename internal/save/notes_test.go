@@ -361,3 +361,76 @@ func TestNotesAnIncompleteJournalOfAWrittenQueueHandsOverItsNotes(t *testing.T) 
 		t.Fatal("a journal that outlived the write may have delivered before: its notes are marked as a repeat")
 	}
 }
+
+// The notes a failing sink could not take belong to edits that are in the game's file already: a reader inside an edit sees them before the queued ones, and only until a delivery
+// goes through (#810). Past the bound the save says that the oldest were dropped.
+func TestNotesPendingCountsTheNotesAFailingSinkKept(t *testing.T) {
+	defer NoGameRunningForTests()()
+	p := makeSave(t, journalDDL)
+	s, _ := Open(p)
+	defer s.Close()
+	var k sunk
+	fail := true
+	s.SetNoteSink(func(n []Note) error {
+		if fail {
+			return errors.New("busy")
+		}
+		return k.sink(n)
+	})
+	noteEdit(t, s, 1, "x", 1)
+	noteEdit(t, s, 2, "y", 2)
+	if f := s.Flush(); !f.Saved || s.NotesProblem() == "" {
+		t.Fatalf("the write must go through and the record fail: %+v", f)
+	}
+	noteEdit(t, s, 1, "x", 3) // queued after the failed delivery
+	var seen []json.RawMessage
+	if _, err := s.Mutate("read", func(m *Mut) error { seen = m.Pending("x"); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if len(seen) != 2 || !strings.Contains(string(seen[0]), `"v":1`) || !strings.Contains(string(seen[1]), `"v":3`) {
+		t.Fatalf("an edit sees the kept note first, then the queued one: %s", seen)
+	}
+	if got := s.PendingNotes("y"); len(got) != 1 || !strings.Contains(string(got[0]), `"v":2`) {
+		t.Fatalf("a reader outside an edit sees the kept note of another kind by its own kind: %s", got)
+	}
+	if s.NotesDropped() {
+		t.Fatal("nothing was dropped")
+	}
+	fail = false
+	if f := s.Flush(); !f.Saved {
+		t.Fatalf("flush: %+v", f)
+	}
+	if got := s.PendingNotes("x"); len(got) != 0 {
+		t.Fatalf("a note that was handed over is still counted as pending: %s", got)
+	}
+	if got := values(t, k.got); len(got) != 3 {
+		t.Fatalf("handed over: %v", got)
+	}
+}
+
+func TestNotesDroppedPastTheBoundIsSaid(t *testing.T) {
+	defer NoGameRunningForTests()()
+	p := makeSave(t, journalDDL)
+	s, _ := Open(p)
+	defer s.Close()
+	s.SetNoteSink(func([]Note) error { return errors.New("busy") })
+	batch := func(n int) []Note {
+		out := make([]Note, n)
+		for i := range out {
+			out[i] = Note{Kind: "x", Data: json.RawMessage(`{"v":1}`)}
+		}
+		return out
+	}
+	s.mu.Lock()
+	s.deliver(batch(maxUndelivered))
+	s.mu.Unlock()
+	if s.NotesDropped() {
+		t.Fatal("the bound itself drops nothing")
+	}
+	s.mu.Lock()
+	s.deliver(batch(1))
+	s.mu.Unlock()
+	if !s.NotesDropped() {
+		t.Fatal("one past the bound drops the oldest and must say so")
+	}
+}

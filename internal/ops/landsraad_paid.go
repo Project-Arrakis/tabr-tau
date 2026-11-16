@@ -161,6 +161,9 @@ func (l *PaidLedger) readRetry() ([]paidNote, error) {
 // errPaidUnreadable is what a raise is refused with when the record could not be read: paying on, as if nothing had been paid, could pay the same ground twice.
 var errPaidUnreadable = errors.New("the editor's own record of the Landsraad ground it paid could not be read (another program may be holding the file), so this raise was refused and nothing was written; try again in a moment")
 
+// errPaidNotesDropped is what a raise is refused with when a record that kept failing lost notes of ground already paid: paying on could pay the same ground twice.
+var errPaidNotesDropped = errors.New("the editor could not record the Landsraad ground it paid for a long time, and some of what it paid is no longer known, so this raise was refused and nothing was written. Raises stay refused until the editor is restarted; first make sure its own folder can be written to (another program may be holding the file, or the disk may be full)")
+
 // snapshot is what the file records now, read once: a request takes it once and asks it for every house. A ledger that is nil or has no path gives nothing, and so does a file that is
 // missing or not usable. A file that could not be read (another program holds it) is an error after a short retry: the caller refuses the raise and says why.
 func (l *PaidLedger) snapshot() ([]paidNote, error) {
@@ -385,6 +388,10 @@ func trustedPaid(file []paidNote, pending []paidNote, player, term int64, house 
 // paidGround is what the editor paid before for the character on the house, inside a raise's edit (see trustedPaid). The save is asked for its reward rows only when something is
 // recorded, so a save with no record is read as before.
 func paidGround(m *save.Mut, file []paidNote, me myLandsraad, taskID, termID int64, house string, clock termClock) (paid float64, untrusted bool, err error) {
+	// a failing sink dropped notes of written edits (past its bound): the ground they stood for is counted nowhere, so a raise is refused rather than paid on a short record (#810)
+	if m.NotesDropped() {
+		return 0, false, errPaidNotesDropped
+	}
 	pending := pendingPaid(m.Pending(paidNoteKind))
 	if highestPaid(mergePaid(file, pending), me.player, termID, house) <= 0 {
 		return 0, false, nil

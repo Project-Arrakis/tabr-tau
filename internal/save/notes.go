@@ -32,8 +32,9 @@ func (m *Mut) Note(kind string, data any) error {
 	return nil
 }
 
-// Pending returns the notes of the kind that edits already queued (made, not yet written) carry, oldest first. It is read inside an edit, so it sees what the edits before it asked
-// to be remembered, which is not in the sink's store until they are written.
+// Pending returns the notes of the kind that the sink has not recorded yet, oldest first: first the notes of edits that are already written to the game's file but that the sink could
+// not take (they wait for the next write), then the notes of the edits queued (made, not yet written). It is read inside an edit, so it sees what the edits before it asked to be
+// remembered, which is not in the sink's store until they are written and handed over.
 func (m *Mut) Pending(kind string) []json.RawMessage {
 	if m.s == nil {
 		return nil
@@ -48,9 +49,15 @@ func (s *Save) PendingNotes(kind string) []json.RawMessage {
 	return s.pendingNotes(kind)
 }
 
-// pendingNotes: the caller holds s.mu. A queue that is held (it could not be put onto the game's newer file) is not pending: none of it is in the working copy.
+// pendingNotes: the caller holds s.mu. A queue that is held (it could not be put onto the game's newer file) is not pending: none of it is in the working copy. The notes a failing
+// sink kept (undelivered) come first: their edits are in the game's file already, so a reader that left them out would count the ground they stand for nowhere (#810).
 func (s *Save) pendingNotes(kind string) []json.RawMessage {
 	var out []json.RawMessage
+	for _, n := range s.undelivered {
+		if n.Kind == kind {
+			out = append(out, n.Data)
+		}
+	}
 	for _, o := range s.ops {
 		for _, n := range o.notes {
 			if n.Kind == kind {
@@ -78,7 +85,8 @@ func notesOf(ops []Op) []Note {
 	return out
 }
 
-// maxUndelivered bounds the notes kept for a sink that keeps failing.
+// maxUndelivered bounds the notes kept for a sink that keeps failing. Past it the oldest are dropped, and NotesDropped says so for the rest of the session, so that a reader that counts on
+// the notes (a raise that must not pay the same ground twice) can refuse instead of counting less than was written (#810).
 const maxUndelivered = 1000
 
 // deliverNotes hands the notes of edits that have just been written to the sink, after the ones an earlier delivery could not hand over. The caller holds s.mu. A sink that fails keeps
@@ -98,6 +106,7 @@ func (s *Save) deliver(add []Note) string {
 	if err := s.sink(n); err != nil {
 		if len(n) > maxUndelivered {
 			n = n[len(n)-maxUndelivered:]
+			s.notesDropped = true
 		}
 		s.undelivered = n
 		problem := "a note of the written edits could not be recorded (" + shortErr(err) + "); it is tried again at the next write"
@@ -117,6 +126,19 @@ func (s *Save) NotesProblem() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.notesProblem
+}
+
+// NotesDropped says that notes of written edits were dropped because a sink kept failing past the bound (maxUndelivered): what those notes recorded is known to nobody now, and it stays
+// so until the editor is restarted. A raise that needs the record of what was paid refuses while it is true.
+func (s *Save) NotesDropped() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.notesDropped
+}
+
+// NotesDropped is Save.NotesDropped for an edit (the lock of the save is held already).
+func (m *Mut) NotesDropped() bool {
+	return m.s != nil && m.s.notesDropped
 }
 
 // deliverRecNotes is deliverNotes for edits kept in the journal (the editor was closed between the write and the removal of the journal). The caller holds s.mu.
