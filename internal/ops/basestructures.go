@@ -88,11 +88,12 @@ func (o *Ops) BaseStructures(baseID int64) (any, error) {
 	}, nil
 }
 
-// RepairBase raises the building pieces and the built placeables owned by one base to the highest health seen for their type.
+// RepairBase raises the building pieces and the built placeables owned by one base to the repair target of their type.
 //
-// The rule for the target: the highest health of a type is looked up over the whole save (the same figure RepairBuildings uses), but only
+// The rule for the target: the target of a type is looked up over all the standing pieces of the player's own bases (the same figure RepairBuildings uses; bestHealthOf: not the pieces
+// of an imported backup, not a piece in the picked-up state, never above the cap of the type), but only
 // rows owned by this base are written. A base whose every wall is worn is therefore still repaired, which a maximum taken from the base's
-// own pieces would not do. A health outside 0 to basefile.MaxPieceHealth is never taken as the best (#613). Nothing is ever lowered, and the other bases' rows and the unowned ones are not touched.
+// own pieces would not do. Nothing is ever lowered, and the other bases' rows and the unowned ones are not touched (#613).
 func (o *Ops) RepairBase(baseID int64) (any, error) {
 	if err := o.requireTotem(baseID); err != nil {
 		return nil, err

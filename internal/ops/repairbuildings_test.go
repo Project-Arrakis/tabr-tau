@@ -15,14 +15,17 @@ import (
 // table), so it grew with the square of the piece count and held the save locked for all of it. The plan of the statement says it is looked up once; the old statement took about 16 s for the 10,000 pieces here and about 4 s more for the placeables.
 func TestRepairBuildingsIsLinearInThePieceCount(t *testing.T) {
 	o := &Ops{S: testsave.PlayerWithSQL(t, `
-insert into actors(id,class,map) values (900000,'c','HaggaBasin');
+insert into actors(id,class,map) values (900000,'c','HaggaBasin'),(900001,'t','HaggaBasin');
+insert into totems(id) values (900001);
+insert into fgl_entities(entity_id,components) values (-900001, jsonb('{}'));
+insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (900001,-900001,'Actor');
 with recursive n(i) as (select 1 union all select i+1 from n where i<10000)
-  insert into building_instances(building_id,instance_id,building_type,health)
-  select 900000, i, 'T'||(i%4), case when i%50=0 then 4000.0 else 100.0 end from n;
+  insert into building_instances(building_id,instance_id,building_type,health,owner_entity_id)
+  select 900000, i, 'T'||(i%4), case when i%50=0 then 4000.0 else 100.0 end, -900001 from n;
 with recursive n(i) as (select 1 union all select i+1 from n where i<5000)
   insert into actors(id,class,map) select 1000000+i, 'c', 'HaggaBasin' from n;
 with recursive n(i) as (select 1 union all select i+1 from n where i<5000)
-  insert into placeables(id,health,building_type) select 1000000+i, case when i%50=0 then 900.0 else 50.0 end, 'P'||(i%4) from n;`)}
+  insert into placeables(id,health,building_type,owner_entity_id) select 1000000+i, case when i%50=0 then 900.0 else 50.0 end, 'P'||(i%4), -900001 from n;`)}
 	jp := filepath.Join(t.TempDir(), "pending.json")
 	o.S.EnableJournal(jp)
 	r, err := o.RepairBuildings()
@@ -85,10 +88,13 @@ with recursive n(i) as (select 1 union all select i+1 from n where i<5000)
 // Pieces with no type belong to no group: they are never raised to another type's best, and a type's best is never lowered onto them.
 func TestRepairBuildingsLeavesUntypedPiecesAlone(t *testing.T) {
 	o := &Ops{S: testsave.PlayerWithSQL(t, `
-insert into actors(id,class,map) values (801,'c','HaggaBasin'),(851,'c','HaggaBasin'),(852,'c','HaggaBasin'),(853,'c','HaggaBasin');
-insert into building_instances(building_id,instance_id,building_type,health) values
-  (801,1,'Wall',900.0),(801,2,'Wall',100.0),(801,3,null,10.0),(801,4,null,5000.0);
-insert into placeables(id,health,building_type) values (851,500.0,'Cistern'),(852,null,'Cistern'),(853,5.0,null);`)}
+insert into actors(id,class,map) values (601,'t','HaggaBasin'),(801,'c','HaggaBasin'),(851,'c','HaggaBasin'),(852,'c','HaggaBasin'),(853,'c','HaggaBasin');
+insert into totems(id) values (601);
+insert into fgl_entities(entity_id,components) values (-601, jsonb('{}'));
+insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (601,-601,'Actor');
+insert into building_instances(building_id,instance_id,building_type,health,owner_entity_id) values
+  (801,1,'Wall',900.0,-601),(801,2,'Wall',100.0,-601),(801,3,null,10.0,-601),(801,4,null,5000.0,-601);
+insert into placeables(id,health,building_type,owner_entity_id) values (851,500.0,'Cistern',-601),(852,null,'Cistern',-601),(853,5.0,null,-601);`)}
 	r, err := o.RepairBuildings()
 	if err != nil {
 		t.Fatal(err)
