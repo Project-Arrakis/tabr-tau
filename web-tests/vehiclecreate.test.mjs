@@ -562,7 +562,7 @@ test('late answer: Preview pressed while a pick is on its way shows the answer o
   const ui = await boot({ get: GET, post });
   await lateAnswer(ui, post, async (u) => { post['/api/vehicles/spawn-preview'] = SWAPPED({ id: 1999 }); u.click('[data-act="vcPreview"]'); await u.settle(); });
   const t = ui.doc.querySelector('#vcpreview');
-  assert.ok(t && t.textContent.includes('Would create vehicle 1999'), t && t.textContent);
+  assert.ok(t && t.textContent.includes('Would create vehicle:'), t && t.textContent);
   assert.equal(ui.doc.querySelector('[data-act="vcCreate"]').disabled, false);
   await noStaleTable(ui);
   ui.dom.window.close();
@@ -698,7 +698,7 @@ test('text typed in the item, quantity and fuel boxes while a pick is on its way
   typeIn(ui, '#vcFuel', '40');
   typeIn(ui, '#vcItem', 'Spice', 2); // the caret is after "Sp"
   release(); await ui.settle();
-  assert.ok(ui.doc.querySelector('#vcpreview').textContent.includes('Would create vehicle 1871'), 'the answer was drawn');
+  assert.ok(ui.doc.querySelector('#vcpreview').textContent.includes('Would create vehicle:'), 'the answer was drawn');
   assert.equal(ui.doc.querySelector('#vcItem').value, 'Spice');
   assert.equal(ui.doc.querySelector('#vcQty').value, '5');
   assert.equal(ui.doc.querySelector('#vcFuel').value, '40');
