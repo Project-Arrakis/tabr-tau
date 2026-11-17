@@ -23,7 +23,11 @@ import (
 //
 // A trading post's name is not in the save. The save's marker has only the generic type "TradingPost", and its payload starts with a LocationKey (32 hexadecimal digits),
 // which is the name of a row in the game's own table DT_StaticLocationData. place-names.json says which key is which place; tools/placenamesgen makes it from the game's tables
-// (internal/catalog/PROVENANCE.md, "place-names.json"). A trading post whose key the file does not have is listed with its type and key, not hidden.
+// (internal/catalog/PROVENANCE.md, "place-names.json"). A trading post whose key the file does not have is listed, not hidden, as "Unnamed trading post".
+//
+// What the page shows is not the identity (#618). A place's label (Destination.Label) is its identity: the page keeps a chosen place by its group and label, so a base, a vehicle and a respawn point carry
+// their number in it, and a trading post without a name carries its key. The page shows Destination.Display instead (the name with no id, and "(1 of 2)" when two places of a group have one name) and puts
+// Destination.Detail, the ids, in a tooltip. What a move writes is the three coordinates the page sends; no label is sent.
 //
 // The personal bases are the character's own DEPLOYED totems (a permission record that gives the character the owner rank, and a totem that stands in the world: not one the game's
 // tool picked up, which can keep its totem row and its owner record but has the state 5; deployedBaseSQL), at the claim position, with the name
@@ -185,6 +189,23 @@ func tradePostName(markerType string, key string, markerID any) (label, alias st
 	return fmt.Sprintf("%s (marker %v)", markerType, markerID), ""
 }
 
+// unnamedTradePost is what the page shows for a trading post whose key place-names.json does not have (#618): the key is the game's own, not a name, and is kept for the tooltip.
+const unnamedTradePost = "Unnamed trading post"
+
+// tradePostDisplay is what the page shows for a TradingPost marker, and the ids for its tooltip: the post's name when the file has it, else "Unnamed trading post"; the tooltip
+// carries the location key (or the marker's number when the payload has no key). The label (tradePostName) is not changed: the page keeps a chosen place by its group and label.
+func tradePostDisplay(label, key string, markerID any) (display, detail string) {
+	if key != "" {
+		detail = "Location key " + key
+	} else {
+		detail = fmt.Sprintf("Marker %v", markerID)
+	}
+	if p, ok := placeNames[key]; ok && key != "" && p.Name != "" {
+		return label, detail
+	}
+	return unnamedTradePost, detail
+}
+
 // hubName is a hub's map name as words: "HarkoVillage" is "Harko Village".
 func hubName(mapName string) string {
 	var b strings.Builder
@@ -202,13 +223,18 @@ func taxiName(mapName string) string { return hubName(mapName) + " Taxi Service"
 
 // baseLabel is the label of a base: the name the character gave it, or the game's name for its claim structure when it has none, and its number.
 func baseLabel(id any, name, totemType string) string {
+	return fmt.Sprintf("%s #%v", baseName(name, totemType), id)
+}
+
+// baseName is the name a base is shown by: baseLabel without its number (#618). The number goes in the tooltip.
+func baseName(name, totemType string) string {
 	if placeholderName(name) {
 		name = totemTypes[strings.ToLower(totemType)]
 	}
 	if name == "" {
 		name = "Base"
 	}
-	return fmt.Sprintf("%s #%v", name, id)
+	return name
 }
 
 // placeholderName says whether a stored name is the game's placeholder and not a name a person gave: empty, "None" or "##Something".
@@ -246,10 +272,32 @@ func vehicleKindName(class any) string {
 
 // vehicleLabel is the label of a vehicle: the name the character gave it, or else the name of its kind, and its number to tell two of a kind apart.
 func vehicleLabel(id, class any, name string) string {
+	return fmt.Sprintf("%s #%v", vehicleName(class, name), id)
+}
+
+// vehicleName is the name a vehicle is shown by: vehicleLabel without its number (#618). The number goes in the tooltip.
+func vehicleName(class any, name string) string {
 	if placeholderName(name) {
-		name = vehicleKindName(class)
+		return vehicleKindName(class)
 	}
-	return fmt.Sprintf("%s #%v", name, id)
+	return name
+}
+
+// numberDuplicates gives the places of one group that would be shown under the same name a number, "Sandbike (1 of 2)", in the order they were found (the order is the save's, by id).
+// A name that is alone is left as it is. The ids that told them apart before are in the tooltip, not in the name (#618).
+func numberDuplicates(all []placeRow, group []int) {
+	count := map[string]int{}
+	for _, i := range group {
+		count[all[i].display]++
+	}
+	seen := map[string]int{}
+	for _, i := range group {
+		d := all[i].display
+		if count[d] > 1 {
+			seen[d]++
+			all[i].display = fmt.Sprintf("%s (%d of %d)", d, seen[d], count[d])
+		}
+	}
 }
 
 // distinguishNames tells apart places of one group that would be listed under the same name (a save can hold several keys of one trading post): each gets the start of its
@@ -269,6 +317,7 @@ func distinguishNames(all []placeRow, group []int) {
 // placeRow is a place found in the save before it is filtered and given its distance.
 type placeRow struct {
 	group, label, alias, key string
+	display, detail          string // display is what the page shows (no ids), detail the ids for its tooltip; display is empty when it is the label (#618). The label is not changed: the page keeps a chosen place by its group and label
 	x, y, z                  any
 	arrival                  bool   // x, y, z are the game's arrival point for the place, not the marker's position (#515)
 	onMap                    string // the map the place is on when that is not the map the list is for (a hub, #521); "" for a place on the list's own map
@@ -331,6 +380,12 @@ func (o *Ops) namedPlaces(p player, mp string) ([]placeRow, error) {
 			}
 		}
 		distinguishNames(out, rows)
+		for _, i := range rows {
+			if out[i].display == "" {
+				out[i].display = out[i].label
+			}
+		}
+		numberDuplicates(out, rows)
 	}
 	return out, nil
 }
@@ -357,6 +412,7 @@ func (o *Ops) tradeAndTaxiPlaces(p player, mp string) ([]placeRow, error) {
 				}
 			}
 			row := placeRow{group: group, label: label, alias: alias, key: key, x: r["x"], y: r["y"], z: r["z"]}
+			row.display, row.detail = tradePostDisplay(label, key, r["h"])
 			if group == groupTradePost {
 				if a, ok := tradePostArrival(key); ok {
 					row.useArrival(a)
@@ -386,7 +442,7 @@ func (o *Ops) deployedBasePlaces(p player, mp string) ([]placeRow, error) {
 	for _, r := range bases {
 		name, _ := r["name"].(string)
 		tt, _ := r["totem_type"].(string)
-		out = append(out, placeRow{group: groupBase, label: baseLabel(r["id"], name, tt), x: r["x"], y: r["y"], z: r["z"]})
+		out = append(out, placeRow{group: groupBase, label: baseLabel(r["id"], name, tt), display: baseName(name, tt), detail: fmt.Sprintf("Base number %v", r["id"]), x: r["x"], y: r["y"], z: r["z"]})
 	}
 	return out, nil
 }
@@ -402,7 +458,7 @@ func (o *Ops) worldVehiclePlaces(p player, mp string) ([]placeRow, error) {
 	var out []placeRow
 	for _, r := range vehicles {
 		name, _ := r["name"].(string)
-		out = append(out, placeRow{group: groupVehicle, label: vehicleLabel(r["id"], r["cls"], name), x: r["x"], y: r["y"], z: r["z"]})
+		out = append(out, placeRow{group: groupVehicle, label: vehicleLabel(r["id"], r["cls"], name), display: vehicleName(r["cls"], name), detail: fmt.Sprintf("Vehicle number %v", r["id"]), x: r["x"], y: r["y"], z: r["z"]})
 	}
 	return out, nil
 }
@@ -430,13 +486,15 @@ func (o *Ops) respawnPlaces(p player, mp string) ([]placeRow, error) {
 		if placeholderName(name) {
 			name = "Respawn point"
 		}
-		label := name
+		label, detail := name, ""
 		if r["aid"] != nil {
 			label = fmt.Sprintf("%s #%v", name, r["aid"])
+			detail = fmt.Sprintf("Respawn point of actor %v", r["aid"])
 		} else if g, _ := r["g"].(string); g != "" {
 			label = fmt.Sprintf("%s (%s)", name, g)
+			detail = "Respawn group " + g
 		}
-		out = append(out, placeRow{group: groupRespawn, label: label, x: r["x"], y: r["y"], z: r["z"]})
+		out = append(out, placeRow{group: groupRespawn, label: label, display: name, detail: detail, x: r["x"], y: r["y"], z: r["z"]})
 	}
 	return out, nil
 }

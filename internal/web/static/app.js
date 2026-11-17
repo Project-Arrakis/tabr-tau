@@ -1195,7 +1195,7 @@ const tdAway = (d) => (d.otherMap ? 'another map' : (TDR && TDR.sameMap) || d.ma
 // Says which place Teleport is aimed at while a choice from the list stands.
 function goNote() {
   const n = $('#tdpick'), d = GO.pick === null ? null : TD[GO.pick];
-  if (n) n.textContent = d ? `Selected: ${d.label}${tdAway(d) ? ', ' + tdAway(d) : ''}` : '';
+  if (n) { n.textContent = d ? `Selected: ${placeName(d)}${tdAway(d) ? ', ' + tdAway(d) : ''}` : ''; if (d && d.detail) n.title = d.detail; else n.removeAttribute('title'); }
   tmapSync(); // a hub chosen in the list is another map, whatever the Map box says (#521)
 }
 const OTHER_MAPS_HEAD = 'Other maps (moves there are untested)';
@@ -1207,7 +1207,7 @@ function tdDraw() {
   if (!out) return;
   if (!TDR) { setHTML(out, html``); return; }
   const more = TDR.total > TD.length ? ` (showing ${TD.length} of ${TDR.total})` : '';
-  const opt = (d, i) => html`<option value="${i}" ${GO.pick === i ? 'selected' : ''}>${d.label}${tdAway(d) ? ' - ' + tdAway(d) : ''}</option>`;
+  const opt = (d, i) => html`<option value="${i}" title="${d.detail || ''}" ${GO.pick === i ? 'selected' : ''}>${placeName(d)}${tdAway(d) ? ' - ' + tdAway(d) : ''}</option>`;
   // The places are in groups (Trading posts, Personal bases, Vehicles, Respawn points, Taxis; #500, #519), each under its heading; the value of an option is its place in TD.
   // A hub that is not on the chosen map (offList: it is another map than the one chosen, #521, #825; the hub the character stands in is still one when another map is chosen): it is counted apart and listed last under its own heading, so "N places on <map>" is the places of that map (#607).
   const groups = TDR.groups || [];
@@ -1222,6 +1222,8 @@ function tdDraw() {
 // Go to a place (#519) is one drop-down with no filter box, no Find and no kind of place: it is filled at once from the chosen map (goPlaces), and what is chosen in it is kept by the
 // place's name and heading.
 const placeKey = (d) => d.group + '|' + d.label;
+// What a place is shown as: its name with no id (#618). The label is its identity (placeKey) and carries the number of a base or a vehicle; the ids are in d.detail, for a tooltip.
+const placeName = (d) => d.display || d.label;
 let TDSEQ = 0; // the newest request for the places: an older answer that arrives later is dropped
 let TDSEEN = ''; // the last answer as text: a refresh that finds nothing new draws nothing, so a drop-down that is open stays open
 // Fills the drop-down from the chosen map. It runs when another map is chosen and each time the Movement card is drawn from the save (the game saves and the character moves, so the

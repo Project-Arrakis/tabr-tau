@@ -23,7 +23,9 @@ const hubArrivalTolerance = 1.0
 
 // Destination is one place the character can be moved to.
 type Destination struct {
-	Label    string   `json:"label"`
+	Label    string   `json:"label"`             // the place's identity: the page keeps a chosen place by Group and Label, so a base or a vehicle carries its number here. It is not what the page shows (Display is)
+	Display  string   `json:"display,omitempty"` // what the page shows: the name with no id ("Sandbike", "Unnamed trading post"); two places of one name are numbered "(1 of 2)" (#618)
+	Detail   string   `json:"detail,omitempty"`  // the ids of the place, for a tooltip (a base's number, a trading post's location key; #618)
 	X        float64  `json:"x"`
 	Y        float64  `json:"y"`
 	Z        float64  `json:"z"`
@@ -115,10 +117,10 @@ func (o *Ops) Destinations(q, dest string) (any, error) {
 		if !ok1 || !ok2 || !ok3 {
 			continue // a place without coordinates in the save cannot be a destination
 		}
-		if q != "" && !strings.Contains(strings.ToLower(r.label), q) && !strings.Contains(strings.ToLower(r.alias), q) {
+		if q != "" && !strings.Contains(strings.ToLower(r.label), q) && !strings.Contains(strings.ToLower(r.display), q) && !strings.Contains(strings.ToLower(r.alias), q) {
 			continue
 		}
-		d := Destination{Group: r.group, Label: r.label, X: fx, Y: fy, Z: fz, Arrival: r.arrival, Map: r.onMap, OtherMap: r.onMap != "" && r.onMap != cur, OffList: r.onMap != "" && r.onMap != mp}
+		d := Destination{Group: r.group, Label: r.label, Display: r.display, Detail: r.detail, X: fx, Y: fy, Z: fz, Arrival: r.arrival, Map: r.onMap, OtherMap: r.onMap != "" && r.onMap != cur, OffList: r.onMap != "" && r.onMap != mp}
 		onCur := (r.onMap == "" && same) || (r.onMap != "" && r.onMap == cur) // the place is on the map the character is on
 		if onCur {
 			d.Distance = flatDistance(fx, fy, px, py)
