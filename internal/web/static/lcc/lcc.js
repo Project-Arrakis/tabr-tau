@@ -205,8 +205,19 @@
   //   circuit : the card is one of the five connected Houses of a line (a single bright gold outline and a LINE badge)
   //   dominion: the card belongs to the faction that holds the House-count majority (a double border and a DOMINION badge); cards are not connected
   const VICTORY = Object.freeze({ circuit: 'LINE OF FIVE', dominion: 'MAJORITY HOUSE' });
+  // The animated border (class lcc-win-anim and a .lcc-win-sweep child that the style moves by transform) is added only when Motion is Full and the system has not asked for reduced motion.
+  // The style checks the same two things again, so this is the first of two gates, not the only one. Calm, Off and reduced motion get the still outline and nothing else.
+  function winAnimOn() {
+    const root = typeof document !== 'undefined' ? document.documentElement : null;
+    if (!root || root.getAttribute('data-motion') !== 'full') return false;
+    try { if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false; } catch (e) { /* no media query support: treat as not asked */ }
+    return true;
+  }
   function victory(elm, kind) {
-    if (kind === 'circuit' || kind === 'dominion') elm.setAttribute('data-victory', kind); else elm.removeAttribute('data-victory');
+    const on = kind === 'circuit' || kind === 'dominion';
+    if (on) elm.setAttribute('data-victory', kind); else elm.removeAttribute('data-victory');
+    for (const old of [...elm.children]) if (old.classList && old.classList.contains('lcc-win-sweep')) old.remove();
+    if (on && winAnimOn()) { elm.classList.add('lcc-win-anim'); elm.appendChild(el('span', 'lcc-win-sweep', '', { 'aria-hidden': 'true' })); } else elm.classList.remove('lcc-win-anim');
     return elm;
   }
 
@@ -548,7 +559,7 @@
     HOUSES, TRACKS, DECREE_FILES, DECREE_FALLBACK, SEATS, CENTER, TRACK, GEOMETRY: Object.freeze({ W, H }),
     config, houseAsset, laneAsset, bannerAsset, decreeAsset, factionAsset, standardTipAsset,
     seatStates, seatLabel, seatX, standingLine, summaryText, laneState,
-    pill, ruleV, heldBy, standard, badge, richTip, frame, victory, VICTORY,
+    pill, ruleV, heldBy, standard, badge, richTip, frame, victory, VICTORY, winAnimOn,
     renderPlaque, renderHouseCard, renderLaneCard, el, houseTitle,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

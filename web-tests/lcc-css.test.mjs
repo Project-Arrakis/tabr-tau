@@ -52,9 +52,11 @@ test('every selector is scoped to a lcc class: loading the file changes nothing 
 
 test('the keyframes are the feature\'s own, and one-shot: nothing loops', () => {
   const kf = [...bare.matchAll(/@keyframes\s+([a-z0-9-]+)/g)].map((m) => m[1]);
-  assert.deepEqual(kf, ['lcc-reveal']);
-  assert.doesNotMatch(bare, /infinite/);
-  for (const m of bare.matchAll(/animation:\s*([^;}]+)/g)) if (!/^none/.test(m[1].trim())) assert.match(m[1], /\b1\b/, 'an animation that is not one-shot: ' + m[1]);
+  assert.deepEqual([...kf].sort(), ['lcc-reveal', 'lcc-win-sweep']);
+  // the one exception to one-shot is the optional animated border of a winning House (lcc-win-sweep): it loops, moves by transform only, and sits in the no-preference block under Motion Full
+  assert.equal((bare.match(/infinite/g) || []).length, 1);
+  assert.match(bare, /@media \(prefers-reduced-motion: no-preference\)\s*\{[^]*html\[data-motion="full"\][^]*animation: lcc-win-sweep 9s linear infinite/);
+  for (const m of bare.matchAll(/animation:\s*([^;}]+)/g)) if (!/^none/.test(m[1].trim()) && !/^lcc-win-sweep /.test(m[1].trim())) assert.match(m[1], /\b1\b/, 'an animation that is not one-shot: ' + m[1]);
 });
 
 test('custom properties defined here are all --lcc-*, and every design token used exists in the three looks', () => {

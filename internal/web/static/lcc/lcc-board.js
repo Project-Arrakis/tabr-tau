@@ -100,13 +100,21 @@
   }
 
   // ---- the board: five by five ---------------------------------------------------------------------------------------------------------------------------------------------------
-  function tile(h, matchIds, host, editable, picks) {
+  // The faction that holds more than half of the Houses on a board that passed its checks ('a' or 'h'), or null. This is a count of the Houses as the save shows them now: the save keeps no
+  // snapshot of the votes, so a count is never called a win, here or anywhere else on the board.
+  function majorityOf(board) {
+    if (!board || !board.ready || !board.counts) return null;
+    const c = board.counts, need = Math.floor(board.houses.length / 2) + 1;
+    return c.a >= need ? 'a' : c.h >= need ? 'h' : null;
+  }
+  function tile(h, matchIds, host, editable, picks, major) {
     const li = el('li', 'lcc-bd-cell', '', { 'data-id': h.id, 'data-index': h.index });
-    const card = L().renderHouseCard({ name: h.name, owner: h.owner, track: h.track, selected: state.sel === h.id, dim: !matchIds.has(h.id), compact: true, number: h.number, waiting: h.waiting, meter: h.tierCount ? { reached: h.reached, total: h.tierCount } : null });
+    const dom = !!major && h.owner === major;
+    const card = L().renderHouseCard({ name: h.name, owner: h.owner, track: h.track, dominion: dom, selected: state.sel === h.id, dim: !matchIds.has(h.id), compact: true, number: h.number, waiting: h.waiting, meter: h.tierCount ? { reached: h.reached, total: h.tierCount } : null });
     card.setAttribute('data-lcb', 'sel');
     card.setAttribute('data-id', h.id);
     card.setAttribute('data-fk', 'ht:' + h.id);
-    card.setAttribute('title', 'House ' + h.name + ', ' + (h.pos ? h.pos.words + '. ' : '') + 'Click to see its tiers and actions.');
+    card.setAttribute('title', 'House ' + h.name + ', ' + (h.pos ? h.pos.words + '. ' : '') + (dom ? 'One of the ' + (major === 'a' ? 'Atreides' : 'Harkonnen') + ' Houses, who hold more than half of the Houses now: a count of Houses, not a vote result. ' : '') + 'Click to see its tiers and actions.');
     li.appendChild(card);
     if (editable) li.appendChild(pickBox(h, picks));
     return li;
@@ -120,7 +128,8 @@
   }
   function grid(board, matchIds, host, editable, picks) {
     const ul = el('ul', 'lcc-bd-tiles', '', { role: 'list', 'aria-label': 'The 25 Houses of the board, five rows of five, numbered 01 to 25 from the top left' });
-    for (const h of board.grid) ul.appendChild(tile(h, matchIds, host, editable, picks));
+    const major = majorityOf(board);
+    for (const h of board.grid) ul.appendChild(tile(h, matchIds, host, editable, picks, major));
     ul.addEventListener('keydown', (e) => {
       const d = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -M().COLS, ArrowDown: M().COLS }[e.key];
       const c = e.target && e.target.closest ? e.target.closest('.lcc-bd-cell') : null;
@@ -449,7 +458,7 @@
     }
   }
 
-  const api = { state, mount, redraw, visible, build, plaque, kpis, grid, list, inspector, NOT_IN_SAVE };
+  const api = { state, mount, redraw, visible, build, majorityOf, plaque, kpis, grid, list, inspector, NOT_IN_SAVE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCB = api;
 })(typeof window !== 'undefined' ? window : globalThis);
