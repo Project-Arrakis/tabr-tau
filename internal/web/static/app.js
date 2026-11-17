@@ -2254,7 +2254,7 @@ function lbRunning(on, b) {
   root.classList.toggle('running', on);
   if (on) root.setAttribute('aria-busy', 'true'); else root.removeAttribute('aria-busy');
   if (b) { b.classList.toggle('busy', on); if (on) { if (b.getAttribute('aria-disabled') === 'true') b.dataset.keepoff = '1'; b.setAttribute('aria-disabled', 'true'); } else { if (!b.dataset.keepoff) b.removeAttribute('aria-disabled'); delete b.dataset.keepoff; } }
-  root.querySelectorAll('#lsb-fac, #lsb-tad, #lsb-trf').forEach((x) => { x.disabled = on; });
+  root.querySelectorAll('#lsb-fac, #lcc-bd-fac, #lcc-bd-tierset, #lsb-tad, #lsb-trf').forEach((x) => { x.disabled = on; });
 }
 async function lbRun(b, call, say, focusFk) {
   if (LP.busy) { say('A write is still running. Wait for it to finish, then click again.'); return false; }
@@ -2503,6 +2503,7 @@ function lbCtl(id) {
   const h = lbHouse(r, LD), F = lbFacId(LD), q = lbQa(h, LD, F), l = LD;
   return {
     F, facName: q.fn, ownF: q.ownF, can: q.can,
+    factions: (l.factions || []).map((f) => ({ id: f.id, name: f.name + (f.id == (l.character && l.character.faction_id) && q.can ? ' (your faction)' : '') })),
     fill: { off: q.fillOff, tip: q.fillTip },
     fillgoal: { off: q.goalOff, tip: q.goalTip },
     complete: { off: q.doneF, tip: q.doneF ? 'Already complete for ' + q.fn + ': nothing to change' : crTipC(q.fn) },
@@ -2521,7 +2522,8 @@ function lbDecreesKnown() {
 }
 window.LCC_HOST = {
   ctl: lbCtl, decree: lbDecreeNow, decrees: lbDecreesKnown, picks: () => LP.pick, filtered: lbBoardFiltered,
-  focusFac: () => { const s = $('#lsb-fac'); if (s && s.focus) s.focus(); },
+  // the faction box of the Inspector's actions drives the board's own faction box (choosing a faction writes nothing)
+  setFac: (v) => { const s = $('#lsb-fac'); if (!s || s.disabled) return; s.value = String(v); s.dispatchEvent(new Event('change', { bubbles: true })); },
   get: (k) => browserStore.get('lsb.' + k), set: (k, v) => browserStore.set('lsb.' + k, v),
 };
 function lbCloseCards() { document.querySelectorAll('.lsb .hw.open').forEach((w) => { w.classList.remove('open'); const b = w.querySelector('.hn'); if (b) b.setAttribute('aria-expanded', 'false'); }); }

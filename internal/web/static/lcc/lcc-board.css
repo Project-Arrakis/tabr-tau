@@ -220,7 +220,8 @@
 .lcc-bd-sigil .lcc-hc-crest-img { width: 48px; height: 48px; }
 .lcc-bd-insp-name { margin: 0; font: 700 22px/1.2 var(--lcc-serif); letter-spacing: .02em; text-transform: uppercase; overflow-wrap: anywhere; color: var(--lcc-text); }
 .lcc-bd-bloc { display: block; margin-top: 2px; font: 12px/1.4 var(--lcc-sans); color: var(--lcc-dim); }
-.lcc-bd-no { display: inline-block; margin-right: 8px; padding: 0 6px; border: 1px solid var(--lcc-stroke); color: var(--lcc-gold-text); font: 700 11px/1.5 var(--lcc-mono); letter-spacing: .04em; }
+/* text that is for a screen reader and for the tooltip beside it only */
+.lcc-bd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .lcc-bd-banner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 9px; padding: 10px 0; margin-bottom: 15px; border-top: 1px solid var(--lcc-stroke-faint); border-bottom: 1px solid var(--lcc-stroke-faint); }
 .lcc-bd-control { font: 800 11px/1.3 var(--lcc-sans); letter-spacing: .09em; }
 .lcc-bd-control-a { color: var(--lcc-teal); }
@@ -283,10 +284,22 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-tier-st { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .lcc-bd-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 12px; color: var(--lcc-dim); font-size: 9px; }
 .lcc-bd-note { margin-top: 16px; font: 11px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
+.lcc-bd-note strong { color: var(--lcc-text); }
 .lcc-bd-editor { padding: 13px 12px; border: 1px solid var(--lcc-stroke); background: var(--lcc-tier-bg); }
 .lcc-bd .lcc-badge { background: var(--lcc-tier-bg); }
 .lcc-bd-editor .lcc-bd-sec-h { color: var(--lcc-gold); font-weight: 800; letter-spacing: .11em; }
-.lcc-bd-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.lcc-bd-editor { margin-top: 20px; position: relative; }
+.lcc-bd-editor-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.lcc-bd-editor-head .lcc-bd-sec-h { margin: 0; }
+.lcc-bd-editor > .lcc-bd-cap { margin: 8px 0 12px; padding: 0; font-size: 11px; line-height: 1.5; }
+.lcc-bd-editor > .lcc-bd-cap:empty { display: none; }
+.lcc-bd-erow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; }
+.lcc-bd-elab { display: inline-flex; align-items: center; gap: 6px; font: 700 11px/1.3 var(--lcc-sans); color: var(--lcc-dim); }
+.lcc-bd-eselect { min-height: 36px; padding: 6px 9px; font-size: 12px; }
+.lcc-bd-etip { font-size: 10px; color: var(--lcc-dim); }
+.lcc-bd-erow .lcc-bd-act { padding: 7px 9px; }
+.lcc-bd-act.lcc-bd-act-danger { border-color: var(--lcc-red); color: var(--lcc-red); }
+.lcc-bd-tip { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--lcc-stroke-faint); font: 10px/1.4 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-bd-act { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 36px; padding: 7px 13px; cursor: pointer; font: 700 12px/1.2 var(--lcc-sans); color: var(--lcc-text); background: var(--lcc-raised); border: 1px solid var(--lcc-stroke); }
 .lcc-bd-act:hover { border-color: var(--lcc-gold-text); }
 .lcc-bd-act[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
@@ -320,7 +333,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
   .lcc-bd-fill-a { background: Highlight; }
   .lcc-bd-fill-h, .lcc-bd-fill-me { background: CanvasText; }
   .lcc-bd-track { border-color: CanvasText; }
-  .lcc-bd-linkb, .lcc-bd-c-no, .lcc-bd-eyebrow, .lcc-bd-sec-h, .lcc-bd-tier-th, .lcc-bd-metric strong, .lcc-bd-no, .lcc-bd-preview-l { color: CanvasText; }
+  .lcc-bd-linkb, .lcc-bd-c-no, .lcc-bd-eyebrow, .lcc-bd-sec-h, .lcc-bd-tier-th, .lcc-bd-metric strong, .lcc-bd-preview-l { color: CanvasText; }
 }
 @media (prefers-contrast: more) {
   .lcc-bd-chip, .lcc-bd-select, .lcc-bd-tier, .lcc-bd-metric, .lcc-bd-surface, .lcc-hc { border-color: var(--lcc-text); }

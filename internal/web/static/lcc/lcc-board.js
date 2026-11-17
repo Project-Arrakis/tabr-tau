@@ -74,7 +74,7 @@
     w.appendChild(el('label', 'lcc-bd-preview-l', 'DECREE PREVIEW', { for: 'lcc-bd-decree' }));
     const decs = knownDecrees(host), act = host && host.decree ? host.decree() : null;
     const s = el('select', 'lcc-bd-select', '', { id: 'lcc-bd-decree', 'data-lcb': 'preview', 'data-fk': 'bf:preview' });
-    s.appendChild(el('option', '', act && act.name ? 'Active decree: ' + act.name : 'No active decree', { value: '' }));
+    s.appendChild(el('option', '', act && act.name ? act.name : 'No active decree', act && act.name ? { value: '', title: 'The active decree of the save' } : { value: '' }));
     for (const d of decs) { const o = el('option', '', d.name, { value: d.id }); if (d.id === state.preview) o.selected = true; s.appendChild(o); }
     if (!decs.length) s.disabled = true;
     w.appendChild(s);
@@ -386,6 +386,54 @@
     if (src) h.appendChild(tag(src));
     return h;
   }
+  // The note of the approved design, in our words: what the save says, and the rule for a tier with no delivery record.
+  function importantNote() {
+    const n = el('div', 'lcc-bd-note');
+    n.appendChild(el('strong', '', 'Important:'));
+    n.appendChild(root.document.createTextNode(' A House claimed by a faction, a personal reward tier reached, and a reward collected are '));
+    n.appendChild(el('em', '', 'three separate states'));
+    n.appendChild(root.document.createTextNode('. Thresholds and reward records are read from the save; a tier with no delivery record is never counted as collected or waiting.'));
+    return n;
+  }
+  // The actions block. Presentation only: every button is the same control as before (data-lb="qa", same ids and keys), the faction box drives the board's own faction box, and
+  // Apply tier presses the tier box of the ledger that the choice means, so a tier set here goes through the same checks, question and backup as a click on that box.
+  function editor(h, c) {
+    const s4 = el('section', 'lcc-bd-sec lcc-bd-editor', '', { 'aria-labelledby': 'lcc-bd-s4' });
+    const head = el('div', 'lcc-bd-editor-head');
+    head.appendChild(secHead('ACTIONS', 'lcc-bd-s4'));
+    head.appendChild(L().badge('unverified', 'NOT CHECKED IN THE GAME'));
+    s4.appendChild(head);
+    s4.appendChild(el('p', 'lcc-bd-cap', 'The numbered tier boxes of the board and of the ledger are the same controls as Set tier. Choosing a faction writes nothing.'));
+    const r1 = el('div', 'lcc-bd-erow', '', { role: 'group', 'aria-label': 'Actions on House ' + h.name });
+    if (c.factions && c.factions.length) {
+      const lab = el('label', 'lcc-bd-elab', 'Faction', { for: 'lcc-bd-fac' });
+      const fs = el('select', 'lcc-bd-select lcc-bd-eselect', '', { id: 'lcc-bd-fac', 'data-lcb': 'fac', 'data-fk': 'fac-i', title: 'Acting for ' + c.facName + (c.ownF ? ' (your faction)' : '') });
+      for (const f of c.factions) { const o = el('option', '', f.name, { value: String(f.id) }); if (String(f.id) === String(c.F)) o.selected = true; fs.appendChild(o); }
+      lab.appendChild(root.document.createTextNode(' '));
+      lab.appendChild(fs);
+      r1.appendChild(lab);
+    } else r1.appendChild(el('span', 'lcc-bd-elab', 'Acting for ' + c.facName + (c.ownF ? ' (your faction)' : '')));
+    r1.appendChild(actionBtn(h.tierCount ? 'Fill ' + h.tierCount + ' tiers' : 'Fill', 'fill', h, c.fill, 'qf:' + h.id));
+    r1.appendChild(actionBtn('Fill faction goal', 'fillgoal', h, c.fillgoal, 'af:' + h.id));
+    r1.appendChild(actionBtn('Complete House', 'complete', h, c.complete, 'ac:' + h.id));
+    r1.appendChild(actionBtn('Reopen', 'reopen', h, c.reopen, 'ar:' + h.id, { class: 'lcc-bd-act lcc-bd-act-danger' }));
+    s4.appendChild(r1);
+    const r2 = el('div', 'lcc-bd-erow');
+    const tl = el('label', 'lcc-bd-elab', 'Set tier', { for: 'lcc-bd-tierset' });
+    const ts = el('select', 'lcc-bd-select lcc-bd-eselect', '', { id: 'lcc-bd-tierset', 'data-fk': 'ts:' + h.id });
+    for (let n = 0; n <= h.tierCount; n++) { const o = el('option', '', n === 0 ? '0 — none' : n + ' / ' + h.tierCount, { value: String(n) }); if (n === h.reached) o.selected = true; ts.appendChild(o); }
+    if (!h.tierCount) ts.disabled = true;
+    tl.appendChild(root.document.createTextNode(' '));
+    tl.appendChild(ts);
+    r2.appendChild(tl);
+    r2.appendChild(btn('lcc-bd-act', 'Apply tier', { 'data-lcb': 'settier', 'data-id': h.id, 'data-r': h.reached, 'data-fk': 'at:' + h.id, title: 'Sets your contribution to the chosen tier, exactly as a click on that numbered box does: raises to a higher tier, or removes the highest reached tier.' }));
+    r2.appendChild(el('span', 'lcc-bd-etip', 'Claimed ≠ earned ≠ collected'));
+    s4.appendChild(r2);
+    s4.appendChild(el('p', 'lcc-bd-cap', '', { role: 'status', id: 'lcc-bd-eset' }));
+    s4.appendChild(el('p', 'lcc-bd-tip', 'Each click is written at once with a backup first, and refused if this House is no longer as shown. Complete on a House another faction took replaces that win; the question says so first.'));
+    return s4;
+  }
+
   function inspector(board, h, host, editable) {
     const side = el('section', 'lcc-bd-surface lcc-bd-insp', '', { 'aria-label': 'House Intelligence' });
     const head = el('div', 'lcc-bd-insp-top');
@@ -404,11 +452,9 @@
     else sigil.appendChild(el('span', 'lcc-house-initials', L().houseTitle(h.name).slice(0, 2).toUpperCase()));
     idn.appendChild(sigil);
     const hb = el('div', 'lcc-bd-insp-title');
-    hb.appendChild(el('h4', 'lcc-bd-insp-name', houseWord(h.name)));
-    const meta = el('span', 'lcc-bd-bloc');
-    if (h.number) meta.appendChild(el('span', 'lcc-bd-no', 'No. ' + h.number, { title: h.pos.words }));
-    meta.appendChild(root.document.createTextNode(h.track ? trackWord(h.track) + ' · associated specialization' : 'Specialization not in the save'));
-    hb.appendChild(meta);
+    // the position of the House on the board stays reachable as a tooltip on the name (the approved design shows no number here)
+    hb.appendChild(el('h4', 'lcc-bd-insp-name', houseWord(h.name), h.number ? { title: 'No. ' + h.number + (h.pos && h.pos.words ? ' · ' + h.pos.words : '') } : undefined));
+    hb.appendChild(el('span', 'lcc-bd-bloc', h.track ? trackWord(h.track) + ' · Associated specialization' : 'Specialization not in the save'));
     idn.appendChild(hb);
     side.appendChild(idn);
 
@@ -416,21 +462,25 @@
     const ban = el('div', 'lcc-bd-banner');
     ban.appendChild(el('span', 'lcc-bd-control lcc-bd-control-' + (OWNER_WORD[h.owner] ? h.owner : 'unknown'), h.owner === 'a' || h.owner === 'h' ? 'CLAIMED · ' + FACTION_WORD[h.owner].toUpperCase() : h.owner === 'open' ? 'NOT CLAIMED' : 'OWNER UNREADABLE'));
     ban.appendChild(el('span', 'lcc-bd-where', h.loc.known ? [h.loc.area, h.loc.cell ? 'cell ' + h.loc.cell : ''].filter(Boolean).join(' · ') : 'Representative location not mapped yet'));
+    // The approved design has no sentence under the band. What the sentence said stays reachable: as a tooltip and as text for a screen reader. Only an owner the save cannot settle keeps a visible sentence.
+    const said = h.owner === 'a' || h.owner === 'h' ? 'Claimed by ' + FACTION_WORD[h.owner] + ' (completed, with a winner the save records).'
+      : h.owner === 'open' ? 'Open: no faction has taken it.' + (h.leader ? ' ' + FACTION_WORD[h.leader] + ' is ahead on the faction goal: a lead, not a win.' : '')
+        : 'The owner cannot be read from the save (the completed flag and the winner do not agree), so this House is counted for neither side.';
+    ban.firstChild.setAttribute('title', said);
+    const ownerSettled = h.owner === 'a' || h.owner === 'h' || h.owner === 'open';
+    if (ownerSettled) ban.appendChild(el('span', 'lcc-bd-sr', said));
     side.appendChild(ban);
-    const st = el('p', 'lcc-bd-status');
-    if (h.owner === 'a' || h.owner === 'h') st.textContent = 'Claimed by ' + FACTION_WORD[h.owner] + ' (completed, with a winner the save records).';
-    else if (h.owner === 'open') st.textContent = 'Open: no faction has taken it.' + (h.leader ? ' ' + FACTION_WORD[h.leader] + ' is ahead on the faction goal: a lead, not a win.' : '');
-    else st.textContent = 'The owner cannot be read from the save (the completed flag and the winner do not agree), so this House is counted for neither side.';
-    side.appendChild(st);
+    if (!ownerSettled) side.appendChild(el('p', 'lcc-bd-status', said));
 
     // the two scales, kept apart: the factions' progress against the house goal, then the character's own tiers
     const s1 = el('section', 'lcc-bd-sec', '', { 'aria-labelledby': 'lcc-bd-s1' });
-    s1.appendChild(secHead('FACTION HOUSE CONTROL', 'lcc-bd-s1', 'SAVE'));
+    const s1note = 'House goal: ' + known(h.goal) + '. A faction’s progress is the sum of its contributions to this House. Top contributors: ' + NOT_IN_SAVE + '. Missions: ' + NOT_IN_SAVE + '.';
+    const s1h = secHead('FACTION HOUSE CONTROL', 'lcc-bd-s1', 'SAVE');
+    s1h.setAttribute('title', s1note);
+    s1.appendChild(s1h);
     s1.appendChild(fcRow('a', 'HOUSE ATREIDES', h.prog.a, h.goal));
     s1.appendChild(fcRow('h', 'HOUSE HARKONNEN', h.prog.h, h.goal));
-    s1.appendChild(el('p', 'lcc-bd-cap', 'House goal: ' + known(h.goal) + '. A faction’s progress is the sum of its contributions to this House.'));
-    s1.appendChild(el('p', 'lcc-bd-none', 'Top contributors: ' + NOT_IN_SAVE + '.'));
-    s1.appendChild(el('p', 'lcc-bd-none', 'Missions: ' + NOT_IN_SAVE + '.'));
+    s1.appendChild(el('span', 'lcc-bd-sr', s1note));
     side.appendChild(s1);
 
     const top = h.tierCount ? h.top : null;
@@ -440,11 +490,11 @@
     nums.appendChild(el('strong', '', h.mine > 0 || top !== null ? fmt(h.mine) + (top !== null ? ' / ' + fmt(top) : '') : 'none recorded'));
     nums.appendChild(el('small', '', h.next ? fmt(h.next.remaining) + ' to T' + h.next.n : h.tierCount ? 'TOP PERSONAL TIER REACHED' : 'no tiers in the save'));
     s2.appendChild(nums);
-    const pt = el('div', 'lcc-bd-track lcc-bd-track-me', '', { role: 'img', 'aria-label': 'Your contribution ' + fmt(h.mine) + (top !== null ? ' of ' + fmt(top) : '') });
+    const mineSaid = 'Your contribution: ' + (h.mine > 0 ? fmt(h.mine) : 'none recorded') + (top !== null ? ' of ' + fmt(top) : '') + (h.next ? ' · next tier ' + fmt(h.next.threshold) + ', ' + fmt(h.next.remaining) + ' more' : h.tierCount ? ' · top tier reached' : '') + '.';
+    const pt = el('div', 'lcc-bd-track lcc-bd-track-me', '', { role: 'img', 'aria-label': mineSaid, title: mineSaid });
     const pf = el('i', 'lcc-bd-fill lcc-bd-fill-me'); pf.style.setProperty('--lcc-v', pct(h.mine, top) + '%');
     pt.appendChild(pf);
     s2.appendChild(pt);
-    s2.appendChild(el('p', 'lcc-bd-line', 'Your contribution: ' + (h.mine > 0 ? fmt(h.mine) : 'none recorded') + (h.next ? ' · next tier ' + fmt(h.next.threshold) + ', ' + fmt(h.next.remaining) + ' more' : h.tierCount ? ' · top tier reached' : '') + '.'));
     side.appendChild(s2);
 
     // the ledger: the tiers of the character (cumulative), their rewards and what became of them. The rows are the same controls as the tier boxes of the card.
@@ -454,14 +504,14 @@
     lh.appendChild(secHead('PERSONAL REWARD LEDGER', 'lcc-bd-s3', 'SAVE + DERIVED'));
     lh.appendChild(el('span', 'lcc-bd-ledger-n', h.reached + ' OF ' + h.tierCount + ' REACHED'));
     s3.appendChild(lh);
-    const sum = el('div', 'lcc-bd-stats', '', { 'aria-label': 'House rewards summary' });
+    const sumSaid = h.reached + ' of ' + h.tierCount + ' reached · ' + h.waiting + ' waiting to collect · ' + h.collected + ' collected · ' + h.unknownDelivery + ' delivery unknown.';
+    const sum = el('div', 'lcc-bd-stats', '', { role: 'group', 'aria-label': 'House rewards summary: ' + sumSaid, title: sumSaid });
     const stat = (cls, v, l) => { const d = el('div', 'lcc-bd-stat' + (cls ? ' ' + cls : '')); d.appendChild(el('strong', '', v)); d.appendChild(el('span', '', l)); return d; };
     sum.appendChild(stat('', h.reached + '/' + h.tierCount, 'Tiers reached'));
     sum.appendChild(stat('ok', String(h.collected), 'Collected'));
     sum.appendChild(stat('wait', String(h.waiting), 'To collect'));
     sum.appendChild(stat('rest', String(h.notReached), 'Not reached'));
     s3.appendChild(sum);
-    s3.appendChild(el('p', 'lcc-bd-line', h.reached + ' of ' + h.tierCount + ' reached · ' + h.waiting + ' waiting to collect · ' + h.collected + ' collected · ' + h.unknownDelivery + ' delivery unknown.'));
     if (h.unknownDelivery) s3.appendChild(el('p', 'lcc-bd-alert', '“Delivery unknown” means the tier is reached and the save has no delivery row for it this term: it is not shown as collected or waiting.'));
     const heading = el('div', 'lcc-bd-tier-heading', '', { 'aria-hidden': 'true' });
     for (const t of ['TIER & THRESHOLD', 'REWARD', 'STATE']) heading.appendChild(el('span', '', t));
@@ -501,25 +551,11 @@
     for (const t of ['✓ Collected', '◆ Waiting at representative', '○ Not reached', '? No delivery record']) lg.appendChild(el('span', '', t));
     s3.appendChild(lg);
     side.appendChild(s3);
+    side.appendChild(importantNote());
 
-    // the actions on the House, for the faction chosen in the action bar below the board
-    if (c) {
-      const s4 = el('section', 'lcc-bd-sec lcc-bd-editor', '', { 'aria-labelledby': 'lcc-bd-s4' });
-      s4.appendChild(secHead('ACTIONS', 'lcc-bd-s4'));
-      s4.appendChild(L().badge('unverified', 'NOT CHECKED IN THE GAME'));
-      const who = el('p', 'lcc-bd-line');
-      who.appendChild(root.document.createTextNode('Acting for ' + c.facName + (c.ownF ? ' (your faction)' : '') + '. '));
-      who.appendChild(btn('lcc-bd-linkb', 'Change the faction', { 'data-lcb': 'gofac', 'data-fk': 'gofac' }));
-      s4.appendChild(who);
-      const acts = el('div', 'lcc-bd-acts', '', { role: 'group', 'aria-label': 'Actions on House ' + h.name });
-      acts.appendChild(actionBtn('Fill', 'fill', h, c.fill, 'qf:' + h.id));
-      acts.appendChild(actionBtn('Fill faction goal', 'fillgoal', h, c.fillgoal, 'af:' + h.id));
-      acts.appendChild(actionBtn('Complete', 'complete', h, c.complete, 'ac:' + h.id));
-      acts.appendChild(actionBtn('Reopen', 'reopen', h, c.reopen, 'ar:' + h.id));
-      s4.appendChild(acts);
-      s4.appendChild(el('p', 'lcc-bd-cap', 'Each click is written at once with a backup first, and refused if this House is no longer as shown. Complete on a House another faction took replaces that win; the question says so first.'));
-      side.appendChild(s4);
-    } else if (!editable) {
+    // the actions on the House, laid out as the approved design's editor: Faction and Fill, the three House actions, Set tier and Apply tier
+    if (c) side.appendChild(editor(h, c));
+    else if (!editable) {
       side.appendChild(el('p', 'lcc-bd-warn', 'Read-only: the board could not be checked, so nothing can be written from this view. The classic list stays available.'));
     }
 
@@ -534,7 +570,6 @@
       else s5.appendChild(el('p', 'lcc-bd-cap', 'The Saved map has no picture of ' + h.loc.map + ' yet.'));
     }
     side.appendChild(s5);
-    side.appendChild(el('p', 'lcc-bd-note', 'A House claimed by a faction, a personal reward tier reached, and a reward collected are three separate states. Thresholds and reward records are read from the save; a tier with no delivery record is never counted as collected or waiting.'));
     return side;
   }
 
@@ -639,13 +674,31 @@
       redraw();
       return;
     }
-    if (k === 'gofac') { e.preventDefault(); if (last.host && last.host.focusFac) last.host.focusFac(); }
+    if (k === 'settier') {
+      e.preventDefault();
+      // Set tier N is the click of a numbered box: a higher N presses box N; N one below the reached tier presses the highest reached box (it removes that tier); anything else changes nothing here
+      const insp = t.closest('.lcc-bd-insp'), sel = insp && insp.querySelector('#lcc-bd-tierset'), say = insp && insp.querySelector('#lcc-bd-eset');
+      const n = sel ? Number(sel.value) : NaN, r = Number(t.getAttribute('data-r'));
+      const tell = (m) => { if (say) say.textContent = m; };
+      let want = 0, msg = '';
+      if (!(n >= 0)) msg = 'Choose a tier first.';
+      else if (n > r) want = n;
+      else if (n === r) msg = n === 0 ? 'No tier is reached: nothing to change.' : 'Tier ' + n + ' is already the highest reached tier: nothing to change.';
+      else if (n === r - 1) want = r;
+      else msg = 'Tiers come off one at a time, the highest first: choose ' + (r - 1) + ' to remove tier ' + r + '.';
+      if (!want) { tell(msg); return; }
+      const box = insp.querySelector('.lcc-bd-tier[data-lb="tier"][data-t="' + want + '"]');
+      if (!box) { tell('The tier boxes cannot be used here.'); return; }
+      tell('');
+      box.click();
+    }
   }
   function onChange(e) {
     const t = e.target, k = t && t.getAttribute ? t.getAttribute('data-lcb') : '';
     if (!k) return;
     if (k === 'spec') { state.spec = M().TRACKS.includes(t.value) ? t.value : 'all'; filtered(); redraw(); return; }
     if (k === 'group') { state.group = t.value === 'region' || t.value === 'spec' ? t.value : ''; redraw(); return; }
+    if (k === 'fac') { if (last && last.host && last.host.setFac) last.host.setFac(t.value); return; }
     if (k === 'preview') { state.preview = knownDecrees(last && last.host).some((d) => d.id === t.value) ? t.value : ''; redraw(); return; }
     if (k === 'jump') {
       state.sel = t.value === '' ? null : Number(t.value);

@@ -9,7 +9,7 @@ Method: the approved prototype and the editor page were drawn side by side in a 
 | | matches | differs | missing | not built (reason given) | rows |
 |---|---|---|---|---|---|
 | Before this pass | 4 | 35 | 17 | 7 | 63 |
-| After this pass | 44 | 12 | 0 | 7 | 63 |
+| After this pass | 45 | 11 | 0 | 7 | 63 |
 
 "Not built" rows are prototype-only chrome, or belong to a later milestone. "Differs" rows after this pass each carry the reason: the save lacks the data, an honest-wording rule applies, a later milestone owns it, or a decision is open.
 
@@ -45,7 +45,7 @@ Method: the approved prototype and the editor page were drawn side by side in a 
 
 | Row | Approved element | Before | Now | What was done, or why not |
 |---|---|---|---|---|
-| D1 | Bar with the label DECREE PREVIEW, a chooser and the note "Sample decree only, not written to a save" | missing | matches | Added. The save's own decree is the first entry ("Active decree: ..."). |
+| D1 | Bar with the label DECREE PREVIEW, a chooser and the note "Sample decree only, not written to a save" | missing | matches | Added. The save's own decree is the first entry, by its name alone as in the approved design (a tooltip on the entry says it is the active decree of the save). |
 | D2 | The chooser lists the decrees the app knows | missing | matches | Fed by the decrees of the answer (`host.decrees`). Display only. |
 | D3 | Choosing one changes the plaque only | missing | matches | Read-only: no `data-lb`, no request. A test counts the posts (none). |
 
@@ -99,16 +99,16 @@ Method: the approved prototype and the editor page were drawn side by side in a 
 |---|---|---|---|---|
 | S1 | Imperial Victory Analysis: tag, emblem, SYSSELRAAD CONTESTED, sentence, counts | missing | matches | Added. Wording never claims a win. |
 | S2 | House Intelligence header and source tag | differs | matches | Tag reads "FROM THE SAVE" (the prototype's says "illustrative save data"). |
-| S3 | Identity: crest, HOUSE NAME, "Crafting · associated specialization" | differs | matches | Ours adds the No. chip. |
-| S4 | Band: CLAIMED · ATREIDES and the place | differs | matches | The place is the real one, or "not mapped yet". |
-| S5 | Faction house control: two bars with values | differs | matches | Same bars; ours adds the goal line and "Top contributors: Not in the save". |
+| S3 | Identity: crest, HOUSE NAME, "Crafting · Associated specialization" | differs | matches | Same line. The House number is no longer a chip on this line; it is the tooltip of the name. |
+| S4 | Band: CLAIMED · ATREIDES and the place, right-aligned, with no sentence under it | differs | matches | The place is the real one, or "not mapped yet". The sentence that used to follow ("Claimed by ..." or "Open: ... a lead, not a win") is now the tooltip of the owner word and text for a screen reader. An owner the save cannot settle keeps its visible sentence, because the count leaves that House out. |
+| S5 | Faction house control: two bars with values | differs | matches | Same bars and nothing under them. The goal line and "Top contributors / Missions: Not in the save" are the tooltip of the heading and text for a screen reader. |
 | S6 | Your contribution: large figure and gold bar | differs | matches | Same. |
-| S7 | Personal reward ledger: header and four counts | differs | matches | Same four figures; ours adds a plain sentence under them. |
+| S7 | Personal reward ledger: header and four counts | differs | matches | Same four figures and nothing under them. The sentence with the waiting and delivery-unknown counts is the tooltip and the screen-reader name of the four counts; a tier with no delivery record still gets its visible warning. The line under the contribution bar is likewise the bar's tooltip and name. |
 | S8 | Ledger table: tier and threshold, reward, state | differs | matches | Reward names are the save's own (raw names appear in the synthetic answer used for the pictures). |
 | S9 | Legend under the ledger | missing | matches | Added. |
-| S10 | Note that claimed, reached and collected are three states | missing | matches | Added, with the "no delivery record is never collected" rule. |
-| S11 | Operations / mock editor | differs | differs | Ours is the real "Actions" box (Fill, Fill faction goal, Complete, Reopen, change the faction) and the tier rows above it are the tier controls: all go through the same single write path with the stale guard and the backup. The prototype's "Fill 5 tiers" and "Set tier / Apply tier" are covered by Fill and the tier rows. Its in-memory demo notes are not copied. |
-| S12 | Top contributors and missions per House | differs | differs | Not in the save: shown as "Not in the save". |
+| S10 | Note that claimed, reached and collected are three states | missing | matches | Added after the legend and before the actions block, with the bold "Important:" and the "no delivery record is never collected" rule. The prototype's last sentence says its numbers are demonstration data; ours are read from the save, so it is not copied. |
+| S11 | Operations / mock editor | differs | matches | The layout is the prototype's: the Faction box and "Fill 5 tiers" on the first row, "Fill faction goal", "Complete House", "Reopen" in red, then "Set tier" with "Apply tier" and "Claimed ≠ earned ≠ collected". The title stays "Actions" and the chip says NOT CHECKED IN THE GAME (the prototype's title and demo notes belong to its in-memory demonstration). Nothing about the writing changed: every button is the same control with the same keys, the Faction box drives the board's own faction box (choosing writes nothing), and Apply tier presses the numbered box the choice means (a higher tier raises, one below the reached tier removes the highest, anything else says why nothing happens), so it goes through the same checks, question, queue and backup as a click on that box. The note about the backup stays in the place of the prototype's demo note. |
+| S12 | Top contributors and missions per House | differs | differs | Not in the save: said as "Not in the save" in the tooltip of the Faction house control heading and for a screen reader, not as visible lines. |
 
 ### Other
 

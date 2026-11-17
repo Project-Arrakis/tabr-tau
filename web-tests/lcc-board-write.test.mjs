@@ -130,7 +130,9 @@ test('another faction chosen: the tiers and Fill are off with the reason, a clic
   assert.equal(tier.getAttribute('aria-disabled'), 'true');
   assert.match(tier.getAttribute('data-why'), /Off while Harkonnen is chosen/);
   assert.equal(ui.doc.querySelector('.lcc-bd-insp .lcc-bd-act[data-do="fill"]').getAttribute('aria-disabled'), 'true');
-  assert.match(text(ui.doc.querySelector('.lcc-bd-insp')), /Acting for Harkonnen\./);
+  const fac = ui.doc.querySelector('.lcc-bd-insp #lcc-bd-fac');
+  assert.equal(fac.value, '2', 'the faction box of the actions follows the chosen faction');
+  assert.match(fac.getAttribute('title'), /Acting for Harkonnen/);
   click(ui, tier);
   await ui.settle();
   assert.equal(writes(ui).length, 0);
@@ -247,4 +249,77 @@ test('the grant before the click: the Inspector says what a raise would write, a
   const over = await open('board', b);
   click(over, over.doc.querySelector('[data-fk="ht:' + idOf(b, 'Lindaren') + '"]'));
   assert.match(text(over.doc.querySelector('.lcc-bd-insp')), /Will be refused: House Lindaren: this click stands for 6 missions, more than the 3 one change may grant/);
+});
+
+test('the actions block has the approved layout: Faction and Fill 5 tiers, the House actions with Reopen marked red, Set tier and Apply tier', async () => {
+  const ui = await open('board');
+  const a = synthetic();
+  select_(ui, a, 'Kenola');
+  const ed = ui.doc.querySelector('.lcc-bd-insp .lcc-bd-editor');
+  const rows = [...ed.querySelectorAll('.lcc-bd-erow')];
+  assert.equal(rows.length, 2);
+  assert.deepEqual([...rows[0].querySelectorAll('label, .lcc-bd-act')].map((x) => text(x).replace(/ (Atreides|Harkonnen).*$/, '')), ['Faction', 'Fill 5 tiers', 'Fill faction goal', 'Complete House', 'Reopen']);
+  assert.deepEqual([...rows[0].querySelectorAll('.lcc-bd-act')].map((x) => x.dataset.do), ['fill', 'fillgoal', 'complete', 'reopen']);
+  assert.ok(rows[0].querySelector('.lcc-bd-act[data-do="reopen"]').classList.contains('lcc-bd-act-danger'));
+  assert.deepEqual([...rows[1].querySelectorAll('label, button')].map((x) => text(x).replace(/ 0.*$/, '')), ['Set tier', 'Apply tier']);
+  assert.deepEqual([...ed.querySelectorAll('#lcc-bd-tierset option')].map((o) => text(o)), ['0 — none', '1 / 5', '2 / 5', '3 / 5', '4 / 5', '5 / 5']);
+  assert.match(text(ed), /NOT CHECKED IN THE GAME/);
+  assert.match(text(ed), /written at once with a backup first/);
+  assert.equal(ed.querySelector('#lcc-bd-fac').value, '1', 'it starts on the faction of the character');
+});
+
+test('the faction box of the actions drives the board\'s own faction box and writes nothing', async () => {
+  const ui = await open('board');
+  const a = synthetic();
+  select_(ui, a, 'Lindaren');
+  select(ui, '.lcc-bd-insp #lcc-bd-fac', 2);
+  await ui.settle();
+  assert.equal(ui.doc.querySelector('#lsb-fac').value, '2');
+  assert.equal(ui.doc.querySelector('.lcc-bd-insp #lcc-bd-fac').value, '2');
+  assert.equal(ui.doc.querySelector('.lcc-bd-insp .lcc-bd-act[data-do="fill"]').getAttribute('aria-disabled'), 'true');
+  assert.equal(writes(ui).length, 0);
+  assert.equal(ui.posted.length, 0);
+});
+
+test('Apply tier is the click of the numbered box: same request and same words for a raise and for the removal of the highest tier', async () => {
+  for (const [label, tierPick, n] of [['raise', 3, 3], ['removal', 1, 0]]) {
+    const a = synthetic();
+    const viaBox = await open('board');
+    click(viaBox, control.board.tier(viaBox, a, 'Kenola', tierPick));
+    await viaBox.settle();
+    const box = { sent: writes(viaBox).map((w) => w.body), said: result(viaBox) };
+    closeAll();
+    const viaApply = await open('board');
+    select_(viaApply, a, 'Kenola');
+    select(viaApply, '#lcc-bd-tierset', n);
+    click(viaApply, '.lcc-bd-insp [data-lcb="settier"]');
+    await viaApply.settle();
+    const apply = { sent: writes(viaApply).map((w) => w.body), said: result(viaApply) };
+    closeAll();
+    assert.equal(box.sent.length, 1, label);
+    assert.deepEqual(apply.sent, box.sent, label + ': the same request');
+    assert.equal(apply.said, box.said, label + ': the same words');
+  }
+});
+
+test('Apply tier changes nothing it cannot do as one click: the same tier, a drop of several tiers at once, and another faction chosen', async () => {
+  const ui = await open('board');
+  const a = synthetic();
+  select_(ui, a, 'Wallach'); // three tiers reached
+  const say = () => text(ui.doc.querySelector('#lcc-bd-eset'));
+  select(ui, '#lcc-bd-tierset', 3);
+  click(ui, '.lcc-bd-insp [data-lcb="settier"]');
+  assert.match(say(), /already the highest reached tier/);
+  select(ui, '#lcc-bd-tierset', 0);
+  click(ui, '.lcc-bd-insp [data-lcb="settier"]');
+  assert.match(say(), /one at a time, the highest first: choose 2 to remove tier 3/);
+  await ui.settle();
+  assert.equal(writes(ui).length, 0);
+  select(ui, '#lcc-bd-fac', 2);
+  await ui.settle();
+  select(ui, '#lcc-bd-tierset', 5);
+  click(ui, '.lcc-bd-insp [data-lcb="settier"]');
+  await ui.settle();
+  assert.equal(writes(ui).length, 0, 'with another faction chosen the tier boxes are off, so is Apply tier');
+  assert.match(result(ui), /Off while Harkonnen is chosen/);
 });
