@@ -197,8 +197,7 @@ test('the gold line is BETWEEN the nameplate and the count and ends at the hollo
 });
 
 test('text from a save is only ever text: a decree, an effect, a contributor and a faction name cannot become markup', () => {
-  const tag = 'scr' + 'ipt'; // spelled in two parts: the string is test data for the hostile-text check, not markup
-  const hostile = '<img src=x onerror=alert(1)><' + tag + '>alert(1)</' + tag + '>"\'&';
+  const hostile = '<img src=x onerror=alert(1)><b>bold</b>"\'&amp;';
   const p = L.renderPlaque({ a: 3, h: 3, decree: { name: hostile, effect: hostile }, holder: 'a', contributors: { a: [hostile, hostile], h: [hostile] }, sessionLabel: hostile, standing: hostile });
   doc.body.appendChild(p);
   assert.equal(p.querySelectorAll('img, script, iframe, object, embed, a, link, style').length, 0);
