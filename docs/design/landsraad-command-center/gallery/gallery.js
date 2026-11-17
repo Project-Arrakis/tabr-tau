@@ -199,6 +199,10 @@
     const lg = grid('lccg-art-l');
     for (const k of L.TRACKS) { lg.appendChild(tile(L.laneAsset(k).src, 'lane ' + k, 'big')); lg.appendChild(tile(L.bannerAsset(k).src, 'banner ' + k, 'big')); }
     s.appendChild(lg);
+    s.appendChild(el('h3', '', 'Faction crests: the white crest (shields, standards, a claimed 13th seat) and the round medallion (a claimed seat)'));
+    const fg = grid('lccg-art-l');
+    for (const f of ['a', 'h']) for (const kind of ['mark', 'medal']) { const a = L.factionAsset(f, kind); fg.appendChild(tile(a.src, (f === 'a' ? 'Atreides ' : 'Harkonnen ') + kind, 'big')); }
+    s.appendChild(fg);
     s.appendChild(el('h3', '', 'Decree pictures by decree id (the last two use the neutral picture)'));
     const dg = grid('lccg-art-d');
     for (const id of FIX.decreeIds) { const a = L.decreeAsset(id); dg.appendChild(tile(a.src, id + (a.fallback ? ' (neutral)' : ''), a.fallback ? 'fb' : '')); }

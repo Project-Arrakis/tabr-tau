@@ -161,7 +161,8 @@ test('no opaque patch is drawn over the artwork: the only solid dark fill is the
   const solidDark = [...art.querySelectorAll('rect, path')].filter((e) => /^#(0|1)[0-9a-f]{5}$/i.test(e.getAttribute('fill') || ''));
   // the field, the hollow diamonds (their dark centre is the field's colour) and nothing that could cover text or a rule
   for (const e of solidDark) assert.ok(e.tagName.toLowerCase() === 'rect' ? e === art.querySelector('rect') : /^M\d+,6\d\d L/.test(e.getAttribute('d')), 'unexpected solid dark shape: ' + e.getAttribute('d'));
-  assert.equal(art.querySelectorAll('text, image, foreignObject').length, 0, 'the artwork has no text and no picture in it');
+  assert.equal(art.querySelectorAll('text, foreignObject').length, 0, 'the artwork has no text in it');
+  assert.deepEqual([...art.querySelectorAll('image')].map((i) => i.getAttribute('class')), ['lcc-art-crest', 'lcc-art-crest', 'lcc-art-crest', 'lcc-art-crest'], 'the only pictures in it are the four faction crests');
 });
 
 test('the gold line is BETWEEN the nameplate and the count and ends at the hollow diamond, centred on it', () => {
@@ -200,7 +201,8 @@ test('text from a save is only ever text: a decree, an effect, a contributor and
   const hostile = '<img src=x onerror=alert(1)><b>bold</b>"\'&amp;';
   const p = L.renderPlaque({ a: 3, h: 3, decree: { name: hostile, effect: hostile }, holder: 'a', contributors: { a: [hostile, hostile], h: [hostile] }, sessionLabel: hostile, standing: hostile });
   doc.body.appendChild(p);
-  assert.equal(p.querySelectorAll('img, script, iframe, object, embed, a, link, style').length, 0);
+  assert.equal(p.querySelectorAll('img:not(.lcc-standard-img), script, iframe, object, embed, a, link, style').length, 0);
+  assert.equal(p.querySelectorAll('img').length, 2, 'only the two faction crests of the standards are pictures');
   assert.equal(p.querySelector('.lcc-pl-title').textContent, hostile);
   assert.equal(p.querySelector('.lcc-pl-effect').textContent, hostile);
   assert.equal(p.querySelector('.lcc-pl-session').textContent, hostile);
@@ -235,5 +237,50 @@ test('seat states are the same for the two layouts: one set of seats, no second 
     const v = [e.getAttribute('fill'), e.getAttribute('stroke')].find((x) => x && x.startsWith('url(#'));
     const ref = /url\(#([^)]+)\)/.exec(v)[1];
     assert.ok(ids(p).includes(ref), 'a gradient that is not defined: ' + ref);
+  }
+});
+
+test('the faction crests are pictures: header shields, cloth standards, claimed seats (medallion) and a claimed 13th seat (white crest); an open seat has none', () => {
+  const p = plaque({ a: 13, h: 12 });
+  const files = (sel) => [...p.querySelectorAll(sel)].map((i) => i.getAttribute('href'));
+  assert.deepEqual(files('svg.lcc-art image.lcc-art-crest'), ['/lcc/art/factions/atreides.webp', '/lcc/art/factions/harkonnen.webp', '/lcc/art/factions/atreides.webp', '/lcc/art/factions/harkonnen.webp'], 'two shields, then two standards');
+  assert.equal(p.querySelector('svg.lcc-art').getAttribute('aria-hidden'), 'true');
+  const seatPics = [...p.querySelectorAll('.lcc-seat')].map((g) => [...g.querySelectorAll('image.lcc-seat-art')].map((i) => i.getAttribute('href')));
+  assert.equal(seatPics.filter((a) => a.length === 1).length, 25);
+  assert.equal(seatPics[0][0], '/lcc/art/factions/atreides-medallion.webp');
+  assert.equal(seatPics[24][0], '/lcc/art/factions/harkonnen-medallion.webp');
+  assert.equal(seatPics[12][0], '/lcc/art/factions/atreides.webp', 'the claimed 13th seat takes the white crest of its owner');
+  const open = plaque({ a: 3, h: 2 });
+  const op = [...open.querySelectorAll('.lcc-seat[data-state="open"]')];
+  assert.equal(op.length, 20);
+  assert.ok(op.every((g) => g.querySelectorAll('image').length === 0), 'an open seat carries no faction picture');
+  // the seat's drawn mark stays as the fallback and the word of the state stays in its title
+  assert.equal(open.querySelectorAll('.lcc-seat[data-state="a"] .lcc-seat-mark').length, 3);
+  assert.match(open.querySelector('.lcc-seat[data-state="h"] title').textContent, /Harkonnen/);
+  // a picture that has loaded covers the drawn mark (the stylesheet hides it); one that has not leaves it
+  const g = open.querySelector('.lcc-seat[data-state="a"]');
+  assert.ok(!g.classList.contains('lcc-seat-has-art'));
+  g.querySelector('image.lcc-seat-art').dispatchEvent(new doc.defaultView.Event('load'));
+  assert.ok(g.classList.contains('lcc-seat-has-art'));
+  assert.ok(!open.querySelector('.lcc-seat[data-state="h"]').classList.contains('lcc-seat-has-art'));
+  // a picture that fails to load draws nothing
+  const im = open.querySelector('image.lcc-art-crest');
+  im.dispatchEvent(new doc.defaultView.Event('error'));
+  assert.equal(im.getAttribute('visibility'), 'hidden');
+  // the drawing no longer carries vector faction marks: every shape of the shields and the standards is a frame, a cloth or a rod
+  assert.equal(open.querySelector('svg.lcc-art path[d*="L"][fill="#efe9d6"]'), null);
+});
+
+test('a standard shows its faction crest as a picture with no alt, and the words stay when the picture is gone', () => {
+  for (const [f, file] of [['a', 'atreides'], ['h', 'harkonnen']]) {
+    const s = L.standard(f, ['x'], 'TOP CONTRIBUTORS', 'none');
+    const img = s.querySelector('.lcc-standard-mark > img.lcc-standard-img');
+    assert.equal(img.getAttribute('src'), '/lcc/art/factions/' + file + '.webp');
+    assert.equal(img.getAttribute('alt'), '');
+    assert.equal(s.querySelector('.lcc-standard-mark').getAttribute('aria-hidden'), 'true');
+    img.dispatchEvent(new doc.defaultView.Event('error'));
+    assert.equal(img.hidden, true);
+    assert.equal(s.querySelector('.lcc-standard-h').textContent, 'TOP CONTRIBUTORS');
+    assert.equal(s.querySelector('li').textContent, 'x');
   }
 });

@@ -10,10 +10,10 @@ Read with `DECISIONS.md` (D05, D10, D11, D14, D16, D20), `art-manifest.json` and
 |---|---|
 | Helpers: art lookups, seat model, parts, three renderers | `internal/web/static/lcc/lcc.js` (no network, no storage, DOM built with `createElement` and `textContent` only) |
 | Scoped styles | `internal/web/static/lcc/lcc.css` (every selector starts at a `lcc` class) |
-| Optimized local art | `internal/web/static/lcc/art/{houses,lanes,banners,decrees}/` (webp, about 390 KiB in all) |
+| Optimized local art | `internal/web/static/lcc/art/{houses,lanes,banners,decrees,factions}/` (webp, about 430 KiB in all) |
 | Art manifest (hashes, sizes, source, decree matching) | `docs/design/landsraad-command-center/art-manifest.json` |
 | Component gallery (fixture data) | `docs/design/landsraad-command-center/gallery/` |
-| Serving | two file names and four art folders added to the fixed lists in `internal/web/server.go` (see 5) |
+| Serving | two file names and five art folders added to the fixed lists in `internal/web/server.go` (see 5) |
 | Capture script | `scripts/lcc-gallery-shots.mjs` |
 | Tests | `internal/web/lcc_assets_test.go`, `web-tests/lcc-*.test.mjs` |
 
@@ -71,8 +71,9 @@ Inventory (`art-manifest.json` has name, bytes, SHA-256, size and source of each
 | Lane scrolls | 5 | 256 x 256 | Specializations |
 | Path banners | 5 | **256 x 256** | the reference README said 512; the files are 256, the README is corrected |
 | Decree pictures | 9 + 1 | 128 x 128 | hand-matched, see below; plus the neutral `fallback.svg` |
+| Faction crests | 2 white + 2 medallions | 256 x 256 (white), 100 and 104 (medallions) | Atreides and Harkonnen, a separate set (see 4.1); reference PNGs in `docs/art/landsraad/factions/` |
 
-Lookups (`houseAsset`, `laneAsset`, `bannerAsset`, `decreeAsset`) take a string, lower-case and trim it, and look it up in a fixed table by own-property check. A path, an extension, a traversal, a non-string, a prototype name and anything not in the table gives `null` (or, for a decree, the neutral picture). No file name is built from a name. The art base is checked to be a path on this origin.
+Lookups (`houseAsset`, `laneAsset`, `bannerAsset`, `decreeAsset`, `factionAsset`) take a string, lower-case and trim it, and look it up in a fixed table by own-property check. A path, an extension, a traversal, a non-string, a prototype name and anything not in the table gives `null` (or, for a decree, the neutral picture). No file name is built from a name. The art base is checked to be a path on this origin.
 
 Decisions recorded here:
 
@@ -81,9 +82,25 @@ Decisions recorded here:
 * **Decree matching is by hand**, with the basis recorded in the manifest. Four SpecialVendorActive decrees match by name (vehicles, weapons, armor, utilities), as do the experience and crafting-cost decrees; ranged and melee damage, the defeat-drop and the repair decrees match by subject. Five reference pictures (`choam`, `dagger`, `exclusive-import-rights`, `weapon-rifle`, `xp`) match no decree of the editor's table and are not shipped to the page.
 * **Licence (D14).** The pictures are Funcom game art outside the repository licence. Optimized local copies are served from the embedded folder only; the page loads nothing from a network. `docs/art-notice.md` names the new folder, the neutral exception and the manifest.
 
+### 4.1 The faction crests
+
+The two faction crests replace the vector marks the first M2 build drew itself (a hawk-like V and a ring with a spur, labelled as original marks). They are the crests of the approved package: a white crest per faction and a round medallion per faction, Dune: Awakening artwork that belongs to Funcom (the same notice as the other art). They are a separate set: `factionAsset(faction, kind)` takes `'a'`, `'h'`, `'Atreides'` or `'Harkonnen'` and the kind `'mark'` (white crest, the default) or `'medal'`, and it always answers; anything else gets `{ key: null, file: null, src: '', fallback: true }` and no picture is drawn. The House and path tables never find a crest and `factionAsset` never finds a House.
+
+Where each picture is used, matched to the approved V20 plaque and its stylesheet (the shields and the standards are in the V20 picture itself, the seats are its `ib-token` circles):
+
+| Place | V20 | This build |
+|---|---|---|
+| Header shields (left Atreides, right Harkonnen) | white crest | `factions/atreides.webp`, `factions/harkonnen.webp`, an SVG `<image>` in the decorative layer (120 units) |
+| Cloth standards | white crest | the same two white crests (76 units in the wide layout; a 44 px `<img>` in the narrow stack) |
+| A claimed seat (not the 13th) | the round medallion (ring and white crest) | `factions/atreides-medallion.webp`, `factions/harkonnen-medallion.webp` over the seat circle |
+| The 13th seat when claimed | the white crest over the gold hub | the white crest (44 units) over the seat circle, which keeps its gold border and halo |
+| An open seat | the round unclaimed medallion | not used: the drawn bronze seat stays (the unclaimed medallion holds no faction mark and is not shipped) |
+
+Fallbacks and cues: every picture is decorative (`alt=""` on the HTML ones, the SVG layer is `aria-hidden`) and the text beside it names the faction. The drawn seat mark (a V for Atreides, a ring for Harkonnen) stays under each claimed seat as the fallback and is hidden by the stylesheet only after the picture has loaded; a picture that fails to load draws nothing, so the shield or cloth colour, the nameplates and the counts stand alone. In forced colours the pictures are dropped and the factions differ by the drawn mark, the seat fill and, on the stacked standards, two plain shapes (not the crests). Colour is never the only cue.
+
 ## 5. Serving, and why the gallery is not part of the editor
 
-The embedded `static/lcc/lcc.css` and `lcc.js` and the four art folders are added to the fixed lists in `internal/web/server.go` (a request path is only ever compared with the list built from the embedded folders; `.svg` is added to the folder content types for the one neutral picture). `TestEveryEmbeddedAssetIsServedWithItsOwnBytes` and the new tests check each file is served with its own bytes and a known type, and that traversal and upper-case spellings answer 404.
+The embedded `static/lcc/lcc.css` and `lcc.js` and the five art folders are added to the fixed lists in `internal/web/server.go` (a request path is only ever compared with the list built from the embedded folders; `.svg` is added to the folder content types for the one neutral picture). `TestEveryEmbeddedAssetIsServedWithItsOwnBytes` and the new tests check each file is served with its own bytes and a known type, and that traversal and upper-case spellings answer 404.
 
 The gallery lives under `docs/`, so it is not embedded, not routed and not linked from the editor page; a test checks that no editor file mentions it and that none of its fixture values appear in the helpers, the styles or the page script. It is a static page that works from any loopback static server of the repository folder, has its own content security policy (`default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'`), and says FIXTURE / DEMO in the header and in every section heading and plaque. Its settings are read from the address and only ever compared with fixed lists.
 
@@ -132,6 +149,8 @@ Automated (all run for the pull request; counts are in its description): the Go 
 
 Captured headlessly (no window was shown), outside the repository, with `scripts/lcc-gallery-shots.mjs`: 93 images, named `LCC_M2_<part>_<case>_<theme>_<width>.png` and a `LCC_M2_report.json` (viewports, console problems, network problems, anything not run). The last run had no console error, no failed request and no request to another host.
 
+After the real faction crests replaced the drawn marks (4.1) the same 93 captures were taken again, headlessly, with the same script (named `LCC_M2b_*`, report `LCC_M2b_report.json`: no console error, no failed request, nothing not run).
+
 Pixel comparison against the approved V20 picture: made as a side-by-side of each risky crop, at the same scale, with the reference cut at the same fraction of the plaque. It is a visual comparison, not a numeric diff; no pixel-difference score was computed.
 
 Variances from the approved V20 picture, for human approval:
@@ -143,7 +162,9 @@ Variances from the approved V20 picture, for human approval:
 | Bar lighting | neon glow on the rails and tips | flat gold edge and a thin inner line with a soft shadow | not resolved |
 | Footer rail | wide glow under the footer | two thin gold rules | not resolved |
 | HELD BY divider | glowing vertical line | plain gold rule, unbroken | close |
-| Cloth standards | game-drawn crests | original vector marks (a crown and a diamond) | intentional |
+| Cloth standards and shields | game-drawn crests | the same crest pictures (see 4.1) | resolved |
+| Claimed 13th seat | white crest on the gold hub, no colour change | white crest on the gold seat in the owner's colour (the M2 rule that the 13th takes its owner's colour) | intentional |
+| Open seats | round unclaimed medallion | drawn bronze seat | not resolved |
 | Session wording | "13 HOUSES WIN" | "SEAT 13 OF 25" and "vote not confirmed" (D05, D16) | intentional |
 | Contributors | demo guild names | "Not in the save" (D07, D15) | intentional |
 | Layout below 900 px | none in the reference | a narrow re-layout and a stacked head under 520 px | intentional, needs approval |
@@ -152,4 +173,4 @@ Not done in M2: any wiring into the editor, any write path, any live data, the n
 
 ## 8. Rollback
 
-Remove `internal/web/static/lcc/`, the two names and four folders added to `internal/web/server.go`, the gallery folder, the manifest, the tests and the script, and restore `docs/art-notice.md` and `docs/art/landsraad/README.md`. Nothing else refers to them.
+Remove `internal/web/static/lcc/`, the two names and five folders added to `internal/web/server.go`, the gallery folder, the manifest, the tests and the script, and restore `docs/art-notice.md` and `docs/art/landsraad/README.md`. Nothing else refers to them.

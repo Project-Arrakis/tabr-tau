@@ -93,8 +93,8 @@ func TestLccArtManifestMatchesTheEmbeddedFiles(t *testing.T) {
 		want[f.File] = f
 		counts[f.Role]++
 	}
-	if counts["house"] != 25 || counts["lane"] != 5 || counts["banner"] != 5 || counts["decree"] != 9 || counts["decree-fallback"] != 1 {
-		t.Errorf("manifest counts %v: want 25 houses, 5 lanes, 5 banners, 9 decrees and 1 neutral picture", counts)
+	if counts["house"] != 25 || counts["lane"] != 5 || counts["banner"] != 5 || counts["decree"] != 9 || counts["decree-fallback"] != 1 || counts["faction-mark"] != 2 || counts["faction-medal"] != 2 {
+		t.Errorf("manifest counts %v: want 25 houses, 5 lanes, 5 banners, 9 decrees, 1 neutral picture, 2 faction crests and 2 faction medallions", counts)
 	}
 	var embedded []string
 	err := fs.WalkDir(static, "static/lcc/art", func(p string, d fs.DirEntry, err error) error {
@@ -128,8 +128,15 @@ func TestLccArtManifestMatchesTheEmbeddedFiles(t *testing.T) {
 			if !ok || w != f.Width || h != f.Height {
 				t.Errorf("%s: picture size %dx%d (ok %v), manifest says %dx%d", file, w, h, ok, f.Width, f.Height)
 			}
-			wantSize := map[string]int{"house": 128, "lane": 256, "banner": 256, "decree": 128}[f.Role]
-			if w != wantSize || h != wantSize {
+			wantSize := map[string]int{"house": 128, "lane": 256, "banner": 256, "decree": 128, "faction-mark": 256}[f.Role]
+			if f.Role == "faction-medal" {
+				// the round medallions keep the size of their reference pictures (100 and 104 px), so they are checked against the reference file, not a fixed size
+				wantSize = 0
+				if w != h || w < 64 || w > 128 {
+					t.Errorf("%s: %dx%d, a faction medallion is a square between 64 and 128 px", file, w, h)
+				}
+			}
+			if wantSize != 0 && (w != wantSize || h != wantSize) {
 				t.Errorf("%s: %dx%d, a %s picture is %d x %d (the banners are 256 x 256, not the 512 the folder README says)", file, w, h, f.Role, wantSize, wantSize)
 			}
 			if len(b) > 40<<10 {

@@ -111,3 +111,34 @@ test('the manifest and the notice agree: banners are 256, not 512, the missing d
   assert.match(notice, /internal\/web\/static\/lcc\/art\//);
   assert.match(notice, /Funcom/);
 });
+
+test('the faction crests: two factions, two kinds, always an answer, and nothing else becomes a picture', () => {
+  const listed = new Map(manifest.files.map((f) => [f.file, f]));
+  const want = { a: ['atreides', 'atreides-medallion'], h: ['harkonnen', 'harkonnen-medallion'] };
+  for (const [f, [mark, medal]] of Object.entries(want)) {
+    for (const spell of [f, f.toUpperCase(), ' ' + f + ' ', f === 'a' ? 'Atreides' : 'Harkonnen', f === 'a' ? 'ATREIDES' : 'harkonnen']) {
+      assert.equal(L.factionAsset(spell, 'mark').file, 'factions/' + mark + '.webp', spell);
+      assert.equal(L.factionAsset(spell).file, 'factions/' + mark + '.webp', 'the kind defaults to the white crest');
+      assert.equal(L.factionAsset(spell, 'medal').file, 'factions/' + medal + '.webp', spell);
+    }
+    for (const kind of ['mark', 'medal']) {
+      const a = L.factionAsset(f, kind);
+      assert.equal(a.fallback, false);
+      assert.equal(a.src, '/lcc/art/' + a.file);
+      assert.ok(listed.has(a.file), a.file + ' is not in the manifest');
+      assert.ok(fs.existsSync(path.join(lccDir, 'art', a.file)), a.file + ' is not on disk');
+    }
+  }
+  assert.deepEqual(onDisk('factions'), ['atreides-medallion.webp', 'atreides.webp', 'harkonnen-medallion.webp', 'harkonnen.webp']);
+  assert.deepEqual(manifest.files.filter((f) => f.role.startsWith('faction')).map((f) => f.file).sort(), onDisk('factions').map((f) => 'factions/' + f));
+  // a kind that is not 'medal' is the white crest; anything that is not one of the two factions answers with no picture (never a path, never a guess)
+  assert.equal(L.factionAsset('a', '../x').file, 'factions/atreides.webp');
+  const bad = ['', 'x', 'ab', 'atreides.webp', 'factions/atreides', '../atreides', 'atreides/', 'open', 'none', 'ecaz', '__proto__', 'constructor', null, undefined, 0, 7, {}, [], ['a'], { toString() { return 'a'; } }];
+  for (const v of bad) {
+    const a = L.factionAsset(v, 'medal');
+    assert.deepEqual({ key: a.key, file: a.file, src: a.src, fallback: a.fallback }, { key: null, file: null, src: '', fallback: true }, JSON.stringify(v));
+  }
+  // kept apart from the House and path tables
+  assert.equal(L.houseAsset('atreides'), null);
+  assert.equal(L.laneAsset('atreides'), null);
+});

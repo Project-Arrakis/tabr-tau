@@ -58,9 +58,8 @@
 .lcc-standard { box-sizing: border-box; padding: 12px 10px 22px; text-align: center; color: var(--lcc-on-faction); border: 2px solid var(--lcc-gold); clip-path: polygon(0 0, 100% 0, 100% 86%, 50% 100%, 0 86%); }
 .lcc-standard.lcc-f-a { background: linear-gradient(180deg, #0f6a54, #063a2e); }
 .lcc-standard.lcc-f-h { background: linear-gradient(180deg, #8c1219, #4a070c); }
-.lcc-standard-mark { display: block; width: 26px; height: 26px; margin: 0 auto 4px; background: var(--lcc-cream); }
-.lcc-f-a > .lcc-standard-mark { clip-path: polygon(0 18%, 30% 40%, 50% 0, 70% 40%, 100% 18%, 88% 70%, 50% 100%, 12% 70%); }
-.lcc-f-h > .lcc-standard-mark { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.lcc-standard-mark { display: block; margin: 0 auto 4px; line-height: 0; text-align: center; }  /* the faction crest picture (white); a forced-colours view draws two plain shapes instead (see the forced-colours block) */
+.lcc-standard-img { width: 44px; height: 44px; }
 .lcc-standard-h { margin: 0 0 6px; font: 700 11px/1.2 var(--t-display, sans-serif); letter-spacing: .12em; color: #ffd98a; }
 .lcc-standard-list { list-style: decimal inside; margin: 0; padding: 0; font: 500 12px/1.5 var(--t-body, sans-serif); text-align: left; }
 .lcc-standard-none { margin: 0; font: italic 500 12px/1.4 var(--t-body, sans-serif); color: var(--lcc-cream); }
@@ -115,6 +114,7 @@
 
 /* the seats. Fill and stroke come from the artwork's own attributes; the classes below are what a forced-colours view and a state can override. */
 .lcc-seat-base { transition: none; }
+.lcc-seat-has-art .lcc-seat-mark { display: none; }  /* the drawn mark is the fallback: the faction picture covers it once it has loaded */
 .lcc-seat[data-center="true"] .lcc-seat-halo { stroke-linecap: round; }
 
 /* ---- the plaque: narrow layout. The decoration is dropped on purpose (not cropped), and the same words and numbers are laid out in a column. ---- */
@@ -230,7 +230,11 @@ html[data-motion="calm"] .lcc [data-victory], html[data-motion="off"] .lcc [data
   .lcc-seat-center .lcc-seat-base { stroke-width: 6; }
   .lcc-seat-halo { stroke: CanvasText; }
   .lcc-standard, .lcc-pl-std-a, .lcc-pl-std-h { background: Canvas; color: CanvasText; border: 2px solid CanvasText; clip-path: none; }
-  .lcc-standard-mark { background: CanvasText; }
+  .lcc-seat-art, .lcc-standard-img { display: none; }  /* pictures are dropped here: the factions differ by the drawn mark, the fill and the shape */
+  .lcc-seat-has-art .lcc-seat-mark { display: inline; }
+  .lcc-standard-mark { width: 26px; height: 26px; background: CanvasText; }
+  .lcc-f-a > .lcc-standard-mark { clip-path: polygon(0 18%, 30% 40%, 50% 0, 70% 40%, 100% 18%, 88% 70%, 50% 100%, 12% 70%); }
+  .lcc-f-h > .lcc-standard-mark { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
   .lcc-rule-v { background: CanvasText; }
   .lcc-frame { background: CanvasText; } .lcc-frame-in { background: Canvas; color: CanvasText; }
   .lcc-house, .lcc-lane { border: 2px solid ButtonText; background: ButtonFace; color: ButtonText; }

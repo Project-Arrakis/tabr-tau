@@ -6,7 +6,9 @@
     "house": "128 x 128 (the reference size)",
     "lane": "256 x 256 (the reference size)",
     "banner": "256 x 256: the reference banners are 256 x 256 and the folder README now says so too (it said 512 x 512 before M2); recorded in 05-m2-visual-foundation.md",
-    "decree": "128 x 128 (down from the 256 x 256 reference; shown at 96 px at most)"
+    "decree": "128 x 128 (down from the 256 x 256 reference; shown at 96 px at most)",
+    "faction-mark": "256 x 256 (down from the 512 x 512 reference; shown at 150 px at most): the white faction crest on the header shields, the cloth standards and the claimed 13th seat",
+    "faction-medal": "the reference size (100 x 100 Atreides, 104 x 104 Harkonnen): the round medallion of a claimed seat"
   },
   "houseAlias": {
     "mikarrol": "mikkarol"
@@ -515,6 +517,53 @@
       "width": 128,
       "height": 128,
       "source": "docs/art/landsraad/decrees/vendor-weapons.png"
+    },
+    {
+      "role": "faction-mark",
+      "key": "atreides",
+      "file": "factions/atreides.webp",
+      "bytes": 3468,
+      "sha256": "c692c61bf46f8a0e42c24af82ba8cd7727c3f81fd68a3baaef28ba094cea4123",
+      "width": 256,
+      "height": 256,
+      "source": "docs/art/landsraad/factions/atreides.png"
+    },
+    {
+      "role": "faction-mark",
+      "key": "harkonnen",
+      "file": "factions/harkonnen.webp",
+      "bytes": 3940,
+      "sha256": "b4bdb7d227902803bdd2820105ba09b9a6b728da48af06415c41a9d26efe9324",
+      "width": 256,
+      "height": 256,
+      "source": "docs/art/landsraad/factions/harkonnen.png"
+    },
+    {
+      "role": "faction-medal",
+      "key": "atreides",
+      "file": "factions/atreides-medallion.webp",
+      "bytes": 17262,
+      "sha256": "dbff84a929d59d4af065e54eaf3a49939f7b64073ca2ca2274fd35e31af2b300",
+      "width": 100,
+      "height": 100,
+      "source": "docs/art/landsraad/factions/atreides-medallion.png"
+    },
+    {
+      "role": "faction-medal",
+      "key": "harkonnen",
+      "file": "factions/harkonnen-medallion.webp",
+      "bytes": 15510,
+      "sha256": "ba19d2e6c596d9a2e2bb57398cb5286b6c84bb8ddd86ab8874714224ea8e424d",
+      "width": 104,
+      "height": 104,
+      "source": "docs/art/landsraad/factions/harkonnen-medallion.png"
     }
-  ]
+  ],
+  "factionArt": {
+    "note": "The two faction crests, kept apart from the 25 House symbols and the five path icons (never mixed in one lookup). The white crest (factions/atreides.webp, factions/harkonnen.webp) is used on the two header shields, on the two cloth standards and on the 13th seat when a faction holds it. The round medallion (factions/atreides-medallion.webp, factions/harkonnen-medallion.webp) is used for every claimed seat of the track. Matched to the approved V20 plaque; see 05-m2-visual-foundation.md.",
+    "marks": [
+      "atreides",
+      "harkonnen"
+    ]
+  }
 }

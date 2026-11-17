@@ -3,7 +3,7 @@
 //
 // What this file is not: it holds no demo data, it fetches nothing, it writes nothing to the save and it is not linked from any live page yet. Every helper takes plain values
 // and returns an element built with createElement / createElementNS and textContent (never a string of HTML), so a House name or a decree name from a save cannot become markup.
-// The picture of a House, a lane, a banner or a decree is looked up in a fixed table by its key; a file name is never built from a name, so a strange name can only miss the table.
+// The picture of a House, a lane, a banner, a decree or a faction is looked up in a fixed table by its key; a file name is never built from a name, so a strange name can only miss the table.
 // Everything is served from this origin (the content security policy allows nothing else) and every picture has a text beside it, so a missing picture loses nothing.
 (function (root) {
   'use strict';
@@ -31,6 +31,9 @@
   });
   const DECREE_FILES = Object.freeze(['scholarly-collaboration', 'honor-of-the-fallen', 'production-contract', 'repair-cost-reduction', 'loot', 'vendor-armor', 'vendor-utilities', 'vendor-vehicles', 'vendor-weapons']);
   const DECREE_FALLBACK = 'fallback';
+  // The two faction crests (a separate set: never looked up through the House or path tables). 'mark' is the white crest of the header shields, the cloth standards and a claimed 13th seat;
+  // 'medal' is the round medallion of a claimed seat.
+  const FACTION_FILES = Object.freeze({ a: Object.freeze({ mark: 'atreides', medal: 'atreides-medallion' }), h: Object.freeze({ mark: 'harkonnen', medal: 'harkonnen-medallion' }) });
 
   // Where the pictures are served from. The page that uses the helpers may move it (the preview page reads the files from the repository); it must be a relative or same-origin path that
   // ends in a slash, never an address with a scheme, so no helper can be pointed at another host.
@@ -63,6 +66,15 @@
     const k = norm(typeof id === 'number' ? '' : id);
     if (KEY_OK.test(k) && Object.prototype.hasOwnProperty.call(DECREE_ART, k)) { const f = DECREE_ART[k]; return hit('decrees', f, f); }
     return Object.freeze({ key: null, file: 'decrees/' + DECREE_FALLBACK + '.svg', src: artBase + 'decrees/' + DECREE_FALLBACK + '.svg', fallback: true });
+  }
+
+  // factionAsset('a' | 'h' | 'Atreides' | 'Harkonnen', 'mark' | 'medal') always answers: the crest of that faction, or { key: null, file: null, src: '', fallback: true } for anything else (a caller
+  // then draws no picture and the words and state cues stand alone). The kind is 'mark' unless it is exactly 'medal'.
+  function factionAsset(faction, kind) {
+    const k = norm(typeof faction === 'string' ? faction : '');
+    const f = k === 'a' || k === 'atreides' ? 'a' : k === 'h' || k === 'harkonnen' ? 'h' : '';
+    if (!f) return Object.freeze({ key: null, file: null, src: '', fallback: true });
+    return hit('factions', FACTION_FILES[f][kind === 'medal' ? 'medal' : 'mark'], f);
   }
 
   // ---- the 25 seats --------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -132,11 +144,14 @@
     w.appendChild(el('strong', 'lcc-heldby-n' + (faction ? ' lcc-f-' + faction : ''), name || 'Not recorded'));
     return w;
   }
-  // The cloth standard of a faction: a gold-edged banner with the faction's mark, a heading and an honest list (or the empty state). lines is an array of strings or null.
+  // The cloth standard of a faction: a gold-edged banner with the faction's crest picture, a heading and an honest list (or the empty state). lines is an array of strings or null.
   function standard(faction, lines, heading, emptyText) {
     const f = faction === 'h' ? 'h' : 'a';
     const w = el('div', 'lcc-standard lcc-f-' + f);
-    w.appendChild(el('span', 'lcc-standard-mark', '', { 'aria-hidden': 'true' }));
+    const mk = el('span', 'lcc-standard-mark', '', { 'aria-hidden': 'true' });
+    const crest = factionAsset(f, 'mark');
+    if (!crest.fallback) mk.appendChild(art(crest, 'lcc-standard-img', 44));
+    w.appendChild(mk);
     w.appendChild(el('p', 'lcc-standard-h', heading || 'TOP CONTRIBUTORS'));
     if (Array.isArray(lines) && lines.length) {
       const ol = el('ol', 'lcc-standard-list');
@@ -196,23 +211,20 @@
   }
   const strokePath = (d, stroke, w, extra) => sv('path', Object.assign({ d, fill: 'none', stroke, 'stroke-width': w, 'stroke-linejoin': 'miter' }, extra || {}));
   const mirror = (x) => W - x;
+  // The size of the crest pictures in the 2172 x 724 drawing (the picture is a 256 square with its margin: the visible crest is about three quarters of it), as the approved V20 plaque shows them.
+  const SHIELD_MARK = 120, STANDARD_MARK = 76, SEAT_MEDAL = 2 * TRACK.r + 2, SEAT_MARK = 44;
 
-  // The faction marks: simple original vector marks, not game insignia. Atreides: a spread hawk (a V with two wings); Harkonnen: a ring with a spur.
-  function markA(cx, cy, s, fill) {
-    const d = 'M' + (cx - 30 * s) + ',' + (cy - 22 * s) + ' L' + (cx - 8 * s) + ',' + (cy - 6 * s) + ' L' + cx + ',' + (cy - 26 * s) + ' L' + (cx + 8 * s) + ',' + (cy - 6 * s) + ' L' + (cx + 30 * s) + ',' + (cy - 22 * s) +
-      ' L' + (cx + 22 * s) + ',' + (cy + 4 * s) + ' L' + (cx + 8 * s) + ',' + (cy + 8 * s) + ' L' + cx + ',' + (cy + 28 * s) + ' L' + (cx - 8 * s) + ',' + (cy + 8 * s) + ' L' + (cx - 22 * s) + ',' + (cy + 4 * s) + ' Z';
-    return sv('path', { d, fill: fill || '#efe9d6', stroke: '#0a1a14', 'stroke-width': 1.5 * s, 'stroke-linejoin': 'round' });
-  }
-  function markH(cx, cy, s, fill) {
-    const f = fill || '#efe9d6';
-    return sv('g', null, [
-      sv('circle', { cx, cy: cy + 2 * s, r: 17 * s, fill: 'none', stroke: f, 'stroke-width': 7 * s }),
-      sv('path', { d: 'M' + (cx - 4 * s) + ',' + (cy - 18 * s) + ' L' + (cx + 4 * s) + ',' + (cy - 18 * s) + ' L' + (cx + 26 * s) + ',' + (cy - 34 * s) + ' L' + (cx + 12 * s) + ',' + (cy - 8 * s) + ' Z', fill: f }),
-      sv('path', { d: 'M' + (cx - 24 * s) + ',' + (cy + 28 * s) + ' L' + (cx - 8 * s) + ',' + (cy + 18 * s) + ' L' + (cx - 6 * s) + ',' + (cy + 30 * s) + ' Z', fill: f }),
-    ]);
+  // A picture placed in the vector layers: an SVG <image> centred on (cx, cy), or null when there is no picture (a faction the table does not know). A picture that fails to load draws nothing, so
+  // what is behind it (the shield or cloth colour, the seat circle) and the words beside it stand alone.
+  function svgPicture(asset, cx, cy, size, cls, onLoad) {
+    if (!asset || asset.fallback) return null;
+    const im = sv('image', { class: cls, href: asset.src, x: cx - size / 2, y: cy - size / 2, width: size, height: size, preserveAspectRatio: 'xMidYMid meet' });
+    if (onLoad) im.addEventListener('load', onLoad);
+    im.addEventListener('error', () => { im.setAttribute('visibility', 'hidden'); });
+    return im;
   }
 
-  // The decorative layer: frame, header band, the two shields, the decree plate, the two gold rules, the two cloth standards with their rods, the nameplate shapes, the two hollow diamonds
+  // The decorative layer: frame, header band, the two shields with their crests, the decree plate, the two gold rules, the two cloth standards with their crests and rods, the nameplate shapes, the two hollow diamonds
   // with their lines, the session plate and the footer rail. It carries no text, and no dynamic value.
   function underlay(p) {
     const defs = sv('defs', null, [
@@ -243,17 +255,17 @@
     kids.push(sv('rect', { x: 70, y: 686.5, width: 2032, height: 3, fill: g('goldh') }));
     kids.push(strokePath('M16,166 V690 M2156,166 V690', GOLD.mid, 3, { opacity: 0.9 }));
     // shields (Atreides left, Harkonnen right)
-    const shield = (x0, fill, mark) => {
+    const shield = (x0, fill, faction) => {
       const d = 'M' + x0 + ',14 H' + (x0 + 156) + ' V118 L' + (x0 + 78) + ',182 L' + x0 + ',118 Z';
-      return sv('g', null, [sv('path', { d, fill: g(fill) }), strokePath(d, g('gold'), 4.5), strokePath('M' + (x0 + 10) + ',24 H' + (x0 + 146) + ' V114 L' + (x0 + 78) + ',168 L' + (x0 + 10) + ',114 Z', GOLD.mid, 1.5, { opacity: 0.7 }), mark(x0 + 78, 86, 1.45)]);
+      return sv('g', null, [sv('path', { d, fill: g(fill) }), strokePath(d, g('gold'), 4.5), strokePath('M' + (x0 + 10) + ',24 H' + (x0 + 146) + ' V114 L' + (x0 + 78) + ',168 L' + (x0 + 10) + ',114 Z', GOLD.mid, 1.5, { opacity: 0.7 }), svgPicture(factionAsset(faction, 'mark'), x0 + 78, 84, SHIELD_MARK, 'lcc-art-crest')]);
     };
-    kids.push(shield(50, 'em', markA));
-    kids.push(shield(W - 50 - 156, 'cr', markH));
+    kids.push(shield(50, 'em', 'a'));
+    kids.push(shield(W - 50 - 156, 'cr', 'h'));
     // the ACTIVE DECREE plate and the two rules (the HELD BY rule is the second one and is a single element)
     const plate = 'M232,94 L262,60 H654 L684,94 L654,128 H262 Z';
     kids.push(sv('path', { d: plate, fill: g('plate') }), strokePath(plate, g('gold'), 3.5), strokePath('M244,94 L270,68 H646 L672,94 L646,120 H270 Z', GOLD.lo, 1.5, { opacity: 0.8 }));
     // the two cloth standards: a rod with two finials, the cloth with a pointed foot, a gold edge and an inner edge
-    const standardArt = (cx, fill, mark) => {
+    const standardArt = (cx, fill, faction) => {
       const l = cx - 126, r = cx + 126;
       const cloth = 'M' + (l + 2) + ',206 H' + (r - 2) + ' V486 L' + cx + ',574 L' + (l + 2) + ',486 Z';
       return sv('g', null, [
@@ -262,11 +274,11 @@
         sv('path', { d: cloth, fill: g(fill) }),
         sv('path', { d: cloth, fill: 'none', stroke: '#000', 'stroke-width': 18, opacity: 0.18 }),
         strokePath(cloth, g('gold'), 6), strokePath('M' + (l + 14) + ',218 H' + (r - 14) + ' V480 L' + cx + ',556 L' + (l + 14) + ',480 Z', GOLD.mid, 1.6, { opacity: 0.75 }),
-        mark(cx, 252, 1.05),
+        svgPicture(factionAsset(faction, 'mark'), cx, 242, STANDARD_MARK, 'lcc-art-crest'),
         sv('path', { d: 'M' + (cx - 28) + ',520 q14,-26 28,-4 q14,-22 28,4 q-14,8 -28,18 q-14,-10 -28,-18 Z', fill: GOLD.mid, opacity: 0.85 }),
       ]);
     };
-    kids.push(standardArt(192, 'em', markA), standardArt(mirror(192), 'cr', markH));
+    kids.push(standardArt(192, 'em', 'a'), standardArt(mirror(192), 'cr', 'h'));
     // the nameplate shapes, the two hollow diamonds with their lines (between the plate and the count), the session plate, the footer
     const name = (x0, w) => {
       const d = 'M' + x0 + ',602 L' + (x0 + 30) + ',578 H' + (x0 + w - 30) + ' L' + (x0 + w) + ',602 L' + (x0 + w - 30) + ',626 H' + (x0 + 30) + ' Z';
@@ -322,9 +334,14 @@
       sg.appendChild(sv('title', null, [doc().createTextNode(seatLabel(s))]));
       if (s.center) sg.appendChild(sv('circle', { class: 'lcc-seat-halo', r: T.haloR, fill: 'none', stroke: g('tg'), 'stroke-width': 5 }));
       sg.appendChild(sv('circle', { class: 'lcc-seat-base', r: T.r, fill: g(s.state === 'a' ? 'sa' : s.state === 'h' ? 'sh' : s.center ? 'sc' : 'so'), stroke: s.center ? GOLD.hi : '#2a2112', 'stroke-width': s.center ? 3.5 : 2 }));
-      // a mark inside a claimed seat tells the two factions apart without colour: a hawk V for Atreides, a ring for Harkonnen
+      // a mark inside a claimed seat tells the two factions apart without colour: a V for Atreides, a ring for Harkonnen. It is the drawn fallback: the faction's picture covers it once the picture
+      // has loaded (the round medallion on a claimed seat, the white crest on the gold 13th seat, as in the approved plaque), and a forced-colours view shows it instead of the picture.
       if (s.state === 'a') sg.appendChild(sv('path', { class: 'lcc-seat-mark', d: 'M-9,-6 L0,10 L9,-6 L0,-1 Z', fill: '#f4efe0' }));
       if (s.state === 'h') sg.appendChild(sv('circle', { class: 'lcc-seat-mark', r: 6, fill: 'none', stroke: '#f4efe0', 'stroke-width': 3 }));
+      if (s.state === 'a' || s.state === 'h') {
+        const pic = svgPicture(factionAsset(s.state, s.center ? 'mark' : 'medal'), 0, 0, s.center ? SEAT_MARK : SEAT_MEDAL, 'lcc-seat-art', () => { sg.setAttribute('class', sg.getAttribute('class') + ' lcc-seat-has-art'); });
+        if (pic) sg.appendChild(pic);
+      }
       seats.appendChild(sg);
     }
     kids.push(seats);
@@ -484,7 +501,7 @@
 
   const api = {
     HOUSES, TRACKS, DECREE_FILES, DECREE_FALLBACK, SEATS, CENTER, TRACK, GEOMETRY: Object.freeze({ W, H }),
-    config, houseAsset, laneAsset, bannerAsset, decreeAsset,
+    config, houseAsset, laneAsset, bannerAsset, decreeAsset, factionAsset,
     seatStates, seatLabel, seatX, standingLine, summaryText, laneState,
     pill, ruleV, heldBy, standard, badge, richTip, frame, victory, VICTORY,
     renderPlaque, renderHouseCard, renderLaneCard,
