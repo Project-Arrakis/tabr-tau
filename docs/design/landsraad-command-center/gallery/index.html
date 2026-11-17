@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'">
+<meta name="robots" content="noindex">
+<title>Command Center component gallery (fixture data)</title>
+<!-- Static preview of the Landsraad and Specializations Command Center parts (milestone M2). Fixture data only: it reads no save, writes nothing, and is not part of the editor.
+     Serve the repository folder with any static file server on a loopback address and open this file. Every path below is relative to the repository. -->
+<link rel="stylesheet" href="../../../../design/assets/tokens-fremen.css" data-look-link="tokens">
+<link rel="stylesheet" href="../../../../design/assets/components-fremen.css" data-look-link="components">
+<link rel="stylesheet" href="../../../../design/assets/components.css">
+<link rel="stylesheet" href="../../../../design/assets/motion.css">
+<link rel="stylesheet" href="../../../../design/assets/palettes.css">
+<link rel="stylesheet" href="../../../../internal/web/static/lcc/lcc.css">
+<link rel="stylesheet" href="gallery.css">
+</head>
+<body>
+<header class="lccg-top">
+  <h1>Command Center component gallery</h1>
+  <p class="lccg-note" role="note"><strong>FIXTURE / DEMO.</strong> Every number, name and decree on this page is made up for the preview. Nothing here is read from a save, nothing is written, and this page is not part of the editor.</p>
+  <form class="lccg-controls" id="controls" aria-label="Preview settings"></form>
+</header>
+<main id="gallery"></main>
+<script src="../../../../internal/web/static/lcc/lcc.js"></script>
+<script src="gallery.js"></script>
+</body>
+</html>
