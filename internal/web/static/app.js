@@ -656,8 +656,9 @@ async function status() {
 // or far-reaching action asks first with its consequence in words. The far-reaching ones (bulk changes, raw SQL
 // writes, restoring a backup over the save) also make the person type a word, so a stray click cannot start them.
 let askState = null, askFrom = null;
-function ask({ title, body, pre = '', list = [], ok = 'Confirm', typed = '', danger = false, gap = false }) {
-  return new Promise((resolve) => { if (askState) askState.resolve(false); askFrom = askFrom || document.activeElement; askState = { title, body, pre, list, ok, typed, danger, gap, at: Date.now(), resolve }; drawAsk(); });
+// close: true makes it a notice with one Close button (the About panel); listLabel and preLabel name the list and the text block for a screen reader.
+function ask({ title, body, pre = '', list = [], ok = 'Confirm', typed = '', danger = false, gap = false, close = false, listLabel = 'The changes', preLabel = 'The statement' }) {
+  return new Promise((resolve) => { if (askState) askState.resolve(false); askFrom = askFrom || document.activeElement; askState = { title, body, pre, list, ok, typed, danger, gap, close, listLabel, preLabel, at: Date.now(), resolve }; drawAsk(); });
 }
 // A question opened with gap: true ignores an OK that comes sooner than ARM_GAP_MS after it opened (the second half of a double click on the button that opened it, a key that repeats).
 const tooSoon = () => !!(askState && askState.gap && Date.now() - askState.at < ARM_GAP_MS);
@@ -673,9 +674,9 @@ function drawAsk() {
   if (!askState) { el.className = 'hide'; setHTML(el, html``); return; }
   const a = askState;
   el.className = 'modal top';
-  setHTML(el, html`<div class="mbox d-panel small" role="dialog" aria-modal="true" aria-labelledby="atitle" aria-describedby="abody"><h3 class="big" id="atitle" tabindex="-1">${a.title}</h3><p id="abody">${a.body}</p>${a.list.length ? html`<ul class="qlist" tabindex="0" aria-label="The changes">${a.list.map((l) => html`<li>${l}</li>`)}</ul>` : ''}${a.pre ? html`<pre class="sqlpre" tabindex="0" aria-label="The statement">${a.pre}</pre>` : ''}
+  setHTML(el, html`<div class="mbox d-panel small" role="dialog" aria-modal="true" aria-labelledby="atitle" aria-describedby="abody"><h3 class="big" id="atitle" tabindex="-1">${a.title}</h3><p id="abody">${a.body}</p>${a.list.length ? html`<ul class="qlist" tabindex="0" aria-label="${a.listLabel}">${a.list.map((l) => html`<li>${l}</li>`)}</ul>` : ''}${a.pre ? html`<pre class="sqlpre" tabindex="0" aria-label="${a.preLabel}">${a.pre}</pre>` : ''}
     ${a.typed ? html`<p class="mut">Type <b>${a.typed}</b> to continue.</p><input id="atype" spellcheck="false" size="20">` : ''}
-    <div class="row mt12"><button class="b ${a.danger ? 'bad' : ''} d-btn ${a.danger ? 'danger' : 'primary'}" id="aok" data-act="askOk" ${a.typed ? 'disabled' : ''}>${a.ok}</button><button class="b sec d-btn" data-act="askNo">Cancel</button></div></div>`);
+    <div class="row mt12">${a.close ? html`<button class="b d-btn primary" id="aok" data-act="askNo">Close</button>` : html`<button class="b ${a.danger ? 'bad' : ''} d-btn ${a.danger ? 'danger' : 'primary'}" id="aok" data-act="askOk" ${a.typed ? 'disabled' : ''}>${a.ok}</button><button class="b sec d-btn" data-act="askNo">Cancel</button>`}</div></div>`);
   (a.typed ? $('#atype') : $('#atitle')).focus();
 }
 function endAsk(v) {
@@ -3333,6 +3334,35 @@ async function launchPoll() {
     }
   } finally { launchBusy = false; }
 }
+// ---------- the version label and the About panel (#806, slice 1: the version stamp only; nothing here fetches anything from the network)
+// The label is the version of this build, read from the editor's own /api/about. It opens a panel with the version, build number, commit, date and channel, and the release notes when a notes.md sits next to the editor.
+let ABOUT = null;
+async function loadAbout() {
+  try { ABOUT = await api('/api/about'); } catch (e) { return; } // the label is optional: without it the header is as before
+  const b = $('#verlabel');
+  if (!b || !ABOUT || !ABOUT.label) return;
+  b.textContent = String(ABOUT.label);
+  b.setAttribute('aria-label', `${ABOUT.label}, about this version`);
+  b.hidden = false;
+}
+function aboutLines(a) {
+  const rows = [['Version', a.version], ['Build', a.build], ['Commit', a.commit], ['Date', a.date], ['Channel', a.channel], ['Platform', a.arch]];
+  return rows.map(([k, v]) => `${k}: ${v || 'not recorded'}`);
+}
+function aboutBody(a) {
+  const parts = [`This is ${a.line || a.label}.`];
+  if (a.dev) parts.push('This is a development build, not a tagged release.');
+  parts.push(a.notes ? `Release notes (${a.notesFile || 'notes.md'}, next to the editor):` : 'No release notes were found next to the editor.');
+  return parts.join(' ');
+}
+async function openAbout() {
+  let a;
+  try { a = await api('/api/about?notes=1'); } catch (e) { a = ABOUT; }
+  if (!a) { toast('The version could not be read.', true); return; }
+  await ask({ title: 'About Tabr Tau', body: aboutBody(a), list: aboutLines(a), listLabel: 'This build', pre: a.notes ? a.notes + (a.notesTruncated ? '\n(cut: the file is longer than the editor shows)' : '') : '', preLabel: 'Release notes', close: true });
+}
+$('#verlabel').onclick = openAbout;
+loadAbout();
 status().then(render).then(async () => {
   try { const r = await api('/api/startup'); if (r.note) toast(r.note, !!r.warn, 15000); } catch (e) { /* the note is optional */ }
   launchPoll();

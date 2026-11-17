@@ -67,6 +67,9 @@ type Server struct {
 
 	// EditorVersion is written into a base file so that a file says which version of the editor made it ("" when the caller does not set it).
 	EditorVersion string
+
+	// NotesDir is the folder where the About panel looks for notes.md (the folder of the running editor); "" shows no notes.
+	NotesDir string
 }
 
 func New(s *save.Save, cfg config.Dir) *Server {
@@ -618,6 +621,7 @@ func (s *Server) routes() {
 		w.Write(b) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter (embedded, fixed page with no dynamic content)
 	})
 
+	s.get("/api/about", s.about)
 	s.get("/api/overview", func(r *http.Request) (any, error) { return o.Overview() })
 	s.get("/api/settings", func(r *http.Request) (any, error) {
 		cur, note, perr := settings.LoadNote(s.SettingsPath)

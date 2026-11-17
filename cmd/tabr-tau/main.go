@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/buildinfo"
 	"github.com/Project-Arrakis/tabr-tau/internal/config"
 	"github.com/Project-Arrakis/tabr-tau/internal/diff"
 	"github.com/Project-Arrakis/tabr-tau/internal/gui"
@@ -25,10 +26,11 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/kit/savefile"
 )
 
-var version = "dev"
+// versionLine is the one line that names this build, for example "tabr-tau v0.14.2 (build 317, a1b2c3d)"; the stamp is set when the program is built (scripts/buildinfo.ps1).
+func versionLine() string { return "tabr-tau " + buildinfo.Get().Line() }
 
 func usage() {
-	fmt.Fprintf(os.Stderr, `tabr-tau %s
+	fmt.Fprintf(os.Stderr, `%s
 
 Usage:
   tabr-tau [flags]                      start the local web UI
@@ -40,7 +42,7 @@ Usage:
                                         row- and JSON-path-level diff of two saves (read-only; ids redacted by default)
 
 Flags:
-`, version)
+`, versionLine())
 	flag.PrintDefaults()
 }
 
@@ -49,11 +51,16 @@ func main() {
 	cfgDir := flag.String("config", config.DefaultDir(), "game config folder containing the .ini files")
 	addr := flag.String("addr", "127.0.0.1:8090", "listen address (must be a loopback address: the editor has no login)")
 	noOpen := flag.Bool("no-browser", false, "do not open the browser")
+	showVersion := flag.Bool("version", false, "print the version of this build and exit")
 	forceWeb := flag.Bool("web", false, "use the browser instead of the built-in window (Windows opens its own window by default)")
 	noAuto := flag.Bool("no-auto", false, "do not run the automatic refill and repair pass in this run, whatever the setting says (for scripts, tests and helpers; the setting is not changed)")
 	flag.Usage = usage
 	gui.AttachConsole() // a GUI-subsystem exe has no console of its own; reattach to the parent's so CLI output shows
 	flag.Parse()
+	if *showVersion {
+		fmt.Println(versionLine())
+		return
+	}
 	addrExplicit := false
 	flag.Visit(func(f *flag.Flag) {
 		if f.Name == "addr" {
@@ -188,7 +195,7 @@ func main() {
 		ws.NoteStartup(note, true)
 	}
 	bootURL := ws.BootURL(base) // single use, valid for 10 minutes; sets this browser's session cookie
-	fmt.Printf("tabr-tau %s\n  save:   %s\n  config: %s\n  ui:     %s\n", version, s.Path, *cfgDir, bootURL)
+	fmt.Printf("%s\n  save:   %s\n  config: %s\n  ui:     %s\n", versionLine(), s.Path, *cfgDir, bootURL)
 	if !save.IsGamesOwnSave(s.Path) {
 		fmt.Println("  note:   " + notLiveLabel + ": this is not the game's save; edits are written at once and do not reach the game unless this file is installed as its game.db")
 	}
@@ -252,7 +259,10 @@ func windowTitle(savePath string) string {
 // can prove main does both.
 func newWebServer(s *save.Save, cfgDir, editorDir string, noAuto bool, launchDelay time.Duration) *web.Server {
 	ws := web.New(s, config.Dir{Path: cfgDir})
-	ws.EditorVersion = version
+	ws.EditorVersion = buildinfo.Get().Version
+	if exe, err := os.Executable(); err == nil {
+		ws.NotesDir = filepath.Dir(exe) // the About panel shows notes.md from here when there is one
+	}
 	if editorDir != "" {
 		ws.KeepPendingEdits(editorDir) // before the startup tasks: the edits put back are pending, and the refill leaves a save with pending edits alone
 	}
