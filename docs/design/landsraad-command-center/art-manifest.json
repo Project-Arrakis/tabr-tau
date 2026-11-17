@@ -1,0 +1,520 @@
+{
+  "purpose": "Runtime art of the Command Center (milestone M2): optimized local copies of the game artwork in docs/art/landsraad, served from internal/web/static/lcc/art. Game artwork belongs to Funcom and is outside the repository licence (docs/art-notice.md). The tests compare this file with the embedded files byte for byte.",
+  "runtimeRoot": "internal/web/static/lcc/art/",
+  "format": "webp with alpha, encoded once from the reference PNG with the browser image encoder (quality 1.0 for the house symbols, 0.92 for the lane, banner and decree pictures); the reference PNG stays the source of truth",
+  "sizes": {
+    "house": "128 x 128 (the reference size)",
+    "lane": "256 x 256 (the reference size)",
+    "banner": "256 x 256: the reference banners are 256 x 256 and the folder README now says so too (it said 512 x 512 before M2); recorded in 05-m2-visual-foundation.md",
+    "decree": "128 x 128 (down from the 256 x 256 reference; shown at 96 px at most)"
+  },
+  "houseAlias": {
+    "mikarrol": "mikkarol"
+  },
+  "houseAliasNote": "The save and the editor spell the House Mikkarol; the reference picture and public trackers spell it Mikarrol. The runtime file is mikkarol.webp. Both spellings resolve through this explicit table; a file name is never built from a House name.",
+  "decreeArt": {
+    "ExperienceRateIncrease": {
+      "file": "scholarly-collaboration",
+      "basis": "name"
+    },
+    "RangedDamageIncreased": {
+      "file": "honor-of-the-fallen",
+      "basis": "subject"
+    },
+    "MeleeDamageIncreased": {
+      "file": "honor-of-the-fallen",
+      "basis": "subject"
+    },
+    "CraftingCostReduced": {
+      "file": "production-contract",
+      "basis": "name"
+    },
+    "DropInventoryOnDefeatActive": {
+      "file": "loot",
+      "basis": "subject"
+    },
+    "RepairAndRefiningTimes": {
+      "file": "repair-cost-reduction",
+      "basis": "subject"
+    },
+    "SpecialVendorActive_Vehicles": {
+      "file": "vendor-vehicles",
+      "basis": "name"
+    },
+    "SpecialVendorActive_Weapons": {
+      "file": "vendor-weapons",
+      "basis": "name"
+    },
+    "SpecialVendorActive_Armor": {
+      "file": "vendor-armor",
+      "basis": "name"
+    },
+    "SpecialVendorActive_Utilities": {
+      "file": "vendor-utilities",
+      "basis": "name"
+    }
+  },
+  "decreeArtNote": "Matched by hand against the editor decree table (internal/ops/decree-names.json). basis \"name\": the picture is named like the decree. basis \"subject\": the picture shows what the decree is about. A decree that is not listed (the plain SpecialVendorActive row, an id the editor has never seen) gets decrees/fallback.svg, never a guessed picture.",
+  "decreeNotRuntime": [
+    "choam",
+    "dagger",
+    "exclusive-import-rights",
+    "weapon-rifle",
+    "xp"
+  ],
+  "decreeNotRuntimeNote": "Reference pictures that no decree id of the editor table is matched to; they stay in docs/art/landsraad/decrees and are not embedded.",
+  "decreeMissing": [
+    "vendor-special"
+  ],
+  "decreeMissingNote": "docs/art/landsraad/README.md lists vendor-special, but the file does not exist; the plain SpecialVendorActive decree uses the neutral picture.",
+  "files": [
+    {
+      "role": "house",
+      "key": "alexin",
+      "file": "houses/alexin.webp",
+      "bytes": 4714,
+      "sha256": "677e2a58fb556f060c3989aba0d55d6c58d63bf3f4d59e90dee4623fa63ac904",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/alexin.png"
+    },
+    {
+      "role": "house",
+      "key": "argosaz",
+      "file": "houses/argosaz.webp",
+      "bytes": 5048,
+      "sha256": "8cae8b2946d47c4ce2042369c6d33f6792c3ef315e3ff035b5d3607cdff324cc",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/argosaz.png"
+    },
+    {
+      "role": "house",
+      "key": "dyvetz",
+      "file": "houses/dyvetz.webp",
+      "bytes": 5864,
+      "sha256": "8a6a6600e59d0d924d961b0b23e6c9c309a43d8ce4c12f5709f20f6263a7d149",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/dyvetz.png"
+    },
+    {
+      "role": "house",
+      "key": "ecaz",
+      "file": "houses/ecaz.webp",
+      "bytes": 4626,
+      "sha256": "7ec79df4fc51e7a6893e99a2d86c377c6f4156a353cbf54e5befc4ab7d0afc03",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/ecaz.png"
+    },
+    {
+      "role": "house",
+      "key": "hagal",
+      "file": "houses/hagal.webp",
+      "bytes": 5546,
+      "sha256": "359bb0a927982c3f1781f84c31b4123a6174f9db559f08542d13b8e58a8c1c40",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/hagal.png"
+    },
+    {
+      "role": "house",
+      "key": "hurata",
+      "file": "houses/hurata.webp",
+      "bytes": 7216,
+      "sha256": "1c9fbe0bbef1d8eb8cfb7b8b994df279ea12c84a9c0f84170374c734c0a9aea4",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/hurata.png"
+    },
+    {
+      "role": "house",
+      "key": "imota",
+      "file": "houses/imota.webp",
+      "bytes": 4098,
+      "sha256": "03bf00daea0166f0194bb59b84c612e205c9535787a5a8a47be16d2ee89f16f2",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/imota.png"
+    },
+    {
+      "role": "house",
+      "key": "kenola",
+      "file": "houses/kenola.webp",
+      "bytes": 4358,
+      "sha256": "954d877a3a9e0c299f1cf0fcc0842b764c1c66fb8bc541b48ce1e0ffb94516ad",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/kenola.png"
+    },
+    {
+      "role": "house",
+      "key": "lindaren",
+      "file": "houses/lindaren.webp",
+      "bytes": 4230,
+      "sha256": "dd5af0903991ca6a6b4be7cb345ac8d64878fa2012fbf196ab817dac8f264bc8",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/lindaren.png"
+    },
+    {
+      "role": "house",
+      "key": "maros",
+      "file": "houses/maros.webp",
+      "bytes": 5052,
+      "sha256": "e0cae14a97ceb18a3a958b747834ad9492f5a673004a00c56acfc14258818c2a",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/maros.png"
+    },
+    {
+      "role": "house",
+      "key": "mikkarol",
+      "file": "houses/mikkarol.webp",
+      "bytes": 4966,
+      "sha256": "bb1f24b0802005724fec0f9bf5eb96c1711a249dbd9b823b7d5e43c1052a95a2",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/mikarrol.png"
+    },
+    {
+      "role": "house",
+      "key": "moritani",
+      "file": "houses/moritani.webp",
+      "bytes": 3378,
+      "sha256": "462af5caf481ca49c2b46822d8d345a7450e4a4eedb925b2bbec988af148c115",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/moritani.png"
+    },
+    {
+      "role": "house",
+      "key": "mutelli",
+      "file": "houses/mutelli.webp",
+      "bytes": 5146,
+      "sha256": "5b45efbe377c30d4ea33cc09b95db38e7e78b16ddf9a65744277434e0ee725ab",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/mutelli.png"
+    },
+    {
+      "role": "house",
+      "key": "novebruns",
+      "file": "houses/novebruns.webp",
+      "bytes": 5728,
+      "sha256": "fb91f42d4220b6d65ccc1a9707d896404d4d41920e8dbc3410ecf6f464f3738c",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/novebruns.png"
+    },
+    {
+      "role": "house",
+      "key": "richese",
+      "file": "houses/richese.webp",
+      "bytes": 4954,
+      "sha256": "229d575525b45de8b32ecdd4547cc4d8c9cc55d9dfe6145dfb7d7d3083cf7221",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/richese.png"
+    },
+    {
+      "role": "house",
+      "key": "sor",
+      "file": "houses/sor.webp",
+      "bytes": 6416,
+      "sha256": "5d5e4fff877956a7ec424ce61eadbbbb9ba0c0d006e8586b8ef3cf4e4784dc8f",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/sor.png"
+    },
+    {
+      "role": "house",
+      "key": "spinette",
+      "file": "houses/spinette.webp",
+      "bytes": 2648,
+      "sha256": "204bce0221e13e86fc1eeea8ea0cdf078fd9e539e0e8cd22a28163c6fca23ee2",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/spinette.png"
+    },
+    {
+      "role": "house",
+      "key": "taligari",
+      "file": "houses/taligari.webp",
+      "bytes": 4120,
+      "sha256": "d54f383b61f70e7595ac619fe50838cdac9499f2a929e132172243521314fe98",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/taligari.png"
+    },
+    {
+      "role": "house",
+      "key": "thorvald",
+      "file": "houses/thorvald.webp",
+      "bytes": 4510,
+      "sha256": "e77853db0a2985a4cd3a77675b8b86d9e5d57f2bd315596b883973af142e489c",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/thorvald.png"
+    },
+    {
+      "role": "house",
+      "key": "tseida",
+      "file": "houses/tseida.webp",
+      "bytes": 4168,
+      "sha256": "cccff0379cdac07ff3632eddea5e418c0974691283149e1a0dbb86a1c506d6db",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/tseida.png"
+    },
+    {
+      "role": "house",
+      "key": "varota",
+      "file": "houses/varota.webp",
+      "bytes": 4064,
+      "sha256": "33e3c02f9f8d964b9dd9d3d0459a09b4b12d7592b77c4017b0032f706354f87a",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/varota.png"
+    },
+    {
+      "role": "house",
+      "key": "vernius",
+      "file": "houses/vernius.webp",
+      "bytes": 4126,
+      "sha256": "25f4412d346c68066cc2f8430455ba068b6d318948d97de75849211222cff6ba",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/vernius.png"
+    },
+    {
+      "role": "house",
+      "key": "wallach",
+      "file": "houses/wallach.webp",
+      "bytes": 6482,
+      "sha256": "104bea8c6e103251640ed2a9d1ea1508bf48c8440120bd952d4d6762bba32d73",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/wallach.png"
+    },
+    {
+      "role": "house",
+      "key": "wayku",
+      "file": "houses/wayku.webp",
+      "bytes": 5858,
+      "sha256": "5eae6ea6d5981b85abd5ab9411d61dc10aa97181f871504520cf6c37d82a3984",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/wayku.png"
+    },
+    {
+      "role": "house",
+      "key": "wydras",
+      "file": "houses/wydras.webp",
+      "bytes": 5082,
+      "sha256": "f0899683bea003f7836bdbb6d18c966097985f3c0128567e96a21175b33f6b71",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/houses/wydras.png"
+    },
+    {
+      "role": "lane",
+      "key": "combat",
+      "file": "lanes/combat.webp",
+      "bytes": 27022,
+      "sha256": "75cd46278b07cb5630c8281c18fd53d40fc3630d3ab44f846dff085de8c40a24",
+      "width": 256,
+      "height": 256,
+      "source": "docs/art/landsraad/lanes/combat.png"
+    },
+    {
+      "role": "lane",
+      "key": "crafting",
+      "file": "lanes/crafting.webp",
+      "bytes": 27092,
+      "sha256": "599233f67263e95ec36de9ebf76cc207b6a1b38a89515eea9189e95909278b34",
+      "width": 256,
+      "height": 256,
+      "source": "docs/art/landsraad/lanes/crafting.png"
+    },
+    {
+      "role": "lane",
+      "key": "exploration",
+      "file": "lanes/exploration.webp",
+      "bytes": 26990,
+      "sha256": "3efbcf3b459535691202680273317b86ebcd31c6be554d365bf5cb56aabbab6d",
+      "width": 256,
+      "height": 256,
+      "source": "docs/art/landsraad/lanes/exploration.png"
+    },
+    {
+      "role": "lane",
+      "key": "gathering",
+      "file": "lanes/gathering.webp",
+      "bytes": 26714,
+      "sha256": "d9842e2960fcb68a9d4da6a794852c90d63d7c21e4917a31c2dacc8560b6ddc5",
+      "width": 256,
+      "height": 256,
+      "source": "docs/art/landsraad/lanes/gathering.png"
+    },
+    {
+      "role": "lane",
+      "key": "sabotage",
+      "file": "lanes/sabotage.webp",
+      "bytes": 26922,
+      "sha256": "b06d109c15097da9f9b7f085316f844735c5e0e3a103c255e5538ee1fd51d606",
+      "width": 256,
+      "height": 256,
+      "source": "docs/art/landsraad/lanes/sabotage.png"
+    },
+    {
+      "role": "banner",
+      "key": "combat",
+      "file": "banners/combat.webp",
+      "bytes": 12632,
+      "sha256": "7ace3670324440201e577941f7ab32baa55244ad6239da18c14cf5b6935e9f9c",
+      "width": 256,
+      "height": 256,
+      "source": "docs/art/landsraad/banners/combat.png"
+    },
+    {
+      "role": "banner",
+      "key": "crafting",
+      "file": "banners/crafting.webp",
+      "bytes": 14558,
+      "sha256": "48ced66618ec2ed7a5e525a961e839cf644c3f07ae736dfe03ba79fa1077a333",
+      "width": 256,
+      "height": 256,
+      "source": "docs/art/landsraad/banners/crafting.png"
+    },
+    {
+      "role": "banner",
+      "key": "exploration",
+      "file": "banners/exploration.webp",
+      "bytes": 18686,
+      "sha256": "4fc465aabf7010255c5f4b334c17cb12b083b582a0d9ce5e52e13bb23e48c2dc",
+      "width": 256,
+      "height": 256,
+      "source": "docs/art/landsraad/banners/exploration.png"
+    },
+    {
+      "role": "banner",
+      "key": "gathering",
+      "file": "banners/gathering.webp",
+      "bytes": 12362,
+      "sha256": "9b4ac1bdeac31ed715d0521fd156c0c0646b858b8e273d499d0329ed553e1303",
+      "width": 256,
+      "height": 256,
+      "source": "docs/art/landsraad/banners/gathering.png"
+    },
+    {
+      "role": "banner",
+      "key": "sabotage",
+      "file": "banners/sabotage.webp",
+      "bytes": 13176,
+      "sha256": "a6fc793d5c94f382fdc45042faa602c0bda7c042dc6e7bfa90eb58adf38b830b",
+      "width": 256,
+      "height": 256,
+      "source": "docs/art/landsraad/banners/sabotage.png"
+    },
+    {
+      "role": "decree-fallback",
+      "key": "fallback",
+      "file": "decrees/fallback.svg",
+      "bytes": 384,
+      "sha256": "e71901c4cec354d6c2270accda5a97d2a0c393a5747e7086c894b49256487c0c",
+      "source": "authored for this project (original, not game art)"
+    },
+    {
+      "role": "decree",
+      "key": "honor-of-the-fallen",
+      "file": "decrees/honor-of-the-fallen.webp",
+      "bytes": 7058,
+      "sha256": "d9a440f109170e85563b2db7114ef1e7051d6b2f038b28eccd48a7a6fca75cb8",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/decrees/honor-of-the-fallen.png"
+    },
+    {
+      "role": "decree",
+      "key": "loot",
+      "file": "decrees/loot.webp",
+      "bytes": 5098,
+      "sha256": "37058b6349343fca7ecbc10929ddd985ba8473b7f6009b128b260168222bbfb1",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/decrees/loot.png"
+    },
+    {
+      "role": "decree",
+      "key": "production-contract",
+      "file": "decrees/production-contract.webp",
+      "bytes": 7892,
+      "sha256": "5de1bcb54cbc0c0d1d3fb6b0035ccf80c5682c794734f3b5d1930bb8b7f20663",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/decrees/production-contract.png"
+    },
+    {
+      "role": "decree",
+      "key": "repair-cost-reduction",
+      "file": "decrees/repair-cost-reduction.webp",
+      "bytes": 7346,
+      "sha256": "32b447d6eab49938056dcf911ab1c103d96b34ab017cb6042bfbeeb7e26e0a37",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/decrees/repair-cost-reduction.png"
+    },
+    {
+      "role": "decree",
+      "key": "scholarly-collaboration",
+      "file": "decrees/scholarly-collaboration.webp",
+      "bytes": 6274,
+      "sha256": "2bfc1a8c89814802ecc32035af328d0f9c66beaa09e3b065d97dc7a8311a18c7",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/decrees/scholarly-collaboration.png"
+    },
+    {
+      "role": "decree",
+      "key": "vendor-armor",
+      "file": "decrees/vendor-armor.webp",
+      "bytes": 6828,
+      "sha256": "ba2eaac455ed2b77c3c453b236e7af0b84085aa2596b658c0f730d4f5c86f522",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/decrees/vendor-armor.png"
+    },
+    {
+      "role": "decree",
+      "key": "vendor-utilities",
+      "file": "decrees/vendor-utilities.webp",
+      "bytes": 7690,
+      "sha256": "74d03ce4f54231e1bb932e0a7add02965fee81b304f34085b85723b38e873884",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/decrees/vendor-utilities.png"
+    },
+    {
+      "role": "decree",
+      "key": "vendor-vehicles",
+      "file": "decrees/vendor-vehicles.webp",
+      "bytes": 8294,
+      "sha256": "6c4069d0b65e81151b0fb6293e65b955bd474d07f4fa79f51d64914d211c4c6e",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/decrees/vendor-vehicles.png"
+    },
+    {
+      "role": "decree",
+      "key": "vendor-weapons",
+      "file": "decrees/vendor-weapons.webp",
+      "bytes": 7344,
+      "sha256": "ba33415f8d995762c508d3f5d4cc0baf622e62c899235cd8fb9acfb1699a7c7b",
+      "width": 128,
+      "height": 128,
+      "source": "docs/art/landsraad/decrees/vendor-weapons.png"
+    }
+  ]
+}

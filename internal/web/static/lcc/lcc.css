@@ -1,0 +1,250 @@
+/* The Command Center's visual foundation (milestone M2). Every rule here is scoped to a class that starts with lcc, so loading this file changes nothing outside the parts it draws
+   (a test reads this file and fails on a selector that is not scoped). It takes its colours from the shared design tokens (--c-*) through the --lcc-* aliases below, so a look
+   (Fremen, Awakening, Sietch), the Dark / Dayside choice and a palette recolour it with no second theme state. Only two things have constants of their own: the gold and the
+   two factions' colours, which are identity and not theme. The plaque is the approved dark artwork in both themes (the page around it follows the theme).
+   No inline style, no inline address, no external address and no stylesheet import is used, so the page's content security policy needs nothing new. */
+
+/* ---- aliases (the only place a design token is named) ---- */
+.lcc, .lcc-scope {
+  --lcc-ground: var(--c-ground);
+  --lcc-panel: var(--c-panel);
+  --lcc-raised: var(--c-raised);
+  --lcc-sunken: var(--c-sunken);
+  --lcc-text: var(--c-text);
+  --lcc-dim: var(--c-dim);
+  --lcc-line: var(--c-bronze, var(--c-rule));
+  --lcc-hair: var(--c-hair);
+  --lcc-focus: var(--c-focus);
+  --lcc-gold: #e3b24d;          /* the gold of a frame, a rule or a ring */
+  --lcc-gold-hi: #ffe9a8;
+  --lcc-gold-lo: #8e5f1c;
+  --lcc-gold-text: var(--c-gold);   /* gold as text: the look's own heading sand, so it passes contrast in every theme */
+  --lcc-atreides: #12a381;      /* faction identity only */
+  --lcc-atreides-deep: #0b5a47;
+  --lcc-harkonnen: #d23a40;
+  --lcc-harkonnen-deep: #7a1118;
+  --lcc-on-faction: #fdf6e6;
+  --lcc-ink: #2a1a05;           /* the letters on a gold plate */
+  --lcc-on-gold: #2a1a05;       /* the letters on a fill of --lcc-gold (which is dark in Dayside) */
+  --lcc-field: #0a0b1e;         /* the plaque's own field, the same in both themes */
+  --lcc-cream: #f4e6c3;
+  --lcc-mo: var(--mo-slow, 320ms);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .lcc, :root:not([data-theme="dark"]) .lcc-scope { --lcc-gold: #8a5a10; --lcc-gold-hi: #b07a1c; --lcc-gold-lo: #5e3c08; --lcc-on-gold: #fff6df; }
+}
+:root[data-theme="light"] .lcc, :root[data-theme="light"] .lcc-scope { --lcc-gold: #8a5a10; --lcc-gold-hi: #b07a1c; --lcc-gold-lo: #5e3c08; --lcc-on-gold: #fff6df; }
+
+/* ---- small parts ---- */
+/* the cut-corner gold frame: a gold layer, cut at its corners, with the panel inside it cut the same way */
+.lcc-frame { --lcc-cut: 14px; background: linear-gradient(180deg, var(--lcc-gold-hi), var(--lcc-gold) 45%, var(--lcc-gold-lo)); padding: 2px; display: block;
+  clip-path: polygon(var(--lcc-cut) 0, calc(100% - var(--lcc-cut)) 0, 100% var(--lcc-cut), 100% calc(100% - var(--lcc-cut)), calc(100% - var(--lcc-cut)) 100%, var(--lcc-cut) 100%, 0 calc(100% - var(--lcc-cut)), 0 var(--lcc-cut)); }
+.lcc-frame-in { background: var(--lcc-panel); color: var(--lcc-text); padding: 12px 14px; height: 100%; box-sizing: border-box;
+  clip-path: polygon(calc(var(--lcc-cut) - 1px) 0, calc(100% - var(--lcc-cut) + 1px) 0, 100% calc(var(--lcc-cut) - 1px), 100% calc(100% - var(--lcc-cut) + 1px), calc(100% - var(--lcc-cut) + 1px) 100%, calc(var(--lcc-cut) - 1px) 100%, 0 calc(100% - var(--lcc-cut) + 1px), 0 calc(var(--lcc-cut) - 1px)); }
+/* the gold nameplate: pointed ends */
+.lcc-pill { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 4px 22px; min-height: 26px; color: var(--lcc-ink); font: 700 13px/1.1 var(--t-display, sans-serif); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
+  background: linear-gradient(180deg, #ffeaa6, #e3b24d 55%, #a8731f); clip-path: polygon(0 50%, 10% 0, 90% 0, 100% 50%, 90% 100%, 10% 100%); text-shadow: 0 1px 0 rgba(255, 240, 190, .6); }
+.lcc-badge { display: inline-block; padding: 2px 8px; border: 1px solid var(--lcc-line); color: var(--lcc-dim); background: var(--lcc-sunken); font: 600 11px/1.3 var(--t-display, sans-serif); letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
+.lcc-badge-demo { border-style: dashed; color: var(--lcc-gold-text); }
+.lcc-badge-ref { border-style: dotted; }
+/* the single vertical rule: one element, fading at both ends */
+.lcc-rule-v { display: block; width: 3px; align-self: stretch; min-height: 40px; border-radius: 2px; background: linear-gradient(180deg, rgba(240, 160, 32, 0), #f6b73a 20%, #ffd36b 50%, #f6b73a 80%, rgba(240, 160, 32, 0)); }
+.lcc-heldby { margin: 0; display: grid; gap: 4px; justify-items: center; text-align: center; }
+.lcc-heldby-l { font: 500 12px/1 var(--t-display, sans-serif); letter-spacing: .24em; color: var(--lcc-cream); text-shadow: 0 1px 2px #000; }
+.lcc-heldby-n { font: 700 15px/1.1 var(--t-display, sans-serif); letter-spacing: .08em; color: #f2857f; text-shadow: 0 1px 3px rgba(0, 0, 0, .9); }
+.lcc-heldby-n.lcc-f-a { color: #62e0bd; }
+.lcc-emboss { text-shadow: 0 1px 0 rgba(255, 238, 190, .35), 0 -1px 1px rgba(0, 0, 0, .8); }
+/* the cloth standard: a gold-edged banner with a pointed foot */
+.lcc-standard { box-sizing: border-box; padding: 12px 10px 22px; text-align: center; color: var(--lcc-on-faction); border: 2px solid var(--lcc-gold); clip-path: polygon(0 0, 100% 0, 100% 86%, 50% 100%, 0 86%); }
+.lcc-standard.lcc-f-a { background: linear-gradient(180deg, #0f6a54, #063a2e); }
+.lcc-standard.lcc-f-h { background: linear-gradient(180deg, #8c1219, #4a070c); }
+.lcc-standard-mark { display: block; width: 26px; height: 26px; margin: 0 auto 4px; background: var(--lcc-cream); }
+.lcc-f-a > .lcc-standard-mark { clip-path: polygon(0 18%, 30% 40%, 50% 0, 70% 40%, 100% 18%, 88% 70%, 50% 100%, 12% 70%); }
+.lcc-f-h > .lcc-standard-mark { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.lcc-standard-h { margin: 0 0 6px; font: 700 11px/1.2 var(--t-display, sans-serif); letter-spacing: .12em; color: #ffd98a; }
+.lcc-standard-list { list-style: decimal inside; margin: 0; padding: 0; font: 500 12px/1.5 var(--t-body, sans-serif); text-align: left; }
+.lcc-standard-none { margin: 0; font: italic 500 12px/1.4 var(--t-body, sans-serif); color: var(--lcc-cream); }
+/* the reachable tooltip */
+.lcc-tt { position: relative; display: inline-block; }
+.lcc-tt-b { font: inherit; color: var(--lcc-gold-text); background: none; border: 0; border-bottom: 1px dotted currentColor; padding: 2px 0; cursor: help; min-height: 24px; }
+.lcc-tip { position: absolute; z-index: 5; left: 0; top: calc(100% + 4px); min-width: 180px; max-width: 280px; padding: 8px 10px; background: var(--lcc-raised); color: var(--lcc-text); border: 1px solid var(--lcc-line); font: 400 12px/1.4 var(--t-body, sans-serif); display: none; }
+.lcc-tt:hover .lcc-tip, .lcc-tt:focus-within .lcc-tip { display: block; }
+.lcc-tt.dismissed .lcc-tip { display: none; }
+
+/* the words of the plaque, in both layouts (the wide layout then sets size and place) */
+.lcc-pl-decree .lcc-pl-title { margin: 0; font: 400 20px/1.15 Georgia, 'Times New Roman', serif; color: #e7c69a; text-shadow: 0 2px 2px #050207; }
+.lcc-pl-decree .lcc-pl-effect { margin: 2px 0 0; font: 400 13px/1.3 Georgia, serif; color: #f4d8a8; }
+.lcc-pl-decree-l { margin: 0; color: #f1d9a4; font-family: var(--t-display, sans-serif); text-transform: uppercase; }
+.lcc-pl-session, .lcc-pl-standing, .lcc-pl-count { margin: 0; color: #f6e2b3; font-family: var(--t-display, sans-serif); }
+
+/* ---- the plaque: wide layout (the approved artwork, drawn as vectors, with live text above it) ---- */
+.lcc-plaque-host { container-type: inline-size; display: block; width: 100%; }
+.lcc-plaque { --lcc-gold: #e3b24d; --lcc-gold-hi: #ffe9a8; --lcc-gold-lo: #8e5f1c; /* the plaque is the dark artwork in both themes, so its golds do not change with Dayside */ position: relative; isolation: isolate; box-sizing: border-box; width: 100%; aspect-ratio: 2172 / 724; background: var(--lcc-field); color: var(--lcc-cream); font-family: var(--t-body, sans-serif); overflow: hidden; }
+@container (min-width: 900px) {
+  .lcc-art, .lcc-track, .lcc-track-svg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+  .lcc-art { z-index: 0; }
+  .lcc-track { z-index: 1; pointer-events: none; }
+  .lcc-pl-head, .lcc-pl-foot { display: contents; }
+  .lcc-plaque > * { z-index: 2; }
+  .lcc-plaque .lcc-art, .lcc-plaque .lcc-track { z-index: auto; }
+  .lcc-pl-head > .lcc-rule-v { display: none; }  /* wide: the rule is drawn in the artwork (one element, last in its layer); the narrow layout shows this one */
+  .lcc-pl-decree-l, .lcc-pl-decree, .lcc-pl-held, .lcc-pl-session, .lcc-pl-faction, .lcc-pl-standing, .lcc-pl-std-a, .lcc-pl-std-h { position: absolute; margin: 0; box-sizing: border-box; }
+  .lcc-pl-decree-l { left: 10.68%; width: 20.81%; top: 8.29%; height: 9.39%; display: flex; align-items: center; justify-content: center; font: 500 clamp(10px, 1.8cqw, 40px)/1 var(--t-display, sans-serif); letter-spacing: .15em; color: #f1d9a4; text-shadow: 0 2px 2px #050207; white-space: nowrap; }
+  .lcc-pl-decree { left: 33.7%; width: 38.03%; top: 3.3%; height: 15.5%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-width: 0; }
+  .lcc-pl-decree .lcc-pl-title { margin: 0; max-width: 100%; font: 400 clamp(12px, 2.5cqw, 54px)/1.1 Georgia, 'Times New Roman', serif; color: #e7c69a; letter-spacing: -.01em; text-shadow: 0 2px 2px #050207; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lcc-pl-decree .lcc-pl-effect { margin: 2px 0 0; max-width: 100%; font: 400 clamp(9px, 1.2cqw, 26px)/1.15 Georgia, serif; color: #f4d8a8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lcc-pl-effect::before { content: '\25c6'; font-size: .56em; color: #facd69; padding-right: .6em; vertical-align: .15em; }
+  .lcc-pl-held { left: 73.66%; width: 17.1%; top: 5%; height: 13.8%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .5em; }
+  .lcc-pl-held .lcc-heldby-l { font-size: clamp(9px, 1.15cqw, 26px); }
+  .lcc-pl-held .lcc-heldby-n { font-size: clamp(9px, 1.2cqw, 28px); white-space: nowrap; }
+  .lcc-pl-session { left: 32.5%; width: 35%; top: 67.7%; height: 9.1%; display: flex; align-items: center; justify-content: center; font: 500 clamp(9px, 1.5cqw, 33px)/1 var(--t-display, sans-serif); letter-spacing: .08em; color: #f6e2b3; text-shadow: 0 2px 2px #050207; white-space: nowrap; text-transform: uppercase; }
+  .lcc-plaque .lcc-pl-std-a, .lcc-plaque .lcc-pl-std-h { top: 38.4%; width: 11.6%; height: 27.6%; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 0 .5%; background: none; border: 0; clip-path: none; }
+  .lcc-pl-std-a { left: 3.04%; } .lcc-pl-std-h { left: 85.36%; }
+  .lcc-pl-std-a .lcc-standard-mark, .lcc-pl-std-h .lcc-standard-mark { display: none; }  /* wide: the mark is part of the artwork */
+  .lcc-pl-std-a .lcc-standard-h, .lcc-pl-std-h .lcc-standard-h { font-size: clamp(7px, 1.02cqw, 22px); color: #ffd98a; margin: 0 0 .8em; padding-bottom: .5em; border-bottom: 1px solid rgba(255, 200, 100, .45); width: 100%; text-align: center; }
+  .lcc-pl-std-a .lcc-standard-none, .lcc-pl-std-h .lcc-standard-none { font-size: clamp(7px, 1.05cqw, 22px); margin-top: 1.2em; }
+  .lcc-pl-std-a .lcc-standard-list, .lcc-pl-std-h .lcc-standard-list { font-size: clamp(7px, 1cqw, 22px); line-height: 1.32; width: 100%; }
+  .lcc-pl-faction { top: 79.8%; height: 13.8%; width: 15.47%; display: grid; grid-template-rows: 48% 22% 30%; justify-items: center; align-items: center; }
+  .lcc-pl-faction-a { left: 1.47%; } .lcc-pl-faction-h { left: 83.06%; }
+  .lcc-pl-nameplate { grid-row: 1; background: none; clip-path: none; min-height: 0; padding: 0; font-size: clamp(7px, 1.28cqw, 28px); font-weight: 700; letter-spacing: .05em; text-shadow: 0 1px 0 rgba(255, 240, 190, .55); }
+  .lcc-pl-count { grid-row: 3; margin: 0; font: 500 clamp(8px, 1.4cqw, 31px)/1 var(--t-display, sans-serif); letter-spacing: .08em; color: #f7dca4; white-space: nowrap; text-shadow: 0 1px 2px #050207; }
+  .lcc-pl-count b { font-weight: 500; padding-right: .15em; font-variant-numeric: tabular-nums; }
+  .lcc-pl-standing { left: 27.6%; width: 44.75%; top: 78.5%; height: 8.2%; display: flex; align-items: center; justify-content: center; text-align: center; font: 500 clamp(7px, 1.08cqw, 24px)/1.18 var(--t-display, sans-serif); letter-spacing: .035em; color: #ffe9c7; text-shadow: 0 1px 2px #050207; }
+  .lcc-plaque > .lcc-badge { position: absolute; left: 50%; transform: translateX(-50%); bottom: 1.4%; z-index: 3; font-size: clamp(8px, .85cqw, 12px); background: rgba(10, 11, 30, .85); color: #ffd98a; border-color: #b79a5b; }
+}
+
+/* the seats. Fill and stroke come from the artwork's own attributes; the classes below are what a forced-colours view and a state can override. */
+.lcc-seat-base { transition: none; }
+.lcc-seat[data-center="true"] .lcc-seat-halo { stroke-linecap: round; }
+
+/* ---- the plaque: narrow layout. The decoration is dropped on purpose (not cropped), and the same words and numbers are laid out in a column. ---- */
+@container not (min-width: 900px) {
+  .lcc-plaque { aspect-ratio: auto; display: flex; flex-direction: column; gap: 12px; padding: 14px; background: linear-gradient(180deg, #0e1030, #090914); box-shadow: inset 0 0 0 2px var(--lcc-gold), inset 0 0 0 5px #15122e, inset 0 0 0 6px var(--lcc-gold-lo);
+    clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px); }
+  .lcc-art { display: none; }
+  .lcc-plaque > * { position: static; }
+  .lcc-pl-decree-l, .lcc-pl-decree, .lcc-pl-held, .lcc-pl-session, .lcc-pl-faction, .lcc-pl-standing, .lcc-pl-std-a, .lcc-pl-std-h { position: static; width: auto; height: auto; }
+  .lcc-pl-head { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, .8fr); column-gap: 12px; row-gap: 8px; align-items: center; }
+  .lcc-pl-decree-l { grid-column: 1 / -1; justify-content: flex-start; font-size: 13px; letter-spacing: .2em; }
+  .lcc-pl-decree { align-items: flex-start; text-align: left; }
+  .lcc-pl-decree .lcc-pl-title { font-size: 20px; white-space: normal; overflow: visible; }
+  .lcc-pl-decree .lcc-pl-effect { font-size: 13px; white-space: normal; overflow: visible; }
+  .lcc-pl-head > .lcc-rule-v { display: block; }
+  .lcc-pl-held { justify-content: center; }
+  .lcc-pl-held .lcc-heldby-l { font-size: 11px; } .lcc-pl-held .lcc-heldby-n { font-size: 14px; white-space: normal; }
+  .lcc-track { position: relative; width: 100%; height: auto; aspect-ratio: 1528 / 285; overflow: hidden; left: auto; top: auto; }
+  .lcc-track-svg { position: absolute; display: block; width: 142.15%; height: auto; left: -21.2%; top: -75.44%; }
+  .lcc-pl-session { align-self: center; justify-content: center; padding: 6px 18px; border: 2px solid var(--lcc-gold); font-size: 13px; letter-spacing: .08em; text-align: center; white-space: normal; background: #120b04; }
+  .lcc-pl-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+  .lcc-pl-faction { display: grid; grid-template-rows: auto auto; justify-items: center; gap: 12px; position: relative; }
+  .lcc-pl-nameplate { grid-row: 1; padding: 4px 18px; min-height: 26px; font-size: 12px; background: linear-gradient(180deg, #ffeaa6, #e3b24d 55%, #a8731f); clip-path: polygon(0 50%, 10% 0, 90% 0, 100% 50%, 90% 100%, 10% 100%); }
+  .lcc-pl-count { grid-row: 2; position: relative; width: 100%; text-align: center; font-size: 16px; padding-top: 4px; }
+  .lcc-pl-count::before { content: ''; position: absolute; left: 6%; right: 18%; top: -9px; height: 2px; background: linear-gradient(90deg, rgba(229, 179, 99, 0), #f6d08a 40%, #ffeab5); }
+  .lcc-pl-faction-h .lcc-pl-count::before { left: 18%; right: 6%; background: linear-gradient(270deg, rgba(229, 179, 99, 0), #f6d08a 40%, #ffeab5); }
+  .lcc-pl-count::after { content: ''; position: absolute; top: -15px; right: 8%; width: 9px; height: 9px; border: 2px solid var(--lcc-gold); transform: rotate(45deg); background: #090914; }
+  .lcc-pl-faction-h .lcc-pl-count::after { right: auto; left: 8%; }
+  .lcc-pl-std-a, .lcc-pl-std-h { display: block; padding: 10px 8px 20px; }
+  .lcc-pl-std-a .lcc-standard-mark, .lcc-pl-std-h .lcc-standard-mark { display: block; }
+  .lcc-pl-std-a .lcc-standard-h, .lcc-pl-std-h .lcc-standard-h { font-size: 11px; border: 0; padding: 0; }
+  .lcc-pl-std-a .lcc-standard-none, .lcc-pl-std-h .lcc-standard-none, .lcc-pl-std-a .lcc-standard-list, .lcc-pl-std-h .lcc-standard-list { font-size: 12px; margin-top: 0; }
+  .lcc-pl-std-a { grid-column: 1; grid-row: 2; } .lcc-pl-std-h { grid-column: 2; grid-row: 2; }
+  .lcc-pl-standing { grid-column: 1 / -1; grid-row: 3; text-align: center; font-size: 13px; line-height: 1.35; padding: 4px 0; }
+  .lcc-plaque > .lcc-badge { align-self: flex-start; }
+}
+@container (max-width: 520px) {
+  .lcc-pl-head { grid-template-columns: 1fr; }
+  .lcc-pl-head > .lcc-rule-v { width: 100%; height: 3px; min-height: 0; align-self: auto; background: linear-gradient(90deg, rgba(240, 160, 32, 0), #f6b73a 20%, #ffd36b 50%, #f6b73a 80%, rgba(240, 160, 32, 0)); }
+  .lcc-pl-held { align-items: flex-start; text-align: left; justify-items: start; }
+}
+
+/* ---- House card ---- */
+.lcc-house { all: unset; box-sizing: border-box; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: center; position: relative; min-height: 72px; padding: 8px 10px; color: var(--lcc-text); background: var(--lcc-panel); border: 1px solid var(--lcc-hair); cursor: pointer; }
+.lcc-house:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 2px; }
+.lcc-house-crest { width: 48px; height: 48px; display: grid; place-items: center; background: var(--lcc-field); border: 1px solid var(--lcc-gold-lo); }
+.lcc-house-img { width: 40px; height: 40px; display: block; }
+.lcc-house-initials { font: 700 14px/1 var(--t-display, sans-serif); color: var(--lcc-cream); }
+.lcc-house-body { display: grid; gap: 3px; min-width: 0; }
+.lcc-house-name { font: 700 14px/1.2 var(--t-display, sans-serif); letter-spacing: .04em; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lcc-owner { justify-self: start; padding: 1px 8px; font: 700 11px/1.5 var(--t-display, sans-serif); letter-spacing: .08em; text-transform: uppercase; border: 1px solid transparent; }
+.lcc-owner-a { background: var(--lcc-atreides-deep); color: var(--lcc-on-faction); border-color: var(--lcc-atreides); }
+.lcc-owner-h { background: var(--lcc-harkonnen-deep); color: var(--lcc-on-faction); border-color: var(--lcc-harkonnen); }
+.lcc-owner-open { background: transparent; color: var(--lcc-dim); border: 1px dashed var(--lcc-line); }
+.lcc-owner-unknown { background: transparent; color: var(--lcc-dim); border: 1px dotted var(--lcc-line); font-style: italic; }
+.lcc-house-path { display: inline-flex; align-items: center; gap: 5px; font: 500 11px/1 var(--t-body, sans-serif); color: var(--lcc-dim); }
+.lcc-house-path-img { width: 20px; height: 20px; }
+.lcc-house-flags { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.lcc-flag { padding: 1px 7px; border: 1px solid var(--lcc-line); font: 700 10px/1.5 var(--t-display, sans-serif); letter-spacing: .09em; color: var(--lcc-text); background: var(--lcc-sunken); }
+.lcc-flag-one { border-style: dashed; color: var(--lcc-gold-text); }
+.lcc-flag-line { background: var(--lcc-gold); color: var(--lcc-on-gold); border-color: var(--lcc-gold-hi); }
+.lcc-flag-dom { border-style: double; border-width: 3px; color: var(--lcc-gold-text); }
+.lcc-flag-wait { border-color: var(--lcc-gold); color: var(--lcc-gold-text); }
+.lcc-flag-cap { background: var(--lcc-gold); color: var(--lcc-on-gold); border-color: var(--lcc-gold-hi); }
+.lcc-flag-ks { border-color: var(--lcc-atreides); color: var(--lcc-text); }
+.lcc-flag-warn { border-style: dashed; color: var(--c-warn, var(--lcc-text)); }
+.lcc-house[data-owner="a"] { border-left: 6px solid var(--lcc-atreides); }
+.lcc-house[data-owner="h"] { border-left: 6px solid var(--lcc-harkonnen); }
+.lcc-house[data-owner="open"] { border-style: dashed; border-color: var(--lcc-line); }
+.lcc-house[data-owner="unknown"] { border-style: dotted; border-color: var(--lcc-line); background-image: repeating-linear-gradient(135deg, transparent 0 8px, color-mix(in srgb, var(--lcc-line) 14%, transparent) 8px 9px); }
+.lcc-house[data-one-away="true"] { outline: 2px dashed var(--lcc-gold); outline-offset: -5px; }
+.lcc-house[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--lcc-gold); background: var(--lcc-raised); }
+.lcc-house[data-victory="circuit"] { box-shadow: 0 0 0 3px var(--lcc-gold), 0 0 16px 2px color-mix(in srgb, var(--lcc-gold) 70%, transparent); border-color: var(--lcc-gold); animation: lcc-reveal var(--lcc-mo) var(--mo-ease, ease-out) 1 both; }
+.lcc-house[data-victory="dominion"] { box-shadow: 0 0 0 2px var(--lcc-panel), 0 0 0 5px var(--lcc-gold); border-color: var(--lcc-gold); animation: lcc-reveal var(--lcc-mo) var(--mo-ease, ease-out) 1 both; }
+@keyframes lcc-reveal { from { opacity: .35; transform: scale(.97); } to { opacity: 1; transform: none; } }
+html[data-motion="calm"] .lcc [data-victory], html[data-motion="off"] .lcc [data-victory], html[data-motion="calm"] .lcc-scope [data-victory], html[data-motion="off"] .lcc-scope [data-victory] { animation: none; }
+@media (prefers-reduced-motion: reduce) { .lcc [data-victory], .lcc-scope [data-victory] { animation: none; } }
+
+/* ---- specialization lane card ---- */
+.lcc-lane { all: unset; box-sizing: border-box; display: grid; justify-items: center; gap: 6px; padding: 14px 12px 12px; min-width: 0; position: relative; text-align: center; color: var(--lcc-text); background: var(--lcc-panel); border: 1px solid var(--lcc-hair); border-top: 3px solid var(--lcc-gold-lo); cursor: pointer; }
+.lcc-lane:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 2px; }
+.lcc-lane-icon { width: 84px; height: 84px; display: grid; place-items: center; }
+.lcc-lane-img { width: 72px; height: 72px; display: block; }
+.lcc-lane-initials { font: 700 18px/1 var(--t-display, sans-serif); color: var(--lcc-dim); }
+.lcc-lane-name { font: 700 15px/1.2 var(--t-display, sans-serif); letter-spacing: .16em; text-transform: uppercase; }
+.lcc-lane-level { font: 600 13px/1 var(--t-body, sans-serif); color: var(--lcc-gold-text); font-variant-numeric: tabular-nums; }
+.lcc-lane-level b { font-size: 17px; }
+.lcc-lane-level small { color: var(--lcc-dim); }
+.lcc-lane-bar { display: block; width: 100%; height: 6px; background: var(--lcc-sunken); border: 1px solid var(--lcc-hair); box-sizing: border-box; }
+.lcc-lane-fill { display: block; height: 100%; width: var(--lcc-v, 0%); background: linear-gradient(90deg, var(--lcc-gold-lo), var(--lcc-gold)); }
+.lcc-lane-nums { font: 500 11px/1.3 var(--t-body, sans-serif); color: var(--lcc-dim); font-variant-numeric: tabular-nums; }
+.lcc-lane-tags { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.lcc-lane[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--lcc-gold); background: var(--lcc-raised); }
+/* the XP cap (level 100): the gold treatment. It says nothing about keystones, which have a tag of their own. */
+.lcc-lane[data-xpcap="true"] { border-color: var(--lcc-gold); border-top-color: var(--lcc-gold-hi); background-image: linear-gradient(180deg, color-mix(in srgb, var(--lcc-gold) 16%, transparent), transparent 60%); box-shadow: inset 0 0 0 1px var(--lcc-gold), 0 0 14px color-mix(in srgb, var(--lcc-gold) 40%, transparent); }
+.lcc-lane[data-xpcap="true"] .lcc-lane-level b { font-size: 20px; }
+.lcc-lane[data-xpcap="true"][aria-pressed="true"] { box-shadow: inset 0 0 0 1px var(--lcc-gold), 0 0 0 3px var(--lcc-gold), 0 0 14px color-mix(in srgb, var(--lcc-gold) 40%, transparent); }
+.lcc-lane[data-full="true"] { border-style: double; border-width: 4px; }
+.lcc-lane[data-unresolved="true"] { border-style: dashed; }
+
+/* ---- forced colours: the decoration goes, the structure and the words stay, and the two factions differ by shape and fill ---- */
+@media (forced-colors: active) {
+  .lcc-art { display: none; }
+  .lcc-plaque { background: Canvas; color: CanvasText; border: 2px solid CanvasText; clip-path: none; box-shadow: none; }
+  .lcc-pl-decree-l, .lcc-pl-title, .lcc-pl-effect, .lcc-pl-held .lcc-heldby-l, .lcc-pl-held .lcc-heldby-n, .lcc-pl-session, .lcc-pl-count, .lcc-pl-standing, .lcc-standard-h, .lcc-standard-none, .lcc-standard-list { color: CanvasText; text-shadow: none; }
+  .lcc-pill, .lcc-pl-nameplate { background: Canvas; color: CanvasText; border: 1px solid CanvasText; clip-path: none; text-shadow: none; }
+  .lcc-track-svg path:not(.lcc-seat-mark) { fill: Canvas; stroke: CanvasText; }
+  .lcc-seat-base { fill: Canvas; stroke: CanvasText; stroke-width: 2.5; }
+  .lcc-seat-a .lcc-seat-base { fill: Highlight; stroke: CanvasText; }
+  .lcc-seat-h .lcc-seat-base { fill: CanvasText; stroke: CanvasText; }
+  .lcc-seat-a .lcc-seat-mark { fill: HighlightText; }
+  .lcc-seat-h .lcc-seat-mark { stroke: Canvas; fill: none; }
+  .lcc-seat-center .lcc-seat-base { stroke-width: 6; }
+  .lcc-seat-halo { stroke: CanvasText; }
+  .lcc-standard, .lcc-pl-std-a, .lcc-pl-std-h { background: Canvas; color: CanvasText; border: 2px solid CanvasText; clip-path: none; }
+  .lcc-standard-mark { background: CanvasText; }
+  .lcc-rule-v { background: CanvasText; }
+  .lcc-frame { background: CanvasText; } .lcc-frame-in { background: Canvas; color: CanvasText; }
+  .lcc-house, .lcc-lane { border: 2px solid ButtonText; background: ButtonFace; color: ButtonText; }
+  .lcc-house[aria-pressed="true"], .lcc-lane[aria-pressed="true"] { outline: 3px solid Highlight; box-shadow: none; }
+  .lcc-house[data-owner="a"] { border-left-width: 8px; border-left-style: solid; }
+  .lcc-house[data-owner="h"] { border-left-width: 8px; border-left-style: double; }
+  .lcc-house[data-owner="open"] { border-style: dashed; } .lcc-house[data-owner="unknown"] { border-style: dotted; }
+  .lcc-house[data-victory="circuit"] { border-width: 4px; border-style: solid; box-shadow: none; }
+  .lcc-house[data-victory="dominion"] { border-width: 5px; border-style: double; box-shadow: none; }
+  .lcc-lane[data-xpcap="true"] { border-width: 4px; box-shadow: none; background-image: none; }
+  .lcc-lane-fill { background: Highlight; } .lcc-lane-bar { border-color: ButtonText; }
+  .lcc-owner-a, .lcc-owner-h, .lcc-flag, .lcc-flag-line, .lcc-flag-cap, .lcc-badge { background: Canvas; color: CanvasText; border: 1px solid CanvasText; }
+  .lcc-tip { background: Canvas; color: CanvasText; border: 1px solid CanvasText; }
+}
+@media (prefers-contrast: more) {
+  .lcc-house, .lcc-lane, .lcc-owner-open, .lcc-owner-unknown, .lcc-flag, .lcc-badge { border-color: var(--lcc-text); }
+}
