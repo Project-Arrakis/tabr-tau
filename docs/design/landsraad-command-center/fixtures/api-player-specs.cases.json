@@ -1,0 +1,361 @@
+{
+  "_fixture": {
+    "synthetic": true,
+    "shape": "GET /api/player/specs: {maxXp, resetCount, rows[5], tracks, unassigned}; a row is {track, number, xp, level, keystoneOwned, keystoneTotal, granted}. Each case also lists the learned track numbers, the rows of the character in specialization_tracks, and expected facts",
+    "sourceCommit": "c369dd926e5f5c40048eaeca33b665be07dd2b02",
+    "notRealData": "no save or character: numbers, XP and keystone counts are made up",
+    "verifiedBy": "internal/ops/command_center_fixtures_test.go builds a save from each case and compares the real answer of Specs with the response"
+  },
+  "cases": [
+    {
+      "id": "xp-0-keystones-0-of-41",
+      "title": "Fresh track: no row, no keystones",
+      "learned": {},
+      "saveRows": [],
+      "response": {
+        "maxXp": 44182,
+        "resetCount": 0,
+        "rows": [
+          { "track": "Combat", "number": 4, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Crafting", "number": 1, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Exploration", "number": 3, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Gathering", "number": 2, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Sabotage", "number": 5, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false }
+        ],
+        "tracks": ["Combat", "Crafting", "Exploration", "Gathering", "Sabotage"],
+        "unassigned": []
+      },
+      "expect": {
+        "combat": { "xpCap": false, "keystonesComplete": false, "xpEditingEnabled": true }
+      }
+    },
+    {
+      "id": "xp-1",
+      "title": "One XP: level is a fraction of the first level",
+      "learned": {},
+      "saveRows": [
+        { "number": 4, "xp": 1, "level": 0.01 }
+      ],
+      "response": {
+        "maxXp": 44182,
+        "resetCount": 1,
+        "rows": [
+          { "track": "Combat", "number": 4, "xp": 1, "level": 0.01, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Crafting", "number": 1, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Exploration", "number": 3, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Gathering", "number": 2, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Sabotage", "number": 5, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false }
+        ],
+        "tracks": ["Combat", "Crafting", "Exploration", "Gathering", "Sabotage"],
+        "unassigned": []
+      },
+      "expect": {
+        "combat": { "xpCap": false, "keystonesComplete": false, "xpEditingEnabled": true }
+      }
+    },
+    {
+      "id": "xp-44181-near-cap-keystones-20-of-41",
+      "title": "One XP below the cap with half the keystones",
+      "learned": {},
+      "saveRows": [
+        { "number": 4, "xp": 44181, "level": 99.99839743589743 }
+      ],
+      "response": {
+        "maxXp": 44182,
+        "resetCount": 1,
+        "rows": [
+          {
+            "track": "Combat",
+            "number": 4,
+            "xp": 44181,
+            "level": 99.99839743589743,
+            "keystoneOwned": 20,
+            "keystoneTotal": 41,
+            "granted": false
+          },
+          { "track": "Crafting", "number": 1, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Exploration", "number": 3, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Gathering", "number": 2, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Sabotage", "number": 5, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false }
+        ],
+        "tracks": ["Combat", "Crafting", "Exploration", "Gathering", "Sabotage"],
+        "unassigned": []
+      },
+      "expect": {
+        "combat": { "xpCap": false, "keystonesComplete": false, "xpEditingEnabled": true }
+      }
+    },
+    {
+      "id": "xp-44182-cap-zero-keystones",
+      "title": "XP cap reached with no keystone: level 100 is not keystone completion",
+      "learned": {},
+      "saveRows": [
+        { "number": 4, "xp": 44182, "level": 100 }
+      ],
+      "response": {
+        "maxXp": 44182,
+        "resetCount": 1,
+        "rows": [
+          { "track": "Combat", "number": 4, "xp": 44182, "level": 100, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Crafting", "number": 1, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Exploration", "number": 3, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Gathering", "number": 2, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Sabotage", "number": 5, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false }
+        ],
+        "tracks": ["Combat", "Crafting", "Exploration", "Gathering", "Sabotage"],
+        "unassigned": []
+      },
+      "expect": {
+        "combat": { "xpCap": true, "keystonesComplete": false, "xpEditingEnabled": true }
+      }
+    },
+    {
+      "id": "xp-0-all-keystones-41-of-41",
+      "title": "No XP with every keystone: keystone completion is not level 100",
+      "learned": {},
+      "saveRows": [],
+      "response": {
+        "maxXp": 44182,
+        "resetCount": 0,
+        "rows": [
+          { "track": "Combat", "number": 4, "xp": 0, "level": 0, "keystoneOwned": 41, "keystoneTotal": 41, "granted": true },
+          { "track": "Crafting", "number": 1, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Exploration", "number": 3, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Gathering", "number": 2, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Sabotage", "number": 5, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false }
+        ],
+        "tracks": ["Combat", "Crafting", "Exploration", "Gathering", "Sabotage"],
+        "unassigned": []
+      },
+      "expect": {
+        "combat": { "xpCap": false, "keystonesComplete": true, "xpEditingEnabled": true }
+      }
+    },
+    {
+      "id": "both-complete",
+      "title": "XP cap and every keystone",
+      "learned": {},
+      "saveRows": [
+        { "number": 4, "xp": 44182, "level": 100 }
+      ],
+      "response": {
+        "maxXp": 44182,
+        "resetCount": 1,
+        "rows": [
+          { "track": "Combat", "number": 4, "xp": 44182, "level": 100, "keystoneOwned": 41, "keystoneTotal": 41, "granted": true },
+          { "track": "Crafting", "number": 1, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Exploration", "number": 3, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Gathering", "number": 2, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Sabotage", "number": 5, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false }
+        ],
+        "tracks": ["Combat", "Crafting", "Exploration", "Gathering", "Sabotage"],
+        "unassigned": []
+      },
+      "expect": {
+        "combat": { "xpCap": true, "keystonesComplete": true, "xpEditingEnabled": true }
+      }
+    },
+    {
+      "id": "keystone-total-zero-no-map",
+      "title": "A save with no keystone map: total 0 is never complete",
+      "learned": {},
+      "saveRows": [
+        { "number": 4, "xp": 44182, "level": 100 }
+      ],
+      "response": {
+        "maxXp": 44182,
+        "resetCount": 1,
+        "rows": [
+          { "track": "Combat", "number": 4, "xp": 44182, "level": 100, "keystoneOwned": 0, "keystoneTotal": 0, "granted": false },
+          { "track": "Crafting", "number": 1, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 0, "granted": false },
+          { "track": "Exploration", "number": 3, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 0, "granted": false },
+          { "track": "Gathering", "number": 2, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 0, "granted": false },
+          { "track": "Sabotage", "number": 5, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 0, "granted": false }
+        ],
+        "tracks": ["Combat", "Crafting", "Exploration", "Gathering", "Sabotage"],
+        "unassigned": []
+      },
+      "expect": {
+        "combat": { "xpCap": true, "keystonesComplete": false, "xpEditingEnabled": true }
+      }
+    },
+    {
+      "id": "mixed-five-tracks",
+      "title": "Five different states at once",
+      "learned": {},
+      "saveRows": [
+        { "number": 4, "xp": 12345, "level": 46.148148148148145 },
+        { "number": 1, "xp": 44182, "level": 100 },
+        { "number": 3, "xp": 100, "level": 1 },
+        { "number": 2, "xp": 0, "level": 0 },
+        { "number": 5, "xp": 44181, "level": 99.99839743589743 }
+      ],
+      "response": {
+        "maxXp": 44182,
+        "resetCount": 5,
+        "rows": [
+          {
+            "track": "Combat",
+            "number": 4,
+            "xp": 12345,
+            "level": 46.148148148148145,
+            "keystoneOwned": 7,
+            "keystoneTotal": 41,
+            "granted": false
+          },
+          { "track": "Crafting", "number": 1, "xp": 44182, "level": 100, "keystoneOwned": 41, "keystoneTotal": 41, "granted": true },
+          { "track": "Exploration", "number": 3, "xp": 100, "level": 1, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Gathering", "number": 2, "xp": 0, "level": 0, "keystoneOwned": 41, "keystoneTotal": 41, "granted": true },
+          {
+            "track": "Sabotage",
+            "number": 5,
+            "xp": 44181,
+            "level": 99.99839743589743,
+            "keystoneOwned": 20,
+            "keystoneTotal": 41,
+            "granted": false
+          }
+        ],
+        "tracks": ["Combat", "Crafting", "Exploration", "Gathering", "Sabotage"],
+        "unassigned": []
+      },
+      "expect": {
+        "combat": { "xpCap": false, "keystonesComplete": false, "xpEditingEnabled": true }
+      }
+    },
+    {
+      "id": "conflicting-learned-number-leaves-combat-unresolved",
+      "title": "A learned number 4 for Crafting takes the measured number of Combat: Combat has no number and the old Crafting row waits as unassigned",
+      "learned": { "Crafting": 4 },
+      "saveRows": [
+        { "number": 1, "xp": 500, "level": 4.565573770491803 },
+        { "number": 4, "xp": 2000, "level": 14.190721649484535 }
+      ],
+      "response": {
+        "maxXp": 44182,
+        "resetCount": 1,
+        "rows": [
+          { "track": "Combat", "number": null, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          {
+            "track": "Crafting",
+            "number": 4,
+            "xp": 2000,
+            "level": 14.190721649484535,
+            "keystoneOwned": 0,
+            "keystoneTotal": 41,
+            "granted": false
+          },
+          { "track": "Exploration", "number": 3, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Gathering", "number": 2, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Sabotage", "number": 5, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false }
+        ],
+        "tracks": ["Combat", "Crafting", "Exploration", "Gathering", "Sabotage"],
+        "unassigned": [
+          { "number": 1, "xp": 500, "level": 4.565573770491803 }
+        ]
+      },
+      "expect": {
+        "combat": { "xpCap": false, "keystonesComplete": false, "xpEditingEnabled": false },
+        "globalKeystonesEnabled": true
+      }
+    },
+    {
+      "id": "unassigned-row-number-9",
+      "title": "A row of the save with a number no track has: shown apart, left alone by Reset XP of all known tracks",
+      "learned": {},
+      "saveRows": [
+        { "number": 4, "xp": 2000, "level": 14.190721649484535 },
+        { "number": 1, "xp": 44182, "level": 100 },
+        { "number": 9, "xp": 750, "level": 6.511111111111111 }
+      ],
+      "response": {
+        "maxXp": 44182,
+        "resetCount": 2,
+        "rows": [
+          {
+            "track": "Combat",
+            "number": 4,
+            "xp": 2000,
+            "level": 14.190721649484535,
+            "keystoneOwned": 0,
+            "keystoneTotal": 41,
+            "granted": false
+          },
+          { "track": "Crafting", "number": 1, "xp": 44182, "level": 100, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Exploration", "number": 3, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Gathering", "number": 2, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Sabotage", "number": 5, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false }
+        ],
+        "tracks": ["Combat", "Crafting", "Exploration", "Gathering", "Sabotage"],
+        "unassigned": [
+          { "number": 9, "xp": 750, "level": 6.511111111111111 }
+        ]
+      },
+      "expect": {
+        "combat": { "xpCap": false, "keystonesComplete": false, "xpEditingEnabled": true },
+        "resetKnownOnly": 2,
+        "unknownUnaffected": true,
+        "keystonesUnaffected": true
+      }
+    },
+    {
+      "id": "raw-row-xp-44182-level-10-mismatch",
+      "title": "The advanced raw row writes XP and level as typed: stored level 10 against 100 computed from the XP",
+      "learned": {},
+      "saveRows": [
+        { "number": 4, "xp": 44182, "level": 10 }
+      ],
+      "response": {
+        "maxXp": 44182,
+        "resetCount": 1,
+        "rows": [
+          { "track": "Combat", "number": 4, "xp": 44182, "level": 10, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Crafting", "number": 1, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Exploration", "number": 3, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Gathering", "number": 2, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Sabotage", "number": 5, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false }
+        ],
+        "tracks": ["Combat", "Crafting", "Exploration", "Gathering", "Sabotage"],
+        "unassigned": []
+      },
+      "expect": {
+        "combat": { "xpCap": true, "keystonesComplete": false, "xpEditingEnabled": true },
+        "storedAndDerivedDiffer": true,
+        "autoCorrect": false
+      }
+    },
+    {
+      "id": "near-cap-44000-room-182",
+      "title": "Combat at 44,000 XP: the Landsraad grant preview of api-landsraad.synthetic.json says 182 XP of room",
+      "learned": {},
+      "saveRows": [
+        { "number": 4, "xp": 44000, "level": 99.70833333333333 }
+      ],
+      "response": {
+        "maxXp": 44182,
+        "resetCount": 1,
+        "rows": [
+          {
+            "track": "Combat",
+            "number": 4,
+            "xp": 44000,
+            "level": 99.70833333333333,
+            "keystoneOwned": 0,
+            "keystoneTotal": 41,
+            "granted": false
+          },
+          { "track": "Crafting", "number": 1, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Exploration", "number": 3, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Gathering", "number": 2, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false },
+          { "track": "Sabotage", "number": 5, "xp": 0, "level": 0, "keystoneOwned": 0, "keystoneTotal": 41, "granted": false }
+        ],
+        "tracks": ["Combat", "Crafting", "Exploration", "Gathering", "Sabotage"],
+        "unassigned": []
+      },
+      "expect": {
+        "combat": { "xpCap": false, "keystonesComplete": false, "xpEditingEnabled": true },
+        "landsraadRoom": 182
+      }
+    }
+  ]
+}
