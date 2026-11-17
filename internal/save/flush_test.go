@@ -408,3 +408,32 @@ func TestAQueueThatConflictsWithTheGamesNewerFileIsHeldWholeAndNothingIsWritten(
 		t.Fatal("Discard drops the held queue")
 	}
 }
+
+// #826: Marks counts the writes of pending edits and the queues thrown away, so a request can tell which of the two took its edit.
+func TestMarksCountWritesAndThrownAwayQueues(t *testing.T) {
+	defer NoGameRunningForTests()()
+	p := makeSave(t, `create table t(a integer); insert into t values (1);`)
+	s, _ := Open(p)
+	defer s.Close()
+	if m := s.Marks(); m != (Marks{}) {
+		t.Fatalf("a fresh save has counted nothing: %+v", m)
+	}
+	if err := s.Discard(); err != nil || s.Marks() != (Marks{}) {
+		t.Fatalf("a discard with nothing queued counts nothing: %+v %v", s.Marks(), err)
+	}
+	setA(t, s, 2)
+	if s.Flush(); s.Marks() != (Marks{Writes: 1}) {
+		t.Fatalf("a write counts as a write and not as a drop (the reload after it is no drop): %+v", s.Marks())
+	}
+	setA(t, s, 3)
+	if dropped, err := s.DiscardReport(); err != nil || !dropped || s.Marks() != (Marks{Writes: 1, Drops: 1}) {
+		t.Fatalf("a queue that is thrown away counts as a drop: %v %v %+v", dropped, err, s.Marks())
+	}
+	setA(t, s, 4)
+	restore := ActiveSessionForTests()
+	s.Flush() // queued: not a write
+	restore()
+	if s.Marks() != (Marks{Writes: 1, Drops: 1}) {
+		t.Fatalf("a flush that wrote nothing counts nothing: %+v", s.Marks())
+	}
+}

@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -75,6 +76,8 @@ type Save struct {
 	// the automatic write of pending edits (flush.go): one attempt at a time, and what became of the last
 	flushMu   sync.Mutex
 	lastFlush *Flush
+	// how many writes of pending edits have succeeded, and how many times a queue of pending edits was thrown away by a read of the file (Marks); bumped under mu, read without it
+	writes, drops atomic.Uint64
 	// the last write the editor made (an automatic one): the hash of the file it wrote, and the backup it was made after. A following write may reuse that backup only while
 	// the file is still the one that write left, so a file the game saved since is never overwritten without a backup of its own.
 	lastWrote   [32]byte
@@ -323,6 +326,9 @@ func (s *Save) load() error {
 	s.changedSize, s.changedMod = 0, time.Time{}
 	if statErr == nil {
 		s.diskSize, s.diskMod = st.Size(), st.ModTime()
+	}
+	if s.dirty || s.held != nil { // a queue of edits goes with the old working copy (a write clears the flag before it reads the file again, so a write does not count here)
+		s.drops.Add(1)
 	}
 	s.dirty = false
 	s.ops = nil
@@ -791,6 +797,7 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 	s.dirty = false
 	notesProblem := s.deliverNotes(s.ops) // the notes of the edits that are now in the game's file (notes.go)
 	s.ops = nil
+	s.writes.Add(1)
 	s.dropJournal()
 	if r := s.restored; r != nil { // the edits put back are written; the notice of the ones that were not stays until the person has seen it
 		if len(r.Conflicts) == 0 {

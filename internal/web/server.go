@@ -510,8 +510,8 @@ func (s *Server) postMax(path string, max int64, fn func(a ops.Args) (any, error
 	s.postMaxAfter(path, max, fn, nil)
 }
 
-// postMaxAfter is postMax for a route whose answer is worded after the write: after gets the answer and the outcome ("written" or "queued", empty when nothing was changed) and
-// gives back the answer to send.
+// postMaxAfter is postMax for a route whose answer is worded after the write: after gets the answer and the outcome ("written" or "queued"; empty when no edit was pending after the request, and also when edits were pending at the
+// check and had gone by the flush without a write that took them, a discard for one) and gives back the answer to send.
 func (s *Server) postMaxAfter(path string, max int64, fn func(a ops.Args) (any, error), after func(v any, outcome string) any) {
 	s.mux.HandleFunc("POST "+path, func(w http.ResponseWriter, r *http.Request) {
 		allowLongWrite(w)
@@ -519,11 +519,16 @@ func (s *Server) postMaxAfter(path string, max int64, fn func(a ops.Args) (any, 
 		if !ok {
 			return
 		}
+		before := s.Save.Marks() // read before the edit, so a write or a discard that comes after it shows in the counters
 		v, err := fn(a)
 		outcome := ""
 		if err == nil && s.Save.Dirty() {
+			if afterDirtyCheck != nil {
+				afterDirtyCheck()
+			}
 			// An edit is written to the game's file as it is made, or queued when the file cannot be written; the answer says which.
-			outcome = outcomeOfFlush(s.Save.Flush(), s.Save.LastFlush())
+			f := s.Save.Flush()
+			outcome = outcomeOfFlush(f, before, s.Save.Marks())
 		}
 		if err == nil {
 			v = withOutcome(v, outcome)
@@ -1302,12 +1307,16 @@ func (s *Server) specNums() map[string]int64 {
 	return ops.EffectiveTrackNumbers(settings.Load(s.SettingsPath).TrackNumbers)
 }
 
+// afterDirtyCheck is called by a test between the check for pending edits and the flush of an edit request, where another request can write or discard them.
+var afterDirtyCheck func()
+
 // outcomeOfFlush words what a request's flush came to. A flush that wrote the edits, or left some waiting, says so. A flush that found nothing pending (the zero Flush) is not a
-// queue: the edits this request saw were written, or taken away, by another request between the check and the flush (a repeat of a request that is still being written is
-// answered from memory and makes no edit of its own), so it is read from the last real flush: "written" when that one wrote everything, no outcome otherwise (#826).
-func outcomeOfFlush(f save.Flush, last *save.Flush) string {
+// queue: the edits this request saw were taken out of the queue by another request between the check and the flush (a repeat of a request that is still being written is
+// answered from memory and makes no edit of its own). It says "written" only when there is evidence that a write took them: the count of writes went up since the request began
+// and no queue was thrown away since (a discard or a reload drops edits that were never in the file). Otherwise it says nothing (#826).
+func outcomeOfFlush(f save.Flush, before, after save.Marks) string {
 	if f.At.IsZero() {
-		if last != nil && last.Saved && last.Queued == 0 {
+		if after.Writes > before.Writes && after.Drops == before.Drops {
 			return outcomeWritten
 		}
 		return ""

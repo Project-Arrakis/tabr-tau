@@ -61,6 +61,7 @@ func (s *Save) settleWrittenLocked() (wrote []string, backup string, settled boo
 		s.recStmts += len(r.Stmts)
 	}
 	s.dirty = len(extraOps) > 0
+	s.writes.Add(1)
 	s.writing, s.writingOps, s.writingRecs, s.writingBackup = "", 0, 0, ""
 	if s.dirty {
 		s.writeJournal()
