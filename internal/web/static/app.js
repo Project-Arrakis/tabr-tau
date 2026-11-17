@@ -2515,8 +2515,12 @@ function lbDecreeNow() {
   const t = LD && LD.term, d = t && t.active_decree_id != null ? (LD.decrees || []).find((x) => x.id == t.active_decree_id) : null;
   return d ? { name: decreeLabel(d), effect: d.effect || '' } : null;
 }
+// The decrees this page knows by name, for the board's read-only decree preview (a preview changes what the plaque shows and nothing else: it is never sent to the save).
+function lbDecreesKnown() {
+  return ((LD && LD.decrees) || []).map((d) => ({ id: d.id, name: decreeLabel(d), effect: d.effect || '' }));
+}
 window.LCC_HOST = {
-  ctl: lbCtl, decree: lbDecreeNow, picks: () => LP.pick, filtered: lbBoardFiltered,
+  ctl: lbCtl, decree: lbDecreeNow, decrees: lbDecreesKnown, picks: () => LP.pick, filtered: lbBoardFiltered,
   focusFac: () => { const s = $('#lsb-fac'); if (s && s.focus) s.focus(); },
   get: (k) => browserStore.get('lsb.' + k), set: (k, v) => browserStore.set('lsb.' + k, v),
 };

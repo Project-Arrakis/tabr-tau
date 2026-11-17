@@ -95,20 +95,21 @@ test('the winning count: a faction with more than half of the Houses gets the ou
   // the board is drawn when the tab opens; draw it again with Motion Full by going to the classic list and back
   const sw = (v) => { const b = ui.doc.querySelector('[data-lb="view"][data-view="' + v + '"]'); b.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
   sw('classic'); sw('board'); await ui.settle();
-  const won = [...ui.doc.querySelectorAll('.lcc-bd-cell .lcc-house')].filter((c) => c.getAttribute('data-victory') === 'dominion');
+  const won = [...ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc')].filter((c) => c.getAttribute('data-victory') === 'dominion');
   assert.equal(won.length, 13);
   assert.ok(won.every((c) => c.getAttribute('data-owner') === 'a'), 'only the Houses of the faction with the count');
-  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-house[data-owner="h"][data-victory]').length, 0);
+  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc[data-owner="h"][data-victory]').length, 0);
   assert.ok(won.every((c) => c.classList.contains('lcc-win-anim')), 'Motion Full: the border is added');
   // the words say a count, never a win
   for (const c of won) {
-    assert.match(c.getAttribute('title'), /more than half of the Houses now: a count of Houses, not a vote result/);
-    assert.doesNotMatch(c.getAttribute('title') + ' ' + c.getAttribute('aria-label') + ' ' + c.textContent, /\bwins?\b|\bwon\b|\bvictor/i);
+    const pick = c.querySelector('button.lcc-hc-select');
+    assert.match(pick.getAttribute('title'), /more than half of the Houses now: a count of Houses, not a vote result/);
+    assert.doesNotMatch(pick.getAttribute('title') + ' ' + pick.getAttribute('aria-label') + ' ' + c.textContent, /\bwins?\b|\bwon\b|\bvictor/i);
   }
   // Calm: the still outline stays, the animation class does not
   ui.doc.documentElement.setAttribute('data-motion', 'calm');
   sw('classic'); sw('board'); await ui.settle();
-  const calm = [...ui.doc.querySelectorAll('.lcc-bd-cell .lcc-house[data-victory="dominion"]')];
+  const calm = [...ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc[data-victory="dominion"]')];
   assert.equal(calm.length, 13);
   assert.equal(calm.some((c) => c.classList.contains('lcc-win-anim') || c.querySelector('.lcc-win-sweep')), false);
 });

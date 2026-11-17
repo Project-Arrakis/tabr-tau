@@ -29,15 +29,31 @@
   --lcc-field: #0a0b1e;         /* the plaque's own field, the same in both themes */
   --lcc-cream: #f4e6c3;
   --lcc-mo: var(--mo-slow, 320ms);
+  /* the approved design's own faces: system fonts only, so nothing is fetched. Georgia carries the names and the headings, Segoe UI the labels and small print (the approved design names no other face). */
+  --lcc-serif: Georgia, 'Times New Roman', serif;
+  --lcc-sans: 'Segoe UI Variable', 'Segoe UI', Tahoma, Arial, sans-serif;
+  --lcc-mono: Consolas, monospace;
+  /* the accents of the approved board: faction teal and red as text and strokes, the violet of a selection, the green and the amber of the reward boxes */
+  --lcc-teal: #54bea9;
+  --lcc-red: #dd7757;
+  --lcc-violet: #b096eb;
+  /* the approved board's own surfaces (a panel runs from s1 to s2, a House card from card-a to card-b): the same in every look, as the plaque is, chosen by dark or light only */
+  --lcc-s1: #191b1b; --lcc-s2: #242322; --lcc-card-a: #2d2924; --lcc-card-b: #191b1b; --lcc-tier-bg: #121617; --lcc-tier-edge: #785c36; --lcc-strong: #fff3d8; --lcc-name: #eae1cd;
+  --lcc-crest-filter: brightness(0) invert(.68) sepia(1) saturate(2.1) hue-rotate(-10deg) brightness(.92) drop-shadow(0 0 2px rgba(0, 0, 0, .35));
+  --lcc-ok-bg: #68c6a8; --lcc-ok-edge: #86f6c9; --lcc-ok-ink: #0b1714;
+  --lcc-wait-bg: #f5c878; --lcc-wait-edge: #ffdc8a; --lcc-wait-ink: #22160a;
+  --lcc-unk-bg: #9b563b; --lcc-unk-edge: #ec875d; --lcc-unk-ink: #fff1ce;
+  --lcc-stroke: color-mix(in srgb, var(--lcc-gold) 34%, transparent);
+  --lcc-stroke-faint: color-mix(in srgb, var(--lcc-gold) 15%, transparent);
   /* The light and the outline of a House that has won something. --lcc-glow-win is its own dial: 1 is the full strength of the approved look, and it is NOT scaled by --lcc-glow (that one only
      softens the plaque). --lcc-outline-win is the gold outline, one value for a House of a line of five and for the Houses of a faction that holds a majority of the Houses. */
   --lcc-glow-win: 1;
   --lcc-outline-win: 3px solid var(--lcc-gold);
 }
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) .lcc, :root:not([data-theme="dark"]) .lcc-scope { --lcc-gold: #8a5a10; --lcc-gold-hi: #b07a1c; --lcc-gold-lo: #5e3c08; --lcc-on-gold: #fff6df; }
+  :root:not([data-theme="dark"]) .lcc, :root:not([data-theme="dark"]) .lcc-scope { --lcc-gold: #8a5a10; --lcc-gold-hi: #b07a1c; --lcc-gold-lo: #5e3c08; --lcc-on-gold: #fff6df; --lcc-teal: #16715e; --lcc-red: #b64c33; --lcc-violet: #7555a4; --lcc-crest-filter: brightness(0) invert(.68) sepia(1) saturate(2.1) hue-rotate(-10deg) brightness(.6); --lcc-s1: #f8f0de; --lcc-s2: #f0e3cd; --lcc-card-a: #e3d0ac; --lcc-card-b: #f8f0de; --lcc-tier-bg: #e9ddc3; --lcc-tier-edge: #9b7b46; --lcc-strong: #211b13; --lcc-name: #342819; }
 }
-:root[data-theme="light"] .lcc, :root[data-theme="light"] .lcc-scope { --lcc-gold: #8a5a10; --lcc-gold-hi: #b07a1c; --lcc-gold-lo: #5e3c08; --lcc-on-gold: #fff6df; }
+:root[data-theme="light"] .lcc, :root[data-theme="light"] .lcc-scope { --lcc-gold: #8a5a10; --lcc-gold-hi: #b07a1c; --lcc-gold-lo: #5e3c08; --lcc-on-gold: #fff6df; --lcc-teal: #16715e; --lcc-red: #b64c33; --lcc-violet: #7555a4; --lcc-crest-filter: brightness(0) invert(.68) sepia(1) saturate(2.1) hue-rotate(-10deg) brightness(.6); --lcc-s1: #f8f0de; --lcc-s2: #f0e3cd; --lcc-card-a: #e3d0ac; --lcc-card-b: #f8f0de; --lcc-tier-bg: #e9ddc3; --lcc-tier-edge: #9b7b46; --lcc-strong: #211b13; --lcc-name: #342819; }
 
 /* ---- small parts ---- */
 /* the cut-corner gold frame: a gold layer, cut at its corners, with the panel inside it cut the same way */
@@ -55,7 +71,7 @@
 .lcc-rule-v { display: block; width: 3px; align-self: stretch; min-height: 40px; border-radius: 2px; background: linear-gradient(180deg, rgba(240, 160, 32, 0), #f6b73a 20%, #ffd36b 50%, #f6b73a 80%, rgba(240, 160, 32, 0)); }
 .lcc-heldby { margin: 0; display: grid; gap: 4px; justify-items: center; text-align: center; }
 .lcc-heldby-l { font: 500 12px/1 var(--t-display, sans-serif); letter-spacing: .24em; color: var(--lcc-cream); text-shadow: 0 1px 2px #000; }
-.lcc-heldby-n { font: 700 15px/1.1 var(--t-display, sans-serif); letter-spacing: .08em; color: #f2857f; text-shadow: 0 1px 3px rgba(0, 0, 0, .9); }
+.lcc-heldby-n { font: 700 15px/1.1 var(--lcc-sans); letter-spacing: .08em; color: #f2857f; text-shadow: 0 1px 3px rgba(0, 0, 0, .9); }
 .lcc-heldby-n.lcc-f-a { color: #62e0bd; }
 .lcc-emboss { text-shadow: 0 1px 0 rgba(255, 238, 190, .35), 0 -1px 1px rgba(0, 0, 0, .8); }
 /* the cloth standard, narrow layout: a banner with a gold edge on its top and sides and the faction colour inside (the cloth), and, below it, the approved picture of the gold-edged V point with its
@@ -89,10 +105,10 @@
 .lcc-tt.dismissed .lcc-tip { display: none; }
 
 /* the words of the plaque, in both layouts (the wide layout then sets size and place) */
-.lcc-pl-decree .lcc-pl-title { margin: 0; font: 400 20px/1.15 Georgia, 'Times New Roman', serif; color: #e7c69a; text-shadow: 0 2px 2px #050207; }
+.lcc-pl-decree .lcc-pl-title { margin: 0; font: 400 20px/1.15 Georgia, 'Times New Roman', serif; text-transform: none; letter-spacing: 0; color: #e7c69a; text-shadow: 0 2px 2px #050207; }
 .lcc-pl-decree .lcc-pl-effect { margin: 2px 0 0; font: 400 13px/1.3 Georgia, serif; color: #f4d8a8; }
 .lcc-pl-decree-l { margin: 0; color: #f1d9a4; font-family: var(--t-display, sans-serif); text-transform: uppercase; }
-.lcc-pl-session, .lcc-pl-standing, .lcc-pl-count { margin: 0; color: #f6e2b3; font-family: var(--t-display, sans-serif); }
+.lcc-pl-session, .lcc-pl-standing, .lcc-pl-count { margin: 0; color: #f6e2b3; font-family: var(--lcc-sans); }
 
 /* ---- the plaque: wide layout (the approved artwork, drawn as vectors, with live text above it) ---- */
 .lcc-plaque-host { container-type: inline-size; display: block; width: 100%; }
@@ -108,13 +124,13 @@
   .lcc-pl-decree-l, .lcc-pl-decree, .lcc-pl-held, .lcc-pl-session, .lcc-pl-faction, .lcc-pl-standing, .lcc-pl-std-a, .lcc-pl-std-h { position: absolute; margin: 0; box-sizing: border-box; }
   .lcc-pl-decree-l { left: 10.68%; width: 20.81%; top: 8.29%; height: 9.39%; display: flex; align-items: center; justify-content: center; font: 500 clamp(10px, 1.8cqw, 40px)/1 var(--t-display, sans-serif); letter-spacing: .15em; color: #f1d9a4; text-shadow: 0 2px 2px #050207; white-space: nowrap; }
   .lcc-pl-decree { left: 33.7%; width: 38.03%; top: 3.3%; height: 15.5%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-width: 0; }
-  .lcc-pl-decree .lcc-pl-title { margin: 0; max-width: 100%; font: 400 clamp(12px, 2.5cqw, 54px)/1.1 Georgia, 'Times New Roman', serif; color: #e7c69a; letter-spacing: -.01em; text-shadow: 0 2px 2px #050207; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lcc-pl-decree .lcc-pl-title { margin: 0; max-width: 100%; font: 400 clamp(12px, 2.5cqw, 54px)/1.1 Georgia, 'Times New Roman', serif; text-transform: none; color: #e7c69a; letter-spacing: -.01em; text-shadow: 0 2px 2px #050207; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lcc-pl-decree .lcc-pl-effect { margin: 2px 0 0; max-width: 100%; font: 400 clamp(9px, 1.2cqw, 26px)/1.15 Georgia, serif; color: #f4d8a8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lcc-pl-effect::before { content: '\25c6'; font-size: .56em; color: #facd69; padding-right: .6em; vertical-align: .15em; }
   .lcc-pl-held { left: 73.66%; width: 17.1%; top: 5%; height: 13.8%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .5em; }
   .lcc-pl-held .lcc-heldby-l { font-size: clamp(9px, 1.15cqw, 26px); }
   .lcc-pl-held .lcc-heldby-n { font-size: clamp(9px, 1.2cqw, 28px); white-space: nowrap; }
-  .lcc-pl-session { left: 32.5%; width: 35%; top: 67.7%; height: 9.1%; display: flex; align-items: center; justify-content: center; font: 500 clamp(9px, 1.5cqw, 33px)/1 var(--t-display, sans-serif); letter-spacing: .08em; color: #f6e2b3; text-shadow: 0 2px 2px #050207; white-space: nowrap; text-transform: uppercase; }
+  .lcc-pl-session { left: 32.5%; width: 35%; top: 67.7%; height: 9.1%; display: flex; align-items: center; justify-content: center; font: 500 clamp(9px, 1.5cqw, 33px)/1 var(--lcc-sans); letter-spacing: .08em; color: #f6e2b3; text-shadow: 0 2px 2px #050207; white-space: nowrap; text-transform: uppercase; }
   /* the standards: the cloth is drawn in the artwork (rod, cloth, crest, ornament); this box is the words, from just under the crest to just above the ornament, and the same box mirrored for the other faction */
   .lcc-plaque .lcc-pl-std-a, .lcc-plaque .lcc-pl-std-h { top: 40%; width: 11.6%; height: 28%; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 0 1.1%; background: none; border: 0; clip-path: none; overflow: hidden; }
   .lcc-pl-std-a { left: 2.95%; } .lcc-pl-std-h { left: 85.45%; }
@@ -129,9 +145,9 @@
   .lcc-pl-faction { top: 79.8%; height: 13.8%; width: 15.47%; display: grid; grid-template-rows: 48% 22% 30%; justify-items: center; align-items: center; }
   .lcc-pl-faction-a { left: 1.47%; } .lcc-pl-faction-h { left: 83.06%; }
   .lcc-pl-nameplate { grid-row: 1; background: none; clip-path: none; min-height: 0; padding: 0; font-size: clamp(7px, 1.28cqw, 28px); font-weight: 700; letter-spacing: .05em; text-shadow: 0 1px 0 rgba(255, 240, 190, .55); }
-  .lcc-pl-count { grid-row: 3; margin: 0; font: 500 clamp(8px, 1.4cqw, 31px)/1 var(--t-display, sans-serif); letter-spacing: .08em; color: #f7dca4; white-space: nowrap; text-shadow: 0 1px 2px #050207; }
+  .lcc-pl-count { grid-row: 3; margin: 0; font: 500 clamp(8px, 1.4cqw, 31px)/1 var(--lcc-sans); letter-spacing: .08em; color: #f7dca4; white-space: nowrap; text-shadow: 0 1px 2px #050207; }
   .lcc-pl-count b { font-weight: 500; padding-right: .15em; font-variant-numeric: tabular-nums; }
-  .lcc-pl-standing { left: 27.6%; width: 44.75%; top: 78.5%; height: 8.2%; display: flex; align-items: center; justify-content: center; text-align: center; font: 500 clamp(7px, 1.08cqw, 24px)/1.18 var(--t-display, sans-serif); letter-spacing: .035em; color: #ffe9c7; text-shadow: 0 1px 2px #050207; }
+  .lcc-pl-standing { left: 27.6%; width: 44.75%; top: 78.5%; height: 8.2%; display: flex; align-items: center; justify-content: center; text-align: center; font: 500 clamp(7px, 1.08cqw, 24px)/1.18 var(--lcc-sans); letter-spacing: .035em; color: #ffe9c7; text-shadow: 0 1px 2px #050207; }
   .lcc-plaque > .lcc-badge { position: absolute; left: 50%; transform: translateX(-50%); bottom: 1.4%; z-index: 3; font-size: clamp(8px, .85cqw, 12px); background: rgba(10, 11, 30, .85); color: #ffd98a; border-color: #b79a5b; }
 }
 

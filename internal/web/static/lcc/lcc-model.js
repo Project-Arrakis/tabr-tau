@@ -178,7 +178,7 @@
 
   // ---- filters, sort, groups -----------------------------------------------------------------------------------------------------------------------------------------------
   const SHOWS = Object.freeze([['all', 'All'], ['left', 'What is left'], ['new', 'Not started'], ['part', 'In progress'], ['done', 'Top tier']]);
-  const HOUSE_FILTERS = Object.freeze([['any', 'Any'], ['open', 'Open'], ['taken', 'Taken']]);
+  const HOUSE_FILTERS = Object.freeze([['any', 'Any'], ['open', 'Open'], ['taken', 'Claimed']]);
   const showMatch = (h, k) => (k === 'all' ? true : k === 'left' ? h.state !== 'done' : h.state === k);
   const houseMatch = (h, k) => (k === 'any' ? true : (k === 'taken') === h.taken);
   const trackMatch = (h, k) => (k === 'all' || k === '' ? true : h.track === k);
