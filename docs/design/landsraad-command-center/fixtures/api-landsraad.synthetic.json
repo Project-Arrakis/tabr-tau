@@ -1,0 +1,2395 @@
+{
+  "_fixture": {
+    "boardOwners": "the case atreides-12-harkonnen-4-open-9 of board-victory-cases.json, by board_index; board_index of each House is deliberately not alphabetical",
+    "notRealData": "ids, names of the character and of the simulated guild actors, times and amounts are made up; House and decree names are the public game names, board positions are made up",
+    "omitted": "no field is added that the server does not send; a loader must drop keys that start with an underscore",
+    "scenarios": {
+      "1": "task 9002 (Richese): one tier reached and collected",
+      "2": "task 9003 (Kenola): reached with no delivery row of this term (earlier-term row only): ambiguous",
+      "3": "task 9004 (Alexin): one collected, one waiting; the game own events cover 2,500",
+      "4": "task 9005 (Thorvald): all five reached; top tier is the swatch, not held yet, waiting",
+      "5": "task 9006 (Moritani): four reached: collected, waiting, collected, no row (ambiguity inside one House)",
+      "6": "task 9007 (Hagal): swatch won this term: the top tier is still the swatch",
+      "7": "task 9008 (Wallach): three reached, all waiting",
+      "8": "task 9009 (Sor): contribution reached under the other faction (ground a raise does not pay again)",
+      "10": "task 9011 (Argosaz): swatch held from an earlier term: the top tier is the House own item, not the swatch",
+      "12": "task 9013 (Mutelli): centre House with no contribution rows at all (null lists)",
+      "24": "task 9025 (Ecaz): a task with no reward rows in the save (missing reward catalog)"
+    },
+    "shape": "GET /api/landsraad as internal/web/server.go (the grant key) and internal/ops/landsraad.go (everything else) answer it at the source commit; keys are sorted as the JSON encoder writes a map",
+    "sourceCommit": "c369dd926e5f5c40048eaeca33b665be07dd2b02",
+    "synthetic": true
+  },
+  "character": { "faction_id": 1, "name": "SYNTHETIC_CHARACTER", "player_id": 1 },
+  "decrees": [
+    {
+      "active": false,
+      "decree_name": "ExperienceRateIncrease",
+      "disabled": 0,
+      "display_name": "Scholarly Collaboration",
+      "effect": "Experience gain is increased by 50%",
+      "elected": false,
+      "id": 1,
+      "in_rotation": false,
+      "name_known": true,
+      "variant": "",
+      "weight": 1
+    },
+    {
+      "active": false,
+      "decree_name": "RangedDamageIncreased",
+      "disabled": 0,
+      "display_name": "In Honor of the Fallen (Ranged)",
+      "effect": "Ranged weapon damage increased by 33%",
+      "elected": true,
+      "id": 2,
+      "in_rotation": true,
+      "name_known": true,
+      "variant": "Ranged",
+      "weight": 1
+    },
+    {
+      "active": false,
+      "decree_name": "MeleeDamageIncreased",
+      "disabled": 0,
+      "display_name": "In Honor of the Fallen (Melee)",
+      "effect": "Melee weapon damage increased by 33%",
+      "elected": false,
+      "id": 3,
+      "in_rotation": true,
+      "name_known": true,
+      "variant": "Melee",
+      "weight": 1
+    },
+    {
+      "active": false,
+      "decree_name": "CraftingCostReduced",
+      "disabled": 0,
+      "display_name": "CHOAM Production Contract",
+      "effect": "Crafting costs are reduced by 25%",
+      "elected": false,
+      "id": 4,
+      "in_rotation": false,
+      "name_known": true,
+      "variant": "",
+      "weight": 1
+    },
+    {
+      "active": false,
+      "decree_name": "DropInventoryOnDefeatActive",
+      "disabled": 0,
+      "display_name": "The Right of Salvage",
+      "effect": "All items are dropped and can be looted by anyone when defeated in PVP zones in the Deep Desert",
+      "elected": false,
+      "id": 5,
+      "in_rotation": false,
+      "name_known": true,
+      "variant": "",
+      "weight": 1
+    },
+    {
+      "active": false,
+      "decree_name": "RepairAndRefiningTimes",
+      "disabled": 0,
+      "display_name": "CHOAM Refining Contract",
+      "effect": "Repair costs and refining times are reduced by 75%",
+      "elected": false,
+      "id": 6,
+      "in_rotation": false,
+      "name_known": true,
+      "variant": "",
+      "weight": 1
+    },
+    {
+      "active": true,
+      "decree_name": "SpecialVendorActive_Vehicles",
+      "disabled": 1,
+      "display_name": "Exclusive Vehicle Import Rights",
+      "effect": "Access to a Landsraad Vehicle Vendor",
+      "elected": false,
+      "id": 7,
+      "in_rotation": true,
+      "name_known": true,
+      "variant": "",
+      "weight": 1
+    },
+    {
+      "active": false,
+      "decree_name": "SpecialVendorActive_Weapons",
+      "disabled": 0,
+      "display_name": "Exclusive Weapon Import Rights",
+      "effect": "Access to a Landsraad Weapon Vendor",
+      "elected": false,
+      "id": 8,
+      "in_rotation": false,
+      "name_known": true,
+      "variant": "",
+      "weight": 1
+    },
+    {
+      "active": false,
+      "decree_name": "SpecialVendorActive_Armor",
+      "disabled": 0,
+      "display_name": "Exclusive Armor Import Rights",
+      "effect": "Access to a Landsraad Armor Vendor",
+      "elected": false,
+      "id": 9,
+      "in_rotation": false,
+      "name_known": true,
+      "variant": "",
+      "weight": 1
+    },
+    {
+      "active": false,
+      "decree_name": "SpecialVendorActive_Utilities",
+      "disabled": 0,
+      "display_name": "Exclusive Tool Import Rights",
+      "effect": "Access to a Landsraad Tool Vendor",
+      "elected": false,
+      "id": 10,
+      "in_rotation": false,
+      "name_known": true,
+      "variant": "",
+      "weight": 1
+    },
+    {
+      "active": false,
+      "decree_name": "SpecialVendorActive",
+      "disabled": 0,
+      "display_name": "Special Vendor",
+      "effect": "",
+      "elected": false,
+      "id": 11,
+      "in_rotation": false,
+      "name_known": false,
+      "variant": "",
+      "weight": 1
+    }
+  ],
+  "earlier_terms": [
+    {
+      "end_time": 1000000,
+      "houses": [
+        {
+          "completed": 1,
+          "house_name": "DA_HouseAlexin",
+          "my_contribution": 2500,
+          "paid_in_term": true,
+          "tier_count": 5,
+          "tiers_reached": 2,
+          "winning_faction_id": 1
+        },
+        {
+          "completed": 0,
+          "house_name": "DA_HouseEcaz",
+          "my_contribution": 6500,
+          "paid_in_term": false,
+          "tier_count": 5,
+          "tiers_reached": 5,
+          "winning_faction_id": null
+        }
+      ],
+      "start_time": 395200,
+      "term_id": 6
+    }
+  ],
+  "factions": [
+    { "id": 1, "name": "Atreides" },
+    { "id": 2, "name": "Harkonnen" }
+  ],
+  "grant": {
+    "max_missions": 1000,
+    "problem": "",
+    "room": { "Combat": 182, "Crafting": 44182, "Exploration": 44182, "Gathering": 44182, "Sabotage": 0 },
+    "scrip": 1000,
+    "solari": 6000,
+    "step": 1000,
+    "xp": 1500
+  },
+  "locations_from_markers": true,
+  "rotation": [
+    { "decree_id": 2 },
+    { "decree_id": 3 },
+    { "decree_id": 7 }
+  ],
+  "tasks": [
+    {
+      "board_index": 0,
+      "completed": 1,
+      "completion_time": 1100000,
+      "contributions": [
+        { "amount": 4000, "faction_id": 2 },
+        { "amount": 500, "faction_id": 1 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseVernius",
+      "id": 9001,
+      "line": "Sabotage",
+      "location": { "known": false },
+      "my_contribution": 0,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": false,
+      "player_contributions": [
+        { "amount": 1000, "faction_id": 2, "mine": false, "player_id": 50 }
+      ],
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9001,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9001,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9001,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9001,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_VERNIUS",
+          "swatch": true,
+          "task_id": 9001,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_VERNIUS",
+      "sysselraad": 0,
+      "winning_faction_id": 2
+    },
+    {
+      "board_index": 1,
+      "completed": 1,
+      "completion_time": 1101000,
+      "contributions": [
+        { "amount": 4000, "faction_id": 1 },
+        { "amount": 300, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseRichese",
+      "id": 9002,
+      "line": "Sabotage",
+      "location": { "known": false },
+      "my_contribution": 1300,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": true,
+      "player_contributions": [
+        { "amount": 1300, "faction_id": 1, "mine": true, "player_id": 1 },
+        { "amount": 1000, "faction_id": 2, "mine": false, "player_id": 50 }
+      ],
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "delivered",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9002,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9002,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9002,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9002,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_RICHESE",
+          "swatch": true,
+          "task_id": 9002,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_RICHESE",
+      "sysselraad": 0,
+      "winning_faction_id": 1
+    },
+    {
+      "board_index": 2,
+      "completed": 0,
+      "completion_time": null,
+      "contributions": [
+        { "amount": 1100, "faction_id": 1 },
+        { "amount": 700, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseKenola",
+      "id": 9003,
+      "line": "Gathering",
+      "location": {
+        "area": "SYNTHETIC AREA 1",
+        "cell": "",
+        "from_you_cm": 150000,
+        "known": true,
+        "map": "Hagga Basin",
+        "map_key": "HaggaBasin",
+        "place": "",
+        "unconfirmed": false,
+        "x": 0.25,
+        "y": 0.5
+      },
+      "my_contribution": 1200,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": true,
+      "player_contributions": [
+        { "amount": 1200, "faction_id": 1, "mine": true, "player_id": 1 },
+        { "amount": 1000, "faction_id": 2, "mine": false, "player_id": 50 }
+      ],
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": false,
+          "reached": true,
+          "reward_state": "no_row",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9003,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9003,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9003,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9003,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_KENOLA",
+          "swatch": true,
+          "task_id": 9003,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_KENOLA",
+      "sysselraad": 0,
+      "winning_faction_id": null
+    },
+    {
+      "board_index": 3,
+      "completed": 1,
+      "completion_time": 1103000,
+      "contributions": [
+        { "amount": 4000, "faction_id": 1 },
+        { "amount": 900, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseAlexin",
+      "id": 9004,
+      "line": "Crafting",
+      "location": { "area": "Arrakeen", "cell": "", "known": true, "map": "Arrakeen", "map_key": "", "place": "", "unconfirmed": false },
+      "my_contribution": 2500,
+      "my_elsewhere": 0,
+      "my_events": 2500,
+      "my_paid": 0,
+      "my_recorded": true,
+      "player_contributions": [
+        { "amount": 2500, "faction_id": 1, "mine": true, "player_id": 1 },
+        { "amount": 1000, "faction_id": 2, "mine": false, "player_id": 50 }
+      ],
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "delivered",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9004,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "waiting",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9004,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9004,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9004,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_ALEXIN",
+          "swatch": true,
+          "task_id": 9004,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_ALEXIN",
+      "sysselraad": 0,
+      "winning_faction_id": 1
+    },
+    {
+      "board_index": 4,
+      "completed": 1,
+      "completion_time": 1104000,
+      "contributions": [
+        { "amount": 4000, "faction_id": 1 },
+        { "amount": 0, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseThorvald",
+      "id": 9005,
+      "line": "Combat",
+      "location": { "known": false },
+      "my_contribution": 6500,
+      "my_elsewhere": 0,
+      "my_events": 6500,
+      "my_paid": 0,
+      "my_recorded": true,
+      "player_contributions": [
+        { "amount": 6500, "faction_id": 1, "mine": true, "player_id": 1 },
+        { "amount": 1000, "faction_id": 2, "mine": false, "player_id": 50 }
+      ],
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "delivered",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9005,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "delivered",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9005,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "delivered",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9005,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "delivered",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9005,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "waiting",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_THORVALD",
+          "swatch": true,
+          "task_id": 9005,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_THORVALD",
+      "sysselraad": 0,
+      "winning_faction_id": 1
+    },
+    {
+      "board_index": 5,
+      "completed": 1,
+      "completion_time": 1105000,
+      "contributions": [
+        { "amount": 4000, "faction_id": 2 },
+        { "amount": 500, "faction_id": 1 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseMoritani",
+      "id": 9006,
+      "line": "Combat",
+      "location": { "known": false },
+      "my_contribution": 4800,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 4800,
+      "my_recorded": true,
+      "player_contributions": [
+        { "amount": 4800, "faction_id": 1, "mine": true, "player_id": 1 },
+        { "amount": 1000, "faction_id": 2, "mine": false, "player_id": 50 }
+      ],
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "delivered",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9006,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "waiting",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9006,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "delivered",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9006,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": true,
+          "reward_state": "no_row",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9006,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_MORITANI",
+          "swatch": true,
+          "task_id": 9006,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_MORITANI",
+      "sysselraad": 0,
+      "winning_faction_id": 2
+    },
+    {
+      "board_index": 6,
+      "completed": 1,
+      "completion_time": 1106000,
+      "contributions": [
+        { "amount": 4000, "faction_id": 1 },
+        { "amount": 600, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseHagal",
+      "id": 9007,
+      "line": "Crafting",
+      "location": { "known": false },
+      "my_contribution": 6000,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": true,
+      "player_contributions": [
+        { "amount": 6000, "faction_id": 1, "mine": true, "player_id": 1 },
+        { "amount": 1000, "faction_id": 2, "mine": false, "player_id": 50 }
+      ],
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "delivered",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9007,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "delivered",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9007,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "delivered",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9007,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "delivered",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9007,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "delivered",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_HAGAL",
+          "swatch": true,
+          "task_id": 9007,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": true,
+      "swatch_template_id": "SYNTH_SWATCH_HAGAL",
+      "sysselraad": 0,
+      "winning_faction_id": 1
+    },
+    {
+      "board_index": 7,
+      "completed": 1,
+      "completion_time": 1107000,
+      "contributions": [
+        { "amount": 4000, "faction_id": 1 },
+        { "amount": 900, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseWallach",
+      "id": 9008,
+      "line": "Exploration",
+      "location": { "known": false },
+      "my_contribution": 3600,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": true,
+      "player_contributions": [
+        { "amount": 3600, "faction_id": 1, "mine": true, "player_id": 1 },
+        { "amount": 1000, "faction_id": 2, "mine": false, "player_id": 50 }
+      ],
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "waiting",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9008,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "waiting",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9008,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "waiting",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9008,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9008,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_WALLACH",
+          "swatch": true,
+          "task_id": 9008,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_WALLACH",
+      "sysselraad": 0,
+      "winning_faction_id": 1
+    },
+    {
+      "board_index": 8,
+      "completed": 0,
+      "completion_time": null,
+      "contributions": [
+        { "amount": 1700, "faction_id": 1 },
+        { "amount": 1000, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseSor",
+      "id": 9009,
+      "line": "Gathering",
+      "location": { "known": false },
+      "my_contribution": 0,
+      "my_elsewhere": 2400,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": false,
+      "player_contributions": null,
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9009,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9009,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9009,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9009,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_SOR",
+          "swatch": true,
+          "task_id": 9009,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_SOR",
+      "sysselraad": 0,
+      "winning_faction_id": null
+    },
+    {
+      "board_index": 9,
+      "completed": 0,
+      "completion_time": null,
+      "contributions": [
+        { "amount": 1800, "faction_id": 1 },
+        { "amount": 1050, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseLindaren",
+      "id": 9010,
+      "line": "Crafting",
+      "location": {
+        "area": "Deep Desert",
+        "cell": "B8",
+        "known": true,
+        "map": "Deep Desert",
+        "map_key": "DeepDesert",
+        "place": "SYNTHETIC PLACE",
+        "unconfirmed": true,
+        "x": 0.5,
+        "y": 0.75
+      },
+      "my_contribution": 0,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": false,
+      "player_contributions": null,
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9010,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9010,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9010,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9010,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_LINDAREN",
+          "swatch": true,
+          "task_id": 9010,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_LINDAREN",
+      "sysselraad": 0,
+      "winning_faction_id": null
+    },
+    {
+      "board_index": 10,
+      "completed": 0,
+      "completion_time": null,
+      "contributions": [
+        { "amount": 1900, "faction_id": 1 },
+        { "amount": 1100, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseArgosaz",
+      "id": 9011,
+      "line": "Exploration",
+      "location": { "known": false },
+      "my_contribution": 6000,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": true,
+      "player_contributions": [
+        { "amount": 6000, "faction_id": 1, "mine": true, "player_id": 1 },
+        { "amount": 1000, "faction_id": 2, "mine": false, "player_id": 50 }
+      ],
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "delivered",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9011,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "delivered",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9011,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "delivered",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9011,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "delivered",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9011,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": true,
+          "reached": true,
+          "reward_state": "waiting",
+          "shown_amount": 75,
+          "shown_template_id": "SYNTH_OWN_TOP",
+          "swatch": false,
+          "task_id": 9011,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": true,
+      "swatch_template_id": "SYNTH_SWATCH_ARGOSAZ",
+      "sysselraad": 0,
+      "winning_faction_id": null
+    },
+    {
+      "board_index": 11,
+      "completed": 1,
+      "completion_time": 1111000,
+      "contributions": [
+        { "amount": 4000, "faction_id": 1 },
+        { "amount": 900, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseTseida",
+      "id": 9012,
+      "line": "Gathering",
+      "location": { "known": false },
+      "my_contribution": 0,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": false,
+      "player_contributions": [
+        { "amount": 1000, "faction_id": 1, "mine": false, "player_id": 50 }
+      ],
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9012,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9012,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9012,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9012,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_TSEIDA",
+          "swatch": true,
+          "task_id": 9012,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_TSEIDA",
+      "sysselraad": 0,
+      "winning_faction_id": 1
+    },
+    {
+      "board_index": 12,
+      "completed": 1,
+      "completion_time": 1112000,
+      "contributions": null,
+      "goal_amount": 4000,
+      "house_name": "DA_HouseMutelli",
+      "id": 9013,
+      "line": "Sabotage",
+      "location": { "known": false },
+      "my_contribution": 0,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": false,
+      "player_contributions": null,
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9013,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9013,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9013,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9013,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_MUTELLI",
+          "swatch": true,
+          "task_id": 9013,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_MUTELLI",
+      "sysselraad": 0,
+      "winning_faction_id": 1
+    },
+    {
+      "board_index": 13,
+      "completed": 1,
+      "completion_time": 1113000,
+      "contributions": [
+        { "amount": 4000, "faction_id": 2 },
+        { "amount": 500, "faction_id": 1 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseHurata",
+      "id": 9014,
+      "line": "Exploration",
+      "location": { "known": false },
+      "my_contribution": 0,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": false,
+      "player_contributions": [
+        { "amount": 1000, "faction_id": 2, "mine": false, "player_id": 50 }
+      ],
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9014,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9014,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9014,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9014,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_HURATA",
+          "swatch": true,
+          "task_id": 9014,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_HURATA",
+      "sysselraad": 0,
+      "winning_faction_id": 2
+    },
+    {
+      "board_index": 14,
+      "completed": 0,
+      "completion_time": null,
+      "contributions": [
+        { "amount": 2300, "faction_id": 1 },
+        { "amount": 1300, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseWayku",
+      "id": 9015,
+      "line": "Gathering",
+      "location": { "known": false },
+      "my_contribution": 0,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": false,
+      "player_contributions": null,
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9015,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9015,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9015,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9015,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_WAYKU",
+          "swatch": true,
+          "task_id": 9015,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_WAYKU",
+      "sysselraad": 0,
+      "winning_faction_id": null
+    },
+    {
+      "board_index": 15,
+      "completed": 1,
+      "completion_time": 1115000,
+      "contributions": [
+        { "amount": 4000, "faction_id": 1 },
+        { "amount": 900, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseSpinette",
+      "id": 9016,
+      "line": "Sabotage",
+      "location": { "known": false },
+      "my_contribution": 0,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": false,
+      "player_contributions": [
+        { "amount": 1000, "faction_id": 1, "mine": false, "player_id": 50 }
+      ],
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9016,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9016,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9016,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9016,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_SPINETTE",
+          "swatch": true,
+          "task_id": 9016,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_SPINETTE",
+      "sysselraad": 0,
+      "winning_faction_id": 1
+    },
+    {
+      "board_index": 16,
+      "completed": 0,
+      "completion_time": null,
+      "contributions": [
+        { "amount": 2500, "faction_id": 1 },
+        { "amount": 1400, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseMaros",
+      "id": 9017,
+      "line": "Crafting",
+      "location": { "known": false },
+      "my_contribution": 0,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": false,
+      "player_contributions": null,
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9017,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9017,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9017,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9017,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_MAROS",
+          "swatch": true,
+          "task_id": 9017,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_MAROS",
+      "sysselraad": 0,
+      "winning_faction_id": null
+    },
+    {
+      "board_index": 17,
+      "completed": 0,
+      "completion_time": null,
+      "contributions": [
+        { "amount": 2600, "faction_id": 1 },
+        { "amount": 1450, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseDyvetz",
+      "id": 9018,
+      "line": "Gathering",
+      "location": { "known": false },
+      "my_contribution": 0,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": false,
+      "player_contributions": null,
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9018,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9018,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9018,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9018,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_DYVETZ",
+          "swatch": true,
+          "task_id": 9018,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_DYVETZ",
+      "sysselraad": 0,
+      "winning_faction_id": null
+    },
+    {
+      "board_index": 18,
+      "completed": 1,
+      "completion_time": 1118000,
+      "contributions": [
+        { "amount": 4000, "faction_id": 1 },
+        { "amount": 600, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseVarota",
+      "id": 9019,
+      "line": "Exploration",
+      "location": { "known": false },
+      "my_contribution": 0,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": false,
+      "player_contributions": [
+        { "amount": 1000, "faction_id": 1, "mine": false, "player_id": 50 }
+      ],
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9019,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9019,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9019,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9019,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_VAROTA",
+          "swatch": true,
+          "task_id": 9019,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_VAROTA",
+      "sysselraad": 0,
+      "winning_faction_id": 1
+    },
+    {
+      "board_index": 19,
+      "completed": 1,
+      "completion_time": 1119000,
+      "contributions": [
+        { "amount": 4000, "faction_id": 2 },
+        { "amount": 500, "faction_id": 1 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseNovebruns",
+      "id": 9020,
+      "line": "Combat",
+      "location": { "known": false },
+      "my_contribution": 0,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": false,
+      "player_contributions": [
+        { "amount": 1000, "faction_id": 2, "mine": false, "player_id": 50 }
+      ],
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9020,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9020,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9020,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9020,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_NOVEBRUNS",
+          "swatch": true,
+          "task_id": 9020,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_NOVEBRUNS",
+      "sysselraad": 0,
+      "winning_faction_id": 2
+    },
+    {
+      "board_index": 20,
+      "completed": 1,
+      "completion_time": 1120000,
+      "contributions": [
+        { "amount": 4000, "faction_id": 1 },
+        { "amount": 0, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseImota",
+      "id": 9021,
+      "line": "Combat",
+      "location": { "known": false },
+      "my_contribution": 0,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": false,
+      "player_contributions": [
+        { "amount": 1000, "faction_id": 1, "mine": false, "player_id": 50 }
+      ],
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9021,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9021,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9021,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9021,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_IMOTA",
+          "swatch": true,
+          "task_id": 9021,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_IMOTA",
+      "sysselraad": 0,
+      "winning_faction_id": 1
+    },
+    {
+      "board_index": 21,
+      "completed": 1,
+      "completion_time": 1121000,
+      "contributions": [
+        { "amount": 4000, "faction_id": 1 },
+        { "amount": 300, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseWydras",
+      "id": 9022,
+      "line": "Sabotage",
+      "location": { "known": false },
+      "my_contribution": 0,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": false,
+      "player_contributions": [
+        { "amount": 1000, "faction_id": 1, "mine": false, "player_id": 50 }
+      ],
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9022,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9022,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9022,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9022,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_WYDRAS",
+          "swatch": true,
+          "task_id": 9022,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_WYDRAS",
+      "sysselraad": 0,
+      "winning_faction_id": 1
+    },
+    {
+      "board_index": 22,
+      "completed": 1,
+      "completion_time": 1122000,
+      "contributions": [
+        { "amount": 4000, "faction_id": 1 },
+        { "amount": 600, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseTaligari",
+      "id": 9023,
+      "line": "Exploration",
+      "location": { "known": false },
+      "my_contribution": 0,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": false,
+      "player_contributions": [
+        { "amount": 1000, "faction_id": 1, "mine": false, "player_id": 50 }
+      ],
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9023,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9023,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9023,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9023,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_TALIGARI",
+          "swatch": true,
+          "task_id": 9023,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_TALIGARI",
+      "sysselraad": 0,
+      "winning_faction_id": 1
+    },
+    {
+      "board_index": 23,
+      "completed": 0,
+      "completion_time": null,
+      "contributions": [
+        { "amount": 3200, "faction_id": 1 },
+        { "amount": 1750, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseMikkarol",
+      "id": 9024,
+      "line": "Combat",
+      "location": { "known": false },
+      "my_contribution": 0,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": false,
+      "player_contributions": null,
+      "rewards": [
+        {
+          "amount": 10000,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 10000,
+          "shown_template_id": "SolarisCoin",
+          "swatch": false,
+          "task_id": 9024,
+          "template_id": "SolarisCoin",
+          "threshold": 1200
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_1",
+          "swatch": false,
+          "task_id": 9024,
+          "template_id": "SYNTH_SCHEMATIC_1",
+          "threshold": 2400
+        },
+        {
+          "amount": 50,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 50,
+          "shown_template_id": "SYNTH_PART_1",
+          "swatch": false,
+          "task_id": 9024,
+          "template_id": "SYNTH_PART_1",
+          "threshold": 3600
+        },
+        {
+          "amount": 1,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SCHEMATIC_2",
+          "swatch": false,
+          "task_id": 9024,
+          "template_id": "SYNTH_SCHEMATIC_2",
+          "threshold": 4800
+        },
+        {
+          "amount": 75,
+          "delivered": false,
+          "reached": false,
+          "reward_state": "not_reached",
+          "shown_amount": 1,
+          "shown_template_id": "SYNTH_SWATCH_MIKKAROL",
+          "swatch": true,
+          "task_id": 9024,
+          "template_id": "SYNTH_OWN_TOP",
+          "threshold": 6000
+        }
+      ],
+      "swatch_held": false,
+      "swatch_template_id": "SYNTH_SWATCH_MIKKAROL",
+      "sysselraad": 0,
+      "winning_faction_id": null
+    },
+    {
+      "board_index": 24,
+      "completed": 0,
+      "completion_time": null,
+      "contributions": [
+        { "amount": 3300, "faction_id": 1 },
+        { "amount": 1800, "faction_id": 2 }
+      ],
+      "goal_amount": 4000,
+      "house_name": "DA_HouseEcaz",
+      "id": 9025,
+      "line": "Crafting",
+      "location": { "known": false },
+      "my_contribution": 0,
+      "my_elsewhere": 0,
+      "my_events": 0,
+      "my_paid": 0,
+      "my_recorded": false,
+      "player_contributions": null,
+      "rewards": null,
+      "swatch_held": false,
+      "sysselraad": 0,
+      "winning_faction_id": null
+    }
+  ],
+  "term": {
+    "active_decree_id": 7,
+    "decree_reroll_attempts": 0,
+    "elected_decree_id": 2,
+    "end_time": 1604800,
+    "last_processed_reveal_day": 0,
+    "reigning_faction_id": 1,
+    "start_time": 1000000,
+    "term_id": 7,
+    "test_term": 0,
+    "winning_faction_id": null
+  },
+  "terms": [
+    {
+      "active_decree_id": 7,
+      "elected_decree_id": 2,
+      "end_time": 1604800,
+      "reigning_faction_id": 1,
+      "start_time": 1000000,
+      "term_id": 7
+    },
+    {
+      "active_decree_id": 3,
+      "elected_decree_id": null,
+      "end_time": 1000000,
+      "reigning_faction_id": 2,
+      "start_time": 395200,
+      "term_id": 6
+    }
+  ]
+}
