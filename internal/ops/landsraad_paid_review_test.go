@@ -102,7 +102,7 @@ func TestPaidTheCapIsTheSameInTheWriteAndOnTheBoard(t *testing.T) {
 				setup(t, o, q)
 			}
 		}
-		got, err := standingTierSQL(o.S.One, 1, 175, "DA_HouseKenola", 100)
+		got, err := standingTierFromSave(o.S.Query, 1, 175, "DA_HouseKenola", 100)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -390,7 +390,7 @@ func TestPaidARowWrittenExactlyAtTheStartOfTheTermStandsAndOneBeforeItDoesNot(t 
 	check := func(stamp int, want float64) {
 		t.Helper()
 		setup(t, o, `update landsraad_house_rewards set last_updated=? where player_id=1 and house_name='DA_HouseKenola'`, stamp)
-		got, err := standingTierSQL(o.S.One, 1, 175, "DA_HouseKenola", 100)
+		got, err := standingTierFromSave(o.S.Query, 1, 175, "DA_HouseKenola", 100)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -413,13 +413,13 @@ func TestPaidARowWrittenExactlyAtTheStartOfTheTermStandsAndOneBeforeItDoesNot(t 
 // The cap holds the record only when it is above the rows that stand: equal to them it is trusted whole, and a raise that pays does not replace it.
 func TestPaidARecordEqualToWhatStandsIsTrustedAndNotMarkedUntrusted(t *testing.T) {
 	rec := []paidNote{{Player: 1, Term: 7, House: "A", Faction: 2, Paid: 6000}}
-	if paid, untrusted := trustedPaid(rec, nil, 1, 7, "A", 6000); paid != 6000 || untrusted {
+	if paid, untrusted := trustedPaid(rec, 1, 7, "A", 6000); paid != 6000 || untrusted {
 		t.Fatalf("equal: %v %v", paid, untrusted)
 	}
-	if paid, untrusted := trustedPaid(rec, nil, 1, 7, "A", 4800); paid != 4800 || !untrusted {
+	if paid, untrusted := trustedPaid(rec, 1, 7, "A", 4800); paid != 4800 || !untrusted {
 		t.Fatalf("above what stands: %v %v", paid, untrusted)
 	}
-	if paid, untrusted := trustedPaid(nil, nil, 1, 7, "A", 4800); paid != 0 || untrusted {
+	if paid, untrusted := trustedPaid(nil, 1, 7, "A", 4800); paid != 0 || untrusted {
 		t.Fatalf("no record: %v %v", paid, untrusted)
 	}
 }

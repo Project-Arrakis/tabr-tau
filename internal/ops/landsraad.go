@@ -106,7 +106,7 @@ func (o *Ops) Landsraad() (any, error) {
 			return nil, readFailed("the rewards delivered to your character", err)
 		}
 		for _, d := range drows {
-			delivered[fmt.Sprint(d["house_name"])+"\x00"+fmt.Sprint(d["template_id"])] = d
+			delivered[deliveredKey(fmt.Sprint(d["house_name"]), d["template_id"])] = d
 		}
 	}
 	// the sum of the character's own progress events per house: the ground a raise already counts as paid (#656), for the page to work out what a click grants
@@ -150,7 +150,9 @@ func (o *Ops) Landsraad() (any, error) {
 	// the ground the editor itself paid (landsraad_paid.go), raises not recorded yet included (queued, or written and kept for the record), for the page to work out what a click grants: it counts only up to the highest tier whose reward row of this term stands for the house (trustedPaid), as in the write
 	// (the notes not yet recorded are read before the file: a write or a delivery that lands in between moves a note into the file, and the other order could see neither)
 	unrecordedPaid := pendingPaid(o.S.PendingNotes(paidNoteKind))
-	filePaid, _ := o.Paid.snapshot() // a record that could not be read shows as nothing paid here (a read); the write refuses instead
+	// a record that could not be read shows as nothing paid here (a read); the write refuses instead
+	filePaid, _ := o.Paid.snapshot()
+	recordedPaid := mergePaid(filePaid, unrecordedPaid) // merged once for the board: up to 4,096 entries, and each house asks for its own ground below
 	for _, t := range tasks {
 		id, _ := t["id"].(int64)
 		t["contributions"] = byTask[id]
@@ -183,7 +185,14 @@ func (o *Ops) Landsraad() (any, error) {
 		if hasSw {
 			swRow = sw
 		}
-		t["my_paid"], _ = trustedPaid(filePaid, unrecordedPaid, mineID, termID, house, standingTierRows(rw[id], swRow, delivered, house, termStart))
+		standRows := make([]save.Row, 0, len(rw[id])+1)
+		for _, x := range rw[id] {
+			standRows = append(standRows, x.(save.Row))
+		}
+		if swRow != nil {
+			standRows = append(standRows, swRow)
+		}
+		t["my_paid"], _ = trustedPaid(recordedPaid, mineID, termID, house, standingTier(standRows, standsIn(delivered, house, termStart)))
 		// a tier is reached when the contribution is at least its threshold; whether it is delivered (and what stands at the house representative) is decided per tier by
 		// tierState in landsraad_board.go: the reward row of this term (#656, #655)
 		tiers := rw[id]
