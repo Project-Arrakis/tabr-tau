@@ -324,3 +324,47 @@ func TestDeepDesertTaxisFileIsWellFormed(t *testing.T) {
 		}
 	}
 }
+
+// A hub is listed under Other maps when it is not the map the list is for, whether or not the character stands in it (#825): offList says so, and otherMap stays about the character's own map.
+func TestAHubTheCharacterStandsInIsOffTheListOfAnotherMap(t *testing.T) {
+	const inArrakeen = `update actors set map='Arrakeen' where id in (1,2,3);`
+	for _, c := range []struct {
+		name, list string
+		wantOff    map[string]bool // by hub map
+		wantOther  map[string]bool
+	}{
+		{"Hagga Basin listed from Arrakeen", "HaggaBasin", map[string]bool{"Arrakeen": true, "HarkoVillage": true}, map[string]bool{"Arrakeen": false, "HarkoVillage": true}},
+		{"the Deep Desert listed from Arrakeen", "DeepDesert", map[string]bool{"Arrakeen": true, "HarkoVillage": true}, map[string]bool{"Arrakeen": false, "HarkoVillage": true}},
+		{"the character's own map listed", "", map[string]bool{"Arrakeen": false, "HarkoVillage": true}, map[string]bool{"Arrakeen": false, "HarkoVillage": true}},
+	} {
+		_, d := namedPlacesOf(t, placesOps(t, noDeepDesertMarker, inArrakeen), "", c.list)
+		hubs := 0
+		offAt := -1 // the first row that is off the list: every row after it is too, so the page's headings and the cap see one block
+		for i, x := range d {
+			if x.OffList && offAt < 0 {
+				offAt = i
+			}
+			if offAt >= 0 && !x.OffList {
+				t.Errorf("%s: a place of the listed map comes after one that is off it: %v", c.name, labelsOf(d))
+			}
+			if x.Map == "" {
+				if x.OffList {
+					t.Errorf("%s: a place with no map is on the listed map: %+v", c.name, x)
+				}
+				continue
+			}
+			hubs++
+			if x.OffList != c.wantOff[x.Map] || x.OtherMap != c.wantOther[x.Map] {
+				t.Errorf("%s: %s: offList %v otherMap %v, want %v %v", c.name, x.Map, x.OffList, x.OtherMap, c.wantOff[x.Map], c.wantOther[x.Map])
+			}
+		}
+		if hubs != 2 {
+			t.Errorf("%s: both hubs are listed: %v", c.name, labelsOf(d))
+		}
+	}
+	// the cap keeps the hubs that are off the list, the one the character stands in included
+	_, d := namedPlacesOf(t, placesOps(t, noDeepDesertMarker, inArrakeen), "", "HaggaBasin")
+	if got := capKeepingOffList(d, 1); len(got) != 2 || !got[0].OffList || !got[1].OffList {
+		t.Errorf("the two hubs stay when the list is cut: %v", labelsOf(got))
+	}
+}

@@ -32,6 +32,7 @@ type Destination struct {
 	Arrival  bool     `json:"arrival,omitempty"`  // X, Y, Z are the game's arrival point for the place (#515), not the marker's position; Distance is to this point
 	Map      string   `json:"map,omitempty"`      // the map the place is on, given for a hub (#521): a move to it is a move into that map, which the page asks for when it teleports
 	OtherMap bool     `json:"otherMap,omitempty"` // the place is on a map other than the one the character is on now: no distance is given, and the page shows the warning about a move between maps
+	OffList  bool     `json:"offList,omitempty"`  // the place is not a place of the map the list is for (a hub that is another map than the one listed, #825): the page counts it apart and lists it under Other maps. It differs from OtherMap when the character stands in a hub and another map is listed
 	Facing   *float64 `json:"facing,omitempty"`
 }
 
@@ -117,7 +118,7 @@ func (o *Ops) Destinations(q, dest string) (any, error) {
 		if q != "" && !strings.Contains(strings.ToLower(r.label), q) && !strings.Contains(strings.ToLower(r.alias), q) {
 			continue
 		}
-		d := Destination{Group: r.group, Label: r.label, X: fx, Y: fy, Z: fz, Arrival: r.arrival, Map: r.onMap, OtherMap: r.onMap != "" && r.onMap != cur}
+		d := Destination{Group: r.group, Label: r.label, X: fx, Y: fy, Z: fz, Arrival: r.arrival, Map: r.onMap, OtherMap: r.onMap != "" && r.onMap != cur, OffList: r.onMap != "" && r.onMap != mp}
 		onCur := (r.onMap == "" && same) || (r.onMap != "" && r.onMap == cur) // the place is on the map the character is on
 		if onCur {
 			d.Distance = flatDistance(fx, fy, px, py)
@@ -128,6 +129,9 @@ func (o *Ops) Destinations(q, dest string) (any, error) {
 		a, b := rows[i], rows[j]
 		if gi, gj := groupIndex(a.d.Group), groupIndex(b.d.Group); gi != gj {
 			return gi < gj
+		}
+		if a.d.OffList != b.d.OffList {
+			return !a.d.OffList // the places of the listed map before the hubs that are another map (#825)
 		}
 		if a.d.OtherMap != b.d.OtherMap {
 			return !a.d.OtherMap // the places on the character's map before the hubs that are another map
@@ -143,7 +147,7 @@ func (o *Ops) Destinations(q, dest string) (any, error) {
 	}
 	total := len(out)
 	if len(out) > destinationLimit {
-		out = capKeepingOtherMaps(out, destinationLimit)
+		out = capKeepingOffList(out, destinationLimit)
 	}
 	res := map[string]any{"map": mp, "sameMap": same, "maps": maps, "total": total, "destinations": out, "groups": groupsOf(out)}
 	if here.Parked != nil {
@@ -152,19 +156,19 @@ func (o *Ops) Destinations(q, dest string) (any, error) {
 	return res, nil
 }
 
-// capKeepingOtherMaps cuts the list to limit rows. The places on another map (the hubs, #521) are the last rows of the list and would be the first to go, which would hide them
+// capKeepingOffList cuts the list to limit rows. The places that are not on the listed map (the hubs, #521) are the last rows of the list and would be the first to go, which would hide them
 // while they exist (#607); they are kept and the places of the shown map give way instead, in the order they were in.
-func capKeepingOtherMaps(list []Destination, limit int) []Destination {
+func capKeepingOffList(list []Destination, limit int) []Destination {
 	other := 0
 	for _, d := range list {
-		if d.OtherMap {
+		if d.OffList {
 			other++
 		}
 	}
 	room := max(limit-other, 0)
 	out := make([]Destination, 0, limit)
 	for _, d := range list {
-		if d.OtherMap {
+		if d.OffList {
 			out = append(out, d)
 		} else if room > 0 {
 			out = append(out, d)

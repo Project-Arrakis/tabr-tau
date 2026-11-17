@@ -1209,12 +1209,12 @@ function tdDraw() {
   const more = TDR.total > TD.length ? ` (showing ${TD.length} of ${TDR.total})` : '';
   const opt = (d, i) => html`<option value="${i}" ${GO.pick === i ? 'selected' : ''}>${d.label}${tdAway(d) ? ' - ' + tdAway(d) : ''}</option>`;
   // The places are in groups (Trading posts, Personal bases, Vehicles, Respawn points, Taxis; #500, #519), each under its heading; the value of an option is its place in TD.
-  // A hub that is another map (#521) is not a place on the chosen map: it is counted apart and listed last under its own heading, so "N places on <map>" is the places of that map (#607).
+  // A hub that is not on the chosen map (offList: it is another map than the one chosen, #521, #825; the hub the character stands in is still one when another map is chosen): it is counted apart and listed last under its own heading, so "N places on <map>" is the places of that map (#607).
   const groups = TDR.groups || [];
-  const here = TD.filter((d) => !d.otherMap).length, other = TD.length - here;
-  const mine = (g) => TD.map((d, i) => (!d.otherMap && (g === null || d.group === g.key) ? opt(d, i) : ''));
-  const body = groups.length ? groups.filter((g) => TD.some((d) => !d.otherMap && d.group === g.key)).map((g) => html`<optgroup label="${g.label}">${mine(g)}</optgroup>`) : mine(null);
-  const hubs = other ? html`<optgroup label="${OTHER_MAPS_HEAD}">${TD.map((d, i) => (d.otherMap ? opt(d, i) : ''))}</optgroup>` : '';
+  const here = TD.filter((d) => !d.offList).length, other = TD.length - here;
+  const mine = (g) => TD.map((d, i) => (!d.offList && (g === null || d.group === g.key) ? opt(d, i) : ''));
+  const body = groups.length ? groups.filter((g) => TD.some((d) => !d.offList && d.group === g.key)).map((g) => html`<optgroup label="${g.label}">${mine(g)}</optgroup>`) : mine(null);
+  const hubs = other ? html`<optgroup label="${OTHER_MAPS_HEAD}">${TD.map((d, i) => (d.offList ? opt(d, i) : ''))}</optgroup>` : '';
   // The number of other-map places comes before "nearest first": a phone cuts the closed box at its width, and that number is the part that must show.
   const count = `${here ? `${here} place${here == 1 ? '' : 's'}` : 'No places'} on ${mapName(TDR.map)}${other ? `, ${other} on other maps` : ''}${TDR.sameMap && here > 1 ? ', nearest first' : ''}${more}`;
   setHTML(out, TD.length ? html`<select id="tdsel" aria-label="Place to go to"><option value="">${count}</option>${body}${hubs}</select>` : html`No places on ${mapName(TDR.map)}.`);
