@@ -510,6 +510,19 @@ function humanReason(raw) {
   if (L.includes('the game saved while the edits were being written')) return map('The game saved while the changes were being written; they are put back onto its file next.');
   return { text: endSentence(capFirst(r)), raw: '' };
 }
+// The name of a Journey step for a queue line (#618): the browser's own list has it once the Journey tab has been opened; until then the line has no name and the step's id is in its tooltip (queueTip).
+function journeyStepName(id) {
+  if (!JB) return '';
+  for (const g of JGROUPS) { const r = (JB[g[0]] || []).find((x) => x.id === id); if (r) return r.name; }
+  return '';
+}
+// The id that a queue line leaves out, for its tooltip (#618).
+function queueTip(desc) {
+  let m;
+  if ((m = String(desc || '').match(/^journey (\S+) (?:completed|reset) \(/))) return `Journey step id ${m[1]}`;
+  if ((m = String(desc || '').match(/^moved vehicle (\d+) next to player$/))) return `Vehicle number ${m[1]}`;
+  return '';
+}
 // A queued change in the words of the page. Most descriptions already read well (they come from the editor); the short internal ones are spelled out.
 function queueLine(desc) {
   const d = String(desc || '');
@@ -520,8 +533,8 @@ function queueLine(desc) {
   if ((m = d.match(/^intel \+(\d+)$/))) return `Add ${m[1]} Intel`;
   if ((m = d.match(/^unspent skill points = (\d+)$/))) return `Set the unspent skill points to ${m[1]}`;
   if ((m = d.match(/^decree (\d+) disabled=([01])$/))) return `Set the pool flag of decree ${m[1]} to ${m[2]}`;
-  if ((m = d.match(/^journey (\S+) (completed|reset) \((\d+) rows?\)$/))) return `Journey step ${m[1]}: ${m[2]}`;
-  if ((m = d.match(/^moved vehicle (\d+) next to player$/))) return `Move vehicle ${m[1]} next to the character`;
+  if ((m = d.match(/^journey (\S+) (completed|reset) \((\d+) rows?\)$/))) { const jn = journeyStepName(m[1]); return jn ? `Journey step ${jn}: ${m[2]}` : `Journey step: ${m[2]}`; }
+  if ((m = d.match(/^moved vehicle (\d+) next to player$/))) return 'Move a vehicle next to the character';
   // Landsraad edits name their houses and factions (#611): several houses, then one house
   // "landsraad: 3 houses completed for Atreides; replaces ...; houses: A, B, C": what was done and the short facts first, the list of houses last
   if ((m = d.match(/^landsraad: (\d+) houses? (completed|reopened|changed from the board)(?: for ([^;]+))?((?:; .*)?)$/))) {
@@ -616,7 +629,7 @@ async function status() {
   const logMsg = o.writeLogProblem ? html`<div class="mut">${capFirst(o.writeLogProblem)}. The game's file was written; only the record of it is missing.</div>` : html``;
   const notesMsg = o.notesProblem ? html`<div class="mut">${capFirst(o.notesProblem)}. The game's file was written; only the editor's own record of the ground a Landsraad raise paid is behind.</div>` : html``;
   const lines = o.pending.map(queueLine);
-  const listMsg = q ? html`<details class="bn-list" ${KEEP.qlist ? 'open' : ''}><summary data-keep="qlist">What is queued (${q})</summary><ul>${lines.map((l) => html`<li>${l}</li>`)}</ul></details>` : html``;
+  const listMsg = q ? html`<details class="bn-list" ${KEEP.qlist ? 'open' : ''}><summary data-keep="qlist">What is queued (${q})</summary><ul>${lines.map((l, i) => html`<li title="${queueTip(o.pending[i])}">${l}</li>`)}</ul></details>` : html``;
   const rawMsg = reason.raw ? html`<details class="bn-raw" ${KEEP.raw ? 'open' : ''}><summary data-keep="raw">Details (include this if you report a problem)</summary><div class="mono">${reason.raw}</div></details>` : html``;
   lastPending = lines;
   const banner = html`${notLiveMsg}${changedMsg}${heldMsg}${mainMsg}${unlistedMsg}${restoredMsg}${schemaMsg}${journalMsg}${logMsg}${notesMsg}${listMsg}${rawMsg}`;
@@ -1018,9 +1031,14 @@ async function playerSection(s) {
     </div>`);
     const ve = await api('/api/vendors');
     await loadCatalog(ve.stock.map((x) => x.template_id));
+    // The save has no name for a vendor (#618): each is "Vendor 1", "Vendor 2" in the order they first appear, the same in both tables, with its id in the tooltip and in the list under the tables.
+    const vnum = new Map();
+    for (const r of [...ve.stock, ...ve.cycles]) if (!vnum.has(r.vendor_id)) vnum.set(r.vendor_id, vnum.size + 1);
+    const vendorCell = (r) => html`<span title="Vendor id ${r.vendor_id}">Vendor ${vnum.get(r.vendor_id)}</span>`;
     h.push(html`<div class="card d-panel"><h3 class="d-head">Vendor purchase limits</h3><div class="row">${tip('vendtip', 'Vendors limit how much you can buy per restock cycle. Resetting clears those counters.', html`<button class="b d-btn primary" data-act="vreset" data-v="" aria-describedby="vendtip">Reset all vendors</button>`)}</div>
-      ${tbl([{ k: 'vendor_id', label: 'Vendor ID' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'amount_bought', label: 'Bought' }], ve.stock, { actions: (r) => html`<button class="b sec sm d-btn sm" data-act="vreset" data-v="${r.vendor_id}">Reset vendor</button>`, empty: 'No purchases are counted against any vendor, so there is nothing to reset.' })}
-      <h3 class="mt14 d-head">Restock cycles</h3>${tbl([{ k: 'vendor_id', label: 'Vendor ID' }, { k: 'last_interacted_timestamp', label: 'Last interaction', f: (r) => fmtEpoch(r.last_interacted_timestamp) }], ve.cycles, { empty: 'No vendor has been visited yet.' })}</div>`);
+      ${tbl([{ k: 'vendor_id', label: 'Vendor', f: vendorCell }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'amount_bought', label: 'Bought' }], ve.stock, { actions: (r) => html`<button class="b sec sm d-btn sm" data-act="vreset" data-v="${r.vendor_id}" data-vn="Vendor ${vnum.get(r.vendor_id)}">Reset vendor</button>`, empty: 'No purchases are counted against any vendor, so there is nothing to reset.' })}
+      <h3 class="mt14 d-head">Restock cycles</h3>${tbl([{ k: 'vendor_id', label: 'Vendor', f: vendorCell }, { k: 'last_interacted_timestamp', label: 'Last interaction', f: (r) => fmtEpoch(r.last_interacted_timestamp) }], ve.cycles, { empty: 'No vendor has been visited yet.' })}
+      ${vnum.size ? html`<details class="ids"><summary>Vendor ids</summary><div class="grid">${[...vnum].map(([id, n]) => kv('Vendor ' + n, id))}</div></details>` : ''}</div>`);
   } else {
     h.push(html`<div class="card d-panel"><p class="mut">There is nothing on this page.</p></div>`);
   }
@@ -1322,7 +1340,8 @@ function claimEditorDraw(focusKey) {
     return html`<rect x="${x - 0.44}" y="${y - 0.44}" width="0.88" height="0.88" rx="0.08" class="lc-cell ${kind}" ${avail || sel || removable ? html`data-cell="${k}" tabindex="0" role="button" aria-pressed="${sel || marked ? 'true' : 'false'}" aria-label="${lcCellName(x, y, sel, marked, removable)}"` : ''}><title>cell ${x}, ${y}${origin ? ' (the totem)' : have && pieces.get(k) ? ` (holds ${pieces.get(k)} building pieces or placeables: cannot be removed)` : removable ? (marked ? ' (marked for removal: click to keep it)' : ' (click to mark it for removal)') : ''}</title></rect>${label !== '' ? html`<text x="${x}" y="${y + 0.09}" transform="rotate(${-yaw} ${x} ${y})" class="lc-label">${label}</text>` : ''}`;
   });
   setHTML(host, html`<div class="card d-panel"><h3 class="d-head">Land claim editor</h3>
-    <div class="grid">${kv('Totem ID', c.totem_id)}${kv('Original yaw', Math.round(yaw * 10) / 10 + '°')}${kv('Horizontal segments', c.cells - 1)}${kv('Vertical level', c.level + ' / ' + c.maxLevel)}</div>
+    <div class="grid">${kv('Original yaw', Math.round(yaw * 10) / 10 + '°')}${kv('Horizontal segments', c.cells - 1)}${kv('Vertical level', c.level + ' / ' + c.maxLevel)}</div>
+    <details class="ids"><summary>Claim ids</summary><div class="grid">${kv('Totem', c.totem_id)}</div></details>
     <div class="lc-work"><div class="lc-gridcard"><b>Horizontal claim</b>
       <svg class="lc-svg" viewBox="${vx} ${vy} ${vw} ${vh}">${compass}<g transform="rotate(${yaw} 0 0)">${cells}
         <path d="M0.5 0 H1.9" class="lc-axis lc-axis-x"></path><path d="M1.9 0 l-0.25 -0.14 v0.28 z" class="lc-axis-head lc-axis-x"></path><text x="2.35" y="0.12" transform="rotate(${-yaw} 2.35 0)" class="lc-axis-t lc-axis-x">+x</text>
@@ -1413,7 +1432,7 @@ async function baseBackupsCard() {
   let list;
   try { list = await api('/api/bases/backups'); } catch (e) { return html`<div class="card d-panel"><h3 class="d-head">Base backups</h3><p class="bad" role="alert">${e.message}</p></div>`; }
   const n = (v) => Number(v).toLocaleString();
-  return html`<div class="card d-panel"><h3>Base backups (${list.length})</h3>${tbl([{ k: 'backup_id', label: 'ID' }, { k: 'name', label: 'Name' }, { k: 'map', label: 'Map' }, { k: 'actors', label: 'Actors', f: (r) => n(r.actors) },
+  return html`<div class="card d-panel"><h3>Base backups (${list.length})</h3>${tbl([{ k: 'name', label: 'Name', f: (r) => html`<span title="Base backup number ${r.backup_id}">${r.name}</span>` }, { k: 'map', label: 'Map' }, { k: 'actors', label: 'Actors', f: (r) => n(r.actors) },
     { k: 'pieces', label: 'Building pieces', f: (r) => n(r.pieces) }, { k: 'placeables', label: 'Placeables', f: (r) => n(r.placeables) }, { k: 'stored_items', label: 'Stored items', f: (r) => n(r.stored_items) }], list,
     { actions: (r) => html`<button class="b sec sm d-btn sm" data-act="baseBackupExport" data-id="${r.backup_id}" data-name="${r.name}" data-pieces="${r.pieces}" data-placeables="${r.placeables}" data-items="${r.stored_items}">Export base backup</button>
       ${tip('bbctip' + r.backup_id, "Saves this backup as a Dune console base backup file, for your own self-hosted server only. Reads the save and changes nothing.", html`<button class="b sec sm d-btn sm" data-act="baseConsoleExport" data-kind="backup" data-id="${r.backup_id}" data-name="${r.name}" data-pieces="${r.pieces}" data-placeables="${r.placeables}" data-items="${r.stored_items}" aria-describedby="bbctip${r.backup_id}">Export for console</button>`)}`,
@@ -1432,12 +1451,12 @@ async function basesView() {
   const list = await api('/api/bases/list');
   const id = list.some((x) => x.base_id == bsOpen) ? bsOpen : (list[0] ? list[0].base_id : null);
   const base = list.find((x) => x.base_id == id);
-  const h = [html`<div class="card d-panel"><h3>Bases (${list.length})</h3>${tbl([{ k: 'base_id', label: 'ID' }, { k: 'name', label: 'Base name', f: (r) => html`${r.name}${r.picked_up ? html` <span class="tag" title="Picked up with the game's base tool: its buildings are still in the save, but nobody has claimed it.">Picked up</span>` : ''}` }, { k: 'base_type', label: 'Base type' }, { k: 'owner', label: 'Owner' }, { k: 'map', label: 'Map' },
+  const h = [html`<div class="card d-panel"><h3>Bases (${list.length})</h3>${tbl([{ k: 'name', label: 'Base name', f: (r) => html`<span title="Base number ${r.base_id}">${r.name}</span>${r.picked_up ? html` <span class="tag" title="Picked up with the game's base tool: its buildings are still in the save, but nobody has claimed it.">Picked up</span>` : ''}` }, { k: 'base_type', label: 'Base type' }, { k: 'owner', label: 'Owner' }, { k: 'map', label: 'Map' },
     { k: 'generators', label: 'Generators' }, { k: 'pieces', label: 'Building pieces' }, { k: 'placeables', label: 'Placeables' }, { k: 'x', label: 'Coordinates', f: (r) => html`${fix(r.x)}, ${fix(r.y)}, ${fix(r.z)}${r.region ? html` <span class="mut">near ${r.region}</span>` : ''}` }], list,
     { actions: (r) => html`${r.base_id == id ? html`<span class="tag">Open below</span>` : html`<button class="b sec sm d-btn sm" data-bsopen="${r.base_id}">Open</button>`}${r.picked_up ? '' : tip('bcetip' + r.base_id, "Saves this base, with what is stored in it, as a Dune console base backup file, for your own self-hosted server only. Reads the save and changes nothing.", html`<button class="b sec sm d-btn sm" data-act="baseConsoleExport" data-kind="base" data-id="${r.base_id}" data-name="${r.name}" data-pieces="${r.pieces}" data-placeables="${r.placeables}" aria-describedby="bcetip${r.base_id}">Export for console</button>`)}`, empty: 'No bases yet: build one in the game, then reload.' })}</div>`];
   if (base) {
     const tabs = [['power', 'Power'], ['water', 'Water'], ['inventory', 'Inventory'], ['claim', 'Land claim editor'], ['structures', 'Structures']];
-    h.push(html`<div class="card d-panel"><h3>${base.name} (#${base.base_id})</h3><div class="sub">${tabs.map(([k, v]) => html`<button data-bstab="${k}" class="${bsTab == k ? 'on' : ''}">${v}</button>`)}</div></div>`);
+    h.push(html`<div class="card d-panel"><h3 title="Base number ${base.base_id}">${base.name}</h3><div class="sub">${tabs.map(([k, v]) => html`<button data-bstab="${k}" class="${bsTab == k ? 'on' : ''}">${v}</button>`)}</div></div>`);
     if (bsTab == 'power') {
       const pw = await api('/api/bases/power?base=' + id);
       const prefs = await api('/api/settings');
@@ -1478,12 +1497,12 @@ async function basesView() {
       h.push(html`<div class="card d-panel"><h3 class="d-head">Structure health</h3>${Number(p.n) ? html`<div class="grid">${kv('Building pieces', p.n)}${kv('Lowest health', fix(p.minh))}${kv('Average health', fix(p.avgh))}${kv('Total sand buildup', fix(p.sand))}</div>` : html`<p class="mut">This base has no building pieces.</p>`}
         <div class="row">${tip('repairbtip', 'Raises the pieces and placeables of this base to the highest health seen for their type on standing pieces of your bases (backups do not count, and a cap per type applies). Placeable holograms (unfinished placements) are left as they are. Other bases are not changed, and nothing is lowered.', html`<button class="b d-btn primary" data-act="repairB" data-id="${id}" aria-describedby="repairbtip">Repair this base to max</button>`)}<button class="b sec d-btn" data-act="sand" data-id="${id}" data-confirm="Yes, clear sand on this base">Clear sand on this base</button></div>
         ${about('bases.structures', 'Structures', html`<p class="mut">The health card, the placeables and the piece types list only what belongs to this base: the pieces and placeables whose owner is this base's totem. Pieces that no base owns are listed apart under Not part of any base and are never counted into a base. Repair this base to max and Clear sand on this base change only this base's rows, and both repairs leave placeable holograms (unfinished placements) as they are. The highest health of a type is looked up over the standing pieces of all your bases (not backups, and never above a cap per type), so a base whose pieces are all worn is still repaired. The last card has the whole-save counts and the two buttons that act on every base.</p>`)}</div>`);
-      h.push(html`<div class="card d-panel"><h3>Placeables (${b.placeables.length})</h3>${tbl([{ k: 'id' }, { k: 'building_type', label: 'Type' }, { k: 'health', label: 'Health', f: (r) => (r.health == null ? '' : fix(r.health)) }], b.placeables, { empty: 'No placeables at this base.' })}</div>
+      h.push(html`<div class="card d-panel"><h3>Placeables (${b.placeables.length})</h3>${tbl([{ k: 'building_type', label: 'Type', f: (r) => html`<span title="Placeable number ${r.id}">${r.building_type}</span>` }, { k: 'health', label: 'Health', f: (r) => (r.health == null ? '' : fix(r.health)) }], b.placeables, { empty: 'No placeables at this base.' })}</div>
         <div class="card d-panel"><h3 class="d-head">Building piece types</h3>${tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], b.types, { empty: 'No building pieces at this base.' })}</div>`);
       if (Number(up.n) || (un.placeables || []).length) {
         h.push(html`<div class="card d-panel"><h3 class="d-head">Not part of any base</h3><p class="mut">${Number(up.n) || 0} building pieces and ${(un.placeables || []).length} placeables have no owner that is a base. They are not counted above, and the buttons for this base leave them alone.</p>
           ${Number(up.n) ? tbl([{ k: 'building_type', label: 'Type' }, { k: 'n', label: 'Count' }, { k: 'minh', label: 'Min health' }, { k: 'maxh', label: 'Max health' }, { k: 'avgh', label: 'Avg' }], un.types || []) : ''}
-          ${(un.placeables || []).length ? tbl([{ k: 'id' }, { k: 'building_type', label: 'Type' }, { k: 'health', label: 'Health', f: (r) => (r.health == null ? '' : fix(r.health)) }], un.placeables) : ''}</div>`);
+          ${(un.placeables || []).length ? tbl([{ k: 'building_type', label: 'Type', f: (r) => html`<span title="Placeable number ${r.id}">${r.building_type}</span>` }, { k: 'health', label: 'Health', f: (r) => (r.health == null ? '' : fix(r.health)) }], un.placeables) : ''}</div>`);
       }
       h.push(html`<div class="card d-panel"><h3 class="d-head">Whole save</h3><p class="mut">The save has ${sv.pieces} building pieces and ${sv.placeables} placeables: ${p.n} building pieces and ${b.placeables.length} placeables at this base, ${otherPieces} and ${otherPlaceables} at other bases, ${Number(up.n) || 0} and ${(un.placeables || []).length} at no base.</p>
         <div class="row">${tip('repairalltip', 'Raises every building piece and placeable in the save, at every base and at no base, to the highest health seen for its type on standing pieces of your bases (backups do not count, and a cap per type applies). Placeable holograms (unfinished placements) are left as they are, and so are the pieces and placeables of a base backup.', html`<button class="b sec d-btn" data-act="repairAll" aria-describedby="repairalltip">Repair every base to max</button>`)}<button class="b sec d-btn" data-act="sandAll" data-confirm="Yes, clear sand on every base">Clear sand on every base</button></div></div>`);
@@ -1491,7 +1510,7 @@ async function basesView() {
       const claims = (await api('/api/bases/claim')).filter((c) => c.totem_id == id);
       LC = claims.length ? { claim: claims[0], sel: new Set(), rm: new Set(), level: claims[0].level } : null;
       if (LC) h.push(html`<div id="lced"></div>`);
-      h.push(html`${claims.length ? html`<div class="card d-panel"><h3 class="d-head">Resize by square</h3>${claims.map((c) => html`<div class="row"><b>${c.name} ${c.totem_id}</b><span>${c.cells} cell${c.cells == 1 ? '' : 's'}${c.irregular ? ' (irregular shape)' : ` (${2 * c.rings + 1} x ${2 * c.rings + 1} square)`}, vertical level ${c.level}</span>
+      h.push(html`${claims.length ? html`<div class="card d-panel"><h3 class="d-head">Resize by square</h3>${claims.map((c) => html`<div class="row"><b title="Totem ${c.totem_id}">Claim</b><span>${c.cells} cell${c.cells == 1 ? '' : 's'}${c.irregular ? ' (irregular shape)' : ` (${2 * c.rings + 1} x ${2 * c.rings + 1} square)`}, vertical level ${c.level}</span>
       Grow to <select id="cr${c.totem_id}"><option value="0">no change</option>${Array.from({ length: c.maxRings }, (_, i) => i + 1).filter((n) => n > c.rings).map((n) => html`<option value="${n}">${2 * n + 1} x ${2 * n + 1}</option>`)}</select>
       Level <select id="cv${c.totem_id}">${Array.from({ length: c.maxLevel + 1 }, (_, i) => i).filter((n) => n >= c.level).map((n) => html`<option value="${n}" ${n == c.level ? 'selected' : ''}>${n}</option>`)}</select>
       <button class="b d-btn primary" data-act="claimGrow" data-id="${c.totem_id}" data-level="${c.level}">Expand claim</button></div>
@@ -1703,7 +1722,7 @@ const whereWords = (r) => (r.place && r.place.words) || 'next to you';
 function vcShorts(r) { return (r.notGiven || []).map((g) => html`<li>${g.name}: ${Number(g.short).toLocaleString()} did not fit (${g.reason || 'no room'})</li>`); }
 function vehicleCreateCard(cat) {
   const r = vcResult && vcResult.r;
-  const result = r ? html`<div class="info" role="status" id="vcresult"><b>Created vehicle ${r.id}:</b> ${vcSentence(r)}. It goes ${whereWords(r)}. It is written to the save; the game has not loaded it yet.${vcResult.note}
+  const result = r ? html`<div class="info" role="status" id="vcresult"><b title="Vehicle number ${r.id}">Created vehicle:</b> ${vcSentence(r)}. It goes ${whereWords(r)}. It is written to the save; the game has not loaded it yet.${vcResult.note}
     ${(r.notGiven || []).length || (r.notes || []).length ? html`<ul>${vcShorts(r)}${(r.notes || []).map((x) => html`<li>${x}</li>`)}</ul>` : ''}
     <button class="b sec sm d-btn sm" data-act="vcDismiss">Dismiss</button></div>` : '';
   const aboutText = about('vehicles.create', 'Create a vehicle', html`<p class="mut">Writes a new vehicle of yours into the save from the game's own vehicle tables (game build ${VC ? VC.build : '1.5.15.0'}): the same rows the game keeps for a vehicle, which Duplicate also writes. The tier is the Mk number of the parts, so Mk6 is the tier 6 template. A part can be changed for any part of the same slot, a unique or another grade. The vehicle is put next to you, or outside your base when you stand in one; an ornithopter is put 30 m ahead of you and 7 m up, in the air, and the game settles it. Nothing asks first: it is written at once after a backup, or queued while the game is running. A vehicle made this way has not been loaded in the game yet, so check it on a copy of your save first.</p>`);
@@ -1724,7 +1743,7 @@ function vehicleCreateCard(cat) {
     </details>
     ${picker}
     <div class="row">${tip('vcpreviewtip', 'Shows the rows that would be written. Nothing is changed.', html`<button class="b sec d-btn" data-act="vcPreview" aria-describedby="vcpreviewtip">Preview</button>`)}${tip('vccreatetip', 'Writes the vehicle to the save now, after a backup, or queues it while the game is running. Nothing asks first.', html`<button class="b d-btn primary" data-act="vcCreate" aria-describedby="vccreatetip${vcBusy ? ' vcwait' : ''}" ${vcBusy || vcCreating ? 'disabled' : ''}>Create</button>`)}<button class="b sec d-btn" data-act="vcCancel">Cancel</button></div>
-    ${p ? html`<div class="info" id="vcpreview" aria-busy="${vcBusy ? 'true' : 'false'}"><div role="status"><b>Would create vehicle ${p.id}:</b> ${vcSentence(p)}. It goes ${whereWords(p)}.
+    ${p ? html`<div class="info" id="vcpreview" aria-busy="${vcBusy ? 'true' : 'false'}"><div role="status"><b title="Vehicle number ${p.id}">Would create vehicle:</b> ${vcSentence(p)}. It goes ${whereWords(p)}.
       <p class="mut" id="vcwait" ${vcBusy ? '' : 'hidden'}>Updating the preview...</p>
       ${(p.notGiven || []).length || (p.notes || []).length ? html`<ul>${vcShorts(p)}${(p.notes || []).map((x) => html`<li>${x}</li>`)}</ul>` : ''}</div>
       ${vcPartNote ? html`<p class="bad" role="alert" id="vcpartnote">${vcPartNote.slots.map(slotWord).join(' and ')} ${vcPartNote.slots.length === 1 ? 'was' : 'were'} not changed. ${vcPartNote.text}</p>` : ''}
@@ -1760,7 +1779,7 @@ async function vehiclesView() {
   }
   // Every stored vehicle of the character in one list (#528): the recovered ones, the one in the vehicle backup and the ones whose state says stored; the count is the rows shown.
   const stored = v.stored || [];
-  h.push(html`<div class="card d-panel"><h3>Recovered and stored vehicles (${stored.length})</h3>${tbl([{ k: 'vehicle_id', label: 'ID' }, { k: 'label', label: 'Kind' }, { k: 'type', label: 'Vehicle', f: (r) => (r.type || '-') }, { k: 'vehicle_name', label: 'Name', f: (r) => (r.vehicle_name == null ? '-' : r.vehicle_name) }, { k: 'chassis_durability', label: 'Chassis durability', f: (r) => (r.chassis_durability == null ? '-' : r.chassis_durability) }, { k: 'time_stored', label: 'Stored at', f: (r) => (r.time_stored == null ? '-' : fmtEpoch(r.time_stored)) }, { k: 'reason', label: 'Reason code', f: (r) => (r.reason == null ? '-' : r.reason) }], stored, { empty: 'No vehicle has been recovered or stored.' })}</div>`);
+  h.push(html`<div class="card d-panel"><h3>Recovered and stored vehicles (${stored.length})</h3>${tbl([{ k: 'label', label: 'Kind', f: (r) => html`<span title="Vehicle number ${r.vehicle_id}">${r.label}</span>` }, { k: 'type', label: 'Vehicle', f: (r) => (r.type || '-') }, { k: 'vehicle_name', label: 'Name', f: (r) => (r.vehicle_name == null ? '-' : r.vehicle_name) }, { k: 'chassis_durability', label: 'Chassis durability', f: (r) => (r.chassis_durability == null ? '-' : r.chassis_durability) }, { k: 'time_stored', label: 'Stored at', f: (r) => (r.time_stored == null ? '-' : fmtEpoch(r.time_stored)) }, { k: 'reason', label: 'Reason code', f: (r) => (r.reason == null ? '-' : r.reason) }], stored, { empty: 'No vehicle has been recovered or stored.' })}</div>`);
   setHTML(host(), html`${h}`);
 }
 
@@ -2787,7 +2806,7 @@ function sqlFailed(e) { const out = $('#sqlout'); if (out) setHTML(out, html`<p 
 async function baseInvCard(d) {
   const it = await api('/api/bases/storage/items?inventory=' + encodeURIComponent(d.id));
   const cat = await loadCatalog(it.map((r) => r.template_id));
-  return html`<div class="card d-panel"><h3>Inventory ${d.id}</h3>${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" data-name="${itemName(r.template_id)}" class="w90" aria-label="Stack of ${itemName(r.template_id)}">` }, { k: 'fill', label: 'Liquid', f: (r) => fillCell(r) }], it, { empty: 'This container is empty.', actions: (r) => html`<button class="b bad sm d-btn danger sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}" aria-label="Delete ${itemName(r.template_id)}">Delete</button>` })}
+  return html`<div class="card d-panel"><h3 title="Inventory number ${d.id}">${d.name ? 'Inventory: ' + d.name : 'Inventory'}</h3>${tbl([{ k: 'position_index', label: 'Slot' }, { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Stack', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" data-name="${itemName(r.template_id)}" class="w90" aria-label="Stack of ${itemName(r.template_id)}">` }, { k: 'fill', label: 'Liquid', f: (r) => fillCell(r) }], it, { empty: 'This container is empty.', actions: (r) => html`<button class="b bad sm d-btn danger sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}" aria-label="Delete ${itemName(r.template_id)}">Delete</button>` })}
     <div class="row">${itemPicker("bt", cat)}Qty<input id="bq" aria-label="Quantity to add" type="number" value="1" min="1"><button class="b d-btn primary" data-act="giveInv" data-id="${d.id}" data-name="${d.name || ''}">Add item</button></div>${clearRow(d.id, d.name || 'this container', it)}</div>`;
 }
 
@@ -3127,7 +3146,7 @@ const A = {
       vcResult = { r, note: String(NOT_SAVED) ? ' ' + String(NOT_SAVED).trim() : '' };
       vcDraft = null;
       vcDrop();
-      toast(`Created vehicle ${r.id}: ${r.label} ${whereWords(r)}` + NOT_SAVED);
+      toast(`Created vehicle: ${r.label} ${whereWords(r)}` + NOT_SAVED);
     }, null).finally(() => {
       vcCreating = false;
       const again = document.querySelector('[data-act="vcCreate"]');
@@ -3135,7 +3154,7 @@ const A = {
     });
   },
   bring: (d) => act(async () => { const r = await api('/api/vehicles/bring', { id: +d.id }); toast(`Vehicle moved ${whereWords(r)}` + NOT_SAVED); }, null),
-  vreset: async (d) => (await ask({ title: d.v ? 'Reset purchase limits for this vendor?' : 'Reset purchase limits for every vendor?', body: d.v ? 'Resets the purchase counters of vendor ' + d.v + '.' : 'Resets the purchase counters of every vendor in the save, not one.', ok: 'Reset' })) && act(() => api('/api/vendors/reset', { vendor_id: d.v }), 'Purchase limits reset'),
+  vreset: async (d) => (await ask({ title: d.v ? 'Reset purchase limits for this vendor?' : 'Reset purchase limits for every vendor?', body: d.v ? 'Resets the purchase counters of ' + (d.vn || 'this vendor') + '.' : 'Resets the purchase counters of every vendor in the save, not one.', ok: 'Reset' })) && act(() => api('/api/vendors/reset', { vendor_id: d.v }), 'Purchase limits reset'),
   cfgcreate: (d) => act(() => api('/api/config/create', { name: d.n }), 'Created ' + d.n + ' now', true, true),
   cfgadd: () => act(() => api('/api/config/set', { name: cfgFile, section: val('cs').replace(/^\[|\]$/g, ''), key: val('ck').trim(), value: val('cv') }), 'Added to the config file now', true, true),
   cfgReset: (d) => act(async () => { await api('/api/config/reset', { name: cfgFile, line: +d.line, key: d.key }); toast(`${d.key}: ${brief(d.was)} → ${brief(d.to)} (the game's default). To undo, set it back to ${brief(d.was)}. The file was written now, after a backup.`); }, null, true, true),

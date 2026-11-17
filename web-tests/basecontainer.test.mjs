@@ -47,7 +47,7 @@ test('deleting an item leaves the container open with the item gone, so several 
   await deleteItem(ui, get, 12);
   assert.equal(posts(ui, '/api/items/delete').length, 1);
   assert.deepEqual(ids(ui), ['11', '13'], 'the container is still open and the item is gone');
-  assert.ok(ui.doc.querySelector('#inv h3').textContent.includes('Inventory 1'));
+  assert.ok(ui.doc.querySelector('#inv h3').textContent.includes('Inventory: Chest'));
   await deleteItem(ui, get, 11);
   assert.deepEqual(ids(ui), ['13'], 'a second delete in a row');
   assert.equal(posts(ui, '/api/items/delete').length, 2);
@@ -163,7 +163,7 @@ test('a redraw never shows the open container empty first: it is in the first dr
   assert.equal(ui.doc.querySelector('#inv [data-act="delItem"][data-id="12"]').getAttribute('aria-label'), 'Delete Spice Melange');
   // a watcher on the page: whenever the page has its container place, the container card must be in it (the redraw puts it in with the page, it does not fill it in afterwards)
   const seen = [];
-  const mo = new ui.w.MutationObserver(() => { const n = ui.doc.querySelector('#inv'); if (n) seen.push(n.textContent.includes('Inventory 1')); });
+  const mo = new ui.w.MutationObserver(() => { const n = ui.doc.querySelector('#inv'); if (n) seen.push(n.textContent.includes('Inventory: Chest')); });
   mo.observe(ui.doc.querySelector('#main'), { childList: true, subtree: true });
   await ui.w.render(true, true);
   await new Promise((r) => ui.w.setTimeout(r, 0));

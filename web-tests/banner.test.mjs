@@ -150,3 +150,12 @@ test('a save whose tables are as expected shows no such notice', async () => {
   assert.ok(!/not quite the one/.test(b.text));
   b.close();
 });
+
+test('a queued Journey step or vehicle move is listed without its id, and the id is the tooltip of its line (#618)', async () => {
+  const b = await banner({ dirty: true, pending: ['journey STEP_ABC_1 completed (3 rows)', 'moved vehicle 4711 next to player', 'xp +500'] });
+  const lis = [...b.gw.querySelectorAll('.bn-list li')];
+  assert.deepEqual(lis.map((l) => l.textContent), ['Journey step: completed', 'Move a vehicle next to the character', 'Add 500 XP']);
+  assert.deepEqual(lis.map((l) => l.getAttribute('title')), ['Journey step id STEP_ABC_1', 'Vehicle number 4711', '']);
+  assert.ok(!/STEP_ABC_1|4711/.test(b.gw.querySelector('.bn-list').textContent));
+  b.close();
+});

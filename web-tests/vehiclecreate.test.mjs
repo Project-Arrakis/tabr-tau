@@ -85,7 +85,7 @@ test('the operator\'s Mk6 buggy: uniques in three slots and items; Preview posts
     items: [{ template_id: 'MelangeSpice', quantity: 10 }],
   });
   const box = ui.doc.querySelector('#vcpreview');
-  assert.ok(box && box.textContent.includes('Would create vehicle 1870') && box.textContent.includes('Buggy, Mk6 Combat') && box.textContent.includes('a cargo hold of 35 slots and volume 3,500') && box.textContent.includes('10 of 10 items'), box && box.textContent);
+  assert.ok(box && box.textContent.includes('Would create vehicle:') && box.textContent.includes('Buggy, Mk6 Combat') && box.textContent.includes('a cargo hold of 35 slots and volume 3,500') && box.textContent.includes('10 of 10 items'), box && box.textContent);
   assert.ok(box.textContent.includes('Buggy Engine Mk6'), 'the parts table');
   assert.equal(posts(ui, '/api/vehicles/spawn').length, 0, 'a preview writes nothing');
   assert.ok(ui.doc.querySelector('#vcClass'), 'the form stays');
@@ -110,9 +110,9 @@ test('Create posts once with no question asked, the form closes, and the result 
   const r = ui.doc.querySelector('#vcresult');
   assert.ok(r, 'a result line');
   const text = r.textContent.replace(/\s+/g, ' ');
-  assert.ok(text.includes('Created vehicle 1870:') && text.includes('Buggy, Mk6 Combat, 5 parts, health 650, fuel 300 of 300') && text.includes('the game has not loaded it yet'), text);
+  assert.ok(text.includes('Created vehicle:') && !text.includes('1870') && text.includes('Buggy, Mk6 Combat, 5 parts, health 650, fuel 300 of 300') && text.includes('the game has not loaded it yet'), text);
   assert.ok(!text.includes('queued'), text);
-  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Created vehicle 1870'));
+  assert.ok(ui.doc.querySelector('#toast').textContent.includes('Created vehicle:'));
   ui.click('[data-act="vcDismiss"]'); await ui.settle();
   assert.equal(ui.doc.querySelector('#vcresult'), null);
   ui.dom.window.close();
