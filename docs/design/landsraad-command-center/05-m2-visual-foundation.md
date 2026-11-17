@@ -171,6 +171,23 @@ Variances from the approved V20 picture, for human approval:
 
 Not done in M2: any wiring into the editor, any write path, any live data, the numeric pixel diff, a real-device or real-browser run on a phone, a screen reader run, a high-contrast run on Windows (forced colours was emulated), and a visual check by the operator.
 
+### 7.1 Standards review (the two contributor cloths)
+
+Reviewed at 1280, 768 and 390 wide, dark and light, and in forced colours, against the approved V20 plaque.
+
+Findings:
+- The words started right under the crest and the heading wrapped to two lines, so the crest, heading and list read as one cramped stack; V20 has the crest, a one-line heading and then the list, with air between.
+- The foot of the cloth ended 4 units above the HOUSE nameplates and the foot ornament sat on the last contributor line when five names were shown.
+- The list ran into the foot in the narrow layout (the slant cut the last line), and the foot had no gold edge there, only the sides.
+- A long name had no safe rule: it could push a column wider (the two narrow columns became unequal) or overrun the cloth.
+- In forced colours, wide layout, the standards were bare words with no outline and no mark.
+- The empty state was a lone line at the top of a tall empty cloth.
+- Plaque and standards were already mirrors in the drawing; the text boxes were also mirrors. The list was left-aligned against a centred heading, where V20 centres the block.
+
+Changed (display only, `lcc.js` and `lcc.css`): the crest picture is larger (88 units, as in V20); the words box starts below it and ends above the ornament; the heading is one line; the list is a centred block with gold numbers, each name in its own span with the full name as a title, cut with an ellipsis in the wide layout and wrapped (even inside an unbroken string) in the narrow one; the cloth tip stops 10 units above the nameplates and the ornament sits just above the tip; the narrow cloth has a gold edge on the foot and a fixed foot depth with deeper padding; the two narrow columns are equal whatever the names; the empty state is centred in the cloth with a thin gold line above it, still the words "Not in the save"; forced colours, wide, draws an outlined box with the two-shape mark. Tests: `web-tests/lcc-standards.test.mjs` (five lines and a very long name on both standards, hostile text, the mirror of the drawing and of the boxes, the box between crest and ornament, the foot, forced colours, contrast), and a new gallery case `long`. Captured again, headlessly, as `LCC_M2c_*`.
+
+Left as it is, and why: the contributor names are not in a single-player save, so the filled list is shown only for fixture data and the live state is the honest empty one; the names use the page's body face, not the serif-like face of the approved picture (the picture is an image, the face is the page's); the narrow layout keeps its stacked cloths (no V20 equivalent).
+
 ## 8. Rollback
 
 Remove `internal/web/static/lcc/`, the two names and five folders added to `internal/web/server.go`, the gallery folder, the manifest, the tests and the script, and restore `docs/art-notice.md` and `docs/art/landsraad/README.md`. Nothing else refers to them.

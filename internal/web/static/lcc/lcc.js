@@ -154,8 +154,9 @@
     w.appendChild(mk);
     w.appendChild(el('p', 'lcc-standard-h', heading || 'TOP CONTRIBUTORS'));
     if (Array.isArray(lines) && lines.length) {
-      const ol = el('ol', 'lcc-standard-list');
-      for (const s of lines.slice(0, 5)) ol.appendChild(el('li', '', s));
+      const ol = el('ol', 'lcc-standard-list', '', { role: 'list' });
+      // the name is text in its own span (the stylesheet ellipsizes it in the wide layout and wraps it in the narrow one); the full name stays in the title
+      for (const s of lines.slice(0, 5)) { const name = String(s); const li = el('li'); li.appendChild(el('span', 'lcc-standard-name', name, { title: name })); ol.appendChild(li); }
       w.appendChild(ol);
     } else w.appendChild(el('p', 'lcc-standard-none', emptyText || 'Not in the save'));
     return w;
@@ -212,7 +213,7 @@
   const strokePath = (d, stroke, w, extra) => sv('path', Object.assign({ d, fill: 'none', stroke, 'stroke-width': w, 'stroke-linejoin': 'miter' }, extra || {}));
   const mirror = (x) => W - x;
   // The size of the crest pictures in the 2172 x 724 drawing (the picture is a 256 square with its margin: the visible crest is about three quarters of it), as the approved V20 plaque shows them.
-  const SHIELD_MARK = 120, STANDARD_MARK = 76, SEAT_MEDAL = 2 * TRACK.r + 2, SEAT_MARK = 44;
+  const SHIELD_MARK = 120, STANDARD_MARK = 88, SEAT_MEDAL = 2 * TRACK.r + 2, SEAT_MARK = 44;
 
   // A picture placed in the vector layers: an SVG <image> centred on (cx, cy), or null when there is no picture (a faction the table does not know). A picture that fails to load draws nothing, so
   // what is behind it (the shield or cloth colour, the seat circle) and the words beside it stand alone.
@@ -267,15 +268,15 @@
     // the two cloth standards: a rod with two finials, the cloth with a pointed foot, a gold edge and an inner edge
     const standardArt = (cx, fill, faction) => {
       const l = cx - 126, r = cx + 126;
-      const cloth = 'M' + (l + 2) + ',206 H' + (r - 2) + ' V486 L' + cx + ',574 L' + (l + 2) + ',486 Z';
+      const cloth = 'M' + (l + 2) + ',206 H' + (r - 2) + ' V486 L' + cx + ',568 L' + (l + 2) + ',486 Z';
       return sv('g', null, [
         sv('rect', { x: l - 20, y: 189, width: 292, height: 10, rx: 5, fill: g('gold') }),
         sv('circle', { cx: l - 22, cy: 194, r: 10, fill: g('gold') }), sv('circle', { cx: r + 22, cy: 194, r: 10, fill: g('gold') }),
         sv('path', { d: cloth, fill: g(fill) }),
         sv('path', { d: cloth, fill: 'none', stroke: '#000', 'stroke-width': 18, opacity: 0.18 }),
-        strokePath(cloth, g('gold'), 6), strokePath('M' + (l + 14) + ',218 H' + (r - 14) + ' V480 L' + cx + ',556 L' + (l + 14) + ',480 Z', GOLD.mid, 1.6, { opacity: 0.75 }),
-        svgPicture(factionAsset(faction, 'mark'), cx, 242, STANDARD_MARK, 'lcc-art-crest'),
-        sv('path', { d: 'M' + (cx - 28) + ',520 q14,-26 28,-4 q14,-22 28,4 q-14,8 -28,18 q-14,-10 -28,-18 Z', fill: GOLD.mid, opacity: 0.85 }),
+        strokePath(cloth, g('gold'), 6), strokePath('M' + (l + 14) + ',218 H' + (r - 14) + ' V480 L' + cx + ',550 L' + (l + 14) + ',480 Z', GOLD.mid, 1.6, { opacity: 0.75 }),
+        svgPicture(factionAsset(faction, 'mark'), cx, 246, STANDARD_MARK, 'lcc-art-crest'),
+        sv('path', { d: 'M' + (cx - 28) + ',511 q14,-26 28,-4 q14,-22 28,4 q-14,8 -28,18 q-14,-10 -28,-18 Z', fill: GOLD.mid, opacity: 0.85 }),
       ]);
     };
     kids.push(standardArt(192, 'em', 'a'), standardArt(mirror(192), 'cr', 'h'));

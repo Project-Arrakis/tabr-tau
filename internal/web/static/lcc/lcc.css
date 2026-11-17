@@ -54,15 +54,21 @@
 .lcc-heldby-n { font: 700 15px/1.1 var(--t-display, sans-serif); letter-spacing: .08em; color: #f2857f; text-shadow: 0 1px 3px rgba(0, 0, 0, .9); }
 .lcc-heldby-n.lcc-f-a { color: #62e0bd; }
 .lcc-emboss { text-shadow: 0 1px 0 rgba(255, 238, 190, .35), 0 -1px 1px rgba(0, 0, 0, .8); }
-/* the cloth standard: a gold-edged banner with a pointed foot */
-.lcc-standard { box-sizing: border-box; padding: 12px 10px 22px; text-align: center; color: var(--lcc-on-faction); border: 2px solid var(--lcc-gold); clip-path: polygon(0 0, 100% 0, 100% 86%, 50% 100%, 0 86%); }
-.lcc-standard.lcc-f-a { background: linear-gradient(180deg, #0f6a54, #063a2e); }
-.lcc-standard.lcc-f-h { background: linear-gradient(180deg, #8c1219, #4a070c); }
-.lcc-standard-mark { display: block; margin: 0 auto 4px; line-height: 0; text-align: center; }  /* the faction crest picture (white); a forced-colours view draws two plain shapes instead (see the forced-colours block) */
+/* the cloth standard: a gold-edged banner with a pointed foot. The gold edge is the element's own fill and the cloth is the inset layer under the words, both cut with the same foot,
+   so the foot has its gold edge as well as the sides. The foot is a fixed depth and the bottom padding is deeper than it, so a line of names never runs into the slant. */
+.lcc-standard { --lcc-foot: 22px; position: relative; isolation: isolate; box-sizing: border-box; padding: 14px 12px 34px; text-align: center; color: var(--lcc-on-faction); background: var(--lcc-gold);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--lcc-foot)), 50% 100%, 0 calc(100% - var(--lcc-foot))); }
+.lcc-standard::before { content: ''; position: absolute; inset: 2px 2px 3px; z-index: -1; clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--lcc-foot)), 50% 100%, 0 calc(100% - var(--lcc-foot))); }
+.lcc-standard.lcc-f-a::before { background: linear-gradient(180deg, #0f6a54, #063a2e); }
+.lcc-standard.lcc-f-h::before { background: linear-gradient(180deg, #8c1219, #4a070c); }
+.lcc-standard-mark { display: block; margin: 0 auto 6px; line-height: 0; text-align: center; }  /* the faction crest picture (white); a forced-colours view draws two plain shapes instead (see the forced-colours block) */
 .lcc-standard-img { width: 44px; height: 44px; }
-.lcc-standard-h { margin: 0 0 6px; font: 700 11px/1.2 var(--t-display, sans-serif); letter-spacing: .12em; color: #ffd98a; }
-.lcc-standard-list { list-style: decimal inside; margin: 0; padding: 0; font: 500 12px/1.5 var(--t-body, sans-serif); text-align: left; }
-.lcc-standard-none { margin: 0; font: italic 500 12px/1.4 var(--t-body, sans-serif); color: var(--lcc-cream); }
+.lcc-standard-h { margin: 0 0 8px; font: 700 11px/1.2 var(--t-display, sans-serif); letter-spacing: .12em; color: #ffd98a; }
+.lcc-standard-list { list-style: none; counter-reset: lcc-n; margin: 0 auto; padding: 0; width: fit-content; max-width: 100%; font: 500 13px/1.5 var(--t-body, sans-serif); text-align: left; }
+.lcc-standard-list > li { display: grid; grid-template-columns: 1.8em minmax(0, 1fr); counter-increment: lcc-n; }
+.lcc-standard-list > li::before { content: counter(lcc-n) '.'; color: #ffd98a; font-variant-numeric: tabular-nums; }
+.lcc-standard-name { min-width: 0; overflow-wrap: anywhere; }  /* a long name wraps here (it is text from a save); the wide layout ellipsizes it instead */
+.lcc-standard-none { margin: 0; font: italic 500 13px/1.4 var(--t-body, sans-serif); color: var(--lcc-cream); }
 /* the reachable tooltip */
 .lcc-tt { position: relative; display: inline-block; }
 .lcc-tt-b { font: inherit; color: var(--lcc-gold-text); background: none; border: 0; border-bottom: 1px dotted currentColor; padding: 2px 0; cursor: help; min-height: 24px; }
@@ -97,12 +103,16 @@
   .lcc-pl-held .lcc-heldby-l { font-size: clamp(9px, 1.15cqw, 26px); }
   .lcc-pl-held .lcc-heldby-n { font-size: clamp(9px, 1.2cqw, 28px); white-space: nowrap; }
   .lcc-pl-session { left: 32.5%; width: 35%; top: 67.7%; height: 9.1%; display: flex; align-items: center; justify-content: center; font: 500 clamp(9px, 1.5cqw, 33px)/1 var(--t-display, sans-serif); letter-spacing: .08em; color: #f6e2b3; text-shadow: 0 2px 2px #050207; white-space: nowrap; text-transform: uppercase; }
-  .lcc-plaque .lcc-pl-std-a, .lcc-plaque .lcc-pl-std-h { top: 38.4%; width: 11.6%; height: 27.6%; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 0 .5%; background: none; border: 0; clip-path: none; }
+  /* the standards: the cloth is drawn in the artwork (rod, cloth, crest, ornament); this box is the words, from just under the crest to just above the ornament, and the same box mirrored for the other faction */
+  .lcc-plaque .lcc-pl-std-a, .lcc-plaque .lcc-pl-std-h { top: 40%; width: 11.6%; height: 28%; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 0 1.1%; background: none; border: 0; clip-path: none; overflow: hidden; }
   .lcc-pl-std-a { left: 3.04%; } .lcc-pl-std-h { left: 85.36%; }
+  .lcc-pl-std-a::before, .lcc-pl-std-h::before { display: none; }
   .lcc-pl-std-a .lcc-standard-mark, .lcc-pl-std-h .lcc-standard-mark { display: none; }  /* wide: the mark is part of the artwork */
-  .lcc-pl-std-a .lcc-standard-h, .lcc-pl-std-h .lcc-standard-h { font-size: clamp(7px, 1.02cqw, 22px); color: #ffd98a; margin: 0 0 .8em; padding-bottom: .5em; border-bottom: 1px solid rgba(255, 200, 100, .45); width: 100%; text-align: center; }
-  .lcc-pl-std-a .lcc-standard-none, .lcc-pl-std-h .lcc-standard-none { font-size: clamp(7px, 1.05cqw, 22px); margin-top: 1.2em; }
-  .lcc-pl-std-a .lcc-standard-list, .lcc-pl-std-h .lcc-standard-list { font-size: clamp(7px, 1cqw, 22px); line-height: 1.32; width: 100%; }
+  .lcc-pl-std-a .lcc-standard-h, .lcc-pl-std-h .lcc-standard-h { flex: none; font-size: clamp(7px, .76cqw, 17px); letter-spacing: .07em; white-space: nowrap; color: #ffd98a; margin: 0 0 .9em; width: 100%; text-align: center; overflow: hidden; }
+  .lcc-pl-std-a .lcc-standard-none, .lcc-pl-std-h .lcc-standard-none { font-size: clamp(7px, 1.05cqw, 22px); margin: auto 0; padding-bottom: 6%; }  /* centred in the cloth under the heading: it reads as chosen, not as a gap */
+  .lcc-pl-std-a .lcc-standard-none::before, .lcc-pl-std-h .lcc-standard-none::before { content: ''; display: block; width: 3.2em; height: 1px; margin: 0 auto .8em; background: linear-gradient(90deg, rgba(255, 217, 138, 0), #ffd98a, rgba(255, 217, 138, 0)); }
+  .lcc-pl-std-a .lcc-standard-list, .lcc-pl-std-h .lcc-standard-list { font-size: clamp(7px, 1.06cqw, 24px); line-height: 1.28; }
+  .lcc-pl-std-a .lcc-standard-name, .lcc-pl-std-h .lcc-standard-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lcc-pl-faction { top: 79.8%; height: 13.8%; width: 15.47%; display: grid; grid-template-rows: 48% 22% 30%; justify-items: center; align-items: center; }
   .lcc-pl-faction-a { left: 1.47%; } .lcc-pl-faction-h { left: 83.06%; }
   .lcc-pl-nameplate { grid-row: 1; background: none; clip-path: none; min-height: 0; padding: 0; font-size: clamp(7px, 1.28cqw, 28px); font-weight: 700; letter-spacing: .05em; text-shadow: 0 1px 0 rgba(255, 240, 190, .55); }
@@ -135,18 +145,17 @@
   .lcc-track { position: relative; width: 100%; height: auto; aspect-ratio: 1528 / 285; overflow: hidden; left: auto; top: auto; }
   .lcc-track-svg { position: absolute; display: block; width: 142.15%; height: auto; left: -21.2%; top: -75.44%; }
   .lcc-pl-session { align-self: center; justify-content: center; padding: 6px 18px; border: 2px solid var(--lcc-gold); font-size: 13px; letter-spacing: .08em; text-align: center; white-space: normal; background: #120b04; }
-  .lcc-pl-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+  .lcc-pl-foot { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 12px; }
   .lcc-pl-faction { display: grid; grid-template-rows: auto auto; justify-items: center; gap: 12px; position: relative; }
-  .lcc-pl-nameplate { grid-row: 1; padding: 4px 18px; min-height: 26px; font-size: 12px; background: linear-gradient(180deg, #ffeaa6, #e3b24d 55%, #a8731f); clip-path: polygon(0 50%, 10% 0, 90% 0, 100% 50%, 90% 100%, 10% 100%); }
+  .lcc-pl-nameplate { grid-row: 1; padding: 4px 14px; min-height: 26px; font-size: 11px; max-width: 100%; background: linear-gradient(180deg, #ffeaa6, #e3b24d 55%, #a8731f); clip-path: polygon(0 50%, 10% 0, 90% 0, 100% 50%, 90% 100%, 10% 100%); }
   .lcc-pl-count { grid-row: 2; position: relative; width: 100%; text-align: center; font-size: 16px; padding-top: 4px; }
   .lcc-pl-count::before { content: ''; position: absolute; left: 6%; right: 18%; top: -9px; height: 2px; background: linear-gradient(90deg, rgba(229, 179, 99, 0), #f6d08a 40%, #ffeab5); }
   .lcc-pl-faction-h .lcc-pl-count::before { left: 18%; right: 6%; background: linear-gradient(270deg, rgba(229, 179, 99, 0), #f6d08a 40%, #ffeab5); }
   .lcc-pl-count::after { content: ''; position: absolute; top: -15px; right: 8%; width: 9px; height: 9px; border: 2px solid var(--lcc-gold); transform: rotate(45deg); background: #090914; }
   .lcc-pl-faction-h .lcc-pl-count::after { right: auto; left: 8%; }
-  .lcc-pl-std-a, .lcc-pl-std-h { display: block; padding: 10px 8px 20px; }
+  .lcc-pl-std-a, .lcc-pl-std-h { display: block; }
   .lcc-pl-std-a .lcc-standard-mark, .lcc-pl-std-h .lcc-standard-mark { display: block; }
-  .lcc-pl-std-a .lcc-standard-h, .lcc-pl-std-h .lcc-standard-h { font-size: 11px; border: 0; padding: 0; }
-  .lcc-pl-std-a .lcc-standard-none, .lcc-pl-std-h .lcc-standard-none, .lcc-pl-std-a .lcc-standard-list, .lcc-pl-std-h .lcc-standard-list { font-size: 12px; margin-top: 0; }
+  .lcc-pl-std-a .lcc-standard-h, .lcc-pl-std-h .lcc-standard-h { font-size: 11px; }
   .lcc-pl-std-a { grid-column: 1; grid-row: 2; } .lcc-pl-std-h { grid-column: 2; grid-row: 2; }
   .lcc-pl-standing { grid-column: 1 / -1; grid-row: 3; text-align: center; font-size: 13px; line-height: 1.35; padding: 4px 0; }
   .lcc-plaque > .lcc-badge { align-self: flex-start; }
@@ -230,6 +239,8 @@ html[data-motion="calm"] .lcc [data-victory], html[data-motion="off"] .lcc [data
   .lcc-seat-center .lcc-seat-base { stroke-width: 6; }
   .lcc-seat-halo { stroke: CanvasText; }
   .lcc-standard, .lcc-pl-std-a, .lcc-pl-std-h { background: Canvas; color: CanvasText; border: 2px solid CanvasText; clip-path: none; }
+  .lcc-standard::before { display: none; }
+  .lcc-standard-list > li::before { color: CanvasText; }
   .lcc-seat-art, .lcc-standard-img { display: none; }  /* pictures are dropped here: the factions differ by the drawn mark, the fill and the shape */
   .lcc-seat-has-art .lcc-seat-mark { display: inline; }
   .lcc-standard-mark { width: 26px; height: 26px; background: CanvasText; }
@@ -251,4 +262,12 @@ html[data-motion="calm"] .lcc [data-victory], html[data-motion="off"] .lcc [data
 }
 @media (prefers-contrast: more) {
   .lcc-house, .lcc-lane, .lcc-owner-open, .lcc-owner-unknown, .lcc-flag, .lcc-badge { border-color: var(--lcc-text); }
+}
+
+/* forced colours, wide layout: the drawn artwork is gone, so each standard is a plain outlined box with its two-shape mark above the words, taller than the cloth was */
+@container (min-width: 900px) {
+  @media (forced-colors: active) {
+    .lcc-plaque .lcc-pl-std-a, .lcc-plaque .lcc-pl-std-h { top: 29%; height: 43%; border: 2px solid CanvasText; padding-top: 1%; }
+    .lcc-plaque .lcc-pl-std-a .lcc-standard-mark, .lcc-plaque .lcc-pl-std-h .lcc-standard-mark { display: block; flex: none; width: 18px; height: 18px; margin: 0 auto 6px; }
+  }
 }

@@ -34,7 +34,7 @@ test('the gallery says it is fixture data, on the page and in every section', ()
 test('the plaque section shows the six cases, each with 25 seats (or none for counts that cannot be read), and the 13th is gold', () => {
   const d = open().document;
   const figs = [...d.querySelectorAll('figure[data-case]')];
-  assert.deepEqual(figs.map((f) => f.getAttribute('data-case')), ['a12h4', 'a13h12', 'a12h13', 'a6h10', 'a0h0', 'bad']);
+  assert.deepEqual(figs.map((f) => f.getAttribute('data-case')), ['a12h4', 'a13h12', 'a12h13', 'a6h10', 'a0h0', 'long', 'bad']);
   for (const f of figs) {
     const seats = f.querySelectorAll('.lcc-seat');
     const id = f.getAttribute('data-case');

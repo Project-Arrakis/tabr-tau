@@ -29,10 +29,12 @@
       { id: 'a12h13', label: 'Atreides 12, Harkonnen 13 (every seat taken, the 13th is Harkonnen)', a: 12, h: 13, holder: 'h' },
       { id: 'a6h10', label: 'Atreides 6, Harkonnen 10 (9 open)', a: 6, h: 10, holder: null },
       { id: 'a0h0', label: 'No House taken (the gold seat stays gold)', a: 0, h: 0, holder: null },
+      { id: 'long', label: 'Five contributors on each standard, one very long name each (the name is cut with an ellipsis in the wide layout and wraps in the narrow one)', a: 13, h: 12, holder: 'a' },
       { id: 'bad', label: 'Counts that cannot be read (shown as unavailable, nothing lit)', a: 30, h: 2, holder: null },
     ],
     decree: { name: 'Fixture decree: demo wording', effect: 'Demo effect line, not a game value' },
     contributors: { a: ['Fixture guild 1', 'Fixture guild 2', 'Fixture guild 3', 'Fixture guild 4', 'Fixture guild 5'], h: ['Fixture guild A', 'Fixture guild B', 'Fixture guild C', 'Fixture guild D', 'Fixture guild E'] },
+    contributorsLong: { a: ['Fixture guild 1', 'Fixture guild with a name far too long to fit on a cloth standard in any layout', 'Fixture guild 3', 'Fixture guild 4', 'A_single_unbroken_fixture_name_without_any_spaces_at_all_5'], h: ['Fixture guild A', 'Fixture guild B', 'Fixture guild with a name far too long to fit on a cloth standard in any layout', 'Fixture guild D', 'Fixture guild E'] },
     lanes: [
       { track: 'crafting', level: 0, xp: 0, ks: 0, note: 'Level 0, keystones 0 of 41' },
       { track: 'gathering', level: 0, xp: 0, ks: 41, note: 'Level 0, keystones 41 of 41' },
@@ -109,7 +111,7 @@
       if (!wantPlaque(p.id)) continue;
       const fig = el('figure', 'lccg-fig', '', { 'data-case': p.id });
       fig.appendChild(el('figcaption', '', p.label));
-      fig.appendChild(L.renderPlaque({ a: p.a, h: p.h, holder: p.holder, decree: p.id === 'a0h0' ? null : FIX.decree, contributors: p.id === 'a13h12' ? FIX.contributors : null, demo: true }));
+      fig.appendChild(L.renderPlaque({ a: p.a, h: p.h, holder: p.holder, decree: p.id === 'a0h0' ? null : FIX.decree, contributors: p.id === 'a13h12' ? FIX.contributors : p.id === 'long' ? FIX.contributorsLong : null, demo: true }));
       s.appendChild(fig);
     }
     root.appendChild(s);

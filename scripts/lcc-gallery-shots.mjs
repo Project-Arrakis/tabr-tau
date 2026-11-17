@@ -107,6 +107,8 @@ for (const [css, label] of [[640, '1280'], [800, '1600']]) {
   add({ name: `LCC_M2_zoom200_houses_dark_${label}`, w: css, dsf: 2, theme: 'dark', q: 'scene=houses', sel: 'section[data-scene="houses"]' });
   add({ name: `LCC_M2_zoom200_lanes_dark_${label}`, w: css, dsf: 2, theme: 'dark', q: 'scene=lanes', sel: 'section[data-scene="lanes"]' });
 }
+for (const theme of ['dark', 'light']) for (const w of [390, 768, 1280]) add({ name: `LCC_M2_plaque_long_${theme}_${w}`, w, theme, q: 'scene=plaque-long', sel: 'figure[data-case="long"]' });
+add({ name: 'LCC_M2_forced-colors_plaque_long_1280', w: 1280, theme: 'dark', q: 'scene=plaque-long', sel: 'figure[data-case="long"]', media: [{ name: 'forced-colors', value: 'active' }] });
 add({ name: 'LCC_M2_gallery_full_dark_1280', w: 1280, theme: 'dark', q: '', full: true });
 
 // The five risky crops (fractions of the plaque picture: x0, y0, x1, y1), captured at 2x with the plaque 1450 CSS pixels wide, the width of the approved reference.
