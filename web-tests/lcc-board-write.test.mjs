@@ -1,0 +1,176 @@
+// The Command Center board writes through the editor's one route (M3, stages C and D). Every click of the Inspector is the classic list's own click: the same request, the same stale guard, the same
+// busy lock, the same queued wording. This file proves it by doing the same thing in both views and comparing what was sent and what was said, and tests what only the board adds: the question
+// before a win is replaced, the names in the question about several Houses, and the redraw that keeps the House and the focus. Real page code, the synthetic answer of M1, no game save.
+import test, { afterEach } from 'node:test';
+import assert from 'node:assert/strict';
+import { boot, closeAll } from './boot.mjs';
+import { synthetic } from './lcc-fixture.mjs';
+
+afterEach(closeAll);
+
+const OK = { ok: true, changed: 1, houses: 1, skipped: 0, contribution_raised: 1, contribution_lowered: 0, completed: 0, reopened: 0, reward_rows: 0, outcome: 'written' };
+const text = (el) => el.textContent.replace(/\s+/g, ' ').trim();
+const click = (ui, el) => { if (typeof el === 'string') el = ui.doc.querySelector(el); assert.ok(el, 'no element'); el.focus(); el.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
+const select = (ui, sel, v) => { const el = ui.doc.querySelector(sel); el.value = String(v); el.dispatchEvent(new ui.w.Event('change', { bubbles: true })); };
+const writes = (ui) => ui.posted.filter((p) => p.path === '/api/landsraad/apply');
+const result = (ui) => text(ui.doc.querySelector('#lsb-result'));
+const idOf = (a, name) => a.tasks.find((t) => t.house_name === 'DA_House' + name).id;
+async function open(view, answer = synthetic(), post = { '/api/landsraad/apply': OK }) {
+  const ui = await boot({ get: { '/api/landsraad': answer }, post, local: { tab: 'landsraad', 'lsb.view': view, 'lsb.layout': 'grid' } });
+  await ui.settle();
+  return ui;
+}
+// the same control in the two views: the classic list's opened row, or the board's Inspector
+const control = {
+  classic: {
+    tier: (ui, a, name, i) => { const r = ui.doc.querySelector('#lsrow-' + idOf(a, name)); const x = r.querySelector('.xc'); if (!x.checked) { x.checked = true; x.dispatchEvent(new ui.w.Event('change', { bubbles: true })); } return r.querySelector('.tc[data-t="' + i + '"]'); },
+    // in the classic row Fill is the quick action of the summary, and the opened row holds Fill faction goal, Complete and Reopen
+    act: (ui, a, name, which) => { const r = ui.doc.querySelector('#lsrow-' + idOf(a, name)); const x = r.querySelector('.xc'); if (!x.checked) { x.checked = true; x.dispatchEvent(new ui.w.Event('change', { bubbles: true })); } return r.querySelector({ fill: '.c-qa .qa-fill', fillgoal: '.acts .act-fill', complete: '.acts .act-complete', reopen: '.acts .act-reopen' }[which]); },
+  },
+  board: {
+    tier: (ui, a, name, i) => { select_(ui, a, name); return ui.doc.querySelector('.lcc-bd-insp .lcc-bd-tier[data-t="' + i + '"]'); },
+    act: (ui, a, name, which) => { select_(ui, a, name); return ui.doc.querySelector('.lcc-bd-insp .lcc-bd-act[data-do="' + { fill: 'fill', fillgoal: 'fillgoal', complete: 'complete', reopen: 'reopen' }[which] + '"]'); },
+  },
+};
+function select_(ui, a, name) { const sel = ui.doc.querySelector('.lcc-bd-insp'); if (!sel || sel.dataset.id !== String(idOf(a, name))) click(ui, ui.doc.querySelector('[data-fk="ht:' + idOf(a, name) + '"]')); }
+
+// what each scenario does, in both views, on the same House
+const SCENARIOS = [
+  ['a tier raise', 'Kenola', (c, ui, a) => c.tier(ui, a, 'Kenola', 3)],
+  ['the removal of the highest reached tier', 'Kenola', (c, ui, a) => c.tier(ui, a, 'Kenola', 1)],
+  ['Fill', 'Lindaren', (c, ui, a) => c.act(ui, a, 'Lindaren', 'fill')],
+  ['Fill faction goal', 'Lindaren', (c, ui, a) => c.act(ui, a, 'Lindaren', 'fillgoal')],
+  ['Complete', 'Sor', (c, ui, a) => c.act(ui, a, 'Sor', 'complete')],
+  ['Reopen', 'Hurata', (c, ui, a) => c.act(ui, a, 'Hurata', 'reopen')],
+];
+for (const [label, , pick] of SCENARIOS) {
+  test('parity: ' + label + ' sends the same request and says the same in the classic list and on the board', async () => {
+    const a = synthetic();
+    const got = {};
+    for (const view of ['classic', 'board']) {
+      const ui = await open(view, synthetic());
+      click(ui, pick(control[view], ui, a));
+      await ui.settle();
+      got[view] = { sent: writes(ui).map((w) => w.body), said: result(ui) };
+      closeAll();
+    }
+    assert.equal(got.classic.sent.length, 1, 'one request: ' + JSON.stringify(got.classic.sent));
+    assert.deepEqual(got.board.sent, got.classic.sent, 'the board sends exactly what the classic list sends');
+    assert.equal(got.board.said, got.classic.said, 'and says exactly what it says');
+    assert.equal(got.board.sent[0].term_id, 7, 'the term of the read is in the request, for the stale guard');
+    const h = got.board.sent[0].houses[0];
+    assert.ok('was_mine' in h && 'was_done' in h && 'was_win' in h, 'every request carries what the page showed (the stale guard)');
+  });
+}
+
+test('the stale guard: a conflict from the save is shown as the save said it, and the board is read again', async () => {
+  const msg = 'House Sor changed since it was shown: it is not as the page showed.';
+  const ui = await open('board', synthetic(), { '/api/landsraad/apply': { __fail: msg, __code: 'conflict', __status: 409 } });
+  const a = synthetic();
+  const before = ui.fetched.filter((p) => p === '/api/landsraad').length;
+  click(ui, control.board.act(ui, a, 'Sor', 'complete'));
+  await ui.settle();
+  assert.equal(result(ui), msg);
+  assert.equal(ui.doc.querySelector('#lsb-result').className, 'bad');
+  assert.ok(ui.fetched.filter((p) => p === '/api/landsraad').length > before, 'the board is read again');
+  assert.ok(ui.doc.querySelector('.lcc-bd-insp'), 'the House that was looked at is still looked at');
+});
+
+test('the write lock: a second click while a write runs sends nothing, says to wait, and the board is marked busy', async () => {
+  const ui = await open('board');
+  const a = synthetic();
+  const orig = ui.w.fetch; let release = null, started = 0;
+  ui.w.fetch = (p, opt = {}) => (opt.method === 'POST' && String(p).includes('/api/landsraad/apply') ? (started++, new Promise((res) => { release = () => res(orig(p, opt)); })) : orig(p, opt));
+  const b = control.board.act(ui, a, 'Sor', 'complete');
+  click(ui, b);
+  await ui.settle();
+  assert.equal(started, 1);
+  assert.equal(ui.doc.querySelector('#lsb').getAttribute('aria-busy'), 'true');
+  assert.equal(b.getAttribute('aria-disabled'), 'true');
+  click(ui, b);
+  click(ui, control.board.act(ui, a, 'Sor', 'fill'));
+  await ui.settle();
+  assert.equal(started, 1, 'nothing more was sent');
+  assert.match(result(ui), /still running/);
+  release(); await ui.settle();
+  assert.equal(writes(ui).length, 1);
+  assert.equal(ui.doc.querySelector('#lsb').getAttribute('aria-busy'), null);
+});
+
+test('after a write the same House is still looked at and the focus is on the control that was pressed', async () => {
+  const ui = await open('board');
+  const a = synthetic();
+  click(ui, control.board.tier(ui, a, 'Kenola', 3));
+  await ui.settle();
+  assert.equal(ui.doc.querySelector('.lcc-bd-insp').dataset.id, String(idOf(a, 'Kenola')));
+  assert.equal(ui.doc.activeElement.getAttribute('data-fk'), 'tc:' + idOf(a, 'Kenola') + ':3');
+  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell').length, 25);
+});
+
+test('written and queued are said apart: a queued change is never called saved, in the result line and on the board', async () => {
+  const ui = await open('board', synthetic(), { '/api/landsraad/apply': { ...OK, outcome: 'queued' } });
+  click(ui, control.board.act(ui, synthetic(), 'Sor', 'complete'));
+  await ui.settle();
+  assert.match(result(ui), /queued: written as soon as the save can be written/);
+  assert.equal(ui.doc.querySelector('#lsb-result').className, 'warn');
+  assert.doesNotMatch(result(ui), /\bsaved\b/i);
+  const written = await open('board');
+  click(written, control.board.act(written, synthetic(), 'Sor', 'complete'));
+  await written.settle();
+  assert.doesNotMatch(result(written), /queued/);
+});
+
+test('another faction chosen: the tiers and Fill are off with the reason, a click sends nothing, and Complete acts for that faction', async () => {
+  const ui = await open('board');
+  const a = synthetic();
+  select(ui, '#lsb-fac', 2);
+  await ui.settle();
+  click(ui, ui.doc.querySelector('[data-fk="ht:' + idOf(a, 'Lindaren') + '"]'));
+  const tier = ui.doc.querySelector('.lcc-bd-insp .lcc-bd-tier[data-t="2"]');
+  assert.equal(tier.getAttribute('aria-disabled'), 'true');
+  assert.match(tier.getAttribute('data-why'), /Off while Harkonnen is chosen/);
+  assert.equal(ui.doc.querySelector('.lcc-bd-insp .lcc-bd-act[data-do="fill"]').getAttribute('aria-disabled'), 'true');
+  assert.match(text(ui.doc.querySelector('.lcc-bd-insp')), /Acting for Harkonnen\./);
+  click(ui, tier);
+  await ui.settle();
+  assert.equal(writes(ui).length, 0);
+  assert.match(result(ui), /Off while Harkonnen is chosen/);
+  click(ui, ui.doc.querySelector('.lcc-bd-insp .lcc-bd-act[data-do="complete"]'));
+  await ui.settle();
+  assert.equal(writes(ui)[0].body.houses[0].complete_for, 2);
+});
+
+test('Complete on a House another faction took asks first, names the faction whose win is replaced, and Cancel writes nothing', async () => {
+  const ui = await open('board');
+  const a = synthetic();
+  const vernius = a.tasks.find((t) => t.house_name === 'DA_HouseVernius');
+  assert.equal(vernius.winning_faction_id, 2, 'the fixture has Vernius taken by Harkonnen');
+  const b = control.board.act(ui, a, 'Vernius', 'complete');
+  click(ui, b);
+  await ui.settle();
+  assert.equal(writes(ui).length, 0, 'nothing is written before the answer');
+  const q = ui.doc.querySelector('#lsb-confirm');
+  assert.ok(q, 'the question is asked');
+  assert.match(text(q.querySelector('b')), /^Complete House Vernius for Atreides\? Replaces the win of Harkonnen on House Vernius\. Written at once, with a backup first\.$/);
+  assert.equal(ui.doc.activeElement.getAttribute('data-fk'), 'c-no', 'the safe answer has the focus');
+  click(ui, '[data-fk="c-no"]');
+  await ui.settle();
+  assert.equal(writes(ui).length, 0);
+  assert.equal(ui.doc.querySelector('#lsb-confirm'), null);
+  assert.match(result(ui), /Cancelled\. Nothing was written\./);
+  assert.equal(ui.doc.activeElement.getAttribute('data-fk'), 'ac:' + vernius.id, 'the focus goes back to the control that was pressed');
+  click(ui, control.board.act(ui, a, 'Vernius', 'complete'));
+  click(ui, '[data-fk="c-yes"]');
+  await ui.settle();
+  assert.deepEqual(writes(ui).map((w) => w.body.houses), [[{ task_id: vernius.id, was_mine: vernius.my_contribution, was_done: true, was_win: 2, complete_for: 1 }]]);
+});
+
+test('the classic list is not changed by this: Complete on a taken House still writes at once there', async () => {
+  const ui = await open('classic');
+  const a = synthetic();
+  click(ui, control.classic.act(ui, a, 'Vernius', 'complete'));
+  await ui.settle();
+  assert.equal(ui.doc.querySelector('#lsb-confirm'), null);
+  assert.equal(writes(ui).length, 1);
+});
+

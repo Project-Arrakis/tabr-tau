@@ -2356,8 +2356,16 @@ function lbAskOf(act_, items, hs, F, i, one) {
   const n = items.length, h1 = hs.get(items[0].task_id);
   const what = one ? (act_ === 'tier' ? 'Give tier ' + i + ' on House ' + h1.name : act_ === 'fillgoal' ? 'Fill faction goal on House ' + h1.name : LB_BULK[act_][1] + ' House ' + h1.name) : LB_BULK[act_][1] + ' ' + nn(n, 'house', 'houses');
   const g = lbGrantOfItems(items, hs), raises = !!LD.grant && items.some((it) => it.mine_to !== undefined);
-  const q = what + (act_ === 'complete' || act_ === 'fillgoal' ? ' for ' + lbFacName(LD, F) : '') + '?' + (raises ? ' ' + lbGrantSay(g) : '') + ' Written at once, with a backup first.';
+  const q = what + (act_ === 'complete' || act_ === 'fillgoal' ? ' for ' + lbFacName(LD, F) : '') + '?' + (raises ? ' ' + lbGrantSay(g) : '') + (lbBoardOn() ? lbBoardAsk(items, hs, F, one) : '') + ' Written at once, with a backup first.';
   return { yes: what, q, missions: g.problem ? 0 : g.missions };
+}
+// The houses of a request whose win is taken from another faction: Complete (or Fill faction goal) for F on a house that another faction took.
+const lbReplaced = (items, hs, F) => items.filter((it) => it.complete_for != null).map((it) => hs.get(it.task_id)).filter((h) => h && h.win != null && h.win != F);
+// What the Command Center board's question says beyond the classic one (the classic question is kept as it was): whose win a Complete replaces.
+function lbBoardAsk(items, hs, F, one) {
+  const p = [], rep = lbReplaced(items, hs, F);
+  if (rep.length) p.push('Replaces the ' + (rep.length === 1 ? 'win' : 'wins') + ' of ' + rep.map((h) => lbFacName(LD, h.win) + ' on House ' + h.name).join(', ') + '.');
+  return p.length ? ' ' + p.join(' ') : '';
 }
 function lbCancelConfirm() { if (!LP.confirm) return; LP.confirm = null; const c = $('#lsb-confirm'); if (c) c.remove(); }
 function lbFocusFk(fk) { const n = $('#lsb [data-fk="' + fk + '"]'); if (n && n.focus) n.focus({ preventScroll: true }); }
@@ -2365,7 +2373,8 @@ function lbFocusFk(fk) { const n = $('#lsb [data-fk="' + fk + '"]'); if (n && n.
 // action bar; the answer sends the request again, worked out from the board as it is then.
 function lbGo(b, act_, items, hs, F, i, label, backFk, one) {
   const q = lbAskOf(act_, items, hs, F, i, one);
-  if (items.length === 1 && q.missions < LB_ASK_MISSIONS) { lbSend(b, items, label, hs, backFk); return; }
+  // on the board a click that takes a win from another faction asks first too (the classic list writes it at once and says so in the result)
+  if (items.length === 1 && q.missions < LB_ASK_MISSIONS && !(lbBoardOn() && lbReplaced(items, hs, F).length)) { lbSend(b, items, label, hs, backFk); return; }
   LP.confirm = { act: act_, F, i, ids: items.map((x) => x.task_id), n: items.length, q: q.q, yes: q.yes, label, back: backFk, one: !!one };
   lbRedraw();
   lbFocusFk('c-no'); // the safe answer has the focus, so a stray Enter does not write
