@@ -30,9 +30,9 @@ test('the Bases tab lists the base backups with the counts the file will hold, a
   assert.ok(card, 'there is a Base backups card');
   assert.equal(card.querySelector('h3').textContent, 'Base backups (1)');
   const cells = [...card.querySelectorAll('tbody td')].map((td) => td.textContent.trim());
-  assert.deepEqual(cells.slice(0, 7), ['3', 'Sub-Fief', 'HaggaBasin', '12', (1250).toLocaleString(), '9', '7']);
+  assert.deepEqual(cells.slice(0, 6), ['Sub-Fief', 'HaggaBasin', '12', (1250).toLocaleString(), '9', '7']); // no ID column (#618): the number is the name's tooltip
   const heads = [...card.querySelectorAll('th')].map((th) => th.textContent.trim());
-  assert.deepEqual(heads.slice(0, 7), ['ID', 'Name', 'Map', 'Actors', 'Building pieces', 'Placeables', 'Stored items']);
+  assert.deepEqual(heads.slice(0, 6), ['Name', 'Map', 'Actors', 'Building pieces', 'Placeables', 'Stored items']);
   const b = card.querySelector('[data-act="baseBackupExport"]');
   assert.equal(b.textContent.trim(), 'Export base backup');
   assert.equal(b.dataset.id, '3');

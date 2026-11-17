@@ -1294,7 +1294,7 @@ test('No Guild or Respawn points in the Player view; Bases: the open base is lab
   ui.click('[data-bstab="water"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('[data-act="autoref"]'), 'and on the Water tab');
   ui.click('[data-bsopen="8"]'); await ui.settle();
-  assert.ok(ui.doc.querySelector('#main').textContent.includes('Outpost (#8)'), 'Open switches to that base');
+  assert.equal(ui.doc.querySelector('#main h3[title="Base number 8"]').textContent, 'Outpost', 'Open switches to that base (its number is the tooltip, #618)');
   ui.dom.window.close();
 });
 
