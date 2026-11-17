@@ -142,3 +142,20 @@ test('the faction crests: two factions, two kinds, always an answer, and nothing
   assert.equal(L.houseAsset('atreides'), null);
   assert.equal(L.laneAsset('atreides'), null);
 });
+
+test('the foot pictures of the two cloth standards: two files, one per faction, found in a fixed list, listed in the manifest, nothing else becomes a path', () => {
+  assert.deepEqual(onDisk('standards'), ['atreides-tip.png', 'harkonnen-tip.png']);
+  assert.deepEqual(manifest.files.filter((f) => f.role === 'standard-tip').map((f) => f.file).sort(), onDisk('standards').map((f) => 'standards/' + f));
+  for (const [spell, file] of [['a', 'atreides-tip'], ['A', 'atreides-tip'], ['Atreides', 'atreides-tip'], ['h', 'harkonnen-tip'], [' HARKONNEN ', 'harkonnen-tip']]) {
+    const a = L.standardTipAsset(spell);
+    assert.equal(a.fallback, false, spell);
+    assert.equal(a.file, 'standards/' + file + '.png', spell);
+    assert.equal(a.src, '/lcc/art/' + a.file);
+    assert.equal(a.height, 111);
+    assert.ok(fs.existsSync(path.join(lccDir, 'art', a.file)));
+  }
+  for (const v of ['', 'x', 'atreides-tip', '../atreides', 'atreides.png', 'standards/atreides', null, undefined, 0, {}, ['a']]) {
+    const a = L.standardTipAsset(v);
+    assert.deepEqual({ key: a.key, file: a.file, src: a.src, fallback: a.fallback }, { key: null, file: null, src: '', fallback: true }, JSON.stringify(v));
+  }
+});

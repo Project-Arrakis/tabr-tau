@@ -1,5 +1,5 @@
 {
-  "purpose": "Runtime art of the Command Center (milestone M2): optimized local copies of the game artwork in docs/art/landsraad, served from internal/web/static/lcc/art. Game artwork belongs to Funcom and is outside the repository licence (docs/art-notice.md). The tests compare this file with the embedded files byte for byte.",
+  "purpose": "Runtime art of the Command Center (milestone M2): optimized local copies of the game artwork in docs/art/landsraad, served from internal/web/static/lcc/art, and two pictures of the approved design (the cloth standards' feet, role standard-tip). Game artwork belongs to Funcom and is outside the repository licence (docs/art-notice.md); the two feet are design artwork supplied by the project owner and are described there too. The tests compare this file with the embedded files byte for byte.",
   "runtimeRoot": "internal/web/static/lcc/art/",
   "format": "webp with alpha, encoded once from the reference PNG with the browser image encoder (quality 1.0 for the house symbols, 0.92 for the lane, banner and decree pictures); the reference PNG stays the source of truth",
   "sizes": {
@@ -8,6 +8,7 @@
     "banner": "256 x 256: the reference banners are 256 x 256 and the folder README now says so too (it said 512 x 512 before M2); recorded in 05-m2-visual-foundation.md",
     "decree": "128 x 128 (down from the 256 x 256 reference; shown at 96 px at most)",
     "faction-mark": "256 x 256 (down from the 512 x 512 reference; shown at 150 px at most): the white faction crest on the header shields, the cloth standards and the claimed 13th seat",
+    "standard-tip": "320 x 111 and 319 x 111 PNG, the exact pixels of the approved plaque (no re-drawing, no re-encoding to a lossy format): the gold-edged V point of each cloth standard with its wheat ornament, rows 16 to 126 of the 150-row crop so that no baked-in text is in the picture; the files are design artwork supplied by the project owner, not game artwork",
     "faction-medal": "the reference size (100 x 100 Atreides, 104 x 104 Harkonnen): the round medallion of a claimed seat"
   },
   "houseAlias": {
@@ -557,6 +558,26 @@
       "width": 104,
       "height": 104,
       "source": "docs/art/landsraad/factions/harkonnen-medallion.png"
+    },
+    {
+      "role": "standard-tip",
+      "key": "atreides",
+      "file": "standards/atreides-tip.png",
+      "bytes": 48623,
+      "sha256": "9680342be3b46eeb118faed893050c6d05704185d550227ced766b6be34757b5",
+      "width": 320,
+      "height": 111,
+      "source": "approved design art: the V-edged gold trim of the Atreides cloth, rows 16 to 126 of the 320 x 150 crop at 36,448 of the approved 2172 x 724 plaque (design artwork supplied by the project owner)"
+    },
+    {
+      "role": "standard-tip",
+      "key": "harkonnen",
+      "file": "standards/harkonnen-tip.png",
+      "bytes": 47177,
+      "sha256": "decd4fb7bd1a67f75156d7ac57a0fa74b74a00c5aa6f0e11b4b60b6435d2428c",
+      "width": 319,
+      "height": 111,
+      "source": "approved design art: the V-edged gold trim of the Harkonnen cloth, rows 16 to 126 of the 319 x 150 crop at 1818,448 of the approved 2172 x 724 plaque (design artwork supplied by the project owner)"
     }
   ],
   "factionArt": {

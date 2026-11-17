@@ -149,7 +149,7 @@ test('the artwork layer has one HELD BY rule, drawn last, so nothing in it is ev
     if (k.tagName.toLowerCase() === 'rect' && k.getAttribute('class') !== 'lcc-art-rule') {
       const kx = Number(k.getAttribute('x')), kw = Number(k.getAttribute('width')), ky = Number(k.getAttribute('y')), kh = Number(k.getAttribute('height'));
       const overlaps = kx < x + 4 && kx + kw > x && ky < 134 && ky + kh > 36;
-      if (k !== art.querySelector('rect')) assert.equal(overlaps, false, 'a rect of the layer lies on the HELD BY rule');
+      if (k !== [...art.children].find((c) => c.tagName.toLowerCase() === 'rect')) assert.equal(overlaps, false, 'a rect of the layer lies on the HELD BY rule');
     }
   }
   // in the narrow layout the same rule is the one DOM element; the wide layout hides it, so exactly one is ever shown
@@ -160,9 +160,9 @@ test('no opaque patch is drawn over the artwork: the only solid dark fill is the
   const art = plaque({ a: 12, h: 4 }).querySelector('.lcc-art');
   const solidDark = [...art.querySelectorAll('rect, path')].filter((e) => /^#(0|1)[0-9a-f]{5}$/i.test(e.getAttribute('fill') || ''));
   // the field, the hollow diamonds (their dark centre is the field's colour) and nothing that could cover text or a rule
-  for (const e of solidDark) assert.ok(e.tagName.toLowerCase() === 'rect' ? e === art.querySelector('rect') : /^M\d+,6\d\d L/.test(e.getAttribute('d')), 'unexpected solid dark shape: ' + e.getAttribute('d'));
+  for (const e of solidDark) assert.ok(e.tagName.toLowerCase() === 'rect' ? e === [...art.children].find((c) => c.tagName.toLowerCase() === 'rect') : /^M\d+,6\d\d L/.test(e.getAttribute('d')), 'unexpected solid dark shape: ' + e.getAttribute('d'));
   assert.equal(art.querySelectorAll('text, foreignObject').length, 0, 'the artwork has no text in it');
-  assert.deepEqual([...art.querySelectorAll('image')].map((i) => i.getAttribute('class')), ['lcc-art-crest', 'lcc-art-crest', 'lcc-art-crest', 'lcc-art-crest'], 'the only pictures in it are the four faction crests');
+  assert.deepEqual([...art.querySelectorAll('image')].map((i) => i.getAttribute('class')), ['lcc-art-crest', 'lcc-art-crest', 'lcc-art-crest', 'lcc-art-tip', 'lcc-art-crest', 'lcc-art-tip'], 'the only pictures in it are the four faction crests and the two cloth feet');
 });
 
 test('the gold line is BETWEEN the nameplate and the count and ends at the hollow diamond, centred on it', () => {
@@ -201,8 +201,8 @@ test('text from a save is only ever text: a decree, an effect, a contributor and
   const hostile = '<img src=x onerror=alert(1)><b>bold</b>"\'&amp;';
   const p = L.renderPlaque({ a: 3, h: 3, decree: { name: hostile, effect: hostile }, holder: 'a', contributors: { a: [hostile, hostile], h: [hostile] }, sessionLabel: hostile, standing: hostile });
   doc.body.appendChild(p);
-  assert.equal(p.querySelectorAll('img:not(.lcc-standard-img), script, iframe, object, embed, a, link, style').length, 0);
-  assert.equal(p.querySelectorAll('img').length, 2, 'only the two faction crests of the standards are pictures');
+  assert.equal(p.querySelectorAll('img:not(.lcc-standard-img):not(.lcc-standard-tip), script, iframe, object, embed, a, link, style').length, 0);
+  assert.equal(p.querySelectorAll('img').length, 4, 'only the two faction crests and the two feet of the standards are pictures');
   assert.equal(p.querySelector('.lcc-pl-title').textContent, hostile);
   assert.equal(p.querySelector('.lcc-pl-effect').textContent, hostile);
   assert.equal(p.querySelector('.lcc-pl-session').textContent, hostile);

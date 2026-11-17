@@ -93,8 +93,8 @@ func TestLccArtManifestMatchesTheEmbeddedFiles(t *testing.T) {
 		want[f.File] = f
 		counts[f.Role]++
 	}
-	if counts["house"] != 25 || counts["lane"] != 5 || counts["banner"] != 5 || counts["decree"] != 9 || counts["decree-fallback"] != 1 || counts["faction-mark"] != 2 || counts["faction-medal"] != 2 {
-		t.Errorf("manifest counts %v: want 25 houses, 5 lanes, 5 banners, 9 decrees, 1 neutral picture, 2 faction crests and 2 faction medallions", counts)
+	if counts["house"] != 25 || counts["lane"] != 5 || counts["banner"] != 5 || counts["decree"] != 9 || counts["decree-fallback"] != 1 || counts["faction-mark"] != 2 || counts["faction-medal"] != 2 || counts["standard-tip"] != 2 {
+		t.Errorf("manifest counts %v: want 25 houses, 5 lanes, 5 banners, 9 decrees, 1 neutral picture, 2 faction crests, 2 faction medallions and 2 cloth standard feet", counts)
 	}
 	var embedded []string
 	err := fs.WalkDir(static, "static/lcc/art", func(p string, d fs.DirEntry, err error) error {
@@ -143,6 +143,15 @@ func TestLccArtManifestMatchesTheEmbeddedFiles(t *testing.T) {
 				t.Errorf("%s is %d bytes: runtime copies are meant to stay small", file, len(b))
 			}
 		}
+		if f.Role == "standard-tip" {
+			// the feet of the cloth standards are PNG files of the approved design, kept at their exact pixels: a PNG header with the size the manifest records
+			if len(b) < 24 || string(b[1:4]) != "PNG" || int(binary.BigEndian.Uint32(b[16:20])) != f.Width || int(binary.BigEndian.Uint32(b[20:24])) != f.Height || f.Height != 111 || f.Width < 300 || f.Width > 330 {
+				t.Errorf("%s is not a PNG of the recorded %dx%d size", file, f.Width, f.Height)
+			}
+			if len(b) > 64<<10 {
+				t.Errorf("%s is %d bytes: keep each foot picture under 64 KiB", file, len(b))
+			}
+		}
 		if !strings.HasSuffix(file, ".svg") && strings.HasPrefix(f.Source, "docs/art/landsraad/") {
 			if _, err := os.Stat("../../" + f.Source); err != nil {
 				t.Errorf("%s: its source picture %s is missing: %v", file, f.Source, err)
@@ -153,8 +162,8 @@ func TestLccArtManifestMatchesTheEmbeddedFiles(t *testing.T) {
 	for _, f := range m.Files {
 		total += f.Bytes
 	}
-	if total > 512<<10 {
-		t.Errorf("the runtime art is %d bytes together; keep it under 512 KiB", total)
+	if total > 640<<10 {
+		t.Errorf("the runtime art is %d bytes together; keep it under 640 KiB", total)
 	}
 }
 
@@ -254,6 +263,9 @@ func TestLccArtIsServedFromAFixedListOnly(t *testing.T) {
 		wantCT := "image/webp"
 		if strings.HasSuffix(f.File, ".svg") {
 			wantCT = "image/svg+xml"
+		}
+		if strings.HasSuffix(f.File, ".png") {
+			wantCT = "image/png"
 		}
 		want, _ := static.ReadFile("static/lcc/art/" + f.File)
 		if code != http.StatusOK || ct != wantCT || !bytes.Equal(body, want) {

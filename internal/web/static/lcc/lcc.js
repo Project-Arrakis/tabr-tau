@@ -77,6 +77,17 @@
     return hit('factions', FACTION_FILES[f][kind === 'medal' ? 'medal' : 'mark'], f);
   }
 
+  // The foot of a cloth standard: the V-edged gold point with its wheat ornament, a picture of the approved design (a crop of the plaque, 111 pixels tall, Atreides 320 wide and Harkonnen 319 wide), one
+  // for each faction because the two were painted apart. Same rules as the other lookups: a fixed list, never a name built into a path. TIP_H is the picture's height.
+  const TIP_FILES = Object.freeze({ a: 'atreides-tip', h: 'harkonnen-tip' });
+  const TIP_W = Object.freeze({ a: 320, h: 319 }), TIP_H = 111;
+  function standardTipAsset(faction) {
+    const k = norm(typeof faction === 'string' ? faction : '');
+    const f = k === 'a' || k === 'atreides' ? 'a' : k === 'h' || k === 'harkonnen' ? 'h' : '';
+    if (!f) return Object.freeze({ key: null, file: null, src: '', fallback: true });
+    return Object.freeze({ key: f, file: 'standards/' + TIP_FILES[f] + '.png', src: artBase + 'standards/' + TIP_FILES[f] + '.png', fallback: false, width: TIP_W[f], height: TIP_H });
+  }
+
   // ---- the 25 seats --------------------------------------------------------------------------------------------------------------------------------------------------------------
   const SEATS = 25;
   const CENTER = 12; // index of the 13th seat (zero based), the gold one
@@ -148,17 +159,26 @@
   function standard(faction, lines, heading, emptyText) {
     const f = faction === 'h' ? 'h' : 'a';
     const w = el('div', 'lcc-standard lcc-f-' + f);
+    const cloth = el('div', 'lcc-standard-cloth'); // the cloth and its words; the foot picture is a sibling below it, so the cloth ends where the picture starts
     const mk = el('span', 'lcc-standard-mark', '', { 'aria-hidden': 'true' });
     const crest = factionAsset(f, 'mark');
     if (!crest.fallback) mk.appendChild(art(crest, 'lcc-standard-img', 44));
-    w.appendChild(mk);
-    w.appendChild(el('p', 'lcc-standard-h', heading || 'TOP CONTRIBUTORS'));
+    cloth.appendChild(mk);
+    cloth.appendChild(el('p', 'lcc-standard-h', heading || 'TOP CONTRIBUTORS'));
     if (Array.isArray(lines) && lines.length) {
       const ol = el('ol', 'lcc-standard-list', '', { role: 'list' });
       // the name is text in its own span (the stylesheet ellipsizes it in the wide layout and wraps it in the narrow one); the full name stays in the title
       for (const s of lines.slice(0, 5)) { const name = String(s); const li = el('li'); li.appendChild(el('span', 'lcc-standard-name', name, { title: name })); ol.appendChild(li); }
-      w.appendChild(ol);
-    } else w.appendChild(el('p', 'lcc-standard-none', emptyText || 'Not in the save'));
+      cloth.appendChild(ol);
+    } else cloth.appendChild(el('p', 'lcc-standard-none', emptyText || 'Not in the save'));
+    w.appendChild(cloth);
+    // the foot of the narrow cloth: the approved picture of the gold-edged point with its wheat ornament (the wide layout draws the same picture in the artwork and hides this one)
+    const tip = standardTipAsset(f);
+    if (!tip.fallback) {
+      const foot = el('span', 'lcc-standard-foot', '', { 'aria-hidden': 'true' });
+      foot.appendChild(art(tip, 'lcc-standard-tip', TIP_H));
+      w.appendChild(foot);
+    }
     return w;
   }
   // A label that says what the data is. kind: 'demo' (fixture values on a preview page), 'readonly' (shown, never written here) or 'ref' (a reference value, not the save's).
@@ -236,6 +256,12 @@
       grad(p + 'cr', 0, 0, 0, 1, [[0, '#8c1219'], [1, '#4a070c']]),
       grad(p + 'plate', 0, 0, 0, 1, [[0, '#2a1d0c'], [1, '#120b04']]),
       grad(p + 'vr', 0, 0, 0, 1, [[0, '#f0a020', 0], [0.2, '#f6b73a'], [0.5, '#ffd36b'], [0.8, '#f6b73a'], [1, '#f0a020', 0]]),
+      grad(p + 'shade', 0, 0, 0, 1, [[0, '#000', 0], [1, '#000', 0.45]]),
+      // the foot pictures fade into the drawing at the top (over our cloth) and out at the sides and the bottom (over the field), so no edge of the crop shows
+      grad(p + 'tfv', 0, 0, 0, 1, [[0, '#fff', 0], [0.16, '#fff', 1], [0.92, '#fff', 1], [1, '#fff', 0]]),
+      grad(p + 'tfh', 0, 0, 1, 0, [[0, '#fff', 0], [0.07, '#fff', 1], [0.93, '#fff', 1], [1, '#fff', 0]]),
+      sv('mask', { id: p + 'tipv', maskContentUnits: 'objectBoundingBox' }, [sv('rect', { x: 0, y: 0, width: 1, height: 1, fill: 'url(#' + p + 'tfv)' })]),
+      sv('mask', { id: p + 'tip', maskContentUnits: 'objectBoundingBox' }, [sv('rect', { x: 0, y: 0, width: 1, height: 1, fill: 'url(#' + p + 'tfh)', mask: 'url(#' + p + 'tipv)' })]),
       glow(p + 'blur', 5),
     ]);
     const g = (id) => 'url(#' + p + id + ')';
@@ -265,21 +291,24 @@
     // the ACTIVE DECREE plate and the two rules (the HELD BY rule is the second one and is a single element)
     const plate = 'M232,94 L262,60 H654 L684,94 L654,128 H262 Z';
     kids.push(sv('path', { d: plate, fill: g('plate') }), strokePath(plate, g('gold'), 3.5), strokePath('M244,94 L270,68 H646 L672,94 L646,120 H270 Z', GOLD.lo, 1.5, { opacity: 0.8 }));
-    // the two cloth standards: a rod with two finials, the cloth with a pointed foot, a gold edge and an inner edge
-    const standardArt = (cx, fill, faction) => {
+    // the two cloth standards: a rod with two finials, the cloth (gold edge, then the faction colour) down to the point, and the point itself, which is the approved picture of the gold-edged V with its
+    // wheat ornament, placed where the approved plaque has it. The picture starts at y 464, under the last line of names, and fades into the cloth above it.
+    const standardArt = (cx, fill, faction, tipX) => {
       const l = cx - 126, r = cx + 126;
-      const cloth = 'M' + (l + 2) + ',206 H' + (r - 2) + ' V486 L' + cx + ',568 L' + (l + 2) + ',486 Z';
+      const tip = standardTipAsset(faction);
+      const pic = tip.fallback ? null : sv('image', { class: 'lcc-art-tip', href: tip.src, x: tipX, y: 464, width: tip.width, height: tip.height, preserveAspectRatio: 'none', mask: 'url(#' + p + 'tip)' });
+      if (pic) pic.addEventListener('error', () => { pic.setAttribute('visibility', 'hidden'); });
       return sv('g', null, [
         sv('rect', { x: l - 20, y: 189, width: 292, height: 10, rx: 5, fill: g('gold') }),
         sv('circle', { cx: l - 22, cy: 194, r: 10, fill: g('gold') }), sv('circle', { cx: r + 22, cy: 194, r: 10, fill: g('gold') }),
-        sv('path', { d: cloth, fill: g(fill) }),
-        sv('path', { d: cloth, fill: 'none', stroke: '#000', 'stroke-width': 18, opacity: 0.18 }),
-        strokePath(cloth, g('gold'), 6), strokePath('M' + (l + 14) + ',218 H' + (r - 14) + ' V480 L' + cx + ',550 L' + (l + 14) + ',480 Z', GOLD.mid, 1.6, { opacity: 0.75 }),
+        sv('path', { d: 'M' + l + ',206 H' + r + ' V494 H' + l + ' Z', fill: g('gold') }),
+        sv('path', { d: 'M' + (l + 6) + ',212 H' + (r - 6) + ' V494 H' + (l + 6) + ' Z', fill: g(fill) }),
+        sv('path', { d: 'M' + (l + 6) + ',390 H' + (r - 6) + ' V494 H' + (l + 6) + ' Z', fill: g('shade') }),
         svgPicture(factionAsset(faction, 'mark'), cx, 246, STANDARD_MARK, 'lcc-art-crest'),
-        sv('path', { d: 'M' + (cx - 28) + ',511 q14,-26 28,-4 q14,-22 28,4 q-14,8 -28,18 q-14,-10 -28,-18 Z', fill: GOLD.mid, opacity: 0.85 }),
+        pic,
       ]);
     };
-    kids.push(standardArt(192, 'em', 'a'), standardArt(mirror(192), 'cr', 'h'));
+    kids.push(standardArt(190, 'em', 'a', 36), standardArt(mirror(190), 'cr', 'h', 1819));
     // the nameplate shapes, the two hollow diamonds with their lines (between the plate and the count), the session plate, the footer
     const name = (x0, w) => {
       const d = 'M' + x0 + ',602 L' + (x0 + 30) + ',578 H' + (x0 + w - 30) + ' L' + (x0 + w) + ',602 L' + (x0 + w - 30) + ',626 H' + (x0 + 30) + ' Z';
@@ -502,7 +531,7 @@
 
   const api = {
     HOUSES, TRACKS, DECREE_FILES, DECREE_FALLBACK, SEATS, CENTER, TRACK, GEOMETRY: Object.freeze({ W, H }),
-    config, houseAsset, laneAsset, bannerAsset, decreeAsset, factionAsset,
+    config, houseAsset, laneAsset, bannerAsset, decreeAsset, factionAsset, standardTipAsset,
     seatStates, seatLabel, seatX, standingLine, summaryText, laneState,
     pill, ruleV, heldBy, standard, badge, richTip, frame, victory, VICTORY,
     renderPlaque, renderHouseCard, renderLaneCard,

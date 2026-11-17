@@ -30,7 +30,7 @@ test('five contributor lines with a very long name on both standards: five items
     assert.equal(p.querySelector(cls + ' ol').getAttribute('role'), 'list');
   }
   assert.equal(p.querySelectorAll('.lcc-standard-list b, .lcc-standard-list script').length, 0);
-  assert.equal(p.querySelectorAll('img:not(.lcc-standard-img)').length, 0);
+  assert.equal(p.querySelectorAll('img:not(.lcc-standard-img):not(.lcc-standard-tip)').length, 0);
   assert.ok([...p.querySelectorAll('*')].every((e) => ![...e.attributes].some((a) => /^on/i.test(a.name))));
   p.remove();
 });
@@ -64,10 +64,10 @@ function points(d) {
 }
 const key = (pts) => pts.map(([x, y]) => x.toFixed(2) + ',' + y.toFixed(2)).sort().join(' ');
 
-test('mirror: the Harkonnen cloth, rod, crest and ornament are the Atreides ones mirrored across the middle of the drawing', () => {
+test('mirror: the Harkonnen cloth, rod, crest and foot picture are the Atreides ones mirrored across the middle of the drawing', () => {
   const p = plaque({ a: ['x'], h: ['y'] });
   const art = p.querySelector('svg.lcc-art');
-  const cloth = (end) => [...art.querySelectorAll('path')].filter((e) => (e.getAttribute('fill') || '').endsWith(end + ')') && /V486/.test(e.getAttribute('d')));
+  const cloth = (end) => [...art.querySelectorAll('path')].filter((e) => (e.getAttribute('fill') || '').endsWith(end + ')') && /V494/.test(e.getAttribute('d')));
   const ca = cloth('em'), ch = cloth('cr');
   assert.equal(ca.length, 1); assert.equal(ch.length, 1);
   assert.equal(key(points(ch[0].getAttribute('d'))), key(points(ca[0].getAttribute('d')).map(([x, y]) => [W - x, y])), 'the cloth outline mirrors');
@@ -86,16 +86,38 @@ test('mirror: the Harkonnen cloth, rod, crest and ornament are the Atreides ones
   [...ga.children].forEach((e, i) => {
     const o = gh.children[i];
     assert.equal(e.tagName, o.tagName);
+    const isTip = e.getAttribute('class') === 'lcc-art-tip';
     const ma = mid(e), mh = mid(o);
-    if (ma != null && e.tagName !== 'circle') assert.ok(Math.abs(ma + mh - W) < 0.01, e.tagName + ' ' + i + ' is mirrored (' + ma + ' / ' + mh + ')');
-    if (e.tagName === 'path' && / q14,/.test(e.getAttribute('d'))) {
+    if (ma != null && e.tagName !== 'circle' && !isTip) assert.ok(Math.abs(ma + mh - W) < 0.01, e.tagName + ' ' + i + ' is mirrored (' + ma + ' / ' + mh + ')');
+    if (isTip) {
       ornaments++;
-      const sa = Number(/^M([\d.]+),/.exec(e.getAttribute('d'))[1]), sh = Number(/^M([\d.]+),/.exec(o.getAttribute('d'))[1]);
-      assert.equal(192 - sa, (W - 192) - sh, 'the ornament sits the same distance from the middle of its own cloth');
-      assert.equal(/^M[\d.]+,(\d+)/.exec(e.getAttribute('d'))[1], /^M[\d.]+,(\d+)/.exec(o.getAttribute('d'))[1], 'same height');
+      // the foot pictures are two different files (the two cloths were painted apart), each put at its own place; their gold outlines are mirrors of each other within a pixel
+      const gold = (el, off) => Number(el.getAttribute('x')) + off; // the middle of the gold outline: 154 in the Atreides picture, 163 in the Harkonnen one
+      assert.equal(e.getAttribute('y'), o.getAttribute('y'), 'same height');
+      assert.ok(Math.abs(gold(e, 154) + gold(o, 163) - W) <= 1, 'the two points are mirrors within a pixel');
     }
   });
-  assert.equal(ornaments, 1);
+  assert.equal(ornaments, 1, 'one foot picture per cloth, seen once while walking the first');
+});
+
+test('the foot of each cloth is the approved picture, one file per faction, at its own place; the narrow cloth carries the same picture as a text-free piece', () => {
+  const art = plaque({ a: ['x'], h: ['y'] }).querySelector('svg.lcc-art');
+  const tips = [...art.querySelectorAll('image.lcc-art-tip')];
+  assert.deepEqual(tips.map((t) => t.getAttribute('href')), ['/lcc/art/standards/atreides-tip.png', '/lcc/art/standards/harkonnen-tip.png']);
+  assert.deepEqual(tips.map((t) => [t.getAttribute('x'), t.getAttribute('y'), t.getAttribute('width'), t.getAttribute('height')]), [['36', '464', '320', '111'], ['1819', '464', '319', '111']]);
+  assert.ok(tips.every((t) => t.getAttribute('mask').startsWith('url(#') && t.getAttribute('mask').endsWith('tip)')), 'each picture fades into the drawing');
+  assert.ok(!art.querySelector('.lcc-art-sprig'), 'no drawn ornament: the wheat is in the picture');
+  for (const f of ['a', 'h']) {
+    const s = L.standard(f, ['x'], 'TOP CONTRIBUTORS', 'none');
+    const foot = s.querySelector('.lcc-standard-foot');
+    assert.ok(foot);
+    assert.equal(foot.getAttribute('aria-hidden'), 'true');
+    assert.equal(foot.textContent, '');
+    assert.equal(foot.querySelector('img.lcc-standard-tip').getAttribute('src'), '/lcc/art/standards/' + (f === 'a' ? 'atreides' : 'harkonnen') + '-tip.png');
+    assert.equal(foot.querySelector('img').getAttribute('alt'), '');
+  }
+  assert.ok(css.includes('.lcc-pl-std-a .lcc-standard-foot, .lcc-pl-std-h .lcc-standard-foot { display: none; }'), 'wide: the foot is in the artwork');
+  assert.ok(css.includes('.lcc-standard-foot { display: none; }'), 'forced colours: the picture is dropped');
 });
 
 test('mirror in the stylesheet: one rule sizes both word boxes, they sit at mirrored places, and every selector for one has its twin', () => {
@@ -116,12 +138,14 @@ test('wide: heading on one line, long names cut with an ellipsis, the words betw
   assert.match(js, /STANDARD_MARK = 88/);
   assert.match(js, /cx, 246, STANDARD_MARK/);
   assert.ok(top >= 246 + (88 * 0.75) / 2 + 8, 'the words start at least 8 units under the crest: ' + top);
-  assert.ok(bottom <= 497, 'the words end above the foot ornament: ' + bottom);
-  // the foot of the cloth stays clear of the nameplates (their top is at y 578)
-  assert.match(js, /V486 L' \+ cx \+ ',568/);
-  const foot = Number(/--lcc-foot: (\d+)px/.exec(css)[1]);
-  const pad = Number(/\.lcc-standard \{[^}]*padding: \d+px \d+px (\d+)px/.exec(css)[1]);
-  assert.ok(pad > foot, 'padding ' + pad + ' > foot ' + foot);
+  assert.ok(bottom <= 503, 'the words end above the point of the foot picture: ' + bottom);
+  // the foot picture starts at y 464 and ends at 575, above the nameplates (their top is at y 578)
+  assert.ok(js.includes('y: 464, width: tip.width, height: tip.height'));
+  assert.ok(js.includes('TIP_H = 111'));
+  // the narrow cloth: the picture follows the words in the flow, so a line of names never runs into it; its gold outline is lined up with the edge of the cloth
+  assert.match(css, /[.]lcc-standard-cloth [{][^}]*padding: [0-9]+px [0-9]+px [0-9]+px;/);
+  assert.ok(css.includes('.lcc-f-a > .lcc-standard-foot { width: 127%; margin-left: -11.11%;'));
+  assert.ok(css.includes('.lcc-f-h > .lcc-standard-foot { width: 125.59%; margin-left: -14.17%;'));
 });
 
 test('forced colours, wide: the standard is an outlined box with the drawn mark, not bare words', () => {
