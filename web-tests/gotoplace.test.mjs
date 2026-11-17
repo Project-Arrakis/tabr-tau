@@ -516,3 +516,42 @@ test('a hub the character stands in is counted and listed as another map when an
     { label: 'Other maps (moves there are untested)', places: ['Arrakeen Taxi Service - 10 m away', 'Harko Village Taxi Service - another map'] }]);
   ui.dom.window.close();
 });
+
+// #618: the drop-down shows a place by its name, not by the numbers and keys the game keeps. The label is the place's identity (a chosen place is kept by its group and label); the server also
+// sends the name to show (display) and the ids (detail), which the page puts in a tooltip.
+const ided = () => ({ map: 'HaggaBasin', sameMap: true, total: 5, groups: [TP, BASE, VEH],
+  destinations: [
+    { group: 'tradepost', label: 'TradingPost (key 00271320AAAA)', display: 'Unnamed trading post (1 of 2)', detail: 'Location key 00271320AAAA', x: 1, y: 2, z: 3, distance: 100000 },
+    { group: 'tradepost', label: 'TradingPost (key 00271320BBBB)', display: 'Unnamed trading post (2 of 2)', detail: 'Location key 00271320BBBB', x: 4, y: 5, z: 6, distance: 200000 },
+    { group: 'base', label: 'Spice Camp #602', display: 'Spice Camp', detail: 'Base number 602', x: 21, y: 31, z: 41, distance: 3000 },
+    { group: 'vehicle', label: 'Sandbike #801', display: 'Sandbike (1 of 2)', detail: 'Vehicle number 801', x: 300, y: 400, z: 50, distance: 9000 },
+    { group: 'vehicle', label: 'Sandbike #802', display: 'Sandbike (2 of 2)', detail: 'Vehicle number 802', x: 310, y: 410, z: 50, distance: 9500 }] });
+
+test('the places are shown by their names with no ids, and the ids are in a tooltip (#618)', async () => {
+  const { ui } = await open(ided());
+  assert.deepEqual(headings(ui), [
+    { label: 'Trading posts', places: ['Unnamed trading post (1 of 2) - 1,000 m away', 'Unnamed trading post (2 of 2) - 2,000 m away'] },
+    { label: 'Personal bases', places: ['Spice Camp - 30 m away'] },
+    { label: 'Vehicles', places: ['Sandbike (1 of 2) - 90 m away', 'Sandbike (2 of 2) - 95 m away'] }]);
+  const text = ui.doc.querySelector('#tdsel').textContent;
+  assert.doesNotMatch(text, /#\d|\bkey\b|00271320/, 'no number, no key in what is shown');
+  const tips = [...ui.doc.querySelectorAll('#tdsel option[value]')].filter((o) => o.value !== '').map((o) => o.title);
+  assert.deepEqual(tips, ['Location key 00271320AAAA', 'Location key 00271320BBBB', 'Base number 602', 'Vehicle number 801', 'Vehicle number 802']);
+  ui.dom.window.close();
+});
+
+test('a chosen place is named without ids in the note under the drop-down, keeps its ids as a tooltip, and fills the boxes (#618)', async () => {
+  const { ui } = await open(ided());
+  choose(ui, '2');
+  await ui.settle();
+  assert.equal(note(ui), 'Selected: Spice Camp, 30 m away');
+  assert.equal(ui.doc.querySelector('#tdpick').title, 'Base number 602');
+  assert.deepEqual(fields(ui), ['21', '31', '41']);
+  ui.dom.window.close();
+});
+
+test('an answer from a server that sends no display name still shows the label (#618)', async () => {
+  const { ui } = await open(dest());
+  assert.deepEqual(headings(ui)[0].places, ['NearPost - 4,488 m away', 'FarPost - 52,000 m away']);
+  ui.dom.window.close();
+});
