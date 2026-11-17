@@ -151,3 +151,7 @@ test('the plaque glow is one custom property that the glowing parts read', () =>
   const users = rules.filter((r) => /var\(--lcc-glow\)/.test(r.body)).map((r) => r.sel).join(' | ');
   for (const part of ['.lcc-glow-frame', '.lcc-glow-rail', '.lcc-glow-line', '.lcc-glow-edge', '.lcc-seat-halo']) assert.ok(users.includes(part), part + ' reads the dial');
 });
+
+test('the Choose box of the list sits in its table cell (it is only absolute over the corner of a tile)', () => {
+  assert.ok(bare.includes('.lcc-bd-c-pick .lcc-bd-pickl { position: static;'));
+});
