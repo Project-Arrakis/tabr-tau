@@ -274,12 +274,12 @@
       sv('path', { d: 'M20,520 L420,200 M2152,520 L1752,200' }),
     ]));
     // outer frame, header rule, body frame, footer rail (each with a soft glow copy under it)
-    for (const d of [cut(6, 6, 2160, 712, 26), 'M16,166 H2156']) kids.push(strokePath(d, GOLD.mid, 12, { opacity: 0.22, filter: g('blur') }));
+    for (const d of [cut(6, 6, 2160, 712, 26), 'M16,166 H2156']) kids.push(strokePath(d, GOLD.mid, 12, { opacity: 0.22, filter: g('blur'), class: 'lcc-glow lcc-glow-frame' }));
     // (a straight line cannot carry a gradient that is sized by its own box, so the straight rules are thin rectangles)
     kids.push(strokePath(cut(6, 6, 2160, 712, 26), g('gold'), 5));
     kids.push(strokePath(cut(16, 16, 2140, 692, 22), GOLD.lo, 1.5, { opacity: 0.8 }));
-    kids.push(sv('rect', { x: 16, y: 164.2, width: 2140, height: 3.6, fill: g('goldh') }));
-    kids.push(sv('rect', { x: 70, y: 686.5, width: 2032, height: 3, fill: g('goldh') }));
+    kids.push(sv('rect', { class: 'lcc-glow-line', x: 16, y: 164.2, width: 2140, height: 3.6, fill: g('goldh') }));
+    kids.push(sv('rect', { class: 'lcc-glow-line', x: 70, y: 686.5, width: 2032, height: 3, fill: g('goldh') }));
     kids.push(strokePath('M16,166 V690 M2156,166 V690', GOLD.mid, 3, { opacity: 0.9 }));
     // shields (Atreides left, Harkonnen right)
     const shield = (x0, fill, faction) => {
@@ -315,15 +315,15 @@
       return sv('g', null, [sv('path', { d, fill: g('gold') }), strokePath(d, GOLD.lo, 2), strokePath('M' + (x0 + 36) + ',583 H' + (x0 + w - 36), GOLD.hi, 1.5, { opacity: 0.8 })]);
     };
     kids.push(name(32, 336), name(W - 32 - 336, 336));
-    const diamond = (cx) => sv('path', { d: 'M' + cx + ',616 L' + (cx + 18) + ',635 L' + cx + ',654 L' + (cx - 18) + ',635 Z', fill: '#090914', stroke: g('gold'), 'stroke-width': 3.5 });
-    kids.push(sv('rect', { class: 'lcc-art-line', x: 52, y: 633.8, width: 464, height: 2.4, fill: g('goldh') }));
-    kids.push(sv('rect', { class: 'lcc-art-line', x: mirror(516), y: 633.8, width: 464, height: 2.4, fill: g('goldh') }));
+    const diamond = (cx) => sv('path', { d: 'M' + cx + ',616 L' + (cx + 18) + ',635 L' + cx + ',654 L' + (cx - 18) + ',635 Z', class: 'lcc-glow-edge', fill: '#090914', stroke: g('gold'), 'stroke-width': 3.5 });
+    kids.push(sv('rect', { class: 'lcc-art-line lcc-glow-line', x: 52, y: 633.8, width: 464, height: 2.4, fill: g('goldh') }));
+    kids.push(sv('rect', { class: 'lcc-art-line lcc-glow-line', x: mirror(516), y: 633.8, width: 464, height: 2.4, fill: g('goldh') }));
     kids.push(diamond(556), diamond(mirror(556)));
     const session = 'M706,523 L742,490 H1430 L1466,523 L1430,556 H742 Z';
     kids.push(sv('path', { d: session, fill: g('plate') }), strokePath(session, g('gold'), 3.5), strokePath('M720,523 L750,498 H1422 L1452,523 L1422,548 H750 Z', GOLD.lo, 1.4, { opacity: 0.8 }));
     // the two vertical rules are drawn last, so nothing in this layer is ever painted over them; the one at x 1577 is the HELD BY rule
-    kids.push(sv('rect', { class: 'lcc-art-rule', x: 711, y: 36, width: 3.5, height: 98, rx: 1.5, fill: g('vr') }));
-    kids.push(sv('rect', { class: 'lcc-art-rule lcc-art-rule-held', x: 1577, y: 36, width: 3.5, height: 98, rx: 1.5, fill: g('vr') }));
+    kids.push(sv('rect', { class: 'lcc-art-rule lcc-glow-line', x: 711, y: 36, width: 3.5, height: 98, rx: 1.5, fill: g('vr') }));
+    kids.push(sv('rect', { class: 'lcc-art-rule lcc-art-rule-held lcc-glow-line', x: 1577, y: 36, width: 3.5, height: 98, rx: 1.5, fill: g('vr') }));
     return sv('svg', { class: 'lcc-art', viewBox: '0 0 ' + W + ' ' + H, preserveAspectRatio: 'xMidYMid meet', 'aria-hidden': 'true', focusable: 'false' }, kids);
   }
 
@@ -344,17 +344,17 @@
     const body = 'M' + T.tipL + ',' + T.cy + ' L' + T.wallL + ',' + T.top + ' H' + T.wallR + ' L' + T.tipR + ',' + T.cy + ' L' + T.wallR + ',' + T.bottom + ' H' + T.wallL + ' Z';
     const inner = 'M' + (T.tipL + 24) + ',' + T.cy + ' L' + (T.wallL + 6) + ',' + (T.top + 12) + ' H' + (T.wallR - 6) + ' L' + (T.tipR - 24) + ',' + T.cy + ' L' + (T.wallR - 6) + ',' + (T.bottom - 12) + ' H' + (T.wallL + 6) + ' Z';
     const kids = [defs,
-      sv('path', { d: body, fill: 'none', stroke: g('rail'), 'stroke-width': 14, opacity: 0.35, filter: g('tblur') }),
+      sv('path', { class: 'lcc-glow lcc-glow-rail', d: body, fill: 'none', stroke: g('rail'), 'stroke-width': 14, opacity: 0.35, filter: g('tblur') }),
       sv('path', { d: body, fill: g('body') }),
       sv('path', { d: inner, fill: 'none', stroke: '#000', 'stroke-width': 10, opacity: 0.25 }),
       sv('path', { d: body, fill: 'none', stroke: g('tg'), 'stroke-width': 7, 'stroke-linejoin': 'miter' }),
-      sv('path', { d: inner, fill: 'none', stroke: g('rail'), 'stroke-width': 3, 'stroke-linejoin': 'miter' }),
+      sv('path', { class: 'lcc-glow-line', d: inner, fill: 'none', stroke: g('rail'), 'stroke-width': 3, 'stroke-linejoin': 'miter' }),
     ];
     // the middle gem above the hub and the point below it
     const gx = T.cx;
-    kids.push(sv('path', { d: 'M' + gx + ',226 L' + (gx + 34) + ',270 L' + gx + ',312 L' + (gx - 34) + ',270 Z', fill: g('sc'), stroke: GOLD.lo, 'stroke-width': 3, 'stroke-linejoin': 'round' }));
+    kids.push(sv('path', { d: 'M' + gx + ',226 L' + (gx + 34) + ',270 L' + gx + ',312 L' + (gx - 34) + ',270 Z', class: 'lcc-glow-edge', fill: g('sc'), stroke: GOLD.lo, 'stroke-width': 3, 'stroke-linejoin': 'round' }));
     kids.push(sv('path', { d: 'M' + gx + ',226 L' + (gx + 34) + ',270 L' + gx + ',286 L' + (gx - 34) + ',270 Z', fill: '#fff6cf', opacity: 0.35 }));
-    kids.push(sv('path', { d: 'M' + (gx - 16) + ',462 L' + gx + ',488 L' + (gx + 16) + ',462 Z', fill: g('tg'), stroke: GOLD.lo, 'stroke-width': 2 }));
+    kids.push(sv('path', { d: 'M' + (gx - 16) + ',462 L' + gx + ',488 L' + (gx + 16) + ',462 Z', class: 'lcc-glow-edge', fill: g('tg'), stroke: GOLD.lo, 'stroke-width': 2 }));
     // seats
     const states = seatStates(a, h) || seatStates(0, 0);
     const seats = sv('g', { class: 'lcc-seats' });

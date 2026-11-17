@@ -136,3 +136,13 @@ test('the page has the same rules in the code: the plaque is one section with a 
   assert.match(js, /'lcc lcc-lane', '', \{ type: 'button'/);
   void read;
 });
+
+// The glow of the plaque is one dial (--lcc-glow): the pieces that glow read it, and nothing else in the file names a glow strength of its own.
+test('the plaque glow is one custom property that the glowing parts read', () => {
+  const dial = bare.match(/--lcc-glow:\s*([0-9.]+)/g) || [];
+  assert.equal(dial.length, 1, 'one place sets the dial');
+  const v = Number(dial[0].replace(/[^0-9.]/g, ''));
+  assert.ok(v >= 0 && v <= 1, 'the dial is between 0 and 1: ' + v);
+  const users = rules.filter((r) => /var\(--lcc-glow\)/.test(r.body)).map((r) => r.sel).join(' | ');
+  for (const part of ['.lcc-glow-frame', '.lcc-glow-rail', '.lcc-glow-line', '.lcc-glow-edge', '.lcc-seat-halo']) assert.ok(users.includes(part), part + ' reads the dial');
+});

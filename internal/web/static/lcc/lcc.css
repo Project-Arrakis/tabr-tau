@@ -131,6 +131,15 @@
   .lcc-plaque > .lcc-badge { position: absolute; left: 50%; transform: translateX(-50%); bottom: 1.4%; z-index: 3; font-size: clamp(8px, .85cqw, 12px); background: rgba(10, 11, 30, .85); color: #ffd98a; border-color: #b79a5b; }
 }
 
+/* The glow of the plaque, on one dial. --lcc-glow is the strength of the bright light on the border lines, the track rails and their tips, the footer lines, the HELD BY rule, the seat halos and the
+   diamonds: 1 is the strength M2 built (the approved V20 look), 0 is no glow, in between is a softer one. Only the light changes: every edge, fill and word keeps its colour, and the lines never go
+   below .45 of their strength, so they stay drawn at 0. To make the plaque softer or brighter, change this one number. */
+.lcc-plaque { --lcc-glow: .5; }
+.lcc-glow-frame { opacity: calc(.22 * var(--lcc-glow)); }
+.lcc-glow-rail { opacity: calc(.35 * var(--lcc-glow)); }
+.lcc-glow-line, .lcc-seat-halo { opacity: calc(.45 + .55 * var(--lcc-glow)); }
+.lcc-glow-edge { stroke-opacity: calc(.45 + .55 * var(--lcc-glow)); }
+
 /* the seats. Fill and stroke come from the artwork's own attributes; the classes below are what a forced-colours view and a state can override. */
 .lcc-seat-base { transition: none; }
 .lcc-seat-has-art .lcc-seat-mark { display: none; }  /* the drawn mark is the fallback: the faction picture covers it once it has loaded */
