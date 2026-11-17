@@ -2361,10 +2361,17 @@ function lbAskOf(act_, items, hs, F, i, one) {
 }
 // The houses of a request whose win is taken from another faction: Complete (or Fill faction goal) for F on a house that another faction took.
 const lbReplaced = (items, hs, F) => items.filter((it) => it.complete_for != null).map((it) => hs.get(it.task_id)).filter((h) => h && h.win != null && h.win != F);
-// What the Command Center board's question says beyond the classic one (the classic question is kept as it was): whose win a Complete replaces.
+// What the Command Center board's question says beyond the classic one (the classic question is kept as it was): whose win a Complete replaces, which houses a question about several is about, and
+// how many of the chosen houses are left out because nothing would change for them.
 function lbBoardAsk(items, hs, F, one) {
   const p = [], rep = lbReplaced(items, hs, F);
   if (rep.length) p.push('Replaces the ' + (rep.length === 1 ? 'win' : 'wins') + ' of ' + rep.map((h) => lbFacName(LD, h.win) + ' on House ' + h.name).join(', ') + '.');
+  if (!one && items.length > 1) {
+    const nm = items.map((it) => hs.get(it.task_id).name).sort((a, b) => a.localeCompare(b));
+    p.push('Houses: ' + (nm.length > 8 ? nm.slice(0, 8).join(', ') + ' and ' + (nm.length - 8) + ' more' : nm.join(', ')) + '.');
+  }
+  const left = LP.pick.size - items.length;
+  if (!one && left > 0) p.push(nn(left, 'other chosen house is', 'other chosen houses are') + ' left alone: nothing to change for ' + (left === 1 ? 'it' : 'them') + '.');
   return p.length ? ' ' + p.join(' ') : '';
 }
 function lbCancelConfirm() { if (!LP.confirm) return; LP.confirm = null; const c = $('#lsb-confirm'); if (c) c.remove(); }

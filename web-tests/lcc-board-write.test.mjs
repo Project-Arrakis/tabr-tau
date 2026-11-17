@@ -174,3 +174,77 @@ test('the classic list is not changed by this: Complete on a taken House still w
   assert.equal(writes(ui).length, 1);
 });
 
+test('several Houses: the question names them, the faction and how many change, and one request carries them all', async () => {
+  const ui = await open('board');
+  const a = synthetic();
+  const names = ['Sor', 'Lindaren', 'Kenola'];
+  for (const n of names) { const c = ui.doc.querySelector('.lcc-bd-pick[data-id="' + idOf(a, n) + '"]'); c.checked = true; c.dispatchEvent(new ui.w.Event('change', { bubbles: true })); }
+  assert.match(text(ui.doc.querySelector('#lsb-sum')), /^Chosen: 3 houses\./);
+  click(ui, '[data-fk="b-complete"]');
+  await ui.settle();
+  const q = ui.doc.querySelector('#lsb-confirm');
+  assert.ok(q);
+  const t = text(q.querySelector('b'));
+  assert.match(t, /^Complete 3 houses for Atreides\?/);
+  for (const n of names) assert.ok(t.includes(n), n + ' is named in: ' + t);
+  assert.match(t, /Written at once, with a backup first\.$/);
+  assert.equal(writes(ui).length, 0);
+  click(ui, '[data-fk="c-yes"]');
+  await ui.settle();
+  assert.equal(writes(ui).length, 1, 'one request for all of them: all or none');
+  assert.deepEqual(writes(ui)[0].body.houses.map((h) => h.task_id).sort(), names.map((n) => idOf(a, n)).sort());
+  for (const h of writes(ui)[0].body.houses) assert.equal(h.complete_for, 1);
+});
+
+test('several Houses: Houses that would not change are left out and the question says how many, and a replaced win is named', async () => {
+  const ui = await open('board');
+  const a = synthetic();
+  // Vernius is taken by Harkonnen (Complete replaces that win), Tseida is already Atreides's (nothing to change)
+  for (const n of ['Vernius', 'Tseida', 'Sor']) { const c = ui.doc.querySelector('.lcc-bd-pick[data-id="' + idOf(a, n) + '"]'); c.checked = true; c.dispatchEvent(new ui.w.Event('change', { bubbles: true })); }
+  click(ui, '[data-fk="b-complete"]');
+  const t = text(ui.doc.querySelector('#lsb-confirm b'));
+  assert.match(t, /^Complete 2 houses for Atreides\?/);
+  assert.match(t, /Replaces the win of Harkonnen on House Vernius\./);
+  assert.match(t, /1 other chosen house is left alone: nothing to change for it\./);
+  assert.ok(!t.includes('Tseida'), 'a House that does not change is not named as one that does');
+});
+
+test('a filter drops the Houses it hides from the choice, and a question about them closes: what is not shown is never written', async () => {
+  const ui = await open('board');
+  const a = synthetic();
+  for (const n of ['Sor', 'Vernius']) { const c = ui.doc.querySelector('.lcc-bd-pick[data-id="' + idOf(a, n) + '"]'); c.checked = true; c.dispatchEvent(new ui.w.Event('change', { bubbles: true })); }
+  click(ui, '[data-fk="b-fill"]');
+  assert.ok(ui.doc.querySelector('#lsb-confirm'));
+  click(ui, '[data-fk="bf:hs:open"]'); // Vernius is taken: the filter hides it
+  assert.equal(ui.doc.querySelector('#lsb-confirm'), null, 'the question about a House that is no longer shown is closed');
+  assert.match(text(ui.doc.querySelector('#lsb-sum')), /^Chosen: 1 house\./);
+  assert.equal(ui.doc.querySelector('.lcc-bd-pick[data-id="' + idOf(a, 'Vernius') + '"]').checked, false);
+  assert.equal(writes(ui).length, 0);
+});
+
+test('Choose all houses chooses what the board shows, not what a filter dims; Clear the choice clears the boxes', async () => {
+  const ui = await open('board');
+  click(ui, '[data-fk="bf:hs:open"]');
+  click(ui, '[data-fk="b-all"]');
+  const boxes = [...ui.doc.querySelectorAll('.lcc-bd-pick')];
+  assert.equal(boxes.filter((b) => b.checked).length, 9, 'the nine open Houses');
+  assert.match(text(ui.doc.querySelector('#lsb-sum')), /^Chosen: 9 houses\./);
+  click(ui, '[data-fk="b-none"]');
+  assert.equal([...ui.doc.querySelectorAll('.lcc-bd-pick')].filter((b) => b.checked).length, 0);
+  assert.equal(text(ui.doc.querySelector('#lsb-sum')), 'Nothing is chosen.');
+});
+
+test('the grant before the click: the Inspector says what a raise would write, and a raise over the limit is shown as refused', async () => {
+  const a = synthetic();
+  const ui = await open('board', a);
+  click(ui, ui.doc.querySelector('[data-fk="ht:' + idOf(a, 'Lindaren') + '"]'));
+  const t = text(ui.doc.querySelector('.lcc-bd-insp'));
+  assert.match(t, /Fill and Fill faction goal: Writes 6 missions: \+36,000 Solari, \+6,000 House Scrip/);
+  assert.match(t, /Written at once\. The pay-out of a mission \(Solari, House Scrip, specialization XP and rewards\) has not been checked in the game yet\./);
+  assert.ok(ui.doc.querySelector('.lcc-bd-insp .lcc-badge-unverified'), 'the page says the pay-out is not checked in the game');
+  const b = synthetic();
+  b.grant.max_missions = 3;
+  const over = await open('board', b);
+  click(over, over.doc.querySelector('[data-fk="ht:' + idOf(b, 'Lindaren') + '"]'));
+  assert.match(text(over.doc.querySelector('.lcc-bd-insp')), /Will be refused: House Lindaren: this click stands for 6 missions, more than the 3 one change may grant/);
+});
