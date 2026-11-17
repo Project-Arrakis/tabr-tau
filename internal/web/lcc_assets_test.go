@@ -272,7 +272,7 @@ func TestLccArtIsServedFromAFixedListOnly(t *testing.T) {
 			t.Errorf("/lcc/art/%s: %d %q, %d of %d bytes", f.File, code, ct, len(body), len(want))
 		}
 	}
-	for p, ct := range map[string]string{"/lcc/lcc.css": "text/css", "/lcc/lcc.js": "text/javascript"} {
+	for p, ct := range map[string]string{"/lcc/lcc.css": "text/css", "/lcc/lcc.js": "text/javascript", "/lcc/lcc-model.js": "text/javascript"} {
 		if code, got, _ := get(p); code != http.StatusOK || !strings.HasPrefix(got, ct) {
 			t.Errorf("%s: %d %q", p, code, got)
 		}

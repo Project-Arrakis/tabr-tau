@@ -556,7 +556,7 @@ func (s *Server) routes() {
 		"/app.css": "text/css; charset=utf-8", "/app.js": "text/javascript; charset=utf-8", "/html.js": "text/javascript; charset=utf-8", "/motion-boot.js": "text/javascript; charset=utf-8", "/look-boot.js": "text/javascript; charset=utf-8", "/theme-menu.js": "text/javascript; charset=utf-8",
 		"/livemap.js": "text/javascript; charset=utf-8", "/favicon.svg": "image/svg+xml", "/maps/hagga-basin.png": "image/png", "/maps/deep-desert.png": "image/png",
 		// the Command Center's styles and helpers (no live page links them yet; the Landsraad and Specialization views of later milestones will)
-		"/lcc/lcc.css": "text/css; charset=utf-8", "/lcc/lcc.js": "text/javascript; charset=utf-8"} {
+		"/lcc/lcc.css": "text/css; charset=utf-8", "/lcc/lcc.js": "text/javascript; charset=utf-8", "/lcc/lcc-model.js": "text/javascript; charset=utf-8"} {
 		file, ctype := "static"+path, ct
 		s.mux.HandleFunc("GET "+path, func(w http.ResponseWriter, r *http.Request) {
 			b, err := static.ReadFile(file)
