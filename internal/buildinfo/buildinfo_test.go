@@ -104,9 +104,9 @@ func TestReadNotes(t *testing.T) {
 		t.Errorf("plain notes: %q %v", text, cut)
 	}
 	// control characters and text-direction overrides are dropped, tabs and line breaks stay, markup stays as plain text
-	write([]byte("a\x00b\x1b[31m\tc‮d\n<script>x</script>\xff"))
+	write([]byte("a\x00b\x1b[31m\tc\u202ed\n<script>x</script>\xff"))
 	text, _ := ReadNotes(dir)
-	if strings.ContainsAny(text, "\x00\x1b‮") || !strings.Contains(text, "\tc") || !strings.Contains(text, "<script>x</script>") || !strings.Contains(text, "�") {
+	if strings.ContainsAny(text, "\x00\x1b\u202e") || !strings.Contains(text, "\tc") || !strings.Contains(text, "<script>x</script>") || !strings.Contains(text, "�") {
 		t.Errorf("hostile notes: %q", text)
 	}
 	// longer than the limit: cut, and said so
