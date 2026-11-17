@@ -120,10 +120,10 @@ test('the counts under the two nameplates are the counts of the seats, never any
   for (const [a, h] of [[12, 4], [13, 12], [12, 13], [25, 0], [0, 25], [3, 3]]) {
     const t = L.standingLine(a, h);
     assert.doesNotMatch(t, /WIN|WON|SECURED|VICTORY|MAJORITY/i, t);
-    if (a !== h) assert.match(t, /VOTE NOT CONFIRMED/);
+    assert.doesNotMatch(t, /NOT CONFIRMED/);
   }
-  assert.equal(L.standingLine(12, 4), 'ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN · VOTE NOT CONFIRMED');
-  assert.equal(L.standingLine(4, 12), 'HARKONNEN LEAD 12 TO 4 · 9 HOUSES OPEN · VOTE NOT CONFIRMED');
+  assert.equal(L.standingLine(12, 4), 'ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN');
+  assert.equal(L.standingLine(4, 12), 'HARKONNEN LEAD 12 TO 4 · 9 HOUSES OPEN');
   assert.equal(L.standingLine(12, 12), 'HOUSE COUNT EVEN AT 12 · 1 HOUSE OPEN');
   assert.equal(L.standingLine(40, 1), 'HOUSE COUNT UNAVAILABLE');
 });

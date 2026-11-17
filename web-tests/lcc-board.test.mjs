@@ -69,7 +69,7 @@ test('the plaque and the figures are the counts of the same Houses: 12 and 4, ni
   const p = ui.doc.querySelector('.lcc-plaque-host');
   assert.equal(p.getAttribute('data-a'), '12');
   assert.equal(p.getAttribute('data-h'), '4');
-  assert.match(text(p.querySelector('.lcc-pl-standing')), /ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN · VOTE NOT CONFIRMED/);
+  assert.match(text(p.querySelector('.lcc-pl-standing')), /ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN/);
   assert.doesNotMatch(text(ui.doc.querySelector('.lcc-bd')), /\bwins?\b|\bwon\b|won the vote/i, 'a count is never called a win');
   const k = [...ui.doc.querySelectorAll('.lcc-bd-metric')].map((x) => [text(x.querySelector('.lcc-bd-metric-k')), text(x.querySelector('strong'))]);
   assert.deepEqual(k.map((x) => x[1]), ['CONTESTED', '9', '—', 'LV 100'], 'the term status, the open Houses read from the save, the lines wait for M4, the cap is a game rule');
@@ -85,7 +85,7 @@ test('a House whose owner cannot be read is counted for neither side and the pla
   a.tasks[10].completed = 1; a.tasks[10].winning_faction_id = null; // taken with no winner: not readable
   const ui = await open(a);
   const p = ui.doc.querySelector('.lcc-plaque-host');
-  assert.match(text(p.querySelector('.lcc-pl-standing')), /COUNT INCOMPLETE · 1 HOUSE UNREADABLE · VOTE NOT CONFIRMED/);
+  assert.match(text(p.querySelector('.lcc-pl-standing')), /COUNT INCOMPLETE · 1 HOUSE UNREADABLE/);
   assert.equal(text(tiles(ui)[10].querySelector('.lcc-hc-owner')), '? Owner unreadable');
   assert.match(text(ui.doc.querySelector('.lcc-bd-headlines')), /OWNER UNREADABLE/);
   assert.match(text(ui.doc.querySelector('[data-metric="open"]')), /1 unreadable, not counted/);

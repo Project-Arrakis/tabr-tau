@@ -107,7 +107,7 @@
     const who = s.state === 'a' ? FACTION.a : s.state === 'h' ? FACTION.h : 'open';
     return 'Slot ' + s.slot + ' of ' + (total || SEATS) + ' — ' + who + (s.center ? ' (the gold middle seat)' : '');
   }
-  // A short factual line for the middle of the plaque. It reports the current count and never a result: a lead is "current", and the vote is not confirmed here (decision D05).
+  // A short factual line for the middle of the plaque. It reports the current count and never a result: a lead is "current" and the line never says a House has won (decision D05; the victory panel says that no winner is confirmed).
   function standingLine(a, h) {
     if (!isCount(a) || !isCount(h) || a + h > SEATS) return 'HOUSE COUNT UNAVAILABLE';
     const open = SEATS - a - h;
@@ -115,7 +115,7 @@
     if (a === h) return 'HOUSE COUNT EVEN AT ' + a + ' · ' + tail;
     const lead = a > h ? 'ATREIDES' : 'HARKONNEN';
     const hi = Math.max(a, h), lo = Math.min(a, h);
-    return lead + ' LEAD ' + hi + ' TO ' + lo + ' · ' + tail + ' · VOTE NOT CONFIRMED';
+    return lead + ' LEAD ' + hi + ' TO ' + lo + ' · ' + tail;
   }
 
   // ---- small element helpers ----------------------------------------------------------------------------------------------------------------------------------------------
