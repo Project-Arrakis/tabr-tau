@@ -7,7 +7,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { lccDir, read, root } from './lcc-load.mjs';
 
-const css = fs.readFileSync(path.join(lccDir, 'lcc.css'), 'utf8').replace(/\r/g, '');
+// the foundation's styles and the board's (M3) are one body of rules for these checks: the same scoping, tokens and variants apply to both
+const css = ['lcc.css', 'lcc-board.css'].map((f) => fs.readFileSync(path.join(lccDir, f), 'utf8').replace(/\r/g, '')).join('\n');
 const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 // rules: { at: '@container ...' | '', sel: 'a, b', body }
@@ -75,9 +76,11 @@ test('it reaches nothing outside this origin and needs no looser content securit
   assert.doesNotMatch(bare, /url\(/);
   assert.doesNotMatch(bare, /@import|data:|https?:|\/\/[a-z]/i);
   assert.doesNotMatch(bare, /expression\(|behavior:|-moz-binding|javascript:/);
-  const js = fs.readFileSync(path.join(lccDir, 'lcc.js'), 'utf8');
-  assert.doesNotMatch(js, /setAttribute\(\s*['"]style['"]|\.cssText|insertRule/);
-  assert.doesNotMatch(js, /\.src\s*=\s*['"`]https?:/);
+  for (const f of ['lcc.js', 'lcc-model.js', 'lcc-board.js']) {
+    const js = fs.readFileSync(path.join(lccDir, f), 'utf8');
+    assert.doesNotMatch(js, /setAttribute\(\s*['"]style['"]|\.cssText|insertRule/, f);
+    assert.doesNotMatch(js, /\.src\s*=\s*['"`]https?:/, f);
+  }
 });
 
 test('the variants the design asks for exist: forced colours, reduced motion, Off and Calm, more contrast, Dayside', () => {

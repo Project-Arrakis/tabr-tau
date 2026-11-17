@@ -182,7 +182,8 @@
     return w;
   }
   // A label that says what the data is. kind: 'demo' (fixture values on a preview page), 'readonly' (shown, never written here) or 'ref' (a reference value, not the save's).
-  const BADGE = Object.freeze({ demo: 'FIXTURE · DEMO DATA', readonly: 'READ-ONLY', ref: 'REFERENCE' });
+  // 'save' and 'derived' (M3) say where a live figure comes from: read from the save, or worked out by the page from what the save holds; 'unverified' marks a result the game has not been seen to confirm.
+  const BADGE = Object.freeze({ demo: 'FIXTURE · DEMO DATA', readonly: 'READ-ONLY', ref: 'REFERENCE', save: 'FROM THE SAVE', derived: 'WORKED OUT HERE', unverified: 'NOT CHECKED IN THE GAME' });
   const badge = (kind, text) => el('span', 'lcc-badge lcc-badge-' + (BADGE[kind] ? kind : 'readonly'), text || BADGE[kind] || BADGE.readonly);
   // A reachable tooltip: the trigger carries aria-describedby, the tip is real text beside it (shown on hover and on focus by the stylesheet; the module's own tooltip rules do the rest).
   function richTip(triggerText, tipText) {
@@ -450,6 +451,9 @@
   const TRACK_LABEL = Object.freeze({ combat: 'Combat', crafting: 'Crafting', exploration: 'Exploration', gathering: 'Gathering', sabotage: 'Sabotage' });
   const houseTitle = (name) => String(name == null ? '' : name).replace(/^DA_House/i, '').replace(/^./, (c) => c.toUpperCase());
   // renderHouseCard(vm): vm = { name, owner: 'a'|'h'|'open'|'unknown', track, selected, oneAway, inLine, dominion, waiting }. A button: the whole card is the target.
+  // The live board (M3) adds four optional fields, all off when absent: number (the tile number 01 to 25, a board position), meter ({ reached, total }: the tiers of the character's own
+  // contribution), dim (the filters leave this House out: it stays on the board and says so) and compact (the five-by-five tile: the crest over the name, drawn small).
+  const pipText = (m) => (m && Number.isInteger(m.total) && m.total > 0 && Number.isInteger(m.reached) && m.reached >= 0 && m.reached <= m.total ? m : null);
   function renderHouseCard(vm) {
     vm = vm || {};
     const owner = OWNER[vm.owner] ? vm.owner : 'unknown';
@@ -457,13 +461,17 @@
     const b = el('button', 'lcc lcc-house', '', { type: 'button', 'aria-pressed': vm.selected ? 'true' : 'false', 'data-owner': owner, 'data-one-away': vm.oneAway ? 'true' : null, 'data-line': vm.inLine ? 'true' : null });
     if (vm.inLine) victory(b, 'circuit'); else if (vm.dominion) victory(b, 'dominion');
     if (vm.selected) b.setAttribute('data-selected', 'true');
+    if (vm.dim) b.setAttribute('data-dim', 'true');
+    if (vm.compact) b.setAttribute('data-compact', 'true');
+    const no = typeof vm.number === 'string' && /^[0-9]{2}$/.test(vm.number) ? vm.number : '';
+    if (no) b.appendChild(el('span', 'lcc-house-no', no, { 'aria-hidden': 'true' }));
     const crest = el('span', 'lcc-house-crest');
     const sym = houseAsset(vm.name);
     if (sym) crest.appendChild(art(sym, 'lcc-house-img', 40)); else crest.appendChild(el('span', 'lcc-house-initials', title.slice(0, 2).toUpperCase()));
     b.appendChild(crest);
     const body = el('span', 'lcc-house-body');
     body.appendChild(el('span', 'lcc-house-name', title));
-    body.appendChild(el('span', 'lcc-owner lcc-owner-' + owner, OWNER_GLYPH[owner] + ' ' + OWNER[owner]));
+    body.appendChild(el('span', 'lcc-owner lcc-owner-' + owner, OWNER_GLYPH[owner] + ' ' + OWNER[owner], { 'data-g': OWNER_GLYPH[owner] })); // data-g: the glyph alone, for the narrow tile (its word is then hidden, never its mark)
     const tr = trackAsset('banners', vm.track);
     if (tr) {
       const ph = el('span', 'lcc-house-path');
@@ -478,8 +486,15 @@
     if (vm.inLine) { flags.appendChild(el('span', 'lcc-flag lcc-flag-line', VICTORY.circuit)); notes.push('part of a line of five'); }
     else if (vm.dominion) { flags.appendChild(el('span', 'lcc-flag lcc-flag-dom', VICTORY.dominion)); notes.push('a House of the majority'); }
     if (vm.waiting > 0) { flags.appendChild(el('span', 'lcc-flag lcc-flag-wait', vm.waiting + ' WAITING')); notes.push(vm.waiting + ' reward' + (vm.waiting === 1 ? '' : 's') + ' waiting'); }
+    const mt = pipText(vm.meter);
+    if (mt) {
+      const pips = el('span', 'lcc-house-meter', '', { 'aria-hidden': 'true' });
+      for (let i = 0; i < mt.total; i++) pips.appendChild(el('i', i < mt.reached ? 'on' : ''));
+      b.appendChild(pips);
+      notes.push(mt.reached + ' of ' + mt.total + ' tiers reached');
+    }
     if (flags.childNodes.length) b.appendChild(flags);
-    b.setAttribute('aria-label', [title + ', ' + (owner === 'a' || owner === 'h' ? 'claimed by ' + OWNER[owner] : owner === 'open' ? 'open' : 'owner unreadable')].concat(vm.track && TRACK_LABEL[norm(vm.track)] ? ['path ' + TRACK_LABEL[norm(vm.track)]] : [], notes, vm.selected ? ['selected'] : []).join(', '));
+    b.setAttribute('aria-label', [(no ? 'Number ' + no + ', ' : '') + title + ', ' + (owner === 'a' || owner === 'h' ? 'claimed by ' + OWNER[owner] : owner === 'open' ? 'open' : 'owner unreadable')].concat(vm.track && TRACK_LABEL[norm(vm.track)] ? ['path ' + TRACK_LABEL[norm(vm.track)]] : [], notes, vm.dim ? ['not in the current filter'] : [], vm.selected ? ['selected'] : []).join(', '));
     return b;
   }
 
@@ -534,7 +549,7 @@
     config, houseAsset, laneAsset, bannerAsset, decreeAsset, factionAsset, standardTipAsset,
     seatStates, seatLabel, seatX, standingLine, summaryText, laneState,
     pill, ruleV, heldBy, standard, badge, richTip, frame, victory, VICTORY,
-    renderPlaque, renderHouseCard, renderLaneCard,
+    renderPlaque, renderHouseCard, renderLaneCard, el, houseTitle,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCC = api;
