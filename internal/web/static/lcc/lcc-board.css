@@ -1,4 +1,4 @@
-/* The Command Center's live board (milestone M3): the place of the Term and Decrees section, the four figures, the board panel (head, filters, legend, the five-by-five board of House cards, the list), the Imperial Victory Analysis
+/* The Command Center's live board (milestone M3): the place of the Term and Decrees section, the board panel (head, filters, legend, the five-by-five board of House cards, the list), the Imperial Victory Analysis
    and the House Intelligence panel. Like lcc.css, every rule is scoped to a class that starts with lcc (a test reads this file too and fails on a selector that is not), every custom property is --lcc-*, and
    it uses no address of any kind, so the content security policy needs nothing new. It is loaded after lcc.css and uses the aliases that file defines, among them the approved design's own faces
    (--lcc-serif, --lcc-sans, --lcc-mono: system fonts, nothing is fetched). Layout follows the box the board is in (a container query), not the window: the approved design's window breakpoints are
@@ -22,7 +22,7 @@
 /* the approved design's surface: a bordered panel with a second hairline set in from its edge */
 .lcc-bd-surface { position: relative; box-sizing: border-box; border: 1px solid var(--lcc-stroke); background: linear-gradient(145deg, var(--lcc-s1), var(--lcc-s2)); box-shadow: 0 15px 45px rgba(0, 0, 0, .36); }
 .lcc-bd-surface::after { content: ''; pointer-events: none; position: absolute; inset: 7px; border: 1px solid var(--lcc-stroke-faint); }
-:root[data-theme="light"] .lcc-bd-surface, :root[data-theme="light"] .lcc-bd-metric { box-shadow: 0 10px 26px rgba(85, 52, 16, .16); }
+:root[data-theme="light"] .lcc-bd-surface { box-shadow: 0 10px 26px rgba(85, 52, 16, .16); }
 
 /* The place of the Term and Decrees section (#923): the page seats its own section here, drawn once, under the plaque. Empty until then. */
 .lcc-bd-termslot { margin: 0 0 14px; min-width: 0; }
@@ -32,15 +32,6 @@
 /* a drop-down of the board */
 .lcc-bd-select { box-sizing: border-box; min-height: 37px; max-width: 100%; padding: 8px 12px; font: 14px/1.2 var(--lcc-sans); color: var(--lcc-text); background: var(--lcc-raised); border: 1px solid var(--lcc-stroke); }
 .lcc-bd-select:disabled { opacity: .6; cursor: not-allowed; }
-
-/* the four figures */
-.lcc-bd-metrics { list-style: none; margin: 16px 0 20px; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.lcc-bd-metric { box-sizing: border-box; min-width: 0; min-height: 100px; padding: 15px 19px; background: linear-gradient(135deg, var(--lcc-s1), var(--lcc-s2)); border: 1px solid var(--lcc-stroke-faint); border-top: 2px solid var(--lcc-stroke); box-shadow: 0 15px 45px rgba(0, 0, 0, .36); }
-.lcc-bd-metric-k, .lcc-bd-metric small { display: block; color: var(--lcc-dim); font: 400 10px/1.4 var(--lcc-sans); letter-spacing: .15em; }
-.lcc-bd-metric strong { display: block; margin: 6px 0 3px; font: 700 25px/1.2 var(--lcc-serif); color: var(--lcc-text); letter-spacing: .02em; }
-.lcc-bd-metric small { letter-spacing: .025em; line-height: 1.4; }
-.lcc-bd-metric.accent { border-top-color: var(--lcc-gold); background: linear-gradient(115deg, color-mix(in srgb, var(--lcc-gold) 9%, transparent), var(--lcc-s1)); }
-.lcc-bd-metric.accent strong { color: var(--lcc-gold); }
 
 /* the two columns: the board panel and the two panels at its side */
 .lcc-bd-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
@@ -212,6 +203,7 @@
 .lcc-bd-victory[data-state="count"] .lcc-bd-vtag { border-style: dashed; border-color: var(--lcc-gold); color: var(--lcc-gold-text); }
 .lcc-bd-victory[data-state="conflict"] .lcc-bd-vtag { border-style: dashed; border-color: var(--lcc-violet); color: var(--lcc-text); }
 .lcc-bd-vcount { margin: 10px 0 0; font: 11px/1.45 var(--lcc-sans); color: var(--lcc-dim); }
+.lcc-bd-vlines { margin: 6px 0 0; font: 11px/1.45 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-bd-line { display: grid; gap: 1px; padding: 5px 8px; border-left: 3px solid var(--lcc-stroke-faint); font: 11px/1.4 var(--lcc-sans); color: var(--lcc-dim); }
 @media (forced-colors: active) {
   .lcc-hc[data-victory="win"] { border: 5px double CanvasText; outline: 3px solid CanvasText; box-shadow: none; }
@@ -319,7 +311,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 
 /* forced colours and contrast */
 @media (forced-colors: active) {
-  .lcc-bd, .lcc-bd-metric, .lcc-bd-surface, .lcc-bd-listwrap { background: Canvas; color: CanvasText; border: 1px solid CanvasText; box-shadow: none; }
+  .lcc-bd, .lcc-bd-surface, .lcc-bd-listwrap { background: Canvas; color: CanvasText; border: 1px solid CanvasText; box-shadow: none; }
   .lcc-bd-chip, .lcc-bd-select, .lcc-bd-tier, .lcc-bd-act, .lcc-bd-btn, .lcc-bd-layout button { background: ButtonFace; color: ButtonText; border: 1px solid ButtonText; }
   .lcc-bd-chip[aria-pressed="true"], .lcc-bd-layout button[aria-pressed="true"] { background: Highlight; color: HighlightText; }
   .lcc-hc { background: Canvas; color: CanvasText; border: 2px solid CanvasText; box-shadow: none; clip-path: none; }
@@ -334,10 +326,10 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
   .lcc-bd-fill-a { background: Highlight; }
   .lcc-bd-fill-h, .lcc-bd-fill-me { background: CanvasText; }
   .lcc-bd-track { border-color: CanvasText; }
-  .lcc-bd-linkb, .lcc-bd-c-no, .lcc-bd-eyebrow, .lcc-bd-sec-h, .lcc-bd-tier-th, .lcc-bd-metric strong { color: CanvasText; }
+  .lcc-bd-linkb, .lcc-bd-c-no, .lcc-bd-eyebrow, .lcc-bd-sec-h, .lcc-bd-tier-th { color: CanvasText; }
 }
 @media (prefers-contrast: more) {
-  .lcc-bd-chip, .lcc-bd-select, .lcc-bd-tier, .lcc-bd-metric, .lcc-bd-surface, .lcc-hc { border-color: var(--lcc-text); }
+  .lcc-bd-chip, .lcc-bd-select, .lcc-bd-tier, .lcc-bd-surface, .lcc-hc { border-color: var(--lcc-text); }
 }
 
 /* ==== Display remediation A: a text floor, cards that keep their text, tier boxes that can be hit, and a side-by-side House Intelligence only where the board keeps five columns ====
@@ -347,9 +339,6 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .lcc-bd .lcc-bd-eyebrow { font-size: 11px; }
 .lcc-bd-src, .lcc-bd-source { font-size: 11px; padding: 2px 5px; }
-.lcc-bd-metric-k { font-size: 12px; letter-spacing: .12em; }
-.lcc-bd-metric small { font-size: 11px; }
-.lcc-bd-metric strong { overflow-wrap: anywhere; }
 .lcc-bd-lbl { font-size: 12px; }
 .lcc-bd-chip { font-size: 12px; }
 .lcc-bd-layout button { font-size: 12px; }
@@ -382,10 +371,6 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-victory { padding: 18px 16px; }
 /* a focus ring on a row that fills the panel is drawn inside the row, so the panel's edge never cuts it */
 .lcc-bd-insp .lcc-bd-tier:focus-visible { outline-offset: -3px; }
-
-/* the four figures: two by two until the box is wide */
-.lcc-bd-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 12px 0 14px; gap: 8px; }
-.lcc-bd-metric { padding: 12px 13px; min-height: 0; }
 
 /* the board panel and its cards. A card keeps its text size: the boxes are 24 px wide here (the size to hit), the card is as wide as its five boxes need, and the number of columns follows the panel */
 .lcc-bd-panel { padding: 14px 10px; }
@@ -458,18 +443,9 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
   @container (min-width: 1100px) {
     .lcc-bd-panel { padding: 20px 18px 18px; }
     .lcc-bd-insp, .lcc-bd-victory { padding: 22px 20px; }
-    .lcc-bd-metrics { margin: 16px 0 18px; gap: 12px; }
-    .lcc-bd-metric { padding: 15px 19px; min-height: 100px; }
-  }
-  @container (min-width: 901px) { .lcc-bd-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-  @container (max-width: 480px) {
-    .lcc-bd-metric { padding: 10px 10px; }
-    .lcc-bd-metric strong { font-size: 19px; }
   }
   @container (max-width: 360px) {
     .lcc-bd-panel { padding: 8px 6px; }
-    .lcc-bd-metric strong { font-size: 17px; letter-spacing: 0; }
-    .lcc-bd-metric-k { letter-spacing: .06em; }
   }
 }
 /* a touch screen, and any window of 900 px or less, wants the 24 px boxes whatever the width of the panel, so this comes after the wide rules above */

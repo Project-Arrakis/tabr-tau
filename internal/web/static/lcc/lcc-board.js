@@ -1,4 +1,4 @@
-// The Command Center's live board (milestone M3): the plaque, the place of the Term and Decrees section, the four figures, the five-by-five board of 25 Houses, the list of the same Houses, the Imperial Victory Analysis and the
+// The Command Center's live board (milestone M3): the plaque, the place of the Term and Decrees section, the five-by-five board of 25 Houses, the list of the same Houses, the Imperial Victory Analysis and the
 // House Intelligence panel, drawn from the answer of the Landsraad read.
 //
 // What this file is: a drawing and a small amount of view state (which filter is on, the layout, the sort, the House that is looked at). Every figure it shows comes from
@@ -57,6 +57,14 @@
   // The list cell of who won a House's favor: ONE mark, the faction's name in the faction's colour (#950). A letter before the name read as a second H (H over HARKONNEN) once the cell wrapped, so there is none;
   // a House whose favor is not won says so with the open circle, and a House that cannot be read with the question mark, each on one line.
   const ownerPill = (owner) => el('span', 'lcc-owner lcc-owner-' + (OWNER_WORD[owner] ? owner : 'unknown'), owner === 'a' || owner === 'h' ? OWNER_WORD[owner] : owner === 'open' ? '○ ' + W().notWon : '? ' + W().unreadable);
+  // Classic words a tier "reached"; the board says "earned" (the one pair of words, earned and collected: WORDS in lcc-model.js). "not reached" is the state word of a tier not earned yet and stays.
+  const earnedWords = (s) => (typeof s === 'string' ? s.replace(/ tiers reached\./g, ' ' + W().tiersEarned + '.').replace(/\(reached, /g, '(' + W().earned + ', ').replace(/top tier reached/g, W().topTierEarned).replace(/\b(is|are) reached\b/g, '$1 ' + W().earned).replace(/: reached, /g, ': ' + W().earned + ', ').replace(/highest reached tier/g, 'highest ' + W().earned + ' tier') : s);
+  // The sentences of what a click on a tier does come from the page, in Classic's words; the tier boxes of the board get them with "earned" for "reached" (#962).
+  const ctlOf = (host, id) => {
+    const c = host && typeof host.ctl === 'function' ? host.ctl(id) : null;
+    if (!c || !Array.isArray(c.tiers)) return c;
+    return Object.assign({}, c, { tiers: c.tiers.map((t) => (t ? Object.assign({}, t, { tip: earnedWords(t.tip), title: earnedWords(t.title), item: earnedWords(t.item) }) : t)) });
+  };
   const houseWord = (name) => 'House ' + L().houseTitle(name);
 
   // A figure that cannot be read is never a zero: it is "not known".
@@ -82,45 +90,11 @@
     }
     return node;
   }
-  // ---- the four figures under the plaque -----------------------------------------------------------------------------------------------------------------------------------
-  // TERM STATUS, OPEN HOUSES, POTENTIAL LINES, SPECIALIZATION CAP. The first two are worked out from the same read as the board; the third by the twelve-line check of milestone M4; the fourth is the
-  // game's rule for one path (a reference, not a figure of the save).
   // ---- the twelve lines in words (milestone M4) ------------------------------------------------------------------------------------------------------------------------------------
   // Everything the page says about a line comes from M().evaluate (a pure reading of the 25 owners): the words here only name what it found. The wording rule (the operator's decision of 2026-11-18, which
   // replaces the earlier "never a win" rule): the phrases of a win come from WIN in lcc-model.js and are never built here; Imperial Dominion is never confirmed (D03), and the sysselraad column is not evidence (D02).
   const lineWord = (l) => l.name.toLowerCase(); // 'row 3', 'column 2', 'main diagonal', 'opposite diagonal'
   const listWords = (xs) => (xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1]);
-  const heldWords = (ev, side) => listWords(ev.held.filter((l) => l.side === side).map(lineWord));
-  function metrics(board, ev) {
-    ev = ev || M().evaluate(board, null);
-    const c = board.counts;
-    const w = el('ul', 'lcc-bd-metrics', '', { role: 'list', 'aria-label': 'Figures of the term' });
-    const item = (kicker, value, sub, cls, attrs, tag) => {
-      const li = el('li', 'lcc-bd-metric' + (cls ? ' ' + cls : ''), '', attrs);
-      const k = el('span', 'lcc-bd-metric-k', kicker);
-      if (tag) k.appendChild(el('span', 'lcc-bd-src', tag));
-      li.appendChild(k);
-      li.appendChild(el('strong', '', value));
-      li.appendChild(el('small', '', sub));
-      return li;
-    };
-    // no vote-start snapshot is in the save, so a count is a count and the outcome is never called: the word is CONTESTED while the board is a board, and UNAVAILABLE when it is not
-    // a line of five held now is said as that (the Houses as they stand, not a vote); two factions with a line each is a conflict and neither is chosen
-    if (!board.ready) w.appendChild(item('TERM STATUS', 'UNAVAILABLE', 'The board could not be checked', '', { 'data-metric': 'term' }));
-    else if (ev.verdict === 'conflict') w.appendChild(item('TERM STATUS', 'CONFLICT', 'Both factions hold a line of five · vote not recorded', '', { 'data-metric': 'term' }));
-    else if (ev.verdict === 'line_held') w.appendChild(item('TERM STATUS', 'FIVE IN A LINE', FACTION_WORD[ev.winner] + ' · ' + heldWords(ev, ev.winner) + ' · vote not recorded', '', { 'data-metric': 'term' }));
-    else w.appendChild(item('TERM STATUS', 'CONTESTED', 'Vote outcome is not yet established', '', { 'data-metric': 'term' }));
-    w.appendChild(board.ready
-      ? item('OPEN HOUSES', String(c.open), c.unknown ? 'Available to contest · ' + c.unknown + ' unreadable, not counted' : 'Available to contest', '', { 'data-metric': 'open' })
-      : item('OPEN HOUSES', '—', 'Not counted: the board could not be checked', '', { 'data-metric': 'open' }));
-    // POTENTIAL LINES: the lines of the twelve that are not blocked and not yet held, so a faction could still complete them (the approved design's own rule). A House that cannot be read
-    // puts a line out of reach of the check, so the count is then said to be incomplete and no number is shown: a figure is never guessed.
-    if (!board.ready) w.appendChild(item('POTENTIAL LINES', '—', 'Not counted: the board could not be checked', '', { 'data-metric': 'lines' }));
-    else if (!ev.potential.exact) w.appendChild(item('POTENTIAL LINES', '—', 'Count incomplete · ' + c.unknown + (c.unknown === 1 ? ' House' : ' Houses') + ' unreadable', '', { 'data-metric': 'lines', 'data-incomplete': 'true' }));
-    else w.appendChild(item('POTENTIAL LINES', String(ev.potential.total), 'Unblocked five-House alignments · Atreides ' + ev.potential.a + ' · Harkonnen ' + ev.potential.h + (ev.held.length ? ' · ' + ev.held.length + ' held, not counted' : ''), '', { 'data-metric': 'lines', title: 'Lines of the twelve (five rows, five columns, two diagonals) that no faction has blocked and none holds yet. A line with no favor won on it counts for both factions and once in the total.' }));
-    w.appendChild(item('SPECIALIZATION CAP', 'LV 100', '44,182 XP · separate from keystones', 'accent', { 'data-metric': 'cap', title: 'The cap of every specialization in the game: a rule, not a figure read from your save. Your own levels are on the Player tab.' }, 'RULE'));
-    return w;
-  }
 
   // ---- the panel head, the filters and the legend ----------------------------------------------------------------------------------------------------------------------------
   function panelHead(board) {
@@ -192,7 +166,7 @@
     const r = board.rollup;
     const p = el('p', 'lcc-bd-totals');
     p.appendChild(el('b', '', 'Your rewards on this board: '));
-    p.appendChild(root.document.createTextNode((r.tiers ? r.reached + ' of ' + r.tiers + ' tiers earned' : 'tiers not known') + ' · ' + r.waiting + ' not collected (waiting at the house representatives) · ' + r.collected + ' collected · ' + r.unknownDelivery + ' earned with no delivery record · ' + fmt(r.mine) + ' contributed in all Houses.'));
+    p.appendChild(root.document.createTextNode((r.tiers ? r.reached + ' of ' + r.tiers + ' ' + W().tiersEarned : 'tiers not known') + ' · ' + r.waiting + ' not collected (waiting at the house representatives) · ' + r.collected + ' collected · ' + r.unknownDelivery + ' earned with no delivery record · ' + fmt(r.mine) + ' contributed in all Houses.'));
     return p;
   }
 
@@ -255,10 +229,10 @@
     sel.appendChild(el('span', 'lcc-hc-owner', owner === 'a' || owner === 'h' ? '● ' + OWNER_WORD[owner] : owner === 'open' ? '○ ' + W().notWon : '? ' + W().favorUnreadable, { 'data-g': ({ a: 'A', h: 'H', open: '○', unknown: '?' })[owner] }));
     const notes = [];
     if (h.waiting > 0) notes.push(h.waiting + ' reward' + (h.waiting === 1 ? '' : 's') + ' not collected');
-    sel.setAttribute('aria-label', [(h.number ? W().square + ' ' + h.number + ', ' : '') + h.name + ', ' + (owner === 'a' || owner === 'h' ? W().favorWon.toLowerCase() + ' by ' + OWNER_WORD[owner] : owner === 'open' ? W().favorNotWon.toLowerCase() : W().favorUnreadable.toLowerCase())].concat(h.track ? [W().specialization.toLowerCase() + ' ' + trackWord(h.track)] : ['specialization not in the save'], h.takenNoTiers ? [W().favorWon.toLowerCase() + ', no tier record in the save'] : h.takenNoMine ? [W().favorWon.toLowerCase() + ', no contribution of yours in the save, so none of your tiers is earned'] : h.tierCount ? [h.reached + ' of ' + h.tierCount + ' tiers earned', h.collected + ' collected'] : ['no tiers in the save'], notes, h.unknownDelivery ? [h.unknownDelivery + ' with no delivery record'] : [], inLine ? ['part of a line of five held by ' + FACTION_WORD[h.owner] + ': ' + listWords(lines.map(lineWord)), winSays] : [], dom ? ['one of the 13 or more Houses of ' + FACTION_WORD[major], winSays] : [], dim ? ['not in the current filter'] : []).join(', '));
+    sel.setAttribute('aria-label', [(h.number ? W().square + ' ' + h.number + ', ' : '') + h.name + ', ' + (owner === 'a' || owner === 'h' ? W().favorWon.toLowerCase() + ' by ' + OWNER_WORD[owner] : owner === 'open' ? W().favorNotWon.toLowerCase() : W().favorUnreadable.toLowerCase())].concat(h.track ? [W().specialization.toLowerCase() + ' ' + trackWord(h.track)] : ['specialization not in the save'], h.takenNoTiers ? [W().favorWon.toLowerCase() + ', no tier record in the save'] : h.takenNoMine ? [W().favorWon.toLowerCase() + ', no contribution of yours in the save, so none of your tiers is ' + W().earned + ''] : h.tierCount ? [h.reached + ' of ' + h.tierCount + ' ' + W().tiersEarned, h.collected + ' collected'] : ['no tiers in the save'], notes, h.unknownDelivery ? [h.unknownDelivery + ' with no delivery record'] : [], inLine ? ['part of a line of five held by ' + FACTION_WORD[h.owner] + ': ' + listWords(lines.map(lineWord)), winSays] : [], dom ? ['one of the 13 or more Houses of ' + FACTION_WORD[major], winSays] : [], dim ? ['not in the current filter'] : []).join(', '));
     sel.setAttribute('title', 'House ' + h.name + ', ' + (h.pos ? h.pos.words + '. ' : '') + (inLine ? lineSays + '. ' + winSays + ' ' : '') + (dom ? 'One of the ' + FACTION_WORD[major] + ' Houses, who hold 13 or more Houses. ' + winSays + ' ' : '') + (takenWhy(h) ? takenWhy(h) + ' ' : '') + 'Click to see its tiers and actions.');
     card.appendChild(sel);
-    const ctl = editable && host && host.ctl ? host.ctl(h.id) : null;
+    const ctl = editable ? ctlOf(host, h.id) : null;
     const tiers = el('div', 'lcc-hc-tiers', '', { role: 'group', 'aria-label': 'House ' + h.name + ' reward tiers' + (ctl && ctl.tiers ? '. ' + CHECKED : '') });
     h.tiers.forEach((t, i) => tiers.appendChild(tierBox(h, t, ctl && ctl.tiers ? ctl.tiers[i] : null)));
     card.appendChild(tiers);
@@ -335,13 +309,15 @@
     if (card) hw.appendChild(card);
     nameTd.appendChild(hw);
     tr.appendChild(nameTd);
-    const tips = host && typeof host.tips === 'function' ? host.tips(h.id) : null; // the mouse-overs of the cells, in the Classic list's words (one source, the page)
+    const raw = host && typeof host.tips === 'function' ? host.tips(h.id) : null;
+    const tips = raw ? Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, earnedWords(v)])) : null; // Classic says reached where the board says earned (#962)
+    // the mouse-overs of the cells, in the Classic list's words (one source, the page)
     const ow = el('td', 'lcc-bd-c-owner'); ow.appendChild(ownerPill(h.owner)); tr.appendChild(ow);
     tr.appendChild(el('td', 'lcc-bd-c-path', trackWord(h.track) || '—'));
     tr.appendChild(locCell(h, host));
     tr.appendChild(el('td', 'lcc-bd-c-state', h.takenNoTiers || h.takenNoMine ? W().favorWon + ', none of yours' : ({ new: 'Not started', part: 'In progress', done: 'Top tier' })[h.state], takenWhy(h) ? { title: takenWhy(h) } : tips ? { title: tips.progress } : undefined));
-    tr.appendChild(el('td', 'lcc-bd-c-tiers', h.takenNoTiers ? 'no tier record' : h.takenNoMine ? 'none of yours' : h.tierCount ? h.reached + ' of ' + h.tierCount : 'no tiers', tips ? { title: tips.tiers } : undefined));
-    tr.appendChild(el('td', 'lcc-bd-c-next', h.next ? fmt(h.next.threshold) + ' (' + fmt(h.next.remaining) + ' more)' : h.tierCount ? 'top tier reached' : '—', tips ? { title: tips.next } : undefined));
+    tr.appendChild(el('td', 'lcc-bd-c-tiers', h.takenNoTiers ? 'no tier record' : h.takenNoMine ? 'none of yours' : h.tierCount ? h.reached + ' of ' + h.tierCount + ' ' + W().tiersEarned : 'no tiers', tips ? { title: tips.tiers } : undefined));
+    tr.appendChild(el('td', 'lcc-bd-c-next', h.next ? fmt(h.next.threshold) + ' (' + fmt(h.next.remaining) + ' more)' : h.tierCount ? W().topTierEarned : '—', tips ? { title: tips.next } : undefined));
     tr.appendChild(el('td', 'lcc-bd-c-wait', h.waiting ? String(h.waiting) : '0', tips ? { title: tips.waiting } : undefined));
     return tr;
   }
@@ -428,6 +404,13 @@
     e.appendChild(img);
     return e;
   }
+  // How many of the twelve lines each faction can still make (the unblocked lines that nobody holds yet; a line with nothing won on it counts for both). With a House that cannot be read the count is
+  // incomplete and no number is given: a figure is never guessed. This is the figure that the row of four figures under the plaque used to show as POTENTIAL LINES (#935).
+  function linesLeft(board, ev) {
+    const p = ev.potential;
+    if (!p.exact) return 'Lines still open: count incomplete · ' + board.counts.unknown + (board.counts.unknown === 1 ? ' House' : ' Houses') + ' unreadable';
+    return 'Lines still open: ' + p.total + ' · Atreides ' + p.a + ' · Harkonnen ' + p.h + (ev.held.length ? ' · ' + ev.held.length + ' held, not counted' : '');
+  }
   function victoryPanel(board, ev) {
     ev = ev || M().evaluate(board, null);
     const v = victoryWords(board, ev);
@@ -440,6 +423,7 @@
     const c = board.counts;
     s.appendChild(el('div', 'lcc-bd-well', board.ready ? 'Atreides ' + c.a + ' · Harkonnen ' + c.h + ' · Open ' + c.open + (c.unknown ? ' · Unreadable ' + c.unknown : '') : 'Houses read: ' + board.houses.length));
     if (v.foot) s.appendChild(el('p', 'lcc-bd-vcount', v.foot));
+    if (board.ready) s.appendChild(el('p', 'lcc-bd-vlines', linesLeft(board, ev), { 'data-lines': ev.potential.exact ? 'exact' : 'incomplete' }));
     return s;
   }
 
@@ -472,7 +456,7 @@
   function importantNote() {
     const n = el('div', 'lcc-bd-note');
     n.appendChild(el('strong', '', 'Important:'));
-    n.appendChild(root.document.createTextNode(' A House whose favor a faction has won, a personal reward tier reached, and a reward collected are '));
+    n.appendChild(root.document.createTextNode(' A House whose favor a faction has won, a personal reward tier earned, and a reward collected are '));
     n.appendChild(el('em', '', 'three separate states'));
     n.appendChild(root.document.createTextNode('. Thresholds and reward records are read from the save; a tier with no delivery record is counted as neither collected nor not collected.'));
     return n;
@@ -512,7 +496,7 @@
     tl.appendChild(root.document.createTextNode(' '));
     tl.appendChild(ts);
     r2.appendChild(tl);
-    r2.appendChild(btn('lcc-bd-act', 'Apply tier', { 'data-lcb': 'settier', 'data-id': h.id, 'data-r': h.reached, 'data-fk': 'at:' + h.id, title: 'Sets your contribution to the chosen tier, exactly as a click on that numbered box does: raises to a higher tier, or removes the highest reached tier.' }));
+    r2.appendChild(btn('lcc-bd-act', 'Apply tier', { 'data-lcb': 'settier', 'data-id': h.id, 'data-r': h.reached, 'data-fk': 'at:' + h.id, title: 'Sets your contribution to the chosen tier, exactly as a click on that numbered box does: raises to a higher tier, or removes the highest earned tier.' }));
     r2.appendChild(el('span', 'lcc-bd-etip', W().favorWon + ' ≠ earned ≠ collected'));
     s4.appendChild(r2);
     s4.appendChild(disc('tip', 'How each click is written', el('p', 'lcc-bd-tip', 'Each click is written at once with a backup first, and refused if this House is no longer as shown. Complete on a House another faction took replaces that win; the question says so first.')));
@@ -566,7 +550,7 @@
     side.appendChild(idn);
 
     // the actions on the House come first, directly under the name: they are what the panel is for, and a short window shows them without scrolling the panel. The order of the rest is the approved design's.
-    const c = editable && host && host.ctl ? host.ctl(h.id) : null;
+    const c = editable ? ctlOf(host, h.id) : null;
     if (c) {
       side.appendChild(editor(h, c));
       // directly under the buttons: where the page draws the question about this House (it moves its own question here), so it stands next to the buttons that asked. A question waiting for an answer is
@@ -611,9 +595,9 @@
     s2.appendChild(secHead('YOUR CONTRIBUTION', 'lcc-bd-s2', 'SAVE'));
     const nums = el('div', 'lcc-bd-pc');
     nums.appendChild(el('strong', '', h.mine > 0 || top !== null ? fmt(h.mine) + (top !== null ? ' / ' + fmt(top) : '') : 'none recorded'));
-    nums.appendChild(el('small', '', h.next ? fmt(h.next.remaining) + ' to T' + h.next.n : h.tierCount ? 'TOP PERSONAL TIER REACHED' : 'no tiers in the save'));
+    nums.appendChild(el('small', '', h.next ? fmt(h.next.remaining) + ' to T' + h.next.n : h.tierCount ? W().topPersonalTierEarned.toUpperCase() : 'no tiers in the save'));
     s2.appendChild(nums);
-    const mineSaid = 'Your contribution: ' + (h.mine > 0 ? fmt(h.mine) : 'none recorded') + (top !== null ? ' of ' + fmt(top) : '') + (h.next ? ' · next tier ' + fmt(h.next.threshold) + ', ' + fmt(h.next.remaining) + ' more' : h.tierCount ? ' · top tier reached' : '') + '.';
+    const mineSaid = 'Your contribution: ' + (h.mine > 0 ? fmt(h.mine) : 'none recorded') + (top !== null ? ' of ' + fmt(top) : '') + (h.next ? ' · next tier ' + fmt(h.next.threshold) + ', ' + fmt(h.next.remaining) + ' more' : h.tierCount ? ' · ' + W().topTierEarned : '') + '.';
     const pt = el('div', 'lcc-bd-track lcc-bd-track-me', '', { role: 'img', 'aria-label': mineSaid, title: mineSaid });
     const pf = el('i', 'lcc-bd-fill lcc-bd-fill-me'); pf.style.setProperty('--lcc-v', pct(h.mine, top) + '%');
     pt.appendChild(pf);
@@ -624,18 +608,18 @@
     const s3 = el('section', 'lcc-bd-sec lcc-bd-ledger', '', { 'aria-labelledby': 'lcc-bd-s3' });
     const lh = el('div', 'lcc-bd-ledger-head');
     lh.appendChild(secHead('PERSONAL REWARD LEDGER', 'lcc-bd-s3', 'SAVE + DERIVED'));
-    lh.appendChild(el('span', 'lcc-bd-ledger-n', h.takenNoTiers ? W().favorWon.toUpperCase() + ' · NO TIER RECORD IN THE SAVE' : h.takenNoMine ? W().favorWon.toUpperCase() + ' · NO CONTRIBUTION OF YOURS' : h.reached + ' OF ' + h.tierCount + ' REACHED', takenWhy(h) ? { title: takenWhy(h) } : undefined));
+    lh.appendChild(el('span', 'lcc-bd-ledger-n', h.takenNoTiers ? W().favorWon.toUpperCase() + ' · NO TIER RECORD IN THE SAVE' : h.takenNoMine ? W().favorWon.toUpperCase() + ' · NO CONTRIBUTION OF YOURS' : h.reached + ' OF ' + h.tierCount + ' ' + W().earned.toUpperCase(), takenWhy(h) ? { title: takenWhy(h) } : undefined));
     s3.appendChild(lh);
-    const sumSaid = h.reached + ' of ' + h.tierCount + ' reached · ' + h.collected + ' collected · ' + h.waiting + ' not collected (waiting at the house representative) · ' + h.unknownDelivery + ' delivery unknown · ' + h.notReached + ' not reached.';
+    const sumSaid = h.reached + ' of ' + h.tierCount + ' ' + W().tiersEarned + ' · ' + h.collected + ' collected · ' + h.waiting + ' not collected (waiting at the house representative) · ' + h.unknownDelivery + ' delivery unknown · ' + h.notReached + ' not reached.';
     const sum = el('div', 'lcc-bd-stats', '', { role: 'group', 'aria-label': 'House rewards summary: ' + sumSaid, title: sumSaid });
     const stat = (cls, v, l) => { const d = el('div', 'lcc-bd-stat' + (cls ? ' ' + cls : '')); d.appendChild(el('strong', '', v)); d.appendChild(el('span', '', l)); return d; };
-    sum.appendChild(stat('', h.reached + '/' + h.tierCount, 'Tiers reached'));
+    sum.appendChild(stat('', h.reached + '/' + h.tierCount, W().tiersEarnedHead));
     sum.appendChild(stat('ok', String(h.collected), 'Collected'));
     sum.appendChild(stat('wait', String(h.waiting), 'Not collected'));
     sum.appendChild(stat('rest', String(h.notReached), 'Not reached'));
     if (h.takenNoTiers || h.takenNoMine) s3.appendChild(el('p', 'lcc-bd-mut lcc-bd-taken-note', takenWhy(h)));
     else s3.appendChild(sum);
-    if (h.unknownDelivery) s3.appendChild(el('p', 'lcc-bd-alert', '“Delivery unknown” means the tier is reached and the save has no delivery row for it this term: it is not counted as collected or as not collected.'));
+    if (h.unknownDelivery) s3.appendChild(el('p', 'lcc-bd-alert', '“Delivery unknown” means the tier is earned and the save has no delivery row for it this term: it is not counted as collected or as not collected.'));
     const heading = el('div', 'lcc-bd-tier-heading', '', { 'aria-hidden': 'true' });
     for (const t of ['TIER & THRESHOLD', 'REWARD', 'STATE']) heading.appendChild(el('span', '', t));
     s3.appendChild(heading);
@@ -669,7 +653,7 @@
     });
     if (!h.tiers.length) s3.appendChild(el('p', 'lcc-bd-none', 'This House has no tiers in the save.'));
     s3.appendChild(ol);
-    if (!h.tiersOrdered && h.tiers.length) s3.appendChild(el('p', 'lcc-bd-warn', 'The tier amounts are not in rising order in the save; the reached count is taken as the save states it.'));
+    if (!h.tiersOrdered && h.tiers.length) s3.appendChild(el('p', 'lcc-bd-warn', 'The tier amounts are not in rising order in the save; the earned count is taken as the save states it.'));
     if (c && c.caption) s3.appendChild(disc('caption', 'About Fill and the tiers', el('p', 'lcc-bd-cap', c.caption)));
     const lg = el('div', 'lcc-bd-legend');
     for (const t of ['✓ Collected', '◆ Not collected', '○ Not reached', '? No delivery record']) lg.appendChild(el('span', '', t));
@@ -709,7 +693,6 @@
     w.appendChild(plaque(board, host));
     // the Term and Decrees section: the page puts its own section here (host.seat), once, in place of what used to be the decree preview strip (#923)
     w.appendChild(el('div', 'lcc-bd-termslot', '', { 'data-lcc-slot': 'term' }));
-    w.appendChild(metrics(board, ev));
     if (!board.houses.length) { w.appendChild(el('p', 'lcc-bd-none', 'This save has no Landsraad Houses in the current term, so there is nothing to show or change here.')); return w; }
     if (state.sel !== null && !board.byId.has(state.sel)) state.sel = null;
     const matchIds = new Set(board.houses.filter((h) => M().matches(h, state)).map((h) => h.id));
@@ -871,7 +854,7 @@
     }
   }
 
-  const api = { state, mount, redraw, keepInView, visible, build, majorityOf, victoryWords, countLine, plaque, metrics, grid, houseCard, list, inspector, victoryPanel, tierKind, NOT_IN_SAVE };
+  const api = { state, mount, redraw, keepInView, visible, build, majorityOf, victoryWords, countLine, plaque, grid, houseCard, list, inspector, victoryPanel, tierKind, NOT_IN_SAVE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCB = api;
 })(typeof window !== 'undefined' ? window : globalThis);

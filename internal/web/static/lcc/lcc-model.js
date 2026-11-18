@@ -111,7 +111,8 @@
     return out.sort((x, y) => y.amount - x.amount || x.label.localeCompare(y.label) || x.id - y.id);
   }
 
-  const TIER_WORD = Object.freeze({ not_reached: 'Not reached', waiting: 'Reached, not collected', delivered: 'Reached, collected', no_row: 'Reached, delivery unknown', unknown: 'Reached, delivery unknown' });
+  // The words of a tier for a screen reader. "Earned" and "collected" are the one pair of words (WORDS, below); "Not reached" stays as it is until the operator decides on "Not earned" (#962).
+  // TIER_WORD is built after WORDS, further down, because it takes its words from there.
 
   function readHouse(t, F, me, pos) {
     const goal = num(t.goal_amount);
@@ -404,7 +405,11 @@
     favorWon: 'Favor won', favorNotWon: 'Favor not won', favorUnreadable: 'Favor unreadable',
     notWon: 'Not won', unreadable: 'Unreadable', // the cell of the list and the line of a card
     square: 'Square', specialization: 'Specialization', bySpecialization: 'By specialization', noSpecialization: 'No specialization',
+    // The reward tiers of the character: a tier is earned (the contribution reaches its threshold) and then collected (the reward is taken at the house representative); #962. "Not reached" is the state word
+    // of a tier that is not earned yet and stays as it is (it changes Classic too: an open question). Classic keeps its own words.
+    earned: 'earned', tiersEarned: 'tiers earned', tiersEarnedHead: 'Tiers earned', topTierEarned: 'top tier earned', topPersonalTierEarned: 'top personal tier earned',
   });
+  const TIER_WORD = Object.freeze({ not_reached: 'Not reached', waiting: 'Earned, not collected', delivered: 'Earned, collected', no_row: 'Earned, delivery unknown', unknown: 'Earned, delivery unknown' });
 
   // ---- filters, sort, groups -----------------------------------------------------------------------------------------------------------------------------------------------
   const SHOWS = Object.freeze([['all', 'All'], ['left', 'What is left'], ['new', 'Not started'], ['part', 'In progress'], ['done', 'Top tier']]);
