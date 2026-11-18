@@ -251,7 +251,8 @@ test('choosing a House opens the Inspector: both scales apart, the contributors 
   assert.match(i.querySelector('.lcc-bd-insp-name').getAttribute('title'), /^No\. 08/, 'the position is a tooltip, not a chip');
   assert.equal(i.querySelector('.lcc-bd-no'), null);
   assert.equal(i.querySelector('.lcc-bd-status'), null, 'no sentence under the band: the approved design has none');
-  assert.equal(text(i.querySelector('.lcc-bd-bloc')), 'Exploration · Associated specialization');
+  assert.equal(text(i.querySelector('.lcc-bd-gopath')), 'Exploration Specialization', 'the specialization is one line, and it is the button that opens its track (#939)');
+  assert.equal(i.querySelector('.lcc-bd-bloc'), null, 'no separate caption and no repeated words');
   assert.match(i.querySelector('.lcc-bd-control').getAttribute('title'), /^Claimed by Atreides \(completed, with a winner the save records\)\./);
   assert.match(text(i.querySelector('.lcc-bd-banner .lcc-bd-sr')), /^Claimed by Atreides/, 'and the words stay for a screen reader');
   const bars = [...i.querySelectorAll('.lcc-bd-fc')].map((b) => [text(b.querySelector('.lcc-bd-fc-l')), text(b.querySelector('.lcc-bd-fc-v'))]);
@@ -325,7 +326,7 @@ test('every control that changes the save carries the classic list\'s own data-l
   const ui = await open();
   click(ui, tileOf(ui, 'Wallach').querySelector('button'));
   const writes = [...ui.doc.querySelectorAll('.lcc-bd [data-lb]')].filter((e) => !e.closest('[data-bar]') && !e.closest('#lcc-term')).map((e) => e.dataset.lb); // the parts of the action bar the page seats in the control bar are the page's own (#914)
-  assert.deepEqual([...new Set(writes)].sort(), ['pick', 'qa', 'tier']);
+  assert.deepEqual([...new Set(writes)].sort(), ['map', 'pick', 'qa', 'tier']); // map: the place line of the panel is the Classic click that opens the Saved map (#939)
   assert.deepEqual([...new Set([...ui.doc.querySelectorAll('#lcc-term [data-lb]')].map((e) => e.dataset.lb))].sort(), ['tad', 'tapply', 'tflag', 'tmk', 'trf'], 'the Term and Decrees section keeps the classic panel own controls');
   assert.equal(ui.doc.querySelectorAll('.lcc-bd [data-lcb="sel"]').length, 25);
   assert.equal(ui.doc.querySelectorAll('.lcc-bd .lcc-bd-act[data-lb="qa"]').length, 4);

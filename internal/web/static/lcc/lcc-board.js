@@ -595,6 +595,17 @@
     return s4;
   }
 
+  // The place line under the House name (#939): the same as the Classic list's. The place is the link that opens the Saved map, with the Classic mouse-over text ("Click the place to open the Saved map."
+  // or the reason it cannot be opened), and the sub-line says the grid cell, the place and the area. The page builds the words once for both views (host.loc); a click is the Classic click (data-lb="map").
+  function locLine(h, host) {
+    const m = host && typeof host.loc === 'function' ? host.loc(h.id) : null;
+    if (!m) return el('span', 'lcc-bd-bloc lcc-bd-locline', h.loc.known ? [h.loc.area, h.loc.cell ? 'cell ' + h.loc.cell : ''].filter(Boolean).join(' · ') : 'Representative location not mapped yet');
+    const b = btn('lcc-bd-loc' + (m.onMap ? '' : ' off'), '', { 'data-lb': 'map', 'data-id': h.id, 'data-fk': 'lm:' + h.id, title: m.hint, 'aria-label': m.aria, 'aria-disabled': m.onMap ? null : 'true', 'data-why': m.onMap ? null : m.why });
+    b.appendChild(el('span', 'lcc-bd-loc-a', m.area));
+    if (m.sub) b.appendChild(el('span', 'lcc-bd-loc-s', m.sub));
+    if (m.hub) b.appendChild(el('span', 'lcc-bd-loc-s', 'no map picture'));
+    return b;
+  }
   function inspector(board, h, host, editable) {
     const side = el('section', 'lcc-bd-surface lcc-bd-insp', '', { 'aria-label': 'House Intelligence' });
     const head = el('div', 'lcc-bd-insp-top');
@@ -617,9 +628,11 @@
     const hb = el('div', 'lcc-bd-insp-title');
     // the position of the House on the board stays reachable as a tooltip on the name (the approved design shows no number here)
     hb.appendChild(el('h4', 'lcc-bd-insp-name', houseWord(h.name), h.number ? { title: 'No. ' + h.number + (h.pos && h.pos.words ? ' · ' + h.pos.words : '') } : undefined));
-    hb.appendChild(el('span', 'lcc-bd-bloc', h.track ? trackWord(h.track) + ' · Associated specialization' : 'Specialization not in the save'));
-    if (h.track && host && typeof host.goPath === 'function') hb.appendChild(btn('lcc-bd-btn lcc-bd-gopath', 'Open ' + trackWord(h.track) + ' in Specializations', { 'data-lcb': 'gopath', 'data-track': h.track, 'data-fk': 'gp:' + h.id,
-      title: 'Opens the ' + trackWord(h.track) + ' path in the Specialization tab. It only moves between pages: nothing is written.' }));
+    hb.appendChild(locLine(h, host));
+    // the specialization is one line: its name is the button that opens its track in the Specializations tab (it only moves between pages: nothing is written)
+    if (h.track && host && typeof host.goPath === 'function') hb.appendChild(btn('lcc-bd-linkb lcc-bd-gopath', trackWord(h.track) + ' Specialization', { 'data-lcb': 'gopath', 'data-track': h.track, 'data-fk': 'gp:' + h.id,
+      'aria-label': trackWord(h.track) + ' Specialization. Open ' + trackWord(h.track) + ' in Specializations. It only moves between pages: nothing is written.' }));
+    else hb.appendChild(el('span', 'lcc-bd-bloc', h.track ? trackWord(h.track) + ' Specialization' : 'Specialization not in the save'));
     idn.appendChild(hb);
     side.appendChild(idn);
 
@@ -639,7 +652,6 @@
     // who holds it: only what the save's own two fields say; a lead on the faction goal is a lead and never a win
     const ban = el('div', 'lcc-bd-banner');
     ban.appendChild(el('span', 'lcc-bd-control lcc-bd-control-' + (OWNER_WORD[h.owner] ? h.owner : 'unknown'), h.owner === 'a' || h.owner === 'h' ? 'CLAIMED · ' + FACTION_WORD[h.owner].toUpperCase() : h.owner === 'open' ? 'NOT CLAIMED' : 'OWNER UNREADABLE'));
-    ban.appendChild(el('span', 'lcc-bd-where', h.loc.known ? [h.loc.area, h.loc.cell ? 'cell ' + h.loc.cell : ''].filter(Boolean).join(' · ') : 'Representative location not mapped yet'));
     // The approved design has no sentence under the band. What the sentence said stays reachable: as a tooltip and as text for a screen reader. Only an owner the save cannot settle keeps a visible sentence.
     const said = h.owner === 'a' || h.owner === 'h' ? 'Claimed by ' + FACTION_WORD[h.owner] + ' (completed, with a winner the save records).'
       : h.owner === 'open' ? 'Open: no faction has taken it.' + (h.leader ? ' ' + FACTION_WORD[h.leader] + ' is ahead on the faction goal: a lead, not a win.' : '')
@@ -742,7 +754,9 @@
     else {
       s5.appendChild(el('p', 'lcc-bd-line', [h.loc.area, h.loc.cell ? 'grid cell ' + h.loc.cell : '', h.loc.place, h.loc.map && h.loc.map !== h.loc.area ? h.loc.map : ''].filter(Boolean).join(' · ')));
       if (h.loc.unconfirmed) s5.appendChild(el('p', 'lcc-bd-cap', 'This place is from public guides and is not confirmed in the game.'));
-      if (h.loc.map_key) s5.appendChild(btn('lcc-bd-act', 'Open in the Saved map', { 'data-lb': 'map', 'data-id': h.id, 'data-fk': 'lm:' + h.id }));
+      const lm = host && typeof host.loc === 'function' ? host.loc(h.id) : null;
+      if (lm && lm.from) s5.appendChild(el('p', 'lcc-bd-line', 'From you: ' + lm.from + '.'));
+      if (h.loc.map_key) s5.appendChild(btn('lcc-bd-act', 'Open in the Saved map', { 'data-lb': 'map', 'data-id': h.id, 'data-fk': 'lw:' + h.id }));
       else s5.appendChild(el('p', 'lcc-bd-cap', 'The Saved map has no picture of ' + h.loc.map + ' yet.'));
     }
     side.appendChild(s5);
