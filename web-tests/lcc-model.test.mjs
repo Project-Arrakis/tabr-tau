@@ -29,9 +29,9 @@ test('the synthetic answer is a ready board of 25 Houses by board position, with
   assert.equal(b.term.id, 7);
   assert.equal(b.term.reigning, 'a');
   assert.equal(b.me.key, 'a');
-  assert.equal(byName(b, 'Vernius').pos.words, 'position 1 of 25, row 1, column 1');
-  assert.equal(byName(b, 'Ecaz').pos.words, 'position 25 of 25, row 5, column 5');
-  assert.equal(byName(b, 'Mutelli').pos.words, 'position 13 of 25, row 3, column 3');
+  assert.equal(byName(b, 'Vernius').pos.words, 'square 1 of 25, row 1, column 1');
+  assert.equal(byName(b, 'Ecaz').pos.words, 'square 25 of 25, row 5, column 5');
+  assert.equal(byName(b, 'Mutelli').pos.words, 'square 13 of 25, row 3, column 3');
 });
 
 test('the House name is the save\'s own (the prefix off) and the alias of Mikkarol is not applied here: the art table owns it', () => {

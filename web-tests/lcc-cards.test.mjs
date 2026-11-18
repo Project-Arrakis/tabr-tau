@@ -71,15 +71,15 @@ const house = (o) => L.renderHouseCard(Object.assign({ name: 'DA_HouseEcaz', own
 
 test('a House card says its owner in words and in a mark, not only in colour', () => {
   const t = (o) => house(o).querySelector('.lcc-owner').textContent;
-  assert.equal(t({ owner: 'a' }), 'A Atreides');
-  assert.equal(t({ owner: 'h' }), 'H Harkonnen');
-  assert.equal(t({ owner: 'open' }), '○ Open');
+  assert.equal(t({ owner: 'a' }), 'Atreides', 'one mark: the name, never a letter and the name (#950)');
+  assert.equal(t({ owner: 'h' }), 'Harkonnen');
+  assert.equal(t({ owner: 'open' }), '○ Not won');
   assert.equal(t({ owner: 'unknown' }), '? Unreadable');
   assert.equal(t({ owner: 'nonsense' }), '? Unreadable', 'an owner that is not one of the four is unreadable, never open');
   assert.equal(house({ owner: 'nonsense' }).getAttribute('data-owner'), 'unknown');
-  assert.match(house({ owner: 'a' }).getAttribute('aria-label'), /^Ecaz, claimed by Atreides, path Combat$/);
-  assert.match(house({ owner: 'open' }).getAttribute('aria-label'), /^Ecaz, open,/);
-  assert.match(house({ owner: 'unknown' }).getAttribute('aria-label'), /owner unreadable/);
+  assert.match(house({ owner: 'a' }).getAttribute('aria-label'), /^Ecaz, favor won by Atreides, specialization Combat$/);
+  assert.match(house({ owner: 'open' }).getAttribute('aria-label'), /^Ecaz, favor not won,/);
+  assert.match(house({ owner: 'unknown' }).getAttribute('aria-label'), /favor unreadable/);
 });
 
 test('one away, selected, rewards waiting and the two victory outlines each have text and an attribute, and the outlines never combine', () => {

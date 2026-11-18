@@ -26,7 +26,7 @@
   // position(index): where a board_index sits on the 5 by 5 board. The number is 01 to 25, row by row from the top left, as the game numbers its tiles.
   function position(index) {
     if (!Number.isInteger(index) || index < 0 || index >= SIZE) return null;
-    return { index, number: pad2(index + 1), n: index + 1, row: Math.floor(index / COLS) + 1, col: (index % COLS) + 1, words: 'position ' + (index + 1) + ' of ' + SIZE + ', row ' + (Math.floor(index / COLS) + 1) + ', column ' + ((index % COLS) + 1) };
+    return { index, number: pad2(index + 1), n: index + 1, row: Math.floor(index / COLS) + 1, col: (index % COLS) + 1, words: 'square ' + (index + 1) + ' of ' + SIZE + ', row ' + (Math.floor(index / COLS) + 1) + ', column ' + ((index % COLS) + 1) };
   }
 
   // checkTasks(tasks): the reasons a list of tasks is not a board. Empty when it is one. Each reason is a sentence for the page.
@@ -395,9 +395,20 @@
   }
   const WIN = Object.freeze({ TEXT: WIN_TEXT, decide, decideCounts, headline, how, who, tally, standing, say, factionName: FACTION_NAME });
 
+  // ---- the words for who won a House's favor, a House's square and its specialization (the operator's decisions of 2026-11-18, #952) ----------------------------------------------------
+  // A faction does not own or claim a House: it wins the House's favor. The board says "favor won", never "owner", "claimed" or "taken", and calls the House's place on the 5 by 5 its square and
+  // its track its specialization (never "No." or "path"). These words are written here once; the list, the cards, the inspector, the filters and the screen-reader text take them from WORDS.
+  // Data attributes and request fields keep their old names (data-owner, data-taken, "taken"): only the text a person reads changes.
+  const WORDS = Object.freeze({
+    wonBy: 'Favor won by', // the list column header
+    favorWon: 'Favor won', favorNotWon: 'Favor not won', favorUnreadable: 'Favor unreadable',
+    notWon: 'Not won', unreadable: 'Unreadable', // the cell of the list and the line of a card
+    square: 'Square', specialization: 'Specialization', bySpecialization: 'By specialization', noSpecialization: 'No specialization',
+  });
+
   // ---- filters, sort, groups -----------------------------------------------------------------------------------------------------------------------------------------------
   const SHOWS = Object.freeze([['all', 'All'], ['left', 'What is left'], ['new', 'Not started'], ['part', 'In progress'], ['done', 'Top tier']]);
-  const HOUSE_FILTERS = Object.freeze([['any', 'Any'], ['open', 'Open'], ['taken', 'Claimed']]);
+  const HOUSE_FILTERS = Object.freeze([['any', 'Any'], ['open', WORDS.notWon], ['taken', WORDS.favorWon]]);
   const showMatch = (h, k) => (k === 'all' ? true : k === 'left' ? h.state !== 'done' : h.state === k);
   const houseMatch = (h, k) => (k === 'any' ? true : (k === 'taken') === h.taken);
   const trackMatch = (h, k) => (k === 'all' || k === '' ? true : h.track === k);
@@ -434,7 +445,7 @@
     });
   }
 
-  const api = { SIZE, COLS, MAJORITY, LINES, TRACKS, KNOWN_STATES, TIER_WORD, SHOWS, HOUSE_FILTERS, SORTS, position, positions, checkTasks, readFactions, readBoard, lineStatus, evaluateOwners, evaluate, WIN, matches, sortKey, sortHouses, groupOf };
+  const api = { WORDS, SIZE, COLS, MAJORITY, LINES, TRACKS, KNOWN_STATES, TIER_WORD, SHOWS, HOUSE_FILTERS, SORTS, position, positions, checkTasks, readFactions, readBoard, lineStatus, evaluateOwners, evaluate, WIN, matches, sortKey, sortHouses, groupOf };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCM = api;
 })(typeof window !== 'undefined' ? window : globalThis);

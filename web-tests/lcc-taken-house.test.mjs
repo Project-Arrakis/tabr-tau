@@ -51,22 +51,22 @@ test('taken with no tier record in the save: the card says so, not 0/5 and not a
   task(a, 'Mutelli').rewards = [];
   const ui = await open(a);
   const c = tileOf(ui, 'Mutelli');
-  assert.equal(count(ui, 'Mutelli'), 'Taken - no tier record in the save');
+  assert.equal(count(ui, 'Mutelli'), 'Favor won - no tier record in the save');
   assert.doesNotMatch(count(ui, 'Mutelli'), /EARNED|\/5|0\/0/i);
   assert.equal(c.querySelectorAll('.lcc-hc-q').length, 0, 'no collected and waiting ticks');
-  assert.match(label(ui, 'Mutelli'), /claimed by Atreides, .*taken, no tier record in the save/);
+  assert.match(label(ui, 'Mutelli'), /favor won by Atreides, .*favor won, no tier record in the save/);
   assert.doesNotMatch(label(ui, 'Mutelli'), /tiers earned|no tiers in the save/);
-  assert.match(c.querySelector('button.lcc-hc-select').getAttribute('title'), /taken, and the save holds no reward tiers for it/);
+  assert.match(c.querySelector('button.lcc-hc-select').getAttribute('title'), /favor is won, and the save holds no reward tiers for it/);
   assert.match(c.querySelector('.lcc-hc-count b').getAttribute('title'), /no reward tiers/);
 });
 
 test('taken with tiers in the save but none of the character: the card says so, not 0/5 EARNED', async () => {
   const ui = await open(synthetic());
-  assert.equal(count(ui, 'Vernius'), 'Taken - no contribution of yours');
+  assert.equal(count(ui, 'Vernius'), 'Favor won - no contribution of yours');
   assert.doesNotMatch(count(ui, 'Vernius'), /EARNED/);
   assert.equal(tileOf(ui, 'Vernius').querySelectorAll('.lcc-hc-q').length, 0);
   assert.equal(tileOf(ui, 'Vernius').querySelectorAll('.lcc-hc-tiers .lcc-hc-t').length, 5, 'the five tiers of the ladder are still drawn, not reached');
-  assert.match(label(ui, 'Vernius'), /claimed by Harkonnen, .*taken, no contribution of yours in the save, so none of your tiers is earned/);
+  assert.match(label(ui, 'Vernius'), /favor won by Harkonnen, .*favor won, no contribution of yours in the save, so none of your tiers is earned/);
   assert.doesNotMatch(label(ui, 'Vernius'), /0 of 5 tiers earned/);
   assert.match(tileOf(ui, 'Vernius').querySelector('.lcc-hc-count b').getAttribute('title'), /holds no contribution of yours to it/);
   // the write controls and their attributes are the ones of any other card
@@ -77,27 +77,27 @@ test('taken with tiers in the save but none of the character: the card says so, 
 test('taken with tiers and a contribution of the character, and an open House: unchanged', async () => {
   const ui = await open(synthetic());
   assert.match(count(ui, 'Wallach'), /^3\/5 EARNED/);
-  assert.doesNotMatch(count(ui, 'Wallach'), /Taken/);
+  assert.doesNotMatch(count(ui, 'Wallach'), /Favor won/);
   assert.match(label(ui, 'Wallach'), /3 of 5 tiers earned/);
   assert.match(count(ui, 'Sor'), /^0\/5 EARNED/, 'an open House with nothing keeps its count');
-  assert.doesNotMatch(count(ui, 'Sor'), /Taken/);
-  assert.match(label(ui, 'Sor'), /open, .*0 of 5 tiers earned/);
+  assert.doesNotMatch(count(ui, 'Sor'), /Favor won/);
+  assert.match(label(ui, 'Sor'), /favor not won, .*0 of 5 tiers earned/);
 });
 
 test('the list and the inspector say the same of a taken House with none of the character', async () => {
   const ui = await open(synthetic(), 'list');
   const rows = [...ui.doc.querySelectorAll('.lcc-bd-row')];
   const row = (n) => rows.find((r) => text(r.querySelector('.lcc-bd-namebtn')) === n);
-  assert.equal(text(row('Vernius').querySelector('.lcc-bd-c-state')), 'Taken, none of yours');
+  assert.equal(text(row('Vernius').querySelector('.lcc-bd-c-state')), 'Favor won, none of yours');
   assert.equal(text(row('Vernius').querySelector('.lcc-bd-c-tiers')), 'none of yours');
   assert.equal(text(row('Sor').querySelector('.lcc-bd-c-tiers')), '0 of 5');
   assert.equal(text(row('Sor').querySelector('.lcc-bd-c-state')), 'Not started');
   assert.equal(text(row('Wallach').querySelector('.lcc-bd-c-tiers')), '3 of 5');
   click(ui, row('Vernius').querySelector('.lcc-bd-namebtn'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
-  assert.equal(text(i.querySelector('.lcc-bd-ledger-n')), 'TAKEN · NO CONTRIBUTION OF YOURS');
+  assert.equal(text(i.querySelector('.lcc-bd-ledger-n')), 'FAVOR WON · NO CONTRIBUTION OF YOURS');
   assert.equal(i.querySelector('.lcc-bd-stats'), null, 'no 0/5 summary tiles');
-  assert.match(text(i.querySelector('.lcc-bd-taken-note')), /This House is taken\. The save holds no contribution of yours/);
+  assert.match(text(i.querySelector('.lcc-bd-taken-note')), /This House’s favor is won\. The save holds no contribution of yours/);
   assert.equal(i.querySelectorAll('.lcc-bd-tier').length, 5, 'the ladder rows stay, with their controls');
 });
 
@@ -107,8 +107,8 @@ test('a taken House with no tier rows: the inspector says no tier record', async
   const ui = await open(a);
   click(ui, tileOf(ui, 'Mutelli').querySelector('button'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
-  assert.equal(text(i.querySelector('.lcc-bd-ledger-n')), 'TAKEN · NO TIER RECORD IN THE SAVE');
-  assert.match(text(i.querySelector('.lcc-bd-taken-note')), /taken, and the save holds no reward tiers for it/);
+  assert.equal(text(i.querySelector('.lcc-bd-ledger-n')), 'FAVOR WON · NO TIER RECORD IN THE SAVE');
+  assert.match(text(i.querySelector('.lcc-bd-taken-note')), /favor is won, and the save holds no reward tiers for it/);
 });
 
 test('the contributors the save records are shown: on the banners and for the House, with a guild by its name', async () => {
@@ -143,8 +143,8 @@ test('a taken House with no contributor row keeps "Not in the save" and says why
   assert.match([...ui.doc.querySelectorAll('.lcc-standard-h')].map((h) => h.getAttribute('title')).join(' | '), /holds no contribution rows under Atreides/);
   click(ui, tileOf(ui, 'Mutelli').querySelector('button'));
   const n = text(ui.doc.querySelector('.lcc-bd-insp .lcc-bd-nosave'));
-  assert.match(n, /^Top contributors: not in the save\. This House is taken but the save holds no contributor row for it/);
-  assert.match(ui.doc.querySelector('.lcc-bd-insp #lcc-bd-s1').getAttribute('title'), /Top contributors: Not in the save \(the save has no contributor row for this taken House\)\. Missions: Not in the save\./);
+  assert.match(n, /^Top contributors: not in the save\. The favor of this House is won but the save holds no contributor row for it/);
+  assert.match(ui.doc.querySelector('.lcc-bd-insp #lcc-bd-s1').getAttribute('title'), /Top contributors: Not in the save \(the save has no contributor row for this House, whose favor is won\)\. Missions: Not in the save\./);
   // an open House says no more than before
   click(ui, tileOf(ui, 'Sor').querySelector('button'));
   assert.match(ui.doc.querySelector('.lcc-bd-insp #lcc-bd-s1').getAttribute('title'), /Top contributors: Not in the save\. Missions: Not in the save\./);

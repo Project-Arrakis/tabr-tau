@@ -180,6 +180,7 @@
 .lcc-bd-list thead th { font: 700 11px/1.2 var(--lcc-sans); letter-spacing: .06em; text-transform: uppercase; color: var(--lcc-dim); white-space: nowrap; }
 .lcc-bd-list th[aria-sort="ascending"]::after { content: ' \25B2'; }
 .lcc-bd-list th[aria-sort="descending"]::after { content: ' \25BC'; }
+.lcc-bd-c-owner .lcc-owner { white-space: nowrap; } /* one mark on one line: a wrapped cell once read as a second H over HARKONNEN (#950) */
 .lcc-bd-sortb, .lcc-bd-linkb { all: unset; box-sizing: border-box; cursor: pointer; color: inherit; text-decoration: underline; text-underline-offset: 3px; min-height: 24px; display: inline-flex; align-items: center; }
 .lcc-bd-linkb { color: var(--lcc-gold-text); }
 .lcc-bd-namebtn { font-weight: 700; }
@@ -289,6 +290,8 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-tier-s.not_reached { color: var(--lcc-dim); }
 .lcc-bd-tier-s.no_row, .lcc-bd-tier-s.unknown { color: var(--lcc-red-t); }
 /* the plain words of the state stay for a screen reader, beside the mark */
+.lcc-bd-tier[data-info] { position: relative; }
+.lcc-bd-tier[data-info]:hover::after, .lcc-bd-tier[data-info]:focus::after { content: attr(data-info); position: absolute; z-index: 6; left: 8px; right: 8px; top: 100%; margin-top: 2px; padding: 8px 10px; white-space: pre-line; overflow-wrap: anywhere; font: 500 12px/1.4 var(--lcc-sans); text-transform: none; letter-spacing: 0; text-align: left; color: var(--lcc-text); background: var(--lcc-panel); border: 1px solid var(--lcc-stroke-faint); box-shadow: 0 6px 18px rgba(0, 0, 0, .35); pointer-events: none; } /* the item of a reward, on hover and on focus (#937) */
 .lcc-bd-tier-st { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .lcc-bd-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 12px; color: var(--lcc-dim); font-size: 9px; }
 .lcc-bd-note { margin-top: 16px; font: 12px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
