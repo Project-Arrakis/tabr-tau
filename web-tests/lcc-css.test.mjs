@@ -52,9 +52,10 @@ test('every selector is scoped to a lcc class: loading the file changes nothing 
 
 test('the keyframes are the feature\'s own, and one-shot: nothing loops', () => {
   const kf = [...bare.matchAll(/@keyframes\s+([a-z0-9-]+)/g)].map((m) => m[1]);
-  assert.deepEqual([...kf].sort(), ['lcc-reveal', 'lcc-win-sweep']);
-  // the one exception to one-shot is the optional animated border of a winning House (lcc-win-sweep): it loops, moves by transform only, and sits in the no-preference block under Motion Full
-  assert.equal((bare.match(/infinite/g) || []).length, 1);
+  assert.deepEqual([...kf].sort(), ['lcc-reveal', 'lcc-win-pulse', 'lcc-win-sweep']);
+  // the exceptions to one-shot are the optional animated border of a winning House (lcc-win-sweep: on the House, and on the centre seat of a win by 13 Houses) and the slow glow of a winning House
+  // (lcc-win-pulse): each loops and sits in the no-preference block under Motion Full
+  assert.equal((bare.match(/infinite/g) || []).length, 3);
   assert.match(bare, /@media \(prefers-reduced-motion: no-preference\)\s*\{[^]*html\[data-motion="full"\][^]*animation: lcc-win-sweep 9s linear infinite/);
   for (const m of bare.matchAll(/animation:\s*([^;}]+)/g)) if (!/^none/.test(m[1].trim()) && !/^lcc-win-sweep /.test(m[1].trim())) assert.match(m[1], /\b1\b/, 'an animation that is not one-shot: ' + m[1]);
 });
@@ -109,7 +110,7 @@ test('in forced colours the decoration goes and the factions still differ, by fi
   assert.match(body, /\.lcc-seat-h \.lcc-seat-base\s*\{[^}]*fill:\s*CanvasText/);
   assert.match(body, /\.lcc-house\[data-owner="a"\][^}]*border-left-style:\s*solid/);
   assert.match(body, /\.lcc-house\[data-owner="h"\][^}]*border-left-style:\s*double/);
-  assert.match(body, /\.lcc-house\[data-victory="dominion"\][^}]*border-style:\s*double/);
+  assert.match(body, /\.lcc-house\[data-victory="win"\][^}]*border-style:\s*double/);
   assert.match(body, /\.lcc-house\[aria-pressed="true"\][^}]*outline:\s*3px solid Highlight/);
   // only system colours are used inside the block
   const named = [...body.matchAll(/(?:color|fill|stroke|background(?:-color)?|border(?:-left)?(?:-color)?):\s*([^;}]+)/g)].map((m) => m[1].trim());

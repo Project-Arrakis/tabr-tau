@@ -345,7 +345,7 @@ test('the board panel has the approved head, filters, legend, totals and the two
   assert.deepEqual([...head.querySelectorAll('.lcc-bd-layout button')].map((x) => text(x)), ['Grid', 'List']);
   assert.ok([...head.querySelectorAll('button')].some((x) => text(x) === 'Clear highlight'));
   assert.deepEqual([...ui.doc.querySelectorAll('#lcc-bd-spec option')].map((o) => text(o)), ['All specializations', 'Crafting', 'Gathering', 'Exploration', 'Combat', 'Sabotage']);
-  assert.deepEqual([...b.querySelectorAll('.lcc-bd-headlines li')].map((x) => text(x)), ['ATREIDES CLAIMED', 'HARKONNEN CLAIMED', 'OPEN', 'SYSSELRAAD WON']);
+  assert.deepEqual([...b.querySelectorAll('.lcc-bd-headlines li')].map((x) => text(x)), ['ATREIDES CLAIMED', 'HARKONNEN CLAIMED', 'OPEN', 'WINNING HOUSES · SYSSELRAAD WON']);
   assert.deepEqual([...b.querySelectorAll('[data-lcb="filter"][data-key="hs"]')].map((x) => text(x)), ['Any', 'Open', 'Claimed']);
   assert.match(text(b.querySelector('.lcc-bd-totals')), /Your rewards on this board: 26 of 120 tiers reached/);
   assert.match(text(b.querySelector('[data-metric="lines"]')), /^POTENTIAL LINES4Unblocked five-House alignments · Atreides 4 · Harkonnen 0$/, 'the unblocked lines of the twelve, counted by the evaluator (M4)');

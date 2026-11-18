@@ -255,7 +255,7 @@ test('the evaluator agrees with an independent reading of 3000 seeded boards: co
   assert.ok(held > 200 && conflicts > 20 && counts13 > 100, 'the seeded boards reach the states: ' + [held, conflicts, counts13]);
 });
 
-test('the cards and the panel on the page agree with the independent reading on 48 seeded boards: the circuit outline, the majority outline, the state of the panel and the number of potential lines', async () => {
+test('the cards and the panel on the page agree with the independent reading on 48 seeded boards: the one win outline, the state of the panel and the number of potential lines', async () => {
   const picked = boards(480).filter((_, i) => i % 10 === 3).slice(0, 48);
   for (const b of picked) {
     const a = synthetic();
@@ -266,8 +266,7 @@ test('the cards and the panel on the page agree with the independent reading on 
     const cards = [...ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc')];
     assert.equal(cards.length, 25, b);
     const at = (kind) => cards.map((c, i) => [i, c.getAttribute('data-victory')]).filter((x) => x[1] === kind).map((x) => x[0]);
-    assert.deepEqual(at('circuit'), ref.circuit, 'circuit ' + b);
-    assert.deepEqual(at('dominion'), ref.dominion, 'dominion ' + b);
+    assert.deepEqual(at('win'), [...new Set([...ref.circuit, ...ref.dominion])].sort((x, y) => x - y), 'the Houses of a held line and the Houses of the faction with 13 or more: one outline ' + b);
     assert.equal(ui.doc.querySelector('.lcc-bd-victory').getAttribute('data-state'), ref.state, 'panel ' + b);
     const lines = text(ui.doc.querySelector('[data-metric="lines"]'));
     if (ref.unreadable) assert.match(lines, /Count incomplete/i, b); else assert.match(lines, new RegExp('^POTENTIAL LINES' + ref.potential + '(?!\d)'), b + ' ' + lines);

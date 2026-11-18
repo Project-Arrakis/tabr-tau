@@ -199,9 +199,8 @@
     w.appendChild(k('a', 'ATREIDES CLAIMED'));
     w.appendChild(k('h', 'HARKONNEN CLAIMED'));
     w.appendChild(k('n', 'OPEN'));
-    w.appendChild(k('g', M().WIN.TEXT.won, 'A line of five Houses held by one faction (a row, a column or a diagonal) has a bright gold outline and the tag ' + M().WIN.TEXT.won + '. A faction that holds 13 or more Houses has a gold outline on those Houses and no tag. ' + M().WIN.TEXT.facts));
+    w.appendChild(k('g', 'WINNING HOUSES · ' + M().WIN.TEXT.won, 'The Houses that make up a win have a gold outline and the flag ' + M().WIN.TEXT.won + ': the five Houses of a line of five held by one faction, or the 13 or more Houses of a faction. ' + M().WIN.TEXT.facts));
     if (state.strategy && board.ready) w.appendChild(k('p', 'PREVIEW LINE · POTENTIAL', 'A violet dashed outline marks the Houses of the line chosen in the Sysselraad Strategy list when it is not held. It is a preview of a line one faction could still complete, not a result.'));
-    if (ev.majority) w.appendChild(k('m', M().WIN.TEXT.won + ' · ' + M().WIN.TEXT.byHouses.toUpperCase(), FACTION_WORD[ev.majority] + ' hold ' + board.counts[ev.majority] + ' Houses. ' + M().WIN.TEXT.facts));
     if (board.counts.unknown) w.appendChild(k('u', 'OWNER UNREADABLE', 'The completed flag and the winner of this House do not agree, so it is counted for neither faction.'));
     return w;
   }
@@ -215,8 +214,8 @@
   }
 
   // ---- the board: five by five ---------------------------------------------------------------------------------------------------------------------------------------------------
-  // The faction that holds more than half of the Houses on a board that passed its checks ('a' or 'h'), or null. This is a count of the Houses as the save shows them now: the save keeps no
-  // snapshot of the votes, so a count is never called a win, here or anywhere else on the board.
+  // The faction that holds more than half of the Houses on a board that passed its checks ('a' or 'h'), or null. The count of the Houses as the save shows them now; 13 or more is a win
+  // (the game works the winner out from the Houses, WIN in lcc-model.js), and the words for it come from that one table.
   function majorityOf(board) {
     if (!board || !board.ready || !board.counts) return null;
     return M().evaluate(board, null).majority; // 13 of 25 or more, decided in one place (the evaluator of lcc-model.js)
@@ -237,8 +236,8 @@
   // One House card, as the approved design draws it: the number and the specialization badge on top, the crest, HOUSE NAME, the specialization, the owner, the five tier boxes and the line "N/5 REACHED"
   // with the collected and the waiting counts. A House whose specialization the save does not give has no badge and says so in words.
   function houseCard(h, matchIds, host, editable, picks, major, ev) {
-    // a House of a line of five held by its faction gets the circuit outline; a House of a faction with 13 or more Houses gets the majority outline unless it is already in a line (the line is the
-    // stronger of the two statements). Both are read from the evaluator and are a reading of the Houses as they stand: neither says a vote was held.
+    // a House of a line of five held by its faction, and a House of a faction with 13 or more Houses, get the one win outline and the one flag (the reason is said by the plaque and the victory panel).
+    // Both are read from the evaluator, from the Houses as they stand now.
     const lines = ev && h.index !== null ? ev.held.filter((l) => l.indexes.includes(h.index)) : [];
     const inLine = lines.length > 0;
     const dom = !inLine && !!major && h.owner === major;
@@ -248,7 +247,7 @@
     const owner = OWNER_WORD[h.owner] ? h.owner : 'unknown';
     const route = routeOf(h, ev);
     const card = el('article', 'lcc-hc lcc-hc-' + owner, '', { 'data-owner': owner, 'data-selected': state.sel === h.id ? 'true' : null, 'data-dim': dim ? 'true' : null, 'data-compact': 'true', 'data-lines': inLine ? lines.map((l) => l.id).join(' ') : null, 'data-route': route ? route.kind : null, 'data-route-role': route ? route.role : null });
-    if (inLine) L().victory(card, 'circuit'); else if (dom) L().victory(card, 'dominion');
+    if (inLine || dom) L().victory(card, true); // the one win outline: the five Houses of a held line and the Houses of the faction with 13 or more
     const lineSays = inLine ? FACTION_WORD[h.owner] + ' hold this House in a line of five: ' + listWords(lines.map(lineWord)) : '';
     const winSays = win && (inLine || dom) ? M().WIN.say(win) : '';
     const sel = btn('lcc-hc-select', '', { 'data-lcb': 'sel', 'data-id': h.id, 'data-fk': 'ht:' + h.id, 'aria-pressed': state.sel === h.id ? 'true' : 'false' });
@@ -271,7 +270,7 @@
     sel.appendChild(el('strong', 'lcc-hc-name', houseWord(h.name)));
     sel.appendChild(el('small', 'lcc-hc-track' + (h.track ? '' : ' lcc-hc-track-unk'), h.track ? trackWord(h.track) : 'Specialization not in the save'));
     sel.appendChild(el('span', 'lcc-hc-owner', owner === 'a' || owner === 'h' ? '● ' + OWNER_WORD[owner] : owner === 'open' ? '○ Open' : '? Owner unreadable', { 'data-g': ({ a: 'A', h: 'H', open: '○', unknown: '?' })[owner] }));
-    if (inLine && wonTag) sel.appendChild(el('span', 'lcc-flag lcc-flag-line lcc-hc-badge', wonTag));
+    if ((inLine || dom) && wonTag) sel.appendChild(el('span', 'lcc-flag lcc-flag-win lcc-hc-badge', wonTag));
     if (route && !inLine) sel.appendChild(el('span', 'lcc-flag lcc-flag-route lcc-hc-badge', route.badge));
     const notes = [];
     if (h.waiting > 0) notes.push(h.waiting + ' reward' + (h.waiting === 1 ? '' : 's') + ' waiting');
@@ -429,7 +428,7 @@
     const s = el('section', 'lcc-bd-surface lcc-bd-strat-panel', '', { 'aria-labelledby': 'lcc-bd-strat-h', 'data-lines': ev.valid ? '12' : '0' });
     s.appendChild(el('p', 'lcc-bd-eyebrow', 'SYSSELRAAD STRATEGY'));
     s.appendChild(el('h3', 'lcc-bd-strat-h', 'Twelve lines', { id: 'lcc-bd-strat-h' }));
-    s.appendChild(el('p', 'lcc-bd-strat-lead', 'Five rows, five columns, two diagonals. Choose a line to mark its Houses on the board. A mixed line is blocked. A line one faction does not hold yet is only a preview: the save does not record the start of the Voting Session, and a lead in the House count is not a result.'));
+    s.appendChild(el('p', 'lcc-bd-strat-lead', 'Five rows, five columns, two diagonals. Choose a line to mark its Houses on the board. A mixed line is blocked. A line one faction does not hold yet is only a preview, not a result. ' + M().WIN.TEXT.rule));
     const sw = el('div', 'lcc-bd-lsort', '', { role: 'group', 'aria-label': 'Order of the list' });
     sw.appendChild(el('span', 'lcc-bd-lbl', 'LIST ORDER'));
     for (const [v, t] of [['board', 'Board order'], ['near', 'Closest first']]) sw.appendChild(btn('lcc-bd-chip', t, { 'data-lcb': 'lsort', 'data-val': v, 'data-fk': 'bf:lsort:' + v, 'aria-pressed': state.lineSort === v ? 'true' : 'false' }));
@@ -764,7 +763,7 @@
       p.appendChild(ul);
       w.appendChild(p);
     }
-    const ev = M().evaluate(board, null); // no record of the start of the Voting Session exists in the save: the evidence is always null (D03)
+    const ev = M().evaluate(board, null); // no record of the start of the Voting Session exists in the save: the evidence is always null (D03); the winner is worked out from the Houses (WIN)
     w.appendChild(plaque(board, host));
     // the Term and Decrees section: the page puts its own section here (host.seat), once, in place of what used to be the decree preview strip (#923)
     w.appendChild(el('div', 'lcc-bd-termslot', '', { 'data-lcc-slot': 'term' }));

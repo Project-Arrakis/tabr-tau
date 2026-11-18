@@ -8,7 +8,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { boot, closeAll } from './boot.mjs';
 import { synthetic } from './lcc-fixture.mjs';
-import { lccDir } from './lcc-load.mjs';
+import { lccDir, load } from './lcc-load.mjs';
 
 afterEach(closeAll);
 const M = createRequire(import.meta.url)(path.join(lccDir, 'lcc-model.js'));
@@ -73,9 +73,9 @@ test('the table: the headline, the tally, the card tag and the line badge for ea
   const W = M.WIN;
   const row = (s) => { const d = W.decide(owners(s)); return [W.headline(d), W.tally(d), W.tag(d)]; };
   assert.deepEqual(row(ROW3_A), ['SYSSELRAAD WON · ATREIDES', 'ATREIDES · BY FIVE IN A LINE · 5 TO 0 · 20 HOUSES OPEN', 'SYSSELRAAD WON']);
-  assert.deepEqual(row(A13), ['SYSSELRAAD WON · ATREIDES', 'ATREIDES · BY 13 HOUSES · 13 TO 12 · 0 HOUSES OPEN', '']);
+  assert.deepEqual(row(A13), ['SYSSELRAAD WON · ATREIDES', 'ATREIDES · BY 13 HOUSES · 13 TO 12 · 0 HOUSES OPEN', 'SYSSELRAAD WON']);
   assert.deepEqual(row(A_BOTH), ['SYSSELRAAD WON · ATREIDES', 'ATREIDES · BY FIVE IN A LINE AND 13 HOUSES · 13 TO 6 · 6 HOUSES OPEN', 'SYSSELRAAD WON']);
-  assert.deepEqual(row(H13), ['SYSSELRAAD WON · HARKONNEN', 'HARKONNEN · BY 13 HOUSES · 13 TO 12 · 0 HOUSES OPEN', '']);
+  assert.deepEqual(row(H13), ['SYSSELRAAD WON · HARKONNEN', 'HARKONNEN · BY 13 HOUSES · 13 TO 12 · 0 HOUSES OPEN', 'SYSSELRAAD WON']);
   assert.deepEqual(row(synthLetters()), ['SYSSELRAAD CONTESTED', 'ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN', '']);
   assert.deepEqual(row(TIE), ['SYSSELRAAD CONTESTED', 'HOUSE COUNT EVEN AT 12 · 1 HOUSE OPEN', '']);
   assert.deepEqual(row(NOTHING), ['SYSSELRAAD CONTESTED', 'HOUSE COUNT EVEN AT 0 · 25 HOUSES OPEN', '']);
@@ -111,8 +111,8 @@ const click = (ui, el) => { if (typeof el === 'string') el = ui.doc.querySelecto
 // panelHead: the title slot of the panel; panelFoot: the how-line (a won state) or the count lead (contested) under the counts
 const STATES = [
   { name: 'won by a line of five', answer: () => board(ROW3_A), won: true, cards: 5, tag: 'SYSSELRAAD WON', head: 'SYSSELRAAD WON · ATREIDES', tally: 'ATREIDES · BY FIVE IN A LINE · 5 TO 0 · 20 HOUSES OPEN', panelHead: 'SYSSELRAAD WON · ATREIDES', panelFoot: 'BY FIVE IN A LINE', icon: 'a', badges: ['SYSSELRAAD WON'] },
-  { name: 'won by 13 Houses', answer: () => board(A13), won: true, cards: 0, tag: 'SYSSELRAAD WON', head: 'SYSSELRAAD WON · ATREIDES', tally: 'ATREIDES · BY 13 HOUSES · 13 TO 12 · 0 HOUSES OPEN', panelHead: 'SYSSELRAAD WON · ATREIDES', panelFoot: 'BY 13 HOUSES', icon: 'a', badges: [] },
-  { name: 'won by a line and by 13 Houses', answer: () => board(A_BOTH), won: true, cards: 10, tag: 'SYSSELRAAD WON', head: 'SYSSELRAAD WON · ATREIDES', tally: 'ATREIDES · BY FIVE IN A LINE AND 13 HOUSES · 13 TO 6 · 6 HOUSES OPEN', panelHead: 'SYSSELRAAD WON · ATREIDES', panelFoot: 'BY FIVE IN A LINE AND 13 HOUSES', icon: 'a', badges: ['SYSSELRAAD WON', 'SYSSELRAAD WON'] },
+  { name: 'won by 13 Houses', answer: () => board(A13), won: true, cards: 13, tag: 'SYSSELRAAD WON', head: 'SYSSELRAAD WON · ATREIDES', tally: 'ATREIDES · BY 13 HOUSES · 13 TO 12 · 0 HOUSES OPEN', panelHead: 'SYSSELRAAD WON · ATREIDES', panelFoot: 'BY 13 HOUSES', icon: 'a', badges: [] },
+  { name: 'won by a line and by 13 Houses', answer: () => board(A_BOTH), won: true, cards: 13, tag: 'SYSSELRAAD WON', head: 'SYSSELRAAD WON · ATREIDES', tally: 'ATREIDES · BY FIVE IN A LINE AND 13 HOUSES · 13 TO 6 · 6 HOUSES OPEN', panelHead: 'SYSSELRAAD WON · ATREIDES', panelFoot: 'BY FIVE IN A LINE AND 13 HOUSES', icon: 'a', badges: ['SYSSELRAAD WON', 'SYSSELRAAD WON'] },
   { name: 'contested, a lead', answer: () => synthetic(), cards: 0, tag: 'SYSSELRAAD CONTESTED', head: 'SYSSELRAAD CONTESTED', tally: 'ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN', panelHead: 'ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN', panelFoot: 'House count: Atreides ahead 12 to 4.', badges: [] },
   { name: 'contested, a tie', answer: () => board(TIE), cards: 0, tag: 'SYSSELRAAD CONTESTED', head: 'SYSSELRAAD CONTESTED', tally: 'HOUSE COUNT EVEN AT 12 · 1 HOUSE OPEN', panelHead: 'HOUSE COUNT EVEN AT 12 · 1 HOUSE OPEN', panelFoot: 'House count: even at 12 each.', badges: [] },
   { name: 'contested, nothing taken', answer: () => board(NOTHING), cards: 0, tag: 'SYSSELRAAD CONTESTED', head: 'SYSSELRAAD CONTESTED', tally: 'HOUSE COUNT EVEN AT 0 · 25 HOUSES OPEN', panelHead: 'HOUSE COUNT EVEN AT 0 · 25 HOUSES OPEN', panelFoot: 'House count: even at 0 each.', badges: [] },
@@ -142,7 +142,7 @@ for (const st of STATES) {
     if (st.won) assert.match(sr, /The save does not record the vote; the game works the winner out from the Houses\./, 'the facts line is for a screen reader and the tooltip where a winner is');
     assert.doesNotMatch(text(p) + ' ' + sr, /Dominion|DOMINION|not verified|NOT VERIFIED|AWAITING VOTING SESSION|LINE OF FIVE|not a vote result/);
     assert.equal(p.querySelectorAll('details, .lcc-bd-lines').length, 0, 'no list of the twelve lines in the panel (#931)');
-    // the House cards: the tag on the cards of a held line, and only there; the aria-label and the tooltip of a card that is part of a win say it in the same words
+    // the House cards: the one flag on every House that makes up a win (the five of a line, the 13 or more of a winner), and only there; the aria-label and the tooltip of a card that is part of a win say it in the same words
     const tags = [...doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag')].map((f) => text(f));
     assert.equal(tags.length, st.cards, 'cards with a tag');
     assert.ok(tags.every((t) => t === 'SYSSELRAAD WON'), 'the one tag: ' + tags.join(','));
@@ -192,4 +192,43 @@ test('no surface builds a phrase of its own: the words of a win live in lcc-mode
   }
   const model = read(path.join(lccDir, 'lcc-model.js'));
   for (const must of ['SYSSELRAAD WON', 'SYSSELRAAD CONTESTED', 'SYSSELRAAD UNDECIDABLE', 'The save does not record the vote; the game works the winner out from the Houses.']) assert.ok(model.includes(must), must);
+});
+
+// ---- the gold 13th seat (the centre orb) of the seat track: a ring and the travelling arc only for a win by 13 Houses ------------------------------------------------------------------------
+test('the centre orb carries the win ring only when a faction has won by 13 Houses; the arc moves only with Motion Full and no reduced-motion request', () => {
+  const orb = (letters, motion) => {
+    const { w, L, doc } = load();
+    if (motion != null) doc.documentElement.setAttribute('data-motion', motion);
+    w.matchMedia = () => ({ matches: false, media: '' });
+    const own = owners(letters);
+    const win = M.WIN.decide(own);
+    const a = own.filter((o) => o === 'a').length, h = own.filter((o) => o === 'h').length;
+    const node = L.renderPlaque({ a, h, win });
+    const seat = node.querySelector('.lcc-seat-center');
+    return { seat, win: seat.getAttribute('data-win13'), sweeps: node.querySelectorAll('.lcc-seat-win-sweep').length, others: node.querySelectorAll('.lcc-seat:not(.lcc-seat-center)[data-win13]').length };
+  };
+  const cases = [
+    ['13 Atreides Houses, no line', A13, 'a'],
+    ['13 Harkonnen Houses, no line', H13, 'h'],
+    ['a line and 13 Houses', A_BOTH, 'a'],
+    ['a line of five only', ROW3_A, null],
+    ['contested', TIE, null],
+    ['empty board', NOTHING, null],
+    ['both qualify', A_LINE_H_13, null],
+    ['one House unreadable', UNREADABLE, null],
+  ];
+  for (const [name, letters, want] of cases) {
+    const r = orb(letters, 'full');
+    assert.equal(r.win, want, name);
+    assert.equal(r.sweeps, want ? 1 : 0, name + ': the ring that the style moves exists only then');
+    assert.equal(r.others, 0, name + ': no other seat is marked');
+    assert.equal(r.seat.classList.contains('lcc-seat-win13'), !!want, name);
+    assert.equal(orb(letters, 'calm').win, want, name + ': the still ring does not depend on Motion');
+  }
+  // the style: the arc is drawn and turned only with Motion Full and no reduced-motion request; the still ring (the halo, bolder) is always there; forced colours draw no arc
+  const bare = fs.readFileSync(path.join(lccDir, 'lcc.css'), 'utf8').replace(/\r/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(bare, /\.lcc-seat-win-sweep \{ display: none;/);
+  assert.match(bare, /@media \(prefers-reduced-motion: no-preference\) \{\s*html\[data-motion="full"\] \.lcc-seat-win13 \.lcc-seat-win-sweep \{[^}]*animation: lcc-win-sweep 9s linear infinite;/);
+  assert.match(bare, /\.lcc-seat-win13 \.lcc-seat-halo \{ stroke: var\(--lcc-gold-hi\); stroke-width: 6;/);
+  assert.match(bare, /@media \(forced-colors: active\)[^]*html\[data-motion\] \.lcc-seat-win13 \.lcc-seat-win-sweep \{ display: none; \}/);
 });

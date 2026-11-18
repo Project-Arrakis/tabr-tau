@@ -18,7 +18,7 @@ test('the two win tokens exist, the glow has its own dial, and the winning House
   assert.match(bare, /--lcc-outline-win:\s*3px solid var\(--lcc-gold\);/);
   // the light of a win is not the plaque's softer dial: --lcc-glow-win is defined as a plain number and --lcc-glow-win is not derived from --lcc-glow
   assert.doesNotMatch(bare.match(/--lcc-glow-win:[^;]*;/)[0], /--lcc-glow\b(?!-win)/);
-  for (const kind of ['circuit', 'dominion']) {
+  for (const kind of ['win']) { // one win outline for every House that makes up a win (2026-11-18)
     const rule = bare.match(new RegExp('\\.lcc-house\\[data-victory="' + kind + '"\\]\\s*\\{[^}]*\\}'))[0];
     assert.match(rule, /outline:\s*var\(--lcc-outline-win\)/, kind);
     assert.match(rule, /var\(--lcc-glow-win\)/, kind);
@@ -37,7 +37,7 @@ test('the animated border moves by transform only, and its style needs Full moti
   assert.ok(block, 'the no-preference block');
   assert.match(block[1], /html\[data-motion="full"\] \.lcc-win-anim > \.lcc-win-sweep \{/);
   assert.match(block[1], /animation:\s*lcc-win-sweep 9s linear infinite/);
-  assert.equal((bare.match(/lcc-win-sweep \d+s linear infinite/g) || []).length, 1, 'the one place the animation is started');
+  assert.equal((bare.match(/lcc-win-sweep \d+s linear infinite/g) || []).length, 2, 'two places start the animation: the winning Houses, and the centre seat of a win by 13 Houses (both gated on Motion Full and no reduced-motion request)');
   // forced colours draw the still outline only
   assert.match(bare, /@media \(forced-colors: active\)[^]*html\[data-motion\] \.lcc-win-anim > \.lcc-win-sweep \{ display: none; \}/);
 });
@@ -47,7 +47,7 @@ function cardWith(motion, { reduce = false, noMatchMedia = false } = {}) {
   const { w, L, doc } = load();
   if (motion != null) doc.documentElement.setAttribute('data-motion', motion);
   if (!noMatchMedia) w.matchMedia = (q) => ({ matches: reduce && q === '(prefers-reduced-motion: reduce)', media: q });
-  return { L, card: L.renderHouseCard({ name: 'DA_HouseVernius', owner: 'a', inLine: true }) };
+  return { L, card: L.renderHouseCard({ name: 'DA_HouseVernius', owner: 'a', inLine: true, win: true }) };
 }
 const animated = (card) => card.classList.contains('lcc-win-anim') || !!card.querySelector('.lcc-win-sweep');
 
@@ -60,7 +60,7 @@ test('the animation class is added with Motion Full, and not with Calm, Off, no 
   assert.equal(animated(cardWith('full', { reduce: true }).card), false, 'Motion Full, but reduced motion is requested');
   assert.equal(animated(cardWith('calm', { reduce: true }).card), false, 'both');
   // the still outline is there in every one of those cases
-  for (const c of [cardWith('calm').card, cardWith('off').card, cardWith('full', { reduce: true }).card]) assert.equal(c.getAttribute('data-victory'), 'circuit');
+  for (const c of [cardWith('calm').card, cardWith('off').card, cardWith('full', { reduce: true }).card]) assert.equal(c.getAttribute('data-victory'), 'win');
 });
 
 test('a card that stops being a winner loses the border, and a card of no victory never has it', () => {
@@ -71,7 +71,7 @@ test('a card that stops being a winner loses the border, and a card of no victor
   assert.equal(card.getAttribute('data-victory'), null);
   assert.equal(animated(cardWith('full').L.renderHouseCard({ name: 'DA_HouseVernius', owner: 'a' })), false);
   // drawn twice, it has one sweep, not two
-  L.victory(card, 'dominion'); L.victory(card, 'dominion');
+  L.victory(card, true); L.victory(card, true);
   assert.equal(card.querySelectorAll('.lcc-win-sweep').length, 1);
 });
 
@@ -95,21 +95,21 @@ test('the winning count: a faction with more than half of the Houses gets the ou
   // the board is drawn when the tab opens; draw it again with Motion Full by going to the classic list and back
   const sw = (v) => { const b = ui.doc.querySelector('[data-lb="view"][data-view="' + v + '"]'); b.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
   sw('classic'); sw('board'); await ui.settle();
-  const won = [...ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc')].filter((c) => c.getAttribute('data-victory') === 'dominion');
+  const won = [...ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc')].filter((c) => c.getAttribute('data-victory') === 'win');
   assert.equal(won.length, 13);
   assert.ok(won.every((c) => c.getAttribute('data-owner') === 'a'), 'only the Houses of the faction with the count');
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc[data-owner="h"][data-victory]').length, 0);
   assert.ok(won.every((c) => c.classList.contains('lcc-win-anim')), 'Motion Full: the border is added');
-  // 13 Houses is a win by the game's rule (the operator's decision of 2026-11-18): the words say it once, the card carries no tag, and the save is said not to hold the vote
+  // 13 Houses is a win by the game's rule (the operator's decision of 2026-11-18): the words say it, the card carries the one flag, and the save is said not to hold the vote
   for (const c of won) {
     const pick = c.querySelector('button.lcc-hc-select');
     assert.match(pick.getAttribute('title'), /who hold 13 or more Houses\. Sysselraad won by Atreides, by 13 Houses\. The save does not record the vote/);
-    assert.equal(c.querySelectorAll('.lcc-flag').length, 0, 'a 13-House win forms no line: no tag on the card');
+    assert.deepEqual([...c.querySelectorAll('.lcc-flag')].map((x) => x.textContent), ['SYSSELRAAD WON'], 'one flag on every winning House, a 13-House win included (the way it was won is in the plaque and the panel)');
   }
   // Calm: the still outline stays, the animation class does not
   ui.doc.documentElement.setAttribute('data-motion', 'calm');
   sw('classic'); sw('board'); await ui.settle();
-  const calm = [...ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc[data-victory="dominion"]')];
+  const calm = [...ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc[data-victory="win"]')];
   assert.equal(calm.length, 13);
   assert.equal(calm.some((c) => c.classList.contains('lcc-win-anim') || c.querySelector('.lcc-win-sweep')), false);
 });

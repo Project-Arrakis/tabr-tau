@@ -149,11 +149,11 @@
     s.appendChild(el('h3', '', 'Five in a row: one outline on each of five connected Houses'));
     const tracks = ['combat', 'crafting', 'exploration', 'gathering', 'sabotage'];
     const line = el('div', 'lccg-row5', '', { role: 'group', 'aria-label': 'A line of five Houses (fixture)' });
-    FIX.houses.line.forEach((n, i) => line.appendChild(L.renderHouseCard({ name: n, owner: 'a', inLine: true, track: tracks[i] })));
+    FIX.houses.line.forEach((n, i) => line.appendChild(L.renderHouseCard({ name: n, owner: 'a', inLine: true, win: true, track: tracks[i] })));
     s.appendChild(line);
     s.appendChild(el('h3', '', 'Majority: every House of the winning side double-bordered, not connected'));
     const dom = el('div', 'lccg-grid lccg-grid-houses', '', { role: 'group', 'aria-label': 'Majority Houses (fixture)' });
-    FIX.houses.dominion.forEach((n, i) => dom.appendChild(L.renderHouseCard({ name: n, owner: 'h', dominion: true, track: tracks[i % 5] })));
+    FIX.houses.dominion.forEach((n, i) => dom.appendChild(L.renderHouseCard({ name: n, owner: 'h', win: true, track: tracks[i % 5] })));
     s.appendChild(dom);
     s.appendChild(el('h3', '', 'Win tokens: --lcc-glow-win and --lcc-outline-win'));
     s.appendChild(el('p', 'lccg-hint', '--lcc-glow-win (1 = the full light of the approved look; it is not scaled by --lcc-glow, which only softens the plaque) and --lcc-outline-win (3px solid gold) are the two tokens a winning House uses. Left: the still outline, which is all that shows in Calm, in Off and when the browser asks for reduced motion. Right: the optional animated border, a slow gold arc travelling round the outline; it moves only when Motion is Full. Both mean a count or a line of five, never the word win.'));
@@ -178,10 +178,10 @@
       w.appendChild(el('figcaption', '', animated && !full ? label + ' (Motion is not Full, or reduced motion is asked for: the still outline shows)' : label));
       winHost.appendChild(w);
     };
-    sample({ name: FIX.houses.line[0], owner: 'a', inLine: true, track: 'combat' }, false, 'Line of five: still outline');
-    sample({ name: FIX.houses.line[0], owner: 'a', inLine: true, track: 'combat' }, true, 'Line of five: animated border');
-    sample({ name: FIX.houses.dominion[0], owner: 'h', dominion: true, track: 'combat' }, false, 'Majority of the Houses: still outline');
-    sample({ name: FIX.houses.dominion[0], owner: 'h', dominion: true, track: 'combat' }, true, 'Majority of the Houses: animated border');
+    sample({ name: FIX.houses.line[0], owner: 'a', inLine: true, win: true, track: 'combat' }, false, 'Line of five: still outline');
+    sample({ name: FIX.houses.line[0], owner: 'a', inLine: true, win: true, track: 'combat' }, true, 'Line of five: animated border');
+    sample({ name: FIX.houses.dominion[0], owner: 'h', win: true, track: 'combat' }, false, '13 or more Houses: still outline');
+    sample({ name: FIX.houses.dominion[0], owner: 'h', win: true, track: 'combat' }, true, '13 or more Houses: animated border');
   }
 
   function primitives() {

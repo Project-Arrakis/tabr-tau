@@ -199,9 +199,9 @@
     return o;
   }
   // The two victory outlines, drawn on a House card by a data attribute; no evaluation here, the caller says which one applies.
-  //   circuit : the card is one of the five connected Houses of a line (a single bright gold outline and the tag SYSSELRAAD WON)
-  //   dominion: the card belongs to the faction that holds 13 or more Houses (a double border, no tag); cards are not connected
-  const VICTORY = Object.freeze({ get circuit() { return WIN().TEXT.won; } }); // the tag of a House of the line the winner holds; the Houses of a 13-House win have the outline and no tag
+  // The one win outline (operator decision of 2026-11-18): a House that makes up a win, one of the five of a line or one of the 13 or more Houses of the winner, has the same single gold outline and
+  // the same flag. Which way it was won (a line of five, or 13 Houses) is said by the words of the plaque and the victory panel, not by a second kind of outline.
+  const VICTORY = Object.freeze({ get win() { return WIN().TEXT.won; } }); // the flag of a winning House
   // The animated border (class lcc-win-anim and a .lcc-win-sweep child that the style moves by transform) is added only when Motion is Full and the system has not asked for reduced motion.
   // The style checks the same two things again, so this is the first of two gates, not the only one. Calm, Off and reduced motion get the still outline and nothing else.
   function winAnimOn() {
@@ -210,9 +210,9 @@
     try { if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false; } catch (e) { /* no media query support: treat as not asked */ }
     return true;
   }
-  function victory(elm, kind) {
-    const on = kind === 'circuit' || kind === 'dominion';
-    if (on) elm.setAttribute('data-victory', kind); else elm.removeAttribute('data-victory');
+  function victory(elm, on) {
+    on = !!on;
+    if (on) elm.setAttribute('data-victory', 'win'); else elm.removeAttribute('data-victory');
     for (const old of [...elm.children]) if (old.classList && old.classList.contains('lcc-win-sweep')) old.remove();
     if (on && winAnimOn()) { elm.classList.add('lcc-win-anim'); elm.appendChild(el('span', 'lcc-win-sweep', '', { 'aria-hidden': 'true' })); } else elm.classList.remove('lcc-win-anim');
     return elm;
@@ -337,7 +337,9 @@
   }
 
   // The track: the pointed body, the middle gem and its lower point, and the 25 seats. a and h are validated counts or null (the track is then drawn with all seats open and marked unavailable).
-  function track(p, a, h) {
+  // win13: the faction that has won by 13 Houses ('a' or 'h'), else null. Only then does the gold middle seat (the 13th) carry data-win13 and the ring that the style animates (the same gold arc as the
+  // winning Houses, under the same two gates: Motion Full and no reduced-motion request). The still ring is the halo itself, drawn bolder; nothing moves the layout, it is all inside the seat's own circle.
+  function track(p, a, h, win13) {
     const T = TRACK;
     const g = (id) => 'url(#' + p + id + ')';
     const defs = sv('defs', null, [
@@ -371,7 +373,14 @@
       const x = seatX(s.index);
       const sg = sv('g', { class: 'lcc-seat lcc-seat-' + s.state + (s.center ? ' lcc-seat-center' : ''), transform: 'translate(' + x + ',' + T.cy + ')', 'data-slot': s.slot, 'data-state': s.state, 'data-center': s.center ? 'true' : null });
       sg.appendChild(sv('title', null, [doc().createTextNode(seatLabel(s))]));
-      if (s.center) sg.appendChild(sv('circle', { class: 'lcc-seat-halo', r: T.haloR, fill: 'none', stroke: g('tg'), 'stroke-width': 5 }));
+      if (s.center) {
+        sg.appendChild(sv('circle', { class: 'lcc-seat-halo', r: T.haloR, fill: 'none', stroke: g('tg'), 'stroke-width': 5 }));
+        if (win13) {
+          sg.setAttribute('data-win13', win13);
+          sg.setAttribute('class', sg.getAttribute('class') + ' lcc-seat-win13');
+          sg.appendChild(sv('circle', { class: 'lcc-seat-win-sweep', r: T.haloR, fill: 'none', 'stroke-width': 6, 'stroke-linecap': 'round', 'stroke-dasharray': '42 147', 'aria-hidden': 'true' }));
+        }
+      }
       sg.appendChild(sv('circle', { class: 'lcc-seat-base', r: T.r, fill: g(s.state === 'a' ? 'sa' : s.state === 'h' ? 'sh' : s.center ? 'sc' : 'so'), stroke: s.center ? GOLD.hi : '#2a2112', 'stroke-width': s.center ? 3.5 : 2 }));
       // a mark inside a claimed seat tells the two factions apart without colour: a V for Atreides, a ring for Harkonnen. It is the drawn fallback: the faction's picture covers it once the picture
       // has loaded (the round medallion on a claimed seat, the white crest on the gold 13th seat, as in the approved plaque), and a forced-colours view shows it instead of the picture.
@@ -411,8 +420,9 @@
     const root_ = el('div', 'lcc-plaque');
     host.appendChild(root_);
     root_.appendChild(underlay(p));
+    const wd = vm.win || WIN().decideCounts(a, h);
     const tr = el('div', 'lcc-track');
-    const svgTrack = track(p, a, h);
+    const svgTrack = track(p, a, h, wd.state === 'won' && wd.routes.includes('houses') ? wd.winner : null); // the orb moves for a win by 13 Houses only
     svgTrack.setAttribute('aria-label', summaryText(a, h));
     tr.appendChild(svgTrack);
     // header text
@@ -430,7 +440,6 @@
     head.appendChild(hb);
     root_.appendChild(head);
     root_.appendChild(tr);
-    const wd = vm.win || WIN().decideCounts(a, h);
     const sess = el('p', 'lcc-pl-session', vm.sessionLabel || WIN().headline(wd), { 'data-win': wd.state });
     if (wd.state === 'won') sess.setAttribute('title', WIN().TEXT.facts);
     root_.appendChild(sess);
@@ -462,7 +471,7 @@
   const OWNER_GLYPH = Object.freeze({ a: 'A', h: 'H', open: '○', unknown: '?' });
   const TRACK_LABEL = Object.freeze({ combat: 'Combat', crafting: 'Crafting', exploration: 'Exploration', gathering: 'Gathering', sabotage: 'Sabotage' });
   const houseTitle = (name) => String(name == null ? '' : name).replace(/^DA_House/i, '').replace(/^./, (c) => c.toUpperCase());
-  // renderHouseCard(vm): vm = { name, owner: 'a'|'h'|'open'|'unknown', track, selected, oneAway, inLine, dominion, waiting }. A button: the whole card is the target.
+  // renderHouseCard(vm): vm = { name, owner: 'a'|'h'|'open'|'unknown', track, selected, oneAway, inLine (a House of a held line: the data-line mark), win (the House makes up a win), waiting }. A button: the whole card is the target.
   // The live board (M3) adds four optional fields, all off when absent: number (the tile number 01 to 25, a board position), meter ({ reached, total }: the tiers of the character's own
   // contribution), dim (the filters leave this House out: it stays on the board and says so) and compact (the five-by-five tile: the crest over the name, drawn small).
   const pipText = (m) => (m && Number.isInteger(m.total) && m.total > 0 && Number.isInteger(m.reached) && m.reached >= 0 && m.reached <= m.total ? m : null);
@@ -471,7 +480,7 @@
     const owner = OWNER[vm.owner] ? vm.owner : 'unknown';
     const title = houseTitle(vm.name) || 'Unknown House';
     const b = el('button', 'lcc lcc-house', '', { type: 'button', 'aria-pressed': vm.selected ? 'true' : 'false', 'data-owner': owner, 'data-one-away': vm.oneAway ? 'true' : null, 'data-line': vm.inLine ? 'true' : null });
-    if (vm.inLine) victory(b, 'circuit'); else if (vm.dominion) victory(b, 'dominion');
+    if (vm.win) victory(b, true);
     if (vm.selected) b.setAttribute('data-selected', 'true');
     if (vm.dim) b.setAttribute('data-dim', 'true');
     if (vm.compact) b.setAttribute('data-compact', 'true');
@@ -495,8 +504,7 @@
     const flags = el('span', 'lcc-house-flags');
     const notes = [];
     if (vm.oneAway) { flags.appendChild(el('span', 'lcc-flag lcc-flag-one', 'ONE AWAY')); notes.push('one House away from a line'); }
-    if (vm.inLine) { flags.appendChild(el('span', 'lcc-flag lcc-flag-line', VICTORY.circuit)); notes.push('part of the line of five that won the Sysselraad'); }
-    else if (vm.dominion) notes.push('one of the 13 or more Houses of a faction that won the Sysselraad');
+    if (vm.win) { flags.appendChild(el('span', 'lcc-flag lcc-flag-win', VICTORY.win)); notes.push('one of the Houses that won the Sysselraad'); }
     if (vm.waiting > 0) { flags.appendChild(el('span', 'lcc-flag lcc-flag-wait', vm.waiting + ' WAITING')); notes.push(vm.waiting + ' reward' + (vm.waiting === 1 ? '' : 's') + ' waiting'); }
     const mt = pipText(vm.meter);
     if (mt) {

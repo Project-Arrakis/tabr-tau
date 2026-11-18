@@ -62,7 +62,7 @@ Not parity-complete: the Landsraad tab's classic Expand all and Collapse all (L2
 
 ## 4. Win tokens
 
-`--lcc-glow-win` (default 1, the full strength of the approved look, not scaled by `--lcc-glow`) and `--lcc-outline-win` (3px solid gold) are defined in `lcc.css`. On the board, when a faction holds more than half of the Houses read (13 or more of 25), the outline is drawn on those Houses; the wording was the House count ("a count of Houses, not a vote result"), never "wins"; since 2026-11-18 (DECISIONS section G) a faction with 13 or more Houses is shown as "SYSSELRAAD WON · <FACTION>, by 13 Houses". M4 draws the five-in-a-line lines and decides what a vote-start majority is.
+`--lcc-glow-win` (default 1, the full strength of the approved look, not scaled by `--lcc-glow`) and `--lcc-outline-win` (3px solid gold) are defined in `lcc.css`. On the board, when a faction holds more than half of the Houses read (13 or more of 25), the outline is drawn on those Houses; the wording was the House count ("a count of Houses, not a vote result"), never "wins"; since 2026-11-18 (DECISIONS section H) a faction with 13 or more Houses is shown as "SYSSELRAAD WON · <FACTION>, by 13 Houses". M4 draws the five-in-a-line lines and decides what a vote-start majority is.
 
 An optional animated border (class `lcc-win-anim`, a gold arc moved by `transform` only, no script per frame) is added only when Motion is Full and the system has not asked for reduced motion; the style checks the same two conditions again. Calm, Off and reduced motion show the still outline. A web test checks that the class is not added in those cases. The gallery page has a still and an animated sample of each outline.
 
@@ -79,7 +79,7 @@ No new endpoint, no new field in the request, no SQL. The changes to code that s
 
 ## 6. Readiness for M4
 
-The reader returns per House the owner, the board position (row, column, index), the path and the result of the checks, and the board keeps cells addressable by index, so a line evaluator can take the `grid` of `readBoard` without touching the page. `victory(elm, kind)` in `lcc.js` is the hook for the line and majority outlines. Open for M4: the vote-start majority rule (D03), what `sysselraad` means (D02), and the line geometry on the live board.
+The reader returns per House the owner, the board position (row, column, index), the path and the result of the checks, and the board keeps cells addressable by index, so a line evaluator can take the `grid` of `readBoard` without touching the page. `victory(elm, on)` in `lcc.js` is the hook for the one win outline (two outlines until 2026-11-18). Open for M4: the vote-start majority rule (D03), what `sysselraad` means (D02), and the line geometry on the live board.
 
 ## 7. Not verified
 

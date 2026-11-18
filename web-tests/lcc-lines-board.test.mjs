@@ -64,19 +64,19 @@ test('no line held: the figure is the number of lines still possible, no House i
   noConfirm(words(ui));
 });
 
-test('one held row: its five Houses, and only those, have the circuit outline and the tag SYSSELRAAD WON', async () => {
+test('one held row: its five Houses, and only those, have the win outline and the flag SYSSELRAAD WON', async () => {
   const ui = await open(board(ROW3_A));
   assert.deepEqual(outlined(ui), [10, 11, 12, 13, 14]);
-  assert.deepEqual(outlined(ui, 'circuit'), [10, 11, 12, 13, 14]);
+  assert.deepEqual(outlined(ui, 'win'), [10, 11, 12, 13, 14]);
   for (const i of [10, 11, 12, 13, 14]) {
     const c = cards(ui)[i];
     assert.equal(c.getAttribute('data-lines'), 'row2');
-    assert.equal(text(c.querySelector('.lcc-flag-line')), 'SYSSELRAAD WON');
+    assert.equal(text(c.querySelector('.lcc-flag-win')), 'SYSSELRAAD WON');
     assert.match(c.querySelector('.lcc-hc-select').getAttribute('aria-label'), /part of a line of five held by Atreides: row 3, Sysselraad won by Atreides, by five in a line\. The save does not record the vote; the game works the winner out from the Houses\./);
     assert.match(c.querySelector('.lcc-hc-select').getAttribute('title'), /Atreides hold this House in a line of five: row 3\. Sysselraad won by Atreides, by five in a line\. The save does not record the vote/);
   }
-  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag-line').length, 5);
-  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag-dom').length, 0, 'five Houses are not 13: no count outline');
+  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag-win').length, 5);
+  assert.equal(outlined(ui, 'win').length, 5, 'five Houses are not 13: only the line is outlined');
   const p = panel(ui);
   assert.equal(p.getAttribute('data-state'), 'line');
   assert.equal(p.getAttribute('data-faction'), 'a');
@@ -91,29 +91,28 @@ test('one held row: its five Houses, and only those, have the circuit outline an
 test('a held diagonal and a held column are outlined by their own positions, for either faction', async () => {
   const anti = board(letters(25, ...[4, 8, 12, 16, 20].map((i) => [i, 'H'])));
   let ui = await open(anti);
-  assert.deepEqual(outlined(ui, 'circuit'), [4, 8, 12, 16, 20]);
+  assert.deepEqual(outlined(ui, 'win'), [4, 8, 12, 16, 20]);
   assert.equal(panel(ui).getAttribute('data-faction'), 'h');
   assert.match(text(panel(ui)), /SYSSELRAAD WON · HARKONNEN.*Harkonnen hold five Houses in one line: opposite diagonal/);
   closeAll();
   ui = await open(board(letters(25, ...[2, 7, 12, 17, 22].map((i) => [i, 'A']))));
-  assert.deepEqual(outlined(ui, 'circuit'), [2, 7, 12, 17, 22]);
+  assert.deepEqual(outlined(ui, 'win'), [2, 7, 12, 17, 22]);
   assert.match(text(panel(ui)), /Atreides hold five Houses in one line: column 3/);
 });
 
-test('13 Houses held: those Houses have the majority outline, the panel and the headline say the Sysselraad is won by 13 Houses, with no card tag, and the Dominion is never confirmed', async () => {
+test('13 Houses held: those Houses have the same win outline and flag as a line, the panel and the headline say the Sysselraad is won by 13 Houses, and the Dominion is never confirmed', async () => {
   const a13 = 'HAHAHAHAHAHAAAHAHAHAHAHAH'; // 13 Atreides, 12 Harkonnen, no line
   const ui = await open(board(a13));
   const a = [...a13].map((c, i) => (c === 'A' ? i : -1)).filter((i) => i >= 0);
-  assert.deepEqual(outlined(ui, 'dominion'), a);
-  assert.deepEqual(outlined(ui, 'circuit'), []);
+  assert.deepEqual(outlined(ui, 'win'), a);
   const p = panel(ui);
   assert.equal(p.getAttribute('data-state'), 'count');
   assert.match(text(p), /SYSSELRAAD WON.*SYSSELRAAD WON · ATREIDES.*The save does not record the vote.*Atreides hold 13 of the 25 Houses\./);
   assert.equal(text(p.querySelector('.lcc-bd-vcount')), 'BY 13 HOUSES');
   assert.doesNotMatch(text(p), /Dominion|DOMINION|not verified|not a vote result/);
   for (const i of a) assert.match(cards(ui)[i].querySelector('.lcc-hc-select').getAttribute('title'), /One of the Atreides Houses, who hold 13 or more Houses\. Sysselraad won by Atreides, by 13 Houses\./);
-  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag').length, 0, 'the Houses of a 13-House win have the outline and no tag: they form no line');
-  assert.match(text(ui.doc.querySelector('.lcc-bd-headlines')), /SYSSELRAAD WON · 13 HOUSES/);
+  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag-win').length, 13, 'the Houses of a 13-House win have the one flag too');
+  assert.match(text(ui.doc.querySelector('.lcc-bd-headlines')), /WINNING HOUSES · SYSSELRAAD WON/);
   assert.doesNotMatch(honest(words(ui)), BANNED);
   noConfirm(words(ui));
 });
@@ -126,21 +125,20 @@ test('12 Houses held is a lead and nothing more', async () => {
   assert.doesNotMatch(text(panel(ui)), /DOMINION/);
 });
 
-test('a line of five and 13 Houses of the same faction: the line Houses have the circuit outline, the rest of the 13 the majority outline, and the panel says both routes', async () => {
+test('a line of five and 13 Houses of the same faction: all 13 Houses have the one win outline, and the panel says both routes', async () => {
   const l = 'AAAAAAAAAAAAAOHOHOHOHOHOH'; // positions 0 to 12 Atreides (row 1, row 2 and 3 Houses of row 3), a few Harkonnen Houses that hold no line
   const ui = await open(board(l));
-  assert.deepEqual(outlined(ui, 'circuit'), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-  assert.deepEqual(outlined(ui, 'dominion'), [10, 11, 12]);
+  assert.deepEqual(outlined(ui, 'win'), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
   assert.equal(text(panel(ui).querySelector('.lcc-bd-vcount')), 'BY FIVE IN A LINE AND 13 HOUSES');
   assert.match(text(panel(ui)), /Atreides hold five Houses in 2 lines: row 1 and row 2\. Atreides hold 13 of the 25 Houses\./);
-  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc[data-victory="circuit"] .lcc-flag-dom').length, 0, 'a House of a line carries the line badge only');
+  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc[data-victory="win"] .lcc-flag-win').length, 13, 'each of the 13 carries the one flag, once');
   assert.doesNotMatch(honest(words(ui)), BANNED);
   noConfirm(words(ui));
 });
 
 test('a line for each faction is a conflict: both lines are outlined, nobody is chosen', async () => {
   const ui = await open(board('AAAAA' + 'O'.repeat(15) + 'HHHHH'));
-  assert.deepEqual(outlined(ui, 'circuit'), [0, 1, 2, 3, 4, 20, 21, 22, 23, 24]);
+  assert.deepEqual(outlined(ui, 'win'), [0, 1, 2, 3, 4, 20, 21, 22, 23, 24]);
   const p = panel(ui);
   assert.equal(p.getAttribute('data-state'), 'conflict');
   assert.equal(p.getAttribute('data-faction'), null, 'no faction is named for the panel');
@@ -161,7 +159,7 @@ test('an unreadable House: the count of potential lines says it is incomplete an
   assert.equal(outlined(ui).length, 0);
   closeAll();
   ui = await open(board(letters(25, [12, '?'], ...[20, 21, 22, 23, 24].map((i) => [i, 'H']))));
-  assert.deepEqual(outlined(ui, 'circuit'), [20, 21, 22, 23, 24]);
+  assert.deepEqual(outlined(ui, 'win'), [20, 21, 22, 23, 24]);
   assert.match(metric(ui, 'lines'), /Count incomplete/);
   assert.equal(panel(ui).getAttribute('data-state'), 'line');
 });
@@ -194,7 +192,7 @@ test('the animated border follows the Motion setting: Full adds it to the Houses
   for (const m of ['calm', 'off']) {
     ui = await open(board(ROW3_A), { motion: m });
     assert.equal(sweeps(ui), 0, m);
-    assert.equal(outlined(ui, 'circuit').length, 5, m + ': the still outline stays');
+    assert.equal(outlined(ui, 'win').length, 5, m + ': the still outline stays');
     closeAll();
   }
   ui = await open(board('HAHAHAHAHAHAAAHAHAHAHAHAH'), { motion: 'full' });
@@ -207,6 +205,6 @@ test('clicking a House of a line only selects it: nothing is sent and the outlin
   pick.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true }));
   await ui.settle();
   assert.equal(ui.posted.length, 0);
-  assert.deepEqual(outlined(ui, 'circuit'), [10, 11, 12, 13, 14]);
+  assert.deepEqual(outlined(ui, 'win'), [10, 11, 12, 13, 14]);
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc[data-selected="true"]').length, 1);
 });

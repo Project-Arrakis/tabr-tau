@@ -386,7 +386,7 @@
     return WIN_TEXT.countUnavailable;
   }
   // tag: the tag of a House card that belongs to a line the winner holds (held-line cards only; the Houses of a 13-House win carry the gold outline and no tag, since they form no line)
-  function tag(d) { return d.state === 'won' && d.routes.includes('line') ? WIN_TEXT.won : ''; }
+  function tag(d) { return d.state === 'won' ? WIN_TEXT.won : ''; }
   // heldBadge: the badge of a held line in a list of the lines: the won phrase when the winner is settled, the undecidable phrase when both factions qualify
   function heldBadge(d) { return d.state === 'won' ? WIN_TEXT.won : WIN_TEXT.undecidable; }
   // say: one sentence for a screen reader and a tooltip
