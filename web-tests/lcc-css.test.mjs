@@ -363,7 +363,7 @@ test('contrast: 12 px text on the cards and in the Actions panel passes 4.5:1 ag
 
 
 test('contrast: the rules that paint that text use the text tokens, and the strokes keep the accents', () => {
-  const use = (sel, tok) => assert.ok(rules.some((r) => r.at === '' && r.sel.split(',').map((s) => s.trim()).includes(sel) && new RegExp('color: var[(]--lcc-' + tok + '[)]').test(r.body)), sel + ' takes color from --lcc-' + tok);
+  const use = (sel, tok) => assert.ok(rules.some((r) => r.at === '' && r.sel.split(',').map((s) => s.trim()).includes(sel) && r.body.includes('color: var(--lcc-' + tok + ')')), sel + ' takes color from --lcc-' + tok);
   use('.lcc-hc-a .lcc-hc-owner', 'teal-t'); use('.lcc-hc-h .lcc-hc-owner', 'red-t');
   use('.lcc-hc-q-ok', 'teal-t'); use('.lcc-hc-q-wait', 'gold-t'); use('.lcc-hc-q-unk', 'red-t');
   use('.lcc-bd-editor .lcc-bd-sec-h', 'gold-t'); use('.lcc-bd-fc-h', 'red-t'); use('.lcc-bd-fc-a', 'teal-t');
