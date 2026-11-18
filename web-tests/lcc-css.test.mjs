@@ -426,6 +426,7 @@ test('the specialization emblem of a card is one tint like the House crest, with
   assert.doesNotMatch(frame, /clip-path|border|background|gradient/, 'no diamond, no frame, no fill');
   assert.match(frame, /width: 28px; height: 28px;/, 'small');
   assert.match(img, /filter: var\(--lcc-crest-filter\)/, 'the House crest\'s own tint: gold on dark, darker gold on light');
+  assert.doesNotMatch(img, /transform|scale\(/, 'the emblem picture is already cut to the emblem: no zoom of a banner picture (#976)');
   assert.doesNotMatch(bare, /\.lcc-hc-spec[^{]*\{[^}]*(conic-gradient|--lcc-v|progress)/, 'no progress edge');
   assert.doesNotMatch(bare, /\.lcc-hc-spec[^{]*\{[^}]*rgba\(1[23]\d, ?\d+, ?1[67]\d/, 'the purple frame fill is gone');
 });

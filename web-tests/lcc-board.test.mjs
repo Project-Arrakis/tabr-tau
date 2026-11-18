@@ -164,14 +164,14 @@ test('the five tier boxes tell collected, waiting, delivery unknown and not reac
   assert.match(w.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /1 with no delivery record/);
 });
 
-test('each card carries the specialization emblem of its mapped path in the upper right (the banner picture, no frame), and a House without one has none and says so in words', async () => {
+test('each card carries the specialization emblem of its mapped path in the upper right (the clean emblem picture of the path, no frame), and a House without one has none and says so in words', async () => {
   const ui = await open();
   const w = tileOf(ui, 'Wallach');
   const badge = w.querySelector('.lcc-hc-top .lcc-hc-spec');
   assert.ok(badge, 'the badge is in the top row, after the number');
   assert.equal(badge.dataset.track, 'exploration');
   assert.equal(badge.getAttribute('title'), 'Exploration specialization');
-  assert.equal(badge.querySelector('img').getAttribute('src'), '/lcc/art/banners/exploration.webp', 'the extracted banner, not a screenshot crop (#963)');
+  assert.equal(badge.querySelector('img').getAttribute('src'), '/lcc/art/emblems/exploration.png', 'the clean emblem cut from the banner, not the banner with its shadow and side copies (#976), not a screenshot crop (#963)');
   assert.equal(badge.querySelector('img').getAttribute('width'), '28');
   assert.equal(badge.querySelector('img').getAttribute('alt'), '', 'decorative: the path is also written under the name');
   assert.equal(text(w.querySelector('.lcc-hc-track')), 'Exploration');

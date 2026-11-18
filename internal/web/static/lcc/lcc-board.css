@@ -121,9 +121,9 @@
 .lcc-hc-select:focus-visible { outline: 2px solid var(--lcc-gold-text); outline-offset: 2px; }
 .lcc-hc-top { width: 100%; min-height: 30px; display: flex; align-items: center; justify-content: space-between; gap: 3px; color: var(--lcc-dim); font: 10px/1 var(--lcc-sans); }
 .lcc-hc-pos { font-family: var(--lcc-mono); }
-/* the specialization emblem, top right (#963): the path's banner picture, cut to its centre and drawn in one tint like the House crest (the same filter, so gold on a dark ground and a darker gold on a light one); no diamond frame, no progress edge */
+/* the specialization emblem, top right (#963, #976): the path's clean emblem picture (art/emblems, 96 px, only the emblem: the banner's shadow and faded side copies are cut away) drawn in one tint like the House crest (the same filter, so gold on a dark ground and a darker gold on a light one); no diamond frame, no progress edge */
 .lcc-hc-spec { position: relative; flex: none; display: block; width: 28px; height: 28px; overflow: hidden; }
-.lcc-hc-spec-img { display: block; width: 28px; height: 28px; object-fit: contain; transform: scale(1.85); transform-origin: 50% 48%; filter: var(--lcc-crest-filter); }
+.lcc-hc-spec-img { display: block; width: 28px; height: 28px; object-fit: contain; filter: var(--lcc-crest-filter); }
 .lcc-hc[data-dim="true"] .lcc-hc-spec-img { opacity: .43; }
 .lcc-hc-crest { display: grid; place-items: center; width: 56px; height: 54px; flex: none; margin: 0 auto 1px; }
 .lcc-hc-crest-img { display: block; width: 48px; height: 48px; object-fit: contain; filter: var(--lcc-crest-filter); }

@@ -15,6 +15,7 @@ test('the House list is the 25 embedded symbols, the lane and banner lists are t
   assert.equal(L.HOUSES.length, 25);
   assert.deepEqual([...L.TRACKS].sort(), onDisk('lanes').map((f) => f.replace('.webp', '')));
   assert.deepEqual([...L.TRACKS].sort(), onDisk('banners').map((f) => f.replace('.webp', '')));
+  assert.deepEqual([...L.TRACKS].sort(), onDisk('emblems').map((f) => f.replace('.png', '')), 'the emblems (#976): one per path');
   assert.equal(fs.existsSync(path.join(lccDir, 'art', 'specs')), false, 'the 84 px badge crops are gone (#963): the House card draws the banners');
   assert.equal(L.specAsset, undefined);
   assert.deepEqual([...L.DECREE_FILES].sort(), onDisk('decrees').filter((f) => f !== 'fallback.svg').map((f) => f.replace('.webp', '')));
@@ -25,7 +26,7 @@ test('every lookup resolves to a file that is embedded and listed in the manifes
   const listed = new Set(manifest.files.map((f) => f.file));
   const all = [
     ...L.HOUSES.map((k) => L.houseAsset(k)), ...L.HOUSES.map((k) => L.houseAsset('DA_House' + k[0].toUpperCase() + k.slice(1))),
-    ...L.TRACKS.map((k) => L.laneAsset(k)), ...L.TRACKS.map((k) => L.bannerAsset(k)),
+    ...L.TRACKS.map((k) => L.laneAsset(k)), ...L.TRACKS.map((k) => L.bannerAsset(k)), ...L.TRACKS.map((k) => L.emblemAsset(k)),
     ...Object.keys(manifest.decreeArt).map((id) => L.decreeAsset(id)), L.decreeAsset('SpecialVendorActive'),
   ];
   for (const a of all) {
@@ -76,7 +77,57 @@ test('lane and banner pictures are found by the five path names, in any case', (
     assert.equal(L.bannerAsset(k.toUpperCase()).file, 'banners/' + k + '.webp');
     assert.equal(L.bannerAsset(k).src, '/lcc/art/banners/' + k + '.webp');
   }
-  for (const n of ['harvesting', 'combat2', 'lanes/combat', 'combat.png']) { assert.equal(L.laneAsset(n), null); assert.equal(L.bannerAsset(n), null); }
+  for (const n of ['harvesting', 'combat2', 'lanes/combat', 'combat.png']) { assert.equal(L.laneAsset(n), null); assert.equal(L.bannerAsset(n), null); assert.equal(L.emblemAsset(n), null); }
+});
+
+test('the emblem of a path (#976) is a 96 px PNG in a fixed list, found by the five path names in any case, listed in the manifest and cut from the banner of the same path', () => {
+  const listed = new Map(manifest.files.map((f) => [f.file, f]));
+  for (const k of ['combat', 'crafting', 'exploration', 'gathering', 'sabotage']) {
+    const a = L.emblemAsset(k.toUpperCase());
+    assert.equal(a.file, 'emblems/' + k + '.png');
+    assert.equal(a.src, '/lcc/art/emblems/' + k + '.png');
+    assert.equal(a.fallback, false);
+    const m = listed.get(a.file);
+    assert.ok(m, a.file + ' is not in the manifest');
+    assert.equal(m.role, 'emblem');
+    assert.equal(m.source, 'docs/art/landsraad/banners/' + k + '.png');
+    const b = fs.readFileSync(path.join(lccDir, 'art', a.file));
+    assert.equal(b.readUInt32BE(16), 96); assert.equal(b.readUInt32BE(20), 96);
+  }
+  assert.deepEqual(onDisk('emblems'), ['combat.png', 'crafting.png', 'exploration.png', 'gathering.png', 'sabotage.png']);
+  for (const v of ['', 'x', '../combat', 'emblems/combat', 'combat.png', 'combat.webp', null, undefined, 0, {}, ['combat'], '__proto__', 'constructor']) assert.equal(L.emblemAsset(v), null, JSON.stringify(v));
+});
+
+test('every emblem holds only the emblem: transparent corners, a clear margin, and no faint pixels left of the shadow and side copies of the banner (#976)', async () => {
+  // decode the PNG (8-bit RGBA, no interlace) with zlib only
+  const { inflateSync } = await import('node:zlib');
+  for (const k of ['combat', 'crafting', 'exploration', 'gathering', 'sabotage']) {
+    const buf = fs.readFileSync(path.join(lccDir, 'art', 'emblems', k + '.png'));
+    let p = 8; const idat = [];
+    while (p < buf.length) { const len = buf.readUInt32BE(p); if (buf.toString('latin1', p + 4, p + 8) === 'IDAT') idat.push(buf.subarray(p + 8, p + 8 + len)); p += 12 + len; }
+    const raw = inflateSync(Buffer.concat(idat)); const W = 96, st = W * 4; const px = Buffer.alloc(W * W * 4);
+    for (let y = 0; y < W; y++) for (let x = 0; x < st; x++) {
+      const r = raw[y * (st + 1) + 1 + x], f = raw[y * (st + 1)];
+      const a = x >= 4 ? px[y * st + x - 4] : 0, b = y ? px[(y - 1) * st + x] : 0, c = x >= 4 && y ? px[(y - 1) * st + x - 4] : 0;
+      let v; if (f === 0) v = r; else if (f === 1) v = r + a; else if (f === 2) v = r + b; else if (f === 3) v = r + ((a + b) >> 1); else { const pp = a + b - c, pa = Math.abs(pp - a), pb = Math.abs(pp - b), pc = Math.abs(pp - c); v = r + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c); }
+      px[y * st + x] = v & 255;
+    }
+    let x0 = W, y0 = W, x1 = -1, y1 = -1, solid = 0, faint = 0;
+    for (let i = 0; i < W * W; i++) { const al = px[i * 4 + 3]; if (!al) continue; const x = i % W, y = (i - x) / W; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); if (al >= 200) solid++; else faint++; }
+    assert.ok(x0 >= 2 && y0 >= 2 && x1 <= W - 3 && y1 <= W - 3, k + ': a margin of transparent pixels all round (' + [x0, y0, x1, y1] + ')');
+    assert.ok(x1 - x0 >= 80 || y1 - y0 >= 80, k + ': the emblem fills the picture');
+    assert.ok(solid > 800, k + ': a solid emblem (' + solid + ' solid pixels)');
+    // a haze is partly transparent pixels away from the emblem: every non-empty pixel (a handful of thin tips apart) must touch (within 2 px) a solid one, so only the soft edge is partly transparent
+    let stray = 0;
+    for (let i = 0; i < W * W; i++) {
+      if (!px[i * 4 + 3] || px[i * 4 + 3] >= 200) continue;
+      const x = i % W, y = (i - x) / W; let near = false;
+      for (let dy = -2; dy <= 2 && !near; dy++) for (let dx = -2; dx <= 2 && !near; dx++) { const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < W && ny < W && px[(ny * W + nx) * 4 + 3] >= 200) near = true; }
+      if (!near) stray++;
+    }
+    assert.ok(stray <= 8, k + ': partly transparent pixels away from the emblem (a haze): ' + stray + ' of ' + faint + ' (a few thin tips may stay faint, a haze is hundreds)');
+    assert.equal(px[3], 0); assert.equal(px[(W - 1) * 4 + 3], 0); assert.equal(px[((W - 1) * W) * 4 + 3], 0); assert.equal(px[(W * W - 1) * 4 + 3], 0);
+  }
 });
 
 test('a decree id finds its picture; an unmatched decree, an unknown id and a hostile string get the neutral picture, never a 404 and never a guess', () => {
