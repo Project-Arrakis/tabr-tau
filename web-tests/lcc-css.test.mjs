@@ -417,3 +417,13 @@ test('the action bar in the control bar (#914): one group with Jump to House tha
   assert.ok(own.some((r) => r.at === '@media (forced-colors: active)' && /ButtonFace/.test(r.body) && /ButtonText/.test(r.body)), 'forced colours: system colours');
   assert.ok(own.some((r) => r.sel === '.lcc-bd .barpart #lsb-sum' && /flex: 1 1 100%/.test(r.body)), 'the count of the chosen houses has a line of its own');
 });
+
+test('the specialization emblem of a card is one tint like the House crest, with no diamond frame and no progress edge (#963)', () => {
+  const bare = boardCss.replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = (sel) => { const m = bare.match(new RegExp('(?:^|\n)' + sel.replace(/[.]/g, '\.') + ' \{([^}]*)\}')); assert.ok(m, sel); return m[1]; };
+  assert.doesNotMatch(rule('.lcc-hc-spec'), /clip-path|border|background|gradient/, 'no diamond, no frame, no fill');
+  assert.match(rule('.lcc-hc-spec'), /width: 28px; height: 28px;/, 'small');
+  assert.match(rule('.lcc-hc-spec-img'), /filter: var\(--lcc-crest-filter\)/, 'the House crest\'s own tint: gold on dark, darker gold on light');
+  assert.doesNotMatch(bare, /\.lcc-hc-spec[^{]*\{[^}]*(conic-gradient|--lcc-v|progress)/, 'no progress edge');
+  assert.doesNotMatch(bare, /\.lcc-hc-spec[^{]*\{[^}]*rgba\(1[23]\d, ?\d+, ?1[67]\d/, 'the purple frame fill is gone');
+});

@@ -130,11 +130,10 @@
 .lcc-hc-select:focus-visible { outline: 2px solid var(--lcc-gold-text); outline-offset: 2px; }
 .lcc-hc-top { width: 100%; min-height: 30px; display: flex; align-items: center; justify-content: space-between; gap: 3px; color: var(--lcc-dim); font: 10px/1 var(--lcc-sans); }
 .lcc-hc-pos { font-family: var(--lcc-mono); }
-/* the specialization badge: a diamond with the picture of the path, top right */
-.lcc-hc-spec { position: relative; flex: none; display: grid; place-items: center; width: 30px; height: 30px; background: linear-gradient(145deg, rgba(125, 89, 170, .22), rgba(45, 24, 64, .22)); border: 1px solid var(--lcc-stroke); clip-path: polygon(0 25%, 25% 0, 75% 0, 100% 25%, 100% 75%, 75% 100%, 25% 100%, 0 75%); }
-.lcc-hc-spec-img { display: block; width: 26px; height: 26px; object-fit: contain; filter: drop-shadow(0 0 3px rgba(183, 125, 228, .32)); }
-:root[data-theme="light"] .lcc-hc-spec { background: linear-gradient(145deg, rgba(135, 92, 145, .13), rgba(83, 45, 101, .12)); }
-:root[data-theme="light"] .lcc-hc-spec-img { filter: brightness(.62) saturate(1.05) drop-shadow(0 0 1px rgba(50, 24, 70, .3)); }
+/* the specialization emblem, top right (#963): the path's banner picture, cut to its centre and drawn in one tint like the House crest (the same filter, so gold on a dark ground and a darker gold on a light one); no diamond frame, no progress edge */
+.lcc-hc-spec { position: relative; flex: none; display: block; width: 28px; height: 28px; overflow: hidden; }
+.lcc-hc-spec-img { display: block; width: 28px; height: 28px; object-fit: contain; transform: scale(1.85); transform-origin: 50% 48%; filter: var(--lcc-crest-filter); }
+.lcc-hc[data-dim="true"] .lcc-hc-spec-img { opacity: .43; }
 .lcc-hc-crest { display: grid; place-items: center; width: 56px; height: 54px; flex: none; margin: 0 auto 1px; }
 .lcc-hc-crest-img { display: block; width: 48px; height: 48px; object-fit: contain; filter: var(--lcc-crest-filter); }
 .lcc-hc[data-dim="true"] .lcc-hc-crest-img { opacity: .43; }
@@ -328,7 +327,6 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
   .lcc-hc-t.delivered { background: Highlight; color: HighlightText; }
   .lcc-hc-t.waiting { border-width: 2px; border-style: double; }
   .lcc-hc-t.uncertain { border-style: dashed; }
-  .lcc-hc-spec { background: Canvas; border-color: CanvasText; }
   .lcc-bd-tier.on { border-left: 6px solid Highlight; }
   .lcc-bd-fill-a { background: Highlight; }
   .lcc-bd-fill-h, .lcc-bd-fill-me { background: CanvasText; }
@@ -512,7 +510,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
   .lcc-hc-crest { display: none; }
   .lcc-hc-top { min-height: 24px; }
   .lcc-hc-spec { width: 24px; height: 24px; }
-  .lcc-hc-spec-img { width: 20px; height: 20px; }
+  .lcc-hc-spec-img { width: 24px; height: 24px; }
   .lcc-bd-victory { min-height: 0; padding-top: 14px; padding-bottom: 14px; }
   .lcc-bd-emblem { margin: 6px 0 4px; font-size: 34px; }  /* a smaller emblem, not none: it also keeps the status tag a clear gap above the heading */
   .lcc-bd-emblem-a, .lcc-bd-emblem-h { width: 56px; height: 56px; margin: 6px auto 4px; font-size: 26px; }

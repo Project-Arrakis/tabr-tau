@@ -15,7 +15,8 @@ test('the House list is the 25 embedded symbols, the lane and banner lists are t
   assert.equal(L.HOUSES.length, 25);
   assert.deepEqual([...L.TRACKS].sort(), onDisk('lanes').map((f) => f.replace('.webp', '')));
   assert.deepEqual([...L.TRACKS].sort(), onDisk('banners').map((f) => f.replace('.webp', '')));
-  assert.deepEqual([...L.TRACKS].sort(), onDisk('specs').map((f) => f.replace('.png', '')));
+  assert.equal(fs.existsSync(path.join(lccDir, 'art', 'specs')), false, 'the 84 px badge crops are gone (#963): the House card draws the banners');
+  assert.equal(L.specAsset, undefined);
   assert.deepEqual([...L.DECREE_FILES].sort(), onDisk('decrees').filter((f) => f !== 'fallback.svg').map((f) => f.replace('.webp', '')));
   assert.deepEqual(manifest.files.filter((f) => f.role === 'house').map((f) => f.key).sort(), [...L.HOUSES].sort());
 });
@@ -24,7 +25,7 @@ test('every lookup resolves to a file that is embedded and listed in the manifes
   const listed = new Set(manifest.files.map((f) => f.file));
   const all = [
     ...L.HOUSES.map((k) => L.houseAsset(k)), ...L.HOUSES.map((k) => L.houseAsset('DA_House' + k[0].toUpperCase() + k.slice(1))),
-    ...L.TRACKS.map((k) => L.laneAsset(k)), ...L.TRACKS.map((k) => L.bannerAsset(k)), ...L.TRACKS.map((k) => L.specAsset(k)),
+    ...L.TRACKS.map((k) => L.laneAsset(k)), ...L.TRACKS.map((k) => L.bannerAsset(k)),
     ...Object.keys(manifest.decreeArt).map((id) => L.decreeAsset(id)), L.decreeAsset('SpecialVendorActive'),
   ];
   for (const a of all) {
@@ -58,7 +59,6 @@ test('a path, a traversal, an extension or an odd type never becomes a picture',
     assert.equal(L.houseAsset(n), null, 'house ' + JSON.stringify(n).slice(0, 40));
     assert.equal(L.laneAsset(n), null, 'lane ' + JSON.stringify(n).slice(0, 40));
     assert.equal(L.bannerAsset(n), null, 'banner ' + JSON.stringify(n).slice(0, 40));
-    assert.equal(L.specAsset(n), null, 'spec ' + JSON.stringify(n).slice(0, 40));
     assert.equal(L.decreeAsset(n).fallback, true, 'decree ' + JSON.stringify(n).slice(0, 40));
   }
   const evil = { toString() { return 'ecaz'; }, valueOf() { return 'ecaz'; } };
@@ -66,7 +66,6 @@ test('a path, a traversal, an extension or an odd type never becomes a picture',
     assert.equal(L.houseAsset(v), null, 'house of a ' + typeof v);
     assert.equal(L.laneAsset(v), null);
     assert.equal(L.bannerAsset(v), null);
-    assert.equal(L.specAsset(v), null);
     assert.equal(L.decreeAsset(v).fallback, true, 'decree of a ' + typeof v);
   }
 });
@@ -75,10 +74,9 @@ test('lane and banner pictures are found by the five path names, in any case', (
   for (const k of ['combat', 'crafting', 'exploration', 'gathering', 'sabotage']) {
     assert.equal(L.laneAsset(k).file, 'lanes/' + k + '.webp');
     assert.equal(L.bannerAsset(k.toUpperCase()).file, 'banners/' + k + '.webp');
-    assert.equal(L.specAsset(k.toUpperCase()).file, 'specs/' + k + '.png');
-    assert.equal(L.specAsset(k).src, '/lcc/art/specs/' + k + '.png');
+    assert.equal(L.bannerAsset(k).src, '/lcc/art/banners/' + k + '.webp');
   }
-  for (const n of ['harvesting', 'combat2', 'lanes/combat', 'combat.png']) { assert.equal(L.laneAsset(n), null); assert.equal(L.bannerAsset(n), null); assert.equal(L.specAsset(n), null); }
+  for (const n of ['harvesting', 'combat2', 'lanes/combat', 'combat.png']) { assert.equal(L.laneAsset(n), null); assert.equal(L.bannerAsset(n), null); }
 });
 
 test('a decree id finds its picture; an unmatched decree, an unknown id and a hostile string get the neutral picture, never a 404 and never a guess', () => {

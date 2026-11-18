@@ -216,8 +216,8 @@
     if (ct.off) b.setAttribute('data-why', ct.tip);
     return b;
   }
-  // One House card, as the approved design draws it: the number and the specialization badge on top, the crest, HOUSE NAME, the specialization, the owner, the five tier boxes and the line "N/5 REACHED"
-  // with the collected and the waiting counts. A House whose specialization the save does not give has no badge and says so in words.
+  // One House card, as the approved design draws it: the number and the specialization emblem on top, the crest, HOUSE NAME, the specialization, the owner, the five tier boxes and the line "N/5 REACHED"
+  // with the collected and the waiting counts. A House whose specialization the save does not give has no emblem and says so in words.
   function houseCard(h, matchIds, host, editable, picks, major, ev) {
     // a House of a line of five held by its faction, and a House of a faction with 13 or more Houses, get the one gold win outline (the words are the plaque's, the victory panel's, the legend's, and the House's tooltip and aria text; a card carries no text flag, #961).
     // Both are read from the evaluator, from the Houses as they stand now.
@@ -234,10 +234,11 @@
     const sel = btn('lcc-hc-select', '', { 'data-lcb': 'sel', 'data-id': h.id, 'data-fk': 'ht:' + h.id, 'aria-pressed': state.sel === h.id ? 'true' : 'false' });
     const top = el('span', 'lcc-hc-top');
     top.appendChild(el('span', 'lcc-hc-pos', h.number, { 'aria-hidden': 'true' }));
-    const banner = L().specAsset(h.track);
+    // the specialization emblem (#963): the path's banner picture, cut to its centre and drawn in one tint like the House crest; no frame, no progress edge
+    const banner = L().bannerAsset(h.track);
     if (banner) {
       const g = el('span', 'lcc-hc-spec', '', { title: trackWord(h.track) + ' specialization', 'data-track': h.track });
-      const img = el('img', 'lcc-hc-spec-img', '', { alt: '', width: 26, height: 26, src: banner.src, decoding: 'async' });
+      const img = el('img', 'lcc-hc-spec-img', '', { alt: '', width: 28, height: 28, src: banner.src, decoding: 'async' });
       img.addEventListener('error', () => { img.hidden = true; });
       g.appendChild(img);
       top.appendChild(g);

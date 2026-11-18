@@ -162,14 +162,15 @@ test('the five tier boxes tell collected, waiting, delivery unknown and not reac
   assert.match(w.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /1 with no delivery record/);
 });
 
-test('each card carries the specialization badge of its mapped path in the upper right, and a House without one has no badge and says so in words', async () => {
+test('each card carries the specialization emblem of its mapped path in the upper right (the banner picture, no frame), and a House without one has none and says so in words', async () => {
   const ui = await open();
   const w = tileOf(ui, 'Wallach');
   const badge = w.querySelector('.lcc-hc-top .lcc-hc-spec');
   assert.ok(badge, 'the badge is in the top row, after the number');
   assert.equal(badge.dataset.track, 'exploration');
   assert.equal(badge.getAttribute('title'), 'Exploration specialization');
-  assert.equal(badge.querySelector('img').getAttribute('src'), '/lcc/art/specs/exploration.png');
+  assert.equal(badge.querySelector('img').getAttribute('src'), '/lcc/art/banners/exploration.webp', 'the extracted banner, not a screenshot crop (#963)');
+  assert.equal(badge.querySelector('img').getAttribute('width'), '28');
   assert.equal(badge.querySelector('img').getAttribute('alt'), '', 'decorative: the path is also written under the name');
   assert.equal(text(w.querySelector('.lcc-hc-track')), 'Exploration');
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-tiles .lcc-hc-spec').length, 25);
@@ -177,7 +178,7 @@ test('each card carries the specialization badge of its mapped path in the upper
   a.tasks[7].line = 'nothing-known';
   const un = await open(a);
   const c = tileOf(un, 'Wallach');
-  assert.equal(c.querySelector('.lcc-hc-spec'), null, 'no badge when the save gives no path');
+  assert.equal(c.querySelector('.lcc-hc-spec'), null, 'no emblem when the save gives no path');
   assert.equal(text(c.querySelector('.lcc-hc-track')), 'Specialization not in the save');
   assert.match(c.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /specialization not in the save/);
 });
