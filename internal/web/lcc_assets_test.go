@@ -281,7 +281,7 @@ func TestLccArtIsServedFromAFixedListOnly(t *testing.T) {
 			t.Errorf("/lcc/art/%s: %d %q, %d of %d bytes", f.File, code, ct, len(body), len(want))
 		}
 	}
-	for p, ct := range map[string]string{"/lcc/lcc.css": "text/css", "/lcc/lcc.js": "text/javascript", "/lcc/lcc-model.js": "text/javascript", "/lcc/lcc-board.css": "text/css", "/lcc/lcc-board.js": "text/javascript"} {
+	for p, ct := range map[string]string{"/lcc/lcc.css": "text/css", "/lcc/lcc.js": "text/javascript", "/lcc/lcc-model.js": "text/javascript", "/lcc/lcc-board.css": "text/css", "/lcc/lcc-board.js": "text/javascript", "/lcc/lcc-spec.css": "text/css", "/lcc/lcc-spec.js": "text/javascript"} {
 		if code, got, _ := get(p); code != http.StatusOK || !strings.HasPrefix(got, ct) {
 			t.Errorf("%s: %d %q", p, code, got)
 		}
@@ -303,7 +303,7 @@ func TestLccArtIsServedFromAFixedListOnly(t *testing.T) {
 func TestLccFilesReachNothingAndTheGalleryStaysOutOfTheEditor(t *testing.T) {
 	js, css := read(t, "static/lcc/lcc.js"), read(t, "static/lcc/lcc.css")
 	// the files of the board (M3) follow the same rules: they draw and compute, they never reach the network, keep data or write markup
-	for name, src := range map[string]string{"lcc.js": js, "lcc.css": css, "lcc-model.js": read(t, "static/lcc/lcc-model.js"), "lcc-board.js": read(t, "static/lcc/lcc-board.js"), "lcc-board.css": read(t, "static/lcc/lcc-board.css")} {
+	for name, src := range map[string]string{"lcc.js": js, "lcc.css": css, "lcc-model.js": read(t, "static/lcc/lcc-model.js"), "lcc-board.js": read(t, "static/lcc/lcc-board.js"), "lcc-board.css": read(t, "static/lcc/lcc-board.css"), "lcc-spec.js": read(t, "static/lcc/lcc-spec.js"), "lcc-spec.css": read(t, "static/lcc/lcc-spec.css")} {
 		for _, bad := range []string{"fetch(", "XMLHttpRequest", "WebSocket", "sendBeacon", "EventSource", "/api/", "localStorage", "sessionStorage", "document.cookie", "eval(", "new Function", "innerHTML", "outerHTML", "insertAdjacentHTML", "document.write", "importScripts", "@import", "data:", "javascript:"} {
 			if strings.Contains(src, bad) {
 				t.Errorf("%s contains %q", name, bad)
@@ -316,7 +316,7 @@ func TestLccFilesReachNothingAndTheGalleryStaysOutOfTheEditor(t *testing.T) {
 			}
 		}
 	}
-	if strings.Contains(css, "url(") || strings.Contains(read(t, "static/lcc/lcc-board.css"), "url(") {
+	if strings.Contains(css, "url(") || strings.Contains(read(t, "static/lcc/lcc-board.css"), "url(") || strings.Contains(read(t, "static/lcc/lcc-spec.css"), "url(") {
 		t.Error("the Command Center styles load a picture by address: the art is an <img> from the fixed list, so the styles need no url()")
 	}
 	// no demo value in the helpers or the styles
@@ -338,10 +338,10 @@ func TestLccFilesReachNothingAndTheGalleryStaysOutOfTheEditor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The editor's page links the board's five files (index.html) and app.js talks to them only through the three names they publish (LCC for the art and the plaque, LCCM for the reader of the
-	// answer, LCCB for the board) and the one object it hands them (LCC_HOST). It never builds a file name of the art, and no other file of the page mentions them.
+	// The editor's page links the board's five files (index.html) and app.js talks to them only through the names they publish (LCC for the art and the plaque, LCCM for the reader of the
+	// answer, LCCB for the board, LCCS for the Specializations view) and the one object it hands them (LCC_HOST). It never builds a file name of the art, and no other file of the page mentions them.
 	idx := read(t, "static/index.html")
-	for _, want := range []string{`href="/lcc/lcc.css"`, `href="/lcc/lcc-board.css"`, `src="/lcc/lcc.js"`, `src="/lcc/lcc-model.js"`, `src="/lcc/lcc-board.js"`} {
+	for _, want := range []string{`href="/lcc/lcc.css"`, `href="/lcc/lcc-board.css"`, `src="/lcc/lcc.js"`, `src="/lcc/lcc-model.js"`, `src="/lcc/lcc-board.js"`, `href="/lcc/lcc-spec.css"`, `src="/lcc/lcc-spec.js"`} {
 		if !strings.Contains(idx, want) {
 			t.Errorf("static/index.html does not link %s", want)
 		}
@@ -363,7 +363,7 @@ func TestLccFilesReachNothingAndTheGalleryStaysOutOfTheEditor(t *testing.T) {
 	app := read(t, "static/app.js")
 	for _, bad := range []string{"LCC.", "lcc/art", "houseAsset", "gallery"} {
 		if strings.Contains(app, bad) {
-			t.Errorf("static/app.js reaches into the Command Center helpers with %q: it uses only LCCM, LCCB and LCC_HOST", bad)
+			t.Errorf("static/app.js reaches into the Command Center helpers with %q: it uses only LCCM, LCCB, LCCS and LCC_HOST", bad)
 		}
 	}
 	// a request for the gallery files gets no page

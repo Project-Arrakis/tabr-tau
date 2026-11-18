@@ -205,3 +205,7 @@ Not matching the approved design, on purpose: no drawn route through the five Ho
 * **Fonts (F7).** No network font exists in the approved design and none is added; the editor's content security policy allows fonts from itself only, and none is embedded.
 * **Wording.** "Taken" became "Claimed" (filter and Inspector line). The plaque and the House cards never say win, won or dominion for a count.
 
+
+## Specializations tab (M5): the same method on the V21 view
+
+The Specializations view of the approved design was matched with the same method (side by side at six widths, dark and light, with the same five tracks) and its matrix is kept in `08-m5-specializations.md`: 51 rows, of which 34 match, 5 are intentional departures that need the owner's approval (scroll icons for the diamond crops, a level scale for the illustrative waypoints, two lanes per row on a phone, the editor's own toast for the in-panel feedback line, and the view behind a switch with Classic as the default), 7 differ because of the honest-data or wording rules, and 5 are prototype-only chrome or a later milestone. No row of the tables above changed.

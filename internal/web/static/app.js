@@ -784,6 +784,19 @@ async function playerView() {
   if (sub.player == 'vehicles') return vehiclesView();
   return playerSection(sub.player);
 }
+// The Specialization tab has two views of the same save: the classic list (the default, and the fallback when the Command Center scripts are not there) and the Command Center view
+// (lcc/lcc-spec.js). The view only changes how the tracks are drawn: the buttons of both carry the same data-act and run the same handlers below, so the requests and the questions are the same.
+const SPV = { view: browserStore.get('spec.view') === 'cc' ? 'cc' : 'classic', vm: null };
+const specCCOn = () => SPV.view === 'cc' && !!(window.LCCS && window.LCC);
+const specViewSwitch = () => (window.LCCS && window.LCC ? html`<div class="lcc lcc-sp-viewsw" role="group" aria-label="View of the Specialization tab" title="Both views read and write the same save in the same way, with the same questions and checks."><span class="lcc-sp-vlbl">View</span><button type="button" class="lcc-sp-vbtn" data-spview="classic" aria-pressed="${specCCOn() ? 'false' : 'true'}">Classic list</button><button type="button" class="lcc-sp-vbtn" data-spview="cc" aria-pressed="${specCCOn() ? 'true' : 'false'}">Command Center</button></div>` : '');
+// Opening a House of a path on the Landsraad board only moves between pages: the board shows it selected, with its filters cleared, and nothing is written.
+function specGoHouse(id) {
+  if (!Number.isInteger(id)) return;
+  if (window.LCC && window.LCCM && window.LCCB) { LV.view = 'board'; browserStore.set('lsb.view', 'board'); const st = window.LCCB.state; st.sel = id; st.show = 'all'; st.hs = 'any'; st.spec = 'all'; }
+  tab = 'landsraad'; browserStore.set('tab', tab); render();
+}
+const SPV_HOST = { goHouse: specGoHouse };
+function specMount() { const m = $('#lcs-mount'); if (m && SPV.vm && window.LCCS) window.LCCS.mount(m, SPV.vm, SPV_HOST); }
 const NO_TRACK_NUMBER = 'Number not known yet: see Track numbers below.';
 // The reset of the character's level and XP (#339): on Character > Overview, beside Give XP. The number it asks the person to confirm is the XP the summary above shows.
 function levelResetCard() {
@@ -956,6 +969,12 @@ async function playerSection(s) {
   } else if (c == 'reputation') {
     const f = await api('/api/player/factions');
     h.push(html`<div class="card d-panel"><h3 class="d-head">Faction reputation</h3>${tbl([{ k: 'name', label: 'Faction' }, { k: 'reputation', label: 'Reputation', f: (r) => html`<input type="number" min="0" max="12474" value="${r.reputation}" data-faction="${r.faction_id}" data-name="${r.name}" class="w100" aria-label="Reputation with ${r.name}" title="0 to 12474">` }], f, { empty: 'This save has no factions.' })}</div>`);
+  } else if (s == 'specialization' && specCCOn()) {
+    const sp = await api('/api/player/specs');
+    let hs = null;
+    try { hs = ((await api('/api/landsraad')).tasks || []).map((t) => ({ id: t.id, name: lbNameOf(t), line: t.line || '' })); } catch (e) { hs = null; } // the Houses of a path come from the Landsraad read; without it they are "Not in the save"
+    SPV.vm = window.LCCS.readSpecs(sp, hs);
+    h.push(html`${specViewSwitch()}<div id="lcs-mount"></div>`);
   } else if (s == 'specialization') {
     const sp = await api('/api/player/specs');
     const known = (r) => r.number != null;
@@ -963,6 +982,7 @@ async function playerSection(s) {
     const allKnown = sp.rows.length > 0 && sp.rows.every(known);
     const rawTracks = sp.rows.filter(known);
     const keystone = (r) => (r.granted ? html`<span class="ok" title="${r.keystoneOwned} of ${r.keystoneTotal} keystones">Granted</span>` : r.keystoneOwned > 0 ? html`<span title="${r.keystoneOwned} of ${r.keystoneTotal} keystones bought">${r.keystoneOwned}/${r.keystoneTotal}</span>` : html`<span class="mut">-</span>`);
+    h.push(specViewSwitch());
     h.push(html`<div class="card d-panel"><h3 class="d-head">Specialization tracks</h3>
       <div class="row"><button class="b d-btn primary" data-act="spKeyAll">Grant all keystones</button><button class="b bad d-btn danger" data-act="spKeyReset">Reset all keystones</button></div>
       <div class="row">${(() => {
@@ -1044,6 +1064,7 @@ async function playerSection(s) {
     h.push(html`<div class="card d-panel"><p class="mut">There is nothing on this page.</p></div>`);
   }
   setHTML(host(), html`${h}`);
+  if (s == 'specialization') specMount();
   if (s == 'journey') journeyList();
   if (s == 'skills') skillsList();
   if (s == 'research') researchList();
@@ -3117,6 +3138,7 @@ const A = {
   },
   spKeyAll: async () => (await ask({ title: 'Grant all keystones?', body: 'Every specialization keystone of every track is bought. One edit.', ok: 'Grant all', danger: true })) && act(async () => { const r = await api('/api/player/specs/keystones/grant', {}); toast(r.granted ? `${r.granted} keystones granted` + NOT_SAVED : 'All keystones were already granted.'); }, null),
   spKeyReset: async () => (await ask({ title: 'Reset all keystones?', body: 'Every specialization keystone you have bought is removed. One edit.', ok: 'Reset all', danger: true })) && act(async () => { const r = await api('/api/player/specs/keystones/reset', {}); toast(r.removed ? `${r.removed} keystones reset` + NOT_SAVED : 'There were no keystones to reset.'); }, null),
+  spAddCC: (d) => { const bad = window.LCCS.amountProblem(val('spx' + d.t), SPV.vm ? SPV.vm.maxXp : 0); if (bad) { toast(bad, true); return; } return A.spAdd(d); }, // the Command Center's Apply XP: a number the editor would refuse is not sent; any other goes through spAdd unchanged
   spAdd: (d) => act(async () => { const r = await api('/api/player/specs/xp', { track: d.t, amount: +val('spx' + d.t) }); toast(`${d.t}: ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()} XP, level ${Math.floor(r.level)}` + NOT_SAVED); }, null),
   spMax: async (d) => (await ask({ title: 'Grant max ' + d.t + '?', body: d.t + ' goes to the XP of its last level (level 100). One edit.', ok: 'Grant max', danger: true })) && act(async () => { await api('/api/player/specs/max', { track: d.t }); toast(d.t + ' set to max' + NOT_SAVED); }, null),
   spReset: async (d) => (await ask({ title: 'Reset ' + d.t + '?', body: d.t + " goes back to 0 XP. Its keystones are not changed. One edit.", ok: 'Reset', danger: true })) && act(async () => { const r = await api('/api/player/specs/reset', { track: d.t }); toast(r.removed ? d.t + ' reset' + NOT_SAVED : d.t + ' had no XP to reset; nothing changed.'); }, null),
@@ -3383,6 +3405,8 @@ document.addEventListener('click', (e) => {
   if (bg) { bsGroup = bg.dataset.bsgrp; bsInvOpen = null; render('rows', false, bg); return; }
   const ig = e.target.closest('[data-invg]');
   if (ig) { invG = ig.dataset.invg; render('rows', false, ig); return; }
+  const sw = e.target.closest('[data-spview]');
+  if (sw) { SPV.view = sw.dataset.spview === 'cc' ? 'cc' : 'classic'; browserStore.set('spec.view', SPV.view); render(); return; }
   const s = e.target.closest('[data-sub]');
   if (s) { const [g, k] = s.dataset.sub.split(':'); if (GROUPS.includes(g)) { sub[g] = k; render(); } return; }
   const a = D(e);
