@@ -143,7 +143,7 @@ test('a card shows five numbered tier boxes and the line N/5 REACHED with the co
   assert.deepEqual(boxes.map((b) => text(b)), ['◆', '◆', '◆', '4', '5'], 'a waiting reward is a diamond, a tier not reached keeps its number');
   assert.deepEqual(boxes.map((b) => b.classList.contains('waiting')), [true, true, true, false, false]);
   assert.equal(text(w.querySelector('.lcc-hc-count')), '3/5 REACHED ✓ 0 ◆ 3');
-  assert.match(w.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /^Number 08, Wallach, claimed by Atreides, path Exploration, 3 of 5 tiers reached, 0 collected, 3 rewards waiting$/);
+  assert.match(w.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /^Number 08, Wallach, claimed by Atreides, path Exploration, 3 of 5 tiers reached, 0 collected, 3 rewards not collected$/);
 });
 
 test('the five tier boxes tell collected, waiting, delivery unknown and not reached apart, and delivery unknown is never read as collected', async () => {
@@ -251,7 +251,8 @@ test('choosing a House opens the Inspector: both scales apart, the contributors 
   assert.match(i.querySelector('.lcc-bd-insp-name').getAttribute('title'), /^No\. 08/, 'the position is a tooltip, not a chip');
   assert.equal(i.querySelector('.lcc-bd-no'), null);
   assert.equal(i.querySelector('.lcc-bd-status'), null, 'no sentence under the band: the approved design has none');
-  assert.equal(text(i.querySelector('.lcc-bd-bloc')), 'Exploration · Associated specialization');
+  assert.equal(text(i.querySelector('.lcc-bd-gopath')), 'Exploration Specialization', 'the specialization is one line, and it is the button that opens its track (#939)');
+  assert.equal(i.querySelector('.lcc-bd-bloc'), null, 'no separate caption and no repeated words');
   assert.match(i.querySelector('.lcc-bd-control').getAttribute('title'), /^Claimed by Atreides \(completed, with a winner the save records\)\./);
   assert.match(text(i.querySelector('.lcc-bd-banner .lcc-bd-sr')), /^Claimed by Atreides/, 'and the words stay for a screen reader');
   const bars = [...i.querySelectorAll('.lcc-bd-fc')].map((b) => [text(b.querySelector('.lcc-bd-fc-l')), text(b.querySelector('.lcc-bd-fc-v'))]);
@@ -286,10 +287,10 @@ test('the reward ledger tells waiting, collected and delivery unknown apart, and
   click(ui, tileOf(ui, 'Wallach').querySelector('button'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
   assert.equal(i.querySelector('.lcc-bd-ledger .lcc-bd-line'), null, 'no sentence under the four counts');
-  assert.match(i.querySelector('.lcc-bd-stats').getAttribute('aria-label'), /3 of 5 reached · 1 waiting to collect · 1 collected · 1 delivery unknown\./, 'the counts stay for a screen reader and as a tooltip');
+  assert.match(i.querySelector('.lcc-bd-stats').getAttribute('aria-label'), /3 of 5 reached · 1 collected · 1 not collected \(waiting at the house representative\) · 1 delivery unknown · 2 not reached\./, 'the counts stay for a screen reader and as a tooltip');
   assert.match(text(i), /Delivery unknown.{1,20}means the tier is reached and the save has no delivery row/);
   const st = [...i.querySelectorAll('.lcc-bd-tier-st')].map((s) => text(s));
-  assert.deepEqual(st.slice(0, 3), ['Reached, collected', 'Reached, delivery unknown', 'Reached, waiting to collect']);
+  assert.deepEqual(st.slice(0, 3), ['Reached, collected', 'Reached, delivery unknown', 'Reached, not collected']);
 });
 
 test('the list: board order by default, sortable by every column both ways, grouped by region with the unmapped last', async () => {
@@ -325,7 +326,7 @@ test('every control that changes the save carries the classic list\'s own data-l
   const ui = await open();
   click(ui, tileOf(ui, 'Wallach').querySelector('button'));
   const writes = [...ui.doc.querySelectorAll('.lcc-bd [data-lb]')].filter((e) => !e.closest('[data-bar]') && !e.closest('#lcc-term')).map((e) => e.dataset.lb); // the parts of the action bar the page seats in the control bar are the page's own (#914)
-  assert.deepEqual([...new Set(writes)].sort(), ['pick', 'qa', 'tier']);
+  assert.deepEqual([...new Set(writes)].sort(), ['map', 'pick', 'qa', 'tier']); // map: the place line of the panel is the Classic click that opens the Saved map (#939)
   assert.deepEqual([...new Set([...ui.doc.querySelectorAll('#lcc-term [data-lb]')].map((e) => e.dataset.lb))].sort(), ['tad', 'tapply', 'tflag', 'tmk', 'trf'], 'the Term and Decrees section keeps the classic panel own controls');
   assert.equal(ui.doc.querySelectorAll('.lcc-bd [data-lcb="sel"]').length, 25);
   assert.equal(ui.doc.querySelectorAll('.lcc-bd .lcc-bd-act[data-lb="qa"]').length, 4);

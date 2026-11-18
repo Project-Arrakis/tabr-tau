@@ -13,7 +13,12 @@ const text = (el) => el.textContent.replace(/\s+/g, ' ').trim();
 const click = (ui, el) => { if (typeof el === 'string') el = ui.doc.querySelector(el); assert.ok(el, 'no element'); el.focus(); el.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
 const select = (ui, sel, v) => { const el = ui.doc.querySelector(sel); el.value = String(v); el.dispatchEvent(new ui.w.Event('change', { bubbles: true })); };
 const writes = (ui) => ui.posted.filter((p) => p.path === '/api/landsraad/apply');
-const result = (ui) => text(ui.doc.querySelector('#lsb-result'));
+// what the page said last: the Classic list's result line, or the toast of the board (the board keeps no result line, #943)
+const toastEls = (ui) => [...ui.doc.querySelectorAll('#toast .d-toast')];
+const toastText = (ui) => { const t = toastEls(ui).pop(); return t ? text(t.querySelector('span')) : ''; };
+const result = (ui) => (ui.doc.querySelector('#lsb-result') ? text(ui.doc.querySelector('#lsb-result')) : toastText(ui));
+// the same words without the punctuation that joins them: the Classic sentence and the board's lines say the same things
+const same = (s) => s.replace(/[.;,:]/g, '').replace(/\s+/g, ' ').trim();
 const idOf = (a, name) => a.tasks.find((t) => t.house_name === 'DA_House' + name).id;
 async function open(view, answer = synthetic(), post = { '/api/landsraad/apply': OK }) {
   const ui = await boot({ get: { '/api/landsraad': answer }, post, local: { tab: 'landsraad', 'lsb.view': view, 'lsb.layout': 'grid' } });
@@ -51,12 +56,12 @@ for (const [label, , pick] of SCENARIOS) {
       const ui = await open(view, synthetic());
       click(ui, pick(control[view], ui, a));
       await ui.settle();
-      got[view] = { sent: writes(ui).map((w) => w.body), said: result(ui) };
+      got[view] = { sent: writes(ui).map((w) => w.body), said: same(result(ui)) };
       closeAll();
     }
     assert.equal(got.classic.sent.length, 1, 'one request: ' + JSON.stringify(got.classic.sent));
     assert.deepEqual(got.board.sent, got.classic.sent, 'the board sends exactly what the classic list sends');
-    assert.equal(got.board.said, got.classic.said, 'and says exactly what it says');
+    assert.equal(got.board.said, got.classic.said, 'and says the same things, one result per line on the board');
     assert.equal(got.board.sent[0].term_id, 7, 'the term of the read is in the request, for the stale guard');
     const h = got.board.sent[0].houses[0];
     assert.ok('was_mine' in h && 'was_done' in h && 'was_win' in h, 'every request carries what the page showed (the stale guard)');
@@ -71,7 +76,10 @@ test('the stale guard: a conflict from the save is shown as the save said it, an
   click(ui, control.board.act(ui, a, 'Sor', 'complete'));
   await ui.settle();
   assert.equal(result(ui), msg);
-  assert.equal(ui.doc.querySelector('#lsb-result').className, 'bad');
+  assert.equal(ui.doc.querySelector('#lsb-result'), null, 'the board keeps no result line');
+  const t = toastEls(ui).pop();
+  assert.ok(t.classList.contains('err') && t.getAttribute('role') === 'alert', 'an error is a toast that stays until it is dismissed');
+  assert.ok(t.querySelector('button.x'), 'with a dismiss control');
   assert.ok(ui.fetched.filter((p) => p === '/api/landsraad').length > before, 'the board is read again');
   assert.ok(ui.doc.querySelector('.lcc-bd-insp'), 'the House that was looked at is still looked at');
 });
@@ -112,7 +120,7 @@ test('written and queued are said apart: a queued change is never called saved, 
   click(ui, control.board.act(ui, synthetic(), 'Sor', 'complete'));
   await ui.settle();
   assert.match(result(ui), /queued: written as soon as the save can be written/);
-  assert.equal(ui.doc.querySelector('#lsb-result').className, 'warn');
+  assert.ok(toastEls(ui).pop().classList.contains('part'), 'a queued change is a warning that stays until it is dismissed, not a success');
   assert.doesNotMatch(result(ui), /\bsaved\b/i);
   const written = await open('board');
   click(written, control.board.act(written, synthetic(), 'Sor', 'complete'));
@@ -243,7 +251,8 @@ test('the grant before the click: the Inspector says what a raise would write, a
   const t = text(ui.doc.querySelector('.lcc-bd-insp'));
   assert.match(t, /Fill and Fill faction goal: Writes 6 missions: \+36,000 Solari, \+6,000 House Scrip/);
   assert.match(t, /Written at once\. The pay-out of a mission \(Solari, House Scrip, specialization XP and rewards\) has not been checked in the game yet\./);
-  assert.ok(ui.doc.querySelector('.lcc-bd-insp .lcc-badge-unverified'), 'the page says the pay-out is not checked in the game');
+  assert.equal(ui.doc.querySelector('.lcc-bd-insp .lcc-badge-unverified'), null, 'no badge in the Actions block (#948): the fact is the heading tooltip and a screen-reader text');
+  assert.match(ui.doc.querySelector('.lcc-bd-insp #lcc-bd-s4').getAttribute('title'), /^Not checked in the game yet./);
   const b = synthetic();
   b.grant.max_missions = 3;
   const over = await open('board', b);
@@ -263,7 +272,12 @@ test('the actions block has the approved layout: Faction and Fill 5 tiers, the H
   assert.ok(rows[0].querySelector('.lcc-bd-act[data-do="reopen"]').classList.contains('lcc-bd-act-danger'));
   assert.deepEqual([...rows[1].querySelectorAll('label, button')].map((x) => text(x).replace(/ 0.*$/, '')), ['Set tier', 'Apply tier']);
   assert.deepEqual([...ed.querySelectorAll('#lcc-bd-tierset option')].map((o) => text(o)), ['0 — none', '1 / 5', '2 / 5', '3 / 5', '4 / 5', '5 / 5']);
-  assert.match(text(ed), /NOT CHECKED IN THE GAME/);
+  // #948: no visible badge and no visible note; what they said is the tooltip of the heading and a text for a screen reader that the section is described by
+  assert.equal(ed.querySelector('.lcc-badge, .lcc-badge-unverified'), null);
+  const facts = ed.querySelector('#lcc-bd-s4d');
+  assert.ok(facts.classList.contains('lcc-bd-sr') && ed.getAttribute('aria-describedby') === 'lcc-bd-s4d');
+  assert.equal(facts.textContent, 'Not checked in the game yet. The numbered tier boxes of the board and of the ledger are the same controls as Set tier. Choosing a faction writes nothing.');
+  assert.deepEqual([...ed.querySelectorAll('p')].filter((p) => !p.classList.contains('lcc-bd-sr') && !p.closest('details')).map((p) => p.className), [], 'no visible note paragraph is left in the block');
   assert.match(text(ed), /written at once with a backup first/);
   assert.equal(ed.querySelector('#lcc-bd-fac').value, '1', 'it starts on the faction of the character');
 });
@@ -287,14 +301,14 @@ test('Apply tier is the click of the numbered box: same request and same words f
     const viaBox = await open('board');
     click(viaBox, control.board.tier(viaBox, a, 'Kenola', tierPick));
     await viaBox.settle();
-    const box = { sent: writes(viaBox).map((w) => w.body), said: result(viaBox) };
+    const box = { sent: writes(viaBox).map((w) => w.body), said: same(result(viaBox)) };
     closeAll();
     const viaApply = await open('board');
     select_(viaApply, a, 'Kenola');
     select(viaApply, '#lcc-bd-tierset', n);
     click(viaApply, '.lcc-bd-insp [data-lcb="settier"]');
     await viaApply.settle();
-    const apply = { sent: writes(viaApply).map((w) => w.body), said: result(viaApply) };
+    const apply = { sent: writes(viaApply).map((w) => w.body), said: same(result(viaApply)) };
     closeAll();
     assert.equal(box.sent.length, 1, label);
     assert.deepEqual(apply.sent, box.sent, label + ': the same request');
@@ -306,7 +320,8 @@ test('Apply tier changes nothing it cannot do as one click: the same tier, a dro
   const ui = await open('board');
   const a = synthetic();
   select_(ui, a, 'Wallach'); // three tiers reached
-  const say = () => text(ui.doc.querySelector('#lcc-bd-eset'));
+  const say = () => toastText(ui); // a reason is a toast of the page, not a line kept in the panel (#943)
+  assert.equal(ui.doc.querySelector('#lcc-bd-eset'), null, 'no status line is kept in the panel');
   select(ui, '#lcc-bd-tierset', 3);
   click(ui, '.lcc-bd-insp [data-lcb="settier"]');
   assert.match(say(), /already the highest reached tier/);

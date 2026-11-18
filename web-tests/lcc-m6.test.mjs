@@ -130,7 +130,8 @@ test('the Inspector of a House with a specialization line opens that line in Spe
     if (g) { went = g; break; }
   }
   assert.ok(went, 'a House with a path');
-  assert.match(text(went), /^Open .+ in Specializations$/);
+  assert.match(text(went), /^[A-Za-z]+ Specialization$/, "the specialization line is the button (#939)");
+  assert.match(went.getAttribute("aria-label"), /Open [A-Za-z]+ in Specializations/);
   click(ui, went);
   await ui.settle();
   assert.equal(ui.posted.length, 0, 'only reads');

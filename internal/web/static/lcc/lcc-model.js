@@ -111,7 +111,7 @@
     return out.sort((x, y) => y.amount - x.amount || x.label.localeCompare(y.label) || x.id - y.id);
   }
 
-  const TIER_WORD = Object.freeze({ not_reached: 'Not reached', waiting: 'Reached, waiting to collect', delivered: 'Reached, collected', no_row: 'Reached, delivery unknown', unknown: 'Reached, delivery unknown' });
+  const TIER_WORD = Object.freeze({ not_reached: 'Not reached', waiting: 'Reached, not collected', delivered: 'Reached, collected', no_row: 'Reached, delivery unknown', unknown: 'Reached, delivery unknown' });
 
   function readHouse(t, F, me, pos) {
     const goal = num(t.goal_amount);

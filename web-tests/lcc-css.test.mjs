@@ -300,9 +300,10 @@ test('phones: the bar of the chosen houses is sticky at the bottom, clear of the
   assert.match(bare, /\.lcc-bd-back \{ all: unset; display: none;/);
 });
 
-test('disclosures: the long notes of the panel are native details with a plain summary, and the result copy and question place exist', () => {
+test('disclosures: the long notes of the panel are native details with a plain summary, and the question place exists; no copy of a result is styled (#943)', () => {
   assert.match(bare, /\.lcc-bd-disc > summary \{[^}]*font: 600 12px/);
-  assert.match(bare, /\.lcc-bd-eres:empty \{ display: none; \}/);
+  assert.doesNotMatch(bare, /lcc-bd-eres/);
+  assert.doesNotMatch(bare, /lcc-bd-caption/);
   assert.match(bare, /\.lcc-bd-ask:empty \{ display: none; \}/);
 });
 

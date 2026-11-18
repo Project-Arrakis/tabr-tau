@@ -51,7 +51,7 @@ test('the whole action bar is in the control bar above the 5 by 5: the choose bu
   // the question, the result line and the note on a write: directly under the control bar, before the cards
   const slot = ui.doc.querySelector('.lcc-bd-panel > .lcc-bd-slot');
   assert.ok(slot && bar.nextElementSibling === slot, 'directly under the bar');
-  assert.equal(slot.querySelector('#lsb-result').getAttribute('role'), 'status');
+  assert.equal(slot.querySelector('#lsb-result'), null, 'the board keeps no result line: a result is a toast of the page (#943)');
   assert.equal(text(slot.querySelector('#lsb-legend')), 'Writes at once, with a backup first; a raise also pays its missions. Not checked in the game yet.');
   assert.ok(slot.compareDocumentPosition(ui.doc.querySelector('.lcc-bd-stage')) & ui.w.Node.DOCUMENT_POSITION_FOLLOWING, 'before the cards');
   // only the collapsed About sections of the bar are dropped
@@ -78,7 +78,7 @@ test('the classic list keeps its action bar as it was (one bar, the About sectio
   const bar = ui.doc.querySelector('#lsb-board > .actbar');
   assert.ok(bar, 'the bar is in the classic board');
   assert.deepEqual([...bar.querySelectorAll('button')].map((b) => b.dataset.fk), ['b-all', 'b-none', 'b-fill', 'b-complete', 'b-reopen']);
-  assert.ok(bar.querySelector('#lsb-fac') && bar.querySelector('#lsb-sum') && bar.querySelector('#lsb-result') && bar.querySelector('#lsb-legend'));
+  assert.ok(bar.querySelector('#lsb-fac') && bar.querySelector('#lsb-sum') && bar.querySelector('#lsb-legend'));
   assert.deepEqual([...bar.querySelectorAll('details.about > summary')].map((s) => text(s)), ['About tiers', 'About Fill and Complete']);
   assert.equal(bar.querySelector('[data-bar]'), null, 'it is not drawn in parts');
   assert.equal(bar.hidden, false, 'the classic bar is shown');
@@ -98,7 +98,7 @@ test('each control of the action bar in the control bar sends the request the cl
     if (faction !== undefined) { const f = ui.doc.querySelector('#lsb-fac'); f.value = String(faction); f.dispatchEvent(new ui.w.Event('change', { bubbles: true })); }
     click(ui, view === 'classic' ? '#lsb-board > .actbar [data-fk="b-' + kind + '"]' : '.lcc-bd-filters [data-fk="b-' + kind + '"]');
     await ui.settle();
-    assert.ok(ui.doc.querySelector('#lsb-confirm'), view + ' ' + kind + ' ' + faction + ': the question is asked before a write: ' + text(ui.doc.querySelector('#lsb-result')));
+    assert.ok(ui.doc.querySelector('#lsb-confirm'), view + ' ' + kind + ' ' + faction + ': the question is asked before a write');
     assert.equal(ui.posted.length, 0, view + ': nothing is written before the answer');
     const q = text(ui.doc.querySelector('#lsb-confirm b'));
     click(ui, '#lsb-confirm [data-fk="c-yes"]');
@@ -153,7 +153,7 @@ test('the Actions block is first under the name, the notes are disclosures with 
   assert.match(text(ds[0]), /Each click is written at once with a backup first, and refused if this House is no longer as shown\./, 'the words are the ones that were drawn open before');
   assert.match(text(ds[3]), /^Important: three separate statesImportant: A House claimed by a faction/);
   assert.match(text(ds[1]), /Fill and Fill faction goal: Writes 6 missions/);
-  assert.match(text(ds[2]), /✓ Collected.*◆ Waiting at representative.*○ Not reached.*\? No delivery record/);
+  assert.match(text(ds[2]), /✓ Collected.*◆ Not collected.*○ Not reached.*\? No delivery record/);
   ds[2].open = true;
   ds[2].dispatchEvent(new ui.w.Event('toggle'));
   look(ui, a, 'Kenola');
@@ -194,8 +194,8 @@ test('the question about one House is drawn in the panel next to the buttons; a 
   assert.ok(q2 && q2.closest('[data-bar="ask"]') && q2.closest('.lcc-bd-slot'), 'it is back under the control bar and still there to answer');
   click(ui, '[data-fk="c-no"]');
   assert.equal(ui.doc.querySelector('#lsb-confirm'), null);
-  assert.match(text(ui.doc.querySelector('#lcc-bd-eres')), /^Cancelled\. Nothing was written\.$/, 'the copy of the result line says the same as the result line');
-  assert.equal(text(ui.doc.querySelector('#lcc-bd-eres')), text(ui.doc.querySelector('#lsb-result')));
+  assert.equal(ui.doc.querySelector('#lcc-bd-eres'), null, 'no copy of a result is kept in the panel (#943)');
+  assert.match(text([...ui.doc.querySelectorAll('#toast .d-toast')].pop()), /^Cancelled\. Nothing was written\./, 'the answer to the question is a toast');
   // several houses: the question stays in the bar
   pick(ui, a, ['Sor', 'Lindaren']);
   click(ui, '[data-fk="b-complete"]');
@@ -204,17 +204,21 @@ test('the question about one House is drawn in the panel next to the buttons; a 
   assert.equal(ui.doc.querySelector('.lcc-bd-ask').childElementCount, 0);
 });
 
-test('the copy of the result line is for the eye only (the result line is the one that is announced) and carries the same words and kind after a write', async () => {
+test('a write on the board says what it did as one toast, one result per line, and keeps no copy of it in the panel (#943)', async () => {
   const a = synthetic();
   const ui = await open(a);
   look(ui, a, 'Kenola');
   click(ui, '.lcc-bd-insp .lcc-bd-tier[data-t="3"]');
   await ui.settle();
-  const m = ui.doc.querySelector('#lcc-bd-eres');
-  assert.equal(m.getAttribute('aria-hidden'), 'true');
-  assert.equal(ui.doc.querySelector('#lsb-result').getAttribute('role'), 'status');
-  assert.equal(text(m), text(ui.doc.querySelector('#lsb-result')));
-  assert.match(text(m), /^House Kenola: your contribution 1,200 → 3,600/);
+  assert.equal(ui.doc.querySelector('#lcc-bd-eres'), null);
+  assert.equal(ui.doc.querySelector('#lsb-result'), null);
+  const ts = [...ui.doc.querySelectorAll('#toast .d-toast')];
+  assert.equal(ts.length, 1, 'one at a time');
+  assert.equal(ts[0].getAttribute('role'), 'status');
+  assert.equal(ts[0].querySelector('span').textContent.split('\n')[0], 'House Kenola: your contribution 1,200 → 3,600 (tiers 2 to 3 reached).', 'what changed is the first line');
+  assert.ok(ts[0].querySelector('span').textContent.split('\n').length >= 2, 'what was not written, and the notes, are lines of their own');
+  assert.doesNotMatch(ts[0].textContent, /Nothing to do/);
+  assert.equal(ui.doc.querySelector('#toast').getAttribute('aria-live'), 'polite');
 });
 
 test('the bar of the chosen houses for a phone follows the choice and presses the action bar\'s own buttons', async () => {
@@ -262,7 +266,7 @@ test('a board that cannot be checked is read-only: its notice comes first, and n
   const ui = await open(a);
   assert.equal(ui.doc.querySelector('#lsb-phonebar'), null);
   assert.equal(ui.doc.querySelector('.actbar'), null);
-  assert.ok(ui.doc.querySelector('#lsb-result'));
+  assert.equal(ui.doc.querySelector('#lsb-result'), null, 'the board keeps no result line');
   const slot = ui.doc.querySelector('.lcc-bd-slot');
-  assert.ok(slot && slot.querySelector('#lsb-result'), 'the result line stands in the same place');
+  assert.ok(slot, 'the place under the control bar stays');
 });
