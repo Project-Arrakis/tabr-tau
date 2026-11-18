@@ -2143,7 +2143,7 @@ const decreeSorted = (dec) => [...dec].sort((x, y) => (x.name_known === false) -
 // The plain SpecialVendorActive decree has no category and an effect nobody has checked (#634). Its row stays in the data and in the Active decree drop-down and is never changed or deleted;
 // the pool list shows it only inside a closed disclosure, with the same buttons. The four category vendors stay in the list.
 const LB_HIDDEN_DECREE = 'SpecialVendorActive';
-const LT = { ad: undefined, rf: undefined, say: '', bad: false, open: false, hidOpen: false }; // what the two drop-downs were set to (kept over a redraw), and the line that says what was written
+const LT = { ad: undefined, rf: undefined, say: '', bad: false, open: false, hidOpen: false, histOpen: false }; // what the two drop-downs were set to (kept over a redraw), and the line that says what was written
 // the two drop-downs: what was chosen, else the term's active decree and the character's own faction (the term's reigning faction when the character has none); a faction the list does not offer is shown as none
 function lbTermSel(l) {
   const t = l.term || {}, facs = (l.factions || []).map((f) => String(f.id)), decs = (l.decrees || []).map((d) => String(d.id));
@@ -2224,13 +2224,21 @@ function lbTermModel(l) {
   });
   return {
     none: false,
-    term: { id: t.term_id, start: lbClock(t.start_time), end: lbClock(t.end_time), reigning: t.reigning_faction_id != null ? lbFacName(l, t.reigning_faction_id) : '' },
+    term: { id: t.term_id, start: lbClock(t.start_time), end: lbClock(t.end_time), startSec: lbPlay(t.start_time), endSec: lbPlay(t.end_time), reigning: t.reigning_faction_id != null ? lbFacName(l, t.reigning_faction_id) : '' },
+    clock: lbSaveClock(l),
     active: one(by(t.active_decree_id)), elected: one(by(t.elected_decree_id)),
     pool: dec.map(row), options: decreeSorted(dec).map((d) => ({ id: d.id, label: decreeFull(d) })),
     factions: (l.factions || []).map((f) => ({ id: f.id, label: f.name + (own != null && f.id == own ? ' (your faction)' : '') })),
-    sel, selD: one(by(sel.ad)), pending: lbPendingText(l, sel.ad), say: LT.say, bad: LT.bad, open: LT.open, hidOpen: LT.hidOpen,
+    sel, selD: one(by(sel.ad)), pending: lbPendingText(l, sel.ad), say: LT.say, bad: LT.bad, open: LT.open, hidOpen: LT.hidOpen, histOpen: LT.histOpen,
     history: { note: tm.length < 2 ? 'This save holds only the current term.' : e.length ? 'Terms with a row of yours; open one for its houses. The rows of a term say what the contribution was; they do not say which terms paid out.' : 'No earlier term has a row of yours.', terms },
   };
+}
+// A play-clock second as a number (null when the save holds none, or a value that is a real time, not the play clock: the same rule as lbClock), and where the play clock stood when the save was written, with
+// the real time of that write in ms (null when the read does not give it). Display only (#922).
+const lbPlay = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) || Number(v) < 0 || Number(v) >= 1e8 ? null : Number(v));
+function lbSaveClock(l) {
+  const c = l && l.clock;
+  return c && Number.isFinite(Number(c.play_seconds)) && Number.isFinite(Number(c.saved_at)) ? { play: Number(c.play_seconds), savedAt: Number(c.saved_at) * 1000 } : null;
 }
 const lbTermOn = () => !!window.LCCT;
 function lbTSay(t, kind) { LT.say = t; LT.bad = kind === true; const r = $('#lsb-tresult'); if (r) { r.textContent = t; r.classList.toggle('bad', LT.bad); } }
@@ -2242,11 +2250,11 @@ const lbViewSwitch = () => (window.LCC && window.LCCM && window.LCCB ? html`<div
 // seated in the board's control bar (lbSeat), not under the board (#914).
 function lbBoardInner(l) {
   const hs = l.tasks.map((r) => lbHouse(r, l)), ready = window.LCCM.readBoard(l).ready;
-  const who = l.character ? (lbCan(l) ? 'Your character is in ' + lbFacName(l, l.character.faction_id) + '.' : 'Your character is in no faction, so there is no contribution of yours to change.') : 'This save has no character.';
+  const who = l.character ? (lbCan(l) ? '' : 'Your character is in no faction, so there is no contribution of yours to change.') : 'This save has no character.'; // the line that named the faction is gone (#930): Fill and Complete name '(your faction)' where a faction is chosen
   return html`${lbViewSwitch()}<section class="card d-panel" aria-labelledby="lsb-board-h" id="lsb-board"><h2 class="d-head" id="lsb-board-h">Command Center board <span class="cnt">${nn(hs.length, 'house', 'houses')}</span></h2>
-  <p class="line1">${who}</p>
+  ${who ? html`<p class="line1">${who}</p>` : ''}
   <div id="lsb-lcc"></div>
-  ${hs.length && ready ? lbActbar(hs, l, true) : html`<p id="lsb-result" role="status" tabindex="-1" ${LP.bad ? html`class="bad"` : LP.warn ? html`class="warn"` : ''}>${LP.say}</p>`}${hs.length && ready ? lbPhoneBar() : ''}</section>${lbTermOn() ? html`<div id="lsb-lcc-term"></div>` : html`${lbTerm(l)}${lbHistory(l)}`}`;
+  ${hs.length && ready ? lbActbar(hs, l, true) : html`<p id="lsb-result" role="status" tabindex="-1" ${LP.bad ? html`class="bad"` : LP.warn ? html`class="warn"` : ''}>${LP.say}</p>`}${hs.length && ready ? lbPhoneBar() : ''}</section>${lbTermOn() ? html`<div id="lsb-lcc-term"></div>` : html`${lbTerm(l)}${lbHistory(l)}`}`; // with the Command Center scripts the term section is seated in the board under the plaque (lbSeat), drawn once (#923)
 }
 function lbInner(l) {
   if (lbBoardOn()) return lbBoardInner(l);
@@ -2586,7 +2594,8 @@ const LB_PARTS = [['choose', 'choose'], ['act', 'act'], ['ask', 'bar']];
 const lbPart = (k) => $('#lsb [data-bar="' + k + '"]');
 const lbBarNode = () => $('#lsb-board > #lsb-result, #lsb .lcc-bd-slot > #lsb-result');
 function lbUnseat() {
-  const home = $('#lsb-board'), bar = $('#lsb-board > .actbar'), c = $('#lsb-confirm');
+  const home = $('#lsb-board'), bar = $('#lsb-board > .actbar'), c = $('#lsb-confirm'), tm = $('#lsb-lcc-term');
+  if (home && tm && tm.parentNode !== home.parentNode) home.after(tm); // the Term and Decrees section goes back to its own place before the board is drawn again (#923)
   if (bar) {
     bar.hidden = false;
     for (const [k] of LB_PARTS) { const p = lbPart(k); if (p && p.parentNode !== bar) bar.appendChild(p); }
@@ -2600,6 +2609,8 @@ function lbUnseat() {
 function lbSeat(container) {
   const lcc = container || $('#lsb-lcc');
   if (!lcc) return;
+  const tm = $('#lsb-lcc-term'), tslot = lcc.querySelector('[data-lcc-slot="term"]');
+  if (tm && tslot && tm.parentNode !== tslot) tslot.appendChild(tm); // under the plaque, where the decree preview strip was (#923)
   for (const [k, slotName] of LB_PARTS) { const p = lbPart(k), slot = lcc.querySelector('[data-lcc-slot="' + slotName + '"]'); if (p && slot && p.parentNode !== slot) slot.appendChild(p); }
   const home = $('#lsb-board > .actbar');
   if (home && !home.childElementCount) home.hidden = true; // nothing is left in it: no empty box under the board
@@ -2675,12 +2686,8 @@ function lbDecreeNow() {
   const t = LD && LD.term, d = t && t.active_decree_id != null ? (LD.decrees || []).find((x) => x.id == t.active_decree_id) : null;
   return d ? { name: decreeLabel(d), effect: d.effect || '' } : null;
 }
-// The decrees this page knows by name, for the board's read-only decree preview (a preview changes what the plaque shows and nothing else: it is never sent to the save).
-function lbDecreesKnown() {
-  return ((LD && LD.decrees) || []).map((d) => ({ id: d.id, name: decreeLabel(d), effect: d.effect || '' }));
-}
 window.LCC_HOST = {
-  ctl: lbCtl, decree: lbDecreeNow, decrees: lbDecreesKnown, picks: () => LP.pick, filtered: lbBoardFiltered, goPath: specGoPath,
+  ctl: lbCtl, decree: lbDecreeNow, picks: () => LP.pick, filtered: lbBoardFiltered, goPath: specGoPath,
   unseat: lbUnseat, seat: lbSeat, // presentation only: where the parts of the action bar, the question and a copy of the result line are drawn
   // the faction box of the Inspector's actions drives the board's own faction box (choosing a faction writes nothing)
   setFac: (v) => { const s = $('#lsb-fac'); if (!s || s.disabled) return; s.value = String(v); s.dispatchEvent(new Event('change', { bubbles: true })); },
@@ -2790,7 +2797,7 @@ function lbWire() {
   root.addEventListener('click', lbClick);
   root.addEventListener('change', lbChange);
   root.addEventListener('click', lbPhoneClick);
-  root.addEventListener('toggle', (e) => { if (e.target && e.target.id === 'lsb-tdp') LT.open = e.target.open; else if (e.target && e.target.id === 'lsb-dphid') LT.hidOpen = e.target.open; }, true); // the panel stays open over a write
+  root.addEventListener('toggle', (e) => { if (e.target && e.target.id === 'lsb-tdp') LT.open = e.target.open; else if (e.target && e.target.id === 'lsb-dphid') LT.hidOpen = e.target.open; else if (e.target && e.target.getAttribute && e.target.getAttribute('data-key') === 'tm-hist') LT.histOpen = e.target.open; }, true); // the panel stays open over a write
   root.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (LP.confirm && !LP.busy) { const a = LP.confirm.back; lbCancelConfirm(); lbSay('Cancelled. Nothing was written.'); lbFocusFk(a); return; }

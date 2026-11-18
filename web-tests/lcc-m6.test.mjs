@@ -51,10 +51,21 @@ test('Make active is off for the decree that is active, and says so', async () =
   assert.ok(ui.doc.querySelector('#lcc-term .lcc-tm-row[data-decree="4"] [data-lb="tmk"]'), 'another row can be made active');
 });
 
-test('the board has a button to the term section that moves the focus to its heading and writes nothing', async () => {
+test('the Term and Decrees section is on the board, once, directly under the plaque, with a heading that can take the focus; the decree pool and the earlier terms are closed behind a Show control (#923)', async () => {
   const ui = await open();
-  click(ui, '[data-lcb="toterm"]');
-  assert.equal(ui.doc.activeElement.id, 'lcc-tm-h');
+  assert.equal(ui.doc.querySelectorAll('#lcc-term').length, 1);
+  assert.equal(ui.doc.querySelector('[data-lcb="toterm"]'), null, 'the link that scrolled down to the section is gone: the section is where the link was');
+  const sec = ui.doc.querySelector('#lcc-term');
+  assert.equal(sec.closest('[data-lcc-slot="term"]').previousElementSibling.classList.contains('lcc-plaque-host'), true);
+  assert.equal(sec.querySelector('#lcc-tm-h').getAttribute('tabindex'), '-1');
+  for (const sel of ['#lsb-tdp', '.lcc-tm-hist']) {
+    const d = sec.querySelector(sel);
+    assert.ok(d, sel);
+    assert.equal(d.open, false, sel + ' is closed by default');
+    assert.equal(text(d.querySelector('summary .lcc-tm-showhide')), 'Show');
+    d.open = true; d.dispatchEvent(new ui.w.Event('toggle'));
+    assert.equal(text(d.querySelector('summary .lcc-tm-showhide')), 'Hide');
+  }
   assert.equal(ui.posted.length, 0);
 });
 

@@ -157,7 +157,7 @@ test('the earlier terms: the table is a keyboard-reachable region and a line abo
   assert.ok(hint && hint.classList.contains('lcc-tm-scrollhint'));
   assert.match(text(hint), /Scroll the table sideways/);
   assert.match(term, /\.lcc-tm-scrollhint \{ display: none;/);
-  assert.match(term, /@media \(max-width: 640px\) \{ \.lcc-tm-scrollhint \{ display: block; \} \}/);
+  assert.match(term, /@media \(max-width: 640px\) \{ \.lcc-tm \.lcc-tm-scrollhint \{ display: block; \} \}/);
   assert.match(term, /\.lcc-tm-tablewrap:focus-visible \{ outline: 3px solid var\(--lcc-focus\)/);
 });
 

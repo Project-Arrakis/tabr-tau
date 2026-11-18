@@ -60,27 +60,24 @@ test('Make active again on another row, with the board redrawn in between', asyn
   assert.match(plaqueText(ui), /Ranged/i);
 });
 
-test('a decree looked at in the preview does not hold the plaque after the term was changed', async () => {
+test('there is no sample: choosing a decree in the section does not change the plaque until it is written', async () => {
   const ui = await open();
-  pick(ui, '#lcc-bd-decree', 6);
-  assert.match(plaqueText(ui), /Repair/i, 'the preview shows the sample');
-  assert.ok(ui.doc.querySelector('.lcc-plaque [class*="demo"]') || /sample/i.test(text(ui.doc.querySelector('#lcc-bd-preview-n'))));
-  pick(ui, '#lsb-tad', 4);
+  const before = title(ui);
+  pick(ui, '#lsb-tad', 6);
+  assert.equal(title(ui), before, 'a draft does not reach the plaque');
+  assert.equal(ui.doc.querySelector('.lcc-plaque [class*="demo"]'), null);
+  assert.equal(ui.doc.querySelector('#lcc-bd-decree'), null);
   click(ui, '[data-lb="tapply"]');
   await ui.settle();
-  assert.equal(ui.answer.term.active_decree_id, 4);
-  assert.match(plaqueText(ui), /Crafting/i, 'the plaque shows the decree of the term');
-  assert.doesNotMatch(plaqueText(ui), /Repair/i);
-  assert.equal(ui.doc.querySelector('#lcc-bd-decree').value, '');
+  assert.match(plaqueText(ui), /Repair/i, 'written: the plaque follows');
 });
 
-test('the preview is kept while the term does not change, and the term section says a draft is not applied yet', async () => {
+test('the term section says a draft is not applied yet, and the plaque keeps the decree of the term until it is written', async () => {
   const ui = await open();
   const hint = () => text(ui.doc.querySelector('#lcc-tm-pending'));
   assert.equal(hint(), '', 'no draft: no hint');
-  pick(ui, '#lcc-bd-decree', 6);
   pick(ui, '#lsb-trf', 2); // a redraw of the board; the term did not change
-  assert.match(plaqueText(ui), /Repair/i, 'the sample stays');
+  assert.match(title(ui), /Exclusive Vehicle|Vehicle/i, 'the plaque still shows the decree of the term');
   pick(ui, '#lsb-tad', 4);
   assert.match(hint(), /Not applied yet/);
   assert.match(hint(), /Exclusive Vehicle/i, 'names the decree the term still has');

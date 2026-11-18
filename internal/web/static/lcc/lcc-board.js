@@ -1,12 +1,12 @@
-// The Command Center's live board (milestone M3): the plaque, the decree preview, the four figures, the five-by-five board of 25 Houses, the list of the same Houses, the Imperial Victory Analysis and the
+// The Command Center's live board (milestone M3): the plaque, the place of the Term and Decrees section, the four figures, the five-by-five board of 25 Houses, the list of the same Houses, the Imperial Victory Analysis and the
 // House Intelligence panel, drawn from the answer of the Landsraad read.
 //
-// What this file is: a drawing and a small amount of view state (which filter is on, the layout, the sort, the House that is looked at, the decree that is previewed). Every figure it shows comes from
+// What this file is: a drawing and a small amount of view state (which filter is on, the layout, the sort, the House that is looked at). Every figure it shows comes from
 // lcc-model.js (readBoard), and every sentence about what a click would do comes from the page's own code through `host.ctl(id)`: the same functions that draw the classic list. It builds elements with
 // createElement and textContent only, so a House or decree name from a save is never markup.
 // What it is not: it never writes. A control that changes the save is a plain button that carries the same data-lb attributes as the classic list (data-lb="tier", "qa", "pick", "map"), so one click
 // handler in app.js, one stale guard, one write queue and one backup serve both views; the request itself is made there. When the board cannot be trusted as a board (readBoard says it is not ready)
-// the controls that write are not drawn at all and the list says why. The decree preview changes only what the plaque shows.
+// the controls that write are not drawn at all and the list says why. The plaque shows the term’s own active decree and nothing else.
 // The sysselraad column of a task is not read here, a lead is never called a win, and a figure the save does not hold is shown as "Not in the save".
 (function (root) {
   'use strict';
@@ -36,7 +36,7 @@
   const tierKind = (t) => (t.reached ? (TIER_CLASS[t.state] ? t.state : 'unknown') : 'not_reached');
 
   // The view state. It lives here, not in the answer, so a redraw after a write keeps the filter, the layout and the House that was looked at.
-  const state = { layout: 'grid', show: 'all', hs: 'any', spec: 'all', sort: 'position', dir: 'asc', group: '', sel: null, preview: '', seenDecree: undefined, strategy: false, line: '', lineSort: 'board' };
+  const state = { layout: 'grid', show: 'all', hs: 'any', spec: 'all', sort: 'position', dir: 'asc', group: '', sel: null, strategy: false, line: '', lineSort: 'board' };
   let last = null; // { container, answer, host } of the latest mount, so a change of the view can draw again without the page's help
   let inited = false;
   // What a redraw keeps for the person (display only): where the House Intelligence panel was scrolled to (for the House it was on) and which disclosures were opened.
@@ -60,22 +60,9 @@
   // A figure that cannot be read is never a zero: it is "not known".
   const known = (v) => (v === null || v === undefined ? 'not known' : fmt(v));
 
-  // ---- the plaque and the decree preview -----------------------------------------------------------------------------------------------------------------------------------
-  // The decrees the page knows by name, for the preview: [{ id, name, effect }], read-only, each name once. An empty list when the page gives none.
-  function knownDecrees(host) {
-    const out = [], seen = new Set();
-    const list = host && typeof host.decrees === 'function' ? host.decrees() : [];
-    for (const d of Array.isArray(list) ? list : []) {
-      const name = d && typeof d.name === 'string' ? d.name : '';
-      if (!name || seen.has(name)) continue;
-      seen.add(name);
-      out.push({ id: String(d.id), name, effect: typeof d.effect === 'string' ? d.effect : '' });
-    }
-    return out;
-  }
-  // The decree the plaque shows: the one chosen in the preview (a sample, never written) or else the term's own active decree.
+  // ---- the plaque and the place of the Term and Decrees section ---------------------------------------------------------------------------------------------------------------
+  // The decree the plaque shows is the term's own active decree, read by the page (host.decree). There is no sample: the plaque follows what the save holds, after a write as well.
   function shownDecree(host) {
-    if (state.preview !== '') { const d = knownDecrees(host).find((x) => x.id === state.preview); if (d) return d; state.preview = ''; }
     const dec = host && host.decree ? host.decree() : null;
     return dec && dec.name ? dec : null;
   }
@@ -88,29 +75,13 @@
     // the contributors the save records under each faction, the biggest first (worked out here from the rows of the term: the save holds amounts, not a ranking); none is "Not in the save"
     const cs = board.contributors || { a: [], h: [] };
     const lines = (k) => (cs[k].length ? cs[k].slice(0, 3).map((c) => c.label + ' · ' + fmt(c.amount)) : null);
-    const node = L().renderPlaque({ a, h, decree: shownDecree(host), holder: board.term ? board.term.reigning : null, contributors: { a: lines('a'), h: lines('h') }, standing, demo: state.preview !== '' });
+    const node = L().renderPlaque({ a, h, decree: shownDecree(host), holder: board.term ? board.term.reigning : null, contributors: { a: lines('a'), h: lines('h') }, standing });
     for (const st of node.querySelectorAll ? node.querySelectorAll('.lcc-standard') : []) {
       const k = st.classList.contains('lcc-f-h') ? 'h' : 'a', hd = st.querySelector('.lcc-standard-h');
       if (hd) hd.setAttribute('title', cs[k].length ? 'The biggest contributors under ' + FACTION_WORD[k] + ' in the contribution rows of this term in the save, worked out here: the save holds amounts, not a ranking.' : 'The save holds no contribution rows under ' + FACTION_WORD[k] + ' for the Houses of this term.');
     }
     return node;
   }
-  // DECREE PREVIEW: a read-only chooser that shows how a decree looks in the plaque. It has no data-lb and sends nothing: the save's active decree is changed only on the Term and decrees panel.
-  function preview(board, host) {
-    const w = el('div', 'lcc-bd-preview', '', { role: 'group', 'aria-label': 'Decree preview' });
-    w.appendChild(el('label', 'lcc-bd-preview-l', 'DECREE PREVIEW', { for: 'lcc-bd-decree' }));
-    const decs = knownDecrees(host), act = host && host.decree ? host.decree() : null;
-    const s = el('select', 'lcc-bd-select', '', { id: 'lcc-bd-decree', 'data-lcb': 'preview', 'data-fk': 'bf:preview' });
-    s.appendChild(el('option', '', act && act.name ? act.name : 'No active decree', act && act.name ? { value: '', title: 'The active decree of the save' } : { value: '' }));
-    for (const d of decs) { const o = el('option', '', d.name, { value: d.id }); if (d.id === state.preview) o.defaultSelected = true; s.appendChild(o); } // defaultSelected: a redraw of the page that puts a changed box back then finds nothing to change, and the board's own state decides (#925)
-    if (!decs.length) s.disabled = true;
-    w.appendChild(s);
-    w.appendChild(btn('lcc-bd-btn lcc-bd-toterm', 'Term and decrees ↓', { 'data-lcb': 'toterm', 'data-fk': 'bf:toterm', title: "The editor's own controls for the active decree and the reigning faction are in the Term and Decrees section below the board" }));
-    const shown = state.preview !== '' ? decs.find((x) => x.id === state.preview) : null;
-    w.appendChild(el('span', 'lcc-bd-preview-n', shown ? 'Showing “' + shown.name + '” as a sample · not written to a save' : decs.length ? 'Sample decree only · not written to a save' : 'No decrees are known to this page · nothing to preview', { role: 'status', id: 'lcc-bd-preview-n' }));
-    return w;
-  }
-
   // ---- the four figures under the plaque -----------------------------------------------------------------------------------------------------------------------------------
   // TERM STATUS, OPEN HOUSES, POTENTIAL LINES, SPECIALIZATION CAP. The first two are worked out from the same read as the board; the third by the twelve-line check of milestone M4; the fourth is the
   // game's rule for one path (a reference, not a figure of the save).
@@ -790,7 +761,8 @@
     }
     const ev = M().evaluate(board, null); // no record of the start of the Voting Session exists in the save: the evidence is always null (D03)
     w.appendChild(plaque(board, host));
-    w.appendChild(preview(board, host));
+    // the Term and Decrees section: the page puts its own section here (host.seat), once, in place of what used to be the decree preview strip (#923)
+    w.appendChild(el('div', 'lcc-bd-termslot', '', { 'data-lcc-slot': 'term' }));
     w.appendChild(metrics(board, ev));
     if (!board.houses.length) { w.appendChild(el('p', 'lcc-bd-none', 'This save has no Landsraad Houses in the current term, so there is nothing to show or change here.')); return w; }
     if (state.sel !== null && !board.byId.has(state.sel)) state.sel = null;
@@ -829,11 +801,6 @@
   function mount(container, answer, host) {
     if (!inited) { inited = true; const v = host && host.get ? host.get('layout') : null; if (v === 'grid' || v === 'list') state.layout = v; }
     last = { container, answer, host };
-    // The decree preview is a sample to look at. Once the term's own active decree is another one than at the last drawing (a write on the Term and decrees panel, or a read that found
-    // another), the sample is let go and the plaque shows the term's decree again (#925).
-    const now = host && host.decree ? host.decree() : null, seen = now && now.name ? now.name : '';
-    if (state.seenDecree !== undefined && state.seenDecree !== seen) state.preview = '';
-    state.seenDecree = seen;
     const fk = container.contains(root.document.activeElement) ? focusKey() : '';
     if (host && host.unseat) host.unseat(); // what the page put into the board goes back to its own place before the board is drawn again
     const board = M().readBoard(answer);
@@ -906,13 +873,6 @@
       return;
     }
     if (k === 'clearsel') { e.preventDefault(); state.sel = null; memo.insp = null; redraw(); return; }
-    if (k === 'toterm') {
-      e.preventDefault();
-      const n = root.document.getElementById('lcc-tm-h'), s = root.document.getElementById('lcc-term');
-      if (s && s.scrollIntoView) s.scrollIntoView({ block: 'start' });
-      if (n && n.focus) n.focus({ preventScroll: true });
-      return;
-    }
     if (k === 'gopath') { e.preventDefault(); if (last.host && typeof last.host.goPath === 'function') last.host.goPath(t.getAttribute('data-track')); return; }
     if (k === 'strategy') {
       e.preventDefault();
@@ -988,7 +948,6 @@
     if (k === 'spec') { state.spec = M().TRACKS.includes(t.value) ? t.value : 'all'; filtered(); redraw(); return; }
     if (k === 'group') { state.group = t.value === 'region' || t.value === 'spec' ? t.value : ''; redraw(); return; }
     if (k === 'fac') { if (last && last.host && last.host.setFac) last.host.setFac(t.value); return; }
-    if (k === 'preview') { state.preview = knownDecrees(last && last.host).some((d) => d.id === t.value) ? t.value : ''; redraw(); return; }
     if (k === 'jump') {
       state.sel = t.value === '' ? null : Number(t.value);
       memo.insp = null;
@@ -1003,7 +962,7 @@
     }
   }
 
-  const api = { state, mount, redraw, routeOf, strategyPanel, lineOrder, lineBadge, keepInView, visible, build, majorityOf, victoryWords, countLine, lineSaid, plaque, preview, metrics, grid, houseCard, list, inspector, victoryPanel, knownDecrees, tierKind, NOT_IN_SAVE };
+  const api = { state, mount, redraw, routeOf, strategyPanel, lineOrder, lineBadge, keepInView, visible, build, majorityOf, victoryWords, countLine, lineSaid, plaque, metrics, grid, houseCard, list, inspector, victoryPanel, tierKind, NOT_IN_SAVE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCB = api;
 })(typeof window !== 'undefined' ? window : globalThis);
