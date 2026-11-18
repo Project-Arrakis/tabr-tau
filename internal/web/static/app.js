@@ -2297,7 +2297,7 @@ function lbActbar(hs, l, split) {
   const res = html`<p id="lsb-result" role="status" tabindex="-1" ${LP.bad ? html`class="bad"` : LP.warn ? html`class="warn"` : ''}>${LP.say}</p>`;
   const legend = html`<p class="legend2" id="lsb-legend"><b>Writes at once</b>, with a backup first; a raise also pays its missions. Not checked in the game yet.</p>`;
   if (split) {
-    return html`<div class="actbar" role="group" aria-label="Actions on the board">
+    return html`<div class="actbar">
       <div class="barpart bp-choose" data-bar="choose" role="group" aria-label="Choose houses for the actions on several houses">${choose}</div>
       <div class="barpart bp-act" data-bar="act" role="group" aria-label="Act on the chosen houses"><div class="actrow" role="group" aria-label="Act on several houses at once">${bulks}</div><div class="actrow facrow">${fac}</div>${sum}</div>
       <div class="barpart bp-ask" data-bar="ask">${ask}${res}${legend}</div>
@@ -2588,6 +2588,7 @@ const lbBarNode = () => $('#lsb-board > #lsb-result, #lsb .lcc-bd-slot > #lsb-re
 function lbUnseat() {
   const home = $('#lsb-board'), bar = $('#lsb-board > .actbar'), c = $('#lsb-confirm');
   if (bar) {
+    bar.hidden = false;
     for (const [k] of LB_PARTS) { const p = lbPart(k); if (p && p.parentNode !== bar) bar.appendChild(p); }
     const ask = lbPart('ask');
     if (c && ask && c.parentNode !== ask) ask.prepend(c);
@@ -2600,6 +2601,8 @@ function lbSeat(container) {
   const lcc = container || $('#lsb-lcc');
   if (!lcc) return;
   for (const [k, slotName] of LB_PARTS) { const p = lbPart(k), slot = lcc.querySelector('[data-lcc-slot="' + slotName + '"]'); if (p && slot && p.parentNode !== slot) slot.appendChild(p); }
+  const home = $('#lsb-board > .actbar');
+  if (home && !home.childElementCount) home.hidden = true; // nothing is left in it: no empty box under the board
   const res = lbBarNode(), slot = lcc.querySelector('[data-lcc-slot="bar"]');
   if (res && slot && res.parentNode !== slot) slot.appendChild(res);
   const c = $('#lsb-confirm'), ask = lcc.querySelector('.lcc-bd-insp [data-lcc-slot="ask"]'), insp = ask && ask.closest('.lcc-bd-insp'), q = LP.confirm;

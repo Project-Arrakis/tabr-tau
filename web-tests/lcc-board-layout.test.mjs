@@ -4,6 +4,7 @@
 // notes are disclosures, and the bar of the chosen houses for a phone follows the choice and presses the action bar's own buttons. What the controls send is in lcc-board-requests.test.mjs.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { boot, closeAll } from './boot.mjs';
 import { synthetic } from './lcc-fixture.mjs';
 
@@ -55,7 +56,12 @@ test('the whole action bar is in the control bar above the 5 by 5: the choose bu
   assert.ok(slot.compareDocumentPosition(ui.doc.querySelector('.lcc-bd-stage')) & ui.w.Node.DOCUMENT_POSITION_FOLLOWING, 'before the cards');
   // only the collapsed About sections of the bar are dropped
   assert.equal(ui.doc.querySelectorAll('#lsb-board details.about').length, 0, 'no About section of the action bar is drawn on the board');
-  assert.equal(ui.doc.querySelector('#lsb-board > .actbar').childElementCount, 0, 'nothing is left in a bar under the board');
+  const home = ui.doc.querySelector('#lsb-board > .actbar');
+  assert.equal(home.childElementCount, 0, 'nothing is left in a bar under the board');
+  assert.equal(home.hidden, true, 'and the empty bar is not shown (no box, no named group for a screen reader)');
+  assert.equal(home.getAttribute('role'), null, 'the empty wrapper is not a named group');
+  assert.equal(home.getAttribute('aria-label'), null);
+  assert.ok(/\.lsb \.actbar\[hidden\]\s*\{\s*display:\s*none/.test(fs.readFileSync(new URL('../internal/web/static/app.css', import.meta.url), 'utf8')), 'the hidden bar is display: none in the stylesheet');
   // the focusable controls come in the order they are drawn: the filters and the jump, the choose buttons, the actions and the faction, then the cards, then the panel
   look(ui, synthetic(), 'Wallach');
   const names = ['#lcc-bd-jump', '[data-fk="b-all"]', '[data-fk="b-none"]', '[data-fk="b-fill"]', '[data-fk="b-complete"]', '[data-fk="b-reopen"]', '#lsb-fac', '.lcc-bd-pick', '.lcc-bd-insp button'];
@@ -75,6 +81,9 @@ test('the classic list keeps its action bar as it was (one bar, the About sectio
   assert.ok(bar.querySelector('#lsb-fac') && bar.querySelector('#lsb-sum') && bar.querySelector('#lsb-result') && bar.querySelector('#lsb-legend'));
   assert.deepEqual([...bar.querySelectorAll('details.about > summary')].map((s) => text(s)), ['About tiers', 'About Fill and Complete']);
   assert.equal(bar.querySelector('[data-bar]'), null, 'it is not drawn in parts');
+  assert.equal(bar.hidden, false, 'the classic bar is shown');
+  assert.equal(bar.getAttribute('role'), 'group');
+  assert.equal(bar.getAttribute('aria-label'), 'Actions on the board', 'and keeps its name');
 });
 
 test('each control of the action bar in the control bar sends the request the classic list sends for the same choice', async () => {

@@ -447,6 +447,7 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .tc:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
 .lsb .tc .pl{display:block;min-height:10px;font:500 10px/1.1 var(--t-display);letter-spacing:0}
 .lsb .actbar{margin:0 0 var(--s-3);padding:var(--s-3);border:1px solid var(--c-hair);border-radius:var(--r-3);background:var(--c-raised)}
+.lsb .actbar[hidden]{display:none}
 .lsb .actbar .actrow{display:flex;flex-wrap:wrap;gap:var(--s-2) var(--s-3);align-items:center;margin:0 0 var(--s-2)}
 .lsb .actbar select{min-height:var(--hit);padding:0 10px;border:1px solid var(--c-rule);border-radius:var(--r-2);background:var(--c-sunken);color:var(--c-text);font:var(--t-md) var(--t-body)}
 .lsb .actbar .note{font-size:var(--t-sm);color:var(--c-dim)}
