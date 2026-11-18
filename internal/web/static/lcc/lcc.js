@@ -222,9 +222,16 @@
   // The geometry is one coordinate system, 2172 by 724, the size of the approved artwork. The decorative layer and the track are drawn in it as vectors; the words are real text
   // above them. Nothing here is a picture with text in it.
   const W = 2172, H = 724;
-  const TRACK = Object.freeze({ cx: W / 2, cy: 396, pitch: 52, r: 19, haloR: 30, tipL: 334, tipR: 1838, wallL: 410, wallR: 1762, top: 330, bottom: 462 });
-  // x of a seat's centre. Equal pitch for all 25 seats; the 13th sits on the middle of the track, so the two ends are inset by the same amount.
-  const seatX = (i) => TRACK.cx + (i - CENTER) * TRACK.pitch;
+  // The seats are spaced by the gap between their OUTER edges, so that all 24 gaps are equal (#965): seat is the outer radius of an ordinary seat (its circle and its 2 unit outline), halo the outer
+  // radius of the gold ring of the 13th seat (the ring and its stroke, still or won, so the same size in every state), gap the clear space between any two neighbouring outer edges. pitch is the
+  // distance between the centres of two ordinary neighbours, and mid the distance from the 13th seat's centre to the centre of its two neighbours: both follow from the three.
+  const SEAT_OUT = 20, HALO_OUT = 33, SEAT_GAP = 11, HALO_W = 5, HALO_W_WIN = 6;
+  const TRACK = Object.freeze({ cx: W / 2, cy: 396, r: 19, seat: SEAT_OUT, halo: HALO_OUT, gap: SEAT_GAP, pitch: 2 * SEAT_OUT + SEAT_GAP, mid: HALO_OUT + SEAT_GAP + SEAT_OUT, tipL: 334, tipR: 1838, wallL: 410, wallR: 1762, top: 330, bottom: 462 });
+  // x of a seat's centre. The 13th sits on the middle of the track and the others step away from it by TRACK.pitch, the first one by TRACK.mid (the gold ring is wider than a seat), so every gap between two
+  // neighbouring outer edges is TRACK.gap and the two ends are inset by the same amount.
+  const seatX = (i) => { const k = i - CENTER; return k === 0 ? TRACK.cx : TRACK.cx + Math.sign(k) * (TRACK.mid + (Math.abs(k) - 1) * TRACK.pitch); };
+  // the outer radius of a seat's drawing (circle, outline, ring), the 13th being the wider one
+  const seatOuter = (i) => (i === CENTER ? TRACK.halo : TRACK.seat);
   const GOLD = Object.freeze({ hi: '#fff0b8', mid: '#e8b84e', lo: '#8e5f1c' });
 
   function cut(x, y, w, h, c) {
@@ -374,11 +381,13 @@
       const sg = sv('g', { class: 'lcc-seat lcc-seat-' + s.state + (s.center ? ' lcc-seat-center' : ''), transform: 'translate(' + x + ',' + T.cy + ')', 'data-slot': s.slot, 'data-state': s.state, 'data-center': s.center ? 'true' : null });
       sg.appendChild(sv('title', null, [doc().createTextNode(seatLabel(s))]));
       if (s.center) {
-        sg.appendChild(sv('circle', { class: 'lcc-seat-halo', r: T.haloR, fill: 'none', stroke: g('tg'), 'stroke-width': 5 }));
+        // the ring's outer edge is T.halo in both states: a bolder stroke (a won seat) is drawn inward
+        const hw = win13 ? HALO_W_WIN : HALO_W;
+        sg.appendChild(sv('circle', { class: 'lcc-seat-halo', r: T.halo - hw / 2, fill: 'none', stroke: g('tg'), 'stroke-width': hw }));
         if (win13) {
           sg.setAttribute('data-win13', win13);
           sg.setAttribute('class', sg.getAttribute('class') + ' lcc-seat-win13');
-          sg.appendChild(sv('circle', { class: 'lcc-seat-win-sweep', r: T.haloR, fill: 'none', 'stroke-width': 6, 'stroke-linecap': 'round', 'stroke-dasharray': '42 147', 'aria-hidden': 'true' }));
+          sg.appendChild(sv('circle', { class: 'lcc-seat-win-sweep', r: T.halo - HALO_W_WIN / 2, fill: 'none', 'stroke-width': HALO_W_WIN, 'stroke-linecap': 'round', 'stroke-dasharray': '42 147', 'aria-hidden': 'true' }));
         }
       }
       sg.appendChild(sv('circle', { class: 'lcc-seat-base', r: T.r, fill: g(s.state === 'a' ? 'sa' : s.state === 'h' ? 'sh' : s.center ? 'sc' : 'so'), stroke: s.center ? GOLD.hi : '#2a2112', 'stroke-width': s.center ? 3.5 : 2 }));
@@ -388,7 +397,7 @@
       if (s.state === 'h') sg.appendChild(sv('circle', { class: 'lcc-seat-mark', r: 6, fill: 'none', stroke: '#f4efe0', 'stroke-width': 3 }));
       if (s.state === 'a' || s.state === 'h') {
         const pic = svgPicture(factionAsset(s.state, s.center ? 'mark' : 'medal'), 0, 0, s.center ? SEAT_MARK : SEAT_MEDAL, 'lcc-seat-art', () => { sg.setAttribute('class', sg.getAttribute('class') + ' lcc-seat-has-art'); });
-        if (pic) sg.appendChild(pic);
+        if (pic) { pic.setAttribute('overflow', 'visible'); sg.appendChild(pic); } // the picture's own box never cuts its edge (a fractional pixel scale could shave the ring)
       }
       seats.appendChild(sg);
     }
@@ -567,7 +576,7 @@
   const api = {
     HOUSES, TRACKS, DECREE_FILES, DECREE_FALLBACK, SEATS, CENTER, TRACK, GEOMETRY: Object.freeze({ W, H }),
     config, houseAsset, laneAsset, bannerAsset, specAsset, decreeAsset, factionAsset, standardTipAsset,
-    seatStates, seatLabel, seatX, standingLine, summaryText, laneState,
+    seatStates, seatLabel, seatX, seatOuter, standingLine, summaryText, laneState,
     pill, ruleV, heldBy, standard, badge, richTip, frame, victory, VICTORY, winAnimOn,
     renderPlaque, renderHouseCard, renderLaneCard, el, houseTitle,
   };

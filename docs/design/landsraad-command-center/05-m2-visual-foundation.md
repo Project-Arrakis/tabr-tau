@@ -56,7 +56,7 @@ The plaque is the approved dark artwork in both themes, so its golds are pinned 
 ## 3. The plaque
 
 * A vector underlay in a 2172 x 724 coordinate system (the size of the approved artwork), a track, and DOM text over them in percent with `cqw` sizes. It is built in vector form, not from the approved screenshot, so it is crisp at any width and the words are real text.
-* 25 seats at an equal pitch with an equal inset at both ends. Seat 13 (index 12) is always the gold middle seat with its own gold border and halo; it takes the colour and mark of its owner when claimed and stays open and gold otherwise (D16). Atreides fills from the left, Harkonnen from the right. A count that cannot be read (negative, fractional, above 25, or together above 25) lights nothing and says "unavailable".
+* 25 seats with one gap between every two neighbouring outer edges, all 24 equal within 1 px, and an equal inset at both ends (#964, #965): the gold ring of seat 13 is wider than a seat, so its two neighbours stand further from its centre than the others from theirs, and the ring is the same size when it is won. Seat 13 (index 12) is always the gold middle seat with its own gold border and halo; it takes the colour and mark of its owner when claimed and stays open and gold otherwise (D16). Atreides fills from the left, Harkonnen from the right. A count that cannot be read (negative, fractional, above 25, or together above 25) lights nothing and says "unavailable".
 * Wording follows the one wording table (DECISIONS section H; the operator's decision of 2026-11-18 (#929, #926, #931) supersedes the earlier rule that no word says a House or a faction has won, and the #912 and #915 headline): the plaque says "SYSSELRAAD WON · <FACTION>" when a line of five or 13 Houses decides it, "SYSSELRAAD CONTESTED" with a count line such as "ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN" otherwise, and "SYSSELRAAD UNDECIDABLE" when both qualify. The old headline "VOTING SESSION · MAJORITY AT 13 OF 25 HOUSES" is dropped; seat 13 stays marked on the track.
 * The vertical rule between the decree and HELD BY is one element drawn after everything else in the underlay, so nothing paints over it (a test checks that there is exactly one and that it is last). Straight gold lines are thin rectangles, because a gradient sized by the box of a zero-height line does not draw. The line between a nameplate and its count is gold and carries the diamond at its centre (a test checks it).
 * The narrow layout is a crop of the same artwork, not a second track: one set of seats in the DOM.
@@ -112,7 +112,7 @@ Each item is to be looked at on the gallery at the widths 390, 768, 1280, 1600 a
 
 Geometry and state
 
-- [ ] 25 seats, equal pitch, equal inset; seat 13 gold with halo in every case, including 0 and 0, and 13 and 12.
+- [ ] 25 seats, equal edge-to-edge gaps, equal inset; seat 13 gold with halo in every case, including 0 and 0, and 13 and 12.
 - [ ] Atreides from the left, Harkonnen from the right; the 13th takes its owner's colour and mark.
 - [ ] Counts that cannot be read light nothing and say so.
 - [ ] Cut-corner gold frame, header band, pointed track tips, cloth standards with their rods.
@@ -157,7 +157,7 @@ Variances from the approved V20 picture, for human approval:
 
 | Item | Reference | This build | Kind |
 |---|---|---|---|
-| Seat size and pitch | pitch about 47 units, seats about 44 | pitch 52, seats 38 (equal inset at both ends is tested) | not resolved |
+| Seat size and pitch | pitch about 47 units, seats about 44 | centres 51 apart (64 beside the gold seat), seats 38 plus a 1 unit outline, an 11 unit gap between every two outer edges (the gap and the equal inset at both ends are tested) | not resolved |
 | Gold hub | a large dark ring with a heavy glow, offset from the middle | a gold seat with ring and halo, centred | not resolved |
 | Bar lighting | neon glow on the rails and tips | flat gold edge and a thin inner line with a soft shadow | not resolved |
 | Footer rail | wide glow under the footer | two thin gold rules | not resolved |
