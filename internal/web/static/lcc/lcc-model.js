@@ -176,6 +176,113 @@
     };
   }
 
+  // ---- the twelve lines (milestone M4) ----------------------------------------------------------------------------------------------------------------------------------------
+  // The five rows, the five columns and the two diagonals of the fixed 5 by 5 board, by board_index and never by the order of a sorted or filtered list. Frozen: nothing can reorder them.
+  const MAJORITY = Math.floor(SIZE / 2) + 1; // 13 of 25: the Houses a faction needs so that the other cannot reach as many
+  const DIAGONALS = Object.freeze([['diag-main', 'Main diagonal', Object.freeze([0, 6, 12, 18, 24])], ['diag-anti', 'Opposite diagonal', Object.freeze([4, 8, 12, 16, 20])]]);
+  const LINES = (() => {
+    const out = [];
+    for (let r = 0; r < COLS; r++) out.push(Object.freeze({ id: 'row' + r, kind: 'row', n: r + 1, name: 'Row ' + (r + 1), indexes: Object.freeze([0, 1, 2, 3, 4].map((c) => r * COLS + c)) }));
+    for (let c = 0; c < COLS; c++) out.push(Object.freeze({ id: 'col' + c, kind: 'column', n: c + 1, name: 'Column ' + (c + 1), indexes: Object.freeze([0, 1, 2, 3, 4].map((r) => r * COLS + c)) }));
+    for (const [id, name, indexes] of DIAGONALS) out.push(Object.freeze({ id, kind: 'diagonal', n: 0, name, indexes }));
+    return Object.freeze(out);
+  })();
+
+  // lineStatus(owners, indexes): the status of one line for a list of 25 owners ('a', 'h', 'open', anything else is unreadable). One word each:
+  //   unknown      a House of the line cannot be read: nothing is inferred about the line
+  //   blocked      both factions hold a House of it: neither can complete it without a House being reopened
+  //   complete-a / complete-h   five Houses of one faction
+  //   one-away-a / one-away-h   four Houses of one faction and one open
+  //   open-a / open-h           Houses of one faction only, more than one still open
+  //   open-any     nothing claimed on it yet
+  function lineStatus(owners, indexes) {
+    let a = 0, h = 0, o = 0, u = 0;
+    for (const i of indexes) { const v = owners[i]; if (v === 'a') a++; else if (v === 'h') h++; else if (v === 'open') o++; else u++; }
+    if (u > 0) return 'unknown';
+    if (a > 0 && h > 0) return 'blocked';
+    if (a === indexes.length) return 'complete-a';
+    if (h === indexes.length) return 'complete-h';
+    if (a === indexes.length - 1 && o === 1) return 'one-away-a';
+    if (h === indexes.length - 1 && o === 1) return 'one-away-h';
+    if (a > 0) return 'open-a';
+    if (h > 0) return 'open-h';
+    return 'open-any';
+  }
+  const sideOf = (status) => (/-a$/.test(status) ? 'a' : /-h$/.test(status) ? 'h' : null);
+  const OWNER_KEYS = Object.freeze(['a', 'h', 'open']);
+
+  // evaluateOwners(owners, evidence, meta): the whole reading of a board of 25 owners, as separate facts. It is pure: the same owners give the same answer, and nothing is written or drawn.
+  //   owners    25 values in board_index order: 'a', 'h', 'open' or anything else (unreadable). A list of another length is not a board.
+  //   evidence  null (the save holds no record of the start of the Voting Session: this is what the page always passes) or { verified: true, owners: [25 values of a, h or open] }, the
+  //             Houses as they stood at a verified cutoff. A snapshot that is not exactly that is no evidence. The page has no source for it; it exists so the rule is fixed and tested.
+  //   meta      { termId, why }: the term the answer belongs to, and the reasons a board is not a board (when it is not)
+  // Facts, never a merged yes or no: counts, lines (each with its status, its held Houses and its missing Houses), the lines held by one faction, the lines one House away, the lines still
+  // possible, the count leader, whether a faction has 13 or more Houses, the cutoff reading, and a verdict that names which of these decides. A count lead is never a result without a
+  // verified cutoff (D05), two factions with a line each is a conflict and nobody is chosen (D04), an unreadable House is neither side's and never an open one (D10a).
+  function evaluateOwners(owners, evidence, meta) {
+    meta = meta || {};
+    const valid = Array.isArray(owners) && owners.length === SIZE;
+    const base = {
+      valid, termId: meta.termId == null ? null : meta.termId, why: valid ? [] : (Array.isArray(meta.why) && meta.why.length ? meta.why.slice() : ['The board is not 25 Houses that can be read.']), key: '',
+      counts: null, countComplete: false, lines: [], held: [], oneAway: [], potential: { total: null, a: null, h: null, exact: false }, blockedLines: null, unknownLines: null,
+      leader: null, margin: 0, majority: null, thresholdReached: false, vote: { phase: 'cutoff_unknown', verified: false, counts: null, winner: null, reason: 'The save holds no record of the start of the Voting Session.' },
+      verdict: 'unknown', winner: null, conflict: false, conflictReason: '', majorityAlsoRecorded: false,
+    };
+    if (!valid) { base.lines = LINES.map((l) => ({ ...l, status: 'unknown', side: null, held: false, by: { a: [], h: [], open: [], unknown: [] }, missing: [] })); return base; }
+    const own = owners.map((v) => (OWNER_KEYS.includes(v) ? v : 'unknown'));
+    const counts = { a: 0, h: 0, open: 0, unknown: 0 };
+    for (const v of own) counts[v]++;
+    base.counts = counts;
+    base.countComplete = counts.unknown === 0;
+    base.key = (base.termId == null ? 'no-term' : String(base.termId)) + ':' + own.map((v) => ({ a: 'A', h: 'H', open: 'O', unknown: '?' })[v]).join('');
+    base.lines = LINES.map((l) => {
+      const by = { a: [], h: [], open: [], unknown: [] };
+      for (const i of l.indexes) by[own[i]].push(i);
+      const status = lineStatus(own, l.indexes);
+      return { ...l, status, side: sideOf(status), held: status === 'complete-a' || status === 'complete-h', by, missing: status.startsWith('one-away') || status.startsWith('open') ? by.open.slice() : [] };
+    });
+    base.held = base.lines.filter((l) => l.held);
+    base.oneAway = base.lines.filter((l) => l.status === 'one-away-a' || l.status === 'one-away-h');
+    base.blockedLines = base.lines.filter((l) => l.status === 'blocked').length;
+    base.unknownLines = base.lines.filter((l) => l.status === 'unknown').length;
+    // the lines a faction can still complete: every line that is neither blocked, nor held, nor unreadable. A line nothing is claimed on counts for both factions, and once in the total.
+    const open = base.lines.filter((l) => /^(open|one-away)/.test(l.status));
+    base.potential = { total: open.length, a: open.filter((l) => l.side === 'a' || l.side === null).length, h: open.filter((l) => l.side === 'h' || l.side === null).length, exact: counts.unknown === 0 };
+    if (counts.a !== counts.h) { base.leader = counts.a > counts.h ? 'a' : 'h'; base.margin = Math.abs(counts.a - counts.h); }
+    base.thresholdReached = base.leader !== null && counts[base.leader] >= MAJORITY;
+    base.majority = base.thresholdReached ? base.leader : null; // 13 or more Houses: a count that cannot be overtaken on this board, and still not a vote result
+    // the cutoff
+    const snap = evidence && evidence.verified === true && Array.isArray(evidence.owners) && evidence.owners.length === SIZE && evidence.owners.every((v) => OWNER_KEYS.includes(v)) ? evidence.owners : null;
+    if (snap) {
+      const k = { a: 0, h: 0, open: 0 };
+      for (const v of snap) k[v]++;
+      const w = k.a > k.h ? 'a' : k.h > k.a ? 'h' : null;
+      base.vote = { phase: 'cutoff_verified', verified: true, counts: k, winner: w, reason: w ? 'More Houses than the other faction at the verified start of the Voting Session.' : 'The factions held the same number of Houses at the verified start of the Voting Session.' };
+    }
+    // the verdict: which fact decides, and never a faction chosen by order
+    const heldBy = { a: base.held.filter((l) => l.side === 'a').length, h: base.held.filter((l) => l.side === 'h').length };
+    if (heldBy.a > 0 && heldBy.h > 0) { base.verdict = 'conflict'; base.conflict = true; base.conflictReason = 'Both factions hold a line of five in the save.'; return base; }
+    const lineSide = heldBy.a > 0 ? 'a' : heldBy.h > 0 ? 'h' : null;
+    if (lineSide) {
+      if (base.vote.verified && base.vote.winner && base.vote.winner !== lineSide) { base.verdict = 'conflict'; base.conflict = true; base.conflictReason = 'One faction holds a line of five and the other had more Houses at the verified start of the Voting Session.'; return base; }
+      base.verdict = 'line_held'; base.winner = lineSide; base.majorityAlsoRecorded = base.vote.verified && base.vote.winner === lineSide;
+      return base;
+    }
+    if (base.vote.verified) { if (base.vote.winner) { base.verdict = 'majority_at_cutoff'; base.winner = base.vote.winner; } else base.verdict = 'none'; return base; }
+    if (counts.unknown > 0) { base.verdict = 'unknown'; return base; }
+    base.verdict = base.leader ? 'pending_vote' : base.oneAway.length ? 'possible' : 'none';
+    return base;
+  }
+
+  // evaluate(board, evidence): the same reading for the answer of readBoard. A board that is not a board (readBoard.ready is false) has no counts, no lines and the verdict unknown, with the
+  // reasons readBoard gave. The owners are taken from the 25 Houses by board_index, the order readBoard fixes.
+  function evaluate(board, evidence) {
+    const b = board || {};
+    const termId = b.term && b.term.id != null ? b.term.id : null;
+    if (!b.ready || !Array.isArray(b.grid) || b.grid.length !== SIZE) return evaluateOwners(null, null, { termId, why: Array.isArray(b.problems) ? b.problems : [] });
+    return evaluateOwners(b.grid.map((h) => h.owner), evidence, { termId });
+  }
+
   // ---- filters, sort, groups -----------------------------------------------------------------------------------------------------------------------------------------------
   const SHOWS = Object.freeze([['all', 'All'], ['left', 'What is left'], ['new', 'Not started'], ['part', 'In progress'], ['done', 'Top tier']]);
   const HOUSE_FILTERS = Object.freeze([['any', 'Any'], ['open', 'Open'], ['taken', 'Claimed']]);
@@ -215,7 +322,7 @@
     });
   }
 
-  const api = { SIZE, COLS, TRACKS, KNOWN_STATES, TIER_WORD, SHOWS, HOUSE_FILTERS, SORTS, position, positions, checkTasks, readFactions, readBoard, matches, sortKey, sortHouses, groupOf };
+  const api = { SIZE, COLS, MAJORITY, LINES, TRACKS, KNOWN_STATES, TIER_WORD, SHOWS, HOUSE_FILTERS, SORTS, position, positions, checkTasks, readFactions, readBoard, lineStatus, evaluateOwners, evaluate, matches, sortKey, sortHouses, groupOf };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCM = api;
 })(typeof window !== 'undefined' ? window : globalThis);

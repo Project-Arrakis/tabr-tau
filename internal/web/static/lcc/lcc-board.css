@@ -166,6 +166,32 @@
 .lcc-bd-vbody { font: 12px/1.58 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-bd-well { margin-top: 17px; padding: 11px; border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-tier-bg); font: 11px/1.4 var(--lcc-sans); letter-spacing: .04em; color: var(--lcc-text); }
 
+/* ==== M4: the twelve lines (display only) ====
+   A line of five held by one faction: the bright gold outline of lcc.css at the full strength of the win token (--lcc-glow-win, which the 0.5 dial of the plaque does not scale), on the five Houses.
+   A faction with 13 or more Houses: the double outline, on its Houses outside a line. Both have the optional moving border of lcc.css (Motion Full, no reduced-motion request) and a still outline
+   in every other case. Neither is a vote result: the words beside them say so. */
+.lcc-hc[data-victory="circuit"] { outline: var(--lcc-outline-win); outline-offset: 2px; box-shadow: 0 0 0 1px var(--lcc-panel), 0 0 20px 5px color-mix(in srgb, var(--lcc-gold) calc(75% * var(--lcc-glow-win)), transparent); border-color: var(--lcc-gold); }
+.lcc-bd-key-m { background: transparent; border: 3px double #e0b764; }
+.lcc-bd-victory[data-state="line"] { border-color: var(--lcc-gold); box-shadow: inset 0 0 22px color-mix(in srgb, var(--lcc-gold) calc(16% * var(--lcc-glow-win)), transparent); }
+.lcc-bd-victory[data-state="line"] .lcc-bd-vtag { border-color: var(--lcc-gold); color: var(--lcc-gold-text); }
+.lcc-bd-victory[data-state="count"] .lcc-bd-vtag { border-style: dashed; border-color: var(--lcc-gold); color: var(--lcc-gold-text); }
+.lcc-bd-victory[data-state="conflict"] .lcc-bd-vtag { border-style: dashed; border-color: var(--lcc-violet); color: var(--lcc-text); }
+.lcc-bd-vcount { margin: 10px 0 0; font: 11px/1.45 var(--lcc-sans); color: var(--lcc-dim); }
+.lcc-bd-victory .lcc-bd-disc { margin-top: 12px; text-align: left; }
+.lcc-bd-lines { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.lcc-bd-line { display: grid; gap: 1px; padding: 5px 8px; border-left: 3px solid var(--lcc-stroke-faint); font: 11px/1.4 var(--lcc-sans); color: var(--lcc-dim); }
+.lcc-bd-line b { font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .03em; color: var(--lcc-text); }
+.lcc-bd-line[data-status^="complete"] { border-left: 3px solid var(--lcc-gold); }
+.lcc-bd-line[data-status^="one-away"] { border-left: 3px dashed var(--lcc-gold); }
+.lcc-bd-line[data-status="unknown"] { border-left: 3px dotted var(--lcc-line); }
+@media (forced-colors: active) {
+  .lcc-hc[data-victory="circuit"] { border: 4px solid Highlight; outline: 3px solid Highlight; box-shadow: none; }
+  .lcc-hc[data-victory="dominion"] { border: 5px double CanvasText; outline: 3px solid CanvasText; box-shadow: none; }
+  .lcc-bd-victory[data-state="line"], .lcc-bd-victory[data-state="count"], .lcc-bd-victory[data-state="conflict"] { border: 3px double CanvasText; box-shadow: none; }
+  .lcc-bd-key-m { border-color: CanvasText; }
+  .lcc-bd-line { border-left-color: CanvasText; }
+}
+
 /* House Intelligence */
 .lcc-bd-insp { padding: 24px 23px; min-width: 0; overflow: hidden; }
 .lcc-bd-insp-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }

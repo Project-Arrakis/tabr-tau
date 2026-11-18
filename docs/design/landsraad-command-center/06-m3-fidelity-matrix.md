@@ -177,6 +177,26 @@ Three findings of the final check of the board (refs #885, #886, #888) are fixed
 | C2 | Phone victory panel: the diamond emblem was hidden at 640 px and below (and for a coarse pointer up to 900 px), so the AWAITING VOTING SESSION tag touched the SYSSELRAAD heading | fixed | The emblem stays, smaller: 34 px instead of 68 px, with 6 px above and 4 px below, so there is a clear gap at 640, 390 and 320 px (measured from the box of the tag to the box of the heading: 0 px before, 44 px now; at 853 px and wider it is 81 px, as before). This was not recorded before: S1 lists the emblem, and on a phone it is half the size of the design's. |
 | C3 | The folded notes used the browser link blue (the page's own rule for a summary outranked the board's) | fixed (first item of #888 only) | The four summaries take the board's palette: gold text (`--lcc-gold-text`), bold, with a drawn triangle in the text colour that turns when open, an underline on hover, the board's focus ring, and the system text colour in forced colours. The other items of #888 (the compact plaque at 853 px and below, the bulk bar palette, the ledger and inspector differences) are not part of this follow-up and stay open. |
 
+## M4: the twelve lines and the winning treatment (display and evaluation only)
+
+Rows below supersede the earlier rows named in the last column for the cases where a line or 13 Houses is held. The earlier rows stay as history. Pictures: none held, one held row, a held diagonal, and 13 Houses held, dark and light, at 1280 and 390 px, side by side with the approved design; the moving border is checked by computed style, and the still outline by a capture with reduced motion. Nothing was run against a real save or in the game.
+
+| ID | Item | Approved design | This build | Supersedes |
+|---|---|---|---|---|
+| M4-1 | POTENTIAL LINES tile | a count | the count of lines that are not blocked and not held, with the number for each faction; "Count incomplete" with no number when a House cannot be read; "Not counted" when the board is not a board | T3 |
+| M4-2 | TERM STATUS tile | CONTESTED | CONTESTED, or FIVE IN A LINE with the line named, or CONFLICT | |
+| M4-3 | The five Houses of a held line | gold route through the cards and VICTORY LINE badges | gold outline at the full win glow and the moving border (Motion Full only), the words LINE OF FIVE, a name and tip that say which line. No route between the cards | B9, H4 |
+| M4-4 | 13 or more Houses held | DOMINION outline | double border at the same glow and the words MAJORITY HOUSE, tip says count, not verified. A House in a line keeps the line outline only | B9 |
+| M4-5 | Legend | four keys | adds MAJORITY HOUSE, COUNT NOT VERIFIED when it applies; VICTORY LINE tip says what it is | H8 |
+| M4-6 | Imperial Victory Analysis | SYSSELRAAD SECURED, IMPERIAL DOMINION | five honest states: awaiting, FIVE IN A LINE, IMPERIAL DOMINION NOT VERIFIED with "13 HOUSES HELD", both lines, count unavailable. No state says secured, won or confirmed, and no Voting Session outcome is shown | S1, P4, P6, P7 |
+| M4-7 | House-count comparison | none | "Atreides ahead 15 to 3, not verified", or incomplete | |
+| M4-8 | The twelve lines | Strategy tab with click-through | a folded plain list, one sentence per line, no selection or preview | O2 (M6 remains) |
+| M4-9 | Moving border | optional | only with Motion Full and no reduced-motion request; Calm, Off, reduced motion and forced colours show the still outline | |
+| M4-10 | Forced colours | not specified | line: 4 px solid border and 3 px outline in Highlight; 13: 5 px double border in CanvasText; panel double border; no sweep | |
+| M4-11 | Text size | | no text under 11 px, names and key labels 12 px or more, no sideways scroll at 1280, 390 and 320 | |
+
+Not matching the approved design, on purpose: no drawn route through the five Houses; badges say LINE OF FIVE and MAJORITY HOUSE; a count is never shown as confirmed because the save holds no record of the start of the Voting Session. See `07-m4-sysselraad.md`.
+
 ## Notes
 
 * **New art (B4).** `internal/web/static/lcc/art/specs/` holds five 84 x 84 PNG files, the specialization badges of the approved design, kept at their exact pixels. They are small crops of the in-game Specializations screen that came with the design, so they are game artwork: the art notice and the manifest say so, and they are the first thing to replace if authorized texture exports are obtained. They are served from the embedded folder by the same read-only list as the other art (one folder added to the list; no new route).

@@ -74,7 +74,7 @@ test('the plaque and the figures are the counts of the same Houses: 12 and 4, ni
   own.querySelector('[data-lcc-slot="bar"]').replaceChildren(); // the page's own action bar sits in the board's grid and has its own words
   assert.doesNotMatch(text(own), /\bwins?\b|\bwon\b|won the vote/i, 'a count is never called a win');
   const k = [...ui.doc.querySelectorAll('.lcc-bd-metric')].map((x) => [text(x.querySelector('.lcc-bd-metric-k')), text(x.querySelector('strong'))]);
-  assert.deepEqual(k.map((x) => x[1]), ['CONTESTED', '9', '—', 'LV 100'], 'the term status, the open Houses read from the save, the lines wait for M4, the cap is a game rule');
+  assert.deepEqual(k.map((x) => x[1]), ['CONTESTED', '9', '4', 'LV 100'], 'the term status, the open Houses and the potential lines read from the save (M4), the cap is a game rule');
   assert.deepEqual(k.map((x) => x[0].replace(/RULE$/, '')), ['TERM STATUS', 'OPEN HOUSES', 'POTENTIAL LINES', 'SPECIALIZATION CAP']);
   assert.match(text(ui.doc.querySelector('.lcc-bd-victory')), /AWAITING VOTING SESSION.*SYSSELRAAD CONTESTED.*No confirmed winner.*Atreides 12 · Harkonnen 4 · Open 9/);
   assert.match(text(p.querySelector('.lcc-pl-held')), /^HELD BY\s*HOUSE ATREIDES$/);
@@ -349,7 +349,7 @@ test('the board panel has the approved head, filters, legend, totals and the two
   assert.deepEqual([...b.querySelectorAll('.lcc-bd-headlines li')].map((x) => text(x)), ['ATREIDES CLAIMED', 'HARKONNEN CLAIMED', 'OPEN', 'VICTORY LINE']);
   assert.deepEqual([...b.querySelectorAll('[data-lcb="filter"][data-key="hs"]')].map((x) => text(x)), ['Any', 'Open', 'Claimed']);
   assert.match(text(b.querySelector('.lcc-bd-totals')), /Your rewards on this board: 26 of 120 tiers reached/);
-  assert.match(text(b.querySelector('[data-metric="lines"]')), /^POTENTIAL LINES—Counted when the twelve lines are checked \(milestone M4\)$/, 'the lines wait for M4 and say so');
+  assert.match(text(b.querySelector('[data-metric="lines"]')), /^POTENTIAL LINES4Unblocked five-House alignments · Atreides 4 · Harkonnen 0$/, 'the unblocked lines of the twelve, counted by the evaluator (M4)');
   assert.match(text(b.querySelector('[data-metric="cap"]')), /RULE/, 'the cap is a game rule, tagged as one, not read from the save');
 });
 
