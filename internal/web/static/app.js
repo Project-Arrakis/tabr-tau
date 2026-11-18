@@ -85,12 +85,13 @@ function leaveToast(d) {
 // something shows the fill icon of that kind instead of the check, in Motion = Full only; never on a warning or an error.
 // The Command Center board says its results here (#943): one at a time (a new one takes the place of the last: data-one), several lines where a result has several parts, and the time on screen
 // follows the length of the text (toastMs). A write that fails stays until it is dismissed, as every error does.
-let toastOneKey = null; // while a write of the board runs, its toasts (also an error that act() raises) are of the same kind: one at a time
 const toastMs = (msg) => Math.min(20000, Math.max(3500, 2500 + String(msg).length * 40));
 function toast(msg, err, ms = 3500, fx = null, opts = null) {
   const d = document.createElement('div');
-  const one = (opts && opts.one) || toastOneKey;
-  if (one) { for (const o of [...$('#toast').children]) if (o.getAttribute('data-one') === one) o.remove(); d.setAttribute('data-one', one); }
+  const one = opts && opts.one; // the toast a call raises itself says so (opts), nothing is held between calls: an unrelated toast (a poll, a lost connection) is never taken for the write's
+  const stays = (o) => o.classList.contains('err') || o.classList.contains('part'); // an error or a warning that stays until it is dismissed
+  // a new result takes the place of the last of its kind; a soft one (the answer to a click that wrote nothing) never takes away an error or a warning that is still showing, it stands next to it
+  if (one) { for (const o of [...$('#toast').children]) if (o.getAttribute('data-one') === one && !(opts.soft && stays(o))) o.remove(); d.setAttribute('data-one', one); }
   if (opts && opts.lines) d.setAttribute('data-lines', 'true');
   const part = err === 'part', note = err === 'note';
   const kind = !err ? 'ok' : part || note ? 'warn' : 'bad';
@@ -179,18 +180,18 @@ function hydrationMessage(r) {
   return { warn: true, text: `Fill hydration is queued, not applied. The game is running, so the water changes only after the game closes and loads this save again (${was} → ${r.after} then). It will not help right now: a character who is thirsty now needs another source of water now.` };
 }
 // immediate: the change is written at once (a config file, a setting) and never waits in the queue, so it never gets the hint.
-async function act(fn, okMsg, refresh = true, immediate = false) {
+async function act(fn, okMsg, refresh = true, immediate = false, toastOpts = null) {
   try {
     lastOutcome = null; // an older edit's outcome must not colour this message
     const r = await fn();
     let dirty = false;
     if (lastOutcome) dirty = lastOutcome === 'queued'; // the answer to the edit said which
     else if (!immediate) try { dirty = (await status()).dirty; } catch (e) { /* the poll reports a lost connection; the edit itself succeeded */ }
-    if (okMsg) toast(okMsg + (dirty ? QUEUED_HINT : ''));
+    if (okMsg) toast(okMsg + (dirty ? QUEUED_HINT : ''), false, undefined, null, toastOpts);
     if (refresh) await render(true);
     return r;
   }
-  catch (e) { fxPending = null; toast(e.message, true); }
+  catch (e) { fxPending = null; toast(e.message, true, undefined, null, toastOpts); }
   finally { playFx(); }
 }
 // What a box edited in place said before it was changed, and the sentence that reports the change: "Spice Melange: stack 5 → 10. To undo, set it back to 5."
@@ -2371,7 +2372,7 @@ function lbRedraw() {
 // What a click on the board says (a reason, a hint, a cancel): on the Command Center board it is the app's own toast, lower right, one at a time (#943); the Classic list keeps its result line.
 function lbTell(t, kind) {
   const err = kind === true;
-  toast(t, err ? true : 'note', err ? undefined : toastMs(t), null, { one: 'lbd', lines: true });
+  toast(t, err ? true : 'note', err ? undefined : toastMs(t), null, { one: 'lbd', lines: true, soft: !err });
 }
 function lbSay(t, kind) { if (lbBoardOn()) { lbTell(t, kind); return; } LP.say = t; LP.bad = kind === true; LP.warn = kind === 'warn'; const r = $('#lsb-result'); if (r) { r.textContent = t; r.classList.toggle('bad', LP.bad); r.classList.toggle('warn', LP.warn); } }
 // One write from the board (#641). The pressed control is marked busy and the board ignores a second click until the answer is in; the page is then read again from the save, so the
@@ -2389,7 +2390,8 @@ async function lbRun(b, call, say, focusFk) {
   if (LP.busy) { say('A write is still running. Wait for it to finish, then click again.'); return false; }
   LP.busy = true;
   lbRunning(true, b);
-  if (inToast) toastOneKey = 'lbd'; else say('Writing…');
+  const tOpts = inToast ? { one: 'lbd', lines: true } : null; // what this call's own toasts are tagged with (also the error that act() raises for it)
+  if (!inToast) say('Writing…');
   let ok = false, conflict = false;
   try {
     await act(async () => {
@@ -2399,15 +2401,15 @@ async function lbRun(b, call, say, focusFk) {
         ok = true;
         if (inToast) { // one result per line: what changed, what was not written and why, the warnings; the hint that the change is only queued is the last line
           const msg = (o.lines || [o.text]).concat(hint ? [hint.trim()] : []).join('\n');
-          toast(msg, warn ? 'note' : false, warn ? Math.max(9000, toastMs(msg)) : toastMs(msg), null, { one: 'lbd', lines: true });
+          toast(msg, warn ? 'part' : false, toastMs(msg), null, tOpts); // a warning (queued, left out) stays until it is dismissed, as an error does
         } else {
           say(text, warn ? 'warn' : false); // the result line keeps the whole sentence, and the hint that the change is only queued
           sayAloud(text);
           toast((o.short || o.text) + hint, warn ? 'note' : false, warn ? 9000 : 3500); // a warning, or a change that is only queued, is not drawn as a success and stays longer
         }
       } catch (e) { conflict = e.code === 'conflict'; if (!inToast) { say(e.message, true); sayAloud(e.message); } throw e; } // on the board act() shows the error as a toast that stays until it is dismissed
-    }, null);
-  } finally { LP.busy = false; toastOneKey = null; }
+    }, null, true, false, tOpts);
+  } finally { LP.busy = false; }
   if (ok) { const r = $('#lsb'); if (r && r.classList.contains('running')) lbRunning(false, b); } // the board was not drawn again (the re-read failed): it is usable again
   else {
     lbRunning(false, b);

@@ -102,7 +102,7 @@ test('#943 B: a write result is one toast of lines (changed / not written and wh
   assert.equal(lines[2], 'Warning: 1 reward was left out: earlier progress on this house already counted for it.');
   assert.equal(lines.length, 3);
   assert.doesNotMatch(last(ui).textContent, /Nothing to do/);
-  assert.ok(last(ui).classList.contains('note'), 'a warning is a notice, not a plain success');
+  assert.ok(last(ui).classList.contains('part') && last(ui).querySelector('button.x'), 'a warning is not a plain success: it stays until it is dismissed');
   assert.equal(last(ui).getAttribute('data-lines'), 'true');
 });
 
@@ -303,4 +303,88 @@ test('#945: no caption paragraph under the board; the check against the save sta
   assert.doesNotMatch(text(ui.doc.querySelector('#lsb')), /Select a House to inspect|are the same controls as the tiers in the House Intelligence panel/);
   assert.match(card(ui, a, 'Kenola', 3).getAttribute('aria-label'), /Each click is checked against the save first\./);
   assert.match(ui.doc.querySelector('.lcc-hc-tiers').getAttribute('aria-label'), /Each click is checked against the save first\./);
+});
+
+
+// ---- review of #955: what a plain click and a stray toast may take away -------------------------------------------------------------------------------------------------------------------
+const CONFLICT = { __fail: 'House Sor changed since it was shown.', __code: 'conflict', __status: 409 };
+const noTimers = (ui) => { const t = []; const real = ui.w.setTimeout.bind(ui.w); ui.w.setTimeout = (fn, ms, ...rest) => { if (ms >= 3000) { t.push(ms); return 0; } return real(fn, ms, ...rest); }; return t; };
+
+test('#943 review: a plain click on a tier square (a note) never takes away an error that is still showing: the note stands next to it', async () => {
+  const a = synthetic();
+  const ui = await open('board', { '/api/landsraad/apply': CONFLICT });
+  look(ui, a, 'Sor');
+  click(ui, '.lcc-bd-insp .lcc-bd-act[data-do="complete"]'); await ui.settle();
+  assert.equal(toasts(ui).length, 1);
+  assert.ok(last(ui).classList.contains('err'));
+  click(ui, card(ui, a, 'Thorvald', 1)); // a lower reached tier: it says how to remove it, and writes nothing
+  assert.equal(toasts(ui).length, 2, 'the error is still there and the note is shown next to it');
+  assert.ok(toasts(ui)[0].classList.contains('err'), 'the unread error was not removed');
+  assert.match(text(toasts(ui)[1]), /^To remove tiers of House Thorvald/);
+  click(ui, card(ui, a, 'Thorvald', 2));
+  assert.equal(toasts(ui).length, 2, 'a second note takes the place of the first note, not of the error');
+  assert.ok(toasts(ui)[0].classList.contains('err'));
+  toasts(ui)[0].querySelector('button.x').click();
+  assert.equal(toasts(ui).length, 1);
+});
+
+test('#943 review: a plain click does not take away a warning that is still showing, and a warning stays until it is dismissed', async () => {
+  const a = synthetic();
+  const ui = await open('board', { '/api/landsraad/apply': { ...OK, rewards_already_given: 1, missions: 0 } });
+  const timers = noTimers(ui);
+  look(ui, a, 'Kenola');
+  click(ui, row(ui, 3)); await ui.settle();
+  const warn = last(ui);
+  assert.ok(warn.classList.contains('part'), 'a warning result is a toast that stays');
+  assert.ok(warn.querySelector('button.x'), 'with a Dismiss control');
+  assert.deepEqual(timers, [], 'no timer takes it away (a long text used to leave after 9 to 20 seconds)');
+  click(ui, card(ui, a, 'Thorvald', 1));
+  assert.ok(toasts(ui).includes(warn) && warn.isConnected, 'the warning is still there after a click that wrote nothing');
+  assert.equal(toasts(ui).length, 2);
+  warn.querySelector('button.x').click();
+  assert.equal(toasts(ui).length, 1, 'dismissed: only the note is left');
+});
+
+test('#943 review: a result that is only queued (the game is running) is a warning too and stays until it is dismissed', async () => {
+  const a = synthetic();
+  const ui = await boot({ get: { '/api/landsraad': a }, post: { '/api/landsraad/apply': { ...OK, outcome: 'queued' } }, local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' } });
+  await ui.settle();
+  const timers = noTimers(ui);
+  ui.w.eval('NOT_SAVED = "Queued: it is written as soon as the save can be written."');
+  look(ui, a, 'Kenola');
+  click(ui, row(ui, 3)); await ui.settle();
+  assert.ok(last(ui).classList.contains('part'));
+  assert.match(text(last(ui)), /written as soon as the save can be written/);
+  assert.deepEqual(timers, []);
+});
+
+test('#943 review: an error replaces an older note, and a new write result replaces the last result', async () => {
+  const a = synthetic();
+  const ui = await open('board', { '/api/landsraad/apply': CONFLICT });
+  click(ui, card(ui, a, 'Thorvald', 1));
+  assert.equal(toasts(ui).length, 1);
+  look(ui, a, 'Sor');
+  click(ui, '.lcc-bd-insp .lcc-bd-act[data-do="complete"]'); await ui.settle();
+  assert.equal(toasts(ui).length, 1, 'the error took the place of the note');
+  assert.ok(last(ui).classList.contains('err'));
+});
+
+test('#943 review: a toast that something else raises while a write is running (a poll, a lost connection) is not taken for the write\'s and is not removed by its result', async () => {
+  const a = synthetic();
+  const ui = await open('board', { '/api/landsraad/apply': OK });
+  const realFetch = ui.w.fetch;
+  let release; const gate = new Promise((r) => { release = r; });
+  ui.w.fetch = async (p, opt = {}) => { if ((opt.method || 'GET') === 'POST') await gate; return realFetch(p, opt); };
+  look(ui, a, 'Kenola');
+  click(ui, row(ui, 3)); // the write is now waiting for the answer
+  await new Promise((r) => ui.w.setTimeout(r, 20));
+  ui.w.toast('Lost the connection to the editor.', true); // raised by something else, in the window of the write
+  assert.equal(toasts(ui).length, 1);
+  assert.equal(toasts(ui)[0].getAttribute('data-one'), null, 'it is not tagged as the write\'s');
+  release(); await ui.settle();
+  const t = toasts(ui);
+  assert.equal(t.length, 2, 'the result of the write and the stray error are both on screen');
+  assert.ok(t.some((x) => /Lost the connection/.test(x.textContent)), 'the stray error was not eaten by the write\'s result');
+  assert.ok(t.some((x) => /House Kenola: your contribution/.test(x.textContent)));
+  assert.equal(ui.w.eval('typeof toastOneKey'), 'undefined', 'no global key is held across the await');
 });

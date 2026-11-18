@@ -67,7 +67,7 @@ SCENARIOS['several houses, nothing chosen'] = async (ui) => { click(ui, '[data-f
 
 // The board says its results as a toast, one result per line, not as a line kept on the page (#943). What is said is compared with the recorded sentence without the punctuation that joins the parts.
 const toastSaid = (ui) => { const t = [...ui.doc.querySelectorAll('#toast .d-toast')].pop(); return t ? text(t.querySelector('span')) : ''; };
-const same = (s) => String(s).replace(/[.;,:]/g, '').replace(/s+/g, ' ').trim();
+const same = (s) => String(s).replace(/[.;,:]/g, '').replace(/\s+/g, ' ').trim();
 async function play(name) {
   const a = synthetic();
   const ui = await boot({ get: { '/api/landsraad': a }, post: { '/api/landsraad/apply': OK }, local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' } });

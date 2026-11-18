@@ -120,7 +120,7 @@ test('written and queued are said apart: a queued change is never called saved, 
   click(ui, control.board.act(ui, synthetic(), 'Sor', 'complete'));
   await ui.settle();
   assert.match(result(ui), /queued: written as soon as the save can be written/);
-  assert.ok(toastEls(ui).pop().classList.contains('note'), 'a queued change is a notice, not a success');
+  assert.ok(toastEls(ui).pop().classList.contains('part'), 'a queued change is a warning that stays until it is dismissed, not a success');
   assert.doesNotMatch(result(ui), /\bsaved\b/i);
   const written = await open('board');
   click(written, control.board.act(written, synthetic(), 'Sor', 'complete'));
