@@ -37,7 +37,7 @@ Method: the approved prototype and the editor page were drawn side by side in a 
 | H3 | Lead sentence "...The controls below mirror TABR Tau's current save-editor operations." | "Five disciplines. One progression dossier. The buttons below are the editor's own save operations." | differs (wording) | The prototype names the product and calls itself a mirror; the editor says what the buttons are. |
 | H4 | Three totals: tracks at XP cap, keystones purchased, maximum XP per track | Same three, from the answer: counts of tracks at the cap, owned keystones over the total, and `maxXp` | matches | |
 | H5 | "Sample save data, local demonstration" pill | "From your save, read when this page was drawn" | differs (wording) | The prototype's pill labels demonstration data; ours says where the numbers come from and when. |
-| H6 | Totals when a track is unidentified | Counted from identified tracks only; keystone total says it is partial | matches (added) | The prototype has no unidentified track. |
+| H6 | Totals when a track is unidentified | Tracks at XP cap counts identified tracks only; the keystone total carries a star and its label says that a track is not identified yet (or that a track's total is not in the save) | matches (added) | The prototype has no unidentified track. |
 
 ### Lanes
 
@@ -58,7 +58,7 @@ Method: the approved prototype and the editor page were drawn side by side in a 
 |---|---|---|---|---|
 | D1 | Chosen path name, icon in a diamond, a description line, a level badge | Name and icon (scroll, square frame); the description line is "Track number n in this save." | differs (data rule) | The prototype's descriptions ("Fabrication, augmentation and equipment efficiencies") are not in the save. |
 | D2 | Large level "100 /100" with a glow | Same, level from the XP table | matches | |
-| D3 | "XP CAP REACHED" under the level | "FULL PATH COMPLETE", "XP CAP REACHED", or "XP CAP NOT REACHED" with the level and keystone count | matches | |
+| D3 | "XP CAP REACHED" under the level | "FULL PATH COMPLETE", "XP CAP REACHED", or "XP CAP NOT REACHED" with the level and keystone count; the gold line carries a star on each side, drawn only for a track at level 100 (the XP cap), never below it | matches | |
 | D4 | XP bar with "44,182 / 44,182" and a note | Same, with "n XP to level k and m XP to the cap" under it | matches | |
 | D5 | Keystone bar "41 / 41" with a note | Same, and the note says the cap and the keystones are independent | matches | |
 | D6 | "LEVEL WAYPOINTS", seven markers (0, 10, 25, 42, 60, 80, 100), "Illustrative markers" | "LEVEL SCALE", five reference marks (0, 25, 50, 75, 100), "Reference marks along the 100 levels. They are not unlock levels." | differs (intentional) | The prototype's seven waypoints are illustrative. The game has no named waypoints at those levels, so the page draws neutral quarter marks. |

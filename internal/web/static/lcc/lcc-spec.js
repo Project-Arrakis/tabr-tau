@@ -94,7 +94,8 @@
     out.totals = {
       tracks: out.rows.length, atCap: known.filter((r) => r.capped).length,
       owned: out.rows.reduce((s, r) => s + r.keyOwned, 0), total: out.rows.reduce((s, r) => s + r.keyTotal, 0),
-      keysPartial: out.rows.some((r) => !r.keyKnown),
+      keysPartial: out.rows.some((r) => !r.keyKnown) || out.rows.some((r) => !r.known), // a track whose number is not known is counted by its keystones only: the total is partial then too
+      keysWhy: out.rows.some((r) => !r.keyKnown) ? 'total' : out.rows.some((r) => !r.known) ? 'unidentified' : '',
     };
     out.ok = out.rows.length > 0;
     if (!out.ok) out.problem = 'This save has no specialization tracks.';
@@ -168,7 +169,7 @@
     const stat = (v, k, id) => add(el('div', 'lcc-sp-stat'), el('b', '', v, { id }), el('small', '', k));
     const T = vm.totals;
     add(s, stat(T.tracks ? T.atCap + ' / ' + T.tracks : NOT_IN_SAVE, 'TRACKS AT XP CAP', 'lcs-capcount'),
-      stat(T.total > 0 ? T.owned + ' / ' + T.total + (T.keysPartial ? '*' : '') : NOT_IN_SAVE, T.keysPartial && T.total > 0 ? 'KEYSTONES PURCHASED (* A TRACK’S TOTAL IS NOT IN THE SAVE)' : 'KEYSTONES PURCHASED', 'lcs-keycount'),
+      stat(T.total > 0 ? T.owned + ' / ' + T.total + (T.keysPartial ? '*' : '') : NOT_IN_SAVE, T.keysPartial && T.total > 0 ? 'KEYSTONES PURCHASED (* ' + (T.keysWhy === 'total' ? 'A TRACK’S TOTAL IS NOT IN THE SAVE' : 'A TRACK IS NOT IDENTIFIED YET') + ')' : 'KEYSTONES PURCHASED', 'lcs-keycount'),
       stat(fmt(vm.maxXp), 'MAXIMUM XP / TRACK', 'lcs-maxxp'));
     return add(h, t, s);
   }

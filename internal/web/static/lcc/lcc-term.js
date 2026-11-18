@@ -188,7 +188,8 @@
       s.appendChild(el('b', '', 'Term ' + t.id));
       s.appendChild(el('span', 'lcc-tm-sum', t.summary));
       d.appendChild(s);
-      const wrap = el('div', 'lcc-tm-tablewrap');
+      const wrap = el('div', 'lcc-tm-tablewrap', '', { tabindex: '0', role: 'region', 'aria-label': 'Term ' + t.id + ', the table of Houses: scrolls sideways when the window is narrow' });
+      d.appendChild(el('p', 'lcc-tm-scrollhint', 'Scroll the table sideways for House status and Last payout.'));
       const tb = el('table', 'lcc-tm-table');
       tb.appendChild(el('caption', 'lcc-tm-sr', 'Term ' + t.id + ': the Houses with a contribution of yours'));
       const hr = el('tr');

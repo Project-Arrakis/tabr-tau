@@ -62,7 +62,7 @@
 .lcc-bd-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 9px 18px; padding: 13px 0; margin-top: 20px; border-bottom: 1px solid var(--lcc-stroke-faint); }
 .lcc-bd-seg, .lcc-bd-sel { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .lcc-bd-lbl { margin-right: 6px; font: 800 10px/1.2 var(--lcc-sans); letter-spacing: .12em; color: var(--lcc-dim); }
-.lcc-bd-chip { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 33px; padding: 7px 9px; font: 10px/1.2 var(--lcc-sans); color: var(--lcc-dim); background: var(--lcc-raised); border: 1px solid var(--lcc-stroke); cursor: pointer; }
+.lcc-bd-chip { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 36px; padding: 7px 9px; font: 10px/1.2 var(--lcc-sans); color: var(--lcc-dim); background: var(--lcc-raised); border: 1px solid var(--lcc-stroke); cursor: pointer; }
 .lcc-bd-chip[aria-pressed="true"] { border-color: var(--lcc-gold-text); background: color-mix(in srgb, var(--lcc-gold) 9%, transparent); color: var(--lcc-text); box-shadow: inset 0 -2px 0 var(--lcc-gold-text); }
 .lcc-bd-chip[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
 .lcc-bd-shown { margin-left: auto; font: 600 11px/1.2 var(--lcc-sans); color: var(--lcc-dim); }
@@ -528,19 +528,27 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-lacts { display: flex; flex-wrap: wrap; gap: 8px; }
 .lcc-bd-key-p { border: 2px dashed var(--lcc-violet); background: transparent; }
 .lcc-flag-route { position: relative; z-index: 1; font-size: 11px; border-style: dashed; border-color: var(--lcc-violet); color: var(--lcc-text); background: var(--lcc-sunken); }
-.lcc-hc[data-route="potential"] { outline: 3px dashed var(--lcc-violet); outline-offset: 2px; }
-.lcc-hc[data-route="held"] { outline: var(--lcc-outline-win); outline-offset: 2px; }
-.lcc-hc[data-route="blocked"], .lcc-hc[data-route="unknown"] { outline: 3px dotted var(--lcc-line); outline-offset: 2px; }
-.lcc-hc[data-route-role="missing"] { outline-style: dashed; outline-width: 4px; }
-.lcc-hc[data-selected="true"][data-route] { outline-offset: 2px; }
+/* The outline of the chosen line is drawn INSIDE the card, as a ring on its own layer (::after, cut to the same shape as the card): the card is cut at two corners by a clip-path, and a CSS outline
+   (drawn outside the box) is clipped away entirely by it, so the House cards of the line showed only their word badge. The ring keeps its shape per state: a violet dashed ring for a preview, a missing
+   House a thicker dash, a line held the gold outline of the win token, a blocked or unreadable line a dotted ring. The selected House keeps its own violet outline, further in. */
+.lcc-hc[data-route]::after { content: ''; position: absolute; z-index: 3; inset: 1px; pointer-events: none; clip-path: inherit; border: 3px dashed var(--lcc-violet); }
+.lcc-hc[data-route="held"]::after { border: var(--lcc-outline-win); }
+.lcc-hc[data-route="blocked"]::after, .lcc-hc[data-route="unknown"]::after { border: 3px dotted var(--lcc-line); }
+.lcc-hc[data-route-role="missing"]::after { border-style: dashed; border-width: 4px; }
+@media (max-width: 640px), (pointer: coarse) {
+  .lcc-bd-select { min-height: 44px; }
+}
 @media (max-width: 900px), (pointer: coarse) {
   .lcc-bd-lrow { min-height: 44px; }
   .lcc-bd-toterm, .lcc-bd-gopath, .lcc-bd-strat, .lcc-bd-lsort .lcc-bd-chip, .lcc-bd-lacts .lcc-bd-btn { min-height: 44px; }
 }
 @media (forced-colors: active) {
-  .lcc-hc[data-route="potential"] { outline: 3px dashed Highlight; }
-  .lcc-hc[data-route="blocked"], .lcc-hc[data-route="unknown"] { outline: 3px dotted CanvasText; }
-  .lcc-hc[data-route="held"] { outline: 3px solid Highlight; }
+  /* a forced-colours card has no clip-path, so the system-colour outline (outside the card) is drawn as it always was, and the ring is not drawn */
+  .lcc-hc[data-route]::after { display: none; }
+  .lcc-hc[data-route="potential"] { outline: 3px dashed Highlight; outline-offset: 2px; }
+  .lcc-hc[data-route="blocked"], .lcc-hc[data-route="unknown"] { outline: 3px dotted CanvasText; outline-offset: 2px; }
+  .lcc-hc[data-route="held"] { outline: 3px solid Highlight; outline-offset: 2px; }
+  .lcc-hc[data-route-role="missing"] { outline-style: dashed; outline-width: 4px; }
   .lcc-bd-lrow { border: 1px solid ButtonText; background: Canvas; color: CanvasText; }
   .lcc-bd-lrow[aria-pressed="true"] { outline: 3px solid Highlight; box-shadow: none; }
   .lcc-bd-strat[aria-pressed="true"] { border: 3px double ButtonText; box-shadow: none; }
