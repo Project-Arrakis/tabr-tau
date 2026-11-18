@@ -840,10 +840,16 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
   @media (min-width: 721px) {
     body:has(#gamewarn.warn, #gamewarn.info, #launchpass.info) { --lsb-warn-room: 76px; }
   }
-  /* stacked but wide enough for two panels: the victory analysis and the House Intelligence stand side by side under the bulk-edit bar */
-  @container lsbv (min-width: 700px) and (max-width: 1079px) {
-    .lsb #lsb-board > #lsb-lcc > .lcc-bd > .lcc-bd-grid > .lcc-bd-side { flex-direction: row; align-items: flex-start; }
-    .lsb #lsb-board > #lsb-lcc > .lcc-bd > .lcc-bd-grid > .lcc-bd-side > * { flex: 1 1 0; min-width: 0; }
+  /* stacked (under 1080 px of the tab): the victory analysis is a full-width band and the House Intelligence panel spans the full width under it, so no tall empty space is left beside a short panel;
+     from 860 px its sections run in two balanced columns (the head, the banner and the two scales span both) so the long ledger does not become one very tall column of wide rows */
+  @container lsbv (min-width: 860px) and (max-width: 1079px) {
+    .lsb #lsb-board .lcc-bd-insp { column-count: 2; column-gap: 28px; }
+    .lsb #lsb-board .lcc-bd-insp > .lcc-bd-insp-top, .lsb #lsb-board .lcc-bd-insp > .lcc-bd-identity, .lsb #lsb-board .lcc-bd-insp > .lcc-bd-banner,
+    .lsb #lsb-board .lcc-bd-insp > .lcc-bd-status, .lsb #lsb-board .lcc-bd-insp > .lcc-bd-mut,
+    .lsb #lsb-board .lcc-bd-insp > [aria-labelledby="lcc-bd-s1"], .lsb #lsb-board .lcc-bd-insp > [aria-labelledby="lcc-bd-s2"] { column-span: all; }
+    .lsb #lsb-board .lcc-bd-insp > .lcc-bd-sec, .lsb #lsb-board .lcc-bd-insp > .lcc-bd-note, .lsb #lsb-board .lcc-bd-insp > .lcc-bd-warn { break-inside: avoid; }
+    /* the note is the first block of the second column: a margin would be dropped at the top of a column, so it takes padding to keep clear of the bar over it */
+    .lsb #lsb-board .lcc-bd-insp > .lcc-bd-note { padding-top: 20px; }
   }
   /* a narrow tab keeps the padding small so the board gets the width */
   @container lsbv (max-width: 1079px) {

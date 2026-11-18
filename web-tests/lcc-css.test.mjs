@@ -247,7 +247,7 @@ test('guards: every container query of the remediation is inside @supports, and 
 test('layout: the page cap, the side-by-side switch and the sticky House Intelligence', () => {
   assert.match(appBare, /main:has\(#lsb-lcc\) \{ max-width: 1800px; \}/);
   assert.match(appBare, /@container lsbv \(min-width: 1080px\) \{/);
-  assert.match(appBare, /@container lsbv \(min-width: 700px\) and \(max-width: 1079px\) \{/);
+  assert.doesNotMatch(appBare, /@container lsbv \(min-width: 700px\) and \(max-width: 1079px\)/, 'the victory analysis no longer stands in a row beside the taller panel');
   // at the switch the board must keep five columns beside the side column: 696 px of panel, its padding (10) and border, the gap and the side column, inside the tab's card (8 px of padding each side)
   const panel = 696 + 2 * 10 + 2, side = 284, gap = 18, shell = 2 * 8;
   assert.ok(1080 - shell >= panel + gap + side, 'the board keeps five columns beside the House Intelligence at the switch width');
@@ -257,6 +257,25 @@ test('layout: the page cap, the side-by-side switch and the sticky House Intelli
   assert.match(appBare, /body:has\(#gamewarn\.warn, #gamewarn\.info, #launchpass\.info\) \{ --lsb-warn-room: 76px; \}/);
   const ring = rules.filter((r) => /\.lcc-bd-insp \.lcc-bd-tier:focus-visible/.test(r.sel));
   assert.ok(ring.length && /outline-offset: -3px/.test(ring[0].body), 'a focus ring on a full-width row is drawn inside the row');
+});
+
+test('stacked layout (under 1080 px of the tab): no empty band beside the House Intelligence panel; its sections run in two columns from 860 px', () => {
+  // the row rule that put the short victory analysis beside the tall panel (a band of more than 1000 px) is gone: the side box stays one column, so both panels are full width
+  assert.doesNotMatch(appBare, /lcc-bd-side \{ flex-direction: row/);
+  assert.doesNotMatch(appBare, /lcc-bd-side > \* \{ flex: 1 1 0/);
+  const appRules = parse(appBare);
+  const at = '@container lsbv (min-width: 860px) and (max-width: 1079px)';
+  const two = appRules.find((r) => r.at === at && r.sel === '.lsb #lsb-board .lcc-bd-insp');
+  assert.ok(two && /column-count: 2/.test(two.body), 'the panel has two columns from 860 px');
+  const span = appRules.find((r) => r.at === at && /\.lcc-bd-insp > \.lcc-bd-banner/.test(r.sel));
+  assert.ok(span && /column-span: all/.test(span.body) && /lcc-bd-insp-top/.test(span.sel) && /lcc-bd-identity/.test(span.sel), 'the head, the identity and the banner span both columns');
+  assert.ok(/aria-labelledby="lcc-bd-s1"/.test(span.sel) && /aria-labelledby="lcc-bd-s2"/.test(span.sel), 'the two scales span both columns, so the ledger and the actions balance in the two columns under them');
+  const keep = appRules.find((r) => r.at === at && /break-inside: avoid/.test(r.body));
+  assert.ok(keep && /lcc-bd-sec/.test(keep.sel) && /lcc-bd-note/.test(keep.sel), 'a section is never split across the two columns');
+  // two columns of about 345 px or more each (the Inspector's own container step) from 860 px of tab: (860 - 2 * 20 padding - 28 gap) / 2
+  assert.ok((860 - 2 * 20 - 28) / 2 >= 345 - 1);
+  // all of it stays inside the guard
+  assert.deepEqual(unguarded(appBare.slice(appBare.indexOf('@supports selector(:has(*)) and (container-type: inline-size) {'))), []);
 });
 
 test('the plaque: the narrow layout is compact and, from 600 px, puts the two standards at the two sides of the track', () => {
