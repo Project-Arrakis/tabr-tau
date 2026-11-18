@@ -2188,6 +2188,15 @@ function lbTerm(l) {
 }
 // The Command Center's Term and Decrees section (lcc/lcc-term.js) is drawn from this plain model of the same answer, with the same words and the same states as lbTerm above: the section
 // carries the same data-lb attributes, so lbClick and lbChange (and so the requests) are the ones the classic panel uses. Nothing here sends anything.
+// The line under the Active decree drop-down while the choice is not the term's active decree yet (#925): the choice is only a draft until Apply or Make active writes it. '' when they agree.
+function lbPendingText(l, ad) {
+  const t = l.term;
+  if (!t) return '';
+  const saved = t.active_decree_id != null ? String(t.active_decree_id) : '';
+  if (ad === saved) return '';
+  const dec = l.decrees || [], by = (i) => dec.find((d) => String(d.id) === i), n = (i) => (i === '' || !by(i) ? 'none' : decreeLabel(by(i)));
+  return 'Not applied yet: the term still has ' + n(saved) + ' as its active decree. Press Apply to set ' + n(ad) + '.';
+}
 function lbTermModel(l) {
   const t = l.term;
   if (!t) return { none: true };
@@ -2219,7 +2228,7 @@ function lbTermModel(l) {
     active: one(by(t.active_decree_id)), elected: one(by(t.elected_decree_id)),
     pool: dec.map(row), options: decreeSorted(dec).map((d) => ({ id: d.id, label: decreeFull(d) })),
     factions: (l.factions || []).map((f) => ({ id: f.id, label: f.name + (own != null && f.id == own ? ' (your faction)' : '') })),
-    sel, selD: one(by(sel.ad)), say: LT.say, bad: LT.bad, open: LT.open, hidOpen: LT.hidOpen,
+    sel, selD: one(by(sel.ad)), pending: lbPendingText(l, sel.ad), say: LT.say, bad: LT.bad, open: LT.open, hidOpen: LT.hidOpen,
     history: { note: tm.length < 2 ? 'This save holds only the current term.' : e.length ? 'Terms with a row of yours; open one for its houses. The rows of a term say what the contribution was; they do not say which terms paid out.' : 'No earlier term has a row of yours.', terms },
   };
 }
@@ -2725,7 +2734,7 @@ function lbChange(e) {
   if (t.classList && t.classList.contains('xc')) { const id = +t.id.replace('lsx-', ''); if (t.checked) LB.open.add(id); else LB.open.delete(id); lbSyncOpen(); return; }
   if (k === 'pick') { const id = +t.dataset.id; lbCancelConfirm(); if (t.checked) LP.pick.add(id); else LP.pick.delete(id); lbApply(); return; }
   if (k === 'fac') { lbCancelConfirm(); LP.fac = +t.value; lbRedraw(); return; }
-  if (k === 'tad') { LT.ad = t.value; const d = (LD.decrees || []).find((x) => String(x.id) === t.value), l = t.closest('label'), s = l && l.querySelector('.did'); if (s) { s.textContent = d ? d.decree_name : ''; const e2 = l.querySelector('.de'), u = l.querySelector('.du'); if (e2) e2.textContent = d && d.effect ? d.effect : ''; if (u) u.textContent = decreeNote(d); } return; }
+  if (k === 'tad') { LT.ad = t.value; const pn = $('#lcc-tm-pending'); if (pn && LD) pn.textContent = lbPendingText(LD, t.value); const d = (LD.decrees || []).find((x) => String(x.id) === t.value), l = t.closest('label'), s = l && l.querySelector('.did'); if (s) { s.textContent = d ? d.decree_name : ''; const e2 = l.querySelector('.de'), u = l.querySelector('.du'); if (e2) e2.textContent = d && d.effect ? d.effect : ''; if (u) u.textContent = decreeNote(d); } return; }
   if (k === 'trf') { LT.rf = t.value; lbRedraw(); return; }
   if (k === 'hs') { LB.hs = t.value; lbApply(); }
   else if (k === 'group') { LB.group = t.checked; lbApply(); }
