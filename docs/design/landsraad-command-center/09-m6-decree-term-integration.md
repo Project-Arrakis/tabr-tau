@@ -13,7 +13,7 @@ Method: the approved prototype (its Sysselraad Strategy view, and the plaque, wh
 
 ## Honest-data rules that the view follows
 
-* Real values from `GET /api/landsraad` only. Whatever the save does not hold is said: "Not in the save", "Active Landsraad missions are not recorded in this local save", "Top contributors are not recorded in this local save".
+* Real values from `GET /api/landsraad` only. Whatever the save does not hold is said: "Not in the save", "Active Landsraad missions are not recorded in this local save", "A ranking of contributors is not recorded".
 * The prototype's Decree Preview drop-down is kept as a sample and labelled so; choosing one puts a DEMO badge on the plaque, and nothing is written.
 * Strategy words never say a faction wins: "FIVE IN A LINE", "ONE AWAY", "POTENTIAL", "BLOCKED", "UNREADABLE"; a line that is not held says "a preview, not a result". The save records no start of the Voting Session, so no snapshot of it is shown and Dominion is never confirmed.
 * The decree picture comes from the existing id-based mapping; a decree with no verified picture (the hidden row) gets the neutral picture and an empty alt text.
@@ -52,7 +52,7 @@ Method: the approved prototype (its Sysselraad Strategy view, and the plaque, wh
 | T14 | Section looks like the approved surfaces | Same tokens, serif titles, gold Apply; a row stacks its buttons under the text at 640 px and below | differs (intentional) | The prototype has no term section; this is an original layout in its style. |
 | T15 | Where the section sits | Under the board and the action bar, in the board view | differs (intentional) | Needs the owner's view; a tab of its own was not built. |
 | T16 | Active Landsraad missions | "Not recorded in this local save" | differs (data rule) | The save holds no mission rotation. |
-| T17 | Top contributors with names | "Not in the save" on the standards and in the section | differs (data rule) | The save holds your own contribution, not a ranking. |
+| T17 | Top contributors with names | The standards list the biggest contributors the save records (#913); the section says that no ranking is recorded and that the order is worked out from the amounts | differs (data rule) | The save holds the amount each contributor gave to each House (a guild by its name, you as "You"), not a ranking. |
 | T18 | Decree Preview selector with demo decrees | Kept as a sample, labelled, DEMO badge on the plaque | differs (data rule) | The ornamental selector must not be taken for the real editor. |
 
 ### Sysselraad Strategy (approved view `view-strategy`)

@@ -79,7 +79,8 @@ test('the plaque and the figures are the counts of the same Houses: 12 and 4, ni
   assert.match(text(ui.doc.querySelector('.lcc-bd-victory')), /AWAITING VOTING SESSION.*SYSSELRAAD CONTESTED.*No confirmed winner.*Atreides 12 · Harkonnen 4 · Open 9/);
   assert.match(text(p.querySelector('.lcc-pl-held')), /^HELD BY\s*HOUSE ATREIDES$/);
   assert.equal(text(p.querySelector('.lcc-pl-title')), 'Exclusive Vehicle Import Rights');
-  assert.ok([...p.querySelectorAll('.lcc-standard-none')].every((n) => text(n) === 'Not in the save'), 'contributor lists are not in the save');
+  assert.equal(p.querySelectorAll('.lcc-standard-none').length, 0, 'the save holds contribution rows under both factions, so both banners list them');
+  assert.match(text(p.querySelector('.lcc-f-a .lcc-standard-name')), /^You · [\d,]+$/, 'the character is the biggest contributor under Atreides in the fixture, named as You');
 });
 
 test('a House whose owner cannot be read is counted for neither side and the plaque says so', async () => {
@@ -259,8 +260,8 @@ test('choosing a House opens the Inspector: both scales apart, the contributors 
   const bars = [...i.querySelectorAll('.lcc-bd-fc')].map((b) => [text(b.querySelector('.lcc-bd-fc-l')), text(b.querySelector('.lcc-bd-fc-v'))]);
   assert.deepEqual(bars, [['HOUSE ATREIDES', '4,000 / 4,000'], ['HOUSE HARKONNEN', '900 / 4,000']]);
   const s1 = i.querySelector('#lcc-bd-s1');
-  assert.match(s1.getAttribute('title'), /House goal: 4,000\..*Top contributors: Not in the save\. Missions: Not in the save\./, 'what the three removed lines said stays as a tooltip');
-  assert.match(text(s1.parentNode.querySelector('.lcc-bd-sr')), /Top contributors: Not in the save\. Missions: Not in the save\./);
+  assert.match(s1.getAttribute('title'), /House goal: 4,000\..*Top contributors: You 3,600 · Contributor 50 1,000\. Missions: Not in the save\./, 'what the three removed lines said stays as a tooltip');
+  assert.match(text(s1.parentNode.querySelector('.lcc-bd-sr')), /Top contributors: You 3,600 · Contributor 50 1,000\. Missions: Not in the save\./);
   assert.equal(s1.parentNode.querySelectorAll('.lcc-bd-cap, .lcc-bd-none').length, 0, 'no visible note lines under the two bars');
   assert.match(i.querySelector('.lcc-bd-track-me').getAttribute('aria-label'), /^Your contribution: 3,600 of 6,000 · next tier 4,800, 1,200 more\./);
   assert.equal(i.querySelector('#lcc-bd-s2').parentNode.querySelector('.lcc-bd-line'), null, 'no line under the contribution bar');

@@ -93,6 +93,24 @@
     return 'unknown';
   }
 
+  // The contributors the save records for one House (the rows of the personal contributions, one per contributor and faction): [{ id, label, faction, amount, mine }], the biggest first.
+  // The label is "You" for the character's own row, the guild's own name when the read gives it (a simulated guild), else "Contributor <id>". The order is worked out here: the save holds
+  // amounts, not a ranking. A row with no readable amount is left out, and so is one of zero.
+  function guildWord(id) { return String(id).split(/[_\s]+/).filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '); }
+  function readContributors(t, F) {
+    const out = [];
+    for (const c of Array.isArray(t.player_contributions) ? t.player_contributions : []) {
+      const r = obj(c);
+      if (!r) continue;
+      const id = int(r.player_id), a = num(r.amount);
+      if (id === null || a === null || a <= 0) continue;
+      const mine = r.mine === true;
+      const named = typeof r.guild === 'string' && r.guild.trim() !== '' ? guildWord(r.guild.trim()) : '';
+      out.push({ id, label: mine ? 'You' : named || 'Contributor ' + id, faction: F.byId.get(int(r.faction_id)) || null, amount: a, mine });
+    }
+    return out.sort((x, y) => y.amount - x.amount || x.label.localeCompare(y.label) || x.id - y.id);
+  }
+
   const TIER_WORD = Object.freeze({ not_reached: 'Not reached', waiting: 'Reached, waiting to collect', delivered: 'Reached, collected', no_row: 'Reached, delivery unknown', unknown: 'Reached, delivery unknown' });
 
   function readHouse(t, F, me, pos) {
@@ -125,6 +143,12 @@
     const top = tiers.length && tiers[tiers.length - 1].threshold !== null ? tiers[tiers.length - 1].threshold : null;
     const nextT = tiers.find((x) => !x.reached && x.threshold !== null) || null;
     const owner = ownerOf(t, F);
+    const contributors = readContributors(t, F);
+    // A House the save says is taken (completed, with a winner the Landsraad has) can have no record of the character's own: the tiers are the character's own ladder, so with no row of the
+    // character the House shows no tier reached, which is true, and is said as "taken, nothing of yours in the save" instead of "0 of 5 reached" (#911). With no tier rows at all it is "no tier record".
+    const claimed = owner === 'a' || owner === 'h';
+    const takenNoTiers = claimed && tiers.length === 0;
+    const takenNoMine = claimed && tiers.length > 0 && !(t.my_recorded && mine > 0);
     // who is ahead on the faction goal: one side with more than the other; equal or empty is nobody
     const pa = prog.a || 0, ph = prog.h || 0;
     const leader = pa > ph ? 'a' : ph > pa ? 'h' : null;
@@ -134,6 +158,7 @@
       id: t.id, raw: t, name: houseName(t.house_name), key: nameKey(t.house_name), index: pos ? pos.index : null, pos,
       number: pos ? pos.number : '', owner, leader, taken: !!t.completed || t.winning_faction_id != null,
       goal, prog, progOther, mine, recorded: !!t.my_recorded, canGive: me.factionId !== null,
+      contributors, takenNoTiers, takenNoMine,
       tiers, tiersOrdered: ordered, reached, collected, waiting, unknownDelivery, notReached: tiers.length - reached, tierCount: tiers.length, top, next: nextT ? { n: nextT.n, threshold: nextT.threshold, remaining: Math.max(0, nextT.threshold - mine) } : null,
       state: mine <= 0 ? 'new' : tiers.length && reached === tiers.length ? 'done' : 'part',
       track: TRACKS.includes(line) ? line : '', loc, held: !!t.swatch_held, sysselraad: t.sysselraad === undefined ? null : t.sysselraad,
@@ -167,10 +192,17 @@
     for (const h of houses) counts[h.owner]++;
     const rollup = { reached: 0, tiers: 0, collected: 0, waiting: 0, unknownDelivery: 0, notReached: 0, mine: 0 };
     for (const h of houses) { rollup.reached += h.reached; rollup.tiers += h.tierCount; rollup.collected += h.collected; rollup.waiting += h.waiting; rollup.unknownDelivery += h.unknownDelivery; rollup.notReached += h.notReached; rollup.mine += h.mine; }
+    // who gave most under each faction over the Houses of the board: the sum of each contributor's rows, worked out here (the save holds amounts, not a ranking)
+    const contributors = { a: [], h: [] };
+    for (const k of ['a', 'h']) {
+      const by = new Map();
+      for (const h of houses) for (const c of h.contributors) if (c.faction === k) { const e = by.get(c.id) || { id: c.id, label: c.label, faction: k, amount: 0, mine: c.mine }; e.amount += c.amount; by.set(c.id, e); }
+      contributors[k] = [...by.values()].sort((x, y) => y.amount - x.amount || x.label.localeCompare(y.label) || x.id - y.id);
+    }
     const reigning = term && term.reigning_faction_id != null ? F.byId.get(int(term.reigning_faction_id)) || null : null;
     return {
       ready, problems, term: term ? { id: termId, start: term.start_time == null ? null : term.start_time, end: term.end_time == null ? null : term.end_time, reigning, activeDecreeId: term.active_decree_id == null ? null : term.active_decree_id } : null,
-      factions: F, me, grant: obj(a.grant), houses, grid, byId: new Map(houses.map((h) => [h.id, h])), counts, rollup,
+      factions: F, me, grant: obj(a.grant), houses, grid, contributors, byId: new Map(houses.map((h) => [h.id, h])), counts, rollup,
       // the unreadable owners and the count are said together, so a header never shows a count as complete when a House could not be read
       countComplete: ready && counts.unknown === 0 && counts.a + counts.h + counts.open === SIZE,
     };

@@ -127,3 +127,28 @@ func contribution(t *testing.T, o *Ops, player, task int64) float64 {
 	t.Helper()
 	return mustOne(t, o, `select amount a from landsraad_task_player_contributions where player_id=? and task_id=?`, player, task)["a"].(float64)
 }
+
+// The board names a contributor that is a simulated guild (#913): the row of a guild carries its identifier from landsraad_simulated_guilds, the character's own row and a row of an actor with no
+// guild entry carry none.
+func TestLandsraadNamesTheGuildsThatContributed(t *testing.T) {
+	o := mineOps(t, `insert into landsraad_simulated_guilds(guild_actor_id, guild_identifier) values (50, 'red_hawk_corps');`)
+	for _, c := range taskByID(t, o, 174)["player_contributions"].([]map[string]any) {
+		switch c["player_id"].(int64) {
+		case 50:
+			if c["guild"] != "red_hawk_corps" {
+				t.Fatalf("the guild row has no name: %v", c)
+			}
+		case 1:
+			if _, has := c["guild"]; has {
+				t.Fatalf("the character's own row carries a guild name: %v", c)
+			}
+		}
+	}
+	// no entry for the actor: no key
+	o = mineOps(t, "")
+	for _, c := range taskByID(t, o, 174)["player_contributions"].([]map[string]any) {
+		if _, has := c["guild"]; has {
+			t.Fatalf("a row with no guild entry carries a name: %v", c)
+		}
+	}
+}
