@@ -43,7 +43,7 @@ async function page(opts = {}) {
   const key = (el, k) => el.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
   return { w, doc: w.document, html, wait, hrefs, key, mq, close: () => w.close() };
 }
-const FREMEN = ['/design/tokens-fremen.css', '/design/components-fremen.css', '/design/components.css', '/design/motion.css', '/design/palettes.css', '/app.css', '/lcc/lcc.css', '/lcc/lcc-board.css', '/lcc/lcc-spec.css'];
+const FREMEN = ['/design/tokens-fremen.css', '/design/components-fremen.css', '/design/components.css', '/design/motion.css', '/design/palettes.css', '/app.css', '/lcc/lcc.css', '/lcc/lcc-board.css', '/lcc/lcc-spec.css', '/lcc/lcc-term.css'];
 
 test('with nothing chosen the page is Fremen with Dune Rise headings and follows the system theme', async () => {
   const p = await page();
@@ -95,7 +95,7 @@ test('a switch of look puts the new links in beside the old and drops the old on
   assert.deepEqual(next.map((l) => l.getAttribute('href')), ['/design/tokens-awakening.css', '/design/components-awakening.css']);
   assert.ok(p.hrefs().includes('/design/tokens-fremen.css'), 'the old look is still there while the new one loads');
   next.forEach((l) => l.dispatchEvent(new p.w.Event('load')));
-  assert.deepEqual(p.hrefs(), ['/design/tokens-awakening.css', '/design/components-awakening.css', '/design/components.css', '/design/motion.css', '/design/palettes.css', '/app.css', '/lcc/lcc.css', '/lcc/lcc-board.css', '/lcc/lcc-spec.css']);
+  assert.deepEqual(p.hrefs(), ['/design/tokens-awakening.css', '/design/components-awakening.css', '/design/components.css', '/design/motion.css', '/design/palettes.css', '/app.css', '/lcc/lcc.css', '/lcc/lcc-board.css', '/lcc/lcc-spec.css', '/lcc/lcc-term.css']);
   assert.equal(p.doc.querySelectorAll('link[data-look-next]').length, 0);
   p.close();
 });

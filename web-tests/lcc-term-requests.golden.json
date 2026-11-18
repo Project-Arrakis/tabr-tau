@@ -1,0 +1,246 @@
+{
+ "Apply as it stands": {
+  "sent": [
+   {
+    "path": "/api/landsraad/term",
+    "body": {
+     "active_decree_id": "7",
+     "reigning_faction_id": "1"
+    }
+   }
+  ],
+  "others": [],
+  "result": "Applied: active decree Exclusive Vehicle Import Rights, reigning faction Atreides. (queued: written as soon as the save can be written)",
+  "focus": "tapply",
+  "chose": {
+   "decree": "7",
+   "faction": "1"
+  }
+ },
+ "Apply with another active decree": {
+  "sent": [
+   {
+    "path": "/api/landsraad/term",
+    "body": {
+     "active_decree_id": "3",
+     "reigning_faction_id": "1"
+    }
+   }
+  ],
+  "others": [],
+  "result": "Applied: active decree In Honor of the Fallen (Melee), reigning faction Atreides. (queued: written as soon as the save can be written)",
+  "focus": "tapply",
+  "chose": {
+   "decree": "3",
+   "faction": "1"
+  }
+ },
+ "Apply with another decree and the other faction": {
+  "sent": [
+   {
+    "path": "/api/landsraad/term",
+    "body": {
+     "active_decree_id": "4",
+     "reigning_faction_id": "2"
+    }
+   }
+  ],
+  "others": [],
+  "result": "Applied: active decree CHOAM Production Contract, reigning faction Harkonnen. (queued: written as soon as the save can be written)",
+  "focus": "tapply",
+  "chose": {
+   "decree": "4",
+   "faction": "2"
+  }
+ },
+ "Apply with no decree and no faction": {
+  "sent": [
+   {
+    "path": "/api/landsraad/term",
+    "body": {
+     "active_decree_id": "",
+     "reigning_faction_id": ""
+    }
+   }
+  ],
+  "others": [],
+  "result": "Applied: active decree none, reigning faction none. (queued: written as soon as the save can be written)",
+  "focus": "tapply",
+  "chose": {
+   "decree": "",
+   "faction": ""
+  }
+ },
+ "Apply with the other faction": {
+  "sent": [
+   {
+    "path": "/api/landsraad/term",
+    "body": {
+     "active_decree_id": "7",
+     "reigning_faction_id": "2"
+    }
+   }
+  ],
+  "others": [],
+  "result": "Applied: active decree Exclusive Vehicle Import Rights, reigning faction Harkonnen. (queued: written as soon as the save can be written)",
+  "focus": "tapply",
+  "chose": {
+   "decree": "7",
+   "faction": "2"
+  }
+ },
+ "Apply, refused by the save": {
+  "sent": [
+   {
+    "path": "/api/landsraad/term",
+    "body": {
+     "active_decree_id": "5",
+     "reigning_faction_id": "1"
+    }
+   }
+  ],
+  "others": [],
+  "result": "the save changed while the page was open",
+  "focus": "tapply",
+  "chose": {
+   "decree": "5",
+   "faction": "1"
+  }
+ },
+ "Make active on a row": {
+  "sent": [
+   {
+    "path": "/api/landsraad/term",
+    "body": {
+     "active_decree_id": "4",
+     "reigning_faction_id": "1"
+    }
+   }
+  ],
+  "others": [],
+  "result": "Applied: active decree CHOAM Production Contract, reigning faction Atreides. (queued: written as soon as the save can be written)",
+  "focus": "tm:4",
+  "chose": {
+   "decree": "4",
+   "faction": "1"
+  }
+ },
+ "Make active on a row for the other faction": {
+  "sent": [
+   {
+    "path": "/api/landsraad/term",
+    "body": {
+     "active_decree_id": "6",
+     "reigning_faction_id": "2"
+    }
+   }
+  ],
+  "others": [],
+  "result": "Applied: active decree CHOAM Refining Contract, reigning faction Harkonnen. (queued: written as soon as the save can be written)",
+  "focus": "tm:6",
+  "chose": {
+   "decree": "6",
+   "faction": "2"
+  }
+ },
+ "Make active on the hidden vendor row": {
+  "sent": [
+   {
+    "path": "/api/landsraad/term",
+    "body": {
+     "active_decree_id": "11",
+     "reigning_faction_id": "1"
+    }
+   }
+  ],
+  "others": [],
+  "result": "Applied: active decree Special Vendor (not the game's name), reigning faction Atreides. (queued: written as soon as the save can be written)",
+  "focus": "tm:11",
+  "chose": {
+   "decree": "11",
+   "faction": "1"
+  }
+ },
+ "Make active with no faction chosen": {
+  "sent": [],
+  "others": [],
+  "result": "Choose a reigning faction above first",
+  "focus": "tm:4",
+  "chose": {
+   "decree": "7",
+   "faction": ""
+  }
+ },
+ "Set the pool flag of the hidden row": {
+  "sent": [
+   {
+    "path": "/api/landsraad/decree",
+    "body": {
+     "id": 11,
+     "disabled": true
+    }
+   }
+  ],
+  "others": [],
+  "result": "Decree 11: pool flag set to 1. (queued: written as soon as the save can be written)",
+  "focus": "tf:11",
+  "chose": {
+   "decree": "7",
+   "faction": "1"
+  }
+ },
+ "Set the pool flag to 0": {
+  "sent": [
+   {
+    "path": "/api/landsraad/decree",
+    "body": {
+     "id": 7,
+     "disabled": false
+    }
+   }
+  ],
+  "others": [],
+  "result": "Decree 7: pool flag set to 0. (queued: written as soon as the save can be written)",
+  "focus": "tf:7",
+  "chose": {
+   "decree": "7",
+   "faction": "1"
+  }
+ },
+ "Set the pool flag to 1": {
+  "sent": [
+   {
+    "path": "/api/landsraad/decree",
+    "body": {
+     "id": 4,
+     "disabled": true
+    }
+   }
+  ],
+  "others": [],
+  "result": "Decree 4: pool flag set to 1. (queued: written as soon as the save can be written)",
+  "focus": "tf:4",
+  "chose": {
+   "decree": "7",
+   "faction": "1"
+  }
+ },
+ "Set the pool flag, refused by the save": {
+  "sent": [
+   {
+    "path": "/api/landsraad/decree",
+    "body": {
+     "id": 2,
+     "disabled": true
+    }
+   }
+  ],
+  "others": [],
+  "result": "the save changed while the page was open",
+  "focus": "tf:2",
+  "chose": {
+   "decree": "7",
+   "faction": "1"
+  }
+ }
+}

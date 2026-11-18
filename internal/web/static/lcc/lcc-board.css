@@ -498,3 +498,54 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
   .lcc-bd-eres { background: Canvas; border: 1px solid CanvasText; }
   .lcc-bd-back, .lcc-bd-disc > summary, .lcc-bd .lcc-bd-disc > summary, .lcc-bd .lcc-bd-disc[open] > summary { color: CanvasText; }
 }
+
+/* ==== Milestone M6: Sysselraad Strategy (a list of the twelve lines and a preview on the board), the way to the Term and Decrees section, and the way from a House to its path ====
+   A line that is not held is a PREVIEW: a violet dashed outline and a word (POTENTIAL, MISSING, BLOCKED), never the gold of a line of five. The board is never reordered; only the list can be. */
+.lcc-bd-strat[aria-pressed="true"] { border-color: var(--lcc-violet); color: var(--lcc-text); box-shadow: inset 0 0 0 1px var(--lcc-violet); }
+.lcc-bd-toterm, .lcc-bd-gopath { margin-left: auto; }
+.lcc-bd-gopath { margin: 6px 0 0; }
+.lcc-bd-nosave { margin: 8px 0 0; font-size: 12px; }
+.lcc-bd-strat-panel { margin: 0 0 18px; padding: 22px 20px 20px; min-width: 0; }
+.lcc-bd .lcc-bd-strat-h { margin: 4px 0 0; font: 700 24px/1.2 var(--lcc-serif); color: var(--lcc-strong); text-transform: none; letter-spacing: .02em; }
+.lcc-bd-strat-lead { margin: 8px 0 12px; font: 400 12px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
+.lcc-bd-lsort { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; }
+.lcc-bd-lrows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.lcc-bd-lrow { all: unset; box-sizing: border-box; display: grid; gap: 3px; width: 100%; min-height: 44px; padding: 8px 11px; cursor: pointer; color: var(--lcc-text); background: var(--lcc-tier-bg); border: 1px solid var(--lcc-stroke-faint); border-left: 4px solid var(--lcc-stroke); }
+.lcc-bd-lrow:hover { border-color: var(--lcc-gold-text); }
+.lcc-bd-lrow:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 2px; }
+.lcc-bd-lrow[aria-pressed="true"] { border-color: var(--lcc-violet); border-left-color: var(--lcc-violet); box-shadow: inset 0 0 0 1px var(--lcc-violet); background: color-mix(in srgb, var(--lcc-violet) 12%, var(--lcc-tier-bg)); }
+.lcc-bd-lrow[data-kind="held"] { border-left: 4px solid var(--lcc-gold); }
+.lcc-bd-lrow[data-kind="oneaway"] { border-left: 4px dashed var(--lcc-violet); }
+.lcc-bd-lrow[data-kind="potential"] { border-left: 4px dotted var(--lcc-violet); }
+.lcc-bd-lrow[data-kind="blocked"] { border-left: 4px solid var(--lcc-line); opacity: .85; }
+.lcc-bd-lrow[data-kind="unknown"] { border-left: 4px dotted var(--lcc-line); }
+.lcc-bd-lrow-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 8px; }
+.lcc-bd-lrow-top b { font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .03em; color: var(--lcc-strong); }
+.lcc-bd-lbadge { font: 700 11px/1.3 var(--lcc-sans); letter-spacing: .08em; color: var(--lcc-gold-text); }
+.lcc-bd-lsay { font: 400 12px/1.4 var(--lcc-sans); color: var(--lcc-dim); overflow-wrap: anywhere; }
+.lcc-bd-lfoot { margin: 0 0 12px; padding: 9px 11px; border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-sunken); }
+.lcc-bd-lcur { margin: 0 0 8px; font: 700 12px/1.4 var(--lcc-sans); color: var(--lcc-text); }
+.lcc-bd-lacts { display: flex; flex-wrap: wrap; gap: 8px; }
+.lcc-bd-key-p { border: 2px dashed var(--lcc-violet); background: transparent; }
+.lcc-flag-route { position: relative; z-index: 1; font-size: 11px; border-style: dashed; border-color: var(--lcc-violet); color: var(--lcc-text); background: var(--lcc-sunken); }
+.lcc-hc[data-route="potential"] { outline: 3px dashed var(--lcc-violet); outline-offset: 2px; }
+.lcc-hc[data-route="held"] { outline: var(--lcc-outline-win); outline-offset: 2px; }
+.lcc-hc[data-route="blocked"], .lcc-hc[data-route="unknown"] { outline: 3px dotted var(--lcc-line); outline-offset: 2px; }
+.lcc-hc[data-route-role="missing"] { outline-style: dashed; outline-width: 4px; }
+.lcc-hc[data-selected="true"][data-route] { outline-offset: 2px; }
+@media (max-width: 900px), (pointer: coarse) {
+  .lcc-bd-lrow { min-height: 44px; }
+  .lcc-bd-toterm, .lcc-bd-gopath { min-height: 44px; }
+}
+@media (forced-colors: active) {
+  .lcc-hc[data-route="potential"] { outline: 3px dashed Highlight; }
+  .lcc-hc[data-route="blocked"], .lcc-hc[data-route="unknown"] { outline: 3px dotted CanvasText; }
+  .lcc-hc[data-route="held"] { outline: 3px solid Highlight; }
+  .lcc-bd-lrow { border: 1px solid ButtonText; background: Canvas; color: CanvasText; }
+  .lcc-bd-lrow[aria-pressed="true"] { outline: 3px solid Highlight; box-shadow: none; }
+  .lcc-bd-strat[aria-pressed="true"] { border: 3px double ButtonText; box-shadow: none; }
+  .lcc-flag-route { background: Canvas; color: CanvasText; border-color: CanvasText; }
+}
+@media (prefers-contrast: more) {
+  .lcc-bd-lrow { border-color: var(--lcc-text); }
+}

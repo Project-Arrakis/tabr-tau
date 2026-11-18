@@ -27,7 +27,7 @@
   const tierKind = (t) => (t.reached ? (TIER_CLASS[t.state] ? t.state : 'unknown') : 'not_reached');
 
   // The view state. It lives here, not in the answer, so a redraw after a write keeps the filter, the layout and the House that was looked at.
-  const state = { layout: 'grid', show: 'all', hs: 'any', spec: 'all', sort: 'position', dir: 'asc', group: '', sel: null, preview: '' };
+  const state = { layout: 'grid', show: 'all', hs: 'any', spec: 'all', sort: 'position', dir: 'asc', group: '', sel: null, preview: '', strategy: false, line: '', lineSort: 'board' };
   let last = null; // { container, answer, host } of the latest mount, so a change of the view can draw again without the page's help
   let inited = false;
   // What a redraw keeps for the person (display only): where the House Intelligence panel was scrolled to (for the House it was on) and which disclosures were opened.
@@ -76,7 +76,7 @@
     let standing;
     if (!ready) standing = 'HOUSE COUNT UNAVAILABLE · BOARD NOT COMPLETE';
     else if (c.unknown > 0) standing = 'COUNT INCOMPLETE · ' + c.unknown + (c.unknown === 1 ? ' HOUSE' : ' HOUSES') + ' UNREADABLE';
-    return L().renderPlaque({ a, h, decree: shownDecree(host), holder: board.term ? board.term.reigning : null, contributors: null, standing });
+    return L().renderPlaque({ a, h, decree: shownDecree(host), holder: board.term ? board.term.reigning : null, contributors: null, standing, demo: state.preview !== '' });
   }
   // DECREE PREVIEW: a read-only chooser that shows how a decree looks in the plaque. It has no data-lb and sends nothing: the save's active decree is changed only on the Term and decrees panel.
   function preview(board, host) {
@@ -88,6 +88,7 @@
     for (const d of decs) { const o = el('option', '', d.name, { value: d.id }); if (d.id === state.preview) o.selected = true; s.appendChild(o); }
     if (!decs.length) s.disabled = true;
     w.appendChild(s);
+    w.appendChild(btn('lcc-bd-btn lcc-bd-toterm', 'Term and decrees ↓', { 'data-lcb': 'toterm', 'data-fk': 'bf:toterm', title: "The editor's own controls for the active decree and the reigning faction are in the Term and Decrees section below the board" }));
     const shown = state.preview !== '' ? decs.find((x) => x.id === state.preview) : null;
     w.appendChild(el('span', 'lcc-bd-preview-n', shown ? 'Showing “' + shown.name + '” as a sample · not written to a save' : decs.length ? 'Sample decree only · not written to a save' : 'No decrees are known to this page · nothing to preview', { role: 'status', id: 'lcc-bd-preview-n' }));
     return w;
@@ -169,6 +170,8 @@
     lay.appendChild(btn('', 'Grid', { 'aria-pressed': state.layout === 'grid' && gridOk ? 'true' : 'false', 'aria-disabled': gridOk ? null : 'true', title: gridOk ? null : 'The board cannot be drawn as 5 by 5: ' + board.problems[0], 'data-lcb': 'layout', 'data-val': 'grid', 'data-fk': 'bf:layout:grid' }));
     lay.appendChild(btn('', 'List', { 'aria-pressed': state.layout === 'list' || !gridOk ? 'true' : 'false', 'data-lcb': 'layout', 'data-val': 'list', 'data-fk': 'bf:layout:list' }));
     act.appendChild(lay);
+    act.appendChild(btn('lcc-bd-btn lcc-bd-strat', 'Sysselraad Strategy: ' + (state.strategy && gridOk ? 'On' : 'Off'), { 'aria-pressed': state.strategy && gridOk ? 'true' : 'false', 'aria-disabled': gridOk ? null : 'true', 'data-lcb': 'strategy', 'data-fk': 'bf:strategy',
+      title: gridOk ? 'Shows the twelve lines of the board as a list: click one to mark its Houses on the board. A preview is a reading of the Houses as they stand, never a result. Nothing is written.' : 'The board cannot be drawn as 5 by 5, so there are no lines to show' }));
     act.appendChild(btn('lcc-bd-btn', 'Clear highlight', { 'data-lcb': 'clearsel', 'data-fk': 'bf:clear', title: 'Stops highlighting the House that is looked at. The outlines of a line of five and of a faction with 13 or more Houses are the Houses as they stand, and stay.' }));
     head.appendChild(act);
     return head;
@@ -205,6 +208,7 @@
     w.appendChild(k('h', 'HARKONNEN CLAIMED'));
     w.appendChild(k('n', 'OPEN'));
     w.appendChild(k('g', 'VICTORY LINE', 'A line of five Houses held by one faction (a row, a column or a diagonal) has a bright gold outline and the words LINE OF FIVE. A faction that holds 13 or more Houses has a gold outline on those Houses (MAJORITY HOUSE): a count of Houses now, ' + NOT_VERIFIED + '.'));
+    if (state.strategy && board.ready) w.appendChild(k('p', 'PREVIEW LINE · POTENTIAL', 'A violet dashed outline marks the Houses of the line chosen in the Sysselraad Strategy list when it is not held. It is a preview of a line one faction could still complete, not a result.'));
     if (ev.majority) w.appendChild(k('m', 'MAJORITY HOUSE · COUNT NOT VERIFIED', FACTION_WORD[ev.majority] + ' hold ' + board.counts[ev.majority] + ' Houses now: a count, ' + NOT_VERIFIED + '.'));
     if (board.counts.unknown) w.appendChild(k('u', 'OWNER UNREADABLE', 'The completed flag and the winner of this House do not agree, so it is counted for neither faction.'));
     return w;
@@ -248,7 +252,8 @@
     const dom = !inLine && !!major && h.owner === major;
     const dim = !matchIds.has(h.id);
     const owner = OWNER_WORD[h.owner] ? h.owner : 'unknown';
-    const card = el('article', 'lcc-hc lcc-hc-' + owner, '', { 'data-owner': owner, 'data-selected': state.sel === h.id ? 'true' : null, 'data-dim': dim ? 'true' : null, 'data-compact': 'true', 'data-lines': inLine ? lines.map((l) => l.id).join(' ') : null });
+    const route = routeOf(h, ev);
+    const card = el('article', 'lcc-hc lcc-hc-' + owner, '', { 'data-owner': owner, 'data-selected': state.sel === h.id ? 'true' : null, 'data-dim': dim ? 'true' : null, 'data-compact': 'true', 'data-lines': inLine ? lines.map((l) => l.id).join(' ') : null, 'data-route': route ? route.kind : null, 'data-route-role': route ? route.role : null });
     if (inLine) L().victory(card, 'circuit'); else if (dom) L().victory(card, 'dominion');
     const lineSays = inLine ? FACTION_WORD[h.owner] + ' hold this House in a line of five: ' + listWords(lines.map(lineWord)) : '';
     const sel = btn('lcc-hc-select', '', { 'data-lcb': 'sel', 'data-id': h.id, 'data-fk': 'ht:' + h.id, 'aria-pressed': state.sel === h.id ? 'true' : 'false' });
@@ -273,10 +278,11 @@
     sel.appendChild(el('span', 'lcc-hc-owner', owner === 'a' || owner === 'h' ? '● ' + OWNER_WORD[owner] : owner === 'open' ? '○ Open' : '? Owner unreadable', { 'data-g': ({ a: 'A', h: 'H', open: '○', unknown: '?' })[owner] }));
     if (inLine) sel.appendChild(el('span', 'lcc-flag lcc-flag-line lcc-hc-badge', L().VICTORY.circuit));
     else if (dom) sel.appendChild(el('span', 'lcc-flag lcc-flag-dom lcc-hc-badge', L().VICTORY.dominion));
+    if (route && !inLine) sel.appendChild(el('span', 'lcc-flag lcc-flag-route lcc-hc-badge', route.badge));
     const notes = [];
     if (h.waiting > 0) notes.push(h.waiting + ' reward' + (h.waiting === 1 ? '' : 's') + ' waiting');
-    sel.setAttribute('aria-label', [(h.number ? 'Number ' + h.number + ', ' : '') + h.name + ', ' + (owner === 'a' || owner === 'h' ? 'claimed by ' + OWNER_WORD[owner] : owner === 'open' ? 'open' : 'owner unreadable')].concat(h.track ? ['path ' + trackWord(h.track)] : ['specialization not in the save'], h.tierCount ? [h.reached + ' of ' + h.tierCount + ' tiers reached', h.collected + ' collected'] : ['no tiers in the save'], notes, h.unknownDelivery ? [h.unknownDelivery + ' with no delivery record'] : [], inLine ? ['part of a line of five held by ' + FACTION_WORD[h.owner] + ': ' + listWords(lines.map(lineWord))] : [], dom ? ['one of the Houses of the faction that holds more than half'] : [], dim ? ['not in the current filter'] : []).join(', '));
-    sel.setAttribute('title', 'House ' + h.name + ', ' + (h.pos ? h.pos.words + '. ' : '') + (inLine ? lineSays + '. The Houses as they stand now, not a vote result. ' : '') + (dom ? 'One of the ' + FACTION_WORD[major] + ' Houses, who hold more than half of the Houses now: a count of Houses, not a vote result, and ' + NOT_VERIFIED + '. ' : '') + 'Click to see its tiers and actions.');
+    sel.setAttribute('aria-label', [(h.number ? 'Number ' + h.number + ', ' : '') + h.name + ', ' + (owner === 'a' || owner === 'h' ? 'claimed by ' + OWNER_WORD[owner] : owner === 'open' ? 'open' : 'owner unreadable')].concat(h.track ? ['path ' + trackWord(h.track)] : ['specialization not in the save'], h.tierCount ? [h.reached + ' of ' + h.tierCount + ' tiers reached', h.collected + ' collected'] : ['no tiers in the save'], notes, h.unknownDelivery ? [h.unknownDelivery + ' with no delivery record'] : [], inLine ? ['part of a line of five held by ' + FACTION_WORD[h.owner] + ': ' + listWords(lines.map(lineWord))] : [], dom ? ['one of the Houses of the faction that holds more than half'] : [], route ? [route.say] : [], dim ? ['not in the current filter'] : []).join(', '));
+    sel.setAttribute('title', 'House ' + h.name + ', ' + (h.pos ? h.pos.words + '. ' : '') + (route ? route.say + '. ' : '') + (inLine ? lineSays + '. The Houses as they stand now, not a vote result. ' : '') + (dom ? 'One of the ' + FACTION_WORD[major] + ' Houses, who hold more than half of the Houses now: a count of Houses, not a vote result, and ' + NOT_VERIFIED + '. ' : '') + 'Click to see its tiers and actions.');
     card.appendChild(sel);
     const ctl = editable && host && host.ctl ? host.ctl(h.id) : null;
     const tiers = el('div', 'lcc-hc-tiers', '', { role: 'group', 'aria-label': 'House ' + h.name + ' reward tiers' });
@@ -392,6 +398,74 @@
     }
     wrap.appendChild(t);
     return wrap;
+  }
+
+  // ---- Sysselraad Strategy (milestone M6) --------------------------------------------------------------------------------------------------------------------------------------------
+  // A list of the twelve lines of the board and the way to look at one of them: its Houses are marked on the board, the House that is missing can be jumped to. Everything is read from the evaluator
+  // (lcc-model.js) over the Houses as they stand, and nothing is written. A line that is not held is a PREVIEW (a violet dashed outline and the word POTENTIAL): it says what one faction could
+  // still complete, never that it will, and never in the words of a result. The board itself is never reordered; only this list can be sorted.
+  const LINE_BADGE = Object.freeze({ held: 'FIVE IN A LINE', oneaway: 'ONE AWAY', potential: 'POTENTIAL', blocked: 'BLOCKED', unknown: 'UNREADABLE' });
+  function lineKind(l) {
+    if (l.held) return 'held';
+    if (l.status === 'blocked') return 'blocked';
+    if (l.status === 'unknown') return 'unknown';
+    return /^one-away/.test(l.status) ? 'oneaway' : 'potential';
+  }
+  const lineBadge = (l) => LINE_BADGE[lineKind(l)];
+  // the order of the list: the board's own order, or the lines closest to done first (held, one away, then the fewest missing, then nothing claimed, blocked and unreadable last); ties keep board order
+  function lineOrder(lines, how) {
+    const rank = (l) => ({ held: 0, oneaway: 1, blocked: 90, unknown: 91 }[lineKind(l)] ?? (l.status === 'open-any' ? 80 : 10 + l.missing.length));
+    return how === 'near' ? lines.map((l, i) => [l, i]).sort((x, y) => rank(x[0]) - rank(y[0]) || x[1] - y[1]).map((x) => x[0]) : lines.slice();
+  }
+  // what the chosen line says about one House of the board: its outline kind and its word (a House the line misses is MISSING, a claimed House of a line that is not held is POTENTIAL)
+  function routeOf(h, ev) {
+    if (!state.strategy || !state.line || !ev || !ev.valid || h.index === null || h.index === undefined) return null;
+    const l = ev.lines.find((x) => x.id === state.line);
+    if (!l || !l.indexes.includes(h.index)) return null;
+    const kind = lineKind(l), open = h.owner === 'open';
+    if (kind === 'held') return { kind, role: 'held', badge: LINE_BADGE.held, say: 'in the line you are looking at (' + lineWord(l) + '), held by ' + FACTION_WORD[l.side] };
+    if (kind === 'blocked') return { kind, role: 'blocked', badge: LINE_BADGE.blocked, say: 'in the line you are looking at (' + lineWord(l) + '), which is blocked' };
+    if (kind === 'unknown') return { kind, role: 'unknown', badge: LINE_BADGE.unknown, say: 'in the line you are looking at (' + lineWord(l) + '), which cannot be read' };
+    return { kind: 'potential', role: open ? 'missing' : 'claimed', badge: open ? 'MISSING' : 'POTENTIAL', say: open ? 'a missing House of the line you are looking at (' + lineWord(l) + '): a preview, not a result' : 'in the line you are looking at (' + lineWord(l) + '): a preview, not a result' };
+  }
+  function strategyPanel(board, ev) {
+    const s = el('section', 'lcc-bd-surface lcc-bd-strat-panel', '', { 'aria-labelledby': 'lcc-bd-strat-h', 'data-lines': ev.valid ? '12' : '0' });
+    s.appendChild(el('p', 'lcc-bd-eyebrow', 'SYSSELRAAD STRATEGY'));
+    s.appendChild(el('h3', 'lcc-bd-strat-h', 'Twelve lines', { id: 'lcc-bd-strat-h' }));
+    s.appendChild(el('p', 'lcc-bd-strat-lead', 'Five rows, five columns, two diagonals. Choose a line to mark its Houses on the board. A mixed line is blocked. A line one faction does not hold yet is only a preview: the save does not record the start of the Voting Session, and a lead in the House count is not a result.'));
+    const sw = el('div', 'lcc-bd-lsort', '', { role: 'group', 'aria-label': 'Order of the list' });
+    sw.appendChild(el('span', 'lcc-bd-lbl', 'LIST ORDER'));
+    for (const [v, t] of [['board', 'Board order'], ['near', 'Closest first']]) sw.appendChild(btn('lcc-bd-chip', t, { 'data-lcb': 'lsort', 'data-val': v, 'data-fk': 'bf:lsort:' + v, 'aria-pressed': state.lineSort === v ? 'true' : 'false' }));
+    s.appendChild(sw);
+    s.appendChild(lineFoot(board, ev));
+    const ul = el('ul', 'lcc-bd-lrows', '', { role: 'list', 'aria-label': 'The twelve lines of the board' });
+    for (const l of lineOrder(ev.lines, state.lineSort)) {
+      const li = el('li', 'lcc-bd-lrow-li');
+      const kind = lineKind(l), on = state.line === l.id;
+      const b = btn('lcc-bd-lrow', '', { 'data-lcb': 'line', 'data-pline': l.id, 'data-kind': kind, 'data-fk': 'bf:line:' + l.id, 'aria-pressed': on ? 'true' : 'false' });
+      const top = el('span', 'lcc-bd-lrow-top');
+      top.appendChild(el('b', '', l.name + ' · Houses ' + houseNums(l)));
+      top.appendChild(el('span', 'lcc-bd-lbadge', LINE_BADGE[kind]));
+      b.appendChild(top);
+      b.appendChild(el('span', 'lcc-bd-lsay', lineSaid(l, board)));
+      li.appendChild(b);
+      ul.appendChild(li);
+    }
+    s.appendChild(ul);
+    return s;
+  }
+  // the line that is chosen, what it is, the way to its missing Houses and the way to let go of it: above the list, so it is in sight where the list is long
+  function lineFoot(board, ev) {
+    const cur = state.line ? ev.lines.find((l) => l.id === state.line) : null;
+    const foot = el('div', 'lcc-bd-lfoot', '', { role: 'status', 'aria-live': 'polite' });
+    if (cur) {
+      foot.appendChild(el('p', 'lcc-bd-lcur', cur.name + ': ' + lineBadge(cur) + (lineKind(cur) === 'potential' || lineKind(cur) === 'oneaway' ? ' · a preview, not a result' : '')));
+      const acts = el('div', 'lcc-bd-lacts');
+      for (const i of cur.missing) { const h = board.grid[i]; if (h) acts.appendChild(btn('lcc-bd-btn', 'Jump to missing House ' + L().houseTitle(h.name), { 'data-lcb': 'jumpmissing', 'data-id': h.id, 'data-fk': 'bf:jm:' + h.id })); }
+      acts.appendChild(btn('lcc-bd-btn', 'Clear line', { 'data-lcb': 'clearline', 'data-fk': 'bf:clearline' }));
+      foot.appendChild(acts);
+    } else foot.appendChild(el('p', 'lcc-bd-lcur', 'No line chosen. Escape clears the choice.'));
+    return foot;
   }
 
   // ---- Imperial Victory Analysis -------------------------------------------------------------------------------------------------------------------------------------------------
@@ -541,6 +615,8 @@
     // the position of the House on the board stays reachable as a tooltip on the name (the approved design shows no number here)
     hb.appendChild(el('h4', 'lcc-bd-insp-name', houseWord(h.name), h.number ? { title: 'No. ' + h.number + (h.pos && h.pos.words ? ' · ' + h.pos.words : '') } : undefined));
     hb.appendChild(el('span', 'lcc-bd-bloc', h.track ? trackWord(h.track) + ' · Associated specialization' : 'Specialization not in the save'));
+    if (h.track && host && typeof host.goPath === 'function') hb.appendChild(btn('lcc-bd-btn lcc-bd-gopath', 'Open ' + trackWord(h.track) + ' in Specializations', { 'data-lcb': 'gopath', 'data-track': h.track, 'data-fk': 'gp:' + h.id,
+      title: 'Opens the ' + trackWord(h.track) + ' path in the Specialization tab. It only moves between pages: nothing is written.' }));
     idn.appendChild(hb);
     side.appendChild(idn);
 
@@ -581,6 +657,7 @@
     s1.appendChild(fcRow('a', 'HOUSE ATREIDES', h.prog.a, h.goal));
     s1.appendChild(fcRow('h', 'HOUSE HARKONNEN', h.prog.h, h.goal));
     s1.appendChild(el('span', 'lcc-bd-sr', s1note));
+    s1.appendChild(el('p', 'lcc-bd-mut lcc-bd-nosave', 'Active Landsraad missions and top contributors are not recorded in this local save.'));
     side.appendChild(s1);
 
     const top = h.tierCount ? h.top : null;
@@ -704,6 +781,7 @@
     grid_.appendChild(el('div', 'lcc-bd-slot', '', { 'data-lcc-slot': 'bar' }));
     const side = el('div', 'lcc-bd-side');
     side.appendChild(victoryPanel(board, ev));
+    if (state.strategy && board.ready) side.appendChild(strategyPanel(board, ev));
     side.appendChild(inspector(board, state.sel === null ? null : board.byId.get(state.sel), host, editable));
     grid_.appendChild(side);
     w.appendChild(grid_);
@@ -725,7 +803,7 @@
     container.appendChild(build(board, host));
     if (!container.__lccWired) {
       container.__lccWired = true;
-      container.addEventListener('click', onClick); container.addEventListener('change', onChange);
+      container.addEventListener('click', onClick); container.addEventListener('change', onChange); container.addEventListener('keydown', onKey);
       container.addEventListener('scroll', onScroll, true); container.addEventListener('toggle', onToggle, true); // neither event bubbles
     }
     if (host && host.seat) host.seat(container);
@@ -743,6 +821,14 @@
     if (!a.height) return;
     const top = b.top + (pin && !n.closest('.lcc-bd-pin') && getComputedStyle(pin).position === 'sticky' ? pin.offsetHeight : 0);
     if (a.top < top) sc.scrollTop -= top - a.top + 8; else if (a.bottom > b.bottom) sc.scrollTop += a.bottom - b.bottom + 8;
+  }
+  function focusNode(fk) { const n = last && last.container.querySelector('[data-fk="' + fk + '"]'); if (n && n.focus) n.focus({ preventScroll: true }); }
+  function onKey(e) {
+    if (e.key !== 'Escape' || !state.line || !last) return;
+    const w = e.target && e.target.closest ? e.target.closest('.lcc-bd-strat-panel, .lcc-bd-tiles') : null;
+    if (!w) return;
+    const was = state.line; state.line = ''; redraw();
+    focusNode(w.classList.contains('lcc-bd-strat-panel') ? 'bf:line:' + was : 'bf:strategy');
   }
   function onScroll(e) {
     const t = e.target;
@@ -782,6 +868,41 @@
       return;
     }
     if (k === 'clearsel') { e.preventDefault(); state.sel = null; memo.insp = null; redraw(); return; }
+    if (k === 'toterm') {
+      e.preventDefault();
+      const n = root.document.getElementById('lcc-tm-h'), s = root.document.getElementById('lcc-term');
+      if (s && s.scrollIntoView) s.scrollIntoView({ block: 'start' });
+      if (n && n.focus) n.focus({ preventScroll: true });
+      return;
+    }
+    if (k === 'gopath') { e.preventDefault(); if (last.host && typeof last.host.goPath === 'function') last.host.goPath(t.getAttribute('data-track')); return; }
+    if (k === 'strategy') {
+      e.preventDefault();
+      if (t.getAttribute('aria-disabled') === 'true') return;
+      state.strategy = !state.strategy;
+      if (!state.strategy) state.line = '';
+      redraw();
+      focusNode('bf:strategy');
+      return;
+    }
+    if (k === 'line') {
+      e.preventDefault();
+      const id = t.getAttribute('data-pline');
+      state.line = state.line === id ? '' : id;
+      redraw();
+      return;
+    }
+    if (k === 'lsort') { e.preventDefault(); state.lineSort = t.getAttribute('data-val') === 'near' ? 'near' : 'board'; redraw(); return; }
+    if (k === 'clearline') { e.preventDefault(); const was = state.line; state.line = ''; redraw(); focusNode('bf:line:' + was); return; }
+    if (k === 'jumpmissing') {
+      e.preventDefault();
+      state.sel = Number(t.getAttribute('data-id')); memo.insp = null;
+      state.show = 'all'; state.hs = 'any'; state.spec = 'all'; // the same rule as Jump to House: the filters that would hide it are cleared
+      redraw();
+      const c = last.container.querySelector('[data-fk="ht:' + state.sel + '"]');
+      if (c && c.focus) { c.focus(); if (c.scrollIntoView) c.scrollIntoView({ block: 'nearest' }); }
+      return;
+    }
     if (k === 'filter') {
       e.preventDefault();
       state[t.getAttribute('data-key')] = t.getAttribute('data-val');
@@ -844,7 +965,7 @@
     }
   }
 
-  const api = { state, mount, redraw, keepInView, visible, build, majorityOf, victoryWords, countLine, lineSaid, plaque, preview, metrics, grid, houseCard, list, inspector, victoryPanel, knownDecrees, tierKind, NOT_IN_SAVE };
+  const api = { state, mount, redraw, routeOf, strategyPanel, lineOrder, lineBadge, keepInView, visible, build, majorityOf, victoryWords, countLine, lineSaid, plaque, preview, metrics, grid, houseCard, list, inspector, victoryPanel, knownDecrees, tierKind, NOT_IN_SAVE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCB = api;
 })(typeof window !== 'undefined' ? window : globalThis);
