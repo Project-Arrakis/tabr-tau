@@ -189,11 +189,32 @@ test('the reigning faction drop-down starts on the character\'s own faction; App
   assert.ok(text(ui.doc.querySelector('#lsb-tresult')).includes('Applied: active decree CHOAM Refining Contract, reigning faction Harkonnen'), text(ui.doc.querySelector('#lsb-tresult')));
 });
 
-test('none clears a field: the empty choices are sent as empty', async () => {
+test('none clears the decree and keeps the faction; the faction drop-down has no none (#960)', async () => {
   const ui = await open();
-  select(ui, '#lsb-tad', ''); select(ui, '#lsb-trf', '');
+  select(ui, '#lsb-tad', '');
   ui.click('#lsb-tdp [data-lb="tapply"]'); await ui.settle();
-  assert.deepEqual(posted(ui, '/api/landsraad/term')[0].body, { active_decree_id: '', reigning_faction_id: '' });
+  assert.deepEqual(posted(ui, '/api/landsraad/term')[0].body, { active_decree_id: '', reigning_faction_id: '1' });
+  // the faction drop-down offers the two factions of the Landsraad and nothing else while one is chosen
+  assert.deepEqual([...ui.doc.querySelectorAll('#lsb-trf option')].map((o) => text(o)), ['Atreides (your faction)', 'Harkonnen']);
+});
+
+test('no faction chosen: the drop-down shows a neutral placeholder that cannot be chosen, Apply is refused with the reason, nothing is sent (#960)', async () => {
+  const ui = await open();
+  select(ui, '#lsb-trf', '');
+  const opts = [...ui.doc.querySelectorAll('#lsb-trf option')];
+  assert.deepEqual(opts.map((o) => text(o)), ['Choose a faction', 'Atreides (your faction)', 'Harkonnen']);
+  assert.ok(opts[0].disabled && opts[0].selected && opts[0].value === '', 'the placeholder is the selected option and cannot be picked');
+  assert.ok(!opts.some((o) => /none/i.test(text(o))), 'no option says none');
+  ui.click('#lsb-tdp [data-lb="tapply"]'); await ui.settle();
+  assert.deepEqual(posted(ui, '/api/landsraad/term'), [], 'nothing is written');
+  const r = ui.doc.querySelector('#lsb-tresult');
+  assert.ok(text(r).startsWith('Choose a reigning faction first'), text(r));
+  assert.ok(r.classList.contains('bad'), 'shown as a refusal');
+  // choosing a faction removes the placeholder and Apply writes again
+  select(ui, '#lsb-trf', 2);
+  assert.deepEqual([...ui.doc.querySelectorAll('#lsb-trf option')].map((o) => text(o)), ['Atreides (your faction)', 'Harkonnen']);
+  ui.click('#lsb-tdp [data-lb="tapply"]'); await ui.settle();
+  assert.deepEqual(posted(ui, '/api/landsraad/term').map((p) => p.body), [{ active_decree_id: '8', reigning_faction_id: '2' }]);
 });
 
 test('Make active on a pool row sends the same request as Apply for that decree and the chosen faction; the row that is already active shows Active', async () => {
@@ -231,12 +252,13 @@ test('a reigning faction the list does not offer is shown as none, and Apply lea
   ui.click('#lsb-tdp [data-lb="tapply"]'); await ui.settle();
   assert.deepEqual(posted(ui, '/api/landsraad/term').map((p) => p.body), [{ active_decree_id: '6' }], 'the faction is not part of the request');
   assert.ok(text(ui.doc.querySelector('#lsb-tresult')).includes('reigning faction left as it is'), text(ui.doc.querySelector('#lsb-tresult')));
-  // choosing a faction that is offered sends it, and none chosen on purpose clears it
+  // choosing a faction that is offered sends it; no faction chosen on purpose is no longer a request at all (a decree needs a faction, #960)
   select(ui, '#lsb-trf', 2);
   ui.click('#lsb-tdp [data-lb="tapply"]'); await ui.settle();
   select(ui, '#lsb-trf', '');
   ui.click('#lsb-tdp [data-lb="tapply"]'); await ui.settle();
-  assert.deepEqual(posted(ui, '/api/landsraad/term').slice(1).map((p) => p.body), [{ active_decree_id: '6', reigning_faction_id: '2' }, { active_decree_id: '6', reigning_faction_id: '' }]);
+  assert.deepEqual(posted(ui, '/api/landsraad/term').slice(1).map((p) => p.body), [{ active_decree_id: '6', reigning_faction_id: '2' }]);
+  assert.ok(text(ui.doc.querySelector('#lsb-tresult')).startsWith('Choose a reigning faction first'));
 });
 
 test('a save without a term says so, and a hostile decree name is shown as text', async () => {

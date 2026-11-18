@@ -276,6 +276,7 @@ func (o *Ops) SetDecree(a Args) (any, error) {
 }
 
 // SetTerm updates the active/elected decree, reigning faction and term end.
+// A request that names the active decree or the reigning faction is refused when the row would be left with a decree and no faction (#960).
 func (o *Ops) SetTerm(a Args) (any, error) {
 	var err error
 	type edit struct {
@@ -306,12 +307,25 @@ func (o *Ops) SetTerm(a Args) (any, error) {
 	// The term is looked up inside the edit, through its own query, so it is kept with the edit: put back onto a newer file with another term, the edit is not applied to the
 	// old term's id.
 	_, err = o.S.Mutate("landsraad term", func(m *save.Mut) error {
-		term, err := m.One(`select term_id, start_time, reigning_faction_id from landsraad_decree_term order by term_id desc limit 1`)
+		term, err := m.One(`select term_id, start_time, reigning_faction_id, active_decree_id from landsraad_decree_term order by term_id desc limit 1`)
 		if err != nil {
 			return err
 		}
 		if term == nil {
 			return errors.New("no Landsraad term in this save")
+		}
+		// A decree is only in force because a faction won the term, so a write that leaves a decree set with no reigning faction is refused (#960). It is judged on the row as it
+		// would be after the edit: the request's own value where it names the column, the stored value where it does not. A request that touches neither column (the end time only)
+		// is not judged, so a save the game wrote with a decree and no faction can still have its end time changed, and clearing both together stays allowed.
+		after := map[string]any{"active_decree_id": term["active_decree_id"], "reigning_faction_id": term["reigning_faction_id"]}
+		judged := false
+		for _, e := range edits {
+			if e.col == "active_decree_id" || e.col == "reigning_faction_id" {
+				after[e.col], judged = e.val, true
+			}
+		}
+		if judged && after["active_decree_id"] != nil && after["reigning_faction_id"] == nil {
+			return apierr.New(apierr.ErrBadArgument, "an active decree needs a reigning faction: choose Atreides or Harkonnen, or clear the decree as well")
 		}
 		for _, e := range edits { // a reigning faction that is set is one the Landsraad has (landsraad_factions.go); clearing it is allowed, and so is leaving the value the row already holds
 			if id, isInt := e.val.(int64); e.col == "reigning_faction_id" && isInt {

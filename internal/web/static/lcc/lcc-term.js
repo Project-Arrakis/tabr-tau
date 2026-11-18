@@ -118,7 +118,7 @@
   function controls(vm) {
     const g = el('div', 'lcc-tm-ctl', '', { role: 'group', 'aria-labelledby': 'lcc-tm-ctl-h' });
     g.appendChild(el('h4', 'lcc-tm-h4', 'Set the active decree and the reigning faction', { id: 'lcc-tm-ctl-h' }));
-    g.appendChild(el('p', 'lcc-tm-scope', 'Current term only. Apply sets both together; an empty choice clears that field. Nothing changes until you press Apply, Make active or Set flag.'));
+    g.appendChild(el('p', 'lcc-tm-scope', 'Current term only. Apply sets both together; none for the decree clears the decree. A decree needs a reigning faction, so the faction cannot be left empty. Nothing changes until you press Apply, Make active or Set flag.'));
     const row = el('div', 'lcc-tm-ctlrow');
     const a = el('label', 'lcc-tm-fld');
     a.appendChild(el('span', 'lcc-tm-lbl', 'Active decree'));
@@ -134,7 +134,7 @@
     const f = el('label', 'lcc-tm-fld');
     f.appendChild(el('span', 'lcc-tm-lbl', 'Reigning faction'));
     const sf = el('select', 'lcc-tm-select', '', { id: 'lsb-trf', 'data-lb': 'trf' });
-    sf.appendChild(el('option', '', 'none', { value: '' }));
+    if (vm.sel.rf === '') { const ph = el('option', '', 'Choose a faction', { value: '', disabled: '' }); ph.defaultSelected = true; sf.appendChild(ph); } // no 'none': a decree needs a faction, and this placeholder cannot be chosen or applied (#960)
     for (const o of vm.factions) { const op = el('option', '', o.label, { value: String(o.id) }); if (String(o.id) === vm.sel.rf) op.defaultSelected = true; sf.appendChild(op); }
     f.appendChild(sf);
     f.appendChild(el('small', 'lcc-tm-hint', 'any faction can be chosen'));
