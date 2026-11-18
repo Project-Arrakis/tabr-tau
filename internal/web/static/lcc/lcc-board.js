@@ -563,11 +563,15 @@
   // Apply tier presses the tier box of the ledger that the choice means, so a tier set here goes through the same checks, question and backup as a click on that box.
   function editor(h, c) {
     const s4 = el('section', 'lcc-bd-sec lcc-bd-editor', '', { 'aria-labelledby': 'lcc-bd-s4' });
+    // no visible badge or note here (#948): what they said stays as the tooltip of the heading and as text for a screen reader
+    const facts = 'Not checked in the game yet. The numbered tier boxes of the board and of the ledger are the same controls as Set tier. Choosing a faction writes nothing.';
     const head = el('div', 'lcc-bd-editor-head');
-    head.appendChild(secHead('ACTIONS', 'lcc-bd-s4'));
-    head.appendChild(L().badge('unverified', 'NOT CHECKED IN THE GAME'));
+    const hh = secHead('ACTIONS', 'lcc-bd-s4');
+    hh.setAttribute('title', facts);
+    head.appendChild(hh);
     s4.appendChild(head);
-    s4.appendChild(el('p', 'lcc-bd-cap', 'The numbered tier boxes of the board and of the ledger are the same controls as Set tier. Choosing a faction writes nothing.'));
+    s4.appendChild(el('p', 'lcc-bd-sr', facts, { id: 'lcc-bd-s4d' }));
+    s4.setAttribute('aria-describedby', 'lcc-bd-s4d');
     const r1 = el('div', 'lcc-bd-erow', '', { role: 'group', 'aria-label': 'Actions on House ' + h.name });
     if (c.factions && c.factions.length) {
       const lab = el('label', 'lcc-bd-elab', 'Faction', { for: 'lcc-bd-fac' });

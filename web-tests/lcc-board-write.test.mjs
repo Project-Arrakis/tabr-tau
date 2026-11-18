@@ -251,7 +251,8 @@ test('the grant before the click: the Inspector says what a raise would write, a
   const t = text(ui.doc.querySelector('.lcc-bd-insp'));
   assert.match(t, /Fill and Fill faction goal: Writes 6 missions: \+36,000 Solari, \+6,000 House Scrip/);
   assert.match(t, /Written at once\. The pay-out of a mission \(Solari, House Scrip, specialization XP and rewards\) has not been checked in the game yet\./);
-  assert.ok(ui.doc.querySelector('.lcc-bd-insp .lcc-badge-unverified'), 'the page says the pay-out is not checked in the game');
+  assert.equal(ui.doc.querySelector('.lcc-bd-insp .lcc-badge-unverified'), null, 'no badge in the Actions block (#948): the fact is the heading tooltip and a screen-reader text');
+  assert.match(ui.doc.querySelector('.lcc-bd-insp #lcc-bd-s4').getAttribute('title'), /^Not checked in the game yet./);
   const b = synthetic();
   b.grant.max_missions = 3;
   const over = await open('board', b);
@@ -271,7 +272,12 @@ test('the actions block has the approved layout: Faction and Fill 5 tiers, the H
   assert.ok(rows[0].querySelector('.lcc-bd-act[data-do="reopen"]').classList.contains('lcc-bd-act-danger'));
   assert.deepEqual([...rows[1].querySelectorAll('label, button')].map((x) => text(x).replace(/ 0.*$/, '')), ['Set tier', 'Apply tier']);
   assert.deepEqual([...ed.querySelectorAll('#lcc-bd-tierset option')].map((o) => text(o)), ['0 — none', '1 / 5', '2 / 5', '3 / 5', '4 / 5', '5 / 5']);
-  assert.match(text(ed), /NOT CHECKED IN THE GAME/);
+  // #948: no visible badge and no visible note; what they said is the tooltip of the heading and a text for a screen reader that the section is described by
+  assert.equal(ed.querySelector('.lcc-badge, .lcc-badge-unverified'), null);
+  const facts = ed.querySelector('#lcc-bd-s4d');
+  assert.ok(facts.classList.contains('lcc-bd-sr') && ed.getAttribute('aria-describedby') === 'lcc-bd-s4d');
+  assert.equal(facts.textContent, 'Not checked in the game yet. The numbered tier boxes of the board and of the ledger are the same controls as Set tier. Choosing a faction writes nothing.');
+  assert.deepEqual([...ed.querySelectorAll('p')].filter((p) => !p.classList.contains('lcc-bd-sr') && !p.closest('details')).map((p) => p.className), [], 'no visible note paragraph is left in the block');
   assert.match(text(ed), /written at once with a backup first/);
   assert.equal(ed.querySelector('#lcc-bd-fac').value, '1', 'it starts on the faction of the character');
 });
