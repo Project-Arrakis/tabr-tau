@@ -287,3 +287,26 @@ func TestTheClockReadsTheRowsOfARealSaveShape(t *testing.T) {
 		}
 	}
 }
+
+// The read gives the position of the save on the play clock and the real time of the save (#922), and nothing is invented when the save has no usable clock.
+func TestLandsraadReadGivesTheSaveClock(t *testing.T) {
+	o := clockOps(t)
+	res, err := o.Landsraad()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _ := res.(map[string]any)["clock"].(map[string]any)
+	if c == nil || c["play_seconds"] != int64(playClock) || c["saved_at"] != int64(1793123333) {
+		t.Errorf("clock = %v, want play_seconds %d and saved_at 1793123333", c, playClock)
+	}
+	for _, q := range []string{`update farm_variables set universe_lastactive_timestamp = universe_time_timestamp`, `delete from farm_variables`} {
+		o2 := clockOps(t, q)
+		res, err := o2.Landsraad()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c, ok := res.(map[string]any)["clock"].(map[string]any); ok && c != nil {
+			t.Errorf("%s: clock = %v, want none", q, c)
+		}
+	}
+}

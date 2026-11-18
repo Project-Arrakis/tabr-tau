@@ -82,3 +82,30 @@ func repairCompletionTimes(m *save.Mut, termID int64) (int64, error) {
 	n, _ := res.RowsAffected()
 	return n, nil
 }
+
+// ---------------------------------------------------------------- the position of the save on the play clock, for the page's Term and decrees section (#922)
+//
+// The term's start_time and end_time are play-clock seconds. The save also holds where the play clock stood when it was written, and the real (Unix) time of that write
+// (farm_variables.universe_lastactive_timestamp). That is all the save knows about the two clocks: the play clock stops while the game is closed, and the save does not say when
+// those stops were, so the real date of any other play-clock second (the start or the end of a term) cannot be worked out from it. The page may show a distance on the play clock
+// from the save's own position, and the real time of the save itself, and nothing more.
+
+// saveClock reads the position of the save on the play clock: play_seconds (whole seconds, the clock of gameClockNow) and saved_at (Unix seconds of the last write). Nil when the save
+// has no farm_variables row or its numbers do not make a clock. Read only.
+func saveClock(o *Ops) map[string]any {
+	rows, err := o.S.Query(`select universe_time_timestamp ut, universe_lastactive_timestamp la, down_time_accumulation dt from farm_variables limit 1`)
+	if err != nil || len(rows) == 0 {
+		return nil
+	}
+	ut, ok1 := rows[0]["ut"].(int64)
+	la, ok2 := rows[0]["la"].(int64)
+	dt, ok3 := rows[0]["dt"].(int64)
+	if !ok1 || !ok2 || !ok3 {
+		return nil
+	}
+	s := (la - ut - dt) / 1_000_000
+	if s < 0 || la <= 0 {
+		return nil
+	}
+	return map[string]any{"play_seconds": s, "saved_at": la / 1_000_000}
+}

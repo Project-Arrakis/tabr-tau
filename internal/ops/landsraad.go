@@ -251,7 +251,7 @@ func (o *Ops) Landsraad() (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"term": term, "tasks": tasks, "decrees": decrees, "rotation": rotation, "factions": factions, "character": character, "terms": terms, "earlier_terms": earlier, "locations_from_markers": placesFromMarkers}, nil
+	return map[string]any{"term": term, "tasks": tasks, "decrees": decrees, "rotation": rotation, "factions": factions, "character": character, "terms": terms, "earlier_terms": earlier, "locations_from_markers": placesFromMarkers, "clock": saveClock(o)}, nil
 }
 
 // SetDecree sets or clears the disabled flag of one decree row in the pool, picked by its id (#448). The flag is the save's own column; it is not whether the decree is
