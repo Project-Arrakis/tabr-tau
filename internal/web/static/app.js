@@ -1998,7 +1998,12 @@ function lbTierTip(h, t, i, can, l, withGrant, F, board) {
   if (!lbOwnF(l, F)) return `Off while ${lbFacName(l, F)} is chosen. Tiers change your own contribution, which counts for ${lbFacName(l, l.character.faction_id)}: choose ${lbFacName(l, l.character.faction_id)} above.`;
   if (i > n) return `Give tier ${i}: your contribution goes to ${lbF(t.th)}, so ${i === 1 ? 'tier 1 is' : 'tiers 1 to ' + i + ' are'} reached (contribution is cumulative). ${withGrant ? lbGrantSay(lbGrantOf(h, l, h.mine, t.th)) + ' ' : ''}Written at once.`;
   return i === n ? `Remove tier ${i}: your contribution drops to ${i > 1 ? lbF(h.tiers[i - 2].th) : 'none'}. ${LB_REMOVE_NOTE}`
-    : `Tier ${i} is reached. To remove tiers, click the highest reached tier (tier ${n}).`;
+    : board ? `Tier ${i} is reached. To remove tiers, ${lbBoardRemove(h)}` : `Tier ${i} is reached. To remove tiers, click the highest reached tier (tier ${n}).`;
+}
+// The mouse-over text of one tier box, built once for the Classic list and for the cards of the board (#938): the reward, and what a click does or why the box is off. tip is what lbTierTip said.
+function lbTierTitle(h, t, i, tip, off) {
+  const rid = 'Reward: ' + lbRText(t) + (t.swatch ? ' (the house swatch, as the character does not hold it yet)' : '') + '. Game id: ' + t.tmpl + '.';
+  return off ? tip : rid + ' ' + tip;
 }
 // the row's meter is a picture of the state: the tier clicks are the boxes of the opened row, where each box shows its reward and what it grants before the click
 const lbMeter = (h) => html`<span class="meter mb${h.tiers.length && h.reached === h.tiers.length ? ' full' : ''}" role="img" aria-label="${h.reached} of ${h.tiers.length} tiers reached">${h.tiers.map((t, i) => html`<i class="${t.reached ? 'on' : ''}${i === h.tiers.length - 1 ? ' top' : ''}"></i>`)}</span>`;
@@ -2049,7 +2054,7 @@ function lbRow(h, l, hue, noLocs, pos) {
   const tierBoxes = h.tiers.map((t, i) => {
     const isTop = i === h.tiers.length - 1, st = t.state;
     const tip = lbTierTip(h, t, i + 1, can, l, true, F), tOff = !ownF, word = lbTierWord(t), gr = ownF && i + 1 > h.reached ? lbGrantOf(h, l, h.mine, t.th) : null;
-    return html`<button type="button" class="tc${isTop ? ' top' : ''}${t.reached ? ' on' : ''}${t.reached && st === 'waiting' ? ' wt' : ''}${t.reached && st === 'delivered' ? ' dv' : ''}" data-lb="tier" data-id="${h.id}" data-t="${i + 1}" data-fk="tc:${h.id}:${i + 1}" aria-pressed="${t.reached ? 'true' : 'false'}" aria-disabled="${ownF ? 'false' : 'true'}" aria-label="Tier ${i + 1}, ${lbF(t.th)}, reward ${lbRText(t)}, ${word}${tOff ? ', off' : '. ' + tip}" ${tOff ? html`aria-describedby="lsg-${h.id}" data-why="${tip}"` : ''} title="${tOff ? tip : rid + ' ' + tip}"><span class="tv">${lbF(t.th)}</span><span class="rw">${lbRText(t)}</span><span class="pl">${LB_STW[st]}</span>${gr ? html`<span class="gr">${lbGrantShort(gr)}</span>` : ownF && i + 1 === h.reached ? html`<span class="gr rm">click removes it; takes back nothing it paid</span>` : ''}</button>`;
+    return html`<button type="button" class="tc${isTop ? ' top' : ''}${t.reached ? ' on' : ''}${t.reached && st === 'waiting' ? ' wt' : ''}${t.reached && st === 'delivered' ? ' dv' : ''}" data-lb="tier" data-id="${h.id}" data-t="${i + 1}" data-fk="tc:${h.id}:${i + 1}" aria-pressed="${t.reached ? 'true' : 'false'}" aria-disabled="${ownF ? 'false' : 'true'}" aria-label="Tier ${i + 1}, ${lbF(t.th)}, reward ${lbRText(t)}, ${word}${tOff ? ', off' : '. ' + tip}" ${tOff ? html`aria-describedby="lsg-${h.id}" data-why="${tip}"` : ''} title="${lbTierTitle(h, t, i + 1, tip, tOff)}"><span class="tv">${lbF(t.th)}</span><span class="rw">${lbRText(t)}</span><span class="pl">${LB_STW[st]}</span>${gr ? html`<span class="gr">${lbGrantShort(gr)}</span>` : ownF && i + 1 === h.reached ? html`<span class="gr rm">click removes it; takes back nothing it paid</span>` : ''}</button>`;
   });
   const topT = h.tiers[h.tiers.length - 1], swl = !topT ? '' : topT.swatch ? (h.held ? 'Swatch won this term: the top tier is the house swatch' : 'Swatch not held yet: the top tier is the house swatch') : 'Swatch held: the top tier is the house’s own item';
   const hs = lbHsText(h, l), ld = lbLead(h, ids);
