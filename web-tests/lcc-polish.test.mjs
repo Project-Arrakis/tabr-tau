@@ -20,7 +20,7 @@ const SPECS = (id = 'mixed-five-tracks') => JSON.parse(JSON.stringify(CASES.find
 const text = (e) => (e ? e.textContent.replace(/\s+/g, ' ').trim() : null);
 const lum = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
 const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
-const hexOf = (css_, name) => { const m = css_.match(new RegExp('--lcc-' + name + ':\\s*(#[0-9a-f]{6})')); return m && m[1]; };
+const hexOf = (css_, name) => { const m = [...css_.matchAll(/--lcc-([a-z0-9-]+):\s*(#[0-9a-f]{6})/g)].find((x) => x[1] === name); return m ? m[2] : null; };
 async function openSpec(id) {
   const ui = await boot({ get: { '/api/player/specs': SPECS(id), '/api/landsraad': synthetic() }, local: { tab: 'player', 'spec.view': 'cc' } });
   ui.click('[data-sub="player:specialization"]'); await ui.settle();
