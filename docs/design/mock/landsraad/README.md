@@ -100,7 +100,7 @@ A closed panel above the board (its heading line shows the term, the reigning fa
 
 | Control | Rows it would write (as the present tab does) |
 |---|---|
-| Apply (Active decree and Reigning faction) | `landsraad_decree_term`: `active_decree_id` and `reigning_faction_id` of the current (latest) term row, both from the two drop-downs in one edit; "none" clears the field to NULL. `elected_decree_id` and `end_time` are not touched by this control. |
+| Apply (Active decree and Reigning faction) | `landsraad_decree_term`: `active_decree_id` and `reigning_faction_id` of the current (latest) term row, both from the two drop-downs in one edit; "none" in the Active decree drop-down clears the decree to NULL. The Reigning faction drop-down has no "none" (#960): a decree needs a faction, so the server refuses a write that leaves a decree with no faction, and the page sends the decree alone (the faction stays as it is) when the save holds a faction the list does not offer and the drop-down is left alone, or when the decree is cleared on a term with no faction. `elected_decree_id` and `end_time` are not touched by this control. |
 | Set flag to 0 / 1 | `landsraad_decrees`: the `disabled` column of that one decree row (picked by its id) only. It does not make the decree active; the Active decree does that. |
 
 The decree pool lists all 11 decrees of the save. In the editor the names are the game's own (read from the game's decree table, #608; see `internal/catalog/PROVENANCE.md`, "decree-names.json"); the mock-up pages keep their readable forms of the ids.

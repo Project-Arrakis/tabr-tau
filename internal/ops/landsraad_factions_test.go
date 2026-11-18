@@ -127,11 +127,17 @@ func TestTheReigningFactionAlreadyHeldIsNotRefusedWhenTheRequestLeavesItAlone(t 
 	if len(o.S.Pending()) != queued {
 		t.Fatal("a refused term wrote something")
 	}
-	// the real factions and clearing still work
-	for _, f := range []any{1.0, 2.0, nil} {
+	// the real factions still work, and clearing the faction works together with the decree (the term here holds a decree, and a decree needs a faction: #960)
+	for _, f := range []any{1.0, 2.0} {
 		if _, err := o.SetTerm(Args{"reigning_faction_id": f}); err != nil {
 			t.Fatalf("%v: %v", f, err)
 		}
+	}
+	if _, err := o.SetTerm(Args{"reigning_faction_id": nil}); !errors.Is(err, apierr.ErrBadArgument) {
+		t.Fatalf("clearing the faction under a set decree is refused: %v", err)
+	}
+	if _, err := o.SetTerm(Args{"active_decree_id": nil, "reigning_faction_id": nil}); err != nil {
+		t.Fatalf("clearing both: %v", err)
 	}
 }
 

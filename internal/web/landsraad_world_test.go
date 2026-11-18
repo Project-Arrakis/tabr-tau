@@ -104,3 +104,28 @@ func TestTheRetiredLandsraadRoutesAreGone(t *testing.T) {
 		t.Errorf("apply: %d %s", w.Code, w.Body.String())
 	}
 }
+
+// A decree is only in force because a faction won the term (#960): the term route answers a decree with no reigning faction with a 422 (bad argument) and a reason, and writes nothing; the same decree
+// with a faction is written.
+func TestTheTermRouteRefusesADecreeWithNoReigningFaction(t *testing.T) {
+	s := New(testsave.PlayerWithSQL(t, landsraadChosenWorld+`insert or replace into factions(id, name) values (1, 'Atreides'), (2, 'Harkonnen'); insert into landsraad_decrees(id, decree_name, disabled, weight) values (3, 'DecreeC', 0, 1);`), config.Dir{Path: t.TempDir()})
+	for _, body := range []string{
+		`{"active_decree_id":"3","reigning_faction_id":""}`,
+		`{"active_decree_id":3,"reigning_faction_id":null}`,
+		`{"active_decree_id":"3"}`,
+	} {
+		w := postEdit(t, s, "/api/landsraad/term", body)
+		if w.Code != 422 || !strings.Contains(w.Body.String(), "needs a reigning faction") {
+			t.Errorf("%s: %d %s, want 422 with the reason", body, w.Code, w.Body.String())
+		}
+	}
+	if s.Save.Dirty() {
+		t.Fatal("a refused request changed the save")
+	}
+	if w := postEdit(t, s, "/api/landsraad/term", `{"active_decree_id":"3","reigning_faction_id":"2"}`); w.Code != 200 {
+		t.Fatalf("a decree with a faction: %d %s", w.Code, w.Body.String())
+	}
+	if r, err := s.Save.One(`select reigning_faction_id f, active_decree_id d from landsraad_decree_term where term_id=7`); err != nil || r == nil || r["f"] != int64(2) || r["d"] != int64(3) {
+		t.Fatalf("the write did not reach the save: %v %v", r, err)
+	}
+}

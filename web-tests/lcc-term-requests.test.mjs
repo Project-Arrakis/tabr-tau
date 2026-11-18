@@ -25,7 +25,8 @@ const SCENARIOS = {
   'Apply with another active decree': async (ui) => { select(ui, '#lsb-tad', 3); click(ui, '[data-lb="tapply"]'); },
   'Apply with the other faction': async (ui) => { select(ui, '#lsb-trf', 2); await ui.settle(); click(ui, '[data-lb="tapply"]'); },
   'Apply with another decree and the other faction': async (ui) => { select(ui, '#lsb-tad', 4); select(ui, '#lsb-trf', 2); await ui.settle(); click(ui, '[data-lb="tapply"]'); },
-  'Apply with no decree and no faction': async (ui) => { select(ui, '#lsb-tad', ''); select(ui, '#lsb-trf', ''); await ui.settle(); click(ui, '[data-lb="tapply"]'); },
+  'Apply with no decree and no faction': async (ui) => { select(ui, '#lsb-tad', ''); select(ui, '#lsb-trf', ''); await ui.settle(); click(ui, '[data-lb="tapply"]'); }, // refused since #960: a decree needs a faction, so nothing is sent
+  'Apply with no decree and the faction kept': async (ui) => { select(ui, '#lsb-tad', ''); await ui.settle(); click(ui, '[data-lb="tapply"]'); },
   'Make active on a row': async (ui) => { click(ui, '[data-lb="tmk"][data-id="4"]'); },
   'Make active on a row for the other faction': async (ui) => { select(ui, '#lsb-trf', 2); await ui.settle(); click(ui, '[data-lb="tmk"][data-id="6"]'); },
   'Make active on the hidden vendor row': async (ui) => { click(ui, '[data-lb="tmk"][data-id="11"]'); },
@@ -73,8 +74,8 @@ for (const name of Object.keys(SCENARIOS)) {
       assert.ok(golden[name], 'a recorded scenario for ' + name);
       const got = await play(name, view);
       assert.deepEqual(got, golden[name]);
-      if (!/no faction chosen/.test(name)) assert.ok(got.sent.length === 1, 'one write was made');
-      else assert.equal(got.sent.length, 0, 'nothing is sent when Make active is not allowed');
+      if (!/no faction chosen|no decree and no faction/.test(name)) assert.ok(got.sent.length === 1, 'one write was made');
+      else assert.equal(got.sent.length, 0, 'nothing is sent when Make active or Apply is not allowed');
     });
   }
 }

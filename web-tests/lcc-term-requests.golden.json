@@ -54,21 +54,31 @@
   }
  },
  "Apply with no decree and no faction": {
+  "sent": [],
+  "others": [],
+  "result": "Choose a reigning faction first: a decree is only in force because a faction won the term. Nothing was changed.",
+  "focus": "tapply",
+  "chose": {
+   "decree": "",
+   "faction": ""
+  }
+ },
+ "Apply with no decree and the faction kept": {
   "sent": [
    {
     "path": "/api/landsraad/term",
     "body": {
      "active_decree_id": "",
-     "reigning_faction_id": ""
+     "reigning_faction_id": "1"
     }
    }
   ],
   "others": [],
-  "result": "Applied: active decree none, reigning faction none. (queued: written as soon as the save can be written)",
+  "result": "Applied: active decree none, reigning faction Atreides. (queued: written as soon as the save can be written)",
   "focus": "tapply",
   "chose": {
    "decree": "",
-   "faction": ""
+   "faction": "1"
   }
  },
  "Apply with the other faction": {
