@@ -324,3 +324,76 @@ test('light theme: the borders of the tier boxes pass 3:1 against both ends of t
     for (const k of ['tier-edge', 'ok-edge', 'wait-edge', 'unk-edge']) for (const end of ['card-a', 'card-b']) assert.ok(ratio(v(k), v(end)) >= 3, k + ' on ' + end + ': ' + ratio(v(k), v(end)).toFixed(2));
   }
 });
+
+// ---- Light-theme text contrast, the phone victory panel and the folded notes (follow-up to the board's final check; display only) ----
+const lumHex = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+const ratioHex = (a, b) => { const [x, y] = [lumHex(a), lumHex(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+const tokensOf = (body) => Object.fromEntries([...body.matchAll(/--lcc-([a-z0-9-]+):\s*(#[0-9a-f]{6})/g)].map((m) => [m[1], m[2]]));
+
+test('contrast: 12 px text on the cards and in the Actions panel passes 4.5:1 against the worst end of its surface, dark and light, computed from the tokens', () => {
+  const dark = rules.find((r) => r.at === '' && r.sel === '.lcc, .lcc-scope');
+  const lights = rules.filter((r) => /--lcc-card-a:/.test(r.body) && /data-theme="(light|dark)"/.test(r.sel) && /:root\[data-theme="light"\]|:root:not\(\[data-theme="dark"\]\)/.test(r.sel));
+  assert.ok(dark && lights.length === 2, 'the dark base block and the two light blocks exist');
+  // the default look's own raised surface (the Reopen button stands on it): read from the shared tokens, so a change of those fails here
+  const tk = read('design', 'assets', 'tokens.css').replace(/\r/g, '');
+  const raised = [...tk.matchAll(/--c-raised:\s*(#[0-9a-f]{6})/g)].map((m) => m[1]);
+  assert.ok(raised.includes('#241c15') && raised.includes('#f0e8da'), 'the default dark and light raised surfaces are the ones this test uses: ' + raised.join(' '));
+  const sets = [['dark', tokensOf(dark.body)], ...lights.map((b, i) => ['light ' + (i + 1), { ...tokensOf(dark.body), ...tokensOf(b.body) }])];
+  // [label, text token, surfaces it stands on]: card = both ends of the card gradient, panel = both ends of the panel gradient
+  const pairs = [
+    ['card owner Atreides', 'teal-t', ['card-a', 'card-b']],
+    ['card owner Harkonnen', 'red-t', ['card-a', 'card-b']],
+    ['card counts: collected', 'teal-t', ['card-a', 'card-b']],
+    ['card counts: waiting', 'gold-t', ['card-a', 'card-b']],
+    ['card counts: no record', 'red-t', ['card-a', 'card-b']],
+    ['ACTIONS heading', 'gold-t', ['tier-bg']],
+    ['House Harkonnen faction label', 'red-t', ['s1', 's2']],
+    ['House Atreides faction label', 'teal-t', ['s1', 's2']],
+    ['collected mark', 'teal-t', ['tier-bg']],
+    ['Reopen button', 'red-t', ['RAISED']],
+  ];
+  for (const [label, tok] of sets) for (const [what, t, ends] of pairs) for (const e of ends) {
+    assert.ok(tok[t], label + ': token --lcc-' + t + ' is set');
+    const bg = e === 'RAISED' ? ((label === 'dark') ? '#241c15' : '#f0e8da') : tok[e];
+    assert.ok(bg, label + ': surface ' + e);
+    assert.ok(ratioHex(tok[t], bg) >= 4.5, label + ' ' + what + ' (' + tok[t] + ' on ' + bg + '): ' + ratioHex(tok[t], bg).toFixed(2));
+  }
+
+});
+
+
+test('contrast: the rules that paint that text use the text tokens, and the strokes keep the accents', () => {
+  const use = (sel, tok) => assert.ok(rules.some((r) => r.at === '' && r.sel.split(',').map((s) => s.trim()).includes(sel) && new RegExp('color: var[(]--lcc-' + tok + '[)]').test(r.body)), sel + ' takes color from --lcc-' + tok);
+  use('.lcc-hc-a .lcc-hc-owner', 'teal-t'); use('.lcc-hc-h .lcc-hc-owner', 'red-t');
+  use('.lcc-hc-q-ok', 'teal-t'); use('.lcc-hc-q-wait', 'gold-t'); use('.lcc-hc-q-unk', 'red-t');
+  use('.lcc-bd-editor .lcc-bd-sec-h', 'gold-t'); use('.lcc-bd-fc-h', 'red-t'); use('.lcc-bd-fc-a', 'teal-t');
+  use('.lcc-bd-tier-s.delivered', 'teal-t'); use('.lcc-bd-act.lcc-bd-act-danger', 'red-t');
+  assert.match(bare, /\.lcc-bd-act\.lcc-bd-act-danger \{ border-color: var\(--lcc-red\);/, 'the danger button keeps the accent for its stroke');
+  assert.match(bare, /\.lcc-hc-a \{ border-color: var\(--lcc-teal\);/, 'the card stroke keeps the accent');
+});
+
+test('the phone victory panel keeps a smaller emblem, so the status tag has a clear gap above the heading', () => {
+  const phone = rules.filter((r) => /max-width: 640px/.test(r.at) && /pointer: coarse/.test(r.at) && r.sel === '.lcc-bd-emblem');
+  assert.equal(phone.length, 1, 'the phone rule for the emblem exists');
+  assert.ok(!/display:\s*none/.test(phone[0].body), 'the emblem is not hidden on a phone');
+  const size = +(/font-size:\s*(\d+)px/.exec(phone[0].body) || [])[1];
+  const margin = /margin:\s*(\d+)px 0 (\d+)px/.exec(phone[0].body);
+  assert.ok(size >= 24 && size <= 40, 'a smaller emblem: ' + size + 'px');
+  assert.ok(margin && +margin[1] + +margin[2] >= 8, 'a gap above and below the emblem');
+  assert.ok(!rules.some((r) => r.sel === '.lcc-bd-emblem' && /display:\s*none/.test(r.body)), 'no rule hides the emblem at any width');
+});
+
+test('the folded notes use the board palette, not the page link blue: a visible marker, a focus ring, and forced colours', () => {
+  const sum = rules.find((r) => r.at === '' && r.sel === '.lcc-bd .lcc-bd-disc > summary');
+  assert.ok(sum, 'a summary rule that outranks the page rule (.lsb details > summary)');
+  assert.match(sum.body, /color: var\(--lcc-gold-text\)/);
+  assert.match(sum.body, /list-style: none/);
+  assert.ok(!/#[0-9a-f]{3,8}\b|--acc|--c-spice|--c-link/i.test(sum.body), 'no literal colour and no app accent in it');
+  const marker = rules.find((r) => r.at === '' && r.sel === '.lcc-bd .lcc-bd-disc > summary::before');
+  assert.ok(marker && /border-left: 7px solid currentColor/.test(marker.body), 'a drawn triangle in the text colour');
+  assert.ok(rules.some((r) => r.sel === '.lcc-bd .lcc-bd-disc[open] > summary::before'), 'a turned triangle when open');
+  assert.ok(rules.some((r) => r.sel === '.lcc-bd .lcc-bd-disc > summary:focus-visible' && /outline: 2px solid var\(--lcc-focus\)/.test(r.body)), 'a focus ring');
+  assert.ok(rules.some((r) => r.sel === '.lcc-bd .lcc-bd-disc > summary:hover' && /underline/.test(r.body)), 'underlined on hover');
+  const fc = rules.find((r) => r.at === '@media (forced-colors: active)' && /\.lcc-bd \.lcc-bd-disc > summary/.test(r.sel));
+  assert.ok(fc && /color: CanvasText/.test(fc.body), 'forced colours: the system text colour');
+});

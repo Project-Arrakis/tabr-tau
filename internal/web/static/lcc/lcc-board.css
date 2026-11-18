@@ -108,8 +108,8 @@
 .lcc-hc-track { font: 700 9px/1.3 var(--lcc-sans); letter-spacing: .025em; color: var(--lcc-dim); text-transform: uppercase; }
 .lcc-hc-track-unk { font-size: 8px; font-style: italic; font-weight: 600; letter-spacing: 0; text-transform: none; text-align: center; }
 .lcc-hc-owner { margin-top: auto; font: 700 8px/1.3 var(--lcc-sans); letter-spacing: .07em; color: var(--lcc-dim); white-space: nowrap; text-transform: uppercase; }
-.lcc-hc-a .lcc-hc-owner { color: var(--lcc-teal); }
-.lcc-hc-h .lcc-hc-owner { color: var(--lcc-red); }
+.lcc-hc-a .lcc-hc-owner { color: var(--lcc-teal-t); }
+.lcc-hc-h .lcc-hc-owner { color: var(--lcc-red-t); }
 .lcc-hc-badge { margin-top: 2px; font-size: 8px; }
 /* the five tier boxes and the line under them */
 .lcc-hc-tiers { position: relative; z-index: 4; display: flex; justify-content: center; gap: 2px; width: 100%; align-self: center; margin: 2px 0 0; }
@@ -122,9 +122,9 @@
 .lcc-hc-t[aria-disabled="true"] { cursor: not-allowed; }
 .lcc-hc-count { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 5px; width: 100%; margin-top: 1px; font: 700 8px/1.25 var(--lcc-sans); letter-spacing: .03em; color: var(--lcc-dim); }
 .lcc-hc-count b { color: var(--lcc-strong); font-weight: 800; letter-spacing: .04em; }
-.lcc-hc-q-ok { color: var(--lcc-teal); }
-.lcc-hc-q-wait { color: var(--lcc-gold); }
-.lcc-hc-q-unk { color: var(--lcc-red); }
+.lcc-hc-q-ok { color: var(--lcc-teal-t); }
+.lcc-hc-q-wait { color: var(--lcc-gold-t); }
+.lcc-hc-q-unk { color: var(--lcc-red-t); }
 /* the choice for the actions on several Houses: ours alone, a small box at the top between the number and the badge */
 .lcc-bd-pickl { position: absolute; z-index: 5; left: calc(50% - 9px); top: 8px; display: grid; place-items: center; width: 18px; height: 18px; cursor: pointer; opacity: .62; }
 .lcc-bd-pickl:hover, .lcc-bd-pickl:focus-within, .lcc-bd-pickl:has(:checked) { opacity: 1; }
@@ -178,8 +178,8 @@
 .lcc-bd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .lcc-bd-banner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 9px; padding: 10px 0; margin-bottom: 15px; border-top: 1px solid var(--lcc-stroke-faint); border-bottom: 1px solid var(--lcc-stroke-faint); }
 .lcc-bd-control { font: 800 11px/1.3 var(--lcc-sans); letter-spacing: .09em; }
-.lcc-bd-control-a { color: var(--lcc-teal); }
-.lcc-bd-control-h { color: var(--lcc-red); }
+.lcc-bd-control-a { color: var(--lcc-teal-t); }
+.lcc-bd-control-h { color: var(--lcc-red-t); }
 .lcc-bd-control-open, .lcc-bd-control-unknown { color: var(--lcc-dim); }
 .lcc-bd-where { color: var(--lcc-dim); font-size: 10px; text-align: right; }
 .lcc-bd-status { margin: 0 0 4px; font: 500 12px/1.45 var(--lcc-sans); color: var(--lcc-text); }
@@ -190,8 +190,8 @@
 .lcc-bd-fc { margin-bottom: 10px; }
 .lcc-bd-fc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; font-size: 10px; }
 .lcc-bd-fc-l { font-weight: 700; }
-.lcc-bd-fc-a { color: var(--lcc-teal); }
-.lcc-bd-fc-h { color: var(--lcc-red); }
+.lcc-bd-fc-a { color: var(--lcc-teal-t); }
+.lcc-bd-fc-h { color: var(--lcc-red-t); }
 .lcc-bd-fc-v { font-variant-numeric: tabular-nums; color: var(--lcc-text); white-space: nowrap; }
 .lcc-bd-track { box-sizing: border-box; height: 7px; background: var(--lcc-tier-bg); border: 1px solid var(--lcc-stroke-faint); overflow: hidden; }
 .lcc-bd-track-me { height: 9px; border-color: var(--lcc-gold-text); }
@@ -211,7 +211,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-stat { min-height: 67px; box-sizing: border-box; border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-tier-bg); padding: 10px 5px 7px; text-align: center; display: flex; flex-direction: column; gap: 4px; justify-content: center; }
 .lcc-bd-stat strong { font: 700 22px/1.2 var(--lcc-serif); color: var(--lcc-text); font-variant-numeric: tabular-nums; }
 .lcc-bd-stat span { font-size: 9px; color: var(--lcc-dim); line-height: 1.2; }
-.lcc-bd-stat.ok strong { color: var(--lcc-teal); }
+.lcc-bd-stat.ok strong { color: var(--lcc-teal-t); }
 .lcc-bd-stat.wait strong { color: var(--lcc-gold-text); }
 .lcc-bd-stat.rest strong { color: var(--lcc-dim); }
 .lcc-bd-alert { margin: 11px 0 0; border-left: 3px solid var(--lcc-gold-text); background: var(--lcc-tier-bg); padding: 10px; color: var(--lcc-text); font: 11px/1.4 var(--lcc-sans); }
@@ -230,10 +230,10 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-tier-rw { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; color: var(--lcc-text); }
 .lcc-bd-tier-gr { font: 500 10px/1.3 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-bd-tier-s { font: 800 9px/1.3 var(--lcc-sans); text-align: right; letter-spacing: .025em; }
-.lcc-bd-tier-s.delivered { color: var(--lcc-teal); }
+.lcc-bd-tier-s.delivered { color: var(--lcc-teal-t); }
 .lcc-bd-tier-s.waiting { color: var(--lcc-gold-text); }
 .lcc-bd-tier-s.not_reached { color: var(--lcc-dim); }
-.lcc-bd-tier-s.no_row, .lcc-bd-tier-s.unknown { color: var(--lcc-red); }
+.lcc-bd-tier-s.no_row, .lcc-bd-tier-s.unknown { color: var(--lcc-red-t); }
 /* the plain words of the state stay for a screen reader, beside the mark */
 .lcc-bd-tier-st { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .lcc-bd-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 12px; color: var(--lcc-dim); font-size: 9px; }
@@ -241,7 +241,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-note strong { color: var(--lcc-text); }
 .lcc-bd-editor { padding: 13px 12px; border: 1px solid var(--lcc-stroke); background: var(--lcc-tier-bg); }
 .lcc-bd .lcc-badge { background: var(--lcc-tier-bg); }
-.lcc-bd-editor .lcc-bd-sec-h { color: var(--lcc-gold); font-weight: 800; letter-spacing: .11em; }
+.lcc-bd-editor .lcc-bd-sec-h { color: var(--lcc-gold-t); font-weight: 800; letter-spacing: .11em; }
 .lcc-bd-editor { margin-top: 20px; position: relative; }
 .lcc-bd-editor-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .lcc-bd-editor-head .lcc-bd-sec-h { margin: 0; }
@@ -252,7 +252,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-eselect { min-height: 36px; padding: 6px 9px; font-size: 12px; }
 .lcc-bd-etip { font-size: 10px; color: var(--lcc-dim); }
 .lcc-bd-erow .lcc-bd-act { padding: 7px 9px; }
-.lcc-bd-act.lcc-bd-act-danger { border-color: var(--lcc-red); color: var(--lcc-red); }
+.lcc-bd-act.lcc-bd-act-danger { border-color: var(--lcc-red); color: var(--lcc-red-t); }
 .lcc-bd-tip { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--lcc-stroke-faint); font: 10px/1.4 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-bd-act { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 36px; padding: 7px 13px; cursor: pointer; font: 700 12px/1.2 var(--lcc-sans); color: var(--lcc-text); background: var(--lcc-raised); border: 1px solid var(--lcc-stroke); }
 .lcc-bd-act:hover { border-color: var(--lcc-gold-text); }
@@ -433,6 +433,16 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-disc > summary { cursor: pointer; padding: 6px 0; font: 600 12px/1.3 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-bd-disc[open] > summary { color: var(--lcc-text); }
 .lcc-bd-disc > summary:focus-visible { outline: 2px solid var(--lcc-focus); outline-offset: 2px; }
+/* The page's own rule for a summary (.lsb details > summary) paints it in the app's link blue; inside the board it takes the board's palette instead. The two extra class names are only there to
+   outrank that rule. Closed it reads as a gold, bold line with a small triangle that turns when it is open; the line is underlined on hover and has the board's focus ring. The triangle is drawn
+   with borders in the text colour, so a forced-colours view shows it in the system text colour. */
+.lcc-bd .lcc-bd-disc > summary { display: flex; align-items: center; gap: 8px; list-style: none; color: var(--lcc-gold-text); font-weight: 700; text-underline-offset: 3px; }
+.lcc-bd .lcc-bd-disc > summary::-webkit-details-marker { display: none; }
+.lcc-bd .lcc-bd-disc > summary::before { content: ''; flex: none; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 7px solid currentColor; }
+.lcc-bd .lcc-bd-disc[open] > summary::before { border-top: 7px solid currentColor; border-bottom: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; }
+.lcc-bd .lcc-bd-disc[open] > summary { color: var(--lcc-text); }
+.lcc-bd .lcc-bd-disc > summary:hover { text-decoration: underline; }
+.lcc-bd .lcc-bd-disc > summary:focus-visible { outline: 2px solid var(--lcc-focus); outline-offset: 2px; }
 .lcc-bd-disc > .lcc-bd-note, .lcc-bd-disc > .lcc-bd-tip, .lcc-bd-disc > .lcc-bd-cap, .lcc-bd-disc > .lcc-bd-legend { margin-top: 2px; }
 .lcc-bd-disc > .lcc-bd-tip { padding-top: 0; border-top: 0; }
 .lcc-bd-ledger .lcc-bd-disc { margin-top: 6px; }
@@ -456,9 +466,9 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
   .lcc-hc-spec { width: 24px; height: 24px; }
   .lcc-hc-spec-img { width: 20px; height: 20px; }
   .lcc-bd-victory { min-height: 0; padding-top: 14px; padding-bottom: 14px; }
-  .lcc-bd-emblem { display: none; }
+  .lcc-bd-emblem { margin: 6px 0 4px; font-size: 34px; }  /* a smaller emblem, not none: it also keeps the status tag a clear gap above the heading */
 }
 @media (forced-colors: active) {
   .lcc-bd-eres { background: Canvas; border: 1px solid CanvasText; }
-  .lcc-bd-back, .lcc-bd-disc > summary { color: CanvasText; }
+  .lcc-bd-back, .lcc-bd-disc > summary, .lcc-bd .lcc-bd-disc > summary, .lcc-bd .lcc-bd-disc[open] > summary { color: CanvasText; }
 }
