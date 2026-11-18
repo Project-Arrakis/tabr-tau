@@ -137,7 +137,6 @@ const STATES = {
   'board-grid': { local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' }, root: '#lsb-lcc' },
   'board-list': { local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'list' }, root: '#lsb-lcc' },
   'board-inspector': { local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' }, root: '#lsb-lcc', pre: '#lsb-lcc [data-fk^="ht:"]', after: `document.querySelector('#lsb-lcc [data-fk^="ht:"]').click()` },
-  'board-strategy': { local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' }, root: '#lsb-lcc', pre: '[data-lcb="strategy"]', after: `document.querySelector('[data-lcb="strategy"]').click(); setTimeout(() => { const l = document.querySelector('[data-lcb="line"]'); if (l) l.click(); }, 150)` },
   'term-section': { local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' }, root: '#lcc-term' },
   'spec-cc': { local: { tab: 'player', 'spec.view': 'cc' }, root: '#lcs-root', pre: '[data-sub="player:specialization"]', after: `document.querySelector('[data-sub="player:specialization"]').click()` },
 };
@@ -146,7 +145,7 @@ const plan = [];
 for (const s of Object.keys(STATES)) for (const theme of ['dark', 'light']) for (const w of WIDTHS) plan.push({ name: `${s}_${theme}_${w}`, state: s, theme, w });
 for (const s of Object.keys(STATES)) for (const [w, z] of [[640, 'zoom200-of-1280'], [320, 'zoom400-of-1280']]) plan.push({ name: `${s}_dark_${z}`, state: s, theme: 'dark', w, dsf: 2 });
 for (const s of Object.keys(STATES)) for (const w of [390, 1280]) { plan.push({ name: `${s}_forced-colors_${w}`, state: s, theme: 'dark', w, media: [{ name: 'forced-colors', value: 'active' }] }); plan.push({ name: `${s}_reduced-motion_${w}`, state: s, theme: 'dark', w, media: [{ name: 'prefers-reduced-motion', value: 'reduce' }] }); }
-const SHOT_NAMES = /^(board-grid|board-inspector|board-strategy|term-section|spec-cc)_(dark|light)_(390|1280)$|^board-grid_forced-colors_1280$|^board-grid_dark_zoom200/;
+const SHOT_NAMES = /^(board-grid|board-inspector|term-section|spec-cc)_(dark|light)_(390|1280)$|^board-grid_forced-colors_1280$|^board-grid_dark_zoom200/;
 
 async function main() {
   const browser = findBrowser();

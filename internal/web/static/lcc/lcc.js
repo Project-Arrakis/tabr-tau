@@ -60,9 +60,7 @@
   }
   const trackAsset = (folder, track) => { const k = norm(track); return KEY_OK.test(k) && TRACKS.indexOf(k) >= 0 ? hit(folder, k, k) : null; };
   const laneAsset = (track) => trackAsset('lanes', track); // the scroll icon of a specialization: the Specializations view
-  const bannerAsset = (track) => trackAsset('banners', track); // the path banner icon: the Landsraad view, beside a House
-  // the diamond badge of a path on a House card (the approved design's own specialization icon, 84 x 84 PNG); the same five keys, never a name
-  const specAsset = (track) => { const k = norm(track); return KEY_OK.test(k) && TRACKS.indexOf(k) >= 0 ? Object.freeze({ key: k, file: 'specs/' + k + '.png', src: artBase + 'specs/' + k + '.png', fallback: false, width: 84, height: 84 }) : null; };
+  const bannerAsset = (track) => trackAsset('banners', track); // the path banner icon: the Landsraad view, beside a House (the House card draws it small and in one tint, #963)
   // decreeAsset(id) always answers: the picture of a known decree, or the neutral picture marked fallback: true.
   function decreeAsset(id) {
     const k = norm(typeof id === 'number' ? '' : id);
@@ -575,7 +573,7 @@
 
   const api = {
     HOUSES, TRACKS, DECREE_FILES, DECREE_FALLBACK, SEATS, CENTER, TRACK, GEOMETRY: Object.freeze({ W, H }),
-    config, houseAsset, laneAsset, bannerAsset, specAsset, decreeAsset, factionAsset, standardTipAsset,
+    config, houseAsset, laneAsset, bannerAsset, decreeAsset, factionAsset, standardTipAsset,
     seatStates, seatLabel, seatX, seatOuter, standingLine, summaryText, laneState,
     pill, ruleV, heldBy, standard, badge, richTip, frame, victory, VICTORY, winAnimOn,
     renderPlaque, renderHouseCard, renderLaneCard, el, houseTitle,

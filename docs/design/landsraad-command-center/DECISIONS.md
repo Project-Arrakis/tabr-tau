@@ -97,3 +97,19 @@ Decided by the operator on 2026-11-18 (issues #929, #926, #931), superseding the
 7. The "TERM STATUS" figure of the four-figures row is left as it was; that row is being removed in a separate change.
 
 Code: one pure function, WIN.decide, and a frozen table, WIN.TEXT, in internal/web/static/lcc/lcc-model.js; no surface builds its own phrase (a test reads the sources to prove it).
+
+## I. Decision (2026-11-18): Sysselraad Strategy and the Clear highlight button are removed (#958)
+
+Decided by the operator on 2026-11-18, superseding the Strategy view of M6 and row H4 of the M3 matrix. Display only: nothing is written and no request changes.
+
+1. **Removed:** the Sysselraad Strategy button, the "Twelve lines" panel, its order switch, its chosen-line footer and Jump to missing House, the violet preview outline and its words (ONE AWAY, POTENTIAL, BLOCKED, UNREADABLE, MISSING on a card), the PREVIEW LINE legend entry, the Escape handling for a chosen line, and the Clear highlight button (it only let go of the House being looked at; the win outlines stayed).
+2. **Kept:** choosing another House, choosing the same House again, and Escape still move or drop the selection. The twelve-line check of lcc-model.js stays, because the gold win outline of the five Houses of a held line, the plaque and the victory panel are worked out from it. The request goldens are unchanged.
+3. The words of section H are unchanged; the badge of a held line in the list (WIN.heldBadge) went with the list.
+
+## J. Decision (2026-11-18): no text flag on a winning House card (#961, closes #946)
+
+Decided by the operator on 2026-11-18. Display only. It changes item 4 of section H: the Houses that make up a win keep the one gold outline, and the flag "SYSSELRAAD WON" on each of them is dropped (thirteen identical flags on a 13-House win, wrapped at narrow widths and made cards taller). The words stay where they are said once: the plaque, the victory panel, the legend key (WINNING HOUSES), and the tooltip and screen-reader text of a winning card, all from WIN.TEXT. The card-tag function WIN.tag went with the flag.
+
+## K. Decision (2026-11-18): "earned" for the count of reward tiers, "collected" for what was taken (#962)
+
+Decided by the operator on 2026-11-18. UI text only. One pair of words runs through the board: a reward tier of yours is **earned** (your contribution is at least its amount) and then **collected** (taken at the house representative), which matches the note "Claimed ≠ earned ≠ collected". The card count reads "N/5 EARNED" (tooltip: "Reward tiers of yours earned in this House: N of 5"); the count under the board, the screen-reader text of a card and the tooltips of its counts say earned too. The list and the House Intelligence panel follow in the same words ("N of 5 tiers earned", "top tier earned" in the next-tier cell). The tier state words stay "NOT REACHED / NOT COLLECTED / COLLECTED" for now: the Classic list shows the same three words (#936), and renaming "NOT REACHED" to "NOT EARNED" changes both views and the Classic list's tests, so it is left as an open question for the owner.

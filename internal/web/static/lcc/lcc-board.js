@@ -20,12 +20,12 @@
   const OWNER_WORD = Object.freeze({ a: 'Atreides', h: 'Harkonnen', open: 'Open', unknown: 'Unreadable' });
   const NOT_IN_SAVE = 'Not in the save';
   const CHECKED = 'Each click is checked against the save first.';
-  // A House the save says is taken but that shows nothing of the character's own (#911): said in words, never as "0 of 5 reached". The tiers are the character's own ladder, so with no row of the
-  // character none is reached, and with no tier rows at all there is no ladder to show.
+  // A House the save says is taken but that shows nothing of the character's own (#911): said in words, never as "0/5 EARNED". The tiers are the character's own ladder, so with no row of the
+  // character none is earned, and with no tier rows at all there is no ladder to show.
   const TAKEN_NO_TIERS = 'Taken - no tier record in the save';
   const TAKEN_NO_MINE = 'Taken - no contribution of yours';
   const TAKEN_NO_TIERS_WHY = 'This House is taken, and the save holds no reward tiers for it.';
-  const TAKEN_NO_MINE_WHY = 'This House is taken. The save holds no contribution of yours to it, so none of your five tiers is reached: that is your own ladder, not the faction’s.';
+  const TAKEN_NO_MINE_WHY = 'This House is taken. The save holds no contribution of yours to it, so none of your five tiers is earned: that is your own ladder, not the faction’s.';
   const takenWhy = (h) => (h.takenNoTiers ? TAKEN_NO_TIERS_WHY : h.takenNoMine ? TAKEN_NO_MINE_WHY : '');
   // the contributors of a list, as the text of one line: the biggest first, "name amount"
   const contribLine = (list, n) => list.slice(0, n).map((c) => c.label + ' ' + fmt(c.amount)).join(' · ');
@@ -37,7 +37,7 @@
   const tierKind = (t) => (t.reached ? (TIER_CLASS[t.state] ? t.state : 'unknown') : 'not_reached');
 
   // The view state. It lives here, not in the answer, so a redraw after a write keeps the filter, the layout and the House that was looked at.
-  const state = { layout: 'grid', show: 'all', hs: 'any', spec: 'all', sort: 'position', dir: 'asc', group: '', sel: null, strategy: false, line: '', lineSort: 'board' };
+  const state = { layout: 'grid', show: 'all', hs: 'any', spec: 'all', sort: 'position', dir: 'asc', group: '', sel: null };
   let last = null; // { container, answer, host } of the latest mount, so a change of the view can draw again without the page's help
   let inited = false;
   // What a redraw keeps for the person (display only): where the House Intelligence panel was scrolled to (for the House it was on) and which disclosures were opened.
@@ -88,23 +88,8 @@
   // Everything the page says about a line comes from M().evaluate (a pure reading of the 25 owners): the words here only name what it found. The wording rule (the operator's decision of 2026-11-18, which
   // replaces the earlier "never a win" rule): the phrases of a win come from WIN in lcc-model.js and are never built here; Imperial Dominion is never confirmed (D03), and the sysselraad column is not evidence (D02).
   const lineWord = (l) => l.name.toLowerCase(); // 'row 3', 'column 2', 'main diagonal', 'opposite diagonal'
-  const houseNums = (l) => l.indexes.map((i) => String(i + 1).padStart(2, '0')).join(', ');
   const listWords = (xs) => (xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1]);
   const heldWords = (ev, side) => listWords(ev.held.filter((l) => l.side === side).map(lineWord));
-  // The word for one line of the list: where it stands, for whom, and which House is missing (by name, from the board, never guessed).
-  function lineSaid(l, board) {
-    const nm = (i) => (board.grid && board.grid[i] ? houseWord(board.grid[i].name) : 'a House');
-    const missing = l.missing.map(nm);
-    switch (l.status) {
-      case 'complete-a': case 'complete-h': return FACTION_WORD[l.side] + ' hold all five Houses: ' + M().WIN.TEXT.byLine;
-      case 'one-away-a': case 'one-away-h': return FACTION_WORD[l.side] + ' 4 of 5, one House away: ' + missing[0] + ' is still open';
-      case 'open-a': case 'open-h': return FACTION_WORD[l.side] + ' ' + l.by[l.side].length + ' of 5, still open: ' + listWords(missing);
-      case 'open-any': return 'Nothing claimed on it yet';
-      case 'blocked': return 'Blocked: both factions hold a House on it';
-      default: return 'Cannot be read: ' + l.by.unknown.length + (l.by.unknown.length === 1 ? ' House' : ' Houses') + ' on it could not be read';
-    }
-  }
-
   function metrics(board, ev) {
     ev = ev || M().evaluate(board, null);
     const c = board.counts;
@@ -156,9 +141,6 @@
     lay.appendChild(btn('', 'Grid', { 'aria-pressed': state.layout === 'grid' && gridOk ? 'true' : 'false', 'aria-disabled': gridOk ? null : 'true', title: gridOk ? null : 'The board cannot be drawn as 5 by 5: ' + board.problems[0], 'data-lcb': 'layout', 'data-val': 'grid', 'data-fk': 'bf:layout:grid' }));
     lay.appendChild(btn('', 'List', { 'aria-pressed': state.layout === 'list' || !gridOk ? 'true' : 'false', 'data-lcb': 'layout', 'data-val': 'list', 'data-fk': 'bf:layout:list' }));
     act.appendChild(lay);
-    act.appendChild(btn('lcc-bd-btn lcc-bd-strat', 'Sysselraad Strategy: ' + (state.strategy && gridOk ? 'On' : 'Off'), { 'aria-pressed': state.strategy && gridOk ? 'true' : 'false', 'aria-disabled': gridOk ? null : 'true', 'data-lcb': 'strategy', 'data-fk': 'bf:strategy',
-      title: gridOk ? 'Shows the twelve lines of the board as a list: click one to mark its Houses on the board. A preview is a reading of the Houses as they stand, never a result. Nothing is written.' : 'The board cannot be drawn as 5 by 5, so there are no lines to show' }));
-    act.appendChild(btn('lcc-bd-btn', 'Clear highlight', { 'data-lcb': 'clearsel', 'data-fk': 'bf:clear', title: 'Stops highlighting the House that is looked at. The outlines of a line of five and of a faction with 13 or more Houses are the Houses as they stand, and stay.' }));
     head.appendChild(act);
     return head;
   }
@@ -200,8 +182,7 @@
     w.appendChild(k('a', 'ATREIDES CLAIMED'));
     w.appendChild(k('h', 'HARKONNEN CLAIMED'));
     w.appendChild(k('n', 'OPEN'));
-    w.appendChild(k('g', 'WINNING HOUSES · ' + M().WIN.TEXT.won, 'The Houses that make up a win have a gold outline and the flag ' + M().WIN.TEXT.won + ': the five Houses of a line of five held by one faction, or the 13 or more Houses of a faction. ' + M().WIN.TEXT.facts));
-    if (state.strategy && board.ready) w.appendChild(k('p', 'PREVIEW LINE · POTENTIAL', 'A violet dashed outline marks the Houses of the line chosen in the Sysselraad Strategy list when it is not held. It is a preview of a line one faction could still complete, not a result.'));
+    w.appendChild(k('g', 'WINNING HOUSES · ' + M().WIN.TEXT.won, 'The Houses that make up a win have a gold outline: the five Houses of a line of five held by one faction, or the 13 or more Houses of a faction. ' + M().WIN.TEXT.facts));
     if (board.counts.unknown) w.appendChild(k('u', 'OWNER UNREADABLE', 'The completed flag and the winner of this House do not agree, so it is counted for neither faction.'));
     return w;
   }
@@ -210,7 +191,7 @@
     const r = board.rollup;
     const p = el('p', 'lcc-bd-totals');
     p.appendChild(el('b', '', 'Your rewards on this board: '));
-    p.appendChild(root.document.createTextNode((r.tiers ? r.reached + ' of ' + r.tiers + ' tiers reached' : 'tiers not known') + ' · ' + r.waiting + ' not collected (waiting at the house representatives) · ' + r.collected + ' collected · ' + r.unknownDelivery + ' reached with no delivery record · ' + fmt(r.mine) + ' contributed in all Houses.'));
+    p.appendChild(root.document.createTextNode((r.tiers ? r.reached + ' of ' + r.tiers + ' tiers earned' : 'tiers not known') + ' · ' + r.waiting + ' not collected (waiting at the house representatives) · ' + r.collected + ' collected · ' + r.unknownDelivery + ' earned with no delivery record · ' + fmt(r.mine) + ' contributed in all Houses.'));
     return p;
   }
 
@@ -235,30 +216,29 @@
     if (ct.off) b.setAttribute('data-why', ct.tip);
     return b;
   }
-  // One House card, as the approved design draws it: the number and the specialization badge on top, the crest, HOUSE NAME, the specialization, the owner, the five tier boxes and the line "N/5 REACHED"
-  // with the collected and the waiting counts. A House whose specialization the save does not give has no badge and says so in words.
+  // One House card, as the approved design draws it: the number and the specialization emblem on top, the crest, HOUSE NAME, the specialization, the owner, the five tier boxes and the line "N/5 EARNED"
+  // with the collected and the waiting counts. A House whose specialization the save does not give has no emblem and says so in words.
   function houseCard(h, matchIds, host, editable, picks, major, ev) {
-    // a House of a line of five held by its faction, and a House of a faction with 13 or more Houses, get the one win outline and the one flag (the reason is said by the plaque and the victory panel).
+    // a House of a line of five held by its faction, and a House of a faction with 13 or more Houses, get the one gold win outline (the words are the plaque's, the victory panel's, the legend's, and the House's tooltip and aria text; a card carries no text flag, #961).
     // Both are read from the evaluator, from the Houses as they stand now.
     const lines = ev && h.index !== null ? ev.held.filter((l) => l.indexes.includes(h.index)) : [];
     const inLine = lines.length > 0;
     const dom = !inLine && !!major && h.owner === major;
     const win = ev ? ev.win : null;
-    const wonTag = win ? M().WIN.tag(win) : ''; // 'SYSSELRAAD WON' on a House of a line the winner holds; none on the Houses of a 13-House win (they form no line) and none while the winner is undecidable
     const dim = !matchIds.has(h.id);
     const owner = OWNER_WORD[h.owner] ? h.owner : 'unknown';
-    const route = routeOf(h, ev);
-    const card = el('article', 'lcc-hc lcc-hc-' + owner, '', { 'data-owner': owner, 'data-selected': state.sel === h.id ? 'true' : null, 'data-dim': dim ? 'true' : null, 'data-compact': 'true', 'data-lines': inLine ? lines.map((l) => l.id).join(' ') : null, 'data-route': route ? route.kind : null, 'data-route-role': route ? route.role : null });
+    const card = el('article', 'lcc-hc lcc-hc-' + owner, '', { 'data-owner': owner, 'data-selected': state.sel === h.id ? 'true' : null, 'data-dim': dim ? 'true' : null, 'data-compact': 'true', 'data-lines': inLine ? lines.map((l) => l.id).join(' ') : null });
     if (inLine || dom) L().victory(card, true); // the one win outline: the five Houses of a held line and the Houses of the faction with 13 or more
     const lineSays = inLine ? FACTION_WORD[h.owner] + ' hold this House in a line of five: ' + listWords(lines.map(lineWord)) : '';
     const winSays = win && (inLine || dom) ? M().WIN.say(win) : '';
     const sel = btn('lcc-hc-select', '', { 'data-lcb': 'sel', 'data-id': h.id, 'data-fk': 'ht:' + h.id, 'aria-pressed': state.sel === h.id ? 'true' : 'false' });
     const top = el('span', 'lcc-hc-top');
     top.appendChild(el('span', 'lcc-hc-pos', h.number, { 'aria-hidden': 'true' }));
-    const banner = L().specAsset(h.track);
+    // the specialization emblem (#963): the path's banner picture, cut to its centre and drawn in one tint like the House crest; no frame, no progress edge
+    const banner = L().bannerAsset(h.track);
     if (banner) {
       const g = el('span', 'lcc-hc-spec', '', { title: trackWord(h.track) + ' specialization', 'data-track': h.track });
-      const img = el('img', 'lcc-hc-spec-img', '', { alt: '', width: 26, height: 26, src: banner.src, decoding: 'async' });
+      const img = el('img', 'lcc-hc-spec-img', '', { alt: '', width: 28, height: 28, src: banner.src, decoding: 'async' });
       img.addEventListener('error', () => { img.hidden = true; });
       g.appendChild(img);
       top.appendChild(g);
@@ -272,12 +252,10 @@
     sel.appendChild(el('strong', 'lcc-hc-name', houseWord(h.name)));
     sel.appendChild(el('small', 'lcc-hc-track' + (h.track ? '' : ' lcc-hc-track-unk'), h.track ? trackWord(h.track) : 'Specialization not in the save'));
     sel.appendChild(el('span', 'lcc-hc-owner', owner === 'a' || owner === 'h' ? '● ' + OWNER_WORD[owner] : owner === 'open' ? '○ Open' : '? Owner unreadable', { 'data-g': ({ a: 'A', h: 'H', open: '○', unknown: '?' })[owner] }));
-    if ((inLine || dom) && wonTag) sel.appendChild(el('span', 'lcc-flag lcc-flag-win lcc-hc-badge', wonTag));
-    if (route && !inLine) sel.appendChild(el('span', 'lcc-flag lcc-flag-route lcc-hc-badge', route.badge));
     const notes = [];
     if (h.waiting > 0) notes.push(h.waiting + ' reward' + (h.waiting === 1 ? '' : 's') + ' not collected');
-    sel.setAttribute('aria-label', [(h.number ? 'Number ' + h.number + ', ' : '') + h.name + ', ' + (owner === 'a' || owner === 'h' ? 'claimed by ' + OWNER_WORD[owner] : owner === 'open' ? 'open' : 'owner unreadable')].concat(h.track ? ['path ' + trackWord(h.track)] : ['specialization not in the save'], h.takenNoTiers ? ['taken, no tier record in the save'] : h.takenNoMine ? ['taken, no contribution of yours in the save, so none of your tiers is reached'] : h.tierCount ? [h.reached + ' of ' + h.tierCount + ' tiers reached', h.collected + ' collected'] : ['no tiers in the save'], notes, h.unknownDelivery ? [h.unknownDelivery + ' with no delivery record'] : [], inLine ? ['part of a line of five held by ' + FACTION_WORD[h.owner] + ': ' + listWords(lines.map(lineWord)), winSays] : [], dom ? ['one of the 13 or more Houses of ' + FACTION_WORD[major], winSays] : [], route ? [route.say] : [], dim ? ['not in the current filter'] : []).join(', '));
-    sel.setAttribute('title', 'House ' + h.name + ', ' + (h.pos ? h.pos.words + '. ' : '') + (route ? route.say + '. ' : '') + (inLine ? lineSays + '. ' + winSays + ' ' : '') + (dom ? 'One of the ' + FACTION_WORD[major] + ' Houses, who hold 13 or more Houses. ' + winSays + ' ' : '') + (takenWhy(h) ? takenWhy(h) + ' ' : '') + 'Click to see its tiers and actions.');
+    sel.setAttribute('aria-label', [(h.number ? 'Number ' + h.number + ', ' : '') + h.name + ', ' + (owner === 'a' || owner === 'h' ? 'claimed by ' + OWNER_WORD[owner] : owner === 'open' ? 'open' : 'owner unreadable')].concat(h.track ? ['path ' + trackWord(h.track)] : ['specialization not in the save'], h.takenNoTiers ? ['taken, no tier record in the save'] : h.takenNoMine ? ['taken, no contribution of yours in the save, so none of your tiers is earned'] : h.tierCount ? [h.reached + ' of ' + h.tierCount + ' tiers earned', h.collected + ' collected'] : ['no tiers in the save'], notes, h.unknownDelivery ? [h.unknownDelivery + ' with no delivery record'] : [], inLine ? ['part of a line of five held by ' + FACTION_WORD[h.owner] + ': ' + listWords(lines.map(lineWord)), winSays] : [], dom ? ['one of the 13 or more Houses of ' + FACTION_WORD[major], winSays] : [], dim ? ['not in the current filter'] : []).join(', '));
+    sel.setAttribute('title', 'House ' + h.name + ', ' + (h.pos ? h.pos.words + '. ' : '') + (inLine ? lineSays + '. ' + winSays + ' ' : '') + (dom ? 'One of the ' + FACTION_WORD[major] + ' Houses, who hold 13 or more Houses. ' + winSays + ' ' : '') + (takenWhy(h) ? takenWhy(h) + ' ' : '') + 'Click to see its tiers and actions.');
     card.appendChild(sel);
     const ctl = editable && host && host.ctl ? host.ctl(h.id) : null;
     const tiers = el('div', 'lcc-hc-tiers', '', { role: 'group', 'aria-label': 'House ' + h.name + ' reward tiers' + (ctl && ctl.tiers ? '. ' + CHECKED : '') });
@@ -288,12 +266,12 @@
     else if (h.takenNoMine) count.appendChild(el('b', '', TAKEN_NO_MINE, { title: TAKEN_NO_MINE_WHY, 'data-taken': 'no-mine' }));
     else if (h.tierCount) {
       const sp = () => count.appendChild(root.document.createTextNode(' '));
-      count.appendChild(el('b', '', h.reached + '/' + h.tierCount + ' REACHED'));
+      count.appendChild(el('b', '', h.reached + '/' + h.tierCount + ' EARNED', { title: 'Reward tiers of yours earned in this House: ' + h.reached + ' of ' + h.tierCount + '. Earned is not collected: the counts beside it say how many of them you have collected.' }));
       sp();
       count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-ok', '✓ ' + h.collected, { title: h.collected + ' collected' }));
       sp();
       count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-wait', '◆ ' + h.waiting, { title: h.waiting + ' not collected (waiting at the representative)' }));
-      if (h.unknownDelivery) { sp(); count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-unk', '? ' + h.unknownDelivery, { title: h.unknownDelivery + ' reached with no delivery record: not counted as collected or waiting' })); }
+      if (h.unknownDelivery) { sp(); count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-unk', '? ' + h.unknownDelivery, { title: h.unknownDelivery + ' earned with no delivery record: not counted as collected or waiting' })); }
     } else count.appendChild(el('b', '', 'NO TIERS IN THE SAVE'));
     card.appendChild(count);
     if (editable) card.appendChild(pickBox(h, picks));
@@ -395,78 +373,6 @@
     }
     wrap.appendChild(t);
     return wrap;
-  }
-
-  // ---- Sysselraad Strategy (milestone M6) --------------------------------------------------------------------------------------------------------------------------------------------
-  // A list of the twelve lines of the board and the way to look at one of them: its Houses are marked on the board, the House that is missing can be jumped to. Everything is read from the evaluator
-  // (lcc-model.js) over the Houses as they stand, and nothing is written. A line that is not held is a PREVIEW (a violet dashed outline and the word POTENTIAL): it says what one faction could
-  // still complete, never that it will, and never in the words of a result. The board itself is never reordered; only this list can be sorted.
-  const LINE_BADGE = Object.freeze({ held: '', oneaway: 'ONE AWAY', potential: 'POTENTIAL', blocked: 'BLOCKED', unknown: 'UNREADABLE' });
-  function lineKind(l) {
-    if (l.held) return 'held';
-    if (l.status === 'blocked') return 'blocked';
-    if (l.status === 'unknown') return 'unknown';
-    return /^one-away/.test(l.status) ? 'oneaway' : 'potential';
-  }
-  // the badge of a held line is the winner function's (SYSSELRAAD WON, or SYSSELRAAD UNDECIDABLE when both factions qualify); the other badges are about lines not held
-  const lineBadge = (l, ev) => (lineKind(l) === 'held' ? M().WIN.heldBadge(ev ? ev.win : M().WIN.decide(null)) : LINE_BADGE[lineKind(l)]);
-  // the order of the list: the board's own order, or the lines closest to done first (held, one away, then the fewest missing, then nothing claimed, blocked and unreadable last); ties keep board order
-  function lineOrder(lines, how) {
-    const rank = (l) => ({ held: 0, oneaway: 1, blocked: 90, unknown: 91 }[lineKind(l)] ?? (l.status === 'open-any' ? 80 : 10 + l.missing.length));
-    return how === 'near' ? lines.map((l, i) => [l, i]).sort((x, y) => rank(x[0]) - rank(y[0]) || x[1] - y[1]).map((x) => x[0]) : lines.slice();
-  }
-  // what the chosen line says about one House of the board: its outline kind and its word (a House the line misses is MISSING, a claimed House of a line that is not held is POTENTIAL)
-  function routeOf(h, ev) {
-    if (!state.strategy || !state.line || !ev || !ev.valid || h.index === null || h.index === undefined) return null;
-    const l = ev.lines.find((x) => x.id === state.line);
-    if (!l || !l.indexes.includes(h.index)) return null;
-    const kind = lineKind(l), open = h.owner === 'open';
-    if (kind === 'held') return { kind, role: 'held', badge: lineBadge(l, ev), say: 'in the line you are looking at (' + lineWord(l) + '), held by ' + FACTION_WORD[l.side] };
-    if (kind === 'blocked') return { kind, role: 'blocked', badge: LINE_BADGE.blocked, say: 'in the line you are looking at (' + lineWord(l) + '), which is blocked' };
-    if (kind === 'unknown') return { kind, role: 'unknown', badge: LINE_BADGE.unknown, say: 'in the line you are looking at (' + lineWord(l) + '), which cannot be read' };
-    return { kind: 'potential', role: open ? 'missing' : 'claimed', badge: open ? 'MISSING' : 'POTENTIAL', say: open ? 'a missing House of the line you are looking at (' + lineWord(l) + '): a preview, not a result' : 'in the line you are looking at (' + lineWord(l) + '): a preview, not a result' };
-  }
-  function strategyPanel(board, ev) {
-    const s = el('section', 'lcc-bd-surface lcc-bd-strat-panel', '', { 'aria-labelledby': 'lcc-bd-strat-h', 'data-lines': ev.valid ? '12' : '0' });
-    s.appendChild(el('p', 'lcc-bd-eyebrow', 'SYSSELRAAD STRATEGY'));
-    s.appendChild(el('h3', 'lcc-bd-strat-h', 'Twelve lines', { id: 'lcc-bd-strat-h' }));
-    s.appendChild(el('p', 'lcc-bd-strat-lead', 'Five rows, five columns, two diagonals. Choose a line to mark its Houses on the board. A mixed line is blocked. A line one faction does not hold yet is only a preview, not a result. ' + M().WIN.TEXT.rule));
-    const sw = el('div', 'lcc-bd-lsort', '', { role: 'group', 'aria-label': 'Order of the list' });
-    sw.appendChild(el('span', 'lcc-bd-lbl', 'LIST ORDER'));
-    for (const [v, t] of [['board', 'Board order'], ['near', 'Closest first']]) sw.appendChild(btn('lcc-bd-chip', t, { 'data-lcb': 'lsort', 'data-val': v, 'data-fk': 'bf:lsort:' + v, 'aria-pressed': state.lineSort === v ? 'true' : 'false' }));
-    s.appendChild(sw);
-    s.appendChild(lineFoot(board, ev));
-    const ul = el('ul', 'lcc-bd-lrows', '', { role: 'list', 'aria-label': 'The twelve lines of the board' });
-    for (const l of lineOrder(ev.lines, state.lineSort)) {
-      const li = el('li', 'lcc-bd-lrow-li');
-      const kind = lineKind(l), on = state.line === l.id;
-      const b = btn('lcc-bd-lrow', '', { 'data-lcb': 'line', 'data-pline': l.id, 'data-kind': kind, 'data-fk': 'bf:line:' + l.id, 'aria-pressed': on ? 'true' : 'false' });
-      const top = el('span', 'lcc-bd-lrow-top');
-      top.appendChild(el('b', '', l.name + ' · Houses ' + houseNums(l)));
-      top.appendChild(el('span', 'lcc-bd-lbadge', lineBadge(l, ev)));
-      b.appendChild(top);
-      const pips = el('span', 'lcc-bd-lpips', '', { 'aria-hidden': 'true' }); // the five Houses of the line as they stand; the words below say the same, so the squares are only a picture
-      for (const i of l.indexes) { const h = board.grid[i]; pips.appendChild(el('i', '', '', { 'data-owner': h ? h.owner : 'open' })); }
-      b.appendChild(pips);
-      b.appendChild(el('span', 'lcc-bd-lsay', lineSaid(l, board)));
-      li.appendChild(b);
-      ul.appendChild(li);
-    }
-    s.appendChild(ul);
-    return s;
-  }
-  // the line that is chosen, what it is, the way to its missing Houses and the way to let go of it: above the list, so it is in sight where the list is long
-  function lineFoot(board, ev) {
-    const cur = state.line ? ev.lines.find((l) => l.id === state.line) : null;
-    const foot = el('div', 'lcc-bd-lfoot', '', { role: 'status', 'aria-live': 'polite' });
-    if (cur) {
-      foot.appendChild(el('p', 'lcc-bd-lcur', cur.name + ': ' + lineBadge(cur, ev) + (lineKind(cur) === 'potential' || lineKind(cur) === 'oneaway' ? ' · a preview, not a result' : '')));
-      const acts = el('div', 'lcc-bd-lacts');
-      for (const i of cur.missing) { const h = board.grid[i]; if (h) acts.appendChild(btn('lcc-bd-btn', 'Jump to missing House ' + L().houseTitle(h.name), { 'data-lcb': 'jumpmissing', 'data-id': h.id, 'data-fk': 'bf:jm:' + h.id })); }
-      acts.appendChild(btn('lcc-bd-btn', 'Clear line', { 'data-lcb': 'clearline', 'data-fk': 'bf:clearline' }));
-      foot.appendChild(acts);
-    } else foot.appendChild(el('p', 'lcc-bd-lcur', 'No line chosen. Escape clears the choice.'));
-    return foot;
   }
 
   // ---- Imperial Victory Analysis -------------------------------------------------------------------------------------------------------------------------------------------------
@@ -807,7 +713,6 @@
     grid_.appendChild(panel);
     const side = el('div', 'lcc-bd-side');
     side.appendChild(victoryPanel(board, ev));
-    if (state.strategy && board.ready) side.appendChild(strategyPanel(board, ev));
     side.appendChild(inspector(board, state.sel === null ? null : board.byId.get(state.sel), host, editable));
     grid_.appendChild(side);
     w.appendChild(grid_);
@@ -829,7 +734,7 @@
     container.appendChild(build(board, host));
     if (!container.__lccWired) {
       container.__lccWired = true;
-      container.addEventListener('click', onClick); container.addEventListener('change', onChange); container.addEventListener('keydown', onKey);
+      container.addEventListener('click', onClick); container.addEventListener('change', onChange);
       container.addEventListener('scroll', onScroll, true); container.addEventListener('toggle', onToggle, true); // neither event bubbles
     }
     if (host && host.seat) host.seat(container);
@@ -849,13 +754,6 @@
     if (a.top < top) sc.scrollTop -= top - a.top + 8; else if (a.bottom > b.bottom) sc.scrollTop += a.bottom - b.bottom + 8;
   }
   function focusNode(fk) { const n = last && last.container.querySelector('[data-fk="' + fk + '"]'); if (n && n.focus) n.focus({ preventScroll: true }); }
-  function onKey(e) {
-    if (e.key !== 'Escape' || !state.line || !last) return;
-    const w = e.target && e.target.closest ? e.target.closest('.lcc-bd-strat-panel, .lcc-bd-tiles') : null;
-    if (!w) return;
-    const was = state.line; state.line = ''; redraw();
-    focusNode(w.classList.contains('lcc-bd-strat-panel') ? 'bf:line:' + was : 'bf:strategy');
-  }
   function onScroll(e) {
     const t = e.target;
     if (t && t.classList && t.classList.contains('lcc-bd-insp')) memo.insp = { id: t.getAttribute('data-id'), top: t.scrollTop };
@@ -893,35 +791,7 @@
       if (card) { if (card.scrollIntoView) card.scrollIntoView({ block: 'center' }); card.focus({ preventScroll: true }); }
       return;
     }
-    if (k === 'clearsel') { e.preventDefault(); state.sel = null; memo.insp = null; redraw(); return; }
     if (k === 'gopath') { e.preventDefault(); if (last.host && typeof last.host.goPath === 'function') last.host.goPath(t.getAttribute('data-track')); return; }
-    if (k === 'strategy') {
-      e.preventDefault();
-      if (t.getAttribute('aria-disabled') === 'true') return;
-      state.strategy = !state.strategy;
-      if (!state.strategy) state.line = '';
-      redraw();
-      focusNode('bf:strategy');
-      return;
-    }
-    if (k === 'line') {
-      e.preventDefault();
-      const id = t.getAttribute('data-pline');
-      state.line = state.line === id ? '' : id;
-      redraw();
-      return;
-    }
-    if (k === 'lsort') { e.preventDefault(); state.lineSort = t.getAttribute('data-val') === 'near' ? 'near' : 'board'; redraw(); return; }
-    if (k === 'clearline') { e.preventDefault(); const was = state.line; state.line = ''; redraw(); focusNode('bf:line:' + was); return; }
-    if (k === 'jumpmissing') {
-      e.preventDefault();
-      state.sel = Number(t.getAttribute('data-id')); memo.insp = null;
-      state.show = 'all'; state.hs = 'any'; state.spec = 'all'; // the same rule as Jump to House: the filters that would hide it are cleared
-      redraw();
-      const c = last.container.querySelector('[data-fk="ht:' + state.sel + '"]');
-      if (c && c.focus) { c.focus(); if (c.scrollIntoView) c.scrollIntoView({ block: 'nearest' }); }
-      return;
-    }
     if (k === 'filter') {
       e.preventDefault();
       state[t.getAttribute('data-key')] = t.getAttribute('data-val');
@@ -983,7 +853,7 @@
     }
   }
 
-  const api = { state, mount, redraw, routeOf, strategyPanel, lineOrder, lineBadge, keepInView, visible, build, majorityOf, victoryWords, countLine, lineSaid, plaque, metrics, grid, houseCard, list, inspector, victoryPanel, tierKind, NOT_IN_SAVE };
+  const api = { state, mount, redraw, keepInView, visible, build, majorityOf, victoryWords, countLine, plaque, metrics, grid, houseCard, list, inspector, victoryPanel, tierKind, NOT_IN_SAVE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCB = api;
 })(typeof window !== 'undefined' ? window : globalThis);

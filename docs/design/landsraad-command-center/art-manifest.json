@@ -1,5 +1,5 @@
 {
-  "purpose": "Runtime art of the Command Center (milestone M2): optimized local copies of the game artwork in docs/art/landsraad, served from internal/web/static/lcc/art, the two cloth standards' feet (role standard-tip) and the five specialization badges of the approved House cards (role spec-badge). Game artwork belongs to Funcom and is outside the repository licence (docs/art-notice.md); the two feet are design artwork supplied by the project owner; the five badges are small crops of the in-game Specializations screen that came with the approved design, so they are game artwork too. Both are described there. The tests compare this file with the embedded files byte for byte.",
+  "purpose": "Runtime art of the Command Center (milestone M2): optimized local copies of the game artwork in docs/art/landsraad, served from internal/web/static/lcc/art and the two cloth standards' feet (role standard-tip). Game artwork belongs to Funcom and is outside the repository licence (docs/art-notice.md); the two feet are design artwork supplied by the project owner. Both are described there. (The five 84 x 84 specialization badge crops of the approved design were removed on 2026-11-18, #963: the House card draws the banner pictures instead.) The tests compare this file with the embedded files byte for byte.",
   "runtimeRoot": "internal/web/static/lcc/art/",
   "format": "webp with alpha, encoded once from the reference PNG with the browser image encoder (quality 1.0 for the house symbols, 0.92 for the lane, banner and decree pictures); the reference PNG stays the source of truth",
   "sizes": {
@@ -9,8 +9,7 @@
     "decree": "128 x 128 (down from the 256 x 256 reference; shown at 96 px at most)",
     "faction-mark": "256 x 256 (down from the 512 x 512 reference; shown at 150 px at most): the white faction crest on the header shields, the cloth standards and the claimed 13th seat",
     "standard-tip": "320 x 111 and 319 x 111 PNG, the exact pixels of the approved plaque (no re-drawing, no re-encoding to a lossy format): the gold-edged V point of each cloth standard with its wheat ornament, rows 16 to 126 of the 150-row crop so that no baked-in text is in the picture; the files are design artwork supplied by the project owner, not game artwork",
-    "faction-medal": "the reference size (100 x 100 Atreides, 104 x 104 Harkonnen): the round medallion of a claimed seat",
-    "spec-badge": "84 x 84 PNG, the exact pixels of the approved design (no re-encoding): the diamond-masked icon of a path, drawn at 26 px on the top right of a House card; the files are small crops of the in-game Specializations screen supplied with the approved design, so they are game artwork of Funcom, not authored here (see docs/art-notice.md); replace them if authorized texture exports are obtained"
+    "faction-medal": "the reference size (100 x 100 Atreides, 104 x 104 Harkonnen): the round medallion of a claimed seat"
   },
   "houseAlias": {
     "mikarrol": "mikkarol"
@@ -579,56 +578,6 @@
       "width": 319,
       "height": 111,
       "source": "approved design art: the V-edged gold trim of the Harkonnen cloth, rows 16 to 126 of the 319 x 150 crop at 1818,448 of the approved 2172 x 724 plaque (design artwork supplied by the project owner)"
-    },
-    {
-      "role": "spec-badge",
-      "key": "combat",
-      "file": "specs/combat.png",
-      "bytes": 12593,
-      "sha256": "0bbc9986ba9e6320bb5c5ee1872a7641d6312a8e65623af5cfead353a0196546",
-      "width": 84,
-      "height": 84,
-      "source": "approved design art: the combat specialization icon, a crop of the in-game Specializations screen supplied with the approved design (game artwork; see the notice)"
-    },
-    {
-      "role": "spec-badge",
-      "key": "crafting",
-      "file": "specs/crafting.png",
-      "bytes": 14566,
-      "sha256": "d7d899927b39b710c406c55b44f2493a22892317a289691b8c25c187594daf55",
-      "width": 84,
-      "height": 84,
-      "source": "approved design art: the crafting specialization icon, a crop of the in-game Specializations screen supplied with the approved design (game artwork; see the notice)"
-    },
-    {
-      "role": "spec-badge",
-      "key": "exploration",
-      "file": "specs/exploration.png",
-      "bytes": 11616,
-      "sha256": "af9849da94d86bf187ce7d4eb1f62e8cf7b672604d6f1b9c92d6e9bcc4be1172",
-      "width": 84,
-      "height": 84,
-      "source": "approved design art: the exploration specialization icon, a crop of the in-game Specializations screen supplied with the approved design (game artwork; see the notice)"
-    },
-    {
-      "role": "spec-badge",
-      "key": "gathering",
-      "file": "specs/gathering.png",
-      "bytes": 14082,
-      "sha256": "7f362e9f95f5d08213ff8936eaa37b9b116bf208b113e4bdb5c4f6dfa609d568",
-      "width": 84,
-      "height": 84,
-      "source": "approved design art: the gathering specialization icon, a crop of the in-game Specializations screen supplied with the approved design (game artwork; see the notice)"
-    },
-    {
-      "role": "spec-badge",
-      "key": "sabotage",
-      "file": "specs/sabotage.png",
-      "bytes": 13314,
-      "sha256": "7bc242a785ba3c51bd599dea822fc093d66c592110522c8366a5e41c471ec58c",
-      "width": 84,
-      "height": 84,
-      "source": "approved design art: the sabotage specialization icon, a crop of the in-game Specializations screen supplied with the approved design (game artwork; see the notice)"
     }
   ],
   "factionArt": {

@@ -1,5 +1,7 @@
 # Command Center M6: Term and Decrees, Sysselraad Strategy and the way between the pages
 
+> **Update 2026-11-18 (operator decision, #958, DECISIONS.md section I): Sysselraad Strategy was removed.** The Strategy button, the "Twelve lines" list, the violet preview outline, the PREVIEW LINE legend entry and the Clear highlight button no longer exist, and neither do their tests. The Sysselraad Strategy table below and every Strategy row (S1 to S13, C-rows that mention it) are kept as the record of what M6 built; they describe nothing that is on the page now. The Term and Decrees section and the way between the pages are unchanged.
+
 This note records what was built for milestone M6 (issue #768) and lists every element and behaviour that the approved design and the milestone prompt ask for in this area, where the editor stands now, and why anything is still different. Nothing was dropped without a row.
 
 Method: the approved prototype (its Sysselraad Strategy view, and the plaque, which already reads the save since M3) and the editor page were drawn side by side in a headless browser at 1600, 1280, 1024, 768, 390 and 320 px, dark and Dayside (light), with the synthetic answer of M1. No game save was read and nothing was checked in the game.
@@ -21,7 +23,7 @@ Method: the approved prototype (its Sysselraad Strategy view, and the plaque, wh
 ## Proof that nothing else was changed
 
 * `web-tests/lcc-term-requests.test.mjs` plays 14 scenarios (Apply with each combination, Make active on a row, for the other faction, on the hidden row, with no faction chosen, Set flag to 0 and 1, and a refusal by the save for Apply and for Set flag) against the classic panel and against the new section, and compares the requests, the result line, the focus and the drop-down values with `web-tests/lcc-term-requests.golden.json`, which was recorded from the classic panel with `LCC_RECORD_REQUESTS=1`.
-* `web-tests/lcc-m6.test.mjs` covers the section, the strategy list, the line marks, the jump, the cross-page buttons and that nothing is sent by looking.
+* `web-tests/lcc-m6.test.mjs` covers the section, the cross-page buttons and that nothing is sent by looking (its Strategy tests were replaced on 2026-11-18 by one test that the Strategy button, the list and the Clear highlight button are gone, #958).
 * `web-tests/lcc-term-css.test.mjs` covers the styles (scope, own properties, no address, text floor, variants, targets).
 
 ## Totals

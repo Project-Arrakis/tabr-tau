@@ -93,8 +93,8 @@ func TestLccArtManifestMatchesTheEmbeddedFiles(t *testing.T) {
 		want[f.File] = f
 		counts[f.Role]++
 	}
-	if counts["house"] != 25 || counts["lane"] != 5 || counts["banner"] != 5 || counts["decree"] != 9 || counts["decree-fallback"] != 1 || counts["faction-mark"] != 2 || counts["faction-medal"] != 2 || counts["standard-tip"] != 2 || counts["spec-badge"] != 5 {
-		t.Errorf("manifest counts %v: want 25 houses, 5 lanes, 5 banners, 9 decrees, 1 neutral picture, 2 faction crests, 2 faction medallions and 2 cloth standard feet and 5 specialization badges", counts)
+	if counts["house"] != 25 || counts["lane"] != 5 || counts["banner"] != 5 || counts["decree"] != 9 || counts["decree-fallback"] != 1 || counts["faction-mark"] != 2 || counts["faction-medal"] != 2 || counts["standard-tip"] != 2 {
+		t.Errorf("manifest counts %v: want 25 houses, 5 lanes, 5 banners, 9 decrees, 1 neutral picture, 2 faction crests, 2 faction medallions and 2 cloth standard feet", counts)
 	}
 	var embedded []string
 	err := fs.WalkDir(static, "static/lcc/art", func(p string, d fs.DirEntry, err error) error {
@@ -141,15 +141,6 @@ func TestLccArtManifestMatchesTheEmbeddedFiles(t *testing.T) {
 			}
 			if len(b) > 40<<10 {
 				t.Errorf("%s is %d bytes: runtime copies are meant to stay small", file, len(b))
-			}
-		}
-		if f.Role == "spec-badge" {
-			// the specialization badges are PNG files kept at the exact pixels of the approved design: a PNG header of 84 x 84
-			if len(b) < 24 || string(b[1:4]) != "PNG" || binary.BigEndian.Uint32(b[16:20]) != 84 || binary.BigEndian.Uint32(b[20:24]) != 84 || f.Width != 84 || f.Height != 84 {
-				t.Errorf("%s is not a PNG of 84 x 84", file)
-			}
-			if len(b) > 24<<10 {
-				t.Errorf("%s is %d bytes: keep each badge under 24 KiB", file, len(b))
 			}
 		}
 		if f.Role == "standard-tip" {

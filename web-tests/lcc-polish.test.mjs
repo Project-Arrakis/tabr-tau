@@ -118,28 +118,6 @@ test('the model keeps the reason: a missing total outranks an unidentified track
   assert.match(src, /keysWhy: out\.rows\.some\(\(r\) => !r\.keyKnown\) \? 'total' : out\.rows\.some\(\(r\) => !r\.known\) \? 'unidentified' : ''/);
 });
 
-// ---- #905
-test('the chosen line\'s ring is drawn inside the cut card (a layer of the card), never as an outline outside it, except in forced colours', async () => {
-  const ringAt = board.indexOf('.lcc-hc[data-route]::after { content'), forcedAt = board.indexOf('.lcc-hc[data-route]::after { display: none; }');
-  assert.ok(ringAt > 0 && forcedAt > ringAt, 'the ring comes before its forced-colours rules');
-  assert.doesNotMatch(board.slice(ringAt, forcedAt), /\.lcc-hc\[data-route[^\]]*\][^{]*\{[^}]*outline:/, 'no outline on the card outside forced colours');
-  assert.match(board, /\.lcc-hc\[data-route\]::after \{ content: ''; position: absolute; z-index: 3; inset: 1px; pointer-events: none; clip-path: inherit; border: 3px dashed var\(--lcc-violet\); \}/);
-  assert.match(board, /\.lcc-hc\[data-route="held"\]::after \{ border: var\(--lcc-outline-win\); \}/);
-  assert.match(board, /\.lcc-hc\[data-route="blocked"\]::after, \.lcc-hc\[data-route="unknown"\]::after \{ border: 3px dotted var\(--lcc-line\); \}/);
-  assert.match(board, /\.lcc-hc\[data-route-role="missing"\]::after \{ border-style: dashed; border-width: 4px; \}/);
-  // the card is still the cut shape that clipped an outline, which is why the ring is a layer of it
-  assert.match(board, /\.lcc-hc \{[^}]*clip-path: polygon\(0 0, calc\(100% - 13px\) 0/);
-  const forced = board.slice(forcedAt);
-  assert.match(forced, /\.lcc-hc\[data-route\]::after \{ display: none; \}/);
-  assert.match(forced, /\.lcc-hc\[data-route="potential"\] \{ outline: 3px dashed Highlight; outline-offset: 2px; \}/);
-  // on the page: the Houses of a chosen line carry the attribute the ring hangs on
-  const ui = await openBoard();
-  ui.click('[data-lcb="strategy"]'); await ui.settle();
-  ui.click('[data-lcb="line"][data-kind="potential"], [data-lcb="line"][data-kind="oneaway"]'); await ui.settle();
-  assert.ok(ui.doc.querySelectorAll('.lcc-hc[data-route]').length >= 1);
-  assert.equal(ui.posted.length, 0);
-});
-
 test('the order chips are 36 px or more at every width and the board\'s selects are 44 px on a phone', () => {
   assert.match(board, /\.lcc-bd-chip \{ all: unset;[^}]*min-height: 36px;/);
   assert.match(board, /@media \(max-width: 640px\), \(pointer: coarse\) \{\s*\.lcc-bd-select \{ min-height: 44px; \}/);

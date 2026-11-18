@@ -52,22 +52,22 @@ test('taken with no tier record in the save: the card says so, not 0/5 and not a
   const ui = await open(a);
   const c = tileOf(ui, 'Mutelli');
   assert.equal(count(ui, 'Mutelli'), 'Taken - no tier record in the save');
-  assert.doesNotMatch(count(ui, 'Mutelli'), /REACHED|\/5|0\/0/i);
+  assert.doesNotMatch(count(ui, 'Mutelli'), /EARNED|\/5|0\/0/i);
   assert.equal(c.querySelectorAll('.lcc-hc-q').length, 0, 'no collected and waiting ticks');
   assert.match(label(ui, 'Mutelli'), /claimed by Atreides, .*taken, no tier record in the save/);
-  assert.doesNotMatch(label(ui, 'Mutelli'), /tiers reached|no tiers in the save/);
+  assert.doesNotMatch(label(ui, 'Mutelli'), /tiers earned|no tiers in the save/);
   assert.match(c.querySelector('button.lcc-hc-select').getAttribute('title'), /taken, and the save holds no reward tiers for it/);
   assert.match(c.querySelector('.lcc-hc-count b').getAttribute('title'), /no reward tiers/);
 });
 
-test('taken with tiers in the save but none of the character: the card says so, not 0/5 REACHED', async () => {
+test('taken with tiers in the save but none of the character: the card says so, not 0/5 EARNED', async () => {
   const ui = await open(synthetic());
   assert.equal(count(ui, 'Vernius'), 'Taken - no contribution of yours');
-  assert.doesNotMatch(count(ui, 'Vernius'), /REACHED/);
+  assert.doesNotMatch(count(ui, 'Vernius'), /EARNED/);
   assert.equal(tileOf(ui, 'Vernius').querySelectorAll('.lcc-hc-q').length, 0);
   assert.equal(tileOf(ui, 'Vernius').querySelectorAll('.lcc-hc-tiers .lcc-hc-t').length, 5, 'the five tiers of the ladder are still drawn, not reached');
-  assert.match(label(ui, 'Vernius'), /claimed by Harkonnen, .*taken, no contribution of yours in the save, so none of your tiers is reached/);
-  assert.doesNotMatch(label(ui, 'Vernius'), /0 of 5 tiers reached/);
+  assert.match(label(ui, 'Vernius'), /claimed by Harkonnen, .*taken, no contribution of yours in the save, so none of your tiers is earned/);
+  assert.doesNotMatch(label(ui, 'Vernius'), /0 of 5 tiers earned/);
   assert.match(tileOf(ui, 'Vernius').querySelector('.lcc-hc-count b').getAttribute('title'), /holds no contribution of yours to it/);
   // the write controls and their attributes are the ones of any other card
   const t = tileOf(ui, 'Vernius').querySelector('.lcc-hc-t');
@@ -76,12 +76,12 @@ test('taken with tiers in the save but none of the character: the card says so, 
 
 test('taken with tiers and a contribution of the character, and an open House: unchanged', async () => {
   const ui = await open(synthetic());
-  assert.match(count(ui, 'Wallach'), /^3\/5 REACHED/);
+  assert.match(count(ui, 'Wallach'), /^3\/5 EARNED/);
   assert.doesNotMatch(count(ui, 'Wallach'), /Taken/);
-  assert.match(label(ui, 'Wallach'), /3 of 5 tiers reached/);
-  assert.match(count(ui, 'Sor'), /^0\/5 REACHED/, 'an open House with nothing keeps its count');
+  assert.match(label(ui, 'Wallach'), /3 of 5 tiers earned/);
+  assert.match(count(ui, 'Sor'), /^0\/5 EARNED/, 'an open House with nothing keeps its count');
   assert.doesNotMatch(count(ui, 'Sor'), /Taken/);
-  assert.match(label(ui, 'Sor'), /open, .*0 of 5 tiers reached/);
+  assert.match(label(ui, 'Sor'), /open, .*0 of 5 tiers earned/);
 });
 
 test('the list and the inspector say the same of a taken House with none of the character', async () => {

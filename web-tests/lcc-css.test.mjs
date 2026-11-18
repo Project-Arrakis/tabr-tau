@@ -177,7 +177,7 @@ function finalSizes() {
 
 test('text floor: no rule of the board leaves text under 11 px, and names and key labels are 12 px or more', () => {
   const sizes = finalSizes();
-  // .lcc-flag is the foundation's own flag (the gallery); the board's use of it, the badge of a card, is raised by .lcc-hc-badge
+  // .lcc-flag is the foundation's own flag (the gallery); the board draws no flag on a card since #961
   const low = [...sizes].filter(([sel, px]) => px < 11 && sel !== '.lcc-flag');
   assert.deepEqual(low, [], 'selectors under 11 px: ' + low.map(([s, px]) => s + ' ' + px).join(' | '));
   for (const s of ['.lcc-hc-owner', '.lcc-hc-count', '.lcc-bd-chip', '.lcc-bd-lbl', '.lcc-bd-sec-h', '.lcc-bd-control', '.lcc-bd-vtag', '.lcc-bd-tier', '.lcc-bd-tier-n', '.lcc-bd-tier-s', '.lcc-bd-elab', '.lcc-bd-metric-k', '.lcc-bd-fc-head']) assert.ok(sizes.get(s) >= 12, s + ' is a key label: ' + sizes.get(s));
@@ -416,4 +416,16 @@ test('the action bar in the control bar (#914): one group with Jump to House tha
   assert.ok(own.some((r) => /^@media \(max-width: 640px\), \(pointer: coarse\)$/.test(r.at) && /\.barpart \.qa/.test(r.sel) && /\.barpart select/.test(r.sel) && /min-height: 44px/.test(r.body)), 'a touch target is 44 px');
   assert.ok(own.some((r) => r.at === '@media (forced-colors: active)' && /ButtonFace/.test(r.body) && /ButtonText/.test(r.body)), 'forced colours: system colours');
   assert.ok(own.some((r) => r.sel === '.lcc-bd .barpart #lsb-sum' && /flex: 1 1 100%/.test(r.body)), 'the count of the chosen houses has a line of its own');
+});
+
+test('the specialization emblem of a card is one tint like the House crest, with no diamond frame and no progress edge (#963)', () => {
+  const bare = boardCss.replace(/\/\*[\s\S]*?\*\//g, '');
+  const frame = (bare.match(/(?:^|\n)\.lcc-hc-spec \{([^}]*)\}/) || [])[1];
+  const img = (bare.match(/(?:^|\n)\.lcc-hc-spec-img \{([^}]*)\}/) || [])[1];
+  assert.ok(frame && img, 'both rules exist');
+  assert.doesNotMatch(frame, /clip-path|border|background|gradient/, 'no diamond, no frame, no fill');
+  assert.match(frame, /width: 28px; height: 28px;/, 'small');
+  assert.match(img, /filter: var\(--lcc-crest-filter\)/, 'the House crest\'s own tint: gold on dark, darker gold on light');
+  assert.doesNotMatch(bare, /\.lcc-hc-spec[^{]*\{[^}]*(conic-gradient|--lcc-v|progress)/, 'no progress edge');
+  assert.doesNotMatch(bare, /\.lcc-hc-spec[^{]*\{[^}]*rgba\(1[23]\d, ?\d+, ?1[67]\d/, 'the purple frame fill is gone');
 });

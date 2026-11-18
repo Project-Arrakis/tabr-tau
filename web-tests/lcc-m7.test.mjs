@@ -50,8 +50,8 @@ test('every write route is played by an equivalence test: the board against the 
 });
 
 // ---- looking sends nothing, on any of the four pages ----
-const SAFE = ['layout', 'strategy', 'line', 'jumpmissing', 'clearline', 'group', 'lsort', 'sort', 'back', 'clearsel', 'gopath'];
-test('looking at the board, the strategy, the term section and the specializations sends nothing: every House, layout, sort, line, link and lane', async () => {
+const SAFE = ['layout', 'group', 'sort', 'back', 'gopath'];
+test('looking at the board, the term section and the specializations sends nothing: every House, layout, sort, line, link and lane', async () => {
   const a = synthetic();
   const ui = await boot({ get: { '/api/landsraad': a, '/api/player/specs': SPECS() }, local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid', 'spec.view': 'cc' } });
   await ui.settle();
