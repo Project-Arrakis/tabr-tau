@@ -107,16 +107,11 @@
     const who = s.state === 'a' ? FACTION.a : s.state === 'h' ? FACTION.h : 'open';
     return 'Slot ' + s.slot + ' of ' + (total || SEATS) + ' — ' + who + (s.center ? ' (the gold middle seat)' : '');
   }
-  // A short factual line for the middle of the plaque. It reports the current count and never a result: a lead is "current" and the line never says a House has won (decision D05; the victory panel says that no winner is confirmed).
-  function standingLine(a, h) {
-    if (!isCount(a) || !isCount(h) || a + h > SEATS) return 'HOUSE COUNT UNAVAILABLE';
-    const open = SEATS - a - h;
-    const tail = open + (open === 1 ? ' HOUSE OPEN' : ' HOUSES OPEN');
-    if (a === h) return 'HOUSE COUNT EVEN AT ' + a + ' · ' + tail;
-    const lead = a > h ? 'ATREIDES' : 'HARKONNEN';
-    const hi = Math.max(a, h), lo = Math.min(a, h);
-    return lead + ' LEAD ' + hi + ' TO ' + lo + ' · ' + tail;
-  }
+  // The words of the Sysselraad (who has won, the headline, the count line) are written once, in lcc-model.js (WIN); this file takes them from there and builds none of its own. The model is
+  // loaded before the first plaque or card is drawn (the page loads it with this file); a caller that has not loaded it gets the error at once instead of a different phrase.
+  const WIN = () => { if (!root.LCCM || !root.LCCM.WIN) throw new Error('lcc-model.js must be loaded before lcc.js draws a plaque or a card'); return root.LCCM.WIN; };
+  // standingLine(a, h): the count line for two counts, as it always read ('HARKONNEN LEAD 11 TO 4 · 10 HOUSES OPEN'); the line of a state with a winner is WIN.tally.
+  function standingLine(a, h) { return WIN().standing(a, h); }
 
   // ---- small element helpers ----------------------------------------------------------------------------------------------------------------------------------------------
   const NS = 'http://www.w3.org/2000/svg';
@@ -204,9 +199,9 @@
     return o;
   }
   // The two victory outlines, drawn on a House card by a data attribute; no evaluation here, the caller says which one applies.
-  //   circuit : the card is one of the five connected Houses of a line (a single bright gold outline and a LINE badge)
-  //   dominion: the card belongs to the faction that holds the House-count majority (a double border and a DOMINION badge); cards are not connected
-  const VICTORY = Object.freeze({ circuit: 'LINE OF FIVE', dominion: 'MAJORITY HOUSE' });
+  // The one win outline (operator decision of 2026-11-18): a House that makes up a win, one of the five of a line or one of the 13 or more Houses of the winner, has the same single gold outline and
+  // the same flag. Which way it was won (a line of five, or 13 Houses) is said by the words of the plaque and the victory panel, not by a second kind of outline.
+  const VICTORY = Object.freeze({ get win() { return WIN().TEXT.won; } }); // the flag of a winning House
   // The animated border (class lcc-win-anim and a .lcc-win-sweep child that the style moves by transform) is added only when Motion is Full and the system has not asked for reduced motion.
   // The style checks the same two things again, so this is the first of two gates, not the only one. Calm, Off and reduced motion get the still outline and nothing else.
   function winAnimOn() {
@@ -215,9 +210,9 @@
     try { if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false; } catch (e) { /* no media query support: treat as not asked */ }
     return true;
   }
-  function victory(elm, kind) {
-    const on = kind === 'circuit' || kind === 'dominion';
-    if (on) elm.setAttribute('data-victory', kind); else elm.removeAttribute('data-victory');
+  function victory(elm, on) {
+    on = !!on;
+    if (on) elm.setAttribute('data-victory', 'win'); else elm.removeAttribute('data-victory');
     for (const old of [...elm.children]) if (old.classList && old.classList.contains('lcc-win-sweep')) old.remove();
     if (on && winAnimOn()) { elm.classList.add('lcc-win-anim'); elm.appendChild(el('span', 'lcc-win-sweep', '', { 'aria-hidden': 'true' })); } else elm.classList.remove('lcc-win-anim');
     return elm;
@@ -342,7 +337,9 @@
   }
 
   // The track: the pointed body, the middle gem and its lower point, and the 25 seats. a and h are validated counts or null (the track is then drawn with all seats open and marked unavailable).
-  function track(p, a, h) {
+  // win13: the faction that has won by 13 Houses ('a' or 'h'), else null. Only then does the gold middle seat (the 13th) carry data-win13 and the ring that the style animates (the same gold arc as the
+  // winning Houses, under the same two gates: Motion Full and no reduced-motion request). The still ring is the halo itself, drawn bolder; nothing moves the layout, it is all inside the seat's own circle.
+  function track(p, a, h, win13) {
     const T = TRACK;
     const g = (id) => 'url(#' + p + id + ')';
     const defs = sv('defs', null, [
@@ -376,7 +373,14 @@
       const x = seatX(s.index);
       const sg = sv('g', { class: 'lcc-seat lcc-seat-' + s.state + (s.center ? ' lcc-seat-center' : ''), transform: 'translate(' + x + ',' + T.cy + ')', 'data-slot': s.slot, 'data-state': s.state, 'data-center': s.center ? 'true' : null });
       sg.appendChild(sv('title', null, [doc().createTextNode(seatLabel(s))]));
-      if (s.center) sg.appendChild(sv('circle', { class: 'lcc-seat-halo', r: T.haloR, fill: 'none', stroke: g('tg'), 'stroke-width': 5 }));
+      if (s.center) {
+        sg.appendChild(sv('circle', { class: 'lcc-seat-halo', r: T.haloR, fill: 'none', stroke: g('tg'), 'stroke-width': 5 }));
+        if (win13) {
+          sg.setAttribute('data-win13', win13);
+          sg.setAttribute('class', sg.getAttribute('class') + ' lcc-seat-win13');
+          sg.appendChild(sv('circle', { class: 'lcc-seat-win-sweep', r: T.haloR, fill: 'none', 'stroke-width': 6, 'stroke-linecap': 'round', 'stroke-dasharray': '42 147', 'aria-hidden': 'true' }));
+        }
+      }
       sg.appendChild(sv('circle', { class: 'lcc-seat-base', r: T.r, fill: g(s.state === 'a' ? 'sa' : s.state === 'h' ? 'sh' : s.center ? 'sc' : 'so'), stroke: s.center ? GOLD.hi : '#2a2112', 'stroke-width': s.center ? 3.5 : 2 }));
       // a mark inside a claimed seat tells the two factions apart without colour: a V for Atreides, a ring for Harkonnen. It is the drawn fallback: the faction's picture covers it once the picture
       // has loaded (the round medallion on a claimed seat, the white crest on the gold 13th seat, as in the approved plaque), and a forced-colours view shows it instead of the picture.
@@ -400,12 +404,13 @@
 
   const TEXT = {
     decreeLabel: 'ACTIVE DECREE', noDecree: 'No active decree', noEffect: '', contributors: 'TOP CONTRIBUTORS', noContributors: 'Not in the save',
-    session: 'VOTING SESSION · MAJORITY AT 13 OF 25 HOUSES', atreides: 'HOUSE ATREIDES', harkonnen: 'HOUSE HARKONNEN', houses: 'HOUSES', unavailable: 'Tally not available',
+    atreides: 'HOUSE ATREIDES', harkonnen: 'HOUSE HARKONNEN', houses: 'HOUSES', unavailable: 'Tally not available',
   };
 
   // renderPlaque(vm): the approved decree and voting plaque as a read-only view of plain values.
-  //   vm = { a, h, decree: { name, effect } | null, holder: 'a' | 'h' | null, contributors: { a: string[] | null, h: string[] | null } | null, sessionLabel, standing, demo }
-  // It never decides a winner: the standing line is a caption the caller may replace (vm.standing), and nothing here reads the save.
+  //   vm = { a, h, decree: { name, effect } | null, holder: 'a' | 'h' | null, contributors: { a: string[] | null, h: string[] | null } | null, win, sessionLabel, standing, demo }
+  // It decides nothing itself: the headline and the tally line come from WIN for the reading the caller gives (vm.win, from WIN.decide) or, with none, for the two counts alone; a caller may still replace
+  // either line (vm.sessionLabel, vm.standing), and nothing here reads the save.
   function renderPlaque(vm) {
     vm = vm || {};
     const p = 'lcc' + (++uid) + '-';
@@ -415,8 +420,9 @@
     const root_ = el('div', 'lcc-plaque');
     host.appendChild(root_);
     root_.appendChild(underlay(p));
+    const wd = vm.win || WIN().decideCounts(a, h);
     const tr = el('div', 'lcc-track');
-    const svgTrack = track(p, a, h);
+    const svgTrack = track(p, a, h, wd.state === 'won' && wd.routes.includes('houses') ? wd.winner : null); // the orb moves for a win by 13 Houses only
     svgTrack.setAttribute('aria-label', summaryText(a, h));
     tr.appendChild(svgTrack);
     // header text
@@ -434,7 +440,9 @@
     head.appendChild(hb);
     root_.appendChild(head);
     root_.appendChild(tr);
-    root_.appendChild(el('p', 'lcc-pl-session', vm.sessionLabel || TEXT.session));
+    const sess = el('p', 'lcc-pl-session', vm.sessionLabel || WIN().headline(wd), { 'data-win': wd.state });
+    if (wd.state === 'won') sess.setAttribute('title', WIN().TEXT.facts);
+    root_.appendChild(sess);
     const foot = el('div', 'lcc-pl-foot');
     const c = vm.contributors || {};
     const sa = standard('a', c.a, TEXT.contributors, TEXT.noContributors), sh = standard('h', c.h, TEXT.contributors, TEXT.noContributors);
@@ -452,7 +460,7 @@
     foot.appendChild(faction('h', h, TEXT.harkonnen));
     foot.appendChild(sa);
     foot.appendChild(sh);
-    foot.appendChild(el('p', 'lcc-pl-standing', vm.standing != null ? vm.standing : ok ? standingLine(a, h) : TEXT.unavailable, { role: 'status' }));
+    foot.appendChild(el('p', 'lcc-pl-standing', vm.standing != null ? vm.standing : vm.win ? WIN().tally(vm.win) : ok ? WIN().tally(wd) : TEXT.unavailable, { role: 'status' }));
     root_.appendChild(foot);
     if (vm.demo) root_.appendChild(badge('demo'));
     return host;
@@ -463,7 +471,7 @@
   const OWNER_GLYPH = Object.freeze({ a: 'A', h: 'H', open: '○', unknown: '?' });
   const TRACK_LABEL = Object.freeze({ combat: 'Combat', crafting: 'Crafting', exploration: 'Exploration', gathering: 'Gathering', sabotage: 'Sabotage' });
   const houseTitle = (name) => String(name == null ? '' : name).replace(/^DA_House/i, '').replace(/^./, (c) => c.toUpperCase());
-  // renderHouseCard(vm): vm = { name, owner: 'a'|'h'|'open'|'unknown', track, selected, oneAway, inLine, dominion, waiting }. A button: the whole card is the target.
+  // renderHouseCard(vm): vm = { name, owner: 'a'|'h'|'open'|'unknown', track, selected, oneAway, inLine (a House of a held line: the data-line mark), win (the House makes up a win), waiting }. A button: the whole card is the target.
   // The live board (M3) adds four optional fields, all off when absent: number (the tile number 01 to 25, a board position), meter ({ reached, total }: the tiers of the character's own
   // contribution), dim (the filters leave this House out: it stays on the board and says so) and compact (the five-by-five tile: the crest over the name, drawn small).
   const pipText = (m) => (m && Number.isInteger(m.total) && m.total > 0 && Number.isInteger(m.reached) && m.reached >= 0 && m.reached <= m.total ? m : null);
@@ -472,7 +480,7 @@
     const owner = OWNER[vm.owner] ? vm.owner : 'unknown';
     const title = houseTitle(vm.name) || 'Unknown House';
     const b = el('button', 'lcc lcc-house', '', { type: 'button', 'aria-pressed': vm.selected ? 'true' : 'false', 'data-owner': owner, 'data-one-away': vm.oneAway ? 'true' : null, 'data-line': vm.inLine ? 'true' : null });
-    if (vm.inLine) victory(b, 'circuit'); else if (vm.dominion) victory(b, 'dominion');
+    if (vm.win) victory(b, true);
     if (vm.selected) b.setAttribute('data-selected', 'true');
     if (vm.dim) b.setAttribute('data-dim', 'true');
     if (vm.compact) b.setAttribute('data-compact', 'true');
@@ -496,8 +504,7 @@
     const flags = el('span', 'lcc-house-flags');
     const notes = [];
     if (vm.oneAway) { flags.appendChild(el('span', 'lcc-flag lcc-flag-one', 'ONE AWAY')); notes.push('one House away from a line'); }
-    if (vm.inLine) { flags.appendChild(el('span', 'lcc-flag lcc-flag-line', VICTORY.circuit)); notes.push('part of a line of five'); }
-    else if (vm.dominion) { flags.appendChild(el('span', 'lcc-flag lcc-flag-dom', VICTORY.dominion)); notes.push('a House of the majority'); }
+    if (vm.win) { flags.appendChild(el('span', 'lcc-flag lcc-flag-win', VICTORY.win)); notes.push('one of the Houses that won the Sysselraad'); }
     if (vm.waiting > 0) { flags.appendChild(el('span', 'lcc-flag lcc-flag-wait', vm.waiting + ' WAITING')); notes.push(vm.waiting + ' reward' + (vm.waiting === 1 ? '' : 's') + ' waiting'); }
     const mt = pipText(vm.meter);
     if (mt) {

@@ -99,19 +99,29 @@ test('every seat is named in words: the slot, the owner and, for the 13th, that 
   assert.equal(L.summaryText(30, 1), 'The tally of the 25 seats is not available.');
 });
 
-test('the plaque headline says where the majority is (13 of 25 Houses), never a seat reached or a win, in the lead, tie, none and unreadable states (#912)', () => {
-  const HEAD = 'VOTING SESSION · MAJORITY AT 13 OF 25 HOUSES';
+test('the plaque headline and tally come from the winner function (#929): contested below 13 Houses, won by 13 Houses from two counts alone, the majority mark stays on the track', () => {
   const head = (p) => p.querySelector('.lcc-pl-session').textContent;
-  for (const [a, h, standing] of [[1, 0, 'ATREIDES LEAD 1 TO 0 · 24 HOUSES OPEN'], [4, 9, 'HARKONNEN LEAD 9 TO 4 · 12 HOUSES OPEN'], [5, 5, 'HOUSE COUNT EVEN AT 5 · 15 HOUSES OPEN'], [0, 0, 'HOUSE COUNT EVEN AT 0 · 25 HOUSES OPEN'], [13, 12, 'ATREIDES LEAD 13 TO 12 · 0 HOUSES OPEN']]) {
+  for (const [a, h, headline, standing] of [
+    [1, 0, 'SYSSELRAAD CONTESTED', 'ATREIDES LEAD 1 TO 0 · 24 HOUSES OPEN'], [4, 9, 'SYSSELRAAD CONTESTED', 'HARKONNEN LEAD 9 TO 4 · 12 HOUSES OPEN'], [5, 5, 'SYSSELRAAD CONTESTED', 'HOUSE COUNT EVEN AT 5 · 15 HOUSES OPEN'],
+    [0, 0, 'SYSSELRAAD CONTESTED', 'HOUSE COUNT EVEN AT 0 · 25 HOUSES OPEN'], [12, 4, 'SYSSELRAAD CONTESTED', 'ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN'],
+    [13, 12, 'SYSSELRAAD WON · ATREIDES', 'ATREIDES · BY 13 HOUSES · 13 TO 12 · 0 HOUSES OPEN'], [0, 13, 'SYSSELRAAD WON · HARKONNEN', 'HARKONNEN · BY 13 HOUSES · 13 TO 0 · 12 HOUSES OPEN'],
+  ]) {
     const p = plaque({ a, h });
-    assert.equal(head(p), HEAD, a + '/' + h + ': the headline is the same in every state, and it is not the tally');
-    assert.equal(p.querySelector('.lcc-pl-standing').textContent, standing, a + '/' + h + ': the tally line is the one that changes');
+    assert.equal(head(p), headline, a + '/' + h);
+    assert.equal(p.querySelector('.lcc-pl-standing').textContent, standing, a + '/' + h);
+    assert.doesNotMatch(head(p), /VOTING SESSION|MAJORITY AT 13/, 'the old headline is gone');
   }
-  assert.equal(head(plaque({ a: 40, h: 1 })), HEAD, 'an unreadable count leaves the headline as it is');
-  assert.doesNotMatch(HEAD, /\bSEAT\b|\bWIN|\bWON\b/i, 'no seat reached, no win');
+  assert.equal(head(plaque({ a: 40, h: 1 })), 'SYSSELRAAD UNDECIDABLE', 'an unreadable count is not called contested');
+  assert.equal(plaque({ a: 13, h: 0 }).querySelector('.lcc-pl-session').getAttribute('title'), 'The save does not record the vote; the game works the winner out from the Houses.', 'a won headline carries the facts line');
   const sum = plaque({ a: 1, h: 0 }).querySelector('.lcc-track-svg').getAttribute('aria-label');
-  assert.match(sum, /Seat 13 is the gold middle seat, the majority mark: 13 of 25 Houses\./, 'the screen-reader label says the same thing');
-  assert.doesNotMatch(sum, /\bwin|\bwon\b/i);
+  assert.match(sum, /Seat 13 is the gold middle seat, the majority mark: 13 of 25 Houses\./, 'the screen-reader label of the track keeps the majority mark');
+});
+
+test('a reading of the board (vm.win) sets the headline and the tally of the plaque, and a line of five wins with fewer than 13 Houses', () => {
+  const win = { state: 'won', winner: 'h', routes: ['line'], reason: 'five in a line', counts: { a: 1, h: 5, open: 19, unknown: 0 }, lines: ['diag-main'], why: '', qualifiers: [] };
+  const p = plaque({ a: 1, h: 5, win });
+  assert.equal(p.querySelector('.lcc-pl-session').textContent, 'SYSSELRAAD WON · HARKONNEN');
+  assert.equal(p.querySelector('.lcc-pl-standing').textContent, 'HARKONNEN · BY FIVE IN A LINE · 5 TO 1 · 19 HOUSES OPEN');
 });
 
 test('counts that cannot be read draw 25 open seats, say so, and light nothing', () => {

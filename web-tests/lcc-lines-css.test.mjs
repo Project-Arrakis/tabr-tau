@@ -12,24 +12,21 @@ const board = strip('lcc-board.css');
 const base = strip('lcc.css');
 const rule = (css, sel) => { const i = css.indexOf(sel + ' {'); assert.ok(i >= 0, 'rule not found: ' + sel); return css.slice(i, css.indexOf('}', i) + 1); };
 // the content of the nearest forced-colors block that follows the M4 marker's rules
-const forced = board.slice(board.indexOf('@media (forced-colors: active) {', board.indexOf('.lcc-bd-line[data-status="unknown"]')));
+const forced = board.slice(board.indexOf('@media (forced-colors: active) {', board.indexOf('.lcc-bd-line {')));
 const forcedBlock = forced.slice(0, forced.indexOf(String.fromCharCode(10) + '}' + String.fromCharCode(10)) + 3);
 
-test('the circuit outline of a House of the board uses the win outline and the full win glow, never the dial of the plaque', () => {
-  const r = rule(board, '.lcc-hc[data-victory="circuit"]');
+test('the one win outline of a House of the board uses the win outline and the full win glow, never the dial of the plaque', () => {
+  const r = rule(board, '.lcc-hc[data-victory="win"]');
   assert.match(r, /outline:\s*var\(--lcc-outline-win\)/);
-  assert.match(r, /calc\(75% \* var\(--lcc-glow-win\)\)/);
+  assert.match(r, /calc\(80% \* var\(--lcc-glow-win\)\)/);
   assert.doesNotMatch(r, /var\(--lcc-glow\)/, 'the 0.5 dial scales the plaque and the rest of the page only');
-  const d = rule(board, '.lcc-hc[data-victory="dominion"]');
-  assert.match(d, /var\(--lcc-glow-win\)/);
-  assert.doesNotMatch(d, /var\(--lcc-glow\)/);
+  assert.match(r, /outline-offset:\s*3px/, 'the double outline with a gap: the look the majority outline had');
   // the token is a plain number, 1, and is not made from the dial
   assert.match(base, /--lcc-glow-win:\s*1;/);
   assert.doesNotMatch(base.match(/--lcc-glow-win:[^;]*;/)[0], /--lcc-glow\b(?!-win)/);
   assert.match(base, /--lcc-glow:\s*0?\.5/, 'the dial for the rest of the page is still 0.5');
-  // the circuit is the stronger outline of the two
-  assert.match(rule(board, '.lcc-hc[data-victory="circuit"]'), /0 0 20px 5px/);
-  assert.match(d, /0 0 14px 4px/);
+  // a stronger glow than before (it was 14px 4px at 55 percent)
+  assert.match(r, /0 0 20px 6px/);
 });
 
 test('the moving border exists once, moves by transform only, and is drawn only with Motion Full and no reduced-motion request', () => {
@@ -37,7 +34,7 @@ test('the moving border exists once, moves by transform only, and is drawn only 
   assert.ok(kf);
   assert.match(kf[1], /rotate:\s*360deg/);
   assert.doesNotMatch(kf[1], /\b(width|height|top|left|margin|padding|border)\b/);
-  assert.equal((base.match(/animation:\s*lcc-win-sweep/g) || []).length, 1);
+  assert.equal((base.match(/animation:\s*lcc-win-sweep/g) || []).length, 2, 'the Houses, and the centre seat of a win by 13 Houses');
   const block = base.match(/@media \(prefers-reduced-motion: no-preference\)\s*\{([^]*?)\n\}\n/);
   assert.ok(block, 'the no-preference block');
   assert.match(block[1], /html\[data-motion="full"\] \.lcc-win-anim > \.lcc-win-sweep \{/);
@@ -48,16 +45,19 @@ test('the moving border exists once, moves by transform only, and is drawn only 
   assert.match(base, /@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.lcc \[data-victory\], \.lcc-scope \[data-victory\] \{ animation: none; \}/);
   assert.match(base, /html\[data-motion="calm"\] \.lcc \[data-victory\], html\[data-motion="off"\] \.lcc \[data-victory\]/);
   // the board's own rules for a winning House start no animation
-  for (const sel of ['.lcc-hc[data-victory="circuit"]', '.lcc-hc[data-victory="dominion"]']) assert.doesNotMatch(rule(board, sel), /animation/, sel);
+  assert.doesNotMatch(rule(board, '.lcc-hc[data-victory="win"]'), /animation/);
+  // the slow pulse of the glow: its own keyframes move the shadow only, and it is started only inside the no-preference block under Motion Full
+  const pulse = base.match(/@keyframes lcc-win-pulse\s*\{([^]*?\})\s*\}/);
+  assert.ok(pulse);
+  assert.doesNotMatch(pulse[1].replace(/box-shadow:[^;]*;/g, ''), /[a-z-]+:\s*[^}]/, 'only box-shadow is animated');
+  assert.equal((base.match(/lcc-win-pulse 5s/g) || []).length, 1);
+  assert.match(base, /@media \(prefers-reduced-motion: no-preference\)\s*\{\s*html\[data-motion="full"\] \.lcc-house\[data-victory="win"\], html\[data-motion="full"\] \.lcc-hc\[data-victory="win"\] \{[^}]*lcc-win-pulse 5s ease-in-out/);
 });
 
-test('forced colours: a House of a line has a thick solid border and outline, a House of the 13 a double one, the panel a double border, and no moving border', () => {
-  assert.match(forcedBlock, /\.lcc-hc\[data-victory="circuit"\] \{ border: 4px solid Highlight; outline: 3px solid Highlight; box-shadow: none; \}/);
-  assert.match(forcedBlock, /\.lcc-hc\[data-victory="dominion"\] \{ border: 5px double CanvasText; outline: 3px solid CanvasText; box-shadow: none; \}/);
+test('forced colours: a winning House has a thick double border and an outline, the panel a double border, and no moving border', () => {
+  assert.match(forcedBlock, /\.lcc-hc\[data-victory="win"\] \{ border: 5px double CanvasText; outline: 3px solid CanvasText; box-shadow: none; \}/);
   assert.match(forcedBlock, /\.lcc-bd-victory\[data-state="line"\][^{]*\{ border: 3px double CanvasText; box-shadow: none; \}/);
   assert.match(base, /@media \(forced-colors: active\)[^]*html\[data-motion\] \.lcc-win-anim > \.lcc-win-sweep \{ display: none; \}/, 'the sweep is not drawn in forced colours');
-  // the two outlines differ by their shape as well as their colour, so they are told apart without colour
-  assert.notEqual(forcedBlock.match(/data-victory="circuit"\] \{ border: ([^;]*);/)[1], forcedBlock.match(/data-victory="dominion"\] \{ border: ([^;]*);/)[1]);
 });
 
 test('the stage never hides a control: the moving border and the outline do not take a click, and a House of a line keeps its tier boxes above them', () => {
@@ -66,9 +66,9 @@ test('the stage never hides a control: the moving border and the outline do not 
 });
 
 test('the new rules keep the text floor: nothing under 11 px, names and key labels 12 px or more', () => {
-  const a = board.indexOf('.lcc-hc[data-victory="circuit"] {'), m4 = board.slice(a, board.indexOf('.lcc-bd-line[data-status="unknown"]', a));
+  const a = board.indexOf('.lcc-bd-victory[data-state="line"] {'), m4 = board.slice(a, board.indexOf('@media (forced-colors: active) {', a));
   const sizes = [...m4.matchAll(/font:\s*(?:\d{3}\s+)?(\d+(?:\.\d+)?)px/g)].map((x) => Number(x[1]));
-  assert.ok(sizes.length >= 3);
+  assert.ok(sizes.length >= 1, 'the rules of the board outlines carry a font size');
   for (const s of sizes) assert.ok(s >= 11, 'a font of ' + s + ' px');
-  assert.match(rule(board, '.lcc-bd-line b'), /font:\s*700 12px/);
+  assert.match(rule(board, '.lcc-bd-vcount'), /font:\s*11px/); // the list of the twelve lines is no longer in the victory panel (#931)
 });

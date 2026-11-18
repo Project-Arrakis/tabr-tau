@@ -233,7 +233,7 @@
 .lcc-house-flags { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .lcc-flag { padding: 1px 7px; border: 1px solid var(--lcc-line); font: 700 10px/1.5 var(--t-display, sans-serif); letter-spacing: .09em; color: var(--lcc-text); background: var(--lcc-sunken); }
 .lcc-flag-one { border-style: dashed; color: var(--lcc-gold-text); }
-.lcc-flag-line { background: var(--lcc-gold); color: var(--lcc-on-gold); border-color: var(--lcc-gold-hi); }
+.lcc-flag-win { background: var(--lcc-gold); color: var(--lcc-on-gold); border-color: var(--lcc-gold-hi); }
 .lcc-flag-dom { border-style: double; border-width: 3px; color: var(--lcc-gold-text); }
 .lcc-flag-wait { border-color: var(--lcc-gold); color: var(--lcc-gold-text); }
 .lcc-flag-cap { background: var(--lcc-gold); color: var(--lcc-on-gold); border-color: var(--lcc-gold-hi); }
@@ -245,8 +245,9 @@
 .lcc-house[data-owner="unknown"] { border-style: dotted; border-color: var(--lcc-line); background-image: repeating-linear-gradient(135deg, transparent 0 8px, color-mix(in srgb, var(--lcc-line) 14%, transparent) 8px 9px); }
 .lcc-house[data-one-away="true"] { outline: 2px dashed var(--lcc-gold); outline-offset: -5px; }
 .lcc-house[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--lcc-gold); background: var(--lcc-raised); }
-.lcc-house[data-victory="circuit"] { outline: var(--lcc-outline-win); outline-offset: 1px; box-shadow: 0 0 16px 2px color-mix(in srgb, var(--lcc-gold) calc(70% * var(--lcc-glow-win)), transparent); border-color: var(--lcc-gold); animation: lcc-reveal var(--lcc-mo) var(--mo-ease, ease-out) 1 both; }
-.lcc-house[data-victory="dominion"] { outline: var(--lcc-outline-win); outline-offset: 3px; box-shadow: 0 0 0 2px var(--lcc-panel), 0 0 14px 4px color-mix(in srgb, var(--lcc-gold) calc(55% * var(--lcc-glow-win)), transparent); border-color: var(--lcc-gold); animation: lcc-reveal var(--lcc-mo) var(--mo-ease, ease-out) 1 both; }
+/* The one win outline: the double outline with a clear gap (the look the majority outline had), a stronger gold glow than before, and a slow pulse of that glow with Motion Full and no reduced-motion
+   request (below). The five Houses of a line and the 13 or more Houses of a winner look the same: the way it was won is in the words of the plaque and the panel. */
+.lcc-house[data-victory="win"] { outline: var(--lcc-outline-win); outline-offset: 3px; box-shadow: 0 0 0 2px var(--lcc-panel), 0 0 20px 6px color-mix(in srgb, var(--lcc-gold) calc(80% * var(--lcc-glow-win)), transparent); border-color: var(--lcc-gold); animation: lcc-reveal var(--lcc-mo) var(--mo-ease, ease-out) 1 both; }
 /* the outline of a winning House sits on the keyboard focus ring's place, so the ring is drawn again, outside it */
 .lcc-house[data-victory]:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 5px; }
 /* The optional animated border of a winning House: a soft gold arc that travels round the outline. The arc is a rotating square under a ring-shaped mask, moved by transform only: no layout and
@@ -257,7 +258,19 @@
   html[data-motion="full"] .lcc-win-anim > .lcc-win-sweep { display: block; position: absolute; inset: 0; padding: 3px; pointer-events: none; overflow: hidden; opacity: calc(.85 * var(--lcc-glow-win)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
   html[data-motion="full"] .lcc-win-anim > .lcc-win-sweep::before { content: ""; position: absolute; left: 50%; top: 50%; width: 300%; aspect-ratio: 1; translate: -50% -50%; background: conic-gradient(from 0deg, transparent 0 62%, color-mix(in srgb, var(--lcc-gold-hi) 90%, transparent) 80%, transparent 96%); animation: lcc-win-sweep 9s linear infinite; }
 }
+/* The middle (13th) seat when a faction has won by 13 Houses: the halo is drawn bolder in the same gold as the winning Houses' outline (the still ring, always), and the same gold arc travels round it under
+   the same two gates (Motion Full and no reduced-motion request). The arc is a dashed circle turned by transform inside its own box, so nothing moves the layout. */
+.lcc-seat-win13 .lcc-seat-halo { stroke: var(--lcc-gold-hi); stroke-width: 6; opacity: 1; }
+.lcc-seat-win-sweep { display: none; stroke: var(--lcc-gold-hi); }
+@media (prefers-reduced-motion: no-preference) {
+  html[data-motion="full"] .lcc-seat-win13 .lcc-seat-win-sweep { display: inline; transform-box: fill-box; transform-origin: center; opacity: calc(.85 * var(--lcc-glow-win)); animation: lcc-win-sweep 9s linear infinite; }
+}
 @keyframes lcc-win-sweep { to { rotate: 360deg; } }
+/* the slow pulse of the glow of a winning House (the stronger gold glow breathes between two strengths); only with Motion Full and no reduced-motion request, so it is a still glow in every other case */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-motion="full"] .lcc-house[data-victory="win"], html[data-motion="full"] .lcc-hc[data-victory="win"] { animation: lcc-reveal var(--lcc-mo) var(--mo-ease, ease-out) 1 both, lcc-win-pulse 5s ease-in-out var(--lcc-mo) infinite; }
+}
+@keyframes lcc-win-pulse { 0%, 100% { box-shadow: 0 0 0 2px var(--lcc-panel), 0 0 16px 4px color-mix(in srgb, var(--lcc-gold) calc(55% * var(--lcc-glow-win)), transparent); } 50% { box-shadow: 0 0 0 2px var(--lcc-panel), 0 0 28px 9px color-mix(in srgb, var(--lcc-gold) calc(95% * var(--lcc-glow-win)), transparent); } }
 @keyframes lcc-reveal { from { opacity: .35; transform: scale(.97); } to { opacity: 1; transform: none; } }
 html[data-motion="calm"] .lcc [data-victory], html[data-motion="off"] .lcc [data-victory], html[data-motion="calm"] .lcc-scope [data-victory], html[data-motion="off"] .lcc-scope [data-victory] { animation: none; }
 @media (prefers-reduced-motion: reduce) { .lcc [data-victory], .lcc-scope [data-victory] { animation: none; } }
@@ -315,11 +328,12 @@ html[data-motion="calm"] .lcc [data-victory], html[data-motion="off"] .lcc [data
   .lcc-house[data-owner="h"] { border-left-width: 8px; border-left-style: double; }
   .lcc-house[data-owner="open"] { border-style: dashed; } .lcc-house[data-owner="unknown"] { border-style: dotted; }
   html[data-motion] .lcc-win-anim > .lcc-win-sweep { display: none; }
-  .lcc-house[data-victory="circuit"] { border-width: 4px; border-style: solid; box-shadow: none; }
-  .lcc-house[data-victory="dominion"] { border-width: 5px; border-style: double; box-shadow: none; }
+  html[data-motion] .lcc-seat-win13 .lcc-seat-win-sweep { display: none; }
+  .lcc-seat-win13 .lcc-seat-halo { stroke: Highlight; }
+  .lcc-house[data-victory="win"] { border-width: 5px; border-style: double; box-shadow: none; }
   .lcc-lane[data-xpcap="true"] { border-width: 4px; box-shadow: none; background-image: none; }
   .lcc-lane-fill { background: Highlight; } .lcc-lane-bar { border-color: ButtonText; }
-  .lcc-owner-a, .lcc-owner-h, .lcc-flag, .lcc-flag-line, .lcc-flag-cap, .lcc-badge { background: Canvas; color: CanvasText; border: 1px solid CanvasText; }
+  .lcc-owner-a, .lcc-owner-h, .lcc-flag, .lcc-flag-win, .lcc-flag-cap, .lcc-badge { background: Canvas; color: CanvasText; border: 1px solid CanvasText; }
   .lcc-tip { background: Canvas; color: CanvasText; border: 1px solid CanvasText; }
 }
 @media (prefers-contrast: more) {

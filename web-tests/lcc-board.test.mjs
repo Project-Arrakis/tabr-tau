@@ -64,7 +64,7 @@ test('the board is 25 tiles in board order, numbered 01 to 25, each a button wit
   assert.match(ev, /five rows of five/);
 });
 
-test('the plaque and the figures are the counts of the same Houses: 12 and 4, nine open, and never a won vote', async () => {
+test('the plaque and the figures are the counts of the same Houses: 12 and 4, nine open, and no won Sysselraad', async () => {
   const ui = await open();
   const p = ui.doc.querySelector('.lcc-plaque-host');
   assert.equal(p.getAttribute('data-a'), '12');
@@ -72,11 +72,12 @@ test('the plaque and the figures are the counts of the same Houses: 12 and 4, ni
   assert.match(text(p.querySelector('.lcc-pl-standing')), /ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN/);
   const own = ui.doc.querySelector('.lcc-bd').cloneNode(true);
   own.querySelector('[data-lcc-slot="bar"]').replaceChildren(); // the page's own action bar sits in the board's grid and has its own words
-  assert.doesNotMatch(text(own), /\bwins?\b|\bwon\b|won the vote/i, 'a count is never called a win');
+  assert.doesNotMatch(text(own), /\bwon\b|won the vote/i, 'a lead in the count is not called a win: nobody holds a line of five or 13 Houses');
   const k = [...ui.doc.querySelectorAll('.lcc-bd-metric')].map((x) => [text(x.querySelector('.lcc-bd-metric-k')), text(x.querySelector('strong'))]);
   assert.deepEqual(k.map((x) => x[1]), ['CONTESTED', '9', '4', 'LV 100'], 'the term status, the open Houses and the potential lines read from the save (M4), the cap is a game rule');
   assert.deepEqual(k.map((x) => x[0].replace(/RULE$/, '')), ['TERM STATUS', 'OPEN HOUSES', 'POTENTIAL LINES', 'SPECIALIZATION CAP']);
-  assert.match(text(ui.doc.querySelector('.lcc-bd-victory')), /AWAITING VOTING SESSION.*SYSSELRAAD CONTESTED.*No confirmed winner.*Atreides 12 · Harkonnen 4 · Open 9/);
+  assert.match(text(ui.doc.querySelector('.lcc-bd-victory')), /SYSSELRAAD CONTESTED.*ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN.*Atreides 12 · Harkonnen 4 · Open 9/);
+  assert.equal(text(p.querySelector('.lcc-pl-session')), 'SYSSELRAAD CONTESTED');
   assert.match(text(p.querySelector('.lcc-pl-held')), /^HELD BY\s*HOUSE ATREIDES$/);
   assert.equal(text(p.querySelector('.lcc-pl-title')), 'Exclusive Vehicle Import Rights');
   assert.equal(p.querySelectorAll('.lcc-standard-none').length, 0, 'the save holds contribution rows under both factions, so both banners list them');
@@ -344,7 +345,7 @@ test('the board panel has the approved head, filters, legend, totals and the two
   assert.deepEqual([...head.querySelectorAll('.lcc-bd-layout button')].map((x) => text(x)), ['Grid', 'List']);
   assert.ok([...head.querySelectorAll('button')].some((x) => text(x) === 'Clear highlight'));
   assert.deepEqual([...ui.doc.querySelectorAll('#lcc-bd-spec option')].map((o) => text(o)), ['All specializations', 'Crafting', 'Gathering', 'Exploration', 'Combat', 'Sabotage']);
-  assert.deepEqual([...b.querySelectorAll('.lcc-bd-headlines li')].map((x) => text(x)), ['ATREIDES CLAIMED', 'HARKONNEN CLAIMED', 'OPEN', 'VICTORY LINE']);
+  assert.deepEqual([...b.querySelectorAll('.lcc-bd-headlines li')].map((x) => text(x)), ['ATREIDES CLAIMED', 'HARKONNEN CLAIMED', 'OPEN', 'WINNING HOUSES · SYSSELRAAD WON']);
   assert.deepEqual([...b.querySelectorAll('[data-lcb="filter"][data-key="hs"]')].map((x) => text(x)), ['Any', 'Open', 'Claimed']);
   assert.match(text(b.querySelector('.lcc-bd-totals')), /Your rewards on this board: 26 of 120 tiers reached/);
   assert.match(text(b.querySelector('[data-metric="lines"]')), /^POTENTIAL LINES4Unblocked five-House alignments · Atreides 4 · Harkonnen 0$/, 'the unblocked lines of the twelve, counted by the evaluator (M4)');

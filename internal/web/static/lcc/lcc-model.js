@@ -258,13 +258,14 @@
       valid, termId: meta.termId == null ? null : meta.termId, why: valid ? [] : (Array.isArray(meta.why) && meta.why.length ? meta.why.slice() : ['The board is not 25 Houses that can be read.']), key: '',
       counts: null, countComplete: false, lines: [], held: [], oneAway: [], potential: { total: null, a: null, h: null, exact: false }, blockedLines: null, unknownLines: null,
       leader: null, margin: 0, majority: null, thresholdReached: false, vote: { phase: 'cutoff_unknown', verified: false, counts: null, winner: null, reason: 'The save holds no record of the start of the Voting Session.' },
-      verdict: 'unknown', winner: null, conflict: false, conflictReason: '', majorityAlsoRecorded: false,
+      verdict: 'unknown', winner: null, conflict: false, conflictReason: '', majorityAlsoRecorded: false, win: decide(null),
     };
     if (!valid) { base.lines = LINES.map((l) => ({ ...l, status: 'unknown', side: null, held: false, by: { a: [], h: [], open: [], unknown: [] }, missing: [] })); return base; }
     const own = owners.map((v) => (OWNER_KEYS.includes(v) ? v : 'unknown'));
     const counts = { a: 0, h: 0, open: 0, unknown: 0 };
     for (const v of own) counts[v]++;
     base.counts = counts;
+    base.win = decide(own); // who has won by the game's rule (a line of five or 13 Houses): the one winner function, WIN above
     base.countComplete = counts.unknown === 0;
     base.key = (base.termId == null ? 'no-term' : String(base.termId)) + ':' + own.map((v) => ({ a: 'A', h: 'H', open: 'O', unknown: '?' })[v]).join('');
     base.lines = LINES.map((l) => {
@@ -315,6 +316,89 @@
     return evaluateOwners(b.grid.map((h) => h.owner), evidence, { termId });
   }
 
+  // ---- who won the Sysselraad: the one winner function and the one wording table (the operator's decision of 2026-11-18, #929, #926) -----------------------------------------------------
+  // The save does not record the vote (the Sysselraad columns stay empty whatever the Houses are). The game works the winner out from the Houses: a faction that holds a line of five (any of the
+  // twelve lines) or 13 or more of the 25 Houses has won. This is the same rule, worked out here from the 25 owners, and it is the only place that rule or any phrase of it is written: every
+  // surface of the board (the plaque, the figures, the House cards, the victory panel, the lists, the screen-reader text and the tooltips) takes its words from WIN and builds none of its own.
+  // Imperial Dominion (the count at the start of the Voting Session) is a different thing: the save cannot show it, so it is never confirmed, and the Command Center no longer says the word.
+  const FACTION_NAME = Object.freeze({ a: 'Atreides', h: 'Harkonnen' });
+  const WIN_TEXT = Object.freeze({
+    won: 'SYSSELRAAD WON', contested: 'SYSSELRAAD CONTESTED', undecidable: 'SYSSELRAAD UNDECIDABLE',
+    byLine: 'five in a line', byHouses: '13 Houses', and: ' and ',
+    facts: 'The save does not record the vote; the game works the winner out from the Houses.',
+    rule: 'A faction wins with a line of five or with 13 or more Houses.',
+    bothWhy: 'Both factions qualify, so it cannot be decided from this save',
+    countUnavailable: 'HOUSE COUNT UNAVAILABLE · BOARD NOT COMPLETE',
+  });
+  const houseTail = (open) => open + (open === 1 ? ' HOUSE OPEN' : ' HOUSES OPEN');
+  // decide(owners): { state, winner, routes, reason, counts, lines, why }
+  //   state     'won' (exactly one faction qualifies), 'contested' (none does and every House is readable), 'undecidable' (both qualify, or a House cannot be read and none qualifies, or it is not a board)
+  //   winner    'a' | 'h' | null     routes: ['line'], ['houses'] or both, for the winner     reason: those routes in words ('five in a line', '13 Houses', or both)
+  //   lines     the ids of the lines the winner holds      why: 'both' | 'unreadable' | 'board' | '' (what makes a state undecidable)
+  function decide(owners) {
+    const out = { state: 'undecidable', winner: null, routes: [], reason: '', counts: null, lines: [], why: 'board', qualifiers: [] };
+    if (!Array.isArray(owners) || owners.length !== SIZE) return out;
+    const own = owners.map((v) => (OWNER_KEYS.includes(v) ? v : 'unknown'));
+    const counts = { a: 0, h: 0, open: 0, unknown: 0 };
+    for (const v of own) counts[v]++;
+    out.counts = counts;
+    const routes = { a: [], h: [] }, held = { a: [], h: [] };
+    for (const l of LINES) { const st = lineStatus(own, l.indexes); if (st === 'complete-a' || st === 'complete-h') { held[sideOf(st)].push(l.id); } }
+    for (const k of ['a', 'h']) { if (held[k].length) routes[k].push('line'); if (counts[k] >= MAJORITY) routes[k].push('houses'); }
+    const q = ['a', 'h'].filter((k) => routes[k].length);
+    out.qualifiers = q.map((k) => ({ faction: k, routes: routes[k].slice(), reason: reasonWords(routes[k]) }));
+    if (q.length === 2) { out.why = 'both'; return out; }
+    if (q.length === 1) { const k = q[0]; return { ...out, state: 'won', winner: k, routes: routes[k].slice(), reason: reasonWords(routes[k]), lines: held[k].slice(), why: '' }; }
+    if (counts.unknown > 0) { out.why = 'unreadable'; return out; }
+    out.state = 'contested'; out.why = '';
+    return out;
+  }
+  function reasonWords(routes) { return routes.map((r) => (r === 'line' ? WIN_TEXT.byLine : WIN_TEXT.byHouses)).join(WIN_TEXT.and); }
+  // decideCounts(a, h): the reading of two House counts alone, for a caller that has no board (a sample plaque): the 13 rule only, since a line cannot be seen from two numbers. Never a winner by line.
+  function decideCounts(a, h) {
+    const ok = (n) => Number.isInteger(n) && n >= 0 && n <= SIZE;
+    if (!ok(a) || !ok(h) || a + h > SIZE) return { state: 'undecidable', winner: null, routes: [], reason: '', counts: null, lines: [], why: 'board', qualifiers: [] };
+    const counts = { a, h, open: SIZE - a - h, unknown: 0 };
+    const k = a >= MAJORITY ? 'a' : h >= MAJORITY ? 'h' : null;
+    return k ? { state: 'won', winner: k, routes: ['houses'], reason: WIN_TEXT.byHouses, counts, lines: [], why: '', qualifiers: [{ faction: k, routes: ['houses'], reason: WIN_TEXT.byHouses }] } : { state: 'contested', winner: null, routes: [], reason: '', counts, lines: [], why: '', qualifiers: [] };
+  }
+  const up = (s) => String(s).toUpperCase();
+  // headline: 'SYSSELRAAD WON · HARKONNEN', 'SYSSELRAAD CONTESTED', 'SYSSELRAAD UNDECIDABLE'
+  function headline(d) { return d.state === 'won' ? WIN_TEXT.won + ' · ' + up(FACTION_NAME[d.winner]) : d.state === 'contested' ? WIN_TEXT.contested : WIN_TEXT.undecidable; }
+  // how: 'BY 13 HOUSES', 'BY FIVE IN A LINE' (a won state only; empty otherwise). who: the faction and how, 'HARKONNEN · BY 13 HOUSES'
+  function how(d) { return d.state === 'won' ? 'BY ' + up(d.reason) : ''; }
+  function who(d) { return d.state === 'won' ? up(FACTION_NAME[d.winner]) + ' · ' + how(d) : ''; }
+  // standing(a, h): the count line of a state with no winner, as it always read: 'HARKONNEN LEAD 11 TO 4 · 10 HOUSES OPEN'
+  function standing(a, h) {
+    const ok = (n) => Number.isInteger(n) && n >= 0 && n <= SIZE;
+    if (!ok(a) || !ok(h) || a + h > SIZE) return 'HOUSE COUNT UNAVAILABLE';
+    const tail = houseTail(SIZE - a - h);
+    if (a === h) return 'HOUSE COUNT EVEN AT ' + a + ' · ' + tail;
+    return (a > h ? 'ATREIDES' : 'HARKONNEN') + ' LEAD ' + Math.max(a, h) + ' TO ' + Math.min(a, h) + ' · ' + tail;
+  }
+  // tally: the line under the headline. Won: 'HARKONNEN · BY 13 HOUSES · 13 TO 0 · 12 HOUSES OPEN'. Contested: the count line. Undecidable: why, in words.
+  function tally(d) {
+    const c = d.counts;
+    if (d.state === 'won') { const o = d.winner === 'a' ? 'h' : 'a'; return who(d) + ' · ' + c[d.winner] + ' TO ' + c[o] + ' · ' + houseTail(c.open); }
+    if (d.state === 'contested') return standing(c.a, c.h);
+    if (d.why === 'both') return up(FACTION_NAME[d.qualifiers[0].faction]) + ' BY ' + up(d.qualifiers[0].reason) + ' · ' + up(FACTION_NAME[d.qualifiers[1].faction]) + ' BY ' + up(d.qualifiers[1].reason) + ' · CANNOT BE DECIDED FROM THIS SAVE';
+    if (d.why === 'unreadable') return 'COUNT INCOMPLETE · ' + d.counts.unknown + (d.counts.unknown === 1 ? ' HOUSE' : ' HOUSES') + ' UNREADABLE';
+    return WIN_TEXT.countUnavailable;
+  }
+  // tag: the tag of a House card that belongs to a line the winner holds (held-line cards only; the Houses of a 13-House win carry the gold outline and no tag, since they form no line)
+  function tag(d) { return d.state === 'won' ? WIN_TEXT.won : ''; }
+  // heldBadge: the badge of a held line in a list of the lines: the won phrase when the winner is settled, the undecidable phrase when both factions qualify
+  function heldBadge(d) { return d.state === 'won' ? WIN_TEXT.won : WIN_TEXT.undecidable; }
+  // say: one sentence for a screen reader and a tooltip
+  function say(d) {
+    if (d.state === 'won') return 'Sysselraad won by ' + FACTION_NAME[d.winner] + ', by ' + d.reason + '. ' + WIN_TEXT.facts;
+    if (d.state === 'contested') return 'Sysselraad contested: no faction holds a line of five or 13 Houses.';
+    if (d.why === 'both') return 'Sysselraad undecidable: ' + WIN_TEXT.bothWhy.toLowerCase() + '.';
+    if (d.why === 'unreadable') return 'Sysselraad undecidable: ' + d.counts.unknown + (d.counts.unknown === 1 ? ' House' : ' Houses') + ' could not be read.';
+    return 'Sysselraad undecidable: the board could not be checked.';
+  }
+  const WIN = Object.freeze({ TEXT: WIN_TEXT, decide, decideCounts, headline, how, who, tally, standing, tag, heldBadge, say, factionName: FACTION_NAME });
+
   // ---- filters, sort, groups -----------------------------------------------------------------------------------------------------------------------------------------------
   const SHOWS = Object.freeze([['all', 'All'], ['left', 'What is left'], ['new', 'Not started'], ['part', 'In progress'], ['done', 'Top tier']]);
   const HOUSE_FILTERS = Object.freeze([['any', 'Any'], ['open', 'Open'], ['taken', 'Claimed']]);
@@ -354,7 +438,7 @@
     });
   }
 
-  const api = { SIZE, COLS, MAJORITY, LINES, TRACKS, KNOWN_STATES, TIER_WORD, SHOWS, HOUSE_FILTERS, SORTS, position, positions, checkTasks, readFactions, readBoard, lineStatus, evaluateOwners, evaluate, matches, sortKey, sortHouses, groupOf };
+  const api = { SIZE, COLS, MAJORITY, LINES, TRACKS, KNOWN_STATES, TIER_WORD, SHOWS, HOUSE_FILTERS, SORTS, position, positions, checkTasks, readFactions, readBoard, lineStatus, evaluateOwners, evaluate, WIN, matches, sortKey, sortHouses, groupOf };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCM = api;
 })(typeof window !== 'undefined' ? window : globalThis);

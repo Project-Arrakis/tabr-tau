@@ -106,7 +106,7 @@
 .lcc-bd-key-a { background: #298474; }
 .lcc-bd-key-h { background: #9d4734; }
 .lcc-bd-key-n { background: var(--lcc-raised); }
-.lcc-bd-key-g { background: #e0b764; }
+.lcc-bd-key-g { background: transparent; border: 3px double #e0b764; }
 .lcc-bd-key-u { background: repeating-linear-gradient(135deg, transparent 0 2px, var(--lcc-line) 2px 3px); }
 .lcc-bd-chip:focus-visible, .lcc-bd-select:focus-visible, .lcc-bd-btn:focus-visible, .lcc-bd-layout button:focus-visible, .lcc-bd-act:focus-visible, .lcc-bd-tier:focus-visible, .lcc-bd-linkb:focus-visible, .lcc-bd-sortb:focus-visible, .lcc-bd-pick:focus-visible, .lcc-hc-t:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 2px; }
 
@@ -164,8 +164,8 @@
 .lcc-bd-pickl:hover, .lcc-bd-pickl:focus-within, .lcc-bd-pickl:has(:checked) { opacity: 1; }
 .lcc-bd-c-pick .lcc-bd-pickl { position: static; width: 28px; height: 28px; }
 .lcc-bd-pick { width: 13px; height: 13px; margin: 0; accent-color: var(--lcc-gold); cursor: pointer; }
-/* the House of a faction that holds more than half of the Houses now: the win outline of lcc.css, drawn outside the card */
-.lcc-hc[data-victory="dominion"] { outline: var(--lcc-outline-win); outline-offset: 3px; box-shadow: 0 0 0 2px var(--lcc-panel), 0 0 14px 4px color-mix(in srgb, var(--lcc-gold) calc(55% * var(--lcc-glow-win)), transparent); border-color: var(--lcc-gold); }
+/* a House that makes up a win (the five of a line, or the 13 or more of a faction): the one win outline of lcc.css, drawn outside the card, with the stronger glow */
+.lcc-hc[data-victory="win"] { outline: var(--lcc-outline-win); outline-offset: 3px; box-shadow: 0 0 0 2px var(--lcc-panel), 0 0 20px 6px color-mix(in srgb, var(--lcc-gold) calc(80% * var(--lcc-glow-win)), transparent); border-color: var(--lcc-gold); }
 .lcc-hc[data-victory]:focus-within { outline-color: var(--lcc-focus); }
 
 
@@ -196,33 +196,29 @@
 .lcc-bd-victory { padding: 24px 23px; text-align: center; min-height: 295px; background: radial-gradient(circle at 50% 23%, color-mix(in srgb, var(--lcc-gold) 7%, transparent), transparent 60%), var(--lcc-s1); }
 .lcc-bd-vtag { display: block; width: max-content; max-width: 100%; box-sizing: border-box; margin: 12px auto 0; padding: 5px 13px; border: 1px solid var(--lcc-stroke); font: 800 10px/1.4 var(--lcc-sans); letter-spacing: .17em; color: var(--lcc-dim); background: var(--lcc-tier-bg); }
 .lcc-bd-emblem { margin: 8px 0 5px; font: 700 68px/1 var(--lcc-serif); color: var(--lcc-gold); }
+.lcc-bd-vtag + .lcc-bd-vhead { margin-top: 16px; } /* no winner, no icon: the tag keeps a clear gap above the title */
+.lcc-bd-emblem-a, .lcc-bd-emblem-h { display: flex; align-items: center; justify-content: center; width: 84px; height: 84px; margin: 8px auto 5px; box-sizing: border-box; border-radius: 50%; border: 2px solid var(--lcc-gold); font-size: 40px; color: var(--lcc-on-faction); }
+.lcc-bd-emblem-a { background: radial-gradient(circle at 50% 35%, var(--lcc-atreides), var(--lcc-atreides-deep)); }
+.lcc-bd-emblem-h { background: radial-gradient(circle at 50% 35%, var(--lcc-harkonnen), var(--lcc-harkonnen-deep)); }
+.lcc-bd-emblem-img { display: block; width: 52px; height: 52px; object-fit: contain; }
 .lcc-bd .lcc-bd-vhead { margin: 0 0 10px; text-transform: uppercase; color: var(--lcc-text); font: 700 20px/1.2 var(--lcc-serif); letter-spacing: .11em; color: var(--lcc-text); }
 .lcc-bd-vbody { font: 12px/1.58 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-bd-well { margin-top: 17px; padding: 11px; border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-tier-bg); font: 11px/1.4 var(--lcc-sans); letter-spacing: .04em; color: var(--lcc-text); }
 
 /* ==== M4: the twelve lines (display only) ====
-   A line of five held by one faction: the bright gold outline of lcc.css at the full strength of the win token (--lcc-glow-win, which the 0.5 dial of the plaque does not scale), on the five Houses.
-   A faction with 13 or more Houses: the double outline, on its Houses outside a line. Both have the optional moving border of lcc.css (Motion Full, no reduced-motion request) and a still outline
-   in every other case. Neither is a vote result: the words beside them say so. */
-.lcc-hc[data-victory="circuit"] { outline: var(--lcc-outline-win); outline-offset: 2px; box-shadow: 0 0 0 1px var(--lcc-panel), 0 0 20px 5px color-mix(in srgb, var(--lcc-gold) calc(75% * var(--lcc-glow-win)), transparent); border-color: var(--lcc-gold); }
-.lcc-bd-key-m { background: transparent; border: 3px double #e0b764; }
+   The Houses that make up a win (the five of a line of five held by one faction, or the 13 or more Houses of a faction) have the one win outline of lcc.css at the full strength of the win token (--lcc-glow-win,
+   which the 0.5 dial of the plaque does not scale), the optional moving border and the slow glow (Motion Full, no reduced-motion request), and a still outline in every other case. The way it was won is
+   said by the words of the plaque and the panel. */
 .lcc-bd-victory[data-state="line"] { border-color: var(--lcc-gold); box-shadow: inset 0 0 22px color-mix(in srgb, var(--lcc-gold) calc(16% * var(--lcc-glow-win)), transparent); }
 .lcc-bd-victory[data-state="line"] .lcc-bd-vtag { border-color: var(--lcc-gold); color: var(--lcc-gold-text); }
 .lcc-bd-victory[data-state="count"] .lcc-bd-vtag { border-style: dashed; border-color: var(--lcc-gold); color: var(--lcc-gold-text); }
 .lcc-bd-victory[data-state="conflict"] .lcc-bd-vtag { border-style: dashed; border-color: var(--lcc-violet); color: var(--lcc-text); }
 .lcc-bd-vcount { margin: 10px 0 0; font: 11px/1.45 var(--lcc-sans); color: var(--lcc-dim); }
-.lcc-bd-victory .lcc-bd-disc { margin-top: 12px; text-align: left; }
-.lcc-bd-lines { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
 .lcc-bd-line { display: grid; gap: 1px; padding: 5px 8px; border-left: 3px solid var(--lcc-stroke-faint); font: 11px/1.4 var(--lcc-sans); color: var(--lcc-dim); }
-.lcc-bd-line b { font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .03em; color: var(--lcc-text); }
-.lcc-bd-line[data-status^="complete"] { border-left: 3px solid var(--lcc-gold); }
-.lcc-bd-line[data-status^="one-away"] { border-left: 3px dashed var(--lcc-gold); }
-.lcc-bd-line[data-status="unknown"] { border-left: 3px dotted var(--lcc-line); }
 @media (forced-colors: active) {
-  .lcc-hc[data-victory="circuit"] { border: 4px solid Highlight; outline: 3px solid Highlight; box-shadow: none; }
-  .lcc-hc[data-victory="dominion"] { border: 5px double CanvasText; outline: 3px solid CanvasText; box-shadow: none; }
+  .lcc-hc[data-victory="win"] { border: 5px double CanvasText; outline: 3px solid CanvasText; box-shadow: none; }
   .lcc-bd-victory[data-state="line"], .lcc-bd-victory[data-state="count"], .lcc-bd-victory[data-state="conflict"] { border: 3px double CanvasText; box-shadow: none; }
-  .lcc-bd-key-m { border-color: CanvasText; }
+  .lcc-bd-key-g { border-color: CanvasText; }
   .lcc-bd-line { border-left-color: CanvasText; }
 }
 
@@ -525,6 +521,8 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
   .lcc-hc-spec-img { width: 20px; height: 20px; }
   .lcc-bd-victory { min-height: 0; padding-top: 14px; padding-bottom: 14px; }
   .lcc-bd-emblem { margin: 6px 0 4px; font-size: 34px; }  /* a smaller emblem, not none: it also keeps the status tag a clear gap above the heading */
+  .lcc-bd-emblem-a, .lcc-bd-emblem-h { width: 56px; height: 56px; margin: 6px auto 4px; font-size: 26px; }
+  .lcc-bd-emblem-img { width: 34px; height: 34px; }
 }
 @media (forced-colors: active) {
   .lcc-bd-eres { background: Canvas; border: 1px solid CanvasText; }

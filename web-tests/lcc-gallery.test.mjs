@@ -8,7 +8,7 @@ import { JSDOM } from 'jsdom';
 import { root, lccDir, read } from './lcc-load.mjs';
 
 const gdir = path.join(root, 'docs', 'design', 'landsraad-command-center', 'gallery');
-const lccJs = fs.readFileSync(path.join(lccDir, 'lcc.js'), 'utf8');
+const lccJs = fs.readFileSync(path.join(lccDir, 'lcc-model.js'), 'utf8') + ';' + fs.readFileSync(path.join(lccDir, 'lcc.js'), 'utf8'); // the model holds the words of the Sysselraad; the page loads it first
 const galleryJs = fs.readFileSync(path.join(gdir, 'gallery.js'), 'utf8');
 const page = fs.readFileSync(path.join(gdir, 'index.html'), 'utf8').replace(/<script[^>]*src=[^>]*><\/script>/g, '');
 
@@ -51,8 +51,8 @@ test('lanes: six fixture cards plus the unidentified one; houses: six states, a 
   const d = open().document;
   assert.equal(d.querySelectorAll('section[data-scene="lanes"] .lcc-lane').length, 7);
   assert.equal(d.querySelectorAll('section[data-scene="houses"] .lccg-grid-houses')[0].querySelectorAll('.lcc-house').length, 6);
-  assert.equal(d.querySelectorAll('section[data-scene="houses"] .lccg-row5 .lcc-house[data-victory="circuit"]').length, 5);
-  assert.equal(d.querySelectorAll('section[data-scene="houses"] .lccg-grid-houses')[1].querySelectorAll('.lcc-house[data-victory="dominion"]').length, 6);
+  assert.equal(d.querySelectorAll('section[data-scene="houses"] .lccg-row5 .lcc-house[data-victory="win"]').length, 5);
+  assert.equal(d.querySelectorAll('section[data-scene="houses"] .lccg-grid-houses')[1].querySelectorAll('.lcc-house[data-victory="win"]').length, 6);
   const imgs = [...d.querySelectorAll('section[data-scene="art"] img')];
   assert.equal(imgs.length, 25 + 2 + 10 + 4 + 12, 'houses + the two spellings + lanes and banners + the four faction pictures + decree ids');
   for (const i of imgs) assert.match(i.getAttribute('src'), /^\.\.\/\.\.\/\.\.\/\.\.\/internal\/web\/static\/lcc\/art\/(houses|lanes|banners|factions|decrees)\/[a-z-]+\.(webp|svg)$/);

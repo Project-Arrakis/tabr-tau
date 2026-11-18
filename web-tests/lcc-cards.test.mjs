@@ -89,18 +89,18 @@ test('one away, selected, rewards waiting and the two victory outlines each have
   assert.deepEqual([...c.querySelectorAll('.lcc-flag')].map((f) => f.textContent), ['ONE AWAY', '2 WAITING']);
   assert.match(c.getAttribute('aria-label'), /one House away from a line, 2 rewards waiting, selected/);
   assert.match(house({ waiting: 1 }).getAttribute('aria-label'), /1 reward waiting/);
-  const line = house({ owner: 'a', inLine: true });
-  assert.equal(line.getAttribute('data-victory'), 'circuit');
-  assert.deepEqual([...line.querySelectorAll('.lcc-flag')].map((f) => f.textContent), ['LINE OF FIVE']);
-  const dom = house({ owner: 'h', dominion: true });
-  assert.equal(dom.getAttribute('data-victory'), 'dominion');
-  assert.deepEqual([...dom.querySelectorAll('.lcc-flag')].map((f) => f.textContent), ['MAJORITY HOUSE']);
-  const both = house({ owner: 'a', inLine: true, dominion: true });
-  assert.equal(both.getAttribute('data-victory'), 'circuit', 'a House is shown with one outline; the line wins over the majority');
+  const line = house({ owner: 'a', inLine: true, win: true });
+  assert.equal(line.getAttribute('data-victory'), 'win');
+  assert.deepEqual([...line.querySelectorAll('.lcc-flag')].map((f) => f.textContent), ['SYSSELRAAD WON']);
+  const dom = house({ owner: 'h', win: true });
+  assert.equal(dom.getAttribute('data-victory'), 'win');
+  assert.deepEqual([...dom.querySelectorAll('.lcc-flag')].map((f) => f.textContent), ['SYSSELRAAD WON'], 'a House of a 13-House win has the same outline and the same flag');
+  const both = house({ owner: 'a', inLine: true, win: true });
+  assert.equal(both.getAttribute('data-victory'), 'win', 'a House is shown with one outline');
   assert.equal(house({ owner: 'a' }).getAttribute('data-victory'), null);
   const el = doc.createElement('div');
-  L.victory(el, 'dominion'); assert.equal(el.getAttribute('data-victory'), 'dominion');
-  L.victory(el, 'bogus'); assert.equal(el.getAttribute('data-victory'), null);
+  L.victory(el, true); assert.equal(el.getAttribute('data-victory'), 'win');
+  L.victory(el, null); assert.equal(el.getAttribute('data-victory'), null);
 });
 
 test('a House card draws the symbol and the path banner from the lists; a House with no symbol keeps its initials and loses nothing', () => {
