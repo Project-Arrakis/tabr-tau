@@ -287,7 +287,7 @@ test('the reward ledger tells waiting, collected and delivery unknown apart, and
   click(ui, tileOf(ui, 'Wallach').querySelector('button'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
   assert.equal(i.querySelector('.lcc-bd-ledger .lcc-bd-line'), null, 'no sentence under the four counts');
-  assert.match(i.querySelector('.lcc-bd-stats').getAttribute('aria-label'), /3 of 5 reached · 1 waiting to collect · 1 collected · 1 delivery unknown\./, 'the counts stay for a screen reader and as a tooltip');
+  assert.match(i.querySelector('.lcc-bd-stats').getAttribute('aria-label'), /3 of 5 reached · 1 collected · 1 not collected \(waiting at the house representative\) · 1 delivery unknown · 2 not reached\./, 'the counts stay for a screen reader and as a tooltip');
   assert.match(text(i), /Delivery unknown.{1,20}means the tier is reached and the save has no delivery row/);
   const st = [...i.querySelectorAll('.lcc-bd-tier-st')].map((s) => text(s));
   assert.deepEqual(st.slice(0, 3), ['Reached, collected', 'Reached, delivery unknown', 'Reached, not collected']);
