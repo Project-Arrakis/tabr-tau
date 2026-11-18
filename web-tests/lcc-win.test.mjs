@@ -100,11 +100,11 @@ test('the winning count: a faction with more than half of the Houses gets the ou
   assert.ok(won.every((c) => c.getAttribute('data-owner') === 'a'), 'only the Houses of the faction with the count');
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc[data-owner="h"][data-victory]').length, 0);
   assert.ok(won.every((c) => c.classList.contains('lcc-win-anim')), 'Motion Full: the border is added');
-  // the words say a count, never a win
+  // 13 Houses is a win by the game's rule (the operator's decision of 2026-11-18): the words say it once, the card carries no tag, and the save is said not to hold the vote
   for (const c of won) {
     const pick = c.querySelector('button.lcc-hc-select');
-    assert.match(pick.getAttribute('title'), /more than half of the Houses now: a count of Houses, not a vote result/);
-    assert.doesNotMatch(pick.getAttribute('title') + ' ' + pick.getAttribute('aria-label') + ' ' + c.textContent, /\bwins?\b|\bwon\b|\bvictor/i);
+    assert.match(pick.getAttribute('title'), /who hold 13 or more Houses\. Sysselraad won by Atreides, by 13 Houses\. The save does not record the vote/);
+    assert.equal(c.querySelectorAll('.lcc-flag').length, 0, 'a 13-House win forms no line: no tag on the card');
   }
   // Calm: the still outline stays, the animation class does not
   ui.doc.documentElement.setAttribute('data-motion', 'calm');

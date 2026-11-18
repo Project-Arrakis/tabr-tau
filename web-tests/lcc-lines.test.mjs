@@ -287,7 +287,9 @@ test('the reading follows board_index, never the order of the list it was given,
 });
 
 test('no word of the evaluator or its sentences says that a vote was won; the sysselraad column is still not read', () => {
-  const src = fs.readFileSync(path.join(lccDir, 'lcc-model.js'), 'utf8').replace(/\r/g, '');
+  // the evaluator's own strings: the winner function and its wording table (WIN) are the one place that says a Sysselraad is won, and are tested in lcc-win-wording.test.mjs
+  const all = fs.readFileSync(path.join(lccDir, 'lcc-model.js'), 'utf8').replace(/\r/g, '');
+  const src = all.slice(0, all.indexOf('// ---- who won the Sysselraad')) + all.slice(all.indexOf('// ---- filters, sort, groups'));
   // every string the file can say
   const strings = [...src.matchAll(/'((?:[^'\\\n]|\\.)*)'/g)].map((m) => m[1]);
   assert.ok(strings.length > 40);

@@ -78,7 +78,7 @@ test('Sysselraad Strategy is off until chosen; on, it lists twelve lines with a 
   assert.ok(panel);
   const rows = [...panel.querySelectorAll('[data-lcb="line"]')];
   assert.equal(rows.length, 12);
-  for (const r of rows) assert.match(text(r), /FIVE IN A LINE|ONE AWAY|POTENTIAL|BLOCKED|UNREADABLE/);
+  for (const r of rows) assert.match(text(r), /SYSSELRAAD WON|SYSSELRAAD UNDECIDABLE|ONE AWAY|POTENTIAL|BLOCKED|UNREADABLE/);
   assert.doesNotMatch(text(panel), /\bwins\b|\bwon\b|Dominion (is|has)|Dominion confirmed/i);
   const id = rows[0].dataset.pline;
   click(ui, rows[0]);

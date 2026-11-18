@@ -91,10 +91,10 @@ test('one away, selected, rewards waiting and the two victory outlines each have
   assert.match(house({ waiting: 1 }).getAttribute('aria-label'), /1 reward waiting/);
   const line = house({ owner: 'a', inLine: true });
   assert.equal(line.getAttribute('data-victory'), 'circuit');
-  assert.deepEqual([...line.querySelectorAll('.lcc-flag')].map((f) => f.textContent), ['LINE OF FIVE']);
+  assert.deepEqual([...line.querySelectorAll('.lcc-flag')].map((f) => f.textContent), ['SYSSELRAAD WON']);
   const dom = house({ owner: 'h', dominion: true });
   assert.equal(dom.getAttribute('data-victory'), 'dominion');
-  assert.deepEqual([...dom.querySelectorAll('.lcc-flag')].map((f) => f.textContent), ['MAJORITY HOUSE']);
+  assert.deepEqual([...dom.querySelectorAll('.lcc-flag')].map((f) => f.textContent), [], 'the Houses of a 13-House win have the outline and no tag');
   const both = house({ owner: 'a', inLine: true, dominion: true });
   assert.equal(both.getAttribute('data-victory'), 'circuit', 'a House is shown with one outline; the line wins over the majority');
   assert.equal(house({ owner: 'a' }).getAttribute('data-victory'), null);

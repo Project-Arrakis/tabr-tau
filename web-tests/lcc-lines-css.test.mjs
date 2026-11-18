@@ -12,7 +12,7 @@ const board = strip('lcc-board.css');
 const base = strip('lcc.css');
 const rule = (css, sel) => { const i = css.indexOf(sel + ' {'); assert.ok(i >= 0, 'rule not found: ' + sel); return css.slice(i, css.indexOf('}', i) + 1); };
 // the content of the nearest forced-colors block that follows the M4 marker's rules
-const forced = board.slice(board.indexOf('@media (forced-colors: active) {', board.indexOf('.lcc-bd-line[data-status="unknown"]')));
+const forced = board.slice(board.indexOf('@media (forced-colors: active) {', board.indexOf('.lcc-bd-line {')));
 const forcedBlock = forced.slice(0, forced.indexOf(String.fromCharCode(10) + '}' + String.fromCharCode(10)) + 3);
 
 test('the circuit outline of a House of the board uses the win outline and the full win glow, never the dial of the plaque', () => {
@@ -66,9 +66,9 @@ test('the stage never hides a control: the moving border and the outline do not 
 });
 
 test('the new rules keep the text floor: nothing under 11 px, names and key labels 12 px or more', () => {
-  const a = board.indexOf('.lcc-hc[data-victory="circuit"] {'), m4 = board.slice(a, board.indexOf('.lcc-bd-line[data-status="unknown"]', a));
+  const a = board.indexOf('.lcc-hc[data-victory="circuit"] {'), m4 = board.slice(a, board.indexOf('@media (forced-colors: active) {', a));
   const sizes = [...m4.matchAll(/font:\s*(?:\d{3}\s+)?(\d+(?:\.\d+)?)px/g)].map((x) => Number(x[1]));
-  assert.ok(sizes.length >= 3);
+  assert.ok(sizes.length >= 1, 'the rules of the board outlines carry a font size');
   for (const s of sizes) assert.ok(s >= 11, 'a font of ' + s + ' px');
-  assert.match(rule(board, '.lcc-bd-line b'), /font:\s*700 12px/);
+  assert.match(rule(board, '.lcc-bd-vcount'), /font:\s*11px/); // the list of the twelve lines is no longer in the victory panel (#931)
 });

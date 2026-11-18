@@ -57,7 +57,7 @@ The plaque is the approved dark artwork in both themes, so its golds are pinned 
 
 * A vector underlay in a 2172 x 724 coordinate system (the size of the approved artwork), a track, and DOM text over them in percent with `cqw` sizes. It is built in vector form, not from the approved screenshot, so it is crisp at any width and the words are real text.
 * 25 seats at an equal pitch with an equal inset at both ends. Seat 13 (index 12) is always the gold middle seat with its own gold border and halo; it takes the colour and mark of its owner when claimed and stays open and gold otherwise (D16). Atreides fills from the left, Harkonnen from the right. A count that cannot be read (negative, fractional, above 25, or together above 25) lights nothing and says "unavailable".
-* Wording follows D05: the plaque says "VOTING SESSION · MAJORITY AT 13 OF 25 HOUSES" (wording fix of 2026-11-18, #912: the old headline read as 13 seats won; 13 is the majority mark, not a count), and a lead is "Atreides lead 12 to 4 · 9 Houses open". It never says a House has won.
+* Wording follows the one wording table (DECISIONS section G; the operator's decision of 2026-11-18 (#929, #926, #931) supersedes the earlier rule that no word says a House or a faction has won, and the #912 and #915 headline): the plaque says "SYSSELRAAD WON · <FACTION>" when a line of five or 13 Houses decides it, "SYSSELRAAD CONTESTED" with a count line such as "ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN" otherwise, and "SYSSELRAAD UNDECIDABLE" when both qualify. The old headline "VOTING SESSION · MAJORITY AT 13 OF 25 HOUSES" is dropped; seat 13 stays marked on the track.
 * The vertical rule between the decree and HELD BY is one element drawn after everything else in the underlay, so nothing paints over it (a test checks that there is exactly one and that it is last). Straight gold lines are thin rectangles, because a gradient sized by the box of a zero-height line does not draw. The line between a nameplate and its count is gold and carries the diamond at its centre (a test checks it).
 * The narrow layout is a crop of the same artwork, not a second track: one set of seats in the DOM.
 
@@ -116,7 +116,7 @@ Geometry and state
 - [ ] Atreides from the left, Harkonnen from the right; the 13th takes its owner's colour and mark.
 - [ ] Counts that cannot be read light nothing and say so.
 - [ ] Cut-corner gold frame, header band, pointed track tips, cloth standards with their rods.
-- [ ] Wording: "VOTING SESSION · MAJORITY AT 13 OF 25 HOUSES" (was "SEAT 13 OF 25" until 2026-11-18, #912), "Not in the save" for contributors; no word says a House has won.
+- [ ] Wording: the table of DECISIONS section G (SYSSELRAAD WON / CONTESTED / UNDECIDABLE; was "VOTING SESSION · MAJORITY AT 13 OF 25 HOUSES" until 2026-11-18), "Not in the save" for contributors.
 
 The five risky crops (a side-by-side with the approved reference is captured for each; see 7)
 
@@ -165,7 +165,7 @@ Variances from the approved V20 picture, for human approval:
 | Cloth standards and shields | game-drawn crests | the same crest pictures (see 4.1) | resolved |
 | Claimed 13th seat | white crest on the gold hub, no colour change | white crest on the gold seat in the owner's colour (the M2 rule that the 13th takes its owner's colour) | intentional |
 | Open seats | round unclaimed medallion | drawn bronze seat | not resolved |
-| Session wording | "13 HOUSES WIN" | "MAJORITY AT 13 OF 25 HOUSES" (D05, D16; was "SEAT 13 OF 25" until the 2026-11-18 wording fix for #912) | intentional |
+| Session wording | "13 HOUSES WIN" | the wording table: "SYSSELRAAD WON · <FACTION>" by five in a line or by 13 Houses, "SYSSELRAAD CONTESTED" otherwise (DECISIONS section G, 2026-11-18; it was "MAJORITY AT 13 OF 25 HOUSES" after #912) | intentional |
 | Contributors | demo guild names | "Not in the save" (D07, D15) | intentional |
 | Layout below 940 px | none in the reference | a narrow re-layout and a stacked head under 520 px | intentional, needs approval |
 

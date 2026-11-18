@@ -41,50 +41,49 @@ function words(ui) {
   }
   return out.join(' | ');
 }
-// the words that must never appear: a win, a won vote, a confirmed outcome (the only "confirmed" allowed are the two honest negatives)
-const BANNED = /\bwins?\b|\bwon\b|\bwinners?\b(?! confirmed)|winner confirmed|victory confirmed|vote (was )?won|dominion confirmed|secured/i;
-const honest = (s) => s.replace(/No confirmed winner/g, '').replace(/cannot be confirmed/g, '');
+// the words that must never appear: a won vote, a confirmed Dominion or a confirmed outcome (since 2026-11-18 the game's winner, worked out from the Houses, is said as SYSSELRAAD WON; the save still holds no vote)
+const BANNED = /vote (was )?won|dominion (is )?confirmed|victory confirmed|winner confirmed|secured/i;
+const honest = (s) => s.replace(/is not confirmed/g, '').replace(/cannot be confirmed/g, '');
 const noConfirm = (s) => assert.doesNotMatch(honest(s), /confirmed/i, 'a result is called confirmed: ' + s.slice(0, 300));
 
 const ROW3_A = 'OOOOOOOOOOAAAAAOOOOOOOOOO'; // row 3 (positions 11 to 15)
 const letters = (n, ...marks) => { const a = Array(n).fill('O'); for (const [i, c] of marks) a[i] = c; return a.join(''); };
 
-test('no line held: the figure is the number of lines still possible, no House is outlined, and the panel says the vote is awaited', async () => {
+test('no line held: the figure is the number of lines still possible, no House is outlined, and the panel says contested', async () => {
   const ui = await open(synthetic());
   assert.match(metric(ui, 'lines'), /^POTENTIAL LINES4Unblocked five-House alignments · Atreides 4 · Harkonnen 0$/);
   assert.equal(outlined(ui).length, 0);
   assert.equal(panel(ui).getAttribute('data-state'), 'contested');
-  assert.match(text(panel(ui)), /AWAITING VOTING SESSION.*SYSSELRAAD CONTESTED.*No confirmed winner/);
-  assert.match(text(panel(ui).querySelector('.lcc-bd-vcount')), /^House count: Atreides ahead 12 to 4 · not verified: the save does not record the start of the Voting Session\.$/);
+  assert.match(text(panel(ui)), /^IMPERIAL VICTORY ANALYSISSYSSELRAAD CONTESTEDATREIDES LEAD 12 TO 4 · 9 HOUSES OPENSysselraad contested: no faction holds a line of five or 13 Houses\./);
+  assert.equal(panel(ui).querySelector('.lcc-bd-emblem'), null, 'no winner: no icon, not even an empty diamond');
+  assert.doesNotMatch(text(panel(ui)), /Dominion|DOMINION|not verified/);
+  assert.match(text(panel(ui).querySelector('.lcc-bd-vcount')), /^House count: Atreides ahead 12 to 4\.$/);
   assert.match(metric(ui, 'term'), /^TERM STATUSCONTESTED/);
-  assert.equal(ui.doc.querySelectorAll('.lcc-bd-line').length, 12, 'all twelve lines are listed, in the board\'s own order');
-  assert.deepEqual([...ui.doc.querySelectorAll('.lcc-bd-line')].map((l) => l.getAttribute('data-line')), ['row0', 'row1', 'row2', 'row3', 'row4', 'col0', 'col1', 'col2', 'col3', 'col4', 'diag-main', 'diag-anti']);
-  assert.equal(ui.doc.querySelector('.lcc-bd-lines').closest('details').open, false, 'the list is folded away until asked for');
+  assert.equal(panel(ui).querySelectorAll('details, .lcc-bd-lines, .lcc-bd-line').length, 0, 'the folded list of the twelve lines is no longer in the victory panel (#931)');
   assert.doesNotMatch(honest(words(ui)), BANNED);
   noConfirm(words(ui));
 });
 
-test('one held row: its five Houses, and only those, have the circuit outline and the words LINE OF FIVE', async () => {
+test('one held row: its five Houses, and only those, have the circuit outline and the tag SYSSELRAAD WON', async () => {
   const ui = await open(board(ROW3_A));
   assert.deepEqual(outlined(ui), [10, 11, 12, 13, 14]);
   assert.deepEqual(outlined(ui, 'circuit'), [10, 11, 12, 13, 14]);
   for (const i of [10, 11, 12, 13, 14]) {
     const c = cards(ui)[i];
     assert.equal(c.getAttribute('data-lines'), 'row2');
-    assert.equal(text(c.querySelector('.lcc-flag-line')), 'LINE OF FIVE');
-    assert.match(c.querySelector('.lcc-hc-select').getAttribute('aria-label'), /part of a line of five held by Atreides: row 3/);
-    assert.match(c.querySelector('.lcc-hc-select').getAttribute('title'), /Atreides hold this House in a line of five: row 3\. The Houses as they stand now, not a vote result/);
+    assert.equal(text(c.querySelector('.lcc-flag-line')), 'SYSSELRAAD WON');
+    assert.match(c.querySelector('.lcc-hc-select').getAttribute('aria-label'), /part of a line of five held by Atreides: row 3, Sysselraad won by Atreides, by five in a line\. The save does not record the vote; the game works the winner out from the Houses\./);
+    assert.match(c.querySelector('.lcc-hc-select').getAttribute('title'), /Atreides hold this House in a line of five: row 3\. Sysselraad won by Atreides, by five in a line\. The save does not record the vote/);
   }
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag-line').length, 5);
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag-dom').length, 0, 'five Houses are not 13: no count outline');
   const p = panel(ui);
   assert.equal(p.getAttribute('data-state'), 'line');
   assert.equal(p.getAttribute('data-faction'), 'a');
-  assert.match(text(p), /FIVE IN A LINE.*Atreides · FIVE IN A LINE.*Atreides hold five Houses in one line: row 3\. Read from the Houses as they stand now; the save does not record the result of a vote\./);
-  assert.match(metric(ui, 'term'), /^TERM STATUSFIVE IN A LINEAtreides · row 3 · vote not recorded$/);
+  assert.match(text(p), /SYSSELRAAD WON.*SYSSELRAAD WON · ATREIDES.*Sysselraad won by Atreides, by five in a line\. The save does not record the vote; the game works the winner out from the Houses\. Atreides hold five Houses in one line: row 3\./);
+  assert.equal(text(p.querySelector('.lcc-bd-vcount')), 'BY FIVE IN A LINE');
+  assert.equal(p.querySelector('.lcc-bd-emblem').getAttribute('data-faction'), 'a', 'the winner\'s crest');
   assert.match(metric(ui, 'lines'), /^POTENTIAL LINES\d+Unblocked five-House alignments · Atreides \d+ · Harkonnen \d+ · 1 held, not counted$/);
-  assert.match(text(ui.doc.querySelector('.lcc-bd-line[data-line="row2"]')), /^Row 3 · Houses 11, 12, 13, 14, 15Atreides hold all five Houses: five in a line$/);
-  assert.match(text(p.querySelector('summary')), /^The twelve lines \(1 held, \d+ still possible\)$/);
   assert.doesNotMatch(honest(words(ui)), BANNED);
   noConfirm(words(ui));
 });
@@ -94,16 +93,14 @@ test('a held diagonal and a held column are outlined by their own positions, for
   let ui = await open(anti);
   assert.deepEqual(outlined(ui, 'circuit'), [4, 8, 12, 16, 20]);
   assert.equal(panel(ui).getAttribute('data-faction'), 'h');
-  assert.match(text(panel(ui)), /Harkonnen · FIVE IN A LINE.*Harkonnen hold five Houses in one line: opposite diagonal/);
-  assert.match(metric(ui, 'term'), /Harkonnen · opposite diagonal · vote not recorded/);
+  assert.match(text(panel(ui)), /SYSSELRAAD WON · HARKONNEN.*Harkonnen hold five Houses in one line: opposite diagonal/);
   closeAll();
   ui = await open(board(letters(25, ...[2, 7, 12, 17, 22].map((i) => [i, 'A']))));
   assert.deepEqual(outlined(ui, 'circuit'), [2, 7, 12, 17, 22]);
   assert.match(text(panel(ui)), /Atreides hold five Houses in one line: column 3/);
-  assert.equal(text(ui.doc.querySelector('.lcc-bd-line[data-line="col2"] span')), 'Atreides hold all five Houses: five in a line');
 });
 
-test('13 Houses held: those Houses have the majority outline, labelled as a count that is not verified, and the Dominion is never confirmed', async () => {
+test('13 Houses held: those Houses have the majority outline, the panel and the headline say the Sysselraad is won by 13 Houses, with no card tag, and the Dominion is never confirmed', async () => {
   const a13 = 'HAHAHAHAHAHAAAHAHAHAHAHAH'; // 13 Atreides, 12 Harkonnen, no line
   const ui = await open(board(a13));
   const a = [...a13].map((c, i) => (c === 'A' ? i : -1)).filter((i) => i >= 0);
@@ -111,10 +108,12 @@ test('13 Houses held: those Houses have the majority outline, labelled as a coun
   assert.deepEqual(outlined(ui, 'circuit'), []);
   const p = panel(ui);
   assert.equal(p.getAttribute('data-state'), 'count');
-  assert.match(text(p), /IMPERIAL DOMINION · NOT VERIFIED.*Atreides · 13 HOUSES HELD.*A count of Houses now, not a vote result\. The save does not record when the Voting Session starts, so a House-count lead cannot be confirmed here\./);
-  assert.match(text(p.querySelector('.lcc-bd-vcount')), /Atreides ahead 13 to 12 · not verified/);
-  for (const i of a) assert.match(cards(ui)[i].querySelector('.lcc-hc-select').getAttribute('title'), /a count of Houses, not a vote result, and not verified: the save does not record the start of the Voting Session/);
-  assert.match(text(ui.doc.querySelector('.lcc-bd-headlines')), /MAJORITY HOUSE · COUNT NOT VERIFIED/);
+  assert.match(text(p), /SYSSELRAAD WON.*SYSSELRAAD WON · ATREIDES.*The save does not record the vote.*Atreides hold 13 of the 25 Houses\./);
+  assert.equal(text(p.querySelector('.lcc-bd-vcount')), 'BY 13 HOUSES');
+  assert.doesNotMatch(text(p), /Dominion|DOMINION|not verified|not a vote result/);
+  for (const i of a) assert.match(cards(ui)[i].querySelector('.lcc-hc-select').getAttribute('title'), /One of the Atreides Houses, who hold 13 or more Houses\. Sysselraad won by Atreides, by 13 Houses\./);
+  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag').length, 0, 'the Houses of a 13-House win have the outline and no tag: they form no line');
+  assert.match(text(ui.doc.querySelector('.lcc-bd-headlines')), /SYSSELRAAD WON · 13 HOUSES/);
   assert.doesNotMatch(honest(words(ui)), BANNED);
   noConfirm(words(ui));
 });
@@ -123,16 +122,17 @@ test('12 Houses held is a lead and nothing more', async () => {
   const ui = await open(board('HAHAHAHAHAHAOAHAHAHAHAHAH')); // 12 each, one open
   assert.equal(outlined(ui).length, 0);
   assert.equal(panel(ui).getAttribute('data-state'), 'contested');
-  assert.match(text(panel(ui).querySelector('.lcc-bd-vcount')), /^House count: even at 12 each · not verified/);
+  assert.match(text(panel(ui).querySelector('.lcc-bd-vcount')), /^House count: even at 12 each\.$/);
   assert.doesNotMatch(text(panel(ui)), /DOMINION/);
 });
 
-test('a line of five and 13 Houses of the same faction: the line Houses have the circuit outline, the rest of the 13 the majority outline, and the panel says both honestly', async () => {
+test('a line of five and 13 Houses of the same faction: the line Houses have the circuit outline, the rest of the 13 the majority outline, and the panel says both routes', async () => {
   const l = 'AAAAAAAAAAAAAOHOHOHOHOHOH'; // positions 0 to 12 Atreides (row 1, row 2 and 3 Houses of row 3), a few Harkonnen Houses that hold no line
   const ui = await open(board(l));
   assert.deepEqual(outlined(ui, 'circuit'), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   assert.deepEqual(outlined(ui, 'dominion'), [10, 11, 12]);
-  assert.match(text(panel(ui)), /Atreides hold five Houses in 2 lines: row 1 and row 2\..*Atreides also hold 13 Houses: a count, not verified/);
+  assert.equal(text(panel(ui).querySelector('.lcc-bd-vcount')), 'BY FIVE IN A LINE AND 13 HOUSES');
+  assert.match(text(panel(ui)), /Atreides hold five Houses in 2 lines: row 1 and row 2\. Atreides hold 13 of the 25 Houses\./);
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc[data-victory="circuit"] .lcc-flag-dom').length, 0, 'a House of a line carries the line badge only');
   assert.doesNotMatch(honest(words(ui)), BANNED);
   noConfirm(words(ui));
@@ -144,8 +144,9 @@ test('a line for each faction is a conflict: both lines are outlined, nobody is 
   const p = panel(ui);
   assert.equal(p.getAttribute('data-state'), 'conflict');
   assert.equal(p.getAttribute('data-faction'), null, 'no faction is named for the panel');
-  assert.match(text(p), /CONFLICT.*BOTH FACTIONS HOLD A LINE.*Atreides hold row 1 and Harkonnen hold row 5\. The save does not record which came first or the result of a vote, so neither faction is chosen\./);
-  assert.match(metric(ui, 'term'), /^TERM STATUSCONFLICT/);
+  assert.match(text(p), /SYSSELRAAD UNDECIDABLE.*ATREIDES BY FIVE IN A LINE · HARKONNEN BY FIVE IN A LINE · CANNOT BE DECIDED FROM THIS SAVE.*both factions qualify, so it cannot be decided from this save/);
+  assert.equal(p.querySelector('.lcc-bd-emblem'), null, 'no faction has won: no icon');
+  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag').length, 0, 'no card says won while the winner cannot be decided');
   assert.doesNotMatch(honest(words(ui)), BANNED);
   noConfirm(words(ui));
 });
@@ -154,7 +155,8 @@ test('an unreadable House: the count of potential lines says it is incomplete an
   let ui = await open(board(letters(25, [12, '?'])));
   assert.match(metric(ui, 'lines'), /^POTENTIAL LINES—Count incomplete · 1 House unreadable$/);
   assert.equal(ui.doc.querySelector('[data-metric="lines"]').getAttribute('data-incomplete'), 'true');
-  assert.match(text(ui.doc.querySelector('.lcc-bd-victory summary')), /count incomplete/);
+  assert.equal(panel(ui).getAttribute('data-state'), 'unreadable');
+  assert.match(text(panel(ui)), /SYSSELRAAD UNDECIDABLE.*COUNT INCOMPLETE · 1 HOUSE UNREADABLE/);
   assert.match(text(panel(ui).querySelector('.lcc-bd-vcount')), /^House count incomplete: 1 House could not be read, so no comparison is made\.$/);
   assert.equal(outlined(ui).length, 0);
   closeAll();
@@ -171,8 +173,7 @@ test('a board that is not a board draws no outline and no number of potential li
   assert.equal(ui.doc.querySelectorAll('[data-victory]').length, 0);
   assert.match(metric(ui, 'lines'), /^POTENTIAL LINES—Not counted: the board could not be checked$/);
   assert.equal(panel(ui).getAttribute('data-state'), 'unavailable');
-  assert.match(text(panel(ui)), /COUNT UNAVAILABLE.*NO COUNT TO SHOW/);
-  assert.equal(ui.doc.querySelectorAll('.lcc-bd-lines').length, 0);
+  assert.match(text(panel(ui)), /SYSSELRAAD UNDECIDABLE.*HOUSE COUNT UNAVAILABLE · BOARD NOT COMPLETE/);
 });
 
 test('the list layout keeps the figure and the panel, and the table shows the same Houses', async () => {

@@ -8,7 +8,7 @@ import { JSDOM } from 'jsdom';
 import { root, lccDir, read } from './lcc-load.mjs';
 
 const gdir = path.join(root, 'docs', 'design', 'landsraad-command-center', 'gallery');
-const lccJs = fs.readFileSync(path.join(lccDir, 'lcc.js'), 'utf8');
+const lccJs = fs.readFileSync(path.join(lccDir, 'lcc-model.js'), 'utf8') + ';' + fs.readFileSync(path.join(lccDir, 'lcc.js'), 'utf8'); // the model holds the words of the Sysselraad; the page loads it first
 const galleryJs = fs.readFileSync(path.join(gdir, 'gallery.js'), 'utf8');
 const page = fs.readFileSync(path.join(gdir, 'index.html'), 'utf8').replace(/<script[^>]*src=[^>]*><\/script>/g, '');
 

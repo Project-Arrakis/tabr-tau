@@ -31,6 +31,7 @@ These rules are encoded as the expected values of `fixtures/board-victory-cases.
 |---|---|---|---|---|
 | D04 | A complete line for each faction in one board is a conflict. No first-win mechanic is verified, so no winner is chosen and the DOM order never decides | PROPOSED | P0 | "Conflict: both factions hold a line" with both lines outlined |
 | D05 | A count lead and a vote result are different statuses. Without a verified cutoff a lead is `pending_vote`, even at 13 or more of 25 | PROPOSED | P0 | "Leads the current count"; the 13th seat of the track is drawn as a position, not as a result |
+| D05a | **Superseded by B2 (2026-11-18).** The Command Center now says who won the Sysselraad, in one wording table, with no word of Imperial Dominion | DECIDED | P0 | see section G |
 | D16 | The gold 13th seat is a real position of the 25-seat track. It does not reduce the official vote rule: a majority at a verified cutoff may be below 13 | PROPOSED | P1 | The track shows the seat, the status line says what is and is not verified |
 | D10a | Owner of a house is read strictly: `completed = 1` with a Landsraad faction is that faction's; `completed = 0` with no winner is open; everything else is unreadable and counts as neither | PROPOSED | P0 | An unreadable house is drawn as "unknown"; a board with any unreadable house shows no confirmed count and no confirmed majority. A complete line elsewhere may still stand |
 | D13a | A verified cutoff majority recorded together with a line for the other faction is a conflict, not a win | PROPOSED | P0 | "Conflicting saved outcome, verification needed" |
@@ -60,6 +61,22 @@ These rules are encoded as the expected values of `fixtures/board-victory-cases.
 4. Whether the reward rows the editor writes are collected by the game's own representative as an earned tier would be.
 
 None of these blocks M2 (art and shell) or M3 (board and inspector over existing writes).
+
+## G. Decision B2 (2026-11-18): one wording for who won the Sysselraad
+
+Decided by the operator on 2026-11-18 (issues #929, #926, #931), superseding the "never says a faction won" rule above (D05, F4) and the #912 and #915 headline. Display only: nothing is written and no request changes.
+
+1. **The rule.** A faction wins the Sysselraad with a line of five Houses or with 13 or more Houses. The save stores no winner and no vote; the game works the winner out from the Houses, and the editor does the same from the Houses it reads. The honest facts line is: "The save does not record the vote; the game works the winner out from the Houses."
+2. **One wording table**, used by every surface (plaque headline and tally, victory panel, card tag, legend, list badge, Strategy view, screen-reader text, tooltips):
+   * a win: "SYSSELRAAD WON · <FACTION>", with the how-line "BY FIVE IN A LINE" or "BY 13 HOUSES";
+   * no win: "SYSSELRAAD CONTESTED", with the count line, for example "HARKONNEN LEAD 11 TO 4 · 10 HOUSES OPEN";
+   * both factions qualify: "SYSSELRAAD UNDECIDABLE", with the reason.
+3. **Imperial Dominion is never confirmed, and the word is no longer shown.** The headline "VOTING SESSION · MAJORITY AT 13 OF 25 HOUSES" is dropped; the majority mark stays on the seat track with its screen-reader text.
+4. **The held-line card tag** "SYSSELRAAD WON" appears on the five Houses of a held line only. A win by 13 Houses has no line, so it has no card tag; the outline glow stays.
+5. **The victory panel** shows the phrase as its tag, the headline as its title, the how-line under the counts, the winner's own crest in its colour when a faction has won (no icon when none has), and no explanatory paragraph and no folded list of twelve lines (the lines remain in the Sysselraad Strategy view, #931). The full sentence is kept for a screen reader and the tooltip.
+6. The "TERM STATUS" figure of the four-figures row is left as it was; that row is being removed in a separate change.
+
+Code: one pure function, WIN.decide, and a frozen table, WIN.TEXT, in internal/web/static/lcc/lcc-model.js; no surface builds its own phrase (a test reads the sources to prove it).
 
 ## E. Change control
 

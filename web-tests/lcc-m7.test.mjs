@@ -213,7 +213,9 @@ function reference(letters) {
   const lead = n.A > n.H ? 'A' : n.H > n.A ? 'H' : null;
   const count = lead && n[lead] >= 13 ? lead : null;
   const verdict = heldA && heldH ? 'conflict' : heldA || heldH ? 'line_held' : n['?'] ? 'unknown' : lead ? 'pending_vote' : lines.some((l) => l.startsWith('one-away')) ? 'possible' : 'none';
-  const state = heldA && heldH ? 'conflict' : heldA || heldH ? 'line' : count ? 'count' : 'contested';
+  // who qualifies by the game's rule (a line of five or 13 Houses): both is undecidable (the panel's state 'conflict'), one is won (by a line, else by the count), none is contested, or unreadable when a House cannot be read
+  const qualA = heldA || n.A >= 13, qualH = heldH || n.H >= 13;
+  const state = qualA && qualH ? 'conflict' : qualA || qualH ? (heldA || heldH ? 'line' : 'count') : n['?'] ? 'unreadable' : 'contested';
   const circuit = [...new Set(LINES.filter((_, i) => lines[i].startsWith('held')).flat())].sort((a, b) => a - b);
   const dominion = count && !(heldA && heldH) ? [...letters].map((c, i) => [c, i]).filter(([c, i]) => c === count && !circuit.includes(i)).map(([, i]) => i) : [];
   const potential = lines.filter((l) => l === 'open' || l.startsWith('one-away')).length;
