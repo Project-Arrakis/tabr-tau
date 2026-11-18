@@ -37,6 +37,11 @@
   --lcc-teal: #54bea9;
   --lcc-red: #dd7757;
   --lcc-violet: #b096eb;
+  /* the same three as text on a card or a panel: on the dark surfaces they are the accents themselves (the red is a little lighter, for the Reopen button), on the light surfaces they are darker, so that
+     12 px text passes 4.5:1 against the darkest end of the card (a web-tests contrast test computes it from these values). Strokes and fills keep the accents above. */
+  --lcc-teal-t: #54bea9;
+  --lcc-red-t: #ec8d72;
+  --lcc-gold-t: #e3b24d;
   /* the approved board's own surfaces (a panel runs from s1 to s2, a House card from card-a to card-b): the same in every look, as the plaque is, chosen by dark or light only */
   --lcc-s1: #191b1b; --lcc-s2: #242322; --lcc-card-a: #2d2924; --lcc-card-b: #191b1b; --lcc-tier-bg: #121617; --lcc-tier-edge: #785c36; --lcc-strong: #fff3d8; --lcc-name: #eae1cd;
   --lcc-crest-filter: brightness(0) invert(.68) sepia(1) saturate(2.1) hue-rotate(-10deg) brightness(.92) drop-shadow(0 0 2px rgba(0, 0, 0, .35));
@@ -51,9 +56,9 @@
   --lcc-outline-win: 3px solid var(--lcc-gold);
 }
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) .lcc, :root:not([data-theme="dark"]) .lcc-scope { --lcc-gold: #8a5a10; --lcc-gold-hi: #b07a1c; --lcc-gold-lo: #5e3c08; --lcc-on-gold: #fff6df; --lcc-teal: #16715e; --lcc-red: #b64c33; --lcc-violet: #7555a4; --lcc-crest-filter: brightness(0) invert(.68) sepia(1) saturate(2.1) hue-rotate(-10deg) brightness(.6); --lcc-s1: #f8f0de; --lcc-s2: #f0e3cd; --lcc-card-a: #e3d0ac; --lcc-card-b: #f8f0de; --lcc-tier-bg: #e9ddc3; --lcc-tier-edge: #7d5d2b; --lcc-ok-edge: #17715a; --lcc-wait-edge: #8a5a10; --lcc-unk-edge: #9b4a2a; --lcc-strong: #211b13; --lcc-name: #342819; }
+  :root:not([data-theme="dark"]) .lcc, :root:not([data-theme="dark"]) .lcc-scope { --lcc-gold: #8a5a10; --lcc-gold-hi: #b07a1c; --lcc-gold-lo: #5e3c08; --lcc-on-gold: #fff6df; --lcc-teal: #16715e; --lcc-red: #b64c33; --lcc-violet: #7555a4; --lcc-teal-t: #0e5c4a; --lcc-red-t: #8f3722; --lcc-gold-t: #744a0a; --lcc-crest-filter: brightness(0) invert(.68) sepia(1) saturate(2.1) hue-rotate(-10deg) brightness(.6); --lcc-s1: #f8f0de; --lcc-s2: #f0e3cd; --lcc-card-a: #e3d0ac; --lcc-card-b: #f8f0de; --lcc-tier-bg: #e9ddc3; --lcc-tier-edge: #7d5d2b; --lcc-ok-edge: #17715a; --lcc-wait-edge: #8a5a10; --lcc-unk-edge: #9b4a2a; --lcc-strong: #211b13; --lcc-name: #342819; }
 }
-:root[data-theme="light"] .lcc, :root[data-theme="light"] .lcc-scope { --lcc-gold: #8a5a10; --lcc-gold-hi: #b07a1c; --lcc-gold-lo: #5e3c08; --lcc-on-gold: #fff6df; --lcc-teal: #16715e; --lcc-red: #b64c33; --lcc-violet: #7555a4; --lcc-crest-filter: brightness(0) invert(.68) sepia(1) saturate(2.1) hue-rotate(-10deg) brightness(.6); --lcc-s1: #f8f0de; --lcc-s2: #f0e3cd; --lcc-card-a: #e3d0ac; --lcc-card-b: #f8f0de; --lcc-tier-bg: #e9ddc3; --lcc-tier-edge: #7d5d2b; --lcc-ok-edge: #17715a; --lcc-wait-edge: #8a5a10; --lcc-unk-edge: #9b4a2a; --lcc-strong: #211b13; --lcc-name: #342819; }
+:root[data-theme="light"] .lcc, :root[data-theme="light"] .lcc-scope { --lcc-gold: #8a5a10; --lcc-gold-hi: #b07a1c; --lcc-gold-lo: #5e3c08; --lcc-on-gold: #fff6df; --lcc-teal: #16715e; --lcc-red: #b64c33; --lcc-violet: #7555a4; --lcc-teal-t: #0e5c4a; --lcc-red-t: #8f3722; --lcc-gold-t: #744a0a; --lcc-crest-filter: brightness(0) invert(.68) sepia(1) saturate(2.1) hue-rotate(-10deg) brightness(.6); --lcc-s1: #f8f0de; --lcc-s2: #f0e3cd; --lcc-card-a: #e3d0ac; --lcc-card-b: #f8f0de; --lcc-tier-bg: #e9ddc3; --lcc-tier-edge: #7d5d2b; --lcc-ok-edge: #17715a; --lcc-wait-edge: #8a5a10; --lcc-unk-edge: #9b4a2a; --lcc-strong: #211b13; --lcc-name: #342819; }
 
 /* ---- small parts ---- */
 /* the cut-corner gold frame: a gold layer, cut at its corners, with the panel inside it cut the same way */
