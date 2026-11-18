@@ -273,7 +273,8 @@ test('light theme: the borders of the tier boxes pass 3:1 against both ends of t
   const blocks = rules.filter((r) => /--lcc-card-a:/.test(r.body) && /data-theme="(light|dark)"/.test(r.sel));
   assert.ok(blocks.length >= 2);
   for (const b of blocks) {
-    const v = (n) => new RegExp('--lcc-' + n + ':\\s*(#[0-9a-f]{6})').exec(b.body)[1];
+    const tokens = Object.fromEntries([...b.body.matchAll(/--lcc-([a-z-]+):\s*(#[0-9a-f]{6})/g)].map((m) => [m[1], m[2]]));
+    const v = (n) => { assert.ok(tokens[n], 'token --lcc-' + n + ' is set'); return tokens[n]; };
     for (const k of ['tier-edge', 'ok-edge', 'wait-edge', 'unk-edge']) for (const end of ['card-a', 'card-b']) assert.ok(ratio(v(k), v(end)) >= 3, k + ' on ' + end + ': ' + ratio(v(k), v(end)).toFixed(2));
   }
 });
