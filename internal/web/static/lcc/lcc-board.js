@@ -20,12 +20,12 @@
   const OWNER_WORD = Object.freeze({ a: 'Atreides', h: 'Harkonnen', open: 'Open', unknown: 'Unreadable' });
   const NOT_IN_SAVE = 'Not in the save';
   const CHECKED = 'Each click is checked against the save first.';
-  // A House the save says is taken but that shows nothing of the character's own (#911): said in words, never as "0 of 5 reached". The tiers are the character's own ladder, so with no row of the
-  // character none is reached, and with no tier rows at all there is no ladder to show.
+  // A House the save says is taken but that shows nothing of the character's own (#911): said in words, never as "0/5 EARNED". The tiers are the character's own ladder, so with no row of the
+  // character none is earned, and with no tier rows at all there is no ladder to show.
   const TAKEN_NO_TIERS = 'Taken - no tier record in the save';
   const TAKEN_NO_MINE = 'Taken - no contribution of yours';
   const TAKEN_NO_TIERS_WHY = 'This House is taken, and the save holds no reward tiers for it.';
-  const TAKEN_NO_MINE_WHY = 'This House is taken. The save holds no contribution of yours to it, so none of your five tiers is reached: that is your own ladder, not the faction’s.';
+  const TAKEN_NO_MINE_WHY = 'This House is taken. The save holds no contribution of yours to it, so none of your five tiers is earned: that is your own ladder, not the faction’s.';
   const takenWhy = (h) => (h.takenNoTiers ? TAKEN_NO_TIERS_WHY : h.takenNoMine ? TAKEN_NO_MINE_WHY : '');
   // the contributors of a list, as the text of one line: the biggest first, "name amount"
   const contribLine = (list, n) => list.slice(0, n).map((c) => c.label + ' ' + fmt(c.amount)).join(' · ');
@@ -191,7 +191,7 @@
     const r = board.rollup;
     const p = el('p', 'lcc-bd-totals');
     p.appendChild(el('b', '', 'Your rewards on this board: '));
-    p.appendChild(root.document.createTextNode((r.tiers ? r.reached + ' of ' + r.tiers + ' tiers reached' : 'tiers not known') + ' · ' + r.waiting + ' not collected (waiting at the house representatives) · ' + r.collected + ' collected · ' + r.unknownDelivery + ' reached with no delivery record · ' + fmt(r.mine) + ' contributed in all Houses.'));
+    p.appendChild(root.document.createTextNode((r.tiers ? r.reached + ' of ' + r.tiers + ' tiers earned' : 'tiers not known') + ' · ' + r.waiting + ' not collected (waiting at the house representatives) · ' + r.collected + ' collected · ' + r.unknownDelivery + ' earned with no delivery record · ' + fmt(r.mine) + ' contributed in all Houses.'));
     return p;
   }
 
@@ -216,7 +216,7 @@
     if (ct.off) b.setAttribute('data-why', ct.tip);
     return b;
   }
-  // One House card, as the approved design draws it: the number and the specialization emblem on top, the crest, HOUSE NAME, the specialization, the owner, the five tier boxes and the line "N/5 REACHED"
+  // One House card, as the approved design draws it: the number and the specialization emblem on top, the crest, HOUSE NAME, the specialization, the owner, the five tier boxes and the line "N/5 EARNED"
   // with the collected and the waiting counts. A House whose specialization the save does not give has no emblem and says so in words.
   function houseCard(h, matchIds, host, editable, picks, major, ev) {
     // a House of a line of five held by its faction, and a House of a faction with 13 or more Houses, get the one gold win outline (the words are the plaque's, the victory panel's, the legend's, and the House's tooltip and aria text; a card carries no text flag, #961).
@@ -254,7 +254,7 @@
     sel.appendChild(el('span', 'lcc-hc-owner', owner === 'a' || owner === 'h' ? '● ' + OWNER_WORD[owner] : owner === 'open' ? '○ Open' : '? Owner unreadable', { 'data-g': ({ a: 'A', h: 'H', open: '○', unknown: '?' })[owner] }));
     const notes = [];
     if (h.waiting > 0) notes.push(h.waiting + ' reward' + (h.waiting === 1 ? '' : 's') + ' not collected');
-    sel.setAttribute('aria-label', [(h.number ? 'Number ' + h.number + ', ' : '') + h.name + ', ' + (owner === 'a' || owner === 'h' ? 'claimed by ' + OWNER_WORD[owner] : owner === 'open' ? 'open' : 'owner unreadable')].concat(h.track ? ['path ' + trackWord(h.track)] : ['specialization not in the save'], h.takenNoTiers ? ['taken, no tier record in the save'] : h.takenNoMine ? ['taken, no contribution of yours in the save, so none of your tiers is reached'] : h.tierCount ? [h.reached + ' of ' + h.tierCount + ' tiers reached', h.collected + ' collected'] : ['no tiers in the save'], notes, h.unknownDelivery ? [h.unknownDelivery + ' with no delivery record'] : [], inLine ? ['part of a line of five held by ' + FACTION_WORD[h.owner] + ': ' + listWords(lines.map(lineWord)), winSays] : [], dom ? ['one of the 13 or more Houses of ' + FACTION_WORD[major], winSays] : [], dim ? ['not in the current filter'] : []).join(', '));
+    sel.setAttribute('aria-label', [(h.number ? 'Number ' + h.number + ', ' : '') + h.name + ', ' + (owner === 'a' || owner === 'h' ? 'claimed by ' + OWNER_WORD[owner] : owner === 'open' ? 'open' : 'owner unreadable')].concat(h.track ? ['path ' + trackWord(h.track)] : ['specialization not in the save'], h.takenNoTiers ? ['taken, no tier record in the save'] : h.takenNoMine ? ['taken, no contribution of yours in the save, so none of your tiers is earned'] : h.tierCount ? [h.reached + ' of ' + h.tierCount + ' tiers earned', h.collected + ' collected'] : ['no tiers in the save'], notes, h.unknownDelivery ? [h.unknownDelivery + ' with no delivery record'] : [], inLine ? ['part of a line of five held by ' + FACTION_WORD[h.owner] + ': ' + listWords(lines.map(lineWord)), winSays] : [], dom ? ['one of the 13 or more Houses of ' + FACTION_WORD[major], winSays] : [], dim ? ['not in the current filter'] : []).join(', '));
     sel.setAttribute('title', 'House ' + h.name + ', ' + (h.pos ? h.pos.words + '. ' : '') + (inLine ? lineSays + '. ' + winSays + ' ' : '') + (dom ? 'One of the ' + FACTION_WORD[major] + ' Houses, who hold 13 or more Houses. ' + winSays + ' ' : '') + (takenWhy(h) ? takenWhy(h) + ' ' : '') + 'Click to see its tiers and actions.');
     card.appendChild(sel);
     const ctl = editable && host && host.ctl ? host.ctl(h.id) : null;
@@ -266,12 +266,12 @@
     else if (h.takenNoMine) count.appendChild(el('b', '', TAKEN_NO_MINE, { title: TAKEN_NO_MINE_WHY, 'data-taken': 'no-mine' }));
     else if (h.tierCount) {
       const sp = () => count.appendChild(root.document.createTextNode(' '));
-      count.appendChild(el('b', '', h.reached + '/' + h.tierCount + ' REACHED'));
+      count.appendChild(el('b', '', h.reached + '/' + h.tierCount + ' EARNED', { title: 'Reward tiers of yours earned in this House: ' + h.reached + ' of ' + h.tierCount + '. Earned is not collected: the counts beside it say how many of them you have collected.' }));
       sp();
       count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-ok', '✓ ' + h.collected, { title: h.collected + ' collected' }));
       sp();
       count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-wait', '◆ ' + h.waiting, { title: h.waiting + ' not collected (waiting at the representative)' }));
-      if (h.unknownDelivery) { sp(); count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-unk', '? ' + h.unknownDelivery, { title: h.unknownDelivery + ' reached with no delivery record: not counted as collected or waiting' })); }
+      if (h.unknownDelivery) { sp(); count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-unk', '? ' + h.unknownDelivery, { title: h.unknownDelivery + ' earned with no delivery record: not counted as collected or waiting' })); }
     } else count.appendChild(el('b', '', 'NO TIERS IN THE SAVE'));
     card.appendChild(count);
     if (editable) card.appendChild(pickBox(h, picks));

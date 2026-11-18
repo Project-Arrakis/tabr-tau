@@ -135,15 +135,15 @@ test('#768: the classic list shows the House number 01 to 25 too, from the same 
   assert.equal(bad.doc.querySelectorAll('#lsb-rows .hno').length, 0);
 });
 
-test('a card shows five numbered tier boxes and the line N/5 REACHED with the collected and waiting counts, and says them in its name for a screen reader', async () => {
+test('a card shows five numbered tier boxes and the line N/5 EARNED with the collected and waiting counts, and says them in its name for a screen reader', async () => {
   const ui = await open();
   const w = tileOf(ui, 'Wallach');
   const boxes = [...w.querySelectorAll('.lcc-hc-t')];
   assert.equal(boxes.length, 5);
   assert.deepEqual(boxes.map((b) => text(b)), ['◆', '◆', '◆', '4', '5'], 'a waiting reward is a diamond, a tier not reached keeps its number');
   assert.deepEqual(boxes.map((b) => b.classList.contains('waiting')), [true, true, true, false, false]);
-  assert.equal(text(w.querySelector('.lcc-hc-count')), '3/5 REACHED ✓ 0 ◆ 3');
-  assert.match(w.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /^Number 08, Wallach, claimed by Atreides, path Exploration, 3 of 5 tiers reached, 0 collected, 3 rewards not collected$/);
+  assert.equal(text(w.querySelector('.lcc-hc-count')), '3/5 EARNED ✓ 0 ◆ 3');
+  assert.match(w.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /^Number 08, Wallach, claimed by Atreides, path Exploration, 3 of 5 tiers earned, 0 collected, 3 rewards not collected$/);
 });
 
 test('the five tier boxes tell collected, waiting, delivery unknown and not reached apart, and delivery unknown is never read as collected', async () => {
@@ -158,7 +158,7 @@ test('the five tier boxes tell collected, waiting, delivery unknown and not reac
   assert.deepEqual(boxes.map((b) => ['delivered', 'uncertain', 'waiting'].find((c) => b.classList.contains(c)) || 'off'), ['delivered', 'uncertain', 'waiting', 'off', 'off']);
   assert.match(boxes[1].getAttribute('aria-label'), /no delivery record$|no delivery record\./);
   assert.doesNotMatch(boxes[1].getAttribute('aria-label'), /collected/);
-  assert.equal(text(w.querySelector('.lcc-hc-count')), '3/5 REACHED ✓ 1 ◆ 1 ? 1', 'the unknown one is counted on its own, in neither the collected nor the waiting figure');
+  assert.equal(text(w.querySelector('.lcc-hc-count')), '3/5 EARNED ✓ 1 ◆ 1 ? 1', 'the unknown one is counted on its own, in neither the collected nor the waiting figure');
   assert.match(w.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /1 with no delivery record/);
 });
 
@@ -349,7 +349,7 @@ test('the board panel has the approved head, filters, legend, totals and the two
   assert.deepEqual([...ui.doc.querySelectorAll('#lcc-bd-spec option')].map((o) => text(o)), ['All specializations', 'Crafting', 'Gathering', 'Exploration', 'Combat', 'Sabotage']);
   assert.deepEqual([...b.querySelectorAll('.lcc-bd-headlines li')].map((x) => text(x)), ['ATREIDES CLAIMED', 'HARKONNEN CLAIMED', 'OPEN', 'WINNING HOUSES · SYSSELRAAD WON']);
   assert.deepEqual([...b.querySelectorAll('[data-lcb="filter"][data-key="hs"]')].map((x) => text(x)), ['Any', 'Open', 'Claimed']);
-  assert.match(text(b.querySelector('.lcc-bd-totals')), /Your rewards on this board: 26 of 120 tiers reached/);
+  assert.match(text(b.querySelector('.lcc-bd-totals')), /Your rewards on this board: 26 of 120 tiers earned/);
   assert.match(text(b.querySelector('[data-metric="lines"]')), /^POTENTIAL LINES4Unblocked five-House alignments · Atreides 4 · Harkonnen 0$/, 'the unblocked lines of the twelve, counted by the evaluator (M4)');
   assert.match(text(b.querySelector('[data-metric="cap"]')), /RULE/, 'the cap is a game rule, tagged as one, not read from the save');
 });
@@ -386,4 +386,18 @@ test('the board header does not say which faction the character is in, and still
   none.character.faction_id = null;
   const ui2 = await open(none);
   assert.match(text(ui2.doc.querySelector('#lsb-board .line1')), /Your character is in no faction/);
+});
+
+test('the card count reads N/5 EARNED with a tooltip, and no card or board count says reached (#962)', async () => {
+  const ui = await open();
+  const w = tileOf(ui, 'Wallach');
+  const b = w.querySelector('.lcc-hc-count b');
+  assert.equal(text(b), '3/5 EARNED');
+  assert.match(b.getAttribute('title'), /^Reward tiers of yours earned in this House: 3 of 5\./);
+  for (const c of ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc')) {
+    assert.doesNotMatch(text(c.querySelector('.lcc-hc-count')), /REACHED/i, 'card count');
+    const said = (c.querySelector('.lcc-hc-select').getAttribute('aria-label') || '') + ' ' + [...c.querySelectorAll('.lcc-hc-count [title]')].map((x) => x.getAttribute('title')).join(' ');
+    assert.doesNotMatch(said, /tiers? (is |are )?reached|reached with no delivery/, 'card screen-reader text and count tooltips');
+  }
+  assert.doesNotMatch(text(ui.doc.querySelector('.lcc-bd-totals')), /reached/, 'the line under the board');
 });
