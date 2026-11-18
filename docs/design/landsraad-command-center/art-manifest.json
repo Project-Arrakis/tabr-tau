@@ -1,11 +1,12 @@
 {
-  "purpose": "Runtime art of the Command Center (milestone M2): optimized local copies of the game artwork in docs/art/landsraad, served from internal/web/static/lcc/art and the two cloth standards' feet (role standard-tip). Game artwork belongs to Funcom and is outside the repository licence (docs/art-notice.md); the two feet are design artwork supplied by the project owner. Both are described there. (The five 84 x 84 specialization badge crops of the approved design were removed on 2026-11-18, #963: the House card draws the banner pictures instead.) The tests compare this file with the embedded files byte for byte.",
+  "purpose": "Runtime art of the Command Center (milestone M2): optimized local copies of the game artwork in docs/art/landsraad, served from internal/web/static/lcc/art and the two cloth standards' feet (role standard-tip). Game artwork belongs to Funcom and is outside the repository licence (docs/art-notice.md); the two feet are design artwork supplied by the project owner. Both are described there. (The five 84 x 84 specialization badge crops of the approved design were removed on 2026-11-18, #963: the House card draws the five emblems of emblems/ instead, cut from the banner pictures, #976.) The tests compare this file with the embedded files byte for byte.",
   "runtimeRoot": "internal/web/static/lcc/art/",
   "format": "webp with alpha, encoded once from the reference PNG with the browser image encoder (quality 1.0 for the house symbols, 0.92 for the lane, banner and decree pictures); the reference PNG stays the source of truth",
   "sizes": {
     "house": "128 x 128 (the reference size)",
     "lane": "256 x 256 (the reference size)",
     "banner": "256 x 256: the reference banners are 256 x 256 and the folder README now says so too (it said 512 x 512 before M2); recorded in 05-m2-visual-foundation.md",
+    "emblem": "96 x 96 PNG with alpha (only the emblem of a path, cut from the 256 x 256 banner picture by scripts/lcc-emblems.mjs: the soft shadow and the two faded side copies are dropped, the emblem is trimmed, padded to a square and scaled down); the House card draws it at 28 px (24 px on a phone) in one tint. Game artwork derived from the extracted banner art: the same terms as the banners",
     "decree": "128 x 128 (down from the 256 x 256 reference; shown at 96 px at most)",
     "faction-mark": "256 x 256 (down from the 512 x 512 reference; shown at 150 px at most): the white faction crest on the header shields, the cloth standards and the claimed 13th seat",
     "standard-tip": "320 x 111 and 319 x 111 PNG, the exact pixels of the approved plaque (no re-drawing, no re-encoding to a lossy format): the gold-edged V point of each cloth standard with its wheat ornament, rows 16 to 126 of the 150-row crop so that no baked-in text is in the picture; the files are design artwork supplied by the project owner, not game artwork",
@@ -419,6 +420,56 @@
       "sha256": "a6fc793d5c94f382fdc45042faa602c0bda7c042dc6e7bfa90eb58adf38b830b",
       "width": 256,
       "height": 256,
+      "source": "docs/art/landsraad/banners/sabotage.png"
+    },
+    {
+      "role": "emblem",
+      "key": "combat",
+      "file": "emblems/combat.png",
+      "bytes": 8125,
+      "sha256": "15bad1b3c943bf15611121ba1def1ce87f921c1371d5c2e807ef8bb9646bd326",
+      "width": 96,
+      "height": 96,
+      "source": "docs/art/landsraad/banners/combat.png"
+    },
+    {
+      "role": "emblem",
+      "key": "crafting",
+      "file": "emblems/crafting.png",
+      "bytes": 9504,
+      "sha256": "e8a9f28c17a4575ac49b6fe6726143f189096a4c7fa30329d1279eb8c257ef4d",
+      "width": 96,
+      "height": 96,
+      "source": "docs/art/landsraad/banners/crafting.png"
+    },
+    {
+      "role": "emblem",
+      "key": "exploration",
+      "file": "emblems/exploration.png",
+      "bytes": 14816,
+      "sha256": "5c0eb02cbafac7eb27c24f7b6fdea57911f5022e5258afc3bf3b2c8d50cc05d6",
+      "width": 96,
+      "height": 96,
+      "source": "docs/art/landsraad/banners/exploration.png"
+    },
+    {
+      "role": "emblem",
+      "key": "gathering",
+      "file": "emblems/gathering.png",
+      "bytes": 8180,
+      "sha256": "6256baffc6fdff78b4fcd0722ae1a6304c172bb9dec11fcb257876e19597dcb0",
+      "width": 96,
+      "height": 96,
+      "source": "docs/art/landsraad/banners/gathering.png"
+    },
+    {
+      "role": "emblem",
+      "key": "sabotage",
+      "file": "emblems/sabotage.png",
+      "bytes": 9254,
+      "sha256": "d4f60bec8ec0051072a698d084e24d2765c38334c28234e376d929c6ada5a077",
+      "width": 96,
+      "height": 96,
       "source": "docs/art/landsraad/banners/sabotage.png"
     },
     {

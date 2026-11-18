@@ -93,8 +93,8 @@ func TestLccArtManifestMatchesTheEmbeddedFiles(t *testing.T) {
 		want[f.File] = f
 		counts[f.Role]++
 	}
-	if counts["house"] != 25 || counts["lane"] != 5 || counts["banner"] != 5 || counts["decree"] != 9 || counts["decree-fallback"] != 1 || counts["faction-mark"] != 2 || counts["faction-medal"] != 2 || counts["standard-tip"] != 2 {
-		t.Errorf("manifest counts %v: want 25 houses, 5 lanes, 5 banners, 9 decrees, 1 neutral picture, 2 faction crests, 2 faction medallions and 2 cloth standard feet", counts)
+	if counts["house"] != 25 || counts["lane"] != 5 || counts["banner"] != 5 || counts["emblem"] != 5 || counts["decree"] != 9 || counts["decree-fallback"] != 1 || counts["faction-mark"] != 2 || counts["faction-medal"] != 2 || counts["standard-tip"] != 2 {
+		t.Errorf("manifest counts %v: want 25 houses, 5 lanes, 5 banners, 5 emblems, 9 decrees, 1 neutral picture, 2 faction crests, 2 faction medallions and 2 cloth standard feet", counts)
 	}
 	var embedded []string
 	err := fs.WalkDir(static, "static/lcc/art", func(p string, d fs.DirEntry, err error) error {
@@ -141,6 +141,18 @@ func TestLccArtManifestMatchesTheEmbeddedFiles(t *testing.T) {
 			}
 			if len(b) > 40<<10 {
 				t.Errorf("%s is %d bytes: runtime copies are meant to stay small", file, len(b))
+			}
+		}
+		if f.Role == "emblem" {
+			// the emblems (#976) are PNG files of 96 x 96 pixels, 8-bit RGBA, cut from the banners by scripts/lcc-emblems.mjs: a PNG header with that size, and small
+			if len(b) < 33 || string(b[1:4]) != "PNG" || binary.BigEndian.Uint32(b[16:20]) != 96 || binary.BigEndian.Uint32(b[20:24]) != 96 || b[24] != 8 || b[25] != 6 || f.Width != 96 || f.Height != 96 {
+				t.Errorf("%s is not an 8-bit RGBA PNG of 96 x 96 pixels", file)
+			}
+			if len(b) > 24<<10 {
+				t.Errorf("%s is %d bytes: keep each emblem under 24 KiB", file, len(b))
+			}
+			if f.Source != "docs/art/landsraad/banners/"+f.Key+".png" {
+				t.Errorf("%s: source %q, an emblem is cut from the banner picture of its path", file, f.Source)
 			}
 		}
 		if f.Role == "standard-tip" {
@@ -280,7 +292,7 @@ func TestLccArtIsServedFromAFixedListOnly(t *testing.T) {
 	for _, bad := range []string{
 		"/lcc/art/houses/nope.webp", "/lcc/art/houses/ECAZ.webp", "/lcc/art/houses/Ecaz.webp", "/lcc/art/houses/mikarrol.webp", "/lcc/art/houses/ecaz.png", "/lcc/art/houses/ecaz.webp/", "/lcc/art/houses/",
 		"/lcc/art/houses/../../../app.js", "/lcc/art/houses/%2e%2e/%2e%2e/app.js", "/lcc/art/houses/..%2f..%2fapp.js", "/lcc/art/houses/%2e%2e%2fapp.js", "/lcc/art/../lcc.js/../../app.js",
-		"/lcc/art/decrees/vendor-special.webp", "/lcc/art/decrees/SpecialVendorActive.webp", "/lcc/art/lanes/Combat.webp", "/lcc/art/banners/combat.png", "/lcc/art/manifest.json", "/lcc/art/decrees/fallback.svg.bak",
+		"/lcc/art/decrees/vendor-special.webp", "/lcc/art/decrees/SpecialVendorActive.webp", "/lcc/art/lanes/Combat.webp", "/lcc/art/banners/combat.png", "/lcc/art/emblems/combat.webp", "/lcc/art/emblems/Combat.png", "/lcc/art/emblems/", "/lcc/art/manifest.json", "/lcc/art/decrees/fallback.svg.bak",
 		"/lcc/gallery.html", "/lcc/gallery/index.html", "/lcc/gallery.js", "/lcc/", "/lcc",
 	} {
 		if code, ct, _ := get(bad); code == http.StatusOK && (strings.HasPrefix(ct, "image/") || strings.HasPrefix(ct, "text/javascript") || strings.HasPrefix(ct, "text/html")) {

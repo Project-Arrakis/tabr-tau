@@ -209,8 +209,8 @@
     const sel = btn('lcc-hc-select', '', { 'data-lcb': 'sel', 'data-id': h.id, 'data-fk': 'ht:' + h.id, 'aria-pressed': state.sel === h.id ? 'true' : 'false' });
     const top = el('span', 'lcc-hc-top');
     top.appendChild(el('span', 'lcc-hc-pos', h.number, { 'aria-hidden': 'true' }));
-    // the specialization emblem (#963): the path's banner picture, cut to its centre and drawn in one tint like the House crest; no frame, no progress edge
-    const banner = L().bannerAsset(h.track);
+    // the specialization emblem (#963, #976): the path's clean emblem picture (only the emblem, cut from the banner picture) drawn in one tint like the House crest; no frame, no progress edge
+    const banner = L().emblemAsset(h.track);
     if (banner) {
       const g = el('span', 'lcc-hc-spec', '', { title: trackWord(h.track) + ' specialization', 'data-track': h.track });
       const img = el('img', 'lcc-hc-spec-img', '', { alt: '', width: 28, height: 28, src: banner.src, decoding: 'async' });
