@@ -48,7 +48,7 @@ test('it defines no custom property outside the feature, uses design tokens that
   for (const m of bare.matchAll(/var\((--lcc-(?!sp-|v[,)])[a-z0-9-]+)/g)) assert.ok(lcc.includes(m[1] + ':'), m[1] + ' is not defined by lcc.css');
 });
 
-test('nothing animates by itself: no keyframes and no loop; the only motion is a short hover lift that Off, Calm and reduced motion remove', () => {
+test('this file animates nothing by itself: no keyframes and no loop; the only motion is a short hover lift that Off, Calm and reduced motion remove (the pulse of a level 100 path is lcc.css\'s, below)', () => {
   assert.doesNotMatch(bare, /@keyframes|animation:|infinite/);
   assert.ok(rules.some((r) => r.at.startsWith('@media (prefers-reduced-motion: reduce)') && /transition: none/.test(r.body)));
   assert.match(bare, /html\[data-motion="off"\] \.lcc-sp-lane/);
@@ -60,7 +60,7 @@ test('the glow is one dial at 0.5, and the pieces that glow read it', () => {
   assert.equal(dial.length, 1);
   assert.equal(Number(dial[0].replace(/[^0-9.]/g, '')), 0.5);
   const users = rules.filter((r) => /var\(--lcc-sp-glow\)/.test(r.body)).map((r) => r.sel).join(' | ');
-  for (const p of ['.lcc-sp-hero::before', '.lcc-sp-lane[data-kind="cap"]', '.lcc-sp-dossier[data-kind="cap"] .lcc-sp-level']) assert.ok(users.includes(p), p + ' reads the dial');
+  for (const p of ['.lcc-sp-hero::before', '.lcc-sp-dossier[data-kind="cap"] .lcc-sp-level']) assert.ok(users.includes(p), p + ' reads the dial');
   // no glow strength written anywhere else: every blur radius of a shadow of gold goes through the dial
   for (const m of bare.matchAll(/(?:box-shadow|text-shadow):([^;}]+)/g)) for (const part of m[1].split(/,(?![^(]*\))/)) if (/color-mix\(in srgb, var\(--lcc-gold\)/.test(part) && /\s(\d+)px\s/.test(part) && !/inset 0 0 22px/.test(part)) assert.match(part, /--lcc-sp-glow/, part);
 });
@@ -79,7 +79,7 @@ test('text floor: nothing under 11 px; names, key labels, buttons and inputs 12 
   const z = sizes();
   const low = [...z].filter(([, px]) => px < 11);
   assert.deepEqual(low, [], 'selectors under 11 px: ' + low.map(([s, px]) => s + ' ' + px).join(' | '));
-  for (const s of ['.lcc-sp-lane-name', '.lcc-sp-lane-nums', '.lcc-sp-lane-badge', '.lcc-sp-btn', '.lcc-sp-input', '.lcc-sp-hn strong', '.lcc-sp-mark', '.lcc-sp-line', '.lcc-sp-flag', '.lcc-sp-mastery', '.lcc-sp-sub', '.lcc-sp-mapentry', '.lcc-sp-lbl', '.lcc-sp-small', '.lcc-sp-hint', '.lcc-sp-note', '.lcc-sp-vbtn', '.lcc-sp-vlbl']) assert.ok(z.get(s) >= 12 || (s === '.lcc-sp-lane-name' && z.get(s) >= 12), s + ' ' + z.get(s));
+  for (const s of ['.lcc-sp-lane-name', '.lcc-sp-lane-nums', '.lcc-sp-lane-badge', '.lcc-sp-btn', '.lcc-sp-input', '.lcc-sp-hn strong', '.lcc-sp-mark', '.lcc-sp-line', '.lcc-sp-flag', '.lcc-sp-mastery', '.lcc-sp-sub', '.lcc-sp-lbl', '.lcc-sp-small', '.lcc-sp-hint', '.lcc-sp-note', '.lcc-sp-vbtn', '.lcc-sp-vlbl']) assert.ok(z.get(s) >= 12 || (s === '.lcc-sp-lane-name' && z.get(s) >= 12), s + ' ' + z.get(s));
   for (const m of bare.matchAll(/clamp\((\d+(?:\.\d+)?)px/g)) assert.ok(Number(m[1]) >= 11, 'a clamp below 11 px: ' + m[0]);
   // a media query never lowers a font size: narrow windows reflow
   for (const r of rules.filter((x) => x.at.startsWith('@media (max-width'))) {
@@ -105,8 +105,38 @@ test('the variants the design asks for exist: forced colours with system colours
 
 test('the states do not rely on colour alone: the cap, the unresolved track and the pressed lane differ by shape, border or words', () => {
   assert.match(bare, /\.lcc-sp-lane\[data-kind="unresolved"\] \{ border-style: dashed; \}/);
-  assert.match(bare, /\.lcc-sp-lane\[aria-pressed="true"\] \{[^}]*box-shadow/);
-  assert.match(bare, /\.lcc-sp-lane\[data-kind="cap"\], \.lcc-sp-lane\[data-kind="full"\] \{ box-shadow: inset 0 0 0 1px/);
+  assert.match(bare, /\.lcc-sp-lane\[aria-pressed="true"\]:not\(\[data-victory\]\) \{[^}]*box-shadow/);
+});
+
+test('a path at level 100 takes the one win outline of lcc.css, not a variant of its own; the chosen path has a bar that is not gold (#988)', () => {
+  // the old static inset line and glow of cap and full are gone
+  assert.doesNotMatch(bare, /\.lcc-sp-lane\[data-kind="(cap|full)"\][^{]*\{[^}]*box-shadow/);
+  assert.doesNotMatch(bare, /\.lcc-sp-lane\[data-victory[^{]*\{[^}]*(outline|box-shadow|animation)/, 'the outline, glow and pulse are lcc.css\'s');
+  const lcc = fs.readFileSync(path.join(lccDir, 'lcc.css'), 'utf8').replace(/\r/g, '');
+  // the same rule that draws a winning House: one selector list, one outline token, one glow dial
+  assert.match(lcc, /\.lcc-house\[data-victory="win"\], \.lcc-sp-lane\[data-victory="win"\] \{ outline: var\(--lcc-outline-win\); outline-offset: 3px; box-shadow: [^}]*--lcc-glow-win/);
+  // the pulse: the House's own keyframes, only with Motion Full and no reduced-motion request
+  assert.match(lcc, /@media \(prefers-reduced-motion: no-preference\) \{[^]*?\n  html\[data-motion="full"\] \.lcc-sp-lane\[data-victory="win"\] \{ animation: lcc-win-pulse 5s ease-in-out infinite; \}\n\}/);
+  assert.equal((lcc.match(/@keyframes lcc-win-pulse/g) || []).length, 1, 'one set of keyframes');
+  assert.doesNotMatch(lcc.replace(/@media \(prefers-reduced-motion: no-preference\) \{[\s\S]*?\n\}/g, ''), /lcc-sp-lane\[data-victory="win"\] \{ animation: lcc-win-pulse/, 'the pulse is inside the no-preference block only');
+  assert.match(lcc, /\.lcc-sp-lane\[data-victory="win"\] \{ animation: none; \}/);
+  assert.match(lcc, /\.lcc-sp-lane\[data-victory\]:focus-visible/);
+  assert.match(lcc, /html\[data-motion="calm"\] \.lcc \[data-victory\], html\[data-motion="off"\] \.lcc \[data-victory\]/, 'Calm and Off stop it');
+  assert.match(lcc, /\.lcc-house\[data-victory="win"\], \.lcc-sp-lane\[data-victory="win"\] \{ border-width: 5px; border-style: double; box-shadow: none; \}/, 'forced colours: the same double border');
+  // the chosen path: a bar along the foot in the strong text colour, on every chosen lane
+  assert.match(bare, /\.lcc-sp-lane\[aria-pressed="true"\]::after \{[^}]*background: var\(--lcc-strong\)/);
+});
+
+test('the emblems have no box: the picture holders have no border, background or shadow (#989)', () => {
+  for (const sel of ['.lcc-sp-lane-ic', '.lcc-sp-dossier-ic', '.lcc-sp-lane-img', '.lcc-sp-dossier-img']) {
+    const r = rules.filter((x) => x.sel === sel && x.at === '');
+    assert.ok(r.length, sel);
+    for (const x of r) assert.doesNotMatch(x.body, /border|background|box-shadow|outline/, sel);
+  }
+  assert.match(bare, /\.lcc-sp-lane-ic \{ width: 72px; height: 72px;/);
+  assert.match(bare, /\.lcc-sp-lane-img \{ width: 72px; height: 72px;/);
+  assert.match(bare, /\.lcc-sp-dossier-ic \{[^}]*width: 96px; height: 96px;/);
+  assert.doesNotMatch(bare, /lcc-sp-adv|lcc-sp-details|lcc-sp-maplist|lcc-sp-rawform|lcc-sp-assign|lcc-sp-mapentry/, 'no rule for the deleted section');
 });
 
 test('the layout reflows at the widths asked for: five lanes, three, two, one; stacked dossier; touch targets of 44 px', () => {

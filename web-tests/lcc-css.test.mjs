@@ -54,10 +54,10 @@ test('the keyframes are the feature\'s own, and one-shot: nothing loops', () => 
   const kf = [...bare.matchAll(/@keyframes\s+([a-z0-9-]+)/g)].map((m) => m[1]);
   assert.deepEqual([...kf].sort(), ['lcc-reveal', 'lcc-win-pulse', 'lcc-win-sweep']);
   // the exceptions to one-shot are the optional animated border of a winning House (lcc-win-sweep: on the House, and on the centre seat of a win by 13 Houses) and the slow glow of a winning House
-  // (lcc-win-pulse): each loops and sits in the no-preference block under Motion Full
-  assert.equal((bare.match(/infinite/g) || []).length, 3);
+  // (lcc-win-pulse; on the House and, since #988, on a Specializations lane at level 100): each loops and sits in the no-preference block under Motion Full
+  assert.equal((bare.match(/infinite/g) || []).length, 4);
   assert.match(bare, /@media \(prefers-reduced-motion: no-preference\)\s*\{[^]*html\[data-motion="full"\][^]*animation: lcc-win-sweep 9s linear infinite/);
-  for (const m of bare.matchAll(/animation:\s*([^;}]+)/g)) if (!/^none/.test(m[1].trim()) && !/^lcc-win-sweep /.test(m[1].trim())) assert.match(m[1], /\b1\b/, 'an animation that is not one-shot: ' + m[1]);
+  for (const m of bare.matchAll(/animation:\s*([^;}]+)/g)) if (!/^none/.test(m[1].trim()) && !/^lcc-win-sweep /.test(m[1].trim()) && !/^lcc-win-pulse /.test(m[1].trim())) assert.match(m[1], /\b1\b/, 'an animation that is not one-shot: ' + m[1]);
 });
 
 test('custom properties defined here are all --lcc-*, and every design token used exists in the three looks', () => {

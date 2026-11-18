@@ -3,8 +3,8 @@
 // What this file is: a reader and a renderer. readSpecs() turns the answer of the specialization read of the editor (and, for the Houses of each path, the Houses of the Landsraad read) into plain values;
 // mount() draws them with createElement and textContent (never a string of HTML), so a name from a save cannot become markup.
 // What this file is not: it holds no demo data, it fetches nothing and it writes nothing. Every button it draws carries the data-act of a control the editor already has (spAdd, spMax,
-// spReset, spKeyAll, spKeyReset, spResetAll, spAssign, spAssignHand, specSet), and the page's own handlers for those send the same requests with the same questions; the one new
-// name, spAddCC, only checks the number typed and then runs spAdd. A value the save does not hold is shown as "Not in the save", never made up.
+// spReset, spKeyAll, spKeyReset, spResetAll), and the page's own handlers for those send the same requests with the same questions; the one new
+// name, spAddCC, only checks the number typed and then runs spAdd. The track-number mapping and the raw-row writer are not drawn here any more (#986): they stay in the classic list. A value the save does not hold is shown as "Not in the save", never made up.
 (function (root) {
   'use strict';
 
@@ -135,7 +135,7 @@
   const add = (p, ...kids) => { for (const k of kids) if (k) p.appendChild(k); return p; };
   const LC = () => root.LCC || null;
   function pic(cls, track, size) {
-    const a = LC() && LC().laneAsset ? LC().laneAsset(track) : null;
+    const a = LC() && LC().emblemAsset ? LC().emblemAsset(track) : null; // the clean path emblem, no scroll and no frame (#989)
     if (!a) return null;
     const img = el('img', cls, '', { alt: '', width: size, height: size, decoding: 'async', src: a.src });
     img.addEventListener('error', () => { img.hidden = true; });
@@ -176,7 +176,7 @@
 
   function laneOf(vm, r) {
     const sel = r.key === state.sel;
-    const b = el('button', 'lcc-sp-lane', '', { type: 'button', 'aria-pressed': sel ? 'true' : 'false', 'data-lcs-lane': r.key, 'data-track': r.key, 'data-kind': r.kind, 'aria-label': laneLabel(vm, r) });
+    const b = el('button', 'lcc-sp-lane', '', { type: 'button', 'aria-pressed': sel ? 'true' : 'false', 'data-lcs-lane': r.key, 'data-track': r.key, 'data-kind': r.kind, 'data-victory': r.kind === 'cap' || r.kind === 'full' ? 'win' : null, 'aria-label': laneLabel(vm, r) }); // level 100 wears the one win outline of lcc.css (#988)
     const ic = el('span', 'lcc-sp-lane-ic', '', { 'aria-hidden': 'true' });
     add(ic, pic('lcc-sp-lane-img', r.key, 72));
     const lv = el('span', 'lcc-sp-lane-lv', '', { 'aria-hidden': 'true' });
@@ -200,7 +200,7 @@
     add(d, head);
 
     if (!r.known) {
-      add(d, el('p', 'lcc-sp-note lcc-sp-note-warn', 'XP editing is off for this path until its track number is assigned. Open “Track mapping and advanced editor” below. The keystone buttons still work: keystones need no track numbers.', { id: 'lcs-unres-note' }));
+      add(d, el('p', 'lcc-sp-note lcc-sp-note-warn', 'XP editing is off for this path: no track number of the save is tied to it. The keystone buttons still work: keystones need no track numbers.', { id: 'lcs-unres-note' }));
     }
     const g = el('div', 'lcc-sp-prog');
     const plate = el('div', 'lcc-sp-plate');
@@ -248,7 +248,7 @@
     const why = off ? 'lcs-nonum' : null;
     const g1 = el('div', 'lcc-sp-group');
     add(g1, add(el('div', 'lcc-sp-glabel'), el('strong', '', r.label.toUpperCase() + (off ? ' · NOT IDENTIFIED' : '')), el('span', '', 'INDIVIDUAL TRACK')));
-    if (off) add(g1, el('p', 'lcc-sp-note lcc-sp-note-warn', 'Number not known yet: assign it under Track mapping and advanced editor below.', { id: 'lcs-nonum' }));
+    if (off) add(g1, el('p', 'lcc-sp-note lcc-sp-note-warn', 'No track number of the save is tied to this path, so XP editing is off.', { id: 'lcs-nonum' }));
     add(g1, el('label', 'lcc-sp-lbl', 'Add or remove XP ', { for: 'spx' + r.track }));
     g1.lastChild.appendChild(el('small', '', '(a negative number removes)'));
     const inp = el('input', 'lcc-sp-input', '', { id: 'spx' + r.track, type: 'number', step: 1, min: -vm.maxXp, max: vm.maxXp, value: 1000, 'aria-describedby': 'lcs-xphint' + (why ? ' ' + why : ''), disabled: off });
@@ -294,52 +294,11 @@
     return s;
   }
 
-  function advancedOf(vm, r) {
-    const s = el('section', 'lcc-sp-adv lcc-sp-surface', '', { 'aria-labelledby': 'lcs-adv-h' });
-    add(s, el('p', 'lcc-sp-eyebrow', 'EXISTING EDITOR FEATURES · RETAINED'), el('h3', 'lcc-sp-h3', 'Track mapping and advanced editor', { id: 'lcs-adv-h' }),
-      el('p', 'lcc-sp-small', 'The save stores a number for each track, not its name. The editor knows the numbers the game uses, so this is normally not needed; it opens by itself when a row of the save cannot be tied to a path.'));
-    const det = el('details', 'lcc-sp-details', '', { open: vm.anyUnidentified });
-    add(det, el('summary', '', 'Advanced controls · track numbers, unidentified rows and exact XP and level'));
-    const body = el('div', 'lcc-sp-adv-body');
-    const cols = el('div', 'lcc-sp-adv-cols');
-
-    const map = el('div', 'lcc-sp-adv-block');
-    add(map, el('h4', '', 'Track numbers'));
-    const ml = el('ul', 'lcc-sp-maplist', '', { role: 'list' });
-    for (const x of vm.rows) add(ml, el('li', 'lcc-sp-mapentry' + (x.known ? '' : ' is-unknown'), x.label + ' · ' + (x.known ? 'track number ' + x.number : 'number not known: XP editing is off')));
-    add(map, ml);
-    if (vm.unassigned.length) {
-      for (const u of vm.unassigned) {
-        const sel = el('select', 'lcc-sp-input', '', { id: 'spa' + u.number, 'aria-label': 'Which specialization track is number ' + u.number });
-        for (const x of vm.rows) add(sel, el('option', '', x.track));
-        add(map, add(el('div', 'lcc-sp-assign'), el('span', '', 'Track number ' + u.number + ': ' + (u.xp === null ? NOT_IN_SAVE : fmt(u.xp) + ' XP') + ', level ' + (u.level === null ? '—' : Math.floor(u.level)) + ' is'), sel, btn('Assign', 'is-primary', { 'data-act': 'spAssign', 'data-n': u.number })));
-      }
-    } else add(map, el('p', 'lcc-sp-small', 'No specialization XP in your save is waiting to be assigned.'));
-    const hand = el('div', 'lcc-sp-assign');
-    const hs = el('select', 'lcc-sp-input', '', { id: 'spmt', 'aria-label': 'Specialization track' });
-    for (const x of vm.rows) add(hs, el('option', '', x.track));
-    add(hand, el('span', '', 'Know a track’s number already?'), hs, el('span', '', 'number'),
-      el('input', 'lcc-sp-input lcc-sp-narrow', '', { id: 'spmn', type: 'number', min: 0, max: 255, step: 1, 'aria-label': 'Track number, 0 to 255' }), btn('Set', '', { 'data-act': 'spAssignHand' }));
-    add(map, hand, el('p', 'lcc-sp-hint', 'Each number belongs to one track: the editor refuses a number another track already has.'));
-
-    const raw = el('div', 'lcc-sp-adv-block');
-    const knownRows = vm.rows.filter((x) => x.known);
-    add(raw, el('h4', '', 'Exact raw row'));
-    add(raw, el('p', 'lcc-sp-note lcc-sp-note-warn', 'Writes the XP and level you type for the track you pick, as they are. Nothing checks that the two match, and the level is not worked out from the XP.'));
-    if (knownRows.length) {
-      const st = el('select', 'lcc-sp-input', '', { id: 'st', 'aria-label': 'Specialization track of the row' });
-      for (const x of knownRows) add(st, el('option', '', x.track, { value: x.number }));
-      const form = el('div', 'lcc-sp-rawform');
-      add(form, add(el('label', 'lcc-sp-lbl', 'Track', { for: 'st' }), null), st,
-        el('label', 'lcc-sp-lbl', 'XP', { for: 'sx' }), el('input', 'lcc-sp-input', '', { id: 'sx', type: 'number', value: 0, 'aria-label': 'XP of the track' }),
-        el('label', 'lcc-sp-lbl', 'Level', { for: 'sl' }), el('input', 'lcc-sp-input', '', { id: 'sl', type: 'number', step: 0.1, value: 1, 'aria-label': 'Level of the track' }),
-        btn('Set raw row', 'is-danger', { 'data-act': 'specSet' }));
-      add(raw, form);
-    } else add(raw, el('p', 'lcc-sp-small', 'No track has a number in this save yet, so there is no row to pick. Assign a track under Track numbers first.'));
-    add(cols, map, raw);
-    add(body, cols);
-    add(det, body);
-    return add(s, det);
+  // The one line that is left of the old mapping section (#986): shown only when the save holds a row of specialization XP that no path owns. Read-only: nothing here writes.
+  function unknownRowOf(vm) {
+    if (!vm.unassigned.length) return null;
+    const nums = vm.unassigned.map((u) => u.number);
+    return el('p', 'lcc-sp-note lcc-sp-note-warn', (nums.length === 1 ? 'Unknown specialization row in the save (not edited): number ' : 'Unknown specialization rows in the save (not edited): numbers ') + nums.join(', ') + '.', { id: 'lcs-unknown-row' });
   }
 
   function emptyOf(msg) {
@@ -364,7 +323,7 @@
     add(rootEl, lanes);
     const two = el('div', 'lcc-sp-two');
     add(two, dossierOf(vm, r), opsOf(vm, r));
-    add(rootEl, two, housesOf(vm, r), advancedOf(vm, r));
+    add(rootEl, two, housesOf(vm, r), unknownRowOf(vm));
     rootEl.addEventListener('click', (e) => {
       const t = e.target && e.target.closest ? e.target : null;
       const lane = t && t.closest('[data-lcs-lane]');

@@ -19,7 +19,7 @@ test('the two win tokens exist, the glow has its own dial, and the winning House
   // the light of a win is not the plaque's softer dial: --lcc-glow-win is defined as a plain number and --lcc-glow-win is not derived from --lcc-glow
   assert.doesNotMatch(bare.match(/--lcc-glow-win:[^;]*;/)[0], /--lcc-glow\b(?!-win)/);
   for (const kind of ['win']) { // one win outline for every House that makes up a win (2026-11-18)
-    const rule = bare.match(new RegExp('\\.lcc-house\\[data-victory="' + kind + '"\\]\\s*\\{[^}]*\\}'))[0];
+    const rule = bare.match(new RegExp('\\.lcc-house\\[data-victory="' + kind + '"\\](?:, \\.lcc-sp-lane\\[data-victory="' + kind + '"\\])?\\s*\\{[^}]*\\}'))[0];
     assert.match(rule, /outline:\s*var\(--lcc-outline-win\)/, kind);
     assert.match(rule, /var\(--lcc-glow-win\)/, kind);
     assert.doesNotMatch(rule, /var\(--lcc-glow\)/, kind);

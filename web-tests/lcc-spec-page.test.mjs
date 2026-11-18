@@ -51,15 +51,18 @@ test('a stored choice of the Command Center opens it, and an unknown stored word
   assert.equal(b.doc.querySelector('#lcs-root'), null);
 });
 
-test('both views offer the same operations of the editor: every data-act of the classic list is reachable in the Command Center view', async () => {
+// the track mapping and the raw-row writer are classic-list only since #986 (the endpoints and the classic list are unchanged)
+const CLASSIC_ONLY = new Set(['spAssign', 'spAssignHand', 'specSet']);
+test('both views offer the same operations of the editor, except the three the Command Center view dropped (#986): every other data-act of the classic list is reachable in it', async () => {
   const classic = await open({ 'spec.view': 'classic' }, { '/api/player/specs': SPECS('conflicting-learned-number-leaves-combat-unresolved') });
   const want = new Set([...classic.doc.querySelectorAll('[data-act]')].map((b) => b.dataset.act).filter((a) => /^(sp|spec)/.test(a)));
   closeAll();
   const cc = await open({ 'spec.view': 'cc' }, { '/api/player/specs': SPECS('conflicting-learned-number-leaves-combat-unresolved') });
   const have = new Set([...cc.doc.querySelectorAll('[data-act]')].map((b) => b.dataset.act));
   have.delete('spAddCC'); have.add('spAdd'); // the Command Center's Apply XP checks the number and then runs spAdd
-  for (const a of want) assert.ok(have.has(a), a + ' is reachable in the Command Center view');
-  for (const a of ['spKeyAll', 'spKeyReset', 'spResetAll', 'spMax', 'spReset', 'spAssign', 'spAssignHand', 'specSet']) assert.ok(cc.doc.querySelector('[data-act="' + a + '"]'), a);
+  for (const a of want) if (!CLASSIC_ONLY.has(a)) assert.ok(have.has(a), a + ' is reachable in the Command Center view');
+  for (const a of CLASSIC_ONLY) { assert.ok(want.has(a), a + ' is still in the classic list'); assert.equal(cc.doc.querySelector('[data-act="' + a + '"]'), null, a + ' is not drawn in the Command Center view'); }
+  for (const a of ['spKeyAll', 'spKeyReset', 'spResetAll', 'spMax', 'spReset']) assert.ok(cc.doc.querySelector('[data-act="' + a + '"]'), a);
 });
 
 test('the path chosen survives a write and the redraw after it, and the focus goes back to the button pressed', async () => {

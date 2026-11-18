@@ -49,15 +49,17 @@
 
 /* ---- the five lanes ---- */
 .lcc-sp-lanes { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 0 0 20px; }
-.lcc-sp-lane { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 7px; min-width: 0; min-height: 248px; padding: 17px 12px 15px; text-align: center; position: relative;
+.lcc-sp-lane { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 7px; min-width: 0; min-height: 236px; padding: 17px 12px 21px; text-align: center; position: relative;
   color: var(--lcc-text); border: 1px solid var(--lcc-stroke); border-top: 3px solid var(--lcc-gold-lo); background: linear-gradient(140deg, var(--lcc-s1), var(--lcc-s2)); transition: border-color .15s, transform .15s; }
 .lcc-sp-lane:hover { transform: translateY(-2px); border-color: var(--lcc-gold); }
 .lcc-sp-lane:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 3px; }
-.lcc-sp-lane[aria-pressed="true"] { border-color: var(--lcc-gold); border-top-color: var(--lcc-gold-hi); background: linear-gradient(120deg, color-mix(in srgb, var(--lcc-gold) 16%, transparent), var(--lcc-s1)); box-shadow: 0 0 0 1px var(--lcc-gold), inset 0 0 22px color-mix(in srgb, var(--lcc-gold) 11%, transparent); }
-.lcc-sp-lane[data-kind="cap"], .lcc-sp-lane[data-kind="full"] { box-shadow: inset 0 0 0 1px var(--lcc-gold), 0 0 calc(30px * var(--lcc-sp-glow)) color-mix(in srgb, var(--lcc-gold) 40%, transparent); }
-.lcc-sp-lane[data-kind="cap"][aria-pressed="true"], .lcc-sp-lane[data-kind="full"][aria-pressed="true"] { box-shadow: 0 0 0 1px var(--lcc-gold), inset 0 0 0 1px var(--lcc-gold), 0 0 calc(30px * var(--lcc-sp-glow)) color-mix(in srgb, var(--lcc-gold) 40%, transparent); }
+/* a path at level 100 (data-victory="win") has the one win outline of lcc.css, the same as a winning House: the double gold outline, the stronger glow, the slow pulse; a path below 100 keeps this normal border (#988) */
+.lcc-sp-lane[aria-pressed="true"] { border-color: var(--lcc-gold); border-top-color: var(--lcc-gold-hi); background: linear-gradient(120deg, color-mix(in srgb, var(--lcc-gold) 16%, transparent), var(--lcc-s1)); }
+.lcc-sp-lane[aria-pressed="true"]:not([data-victory]) { box-shadow: 0 0 0 1px var(--lcc-gold), inset 0 0 22px color-mix(in srgb, var(--lcc-gold) 11%, transparent); }
+/* the chosen path: a light bar along the foot of the card, on every chosen lane, so it reads apart from the gold outline of a path at level 100 (the pulse owns that card's box-shadow) */
+.lcc-sp-lane[aria-pressed="true"]::after { content: ''; pointer-events: none; position: absolute; left: 16px; right: 16px; bottom: 6px; height: 3px; background: var(--lcc-strong); }
 .lcc-sp-lane[data-kind="unresolved"] { border-style: dashed; }
-.lcc-sp-lane-ic { width: 88px; height: 84px; display: grid; place-items: center; border: 1px solid var(--lcc-stroke); background: radial-gradient(circle, color-mix(in srgb, var(--lcc-gold) 14%, transparent), transparent 72%); }
+.lcc-sp-lane-ic { width: 72px; height: 72px; display: grid; place-items: center; }
 .lcc-sp-lane-img { width: 72px; height: 72px; object-fit: contain; display: block; }
 .lcc-sp-lane-name { font: 700 clamp(13px, 1.3vw, 17px)/1.2 var(--lcc-serif); letter-spacing: .08em; color: var(--lcc-strong); overflow-wrap: anywhere; }
 .lcc-sp-lane-lv { font: 600 13px/1.2 var(--lcc-sans); color: var(--lcc-dim); font-variant-numeric: tabular-nums; }
@@ -77,7 +79,7 @@
 .lcc-sp-dossier { padding: 24px 26px 22px; }
 .lcc-sp-dtitle { display: flex; align-items: center; gap: 20px; padding-bottom: 17px; border-bottom: 1px solid var(--lcc-stroke-faint); }
 .lcc-sp-dheading { min-width: 0; flex: 1; }
-.lcc-sp-dossier-ic { flex: none; width: 112px; height: 112px; display: grid; place-items: center; border: 1px solid var(--lcc-gold); background: linear-gradient(135deg, color-mix(in srgb, var(--lcc-gold) 21%, transparent), transparent); }
+.lcc-sp-dossier-ic { flex: none; width: 96px; height: 96px; display: grid; place-items: center; }
 .lcc-sp-dossier-img { width: 96px; height: 96px; object-fit: contain; display: block; }
 .lcc-sp-flag { flex: none; padding: 9px 14px; border: 1px solid var(--lcc-stroke); font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .12em; color: var(--lcc-text); text-align: center; }
 .lcc-sp-flag.is-cap { border-color: var(--lcc-gold); color: var(--lcc-sp-gold); }
@@ -140,7 +142,7 @@
 .lcc-sp-scope { margin: 0 0 4px; font: 500 12px/1.5 var(--lcc-sans); color: var(--lcc-text); }
 
 /* ---- the Houses of the path ---- */
-.lcc-sp-houses, .lcc-sp-adv { margin-top: 19px; padding: 20px 23px; }
+.lcc-sp-houses { margin-top: 19px; padding: 20px 23px; }
 .lcc-sp-hlist { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px; }
 .lcc-sp-hlist li { display: contents; }
 .lcc-sp-house { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; min-width: 0; min-height: 80px; padding: 9px; text-align: center; color: var(--lcc-text); border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-sunken); }
@@ -152,22 +154,6 @@
 .lcc-sp-hn strong { font: 700 12px/1.2 var(--lcc-sans); letter-spacing: .04em; color: var(--lcc-strong); overflow-wrap: anywhere; }
 .lcc-sp-arrow { font-size: 14px; color: var(--lcc-sp-gold); }
 
-/* ---- the advanced part ---- */
-.lcc-sp-details { margin-top: 13px; border-top: 1px solid var(--lcc-stroke-faint); }
-.lcc-sp-details > summary { cursor: pointer; padding: 13px 5px; min-height: 40px; color: var(--lcc-sp-gold); font: 700 13px/1.4 var(--lcc-sans); }
-.lcc-sp-details > summary:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 2px; }
-.lcc-sp-adv-body { padding: 0 4px 15px; }
-.lcc-sp-adv-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
-.lcc-sp-adv-block { padding: 14px; min-width: 0; background: var(--lcc-sunken); border: 1px solid var(--lcc-stroke-faint); }
-.lcc-sp-adv-block h4 { margin: 0 0 10px; font: 700 15px/1.3 var(--lcc-serif); color: var(--lcc-strong); }
-.lcc-sp-maplist { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 5px; }
-.lcc-sp-mapentry { padding: 6px 8px; border: 1px solid var(--lcc-stroke-faint); font: 500 12px/1.4 var(--lcc-sans); }
-.lcc-sp-mapentry.is-unknown { color: var(--lcc-red-t); border-color: var(--lcc-red); }
-.lcc-sp-assign { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; font: 500 12px/1.4 var(--lcc-sans); }
-.lcc-sp-assign .lcc-sp-input { width: auto; flex: 1 1 110px; }
-.lcc-sp-assign .lcc-sp-narrow { flex: 0 0 90px; }
-.lcc-sp-rawform { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 9px 10px; align-items: center; margin-top: 10px; }
-.lcc-sp-rawform .lcc-sp-btn { grid-column: 1 / -1; }
 .lcc-sp-empty { padding: 24px; }
 
 /* ---- narrower windows: the parts stack and the text keeps its size ---- */
@@ -181,7 +167,7 @@
 }
 @media (max-width: 1000px) {
   .lcc-sp-lanes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .lcc-sp-lane { min-height: 220px; }
+  .lcc-sp-lane { min-height: 208px; }
 }
 @media (max-width: 760px) {
   .lcc-sp-hero { padding: 22px 18px; grid-template-columns: 57px minmax(0, 1fr); }
@@ -189,16 +175,15 @@
   .lcc-sp-hero-stats { gap: 9px; }
   .lcc-sp-lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lcc-sp-dossier { padding: 20px 16px 18px; }
-  .lcc-sp-dtitle { display: grid; grid-template-columns: 68px minmax(0, 1fr); align-items: center; gap: 8px 13px; }
-  .lcc-sp-dossier-ic { width: 68px; height: 68px; }
+  .lcc-sp-dtitle { display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: 8px 13px; }
+  .lcc-sp-dossier-ic { width: 56px; height: 56px; }
   .lcc-sp-dossier-img { width: 56px; height: 56px; }
   .lcc-sp-flag { grid-column: 1 / -1; justify-self: start; }
   .lcc-sp-prog { grid-template-columns: minmax(0, 1fr); gap: 9px; }
   .lcc-sp-plate { border-right: 0; border-bottom: 1px solid var(--lcc-stroke-faint); padding: 0 0 13px; }
   .lcc-sp-level { font-size: 83px; }
   .lcc-sp-hlist { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .lcc-sp-adv-cols { grid-template-columns: minmax(0, 1fr); }
-  .lcc-sp-houses, .lcc-sp-adv { padding: 18px 15px; }
+  .lcc-sp-houses { padding: 18px 15px; }
   .lcc-sp-facts { gap: 8px; }
 }
 /* two lanes to a row leave the fifth alone in the last row: it takes the middle, at the width of the others, instead of the left half (one lane to a row below 381 px has no orphan) */
@@ -223,7 +208,6 @@
 @media (pointer: coarse) {
   .lcc-sp-btn, .lcc-sp-input { min-height: 44px; }
   .lcc-sp input.lcc-sp-input { min-height: 44px; }
-  .lcc-sp-details > summary { min-height: 44px; }
 }
 
 /* ---- motion, contrast, forced colours ---- */
@@ -242,12 +226,11 @@ html[data-motion="off"] .lcc-sp-lane:hover, html[data-motion="calm"] .lcc-sp-lan
 }
 :root[data-theme="light"] .lcc-sp-lane-img, :root[data-theme="light"] .lcc-sp-dossier-img { filter: brightness(.93) contrast(1.05); }
 @media (forced-colors: active) {
-  .lcc-sp-surface, .lcc-sp-hero, .lcc-sp-lane, .lcc-sp-house, .lcc-sp-btn, .lcc-sp-input, .lcc-sp-flag, .lcc-sp-fact, .lcc-sp-adv-block { border: 1px solid ButtonText; background: Canvas; color: CanvasText; box-shadow: none; }
+  .lcc-sp-surface, .lcc-sp-hero, .lcc-sp-lane, .lcc-sp-house, .lcc-sp-btn, .lcc-sp-input, .lcc-sp-flag, .lcc-sp-fact { border: 1px solid ButtonText; background: Canvas; color: CanvasText; box-shadow: none; }
   .lcc-sp-surface::after, .lcc-sp-hero::before, .lcc-sp-hero::after { display: none; }
   .lcc-sp-hero-art { background: ButtonText; color: CanvasText; }
   .lcc-sp-hero-art::before { background: Canvas; box-shadow: none; }
   .lcc-sp-lane[aria-pressed="true"] { outline: 3px solid Highlight; box-shadow: none; }
-  .lcc-sp-lane[data-kind="cap"], .lcc-sp-lane[data-kind="full"] { border-width: 4px; box-shadow: none; }
   .lcc-sp-lane[data-kind="unresolved"] { border-style: dashed; }
   .lcc-sp-lane-bar-fill, .lcc-sp-xpbar-fill, .lcc-sp-keybar-fill { background: Highlight; }
   .lcc-sp-lane-bar, .lcc-sp-xpbar, .lcc-sp-keybar { border: 1px solid ButtonText; background: Canvas; }

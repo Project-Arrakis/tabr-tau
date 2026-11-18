@@ -1,5 +1,5 @@
-// The Specializations view of the Command Center (M5), drawn on its own from the synthetic cases of M1: five lanes with the approved lane pictures, the dossier, the operations in two groups, the
-// Houses of the path, and the advanced part. Names from a save are text, never markup; a track that is not identified has its XP controls off and its keystone buttons on.
+// The Specializations view of the Command Center (M5), drawn on its own from the synthetic cases of M1: five lanes with the clean path emblems, the dossier, the operations in two groups, the
+// Houses of the path, and (only when the save has one) the line about a row no path owns. Names from a save are text, never markup; a track that is not identified has its XP controls off and its keystone buttons on.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -26,14 +26,14 @@ const q = (d, s) => d.box.querySelector(s);
 const qa = (d, s) => [...d.box.querySelectorAll(s)];
 const txt = (e) => (e ? e.textContent.replace(/\s+/g, ' ').trim() : null);
 
-test('five lanes in the approved order, each a button with its lane picture, its level, its XP and its keystones, one of them pressed', () => {
+test('five lanes in the approved order, each a button with its path emblem, its level, its XP and its keystones, one of them pressed', () => {
   const d = draw(byId('mixed-five-tracks'));
   const lanes = qa(d, '.lcc-sp-lane');
   assert.deepEqual(lanes.map((l) => l.dataset.track), ['crafting', 'gathering', 'exploration', 'combat', 'sabotage']);
   for (const l of lanes) {
     assert.equal(l.tagName, 'BUTTON'); assert.equal(l.type, 'button');
     const img = l.querySelector('img');
-    assert.match(img.getAttribute('src'), new RegExp('^/lcc/art/lanes/' + l.dataset.track + '\\.webp$'));
+    assert.match(img.getAttribute('src'), new RegExp('^/lcc/art/emblems/' + l.dataset.track + '\\.png$'), 'the clean emblem, not the scroll banner picture');
     assert.equal(img.getAttribute('alt'), '');
     assert.match(l.getAttribute('aria-label'), /level \d+ of 100, [\d,]+ XP, \d+ of \d+ keystones/);
   }
@@ -92,7 +92,7 @@ test('a level the save stores that is not the level of its XP is shown with a wa
   assert.equal(qa(d, '[data-act]').filter((b) => /^(spAdd|spMax|spReset)/.test(b.dataset.act)).every((b) => !b.disabled), true);
 });
 
-test('a track that is not identified: no XP, no level, XP controls off with the reason, the keystone buttons and the Assign controls on, the advanced part open', () => {
+test('a track that is not identified: no XP, no level, XP controls off with the reason, the keystone buttons on, the unknown row named read-only', () => {
   const d = draw(byId('conflicting-learned-number-leaves-combat-unresolved'), HOUSES, {}, 'combat');
   const lane = q(d, '[data-lcs-lane="combat"]');
   assert.equal(lane.dataset.kind, 'unresolved');
@@ -103,28 +103,64 @@ test('a track that is not identified: no XP, no level, XP controls off with the 
     const e = q(d, sel); assert.ok(e, sel); assert.equal(e.disabled, true, sel);
     assert.match(e.getAttribute('aria-describedby'), /lcs-nonum/, sel + ' says why');
   }
-  assert.match(txt(q(d, '#lcs-nonum')), /Number not known yet/);
+  assert.match(txt(q(d, '#lcs-nonum')), /No track number of the save is tied to this path, so XP editing is off/);
+  assert.doesNotMatch(d.box.textContent, /Track mapping|advanced editor/i, 'no pointer to the removed section');
   assert.equal(q(d, '[data-act="spKeyAll"]').disabled, false);
   assert.equal(q(d, '[data-act="spKeyReset"]').disabled, false);
-  assert.equal(q(d, '.lcc-sp-details').open, true, 'a row that cannot be tied to a path opens the advanced part');
-  assert.ok(q(d, '[data-act="spAssign"]'), 'the unassigned row can be assigned');
-  assert.equal(qa(d, '#st option').some((o) => o.textContent === 'Combat'), false, 'the raw row lists only tracks that have a number');
+  assert.match(txt(q(d, '#lcs-unknown-row')), /^Unknown specialization row in the save \(not edited\): number \d+\.$/);
+  assert.equal(q(d, '#lcs-unknown-row').querySelector('button, input, select, a'), null, 'the line is read-only');
 });
 
-test('a save where every number is known: the advanced part is closed, and each part has the id the existing handlers read', () => {
+test('the track mapping and advanced editor section is gone (#986): no heading, no eyebrow, no disclosure, no track numbers, no assign, no hand entry, no raw row; the XP field keeps the id the handlers read', () => {
+  for (const id of ['unassigned-row-number-9', 'mixed-five-tracks', 'conflicting-learned-number-leaves-combat-unresolved']) {
+    const d = draw(byId(id));
+    assert.equal(q(d, '.lcc-sp-adv'), null, id);
+    assert.equal(q(d, '.lcc-sp-details'), null, id);
+    assert.equal(q(d, '#lcs-adv-h'), null, id);
+    for (const sel of ['#spmt', '#spmn', '#st', '#sx', '#sl', '[id^="spa"]', '[data-act="spAssign"]', '[data-act="spAssignHand"]', '[data-act="specSet"]', 'select', 'summary']) assert.equal(q(d, sel), null, id + ' ' + sel);
+    assert.doesNotMatch(d.box.textContent, /EXISTING EDITOR FEATURES|RETAINED|Track mapping|advanced editor|Track numbers|Exact raw row|Know a track|waiting to be assigned/i, id);
+  }
+  assert.equal(q(draw(byId('mixed-five-tracks')), '#spxCrafting').value, '1000');
+});
+
+test('a save where every row belongs to a path has no line about an unknown row; a save with one has exactly one, read-only', () => {
+  assert.equal(q(draw(byId('mixed-five-tracks')), '#lcs-unknown-row'), null);
+  assert.equal(q(draw(byId('xp-0-keystones-0-of-41')), '#lcs-unknown-row'), null);
+  const d = draw(byId('unassigned-row-number-9'));
+  assert.equal(qa(d, '#lcs-unknown-row').length, 1);
+  assert.equal(txt(q(d, '#lcs-unknown-row')), 'Unknown specialization row in the save (not edited): number 9.');
+  const two = byId('unassigned-row-number-9');
+  two.unassigned.push({ number: 12, xp: 5, level: 0 });
+  assert.equal(txt(q(draw(two), '#lcs-unknown-row')), 'Unknown specialization rows in the save (not edited): numbers 9, 12.');
+});
+
+test('a path at level 100 (the XP cap or the full path) is marked for the one win outline of lcc.css; a path below 100 is not (#988)', () => {
   const d = draw(byId('mixed-five-tracks'));
-  assert.equal(q(d, '.lcc-sp-details').open, false);
-  for (const id of ['#spxCrafting', '#spmt', '#spmn', '#st', '#sx', '#sl']) assert.ok(q(d, id), id);
-  assert.equal(qa(d, '#st option').length, 5);
-  assert.deepEqual(qa(d, '#st option').map((o) => o.textContent).sort(), ['Combat', 'Crafting', 'Exploration', 'Gathering', 'Sabotage']);
-  assert.equal(q(d, '#sx').value, '0'); assert.equal(q(d, '#sl').value, '1');
-  assert.equal(q(d, '#spxCrafting').value, '1000');
+  const win = qa(d, '.lcc-sp-lane').filter((l) => l.getAttribute('data-victory') === 'win').map((l) => l.dataset.track);
+  assert.deepEqual(win, ['crafting'], 'only the lane at 44,182 XP');
+  for (const l of qa(d, '.lcc-sp-lane')) if (l.dataset.track !== 'crafting') assert.equal(l.getAttribute('data-victory'), null, l.dataset.track + ' keeps a normal border');
+  const cap = draw(byId('xp-44182-cap-zero-keystones'), HOUSES, {}, 'combat');
+  assert.equal(q(cap, '[data-lcs-lane="combat"]').getAttribute('data-victory'), 'win', 'cap without keystones');
+  assert.equal(q(cap, '[data-lcs-lane="combat"]').getAttribute('aria-pressed'), 'true');
+  const near = draw(byId('xp-44181-near-cap-keystones-20-of-41'), HOUSES, {}, 'combat');
+  assert.equal(q(near, '[data-lcs-lane="combat"]').getAttribute('data-victory'), null, 'one XP short of the cap');
+  const keys = draw(byId('xp-0-all-keystones-41-of-41'), HOUSES, {}, 'combat');
+  assert.equal(q(keys, '[data-lcs-lane="combat"]').getAttribute('data-victory'), null, 'all keystones at level 0');
+});
+
+test('the lane and dossier pictures are the clean emblems at the sizes asked for, with no box element around them (#989)', () => {
+  const d = draw(byId('mixed-five-tracks'));
+  for (const l of qa(d, '.lcc-sp-lane')) { const i = l.querySelector('img'); assert.equal(i.getAttribute('width'), '72'); assert.equal(i.getAttribute('height'), '72'); }
+  const h = q(d, '.lcc-sp-dossier-img');
+  assert.equal(h.getAttribute('src'), '/lcc/art/emblems/crafting.png');
+  assert.equal(h.getAttribute('width'), '96');
+  assert.doesNotMatch(d.box.innerHTML, /art\/lanes\//, 'the scroll pictures are not used in this view');
 });
 
 test('the controls: each carries the data-act of an existing control, the global ones are in their own labelled group, and the selected-track ones are not in it', () => {
   const d = draw(byId('mixed-five-tracks'));
   const acts = qa(d, '[data-act]').map((b) => b.dataset.act).sort();
-  assert.deepEqual(acts, ['spAddCC', 'spAssignHand', 'spKeyAll', 'spKeyReset', 'spMax', 'spReset', 'spResetAll', 'specSet']);
+  assert.deepEqual(acts, ['spAddCC', 'spKeyAll', 'spKeyReset', 'spMax', 'spReset', 'spResetAll']);
   const glob = q(d, '.lcc-sp-global');
   assert.equal(glob.getAttribute('role'), 'group');
   assert.equal(txt(glob.querySelector('#lcs-glob-h')), 'All Five Tracks');
