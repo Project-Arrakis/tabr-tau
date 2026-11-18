@@ -519,7 +519,7 @@
       const pips = el('span', 'lcc-house-meter', '', { 'aria-hidden': 'true' });
       for (let i = 0; i < mt.total; i++) pips.appendChild(el('i', i < mt.reached ? 'on' : ''));
       b.appendChild(pips);
-      notes.push(mt.reached + ' of ' + mt.total + ' tiers reached');
+      notes.push(mt.reached + ' of ' + mt.total + ' ' + WORDS().tiersEarned);
     }
     if (flags.childNodes.length) b.appendChild(flags);
     b.setAttribute('aria-label', [(no ? WORDS().square + ' ' + no + ', ' : '') + title + ', ' + (owner === 'a' || owner === 'h' ? WORDS().favorWon.toLowerCase() + ' by ' + OWNER[owner] : owner === 'open' ? WORDS().favorNotWon.toLowerCase() : WORDS().favorUnreadable.toLowerCase())].concat(vm.track && TRACK_LABEL[norm(vm.track)] ? [WORDS().specialization.toLowerCase() + ' ' + TRACK_LABEL[norm(vm.track)]] : [], notes, vm.dim ? ['not in the current filter'] : [], vm.selected ? ['selected'] : []).join(', '));

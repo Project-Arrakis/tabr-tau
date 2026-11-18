@@ -90,9 +90,9 @@ test('the list and the inspector say the same of a taken House with none of the 
   const row = (n) => rows.find((r) => text(r.querySelector('.lcc-bd-namebtn')) === n);
   assert.equal(text(row('Vernius').querySelector('.lcc-bd-c-state')), 'Favor won, none of yours');
   assert.equal(text(row('Vernius').querySelector('.lcc-bd-c-tiers')), 'none of yours');
-  assert.equal(text(row('Sor').querySelector('.lcc-bd-c-tiers')), '0 of 5');
+  assert.equal(text(row('Sor').querySelector('.lcc-bd-c-tiers')), '0 of 5 tiers earned');
   assert.equal(text(row('Sor').querySelector('.lcc-bd-c-state')), 'Not started');
-  assert.equal(text(row('Wallach').querySelector('.lcc-bd-c-tiers')), '3 of 5');
+  assert.equal(text(row('Wallach').querySelector('.lcc-bd-c-tiers')), '3 of 5 tiers earned');
   click(ui, row('Vernius').querySelector('.lcc-bd-namebtn'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
   assert.equal(text(i.querySelector('.lcc-bd-ledger-n')), 'FAVOR WON · NO CONTRIBUTION OF YOURS');

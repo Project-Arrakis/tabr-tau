@@ -15,6 +15,7 @@
   const btn = (cls, text, attrs) => el('button', cls, text, Object.assign({ type: 'button' }, attrs || {}));
   const NOT_IN_SAVE = 'Not in the save';
   const SRC = 'FROM THE SAVE';
+  const TIERS_EARNED = () => (root.LCCM && root.LCCM.WORDS ? root.LCCM.WORDS.tiersEarned : 'tiers earned'); // the one pair of words, earned and collected, is in WORDS (lcc-model.js, #962)
   const MISSIONS = 'Active Landsraad missions are not recorded in this local save.';
   const CONTRIBUTORS = 'A ranking of contributors is not recorded: the save holds the amount each contributor gave to each House, and the banners show the biggest, worked out here from those amounts.';
   const FLAG_TIP = 'The save\'s own disabled column, shown as stored. It does not say whether a decree is in effect.';
@@ -254,7 +255,7 @@
         tr.appendChild(el('td', '', r.name));
         tr.appendChild(el('td', 'lcc-tm-n', r.mine));
         const tc = el('td');
-        tc.appendChild(el('span', 'lcc-tm-meter' + (r.full ? ' is-full' : ''), '', { role: 'img', 'aria-label': r.reached + ' of ' + r.count + ' tiers reached' }));
+        tc.appendChild(el('span', 'lcc-tm-meter' + (r.full ? ' is-full' : ''), '', { role: 'img', 'aria-label': r.reached + ' of ' + r.count + ' ' + TIERS_EARNED() }));
         const m = tc.firstChild;
         for (let i = 0; i < r.count; i++) m.appendChild(el('i', i < r.reached ? 'on' : ''));
         tc.appendChild(el('span', 'lcc-tm-sub', ' ' + r.reached + ' of ' + r.count));

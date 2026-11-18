@@ -179,7 +179,7 @@ test('#936: Not reached / Not collected / Collected on the cards, in the panel a
   const i = ui.doc.querySelector('.lcc-bd-insp');
   const states = [...i.querySelectorAll('.lcc-bd-tier-s')].map(text);
   assert.ok(states.some((s) => s.endsWith('NOT COLLECTED')) && states.some((s) => s.endsWith('NOT REACHED')), states.join('|'));
-  assert.deepEqual([...i.querySelectorAll('.lcc-bd-stat span')].map(text), ['Tiers reached', 'Collected', 'Not collected', 'Not reached']);
+  assert.deepEqual([...i.querySelectorAll('.lcc-bd-stat span')].map(text), ['Tiers earned', 'Collected', 'Not collected', 'Not reached']);
   const legend = [...i.querySelectorAll('.lcc-bd-legend span')].map(text);
   assert.deepEqual(legend, ['✓ Collected', '◆ Not collected', '○ Not reached', '? No delivery record']);
   const all = text(ui.doc.querySelector('#lsb')) + ' ' + [...ui.doc.querySelectorAll('#lsb [aria-label], #lsb [title]')].map((e) => (e.getAttribute('aria-label') || '') + ' ' + (e.getAttribute('title') || '')).join(' ');
@@ -204,10 +204,11 @@ test('#938: every tier square of a card has the Classic list\'s mouse-over text 
     for (let n = 1; n <= 5; n++) {
       const board = card(ui, a, name, n), old = r.querySelector('.tc[data-t="' + n + '"]');
       // the one difference is the way to remove a lower reached tier: the board names Set tier and Apply tier, the Classic list says to click the highest reached tier
-      const cut = (s) => s.split(' To remove tiers, ')[0];
+      // and the board says earned where Classic says reached (#962: the one pair of words, earned and collected)
+      const cut = (s) => s.split(' To remove tiers, ')[0].replace(/ is reached/g, ' is earned').replace(/ are reached/g, ' are earned');
       assert.equal(cut(board.getAttribute('title')), cut(old.getAttribute('title')), name + ' tier ' + n + ': the mouse-over is the Classic text');
       if (old.getAttribute('title').includes('click the highest reached tier')) assert.match(board.getAttribute('title'), /To remove tiers, choose tier \d in Set tier and press Apply tier/);
-      else assert.equal(board.getAttribute('title'), old.getAttribute('title'));
+      else assert.equal(board.getAttribute('title'), cut(old.getAttribute('title')));
       assert.ok(board.getAttribute('title').length > 20);
       assert.ok(board.getAttribute('aria-label').startsWith('House ' + name + ', tier ' + n), board.getAttribute('aria-label'));
       assert.ok(board.getAttribute('data-fk').startsWith('ct:'), 'the focus path stays');

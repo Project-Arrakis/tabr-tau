@@ -115,8 +115,8 @@ test('#951: the House name of a row carries the Classic hover card, and the cell
   assert.equal(text(c.doc.querySelector('#lsrow-' + idOf(synthetic(), 'Alexin') + ' .hcard')), t, 'the Classic card and the board card say the same');
   // the cells
   const tip = (cls) => r.querySelector('.' + cls).getAttribute('title');
-  assert.match(tip('lcc-bd-c-state'), /^(Your contribution: [\d,]+\. |No contribution of yours recorded\. )\d+ of 5 tiers reached\.$/);
-  assert.match(tip('lcc-bd-c-tiers'), /^Tier 1, [\d,]+: .+ \((not reached|reached, .+)\)(\nTier \d, .+)+$/);
+  assert.match(tip('lcc-bd-c-state'), /^(Your contribution: [\d,]+\. |No contribution of yours recorded\. )\d+ of 5 tiers earned.$/);
+  assert.match(tip('lcc-bd-c-tiers'), /^Tier 1, [\d,]+: .+ \((not reached|earned, .+)\)(\nTier \d, .+)+$/);
   assert.match(tip('lcc-bd-c-next'), /^Next reward: |top tier reached/);
   assert.match(tip('lcc-bd-c-wait'), /^(Not collected: .+|Nothing waiting at the house representative\.)$/);
   assert.match(tip('lcc-bd-c-wait'), /^Not collected: /, 'Alexin has a reward waiting in the fixture');
@@ -199,7 +199,7 @@ test('#937: each reward of the inspector has the item in its mouse-over and on f
   assert.equal(tiers[0].getAttribute('data-info'), null, 'tier 1 of the fixture is Solari: no mouse-over');
   assert.doesNotMatch(tiers[0].getAttribute('aria-label'), /Game id/);
   const t2 = tiers[1];
-  assert.match(t2.getAttribute('data-info'), /^Reward of tier 2: .+\nGame id: SYNTH_SCHEMATIC_1\nTier 2 needs [\d,]+: (not reached|reached, .+)$/);
+  assert.match(t2.getAttribute('data-info'), /^Reward of tier 2: .+\nGame id: SYNTH_SCHEMATIC_1\nTier 2 needs [\d,]+: (not reached|earned, .+)$/);
   assert.match(t2.getAttribute('aria-label'), /Game id: SYNTH_SCHEMATIC_1/, 'the same words for a screen reader on focus');
   assert.doesNotMatch(t2.getAttribute('data-info'), /schematic, resource|a schematic|a resource|vehicle part|placeable/i, 'what the editor does not know is not said');
   // the style sheet draws it on hover and on focus

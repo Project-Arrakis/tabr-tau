@@ -288,10 +288,10 @@ test('the reward ledger tells waiting, collected and delivery unknown apart, and
   click(ui, tileOf(ui, 'Wallach').querySelector('button'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
   assert.equal(i.querySelector('.lcc-bd-ledger .lcc-bd-line'), null, 'no sentence under the four counts');
-  assert.match(i.querySelector('.lcc-bd-stats').getAttribute('aria-label'), /3 of 5 reached · 1 collected · 1 not collected \(waiting at the house representative\) · 1 delivery unknown · 2 not reached\./, 'the counts stay for a screen reader and as a tooltip');
-  assert.match(text(i), /Delivery unknown.{1,20}means the tier is reached and the save has no delivery row/);
+  assert.match(i.querySelector('.lcc-bd-stats').getAttribute('aria-label'), /3 of 5 tiers earned · 1 collected · 1 not collected \(waiting at the house representative\) · 1 delivery unknown · 2 not reached\./, 'the counts stay for a screen reader and as a tooltip');
+  assert.match(text(i), /Delivery unknown.{1,20}means the tier is earned and the save has no delivery row/);
   const st = [...i.querySelectorAll('.lcc-bd-tier-st')].map((s) => text(s));
-  assert.deepEqual(st.slice(0, 3), ['Reached, collected', 'Reached, delivery unknown', 'Reached, not collected']);
+  assert.deepEqual(st.slice(0, 3), ['Earned, collected', 'Earned, delivery unknown', 'Earned, not collected']);
 });
 
 test('the list: House name A to Z by default (#953), sortable by every column both ways, the Square column included, grouped by region with the unmapped last', async () => {
@@ -405,4 +405,25 @@ test('the card count reads N/5 EARNED with a tooltip, and no card or board count
     assert.doesNotMatch(said, /tiers? (is |are )?reached|reached with no delivery/, 'card screen-reader text and count tooltips');
   }
   assert.doesNotMatch(text(ui.doc.querySelector('.lcc-bd-totals')), /reached/, 'the line under the board');
+});
+
+test('earned and collected are the one pair of words on the list, the inspector, the note and the hovers; only the state word Not reached stays (#962)', async () => {
+  const list = await open(synthetic(), { layout: 'list' });
+  const rows = [...list.doc.querySelectorAll('.lcc-bd-row')];
+  const wall = rows.find((r) => text(r.querySelector('.lcc-bd-namebtn')) === 'Wallach');
+  assert.equal(text(wall.querySelector('.lcc-bd-c-tiers')), '3 of 5 tiers earned');
+  const tops = rows.map((r) => text(r.querySelector('.lcc-bd-c-next'))).filter((t) => /top tier/.test(t));
+  for (const t of tops) assert.equal(t, 'top tier earned');
+  for (const r of rows) {
+    for (const cls of ['lcc-bd-c-state', 'lcc-bd-c-tiers', 'lcc-bd-c-next']) assert.doesNotMatch([text(r.querySelector('.' + cls)), r.querySelector('.' + cls).getAttribute('title') || ''].join(' '), /tiers? reached|top tier reached|\(reached/i, cls);
+  }
+  const ui = await open();
+  click(ui, tileOf(ui, 'Wallach').querySelector('button'));
+  const i = ui.doc.querySelector('.lcc-bd-insp');
+  assert.equal(text(i.querySelector('.lcc-bd-ledger-n')), '3 OF 5 EARNED');
+  assert.deepEqual([...i.querySelectorAll('.lcc-bd-stat span')].map(text)[0], 'Tiers earned');
+  assert.match(text(i.querySelector('.lcc-bd-note')), /a personal reward tier earned, and a reward collected are three separate states/);
+  const said = [text(i), ...[...i.querySelectorAll('[title], [aria-label]')].map((e) => (e.getAttribute('title') || '') + ' ' + (e.getAttribute('aria-label') || ''))].join(' ');
+  assert.doesNotMatch(said.replace(/not reached|NOT REACHED|Not reached/g, ''), /\breached\b/i, 'the inspector says earned, never reached (the state word Not reached stays)');
+  for (const s of i.querySelectorAll('.lcc-bd-legend span')) assert.ok(!/reached/i.test(text(s)) || /^○ Not reached$/.test(text(s)), text(s));
 });
