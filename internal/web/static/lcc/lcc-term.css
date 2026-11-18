@@ -1,0 +1,158 @@
+/* The Command Center's Term and Decrees section (milestone M6). Every rule is scoped to a class that starts with lcc-tm (a test reads this file and fails on a selector that is not), so loading it
+   changes nothing outside the section. Colours come from the aliases of lcc.css (--lcc-*), which come from the shared design tokens, so a look, the Dark / Dayside choice and a palette recolour it.
+   No inline style, no address and no import: the page's content security policy needs nothing new. Text floor: names and key labels 12 px or more, other text 11 px or more; a narrow window
+   reflows the parts, it never shrinks the text. */
+
+.lcc-tm { display: block; box-sizing: border-box; margin: 18px 0 0; color: var(--lcc-text); font-family: var(--lcc-sans); }
+.lcc-tm *, .lcc-tm *::before, .lcc-tm *::after { box-sizing: border-box; }
+.lcc-tm button, .lcc-tm select { font-family: var(--lcc-sans); }
+.lcc-tm-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---- type ---- */
+.lcc-tm-eyebrow { margin: 0; font: 700 11px/1.4 var(--lcc-sans); letter-spacing: .16em; text-transform: uppercase; color: var(--lcc-gold-text); }
+.lcc-tm-h { margin: 4px 0 0; font: 700 clamp(24px, 2.6vw, 34px)/1.15 var(--lcc-serif); letter-spacing: .03em; color: var(--lcc-strong); text-transform: none; overflow-wrap: anywhere; }
+.lcc-tm-h:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 4px; }
+.lcc-tm-h4 { margin: 0; font: 700 14px/1.3 var(--lcc-serif); letter-spacing: .04em; color: var(--lcc-gold-text); }
+.lcc-tm-lead { margin: 8px 0 0; max-width: 640px; font: 400 13px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
+.lcc-tm-k { display: block; font: 700 11px/1.3 var(--lcc-sans); letter-spacing: .1em; color: var(--lcc-dim); text-transform: uppercase; }
+.lcc-tm-sub, .lcc-tm-hint, .lcc-tm-none { font: 400 12px/1.4 var(--lcc-sans); color: var(--lcc-dim); }
+.lcc-tm-note { margin: 0 0 10px; padding: 9px 11px; font: 500 12px/1.5 var(--lcc-sans); color: var(--lcc-text); border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-sunken); }
+.lcc-tm-warn::before { content: '\26A0\00a0'; color: var(--lcc-gold-text); }
+.lcc-tm-src { display: inline-block; padding: 5px 9px; border: 1px solid var(--lcc-stroke); font: 700 11px/1.3 var(--lcc-sans); letter-spacing: .1em; color: var(--lcc-dim); white-space: nowrap; }
+.lcc-tm-src-no { border-style: dashed; color: var(--lcc-gold-text); }
+
+/* ---- the surface: a bordered panel with a hairline set in from its edge, as the board's panels ---- */
+.lcc-tm-surface { position: relative; padding: 22px 24px 24px; border: 1px solid var(--lcc-stroke); background: linear-gradient(145deg, var(--lcc-s1), var(--lcc-s2)); box-shadow: 0 15px 45px rgba(0, 0, 0, .36); min-width: 0; }
+.lcc-tm-surface::after { content: ''; pointer-events: none; position: absolute; inset: 7px; border: 1px solid var(--lcc-stroke-faint); }
+:root[data-theme="light"] .lcc-tm-surface { box-shadow: 0 10px 26px rgba(85, 52, 16, .16); }
+.lcc-tm-head { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px 16px; margin: 0 0 16px; }
+
+/* ---- the facts of the term ---- */
+.lcc-tm-facts { list-style: none; margin: 0 0 18px; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.lcc-tm-fact { min-width: 0; padding: 11px 13px; border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-tier-bg); }
+.lcc-tm-fact-decree { grid-column: span 2; }
+.lcc-tm-v { display: block; margin: 4px 0 0; font: 700 19px/1.25 var(--lcc-serif); color: var(--lcc-strong); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.lcc-tm-sub { display: block; margin-top: 3px; }
+.lcc-tm-faction { display: flex; align-items: center; gap: 9px; margin-top: 4px; }
+.lcc-tm-faction .lcc-tm-v { margin: 0; }
+.lcc-tm-crest { width: 32px; height: 32px; padding: 2px; box-sizing: border-box; object-fit: contain; flex: none; background: #15191b; border: 1px solid var(--lcc-stroke); }
+.lcc-tm-dref { display: flex; align-items: flex-start; gap: 12px; margin-top: 5px; min-width: 0; }
+.lcc-tm-dtext { min-width: 0; }
+.lcc-tm-dtext .lcc-tm-v { margin: 0; font-size: 17px; }
+/* the decree pictures are light line art: they sit on a dark tile in every look (on Dayside cream they would not be seen) */
+.lcc-tm-art { display: block; flex: none; width: 44px; height: 44px; object-fit: contain; border: 1px solid var(--lcc-stroke); background: #15191b; }
+.lcc-tm-row > .lcc-tm-art { width: 56px; height: 56px; }
+.lcc-tm-art-fb { opacity: .7; border-style: dashed; }
+.lcc-tm-de { display: block; margin-top: 3px; font: 400 12px/1.45 var(--lcc-sans); color: var(--lcc-text); }
+.lcc-tm-de-none { color: var(--lcc-dim); font-style: italic; }
+.lcc-tm-du { display: block; margin-top: 3px; font: 500 12px/1.4 var(--lcc-sans); color: var(--lcc-gold-text); }
+.lcc-tm-did { display: block; margin-top: 3px; font: 400 11px/1.4 var(--lcc-mono); color: var(--lcc-dim); overflow-wrap: anywhere; }
+.lcc-tm-du:empty, .lcc-tm-de:empty, .lcc-tm-did:empty { display: none; }
+
+/* ---- the controls ---- */
+.lcc-tm-ctl { margin: 0 0 16px; padding: 14px 15px 12px; border: 1px solid var(--lcc-stroke); background: var(--lcc-sunken); }
+.lcc-tm-scope { margin: 5px 0 11px; font: 400 12px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
+.lcc-tm-ctlrow { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 14px; align-items: start; }
+.lcc-tm-fld { display: block; min-width: 0; }
+.lcc-tm-lbl { display: block; margin: 0 0 5px; font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .06em; color: var(--lcc-gold-text); }
+.lcc-tm-select { display: block; width: 100%; min-height: 40px; min-width: 0; padding: 8px 10px; background: var(--lcc-sunken); color: var(--lcc-strong); border: 1px solid var(--lcc-stroke); font-size: 14px; }
+.lcc-tm-select:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 1px; }
+.lcc-tm-select:disabled { opacity: .55; cursor: not-allowed; }
+.lcc-tm-fld small { display: block; margin-top: 4px; }
+.lcc-tm-apply { align-self: end; }
+.lcc-tm-result { min-height: 18px; margin: 11px 0 0; font: 500 13px/1.45 var(--lcc-sans); color: var(--lcc-text); overflow-wrap: anywhere; }
+.lcc-tm-result.bad { color: var(--lcc-red-t); font-weight: 700; }
+.lcc-tm-result:empty { margin: 0; min-height: 0; }
+
+/* ---- buttons ---- */
+.lcc-tm-btn { min-height: 40px; padding: 9px 13px; cursor: pointer; border: 1px solid var(--lcc-gold-lo); background: linear-gradient(135deg, var(--lcc-s2), var(--lcc-s1)); font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .02em; color: var(--lcc-strong); white-space: normal; overflow-wrap: anywhere; text-align: center; }
+.lcc-tm-btn:hover:not(:disabled) { border-color: var(--lcc-gold); filter: brightness(1.12); }
+.lcc-tm-btn:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 2px; }
+.lcc-tm-btn[aria-disabled="true"] { opacity: .6; cursor: not-allowed; }
+.lcc-tm-btn.is-primary { background: var(--lcc-gold); border-color: var(--lcc-gold-hi); color: var(--lcc-on-gold); min-width: 96px; }
+.lcc-tm-btn.busy { cursor: progress; }
+
+/* ---- disclosures ---- */
+.lcc-tm-disc { margin: 0 0 14px; border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-tier-bg); }
+/* the page's own rule for a summary (.lsb details > summary) paints it in the app's link colour: inside the section it takes the section's palette, so the rules name the section twice */
+.lcc-tm .lcc-tm-disc > summary { cursor: pointer; padding: 10px 13px; min-height: 40px; display: flex; align-items: center; font: 700 13px/1.35 var(--lcc-sans); letter-spacing: .04em; color: var(--lcc-gold-text); }
+.lcc-tm .lcc-tm-disc > summary:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: -3px; }
+.lcc-tm-disc-in { padding: 4px 13px 13px; }
+.lcc-tm-disc-hid { margin: 12px 0 0; border-style: dashed; }
+
+/* ---- the decree pool ---- */
+.lcc-tm-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.lcc-tm-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 12px; border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-sunken); }
+.lcc-tm-row[data-active="true"] { border-color: var(--lcc-gold); box-shadow: inset 0 0 0 1px var(--lcc-gold); }
+.lcc-tm-rbody { min-width: 0; }
+.lcc-tm-rname { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.lcc-tm-dn { font: 700 15px/1.3 var(--lcc-serif); color: var(--lcc-strong); overflow-wrap: anywhere; }
+.lcc-tm-id { font: 400 12px/1.3 var(--lcc-sans); color: var(--lcc-dim); }
+.lcc-tm-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 9px; }
+.lcc-tm-tags .lcc-tm-k { margin-right: 2px; }
+.lcc-tm-badge { display: inline-block; padding: 3px 8px; border: 1px solid var(--lcc-stroke); font: 700 11px/1.3 var(--lcc-sans); letter-spacing: .06em; text-transform: uppercase; color: var(--lcc-text); }
+.lcc-tm-badge.is-active { border: 2px solid var(--lcc-gold); color: var(--lcc-gold-text); }
+.lcc-tm-badge.is-elected { border-style: double; border-width: 3px; }
+.lcc-tm-badge.is-in-rotation { border-style: dashed; }
+.lcc-tm-rside { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px 10px; max-width: 360px; }
+.lcc-tm-flag { display: flex; align-items: baseline; gap: 8px; margin-right: 4px; }
+.lcc-tm-flag b { font: 700 16px/1 var(--lcc-mono); color: var(--lcc-strong); }
+.lcc-tm-mkon { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 9px 13px; font: 700 12px/1.3 var(--lcc-sans); color: var(--lcc-gold-text); border: 2px solid var(--lcc-gold); }
+
+/* ---- what the save does not hold ---- */
+.lcc-tm-nosave { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 14px; margin: 0 0 14px; padding: 11px 13px; border: 1px dashed var(--lcc-stroke); background: var(--lcc-sunken); }
+.lcc-tm-nosave p { margin: 0; flex: 1 1 280px; min-width: 0; font: 400 12px/1.5 var(--lcc-sans); color: var(--lcc-text); }
+
+/* ---- earlier terms ---- */
+.lcc-tm-hist { margin-bottom: 0; }
+.lcc-tm-term { margin: 0 0 10px; border: 1px solid var(--lcc-stroke-faint); }
+.lcc-tm .lcc-tm-term > summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; padding: 9px 12px; min-height: 40px; font: 400 12px/1.4 var(--lcc-sans); color: var(--lcc-text); }
+.lcc-tm .lcc-tm-term > summary b { font: 700 13px/1.3 var(--lcc-serif); color: var(--lcc-strong); }
+.lcc-tm .lcc-tm-term > summary:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: -3px; }
+.lcc-tm-term > .lcc-tm-note { margin: 8px 12px 12px; }
+.lcc-tm-tablewrap { overflow-x: auto; padding: 0 12px; }
+.lcc-tm-table { width: 100%; border-collapse: collapse; font: 400 12px/1.4 var(--lcc-sans); }
+.lcc-tm-table th { text-align: left; padding: 6px 8px; font: 700 11px/1.3 var(--lcc-sans); letter-spacing: .08em; text-transform: uppercase; color: var(--lcc-dim); border-bottom: 1px solid var(--lcc-stroke); }
+.lcc-tm-table td { padding: 6px 8px; border-bottom: 1px solid var(--lcc-stroke-faint); color: var(--lcc-text); }
+.lcc-tm-n { font-variant-numeric: tabular-nums; text-align: right; }
+.lcc-tm-meter { display: inline-flex; gap: 3px; vertical-align: middle; }
+.lcc-tm-meter i { width: 12px; height: 12px; border: 1px solid var(--lcc-stroke); background: transparent; }
+.lcc-tm-meter i.on { background: var(--lcc-gold); border-color: var(--lcc-gold-hi); }
+
+/* ---- narrow windows: the parts stack, the text keeps its size ---- */
+@media (max-width: 1100px) {
+  .lcc-tm-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lcc-tm-ctlrow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .lcc-tm-apply { grid-column: 1 / -1; align-self: start; }
+}
+@media (max-width: 640px) {
+  .lcc-tm-surface { padding: 16px 14px 18px; }
+  .lcc-tm-facts { grid-template-columns: minmax(0, 1fr); }
+  .lcc-tm-fact-decree { grid-column: auto; }
+  .lcc-tm-ctlrow { grid-template-columns: minmax(0, 1fr); }
+  .lcc-tm-row { grid-template-columns: 48px minmax(0, 1fr); }
+  .lcc-tm-rside { grid-column: 1 / -1; justify-content: flex-start; max-width: none; }
+  .lcc-tm-rside .lcc-tm-btn, .lcc-tm-mkon { flex: 1 1 140px; }
+  .lcc-tm-row > .lcc-tm-art { width: 48px; height: 48px; }
+}
+@media (pointer: coarse), (max-width: 640px) {
+  .lcc-tm-btn, .lcc-tm-select, .lcc-tm-mkon { min-height: 44px; }
+  .lcc-tm .lcc-tm-disc > summary, .lcc-tm .lcc-tm-term > summary { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lcc-tm-btn { transition: none; }
+}
+@media (prefers-contrast: more) {
+  .lcc-tm-surface, .lcc-tm-fact, .lcc-tm-row, .lcc-tm-btn, .lcc-tm-select, .lcc-tm-disc, .lcc-tm-ctl { border-color: var(--lcc-text); }
+}
+@media (forced-colors: active) {
+  .lcc-tm-surface, .lcc-tm-fact, .lcc-tm-row, .lcc-tm-disc, .lcc-tm-ctl, .lcc-tm-btn, .lcc-tm-select, .lcc-tm-nosave { border: 1px solid ButtonText; background: Canvas; color: CanvasText; box-shadow: none; }
+  .lcc-tm-surface::after { display: none; }
+  .lcc-tm-row[data-active="true"] { outline: 3px solid Highlight; border-color: Highlight; box-shadow: none; }
+  .lcc-tm-badge.is-active { border: 3px solid Highlight; }
+  .lcc-tm-btn[aria-disabled="true"] { opacity: 1; color: GrayText; border-color: GrayText; }
+  .lcc-tm-btn.is-primary { background: ButtonFace; color: ButtonText; border: 2px solid ButtonText; }
+  .lcc-tm-nosave { border-style: dashed; }
+  .lcc-tm-art-fb { border-style: dashed; }
+  .lcc-tm-meter i.on { background: Highlight; border-color: Highlight; }
+}

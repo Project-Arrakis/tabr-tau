@@ -795,6 +795,12 @@ function specGoHouse(id) {
   if (window.LCC && window.LCCM && window.LCCB) { LV.view = 'board'; browserStore.set('lsb.view', 'board'); const st = window.LCCB.state; st.sel = id; st.show = 'all'; st.hs = 'any'; st.spec = 'all'; }
   tab = 'landsraad'; browserStore.set('tab', tab); render();
 }
+// And back: the specialization of a House opens that path in the Specialization tab's Command Center view. It only moves between pages (the chosen path is the view's own state) and writes nothing.
+function specGoPath(track) {
+  if (!(window.LCCS && window.LCC) || !Array.isArray(window.LCCS.ORDER) || !window.LCCS.ORDER.includes(track)) return;
+  window.LCCS.state.sel = track; SPV.view = 'cc'; browserStore.set('spec.view', 'cc');
+  sub.player = 'specialization'; tab = 'player'; browserStore.set('tab', tab); render();
+}
 const SPV_HOST = { goHouse: specGoHouse };
 function specMount() { const m = $('#lcs-mount'); if (m && SPV.vm && window.LCCS) window.LCCS.mount(m, SPV.vm, SPV_HOST); }
 const NO_TRACK_NUMBER = 'Number not known yet: see Track numbers below.';
@@ -2180,6 +2186,44 @@ function lbTerm(l) {
   ${lbAbout('lsb.term', 'term and decrees', html`<p><b>Apply</b> sets the term's active decree and its reigning faction together: one row, the current term in <code>landsraad_decree_term</code>, and an empty choice clears that field. The faction drop-down starts on your own faction, and any faction can be chosen.</p><p><b>Make active for ...</b> on a pool row does the same as the Active decree drop-down and Apply for that row's decree, for the faction in the Reigning faction drop-down; a decree belongs to a faction (the reigning faction), not to a house.</p><p id="lsdecnote"><b>In this term</b> is read from the current term: <b>Active</b> is the term's active decree, <b>Elected</b> its elected decree, <b>In rotation</b> a decree in the save's decree rotation. <b>Pool flag</b> is the save's own <code>disabled</code> column, shown as stored; it does not say whether a decree is in effect. A <b>Set flag</b> button changes the flag of its own row only; it does not make the decree active, the Active decree above does. The special vendor decree is five separate rows: the four Exclusive Import Rights decrees (Vehicle, Weapon, Armor and Tool) are in the list; the plain SpecialVendorActive row is the one the game's decree table has no name for (the page calls it "Special Vendor" and says the name is the editor's), it has no category and an effect that is not verified, so it is kept in the closed list under the pool, with the same controls, in case the game uses it.</p><p><b>Names</b> are the ones the game shows, with the effect line the game gives under each; the id the save holds is the small line below, kept for support. The game gives the Ranged and Melee decrees of In Honor of the Fallen one name, so the page adds the word in brackets. The pool is in id order; the Active decree drop-down is sorted by name, with a name that is not the game's last.</p>`)}
   </div></details></section>`;
 }
+// The Command Center's Term and Decrees section (lcc/lcc-term.js) is drawn from this plain model of the same answer, with the same words and the same states as lbTerm above: the section
+// carries the same data-lb attributes, so lbClick and lbChange (and so the requests) are the ones the classic panel uses. Nothing here sends anything.
+function lbTermModel(l) {
+  const t = l.term;
+  if (!t) return { none: true };
+  const dec = l.decrees || [], by = (i) => dec.find((d) => d.id == i), sel = lbTermSel(l), own = lbCan(l) ? l.character.faction_id : null;
+  const fname = sel.rf !== '' ? lbFacName(l, +sel.rf) : '';
+  const one = (d) => (d ? { id: d.id, key: d.decree_name, name: decreeLabel(d), effect: d.effect || '', note: decreeNote(d), tip: decreeTip(d) } : null);
+  const row = (d) => {
+    const lab = decreeLabel(d), on = d.id == t.active_decree_id && sel.rf !== '' && sel.rf === String(t.reigning_faction_id == null ? '' : t.reigning_faction_id);
+    return Object.assign(one(d), {
+      tags: [d.active && 'Active', d.elected && 'Elected', d.in_rotation && 'In rotation'].filter(Boolean), disabled: d.disabled ? 1 : 0, hidden: d.decree_name === LB_HIDDEN_DECREE, makeOn: on, makeOff: sel.rf === '',
+      makeLabel: sel.rf !== '' ? 'Make active for ' + fname : 'Make active (choose a faction)',
+      makeTip: on ? 'This decree is already the active decree of the term for ' + fname : sel.rf !== '' ? 'Makes ' + lab + ' the active decree of the term for ' + fname + ', the same as the Active decree drop-down and Apply' : 'Choose a reigning faction above first',
+    });
+  };
+  const e = l.earlier_terms || [], tm = l.terms || [], mineF = l.character ? l.character.faction_id : null;
+  const terms = e.map((x) => {
+    const hs = x.houses, done = hs.filter((y) => y.tier_count && y.tiers_reached === y.tier_count).length, hours = Math.round((Number(x.end_time) - Number(x.start_time)) / 3600);
+    return {
+      id: x.term_id,
+      summary: hs.length + (hs.length === 1 ? ' house' : ' houses') + ' with your contribution · ' + done + ' top tier · ' + (hs.length - done) + ' in progress · ' + hs.filter((y) => y.winning_faction_id != null && y.winning_faction_id == mineF).length + ' taken by your faction · ' + hs.filter((y) => y.paid_in_term).length + ' last paid out in this term',
+      rows: hs.map((y) => ({ name: lbNameOf(y), mine: lbF(y.my_contribution), reached: y.tiers_reached, count: y.tier_count, full: !!(y.tier_count && y.tiers_reached === y.tier_count),
+        status: y.completed || y.winning_faction_id != null ? 'Taken' + (y.winning_faction_id != null ? ' · ' + lbFacName(l, y.winning_faction_id) : '') : 'Open at term end', paid: y.paid_in_term ? 'in this term' : 'not in this term' })),
+      clock: 'Play clock ' + lbF(x.start_time) + ' to ' + lbF(x.end_time) + ' s (' + hours + ' h of play time). No calendar date is stored.',
+    };
+  });
+  return {
+    none: false,
+    term: { id: t.term_id, start: lbClock(t.start_time), end: lbClock(t.end_time), reigning: t.reigning_faction_id != null ? lbFacName(l, t.reigning_faction_id) : '' },
+    active: one(by(t.active_decree_id)), elected: one(by(t.elected_decree_id)),
+    pool: decreeSorted(dec).map(row), options: decreeSorted(dec).map((d) => ({ id: d.id, label: decreeFull(d) })),
+    factions: (l.factions || []).map((f) => ({ id: f.id, label: f.name + (own != null && f.id == own ? ' (your faction)' : '') })),
+    sel, selD: one(by(sel.ad)), say: LT.say, bad: LT.bad, open: LT.open, hidOpen: LT.hidOpen,
+    history: { note: tm.length < 2 ? 'This save holds only the current term.' : e.length ? 'Terms with a row of yours; open one for its houses. The rows of a term say what the contribution was; they do not say which terms paid out.' : 'No earlier term has a row of yours.', terms },
+  };
+}
+const lbTermOn = () => !!window.LCCT;
 function lbTSay(t, kind) { LT.say = t; LT.bad = kind === true; const r = $('#lsb-tresult'); if (r) { r.textContent = t; r.classList.toggle('bad', LT.bad); } }
 // the switch between the two views, drawn only when the Command Center scripts are loaded
 const lbViewSwitch = () => (window.LCC && window.LCCM && window.LCCB ? html`<div class="viewsw" role="group" aria-label="View of the Landsraad tab" title="Both views read and write the same save in the same way, with the same checks."><span class="lbl">View</span><button type="button" class="qa" data-lb="view" data-view="classic" data-fk="vw:classic" aria-pressed="${lbBoardOn() ? 'false' : 'true'}">Classic list</button><button type="button" class="qa" data-lb="view" data-view="board" data-fk="vw:board" aria-pressed="${lbBoardOn() ? 'true' : 'false'}">Command Center board</button></div>` : '');
@@ -2192,7 +2236,7 @@ function lbBoardInner(l) {
   return html`${lbViewSwitch()}<section class="card d-panel" aria-labelledby="lsb-board-h" id="lsb-board"><h2 class="d-head" id="lsb-board-h">Command Center board <span class="cnt">${nn(hs.length, 'house', 'houses')}</span></h2>
   <p class="line1">${who}</p>
   <div id="lsb-lcc"></div>
-  ${hs.length && ready ? lbActbar(hs, l) : html`<p id="lsb-result" role="status" tabindex="-1" ${LP.bad ? html`class="bad"` : LP.warn ? html`class="warn"` : ''}>${LP.say}</p>`}${hs.length && ready ? lbPhoneBar() : ''}</section>${lbTerm(l)}${lbHistory(l)}`;
+  ${hs.length && ready ? lbActbar(hs, l) : html`<p id="lsb-result" role="status" tabindex="-1" ${LP.bad ? html`class="bad"` : LP.warn ? html`class="warn"` : ''}>${LP.say}</p>`}${hs.length && ready ? lbPhoneBar() : ''}</section>${lbTermOn() ? html`<div id="lsb-lcc-term"></div>` : html`${lbTerm(l)}${lbHistory(l)}`}`;
 }
 function lbInner(l) {
   if (lbBoardOn()) return lbBoardInner(l);
@@ -2560,6 +2604,8 @@ function lbPhoneClick(e) {
 function lbMountBoard() {
   const m = $('#lsb-lcc');
   if (m && LD && window.LCCB) window.LCCB.mount(m, LD, window.LCC_HOST);
+  const tm = $('#lsb-lcc-term');
+  if (tm && LD && window.LCCT) window.LCCT.mount(tm, lbTermModel(LD));
 }
 // After a filter of the board changes: a house the filter leaves out is no longer chosen for the actions on several houses (what is not shown is never written), and a question that named it closes.
 function lbBoardFiltered(ids) {
@@ -2593,7 +2639,7 @@ function lbDecreesKnown() {
   return ((LD && LD.decrees) || []).map((d) => ({ id: d.id, name: decreeLabel(d), effect: d.effect || '' }));
 }
 window.LCC_HOST = {
-  ctl: lbCtl, decree: lbDecreeNow, decrees: lbDecreesKnown, picks: () => LP.pick, filtered: lbBoardFiltered,
+  ctl: lbCtl, decree: lbDecreeNow, decrees: lbDecreesKnown, picks: () => LP.pick, filtered: lbBoardFiltered, goPath: specGoPath,
   unseat: lbUnseat, seat: lbSeat, // presentation only: where the action bar, the question and a copy of the result line are drawn
   // the faction box of the Inspector's actions drives the board's own faction box (choosing a faction writes nothing)
   setFac: (v) => { const s = $('#lsb-fac'); if (!s || s.disabled) return; s.value = String(v); s.dispatchEvent(new Event('change', { bubbles: true })); },
