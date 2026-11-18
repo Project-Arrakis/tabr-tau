@@ -60,12 +60,12 @@ test('#952: the board and the inspector never say owner, claimed or taken, and n
     look(ui, a, 'Vernius'); // favor won by Harkonnen, with a ladder and none of the character's
     const all = said(ui.doc.querySelector('.lcc-bd'));
     assert.doesNotMatch(all, /\b(owner|owners|owned|claim|claims|claimed|unclaimed)\b/i, layout + ': ' + (all.match(/.{30}\b(owner|owned|claim|claimed)\b.{30}/i) || [''])[0]);
-    const around = (re) => (all.match(new RegExp('.{0,40}' + re.source + '.{0,40}', 'i')) || [''])[0];
+    const around = (word) => { const at = all.toLowerCase().indexOf(word); return at < 0 ? '' : all.slice(Math.max(0, at - 40), at + word.length + 40); };
     // "taken" is still in the page's own sentences that the Classic list shares (a result line such as "house taken by Atreides", the tooltip of Complete, the earlier terms): the recorded
     // results are golden files and stay as they are. Everything the board draws itself says favor won.
     const own = [...ui.doc.querySelectorAll('.lcc-hc, .lcc-bd-list, .lcc-bd-headlines, .lcc-bd-banner, .lcc-bd-ledger, .lcc-bd-victory')].map(said).join(' | ');
     assert.doesNotMatch(own, /\btaken\b/i, layout + ': ' + (own.match(/.{0,40}\btaken\b.{0,40}/i) || [''])[0]);
-    assert.doesNotMatch(all, /\bpath\b/i, layout + ': ' + around(/\bpath\b/));
+    assert.doesNotMatch(all, /\bpath\b/i, layout + ': ' + around('path'));
     assert.doesNotMatch(all, /\bNo\. ?\d/, layout);
     assert.match(all, /favor won/i, layout);
     ui.doc.querySelector('.lcc-bd-insp');
