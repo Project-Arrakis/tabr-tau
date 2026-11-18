@@ -268,8 +268,8 @@ test('the cards and the panel on the page agree with the independent reading on 
     const at = (kind) => cards.map((c, i) => [i, c.getAttribute('data-victory')]).filter((x) => x[1] === kind).map((x) => x[0]);
     assert.deepEqual(at('win'), [...new Set([...ref.circuit, ...ref.dominion])].sort((x, y) => x - y), 'the Houses of a held line and the Houses of the faction with 13 or more: one outline ' + b);
     assert.equal(ui.doc.querySelector('.lcc-bd-victory').getAttribute('data-state'), ref.state, 'panel ' + b);
-    const lines = text(ui.doc.querySelector('[data-metric="lines"]'));
-    if (ref.unreadable) assert.match(lines, /Count incomplete/i, b); else assert.match(lines, new RegExp('^POTENTIAL LINES' + ref.potential + '(?!\d)'), b + ' ' + lines);
+    const lines = text(ui.doc.querySelector('.lcc-bd-vlines'));
+    if (ref.unreadable) assert.match(lines, /count incomplete/i, b); else assert.match(lines, new RegExp('^Lines still open: ' + ref.potential + ' ·'), b + ' ' + lines);
     assert.deepEqual(ui.posted, [], 'looking sends nothing');
     closeAll();
   }

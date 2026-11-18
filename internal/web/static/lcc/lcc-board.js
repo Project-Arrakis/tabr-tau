@@ -1,4 +1,4 @@
-// The Command Center's live board (milestone M3): the plaque, the place of the Term and Decrees section, the four figures, the five-by-five board of 25 Houses, the list of the same Houses, the Imperial Victory Analysis and the
+// The Command Center's live board (milestone M3): the plaque, the place of the Term and Decrees section, the five-by-five board of 25 Houses, the list of the same Houses, the Imperial Victory Analysis and the
 // House Intelligence panel, drawn from the answer of the Landsraad read.
 //
 // What this file is: a drawing and a small amount of view state (which filter is on, the layout, the sort, the House that is looked at). Every figure it shows comes from
@@ -90,45 +90,11 @@
     }
     return node;
   }
-  // ---- the four figures under the plaque -----------------------------------------------------------------------------------------------------------------------------------
-  // TERM STATUS, OPEN HOUSES, POTENTIAL LINES, SPECIALIZATION CAP. The first two are worked out from the same read as the board; the third by the twelve-line check of milestone M4; the fourth is the
-  // game's rule for one path (a reference, not a figure of the save).
   // ---- the twelve lines in words (milestone M4) ------------------------------------------------------------------------------------------------------------------------------------
   // Everything the page says about a line comes from M().evaluate (a pure reading of the 25 owners): the words here only name what it found. The wording rule (the operator's decision of 2026-11-18, which
   // replaces the earlier "never a win" rule): the phrases of a win come from WIN in lcc-model.js and are never built here; Imperial Dominion is never confirmed (D03), and the sysselraad column is not evidence (D02).
   const lineWord = (l) => l.name.toLowerCase(); // 'row 3', 'column 2', 'main diagonal', 'opposite diagonal'
   const listWords = (xs) => (xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1]);
-  const heldWords = (ev, side) => listWords(ev.held.filter((l) => l.side === side).map(lineWord));
-  function metrics(board, ev) {
-    ev = ev || M().evaluate(board, null);
-    const c = board.counts;
-    const w = el('ul', 'lcc-bd-metrics', '', { role: 'list', 'aria-label': 'Figures of the term' });
-    const item = (kicker, value, sub, cls, attrs, tag) => {
-      const li = el('li', 'lcc-bd-metric' + (cls ? ' ' + cls : ''), '', attrs);
-      const k = el('span', 'lcc-bd-metric-k', kicker);
-      if (tag) k.appendChild(el('span', 'lcc-bd-src', tag));
-      li.appendChild(k);
-      li.appendChild(el('strong', '', value));
-      li.appendChild(el('small', '', sub));
-      return li;
-    };
-    // no vote-start snapshot is in the save, so a count is a count and the outcome is never called: the word is CONTESTED while the board is a board, and UNAVAILABLE when it is not
-    // a line of five held now is said as that (the Houses as they stand, not a vote); two factions with a line each is a conflict and neither is chosen
-    if (!board.ready) w.appendChild(item('TERM STATUS', 'UNAVAILABLE', 'The board could not be checked', '', { 'data-metric': 'term' }));
-    else if (ev.verdict === 'conflict') w.appendChild(item('TERM STATUS', 'CONFLICT', 'Both factions hold a line of five · vote not recorded', '', { 'data-metric': 'term' }));
-    else if (ev.verdict === 'line_held') w.appendChild(item('TERM STATUS', 'FIVE IN A LINE', FACTION_WORD[ev.winner] + ' · ' + heldWords(ev, ev.winner) + ' · vote not recorded', '', { 'data-metric': 'term' }));
-    else w.appendChild(item('TERM STATUS', 'CONTESTED', 'Vote outcome is not yet established', '', { 'data-metric': 'term' }));
-    w.appendChild(board.ready
-      ? item('OPEN HOUSES', String(c.open), c.unknown ? 'Available to contest · ' + c.unknown + ' unreadable, not counted' : 'Available to contest', '', { 'data-metric': 'open' })
-      : item('OPEN HOUSES', '—', 'Not counted: the board could not be checked', '', { 'data-metric': 'open' }));
-    // POTENTIAL LINES: the lines of the twelve that are not blocked and not yet held, so a faction could still complete them (the approved design's own rule). A House that cannot be read
-    // puts a line out of reach of the check, so the count is then said to be incomplete and no number is shown: a figure is never guessed.
-    if (!board.ready) w.appendChild(item('POTENTIAL LINES', '—', 'Not counted: the board could not be checked', '', { 'data-metric': 'lines' }));
-    else if (!ev.potential.exact) w.appendChild(item('POTENTIAL LINES', '—', 'Count incomplete · ' + c.unknown + (c.unknown === 1 ? ' House' : ' Houses') + ' unreadable', '', { 'data-metric': 'lines', 'data-incomplete': 'true' }));
-    else w.appendChild(item('POTENTIAL LINES', String(ev.potential.total), 'Unblocked five-House alignments · Atreides ' + ev.potential.a + ' · Harkonnen ' + ev.potential.h + (ev.held.length ? ' · ' + ev.held.length + ' held, not counted' : ''), '', { 'data-metric': 'lines', title: 'Lines of the twelve (five rows, five columns, two diagonals) that no faction has blocked and none holds yet. A line with no favor won on it counts for both factions and once in the total.' }));
-    w.appendChild(item('SPECIALIZATION CAP', 'LV 100', '44,182 XP · separate from keystones', 'accent', { 'data-metric': 'cap', title: 'The cap of every specialization in the game: a rule, not a figure read from your save. Your own levels are on the Player tab.' }, 'RULE'));
-    return w;
-  }
 
   // ---- the panel head, the filters and the legend ----------------------------------------------------------------------------------------------------------------------------
   function panelHead(board) {
@@ -438,6 +404,13 @@
     e.appendChild(img);
     return e;
   }
+  // How many of the twelve lines each faction can still make (the unblocked lines that nobody holds yet; a line with nothing won on it counts for both). With a House that cannot be read the count is
+  // incomplete and no number is given: a figure is never guessed. This is the figure that the row of four figures under the plaque used to show as POTENTIAL LINES (#935).
+  function linesLeft(board, ev) {
+    const p = ev.potential;
+    if (!p.exact) return 'Lines still open: count incomplete · ' + board.counts.unknown + (board.counts.unknown === 1 ? ' House' : ' Houses') + ' unreadable';
+    return 'Lines still open: ' + p.total + ' · Atreides ' + p.a + ' · Harkonnen ' + p.h + (ev.held.length ? ' · ' + ev.held.length + ' held, not counted' : '');
+  }
   function victoryPanel(board, ev) {
     ev = ev || M().evaluate(board, null);
     const v = victoryWords(board, ev);
@@ -450,6 +423,7 @@
     const c = board.counts;
     s.appendChild(el('div', 'lcc-bd-well', board.ready ? 'Atreides ' + c.a + ' · Harkonnen ' + c.h + ' · Open ' + c.open + (c.unknown ? ' · Unreadable ' + c.unknown : '') : 'Houses read: ' + board.houses.length));
     if (v.foot) s.appendChild(el('p', 'lcc-bd-vcount', v.foot));
+    if (board.ready) s.appendChild(el('p', 'lcc-bd-vlines', linesLeft(board, ev), { 'data-lines': ev.potential.exact ? 'exact' : 'incomplete' }));
     return s;
   }
 
@@ -719,7 +693,6 @@
     w.appendChild(plaque(board, host));
     // the Term and Decrees section: the page puts its own section here (host.seat), once, in place of what used to be the decree preview strip (#923)
     w.appendChild(el('div', 'lcc-bd-termslot', '', { 'data-lcc-slot': 'term' }));
-    w.appendChild(metrics(board, ev));
     if (!board.houses.length) { w.appendChild(el('p', 'lcc-bd-none', 'This save has no Landsraad Houses in the current term, so there is nothing to show or change here.')); return w; }
     if (state.sel !== null && !board.byId.has(state.sel)) state.sel = null;
     const matchIds = new Set(board.houses.filter((h) => M().matches(h, state)).map((h) => h.id));
@@ -881,7 +854,7 @@
     }
   }
 
-  const api = { state, mount, redraw, keepInView, visible, build, majorityOf, victoryWords, countLine, plaque, metrics, grid, houseCard, list, inspector, victoryPanel, tierKind, NOT_IN_SAVE };
+  const api = { state, mount, redraw, keepInView, visible, build, majorityOf, victoryWords, countLine, plaque, grid, houseCard, list, inspector, victoryPanel, tierKind, NOT_IN_SAVE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCB = api;
 })(typeof window !== 'undefined' ? window : globalThis);

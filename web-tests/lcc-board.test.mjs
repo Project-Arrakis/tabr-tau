@@ -73,9 +73,11 @@ test('the plaque and the figures are the counts of the same Houses: 12 and 4, ni
   const own = ui.doc.querySelector('.lcc-bd').cloneNode(true);
   own.querySelector('[data-lcc-slot="bar"]').replaceChildren(); // the page's own action bar sits in the board's grid and has its own words
   assert.doesNotMatch(text(own), /(?<!favor |not )\bwon\b|won the vote/i, 'a lead in the count is not called a win: nobody holds a line of five or 13 Houses');
-  const k = [...ui.doc.querySelectorAll('.lcc-bd-metric')].map((x) => [text(x.querySelector('.lcc-bd-metric-k')), text(x.querySelector('strong'))]);
-  assert.deepEqual(k.map((x) => x[1]), ['CONTESTED', '9', '4', 'LV 100'], 'the term status, the open Houses and the potential lines read from the save (M4), the cap is a game rule');
-  assert.deepEqual(k.map((x) => x[0].replace(/RULE$/, '')), ['TERM STATUS', 'OPEN HOUSES', 'POTENTIAL LINES', 'SPECIALIZATION CAP']);
+  // the row of four figures under the plaque (term status, open Houses, potential lines, specialization cap) is gone (#935): the state of the term is on the plaque, the open Houses are in its tally line,
+  // the cap is on the Specializations tab, and the lines each faction can still make are one line of the Imperial Victory Analysis
+  assert.equal(ui.doc.querySelector('.lcc-bd-metrics'), null, 'no row of four figures');
+  assert.equal(ui.doc.querySelectorAll('.lcc-bd-metric, [data-metric]').length, 0, 'none of the four figures');
+  assert.doesNotMatch(text(ui.doc.querySelector('.lcc-bd')), /TERM STATUS|OPEN HOUSES|POTENTIAL LINES|SPECIALIZATION CAP/);
   assert.match(text(ui.doc.querySelector('.lcc-bd-victory')), /SYSSELRAAD CONTESTED.*ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN.*Atreides 12 · Harkonnen 4 · Open 9/);
   assert.equal(text(p.querySelector('.lcc-pl-session')), 'SYSSELRAAD CONTESTED');
   assert.match(text(p.querySelector('.lcc-pl-held')), /^HELD BY\s*HOUSE ATREIDES$/);
@@ -92,7 +94,7 @@ test('a House whose owner cannot be read is counted for neither side and the pla
   assert.match(text(p.querySelector('.lcc-pl-standing')), /COUNT INCOMPLETE · 1 HOUSE UNREADABLE/);
   assert.equal(text(tiles(ui)[10].querySelector('.lcc-hc-owner')), '? Favor unreadable');
   assert.match(text(ui.doc.querySelector('.lcc-bd-headlines')), /FAVOR UNREADABLE/);
-  assert.match(text(ui.doc.querySelector('[data-metric="open"]')), /1 unreadable, not counted/);
+  assert.match(text(ui.doc.querySelector('.lcc-bd-vlines')), /^Lines still open: count incomplete · 1 House unreadable$/, 'with a House that cannot be read the count of lines is said to be incomplete, with no number');
 });
 
 test('a board that is not a board (24 Houses) is not drawn as one: a read-only list, the reasons, and nothing that writes', async () => {
@@ -342,9 +344,9 @@ test('every control that changes the save carries the classic list\'s own data-l
 test('the board panel has the approved head, filters, legend, totals and the two panels beside it, in the approved order', async () => {
   const ui = await open();
   const b = ui.doc.querySelector('.lcc-bd');
-  const order = ['.lcc-plaque-host', '#lcc-term', '.lcc-bd-metrics', '.lcc-bd-panel', '.lcc-bd-victory', '.lcc-bd-insp'];
+  const order = ['.lcc-plaque-host', '#lcc-term', '.lcc-bd-panel', '.lcc-bd-victory', '.lcc-bd-insp'];
   const at = order.map((q) => { const e = b.querySelector(q); assert.ok(e, q + ' is missing'); return [...b.querySelectorAll('*')].indexOf(e); });
-  assert.deepEqual([...at].sort((x, y) => x - y), at, 'plaque, Term and Decrees section, term row, board panel, victory analysis, House Intelligence');
+  assert.deepEqual([...at].sort((x, y) => x - y), at, 'plaque, Term and Decrees section, board panel, victory analysis, House Intelligence');
   const head = b.querySelector('.lcc-bd-panel-head');
   assert.equal(text(head.querySelector('.lcc-bd-eyebrow')), 'THE GREAT HOUSES');
   assert.equal(text(head.querySelector('.lcc-bd-h')), 'The Landsraad');
@@ -355,8 +357,7 @@ test('the board panel has the approved head, filters, legend, totals and the two
   assert.deepEqual([...b.querySelectorAll('.lcc-bd-headlines li')].map((x) => text(x)), ['ATREIDES FAVOR WON', 'HARKONNEN FAVOR WON', 'FAVOR NOT WON', 'WINNING HOUSES · SYSSELRAAD WON']);
   assert.deepEqual([...b.querySelectorAll('[data-lcb="filter"][data-key="hs"]')].map((x) => text(x)), ['Any', 'Not won', 'Favor won']);
   assert.match(text(b.querySelector('.lcc-bd-totals')), /Your rewards on this board: 26 of 120 tiers earned/);
-  assert.match(text(b.querySelector('[data-metric="lines"]')), /^POTENTIAL LINES4Unblocked five-House alignments · Atreides 4 · Harkonnen 0$/, 'the unblocked lines of the twelve, counted by the evaluator (M4)');
-  assert.match(text(b.querySelector('[data-metric="cap"]')), /RULE/, 'the cap is a game rule, tagged as one, not read from the save');
+  assert.equal(text(b.querySelector('.lcc-bd-victory .lcc-bd-vlines')), 'Lines still open: 4 · Atreides 4 · Harkonnen 0', 'the unblocked lines of the twelve, counted by the evaluator (M4), in the Imperial Victory Analysis (#935)');
 });
 
 test('the House cards use the approved system fonts only (nothing is fetched), and the reward boxes use the approved colours', () => {
