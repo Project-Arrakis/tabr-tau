@@ -28,6 +28,8 @@
   const takenWhy = (h) => (h.takenNoTiers ? TAKEN.noTiersWhy : h.takenNoMine ? TAKEN.noMineWhy : '');
   // the contributors of a list, as the text of one line: the biggest first, "name amount"
   const contribLine = (list, n) => list.slice(0, n).map((c) => c.label + ' ' + fmt(c.amount)).join(' · ');
+  // the banner's three, whole, for its mouse-over text: a narrow cloth may show fewer of them, never a part of one (#972)
+  const contribRank = (list) => 'Top ' + Math.min(3, list.length) + ': ' + list.slice(0, 3).map((c, i) => (i + 1) + '. ' + c.label + ' ' + fmt(c.amount)).join('; ') + '.';
   // The five states of one reward tier, as the approved design shows them: the class of the box, its mark, and the words. A tier the character has not reached is always "not reached", whatever the
   // reward row says; a reached tier with no delivery record (or a record that disagrees with the contribution) is a question mark and is never counted as collected.
   const TIER_CLASS = Object.freeze({ delivered: 'delivered', waiting: 'waiting', no_row: 'uncertain', unknown: 'uncertain' });
@@ -82,11 +84,11 @@
     const win = M().evaluate(board, null).win; // the headline and the tally line are the winner function's words (lcc-model.js, WIN), the same on every surface
     // the contributors the save records under each faction, the biggest first (worked out here from the rows of the term: the save holds amounts, not a ranking); none is "Not in the save"
     const cs = board.contributors || { a: [], h: [] };
-    const lines = (k) => (cs[k].length ? cs[k].slice(0, 3).map((c) => c.label + ' · ' + fmt(c.amount)) : null);
+    const lines = (k) => (cs[k].length ? cs[k].slice(0, 3).map((c) => ({ name: c.label, amount: fmt(c.amount) })) : null);
     const node = L().renderPlaque({ a, h, decree: shownDecree(host), holder: board.term ? board.term.reigning : null, contributors: { a: lines('a'), h: lines('h') }, win });
     for (const st of node.querySelectorAll ? node.querySelectorAll('.lcc-standard') : []) {
       const k = st.classList.contains('lcc-f-h') ? 'h' : 'a', hd = st.querySelector('.lcc-standard-h');
-      if (hd) hd.setAttribute('title', cs[k].length ? 'The biggest contributors under ' + FACTION_WORD[k] + ' in the contribution rows of this term in the save, worked out here: the save holds amounts, not a ranking.' : 'The save holds no contribution rows under ' + FACTION_WORD[k] + ' for the Houses of this term.');
+      if (hd) hd.setAttribute('title', cs[k].length ? 'The biggest contributors under ' + FACTION_WORD[k] + ' in the contribution rows of this term in the save, worked out here: the save holds amounts, not a ranking. The amounts are added up over all the Houses of the term, and equal amounts are listed by name, A to Z. Progress that the save records without a contributor is not named here. ' + contribRank(cs[k]) : 'The save holds no contribution rows under ' + FACTION_WORD[k] + ' for the Houses of this term.');
     }
     return node;
   }

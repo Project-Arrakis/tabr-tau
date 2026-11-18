@@ -128,9 +128,9 @@ test('mirror in the stylesheet: one rule sizes both word boxes, they sit at mirr
   assert.equal((css.match(/lcc-pl-std-a/g) || []).length, (css.match(/lcc-pl-std-h/g) || []).length, 'each selector for the Atreides standard has its Harkonnen twin');
 });
 
-test('wide: the heading wraps inside the cloth at the text floor (balanced, never cut), long names cut with an ellipsis, the words between the crest and the ornament; narrow: names wrap and the padding is deeper than the foot', () => {
+test('wide: the heading wraps inside the cloth at the text floor (balanced, never cut), long names wrap and are never cut, the words between the crest and the ornament; narrow: names wrap and the padding is deeper than the foot', () => {
   assert.match(css, /\.lcc-pl-std-a \.lcc-standard-h, \.lcc-pl-std-h \.lcc-standard-h \{[^}]*letter-spacing: 0; white-space: normal; line-height: 1.1; text-wrap: balance/);
-  assert.match(css, /\.lcc-pl-std-a \.lcc-standard-name, \.lcc-pl-std-h \.lcc-standard-name \{[^}]*white-space: nowrap; overflow: hidden; text-overflow: ellipsis/);
+  for (const m of css.matchAll(/([^{}]*lcc-standard-(?:name|amt|list)[^{}]*)\{([^}]*)\}/g)) assert.doesNotMatch(m[2], /text-overflow\s*:\s*ellipsis/, 'no contributor name or amount is cut with an ellipsis (#972): ' + m[1].trim());
   assert.match(css, /\.lcc-standard-name \{[^}]*overflow-wrap: anywhere/);
   const box = /\.lcc-plaque \.lcc-pl-std-a, \.lcc-plaque \.lcc-pl-std-h \{ top: ([\d.]+)%; width: [\d.]+%; height: ([\d.]+)%/.exec(css);
   const top = (Number(box[1]) / 100) * 724, bottom = ((Number(box[1]) + Number(box[2])) / 100) * 724;

@@ -151,7 +151,8 @@
     w.appendChild(el('strong', 'lcc-heldby-n' + (faction ? ' lcc-f-' + faction : ''), name || 'Not recorded'));
     return w;
   }
-  // The cloth standard of a faction: a gold-edged banner with the faction's crest picture, a heading and an honest list (or the empty state). lines is an array of strings or null.
+  // The cloth standard of a faction: a gold-edged banner with the faction's crest picture, a heading and an honest list (or the empty state). lines is an array of entries or null; an entry is a string
+  // (shown as it is) or { name, amount } (#972: the name wraps when the cloth is narrow and the amount stays whole beside it, so a line is never cut and the amount is always there).
   function standard(faction, lines, heading, emptyText) {
     const f = faction === 'h' ? 'h' : 'a';
     const w = el('div', 'lcc-standard lcc-f-' + f);
@@ -164,7 +165,16 @@
     if (Array.isArray(lines) && lines.length) {
       const ol = el('ol', 'lcc-standard-list', '', { role: 'list' });
       // the name is text in its own span (the stylesheet ellipsizes it in the wide layout and wraps it in the narrow one); the full name stays in the title
-      for (const s of lines.slice(0, 5)) { const name = String(s); const li = el('li'); li.appendChild(el('span', 'lcc-standard-name', name, { title: name })); ol.appendChild(li); }
+      for (const s of lines.slice(0, 5)) {
+        const li = el('li');
+        if (s && typeof s === 'object') {
+          const name = String(s.name), amount = String(s.amount);
+          li.appendChild(el('span', 'lcc-standard-name', name, { title: name + ' · ' + amount }));
+          li.appendChild(doc().createTextNode(' '));
+          li.appendChild(el('span', 'lcc-standard-amt', amount));
+        } else { const name = String(s); li.appendChild(el('span', 'lcc-standard-name', name, { title: name })); }
+        ol.appendChild(li);
+      }
       cloth.appendChild(ol);
     } else cloth.appendChild(el('p', 'lcc-standard-none', emptyText || 'Not in the save'));
     w.appendChild(cloth);
@@ -422,7 +432,7 @@
   };
 
   // renderPlaque(vm): the approved decree and voting plaque as a read-only view of plain values.
-  //   vm = { a, h, decree: { name, effect } | null, holder: 'a' | 'h' | null, contributors: { a: string[] | null, h: string[] | null } | null, win, sessionLabel, standing, demo }
+  //   vm = { a, h, decree: { name, effect } | null, holder: 'a' | 'h' | null, contributors: { a: Entry[] | null, h: Entry[] | null } | null (an entry: a string, or { name, amount }), win, sessionLabel, standing, demo }
   // It decides nothing itself: the headline and the tally line come from WIN for the reading the caller gives (vm.win, from WIN.decide) or, with none, for the two counts alone; a caller may still replace
   // either line (vm.sessionLabel, vm.standing), and nothing here reads the save.
   function renderPlaque(vm) {
