@@ -212,9 +212,16 @@
       return w;
     };
     const jumpOpts = [['', 'Choose a House…']].concat(board.houses.map((h) => [String(h.id), (h.number ? h.number + ' · ' : '') + h.name]));
-    bar.appendChild(sel('Jump to House', 'lcc-bd-jump', jumpOpts, state.sel === null ? '' : state.sel, 'jump'));
+    // Jump to House and the buttons that choose Houses are one group: they stay together on a line and wrap together. The page seats its choose buttons in the slot (host.seat); with no page
+    // (or a board that did not pass its checks) the slot stays empty and is not drawn.
+    const jl = el('span', 'lcc-bd-jumpline');
+    jl.appendChild(sel('Jump to House', 'lcc-bd-jump', jumpOpts, state.sel === null ? '' : state.sel, 'jump'));
+    jl.appendChild(el('span', 'lcc-bd-barslot lcc-bd-chooseslot', '', { 'data-lcc-slot': 'choose' }));
+    bar.appendChild(jl);
     if (state.layout === 'list' || !board.ready) bar.appendChild(sel('Group', 'lcc-bd-group', [['', 'No groups'], ['region', 'By region'], ['spec', 'By path']], state.group, 'group'));
     bar.appendChild(el('span', 'lcc-bd-shown', matchIds.size + ' of ' + board.houses.length + ' Houses shown', { role: 'status', id: 'lcc-bd-shown' }));
+    // the line of the actions on the chosen Houses (Fill, Complete, Reopen, the faction for them and the count of the chosen Houses), seated by the page
+    bar.appendChild(el('div', 'lcc-bd-barslot lcc-bd-actslot', '', { 'data-lcc-slot': 'act' }));
     return bar;
   }
   function legend(board, ev) {
@@ -793,6 +800,8 @@
     const panel = el('section', 'lcc-bd-surface lcc-bd-panel', '', { 'aria-labelledby': 'lcc-bd-h' });
     panel.appendChild(panelHead(board));
     panel.appendChild(filters(board, matchIds));
+    // directly under the control bar: the question before a write, the result line and the note on a write (the page puts them here, see host.seat)
+    panel.appendChild(el('div', 'lcc-bd-slot', '', { 'data-lcc-slot': 'bar' }));
     panel.appendChild(legend(board, ev));
     const stage = el('div', 'lcc-bd-stage');
     if (board.ready && state.layout === 'grid') stage.appendChild(grid(board, matchIds, host, editable, picks, ev));
@@ -803,8 +812,6 @@
     foot.appendChild(totals(board));
     panel.appendChild(foot);
     grid_.appendChild(panel);
-    // the place of the page's own action bar: directly under the board, so the order of the keys is the order of the eyes (the page puts the bar here, see host.seat)
-    grid_.appendChild(el('div', 'lcc-bd-slot', '', { 'data-lcc-slot': 'bar' }));
     const side = el('div', 'lcc-bd-side');
     side.appendChild(victoryPanel(board, ev));
     if (state.strategy && board.ready) side.appendChild(strategyPanel(board, ev));

@@ -50,7 +50,7 @@ Method: the approved prototype (its Sysselraad Strategy view, and the plaque, wh
 | T12 | Link from the hero to the management panel | "Term and decrees" button on the board moves the focus to the section | matches | |
 | T13 | No plain select in the hero that writes | The hero's selector is the sample picker and writes nothing | matches | |
 | T14 | Section looks like the approved surfaces | Same tokens, serif titles, gold Apply; a row stacks its buttons under the text at 640 px and below | differs (intentional) | The prototype has no term section; this is an original layout in its style. |
-| T15 | Where the section sits | Under the board and the action bar, in the board view | differs (intentional) | Needs the owner's view; a tab of its own was not built. |
+| T15 | Where the section sits | Under the board, in the board view (the action bar is in the board's control bar since #914) | differs (intentional) | Needs the owner's view; a tab of its own was not built. |
 | T16 | Active Landsraad missions | "Not recorded in this local save" | differs (data rule) | The save holds no mission rotation. |
 | T17 | Top contributors with names | The standards list the biggest contributors the save records (#913); the section says that no ranking is recorded and that the order is worked out from the amounts | differs (data rule) | The save holds the amount each contributor gave to each House (a guild by its name, you as "You"), not a ranking. |
 | T18 | Decree Preview selector with demo decrees | Kept as a sample, labelled, DEMO badge on the plaque | differs (data rule) | The ornamental selector must not be taken for the real editor. |

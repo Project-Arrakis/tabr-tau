@@ -66,6 +66,38 @@
 .lcc-bd-chip[aria-pressed="true"] { border-color: var(--lcc-gold-text); background: color-mix(in srgb, var(--lcc-gold) 9%, transparent); color: var(--lcc-text); box-shadow: inset 0 -2px 0 var(--lcc-gold-text); }
 .lcc-bd-chip[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
 .lcc-bd-shown { margin-left: auto; font: 600 11px/1.2 var(--lcc-sans); color: var(--lcc-dim); }
+/* The control bar also holds the buttons that choose Houses, in the line of Jump to House (the two are one group: they stay together and wrap together), and the actions on the chosen Houses on the
+   line after (Fill, Complete, Reopen, the faction for them, the count of the chosen Houses). The page seats those controls in the slots; a slot with nothing in it is not drawn. */
+.lcc-bd-jumpline { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 9px 18px; min-width: 0; max-width: 100%; }
+.lcc-bd-barslot:empty { display: none; }
+.lcc-bd-actslot { flex: 1 1 100%; min-width: 0; }
+/* The parts of the page's action bar once they are seated in the control bar (tau 914). The controls are the same elements as in the classic list (same data-lb, data-do and data-fk); this only gives them
+   the look of the bar they stand in: the square edge, the gold stroke and the letters of the chips and buttons beside them. Letters are 12 px or more, a control is 36 px tall (44 px on a phone or a touch
+   screen), and everything wraps instead of shrinking. The question, the result line and the note on a write stand directly under the bar. */
+.lcc-bd .barpart.bp-choose { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 9px; min-width: 0; }
+.lcc-bd .barpart.bp-act { display: flex; flex-wrap: wrap; align-items: center; gap: 9px 18px; min-width: 0; }
+.lcc-bd .barpart.bp-ask { min-width: 0; }
+.lcc-bd .barpart .actrow { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin: 0; min-width: 0; }
+.lcc-bd .barpart .facrow { gap: 9px 12px; }
+.lcc-bd .barpart .qa { width: auto; min-width: 0; min-height: 36px; padding: 7px 11px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--lcc-stroke); border-radius: 0; background: var(--lcc-raised); color: var(--lcc-text); font: 700 12px/1.2 var(--lcc-sans); white-space: normal; text-align: center; cursor: pointer; }
+.lcc-bd .barpart .qa.btnp { background: color-mix(in srgb, var(--lcc-gold) 24%, var(--lcc-raised)); border-color: var(--lcc-gold-text); }
+.lcc-bd .barpart .qa:hover { border-color: var(--lcc-gold-text); }
+.lcc-bd .barpart .qa:focus-visible, .lcc-bd .barpart select:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 2px; }
+.lcc-bd .barpart .confirm .qa { min-width: 5.5rem; }
+.lcc-bd .barpart label { display: inline-flex; align-items: center; margin-right: 6px; font: 800 12px/1.2 var(--lcc-sans); letter-spacing: .12em; text-transform: uppercase; color: var(--lcc-dim); }
+.lcc-bd .barpart select { box-sizing: border-box; min-height: 36px; max-width: 100%; padding: 6px 12px; font: 14px/1.2 var(--lcc-sans); color: var(--lcc-text); background: var(--lcc-raised); border: 1px solid var(--lcc-stroke); border-radius: 0; }
+.lcc-bd .barpart .note { font: 12px/1.3 var(--lcc-sans); color: var(--lcc-dim); overflow-wrap: anywhere; }
+.lcc-bd .barpart #lsb-sum { flex: 1 1 100%; margin: 0; font: 600 12px/1.4 var(--lcc-sans); color: var(--lcc-text); overflow-wrap: anywhere; }
+.lcc-bd .barpart #lsb-result { margin: 10px 0 0; font: 600 12px/1.4 var(--lcc-sans); overflow-wrap: anywhere; }
+.lcc-bd .barpart #lsb-result:empty { margin: 0; }
+.lcc-bd .barpart .confirm { margin: 10px 0 0; }
+.lcc-bd .barpart .legend2 { margin: 8px 0 0; padding: 0; border: 0; font: 12px/1.4 var(--lcc-sans); }
+@media (max-width: 640px), (pointer: coarse) {
+  .lcc-bd .barpart .qa, .lcc-bd .barpart select { min-height: 44px; }
+}
+@media (forced-colors: active) {
+  .lcc-bd .barpart .qa, .lcc-bd .barpart select { background: ButtonFace; color: ButtonText; border: 1px solid ButtonText; }
+}
 .lcc-bd-headlines { list-style: none; display: flex; flex-wrap: wrap; gap: 13px; margin: 20px 0 12px; padding: 0 0 12px; border-bottom: 1px solid var(--lcc-stroke-faint); }
 .lcc-bd-headlines li { display: flex; align-items: center; gap: 6px; font: 700 9px/1.2 var(--lcc-sans); letter-spacing: .12em; color: var(--lcc-dim); }
 .lcc-bd-key { display: inline-block; width: 9px; height: 9px; box-sizing: border-box; border: 1px solid var(--lcc-stroke); }
@@ -537,6 +569,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-hc[data-route-role="missing"]::after { border-style: dashed; border-width: 4px; }
 @media (max-width: 640px), (pointer: coarse) {
   .lcc-bd-select { min-height: 44px; }
+  .lcc-bd-filters .lcc-bd-chip { min-height: 44px; }
 }
 @media (max-width: 900px), (pointer: coarse) {
   .lcc-bd-lrow { min-height: 44px; }

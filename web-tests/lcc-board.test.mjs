@@ -327,7 +327,7 @@ test('the layout is remembered, and the list carries a Choose box and a Saved ma
 test('every control that changes the save carries the classic list\'s own data-lb, so one handler, one guard and one queue serve both views', async () => {
   const ui = await open();
   click(ui, tileOf(ui, 'Wallach').querySelector('button'));
-  const writes = [...ui.doc.querySelectorAll('.lcc-bd [data-lb]')].filter((e) => !e.closest('[data-lcc-slot="bar"]')).map((e) => e.dataset.lb);
+  const writes = [...ui.doc.querySelectorAll('.lcc-bd [data-lb]')].filter((e) => !e.closest('[data-bar]')).map((e) => e.dataset.lb); // the parts of the action bar the page seats in the control bar are the page's own (#914)
   assert.deepEqual([...new Set(writes)].sort(), ['pick', 'qa', 'tier']);
   assert.equal(ui.doc.querySelectorAll('.lcc-bd [data-lcb="sel"]').length, 25);
   assert.equal(ui.doc.querySelectorAll('.lcc-bd .lcc-bd-act[data-lb="qa"]').length, 4);

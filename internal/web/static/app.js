@@ -2237,15 +2237,16 @@ function lbTSay(t, kind) { LT.say = t; LT.bad = kind === true; const r = $('#lsb
 // the switch between the two views, drawn only when the Command Center scripts are loaded
 const lbViewSwitch = () => (window.LCC && window.LCCM && window.LCCB ? html`<div class="viewsw" role="group" aria-label="View of the Landsraad tab" title="Both views read and write the same save in the same way, with the same checks."><span class="lbl">View</span><button type="button" class="qa" data-lb="view" data-view="classic" data-fk="vw:classic" aria-pressed="${lbBoardOn() ? 'false' : 'true'}">Classic list</button><button type="button" class="qa" data-lb="view" data-view="board" data-fk="vw:board" aria-pressed="${lbBoardOn() ? 'true' : 'false'}">Command Center board</button></div>` : '');
 // The board view: the board is drawn into #lsb-lcc by the Command Center scripts after this page is drawn (lbMountBoard); the action bar, the term panel and the earlier terms are the same ones the
-// classic list has. The action bar (the faction for Fill and Complete, the actions on several houses, the question before a write and the result line) is drawn only for a board that passed its
-// checks: a board that did not is shown read-only, with the classic list as the way to change anything.
+// classic list has. The action bar (the choose buttons, the actions on several houses, the faction for Fill and Complete, the count of the chosen houses, the question before a write and the result line)
+// is drawn only for a board that passed its checks: a board that did not is shown read-only, with the classic list as the way to change anything. In this view it is drawn in three parts that are
+// seated in the board's control bar (lbSeat), not under the board (#914).
 function lbBoardInner(l) {
   const hs = l.tasks.map((r) => lbHouse(r, l)), ready = window.LCCM.readBoard(l).ready;
   const who = l.character ? (lbCan(l) ? 'Your character is in ' + lbFacName(l, l.character.faction_id) + '.' : 'Your character is in no faction, so there is no contribution of yours to change.') : 'This save has no character.';
   return html`${lbViewSwitch()}<section class="card d-panel" aria-labelledby="lsb-board-h" id="lsb-board"><h2 class="d-head" id="lsb-board-h">Command Center board <span class="cnt">${nn(hs.length, 'house', 'houses')}</span></h2>
   <p class="line1">${who}</p>
   <div id="lsb-lcc"></div>
-  ${hs.length && ready ? lbActbar(hs, l) : html`<p id="lsb-result" role="status" tabindex="-1" ${LP.bad ? html`class="bad"` : LP.warn ? html`class="warn"` : ''}>${LP.say}</p>`}${hs.length && ready ? lbPhoneBar() : ''}</section>${lbTermOn() ? html`<div id="lsb-lcc-term"></div>` : html`${lbTerm(l)}${lbHistory(l)}`}`;
+  ${hs.length && ready ? lbActbar(hs, l, true) : html`<p id="lsb-result" role="status" tabindex="-1" ${LP.bad ? html`class="bad"` : LP.warn ? html`class="warn"` : ''}>${LP.say}</p>`}${hs.length && ready ? lbPhoneBar() : ''}</section>${lbTermOn() ? html`<div id="lsb-lcc-term"></div>` : html`${lbTerm(l)}${lbHistory(l)}`}`;
 }
 function lbInner(l) {
   if (lbBoardOn()) return lbBoardInner(l);
@@ -2283,15 +2284,32 @@ function lbSumText(hs, l) {
   if (!ch.length) return 'Nothing is chosen.';
   return `Chosen: ${nn(ch.length, 'house', 'houses')}. Fill chosen changes ${ch.filter((h) => !lbFillOffF(h, l, F)).length}, Complete chosen changes ${ch.filter((h) => !lbDoneFor(h, F)).length} for ${lbFacName(l, F)}, Reopen chosen changes ${ch.filter((h) => h.taken).length}.`;
 }
-function lbActbar(hs, l) {
+function lbActbar(hs, l, split) {
   const F = lbFacId(l), mineF = lbCan(l) ? l.character.faction_id : null, cf = LP.confirm;
+  // The pieces of the bar. The classic list draws them in one bar under its table. The board view (split) draws the same controls as three parts that the page seats in the board's control bar (lbSeat):
+  // the choose buttons next to Jump to House, the actions with the faction box and the count of the chosen houses as the next line of that bar, and the question, the result line and the note on a write
+  // directly under it. The same elements, the same data-lb, data-do and data-fk, so one handler serves both places (#914).
+  const choose = html`<button type="button" class="qa" data-lb="pickall" data-fk="b-all">Choose all houses</button><button type="button" class="qa" data-lb="pickno" data-fk="b-none">Clear the choice</button>`;
+  const bulks = html`<button type="button" class="qa btnp" data-lb="bulk" data-do="fill" data-fk="b-fill" aria-describedby="lsb-legend" title="Raises your contribution on every chosen house to its highest reward tier (never lowered) and writes what the missions pay: Solari, House Scrip and specialization XP. The question shows the totals before anything is written. Does nothing while another faction is chosen.">Fill chosen</button><button type="button" class="qa btnp" data-lb="bulk" data-do="complete" data-fk="b-complete" title="Marks every chosen house complete for the faction below and sets that faction's progress on it to the house goal (never lowered).">Complete chosen</button><button type="button" class="qa" data-lb="bulk" data-do="reopen" data-fk="b-reopen" title="Reopens the chosen houses: clears the completion and the winner. Progress and contributions stay as they are, so this does not set back what Complete wrote.">Reopen chosen</button>`;
+  const ask = !cf ? '' : html`<p id="lsb-confirm" class="confirm" role="group" aria-label="Confirm: ${cf.q}"><b>${cf.q}</b> <button type="button" class="qa btnp" data-lb="cyes" data-fk="c-yes">${cf.yes}</button><button type="button" class="qa" data-lb="cno" data-fk="c-no">Cancel</button></p>`;
+  const fac = html`<label for="lsb-fac">Faction for Fill and Complete</label><select id="lsb-fac" data-lb="fac" data-fk="fac">${(l.factions || []).map((f) => html`<option value="${f.id}" ${f.id == F ? 'selected' : ''}>${f.name}${f.id == mineF ? ' (your faction)' : ''}</option>`)}</select><span class="note" title="The faction of the next Fill faction goal, Complete or bulk click. Choosing it writes nothing.">starts on your own faction</span>`;
+  const sum = html`<p id="lsb-sum" aria-live="polite">${lbSumText(hs, l)}</p>`;
+  const res = html`<p id="lsb-result" role="status" tabindex="-1" ${LP.bad ? html`class="bad"` : LP.warn ? html`class="warn"` : ''}>${LP.say}</p>`;
+  const legend = html`<p class="legend2" id="lsb-legend"><b>Writes at once</b>, with a backup first; a raise also pays its missions. Not checked in the game yet.</p>`;
+  if (split) {
+    return html`<div class="actbar" role="group" aria-label="Actions on the board">
+      <div class="barpart bp-choose" data-bar="choose" role="group" aria-label="Choose houses for the actions on several houses">${choose}</div>
+      <div class="barpart bp-act" data-bar="act" role="group" aria-label="Act on the chosen houses"><div class="actrow" role="group" aria-label="Act on several houses at once">${bulks}</div><div class="actrow facrow">${fac}</div>${sum}</div>
+      <div class="barpart bp-ask" data-bar="ask">${ask}${res}${legend}</div>
+    </div>`;
+  }
   return html`<div class="actbar" role="group" aria-label="Actions on the board">
-    <div class="actrow" role="group" aria-label="Act on several houses at once"><button type="button" class="qa" data-lb="pickall" data-fk="b-all">Choose all houses</button><button type="button" class="qa" data-lb="pickno" data-fk="b-none">Clear the choice</button><button type="button" class="qa btnp" data-lb="bulk" data-do="fill" data-fk="b-fill" aria-describedby="lsb-legend" title="Raises your contribution on every chosen house to its highest reward tier (never lowered) and writes what the missions pay: Solari, House Scrip and specialization XP. The question shows the totals before anything is written. Does nothing while another faction is chosen.">Fill chosen</button><button type="button" class="qa btnp" data-lb="bulk" data-do="complete" data-fk="b-complete" title="Marks every chosen house complete for the faction below and sets that faction's progress on it to the house goal (never lowered).">Complete chosen</button><button type="button" class="qa" data-lb="bulk" data-do="reopen" data-fk="b-reopen" title="Reopens the chosen houses: clears the completion and the winner. Progress and contributions stay as they are, so this does not set back what Complete wrote.">Reopen chosen</button></div>
-    ${cf ? html`<p id="lsb-confirm" class="confirm" role="group" aria-label="Confirm: ${cf.q}"><b>${cf.q}</b> <button type="button" class="qa btnp" data-lb="cyes" data-fk="c-yes">${cf.yes}</button><button type="button" class="qa" data-lb="cno" data-fk="c-no">Cancel</button></p>` : ''}
-    <div class="actrow"><label for="lsb-fac">Faction for Fill and Complete</label><select id="lsb-fac" data-lb="fac" data-fk="fac">${(l.factions || []).map((f) => html`<option value="${f.id}" ${f.id == F ? 'selected' : ''}>${f.name}${f.id == mineF ? ' (your faction)' : ''}</option>`)}</select><span class="note" title="The faction of the next Fill faction goal, Complete or bulk click. Choosing it writes nothing.">starts on your own faction</span></div>
-    <p id="lsb-sum" aria-live="polite">${lbSumText(hs, l)}</p>
-    <p id="lsb-result" role="status" tabindex="-1" ${LP.bad ? html`class="bad"` : LP.warn ? html`class="warn"` : ''}>${LP.say}</p>
-    <p class="legend2" id="lsb-legend"><b>Writes at once</b>, with a backup first; a raise also pays its missions. Not checked in the game yet.</p>
+    <div class="actrow" role="group" aria-label="Act on several houses at once">${choose}${bulks}</div>
+    ${ask}
+    <div class="actrow">${fac}</div>
+    ${sum}
+    ${res}
+    ${legend}
     ${lbAbout('lsb.tiers', 'tiers', html`<p><b>A tier click pays what its missions pay.</b> Click a tier (the boxes in the opened row) to give your character that tier: your contribution is raised to the tier's threshold, and contribution is cumulative, so <b>click tier 3 and tiers 1 to 3 are reached</b>. Click the highest reached tier again to remove it (the contribution drops to the tier below, or to none for tier 1). The Choose box on each row picks houses for the bulk buttons. Each tier box shows what the click grants before you press it.</p>
       <p><b>What a raise writes</b>, in one edit with a backup first:</p>
       <ul><li>your contribution, raised to the tier;</li><li>the same ground added to your faction's progress while the house is open (the house is taken when that reaches the goal);</li><li>one reward for each tier crossed, waiting at the house representative (the 6,000 tier follows the swatch rule);</li><li>for each mission, as a mission with a Recollection turned in pays it: 6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization line of the house (whether a mission without a Recollection pays the House Scrip and the XP is not known).</li></ul>
@@ -2559,20 +2577,31 @@ function lbApply() {
 }
 function lbSumNow() { const sm = $('#lsb-sum'); if (sm && LD) sm.textContent = lbSumText(LD.tasks.map((r) => lbHouse(r, LD)), LD); lbPhoneSync(); }
 // ---- where the parts of the board sit (presentation only: nothing here asks, answers or writes) ----
-// The action bar is drawn after the board's box and is put into the board's grid directly under the board panel, so the order of the keys is the order of the eyes. The question about one house is
-// drawn in the Actions block of the House Intelligence panel while that panel is on the same house, and the panel shows a copy of the result line next to its buttons. The board draws itself again
-// on a select or a filter, so what was put into it goes back to its own place before (lbUnseat) and is put in its place again after (lbSeat).
-const lbBarNode = () => $('#lsb .actbar, #lsb-board > #lsb-result, #lsb .lcc-bd-slot > #lsb-result');
+// The action bar is drawn after the board's box in three parts (data-bar) and the parts are seated in the board's control bar, the bar above the 5 by 5: the choose buttons in the line of Jump to House, the
+// actions with the faction box and the count of the chosen houses as the next line of the bar, and the question, the result line and the note on a write directly under the bar, before the cards. So the
+// order of the keys is the order of the eyes. The question about one house is drawn in the Actions block of the House Intelligence panel while that panel is on the same house, and the panel shows a copy
+// of the result line next to its buttons. The board draws itself again on a select or a filter, so what was put into it goes back to its own place before (lbUnseat) and is put in its place again after
+// (lbSeat). The parts and their slots: choose, act and bar (the slot of the question and the result line).
+const LB_PARTS = [['choose', 'choose'], ['act', 'act'], ['ask', 'bar']];
+const lbPart = (k) => $('#lsb [data-bar="' + k + '"]');
+const lbBarNode = () => $('#lsb-board > #lsb-result, #lsb .lcc-bd-slot > #lsb-result');
 function lbUnseat() {
-  const home = $('#lsb-board'), bar = lbBarNode(), c = $('#lsb-confirm');
-  if (c && bar && bar.classList.contains('actbar') && c.parentNode !== bar) { const row = bar.querySelector('.actrow'); if (row) row.after(c); }
-  if (home && bar && bar.parentNode !== home) home.appendChild(bar);
+  const home = $('#lsb-board'), bar = $('#lsb-board > .actbar'), c = $('#lsb-confirm');
+  if (bar) {
+    for (const [k] of LB_PARTS) { const p = lbPart(k); if (p && p.parentNode !== bar) bar.appendChild(p); }
+    const ask = lbPart('ask');
+    if (c && ask && c.parentNode !== ask) ask.prepend(c);
+    return;
+  }
+  const res = lbBarNode();
+  if (home && res && res.parentNode !== home) home.appendChild(res);
 }
 function lbSeat(container) {
   const lcc = container || $('#lsb-lcc');
   if (!lcc) return;
-  const bar = lbBarNode(), slot = lcc.querySelector('[data-lcc-slot="bar"]');
-  if (bar && slot && bar.parentNode !== slot) slot.appendChild(bar);
+  for (const [k, slotName] of LB_PARTS) { const p = lbPart(k), slot = lcc.querySelector('[data-lcc-slot="' + slotName + '"]'); if (p && slot && p.parentNode !== slot) slot.appendChild(p); }
+  const res = lbBarNode(), slot = lcc.querySelector('[data-lcc-slot="bar"]');
+  if (res && slot && res.parentNode !== slot) slot.appendChild(res);
   const c = $('#lsb-confirm'), ask = lcc.querySelector('.lcc-bd-insp [data-lcc-slot="ask"]'), insp = ask && ask.closest('.lcc-bd-insp'), q = LP.confirm;
   if (c && ask && q && q.one && q.ids.length === 1 && insp.getAttribute('data-id') === String(q.ids[0])) ask.appendChild(c);
   lbMirror();
@@ -2605,7 +2634,7 @@ function lbPhoneClick(e) {
   const b = e.target && e.target.closest ? e.target.closest('[data-pb]') : null;
   if (!b) return;
   e.preventDefault();
-  const t = $('#lsb .actbar [data-lb="bulk"][data-do="' + b.dataset.pb + '"]');
+  const t = $('#lsb [data-lb="bulk"][data-do="' + b.dataset.pb + '"]');
   if (t) t.click();
 }
 // The board is drawn by the Command Center scripts, from the loaded read, into #lsb-lcc. host is how those scripts ask this page for what only this page knows (the sentences of a click, the
@@ -2649,7 +2678,7 @@ function lbDecreesKnown() {
 }
 window.LCC_HOST = {
   ctl: lbCtl, decree: lbDecreeNow, decrees: lbDecreesKnown, picks: () => LP.pick, filtered: lbBoardFiltered, goPath: specGoPath,
-  unseat: lbUnseat, seat: lbSeat, // presentation only: where the action bar, the question and a copy of the result line are drawn
+  unseat: lbUnseat, seat: lbSeat, // presentation only: where the parts of the action bar, the question and a copy of the result line are drawn
   // the faction box of the Inspector's actions drives the board's own faction box (choosing a faction writes nothing)
   setFac: (v) => { const s = $('#lsb-fac'); if (!s || s.disabled) return; s.value = String(v); s.dispatchEvent(new Event('change', { bubbles: true })); },
   get: (k) => browserStore.get('lsb.' + k), set: (k, v) => browserStore.set('lsb.' + k, v),

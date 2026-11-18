@@ -1,4 +1,5 @@
-// Display remediation B, in the page's own code (jsdom): the bulk-edit bar sits in the board's grid right after the board panel and survives a redraw of the board, the House Intelligence panel keeps its
+// Display remediation B, in the page's own code (jsdom): the whole action bar (choose, act, faction, count) is drawn in the control bar above the 5 by 5 (tau #914), the question and the result line stand
+// directly under it, and all of it survives a redraw of the board, the House Intelligence panel keeps its
 // scroll position and its opened notes over a redraw, the Actions block is first, the question about one House is drawn in the panel and a copy of the result line stands next to the buttons, the
 // notes are disclosures, and the bar of the chosen houses for a phone follows the choice and presses the action bar's own buttons. What the controls send is in lcc-board-requests.test.mjs.
 import test, { afterEach } from 'node:test';
@@ -20,36 +21,114 @@ async function open(answer = synthetic()) {
 const look = (ui, a, name) => click(ui, '[data-fk="ht:' + idOf(a, name) + '"]');
 const pick = (ui, a, names) => { for (const n of names) { const c = ui.doc.querySelector('.lcc-bd-pick[data-id="' + idOf(a, n) + '"]'); c.checked = true; c.dispatchEvent(new ui.w.Event('change', { bubbles: true })); } };
 
-test('the bulk-edit bar sits in the board grid right after the board panel, before the victory analysis and the panel, so the order of the keys is the order of the eyes', async () => {
+test('the whole action bar is in the control bar above the 5 by 5: the choose buttons in the line of Jump to House, the actions, the faction and the count on the next line, the question and the result line under the bar (#914)', async () => {
   const ui = await open();
   const grid = ui.doc.querySelector('.lcc-bd-grid');
-  assert.deepEqual([...grid.children].map((c) => c.className.split(' ')[0]), ['lcc-bd-surface', 'lcc-bd-slot', 'lcc-bd-side']);
-  const slot = grid.querySelector('.lcc-bd-slot');
-  assert.equal(slot.firstElementChild.className, 'actbar');
-  assert.equal(slot.firstElementChild.getAttribute('aria-label'), 'Actions on the board', 'the group keeps its name');
-  assert.equal(ui.doc.querySelector('#lsb-board > .actbar'), null, 'and it is not left after the board');
-  // the focusable controls come in the order they are drawn: the cards, the bar, then the panel
+  assert.deepEqual([...grid.children].map((c) => c.className.split(' ')[0]), ['lcc-bd-surface', 'lcc-bd-side'], 'nothing is drawn between the board panel and the side column any more');
+  const bar = ui.doc.querySelector('.lcc-bd-filters');
+  assert.equal(bar.getAttribute('aria-label'), 'Filter and look at the board', 'the control bar keeps its name');
+  // choose: in the line of Jump to House, one group with it
+  const line = bar.querySelector('.lcc-bd-jumpline');
+  assert.ok(line && line.querySelector('#lcc-bd-jump'), 'Jump to House is in the line');
+  const choose = line.querySelector('[data-lcc-slot="choose"] .barpart[data-bar="choose"]');
+  assert.ok(choose, 'the choose buttons are in the same group as Jump to House');
+  assert.deepEqual([...choose.querySelectorAll('button')].map((b) => [text(b), b.dataset.lb, b.dataset.fk]), [['Choose all houses', 'pickall', 'b-all'], ['Clear the choice', 'pickno', 'b-none']], 'the same data attributes as before');
+  assert.equal(choose.getAttribute('role'), 'group');
+  // act: Fill, Complete, Reopen, the faction with its note, the count
+  const act = bar.querySelector('[data-lcc-slot="act"] .barpart[data-bar="act"]');
+  assert.ok(act, 'the actions are in the control bar');
+  assert.deepEqual([...act.querySelectorAll('button')].map((b) => [text(b), b.dataset.lb, b.dataset.do, b.dataset.fk]), [['Fill chosen', 'bulk', 'fill', 'b-fill'], ['Complete chosen', 'bulk', 'complete', 'b-complete'], ['Reopen chosen', 'bulk', 'reopen', 'b-reopen']]);
+  assert.equal(text(act.querySelector('label[for="lsb-fac"]')), 'Faction for Fill and Complete');
+  const fac = act.querySelector('select#lsb-fac');
+  assert.ok(fac && fac.dataset.lb === 'fac' && fac.dataset.fk === 'fac');
+  assert.equal(text(fac.options[fac.selectedIndex]), 'Atreides (your faction)');
+  assert.equal(text(act.querySelector('.note')), 'starts on your own faction', 'the hint stays as it is');
+  assert.ok(act.querySelector('.note').getAttribute('title'), 'and keeps its title');
+  const sum = act.querySelector('#lsb-sum');
+  assert.equal(sum.getAttribute('aria-live'), 'polite', 'the count of the chosen houses stays in a live region');
+  assert.equal(text(sum), 'Nothing is chosen.');
+  // the question, the result line and the note on a write: directly under the control bar, before the cards
+  const slot = ui.doc.querySelector('.lcc-bd-panel > .lcc-bd-slot');
+  assert.ok(slot && bar.nextElementSibling === slot, 'directly under the bar');
+  assert.equal(slot.querySelector('#lsb-result').getAttribute('role'), 'status');
+  assert.equal(text(slot.querySelector('#lsb-legend')), 'Writes at once, with a backup first; a raise also pays its missions. Not checked in the game yet.');
+  assert.ok(slot.compareDocumentPosition(ui.doc.querySelector('.lcc-bd-stage')) & ui.w.Node.DOCUMENT_POSITION_FOLLOWING, 'before the cards');
+  // only the collapsed About sections of the bar are dropped
+  assert.equal(ui.doc.querySelectorAll('#lsb-board details.about').length, 0, 'no About section of the action bar is drawn on the board');
+  assert.equal(ui.doc.querySelector('#lsb-board > .actbar').childElementCount, 0, 'nothing is left in a bar under the board');
+  // the focusable controls come in the order they are drawn: the filters and the jump, the choose buttons, the actions and the faction, then the cards, then the panel
   look(ui, synthetic(), 'Wallach');
-  const order = [...ui.doc.querySelectorAll('.lcc-hc-select, .lcc-bd-pick, .actbar button, .actbar select, .lcc-bd-insp button, .lcc-bd-insp select')];
-  const area = (e) => (e.closest('.lcc-bd-insp') ? 2 : e.closest('.actbar') ? 1 : 0);
-  assert.deepEqual(order.map(area), [...order.map(area)].sort(), 'cards, then the bar, then the panel');
-  assert.ok(order.some((e) => area(e) === 1) && order.some((e) => area(e) === 2));
+  const names = ['#lcc-bd-jump', '[data-fk="b-all"]', '[data-fk="b-none"]', '[data-fk="b-fill"]', '[data-fk="b-complete"]', '[data-fk="b-reopen"]', '#lsb-fac', '.lcc-bd-pick', '.lcc-bd-insp button'];
+  const nodes = names.map((n) => ui.doc.querySelector(n));
+  assert.ok(nodes.every(Boolean));
+  for (let i = 1; i < nodes.length; i++) assert.ok(nodes[i - 1].compareDocumentPosition(nodes[i]) & ui.w.Node.DOCUMENT_POSITION_FOLLOWING, names[i - 1] + ' comes before ' + names[i]);
   const lcc = ui.doc.querySelector('section.lcc-bd');
   assert.equal(lcc.getAttribute('aria-labelledby'), 'lcc-bd-h', 'the landmark of the board keeps its name');
+});
+
+test('the classic list keeps its action bar as it was (one bar, the About sections included)', async () => {
+  const ui = await boot({ get: { '/api/landsraad': synthetic() }, local: { tab: 'landsraad', 'lsb.view': 'classic' } });
+  await ui.settle();
+  const bar = ui.doc.querySelector('#lsb-board > .actbar');
+  assert.ok(bar, 'the bar is in the classic board');
+  assert.deepEqual([...bar.querySelectorAll('button')].map((b) => b.dataset.fk), ['b-all', 'b-none', 'b-fill', 'b-complete', 'b-reopen']);
+  assert.ok(bar.querySelector('#lsb-fac') && bar.querySelector('#lsb-sum') && bar.querySelector('#lsb-result') && bar.querySelector('#lsb-legend'));
+  assert.deepEqual([...bar.querySelectorAll('details.about > summary')].map((s) => text(s)), ['About tiers', 'About Fill and Complete']);
+  assert.equal(bar.querySelector('[data-bar]'), null, 'it is not drawn in parts');
+});
+
+test('each control of the action bar in the control bar sends the request the classic list sends for the same choice', async () => {
+  const a = synthetic();
+  const namesOf = (kind) => (kind === 'reopen' ? ['Hurata', 'Vernius'] : ['Sor', 'Lindaren', 'Kenola']);
+  const run = async (view, kind, faction) => {
+    const ui = view === 'classic'
+      ? await boot({ get: { '/api/landsraad': a }, post: { '/api/landsraad/apply': OK }, local: { tab: 'landsraad', 'lsb.view': 'classic' } })
+      : await open(a);
+    await ui.settle();
+    for (const n of namesOf(kind)) { const c = ui.doc.querySelector((view === 'classic' ? '.pick' : '.lcc-bd-pick') + '[data-id="' + idOf(a, n) + '"]'); c.checked = true; c.dispatchEvent(new ui.w.Event('change', { bubbles: true })); }
+    if (faction !== undefined) { const f = ui.doc.querySelector('#lsb-fac'); f.value = String(faction); f.dispatchEvent(new ui.w.Event('change', { bubbles: true })); }
+    click(ui, view === 'classic' ? '#lsb-board > .actbar [data-fk="b-' + kind + '"]' : '.lcc-bd-filters [data-fk="b-' + kind + '"]');
+    await ui.settle();
+    assert.ok(ui.doc.querySelector('#lsb-confirm'), view + ' ' + kind + ' ' + faction + ': the question is asked before a write: ' + text(ui.doc.querySelector('#lsb-result')));
+    assert.equal(ui.posted.length, 0, view + ': nothing is written before the answer');
+    const q = text(ui.doc.querySelector('#lsb-confirm b'));
+    click(ui, '#lsb-confirm [data-fk="c-yes"]');
+    await ui.settle();
+    const out = { q, posted: ui.posted.map((p) => ({ path: p.path, body: p.body })) };
+    closeAll();
+    return out;
+  };
+  const other = a.factions.find((f) => f.id !== a.character.faction_id).id;
+  for (const [kind, faction] of [['fill'], ['complete'], ['reopen'], ['complete', other]]) {
+    const board = await run('board', kind, faction), classic = await run('classic', kind, faction);
+    assert.ok(board.posted.length >= 1, kind + ': a request is sent');
+    assert.deepEqual(board.posted, classic.posted, kind + (faction !== undefined ? ' for another faction' : '') + ': the same request');
+    assert.equal(board.q.split('?')[0], classic.q.split('?')[0], 'the question names the same action');
+  }
+  // choose all and clear the choice
+  const ui = await open(a);
+  click(ui, '.lcc-bd-filters [data-fk="b-all"]');
+  assert.equal(ui.doc.querySelectorAll('.lcc-bd-pick:checked').length, 25, 'Choose all houses chooses the houses shown');
+  assert.match(text(ui.doc.querySelector('#lsb-sum')), /^Chosen: 25 houses\./);
+  click(ui, '.lcc-bd-filters [data-fk="b-none"]');
+  assert.equal(ui.doc.querySelectorAll('.lcc-bd-pick:checked').length, 0);
+  assert.equal(text(ui.doc.querySelector('#lsb-sum')), 'Nothing is chosen.');
+  assert.equal(ui.posted.length, 0, 'choosing writes nothing');
 });
 
 test('the bar and what is chosen survive a redraw of the board (a select, a filter, a layout switch)', async () => {
   const a = synthetic();
   const ui = await open(a);
   pick(ui, a, ['Sor', 'Kenola']);
-  const bar = ui.doc.querySelector('.actbar');
+  const parts = ['choose', 'act', 'ask'].map((k) => ui.doc.querySelector('[data-bar="' + k + '"]'));
+  assert.ok(parts.every(Boolean));
   click(ui, '[data-fk="bf:hs:open"]');
   look(ui, a, 'Wallach');
   click(ui, '[data-fk="bf:layout:list"]');
   click(ui, '[data-fk="bf:layout:grid"]');
-  assert.equal(ui.doc.querySelectorAll('.actbar').length, 1);
-  assert.equal(ui.doc.querySelector('.actbar').parentNode.getAttribute('data-lcc-slot'), 'bar');
-  assert.equal(ui.doc.querySelector('.actbar'), bar, 'the same element: nothing in it was drawn again');
+  for (const k of ['choose', 'act', 'ask']) assert.equal(ui.doc.querySelectorAll('[data-bar="' + k + '"]').length, 1);
+  assert.deepEqual(['choose', 'act', 'ask'].map((k) => ui.doc.querySelector('[data-bar="' + k + '"]').parentNode.getAttribute('data-lcc-slot')), ['choose', 'act', 'bar'], 'each part is in its own place of the control bar');
+  assert.deepEqual(['choose', 'act', 'ask'].map((k) => ui.doc.querySelector('[data-bar="' + k + '"]')), parts, 'the same elements: nothing in them was drawn again');
   assert.match(text(ui.doc.querySelector('#lsb-sum')), /^Chosen: /);
 });
 
@@ -103,7 +182,7 @@ test('the question about one House is drawn in the panel next to the buttons; a 
   assert.equal(ui.doc.activeElement.getAttribute('data-fk'), 'c-no', 'the safe answer has the focus');
   look(ui, a, 'Kenola'); // the panel is on another House: the question is not about it
   const q2 = ui.doc.querySelector('#lsb-confirm');
-  assert.ok(q2 && q2.closest('.actbar'), 'it is back in the action bar and still there to answer');
+  assert.ok(q2 && q2.closest('[data-bar="ask"]') && q2.closest('.lcc-bd-slot'), 'it is back under the control bar and still there to answer');
   click(ui, '[data-fk="c-no"]');
   assert.equal(ui.doc.querySelector('#lsb-confirm'), null);
   assert.match(text(ui.doc.querySelector('#lcc-bd-eres')), /^Cancelled\. Nothing was written\.$/, 'the copy of the result line says the same as the result line');
@@ -112,7 +191,7 @@ test('the question about one House is drawn in the panel next to the buttons; a 
   pick(ui, a, ['Sor', 'Lindaren']);
   click(ui, '[data-fk="b-complete"]');
   await ui.settle();
-  assert.ok(ui.doc.querySelector('#lsb-confirm').closest('.actbar'), 'a question about several Houses is the action bar\'s');
+  assert.ok(ui.doc.querySelector('#lsb-confirm').closest('.lcc-bd-slot'), 'a question about several Houses is the action bar\'s, drawn under the control bar');
   assert.equal(ui.doc.querySelector('.lcc-bd-ask').childElementCount, 0);
 });
 
@@ -144,7 +223,7 @@ test('the bar of the chosen houses for a phone follows the choice and presses th
   assert.equal(text(bar.querySelector('.pn')), '0 chosen');
   pick(ui, a, ['Sor', 'Lindaren', 'Kenola']);
   const pressed = [];
-  for (const b of ui.doc.querySelectorAll('.actbar [data-lb="bulk"]')) b.addEventListener('click', () => pressed.push(b.dataset.do));
+  for (const b of ui.doc.querySelectorAll('.lcc-bd-filters [data-lb="bulk"]')) b.addEventListener('click', () => pressed.push(b.dataset.do));
   click(ui, '[data-pb="complete"]');
   await ui.settle();
   assert.deepEqual(pressed, ['complete'], 'a press of the phone bar is a press of the action bar\'s button');
