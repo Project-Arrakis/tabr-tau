@@ -279,13 +279,13 @@ test('stacked layout (under 1080 px of the tab): no empty band beside the House 
   assert.deepEqual(unguarded(appBare.slice(appBare.indexOf('@supports selector(:has(*)) and (container-type: inline-size) {'))), []);
 });
 
-test('markup order is the visual order: the bulk-edit bar has its own place in the board grid, right after the board panel, and no landmark wrapper is flattened with display: contents', () => {
+test('markup order is the visual order: the action bar is part of the board panel\'s control bar (not a place of the board grid), and no landmark wrapper is flattened with display: contents', () => {
   assert.doesNotMatch(appBare.slice(appBare.indexOf('@supports selector(:has(*)) and (container-type: inline-size) {')), /#lsb-lcc[^{}]*\{[^}]*display: contents/);
   assert.doesNotMatch(appBare.slice(appBare.indexOf('Command Center board view: width')), /\.lcc-bd(-grid)?\s*\{[^}]*display: contents/);
   assert.doesNotMatch(appBare, /\.actbar[^{}]*\{[^}]*grid-area/, 'the bar is not placed by a grid area of the page card any more');
   const appRules = parse(appBare);
-  assert.ok(appRules.some((r) => r.at === '@container lsbv (min-width: 1080px)' && r.sel === '.lsb #lsb-board .lcc-bd-grid' && /grid-template-areas: "pn sd" "ab sd" "fl sd"/.test(r.body)), 'beside the board: the board panel and the bar in the left column, the side column on the right');
-  assert.ok(appRules.some((r) => r.at === '@container lsbv (min-width: 1080px)' && r.sel === '.lsb #lsb-board .lcc-bd-grid > .lcc-bd-slot' && /grid-area: ab/.test(r.body)));
+  assert.ok(appRules.some((r) => r.at === '@container lsbv (min-width: 1080px)' && r.sel === '.lsb #lsb-board .lcc-bd-grid' && /grid-template-areas: "pn sd" "fl sd"/.test(r.body)), 'beside the board: the board panel in the left column, the side column on the right');
+  assert.ok(!appRules.some((r) => /\.lcc-bd-grid > \.lcc-bd-slot/.test(r.sel)), 'the question and the result line are in the panel, no longer a place of the grid');
 });
 
 test('phones: the bar of the chosen houses is sticky at the bottom, clear of the home bar and of a focused control; the cards have no crest; the way back is shown where the panel is not beside the board', () => {
@@ -396,4 +396,22 @@ test('the folded notes use the board palette, not the page link blue: a visible 
   assert.ok(rules.some((r) => r.sel === '.lcc-bd .lcc-bd-disc > summary:hover' && /underline/.test(r.body)), 'underlined on hover');
   const fc = rules.find((r) => r.at === '@media (forced-colors: active)' && /\.lcc-bd \.lcc-bd-disc > summary/.test(r.sel));
   assert.ok(fc && /color: CanvasText/.test(fc.body), 'forced colours: the system text colour');
+});
+
+test('the action bar in the control bar (#914): one group with Jump to House that wraps, controls of 36 px (44 px on a phone or a touch screen), type of 12 px or more, forced colours', () => {
+  // the board's own side: the line of Jump to House holds the choose slot and wraps; the slots are not drawn while empty; the actions are a line of their own
+  const jl = rules.find((r) => r.sel === '.lcc-bd-jumpline');
+  assert.ok(jl && /display: inline-flex/.test(jl.body) && /flex-wrap: wrap/.test(jl.body), 'Jump to House and the choose buttons are one group that wraps');
+  assert.ok(rules.some((r) => r.sel === '.lcc-bd-barslot:empty' && /display: none/.test(r.body)), 'an empty slot is not drawn');
+  assert.ok(rules.some((r) => r.sel === '.lcc-bd-actslot' && /flex: 1 1 100%/.test(r.body)), 'the actions are a line of the bar');
+  assert.ok(rules.some((r) => /^@media \(max-width: 640px\), \(pointer: coarse\)$/.test(r.at) && r.sel === '.lcc-bd-filters .lcc-bd-chip' && /min-height: 44px/.test(r.body)), 'the chips of the bar are 44 px on a phone');
+  // the page's side: the parts the page seats there
+  const own = rules.filter((r) => /\.barpart/.test(r.sel));
+  assert.ok(own.length > 10);
+  for (const r of own) for (const m of r.body.matchAll(/font:\s*(?:\d+\s+)?(\d+)px/g)) assert.ok(+m[1] >= 12, 'text under 12 px in ' + r.sel + ': ' + m[1]);
+  assert.ok(own.some((r) => r.sel === '.lcc-bd .barpart .qa' && /min-height: 36px/.test(r.body) && /white-space: normal/.test(r.body)), 'a button is 36 px tall and wraps its words');
+  assert.ok(own.some((r) => r.sel === '.lcc-bd .barpart select' && /min-height: 36px/.test(r.body)));
+  assert.ok(own.some((r) => /^@media \(max-width: 640px\), \(pointer: coarse\)$/.test(r.at) && /\.barpart \.qa/.test(r.sel) && /\.barpart select/.test(r.sel) && /min-height: 44px/.test(r.body)), 'a touch target is 44 px');
+  assert.ok(own.some((r) => r.at === '@media (forced-colors: active)' && /ButtonFace/.test(r.body) && /ButtonText/.test(r.body)), 'forced colours: system colours');
+  assert.ok(own.some((r) => r.sel === '.lcc-bd .barpart #lsb-sum' && /flex: 1 1 100%/.test(r.body)), 'the count of the chosen houses has a line of its own');
 });
