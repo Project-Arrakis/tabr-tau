@@ -333,8 +333,8 @@
     kids.push(sv('rect', { class: 'lcc-art-line lcc-glow-line', x: 52, y: 633.8, width: 464, height: 2.4, fill: g('goldh') }));
     kids.push(sv('rect', { class: 'lcc-art-line lcc-glow-line', x: mirror(516), y: 633.8, width: 464, height: 2.4, fill: g('goldh') }));
     kids.push(diamond(556), diamond(mirror(556)));
-    const session = 'M706,523 L742,490 H1430 L1466,523 L1430,556 H742 Z';
-    kids.push(sv('path', { d: session, fill: g('plate') }), strokePath(session, g('gold'), 3.5), strokePath('M720,523 L750,498 H1422 L1452,523 L1422,548 H750 Z', GOLD.lo, 1.4, { opacity: 0.8 }));
+    const session = 'M646,523 L682,490 H1490 L1526,523 L1490,556 H682 Z';
+    kids.push(sv('path', { d: session, fill: g('plate') }), strokePath(session, g('gold'), 3.5), strokePath('M660,523 L690,498 H1482 L1512,523 L1482,548 H690 Z', GOLD.lo, 1.4, { opacity: 0.8 }));
     // the two vertical rules are drawn last, so nothing in this layer is ever painted over them; the one at x 1577 is the HELD BY rule
     kids.push(sv('rect', { class: 'lcc-art-rule lcc-glow-line', x: 711, y: 36, width: 3.5, height: 98, rx: 1.5, fill: g('vr') }));
     kids.push(sv('rect', { class: 'lcc-art-rule lcc-art-rule-held lcc-glow-line', x: 1577, y: 36, width: 3.5, height: 98, rx: 1.5, fill: g('vr') }));
@@ -395,12 +395,12 @@
   // summaryText(a, h): the whole tally in words, for the track's label and for readers who do not see the seats.
   function summaryText(a, h) {
     if (!isCount(a) || !isCount(h) || a + h > SEATS) return 'The tally of the 25 seats is not available.';
-    return 'Tally of the 25 seats: Atreides ' + a + ', Harkonnen ' + h + ', open ' + (SEATS - a - h) + '. Seats fill from the left for Atreides and from the right for Harkonnen. Seat 13 is the gold middle seat.';
+    return 'Tally of the 25 seats: Atreides ' + a + ', Harkonnen ' + h + ', open ' + (SEATS - a - h) + '. Seats fill from the left for Atreides and from the right for Harkonnen. Seat 13 is the gold middle seat, the majority mark: 13 of 25 Houses.';
   }
 
   const TEXT = {
     decreeLabel: 'ACTIVE DECREE', noDecree: 'No active decree', noEffect: '', contributors: 'TOP CONTRIBUTORS', noContributors: 'Not in the save',
-    session: 'VOTING SESSION · SEAT 13 OF 25', atreides: 'HOUSE ATREIDES', harkonnen: 'HOUSE HARKONNEN', houses: 'HOUSES', unavailable: 'Tally not available',
+    session: 'VOTING SESSION · MAJORITY AT 13 OF 25 HOUSES', atreides: 'HOUSE ATREIDES', harkonnen: 'HOUSE HARKONNEN', houses: 'HOUSES', unavailable: 'Tally not available',
   };
 
   // renderPlaque(vm): the approved decree and voting plaque as a read-only view of plain values.

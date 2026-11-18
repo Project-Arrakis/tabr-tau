@@ -140,7 +140,7 @@
   .lcc-pl-held { left: 73.66%; width: 17.1%; top: 5%; height: 13.8%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .5em; }
   .lcc-pl-held .lcc-heldby-l { font-size: clamp(12px, 1.15cqw, 26px); }
   .lcc-pl-held .lcc-heldby-n { font-size: clamp(12px, 1.2cqw, 28px); white-space: nowrap; }
-  .lcc-pl-session { left: 32.5%; width: 35%; top: 67.7%; height: 9.1%; display: flex; align-items: center; justify-content: center; font: 500 clamp(12px, 1.5cqw, 33px)/1 var(--lcc-sans); letter-spacing: .08em; color: #f6e2b3; text-shadow: 0 2px 2px #050207; white-space: nowrap; text-transform: uppercase; }
+  .lcc-pl-session { left: 29.74%; width: 40.52%; top: 67.7%; height: 9.1%; display: flex; align-items: center; justify-content: center; font: 500 clamp(12px, 1.2cqw, 27px)/1 var(--lcc-sans); letter-spacing: .04em; color: #f6e2b3; text-shadow: 0 2px 2px #050207; white-space: nowrap; text-transform: uppercase; }
   /* the standards: the cloth is drawn in the artwork (rod, cloth, crest, ornament); this box is the words, from just under the crest to just above the ornament, and the same box mirrored for the other faction */
   .lcc-plaque .lcc-pl-std-a, .lcc-plaque .lcc-pl-std-h { top: 40%; width: 11.6%; height: 28%; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 0 1.1%; background: none; border: 0; clip-path: none; overflow: hidden; }
   .lcc-pl-std-a { left: 2.95%; } .lcc-pl-std-h { left: 85.45%; }
@@ -193,7 +193,7 @@
   .lcc-pl-held .lcc-heldby-l { font-size: 12px; } .lcc-pl-held .lcc-heldby-n { font-size: 14px; white-space: normal; }
   .lcc-track { position: relative; width: 100%; height: auto; aspect-ratio: 1528 / 285; overflow: hidden; left: auto; top: auto; }
   .lcc-track-svg { position: absolute; display: block; width: 142.15%; height: auto; left: -21.2%; top: -75.44%; }
-  .lcc-pl-session { align-self: center; justify-content: center; padding: 6px 18px; border: 2px solid var(--lcc-gold); font-size: 13px; letter-spacing: .08em; text-align: center; white-space: normal; background: #120b04; }
+  .lcc-pl-session { align-self: center; justify-content: center; padding: 6px 18px; border: 2px solid var(--lcc-gold); font-size: 13px; letter-spacing: .08em; text-align: center; white-space: normal; text-wrap: balance; background: #120b04; }
   .lcc-pl-foot { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 12px; }
   .lcc-pl-faction { display: grid; grid-template-rows: auto auto; justify-items: center; gap: 12px; position: relative; }
   .lcc-pl-nameplate { grid-row: 1; padding: 4px 14px; min-height: 26px; font-size: 12px; max-width: 100%; white-space: normal; text-align: center; line-height: 1.1; background: linear-gradient(180deg, #ffeaa6, #e3b24d 55%, #a8731f); clip-path: polygon(0 50%, 10% 0, 90% 0, 100% 50%, 90% 100%, 10% 100%); }
