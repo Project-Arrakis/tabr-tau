@@ -64,3 +64,12 @@ None of these blocks M2 (art and shell) or M3 (board and inspector over existing
 ## E. Change control
 
 A row changes only with evidence in the row. A new write route, a schema change, a live source for rankings or missions, a change to the `design` or `kit` public surface, or a new game-art licence question is a separate decision and is not covered by anything here.
+
+## F. Decisions of M3 (the live board)
+
+1. The classic list is the default view of the Landsraad tab and the fallback when the Command Center files are not loaded; the choice of view is remembered in the browser only.
+2. The board has no write code of its own: its controls carry the classic list's `data-lb` attributes, so one handler, one request builder, one stale guard and one write queue serve both views (see `06-m3-live-board.md`, section 1.1).
+3. On the board only, a single click that would replace another faction's win asks first. The classic list keeps writing at once; changing that is a decision for the classic list, not for M3.
+4. A count of Houses is never called a win: the outline for a faction that holds more than half of the Houses is worded as a count, because the save has no vote-start snapshot (D03 stays open).
+5. `--lcc-glow-win` (1) and `--lcc-outline-win` are separate from the plaque's `--lcc-glow`. The animated border is optional, needs Motion Full and no reduced-motion request, and is checked in the script and in the style.
+5a. A board that fails its checks (not 25 Houses, a position outside 0 to 24, a duplicate) is shown as a read-only list with the reasons and no number.

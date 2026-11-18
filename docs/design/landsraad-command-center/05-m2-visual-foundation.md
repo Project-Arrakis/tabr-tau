@@ -49,7 +49,7 @@ The plaque is the approved dark artwork in both themes, so its golds are pinned 
 | Cloth standard (A, H) | `lcc-standard` | up to five lines, "Not in the save" when there are none |
 | Badges | `lcc-badge`, `-demo`, `-ref` | FIXTURE and READ-ONLY are words, not colours |
 | Reachable tooltip | `lcc-tt` | real text, `aria-describedby`, shown on hover and focus |
-| Voting plaque | `lcc-plaque-host` > `lcc-plaque` | container-query layout, wide above 900 px, narrow below, stacked head under 520 px |
+| Voting plaque | `lcc-plaque-host` > `lcc-plaque` | container-query layout, wide from 940 px, narrow below, stacked head under 520 px |
 | Lane card | `lcc-lane` | one native button; XP cap and keystones are two separate tags |
 | House card | `lcc-house` | one native button; owner in words and a mark, `data-victory` is one outline |
 
@@ -57,7 +57,7 @@ The plaque is the approved dark artwork in both themes, so its golds are pinned 
 
 * A vector underlay in a 2172 x 724 coordinate system (the size of the approved artwork), a track, and DOM text over them in percent with `cqw` sizes. It is built in vector form, not from the approved screenshot, so it is crisp at any width and the words are real text.
 * 25 seats at an equal pitch with an equal inset at both ends. Seat 13 (index 12) is always the gold middle seat with its own gold border and halo; it takes the colour and mark of its owner when claimed and stays open and gold otherwise (D16). Atreides fills from the left, Harkonnen from the right. A count that cannot be read (negative, fractional, above 25, or together above 25) lights nothing and says "unavailable".
-* Wording follows D05: the plaque says "SEAT 13 OF 25", and a lead is "Atreides lead 12 to 4 · 9 Houses open · vote not confirmed". It never says a House has won.
+* Wording follows D05: the plaque says "SEAT 13 OF 25", and a lead is "Atreides lead 12 to 4 · 9 Houses open". It never says a House has won.
 * The vertical rule between the decree and HELD BY is one element drawn after everything else in the underlay, so nothing paints over it (a test checks that there is exactly one and that it is last). Straight gold lines are thin rectangles, because a gradient sized by the box of a zero-height line does not draw. The line between a nameplate and its count is gold and carries the diamond at its centre (a test checks it).
 * The narrow layout is a crop of the same artwork, not a second track: one set of seats in the DOM.
 
@@ -116,7 +116,7 @@ Geometry and state
 - [ ] Atreides from the left, Harkonnen from the right; the 13th takes its owner's colour and mark.
 - [ ] Counts that cannot be read light nothing and say so.
 - [ ] Cut-corner gold frame, header band, pointed track tips, cloth standards with their rods.
-- [ ] Wording: "SEAT 13 OF 25", "vote not confirmed", "Not in the save" for contributors; no word says a House has won.
+- [ ] Wording: "SEAT 13 OF 25", "Not in the save" for contributors; no word says a House has won.
 
 The five risky crops (a side-by-side with the approved reference is captured for each; see 7)
 
@@ -165,9 +165,9 @@ Variances from the approved V20 picture, for human approval:
 | Cloth standards and shields | game-drawn crests | the same crest pictures (see 4.1) | resolved |
 | Claimed 13th seat | white crest on the gold hub, no colour change | white crest on the gold seat in the owner's colour (the M2 rule that the 13th takes its owner's colour) | intentional |
 | Open seats | round unclaimed medallion | drawn bronze seat | not resolved |
-| Session wording | "13 HOUSES WIN" | "SEAT 13 OF 25" and "vote not confirmed" (D05, D16) | intentional |
+| Session wording | "13 HOUSES WIN" | "SEAT 13 OF 25" (D05, D16) | intentional |
 | Contributors | demo guild names | "Not in the save" (D07, D15) | intentional |
-| Layout below 900 px | none in the reference | a narrow re-layout and a stacked head under 520 px | intentional, needs approval |
+| Layout below 940 px | none in the reference | a narrow re-layout and a stacked head under 520 px | intentional, needs approval |
 
 Not done in M2: any wiring into the editor, any write path, any live data, the numeric pixel diff, a real-device or real-browser run on a phone, a screen reader run, a high-contrast run on Windows (forced colours was emulated), and a visual check by the operator.
 

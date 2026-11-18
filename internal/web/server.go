@@ -555,8 +555,9 @@ func (s *Server) routes() {
 	for path, ct := range map[string]string{
 		"/app.css": "text/css; charset=utf-8", "/app.js": "text/javascript; charset=utf-8", "/html.js": "text/javascript; charset=utf-8", "/motion-boot.js": "text/javascript; charset=utf-8", "/look-boot.js": "text/javascript; charset=utf-8", "/theme-menu.js": "text/javascript; charset=utf-8",
 		"/livemap.js": "text/javascript; charset=utf-8", "/favicon.svg": "image/svg+xml", "/maps/hagga-basin.png": "image/png", "/maps/deep-desert.png": "image/png",
-		// the Command Center's styles and helpers (no live page links them yet; the Landsraad and Specialization views of later milestones will)
-		"/lcc/lcc.css": "text/css; charset=utf-8", "/lcc/lcc.js": "text/javascript; charset=utf-8"} {
+		// the Command Center's styles and scripts: the Landsraad tab's board view uses them (the Specialization view of a later milestone will too)
+		"/lcc/lcc.css": "text/css; charset=utf-8", "/lcc/lcc.js": "text/javascript; charset=utf-8", "/lcc/lcc-model.js": "text/javascript; charset=utf-8",
+		"/lcc/lcc-board.css": "text/css; charset=utf-8", "/lcc/lcc-board.js": "text/javascript; charset=utf-8"} {
 		file, ctype := "static"+path, ct
 		s.mux.HandleFunc("GET "+path, func(w http.ResponseWriter, r *http.Request) {
 			b, err := static.ReadFile(file)
@@ -573,9 +574,9 @@ func (s *Server) routes() {
 	// and served read-only from this origin: the page links the files of design.DefaultLook (#570). design.Handler lists no folder and sends each file with its own type.
 	s.mux.Handle("/design/", http.StripPrefix("/design/", design.Handler()))
 
-	// The Live Map's marker icons, the Landsraad tab's house symbols and the Command Center's art (house symbols, lane icons, path banners, decree pictures, faction crests, the cloth standards' feet): the files of the embedded folders, listed once
+	// The Live Map's marker icons, the Landsraad tab's house symbols and the Command Center's art (house symbols, lane icons, path banners, decree pictures, faction crests, the cloth standards' feet, the specialization badges): the files of the embedded folders, listed once
 	// here. The list comes from the build, never from the request, so a request can only name a file that was embedded (anything else is a 404).
-	for _, folder := range []string{"maps/icons", "houses", "lcc/art/houses", "lcc/art/lanes", "lcc/art/banners", "lcc/art/decrees", "lcc/art/factions", "lcc/art/standards"} {
+	for _, folder := range []string{"maps/icons", "houses", "lcc/art/houses", "lcc/art/lanes", "lcc/art/banners", "lcc/art/decrees", "lcc/art/factions", "lcc/art/standards", "lcc/art/specs"} {
 		icons, err := static.ReadDir("static/" + folder)
 		if err != nil {
 			continue

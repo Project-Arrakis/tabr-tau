@@ -61,6 +61,8 @@
   const trackAsset = (folder, track) => { const k = norm(track); return KEY_OK.test(k) && TRACKS.indexOf(k) >= 0 ? hit(folder, k, k) : null; };
   const laneAsset = (track) => trackAsset('lanes', track); // the scroll icon of a specialization: the Specializations view
   const bannerAsset = (track) => trackAsset('banners', track); // the path banner icon: the Landsraad view, beside a House
+  // the diamond badge of a path on a House card (the approved design's own specialization icon, 84 x 84 PNG); the same five keys, never a name
+  const specAsset = (track) => { const k = norm(track); return KEY_OK.test(k) && TRACKS.indexOf(k) >= 0 ? Object.freeze({ key: k, file: 'specs/' + k + '.png', src: artBase + 'specs/' + k + '.png', fallback: false, width: 84, height: 84 }) : null; };
   // decreeAsset(id) always answers: the picture of a known decree, or the neutral picture marked fallback: true.
   function decreeAsset(id) {
     const k = norm(typeof id === 'number' ? '' : id);
@@ -105,7 +107,7 @@
     const who = s.state === 'a' ? FACTION.a : s.state === 'h' ? FACTION.h : 'open';
     return 'Slot ' + s.slot + ' of ' + (total || SEATS) + ' — ' + who + (s.center ? ' (the gold middle seat)' : '');
   }
-  // A short factual line for the middle of the plaque. It reports the current count and never a result: a lead is "current", and the vote is not confirmed here (decision D05).
+  // A short factual line for the middle of the plaque. It reports the current count and never a result: a lead is "current" and the line never says a House has won (decision D05; the victory panel says that no winner is confirmed).
   function standingLine(a, h) {
     if (!isCount(a) || !isCount(h) || a + h > SEATS) return 'HOUSE COUNT UNAVAILABLE';
     const open = SEATS - a - h;
@@ -113,7 +115,7 @@
     if (a === h) return 'HOUSE COUNT EVEN AT ' + a + ' · ' + tail;
     const lead = a > h ? 'ATREIDES' : 'HARKONNEN';
     const hi = Math.max(a, h), lo = Math.min(a, h);
-    return lead + ' LEAD ' + hi + ' TO ' + lo + ' · ' + tail + ' · VOTE NOT CONFIRMED';
+    return lead + ' LEAD ' + hi + ' TO ' + lo + ' · ' + tail;
   }
 
   // ---- small element helpers ----------------------------------------------------------------------------------------------------------------------------------------------
@@ -182,7 +184,8 @@
     return w;
   }
   // A label that says what the data is. kind: 'demo' (fixture values on a preview page), 'readonly' (shown, never written here) or 'ref' (a reference value, not the save's).
-  const BADGE = Object.freeze({ demo: 'FIXTURE · DEMO DATA', readonly: 'READ-ONLY', ref: 'REFERENCE' });
+  // 'save' and 'derived' (M3) say where a live figure comes from: read from the save, or worked out by the page from what the save holds; 'unverified' marks a result the game has not been seen to confirm.
+  const BADGE = Object.freeze({ demo: 'FIXTURE · DEMO DATA', readonly: 'READ-ONLY', ref: 'REFERENCE', save: 'FROM THE SAVE', derived: 'WORKED OUT HERE', unverified: 'NOT CHECKED IN THE GAME' });
   const badge = (kind, text) => el('span', 'lcc-badge lcc-badge-' + (BADGE[kind] ? kind : 'readonly'), text || BADGE[kind] || BADGE.readonly);
   // A reachable tooltip: the trigger carries aria-describedby, the tip is real text beside it (shown on hover and on focus by the stylesheet; the module's own tooltip rules do the rest).
   function richTip(triggerText, tipText) {
@@ -204,8 +207,19 @@
   //   circuit : the card is one of the five connected Houses of a line (a single bright gold outline and a LINE badge)
   //   dominion: the card belongs to the faction that holds the House-count majority (a double border and a DOMINION badge); cards are not connected
   const VICTORY = Object.freeze({ circuit: 'LINE OF FIVE', dominion: 'MAJORITY HOUSE' });
+  // The animated border (class lcc-win-anim and a .lcc-win-sweep child that the style moves by transform) is added only when Motion is Full and the system has not asked for reduced motion.
+  // The style checks the same two things again, so this is the first of two gates, not the only one. Calm, Off and reduced motion get the still outline and nothing else.
+  function winAnimOn() {
+    const root = typeof document !== 'undefined' ? document.documentElement : null;
+    if (!root || root.getAttribute('data-motion') !== 'full') return false;
+    try { if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false; } catch (e) { /* no media query support: treat as not asked */ }
+    return true;
+  }
   function victory(elm, kind) {
-    if (kind === 'circuit' || kind === 'dominion') elm.setAttribute('data-victory', kind); else elm.removeAttribute('data-victory');
+    const on = kind === 'circuit' || kind === 'dominion';
+    if (on) elm.setAttribute('data-victory', kind); else elm.removeAttribute('data-victory');
+    for (const old of [...elm.children]) if (old.classList && old.classList.contains('lcc-win-sweep')) old.remove();
+    if (on && winAnimOn()) { elm.classList.add('lcc-win-anim'); elm.appendChild(el('span', 'lcc-win-sweep', '', { 'aria-hidden': 'true' })); } else elm.classList.remove('lcc-win-anim');
     return elm;
   }
 
@@ -274,12 +288,12 @@
       sv('path', { d: 'M20,520 L420,200 M2152,520 L1752,200' }),
     ]));
     // outer frame, header rule, body frame, footer rail (each with a soft glow copy under it)
-    for (const d of [cut(6, 6, 2160, 712, 26), 'M16,166 H2156']) kids.push(strokePath(d, GOLD.mid, 12, { opacity: 0.22, filter: g('blur') }));
+    for (const d of [cut(6, 6, 2160, 712, 26), 'M16,166 H2156']) kids.push(strokePath(d, GOLD.mid, 12, { opacity: 0.22, filter: g('blur'), class: 'lcc-glow lcc-glow-frame' }));
     // (a straight line cannot carry a gradient that is sized by its own box, so the straight rules are thin rectangles)
     kids.push(strokePath(cut(6, 6, 2160, 712, 26), g('gold'), 5));
     kids.push(strokePath(cut(16, 16, 2140, 692, 22), GOLD.lo, 1.5, { opacity: 0.8 }));
-    kids.push(sv('rect', { x: 16, y: 164.2, width: 2140, height: 3.6, fill: g('goldh') }));
-    kids.push(sv('rect', { x: 70, y: 686.5, width: 2032, height: 3, fill: g('goldh') }));
+    kids.push(sv('rect', { class: 'lcc-glow-line', x: 16, y: 164.2, width: 2140, height: 3.6, fill: g('goldh') }));
+    kids.push(sv('rect', { class: 'lcc-glow-line', x: 70, y: 686.5, width: 2032, height: 3, fill: g('goldh') }));
     kids.push(strokePath('M16,166 V690 M2156,166 V690', GOLD.mid, 3, { opacity: 0.9 }));
     // shields (Atreides left, Harkonnen right)
     const shield = (x0, fill, faction) => {
@@ -315,15 +329,15 @@
       return sv('g', null, [sv('path', { d, fill: g('gold') }), strokePath(d, GOLD.lo, 2), strokePath('M' + (x0 + 36) + ',583 H' + (x0 + w - 36), GOLD.hi, 1.5, { opacity: 0.8 })]);
     };
     kids.push(name(32, 336), name(W - 32 - 336, 336));
-    const diamond = (cx) => sv('path', { d: 'M' + cx + ',616 L' + (cx + 18) + ',635 L' + cx + ',654 L' + (cx - 18) + ',635 Z', fill: '#090914', stroke: g('gold'), 'stroke-width': 3.5 });
-    kids.push(sv('rect', { class: 'lcc-art-line', x: 52, y: 633.8, width: 464, height: 2.4, fill: g('goldh') }));
-    kids.push(sv('rect', { class: 'lcc-art-line', x: mirror(516), y: 633.8, width: 464, height: 2.4, fill: g('goldh') }));
+    const diamond = (cx) => sv('path', { d: 'M' + cx + ',616 L' + (cx + 18) + ',635 L' + cx + ',654 L' + (cx - 18) + ',635 Z', class: 'lcc-glow-edge', fill: '#090914', stroke: g('gold'), 'stroke-width': 3.5 });
+    kids.push(sv('rect', { class: 'lcc-art-line lcc-glow-line', x: 52, y: 633.8, width: 464, height: 2.4, fill: g('goldh') }));
+    kids.push(sv('rect', { class: 'lcc-art-line lcc-glow-line', x: mirror(516), y: 633.8, width: 464, height: 2.4, fill: g('goldh') }));
     kids.push(diamond(556), diamond(mirror(556)));
     const session = 'M706,523 L742,490 H1430 L1466,523 L1430,556 H742 Z';
     kids.push(sv('path', { d: session, fill: g('plate') }), strokePath(session, g('gold'), 3.5), strokePath('M720,523 L750,498 H1422 L1452,523 L1422,548 H750 Z', GOLD.lo, 1.4, { opacity: 0.8 }));
     // the two vertical rules are drawn last, so nothing in this layer is ever painted over them; the one at x 1577 is the HELD BY rule
-    kids.push(sv('rect', { class: 'lcc-art-rule', x: 711, y: 36, width: 3.5, height: 98, rx: 1.5, fill: g('vr') }));
-    kids.push(sv('rect', { class: 'lcc-art-rule lcc-art-rule-held', x: 1577, y: 36, width: 3.5, height: 98, rx: 1.5, fill: g('vr') }));
+    kids.push(sv('rect', { class: 'lcc-art-rule lcc-glow-line', x: 711, y: 36, width: 3.5, height: 98, rx: 1.5, fill: g('vr') }));
+    kids.push(sv('rect', { class: 'lcc-art-rule lcc-art-rule-held lcc-glow-line', x: 1577, y: 36, width: 3.5, height: 98, rx: 1.5, fill: g('vr') }));
     return sv('svg', { class: 'lcc-art', viewBox: '0 0 ' + W + ' ' + H, preserveAspectRatio: 'xMidYMid meet', 'aria-hidden': 'true', focusable: 'false' }, kids);
   }
 
@@ -344,17 +358,17 @@
     const body = 'M' + T.tipL + ',' + T.cy + ' L' + T.wallL + ',' + T.top + ' H' + T.wallR + ' L' + T.tipR + ',' + T.cy + ' L' + T.wallR + ',' + T.bottom + ' H' + T.wallL + ' Z';
     const inner = 'M' + (T.tipL + 24) + ',' + T.cy + ' L' + (T.wallL + 6) + ',' + (T.top + 12) + ' H' + (T.wallR - 6) + ' L' + (T.tipR - 24) + ',' + T.cy + ' L' + (T.wallR - 6) + ',' + (T.bottom - 12) + ' H' + (T.wallL + 6) + ' Z';
     const kids = [defs,
-      sv('path', { d: body, fill: 'none', stroke: g('rail'), 'stroke-width': 14, opacity: 0.35, filter: g('tblur') }),
+      sv('path', { class: 'lcc-glow lcc-glow-rail', d: body, fill: 'none', stroke: g('rail'), 'stroke-width': 14, opacity: 0.35, filter: g('tblur') }),
       sv('path', { d: body, fill: g('body') }),
       sv('path', { d: inner, fill: 'none', stroke: '#000', 'stroke-width': 10, opacity: 0.25 }),
       sv('path', { d: body, fill: 'none', stroke: g('tg'), 'stroke-width': 7, 'stroke-linejoin': 'miter' }),
-      sv('path', { d: inner, fill: 'none', stroke: g('rail'), 'stroke-width': 3, 'stroke-linejoin': 'miter' }),
+      sv('path', { class: 'lcc-glow-line', d: inner, fill: 'none', stroke: g('rail'), 'stroke-width': 3, 'stroke-linejoin': 'miter' }),
     ];
     // the middle gem above the hub and the point below it
     const gx = T.cx;
-    kids.push(sv('path', { d: 'M' + gx + ',226 L' + (gx + 34) + ',270 L' + gx + ',312 L' + (gx - 34) + ',270 Z', fill: g('sc'), stroke: GOLD.lo, 'stroke-width': 3, 'stroke-linejoin': 'round' }));
+    kids.push(sv('path', { d: 'M' + gx + ',226 L' + (gx + 34) + ',270 L' + gx + ',312 L' + (gx - 34) + ',270 Z', class: 'lcc-glow-edge', fill: g('sc'), stroke: GOLD.lo, 'stroke-width': 3, 'stroke-linejoin': 'round' }));
     kids.push(sv('path', { d: 'M' + gx + ',226 L' + (gx + 34) + ',270 L' + gx + ',286 L' + (gx - 34) + ',270 Z', fill: '#fff6cf', opacity: 0.35 }));
-    kids.push(sv('path', { d: 'M' + (gx - 16) + ',462 L' + gx + ',488 L' + (gx + 16) + ',462 Z', fill: g('tg'), stroke: GOLD.lo, 'stroke-width': 2 }));
+    kids.push(sv('path', { d: 'M' + (gx - 16) + ',462 L' + gx + ',488 L' + (gx + 16) + ',462 Z', class: 'lcc-glow-edge', fill: g('tg'), stroke: GOLD.lo, 'stroke-width': 2 }));
     // seats
     const states = seatStates(a, h) || seatStates(0, 0);
     const seats = sv('g', { class: 'lcc-seats' });
@@ -450,6 +464,9 @@
   const TRACK_LABEL = Object.freeze({ combat: 'Combat', crafting: 'Crafting', exploration: 'Exploration', gathering: 'Gathering', sabotage: 'Sabotage' });
   const houseTitle = (name) => String(name == null ? '' : name).replace(/^DA_House/i, '').replace(/^./, (c) => c.toUpperCase());
   // renderHouseCard(vm): vm = { name, owner: 'a'|'h'|'open'|'unknown', track, selected, oneAway, inLine, dominion, waiting }. A button: the whole card is the target.
+  // The live board (M3) adds four optional fields, all off when absent: number (the tile number 01 to 25, a board position), meter ({ reached, total }: the tiers of the character's own
+  // contribution), dim (the filters leave this House out: it stays on the board and says so) and compact (the five-by-five tile: the crest over the name, drawn small).
+  const pipText = (m) => (m && Number.isInteger(m.total) && m.total > 0 && Number.isInteger(m.reached) && m.reached >= 0 && m.reached <= m.total ? m : null);
   function renderHouseCard(vm) {
     vm = vm || {};
     const owner = OWNER[vm.owner] ? vm.owner : 'unknown';
@@ -457,13 +474,17 @@
     const b = el('button', 'lcc lcc-house', '', { type: 'button', 'aria-pressed': vm.selected ? 'true' : 'false', 'data-owner': owner, 'data-one-away': vm.oneAway ? 'true' : null, 'data-line': vm.inLine ? 'true' : null });
     if (vm.inLine) victory(b, 'circuit'); else if (vm.dominion) victory(b, 'dominion');
     if (vm.selected) b.setAttribute('data-selected', 'true');
+    if (vm.dim) b.setAttribute('data-dim', 'true');
+    if (vm.compact) b.setAttribute('data-compact', 'true');
+    const no = typeof vm.number === 'string' && /^[0-9]{2}$/.test(vm.number) ? vm.number : '';
+    if (no) b.appendChild(el('span', 'lcc-house-no', no, { 'aria-hidden': 'true' }));
     const crest = el('span', 'lcc-house-crest');
     const sym = houseAsset(vm.name);
     if (sym) crest.appendChild(art(sym, 'lcc-house-img', 40)); else crest.appendChild(el('span', 'lcc-house-initials', title.slice(0, 2).toUpperCase()));
     b.appendChild(crest);
     const body = el('span', 'lcc-house-body');
     body.appendChild(el('span', 'lcc-house-name', title));
-    body.appendChild(el('span', 'lcc-owner lcc-owner-' + owner, OWNER_GLYPH[owner] + ' ' + OWNER[owner]));
+    body.appendChild(el('span', 'lcc-owner lcc-owner-' + owner, OWNER_GLYPH[owner] + ' ' + OWNER[owner], { 'data-g': OWNER_GLYPH[owner] })); // data-g: the glyph alone, for the narrow tile (its word is then hidden, never its mark)
     const tr = trackAsset('banners', vm.track);
     if (tr) {
       const ph = el('span', 'lcc-house-path');
@@ -478,8 +499,15 @@
     if (vm.inLine) { flags.appendChild(el('span', 'lcc-flag lcc-flag-line', VICTORY.circuit)); notes.push('part of a line of five'); }
     else if (vm.dominion) { flags.appendChild(el('span', 'lcc-flag lcc-flag-dom', VICTORY.dominion)); notes.push('a House of the majority'); }
     if (vm.waiting > 0) { flags.appendChild(el('span', 'lcc-flag lcc-flag-wait', vm.waiting + ' WAITING')); notes.push(vm.waiting + ' reward' + (vm.waiting === 1 ? '' : 's') + ' waiting'); }
+    const mt = pipText(vm.meter);
+    if (mt) {
+      const pips = el('span', 'lcc-house-meter', '', { 'aria-hidden': 'true' });
+      for (let i = 0; i < mt.total; i++) pips.appendChild(el('i', i < mt.reached ? 'on' : ''));
+      b.appendChild(pips);
+      notes.push(mt.reached + ' of ' + mt.total + ' tiers reached');
+    }
     if (flags.childNodes.length) b.appendChild(flags);
-    b.setAttribute('aria-label', [title + ', ' + (owner === 'a' || owner === 'h' ? 'claimed by ' + OWNER[owner] : owner === 'open' ? 'open' : 'owner unreadable')].concat(vm.track && TRACK_LABEL[norm(vm.track)] ? ['path ' + TRACK_LABEL[norm(vm.track)]] : [], notes, vm.selected ? ['selected'] : []).join(', '));
+    b.setAttribute('aria-label', [(no ? 'Number ' + no + ', ' : '') + title + ', ' + (owner === 'a' || owner === 'h' ? 'claimed by ' + OWNER[owner] : owner === 'open' ? 'open' : 'owner unreadable')].concat(vm.track && TRACK_LABEL[norm(vm.track)] ? ['path ' + TRACK_LABEL[norm(vm.track)]] : [], notes, vm.dim ? ['not in the current filter'] : [], vm.selected ? ['selected'] : []).join(', '));
     return b;
   }
 
@@ -531,10 +559,10 @@
 
   const api = {
     HOUSES, TRACKS, DECREE_FILES, DECREE_FALLBACK, SEATS, CENTER, TRACK, GEOMETRY: Object.freeze({ W, H }),
-    config, houseAsset, laneAsset, bannerAsset, decreeAsset, factionAsset, standardTipAsset,
+    config, houseAsset, laneAsset, bannerAsset, specAsset, decreeAsset, factionAsset, standardTipAsset,
     seatStates, seatLabel, seatX, standingLine, summaryText, laneState,
-    pill, ruleV, heldBy, standard, badge, richTip, frame, victory, VICTORY,
-    renderPlaque, renderHouseCard, renderLaneCard,
+    pill, ruleV, heldBy, standard, badge, richTip, frame, victory, VICTORY, winAnimOn,
+    renderPlaque, renderHouseCard, renderLaneCard, el, houseTitle,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCC = api;

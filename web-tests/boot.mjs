@@ -55,6 +55,7 @@ export async function boot({ post = {}, get = {}, session = {}, local = {}, pre 
   if (pre) pre(w); // runs before the page's code does
   w.eval(read('html.js'));
   w.eval(read('livemap.js'));
+  for (const f of ['lcc/lcc.js', 'lcc/lcc-model.js', 'lcc/lcc-board.js']) w.eval(read(f)); // the page links these three before app.js; jsdom does not fetch a script, so they are run here in the same order
   w.eval(read('app.js'));
   const settle = async () => { for (let i = 0; i < 40; i++) { await new Promise((r) => w.setTimeout(r, 0)); if (inflight === 0 && i > 4) return; } };
   await settle();

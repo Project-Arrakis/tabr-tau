@@ -476,6 +476,9 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 @media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .lsb .crest img{filter:brightness(0) opacity(.8)}}
 .lsb .hn:hover .crest,.lsb .hn[aria-expanded="true"] .crest{box-shadow:0 0 0 2px var(--c-spice)}
 .lsb .hn:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
+.lsb .hno{display:inline-block;min-width:2.1em;padding:1px 5px;box-sizing:border-box;text-align:center;font:700 12px/1.4 var(--t-display);letter-spacing:.04em;font-variant-numeric:tabular-nums;color:var(--c-gold,var(--c-text));border:1px solid var(--c-bronze,var(--c-rule));background:var(--c-sunken)}
+.lsb .viewsw{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:0 0 12px}
+.lsb .viewsw .qa[aria-pressed="true"]{background:var(--c-spice);color:var(--c-ground);border-color:var(--c-spice)}
 .lsb .hcard{display:none;position:absolute;left:0;top:100%;margin-top:6px;z-index:42;width:min(320px,calc(100vw - 32px));padding:var(--s-3);background:var(--c-raised);border:1px solid var(--c-rule);border-radius:var(--r-3);box-shadow:var(--e-3);font:400 var(--t-sm)/1.4 var(--t-display);text-align:left;color:var(--c-text);cursor:default}
 .lsb .hcard::before{content:"";position:absolute;left:0;right:0;top:-8px;height:8px}
 @media (hover:hover){
@@ -803,3 +806,89 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 #vcpreview select[aria-invalid=true]{border-color:var(--bad)}
 @media (max-width:720px){#vcpreview td{min-width:0}}
 @media (pointer:coarse){#vcpreview td select{min-height:44px}}
+
+/* ==== Command Center board view: width, layout and the floor for the text of the tab (display only) ====
+   Content width: while the board is on, the page is as wide as the window up to 1800 px, and the nested padding is trimmed on a narrow window.
+   Layout: the board's own grid holds the board panel, the bulk-edit bar directly under it (the page puts the bar there, so the order of the keys is the order of the eyes) and the side column. From
+   1080 px of the tab the side column (victory analysis, then the House Intelligence panel, which stays in view while the board scrolls) stands beside the board and the bar; below that everything is
+   one column in the order plaque, figures, board, bulk-edit bar, victory analysis, House Intelligence. No wrapper is flattened with display: contents any more, so every landmark of the board is a
+   real box. All of it needs :has() and container queries; a browser without them keeps the plain stacked page, with no rule half applied. */
+@supports selector(:has(*)) and (container-type: inline-size) {
+  main:has(#lsb-lcc) { max-width: 1800px; }
+  .lsb:has(#lsb-lcc) { container: lsbv / inline-size; }
+  /* the board's own frame is not drawn here (the card of the tab is the frame) and it is no container of its own, so the container queries of the board follow the width of the tab */
+  .lsb #lsb-board > #lsb-lcc > .lcc-bd { container-type: normal; display: flex; flex-direction: column; padding: 0; border: 0; background: none; }
+  .lsb #lsb-board .lcc-bd-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; align-items: start; }
+  .lsb #lsb-board .lcc-bd-slot { min-width: 0; margin-top: 14px; }
+  .lsb #lsb-board .lcc-bd-slot:empty { display: none; }
+  .lsb #lsb-board .lcc-bd-slot > .actbar, .lsb #lsb-board .lcc-bd-slot > #lsb-result { margin: 0; }
+  .lsb #lsb-board .lcc-bd-grid > .lcc-bd-side { margin-top: 14px; }
+  @container lsbv (min-width: 1080px) {
+    .lsb #lsb-board .lcc-bd-grid { grid-template-columns: minmax(0, 1fr) clamp(284px, 27%, 480px); column-gap: 18px; grid-template-rows: auto auto 1fr; grid-template-areas: "pn sd" "ab sd" "fl sd"; }
+    .lsb #lsb-board .lcc-bd-grid > .lcc-bd-panel { grid-area: pn; }
+    .lsb #lsb-board .lcc-bd-grid > .lcc-bd-slot { grid-area: ab; }
+    .lsb #lsb-board .lcc-bd-grid > .lcc-bd-side { grid-area: sd; margin-top: 0; align-self: stretch; }
+    /* the question and the result line stay at the top of the panel while its ledger scrolls under them */
+    .lsb #lsb-board .lcc-bd-pin { position: sticky; top: 0; z-index: 3; }
+    /* the Inspector stays in view under the page header, and under the warning and the launch notice when one is shown (their height is text, so the room left for them is a fair allowance) */
+    .lsb #lsb-board .lcc-bd-insp { position: sticky; top: calc(var(--hdr-h) + 12px + var(--lsb-warn-room, 0px)); align-self: flex-start; width: 100%; box-sizing: border-box;
+      max-height: calc(100vh - var(--hdr-h) - var(--lsb-warn-room, 0px) - 24px); max-height: calc(100dvh - var(--hdr-h) - var(--lsb-warn-room, 0px) - 24px);
+      overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+  }
+  @media (min-width: 721px) {
+    body:has(#gamewarn.warn, #gamewarn.info, #launchpass.info) { --lsb-warn-room: 76px; }
+  }
+  /* stacked (under 1080 px of the tab): the victory analysis is a full-width band and the House Intelligence panel spans the full width under it, so no tall empty space is left beside a short panel;
+     from 860 px the panel runs the head, the identity, the actions and the banner across its width and then the personal reward ledger beside the two scales, the note and the place, so the long
+     ledger does not become one very tall column of wide rows and no column is left empty */
+  @container lsbv (min-width: 860px) and (max-width: 1079px) {
+    .lsb #lsb-board .lcc-bd-insp { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 28px; grid-auto-flow: row dense; align-content: start; }
+    .lsb #lsb-board .lcc-bd-insp > * { grid-column: 1 / -1; }
+    .lsb #lsb-board .lcc-bd-insp > .lcc-bd-ledger { grid-column: 1; grid-row: span 4; }
+    .lsb #lsb-board .lcc-bd-insp > [aria-labelledby="lcc-bd-s1"], .lsb #lsb-board .lcc-bd-insp > [aria-labelledby="lcc-bd-s2"], .lsb #lsb-board .lcc-bd-insp > .lcc-bd-disc,
+    .lsb #lsb-board .lcc-bd-insp > [aria-labelledby="lcc-bd-s5"] { grid-column: 2; }
+  }
+  /* a narrow tab keeps the padding small so the board gets the width */
+  @container lsbv (max-width: 1079px) {
+    .lsb #lsb-board.card { padding: 12px 8px; }
+  }
+  @container lsbv (max-width: 360px) {
+    .lsb #lsb-board.card { padding: 8px 6px; }
+  }
+  @media (max-width: 1100px) { main:has(#lsb-lcc) { padding: 14px; } }
+  @media (max-width: 900px) { main:has(#lsb-lcc) { padding: 8px; } }
+  @media (max-width: 380px) { main:has(#lsb-lcc) { padding: 6px; } }
+  @media (max-width: 768px) {
+    .lsb #lsb-board .actbar .actrow label { display: inline-flex; align-items: center; min-height: 36px; }
+    .lsb:has(#lsb-lcc) th[tabindex] { padding-top: 10px; padding-bottom: 10px; }
+  }
+  /* the floor for the rest of the Landsraad tab (headings and labels 12 px, small print 11 px) while the board view is on */
+  .lsb:has(#lsb-lcc) .d-head, .lsb:has(#lsb-lcc) summary, .lsb:has(#lsb-lcc) .abt, .lsb:has(#lsb-lcc) .abt p { font-size: 12px; }
+  .lsb:has(#lsb-lcc) .src { font-size: 11px; line-height: 17px; }
+}
+
+/* ==== Command Center board view: the question beside the buttons, and the bar of the chosen houses on a phone (display only) ====
+   The question about one house is drawn in the Actions block of the House Intelligence panel (the page moves it there), so it takes the same look as in the action bar. The bar of the chosen houses
+   is for a phone (a window of 640 px or less, or a touch screen up to 900 px): it stays at the bottom of the window while the board is on screen, holds the same three buttons as the action bar (a press
+   is a press of that button), keeps clear of the home bar of the phone, and the page leaves room for it when it scrolls a control into view. */
+.lsb .lcc-bd-ask .confirm { margin: 0; }
+.lsb .lcc-bd-ask .confirm .qa { width: auto; min-width: 5.5rem; min-height: 44px; }
+.lsb .phonebar { display: none; }
+@media (max-width: 640px), (pointer: coarse) and (max-width: 900px) {
+  .lsb .phonebar:not([hidden]) { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 6px; position: sticky; bottom: 0; z-index: 6; margin: 10px -6px -8px; padding: 6px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+    box-sizing: border-box; background: var(--c-raised); border-top: 2px solid var(--c-spice); box-shadow: 0 -6px 14px rgba(0, 0, 0, .35); }
+  .lsb .phonebar .pn { grid-column: 1 / -1; font: 600 12px/1.3 var(--t-display); color: var(--c-text); }
+  .lsb .phonebar .qa { width: auto; min-width: 0; min-height: 44px; padding: 4px 6px; white-space: normal; line-height: 1.2; text-align: center; }
+  @supports selector(:has(*)) {
+    html:has(.phonebar:not([hidden])) { scroll-padding-bottom: 110px; }
+  }
+}
+@media (forced-colors: active) {
+  .lsb .phonebar:not([hidden]) { background: Canvas; border-top-color: CanvasText; box-shadow: none; }
+}
+@supports selector(:has(*)) and (container-type: inline-size) {
+  /* the way back to the board is shown where the House Intelligence panel is not beside the board */
+  @container lsbv (max-width: 1079px) {
+    .lsb #lsb-board .lcc-bd-back { display: inline-flex; }
+  }
+}

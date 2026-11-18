@@ -84,7 +84,7 @@
       w.appendChild(el('span', '', label));
       const s = el('select');
       for (const v of list) { const o = el('option', '', v, { value: v }); if (state[key] === v) o.selected = true; s.appendChild(o); }
-      s.addEventListener('change', () => { state[key] = s.value; apply(); });
+      s.addEventListener('change', () => { state[key] = s.value; apply(); if (key === 'motion') drawWinSamples(); });
       w.appendChild(s);
       f.appendChild(w);
     };
@@ -155,7 +155,33 @@
     const dom = el('div', 'lccg-grid lccg-grid-houses', '', { role: 'group', 'aria-label': 'Majority Houses (fixture)' });
     FIX.houses.dominion.forEach((n, i) => dom.appendChild(L.renderHouseCard({ name: n, owner: 'h', dominion: true, track: tracks[i % 5] })));
     s.appendChild(dom);
+    s.appendChild(el('h3', '', 'Win tokens: --lcc-glow-win and --lcc-outline-win'));
+    s.appendChild(el('p', 'lccg-hint', '--lcc-glow-win (1 = the full light of the approved look; it is not scaled by --lcc-glow, which only softens the plaque) and --lcc-outline-win (3px solid gold) are the two tokens a winning House uses. Left: the still outline, which is all that shows in Calm, in Off and when the browser asks for reduced motion. Right: the optional animated border, a slow gold arc travelling round the outline; it moves only when Motion is Full. Both mean a count or a line of five, never the word win.'));
+    const win = el('div', 'lccg-grid lccg-grid-houses', '', { role: 'group', 'aria-label': 'Win outline samples (fixture)', id: 'lccg-win' });
+    s.appendChild(win);
+    winHost = win;
+    drawWinSamples();
     root.appendChild(s);
+  }
+
+  // the samples of the win outline, drawn again when the Motion choice changes (the animated border is added when a card is drawn, from the Motion setting of that moment)
+  let winHost = null;
+  function drawWinSamples() {
+    if (!winHost) return;
+    winHost.textContent = '';
+    const full = L.winAnimOn();
+    const sample = (vm, animated, label) => {
+      const w = el('figure', 'lccg-cell');
+      const card = L.renderHouseCard(vm);
+      if (!animated) { card.classList.remove('lcc-win-anim'); for (const c of [...card.children]) if (c.classList.contains('lcc-win-sweep')) c.remove(); }
+      w.appendChild(card);
+      w.appendChild(el('figcaption', '', animated && !full ? label + ' (Motion is not Full, or reduced motion is asked for: the still outline shows)' : label));
+      winHost.appendChild(w);
+    };
+    sample({ name: FIX.houses.line[0], owner: 'a', inLine: true, track: 'combat' }, false, 'Line of five: still outline');
+    sample({ name: FIX.houses.line[0], owner: 'a', inLine: true, track: 'combat' }, true, 'Line of five: animated border');
+    sample({ name: FIX.houses.dominion[0], owner: 'h', dominion: true, track: 'combat' }, false, 'Majority of the Houses: still outline');
+    sample({ name: FIX.houses.dominion[0], owner: 'h', dominion: true, track: 'combat' }, true, 'Majority of the Houses: animated border');
   }
 
   function primitives() {
