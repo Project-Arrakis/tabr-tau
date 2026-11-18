@@ -19,6 +19,15 @@
   const TRACK_WORD = Object.freeze({ combat: 'Combat', crafting: 'Crafting', exploration: 'Exploration', gathering: 'Gathering', sabotage: 'Sabotage' });
   const OWNER_WORD = Object.freeze({ a: 'Atreides', h: 'Harkonnen', open: 'Open', unknown: 'Unreadable' });
   const NOT_IN_SAVE = 'Not in the save';
+  // A House the save says is taken but that shows nothing of the character's own (#911): said in words, never as "0 of 5 reached". The tiers are the character's own ladder, so with no row of the
+  // character none is reached, and with no tier rows at all there is no ladder to show.
+  const TAKEN_NO_TIERS = 'Taken - no tier record in the save';
+  const TAKEN_NO_MINE = 'Taken - no contribution of yours';
+  const TAKEN_NO_TIERS_WHY = 'This House is taken, and the save holds no reward tiers for it.';
+  const TAKEN_NO_MINE_WHY = 'This House is taken. The save holds no contribution of yours to it, so none of your five tiers is reached: that is your own ladder, not the faction’s.';
+  const takenWhy = (h) => (h.takenNoTiers ? TAKEN_NO_TIERS_WHY : h.takenNoMine ? TAKEN_NO_MINE_WHY : '');
+  // the contributors of a list, as the text of one line: the biggest first, "name amount"
+  const contribLine = (list, n) => list.slice(0, n).map((c) => c.label + ' ' + fmt(c.amount)).join(' · ');
   // The five states of one reward tier, as the approved design shows them: the class of the box, its mark, and the words. A tier the character has not reached is always "not reached", whatever the
   // reward row says; a reached tier with no delivery record (or a record that disagrees with the contribution) is a question mark and is never counted as collected.
   const TIER_CLASS = Object.freeze({ delivered: 'delivered', waiting: 'waiting', no_row: 'uncertain', unknown: 'uncertain' });
@@ -76,7 +85,15 @@
     let standing;
     if (!ready) standing = 'HOUSE COUNT UNAVAILABLE · BOARD NOT COMPLETE';
     else if (c.unknown > 0) standing = 'COUNT INCOMPLETE · ' + c.unknown + (c.unknown === 1 ? ' HOUSE' : ' HOUSES') + ' UNREADABLE';
-    return L().renderPlaque({ a, h, decree: shownDecree(host), holder: board.term ? board.term.reigning : null, contributors: null, standing, demo: state.preview !== '' });
+    // the contributors the save records under each faction, the biggest first (worked out here from the rows of the term: the save holds amounts, not a ranking); none is "Not in the save"
+    const cs = board.contributors || { a: [], h: [] };
+    const lines = (k) => (cs[k].length ? cs[k].slice(0, 3).map((c) => c.label + ' · ' + fmt(c.amount)) : null);
+    const node = L().renderPlaque({ a, h, decree: shownDecree(host), holder: board.term ? board.term.reigning : null, contributors: { a: lines('a'), h: lines('h') }, standing, demo: state.preview !== '' });
+    for (const st of node.querySelectorAll ? node.querySelectorAll('.lcc-standard') : []) {
+      const k = st.classList.contains('lcc-f-h') ? 'h' : 'a', hd = st.querySelector('.lcc-standard-h');
+      if (hd) hd.setAttribute('title', cs[k].length ? 'The biggest contributors under ' + FACTION_WORD[k] + ' in the contribution rows of this term in the save, worked out here: the save holds amounts, not a ranking.' : 'The save holds no contribution rows under ' + FACTION_WORD[k] + ' for the Houses of this term.');
+    }
+    return node;
   }
   // DECREE PREVIEW: a read-only chooser that shows how a decree looks in the plaque. It has no data-lb and sends nothing: the save's active decree is changed only on the Term and decrees panel.
   function preview(board, host) {
@@ -281,15 +298,17 @@
     if (route && !inLine) sel.appendChild(el('span', 'lcc-flag lcc-flag-route lcc-hc-badge', route.badge));
     const notes = [];
     if (h.waiting > 0) notes.push(h.waiting + ' reward' + (h.waiting === 1 ? '' : 's') + ' waiting');
-    sel.setAttribute('aria-label', [(h.number ? 'Number ' + h.number + ', ' : '') + h.name + ', ' + (owner === 'a' || owner === 'h' ? 'claimed by ' + OWNER_WORD[owner] : owner === 'open' ? 'open' : 'owner unreadable')].concat(h.track ? ['path ' + trackWord(h.track)] : ['specialization not in the save'], h.tierCount ? [h.reached + ' of ' + h.tierCount + ' tiers reached', h.collected + ' collected'] : ['no tiers in the save'], notes, h.unknownDelivery ? [h.unknownDelivery + ' with no delivery record'] : [], inLine ? ['part of a line of five held by ' + FACTION_WORD[h.owner] + ': ' + listWords(lines.map(lineWord))] : [], dom ? ['one of the Houses of the faction that holds more than half'] : [], route ? [route.say] : [], dim ? ['not in the current filter'] : []).join(', '));
-    sel.setAttribute('title', 'House ' + h.name + ', ' + (h.pos ? h.pos.words + '. ' : '') + (route ? route.say + '. ' : '') + (inLine ? lineSays + '. The Houses as they stand now, not a vote result. ' : '') + (dom ? 'One of the ' + FACTION_WORD[major] + ' Houses, who hold more than half of the Houses now: a count of Houses, not a vote result, and ' + NOT_VERIFIED + '. ' : '') + 'Click to see its tiers and actions.');
+    sel.setAttribute('aria-label', [(h.number ? 'Number ' + h.number + ', ' : '') + h.name + ', ' + (owner === 'a' || owner === 'h' ? 'claimed by ' + OWNER_WORD[owner] : owner === 'open' ? 'open' : 'owner unreadable')].concat(h.track ? ['path ' + trackWord(h.track)] : ['specialization not in the save'], h.takenNoTiers ? ['taken, no tier record in the save'] : h.takenNoMine ? ['taken, no contribution of yours in the save, so none of your tiers is reached'] : h.tierCount ? [h.reached + ' of ' + h.tierCount + ' tiers reached', h.collected + ' collected'] : ['no tiers in the save'], notes, h.unknownDelivery ? [h.unknownDelivery + ' with no delivery record'] : [], inLine ? ['part of a line of five held by ' + FACTION_WORD[h.owner] + ': ' + listWords(lines.map(lineWord))] : [], dom ? ['one of the Houses of the faction that holds more than half'] : [], route ? [route.say] : [], dim ? ['not in the current filter'] : []).join(', '));
+    sel.setAttribute('title', 'House ' + h.name + ', ' + (h.pos ? h.pos.words + '. ' : '') + (route ? route.say + '. ' : '') + (inLine ? lineSays + '. The Houses as they stand now, not a vote result. ' : '') + (dom ? 'One of the ' + FACTION_WORD[major] + ' Houses, who hold more than half of the Houses now: a count of Houses, not a vote result, and ' + NOT_VERIFIED + '. ' : '') + (takenWhy(h) ? takenWhy(h) + ' ' : '') + 'Click to see its tiers and actions.');
     card.appendChild(sel);
     const ctl = editable && host && host.ctl ? host.ctl(h.id) : null;
     const tiers = el('div', 'lcc-hc-tiers', '', { role: 'group', 'aria-label': 'House ' + h.name + ' reward tiers' });
     h.tiers.forEach((t, i) => tiers.appendChild(tierBox(h, t, ctl && ctl.tiers ? ctl.tiers[i] : null)));
     card.appendChild(tiers);
     const count = el('div', 'lcc-hc-count');
-    if (h.tierCount) {
+    if (h.takenNoTiers) count.appendChild(el('b', '', TAKEN_NO_TIERS, { title: TAKEN_NO_TIERS_WHY, 'data-taken': 'no-tiers' }));
+    else if (h.takenNoMine) count.appendChild(el('b', '', TAKEN_NO_MINE, { title: TAKEN_NO_MINE_WHY, 'data-taken': 'no-mine' }));
+    else if (h.tierCount) {
       const sp = () => count.appendChild(root.document.createTextNode(' '));
       count.appendChild(el('b', '', h.reached + '/' + h.tierCount + ' REACHED'));
       sp();
@@ -353,8 +372,8 @@
     const ow = el('td', 'lcc-bd-c-owner'); ow.appendChild(ownerPill(h.owner)); tr.appendChild(ow);
     tr.appendChild(el('td', 'lcc-bd-c-path', trackWord(h.track) || '—'));
     tr.appendChild(locCell(h));
-    tr.appendChild(el('td', 'lcc-bd-c-state', ({ new: 'Not started', part: 'In progress', done: 'Top tier' })[h.state]));
-    tr.appendChild(el('td', 'lcc-bd-c-tiers', h.tierCount ? h.reached + ' of ' + h.tierCount : 'no tiers'));
+    tr.appendChild(el('td', 'lcc-bd-c-state', h.takenNoTiers || h.takenNoMine ? 'Taken, none of yours' : ({ new: 'Not started', part: 'In progress', done: 'Top tier' })[h.state], takenWhy(h) ? { title: takenWhy(h) } : undefined));
+    tr.appendChild(el('td', 'lcc-bd-c-tiers', h.takenNoTiers ? 'no tier record' : h.takenNoMine ? 'none of yours' : h.tierCount ? h.reached + ' of ' + h.tierCount : 'no tiers'));
     tr.appendChild(el('td', 'lcc-bd-c-next', h.next ? fmt(h.next.threshold) + ' (' + fmt(h.next.remaining) + ' more)' : h.tierCount ? 'top tier reached' : '—'));
     tr.appendChild(el('td', 'lcc-bd-c-wait', h.waiting ? String(h.waiting) : '0'));
     return tr;
@@ -653,14 +672,17 @@
 
     // the two scales, kept apart: the factions' progress against the house goal, then the character's own tiers
     const s1 = el('section', 'lcc-bd-sec', '', { 'aria-labelledby': 'lcc-bd-s1' });
-    const s1note = 'House goal: ' + known(h.goal) + '. A faction’s progress is the sum of its contributions to this House. Top contributors: ' + NOT_IN_SAVE + '. Missions: ' + NOT_IN_SAVE + '.';
+    const s1note = 'House goal: ' + known(h.goal) + '. A faction’s progress is the sum of its contributions to this House. Top contributors: ' + (h.contributors.length ? contribLine(h.contributors, 5) : NOT_IN_SAVE + (h.owner === 'a' || h.owner === 'h' ? ' (the save has no contributor row for this taken House)' : '')) + '. Missions: ' + NOT_IN_SAVE + '.';
     const s1h = secHead('FACTION HOUSE CONTROL', 'lcc-bd-s1', 'SAVE');
     s1h.setAttribute('title', s1note);
     s1.appendChild(s1h);
     s1.appendChild(fcRow('a', 'HOUSE ATREIDES', h.prog.a, h.goal));
     s1.appendChild(fcRow('h', 'HOUSE HARKONNEN', h.prog.h, h.goal));
     s1.appendChild(el('span', 'lcc-bd-sr', s1note));
-    s1.appendChild(el('p', 'lcc-bd-mut lcc-bd-nosave', 'Active Landsraad missions and top contributors are not recorded in this local save.'));
+    if (h.contributors.length) {
+      s1.appendChild(el('p', 'lcc-bd-mut lcc-bd-contrib', 'Contributors to this House, from the save, the biggest first: ' + contribLine(h.contributors, 5) + '.', { title: 'The order is worked out here: the save holds the amounts, not a ranking. A guild is shown by the name the save gives it.' }));
+      s1.appendChild(el('p', 'lcc-bd-mut lcc-bd-nosave', 'Active Landsraad missions are not recorded in this local save.'));
+    } else s1.appendChild(el('p', 'lcc-bd-mut lcc-bd-nosave', 'Top contributors: not in the save. ' + (h.owner === 'a' || h.owner === 'h' ? 'This House is taken but the save holds no contributor row for it (for example when it was completed from this editor). ' : '') + 'Active Landsraad missions are not recorded in this local save.'));
     side.appendChild(s1);
 
     const top = h.tierCount ? h.top : null;
@@ -681,7 +703,7 @@
     const s3 = el('section', 'lcc-bd-sec lcc-bd-ledger', '', { 'aria-labelledby': 'lcc-bd-s3' });
     const lh = el('div', 'lcc-bd-ledger-head');
     lh.appendChild(secHead('PERSONAL REWARD LEDGER', 'lcc-bd-s3', 'SAVE + DERIVED'));
-    lh.appendChild(el('span', 'lcc-bd-ledger-n', h.reached + ' OF ' + h.tierCount + ' REACHED'));
+    lh.appendChild(el('span', 'lcc-bd-ledger-n', h.takenNoTiers ? 'TAKEN · NO TIER RECORD IN THE SAVE' : h.takenNoMine ? 'TAKEN · NO CONTRIBUTION OF YOURS' : h.reached + ' OF ' + h.tierCount + ' REACHED', takenWhy(h) ? { title: takenWhy(h) } : undefined));
     s3.appendChild(lh);
     const sumSaid = h.reached + ' of ' + h.tierCount + ' reached · ' + h.waiting + ' waiting to collect · ' + h.collected + ' collected · ' + h.unknownDelivery + ' delivery unknown.';
     const sum = el('div', 'lcc-bd-stats', '', { role: 'group', 'aria-label': 'House rewards summary: ' + sumSaid, title: sumSaid });
@@ -690,7 +712,8 @@
     sum.appendChild(stat('ok', String(h.collected), 'Collected'));
     sum.appendChild(stat('wait', String(h.waiting), 'To collect'));
     sum.appendChild(stat('rest', String(h.notReached), 'Not reached'));
-    s3.appendChild(sum);
+    if (h.takenNoTiers || h.takenNoMine) s3.appendChild(el('p', 'lcc-bd-mut lcc-bd-taken-note', takenWhy(h)));
+    else s3.appendChild(sum);
     if (h.unknownDelivery) s3.appendChild(el('p', 'lcc-bd-alert', '“Delivery unknown” means the tier is reached and the save has no delivery row for it this term: it is not shown as collected or waiting.'));
     const heading = el('div', 'lcc-bd-tier-heading', '', { 'aria-hidden': 'true' });
     for (const t of ['TIER & THRESHOLD', 'REWARD', 'STATE']) heading.appendChild(el('span', '', t));

@@ -55,7 +55,7 @@ Not parity-complete: the Landsraad tab's classic Expand all and Collapse all (L2
 
 - There is no vote-start snapshot in the save. A lead in the count is a lead, never a win: the plaque says "VOTE NOT CONFIRMED" and no board text calls a count a win.
 - The column `sysselraad` is not read.
-- Top contributors and missions are shown as "Not in the save".
+- Top contributors are the biggest contributors the save records (#913), worked out here; missions are shown as "Not in the save".
 - A House whose owner cannot be read is counted for neither faction and the plaque says how many.
 - When the board fails its checks (not 25 Houses, a position outside 0 to 24, a duplicate) it is a read-only list of what was read, with the reasons, no number and no write control. The classic list is the way to change anything then.
 - Keystone writes are global only (M5).

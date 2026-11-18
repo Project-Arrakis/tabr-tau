@@ -86,6 +86,20 @@ func (o *Ops) Landsraad() (any, error) {
 	if err != nil {
 		return nil, readFailed("the personal contributions", err)
 	}
+	// the name of a contributor that is a simulated guild (landsraad_simulated_guilds), for the board to say who gave what to a House: read only, and a save without the table or without the
+	// row simply gives no name (the row then carries no guild key)
+	guilds := map[int64]string{}
+	if hasTable(o, "landsraad_simulated_guilds") {
+		if gr, gerr := o.S.Query(`select guild_actor_id, guild_identifier from landsraad_simulated_guilds`); gerr == nil {
+			for _, g := range gr {
+				if id, ok := g["guild_actor_id"].(int64); ok {
+					if name, ok := g["guild_identifier"].(string); ok && name != "" {
+						guilds[id] = name
+					}
+				}
+			}
+		}
+	}
 	byPlayer := map[int64][]map[string]any{}
 	for _, c := range pc {
 		t, ok := c["task_id"].(int64)
@@ -96,7 +110,13 @@ func (o *Ops) Landsraad() (any, error) {
 		if pid, ok := c["player_id"].(int64); ok && mineID != 0 && pid == mineID {
 			mine = true
 		}
-		byPlayer[t] = append(byPlayer[t], map[string]any{"player_id": c["player_id"], "faction_id": c["faction_id"], "amount": c["amount"], "mine": mine})
+		row := map[string]any{"player_id": c["player_id"], "faction_id": c["faction_id"], "amount": c["amount"], "mine": mine}
+		if pid, ok := c["player_id"].(int64); ok && !mine {
+			if name, ok := guilds[pid]; ok {
+				row["guild"] = name
+			}
+		}
+		byPlayer[t] = append(byPlayer[t], row)
 	}
 	// what the save records as delivered to the character: one row per house and item, the amounts of every term added up, with the time of the last delivery
 	delivered := map[string]save.Row{}

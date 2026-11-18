@@ -5,7 +5,7 @@
 // logic. Every control that changes the save is a plain button or select that carries the same data-lb attributes and the same focus key as the classic panel's control (data-lb="tapply", "tmk",
 // "tflag", "tad", "trf"), so the page's one click handler, one request builder, one write function and one result line (#lsb-tresult) serve both views. Choosing a decree in a select or pressing a
 // button here changes nothing by itself: only Apply, Make active and Set flag write, exactly as before.
-// What it does not know: who the top contributors are and which missions are on offer. The save does not hold them, and the section says so in words.
+// What it does not know: which missions are on offer, and any ranking of the contributors (the save holds the amounts each gave; the board works the order out). The section says so in words.
 (function (root) {
   'use strict';
 
@@ -15,7 +15,7 @@
   const NOT_IN_SAVE = 'Not in the save';
   const SRC = 'FROM THE SAVE';
   const MISSIONS = 'Active Landsraad missions are not recorded in this local save.';
-  const CONTRIBUTORS = 'Top contributors are not recorded in this local save: the save holds your own contribution to each House, not a ranking of players.';
+  const CONTRIBUTORS = 'A ranking of contributors is not recorded: the save holds the amount each contributor gave to each House, and the banners show the biggest, worked out here from those amounts.';
   const FLAG_TIP = 'The save\'s own disabled column, shown as stored. It does not say whether a decree is in effect.';
 
   // The picture of a decree: from the fixed list of the helpers (matched to the decree's id, never to a name), or the neutral picture. The name and the effect are always text beside it, so a picture
