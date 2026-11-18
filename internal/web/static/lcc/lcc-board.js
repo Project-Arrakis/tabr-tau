@@ -19,6 +19,7 @@
   const TRACK_WORD = Object.freeze({ combat: 'Combat', crafting: 'Crafting', exploration: 'Exploration', gathering: 'Gathering', sabotage: 'Sabotage' });
   const OWNER_WORD = Object.freeze({ a: 'Atreides', h: 'Harkonnen', open: 'Open', unknown: 'Unreadable' });
   const NOT_IN_SAVE = 'Not in the save';
+  const CHECKED = 'Each click is checked against the save first.';
   // A House the save says is taken but that shows nothing of the character's own (#911): said in words, never as "0 of 5 reached". The tiers are the character's own ladder, so with no row of the
   // character none is reached, and with no tier rows at all there is no ladder to show.
   const TAKEN_NO_TIERS = 'Taken - no tier record in the save';
@@ -229,7 +230,8 @@
     const mark = kind === 'not_reached' ? String(t.n) : TIER_MARK[kind];
     const say = 'House ' + h.name + ', tier ' + t.n + ', ' + (t.threshold !== null ? fmt(t.threshold) + ', ' : '') + TIER_LABEL[kind].toLowerCase();
     if (!ct) return el('span', cls, mark, { role: 'img', 'aria-label': say, title: 'Tier ' + t.n + ': ' + TIER_LABEL[kind] });
-    const b = btn(cls, mark, { 'data-lb': 'tier', 'data-id': h.id, 'data-t': t.n, 'data-fk': 'ct:' + h.id + ':' + t.n, 'aria-pressed': t.reached ? 'true' : 'false', 'aria-disabled': ct.off ? 'true' : 'false', 'aria-label': say + (ct.off ? ', off' : '. ' + ct.tip), title: 'Tier ' + t.n + ': ' + TIER_LABEL[kind] + '. ' + ct.tip });
+    // the mouse-over is the Classic list's own text, built once by the page (ct.title, #938); the accessible name keeps the check against the save (#945)
+    const b = btn(cls, mark, { 'data-lb': 'tier', 'data-id': h.id, 'data-t': t.n, 'data-fk': 'ct:' + h.id + ':' + t.n, 'aria-pressed': t.reached ? 'true' : 'false', 'aria-disabled': ct.off ? 'true' : 'false', 'aria-label': say + (ct.off ? ', off' : '. ' + ct.tip + ' ' + CHECKED), title: ct.title || 'Tier ' + t.n + ': ' + TIER_LABEL[kind] + '. ' + ct.tip });
     if (ct.off) b.setAttribute('data-why', ct.tip);
     return b;
   }
@@ -278,7 +280,7 @@
     sel.setAttribute('title', 'House ' + h.name + ', ' + (h.pos ? h.pos.words + '. ' : '') + (route ? route.say + '. ' : '') + (inLine ? lineSays + '. ' + winSays + ' ' : '') + (dom ? 'One of the ' + FACTION_WORD[major] + ' Houses, who hold 13 or more Houses. ' + winSays + ' ' : '') + (takenWhy(h) ? takenWhy(h) + ' ' : '') + 'Click to see its tiers and actions.');
     card.appendChild(sel);
     const ctl = editable && host && host.ctl ? host.ctl(h.id) : null;
-    const tiers = el('div', 'lcc-hc-tiers', '', { role: 'group', 'aria-label': 'House ' + h.name + ' reward tiers' });
+    const tiers = el('div', 'lcc-hc-tiers', '', { role: 'group', 'aria-label': 'House ' + h.name + ' reward tiers' + (ctl && ctl.tiers ? '. ' + CHECKED : '') });
     h.tiers.forEach((t, i) => tiers.appendChild(tierBox(h, t, ctl && ctl.tiers ? ctl.tiers[i] : null)));
     card.appendChild(tiers);
     const count = el('div', 'lcc-hc-count');
@@ -796,7 +798,6 @@
     else stage.appendChild(list(board, matchIds, host, editable, picks));
     panel.appendChild(stage);
     const foot = el('div', 'lcc-bd-foot');
-    foot.appendChild(el('p', 'lcc-bd-caption', 'Select a House to inspect faction contributions, your five reward tiers, earned and collected rewards, and remaining progress.' + (editable ? ' The numbered boxes are the same controls as the tiers in the House Intelligence panel: each click is checked against the save first.' : '')));
     foot.appendChild(totals(board));
     panel.appendChild(foot);
     grid_.appendChild(panel);

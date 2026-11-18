@@ -2456,7 +2456,17 @@ async function lbSend(b, items, label, hs, focusFk) {
         rows, grant, r.completed ? nn(r.completed, 'house', 'houses') + ' completed' : '', r.reopened ? nn(r.reopened, 'house', 'houses') + ' reopened' : '', warn].filter(Boolean);
       text = label + ': ' + parts.join(', ') + extra + '.' + tail;
     }
-    // the toast is one short line; the whole sentence stays in the result line
+    // the board's toast says it in lines (#943): what changed, what was not written and why, the warnings, the notes; the Classic list keeps its sentence
+    const dot = (x) => (/[.!?]$/.test(x) ? x : x + '.');
+    const h1 = items.length === 1 ? hs.get(items[0].task_id) : null;
+    const lines = [h1
+      ? dot(label + ': ' + lbChangeText(h1, l, items[0]) + (r.completed && items[0].complete_for == null ? '; house taken, its faction reached the goal' : '') + (rows ? '; ' + rows : '') + extra)
+      : dot(label + ': ' + ([r.contribution_raised ? 'your contribution raised on ' + nn(r.contribution_raised, 'house', 'houses') : '', r.contribution_lowered ? 'lowered on ' + nn(r.contribution_lowered, 'house', 'houses') + ' (a tier removed)' : '', rows, r.completed ? nn(r.completed, 'house', 'houses') + ' completed' : '', r.reopened ? nn(r.reopened, 'house', 'houses') + ' reopened' : ''].filter(Boolean).join(', ') || 'written') + extra)];
+    if (grant) lines.push(dot(grant));
+    if (left) lines.push('Warning: ' + nn(left, 'reward', 'rewards') + (left === 1 ? ' was' : ' were') + ' left out: earlier progress on this house already counted for ' + (left === 1 ? 'it' : 'them') + '.');
+    if (r.contribution_lowered) lines.push(LB_REMOVE_NOTE);
+    if (r.missions) lines.push(GRANT_UNCHECKED);
+    // the toast of the Classic list is one short line; the whole sentence stays in its result line
     const short = r.missions ? label + ': ' + nn(r.missions, 'mission', 'missions') + (queued ? ' queued.' : ' written.') + (lbXpLeft(r, queued) ? ' Some XP ' + (queued ? 'will not be added' : 'not added') + ': a track is at its last level.' : '') : r.contribution_lowered ? label + ': tier removed. Nothing it paid was taken back.' : '';
     return { text, short, warn: !!left, lines };
   }, lbSay, focusFk);
