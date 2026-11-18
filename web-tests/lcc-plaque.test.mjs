@@ -66,22 +66,27 @@ test('the plaque draws exactly 25 seats, one of them the gold 13th, for every co
   }
 });
 
-test('the seats are equally spaced, share one size, sit on one line, and the two ends are inset by the same amount from the tips', () => {
+test('the seats share one size, sit on one line, step by one pitch, and the two ends are inset by the same amount from the tips', () => {
   const T = L.TRACK;
   const p = plaque({ a: 12, h: 4 });
   const g = seats(p);
   const xs = g.map(cx);
-  for (let i = 1; i < 25; i++) assert.equal(xs[i] - xs[i - 1], T.pitch, 'pitch at seat ' + (i + 1));
+  // the gaps between OUTER edges are equal (the 13th seat's gold ring is wider, so it is the edges and not the centres that are equally spaced; web-tests/lcc-seat-gaps.test.mjs measures them)
+  for (let i = 1; i < 25; i++) {
+    if (i === 12 || i === 13) continue;
+    assert.equal(xs[i] - xs[i - 1], T.pitch, 'pitch at seat ' + (i + 1));
+  }
+  assert.equal(xs[12] - xs[11], T.mid, 'the 13th seat is a little further from its neighbours (its ring is wider)');
+  assert.equal(xs[13] - xs[12], T.mid);
   assert.equal(xs[12], L.GEOMETRY.W / 2, 'the 13th seat is on the middle of the plaque and of the track');
   assert.ok(g.every((x) => cy(x) === T.cy));
   const radii = new Set(g.map((x) => x.querySelector('.lcc-seat-base').getAttribute('r')));
   assert.deepEqual([...radii], [String(T.r)], 'every seat has the same diameter');
   // the field of the seats is measured between the inner walls, not from the picture
-  const first = xs[0] - T.r, last = xs[24] + T.r;
+  const first = xs[0] - T.seat, last = xs[24] + T.seat;
   assert.equal(first - T.wallL, T.wallR - last, 'Atreides and Harkonnen start the same distance from their own wall');
   assert.equal(T.cx - T.tipL, T.tipR - T.cx, 'the track is symmetric about the middle seat');
-  assert.ok(T.haloR + T.r < T.pitch + T.r, 'the gold halo does not touch a neighbouring seat');
-  assert.ok(T.pitch - T.haloR - T.r > 0, 'there is a gap between the halo and the next seat');
+  assert.ok(T.mid - T.halo - T.seat > 0, 'there is a gap between the halo and the next seat');
   for (let i = 0; i < 25; i++) assert.equal(L.seatX(i), xs[i]);
 });
 
