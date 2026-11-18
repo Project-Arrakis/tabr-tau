@@ -94,10 +94,10 @@
   }
 
   // The contributors the save records for one House (the rows of the personal contributions, one per contributor and faction): [{ id, label, faction, amount, mine }], the biggest first.
-  // The label is "You" for the character's own row, the guild's own name when the read gives it (a simulated guild), else "Contributor <id>". The order is worked out here: the save holds
+  // The label is the character's name for the character's own row ("You" only when the save's name cannot be read; #972), the guild's own name when the read gives it (a simulated guild), else "Contributor <id>". The order is worked out here: the save holds
   // amounts, not a ranking. A row with no readable amount is left out, and so is one of zero.
   function guildWord(id) { return String(id).split(/[_\s]+/).filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '); }
-  function readContributors(t, F) {
+  function readContributors(t, F, myName) {
     const out = [];
     for (const c of Array.isArray(t.player_contributions) ? t.player_contributions : []) {
       const r = obj(c);
@@ -106,7 +106,7 @@
       if (id === null || a === null || a <= 0) continue;
       const mine = r.mine === true;
       const named = typeof r.guild === 'string' && r.guild.trim() !== '' ? guildWord(r.guild.trim()) : '';
-      out.push({ id, label: mine ? 'You' : named || 'Contributor ' + id, faction: F.byId.get(int(r.faction_id)) || null, amount: a, mine });
+      out.push({ id, label: mine ? (typeof myName === 'string' && myName.trim() !== '' ? myName.trim() : 'You') : named || 'Contributor ' + id, faction: F.byId.get(int(r.faction_id)) || null, amount: a, mine });
     }
     return out.sort((x, y) => y.amount - x.amount || x.label.localeCompare(y.label) || x.id - y.id);
   }
@@ -144,7 +144,7 @@
     const top = tiers.length && tiers[tiers.length - 1].threshold !== null ? tiers[tiers.length - 1].threshold : null;
     const nextT = tiers.find((x) => !x.reached && x.threshold !== null) || null;
     const owner = ownerOf(t, F);
-    const contributors = readContributors(t, F);
+    const contributors = readContributors(t, F, me && me.name);
     // A House the save says is taken (completed, with a winner the Landsraad has) can have no record of the character's own: the tiers are the character's own ladder, so with no row of the
     // character the House shows no tier reached, which is true, and is said as "taken, nothing of yours in the save" instead of "0 of 5 reached" (#911). With no tier rows at all it is "no tier record".
     const claimed = owner === 'a' || owner === 'h';

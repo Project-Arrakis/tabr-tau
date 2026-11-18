@@ -121,12 +121,23 @@ const MEASURE = `(() => {
   }
   const over = [];
   for (const root of roots) for (const el of root.querySelectorAll('*')) { if (!vis(el) || el.closest('svg')) continue; const r = el.getBoundingClientRect(); if (r.right > innerWidth + 1 && !el.closest('[class*=scroll], .lcc-bd-listwrap, table')) over.push({ at: label(el), right: Math.round(r.right) }); }
+  // a contributor line of a banner (#972) is shown whole or not at all: it is inside its list, or out of sight in the list's second column (the wide layout), never cut through; its amount is inside the banner
+  const cutEntries = [];
+  for (const li of document.querySelectorAll('#lsb-lcc .lcc-standard-list > li')) {
+    const o = li.parentElement.getBoundingClientRect(), r = li.getBoundingClientRect(), a = li.querySelector('.lcc-standard-amt');
+    const inside = r.left >= o.left - 1 && r.right <= o.right + 1 && r.top >= o.top - 1 && r.bottom <= o.bottom + 1;
+    const away = r.left >= o.right - 1 || r.top >= o.bottom - 1;
+    const ar = a && a.getBoundingClientRect();
+    if (!inside && !away) cutEntries.push((li.textContent || '').trim().slice(0, 30));
+    else if (inside && ar && (ar.right > o.right + 1 || ar.left < o.left - 1)) cutEntries.push('amount: ' + (li.textContent || '').trim().slice(0, 30));
+  }
+  const standardsShown = [...document.querySelectorAll('#lsb-lcc .lcc-standard-list')].map((ol) => { const o = ol.getBoundingClientRect(); return [...ol.children].filter((li) => li.getBoundingClientRect().left < o.right - 1).length; });
   const trk = document.querySelector('#lsb-lcc .lcc-track'); const tr = trk && trk.getBoundingClientRect();
   const seatsInTrack = tr ? [...document.querySelectorAll('#lsb-lcc .lcc-seat')].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.left >= tr.left - 1 && r.right <= tr.right + 1 && r.top >= tr.top - 1 && r.bottom <= tr.bottom + 1; }).length : null;
   const count = (sel) => document.querySelectorAll(sel).length;
   return {
     innerWidth, scrollWidth: document.documentElement.scrollWidth, roots: roots.map((r) => r.id), textNodes: nodes.n,
-    small, tiny: tiny.slice(0, 8), between, targets, clipped: clipped.slice(0, 12), over: over.slice(0, 8),
+    small, tiny: tiny.slice(0, 8), between, targets, clipped: clipped.slice(0, 12), over: over.slice(0, 8), cutEntries, standardsShown,
     seatsInTrack, houses: count('#lsb-lcc [data-fk^="ht:"]'), seats: count('#lsb-lcc .lcc-seat'), centerSeats: count('#lsb-lcc .lcc-seat-center'), lanes: count('#lcs-root [data-lcs-lane]'),
     injected: !!window.__pwned || document.querySelectorAll('img[src=x]').length,
     broken: [...document.images].filter((i) => i.complete && i.naturalWidth === 0 && vis(i)).map((i) => i.getAttribute('src')),
@@ -187,9 +198,11 @@ async function main() {
       const floorPx = touch ? 44 : 36;
       const smallBySel = {};
       for (const t of m.targets) if (t.h < floorPx || t.w < 24) { const k = (smallBySel[t.at] ||= { n: 0, minW: 999, minH: 999 }); k.n++; k.minW = Math.min(k.minW, t.w); k.minH = Math.min(k.minH, t.h); }
-      Object.assign(row, { innerWidth: m.innerWidth, pageWiderBy: Math.max(0, m.scrollWidth - m.innerWidth), textNodes: m.textNodes, under11: m.small, tiny: m.tiny, nameBand11to12: m.between, controls: m.targets.length, under36: m.targets.filter((t) => t.h < 36).length, under44: m.targets.filter((t) => t.h < 44).length, floor, smallBySel, seatsInTrack: m.seatsInTrack, clipped: m.clipped, over: m.over, houses: m.houses, seats: m.seats, centerSeats: m.centerSeats, lanes: m.lanes, injected: m.injected, broken: m.broken });
+      Object.assign(row, { innerWidth: m.innerWidth, pageWiderBy: Math.max(0, m.scrollWidth - m.innerWidth), textNodes: m.textNodes, under11: m.small, tiny: m.tiny, nameBand11to12: m.between, controls: m.targets.length, under36: m.targets.filter((t) => t.h < 36).length, under44: m.targets.filter((t) => t.h < 44).length, floor, smallBySel, seatsInTrack: m.seatsInTrack, clipped: m.clipped, cutEntries: m.cutEntries, standardsShown: m.standardsShown, over: m.over, houses: m.houses, seats: m.seats, centerSeats: m.centerSeats, lanes: m.lanes, injected: m.injected, broken: m.broken });
       if (m.scrollWidth > m.innerWidth + 1) report.hard.push(c.name + ': the page is wider than the window by ' + (m.scrollWidth - m.innerWidth) + ' px');
       if (Object.keys(m.small).length) report.hard.push(c.name + ': text under 11 px in ' + Object.keys(m.small).join(', '));
+      if (m.cutEntries.length) report.hard.push(c.name + ': a contributor line of a banner is cut: ' + m.cutEntries.join(' | '));
+      if (m.standardsShown.some((n) => n < 1)) report.hard.push(c.name + ': a banner shows no contributor line though it has some');
       if (m.injected) report.hard.push(c.name + ': text from the save became markup or ran');
       if (m.broken.length) report.hard.push(c.name + ': a picture did not load: ' + m.broken.join(', '));
       if (c.state.startsWith('board-') && c.state !== 'board-list' && m.houses !== 25) report.hard.push(c.name + ': ' + m.houses + ' Houses drawn, not 25');

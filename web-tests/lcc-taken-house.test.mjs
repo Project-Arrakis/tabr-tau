@@ -124,9 +124,9 @@ test('the contributors the save records are shown: on the banners and for the Ho
   assert.deepEqual(v.contributors.map((c) => [c.label, c.amount]), [['Fortune Hunters Inc', 2500], ['Contributor 28', 1000], ['Red Hawk Corps', 1000]], 'the biggest first (a tie by name), a guild by its name, any other by its id');
   assert.deepEqual(b.contributors.h.find((c) => c.id === 24 && c.label === 'Fortune Hunters Inc').amount, 2500, 'the faction list sums each contributor over the Houses of the board');
   const ui = await open(a);
-  const lists = [...ui.doc.querySelectorAll('.lcc-standard')].map((s) => [...s.querySelectorAll('.lcc-standard-name')].map((n) => text(n)));
+  const lists = [...ui.doc.querySelectorAll('.lcc-standard')].map((s) => [...s.querySelectorAll('.lcc-standard-list > li')].map((n) => text(n)));
   assert.equal(ui.doc.querySelectorAll('.lcc-standard-none').length, 0, 'both banners have lists');
-  assert.ok(lists.some((l) => l.includes('Fortune Hunters Inc · 2,500')), 'the Harkonnen banner names a guild and its amount: ' + JSON.stringify(lists));
+  assert.ok(lists.some((l) => l.includes('Fortune Hunters Inc 2,500')), 'the Harkonnen banner names a guild and its amount: ' + JSON.stringify(lists));
   assert.match([...ui.doc.querySelectorAll('.lcc-standard-h')].map((h) => h.getAttribute('title')).join(' | '), /worked out here: the save holds amounts, not a ranking/);
   click(ui, tileOf(ui, 'Vernius').querySelector('button'));
   const i = ui.doc.querySelector('.lcc-bd-insp');

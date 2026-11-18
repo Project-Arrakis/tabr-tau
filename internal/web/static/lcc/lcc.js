@@ -153,7 +153,8 @@
     w.appendChild(el('strong', 'lcc-heldby-n' + (faction ? ' lcc-f-' + faction : ''), name || 'Not recorded'));
     return w;
   }
-  // The cloth standard of a faction: a gold-edged banner with the faction's crest picture, a heading and an honest list (or the empty state). lines is an array of strings or null.
+  // The cloth standard of a faction: a gold-edged banner with the faction's crest picture, a heading and an honest list (or the empty state). lines is an array of entries or null; an entry is a string
+  // (shown as it is) or { name, amount } (#972: the name wraps when the cloth is narrow and the amount stays whole beside it, so a line is never cut and the amount is always there).
   function standard(faction, lines, heading, emptyText) {
     const f = faction === 'h' ? 'h' : 'a';
     const w = el('div', 'lcc-standard lcc-f-' + f);
@@ -166,7 +167,16 @@
     if (Array.isArray(lines) && lines.length) {
       const ol = el('ol', 'lcc-standard-list', '', { role: 'list' });
       // the name is text in its own span (the stylesheet ellipsizes it in the wide layout and wraps it in the narrow one); the full name stays in the title
-      for (const s of lines.slice(0, 5)) { const name = String(s); const li = el('li'); li.appendChild(el('span', 'lcc-standard-name', name, { title: name })); ol.appendChild(li); }
+      for (const s of lines.slice(0, 5)) {
+        const li = el('li');
+        if (s && typeof s === 'object') {
+          const name = String(s.name), amount = String(s.amount);
+          li.appendChild(el('span', 'lcc-standard-name', name, { title: name + ' · ' + amount }));
+          li.appendChild(doc().createTextNode(' '));
+          li.appendChild(el('span', 'lcc-standard-amt', amount));
+        } else { const name = String(s); li.appendChild(el('span', 'lcc-standard-name', name, { title: name })); }
+        ol.appendChild(li);
+      }
       cloth.appendChild(ol);
     } else cloth.appendChild(el('p', 'lcc-standard-none', emptyText || 'Not in the save'));
     w.appendChild(cloth);
@@ -242,7 +252,8 @@
     return sv('linearGradient', { id, x1, y1, x2, y2 }, stops.map((s) => sv('stop', { offset: s[0], 'stop-color': s[1], 'stop-opacity': s[2] == null ? 1 : s[2] })));
   }
   function rgrad(id, stops) {
-    return sv('radialGradient', { id, cx: '38%', cy: '34%', r: '75%' }, stops.map((s) => sv('stop', { offset: s[0], 'stop-color': s[1] })));
+    // centred on the seat, so the edge of the circle is the same colour all the way round (#971): a gradient lit from the upper left made the right edge of every seat darker than the left
+    return sv('radialGradient', { id, cx: '50%', cy: '50%', r: '50%' }, stops.map((s) => sv('stop', { offset: s[0], 'stop-color': s[1] })));
   }
   function glow(id, dev) {
     return sv('filter', { id, x: '-10%', y: '-10%', width: '120%', height: '120%' }, [sv('feGaussianBlur', { stdDeviation: dev })]);
@@ -251,6 +262,10 @@
   const mirror = (x) => W - x;
   // The size of the crest pictures in the 2172 x 724 drawing (the picture is a 256 square with its margin: the visible crest is about three quarters of it), as the approved V20 plaque shows them.
   const SHIELD_MARK = 120, STANDARD_MARK = 88, SEAT_MEDAL = 2 * TRACK.r + 2, SEAT_MARK = 44;
+  // The medallion pictures carry their own lighting: the rim of the Atreides medallion is bright on its left and dull on its right (about 20 percent), the Harkonnen one the other way round. A flat ring of the
+  // faction's colour is drawn over that rim, centred on the rim's own middle, so a claimed seat is the same all the way round (#971). RIM_R is the middle of the picture's rim, RIM_W its width, both in the
+  // drawing's units; the ring stays inside the seat's outer edge (RIM_R + RIM_W / 2 is below SEAT_OUT).
+  const SEAT_RIM = Object.freeze({ a: '#1fc08c', h: '#d02a2f' }), RIM_R = 17.9, RIM_W = 2.2;
 
   // A picture placed in the vector layers: an SVG <image> centred on (cx, cy), or null when there is no picture (a faction the table does not know). A picture that fails to load draws nothing, so
   // what is behind it (the shield or cloth colour, the seat circle) and the words beside it stand alone.
@@ -354,10 +369,10 @@
       grad(p + 'body', 0, 0, 1, 0, [[0, '#04382d'], [0.42, '#0a2a22'], [0.5, '#1d1409'], [0.58, '#3a0b0e'], [1, '#52060a']]),
       grad(p + 'rail', 0, 0, 1, 0, [[0, '#2de2c0'], [0.34, '#bda24a'], [0.5, '#ffe28a'], [0.66, '#d67a3a'], [1, '#ff3b30']]),
       grad(p + 'tg', 0, 0, 0, 1, [[0, GOLD.hi], [0.45, GOLD.mid], [1, GOLD.lo]]),
-      rgrad(p + 'sa', [[0, '#5ff0c8'], [0.55, '#14a07c'], [1, '#08513f']]),
-      rgrad(p + 'sh', [[0, '#ff7b6e'], [0.55, '#c4242a'], [1, '#620a0f']]),
-      rgrad(p + 'so', [[0, '#f1dcb4'], [0.6, '#b89a62'], [1, '#6f5a34']]),
-      rgrad(p + 'sc', [[0, '#fff3c4'], [0.55, '#e0a93a'], [1, '#8e5f1c']]),
+      rgrad(p + 'sa', [[0, '#5ff0c8'], [0.6, '#14a07c'], [1, '#0b6a52']]),
+      rgrad(p + 'sh', [[0, '#ff7b6e'], [0.6, '#c4242a'], [1, '#8a1218']]),
+      rgrad(p + 'so', [[0, '#f1dcb4'], [0.7, '#c9aa70'], [1, '#a08450']]),
+      rgrad(p + 'sc', [[0, '#fff3c4'], [0.6, '#e8b84e'], [1, '#b07a24']]),
       glow(p + 'tblur', 4),
     ]);
     const body = 'M' + T.tipL + ',' + T.cy + ' L' + T.wallL + ',' + T.top + ' H' + T.wallR + ' L' + T.tipR + ',' + T.cy + ' L' + T.wallR + ',' + T.bottom + ' H' + T.wallL + ' Z';
@@ -398,7 +413,8 @@
       if (s.state === 'h') sg.appendChild(sv('circle', { class: 'lcc-seat-mark', r: 6, fill: 'none', stroke: '#f4efe0', 'stroke-width': 3 }));
       if (s.state === 'a' || s.state === 'h') {
         const pic = svgPicture(factionAsset(s.state, s.center ? 'mark' : 'medal'), 0, 0, s.center ? SEAT_MARK : SEAT_MEDAL, 'lcc-seat-art', () => { sg.setAttribute('class', sg.getAttribute('class') + ' lcc-seat-has-art'); });
-        if (pic) { pic.setAttribute('overflow', 'visible'); sg.appendChild(pic); } // the picture's own box never cuts its edge (a fractional pixel scale could shave the ring)
+        if (pic) { pic.setAttribute('overflow', 'visible'); sg.appendChild(pic); }
+        if (pic && !s.center) sg.appendChild(sv('circle', { class: 'lcc-seat-rim', r: RIM_R, fill: 'none', stroke: SEAT_RIM[s.state], 'stroke-width': RIM_W, 'aria-hidden': 'true' })); // the picture's own box never cuts its edge (a fractional pixel scale could shave the ring)
       }
       seats.appendChild(sg);
     }
@@ -418,7 +434,7 @@
   };
 
   // renderPlaque(vm): the approved decree and voting plaque as a read-only view of plain values.
-  //   vm = { a, h, decree: { name, effect } | null, holder: 'a' | 'h' | null, contributors: { a: string[] | null, h: string[] | null } | null, win, sessionLabel, standing, demo }
+  //   vm = { a, h, decree: { name, effect } | null, holder: 'a' | 'h' | null, contributors: { a: Entry[] | null, h: Entry[] | null } | null (an entry: a string, or { name, amount }), win, sessionLabel, standing, demo }
   // It decides nothing itself: the headline and the tally line come from WIN for the reading the caller gives (vm.win, from WIN.decide) or, with none, for the two counts alone; a caller may still replace
   // either line (vm.sessionLabel, vm.standing), and nothing here reads the save.
   function renderPlaque(vm) {
