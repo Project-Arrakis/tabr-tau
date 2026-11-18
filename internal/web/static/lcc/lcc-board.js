@@ -94,9 +94,32 @@
   }
 
   // ---- the four figures under the plaque -----------------------------------------------------------------------------------------------------------------------------------
-  // TERM STATUS, OPEN HOUSES, POTENTIAL LINES, SPECIALIZATION CAP. The first two are worked out from the same read as the board; the third waits for the line check of milestone M4; the fourth is the
+  // TERM STATUS, OPEN HOUSES, POTENTIAL LINES, SPECIALIZATION CAP. The first two are worked out from the same read as the board; the third by the twelve-line check of milestone M4; the fourth is the
   // game's rule for one path (a reference, not a figure of the save).
-  function metrics(board) {
+  // ---- the twelve lines in words (milestone M4) ------------------------------------------------------------------------------------------------------------------------------------
+  // Everything the page says about a line comes from M().evaluate (a pure reading of the 25 owners): the words here only name what it found. The wording rule: "five in a line" and "N Houses held",
+  // never a win and never a confirmed vote, because the save holds no record of the start of the Voting Session (D03) and the sysselraad column is not evidence (D02).
+  const lineWord = (l) => l.name.toLowerCase(); // 'row 3', 'column 2', 'main diagonal', 'opposite diagonal'
+  const houseNums = (l) => l.indexes.map((i) => String(i + 1).padStart(2, '0')).join(', ');
+  const listWords = (xs) => (xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1]);
+  const heldWords = (ev, side) => listWords(ev.held.filter((l) => l.side === side).map(lineWord));
+  const NOT_VERIFIED = 'not verified: the save does not record the start of the Voting Session';
+  // The word for one line of the list: where it stands, for whom, and which House is missing (by name, from the board, never guessed).
+  function lineSaid(l, board) {
+    const nm = (i) => (board.grid && board.grid[i] ? houseWord(board.grid[i].name) : 'a House');
+    const missing = l.missing.map(nm);
+    switch (l.status) {
+      case 'complete-a': case 'complete-h': return FACTION_WORD[l.side] + ' hold all five Houses: five in a line';
+      case 'one-away-a': case 'one-away-h': return FACTION_WORD[l.side] + ' 4 of 5, one House away: ' + missing[0] + ' is still open';
+      case 'open-a': case 'open-h': return FACTION_WORD[l.side] + ' ' + l.by[l.side].length + ' of 5, still open: ' + listWords(missing);
+      case 'open-any': return 'Nothing claimed on it yet';
+      case 'blocked': return 'Blocked: both factions hold a House on it';
+      default: return 'Cannot be read: ' + l.by.unknown.length + (l.by.unknown.length === 1 ? ' House' : ' Houses') + ' on it could not be read';
+    }
+  }
+
+  function metrics(board, ev) {
+    ev = ev || M().evaluate(board, null);
     const c = board.counts;
     const w = el('ul', 'lcc-bd-metrics', '', { role: 'list', 'aria-label': 'Figures of the term' });
     const item = (kicker, value, sub, cls, attrs, tag) => {
@@ -109,13 +132,19 @@
       return li;
     };
     // no vote-start snapshot is in the save, so a count is a count and the outcome is never called: the word is CONTESTED while the board is a board, and UNAVAILABLE when it is not
-    w.appendChild(board.ready
-      ? item('TERM STATUS', 'CONTESTED', 'Vote outcome is not yet established', '', { 'data-metric': 'term' })
-      : item('TERM STATUS', 'UNAVAILABLE', 'The board could not be checked', '', { 'data-metric': 'term' }));
+    // a line of five held now is said as that (the Houses as they stand, not a vote); two factions with a line each is a conflict and neither is chosen
+    if (!board.ready) w.appendChild(item('TERM STATUS', 'UNAVAILABLE', 'The board could not be checked', '', { 'data-metric': 'term' }));
+    else if (ev.verdict === 'conflict') w.appendChild(item('TERM STATUS', 'CONFLICT', 'Both factions hold a line of five · vote not recorded', '', { 'data-metric': 'term' }));
+    else if (ev.verdict === 'line_held') w.appendChild(item('TERM STATUS', 'FIVE IN A LINE', FACTION_WORD[ev.winner] + ' · ' + heldWords(ev, ev.winner) + ' · vote not recorded', '', { 'data-metric': 'term' }));
+    else w.appendChild(item('TERM STATUS', 'CONTESTED', 'Vote outcome is not yet established', '', { 'data-metric': 'term' }));
     w.appendChild(board.ready
       ? item('OPEN HOUSES', String(c.open), c.unknown ? 'Available to contest · ' + c.unknown + ' unreadable, not counted' : 'Available to contest', '', { 'data-metric': 'open' })
       : item('OPEN HOUSES', '—', 'Not counted: the board could not be checked', '', { 'data-metric': 'open' }));
-    w.appendChild(item('POTENTIAL LINES', '—', 'Counted when the twelve lines are checked (milestone M4)', '', { 'data-metric': 'lines' }));
+    // POTENTIAL LINES: the lines of the twelve that are not blocked and not yet held, so a faction could still complete them (the approved design's own rule). A House that cannot be read
+    // puts a line out of reach of the check, so the count is then said to be incomplete and no number is shown: a figure is never guessed.
+    if (!board.ready) w.appendChild(item('POTENTIAL LINES', '—', 'Not counted: the board could not be checked', '', { 'data-metric': 'lines' }));
+    else if (!ev.potential.exact) w.appendChild(item('POTENTIAL LINES', '—', 'Count incomplete · ' + c.unknown + (c.unknown === 1 ? ' House' : ' Houses') + ' unreadable', '', { 'data-metric': 'lines', 'data-incomplete': 'true' }));
+    else w.appendChild(item('POTENTIAL LINES', String(ev.potential.total), 'Unblocked five-House alignments · Atreides ' + ev.potential.a + ' · Harkonnen ' + ev.potential.h + (ev.held.length ? ' · ' + ev.held.length + ' held, not counted' : ''), '', { 'data-metric': 'lines', title: 'Lines of the twelve (five rows, five columns, two diagonals) that no faction has blocked and none holds yet. A line with nothing claimed on it counts for both factions and once in the total.' }));
     w.appendChild(item('SPECIALIZATION CAP', 'LV 100', '44,182 XP · separate from keystones', 'accent', { 'data-metric': 'cap', title: 'The cap of every path in the game: a rule, not a figure read from your save. Your own levels are on the Player tab.' }, 'RULE'));
     return w;
   }
@@ -140,7 +169,7 @@
     lay.appendChild(btn('', 'Grid', { 'aria-pressed': state.layout === 'grid' && gridOk ? 'true' : 'false', 'aria-disabled': gridOk ? null : 'true', title: gridOk ? null : 'The board cannot be drawn as 5 by 5: ' + board.problems[0], 'data-lcb': 'layout', 'data-val': 'grid', 'data-fk': 'bf:layout:grid' }));
     lay.appendChild(btn('', 'List', { 'aria-pressed': state.layout === 'list' || !gridOk ? 'true' : 'false', 'data-lcb': 'layout', 'data-val': 'list', 'data-fk': 'bf:layout:list' }));
     act.appendChild(lay);
-    act.appendChild(btn('lcc-bd-btn', 'Clear highlight', { 'data-lcb': 'clearsel', 'data-fk': 'bf:clear', title: 'Stops highlighting the House that is looked at. Highlights of a line come with the line check (milestone M4).' }));
+    act.appendChild(btn('lcc-bd-btn', 'Clear highlight', { 'data-lcb': 'clearsel', 'data-fk': 'bf:clear', title: 'Stops highlighting the House that is looked at. The outlines of a line of five and of a faction with 13 or more Houses are the Houses as they stand, and stay.' }));
     head.appendChild(act);
     return head;
   }
@@ -168,13 +197,15 @@
     bar.appendChild(el('span', 'lcc-bd-shown', matchIds.size + ' of ' + board.houses.length + ' Houses shown', { role: 'status', id: 'lcc-bd-shown' }));
     return bar;
   }
-  function legend(board) {
+  function legend(board, ev) {
+    ev = ev || M().evaluate(board, null);
     const w = el('ul', 'lcc-bd-headlines', '', { role: 'list', 'aria-label': 'What the colours of a House mean' });
     const k = (cls, text, title) => { const li = el('li', '', '', { title }); li.appendChild(el('i', 'lcc-bd-key lcc-bd-key-' + cls, '', { 'aria-hidden': 'true' })); li.appendChild(root.document.createTextNode(text)); return li; };
     w.appendChild(k('a', 'ATREIDES CLAIMED'));
     w.appendChild(k('h', 'HARKONNEN CLAIMED'));
     w.appendChild(k('n', 'OPEN'));
-    w.appendChild(k('g', 'VICTORY LINE', 'A line of five is drawn only when the line check of milestone M4 is built. The gold outline on this board marks the Houses of a faction that holds more than half of the Houses now: a count, not a vote result.'));
+    w.appendChild(k('g', 'VICTORY LINE', 'A line of five Houses held by one faction (a row, a column or a diagonal) has a bright gold outline and the words LINE OF FIVE. A faction that holds 13 or more Houses has a gold outline on those Houses (MAJORITY HOUSE): a count of Houses now, ' + NOT_VERIFIED + '.'));
+    if (ev.majority) w.appendChild(k('m', 'MAJORITY HOUSE · COUNT NOT VERIFIED', FACTION_WORD[ev.majority] + ' hold ' + board.counts[ev.majority] + ' Houses now: a count, ' + NOT_VERIFIED + '.'));
     if (board.counts.unknown) w.appendChild(k('u', 'OWNER UNREADABLE', 'The completed flag and the winner of this House do not agree, so it is counted for neither faction.'));
     return w;
   }
@@ -192,8 +223,7 @@
   // snapshot of the votes, so a count is never called a win, here or anywhere else on the board.
   function majorityOf(board) {
     if (!board || !board.ready || !board.counts) return null;
-    const c = board.counts, need = Math.floor(board.houses.length / 2) + 1;
-    return c.a >= need ? 'a' : c.h >= need ? 'h' : null;
+    return M().evaluate(board, null).majority; // 13 of 25 or more, decided in one place (the evaluator of lcc-model.js)
   }
 
   // One tier box of a House card: the approved five boxes. With a host that answers for the House the box is the same control as the Inspector's tier row (same data-lb, same id, same tier number,
@@ -210,12 +240,17 @@
   }
   // One House card, as the approved design draws it: the number and the specialization badge on top, the crest, HOUSE NAME, the specialization, the owner, the five tier boxes and the line "N/5 REACHED"
   // with the collected and the waiting counts. A House whose specialization the save does not give has no badge and says so in words.
-  function houseCard(h, matchIds, host, editable, picks, major) {
-    const dom = !!major && h.owner === major;
+  function houseCard(h, matchIds, host, editable, picks, major, ev) {
+    // a House of a line of five held by its faction gets the circuit outline; a House of a faction with 13 or more Houses gets the majority outline unless it is already in a line (the line is the
+    // stronger of the two statements). Both are read from the evaluator and are a reading of the Houses as they stand: neither says a vote was held.
+    const lines = ev && h.index !== null ? ev.held.filter((l) => l.indexes.includes(h.index)) : [];
+    const inLine = lines.length > 0;
+    const dom = !inLine && !!major && h.owner === major;
     const dim = !matchIds.has(h.id);
     const owner = OWNER_WORD[h.owner] ? h.owner : 'unknown';
-    const card = el('article', 'lcc-hc lcc-hc-' + owner, '', { 'data-owner': owner, 'data-selected': state.sel === h.id ? 'true' : null, 'data-dim': dim ? 'true' : null, 'data-compact': 'true' });
-    if (dom) L().victory(card, 'dominion');
+    const card = el('article', 'lcc-hc lcc-hc-' + owner, '', { 'data-owner': owner, 'data-selected': state.sel === h.id ? 'true' : null, 'data-dim': dim ? 'true' : null, 'data-compact': 'true', 'data-lines': inLine ? lines.map((l) => l.id).join(' ') : null });
+    if (inLine) L().victory(card, 'circuit'); else if (dom) L().victory(card, 'dominion');
+    const lineSays = inLine ? FACTION_WORD[h.owner] + ' hold this House in a line of five: ' + listWords(lines.map(lineWord)) : '';
     const sel = btn('lcc-hc-select', '', { 'data-lcb': 'sel', 'data-id': h.id, 'data-fk': 'ht:' + h.id, 'aria-pressed': state.sel === h.id ? 'true' : 'false' });
     const top = el('span', 'lcc-hc-top');
     top.appendChild(el('span', 'lcc-hc-pos', h.number, { 'aria-hidden': 'true' }));
@@ -236,11 +271,12 @@
     sel.appendChild(el('strong', 'lcc-hc-name', houseWord(h.name)));
     sel.appendChild(el('small', 'lcc-hc-track' + (h.track ? '' : ' lcc-hc-track-unk'), h.track ? trackWord(h.track) : 'Specialization not in the save'));
     sel.appendChild(el('span', 'lcc-hc-owner', owner === 'a' || owner === 'h' ? '● ' + OWNER_WORD[owner] : owner === 'open' ? '○ Open' : '? Owner unreadable', { 'data-g': ({ a: 'A', h: 'H', open: '○', unknown: '?' })[owner] }));
-    if (dom) sel.appendChild(el('span', 'lcc-flag lcc-flag-dom lcc-hc-badge', L().VICTORY.dominion));
+    if (inLine) sel.appendChild(el('span', 'lcc-flag lcc-flag-line lcc-hc-badge', L().VICTORY.circuit));
+    else if (dom) sel.appendChild(el('span', 'lcc-flag lcc-flag-dom lcc-hc-badge', L().VICTORY.dominion));
     const notes = [];
     if (h.waiting > 0) notes.push(h.waiting + ' reward' + (h.waiting === 1 ? '' : 's') + ' waiting');
-    sel.setAttribute('aria-label', [(h.number ? 'Number ' + h.number + ', ' : '') + h.name + ', ' + (owner === 'a' || owner === 'h' ? 'claimed by ' + OWNER_WORD[owner] : owner === 'open' ? 'open' : 'owner unreadable')].concat(h.track ? ['path ' + trackWord(h.track)] : ['specialization not in the save'], h.tierCount ? [h.reached + ' of ' + h.tierCount + ' tiers reached', h.collected + ' collected'] : ['no tiers in the save'], notes, h.unknownDelivery ? [h.unknownDelivery + ' with no delivery record'] : [], dom ? ['one of the Houses of the faction that holds more than half'] : [], dim ? ['not in the current filter'] : []).join(', '));
-    sel.setAttribute('title', 'House ' + h.name + ', ' + (h.pos ? h.pos.words + '. ' : '') + (dom ? 'One of the ' + FACTION_WORD[major] + ' Houses, who hold more than half of the Houses now: a count of Houses, not a vote result. ' : '') + 'Click to see its tiers and actions.');
+    sel.setAttribute('aria-label', [(h.number ? 'Number ' + h.number + ', ' : '') + h.name + ', ' + (owner === 'a' || owner === 'h' ? 'claimed by ' + OWNER_WORD[owner] : owner === 'open' ? 'open' : 'owner unreadable')].concat(h.track ? ['path ' + trackWord(h.track)] : ['specialization not in the save'], h.tierCount ? [h.reached + ' of ' + h.tierCount + ' tiers reached', h.collected + ' collected'] : ['no tiers in the save'], notes, h.unknownDelivery ? [h.unknownDelivery + ' with no delivery record'] : [], inLine ? ['part of a line of five held by ' + FACTION_WORD[h.owner] + ': ' + listWords(lines.map(lineWord))] : [], dom ? ['one of the Houses of the faction that holds more than half'] : [], dim ? ['not in the current filter'] : []).join(', '));
+    sel.setAttribute('title', 'House ' + h.name + ', ' + (h.pos ? h.pos.words + '. ' : '') + (inLine ? lineSays + '. The Houses as they stand now, not a vote result. ' : '') + (dom ? 'One of the ' + FACTION_WORD[major] + ' Houses, who hold more than half of the Houses now: a count of Houses, not a vote result, and ' + NOT_VERIFIED + '. ' : '') + 'Click to see its tiers and actions.');
     card.appendChild(sel);
     const ctl = editable && host && host.ctl ? host.ctl(h.id) : null;
     const tiers = el('div', 'lcc-hc-tiers', '', { role: 'group', 'aria-label': 'House ' + h.name + ' reward tiers' });
@@ -260,9 +296,9 @@
     if (editable) card.appendChild(pickBox(h, picks));
     return card;
   }
-  function tile(h, matchIds, host, editable, picks, major) {
+  function tile(h, matchIds, host, editable, picks, major, ev) {
     const li = el('li', 'lcc-bd-cell', '', { 'data-id': h.id, 'data-index': h.index });
-    li.appendChild(houseCard(h, matchIds, host, editable, picks, major));
+    li.appendChild(houseCard(h, matchIds, host, editable, picks, major, ev));
     return li;
   }
   function pickBox(h, picks) {
@@ -272,10 +308,11 @@
     l.appendChild(i);
     return l;
   }
-  function grid(board, matchIds, host, editable, picks) {
+  function grid(board, matchIds, host, editable, picks, ev) {
     const ul = el('ul', 'lcc-bd-tiles', '', { role: 'list', 'aria-label': 'The 25 Houses of the board, five rows of five, numbered 01 to 25 from the top left' });
-    const major = majorityOf(board);
-    for (const h of board.grid) ul.appendChild(tile(h, matchIds, host, editable, picks, major));
+    ev = ev || M().evaluate(board, null);
+    const major = ev.majority;
+    for (const h of board.grid) ul.appendChild(tile(h, matchIds, host, editable, picks, major, ev));
     ul.addEventListener('keydown', (e) => {
       const d = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -M().COLS, ArrowDown: M().COLS }[e.key];
       const c = e.target && e.target.closest ? e.target.closest('.lcc-bd-cell') : null;
@@ -358,16 +395,53 @@
   }
 
   // ---- Imperial Victory Analysis -------------------------------------------------------------------------------------------------------------------------------------------------
-  // Read-only in M3. The save keeps no snapshot of the votes at the start of the voting session, so this says what the count is and that nothing is confirmed; the five lines of logic are milestone M4.
-  function victoryPanel(board) {
-    const s = el('section', 'lcc-bd-surface lcc-bd-victory', '', { 'aria-label': 'Imperial Victory Analysis', 'aria-live': 'polite' });
+  // Read-only. What it says is read from the pure evaluator (lcc-model.js) over the 25 Houses as they stand: the counts, the lines of five that one faction holds, and the lines still possible. The save
+  // keeps no record of the start of the Voting Session (D03) and the sysselraad column is not evidence (D02), so a count lead is a lead, a House count is "not verified", and no sentence says that a
+  // vote was won. A line of five is said as "five in a line" and a count as "N Houses held".
+  function victoryWords(board, ev) {
+    if (!board.ready) return { state: 'unavailable', faction: '', tag: 'COUNT UNAVAILABLE', head: 'NO COUNT TO SHOW', body: 'The board could not be checked, so no count of Houses is shown and nothing is confirmed.' };
+    const c = board.counts;
+    const heldSides = ['a', 'h'].filter((f) => ev.held.some((l) => l.side === f));
+    const also = ev.majority && heldSides.length === 1 && heldSides[0] === ev.majority ? ' ' + FACTION_WORD[ev.majority] + ' also hold ' + c[ev.majority] + ' Houses: a count, ' + NOT_VERIFIED + '.' : '';
+    if (ev.verdict === 'conflict') return { state: 'conflict', faction: '', tag: 'CONFLICT', head: 'BOTH FACTIONS HOLD A LINE', body: FACTION_WORD.a + ' hold ' + heldWords(ev, 'a') + ' and ' + FACTION_WORD.h + ' hold ' + heldWords(ev, 'h') + '. The save does not record which came first or the result of a vote, so neither faction is chosen.' };
+    if (ev.verdict === 'line_held') {
+      const f = ev.winner, n = ev.held.length;
+      return { state: 'line', faction: f, tag: 'FIVE IN A LINE', head: FACTION_WORD[f] + ' · FIVE IN A LINE', body: FACTION_WORD[f] + ' hold five Houses in ' + (n === 1 ? 'one line' : n + ' lines') + ': ' + heldWords(ev, f) + '. Read from the Houses as they stand now; the save does not record the result of a vote.' + also };
+    }
+    if (ev.majority) return { state: 'count', faction: ev.majority, tag: 'IMPERIAL DOMINION · NOT VERIFIED', head: FACTION_WORD[ev.majority] + ' · ' + c[ev.majority] + ' HOUSES HELD', body: 'A count of Houses now, not a vote result. The save does not record when the Voting Session starts, so a House-count lead cannot be confirmed here.' };
+    return { state: 'contested', faction: '', tag: 'AWAITING VOTING SESSION', head: 'SYSSELRAAD CONTESTED', body: 'No confirmed winner. A five-House line secures victory; otherwise compare claimed Houses at the start of the Voting Session.' };
+  }
+  // The House count set beside the Dominion rule (more Houses than the other faction at the start of the Voting Session): said as a comparison of the Houses now and never as a result.
+  function countLine(board, ev) {
+    const c = board.counts;
+    if (!board.ready) return '';
+    if (!board.countComplete) return 'House count incomplete: ' + c.unknown + (c.unknown === 1 ? ' House' : ' Houses') + ' could not be read, so no comparison is made.';
+    if (!ev.leader) return 'House count: even at ' + c.a + ' each · ' + NOT_VERIFIED + '.';
+    return 'House count: ' + FACTION_WORD[ev.leader] + ' ahead ' + c[ev.leader] + ' to ' + c[ev.leader === 'a' ? 'h' : 'a'] + ' · ' + NOT_VERIFIED + '.';
+  }
+  function victoryPanel(board, ev) {
+    ev = ev || M().evaluate(board, null);
+    const v = victoryWords(board, ev);
+    const s = el('section', 'lcc-bd-surface lcc-bd-victory', '', { 'aria-label': 'Imperial Victory Analysis', 'aria-live': 'polite', 'data-state': v.state, 'data-faction': v.faction || null });
     s.appendChild(el('p', 'lcc-bd-eyebrow', 'IMPERIAL VICTORY ANALYSIS'));
-    s.appendChild(el('div', 'lcc-bd-vtag', board.ready ? 'AWAITING VOTING SESSION' : 'COUNT UNAVAILABLE'));
+    s.appendChild(el('div', 'lcc-bd-vtag', v.tag));
     s.appendChild(el('div', 'lcc-bd-emblem', '◇', { 'aria-hidden': 'true' }));
-    s.appendChild(el('h3', 'lcc-bd-vhead', board.ready ? 'SYSSELRAAD CONTESTED' : 'NO COUNT TO SHOW'));
-    s.appendChild(el('p', 'lcc-bd-vbody', board.ready ? 'No confirmed winner. A five-House line secures victory; otherwise compare claimed Houses at the start of the Voting Session.' : 'The board could not be checked, so no count of Houses is shown and nothing is confirmed.'));
+    s.appendChild(el('h3', 'lcc-bd-vhead', v.head));
+    s.appendChild(el('p', 'lcc-bd-vbody', v.body));
     const c = board.counts;
     s.appendChild(el('div', 'lcc-bd-well', board.ready ? 'Atreides ' + c.a + ' · Harkonnen ' + c.h + ' · Open ' + c.open + (c.unknown ? ' · Unreadable ' + c.unknown : '') : 'Houses read: ' + board.houses.length));
+    if (board.ready) {
+      s.appendChild(el('p', 'lcc-bd-vcount', countLine(board, ev)));
+      // the twelve lines, one sentence each, in the board's fixed order (rows, columns, the two diagonals); never sorted, so a line is always where it was
+      const ul = el('ul', 'lcc-bd-lines', '', { role: 'list', 'aria-label': 'The twelve lines of the board' });
+      for (const l of ev.lines) {
+        const li = el('li', 'lcc-bd-line', '', { 'data-status': l.status, 'data-line': l.id });
+        li.appendChild(el('b', '', l.name + ' · Houses ' + houseNums(l)));
+        li.appendChild(el('span', '', lineSaid(l, board)));
+        ul.appendChild(li);
+      }
+      s.appendChild(disc('lines', 'The twelve lines (' + ev.held.length + ' held, ' + (ev.potential.exact ? ev.potential.total + ' still possible' : 'count incomplete') + ')', ul));
+    }
     return s;
   }
 
@@ -604,9 +678,10 @@
       p.appendChild(ul);
       w.appendChild(p);
     }
+    const ev = M().evaluate(board, null); // no record of the start of the Voting Session exists in the save: the evidence is always null (D03)
     w.appendChild(plaque(board, host));
     w.appendChild(preview(board, host));
-    w.appendChild(metrics(board));
+    w.appendChild(metrics(board, ev));
     if (!board.houses.length) { w.appendChild(el('p', 'lcc-bd-none', 'This save has no Landsraad Houses in the current term, so there is nothing to show or change here.')); return w; }
     if (state.sel !== null && !board.byId.has(state.sel)) state.sel = null;
     const matchIds = new Set(board.houses.filter((h) => M().matches(h, state)).map((h) => h.id));
@@ -615,9 +690,9 @@
     const panel = el('section', 'lcc-bd-surface lcc-bd-panel', '', { 'aria-labelledby': 'lcc-bd-h' });
     panel.appendChild(panelHead(board));
     panel.appendChild(filters(board, matchIds));
-    panel.appendChild(legend(board));
+    panel.appendChild(legend(board, ev));
     const stage = el('div', 'lcc-bd-stage');
-    if (board.ready && state.layout === 'grid') stage.appendChild(grid(board, matchIds, host, editable, picks));
+    if (board.ready && state.layout === 'grid') stage.appendChild(grid(board, matchIds, host, editable, picks, ev));
     else stage.appendChild(list(board, matchIds, host, editable, picks));
     panel.appendChild(stage);
     const foot = el('div', 'lcc-bd-foot');
@@ -628,7 +703,7 @@
     // the place of the page's own action bar: directly under the board, so the order of the keys is the order of the eyes (the page puts the bar here, see host.seat)
     grid_.appendChild(el('div', 'lcc-bd-slot', '', { 'data-lcc-slot': 'bar' }));
     const side = el('div', 'lcc-bd-side');
-    side.appendChild(victoryPanel(board));
+    side.appendChild(victoryPanel(board, ev));
     side.appendChild(inspector(board, state.sel === null ? null : board.byId.get(state.sel), host, editable));
     grid_.appendChild(side);
     w.appendChild(grid_);
@@ -769,7 +844,7 @@
     }
   }
 
-  const api = { state, mount, redraw, keepInView, visible, build, majorityOf, plaque, preview, metrics, grid, houseCard, list, inspector, victoryPanel, knownDecrees, tierKind, NOT_IN_SAVE };
+  const api = { state, mount, redraw, keepInView, visible, build, majorityOf, victoryWords, countLine, lineSaid, plaque, preview, metrics, grid, houseCard, list, inspector, victoryPanel, knownDecrees, tierKind, NOT_IN_SAVE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCB = api;
 })(typeof window !== 'undefined' ? window : globalThis);
