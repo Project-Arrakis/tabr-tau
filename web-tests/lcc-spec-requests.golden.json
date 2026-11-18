@@ -1,0 +1,171 @@
+{
+ "Add XP 1000": {
+  "sent": [
+   {
+    "path": "/api/player/specs/xp",
+    "body": {
+     "track": "Combat",
+     "amount": 1000
+    }
+   }
+  ],
+  "asked": null,
+  "said": "Combat: 3,000 → 4,000 XP, level 26 (queued: written as soon as the save can be written)"
+ },
+ "Add XP on another track": {
+  "sent": [
+   {
+    "path": "/api/player/specs/xp",
+    "body": {
+     "track": "Gathering",
+     "amount": 250
+    }
+   }
+  ],
+  "asked": null,
+  "said": "Gathering: 3,000 → 4,000 XP, level 26 (queued: written as soon as the save can be written)"
+ },
+ "Assign by hand with no number": {
+  "sent": [],
+  "asked": null,
+  "said": "Type the track number first.×"
+ },
+ "Assign by hand, Combat 9": {
+  "sent": [
+   {
+    "path": "/api/player/specs/assign",
+    "body": {
+     "track": "Combat",
+     "number": 9
+    }
+   }
+  ],
+  "asked": null,
+  "said": "Combat is track number 9"
+ },
+ "Assign number 1 to Combat": {
+  "sent": [
+   {
+    "path": "/api/player/specs/assign",
+    "body": {
+     "track": "Combat",
+     "number": 1
+    }
+   }
+  ],
+  "asked": null,
+  "said": "Track number 1 is Combat"
+ },
+ "Grant all keystones, asked then Yes": {
+  "sent": [
+   {
+    "path": "/api/player/specs/keystones/grant",
+    "body": {}
+   }
+  ],
+  "asked": "Grant all keystones?Every specialization keystone of every track is bought. One edit. Grant allCancel",
+  "said": "5 keystones granted (queued: written as soon as the save can be written)"
+ },
+ "Grant max, asked then No": {
+  "sent": [],
+  "asked": "Grant max Combat?Combat goes to the XP of its last level (level 100). One edit. Grant maxCancel",
+  "said": ""
+ },
+ "Grant max, asked then Yes": {
+  "sent": [
+   {
+    "path": "/api/player/specs/max",
+    "body": {
+     "track": "Combat"
+    }
+   }
+  ],
+  "asked": "Grant max Combat?Combat goes to the XP of its last level (level 100). One edit. Grant maxCancel",
+  "said": "Combat set to max (queued: written as soon as the save can be written)"
+ },
+ "Raw row: Sabotage 500 XP level 2, asked then Yes": {
+  "sent": [
+   {
+    "path": "/api/player/specs",
+    "body": {
+     "track_type": 5,
+     "xp": 500,
+     "level": 2
+    }
+   }
+  ],
+  "asked": "Set this raw row?Sabotage is set to 500 XP at level 2. One edit. Set the rowCancel",
+  "said": "Specialization set (queued: written as soon as the save can be written)"
+ },
+ "Raw row: XP 44182 and level 10, mismatch kept as typed": {
+  "sent": [
+   {
+    "path": "/api/player/specs",
+    "body": {
+     "track_type": 3,
+     "xp": 44182,
+     "level": 10
+    }
+   }
+  ],
+  "asked": "Set this raw row?Exploration is set to 44,182 XP at level 10. One edit. Set the rowCancel",
+  "said": "Specialization set (queued: written as soon as the save can be written)"
+ },
+ "Remove XP -1000": {
+  "sent": [
+   {
+    "path": "/api/player/specs/xp",
+    "body": {
+     "track": "Combat",
+     "amount": -1000
+    }
+   }
+  ],
+  "asked": null,
+  "said": "Combat: 3,000 → 4,000 XP, level 26 (queued: written as soon as the save can be written)"
+ },
+ "Reset XP of all known tracks, typed sentence": {
+  "sent": [
+   {
+    "path": "/api/player/specs/reset-all",
+    "body": {
+     "expected": 2
+    }
+   }
+  ],
+  "asked": "Reset the XP of 2 tracks?The XP and level of every specialization track whose number the editor knows go back to 0, the same as the Reset button of each track. Keystones are not touched. 1 row of the save whose track is not known yet is left alone, since removing it could clear the wrong track. One edit. A backup of the save is taken before the change is written to the game file, and Restore on the Database tab (Save backups) puts it back. Type reset 2 tracks to continue. Reset XPCancel",
+  "said": "5 tracks reset to 0 XP (queued: written as soon as the save can be written)"
+ },
+ "Reset XP of all known tracks, wrong sentence": {
+  "sent": [],
+  "asked": "Reset the XP of 2 tracks?The XP and level of every specialization track whose number the editor knows go back to 0, the same as the Reset button of each track. Keystones are not touched. 1 row of the save whose track is not known yet is left alone, since removing it could clear the wrong track. One edit. A backup of the save is taken before the change is written to the game file, and Restore on the Database tab (Save backups) puts it back. Type reset 2 tracks to continue. Reset XPCancel",
+  "said": ""
+ },
+ "Reset all keystones, asked then No": {
+  "sent": [],
+  "asked": "Reset all keystones?Every specialization keystone you have bought is removed. One edit. Reset allCancel",
+  "said": ""
+ },
+ "Reset all keystones, asked then Yes": {
+  "sent": [
+   {
+    "path": "/api/player/specs/keystones/reset",
+    "body": {}
+   }
+  ],
+  "asked": "Reset all keystones?Every specialization keystone you have bought is removed. One edit. Reset allCancel",
+  "said": "5 keystones reset (queued: written as soon as the save can be written)"
+ },
+ "Reset one track, asked then Yes": {
+  "sent": [
+   {
+    "path": "/api/player/specs/reset",
+    "body": {
+     "track": "Sabotage"
+    }
+   }
+  ],
+  "asked": "Reset Sabotage?Sabotage goes back to 0 XP. Its keystones are not changed. One edit. ResetCancel",
+  "said": "Sabotage reset (queued: written as soon as the save can be written)"
+ }
+}
