@@ -88,6 +88,7 @@
     a.appendChild(el('small', 'did lcc-tm-did', vm.selD ? vm.selD.key : '', { title: 'The game\'s internal id, kept for support' }));
     a.appendChild(el('small', 'de lcc-tm-de', vm.selD && vm.selD.effect ? vm.selD.effect : ''));
     a.appendChild(el('small', 'mut du lcc-tm-du', vm.selD ? vm.selD.note : ''));
+    a.appendChild(el('small', 'lcc-tm-pending', vm.pending || '', { id: 'lcc-tm-pending', role: 'status' })); // a choice that is only a draft says so until it is written (#925)
     row.appendChild(a);
     const f = el('label', 'lcc-tm-fld');
     f.appendChild(el('span', 'lcc-tm-lbl', 'Reigning faction'));

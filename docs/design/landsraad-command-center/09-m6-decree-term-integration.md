@@ -14,7 +14,7 @@ Method: the approved prototype (its Sysselraad Strategy view, and the plaque, wh
 ## Honest-data rules that the view follows
 
 * Real values from `GET /api/landsraad` only. Whatever the save does not hold is said: "Not in the save", "Active Landsraad missions are not recorded in this local save", "A ranking of contributors is not recorded".
-* The prototype's Decree Preview drop-down is kept as a sample and labelled so; choosing one puts a DEMO badge on the plaque, and nothing is written.
+* The prototype's Decree Preview drop-down is kept as a sample and labelled so; choosing one puts a DEMO badge on the plaque, and nothing is written. The plaque's own decree is the term's active decree (`LD.term.active_decree_id`, looked up in the loaded read by the page's `lbDecreeNow`); the sample is let go as soon as that decree is another one than at the last drawing, so a write on the term section always shows on the plaque (#925). While the Active decree choice differs from the term's, a line under the drop-down says "Not applied yet" and names both decrees.
 * Strategy words never say a faction wins: "FIVE IN A LINE", "ONE AWAY", "POTENTIAL", "BLOCKED", "UNREADABLE"; a line that is not held says "a preview, not a result". The save records no start of the Voting Session, so no snapshot of it is shown and Dominion is never confirmed.
 * The decree picture comes from the existing id-based mapping; a decree with no verified picture (the hidden row) gets the neutral picture and an empty alt text.
 

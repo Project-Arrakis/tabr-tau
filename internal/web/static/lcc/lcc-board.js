@@ -36,7 +36,7 @@
   const tierKind = (t) => (t.reached ? (TIER_CLASS[t.state] ? t.state : 'unknown') : 'not_reached');
 
   // The view state. It lives here, not in the answer, so a redraw after a write keeps the filter, the layout and the House that was looked at.
-  const state = { layout: 'grid', show: 'all', hs: 'any', spec: 'all', sort: 'position', dir: 'asc', group: '', sel: null, preview: '', strategy: false, line: '', lineSort: 'board' };
+  const state = { layout: 'grid', show: 'all', hs: 'any', spec: 'all', sort: 'position', dir: 'asc', group: '', sel: null, preview: '', seenDecree: undefined, strategy: false, line: '', lineSort: 'board' };
   let last = null; // { container, answer, host } of the latest mount, so a change of the view can draw again without the page's help
   let inited = false;
   // What a redraw keeps for the person (display only): where the House Intelligence panel was scrolled to (for the House it was on) and which disclosures were opened.
@@ -102,7 +102,7 @@
     const decs = knownDecrees(host), act = host && host.decree ? host.decree() : null;
     const s = el('select', 'lcc-bd-select', '', { id: 'lcc-bd-decree', 'data-lcb': 'preview', 'data-fk': 'bf:preview' });
     s.appendChild(el('option', '', act && act.name ? act.name : 'No active decree', act && act.name ? { value: '', title: 'The active decree of the save' } : { value: '' }));
-    for (const d of decs) { const o = el('option', '', d.name, { value: d.id }); if (d.id === state.preview) o.selected = true; s.appendChild(o); }
+    for (const d of decs) { const o = el('option', '', d.name, { value: d.id }); if (d.id === state.preview) o.defaultSelected = true; s.appendChild(o); } // defaultSelected: a redraw of the page that puts a changed box back then finds nothing to change, and the board's own state decides (#925)
     if (!decs.length) s.disabled = true;
     w.appendChild(s);
     w.appendChild(btn('lcc-bd-btn lcc-bd-toterm', 'Term and decrees ↓', { 'data-lcb': 'toterm', 'data-fk': 'bf:toterm', title: "The editor's own controls for the active decree and the reigning faction are in the Term and Decrees section below the board" }));
@@ -822,6 +822,11 @@
   function mount(container, answer, host) {
     if (!inited) { inited = true; const v = host && host.get ? host.get('layout') : null; if (v === 'grid' || v === 'list') state.layout = v; }
     last = { container, answer, host };
+    // The decree preview is a sample to look at. Once the term's own active decree is another one than at the last drawing (a write on the Term and decrees panel, or a read that found
+    // another), the sample is let go and the plaque shows the term's decree again (#925).
+    const now = host && host.decree ? host.decree() : null, seen = now && now.name ? now.name : '';
+    if (state.seenDecree !== undefined && state.seenDecree !== seen) state.preview = '';
+    state.seenDecree = seen;
     const fk = container.contains(root.document.activeElement) ? focusKey() : '';
     if (host && host.unseat) host.unseat(); // what the page put into the board goes back to its own place before the board is drawn again
     const board = M().readBoard(answer);
