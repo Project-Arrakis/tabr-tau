@@ -179,7 +179,7 @@ test('text floor: no rule of the board leaves text under 11 px, and names and ke
   // .lcc-flag is the foundation's own flag (the gallery); the board's use of it, the badge of a card, is raised by .lcc-hc-badge
   const low = [...sizes].filter(([sel, px]) => px < 11 && sel !== '.lcc-flag');
   assert.deepEqual(low, [], 'selectors under 11 px: ' + low.map(([s, px]) => s + ' ' + px).join(' | '));
-  for (const s of ['.lcc-hc-owner', '.lcc-hc-count', '.lcc-bd-chip', '.lcc-bd-lbl', '.lcc-bd-sec-h', '.lcc-bd-control', '.lcc-bd-vtag', '.lcc-bd-tier', '.lcc-bd-tier-n', '.lcc-bd-tier-s', '.lcc-bd-elab', '.lcc-bd-metric-k', '.lcc-bd-preview-l', '.lcc-bd-fc-head']) assert.ok(sizes.get(s) >= 12, s + ' is a key label: ' + sizes.get(s));
+  for (const s of ['.lcc-hc-owner', '.lcc-hc-count', '.lcc-bd-chip', '.lcc-bd-lbl', '.lcc-bd-sec-h', '.lcc-bd-control', '.lcc-bd-vtag', '.lcc-bd-tier', '.lcc-bd-tier-n', '.lcc-bd-tier-s', '.lcc-bd-elab', '.lcc-bd-metric-k', '.lcc-bd-fc-head']) assert.ok(sizes.get(s) >= 12, s + ' is a key label: ' + sizes.get(s));
   assert.match(bare, /\.lcc-hc-name \{ font: 700 12px\//, 'a card name is 12 px at its smallest');
   // the plaque keeps its floor in the wide layout: every clamp() starts at 11 px or more
   const wide = lccCss.replace(/\/\*[\s\S]*?\*\//g, '');

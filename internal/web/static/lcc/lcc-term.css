@@ -9,14 +9,15 @@
 .lcc-tm-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* ---- type ---- */
-.lcc-tm-eyebrow { margin: 0; font: 700 11px/1.4 var(--lcc-sans); letter-spacing: .16em; text-transform: uppercase; color: var(--lcc-gold-text); }
-.lcc-tm-h { margin: 4px 0 0; font: 700 clamp(24px, 2.6vw, 34px)/1.15 var(--lcc-serif); letter-spacing: .03em; color: var(--lcc-strong); text-transform: none; overflow-wrap: anywhere; }
-.lcc-tm-h:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 4px; }
-.lcc-tm-h4 { margin: 0; font: 700 14px/1.3 var(--lcc-serif); letter-spacing: .04em; color: var(--lcc-gold-text); }
-.lcc-tm-lead { margin: 8px 0 0; max-width: 640px; font: 400 13px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
+/* The text rules below name the section first (.lcc-tm .lcc-tm-x): the section is drawn inside the board (#923), where `.lcc-bd p` and the page's `.card h3` would otherwise win by specificity. */
+.lcc-tm .lcc-tm-eyebrow { margin: 0; font: 700 11px/1.4 var(--lcc-sans); letter-spacing: .16em; text-transform: uppercase; color: var(--lcc-gold-text); }
+.lcc-tm .lcc-tm-h { margin: 4px 0 0; font: 700 clamp(24px, 2.6vw, 34px)/1.15 var(--lcc-serif); letter-spacing: .03em; color: var(--lcc-strong); text-transform: none; overflow-wrap: anywhere; }
+.lcc-tm .lcc-tm-h:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 4px; }
+.lcc-tm .lcc-tm-h4 { margin: 0; font: 700 14px/1.3 var(--lcc-serif); letter-spacing: .04em; color: var(--lcc-gold-text); }
+.lcc-tm .lcc-tm-lead { margin: 8px 0 0; max-width: 640px; font: 400 13px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-tm-k { display: block; font: 700 11px/1.3 var(--lcc-sans); letter-spacing: .1em; color: var(--lcc-dim); text-transform: uppercase; }
 .lcc-tm-sub, .lcc-tm-hint, .lcc-tm-none { font: 400 12px/1.4 var(--lcc-sans); color: var(--lcc-dim); }
-.lcc-tm-note { margin: 0 0 10px; padding: 9px 11px; font: 500 12px/1.5 var(--lcc-sans); color: var(--lcc-text); border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-sunken); }
+.lcc-tm .lcc-tm-note { margin: 0 0 10px; padding: 9px 11px; font: 500 12px/1.5 var(--lcc-sans); color: var(--lcc-text); border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-sunken); }
 .lcc-tm-warn::before { content: '\26A0\00a0'; color: var(--lcc-gold-text); }
 .lcc-tm-src { display: inline-block; padding: 5px 9px; border: 1px solid var(--lcc-stroke); font: 700 11px/1.3 var(--lcc-sans); letter-spacing: .1em; color: var(--lcc-dim); white-space: nowrap; }
 .lcc-tm-src-no { border-style: dashed; color: var(--lcc-gold-text); }
@@ -51,7 +52,7 @@
 
 /* ---- the controls ---- */
 .lcc-tm-ctl { margin: 0 0 16px; padding: 14px 15px 12px; border: 1px solid var(--lcc-stroke); background: var(--lcc-sunken); }
-.lcc-tm-scope { margin: 5px 0 11px; font: 400 12px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
+.lcc-tm .lcc-tm-scope { margin: 5px 0 11px; font: 400 12px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-tm-ctlrow { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 14px; align-items: start; }
 .lcc-tm-fld { display: block; min-width: 0; }
 .lcc-tm-lbl { display: block; margin: 0 0 5px; font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .06em; color: var(--lcc-gold-text); }
@@ -60,9 +61,9 @@
 .lcc-tm-select:disabled { opacity: .55; cursor: not-allowed; }
 .lcc-tm-fld small { display: block; margin-top: 4px; }
 .lcc-tm-apply { align-self: end; }
-.lcc-tm-result { min-height: 18px; margin: 11px 0 0; font: 500 13px/1.45 var(--lcc-sans); color: var(--lcc-text); overflow-wrap: anywhere; }
-.lcc-tm-result.bad { color: var(--lcc-red-t); font-weight: 700; }
-.lcc-tm-result:empty { margin: 0; min-height: 0; }
+.lcc-tm .lcc-tm-result { min-height: 18px; margin: 11px 0 0; font: 500 13px/1.45 var(--lcc-sans); color: var(--lcc-text); overflow-wrap: anywhere; }
+.lcc-tm .lcc-tm-result.bad { color: var(--lcc-red-t); font-weight: 700; }
+.lcc-tm .lcc-tm-result:empty { margin: 0; min-height: 0; }
 
 /* ---- buttons ---- */
 .lcc-tm-btn { min-height: 40px; padding: 9px 13px; cursor: pointer; border: 1px solid var(--lcc-gold-lo); background: linear-gradient(135deg, var(--lcc-s2), var(--lcc-s1)); font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .02em; color: var(--lcc-strong); white-space: normal; overflow-wrap: anywhere; text-align: center; }
@@ -113,8 +114,8 @@
 .lcc-tm-tablewrap { overflow-x: auto; padding: 0 12px; }
 .lcc-tm-tablewrap:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: -3px; }
 /* the table is wider than a phone: the wrapper takes the focus (so the arrow keys scroll it) and the line above it says so; wider windows show the whole table and no line */
-.lcc-tm-scrollhint { display: none; margin: 0 12px 6px; font: 400 12px/1.4 var(--lcc-sans); color: var(--lcc-dim); }
-@media (max-width: 640px) { .lcc-tm-scrollhint { display: block; } }
+.lcc-tm .lcc-tm-scrollhint { display: none; margin: 0 12px 6px; font: 400 12px/1.4 var(--lcc-sans); color: var(--lcc-dim); }
+@media (max-width: 640px) { .lcc-tm .lcc-tm-scrollhint { display: block; } }
 .lcc-tm-table { width: 100%; border-collapse: collapse; font: 400 12px/1.4 var(--lcc-sans); }
 .lcc-tm-table th { text-align: left; padding: 6px 8px; font: 700 11px/1.3 var(--lcc-sans); letter-spacing: .08em; text-transform: uppercase; color: var(--lcc-dim); border-bottom: 1px solid var(--lcc-stroke); }
 .lcc-tm-table td { padding: 6px 8px; border-bottom: 1px solid var(--lcc-stroke-faint); color: var(--lcc-text); }
@@ -162,3 +163,13 @@
 }
 .lcc-tm-pending { display: block; font: 600 12px/1.4 var(--lcc-sans); color: var(--lcc-strong); }
 .lcc-tm-pending:empty { display: none; }
+
+/* ---- the clock line under the facts (#922) and the small Show / Hide control of the closed blocks (#923) ---- */
+.lcc-tm .lcc-tm-clock { margin: 0 0 18px; padding: 0 2px; max-width: 110ch; font: 400 12px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
+.lcc-tm .lcc-tm-disc > summary.lcc-tm-sum2 { justify-content: space-between; gap: 12px; }
+.lcc-tm-sumt { min-width: 0; overflow-wrap: anywhere; }
+.lcc-tm-showhide { flex: none; display: inline-block; padding: 3px 10px; border: 1px solid var(--lcc-gold-lo); font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .06em; color: var(--lcc-gold-text); background: var(--lcc-sunken); }
+@media (forced-colors: active) {
+  .lcc-tm-showhide { border-color: ButtonText; color: ButtonText; background: ButtonFace; }
+}
+.lcc-tm .lcc-tm-v { text-wrap: balance; }

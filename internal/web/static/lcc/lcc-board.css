@@ -1,4 +1,4 @@
-/* The Command Center's live board (milestone M3): the decree preview, the four figures, the board panel (head, filters, legend, the five-by-five board of House cards, the list), the Imperial Victory Analysis
+/* The Command Center's live board (milestone M3): the place of the Term and Decrees section, the four figures, the board panel (head, filters, legend, the five-by-five board of House cards, the list), the Imperial Victory Analysis
    and the House Intelligence panel. Like lcc.css, every rule is scoped to a class that starts with lcc (a test reads this file too and fails on a selector that is not), every custom property is --lcc-*, and
    it uses no address of any kind, so the content security policy needs nothing new. It is loaded after lcc.css and uses the aliases that file defines, among them the approved design's own faces
    (--lcc-serif, --lcc-sans, --lcc-mono: system fonts, nothing is fetched). Layout follows the box the board is in (a container query), not the window: the approved design's window breakpoints are
@@ -24,10 +24,12 @@
 .lcc-bd-surface::after { content: ''; pointer-events: none; position: absolute; inset: 7px; border: 1px solid var(--lcc-stroke-faint); }
 :root[data-theme="light"] .lcc-bd-surface, :root[data-theme="light"] .lcc-bd-metric { box-shadow: 0 10px 26px rgba(85, 52, 16, .16); }
 
-/* DECREE PREVIEW (read-only: it changes what the plaque shows, never the save) */
-.lcc-bd-preview { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 12px; margin: 0 0 14px; padding: 7px 10px; box-sizing: border-box; border: 1px solid var(--lcc-stroke); background: var(--lcc-s1); }
-.lcc-bd-preview-l { font: 800 10px/1.4 var(--lcc-sans); letter-spacing: .1em; color: var(--lcc-gold-text); }
-.lcc-bd-preview-n { font: 400 10px/1.4 var(--lcc-sans); color: var(--lcc-dim); }
+/* The place of the Term and Decrees section (#923): the page seats its own section here, drawn once, under the plaque. Empty until then. */
+.lcc-bd-termslot { margin: 0 0 14px; min-width: 0; }
+.lcc-bd-termslot:empty { display: none; }
+.lcc-bd-termslot > .lcc-tm { margin-top: 0; }
+
+/* a drop-down of the board */
 .lcc-bd-select { box-sizing: border-box; min-height: 37px; max-width: 100%; padding: 8px 12px; font: 14px/1.2 var(--lcc-sans); color: var(--lcc-text); background: var(--lcc-raised); border: 1px solid var(--lcc-stroke); }
 .lcc-bd-select:disabled { opacity: .6; cursor: not-allowed; }
 
@@ -319,7 +321,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 
 /* forced colours and contrast */
 @media (forced-colors: active) {
-  .lcc-bd, .lcc-bd-metric, .lcc-bd-preview, .lcc-bd-surface, .lcc-bd-listwrap { background: Canvas; color: CanvasText; border: 1px solid CanvasText; box-shadow: none; }
+  .lcc-bd, .lcc-bd-metric, .lcc-bd-surface, .lcc-bd-listwrap { background: Canvas; color: CanvasText; border: 1px solid CanvasText; box-shadow: none; }
   .lcc-bd-chip, .lcc-bd-select, .lcc-bd-tier, .lcc-bd-act, .lcc-bd-btn, .lcc-bd-layout button { background: ButtonFace; color: ButtonText; border: 1px solid ButtonText; }
   .lcc-bd-chip[aria-pressed="true"], .lcc-bd-layout button[aria-pressed="true"] { background: Highlight; color: HighlightText; }
   .lcc-hc { background: Canvas; color: CanvasText; border: 2px solid CanvasText; box-shadow: none; clip-path: none; }
@@ -335,7 +337,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
   .lcc-bd-fill-a { background: Highlight; }
   .lcc-bd-fill-h, .lcc-bd-fill-me { background: CanvasText; }
   .lcc-bd-track { border-color: CanvasText; }
-  .lcc-bd-linkb, .lcc-bd-c-no, .lcc-bd-eyebrow, .lcc-bd-sec-h, .lcc-bd-tier-th, .lcc-bd-metric strong, .lcc-bd-preview-l { color: CanvasText; }
+  .lcc-bd-linkb, .lcc-bd-c-no, .lcc-bd-eyebrow, .lcc-bd-sec-h, .lcc-bd-tier-th, .lcc-bd-metric strong { color: CanvasText; }
 }
 @media (prefers-contrast: more) {
   .lcc-bd-chip, .lcc-bd-select, .lcc-bd-tier, .lcc-bd-metric, .lcc-bd-surface, .lcc-hc { border-color: var(--lcc-text); }
@@ -348,8 +350,6 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .lcc-bd .lcc-bd-eyebrow { font-size: 11px; }
 .lcc-bd-src, .lcc-bd-source { font-size: 11px; padding: 2px 5px; }
-.lcc-bd-preview-l { font-size: 12px; }
-.lcc-bd-preview-n { font-size: 11px; }
 .lcc-bd-metric-k { font-size: 12px; letter-spacing: .12em; }
 .lcc-bd-metric small { font-size: 11px; }
 .lcc-bd-metric strong { overflow-wrap: anywhere; }
@@ -420,7 +420,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
   .lcc-bd-pickl { width: 28px; height: 28px; left: calc(50% - 14px); top: 3px; }
   .lcc-bd-c-pick .lcc-bd-pickl { width: 36px; height: 36px; }
   .lcc-bd-chip { min-height: 36px; }
-  .lcc-bd-lbl, .lcc-bd-preview-l { display: inline-flex; align-items: center; min-height: 36px; }
+  .lcc-bd-lbl { display: inline-flex; align-items: center; min-height: 36px; }
   .lcc-bd-sortb, .lcc-bd-linkb { min-height: 36px; }
   .lcc-bd-list th, .lcc-bd-list td { padding-top: 8px; padding-bottom: 8px; }
 }
@@ -534,7 +534,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 /* ==== Milestone M6: Sysselraad Strategy (a list of the twelve lines and a preview on the board), the way to the Term and Decrees section, and the way from a House to its path ====
    A line that is not held is a PREVIEW: a violet dashed outline and a word (POTENTIAL, MISSING, BLOCKED), never the gold of a line of five. The board is never reordered; only the list can be. */
 .lcc-bd-strat[aria-pressed="true"] { border-color: var(--lcc-violet); color: var(--lcc-text); box-shadow: inset 0 0 0 1px var(--lcc-violet); }
-.lcc-bd-toterm, .lcc-bd-gopath { margin-left: auto; }
+.lcc-bd-gopath { margin-left: auto; }
 .lcc-bd-gopath { margin: 6px 0 0; }
 .lcc-bd-nosave { margin: 8px 0 0; font-size: 12px; }
 .lcc-bd-strat-panel { margin: 0 0 18px; padding: 22px 20px 20px; min-width: 0; }
@@ -573,7 +573,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 }
 @media (max-width: 900px), (pointer: coarse) {
   .lcc-bd-lrow { min-height: 44px; }
-  .lcc-bd-toterm, .lcc-bd-gopath, .lcc-bd-strat, .lcc-bd-lsort .lcc-bd-chip, .lcc-bd-lacts .lcc-bd-btn { min-height: 44px; }
+  .lcc-bd-gopath, .lcc-bd-strat, .lcc-bd-lsort .lcc-bd-chip, .lcc-bd-lacts .lcc-bd-btn { min-height: 44px; }
 }
 @media (forced-colors: active) {
   /* a forced-colours card has no clip-path, so the system-colour outline (outside the card) is drawn as it always was, and the ring is not drawn */

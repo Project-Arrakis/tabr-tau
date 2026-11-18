@@ -21,6 +21,7 @@
     "synthetic": true
   },
   "character": { "faction_id": 1, "name": "SYNTHETIC_CHARACTER", "player_id": 1 },
+  "clock": { "play_seconds": 1100000, "saved_at": 1770000000 },
   "decrees": [
     {
       "active": false,

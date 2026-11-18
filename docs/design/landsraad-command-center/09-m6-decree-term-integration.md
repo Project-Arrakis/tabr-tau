@@ -14,7 +14,7 @@ Method: the approved prototype (its Sysselraad Strategy view, and the plaque, wh
 ## Honest-data rules that the view follows
 
 * Real values from `GET /api/landsraad` only. Whatever the save does not hold is said: "Not in the save", "Active Landsraad missions are not recorded in this local save", "A ranking of contributors is not recorded".
-* The prototype's Decree Preview drop-down is kept as a sample and labelled so; choosing one puts a DEMO badge on the plaque, and nothing is written. The plaque's own decree is the term's active decree (`LD.term.active_decree_id`, looked up in the loaded read by the page's `lbDecreeNow`); the sample is let go as soon as that decree is another one than at the last drawing, so a write on the term section always shows on the plaque (#925). While the Active decree choice differs from the term's, a line under the drop-down says "Not applied yet" and names both decrees.
+* The prototype's Decree Preview drop-down was kept as a sample in M6 and was **removed on 2026-11-18 at the operator's request** (DECISIONS.md, G1). The plaque's own decree is the term's active decree (`LD.term.active_decree_id`, looked up in the loaded read by the page's `lbDecreeNow`) and has no sample mode and no DEMO badge; a write on the term section always shows on the plaque (#925). While the Active decree choice differs from the term's, a line under the drop-down says "Not applied yet" and names both decrees.
 * Strategy words never say a faction wins: "FIVE IN A LINE", "ONE AWAY", "POTENTIAL", "BLOCKED", "UNREADABLE"; a line that is not held says "a preview, not a result". The save records no start of the Voting Session, so no snapshot of it is shown and Dominion is never confirmed.
 * The decree picture comes from the existing id-based mapping; a decree with no verified picture (the hidden row) gets the neutral picture and an empty alt text.
 
@@ -47,13 +47,15 @@ Method: the approved prototype (its Sysselraad Strategy view, and the plaque, wh
 | T9 | Earlier terms, read-only, with house contribution, tiers, completion faction, payment record | The classic list's content in a disclosure per term, still read-only, with its disclaimers | matches | |
 | T10 | Source badge, queued notice, focus restoration, disabled while writing, no duplicate write, conflict recovery | All through the classic handler (the same `lbRun`) | matches | |
 | T11 | Decree art by id and variant, neutral placeholder when unverified, alt text and an independent effect text | Existing id mapping; neutral picture with empty alt for an unmapped decree; the effect is always text | matches | |
-| T12 | Link from the hero to the management panel | "Term and decrees" button on the board moves the focus to the section | matches | |
-| T13 | No plain select in the hero that writes | The hero's selector is the sample picker and writes nothing | matches | |
+| T12 | Link from the hero to the management panel | No link: the section is drawn directly under the plaque, where the link and the sample strip were (2026-11-18, operator-requested). The section keeps the anchor `#lcc-term` and a heading that can take the focus | differs (operator-requested) | G1 |
+| T13 | No plain select in the hero that writes | There is no selector in the hero any more; the section's own Active decree and Reigning faction drop-downs write only through Apply | differs (operator-requested) | G1 |
 | T14 | Section looks like the approved surfaces | Same tokens, serif titles, gold Apply; a row stacks its buttons under the text at 640 px and below | differs (intentional) | The prototype has no term section; this is an original layout in its style. |
-| T15 | Where the section sits | Under the board, in the board view (the action bar is in the board's control bar since #914) | differs (intentional) | Needs the owner's view; a tab of its own was not built. |
+| T15 | Where the section sits | Directly under the plaque, above the four figures, in the board view; drawn once (moved up from the bottom of the page on 2026-11-18) | differs (operator-requested) | G1; the action bar is in the board's control bar since #914; a tab of its own was not built. |
 | T16 | Active Landsraad missions | "Not recorded in this local save" | differs (data rule) | The save holds no mission rotation. |
 | T17 | Top contributors with names | The standards list the biggest contributors the save records (#913); the section says that no ranking is recorded and that the order is worked out from the amounts | differs (data rule) | The save holds the amount each contributor gave to each House (a guild by its name, you as "You"), not a ranking. |
-| T18 | Decree Preview selector with demo decrees | Kept as a sample, labelled, DEMO badge on the plaque | differs (data rule) | The ornamental selector must not be taken for the real editor. |
+| T18 | Decree Preview selector with demo decrees | Removed (2026-11-18, operator-requested): no sample, no DEMO badge | differs (operator-requested) | G1 |
+| T19 | Decree pool and Earlier terms | Both stay in the section, closed by default behind a small Show / Hide control in their summary; the code, the rows and the tests are kept | differs (operator-requested) | G1 |
+| T20 | Start and end of the term | Days, hours and minutes of play before or after the point where the save was written, with the play-clock seconds as secondary text, the length of the term, and the real time of the save in the viewer's local time. No calendar date for the start or the end: the save does not hold one (#922) | differs (data rule) | G2 |
 
 ### Sysselraad Strategy (approved view `view-strategy`)
 
@@ -93,7 +95,7 @@ The approved prototype has a strip of three tabs (Board, Specializations, Syssel
 ## Known differences that need the owner's approval
 
 1. One board marked in place for Strategy instead of a second copy with a circuit line (S3).
-2. The Term and Decrees section sits under the board in the board view (T15).
+2. The Term and Decrees section sits directly under the plaque in the board view (T15; moved on 2026-11-18, DECISIONS.md G1).
 3. The section's own layout, stacked at phone width (T14).
 4. The side column stacks below the board and targets grow to 44 px at 900 px and below (S13).
 

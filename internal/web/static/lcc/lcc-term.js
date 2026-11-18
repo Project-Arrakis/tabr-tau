@@ -5,6 +5,7 @@
 // logic. Every control that changes the save is a plain button or select that carries the same data-lb attributes and the same focus key as the classic panel's control (data-lb="tapply", "tmk",
 // "tflag", "tad", "trf"), so the page's one click handler, one request builder, one write function and one result line (#lsb-tresult) serve both views. Choosing a decree in a select or pressing a
 // button here changes nothing by itself: only Apply, Make active and Set flag write, exactly as before.
+// Time: the save holds the term's start and end as play-clock seconds, and where the play clock stood when the save was written (with the real time of that write). The section says how far the start and the end are from that point, in days, hours and minutes of play, and the real time of the save in the viewer's local time; it never works out a calendar date for the start or the end, because the save does not hold what that needs (#922).
 // What it does not know: which missions are on offer, and any ranking of the contributors (the save holds the amounts each gave; the board works the order out). The section says so in words.
 (function (root) {
   'use strict';
@@ -46,8 +47,36 @@
     li.appendChild(row);
     return li;
   }
+  // ---- time: days, hours and minutes on the play clock (#922) ----------------------------------------------------------------------------------------------------------------------
+  // span(s): whole seconds as "2 d 4 h 15 min" (days only when there are some, hours when there are days or hours, minutes always); under a minute it is "less than a minute".
+  function span(sec) {
+    const m = Math.floor(Math.abs(Number(sec)) / 60);
+    if (!(m >= 1)) return 'less than a minute';
+    const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60);
+    return (d ? d + ' d ' : '') + (d || h ? h + ' h ' : '') + (m % 60) + ' min';
+  }
+  // away(sec, now): where a play-clock second lies against the play clock at the save, in words. Both are whole play-clock seconds; null when either is not a number.
+  function away(sec, now) {
+    if (!Number.isFinite(sec) || !Number.isFinite(now)) return null;
+    const d = sec - now;
+    if (Math.abs(d) < 60) return 'at the save (less than a minute away)';
+    return span(d) + ' of play ' + (d > 0 ? 'after' : 'before') + ' the save';
+  }
+  // the real time of the save, in the viewer's own time zone
+  function localTime(ms) {
+    const d = new Date(Number(ms));
+    return Number.isNaN(d.getTime()) ? '' : d.toLocaleString();
+  }
+  const secs = (n) => Number(n).toLocaleString('en-US') + ' s';
+  function clockNote(t, c) {
+    const len = Number.isFinite(t.startSec) && Number.isFinite(t.endSec) && t.endSec >= t.startSec ? ' The term is ' + span(t.endSec - t.startSec) + ' long on the play clock.' : '';
+    if (!c) return 'The save does not hold where the play clock stood when it was written, so the start and the end are shown as play-clock seconds.' + len + ' No calendar date is stored.';
+    const when = localTime(c.savedAt);
+    return (when ? 'Saved ' + when + ' (your local time), with the play clock at ' + secs(c.play) + '.' : 'The play clock stood at ' + secs(c.play) + ' when the save was written.') + len
+      + ' The start and the end are shown as play time before or after that point. The save holds no calendar date for them: the play clock stops while the game is closed, and the save does not say when.';
+  }
   function facts(vm) {
-    const t = vm.term;
+    const t = vm.term, c = vm.clock || null;
     const ul = el('ul', 'lcc-tm-facts', '', { role: 'list', 'aria-label': 'The current term' });
     const simple = (key, label, value, sub) => {
       const li = el('li', 'lcc-tm-fact', '', { 'data-fact': key });
@@ -57,8 +86,17 @@
       ul.appendChild(li);
     };
     simple('term', 'TERM', String(t.id));
-    simple('start', 'STARTS', t.start, 'play clock, in seconds');
-    simple('end', 'ENDS', t.end, 'play clock; no calendar date is stored');
+    // a start or end the save does not hold is "Not in the save"; with the position of the save on the play clock it is play time before or after the save, else the play-clock seconds as stored
+    const timed = (key, label, text, sec) => {
+      const a = c ? away(sec, c.play) : null;
+      if (text === '' || text === null || text === undefined || text === '—') simple(key, label, NOT_IN_SAVE);
+      else if (a) simple(key, label, a, 'play clock ' + text);
+      else simple(key, label, text, 'play clock, in seconds');
+      const li = ul.lastChild;
+      if (a) li.querySelector('.lcc-tm-v').setAttribute('title', 'Play clock ' + text + (c ? '; the save was written at ' + secs(c.play) : ''));
+    };
+    timed('start', 'STARTS', t.start, t.startSec);
+    timed('end', 'ENDS', t.end, t.endSec);
     const rf = el('li', 'lcc-tm-fact', '', { 'data-fact': 'reigning' });
     rf.appendChild(el('span', 'lcc-tm-k', 'REIGNING FACTION'));
     const r = el('div', 'lcc-tm-faction');
@@ -70,6 +108,9 @@
     ul.appendChild(decreeFact('ACTIVE DECREE', vm.active, 'active'));
     ul.appendChild(decreeFact('ELECTED DECREE', vm.elected, 'elected'));
     return ul;
+  }
+  function clockLine(vm) {
+    return el('p', 'lcc-tm-clock', clockNote(vm.term, vm.clock || null), { id: 'lcc-tm-clock' });
   }
 
   // ---- the two controls and Apply ----------------------------------------------------------------------------------------------------------------------------------------------
@@ -139,12 +180,22 @@
     li.appendChild(side);
     return li;
   }
+  // a disclosure that is closed until it is asked for: the summary names the block and carries a small Show / Hide control; the content is kept in the page (closed) and its state survives a redraw
+  function shut(dt, name, count) {
+    const sm = el('summary', 'lcc-tm-sum2');
+    sm.appendChild(el('span', 'lcc-tm-sumt', name + (count ? ' · ' + count : '')));
+    const sh = el('span', 'lcc-tm-showhide', dt.open ? 'Hide' : 'Show');
+    sm.appendChild(sh);
+    dt.appendChild(sm);
+    dt.addEventListener('toggle', () => { sh.textContent = dt.open ? 'Hide' : 'Show'; });
+    return sm;
+  }
   function pool(vm) {
     const sec = el('div', 'lcc-tm-pool');
     const shown = vm.pool.filter((d) => !d.hidden), hidden = vm.pool.filter((d) => d.hidden);
     const dt = el('details', 'lcc-tm-disc', '', { id: 'lsb-tdp' });
     if (vm.open) dt.open = true;
-    dt.appendChild(el('summary', '', 'Decree pool · ' + vm.pool.length + (vm.pool.length === 1 ? ' decree' : ' decrees')));
+    shut(dt, 'Decree pool', vm.pool.length + (vm.pool.length === 1 ? ' decree' : ' decrees'));
     const inner = el('div', 'lcc-tm-disc-in');
     inner.appendChild(el('p', 'lcc-tm-note', 'Active, Elected and In rotation are read from the current term. The pool flag is the save\'s own disabled column, shown as stored: a Set flag button changes that one row only and never makes a decree active.'));
     if (!vm.pool.length) inner.appendChild(el('p', 'lcc-tm-none', 'This save has no decrees.'));
@@ -180,7 +231,8 @@
   function history(vm) {
     const h = vm.history;
     const dt = el('details', 'lcc-tm-disc lcc-tm-hist', '', { 'data-key': 'tm-hist' });
-    dt.appendChild(el('summary', '', 'Earlier terms · read-only'));
+    if (vm.histOpen) dt.open = true;
+    shut(dt, 'Earlier terms', 'read-only');
     const inner = el('div', 'lcc-tm-disc-in');
     inner.appendChild(el('p', 'lcc-tm-note', h.note));
     for (const t of h.terms) {
@@ -235,6 +287,7 @@
     surf.appendChild(head);
     if (vm.none) { w.appendChild(surf); return w; }
     surf.appendChild(facts(vm));
+    surf.appendChild(clockLine(vm));
     surf.appendChild(controls(vm));
     surf.appendChild(pool(vm));
     surf.appendChild(notHeld());
@@ -249,7 +302,7 @@
     container.appendChild(n);
     return n;
   }
-  const api = { build, mount, art, MISSIONS, CONTRIBUTORS, NOT_IN_SAVE };
+  const api = { build, mount, art, span, away, MISSIONS, CONTRIBUTORS, NOT_IN_SAVE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCT = api;
 })(typeof window !== 'undefined' ? window : globalThis);

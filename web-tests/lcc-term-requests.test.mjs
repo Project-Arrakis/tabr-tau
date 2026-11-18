@@ -102,6 +102,5 @@ test('a decree is only written by Apply, Make active and Set flag: choosing in a
   select(ui, '#lsb-trf', 2);
   await ui.settle();
   for (const d of ui.doc.querySelectorAll('#lcc-term details')) d.open = true;
-  click(ui, '[data-lcb="toterm"]');
   assert.equal(ui.posted.length, 0, 'nothing was sent: ' + JSON.stringify(ui.posted));
 });

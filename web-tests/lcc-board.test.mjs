@@ -181,25 +181,21 @@ test('each card carries the specialization badge of its mapped path in the upper
   assert.match(c.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /specialization not in the save/);
 });
 
-test('the decree preview lists the decrees the page knows, changes only what the plaque shows, and is never sent to the save', async () => {
+test('there is no decree preview strip: the plaque shows the active decree of the term, with no sample label, and the Term and Decrees section sits in its place (#923)', async () => {
   const posts = [];
   const ui = await open(synthetic(), { post: (url, body) => { posts.push(url); return { ok: true }; } });
-  const sel = ui.doc.querySelector('#lcc-bd-decree');
-  assert.ok(sel, 'the preview chooser is there');
-  assert.equal(sel.hasAttribute('data-lb'), false, 'it is not a control of the write handler');
-  assert.match(text(ui.doc.querySelector('.lcc-bd-preview')), /DECREE PREVIEW/);
-  assert.match(text(ui.doc.querySelector('.lcc-bd-preview')), /Sample decree only/);
-  assert.match(text(ui.doc.querySelector('.lcc-bd-preview')), /not written to a save/);
-  const known = [...sel.options].map((o) => o.textContent);
-  assert.ok(known.length >= 2, 'the decrees of the answer are listed');
-  assert.equal(known[0], 'Exclusive Vehicle Import Rights', 'the first entry is the active decree of the save by its name alone, as in the approved design');
-  assert.equal(sel.options[0].getAttribute('title'), 'The active decree of the save');
-  const other = [...sel.options].find((o) => o.value !== '' && o.textContent !== known[0]);
-  assert.ok(other);
-  sel.value = other.value; sel.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
-  assert.notEqual(text(ui.doc.querySelector('.lcc-pl-title')), 'Exclusive Vehicle Import Rights', 'the plaque shows the previewed decree');
+  assert.equal(ui.doc.querySelector('.lcc-bd-preview'), null);
+  assert.equal(ui.doc.querySelector('#lcc-bd-decree'), null);
+  assert.equal(ui.doc.querySelector('[data-lcb="preview"], [data-lcb="toterm"]'), null);
+  assert.doesNotMatch(text(ui.doc.querySelector('.lcc-bd')), /DECREE PREVIEW|Sample decree only|as a sample/);
+  assert.equal(ui.doc.querySelector('.lcc-plaque [class*="demo"]'), null, 'no sample badge on the plaque');
+  assert.equal(text(ui.doc.querySelector('.lcc-pl-title')), 'Exclusive Vehicle Import Rights', 'the plaque reads the active decree of the term');
+  const slot = ui.doc.querySelector('.lcc-bd > [data-lcc-slot="term"]');
+  assert.ok(slot, 'the slot is where the strip was');
+  assert.equal(slot.querySelectorAll('#lcc-term').length, 1, 'the section is drawn in it');
+  assert.equal(ui.doc.querySelectorAll('#lcc-term').length, 1, 'and once on the page');
+  assert.equal(slot.previousElementSibling.classList.contains('lcc-plaque-host'), true, 'directly under the plaque');
   assert.equal(posts.length, 0, 'nothing was sent');
-  assert.equal(ui.doc.querySelectorAll('.lcc-bd-preview [data-lb]').length, 0);
 });
 
 test('names and paths from a save are only text on the board, the list and the Inspector', async () => {
@@ -327,8 +323,9 @@ test('the layout is remembered, and the list carries a Choose box and a Saved ma
 test('every control that changes the save carries the classic list\'s own data-lb, so one handler, one guard and one queue serve both views', async () => {
   const ui = await open();
   click(ui, tileOf(ui, 'Wallach').querySelector('button'));
-  const writes = [...ui.doc.querySelectorAll('.lcc-bd [data-lb]')].filter((e) => !e.closest('[data-bar]')).map((e) => e.dataset.lb); // the parts of the action bar the page seats in the control bar are the page's own (#914)
+  const writes = [...ui.doc.querySelectorAll('.lcc-bd [data-lb]')].filter((e) => !e.closest('[data-bar]') && !e.closest('#lcc-term')).map((e) => e.dataset.lb); // the parts of the action bar the page seats in the control bar are the page's own (#914)
   assert.deepEqual([...new Set(writes)].sort(), ['pick', 'qa', 'tier']);
+  assert.deepEqual([...new Set([...ui.doc.querySelectorAll('#lcc-term [data-lb]')].map((e) => e.dataset.lb))].sort(), ['tad', 'tapply', 'tflag', 'tmk', 'trf'], 'the Term and Decrees section keeps the classic panel own controls');
   assert.equal(ui.doc.querySelectorAll('.lcc-bd [data-lcb="sel"]').length, 25);
   assert.equal(ui.doc.querySelectorAll('.lcc-bd .lcc-bd-act[data-lb="qa"]').length, 4);
   assert.deepEqual([...ui.doc.querySelectorAll('.lcc-bd .lcc-bd-act[data-lb="qa"]')].map((b) => b.dataset.do), ['fill', 'fillgoal', 'complete', 'reopen']);
@@ -337,9 +334,9 @@ test('every control that changes the save carries the classic list\'s own data-l
 test('the board panel has the approved head, filters, legend, totals and the two panels beside it, in the approved order', async () => {
   const ui = await open();
   const b = ui.doc.querySelector('.lcc-bd');
-  const order = ['.lcc-plaque-host', '.lcc-bd-preview', '.lcc-bd-metrics', '.lcc-bd-panel', '.lcc-bd-victory', '.lcc-bd-insp'];
+  const order = ['.lcc-plaque-host', '#lcc-term', '.lcc-bd-metrics', '.lcc-bd-panel', '.lcc-bd-victory', '.lcc-bd-insp'];
   const at = order.map((q) => { const e = b.querySelector(q); assert.ok(e, q + ' is missing'); return [...b.querySelectorAll('*')].indexOf(e); });
-  assert.deepEqual([...at].sort((x, y) => x - y), at, 'plaque, decree preview, term row, board panel, victory analysis, House Intelligence');
+  assert.deepEqual([...at].sort((x, y) => x - y), at, 'plaque, Term and Decrees section, term row, board panel, victory analysis, House Intelligence');
   const head = b.querySelector('.lcc-bd-panel-head');
   assert.equal(text(head.querySelector('.lcc-bd-eyebrow')), 'THE GREAT HOUSES');
   assert.equal(text(head.querySelector('.lcc-bd-h')), 'The Landsraad');
@@ -374,4 +371,16 @@ test('a House name with markup stays text on the card, and the tier boxes of a c
   const first = tiles(ui)[0];
   assert.ok(text(first.querySelector('.lcc-hc-name')).includes('<b onclick'), 'shown as the text it is');
   assert.equal(first.querySelectorAll('.lcc-hc-t').length, 5);
+});
+
+test('the board header does not say which faction the character is in, and still says why nothing can be changed for a character in none (#930)', async () => {
+  const ui = await open();
+  assert.doesNotMatch(text(ui.doc.querySelector('#lsb-board')), /Your character is in (Atreides|Harkonnen)/);
+  assert.ok(ui.doc.querySelector('#lsb-fac option'), 'the faction box still names the faction');
+  const classic = await open(synthetic(), { view: 'classic' });
+  assert.ok(classic.doc.querySelector('#lsb-fac'), 'the classic list is as it was');
+  const none = synthetic();
+  none.character.faction_id = null;
+  const ui2 = await open(none);
+  assert.match(text(ui2.doc.querySelector('#lsb-board .line1')), /Your character is in no faction/);
 });
