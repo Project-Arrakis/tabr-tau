@@ -128,8 +128,8 @@ test('mirror in the stylesheet: one rule sizes both word boxes, they sit at mirr
   assert.equal((css.match(/lcc-pl-std-a/g) || []).length, (css.match(/lcc-pl-std-h/g) || []).length, 'each selector for the Atreides standard has its Harkonnen twin');
 });
 
-test('wide: heading on one line, long names cut with an ellipsis, the words between the crest and the ornament; narrow: names wrap and the padding is deeper than the foot', () => {
-  assert.match(css, /\.lcc-pl-std-a \.lcc-standard-h, \.lcc-pl-std-h \.lcc-standard-h \{[^}]*white-space: nowrap/);
+test('wide: the heading wraps inside the cloth at the text floor (balanced, never cut), long names cut with an ellipsis, the words between the crest and the ornament; narrow: names wrap and the padding is deeper than the foot', () => {
+  assert.match(css, /\.lcc-pl-std-a \.lcc-standard-h, \.lcc-pl-std-h \.lcc-standard-h \{[^}]*letter-spacing: 0; white-space: normal; line-height: 1.1; text-wrap: balance/);
   assert.match(css, /\.lcc-pl-std-a \.lcc-standard-name, \.lcc-pl-std-h \.lcc-standard-name \{[^}]*white-space: nowrap; overflow: hidden; text-overflow: ellipsis/);
   assert.match(css, /\.lcc-standard-name \{[^}]*overflow-wrap: anywhere/);
   const box = /\.lcc-plaque \.lcc-pl-std-a, \.lcc-plaque \.lcc-pl-std-h \{ top: ([\d.]+)%; width: [\d.]+%; height: ([\d.]+)%/.exec(css);
@@ -149,7 +149,7 @@ test('wide: heading on one line, long names cut with an ellipsis, the words betw
 });
 
 test('forced colours, wide: the standard is an outlined box with the drawn mark, not bare words', () => {
-  const m = /@container \(min-width: 900px\) \{\s*@media \(forced-colors: active\) \{([\s\S]*?)\n  \}\n\}/.exec(css);
+  const m = /@container \(min-width: 940px\) \{\s*@media \(forced-colors: active\) \{([\s\S]*?)\n  \}\n\}/.exec(css);
   assert.ok(m, 'the wide forced-colours block exists');
   assert.match(m[1], /border: 2px solid CanvasText/);
   assert.match(m[1], /\.lcc-standard-mark \{ display: block/);

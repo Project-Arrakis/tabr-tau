@@ -49,7 +49,7 @@ The plaque is the approved dark artwork in both themes, so its golds are pinned 
 | Cloth standard (A, H) | `lcc-standard` | up to five lines, "Not in the save" when there are none |
 | Badges | `lcc-badge`, `-demo`, `-ref` | FIXTURE and READ-ONLY are words, not colours |
 | Reachable tooltip | `lcc-tt` | real text, `aria-describedby`, shown on hover and focus |
-| Voting plaque | `lcc-plaque-host` > `lcc-plaque` | container-query layout, wide above 900 px, narrow below, stacked head under 520 px |
+| Voting plaque | `lcc-plaque-host` > `lcc-plaque` | container-query layout, wide from 940 px, narrow below, stacked head under 520 px |
 | Lane card | `lcc-lane` | one native button; XP cap and keystones are two separate tags |
 | House card | `lcc-house` | one native button; owner in words and a mark, `data-victory` is one outline |
 
@@ -167,7 +167,7 @@ Variances from the approved V20 picture, for human approval:
 | Open seats | round unclaimed medallion | drawn bronze seat | not resolved |
 | Session wording | "13 HOUSES WIN" | "SEAT 13 OF 25" (D05, D16) | intentional |
 | Contributors | demo guild names | "Not in the save" (D07, D15) | intentional |
-| Layout below 900 px | none in the reference | a narrow re-layout and a stacked head under 520 px | intentional, needs approval |
+| Layout below 940 px | none in the reference | a narrow re-layout and a stacked head under 520 px | intentional, needs approval |
 
 Not done in M2: any wiring into the editor, any write path, any live data, the numeric pixel diff, a real-device or real-browser run on a phone, a screen reader run, a high-contrast run on Windows (forced colours was emulated), and a visual check by the operator.
 

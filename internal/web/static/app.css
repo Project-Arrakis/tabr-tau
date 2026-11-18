@@ -806,3 +806,66 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 #vcpreview select[aria-invalid=true]{border-color:var(--bad)}
 @media (max-width:720px){#vcpreview td{min-width:0}}
 @media (pointer:coarse){#vcpreview td select{min-height:44px}}
+
+/* ==== Command Center board view: width, layout and the floor for the text of the tab (display only) ====
+   Content width: while the board is on, the page is as wide as the window up to 1800 px, and the nested padding is trimmed on a narrow window.
+   Layout: the board view is one grid (the wrappers of the board take no box of their own), so the bulk-edit bar sits directly under the board and the House Intelligence panel sits beside both and stays in
+   view while the board scrolls. It goes beside the board only where the board keeps five columns of cards (1080 px of the tab and wider); below that everything is one column, in the order plaque, figures,
+   board, bulk-edit bar, victory analysis, House Intelligence. All of it needs :has() and container queries; a browser without them keeps the plain stacked page, with no rule half applied. */
+@supports selector(:has(*)) and (container-type: inline-size) {
+  main:has(#lsb-lcc) { max-width: 1800px; }
+  .lsb:has(#lsb-lcc) { container: lsbv / inline-size; }
+  .lsb #lsb-board:has(> #lsb-lcc > .lcc-bd) { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 18px; align-content: start;
+    grid-template-areas: "hd" "ln" "pr" "pl" "pv" "mt" "pn" "ab" "sd"; }
+  .lsb #lsb-board:has(> #lsb-lcc > .lcc-bd) > #lsb-lcc, .lsb #lsb-board > #lsb-lcc > .lcc-bd, .lsb #lsb-board > #lsb-lcc > .lcc-bd > .lcc-bd-grid { display: contents; }
+  .lsb #lsb-board > #lsb-lcc > .lcc-bd { container-type: normal; }
+  .lsb #lsb-board > .d-head { grid-area: hd; }
+  .lsb #lsb-board > .line1 { grid-area: ln; }
+  .lsb #lsb-board > #lsb-lcc > .lcc-bd > .lcc-bd-problems, .lsb #lsb-board > #lsb-lcc > .lcc-bd > .lcc-bd-none { grid-area: pr; }
+  .lsb #lsb-board > #lsb-lcc > .lcc-bd > .lcc-plaque-host { grid-area: pl; min-width: 0; }
+  .lsb #lsb-board > #lsb-lcc > .lcc-bd > .lcc-bd-preview { grid-area: pv; }
+  .lsb #lsb-board > #lsb-lcc > .lcc-bd > .lcc-bd-metrics { grid-area: mt; }
+  .lsb #lsb-board > #lsb-lcc > .lcc-bd > .lcc-bd-grid > .lcc-bd-panel { grid-area: pn; }
+  .lsb #lsb-board > #lsb-lcc > .lcc-bd > .lcc-bd-grid > .lcc-bd-side { grid-area: sd; margin-top: 14px; }
+  .lsb #lsb-board > .actbar, .lsb #lsb-board > #lsb-result { grid-area: ab; margin: 14px 0 0; }
+  @container lsbv (min-width: 1080px) {
+    .lsb #lsb-board:has(> #lsb-lcc > .lcc-bd) { grid-template-columns: minmax(0, 1fr) clamp(284px, 27%, 480px);
+      grid-template-areas: "hd hd" "ln ln" "pr pr" "pl pl" "pv pv" "mt mt" "pn sd" "ab sd" "fl sd"; grid-template-rows: repeat(8, auto) 1fr; }
+    .lsb #lsb-board > #lsb-lcc > .lcc-bd > .lcc-bd-grid > .lcc-bd-side { margin-top: 0; }
+    /* the Inspector stays in view under the page header, and under the warning and the launch notice when one is shown (their height is text, so the room left for them is a fair allowance) */
+    .lsb #lsb-board .lcc-bd-insp { position: sticky; top: calc(var(--hdr-h) + 12px + var(--lsb-warn-room, 0px)); align-self: flex-start; width: 100%; box-sizing: border-box;
+      max-height: calc(100vh - var(--hdr-h) - var(--lsb-warn-room, 0px) - 24px); max-height: calc(100dvh - var(--hdr-h) - var(--lsb-warn-room, 0px) - 24px);
+      overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+  }
+  @media (min-width: 721px) {
+    body:has(#gamewarn.warn, #gamewarn.info, #launchpass.info) { --lsb-warn-room: 76px; }
+  }
+  /* stacked (under 1080 px of the tab): the victory analysis is a full-width band and the House Intelligence panel spans the full width under it, so no tall empty space is left beside a short panel;
+     from 860 px its sections run in two balanced columns (the head, the banner and the two scales span both) so the long ledger does not become one very tall column of wide rows */
+  @container lsbv (min-width: 860px) and (max-width: 1079px) {
+    .lsb #lsb-board .lcc-bd-insp { column-count: 2; column-gap: 28px; }
+    .lsb #lsb-board .lcc-bd-insp > .lcc-bd-insp-top, .lsb #lsb-board .lcc-bd-insp > .lcc-bd-identity, .lsb #lsb-board .lcc-bd-insp > .lcc-bd-banner,
+    .lsb #lsb-board .lcc-bd-insp > .lcc-bd-status, .lsb #lsb-board .lcc-bd-insp > .lcc-bd-mut,
+    .lsb #lsb-board .lcc-bd-insp > [aria-labelledby="lcc-bd-s1"], .lsb #lsb-board .lcc-bd-insp > [aria-labelledby="lcc-bd-s2"] { column-span: all; }
+    .lsb #lsb-board .lcc-bd-insp > .lcc-bd-sec, .lsb #lsb-board .lcc-bd-insp > .lcc-bd-note, .lsb #lsb-board .lcc-bd-insp > .lcc-bd-warn { break-inside: avoid; }
+    /* the note is the first block of the second column: a margin would be dropped at the top of a column, so it takes padding to keep clear of the bar over it */
+    .lsb #lsb-board .lcc-bd-insp > .lcc-bd-note { padding-top: 20px; }
+  }
+  /* a narrow tab keeps the padding small so the board gets the width */
+  @container lsbv (max-width: 1079px) {
+    .lsb #lsb-board.card { padding: 12px 8px; }
+  }
+  @container lsbv (max-width: 360px) {
+    .lsb #lsb-board.card { padding: 8px 6px; }
+  }
+  @media (max-width: 1100px) { main:has(#lsb-lcc) { padding: 14px; } }
+  @media (max-width: 900px) { main:has(#lsb-lcc) { padding: 8px; } }
+  @media (max-width: 380px) { main:has(#lsb-lcc) { padding: 6px; } }
+  @media (max-width: 768px) {
+    .lsb #lsb-board .actbar .actrow label { display: inline-flex; align-items: center; min-height: 36px; }
+    .lsb:has(#lsb-lcc) th[tabindex] { padding-top: 10px; padding-bottom: 10px; }
+  }
+  /* the floor for the rest of the Landsraad tab (headings and labels 12 px, small print 11 px) while the board view is on */
+  .lsb:has(#lsb-lcc) .d-head, .lsb:has(#lsb-lcc) summary, .lsb:has(#lsb-lcc) .abt, .lsb:has(#lsb-lcc) .abt p { font-size: 12px; }
+  .lsb:has(#lsb-lcc) .src { font-size: 11px; line-height: 17px; }
+}
