@@ -99,6 +99,21 @@ test('every seat is named in words: the slot, the owner and, for the 13th, that 
   assert.equal(L.summaryText(30, 1), 'The tally of the 25 seats is not available.');
 });
 
+test('the plaque headline says where the majority is (13 of 25 Houses), never a seat reached or a win, in the lead, tie, none and unreadable states (#912)', () => {
+  const HEAD = 'VOTING SESSION · MAJORITY AT 13 OF 25 HOUSES';
+  const head = (p) => p.querySelector('.lcc-pl-session').textContent;
+  for (const [a, h, standing] of [[1, 0, 'ATREIDES LEAD 1 TO 0 · 24 HOUSES OPEN'], [4, 9, 'HARKONNEN LEAD 9 TO 4 · 12 HOUSES OPEN'], [5, 5, 'HOUSE COUNT EVEN AT 5 · 15 HOUSES OPEN'], [0, 0, 'HOUSE COUNT EVEN AT 0 · 25 HOUSES OPEN'], [13, 12, 'ATREIDES LEAD 13 TO 12 · 0 HOUSES OPEN']]) {
+    const p = plaque({ a, h });
+    assert.equal(head(p), HEAD, a + '/' + h + ': the headline is the same in every state, and it is not the tally');
+    assert.equal(p.querySelector('.lcc-pl-standing').textContent, standing, a + '/' + h + ': the tally line is the one that changes');
+  }
+  assert.equal(head(plaque({ a: 40, h: 1 })), HEAD, 'an unreadable count leaves the headline as it is');
+  assert.doesNotMatch(HEAD, /\bSEAT\b|\bWIN|\bWON\b/i, 'no seat reached, no win');
+  const sum = plaque({ a: 1, h: 0 }).querySelector('.lcc-track-svg').getAttribute('aria-label');
+  assert.match(sum, /Seat 13 is the gold middle seat, the majority mark: 13 of 25 Houses\./, 'the screen-reader label says the same thing');
+  assert.doesNotMatch(sum, /\bwin|\bwon\b/i);
+});
+
 test('counts that cannot be read draw 25 open seats, say so, and light nothing', () => {
   for (const [a, h] of [[30, 2], [13, 13], [-1, 4], [null, null], [1.5, 2]]) {
     const p = plaque({ a, h });
