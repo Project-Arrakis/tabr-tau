@@ -182,7 +182,7 @@
     w.appendChild(k('a', 'ATREIDES CLAIMED'));
     w.appendChild(k('h', 'HARKONNEN CLAIMED'));
     w.appendChild(k('n', 'OPEN'));
-    w.appendChild(k('g', 'WINNING HOUSES · ' + M().WIN.TEXT.won, 'The Houses that make up a win have a gold outline and the flag ' + M().WIN.TEXT.won + ': the five Houses of a line of five held by one faction, or the 13 or more Houses of a faction. ' + M().WIN.TEXT.facts));
+    w.appendChild(k('g', 'WINNING HOUSES · ' + M().WIN.TEXT.won, 'The Houses that make up a win have a gold outline: the five Houses of a line of five held by one faction, or the 13 or more Houses of a faction. ' + M().WIN.TEXT.facts));
     if (board.counts.unknown) w.appendChild(k('u', 'OWNER UNREADABLE', 'The completed flag and the winner of this House do not agree, so it is counted for neither faction.'));
     return w;
   }
@@ -219,13 +219,12 @@
   // One House card, as the approved design draws it: the number and the specialization badge on top, the crest, HOUSE NAME, the specialization, the owner, the five tier boxes and the line "N/5 REACHED"
   // with the collected and the waiting counts. A House whose specialization the save does not give has no badge and says so in words.
   function houseCard(h, matchIds, host, editable, picks, major, ev) {
-    // a House of a line of five held by its faction, and a House of a faction with 13 or more Houses, get the one win outline and the one flag (the reason is said by the plaque and the victory panel).
+    // a House of a line of five held by its faction, and a House of a faction with 13 or more Houses, get the one gold win outline (the words are the plaque's, the victory panel's, the legend's, and the House's tooltip and aria text; a card carries no text flag, #961).
     // Both are read from the evaluator, from the Houses as they stand now.
     const lines = ev && h.index !== null ? ev.held.filter((l) => l.indexes.includes(h.index)) : [];
     const inLine = lines.length > 0;
     const dom = !inLine && !!major && h.owner === major;
     const win = ev ? ev.win : null;
-    const wonTag = win ? M().WIN.tag(win) : ''; // 'SYSSELRAAD WON' on a House of a line the winner holds; none on the Houses of a 13-House win (they form no line) and none while the winner is undecidable
     const dim = !matchIds.has(h.id);
     const owner = OWNER_WORD[h.owner] ? h.owner : 'unknown';
     const card = el('article', 'lcc-hc lcc-hc-' + owner, '', { 'data-owner': owner, 'data-selected': state.sel === h.id ? 'true' : null, 'data-dim': dim ? 'true' : null, 'data-compact': 'true', 'data-lines': inLine ? lines.map((l) => l.id).join(' ') : null });
@@ -252,7 +251,6 @@
     sel.appendChild(el('strong', 'lcc-hc-name', houseWord(h.name)));
     sel.appendChild(el('small', 'lcc-hc-track' + (h.track ? '' : ' lcc-hc-track-unk'), h.track ? trackWord(h.track) : 'Specialization not in the save'));
     sel.appendChild(el('span', 'lcc-hc-owner', owner === 'a' || owner === 'h' ? '● ' + OWNER_WORD[owner] : owner === 'open' ? '○ Open' : '? Owner unreadable', { 'data-g': ({ a: 'A', h: 'H', open: '○', unknown: '?' })[owner] }));
-    if ((inLine || dom) && wonTag) sel.appendChild(el('span', 'lcc-flag lcc-flag-win lcc-hc-badge', wonTag));
     const notes = [];
     if (h.waiting > 0) notes.push(h.waiting + ' reward' + (h.waiting === 1 ? '' : 's') + ' not collected');
     sel.setAttribute('aria-label', [(h.number ? 'Number ' + h.number + ', ' : '') + h.name + ', ' + (owner === 'a' || owner === 'h' ? 'claimed by ' + OWNER_WORD[owner] : owner === 'open' ? 'open' : 'owner unreadable')].concat(h.track ? ['path ' + trackWord(h.track)] : ['specialization not in the save'], h.takenNoTiers ? ['taken, no tier record in the save'] : h.takenNoMine ? ['taken, no contribution of yours in the save, so none of your tiers is reached'] : h.tierCount ? [h.reached + ' of ' + h.tierCount + ' tiers reached', h.collected + ' collected'] : ['no tiers in the save'], notes, h.unknownDelivery ? [h.unknownDelivery + ' with no delivery record'] : [], inLine ? ['part of a line of five held by ' + FACTION_WORD[h.owner] + ': ' + listWords(lines.map(lineWord)), winSays] : [], dom ? ['one of the 13 or more Houses of ' + FACTION_WORD[major], winSays] : [], dim ? ['not in the current filter'] : []).join(', '));

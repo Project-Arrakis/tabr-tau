@@ -100,11 +100,11 @@ test('the winning count: a faction with more than half of the Houses gets the ou
   assert.ok(won.every((c) => c.getAttribute('data-owner') === 'a'), 'only the Houses of the faction with the count');
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc[data-owner="h"][data-victory]').length, 0);
   assert.ok(won.every((c) => c.classList.contains('lcc-win-anim')), 'Motion Full: the border is added');
-  // 13 Houses is a win by the game's rule (the operator's decision of 2026-11-18): the words say it, the card carries the one flag, and the save is said not to hold the vote
+  // 13 Houses is a win by the game's rule (the operator's decision of 2026-11-18): the words say it, the card carries the outline and no text flag (#961), and the save is said not to hold the vote
   for (const c of won) {
     const pick = c.querySelector('button.lcc-hc-select');
     assert.match(pick.getAttribute('title'), /who hold 13 or more Houses\. Sysselraad won by Atreides, by 13 Houses\. The save does not record the vote/);
-    assert.deepEqual([...c.querySelectorAll('.lcc-flag')].map((x) => x.textContent), ['SYSSELRAAD WON'], 'one flag on every winning House, a 13-House win included (the way it was won is in the plaque and the panel)');
+    assert.equal(c.querySelector('.lcc-flag'), null, 'no text flag on a winning House, a 13-House win included (the way it was won is in the plaque and the panel)');
   }
   // Calm: the still outline stays, the animation class does not
   ui.doc.documentElement.setAttribute('data-motion', 'calm');

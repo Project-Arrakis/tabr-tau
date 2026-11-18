@@ -64,18 +64,18 @@ test('no line held: the figure is the number of lines still possible, no House i
   noConfirm(words(ui));
 });
 
-test('one held row: its five Houses, and only those, have the win outline and the flag SYSSELRAAD WON', async () => {
+test('one held row: its five Houses, and only those, have the win outline and no text flag (#961)', async () => {
   const ui = await open(board(ROW3_A));
   assert.deepEqual(outlined(ui), [10, 11, 12, 13, 14]);
   assert.deepEqual(outlined(ui, 'win'), [10, 11, 12, 13, 14]);
   for (const i of [10, 11, 12, 13, 14]) {
     const c = cards(ui)[i];
     assert.equal(c.getAttribute('data-lines'), 'row2');
-    assert.equal(text(c.querySelector('.lcc-flag-win')), 'SYSSELRAAD WON');
+    assert.equal(c.querySelector('.lcc-flag, .lcc-flag-win, .lcc-hc-badge'), null, 'no text flag on a winning card: the outline carries the win');
     assert.match(c.querySelector('.lcc-hc-select').getAttribute('aria-label'), /part of a line of five held by Atreides: row 3, Sysselraad won by Atreides, by five in a line\. The save does not record the vote; the game works the winner out from the Houses\./);
     assert.match(c.querySelector('.lcc-hc-select').getAttribute('title'), /Atreides hold this House in a line of five: row 3\. Sysselraad won by Atreides, by five in a line\. The save does not record the vote/);
   }
-  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag-win').length, 5);
+  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag').length, 0);
   assert.equal(outlined(ui, 'win').length, 5, 'five Houses are not 13: only the line is outlined');
   const p = panel(ui);
   assert.equal(p.getAttribute('data-state'), 'line');
@@ -111,7 +111,7 @@ test('13 Houses held: those Houses have the same win outline and flag as a line,
   assert.equal(text(p.querySelector('.lcc-bd-vcount')), 'BY 13 HOUSES');
   assert.doesNotMatch(text(p), /Dominion|DOMINION|not verified|not a vote result/);
   for (const i of a) assert.match(cards(ui)[i].querySelector('.lcc-hc-select').getAttribute('title'), /One of the Atreides Houses, who hold 13 or more Houses\. Sysselraad won by Atreides, by 13 Houses\./);
-  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag-win').length, 13, 'the Houses of a 13-House win have the one flag too');
+  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag').length, 0, 'the Houses of a 13-House win have the outline and no flag either');
   assert.match(text(ui.doc.querySelector('.lcc-bd-headlines')), /WINNING HOUSES · SYSSELRAAD WON/);
   assert.doesNotMatch(honest(words(ui)), BANNED);
   noConfirm(words(ui));
@@ -131,7 +131,8 @@ test('a line of five and 13 Houses of the same faction: all 13 Houses have the o
   assert.deepEqual(outlined(ui, 'win'), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
   assert.equal(text(panel(ui).querySelector('.lcc-bd-vcount')), 'BY FIVE IN A LINE AND 13 HOUSES');
   assert.match(text(panel(ui)), /Atreides hold five Houses in 2 lines: row 1 and row 2\. Atreides hold 13 of the 25 Houses\./);
-  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc[data-victory="win"] .lcc-flag-win').length, 13, 'each of the 13 carries the one flag, once');
+  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc[data-victory="win"]').length, 13, 'each of the 13 carries the one outline');
+  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag').length, 0, 'and no text flag');
   assert.doesNotMatch(honest(words(ui)), BANNED);
   noConfirm(words(ui));
 });
@@ -144,7 +145,7 @@ test('a line for each faction is a conflict: both lines are outlined, nobody is 
   assert.equal(p.getAttribute('data-faction'), null, 'no faction is named for the panel');
   assert.match(text(p), /SYSSELRAAD UNDECIDABLE.*ATREIDES BY FIVE IN A LINE · HARKONNEN BY FIVE IN A LINE · CANNOT BE DECIDED FROM THIS SAVE.*both factions qualify, so it cannot be decided from this save/);
   assert.equal(p.querySelector('.lcc-bd-emblem'), null, 'no faction has won: no icon');
-  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag').length, 0, 'no card says won while the winner cannot be decided');
+  assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag').length, 0, 'no card carries a text flag');
   assert.doesNotMatch(honest(words(ui)), BANNED);
   noConfirm(words(ui));
 });

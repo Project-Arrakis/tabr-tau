@@ -105,3 +105,7 @@ Decided by the operator on 2026-11-18, superseding the Strategy view of M6 and r
 1. **Removed:** the Sysselraad Strategy button, the "Twelve lines" panel, its order switch, its chosen-line footer and Jump to missing House, the violet preview outline and its words (ONE AWAY, POTENTIAL, BLOCKED, UNREADABLE, MISSING on a card), the PREVIEW LINE legend entry, the Escape handling for a chosen line, and the Clear highlight button (it only let go of the House being looked at; the win outlines stayed).
 2. **Kept:** choosing another House, choosing the same House again, and Escape still move or drop the selection. The twelve-line check of lcc-model.js stays, because the gold win outline of the five Houses of a held line, the plaque and the victory panel are worked out from it. The request goldens are unchanged.
 3. The words of section H are unchanged; the badge of a held line in the list (WIN.heldBadge) went with the list.
+
+## J. Decision (2026-11-18): no text flag on a winning House card (#961, closes #946)
+
+Decided by the operator on 2026-11-18. Display only. It changes item 4 of section H: the Houses that make up a win keep the one gold outline, and the flag "SYSSELRAAD WON" on each of them is dropped (thirteen identical flags on a 13-House win, wrapped at narrow widths and made cards taller). The words stay where they are said once: the plaque, the victory panel, the legend key (WINNING HOUSES), and the tooltip and screen-reader text of a winning card, all from WIN.TEXT. The card-tag function WIN.tag went with the flag.

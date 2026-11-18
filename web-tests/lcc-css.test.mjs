@@ -177,7 +177,7 @@ function finalSizes() {
 
 test('text floor: no rule of the board leaves text under 11 px, and names and key labels are 12 px or more', () => {
   const sizes = finalSizes();
-  // .lcc-flag is the foundation's own flag (the gallery); the board's use of it, the badge of a card, is raised by .lcc-hc-badge
+  // .lcc-flag is the foundation's own flag (the gallery); the board draws no flag on a card since #961
   const low = [...sizes].filter(([sel, px]) => px < 11 && sel !== '.lcc-flag');
   assert.deepEqual(low, [], 'selectors under 11 px: ' + low.map(([s, px]) => s + ' ' + px).join(' | '));
   for (const s of ['.lcc-hc-owner', '.lcc-hc-count', '.lcc-bd-chip', '.lcc-bd-lbl', '.lcc-bd-sec-h', '.lcc-bd-control', '.lcc-bd-vtag', '.lcc-bd-tier', '.lcc-bd-tier-n', '.lcc-bd-tier-s', '.lcc-bd-elab', '.lcc-bd-metric-k', '.lcc-bd-fc-head']) assert.ok(sizes.get(s) >= 12, s + ' is a key label: ' + sizes.get(s));
