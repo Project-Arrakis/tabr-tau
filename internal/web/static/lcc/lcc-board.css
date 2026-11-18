@@ -43,8 +43,8 @@
 /* the two columns: the board panel and the two panels at its side */
 .lcc-bd-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
 .lcc-bd-side { display: grid; gap: 16px; min-width: 0; }
-@container (min-width: 940px) {
-  .lcc-bd-grid { grid-template-columns: minmax(0, 1.75fr) minmax(300px, .7fr); }
+@container (min-width: 760px) {
+  .lcc-bd-grid { grid-template-columns: minmax(0, 1fr) clamp(300px, 28.5%, 480px); }
 }
 .lcc-bd-panel { padding: 24px 24px 21px; min-width: 0; }
 .lcc-bd-panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
@@ -134,57 +134,11 @@
 .lcc-hc[data-victory="dominion"] { outline: var(--lcc-outline-win); outline-offset: 3px; box-shadow: 0 0 0 2px var(--lcc-panel), 0 0 14px 4px color-mix(in srgb, var(--lcc-gold) calc(55% * var(--lcc-glow-win)), transparent); border-color: var(--lcc-gold); }
 .lcc-hc[data-victory]:focus-within { outline-color: var(--lcc-focus); }
 
-@container (max-width: 1080px) {
-  .lcc-hc { min-height: 175px; }
-  .lcc-hc-t { flex-basis: 16px; max-width: 16px; height: 18px; line-height: 16px; }
-  .lcc-hc-count { font-size: 7px; }
-  .lcc-bd-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@container (max-width: 940px) {
-  .lcc-bd-tiles { gap: 6px; }
-}
-@container (max-width: 680px) {
-  .lcc-hc { min-height: 145px; }
-  .lcc-hc-t { flex-basis: 13px; max-width: 13px; height: 15px; font-size: 7px; line-height: 13px; }
-  .lcc-hc-count { font-size: 6px; }
-  .lcc-hc-badge { font-size: 6px; padding: 1px 2px; }
-}
-@container (max-width: 640px) {
-  .lcc-bd-tiles { gap: 4px; }
-  .lcc-bd-panel { padding: 14px; }
-  .lcc-bd-panel-head { display: block; }
-  .lcc-bd-panel-actions { margin-top: 12px; justify-content: flex-start; }
-  .lcc-hc { min-height: 120px; padding: 5px 2px; gap: 1px; }
-  .lcc-hc-top { min-height: 19px; font-size: 8px; }
-  .lcc-hc-spec { width: 19px; height: 19px; min-width: 19px; }
-  .lcc-hc-spec-img { width: 17px; height: 17px; }
-  .lcc-hc-crest { width: 34px; height: 32px; }
-  .lcc-hc-crest-img { width: 28px; height: 28px; }
-  .lcc-hc-name { font-size: 7px; letter-spacing: 0; white-space: normal; overflow-wrap: anywhere; }
-  .lcc-hc-track { font-size: 7px; }
-  .lcc-hc-owner { font-size: 6px; white-space: normal; }
-  .lcc-bd-pickl { left: calc(50% - 7px); top: 3px; width: 14px; height: 14px; }
-  .lcc-bd-pick { width: 11px; height: 11px; }
-  .lcc-hc-tiers { gap: 1px; }
-  .lcc-bd-metric { padding: 13px; min-height: 90px; }
-  .lcc-bd-metric strong { font-size: 23px; }
-  .lcc-bd-shown { margin-left: 0; flex-basis: 100%; }
-}
-@container (max-width: 410px) {
-  .lcc-hc { min-height: 98px; }
-  .lcc-hc-spec { width: 17px; height: 17px; min-width: 17px; }
-  .lcc-hc-spec-img { width: 15px; height: 15px; }
-  .lcc-hc-name { font-size: 6px; letter-spacing: -.02em; }
-  .lcc-hc-track-unk { font-size: 6px; }
-  .lcc-bd-headlines { gap: 7px; }
-  .lcc-bd-headlines li { font-size: 8px; }
-  .lcc-bd-metrics { gap: 6px; }
-}
 
 /* under the board: what the character has done on it, and the line that says what the boxes are */
 .lcc-bd-foot { margin-top: 17px; padding-top: 15px; border-top: 1px solid var(--lcc-stroke-faint); }
-.lcc-bd-caption { max-width: 560px; font-size: 11px; color: var(--lcc-dim); }
-.lcc-bd-totals { margin-top: 8px; font-size: 11px; color: var(--lcc-dim); }
+.lcc-bd-caption { max-width: 560px; font-size: 12px; color: var(--lcc-dim); }
+.lcc-bd-totals { margin-top: 8px; font-size: 12px; color: var(--lcc-dim); }
 .lcc-bd-totals b { color: var(--lcc-text); }
 
 /* the list */
@@ -283,7 +237,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 /* the plain words of the state stay for a screen reader, beside the mark */
 .lcc-bd-tier-st { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .lcc-bd-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 12px; color: var(--lcc-dim); font-size: 9px; }
-.lcc-bd-note { margin-top: 16px; font: 11px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
+.lcc-bd-note { margin-top: 16px; font: 12px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-bd-note strong { color: var(--lcc-text); }
 .lcc-bd-editor { padding: 13px 12px; border: 1px solid var(--lcc-stroke); background: var(--lcc-tier-bg); }
 .lcc-bd .lcc-badge { background: var(--lcc-tier-bg); }
@@ -304,16 +258,6 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-act:hover { border-color: var(--lcc-gold-text); }
 .lcc-bd-act[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
 .lcc-bd .busy, .lcc-bd-act.busy { opacity: .6; }
-@container (max-width: 1300px) {
-  .lcc-bd-tier-heading, .lcc-bd-tier { grid-template-columns: 58px minmax(0, 1fr) 83px; gap: 5px; }
-  .lcc-bd-tier-s { font-size: 8px; }
-}
-@container (max-width: 410px) {
-  .lcc-bd-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .lcc-bd-tier-heading, .lcc-bd-tier { grid-template-columns: 56px minmax(0, 1fr) 80px; }
-  .lcc-bd-legend { grid-template-columns: 1fr; }
-  .lcc-bd-insp, .lcc-bd-victory { padding: 16px 14px; }
-}
 
 /* forced colours and contrast */
 @media (forced-colors: active) {
@@ -337,4 +281,146 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 }
 @media (prefers-contrast: more) {
   .lcc-bd-chip, .lcc-bd-select, .lcc-bd-tier, .lcc-bd-metric, .lcc-bd-surface, .lcc-hc { border-color: var(--lcc-text); }
+}
+
+/* ==== Display remediation A: a text floor, cards that keep their text, tier boxes that can be hit, and a side-by-side House Intelligence only where the board keeps five columns ====
+   Display only: no markup, handler or data attribute changes. The floor: names and key labels are 12 px or more and all other text 11 px or more, at every width and in both themes; nothing is shrunk
+   by a container step any more, a card that is too narrow for its words gets fewer columns instead. The rules below are written for the narrow case first (3 columns, 24 px tier boxes, one column
+   of panels), which is what a browser without container queries shows; the container queries then widen it, so the layout can never half-apply. */
+.lcc-bd-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.lcc-bd .lcc-bd-eyebrow { font-size: 11px; }
+.lcc-bd-src, .lcc-bd-source { font-size: 11px; padding: 2px 5px; }
+.lcc-bd-preview-l { font-size: 12px; }
+.lcc-bd-preview-n { font-size: 11px; }
+.lcc-bd-metric-k { font-size: 12px; letter-spacing: .12em; }
+.lcc-bd-metric small { font-size: 11px; }
+.lcc-bd-metric strong { overflow-wrap: anywhere; }
+.lcc-bd-lbl { font-size: 12px; }
+.lcc-bd-chip { font-size: 12px; }
+.lcc-bd-layout button { font-size: 12px; }
+.lcc-bd-headlines li { font-size: 11px; letter-spacing: .08em; }
+.lcc-bd-subline { font-size: 11px; }
+.lcc-bd-where { font-size: 11px; }
+.lcc-bd-vtag { font-size: 12px; letter-spacing: .12em; }
+.lcc-bd-control { font-size: 12px; }
+.lcc-bd-sec-h { font-size: 12px; }
+.lcc-bd-fc-head { font-size: 12px; }
+.lcc-bd-pc small { font-size: 11px; }
+.lcc-bd-ledger-n { font-size: 11px; }
+.lcc-bd-stat span { font-size: 11px; }
+.lcc-bd-tier-heading { font-size: 11px; }
+.lcc-bd-tier { font-size: 12px; }
+.lcc-bd-tier-n { font-size: 12px; }
+.lcc-bd-tier-th, .lcc-bd-tier-gr { font-size: 11px; }
+.lcc-bd-tier-s { font-size: 12px; letter-spacing: .02em; text-align: right; }
+.lcc-bd-tier-heading, .lcc-bd-tier { grid-template-columns: 68px minmax(0, 1fr) 96px; gap: 6px; }
+.lcc-bd-tier-rw { overflow-wrap: break-word; }
+.lcc-bd-tier-gr { overflow-wrap: anywhere; }
+.lcc-bd-legend { font-size: 11px; }
+.lcc-bd-elab { font-size: 12px; }
+.lcc-bd-etip { font-size: 11px; }
+.lcc-bd-tip { font-size: 11px; margin-top: 8px; padding-top: 8px; }
+.lcc-bd-erow { margin: 6px 0; }
+.lcc-bd-editor { margin-top: 16px; padding: 11px 12px; }
+.lcc-bd-editor > .lcc-bd-cap { margin: 6px 0 8px; line-height: 1.4; }
+.lcc-bd-insp-h, .lcc-bd .lcc-bd-eyebrow.lcc-bd-insp-h { font-size: 12px; }
+.lcc-bd-insp { padding: 18px 16px; scroll-padding: 12px; overflow-x: hidden; }
+.lcc-bd-victory { padding: 18px 16px; }
+/* a focus ring on a row that fills the panel is drawn inside the row, so the panel's edge never cuts it */
+.lcc-bd-insp .lcc-bd-tier:focus-visible { outline-offset: -3px; }
+
+/* the four figures: two by two until the box is wide */
+.lcc-bd-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 12px 0 14px; gap: 8px; }
+.lcc-bd-metric { padding: 12px 13px; min-height: 0; }
+
+/* the board panel and its cards. A card keeps its text size: the boxes are 24 px wide here (the size to hit), the card is as wide as its five boxes need, and the number of columns follows the panel */
+.lcc-bd-panel { padding: 14px 10px; }
+.lcc-bd-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.lcc-hc { min-height: 170px; gap: 3px; padding: 8px 3px 9px; }
+.lcc-hc-top { font-size: 11px; min-height: 30px; }
+.lcc-hc-name { font: 700 12px/1.2 var(--lcc-serif); letter-spacing: .02em; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; text-align: center; text-wrap: balance; max-width: 100%; min-height: 2.4em; display: flex; align-items: center; justify-content: center; }
+.lcc-hc-track, .lcc-hc-track-unk { font-size: 11px; line-height: 1.25; text-align: center; letter-spacing: .02em; }
+.lcc-hc-owner { font-size: 12px; letter-spacing: .03em; white-space: nowrap; text-align: center; }
+.lcc-hc-owner[data-g="?"] { white-space: normal; overflow-wrap: anywhere; }
+.lcc-hc-badge { font-size: 11px; }
+.lcc-hc-select:focus-visible { outline-offset: -2px; }
+/* the five tier boxes: 24 by 24 px with 2 px between them, and an invisible extension of the button makes the target 36 px high without changing how it looks */
+.lcc-hc-tiers { position: relative; gap: 2px; margin: 4px 0 0; }
+.lcc-hc-t { position: relative; flex: 0 0 24px; width: 24px; max-width: 24px; height: 24px; padding: 0; font: 800 12px/22px var(--lcc-sans); }
+.lcc-hc-t::after { content: ''; position: absolute; left: -1px; right: -1px; top: -6px; bottom: -6px; }
+.lcc-hc-t:focus-visible { outline: 2px solid var(--lcc-focus); outline-offset: 1px; }
+/* the footer of every card is two lines tall, so the tier boxes of the five cards of a row stand on one line: "N/5 REACHED", then the three counts together */
+.lcc-hc-count { font-size: 12px; gap: 2px 6px; min-height: 33px; align-content: flex-start; margin-top: 3px; }
+.lcc-hc-count b { flex: 0 0 100%; text-align: center; overflow-wrap: anywhere; }
+.lcc-hc-count .lcc-hc-q { white-space: nowrap; }
+.lcc-hc-count > b:only-child { font-weight: 700; letter-spacing: .04em; color: var(--lcc-dim); text-transform: uppercase; }
+.lcc-bd-pickl { width: 24px; height: 24px; left: calc(50% - 12px); top: 5px; }
+.lcc-bd-pick { width: 16px; height: 16px; }
+
+/* touch and narrow windows: hit areas of 36 px or more without changing how anything looks */
+@media (max-width: 768px), (pointer: coarse) {
+  .lcc-bd-pickl { width: 28px; height: 28px; left: calc(50% - 14px); top: 3px; }
+  .lcc-bd-c-pick .lcc-bd-pickl { width: 36px; height: 36px; }
+  .lcc-bd-chip { min-height: 36px; }
+  .lcc-bd-lbl, .lcc-bd-preview-l { display: inline-flex; align-items: center; min-height: 36px; }
+  .lcc-bd-sortb, .lcc-bd-linkb { min-height: 36px; }
+  .lcc-bd-list th, .lcc-bd-list td { padding-top: 8px; padding-bottom: 8px; }
+}
+
+@supports (container-type: inline-size) {
+  .lcc-bd-panel, .lcc-bd-insp { container-type: inline-size; }
+  /* the Inspector inside a narrow box: the state of a tier goes under its reward instead of squeezing it */
+  @container (max-width: 345px) {
+    .lcc-bd-tier-heading, .lcc-bd-tier { grid-template-columns: 68px minmax(0, 1fr); }
+    .lcc-bd-tier-heading span:last-child { display: none; }
+    .lcc-bd-tier > .lcc-bd-tier-s { grid-column: 2; text-align: left; }
+  }
+  @container (max-width: 230px) { .lcc-bd-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @container (max-width: 300px) { .lcc-bd-legend { grid-template-columns: 1fr; } }
+  /* the panel head and the cards follow the width of the board panel itself */
+  @container (max-width: 640px) {
+    .lcc-bd-panel-head { display: block; }
+    .lcc-bd-panel-actions { margin-top: 12px; justify-content: flex-start; }
+    .lcc-bd-shown { margin-left: 0; flex-basis: 100%; }
+  }
+  @container (max-width: 423px) {
+    .lcc-bd-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .lcc-bd-headlines { gap: 6px 10px; }
+  }
+  /* five columns when five cards of 136 px (five 24 px boxes, the gaps between them and the card's padding) fit */
+  @container (min-width: 696px) {
+    .lcc-bd-tiles { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+  }
+  /* wide: the design's own 18 by 20 boxes, ten pixels between the cards, the name grows with the panel */
+  @container (min-width: 760px) {
+    .lcc-bd-tiles { gap: 10px; }
+    .lcc-hc { padding: 8px 5px 9px; }
+    .lcc-hc-name { font: 700 clamp(12px, 1.25cqw, 14px)/1.2 var(--lcc-serif); letter-spacing: .03em; min-height: 0; }
+    .lcc-hc-t { flex: 0 1 18px; width: 18px; max-width: 18px; height: 20px; padding: 1px 0; line-height: 18px; }
+    .lcc-hc-t::after { content: none; }
+    .lcc-hc-tiers { margin: 2px 0 0; }
+  }
+  /* the nested padding of the shell is trimmed on a narrow window and given back on a wide one */
+  @container (min-width: 1100px) {
+    .lcc-bd-panel { padding: 20px 18px 18px; }
+    .lcc-bd-insp, .lcc-bd-victory { padding: 22px 20px; }
+    .lcc-bd-metrics { margin: 16px 0 18px; gap: 12px; }
+    .lcc-bd-metric { padding: 15px 19px; min-height: 100px; }
+  }
+  @container (min-width: 901px) { .lcc-bd-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  @container (max-width: 480px) {
+    .lcc-bd-metric { padding: 10px 10px; }
+    .lcc-bd-metric strong { font-size: 19px; }
+  }
+  @container (max-width: 360px) {
+    .lcc-bd-panel { padding: 8px 6px; }
+    .lcc-bd-metric strong { font-size: 17px; letter-spacing: 0; }
+    .lcc-bd-metric-k { letter-spacing: .06em; }
+  }
+}
+/* a touch screen, and any window of 900 px or less, wants the 24 px boxes whatever the width of the panel, so this comes after the wide rules above */
+@media (pointer: coarse), (max-width: 900px) {
+  .lcc-hc-t { flex: 0 0 24px; width: 24px; max-width: 24px; height: 24px; padding: 0; line-height: 22px; }
+  .lcc-hc-t::after { content: ''; }
 }

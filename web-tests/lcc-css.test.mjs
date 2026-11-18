@@ -95,8 +95,8 @@ test('the variants the design asks for exist: forced colours, reduced motion, Of
   assert.match(bare, /html\[data-motion="off"\] \.lcc \[data-victory\]/);
   assert.match(bare, /html\[data-motion="calm"\] \.lcc \[data-victory\]/);
   // the plaque has a wide and a narrow layout, driven by the box it is in
-  assert.ok([...ats].some((a) => a.startsWith('@container (min-width: 900px)')));
-  assert.ok([...ats].some((a) => a.startsWith('@container not (min-width: 900px)')));
+  assert.ok([...ats].some((a) => a.startsWith('@container (min-width: 940px)')));
+  assert.ok([...ats].some((a) => a.startsWith('@container not (min-width: 940px)')));
   assert.ok([...ats].some((a) => a.startsWith('@container (max-width: 520px)')));
   assert.match(bare, /\.lcc-plaque-host\s*\{[^}]*container-type:\s*inline-size/);
 });
@@ -154,4 +154,126 @@ test('the plaque glow is one custom property that the glowing parts read', () =>
 
 test('the Choose box of the list sits in its table cell (it is only absolute over the corner of a tile)', () => {
   assert.ok(bare.includes('.lcc-bd-c-pick .lcc-bd-pickl { position: static;'));
+});
+
+// ---- Display remediation A (display only): the text floor, the tier boxes, the side-by-side panel, the guards and the light-theme contrast ----
+const appCss = read('internal', 'web', 'static', 'app.css').replace(/\r/g, '');
+const appBare = appCss.replace(/\/\*[\s\S]*?\*\//g, '');
+const lccCss = fs.readFileSync(path.join(lccDir, 'lcc.css'), 'utf8').replace(/\r/g, '');
+const boardCss = fs.readFileSync(path.join(lccDir, 'lcc-board.css'), 'utf8').replace(/\r/g, '');
+
+// the last plain font size of each selector: rules are read in file order and the remediation block repeats a selector to raise it
+function finalSizes() {
+  const sizes = new Map();
+  for (const r of rules) {
+    if (r.at !== '' && !r.at.startsWith('@supports')) continue;
+    const m = /(?:^|;)\s*font-size:\s*([\d.]+)px/.exec(r.body) || /(?:^|;)\s*font:\s*(?:italic\s+)?(?:\d+\s+)?([\d.]+)px/.exec(r.body);
+    if (!m) continue;
+    for (const s of r.sel.split(',').map((x) => x.trim())) sizes.set(s, Number(m[1]));
+  }
+  return sizes;
+}
+
+test('text floor: no rule of the board leaves text under 11 px, and names and key labels are 12 px or more', () => {
+  const sizes = finalSizes();
+  // .lcc-flag is the foundation's own flag (the gallery); the board's use of it, the badge of a card, is raised by .lcc-hc-badge
+  const low = [...sizes].filter(([sel, px]) => px < 11 && sel !== '.lcc-flag');
+  assert.deepEqual(low, [], 'selectors under 11 px: ' + low.map(([s, px]) => s + ' ' + px).join(' | '));
+  for (const s of ['.lcc-hc-owner', '.lcc-hc-count', '.lcc-bd-chip', '.lcc-bd-lbl', '.lcc-bd-sec-h', '.lcc-bd-control', '.lcc-bd-vtag', '.lcc-bd-tier', '.lcc-bd-tier-n', '.lcc-bd-tier-s', '.lcc-bd-elab', '.lcc-bd-metric-k', '.lcc-bd-preview-l', '.lcc-bd-fc-head']) assert.ok(sizes.get(s) >= 12, s + ' is a key label: ' + sizes.get(s));
+  assert.match(bare, /\.lcc-hc-name \{ font: 700 12px\//, 'a card name is 12 px at its smallest');
+  // the plaque keeps its floor in the wide layout: every clamp() starts at 11 px or more
+  const wide = lccCss.replace(/\/\*[\s\S]*?\*\//g, '');
+  const lows = [...wide.slice(wide.indexOf('@container (min-width: 940px) {')).matchAll(/clamp\((\d+(?:\.\d+)?)px/g)].map((m) => Number(m[1])).filter((n) => n < 11);
+  assert.deepEqual(lows, [], 'a plaque size below 11 px');
+});
+
+test('tier boxes: 24 by 24 px with 2 px between them where touch or a narrow window is in play, the 18 by 20 of the design only in a wide panel, and a 36 px target', () => {
+  assert.match(bare, /\.lcc-hc-t \{ position: relative; flex: 0 0 24px; width: 24px; max-width: 24px; height: 24px;/);
+  assert.match(bare, /\.lcc-hc-tiers \{ position: relative; gap: 2px;/);
+  assert.match(bare, /\.lcc-hc-t::after \{ content: ''; position: absolute; left: -1px; right: -1px; top: -6px; bottom: -6px; \}/);
+  const wide = rules.find((r) => r.at === '@container (min-width: 760px)' && r.sel === '.lcc-hc-t');
+  assert.ok(wide && /width: 18px/.test(wide.body) && /height: 20px/.test(wide.body), 'the wide panel keeps the 18 by 20 boxes');
+  const coarse = rules.filter((r) => r.at === '@media (pointer: coarse), (max-width: 900px)' && r.sel === '.lcc-hc-t');
+  assert.equal(coarse.length, 1, 'a touch screen and a window of 900 px or less take the 24 px boxes after the wide rule');
+  assert.ok(bare.indexOf('@media (pointer: coarse), (max-width: 900px)') > bare.indexOf('@container (min-width: 760px)'), 'the touch rule comes after the wide rule, so it wins');
+  // the arithmetic of the five columns: five boxes, four gaps, the card's padding and border make the card; five cards and four 4 px gaps make the container step
+  const card = 5 * 24 + 4 * 2 + 2 * 3 + 2, five = 5 * card + 4 * 4;
+  assert.equal(card, 136);
+  assert.ok(bare.includes('@container (min-width: ' + five + 'px)'), 'five columns start at ' + five + ' px of panel');
+  assert.match(bare, /\.lcc-hc \{ min-height: 170px; gap: 3px; padding: 8px 3px 9px; \}/);
+});
+
+test('the cards of a row line up: the footer is two lines tall, the counts stand together on one, and the empty case is styled like the other owner lines', () => {
+  assert.match(bare, /\.lcc-hc-count \{ font-size: 12px; gap: 2px 6px; min-height: 33px;/);
+  assert.match(bare, /\.lcc-hc-count b \{ flex: 0 0 100%; text-align: center;/);
+  assert.match(bare, /\.lcc-hc-count \.lcc-hc-q \{ white-space: nowrap; \}/);
+  assert.match(bare, /\.lcc-hc-count > b:only-child \{[^}]*text-transform: uppercase/);
+  assert.match(bare, /\.lcc-hc-owner \{[^}]*white-space: nowrap/, 'the bullet and the faction name do not part');
+});
+
+// at-rules that need container queries or :has() sit inside a guard, so a browser without them shows the plain page and no rule applies halfway
+function unguarded(src) {
+  const stack = [];
+  const bad = [];
+  let head = '';
+  for (const c of src) {
+    if (c === '{') {
+      stack.push(head.trim());
+      const h = stack[stack.length - 1];
+      if (h.startsWith('@container') && !stack.some((s) => s.startsWith('@supports'))) bad.push(h);
+      head = '';
+    } else if (c === '}') { stack.pop(); head = ''; }
+    else if (c === ';') head = '';
+    else head += c;
+  }
+  return bad;
+}
+
+test('guards: every container query of the remediation is inside @supports, and the board view layout needs :has() and container queries together', () => {
+  const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '');
+  const b = strip(boardCss);
+  assert.deepEqual(unguarded(b.slice(b.indexOf('.lcc-bd-side { display: flex;'))), []);
+  const l = lccCss.slice(lccCss.indexOf('/* ==== The narrow plaque, compacted'));
+  assert.ok(l.length > 100);
+  assert.deepEqual(unguarded(strip(l)), []);
+  const at = appBare.indexOf('@supports selector(:has(*)) and (container-type: inline-size) {');
+  assert.ok(at > 0, 'the board view layout is behind a guard');
+  assert.deepEqual(unguarded(appBare.slice(at)), [], 'no @container of the board view layout stands outside the guard');
+  const outside = appBare.slice(0, at);
+  assert.doesNotMatch(outside, /#lsb-lcc/);
+  assert.doesNotMatch(outside, /@container lsbv/);
+});
+
+test('layout: the page cap, the side-by-side switch and the sticky House Intelligence', () => {
+  assert.match(appBare, /main:has\(#lsb-lcc\) \{ max-width: 1800px; \}/);
+  assert.match(appBare, /@container lsbv \(min-width: 1080px\) \{/);
+  assert.match(appBare, /@container lsbv \(min-width: 700px\) and \(max-width: 1079px\) \{/);
+  // at the switch the board must keep five columns beside the side column: 696 px of panel, its padding (10) and border, the gap and the side column, inside the tab's card (8 px of padding each side)
+  const panel = 696 + 2 * 10 + 2, side = 284, gap = 18, shell = 2 * 8;
+  assert.ok(1080 - shell >= panel + gap + side, 'the board keeps five columns beside the House Intelligence at the switch width');
+  assert.match(appBare, /position: sticky; top: calc\(var\(--hdr-h\) \+ 12px \+ var\(--lsb-warn-room, 0px\)\)/);
+  assert.match(appBare, /max-height: calc\(100vh - var\(--hdr-h\) - var\(--lsb-warn-room, 0px\) - 24px\); max-height: calc\(100dvh - var\(--hdr-h\) - var\(--lsb-warn-room, 0px\) - 24px\);/);
+  assert.match(appBare, /overscroll-behavior: contain/);
+  assert.match(appBare, /body:has\(#gamewarn\.warn, #gamewarn\.info, #launchpass\.info\) \{ --lsb-warn-room: 76px; \}/);
+  const ring = rules.filter((r) => /\.lcc-bd-insp \.lcc-bd-tier:focus-visible/.test(r.sel));
+  assert.ok(ring.length && /outline-offset: -3px/.test(ring[0].body), 'a focus ring on a full-width row is drawn inside the row');
+});
+
+test('the plaque: the narrow layout is compact and, from 600 px, puts the two standards at the two sides of the track', () => {
+  const g = rules.find((r) => r.at === '@container (min-width: 600px) and (max-width: 939px)' && r.sel === '.lcc-plaque');
+  assert.ok(g && /display: grid/.test(g.body) && /grid-template-areas: "hd hd hd" "sa tk sh"/.test(g.body));
+  assert.ok(rules.some((r) => r.at === '@container (min-width: 600px) and (max-width: 939px)' && r.sel === '.lcc-pl-foot' && /display: contents/.test(r.body)));
+  assert.match(bare, /\.lcc-pl-std-a \.lcc-standard-h, \.lcc-pl-std-h \.lcc-standard-h \{ margin: 0 0 4px; letter-spacing: \.02em/);
+  assert.match(bare, /\.lcc-pl-nameplate \{ grid-row: 1; padding: 4px 14px; min-height: 26px; font-size: 12px; max-width: 100%; white-space: normal;/);
+});
+
+test('light theme: the borders of the tier boxes pass 3:1 against both ends of the card, the reached, waiting and unknown boxes too', () => {
+  const lum = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  const blocks = rules.filter((r) => /--lcc-card-a:/.test(r.body) && /data-theme="(light|dark)"/.test(r.sel));
+  assert.ok(blocks.length >= 2);
+  for (const b of blocks) {
+    const v = (n) => new RegExp('--lcc-' + n + ':\\s*(#[0-9a-f]{6})').exec(b.body)[1];
+    for (const k of ['tier-edge', 'ok-edge', 'wait-edge', 'unk-edge']) for (const end of ['card-a', 'card-b']) assert.ok(ratio(v(k), v(end)) >= 3, k + ' on ' + end + ': ' + ratio(v(k), v(end)).toFixed(2));
+  }
 });
