@@ -30,9 +30,19 @@
   const state = { layout: 'grid', show: 'all', hs: 'any', spec: 'all', sort: 'position', dir: 'asc', group: '', sel: null, preview: '' };
   let last = null; // { container, answer, host } of the latest mount, so a change of the view can draw again without the page's help
   let inited = false;
+  // What a redraw keeps for the person (display only): where the House Intelligence panel was scrolled to (for the House it was on) and which disclosures were opened.
+  const memo = { insp: null, open: new Set() };
 
   // ---- small helpers -------------------------------------------------------------------------------------------------------------------------------------------------------------
   function btn(cls, text, attrs) { return el('button', cls, text, Object.assign({ type: 'button' }, attrs || {})); }
+  // A long explanation behind a plain summary: a native disclosure, so the keyboard opens it and a screen reader says whether it is open. What was opened stays open over a redraw.
+  function disc(key, summary, ...nodes) {
+    const d = el('details', 'lcc-bd-disc', '', { 'data-key': key });
+    d.appendChild(el('summary', '', summary));
+    for (const n of nodes) d.appendChild(n);
+    if (memo.open.has(key)) d.open = true;
+    return d;
+  }
   const trackWord = (t) => TRACK_WORD[t] || '';
   const pct = (v, goal) => (goal > 0 && v !== null ? Math.max(0, Math.min(100, Math.round((v / goal) * 100))) : 0);
   const ownerPill = (owner) => el('span', 'lcc-owner lcc-owner-' + (OWNER_WORD[owner] ? owner : 'unknown'), ({ a: 'A', h: 'H', open: '○', unknown: '?' }[owner] || '?') + ' ' + (OWNER_WORD[owner] || 'Unreadable'));
@@ -430,7 +440,7 @@
     r2.appendChild(el('span', 'lcc-bd-etip', 'Claimed ≠ earned ≠ collected'));
     s4.appendChild(r2);
     s4.appendChild(el('p', 'lcc-bd-cap', '', { role: 'status', id: 'lcc-bd-eset' }));
-    s4.appendChild(el('p', 'lcc-bd-tip', 'Each click is written at once with a backup first, and refused if this House is no longer as shown. Complete on a House another faction took replaces that win; the question says so first.'));
+    s4.appendChild(disc('tip', 'How each click is written', el('p', 'lcc-bd-tip', 'Each click is written at once with a backup first, and refused if this House is no longer as shown. Complete on a House another faction took replaces that win; the question says so first.')));
     return s4;
   }
 
@@ -445,6 +455,8 @@
       return side;
     }
     side.setAttribute('data-id', h.id);
+    // shown only where the panel is not beside the board (a phone, a narrow window): it takes the person back to the card of this House
+    side.appendChild(btn('lcc-bd-back', 'Back to board', { 'data-lcb': 'back', 'data-id': h.id, 'data-fk': 'bk:' + h.id, title: 'Scroll back to the card of this House' }));
     const idn = el('div', 'lcc-bd-identity');
     const sigil = el('span', 'lcc-bd-sigil');
     const art = L().houseAsset(h.name);
@@ -457,6 +469,20 @@
     hb.appendChild(el('span', 'lcc-bd-bloc', h.track ? trackWord(h.track) + ' · Associated specialization' : 'Specialization not in the save'));
     idn.appendChild(hb);
     side.appendChild(idn);
+
+    // the actions on the House come first, directly under the name: they are what the panel is for, and a short window shows them without scrolling the panel. The order of the rest is the approved design's.
+    const c = editable && host && host.ctl ? host.ctl(h.id) : null;
+    if (c) {
+      side.appendChild(editor(h, c));
+      // directly under the buttons: where the page draws the question about this House (it moves its own question here) and a copy of its result line, so both stand next to the buttons that asked;
+      // where the panel scrolls on its own they stay at its top while the ledger scrolls under them
+      const pin = el('div', 'lcc-bd-pin');
+      pin.appendChild(el('div', 'lcc-bd-ask', '', { 'data-lcc-slot': 'ask' }));
+      pin.appendChild(el('p', 'lcc-bd-eres', '', { id: 'lcc-bd-eres', 'aria-hidden': 'true' }));
+      side.appendChild(pin);
+    } else if (!editable) {
+      side.appendChild(el('p', 'lcc-bd-warn', 'Read-only: the board could not be checked, so nothing can be written from this view. The classic list stays available.'));
+    }
 
     // who holds it: only what the save's own two fields say; a lead on the faction goal is a lead and never a win
     const ban = el('div', 'lcc-bd-banner');
@@ -498,7 +524,6 @@
     side.appendChild(s2);
 
     // the ledger: the tiers of the character (cumulative), their rewards and what became of them. The rows are the same controls as the tier boxes of the card.
-    const c = editable && host && host.ctl ? host.ctl(h.id) : null;
     const s3 = el('section', 'lcc-bd-sec lcc-bd-ledger', '', { 'aria-labelledby': 'lcc-bd-s3' });
     const lh = el('div', 'lcc-bd-ledger-head');
     lh.appendChild(secHead('PERSONAL REWARD LEDGER', 'lcc-bd-s3', 'SAVE + DERIVED'));
@@ -546,18 +571,12 @@
     if (!h.tiers.length) s3.appendChild(el('p', 'lcc-bd-none', 'This House has no tiers in the save.'));
     s3.appendChild(ol);
     if (!h.tiersOrdered && h.tiers.length) s3.appendChild(el('p', 'lcc-bd-warn', 'The tier amounts are not in rising order in the save; the reached count is taken as the save states it.'));
-    if (c && c.caption) s3.appendChild(el('p', 'lcc-bd-cap', c.caption));
+    if (c && c.caption) s3.appendChild(disc('caption', 'About Fill and the tiers', el('p', 'lcc-bd-cap', c.caption)));
     const lg = el('div', 'lcc-bd-legend');
     for (const t of ['✓ Collected', '◆ Waiting at representative', '○ Not reached', '? No delivery record']) lg.appendChild(el('span', '', t));
-    s3.appendChild(lg);
+    s3.appendChild(disc('legend', 'What the marks mean', lg));
     side.appendChild(s3);
-    side.appendChild(importantNote());
-
-    // the actions on the House, laid out as the approved design's editor: Faction and Fill, the three House actions, Set tier and Apply tier
-    if (c) side.appendChild(editor(h, c));
-    else if (!editable) {
-      side.appendChild(el('p', 'lcc-bd-warn', 'Read-only: the board could not be checked, so nothing can be written from this view. The classic list stays available.'));
-    }
+    side.appendChild(disc('note', 'Important: three separate states', importantNote()));
 
     // where it is
     const s5 = el('section', 'lcc-bd-sec', '', { 'aria-labelledby': 'lcc-bd-s5' });
@@ -606,6 +625,8 @@
     foot.appendChild(totals(board));
     panel.appendChild(foot);
     grid_.appendChild(panel);
+    // the place of the page's own action bar: directly under the board, so the order of the keys is the order of the eyes (the page puts the bar here, see host.seat)
+    grid_.appendChild(el('div', 'lcc-bd-slot', '', { 'data-lcc-slot': 'bar' }));
     const side = el('div', 'lcc-bd-side');
     side.appendChild(victoryPanel(board));
     side.appendChild(inspector(board, state.sel === null ? null : board.byId.get(state.sel), host, editable));
@@ -623,12 +644,40 @@
     if (!inited) { inited = true; const v = host && host.get ? host.get('layout') : null; if (v === 'grid' || v === 'list') state.layout = v; }
     last = { container, answer, host };
     const fk = container.contains(root.document.activeElement) ? focusKey() : '';
+    if (host && host.unseat) host.unseat(); // what the page put into the board goes back to its own place before the board is drawn again
     const board = M().readBoard(answer);
     container.textContent = '';
     container.appendChild(build(board, host));
-    if (!container.__lccWired) { container.__lccWired = true; container.addEventListener('click', onClick); container.addEventListener('change', onChange); }
-    if (fk) { const n = container.querySelector('[data-fk="' + fk + '"]'); if (n && n.focus) n.focus({ preventScroll: true }); }
+    if (!container.__lccWired) {
+      container.__lccWired = true;
+      container.addEventListener('click', onClick); container.addEventListener('change', onChange);
+      container.addEventListener('scroll', onScroll, true); container.addEventListener('toggle', onToggle, true); // neither event bubbles
+    }
+    if (host && host.seat) host.seat(container);
+    const insp = container.querySelector('.lcc-bd-insp');
+    // the panel is drawn again on every select, filter and tier change: it is put back where it was scrolled to when it is still the same House
+    if (insp && memo.insp && memo.insp.top > 0 && memo.insp.id === insp.getAttribute('data-id')) insp.scrollTop = memo.insp.top;
+    if (fk) { const n = container.querySelector('[data-fk="' + fk + '"]'); if (n && n.focus) { n.focus({ preventScroll: true }); keepInView(n); } }
     return board;
+  }
+  // A control that has the focus inside the scrolling panel is never left out of sight in it, nor under the question and the result line that stay at the top of the panel.
+  function keepInView(n) {
+    const sc = n && n.closest ? n.closest('.lcc-bd-insp') : null;
+    if (!sc || !n.getBoundingClientRect || sc.scrollHeight <= sc.clientHeight + 1) return;
+    const a = n.getBoundingClientRect(), b = sc.getBoundingClientRect(), pin = sc.querySelector('.lcc-bd-pin');
+    if (!a.height) return;
+    const top = b.top + (pin && !n.closest('.lcc-bd-pin') && getComputedStyle(pin).position === 'sticky' ? pin.offsetHeight : 0);
+    if (a.top < top) sc.scrollTop -= top - a.top + 8; else if (a.bottom > b.bottom) sc.scrollTop += a.bottom - b.bottom + 8;
+  }
+  function onScroll(e) {
+    const t = e.target;
+    if (t && t.classList && t.classList.contains('lcc-bd-insp')) memo.insp = { id: t.getAttribute('data-id'), top: t.scrollTop };
+  }
+  function onToggle(e) {
+    const t = e.target;
+    if (!t || !t.classList || !t.classList.contains('lcc-bd-disc')) return;
+    const k = t.getAttribute('data-key');
+    if (t.open) memo.open.add(k); else memo.open.delete(k);
   }
   function redraw() { if (last) return mount(last.container, last.answer, last.host); return null; }
   // After a filter changes, a House the filter leaves out is no longer chosen for a bulk action (the same rule as the classic list: what is not shown is never written).
@@ -645,13 +694,19 @@
     if (k === 'sel') {
       e.preventDefault();
       const id = Number(t.getAttribute('data-id'));
-      state.sel = state.sel === id ? null : id;
+      state.sel = state.sel === id ? null : id; memo.insp = null;
       redraw();
       const insp = last.container.querySelector('.lcc-bd-insp');
       if (state.sel !== null && insp && insp.scrollIntoView) insp.scrollIntoView({ block: 'nearest' });
       return;
     }
-    if (k === 'clearsel') { e.preventDefault(); state.sel = null; redraw(); return; }
+    if (k === 'back') {
+      e.preventDefault();
+      const card = last.container.querySelector('[data-fk="ht:' + t.getAttribute('data-id') + '"]');
+      if (card) { if (card.scrollIntoView) card.scrollIntoView({ block: 'center' }); card.focus({ preventScroll: true }); }
+      return;
+    }
+    if (k === 'clearsel') { e.preventDefault(); state.sel = null; memo.insp = null; redraw(); return; }
     if (k === 'filter') {
       e.preventDefault();
       state[t.getAttribute('data-key')] = t.getAttribute('data-val');
@@ -702,6 +757,7 @@
     if (k === 'preview') { state.preview = knownDecrees(last && last.host).some((d) => d.id === t.value) ? t.value : ''; redraw(); return; }
     if (k === 'jump') {
       state.sel = t.value === '' ? null : Number(t.value);
+      memo.insp = null;
       if (state.sel !== null) { // a jump shows the House: the filters that would hide it are cleared, as the classic list's jump does
         state.show = 'all'; state.hs = 'any'; state.spec = 'all';
       }
@@ -713,7 +769,7 @@
     }
   }
 
-  const api = { state, mount, redraw, visible, build, majorityOf, plaque, preview, metrics, grid, houseCard, list, inspector, victoryPanel, knownDecrees, tierKind, NOT_IN_SAVE };
+  const api = { state, mount, redraw, keepInView, visible, build, majorityOf, plaque, preview, metrics, grid, houseCard, list, inspector, victoryPanel, knownDecrees, tierKind, NOT_IN_SAVE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCB = api;
 })(typeof window !== 'undefined' ? window : globalThis);

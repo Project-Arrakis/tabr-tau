@@ -70,7 +70,9 @@ test('the plaque and the figures are the counts of the same Houses: 12 and 4, ni
   assert.equal(p.getAttribute('data-a'), '12');
   assert.equal(p.getAttribute('data-h'), '4');
   assert.match(text(p.querySelector('.lcc-pl-standing')), /ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN/);
-  assert.doesNotMatch(text(ui.doc.querySelector('.lcc-bd')), /\bwins?\b|\bwon\b|won the vote/i, 'a count is never called a win');
+  const own = ui.doc.querySelector('.lcc-bd').cloneNode(true);
+  own.querySelector('[data-lcc-slot="bar"]').replaceChildren(); // the page's own action bar sits in the board's grid and has its own words
+  assert.doesNotMatch(text(own), /\bwins?\b|\bwon\b|won the vote/i, 'a count is never called a win');
   const k = [...ui.doc.querySelectorAll('.lcc-bd-metric')].map((x) => [text(x.querySelector('.lcc-bd-metric-k')), text(x.querySelector('strong'))]);
   assert.deepEqual(k.map((x) => x[1]), ['CONTESTED', '9', '—', 'LV 100'], 'the term status, the open Houses read from the save, the lines wait for M4, the cap is a game rule');
   assert.deepEqual(k.map((x) => x[0].replace(/RULE$/, '')), ['TERM STATUS', 'OPEN HOUSES', 'POTENTIAL LINES', 'SPECIALIZATION CAP']);
@@ -263,7 +265,8 @@ test('choosing a House opens the Inspector: both scales apart, the contributors 
   assert.match(i.querySelector('.lcc-bd-track-me').getAttribute('aria-label'), /^Your contribution: 3,600 of 6,000 · next tier 4,800, 1,200 more\./);
   assert.equal(i.querySelector('#lcc-bd-s2').parentNode.querySelector('.lcc-bd-line'), null, 'no line under the contribution bar');
   const order = [...i.children].map((c) => c.getAttribute('aria-labelledby') || c.className.split(' ')[0]);
-  assert.deepEqual(order, ['lcc-bd-insp-top', 'lcc-bd-identity', 'lcc-bd-banner', 'lcc-bd-s1', 'lcc-bd-s2', 'lcc-bd-s3', 'lcc-bd-note', 'lcc-bd-s4', 'lcc-bd-s5'], 'the order of the approved design, the actions block last (the place after it)');
+  assert.deepEqual(order, ['lcc-bd-insp-top', 'lcc-bd-back', 'lcc-bd-identity', 'lcc-bd-s4', 'lcc-bd-pin', 'lcc-bd-banner', 'lcc-bd-s1', 'lcc-bd-s2', 'lcc-bd-s3', 'lcc-bd-disc', 'lcc-bd-s5'], 'the order of the approved design, except that the actions block comes directly under the name (and the way back to the board is before it); the note is a disclosure');
+  assert.equal(i.querySelector('.lcc-bd-disc[data-key="note"] > summary').textContent, 'Important: three separate states');
   assert.match(text(i.querySelector('.lcc-bd-note')), /^Important: A House claimed by a faction/);
   assert.doesNotMatch(text(i), /sysselraad/i, 'the Inspector holds no sysselraad data');
   const tiers = [...i.querySelectorAll('.lcc-bd-tier')];
@@ -323,7 +326,7 @@ test('the layout is remembered, and the list carries a Choose box and a Saved ma
 test('every control that changes the save carries the classic list\'s own data-lb, so one handler, one guard and one queue serve both views', async () => {
   const ui = await open();
   click(ui, tileOf(ui, 'Wallach').querySelector('button'));
-  const writes = [...ui.doc.querySelectorAll('.lcc-bd [data-lb]')].map((e) => e.dataset.lb);
+  const writes = [...ui.doc.querySelectorAll('.lcc-bd [data-lb]')].filter((e) => !e.closest('[data-lcc-slot="bar"]')).map((e) => e.dataset.lb);
   assert.deepEqual([...new Set(writes)].sort(), ['pick', 'qa', 'tier']);
   assert.equal(ui.doc.querySelectorAll('.lcc-bd [data-lcb="sel"]').length, 25);
   assert.equal(ui.doc.querySelectorAll('.lcc-bd .lcc-bd-act[data-lb="qa"]').length, 4);

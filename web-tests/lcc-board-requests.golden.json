@@ -1,0 +1,344 @@
+{
+ "Apply tier, raise": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9003,
+      "was_mine": 1200,
+      "was_done": false,
+      "was_win": null,
+      "mine_to": 3600,
+      "was_events": 0
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "House Kenola: your contribution 1,200 → 3,600 (tiers 2 to 3 reached); No missions written: your own earlier progress on this house already counts for this ground."
+ },
+ "Apply tier, remove the highest": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9003,
+      "was_mine": 1200,
+      "was_done": false,
+      "was_win": null,
+      "mine_to": 0,
+      "lower": true,
+      "was_events": 0
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "House Kenola: your contribution 1,200 → 0 (tier 1 removed); No missions written: your own earlier progress on this house already counts for this ground."
+ },
+ "Complete House": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9009,
+      "was_mine": 0,
+      "was_done": false,
+      "was_win": null,
+      "complete_for": 1
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "House Sor: Atreides progress 1,700 → 4,000; house taken by Atreides; No missions written: your own earlier progress on this house already counts for this ground."
+ },
+ "Complete House on a House another faction took: asked, then Yes": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9001,
+      "was_mine": 0,
+      "was_done": true,
+      "was_win": 2,
+      "complete_for": 1
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "House Vernius: Atreides progress 500 → 4,000; house taken by Atreides; No missions written: your own earlier progress on this house already counts for this ground."
+ },
+ "Fill 5 tiers": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9010,
+      "was_mine": 0,
+      "was_done": false,
+      "was_win": null,
+      "mine_to": 6000,
+      "was_events": 0
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "House Lindaren: your contribution 0 → 6,000 (tiers 1 to 5 reached); No missions written: your own earlier progress on this house already counts for this ground."
+ },
+ "Fill faction goal": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9010,
+      "was_mine": 0,
+      "was_done": false,
+      "was_win": null,
+      "mine_to": 6000,
+      "was_events": 0,
+      "complete_for": 1
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "House Lindaren: your contribution 0 → 6,000 (tiers 1 to 5 reached); Atreides progress 1,800 → 4,000; house taken by Atreides; No missions written: your own earlier progress on this house already counts for this ground."
+ },
+ "Reopen": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9014,
+      "was_mine": 0,
+      "was_done": true,
+      "was_win": 2,
+      "reopen": true
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "House Hurata: house reopened (progress stays as it is); No missions written: your own earlier progress on this house already counts for this ground."
+ },
+ "a tier box of a card, raise": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9003,
+      "was_mine": 1200,
+      "was_done": false,
+      "was_win": null,
+      "mine_to": 3600,
+      "was_events": 0
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "House Kenola: your contribution 1,200 → 3,600 (tiers 2 to 3 reached); No missions written: your own earlier progress on this house already counts for this ground."
+ },
+ "a tier box of a card, remove the highest": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9003,
+      "was_mine": 1200,
+      "was_done": false,
+      "was_win": null,
+      "mine_to": 0,
+      "lower": true,
+      "was_events": 0
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "House Kenola: your contribution 1,200 → 0 (tier 1 removed); No missions written: your own earlier progress on this house already counts for this ground."
+ },
+ "a tier row of the panel, raise": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9003,
+      "was_mine": 1200,
+      "was_done": false,
+      "was_win": null,
+      "mine_to": 3600,
+      "was_events": 0
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "House Kenola: your contribution 1,200 → 3,600 (tiers 2 to 3 reached); No missions written: your own earlier progress on this house already counts for this ground."
+ },
+ "another faction chosen, Complete House": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9010,
+      "was_mine": 0,
+      "was_done": false,
+      "was_win": null,
+      "complete_for": 2
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "House Lindaren: Harkonnen progress 1,050 → 4,000; house taken by Harkonnen; No missions written: your own earlier progress on this house already counts for this ground."
+ },
+ "several houses, complete chosen, asked, then Yes": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9001,
+      "was_mine": 0,
+      "was_done": true,
+      "was_win": 2,
+      "complete_for": 1
+     },
+     {
+      "task_id": 9003,
+      "was_mine": 1200,
+      "was_done": false,
+      "was_win": null,
+      "complete_for": 1
+     },
+     {
+      "task_id": 9009,
+      "was_mine": 0,
+      "was_done": false,
+      "was_win": null,
+      "complete_for": 1
+     },
+     {
+      "task_id": 9010,
+      "was_mine": 0,
+      "was_done": false,
+      "was_win": null,
+      "complete_for": 1
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "Complete chosen: your contribution raised on 1 house, No missions written: your own earlier progress on this house already counts for this ground."
+ },
+ "several houses, fill chosen, asked, then Yes": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9001,
+      "was_mine": 0,
+      "was_done": true,
+      "was_win": 2,
+      "mine_to": 6000,
+      "was_events": 0
+     },
+     {
+      "task_id": 9003,
+      "was_mine": 1200,
+      "was_done": false,
+      "was_win": null,
+      "mine_to": 6000,
+      "was_events": 0
+     },
+     {
+      "task_id": 9009,
+      "was_mine": 0,
+      "was_done": false,
+      "was_win": null,
+      "mine_to": 6000,
+      "was_events": 0
+     },
+     {
+      "task_id": 9010,
+      "was_mine": 0,
+      "was_done": false,
+      "was_win": null,
+      "mine_to": 6000,
+      "was_events": 0
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "Fill chosen: your contribution raised on 1 house, No missions written: your own earlier progress on this house already counts for this ground."
+ },
+ "several houses, nothing chosen": {
+  "sent": [],
+  "others": [],
+  "asked": null,
+  "said": "Nothing is chosen, so there is nothing to fill."
+ },
+ "several houses, reopen chosen, asked, then Yes": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9001,
+      "was_mine": 0,
+      "was_done": true,
+      "was_win": 2,
+      "reopen": true
+     },
+     {
+      "task_id": 9012,
+      "was_mine": 0,
+      "was_done": true,
+      "was_win": 1,
+      "reopen": true
+     },
+     {
+      "task_id": 9014,
+      "was_mine": 0,
+      "was_done": true,
+      "was_win": 2,
+      "reopen": true
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "Reopen chosen: your contribution raised on 1 house, No missions written: your own earlier progress on this house already counts for this ground."
+ }
+}
