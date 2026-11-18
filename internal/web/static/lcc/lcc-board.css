@@ -535,7 +535,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-hc[data-selected="true"][data-route] { outline-offset: 2px; }
 @media (max-width: 900px), (pointer: coarse) {
   .lcc-bd-lrow { min-height: 44px; }
-  .lcc-bd-toterm, .lcc-bd-gopath { min-height: 44px; }
+  .lcc-bd-toterm, .lcc-bd-gopath, .lcc-bd-strat, .lcc-bd-lsort .lcc-bd-chip, .lcc-bd-lacts .lcc-bd-btn { min-height: 44px; }
 }
 @media (forced-colors: active) {
   .lcc-hc[data-route="potential"] { outline: 3px dashed Highlight; }
@@ -549,3 +549,9 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 @media (prefers-contrast: more) {
   .lcc-bd-lrow { border-color: var(--lcc-text); }
 }
+/* the five squares of a line in the Strategy list (a picture; the words say the same). Shapes differ as well as colours: filled, filled with a dot, empty. */
+.lcc-bd-lpips { display: inline-flex; gap: 4px; }
+.lcc-bd-lpips i { width: 12px; height: 12px; border: 1px solid var(--lcc-line); background: transparent; }
+.lcc-bd-lpips i[data-owner="a"] { background: var(--lcc-atreides); border-color: var(--lcc-atreides); }
+.lcc-bd-lpips i[data-owner="h"] { background: var(--lcc-harkonnen); border-color: var(--lcc-harkonnen); box-shadow: inset 0 0 0 3px var(--lcc-tier-bg); }
+@media (forced-colors: active) { .lcc-bd-lpips i { border-color: ButtonText; } .lcc-bd-lpips i[data-owner="a"] { background: Highlight; } .lcc-bd-lpips i[data-owner="h"] { background: ButtonText; box-shadow: inset 0 0 0 3px Canvas; } }

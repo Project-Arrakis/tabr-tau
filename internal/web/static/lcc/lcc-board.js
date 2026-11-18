@@ -447,6 +447,9 @@
       top.appendChild(el('b', '', l.name + ' · Houses ' + houseNums(l)));
       top.appendChild(el('span', 'lcc-bd-lbadge', LINE_BADGE[kind]));
       b.appendChild(top);
+      const pips = el('span', 'lcc-bd-lpips', '', { 'aria-hidden': 'true' }); // the five Houses of the line as they stand; the words below say the same, so the squares are only a picture
+      for (const i of l.indexes) { const h = board.grid[i]; pips.appendChild(el('i', '', '', { 'data-owner': h ? h.owner : 'open' })); }
+      b.appendChild(pips);
       b.appendChild(el('span', 'lcc-bd-lsay', lineSaid(l, board)));
       li.appendChild(b);
       ul.appendChild(li);

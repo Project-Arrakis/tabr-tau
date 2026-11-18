@@ -209,3 +209,7 @@ Not matching the approved design, on purpose: no drawn route through the five Ho
 ## Specializations tab (M5): the same method on the V21 view
 
 The Specializations view of the approved design was matched with the same method (side by side at six widths, dark and light, with the same five tracks) and its matrix is kept in `08-m5-specializations.md`: 51 rows, of which 34 match, 5 are intentional departures that need the owner's approval (scroll icons for the diamond crops, a level scale for the illustrative waypoints, two lanes per row on a phone, the editor's own toast for the in-panel feedback line, and the view behind a switch with Classic as the default), 7 differ because of the honest-data or wording rules, and 5 are prototype-only chrome or a later milestone. No row of the tables above changed.
+
+## Term and Decrees and Sysselraad Strategy (M6)
+
+The Term and Decrees section and the Strategy mode of the Landsraad board were matched with the same method and their matrix is kept in `09-m6-decree-term-integration.md`: 39 rows, of which 26 match, 4 are intentional departures that need the owner's approval (one board marked in place instead of a second copy with a circuit line, the section under the board, its own stacked layout, the narrow-window reflow), 4 differ because of the honest-data or wording rules, and 5 are prototype-only demos, an undecided tab strip or checks that need the game. No row of the tables above changed.

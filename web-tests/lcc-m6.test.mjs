@@ -123,6 +123,8 @@ test('the Inspector of a House with a specialization line opens that line in Spe
   click(ui, went);
   await ui.settle();
   assert.equal(ui.posted.length, 0, 'only reads');
+  assert.ok(ui.doc.querySelector('#lcs-mount .lcc-sp'), 'the Specializations view is drawn');
+  assert.ok(ui.doc.querySelector('.lcc-sp-lane[aria-pressed="true"]'), 'a path is chosen');
 });
 
 test('no demo or mock name is in the term section or the strategy list', async () => {

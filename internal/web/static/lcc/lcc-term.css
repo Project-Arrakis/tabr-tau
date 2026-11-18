@@ -35,11 +35,12 @@
 .lcc-tm-sub { display: block; margin-top: 3px; }
 .lcc-tm-faction { display: flex; align-items: center; gap: 9px; margin-top: 4px; }
 .lcc-tm-faction .lcc-tm-v { margin: 0; }
-.lcc-tm-crest { width: 28px; height: 28px; object-fit: contain; flex: none; }
+.lcc-tm-crest { width: 32px; height: 32px; padding: 2px; box-sizing: border-box; object-fit: contain; flex: none; background: #15191b; border: 1px solid var(--lcc-stroke); }
 .lcc-tm-dref { display: flex; align-items: flex-start; gap: 12px; margin-top: 5px; min-width: 0; }
 .lcc-tm-dtext { min-width: 0; }
 .lcc-tm-dtext .lcc-tm-v { margin: 0; font-size: 17px; }
-.lcc-tm-art { display: block; flex: none; width: 44px; height: 44px; object-fit: contain; border: 1px solid var(--lcc-stroke); background: var(--lcc-sunken); }
+/* the decree pictures are light line art: they sit on a dark tile in every look (on Dayside cream they would not be seen) */
+.lcc-tm-art { display: block; flex: none; width: 44px; height: 44px; object-fit: contain; border: 1px solid var(--lcc-stroke); background: #15191b; }
 .lcc-tm-row > .lcc-tm-art { width: 56px; height: 56px; }
 .lcc-tm-art-fb { opacity: .7; border-style: dashed; }
 .lcc-tm-de { display: block; margin-top: 3px; font: 400 12px/1.45 var(--lcc-sans); color: var(--lcc-text); }
