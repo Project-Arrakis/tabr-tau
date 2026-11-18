@@ -259,23 +259,50 @@ test('layout: the page cap, the side-by-side switch and the sticky House Intelli
   assert.ok(ring.length && /outline-offset: -3px/.test(ring[0].body), 'a focus ring on a full-width row is drawn inside the row');
 });
 
-test('stacked layout (under 1080 px of the tab): no empty band beside the House Intelligence panel; its sections run in two columns from 860 px', () => {
+test('stacked layout (under 1080 px of the tab): no empty band beside the House Intelligence panel; from 860 px the ledger stands beside the scales, the note and the place', () => {
   // the row rule that put the short victory analysis beside the tall panel (a band of more than 1000 px) is gone: the side box stays one column, so both panels are full width
   assert.doesNotMatch(appBare, /lcc-bd-side \{ flex-direction: row/);
   assert.doesNotMatch(appBare, /lcc-bd-side > \* \{ flex: 1 1 0/);
   const appRules = parse(appBare);
   const at = '@container lsbv (min-width: 860px) and (max-width: 1079px)';
   const two = appRules.find((r) => r.at === at && r.sel === '.lsb #lsb-board .lcc-bd-insp');
-  assert.ok(two && /column-count: 2/.test(two.body), 'the panel has two columns from 860 px');
-  const span = appRules.find((r) => r.at === at && /\.lcc-bd-insp > \.lcc-bd-banner/.test(r.sel));
-  assert.ok(span && /column-span: all/.test(span.body) && /lcc-bd-insp-top/.test(span.sel) && /lcc-bd-identity/.test(span.sel), 'the head, the identity and the banner span both columns');
-  assert.ok(/aria-labelledby="lcc-bd-s1"/.test(span.sel) && /aria-labelledby="lcc-bd-s2"/.test(span.sel), 'the two scales span both columns, so the ledger and the actions balance in the two columns under them');
-  const keep = appRules.find((r) => r.at === at && /break-inside: avoid/.test(r.body));
-  assert.ok(keep && /lcc-bd-sec/.test(keep.sel) && /lcc-bd-note/.test(keep.sel), 'a section is never split across the two columns');
+  assert.ok(two && /display: grid/.test(two.body) && /grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\)/.test(two.body) && /grid-auto-flow: row dense/.test(two.body), 'the panel is a grid of two columns from 860 px');
+  const all = appRules.find((r) => r.at === at && r.sel === '.lsb #lsb-board .lcc-bd-insp > *');
+  assert.ok(all && /grid-column: 1 \/ -1/.test(all.body), 'the head, the way back, the identity, the actions and the banner run across both columns');
+  const led = appRules.find((r) => r.at === at && r.sel === '.lsb #lsb-board .lcc-bd-insp > .lcc-bd-ledger');
+  assert.ok(led && /grid-column: 1/.test(led.body) && /grid-row: span 4/.test(led.body), 'the ledger takes the left column for the four blocks beside it');
+  const right = appRules.find((r) => r.at === at && /grid-column: 2/.test(r.body));
+  assert.ok(right && /aria-labelledby="lcc-bd-s1"/.test(right.sel) && /aria-labelledby="lcc-bd-s2"/.test(right.sel) && /lcc-bd-disc/.test(right.sel) && /aria-labelledby="lcc-bd-s5"/.test(right.sel), 'the two scales, the note and the place stand in the right column, so neither column is left empty');
   // two columns of about 345 px or more each (the Inspector's own container step) from 860 px of tab: (860 - 2 * 20 padding - 28 gap) / 2
   assert.ok((860 - 2 * 20 - 28) / 2 >= 345 - 1);
   // all of it stays inside the guard
   assert.deepEqual(unguarded(appBare.slice(appBare.indexOf('@supports selector(:has(*)) and (container-type: inline-size) {'))), []);
+});
+
+test('markup order is the visual order: the bulk-edit bar has its own place in the board grid, right after the board panel, and no landmark wrapper is flattened with display: contents', () => {
+  assert.doesNotMatch(appBare.slice(appBare.indexOf('@supports selector(:has(*)) and (container-type: inline-size) {')), /#lsb-lcc[^{}]*\{[^}]*display: contents/);
+  assert.doesNotMatch(appBare.slice(appBare.indexOf('Command Center board view: width')), /\.lcc-bd(-grid)?\s*\{[^}]*display: contents/);
+  assert.doesNotMatch(appBare, /\.actbar[^{}]*\{[^}]*grid-area/, 'the bar is not placed by a grid area of the page card any more');
+  const appRules = parse(appBare);
+  assert.ok(appRules.some((r) => r.at === '@container lsbv (min-width: 1080px)' && r.sel === '.lsb #lsb-board .lcc-bd-grid' && /grid-template-areas: "pn sd" "ab sd" "fl sd"/.test(r.body)), 'beside the board: the board panel and the bar in the left column, the side column on the right');
+  assert.ok(appRules.some((r) => r.at === '@container lsbv (min-width: 1080px)' && r.sel === '.lsb #lsb-board .lcc-bd-grid > .lcc-bd-slot' && /grid-area: ab/.test(r.body)));
+});
+
+test('phones: the bar of the chosen houses is sticky at the bottom, clear of the home bar and of a focused control; the cards have no crest; the way back is shown where the panel is not beside the board', () => {
+  assert.match(appBare, /\.lsb \.phonebar \{ display: none; \}/);
+  const phone = parse(appBare).find((r) => /@media \(max-width: 640px\), \(pointer: coarse\) and \(max-width: 900px\)/.test(r.at) && r.sel === '.lsb .phonebar:not([hidden])');
+  assert.ok(phone && /position: sticky; bottom: 0/.test(phone.body) && /env\(safe-area-inset-bottom/.test(phone.body), 'sticky at the bottom with the safe-area inset');
+  assert.match(appBare, /html:has\(\.phonebar:not\(\[hidden\]\)\) \{ scroll-padding-bottom: 110px; \}/);
+  assert.match(appBare, /\.lsb \.phonebar \.qa \{[^}]*min-height: 44px/, 'a touch target');
+  assert.match(bare, /@media \(max-width: 640px\), \(pointer: coarse\) and \(max-width: 900px\) \{\s*\.lcc-hc \{ min-height: 0; \}\s*\.lcc-hc-crest \{ display: none; \}/);
+  assert.match(appBare, /@container lsbv \(max-width: 1079px\) \{\s*\.lsb #lsb-board \.lcc-bd-back \{ display: inline-flex; \}/);
+  assert.match(bare, /\.lcc-bd-back \{ all: unset; display: none;/);
+});
+
+test('disclosures: the long notes of the panel are native details with a plain summary, and the result copy and question place exist', () => {
+  assert.match(bare, /\.lcc-bd-disc > summary \{[^}]*font: 600 12px/);
+  assert.match(bare, /\.lcc-bd-eres:empty \{ display: none; \}/);
+  assert.match(bare, /\.lcc-bd-ask:empty \{ display: none; \}/);
 });
 
 test('the plaque: the narrow layout is compact and, from 600 px, puts the two standards at the two sides of the track', () => {

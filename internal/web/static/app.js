@@ -2171,7 +2171,7 @@ function lbBoardInner(l) {
   return html`${lbViewSwitch()}<section class="card d-panel" aria-labelledby="lsb-board-h" id="lsb-board"><h2 class="d-head" id="lsb-board-h">Command Center board <span class="cnt">${nn(hs.length, 'house', 'houses')}</span></h2>
   <p class="line1">${who}</p>
   <div id="lsb-lcc"></div>
-  ${hs.length && ready ? lbActbar(hs, l) : html`<p id="lsb-result" role="status" tabindex="-1" ${LP.bad ? html`class="bad"` : LP.warn ? html`class="warn"` : ''}>${LP.say}</p>`}</section>${lbTerm(l)}${lbHistory(l)}`;
+  ${hs.length && ready ? lbActbar(hs, l) : html`<p id="lsb-result" role="status" tabindex="-1" ${LP.bad ? html`class="bad"` : LP.warn ? html`class="warn"` : ''}>${LP.say}</p>`}${hs.length && ready ? lbPhoneBar() : ''}</section>${lbTerm(l)}${lbHistory(l)}`;
 }
 function lbInner(l) {
   if (lbBoardOn()) return lbBoardInner(l);
@@ -2245,7 +2245,7 @@ function lbRedraw() {
   lbApply();
   if (fk) { const n = root.querySelector('[data-fk="' + fk + '"]'); if (n && n.focus) n.focus(); }
 }
-function lbSay(t, kind) { LP.say = t; LP.bad = kind === true; LP.warn = kind === 'warn'; const r = $('#lsb-result'); if (r) { r.textContent = t; r.classList.toggle('bad', LP.bad); r.classList.toggle('warn', LP.warn); } }
+function lbSay(t, kind) { LP.say = t; LP.bad = kind === true; LP.warn = kind === 'warn'; const r = $('#lsb-result'); if (r) { r.textContent = t; r.classList.toggle('bad', LP.bad); r.classList.toggle('warn', LP.warn); } lbMirror(); }
 // One write from the board (#641). The pressed control is marked busy and the board ignores a second click until the answer is in; the page is then read again from the save, so the
 // rows show what is stored. The line that says what happened goes through say(): the board's result line, or the term panel's. An error shows its text as the editor gave it.
 function lbRunning(on, b) {
@@ -2329,7 +2329,7 @@ async function lbSend(b, items, label, hs, focusFk) {
   // the result line is at the top of the board and the click may be far below it: bring it into view, and give it the focus when the control that was pressed is no longer there to take it
   const res = $('#lsb-result');
   if (res) {
-    if (res.scrollIntoView) res.scrollIntoView({ block: 'nearest' });
+    lbReveal(res);
     const a = document.activeElement;
     if (!a || a === document.body || (a.closest && a.closest('[hidden]'))) res.focus({ preventScroll: true });
   }
@@ -2375,13 +2375,14 @@ function lbBoardAsk(items, hs, F, one) {
   return p.length ? ' ' + p.join(' ') : '';
 }
 function lbCancelConfirm() { if (!LP.confirm) return; LP.confirm = null; const c = $('#lsb-confirm'); if (c) c.remove(); }
-function lbFocusFk(fk) { const n = $('#lsb [data-fk="' + fk + '"]'); if (n && n.focus) n.focus({ preventScroll: true }); }
+function lbFocusFk(fk) { const n = $('#lsb [data-fk="' + fk + '"]'); if (n && n.focus) { n.focus({ preventScroll: true }); if (window.LCCB) window.LCCB.keepInView(n); } }
 // One click, or a bulk button: write it, or ask first. Several houses always ask; one house asks when its click would write LB_ASK_MISSIONS missions or more. The question is drawn in the
 // action bar; the answer sends the request again, worked out from the board as it is then.
 function lbGo(b, act_, items, hs, F, i, label, backFk, one) {
   const q = lbAskOf(act_, items, hs, F, i, one);
   // on the board a click that takes a win from another faction asks first too (the classic list writes it at once and says so in the result)
-  if (items.length === 1 && q.missions < LB_ASK_MISSIONS && !(lbBoardOn() && lbReplaced(items, hs, F).length)) { lbSend(b, items, label, hs, backFk); return; }
+  // (a bulk button with several houses chosen always asks, even when only one of them would change: the question says the others are left alone, #879)
+  if (items.length === 1 && (one || LP.pick.size <= 1) && q.missions < LB_ASK_MISSIONS && !(lbBoardOn() && lbReplaced(items, hs, F).length)) { lbSend(b, items, label, hs, backFk); return; }
   LP.confirm = { act: act_, F, i, ids: items.map((x) => x.task_id), n: items.length, q: q.q, yes: q.yes, label, back: backFk, one: !!one };
   lbRedraw();
   lbFocusFk('c-no'); // the safe answer has the focus, so a stray Enter does not write
@@ -2482,7 +2483,57 @@ function lbApply() {
   const nm = $('#lsb-nomatch'); if (nm) nm.hidden = shown !== 0;
   const ob = $('#lsb-only'); if (ob) { ob.hidden = !only; if (only) $('#lsb-onlyname').textContent = only.name; }
 }
-function lbSumNow() { const sm = $('#lsb-sum'); if (sm && LD) sm.textContent = lbSumText(LD.tasks.map((r) => lbHouse(r, LD)), LD); }
+function lbSumNow() { const sm = $('#lsb-sum'); if (sm && LD) sm.textContent = lbSumText(LD.tasks.map((r) => lbHouse(r, LD)), LD); lbPhoneSync(); }
+// ---- where the parts of the board sit (presentation only: nothing here asks, answers or writes) ----
+// The action bar is drawn after the board's box and is put into the board's grid directly under the board panel, so the order of the keys is the order of the eyes. The question about one house is
+// drawn in the Actions block of the House Intelligence panel while that panel is on the same house, and the panel shows a copy of the result line next to its buttons. The board draws itself again
+// on a select or a filter, so what was put into it goes back to its own place before (lbUnseat) and is put in its place again after (lbSeat).
+const lbBarNode = () => $('#lsb .actbar, #lsb-board > #lsb-result, #lsb .lcc-bd-slot > #lsb-result');
+function lbUnseat() {
+  const home = $('#lsb-board'), bar = lbBarNode(), c = $('#lsb-confirm');
+  if (c && bar && bar.classList.contains('actbar') && c.parentNode !== bar) { const row = bar.querySelector('.actrow'); if (row) row.after(c); }
+  if (home && bar && bar.parentNode !== home) home.appendChild(bar);
+}
+function lbSeat(container) {
+  const lcc = container || $('#lsb-lcc');
+  if (!lcc) return;
+  const bar = lbBarNode(), slot = lcc.querySelector('[data-lcc-slot="bar"]');
+  if (bar && slot && bar.parentNode !== slot) slot.appendChild(bar);
+  const c = $('#lsb-confirm'), ask = lcc.querySelector('.lcc-bd-insp [data-lcc-slot="ask"]'), insp = ask && ask.closest('.lcc-bd-insp'), q = LP.confirm;
+  if (c && ask && q && q.one && q.ids.length === 1 && insp.getAttribute('data-id') === String(q.ids[0])) ask.appendChild(c);
+  lbMirror();
+}
+// a copy of the result line for the panel's own status line (drawn for the eye; the result line itself stays the one that is announced)
+function lbMirror() {
+  const m = $('#lcc-bd-eres');
+  if (!m) return;
+  m.textContent = LP.say || '';
+  m.classList.toggle('bad', !!LP.bad);
+  m.classList.toggle('warn', !!LP.warn);
+}
+// after a write the page is brought to the result line; when the person is working in the panel it is the copy beside the buttons, so the page does not leave the panel
+function lbReveal(res) {
+  const a = document.activeElement, m = $('#lcc-bd-eres'), sc = a && a.closest ? a.closest('.lcc-bd-insp') : null;
+  if (sc && sc.scrollHeight > sc.clientHeight + 1) { if (window.LCCB) window.LCCB.keepInView(a); return; } // the panel scrolls on its own: the copy stays at its top, and the control that was pressed stays in sight
+  const t = m && m.textContent && sc ? m : res;
+  if (t && t.scrollIntoView) t.scrollIntoView({ block: 'nearest' });
+}
+// the bar of the chosen houses on a phone: the same three buttons as the action bar, and a press is a press of that button
+const lbPhoneBar = () => html`<div class="phonebar" id="lsb-phonebar" role="group" aria-label="The chosen houses" ${LP.pick.size ? '' : 'hidden'}><span class="pn">${LP.pick.size} chosen</span><button type="button" class="qa btnp" data-pb="fill" data-fk="pb-fill">Fill chosen</button><button type="button" class="qa btnp" data-pb="complete" data-fk="pb-complete">Complete chosen</button><button type="button" class="qa" data-pb="reopen" data-fk="pb-reopen">Reopen chosen</button></div>`;
+function lbPhoneSync() {
+  const p = $('#lsb-phonebar');
+  if (!p) return;
+  const n = LP.pick.size, c = p.querySelector('.pn');
+  p.hidden = !n;
+  if (c) c.textContent = n + ' chosen';
+}
+function lbPhoneClick(e) {
+  const b = e.target && e.target.closest ? e.target.closest('[data-pb]') : null;
+  if (!b) return;
+  e.preventDefault();
+  const t = $('#lsb .actbar [data-lb="bulk"][data-do="' + b.dataset.pb + '"]');
+  if (t) t.click();
+}
 // The board is drawn by the Command Center scripts, from the loaded read, into #lsb-lcc. host is how those scripts ask this page for what only this page knows (the sentences of a click, the
 // houses chosen, the decree, where the layout is remembered); they write nothing themselves.
 function lbMountBoard() {
@@ -2522,6 +2573,7 @@ function lbDecreesKnown() {
 }
 window.LCC_HOST = {
   ctl: lbCtl, decree: lbDecreeNow, decrees: lbDecreesKnown, picks: () => LP.pick, filtered: lbBoardFiltered,
+  unseat: lbUnseat, seat: lbSeat, // presentation only: where the action bar, the question and a copy of the result line are drawn
   // the faction box of the Inspector's actions drives the board's own faction box (choosing a faction writes nothing)
   setFac: (v) => { const s = $('#lsb-fac'); if (!s || s.disabled) return; s.value = String(v); s.dispatchEvent(new Event('change', { bubbles: true })); },
   get: (k) => browserStore.get('lsb.' + k), set: (k, v) => browserStore.set('lsb.' + k, v),
@@ -2629,6 +2681,7 @@ function lbWire() {
   lbStyles(root);
   root.addEventListener('click', lbClick);
   root.addEventListener('change', lbChange);
+  root.addEventListener('click', lbPhoneClick);
   root.addEventListener('toggle', (e) => { if (e.target && e.target.id === 'lsb-tdp') LT.open = e.target.open; else if (e.target && e.target.id === 'lsb-dphid') LT.hidOpen = e.target.open; }, true); // the panel stays open over a write
   root.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
