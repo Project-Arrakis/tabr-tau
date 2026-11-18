@@ -118,7 +118,7 @@
   function controls(vm) {
     const g = el('div', 'lcc-tm-ctl', '', { role: 'group', 'aria-labelledby': 'lcc-tm-ctl-h' });
     g.appendChild(el('h4', 'lcc-tm-h4', 'Set the active decree and the reigning faction', { id: 'lcc-tm-ctl-h' }));
-    g.appendChild(el('p', 'lcc-tm-scope', 'Current term only. Apply sets both together; none for the decree clears the decree. A decree needs a reigning faction, so the faction cannot be left empty. Nothing changes until you press Apply, Make active or Set flag.'));
+    g.appendChild(el('p', 'lcc-tm-scope', 'Current term only. Apply sets both together; none for the decree clears the decree. A decree needs a reigning faction, so the faction cannot be left empty (Apply needs no choice only when the save holds a faction this list does not offer, which then stays as it is, or when the decree is cleared on a term with no faction). Nothing changes until you press Apply, Make active or Set flag.'));
     const row = el('div', 'lcc-tm-ctlrow');
     const a = el('label', 'lcc-tm-fld');
     a.appendChild(el('span', 'lcc-tm-lbl', 'Active decree'));

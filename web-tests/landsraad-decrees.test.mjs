@@ -261,6 +261,22 @@ test('a reigning faction the list does not offer is shown as none, and Apply lea
   assert.ok(text(ui.doc.querySelector('#lsb-tresult')).startsWith('Choose a reigning faction first'));
 });
 
+test('a save with a decree and no faction can still have its decree cleared: none sends the decree only, and a decree still needs a faction (#960)', async () => {
+  // the game wrote a term with an active decree and no reigning faction; the character is in no faction, so the drop-down shows the placeholder
+  const ui = await open(landsraad({ term: { term_id: 10, start_time: 1, end_time: 2, reigning_faction_id: null, active_decree_id: 8, elected_decree_id: 5 }, character: { player_id: 1, name: 'Tester', faction_id: null } }));
+  assert.equal(ui.doc.querySelector('#lsb-trf').value, '');
+  assert.equal(text(ui.doc.querySelector('#lsb-trf option')), 'Choose a faction');
+  // keeping the decree with no faction chosen is still refused
+  ui.click('#lsb-tdp [data-lb="tapply"]'); await ui.settle();
+  assert.deepEqual(posted(ui, '/api/landsraad/term'), []);
+  assert.ok(text(ui.doc.querySelector('#lsb-tresult')).startsWith('Choose a reigning faction first'));
+  // none for the decree: the request names the decree only, so no faction is written
+  select(ui, '#lsb-tad', '');
+  ui.click('#lsb-tdp [data-lb="tapply"]'); await ui.settle();
+  assert.deepEqual(posted(ui, '/api/landsraad/term').map((p) => p.body), [{ active_decree_id: '' }]);
+  assert.ok(text(ui.doc.querySelector('#lsb-tresult')).includes('active decree none, reigning faction left as it is'), text(ui.doc.querySelector('#lsb-tresult')));
+});
+
 test('a save without a term says so, and a hostile decree name is shown as text', async () => {
   let ui = await open(landsraad({ term: null }));
   assert.ok(text(ui.doc.querySelector('#lsb-term-h')).includes('no Landsraad term'));
