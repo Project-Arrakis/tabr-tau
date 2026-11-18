@@ -182,7 +182,7 @@ test('the Command Center files name no local path, no user folder, no drive lett
 test('no picture or file of a personal save is among the Command Center files', () => {
   const art = walk(path.join(lccDir, 'art'), () => true).map((p) => path.relative(lccDir, p).replace(/\\/g, '/'));
   assert.ok(art.length > 40);
-  for (const p of art) assert.match(p, /^art\/(houses|lanes|banners|decrees|factions|standards|specs)\/[a-z0-9-]+\.(webp|png|svg)$/, 'an unexpected file in the art folder: ' + p);
+  for (const p of art) assert.match(p, /^art\/(houses|lanes|banners|emblems|decrees|factions|standards|specs)\/[a-z0-9-]+\.(webp|png|svg)$/, 'an unexpected file in the art folder: ' + p);
   const stray = walk(path.join(root, 'docs', 'design', 'landsraad-command-center'), (p) => /\.(png|jpe?g|webp|gif|db|sqlite3?|bak|ini|log|zip)$/i.test(p));
   assert.deepEqual(stray.map((p) => path.relative(root, p)), [], 'a picture or save-like file among the notes');
 });

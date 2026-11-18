@@ -117,7 +117,15 @@ test('every emblem holds only the emblem: transparent corners, a clear margin, a
     assert.ok(x0 >= 2 && y0 >= 2 && x1 <= W - 3 && y1 <= W - 3, k + ': a margin of transparent pixels all round (' + [x0, y0, x1, y1] + ')');
     assert.ok(x1 - x0 >= 80 || y1 - y0 >= 80, k + ': the emblem fills the picture');
     assert.ok(solid > 800, k + ': a solid emblem (' + solid + ' solid pixels)');
-    assert.ok(faint < solid * 0.25, k + ': only the anti-aliased edge is partly transparent, not a haze (' + faint + ' faint of ' + solid + ' solid)');
+    // a haze is partly transparent pixels away from the emblem: every non-empty pixel (a handful of thin tips apart) must touch (within 2 px) a solid one, so only the soft edge is partly transparent
+    let stray = 0;
+    for (let i = 0; i < W * W; i++) {
+      if (!px[i * 4 + 3] || px[i * 4 + 3] >= 200) continue;
+      const x = i % W, y = (i - x) / W; let near = false;
+      for (let dy = -2; dy <= 2 && !near; dy++) for (let dx = -2; dx <= 2 && !near; dx++) { const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < W && ny < W && px[(ny * W + nx) * 4 + 3] >= 200) near = true; }
+      if (!near) stray++;
+    }
+    assert.ok(stray <= 8, k + ': partly transparent pixels away from the emblem (a haze): ' + stray + ' of ' + faint + ' (a few thin tips may stay faint, a haze is hundreds)');
     assert.equal(px[3], 0); assert.equal(px[(W - 1) * 4 + 3], 0); assert.equal(px[((W - 1) * W) * 4 + 3], 0); assert.equal(px[(W * W - 1) * 4 + 3], 0);
   }
 });
