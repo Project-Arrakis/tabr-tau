@@ -2217,7 +2217,7 @@ function lbTermModel(l) {
     none: false,
     term: { id: t.term_id, start: lbClock(t.start_time), end: lbClock(t.end_time), reigning: t.reigning_faction_id != null ? lbFacName(l, t.reigning_faction_id) : '' },
     active: one(by(t.active_decree_id)), elected: one(by(t.elected_decree_id)),
-    pool: decreeSorted(dec).map(row), options: decreeSorted(dec).map((d) => ({ id: d.id, label: decreeFull(d) })),
+    pool: dec.map(row), options: decreeSorted(dec).map((d) => ({ id: d.id, label: decreeFull(d) })),
     factions: (l.factions || []).map((f) => ({ id: f.id, label: f.name + (own != null && f.id == own ? ' (your faction)' : '') })),
     sel, selD: one(by(sel.ad)), say: LT.say, bad: LT.bad, open: LT.open, hidOpen: LT.hidOpen,
     history: { note: tm.length < 2 ? 'This save holds only the current term.' : e.length ? 'Terms with a row of yours; open one for its houses. The rows of a term say what the contribution was; they do not say which terms paid out.' : 'No earlier term has a row of yours.', terms },

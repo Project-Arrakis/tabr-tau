@@ -43,7 +43,7 @@ Method: the approved prototype (its Sysselraad Strategy view, and the plaque, wh
 | T5 | Set flag to 0/1 per row via the decree route, only the disabled column | Same | matches | |
 | T6 | Active, elected, in rotation apart from the pool flag | "IN THIS TERM" badges and a separate "POOL FLAG" value | matches | |
 | T7 | Hidden SpecialVendorActive row in a collapsed disclosure with a warning | Same | matches | |
-| T8 | Readable sort, variant hints for duplicate display names | Same sort as the classic panel; the variant is in the name | matches | |
+| T8 | Readable sort, variant hints for duplicate display names | The pool keeps the order of the save (by id), as the classic panel's list does; the two drop-downs are sorted by name, as the classic ones; the variant is in the name | matches | |
 | T9 | Earlier terms, read-only, with house contribution, tiers, completion faction, payment record | The classic list's content in a disclosure per term, still read-only, with its disclaimers | matches | |
 | T10 | Source badge, queued notice, focus restoration, disabled while writing, no duplicate write, conflict recovery | All through the classic handler (the same `lbRun`) | matches | |
 | T11 | Decree art by id and variant, neutral placeholder when unverified, alt text and an independent effect text | Existing id mapping; neutral picture with empty alt for an unmapped decree; the effect is always text | matches | |
