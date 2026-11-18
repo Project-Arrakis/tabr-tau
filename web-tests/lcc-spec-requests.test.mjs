@@ -27,6 +27,9 @@ const POSTS = { '/api/player/specs/xp': { ok: true, before: 3000, after: 4000, l
   '/api/player/specs/assign': { ok: true }, '/api/player/specs': { ok: true } };
 const ROUTE = /^\/api\/player\/specs/;
 
+// the three kinds of scenario the Command Center view no longer has a control for (#986: track mapping and the raw-row writer are classic-list only): the classic list is still checked against the file, unchanged
+const CLASSIC_ONLY = new Set(['Assign number 1 to Combat', 'Assign by hand, Combat 9', 'Assign by hand with no number', 'Raw row: Sabotage 500 XP level 2, asked then Yes', 'Raw row: XP 44182 and level 10, mismatch kept as typed']);
+
 // a scenario is [what is pressed in the classic list, what is pressed in the Command Center view]; both are steps run against the page
 const ctl = (ui, sel) => { const e = ui.doc.querySelector(sel); assert.ok(e, 'no element for ' + sel); return e; };
 const set = (ui, sel, v) => { const e = ctl(ui, sel); e.value = String(v); e.dispatchEvent(new ui.w.Event('input', { bubbles: true })); };
@@ -78,6 +81,7 @@ for (const name of Object.keys(SCENARIOS)) {
     assert.ok(golden[name], 'a recorded scenario for ' + name);
     assert.deepEqual(got, golden[name]);
   });
+  if (CLASSIC_ONLY.has(name)) continue;
   test('the Command Center view sends the same request, asks the same question and says the same: ' + name, async () => {
     if (RECORD) return;
     const got = await play(name, 'cc');
@@ -114,7 +118,7 @@ test('Command Center, Apply XP at the two limits is sent as typed', async () => 
 });
 
 // ---- the control lists of the two views are the same set of operations ----
-test('both views reach all nine operations of the editor, by the same routes', async () => {
+test('the golden file covers all nine operations of the editor: the Command Center view reaches six of them, the classic list all nine', async () => {
   const routes = new Set();
   for (const name of Object.keys(SCENARIOS)) for (const view of ['classic', 'cc']) { const g = golden[name]; if (g) for (const s of g.sent) routes.add(s.path); void view; }
   if (RECORD) return;

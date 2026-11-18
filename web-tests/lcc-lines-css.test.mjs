@@ -50,7 +50,7 @@ test('the moving border exists once, moves by transform only, and is drawn only 
   const pulse = base.match(/@keyframes lcc-win-pulse\s*\{([^]*?\})\s*\}/);
   assert.ok(pulse);
   assert.doesNotMatch(pulse[1].replace(/box-shadow:[^;]*;/g, ''), /[a-z-]+:\s*[^}]/, 'only box-shadow is animated');
-  assert.equal((base.match(/lcc-win-pulse 5s/g) || []).length, 1);
+  assert.equal((base.match(/lcc-win-pulse 5s/g) || []).length, 2, 'the House, and the lane of a path at level 100 (#988)');
   assert.match(base, /@media \(prefers-reduced-motion: no-preference\)\s*\{\s*html\[data-motion="full"\] \.lcc-house\[data-victory="win"\], html\[data-motion="full"\] \.lcc-hc\[data-victory="win"\] \{[^}]*lcc-win-pulse 5s ease-in-out/);
 });
 
