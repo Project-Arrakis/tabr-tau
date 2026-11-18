@@ -315,6 +315,7 @@ html[data-motion="calm"] .lcc [data-victory], html[data-motion="off"] .lcc [data
   .lcc-standard { color: CanvasText; }
   .lcc-standard-foot { display: none; }
   .lcc-standard-list > li::before { color: CanvasText; }
+  .lcc-seat-rim { display: none; }  /* the flat ring that evens the picture's rim goes with the picture */
   .lcc-seat-art, .lcc-standard-img { display: none; }  /* pictures are dropped here: the factions differ by the drawn mark, the fill and the shape */
   .lcc-seat-has-art .lcc-seat-mark { display: inline; }
   .lcc-standard-mark { width: 26px; height: 26px; background: CanvasText; }
