@@ -218,6 +218,64 @@
   "asked": null,
   "said": "House Lindaren: Harkonnen progress 1,050 → 4,000; house taken by Harkonnen; No missions written: your own earlier progress on this house already counts for this ground."
  },
+ "one house chosen, complete chosen, no question": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9009,
+      "was_mine": 0,
+      "was_done": false,
+      "was_win": null,
+      "complete_for": 1
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "Complete chosen: Atreides progress 1,700 → 4,000; house taken by Atreides; No missions written: your own earlier progress on this house already counts for this ground."
+ },
+ "one house chosen, fill chosen, no question": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9009,
+      "was_mine": 0,
+      "was_done": false,
+      "was_win": null,
+      "mine_to": 6000,
+      "was_events": 0
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "Fill chosen: your contribution 0 → 6,000 (tiers 1 to 5 reached); No missions written: your own earlier progress on this house already counts for this ground."
+ },
+ "one house chosen, reopen chosen, no question": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9014,
+      "was_mine": 0,
+      "was_done": true,
+      "was_win": 2,
+      "reopen": true
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "Reopen chosen: house reopened (progress stays as it is); No missions written: your own earlier progress on this house already counts for this ground."
+ },
  "several houses, complete chosen, asked, then Yes": {
   "sent": [
    {
@@ -340,5 +398,63 @@
   "others": [],
   "asked": null,
   "said": "Reopen chosen: your contribution raised on 1 house, No missions written: your own earlier progress on this house already counts for this ground."
+ },
+ "two houses chosen, only one would change, complete chosen, asked, then Yes": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9009,
+      "was_mine": 0,
+      "was_done": false,
+      "was_win": null,
+      "complete_for": 1
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "Complete chosen: Atreides progress 1,700 → 4,000; house taken by Atreides; No missions written: your own earlier progress on this house already counts for this ground."
+ },
+ "two houses chosen, only one would change, fill chosen, asked, then Yes": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9009,
+      "was_mine": 0,
+      "was_done": false,
+      "was_win": null,
+      "mine_to": 6000,
+      "was_events": 0
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "Fill chosen: your contribution 0 → 6,000 (tiers 1 to 5 reached); No missions written: your own earlier progress on this house already counts for this ground."
+ },
+ "two houses chosen, only one would change, reopen chosen, asked, then Yes": {
+  "sent": [
+   {
+    "term_id": 7,
+    "houses": [
+     {
+      "task_id": 9014,
+      "was_mine": 0,
+      "was_done": true,
+      "was_win": 2,
+      "reopen": true
+     }
+    ]
+   }
+  ],
+  "others": [],
+  "asked": null,
+  "said": "Reopen chosen: house reopened (progress stays as it is); No missions written: your own earlier progress on this house already counts for this ground."
  }
 }

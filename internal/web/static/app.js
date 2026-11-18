@@ -2381,7 +2381,8 @@ function lbFocusFk(fk) { const n = $('#lsb [data-fk="' + fk + '"]'); if (n && n.
 function lbGo(b, act_, items, hs, F, i, label, backFk, one) {
   const q = lbAskOf(act_, items, hs, F, i, one);
   // on the board a click that takes a win from another faction asks first too (the classic list writes it at once and says so in the result)
-  if (items.length === 1 && q.missions < LB_ASK_MISSIONS && !(lbBoardOn() && lbReplaced(items, hs, F).length)) { lbSend(b, items, label, hs, backFk); return; }
+  // (a bulk button with several houses chosen always asks, even when only one of them would change: the question says the others are left alone, #879)
+  if (items.length === 1 && (one || LP.pick.size <= 1) && q.missions < LB_ASK_MISSIONS && !(lbBoardOn() && lbReplaced(items, hs, F).length)) { lbSend(b, items, label, hs, backFk); return; }
   LP.confirm = { act: act_, F, i, ids: items.map((x) => x.task_id), n: items.length, q: q.q, yes: q.yes, label, back: backFk, one: !!one };
   lbRedraw();
   lbFocusFk('c-no'); // the safe answer has the focus, so a stray Enter does not write

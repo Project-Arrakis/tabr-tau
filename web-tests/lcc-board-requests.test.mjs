@@ -50,6 +50,19 @@ for (const kind of ['fill', 'complete', 'reopen']) {
     };
   }
 }
+// #879: several houses chosen but only one would change still asks (the others are left alone); one house chosen writes at once, as before
+const ONE_OF_TWO = { fill: ['Sor', 'Hagal'], complete: ['Sor', 'Wallach'], reopen: ['Hurata', 'Sor'] }; // Hagal has all five tiers, Wallach is already Atreides', Sor is not taken
+for (const kind of ['fill', 'complete', 'reopen']) {
+  for (const via of ['bar', 'phone']) {
+    SCENARIOS['two houses chosen, only one would change, ' + kind + ' chosen, asked, then Yes' + (via === 'phone' ? ' (the phone bar)' : '')] = async (ui, a) => {
+      pick(ui, a, ONE_OF_TWO[kind]);
+      click(ui, bulkBtn(kind, via));
+      await ui.settle();
+      click(ui, '[data-fk="c-yes"]');
+    };
+  }
+  SCENARIOS['one house chosen, ' + kind + ' chosen, no question'] = async (ui, a) => { pick(ui, a, [ONE_OF_TWO[kind][0]]); click(ui, bulkBtn(kind, 'bar')); };
+}
 SCENARIOS['several houses, nothing chosen'] = async (ui) => { click(ui, '[data-fk="b-fill"]'); };
 
 async function play(name) {
@@ -75,5 +88,48 @@ for (const name of Object.keys(SCENARIOS)) {
     assert.ok(golden[key], 'a recorded scenario for ' + key);
     assert.deepEqual(got, golden[key]);
     if (!/nothing chosen/.test(name)) assert.ok(got.sent.length === 1 || got.asked !== null, 'a write was made or a question was asked');
+  });
+}
+
+// tau #879: with several houses chosen a bulk button always asks, even when only one of them would change, and the question says the others are left alone. Nothing is written until Yes, and
+// then the request is the same single one that the shortcut used to send at once.
+const LEFT_ALONE = /1 other chosen house is left alone: nothing to change for it\./;
+for (const kind of ['fill', 'complete', 'reopen']) {
+  for (const via of ['bar', 'phone']) {
+    test('two houses chosen, only one would change: ' + kind + ' chosen asks first, writes nothing until Yes' + (via === 'phone' ? ' (the phone bar)' : ''), async () => {
+      const a = synthetic();
+      const ui = await boot({ get: { '/api/landsraad': a }, post: { '/api/landsraad/apply': OK }, local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' } });
+      await ui.settle();
+      pick(ui, a, ONE_OF_TWO[kind]);
+      click(ui, bulkBtn(kind, via));
+      await ui.settle();
+      const q = text(ui.doc.querySelector('#lsb-confirm'));
+      assert.ok(q, 'a question is asked');
+      assert.match(q, LEFT_ALONE);
+      assert.equal(ui.posted.filter((p) => p.path === '/api/landsraad/apply').length, 0, 'nothing is written before the answer');
+      click(ui, '[data-fk="c-no"]');
+      await ui.settle();
+      assert.equal(ui.posted.filter((p) => p.path === '/api/landsraad/apply').length, 0, 'No writes nothing');
+      click(ui, bulkBtn(kind, via));
+      await ui.settle();
+      click(ui, '[data-fk="c-yes"]');
+      await ui.settle();
+      const sent = ui.posted.filter((p) => p.path === '/api/landsraad/apply').map((p) => p.body);
+      assert.equal(sent.length, 1, 'one request after Yes');
+      const key = 'two houses chosen, only one would change, ' + kind + ' chosen, asked, then Yes';
+      assert.deepEqual(sent, golden[key].sent);
+      closeAll();
+    });
+  }
+  test('one house chosen: ' + kind + ' chosen is written at once, with no question (unchanged)', async () => {
+    const a = synthetic();
+    const ui = await boot({ get: { '/api/landsraad': a }, post: { '/api/landsraad/apply': OK }, local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' } });
+    await ui.settle();
+    pick(ui, a, [ONE_OF_TWO[kind][0]]);
+    click(ui, bulkBtn(kind, 'bar'));
+    await ui.settle();
+    assert.equal(ui.doc.querySelector('#lsb-confirm'), null, 'no question');
+    assert.equal(ui.posted.filter((p) => p.path === '/api/landsraad/apply').length, 1, 'written at once');
+    closeAll();
   });
 }
