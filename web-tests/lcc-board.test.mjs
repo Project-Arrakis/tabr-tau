@@ -55,8 +55,8 @@ test('the board is 25 tiles in board order, numbered 01 to 25, each a button wit
   for (const c of t) {
     const b = c.querySelector('button.lcc-hc-select');
     assert.equal(b.getAttribute('type'), 'button');
-    assert.match(b.getAttribute('aria-label'), /^Number \d\d, /);
-    assert.match(c.querySelector('.lcc-hc-owner').textContent, /Atreides|Harkonnen|Open|unreadable/);
+    assert.match(b.getAttribute('aria-label'), /^Square \d\d, /);
+    assert.match(c.querySelector('.lcc-hc-owner').textContent, /Atreides|Harkonnen|Not won|Unreadable/);
   }
   assert.equal(text(tiles(ui)[0].querySelector('.lcc-hc-owner')), '● Harkonnen', 'position 01 is Vernius, taken by Harkonnen in the fixture');
   assert.equal(ui.doc.querySelector('.lcc-bd-tiles').getAttribute('role'), 'list');
@@ -72,7 +72,7 @@ test('the plaque and the figures are the counts of the same Houses: 12 and 4, ni
   assert.match(text(p.querySelector('.lcc-pl-standing')), /ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN/);
   const own = ui.doc.querySelector('.lcc-bd').cloneNode(true);
   own.querySelector('[data-lcc-slot="bar"]').replaceChildren(); // the page's own action bar sits in the board's grid and has its own words
-  assert.doesNotMatch(text(own), /\bwon\b|won the vote/i, 'a lead in the count is not called a win: nobody holds a line of five or 13 Houses');
+  assert.doesNotMatch(text(own), /(?<!favor |not )\bwon\b|won the vote/i, 'a lead in the count is not called a win: nobody holds a line of five or 13 Houses');
   const k = [...ui.doc.querySelectorAll('.lcc-bd-metric')].map((x) => [text(x.querySelector('.lcc-bd-metric-k')), text(x.querySelector('strong'))]);
   assert.deepEqual(k.map((x) => x[1]), ['CONTESTED', '9', '4', 'LV 100'], 'the term status, the open Houses and the potential lines read from the save (M4), the cap is a game rule');
   assert.deepEqual(k.map((x) => x[0].replace(/RULE$/, '')), ['TERM STATUS', 'OPEN HOUSES', 'POTENTIAL LINES', 'SPECIALIZATION CAP']);
@@ -90,8 +90,8 @@ test('a House whose owner cannot be read is counted for neither side and the pla
   const ui = await open(a);
   const p = ui.doc.querySelector('.lcc-plaque-host');
   assert.match(text(p.querySelector('.lcc-pl-standing')), /COUNT INCOMPLETE · 1 HOUSE UNREADABLE/);
-  assert.equal(text(tiles(ui)[10].querySelector('.lcc-hc-owner')), '? Owner unreadable');
-  assert.match(text(ui.doc.querySelector('.lcc-bd-headlines')), /OWNER UNREADABLE/);
+  assert.equal(text(tiles(ui)[10].querySelector('.lcc-hc-owner')), '? Favor unreadable');
+  assert.match(text(ui.doc.querySelector('.lcc-bd-headlines')), /FAVOR UNREADABLE/);
   assert.match(text(ui.doc.querySelector('[data-metric="open"]')), /1 unreadable, not counted/);
 });
 
@@ -124,12 +124,12 @@ test('a duplicate board position is refused too, and the House number is never d
 
 test('#768: the classic list shows the House number 01 to 25 too, from the same positions, and none when the board is not a board', async () => {
   const ui = await open(synthetic(), { view: 'classic' });
-  const nos = [...ui.doc.querySelectorAll('#lsb-rows .hno')].map((n) => text(n).replace('Number ', ''));
+  const nos = [...ui.doc.querySelectorAll('#lsb-rows .hno')].map((n) => text(n).replace('Square ', ''));
   assert.equal(nos.length, 25);
   assert.deepEqual([...nos].sort(), [...Array(25).keys()].map((i) => String(i + 1).padStart(2, '0')));
   const row = [...ui.doc.querySelectorAll('#lsb-rows > li')].find((r) => r.querySelector('.hn b').textContent === 'Wallach');
-  assert.equal(text(row.querySelector('.hno')), 'Number 08');
-  assert.equal(row.querySelector('.hno').getAttribute('title'), 'position 8 of 25, row 2, column 3');
+  assert.equal(text(row.querySelector('.hno')), 'Square 08');
+  assert.equal(row.querySelector('.hno').getAttribute('title'), 'square 8 of 25, row 2, column 3');
   const a = synthetic(); a.tasks.pop();
   const bad = await open(a, { view: 'classic' });
   assert.equal(bad.doc.querySelectorAll('#lsb-rows .hno').length, 0);
@@ -143,7 +143,7 @@ test('a card shows five numbered tier boxes and the line N/5 EARNED with the col
   assert.deepEqual(boxes.map((b) => text(b)), ['◆', '◆', '◆', '4', '5'], 'a waiting reward is a diamond, a tier not reached keeps its number');
   assert.deepEqual(boxes.map((b) => b.classList.contains('waiting')), [true, true, true, false, false]);
   assert.equal(text(w.querySelector('.lcc-hc-count')), '3/5 EARNED ✓ 0 ◆ 3');
-  assert.match(w.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /^Number 08, Wallach, claimed by Atreides, path Exploration, 3 of 5 tiers earned, 0 collected, 3 rewards not collected$/);
+  assert.match(w.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /^Square 08, Wallach, favor won by Atreides, specialization Exploration, 3 of 5 tiers earned, 0 collected, 3 rewards not collected$/);
 });
 
 test('the five tier boxes tell collected, waiting, delivery unknown and not reached apart, and delivery unknown is never read as collected', async () => {
@@ -249,13 +249,13 @@ test('choosing a House opens the Inspector: both scales apart, the contributors 
   click(ui, tileOf(ui, 'Wallach').querySelector('button'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
   assert.equal(text(i.querySelector('.lcc-bd-insp-name')), 'House Wallach');
-  assert.match(i.querySelector('.lcc-bd-insp-name').getAttribute('title'), /^No\. 08/, 'the position is a tooltip, not a chip');
+  assert.match(i.querySelector('.lcc-bd-insp-name').getAttribute('title'), /^Square 08/, 'the position is a tooltip, not a chip');
   assert.equal(i.querySelector('.lcc-bd-no'), null);
   assert.equal(i.querySelector('.lcc-bd-status'), null, 'no sentence under the band: the approved design has none');
   assert.equal(text(i.querySelector('.lcc-bd-gopath')), 'Exploration Specialization', 'the specialization is one line, and it is the button that opens its track (#939)');
   assert.equal(i.querySelector('.lcc-bd-bloc'), null, 'no separate caption and no repeated words');
-  assert.match(i.querySelector('.lcc-bd-control').getAttribute('title'), /^Claimed by Atreides \(completed, with a winner the save records\)\./);
-  assert.match(text(i.querySelector('.lcc-bd-banner .lcc-bd-sr')), /^Claimed by Atreides/, 'and the words stay for a screen reader');
+  assert.match(i.querySelector('.lcc-bd-control').getAttribute('title'), /^Favor won by Atreides \(completed, with a winner the save records\)\./);
+  assert.match(text(i.querySelector('.lcc-bd-banner .lcc-bd-sr')), /^Favor won by Atreides/, 'and the words stay for a screen reader');
   const bars = [...i.querySelectorAll('.lcc-bd-fc')].map((b) => [text(b.querySelector('.lcc-bd-fc-l')), text(b.querySelector('.lcc-bd-fc-v'))]);
   assert.deepEqual(bars, [['HOUSE ATREIDES', '4,000 / 4,000'], ['HOUSE HARKONNEN', '900 / 4,000']]);
   const s1 = i.querySelector('#lcc-bd-s1');
@@ -267,7 +267,7 @@ test('choosing a House opens the Inspector: both scales apart, the contributors 
   const order = [...i.children].map((c) => c.getAttribute('aria-labelledby') || c.className.split(' ')[0]);
   assert.deepEqual(order, ['lcc-bd-insp-top', 'lcc-bd-back', 'lcc-bd-identity', 'lcc-bd-s4', 'lcc-bd-pin', 'lcc-bd-banner', 'lcc-bd-s1', 'lcc-bd-s2', 'lcc-bd-s3', 'lcc-bd-disc', 'lcc-bd-s5'], 'the order of the approved design, except that the actions block comes directly under the name (and the way back to the board is before it); the note is a disclosure');
   assert.equal(i.querySelector('.lcc-bd-disc[data-key="note"] > summary').textContent, 'Important: three separate states');
-  assert.match(text(i.querySelector('.lcc-bd-note')), /^Important: A House claimed by a faction/);
+  assert.match(text(i.querySelector('.lcc-bd-note')), /^Important: A House whose favor a faction has won/);
   assert.doesNotMatch(text(i), /sysselraad/i, 'the Inspector holds no sysselraad data');
   const tiers = [...i.querySelectorAll('.lcc-bd-tier')];
   assert.equal(tiers.length, 5);
@@ -294,13 +294,18 @@ test('the reward ledger tells waiting, collected and delivery unknown apart, and
   assert.deepEqual(st.slice(0, 3), ['Reached, collected', 'Reached, delivery unknown', 'Reached, not collected']);
 });
 
-test('the list: board order by default, sortable by every column both ways, grouped by region with the unmapped last', async () => {
+test('the list: House name A to Z by default (#953), sortable by every column both ways, the Square column included, grouped by region with the unmapped last', async () => {
   const ui = await open(synthetic(), { layout: 'list' });
   const names = () => [...ui.doc.querySelectorAll('.lcc-bd-row .lcc-bd-namebtn')].map((b) => text(b));
   const nos = () => [...ui.doc.querySelectorAll('.lcc-bd-row .lcc-bd-c-no')].map((b) => text(b));
   assert.equal(ui.doc.querySelector('.lcc-bd-tiles'), null);
-  assert.deepEqual(nos(), [...Array(25).keys()].map((i) => String(i + 1).padStart(2, '0')));
-  assert.equal(ui.doc.querySelector('th[aria-sort]').textContent.trim().startsWith('No.'), true);
+  assert.deepEqual(names(), [...names()].sort((x, y) => x.localeCompare(y)), 'it opens sorted by the House name, A to Z');
+  assert.equal(ui.doc.querySelector('th[aria-sort="ascending"]').textContent.trim().startsWith('House'), true);
+  click(ui, '[data-fk="bs:house"]');
+  assert.deepEqual(names(), [...names()].sort((x, y) => y.localeCompare(x)));
+  click(ui, '[data-fk="bs:position"]');
+  assert.deepEqual(nos(), [...Array(25).keys()].map((i) => String(i + 1).padStart(2, '0')), 'the Square column sorts by the position on the board');
+  assert.equal(ui.doc.querySelector('th[aria-sort]').textContent.trim().startsWith('Square'), true);
   click(ui, '[data-fk="bs:house"]');
   assert.deepEqual(names(), [...names()].sort((x, y) => x.localeCompare(y)));
   click(ui, '[data-fk="bs:house"]');
@@ -318,7 +323,7 @@ test('the layout is remembered, and the list carries a Choose box and a Saved ma
   click(ui, '[data-fk="bf:layout:list"]');
   assert.equal(ui.w.localStorage.getItem('lsb.layout'), 'list');
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-row .lcc-bd-pick').length, 25);
-  const maps = [...ui.doc.querySelectorAll('.lcc-bd-row [data-lb="map"]')];
+  const maps = [...ui.doc.querySelectorAll('.lcc-bd-row .lcc-bd-loc [data-lb="map"]')];
   assert.deepEqual(maps.map((m) => m.closest('tr').querySelector('.lcc-bd-namebtn').textContent).sort(), ['Alexin', 'Kenola', 'Lindaren'].filter((n) => maps.some((m) => m.closest('tr').querySelector('.lcc-bd-namebtn').textContent === n)));
   for (const m of maps) assert.match(m.getAttribute('aria-label'), /Open in the Saved map$/);
 });
@@ -347,8 +352,8 @@ test('the board panel has the approved head, filters, legend, totals and the two
   assert.deepEqual([...head.querySelectorAll('.lcc-bd-layout button')].map((x) => text(x)), ['Grid', 'List']);
   assert.ok(![...head.querySelectorAll('button')].some((x) => /Clear highlight|Strategy/.test(text(x))), 'no Clear highlight and no Sysselraad Strategy button (#958)');
   assert.deepEqual([...ui.doc.querySelectorAll('#lcc-bd-spec option')].map((o) => text(o)), ['All specializations', 'Crafting', 'Gathering', 'Exploration', 'Combat', 'Sabotage']);
-  assert.deepEqual([...b.querySelectorAll('.lcc-bd-headlines li')].map((x) => text(x)), ['ATREIDES CLAIMED', 'HARKONNEN CLAIMED', 'OPEN', 'WINNING HOUSES · SYSSELRAAD WON']);
-  assert.deepEqual([...b.querySelectorAll('[data-lcb="filter"][data-key="hs"]')].map((x) => text(x)), ['Any', 'Open', 'Claimed']);
+  assert.deepEqual([...b.querySelectorAll('.lcc-bd-headlines li')].map((x) => text(x)), ['ATREIDES FAVOR WON', 'HARKONNEN FAVOR WON', 'FAVOR NOT WON', 'WINNING HOUSES · SYSSELRAAD WON']);
+  assert.deepEqual([...b.querySelectorAll('[data-lcb="filter"][data-key="hs"]')].map((x) => text(x)), ['Any', 'Not won', 'Favor won']);
   assert.match(text(b.querySelector('.lcc-bd-totals')), /Your rewards on this board: 26 of 120 tiers earned/);
   assert.match(text(b.querySelector('[data-metric="lines"]')), /^POTENTIAL LINES4Unblocked five-House alignments · Atreides 4 · Harkonnen 0$/, 'the unblocked lines of the twelve, counted by the evaluator (M4)');
   assert.match(text(b.querySelector('[data-metric="cap"]')), /RULE/, 'the cap is a game rule, tagged as one, not read from the save');

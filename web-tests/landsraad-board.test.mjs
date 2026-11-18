@@ -267,7 +267,7 @@ test('the place has a quick peek for a mouse (the same lines as the opened row) 
   assert.equal(pop.getAttribute('aria-hidden'), 'true', 'the peek is mouse only; the opened row is the way in for the keyboard and touch');
   assert.ok(text(pop).includes('The O’dham (Hagga Basin)') && text(pop).includes('north rim') && text(pop).includes('Click the place to open the Saved map'), text(pop));
   assert.equal(pop.querySelector('.pin').style.left, '25%');
-  assert.ok(ui.doc.querySelector('#lsrow-901 [data-lb=map]').title.includes('Hover for a quick peek'));
+  assert.ok(ui.doc.querySelector('#lsrow-901 .loc-t[data-lb=map]').title.includes('Hover for a quick peek'));
 });
 
 test('a save with no houses in the term says so in place of the board controls', async () => {

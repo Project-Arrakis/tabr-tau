@@ -107,6 +107,7 @@
   }
   // The words of the Sysselraad (who has won, the headline, the count line) are written once, in lcc-model.js (WIN); this file takes them from there and builds none of its own. The model is
   // loaded before the first plaque or card is drawn (the page loads it with this file); a caller that has not loaded it gets the error at once instead of a different phrase.
+  const WORDS = () => { if (!root.LCCM || !root.LCCM.WORDS) throw new Error('lcc-model.js must be loaded before lcc.js draws a card'); return root.LCCM.WORDS; };
   const WIN = () => { if (!root.LCCM || !root.LCCM.WIN) throw new Error('lcc-model.js must be loaded before lcc.js draws a plaque or a card'); return root.LCCM.WIN; };
   // standingLine(a, h): the count line for two counts, as it always read ('HARKONNEN LEAD 11 TO 4 · 10 HOUSES OPEN'); the line of a state with a winner is WIN.tally.
   function standingLine(a, h) { return WIN().standing(a, h); }
@@ -474,7 +475,7 @@
   }
 
   // ---- House card ------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  const OWNER = Object.freeze({ a: 'Atreides', h: 'Harkonnen', open: 'Open', unknown: 'Unreadable' });
+  const OWNER = { a: 'Atreides', h: 'Harkonnen', get open() { return WORDS().notWon; }, get unknown() { return WORDS().unreadable; } }; // the words of favor come from lcc-model.js (#952)
   const OWNER_GLYPH = Object.freeze({ a: 'A', h: 'H', open: '○', unknown: '?' });
   const TRACK_LABEL = Object.freeze({ combat: 'Combat', crafting: 'Crafting', exploration: 'Exploration', gathering: 'Gathering', sabotage: 'Sabotage' });
   const houseTitle = (name) => String(name == null ? '' : name).replace(/^DA_House/i, '').replace(/^./, (c) => c.toUpperCase());
@@ -499,7 +500,7 @@
     b.appendChild(crest);
     const body = el('span', 'lcc-house-body');
     body.appendChild(el('span', 'lcc-house-name', title));
-    body.appendChild(el('span', 'lcc-owner lcc-owner-' + owner, OWNER_GLYPH[owner] + ' ' + OWNER[owner], { 'data-g': OWNER_GLYPH[owner] })); // data-g: the glyph alone, for the narrow tile (its word is then hidden, never its mark)
+    body.appendChild(el('span', 'lcc-owner lcc-owner-' + owner, owner === 'a' || owner === 'h' ? OWNER[owner] : OWNER_GLYPH[owner] + ' ' + OWNER[owner], { 'data-g': OWNER_GLYPH[owner] })); // one mark (#950): a faction is its name in its colour, never a letter and the name; data-g: the glyph alone, for the narrow tile
     const tr = trackAsset('banners', vm.track);
     if (tr) {
       const ph = el('span', 'lcc-house-path');
@@ -521,7 +522,7 @@
       notes.push(mt.reached + ' of ' + mt.total + ' tiers reached');
     }
     if (flags.childNodes.length) b.appendChild(flags);
-    b.setAttribute('aria-label', [(no ? 'Number ' + no + ', ' : '') + title + ', ' + (owner === 'a' || owner === 'h' ? 'claimed by ' + OWNER[owner] : owner === 'open' ? 'open' : 'owner unreadable')].concat(vm.track && TRACK_LABEL[norm(vm.track)] ? ['path ' + TRACK_LABEL[norm(vm.track)]] : [], notes, vm.dim ? ['not in the current filter'] : [], vm.selected ? ['selected'] : []).join(', '));
+    b.setAttribute('aria-label', [(no ? WORDS().square + ' ' + no + ', ' : '') + title + ', ' + (owner === 'a' || owner === 'h' ? WORDS().favorWon.toLowerCase() + ' by ' + OWNER[owner] : owner === 'open' ? WORDS().favorNotWon.toLowerCase() : WORDS().favorUnreadable.toLowerCase())].concat(vm.track && TRACK_LABEL[norm(vm.track)] ? [WORDS().specialization.toLowerCase() + ' ' + TRACK_LABEL[norm(vm.track)]] : [], notes, vm.dim ? ['not in the current filter'] : [], vm.selected ? ['selected'] : []).join(', '));
     return b;
   }
 

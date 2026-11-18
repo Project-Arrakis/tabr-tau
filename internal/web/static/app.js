@@ -2013,6 +2013,42 @@ const lbPin = (h) => (h.loc.known && h.loc.map_key ? html`<span class="pin" data
 const lbMiniMap = (h) => (h.loc.known && h.loc.map_key ? html`<span class="minimap"><svg viewBox="0 0 120 90" role="img" aria-label="Schematic of ${h.loc.map} (not to scale)" focusable="false"><path class="m-fill" d="M8 34 L28 12 L66 6 L102 20 L114 50 L98 80 L56 86 L22 78 L6 56 Z"/><text class="m-txt" x="117" y="88" text-anchor="end" font-size="3.4">schematic, not to scale</text></svg>${lbPin(h)}</span>` : '');
 // the quick peek on the place (mouse hover only, see the .pop rules): the same lines as the opened row, drawn once per row; the opened row is the way in for a touch screen and the keyboard
 const lbPeek = (h) => (h.loc.known ? html`<span class="pop" aria-hidden="true"><h4>House ${h.name}</h4>${lbPlaceDetails(h)}<span class="fine">Quick peek. ${lbLocHint(h)}</span></span>` : '');
+// The House hover card, one builder for the Classic list and the Command Center list (#940, #951). The Place line is a real button that opens the same Saved map view as the place link of the row (same data-lb="map"),
+// with the same quick peek (the map picture) under it, and it stays inside the card, which stays open while the pointer or the keyboard focus is on it (the CSS keeps it open on :hover and :focus-visible of anything inside).
+function lbPlaceLine(h) {
+  if (!h.loc.known) return 'not mapped yet';
+  const text = lbAreaFull(h) + (h.loc.cell ? ' · grid cell ' + h.loc.cell : '') + (h.loc.place ? ' · ' + h.loc.place : '') + (h.loc.unconfirmed ? ' (from public guides, not confirmed in the game)' : '');
+  const on = lbOnMap(h);
+  return html`<span class="loc"><button type="button" class="hcard-place${on ? '' : ' off'}" data-lb="map" data-id="${h.id}" data-fk="hp:${h.id}" ${on ? '' : html`aria-disabled="true" data-why="${lbLocWhy(h)}"`} aria-label="${lbLocAria(h)}" title="${lbLocHint(h)}">${text}</button>${on ? '' : html`<span class="lnote" role="status"></span>`}${lbPeek(h)}</span>`;
+}
+function lbHouseCard(h, l, noLocs) {
+  return html`<span class="hcard" role="group" aria-label="House ${h.name}, details (experimental)"><button type="button" class="hcl" aria-label="Close the card">×</button><h4>House ${h.name}</h4><dl><dt>Next reward</dt><dd>${lbNextReward(h)}</dd><dt>Not collected</dt><dd>${lbWaiting(h)}</dd><dt>Faction race</dt><dd>${(l.factions || []).map((f) => html`${f.name} ${lbF(h.prog[f.id] || 0)} of ${lbF(h.goal)}<br>`)}${h.taken ? 'Finished by ' + (h.win != null ? lbFacName(l, h.win) : 'a faction') : 'Not finished by either faction'}</dd>${noLocs ? '' : html`<dt>Place</dt><dd>${lbPlaceLine(h)}</dd>`}</dl><span class="fine">Experimental card.${noLocs ? '' : ' ' + lbLocHint(h)}</span></span>`;
+}
+// A built piece of the page as a DOM node, for the Command Center scripts (they draw with the DOM, the page with html``): the pins of a place peek are put where the save says, as the page does after a draw.
+function lbNode(safe) {
+  const n = document.createElement('span');
+  n.className = 'lsb-frag';
+  setHTML(n, safe);
+  lbStyles(n);
+  return n.childElementCount === 1 ? n.firstElementChild : n;
+}
+// The mouse-over of the item a reward tier gives (#937): what the editor holds about it, in the words of the Classic tier box (the reward, its game id, the state), and nothing it does not know: what kind of item it is
+// (a schematic, a resource, a part) is not in the save or the editor's item list, so it is not said. Solari has none (the amount is the whole story).
+const LB_SOLARI = 'SolarisCoin';
+function lbItemInfo(h, t, i) {
+  if (!t || t.tmpl === LB_SOLARI) return '';
+  return ['Reward of tier ' + i + ': ' + lbRText(t) + (t.swatch ? ' (the house swatch)' : ''), 'Game id: ' + t.tmpl, 'Tier ' + i + ' needs ' + lbF(t.th) + ': ' + lbTierWord(t)].join('\n');
+}
+// The mouse-overs of the cells of the Command Center list, in the words of the Classic list (one source): your progress, the tiers, the next tier and the rewards waiting.
+function lbListTips(h) {
+  const n = h.tiers.length;
+  return {
+    progress: (h.mine > 0 ? 'Your contribution: ' + lbF(h.mine) + '. ' : 'No contribution of yours recorded. ') + h.reached + ' of ' + n + ' tiers reached.',
+    tiers: n ? h.tiers.map((t, k) => 'Tier ' + (k + 1) + ', ' + lbF(t.th) + ': ' + lbRText(t) + ' (' + lbTierWord(t) + ')').join('\n') : 'No tiers in the save.',
+    next: 'Next reward: ' + lbNextReward(h) + (h.tiers.some((t) => h.mine < t.th) ? ', ' + lbNextParts(h)[1] : '') + '.',
+    waiting: h.tiers.some((t) => t.state === 'waiting') ? 'Not collected: ' + h.tiers.filter((t) => t.state === 'waiting').map(lbRText).join('; ') : 'Nothing waiting at the house representative.',
+  };
+}
 // the distance from the character to the house representative: the save holds the character's place in centimetres, and the house representative's marker its place, as a fraction of its map
 function lbFromYouText(h) {
   const c = h.loc.from_you_cm;
@@ -2076,7 +2112,7 @@ function lbRow(h, l, hue, noLocs, pos) {
     <input type="checkbox" class="pick" data-lb="pick" data-id="${h.id}" data-fk="pk:${h.id}" aria-label="Choose House ${h.name}" ${LP.pick.has(h.id) ? 'checked' : ''}>
     <input type="checkbox" class="xc vh" id="lsx-${h.id}" aria-label="Show details of House ${h.name}" ${open ? 'checked' : ''}>
     <label for="lsx-${h.id}" class="sum">
-      <span class="c-house"><span class="hw"><button type="button" class="hn" aria-expanded="false" title="Details: next reward, not collected, faction race, place (experimental)">${pos ? html`<span class="hno" title="${pos.words}"><span class="vh">Number </span>${pos.number}</span>` : ''}${lbCrest(h.name, hue)}<b>${h.name}</b></button><span class="hcard" role="group" aria-label="House ${h.name}, details (experimental)"><button type="button" class="hcl" aria-label="Close the card">×</button><h4>House ${h.name}</h4><dl><dt>Next reward</dt><dd>${lbNextReward(h)}</dd><dt>Not collected</dt><dd>${lbWaiting(h)}</dd><dt>Faction race</dt><dd>${(l.factions || []).map((f) => html`${f.name} ${lbF(h.prog[f.id] || 0)} of ${lbF(h.goal)}<br>`)}${h.taken ? 'Finished by ' + (h.win != null ? lbFacName(l, h.win) : 'a faction') : 'Not finished by either faction'}</dd>${noLocs ? '' : html`<dt>Place</dt><dd>${h.loc.known ? lbAreaFull(h) + (h.loc.cell ? ' · grid cell ' + h.loc.cell : '') + (h.loc.place ? ' · ' + h.loc.place : '') + (h.loc.unconfirmed ? ' (from public guides, not confirmed in the game)' : '') : 'not mapped yet'}</dd>`}</dl><span class="fine">Experimental card.${noLocs ? '' : ' ' + lbLocHint(h)}</span></span></span></span>
+      <span class="c-house"><span class="hw"><button type="button" class="hn" aria-expanded="false" title="Details: next reward, not collected, faction race, place (experimental)">${pos ? html`<span class="hno" title="${pos.words}"><span class="vh">Square </span>${pos.number}</span>` : ''}${lbCrest(h.name, hue)}<b>${h.name}</b></button>${lbHouseCard(h, l, noLocs)}</span></span>
       <span class="c-loc">${noLocs ? html`<span class="mut">not mapped yet</span>` : html`<span class="loc"><button type="button" class="loc-t${lbOnMap(h) ? '' : ' off'}" data-lb="map" data-id="${h.id}" ${lbOnMap(h) ? '' : html`aria-disabled="true" data-why="${lbLocWhy(h)}"`} aria-label="${lbLocAria(h)}" title="${lbOnMap(h) ? 'Open ' + lbAreaFull(h) + ' in the Saved map. Hover for a quick peek.' : lbLocWhy(h)}"><svg viewBox="0 0 12 14" aria-hidden="true" focusable="false"><path d="M6 0C2.7 0 0 2.6 0 5.8 0 10 6 14 6 14s6-4 6-8.2C12 2.6 9.3 0 6 0Zm0 8a2.2 2.2 0 1 1 0-4.4A2.2 2.2 0 0 1 6 8Z" fill="currentColor"/></svg><span>${locText}</span></button>${lbOnMap(h) ? '' : html`<span class="lnote" role="status"></span>`}${lbPeek(h)}</span>`}</span>
       <span class="c-my"><span class="line"><span class="st st-${h.state}"><span aria-hidden="true">${LB_GLYPH[h.state]}</span> ${LB_WORD[h.state]}</span>${lbMeter(h, can)}<span class="mut">${h.reached} of ${h.tiers.length} tiers</span></span><span class="amt"><b class="js-mine${h.mine > 0 ? '' : ' mut'}">${h.mine > 0 ? lbF(h.mine) : 'none recorded'}</b>${h.mine > 0 ? html` <span class="mut js-next">· ${lbNextParts(h).map((p, k) => html`${k ? ' ' : ''}<span class="nx">${p}</span>`)}</span>` : ''}</span></span>
       <span class="c-hs"><span class="tag">${hs}</span></span>
@@ -2709,7 +2745,7 @@ function lbCtl(id) {
     fillgoal: { off: q.goalOff, tip: q.goalTip },
     complete: { off: q.doneF, tip: q.doneF ? 'Already complete for ' + q.fn + ': nothing to change' : crTipC(q.fn) },
     reopen: { off: !h.taken, tip: h.taken ? LB_REOPEN_TIP : 'The house is open: nothing to change' },
-    tiers: h.tiers.map((t, k) => { const gr = q.ownF && k + 1 > h.reached ? lbGrantOf(h, l, h.mine, t.th) : null, tip = lbTierTip(h, t, k + 1, q.can, l, true, F, true); return { reward: lbRText(t), off: !q.ownF, tip, title: lbTierTitle(h, t, k + 1, tip, !q.ownF), grant: gr ? lbGrantShort(gr) : '' }; }),
+    tiers: h.tiers.map((t, k) => { const gr = q.ownF && k + 1 > h.reached ? lbGrantOf(h, l, h.mine, t.th) : null, tip = lbTierTip(h, t, k + 1, q.can, l, true, F, true); return { reward: lbRText(t), off: !q.ownF, tip, title: lbTierTitle(h, t, k + 1, tip, !q.ownF), item: lbItemInfo(h, t, k + 1), grant: gr ? lbGrantShort(gr) : '' }; }),
     loc: lbLocModel(h),
     caption: lbGrantCaption(q.fillGr, q.nextGr, h, q.can && !q.ownF ? [q.fn, lbFacName(l, l.character.faction_id)] : null),
   };
@@ -2719,12 +2755,29 @@ function lbDecreeNow() {
   return d ? { name: decreeLabel(d), effect: d.effect || '' } : null;
 }
 window.LCC_HOST = {
-  ctl: lbCtl, loc: (id) => { const r = LD && LD.tasks.find((x) => x.id === id); return r ? lbLocModel(lbHouse(r, LD)) : null; }, say: (m) => lbTell(m), decree: lbDecreeNow, picks: () => LP.pick, filtered: lbBoardFiltered, goPath: specGoPath,
+  ctl: lbCtl, card: (id) => { const r = LD && LD.tasks.find((x) => x.id === id); if (!r) return null; const h = lbHouse(r, LD); return lbNode(lbHouseCard(h, LD, LD.tasks.every((x) => !(x.location && x.location.known)))); },
+  peek: (id) => { const r = LD && LD.tasks.find((x) => x.id === id), h = r ? lbHouse(r, LD) : null; return h && h.loc.known ? lbNode(lbPeek(h)) : null; },
+  tips: (id) => { const r = LD && LD.tasks.find((x) => x.id === id); return r ? lbListTips(lbHouse(r, LD)) : null; },
+  loc: (id) => { const r = LD && LD.tasks.find((x) => x.id === id); return r ? lbLocModel(lbHouse(r, LD)) : null; }, say: (m) => lbTell(m), decree: lbDecreeNow, picks: () => LP.pick, filtered: lbBoardFiltered, goPath: specGoPath,
   unseat: lbUnseat, seat: lbSeat, // presentation only: where the parts of the action bar, the question and a copy of the result line are drawn
   // the faction box of the Inspector's actions drives the board's own faction box (choosing a faction writes nothing)
   setFac: (v) => { const s = $('#lsb-fac'); if (!s || s.disabled) return; s.value = String(v); s.dispatchEvent(new Event('change', { bubbles: true })); },
   get: (k) => browserStore.get('lsb.' + k), set: (k, v) => browserStore.set('lsb.' + k, v),
 };
+// In the Command Center the hover card of a House and the place peek are fixed to the window (see the .lcc-bd rule of the style sheet), so a box that scrolls or clips never cuts them. This puts them next to what they
+// belong to: --fx is the left edge, --fy the top (below it) or --fb the bottom (above it, when there is no room below). Display only; a phone's bottom sheet ignores them.
+function lbFloat(e) {
+  const t = e.target && e.target.closest ? e.target : null;
+  if (!t) return;
+  for (const sel of ['.hw', '.loc']) {
+    const w = t.closest(sel);
+    if (!w || !w.closest('.lcc-bd')) continue;
+    const trg = w.firstElementChild || w, r = trg.getBoundingClientRect(), vw = window.innerWidth || 1024, vh = window.innerHeight || 768;
+    w.style.setProperty('--fx', Math.round(Math.max(8, Math.min(r.left, vw - 330))) + 'px');
+    if (vh - r.bottom >= 300 || vh - r.bottom >= r.top) { w.style.setProperty('--fy', Math.round(r.bottom) + 'px'); w.style.setProperty('--fb', 'auto'); }
+    else { w.style.setProperty('--fy', 'auto'); w.style.setProperty('--fb', Math.round(vh - r.top) + 'px'); }
+  }
+}
 function lbCloseCards() { document.querySelectorAll('.lsb .hw.open').forEach((w) => { w.classList.remove('open'); const b = w.querySelector('.hn'); if (b) b.setAttribute('aria-expanded', 'false'); }); }
 // the reason a place cannot be opened is said next to the place (the status line at the top of the board can be out of sight, on a phone above all) and in the status line for a screen reader
 function lbLocSay(b, t) {
@@ -2834,10 +2887,12 @@ function lbWire() {
     if (e.key !== 'Escape') return;
     if (LP.confirm && !LP.busy) { const a = LP.confirm.back; lbCancelConfirm(); lbSay('Cancelled. Nothing was written.'); lbFocusFk(a); return; }
     const a = document.activeElement, w = a && a.closest ? a.closest('.hw') : null;
-    lbCloseCards(); if (w) { w.setAttribute('data-esc', ''); const hb = w.querySelector('.hn'); if (hb && a !== hb) hb.focus(); }
+    lbCloseCards(); if (w) { w.setAttribute('data-esc', ''); const hb = w.querySelector('.hn, [data-lcb="sel"]'); // the name button: the Classic row's, or the Command Center list's
+    if (hb && a !== hb) hb.focus(); }
   });
   const clearEsc = (e) => { const w = e.target.closest ? e.target.closest('.hw') : null; root.querySelectorAll('.hw[data-esc]').forEach((x) => { if (x !== w) x.removeAttribute('data-esc'); }); };
   root.addEventListener('mouseover', clearEsc); root.addEventListener('focusin', clearEsc);
+  root.addEventListener('mouseover', lbFloat); root.addEventListener('focusin', lbFloat);
   lbApply();
 }
 
