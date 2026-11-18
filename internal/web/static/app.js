@@ -83,8 +83,15 @@ function leaveToast(d) {
 // A toast: what an action did, in words. err: true (an error, red: stays until it is dismissed), 'part' (a warning that stays: part of a give went in), 'note' (an amber notice with no icon that
 // leaves by itself: the action wrote nothing, because everything was already as it should be) or false. fx is { kind, from } with a kind of FX_SHAPE: a result that went well and filled or repaired
 // something shows the fill icon of that kind instead of the check, in Motion = Full only; never on a warning or an error.
-function toast(msg, err, ms = 3500, fx = null) {
+// The Command Center board says its results here (#943): one at a time (a new one takes the place of the last: data-one), several lines where a result has several parts, and the time on screen
+// follows the length of the text (toastMs). A write that fails stays until it is dismissed, as every error does.
+let toastOneKey = null; // while a write of the board runs, its toasts (also an error that act() raises) are of the same kind: one at a time
+const toastMs = (msg) => Math.min(20000, Math.max(3500, 2500 + String(msg).length * 40));
+function toast(msg, err, ms = 3500, fx = null, opts = null) {
   const d = document.createElement('div');
+  const one = (opts && opts.one) || toastOneKey;
+  if (one) { for (const o of [...$('#toast').children]) if (o.getAttribute('data-one') === one) o.remove(); d.setAttribute('data-one', one); }
+  if (opts && opts.lines) d.setAttribute('data-lines', 'true');
   const part = err === 'part', note = err === 'note';
   const kind = !err ? 'ok' : part || note ? 'warn' : 'bad';
   d.setAttribute('role', err && !part && !note ? 'alert' : 'status');
@@ -1981,7 +1988,10 @@ function lbAreaFull(h) { return !h.loc.known ? 'not mapped yet' : h.loc.area ===
 const lbTierWord = (t) => LB_STL[t.state];
 const LB_REMOVE_NOTE = 'This takes back nothing the tier paid: to go back, restore the backup (Database tab, Save backups).';
 // what a tier click does. withGrant: the sentence that says what a raise grants goes into the tip too (the tier box shows it as text, so its accessible name carries it as well)
-function lbTierTip(h, t, i, can, l, withGrant, F) {
+// what the Command Center board says when a click on a lower reached tier cannot remove it: the board removes tiers with Set tier and Apply tier, one at a time, the highest first (the Classic list: click the highest reached tier)
+const lbBoardRemove = (h) => 'choose tier ' + (h.reached - 1) + ' in Set tier and press Apply tier: tiers come off one at a time, the highest first.';
+const lbRemoveHint = (h, board) => (board ? 'To remove tiers of House ' + h.name + ', ' + lbBoardRemove(h) : `To remove tiers of House ${h.name}, click the highest reached tier (tier ${h.reached}).`);
+function lbTierTip(h, t, i, can, l, withGrant, F, board) {
   const n = h.reached;
   if (!can) return 'Your character is in no faction, so there is no contribution of yours to change.';
   if (!lbOwnF(l, F)) return `Off while ${lbFacName(l, F)} is chosen. Tiers change your own contribution, which counts for ${lbFacName(l, l.character.faction_id)}: choose ${lbFacName(l, l.character.faction_id)} above.`;
@@ -2037,7 +2047,6 @@ function lbRow(h, l, hue, noLocs, pos) {
   const off = (b) => (b ? 'true' : 'false');
   const tierBoxes = h.tiers.map((t, i) => {
     const isTop = i === h.tiers.length - 1, st = t.state;
-    const rid = 'Reward: ' + lbRText(t) + (t.swatch ? ' (the house swatch, as the character does not hold it yet)' : isTop && h.tiers.length ? '' : '') + '. Game id: ' + t.tmpl + '.';
     const tip = lbTierTip(h, t, i + 1, can, l, true, F), tOff = !ownF, word = lbTierWord(t), gr = ownF && i + 1 > h.reached ? lbGrantOf(h, l, h.mine, t.th) : null;
     return html`<button type="button" class="tc${isTop ? ' top' : ''}${t.reached ? ' on' : ''}${t.reached && st === 'waiting' ? ' wt' : ''}${t.reached && st === 'delivered' ? ' dv' : ''}" data-lb="tier" data-id="${h.id}" data-t="${i + 1}" data-fk="tc:${h.id}:${i + 1}" aria-pressed="${t.reached ? 'true' : 'false'}" aria-disabled="${ownF ? 'false' : 'true'}" aria-label="Tier ${i + 1}, ${lbF(t.th)}, reward ${lbRText(t)}, ${word}${tOff ? ', off' : '. ' + tip}" ${tOff ? html`aria-describedby="lsg-${h.id}" data-why="${tip}"` : ''} title="${tOff ? tip : rid + ' ' + tip}"><span class="tv">${lbF(t.th)}</span><span class="rw">${lbRText(t)}</span><span class="pl">${LB_STW[st]}</span>${gr ? html`<span class="gr">${lbGrantShort(gr)}</span>` : ownF && i + 1 === h.reached ? html`<span class="gr rm">click removes it; takes back nothing it paid</span>` : ''}</button>`;
   });
@@ -2251,10 +2260,10 @@ const lbViewSwitch = () => (window.LCC && window.LCCM && window.LCCB ? html`<div
 function lbBoardInner(l) {
   const hs = l.tasks.map((r) => lbHouse(r, l)), ready = window.LCCM.readBoard(l).ready;
   const who = l.character ? (lbCan(l) ? '' : 'Your character is in no faction, so there is no contribution of yours to change.') : 'This save has no character.'; // the line that named the faction is gone (#930): Fill and Complete name '(your faction)' where a faction is chosen
-  return html`${lbViewSwitch()}<section class="card d-panel" aria-labelledby="lsb-board-h" id="lsb-board"><h2 class="d-head" id="lsb-board-h">Command Center board <span class="cnt">${nn(hs.length, 'house', 'houses')}</span></h2>
+  return html`${lbViewSwitch()}<section class="card d-panel" aria-labelledby="lsb-board-h" id="lsb-board"><h2 class="d-head" id="lsb-board-h" tabindex="-1">Command Center board <span class="cnt">${nn(hs.length, 'house', 'houses')}</span></h2>
   ${who ? html`<p class="line1">${who}</p>` : ''}
   <div id="lsb-lcc"></div>
-  ${hs.length && ready ? lbActbar(hs, l, true) : html`<p id="lsb-result" role="status" tabindex="-1" ${LP.bad ? html`class="bad"` : LP.warn ? html`class="warn"` : ''}>${LP.say}</p>`}${hs.length && ready ? lbPhoneBar() : ''}</section>${lbTermOn() ? html`<div id="lsb-lcc-term"></div>` : html`${lbTerm(l)}${lbHistory(l)}`}`; // with the Command Center scripts the term section is seated in the board under the plaque (lbSeat), drawn once (#923)
+  ${hs.length && ready ? lbActbar(hs, l, true) : ''}${hs.length && ready ? lbPhoneBar() : ''}</section>${lbTermOn() ? html`<div id="lsb-lcc-term"></div>` : html`${lbTerm(l)}${lbHistory(l)}`}`; // with the Command Center scripts the term section is seated in the board under the plaque (lbSeat), drawn once (#923)
 }
 function lbInner(l) {
   if (lbBoardOn()) return lbBoardInner(l);
@@ -2308,7 +2317,7 @@ function lbActbar(hs, l, split) {
     return html`<div class="actbar">
       <div class="barpart bp-choose" data-bar="choose" role="group" aria-label="Choose houses for the actions on several houses">${choose}</div>
       <div class="barpart bp-act" data-bar="act" role="group" aria-label="Act on the chosen houses"><div class="actrow" role="group" aria-label="Act on several houses at once">${bulks}</div><div class="actrow facrow">${fac}</div>${sum}</div>
-      <div class="barpart bp-ask" data-bar="ask">${ask}${res}${legend}</div>
+      <div class="barpart bp-ask" data-bar="ask">${ask}${legend}</div>
     </div>`;
   }
   return html`<div class="actbar" role="group" aria-label="Actions on the board">
@@ -2345,7 +2354,12 @@ function lbRedraw() {
   lbApply();
   if (fk) { const n = root.querySelector('[data-fk="' + fk + '"]'); if (n && n.focus) n.focus(); }
 }
-function lbSay(t, kind) { LP.say = t; LP.bad = kind === true; LP.warn = kind === 'warn'; const r = $('#lsb-result'); if (r) { r.textContent = t; r.classList.toggle('bad', LP.bad); r.classList.toggle('warn', LP.warn); } lbMirror(); }
+// What a click on the board says (a reason, a hint, a cancel): on the Command Center board it is the app's own toast, lower right, one at a time (#943); the Classic list keeps its result line.
+function lbTell(t, kind) {
+  const err = kind === true;
+  toast(t, err ? true : 'note', err ? undefined : toastMs(t), null, { one: 'lbd', lines: true });
+}
+function lbSay(t, kind) { if (lbBoardOn()) { lbTell(t, kind); return; } LP.say = t; LP.bad = kind === true; LP.warn = kind === 'warn'; const r = $('#lsb-result'); if (r) { r.textContent = t; r.classList.toggle('bad', LP.bad); r.classList.toggle('warn', LP.warn); } }
 // One write from the board (#641). The pressed control is marked busy and the board ignores a second click until the answer is in; the page is then read again from the save, so the
 // rows show what is stored. The line that says what happened goes through say(): the board's result line, or the term panel's. An error shows its text as the editor gave it.
 function lbRunning(on, b) {
@@ -2357,10 +2371,11 @@ function lbRunning(on, b) {
   root.querySelectorAll('#lsb-fac, #lcc-bd-fac, #lcc-bd-tierset, #lsb-tad, #lsb-trf').forEach((x) => { x.disabled = on; });
 }
 async function lbRun(b, call, say, focusFk) {
+  const inToast = say === lbSay && lbBoardOn(); // the results of the board are toasts, not a line on the page (#943)
   if (LP.busy) { say('A write is still running. Wait for it to finish, then click again.'); return false; }
   LP.busy = true;
   lbRunning(true, b);
-  say('Writing…');
+  if (inToast) toastOneKey = 'lbd'; else say('Writing…');
   let ok = false, conflict = false;
   try {
     await act(async () => {
@@ -2368,12 +2383,17 @@ async function lbRun(b, call, say, focusFk) {
         // call() answers with the sentence, or { text, short, warn }: short is the one line of the toast, warn marks a result that is not a plain success
         const r = await call(), o = typeof r === 'string' ? { text: r } : r, hint = String(NOT_SAVED), text = o.text + hint, warn = !!o.warn || hint !== '';
         ok = true;
-        say(text, warn ? 'warn' : false); // the result line keeps the whole sentence, and the hint that the change is only queued
-        sayAloud(text);
-        toast((o.short || o.text) + hint, warn ? 'note' : false, warn ? 9000 : 3500); // a warning, or a change that is only queued, is not drawn as a success and stays longer
-      } catch (e) { conflict = e.code === 'conflict'; say(e.message, true); sayAloud(e.message); throw e; }
+        if (inToast) { // one result per line: what changed, what was not written and why, the warnings; the hint that the change is only queued is the last line
+          const msg = (o.lines || [o.text]).concat(hint ? [hint.trim()] : []).join('\n');
+          toast(msg, warn ? 'note' : false, warn ? Math.max(9000, toastMs(msg)) : toastMs(msg), null, { one: 'lbd', lines: true });
+        } else {
+          say(text, warn ? 'warn' : false); // the result line keeps the whole sentence, and the hint that the change is only queued
+          sayAloud(text);
+          toast((o.short || o.text) + hint, warn ? 'note' : false, warn ? 9000 : 3500); // a warning, or a change that is only queued, is not drawn as a success and stays longer
+        }
+      } catch (e) { conflict = e.code === 'conflict'; if (!inToast) { say(e.message, true); sayAloud(e.message); } throw e; } // on the board act() shows the error as a toast that stays until it is dismissed
     }, null);
-  } finally { LP.busy = false; }
+  } finally { LP.busy = false; toastOneKey = null; }
   if (ok) { const r = $('#lsb'); if (r && r.classList.contains('running')) lbRunning(false, b); } // the board was not drawn again (the re-read failed): it is usable again
   else {
     lbRunning(false, b);
@@ -2400,7 +2420,7 @@ function lbXpLeft(r, queued) {
 // One request to /api/landsraad/apply for one house or several (one edit, one backup, all or none). hs: the houses as they were shown, by id.
 async function lbSend(b, items, label, hs, focusFk) {
   const l = LD;
-  if (!l.term) { const t = 'This save has no Landsraad term, so there is no board to change.'; lbSay(t); toast(t, true); return false; }
+  if (!l.term) { const t = 'This save has no Landsraad term, so there is no board to change.'; if (lbBoardOn()) lbSay(t, true); else { lbSay(t); toast(t, true); } return false; }
   LP.confirm = null;
   const ok = await lbRun(b, async () => {
     const r = await api('/api/landsraad/apply', { term_id: l.term.term_id, houses: items });
@@ -2424,15 +2444,14 @@ async function lbSend(b, items, label, hs, focusFk) {
     }
     // the toast is one short line; the whole sentence stays in the result line
     const short = r.missions ? label + ': ' + nn(r.missions, 'mission', 'missions') + (queued ? ' queued.' : ' written.') + (lbXpLeft(r, queued) ? ' Some XP ' + (queued ? 'will not be added' : 'not added') + ': a track is at its last level.' : '') : r.contribution_lowered ? label + ': tier removed. Nothing it paid was taken back.' : '';
-    return { text, short, warn: !!left };
+    return { text, short, warn: !!left, lines };
   }, lbSay, focusFk);
   // the result line is at the top of the board and the click may be far below it: bring it into view, and give it the focus when the control that was pressed is no longer there to take it
-  const res = $('#lsb-result');
+  const res = $('#lsb-result'), a = document.activeElement, lost = !a || a === document.body || (a.closest && a.closest('[hidden]'));
   if (res) {
     lbReveal(res);
-    const a = document.activeElement;
-    if (!a || a === document.body || (a.closest && a.closest('[hidden]'))) res.focus({ preventScroll: true });
-  }
+    if (lost) res.focus({ preventScroll: true });
+  } else if (lost && lbBoardOn()) { const hd = $('#lsb-board-h'); if (hd) hd.focus({ preventScroll: true }); } // the board has no result line: the focus goes to the heading of the board, not to the top of the page
   return ok;
 }
 const LB_BULK = { fill: ['Fill chosen', 'Fill'], complete: ['Complete chosen', 'Complete'], reopen: ['Reopen chosen', 'Reopen'] };
@@ -2618,23 +2637,9 @@ function lbSeat(container) {
   if (res && slot && res.parentNode !== slot) slot.appendChild(res);
   const c = $('#lsb-confirm'), ask = lcc.querySelector('.lcc-bd-insp [data-lcc-slot="ask"]'), insp = ask && ask.closest('.lcc-bd-insp'), q = LP.confirm;
   if (c && ask && q && q.one && q.ids.length === 1 && insp.getAttribute('data-id') === String(q.ids[0])) ask.appendChild(c);
-  lbMirror();
 }
-// a copy of the result line for the panel's own status line (drawn for the eye; the result line itself stays the one that is announced)
-function lbMirror() {
-  const m = $('#lcc-bd-eres');
-  if (!m) return;
-  m.textContent = LP.say || '';
-  m.classList.toggle('bad', !!LP.bad);
-  m.classList.toggle('warn', !!LP.warn);
-}
-// after a write the page is brought to the result line; when the person is working in the panel it is the copy beside the buttons, so the page does not leave the panel
-function lbReveal(res) {
-  const a = document.activeElement, m = $('#lcc-bd-eres'), sc = a && a.closest ? a.closest('.lcc-bd-insp') : null;
-  if (sc && sc.scrollHeight > sc.clientHeight + 1) { if (window.LCCB) window.LCCB.keepInView(a); return; } // the panel scrolls on its own: the copy stays at its top, and the control that was pressed stays in sight
-  const t = m && m.textContent && sc ? m : res;
-  if (t && t.scrollIntoView) t.scrollIntoView({ block: 'nearest' });
-}
+// after a write the Classic list's page is brought to its result line (the board says its results as toasts, #943)
+function lbReveal(res) { if (res && res.scrollIntoView) res.scrollIntoView({ block: 'nearest' }); }
 // the bar of the chosen houses on a phone: the same three buttons as the action bar, and a press is a press of that button
 const lbPhoneBar = () => html`<div class="phonebar" id="lsb-phonebar" role="group" aria-label="The chosen houses" ${LP.pick.size ? '' : 'hidden'}><span class="pn">${LP.pick.size} chosen</span><button type="button" class="qa btnp" data-pb="fill" data-fk="pb-fill">Fill chosen</button><button type="button" class="qa btnp" data-pb="complete" data-fk="pb-complete">Complete chosen</button><button type="button" class="qa" data-pb="reopen" data-fk="pb-reopen">Reopen chosen</button></div>`;
 function lbPhoneSync() {
@@ -2728,7 +2733,7 @@ function lbClick(e) {
     if (LP.busy) { lbSay(LB_WAIT); return; }
     const h = lbHouse(r, LD), F = lbFacId(LD), i = +b.dataset.t, kind = k === 'tier' ? 'tier' : b.dataset.do;
     const it = lbItem(h, LD, kind, F, i);
-    if (!it) { lbSay(k === 'tier' ? `To remove tiers of House ${h.name}, click the highest reached tier (tier ${h.reached}).` : `House ${h.name}: nothing to change.`); return; }
+    if (!it) { lbSay(k === 'tier' ? lbRemoveHint(h, lbBoardOn()) : `House ${h.name}: nothing to change.`); return; }
     lbGo(b, kind, [it], new Map([[h.id, h]]), F, i, 'House ' + h.name, b.dataset.fk, true);
     return;
   }

@@ -591,7 +591,6 @@
     r2.appendChild(btn('lcc-bd-act', 'Apply tier', { 'data-lcb': 'settier', 'data-id': h.id, 'data-r': h.reached, 'data-fk': 'at:' + h.id, title: 'Sets your contribution to the chosen tier, exactly as a click on that numbered box does: raises to a higher tier, or removes the highest reached tier.' }));
     r2.appendChild(el('span', 'lcc-bd-etip', 'Claimed ≠ earned ≠ collected'));
     s4.appendChild(r2);
-    s4.appendChild(el('p', 'lcc-bd-cap', '', { role: 'status', id: 'lcc-bd-eset' }));
     s4.appendChild(disc('tip', 'How each click is written', el('p', 'lcc-bd-tip', 'Each click is written at once with a backup first, and refused if this House is no longer as shown. Complete on a House another faction took replaces that win; the question says so first.')));
     return s4;
   }
@@ -628,11 +627,10 @@
     const c = editable && host && host.ctl ? host.ctl(h.id) : null;
     if (c) {
       side.appendChild(editor(h, c));
-      // directly under the buttons: where the page draws the question about this House (it moves its own question here) and a copy of its result line, so both stand next to the buttons that asked;
-      // where the panel scrolls on its own they stay at its top while the ledger scrolls under them
+      // directly under the buttons: where the page draws the question about this House (it moves its own question here), so it stands next to the buttons that asked. A question waiting for an answer is
+      // not a toast. The results of a click are toasts (#943): no line of them is kept in the panel.
       const pin = el('div', 'lcc-bd-pin');
       pin.appendChild(el('div', 'lcc-bd-ask', '', { 'data-lcc-slot': 'ask' }));
-      pin.appendChild(el('p', 'lcc-bd-eres', '', { id: 'lcc-bd-eres', 'aria-hidden': 'true' }));
       side.appendChild(pin);
     } else if (!editable) {
       side.appendChild(el('p', 'lcc-bd-warn', 'Read-only: the board could not be checked, so nothing can be written from this view. The classic list stays available.'));
@@ -930,9 +928,9 @@
     if (k === 'settier') {
       e.preventDefault();
       // Set tier N is the click of a numbered box: a higher N presses box N; N one below the reached tier presses the highest reached box (it removes that tier); anything else changes nothing here
-      const insp = t.closest('.lcc-bd-insp'), sel = insp && insp.querySelector('#lcc-bd-tierset'), say = insp && insp.querySelector('#lcc-bd-eset');
+      const insp = t.closest('.lcc-bd-insp'), sel = insp && insp.querySelector('#lcc-bd-tierset');
       const n = sel ? Number(sel.value) : NaN, r = Number(t.getAttribute('data-r'));
-      const tell = (m) => { if (say) say.textContent = m; };
+      const tell = (m) => { if (m && last.host && typeof last.host.say === 'function') last.host.say(m); }; // a reason is a toast of the page, not a line kept in the panel (#943)
       let want = 0, msg = '';
       if (!(n >= 0)) msg = 'Choose a tier first.';
       else if (n > r) want = n;

@@ -13,7 +13,12 @@ const text = (el) => el.textContent.replace(/\s+/g, ' ').trim();
 const click = (ui, el) => { if (typeof el === 'string') el = ui.doc.querySelector(el); assert.ok(el, 'no element'); el.focus(); el.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
 const select = (ui, sel, v) => { const el = ui.doc.querySelector(sel); el.value = String(v); el.dispatchEvent(new ui.w.Event('change', { bubbles: true })); };
 const writes = (ui) => ui.posted.filter((p) => p.path === '/api/landsraad/apply');
-const result = (ui) => text(ui.doc.querySelector('#lsb-result'));
+// what the page said last: the Classic list's result line, or the toast of the board (the board keeps no result line, #943)
+const toastEls = (ui) => [...ui.doc.querySelectorAll('#toast .d-toast')];
+const toastText = (ui) => { const t = toastEls(ui).pop(); return t ? text(t.querySelector('span')) : ''; };
+const result = (ui) => (ui.doc.querySelector('#lsb-result') ? text(ui.doc.querySelector('#lsb-result')) : toastText(ui));
+// the same words without the punctuation that joins them: the Classic sentence and the board's lines say the same things
+const same = (s) => s.replace(/[.;,:]/g, '').replace(/\s+/g, ' ').trim();
 const idOf = (a, name) => a.tasks.find((t) => t.house_name === 'DA_House' + name).id;
 async function open(view, answer = synthetic(), post = { '/api/landsraad/apply': OK }) {
   const ui = await boot({ get: { '/api/landsraad': answer }, post, local: { tab: 'landsraad', 'lsb.view': view, 'lsb.layout': 'grid' } });
@@ -51,12 +56,12 @@ for (const [label, , pick] of SCENARIOS) {
       const ui = await open(view, synthetic());
       click(ui, pick(control[view], ui, a));
       await ui.settle();
-      got[view] = { sent: writes(ui).map((w) => w.body), said: result(ui) };
+      got[view] = { sent: writes(ui).map((w) => w.body), said: same(result(ui)) };
       closeAll();
     }
     assert.equal(got.classic.sent.length, 1, 'one request: ' + JSON.stringify(got.classic.sent));
     assert.deepEqual(got.board.sent, got.classic.sent, 'the board sends exactly what the classic list sends');
-    assert.equal(got.board.said, got.classic.said, 'and says exactly what it says');
+    assert.equal(got.board.said, got.classic.said, 'and says the same things, one result per line on the board');
     assert.equal(got.board.sent[0].term_id, 7, 'the term of the read is in the request, for the stale guard');
     const h = got.board.sent[0].houses[0];
     assert.ok('was_mine' in h && 'was_done' in h && 'was_win' in h, 'every request carries what the page showed (the stale guard)');
@@ -71,7 +76,10 @@ test('the stale guard: a conflict from the save is shown as the save said it, an
   click(ui, control.board.act(ui, a, 'Sor', 'complete'));
   await ui.settle();
   assert.equal(result(ui), msg);
-  assert.equal(ui.doc.querySelector('#lsb-result').className, 'bad');
+  assert.equal(ui.doc.querySelector('#lsb-result'), null, 'the board keeps no result line');
+  const t = toastEls(ui).pop();
+  assert.ok(t.classList.contains('err') && t.getAttribute('role') === 'alert', 'an error is a toast that stays until it is dismissed');
+  assert.ok(t.querySelector('button.x'), 'with a dismiss control');
   assert.ok(ui.fetched.filter((p) => p === '/api/landsraad').length > before, 'the board is read again');
   assert.ok(ui.doc.querySelector('.lcc-bd-insp'), 'the House that was looked at is still looked at');
 });
@@ -112,7 +120,7 @@ test('written and queued are said apart: a queued change is never called saved, 
   click(ui, control.board.act(ui, synthetic(), 'Sor', 'complete'));
   await ui.settle();
   assert.match(result(ui), /queued: written as soon as the save can be written/);
-  assert.equal(ui.doc.querySelector('#lsb-result').className, 'warn');
+  assert.ok(toastEls(ui).pop().classList.contains('note'), 'a queued change is a notice, not a success');
   assert.doesNotMatch(result(ui), /\bsaved\b/i);
   const written = await open('board');
   click(written, control.board.act(written, synthetic(), 'Sor', 'complete'));
@@ -287,14 +295,14 @@ test('Apply tier is the click of the numbered box: same request and same words f
     const viaBox = await open('board');
     click(viaBox, control.board.tier(viaBox, a, 'Kenola', tierPick));
     await viaBox.settle();
-    const box = { sent: writes(viaBox).map((w) => w.body), said: result(viaBox) };
+    const box = { sent: writes(viaBox).map((w) => w.body), said: same(result(viaBox)) };
     closeAll();
     const viaApply = await open('board');
     select_(viaApply, a, 'Kenola');
     select(viaApply, '#lcc-bd-tierset', n);
     click(viaApply, '.lcc-bd-insp [data-lcb="settier"]');
     await viaApply.settle();
-    const apply = { sent: writes(viaApply).map((w) => w.body), said: result(viaApply) };
+    const apply = { sent: writes(viaApply).map((w) => w.body), said: same(result(viaApply)) };
     closeAll();
     assert.equal(box.sent.length, 1, label);
     assert.deepEqual(apply.sent, box.sent, label + ': the same request');
@@ -306,7 +314,8 @@ test('Apply tier changes nothing it cannot do as one click: the same tier, a dro
   const ui = await open('board');
   const a = synthetic();
   select_(ui, a, 'Wallach'); // three tiers reached
-  const say = () => text(ui.doc.querySelector('#lcc-bd-eset'));
+  const say = () => toastText(ui); // a reason is a toast of the page, not a line kept in the panel (#943)
+  assert.equal(ui.doc.querySelector('#lcc-bd-eset'), null, 'no status line is kept in the panel');
   select(ui, '#lcc-bd-tierset', 3);
   click(ui, '.lcc-bd-insp [data-lcb="settier"]');
   assert.match(say(), /already the highest reached tier/);

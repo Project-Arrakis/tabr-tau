@@ -65,13 +65,16 @@ for (const kind of ['fill', 'complete', 'reopen']) {
 }
 SCENARIOS['several houses, nothing chosen'] = async (ui) => { click(ui, '[data-fk="b-fill"]'); };
 
+// The board says its results as a toast, one result per line, not as a line kept on the page (#943). What is said is compared with the recorded sentence without the punctuation that joins the parts.
+const toastSaid = (ui) => { const t = [...ui.doc.querySelectorAll('#toast .d-toast')].pop(); return t ? text(t.querySelector('span')) : ''; };
+const same = (s) => String(s).replace(/[.;,:]/g, '').replace(/s+/g, ' ').trim();
 async function play(name) {
   const a = synthetic();
   const ui = await boot({ get: { '/api/landsraad': a }, post: { '/api/landsraad/apply': OK }, local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' } });
   await ui.settle();
   await SCENARIOS[name](ui, a);
   await ui.settle();
-  const out = { sent: ui.posted.filter((p) => p.path === '/api/landsraad/apply').map((p) => p.body), others: ui.posted.filter((p) => p.path !== '/api/landsraad/apply').map((p) => p.path), asked: text(ui.doc.querySelector('#lsb-confirm b')), said: text(ui.doc.querySelector('#lsb-result')) };
+  const out = { sent: ui.posted.filter((p) => p.path === '/api/landsraad/apply').map((p) => p.body), others: ui.posted.filter((p) => p.path !== '/api/landsraad/apply').map((p) => p.path), asked: text(ui.doc.querySelector('#lsb-confirm b')), said: toastSaid(ui) };
   closeAll();
   return out;
 }
@@ -86,7 +89,9 @@ for (const name of Object.keys(SCENARIOS)) {
     const got = await play(name);
     if (RECORD) { recorded[key] = got; fs.writeFileSync(GOLDEN, JSON.stringify(Object.fromEntries(Object.keys(recorded).sort().map((k) => [k, recorded[k]])), null, 1) + '\n'); return; }
     assert.ok(golden[key], 'a recorded scenario for ' + key);
-    assert.deepEqual(got, golden[key]);
+    const { said, ...rest } = got, { said: was, ...wasRest } = golden[key];
+    assert.deepEqual(rest, wasRest, 'the request, the others and the question are as recorded');
+    assert.equal(same(said), same(was), 'the board says the same things as recorded, in lines');
     if (!/nothing chosen/.test(name)) assert.ok(got.sent.length === 1 || got.asked !== null, 'a write was made or a question was asked');
   });
 }

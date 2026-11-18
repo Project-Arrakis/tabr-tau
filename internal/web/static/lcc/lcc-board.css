@@ -503,10 +503,6 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-pin { display: flex; flex-direction: column; background: var(--lcc-s1); }
 .lcc-bd-pin > * { margin: 8px 0 0; }
 .lcc-bd-ask:empty { display: none; }
-.lcc-bd-eres { padding: 6px 8px; border-left: 3px solid var(--lcc-teal); background: var(--lcc-raised); font: 500 12px/1.4 var(--lcc-sans); color: var(--lcc-text); overflow-wrap: anywhere; }
-.lcc-bd-eres.warn { border-left-color: var(--lcc-gold-text); }
-.lcc-bd-eres.bad { border-left-color: var(--lcc-red); }
-.lcc-bd-eres:empty { display: none; }
 .lcc-bd-back { all: unset; display: none; box-sizing: border-box; align-items: center; min-height: 36px; margin: 4px 0 0; padding: 4px 2px; cursor: pointer; font: 700 12px/1.2 var(--lcc-sans); color: var(--lcc-gold-text); text-decoration: underline; text-underline-offset: 3px; }
 .lcc-bd-back:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 2px; }
 @media (max-width: 900px), (pointer: coarse) {
@@ -525,7 +521,6 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
   .lcc-bd-emblem-img { width: 34px; height: 34px; }
 }
 @media (forced-colors: active) {
-  .lcc-bd-eres { background: Canvas; border: 1px solid CanvasText; }
   .lcc-bd-back, .lcc-bd-disc > summary, .lcc-bd .lcc-bd-disc > summary, .lcc-bd .lcc-bd-disc[open] > summary { color: CanvasText; }
 }
 
