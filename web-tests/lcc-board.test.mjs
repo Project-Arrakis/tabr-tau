@@ -143,7 +143,7 @@ test('a card shows five numbered tier boxes and the line N/5 REACHED with the co
   assert.deepEqual(boxes.map((b) => text(b)), ['◆', '◆', '◆', '4', '5'], 'a waiting reward is a diamond, a tier not reached keeps its number');
   assert.deepEqual(boxes.map((b) => b.classList.contains('waiting')), [true, true, true, false, false]);
   assert.equal(text(w.querySelector('.lcc-hc-count')), '3/5 REACHED ✓ 0 ◆ 3');
-  assert.match(w.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /^Number 08, Wallach, claimed by Atreides, path Exploration, 3 of 5 tiers reached, 0 collected, 3 rewards waiting$/);
+  assert.match(w.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /^Number 08, Wallach, claimed by Atreides, path Exploration, 3 of 5 tiers reached, 0 collected, 3 rewards not collected$/);
 });
 
 test('the five tier boxes tell collected, waiting, delivery unknown and not reached apart, and delivery unknown is never read as collected', async () => {
@@ -289,7 +289,7 @@ test('the reward ledger tells waiting, collected and delivery unknown apart, and
   assert.match(i.querySelector('.lcc-bd-stats').getAttribute('aria-label'), /3 of 5 reached · 1 waiting to collect · 1 collected · 1 delivery unknown\./, 'the counts stay for a screen reader and as a tooltip');
   assert.match(text(i), /Delivery unknown.{1,20}means the tier is reached and the save has no delivery row/);
   const st = [...i.querySelectorAll('.lcc-bd-tier-st')].map((s) => text(s));
-  assert.deepEqual(st.slice(0, 3), ['Reached, collected', 'Reached, delivery unknown', 'Reached, waiting to collect']);
+  assert.deepEqual(st.slice(0, 3), ['Reached, collected', 'Reached, delivery unknown', 'Reached, not collected']);
 });
 
 test('the list: board order by default, sortable by every column both ways, grouped by region with the unmapped last', async () => {

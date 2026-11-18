@@ -153,7 +153,7 @@ test('the Actions block is first under the name, the notes are disclosures with 
   assert.match(text(ds[0]), /Each click is written at once with a backup first, and refused if this House is no longer as shown\./, 'the words are the ones that were drawn open before');
   assert.match(text(ds[3]), /^Important: three separate statesImportant: A House claimed by a faction/);
   assert.match(text(ds[1]), /Fill and Fill faction goal: Writes 6 missions/);
-  assert.match(text(ds[2]), /✓ Collected.*◆ Waiting at representative.*○ Not reached.*\? No delivery record/);
+  assert.match(text(ds[2]), /✓ Collected.*◆ Not collected.*○ Not reached.*\? No delivery record/);
   ds[2].open = true;
   ds[2].dispatchEvent(new ui.w.Event('toggle'));
   look(ui, a, 'Kenola');

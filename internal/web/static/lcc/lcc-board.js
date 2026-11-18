@@ -32,7 +32,7 @@
   // reward row says; a reached tier with no delivery record (or a record that disagrees with the contribution) is a question mark and is never counted as collected.
   const TIER_CLASS = Object.freeze({ delivered: 'delivered', waiting: 'waiting', no_row: 'uncertain', unknown: 'uncertain' });
   const TIER_MARK = Object.freeze({ delivered: '✓', waiting: '◆', no_row: '?', unknown: '?' });
-  const TIER_LABEL = Object.freeze({ not_reached: 'NOT REACHED', waiting: 'TO COLLECT', delivered: 'COLLECTED', no_row: 'NO DELIVERY RECORD', unknown: 'NO DELIVERY RECORD' });
+  const TIER_LABEL = Object.freeze({ not_reached: 'NOT REACHED', waiting: 'NOT COLLECTED', delivered: 'COLLECTED', no_row: 'NO DELIVERY RECORD', unknown: 'NO DELIVERY RECORD' });
   const tierKind = (t) => (t.reached ? (TIER_CLASS[t.state] ? t.state : 'unknown') : 'not_reached');
 
   // The view state. It lives here, not in the answer, so a redraw after a write keeps the filter, the layout and the House that was looked at.
@@ -209,7 +209,7 @@
     const r = board.rollup;
     const p = el('p', 'lcc-bd-totals');
     p.appendChild(el('b', '', 'Your rewards on this board: '));
-    p.appendChild(root.document.createTextNode((r.tiers ? r.reached + ' of ' + r.tiers + ' tiers reached' : 'tiers not known') + ' · ' + r.waiting + ' waiting to collect at the house representatives · ' + r.collected + ' collected · ' + r.unknownDelivery + ' reached with no delivery record · ' + fmt(r.mine) + ' contributed in all Houses.'));
+    p.appendChild(root.document.createTextNode((r.tiers ? r.reached + ' of ' + r.tiers + ' tiers reached' : 'tiers not known') + ' · ' + r.waiting + ' not collected (waiting at the house representatives) · ' + r.collected + ' collected · ' + r.unknownDelivery + ' reached with no delivery record · ' + fmt(r.mine) + ' contributed in all Houses.'));
     return p;
   }
 
@@ -273,7 +273,7 @@
     if ((inLine || dom) && wonTag) sel.appendChild(el('span', 'lcc-flag lcc-flag-win lcc-hc-badge', wonTag));
     if (route && !inLine) sel.appendChild(el('span', 'lcc-flag lcc-flag-route lcc-hc-badge', route.badge));
     const notes = [];
-    if (h.waiting > 0) notes.push(h.waiting + ' reward' + (h.waiting === 1 ? '' : 's') + ' waiting');
+    if (h.waiting > 0) notes.push(h.waiting + ' reward' + (h.waiting === 1 ? '' : 's') + ' not collected');
     sel.setAttribute('aria-label', [(h.number ? 'Number ' + h.number + ', ' : '') + h.name + ', ' + (owner === 'a' || owner === 'h' ? 'claimed by ' + OWNER_WORD[owner] : owner === 'open' ? 'open' : 'owner unreadable')].concat(h.track ? ['path ' + trackWord(h.track)] : ['specialization not in the save'], h.takenNoTiers ? ['taken, no tier record in the save'] : h.takenNoMine ? ['taken, no contribution of yours in the save, so none of your tiers is reached'] : h.tierCount ? [h.reached + ' of ' + h.tierCount + ' tiers reached', h.collected + ' collected'] : ['no tiers in the save'], notes, h.unknownDelivery ? [h.unknownDelivery + ' with no delivery record'] : [], inLine ? ['part of a line of five held by ' + FACTION_WORD[h.owner] + ': ' + listWords(lines.map(lineWord)), winSays] : [], dom ? ['one of the 13 or more Houses of ' + FACTION_WORD[major], winSays] : [], route ? [route.say] : [], dim ? ['not in the current filter'] : []).join(', '));
     sel.setAttribute('title', 'House ' + h.name + ', ' + (h.pos ? h.pos.words + '. ' : '') + (route ? route.say + '. ' : '') + (inLine ? lineSays + '. ' + winSays + ' ' : '') + (dom ? 'One of the ' + FACTION_WORD[major] + ' Houses, who hold 13 or more Houses. ' + winSays + ' ' : '') + (takenWhy(h) ? takenWhy(h) + ' ' : '') + 'Click to see its tiers and actions.');
     card.appendChild(sel);
@@ -290,7 +290,7 @@
       sp();
       count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-ok', '✓ ' + h.collected, { title: h.collected + ' collected' }));
       sp();
-      count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-wait', '◆ ' + h.waiting, { title: h.waiting + ' waiting at the representative' }));
+      count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-wait', '◆ ' + h.waiting, { title: h.waiting + ' not collected (waiting at the representative)' }));
       if (h.unknownDelivery) { sp(); count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-unk', '? ' + h.unknownDelivery, { title: h.unknownDelivery + ' reached with no delivery record: not counted as collected or waiting' })); }
     } else count.appendChild(el('b', '', 'NO TIERS IN THE SAVE'));
     card.appendChild(count);
@@ -328,7 +328,7 @@
   // ---- the list ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const COLS = [
     { k: 'position', t: 'No.', sort: 'position' }, { k: 'house', t: 'House', sort: 'house' }, { k: 'owner', t: 'Owner', sort: 'status' }, { k: 'path', t: 'Path' },
-    { k: 'location', t: 'Location', sort: 'location' }, { k: 'state', t: 'Your progress', sort: 'state' }, { k: 'tiers', t: 'Tiers', sort: 'tiers' }, { k: 'next', t: 'Next tier', sort: 'next' }, { k: 'waiting', t: 'Waiting' },
+    { k: 'location', t: 'Location', sort: 'location' }, { k: 'state', t: 'Your progress', sort: 'state' }, { k: 'tiers', t: 'Tiers', sort: 'tiers' }, { k: 'next', t: 'Next tier', sort: 'next' }, { k: 'waiting', t: 'Not collected' },
   ];
   function locCell(h) {
     const td = el('td', 'lcc-bd-loc');
@@ -554,7 +554,7 @@
     n.appendChild(el('strong', '', 'Important:'));
     n.appendChild(root.document.createTextNode(' A House claimed by a faction, a personal reward tier reached, and a reward collected are '));
     n.appendChild(el('em', '', 'three separate states'));
-    n.appendChild(root.document.createTextNode('. Thresholds and reward records are read from the save; a tier with no delivery record is never counted as collected or waiting.'));
+    n.appendChild(root.document.createTextNode('. Thresholds and reward records are read from the save; a tier with no delivery record is counted as neither collected nor not collected.'));
     return n;
   }
   // The actions block. Presentation only: every button is the same control as before (data-lb="qa", same ids and keys), the faction box drives the board's own faction box, and
@@ -685,16 +685,16 @@
     lh.appendChild(secHead('PERSONAL REWARD LEDGER', 'lcc-bd-s3', 'SAVE + DERIVED'));
     lh.appendChild(el('span', 'lcc-bd-ledger-n', h.takenNoTiers ? 'TAKEN · NO TIER RECORD IN THE SAVE' : h.takenNoMine ? 'TAKEN · NO CONTRIBUTION OF YOURS' : h.reached + ' OF ' + h.tierCount + ' REACHED', takenWhy(h) ? { title: takenWhy(h) } : undefined));
     s3.appendChild(lh);
-    const sumSaid = h.reached + ' of ' + h.tierCount + ' reached · ' + h.waiting + ' waiting to collect · ' + h.collected + ' collected · ' + h.unknownDelivery + ' delivery unknown.';
+    const sumSaid = h.reached + ' of ' + h.tierCount + ' reached · ' + h.collected + ' collected · ' + h.waiting + ' not collected (waiting at the house representative) · ' + h.unknownDelivery + ' delivery unknown · ' + h.notReached + ' not reached.';
     const sum = el('div', 'lcc-bd-stats', '', { role: 'group', 'aria-label': 'House rewards summary: ' + sumSaid, title: sumSaid });
     const stat = (cls, v, l) => { const d = el('div', 'lcc-bd-stat' + (cls ? ' ' + cls : '')); d.appendChild(el('strong', '', v)); d.appendChild(el('span', '', l)); return d; };
     sum.appendChild(stat('', h.reached + '/' + h.tierCount, 'Tiers reached'));
     sum.appendChild(stat('ok', String(h.collected), 'Collected'));
-    sum.appendChild(stat('wait', String(h.waiting), 'To collect'));
+    sum.appendChild(stat('wait', String(h.waiting), 'Not collected'));
     sum.appendChild(stat('rest', String(h.notReached), 'Not reached'));
     if (h.takenNoTiers || h.takenNoMine) s3.appendChild(el('p', 'lcc-bd-mut lcc-bd-taken-note', takenWhy(h)));
     else s3.appendChild(sum);
-    if (h.unknownDelivery) s3.appendChild(el('p', 'lcc-bd-alert', '“Delivery unknown” means the tier is reached and the save has no delivery row for it this term: it is not shown as collected or waiting.'));
+    if (h.unknownDelivery) s3.appendChild(el('p', 'lcc-bd-alert', '“Delivery unknown” means the tier is reached and the save has no delivery row for it this term: it is not counted as collected or as not collected.'));
     const heading = el('div', 'lcc-bd-tier-heading', '', { 'aria-hidden': 'true' });
     for (const t of ['TIER & THRESHOLD', 'REWARD', 'STATE']) heading.appendChild(el('span', '', t));
     s3.appendChild(heading);
@@ -730,7 +730,7 @@
     if (!h.tiersOrdered && h.tiers.length) s3.appendChild(el('p', 'lcc-bd-warn', 'The tier amounts are not in rising order in the save; the reached count is taken as the save states it.'));
     if (c && c.caption) s3.appendChild(disc('caption', 'About Fill and the tiers', el('p', 'lcc-bd-cap', c.caption)));
     const lg = el('div', 'lcc-bd-legend');
-    for (const t of ['✓ Collected', '◆ Waiting at representative', '○ Not reached', '? No delivery record']) lg.appendChild(el('span', '', t));
+    for (const t of ['✓ Collected', '◆ Not collected', '○ Not reached', '? No delivery record']) lg.appendChild(el('span', '', t));
     s3.appendChild(disc('legend', 'What the marks mean', lg));
     side.appendChild(s3);
     side.appendChild(disc('note', 'Important: three separate states', importantNote()));

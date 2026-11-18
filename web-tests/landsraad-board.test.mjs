@@ -144,7 +144,7 @@ test('a tier says what it gives, by the game’s name, and where it stands: not 
   const wayku = ui.doc.querySelector('#lsrow-903');
   const t = [...wayku.querySelectorAll('.tiers .tc')];
   assert.equal(t.length, 5);
-  assert.deepEqual(t.map((x) => text(x.querySelector('.pl'))), ['Delivered', 'Delivered', 'Waiting to collect', 'Waiting to collect', 'Waiting to collect']);
+  assert.deepEqual(t.map((x) => text(x.querySelector('.pl'))), ['Collected', 'Collected', 'Not collected', 'Not collected', 'Not collected']);
   assert.ok(text(t[0].querySelector('.rw')).startsWith('10,000 '), text(t[0].querySelector('.rw')));
   assert.ok(t[0].title.includes('Game id: SolarisCoin'), 'the internal id is only in the tooltip');
   assert.ok(!text(t[0]).includes('SolarisCoin'));
@@ -182,7 +182,7 @@ test('the house name card names the next reward, what waits, the faction race an
   const ui = await open();
   const hw = ui.doc.querySelector('#lsrow-903 .hw');
   const card = text(hw.querySelector('.hcard'));
-  assert.ok(card.includes('Waiting to collect') && card.includes('Faction race') && card.includes('Atreides 4,000 of 4,000') && card.includes('Finished by Atreides'), card);
+  assert.ok(card.includes('Not collected') && card.includes('Faction race') && card.includes('Atreides 4,000 of 4,000') && card.includes('Finished by Atreides'), card);
   assert.ok(text(hw.querySelector('.hcard')).includes('top tier reached'));
   click(ui, '#lsrow-903 .hn');
   assert.ok(hw.classList.contains('open'));
@@ -200,7 +200,7 @@ test('the house name card lists each waiting reward on its own line, and says so
   const ui = await open(data);
   const waitingOf = (id) => {
     const dts = [...ui.doc.querySelectorAll('#lsrow-' + id + ' .hcard dt')];
-    return dts.find((d) => text(d) === 'Waiting to collect').nextElementSibling;
+    return dts.find((d) => text(d) === 'Not collected').nextElementSibling;
   };
   const dd = waitingOf(903);
   const lines = [...dd.querySelectorAll('.hrw')];
