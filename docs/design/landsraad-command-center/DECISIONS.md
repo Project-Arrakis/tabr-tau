@@ -97,3 +97,11 @@ Decided by the operator on 2026-11-18 (issues #929, #926, #931), superseding the
 7. The "TERM STATUS" figure of the four-figures row is left as it was; that row is being removed in a separate change.
 
 Code: one pure function, WIN.decide, and a frozen table, WIN.TEXT, in internal/web/static/lcc/lcc-model.js; no surface builds its own phrase (a test reads the sources to prove it).
+
+## I. Decision (2026-11-18): Sysselraad Strategy and the Clear highlight button are removed (#958)
+
+Decided by the operator on 2026-11-18, superseding the Strategy view of M6 and row H4 of the M3 matrix. Display only: nothing is written and no request changes.
+
+1. **Removed:** the Sysselraad Strategy button, the "Twelve lines" panel, its order switch, its chosen-line footer and Jump to missing House, the violet preview outline and its words (ONE AWAY, POTENTIAL, BLOCKED, UNREADABLE, MISSING on a card), the PREVIEW LINE legend entry, the Escape handling for a chosen line, and the Clear highlight button (it only let go of the House being looked at; the win outlines stayed).
+2. **Kept:** choosing another House, choosing the same House again, and Escape still move or drop the selection. The twelve-line check of lcc-model.js stays, because the gold win outline of the five Houses of a held line, the plaque and the victory panel are worked out from it. The request goldens are unchanged.
+3. The words of section H are unchanged; the badge of a held line in the list (WIN.heldBadge) went with the list.

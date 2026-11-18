@@ -71,7 +71,7 @@ The row "After the follow-up of the final check" moves four rows: S9 and S10 (th
 | H1 | Eyebrow THE GREAT HOUSES, heading "The Landsraad", subline | differs | matches | Subline reads "Term 7 · Fixed 5 × 5 board · game positions read from board_index" (the term is real). |
 | H2 | Specialization filter chooser | differs | matches | All specializations, then the five paths; same dimming as before. |
 | H3 | Grid / List switch | matches | matches | Kept. |
-| H4 | Clear highlight button | missing | matches | Clears the looked-at House. Line highlights come with M4 (the button says so). |
+| H4 | Clear highlight button | missing | removed on purpose (2026-11-18, #958) | The button only let go of the House being looked at; the win outlines stayed, so it did nothing useful. Choosing another House, choosing the same House again or Escape already moves or drops the selection. |
 | H5 | SHOW chips: All, Not started, In progress, Top tier | differs | differs | Ours has one more chip, "What is left", kept from the classic list. Not removed: it is a working filter. |
 | H6 | HOUSE chips: Any, Open, Claimed | differs | matches | The third chip was called "Taken"; it is "Claimed" as in the prototype. |
 | H7 | JUMP TO HOUSE chooser on the same row | differs | differs | It wraps to a second row at 1280 px because the board column inside the app is narrower than the prototype's; "25 of 25 Houses shown" is an extra status line for screen readers. |
@@ -121,7 +121,7 @@ The row "After the follow-up of the final check" moves four rows: S9 and S10 (th
 | Row | Approved element | Before | Now | What was done, or why not |
 |---|---|---|---|---|
 | O1 | Specializations tab | not built | not built | Milestone M5. |
-| O2 | Sysselraad Strategy tab and the line check | not built | not built | Milestone M6 (and M4 for the lines). |
+| O2 | Sysselraad Strategy tab and the line check | not built | removed on purpose (2026-11-18, #958) | Built in M6, then removed at the operator's request: the Strategy button, the list of twelve lines and the violet preview. The line check itself stays, because the win outline and the plaque are worked out from it. |
 | O3 | Footer line of the prototype | not built | not built | Prototype-only chrome. |
 
 ## Display audit findings N1 to N15 (display remediation A)
@@ -190,7 +190,7 @@ Rows below supersede the earlier rows named in the last column for the cases whe
 | M4-5 | Legend | four keys | adds one key, WINNING HOUSES · SYSSELRAAD WON (2026-11-18; the keys read VICTORY LINE and MAJORITY HOUSE · COUNT NOT VERIFIED) | H8 |
 | M4-6 | Imperial Victory Analysis | SYSSELRAAD SECURED, IMPERIAL DOMINION | states from one winner function (2026-11-18, DECISIONS section H): SYSSELRAAD WON with the faction, its crest and the how-line (BY FIVE IN A LINE, BY 13 HOUSES), SYSSELRAAD CONTESTED with the count line and no icon, SYSSELRAAD UNDECIDABLE, count unavailable. No Dominion wording, no explanatory paragraph, no folded list of twelve lines. Until then it had five honest states with "IMPERIAL DOMINION NOT VERIFIED" and no word of won | S1, P4, P6, P7 |
 | M4-7 | House-count comparison | none | "Atreides ahead 15 to 3, not verified", or incomplete | |
-| M4-8 | The twelve lines | Strategy tab with click-through | a folded plain list, one sentence per line, no selection or preview | O2 (M6 remains) |
+| M4-8 | The twelve lines | Strategy tab with click-through | not shown as a list (the Strategy list was removed on 2026-11-18, #958); the lines are still checked, and a held line gives the win outline and the words of the plaque | O2 |
 | M4-9 | Moving border | optional | only with Motion Full and no reduced-motion request; Calm, Off, reduced motion and forced colours show the still outline | |
 | M4-10 | Forced colours | not specified | a winning House: 5 px double border and 3 px outline in CanvasText (one outline since 2026-11-18); panel double border; no sweep | |
 | M4-11 | Text size | | no text under 11 px, names and key labels 12 px or more, no sideways scroll at 1280, 390 and 320 | |

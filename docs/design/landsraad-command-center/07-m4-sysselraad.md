@@ -67,7 +67,7 @@ The evaluator is checked against all 40 board cases of M1 (`fixtures/board-victo
 
 * The prototype joins the five Houses of a line with a drawn route through their centres. This milestone draws the animated border round each House instead (the choice of the project owner for the winning treatment); there is no route between the Houses, and so no measured geometry, no resize observer and nothing that can cover a button. The five Houses are told apart from a faction's majority by the outline, the badge text and the words, not by a route. Adding a route would be a separate decision.
 * The prototype names the badges VICTORY LINE and DOMINION; the board says LINE OF FIVE and MAJORITY HOUSE (the legend keeps the prototype's VICTORY LINE with a tip that says what it is), because the save cannot say a vote was won.
-* The package's Strategy Mode (a list of the lines to click, a jump to the missing House, a violet preview) is not part of this milestone; the folded list of twelve lines is plain text and does not select or highlight anything.
+* The package's Strategy Mode (a list of the lines to click, a jump to the missing House, a violet preview) was not part of this milestone, was built in M6, and was removed again on 2026-11-18 (#958, DECISIONS.md section I). The twelve lines are still checked; only the list and the preview are gone.
 * The prototype's "SYSSELRAAD SECURED" and "IMPERIAL DOMINION" headline for a majority is not used: no state says secured or won.
 
 ## 6. Tests

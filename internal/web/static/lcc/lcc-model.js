@@ -387,8 +387,6 @@
   }
   // tag: the tag of a House card that belongs to a line the winner holds (held-line cards only; the Houses of a 13-House win carry the gold outline and no tag, since they form no line)
   function tag(d) { return d.state === 'won' ? WIN_TEXT.won : ''; }
-  // heldBadge: the badge of a held line in a list of the lines: the won phrase when the winner is settled, the undecidable phrase when both factions qualify
-  function heldBadge(d) { return d.state === 'won' ? WIN_TEXT.won : WIN_TEXT.undecidable; }
   // say: one sentence for a screen reader and a tooltip
   function say(d) {
     if (d.state === 'won') return 'Sysselraad won by ' + FACTION_NAME[d.winner] + ', by ' + d.reason + '. ' + WIN_TEXT.facts;
@@ -397,7 +395,7 @@
     if (d.why === 'unreadable') return 'Sysselraad undecidable: ' + d.counts.unknown + (d.counts.unknown === 1 ? ' House' : ' Houses') + ' could not be read.';
     return 'Sysselraad undecidable: the board could not be checked.';
   }
-  const WIN = Object.freeze({ TEXT: WIN_TEXT, decide, decideCounts, headline, how, who, tally, standing, tag, heldBadge, say, factionName: FACTION_NAME });
+  const WIN = Object.freeze({ TEXT: WIN_TEXT, decide, decideCounts, headline, how, who, tally, standing, tag, say, factionName: FACTION_NAME });
 
   // ---- filters, sort, groups -----------------------------------------------------------------------------------------------------------------------------------------------
   const SHOWS = Object.freeze([['all', 'All'], ['left', 'What is left'], ['new', 'Not started'], ['part', 'In progress'], ['done', 'Top tier']]);
