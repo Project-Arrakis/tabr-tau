@@ -1913,6 +1913,13 @@ function lbItem(h, l, kind, F, i) {
   }
   if ((kind === 'fill' || kind === 'fillgoal') && !lbFillOffF(h, l, F)) it.mine_to = lbTop(h); // Fill is off at the top tier, so this never lowers
   if (it.mine_to !== undefined && typeof h.task.my_events === 'number') it.was_events = h.task.my_events; // the ground your own events cover, as shown: the server refuses the raise when it is another number now (#762)
+  // a raise also carries the two other grounds its sentence was worked out from, as shown: what the editor itself paid before (and the ground whose reward rows are delivered), and what you reached
+  // under another faction; the server refuses the raise when either is another number now (#805). A removal does not depend on them.
+  if (it.mine_to !== undefined && !it.lower) {
+    if (typeof h.task.my_paid === 'number') it.was_paid = h.task.my_paid;
+    if (typeof h.task.my_paid_rows === 'number') it.was_paid_rows = h.task.my_paid_rows;
+    if (typeof h.task.my_elsewhere === 'number') it.was_elsewhere = h.task.my_elsewhere;
+  }
   if ((kind === 'complete' || kind === 'fillgoal') && !lbDoneFor(h, F)) it.complete_for = F;
   if (kind === 'reopen' && h.taken) it.reopen = true;
   return it.mine_to !== undefined || it.complete_for !== undefined || it.reopen ? it : null;

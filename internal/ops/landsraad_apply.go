@@ -25,8 +25,8 @@ import (
 // Fill is mine_to = the top tier; Fill faction goal is mine_to = the top tier and complete_for = the faction; Complete is complete_for; Reopen is reopen; a tier click is
 // mine_to = that tier's threshold, and the removal of the highest tier is mine_to = the tier below it, or 0, with lower: true.
 //
-// Before anything is written the term and every house are compared with what the page showed (was_mine, was_done, was_win); a difference is a conflict and nothing is
-// written. It is one edit: either every house is done or none is. A contribution that is raised also grants what the missions it stands for grant (landsraad_grant.go): the faction's share and the completion it brings, the reward rows of the tiers the character's own events had not crossed, the wallets and the specialization XP; one transaction, so a failure at any step leaves nothing behind.
+// Before anything is written the term and every house are compared with what the page showed (was_mine, was_done, was_win, and for a raise was_events, was_paid, was_paid_rows and was_elsewhere:
+// the grounds its sentence was worked out from, each compared only when sent, #762 #805); a difference is a conflict and nothing is written. It is one edit: either every house is done or none is. A contribution that is raised also grants what the missions it stands for grant (landsraad_grant.go): the faction's share and the completion it brings, the reward rows of the tiers the character's own events had not crossed, the wallets and the specialization XP; one transaction, so a failure at any step leaves nothing behind.
 
 type applyItem struct {
 	task        int64
@@ -39,6 +39,22 @@ type applyItem struct {
 	reopen      bool
 	stateShown  bool     // the page sent was_done or was_win: the state of the house is compared for every write, not only Complete and Reopen (#762)
 	wasEvents   *float64 // what the page showed as the ground the character's own events cover; compared when a contribution is raised (#762)
+	// what the page showed as the two other grounds a raise is worked out from (#805): what the editor itself paid before (missions, and the ground whose reward rows are delivered) and what
+	// the character reached under another faction. Each is compared when a contribution is raised and only when sent: a request without it is not refused.
+	wasPaid, wasPaidRows, wasElsewhere *float64
+}
+
+// optFloat reads a number that may be left out (or null): nil when it is not there.
+func optFloat(it Args, key string) (*float64, error) {
+	v, has := it[key]
+	if !has || v == nil {
+		return nil, nil
+	}
+	f, err := it.Float(key)
+	if err != nil {
+		return nil, err
+	}
+	return &f, nil
 }
 
 func parseApplyItems(a Args) ([]applyItem, error) {
@@ -84,12 +100,17 @@ func parseApplyItems(a Args) ([]applyItem, error) {
 		}
 		_, hasWin := it["was_win"]
 		r.stateShown = hasDone || hasWin
-		if v, has := it["was_events"]; has && v != nil {
-			e, err := it.Float("was_events")
-			if err != nil {
-				return nil, err
-			}
-			r.wasEvents = &e
+		if r.wasEvents, err = optFloat(it, "was_events"); err != nil {
+			return nil, err
+		}
+		if r.wasPaid, err = optFloat(it, "was_paid"); err != nil {
+			return nil, err
+		}
+		if r.wasPaidRows, err = optFloat(it, "was_paid_rows"); err != nil {
+			return nil, err
+		}
+		if r.wasElsewhere, err = optFloat(it, "was_elsewhere"); err != nil {
+			return nil, err
 		}
 		if _, has := it["mine_to"]; has {
 			v, err := it.Float("mine_to")
@@ -241,13 +262,40 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 					return apierr.New(apierr.ErrBadArgument, "mine_to is not a reward tier of the house")
 				}
 				// the ground the character's own events cover decides what a raise pays: a raise whose page showed another number would pay what the sentence before the click did not say (#762)
-				if it.wasEvents != nil && to > s.cur {
-					ev, err := eventsOf(m, me.player, it.task)
-					if err != nil {
-						return err
+				if to > s.cur {
+					if it.wasEvents != nil {
+						ev, err := eventsOf(m, me.player, it.task)
+						if err != nil {
+							return err
+						}
+						if math.Abs(ev-*it.wasEvents) > 1e-6 {
+							return apierr.Newf(apierr.ErrConflict, "your earlier progress on %v is not what you were shown, so nothing was changed. The board was read again; check it and click again", houseOf(t))
+						}
 					}
-					if math.Abs(ev-*it.wasEvents) > 1e-6 {
-						return apierr.Newf(apierr.ErrConflict, "your earlier progress on %v is not what you were shown, so nothing was changed. The board was read again; check it and click again", houseOf(t))
+					// the other two grounds the sentence before the click is worked out from (#805), read the way the raise reads them below
+					if it.wasElsewhere != nil {
+						el, err := otherFactionGround(m, me, it.task)
+						if err != nil {
+							return err
+						}
+						if math.Abs(el-*it.wasElsewhere) > 1e-6 {
+							return apierr.Newf(apierr.ErrConflict, "what you reached on %v under another faction is not what you were shown, so nothing was changed. The board was read again; check it and click again", houseOf(t))
+						}
+					}
+					if it.wasPaid != nil || it.wasPaidRows != nil {
+						if clock := clockOfTerm(m, termID); clock.ok { // a save with no record of the term is refused below, with its own reason
+							recordedNow, err := paidNow()
+							if err != nil {
+								return apierr.New(apierr.ErrWriteFailed, err.Error())
+							}
+							pg, err := paidGround(m, recordedNow, me, it.task, termID, fmt.Sprint(t["house_name"]), clock)
+							if err != nil {
+								return err
+							}
+							if (it.wasPaid != nil && math.Abs(pg.ground-*it.wasPaid) > 1e-6) || (it.wasPaidRows != nil && math.Abs(pg.rows-*it.wasPaidRows) > 1e-6) {
+								return apierr.Newf(apierr.ErrConflict, "the ground the editor paid before on %v is not what you were shown, so nothing was changed. The board was read again; check it and click again", houseOf(t))
+							}
+						}
 					}
 				}
 				if to > 0 {
