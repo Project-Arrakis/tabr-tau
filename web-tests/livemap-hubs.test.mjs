@@ -1,4 +1,4 @@
-// The Saved map opens the two social hubs, Arrakeen and Harko Village (#758): the map selector offers them, a hub with no picture is drawn as its outline and says so, a world position turns into
+// The Saved map opens the two social hubs, Arrakeen and Harko Village (#758): the map selector offers them, each has its picture (a map with none is drawn as its outline and says so), a world position turns into
 // the place on the hub's map the same way as on the other maps, and the Landsraad board's link from a House at a hub lands on that hub, centred on the House.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -7,9 +7,9 @@ import { boot, closeAll } from './boot.mjs';
 afterEach(closeAll);
 
 const HAGGA = { key: 'HaggaBasin', label: 'Hagga Basin', image: '/maps/hagga-basin.png', width: 4096, height: 4096, minX: -456752.21, maxX: 354547.46, minY: -450630.14, maxY: 353821.95 };
-// the hubs' configurations as the server gives them (internal/ops/livemap.go, hubMaps): no picture
-const ARRAKEEN = { key: 'Arrakeen', label: 'Arrakeen', image: '', width: 4096, height: 2342, minX: -27190, maxX: 17043.26, minY: -12790, maxY: 12501.58 };
-const HARKO = { key: 'HarkoVillage', label: 'Harko Village', image: '', width: 4096, height: 4096, minX: -24900, maxX: 34800, minY: -22360, maxY: 37340 };
+// the hubs' configurations as the server gives them (internal/ops/livemap.go, hubMaps): each with its picture
+const ARRAKEEN = { key: 'Arrakeen', label: 'Arrakeen', image: '/maps/arrakeen.png', width: 4096, height: 2342, minX: -27190, maxX: 17043.26, minY: -12790, maxY: 12501.58 };
+const HARKO = { key: 'HarkoVillage', label: 'Harko Village', image: '/maps/harko-village.png', width: 4096, height: 4096, minX: -24900, maxX: 34800, minY: -22360, maxY: 37340 };
 const MAPS = [{ key: 'HaggaBasin', label: 'Hagga Basin' }, { key: 'DeepDesert', label: 'The Deep Desert' }, { key: 'Arrakeen', label: 'Arrakeen' }, { key: 'HarkoVillage', label: 'Harko Village' }];
 const MAP = (config, extra) => ({ config, maps: MAPS, character: null, vehicles: [], bases: [], storage: [], resourceFields: [], markers: [], ...extra });
 const text = (el) => el.textContent.replace(/\s+/g, ' ').trim();
@@ -35,11 +35,14 @@ test('a click on a hub in the selector asks for that hub', async () => {
   assert.ok(ui.fetchedUrls.includes('/api/livemap?map=HarkoVillage'), ui.fetchedUrls.join(' '));
 });
 
-test('a hub with no picture says so and draws its outline; a map with a picture says nothing', async () => {
-  const hub = await openMap(MAP(HARKO));
-  assert.equal(text(hub.doc.querySelector('#lmnopic')), 'The editor has no picture of Harko Village yet, so its markers are drawn on the outline of the map.');
-  const plain = await openMap(MAP(HAGGA));
-  assert.equal(plain.doc.querySelector('#lmnopic'), null);
+test('a hub has its picture and says nothing; a map with no picture says so and draws its outline', async () => {
+  for (const cfg of [ARRAKEEN, HARKO]) {
+    const hub = await openMap(MAP(cfg));
+    assert.equal(hub.doc.querySelector('#lmnopic'), null, cfg.key);
+  }
+  // the page code still copes with a map the editor holds no picture of (a map added later without one)
+  const bare = await openMap(MAP({ ...HARKO, image: '' }));
+  assert.equal(text(bare.doc.querySelector('#lmnopic')), 'The editor has no picture of Harko Village yet, so its markers are drawn on the outline of the map.');
 });
 
 // The five House representatives of the hubs, the table's positions (internal/ops/landsraad_fixed_places.go) and the pixel of the map space each is at (printed by internal/ops

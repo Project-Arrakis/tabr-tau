@@ -44,7 +44,7 @@ func TestEveryEmbeddedAssetIsServedWithItsOwnBytes(t *testing.T) {
 	if served < 25 { // app.js, html.js, livemap.js, app.css, the two maps and the icons
 		t.Fatalf("only %d embedded assets found", served)
 	}
-	for _, must := range []string{"/app.js", "/html.js", "/livemap.js", "/app.css", "/favicon.svg", "/maps/hagga-basin.png", "/maps/deep-desert.png"} {
+	for _, must := range []string{"/app.js", "/html.js", "/livemap.js", "/app.css", "/favicon.svg", "/maps/hagga-basin.png", "/maps/deep-desert.png", "/maps/arrakeen.png", "/maps/harko-village.png"} {
 		if w := do(t, s, "GET", "http://127.0.0.1"+must, loop, hdr, nil); w.Code != 200 {
 			t.Errorf("%s: %d; the page cannot start without it", must, w.Code)
 		}

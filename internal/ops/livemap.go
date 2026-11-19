@@ -33,15 +33,15 @@ var liveMaps = []mapConfig{
 // hubMaps are the social hubs the Saved map can open besides the two maps of liveMaps (#758): they are for looking at the save (the markers of the hub, the house representatives that stand there), never a
 // place the editor moves the character to, so travel (teleport.go) keeps reading liveMaps and its two maps only.
 //
-// The frames are the ones of the hub pictures the owner of the project holds as private files (Arrakeen: x -27190 to 17043.26, y -12790 to 12501.58, a picture of 4096 x 2342 at 10.8 centimetres to the pixel
-// in both directions, not turned; Harko Village: x -24900 to 34800, y -22360 to 37340, a square of 4096 pixels, not turned; the same formula as the other maps, no flip). No picture is shipped with the editor yet
-// (Image is empty: the Saved map draws the frame as a plain grid and says so), because the only pictures known to fit these frames are a third party's map tiles, which the owner has not cleared for
-// redistribution (docs/art-notice.md). When a picture that may be shipped exists, it goes in internal/web/static/maps/ and its path in Image, and the notice and the art manifest list it (the tests of
-// internal/web keep the three in step). The Harko Village frame was fitted by eye on the lit rooms of its picture, so a position on it is right to about a room, not to the centimetre.
+// The frames are the verified ones of the two hub pictures (Arrakeen: x -27190 to 17043.26, y -12790 to 12501.58, a picture of 4096 x 2342 map units at 10.8 centimetres to the pixel in both directions,
+// not turned; Harko Village: x -24900 to 34800, y -22360 to 37340, a square of 4096 pixels, not turned; the same formula as the other maps, no flip). The pictures are the map tiles of the gaming.tools
+// companion app, shipped on the project owner's decision (docs/art-notice.md says so, and the art manifest lists each with its source, size and hash; the tests of internal/web keep the three in step).
+// Each file is scaled down from the 4096-pixel original, and the page scales it to the map space of Width x Height. The Harko Village frame was fitted by eye on the lit rooms of its picture, so a
+// position on it is right to about a room, not to the centimetre.
 var hubMaps = []mapConfig{
-	{Key: "Arrakeen", Label: "Arrakeen", Image: "", Width: 4096, Height: 2342,
+	{Key: "Arrakeen", Label: "Arrakeen", Image: "/maps/arrakeen.png", Width: 4096, Height: 2342,
 		MinX: -27190, MaxX: 17043.26, MinY: -12790, MaxY: 12501.58},
-	{Key: "HarkoVillage", Label: "Harko Village", Image: "", Width: 4096, Height: 4096,
+	{Key: "HarkoVillage", Label: "Harko Village", Image: "/maps/harko-village.png", Width: 4096, Height: 4096,
 		MinX: -24900, MaxX: 34800, MinY: -22360, MaxY: 37340},
 }
 
