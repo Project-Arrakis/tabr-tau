@@ -47,7 +47,7 @@ A tier with no delivery record is counted as neither collected nor not collected
 
 ## The plaque and the victory panel
 
-The plaque above the board shows the active decree of the term and the biggest contributors under each faction, by name only: the banner shows no amounts. The contributors are worked out by the editor from the amounts in the save: the save holds the amounts, not a ranking. A contributor is shown by the name of its guild, written from the identifier the save gives (the save holds no display name, so the editor adds the capital letters). A contributor the save gives no name or guild for is shown as "Unnamed contributor"; its number in the save is in the mouse-over text.
+The plaque above the board shows the active decree of the term and the biggest contributors under each faction, by name only, with the rank numbers 1. to 5. before the names (the biggest first; the number is the place in the order, up to five names): the banner shows no amounts. The contributors are worked out by the editor from the amounts in the save: the save holds the amounts, not a ranking. A contributor is shown by the name of its guild, written from the identifier the save gives (the save holds no display name, so the editor adds the capital letters). A contributor the save gives no name or guild for is shown as "Unnamed contributor"; its number in the save is in the mouse-over text.
 
 The victory panel says whether a faction has won, by 13 Houses or by five in a line. Its headline carries the House count once (the plaque above shows the same figures), and a line under it says how many lines of five each faction can still make. The game works the winner out from the Houses, and so does the editor.
 

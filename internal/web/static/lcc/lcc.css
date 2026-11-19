@@ -102,10 +102,11 @@
 .lcc-standard-mark { display: block; margin: 0 auto 6px; line-height: 0; text-align: center; }  /* the faction crest picture (white); a forced-colours view draws two plain shapes instead (see the forced-colours block) */
 .lcc-standard-img { width: 44px; height: 44px; }
 .lcc-standard-h { margin: 0 0 8px; font: 700 11px/1.2 var(--t-display, sans-serif); letter-spacing: .12em; color: #ffd98a; }
-.lcc-standard-list { list-style: none; margin: 0 auto; padding: 0; width: fit-content; max-width: 100%; font: 500 13px/1.5 var(--t-body, sans-serif); text-align: left; }
-.lcc-standard-list > li { display: block; }
-.lcc-standard-list > li + li { margin-top: .25em; }  /* with no number, a short gap is what tells where one entry ends and the next begins when a long name wraps */  /* no rank number is drawn (#992): a line is the name only (the amount of #972 is gone, #1043), a long name wraps instead of being cut, and the order is still the biggest first */
-.lcc-standard-name { overflow-wrap: anywhere; }  /* a long name wraps here (it is text from a save), in both layouts: no name is cut off, the full name is also its mouse-over text */
+.lcc-standard-list { list-style: none; counter-reset: lcc-n; margin: 0 auto; padding: 0; width: fit-content; max-width: 100%; font: 500 13px/1.5 var(--t-body, sans-serif); text-align: left; }
+.lcc-standard-list > li { display: flex; align-items: baseline; counter-increment: lcc-n; }  /* the rank number is a column of its own beside the name (#1066, restoring what #992 removed, by the operator's decision): a long unbroken name breaks inside its own column and a wrapped line goes under the name, so the number never leaves its name */
+.lcc-standard-list > li::before { content: counter(lcc-n) '.'; flex: none; width: 1.5em; color: #ffd98a; font-variant-numeric: tabular-nums; }  /* the number is a CSS counter on the ordered list, 1. to 5., at the size of the name (12 px or more); the amount of #972 is gone (#1043) */
+.lcc-standard-list > li + li { margin-top: .25em; }  /* a short gap tells where one entry ends and the next begins when a long name wraps */
+.lcc-standard-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }  /* a long name wraps here (it is text from a save), in both layouts: no name is cut off, the full name is also its mouse-over text */
 .lcc-standard-none { margin: 0; font: italic 500 13px/1.4 var(--t-body, sans-serif); color: var(--lcc-cream); }
 /* the reachable tooltip */
 .lcc-tt { position: relative; display: inline-block; }
@@ -316,7 +317,7 @@ html[data-motion="calm"] .lcc [data-victory], html[data-motion="off"] .lcc [data
 @media (forced-colors: active) {
   .lcc-art { display: none; }
   .lcc-plaque { background: Canvas; color: CanvasText; border: 2px solid CanvasText; clip-path: none; box-shadow: none; }
-  .lcc-pl-decree-l, .lcc-pl-title, .lcc-pl-effect, .lcc-pl-held .lcc-heldby-l, .lcc-pl-held .lcc-heldby-n, .lcc-pl-session, .lcc-pl-count, .lcc-pl-standing, .lcc-standard-h, .lcc-standard-none, .lcc-standard-list { color: CanvasText; text-shadow: none; }
+  .lcc-pl-decree-l, .lcc-pl-title, .lcc-pl-effect, .lcc-pl-held .lcc-heldby-l, .lcc-pl-held .lcc-heldby-n, .lcc-pl-session, .lcc-pl-count, .lcc-pl-standing, .lcc-standard-h, .lcc-standard-none, .lcc-standard-list, .lcc-standard-list > li::before { color: CanvasText; text-shadow: none; }
   .lcc-pill, .lcc-pl-nameplate { background: Canvas; color: CanvasText; border: 1px solid CanvasText; clip-path: none; text-shadow: none; }
   .lcc-track-svg path:not(.lcc-seat-mark) { fill: Canvas; stroke: CanvasText; }
   .lcc-seat-base { fill: Canvas; stroke: CanvasText; stroke-width: 2.5; }

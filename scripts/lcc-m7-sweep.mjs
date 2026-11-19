@@ -153,6 +153,19 @@ const MEASURE = `(() => {
     if (!inside && !away) cutEntries.push((li.textContent || '').trim().slice(0, 30));
     else if (inside && ar && (ar.right > o.right + 1 || ar.left < o.left - 1)) cutEntries.push('amount: ' + (li.textContent || '').trim().slice(0, 30));
   }
+  // the rank numeral of each shown line of a banner (#1066): the drawn text is 1. 2. 3. ..., at the size of the name (12 px or more), and the name starts on the same line as its numeral
+  const numeralProblems = [];
+  for (const ol of document.querySelectorAll('#lsb-lcc .lcc-standard-list')) {
+    const o = ol.getBoundingClientRect();
+    [...ol.children].forEach((li, i) => {
+      const r = li.getBoundingClientRect(); if (r.left >= o.right - 1 || r.top >= o.bottom - 1) return; // out of sight in the second column: not drawn
+      const b = getComputedStyle(li, '::before'), n = li.querySelector('.lcc-standard-name'), nr = n && n.getClientRects()[0];
+      const own = getComputedStyle(li), counted = own.counterIncrement.replace(/ 1$/, '') === 'lcc-n' && getComputedStyle(ol).counterReset.replace(/ 0$/, '') === 'lcc-n';
+      if (b.content !== 'counter(lcc-n) "."' || !counted) numeralProblems.push((i + 1) + ': drawn as ' + b.content + ' (counter ' + own.counterIncrement + ' / ' + getComputedStyle(ol).counterReset + ')');
+      else if (b.display === 'none' || b.visibility === 'hidden' || parseFloat(b.fontSize) < 12) numeralProblems.push((i + 1) + ': hidden or under 12 px (' + b.fontSize + ')');
+      else if (!nr || Math.abs(nr.top - r.top) > 4) numeralProblems.push((i + 1) + ': the name does not start beside its numeral ' + (nr ? Math.round(nr.top - r.top) + ' / ' + Math.round(nr.left - r.left) : 'no box'));
+    });
+  }
   const standardsShown = [...document.querySelectorAll('#lsb-lcc .lcc-standard-list')].map((ol) => { const o = ol.getBoundingClientRect(); return [...ol.children].filter((li) => li.getBoundingClientRect().left < o.right - 1).length; });
   const trk = document.querySelector('#lsb-lcc .lcc-track'); const tr = trk && trk.getBoundingClientRect();
   const seatsInTrack = tr ? [...document.querySelectorAll('#lsb-lcc .lcc-seat')].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.left >= tr.left - 1 && r.right <= tr.right + 1 && r.top >= tr.top - 1 && r.bottom <= tr.bottom + 1; }).length : null;
@@ -162,7 +175,7 @@ const MEASURE = `(() => {
   const count = (sel) => document.querySelectorAll(sel).length;
   return {
     innerWidth, scrollWidth: document.documentElement.scrollWidth, roots: roots.map((r) => r.id), textNodes: nodes.n,
-    small, tiny: tiny.slice(0, 8), between, selected, targets, tierOverlap, tierGapMin, clipped: clipped.slice(0, 12), over: over.slice(0, 8), cutEntries, standardsShown,
+    small, tiny: tiny.slice(0, 8), between, selected, targets, tierOverlap, tierGapMin, clipped: clipped.slice(0, 12), over: over.slice(0, 8), cutEntries, numeralProblems, standardsShown,
     seatsInTrack, firstHouseTop: (() => { const h = document.querySelector('#lsb-lcc .lcc-hc'); return h ? Math.round(h.getBoundingClientRect().top + scrollY) : null; })(), // how far down the page the first House starts (#933)
     layout: (() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { top: Math.round(b.top + scrollY), h: Math.round(b.height) }; }; return { plaque: r('#lsb-lcc .lcc-plaque'), term: r('#lcc-term'), grid: r('#lsb-lcc .lcc-bd-grid'), termOpen: !!(document.querySelector('#lcc-tm-all') || {}).open }; })(),
     houses: count('#lsb-lcc [data-fk^="ht:"]'), seats: count('#lsb-lcc .lcc-seat'), centerSeats: count('#lsb-lcc .lcc-seat-center'), lanes: count('#lcs-root [data-lcs-lane]'),
@@ -225,13 +238,14 @@ async function main() {
       const floorPx = floor;
       const smallBySel = {};
       for (const t of m.targets) if (t.h < floorPx || t.w < 24) { const k = (smallBySel[t.at] ||= { n: 0, minW: 999, minH: 999 }); k.n++; k.minW = Math.min(k.minW, t.w); k.minH = Math.min(k.minH, t.h); }
-      Object.assign(row, { innerWidth: m.innerWidth, pageWiderBy: Math.max(0, m.scrollWidth - m.innerWidth), textNodes: m.textNodes, under11: m.small, tiny: m.tiny, nameBand11to12: m.between, controls: m.targets.length, under36: m.targets.filter((t) => t.h < 36).length, under44: m.targets.filter((t) => t.h < 44).length, floor, smallBySel, tierOverlap: m.tierOverlap, tierGapMin: m.tierGapMin, tierHit: (() => { const t = m.targets.filter((x) => x.tier); return t.length ? { n: t.length, hitW: Math.min(...t.map((x) => x.w)), hitH: Math.min(...t.map((x) => x.h)), visW: Math.min(...t.map((x) => x.vw)), visH: Math.min(...t.map((x) => x.vh)) } : null; })(), seatsInTrack: m.seatsInTrack, clipped: m.clipped, cutEntries: m.cutEntries, standardsShown: m.standardsShown, over: m.over, houses: m.houses, seats: m.seats, centerSeats: m.centerSeats, firstHouseTop: m.firstHouseTop, layout: m.layout, lanes: m.lanes, injected: m.injected, broken: m.broken });
+      Object.assign(row, { innerWidth: m.innerWidth, pageWiderBy: Math.max(0, m.scrollWidth - m.innerWidth), textNodes: m.textNodes, under11: m.small, tiny: m.tiny, nameBand11to12: m.between, controls: m.targets.length, under36: m.targets.filter((t) => t.h < 36).length, under44: m.targets.filter((t) => t.h < 44).length, floor, smallBySel, tierOverlap: m.tierOverlap, tierGapMin: m.tierGapMin, tierHit: (() => { const t = m.targets.filter((x) => x.tier); return t.length ? { n: t.length, hitW: Math.min(...t.map((x) => x.w)), hitH: Math.min(...t.map((x) => x.h)), visW: Math.min(...t.map((x) => x.vw)), visH: Math.min(...t.map((x) => x.vh)) } : null; })(), seatsInTrack: m.seatsInTrack, clipped: m.clipped, cutEntries: m.cutEntries, numeralProblems: m.numeralProblems, standardsShown: m.standardsShown, over: m.over, houses: m.houses, seats: m.seats, centerSeats: m.centerSeats, firstHouseTop: m.firstHouseTop, layout: m.layout, lanes: m.lanes, injected: m.injected, broken: m.broken });
       if (m.scrollWidth > m.innerWidth + 1) report.hard.push(c.name + ': the page is wider than the window by ' + (m.scrollWidth - m.innerWidth) + ' px');
       if (Object.keys(m.small).length) report.hard.push(c.name + ': text under 11 px in ' + Object.keys(m.small).join(', '));
       if ((c.media || []).some((x) => x.name === 'forced-colors')) for (const x of m.selected) if (x.adjust !== 'none') report.hard.push(c.name + ': a selected control is left to the automatic forced-colours adjustment (' + x.at + ' ' + x.text + ')'); else if (x.color === x.bg) report.hard.push(c.name + ': a selected control has the same label and plate colour (' + x.at + ' ' + x.text + ')');
       if (touch && Object.keys(smallBySel).length) report.hard.push(c.name + ': controls under the touch floor (' + floor + ' px high, 24 px wide): ' + Object.entries(smallBySel).map(([k, v]) => k + ' x' + v.n + ' ' + v.minW + 'x' + v.minH).join(', '));
       if (m.tierOverlap) report.hard.push(c.name + ': ' + m.tierOverlap + ' tier boxes whose hit areas overlap their neighbour');
       if (m.cutEntries.length) report.hard.push(c.name + ': a contributor line of a banner is cut: ' + m.cutEntries.join(' | '));
+      if (m.numeralProblems.length) report.hard.push(c.name + ': a banner rank numeral is wrong: ' + m.numeralProblems.join(' | '));
       if (m.standardsShown.some((n) => n < 1)) report.hard.push(c.name + ': a banner shows no contributor line though it has some');
       if (m.injected) report.hard.push(c.name + ': text from the save became markup or ran');
       if (m.broken.length) report.hard.push(c.name + ': a picture did not load: ' + m.broken.join(', '));
