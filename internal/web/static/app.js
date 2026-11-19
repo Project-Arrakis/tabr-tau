@@ -3390,6 +3390,8 @@ async function baseInvCard(d) {
     <div class="row">${itemPicker("bt", cat)}Qty<input id="bq" aria-label="Quantity to add" type="number" value="1" min="1"><button class="b d-btn primary" data-act="giveInv" data-id="${d.id}" data-name="${d.name || ''}">Add item</button></div>${clearRow(d.id, d.name || 'this container', it)}</div>`;
 }
 
+// the one request of Add XP; the handler spAdd checks the number first (#1032). Not a handler of the table: a button reaches it only through spAdd.
+const specXpSend = (d) => act(async () => { const r = await api('/api/player/specs/xp', { track: d.t, amount: +val('spx' + d.t) }); toast(`${d.t}: ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()} XP, level ${Math.floor(r.level)}` + NOT_SAVED); }, null);
 const A = {
   retry: () => render(true),
   askOk: () => { if (tooSoon()) return; if (askState && askState.typed && $('#atype').value.trim().toLowerCase() !== askState.typed.toLowerCase()) return; endAsk(true); }, // the typed word is checked here too, not only by the disabled button
@@ -3548,8 +3550,7 @@ const A = {
   spKeyAll: async () => (await ask({ title: 'Grant all keystones?', body: 'Every specialization keystone of every track is bought. One edit.', ok: 'Grant all', danger: true })) && act(async () => { const r = await api('/api/player/specs/keystones/grant', {}); toast(r.granted ? `${r.granted} keystones granted` + NOT_SAVED : 'All keystones were already granted.'); }, null),
   spKeyReset: async () => (await ask({ title: 'Reset all keystones?', body: 'Every specialization keystone you have bought is removed. One edit.', ok: 'Reset all', danger: true })) && act(async () => { const r = await api('/api/player/specs/keystones/reset', {}); toast(r.removed ? `${r.removed} keystones reset` + NOT_SAVED : 'There were no keystones to reset.'); }, null),
   spAddCC: (d) => A.spAdd(d), // the Command Center's Apply XP: the same handler as the classic list, which stops a number the editor would refuse (#1032)
-  spAdd: (d) => { const bad = window.LCCS ? window.LCCS.amountProblem(val('spx' + d.t), SPV.vm ? SPV.vm.maxXp : 0) : ''; if (bad) { toast(bad, true); return; } return A.spAddSend(d); }, // XP is added only (#1032): a number the editor would refuse is not sent, in either view
-  spAddSend: (d) => act(async () => { const r = await api('/api/player/specs/xp', { track: d.t, amount: +val('spx' + d.t) }); toast(`${d.t}: ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()} XP, level ${Math.floor(r.level)}` + NOT_SAVED); }, null),
+  spAdd: (d) => { const bad = window.LCCS ? window.LCCS.amountProblem(val('spx' + d.t), SPV.vm ? SPV.vm.maxXp : 0) : ''; if (bad) { toast(bad, true); return; } return specXpSend(d); }, // XP is added only (#1032): a number the editor would refuse is not sent, in either view
   spMax: async (d) => (await ask({ title: 'Grant max ' + d.t + '?', body: d.t + ' goes to the XP of its last level (level 100). One edit.', ok: 'Grant max', danger: true })) && act(async () => { await api('/api/player/specs/max', { track: d.t }); toast(d.t + ' set to max' + NOT_SAVED); }, null),
   spReset: async (d) => (await ask({ title: 'Reset ' + d.t + '?', body: d.t + " goes back to 0 XP. Its keystones are not changed. One edit.", ok: 'Reset', danger: true })) && act(async () => { const r = await api('/api/player/specs/reset', { track: d.t }); toast(r.removed ? d.t + ' reset' + NOT_SAVED : d.t + ' had no XP to reset; nothing changed.'); }, null),
   spAssign: (d) => act(async () => { const t = val('spa' + d.n); await api('/api/player/specs/assign', { track: t, number: +d.n }); toast(`Track number ${d.n} is ${t}`); }, null, false),
