@@ -195,6 +195,31 @@ func TestEffectiveTrackNumbersFillsInTheMeasuredNumbersAndKeepsTheLearnedOnes(t 
 	if _, has := got["Crafting"]; has || got["Combat"] != 1 {
 		t.Fatalf("Crafting must stay unknown while Combat uses 1: %v", got)
 	}
+	// a learned entry that is not one of the five tracks is ignored: it does not make its number "used" (#853)
+	got = EffectiveTrackNumbers(map[string]int64{"Crafting2": 1, "Combat": 4})
+	if got["Crafting"] != 1 || got["Combat"] != 4 || len(got) != 5 {
+		t.Fatalf("a key that is not a track must not take a number: %v", got)
+	}
+	// two tracks learned with the same number never share a row: the first in the order of the tracks keeps it, the other is left out and falls back to its own measured number
+	got = EffectiveTrackNumbers(map[string]int64{"Combat": 7, "Crafting": 7})
+	if got["Combat"] != 7 || got["Crafting"] != 1 {
+		t.Fatalf("Combat keeps 7, Crafting falls back to its measured 1: %v", got)
+	}
+	seen := map[int64]string{}
+	for tr, n := range got {
+		if other, dup := seen[n]; dup {
+			t.Fatalf("%s and %s share the number %d: %v", other, tr, n, got)
+		}
+		seen[n] = tr
+	}
+	// the duplicate falls back to its own measured number when that one is free
+	got = EffectiveTrackNumbers(map[string]int64{"Combat": 1, "Exploration": 1})
+	if got["Exploration"] != 3 || got["Combat"] != 1 {
+		t.Fatalf("Exploration shares 1 with Combat and takes its measured 3: %v", got)
+	}
+	if _, has := got["Crafting"]; has {
+		t.Fatalf("Crafting's measured 1 is taken by Combat: %v", got)
+	}
 	// the learned map is not changed
 	in := map[string]int64{"Combat": 1}
 	EffectiveTrackNumbers(in)

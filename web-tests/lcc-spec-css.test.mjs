@@ -79,7 +79,7 @@ test('text floor: nothing under 11 px; names, key labels, buttons and inputs 12 
   const z = sizes();
   const low = [...z].filter(([, px]) => px < 11);
   assert.deepEqual(low, [], 'selectors under 11 px: ' + low.map(([s, px]) => s + ' ' + px).join(' | '));
-  for (const s of ['.lcc-sp-lane-name', '.lcc-sp-lane-nums', '.lcc-sp-lane-badge', '.lcc-sp-btn', '.lcc-sp-input', '.lcc-sp-hn strong', '.lcc-sp-mark', '.lcc-sp-line', '.lcc-sp-flag', '.lcc-sp-mastery', '.lcc-sp-sub', '.lcc-sp-lbl', '.lcc-sp-small', '.lcc-sp-hint', '.lcc-sp-note', '.lcc-sp-vbtn', '.lcc-sp-vlbl']) assert.ok(z.get(s) >= 12 || (s === '.lcc-sp-lane-name' && z.get(s) >= 12), s + ' ' + z.get(s));
+  for (const s of ['.lcc-sp-lane-name', '.lcc-sp-lane-nums', '.lcc-sp-lane-badge', '.lcc-sp-lane-mm', '.lcc-sp-k', '.lcc-sp-stat small', '.lcc-sp-btn', '.lcc-sp-input', '.lcc-sp-hn strong', '.lcc-sp-mark', '.lcc-sp-line', '.lcc-sp-flag', '.lcc-sp-mastery', '.lcc-sp-sub', '.lcc-sp-lbl', '.lcc-sp-small', '.lcc-sp-hint', '.lcc-sp-note', '.lcc-sp-vbtn', '.lcc-sp-vlbl']) assert.ok(z.get(s) >= 12 || (s === '.lcc-sp-lane-name' && z.get(s) >= 12), s + ' ' + z.get(s));
   for (const m of bare.matchAll(/clamp\((\d+(?:\.\d+)?)px/g)) assert.ok(Number(m[1]) >= 11, 'a clamp below 11 px: ' + m[0]);
   // a media query never lowers a font size: narrow windows reflow
   for (const r of rules.filter((x) => x.at.startsWith('@media (max-width'))) {
@@ -162,4 +162,12 @@ test('the gold of the primary button and the letters on it pass 4.5:1 in dark an
   assert.ok(ratio('#fff6df', '#8a5a10') >= 4.5, 'Dayside: on-gold on gold');
   assert.match(bare, /\.lcc-sp-btn\.is-primary \{ background: var\(--lcc-gold\); border-color: var\(--lcc-gold-hi\); color: var\(--lcc-on-gold\); \}/);
   assert.ok(lcc.includes('--lcc-on-gold: #2a1a05') && lcc.includes('--lcc-on-gold: #fff6df'));
+});
+
+// #902: the page keeps a focused or jumped-to lane clear of the sticky header (the rule is app-wide, in app.css), and the lane keeps the scroll where it is when it takes the focus back
+test('a lane that takes the focus is not hidden under the sticky header: scroll-padding-top of the page, and no scroll on the focus a lane click gives back', () => {
+  const rd = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8').replace(/\r/g, '');
+  const app = rd('internal', 'web', 'static', 'app.css');
+  assert.match(app, /html\{scroll-padding-top:calc\(var\(--hdr-h,56px\) \+ 12px\)\}/);
+  assert.match(rd('internal', 'web', 'static', 'lcc', 'lcc-spec.js'), /n\.focus\(\{ preventScroll: true \}\)/);
 });

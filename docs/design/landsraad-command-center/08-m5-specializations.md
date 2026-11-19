@@ -1,12 +1,12 @@
-# Command Center M5: the Specializations tab against the approved V21 view
+# Command Center M5: the Specializations tab against the design reference
 
-This note records what was built for milestone M5 and lists every visible element and behaviour of the approved Specializations view, where the editor stands now, and why anything is still different. Nothing was dropped without a row.
+This note records what was built for milestone M5 and lists every visible element and behaviour of the approved Specializations view, where the editor stands now, and why anything is still different. Nothing was dropped without a row. The design reference is a visual mock-up kept outside this repository; the rows quote what it shows, so they can be read without it.
 
-Method: the approved prototype and the editor page were drawn side by side in a headless browser at 1600, 1280, 1024, 768, 390 and 320 px, dark and Dayside (light), with the same five tracks in both (Crafting at the XP cap with every keystone, Gathering with every keystone and no XP, Exploration at 100 XP, Combat at 12,345 XP with 7 of 41 keystones, Sabotage at 44,181 XP with 20 of 41). The editor page was fed the synthetic answers of M1 (`fixtures/api-player-specs.cases.json` and `fixtures/api-landsraad.synthetic.json`); no game save was used and nothing was checked in the game. The prototype is a layout reference only: its numbers are demonstration data, ours come from the save.
+Method: the design reference and the editor page were drawn side by side in a headless browser at 1600, 1280, 1024, 768, 390 and 320 px, dark and Dayside (light), with the same five tracks in both (Crafting at the XP cap with every keystone, Gathering with every keystone and no XP, Exploration at 100 XP, Combat at 12,345 XP with 7 of 41 keystones, Sabotage at 44,181 XP with 20 of 41). The editor page was fed the synthetic answers of M1 (`fixtures/api-player-specs.cases.json` and `fixtures/api-landsraad.synthetic.json`); no game save was used and nothing was checked in the game. The design reference is a layout reference only: its numbers are demonstration data, ours come from the save.
 
 ## What changed
 
-* **A second view of the Specialization tab**, drawn by `internal/web/static/lcc/lcc-spec.js` and `lcc-spec.css`: a hero with three totals, five path lanes, a progression dossier for the chosen path, the editor's own operations beside it, the Houses of the path, and the retained advanced controls.
+* **A second view of the Specialization tab**, drawn by `internal/web/static/lcc/lcc-spec.js` and `lcc-spec.css`: a hero with three totals, five path lanes, a progression dossier for the chosen path, the editor's own operations beside it, and the Houses of the path (the track mapping and the raw-row writer were taken out of this view in #986; they stay in the classic list).
 * **A switch above the tab** (Classic list / Command Center), remembered in the browser under `spec.view`. The classic list stays the default, as the Landsraad tab's board switch does, until the project owner chooses otherwise.
 * **No new route, no new save-editing logic.** Every control sends the request the classic list sends, through the same handler, with the same confirmation, the same backup and the same queue behaviour. The one new handler line, `spAddCC`, only checks the typed amount and then calls the existing `spAdd` (see "Write-adjacent lines").
 * **The levels come from the game's cumulative XP table** (101 values, ported into the page and checked in a test against `internal/ops/specialization.go`), never from a linear formula. Level 100 means the XP cap; "full path" needs the cap and every keystone, because the two are independent.
@@ -18,7 +18,7 @@ Method: the approved prototype and the editor page were drawn side by side in a 
 * A path with no keystone count in the save (total 0) says "Not in the save" and is never "complete".
 * If the level the save stores differs from the level its XP gives, the page says so and corrects nothing.
 * If the Landsraad cannot be read, the Houses of a path are "Not in the save" and the rest of the page works.
-* No XP, level, keystone or House is invented. The prototype's per-path descriptions, waypoint levels and keystone notes are not copied, because the save and the game files do not hold them.
+* No XP, level, keystone or House is invented. The design reference's per-path descriptions, waypoint levels and keystone notes are not copied, because the save and the game files do not hold them.
 
 ## Totals
 
@@ -32,21 +32,21 @@ Method: the approved prototype and the editor page were drawn side by side in a 
 
 | Row | Approved element | Now | Status | Why |
 |---|---|---|---|---|
-| H1 | Eyebrow, two-line serif title "SPECIALIZATION COMMAND" in a gold-edged panel | Same, with a real 24 px floor on a phone (the title wraps by letters rather than clipping at 320 px; the prototype clips there) | matches | |
+| H1 | Eyebrow, two-line serif title "SPECIALIZATION COMMAND" in a gold-edged panel | Same, with a real 24 px floor on a phone (the title wraps by letters rather than clipping at 320 px; the design reference clips there) | matches | |
 | H2 | Shield with a cross mark on the left | Drawn with the same shape, decorative, hidden from assistive technology | matches | |
-| H3 | Lead sentence "...The controls below mirror TABR Tau's current save-editor operations." | "Five disciplines. One progression dossier. The buttons below are the editor's own save operations." | differs (wording) | The prototype names the product and calls itself a mirror; the editor says what the buttons are. |
+| H3 | Lead sentence "...The controls below mirror TABR Tau's current save-editor operations." | "Five disciplines. One progression dossier. The buttons below are the editor's own save operations." | differs (wording) | The design reference names the product and calls itself a mirror; the editor says what the buttons are. |
 | H4 | Three totals: tracks at XP cap, keystones purchased, maximum XP per track | Same three, from the answer: counts of tracks at the cap, owned keystones over the total, and `maxXp` | matches | |
-| H5 | "Sample save data, local demonstration" pill | "From your save, read when this page was drawn" | differs (wording) | The prototype's pill labels demonstration data; ours says where the numbers come from and when. |
-| H6 | Totals when a track is unidentified | Tracks at XP cap counts identified tracks only; the keystone total carries a star and its label says that a track is not identified yet (or that a track's total is not in the save) | matches (added) | The prototype has no unidentified track. |
+| H5 | "Sample save data, local demonstration" pill | "From your save, read when this page was drawn" | differs (wording) | The design reference's pill labels demonstration data; ours says where the numbers come from and when. |
+| H6 | Totals when a track is unidentified | Tracks at XP cap counts identified tracks only; the keystone total carries a star and its label says that a track is not identified yet (or that a track's total is not in the save) | matches (added) | The design reference has no unidentified track. |
 
 ### Lanes
 
 | Row | Approved element | Now | Status | Why |
 |---|---|---|---|---|
 | L1 | Five lane cards in a row, one per path, in the order Crafting, Gathering, Exploration, Combat, Sabotage | Same order and row at 1000 px and wider | matches | |
-| L2 | Lane icon: a diamond crop of the in-game badge | The scroll icon of the path from the approved art already in the repository, in a square frame | differs (intentional) | The diamond crops of the prototype are not among the repository's approved art; the scrolls are. |
+| L2 | Lane icon: a diamond crop of the in-game badge | The scroll icon of the path from the approved art already in the repository, in a square frame | differs (intentional) | The diamond crops of the design reference are not among the repository's approved art; the scrolls are. |
 | L3 | Name, "LV n / 100", XP bar, "n XP · k/41 keystones", state badge | Same five parts, from the save | matches | |
-| L4 | Badge text "XP CAP REACHED" or "PATH IN PROGRESS" | "FULL PATH COMPLETE" (cap and every keystone), "XP CAP REACHED", "KEYSTONES COMPLETE", "PATH IN PROGRESS", "TRACK NOT IDENTIFIED" | differs (data rule) | The prototype's badge mixes the cap and the keystones; the save keeps them separate and the badge says which. |
+| L4 | Badge text "XP CAP REACHED" or "PATH IN PROGRESS" | "FULL PATH COMPLETE" (cap and every keystone), "XP CAP REACHED", "KEYSTONES COMPLETE", "PATH IN PROGRESS", "TRACK NOT IDENTIFIED" | differs (data rule) | The design reference's badge mixes the cap and the keystones; the save keeps them separate and the badge says which. |
 | L5 | Chosen lane has a gold edge and glow | Same, glow read from one dial set to 0.5; the chosen lane also keeps a thicker border (not colour alone) | matches | |
 | L6 | Lane cards are buttons that choose the path | Same: `aria-pressed`, keyboard, focus ring | matches | |
 | L7 | Narrow layout: one lane per row | 5 across, then 3, then 2, then 1 (at 380 px and below) | differs (intentional) | Two per row at a phone width keeps the page short; the text never shrinks. |
@@ -56,12 +56,12 @@ Method: the approved prototype and the editor page were drawn side by side in a 
 
 | Row | Approved element | Now | Status | Why |
 |---|---|---|---|---|
-| D1 | Chosen path name, icon in a diamond, a description line, a level badge | Name and icon (scroll, square frame); the description line is "Track number n in this save." | differs (data rule) | The prototype's descriptions ("Fabrication, augmentation and equipment efficiencies") are not in the save. |
+| D1 | Chosen path name, icon in a diamond, a description line, a level badge | Name and icon (scroll, square frame); no description line for a path the save identifies (the number behind a path is not shown, #708); a path that is not identified says so | differs (data rule) | The design reference's descriptions ("Fabrication, augmentation and equipment efficiencies") are not in the save. |
 | D2 | Large level "100 /100" with a glow | Same, level from the XP table | matches | |
 | D3 | "XP CAP REACHED" under the level | "FULL PATH COMPLETE", "XP CAP REACHED", or "XP CAP NOT REACHED" with the level and keystone count; the gold line carries a star on each side, drawn only for a track at level 100 (the XP cap), never below it | matches | |
 | D4 | XP bar with "44,182 / 44,182" and a note | Same, with "n XP to level k and m XP to the cap" under it | matches | |
 | D5 | Keystone bar "41 / 41" with a note | Same, and the note says the cap and the keystones are independent | matches | |
-| D6 | "LEVEL WAYPOINTS", seven markers (0, 10, 25, 42, 60, 80, 100), "Illustrative markers" | "LEVEL SCALE", five reference marks (0, 25, 50, 75, 100), "Reference marks along the 100 levels. They are not unlock levels." | differs (intentional) | The prototype's seven waypoints are illustrative. The game has no named waypoints at those levels, so the page draws neutral quarter marks. |
+| D6 | "LEVEL WAYPOINTS", seven markers (0, 10, 25, 42, 60, 80, 100), "Illustrative markers" | "LEVEL SCALE", five reference marks (0, 25, 50, 75, 100), "Reference marks along the 100 levels. They are not unlock levels." | differs (intentional) | The design reference's seven waypoints are illustrative. The game has no named waypoints at those levels, so the page draws neutral quarter marks. |
 | D7 | The mark at the current level is underlined or lit | The nearest mark at or below the level is underlined (not colour alone) | matches | |
 | D8 | Three fact tiles: associated Houses, XP ceiling, keystones | Same three | matches | |
 | D9 | Level mismatch between stored and computed | A warning line with both levels; nothing is corrected | matches (added) | |
@@ -70,7 +70,7 @@ Method: the approved prototype and the editor page were drawn side by side in a 
 
 | Row | Approved element | Now | Status | Why |
 |---|---|---|---|---|
-| O1 | "Tau editor parity" eyebrow, "Specialization Operations", a line about mock data | "The editor's own operations", the same title, "Every change asks first, is written after a backup, and says whether it was saved or is queued until the game closes." | differs (wording) | The prototype's line is about mock data and production; ours is about what happens. |
+| O1 | "Tau editor parity" eyebrow, "Specialization Operations", a line about mock data | "The editor's own operations", the same title, "Every change asks first, is written after a backup, and says whether it was saved or is queued until the game closes." | differs (wording) | The design reference's line is about mock data and production; ours is about what happens. |
 | O2 | Individual group: path name, "Add or remove XP" field, Apply XP, Grant LV 100, Reset Track XP, a note | Same controls; the note says what Grant LV 100 and Reset do and that neither changes a keystone | matches | |
 | O3 | Apply XP with a whole-number rule (-44,182 to 44,182, not zero) | The same rule, checked before the request; a refused amount shows its reason in the toast and sends nothing | matches | |
 | O4 | "Total clamps to 0 to 44,182" | "The total stays between 0 and 44,182. The editor shows the XP before and after." | differs (wording) | Says what the editor does after the write (the existing result line). |
@@ -97,7 +97,7 @@ Method: the approved prototype and the editor page were drawn side by side in a 
 | A1 | "Existing Tau features, retained", "Track Mapping and Advanced Editor", a disclosure | Same section and title, "Existing editor features, retained" | matches | |
 | A2 | Closed unless a track cannot be tied to a path | Closed; opens by itself when a row is unidentified | matches | |
 | A3 | Track numbers, Assign by number, Assign by hand, Exact raw row | All four, with the existing ids and handlers; the raw-row warning says nothing checks that XP and level agree | matches | |
-| A4 | Footer "Source of truth: GET /api/player/specs ... offline visual prototype" | Not built | not built | Prototype-only chrome. |
+| A4 | Footer "Source of truth: GET /api/player/specs ..." | Not built | not built | Chrome of the design reference only. |
 
 ### Page-level behaviour
 
@@ -108,11 +108,11 @@ Method: the approved prototype and the editor page were drawn side by side in a 
 | P3 | Dark and Dayside | Both, from the app's tokens; forced colors use system colors; reduced motion and the Motion setting remove the lift | matches | |
 | P4 | Text sizes | Names and key labels 12 px or more, other text 11 px or more, narrow windows reflow instead of shrinking | matches | |
 | P5 | Touch targets | Buttons and inputs 40 px, 44 px with a coarse pointer | matches | |
-| P6 | Prototype demo toolbar and view tabs | Not built | not built | Prototype-only chrome. |
-| P7 | Prototype's "Sample save data" banner | Not built | not built | Prototype-only chrome. |
+| P6 | Design reference demo toolbar and view tabs | Not built | not built | Chrome of the design reference only. |
+| P7 | Design reference's "Sample save data" banner | Not built | not built | Chrome of the design reference only. |
 | P8 | Reload / write queue behaviour | Unchanged: the page reads the save again after a write | matches | |
 | P9 | Glow strength | One dial, 0.5 | matches | |
-| P10 | Prototype's Landsraad V20 banner | Not built | not built | Not part of this tab. |
+| P10 | Design reference's Landsraad V20 banner | Not built | not built | Not part of this tab. |
 
 ## Differences that need the project owner's approval (the five intentional ones, and the one House link not built)
 

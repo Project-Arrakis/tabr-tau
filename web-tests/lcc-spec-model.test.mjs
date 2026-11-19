@@ -43,9 +43,10 @@ test('XP to the next level is the distance to the next start, and 0 at the last 
 });
 
 test('Add XP: a whole number, not 0, from -44,182 to 44,182; everything else is stopped before it is sent', () => {
-  const ok = ['1', '1000', '-1000', '+5', ' 7 ', '44182', '-44182', '00012'];
-  for (const t of ok) assert.equal(S.amountProblem(t, 44182), '', JSON.stringify(t));
-  const bad = ['', '   ', '0', '-0', '+0', '1.5', '1,000', 'NaN', 'abc', '1e3', '0x10', '44183', '-44183', '99999999999999999999', '--5', '5-', null, undefined, 12];
+  // the number that is judged is the number the page sends (+value), so the spellings of a whole number that the classic list accepts pass too: 1e3 is 1000 and 1.0 is 1 (#899)
+  const ok = ['1', '1000', '-1000', '+5', ' 7 ', '44182', '-44182', '00012', '1e3', '1E3', '+1e3', '-1e3', '1.0', '1.', '1000.00', '5e0', '4.4182e4', '150e-1'];
+  for (const t of ok) { assert.equal(S.amountProblem(t, 44182), '', JSON.stringify(t)); assert.ok(Number.isSafeInteger(+t) && +t !== 0 && Math.abs(+t) <= 44182, 'what is sent for ' + t + ' is a whole number in range'); }
+  const bad = ['', '   ', '0', '-0', '+0', '0.0', '0e5', '1.5', '0.5', '1e-1', '1e5', '1e400', '-1e400', '1,000', 'NaN', 'Infinity', 'abc', '0x10', '1e', 'e3', '.', '+', '44183', '-44183', '99999999999999999999', '--5', '5-', '1 000', null, undefined, 12];
   for (const t of bad) assert.match(S.amountProblem(t, 44182), /whole number of XP, not 0, from -44,182 to 44,182\. Nothing was sent\./, JSON.stringify(t));
   // the limit is the one the save reports
   assert.equal(S.amountProblem('50000', 60000), '');

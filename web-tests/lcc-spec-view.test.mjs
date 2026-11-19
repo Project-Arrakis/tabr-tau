@@ -92,6 +92,19 @@ test('a level the save stores that is not the level of its XP is shown with a wa
   assert.equal(qa(d, '[data-act]').filter((b) => /^(spAdd|spMax|spReset)/.test(b.dataset.act)).every((b) => !b.disabled), true);
 });
 
+test('a lane whose stored level is not the level of its XP says so on the lane, chosen or not; a lane that agrees has no mark (#899)', () => {
+  const d = draw(byId('raw-row-xp-44182-level-10-mismatch'), HOUSES, {}, 'crafting');
+  const lane = q(d, '[data-lcs-lane="combat"]');
+  assert.equal(q(d, '[data-lcs-lane="crafting"]').getAttribute('aria-pressed'), 'true', 'the chosen path is another one');
+  assert.equal(lane.dataset.mismatch, 'true');
+  assert.equal(txt(lane.querySelector('.lcc-sp-lane-mm')), '⚠ SAVE STORES LV 10');
+  assert.match(lane.getAttribute('aria-label'), /level 100 of 100, 44,182 XP, .*, the save stores level 10, XP cap reached/);
+  assert.equal(txt(lane.querySelector('.lcc-sp-lane-lv')), 'LV 100 / 100', 'the level of the lane is still the one of its XP');
+  for (const other of qa(d, '.lcc-sp-lane').filter((l) => l.dataset.track !== 'combat')) { assert.equal(other.querySelector('.lcc-sp-lane-mm'), null, other.dataset.track); assert.equal(other.dataset.mismatch, undefined); assert.doesNotMatch(other.getAttribute('aria-label'), /the save stores level/); }
+  const none = draw(byId('mixed-five-tracks'));
+  assert.equal(qa(none, '.lcc-sp-lane-mm').length, 0);
+});
+
 test('a track that is not identified: no XP, no level, XP controls off with the reason, the keystone buttons on, the unknown row named read-only', () => {
   const d = draw(byId('conflicting-learned-number-leaves-combat-unresolved'), HOUSES, {}, 'combat');
   const lane = q(d, '[data-lcs-lane="combat"]');
@@ -109,6 +122,14 @@ test('a track that is not identified: no XP, no level, XP controls off with the 
   assert.equal(q(d, '[data-act="spKeyReset"]').disabled, false);
   assert.match(txt(q(d, '#lcs-unknown-row')), /^Unknown specialization row in the save \(not edited\): number \d+\.$/);
   assert.equal(q(d, '#lcs-unknown-row').querySelector('button, input, select, a'), null, 'the line is read-only');
+});
+
+test('a path is picked by its name: the dossier does not show the track number behind a known path (#708), and a path that is not identified says why', () => {
+  const d = draw(byId('mixed-five-tracks'));
+  assert.equal(q(d, '.lcc-sp-dheading .lcc-sp-small'), null);
+  assert.doesNotMatch(d.box.textContent, /Track number d/);
+  const u = draw(byId('conflicting-learned-number-leaves-combat-unresolved'), HOUSES, {}, 'combat');
+  assert.match(txt(q(u, '.lcc-sp-dheading .lcc-sp-small')), /not tied to this path yet/);
 });
 
 test('the track mapping and advanced editor section is gone (#986): no heading, no eyebrow, no disclosure, no track numbers, no assign, no hand entry, no raw row; the XP field keeps the id the handlers read', () => {
@@ -253,6 +274,13 @@ test('a read that cannot be used draws one honest message and no control', () =>
   const d = draw({ rows: 'x' });
   assert.equal(qa(d, '[data-act]').length, 0);
   assert.match(txt(q(d, '.lcc-sp-empty')), /The save gave no specialization tracks this page can read\./);
+});
+
+test('the hero keystone total is marked partial for a track that is not identified, with its reason, and not otherwise (#902)', () => {
+  const d = draw(byId('conflicting-learned-number-leaves-combat-unresolved'), HOUSES, {}, 'combat');
+  assert.match(txt(q(d, '#lcs-keycount')), /^0 \/ 205\*$/);
+  assert.match(txt(q(d, '#lcs-keycount').parentNode.querySelector('small')), /^KEYSTONES PURCHASED \(\* A TRACK IS NOT IDENTIFIED YET\)$/);
+  assert.doesNotMatch(txt(q(draw(byId('mixed-five-tracks')), '#lcs-keycount')), /\*/);
 });
 
 test('the hero counts come from the save', () => {

@@ -86,7 +86,7 @@ func (o *Ops) ResetLevel(a Args) (any, error) {
 	return resetAnswer(changed, map[string]any{"levelBefore": levelBefore, "pointsTaken": taken, "pointsKept": kept}), nil
 }
 
-// knownTrackNumbers are the numbers of the tracks the editor has learned, each once, in order.
+// knownTrackNumbers are the numbers of the tracks the editor works with (the map is EffectiveTrackNumbers: assigned or measured), each once, in order.
 func knownTrackNumbers(nums map[string]int64) []int64 {
 	seen := map[int64]bool{}
 	var out []int64

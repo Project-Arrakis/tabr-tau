@@ -812,6 +812,8 @@ function specGoPath(track) {
 const SPV_HOST = { goHouse: specGoHouse };
 function specMount() { const m = $('#lcs-mount'); if (m && SPV.vm && window.LCCS) window.LCCS.mount(m, SPV.vm, SPV_HOST); }
 const NO_TRACK_NUMBER = 'Number not known yet: see Track numbers below.';
+// The numbers the game uses for the five tracks (measuredTrackNumbers of internal/ops/landsraad_grant.go; a test compares the two). A track shown with another number was assigned by hand: the Track numbers card is drawn then, so it can be set right.
+const MEASURED_TRACK_NUMBERS = { Crafting: 1, Gathering: 2, Exploration: 3, Combat: 4, Sabotage: 5 };
 // The reset of the character's level and XP (#339): on Character > Overview, beside Give XP. The number it asks the person to confirm is the XP the summary above shows.
 function levelResetCard() {
   const xp = SUMMARY && Number.isInteger(SUMMARY.xp) ? SUMMARY.xp : null;
@@ -986,7 +988,7 @@ async function playerSection(s) {
   } else if (s == 'specialization' && specCCOn()) {
     const sp = await api('/api/player/specs');
     let hs = null;
-    try { hs = ((await api('/api/landsraad')).tasks || []).map((t) => ({ id: t.id, name: lbNameOf(t), line: t.line || '' })); } catch (e) { hs = null; } // the Houses of a path come from the Landsraad read; without it they are "Not in the save"
+    try { const ls = await api('/api/landsraad'); hs = !ls || !Array.isArray(ls.tasks) ? null : ls.tasks.map((t) => ({ id: t.id, name: lbNameOf(t), line: t.line || '' })); } catch (e) { hs = null; } // the Houses of a path come from the Landsraad read; without it (or without a task list in the answer) they are "Not in the save"
     SPV.vm = window.LCCS.readSpecs(sp, hs);
     h.push(html`${specViewSwitch()}<div id="lcs-mount"></div>`);
   } else if (s == 'specialization') {
@@ -994,6 +996,7 @@ async function playerSection(s) {
     const known = (r) => r.number != null;
     // Every track has a number (the ones the game uses, or the ones assigned earlier): a person picks tracks by name and the numbers stay out of sight. Only a save whose numbers cannot be told gets the assignment card.
     const allKnown = sp.rows.length > 0 && sp.rows.every(known);
+    const asMeasured = sp.rows.every((r) => !known(r) || MEASURED_TRACK_NUMBERS[r.track] === r.number); // a number assigned by hand that is not the game's own leaves no way back, so the card stays
     const rawTracks = sp.rows.filter(known);
     const keystone = (r) => (r.granted ? html`<span class="ok" title="${r.keystoneOwned} of ${r.keystoneTotal} keystones">Granted</span>` : r.keystoneOwned > 0 ? html`<span title="${r.keystoneOwned} of ${r.keystoneTotal} keystones bought">${r.keystoneOwned}/${r.keystoneTotal}</span>` : html`<span class="mut">-</span>`);
     h.push(specViewSwitch());
@@ -1010,12 +1013,12 @@ async function playerSection(s) {
         { k: 'level', label: 'Level', f: (r) => (known(r) ? Math.floor(r.level) : html`<span class="mut">?</span>`) }, { k: 'keystoneOwned', label: 'Keystone', f: keystone },
         { k: 'add', label: 'Add XP', f: (r) => html`<input id="spx${r.track}" type="number" value="1000" class="w90" aria-label="XP to add to ${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'}><button class="b sm d-btn primary sm" data-act="spAdd" data-t="${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'} title="${known(r) ? '' : NO_TRACK_NUMBER}">Add XP</button>${known(r) ? '' : html` <span class="mut" id="spnum${r.track}">${NO_TRACK_NUMBER}</span>`}` }],
         sp.rows, { empty: 'This save has no specialization tracks.', actions: (r) => html`<button class="b sec sm d-btn sm" data-act="spMax" data-t="${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'} title="${known(r) ? 'The most XP a track holds is ' + Number(sp.maxXp).toLocaleString() : NO_TRACK_NUMBER}">Grant max</button><button class="b bad sm d-btn danger sm" data-act="spReset" data-t="${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'} title="${known(r) ? '' : NO_TRACK_NUMBER}">Reset</button>` })}</div>
-    ${allKnown ? '' : html`<div class="card d-panel"><h3 class="d-head">Track numbers</h3>
+    ${allKnown && asMeasured ? '' : html`<div class="card d-panel"><h3 class="d-head">Track numbers</h3>
       ${sp.unassigned.length ? html`${sp.unassigned.map((u) => html`<div class="row"><span>Track number <b>${u.number}</b>: ${Number(u.xp).toLocaleString()} XP, level ${Math.floor(u.level)}</span> is
         <select id="spa${u.number}" aria-label="Which specialization track is number ${u.number}">${sp.tracks.map((t) => html`<option>${t}</option>`)}</select><button class="b d-btn primary" data-act="spAssign" data-n="${u.number}">Assign</button></div>`)}` : html`<p class="mut">No specialization XP in your save is waiting to be assigned.</p>`}
       <div class="row"><span class="mut">Known a track's number already?</span><select id="spmt" aria-label="Specialization track">${sp.tracks.map((t) => html`<option>${t}</option>`)}</select> number <input id="spmn" aria-label="Track number" type="number" min="0" max="255" class="w70"><button class="b sec d-btn" data-act="spAssignHand">Set</button></div>
       <p class="mut">Assigned: ${sp.rows.filter(known).map((r) => `${r.track} = ${r.number}`).join(', ') || 'none yet'}.</p>
-      ${about('specialization.numbers', 'Track numbers', html`<p class="mut">Your save stores only a number for each specialization track and does not say which number is which. The editor knows the numbers the game uses, so this card is normally not on the page. It is here because this save has a track whose number could not be told, for example one assigned earlier that clashes with a known number. Earn a little XP in that track in game, save, reload this tab, and the new row appears here to assign to the track you used. Keystones need no numbers.</p>`)}</div>`}
+      ${about('specialization.numbers', 'Track numbers', html`<p class="mut">Your save stores only a number for each specialization track and does not say which number is which. The editor knows the numbers the game uses (Crafting 1, Gathering 2, Exploration 3, Combat 4, Sabotage 5), so this card is normally not on the page. It is here because a track has no number, or a number assigned earlier is not the game's own. If the XP of one track shows under another track's name, the other track holds its number: set that track again to its own number in the box above. If the game changes a number, earn a little XP in that track, save, reload this tab, and assign the new row. Keystones need no numbers.</p>`)}</div>`}
     <div class="card d-panel"><details><summary>Advanced: set a raw row</summary>${rawTracks.length ? html`<p class="mut">Writes the XP and level you type for the track you pick as they are. Nothing checks that the two match.</p><div class="row"><span class="mut">Track</span><select id="st" aria-label="Specialization track of the row">${rawTracks.map((r) => html`<option value="${r.number}">${r.track}</option>`)}</select>XP<input id="sx" aria-label="XP of the track" type="number" value="0">Level<input id="sl" aria-label="Level of the track" type="number" step="0.1" value="1" class="w80"><button class="b sec d-btn" data-act="specSet">Set</button></div>` : html`<p class="mut">No track has a number in this save yet, so there is no row to pick. Assign a track under Track numbers first.</p>`}</details></div>`);
   } else if (s == 'journey') {
     JB = await api('/api/player/journey/browse');

@@ -3,7 +3,7 @@
    recolour it. No inline style, no address and no import: the page's content security policy needs nothing new. Text floor: names and key labels 12 px or more, other text 11 px or more;
    a narrow window reflows the parts, it never shrinks the text. */
 
-/* the view's own gold text: the approved design's gold in dark (lcc.css names it), the look's own text colour in Dayside */
+/* the view's own gold text: the design's gold in dark (lcc.css names it), the look's own text colour in Dayside */
 .lcc-sp { --lcc-sp-glow: .5; --lcc-sp-gold: var(--lcc-ap-gold); display: block; box-sizing: border-box; color: var(--lcc-text); font-family: var(--lcc-sans); }
 .lcc-sp *, .lcc-sp *::before, .lcc-sp *::after { box-sizing: border-box; }
 .lcc-sp button, .lcc-sp input, .lcc-sp select { font-family: var(--lcc-sans); }
@@ -15,7 +15,7 @@
 .lcc-sp-h2s { margin: 4px 0 0; font: 700 clamp(26px, 3vw, 42px)/1.1 var(--lcc-serif); letter-spacing: .02em; color: var(--lcc-strong); overflow-wrap: anywhere; }
 .lcc-sp-h3 { margin: 4px 0 6px; font: 700 clamp(22px, 2.2vw, 27px)/1.2 var(--lcc-serif); color: var(--lcc-strong); }
 .lcc-sp-small { margin: 5px 0 0; font: 400 12px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
-.lcc-sp-k { font: 700 11px/1.3 var(--lcc-sans); letter-spacing: .1em; color: var(--lcc-dim); }
+.lcc-sp-k { font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .1em; color: var(--lcc-dim); }
 .lcc-sp-hint { margin: 9px 0 0; font: 400 12px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-sp-note { margin: 12px 0 0; padding: 9px 11px; font: 500 12px/1.5 var(--lcc-sans); color: var(--lcc-text); border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-sunken); }
 .lcc-sp-note-warn { border-color: var(--lcc-stroke); }
@@ -27,21 +27,21 @@
 :root[data-theme="light"] .lcc-sp-surface { box-shadow: 0 10px 26px rgba(85, 52, 16, .16); }
 
 /* ---- the hero ---- */
-.lcc-sp-hero { position: relative; display: grid; grid-template-columns: 90px minmax(0, 1fr) minmax(275px, 360px); gap: 23px; align-items: center; margin: 4px 0 24px; padding: 27px 30px; min-height: 191px;
+.lcc-sp-hero { position: relative; display: grid; grid-template-columns: 90px minmax(0, 1fr) minmax(300px, 420px); gap: 23px; align-items: center; margin: 4px 0 24px; padding: 27px 30px; min-height: 191px;
   border: 1px solid var(--lcc-gold-lo); overflow: hidden;
   background: radial-gradient(ellipse at 16% 20%, color-mix(in srgb, var(--lcc-gold) 14%, transparent), transparent 38%), repeating-linear-gradient(145deg, transparent 0, transparent 57px, color-mix(in srgb, var(--lcc-gold-lo) 14%, transparent) 58px, transparent 59px), linear-gradient(120deg, var(--lcc-s1), var(--lcc-s2) 61%, var(--lcc-s1));
   box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--lcc-ground) 72%, transparent), inset 0 0 0 4px var(--lcc-stroke), 0 12px 34px rgba(0, 0, 0, .17); }
 .lcc-sp-hero::before, .lcc-sp-hero::after { content: ''; position: absolute; left: 18px; right: 18px; height: 3px; background: linear-gradient(90deg, transparent, var(--lcc-gold-lo), var(--lcc-gold-hi), var(--lcc-gold-lo), transparent); opacity: calc(.4 + var(--lcc-sp-glow) * 1.2); }
 .lcc-sp-hero::before { top: 0; }
 .lcc-sp-hero::after { bottom: 0; }
-/* the shield: a gold plate cut to the shield shape, with a solid dark shield set 2 px inside it (so the gold edge follows the slanted sides, which a border cut by the shape would not), and the gold cross on it; the same in both themes, as the approved design's */
+/* the shield: a gold plate cut to the shield shape, with a solid dark shield set 2 px inside it (so the gold edge follows the slanted sides, which a border cut by the shape would not), and the gold cross on it; the same in both themes, as the design's */
 .lcc-sp-hero-art { position: relative; isolation: isolate; width: 83px; height: 96px; display: grid; place-items: center; font: 60px/1 var(--lcc-serif); color: #f0d397; background: #d6a35b; clip-path: polygon(0 0, 100% 0, 100% 76%, 50% 100%, 0 76%); }
 .lcc-sp-hero-art::before { content: ''; position: absolute; z-index: -1; inset: 2px; background: linear-gradient(135deg, #2c2c32, #0d1217); box-shadow: inset 0 0 20px rgba(216, 164, 79, .22); clip-path: polygon(0 0, 100% 0, 100% 76%, 50% 100%, 0 76%); }
 .lcc-sp-hero-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding-left: 22px; border-left: 1px solid var(--lcc-stroke); min-width: 0; }
 .lcc-sp-stat { min-width: 0; }
 .lcc-sp-stat:last-child { grid-column: span 2; padding-top: 10px; border-top: 1px solid var(--lcc-stroke-faint); }
 .lcc-sp-stat b { display: block; font: 700 clamp(22px, 2.4vw, 32px)/1.1 var(--lcc-serif); color: var(--lcc-ap-stat); overflow-wrap: anywhere; }
-.lcc-sp-stat small { display: block; margin-top: 4px; font: 700 11px/1.35 var(--lcc-sans); letter-spacing: .12em; color: var(--lcc-dim); }
+.lcc-sp-stat small { display: block; margin-top: 4px; font: 700 12px/1.35 var(--lcc-sans); letter-spacing: .12em; color: var(--lcc-dim); }
 
 .lcc-sp-headrow { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 10px 14px; margin: 8px 0 13px; }
 .lcc-sp-src { padding: 6px 11px; border: 1px solid var(--lcc-stroke); font: 700 11px/1.3 var(--lcc-sans); letter-spacing: .1em; color: var(--lcc-dim); }
@@ -64,6 +64,8 @@
 .lcc-sp-lane-lv { font: 600 13px/1.2 var(--lcc-sans); color: var(--lcc-dim); font-variant-numeric: tabular-nums; }
 .lcc-sp-lane-lv b { font-size: 16px; color: var(--lcc-sp-gold); }
 .lcc-sp-lane-bar, .lcc-sp-xpbar, .lcc-sp-keybar { display: block; width: 100%; background: var(--lcc-sunken); border: 1px solid var(--lcc-stroke); }
+/* the save stores a level that is not the level of the XP: the lane says so (#899) */
+.lcc-sp-lane-mm { font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .06em; color: var(--lcc-sp-gold); overflow-wrap: anywhere; }
 .lcc-sp-lane-bar { height: 6px; margin-top: 2px; }
 .lcc-sp-lane-bar-fill, .lcc-sp-xpbar-fill, .lcc-sp-keybar-fill { display: block; height: 100%; width: var(--lcc-v, 0%); }
 .lcc-sp-lane-bar-fill, .lcc-sp-xpbar-fill { background: linear-gradient(90deg, var(--lcc-gold-lo), var(--lcc-gold-hi)); }
@@ -89,7 +91,7 @@
 .lcc-sp-dossier[data-kind="cap"] .lcc-sp-level, .lcc-sp-dossier[data-kind="full"] .lcc-sp-level { text-shadow: 0 0 calc(34px * var(--lcc-sp-glow)) color-mix(in srgb, var(--lcc-gold) 55%, transparent); }
 .lcc-sp-mastery { min-height: 29px; display: flex; align-items: center; justify-content: center; text-align: center; font: 700 12px/1.4 var(--lcc-sans); letter-spacing: .14em; color: var(--lcc-dim); overflow-wrap: anywhere; }
 .lcc-sp-mastery.is-on { display: block; color: var(--lcc-sp-gold); }
-/* the gold ornament line of the approved design, drawn only for a track that has reached level 100 (the XP cap): a star on each side of the same words; the words say it, the stars are decoration */
+/* the gold ornament line of the design, drawn only for a track that has reached level 100 (the XP cap): a star on each side of the same words; the words say it, the stars are decoration */
 .lcc-sp-mastery.is-on::before, .lcc-sp-mastery.is-on::after { content: '\2726'; content: '\2726' / ''; margin: 0 .6em; }
 .lcc-sp-status { min-width: 0; }
 .lcc-sp-line { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font: 700 12px/1.4 var(--lcc-sans); letter-spacing: .07em; color: var(--lcc-dim); }
