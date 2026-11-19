@@ -522,7 +522,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-gopath { margin: 4px 0 0; min-height: 36px; font: 600 12px/1.3 var(--lcc-sans); text-align: left; }
 /* the place line under the House name (#939): the place is a link, the sub-line says the cell, the place and the area */
 .lcc-bd-loc { all: unset; box-sizing: border-box; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; margin-top: 3px; min-height: 36px; justify-content: center; cursor: pointer; color: var(--lcc-gold-text); text-align: left; overflow-wrap: anywhere; max-width: 100%; }
-td.lcc-bd-loc { display: table-cell; margin: 0; min-height: 0; cursor: auto; } /* the list cell is not the Inspector's place button: it stays a table cell, so its row lines and centring are the other cells' (#1059) */
+.lcc-bd-list td.lcc-bd-loc { display: table-cell; margin: 0; min-height: 0; cursor: auto; } /* the list cell is not the Inspector's place button: it stays a table cell, so its row lines and centring are the other cells' (#1059) */
 .lcc-bd-loc:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 2px; }
 .lcc-bd-loc-a { font: 600 12px/1.3 var(--lcc-sans); text-decoration: underline; text-underline-offset: 3px; }
 .lcc-bd-loc-s { font: 11px/1.3 var(--lcc-sans); color: var(--lcc-dim); }
