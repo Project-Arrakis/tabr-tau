@@ -34,6 +34,9 @@ type rewardResult struct {
 	// the ground of the raise that was not paid because the editor paid it before (landsraad_paid.go), and the missions it stands for
 	paidGround   float64
 	paidMissions int64
+	// what a tier removal did to the rewards of the removed tiers (landsraad_takeback.go): tiers whose waiting reward was taken back, tiers whose reward was already collected and stays, tiers whose
+	// reward stays because it cannot be tied to the tier with certainty, and the house swatches among those taken back
+	takenBack, keptCollected, keptUnsure, swatchesBack int64
 }
 
 func (r *rewardResult) add(o rewardResult) {
@@ -45,6 +48,10 @@ func (r *rewardResult) add(o rewardResult) {
 	r.scrip += o.scrip
 	r.paidGround += o.paidGround
 	r.paidMissions += o.paidMissions
+	r.takenBack += o.takenBack
+	r.keptCollected += o.keptCollected
+	r.keptUnsure += o.keptUnsure
+	r.swatchesBack += o.swatchesBack
 	for l, x := range o.spec {
 		if r.spec == nil {
 			r.spec = map[string]int64{}

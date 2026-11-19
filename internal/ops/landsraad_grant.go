@@ -374,7 +374,16 @@ func grantDesc(r rewardResult, several bool) grantText {
 			g.left += fmt.Sprintf("; %s %s XP not added (last level)", commas(r.specLeft[l]), l)
 		}
 	}
+	if r.keptCollected > 0 { // facts before the amounts: what a removal left, for a person who decides on a restore
+		g.left += "; " + countRewards(r.keptCollected, "collected ") + " stay"
+	}
+	if r.keptUnsure > 0 {
+		g.left += "; " + countRewards(r.keptUnsure, "") + " left alone (not certain they belong to the tier)"
+	}
 	var parts []string
+	if r.takenBack > 0 {
+		parts = append(parts, "took back "+countRewards(r.takenBack, "waiting "))
+	}
 	if r.missions > 0 {
 		list := []string{"+" + commas(r.solari) + " Solari", "+" + commas(r.scrip) + " House Scrip"}
 		if several {

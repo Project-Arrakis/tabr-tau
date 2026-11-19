@@ -46,7 +46,10 @@ func fillKenolaDoubled(t *testing.T, o *Ops, was, to float64) map[string]any {
 	return applyWith(t, o, doubled(), house(175, Args{"was_mine": was, "mine_to": to}))
 }
 
+// removeTo removes tiers after the character collected every reward: a removal takes back the rewards that are still waiting (landsraad_takeback.go, #944), so these tests of the paid record
+// (#777) run on collected rewards, which a removal never touches.
 func removeTo(t *testing.T, o *Ops, was, to float64) {
+	collectRewards(t, o)
 	applyWith(t, o, doubled(), house(175, Args{"was_mine": was, "mine_to": to, "lower": true}))
 }
 
@@ -91,6 +94,7 @@ func TestPaidARemovalAndTheSameRaiseAfterTheFileWasWrittenPaysNothingAndSaysSo(t
 	o, _ := paidOps(t, "")
 	fillKenolaDoubled(t, o, 1300, 6000)
 	flush(t, o)
+	collectRewards(t, o)
 	solari, scrip, rewards := wallet(t, o, 0), wallet(t, o, 1), houseRewards(t, o, "DA_HouseKenola")
 	facBefore, _ := progress(t, o, 2, 175)
 	removeTo(t, o, 6000, 0)

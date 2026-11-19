@@ -398,14 +398,63 @@ test('a bulk write sums the missions of every house and names each specializatio
   assert.ok(r.includes('Warning: 1 reward was left out'), r);
 });
 
-test('a removal says in its tooltip and in its result that it takes back nothing the tier paid', async () => {
+// what removing the highest reached tier of Thorvald (tier 3) would do to its reward, as the server's board read says it (landsraad_takeback.go)
+const withBack = (outcome, why = '') => { const d = board(); const r = d.tasks.find((t) => t.id === 901).rewards[2]; r.takeback = outcome; r.takeback_why = why; r.reward_state = outcome === 'take' ? 'waiting' : outcome === 'collected' ? 'delivered' : 'no_row'; return d; };
+const question = (ui) => { const c = ui.doc.querySelector('#lsb-confirm'); return c ? text(c) : null; };
+
+test('a removal with no reward waiting for its tier writes at once, and says that no reward waited and what stays', async () => {
   const ui = await open(board(), { '/api/landsraad/apply': { ...OK, contribution_raised: 0, contribution_lowered: 1, reward_rows: 0 } });
   const t3 = tier(ui, 'Thorvald', 3); // the highest reached tier of Thorvald (4,700): clicking it removes it
-  assert.ok(t3.title.includes('Remove tier 3') && t3.title.includes('takes back nothing the tier paid') && t3.title.includes('restore the backup'), t3.title);
-  assert.ok(t3.getAttribute('aria-label').includes('takes back nothing the tier paid'));
+  assert.ok(t3.title.includes('Remove tier 3') && t3.title.includes('No reward of this tier waits at the house representative, so there is nothing to take back.') && t3.title.includes('restore the backup'), t3.title);
+  assert.ok(t3.title.includes('Rewards already collected stay, and so do the Solari, House Scrip and XP the missions of the tier paid.'), t3.title);
+  assert.ok(!t3.title.includes('takes back nothing') && !t3.getAttribute('aria-label').includes('takes back nothing'));
   click(ui, t3); await ui.settle();
-  assert.ok(result(ui).includes('(tier 3 removed)') && result(ui).includes('takes back nothing the tier paid') && result(ui).includes('restore the backup'), result(ui));
-  assert.deepEqual(toasts(ui), ['House Thorvald: tier removed. Nothing it paid was taken back.']);
+  assert.equal(question(ui), null, 'nothing to say about a reward: no question');
+  assert.equal(writes(ui).length, 1);
+  assert.ok(result(ui).includes('(tier 3 removed)') && result(ui).includes('no reward waited for the removed tier, so there was nothing to take back') && result(ui).includes('Rewards already collected stay') && result(ui).includes('restore the backup'), result(ui));
+  assert.deepEqual(toasts(ui), ['House Thorvald: tier removed; no reward waited for the removed tier, so there was nothing to take back.']);
+});
+
+test('a removal that takes back a waiting reward asks first, names the reward, and the answer says how many were taken back', async () => {
+  const ui = await open(withBack('take'), { '/api/landsraad/apply': { ...OK, contribution_raised: 0, contribution_lowered: 1, reward_rows: 0, rewards_taken_back: 1 } });
+  const t3 = tier(ui, 'Thorvald', 3);
+  assert.ok(t3.title.includes('Takes back its reward, which still waits at the house representative: 50 '), t3.title);
+  click(ui, t3); await ui.settle();
+  assert.equal(writes(ui).length, 0, 'nothing is written before the answer');
+  const q = question(ui);
+  assert.ok(q.includes('Remove tier 3 on House Thorvald?') && q.includes('Takes back its reward, which still waits at the house representative: 50 ') && q.includes('Rewards already collected stay') && q.includes('Written at once, with a backup first.'), q);
+  click(ui, '[data-lb=cyes]'); await ui.settle();
+  assert.deepEqual(writes(ui).map((w) => w.body), [{ term_id: 7, houses: [{ task_id: 901, was_mine: 4700, was_done: false, was_win: null, mine_to: 2400, lower: true }] }]);
+  assert.ok(result(ui).includes('(tier 3 removed)') && result(ui).includes('took back 1 waiting reward'), result(ui));
+  assert.deepEqual(toasts(ui), ['House Thorvald: tier removed; took back 1 waiting reward.']);
+});
+
+test('a removal can be answered No: nothing is written', async () => {
+  const ui = await open(withBack('take'), { '/api/landsraad/apply': OK });
+  click(ui, tier(ui, 'Thorvald', 3)); await ui.settle();
+  assert.ok(question(ui));
+  click(ui, '[data-lb=cno]'); await ui.settle();
+  assert.equal(writes(ui).length, 0);
+  assert.equal(question(ui), null);
+});
+
+test('a removal names a reward that is already collected and stays, and one that stays because it cannot be tied to the tier', async () => {
+  let ui = await open(withBack('collected'), { '/api/landsraad/apply': { ...OK, contribution_raised: 0, contribution_lowered: 1, reward_rows: 0, rewards_kept_collected: 1 } });
+  click(ui, tier(ui, 'Thorvald', 3)); await ui.settle();
+  assert.ok(question(ui).includes('is already collected and stays.'), question(ui));
+  click(ui, '[data-lb=cyes]'); await ui.settle();
+  assert.ok(result(ui).includes('1 collected reward stays'), result(ui));
+  closeAll();
+  ui = await open(withBack('unsure', 'the same item is also the reward of another tier'), { '/api/landsraad/apply': { ...OK, contribution_raised: 0, contribution_lowered: 1, reward_rows: 0, rewards_kept_unsure: 1 } });
+  click(ui, tier(ui, 'Thorvald', 3)); await ui.settle();
+  assert.ok(question(ui).includes('stays: it cannot be tied to this tier with certainty, because the same item is also the reward of another tier.'), question(ui));
+  click(ui, '[data-lb=cyes]'); await ui.settle();
+  assert.ok(result(ui).includes('1 reward left alone (not certain it belongs to the removed tier)'), result(ui));
+});
+
+test('a tier box says before the click that a waiting reward goes with the tier', async () => {
+  const ui = await open(board(), {});
+  assert.equal(text(tier(ui, 'Thorvald', 3).querySelector('.gr')), 'click removes it; takes back a waiting reward');
 });
 
 test('before any click the board says what Fill, Fill faction goal and each tier grant, in text tied to the control, and that it writes at once and is not checked in the game', async () => {
@@ -423,7 +472,7 @@ test('before any click the board says what Fill, Fill faction goal and each tier
   assert.ok(tier(ui, 'Alexin', 5).getAttribute('aria-label').includes('Writes 6 missions: +36,000 Solari'));
   assert.equal(tier(ui, 'Alexin', 1).querySelector('.gr').textContent, '2 missions: +12,000 Solari');
   // the highest reached tier says what a click does; a tier the character's own events already cover grants no missions
-  assert.equal(text(tier(ui, 'Thorvald', 3).querySelector('.gr')), 'click removes it; takes back nothing it paid');
+  assert.equal(text(tier(ui, 'Thorvald', 3).querySelector('.gr')), 'click removes it; takes back a waiting reward');
   assert.equal(text(tier(ui, 'Thorvald', 4).querySelector('.gr')), 'no missions');
   // the standing line about writes is gone (#980): the Help tab says it, and the question before a write says what it writes
   assert.equal(ui.doc.querySelector('#lsb-legend'), null);
@@ -511,7 +560,7 @@ test('the About text says what a raise writes and what it does not, names both s
   const ui = await open();
   const about = text(ui.doc.querySelector('[data-about="lsb.tiers"] .abt'));
   for (const s of ['A tier click pays what its missions pay', '6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization line of the house', 'LandsraadContributionMultiplier', 'LandsraadSpecializationXpMultiplier',
-    'The daily and weekly mission limits of the game are not applied', 'No progress event is written', 'A second Fill with nothing above your contribution writes nothing', 'raising a removed tier again pays nothing again', 'your character\'s own XP and your faction standing', 'takes back nothing the tier paid']) assert.ok(about.includes(s), s);
+    'The daily and weekly mission limits of the game are not applied', 'No progress event is written', 'A second Fill with nothing above your contribution writes nothing', 'raising a removed tier again pays nothing again', 'your character\'s own XP and your faction standing', 'takes back the reward of the removed tier if it still waits at the house representative']) assert.ok(about.includes(s), s);
   assert.ok(ui.doc.querySelectorAll('[data-about="lsb.tiers"] .abt p').length >= 4 && ui.doc.querySelector('[data-about="lsb.tiers"] .abt ul'), 'the long paragraph is split into a list and short paragraphs');
   assert.ok(text(ui.doc.querySelector('[data-about="lsb.fill"] .abt')).includes('asks first'));
   assert.ok(!about.includes('Not checked in the game yet') && !about.includes('Restore on the Database tab'), 'the standing "not checked" and "going back" paragraph is in the Help tab (#980)');
@@ -579,7 +628,7 @@ test('ground the editor paid before is not counted in what a click grants, and t
   const ui = await open(b, {});
   assert.equal(text(by(ui, 'Thorvald').querySelector('.qg')), 'no missions');
   const cap = text(by(ui, 'Thorvald').querySelector('#lsg-901'));
-  assert.ok(cap.includes('Writes no missions') && cap.includes('1 mission not paid: the save shows that ground as already paid (the editor recorded it in an earlier raise), and removing a tier does not take it back.'), cap);
+  assert.ok(cap.includes('Writes no missions') && cap.includes('1 mission not paid: the save shows that ground as already paid (the editor recorded it in an earlier raise), and removing a tier does not take back what its missions paid.'), cap);
   // paid ground below the target: only the part above it is written, and the part below is named
   const b2 = withGrant();
   b2.tasks.forEach((t) => { if (t.id === 900) t.my_paid = 2400; });
@@ -593,7 +642,7 @@ test('the result of a write says how many missions were not paid because that gr
   const ui = await open(withGrant(), { '/api/landsraad/apply': { ...OK, reward_rows: 0, missions: 0, solari: 0, house_scrip: 0, specialization_xp: {}, rewards_already_given: 2, missions_paid_before: 3, ground_paid_before: 3000 } });
   click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
   const r = result(ui);
-  assert.ok(r.includes('No missions written') && r.includes('3 missions not paid: the save shows that ground as already paid (the editor recorded it in an earlier raise), and removing a tier does not take it back.'), r);
+  assert.ok(r.includes('No missions written') && r.includes('3 missions not paid: the save shows that ground as already paid (the editor recorded it in an earlier raise), and removing a tier does not take back what its missions paid.'), r);
   const part = await open(withGrant(), { '/api/landsraad/apply': { ...GRANTED, missions: 1, solari: 6000, house_scrip: 1000, missions_paid_before: 2, ground_paid_before: 2000 } });
   click(part, quick(part, 'Alexin', 'qa-fill')); await part.settle();
   assert.ok(result(part).includes('1 mission written: +6,000 Solari, +1,000 House Scrip') && result(part).includes('2 missions not paid: the save shows that ground as already paid'), result(part));

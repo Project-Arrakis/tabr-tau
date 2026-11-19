@@ -96,8 +96,8 @@ func TestPaidTheBoundEvictsOldTermsThroughRecord(t *testing.T) {
 	}
 }
 
-// A tier removal pays nothing and needs no record: an unreadable record does not stop it, and it does not read the file. A raise is refused with a message that says it and names no
-// folder.
+// A tier removal pays nothing and needs no record: an unreadable record does not stop it, and it does not read the file (it reads it only when the top tier's house swatch is among
+// the removed tiers, to tell whether the editor wrote the swatch: landsraad_takeback_test.go). A raise is refused with a message that says it and names no folder.
 func TestPaidARemovalGoesThroughWithAnUnreadableRecordAndARaiseIsRefused(t *testing.T) {
 	o, _ := paidOps(t, "")
 	fillKenolaDoubled(t, o, 1300, 4800)

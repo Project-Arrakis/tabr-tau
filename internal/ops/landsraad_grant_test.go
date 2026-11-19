@@ -131,6 +131,7 @@ func TestGrantASecondFillAndARaiseAfterARemovalGrantNothingTwice(t *testing.T) {
 	}
 	// a tier removed and the same Fill again: the 4,800 tier is not repeated as a mission (the step is 2,000: ceil(6000/2000) = ceil(4800/2000)), the top tier is the swatch of this term,
 	// delivered already, so no reward row and no wallet change
+	collectRewards(t, o) // a removal takes back the rewards that still wait (landsraad_takeback.go, #944); collected ones stay
 	applyWith(t, o, doubled(), house(175, Args{"was_mine": 6000.0, "mine_to": 4800.0, "lower": true}))
 	removed := grantRows(t, o)
 	m = applyWith(t, o, doubled(), house(175, Args{"was_mine": 4800.0, "mine_to": 6000.0}))
@@ -588,6 +589,7 @@ func TestGrantARemovalAndTheSameRaiseDoesNotAddTheFactionsProgressAgain(t *testi
 	if v, _ := progress(t, o, 2, 176); v != 1200 {
 		t.Fatalf("faction progress after the first raise: %v", v)
 	}
+	collectRewards(t, o) // a removal takes back the rewards that still wait (landsraad_takeback.go, #944); collected ones stay
 	applyWith(t, o, DefaultGrantSettings(), house(176, Args{"was_mine": 1200.0, "mine_to": 0.0, "lower": true}))
 	applyWith(t, o, DefaultGrantSettings(), house(176, Args{"mine_to": 1200.0}))
 	if v, _ := progress(t, o, 2, 176); v != 1200 {
@@ -613,11 +615,12 @@ func TestGrantTheTopTierAfterARemovalWithoutSwatchTablesIsNotDeliveredAgain(t *t
 	if got := own(); got != "map[amount:1]\n" {
 		t.Fatalf("the task's own item after the first raise: %s", got)
 	}
+	collectRewards(t, o) // a removal takes back the rewards that still wait (landsraad_takeback.go, #944); collected ones stay
 	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 6000.0, "mine_to": 4800.0, "lower": true})))
 	if m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 4800.0, "mine_to": 6000.0}))); m["reward_rows"].(int64) != 0 || m["rewards_already_given"].(int64) != 1 {
 		t.Fatalf("answer: %v", m)
 	}
-	if got := own(); got != "map[amount:1]\n" {
+	if got := own(); got != "map[amount:0]\n" { // collected before the removal, and not written again
 		t.Fatalf("the top tier's own item is delivered again: %s", got)
 	}
 }

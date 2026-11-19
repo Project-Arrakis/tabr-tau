@@ -194,6 +194,7 @@ func TestRewardsNothingIsWrittenForARemovalACompleteOrAnotherFaction(t *testing.
 func TestRewardsATierIsNotDeliveredAgainAfterARemoval(t *testing.T) {
 	o := rewardOps(t, "")
 	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 3600.0})))
+	collectRewards(t, o) // a removal takes back the rewards that still wait (landsraad_takeback.go, #944); collected ones stay
 	before := houseRewards(t, o, "DA_HouseKenola")
 	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 3600.0, "mine_to": 2400.0, "lower": true})))
 	if houseRewards(t, o, "DA_HouseKenola") != before {
@@ -261,6 +262,7 @@ func TestRewardsNothingIsLoweredAndAnotherPlayersRowsAreKept(t *testing.T) {
 func TestRewardsASwatchWonThisTermIsNotReplacedByTheTaskItemAfterARemoval(t *testing.T) { // the one-time row of this term is what remembers it, the editor writes no event (#655)
 	o := rewardOps(t, "")
 	fillKenola(t, o, nil)
+	collectRewards(t, o) // the swatch is collected: a removal leaves it and the one-time row (a waiting swatch is taken back, landsraad_takeback.go, #944)
 	before := houseRewards(t, o, "DA_HouseKenola")
 	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 6000.0, "mine_to": 4800.0, "lower": true})))
 	m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 4800.0, "mine_to": 6000.0})))

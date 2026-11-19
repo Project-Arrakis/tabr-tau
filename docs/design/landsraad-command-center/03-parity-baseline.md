@@ -102,7 +102,7 @@ Method. "Current" is read from `internal/web/static/app.js` and the Go code at `
 | # | Current feature (source) | In the mock? | Gap if not carried | Sev | Milestone |
 |---|---|---|---|---|---|
 | L01 | Tier click: raise to a tier, cumulative (`lbItem`, `app.js` 1857) | Yes, with the same rule, demo data (`editor-v8.js` `demoChangeTier`) | the real write needs `mine_to`, `was_*`, `was_events` | P0 | M3 |
-| L02 | Remove only the highest tier; a lower tier is refused with the reason (`app.js` 2476, `lower:true`) | Yes (message in `demoChangeTier`) | the removal must send `lower:true`; the note that nothing paid is taken back (`LB_REMOVE_NOTE`) must stay | P0 | M3 |
+| L02 | Remove only the highest tier; a lower tier is refused with the reason (`app.js` 2476, `lower:true`) | Yes (message in `demoChangeTier`) | the removal must send `lower:true`; the note on what a removal takes back and what stays (`LB_REMOVE_NOTE`, worded by tau #944; before it said that nothing paid is taken back) must stay | P0 | M3 |
 | L03 | Fill (top tier), off at the top, without a faction, or with another faction chosen (`lbFillOff`, 1851) | Yes (`demoFillHouse`) | the off states and their text | P0 | M3 |
 | L04 | Fill faction goal (`mine_to` + `complete_for`) | Yes (`demoFillGoal`) | refused for a faction other than the character's own (`landsraad_apply.go` 220-224) | P0 | M3 |
 | L05 | Complete for the chosen faction | Yes (`demoCompleteHouse`) | `complete_for`, progress raised to the goal, never lowered | P0 | M3 |

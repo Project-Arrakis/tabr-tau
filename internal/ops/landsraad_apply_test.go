@@ -3,6 +3,7 @@ package ops
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -110,11 +111,11 @@ func TestApplyFillRaisesTheContributionToTheTopTierAndGrantsTheMissionsItStandsF
 }
 
 func TestApplyOnlyARaisedContributionWritesRewardRows(t *testing.T) {
-	// the delivery rows are the same before and after a removal, a Complete and a Reopen; a raised contribution writes them (landsraad_rewards_test.go)
+	// the delivery rows are the same before and after a Complete and a Reopen; a raised contribution writes them (landsraad_rewards_test.go), and a removal takes back the waiting
+	// rewards of the removed tiers (landsraad_takeback_test.go)
 	for name, hs := range map[string][]map[string]any{
-		"tier remove": {house(174, Args{"was_mine": 7850.0, "mine_to": 4800.0, "lower": true})},
-		"complete":    {house(175, Args{"complete_for": 1.0})},
-		"reopen":      {house(174, Args{"was_done": true, "reopen": true})},
+		"complete": {house(175, Args{"complete_for": 1.0})},
+		"reopen":   {house(174, Args{"was_done": true, "reopen": true})},
 	} {
 		o := goalOps(t)
 		before := rewardRows(t, o)
@@ -141,6 +142,20 @@ func TestApplyTierGiveCreatesTheRowAndRaisesIt(t *testing.T) {
 	}
 	if h := houseRow(t, o, 176); h["c"].(int64) != 1 || h["w"].(int64) != 2 {
 		t.Fatalf("the click that takes the faction to the goal takes the house: %v", h)
+	}
+}
+
+// A removal of the top tier of Maros (the game wrote its five rows, none collected) takes back the one waiting row of that tier and nothing else.
+func TestApplyTierRemovalTakesBackOnlyTheWaitingRowOfTheRemovedTier(t *testing.T) {
+	o := goalOps(t)
+	before := rewardRows(t, o)
+	m := mustApply(t, o, applyArgs(house(174, Args{"was_mine": 7850.0, "mine_to": 4800.0, "lower": true})))
+	if m["rewards_taken_back"].(int64) != 1 {
+		t.Fatalf("answer: %v", m)
+	}
+	want := strings.Replace(before, "map[amount:1 house_name:DA_HouseMaros last_updated:150 player_id:1 template_id:Swatch.Maros] ", "", 1)
+	if after := rewardRows(t, o); after != want || after == before {
+		t.Fatalf("rows: %s want %s", after, want)
 	}
 }
 

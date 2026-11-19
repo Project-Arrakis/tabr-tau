@@ -3,6 +3,7 @@ package ops
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -214,6 +215,9 @@ func (o *Ops) Landsraad() (any, error) {
 		}
 		t["rewards"] = tiers
 		boardTask(t, tiers, delivered, one, termID, termStart, places, here)
+		// what removing a reached tier would do to its reward, by the rule of the write (landsraad_takeback.go): the page says it before the click
+		myPaid, _ := toFloat(t["my_paid"])
+		boardTakeBack(tiers, house, delivered, one, termID, termStart, my, math.Max(events[id], elsewhere), myPaid)
 	}
 	decrees, err := o.S.Query(`select id, decree_name, disabled, weight from landsraad_decrees order by id`)
 	if err != nil {
