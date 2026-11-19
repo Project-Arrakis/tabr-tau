@@ -15,6 +15,10 @@ import (
 // unverifiedWhy is the sentence for a write that could not be checked yet.
 const unverifiedWhy = "the save was written, but it could not be verified yet (the file could not be read back); it is looked at again on the next attempt, and the edits are not written a second time"
 
+// unverifiedDiscardWhy is what a Discard says while the last write is not verified and the file cannot be read: the queue is not thrown away and the file is not read again, because the
+// edits of that write are in the file and their notes would be lost with them (#799).
+const unverifiedDiscardWhy = "the last write could not be verified yet (the file could not be read back), so nothing was discarded; try again in a moment"
+
 // settleWrittenLocked looks at the file when a write is waiting to be verified (s.writing is set). If the file is the one that was written, the edits that write held are done with:
 // the baseline moves to it, they leave the queue, the write log records the write, and what was queued after it stays queued. It returns what was written (nil when there was no such
 // write, or the file could not be read, or it is not the file that was written; s.writing says which of the last two). The caller holds s.mu.

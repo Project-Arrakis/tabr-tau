@@ -129,6 +129,19 @@ test('a note of the written edits that could not be recorded says so, and that t
   b.close();
 });
 
+test('a record of the Landsraad ground that was moved aside is named in the banner, with the file and without the folder (#838)', async () => {
+  const b = await banner({ recordNotice: "the editor's own record of the Landsraad ground it paid could not be used (the file is not usable), so a new record was started and the old file was kept as landsraad-paid-ab12.json.damaged-20261118T100000.000000 in the editor's own folder" });
+  assert.equal(b.gw.className, 'warn');
+  assert.match(b.text, /The editor's own record of the Landsraad ground it paid could not be used \(the file is not usable\), so a new record was started and the old file was kept as landsraad-paid-ab12\.json\.damaged-20261118T100000\.000000 in the editor's own folder\. The game's file is not touched; a raise now counts only the ground the new record holds\./);
+  b.close();
+});
+
+test('with no notice about the record the banner stays hidden (#838)', async () => {
+  const b = await banner({ recordNotice: '' });
+  assert.equal(b.gw.className, 'hide');
+  b.close();
+});
+
 test('with nothing wrong with the write log the banner stays hidden', async () => {
   const b = await banner({ writeLogProblem: '' });
   assert.equal(b.gw.className, 'hide');
