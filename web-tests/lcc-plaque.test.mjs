@@ -247,10 +247,10 @@ test('text from a save is only ever text: a decree, an effect, a contributor and
 test('the placeholders are honest: no contributor names unless given, a missing decree and holder say so', () => {
   const p = L.renderPlaque({ a: 1, h: 1 });
   assert.equal(p.querySelectorAll('.lcc-standard-list').length, 0);
-  assert.deepEqual([...p.querySelectorAll('.lcc-standard-none')].map((n) => n.textContent), ['Not in the save', 'Not in the save']);
+  assert.deepEqual([...p.querySelectorAll('.lcc-standard-none')].map((n) => n.textContent), ['—', '—']);
   assert.equal(p.querySelector('.lcc-pl-title').textContent, 'No active decree');
   assert.equal(p.querySelector('.lcc-pl-effect'), null);
-  assert.equal(p.querySelector('.lcc-heldby-n').textContent, 'Not recorded');
+  assert.equal(p.querySelector('.lcc-heldby-n').textContent, '—');
   assert.equal(L.renderPlaque({ a: 1, h: 1, demo: true }).querySelectorAll('.lcc-badge-demo').length, 1);
   assert.equal(p.querySelectorAll('.lcc-badge').length, 0, 'a live plaque carries no demo badge');
 });

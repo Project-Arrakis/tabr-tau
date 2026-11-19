@@ -117,7 +117,7 @@
     nm.appendChild(el('strong', 'lcc-tm-dn', d.name, d.tip ? { title: d.tip } : undefined)); // no raw row number beside the name (#1054)
     body.appendChild(nm);
     if (d.effect) body.appendChild(el('small', 'lcc-tm-de', d.effect));
-    else body.appendChild(el('small', 'lcc-tm-de lcc-tm-de-none', 'Effect: ' + NOT_IN_SAVE));
+    else body.appendChild(el('small', 'lcc-tm-de lcc-tm-de-none', 'Effect: —', { title: NOT_IN_SAVE })); // a dash, with the reason in the hover text (#1056)
     if (d.note) body.appendChild(el('small', 'lcc-tm-du', d.note));
     const tg = el('div', 'lcc-tm-tags', '', { role: 'group', 'aria-label': 'In this term' });
     tg.appendChild(el('span', 'lcc-tm-k', 'IN THIS TERM'));

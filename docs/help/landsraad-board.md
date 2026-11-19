@@ -52,6 +52,7 @@ The victory panel says whether a faction has won, by 13 Houses or by five in a l
 
 ## What the save does not hold
 
+- A dash (—) where a figure belongs means the save does not hold it (no holder recorded, no contributors). Hover the dash for the reason.
 - Active Landsraad missions are not recorded in a single-player save.
 - A ranking of the contributors is not recorded. The save holds the amount each contributor gave to each House.
 - Some Houses have no place on the Saved map. The editor does not guess a place.

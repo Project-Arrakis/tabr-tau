@@ -76,11 +76,12 @@ test('every keystone at level 0, and both complete, are different from the cap',
   assert.equal(q(b, '[data-lcs-lane="combat"]').dataset.kind, 'full');
 });
 
-test('a save with no keystone map shows "Not in the save", not 0 of 0 and not a completed bar', () => {
+test('a save with no keystone map shows a dash, not 0 of 0 and not a completed bar', () => {
   const d = draw(byId('keystone-total-zero-no-map'), HOUSES, {}, 'combat');
-  assert.equal(txt(q(d, '#lcs-keys')), 'Not in the save');
+  assert.equal(txt(q(d, '#lcs-keys')), '—');
+  assert.equal(q(d, '#lcs-keys').getAttribute('title'), 'Not in the save', 'the reason is the hover text (#1056)');
   assert.doesNotMatch(txt(q(d, '[data-lcs-lane="combat"]')), /0\/0/);
-  assert.equal(txt(q(d, '#lcs-keycount')), 'Not in the save');
+  assert.equal(txt(q(d, '#lcs-keycount')), '—');
 });
 
 test('a level the save stores that is not the level of its XP is shown with a warning and the save is not corrected', () => {
@@ -111,7 +112,8 @@ test('a track that is not identified: no XP, no level, XP controls off with the 
   assert.equal(lane.dataset.kind, 'unresolved');
   assert.match(lane.getAttribute('aria-label'), /track not identified, no XP shown/);
   assert.equal(txt(q(d, '.lcc-sp-level')), '—');
-  assert.equal(txt(q(d, '#lcs-xp')), 'Not in the save');
+  assert.equal(txt(q(d, '#lcs-xp')), '—');
+  assert.equal(q(d, '#lcs-xp').getAttribute('title'), 'Not in the save');
   for (const sel of ['[data-act="spAddCC"]', '[data-act="spMax"]', '[data-act="spReset"]', '#spxCombat']) {
     const e = q(d, sel); assert.ok(e, sel); assert.equal(e.disabled, true, sel);
     assert.match(e.getAttribute('aria-describedby'), /lcs-nonum/, sel + ' says why');

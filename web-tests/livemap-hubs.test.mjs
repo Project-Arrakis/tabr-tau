@@ -94,7 +94,7 @@ test('the link of a House at a hub opens the Saved map on that hub, centred on t
   ui.fetchedUrls.length = 0;
   ui.doc.querySelector('#lsrow-901 [data-lb=map]').dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true }));
   await ui.settle();
-  assert.deepEqual(calls, [['Arrakeen', mutelli.x, mutelli.y, 'Mutelli']]);
+  assert.deepEqual(calls, [['Arrakeen', mutelli.x, mutelli.y, 'Mutelli', 901]]);
   assert.ok(ui.fetchedUrls.includes('/api/livemap?map=Arrakeen'), ui.fetchedUrls.join(' '));
   assert.equal(ui.doc.querySelector('[data-tab=livemap]').getAttribute('aria-current'), 'page');
   assert.match(ui.doc.querySelector('#lmc').getAttribute('aria-label'), /^Saved map of Arrakeen, centred on House Mutelli\./);

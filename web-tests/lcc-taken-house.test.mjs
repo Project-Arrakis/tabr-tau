@@ -138,7 +138,7 @@ test('a taken House with no contributor row keeps "Not in the save" and says why
   for (const t of a.tasks) t.player_contributions = [];
   const ui = await open(a);
   assert.equal(ui.doc.querySelectorAll('.lcc-standard-none').length, 2);
-  assert.ok([...ui.doc.querySelectorAll('.lcc-standard-none')].every((n) => text(n) === 'Not in the save'));
+  assert.ok([...ui.doc.querySelectorAll('.lcc-standard-none')].every((n) => text(n) === '—'));
   assert.match([...ui.doc.querySelectorAll('.lcc-standard-h')].map((h) => h.getAttribute('title')).join(' | '), /holds no contribution rows under Atreides/);
   click(ui, tileOf(ui, 'Mutelli').querySelector('button'));
   const n = text(ui.doc.querySelector('.lcc-bd-insp .lcc-bd-nosave'));

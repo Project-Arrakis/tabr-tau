@@ -13,9 +13,9 @@ Method: the design reference and the editor page were drawn side by side in a he
 
 ## Honest-data rules that the view follows
 
-* Real values from `GET /api/player/specs` only. A value the save does not hold is drawn as "Not in the save".
+* Real values from `GET /api/player/specs` only. A value the save does not hold is drawn as a dash (—, #1056); the hover text says "Not in the save".
 * A track whose number cannot be tied to a path shows no XP and no level; its XP controls are disabled with the reason beside them; the keystone controls stay, because they act on every track.
-* A path with no keystone count in the save (total 0) says "Not in the save" and is never "complete".
+* A path with no keystone count in the save (total 0) shows a dash (hover: "Not in the save") and is never "complete".
 * If the level the save stores differs from the level its XP gives, the page says so and corrects nothing.
 * If the Landsraad cannot be read, the Houses of a path are "Not in the save" and the rest of the page works.
 * No XP, level, keystone or House is invented. The design reference's per-path descriptions, waypoint levels and keystone notes are not copied, because the save and the game files do not hold them.
@@ -50,7 +50,7 @@ Method: the design reference and the editor page were drawn side by side in a he
 | L5 | Chosen lane has a gold edge and glow | Same, glow read from one dial set to 0.5; the chosen lane also keeps a thicker border (not colour alone) | matches | |
 | L6 | Lane cards are buttons that choose the path | Same: `aria-pressed`, keyboard, focus ring | matches | |
 | L7 | Narrow layout: one lane per row | 5 across, then 3, then 2, then 1 (at 380 px and below) | differs (intentional) | Two per row at a phone width keeps the page short; the text never shrinks. |
-| L8 | (no unidentified lane) | Dashed edge, "Not in the save" where XP would be, "TRACK NOT IDENTIFIED" | matches (added) | Needed for honest data. |
+| L8 | (no unidentified lane) | Dashed edge, a dash (—, hover "Not in the save", #1056) where XP would be, "TRACK NOT IDENTIFIED" | matches (added) | Needed for honest data. |
 
 ### Progression dossier
 

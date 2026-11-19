@@ -27,4 +27,6 @@ The Houses listed under a path come from a public community tracker, not from th
 
 ## A track the save does not tie to a path
 
+A dash (—) where a figure belongs (XP, keystones) means the save does not hold it. Hover the dash for the reason.
+
 If the save holds XP in a track number that no path owns, the view says so and the XP buttons of that path are off. The keystone buttons still work, because keystones need no track numbers.

@@ -7,7 +7,7 @@ On a phone (a window 640 px wide or less) the section comes after the board, so 
 ## The facts of the term
 
 - **Term**: the number of the current term.
-- **Ends in**: the hours and minutes the term has left, for example 18 h 37 m. It counts down only while the game is running and is the value as of the last save. Under an hour it shows minutes, under a minute it says less than a minute, and once the end has passed it says ended (the game starts the next term when it runs). If the save does not give the clock it says not known.
+- **Ends in**: the hours and minutes the term has left, for example 18 h 37 m. It counts down only while the game is running and is the value as of the last save. Under an hour it shows minutes, under a minute it says less than a minute, and once the end has passed it says ended (the game starts the next term when it runs). If the save does not give the clock it shows a dash.
 - **Reigning faction**: the faction whose decree is in force.
 - **Active decree**: the decree in force this term.
 - **Next term's decree**: the decree chosen during this term, which takes effect in the next term. It says none yet until the vote has happened.

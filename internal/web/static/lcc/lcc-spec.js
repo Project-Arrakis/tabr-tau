@@ -26,6 +26,7 @@
   const ORDER = Object.freeze(['crafting', 'gathering', 'exploration', 'combat', 'sabotage']);
   const LABEL = Object.freeze({ combat: 'Combat', crafting: 'Crafting', exploration: 'Exploration', gathering: 'Gathering', sabotage: 'Sabotage' });
   const NOT_IN_SAVE = 'Not in the save';
+  const NONE = '—'; // what a figure the save does not hold shows (#1056): a dash, never the words; the reason is the hover text (NOT_IN_SAVE)
   const SCALE = Object.freeze([0, 25, 50, 75, 100]);
 
   const fmt = (n) => Number(n).toLocaleString('en-US');
@@ -114,15 +115,15 @@
   }
   const laneBadge = (r) => (!r.known ? 'TRACK NOT IDENTIFIED' : r.kind === 'full' ? '✦ FULL PATH COMPLETE' : r.kind === 'cap' ? '✦ XP CAP REACHED' : r.kind === 'keys' ? 'KEYSTONES COMPLETE' : 'PATH IN PROGRESS');
   function xpRemainText(vm, r) {
-    if (r.xp === null) return NOT_IN_SAVE;
+    if (r.xp === null) return NONE;
     if (r.capped) return 'XP CAP REACHED — NO FURTHER XP LEVELS';
     if (r.toNext === null) return fmt(r.toCap) + ' XP TO CAP';
     return fmt(r.toNext) + ' XP TO LEVEL ' + (r.level + 1) + ' · ' + fmt(r.toCap) + ' XP TO CAP';
   }
-  const keysText = (r) => (r.keyKnown ? r.keyOwned + ' / ' + r.keyTotal : NOT_IN_SAVE);
+  const keysText = (r) => (r.keyKnown ? r.keyOwned + ' / ' + r.keyTotal : NONE);
   const pctOf = (n, d) => (isNum(n) && d > 0 ? Math.max(0, Math.min(100, (n / d) * 100)) : 0);
   const storedText = (r) => String(Math.round(r.storedLevel * 100) / 100);
-  const laneLabel = (vm, r) => r.label + ', ' + (r.known ? 'level ' + (r.level === null ? 'unknown' : r.level) + ' of 100, ' + fmt(r.xp) + ' XP, ' + (r.keyKnown ? r.keyOwned + ' of ' + r.keyTotal + ' keystones' : 'keystones not in the save') + (r.levelMismatch ? ', the save stores level ' + storedText(r) : '') + (r.capped ? ', XP cap reached' : '') + (r.keyComplete ? ', keystones complete' : '') : 'track not identified, no XP shown');
+  const laneLabel = (vm, r) => r.label + ', ' + (r.known ? 'level ' + (r.level === null ? 'unknown' : r.level) + ' of 100, ' + fmt(r.xp) + ' XP, ' + (r.keyKnown ? r.keyOwned + ' of ' + r.keyTotal + ' keystones' : 'keystones not known') + (r.levelMismatch ? ', the save stores level ' + storedText(r) : '') + (r.capped ? ', XP cap reached' : '') + (r.keyComplete ? ', keystones complete' : '') : 'track not identified, no XP shown');
 
   // ---- the page ----------------------------------------------------------------------------------------------------------------------------------------------------------------
   // sel is the chosen path; xp holds what was typed in the XP field of each path, so choosing another lane and coming back, or drawing the view again, does not put 1000 back (#899)
@@ -169,10 +170,10 @@
     h2.appendChild(el('em', '', 'COMMAND'));
     add(t, h2); // no lead sentence (#980): what the view is and how its operations work are in the Help tab
     const s = el('div', 'lcc-sp-hero-stats', '', { role: 'group', 'aria-label': 'Progression overview' });
-    const stat = (v, k, id, title) => add(el('div', 'lcc-sp-stat'), el('b', '', v, { id }), el('small', '', k, title ? { title } : undefined));
+    const stat = (v, k, id, title) => add(el('div', 'lcc-sp-stat'), el('b', '', v, { id, title: v === NONE ? NOT_IN_SAVE : null }), el('small', '', k, title ? { title } : undefined));
     const T = vm.totals;
-    add(s, stat(T.tracks ? T.atCap + ' / ' + T.tracks : NOT_IN_SAVE, 'SPECIALIZATIONS COMPLETED', 'lcs-capcount', 'Paths whose XP has reached the cap (level 100). Keystones are counted apart.'), // renamed from TRACKS AT XP CAP (#1042): the count is the same
-      stat(T.total > 0 ? T.owned + ' / ' + T.total + (T.keysPartial ? '*' : '') : NOT_IN_SAVE, T.keysPartial && T.total > 0 ? 'KEYSTONES (* ' + (T.keysWhy === 'total' ? 'A TRACK’S TOTAL IS NOT IN THE SAVE' : 'A TRACK IS NOT IDENTIFIED YET') + ')' : 'KEYSTONES', 'lcs-keycount')); // two totals: the third, the largest XP of a track, is dropped (#1042); the XP ceiling is still on the dossier
+    add(s, stat(T.tracks ? T.atCap + ' / ' + T.tracks : NONE, 'SPECIALIZATIONS COMPLETED', 'lcs-capcount', 'Paths whose XP has reached the cap (level 100). Keystones are counted apart.'), // renamed from TRACKS AT XP CAP (#1042): the count is the same
+      stat(T.total > 0 ? T.owned + ' / ' + T.total + (T.keysPartial ? '*' : '') : NONE, T.keysPartial && T.total > 0 ? 'KEYSTONES (* ' + (T.keysWhy === 'total' ? 'A TRACK’S TOTAL IS NOT IN THE SAVE' : 'A TRACK IS NOT IDENTIFIED YET') + ')' : 'KEYSTONES', 'lcs-keycount')); // two totals: the third, the largest XP of a track, is dropped (#1042); the XP ceiling is still on the dossier
     return add(h, t, s);
   }
 
@@ -187,7 +188,7 @@
     const mm = r.levelMismatch ? el('span', 'lcc-sp-lane-mm', '⚠ SAVE STORES LV ' + storedText(r), { 'aria-hidden': 'true' }) : null;
     add(b, ic, el('strong', 'lcc-sp-lane-name', r.label.toUpperCase(), { 'aria-hidden': 'true' }), lv,
       bar('lcc-sp-lane-bar', pctOf(r.xp, vm.maxXp), 'XP of this path toward the cap', r.xp === null ? 0 : r.xp, vm.maxXp),
-      el('span', 'lcc-sp-lane-nums', (r.xp === null ? NOT_IN_SAVE : fmt(r.xp) + ' XP') + ' · ' + (r.keyKnown ? r.keyOwned + '/' + r.keyTotal + ' keystones' : 'keystones: ' + NOT_IN_SAVE.toLowerCase()), { 'aria-hidden': 'true' }),
+      el('span', 'lcc-sp-lane-nums', (r.xp === null ? NONE + ' XP' : fmt(r.xp) + ' XP') + ' · ' + (r.keyKnown ? r.keyOwned + '/' + r.keyTotal + ' keystones' : NONE + ' keystones'), { 'aria-hidden': 'true' }),
       el('span', 'lcc-sp-lane-badge', laneBadge(r), { 'aria-hidden': 'true' }), mm);
     b.querySelector('.lcc-sp-lane-bar').setAttribute('aria-hidden', 'true');
     return b;
@@ -212,8 +213,8 @@
     if (r.known && r.level !== null) lvl.appendChild(el('span', '', '/100', { 'aria-hidden': 'true' }));
     add(plate, el('span', 'lcc-sp-k', 'SPECIALIZATION LEVEL'), lvl, el('div', 'lcc-sp-mastery' + (r.kind === 'full' || r.kind === 'cap' ? ' is-on' : ''), masteryText(r), { id: 'lcs-mastery' }));
     const st = el('div', 'lcc-sp-status');
-    const line = (k, v, id) => add(el('div', 'lcc-sp-line'), el('span', '', k), el('strong', '', v, { id }));
-    add(st, line('XP', r.xp === null ? NOT_IN_SAVE : fmt(r.xp) + ' / ' + fmt(vm.maxXp), 'lcs-xp'),
+    const line = (k, v, id) => add(el('div', 'lcc-sp-line'), el('span', '', k), el('strong', '', v, { id, title: v === NONE ? NOT_IN_SAVE : null }));
+    add(st, line('XP', r.xp === null ? NONE : fmt(r.xp) + ' / ' + fmt(vm.maxXp), 'lcs-xp'),
       bar('lcc-sp-xpbar', pctOf(r.xp, vm.maxXp), 'Experience of the selected path', r.xp === null ? 0 : r.xp, vm.maxXp),
       el('div', 'lcc-sp-sub', xpRemainText(vm, r), { id: 'lcs-xpremain' }));
     if (r.levelMismatch) add(st, el('p', 'lcc-sp-note lcc-sp-note-warn', 'The save stores level ' + (Math.round(r.storedLevel * 100) / 100) + ' for this track, but its XP is level ' + r.level + ' on the XP table. Nothing was changed; the level the save stores is left as it is.', { id: 'lcs-mismatch' }));

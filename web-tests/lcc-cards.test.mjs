@@ -140,11 +140,13 @@ test('the small parts: the frame, the nameplate, HELD BY, the standard, the badg
   const held = L.heldBy('HOUSE HARKONNEN', 'h');
   assert.equal(held.querySelector('.lcc-heldby-l').textContent, 'HELD BY');
   assert.equal(held.querySelector('.lcc-heldby-n').textContent, 'HOUSE HARKONNEN');
-  assert.equal(L.heldBy('', '').querySelector('.lcc-heldby-n').textContent, 'Not recorded');
+  assert.equal(L.heldBy('', '').querySelector('.lcc-heldby-n').textContent, '—', 'a dash, with the reason as the hover text (#1056)');
+  assert.equal(L.heldBy('', '').querySelector('.lcc-heldby-n').getAttribute('title'), 'Not recorded in the save');
   assert.equal(L.ruleV().getAttribute('aria-hidden'), 'true');
   assert.deepEqual([...L.standard('a', ['x', 'y']).querySelectorAll('li')].map((i) => i.textContent), ['x', 'y']);
   assert.equal(L.standard('h', Array.from({ length: 9 }, (_, i) => 'n' + i)).querySelectorAll('li').length, 5, 'a standard lists five at most');
-  assert.equal(L.standard('a', null).querySelector('.lcc-standard-none').textContent, 'Not in the save');
+  assert.equal(L.standard('a', null).querySelector('.lcc-standard-none').textContent, '—');
+  assert.equal(L.standard('a', null).querySelector('.lcc-standard-none').getAttribute('title'), 'Not in the save');
   assert.equal(L.badge('demo').textContent, 'FIXTURE · DEMO DATA');
   assert.equal(L.badge('readonly').textContent, 'READ-ONLY');
   assert.equal(L.badge('nonsense').className, 'lcc-badge lcc-badge-readonly');

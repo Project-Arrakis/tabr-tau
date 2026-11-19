@@ -42,9 +42,9 @@ test('the value reads in hours and minutes: 18 h 37 m, an exact hour, under an h
 });
 
 test('a clock or an end the save does not give is "not known", never a guess', async () => {
-  assert.equal(ends(await open((a) => { delete a.clock; })), 'not known');
-  assert.equal(ends(await open((a) => { a.term.end_time = null; })), 'not known');
-  assert.equal(ends(await open((a) => { a.term.end_time = 1770000000; })), 'not known', 'a real time is not a play-clock second');
+  assert.equal(ends(await open((a) => { delete a.clock; })), '—');
+  assert.equal(ends(await open((a) => { a.term.end_time = null; })), '—');
+  assert.equal(ends(await open((a) => { a.term.end_time = 1770000000; })), '—', 'a real time is not a play-clock second');
 });
 
 test('no seconds, no play clock, no calendar date and no real time of the save anywhere in the Term section', async () => {
