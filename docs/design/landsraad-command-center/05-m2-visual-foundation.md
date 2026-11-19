@@ -46,7 +46,7 @@ The plaque is the approved dark artwork in both themes, so its golds are pinned 
 | Cut-corner gold frame | `lcc-frame` | clip-path, no image |
 | Gold nameplate | `lcc-pill` | pointed ends |
 | HELD BY with its vertical rule | `lcc-heldby`, `lcc-rule-v` | one element for the rule |
-| Cloth standard (A, H) | `lcc-standard` | up to five lines, "Not in the save" when there are none |
+| Cloth standard (A, H) | `lcc-standard` | up to five lines, a dash (—) when there are none; the hover text says "Not in the save" (#1056) |
 | Badges | `lcc-badge`, `-demo`, `-ref` | FIXTURE and READ-ONLY are words, not colours |
 | Reachable tooltip | `lcc-tt` | real text, `aria-describedby`, shown on hover and focus |
 | Voting plaque | `lcc-plaque-host` > `lcc-plaque` | container-query layout, wide from 940 px, narrow below, stacked head under 520 px |

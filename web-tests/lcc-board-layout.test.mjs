@@ -43,11 +43,11 @@ test('the whole action bar is in the control bar above the 5 by 5: the choose bu
   const fac = act.querySelector('select#lsb-fac');
   assert.ok(fac && fac.dataset.lb === 'fac' && fac.dataset.fk === 'fac');
   assert.equal(text(fac.options[fac.selectedIndex]), 'Atreides (your faction)');
-  assert.equal(text(act.querySelector('.note')), 'starts on your own faction', 'the hint stays as it is');
-  assert.ok(act.querySelector('.note').getAttribute('title'), 'and keeps its title');
+  assert.equal(act.querySelector('.note'), null, 'no standing note beside the faction box (#1045): the option says (your faction)');
+  assert.equal(fac.getAttribute('title'), 'The faction of the next Fill faction goal, Complete or bulk click. Choosing it writes nothing.', 'the hover text stays, on the box');
   const sum = act.querySelector('#lsb-sum');
   assert.equal(sum.getAttribute('aria-live'), 'polite', 'the count of the chosen houses stays in a live region');
-  assert.equal(text(sum), 'Nothing is chosen.');
+  assert.equal(text(sum), '', 'no standing sentence when nothing is chosen (#1062)');
   // the question, the result line and the note on a write: directly under the control bar, before the cards
   const slot = ui.doc.querySelector('.lcc-bd-panel > .lcc-bd-slot');
   assert.ok(slot && bar.nextElementSibling === slot, 'directly under the bar');
@@ -122,7 +122,7 @@ test('each control of the action bar in the control bar sends the request the cl
   assert.match(text(ui.doc.querySelector('#lsb-sum')), /^Chosen: 25 houses\./);
   click(ui, '.lcc-bd-filters [data-fk="b-none"]');
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-pick:checked').length, 0);
-  assert.equal(text(ui.doc.querySelector('#lsb-sum')), 'Nothing is chosen.');
+  assert.equal(text(ui.doc.querySelector('#lsb-sum')), '');
   assert.equal(ui.posted.length, 0, 'choosing writes nothing');
 });
 

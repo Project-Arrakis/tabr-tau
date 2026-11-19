@@ -26,6 +26,7 @@
   const ORDER = Object.freeze(['crafting', 'gathering', 'exploration', 'combat', 'sabotage']);
   const LABEL = Object.freeze({ combat: 'Combat', crafting: 'Crafting', exploration: 'Exploration', gathering: 'Gathering', sabotage: 'Sabotage' });
   const NOT_IN_SAVE = 'Not in the save';
+  const NONE = '—'; // what a figure the save does not hold shows (#1056): a dash, never the words; the reason is the hover text (NOT_IN_SAVE)
   const SCALE = Object.freeze([0, 25, 50, 75, 100]);
 
   const fmt = (n) => Number(n).toLocaleString('en-US');
@@ -107,23 +108,22 @@
   // The words of a track's state, kept apart so XP and keystones are never one word: LEVEL 100 is the XP cap and says nothing about keystones, "full path" needs both numbers.
   function masteryText(r) {
     if (!r.known) return 'TRACK NOT IDENTIFIED';
-    const ks = r.keyKnown ? r.keyOwned + '/' + r.keyTotal : '';
-    if (r.kind === 'full') return 'FULL PATH COMPLETE · LEVEL 100 · KEYSTONES ' + ks;
-    if (r.kind === 'cap') return 'LEVEL 100 · XP CAP REACHED';
-    if (r.kind === 'keys') return 'KEYSTONES COMPLETE · ' + ks;
+    if (r.kind === 'full') return 'FULL PATH COMPLETE'; // the level (the plate above), the XP and the keystone count (the bars below) are not said again here (#1053)
+    if (r.kind === 'cap') return 'XP CAP REACHED';
+    if (r.kind === 'keys') return 'KEYSTONES COMPLETE';
     return 'XP CAP NOT REACHED';
   }
   const laneBadge = (r) => (!r.known ? 'TRACK NOT IDENTIFIED' : r.kind === 'full' ? '✦ FULL PATH COMPLETE' : r.kind === 'cap' ? '✦ XP CAP REACHED' : r.kind === 'keys' ? 'KEYSTONES COMPLETE' : 'PATH IN PROGRESS');
   function xpRemainText(vm, r) {
-    if (r.xp === null) return NOT_IN_SAVE;
+    if (r.xp === null) return NONE;
     if (r.capped) return 'XP CAP REACHED — NO FURTHER XP LEVELS';
     if (r.toNext === null) return fmt(r.toCap) + ' XP TO CAP';
     return fmt(r.toNext) + ' XP TO LEVEL ' + (r.level + 1) + ' · ' + fmt(r.toCap) + ' XP TO CAP';
   }
-  const keysText = (r) => (r.keyKnown ? r.keyOwned + ' / ' + r.keyTotal : NOT_IN_SAVE);
+  const keysText = (r) => (r.keyKnown ? r.keyOwned + ' / ' + r.keyTotal : NONE);
   const pctOf = (n, d) => (isNum(n) && d > 0 ? Math.max(0, Math.min(100, (n / d) * 100)) : 0);
   const storedText = (r) => String(Math.round(r.storedLevel * 100) / 100);
-  const laneLabel = (vm, r) => r.label + ', ' + (r.known ? 'level ' + (r.level === null ? 'unknown' : r.level) + ' of 100, ' + fmt(r.xp) + ' XP, ' + (r.keyKnown ? r.keyOwned + ' of ' + r.keyTotal + ' keystones' : 'keystones not in the save') + (r.levelMismatch ? ', the save stores level ' + storedText(r) : '') + (r.capped ? ', XP cap reached' : '') + (r.keyComplete ? ', keystones complete' : '') : 'track not identified, no XP shown');
+  const laneLabel = (vm, r) => r.label + ', ' + (r.known ? 'level ' + (r.level === null ? 'unknown' : r.level) + ' of 100, ' + fmt(r.xp) + ' XP, ' + (r.keyKnown ? r.keyOwned + ' of ' + r.keyTotal + ' keystones' : 'keystones not known') + (r.levelMismatch ? ', the save stores level ' + storedText(r) : '') + (r.capped ? ', XP cap reached' : '') + (r.keyComplete ? ', keystones complete' : '') : 'track not identified, no XP shown');
 
   // ---- the page ----------------------------------------------------------------------------------------------------------------------------------------------------------------
   // sel is the chosen path; xp holds what was typed in the XP field of each path, so choosing another lane and coming back, or drawing the view again, does not put 1000 back (#899)
@@ -170,10 +170,10 @@
     h2.appendChild(el('em', '', 'COMMAND'));
     add(t, h2); // no lead sentence (#980): what the view is and how its operations work are in the Help tab
     const s = el('div', 'lcc-sp-hero-stats', '', { role: 'group', 'aria-label': 'Progression overview' });
-    const stat = (v, k, id, title) => add(el('div', 'lcc-sp-stat'), el('b', '', v, { id }), el('small', '', k, title ? { title } : undefined));
+    const stat = (v, k, id, title) => add(el('div', 'lcc-sp-stat'), el('b', '', v, { id, title: v === NONE ? NOT_IN_SAVE : null }), el('small', '', k, title ? { title } : undefined));
     const T = vm.totals;
-    add(s, stat(T.tracks ? T.atCap + ' / ' + T.tracks : NOT_IN_SAVE, 'SPECIALIZATIONS COMPLETED', 'lcs-capcount', 'Paths whose XP has reached the cap (level 100). Keystones are counted apart.'), // renamed from TRACKS AT XP CAP (#1042): the count is the same
-      stat(T.total > 0 ? T.owned + ' / ' + T.total + (T.keysPartial ? '*' : '') : NOT_IN_SAVE, T.keysPartial && T.total > 0 ? 'KEYSTONES (* ' + (T.keysWhy === 'total' ? 'A TRACK’S TOTAL IS NOT IN THE SAVE' : 'A TRACK IS NOT IDENTIFIED YET') + ')' : 'KEYSTONES', 'lcs-keycount')); // two totals: the third, the largest XP of a track, is dropped (#1042); the XP ceiling is still on the dossier
+    add(s, stat(T.tracks ? T.atCap + ' / ' + T.tracks : NONE, 'SPECIALIZATIONS COMPLETED', 'lcs-capcount', 'Paths whose XP has reached the cap (level 100). Keystones are counted apart.'), // renamed from TRACKS AT XP CAP (#1042): the count is the same
+      stat(T.total > 0 ? T.owned + ' / ' + T.total + (T.keysPartial ? '*' : '') : NONE, T.keysPartial && T.total > 0 ? 'KEYSTONES (* ' + (T.keysWhy === 'total' ? 'SOME PATHS SHOW NO TOTAL' : 'ONE PATH IS NOT MATCHED YET') + ')' : 'KEYSTONES', 'lcs-keycount')); // two totals: the third, the largest XP of a track, is dropped (#1042); the XP ceiling is still on the dossier
     return add(h, t, s);
   }
 
@@ -188,7 +188,7 @@
     const mm = r.levelMismatch ? el('span', 'lcc-sp-lane-mm', '⚠ SAVE STORES LV ' + storedText(r), { 'aria-hidden': 'true' }) : null;
     add(b, ic, el('strong', 'lcc-sp-lane-name', r.label.toUpperCase(), { 'aria-hidden': 'true' }), lv,
       bar('lcc-sp-lane-bar', pctOf(r.xp, vm.maxXp), 'XP of this path toward the cap', r.xp === null ? 0 : r.xp, vm.maxXp),
-      el('span', 'lcc-sp-lane-nums', (r.xp === null ? NOT_IN_SAVE : fmt(r.xp) + ' XP') + ' · ' + (r.keyKnown ? r.keyOwned + '/' + r.keyTotal + ' keystones' : 'keystones: ' + NOT_IN_SAVE.toLowerCase()), { 'aria-hidden': 'true' }),
+      el('span', 'lcc-sp-lane-nums', (r.xp === null ? NONE + ' XP' : fmt(r.xp) + ' XP') + ' · ' + (r.keyKnown ? r.keyOwned + '/' + r.keyTotal + ' keystones' : NONE + ' keystones'), { 'aria-hidden': 'true' }),
       el('span', 'lcc-sp-lane-badge', laneBadge(r), { 'aria-hidden': 'true' }), mm);
     b.querySelector('.lcc-sp-lane-bar').setAttribute('aria-hidden', 'true');
     return b;
@@ -200,12 +200,12 @@
     const ic = add(el('div', 'lcc-sp-dossier-ic', '', { 'aria-hidden': 'true' }), pic('lcc-sp-dossier-img', r.key, 96));
     const hd = el('div', 'lcc-sp-dheading');
     add(hd, el('p', 'lcc-sp-eyebrow', 'PROGRESSION DOSSIER · SELECTED PATH'), el('h2', 'lcc-sp-h2s', r.label.toUpperCase(), { id: 'lcs-dos-h' }),
-      r.known ? null : el('p', 'lcc-sp-small', 'This save has XP in a track number that is not tied to this path yet.')); // a path is picked by its name: the number behind a known path is not shown (#708)
+      r.known ? null : el('p', 'lcc-sp-small', 'This save has XP in a track the editor cannot match to this path yet.')); // a path is picked by its name: the number behind a known path is not shown (#708)
     add(head, ic, hd, el('span', 'lcc-sp-flag' + (r.capped ? ' is-cap' : ''), !r.known ? 'TRACK NOT IDENTIFIED' : r.capped ? 'LEVEL 100 · XP CAP REACHED' : 'LEVEL ' + (r.level === null ? '—' : r.level)));
     add(d, head);
 
     if (!r.known) {
-      add(d, el('p', 'lcc-sp-note lcc-sp-note-warn', 'XP editing is off for this path: no track number of the save is tied to it. The keystone buttons still work: keystones need no track numbers.', { id: 'lcs-unres-note' }));
+      add(d, el('p', 'lcc-sp-note lcc-sp-note-warn', 'XP editing is off for this path: the editor cannot match it to a track in this save yet. The keystone buttons still work.', { id: 'lcs-unres-note' }));
     }
     const g = el('div', 'lcc-sp-prog');
     const plate = el('div', 'lcc-sp-plate');
@@ -213,8 +213,8 @@
     if (r.known && r.level !== null) lvl.appendChild(el('span', '', '/100', { 'aria-hidden': 'true' }));
     add(plate, el('span', 'lcc-sp-k', 'SPECIALIZATION LEVEL'), lvl, el('div', 'lcc-sp-mastery' + (r.kind === 'full' || r.kind === 'cap' ? ' is-on' : ''), masteryText(r), { id: 'lcs-mastery' }));
     const st = el('div', 'lcc-sp-status');
-    const line = (k, v, id) => add(el('div', 'lcc-sp-line'), el('span', '', k), el('strong', '', v, { id }));
-    add(st, line('XP', r.xp === null ? NOT_IN_SAVE : fmt(r.xp) + ' / ' + fmt(vm.maxXp), 'lcs-xp'),
+    const line = (k, v, id) => add(el('div', 'lcc-sp-line'), el('span', '', k), el('strong', '', v, { id, title: v === NONE ? NOT_IN_SAVE : null }));
+    add(st, line('XP', r.xp === null ? NONE : fmt(r.xp) + ' / ' + fmt(vm.maxXp), 'lcs-xp'),
       bar('lcc-sp-xpbar', pctOf(r.xp, vm.maxXp), 'Experience of the selected path', r.xp === null ? 0 : r.xp, vm.maxXp),
       el('div', 'lcc-sp-sub', xpRemainText(vm, r), { id: 'lcs-xpremain' }));
     if (r.levelMismatch) add(st, el('p', 'lcc-sp-note lcc-sp-note-warn', 'The save stores level ' + (Math.round(r.storedLevel * 100) / 100) + ' for this track, but its XP is level ' + r.level + ' on the XP table. Nothing was changed; the level the save stores is left as it is.', { id: 'lcs-mismatch' }));
@@ -233,12 +233,7 @@
       row.appendChild(li);
     }
     add(wp, row);
-    add(d, wp);
-
-    const facts = el('div', 'lcc-sp-facts');
-    const fact = (k, v) => add(el('div', 'lcc-sp-fact'), el('span', 'lcc-sp-k', k), el('strong', '', v));
-    add(facts, fact('ASSOCIATED HOUSES', r.houses === null ? NOT_IN_SAVE : String(r.houses.length)), fact('XP CEILING', fmt(vm.maxXp)), fact('KEYSTONES', r.keyKnown ? r.keyOwned + '/' + r.keyTotal : NOT_IN_SAVE));
-    return add(d, facts);
+    return add(d, wp); // no row of three fact tiles (#1053): the Houses are the panel below, the XP ceiling the bar's own end, the keystones the bar above
   }
 
   function opsOf(vm, r) {
@@ -251,7 +246,7 @@
     const why = off ? 'lcs-nonum' : null;
     const g1 = el('div', 'lcc-sp-group');
     add(g1, add(el('div', 'lcc-sp-glabel'), el('strong', '', r.label.toUpperCase() + (off ? ' · NOT IDENTIFIED' : '')), el('span', '', 'INDIVIDUAL TRACK')));
-    if (off) add(g1, el('p', 'lcc-sp-note lcc-sp-note-warn', 'No track number of the save is tied to this path, so XP editing is off.', { id: 'lcs-nonum' }));
+    if (off) add(g1, el('p', 'lcc-sp-note lcc-sp-note-warn', 'The editor cannot match this path to a track in this save, so XP editing is off.', { id: 'lcs-nonum' }));
     add(g1, el('label', 'lcc-sp-lbl', 'Add XP', { for: 'spx' + r.track }));
     const inp = el('input', 'lcc-sp-input', '', { id: 'spx' + r.track, type: 'number', step: 1, min: 1, max: vm.maxXp, value: Object.prototype.hasOwnProperty.call(state.xp, r.track) ? state.xp[r.track] : 1000, 'aria-describedby': 'lcs-xphint lcs-xperr' + (why ? ' ' + why : ''), disabled: off });
     inp.addEventListener('keydown', (e) => { if (e.key === '-' || e.key === 'Subtract') e.preventDefault(); }); // no minus sign: XP is not removed here (#1032)
@@ -276,8 +271,8 @@
     const left = vm.unassigned.length;
     const resetOff = !vm.resetCount;
     const resetBtn = btn('Reset XP of All Known Tracks (' + vm.resetCount + ')', 'is-danger lcc-sp-wide', { 'data-act': 'spResetAll', 'data-n': vm.resetCount, 'data-left': left, disabled: resetOff, 'aria-describedby': 'lcs-resetnote' });
-    const resetSay = (resetOff ? 'Nothing to reset: no track whose number is known has XP.' + (left ? ' ' + left + (left === 1 ? ' row of the save whose track is not known yet is left alone.' : ' rows of the save whose track is not known yet are left alone.') : '')
-      : 'Resets the XP and level of ' + vm.resetCount + (vm.resetCount === 1 ? ' track' : ' tracks') + ' whose number is known, after you type a confirmation. Keystones are not touched.' + (left ? ' ' + left + (left === 1 ? ' row whose track is not known yet is left alone.' : ' rows whose track is not known yet are left alone.') : ''));
+    const resetSay = (resetOff ? 'Nothing to reset: none of the paths the editor can match has XP.' + (left ? ' ' + left + (left === 1 ? ' track the editor cannot match yet is left alone.' : ' tracks the editor cannot match yet are left alone.') : '')
+      : 'Resets the XP and level of ' + vm.resetCount + (vm.resetCount === 1 ? ' track' : ' tracks') + ' the editor can match to a path, after you type a confirmation. Keystones are not touched.' + (left ? ' ' + left + (left === 1 ? ' track the editor cannot match yet is left alone.' : ' tracks the editor cannot match yet are left alone.') : ''));
     if (resetOff) add(g2, resetBtn, el('p', 'lcc-sp-hint', resetSay, { id: 'lcs-resetnote' }));
     else {
       const rt = tipOf('lcs-resetnote', 'About resetting all tracks', resetSay);
@@ -325,7 +320,7 @@
   function unknownRowOf(vm) {
     if (!vm.unassigned.length) return null;
     const nums = vm.unassigned.map((u) => u.number);
-    return el('p', 'lcc-sp-note lcc-sp-note-warn', (nums.length === 1 ? 'Unknown specialization row in the save (not edited): number ' : 'Unknown specialization rows in the save (not edited): numbers ') + nums.join(', ') + '.', { id: 'lcs-unknown-row' });
+    return el('p', 'lcc-sp-note lcc-sp-note-warn', (nums.length === 1 ? 'The save holds XP in a track the editor does not know (left as it is): track ' : 'The save holds XP in tracks the editor does not know (left as they are): tracks ') + nums.join(', ') + '.', { id: 'lcs-unknown-row' });
   }
 
   function emptyOf(msg) {

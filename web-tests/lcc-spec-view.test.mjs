@@ -58,7 +58,7 @@ test('LEVEL 100 with no keystone: the gold treatment and the words of the XP cap
   const lane = q(d, '[data-lcs-lane="combat"]');
   assert.equal(lane.dataset.kind, 'cap');
   assert.equal(txt(lane.querySelector('.lcc-sp-lane-badge')), '✦ XP CAP REACHED');
-  assert.equal(txt(q(d, '#lcs-mastery')), 'LEVEL 100 · XP CAP REACHED');
+  assert.equal(txt(q(d, '#lcs-mastery')), 'XP CAP REACHED');
   assert.equal(txt(q(d, '#lcs-keys')), '0 / 41');
   assert.equal(txt(q(d, '#lcs-xp')), '44,182 / 44,182');
   assert.equal(txt(q(d, '#lcs-xpremain')), 'XP CAP REACHED — NO FURTHER XP LEVELS');
@@ -68,19 +68,20 @@ test('LEVEL 100 with no keystone: the gold treatment and the words of the XP cap
 
 test('every keystone at level 0, and both complete, are different from the cap', () => {
   const k = draw(byId('xp-0-all-keystones-41-of-41'), HOUSES, {}, 'combat');
-  assert.equal(txt(q(k, '#lcs-mastery')), 'KEYSTONES COMPLETE · 41/41');
+  assert.equal(txt(q(k, '#lcs-mastery')), 'KEYSTONES COMPLETE');
   assert.equal(txt(q(k, '.lcc-sp-level')), '0/100');
   assert.equal(q(k, '[data-lcs-lane="combat"]').dataset.kind, 'keys');
   const b = draw(byId('both-complete'), HOUSES, {}, 'combat');
-  assert.match(txt(q(b, '#lcs-mastery')), /^FULL PATH COMPLETE/);
+  assert.equal(txt(q(b, '#lcs-mastery')), 'FULL PATH COMPLETE', 'the level and the keystone count are not said again in the mastery line (#1053)');
   assert.equal(q(b, '[data-lcs-lane="combat"]').dataset.kind, 'full');
 });
 
-test('a save with no keystone map shows "Not in the save", not 0 of 0 and not a completed bar', () => {
+test('a save with no keystone map shows a dash, not 0 of 0 and not a completed bar', () => {
   const d = draw(byId('keystone-total-zero-no-map'), HOUSES, {}, 'combat');
-  assert.equal(txt(q(d, '#lcs-keys')), 'Not in the save');
+  assert.equal(txt(q(d, '#lcs-keys')), '—');
+  assert.equal(q(d, '#lcs-keys').getAttribute('title'), 'Not in the save', 'the reason is the hover text (#1056)');
   assert.doesNotMatch(txt(q(d, '[data-lcs-lane="combat"]')), /0\/0/);
-  assert.equal(txt(q(d, '#lcs-keycount')), 'Not in the save');
+  assert.equal(txt(q(d, '#lcs-keycount')), '—');
 });
 
 test('a level the save stores that is not the level of its XP is shown with a warning and the save is not corrected', () => {
@@ -111,16 +112,17 @@ test('a track that is not identified: no XP, no level, XP controls off with the 
   assert.equal(lane.dataset.kind, 'unresolved');
   assert.match(lane.getAttribute('aria-label'), /track not identified, no XP shown/);
   assert.equal(txt(q(d, '.lcc-sp-level')), '—');
-  assert.equal(txt(q(d, '#lcs-xp')), 'Not in the save');
+  assert.equal(txt(q(d, '#lcs-xp')), '—');
+  assert.equal(q(d, '#lcs-xp').getAttribute('title'), 'Not in the save');
   for (const sel of ['[data-act="spAddCC"]', '[data-act="spMax"]', '[data-act="spReset"]', '#spxCombat']) {
     const e = q(d, sel); assert.ok(e, sel); assert.equal(e.disabled, true, sel);
     assert.match(e.getAttribute('aria-describedby'), /lcs-nonum/, sel + ' says why');
   }
-  assert.match(txt(q(d, '#lcs-nonum')), /No track number of the save is tied to this path, so XP editing is off/);
+  assert.match(txt(q(d, '#lcs-nonum')), /The editor cannot match this path to a track in this save, so XP editing is off/);
   assert.doesNotMatch(d.box.textContent, /Track mapping|advanced editor/i, 'no pointer to the removed section');
   assert.equal(q(d, '[data-act="spKeyAll"]').disabled, false);
   assert.equal(q(d, '[data-act="spKeyReset"]').disabled, false);
-  assert.match(txt(q(d, '#lcs-unknown-row')), /^Unknown specialization row in the save \(not edited\): number \d+\.$/);
+  assert.match(txt(q(d, '#lcs-unknown-row')), /^The save holds XP in a track the editor does not know \(left as it is\): track \d+\.$/);
   assert.equal(q(d, '#lcs-unknown-row').querySelector('button, input, select, a'), null, 'the line is read-only');
 });
 
@@ -129,7 +131,7 @@ test('a path is picked by its name: the dossier does not show the track number b
   assert.equal(q(d, '.lcc-sp-dheading .lcc-sp-small'), null);
   assert.doesNotMatch(d.box.textContent, /Track number d/);
   const u = draw(byId('conflicting-learned-number-leaves-combat-unresolved'), HOUSES, {}, 'combat');
-  assert.match(txt(q(u, '.lcc-sp-dheading .lcc-sp-small')), /not tied to this path yet/);
+  assert.match(txt(q(u, '.lcc-sp-dheading .lcc-sp-small')), /cannot match to this path yet/);
 });
 
 test('the track mapping and advanced editor section is gone (#986): no heading, no eyebrow, no disclosure, no track numbers, no assign, no hand entry, no raw row; the XP field keeps the id the handlers read', () => {
@@ -149,10 +151,10 @@ test('a save where every row belongs to a path has no line about an unknown row;
   assert.equal(q(draw(byId('xp-0-keystones-0-of-41')), '#lcs-unknown-row'), null);
   const d = draw(byId('unassigned-row-number-9'));
   assert.equal(qa(d, '#lcs-unknown-row').length, 1);
-  assert.equal(txt(q(d, '#lcs-unknown-row')), 'Unknown specialization row in the save (not edited): number 9.');
+  assert.equal(txt(q(d, '#lcs-unknown-row')), 'The save holds XP in a track the editor does not know (left as it is): track 9.');
   const two = byId('unassigned-row-number-9');
   two.unassigned.push({ number: 12, xp: 5, level: 0 });
-  assert.equal(txt(q(draw(two), '#lcs-unknown-row')), 'Unknown specialization rows in the save (not edited): numbers 9, 12.');
+  assert.equal(txt(q(draw(two), '#lcs-unknown-row')), 'The save holds XP in tracks the editor does not know (left as they are): tracks 9, 12.');
 });
 
 test('a path at level 100 (the XP cap or the full path) is marked for the one win outline of lcc.css; a path below 100 is not (#988)', () => {
@@ -199,11 +201,11 @@ test('Reset XP of all known tracks: the count and the rows left alone come from 
   assert.equal(b.dataset.n, String(d.vm.resetCount));
   assert.equal(b.dataset.left, '1');
   assert.match(txt(b), new RegExp('\\(' + d.vm.resetCount + '\\)'));
-  assert.match(txt(q(d, '#lcs-resetnote')), /row whose track is not known yet is left alone/);
+  assert.match(txt(q(d, '#lcs-resetnote')), /track the editor cannot match yet is left alone/);
   const none = draw(byId('xp-0-keystones-0-of-41'));
   const nb = q(none, '[data-act="spResetAll"]');
   assert.equal(nb.disabled, true); assert.equal(nb.dataset.n, '0');
-  assert.match(txt(q(none, '#lcs-resetnote')), /Nothing to reset: no track whose number is known has XP/);
+  assert.match(txt(q(none, '#lcs-resetnote')), /Nothing to reset: none of the paths the editor can match has XP/);
   assert.equal(nb.getAttribute('aria-describedby'), 'lcs-resetnote');
 });
 
@@ -225,7 +227,7 @@ test('with no Landsraad read the Houses are "Not in the save", and a path with n
   const d = draw(byId('mixed-five-tracks'), null);
   assert.match(txt(q(d, '.lcc-sp-houses')), /could not be read, so the Houses of this path are not in the save/);
   assert.equal(qa(d, '.lcc-sp-house').length, 0);
-  assert.equal(txt(qa(d, '.lcc-sp-fact strong')[0]), 'Not in the save');
+  assert.equal(qa(d, '.lcc-sp-fact').length, 0, 'no row of three fact tiles (#1053)');
   const e = draw(byId('mixed-five-tracks'), HOUSES, {}, 'sabotage');
   assert.match(txt(q(e, '.lcc-sp-houses')), /No House of this term is listed under this path/);
 });
@@ -279,7 +281,7 @@ test('a read that cannot be used draws one honest message and no control', () =>
 test('the hero keystone total is marked partial for a track that is not identified, with its reason, and not otherwise (#902)', () => {
   const d = draw(byId('conflicting-learned-number-leaves-combat-unresolved'), HOUSES, {}, 'combat');
   assert.match(txt(q(d, '#lcs-keycount')), /^0 \/ 205\*$/);
-  assert.match(txt(q(d, '#lcs-keycount').parentNode.querySelector('small')), /^KEYSTONES \(\* A TRACK IS NOT IDENTIFIED YET\)$/);
+  assert.match(txt(q(d, '#lcs-keycount').parentNode.querySelector('small')), /^KEYSTONES \(\* ONE PATH IS NOT MATCHED YET\)$/);
   assert.doesNotMatch(txt(q(draw(byId('mixed-five-tracks')), '#lcs-keycount')), /\*/);
 });
 

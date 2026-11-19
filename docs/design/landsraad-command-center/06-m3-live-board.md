@@ -37,7 +37,7 @@ Status is what a web test proves in a page with a stand-in answer. "Not checked 
 | L09 | One write at a time | A second click sends nothing, says to wait, the board is marked busy | `the write lock` |
 | L10 | Written versus queued | Never called saved when queued, in the result line and on the board | `written and queued are said apart` |
 | L11 | Grant preview, confirm, result sentence | The Inspector shows what a raise would write; a raise over the limit is shown as refused; the question keeps the classic text | `the grant before the click` |
-| L12 | Faction drop-down | Same control, default the character's faction | `another faction chosen` |
+| L12 | Faction drop-down | Same control, default the character's faction; no standing note beside it (#1045), the hover text on the box says what choosing it does | `another faction chosen` |
 | L13 | Reward states per tier | The Inspector ledger tells waiting, collected and delivery unknown apart | `the reward ledger` (`lcc-board`) |
 | L14 | Two scales | Faction progress and the player's tiers are two sections | `choosing a House opens the Inspector` |
 | L15 L16 L17 | Show, House filter, Jump to House | Dim the Houses they leave out and keep the board fixed; Jump selects and focuses the tile; a House the filter hides is dropped from the choice and a question about it closes | `Show, House and Path dim`; `Jump to House`; `a filter drops the Houses` |

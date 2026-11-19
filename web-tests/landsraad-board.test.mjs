@@ -61,7 +61,7 @@ test('the board lists every house alphabetically with its state, tiers and next 
   assert.ok(/^next 4,800 · 1 Pincushion Gauntlets|^next 4,800 · 1 /.test(nx[0]) && nx[0].endsWith(','), nx[0]);
   assert.equal(nx[1], '100 more');
   assert.ok(text(by('Wayku').querySelector('.js-next')).includes('above the top tier'));
-  assert.ok(text(by('Alexin').querySelector('.amt')).includes('none recorded'));
+  assert.equal(text(by('Alexin').querySelector('.amt')), '0', 'no contribution is a plain 0 (#1056)');
   assert.ok(text(by('Hurata').querySelector('.c-hs')).includes('Taken · Harkonnen'));
   assert.ok(text(by('Thorvald').querySelector('.c-hs')).includes('Open · Atreides ahead'));
   assert.deepEqual(ui.posted, [], 'the board only reads the save');
@@ -320,7 +320,7 @@ test('the peek and the opened row give the distance from you in plain words; a c
   const calls = spyMap(ui);
   click(ui, '#lsrow-900 [data-lb=map]');
   await ui.settle();
-  assert.deepEqual(calls, [['HaggaBasin', 0.25, 0.5, 'Alexin']], 'the Saved map is shown at the house, in one click');
+  assert.deepEqual(calls, [['HaggaBasin', 0.25, 0.5, 'Alexin', 900]], 'the Saved map is shown at the house, in one click');
   assert.equal(ui.doc.querySelector('dialog'), null, 'no window');
   assert.equal(ui.doc.querySelector('#lsb'), null, 'the Landsraad page is left');
   assert.equal(ui.doc.querySelector('[data-tab=livemap]').getAttribute('aria-current'), 'page', 'the Saved map tab is the open one');
@@ -403,7 +403,7 @@ test('the place button works from the keyboard: a button takes the Enter/Space c
   b.focus();
   b.click();
   await ui.settle();
-  assert.deepEqual(calls, [['DeepDesert', 0.5, 0.75, 'Maros']]);
+  assert.deepEqual(calls, [['DeepDesert', 0.5, 0.75, 'Maros', 900]]);
 });
 
 test('a Deep Desert row names its grid cell; Tseida-like places say they are from public guides', async () => {

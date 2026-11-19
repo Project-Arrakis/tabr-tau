@@ -126,7 +126,6 @@ test('a Landsraad that answers without a task list leaves the Houses "Not in the
     const ui = await open({ 'spec.view': 'cc' }, { '/api/landsraad': answer });
     assert.match(text(ui.doc.querySelector('.lcc-sp-houses')), /could not be read, so the Houses of this path are not in the save/, JSON.stringify(answer));
     assert.doesNotMatch(text(ui.doc.querySelector('.lcc-sp-houses')), /No House of this term is listed/);
-    assert.equal(text(ui.doc.querySelectorAll('.lcc-sp-fact strong')[0]), 'Not in the save');
     closeAll();
   }
   const empty = await open({ 'spec.view': 'cc' }, { '/api/landsraad': { tasks: [] } });

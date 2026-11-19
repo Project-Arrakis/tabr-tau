@@ -70,7 +70,7 @@ test('level 100 ornament: the gold line is drawn for a track at the XP cap only,
   const m = () => ui.doc.querySelector('#lcs-mastery');
   // Crafting is at level 100: the ornament class and the words
   assert.ok(m().classList.contains('is-on'));
-  assert.match(text(m()), /LEVEL 100/);
+  assert.equal(text(m()), 'FULL PATH COMPLETE');
   ui.click('[data-lcs-lane="combat"]'); await ui.settle();
   assert.equal(m().classList.contains('is-on'), false, 'level 46 has no ornament line');
   assert.equal(text(m()), 'XP CAP NOT REACHED');
@@ -103,7 +103,7 @@ test('the keystone total is marked partial when a track is not identified, and s
   const ui = await openSpec('conflicting-learned-number-leaves-combat-unresolved');
   const stat = ui.doc.querySelector('#lcs-keycount').parentNode;
   assert.match(text(ui.doc.querySelector('#lcs-keycount')), /\/ 205\*$/);
-  assert.match(text(stat.querySelector('small')), /\* A TRACK IS NOT IDENTIFIED YET/);
+  assert.match(text(stat.querySelector('small')), /\* ONE PATH IS NOT MATCHED YET/);
   closeAll();
   const none = await openSpec('keystone-total-zero-no-map');
   assert.doesNotMatch(text(none.doc.querySelector('#lcs-keycount').parentNode.querySelector('small')), /NOT IDENTIFIED/);
@@ -124,18 +124,15 @@ test('the order chips are 36 px or more at every width and the board\'s selects 
   assert.match(board, /\.lcc-bd-select \{[^}]*min-height: 37px;/, 'the select is at the 36 px floor on a wide window');
 });
 
-test('the earlier terms: the table is a keyboard-reachable region and a line above it says it scrolls on a phone', async () => {
+test('the earlier terms: the table is a keyboard-reachable region that is named as scrolling sideways, with no standing line above it (#1062)', async () => {
   const ui = await openBoard();
   const w = ui.doc.querySelector('.lcc-tm-tablewrap');
   assert.ok(w, 'a table of an earlier term');
   assert.equal(w.getAttribute('tabindex'), '0');
   assert.equal(w.getAttribute('role'), 'region');
   assert.match(w.getAttribute('aria-label'), /^Term \d+, the table of Houses: scrolls sideways/);
-  const hint = w.previousElementSibling;
-  assert.ok(hint && hint.classList.contains('lcc-tm-scrollhint'));
-  assert.match(text(hint), /Scroll the table sideways/);
-  assert.match(term, /\.lcc-tm-scrollhint \{ display: none;/);
-  assert.match(term, /@media \(max-width: 640px\) \{ \.lcc-tm \.lcc-tm-scrollhint \{ display: block; \} \}/);
+  assert.equal(w.previousElementSibling.tagName, 'SUMMARY', 'no standing line between the heading of the term and the table (#1062): the region name says it scrolls');
+  assert.doesNotMatch(term, /scrollhint/);
   assert.match(term, /\.lcc-tm-tablewrap:focus-visible \{ outline: 3px solid var\(--lcc-focus\)/);
 });
 
@@ -165,5 +162,5 @@ test('the matrix says what the section does: the pool follows the save\'s order,
   assert.doesNotMatch(t8, /Same sort as the classic panel/);
   const m5 = read('docs', 'design', 'landsraad-command-center', '08-m5-specializations.md');
   const h6 = m5.split('\n').find((l) => l.startsWith('| H6 '));
-  assert.match(h6, /not identified/i);
+  assert.match(h6, /not (identified|matched)/i);
 });

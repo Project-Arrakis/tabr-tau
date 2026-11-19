@@ -1,6 +1,6 @@
 # The Landsraad board
 
-The board shows the 25 Houses of the current term, five rows of five, numbered 01 to 25 from the top left. The numbers are the game's own positions, read from the save's board_index. If the save does not give a clean 5 by 5 board, the Houses are shown as a list and nothing can be written from the board.
+The board shows the 25 Houses of the current term, five rows of five, numbered 01 to 25 from the top left. The numbers are the game's own positions of the Houses on its board. If the save does not give a clean 5 by 5 board, the Houses are shown as a list, the header says the save gives no 5 by 5 board, and nothing can be written from the board.
 
 ## What a card shows
 
@@ -42,6 +42,8 @@ A tier with no delivery record is counted as neither collected nor not collected
 - Jump to House opens one House and clears the filters that would hide it.
 - A button that does nothing right now (there is nothing to change, or another faction is chosen) has a dashed edge and quiet text instead of a faded look; pressing it says why.
 - The Grid and List buttons switch between the board and a sortable list of the same Houses.
+- In the Classic list, click a row to open it.
+- A House's place opens the Saved map at that House. A yellow ring on the map marks its place, and the line above the map names it, and **Back to House** returns to it on the Landsraad tab, in the view you are in (the board, or the Classic list with only that House shown).
 
 ## The plaque and the victory panel
 
@@ -51,8 +53,13 @@ The victory panel says whether a faction has won, by 13 Houses or by five in a l
 
 ## What the save does not hold
 
+- A dash (—) where a figure belongs means the save does not hold it (no holder recorded, no contributors). Hover the dash for the reason.
 - Active Landsraad missions are not recorded in a single-player save.
 - A ranking of the contributors is not recorded. The save holds the amount each contributor gave to each House.
 - Some Houses have no place on the Saved map. The editor does not guess a place.
 - A reward item that the editor's item list has no name for is called "Unlisted item". The game's internal item name is never shown as a name. In the list, a House with no place shows a dash, and the Tiers column shows for example "2 of 5" (earned tiers of five).
 - Five Houses stand in the two social hubs, which the Saved map shows with their own pictures: Mutelli, Varota and Wallach in Arrakeen, Alexin and Spinette in Harko Village. Their place opens the hub on the Saved map, centred on the House. The Harko Village frame was fitted by eye on the picture, so a pin there is right to about a room.
+
+## Technical notes
+
+For support: the board positions are read from the `board_index` column of `landsraad_tasks` in the save.

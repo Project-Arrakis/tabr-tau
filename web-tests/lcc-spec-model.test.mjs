@@ -70,16 +70,16 @@ test('the lanes come in the approved order, whatever order the save answers in',
 test('XP cap and keystones are separate: level 100 with no keystone is not complete, all keystones at level 0 is not level 100, only both is the full path', () => {
   const cap = rowOf(S.readSpecs(byId('xp-44182-cap-zero-keystones').response, null), 'combat');
   assert.equal(cap.capped, true); assert.equal(cap.keyComplete, false); assert.equal(cap.kind, 'cap'); assert.equal(cap.level, 100);
-  assert.equal(S.masteryText(cap), 'LEVEL 100 · XP CAP REACHED');
+  assert.equal(S.masteryText(cap), 'XP CAP REACHED');
   assert.equal(S.laneBadge(cap), '✦ XP CAP REACHED');
   assert.ok(!/KEYSTONES COMPLETE|FULL/.test(S.masteryText(cap)));
   const keys = rowOf(S.readSpecs(byId('xp-0-all-keystones-41-of-41').response, null), 'combat');
   assert.equal(keys.capped, false); assert.equal(keys.keyComplete, true); assert.equal(keys.kind, 'keys'); assert.equal(keys.level, 0);
-  assert.equal(S.masteryText(keys), 'KEYSTONES COMPLETE · 41/41');
+  assert.equal(S.masteryText(keys), 'KEYSTONES COMPLETE');
   assert.ok(!/CAP REACHED|LEVEL 100/.test(S.masteryText(keys)));
   const both = rowOf(S.readSpecs(byId('both-complete').response, null), 'combat');
   assert.equal(both.kind, 'full');
-  assert.match(S.masteryText(both), /^FULL PATH COMPLETE/);
+  assert.equal(S.masteryText(both), 'FULL PATH COMPLETE');
   assert.equal(S.laneBadge(both), '✦ FULL PATH COMPLETE');
   const fresh = rowOf(S.readSpecs(byId('xp-0-keystones-0-of-41').response, null), 'combat');
   assert.equal(fresh.kind, 'progress'); assert.equal(S.masteryText(fresh), 'XP CAP NOT REACHED');

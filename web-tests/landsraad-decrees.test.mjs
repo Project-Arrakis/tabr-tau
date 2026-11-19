@@ -47,7 +47,7 @@ test('the panel is closed, its heading line names the term, the reigning faction
   assert.ok(!kv.includes('SpecialVendorActive') && !kv.includes('DropInventoryOnDefeatActive'), 'the facts show no game id (#1040)');
   assert.ok(!ui.doc.querySelector('.lsb-prev'), 'the old section of previous controls is gone');
   // the term's time is one value, Ends in, never seconds (#981); with no play clock in this answer it is not known
-  assert.ok(kv.includes('Ends innot known'), kv);
+  assert.ok(kv.includes('Ends in—'), kv);
   assert.ok(!/\d\s?s\b|Start|End\b/.test(kv.replace('Reigning factionHarkonnen', '')), kv);
 });
 

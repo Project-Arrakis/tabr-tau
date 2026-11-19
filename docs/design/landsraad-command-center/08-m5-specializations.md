@@ -13,9 +13,9 @@ Method: the design reference and the editor page were drawn side by side in a he
 
 ## Honest-data rules that the view follows
 
-* Real values from `GET /api/player/specs` only. A value the save does not hold is drawn as "Not in the save".
+* Real values from `GET /api/player/specs` only. A value the save does not hold is drawn as a dash (—, #1056); the hover text says "Not in the save".
 * A track whose number cannot be tied to a path shows no XP and no level; its XP controls are disabled with the reason beside them; the keystone controls stay, because they act on every track.
-* A path with no keystone count in the save (total 0) says "Not in the save" and is never "complete".
+* A path with no keystone count in the save (total 0) shows a dash (hover: "Not in the save") and is never "complete".
 * If the level the save stores differs from the level its XP gives, the page says so and corrects nothing.
 * If the Landsraad cannot be read, the Houses of a path are "Not in the save" and the rest of the page works.
 * No XP, level, keystone or House is invented. The design reference's per-path descriptions, waypoint levels and keystone notes are not copied, because the save and the game files do not hold them.
@@ -37,7 +37,7 @@ Method: the design reference and the editor page were drawn side by side in a he
 | H3 | Lead sentence "...The controls below mirror TABR Tau's current save-editor operations." | "Five disciplines. One progression dossier. The buttons below are the editor's own save operations." | differs (wording) | The design reference names the product and calls itself a mirror; the editor says what the buttons are. |
 | H4 | Three totals: tracks at XP cap, keystones, maximum XP per track | **Two totals (#1042):** SPECIALIZATIONS COMPLETED (renamed from TRACKS AT XP CAP; the count is the same, the paths whose XP is at the cap, with a tooltip that says so) and KEYSTONES (was KEYSTONES PURCHASED, #1031). The MAXIMUM XP / TRACK tile is dropped; the XP ceiling stays on the dossier. The two tiles sit side by side at every width | differs (operator-requested) | Operator decisions 2026-11-19. |
 | H5 | "Sample save data, local demonstration" pill | None. The label "From your save, read when this page was drawn" was dropped (#1029) | differs (dropped) | The design reference's pill labels demonstration data; ours first said where the numbers come from and when, and the operator decided on 2026-11-19 that the label is not wanted. The header is the eyebrow and the title only. |
-| H6 | Totals when a track is unidentified | SPECIALIZATIONS COMPLETED counts identified tracks only; the keystone total carries a star and its label says that a track is not identified yet (or that a track's total is not in the save) | matches (added) | The design reference has no unidentified track. |
+| H6 | Totals when a track is unidentified | SPECIALIZATIONS COMPLETED counts identified tracks only; the keystone total carries a star and its label says that one path is not matched yet (or that some paths show no total) (#1063) | matches (added) | The design reference has no unidentified track. |
 
 ### Lanes
 
@@ -50,7 +50,7 @@ Method: the design reference and the editor page were drawn side by side in a he
 | L5 | Chosen lane has a gold edge and glow | Same, glow read from one dial set to 0.5; the chosen lane also keeps a thicker border (not colour alone) | matches | |
 | L6 | Lane cards are buttons that choose the path | Same: `aria-pressed`, keyboard, focus ring | matches | |
 | L7 | Narrow layout: one lane per row | 5 across, then 3, then 2, then 1 (at 380 px and below) | differs (intentional) | Two per row at a phone width keeps the page short; the text never shrinks. |
-| L8 | (no unidentified lane) | Dashed edge, "Not in the save" where XP would be, "TRACK NOT IDENTIFIED" | matches (added) | Needed for honest data. |
+| L8 | (no unidentified lane) | Dashed edge, a dash (—, hover "Not in the save", #1056) where XP would be, "TRACK NOT IDENTIFIED" | matches (added) | Needed for honest data. |
 
 ### Progression dossier
 
@@ -58,12 +58,12 @@ Method: the design reference and the editor page were drawn side by side in a he
 |---|---|---|---|---|
 | D1 | Chosen path name, icon in a diamond, a description line, a level badge | Name and icon (scroll, square frame); no description line for a path the save identifies (the number behind a path is not shown, #708); a path that is not identified says so | differs (data rule) | The design reference's descriptions ("Fabrication, augmentation and equipment efficiencies") are not in the save. |
 | D2 | Large level "100 /100" with a glow | Same, level from the XP table | matches | |
-| D3 | "XP CAP REACHED" under the level | "FULL PATH COMPLETE", "XP CAP REACHED", or "XP CAP NOT REACHED" with the level and keystone count; the gold line carries a star on each side, drawn only for a track at level 100 (the XP cap), never below it | matches | |
+| D3 | "XP CAP REACHED" under the level | "FULL PATH COMPLETE", "XP CAP REACHED", "KEYSTONES COMPLETE" or "XP CAP NOT REACHED", and nothing else on the line: the level is the plate above it and the keystone count is the bar below (#1053 dropped "LEVEL 100 ·" and "KEYSTONES 41/41" from it); the gold line carries a star on each side, drawn only for a track at level 100 (the XP cap), never below it | matches | |
 | D4 | XP bar with "44,182 / 44,182" and a note | Same, with "n XP to level k and m XP to the cap" under it; the label reads XP (was XP ACQUIRED, #1031) | matches | Operator decision 2026-11-19; the bar keeps its name "Experience of the selected path" for screen readers. |
 | D5 | Keystone bar "41 / 41" with a note | Same, and the note says the cap and the keystones are independent; the label reads KEYSTONES (was KEYSTONES PURCHASED, #1031) | matches | Operator decision 2026-11-19; the bar keeps its name "Keystones purchased on the selected path" for screen readers. |
 | D6 | "LEVEL WAYPOINTS", seven markers (0, 10, 25, 42, 60, 80, 100), "Illustrative markers" | "LEVEL SCALE", five reference marks (0, 25, 50, 75, 100), "Reference marks along the 100 levels. They are not unlock levels." | differs (intentional) | The design reference's seven waypoints are illustrative. The game has no named waypoints at those levels, so the page draws neutral quarter marks. |
 | D7 | The mark at the current level is underlined or lit | The nearest mark at or below the level is underlined (not colour alone) | matches | |
-| D8 | Three fact tiles: associated Houses, XP ceiling, keystones | Same three | matches | |
+| D8 | Three fact tiles: associated Houses, XP ceiling, keystones | Not drawn (#1053) | removed (#1053) | Each tile repeated a figure shown beside it: the Houses are the panel below, the XP ceiling is the end of the XP bar ("44,182 / 44,182"), the keystones are the keystone bar. |
 | D9 | Level mismatch between stored and computed | A warning line with both levels; nothing is corrected | matches (added) | |
 
 ### Operations panel
@@ -85,7 +85,7 @@ Method: the design reference and the editor page were drawn side by side in a he
 | Row | Approved element | Now | Status | Why |
 |---|---|---|---|---|
 | R1 | "Landsraad Intelligence", "Associated Houses", five House cards with symbol and name | Same section, Houses read from the Landsraad answer by their specialization line, with their symbols | matches | |
-| R2 | A House card opens that House on the Landsraad board | Choosing a House opens the Landsraad tab on the board with that House chosen; nothing is written | matches | |
+| R2 | A House card opens that House on the Landsraad board | Choosing a House opens the Landsraad tab on the board with that House chosen; nothing is written. The board is shown for this visit only: the saved choice of view (`lsb.view`) is not rewritten (#1060), and the House Inspector's "Open in Specializations" does the same for `spec.view` | matches | |
 | R3 | "Associations are tracker-derived and must be verified before production." | "The Houses of this path, from a public community tracker, not from the game or the save: treat it as a reference." | differs (wording) | Says where the data comes from for the person using it. |
 | R4 | (reverse link from a House to its path) | Not built | not built | The Landsraad board code is out of scope for M5. |
 | R5 | A path with no Houses | One line, "Not in the save", and the rest works | matches (added) | |

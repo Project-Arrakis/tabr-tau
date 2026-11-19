@@ -49,14 +49,7 @@
   function facts(vm) {
     const t = vm.term;
     const ul = el('ul', 'lcc-tm-facts', '', { role: 'list', 'aria-label': 'The current term' });
-    const simple = (key, label, value, sub) => {
-      const li = el('li', 'lcc-tm-fact', '', { 'data-fact': key });
-      li.appendChild(el('span', 'lcc-tm-k', label));
-      li.appendChild(el('strong', 'lcc-tm-v', value));
-      if (sub) li.appendChild(el('small', 'lcc-tm-sub', sub));
-      ul.appendChild(li);
-    };
-    simple('term', 'TERM', String(t.id));
+    // no TERM tile (#1062): the term is in the board's header ("Term 7") and in the line of the closed list
     // one row: ENDS IN with hours and minutes (#981). The value is worked out by the page (vm.term.endsIn); the tooltip says when it counts down and as of when.
     const ends = el('li', 'lcc-tm-fact', '', { 'data-fact': 'ends' });
     ends.appendChild(el('span', 'lcc-tm-k', 'ENDS IN'));
@@ -93,11 +86,10 @@
     row.appendChild(a);
     const f = el('label', 'lcc-tm-fld');
     f.appendChild(el('span', 'lcc-tm-lbl', 'Reigning faction'));
-    const sf = el('select', 'lcc-tm-select', '', { id: 'lsb-trf', 'data-lb': 'trf' });
+    const sf = el('select', 'lcc-tm-select', '', { id: 'lsb-trf', 'data-lb': 'trf', title: 'Any faction can be chosen.' });
     if (vm.sel.rf === '') { const ph = el('option', '', 'Choose a faction', { value: '', disabled: '' }); ph.defaultSelected = true; sf.appendChild(ph); } // no 'none': a decree needs a faction, and this placeholder cannot be chosen or applied (#960)
     for (const o of vm.factions) { const op = el('option', '', o.label, { value: String(o.id) }); if (String(o.id) === vm.sel.rf) op.defaultSelected = true; sf.appendChild(op); }
-    f.appendChild(sf);
-    f.appendChild(el('small', 'lcc-tm-hint', 'any faction can be chosen'));
+    f.appendChild(sf); // no standing "any faction can be chosen" (#1062): the hover text on the box says it
     row.appendChild(f);
     const ap = el('span', 'lcc-tm-apply');
     ap.appendChild(btn('lcc-tm-btn is-primary', 'Apply', { 'data-lb': 'tapply', 'data-fk': 'tapply' }));
@@ -109,34 +101,37 @@
 
   // ---- the decree pool -------------------------------------------------------------------------------------------------------------------------------------------------------------
   // One row per decree. The three states of the term (Active, Elected, In rotation) and the save's own pool flag are shown apart: the flag is not a state of the term.
-  function poolRow(d) {
+  function poolRow(d, flags) {
     const li = el('li', 'lcc-tm-row', '', { 'data-decree': d.id, 'data-active': d.active ? 'true' : null });
     li.appendChild(art(d, 56));
     const body = el('div', 'lcc-tm-rbody');
     const nm = el('div', 'lcc-tm-rname');
-    nm.appendChild(el('strong', 'lcc-tm-dn', d.name, d.tip ? { title: d.tip } : undefined));
-    nm.appendChild(el('span', 'lcc-tm-id', 'id ' + d.id));
+    nm.appendChild(el('strong', 'lcc-tm-dn', d.name, d.tip ? { title: d.tip } : undefined)); // no raw row number beside the name (#1054)
     body.appendChild(nm);
     if (d.effect) body.appendChild(el('small', 'lcc-tm-de', d.effect));
-    else body.appendChild(el('small', 'lcc-tm-de lcc-tm-de-none', 'Effect: ' + NOT_IN_SAVE));
+    else body.appendChild(el('small', 'lcc-tm-de lcc-tm-de-none', 'Effect: —', { title: NOT_IN_SAVE })); // a dash, with the reason in the hover text (#1056)
     if (d.note) body.appendChild(el('small', 'lcc-tm-du', d.note));
-    const tg = el('div', 'lcc-tm-tags', '', { role: 'group', 'aria-label': 'In this term' });
-    tg.appendChild(el('span', 'lcc-tm-k', 'IN THIS TERM'));
-    if (d.tags.length) for (const x of d.tags) tg.appendChild(badge(x, 'is-' + x.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')));
-    else tg.appendChild(el('span', 'lcc-tm-none', 'not in this term'));
-    body.appendChild(tg);
+    if (d.tags.length) { // a decree that is not in this term shows no group at all, not "not in this term" on every row (#1062)
+      const tg = el('div', 'lcc-tm-tags', '', { role: 'group', 'aria-label': 'In this term' });
+      tg.appendChild(el('span', 'lcc-tm-k', 'IN THIS TERM'));
+      for (const x of d.tags) tg.appendChild(badge(x, 'is-' + x.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')));
+      body.appendChild(tg);
+    }
     li.appendChild(body);
     const side = el('div', 'lcc-tm-rside');
-    const fl = el('div', 'lcc-tm-flag');
-    fl.appendChild(el('span', 'lcc-tm-k', 'POOL FLAG'));
-    fl.appendChild(el('b', 'fl', String(d.disabled ? 1 : 0), { title: FLAG_TIP }));
-    side.appendChild(fl);
-    const n = d.disabled ? 0 : 1;
-    side.appendChild(btn('lcc-tm-btn', 'Set flag to ' + n, { 'data-lb': 'tflag', 'data-id': d.id, 'data-d': n, 'data-fk': 'tf:' + d.id, 'aria-label': 'Set flag to ' + n + ': ' + d.name,
-      title: 'Sets the pool flag of this one row to ' + n + '. It does not make the decree active; Make active on the row or the Active decree above does.' }));
     if (d.makeOn) side.appendChild(el('span', 'lcc-tm-mkon', '✓ Active', { title: d.makeTip }));
     else side.appendChild(btn('lcc-tm-btn is-make', d.makeLabel, { 'data-lb': 'tmk', 'data-id': d.id, 'data-fk': 'tm:' + d.id, 'aria-disabled': d.makeOff ? 'true' : 'false', 'aria-label': d.makeLabel + ': ' + d.name, title: d.makeTip }));
     li.appendChild(side);
+    // The save's pool flag of this decree and its Set flag button: behind the one "Advanced: pool flags" switch of the pool, hidden until it is pressed (#1054). The state is kept over a redraw (vm.flags).
+    const fb = el('div', 'lcc-tm-flagbox', '', { 'data-flagbox': true, hidden: !flags });
+    const fl = el('div', 'lcc-tm-flag');
+    fl.appendChild(el('span', 'lcc-tm-k', 'POOL FLAG'));
+    fl.appendChild(el('b', 'fl', String(d.disabled ? 1 : 0), { title: FLAG_TIP }));
+    fb.appendChild(fl);
+    const n = d.disabled ? 0 : 1;
+    fb.appendChild(btn('lcc-tm-btn', 'Set flag to ' + n, { 'data-lb': 'tflag', 'data-id': d.id, 'data-d': n, 'data-fk': 'tf:' + d.id, 'aria-label': 'Set flag to ' + n + ': ' + d.name,
+      title: 'Sets the pool flag of this one row to ' + n + '. It does not make the decree active; Make active on the row or the Active decree above does.' }));
+    li.appendChild(fb);
     return li;
   }
   // a disclosure that is closed until it is asked for: the summary names the block and carries a small Show / Hide control; the content is kept in the page (closed) and its state survives a redraw
@@ -156,8 +151,13 @@
     shut(dt, 'Decree pool', vm.pool.length + (vm.pool.length === 1 ? ' decree' : ' decrees'));
     const inner = el('div', 'lcc-tm-disc-in');
     if (!vm.pool.length) inner.appendChild(el('p', 'lcc-tm-none', 'This save has no decrees.'));
-    const ul = el('ul', 'lcc-tm-rows', '', { role: 'list', 'aria-label': 'Decree pool' });
-    for (const d of vm.pool) ul.appendChild(poolRow(d));
+    const ul = el('ul', 'lcc-tm-rows', '', { role: 'list', 'aria-label': 'Decree pool', id: 'lcc-tm-rows' });
+    if (vm.pool.length) { // the one switch for the pool flags of every row (#1054): the page's click handler (data-lb="tflags") shows or hides them
+      const adv = el('p', 'lcc-tm-advrow');
+      adv.appendChild(btn('lcc-tm-btn', vm.flags ? 'Advanced: hide pool flags' : 'Advanced: show pool flags', { 'data-lb': 'tflags', 'data-fk': 'tflags', 'aria-expanded': vm.flags ? 'true' : 'false' }));
+      inner.appendChild(adv);
+    }
+    for (const d of vm.pool) ul.appendChild(poolRow(d, !!vm.flags));
     inner.appendChild(ul);
     dt.appendChild(inner);
     sec.appendChild(dt);
@@ -188,7 +188,6 @@
       s.appendChild(el('span', 'lcc-tm-sum', t.summary));
       d.appendChild(s);
       const wrap = el('div', 'lcc-tm-tablewrap', '', { role: 'region', 'aria-label': 'Term ' + t.id + ', the table of Houses: scrolls sideways when the window is narrow' });
-      d.appendChild(el('p', 'lcc-tm-scrollhint', 'Scroll the table sideways for House status and Last payout.'));
       const tb = el('table', 'lcc-tm-table');
       tb.appendChild(el('caption', 'lcc-tm-sr', 'Term ' + t.id + ': the Houses with a contribution of yours'));
       const hr = el('tr');
@@ -245,7 +244,7 @@
     t.appendChild(el('h3', 'lcc-tm-h', 'Term and Decrees', { id: 'lcc-tm-h', tabindex: '-1' }));
     if (vm.none) t.appendChild(el('p', 'lcc-tm-lead', 'This save has no Landsraad term, so there is no decree to show or change.')); // the intro line of a save that has a term is gone (#985): the Help tab says what this section is
     head.appendChild(t);
-    head.appendChild(src('Read from the save: landsraad_decree_term and landsraad_decrees'));
+    head.appendChild(src('Read from the save'));
     surf.appendChild(head);
     if (vm.none) { w.appendChild(surf); return w; }
     const all = el('details', 'lcc-tm-all', '', { id: 'lcc-tm-all' });

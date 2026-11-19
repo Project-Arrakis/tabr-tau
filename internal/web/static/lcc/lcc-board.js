@@ -153,7 +153,7 @@
     t.appendChild(el('p', 'lcc-bd-eyebrow', 'THE GREAT HOUSES'));
     t.appendChild(el('h3', 'lcc-bd-h', board.ready ? 'The Landsraad' : 'The Houses', { id: 'lcc-bd-h' }));
     // just "Term N" (#1033): that the board is a fixed 5 by 5 read from board_index is in Help (The Landsraad board), not in the header
-    const subline = board.ready ? (board.term ? 'Term ' + board.term.id : '') : (board.term ? 'Term ' + board.term.id + ' · ' : '') + 'Not a fixed board: the Houses are listed as read';
+    const subline = board.ready ? (board.term ? 'Term ' + board.term.id : '') : (board.term ? 'Term ' + board.term.id + ' · ' : '') + 'The save gives no 5 by 5 board, so the Houses are listed';
     if (subline) t.appendChild(el('p', 'lcc-bd-subline', subline));
     head.appendChild(t);
     const act = el('div', 'lcc-bd-panel-actions');

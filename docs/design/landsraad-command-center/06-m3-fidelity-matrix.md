@@ -68,7 +68,7 @@ The row "After the follow-up of the final check" moves four rows: S9 and S10 (th
 
 | Row | Approved element | Before | Now | What was done, or why not |
 |---|---|---|---|---|
-| H1 | Eyebrow THE GREAT HOUSES, heading "The Landsraad", subline | differs | matches | Subline reads "Term 7" (the term is real; it read "Term 7 · Fixed 5 × 5 board · game positions read from board_index" until #1033, and those facts are in Help, The Landsraad board). A board that is not a fixed 5 by 5 still says "Not a fixed board: the Houses are listed as read". |
+| H1 | Eyebrow THE GREAT HOUSES, heading "The Landsraad", subline | differs | matches | Subline reads "Term 7" (the term is real; it read "Term 7 · Fixed 5 × 5 board · game positions read from board_index" until #1033, and those facts are in Help, The Landsraad board). A board that is not a fixed 5 by 5 still says so, in player words (#1063): "The save gives no 5 by 5 board, so the Houses are listed". |
 | H2 | Specialization filter chooser | differs | matches | All specializations, then the five paths; same dimming as before. |
 | H3 | Grid / List switch | matches | matches | Kept. |
 | H4 | Clear highlight button | missing | removed on purpose (2026-11-18, #958) | The button only let go of the House being looked at; the win outlines stayed, so it did nothing useful. Choosing another House, choosing the same House again or Escape already moves or drops the selection. |

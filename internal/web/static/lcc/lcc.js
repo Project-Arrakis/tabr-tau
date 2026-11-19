@@ -181,7 +181,7 @@
   function heldBy(name, faction) {
     const w = el('p', 'lcc-heldby');
     w.appendChild(el('span', 'lcc-heldby-l', 'HELD BY'));
-    w.appendChild(el('strong', 'lcc-heldby-n' + (faction ? ' lcc-f-' + faction : ''), name || 'Not recorded'));
+    w.appendChild(el('strong', 'lcc-heldby-n' + (faction ? ' lcc-f-' + faction : ''), name || '—', name ? undefined : { title: 'Not recorded in the save' })); // a dash, with the reason in the hover text (#1056)
     return w;
   }
   // The cloth standard of a faction: a gold-edged banner with the faction's crest picture, a heading and an honest list (or the empty state). lines is an array of entries or null; an entry is a string
@@ -207,7 +207,7 @@
         ol.appendChild(li);
       }
       cloth.appendChild(ol);
-    } else cloth.appendChild(el('p', 'lcc-standard-none', emptyText || 'Not in the save'));
+    } else cloth.appendChild(el('p', 'lcc-standard-none', emptyText || '—', emptyText && emptyText !== '—' ? undefined : { title: 'Not in the save' })); // a dash, with the reason in the hover text (#1056)
     w.appendChild(cloth);
     // the foot of the narrow cloth: the approved picture of the gold-edged point with its wheat ornament (the wide layout draws the same picture in the artwork and hides this one)
     const tip = standardTipAsset(f);
@@ -507,7 +507,7 @@
   }
 
   const TEXT = {
-    decreeLabel: 'ACTIVE DECREE', noDecree: 'No active decree', noEffect: '', contributors: 'TOP CONTRIBUTORS', noContributors: 'Not in the save',
+    decreeLabel: 'ACTIVE DECREE', noDecree: 'No active decree', noEffect: '', contributors: 'TOP CONTRIBUTORS', noContributors: '—',
     atreides: 'HOUSE ATREIDES', harkonnen: 'HOUSE HARKONNEN', houses: 'HOUSES', unavailable: 'Tally not available',
   };
 
