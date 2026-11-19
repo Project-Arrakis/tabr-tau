@@ -44,9 +44,29 @@ func writeDurable(path string, data []byte, mode os.FileMode) error {
 }
 
 // renameRetry retries with a growing pause: on Windows an antivirus scanner, OneDrive or the game itself can hold
-// the destination for a moment.
-func renameRetry(from, to string) error {
-	if err := durable.Rename(from, to, durableOpts()); err != nil {
+// the destination for a moment. want is the hash of the file the caller loaded and checked just before the first try (installBlob: s.diskHash): the file is read and compared again before
+// every retry (#794), because a retry comes after a pause, up to about 2.25 s in all, and the game can save in that time. A file that changed, or that cannot be read to be compared, ends
+// the tries with nothing renamed (the caller removes the temp file). The window that is left is the time between the last compare and the rename call.
+func renameRetry(from, to string, want [32]byte) error {
+	var refused error
+	o := durableOpts()
+	o.BeforeRetry = func(int) error {
+		cur, err := savefile.ReadCapped(to)
+		switch {
+		case err != nil:
+			refused = apierr.Wrap(apierr.ErrWriteFailed, "the save could not be read again to check that it is unchanged ("+shortErr(err)+"), so nothing was replaced; the edits stay queued", err)
+		case hashOf(cur) != want:
+			refused = ErrChangedOnDisk
+		default:
+			return nil
+		}
+		return refused
+	}
+	err := durable.Rename(from, to, o)
+	if refused != nil && err == refused {
+		return refused
+	}
+	if err != nil {
 		return apierr.Wrap(apierr.ErrWriteFailed, fmt.Sprintf("could not replace %s (is another program holding it?): %v", filepath.Base(to), err), err)
 	}
 	return nil
@@ -118,7 +138,7 @@ func (s *Save) installBlob(blob []byte) error {
 		os.Remove(tmp)
 		return ErrChangedOnDisk
 	}
-	if err := renameRetry(tmp, s.Path); err != nil {
+	if err := renameRetry(tmp, s.Path, s.diskHash); err != nil {
 		os.Remove(tmp)
 		return err
 	}

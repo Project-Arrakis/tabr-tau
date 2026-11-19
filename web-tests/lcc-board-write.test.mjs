@@ -388,3 +388,69 @@ test('Apply tier changes nothing it cannot do as one click: the same tier, a dro
   assert.equal(writes(ui).length, 0, 'with another faction chosen the tier boxes are off, so is Apply tier');
   assert.match(result(ui), /Off while Harkonnen is chosen/);
 });
+
+// #881: a card the filter dims cannot be chosen for the actions on several Houses, and the write never acts on a House the board does not show.
+const tick = (ui, id) => { const c = ui.doc.querySelector('.lcc-bd-pick[data-id="' + id + '"]'); c.checked = true; c.dispatchEvent(new ui.w.Event('change', { bubbles: true })); };
+
+test('a dimmed card has its choose box off, says why, and a box turned on by a script chooses nothing (#881)', async () => {
+  const ui = await open('board');
+  const a = synthetic();
+  click(ui, '[data-fk="bf:hs:open"]'); // Vernius is taken: its card is dimmed
+  const vid = idOf(a, 'Vernius'), box = () => ui.doc.querySelector('.lcc-bd-pick[data-id="' + vid + '"]');
+  assert.equal(box().closest('.lcc-hc').getAttribute('data-dim'), 'true');
+  assert.equal(box().disabled, true, 'the box of a dimmed card is off');
+  assert.match(box().getAttribute('aria-label'), /not in the current filter/);
+  assert.match(box().closest('label').getAttribute('title'), /cannot be chosen/);
+  assert.equal(ui.doc.querySelector('.lcc-bd-pick[data-id="' + idOf(a, 'Sor') + '"]').disabled, false, 'a card the filter shows keeps its box on');
+  box().disabled = false; // a script (or a browser) that turns the box on and ticks it
+  tick(ui, vid);
+  assert.equal(box().checked, false, 'the tick is taken back');
+  assert.equal(ui.w.LCC_HOST.picks().has(vid), false);
+  assert.match(text(ui.doc.querySelector('#lsb-sum')), /^Nothing is chosen\./);
+  click(ui, '[data-fk="b-fill"]');
+  assert.equal(ui.doc.querySelector('#lsb-confirm'), null);
+  assert.equal(writes(ui).length, 0);
+});
+
+test('a House in the choice that the board no longer shows is dropped when a bulk button is pressed: it is not in the question or in the request (#881)', async () => {
+  const ui = await open('board');
+  const a = synthetic();
+  const sor = idOf(a, 'Sor'), ken = idOf(a, 'Kenola'), ver = idOf(a, 'Vernius');
+  tick(ui, sor); tick(ui, ken);
+  ui.w.LCC_HOST.picks().add(ver); // a stale choice: the filter below does not tell the page's choice list
+  ui.w.LCCB.state.hs = 'open';
+  click(ui, '[data-fk="b-fill"]');
+  const q = text(ui.doc.querySelector('#lsb-confirm b'));
+  assert.match(q, /^Fill 2 houses?/);
+  assert.ok(q.includes('Sor') && q.includes('Kenola') && !q.includes('Vernius'), q);
+  click(ui, '[data-fk="c-yes"]');
+  await ui.settle();
+  assert.equal(writes(ui).length, 1);
+  assert.deepEqual(writes(ui)[0].body.houses.map((h) => h.task_id).sort(), [sor, ken].sort());
+});
+
+test('with only House(s) the board does not show chosen, a bulk button writes nothing and asks nothing (#881)', async () => {
+  const ui = await open('board');
+  const a = synthetic();
+  ui.w.LCC_HOST.picks().add(idOf(a, 'Vernius'));
+  ui.w.LCCB.state.hs = 'open';
+  click(ui, '[data-fk="b-complete"]');
+  assert.equal(ui.doc.querySelector('#lsb-confirm'), null);
+  assert.match(toastText(ui), /not in the current filter/);
+  assert.equal(writes(ui).length, 0);
+  assert.equal(ui.w.LCC_HOST.picks().size, 0);
+});
+
+test('Yes does not write a House that the board stopped showing after the question was asked, even when the choice still holds it (#881)', async () => {
+  const ui = await open('board');
+  const a = synthetic();
+  const sor = idOf(a, 'Sor'), ver = idOf(a, 'Vernius');
+  tick(ui, sor); tick(ui, ver);
+  click(ui, '[data-fk="b-complete"]');
+  assert.match(text(ui.doc.querySelector('#lsb-confirm b')), /^Complete 2 houses/);
+  ui.w.LCCB.state.hs = 'open'; // the filter changed without the page being told: Vernius is not shown now
+  click(ui, '[data-fk="c-yes"]');
+  await ui.settle();
+  const sent = writes(ui).flatMap((w) => w.body.houses.map((h) => h.task_id));
+  assert.ok(!sent.includes(ver), 'the House the board does not show is not written: ' + sent);
+});

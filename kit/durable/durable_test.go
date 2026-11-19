@@ -378,3 +378,34 @@ func TestConcurrentWritersLeaveOneWholeFile(t *testing.T) {
 		t.Fatalf("temp files left: %v", n)
 	}
 }
+
+func TestBeforeRetryRefusesARetryAndItsErrorIsReturnedAsItIs(t *testing.T) {
+	refuse := errors.New("the file changed")
+	calls, checks := 0, 0
+	o := quick()
+	o.Attempts = 6
+	o.BeforeRetry = func(n int) error {
+		checks++
+		if n == 3 {
+			return refuse
+		}
+		return nil
+	}
+	o.Hooks.Rename = func(a, b string) error { calls++; return errors.New("locked") }
+	if err := Rename("a", "b", o); err != refuse {
+		t.Fatalf("want the error of BeforeRetry as it is, got %v", err)
+	}
+	if calls != 2 || checks != 2 {
+		t.Fatalf("the rename is tried twice and the check made before tries 2 and 3 only: %d renames, %d checks", calls, checks)
+	}
+}
+
+func TestBeforeRetryIsNotCalledBeforeTheFirstTry(t *testing.T) {
+	checks := 0
+	o := quick()
+	o.BeforeRetry = func(int) error { checks++; return errors.New("no") }
+	o.Hooks.Rename = func(a, b string) error { return nil }
+	if err := Rename("a", "b", o); err != nil || checks != 0 {
+		t.Fatalf("a rename that works at once asks nothing: %v, %d checks", err, checks)
+	}
+}

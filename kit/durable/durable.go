@@ -60,6 +60,11 @@ type Options struct {
 	// TempPattern is the pattern of the new file's name, as for os.CreateTemp (the last "*" becomes a random number). The default is
 	// the target's name, a dot, "*" and ".tmp". A caller that removes the leftovers of a crash chooses a pattern it can recognise.
 	TempPattern string
+	// BeforeRetry, when not nil, is called before every try of the rename after the first, once the pause is over (n is the number of the
+	// try about to be made, 2 or more). A non-nil error stops the tries at once, without another rename, and Rename returns that error as it
+	// is. A caller uses it to check that what it decided on before the first try still holds: the first try is the one the caller itself
+	// has just checked for, and the retries are the ones that wait seconds.
+	BeforeRetry func(n int) error
 	// Hooks replaces single steps in tests.
 	Hooks Hooks
 }
@@ -156,8 +161,8 @@ func writeFlushClose(f *os.File, data []byte, o Options) error {
 }
 
 // Rename renames from over to, trying o.Attempts times with the pause of o. It returns nil at the first success and otherwise the error
-// of the last try, as the system gave it (a *os.LinkError for the real rename). It does not remove from: a caller that gives up
-// removes it.
+// of the last try, as the system gave it (a *os.LinkError for the real rename), or the error of o.BeforeRetry when that refused a retry. It does not remove
+// from: a caller that gives up removes it.
 func Rename(from, to string, o Options) error {
 	attempts := o.Attempts
 	if attempts < 1 {
@@ -165,6 +170,11 @@ func Rename(from, to string, o Options) error {
 	}
 	var err error
 	for i := 1; i <= attempts; i++ {
+		if i > 1 && o.BeforeRetry != nil {
+			if rerr := o.BeforeRetry(i); rerr != nil {
+				return rerr
+			}
+		}
 		if err = o.rename(from, to); err == nil {
 			return nil
 		}

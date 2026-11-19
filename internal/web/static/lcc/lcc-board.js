@@ -302,7 +302,7 @@
       if (h.unknownDelivery) { sp(); count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-unk', '? ' + h.unknownDelivery, { title: h.unknownDelivery + ' earned with no delivery record: not counted as collected or waiting' })); }
     } else count.appendChild(el('b', '', 'NO TIERS IN THE SAVE'));
     card.appendChild(count);
-    if (editable) card.appendChild(pickBox(h, picks));
+    if (editable) card.appendChild(pickBox(h, picks, dim));
     return card;
   }
   function tile(h, matchIds, host, editable, picks, major, ev) {
@@ -320,10 +320,12 @@
     }
     return li;
   }
-  function pickBox(h, picks) {
+  // dim: the card is out of the current filter (#881). Its box is off and never ticked: what is not shown is never chosen for the actions on several Houses.
+  function pickBox(h, picks, dim) {
     const l = el('label', 'lcc-bd-pickl');
-    const i = el('input', 'lcc-bd-pick', '', { type: 'checkbox', 'data-lb': 'pick', 'data-id': h.id, 'data-fk': 'pk:' + h.id, autocomplete: 'off', 'aria-label': 'Choose House ' + h.name + ' for the actions on several Houses' }); // autocomplete off: the page draws the box from its own list, never from the browser's saved form state (#921)
-    if (picks && picks.has(h.id)) i.checked = true;
+    const i = el('input', 'lcc-bd-pick', '', { type: 'checkbox', 'data-lb': 'pick', 'data-id': h.id, 'data-fk': 'pk:' + h.id, autocomplete: 'off', 'aria-label': 'Choose House ' + h.name + ' for the actions on several Houses' + (dim ? ' (off: not in the current filter)' : '') }); // autocomplete off: the page draws the box from its own list, never from the browser's saved form state (#921)
+    if (dim) { i.disabled = true; l.setAttribute('title', 'Not in the current filter, so it cannot be chosen. Change the filter to choose it.'); }
+    else if (picks && picks.has(h.id)) i.checked = true;
     l.appendChild(i);
     return l;
   }

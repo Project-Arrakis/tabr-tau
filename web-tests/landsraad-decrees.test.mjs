@@ -314,3 +314,18 @@ test('a save without the plain vendor decree draws no hidden disclosure', async 
   const ui = await open(landsraad({ decrees: without }));
   assert.equal(ui.doc.querySelector('#lsb-dphid'), null);
 });
+
+// #904: a click on Make active (or Apply) while a write is running changes nothing, and does not leave the other row's decree in the Active decree drop-down: the drop-down keeps what was chosen for the write that runs.
+test('Make active on another row during a pending Apply sends nothing and leaves the drop-downs as they were (#904)', async () => {
+  const ui = await open();
+  const orig = ui.w.fetch; let release = null;
+  ui.w.fetch = (p, opt = {}) => (opt.method === 'POST' && String(p).includes('/api/landsraad/term') ? new Promise((res) => { release = () => res(orig(p, opt)); }) : orig(p, opt));
+  select(ui, '#lsb-tad', 2);
+  ui.click('[data-lb="tapply"]'); await ui.settle();
+  assert.ok(release, 'the Apply request is held');
+  ui.click('#lsb-tdp [data-lb="tmk"][data-id="9"]'); await ui.settle();
+  assert.ok(text(ui.doc.querySelector('#lsb-tresult')).includes('A write is still running'), text(ui.doc.querySelector('#lsb-tresult')));
+  release(); await ui.settle();
+  assert.deepEqual(posted(ui, '/api/landsraad/term').map((p) => p.body.active_decree_id), ['2'], 'one request, for the decree that was applied');
+  assert.equal(ui.doc.querySelector('#lsb-tad').value, '2', 'the drop-down shows the decree of the write that ran, not the row that was clicked meanwhile');
+});

@@ -912,3 +912,27 @@ test('no click asks for a change of your own contribution together with a comple
     }
   }
 });
+
+// #881: in the classic list too, a House whose row is hidden is not written by a bulk button, even when the choice still holds it (a stale choice, or a row hidden without the page being told).
+test('a bulk button drops a House whose row is hidden from the choice: it is not in the question or in the request (#881)', async () => {
+  const ui = await open(board(), { '/api/landsraad/apply': OK });
+  click(ui, '[data-lb=pickall]');
+  show(ui, 'left'); await ui.settle(); // Wayku (top tier, completed) is hidden and unticked
+  ui.w.LCC_HOST.picks().add(903); // a stale choice that holds the hidden House again
+  click(ui, '[data-lb=bulk][data-do=fill]'); await ui.settle();
+  const q = text(ui.doc.querySelector('#lsb-confirm b'));
+  assert.ok(!q.includes('Wayku'), q);
+  click(ui, '[data-lb=cyes]'); await ui.settle();
+  assert.ok(!sentIds(ui).includes(903), 'Wayku is not written: ' + sentIds(ui));
+  assert.ok(sentIds(ui).length > 0);
+});
+
+test('Yes does not write a House whose row was hidden after the question was asked (#881)', async () => {
+  const ui = await open(board(), { '/api/landsraad/apply': OK });
+  click(ui, '[data-lb=pickall]');
+  click(ui, '[data-lb=bulk][data-do=fill]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#lsb-confirm'));
+  ui.doc.querySelector('#lsrow-900').hidden = true; // hidden without a filter change: the page's choice list is not told
+  click(ui, '[data-lb=cyes]'); await ui.settle();
+  assert.ok(!sentIds(ui).includes(900), 'Alexin is hidden, so it is not written: ' + sentIds(ui));
+});

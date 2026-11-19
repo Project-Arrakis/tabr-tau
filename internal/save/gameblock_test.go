@@ -320,7 +320,7 @@ func TestTheSaveFileHasOneWriterBehindTheGate(t *testing.T) {
 		t.Fatal("installBlob not found")
 	}
 	body := src[i:]
-	g, r := strings.Index(body, "s.gate()"), strings.Index(body, "renameRetry(tmp, s.Path)")
+	g, r := strings.Index(body, "s.gate()"), strings.Index(body, "renameRetry(tmp, s.Path,")
 	if g < 0 || r < 0 || g > r {
 		t.Fatalf("installBlob must ask the game gate (s.gate) before the rename (gate at %d, rename at %d)", g, r)
 	}
