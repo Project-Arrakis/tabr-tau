@@ -43,15 +43,16 @@
   // XP still needed for the next level (0 at the last level)
   const xpToNext = (xp) => { const l = levelOf(xp); return l >= MAX_LEVEL ? 0 : LEVEL_XP[l + 1] - Math.max(0, xp); };
 
-  // What the editor refuses before it sends, said before it is sent: a whole number, not 0, not past the largest XP of a track either way.
+  // What the editor refuses before it sends, said before it is sent: a whole number from 1 to the largest XP of a track. XP is added here and never removed (#1032): a minus sign, 0 and
+  // anything that is not a whole number are refused, and so is a number past the largest XP. The Go write path refuses the same amounts (internal/ops specialization.go, AddSpecXP).
   // It judges the number the page will send (the classic list sends +value, so 1e3 and 1.0 are 1000 and 1 there), not the spelling: any decimal spelling of a whole number passes (#899).
   function amountProblem(text, maxXp) {
     const lim = isInt(maxXp) && maxXp > 0 ? maxXp : LEVEL_XP[MAX_LEVEL];
-    const msg = 'Type a whole number of XP, not 0, from -' + fmt(lim) + ' to ' + fmt(lim) + '. Nothing was sent.';
+    const msg = 'Type a whole number of XP from 1 to ' + fmt(lim) + '. XP is added here, never removed (use Reset to take it back). Nothing was sent.';
     const s = typeof text === 'string' ? text.trim() : '';
-    if (!/^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(s)) return msg;
+    if (!/^\+?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(s)) return msg;
     const n = Number(s);
-    if (!Number.isSafeInteger(n) || n === 0 || n < -lim || n > lim) return msg;
+    if (!Number.isSafeInteger(n) || n < 1 || n > lim) return msg;
     return '';
   }
 
@@ -172,7 +173,7 @@
     const stat = (v, k, id) => add(el('div', 'lcc-sp-stat'), el('b', '', v, { id }), el('small', '', k));
     const T = vm.totals;
     add(s, stat(T.tracks ? T.atCap + ' / ' + T.tracks : NOT_IN_SAVE, 'TRACKS AT XP CAP', 'lcs-capcount'),
-      stat(T.total > 0 ? T.owned + ' / ' + T.total + (T.keysPartial ? '*' : '') : NOT_IN_SAVE, T.keysPartial && T.total > 0 ? 'KEYSTONES PURCHASED (* ' + (T.keysWhy === 'total' ? 'A TRACK’S TOTAL IS NOT IN THE SAVE' : 'A TRACK IS NOT IDENTIFIED YET') + ')' : 'KEYSTONES PURCHASED', 'lcs-keycount'),
+      stat(T.total > 0 ? T.owned + ' / ' + T.total + (T.keysPartial ? '*' : '') : NOT_IN_SAVE, T.keysPartial && T.total > 0 ? 'KEYSTONES (* ' + (T.keysWhy === 'total' ? 'A TRACK’S TOTAL IS NOT IN THE SAVE' : 'A TRACK IS NOT IDENTIFIED YET') + ')' : 'KEYSTONES', 'lcs-keycount'),
       stat(fmt(vm.maxXp), 'MAXIMUM XP / TRACK', 'lcs-maxxp'));
     return add(h, t, s);
   }
@@ -214,12 +215,12 @@
     add(plate, el('span', 'lcc-sp-k', 'SPECIALIZATION LEVEL'), lvl, el('div', 'lcc-sp-mastery' + (r.kind === 'full' || r.kind === 'cap' ? ' is-on' : ''), masteryText(r), { id: 'lcs-mastery' }));
     const st = el('div', 'lcc-sp-status');
     const line = (k, v, id) => add(el('div', 'lcc-sp-line'), el('span', '', k), el('strong', '', v, { id }));
-    add(st, line('XP ACQUIRED', r.xp === null ? NOT_IN_SAVE : fmt(r.xp) + ' / ' + fmt(vm.maxXp), 'lcs-xp'),
+    add(st, line('XP', r.xp === null ? NOT_IN_SAVE : fmt(r.xp) + ' / ' + fmt(vm.maxXp), 'lcs-xp'),
       bar('lcc-sp-xpbar', pctOf(r.xp, vm.maxXp), 'Experience of the selected path', r.xp === null ? 0 : r.xp, vm.maxXp),
       el('div', 'lcc-sp-sub', xpRemainText(vm, r), { id: 'lcs-xpremain' }));
     if (r.levelMismatch) add(st, el('p', 'lcc-sp-note lcc-sp-note-warn', 'The save stores level ' + (Math.round(r.storedLevel * 100) / 100) + ' for this track, but its XP is level ' + r.level + ' on the XP table. Nothing was changed; the level the save stores is left as it is.', { id: 'lcs-mismatch' }));
     if (!vm.levelsTrusted) add(st, el('p', 'lcc-sp-note lcc-sp-note-warn', 'The save’s largest XP (' + fmt(vm.maxXp) + ') is not the one this page’s level table ends on, so the level shown is the one the save stores.', { id: 'lcs-table-note' }));
-    add(st, line('KEYSTONES PURCHASED', keysText(r), 'lcs-keys'),
+    add(st, line('KEYSTONES', keysText(r), 'lcs-keys'),
       bar('lcc-sp-keybar', r.keyKnown ? pctOf(r.keyOwned, r.keyTotal) : 0, 'Keystones purchased on the selected path', r.keyOwned, r.keyKnown ? r.keyTotal : 0)); // "XP cap and keystones are independent" is in the Help tab (#980)
     add(g, plate, st);
     add(d, g);
@@ -252,11 +253,14 @@
     const g1 = el('div', 'lcc-sp-group');
     add(g1, add(el('div', 'lcc-sp-glabel'), el('strong', '', r.label.toUpperCase() + (off ? ' · NOT IDENTIFIED' : '')), el('span', '', 'INDIVIDUAL TRACK')));
     if (off) add(g1, el('p', 'lcc-sp-note lcc-sp-note-warn', 'No track number of the save is tied to this path, so XP editing is off.', { id: 'lcs-nonum' }));
-    add(g1, el('label', 'lcc-sp-lbl', 'Add or remove XP ', { for: 'spx' + r.track }));
-    g1.lastChild.appendChild(el('small', '', '(a negative number removes)'));
-    const inp = el('input', 'lcc-sp-input', '', { id: 'spx' + r.track, type: 'number', step: 1, min: -vm.maxXp, max: vm.maxXp, value: Object.prototype.hasOwnProperty.call(state.xp, r.track) ? state.xp[r.track] : 1000, 'aria-describedby': 'lcs-xphint' + (why ? ' ' + why : ''), disabled: off });
-    add(g1, add(el('div', 'lcc-sp-inline'), inp, btn('Apply XP', 'is-primary', { 'data-act': 'spAddCC', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-xphint' + (why ? ' ' + why : '') })));
-    add(g1, el('p', 'lcc-sp-hint', 'Whole number from −' + fmt(vm.maxXp) + ' to +' + fmt(vm.maxXp) + '; zero is not allowed. The total stays between 0 and ' + fmt(vm.maxXp) + '. The editor shows the XP before and after.', { id: 'lcs-xphint' }));
+    add(g1, el('label', 'lcc-sp-lbl', 'Add XP', { for: 'spx' + r.track }));
+    const inp = el('input', 'lcc-sp-input', '', { id: 'spx' + r.track, type: 'number', step: 1, min: 1, max: vm.maxXp, value: Object.prototype.hasOwnProperty.call(state.xp, r.track) ? state.xp[r.track] : 1000, 'aria-describedby': 'lcs-xphint lcs-xperr' + (why ? ' ' + why : ''), disabled: off });
+    inp.addEventListener('keydown', (e) => { if (e.key === '-' || e.key === 'Subtract') e.preventDefault(); }); // no minus sign: XP is not removed here (#1032)
+    const xt = tipOf('lcs-xphint', 'About the XP amount', 'Whole number from 1 to ' + fmt(vm.maxXp) + '; zero and negative numbers are not accepted (to take XP back, use Reset). The total stays at most ' + fmt(vm.maxXp) + '. The editor shows the XP before and after.');
+    add(g1, wireTip(add(el('div', 'lcc-sp-inline lcc-tt'), inp, btn('Apply XP', 'is-primary', { 'data-act': 'spAddCC', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-xphint' + (why ? ' ' + why : '') }), xt.mark, xt.tip)));
+    add(g1, el('p', 'lcc-sp-note lcc-sp-note-warn', off ? '' : amountProblem(String(inp.value), vm.maxXp), { id: 'lcs-xperr', 'aria-live': 'polite' }));
+    g1.lastChild.hidden = !g1.lastChild.textContent; // an empty note takes no room
+    inp.setAttribute('aria-invalid', g1.lastChild.hidden ? 'false' : 'true');
     add(g1, add(el('div', 'lcc-sp-grid2'),
       btn('✦ Grant LV 100', '', { 'data-act': 'spMax', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-trkhint' + (why ? ' ' + why : '') }),
       btn('Reset Track XP', 'is-danger', { 'data-act': 'spReset', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-trkhint' + (why ? ' ' + why : '') })));
@@ -272,10 +276,32 @@
       btn('Reset All Keystones', 'is-danger', { 'data-act': 'spKeyReset', 'aria-describedby': 'lcs-keyscope' })));
     const left = vm.unassigned.length;
     const resetOff = !vm.resetCount;
-    add(g2, btn('Reset XP of All Known Tracks (' + vm.resetCount + ')', 'is-danger lcc-sp-wide', { 'data-act': 'spResetAll', 'data-n': vm.resetCount, 'data-left': left, disabled: resetOff, 'aria-describedby': 'lcs-resetnote' }));
-    add(g2, el('p', 'lcc-sp-hint', resetOff ? 'Nothing to reset: no track whose number is known has XP.' + (left ? ' ' + left + (left === 1 ? ' row of the save whose track is not known yet is left alone.' : ' rows of the save whose track is not known yet are left alone.') : '')
-      : 'Resets the XP and level of ' + vm.resetCount + (vm.resetCount === 1 ? ' track' : ' tracks') + ' whose number is known, after you type a confirmation. Keystones are not touched.' + (left ? ' ' + left + (left === 1 ? ' row whose track is not known yet is left alone.' : ' rows whose track is not known yet are left alone.') : ''), { id: 'lcs-resetnote' }));
+    const resetBtn = btn('Reset XP of All Known Tracks (' + vm.resetCount + ')', 'is-danger lcc-sp-wide', { 'data-act': 'spResetAll', 'data-n': vm.resetCount, 'data-left': left, disabled: resetOff, 'aria-describedby': 'lcs-resetnote' });
+    const resetSay = (resetOff ? 'Nothing to reset: no track whose number is known has XP.' + (left ? ' ' + left + (left === 1 ? ' row of the save whose track is not known yet is left alone.' : ' rows of the save whose track is not known yet are left alone.') : '')
+      : 'Resets the XP and level of ' + vm.resetCount + (vm.resetCount === 1 ? ' track' : ' tracks') + ' whose number is known, after you type a confirmation. Keystones are not touched.' + (left ? ' ' + left + (left === 1 ? ' row whose track is not known yet is left alone.' : ' rows whose track is not known yet are left alone.') : ''));
+    if (resetOff) add(g2, resetBtn, el('p', 'lcc-sp-hint', resetSay, { id: 'lcs-resetnote' }));
+    else {
+      const rt = tipOf('lcs-resetnote', 'About resetting all tracks', resetSay);
+      add(g2, wireTip(add(el('div', 'lcc-sp-resetrow lcc-tt'), resetBtn, rt.mark, rt.tip)));
+    }
     return add(a, g2);
+  }
+
+  // A hover/focus tip for a long explanation (#1030): the page keeps no always-visible sentence for it. The tip is the existing .lcc-tt/.lcc-tip pattern of lcc.js (real text, role tooltip, shown on hover and on keyboard focus by lcc.css);
+  // the controls and the info mark point to it with aria-describedby, and the info mark is a focusable button so a touch screen can open it. Escape closes it while the mouse or the focus stays.
+  function tipOf(id, name, text) {
+    const mark = el('button', 'lcc-sp-info', '', { type: 'button', 'aria-label': name, 'aria-describedby': id });
+    add(mark, el('span', 'lcc-sp-info-i', 'i', { 'aria-hidden': 'true' })); // the circle is smaller than the 44 px target around it
+    mark.addEventListener('click', () => mark.focus());
+    const tip = el('span', 'lcc-tip', text, { role: 'tooltip', id });
+    return { mark, tip };
+  }
+  function wireTip(w) {
+    w.addEventListener('keydown', (e) => { if (e.key === 'Escape') w.classList.add('dismissed'); });
+    const back = () => w.classList.remove('dismissed');
+    w.addEventListener('mouseleave', back);
+    w.addEventListener('focusout', back);
+    return w;
   }
 
   function housesOf(vm, r) {
@@ -318,7 +344,7 @@
     const r = vm.rows.find((x) => x.key === state.sel);
     add(rootEl, heroOf(vm));
     const head = el('div', 'lcc-sp-headrow');
-    add(head, add(el('div'), el('p', 'lcc-sp-eyebrow', 'CHOOSE A PATH'), el('h3', 'lcc-sp-h3', 'Specialization Lanes')), el('span', 'lcc-sp-src', 'FROM YOUR SAVE · READ WHEN THIS PAGE WAS DRAWN'));
+    add(head, add(el('div'), el('p', 'lcc-sp-eyebrow', 'CHOOSE A PATH'), el('h3', 'lcc-sp-h3', 'Specialization Lanes')));
     add(rootEl, head);
     const lanes = el('div', 'lcc-sp-lanes', '', { role: 'group', 'aria-label': 'Five specialization lanes' });
     for (const x of vm.rows) lanes.appendChild(laneOf(vm, x));
@@ -328,7 +354,13 @@
     add(rootEl, two, housesOf(vm, r), unknownRowOf(vm));
     rootEl.addEventListener('input', (e) => {
       const t = e.target;
-      if (t && t.classList && t.classList.contains('lcc-sp-input') && typeof t.id === 'string' && t.id.indexOf('spx') === 0) state.xp[t.id.slice(3)] = t.value;
+      if (t && t.classList && t.classList.contains('lcc-sp-input') && typeof t.id === 'string' && t.id.indexOf('spx') === 0) {
+        state.xp[t.id.slice(3)] = t.value;
+        const bad = amountProblem(String(t.value), vm.maxXp); // the same refusal as the one on Apply, said where the number is typed
+        const p = rootEl.querySelector('#lcs-xperr');
+        if (p) { p.textContent = bad; p.hidden = !bad; }
+        t.setAttribute('aria-invalid', bad ? 'true' : 'false');
+      }
     });
     rootEl.addEventListener('click', (e) => {
       const t = e.target && e.target.closest ? e.target : null;

@@ -126,18 +126,10 @@
   "asked": "Set this raw row?Exploration is set to 44,182 XP at level 10. One edit. Set the rowCancel",
   "said": "Specialization set (queued: written as soon as the save can be written)"
  },
- "Remove XP -1000": {
-  "sent": [
-   {
-    "path": "/api/player/specs/xp",
-    "body": {
-     "track": "Combat",
-     "amount": -1000
-    }
-   }
-  ],
+ "Remove XP -1000: refused, nothing is sent": {
+  "sent": [],
   "asked": null,
-  "said": "Combat: 3,000 → 4,000 XP, level 26 (queued: written as soon as the save can be written)"
+  "said": "Type a whole number of XP from 1 to 44,182. XP is added here, never removed (use Reset to take it back). Nothing was sent.×"
  },
  "Reset XP of all known tracks, typed sentence": {
   "sent": [

@@ -279,7 +279,7 @@ test('a read that cannot be used draws one honest message and no control', () =>
 test('the hero keystone total is marked partial for a track that is not identified, with its reason, and not otherwise (#902)', () => {
   const d = draw(byId('conflicting-learned-number-leaves-combat-unresolved'), HOUSES, {}, 'combat');
   assert.match(txt(q(d, '#lcs-keycount')), /^0 \/ 205\*$/);
-  assert.match(txt(q(d, '#lcs-keycount').parentNode.querySelector('small')), /^KEYSTONES PURCHASED \(\* A TRACK IS NOT IDENTIFIED YET\)$/);
+  assert.match(txt(q(d, '#lcs-keycount').parentNode.querySelector('small')), /^KEYSTONES \(\* A TRACK IS NOT IDENTIFIED YET\)$/);
   assert.doesNotMatch(txt(q(draw(byId('mixed-five-tracks')), '#lcs-keycount')), /\*/);
 });
 
@@ -287,4 +287,52 @@ test('the hero counts come from the save', () => {
   const d = draw(byId('both-complete'));
   assert.equal(txt(q(d, '#lcs-capcount')), '1 / 5');
   assert.equal(txt(q(d, '#lcs-maxxp')), '44,182');
+});
+
+test('the XP amount rule and the reset rule are tips, not standing text (#1030)', () => {
+  const d = draw(byId('unassigned-row-number-9'));
+  for (const [id, mark, says] of [['lcs-xphint', 'About the XP amount', /Whole number from 1 to 44,182; zero and negative numbers are not accepted.*The editor shows the XP before and after/], ['lcs-resetnote', 'About resetting all tracks', /Keystones are not touched/]]) {
+    const tip = q(d, '#' + id);
+    assert.equal(tip.getAttribute('role'), 'tooltip', id + ' is a tooltip');
+    assert.ok(tip.classList.contains('lcc-tip'), id + ' uses the shared tip pattern');
+    assert.match(txt(tip), says);
+    const m = q(d, '.lcc-sp-info[aria-describedby="' + id + '"]');
+    assert.equal(m.tagName, 'BUTTON', 'a focusable info mark for touch');
+    assert.equal(m.getAttribute('aria-label'), mark);
+    assert.ok(tip.parentNode.classList.contains('lcc-tt'), 'the hover and focus rule of the pattern applies');
+    assert.equal(tip.classList.contains('lcc-sp-hint'), false, 'no always-visible sentence');
+    // Escape closes the tip while the pointer or focus stays (WCAG 1.4.13)
+    const w = tip.parentNode;
+    w.dispatchEvent(new d.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert.ok(w.classList.contains('dismissed'));
+    w.dispatchEvent(new d.w.Event('mouseleave'));
+    assert.equal(w.classList.contains('dismissed'), false);
+  }
+  assert.equal(q(d, '[data-act="spAddCC"]').getAttribute('aria-describedby').split(' ')[0], 'lcs-xphint');
+});
+
+test('Add XP takes whole numbers from 1 up: the label, the box, the minus key and the message where the number is typed (#1032)', () => {
+  const d = draw(byId('mixed-five-tracks'), HOUSES, {}, 'combat');
+  assert.equal(txt(q(d, 'label[for="spxCombat"]')), 'Add XP', 'no "or remove", no "negative number removes"');
+  const inp = q(d, '#spxCombat');
+  assert.equal(inp.getAttribute('min'), '1');
+  assert.equal(inp.getAttribute('max'), '44182');
+  assert.match(inp.getAttribute('aria-describedby'), /lcs-xperr/);
+  const err = q(d, '#lcs-xperr');
+  assert.equal(txt(err), '', 'a fine number says nothing'); assert.equal(err.hidden, true, 'and takes no room');
+  assert.equal(inp.getAttribute('aria-invalid'), 'false');
+  const type = (v) => { inp.value = v; inp.dispatchEvent(new d.w.Event('input', { bubbles: true })); };
+  for (const v of ['-5', '0', '', '-0', '1.5', '44183']) {
+    type(v);
+    assert.match(txt(err), /^Type a whole number of XP from 1 to 44,182\. XP is added here, never removed \(use Reset to take it back\)\. Nothing was sent\.$/, JSON.stringify(v));
+    assert.equal(inp.getAttribute('aria-invalid'), 'true'); assert.equal(err.hidden, false);
+  }
+  for (const v of ['1', '44182', '1e3']) { type(v); assert.equal(txt(err), '', v); assert.equal(inp.getAttribute('aria-invalid'), 'false'); }
+  // the minus key is not accepted at all
+  const k = new d.w.KeyboardEvent('keydown', { key: '-', bubbles: true, cancelable: true });
+  inp.dispatchEvent(k);
+  assert.equal(k.defaultPrevented, true);
+  const ok = new d.w.KeyboardEvent('keydown', { key: '5', bubbles: true, cancelable: true });
+  inp.dispatchEvent(ok);
+  assert.equal(ok.defaultPrevented, false);
 });

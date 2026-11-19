@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"math"
 	"strings"
 	"testing"
 
@@ -82,11 +83,7 @@ func TestAddSpecXPGrantMaxAndResetNeedTheNumberAndStayInRange(t *testing.T) {
 	if mustOne(t, o, `select level l from specialization_tracks where player_id=1 and track_type=0`)["l"].(float64) != 2 {
 		t.Fatal("205 XP is level 2 on the console's table")
 	}
-	// clamped at both ends
-	r, _ = o.AddSpecXP(nums, Args{"track": "Gathering", "amount": -44182.0})
-	if r.(map[string]any)["after"].(int64) != 0 {
-		t.Fatalf("not below 0: %v", r)
-	}
+	// clamped at the top: the headroom rule stays
 	r, _ = o.AddSpecXP(nums, Args{"track": "Gathering", "amount": 44182.0})
 	if r.(map[string]any)["after"].(int64) != 44182 {
 		t.Fatalf("not above the last level: %v", r)
@@ -107,10 +104,47 @@ func TestAddSpecXPGrantMaxAndResetNeedTheNumberAndStayInRange(t *testing.T) {
 	if mustOne(t, o, `select count(*) c from purchased_specialization_keystones`)["c"].(int64) != 1 {
 		t.Fatal("reset leaves the keystones, as in the console")
 	}
-	for name, a := range map[string]Args{"zero": {"track": "Gathering", "amount": 0.0}, "huge": {"track": "Gathering", "amount": 99999.0}, "no track": {"amount": 5.0}, "unknown track": {"track": "Nope", "amount": 5.0}} {
+	for name, a := range map[string]Args{"zero": {"track": "Gathering", "amount": 0.0}, "minus one": {"track": "Gathering", "amount": -1.0}, "minus the cap": {"track": "Gathering", "amount": -44182.0}, "huge": {"track": "Gathering", "amount": 99999.0}, "no track": {"amount": 5.0}, "unknown track": {"track": "Nope", "amount": 5.0}} {
 		if _, err := o.AddSpecXP(nums, a); err == nil {
 			t.Errorf("%s must be refused", name)
 		}
+	}
+}
+
+// #1032: Add XP never removes XP. Zero, every negative number and anything that is not a whole number are refused with the plain message, and the save is left as it was.
+func TestAddSpecXPRefusesZeroAndNegativeAndWritesNothing(t *testing.T) {
+	o := specOps(t)
+	nums := map[string]int64{"Gathering": 2}
+	const q = `select xp_amount x, level l from specialization_tracks where player_id=1 and track_type=2`
+	before := mustOne(t, o, q)
+	for name, amt := range map[string]any{"zero": 0.0, "negative zero": math.Copysign(0, -1), "minus one": -1.0, "minus a thousand": -1000.0, "minus the cap": -44182.0, "large negative": -1e9, "fraction": 0.5, "negative fraction": -0.5, "text": "-5", "empty": "", "nothing": nil} {
+		_, err := o.AddSpecXP(nums, Args{"track": "Gathering", "amount": amt})
+		if err == nil {
+			t.Errorf("%s must be refused", name)
+			continue
+		}
+		if !strings.Contains(err.Error(), "from 1 to 44182") || !strings.Contains(err.Error(), "never removed") {
+			t.Errorf("%s: the refusal says what is accepted and that XP is not removed here: %v", name, err)
+		}
+	}
+	if after := mustOne(t, o, q); after["x"] != before["x"] || after["l"] != before["l"] {
+		t.Fatalf("a refused amount writes nothing: %v then %v", before, after)
+	}
+	// positives behave as before: one is the least, 1e3 and 1.0 are whole numbers, the headroom rule clamps, above the cap is refused
+	x := before["x"].(int64)
+	for _, step := range []struct {
+		amt  float64
+		want int64
+	}{{1, x + 1}, {1e3, x + 1001}, {1.0, x + 1002}} {
+		if r, err := o.AddSpecXP(nums, Args{"track": "Gathering", "amount": step.amt}); err != nil || r.(map[string]any)["after"].(int64) != step.want {
+			t.Fatalf("amount %v: %v %v, want %d", step.amt, r, err, step.want)
+		}
+	}
+	if r, err := o.AddSpecXP(nums, Args{"track": "Gathering", "amount": 44182.0}); err != nil || r.(map[string]any)["after"].(int64) != 44182 {
+		t.Fatalf("the total stays at the cap: %v %v", r, err)
+	}
+	if _, err := o.AddSpecXP(nums, Args{"track": "Gathering", "amount": 44183.0}); err == nil {
+		t.Fatal("above the cap is refused as before")
 	}
 }
 
