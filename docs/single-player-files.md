@@ -143,5 +143,5 @@ the `.ini` files listed above (with backup). It must never modify `autosave\`, `
 
 The game-running check applies only to a file the game could have loaded: everything under `%LOCALAPPDATA%\DuneSandbox\Saved\Cloud\PlayerClientStorage\` (#498). A save kept anywhere else
 (a copy made for testing, opened with `--save`) is not a file the game opens, so edits to it are written at once, with the game running or not; the page and the window title call it
-**NOT LIVE: a copy**. Every other check (backup, integrity, on-disk-change, read-back, the confirmation for a network share or removable drive) still applies to it. When the editor cannot
+**NOT LIVE: a copy** and show the file name only, never the folder (the folder can carry the Windows user name; the full path stays in the tooltip of the file name on the page). Every other check (backup, integrity, on-disk-change, read-back, the confirmation for a network share or removable drive) still applies to it. When the editor cannot
 tell whether a path is in the game's folder, it treats it as the game's own.

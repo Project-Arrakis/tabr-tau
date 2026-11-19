@@ -760,7 +760,7 @@ test('a filter that unticks houses of an open bulk question closes it, and nothi
   assert.deepEqual(sentIds(ui), [901, 902], 'Thorvald and Hurata only: Alexin is hidden and not chosen');
 });
 
-test('a jump to one house closes an open bulk question, and the House: filter and "Show all houses" do the same (#818)', async () => {
+test('a jump to one house closes an open bulk question, and the House: filter does the same (#818, #830)', async () => {
   const ui = await open(board(), { '/api/landsraad/apply': OK });
   click(ui, '[data-lb=pickall]');
   click(ui, '[data-lb=bulk][data-do=complete]'); await ui.settle();
@@ -816,6 +816,26 @@ test('Yes never writes a house that is not chosen: with the closing of the quest
   assert.deepEqual(writes(ui2), []);
   assert.equal(ui2.doc.querySelector('#lsb-confirm'), null);
   assert.ok(result(ui2).includes('Nothing to change any more'), result(ui2));
+});
+
+test('a re-read that makes a named house drop out of the filter closes the question through the page redraw: nothing is written, the focus goes back to the bulk button (#831, #832)', async () => {
+  const data = board();
+  const ui = await open(data, { '/api/landsraad/apply': { ...OK, changed: 2, houses: 2 } });
+  show(ui, 'part'); await ui.settle(); // In progress: Thorvald and Hurata
+  click(ui, '[data-lb=pickall]');
+  click(ui, '[data-lb=bulk][data-do=fill]'); await ui.settle();
+  assert.equal(text(ui.doc.querySelector('#lsb-confirm b')), 'Fill 2 houses? Written at once, with a backup first.');
+  assert.equal(ui.doc.activeElement.getAttribute('data-fk'), 'c-no', 'the safe answer has the focus');
+  // the save changes meanwhile: Thorvald is at the top tier now, so the In progress filter hides it on the next read
+  data.tasks = data.tasks.map((t) => (t.id === 901 ? house(901, 'Thorvald', 6200, { contributions: t.contributions }) : t));
+  const before = boardFetches(ui);
+  await ui.w.render(true); await ui.settle();
+  assert.ok(boardFetches(ui) > before, 'the board was read again');
+  assert.equal(ui.doc.querySelector('#lsb-confirm'), null, 'the question about a house that is hidden now is closed');
+  assert.ok(text(ui.doc.querySelector('#lsb-sum')).startsWith('Chosen: 1 house.'), text(ui.doc.querySelector('#lsb-sum')));
+  assert.ok(result(ui).includes('question was closed') && result(ui).includes('Nothing was written'), result(ui));
+  assert.deepEqual(writes(ui), [], 'nothing was posted');
+  assert.equal(ui.doc.activeElement.getAttribute('data-fk'), 'b-fill', 'the focus is on the bulk button that asked, not on the body: ' + ui.doc.activeElement.tagName);
 });
 
 test('a question about one clicked house is not a bulk question: a filter that hides the row does not close it or change what Yes writes (#818)', async () => {

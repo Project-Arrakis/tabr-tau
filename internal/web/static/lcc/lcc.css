@@ -48,7 +48,7 @@
   --lcc-ap-title: #f4d9a6;
   --lcc-ap-stat: #f4d59a;
   /* the approved board's own surfaces (a panel runs from s1 to s2, a House card from card-a to card-b): the same in every look, as the plaque is, chosen by dark or light only */
-  --lcc-s1: #191b1b; --lcc-s2: #242322; --lcc-card-a: #2d2924; --lcc-card-b: #191b1b; --lcc-tier-bg: #121617; --lcc-tier-edge: #785c36; --lcc-strong: #fff3d8; --lcc-name: #eae1cd;
+  --lcc-s1: #191b1b; --lcc-s2: #242322; --lcc-card-a: #2d2924; --lcc-card-b: #191b1b; --lcc-tier-bg: #121617; --lcc-tier-edge: #917040; --lcc-strong: #fff3d8; --lcc-name: #eae1cd;
   --lcc-crest-filter: brightness(0) invert(.68) sepia(1) saturate(2.1) hue-rotate(-10deg) brightness(.92) drop-shadow(0 0 2px rgba(0, 0, 0, .35));
   --lcc-ok-bg: #68c6a8; --lcc-ok-edge: #86f6c9; --lcc-ok-ink: #0b1714;
   --lcc-wait-bg: #f5c878; --lcc-wait-edge: #ffdc8a; --lcc-wait-ink: #22160a;

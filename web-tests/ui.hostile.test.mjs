@@ -1490,7 +1490,7 @@ test('Teleport to another map: the drop-down asks for that map, lists its places
   sel.value = '0'; sel.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
   ui.click('[data-act="teleport"]'); await ui.settle();
   assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/teleport').map((p) => p.body), [{ x: -300000, y: -590000, z: 1000, map: 'DeepDesert' }]);
-  assert.ok(ui.doc.body.textContent.includes('was checked in the game once (2026-10-27, one character, a throwaway save)') && ui.doc.body.textContent.includes('No other move was checked') && !ui.doc.body.textContent.includes('has not been checked in the game yet'), 'the page says which move between maps was checked and that no other was');
+  assert.ok(ui.doc.body.textContent.includes('was checked in the game once, on a test save') && ui.doc.body.textContent.includes('No other move was checked') && !ui.doc.body.textContent.includes('has not been checked in the game yet'), 'the page says which move between maps was checked and that no other was');
   ui.dom.window.close();
 });
 

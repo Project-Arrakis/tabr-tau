@@ -259,7 +259,7 @@
     bulb.setAttribute('aria-label', 'Switch to ' + to);
     bulb.title = 'Switch to ' + to + (L.themePicked() ? '' : ' (now it follows the system)');
     btn.textContent = 'Theme: ' + LOOK_NAMES[L.look()] + (chosen() ? ' \u00b7 ' + chosen().name : '');
-    btn.setAttribute('aria-label', 'Theme. ' + words() + ' Open the menu');
+    btn.setAttribute('aria-label', btn.textContent + '. ' + words() + ' Open the menu'); // starts with the visible words (WCAG 2.5.3, #619 D9-3)
     btn.title = words();
     allItems().forEach((it) => {
       it.setAttribute('aria-checked', String(it.getAttribute('data-thvalue') === current(it.getAttribute('data-thgroup'))));
