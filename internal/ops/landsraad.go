@@ -393,6 +393,12 @@ func myLandsraadTx(m *save.Mut, p player) (myLandsraad, error) {
 		id, ok = f["id"].(int64)
 	}
 	if !ok {
+		// a faction the Landsraad does not have (Smuggler, on a hand-edited save) is not Neutral: the character is somewhere, and the answer says where (#842)
+		if other, oerr := m.One(`select f.name name from player_faction pf join factions f on f.id=pf.faction_id where pf.actor_id=? and f.name<>'None'`, p.Controller); oerr == nil && other != nil {
+			if name, isStr := other["name"].(string); isStr && name != "" {
+				return myLandsraad{}, apierr.Newf(apierr.ErrBadArgument, "your character is in the %.40q faction, which the Landsraad does not have, so it has no Landsraad contribution to fill: assign Atreides or Harkonnen under Admin first", name)
+			}
+		}
 		return myLandsraad{}, apierr.New(apierr.ErrBadArgument, "your character is in no faction (Neutral), so it has no Landsraad contribution to fill: assign Atreides or Harkonnen under Admin first")
 	}
 	return myLandsraad{player: p.Controller, faction: id}, nil

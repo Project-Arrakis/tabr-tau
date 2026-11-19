@@ -2,6 +2,7 @@ package ops
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -176,4 +177,20 @@ func TestACharacterInAFactionTheLandsraadDoesNotHaveHasNoLandsraadContribution(t
 	if len(o.S.Pending()) != queued {
 		t.Fatalf("nothing more is queued: %v", o.S.Pending())
 	}
+}
+
+// #842: a character that is in a faction the Landsraad does not have (Smuggler, on a hand-edited save) is not told it is in no faction: the answer names the faction, and
+// Neutral keeps its own sentence.
+func TestAChangeOfACharacterInAFactionTheLandsraadDoesNotHaveNamesTheFaction(t *testing.T) {
+	o := rewardOps(t, `insert or replace into factions(id, name) values (1, 'Atreides'), (2, 'Harkonnen'), (3, 'None'), (4, 'Smuggler');
+		update player_faction set faction_id=4 where actor_id=1;`)
+	_, err := o.LandsraadApplyWith(doubled(), applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 2400.0})))
+	wantRefusal2(t, err, apierr.ErrBadArgument, `"Smuggler" faction, which the Landsraad does not have`, "assign Atreides or Harkonnen under Admin first")
+	if strings.Contains(err.Error(), "no faction (Neutral)") {
+		t.Fatalf("a faction the Landsraad does not have is not Neutral: %v", err)
+	}
+	n := rewardOps(t, `insert or replace into factions(id, name) values (1, 'Atreides'), (2, 'Harkonnen'), (3, 'None'), (4, 'Smuggler');
+		update player_faction set faction_id=3 where actor_id=1;`)
+	_, err = n.LandsraadApplyWith(doubled(), applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 2400.0})))
+	wantRefusal2(t, err, apierr.ErrBadArgument, "no faction (Neutral)")
 }
