@@ -14,8 +14,9 @@ import (
 //
 // One difference in the data: the console's database names the tracks (an enum), the save stores a bare number in
 // specialization_tracks.track_type and nothing in the save says which number is which track. Keystones are named by track
-// ("Combat_CombatKeystone_..."), so they need no numbers. For XP and level the editor needs the number of each track: it is learned from the
-// character's own rows (a track the character has earned XP in has a row) and kept in the editor's settings.
+// ("Combat_CombatKeystone_..."), so they need no numbers. For XP and level the editor needs the number of each track: the ones the game uses were
+// measured (measuredTrackNumbers, #609) and are used where nothing was assigned; a number assigned on the Specialization tab (kept in the editor's
+// settings) takes the place of the measured one. EffectiveTrackNumbers puts the two together.
 
 // SpecTracks are the five tracks in the console's order.
 var SpecTracks = []string{"Combat", "Crafting", "Exploration", "Gathering", "Sabotage"}
@@ -62,7 +63,7 @@ func validTrack(t string) bool {
 // SpecRow is one track of the Specialization table.
 type SpecRow struct {
 	Track         string  `json:"track"`
-	Number        *int64  `json:"number"` // the track_type number in this save, once learned
+	Number        *int64  `json:"number"` // the track_type number the editor works with for this track (an assigned one, else the measured one); null when none can be told
 	XP            int64   `json:"xp"`
 	Level         float64 `json:"level"`
 	KeystoneOwned int64   `json:"keystoneOwned"`
@@ -78,7 +79,7 @@ type SpecRaw struct {
 }
 
 // Specs is the Specialization tab: every track (even one with no XP yet, as in the console), its keystones, and the rows of the save
-// whose track number is not known yet. nums is the learned track numbers from the editor's settings.
+// whose track number is not known yet. nums is the track numbers in use (EffectiveTrackNumbers of the editor's settings).
 func (o *Ops) Specs(nums map[string]int64) (any, error) {
 	p, err := o.player()
 	if err != nil {
@@ -131,15 +132,18 @@ func (o *Ops) Specs(nums map[string]int64) (any, error) {
 	return map[string]any{"rows": rows, "unassigned": unassigned, "maxXp": maxSpecXP, "tracks": SpecTracks, "resetCount": resetCount}, nil
 }
 
-// EffectiveTrackNumbers are the track numbers the Specialization tab works with: the ones the editor learned, and for every track it learned none the number measured
-// in the game (measuredTrackNumbers: 1 Crafting, 2 Gathering, 3 Exploration, 4 Combat, 5 Sabotage). A measured number that a learned number already uses for another track
-// is left out, so two tracks never share a row; that track stays unknown and the tab then offers the assignment. The learned map is not changed.
+// EffectiveTrackNumbers are the track numbers the Specialization tab and the Landsraad write work with: the ones the editor learned, and for every track it learned none the number
+// measured in the game (measuredTrackNumbers: 1 Crafting, 2 Gathering, 3 Exploration, 4 Combat, 5 Sabotage). Two tracks never share a row: a learned number that is not one of
+// the five tracks is ignored, a learned number that an earlier track (in SpecTracks order) already holds is left out, and a measured number that a learned number uses for another
+// track is left out. A track left out stays unknown and the tab then offers the assignment. The learned map is not changed.
 func EffectiveTrackNumbers(learned map[string]int64) map[string]int64 {
 	out := make(map[string]int64, len(SpecTracks))
 	used := map[int64]bool{}
-	for t, n := range learned {
-		out[t] = n
-		used[n] = true
+	for _, t := range SpecTracks {
+		if n, ok := learned[t]; ok && !used[n] {
+			out[t] = n
+			used[n] = true
+		}
 	}
 	for _, t := range SpecTracks {
 		if _, has := out[t]; has {
@@ -153,14 +157,14 @@ func EffectiveTrackNumbers(learned map[string]int64) map[string]int64 {
 	return out
 }
 
-// trackNumber is the learned number of a track, or an error saying how to learn it.
+// trackNumber is the number the editor works with for a track (nums is EffectiveTrackNumbers), or an error saying how to set it right.
 func trackNumber(nums map[string]int64, track string) (int64, error) {
 	if !validTrack(track) {
 		return 0, apierr.New(apierr.ErrBadArgument, "unknown specialization track")
 	}
 	n, ok := nums[track]
 	if !ok {
-		return 0, fmt.Errorf("the number the game uses for %s in this save is not known yet: earn a little XP in it in game, save, and assign the new row to %s below the table", track, track)
+		return 0, fmt.Errorf("the number of %s is not known yet, because another track holds it: set that other track again to its own number in the Track numbers card below the table, then try again", track)
 	}
 	return n, nil
 }

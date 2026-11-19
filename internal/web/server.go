@@ -1280,7 +1280,7 @@ func (s *Server) takeStartupNote() string { n, _ := s.takeStartup(); return n }
 // refused with the reason (Problem).
 func (s *Server) grantSettings() ops.GrantSettings {
 	g := ops.DefaultGrantSettings()
-	g.TrackNumbers = settings.Load(s.SettingsPath).TrackNumbers
+	g.TrackNumbers = s.specNums() // the same numbers the Specialization tab writes with, so the two cannot drift apart
 	var problems []string
 	unreadable := false
 	for _, k := range []struct {

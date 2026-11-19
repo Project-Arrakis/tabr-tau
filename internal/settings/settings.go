@@ -33,7 +33,8 @@ type Settings struct {
 	AutoFillBloodSacks *bool `json:"autoFillBloodSacks,omitempty"`
 	AutoRefuelVehicles *bool `json:"autoRefuelVehicles,omitempty"`
 	// TrackNumbers is which number the game uses for each specialization track in specialization_tracks (the save stores a bare number
-	// and does not say which track it is). Learned from the character's own rows with Assign on the Specialization tab.
+	// and does not say which track it is), as assigned on the Specialization tab. It is empty for a normal save: the editor uses the numbers measured in the game
+	// (ops.EffectiveTrackNumbers) for every track with no entry here, and an entry here takes their place.
 	TrackNumbers map[string]int64 `json:"trackNumbers,omitempty"`
 	// Kits are the care packages (#417): named kits of items, XP and skill points that are kept here, not in a save, so they are still there when a new
 	// save is started. internal/kits has the model and the checks; this file only holds them. They are written and read with Update and Load like every other

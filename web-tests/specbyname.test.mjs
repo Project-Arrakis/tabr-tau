@@ -2,7 +2,10 @@
 // raw-row form is a dropdown of names that sends the number behind the chosen name. A save whose numbers cannot be told keeps the assignment card as a small fallback.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import { boot, closeAll } from './boot.mjs';
+import { root } from './lcc-load.mjs';
 
 afterEach(closeAll);
 
@@ -76,4 +79,50 @@ test('no track has a number: the dead-end note and the assignment card are drawn
   assert.ok([...page.querySelectorAll('h3')].some((h) => h.textContent.trim() === 'Track numbers'));
   assert.equal(page.querySelector('#st'), null);
   assert.equal(page.querySelector('[data-act="specSet"]'), null);
+});
+
+// ---- #853: a number assigned by hand that is not the game's own must stay correctable ----
+const withNumbers = (nums, unassigned = []) => ({ ...specs(), rows: TRACKS.map((track) => ({ track, number: nums[track], xp: 500, level: 3, keystoneOwned: 0, keystoneTotal: 2, granted: false })), unassigned });
+
+test('every track has a number and every number is the game\'s own: no Track numbers card, even when the save holds a row no track has', async () => {
+  const ui = await boot({ get: { '/api/player/specs': withNumbers(NUMBERS, [{ number: 9, xp: 750, level: 6 }]) } });
+  await open(ui);
+  const page = ui.doc.querySelector('#main');
+  assert.ok(![...page.querySelectorAll('h3')].some((h) => h.textContent.trim() === 'Track numbers'));
+  assert.equal(page.querySelector('#spmt'), null);
+});
+
+test('a number assigned by hand that is not the game\'s own (Combat = 9) brings the Track numbers card back, with the hand box and the assigned list', async () => {
+  const ui = await boot({ get: { '/api/player/specs': withNumbers({ ...NUMBERS, Combat: 9 }, [{ number: 4, xp: 750, level: 6 }]) }, post: { '/api/player/specs/assign': { ok: true } } });
+  await open(ui);
+  const page = ui.doc.querySelector('#main');
+  assert.ok([...page.querySelectorAll('h3')].some((h) => h.textContent.trim() === 'Track numbers'), 'the card is drawn');
+  assert.ok(page.textContent.includes('Combat = 9'), 'the list of assigned numbers shows the wrong one');
+  ui.doc.querySelector('#spmt').value = 'Combat'; ui.doc.querySelector('#spmn').value = '4';
+  ui.click('[data-act="spAssignHand"]'); await ui.settle();
+  assert.deepEqual(posts(ui, '/api/player/specs/assign').map((p) => p.body), [{ track: 'Combat', number: 4 }], 'Combat can be set back to its own number');
+});
+
+test('a full swap of two numbers (Combat = 1, Crafting = 4) shows the card too', async () => {
+  const ui = await boot({ get: { '/api/player/specs': withNumbers({ ...NUMBERS, Combat: 1, Crafting: 4 }) } });
+  await open(ui);
+  assert.ok([...ui.doc.querySelectorAll('#main h3')].some((h) => h.textContent.trim() === 'Track numbers'));
+});
+
+test('the numbers the page counts as the game\'s own are the measured numbers of the Go code, and the card says how to clear a clash', async () => {
+  const go = fs.readFileSync(path.join(root, 'internal', 'ops', 'landsraad_grant.go'), 'utf8');
+  const m = /var measuredTrackNumbers = map\[string\]int64\{([^}]*)\}/.exec(go);
+  assert.ok(m, 'the table is in landsraad_grant.go');
+  const goNums = Object.fromEntries([...m[1].matchAll(/"(\w+)":\s*(\d+)/g)].map((x) => [x[1], Number(x[2])]));
+  assert.deepEqual(goNums, NUMBERS);
+  const app = fs.readFileSync(path.join(root, 'internal', 'web', 'static', 'app.js'), 'utf8');
+  const a = /const MEASURED_TRACK_NUMBERS = \{([^}]*)\}/.exec(app);
+  assert.ok(a, 'the page keeps the same table');
+  assert.deepEqual(Object.fromEntries([...a[1].matchAll(/(\w+):\s*(\d+)/g)].map((x) => [x[1], Number(x[2])])), goNums);
+  const ui = await boot({ get: { '/api/player/specs': withNumbers({ ...NUMBERS, Combat: 9 }) } });
+  await open(ui);
+  const about = ui.doc.querySelector('[data-about="specialization.numbers"]');
+  assert.ok(about, 'the About this of the card is there');
+  assert.match(about.textContent, /set that track again to its own number in the box above/);
+  assert.match(about.textContent, /Crafting 1, Gathering 2, Exploration 3, Combat 4, Sabotage 5/);
 });

@@ -121,6 +121,33 @@ test('a Landsraad that cannot be read leaves the Houses "Not in the save" and th
   assert.ok(ui.doc.querySelector('[data-act="spKeyAll"]'));
 });
 
+test('a Landsraad that answers without a task list leaves the Houses "Not in the save", not "no House is listed" (#899)', async () => {
+  for (const answer of [{}, { tasks: null }, { tasks: 'x' }, { term: 3 }]) {
+    const ui = await open({ 'spec.view': 'cc' }, { '/api/landsraad': answer });
+    assert.match(text(ui.doc.querySelector('.lcc-sp-houses')), /could not be read, so the Houses of this path are not in the save/, JSON.stringify(answer));
+    assert.doesNotMatch(text(ui.doc.querySelector('.lcc-sp-houses')), /No House of this term is listed/);
+    assert.equal(text(ui.doc.querySelectorAll('.lcc-sp-fact strong')[0]), 'Not in the save');
+    closeAll();
+  }
+  const empty = await open({ 'spec.view': 'cc' }, { '/api/landsraad': { tasks: [] } });
+  assert.match(text(empty.doc.querySelector('.lcc-sp-houses')), /No House of this term is listed under this path/, 'a list that is there and empty is still "none listed"');
+});
+
+test('choosing another lane keeps what was typed in the XP fields, and drawing the view again does too (#899)', async () => {
+  const ui = await open({ 'spec.view': 'cc' });
+  const field = (t) => ui.doc.querySelector('#spx' + t);
+  const type = (t, v) => { field(t).value = v; field(t).dispatchEvent(new ui.w.Event('input', { bubbles: true })); };
+  type('Crafting', '2500');
+  ui.click('[data-lcs-lane="combat"]');
+  assert.equal(field('Combat').value, '1000', 'another path has its own field, untouched');
+  type('Combat', '-300');
+  ui.click('[data-lcs-lane="crafting"]');
+  assert.equal(field('Crafting').value, '2500', 'what was typed for Crafting is still there');
+  ui.click('[data-lcs-lane="combat"]');
+  assert.equal(field('Combat').value, '-300');
+  assert.equal(ui.posted.length, 0, 'choosing a lane sends nothing');
+});
+
 test('a save with no specialization tracks shows one message and no control', async () => {
   const ui = await open({ 'spec.view': 'cc' }, { '/api/player/specs': { rows: [], unassigned: [], maxXp: 44182, tracks: [], resetCount: 0 } });
   assert.match(text(ui.doc.querySelector('.lcc-sp-empty')), /This save has no specialization tracks\./);

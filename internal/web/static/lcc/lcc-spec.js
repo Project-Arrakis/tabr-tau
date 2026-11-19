@@ -22,7 +22,7 @@
     38566, 39190, 39814, 40438, 41062, 41686, 42310, 42934, 43558, 44182,
   ]);
   const MAX_LEVEL = LEVEL_XP.length - 1;
-  // the lanes are drawn in the approved design's order
+  // the lanes are drawn in the design's order
   const ORDER = Object.freeze(['crafting', 'gathering', 'exploration', 'combat', 'sabotage']);
   const LABEL = Object.freeze({ combat: 'Combat', crafting: 'Crafting', exploration: 'Exploration', gathering: 'Gathering', sabotage: 'Sabotage' });
   const NOT_IN_SAVE = 'Not in the save';
@@ -44,11 +44,12 @@
   const xpToNext = (xp) => { const l = levelOf(xp); return l >= MAX_LEVEL ? 0 : LEVEL_XP[l + 1] - Math.max(0, xp); };
 
   // What the editor refuses before it sends, said before it is sent: a whole number, not 0, not past the largest XP of a track either way.
+  // It judges the number the page will send (the classic list sends +value, so 1e3 and 1.0 are 1000 and 1 there), not the spelling: any decimal spelling of a whole number passes (#899).
   function amountProblem(text, maxXp) {
     const lim = isInt(maxXp) && maxXp > 0 ? maxXp : LEVEL_XP[MAX_LEVEL];
     const msg = 'Type a whole number of XP, not 0, from -' + fmt(lim) + ' to ' + fmt(lim) + '. Nothing was sent.';
     const s = typeof text === 'string' ? text.trim() : '';
-    if (!/^[+-]?\d+$/.test(s)) return msg;
+    if (!/^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(s)) return msg;
     const n = Number(s);
     if (!Number.isSafeInteger(n) || n === 0 || n < -lim || n > lim) return msg;
     return '';
@@ -120,10 +121,12 @@
   }
   const keysText = (r) => (r.keyKnown ? r.keyOwned + ' / ' + r.keyTotal : NOT_IN_SAVE);
   const pctOf = (n, d) => (isNum(n) && d > 0 ? Math.max(0, Math.min(100, (n / d) * 100)) : 0);
-  const laneLabel = (vm, r) => r.label + ', ' + (r.known ? 'level ' + (r.level === null ? 'unknown' : r.level) + ' of 100, ' + fmt(r.xp) + ' XP, ' + (r.keyKnown ? r.keyOwned + ' of ' + r.keyTotal + ' keystones' : 'keystones not in the save') + (r.capped ? ', XP cap reached' : '') + (r.keyComplete ? ', keystones complete' : '') : 'track not identified, no XP shown');
+  const storedText = (r) => String(Math.round(r.storedLevel * 100) / 100);
+  const laneLabel = (vm, r) => r.label + ', ' + (r.known ? 'level ' + (r.level === null ? 'unknown' : r.level) + ' of 100, ' + fmt(r.xp) + ' XP, ' + (r.keyKnown ? r.keyOwned + ' of ' + r.keyTotal + ' keystones' : 'keystones not in the save') + (r.levelMismatch ? ', the save stores level ' + storedText(r) : '') + (r.capped ? ', XP cap reached' : '') + (r.keyComplete ? ', keystones complete' : '') : 'track not identified, no XP shown');
 
   // ---- the page ----------------------------------------------------------------------------------------------------------------------------------------------------------------
-  const state = { sel: 'crafting' };
+  // sel is the chosen path; xp holds what was typed in the XP field of each path, so choosing another lane and coming back, or drawing the view again, does not put 1000 back (#899)
+  const state = { sel: 'crafting', xp: {} };
   const doc = () => root.document;
   function el(tag, cls, text, attrs) {
     const e = doc().createElement(tag);
@@ -176,15 +179,17 @@
 
   function laneOf(vm, r) {
     const sel = r.key === state.sel;
-    const b = el('button', 'lcc-sp-lane', '', { type: 'button', 'aria-pressed': sel ? 'true' : 'false', 'data-lcs-lane': r.key, 'data-track': r.key, 'data-kind': r.kind, 'data-victory': r.kind === 'cap' || r.kind === 'full' ? 'win' : null, 'aria-label': laneLabel(vm, r) }); // level 100 wears the one win outline of lcc.css (#988)
+    const b = el('button', 'lcc-sp-lane', '', { type: 'button', 'aria-pressed': sel ? 'true' : 'false', 'data-lcs-lane': r.key, 'data-track': r.key, 'data-kind': r.kind, 'data-mismatch': r.levelMismatch ? 'true' : null, 'data-victory': r.kind === 'cap' || r.kind === 'full' ? 'win' : null, 'aria-label': laneLabel(vm, r) }); // level 100 wears the one win outline of lcc.css (#988)
     const ic = el('span', 'lcc-sp-lane-ic', '', { 'aria-hidden': 'true' });
     add(ic, pic('lcc-sp-lane-img', r.key, 72));
     const lv = el('span', 'lcc-sp-lane-lv', '', { 'aria-hidden': 'true' });
     add(lv, el('b', '', r.known && r.level !== null ? 'LV ' + r.level : 'LV —'), el('span', '', ' / 100'));
+    // the level of the lane is the one of its XP; when the save stores another level the lane says so, not only the dossier of the chosen path (#899)
+    const mm = r.levelMismatch ? el('span', 'lcc-sp-lane-mm', '⚠ SAVE STORES LV ' + storedText(r), { 'aria-hidden': 'true' }) : null;
     add(b, ic, el('strong', 'lcc-sp-lane-name', r.label.toUpperCase(), { 'aria-hidden': 'true' }), lv,
       bar('lcc-sp-lane-bar', pctOf(r.xp, vm.maxXp), 'XP of this path toward the cap', r.xp === null ? 0 : r.xp, vm.maxXp),
       el('span', 'lcc-sp-lane-nums', (r.xp === null ? NOT_IN_SAVE : fmt(r.xp) + ' XP') + ' · ' + (r.keyKnown ? r.keyOwned + '/' + r.keyTotal + ' keystones' : 'keystones: ' + NOT_IN_SAVE.toLowerCase()), { 'aria-hidden': 'true' }),
-      el('span', 'lcc-sp-lane-badge', laneBadge(r), { 'aria-hidden': 'true' }));
+      el('span', 'lcc-sp-lane-badge', laneBadge(r), { 'aria-hidden': 'true' }), mm);
     b.querySelector('.lcc-sp-lane-bar').setAttribute('aria-hidden', 'true');
     return b;
   }
@@ -195,7 +200,7 @@
     const ic = add(el('div', 'lcc-sp-dossier-ic', '', { 'aria-hidden': 'true' }), pic('lcc-sp-dossier-img', r.key, 96));
     const hd = el('div', 'lcc-sp-dheading');
     add(hd, el('p', 'lcc-sp-eyebrow', 'PROGRESSION DOSSIER · SELECTED PATH'), el('h2', 'lcc-sp-h2s', r.label.toUpperCase(), { id: 'lcs-dos-h' }),
-      el('p', 'lcc-sp-small', r.known ? 'Track number ' + r.number + ' in this save.' : 'This save has XP in a track number that is not tied to this path yet.'));
+      r.known ? null : el('p', 'lcc-sp-small', 'This save has XP in a track number that is not tied to this path yet.')); // a path is picked by its name: the number behind a known path is not shown (#708)
     add(head, ic, hd, el('span', 'lcc-sp-flag' + (r.capped ? ' is-cap' : ''), !r.known ? 'TRACK NOT IDENTIFIED' : r.capped ? 'LEVEL 100 · XP CAP REACHED' : 'LEVEL ' + (r.level === null ? '—' : r.level)));
     add(d, head);
 
@@ -249,7 +254,7 @@
     if (off) add(g1, el('p', 'lcc-sp-note lcc-sp-note-warn', 'No track number of the save is tied to this path, so XP editing is off.', { id: 'lcs-nonum' }));
     add(g1, el('label', 'lcc-sp-lbl', 'Add or remove XP ', { for: 'spx' + r.track }));
     g1.lastChild.appendChild(el('small', '', '(a negative number removes)'));
-    const inp = el('input', 'lcc-sp-input', '', { id: 'spx' + r.track, type: 'number', step: 1, min: -vm.maxXp, max: vm.maxXp, value: 1000, 'aria-describedby': 'lcs-xphint' + (why ? ' ' + why : ''), disabled: off });
+    const inp = el('input', 'lcc-sp-input', '', { id: 'spx' + r.track, type: 'number', step: 1, min: -vm.maxXp, max: vm.maxXp, value: Object.prototype.hasOwnProperty.call(state.xp, r.track) ? state.xp[r.track] : 1000, 'aria-describedby': 'lcs-xphint' + (why ? ' ' + why : ''), disabled: off });
     add(g1, add(el('div', 'lcc-sp-inline'), inp, btn('Apply XP', 'is-primary', { 'data-act': 'spAddCC', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-xphint' + (why ? ' ' + why : '') })));
     add(g1, el('p', 'lcc-sp-hint', 'Whole number from −' + fmt(vm.maxXp) + ' to +' + fmt(vm.maxXp) + '; zero is not allowed. The total stays between 0 and ' + fmt(vm.maxXp) + '. The editor shows the XP before and after.', { id: 'lcs-xphint' }));
     add(g1, add(el('div', 'lcc-sp-grid2'),
@@ -321,6 +326,10 @@
     const two = el('div', 'lcc-sp-two');
     add(two, dossierOf(vm, r), opsOf(vm, r));
     add(rootEl, two, housesOf(vm, r), unknownRowOf(vm));
+    rootEl.addEventListener('input', (e) => {
+      const t = e.target;
+      if (t && t.classList && t.classList.contains('lcc-sp-input') && typeof t.id === 'string' && t.id.indexOf('spx') === 0) state.xp[t.id.slice(3)] = t.value;
+    });
     rootEl.addEventListener('click', (e) => {
       const t = e.target && e.target.closest ? e.target : null;
       const lane = t && t.closest('[data-lcs-lane]');

@@ -20,7 +20,7 @@ const CASES = JSON.parse(read('docs', 'design', 'landsraad-command-center', 'fix
 // two saves: every track known with a row of the save that no track has (the ordinary one), and one where Combat has lost its number (the Track numbers card and the raw row's list of tracks differ)
 const SAVE = { ordinary: 'unassigned-row-number-9', unresolved: 'conflicting-learned-number-leaves-combat-unresolved' };
 const SPECS = (which = 'ordinary') => JSON.parse(JSON.stringify(CASES.find((c) => c.id === SAVE[which]).response));
-const ON = { 'Assign number 1 to Combat': 'unresolved', 'Assign by hand, Combat 9': 'unresolved', 'Assign by hand with no number': 'unresolved', 'Raw row: Sabotage 500 XP level 2, asked then Yes': 'unresolved', 'Raw row: XP 44182 and level 10, mismatch kept as typed': 'unresolved' };
+const ON = { 'Add XP on a track that is not identified: nothing is sent': 'unresolved', 'Grant all keystones on a save with a track not identified, asked then Yes': 'unresolved', 'Assign number 1 to Combat': 'unresolved', 'Assign by hand, Combat 9': 'unresolved', 'Assign by hand with no number': 'unresolved', 'Raw row: Sabotage 500 XP level 2, asked then Yes': 'unresolved', 'Raw row: XP 44182 and level 10, mismatch kept as typed': 'unresolved' };
 const text = (e) => (e ? e.textContent.replace(/\s+/g, ' ').trim() : null);
 const POSTS = { '/api/player/specs/xp': { ok: true, before: 3000, after: 4000, level: 26 }, '/api/player/specs/max': { ok: true }, '/api/player/specs/reset': { ok: true, removed: 1 },
   '/api/player/specs/reset-all': { ok: true, changed: 5 }, '/api/player/specs/keystones/grant': { ok: true, granted: 5 }, '/api/player/specs/keystones/reset': { ok: true, removed: 5 },
@@ -29,6 +29,9 @@ const ROUTE = /^\/api\/player\/specs/;
 
 // the three kinds of scenario the Command Center view no longer has a control for (#986: track mapping and the raw-row writer are classic-list only): the classic list is still checked against the file, unchanged
 const CLASSIC_ONLY = new Set(['Assign number 1 to Combat', 'Assign by hand, Combat 9', 'Assign by hand with no number', 'Raw row: Sabotage 500 XP level 2, asked then Yes', 'Raw row: XP 44182 and level 10, mismatch kept as typed']);
+
+// the scenario where the controls are off and nothing is pressed
+const SENDS_NOTHING = new Set(['Add XP on a track that is not identified: nothing is sent']);
 
 // a scenario is [what is pressed in the classic list, what is pressed in the Command Center view]; both are steps run against the page
 const ctl = (ui, sel) => { const e = ui.doc.querySelector(sel); assert.ok(e, 'no element for ' + sel); return e; };
@@ -44,6 +47,10 @@ const SCENARIOS = {
   'Grant max, asked then Yes': async (ui, v) => { lane(ui, v, 'combat'); ui.click('[data-act="spMax"][data-t="Combat"]'); await yes(ui); },
   'Grant max, asked then No': async (ui, v) => { lane(ui, v, 'combat'); ui.click('[data-act="spMax"][data-t="Combat"]'); await no(ui); },
   'Reset one track, asked then Yes': async (ui, v) => { lane(ui, v, 'sabotage'); ui.click('[data-act="spReset"][data-t="Sabotage"]'); await yes(ui); },
+  // a track with no number (#899): the XP controls are off in both views, so no request, and the keystone buttons still work and send the same request
+  // (a disabled button sends no click in a browser, so the scenario checks that the controls are off and presses none)
+  'Add XP on a track that is not identified: nothing is sent': async (ui, v) => { lane(ui, v, 'combat'); for (const sel of ['#spxCombat', '[data-act="spMax"][data-t="Combat"]', '[data-act="spReset"][data-t="Combat"]', v === 'cc' ? '[data-act="spAddCC"][data-t="Combat"]' : '[data-act="spAdd"][data-t="Combat"]']) assert.equal(ctl(ui, sel).disabled, true, sel + ' is off'); },
+  'Grant all keystones on a save with a track not identified, asked then Yes': async (ui) => { ui.click('[data-act="spKeyAll"]'); await yes(ui); },
   'Grant all keystones, asked then Yes': async (ui) => { ui.click('[data-act="spKeyAll"]'); await yes(ui); },
   'Reset all keystones, asked then Yes': async (ui) => { ui.click('[data-act="spKeyReset"]'); await yes(ui); },
   'Reset all keystones, asked then No': async (ui) => { ui.click('[data-act="spKeyReset"]'); await no(ui); },
@@ -87,12 +94,13 @@ for (const name of Object.keys(SCENARIOS)) {
     const got = await play(name, 'cc');
     assert.ok(golden[name], 'a recorded scenario for ' + name);
     assert.deepEqual(got, golden[name]);
-    assert.ok(got.sent.length === 1 || got.asked !== null || got.said !== null, 'a request was sent, a question asked or a reason given');
+    if (!SENDS_NOTHING.has(name)) assert.ok(got.sent.length === 1 || got.asked !== null || got.said !== null, 'a request was sent, a question asked or a reason given');
+    else { assert.deepEqual(got.sent, []); assert.equal(got.asked, null); }
   });
 }
 
 // ---- what the Command Center view adds: a number the editor would refuse is stopped before it is sent ----
-const BAD = [['blank', ''], ['zero', '0'], ['a fraction', '1.5'], ['not a number', 'abc'], ['over the limit', '44183'], ['under the limit', '-44183'], ['an exponent', '1e3']];
+const BAD = [['blank', ''], ['zero', '0'], ['a fraction', '1.5'], ['not a number', 'abc'], ['over the limit', '44183'], ['under the limit', '-44183'], ['an exponent past the limit', '1e5'], ['a fraction as an exponent', '1e-1']];
 for (const [what, v] of BAD) {
   test('Command Center, Apply XP with ' + what + ': nothing is sent and the reason is shown', async () => {
     const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': synthetic() }, post: POSTS, local: { tab: 'player', 'spec.view': 'cc' } });
@@ -116,6 +124,21 @@ test('Command Center, Apply XP at the two limits is sent as typed', async () => 
     closeAll();
   }
 });
+
+// 1e3 and 1.0 are whole numbers: the classic list sends them (as 1000 and 1) and so does this view, the same request for the same typing (#899)
+for (const [typed, sent] of [['1e3', 1000], ['1.0', 1], ['-2E2', -200]]) {
+  for (const view of ['classic', 'cc']) {
+    test('Apply XP typed as ' + typed + ' is sent as ' + sent + ' in the ' + view + ' view', async () => {
+      const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': synthetic() }, post: POSTS, local: { tab: 'player', 'spec.view': view } });
+      ui.click('[data-sub="player:specialization"]'); await ui.settle();
+      if (view === 'cc') ui.click('[data-lcs-lane="combat"]');
+      set(ui, '#spxCombat', typed);
+      ui.click(view === 'cc' ? '[data-act="spAddCC"][data-t="Combat"]' : '[data-act="spAdd"][data-t="Combat"]'); await ui.settle();
+      assert.deepEqual(ui.posted.filter((p) => ROUTE.test(p.path)), [{ path: '/api/player/specs/xp', body: { track: 'Combat', amount: sent } }]);
+      closeAll();
+    });
+  }
+}
 
 // ---- the control lists of the two views are the same set of operations ----
 test('the golden file covers all nine operations of the editor: the Command Center view reaches six of them, the classic list all nine', async () => {

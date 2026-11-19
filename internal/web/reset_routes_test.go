@@ -167,6 +167,66 @@ func TestResetJourneyRoute(t *testing.T) {
 	}
 }
 
+// Every write route of the Specialization tab uses the measured numbers where nothing is assigned, not only the read and Add XP: one post per route (#853).
+func TestSpecWriteRoutesUseTheMeasuredNumbersWhereNothingIsAssigned(t *testing.T) {
+	s := New(testsave.PlayerWithSQL(t, resetCharacter+`
+		insert into specialization_tracks(player_id,track_type,xp_amount,level) values (1,2,3000,19.0),(1,5,900,8.0),(1,3,400,4.0);`), config.Dir{Path: t.TempDir()})
+	s.SettingsPath = filepath.Join(t.TempDir(), "settings.json") // nothing assigned
+	xpOf := func(n int) (int64, bool) {
+		r, err := s.Save.One(`select xp_amount x from specialization_tracks where player_id=1 and track_type=?`, n)
+		if err != nil || len(r) == 0 {
+			return 0, false
+		}
+		return r["x"].(int64), true
+	}
+	w := postEdit(t, s, "/api/player/specs/max", `{"track":"Crafting"}`)
+	if w.Code != 200 {
+		t.Fatalf("Grant max to a track nothing was assigned to: %d %s", w.Code, w.Body.String())
+	}
+	if x, has := xpOf(1); !has || x != 44182 {
+		t.Fatalf("the row of number 1 (Crafting) holds the cap: %v %v", x, has)
+	}
+	w = postEdit(t, s, "/api/player/specs/reset", `{"track":"Sabotage"}`)
+	if m := decodeBody(t, w); w.Code != 200 || m["removed"] != float64(1) {
+		t.Fatalf("Reset of a track nothing was assigned to: %d %s", w.Code, w.Body.String())
+	}
+	if _, has := xpOf(5); has {
+		t.Fatal("the row of number 5 (Sabotage) is gone")
+	}
+	w = do(t, s, "GET", "http://127.0.0.1/api/player/specs", loop, map[string]string{"Host": "127.0.0.1:8090", "Cookie": "tabr_session=" + s.token}, nil)
+	if m := decodeBody(t, w); w.Code != 200 || m["resetCount"] != float64(3) {
+		t.Fatalf("the rows of numbers 1, 2 and 3 are known without any assignment: %d %s", w.Code, w.Body.String())
+	}
+	w = postEdit(t, s, "/api/player/specs/reset-all", `{"expected":3}`)
+	if m := decodeBody(t, w); w.Code != 200 || m["changed"] != float64(3) || m["outcome"] != "written" {
+		t.Fatalf("Reset all on a save where nothing was assigned: %d %s", w.Code, w.Body.String())
+	}
+	if n, err := s.Save.One(`select count(*) c from specialization_tracks`); err != nil || n["c"].(int64) != 0 {
+		t.Fatalf("every measured row is gone: %v %v", n, err)
+	}
+}
+
+// What the Landsraad writes by and what the Specialization tab writes by are the same numbers (#853): a learned number that clashes with a measured one shows in both.
+func TestLandsraadGrantSettingsUseTheSameTrackNumbersAsTheSpecializationTab(t *testing.T) {
+	s := New(testsave.PlayerWithSQL(t, resetCharacter), config.Dir{Path: t.TempDir()})
+	s.SettingsPath = filepath.Join(t.TempDir(), "settings.json")
+	if err := settings.Save(s.SettingsPath, settings.Settings{TrackNumbers: map[string]int64{"Combat": 1}}); err != nil {
+		t.Fatal(err)
+	}
+	g, want := s.grantSettings().TrackNumbers, s.specNums()
+	if len(g) != len(want) {
+		t.Fatalf("grant %v, tab %v", g, want)
+	}
+	for k, v := range want {
+		if g[k] != v {
+			t.Fatalf("%s: grant %d, tab %d", k, g[k], v)
+		}
+	}
+	if _, has := g["Crafting"]; has || g["Combat"] != 1 {
+		t.Fatalf("Crafting stays unknown while Combat holds 1: %v", g)
+	}
+}
+
 // A save with nothing assigned in the settings still has a number for every track (the measured ones), so the Specialization tab needs no assignment (#708).
 func TestSpecsRouteUsesTheMeasuredNumbersWhereNothingIsAssigned(t *testing.T) {
 	s := New(testsave.PlayerWithSQL(t, resetCharacter+`

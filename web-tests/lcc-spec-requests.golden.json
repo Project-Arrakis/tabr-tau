@@ -12,6 +12,11 @@
   "asked": null,
   "said": "Combat: 3,000 → 4,000 XP, level 26 (queued: written as soon as the save can be written)"
  },
+ "Add XP on a track that is not identified: nothing is sent": {
+  "sent": [],
+  "asked": null,
+  "said": ""
+ },
  "Add XP on another track": {
   "sent": [
    {
@@ -55,6 +60,16 @@
   ],
   "asked": null,
   "said": "Track number 1 is Combat"
+ },
+ "Grant all keystones on a save with a track not identified, asked then Yes": {
+  "sent": [
+   {
+    "path": "/api/player/specs/keystones/grant",
+    "body": {}
+   }
+  ],
+  "asked": "Grant all keystones?Every specialization keystone of every track is bought. One edit. Grant allCancel",
+  "said": "5 keystones granted (queued: written as soon as the save can be written)"
  },
  "Grant all keystones, asked then Yes": {
   "sent": [
