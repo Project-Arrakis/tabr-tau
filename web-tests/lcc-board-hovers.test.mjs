@@ -56,7 +56,7 @@ test('#975: every square of the board has the House hover card of the list rows,
     assert.equal(text(cellOf(ui, a, name).querySelector(':scope > .hcard')), text(row.querySelector('.hw > .hcard')), name + ': the square and the list row say the same');
   }
   const t = text(cellOf(ui, a, 'Alexin').querySelector(':scope > .hcard'));
-  for (const w of ['House Alexin', 'Next reward', 'Not collected', 'Faction race', 'Place']) assert.ok(t.includes(w), w + ' in ' + t);
+  for (const w of ['House Alexin', 'Next reward', 'Not collected', 'Faction standing', 'Place']) assert.ok(t.includes(w), w + ' in ' + t);
   // the place line is the real button of the list's card (the link to the Saved map)
   assert.ok(cellOf(ui, a, 'Alexin').querySelector(':scope > .hcard .hcard-place[data-lb="map"]'));
 });

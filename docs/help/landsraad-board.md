@@ -1,13 +1,13 @@
 # The Landsraad board
 
-The board shows the 25 Houses of the current term, five rows of five, numbered 01 to 25 from the top left. The numbers are the game's own positions. If the save does not give a clean 5 by 5 board, the Houses are shown as a list and nothing can be written from the board.
+The board shows the 25 Houses of the current term, five rows of five, numbered 01 to 25 from the top left. The numbers are the game's own positions, read from the save's board_index. If the save does not give a clean 5 by 5 board, the Houses are shown as a list and nothing can be written from the board.
 
 ## What a card shows
 
 - The number, the specialization emblem and the House crest.
 - The House name and its specialization.
 - Who won the favor: Atreides, Harkonnen, or not won.
-- Five tier boxes and a line such as 3/5 EARNED, with the number collected and the number not collected.
+- Five tier boxes and a line such as 3/5 EARNED, with the number collected and the number not collected. A House whose favor a faction has won shows the same line as any other House: if you have no contribution to it, it reads 0/5 EARNED.
 
 Click a card to open the House in the panel beside the board (House Intelligence). Click it again to close it.
 
