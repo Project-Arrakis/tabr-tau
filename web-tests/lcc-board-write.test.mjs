@@ -105,6 +105,54 @@ test('the write lock: a second click while a write runs sends nothing, says to w
   assert.equal(ui.doc.querySelector('#lsb').getAttribute('aria-busy'), null);
 });
 
+// The busy state builds the faction and Set tier selects of a panel drawn during a write off (#1015); the write ends, they are on again. A plain write redraws the board while it still runs,
+// so the new panel is built off and only the end of the write turns it on (a regression of #1015 on main: the selects stayed off after every write).
+function holdWrite(ui) {
+  const orig = ui.w.fetch, h = { release: null, started: 0 };
+  ui.w.fetch = (p, opt = {}) => (opt.method === 'POST' && String(p).includes('/api/landsraad/apply') ? (h.started++, new Promise((res) => { h.release = () => res(orig(p, opt)); })) : orig(p, opt));
+  return h;
+}
+const selectsOff = (ui) => ['#lcc-bd-fac', '#lcc-bd-tierset'].map((q) => ui.doc.querySelector('.lcc-bd-insp ' + q).disabled);
+
+test('a plain successful write leaves the faction and Set tier selects on, with no other redraw', async () => {
+  const ui = await open('board');
+  const a = synthetic();
+  select_(ui, a, 'Kenola');
+  assert.deepEqual(selectsOff(ui), [false, false], 'on before the write');
+  click(ui, control.board.tier(ui, a, 'Kenola', 3));
+  await ui.settle();
+  assert.equal(writes(ui).length, 1);
+  assert.deepEqual(selectsOff(ui), [false, false], 'on again after the write and the re-read of the board');
+});
+
+test('a panel drawn while a write runs has its selects off, and they are on again when the write is over', async () => {
+  const ui = await open('board');
+  const a = synthetic();
+  const h = holdWrite(ui);
+  click(ui, control.board.act(ui, a, 'Sor', 'complete'));
+  await ui.settle();
+  assert.equal(h.started, 1);
+  assert.deepEqual(selectsOff(ui), [true, true], 'the drawn panel is off while the write runs');
+  click(ui, ui.doc.querySelector('[data-fk="ht:' + idOf(a, 'Kenola') + '"]')); // another House looked at: the panel is built again during the write
+  assert.equal(ui.doc.querySelector('.lcc-bd-insp').dataset.id, String(idOf(a, 'Kenola')));
+  assert.deepEqual(selectsOff(ui), [true, true], 'a panel drawn during the write is built off');
+  h.release(); await ui.settle();
+  assert.deepEqual(selectsOff(ui), [false, false], 'they are on again when the write is over');
+});
+
+test('a House with no tiers keeps Set tier off after a write', async () => {
+  const a = synthetic();
+  a.tasks.find((t) => t.house_name === 'DA_HouseKenola').rewards = [];
+  const ui = await open('board', a);
+  const h = holdWrite(ui);
+  click(ui, control.board.act(ui, a, 'Sor', 'complete'));
+  await ui.settle();
+  click(ui, ui.doc.querySelector('[data-fk="ht:' + idOf(a, 'Kenola') + '"]'));
+  assert.equal(ui.doc.querySelector('.lcc-bd-insp #lcc-bd-tierset').options.length, 1, 'the House has no tiers');
+  h.release(); await ui.settle();
+  assert.deepEqual(selectsOff(ui), [false, true], 'the faction box is on again, Set tier stays off');
+});
+
 test('after a write the same House is still looked at and the focus is on the control that was pressed', async () => {
   const ui = await open('board');
   const a = synthetic();

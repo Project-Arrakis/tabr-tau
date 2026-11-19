@@ -37,6 +37,8 @@ test('queued Landsraad edits are listed with their houses and factions', async (
       'landsraad Kenola: completed for Harkonnen; replaces the win of Atreides on Kenola',
       'landsraad: 3 houses completed for Atreides; replaces 2 wins (Harkonnen: Maros, Kenola); 2 other completion times moved; houses: Maros, Kenola, Vernius',
       'landsraad: 1 house reopened; houses: Kenola',
+      'landsraad: 2 houses reopened; houses: Kenola, Vernius',
+      'landsraad: 2 houses completed for Harkonnen; houses: Kenola, Vernius',
       'landsraad: 4 houses changed from the board; houses: A, B, C, D',
       'landsraad Vernius: reopened',
       'landsraad Kenola: your contribution 1300 -> 6000',
@@ -49,13 +51,15 @@ test('queued Landsraad edits are listed with their houses and factions', async (
     'Kenola (Landsraad): Completed for Harkonnen; replaces the win of Atreides on Kenola',
     'Complete 3 Landsraad houses for Atreides: Maros, Kenola, Vernius; replaces 2 wins (Harkonnen: Maros, Kenola); 2 other completion times moved',
     'Reopen 1 Landsraad house: Kenola',
+    'Reopen 2 Landsraad houses: Kenola, Vernius',
+    'Complete 2 Landsraad houses for Harkonnen: Kenola, Vernius',
     'Change 4 Landsraad houses from the board: A, B, C, D',
     'Vernius (Landsraad): Reopened',
     'Kenola (Landsraad): Your contribution 1300 -> 6000',
     'Landsraad: 2 other completion times moved',
     'Landsraad term 7: end_time = 250',
   ]) assert.ok(b.text.includes(want), want + ' in: ' + b.text);
-  assert.ok(!b.text.includes('houses: '), 'the internal marker is not shown');
+  assert.ok(!/; houses: /.test(b.text), 'the internal marker is not shown');
   b.close();
 });
 
@@ -78,4 +82,11 @@ test('the held and the restored banners show the conflicts in words too', async 
   const r = await banner({ restored: { applied: 0, conflicts: [{ desc: d, why: 'the save no longer accepts it' }], rebased: true, written: false } });
   assert.ok(r.text.includes('Could not put back: Complete 2 Landsraad houses for Atreides: Maros, Kenola (the save no longer accepts it)'), r.text);
   r.close();
+});
+
+// the list of houses is the last "houses: " part, so a name that holds the marker in a fact does not cut the line short (#775)
+test('a name that holds the houses marker does not cut the list of houses short', async () => {
+  const b = await banner({ dirty: true, pending: ['landsraad: 2 houses completed for Atreides; replaces the win of Odd; houses: x on A; houses: B, C'] });
+  assert.ok(b.text.includes('Complete 2 Landsraad houses for Atreides: B, C; replaces the win of Odd; houses: x on A'), b.text);
+  b.close();
 });

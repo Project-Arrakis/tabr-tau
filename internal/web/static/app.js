@@ -546,7 +546,8 @@ function queueLine(desc) {
   // Landsraad edits name their houses and factions (#611): several houses, then one house
   // "landsraad: 3 houses completed for Atreides; replaces ...; houses: A, B, C": what was done and the short facts first, the list of houses last
   if ((m = d.match(/^landsraad: (\d+) houses? (completed|reopened|changed from the board)(?: for ([^;]+))?((?:; .*)?)$/))) {
-    const hm = m[4].match(/(?:^|; )houses: (.+)$/), facts = hm ? m[4].slice(0, hm.index) : m[4], n = +m[1];
+    // the list of houses is the last "houses: " part: a name that holds the marker itself does not cut the line short (#775)
+    const at = m[4].lastIndexOf('; houses: '), hm = at >= 0 ? { index: at, 1: m[4].slice(at + 10) } : null, facts = hm ? m[4].slice(0, hm.index) : m[4], n = +m[1];
     const verb = m[2] === 'completed' ? 'Complete' : m[2] === 'reopened' ? 'Reopen' : 'Change';
     return `${verb} ${n} Landsraad ${n === 1 ? 'house' : 'houses'}${m[2] === 'changed from the board' ? ' from the board' : ''}${m[3] ? ' for ' + m[3] : ''}${hm ? ': ' + hm[1] : ''}${facts}`;
   }
@@ -1954,8 +1955,8 @@ function lbChangeText(h, l, it) {
 // "Other faction" only when the list of the Landsraad's factions is loaded and the id is not in it; with no list (it failed to load, or is empty) nothing is known, so the number is shown
 const lbFacName = (l, id) => ((l.factions || []).find((f) => f.id == id) || {}).name || (id == null ? '' : (l.factions || []).length ? 'Other faction' : 'Faction ' + id);
 // ---- what a raise grants, said before the click (#652). The board read carries the size of a mission step, what a mission pays and the reason a raise would be refused (l.grant), and for
-// every house its specialization line and the contribution its own events already cover (my_events). The missions of a click are worked out here as the editor works them out when it writes
-// (landsraad_grant.go): the mission steps the raise crosses beyond the ground the character's own events already cover.
+// every house its specialization line and the ground already paid: what its own events cover (my_events), what it reached under another faction (my_elsewhere) and what the editor paid itself (my_paid). The missions of a click are worked out here as the editor works them out when it writes
+// (landsraad_grant.go): the mission steps the raise crosses beyond the ground already paid.
 const LB_ASK_MISSIONS = 10; // a click on one house that would grant this many missions or more (60,000 Solari at the stock step) asks first; fewer write at once
 const GRANT_UNCHECKED = 'The pay-out of a mission (Solari, House Scrip, specialization XP and rewards) has not been checked in the game yet.';
 function lbGrantOf(h, l, from, to) {
@@ -2225,7 +2226,7 @@ function lbHistory(l) {
   });
   return html`<section class="card d-panel hist" aria-labelledby="lsb-hist"><h2 class="d-head" id="lsb-hist">Earlier terms <span class="cnt">opens on demand ${lbMark('save', 'Read from the save: landsraad_decree_term and contributions of earlier terms')}</span></h2>
   <p class="line1 mb8">${tm.length < 2 ? 'This save holds only the current term.' : e.length ? 'Terms with a row of yours; open one for its houses.' : 'No earlier term has a row of yours.'}</p>
-  ${lbAbout('lsb.hist', 'earlier terms', html`<p>Terms with no row of yours are not listed. If a save holds only the current term this card says so instead. A term's rows say what the contribution was; they do not say which terms paid out (only the time of the last payout per house is kept).</p>`)}
+  ${lbAbout('lsb.hist', 'earlier terms', html`<p>Terms with no row of yours are not listed. If a save holds only the current term this card says so instead. A term's rows say what the contribution was; they do not say which terms paid out. The last payout is the time of the last reward row written for the House, kept as one time per House: a reward collected in a later term moves it out of the earlier term, so "not in this term" does not always mean nothing was paid then.</p>`)}
   ${rows}</section>`;
 }
 const LB_SHOWS = [['all', 'All'], ['left', 'What is left'], ['new', '○ Not started'], ['part', '◐ In progress'], ['done', '✓ Top tier']];
@@ -2523,6 +2524,8 @@ async function lbRun(b, call, say, focusFk) {
       } catch (e) { conflict = e.code === 'conflict'; if (!inToast) { say(e.message, true); sayAloud(e.message); } throw e; } // on the board act() shows the error as a toast that stays until it is dismissed
     }, null, true, false, tOpts);
   } finally { LP.busy = false; }
+  // a panel drawn while the write ran (the re-read after it, or a House looked at meanwhile) has its selects built off; the write is over, so they are on again
+  document.querySelectorAll('#lsb #lcc-bd-fac, #lsb #lcc-bd-tierset').forEach((x) => { x.disabled = x.id === 'lcc-bd-tierset' && x.options.length < 2; }); // the redraw of a write that reads the board again runs while busy, so the selects of the new panel are built off (#1015): on again now, Set tier only when the House has tiers
   if (ok) { const r = $('#lsb'); if (r && r.classList.contains('running')) lbRunning(false, b); } // the board was not drawn again (the re-read failed): it is usable again
   else {
     lbRunning(false, b);
@@ -2565,7 +2568,8 @@ async function lbSend(b, items, label, hs, focusFk) {
     const r = await api('/api/landsraad/apply', { term_id: l.term.term_id, houses: items });
     // a win taken from another faction, and the other completion times the clock repair moved (D1-3, D1-4, #611): said in the result line, also when nothing else changed
     const repairNote = r.repaired > 0 ? nn(r.repaired, 'other completion time', 'other completion times') + " put back inside the term's window" : '';
-    if (!r.changed) return label + ': nothing to change, ' + (items.length > 1 ? 'the houses were' : 'the house was') + ' already in that state' + (repairNote ? '; ' + repairNote : '') + '.';
+    // a write that only moved other completion times did change something: it does not say there was nothing to change (#775)
+    if (!r.changed) return label + ': ' + (repairNote ? (items.length > 1 ? 'the houses were' : 'the house was') + ' already in that state; ' + repairNote : 'nothing to change, ' + (items.length > 1 ? 'the houses were' : 'the house was') + ' already in that state') + '.';
     const takenNote = (r.replaced || []).length ? 'replaces the win of ' + r.replaced.map((x) => x.previous_winner + ' on ' + x.house).join(', ') : '';
     const extra = [takenNote, repairNote].filter(Boolean).map((x) => '; ' + x).join('');
     const queued = String(NOT_SAVED) !== ''; // the game is running: the change is queued, so nothing here may say it is in the save
@@ -2577,11 +2581,11 @@ async function lbSend(b, items, label, hs, focusFk) {
     const warn = left ? 'Warning: ' + nn(left, 'reward', 'rewards') + (left === 1 ? ' was' : ' were') + ' left out: earlier progress on this house already counted for ' + (left === 1 ? 'it' : 'them') + '. Nothing to do' : '';
     const tail = (r.contribution_lowered ? ' ' + LB_REMOVE_NOTE : '') + (r.missions ? ' ' + GRANT_UNCHECKED : '');
     let text;
-    if (items.length === 1 && hs.get(items[0].task_id)) text = label + ': ' + lbChangeText(hs.get(items[0].task_id), l, items[0]) + (r.completed && items[0].complete_for == null ? '; house taken, its faction reached the goal' : '') + (rows ? '; ' + rows : '') + (back ? '; ' + back : '') + (grant ? '; ' + grant : '') + (warn ? '; ' + warn : '') + extra + '.' + tail;
+    if (items.length === 1 && hs.get(items[0].task_id)) text = label + ': ' + lbChangeText(hs.get(items[0].task_id), l, items[0]) + (r.completed && items[0].complete_for == null ? '; house taken, its faction reached the goal' : '') + (rows ? '; ' + rows : '') + (back ? '; ' + back : '') + (grant ? '; ' + grant : '') + extra + (warn ? '; ' + warn : '') + '.' + tail; // the notes (a win taken away, times moved) come before the warning, so they are not inside its sentence (#775)
     else {
       const parts = [r.contribution_raised ? 'your contribution raised on ' + nn(r.contribution_raised, 'house', 'houses') : '', r.contribution_lowered ? lowered(r.contribution_lowered) : '',
-        rows, back, grant, r.completed ? nn(r.completed, 'house', 'houses') + ' completed' : '', r.reopened ? nn(r.reopened, 'house', 'houses') + ' reopened' : '', warn].filter(Boolean);
-      text = label + ': ' + parts.join(', ') + extra + '.' + tail;
+        rows, back, grant, r.completed ? nn(r.completed, 'house', 'houses') + ' completed' : '', r.reopened ? nn(r.reopened, 'house', 'houses') + ' reopened' : ''].filter(Boolean);
+      text = label + ': ' + parts.join(', ') + extra + (warn ? '; ' + warn : '') + '.' + tail;
     }
     // the board's toast says it in lines (#943): what changed, what was not written and why, the warnings, the notes; the Classic list keeps its sentence
     const dot = (x) => (/[.!?]$/.test(x) ? x : x + '.');
