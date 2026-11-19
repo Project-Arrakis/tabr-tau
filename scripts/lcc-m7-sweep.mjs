@@ -9,6 +9,7 @@
 // failure: a page error, a missing House or seat, a page wider than the window, text under 11 px, or a request to an address that is not this one.
 //   LCC_SWEEP_ONLY   a substring: only the cases whose name contains it
 //   LCC_SWEEP_SHOTS  1 to write a picture for every case (default: a few named ones)
+//   LCC_SWEEP_SCROLL a CSS selector: scroll it to the top of the window before a picture is taken (for example .lcc-bd-tiles, the House cards)
 import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -21,6 +22,7 @@ const out = path.resolve(process.argv[2] || process.env.LCC_SHOTS_OUT || path.jo
 fs.mkdirSync(out, { recursive: true });
 const only = process.env.LCC_SWEEP_ONLY || '';
 const allShots = process.env.LCC_SWEEP_SHOTS === '1';
+const scrollTo = process.env.LCC_SWEEP_SCROLL || '';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const staticDir = path.join(repo, 'internal', 'web', 'static');
 const designDir = path.join(repo, 'design', 'assets');
@@ -106,12 +108,32 @@ const MEASURE = `(() => {
       else if (px < 12 && nameLike(el)) between[label(el)] = px;
     }
   }
+  // the hit area of a control is its box plus any absolutely placed ::before / ::after that extends it (an invisible extension of a small box, #906)
+  const hit = (el, r) => {
+    let l = r.left, t = r.top, rt = r.right, b = r.bottom;
+    for (const p of ['::before', '::after']) {
+      const cs = getComputedStyle(el, p);
+      if (cs.content === 'none' || cs.position !== 'absolute' || cs.pointerEvents === 'none') continue;
+      const w = parseFloat(cs.width), h = parseFloat(cs.height), pl = parseFloat(cs.left), pt = parseFloat(cs.top);
+      if (!(w > 0 && h > 0) || isNaN(pl) || isNaN(pt)) continue;
+      const bl = r.left + el.clientLeft, bt = r.top + el.clientTop;
+      l = Math.min(l, bl + pl); t = Math.min(t, bt + pt); rt = Math.max(rt, bl + pl + w); b = Math.max(b, bt + pt + h);
+    }
+    return { l, t, r: rt, b };
+  };
   const targets = [];
   for (const root of roots) for (const el of root.querySelectorAll('button, a[href], input:not([type=hidden]), select, textarea, [role=button], summary')) {
     if (!vis(el) || el.closest('.sr, [hidden]')) continue;
     const r = el.getBoundingClientRect();
     if (el.type === 'checkbox' && el.closest('label')) { const lr = el.closest('label').getBoundingClientRect(); if (lr.height >= r.height) { targets.push({ at: label(el), w: Math.round(lr.width), h: Math.round(lr.height) }); continue; } }
-    targets.push({ at: label(el), w: Math.round(r.width), h: Math.round(r.height) });
+    const hr = hit(el, r);
+    targets.push({ at: label(el), w: Math.round(hr.r - hr.l), h: Math.round(hr.b - hr.t), vw: Math.round(r.width), vh: Math.round(r.height), tier: el.classList.contains('lcc-hc-t') });
+  }
+  // two tier boxes of one House whose hit areas overlap sideways (a tap would be ambiguous), and the gap between hit areas
+  let tierOverlap = 0, tierGapMin = 999;
+  for (const grp of document.querySelectorAll('#lsb-lcc .lcc-hc-tiers')) {
+    const bs = [...grp.querySelectorAll('.lcc-hc-t')].map((b) => hit(b, b.getBoundingClientRect())).filter((x) => x.r > x.l);
+    for (let i = 1; i < bs.length; i++) { const d = bs[i].l - bs[i - 1].r; if (d < -0.5) tierOverlap++; tierGapMin = Math.min(tierGapMin, d); }
   }
   const clipped = [];
   for (const root of roots) for (const el of root.querySelectorAll('*')) {
@@ -137,7 +159,7 @@ const MEASURE = `(() => {
   const count = (sel) => document.querySelectorAll(sel).length;
   return {
     innerWidth, scrollWidth: document.documentElement.scrollWidth, roots: roots.map((r) => r.id), textNodes: nodes.n,
-    small, tiny: tiny.slice(0, 8), between, targets, clipped: clipped.slice(0, 12), over: over.slice(0, 8), cutEntries, standardsShown,
+    small, tiny: tiny.slice(0, 8), between, targets, tierOverlap, tierGapMin, clipped: clipped.slice(0, 12), over: over.slice(0, 8), cutEntries, standardsShown,
     seatsInTrack, houses: count('#lsb-lcc [data-fk^="ht:"]'), seats: count('#lsb-lcc .lcc-seat'), centerSeats: count('#lsb-lcc .lcc-seat-center'), lanes: count('#lcs-root [data-lcs-lane]'),
     injected: !!window.__pwned || document.querySelectorAll('img[src=x]').length,
     broken: [...document.images].filter((i) => i.complete && i.naturalWidth === 0 && vis(i)).map((i) => i.getAttribute('src')),
@@ -151,7 +173,7 @@ const STATES = {
   'term-section': { local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' }, root: '#lcc-term' },
   'spec-cc': { local: { tab: 'player', 'spec.view': 'cc' }, root: '#lcs-root', pre: '[data-sub="player:specialization"]', after: `document.querySelector('[data-sub="player:specialization"]').click()` },
 };
-const WIDTHS = [320, 390, 768, 1024, 1280, 1600];
+const WIDTHS = [320, 390, 640, 768, 1024, 1280, 1600];
 const plan = [];
 for (const s of Object.keys(STATES)) for (const theme of ['dark', 'light']) for (const w of WIDTHS) plan.push({ name: `${s}_${theme}_${w}`, state: s, theme, w });
 for (const s of Object.keys(STATES)) for (const [w, z] of [[640, 'zoom200-of-1280'], [320, 'zoom400-of-1280']]) plan.push({ name: `${s}_dark_${z}`, state: s, theme: 'dark', w, dsf: 2 });
@@ -194,13 +216,15 @@ async function main() {
     const posted = posts.splice(0).length;
     const row = { name: c.name, ready, posted, coarse };
     if (m) {
-      const floor = touch ? 44 : 36;
-      const floorPx = touch ? 44 : 36;
+      const floor = c.w <= 640 ? 44 : 36; // the agreed floors: 44 px at phone widths (640 and below), 36 px for touch above that and for a mouse (#906)
+      const floorPx = floor;
       const smallBySel = {};
       for (const t of m.targets) if (t.h < floorPx || t.w < 24) { const k = (smallBySel[t.at] ||= { n: 0, minW: 999, minH: 999 }); k.n++; k.minW = Math.min(k.minW, t.w); k.minH = Math.min(k.minH, t.h); }
-      Object.assign(row, { innerWidth: m.innerWidth, pageWiderBy: Math.max(0, m.scrollWidth - m.innerWidth), textNodes: m.textNodes, under11: m.small, tiny: m.tiny, nameBand11to12: m.between, controls: m.targets.length, under36: m.targets.filter((t) => t.h < 36).length, under44: m.targets.filter((t) => t.h < 44).length, floor, smallBySel, seatsInTrack: m.seatsInTrack, clipped: m.clipped, cutEntries: m.cutEntries, standardsShown: m.standardsShown, over: m.over, houses: m.houses, seats: m.seats, centerSeats: m.centerSeats, lanes: m.lanes, injected: m.injected, broken: m.broken });
+      Object.assign(row, { innerWidth: m.innerWidth, pageWiderBy: Math.max(0, m.scrollWidth - m.innerWidth), textNodes: m.textNodes, under11: m.small, tiny: m.tiny, nameBand11to12: m.between, controls: m.targets.length, under36: m.targets.filter((t) => t.h < 36).length, under44: m.targets.filter((t) => t.h < 44).length, floor, smallBySel, tierOverlap: m.tierOverlap, tierGapMin: m.tierGapMin, tierHit: (() => { const t = m.targets.filter((x) => x.tier); return t.length ? { n: t.length, hitW: Math.min(...t.map((x) => x.w)), hitH: Math.min(...t.map((x) => x.h)), visW: Math.min(...t.map((x) => x.vw)), visH: Math.min(...t.map((x) => x.vh)) } : null; })(), seatsInTrack: m.seatsInTrack, clipped: m.clipped, cutEntries: m.cutEntries, standardsShown: m.standardsShown, over: m.over, houses: m.houses, seats: m.seats, centerSeats: m.centerSeats, lanes: m.lanes, injected: m.injected, broken: m.broken });
       if (m.scrollWidth > m.innerWidth + 1) report.hard.push(c.name + ': the page is wider than the window by ' + (m.scrollWidth - m.innerWidth) + ' px');
       if (Object.keys(m.small).length) report.hard.push(c.name + ': text under 11 px in ' + Object.keys(m.small).join(', '));
+      if (touch && Object.keys(smallBySel).length) report.hard.push(c.name + ': controls under the touch floor (' + floor + ' px high, 24 px wide): ' + Object.entries(smallBySel).map(([k, v]) => k + ' x' + v.n + ' ' + v.minW + 'x' + v.minH).join(', '));
+      if (m.tierOverlap) report.hard.push(c.name + ': ' + m.tierOverlap + ' tier boxes whose hit areas overlap their neighbour');
       if (m.cutEntries.length) report.hard.push(c.name + ': a contributor line of a banner is cut: ' + m.cutEntries.join(' | '));
       if (m.standardsShown.some((n) => n < 1)) report.hard.push(c.name + ': a banner shows no contributor line though it has some');
       if (m.injected) report.hard.push(c.name + ': text from the save became markup or ran');
@@ -210,12 +234,49 @@ async function main() {
       if (c.state === 'spec-cc' && m.lanes !== 5) report.hard.push(c.name + ': ' + m.lanes + ' lanes, not 5');
     } else report.hard.push(c.name + ': the page did not draw');
     if (allShots || SHOT_NAMES.test(c.name)) {
+      if (scrollTo) { await evalIn(`(() => { const n = document.querySelector(${JSON.stringify(scrollTo)}); if (n) n.scrollIntoView({ block: 'start' }); return !!n; })()`).catch(() => null); await sleep(300); }
       const shot = await b.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
       fs.writeFileSync(path.join(out, c.name + '.png'), Buffer.from(shot.data, 'base64'));
       row.picture = c.name + '.png';
     }
     report.cases.push(row);
     process.stdout.write('.');
+  }
+  // The tap of a tier box on a House card (#880): on a touch screen it chooses the House and writes nothing (no request, the panel of the House opens); with a mouse the click still writes (a request, or the question
+  // that comes before it). The touch is a real touch event of the browser engine, the click a real mouse press.
+  if (!only || 'tap-tier'.includes(only) || only.includes('tap')) {
+    for (const mode of ['touch', 'mouse']) {
+      current = 'tap-tier_' + mode;
+      const w = mode === 'touch' ? 390 : 1280;
+      await b.send('Emulation.setDeviceMetricsOverride', { width: w, height: 900, deviceScaleFactor: 1, mobile: false });
+      await b.send('Emulation.setTouchEmulationEnabled', { enabled: mode === 'touch', maxTouchPoints: mode === 'touch' ? 5 : 1 });
+      await b.send('Emulation.setEmulatedMedia', { media: '', features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+      await b.send('Page.navigate', { url: base + '/design/tokens.css' });
+      await sleep(150);
+      await evalIn(`localStorage.clear(); const s = ${JSON.stringify({ ...STATES['board-grid'].local, tauTheme: 'dark' })}; for (const k in s) localStorage.setItem(k, s[k]); true`);
+      await b.send('Page.navigate', { url: base + '/?c=tap-' + mode });
+      let ok = false;
+      for (let i = 0; i < 100 && !ok; i++) { await sleep(150); ok = await evalIn('!!document.querySelector("#lsb-lcc .lcc-hc-t[data-lb=tier]:not([aria-disabled=true])") && !document.querySelector("#loading")').catch(() => false); }
+      if (!ok) { report.hard.push(current + ': the board did not draw'); continue; }
+      posts.splice(0);
+      const pt = await evalIn(`(() => { const n = document.querySelector("#lsb-lcc .lcc-hc-t[data-lb=tier]:not([aria-disabled=true])"); n.scrollIntoView({ block: 'center' }); const r = n.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, coarse: matchMedia('(pointer: coarse)').matches, id: n.getAttribute('data-id') }; })()`);
+      await sleep(200);
+      if (mode === 'touch') {
+        await b.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: pt.x, y: pt.y }] });
+        await b.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      } else {
+        await b.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pt.x, y: pt.y, button: 'left', clickCount: 1 });
+        await b.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pt.x, y: pt.y, button: 'left', clickCount: 1 });
+      }
+      await sleep(900);
+      const after = await evalIn(`({ insp: (document.querySelector('.lcc-bd-insp') || {}).dataset ? document.querySelector('.lcc-bd-insp').dataset.id : null, asked: !!document.querySelector('[data-fk="c-yes"]'), queued: (document.querySelector('#lsb-result') || {}).textContent || '' })`);
+      const wrote = posts.length;
+      const row = { name: current, coarse: pt.coarse, house: pt.id, panelOf: after.insp, postsSent: wrote, asked: after.asked };
+      report.cases.push(row);
+      if (mode === 'touch' && (!pt.coarse || wrote || after.asked || after.insp !== pt.id)) report.hard.push(current + ': a tap of a tier box must choose the House and write nothing: ' + JSON.stringify(row));
+      if (mode === 'mouse' && (pt.coarse || (!wrote && !after.asked))) report.hard.push(current + ': a mouse click on a tier box must still write (or ask first): ' + JSON.stringify(row));
+      process.stdout.write('t');
+    }
   }
   await b.close(); srv.close();
   if (report.pageErrors.length) report.hard.push(report.pageErrors.length + ' page errors');

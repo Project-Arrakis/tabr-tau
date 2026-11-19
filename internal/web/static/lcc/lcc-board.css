@@ -539,3 +539,26 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
   .lcc-rtip-name, .lcc-rtip-sub, .lcc-rtip-note { color: CanvasText; }
   .lcc-rtip-img { border-color: CanvasText; background: Canvas; }
 }
+
+/* ==== Touch target floors (#906): 44 px at phone widths (640 px and below), 36 px for touch above that ====
+   Size of the hit area only: a picture keeps its size wherever the box is small, and the hit area is made larger by padding, a minimum height or an invisible extension (a pseudo-element of the box).
+   Two targets are never made to overlap: the five tier boxes of a card stand 26 px apart (24 px box, 2 px gap), so their hit areas are 26 px wide at most and abut; their height is the floor. A card is about
+   165 px wide on a phone, so five boxes 44 px wide cannot fit side by side: the width of a tier box stays below the floor and the height reaches it (the check in scripts/lcc-m7-sweep.mjs says so). */
+@media (pointer: coarse), (max-width: 900px) {
+  /* 36 px: the box is 24 px tall, its padding box 22, so 7 px above and below reach 36 */
+  .lcc-hc-t::after { top: -7px; bottom: -7px; left: -2px; right: -2px; }
+  @media (forced-colors: active) { .lcc-hc-t.waiting::after { top: -8px; bottom: -8px; left: -3px; right: -3px; } } /* its 2 px double border leaves a padding box 20 px high and wide */
+  .lcc-bd-pickl { display: grid; place-items: start center; padding-top: 9px; box-sizing: border-box; width: 36px; height: 36px; left: calc(50% - 18px); top: 0; }
+  .lcc-bd-c-pick .lcc-bd-pickl { place-items: center; padding-top: 0; }
+  .lcc-bd-layout button, .lcc-bd-btn, .lcc-bd-act, .lcc-bd-back, .lcc-bd-eselect, .lcc-bd-select { min-height: 36px; }
+  .lcc-bd-namebtn { min-width: 36px; } /* a short House name (Sor, Ecaz) is a text button 20 px wide: its hit area is made as wide as it is tall */
+}
+@media (max-width: 640px) {
+  /* 44 px: 11 px above and below the 22 px padding box of a tier box; the choice box is 44 by 44 with the box itself drawn where it was */
+  .lcc-hc-t::after { top: -11px; bottom: -11px; }
+  @media (forced-colors: active) { .lcc-hc-t.waiting::after { top: -12px; bottom: -12px; } }
+  .lcc-bd-pickl { width: 44px; height: 44px; left: calc(50% - 22px); }
+  .lcc-bd-c-pick .lcc-bd-pickl { width: 44px; height: 44px; }
+  .lcc-bd-layout button, .lcc-bd-btn, .lcc-bd-act, .lcc-bd-back, .lcc-bd-eselect, .lcc-bd-select, .lcc-bd-chip, .lcc-bd-lbl, .lcc-bd-sortb, .lcc-bd-linkb { min-height: 44px; }
+  .lcc-bd-namebtn { min-width: 44px; }
+}
