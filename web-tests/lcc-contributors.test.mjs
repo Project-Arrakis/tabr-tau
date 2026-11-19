@@ -97,7 +97,10 @@ test('layout: no line is cut with an ellipsis; the amount never breaks; the wide
   for (const m of css.matchAll(/([^{}]*lcc-standard-(?:name|amt|list)[^{}]*)\{([^}]*)\}/g)) assert.doesNotMatch(m[2], /text-overflow\s*:\s*ellipsis/, m[1].trim());
   assert.match(css, /\.lcc-standard-amt \{[^}]*white-space: nowrap/);
   assert.match(css, /\.lcc-standard-name \{[^}]*overflow-wrap: anywhere/);
-  assert.match(css, /\.lcc-standard-list > li \{[^}]*display: block; padding-left: 1\.5em; text-indent: -1\.5em/, 'the number hangs and the name and the amount run on as text: the amount follows the last word of a wrapped name');
+  assert.match(css, /\.lcc-standard-list > li \{[^}]*display: block;/, 'the name and the amount run on as text: the amount follows the last word of a wrapped name');
+  assert.doesNotMatch(css, /counter-(?:reset|increment)\s*:\s*lcc-n|counter\(lcc-n\)/, 'no rank number before a name (#992): the order is the ranking, and a tie of equal amounts is not 1, 2, 3');
+  assert.doesNotMatch(/\.lcc-standard-list > li \{([^}]*)\}/.exec(css)[1], /padding-left|text-indent/, 'no hanging indent is left over for a number');
+  assert.doesNotMatch(css, /\.lcc-standard-list > li::(?:before|after)/, 'nothing is drawn before or after a line');
   const wide = /\.lcc-pl-std-a \.lcc-standard-list, \.lcc-pl-std-h \.lcc-standard-list \{([^}]*)\}/.exec(css);
   assert.ok(wide, 'the wide list rule exists for both standards');
   assert.match(wide[1], /flex-flow: column wrap/);

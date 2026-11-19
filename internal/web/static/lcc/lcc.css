@@ -102,9 +102,9 @@
 .lcc-standard-mark { display: block; margin: 0 auto 6px; line-height: 0; text-align: center; }  /* the faction crest picture (white); a forced-colours view draws two plain shapes instead (see the forced-colours block) */
 .lcc-standard-img { width: 44px; height: 44px; }
 .lcc-standard-h { margin: 0 0 8px; font: 700 11px/1.2 var(--t-display, sans-serif); letter-spacing: .12em; color: #ffd98a; }
-.lcc-standard-list { list-style: none; counter-reset: lcc-n; margin: 0 auto; padding: 0; width: fit-content; max-width: 100%; font: 500 13px/1.5 var(--t-body, sans-serif); text-align: left; }
-.lcc-standard-list > li { display: block; padding-left: 1.5em; text-indent: -1.5em; counter-increment: lcc-n; }  /* the number hangs; the name and the amount run on as text, so the amount follows the last word of the name and a long name wraps instead of being cut (#972) */
-.lcc-standard-list > li::before { content: counter(lcc-n) '.'; display: inline-block; width: 1.5em; text-indent: 0; color: #ffd98a; font-variant-numeric: tabular-nums; }
+.lcc-standard-list { list-style: none; margin: 0 auto; padding: 0; width: fit-content; max-width: 100%; font: 500 13px/1.5 var(--t-body, sans-serif); text-align: left; }
+.lcc-standard-list > li { display: block; }
+.lcc-standard-list > li + li { margin-top: .25em; }  /* with no number, a short gap is what tells where one entry ends and the next begins when a long name wraps */  /* no rank number (#992): a line is the name and then the amount, run on as text, so the amount follows the last word of the name and a long name wraps instead of being cut (#972); the order is still the biggest first */
 .lcc-standard-name { overflow-wrap: anywhere; }  /* a long name wraps here (it is text from a save), in both layouts: no name is cut off, the full name is also its mouse-over text */
 .lcc-standard-amt { margin-left: .3em; white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 700; color: #ffd98a; }  /* the amount is never split and never cut */
 .lcc-standard-none { margin: 0; font: italic 500 13px/1.4 var(--t-body, sans-serif); color: var(--lcc-cream); }
@@ -153,8 +153,8 @@
   .lcc-pl-std-a .lcc-standard-none::before, .lcc-pl-std-h .lcc-standard-none::before { content: ''; display: block; width: 3.2em; height: 1px; margin: 0 auto .8em; background: linear-gradient(90deg, rgba(255, 217, 138, 0), #ffd98a, rgba(255, 217, 138, 0)); }
   /* wide: the list takes what is left of the cloth under the heading and is a column that wraps, so an entry that does not fit in the height goes to a second column that is out of sight: whole entries show
      or none, and no entry is ever cut through (#972); the full ranking is in the heading's mouse-over text */
-  .lcc-pl-std-a .lcc-standard-list, .lcc-pl-std-h .lcc-standard-list { font-size: clamp(11px, .95cqw, 22px); line-height: 1.1; flex: 1 1 0; min-height: 0; width: 100%; max-width: none; display: flex; flex-flow: column wrap; align-content: flex-start; overflow: hidden; }
-  .lcc-pl-std-a .lcc-standard-list > li, .lcc-pl-std-h .lcc-standard-list > li { flex: none; width: 100%; box-sizing: border-box; break-inside: avoid; }
+  .lcc-pl-std-a .lcc-standard-list, .lcc-pl-std-h .lcc-standard-list { font-size: clamp(11px, .95cqw, 22px); line-height: 1.1; flex: 1 1 0; min-height: 0; width: 100%; max-width: none; display: flex; flex-flow: column wrap; align-content: flex-start; row-gap: .25em; overflow: hidden; }
+  .lcc-pl-std-a .lcc-standard-list > li, .lcc-pl-std-h .lcc-standard-list > li { margin-top: 0; flex: none; width: 100%; box-sizing: border-box; break-inside: avoid; }
   .lcc-pl-faction { top: 79.8%; height: 13.8%; width: 15.47%; display: grid; grid-template-rows: 48% 22% 30%; justify-items: center; align-items: center; }
   .lcc-pl-faction-a { left: 1.47%; } .lcc-pl-faction-h { left: 83.06%; }
   .lcc-pl-nameplate { grid-row: 1; background: none; clip-path: none; min-height: 0; padding: 0; font-size: clamp(12px, 1.28cqw, 28px); font-weight: 700; letter-spacing: .03em; text-shadow: 0 1px 0 rgba(255, 240, 190, .55); }
@@ -323,7 +323,7 @@ html[data-motion="calm"] .lcc [data-victory], html[data-motion="off"] .lcc [data
   .lcc-standard-cloth, .lcc-pl-std-a, .lcc-pl-std-h { background: Canvas; color: CanvasText; border: 2px solid CanvasText; clip-path: none; }
   .lcc-standard { color: CanvasText; }
   .lcc-standard-foot { display: none; }
-  .lcc-standard-list > li::before, .lcc-standard-amt { color: CanvasText; }
+  .lcc-standard-amt { color: CanvasText; }
   .lcc-seat-rim { display: none; }  /* the flat ring that evens the picture's rim goes with the picture */
   .lcc-seat-art, .lcc-standard-img { display: none; }  /* pictures are dropped here: the factions differ by the drawn mark, the fill and the shape */
   .lcc-seat-has-art .lcc-seat-mark { display: inline; }
