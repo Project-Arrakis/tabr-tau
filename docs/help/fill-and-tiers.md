@@ -11,7 +11,7 @@
 - **Choose** boxes pick Houses for **Fill chosen**, **Complete chosen**, **Complete and fill chosen**, **Reopen chosen** and **Unfill chosen**. Several Houses are one edit: either every House changes or none.
 - **Complete and fill chosen** completes the chosen Houses for the chosen faction and fills your own contribution to the top tier, in one write with one backup and one result line. It pays the missions like Fill does, so the question names them. It is off, with the reason shown, while a faction other than your own is chosen: your contribution counts for your own faction, and **Complete chosen** is the button for another faction.
 - **Unfill chosen** sets your own contribution to 0 on each chosen House, so its tiers go back to 0 of 5. It never changes whether a House is taken: a House that is won stays won. It takes back the waiting rewards of the removed tiers by the rule below, and the question names how many it takes back and how many collected rewards stay. It always asks first. It is off, with the reason shown, while another faction is chosen. **Reopen** and **Unfill** are the way back from Complete and fill.
-- **Faction for Fill and Complete** starts on your own faction. Choosing a faction writes nothing. While another faction is chosen, Fill, Complete and fill, Unfill and the tier boxes do nothing, because your contribution counts for your own faction.
+- **Faction for Fill and Complete** starts on your own faction (the box says so: "(your faction)"). Choosing a faction writes nothing. While another faction is chosen, Fill, Complete and fill, Unfill and the tier boxes do nothing, because your contribution counts for your own faction.
 
 ## How each click is written
 
