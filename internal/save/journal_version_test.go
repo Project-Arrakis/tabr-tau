@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -78,5 +79,75 @@ func TestAnOldJournalIsSetAsideWhenItsWriteDidNotLandOrEditsFollowedIt(t *testin
 		if m, _ := filepath.Glob(jp + ".skipped*"); len(m) == 0 {
 			t.Fatalf("%s: the journal is kept aside, not deleted", name)
 		}
+	}
+}
+
+// A journal whose WritingOps is every op it holds: all of them were in that write, so it is dropped like one with no count.
+func TestAnOldJournalWhoseWriteHeldEveryOpIsDropped(t *testing.T) {
+	p := makeSave(t, journalDDL)
+	probe := openJournaled(t, p, t.TempDir())
+	onDisk := hex.EncodeToString(probe.diskHash[:])
+	dir := t.TempDir()
+	jp := oldJournal(t, p, dir, 1, onDisk, 2) // two ops, both written
+	s := openJournaled(t, p, dir)
+	if r, err := s.RestoreJournal(); err != nil || r != nil {
+		t.Fatalf("no notice: %+v %v", r, err)
+	}
+	if _, err := os.Stat(jp); err == nil {
+		t.Fatal("the journal is removed")
+	}
+}
+
+// A journal of another save is never judged by its hash: it is set aside whatever file is on disk.
+func TestAnOldJournalOfAnotherSaveIsSetAsideEvenWhenItsHashMatches(t *testing.T) {
+	p := makeSave(t, journalDDL)
+	probe := openJournaled(t, p, t.TempDir())
+	onDisk := hex.EncodeToString(probe.diskHash[:])
+	dir := t.TempDir()
+	jp := oldJournal(t, filepath.Join(dir, "another-save", "game.db"), dir, 1, onDisk, 0)
+	s := openJournaled(t, p, dir)
+	r, err := s.RestoreJournal()
+	if err != nil || r == nil || len(r.Conflicts) != 1 {
+		t.Fatalf("set aside with the notice: %+v %v", r, err)
+	}
+	if m, _ := filepath.Glob(jp + ".skipped*"); len(m) == 0 {
+		t.Fatal("kept aside, not deleted")
+	}
+}
+
+// When the journal of a landed write cannot be removed (the file is in use, Windows), the mark names the file the edits were written as, so the next start drops it without a notice instead of
+// reporting changes that are in the file.
+func TestAnOldJournalThatCannotBeRemovedIsDroppedQuietlyAtTheNextStart(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("a file in use cannot be removed on Windows only")
+	}
+	p := makeSave(t, journalDDL)
+	probe := openJournaled(t, p, t.TempDir())
+	onDisk := hex.EncodeToString(probe.diskHash[:])
+	dir := t.TempDir()
+	jp := oldJournal(t, p, dir, 1, onDisk, 0)
+	held, err := os.Open(jp) // an open handle without delete sharing: os.Remove fails
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := openJournaled(t, p, dir)
+	r, err := s.RestoreJournal()
+	if err != nil || r != nil {
+		t.Fatalf("no notice for a write that landed: %+v %v", r, err)
+	}
+	if _, err := os.Stat(s.markPath()); err != nil {
+		held.Close()
+		t.Fatalf("the failed removal is marked: %v", err)
+	}
+	held.Close()
+	s2 := openJournaled(t, p, dir)
+	if r, err := s2.RestoreJournal(); err != nil || r != nil {
+		t.Fatalf("the next start drops it quietly: %+v %v", r, err)
+	}
+	if _, err := os.Stat(jp); err == nil {
+		t.Fatal("the journal is gone")
+	}
+	if _, err := os.Stat(s2.markPath()); err == nil {
+		t.Fatal("and so is the mark")
 	}
 }

@@ -6,12 +6,13 @@ import (
 	"strings"
 )
 
-// otherVersionJournal settles a journal that another version of the editor kept (RestoreJournal, the caller holds s.mu). An older journal whose write already landed (its Writing is the
+// otherVersionJournal settles a journal that another version of the editor kept (RestoreJournal, the caller holds s.mu). An older journal whose write already landed (it is of this save, its Writing is the
 // file on disk now, and it holds no edit made after that write) has nothing left to put back: it is removed without a notice, so the person is not told that changes "could not be put
 // back" that are in the file. Any other journal is set aside and reported, as before; the reason lists what it held, as the reason of an incomplete journal does, so the person knows
 // what to make again. A journal of a newer version is never judged here: its edits are not known to this build.
 func (s *Save) otherVersionJournal(j journalFile) *Restored {
-	if j.Version < journalVersion && j.Writing != "" && j.Writing == hex.EncodeToString(s.diskHash[:]) && len(j.Ops) > 0 && (j.WritingOps == 0 || j.WritingOps >= len(j.Ops)) {
+	if j.Version < journalVersion && j.Writing != "" && j.Writing == hex.EncodeToString(s.diskHash[:]) && len(j.Ops) > 0 && (j.WritingOps == 0 || j.WritingOps >= len(j.Ops)) && samePath(j.Path, s.Path) {
+		s.writing = j.Writing // if the file cannot be removed now (in use), the mark says the edits were written as this file, so the next start drops it quietly too (dropJournal)
 		s.dropJournal()
 		return nil
 	}
