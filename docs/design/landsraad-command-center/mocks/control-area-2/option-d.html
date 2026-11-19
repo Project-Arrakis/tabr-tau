@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'">
+<meta name="robots" content="noindex">
+<title>Control area, option D: tool rail (fixture data)</title>
+<!-- Design mock for tau #974, round 2. Two ways to open it. In the repository: serve the repository folder with any static file server on a loopback address and open this file (?state=idle|chosen|confirm, ?theme=dark|light, ?bare=1).
+     As a flat page: put this file, mock.css and mock.js in one folder with a css/ folder next to them that holds tokens-fremen.css, components-fremen.css, components.css, lcc.css and lcc-board.css. Each stylesheet is linked twice (repository path, then css/);
+     the one that does not exist is simply not found. -->
+<link rel="stylesheet" href="../../../../../design/assets/tokens-fremen.css"><link rel="stylesheet" href="css/tokens-fremen.css">
+<link rel="stylesheet" href="../../../../../design/assets/components-fremen.css"><link rel="stylesheet" href="css/components-fremen.css">
+<link rel="stylesheet" href="../../../../../design/assets/components.css"><link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="../../../../../internal/web/static/lcc/lcc.css"><link rel="stylesheet" href="css/lcc.css">
+<link rel="stylesheet" href="../../../../../internal/web/static/lcc/lcc-board.css"><link rel="stylesheet" href="css/lcc-board.css">
+<link rel="stylesheet" href="mock.css">
+<script src="mock.js" defer></script>
+</head>
+<body>
+<svg class="k-sprite" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute"><defs>
+<symbol id="k-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></symbol>
+<symbol id="k-list" viewBox="0 0 24 24"><path d="M9.5 6h11M9.5 12h11M9.5 18h11"/><circle cx="4.6" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.6" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.6" cy="18" r="1.2" fill="currentColor" stroke="none"/></symbol>
+<symbol id="k-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="k-banner" viewBox="0 0 24 24"><path d="M6 21V3.5"/><path d="M6 5h12.5l-3.2 4.6 3.2 4.6H6"/></symbol>
+<symbol id="k-shield" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.5c0 4.7-3.2 8-7.5 9.5-4.3-1.5-7.5-4.8-7.5-9.5V6z"/></symbol>
+<symbol id="k-diamond" viewBox="0 0 24 24"><path d="M12 3l8.5 9-8.5 9-8.5-9z"/><path d="M12 8l4 4-4 4-4-4z"/></symbol>
+<symbol id="k-pin" viewBox="0 0 24 24"><path d="M12 21.5S5.5 15.8 5.5 10.2a6.5 6.5 0 0 1 13 0c0 5.6-6.5 11.3-6.5 11.3z"/><circle cx="12" cy="10.2" r="2.4"/></symbol>
+<symbol id="k-sliders" viewBox="0 0 24 24"><path d="M3.5 7h8M16.5 7h4M3.5 17h3M11.5 17h9"/><circle cx="14" cy="7" r="2.3"/><circle cx="9" cy="17" r="2.3"/></symbol>
+<symbol id="k-all" viewBox="0 0 24 24"><path d="M3 12.5l3.6 3.8 6-7"/><path d="M10.6 16.6l.7.7 9.4-10.6"/></symbol>
+<symbol id="k-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+<symbol id="k-fill" viewBox="0 0 24 24"><path d="M5 4h14l-1.4 14.2a2 2 0 0 1-2 1.8H8.4a2 2 0 0 1-2-1.8z"/><path d="M5.9 11.2c2-1.6 4 1.6 6.1 0s4.1 1.6 6.1 0"/></symbol>
+<symbol id="k-done" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.8"/><path d="M7.8 12.4l3 3 5.4-6.6"/></symbol>
+<symbol id="k-reopen" viewBox="0 0 24 24"><path d="M4.4 12a7.6 7.6 0 1 0 2.3-5.4"/><path d="M4.2 3.8v4.6h4.6"/></symbol>
+<symbol id="k-chev" viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></symbol>
+<symbol id="k-layers" viewBox="0 0 24 24"><path d="M12 3.5l8.5 4.5-8.5 4.5L3.5 8z"/><path d="M3.5 12.2l8.5 4.5 8.5-4.5"/><path d="M3.5 16.4l8.5 4.5 8.5-4.5"/></symbol>
+<symbol id="k-hourglass" viewBox="0 0 24 24"><path d="M6.5 3.5h11M6.5 20.5h11M8 3.5v3.8l4 4.7-4 4.7v3.8M16 3.5v3.8l-4 4.7 4 4.7v3.8"/></symbol>
+<symbol id="k-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></symbol>
+<symbol id="k-ring-half" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></symbol>
+<symbol id="k-crown" viewBox="0 0 24 24"><path d="M4 18.5h16M3.8 7.5l4.4 4.2L12 5l3.8 6.7 4.4-4.2-1.5 11H5.3z"/></symbol>
+<symbol id="k-shield-ok" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.5c0 4.7-3.2 8-7.5 9.5-4.3-1.5-7.5-4.8-7.5-9.5V6z"/><path d="M8.6 12l2.5 2.5 4.3-4.6"/></symbol>
+<symbol id="k-spec-all" viewBox="0 0 24 24"><path d="M12 3l8.5 9-8.5 9-8.5-9z"/><path d="M12 8l4 4-4 4-4-4z"/></symbol>
+</defs></svg>
+<p class="k-note" role="note"><strong>Design mock, option D.</strong> Fixture data. Nothing here reads a save or writes one; the cards under the controls are a stand-in.</p>
+<nav class="k-dev" aria-label="Mock controls"><span><b>State</b> <a href="?state=idle" data-q="state=idle">Idle</a><a href="?state=chosen" data-q="state=chosen">25 Houses chosen</a><a href="?state=confirm" data-q="state=confirm">Fill question</a></span><span><b>Look</b> <a href="?theme=dark" data-q="theme=dark">Dark</a><a href="?theme=light" data-q="theme=light">Light</a></span><span><b>Option</b> <a href="option-c.html">C</a><a href="option-d.html">D</a><a href="option-e.html">E</a></span></nav>
+<div class="lcc lcc-bd k-wrap k-page" data-option="d" data-state="idle">
+<section class="lcc-bd-surface lcc-bd-panel k-frame" aria-labelledby="lcc-bd-h">
+<div class="k-area">
+  <div class="k-head">
+    <div class="lcc-bd-panel-title">
+      <p class="lcc-bd-eyebrow">THE GREAT HOUSES</p>
+      <h3 class="lcc-bd-h" id="lcc-bd-h">The Landsraad</h3>
+      <p class="lcc-bd-subline">Term 7 · Fixed 5 × 5 board · game positions read from board_index</p>
+    </div>
+    <div class="k-view k-tray k-fr" role="radiogroup" aria-label="Board layout">
+      <button type="button" role="radio" class="k-tab k-fr k-tipped k-tip-below k-tip-end" aria-checked="true" tabindex="0" aria-label="Grid" data-k="tab"><svg class="k-ic" aria-hidden="true"><use href="#k-grid"/></svg><span class="k-lamp" aria-hidden="true"></span><span class="k-tip" aria-hidden="true">Grid</span></button>
+      <button type="button" role="radio" class="k-tab k-fr k-tipped k-tip-below k-tip-end" aria-checked="false" tabindex="-1" aria-label="List" data-k="tab"><svg class="k-ic" aria-hidden="true"><use href="#k-list"/></svg><span class="k-lamp" aria-hidden="true"></span><span class="k-tip" aria-hidden="true">List</span></button>
+    </div>
+  </div>
+  <div class="k-body">
+    <div class="k-rail">
+      <div class="k-rail-f k-tray k-fr" role="group" aria-label="View">
+        <div class="k-fbw" data-fly="show">
+        <button type="button" class="k-fb k-fr k-tipped k-tip-right" aria-expanded="false" aria-haspopup="true" aria-label="Show" data-k="fb"><svg class="k-ic" aria-hidden="true"><use href="#k-eye"/></svg><span class="k-fbc" aria-hidden="true">Show</span><i class="k-pip" aria-hidden="true"></i><span class="k-lamp" aria-hidden="true"></span><span class="k-tip" aria-hidden="true">Show: All</span></button>
+        <div class="k-fly k-fr" role="group" aria-label="Show" hidden><div class="k-fly-in" role="radiogroup" aria-label="Show"><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="true" tabindex="0" data-k="opt">All<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">What is left<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">Not started<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">In progress<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">Top tier<span class="k-lamp" aria-hidden="true"></span></button></div></div>
+      </div><div class="k-fbw" data-fly="house">
+        <button type="button" class="k-fb k-fr k-tipped k-tip-right" aria-expanded="false" aria-haspopup="true" aria-label="House" data-k="fb"><svg class="k-ic" aria-hidden="true"><use href="#k-banner"/></svg><span class="k-fbc" aria-hidden="true">House</span><i class="k-pip" aria-hidden="true"></i><span class="k-lamp" aria-hidden="true"></span><span class="k-tip" aria-hidden="true">House: Any</span></button>
+        <div class="k-fly k-fr" role="group" aria-label="House" hidden><div class="k-fly-in" role="radiogroup" aria-label="House"><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="true" tabindex="0" data-k="opt">Any<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">Not won<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">Favor won<span class="k-lamp" aria-hidden="true"></span></button></div></div>
+      </div><div class="k-fbw" data-fly="spec">
+        <button type="button" class="k-fb k-fr k-tipped k-tip-right" aria-expanded="false" aria-haspopup="true" aria-label="Specialization" data-k="fb"><svg class="k-ic" aria-hidden="true"><use href="#k-diamond"/></svg><span class="k-fbc" aria-hidden="true">Specialization</span><i class="k-pip" aria-hidden="true"></i><span class="k-lamp" aria-hidden="true"></span><span class="k-tip" aria-hidden="true">Specialization: All specializations</span></button>
+        <div class="k-fly k-fr" role="group" aria-label="Specialization" hidden><div class="k-fly-in" role="radiogroup" aria-label="Specialization"><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="true" tabindex="0" data-k="opt">All specializations<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">Crafting<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">Gathering<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">Exploration<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">Combat<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">Sabotage<span class="k-lamp" aria-hidden="true"></span></button></div></div>
+      </div><div class="k-fbw" data-fly="jump">
+        <button type="button" class="k-fb k-fr k-tipped k-tip-right" aria-expanded="false" aria-haspopup="true" aria-label="Jump to House" data-k="fb"><svg class="k-ic" aria-hidden="true"><use href="#k-pin"/></svg><span class="k-fbc" aria-hidden="true">Jump to House</span><i class="k-pip" aria-hidden="true"></i><span class="k-lamp" aria-hidden="true"></span><span class="k-tip" aria-hidden="true">Jump to House: Choose a House…</span></button>
+        <div class="k-fly k-fr" role="group" aria-label="Jump to House" hidden><div class="k-fly-in" role="radiogroup" aria-label="Jump to House"><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="true" tabindex="0" data-k="opt">Choose a House…<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">Alexin<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">Argosaz<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">Dyvetz<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">Ecaz<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">Hagal<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">Hurata<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">Imota<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">Kenola<span class="k-lamp" aria-hidden="true"></span></button></div></div>
+      </div><div class="k-fbw" data-fly="group" data-group="1" hidden>
+        <button type="button" class="k-fb k-fr k-tipped k-tip-right" aria-expanded="false" aria-haspopup="true" aria-label="Group" data-k="fb"><svg class="k-ic" aria-hidden="true"><use href="#k-layers"/></svg><span class="k-fbc" aria-hidden="true">Group</span><i class="k-pip" aria-hidden="true"></i><span class="k-lamp" aria-hidden="true"></span><span class="k-tip" aria-hidden="true">Group: No groups</span></button>
+        <div class="k-fly k-fr" role="group" aria-label="Group" hidden><div class="k-fly-in" role="radiogroup" aria-label="Group"><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="true" tabindex="0" data-k="opt">No groups<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">By region<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-opt" aria-checked="false" tabindex="-1" data-k="opt">By specialization<span class="k-lamp" aria-hidden="true"></span></button></div></div>
+      </div>
+      </div>
+      <div class="k-railcount"><span class="k-count k-tipped k-tip-below k-tip-end" role="status"><svg class="k-ic" aria-hidden="true"><use href="#k-eye"/></svg><span aria-hidden="true"><b data-k="shown">25</b> / <b>25</b></span><span class="k-sr">25 of 25 Houses shown</span><span class="k-tip" aria-hidden="true">25 of 25 Houses shown</span></span></div>
+      <section class="k-cmd k-fr k-cmd-rail" data-k="plate" role="group" aria-label="Actions on the chosen Houses"><i class="k-hair" aria-hidden="true"></i>
+      <div class="k-zone k-zone-sel"><div class="k-med k-fr k-tipped k-tip-below k-tip-start" role="status"><b data-k="n" aria-hidden="true">0</b><span class="k-sr" data-k="nsr">No Houses chosen</span><span class="k-tip" aria-hidden="true">Houses chosen</span></div><div class="k-pair"><button type="button" class="k-ghost k-ico k-tipped k-tip-right" data-k="choose" aria-label="Choose all"><svg class="k-ic" aria-hidden="true"><use href="#k-all"/></svg><span class="k-tip" aria-hidden="true">Choose all</span></button><button type="button" class="k-ghost k-ico k-tipped k-tip-right" data-k="clear" aria-disabled="true" aria-label="Clear the choice"><svg class="k-ic" aria-hidden="true"><use href="#k-x"/></svg><span class="k-tip" aria-hidden="true">Clear the choice</span></button></div></div>
+      <i class="k-orn" aria-hidden="true"></i>
+      <div class="k-zone k-zone-do"><div class="k-seats" role="radiogroup" aria-label="Faction for Fill and Complete" aria-describedby="k-fhint">
+        <button type="button" role="radio" class="k-seat k-fr k-tipped k-tip-below k-tip-start" data-f="a" data-name="Atreides" aria-checked="true" tabindex="0" aria-label="Atreides, your faction" data-k="seat"><span class="k-crest" aria-hidden="true"></span><span class="k-lamp" aria-hidden="true"></span><span class="k-tip" aria-hidden="true">Atreides (your faction)</span></button>
+        <button type="button" role="radio" class="k-seat k-fr k-tipped k-tip-below" data-f="h" data-name="Harkonnen" aria-checked="false" tabindex="-1" aria-label="Harkonnen" data-k="seat"><span class="k-crest" aria-hidden="true"></span><span class="k-lamp" aria-hidden="true"></span><span class="k-tip" aria-hidden="true">Harkonnen</span></button>
+      </div><span id="k-fhint" class="k-sr">Fill and Complete act for this faction. It starts on your own faction. Choosing it writes nothing.</span><button type="button" class="k-btn k-fr k-pri k-rb" data-k="act" data-do="fill" aria-disabled="true" aria-describedby="k-reason" aria-label="Fill chosen Houses" title="Choose at least one House first"><svg class="k-ic" aria-hidden="true"><use href="#k-fill"/></svg><span class="k-bl">Fill</span><span class="k-n" data-k="chg" hidden></span></button><button type="button" class="k-btn k-fr k-pri k-rb" data-k="act" data-do="complete" aria-disabled="true" aria-describedby="k-reason" aria-label="Complete chosen Houses" title="Choose at least one House first"><svg class="k-ic" aria-hidden="true"><use href="#k-done"/></svg><span class="k-bl">Complete</span><span class="k-n" data-k="chg" hidden></span></button></div>
+      <i class="k-orn" aria-hidden="true"></i>
+      <div class="k-zone k-zone-undo"><button type="button" class="k-btn k-fr k-rb" data-k="act" data-do="reopen" aria-disabled="true" aria-describedby="k-reason" aria-label="Reopen chosen Houses" title="Choose at least one House first"><svg class="k-ic" aria-hidden="true"><use href="#k-reopen"/></svg><span class="k-bl">Reopen</span><span class="k-n" data-k="chg" hidden></span></button></div>
+      <div class="k-pop k-fr" data-k="confirm" role="group" tabindex="-1" aria-label="Confirm" hidden>
+        <div class="k-q"><p class="k-qh" data-k="qh"></p><p class="k-qb" data-k="qb"></p><p class="k-qf" data-k="qf">Written at once, with a backup first.</p></div>
+        <div class="k-qbtn"><button type="button" class="k-btn k-fr k-pri" data-k="yes">Fill 21 Houses</button><button type="button" class="k-btn k-fr" data-k="cancel">Cancel</button></div>
+      </div>
+    </section>
+    </div>
+    <div class="k-board"><ul class="k-stub" aria-hidden="true"><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li></ul></div>
+  </div>
+</div>
+</section>
+</div>
+<p class="k-toast k-fr" data-k="toast" role="status" aria-live="polite" hidden></p>
+<span id="k-reason" class="k-sr">Choose at least one House first</span>
+</body>
+</html>
