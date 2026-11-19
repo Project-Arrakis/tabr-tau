@@ -182,7 +182,7 @@ test('#936: Not reached / Not collected / Collected on the cards, in the panel a
   const i = ui.doc.querySelector('.lcc-bd-insp');
   const states = [...i.querySelectorAll('.lcc-bd-tier-s')].map(text);
   assert.ok(states.some((s) => s.endsWith('NOT COLLECTED')) && states.some((s) => s.endsWith('NOT REACHED')), states.join('|'));
-  assert.deepEqual([...i.querySelectorAll('.lcc-bd-stat span')].map(text), ['Tiers earned', 'Collected', 'Not collected', 'Not reached']);
+  assert.deepEqual([...i.querySelectorAll('.lcc-bd-stat span')].map(text), ['Tiers earned', 'Collected'], 'two tiles: Not collected and Not reached are gone (#1046)');
   assert.equal(i.querySelector('.lcc-bd-legend'), null, 'the legend of the marks is in the Help tab (#980); each tier row names its own state');
   const all = text(ui.doc.querySelector('#lsb')) + ' ' + [...ui.doc.querySelectorAll('#lsb [aria-label], #lsb [title]')].map((e) => (e.getAttribute('aria-label') || '') + ' ' + (e.getAttribute('title') || '')).join(' ');
   assert.doesNotMatch(all, /to collect|Waiting at representative|Waiting to collect/i);
@@ -274,7 +274,7 @@ test('#939: a place the Saved map has no picture of, and a House not mapped, say
 });
 
 // ---- #942: the four counts ---------------------------------------------------------------------------------------------------------------------------------------------
-test('#942: the four counts are read-only figures: no button, no tab stop, no role of a tab, and they match the legend and the ledger', async () => {
+test('#942, #1046: the two counts are read-only figures: no button, no tab stop, no role of a tab, and they match the legend and the ledger', async () => {
   const a = synthetic();
   const ui = await open();
   look(ui, a, 'Wallach');
@@ -283,11 +283,13 @@ test('#942: the four counts are read-only figures: no button, no tab stop, no ro
   assert.equal(stats.getAttribute('role'), 'group');
   const nums = [...stats.querySelectorAll('.lcc-bd-stat')].map((s) => text(s.querySelector('strong')));
   const h = ui.w.LCCM.readBoard(a).byId.get(idOf(a, 'Wallach'));
-  assert.deepEqual(nums, [h.reached + '/' + h.tierCount, String(h.collected), String(h.waiting), String(h.notReached)]);
+  assert.deepEqual(nums, [h.reached + ' / ' + h.tierCount, h.collected + ' / ' + h.reached], 'Tiers earned x / 5 and Collected x / y with y the earned tiers (#1046)');
   const kinds = [...ui.doc.querySelectorAll('.lcc-bd-insp .lcc-bd-tier')].map((b) => b.className.split(' ')[1]);
   assert.equal(kinds.filter((k) => k === 'delivered').length, h.collected, 'Collected matches the rows');
-  assert.equal(kinds.filter((k) => k === 'waiting').length, h.waiting, 'Not collected matches the rows');
-  assert.equal(kinds.filter((k) => k === 'not_reached').length, h.notReached, 'Not reached matches the rows');
+  assert.equal(kinds.filter((k) => k === 'waiting').length, h.waiting, 'the waiting rows match the count in the tooltip');
+  assert.equal(kinds.filter((k) => k === 'not_reached').length, h.notReached, 'the not reached rows match the tiers that are not earned');
+  assert.match(stats.getAttribute('title'), new RegExp(h.collected + ' of ' + h.reached + ' earned tiers collected, ' + h.waiting + ' waiting at the house representative'), 'what is not collected stays in the tooltip');
+  assert.equal(stats.getAttribute('aria-label'), 'House rewards summary: ' + stats.getAttribute('title'));
   assert.equal(h.collected + h.waiting + h.unknownDelivery, h.reached, 'the counts add up to the tiers reached');
   const css = fs.readFileSync(new URL('../internal/web/static/lcc/lcc-board.css', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   const stat = css.match(/\.lcc-bd-stat \{[^}]*\}/)[0];

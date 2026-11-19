@@ -94,8 +94,8 @@ test('the list and the inspector say the same of a taken House with none of the 
   assert.equal(text(row('Wallach').querySelector('.lcc-bd-c-tiers')), '3 of 5 tiers earned');
   click(ui, row('Vernius').querySelector('.lcc-bd-namebtn'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
-  assert.equal(text(i.querySelector('.lcc-bd-ledger-n')), '0 OF 5 EARNED');
-  assert.equal(text(i.querySelector('.lcc-bd-stats strong')), '0/5', 'the summary tiles of any House');
+  assert.equal(i.querySelector('.lcc-bd-ledger-n'), null, 'no N OF 5 EARNED tag (#1059)');
+  assert.equal(text(i.querySelector('.lcc-bd-stats strong')), '0 / 5', 'the summary tiles of any House');
   assert.equal(i.querySelector('.lcc-bd-taken-note'), null);
   assert.equal(i.querySelectorAll('.lcc-bd-tier').length, 5, 'the ladder rows stay, with their controls');
 });
@@ -106,7 +106,7 @@ test('a taken House with no tier rows: the inspector says no tier record', async
   const ui = await open(a);
   click(ui, tileOf(ui, 'Mutelli').querySelector('button'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
-  assert.equal(text(i.querySelector('.lcc-bd-ledger-n')), 'FAVOR WON · NO TIER RECORD IN THE SAVE');
+  assert.equal(text(i.querySelector('.lcc-bd-ledger-n')), 'FAVOR WON · NO TIER RECORD');
   assert.match(text(i.querySelector('.lcc-bd-taken-note')), /favor is won, and the save holds no reward tiers for it/);
 });
 

@@ -292,7 +292,7 @@ test('the reward ledger tells waiting, collected and delivery unknown apart, and
   click(ui, tileOf(ui, 'Wallach').querySelector('button'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
   assert.equal(i.querySelector('.lcc-bd-ledger .lcc-bd-line'), null, 'no sentence under the four counts');
-  assert.match(i.querySelector('.lcc-bd-stats').getAttribute('aria-label'), /3 of 5 tiers earned · 1 collected · 1 not collected \(waiting at the house representative\) · 1 delivery unknown · 2 not reached\./, 'the counts stay for a screen reader and as a tooltip');
+  assert.match(i.querySelector('.lcc-bd-stats').getAttribute('aria-label'), /3 of 5 tiers earned · 1 of 3 earned tiers collected, 1 waiting at the house representative, 1 with no delivery record\./, 'the counts stay for a screen reader and as a tooltip');
   assert.match(text(i), /Delivery unknown.{1,20}means the tier is earned and the save has no delivery row/);
   const st = [...i.querySelectorAll('.lcc-bd-tier-st')].map((s) => text(s));
   assert.deepEqual(st.slice(0, 3), ['Earned, collected', 'Earned, delivery unknown', 'Earned, not collected']);
@@ -424,7 +424,7 @@ test('earned and collected are the one pair of words on the list, the inspector,
   const ui = await open();
   click(ui, tileOf(ui, 'Wallach').querySelector('button'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
-  assert.equal(text(i.querySelector('.lcc-bd-ledger-n')), '3 OF 5 EARNED');
+  assert.equal(i.querySelector('.lcc-bd-ledger-n'), null, 'no N OF 5 EARNED tag: the Tiers earned tile says it (#1059)');
   assert.deepEqual([...i.querySelectorAll('.lcc-bd-stat span')].map(text)[0], 'Tiers earned');
   assert.equal(i.querySelector('.lcc-bd-note'), null, 'the note of the three separate states is in the Help tab (#980)');
   const said = [text(i), ...[...i.querySelectorAll('[title], [aria-label]')].map((e) => (e.getAttribute('title') || '') + ' ' + (e.getAttribute('aria-label') || ''))].join(' ');

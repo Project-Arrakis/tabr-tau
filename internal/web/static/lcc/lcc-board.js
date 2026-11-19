@@ -223,7 +223,7 @@
     const r = board.rollup;
     const p = el('p', 'lcc-bd-totals');
     p.appendChild(el('b', '', 'Your rewards on this board: '));
-    p.appendChild(root.document.createTextNode((r.tiers ? r.reached + ' of ' + r.tiers + ' ' + W().tiersEarned : 'tiers not known') + ' · ' + r.waiting + ' not collected (waiting at the house representatives) · ' + r.collected + ' collected · ' + r.unknownDelivery + ' earned with no delivery record · ' + fmt(r.mine) + ' contributed in all Houses.'));
+    p.appendChild(root.document.createTextNode((r.tiers ? r.reached + ' of ' + r.tiers + ' ' + W().tiersEarned : 'tiers not known') + ' · ' + r.collected + ' of ' + r.reached + ' collected' + (r.waiting ? ' (' + r.waiting + ' waiting at the house representatives)' : '') + (r.unknownDelivery ? ' · ' + r.unknownDelivery + ' earned with no delivery record' : '') + ' · ' + fmt(r.mine) + ' contributed in all Houses.'));
     return p;
   }
 
@@ -669,15 +669,15 @@
     const s3 = el('section', 'lcc-bd-sec lcc-bd-ledger', '', { 'aria-labelledby': 'lcc-bd-s3' });
     const lh = el('div', 'lcc-bd-ledger-head');
     lh.appendChild(secHead('PERSONAL REWARD LEDGER', 'lcc-bd-s3', 'SAVE + DERIVED'));
-    lh.appendChild(el('span', 'lcc-bd-ledger-n', h.takenNoTiers ? W().favorWon.toUpperCase() + ' · NO TIER RECORD IN THE SAVE' : h.reached + ' OF ' + h.tierCount + ' ' + W().earned.toUpperCase(), takenWhy(h) ? { title: takenWhy(h) } : undefined));
+    // the "N OF 5 EARNED" tag is gone (#1059): the Tiers earned tile below says it. Only a House with no tier record keeps a tag, since it has no tiles.
+    if (h.takenNoTiers) lh.appendChild(el('span', 'lcc-bd-ledger-n', W().favorWon.toUpperCase() + ' · NO TIER RECORD', { title: takenWhy(h) }));
     s3.appendChild(lh);
-    const sumSaid = h.reached + ' of ' + h.tierCount + ' ' + W().tiersEarned + ' · ' + h.collected + ' collected · ' + h.waiting + ' not collected (waiting at the house representative) · ' + h.unknownDelivery + ' delivery unknown · ' + h.notReached + ' not reached.';
+    // two figures (#1046): the tiers earned of the five, and how many of the earned tiers are collected. What is not collected is the difference, said in the tooltip and for a screen reader.
+    const sumSaid = h.reached + ' of ' + h.tierCount + ' ' + W().tiersEarned + ' · ' + h.collected + ' of ' + h.reached + ' earned ' + (h.reached === 1 ? 'tier' : 'tiers') + ' collected' + (h.waiting ? ', ' + h.waiting + ' waiting at the house representative' : '') + (h.unknownDelivery ? ', ' + h.unknownDelivery + ' with no delivery record' : '') + '.';
     const sum = el('div', 'lcc-bd-stats', '', { role: 'group', 'aria-label': 'House rewards summary: ' + sumSaid, title: sumSaid });
     const stat = (cls, v, l) => { const d = el('div', 'lcc-bd-stat' + (cls ? ' ' + cls : '')); d.appendChild(el('strong', '', v)); d.appendChild(el('span', '', l)); return d; };
-    sum.appendChild(stat('', h.reached + '/' + h.tierCount, W().tiersEarnedHead));
-    sum.appendChild(stat('ok', String(h.collected), 'Collected'));
-    sum.appendChild(stat('wait', String(h.waiting), 'Not collected'));
-    sum.appendChild(stat('rest', String(h.notReached), 'Not reached'));
+    sum.appendChild(stat('', h.reached + ' / ' + h.tierCount, W().tiersEarnedHead));
+    sum.appendChild(stat('ok', h.collected + ' / ' + h.reached, 'Collected'));
     if (h.takenNoTiers) s3.appendChild(el('p', 'lcc-bd-mut lcc-bd-taken-note', takenWhy(h)));
     else s3.appendChild(sum);
     if (h.unknownDelivery) s3.appendChild(el('p', 'lcc-bd-alert', '“Delivery unknown” means the tier is earned and the save has no delivery row for it this term: it is not counted as collected or as not collected.'));
