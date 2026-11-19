@@ -85,7 +85,7 @@ test('looking at the board, the term section and the specializations sends nothi
 // ---- the text floor in every style file of the Command Center ----
 // A rule with a size in px keeps it for the cascade: the last plain rule of a selector wins and a rule inside a query is checked on its own. Names and key labels are 12 px or more, other text 11 px or
 // more. The rows of KNOWN are open issues, each one a size that is below the agreement today; the test fails when a new one appears and when a listed one is fixed (so the list is cleaned up).
-const KNOWN = new Map([['lcc.css .lcc-flag', '#907: a rule only the preview gallery reaches']]);
+const KNOWN = new Map(); // empty since #907 (.lcc-flag is 11 px)
 function rulesOf(src) {
   const bare = src.replace(/\r/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
   const out = []; let i = 0;

@@ -153,24 +153,6 @@
    "faction": "2"
   }
  },
- "Make active on the hidden vendor row": {
-  "sent": [
-   {
-    "path": "/api/landsraad/term",
-    "body": {
-     "active_decree_id": "11",
-     "reigning_faction_id": "1"
-    }
-   }
-  ],
-  "others": [],
-  "result": "Applied: active decree Special Vendor (not the game's name), reigning faction Atreides. (queued: written as soon as the save can be written)",
-  "focus": "tm:11",
-  "chose": {
-   "decree": "11",
-   "faction": "1"
-  }
- },
  "Make active with no faction chosen": {
   "sent": [],
   "others": [],
@@ -179,24 +161,6 @@
   "chose": {
    "decree": "7",
    "faction": ""
-  }
- },
- "Set the pool flag of the hidden row": {
-  "sent": [
-   {
-    "path": "/api/landsraad/decree",
-    "body": {
-     "id": 11,
-     "disabled": true
-    }
-   }
-  ],
-  "others": [],
-  "result": "Decree 11: pool flag set to 1. (queued: written as soon as the save can be written)",
-  "focus": "tf:11",
-  "chose": {
-   "decree": "7",
-   "faction": "1"
   }
  },
  "Set the pool flag to 0": {

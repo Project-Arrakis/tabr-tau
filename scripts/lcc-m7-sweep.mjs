@@ -163,7 +163,9 @@ const MEASURE = `(() => {
   return {
     innerWidth, scrollWidth: document.documentElement.scrollWidth, roots: roots.map((r) => r.id), textNodes: nodes.n,
     small, tiny: tiny.slice(0, 8), between, selected, targets, tierOverlap, tierGapMin, clipped: clipped.slice(0, 12), over: over.slice(0, 8), cutEntries, standardsShown,
-    seatsInTrack, houses: count('#lsb-lcc [data-fk^="ht:"]'), seats: count('#lsb-lcc .lcc-seat'), centerSeats: count('#lsb-lcc .lcc-seat-center'), lanes: count('#lcs-root [data-lcs-lane]'),
+    seatsInTrack, firstHouseTop: (() => { const h = document.querySelector('#lsb-lcc .lcc-hc'); return h ? Math.round(h.getBoundingClientRect().top + scrollY) : null; })(), // how far down the page the first House starts (#933)
+    layout: (() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { top: Math.round(b.top + scrollY), h: Math.round(b.height) }; }; return { plaque: r('#lsb-lcc .lcc-plaque'), term: r('#lcc-term'), grid: r('#lsb-lcc .lcc-bd-grid'), termOpen: !!(document.querySelector('#lcc-tm-all') || {}).open }; })(),
+    houses: count('#lsb-lcc [data-fk^="ht:"]'), seats: count('#lsb-lcc .lcc-seat'), centerSeats: count('#lsb-lcc .lcc-seat-center'), lanes: count('#lcs-root [data-lcs-lane]'),
     injected: !!window.__pwned || document.querySelectorAll('img[src=x]').length,
     broken: [...document.images].filter((i) => i.complete && i.naturalWidth === 0 && vis(i)).map((i) => i.getAttribute('src')),
   };
@@ -173,7 +175,7 @@ const STATES = {
   'board-grid': { local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' }, root: '#lsb-lcc' },
   'board-list': { local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'list' }, root: '#lsb-lcc' },
   'board-inspector': { local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' }, root: '#lsb-lcc', pre: '#lsb-lcc [data-fk^="ht:"]', after: `document.querySelector('#lsb-lcc [data-fk^="ht:"]').click()` },
-  'term-section': { local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' }, root: '#lcc-term' },
+  'term-section': { local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' }, root: '#lcc-term', pre: '#lcc-tm-all', after: `document.querySelector('#lcc-tm-all').open = true` }, // on a phone the section is a closed disclosure (#933): the sweep opens it, so its text and controls are measured
   'spec-cc': { local: { tab: 'player', 'spec.view': 'cc' }, root: '#lcs-root', pre: '[data-sub="player:specialization"]', after: `document.querySelector('[data-sub="player:specialization"]').click()` },
 };
 const WIDTHS = [320, 390, 640, 768, 1024, 1280, 1600];
@@ -223,7 +225,7 @@ async function main() {
       const floorPx = floor;
       const smallBySel = {};
       for (const t of m.targets) if (t.h < floorPx || t.w < 24) { const k = (smallBySel[t.at] ||= { n: 0, minW: 999, minH: 999 }); k.n++; k.minW = Math.min(k.minW, t.w); k.minH = Math.min(k.minH, t.h); }
-      Object.assign(row, { innerWidth: m.innerWidth, pageWiderBy: Math.max(0, m.scrollWidth - m.innerWidth), textNodes: m.textNodes, under11: m.small, tiny: m.tiny, nameBand11to12: m.between, controls: m.targets.length, under36: m.targets.filter((t) => t.h < 36).length, under44: m.targets.filter((t) => t.h < 44).length, floor, smallBySel, tierOverlap: m.tierOverlap, tierGapMin: m.tierGapMin, tierHit: (() => { const t = m.targets.filter((x) => x.tier); return t.length ? { n: t.length, hitW: Math.min(...t.map((x) => x.w)), hitH: Math.min(...t.map((x) => x.h)), visW: Math.min(...t.map((x) => x.vw)), visH: Math.min(...t.map((x) => x.vh)) } : null; })(), seatsInTrack: m.seatsInTrack, clipped: m.clipped, cutEntries: m.cutEntries, standardsShown: m.standardsShown, over: m.over, houses: m.houses, seats: m.seats, centerSeats: m.centerSeats, lanes: m.lanes, injected: m.injected, broken: m.broken });
+      Object.assign(row, { innerWidth: m.innerWidth, pageWiderBy: Math.max(0, m.scrollWidth - m.innerWidth), textNodes: m.textNodes, under11: m.small, tiny: m.tiny, nameBand11to12: m.between, controls: m.targets.length, under36: m.targets.filter((t) => t.h < 36).length, under44: m.targets.filter((t) => t.h < 44).length, floor, smallBySel, tierOverlap: m.tierOverlap, tierGapMin: m.tierGapMin, tierHit: (() => { const t = m.targets.filter((x) => x.tier); return t.length ? { n: t.length, hitW: Math.min(...t.map((x) => x.w)), hitH: Math.min(...t.map((x) => x.h)), visW: Math.min(...t.map((x) => x.vw)), visH: Math.min(...t.map((x) => x.vh)) } : null; })(), seatsInTrack: m.seatsInTrack, clipped: m.clipped, cutEntries: m.cutEntries, standardsShown: m.standardsShown, over: m.over, houses: m.houses, seats: m.seats, centerSeats: m.centerSeats, firstHouseTop: m.firstHouseTop, layout: m.layout, lanes: m.lanes, injected: m.injected, broken: m.broken });
       if (m.scrollWidth > m.innerWidth + 1) report.hard.push(c.name + ': the page is wider than the window by ' + (m.scrollWidth - m.innerWidth) + ' px');
       if (Object.keys(m.small).length) report.hard.push(c.name + ': text under 11 px in ' + Object.keys(m.small).join(', '));
       if ((c.media || []).some((x) => x.name === 'forced-colors')) for (const x of m.selected) if (x.adjust !== 'none') report.hard.push(c.name + ': a selected control is left to the automatic forced-colours adjustment (' + x.at + ' ' + x.text + ')'); else if (x.color === x.bg) report.hard.push(c.name + ': a selected control has the same label and plate colour (' + x.at + ' ' + x.text + ')');

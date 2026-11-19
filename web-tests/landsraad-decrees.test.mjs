@@ -7,6 +7,7 @@ import { boot, closeAll } from './boot.mjs';
 
 afterEach(closeAll);
 
+// The plain SpecialVendorActive row (id 7 here) is not shown anywhere on the page (operator order); the rows below are the data, the page leaves id 7 out.
 // the decree rows and the term of a save read in the game: term 10 has decree 8 (SpecialVendorActive_Vehicles) active, and the rotation held 1, 10 and 4
 const NAMES = ['ExperienceRateIncrease', 'RangedDamageIncreased', 'MeleeDamageIncreased', 'CraftingCostReduced', 'DropInventoryOnDefeatActive', 'RepairAndRefiningTimes',
   'SpecialVendorActive', 'SpecialVendorActive_Vehicles', 'SpecialVendorActive_Weapons', 'SpecialVendorActive_Armor', 'SpecialVendorActive_Utilities'];
@@ -68,8 +69,9 @@ test('every decree the editor knows shows its game name on the page, in the pool
   NAMES.forEach((n, i) => {
     const id = i + 1, want = named(n).display_name;
     assert.ok(want && want !== n, `${n} has a name in decree-names.json`);
+    if (n === 'SpecialVendorActive') { assert.equal(ui.doc.querySelector(`#lsb-tad option[value="${id}"]`), null, 'the plain row is not in the drop-down'); assert.equal(ui.doc.querySelector(`[data-lb="tflag"][data-id="${id}"]`), null, 'nor in the pool'); return; }
     assert.equal(optionText(id), want + (named(n).name_known ? '' : " (not the game's name)"), `the drop-down names decree ${id}`);
-    const row = id === 7 ? ui.doc.querySelector('#lsb-dphid [data-id="7"]').closest('li') : poolRow(ui, id);
+    const row = poolRow(ui, id);
     assert.equal(text(row.querySelector('.dn')), want, `the pool names decree ${id}`);
     assert.equal(text(row.querySelector('.did')), n, `the id stays as the second line of decree ${id}`);
   });
@@ -89,11 +91,6 @@ test('a name that is only the editors wording, and an id the editor has never se
   assert.ok(row.querySelector('.dn').title.includes('No game name is known'));
   assert.ok(row.querySelector('[data-lb="tflag"]'), 'its controls still draw');
   assert.equal(text(ui.doc.querySelector('#lsb-tad option[value="99"]')), 'Brand New Decree: FromAPatch (no game name)');
-  // the plain Special Vendor row has the editor's wording, not the game's
-  const plain = ui.doc.querySelector('#lsb-dphid [data-id="7"]').closest('li');
-  assert.equal(text(plain.querySelector('.dn')), 'Special Vendor');
-  assert.equal(text(plain.querySelector('.du')), "editor's name, not the game's");
-  assert.equal(text(ui.doc.querySelector('#lsb-tad option[value="7"]')), "Special Vendor (not the game's name)");
   // a server that sends no display_name at all (an older one) still draws every row
   const bare = decrees().map(({ display_name, variant, effect, name_known, ...r }) => r);
   const ui2 = await open(landsraad({ decrees: bare }));
@@ -109,15 +106,12 @@ test('the effect of a decree is visible text in its pool row and under the drop-
   assert.equal(text(lab().querySelector('.de')), 'Access to a Landsraad Vehicle Vendor');
   select(ui, '#lsb-tad', 1);
   assert.equal(text(lab().querySelector('.de')), 'Experience gain is increased by 50%');
-  select(ui, '#lsb-tad', 7);
-  assert.equal(text(lab().querySelector('.de')), '', 'the plain row has no effect line');
-  assert.equal(text(lab().querySelector('.du')), "editor's name, not the game's", 'and the note follows the choice');
   select(ui, '#lsb-tad', 6);
   assert.equal(text(lab().querySelector('.du')), '');
   // the order: by the name a player knows, the name that is not the game's last, "none" first
   const opts = [...ui.doc.querySelectorAll('#lsb-tad option')].map((o) => text(o));
   assert.deepEqual(opts, ['none', 'CHOAM Production Contract', 'CHOAM Refining Contract', 'Exclusive Armor Import Rights', 'Exclusive Tool Import Rights', 'Exclusive Vehicle Import Rights', 'Exclusive Weapon Import Rights',
-    'In Honor of the Fallen (Melee)', 'In Honor of the Fallen (Ranged)', 'Scholarly Collaboration', 'The Right of Salvage', "Special Vendor (not the game's name)"]);
+    'In Honor of the Fallen (Melee)', 'In Honor of the Fallen (Ranged)', 'Scholarly Collaboration', 'The Right of Salvage']);
   // the pool stays in id order, keyed by the ID column
   assert.deepEqual([...ui.doc.querySelectorAll('#lsb-tdp .tbody > ul.dp [data-lb="tflag"]')].map((b) => +b.dataset.id), [1, 2, 3, 4, 5, 6, 8, 9, 10, 11]);
 });
@@ -126,12 +120,14 @@ test('the buttons of a pool row carry the decree name in their accessible name, 
   const ui = await open();
   assert.equal(poolRow(ui, 2).querySelector('[data-lb="tflag"]').getAttribute('aria-label'), 'Set flag to 0: In Honor of the Fallen (Ranged)');
   assert.equal(poolRow(ui, 2).querySelector('[data-lb="tmk"]').getAttribute('aria-label'), 'Make active for Atreides: In Honor of the Fallen (Ranged)');
-  const ui2 = await open(landsraad({ term: { term_id: 10, start_time: 1, end_time: 2, reigning_faction_id: 2, active_decree_id: 7, elected_decree_id: 5 } }));
-  assert.equal(text(ui2.doc.querySelector('#lsb-tdp summary')), "Term and decrees Term 10 · Harkonnen · Special Vendor (not the game's name)");
+  // a decree with no game name: the note is in the summary line and the result
+  const odd = { id: 99, decree_name: 'BrandNewDecree_FromAPatch', disabled: 0, weight: 1, active: true, elected: false, in_rotation: false, ...named('BrandNewDecree_FromAPatch') };
+  const ui2 = await open(landsraad({ decrees: [...decrees(), odd], term: { term_id: 10, start_time: 1, end_time: 2, reigning_faction_id: 2, active_decree_id: 99, elected_decree_id: 5 } }));
+  assert.equal(text(ui2.doc.querySelector('#lsb-tdp summary')), "Term and decrees Term 10 · Harkonnen · Brand New Decree: FromAPatch (no game name)");
   ui2.doc.querySelector('#lsb-tdp').open = true;
-  select(ui2, '#lsb-tad', 7);
+  select(ui2, '#lsb-tad', 99);
   ui2.click('[data-lb="tapply"]'); await ui2.settle();
-  assert.ok(text(ui2.doc.querySelector('#lsb-tresult')).includes("Applied: active decree Special Vendor (not the game's name)"), text(ui2.doc.querySelector('#lsb-tresult')));
+  assert.ok(text(ui2.doc.querySelector('#lsb-tresult')).includes("Applied: active decree Brand New Decree: FromAPatch (no game name)"), text(ui2.doc.querySelector('#lsb-tresult')));
 });
 
 test('only the decree the term has active is marked Active in the pool, and it is the Vehicles variant, not SpecialVendorActive', async () => {
@@ -140,34 +136,32 @@ test('only the decree the term has active is marked Active in the pool, and it i
   assert.deepEqual(tags(8), ['Active']);
   assert.deepEqual(tags(5), ['Next term\'s decree']);
   assert.deepEqual(tags(10), ['In rotation']);
-  assert.deepEqual(tags(7), [], 'the base row SpecialVendorActive is not in this term: ' + text(poolRow(ui, 7)));
-  assert.ok(text(poolRow(ui, 7)).includes('not in this term'));
+  assert.equal(ui.doc.querySelector('[data-lb="tflag"][data-id="7"]'), null, 'the base row SpecialVendorActive has no row on the page');
 });
 
 test('the pool flag is shown as the stored number, never as enabled or disabled, and the About text says it does not mean in effect', async () => {
   const ui = await open();
   const pool = text(ui.doc.querySelector('#lsb-tdp .dp'));
   assert.ok(!/\benabled\b/i.test(pool) && !/\bdisabled\b/i.test(pool), pool);
-  assert.equal(text(poolRow(ui, 7).querySelector('.fl')), '0');
   assert.equal(text(poolRow(ui, 8).querySelector('.fl')), '1');
   assert.ok(/does not say whether a decree is in effect/.test(ui.doc.querySelector('#lsdecnote').textContent));
   assert.ok(ui.doc.querySelector('#lsdecnote').closest('details.about'), 'the long text is in an About disclosure');
 });
 
-test('all five special vendor rows are listed under their own names with their own ids', async () => {
+test('the four category vendors are listed under their own names with their own ids; the plain fifth row is not shown', async () => {
   const ui = await open();
-  const got = [7, 8, 9, 10, 11].map((id) => text(poolRow(ui, id).querySelector('.did')));
-  assert.deepEqual(got, ['SpecialVendorActive', 'SpecialVendorActive_Vehicles', 'SpecialVendorActive_Weapons', 'SpecialVendorActive_Armor', 'SpecialVendorActive_Utilities']);
+  const got = [8, 9, 10, 11].map((id) => text(poolRow(ui, id).querySelector('.did')));
+  assert.deepEqual(got, ['SpecialVendorActive_Vehicles', 'SpecialVendorActive_Weapons', 'SpecialVendorActive_Armor', 'SpecialVendorActive_Utilities']);
 });
 
 test('the flag button of one row sends that row only', async () => {
   const ui = await open();
-  assert.match(text(poolRow(ui, 7).querySelector('[data-lb="tflag"]')), /Set flag to 1/);
+  assert.match(text(poolRow(ui, 5).querySelector('[data-lb="tflag"]')), /Set flag to 1/);
   assert.match(text(poolRow(ui, 8).querySelector('[data-lb="tflag"]')), /Set flag to 0/);
-  ui.click('#lsb-tdp [data-lb="tflag"][data-id="7"]'); await ui.settle();
+  ui.click('#lsb-tdp [data-lb="tflag"][data-id="5"]'); await ui.settle();
   const sent = posted(ui, '/api/landsraad/decree');
   assert.equal(sent.length, 1);
-  assert.deepEqual(sent[0].body, { id: 7, disabled: true });
+  assert.deepEqual(sent[0].body, { id: 5, disabled: true });
   assert.deepEqual(posted(ui, '/api/landsraad/term'), [], 'the flag does not touch the term');
 });
 
@@ -285,34 +279,40 @@ test('a save without a term says so, and a hostile decree name is shown as text'
   assert.ok(text(poolRow(ui, 1)).includes('<img src=x onerror=alert(1)>'));
 });
 
-test('the plain SpecialVendorActive row is out of the pool list and sits in a closed disclosure under it with the same controls; the four category vendors stay in the list', async () => {
+test('the plain SpecialVendorActive row is shown nowhere on the page: not in the pool, no closed list, not in the Active decree drop-down; the four category vendors stay', async () => {
   const ui = await open();
-  const pool = ui.doc.querySelector('#lsb-tdp ul.dp');
-  const inPool = [...pool.querySelectorAll('[data-lb="tflag"]')].map((b) => +b.dataset.id);
-  assert.ok(!inPool.includes(7), 'decree 7 is not in the pool list');
+  const inPool = [...ui.doc.querySelectorAll('#lsb-tdp ul.dp [data-lb="tflag"]')].map((b) => +b.dataset.id);
   assert.deepEqual(inPool, [1, 2, 3, 4, 5, 6, 8, 9, 10, 11], 'the other ten stay, with the four category vendors');
-  const d = ui.doc.querySelector('#lsb-dphid');
-  assert.ok(d && !d.open, 'a closed disclosure under the pool');
-  assert.equal(text(d.querySelector('summary')), 'Hidden: the plain SpecialVendorActive row (no game name, no category, effect unverified)');
-  assert.ok(!pool.contains(d), 'it is not part of the pool list');
-  const row = d.querySelector('[data-lb="tflag"][data-id="7"]').closest('li');
-  assert.ok(text(row).includes('Special Vendor') && text(row).includes('SpecialVendorActive'));
-  assert.ok(row.querySelector('[data-lb="tmk"][data-id="7"]'), 'Make active is there');
-  // the row stays in the data: the Active decree drop-down still lists it
-  assert.ok([...ui.doc.querySelectorAll('#lsb-tad option')].some((o) => o.value === '7'));
-  // reachable: Set flag and Make active work from the disclosure
-  d.open = true;
-  ui.click('#lsb-dphid [data-lb="tflag"][data-id="7"]'); await ui.settle();
-  assert.deepEqual(posted(ui, '/api/landsraad/decree').map((p) => p.body), [{ id: 7, disabled: true }]);
-  ui.click('#lsb-dphid [data-lb="tmk"][data-id="7"]'); await ui.settle();
-  assert.deepEqual(posted(ui, '/api/landsraad/term').map((p) => p.body), [{ active_decree_id: '7', reigning_faction_id: '1' }]);
-  assert.equal(ui.doc.querySelector('#lsb-dphid').open, true, 'the disclosure stays open over a write');
+  assert.equal(ui.doc.querySelector('#lsb-dphid'), null, 'no closed list under the pool');
+  assert.equal(ui.doc.querySelector('[data-id="7"]'), null, 'no control of row 7');
+  assert.equal(ui.doc.querySelector('#lsb-tad option[value="7"]'), null, 'not in the Active decree drop-down');
+  const all = ui.doc.body.textContent.replace(/SpecialVendorActive_\w+/g, '');
+  assert.ok(!/Special Vendor/.test(all), 'no "Special Vendor" wording');
+  assert.ok(!/SpecialVendorActive/.test(all), 'no plain SpecialVendorActive id');
+  assert.ok(!/Hidden: the plain/.test(all), 'no hidden-row heading');
+  assert.ok(/Exclusive Vehicle Import Rights/.test(ui.doc.body.textContent) && /SpecialVendorActive_Vehicles/.test(ui.doc.body.textContent), 'the category vendors still show');
 });
 
-test('a save without the plain vendor decree draws no hidden disclosure', async () => {
+test('a term whose active decree is the plain row says "Another decree" with no id; the drop-down keeps that one value, and Apply writes it back unchanged', async () => {
+  const ui = await open(landsraad({ term: { term_id: 10, start_time: 1, end_time: 2, reigning_faction_id: 2, active_decree_id: 7, elected_decree_id: 7 } }));
+  assert.equal(text(ui.doc.querySelector('#lsb-tdp summary')), 'Term and decrees Term 10 · Harkonnen · Another decree');
+  const kv = text(ui.doc.querySelector('#lsb-tdp .tkv'));
+  assert.ok(kv.includes('Active decreeAnother decree') && kv.includes("Next term's decreeAnother decree"), kv);
+  assert.ok(!/Special Vendor|SpecialVendorActive/.test(ui.doc.body.textContent.replace(/SpecialVendorActive_\w+/g, '')), 'no plain name or id anywhere');
+  const sel = ui.doc.querySelector('#lsb-tad');
+  assert.equal(sel.value, '7', "the choice stays on the term's decree, so the drop-down does not fall back to none");
+  assert.equal(text(sel.querySelector('option[value="7"]')), 'Another decree');
+  ui.doc.querySelector('#lsb-tdp').open = true;
+  ui.click('[data-lb="tapply"]'); await ui.settle();
+  assert.deepEqual(posted(ui, '/api/landsraad/term').map((p) => p.body), [{ active_decree_id: '7', reigning_faction_id: '1' }], 'the row is written as the save holds it, never as none');
+  assert.ok(text(ui.doc.querySelector('#lsb-tresult')).includes('Applied: active decree Another decree'), text(ui.doc.querySelector('#lsb-tresult')));
+});
+
+test('a save without the plain vendor decree draws the same page', async () => {
   const without = decrees().filter((d) => d.decree_name !== 'SpecialVendorActive');
   const ui = await open(landsraad({ decrees: without }));
   assert.equal(ui.doc.querySelector('#lsb-dphid'), null);
+  assert.equal([...ui.doc.querySelectorAll('#lsb-tdp ul.dp [data-lb="tflag"]')].length, 10);
 });
 
 // #904: a click on Make active (or Apply) while a write is running changes nothing, and does not leave the other row's decree in the Active decree drop-down: the drop-down keeps what was chosen for the write that runs.

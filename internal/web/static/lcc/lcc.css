@@ -153,7 +153,7 @@
   .lcc-pl-std-a .lcc-standard-none::before, .lcc-pl-std-h .lcc-standard-none::before { content: ''; display: block; width: 3.2em; height: 1px; margin: 0 auto .8em; background: linear-gradient(90deg, rgba(255, 217, 138, 0), #ffd98a, rgba(255, 217, 138, 0)); }
   /* wide: the list takes what is left of the cloth under the heading and is a column that wraps, so an entry that does not fit in the height goes to a second column that is out of sight: whole entries show
      or none, and no entry is ever cut through (#972); the full ranking is in the heading's mouse-over text */
-  .lcc-pl-std-a .lcc-standard-list, .lcc-pl-std-h .lcc-standard-list { font-size: clamp(11px, .95cqw, 22px); line-height: 1.1; flex: 1 1 0; min-height: 0; width: 100%; max-width: none; display: flex; flex-flow: column wrap; align-content: flex-start; row-gap: .25em; overflow: hidden; }
+  .lcc-pl-std-a .lcc-standard-list, .lcc-pl-std-h .lcc-standard-list { font-size: clamp(12px, .95cqw, 22px); line-height: 1.1; flex: 1 1 0; min-height: 0; width: 100%; max-width: none; display: flex; flex-flow: column wrap; align-content: flex-start; row-gap: .25em; overflow: hidden; }
   .lcc-pl-std-a .lcc-standard-list > li, .lcc-pl-std-h .lcc-standard-list > li { margin-top: 0; flex: none; width: 100%; box-sizing: border-box; break-inside: avoid; }
   .lcc-pl-faction { top: 79.8%; height: 13.8%; width: 15.47%; display: grid; grid-template-rows: 48% 22% 30%; justify-items: center; align-items: center; }
   .lcc-pl-faction-a { left: 1.47%; } .lcc-pl-faction-h { left: 83.06%; }
@@ -238,7 +238,7 @@
 .lcc-house-path { display: inline-flex; align-items: center; gap: 5px; font: 500 11px/1 var(--t-body, sans-serif); color: var(--lcc-dim); }
 .lcc-house-path-img { width: 20px; height: 20px; }
 .lcc-house-flags { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-.lcc-flag { padding: 1px 7px; border: 1px solid var(--lcc-line); font: 700 10px/1.5 var(--t-display, sans-serif); letter-spacing: .09em; color: var(--lcc-text); background: var(--lcc-sunken); }
+.lcc-flag { padding: 1px 7px; border: 1px solid var(--lcc-line); font: 700 11px/1.5 var(--t-display, sans-serif); letter-spacing: .09em; color: var(--lcc-text); background: var(--lcc-sunken); }
 .lcc-flag-one { border-style: dashed; color: var(--lcc-gold-text); }
 .lcc-flag-win { background: var(--lcc-gold); color: var(--lcc-on-gold); border-color: var(--lcc-gold-hi); }
 .lcc-flag-dom { border-style: double; border-width: 3px; color: var(--lcc-gold-text); }

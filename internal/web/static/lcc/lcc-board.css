@@ -28,6 +28,13 @@
 .lcc-bd-termslot { margin: 0 0 14px; min-width: 0; }
 .lcc-bd-termslot:empty { display: none; }
 .lcc-bd-termslot > .lcc-tm { margin-top: 0; }
+/* On a phone the section comes after the board and the panels at its side, so the Houses come first (#933); it is a closed disclosure there (lcc-term.css). Only the order changes: the page is the same
+   in the document, so a screen reader and the Tab key meet the plaque, the board and then the section, in the order that is seen. */
+@media (max-width: 640px) {
+  .lcc-bd { display: flex; flex-direction: column; }
+  .lcc-bd > * { min-width: 0; }
+  .lcc-bd-termslot { order: 9; margin: 14px 0 0; }
+}
 
 /* a drop-down of the board */
 .lcc-bd-select { box-sizing: border-box; min-height: 37px; max-width: 100%; padding: 8px 12px; font: 14px/1.2 var(--lcc-sans); color: var(--lcc-text); background: var(--lcc-raised); border: 1px solid var(--lcc-stroke); }
@@ -153,8 +160,16 @@
 .lcc-bd-pickl:hover, .lcc-bd-pickl:focus-within, .lcc-bd-pickl:has(:checked) { opacity: 1; }
 .lcc-bd-c-pick .lcc-bd-pickl { position: static; width: 28px; height: 28px; }
 .lcc-bd-pick { width: 13px; height: 13px; margin: 0; accent-color: var(--lcc-gold); cursor: pointer; }
-/* a House that makes up a win (the five of a line, or the 13 or more of a faction): the one win outline of lcc.css, drawn outside the card, with the stronger glow */
-.lcc-hc[data-victory="win"] { outline: var(--lcc-outline-win); outline-offset: 3px; box-shadow: 0 0 0 2px var(--lcc-panel), 0 0 20px 6px color-mix(in srgb, var(--lcc-gold) calc(80% * var(--lcc-glow-win)), transparent); border-color: var(--lcc-gold); }
+/* a House that makes up a win (the five of a line, or the 13 or more of a faction): the one win outline of lcc.css, drawn outside the card, with the stronger glow. The glow reaches no further than the gap
+   between the cards (--lcc-reach: the 2 px ring of the card plus this many px of light is 8 px, 4 px or 10 px, the gap of the layout), so it does not tint the edge of a neighbour (#895); lcc.css's own
+   20 px glow and its pulse are for the cards of the preview gallery. */
+.lcc-hc[data-victory="win"] { --lcc-reach: 5px; outline: var(--lcc-outline-win); outline-offset: 3px; box-shadow: 0 0 0 2px var(--lcc-panel), 0 0 var(--lcc-reach) 0 color-mix(in srgb, var(--lcc-gold) calc(80% * var(--lcc-glow-win)), transparent); border-color: var(--lcc-gold); }
+@keyframes lcc-win-pulse-card { 0%, 100% { box-shadow: 0 0 0 2px var(--lcc-panel), 0 0 calc(var(--lcc-reach) * .6) 0 color-mix(in srgb, var(--lcc-gold) calc(55% * var(--lcc-glow-win)), transparent); } 50% { box-shadow: 0 0 0 2px var(--lcc-panel), 0 0 var(--lcc-reach) 0 color-mix(in srgb, var(--lcc-gold) calc(95% * var(--lcc-glow-win)), transparent); } }
+@media (prefers-reduced-motion: no-preference) {
+  html[data-motion="full"] .lcc-hc[data-victory="win"] { animation: lcc-reveal var(--lcc-mo) var(--mo-ease, ease-out) 1 both, lcc-win-pulse-card 5s ease-in-out var(--lcc-mo) infinite; }
+}
+@container (min-width: 696px) { .lcc-hc[data-victory="win"] { --lcc-reach: 2px; } }
+@container (min-width: 760px) { .lcc-hc[data-victory="win"] { --lcc-reach: 8px; } }
 .lcc-hc[data-victory]:focus-within { outline-color: var(--lcc-focus); }
 
 
@@ -195,7 +210,7 @@
 .lcc-bd-well { margin-top: 17px; padding: 11px; border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-tier-bg); font: 11px/1.4 var(--lcc-sans); letter-spacing: .04em; color: var(--lcc-text); }
 
 /* ==== M4: the twelve lines (display only) ====
-   The Houses that make up a win (the five of a line of five held by one faction, or the 13 or more Houses of a faction) have the one win outline of lcc.css at the full strength of the win token (--lcc-glow-win,
+   The Houses that make up a win (the five of a line of five held by one faction, or the 13 or more Houses of a faction) have the one win outline of lcc.css at the full strength of the win glow setting (--lcc-glow-win,
    which the 0.5 dial of the plaque does not scale), the optional moving border and the slow glow (Motion Full, no reduced-motion request), and a still outline in every other case. The way it was won is
    said by the words of the plaque and the panel. */
 .lcc-bd-victory[data-state="line"] { border-color: var(--lcc-gold); box-shadow: inset 0 0 22px color-mix(in srgb, var(--lcc-gold) calc(16% * var(--lcc-glow-win)), transparent); }
