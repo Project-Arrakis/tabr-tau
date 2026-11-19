@@ -143,9 +143,9 @@ test('a card shows five numbered tier boxes and the line N/5 EARNED with the col
   const w = tileOf(ui, 'Wallach');
   const boxes = [...w.querySelectorAll('.lcc-hc-t')];
   assert.equal(boxes.length, 5);
-  assert.deepEqual(boxes.map((b) => text(b)), ['◆', '◆', '◆', '4', '5'], 'a waiting reward is a diamond, a tier not reached keeps its number');
+  assert.deepEqual(boxes.map((b) => text(b)), ['○', '○', '○', '4', '5'], 'a waiting reward is an empty ring (no gold, #1071), a tier not reached keeps its number');
   assert.deepEqual(boxes.map((b) => b.classList.contains('waiting')), [true, true, true, false, false]);
-  assert.equal(text(w.querySelector('.lcc-hc-count')), '3/5 EARNED ✓ 0 ◆ 3');
+  assert.equal(text(w.querySelector('.lcc-hc-count')), '3/5 EARNED ✓ 0 ○ 3');
   assert.match(w.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /^Square 08, Wallach, favor won by Atreides, specialization Exploration, 3 of 5 tiers earned, 0 collected, 3 rewards not collected$/);
 });
 
@@ -157,11 +157,11 @@ test('the five tier boxes tell collected, waiting, delivery unknown and not reac
   const ui = await open(a);
   const w = tileOf(ui, 'Wallach');
   const boxes = [...w.querySelectorAll('.lcc-hc-t')];
-  assert.deepEqual(boxes.map((b) => text(b)), ['✓', '?', '◆', '4', '5']);
+  assert.deepEqual(boxes.map((b) => text(b)), ['✓', '?', '○', '4', '5']);
   assert.deepEqual(boxes.map((b) => ['delivered', 'uncertain', 'waiting'].find((c) => b.classList.contains(c)) || 'off'), ['delivered', 'uncertain', 'waiting', 'off', 'off']);
   assert.match(boxes[1].getAttribute('aria-label'), /no delivery record$|no delivery record\./);
   assert.doesNotMatch(boxes[1].getAttribute('aria-label'), /collected/);
-  assert.equal(text(w.querySelector('.lcc-hc-count')), '3/5 EARNED ✓ 1 ◆ 1 ? 1', 'the unknown one is counted on its own, in neither the collected nor the waiting figure');
+  assert.equal(text(w.querySelector('.lcc-hc-count')), '3/5 EARNED ✓ 1 ○ 1 ? 1', 'the unknown one is counted on its own, in neither the collected nor the waiting figure');
   assert.match(w.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /1 with no delivery record/);
 });
 

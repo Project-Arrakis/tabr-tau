@@ -34,7 +34,7 @@
   // The five states of one reward tier, as the approved design shows them: the class of the box, its mark, and the words. A tier the character has not reached is always "not reached", whatever the
   // reward row says; a reached tier with no delivery record (or a record that disagrees with the contribution) is a question mark and is never counted as collected.
   const TIER_CLASS = Object.freeze({ delivered: 'delivered', waiting: 'waiting', no_row: 'uncertain', unknown: 'uncertain' });
-  const TIER_MARK = Object.freeze({ delivered: '✓', waiting: '◆', no_row: '?', unknown: '?' });
+  const TIER_MARK = Object.freeze({ delivered: '✓', waiting: '○', no_row: '?', unknown: '?' });
   const TIER_LABEL = Object.freeze({ not_reached: 'NOT REACHED', waiting: 'NOT COLLECTED', delivered: 'COLLECTED', no_row: 'NO DELIVERY RECORD', unknown: 'NO DELIVERY RECORD' });
   const tierKind = (t) => (t.reached ? (TIER_CLASS[t.state] ? t.state : 'unknown') : 'not_reached');
 
@@ -300,7 +300,7 @@
       sp();
       count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-ok', '✓ ' + h.collected, { title: h.collected + ' collected' }));
       sp();
-      count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-wait', '◆ ' + h.waiting, { title: h.waiting + ' not collected (waiting at the representative)' }));
+      count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-wait', '○ ' + h.waiting, { title: h.waiting + ' not collected (waiting at the representative)' }));
       if (h.unknownDelivery) { sp(); count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-unk', '? ' + h.unknownDelivery, { title: h.unknownDelivery + ' earned with no delivery record: not counted as collected or waiting' })); }
     } else count.appendChild(el('b', '', 'NO TIERS IN THE SAVE'));
     card.appendChild(count);
@@ -686,14 +686,15 @@
       const li = el('li', 'lcc-bd-tier-li');
       const ct = c && c.tiers ? c.tiers[t.n - 1] : null;
       const kind = tierKind(t), reward = ct ? ct.reward : '';
-      const stateText = (kind === 'delivered' ? '✓ ' : kind === 'waiting' ? '◆ ' : kind === 'not_reached' ? '○ ' : '? ') + TIER_LABEL[kind];
+      const marked = kind === 'delivered' || kind === 'waiting' || kind === 'not_reached'; // the three states of the ladder are a marker, not words (#1071); a tier with no delivery record keeps its words
       const mk = (tg) => {
-        const b = el(tg, 'lcc-bd-tier ' + kind + (t.reached ? ' on' : '') + (t.reached && t.state === 'waiting' ? ' wt' : '') + (t.reached && t.state === 'delivered' ? ' dv' : ''));
+        const b = el(tg, 'lcc-bd-tier ' + kind + (marked ? ' mk' : '') + (t.reached ? ' on' : '') + (t.reached && t.state === 'waiting' ? ' wt' : '') + (t.reached && t.state === 'delivered' ? ' dv' : ''));
         const m = el('span', 'lcc-bd-tier-m'); m.appendChild(el('strong', 'lcc-bd-tier-n', 'T' + t.n)); m.appendChild(el('span', 'lcc-bd-tier-th', t.threshold !== null ? fmt(t.threshold) : 'not known'));
         b.appendChild(m);
         const it = el('span', 'lcc-bd-tier-rw'); if (reward) it.appendChild(el('span', '', reward));
         b.appendChild(it);
-        b.appendChild(el('span', 'lcc-bd-tier-s ' + kind, stateText));
+        if (kind === 'delivered' || kind === 'waiting') b.appendChild(el('span', 'lcc-bd-tier-s mk ' + kind, kind === 'delivered' ? '✓' : '', { 'aria-hidden': 'true' })); // the check in a filled circle, or the empty ring
+        else if (!marked) b.appendChild(el('span', 'lcc-bd-tier-s ' + kind, '? ' + TIER_LABEL[kind]));
         b.appendChild(el('span', 'lcc-bd-tier-st', t.word));
         return { b, it };
       };

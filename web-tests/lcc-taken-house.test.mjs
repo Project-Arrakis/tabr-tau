@@ -58,7 +58,7 @@ test('taken with no tier record in the save: the card says so, not 0/5 and not a
 test('taken with tiers in the save but none of the character: the card shows what an open House shows, 0/5 EARNED and the check and diamond counts (#1022)', async () => {
   const ui = await open(synthetic());
   assert.equal(count(ui, 'Vernius'), count(ui, 'Sor'), 'the same text as the open House Sor, which has nothing either');
-  assert.match(count(ui, 'Vernius'), /^0\/5 EARNED ✓ 0 ◆ 0$/);
+  assert.match(count(ui, 'Vernius'), /^0\/5 EARNED ✓ 0 ○ 0$/);
   assert.doesNotMatch(count(ui, 'Vernius'), /Favor won|no contribution/i);
   assert.equal(tileOf(ui, 'Vernius').querySelector('.lcc-hc-count [data-taken]'), null);
   assert.equal(tileOf(ui, 'Vernius').querySelectorAll('.lcc-hc-q').length, 2, 'the collected and waiting counts');

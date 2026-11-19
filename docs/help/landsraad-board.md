@@ -26,9 +26,11 @@ A tier with no delivery record is counted as neither collected nor not collected
 | Mark | Meaning |
 |---|---|
 | ✓ | Collected |
-| ◆ | Not collected (waiting at the House representative) |
-| ○ | Not reached |
+| ○ | Earned and not collected (waiting at the House representative): an empty ring |
+| the tier number | Not reached |
 | ? | No delivery record in the save |
+
+In the House Intelligence panel the ledger rows show the same three states without words: a collected tier has a teal edge on the left and a teal circle with a check at the right, an earned and not collected tier has only an empty ring, and a tier not reached is dimmed with no mark. A screen reader still hears the state of each row.
 
 ## Colours and outlines
 
