@@ -16,7 +16,8 @@ const require = createRequire(import.meta.url);
 const M = require(path.join(lccDir, 'lcc-model.js'));
 const strip = (s) => s.replace(/\r/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 const css = (f) => strip(fs.readFileSync(path.join(lccDir, f), 'utf8'));
-const rule = (sheet, selector) => { const m = sheet.match(new RegExp('(^|\\n|\\})\\s*' + selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\{([^}]*)\\}')); return m ? m[2] : null; };
+// the body of the last rule of a style sheet that starts with the selector (plain string search: the selector is not built into a regular expression)
+const rule = (sheet, selector) => { const at = sheet.lastIndexOf('\n' + selector + ' {'); if (at < 0) return null; const open = sheet.indexOf('{', at); return sheet.slice(open + 1, sheet.indexOf('}', open)); };
 const text = (el) => el.textContent.replace(/\s+/g, ' ').trim();
 const OK = { ok: true, changed: 1, houses: 1, skipped: 0, contribution_raised: 1, contribution_lowered: 0, completed: 0, reopened: 0, reward_rows: 0, outcome: 'written' };
 const click = (ui, el) => { if (typeof el === 'string') el = ui.doc.querySelector(el); assert.ok(el, 'no element'); el.focus(); el.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
