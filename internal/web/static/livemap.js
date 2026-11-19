@@ -378,7 +378,7 @@
         <p class="mut">The save as of its last write, not the running game.</p>
         ${d.config.image ? '' : html`<p class="mut" id="lmnopic">The editor has no picture of ${d.config.label} yet, so its markers are drawn on the outline of the map.</p>`}
         ${d.storedVehicles ? html`<p class="mut">${d.storedVehicles} of your ${d.storedVehicles == 1 ? 'vehicles is' : 'vehicles are'} stored (in the vehicle backup or waiting for recovery) and not shown.</p>` : ''}
-        ${boardHouse && lm.focus.key === lm.map ? html`<p class="lm-house" id="lmhouse"><b>Showing House ${boardHouse}</b> on ${d.config.label}. The yellow ring on the map marks its place. <button class="b sec d-btn" data-lmclear="1">Stop showing it</button></p>` : ''}
+        ${boardHouse && lm.focus.key === lm.map ? html`<p class="lm-house" id="lmhouse" title="The yellow ring on the map marks its place."><b>Showing House ${boardHouse}</b> on ${d.config.label}. ${Number.isInteger(lm.focus.id) ? html`<button class="b sec d-btn" data-lmback="${lm.focus.id}">Back to House ${boardHouse}</button> ` : ''}<button class="b sec d-btn" data-lmclear="1">Stop showing it</button></p>` : ''}
         <div class="lm-wrap"><canvas id="lmc" class="lm" tabindex="0" role="img" aria-label="${'Saved map of ' + d.config.label + (boardHouse && lm.focus.key === lm.map ? ', centred on House ' + boardHouse : '') + '. Press plus and minus to zoom, 0 to show the whole map, the arrow keys to move.'}"></canvas></div>
         <p class="mut" id="lminfo"></p>
         <div class="row">${groups.map((g) => (g.id == 'spice' || g.id == 'flour' ? (b) => tip('lmtip-' + g.id, LM_SAND_NOTE, b) : (b) => b)(html`<button class="lm-layer ${lm.hidden.has(g.id) ? 'off' : 'on'}" data-lmg="${g.id}" ${g.id == 'spice' || g.id == 'flour' ? html`aria-describedby="lmtip-${g.id}"` : ''} aria-pressed="${lm.hidden.has(g.id) ? 'false' : 'true'}">${LM_GROUP_ICON[g.id] ? html`<span class="lm-ic lm-i-${LM_GROUP_ICON[g.id].replace(/\.[a-z]+$/, '').toLowerCase()}"></span>` : html`<span class="lm-sw lm-c-${g.id}"></span>`}${g.label} (${counts[g.id]})</button>`))}</div>
@@ -401,13 +401,15 @@
     if (z) { if (z.dataset.lmz === 'in') lmZoom(1.2); else if (z.dataset.lmz === 'out') lmZoom(1 / 1.2); else lmReset(); return; }
     const g = e.target.closest('[data-lmg]');
     if (g) { const id = g.dataset.lmg; if (lm.hidden.has(id)) lm.hidden.delete(id); else lm.hidden.add(id); g.classList.toggle('off'); g.classList.toggle('on'); g.setAttribute('aria-pressed', lm.hidden.has(id) ? 'false' : 'true'); lmDraw(); return; }
+    const bk = e.target.closest('[data-lmback]');
+    if (bk) { if (typeof lbOpenHouseHere === 'function') lbOpenHouseHere(Number(bk.dataset.lmback)); return; } // the way back to the House on the Landsraad tab (#1060)
     if (e.target.closest('[data-lmclear]')) { lm.focus = null; render('scroll'); return; } // stops marking the House (display only); the view stays where it is
     const u = e.target.closest('[data-lmund]'); // only a redraw: the data is not fetched again and the view stays
     if (u) { lm.showUndiscovered = !lm.showUndiscovered; u.textContent = (lm.showUndiscovered ? 'Hide' : 'Show') + ' undiscovered markers'; lmDraw(); }
   });
 
   window.liveMapView = liveMapView;
-  window.liveMapShow = (key, fx, fy, label) => { lm.map = key; lm.view = null; lm.focus = { key, fx, fy, label, fresh: true }; }; // the Landsraad board opens the Saved map at a house
+  window.liveMapShow = (key, fx, fy, label, id) => { lm.map = key; lm.view = null; lm.focus = { key, fx, fy, label, id: Number.isInteger(id) ? id : null, fresh: true }; }; // the Landsraad board opens the Saved map at a house
   window.liveMapPixel = (cfg, x, y) => lmToPixel(cfg, x, y); // read-only, for the tests: where a world position is on a map's picture
   window.liveMapState = () => ({ scale: lm.scale, ox: lm.ox, oy: lm.oy, w: lm.w, h: lm.h, dpr: lm.dpr, map: lm.map, view: lm.view && { ...lm.view }, focus: lm.focus && { key: lm.focus.key, fx: lm.focus.fx, fy: lm.focus.fy, label: lm.focus.label } }); // read-only, for the tests
 })();

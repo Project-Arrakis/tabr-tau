@@ -85,7 +85,7 @@ Method: the design reference and the editor page were drawn side by side in a he
 | Row | Approved element | Now | Status | Why |
 |---|---|---|---|---|
 | R1 | "Landsraad Intelligence", "Associated Houses", five House cards with symbol and name | Same section, Houses read from the Landsraad answer by their specialization line, with their symbols | matches | |
-| R2 | A House card opens that House on the Landsraad board | Choosing a House opens the Landsraad tab on the board with that House chosen; nothing is written | matches | |
+| R2 | A House card opens that House on the Landsraad board | Choosing a House opens the Landsraad tab on the board with that House chosen; nothing is written. The board is shown for this visit only: the saved choice of view (`lsb.view`) is not rewritten (#1060), and the House Inspector's "Open in Specializations" does the same for `spec.view` | matches | |
 | R3 | "Associations are tracker-derived and must be verified before production." | "The Houses of this path, from a public community tracker, not from the game or the save: treat it as a reference." | differs (wording) | Says where the data comes from for the person using it. |
 | R4 | (reverse link from a House to its path) | Not built | not built | The Landsraad board code is out of scope for M5. |
 | R5 | A path with no Houses | One line, "Not in the save", and the rest works | matches (added) | |

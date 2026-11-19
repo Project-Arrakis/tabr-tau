@@ -804,13 +804,21 @@ const specViewSwitch = () => (window.LCCS && window.LCC ? html`<div class="lcc l
 // Opening a House of a path on the Landsraad board only moves between pages: the board shows it selected, with its filters cleared, and nothing is written.
 function specGoHouse(id) {
   if (!Number.isInteger(id)) return;
-  if (window.LCC && window.LCCM && window.LCCB) { LV.view = 'board'; browserStore.set('lsb.view', 'board'); const st = window.LCCB.state; st.sel = id; st.show = 'all'; st.hs = 'any'; st.spec = 'all'; }
+  // The board is shown for this visit only: the view the person chose (saved under lsb.view) is not rewritten (#1060), so a Classic user is back on the Classic list the next time the page is opened, and the View switch is there to stay.
+  if (window.LCC && window.LCCM && window.LCCB) { LV.view = 'board'; const st = window.LCCB.state; st.sel = id; st.show = 'all'; st.hs = 'any'; st.spec = 'all'; }
+  tab = 'landsraad'; browserStore.set('tab', tab); render();
+}
+// The way back from the Saved map to a House: the Landsraad tab in the view the person is in now (the board with the House chosen, or the Classic list with only that House shown and opened). It only moves between pages and writes nothing (#1060).
+function lbOpenHouseHere(id) {
+  if (!Number.isInteger(id)) return;
+  if (lbBoardOn()) { const st = window.LCCB.state; st.sel = id; st.show = 'all'; st.hs = 'any'; st.spec = 'all'; }
+  else { LB.show = 'all'; LB.hs = 'any'; LB.jump = String(id); LB.open.add(id); }
   tab = 'landsraad'; browserStore.set('tab', tab); render();
 }
 // And back: the specialization of a House opens that path in the Specialization tab's Command Center view. It only moves between pages (the chosen path is the view's own state) and writes nothing.
 function specGoPath(track) {
   if (!(window.LCCS && window.LCC) || !Array.isArray(window.LCCS.ORDER) || !window.LCCS.ORDER.includes(track)) return;
-  window.LCCS.state.sel = track; SPV.view = 'cc'; SPV.reveal = true; browserStore.set('spec.view', 'cc');
+  window.LCCS.state.sel = track; SPV.view = 'cc'; SPV.reveal = true; // shown for this visit only: the saved choice (spec.view) is not rewritten (#1060)
   sub.player = 'specialization'; tab = 'player'; browserStore.set('tab', tab); render();
 }
 const SPV_HOST = { goHouse: specGoHouse };
@@ -2982,7 +2990,7 @@ function lbLocSay(b, t) {
 function lbShowOnMap(h, b) {
   if (!h || !lbOnMap(h)) return;
   if (!window.liveMapShow) { lbLocSay(b, 'The Saved map is not ready yet.'); return; }
-  window.liveMapShow(h.loc.map_key, Number(h.loc.x), Number(h.loc.y), h.name);
+  window.liveMapShow(h.loc.map_key, Number(h.loc.x), Number(h.loc.y), h.name, h.id);
   tab = 'livemap'; browserStore.set('tab', tab); render();
 }
 function lbClick(e) {
