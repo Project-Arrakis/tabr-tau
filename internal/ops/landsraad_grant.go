@@ -296,7 +296,9 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 	// 6. what was paid is remembered, outside the save (landsraad_paid.go): the note goes with this edit, so it is kept only if the edit is, and is handed to the editor's own file
 	// once the game's file has been written. The ground is the whole of what this raise took the contribution to, whatever part of it an earlier raise had already paid; when the record was held back by what the
 	// save shows (landsraad_paid.go), the note replaces it instead of being merged into it.
-	if err := m.Note(paidNoteKind, paidNote{Player: me.player, Term: termID, House: house, Faction: me.faction, Paid: after, Back: pg.back, Replace: pg.untrusted}); err != nil {
+	// the ground the editor began paying from: the rows are written from loRows, so the tiers above it are the editor's (#944); a record never has a lower start than this raise's own
+	floor := loRows
+	if err := m.Note(paidNoteKind, paidNote{Player: me.player, Term: termID, House: house, Faction: me.faction, Paid: after, Back: pg.back, Floor: &floor, Replace: pg.untrusted}); err != nil {
 		return res, false, err
 	}
 	return res, completed, nil

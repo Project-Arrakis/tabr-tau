@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"encoding/json"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"math"
 	"os"
@@ -665,5 +666,194 @@ func TestTakeBackWithADroppedNoteStillRemovesAndKeepsTheRewards(t *testing.T) {
 	}
 	if rowOf(t, o, "Schematic.L") == "" || rowOf(t, o, "Kenola_Placeables_Swatch") == "" {
 		t.Fatal("a reward was taken back although the record cannot say what it vouches for")
+	}
+}
+
+// ---------------------------------------------------------------- the floor (#944): the record vouches for the ground the editor paid, from where it started
+
+// stripFloors makes the record the one an older build wrote: no floor, no ceiling.
+func stripFloors(t *testing.T, path string) {
+	t.Helper()
+	f := readPaid(t, path)
+	for i := range f.Entries {
+		f.Entries[i].Floor, f.Entries[i].Back = nil, 0
+	}
+	b, err := json.Marshal(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func outcomeOf(t *testing.T, o *Ops, th int64) (string, string) {
+	t.Helper()
+	x := tierOf(t, taskByID(t, o, 175), th)
+	a, _ := x["takeback"].(string)
+	b, _ := x["takeback_why"].(string)
+	return a, b
+}
+
+// The reviewer's case: the character stands at 1,300, no event, and the game left a waiting row for tier 1 (1,200). The editor raises 1,300 to 3,600 and the record says 3,600; removing it
+// again must not delete the game's row of tier 1: the editor started paying at 1,300, so a tier at or below that is not vouched for. The rows of 2,400 and 3,600 go.
+func TestTakeBackNeverTakesATierAtOrBelowWhereTheEditorStartedPaying(t *testing.T) {
+	for _, inFile := range []bool{false, true} {
+		var o *Ops
+		var path string
+		if inFile {
+			o, path = paidOps(t, "")
+		} else {
+			o = rewardOps(t, "")
+		}
+		setup(t, o, `insert into landsraad_house_rewards(player_id, house_name, amount, template_id, last_updated) values (1, 'DA_HouseKenola', 10000, 'SolarisCoin', 150)`)
+		fillKenolaDoubled(t, o, 1300, 3600)
+		if inFile {
+			flush(t, o)
+			if f := readPaid(t, path); len(f.Entries) != 1 || f.Entries[0].Floor == nil || *f.Entries[0].Floor != 1300 || f.Entries[0].Paid != 3600 {
+				t.Fatalf("the record: %+v", f)
+			}
+		}
+		if a, w := outcomeOf(t, o, 1200); a != tbUnsure || w != tbWhyBelow {
+			t.Fatalf("file %v, the board, tier 1,200: %q %q", inFile, a, w)
+		}
+		if a, _ := outcomeOf(t, o, 2400); a != tbTake {
+			t.Fatalf("file %v, the board, tier 2,400: %q", inFile, a)
+		}
+		m := removeKenola(t, o, 3600, 0)
+		if got := counts(m); got != [4]int64{2, 0, 1, 0} {
+			t.Fatalf("file %v, answer: %v", inFile, m)
+		}
+		if got := rowOf(t, o, "SolarisCoin"); got != "map[amount:10000 last_updated:150]\n" {
+			t.Fatalf("file %v, the game's row of tier 1 was touched: %s", inFile, got)
+		}
+		if rowOf(t, o, "Schematic.K") != "" || rowOf(t, o, "T6RangeFinder") != "" {
+			t.Fatalf("file %v, the editor's own rows stayed", inFile)
+		}
+		// the same raise again writes the two rows again and pays nothing: the take-back keeps the floor it was decided on
+		if m := fillKenolaDoubled(t, o, 0, 3600); m["missions"].(int64) != 0 || m["reward_rows"].(int64) != 2 {
+			t.Fatalf("file %v, the raise after the removal: %v", inFile, m)
+		}
+	}
+}
+
+// A raise that starts at 0 has the floor 0 (a floor that is there and is 0, not a floor that is missing): every tier is above it and is vouched for.
+func TestTakeBackAFloorOfZeroVouchesForEveryTier(t *testing.T) {
+	o, path := paidOps(t, "")
+	setup(t, o, `delete from landsraad_task_player_contributions where player_id=1 and task_id=175`)
+	fillKenolaDoubled(t, o, 0, 6000)
+	flush(t, o)
+	b, err := os.ReadFile(path)
+	if err != nil || !strings.Contains(string(b), `"floor":0`) {
+		t.Fatalf("the record does not carry a floor of 0: %s %v", b, err)
+	}
+	if m := removeKenola(t, o, 6000, 0); counts(m) != [4]int64{5, 0, 0, 1} {
+		t.Fatalf("answer: %v", m)
+	}
+}
+
+// Raises that follow each other keep the lowest floor, in the queue and in the file; a raise that begins above everything recorded (the contribution was lifted by the game in between)
+// lifts it to where that raise began, so the ground between is not vouched for.
+func TestTakeBackTheFloorIsTheLowestOfContinuedRaisesAndLiftsOverAGap(t *testing.T) {
+	o, path := paidOps(t, "")
+	fillKenolaDoubled(t, o, 1300, 2400)
+	flush(t, o)
+	fillKenolaDoubled(t, o, 2400, 4800)
+	fillKenolaDoubled(t, o, 4800, 6000)
+	flush(t, o)
+	if f := readPaid(t, path); len(f.Entries) != 1 || f.Entries[0].Floor == nil || *f.Entries[0].Floor != 1300 || f.Entries[0].Paid != 6000 {
+		t.Fatalf("continued raises: %+v", f)
+	}
+	// a gap: the editor paid up to 1,200, the game lifts the contribution to 4,800 and the editor raises it to 6,000
+	o2, path2 := paidOps(t, "")
+	setup(t, o2, `delete from landsraad_task_player_contributions where player_id=1 and task_id=175`)
+	fillKenolaDoubled(t, o2, 0, 1200)
+	flush(t, o2)
+	setup(t, o2, `insert or replace into landsraad_task_player_contributions(player_id, task_id, faction_id, amount) values (1, 175, 2, 4800)`)
+	fillKenolaDoubled(t, o2, 4800, 6000)
+	flush(t, o2)
+	if f := readPaid(t, path2); len(f.Entries) != 1 || f.Entries[0].Floor == nil || *f.Entries[0].Floor != 4800 || f.Entries[0].Paid != 6000 {
+		t.Fatalf("a gap: %+v", f)
+	}
+	if a, w := outcomeOf(t, o2, 1200); a != tbUnsure || w != tbWhyBelow {
+		t.Fatalf("tier 1,200 is below the floor of the raise that follows the gap: %q %q", a, w)
+	}
+}
+
+// The floor in numbers: lowest of two, a gap lifts it, a note without one leaves what it cannot vouch for unknown, and a floor above the ground paid is nothing.
+func TestTakeBackTheFloorMerge(t *testing.T) {
+	f := func(x float64) *float64 { return &x }
+	key := paidNote{Player: 1, Term: 7, House: "A", Faction: 2}
+	n := func(paid float64, fl *float64) paidNote { e := key; e.Paid, e.Floor = paid, fl; return e }
+	cases := []struct {
+		name string
+		es   []paidNote
+		note paidNote
+		want *float64
+	}{
+		{"a continued raise keeps the lowest", []paidNote{n(2400, f(1300))}, n(4800, f(2400)), f(1300)},
+		{"a lower start lowers it", []paidNote{n(2400, f(1300))}, n(4800, f(0)), f(0)},
+		{"a gap lifts it to where the new raise began", []paidNote{n(1200, f(0))}, n(6000, f(4800)), f(4800)},
+		{"a raise that begins where the last one ended is a continuation", []paidNote{n(2400, f(0))}, n(4800, f(2400)), f(0)},
+		{"an entry without a floor stays unknown", []paidNote{n(2400, nil)}, n(4800, f(0)), nil},
+		{"a note without a floor that raises the ground leaves it unknown", []paidNote{n(2400, f(0))}, n(4800, nil), nil},
+		{"a note without a floor that does not raise the ground leaves it", []paidNote{n(2400, f(0))}, n(1200, nil), f(0)},
+		{"a floor above the ground paid is nothing", nil, n(1200, f(2400)), nil},
+	}
+	for _, c := range cases {
+		out := mergePaid(c.es, []paidNote{c.note})
+		if len(out) != 1 {
+			t.Fatalf("%s: %+v", c.name, out)
+		}
+		got := out[0].Floor
+		if (got == nil) != (c.want == nil) || (got != nil && *got != *c.want) {
+			t.Errorf("%s: floor %v, want %v", c.name, got, c.want)
+		}
+	}
+	// the lowest across factions; unknown when any entry does not know it
+	es := []paidNote{{Player: 1, Term: 7, House: "A", Faction: 1, Paid: 2400, Floor: f(0)}, {Player: 1, Term: 7, House: "A", Faction: 2, Paid: 4800, Floor: f(2400)}}
+	if fl, ok := floorOf(es, 1, 7, "A"); !ok || fl != 0 {
+		t.Errorf("across factions: %v %v", fl, ok)
+	}
+	es[1].Floor = nil
+	if _, ok := floorOf(es, 1, 7, "A"); ok {
+		t.Error("an entry without a floor made the floor known")
+	}
+	if _, ok := floorOf(nil, 1, 7, "A"); ok {
+		t.Error("no record has a floor")
+	}
+	// an implausible floor leaves the entry out, as an implausible ceiling does
+	for name, x := range map[string]float64{"negative": -1, "above a tier": maxTier + 1, "not a number": math.NaN()} {
+		if e := n(1200, f(x)); e.valid() {
+			t.Errorf("%s: an entry with this floor is taken", name)
+		}
+	}
+}
+
+// A record an older build wrote (no floor) vouches for no tier: the removal goes through and every waiting reward stays, with the reason. A raise on top of it does not make it known.
+func TestTakeBackARecordWithoutAFloorVouchesForNothing(t *testing.T) {
+	o, path := paidOps(t, "")
+	kenolaFromZero(t, o, 3600)
+	flush(t, o)
+	stripFloors(t, path)
+	if a, w := outcomeOf(t, o, 2400); a != tbUnsure || w != tbWhyUnproven {
+		t.Fatalf("the board: %q %q", a, w)
+	}
+	m := removeKenola(t, o, 3600, 0)
+	if got := counts(m); got != [4]int64{0, 0, 3, 0} || m["contribution_lowered"].(int64) != 1 {
+		t.Fatalf("answer: %v", m)
+	}
+	if rowOf(t, o, "SolarisCoin") == "" || rowOf(t, o, "Schematic.K") == "" || rowOf(t, o, "T6RangeFinder") == "" {
+		t.Fatal("a reward was taken back on a record that does not know where it started")
+	}
+	flush(t, o)
+	// the same record raised further: the floor stays unknown, so nothing is vouched for yet
+	fillKenolaDoubled(t, o, 0, 6000)
+	flush(t, o)
+	if f := readPaid(t, path); len(f.Entries) != 1 || f.Entries[0].Floor != nil {
+		t.Fatalf("a floor appeared on a record that did not know it: %+v", f)
+	}
+	if m := removeKenola(t, o, 6000, 0); counts(m)[0] != 0 {
+		t.Fatalf("answer: %v", m)
 	}
 }

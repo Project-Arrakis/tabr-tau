@@ -23,7 +23,9 @@ import (
 //	collected   the row is of this term and holds 0: the reward was collected and stays. Nothing here ever touches a collected reward
 //	shared      the same item is also the reward of a tier that is not removed (or is earned): a waiting amount cannot be told from that tier's, it stays
 //	unproven    the editor's own record (landsraad_paid.go, trusted as far as the save shows reward rows) must say that it paid the ground of the tier, or the row is not known to be the
-//	            editor's and stays; for the highest tier's house swatch the character's one-time swatch row must also be of this term
+//	            editor's and stays; for the highest tier's house swatch the character's one-time swatch row must also be of this term. The record vouches for a RANGE of ground, from the
+//	            floor it started paying at (paidNote.Floor) up to what it paid, and a tier at or below the floor may hold a reward the game wrote there: it stays. A record that does not
+//	            know its floor (an older build wrote it) vouches for no tier
 //	short       the row holds less than the removed tiers of the item paid: it cannot be the whole of them, it stays
 //	take        the row is waiting, of this term, the item is the removed tiers' alone, the editor paid the ground and the amount covers it: the removed tiers' amount comes off the row (the row
 //	            is deleted at 0; what is left stays), and for the swatch the character's one-time row of this term is deleted too, so the swatch can be won again
@@ -53,6 +55,7 @@ const (
 	tbWhyShared   = "the same item is also the reward of another tier"
 	tbWhyShort    = "less is waiting than the tier paid"
 	tbWhyUnproven = "the editor has no record that it paid this tier"
+	tbWhyBelow    = "the editor only started paying above this tier, so the reward may be the game's"
 	tbWhySwatch   = "the editor has no record that it wrote this swatch"
 )
 
@@ -76,7 +79,7 @@ type takeBackCtx struct {
 	items     []tierItem           // every tier of the task
 	held      bool                 // the character's one-time swatch row for the house is of this term
 	earned    float64              // the ground the character's own events and its contribution under another faction cover
-	paid      func() float64       // the ground the editor's own record says it paid, as far as the save shows reward rows; read only when a row is in question
+	paid      func() groundPaid    // what the editor's own record vouches for, as far as the save shows reward rows (rows) and from where it started paying (floor); read only when a row is in question
 	rows      map[string]rewardRow // the character's rows for the house, by item
 }
 
@@ -124,7 +127,7 @@ func planTakeBack(c takeBackCtx, to, cur float64) takeBackPlan {
 		row, has := c.rows[tmpl]
 		return has && row.amount > 0 && row.updated >= c.termStart
 	}
-	sums, swatchOf, topOf := map[string]int64{}, map[string]bool{}, map[string]float64{}
+	sums, swatchOf, topOf, lowOf := map[string]int64{}, map[string]bool{}, map[string]float64{}, map[string]float64{}
 	var order []string
 	for i, it := range c.items {
 		if !inSet[i] {
@@ -136,6 +139,9 @@ func planTakeBack(c takeBackCtx, to, cur float64) takeBackPlan {
 		sums[it.tmpl] += it.amount
 		swatchOf[it.tmpl] = swatchOf[it.tmpl] || it.swatch
 		topOf[it.tmpl] = math.Max(topOf[it.tmpl], it.th)
+		if low, ok := lowOf[it.tmpl]; !ok || it.th < low {
+			lowOf[it.tmpl] = it.th
+		}
 	}
 	decide := func(tmpl string) (string, string) {
 		row, has := c.rows[tmpl]
@@ -156,11 +162,18 @@ func planTakeBack(c takeBackCtx, to, cur float64) takeBackPlan {
 		if swatchOf[tmpl] && !c.held {
 			return tbUnsure, tbWhySwatch
 		}
-		if c.paid == nil || c.paid() < topOf[tmpl] {
+		var g groundPaid
+		if c.paid != nil {
+			g = c.paid()
+		}
+		if !g.floorKnown || g.rows < topOf[tmpl] {
 			if swatchOf[tmpl] {
 				return tbUnsure, tbWhySwatch
 			}
 			return tbUnsure, tbWhyUnproven
+		}
+		if lowOf[tmpl] <= g.floor { // the lowest tier of the row is at or below where the editor started paying: the game may have written it
+			return tbUnsure, tbWhyBelow
 		}
 		if row.amount < sums[tmpl] {
 			return tbUnsure, tbWhyShort
@@ -299,26 +312,26 @@ func takeBackTierRewards(m *save.Mut, me myLandsraad, t save.Row, cur, to float6
 	}
 	c.earned = math.Max(ev, el)
 	var refused error
-	var vouched float64
+	var vouched groundPaid
 	asked := false
-	c.paid = func() float64 { // asked once, before any row is changed: the record is trusted as far as the rows of this term show it
+	c.paid = func() groundPaid { // asked once, before any row is changed: the record is trusted as far as the rows of this term show it
 		if asked {
 			return vouched
 		}
 		asked = true
 		if m.NotesDropped() {
-			return 0 // a record that lost notes of ground it paid does not say what it vouches for: the rewards stay, and the removal goes through (a raise is refused instead)
+			return groundPaid{} // a record that lost notes of ground it paid does not say what it vouches for: the rewards stay, and the removal goes through (a raise is refused instead)
 		}
 		rec, err := paidNow()
 		if err != nil {
-			return 0 // a record that cannot be read vouches for nothing: the rewards stay
+			return groundPaid{} // a record that cannot be read vouches for nothing: the rewards stay
 		}
 		pg, err := paidGround(m, rec, me, taskID, termID, house, clock)
 		if err != nil {
 			refused = err
-			return 0
+			return groundPaid{}
 		}
-		vouched = pg.rows
+		vouched = pg
 		return vouched
 	}
 	p := planTakeBack(c, to, cur)
@@ -345,7 +358,8 @@ func takeBackTierRewards(m *save.Mut, me myLandsraad, t save.Row, cur, to float6
 	}
 	// the missions the removed tiers paid stay paid, and the record must say so: the rows are gone on purpose, so the next raise to this ground writes them again and pays nothing else
 	if back := p.backTo(); back > 0 {
-		if err := m.Note(paidNoteKind, paidNote{Player: me.player, Term: termID, House: house, Faction: me.faction, Paid: back, Back: back}); err != nil {
+		floor := vouched.floor // known: a row is taken only when the record vouches for it
+		if err := m.Note(paidNoteKind, paidNote{Player: me.player, Term: termID, House: house, Faction: me.faction, Paid: back, Back: back, Floor: &floor}); err != nil {
 			return res, err
 		}
 	}
@@ -362,10 +376,9 @@ func countRewards(n int64, adj string) string {
 }
 
 // boardTakeBack tells the board, for each reached tier of a house (the others carry empty strings), what removing that tier (and every tier above it) would do to its reward: r["takeback"] is take,
-// collected, none, earned or unsure (r["takeback_why"] says why), worked out by planTakeBack from the rows the board's read already holds. paid is the ground the editor's record vouches for as
-// far as the save shows reward rows (groundPaid.rows). The page's question before a removal and the tier's mouse-over say it.
-func boardTakeBack(tiers []any, house string, delivered map[string]save.Row, one oneTime, termID int64, termStart, mine, earned, paid float64) {
-	c := takeBackCtx{termStart: termStart, earned: earned, paid: func() float64 { return paid }, rows: map[string]rewardRow{}}
+// collected, none, earned or unsure (r["takeback_why"] says why), worked out by planTakeBack from the rows the board's read already holds. paid is what the editor's record vouches for: the ground as far as the save shows reward rows (groundPaid.rows) and the floor it started paying from. The page's question before a removal and the tier's mouse-over say it.
+func boardTakeBack(tiers []any, house string, delivered map[string]save.Row, one oneTime, termID int64, termStart, mine, earned float64, paid groundPaid) {
+	c := takeBackCtx{termStart: termStart, earned: earned, paid: func() groundPaid { return paid }, rows: map[string]rewardRow{}}
 	if held, ok := one.held[house]; ok && held == termID {
 		c.held = true
 	}

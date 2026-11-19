@@ -1990,7 +1990,7 @@ const lbLocHint = (h) => (lbOnMap(h) ? 'Click the place to open the Saved map.' 
 const lbSub = (h) => (h.loc.known ? [h.loc.cell ? 'Grid cell ' + h.loc.cell : '', h.loc.place, h.loc.area === h.loc.map ? '' : h.loc.map].filter(Boolean).join(' · ') : '');
 function lbAreaFull(h) { return !h.loc.known ? 'not mapped yet' : h.loc.area === h.loc.map ? h.loc.area : h.loc.area + ' (' + h.loc.map + ')'; }
 const lbTierWord = (t) => LB_STL[t.state];
-const LB_REMOVE_NOTE = 'Rewards already collected stay, and so do the Solari, House Scrip and XP the missions of the tier paid, and raising the tier again pays no mission a second time. To go back, restore the backup (Database tab, Save backups).';
+const LB_REMOVE_NOTE = 'Rewards already collected stay, and so do the Solari, House Scrip and XP the missions of the tier paid, and raising the tier again pays no mission a second time. To go back, restore the backup (Database tab, Save backups); the editor does not restore its own record with it, so a raise after that may pay less than before.';
 // What removing a tier does to its reward, in words (the server's rule, landsraad_takeback.go, said before the click): t is the tier of the house as lbHouse built it. A tier whose reward has no row says so, so a removal
 // is never silent about the reward. Removing the tier also removes the tiers above it, but the page removes one tier at a time, the highest first.
 function lbBackSay(t) {

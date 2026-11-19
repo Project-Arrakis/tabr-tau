@@ -402,7 +402,7 @@ test('a bulk write sums the missions of every house and names each specializatio
 const withBack = (outcome, why = '') => { const d = board(); const r = d.tasks.find((t) => t.id === 901).rewards[2]; r.takeback = outcome; r.takeback_why = why; r.reward_state = outcome === 'take' ? 'waiting' : outcome === 'collected' ? 'delivered' : 'no_row'; return d; };
 const question = (ui) => { const c = ui.doc.querySelector('#lsb-confirm'); return c ? text(c) : null; };
 // the sentences a removal says whole (LB_REMOVE_NOTE, app.js): what stays, that raising the tier again pays no mission twice, and the way back
-const NOTE = 'Rewards already collected stay, and so do the Solari, House Scrip and XP the missions of the tier paid, and raising the tier again pays no mission a second time. To go back, restore the backup (Database tab, Save backups).';
+const NOTE = 'Rewards already collected stay, and so do the Solari, House Scrip and XP the missions of the tier paid, and raising the tier again pays no mission a second time. To go back, restore the backup (Database tab, Save backups); the editor does not restore its own record with it, so a raise after that may pay less than before.';
 
 test('a removal with no reward waiting for its tier writes at once, and says that no reward waited and what stays', async () => {
   const ui = await open(board(), { '/api/landsraad/apply': { ...OK, contribution_raised: 0, contribution_lowered: 1, reward_rows: 0 } });

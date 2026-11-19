@@ -58,7 +58,8 @@ func TestPaidTheRecordIsWrittenOnlyAfterTheGamesFileIsWritten(t *testing.T) {
 	}
 	flush(t, o)
 	f := readPaid(t, path)
-	if len(f.Entries) != 1 || f.Entries[0] != (paidNote{Player: 1, Term: 7, House: "DA_HouseKenola", Faction: 2, Paid: 6000}) || f.Version != 1 || f.Save != strings.ToLower(o.S.Path) {
+	// the raise began at the character's own 1,300: that is where the editor started paying (#944)
+	if len(f.Entries) != 1 || f.Entries[0].Floor == nil || *f.Entries[0].Floor != 1300 || f.Entries[0].Player != 1 || f.Entries[0].Term != 7 || f.Entries[0].House != "DA_HouseKenola" || f.Entries[0].Faction != 2 || f.Entries[0].Paid != 6000 || f.Entries[0].Back != 0 || f.Version != 1 || f.Save != strings.ToLower(o.S.Path) {
 		t.Fatalf("the record: %+v", f)
 	}
 }

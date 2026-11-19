@@ -83,6 +83,10 @@ type paidNote struct {
 	// Back is the highest tier whose waiting reward rows the editor took back on purpose with a tier removal (#944): the ground below it was paid and the rows are gone on purpose, so the cap of
 	// trustedPaid does not cut the record there. It is 0 (and left out of the file) when no take-back happened. Only ever raised: the highest value recorded for the house counts, whatever the faction.
 	Back float64 `json:"back,omitempty"`
+	// Floor is the ground the editor started paying from on the house (the ground its first raise there began at, the character's own contribution or what its own missions covered): the
+	// tiers above it are the ones the record vouches for as the editor's own, and the tiers at or below it may hold a reward the game wrote (#944). Absent (nil) means unknown: a record of an
+	// older build, or one an older build rewrote, and then no tier is vouched for. Merged by the lowest value; a raise that begins above everything recorded (a gap) lifts it to where that raise began.
+	Floor *float64 `json:"floor,omitempty"`
 	// Replace, on a note, says that what was recorded for the character on the house in the term is of a save that is gone and is dropped before this is recorded. It is not stored.
 	Replace bool `json:"replace,omitempty"`
 }
@@ -90,7 +94,16 @@ type paidNote struct {
 // valid says whether an entry is plausible: a term, a character, a house and a ground that is a number from above 0 to the largest tier a request may name.
 func (e paidNote) valid() bool {
 	return e.Term > 0 && e.Player > 0 && e.House != "" && len(e.House) <= paidMaxHouseLen && !math.IsNaN(e.Paid) && e.Paid > 0 && e.Paid <= maxTier &&
-		!math.IsNaN(e.Back) && e.Back >= 0 && e.Back <= maxTier
+		!math.IsNaN(e.Back) && e.Back >= 0 && e.Back <= maxTier &&
+		(e.Floor == nil || (!math.IsNaN(*e.Floor) && *e.Floor >= 0 && *e.Floor <= maxTier))
+}
+
+// norm drops a floor that is above the ground paid: such a start says nothing a reader can use, and no tier is then vouched for.
+func (e paidNote) norm() paidNote {
+	if e.Floor != nil && *e.Floor > e.Paid {
+		e.Floor = nil
+	}
+	return e
 }
 
 type paidFile struct {
@@ -163,7 +176,7 @@ func (l *PaidLedger) read() ([]paidNote, error) {
 	for _, e := range pf.Entries {
 		if e.valid() {
 			e.Replace = false
-			out = append(out, e)
+			out = append(out, e.norm())
 		}
 	}
 	return out, nil
@@ -294,6 +307,41 @@ func highestBack(es []paidNote, player, term int64, house string) float64 {
 	return best
 }
 
+// floorOf is the lowest ground the editor started paying from for the character on the house in the term, under any faction, and whether it is known: it is not when nothing is
+// recorded or when any entry carries no floor (a record of an older build). Tiers at or below it are not vouched for.
+func floorOf(es []paidNote, player, term int64, house string) (float64, bool) {
+	lo, any := math.Inf(1), false
+	for _, e := range es {
+		if e.Player == player && e.Term == term && e.House == house && e.Paid > 0 {
+			if e.Floor == nil {
+				return 0, false
+			}
+			any = true
+			lo = math.Min(lo, *e.Floor)
+		}
+	}
+	return lo, any
+}
+
+// mergeFloor is the floor of an entry after a note is merged into it: the lowest of the two when the note continues the ground (begins at or below what the entry paid), the note's when it
+// begins above it (a gap: the ground in between is not the editor's), unknown when either does not know. A note with no floor that takes the ground higher leaves it unknown.
+func mergeFloor(e, n paidNote) *float64 {
+	switch {
+	case e.Floor == nil:
+		return nil
+	case n.Floor == nil:
+		if n.Paid > e.Paid {
+			return nil
+		}
+		return e.Floor
+	case *n.Floor > e.Paid:
+		f := *n.Floor
+		return &f
+	}
+	f := math.Min(*e.Floor, *n.Floor)
+	return &f
+}
+
 // mergePaid puts notes, in order, into entries: the highest ground per character, term, house and faction; a note that replaces drops everything recorded for the character on the
 // house in the term (under every faction) first. Invalid notes are left out.
 func mergePaid(entries, notes []paidNote) []paidNote {
@@ -312,9 +360,11 @@ func mergePaid(entries, notes []paidNote) []paidNote {
 			out = kept
 		}
 		n.Replace = false
+		n = n.norm()
 		found := false
 		for i := range out {
 			if e := &out[i]; e.Player == n.Player && e.Term == n.Term && e.House == n.House && e.Faction == n.Faction {
+				e.Floor = mergeFloor(*e, n)
 				e.Paid = max(e.Paid, n.Paid)
 				e.Back = max(e.Back, n.Back)
 				found = true
@@ -494,9 +544,11 @@ func standingTierRows(tiers []any, swatch save.Row, delivered map[string]save.Ro
 //	rows        the ground whose reward rows count as delivered: the record cut at the highest tier whose reward row stands, and nothing more. The rows a take-back removed are written again by the next raise.
 //	back        the take-back ceiling the record carries (never above what was paid)
 //	untrusted   the cut took something off the record, so a raise that pays under it replaces it
+//	floor       the ground the editor started paying from, when known (floorKnown): only the tiers above it are vouched for as its own (#944)
 type groundPaid struct {
-	ground, rows, back float64
-	untrusted          bool
+	ground, rows, back, floor float64
+	floorKnown                bool
+	untrusted                 bool
 }
 
 // trustedPaid is what counts of the record: the ground the file and the notes it has not taken yet (kept after a write, or queued) record for the character on the house, held to the highest
@@ -509,7 +561,8 @@ func trustedPaid(file []paidNote, pending []paidNote, player, term int64, house 
 	}
 	back := min(highestBack(all, player, term, house), rec)
 	limit := max(standing, back)
-	return groundPaid{ground: min(rec, limit), rows: min(rec, standing), back: back, untrusted: rec > limit}
+	floor, known := floorOf(all, player, term, house)
+	return groundPaid{ground: min(rec, limit), rows: min(rec, standing), back: back, floor: floor, floorKnown: known, untrusted: rec > limit}
 }
 
 // paidGround is what the editor paid before for the character on the house, inside a raise's edit (see trustedPaid). The save is asked for its reward rows only when something is
