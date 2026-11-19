@@ -453,19 +453,19 @@ func TestTakeBackTheCeilingLiftsTheGroundForMissionsAndNeverForRows(t *testing.T
 		{"no record", nil, 6000, 0, 0, 0, false},
 	}
 	for _, c := range cases {
-		g := trustedPaid(c.rec, nil, 1, 7, "A", c.standing)
+		g := trustedPaid(c.rec, 1, 7, "A", c.standing)
 		if g.ground != c.ground || g.rows != c.rows || g.back != c.back || g.untrusted != c.untrusted {
 			t.Errorf("%s: %+v, want ground %v rows %v back %v untrusted %v", c.name, g, c.ground, c.rows, c.back, c.untrusted)
 		}
 	}
 	// another house, another term and another character never share it
-	if g := trustedPaid(rec(6000, 6000), nil, 1, 7, "B", 0); g.ground != 0 {
+	if g := trustedPaid(rec(6000, 6000), 1, 7, "B", 0); g.ground != 0 {
 		t.Errorf("another house: %+v", g)
 	}
-	if g := trustedPaid(rec(6000, 6000), nil, 2, 7, "A", 0); g.ground != 0 {
+	if g := trustedPaid(rec(6000, 6000), 2, 7, "A", 0); g.ground != 0 {
 		t.Errorf("another character: %+v", g)
 	}
-	if g := trustedPaid(rec(6000, 6000), nil, 1, 8, "A", 0); g.ground != 0 {
+	if g := trustedPaid(rec(6000, 6000), 1, 8, "A", 0); g.ground != 0 {
 		t.Errorf("another term: %+v", g)
 	}
 }
@@ -810,17 +810,17 @@ func TestTakeBackTheFloorMerge(t *testing.T) {
 			t.Errorf("%s: floor %v, want %v", c.name, got, c.want)
 		}
 	}
-	// the lowest across factions; unknown when any entry does not know it
+	// the stretches across factions: ones that touch are one; unknown when any entry does not know its start
 	es := []paidNote{{Player: 1, Term: 7, House: "A", Faction: 1, Paid: 2400, Floor: f(0)}, {Player: 1, Term: 7, House: "A", Faction: 2, Paid: 4800, Floor: f(2400)}}
-	if fl, ok := floorOf(es, 1, 7, "A"); !ok || fl != 0 {
-		t.Errorf("across factions: %v %v", fl, ok)
+	if sp, ok := spansOf(es, 1, 7, "A", 6000); !ok || len(sp) != 1 || sp[0] != (paidSpan{0, 4800}) {
+		t.Errorf("across factions: %v %v", sp, ok)
 	}
 	es[1].Floor = nil
-	if _, ok := floorOf(es, 1, 7, "A"); ok {
-		t.Error("an entry without a floor made the floor known")
+	if _, ok := spansOf(es, 1, 7, "A", 6000); ok {
+		t.Error("an entry without a floor made the start known")
 	}
-	if _, ok := floorOf(nil, 1, 7, "A"); ok {
-		t.Error("no record has a floor")
+	if _, ok := spansOf(nil, 1, 7, "A", 6000); ok {
+		t.Error("no record has a start")
 	}
 	// an implausible floor leaves the entry out, as an implausible ceiling does
 	for name, x := range map[string]float64{"negative": -1, "above a tier": maxTier + 1, "not a number": math.NaN()} {

@@ -727,6 +727,37 @@ test('a raise sends the ground the character own events covered when the page dr
   assert.equal(writes(rm)[0].body.houses[0].was_events, 0);
 });
 
+// #805: a raise also sends the other two grounds its sentence was worked out from, so the server can refuse it when either changed
+test('a raise sends the ground the editor paid before and the ground reached under another faction as the page drew them; a removal does not, and a board without them sends nothing extra (#805)', async () => {
+  const b = withGrant({}, { 900: 1200 });
+  b.tasks.forEach((t) => { if (t.id === 900) { t.my_paid = 2400; t.my_paid_rows = 1200; t.my_elsewhere = 3600; } });
+  const ui = await open(b, { '/api/landsraad/apply': OK });
+  click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
+  const h = writes(ui)[0].body.houses[0];
+  assert.equal(h.was_paid, 2400);
+  assert.equal(h.was_paid_rows, 1200);
+  assert.equal(h.was_elsewhere, 3600);
+  assert.equal(h.was_events, 1200);
+  // a tier click that raises carries them too
+  const t5 = await open(b, { '/api/landsraad/apply': OK });
+  click(t5, tier(t5, 'Alexin', 5)); await t5.settle();
+  const h5 = writes(t5)[0].body.houses[0];
+  assert.deepEqual([h5.was_paid, h5.was_paid_rows, h5.was_elsewhere], [2400, 1200, 3600]);
+  // a removal does not carry them: the server never compares them for one
+  const b2 = withGrant({}, { 901: 0 });
+  b2.tasks.forEach((t) => { if (t.id === 901) { t.my_paid = 6000; t.my_paid_rows = 6000; t.my_elsewhere = 100; } });
+  const rm = await open(b2, { '/api/landsraad/apply': { ...OK, contribution_raised: 0, contribution_lowered: 1 } });
+  click(rm, tier(rm, 'Thorvald', 3)); await rm.settle();
+  const hr = writes(rm)[0].body.houses[0];
+  assert.equal(hr.lower, true);
+  assert.ok(!('was_paid' in hr) && !('was_paid_rows' in hr) && !('was_elsewhere' in hr), JSON.stringify(hr));
+  // a board that does not carry the numbers (an older server) sends none
+  const old = await open(withGrant({}, { 900: 0 }), { '/api/landsraad/apply': OK });
+  click(old, quick(old, 'Alexin', 'qa-fill')); await old.settle();
+  const ho = writes(old)[0].body.houses[0];
+  assert.ok(!('was_paid' in ho) && !('was_paid_rows' in ho) && !('was_elsewhere' in ho), JSON.stringify(ho));
+});
+
 test('a house with no specialization line is refused before the click only when the raise pays a mission, as the write refuses it (#762)', async () => {
   // a mission step of 100,000 and 100 already covered: Alexin 0 to 6,000 crosses no mission step, so no experience is written
   const b = withGrant({ step: 100000 }, { 900: 100 });

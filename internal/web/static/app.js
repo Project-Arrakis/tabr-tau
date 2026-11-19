@@ -1913,6 +1913,13 @@ function lbItem(h, l, kind, F, i) {
   }
   if ((kind === 'fill' || kind === 'fillgoal') && !lbFillOffF(h, l, F)) it.mine_to = lbTop(h); // Fill is off at the top tier, so this never lowers
   if (it.mine_to !== undefined && typeof h.task.my_events === 'number') it.was_events = h.task.my_events; // the ground your own events cover, as shown: the server refuses the raise when it is another number now (#762)
+  // a raise also carries the two other grounds its sentence was worked out from, as shown: what the editor itself paid before (and the ground whose reward rows are delivered), and what you reached
+  // under another faction; the server refuses the raise when either is another number now (#805). A removal does not depend on them.
+  if (it.mine_to !== undefined && !it.lower) {
+    if (typeof h.task.my_paid === 'number') it.was_paid = h.task.my_paid;
+    if (typeof h.task.my_paid_rows === 'number') it.was_paid_rows = h.task.my_paid_rows;
+    if (typeof h.task.my_elsewhere === 'number') it.was_elsewhere = h.task.my_elsewhere;
+  }
   if ((kind === 'complete' || kind === 'fillgoal') && !lbDoneFor(h, F)) it.complete_for = F;
   if (kind === 'reopen' && h.taken) it.reopen = true;
   return it.mine_to !== undefined || it.complete_for !== undefined || it.reopen ? it : null;
@@ -1933,7 +1940,9 @@ function lbChangeText(h, l, it) {
   if (it.reopen) p.push('house reopened (progress stays as it is)');
   return p.join('; ');
 }
-const lbFacName = (l, id) => ((l.factions || []).find((f) => f.id == id) || {}).name || (id == null ? '' : 'Faction ' + id);
+// a faction the Landsraad does not have (a save that already holds the Smuggler faction from an earlier write) is named plainly, not by its number (#842)
+// "Other faction" only when the list of the Landsraad's factions is loaded and the id is not in it; with no list (it failed to load, or is empty) nothing is known, so the number is shown
+const lbFacName = (l, id) => ((l.factions || []).find((f) => f.id == id) || {}).name || (id == null ? '' : (l.factions || []).length ? 'Other faction' : 'Faction ' + id);
 // ---- what a raise grants, said before the click (#652). The board read carries the size of a mission step, what a mission pays and the reason a raise would be refused (l.grant), and for
 // every house its specialization line and the contribution its own events already cover (my_events). The missions of a click are worked out here as the editor works them out when it writes
 // (landsraad_grant.go): the mission steps the raise crosses beyond the ground the character's own events already cover.
@@ -2184,7 +2193,9 @@ function lbGlance(hs, l, c) {
   const n = hs.length || 1, mineF = l.character ? l.character.faction_id : null;
   const tile = (k, cls, n_, glyph, word) => html`<a class="tile ${cls}" href="#lsb-board" data-lb="show" data-show="${k}" title="${k === 'done' ? 'Top tier (all tiers) reached by your contribution' : ''}" aria-label="${n_} ${k === 'done' ? 'top tier reached' : word.toLowerCase()}: show these houses in the list"><span class="now">showing</span><div class="n">${n_}</div><div class="l"><span aria-hidden="true">${glyph}</span> ${k === 'done' ? 'Top tier reached' : word}</div></a>`;
   const seg = (k, cls, n_, word) => html`<a class="${cls}" href="#lsb-board" data-lb="show" data-show="${k}" data-w="${n_ / n * 100}" data-tip="${n_} ${word.toLowerCase()}" aria-label="Show the ${n_} ${word.toLowerCase()} houses in the list"></a>`;
-  const facItems = (l.factions || []).map((f) => html`${f.name} <b>${c.byFac[f.id] || 0}</b>${mineF != null && f.id == mineF ? ' (your faction)' : ''}`).concat([html`<b>${c.open}</b> still open`]);
+  // houses won by a faction the list does not offer are counted apart (#842), shown only when there are some, so they are in neither faction's count nor in "still open"
+  const known = new Set((l.factions || []).map((f) => String(f.id))), other = Object.entries(c.byFac).reduce((s, [k, v]) => (known.has(k) ? s : s + v), 0);
+  const facItems = (l.factions || []).map((f) => html`${f.name} <b>${c.byFac[f.id] || 0}</b>${mineF != null && f.id == mineF ? ' (your faction)' : ''}`).concat(other && known.size ? [html`Other faction <b>${other}</b>`] : [], [html`<b>${c.open}</b> still open`]);
   // each item stays whole when the line wraps (a narrow screen), with its separator at its end
   const byFac = facItems.map((it, i) => html`<span class="fi">${it}${i < facItems.length - 1 ? ' ·' : ''}</span> `);
   return html`<section class="card d-panel" aria-labelledby="lsb-glance"><h2 class="d-head" id="lsb-glance">Current term ${(l.term || {}).term_id} at a glance <span class="cnt">${l.character ? html`character in ${l.character.faction_id != null ? lbFacName(l, l.character.faction_id) : 'no faction'} ${lbMark('save', 'Read from the save: player_faction')}` : 'no character in this save'}</span></h2>

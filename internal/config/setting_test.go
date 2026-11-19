@@ -96,3 +96,50 @@ func TestNumberTellsABadValueFromAFileThatCannotBeRead(t *testing.T) {
 		t.Fatalf("an unreadable file: %v", err)
 	}
 }
+
+// Numbers answers several keys of a section from one read of the file, each as Number answers it (#827): a bad value is that key's own error, a missing key is not found, and a file
+// that is not there answers every key as not found; a file that cannot be read is the error of the call.
+func TestNumbersAnswersEachKeyFromOneRead(t *testing.T) {
+	dir := t.TempDir()
+	text := "[" + DefaultSection + "]\nA=2.5\nB=abc\nA=3\n[Other]\nC=9\n"
+	if err := os.WriteFile(filepath.Join(dir, "ServerCustomSettings.ini"), []byte(text), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	d := Dir{Path: dir}
+	keys := []NumberKey{{"A", 0, 10}, {"B", 0, 10}, {"C", 0, 10}, {"a", 0, 2}}
+	vs, err := d.Numbers("ServerCustomSettings.ini", DefaultSection, keys)
+	if err != nil || len(vs) != len(keys) {
+		t.Fatalf("%v %v", vs, err)
+	}
+	if !vs[0].Found || vs[0].Value != 3 || vs[0].Err != nil {
+		t.Errorf("A: %+v", vs[0])
+	}
+	var bad *BadValueError
+	if !vs[1].Found || !errors.As(vs[1].Err, &bad) || bad.Key != "B" {
+		t.Errorf("B: %+v", vs[1])
+	}
+	if vs[2].Found || vs[2].Err != nil {
+		t.Errorf("C is in another section: %+v", vs[2])
+	}
+	if !vs[3].Found || !errors.As(vs[3].Err, &bad) || bad.Max != 2 {
+		t.Errorf("a key is matched without regard to case and checked against its own range: %+v", vs[3])
+	}
+	for i, k := range keys {
+		v, found, err := d.Number("ServerCustomSettings.ini", DefaultSection, k.Key, k.Min, k.Max)
+		if v != vs[i].Value || found != vs[i].Found || (err == nil) != (vs[i].Err == nil) {
+			t.Errorf("%s: Number says %v %v %v, Numbers %+v", k.Key, v, found, err, vs[i])
+		}
+	}
+	if vs, err := d.Numbers("Absent.ini", DefaultSection, keys); err != nil || vs[0].Found || len(vs) != len(keys) {
+		t.Fatalf("a file that is not there: %v %v", vs, err)
+	}
+	if _, err := d.Numbers("../x.ini", DefaultSection, keys); err == nil {
+		t.Fatal("a name that is not a config file was accepted")
+	}
+	if err := os.Mkdir(filepath.Join(dir, "Unreadable.ini"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.Numbers("Unreadable.ini", DefaultSection, keys); err == nil {
+		t.Fatal("a file that cannot be read is an error")
+	}
+}

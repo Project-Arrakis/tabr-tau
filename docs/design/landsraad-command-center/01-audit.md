@@ -87,7 +87,7 @@ The page never stages: every click is one request (`app.js` 1793-1796 comment). 
 
 **Disabled by alignment.** Tiers and Fill change the character's own contribution, which counts for the character's own faction only. With another faction chosen, or with no faction (Neutral), those controls are off with an explanation (`lbTierTip`, `app.js` 1952-1959; server side `myLandsraadTx`, `landsraad.go` 339-352, and the check at `landsraad_apply.go` 220-224). Complete, Reopen and Fill faction goal still act for the chosen faction.
 
-**Stale guards.** The item carries `was_mine`, `was_done`, `was_win` and, for a raise, `was_events`; the request carries `term_id`. Any difference is a conflict (HTTP 409 class, `apierr.ErrConflict`) and nothing is written; the page re-reads the board (`lbRun`, `app.js` 2232-2262). A new view must keep sending them.
+**Stale guards.** The item carries `was_mine`, `was_done`, `was_win` and, for a raise, `was_events`, `was_paid`, `was_paid_rows` and `was_elsewhere` (#805); the request carries `term_id`. Any difference is a conflict (HTTP 409 class, `apierr.ErrConflict`) and nothing is written; the page re-reads the board (`lbRun`, `app.js` 2232-2262). A new view must keep sending them.
 
 **Asking first.** Several houses always ask; one house asks when a raise would pay 10 or more missions (`LB_ASK_MISSIONS`, `app.js` 1890; `lbGo`, 2339).
 

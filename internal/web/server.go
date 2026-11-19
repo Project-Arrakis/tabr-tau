@@ -1282,24 +1282,32 @@ func (s *Server) grantSettings() ops.GrantSettings {
 	g := ops.DefaultGrantSettings()
 	g.TrackNumbers = s.specNums() // the same numbers the Specialization tab writes with, so the two cannot drift apart
 	var problems []string
-	unreadable := false
-	for _, k := range []struct {
+	keys := []struct {
 		key  string
 		dst  *float64
 		zero string // what a 0 would mean, when 0 cannot be used
 	}{{"LandsraadContributionMultiplier", &g.ContributionMultiplier, "a mission would add no contribution and the missions a click stands for could not be counted"},
-		{"LandsraadSpecializationXpMultiplier", &g.SpecializationXPMultiplier, ""}} {
-		v, found, err := s.Cfg.Number("ServerCustomSettings.ini", config.DefaultSection, k.key, 0, 10)
+		{"LandsraadSpecializationXpMultiplier", &g.SpecializationXPMultiplier, ""}}
+	want := make([]config.NumberKey, len(keys))
+	for i, k := range keys {
+		want[i] = config.NumberKey{Key: k.key, Min: 0, Max: 10}
+	}
+	vals, err := s.Cfg.Numbers("ServerCustomSettings.ini", config.DefaultSection, want) // one read of the file for both keys
+	// a file that cannot be read: a value to correct is the wrong advice, and the error text holds the full folder (#753)
+	unreadable := err != nil
+	for i, k := range keys {
+		if unreadable {
+			break
+		}
+		v := vals[i]
 		var bad *config.BadValueError
 		switch {
-		case errors.As(err, &bad):
+		case errors.As(v.Err, &bad):
 			problems = append(problems, bad.Error())
-		case err != nil: // the file cannot be read: a value to correct is the wrong advice, and the error text holds the full folder (#753)
-			unreadable = true
-		case found && v == 0 && k.zero != "":
+		case v.Found && v.Value == 0 && k.zero != "":
 			problems = append(problems, k.key+" in ServerCustomSettings.ini is 0, so "+k.zero)
-		case found:
-			*k.dst = v
+		case v.Found:
+			*k.dst = v.Value
 		}
 	}
 	switch {

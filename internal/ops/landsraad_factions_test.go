@@ -2,6 +2,7 @@ package ops
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -175,5 +176,68 @@ func TestACharacterInAFactionTheLandsraadDoesNotHaveHasNoLandsraadContribution(t
 	wantApplyError(t, o, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 2400.0})), apierr.ErrBadArgument)
 	if len(o.S.Pending()) != queued {
 		t.Fatalf("nothing more is queued: %v", o.S.Pending())
+	}
+}
+
+// #842: a character that is in a faction the Landsraad does not have (Smuggler, on a hand-edited save) is not told it is in no faction: the answer names the faction, and
+// Neutral keeps its own sentence.
+func TestAChangeOfACharacterInAFactionTheLandsraadDoesNotHaveNamesTheFaction(t *testing.T) {
+	o := rewardOps(t, `insert or replace into factions(id, name) values (1, 'Atreides'), (2, 'Harkonnen'), (3, 'None'), (4, 'Smuggler');
+		update player_faction set faction_id=4 where actor_id=1;`)
+	_, err := o.LandsraadApplyWith(doubled(), applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 2400.0})))
+	wantRefusal2(t, err, apierr.ErrBadArgument, `"Smuggler" faction, which the Landsraad does not have`, "assign Atreides or Harkonnen under Admin first")
+	if strings.Contains(err.Error(), "no faction (Neutral)") {
+		t.Fatalf("a faction the Landsraad does not have is not Neutral: %v", err)
+	}
+	n := rewardOps(t, `insert or replace into factions(id, name) values (1, 'Atreides'), (2, 'Harkonnen'), (3, 'None'), (4, 'Smuggler');
+		update player_faction set faction_id=3 where actor_id=1;`)
+	_, err = n.LandsraadApplyWith(doubled(), applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 2400.0})))
+	wantRefusal2(t, err, apierr.ErrBadArgument, "no faction (Neutral)")
+}
+
+// #846: a request that only repeats the reigning faction the row holds changes nothing, so no edit is queued for it, and the edit that does change something does not say it wrote it.
+func TestTheReigningFactionARequestOnlyRepeatsIsNotQueuedAsAnEdit(t *testing.T) {
+	o := factionOps(t)
+	setup(t, o, `insert into landsraad_decrees(id, decree_name, disabled, weight) values (1, 'DecreeA', 0, 1), (2, 'DecreeB', 0, 1)`)
+	setup(t, o, `update landsraad_decree_term set reigning_faction_id=4, active_decree_id=1 where term_id=7`) // a save that holds Smuggler
+	queued := len(o.S.Pending())
+	if _, err := o.SetTerm(Args{"reigning_faction_id": 4.0}); err != nil {
+		t.Fatalf("the held faction: %v", err)
+	}
+	if got := o.S.Pending(); len(got) != queued {
+		t.Fatalf("a request that repeats the held faction queued an edit: %v", got[queued:])
+	}
+	// the same for a faction the Landsraad has
+	o2 := factionOps(t)
+	setup(t, o2, `update landsraad_decree_term set reigning_faction_id=2 where term_id=7`)
+	queued2 := len(o2.S.Pending())
+	if _, err := o2.SetTerm(Args{"reigning_faction_id": 2.0}); err != nil {
+		t.Fatal(err)
+	}
+	if len(o2.S.Pending()) != queued2 {
+		t.Fatalf("a repeated Landsraad faction queued an edit: %v", o2.S.Pending())
+	}
+	// with a decree change beside it the edit is queued, and says only what it changed
+	if _, err := o.SetTerm(Args{"active_decree_id": 2.0, "reigning_faction_id": 4.0}); err != nil {
+		t.Fatal(err)
+	}
+	got := o.S.Pending()
+	if len(got) != queued+1 {
+		t.Fatalf("pending: %v", got)
+	}
+	last := got[len(got)-1]
+	if !strings.Contains(last, "active_decree_id = 2") || strings.Contains(last, "reigning_faction_id") {
+		t.Fatalf("the edit names what it did not change: %q", last)
+	}
+	// a request that changes the faction is queued with it
+	if _, err := o.SetTerm(Args{"reigning_faction_id": 1.0}); err != nil {
+		t.Fatal(err)
+	}
+	if last := o.S.Pending()[len(o.S.Pending())-1]; !strings.Contains(last, "reigning_faction_id = 1") {
+		t.Fatalf("a changed faction is not queued: %q", last)
+	}
+	// a repeated faction does not stop the refusal of a decree with no faction, and an end time before the start is still refused beside it
+	if _, err := o.SetTerm(Args{"reigning_faction_id": 1.0, "end_time": 5.0}); err == nil {
+		t.Fatal("an end before the start was accepted beside a repeated faction")
 	}
 }

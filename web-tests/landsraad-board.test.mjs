@@ -445,3 +445,29 @@ test('the current-term glance cards come before the Term and decrees panel, then
   const order = [...ui.doc.querySelectorAll('#lsb > section')].map((e) => e.getAttribute('aria-labelledby'));
   assert.deepEqual(order.slice(0, 4), ['lsb-glance', 'lsb-term-h', 'lsb-board-h', 'lsb-hist']);
 });
+
+// #842: a save that already holds a house won by a faction the Landsraad does not have (Smuggler, 4, from an earlier editor write)
+test('a house won by a faction the list does not offer reads "Other faction", and the glance line counts it apart instead of in neither count nor "still open" (#842)', async () => {
+  const b = board();
+  b.tasks.push(house(904, 'Zeta', 0, { completed: 1, winning_faction_id: 4, contributions: [{ faction_id: 4, amount: 4000 }] }));
+  const ui = await open(b);
+  const by = (n) => rows(ui).find((r) => r.querySelector('.hn b').textContent === n);
+  const tag = text(by('Zeta').querySelector('.c-hs'));
+  assert.ok(tag.includes('Taken · Other faction'), tag);
+  assert.ok(!/Faction 4/.test(text(ui.doc.querySelector('.lsb'))), 'the number of the faction is not shown as its name');
+  const items = [...ui.doc.querySelectorAll('.lsb .facts > span:first-child .fi')].map((e) => text(e));
+  assert.deepEqual(items, ['Atreides 1 (your faction) ·', 'Harkonnen 1 ·', 'Other faction 1 ·', '2 still open'], 'a third count, and every house is in exactly one of them');
+  // with no such house the line is as before
+  const plain = await open();
+  assert.deepEqual([...plain.doc.querySelectorAll('.lsb .facts > span:first-child .fi')].map((e) => text(e)), ['Atreides 1 (your faction) ·', 'Harkonnen 1 ·', '2 still open']);
+});
+
+test('"Other faction" is said only when the list of the Landsraad factions is loaded and does not offer the id; with no list the number is shown and nothing is counted as other (#842)', async () => {
+  const b = board({ factions: [] });
+  b.tasks.push(house(904, 'Zeta', 0, { completed: 1, winning_faction_id: 4, contributions: [{ faction_id: 4, amount: 4000 }] }));
+  const ui = await open(b);
+  const by = (n) => rows(ui).find((r) => r.querySelector('.hn b').textContent === n);
+  const tag = text(by('Zeta').querySelector('.c-hs'));
+  assert.ok(tag.includes('Taken · Faction 4') && !tag.includes('Other faction'), tag);
+  assert.ok(!/Other faction/.test(text(ui.doc.querySelector('.lsb'))), 'no "Other faction" without a list');
+});

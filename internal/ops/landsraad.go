@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -127,7 +128,7 @@ func (o *Ops) Landsraad() (any, error) {
 			return nil, readFailed("the rewards delivered to your character", err)
 		}
 		for _, d := range drows {
-			delivered[fmt.Sprint(d["house_name"])+"\x00"+fmt.Sprint(d["template_id"])] = d
+			delivered[deliveredKey(fmt.Sprint(d["house_name"]), d["template_id"])] = d
 		}
 	}
 	// the sum of the character's own progress events per house: the ground a raise already counts as paid (#656), for the page to work out what a click grants
@@ -171,7 +172,9 @@ func (o *Ops) Landsraad() (any, error) {
 	// the ground the editor itself paid (landsraad_paid.go), raises not recorded yet included (queued, or written and kept for the record), for the page to work out what a click grants: it counts only up to the highest tier whose reward row of this term stands for the house (trustedPaid), as in the write
 	// (the notes not yet recorded are read before the file: a write or a delivery that lands in between moves a note into the file, and the other order could see neither)
 	unrecordedPaid := pendingPaid(o.S.PendingNotes(paidNoteKind))
-	filePaid, _ := o.Paid.snapshot() // a record that could not be read shows as nothing paid here (a read); the write refuses instead
+	// a record that could not be read shows as nothing paid here (a read); the write refuses instead
+	filePaid, _ := o.Paid.snapshot()
+	recordedPaid := mergePaid(filePaid, unrecordedPaid) // merged once for the board: up to 4,096 entries, and each house asks for its own ground below
 	for _, t := range tasks {
 		id, _ := t["id"].(int64)
 		t["contributions"] = byTask[id]
@@ -204,7 +207,14 @@ func (o *Ops) Landsraad() (any, error) {
 		if hasSw {
 			swRow = sw
 		}
-		pg := trustedPaid(filePaid, unrecordedPaid, mineID, termID, house, standingTierRows(rw[id], swRow, delivered, house, termStart))
+		standRows := make([]save.Row, 0, len(rw[id])+1)
+		for _, x := range rw[id] {
+			standRows = append(standRows, x.(save.Row))
+		}
+		if swRow != nil {
+			standRows = append(standRows, swRow)
+		}
+		pg := trustedPaid(recordedPaid, mineID, termID, house, standingTier(standRows, standsIn(delivered, house, termStart)))
 		t["my_paid"], t["my_paid_rows"] = pg.ground, pg.rows // the ground whose missions are paid, and the ground whose reward rows are delivered (they differ after a take-back, #944)
 		// a tier is reached when the contribution is at least its threshold; whether it is delivered (and what stands at the house representative) is decided per tier by
 		// tierState in landsraad_board.go: the reward row of this term (#656, #655)
@@ -304,10 +314,6 @@ func (o *Ops) SetTerm(a Args) (any, error) {
 	if len(edits) == 0 {
 		return ok(), nil
 	}
-	var parts []string
-	for _, e := range edits {
-		parts = append(parts, fmt.Sprintf("%s = %v", e.col, e.val))
-	}
 	// The term is looked up inside the edit, through its own query, so it is kept with the edit: put back onto a newer file with another term, the edit is not applied to the
 	// old term's id.
 	_, err = o.S.Mutate("landsraad term", func(m *save.Mut) error {
@@ -341,6 +347,17 @@ func (o *Ops) SetTerm(a Args) (any, error) {
 				}
 			}
 		}
+		// a reigning faction the request only repeats (the page sends the held one back when the save holds a faction the list does not offer, or a script sets what is there) changes
+		// nothing: the edit is dropped, so no no-op rewrite is queued and the desc does not say it was written (#846). The checks above have already judged it.
+		// (a new list for this run of the edit: it is run again when put back onto a newer file, and the request's own list is what it starts from)
+		edits := slices.DeleteFunc(slices.Clone(edits), func(e edit) bool {
+			held, isHeld := term["reigning_faction_id"].(int64)
+			id, isInt := e.val.(int64)
+			return isHeld && isInt && e.col == "reigning_faction_id" && id == held
+		})
+		if len(edits) == 0 {
+			return nil
+		}
 		// a term that ends before it starts has no window: the completion times and the clock repair are worked out from it (D1-4, #611)
 		if start, ok := toFloat(term["start_time"]); ok {
 			for _, e := range edits {
@@ -348,6 +365,10 @@ func (o *Ops) SetTerm(a Args) (any, error) {
 					return apierr.Newf(apierr.ErrBadArgument, "end_time %d is before the term's start_time %d: the term would end before it starts", end, int64(start))
 				}
 			}
+		}
+		parts := make([]string, 0, len(edits))
+		for _, e := range edits {
+			parts = append(parts, fmt.Sprintf("%s = %v", e.col, e.val))
 		}
 		m.Desc = fmt.Sprintf("landsraad term %v: %s", term["term_id"], strings.Join(parts, ", "))
 		for _, e := range edits {
@@ -384,6 +405,12 @@ func myLandsraadTx(m *save.Mut, p player) (myLandsraad, error) {
 		id, ok = f["id"].(int64)
 	}
 	if !ok {
+		// a faction the Landsraad does not have (Smuggler, on a hand-edited save) is not Neutral: the character is somewhere, and the answer says where (#842)
+		if other, oerr := m.One(`select f.name name from player_faction pf join factions f on f.id=pf.faction_id where pf.actor_id=? and f.name<>'None'`, p.Controller); oerr == nil && other != nil {
+			if name, isStr := other["name"].(string); isStr && name != "" {
+				return myLandsraad{}, apierr.Newf(apierr.ErrBadArgument, "your character is in the %.40q faction, which the Landsraad does not have, so it has no Landsraad contribution to fill: assign Atreides or Harkonnen under Admin first", name)
+			}
+		}
 		return myLandsraad{}, apierr.New(apierr.ErrBadArgument, "your character is in no faction (Neutral), so it has no Landsraad contribution to fill: assign Atreides or Harkonnen under Admin first")
 	}
 	return myLandsraad{player: p.Controller, faction: id}, nil
