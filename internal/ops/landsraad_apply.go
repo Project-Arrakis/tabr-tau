@@ -397,10 +397,7 @@ func specAnswer(m map[string]int64) map[string]int64 {
 
 // houseOf names a task row's house for a message.
 func houseOf(t save.Row) string {
-	s := fmt.Sprint(t["house_name"])
-	if len(s) > 8 && s[:8] == "DA_House" {
-		s = s[8:]
-	}
+	s := houseShort(fmt.Sprint(t["house_name"]))
 	if r := []rune(s); len(r) > maxHouseName { // a name from a save built by hand must not fill a description
 		s = string(r[:maxHouseName]) + "..."
 	}

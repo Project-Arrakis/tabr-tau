@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -79,10 +78,11 @@ var (
 	paidReadPause = 50 * time.Millisecond
 )
 
-// paidOpen opens the file and paidReads counts the reads; a test replaces the first to make a read fail and looks at the second. Production code never changes them.
+// paidOpen opens the file and paidReadHook, when it is set, is called at the start of every read; a test replaces the first to make a read fail and sets the second to count the reads.
+// Production code never changes them.
 var (
-	paidOpen  = os.Open
-	paidReads atomic.Int64
+	paidOpen     = os.Open
+	paidReadHook func()
 )
 
 // paidNote is what a raise asks to be remembered, and one entry of the file.
@@ -197,7 +197,9 @@ func migratePaid(pf paidFile, to int, steps map[int]func(paidFile) (paidFile, er
 // os.ErrNotExist): the caller reads that as "nothing paid". A file that carries a version this build does not read as its own (above paidFileVersion, or not a whole number, or one
 // that the size limit cuts), however large it is, is errPaidNewer: it is neither read nor replaced. Any other error is a file that could not be read this time.
 func (l *PaidLedger) read() ([]paidNote, error) {
-	paidReads.Add(1)
+	if paidReadHook != nil {
+		paidReadHook()
+	}
 	f, err := paidOpen(l.path)
 	if err != nil {
 		return nil, err
@@ -432,12 +434,6 @@ func (l *PaidLedger) snapshot() ([]paidNote, error) {
 	return nil, errPaidUnreadable
 }
 
-// recorded is the highest ground recorded for the character on the house in the term, under any faction, or 0. It reads the file; the editor's own code asks a snapshot.
-func (l *PaidLedger) recorded(player, term int64, house string) float64 {
-	es, _ := l.snapshot()
-	return highestPaid(es, player, term, house)
-}
-
 func highestPaid(es []paidNote, player, term int64, house string) float64 {
 	best := 0.0
 	for _, e := range es {
@@ -650,50 +646,14 @@ func (l *PaidLedger) Record(notes []save.Note) error {
 	return durable.WriteFile(l.path, b, 0o600, l.opts)
 }
 
-// standingTierSQL is the highest reward tier of the task whose item has a reward row of the character, for the house, written in this term (last_updated at or after the start of the
-// term), or 0. The item of a tier is the task's own item (landsraad_task_rewards) or, for the highest tier, the house swatch (landsraad_one_time_house_rewards, when the save has
-// it). one is Mut.One or Save.One.
-func standingTierSQL(one func(string, ...any) (save.Row, error), player, taskID int64, house string, termStart int64) (float64, error) {
-	r, err := one(`select coalesce(max(r.threshold),0) t from landsraad_task_rewards r where r.task_id=? and exists
-		(select 1 from landsraad_house_rewards h where h.player_id=? and h.house_name=? and h.template_id=r.template_id and h.last_updated>=?)`, taskID, player, house, termStart)
-	if err != nil {
-		return 0, err
-	}
-	best, _ := toFloat(r["t"])
-	if has, err := one(`select 1 x from sqlite_master where type='table' and name='landsraad_one_time_house_rewards'`); err != nil {
-		return 0, err
-	} else if has != nil {
-		s, err := one(`select coalesce(max(o.threshold),0) t from landsraad_one_time_house_rewards o where o.house_name=? and exists
-			(select 1 from landsraad_house_rewards h where h.player_id=? and h.house_name=o.house_name and h.template_id=o.template_id and h.last_updated>=?)`, house, player, termStart)
-		if err != nil {
-			return 0, err
-		}
-		t, _ := toFloat(s["t"])
-		best = max(best, t)
-	}
-	return best, nil
-}
-
-// standingTierRows is standingTierSQL for the board read, from the rows it already holds: tiers (rows of landsraad_task_rewards), the house's swatch row (nil when it has none) and
-// delivered (the character's rows of landsraad_house_rewards keyed by house and item).
-func standingTierRows(tiers []any, swatch save.Row, delivered map[string]save.Row, house string, termStart float64) float64 {
-	stands := func(tmpl any) bool {
-		d, ok := delivered[house+"\x00"+fmt.Sprint(tmpl)]
-		if !ok {
-			return false
-		}
-		upd, _ := toFloat(d["last_updated"])
-		return upd >= termStart
-	}
+// standingTier is the one rule for "the highest reward tier of this term the save shows for the house": the largest threshold among rows (the tiers of the task, and the house swatch
+// when the save has one: rows of landsraad_task_rewards and landsraad_one_time_house_rewards, each with a threshold and a template_id) whose item stands, as stands says (the character
+// has a row of landsraad_house_rewards for the item that was last updated at or after the start of the term). The write reads its rows from the save (standingTierFromSave), the board
+// read from the rows it already holds; both end here, so the page and the write cannot count different paid ground.
+func standingTier(rows []save.Row, stands func(template any) bool) float64 {
 	best := 0.0
-	for _, x := range tiers {
-		r := x.(save.Row)
+	for _, r := range rows {
 		if th, _ := toFloat(r["threshold"]); th > best && stands(r["template_id"]) {
-			best = th
-		}
-	}
-	if swatch != nil {
-		if th, _ := toFloat(swatch["threshold"]); th > best && stands(swatch["template_id"]) {
 			best = th
 		}
 	}
@@ -714,17 +674,61 @@ type groundPaid struct {
 	untrusted                 bool
 }
 
-// trustedPaid is what counts of the record: the ground the file and the notes it has not taken yet (kept after a write, or queued) record for the character on the house, held to the highest
-// tier the save shows a reward row for or the tier a take-back removed rows up to (see groundPaid).
-func trustedPaid(file []paidNote, pending []paidNote, player, term int64, house string, standing float64) groundPaid {
-	all := mergePaid(file, pending)
-	rec := highestPaid(all, player, term, house)
+// deliveredKey keys the character's rows of landsraad_house_rewards by house and item.
+func deliveredKey(house string, template any) string { return house + "\x00" + fmt.Sprint(template) }
+
+// standsIn says, for a house, whether the item of a tier stands in this term: the character has a delivered row for it that was last updated at or after the start of the term.
+func standsIn(delivered map[string]save.Row, house string, termStart float64) func(any) bool {
+	return func(template any) bool {
+		d, ok := delivered[deliveredKey(house, template)]
+		if !ok {
+			return false
+		}
+		upd, isNum := toFloat(d["last_updated"])
+		return isNum && upd >= termStart
+	}
+}
+
+// standingTierFromSave is standingTier for the write: it fetches the rows (the task's tiers, the house's swatch rows when the save has that table, and the character's delivered rows of
+// the house) and leaves the rule to standingTier. query is Mut.Query or Save.Query.
+func standingTierFromSave(query func(string, ...any) ([]save.Row, error), player, taskID int64, house string, termStart float64) (float64, error) {
+	rows, err := query(`select threshold, template_id from landsraad_task_rewards where task_id=?`, taskID)
+	if err != nil {
+		return 0, err
+	}
+	has, err := query(`select 1 x from sqlite_master where type='table' and name='landsraad_one_time_house_rewards'`)
+	if err != nil {
+		return 0, err
+	}
+	if len(has) > 0 {
+		sw, err := query(`select threshold, template_id from landsraad_one_time_house_rewards where house_name=?`, house)
+		if err != nil {
+			return 0, err
+		}
+		rows = append(rows, sw...)
+	}
+	dr, err := query(`select house_name, template_id, last_updated from landsraad_house_rewards where player_id=? and house_name=?`, player, house)
+	if err != nil {
+		return 0, err
+	}
+	delivered := map[string]save.Row{}
+	for _, d := range dr {
+		delivered[deliveredKey(house, d["template_id"])] = d
+	}
+	return standingTier(rows, standsIn(delivered, house, termStart)), nil
+}
+
+// trustedPaid is what counts of the record: the ground the record holds for the character on the house, held to the highest tier the save shows a reward row for or the tier a take-back
+// removed rows up to (see groundPaid). recorded is the file's entries merged with the notes it has not taken yet (kept after a write, or queued), see mergePaid: a caller that asks for many
+// houses merges once and asks for each.
+func trustedPaid(recorded []paidNote, player, term int64, house string, standing float64) groundPaid {
+	rec := highestPaid(recorded, player, term, house)
 	if rec <= 0 {
 		return groundPaid{}
 	}
-	back := min(highestBack(all, player, term, house), rec)
+	back := min(highestBack(recorded, player, term, house), rec)
 	limit := max(standing, back)
-	floor, known := floorOf(all, player, term, house)
+	floor, known := floorOf(recorded, player, term, house)
 	return groundPaid{ground: min(rec, limit), rows: min(rec, standing), back: back, floor: floor, floorKnown: known, untrusted: rec > limit}
 }
 
@@ -735,15 +739,15 @@ func paidGround(m *save.Mut, file []paidNote, me myLandsraad, taskID, termID int
 	if m.NotesDropped() {
 		return groundPaid{}, apierr.Wrap(apierr.ErrWriteFailed, errPaidNotesDropped.Error(), errPaidNotesDropped)
 	}
-	pending := pendingPaid(m.Pending(paidNoteKind))
-	if highestPaid(mergePaid(file, pending), me.player, termID, house) <= 0 {
+	recorded := mergePaid(file, pendingPaid(m.Pending(paidNoteKind)))
+	if highestPaid(recorded, me.player, termID, house) <= 0 {
 		return groundPaid{}, nil
 	}
-	standing, err := standingTierSQL(m.One, me.player, taskID, house, clock.start)
+	standing, err := standingTierFromSave(m.Query, me.player, taskID, house, float64(clock.start))
 	if err != nil {
 		return groundPaid{}, err
 	}
-	return trustedPaid(file, pending, me.player, termID, house, standing), nil
+	return trustedPaid(recorded, me.player, termID, house, standing), nil
 }
 
 // notePaidBefore says what part of a raise was not paid because the editor paid it before: lo0 is the ground the game's own events and the other factions cover, lo the same with

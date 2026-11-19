@@ -113,11 +113,19 @@ var houseLine = map[string]string{
 
 // lineOfHouse is the specialization line of a house by its save name ("DA_HouseArgosaz"), or "" for a house the table does not hold.
 func lineOfHouse(house string) string {
-	name := house
-	if len(name) > 8 && name[:8] == "DA_House" {
-		name = name[8:]
+	return houseLine[houseShort(house)]
+}
+
+// housePrefix is what the save writes before a house's name.
+const housePrefix = "DA_House"
+
+// houseShort is a house's save name without the prefix ("DA_HouseArgosaz" is "Argosaz"); a name that is the prefix alone, or has none, is kept as it is. It is the one place the prefix is
+// cut: houseOf (for a message) and lineOfHouse (for the table) both go through it.
+func houseShort(house string) string {
+	if len(house) > len(housePrefix) && strings.HasPrefix(house, housePrefix) {
+		return house[len(housePrefix):]
 	}
-	return houseLine[name]
+	return house
 }
 
 // ceilSteps is ceil(x / step) as a float, for x >= 0 and step > 0. It stays a float so that the caller compares it with the cap before it is turned into a whole number: a step so
@@ -274,10 +282,10 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 	res.missions = missions
 	if missions > 0 {
 		res.solari, res.scrip = missions*missionSolari, missions*missionScrip
-		if err := addWallet(m, me.player, currencySolari, res.solari); err != nil {
+		if _, err := addWallet(m, me.player, currencySolari, res.solari); err != nil {
 			return res, false, err
 		}
-		if err := addWallet(m, me.player, currencyScrip, res.scrip); err != nil {
+		if _, err := addWallet(m, me.player, currencyScrip, res.scrip); err != nil {
 			return res, false, err
 		}
 		if xp := missions * g.xpPerMission(); xp > 0 {
@@ -302,21 +310,6 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 		return res, false, err
 	}
 	return res, completed, nil
-}
-
-// addWallet adds to one of the character's virtual currency balances (a wallet with no row is created).
-func addWallet(m *save.Mut, controller, currency, amount int64) error {
-	cur, err := m.One(`select balance from player_virtual_currency_balances where player_controller_id=? and currency_id=?`, controller, currency)
-	if err != nil {
-		return err
-	}
-	have := int64(0)
-	if cur != nil {
-		have = asInt(cur["balance"])
-	}
-	_, err = m.Exec(`insert into player_virtual_currency_balances(player_controller_id, currency_id, balance) values(?,?,?)
-		on conflict(player_controller_id, currency_id) do update set balance=excluded.balance`, controller, currency, have+amount)
-	return err
 }
 
 // addSpecialization adds XP to one track of the character, never past the last level, and sets the level to match; a line with no row gets one. It returns the XP that was added

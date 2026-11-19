@@ -453,19 +453,19 @@ func TestTakeBackTheCeilingLiftsTheGroundForMissionsAndNeverForRows(t *testing.T
 		{"no record", nil, 6000, 0, 0, 0, false},
 	}
 	for _, c := range cases {
-		g := trustedPaid(c.rec, nil, 1, 7, "A", c.standing)
+		g := trustedPaid(c.rec, 1, 7, "A", c.standing)
 		if g.ground != c.ground || g.rows != c.rows || g.back != c.back || g.untrusted != c.untrusted {
 			t.Errorf("%s: %+v, want ground %v rows %v back %v untrusted %v", c.name, g, c.ground, c.rows, c.back, c.untrusted)
 		}
 	}
 	// another house, another term and another character never share it
-	if g := trustedPaid(rec(6000, 6000), nil, 1, 7, "B", 0); g.ground != 0 {
+	if g := trustedPaid(rec(6000, 6000), 1, 7, "B", 0); g.ground != 0 {
 		t.Errorf("another house: %+v", g)
 	}
-	if g := trustedPaid(rec(6000, 6000), nil, 2, 7, "A", 0); g.ground != 0 {
+	if g := trustedPaid(rec(6000, 6000), 2, 7, "A", 0); g.ground != 0 {
 		t.Errorf("another character: %+v", g)
 	}
-	if g := trustedPaid(rec(6000, 6000), nil, 1, 8, "A", 0); g.ground != 0 {
+	if g := trustedPaid(rec(6000, 6000), 1, 8, "A", 0); g.ground != 0 {
 		t.Errorf("another term: %+v", g)
 	}
 }

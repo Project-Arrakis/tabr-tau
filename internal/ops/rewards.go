@@ -107,6 +107,21 @@ func addSkillPointsTx(m *save.Mut, pawn, n int64) (int64, error) {
 	return applied, writeLevelTx(m, rec.entity, rec.xp, rec.total+applied, rec.unspent+applied)
 }
 
+// addWallet adds to one of the character's virtual currency balances inside an edit (a wallet with no row is created) and returns the balance it had before. AddCurrency and the
+// Landsraad raise both write a wallet through this, so the read and the write of a balance are one rule.
+func addWallet(m *save.Mut, controller, currency, amount int64) (before int64, err error) {
+	cur, err := m.One(`select balance from player_virtual_currency_balances where player_controller_id=? and currency_id=?`, controller, currency)
+	if err != nil {
+		return 0, err
+	}
+	if cur != nil {
+		before = asInt(cur["balance"])
+	}
+	_, err = m.Exec(`insert into player_virtual_currency_balances(player_controller_id, currency_id, balance) values(?,?,?)
+		on conflict(player_controller_id, currency_id) do update set balance=excluded.balance`, controller, currency, before+amount)
+	return before, err
+}
+
 // AddCurrency adds to one of the character's virtual currency balances: 0 is Solari in wallet, 1 the secondary wallet (House credit in
 // wallet). This is not the Solari item stack in the backpack (see AddSolari). A wallet with no row yet is created.
 func (o *Ops) AddCurrency(a Args) (any, error) {
@@ -124,17 +139,13 @@ func (o *Ops) AddCurrency(a Args) (any, error) {
 	}
 	var before int64
 	_, err = o.S.Mutate(fmt.Sprintf("currency %d +%d", id, amount), func(m *save.Mut) error {
-		rows, err := m.Query(`select balance from player_virtual_currency_balances where player_controller_id=? and currency_id=?`, p.Controller, id)
+		var err error
+		before, err = addWallet(m, p.Controller, id, amount)
 		if err != nil {
 			return err
 		}
-		if len(rows) > 0 {
-			before, _ = toInt(rows[0]["balance"])
-		}
-		_, err = m.Exec(`insert into player_virtual_currency_balances(player_controller_id, currency_id, balance) values (?,?,?)
-			on conflict(player_controller_id, currency_id) do update set balance=excluded.balance`, p.Controller, id, before+amount)
 		m.Desc = fmt.Sprintf("%s +%s (%s)", currencyName(id), commas(amount), change(before, before+amount))
-		return err
+		return nil
 	})
 	if err != nil {
 		return nil, err
