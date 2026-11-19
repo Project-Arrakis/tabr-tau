@@ -76,17 +76,22 @@ func boardTask(t save.Row, tiers []any, delivered map[string]save.Row, one oneTi
 	for _, x := range tiers {
 		r := x.(save.Row)
 		th, _ := toFloat(r["threshold"])
-		tmpl, amount := r["template_id"], r["amount"]
-		isSwatch := false
-		if th == top && hasSwatch && (!held || heldTerm == termID) {
-			tmpl, amount, isSwatch = sw["template_id"], sw["amount"], true
-		}
+		tmpl, amount, isSwatch := tierShows(r, th, top, sw, hasSwatch, held, heldTerm, termID)
 		r["shown_template_id"], r["shown_amount"], r["swatch"] = tmpl, amount, isSwatch
 		d, hasRow := delivered[house+"\x00"+fmt.Sprint(tmpl)]
 		state := tierState(r["reached"] == true, d, hasRow, termStart)
 		r["reward_state"] = state
 		r["delivered"] = state == "waiting" || state == "delivered" // one answer for both fields, for the item the tier shows (the swatch included)
 	}
+}
+
+// tierShows is the one rule for the reward a tier shows (and delivers): the task's own item (landsraad_task_rewards), except for the highest tier of a house that has a swatch, which shows the
+// swatch while the character does not hold it and for the term in which it was won. The board's read and the take-back of a removed tier (landsraad_takeback.go) both use it.
+func tierShows(r save.Row, th, top float64, sw save.Row, hasSwatch, held bool, heldTerm, termID int64) (tmpl, amount any, isSwatch bool) {
+	if th == top && hasSwatch && (!held || heldTerm == termID) {
+		return sw["template_id"], sw["amount"], true
+	}
+	return r["template_id"], r["amount"], false
 }
 
 // tierState is the one rule for where a tier's reward stands, used by the board's reader for both `delivered` and `reward_state` (#656, #655). A reached tier reads from the row of

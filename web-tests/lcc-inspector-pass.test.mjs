@@ -62,7 +62,8 @@ test('#943 A: the same click in the panel of the House, with a faction chosen th
   assert.match(text(last(ui)), /^Off while Harkonnen is chosen/);
   select(ui, '#lsb-fac', 1); await ui.settle();
   // a write, then a lower square again
-  click(ui, row(ui, 5)); await ui.settle(); // removes tier 5 (the highest reached)
+  click(ui, row(ui, 5)); await ui.settle(); // removes tier 5 (the highest reached); its reward waits, so the removal asks first (#944) and the answer writes it
+  click(ui, '[data-fk="c-yes"]'); await ui.settle();
   assert.equal(ui.posted.filter((p) => p.path === '/api/landsraad/apply').length, 1);
   click(ui, card(ui, a, 'Hagal', 1));
   assert.match(text(last(ui)), /^To remove tiers of House Hagal, choose tier 4 in Set tier/, 'a click after a write is answered');

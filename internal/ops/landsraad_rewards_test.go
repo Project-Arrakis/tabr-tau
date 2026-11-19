@@ -189,15 +189,37 @@ func TestRewardsNothingIsWrittenForARemovalACompleteOrAnotherFaction(t *testing.
 	}
 }
 
-// The editor writes no event (#655) and remembers the ground it paid itself instead (#777): a removal followed by the same raise does not deliver the tiers again, and the waiting
-// amount of an item is not added to.
-func TestRewardsATierIsNotDeliveredAgainAfterARemoval(t *testing.T) {
+// The editor writes no event (#655) and remembers the ground it paid itself instead (#777). A removal takes back the waiting reward of the removed tier (#944), and the same raise writes it
+// again, once: the rows are what they were before the removal, and the waiting amount of an item is not added to.
+func TestRewardsATierIsDeliveredOnceAgainAfterARemovalTookItBack(t *testing.T) {
 	o := rewardOps(t, "")
 	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 3600.0})))
 	before := houseRewards(t, o, "DA_HouseKenola")
+	m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 3600.0, "mine_to": 2400.0, "lower": true})))
+	if m["rewards_taken_back"].(int64) != 1 || houseRewards(t, o, "DA_HouseKenola") == before {
+		t.Fatalf("the removal did not take back the waiting reward of the removed tier: %v", m)
+	}
+	m = mustApply(t, o, applyArgs(house(175, Args{"was_mine": 2400.0, "mine_to": 3600.0})))
+	if m["reward_rows"].(int64) != 1 || m["rewards_already_given"].(int64) != 0 || m["missions"].(int64) != 0 {
+		t.Fatalf("answer: %v", m)
+	}
+	if got := houseRewards(t, o, "DA_HouseKenola"); got != before {
+		t.Fatalf("the 3,600 tier is not what it was: %s (rows before: %s)", got, before)
+	}
+	if got := events(t, o); got != "" {
+		t.Fatalf("an event was written: %s", got)
+	}
+}
+
+// The same with the reward collected: a removal never touches it, and the raise does not deliver the tier again.
+func TestRewardsACollectedTierIsNotDeliveredAgainAfterARemoval(t *testing.T) {
+	o := rewardOps(t, "")
+	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 3600.0})))
+	collectRewards(t, o)
+	before := houseRewards(t, o, "DA_HouseKenola")
 	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 3600.0, "mine_to": 2400.0, "lower": true})))
 	if houseRewards(t, o, "DA_HouseKenola") != before {
-		t.Fatal("a removal wrote reward rows")
+		t.Fatal("a removal changed a collected reward")
 	}
 	m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 2400.0, "mine_to": 3600.0})))
 	if m["reward_rows"].(int64) != 0 || m["rewards_already_given"].(int64) != 1 {
@@ -205,9 +227,6 @@ func TestRewardsATierIsNotDeliveredAgainAfterARemoval(t *testing.T) {
 	}
 	if got := houseRewards(t, o, "DA_HouseKenola"); got != before {
 		t.Fatalf("the 3,600 tier was delivered again: %s (rows before: %s)", got, before)
-	}
-	if got := events(t, o); got != "" {
-		t.Fatalf("an event was written: %s", got)
 	}
 }
 
@@ -258,9 +277,10 @@ func TestRewardsNothingIsLoweredAndAnotherPlayersRowsAreKept(t *testing.T) {
 
 // The board shows the swatch as this term's top reward while the swatch was won in this term (landsraad_board.go), so giving the top tier again after a removal must not write the
 // task's own item instead: the swatch was already delivered in this term, and nothing is written.
-func TestRewardsASwatchWonThisTermIsNotReplacedByTheTaskItemAfterARemoval(t *testing.T) { // the one-time row of this term is what remembers it, the editor writes no event (#655)
+func TestRewardsACollectedSwatchWonThisTermIsNotReplacedByTheTaskItemAfterARemoval(t *testing.T) { // the one-time row of this term is what remembers it, the editor writes no event (#655)
 	o := rewardOps(t, "")
 	fillKenola(t, o, nil)
+	collectRewards(t, o) // a waiting swatch is taken back with its one-time row (#944, the next test); a collected one stays
 	before := houseRewards(t, o, "DA_HouseKenola")
 	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 6000.0, "mine_to": 4800.0, "lower": true})))
 	m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 4800.0, "mine_to": 6000.0})))
@@ -272,6 +292,27 @@ func TestRewardsASwatchWonThisTermIsNotReplacedByTheTaskItemAfterARemoval(t *tes
 	}
 	if got := oneTimeRows(t, o); got != "map[house_name:DA_HouseKenola player_id:1 template_id:Kenola_Placeables_Swatch term_id:7]\n" {
 		t.Fatalf("the one-time row changed: %s", got)
+	}
+}
+
+// A swatch that still waits is taken back with its one-time row (#944), and the same raise gives the swatch again, not the task's own item: the one-time row is what decides, and it is back.
+func TestRewardsAWaitingSwatchIsGivenAgainAsTheSwatchAfterARemoval(t *testing.T) {
+	o := rewardOps(t, "")
+	fillKenola(t, o, nil)
+	before := houseRewards(t, o, "DA_HouseKenola")
+	m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 6000.0, "mine_to": 4800.0, "lower": true})))
+	if m["rewards_taken_back"].(int64) != 1 || m["swatches_taken_back"].(int64) != 1 || oneTimeRows(t, o) != "" {
+		t.Fatalf("the waiting swatch and its one-time row were not taken back: %v, %q", m, oneTimeRows(t, o))
+	}
+	m = mustApply(t, o, applyArgs(house(175, Args{"was_mine": 4800.0, "mine_to": 6000.0})))
+	if m["reward_rows"].(int64) != 1 || m["swatches"].(int64) != 1 || m["missions"].(int64) != 0 {
+		t.Fatalf("answer: %v", m)
+	}
+	if got := houseRewards(t, o, "DA_HouseKenola"); got != before {
+		t.Fatalf("the top tier is not the swatch it was:\n%s\n%s", before, got)
+	}
+	if got := oneTimeRows(t, o); got != "map[house_name:DA_HouseKenola player_id:1 template_id:Kenola_Placeables_Swatch term_id:7]\n" {
+		t.Fatalf("the one-time row is not back: %s", got)
 	}
 }
 

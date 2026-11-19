@@ -58,7 +58,8 @@ func TestPaidTheRecordIsWrittenOnlyAfterTheGamesFileIsWritten(t *testing.T) {
 	}
 	flush(t, o)
 	f := readPaid(t, path)
-	if len(f.Entries) != 1 || f.Entries[0] != (paidNote{Player: 1, Term: 7, House: "DA_HouseKenola", Faction: 2, Paid: 6000}) || f.Version != 1 || f.Save != strings.ToLower(o.S.Path) {
+	// the raise began at the character's own 1,300: that is where the editor started paying (#944)
+	if len(f.Entries) != 1 || f.Entries[0].Floor == nil || *f.Entries[0].Floor != 1300 || f.Entries[0].Player != 1 || f.Entries[0].Term != 7 || f.Entries[0].House != "DA_HouseKenola" || f.Entries[0].Faction != 2 || f.Entries[0].Paid != 6000 || f.Entries[0].Back != 0 || f.Version != 1 || f.Save != strings.ToLower(o.S.Path) {
 		t.Fatalf("the record: %+v", f)
 	}
 }
@@ -94,15 +95,25 @@ func TestPaidARemovalAndTheSameRaiseAfterTheFileWasWrittenPaysNothingAndSaysSo(t
 	solari, scrip, rewards := wallet(t, o, 0), wallet(t, o, 1), houseRewards(t, o, "DA_HouseKenola")
 	facBefore, _ := progress(t, o, 2, 175)
 	removeTo(t, o, 6000, 0)
-	m := fillKenolaDoubled(t, o, 0, 6000)
-	if m["missions"].(int64) != 0 || m["reward_rows"].(int64) != 0 || m["solari"].(int64) != 0 {
-		t.Fatalf("the same raise paid again: %v", m)
+	// the removal took back the five waiting rewards (#944); the missions they stood for stay paid, so the raise writes the reward rows again and pays nothing else
+	if left := rows(t, o, `select template_id from landsraad_house_rewards where player_id=1 and house_name='DA_HouseKenola'`); left != "" {
+		t.Fatalf("the removal left reward rows: %s", left)
 	}
-	if m["missions_paid_before"].(int64) != 3 || m["ground_paid_before"].(float64) != 6000 || m["rewards_already_given"].(int64) != 5 {
+	m := fillKenolaDoubled(t, o, 0, 6000)
+	if m["missions"].(int64) != 0 || m["solari"].(int64) != 0 || m["house_scrip"].(int64) != 0 || m["reward_rows"].(int64) != 5 || m["swatches"].(int64) != 1 {
+		t.Fatalf("the same raise paid again, or did not give the rewards back: %v", m)
+	}
+	if m["missions_paid_before"].(int64) != 3 || m["ground_paid_before"].(float64) != 6000 || m["rewards_already_given"].(int64) != 0 {
 		t.Fatalf("the answer does not say what was not paid: %v", m)
 	}
-	if wallet(t, o, 0) != solari || wallet(t, o, 1) != scrip || houseRewards(t, o, "DA_HouseKenola") != rewards {
-		t.Fatal("wallets or reward rows changed")
+	if wallet(t, o, 0) != solari || wallet(t, o, 1) != scrip {
+		t.Fatal("a wallet changed")
+	}
+	// every reward row that was there is back (the first raise started at 1,300, so the 1,200 tier had no row; the raise from 0 writes it, as the first raise of a character at 0 would)
+	for _, line := range strings.Split(strings.TrimSpace(rewards), "\n") {
+		if !strings.Contains(houseRewards(t, o, "DA_HouseKenola"), line) {
+			t.Fatalf("a reward row is not back: %s", line)
+		}
 	}
 	// the faction's progress is not added to again either
 	if v, _ := progress(t, o, 2, 175); v != facBefore {
@@ -118,8 +129,8 @@ func TestPaidAHigherRaiseAfterARemovalPaysOnlyTheNewTiers(t *testing.T) {
 	flush(t, o)
 	solari := wallet(t, o, 0)
 	m := fillKenolaDoubled(t, o, 0, 4800)
-	// step 2,000: ceil(4800/2000) - ceil(2400/2000) = 1 mission; the tiers 3,600 and 4,800 are written, 1,200 and 2,400 were paid
-	if m["missions"].(int64) != 1 || m["reward_rows"].(int64) != 2 || m["missions_paid_before"].(int64) != 2 || m["ground_paid_before"].(float64) != 2400 {
+	// step 2,000: ceil(4800/2000) - ceil(2400/2000) = 1 mission; the rewards of the tiers 1,200 and 2,400 were taken back by the removal and are written again with the new tiers 3,600 and 4,800
+	if m["missions"].(int64) != 1 || m["reward_rows"].(int64) != 4 || m["missions_paid_before"].(int64) != 2 || m["ground_paid_before"].(float64) != 2400 {
 		t.Fatalf("answer: %v", m)
 	}
 	if wallet(t, o, 0) != solari+6000 {
@@ -137,7 +148,8 @@ func TestPaidAClickOnTheHighestTierTwiceInOneQueueDoesNotPayTwice(t *testing.T) 
 	// not written yet: the queued edit carries the record, so the tier box (a toggle) cannot pay twice in the meantime
 	removeTo(t, o, 6000, 4800)
 	m := fillKenolaDoubled(t, o, 4800, 6000)
-	if m["missions"].(int64) != 0 || m["reward_rows"].(int64) != 0 || m["ground_paid_before"].(float64) != 1200 {
+	// the queued removal took back the waiting reward of the top tier; the repeated click writes it again and pays no mission
+	if m["missions"].(int64) != 0 || m["reward_rows"].(int64) != 1 || m["ground_paid_before"].(float64) != 1200 {
 		t.Fatalf("a repeated click paid again: %v", m)
 	}
 }
@@ -287,5 +299,30 @@ func TestPaidTheRecordKeepsTheHighestAndLeavesOtherTermsAlone(t *testing.T) {
 	var none *PaidLedger
 	if none.recorded(1, 7, "B") != 0 || none.Record([]save.Note{note(7, 2, "B", 1)}) != nil || NewPaidLedger("", "x").recorded(1, 7, "B") != 0 {
 		t.Fatal("a ledger with no file recorded something")
+	}
+}
+
+// The same with the rewards collected before the removal (#944): nothing is taken back, no reward row is written again, and nothing is paid. The answer says that the five rewards were not written because
+// they were given already.
+func TestPaidARemovalAndTheSameRaiseOverCollectedRewardsPaysNothingAndWritesNoRow(t *testing.T) {
+	o, _ := paidOps(t, "")
+	fillKenolaDoubled(t, o, 1300, 6000)
+	flush(t, o)
+	collectRewards(t, o)
+	solari, scrip, rewards := wallet(t, o, 0), wallet(t, o, 1), houseRewards(t, o, "DA_HouseKenola")
+	facBefore, _ := progress(t, o, 2, 175)
+	removeTo(t, o, 6000, 0)
+	m := fillKenolaDoubled(t, o, 0, 6000)
+	if m["missions"].(int64) != 0 || m["reward_rows"].(int64) != 0 || m["solari"].(int64) != 0 {
+		t.Fatalf("the same raise paid again: %v", m)
+	}
+	if m["missions_paid_before"].(int64) != 3 || m["ground_paid_before"].(float64) != 6000 || m["rewards_already_given"].(int64) != 5 {
+		t.Fatalf("the answer does not say what was not paid: %v", m)
+	}
+	if wallet(t, o, 0) != solari || wallet(t, o, 1) != scrip || houseRewards(t, o, "DA_HouseKenola") != rewards {
+		t.Fatal("wallets or reward rows changed")
+	}
+	if v, _ := progress(t, o, 2, 175); v != facBefore {
+		t.Fatalf("faction progress: %v, was %v", v, facBefore)
 	}
 }

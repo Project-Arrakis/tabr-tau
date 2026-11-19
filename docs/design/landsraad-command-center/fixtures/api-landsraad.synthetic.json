@@ -231,6 +231,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": false,
       "player_contributions": [
         { "amount": 1000, "faction_id": 2, "mine": false, "player_id": 50 }
@@ -244,6 +245,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9001,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -256,6 +259,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9001,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -268,6 +273,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9001,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -280,6 +287,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9001,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -292,6 +301,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_VERNIUS",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9001,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -319,6 +330,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": true,
       "player_contributions": [
         { "amount": 1300, "faction_id": 1, "mine": true, "player_id": 1 },
@@ -333,6 +345,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "collected",
+          "takeback_why": "",
           "task_id": 9002,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -345,6 +359,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9002,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -357,6 +373,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9002,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -369,6 +387,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9002,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -381,6 +401,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_RICHESE",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9002,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -419,6 +441,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": true,
       "player_contributions": [
         { "amount": 1200, "faction_id": 1, "mine": true, "player_id": 1 },
@@ -433,6 +456,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "none",
+          "takeback_why": "",
           "task_id": 9003,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -445,6 +470,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9003,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -457,6 +484,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9003,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -469,6 +498,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9003,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -481,6 +512,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_KENOLA",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9003,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -508,6 +541,7 @@
       "my_elsewhere": 0,
       "my_events": 2500,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": true,
       "player_contributions": [
         { "amount": 2500, "faction_id": 1, "mine": true, "player_id": 1 },
@@ -522,6 +556,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "collected",
+          "takeback_why": "",
           "task_id": 9004,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -534,6 +570,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "take",
+          "takeback_why": "",
           "task_id": 9004,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -546,6 +584,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9004,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -558,6 +598,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9004,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -570,6 +612,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_ALEXIN",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9004,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -597,6 +641,7 @@
       "my_elsewhere": 0,
       "my_events": 6500,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": true,
       "player_contributions": [
         { "amount": 6500, "faction_id": 1, "mine": true, "player_id": 1 },
@@ -611,6 +656,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "collected",
+          "takeback_why": "",
           "task_id": 9005,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -623,6 +670,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "collected",
+          "takeback_why": "",
           "task_id": 9005,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -635,6 +684,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "collected",
+          "takeback_why": "",
           "task_id": 9005,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -647,6 +698,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "collected",
+          "takeback_why": "",
           "task_id": 9005,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -659,6 +712,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_THORVALD",
           "swatch": true,
+          "takeback": "take",
+          "takeback_why": "",
           "task_id": 9005,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -686,6 +741,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 4800,
+      "my_paid_rows": 4800,
       "my_recorded": true,
       "player_contributions": [
         { "amount": 4800, "faction_id": 1, "mine": true, "player_id": 1 },
@@ -700,6 +756,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "collected",
+          "takeback_why": "",
           "task_id": 9006,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -712,6 +770,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "take",
+          "takeback_why": "",
           "task_id": 9006,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -724,6 +784,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "collected",
+          "takeback_why": "",
           "task_id": 9006,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -736,6 +798,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "none",
+          "takeback_why": "",
           "task_id": 9006,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -748,6 +812,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_MORITANI",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9006,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -775,6 +841,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": true,
       "player_contributions": [
         { "amount": 6000, "faction_id": 1, "mine": true, "player_id": 1 },
@@ -789,6 +856,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "collected",
+          "takeback_why": "",
           "task_id": 9007,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -801,6 +870,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "collected",
+          "takeback_why": "",
           "task_id": 9007,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -813,6 +884,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "collected",
+          "takeback_why": "",
           "task_id": 9007,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -825,6 +898,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "collected",
+          "takeback_why": "",
           "task_id": 9007,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -837,6 +912,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_HAGAL",
           "swatch": true,
+          "takeback": "collected",
+          "takeback_why": "",
           "task_id": 9007,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -864,6 +941,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": true,
       "player_contributions": [
         { "amount": 3600, "faction_id": 1, "mine": true, "player_id": 1 },
@@ -878,6 +956,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "take",
+          "takeback_why": "",
           "task_id": 9008,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -890,6 +970,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "take",
+          "takeback_why": "",
           "task_id": 9008,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -902,6 +984,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "take",
+          "takeback_why": "",
           "task_id": 9008,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -914,6 +998,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9008,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -926,6 +1012,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_WALLACH",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9008,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -953,6 +1041,7 @@
       "my_elsewhere": 2400,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": false,
       "player_contributions": null,
       "rewards": [
@@ -964,6 +1053,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9009,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -976,6 +1067,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9009,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -988,6 +1081,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9009,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -1000,6 +1095,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9009,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -1012,6 +1109,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_SOR",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9009,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -1049,6 +1148,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": false,
       "player_contributions": null,
       "rewards": [
@@ -1060,6 +1160,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9010,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -1072,6 +1174,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9010,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -1084,6 +1188,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9010,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -1096,6 +1202,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9010,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -1108,6 +1216,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_LINDAREN",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9010,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -1135,6 +1245,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": true,
       "player_contributions": [
         { "amount": 6000, "faction_id": 1, "mine": true, "player_id": 1 },
@@ -1149,6 +1260,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "collected",
+          "takeback_why": "",
           "task_id": 9011,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -1161,6 +1274,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "collected",
+          "takeback_why": "",
           "task_id": 9011,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -1173,6 +1288,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "collected",
+          "takeback_why": "",
           "task_id": 9011,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -1185,6 +1302,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "collected",
+          "takeback_why": "",
           "task_id": 9011,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -1197,6 +1316,8 @@
           "shown_amount": 75,
           "shown_template_id": "SYNTH_OWN_TOP",
           "swatch": false,
+          "takeback": "take",
+          "takeback_why": "",
           "task_id": 9011,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -1224,6 +1345,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": false,
       "player_contributions": [
         { "amount": 1000, "faction_id": 1, "mine": false, "player_id": 50 }
@@ -1237,6 +1359,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9012,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -1249,6 +1373,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9012,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -1261,6 +1387,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9012,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -1273,6 +1401,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9012,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -1285,6 +1415,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_TSEIDA",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9012,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -1309,6 +1441,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": false,
       "player_contributions": null,
       "rewards": [
@@ -1320,6 +1453,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9013,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -1332,6 +1467,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9013,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -1344,6 +1481,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9013,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -1356,6 +1495,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9013,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -1368,6 +1509,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_MUTELLI",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9013,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -1395,6 +1538,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": false,
       "player_contributions": [
         { "amount": 1000, "faction_id": 2, "mine": false, "player_id": 50 }
@@ -1408,6 +1552,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9014,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -1420,6 +1566,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9014,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -1432,6 +1580,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9014,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -1444,6 +1594,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9014,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -1456,6 +1608,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_HURATA",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9014,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -1483,6 +1637,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": false,
       "player_contributions": null,
       "rewards": [
@@ -1494,6 +1649,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9015,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -1506,6 +1663,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9015,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -1518,6 +1677,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9015,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -1530,6 +1691,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9015,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -1542,6 +1705,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_WAYKU",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9015,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -1569,6 +1734,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": false,
       "player_contributions": [
         { "amount": 1000, "faction_id": 1, "mine": false, "player_id": 50 }
@@ -1582,6 +1748,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9016,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -1594,6 +1762,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9016,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -1606,6 +1776,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9016,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -1618,6 +1790,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9016,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -1630,6 +1804,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_SPINETTE",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9016,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -1657,6 +1833,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": false,
       "player_contributions": null,
       "rewards": [
@@ -1668,6 +1845,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9017,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -1680,6 +1859,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9017,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -1692,6 +1873,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9017,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -1704,6 +1887,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9017,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -1716,6 +1901,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_MAROS",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9017,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -1743,6 +1930,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": false,
       "player_contributions": null,
       "rewards": [
@@ -1754,6 +1942,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9018,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -1766,6 +1956,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9018,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -1778,6 +1970,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9018,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -1790,6 +1984,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9018,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -1802,6 +1998,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_DYVETZ",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9018,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -1829,6 +2027,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": false,
       "player_contributions": [
         { "amount": 1000, "faction_id": 1, "mine": false, "player_id": 50 }
@@ -1842,6 +2041,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9019,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -1854,6 +2055,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9019,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -1866,6 +2069,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9019,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -1878,6 +2083,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9019,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -1890,6 +2097,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_VAROTA",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9019,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -1917,6 +2126,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": false,
       "player_contributions": [
         { "amount": 1000, "faction_id": 2, "mine": false, "player_id": 50 }
@@ -1930,6 +2140,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9020,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -1942,6 +2154,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9020,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -1954,6 +2168,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9020,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -1966,6 +2182,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9020,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -1978,6 +2196,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_NOVEBRUNS",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9020,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -2005,6 +2225,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": false,
       "player_contributions": [
         { "amount": 1000, "faction_id": 1, "mine": false, "player_id": 50 }
@@ -2018,6 +2239,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9021,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -2030,6 +2253,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9021,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -2042,6 +2267,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9021,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -2054,6 +2281,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9021,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -2066,6 +2295,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_IMOTA",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9021,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -2093,6 +2324,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": false,
       "player_contributions": [
         { "amount": 1000, "faction_id": 1, "mine": false, "player_id": 50 }
@@ -2106,6 +2338,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9022,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -2118,6 +2352,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9022,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -2130,6 +2366,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9022,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -2142,6 +2380,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9022,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -2154,6 +2394,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_WYDRAS",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9022,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -2181,6 +2423,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": false,
       "player_contributions": [
         { "amount": 1000, "faction_id": 1, "mine": false, "player_id": 50 }
@@ -2194,6 +2437,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9023,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -2206,6 +2451,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9023,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -2218,6 +2465,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9023,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -2230,6 +2479,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9023,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -2242,6 +2493,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_TALIGARI",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9023,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -2269,6 +2522,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": false,
       "player_contributions": null,
       "rewards": [
@@ -2280,6 +2534,8 @@
           "shown_amount": 10000,
           "shown_template_id": "SolarisCoin",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9024,
           "template_id": "SolarisCoin",
           "threshold": 1200
@@ -2292,6 +2548,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9024,
           "template_id": "SYNTH_SCHEMATIC_1",
           "threshold": 2400
@@ -2304,6 +2562,8 @@
           "shown_amount": 50,
           "shown_template_id": "SYNTH_PART_1",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9024,
           "template_id": "SYNTH_PART_1",
           "threshold": 3600
@@ -2316,6 +2576,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SCHEMATIC_2",
           "swatch": false,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9024,
           "template_id": "SYNTH_SCHEMATIC_2",
           "threshold": 4800
@@ -2328,6 +2590,8 @@
           "shown_amount": 1,
           "shown_template_id": "SYNTH_SWATCH_MIKKAROL",
           "swatch": true,
+          "takeback": "",
+          "takeback_why": "",
           "task_id": 9024,
           "template_id": "SYNTH_OWN_TOP",
           "threshold": 6000
@@ -2355,6 +2619,7 @@
       "my_elsewhere": 0,
       "my_events": 0,
       "my_paid": 0,
+      "my_paid_rows": 0,
       "my_recorded": false,
       "player_contributions": null,
       "rewards": null,

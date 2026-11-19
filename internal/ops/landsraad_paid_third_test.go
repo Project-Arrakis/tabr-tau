@@ -96,8 +96,9 @@ func TestPaidTheBoundEvictsOldTermsThroughRecord(t *testing.T) {
 	}
 }
 
-// A tier removal pays nothing and needs no record: an unreadable record does not stop it, and it does not read the file. A raise is refused with a message that says it and names no
-// folder.
+// A tier removal pays nothing and needs no record: an unreadable record does not stop it. It reads the file at most once (with the one retry), and only to tell whether the editor wrote the
+// waiting rewards of the removed tiers (landsraad_takeback_test.go): with a record that cannot be read nothing vouches for them and they stay. A raise is refused with a message that says it
+// and names no folder.
 func TestPaidARemovalGoesThroughWithAnUnreadableRecordAndARaiseIsRefused(t *testing.T) {
 	o, _ := paidOps(t, "")
 	fillKenolaDoubled(t, o, 1300, 4800)
@@ -108,8 +109,11 @@ func TestPaidARemovalGoesThroughWithAnUnreadableRecordAndARaiseIsRefused(t *test
 	paidOpen = unreadable(nil)
 	before := paidReads.Load()
 	removeTo(t, o, 4800, 1200) // applyWith fails the test on an error
-	if n := paidReads.Load() - before; n != 0 {
+	if n := paidReads.Load() - before; n > int64(paidReadTries) {
 		t.Fatalf("a removal read the record %d times", n)
+	}
+	if got := houseRewards(t, o, "DA_HouseKenola"); !strings.Contains(got, "Schematic.L") || !strings.Contains(got, "T6RangeFinder") {
+		t.Fatalf("a record that could not be read vouched for the rewards, which were taken back: %s", got)
 	}
 	if got := rows(t, o, `select amount from landsraad_task_player_contributions where player_id=1 and task_id=175`); !strings.Contains(got, "1200") {
 		t.Fatalf("the removal was not made: %s", got)

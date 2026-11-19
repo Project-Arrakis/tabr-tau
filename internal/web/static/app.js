@@ -1859,7 +1859,8 @@ function lbHouse(r, l) {
   for (const c of r.contributions || []) prog[c.faction_id] = Number(c.amount) || 0;
   const mine = Number(r.my_contribution || 0), done = !!r.completed, win = r.winning_faction_id == null ? null : r.winning_faction_id;
   const tiers = (r.rewards || []).map((x) => ({ th: Number(x.threshold), amount: Number(x.shown_amount != null ? x.shown_amount : x.amount), tmpl: x.shown_template_id || x.template_id, swatch: !!x.swatch,
-    reached: mine >= Number(x.threshold), state: x.reward_state || (x.reached ? 'no_row' : 'not_reached') }));
+    reached: mine >= Number(x.threshold), state: x.reward_state || (x.reached ? 'no_row' : 'not_reached'),
+    back: x.takeback || '', backWhy: x.takeback_why || '' })); // what removing this tier would do to its reward (take, collected, none, unsure), by the server's rule (landsraad_takeback.go)
   const reached = tiers.filter((t) => t.reached).length;
   const loc = r.location || { known: false };
   const state = mine <= 0 ? 'new' : tiers.length && reached === tiers.length ? 'done' : 'part';
@@ -1933,10 +1934,12 @@ function lbGrantOf(h, l, from, to) {
   const g = l && l.grant;
   if (!g || !(to > from)) return null;
   const lo0 = Math.max(from, Number(h.task.my_events) || 0, Number(h.task.my_elsewhere) || 0); // the game's events, and what the character reached under another faction
-  const lo = Math.max(lo0, Number(h.task.my_paid) || 0); // and the ground the editor itself paid before: a tier removal does not take it back (#777)
+  const lo = Math.max(lo0, Number(h.task.my_paid) || 0); // and the ground the editor itself paid before: a tier removal does not take back what its missions paid (#777)
+  const loRows = Math.max(lo0, Number(h.task.my_paid_rows) || 0); // the ground whose reward rows are delivered: the rewards a removal took back are written again (#944)
+  const rowsOf = () => h.tiers.filter((t) => t.th > loRows && t.th <= to && !(t.swatch && h.held)).length;
   const at0 = (x) => (x <= 0 ? 0 : Math.ceil(x / (g.step || 1) - 1e-9));
   const paidMissions = lo > lo0 && g.step > 0 ? Math.max(0, at0(Math.min(to, lo)) - at0(lo0)) : 0; // the missions this click would pay but for that record
-  if (!(to > lo)) return { missions: 0, rewards: 0, solari: 0, scrip: 0, xpBy: {}, paidMissions }; // the character's own events and the editor's own record already cover this ground
+  if (!(to > lo)) return { missions: 0, rewards: rowsOf(), solari: 0, scrip: 0, xpBy: {}, paidMissions }; // the character's own events and the editor's own record already cover this ground: no mission is paid, and only the rewards a removal took back are written
   if (g.problem) return { problem: g.problem };
   const line = h.task.line || '';
   const at = (x) => (x <= 0 ? 0 : Math.ceil(x / g.step - 1e-9)), missions = at(to) - at(lo);
@@ -1945,7 +1948,7 @@ function lbGrantOf(h, l, from, to) {
   const room = g.room && line && g.room[line] != null ? Number(g.room[line]) : null; // the experience the track still has room for: the write adds no more than fits (#762)
   const xp = room != null ? Math.min(missions * g.xp, Math.max(room, 0)) : missions * g.xp;
   // a swatch won in this term is not delivered again (the write skips it), so the top tier does not count as waiting then
-  return { missions, paidMissions, rewards: h.tiers.filter((t) => t.th > lo && t.th <= to && !(t.swatch && h.held)).length, solari: missions * g.solari, scrip: missions * g.scrip, xpBy: xp > 0 && line ? { [line]: xp } : {} };
+  return { missions, paidMissions, rewards: rowsOf(), solari: missions * g.solari, scrip: missions * g.scrip, xpBy: xp > 0 && line ? { [line]: xp } : {} };
 }
 function lbGrantSum(list) { // the grants of several houses as one
   const s = { missions: 0, rewards: 0, solari: 0, scrip: 0, xpBy: {}, paidMissions: 0 };
@@ -1962,11 +1965,11 @@ function lbGrantSay(g) {
   if (g.problem) return 'Will be refused: ' + g.problem;
   const rw = g.rewards ? nn(g.rewards, 'reward', 'rewards') + ' waiting at the house representative' : '';
   const pb = g.paidMissions ? ' ' + lbPaidBefore(g.paidMissions) : ''; // ground the editor paid before is named, so that a click that pays less than it looks is not a surprise (#777)
-  if (!g.missions) return 'Writes no missions: your own earlier progress already counts for this ground' + (rw ? '; ' + rw : '') + '.' + pb;
+  if (!g.missions) return 'Writes no missions' + (g.paidMissions ? '' : ': your own earlier progress already counts for this ground') + (rw ? '; ' + rw : '') + '.' + pb;
   return 'Writes ' + nn(g.missions, 'mission', 'missions') + ': ' + lbGrantList(g) + (rw ? ', ' + rw : '') + '.' + pb;
 }
-// the sentence for missions left unpaid because the editor paid that ground before (a tier removal takes nothing back, so the same raise does not pay it twice)
-const lbPaidBefore = (n) => nn(n, 'mission', 'missions') + ' not paid: the save shows that ground as already paid (the editor recorded it in an earlier raise), and removing a tier does not take it back.';
+// the sentence for missions left unpaid because the editor paid that ground before (a tier removal takes back no Solari, House Scrip, XP or faction progress, so the same raise never pays them twice; it only writes again a reward a removal took back)
+const lbPaidBefore = (n) => nn(n, 'mission', 'missions') + ' not paid: the editor recorded that ground as paid in an earlier raise, and removing a tier does not take back what its missions paid.';
 const lbGrantShort = (g) => (!g ? '' : g.problem ? 'will be refused' : g.missions ? nn(g.missions, 'mission', 'missions') + ': +' + lbF(g.solari) + ' Solari' : 'no missions');
 function lbHsText(h, l) {
   const mineF = l.character ? l.character.faction_id : null;
@@ -1987,7 +1990,30 @@ const lbLocHint = (h) => (lbOnMap(h) ? 'Click the place to open the Saved map.' 
 const lbSub = (h) => (h.loc.known ? [h.loc.cell ? 'Grid cell ' + h.loc.cell : '', h.loc.place, h.loc.area === h.loc.map ? '' : h.loc.map].filter(Boolean).join(' · ') : '');
 function lbAreaFull(h) { return !h.loc.known ? 'not mapped yet' : h.loc.area === h.loc.map ? h.loc.area : h.loc.area + ' (' + h.loc.map + ')'; }
 const lbTierWord = (t) => LB_STL[t.state];
-const LB_REMOVE_NOTE = 'This takes back nothing the tier paid: to go back, restore the backup (Database tab, Save backups).';
+const LB_REMOVE_NOTE = 'Rewards already collected stay, and so do the Solari, House Scrip and XP the missions of the tier paid, and raising the tier again pays no mission a second time. To go back, restore the backup (Database tab, Save backups); the editor does not restore its own record with it, so a raise after that may pay less than before.';
+// What removing a tier does to its reward, in words (the server's rule, landsraad_takeback.go, said before the click): t is the tier of the house as lbHouse built it. A tier whose reward has no row says so, so a removal
+// is never silent about the reward. Removing the tier also removes the tiers above it, but the page removes one tier at a time, the highest first.
+function lbBackSay(t) {
+  const r = lbRText(t) + (t.swatch ? ' (the house swatch)' : '');
+  switch (t.back) {
+    case 'take': return 'Takes back its reward, which still waits at the house representative: ' + r + '. Raising the tier again writes that reward once more.';
+    case 'collected': return 'Its reward (' + r + ') is already collected and stays.';
+    case 'earned': return 'A reward (' + r + ') waits for this tier and stays: ' + (t.backWhy || 'your own missions in the game cover this tier') + '.';
+    case 'unsure': return 'Its reward (' + r + ') stays: it cannot be tied to this tier with certainty, because ' + (t.backWhy || 'the save does not say') + '.';
+    default: return 'No reward of this tier waits at the house representative, so there is nothing to take back.';
+  }
+}
+// a removal asks first when its reward is taken back or named as staying; a tier with no reward row to say anything about is written at once, as before
+const lbBackAsks = (t) => !!t && (t.back === 'take' || t.back === 'collected' || t.back === 'earned' || t.back === 'unsure');
+// the line under the highest reached tier box: what a click on it does to its reward, said from the server's outcome for the tier (t.back) and never as a fixed claim
+function lbRemoveLine(t) {
+  switch (t && t.back) {
+    case 'take': return 'click removes it; takes back its waiting reward';
+    case 'collected': return 'click removes it; its reward is collected and stays';
+    case 'earned': case 'unsure': return 'click removes it; its waiting reward stays';
+    default: return 'click removes it; no reward waits';
+  }
+}
 // what a tier click does. withGrant: the sentence that says what a raise grants goes into the tip too (the tier box shows it as text, so its accessible name carries it as well)
 // what the Command Center board says when a click on a lower reached tier cannot remove it: the board removes tiers with Set tier and Apply tier, one at a time, the highest first (the Classic list: click the highest reached tier)
 const lbBoardRemove = (h) => 'choose tier ' + (h.reached - 1) + ' in Set tier and press Apply tier: tiers come off one at a time, the highest first.';
@@ -1997,7 +2023,7 @@ function lbTierTip(h, t, i, can, l, withGrant, F, board) {
   if (!can) return 'Your character is in no faction, so there is no contribution of yours to change.';
   if (!lbOwnF(l, F)) return `Off while ${lbFacName(l, F)} is chosen. Tiers change your own contribution, which counts for ${lbFacName(l, l.character.faction_id)}: choose ${lbFacName(l, l.character.faction_id)} above.`;
   if (i > n) return `Give tier ${i}: your contribution goes to ${lbF(t.th)}, so ${i === 1 ? 'tier 1 is' : 'tiers 1 to ' + i + ' are'} reached (contribution is cumulative). ${withGrant ? lbGrantSay(lbGrantOf(h, l, h.mine, t.th)) + ' ' : ''}Written at once.`;
-  return i === n ? `Remove tier ${i}: your contribution drops to ${i > 1 ? lbF(h.tiers[i - 2].th) : 'none'}. ${LB_REMOVE_NOTE}`
+  return i === n ? `Remove tier ${i}: your contribution drops to ${i > 1 ? lbF(h.tiers[i - 2].th) : 'none'}. ${lbBackSay(t)} ${LB_REMOVE_NOTE}`
     : board ? `Tier ${i} is reached. To remove tiers, ${lbBoardRemove(h)}` : `Tier ${i} is reached. To remove tiers, click the highest reached tier (tier ${n}).`;
 }
 // The mouse-over text of one tier box, built once for the Classic list and for the cards of the board (#938): the reward, and what a click does or why the box is off. tip is what lbTierTip said.
@@ -2111,7 +2137,7 @@ function lbRow(h, l, hue, noLocs, pos) {
   const tierBoxes = h.tiers.map((t, i) => {
     const isTop = i === h.tiers.length - 1, st = t.state;
     const tip = lbTierTip(h, t, i + 1, can, l, true, F), tOff = !ownF, word = lbTierWord(t), gr = ownF && i + 1 > h.reached ? lbGrantOf(h, l, h.mine, t.th) : null;
-    return html`<button type="button" class="tc${isTop ? ' top' : ''}${t.reached ? ' on' : ''}${t.reached && st === 'waiting' ? ' wt' : ''}${t.reached && st === 'delivered' ? ' dv' : ''}" data-lb="tier" data-id="${h.id}" data-t="${i + 1}" data-fk="tc:${h.id}:${i + 1}" aria-pressed="${t.reached ? 'true' : 'false'}" aria-disabled="${ownF ? 'false' : 'true'}" aria-label="Tier ${i + 1}, ${lbF(t.th)}, reward ${lbRText(t)}, ${word}${tOff ? ', off' : '. ' + tip}" ${tOff ? html`aria-describedby="lsg-${h.id}" data-why="${tip}"` : ''} title="${lbTierTitle(h, t, i + 1, tip, tOff)}"><span class="tv">${lbF(t.th)}</span><span class="rw">${lbRText(t)}</span><span class="pl">${LB_STW[st]}</span>${gr ? html`<span class="gr">${lbGrantShort(gr)}</span>` : ownF && i + 1 === h.reached ? html`<span class="gr rm">click removes it; takes back nothing it paid</span>` : ''}</button>`;
+    return html`<button type="button" class="tc${isTop ? ' top' : ''}${t.reached ? ' on' : ''}${t.reached && st === 'waiting' ? ' wt' : ''}${t.reached && st === 'delivered' ? ' dv' : ''}" data-lb="tier" data-id="${h.id}" data-t="${i + 1}" data-fk="tc:${h.id}:${i + 1}" aria-pressed="${t.reached ? 'true' : 'false'}" aria-disabled="${ownF ? 'false' : 'true'}" aria-label="Tier ${i + 1}, ${lbF(t.th)}, reward ${lbRText(t)}, ${word}${tOff ? ', off' : '. ' + tip}" ${tOff ? html`aria-describedby="lsg-${h.id}" data-why="${tip}"` : ''} title="${lbTierTitle(h, t, i + 1, tip, tOff)}"><span class="tv">${lbF(t.th)}</span><span class="rw">${lbRText(t)}</span><span class="pl">${LB_STW[st]}</span>${gr ? html`<span class="gr">${lbGrantShort(gr)}</span>` : ownF && i + 1 === h.reached ? html`<span class="gr rm">${lbRemoveLine(t)}</span>` : ''}</button>`;
   });
   const topT = h.tiers[h.tiers.length - 1], swl = !topT ? '' : topT.swatch ? (h.held ? 'Swatch won this term: the top tier is the house swatch' : 'Swatch not held yet: the top tier is the house swatch') : 'Swatch held: the top tier is the house’s own item';
   const hs = lbHsText(h, l), ld = lbLead(h, ids);
@@ -2401,7 +2427,7 @@ function lbActbar(hs, l, split) {
       <p><b>What a raise writes</b>, in one edit with a backup first:</p>
       <ul><li>your contribution, raised to the tier;</li><li>the same ground added to your faction's progress while the house is open (the house is taken when that reaches the goal);</li><li>one reward for each tier crossed, waiting at the house representative (the 6,000 tier follows the swatch rule);</li><li>for each mission, as a mission with a Recollection turned in pays it: 6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization line of the house (whether a mission without a Recollection pays the House Scrip and the XP is not known).</li></ul>
       <p>A mission is 1,000 contribution times <code>LandsraadContributionMultiplier</code>, and the XP is scaled by <code>LandsraadSpecializationXpMultiplier</code>; both are read from the ServerCustomSettings.ini on this computer (1 when the key is absent; the file of the game folder you use here, not necessarily the one a save from another setup was played with), and a click is refused with the reason when a value cannot be used or the file cannot be read. A change counts only the ground you raise from now on: a house raised by an earlier version of the editor already has events that cover its tiers, so a new Fill pays nothing for them, and tiers that version left out stay unpaid. The daily and weekly mission limits of the game are not applied.</p>
-      <p><b>What it does not write:</b> your character's own XP and your faction standing. <b>No progress event is written</b>: the editor adds no event and leaves the game's progress cursor where it is, so the game should find only events of its own at its next cursor step. Whether the game keeps a contribution raised here at that step is not checked in the game. Events an earlier build of the editor wrote stay in the save and still count as ground paid. A second Fill with nothing above your contribution writes nothing, and ground the game's own progress events for the house cover, or that you reached under another faction (a change of faction does not make the old contribution pay again), is never paid again. <b>Removing a tier</b> lowers the contribution only, writes no reward and takes back nothing the tier paid. Because the editor leaves no event of its own, it remembers the ground it paid in a small file of its own next to its other files (written once the save is written, never in the game's save): <b>raising a removed tier again pays nothing again</b>, and a raise above what was paid pays only the new tiers. The result and the line before a click say how many missions were not paid because that ground was paid before. The same holds for the rewards of the tiers crossed and for your faction's progress. The tier box is a toggle, so clicking the highest reached tier twice pays once. The editor counts that file only as far as the save agrees: ground above the highest tier of the house whose reward the save shows from this term (for example after a backup was put back) is not counted, and a restored backup counts only as far as its own rewards go (undoing a restore keeps what that file already paid, unless a raise was made on the older file in between: the record then follows that raise, and going back to the later file can pay some of its ground again). If the file is missing, damaged or of another save, nothing is taken as paid, and a raise pays as it did before.</p>`)}
+      <p><b>What it does not write:</b> your character's own XP and your faction standing. <b>No progress event is written</b>: the editor adds no event and leaves the game's progress cursor where it is, so the game should find only events of its own at its next cursor step. Whether the game keeps a contribution raised here at that step is not checked in the game. Events an earlier build of the editor wrote stay in the save and still count as ground paid. A second Fill with nothing above your contribution writes nothing, and ground the game's own progress events for the house cover, or that you reached under another faction (a change of faction does not make the old contribution pay again), is never paid again. <b>Removing a tier</b> lowers the contribution and takes back the reward of the removed tier if the editor wrote it and it still waits at the house representative. A reward already collected stays, and so does one that your own missions in the game cover, one the editor has no record of having written, or one that cannot be tied to the tier with certainty; the question says which. The Solari, House Scrip, XP and faction progress the missions of the tier paid are not taken back. It asks first when it takes back or names a reward. Because the editor leaves no event of its own, it remembers the ground it paid in a small file of its own next to its other files (written once the save is written, never in the game's save), and a removal that takes rewards back adds the tier it took them back up to: <b>raising a removed tier again pays no mission a second time</b>, however often you remove and raise it (no Solari, House Scrip, XP or faction progress), and a raise above what was paid pays only the new tiers. What the raise does write again is the reward a removal took back; a collected reward is not written again. The result and the line before a click say how many missions were not paid because that ground was paid before. The tier box is a toggle: clicking the highest reached tier twice removes it and gives it again, and the second click pays no mission. The editor counts that file only as far as the save agrees: ground above the highest tier of the house whose reward the save shows from this term, or above the tier a removal took rewards back up to (for example after a backup was put back), is not counted, and a restored backup counts only as far as its own rewards go (undoing a restore keeps what that file already paid, unless a raise was made on the older file in between: the record then follows that raise, and going back to the later file can pay some of its ground again). If the file is missing, damaged or of another save, nothing is taken as paid, and a raise pays as it did before.</p>`)}
     ${lbAbout('lsb.fill', 'Fill and Complete', html`<p>Fill, Complete and Reopen act for the faction chosen above. It starts on your character's own faction.</p>
       <p><b>Fill</b> and <b>Fill chosen</b> raise your own contribution to the top tier (never lowered) and write what the missions that reach it pay (see Tiers). They change nothing while another faction is chosen: your contribution counts for your own faction, so no contribution and no reward is written for another.</p>
       <p><b>Complete</b> and <b>Complete chosen</b> take the house for the chosen faction: its progress goes to the goal, and the winner and the completion are set. For another faction this records that faction's win and progress and skips your own contribution row. <b>Fill faction goal</b> on one house does both in one click: your faction ends at its progress plus what you gained, and at least at the goal.</p>
@@ -2478,9 +2504,19 @@ async function lbRun(b, call, say, focusFk) {
 function lbGrantText(r, queued) {
   if (!r) return '';
   const pb = r.missions_paid_before > 0 ? ' ' + lbPaidBefore(r.missions_paid_before) : '';
-  if (!r.missions) return r.contribution_raised ? 'No missions ' + (queued ? 'to write' : 'written') + ': your own earlier progress on this house already counts for this ground' + pb : '';
+  if (!r.missions) return r.contribution_raised ? 'No missions ' + (queued ? 'to write' : 'written') + (r.missions_paid_before > 0 ? '.' : ': your own earlier progress on this house already counts for this ground') + pb : '';
   const xp = Object.keys(r.specialization_xp || {}).sort().map((k) => '+' + lbF(r.specialization_xp[k]) + ' ' + k + ' XP');
   return nn(r.missions, 'mission', 'missions') + (queued ? ' to write' : ' written') + ': ' + ['+' + lbF(r.solari) + ' Solari', '+' + lbF(r.house_scrip) + ' House Scrip'].concat(xp).join(', ') + lbXpLeft(r, queued) + pb;
+}
+// What a removal did to the rewards of the removed tiers, as the answer carries it (landsraad_takeback.go): the waiting ones taken back, the collected ones that stay, and the ones that stay because they
+// cannot be tied to the tier with certainty. A removal with no reward row to say anything about says so, so the result is never silent about rewards. queued: the game is running, so it is not done yet.
+function lbBackText(r, queued) {
+  const p = [], t = r.rewards_taken_back || 0, c = r.rewards_kept_collected || 0, u = r.rewards_kept_unsure || 0, e = r.rewards_kept_earned || 0;
+  if (t) p.push((queued ? 'will take back ' : 'took back ') + nn(t, 'waiting reward', 'waiting rewards') + (r.swatches_taken_back ? ' (the house swatch among them)' : ''));
+  if (c) p.push(nn(c, 'collected reward', 'collected rewards') + (c === 1 ? ' stays' : ' stay'));
+  if (e) p.push(nn(e, 'waiting reward', 'waiting rewards') + (e === 1 ? ' stays' : ' stay') + ' (your own missions cover the tier)');
+  if (u) p.push(nn(u, 'reward', 'rewards') + ' left alone (not certain ' + (u === 1 ? 'it belongs' : 'they belong') + ' to the removed tier)');
+  return p.length ? p.join('; ') : 'no reward waited for the removed tier, so there was nothing to take back';
 }
 // the experience that did not fit because a track is at its last level, by line (#752): a raise that filled a house to level a line must not read as a success with no word about it
 function lbXpLeft(r, queued) {
@@ -2502,14 +2538,14 @@ async function lbSend(b, items, label, hs, focusFk) {
     const queued = String(NOT_SAVED) !== ''; // the game is running: the change is queued, so nothing here may say it is in the save
     const rows = r.reward_rows ? nn(r.reward_rows, 'reward', 'rewards') + (queued ? ' to leave' : ' now') + ' waiting at the house representative' : '';
     // what the missions of a raise write (landsraad_grant.go), and the warning when rewards were left out because the character's own events already crossed them (#656)
-    const grant = lbGrantText(r, queued), left = r.rewards_already_given;
+    const grant = lbGrantText(r, queued), left = r.rewards_already_given, back = r.contribution_lowered ? lbBackText(r, queued) : '';
     const warn = left ? 'Warning: ' + nn(left, 'reward', 'rewards') + (left === 1 ? ' was' : ' were') + ' left out: earlier progress on this house already counted for ' + (left === 1 ? 'it' : 'them') + '. Nothing to do' : '';
     const tail = (r.contribution_lowered ? ' ' + LB_REMOVE_NOTE : '') + (r.missions ? ' ' + GRANT_UNCHECKED : '');
     let text;
-    if (items.length === 1 && hs.get(items[0].task_id)) text = label + ': ' + lbChangeText(hs.get(items[0].task_id), l, items[0]) + (r.completed && items[0].complete_for == null ? '; house taken, its faction reached the goal' : '') + (rows ? '; ' + rows : '') + (grant ? '; ' + grant : '') + (warn ? '; ' + warn : '') + extra + '.' + tail;
+    if (items.length === 1 && hs.get(items[0].task_id)) text = label + ': ' + lbChangeText(hs.get(items[0].task_id), l, items[0]) + (r.completed && items[0].complete_for == null ? '; house taken, its faction reached the goal' : '') + (rows ? '; ' + rows : '') + (back ? '; ' + back : '') + (grant ? '; ' + grant : '') + (warn ? '; ' + warn : '') + extra + '.' + tail;
     else {
       const parts = [r.contribution_raised ? 'your contribution raised on ' + nn(r.contribution_raised, 'house', 'houses') : '', r.contribution_lowered ? 'lowered on ' + nn(r.contribution_lowered, 'house', 'houses') + ' (a tier removed)' : '',
-        rows, grant, r.completed ? nn(r.completed, 'house', 'houses') + ' completed' : '', r.reopened ? nn(r.reopened, 'house', 'houses') + ' reopened' : '', warn].filter(Boolean);
+        rows, back, grant, r.completed ? nn(r.completed, 'house', 'houses') + ' completed' : '', r.reopened ? nn(r.reopened, 'house', 'houses') + ' reopened' : '', warn].filter(Boolean);
       text = label + ': ' + parts.join(', ') + extra + '.' + tail;
     }
     // the board's toast says it in lines (#943): what changed, what was not written and why, the warnings, the notes; the Classic list keeps its sentence
@@ -2518,12 +2554,13 @@ async function lbSend(b, items, label, hs, focusFk) {
     const lines = [h1
       ? dot(label + ': ' + lbChangeText(h1, l, items[0]) + (r.completed && items[0].complete_for == null ? '; house taken, its faction reached the goal' : '') + (rows ? '; ' + rows : '') + extra)
       : dot(label + ': ' + ([r.contribution_raised ? 'your contribution raised on ' + nn(r.contribution_raised, 'house', 'houses') : '', r.contribution_lowered ? 'lowered on ' + nn(r.contribution_lowered, 'house', 'houses') + ' (a tier removed)' : '', rows, r.completed ? nn(r.completed, 'house', 'houses') + ' completed' : '', r.reopened ? nn(r.reopened, 'house', 'houses') + ' reopened' : ''].filter(Boolean).join(', ') || 'written') + extra)];
+    if (back) lines.push(dot(back.charAt(0).toUpperCase() + back.slice(1)));
     if (grant) lines.push(dot(grant));
     if (left) lines.push('Warning: ' + nn(left, 'reward', 'rewards') + (left === 1 ? ' was' : ' were') + ' left out: earlier progress on this house already counted for ' + (left === 1 ? 'it' : 'them') + '.');
     if (r.contribution_lowered) lines.push(LB_REMOVE_NOTE);
     if (r.missions) lines.push(GRANT_UNCHECKED);
     // the toast of the Classic list is one short line; the whole sentence stays in its result line
-    const short = r.missions ? label + ': ' + nn(r.missions, 'mission', 'missions') + (queued ? ' queued.' : ' written.') + (lbXpLeft(r, queued) ? ' Some XP ' + (queued ? 'will not be added' : 'not added') + ': a track is at its last level.' : '') : r.contribution_lowered ? label + ': tier removed. Nothing it paid was taken back.' : '';
+    const short = r.missions ? label + ': ' + nn(r.missions, 'mission', 'missions') + (queued ? ' queued.' : ' written.') + (lbXpLeft(r, queued) ? ' Some XP ' + (queued ? 'will not be added' : 'not added') + ': a track is at its last level.' : '') : r.contribution_lowered ? label + ': tier removed; ' + back + '.' : '';
     return { text, short, warn: !!left, lines };
   }, lbSay, focusFk);
   // the result line is at the top of the board and the click may be far below it: bring it into view, and give it the focus when the control that was pressed is no longer there to take it
@@ -2553,10 +2590,11 @@ function lbGrantOfItems(items, hs) {
 // question), not a bulk button.
 function lbAskOf(act_, items, hs, F, i, one) {
   const n = items.length, h1 = hs.get(items[0].task_id);
-  const what = one ? (act_ === 'tier' ? 'Give tier ' + i + ' on House ' + h1.name : act_ === 'fillgoal' ? 'Fill faction goal on House ' + h1.name : LB_BULK[act_][1] + ' House ' + h1.name) : LB_BULK[act_][1] + ' ' + nn(n, 'house', 'houses');
+  const removal = act_ === 'tier' && !!items[0].lower, rt = removal ? h1.tiers[h1.reached - 1] : null; // a removal removes the highest reached tier
+  const what = one ? (act_ === 'tier' ? (removal ? 'Remove tier ' + i + ' on House ' + h1.name : 'Give tier ' + i + ' on House ' + h1.name) : act_ === 'fillgoal' ? 'Fill faction goal on House ' + h1.name : LB_BULK[act_][1] + ' House ' + h1.name) : LB_BULK[act_][1] + ' ' + nn(n, 'house', 'houses');
   const g = lbGrantOfItems(items, hs), raises = !!LD.grant && items.some((it) => it.mine_to !== undefined);
-  const q = what + (act_ === 'complete' || act_ === 'fillgoal' ? ' for ' + lbFacName(LD, F) : '') + '?' + (raises ? ' ' + lbGrantSay(g) : '') + (lbBoardOn() ? lbBoardAsk(items, hs, F, one) : '') + ' Written at once, with a backup first.';
-  return { yes: what, q, missions: g.problem ? 0 : g.missions };
+  const q = what + (act_ === 'complete' || act_ === 'fillgoal' ? ' for ' + lbFacName(LD, F) : '') + '?' + (removal && rt ? ' ' + lbBackSay(rt) + ' ' + LB_REMOVE_NOTE : '') + (raises ? ' ' + lbGrantSay(g) : '') + (lbBoardOn() ? lbBoardAsk(items, hs, F, one) : '') + ' Written at once, with a backup first.';
+  return { yes: what, q, missions: g.problem ? 0 : g.missions, removal: removal && lbBackAsks(rt) };
 }
 // The houses of a request whose win is taken from another faction: Complete (or Fill faction goal) for F on a house that another faction took.
 const lbReplaced = (items, hs, F) => items.filter((it) => it.complete_for != null).map((it) => hs.get(it.task_id)).filter((h) => h && h.win != null && h.win != F);
@@ -2581,7 +2619,7 @@ function lbGo(b, act_, items, hs, F, i, label, backFk, one) {
   const q = lbAskOf(act_, items, hs, F, i, one);
   // on the board a click that takes a win from another faction asks first too (the classic list writes it at once and says so in the result)
   // (a bulk button with several houses chosen always asks, even when only one of them would change: the question says the others are left alone, #879)
-  if (items.length === 1 && (one || LP.pick.size <= 1) && q.missions < LB_ASK_MISSIONS && !(lbBoardOn() && lbReplaced(items, hs, F).length)) { lbSend(b, items, label, hs, backFk); return; }
+  if (items.length === 1 && (one || LP.pick.size <= 1) && q.missions < LB_ASK_MISSIONS && !q.removal && !(lbBoardOn() && lbReplaced(items, hs, F).length)) { lbSend(b, items, label, hs, backFk); return; }
   LP.confirm = { act: act_, F, i, ids: items.map((x) => x.task_id), n: items.length, q: q.q, yes: q.yes, label, back: backFk, one: !!one };
   lbRedraw();
   lbFocusFk('c-no'); // the safe answer has the focus, so a stray Enter does not write
@@ -2763,7 +2801,7 @@ function lbCtl(id) {
     fillgoal: { off: q.goalOff, tip: q.goalTip },
     complete: { off: q.doneF, tip: q.doneF ? 'Already complete for ' + q.fn + ': nothing to change' : crTipC(q.fn) },
     reopen: { off: !h.taken, tip: h.taken ? LB_REOPEN_TIP : 'The house is open: nothing to change' },
-    tiers: h.tiers.map((t, k) => { const gr = q.ownF && k + 1 > h.reached ? lbGrantOf(h, l, h.mine, t.th) : null, tip = lbTierTip(h, t, k + 1, q.can, l, true, F, true); return { reward: lbRText(t), off: !q.ownF, tip, title: lbTierTitle(h, t, k + 1, tip, !q.ownF), item: lbItemInfo(h, t, k + 1), rw: t.tmpl === LB_SOLARI ? null : lbRewardRow(h, t, k + 1), grant: gr ? lbGrantShort(gr) : '' }; }),
+    tiers: h.tiers.map((t, k) => { const gr = q.ownF && k + 1 > h.reached ? lbGrantOf(h, l, h.mine, t.th) : null, tip = lbTierTip(h, t, k + 1, q.can, l, true, F, true); return { reward: lbRText(t), off: !q.ownF, tip, title: lbTierTitle(h, t, k + 1, tip, !q.ownF), item: lbItemInfo(h, t, k + 1), rw: t.tmpl === LB_SOLARI ? null : lbRewardRow(h, t, k + 1), grant: gr ? lbGrantShort(gr) : '', rm: q.ownF && k + 1 === h.reached ? lbRemoveLine(t) : '' }; }),
     loc: lbLocModel(h),
   };
 }

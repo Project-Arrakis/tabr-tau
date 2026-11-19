@@ -129,25 +129,28 @@ func TestGrantASecondFillAndARaiseAfterARemovalGrantNothingTwice(t *testing.T) {
 	if m["changed"].(int64) != 0 || m["missions"].(int64) != 0 || grantRows(t, o) != after {
 		t.Fatalf("a second Fill changed something: %v", m)
 	}
-	// a tier removed and the same Fill again: the 4,800 tier is not repeated as a mission (the step is 2,000: ceil(6000/2000) = ceil(4800/2000)), the top tier is the swatch of this term,
-	// delivered already, so no reward row and no wallet change
+	// a tier removed and the same Fill again: the removal takes back the waiting swatch of the top tier (#944) and the Fill writes it again, but the 4,800 tier is not repeated as a mission
+	// (the step is 2,000: ceil(6000/2000) = ceil(4800/2000)) and no wallet changes
 	applyWith(t, o, doubled(), house(175, Args{"was_mine": 6000.0, "mine_to": 4800.0, "lower": true}))
 	removed := grantRows(t, o)
+	if removed == after || strings.Contains(removed, "Kenola_Placeables_Swatch") {
+		t.Fatalf("the removal did not take back the waiting swatch:\n%s", removed)
+	}
 	m = applyWith(t, o, doubled(), house(175, Args{"was_mine": 4800.0, "mine_to": 6000.0}))
-	if _, has := m["events"]; has || m["reward_rows"].(int64) != 0 || m["missions"].(int64) != 0 || m["solari"].(int64) != 0 || m["rewards_already_given"].(int64) != 1 {
-		t.Fatalf("a Fill after a removal of the top tier granted again: %v", m)
+	if _, has := m["events"]; has || m["reward_rows"].(int64) != 1 || m["swatches"].(int64) != 1 || m["missions"].(int64) != 0 || m["solari"].(int64) != 0 || m["rewards_already_given"].(int64) != 0 {
+		t.Fatalf("a Fill after a removal of the top tier granted again, or did not give the swatch back: %v", m)
 	}
-	// only the contribution went back up
-	if got := grantRows(t, o); got == removed || strings.Replace(got, "amount:6000", "amount:4800", 1) != removed {
-		t.Fatalf("something besides the contribution changed:\n%s\n---\n%s", removed, got)
+	// everything is where it was after the first Fill: the swatch row, its one-time row, the wallets, the faction's progress
+	if got := grantRows(t, o); got != after {
+		t.Fatalf("something differs from the state after the first Fill:\n%s\n---\n%s", after, got)
 	}
-	// removed down to nothing and filled again: the ground was paid by the editor, so no mission, no reward row and no wallet change, and the answer says so (#777)
+	// removed down to nothing and filled again: the ground was paid by the editor, so no mission and no wallet change, the five rewards come back, and the answer says so (#777, #944)
 	paidWallets := [2]int64{wallet(t, o, 0), wallet(t, o, 1)}
 	for _, st := range [][2]float64{{6000, 4800}, {4800, 3600}, {3600, 2400}, {2400, 1200}, {1200, 0}} {
 		applyWith(t, o, doubled(), house(175, Args{"was_mine": st[0], "mine_to": st[1], "lower": true}))
 	}
 	m = applyWith(t, o, doubled(), house(175, Args{"mine_to": 6000.0}))
-	if m["missions"].(int64) != 0 || m["reward_rows"].(int64) != 0 || m["rewards_already_given"].(int64) != 5 || m["missions_paid_before"].(int64) != 3 || m["ground_paid_before"].(float64) != 6000 {
+	if m["missions"].(int64) != 0 || m["reward_rows"].(int64) != 5 || m["rewards_already_given"].(int64) != 0 || m["missions_paid_before"].(int64) != 3 || m["ground_paid_before"].(float64) != 6000 {
 		t.Fatalf("a Fill after the row was deleted paid again or did not say why: %v", m)
 	}
 	if got := [2]int64{wallet(t, o, 0), wallet(t, o, 1)}; got != paidWallets {
@@ -614,10 +617,44 @@ func TestGrantTheTopTierAfterARemovalWithoutSwatchTablesIsNotDeliveredAgain(t *t
 		t.Fatalf("the task's own item after the first raise: %s", got)
 	}
 	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 6000.0, "mine_to": 4800.0, "lower": true})))
-	if m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 4800.0, "mine_to": 6000.0}))); m["reward_rows"].(int64) != 0 || m["rewards_already_given"].(int64) != 1 {
+	if got := own(); got != "" { // the waiting reward of the removed top tier is taken back (#944)
+		t.Fatalf("the removal left the top tier's own item: %s", got)
+	}
+	// the raise writes it again, once, and pays no mission
+	if m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 4800.0, "mine_to": 6000.0}))); m["reward_rows"].(int64) != 1 || m["rewards_already_given"].(int64) != 0 || m["missions"].(int64) != 0 {
 		t.Fatalf("answer: %v", m)
 	}
 	if got := own(); got != "map[amount:1]\n" {
+		t.Fatalf("the top tier's own item is not delivered once: %s", got)
+	}
+}
+
+// The same with the rewards collected (#944): a removal takes back nothing, so the Fill after it writes no reward row and says the tier was given already.
+func TestGrantAFillAfterARemovalOverCollectedRewardsWritesNoRowAndPaysNothing(t *testing.T) {
+	o := rewardOps(t, "")
+	applyWith(t, o, doubled(), house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0}))
+	collectRewards(t, o)
+	after := grantRows(t, o)
+	applyWith(t, o, doubled(), house(175, Args{"was_mine": 6000.0, "mine_to": 4800.0, "lower": true}))
+	m := applyWith(t, o, doubled(), house(175, Args{"was_mine": 4800.0, "mine_to": 6000.0}))
+	if m["reward_rows"].(int64) != 0 || m["missions"].(int64) != 0 || m["solari"].(int64) != 0 || m["rewards_already_given"].(int64) != 1 {
+		t.Fatalf("a Fill after a removal of a collected top tier: %v", m)
+	}
+	if got := grantRows(t, o); got != after {
+		t.Fatalf("something besides the contribution moved:\n%s\n---\n%s", after, got)
+	}
+}
+
+// Without the swatch tables, with the top tier's own item collected: the same.
+func TestGrantACollectedTopTierAfterARemovalWithoutSwatchTablesIsNotDeliveredAgain(t *testing.T) {
+	o := mineOps(t, goalWorld)
+	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0})))
+	setup(t, o, `update landsraad_house_rewards set amount=0 where player_id=1`)
+	mustApply(t, o, applyArgs(house(175, Args{"was_mine": 6000.0, "mine_to": 4800.0, "lower": true})))
+	if m := mustApply(t, o, applyArgs(house(175, Args{"was_mine": 4800.0, "mine_to": 6000.0}))); m["reward_rows"].(int64) != 0 || m["rewards_already_given"].(int64) != 1 {
+		t.Fatalf("answer: %v", m)
+	}
+	if got := rows(t, o, `select amount from landsraad_house_rewards where player_id=1 and template_id='Swatch.Kenola'`); got != "map[amount:0]\n" {
 		t.Fatalf("the top tier's own item is delivered again: %s", got)
 	}
 }

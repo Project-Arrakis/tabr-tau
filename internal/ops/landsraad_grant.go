@@ -35,6 +35,9 @@ import (
 // game's tables, attached to the edit that paid it as a note (save.Mut.Note) and written once that edit is in the game's file. A tier removal lowers the contribution and not that record, so
 // the same raise after a removal pays nothing again (the missions, the reward rows of the tiers crossed, the faction's progress), a higher raise pays only the new tiers, and the clicking of
 // the highest tier twice pays once. The answer says how much ground and how many missions were not paid for that reason.
+// A removal that takes back the waiting reward rows of the removed tiers (landsraad_takeback.go, #944) leaves the missions paid and records, in the same record, the tier it took rows up to
+// (paidNote.Back). The reward rows are then the one thing a later raise to the same ground writes again: the missions, the wallets, the specialization XP and the faction's progress are not
+// paid a second time, however often the tier is removed and raised.
 // Ground that stays covered: the character's own events, the highest contribution the character reached under another faction (otherFactionGround; the contribution row is per faction
 // and a faction change writes only player_faction) and the editor's own record, which counts only as far as the save shows it (up to the highest tier whose reward row of this term stands; a raise that pays when the cap cut it replaces the record; a restored backup keeps it as far as the restored file's own rows stand). A record that cannot be used is read as nothing paid and these guards stay.
 //
@@ -173,18 +176,30 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 	}
 	// what the editor itself paid before and remembers (landsraad_paid.go): a tier removal does not take it back, so the same raise pays only the ground above it (#777); lo0 is the
 	// ground covered without that record
-	paid, untrusted, err := paidGround(m, recorded, me, taskID, termID, house, clock)
+	pg, err := paidGround(m, recorded, me, taskID, termID, house, clock)
 	if err != nil {
 		return res, false, err
 	}
+	// Two grounds (#944). lo is the ground whose missions and faction progress are paid already: the record counts there up to the highest tier whose reward row stands or the tier a
+	// take-back removed rows up to. loRows is the ground whose reward rows are delivered already: the record counts only up to the highest tier whose row stands, so the rows a take-back
+	// removed are written again, and only they: a raise after a take-back pays no mission and no progress twice.
 	lo0 := max(before, cover, elsewhere)
-	lo := max(lo0, paid)
+	lo := max(lo0, pg.ground)
+	loRows := max(lo0, pg.rows)
 	if after <= lo {
-		n, err := m.One(`select count(*) n from landsraad_task_rewards where task_id=? and threshold>? and threshold<=?`, taskID, before, after)
-		if err != nil {
-			return res, false, err
+		if after > loRows { // rows a take-back removed, and nothing else
+			rr, err := writeTierRewards(m, me, taskID, house, termID, before, loRows, after, clock)
+			if err != nil {
+				return res, false, err
+			}
+			res.rewardRows, res.swatches, res.skipped = rr.rewardRows, rr.swatches, rr.skipped
+		} else {
+			n, err := m.One(`select count(*) n from landsraad_task_rewards where task_id=? and threshold>? and threshold<=?`, taskID, before, after)
+			if err != nil {
+				return res, false, err
+			}
+			res.skipped = asInt(n["n"])
 		}
-		res.skipped = asInt(n["n"])
 		res.notePaidBefore(after, lo0, lo, g)
 		return res, false, nil
 	}
@@ -249,7 +264,7 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 	// own missions already paid.
 
 	// 3. the reward rows of the tiers the events did not cover
-	rr, err := writeTierRewards(m, me, taskID, house, termID, before, lo, after, clock)
+	rr, err := writeTierRewards(m, me, taskID, house, termID, before, loRows, after, clock)
 	if err != nil {
 		return res, false, err
 	}
@@ -281,7 +296,9 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 	// 6. what was paid is remembered, outside the save (landsraad_paid.go): the note goes with this edit, so it is kept only if the edit is, and is handed to the editor's own file
 	// once the game's file has been written. The ground is the whole of what this raise took the contribution to, whatever part of it an earlier raise had already paid; when the record was held back by what the
 	// save shows (landsraad_paid.go), the note replaces it instead of being merged into it.
-	if err := m.Note(paidNoteKind, paidNote{Player: me.player, Term: termID, House: house, Faction: me.faction, Paid: after, Replace: untrusted}); err != nil {
+	// the ground the editor began paying from: the rows are written from loRows, so the tiers above it are the editor's (#944); a record never has a lower start than this raise's own
+	floor := loRows
+	if err := m.Note(paidNoteKind, paidNote{Player: me.player, Term: termID, House: house, Faction: me.faction, Paid: after, Back: pg.back, Floor: &floor, Replace: pg.untrusted}); err != nil {
 		return res, false, err
 	}
 	return res, completed, nil
@@ -374,7 +391,19 @@ func grantDesc(r rewardResult, several bool) grantText {
 			g.left += fmt.Sprintf("; %s %s XP not added (last level)", commas(r.specLeft[l]), l)
 		}
 	}
+	if r.keptCollected > 0 { // facts before the amounts: what a removal left, for a person who decides on a restore
+		g.left += "; " + countRewards(r.keptCollected, "collected ") + stayWord(r.keptCollected)
+	}
+	if r.keptEarned > 0 {
+		g.left += "; " + countRewards(r.keptEarned, "waiting ") + stayWord(r.keptEarned) + " (your own missions cover the tier)"
+	}
+	if r.keptUnsure > 0 {
+		g.left += "; " + countRewards(r.keptUnsure, "") + " left alone (not certain they belong to the tier)"
+	}
 	var parts []string
+	if r.takenBack > 0 {
+		parts = append(parts, "took back "+countRewards(r.takenBack, "waiting "))
+	}
 	if r.missions > 0 {
 		list := []string{"+" + commas(r.solari) + " Solari", "+" + commas(r.scrip) + " House Scrip"}
 		if several {
@@ -403,6 +432,14 @@ func grantDesc(r rewardResult, several bool) grantText {
 		g.paid = "; " + strings.Join(parts, "; ")
 	}
 	return g
+}
+
+// stayWord is " stays" for one and " stay" for more.
+func stayWord(n int64) string {
+	if n == 1 {
+		return " stays"
+	}
+	return " stay"
 }
 
 // sortedLines is the keys of a by-line map in the order of the Specialization tab's lines.

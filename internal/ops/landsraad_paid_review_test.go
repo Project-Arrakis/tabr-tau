@@ -145,7 +145,7 @@ func TestPaidUndoingAnEditorRestoreKeepsTheRecordAndRestoringBeforeTheRaiseDoesN
 	removeTo(t, o, 6000, 1200)
 	flush(t, o)
 	m := fillKenolaDoubled(t, o, 1200, 6000)
-	if i64(t, m, "missions") != 0 || i64(t, m, "reward_rows") != 0 || i64(t, m, "solari") != 0 {
+	if i64(t, m, "missions") != 0 || i64(t, m, "reward_rows") != 4 || i64(t, m, "solari") != 0 { // the four rewards the removal took back are written again, and no mission is paid
 		t.Fatalf("a raise on the file the undo brought back paid again: %v", m)
 	}
 }
@@ -182,7 +182,7 @@ func TestPaidRestoringTheBackupBeforeASecondHousePaidKeepsTheFirstHousesRecord(t
 	}
 	removeTo(t, o, 6000, 1200)
 	flush(t, o)
-	if m := fillKenolaDoubled(t, o, 1200, 6000); i64(t, m, "missions") != 0 || i64(t, m, "reward_rows") != 0 {
+	if m := fillKenolaDoubled(t, o, 1200, 6000); i64(t, m, "missions") != 0 || i64(t, m, "reward_rows") != 4 {
 		t.Fatalf("Monday's house paid again after the restore: %v", m)
 	}
 	m := applyWith(t, o, doubled(), house(176, Args{"was_mine": 0.0, "mine_to": 4800.0}))
@@ -413,14 +413,14 @@ func TestPaidARowWrittenExactlyAtTheStartOfTheTermStandsAndOneBeforeItDoesNot(t 
 // The cap holds the record only when it is above the rows that stand: equal to them it is trusted whole, and a raise that pays does not replace it.
 func TestPaidARecordEqualToWhatStandsIsTrustedAndNotMarkedUntrusted(t *testing.T) {
 	rec := []paidNote{{Player: 1, Term: 7, House: "A", Faction: 2, Paid: 6000}}
-	if paid, untrusted := trustedPaid(rec, nil, 1, 7, "A", 6000); paid != 6000 || untrusted {
-		t.Fatalf("equal: %v %v", paid, untrusted)
+	if pg := trustedPaid(rec, nil, 1, 7, "A", 6000); pg.ground != 6000 || pg.untrusted {
+		t.Fatalf("equal: %v", pg)
 	}
-	if paid, untrusted := trustedPaid(rec, nil, 1, 7, "A", 4800); paid != 4800 || !untrusted {
-		t.Fatalf("above what stands: %v %v", paid, untrusted)
+	if pg := trustedPaid(rec, nil, 1, 7, "A", 4800); pg.ground != 4800 || !pg.untrusted {
+		t.Fatalf("above what stands: %v", pg)
 	}
-	if paid, untrusted := trustedPaid(nil, nil, 1, 7, "A", 4800); paid != 0 || untrusted {
-		t.Fatalf("no record: %v %v", paid, untrusted)
+	if pg := trustedPaid(nil, nil, 1, 7, "A", 4800); pg.ground != 0 || pg.untrusted {
+		t.Fatalf("no record: %v", pg)
 	}
 }
 

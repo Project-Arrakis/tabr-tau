@@ -16,7 +16,8 @@ import (
 //
 //	mine_to       the character's own contribution to the house, under the character's own faction. It must be 0 or one of the house's reward thresholds.
 //	              A value above the recorded one raises it (the raise of the board's write). A value below it is a tier removal: it is refused unless the request says lower: true,
-//	              and then it sets the contribution to that threshold, or deletes the row for 0. Nothing else in the editor lowers a contribution.
+//	              and then it sets the contribution to that threshold, or deletes the row for 0, and takes back the rewards of the removed tiers that still wait at the house
+//	              representative (landsraad_takeback.go; collected ones stay). Nothing else in the editor lowers a contribution.
 //	complete_for  a faction id: the house is completed for that faction (completeHouse: the faction's progress is raised to the goal, never lowered; the winner and the play
 //	              clock are set). It never writes the character's own row.
 //	reopen        the house is reopened (reopenHouse): completed, the winner and the time are cleared, no progress and no contribution is touched.
@@ -163,7 +164,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
 		houses, changed, raised, lowered, completed, reopened, repaired = 0, 0, 0, 0, 0, 0, 0
 		// the editor's record of the ground it paid (landsraad_paid.go), read at most once for the request, under the lock the sink writes it under, and only when a house is raised: a
-		// removal pays nothing and needs no record, so a record that cannot be read does not stop it. A raise that cannot read it is refused with nothing written.
+		// removal pays nothing and needs no record, so a record that cannot be read does not stop it (it only keeps a house swatch from being taken back, landsraad_takeback.go). A raise that cannot read it is refused with nothing written.
 		var recorded []paidNote
 		recordedRead := false
 		paidNow := func() ([]paidNote, error) {
@@ -318,20 +319,25 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 					if rw.missions > maxMissionsAtOnce {
 						return apierr.Newf(apierr.ErrBadArgument, "this request stands for more than the %d missions one change may grant, counting every house in it. Nothing was changed; fill fewer houses at once, or set LandsraadContributionMultiplier in ServerCustomSettings.ini (Config tab) nearer to 1.", maxMissionsAtOnce)
 					}
-				case to < s.cur && to == 0:
-					if _, err := m.Exec(`delete from landsraad_task_player_contributions where player_id=? and faction_id=? and task_id=?`, me.player, me.faction, it.task); err != nil {
-						return err
-					}
-					lowered++
-					did = true
-					what = append(what, fmt.Sprintf("your contribution %g -> 0", s.cur))
 				case to < s.cur:
-					if _, err := m.Exec(`update landsraad_task_player_contributions set amount=? where player_id=? and faction_id=? and task_id=?`, to, me.player, me.faction, it.task); err != nil {
-						return err
+					var werr error
+					if to == 0 {
+						_, werr = m.Exec(`delete from landsraad_task_player_contributions where player_id=? and faction_id=? and task_id=?`, me.player, me.faction, it.task)
+					} else {
+						_, werr = m.Exec(`update landsraad_task_player_contributions set amount=? where player_id=? and faction_id=? and task_id=?`, to, me.player, me.faction, it.task)
+					}
+					if werr != nil {
+						return werr
 					}
 					lowered++
 					did = true
 					what = append(what, fmt.Sprintf("your contribution %g -> %g", s.cur, to))
+					// the rewards of the removed tiers that wait at the house representative go with them (landsraad_takeback.go: the one rule); collected ones stay
+					rr, err := takeBackTierRewards(m, me, s.t, s.cur, to, paidNow)
+					if err != nil {
+						return err
+					}
+					rw.add(rr) // the description of the edit says what was taken back (grantDesc)
 				}
 			}
 			if it.completeFor != nil && !doneByRaise {
@@ -377,7 +383,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 	}); err != nil {
 		return nil, err
 	}
-	return resetAnswer(changed, map[string]any{"houses": houses, "skipped": houses - changed, "contribution_raised": raised, "contribution_lowered": lowered, "completed": completed, "reopened": reopened, "repaired": repaired, "replaced": replacedAnswer(replaced), "reward_rows": rw.rewardRows, "swatches": rw.swatches, "rewards_already_given": rw.skipped, "ground_paid_before": rw.paidGround, "missions_paid_before": rw.paidMissions,
+	return resetAnswer(changed, map[string]any{"houses": houses, "skipped": houses - changed, "contribution_raised": raised, "contribution_lowered": lowered, "completed": completed, "reopened": reopened, "repaired": repaired, "replaced": replacedAnswer(replaced), "reward_rows": rw.rewardRows, "swatches": rw.swatches, "rewards_taken_back": rw.takenBack, "rewards_kept_collected": rw.keptCollected, "rewards_kept_unsure": rw.keptUnsure, "rewards_kept_earned": rw.keptEarned, "swatches_taken_back": rw.swatchesBack, "rewards_already_given": rw.skipped, "ground_paid_before": rw.paidGround, "missions_paid_before": rw.paidMissions,
 		"missions": rw.missions, "solari": rw.solari, "house_scrip": rw.scrip, "specialization_xp": specAnswer(rw.spec), "specialization_xp_not_added": specAnswer(rw.specLeft)}), nil
 }
 
