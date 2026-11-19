@@ -90,6 +90,7 @@ body.noscroll{overflow:hidden}
 .lm-wrap { width: 100%; }
 canvas.lm { width: 100%; height: 560px; background: #0d0f12; border: 1px solid #2a2f36; border-radius: 6px; cursor: grab; display: block; }
 canvas.lm:active { cursor: grabbing; }
+.lm-house { margin: 8px 0; padding: 6px 10px; border-left: 3px solid var(--acc2); background: var(--panel2); border-radius: 4px; }
 .lm-layer { display: inline-flex; align-items: center; gap: 6px; margin: 2px 4px 2px 0; padding: 4px 9px; background: var(--panel2); color: var(--fg); border: 1px solid var(--line); border-radius: 12px; cursor: pointer; font: inherit; }
 .lm-layer.on { border-color: var(--acc); font-weight: 600; }
 .lm-layer.off { opacity: 0.4; }
