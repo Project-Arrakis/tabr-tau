@@ -34,7 +34,9 @@ test('the plain SpecialVendorActive row is in the data and nowhere on the board 
   assert.ok(noPlain(ui.doc.body.textContent), 'no Special Vendor wording and no plain id anywhere on the page');
   assert.match(text(sec.querySelector('#lsb-tdp > summary')), new RegExp('Decree pool · ' + (a.decrees.length - 1) + ' decrees'), 'the count leaves it out');
   // the four category vendors stay
-  for (const n of ['Vehicles', 'Weapons', 'Armor', 'Utilities']) assert.ok(sec.querySelector(`.lcc-tm-did`) && [...sec.querySelectorAll('.lcc-tm-did')].some((e) => text(e) === `${HIDDEN}_${n}`), n);
+  for (const n of ['Vehicle', 'Weapon', 'Armor', 'Tool']) assert.ok(text(sec).includes(`Access to a Landsraad ${n} Vendor`), n + ': the effect stays');
+  assert.equal(sec.querySelectorAll('.lcc-tm-did, .did').length, 0, 'no line for a game id (#1040)');
+  assert.ok(!/[A-Za-z]+_[A-Z][A-Za-z]+/.test(text(sec)) && !sec.outerHTML.includes(`${HIDDEN}_`), 'no game id in the text, a title or a label of the section (#1040)');
 });
 
 test('a term that holds the plain row says "Another decree" in the facts, the drop-down and the plaque; Apply writes the same id back', async () => {

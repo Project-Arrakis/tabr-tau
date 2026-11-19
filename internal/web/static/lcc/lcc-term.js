@@ -42,7 +42,6 @@
     t.appendChild(el('strong', 'lcc-tm-v lcc-tm-dn', d.name, d.tip ? { title: d.tip } : undefined));
     if (d.effect) t.appendChild(el('small', 'lcc-tm-de', d.effect));
     if (d.note) t.appendChild(el('small', 'lcc-tm-du', d.note));
-    t.appendChild(el('small', 'lcc-tm-did', d.key, { title: 'The game\'s internal id, kept for support' }));
     row.appendChild(t);
     li.appendChild(row);
     return li;
@@ -77,7 +76,7 @@
   }
 
   // ---- the two controls and Apply ----------------------------------------------------------------------------------------------------------------------------------------------
-  // The drop-downs keep the markup the page's change handler reads: a label that holds the select and the three small lines (.did the id, .de the effect, .du the note) it sets the text of.
+  // The drop-downs keep the markup the page's change handler reads: a label that holds the select and the two small lines (.de the effect, .du the note) it sets the text of.
   function controls(vm) {
     const g = el('div', 'lcc-tm-ctl', '', { role: 'group', 'aria-labelledby': 'lcc-tm-ctl-h' });
     g.appendChild(el('h4', 'lcc-tm-h4', 'Set the active decree and the reigning faction', { id: 'lcc-tm-ctl-h' }));
@@ -88,7 +87,6 @@
     sa.appendChild(el('option', '', 'none', { value: '' }));
     for (const o of vm.options) { const op = el('option', '', o.label, { value: String(o.id) }); if (String(o.id) === vm.sel.ad) op.defaultSelected = true; sa.appendChild(op); }
     a.appendChild(sa);
-    a.appendChild(el('small', 'did lcc-tm-did', vm.selD ? vm.selD.key : '', { title: 'The game\'s internal id, kept for support' }));
     a.appendChild(el('small', 'de lcc-tm-de', vm.selD && vm.selD.effect ? vm.selD.effect : ''));
     a.appendChild(el('small', 'mut du lcc-tm-du', vm.selD ? vm.selD.note : ''));
     a.appendChild(el('small', 'lcc-tm-pending', vm.pending || '', { id: 'lcc-tm-pending', role: 'status' })); // a choice that is only a draft says so until it is written (#925)
@@ -122,7 +120,6 @@
     if (d.effect) body.appendChild(el('small', 'lcc-tm-de', d.effect));
     else body.appendChild(el('small', 'lcc-tm-de lcc-tm-de-none', 'Effect: ' + NOT_IN_SAVE));
     if (d.note) body.appendChild(el('small', 'lcc-tm-du', d.note));
-    body.appendChild(el('small', 'lcc-tm-did', d.key, { title: 'The game\'s internal id, kept for support' }));
     const tg = el('div', 'lcc-tm-tags', '', { role: 'group', 'aria-label': 'In this term' });
     tg.appendChild(el('span', 'lcc-tm-k', 'IN THIS TERM'));
     if (d.tags.length) for (const x of d.tags) tg.appendChild(badge(x, 'is-' + x.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')));
