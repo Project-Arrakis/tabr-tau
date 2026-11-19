@@ -80,5 +80,6 @@ test('a house with no picture keeps the two letters, and a strange name never be
     assert.equal(crest.textContent, name.slice(0, 2));
   }
   assert.equal(ui.doc.querySelectorAll('#lsb-rows img[onerror], #lsb-rows .hn b img').length, 0);
-  assert.equal([...ui.doc.querySelectorAll('#lsb-rows img')].filter((i) => !/^\/houses\/[a-z]+\.webp$/.test(i.getAttribute('src'))).length, 0);
+  // the hover card's large symbol (#1069) is a file of the Command Center art folder, found in the same fixed list
+  assert.equal([...ui.doc.querySelectorAll('#lsb-rows img')].filter((i) => !/^\/(lcc\/art\/)?houses\/[a-z]+\.webp$/.test(i.getAttribute('src'))).length, 0);
 });

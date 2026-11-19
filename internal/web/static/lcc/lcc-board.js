@@ -937,7 +937,10 @@
     }
   }
 
-  const api = { state, mount, redraw, keepInView, visible, build, tipOf, majorityOf, victoryWords, plaque, grid, houseCard, list, inspector, victoryPanel, tierKind, NOT_IN_SAVE };
+  // The path of the large House symbol (the 128 px picture of the Command Center art) for the hover card that the page builds (#1069): the page may not reach into the art itself (a test keeps it to LCCM, LCCB, LCCS, LCCT and LCC_HOST),
+  // so it asks here. The name is looked up in the art's fixed list of Houses (houseAsset): a name that is not on it, or no art, gives an empty answer and the card has no picture.
+  const houseSymbol = (name) => { const a = L() && L().houseAsset ? L().houseAsset(name) : null; return a ? a.src : ''; };
+  const api = { state, mount, redraw, keepInView, visible, build, tipOf, majorityOf, victoryWords, plaque, grid, houseCard, list, inspector, victoryPanel, tierKind, NOT_IN_SAVE, houseSymbol };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCB = api;
 })(typeof window !== 'undefined' ? window : globalThis);
