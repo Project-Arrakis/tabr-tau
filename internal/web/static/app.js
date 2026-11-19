@@ -798,7 +798,7 @@ async function playerView() {
 }
 // The Specialization tab has two views of the same save: the classic list (the default, and the fallback when the Command Center scripts are not there) and the Command Center view
 // (lcc/lcc-spec.js). The view only changes how the tracks are drawn: the buttons of both carry the same data-act and run the same handlers below, so the requests and the questions are the same.
-const SPV = { view: browserStore.get('spec.view') === 'cc' ? 'cc' : 'classic', vm: null };
+const SPV = { view: browserStore.get('spec.view') === 'cc' ? 'cc' : 'classic', vm: null, reveal: false }; // reveal: a link opened the page for one path (#1041), so the page scrolls to the lanes once it is drawn
 const specCCOn = () => SPV.view === 'cc' && !!(window.LCCS && window.LCC);
 const specViewSwitch = () => (window.LCCS && window.LCC ? html`<div class="lcc lcc-sp-viewsw" role="group" aria-label="View of the Specialization tab" title="Both views read and write the same save in the same way, with the same questions and checks."><span class="lcc-sp-vlbl">View</span><button type="button" class="lcc-sp-vbtn" data-spview="classic" aria-pressed="${specCCOn() ? 'false' : 'true'}">Classic list</button><button type="button" class="lcc-sp-vbtn" data-spview="cc" aria-pressed="${specCCOn() ? 'true' : 'false'}">Command Center</button></div>` : '');
 // Opening a House of a path on the Landsraad board only moves between pages: the board shows it selected, with its filters cleared, and nothing is written.
@@ -810,11 +810,18 @@ function specGoHouse(id) {
 // And back: the specialization of a House opens that path in the Specialization tab's Command Center view. It only moves between pages (the chosen path is the view's own state) and writes nothing.
 function specGoPath(track) {
   if (!(window.LCCS && window.LCC) || !Array.isArray(window.LCCS.ORDER) || !window.LCCS.ORDER.includes(track)) return;
-  window.LCCS.state.sel = track; SPV.view = 'cc'; browserStore.set('spec.view', 'cc');
+  window.LCCS.state.sel = track; SPV.view = 'cc'; SPV.reveal = true; browserStore.set('spec.view', 'cc');
   sub.player = 'specialization'; tab = 'player'; browserStore.set('tab', tab); render();
 }
 const SPV_HOST = { goHouse: specGoHouse };
-function specMount() { const m = $('#lcs-mount'); if (m && SPV.vm && window.LCCS) window.LCCS.mount(m, SPV.vm, SPV_HOST); }
+// The lanes and the chosen path's dossier are below the page's header and totals. A link that opens a path (specGoPath) brings them into view once the page is drawn: render() has already moved a
+// tab change to the top (#1025), so this has to come after the draw, never before it. The sticky header is cleared by the page's scroll-padding-top.
+function specReveal() { const t = $('#lcs-root .lcc-sp-headrow'); if (t && typeof t.scrollIntoView === 'function') t.scrollIntoView({ block: 'start' }); }
+function specMount() {
+  const m = $('#lcs-mount');
+  if (m && SPV.vm && window.LCCS) window.LCCS.mount(m, SPV.vm, SPV_HOST);
+  if (SPV.reveal && m) { SPV.reveal = false; specReveal(); }
+}
 const NO_TRACK_NUMBER = 'Number not known yet: see Track numbers below.';
 // The numbers the game uses for the five tracks (measuredTrackNumbers of internal/ops/landsraad_grant.go; a test compares the two). A track shown with another number was assigned by hand: the Track numbers card is drawn then, so it can be set right.
 const MEASURED_TRACK_NUMBERS = { Crafting: 1, Gathering: 2, Exploration: 3, Combat: 4, Sabotage: 5 };
@@ -3368,6 +3375,7 @@ async function render(keepPlace, auto, from) {
   } catch (e) {
     setHTML($('#main'), html`<div class="card d-panel bad">${e.message}</div><div class="row mt12"><button class="b d-btn primary" data-act="retry">Try again</button></div>`);
   }
+  SPV.reveal = false; // a request to scroll to a path is for this one draw only
   viewApply(place);
   tmapSync();
   goSync();
