@@ -461,3 +461,13 @@ test('a house won by a faction the list does not offer reads "Other faction", an
   const plain = await open();
   assert.deepEqual([...plain.doc.querySelectorAll('.lsb .facts > span:first-child .fi')].map((e) => text(e)), ['Atreides 1 (your faction) ·', 'Harkonnen 1 ·', '2 still open']);
 });
+
+test('"Other faction" is said only when the list of the Landsraad factions is loaded and does not offer the id; with no list the number is shown and nothing is counted as other (#842)', async () => {
+  const b = board({ factions: [] });
+  b.tasks.push(house(904, 'Zeta', 0, { completed: 1, winning_faction_id: 4, contributions: [{ faction_id: 4, amount: 4000 }] }));
+  const ui = await open(b);
+  const by = (n) => rows(ui).find((r) => r.querySelector('.hn b').textContent === n);
+  const tag = text(by('Zeta').querySelector('.c-hs'));
+  assert.ok(tag.includes('Taken · Faction 4') && !tag.includes('Other faction'), tag);
+  assert.ok(!/Other faction/.test(text(ui.doc.querySelector('.lsb'))), 'no "Other faction" without a list');
+});

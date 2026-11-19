@@ -489,12 +489,18 @@ func spansOf(es []paidNote, player, term int64, house string, top float64) ([]pa
 	return out, any
 }
 
-// mergeFloor is the floor of an entry after a note is merged into it: the lowest of the two when the note continues the ground (begins at or below what the entry paid), the note's when it
-// begins above it (a gap: the ground in between is not the editor's), unknown when either does not know. A note with no floor that takes the ground higher leaves it unknown.
+// mergeFloor is the floor of an entry after a note is merged into it: the lowest of the two when the note continues the ground (begins at or below what the entry paid and ends at or above
+// where the entry's own stretch begins), the note's when it begins above what the entry paid (a gap: the ground in between is not the editor's), the entry's own when the note ends below
+// where the entry's stretch begins (the note's stretch is dropped, not joined to the entry's across the ground in between, #1002: a take-back note carries the floor of the stretch that
+// vouched for a row, and that stretch can belong to another faction's entry; its tiers stay vouched for by that entry), unknown when either does not know. A note with no floor that takes
+// the ground higher leaves it unknown. The merged entry is therefore always one stretch the editor really paid, never wider than the union of the two.
 func mergeFloor(e, n paidNote) *float64 {
 	switch {
 	case e.Floor == nil:
 		return nil
+	case n.Floor != nil && n.Paid < *e.Floor:
+		f := *e.Floor
+		return &f
 	case n.Floor == nil:
 		if n.Paid > e.Paid {
 			return nil

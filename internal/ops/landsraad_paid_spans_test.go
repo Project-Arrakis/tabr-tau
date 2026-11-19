@@ -2,6 +2,7 @@ package ops
 
 import (
 	"encoding/json"
+	"math/rand"
 	"os"
 	"testing"
 )
@@ -154,3 +155,119 @@ func TestTakeBackTheNoteCarriesTheFloorOfTheStretchThatVouched(t *testing.T) {
 		}
 	}
 }
+
+// #1002, the merge: a take-back note carries the floor of the stretch that vouched for its row, and that stretch can belong to ANOTHER faction's entry. Merged into the current faction's
+// entry it must not stretch that entry down across the ground between the two: a note that ends below where the entry's stretch begins is dropped, not joined to it.
+func TestMergePaidANoteBelowTheEntrysStretchDoesNotWidenTheEntry(t *testing.T) {
+	e := func(faction int64, paid float64, floor *float64) paidNote {
+		return paidNote{Player: 1, Term: 7, House: "A", Faction: faction, Paid: paid, Floor: floor}
+	}
+	rec := []paidNote{e(1, 2400, fl(0)), e(2, 6000, fl(4800))}
+	note := paidNote{Player: 1, Term: 7, House: "A", Faction: 2, Paid: 2400, Back: 2400, Floor: fl(0)}
+	got := mergePaid(rec, []paidNote{note})
+	if len(got) != 2 {
+		t.Fatalf("entries: %+v", got)
+	}
+	f2 := got[1]
+	if f2.Floor == nil || *f2.Floor != 4800 || f2.Paid != 6000 || f2.Back != 2400 {
+		t.Fatalf("the entry of the faction was widened or lost the ceiling: %+v", f2)
+	}
+	spans, _ := spansOf(got, 1, 7, "A", 6000)
+	if want := []paidSpan{{0, 2400}, {4800, 6000}}; len(spans) != 2 || spans[0] != want[0] || spans[1] != want[1] {
+		t.Fatalf("spans: %v, want %v", spans, want)
+	}
+	if (groundPaid{spans: spans, known: true}).vouches(3600, 3600) {
+		t.Fatal("the gap is vouched for")
+	}
+	// a note that touches the entry's stretch is still joined to it, and one inside it changes nothing
+	if f := mergeFloor(e(2, 6000, fl(4800)), paidNote{Paid: 4800, Floor: fl(3600)}); *f != 3600 {
+		t.Fatalf("touching: %v", *f)
+	}
+	if f := mergeFloor(e(2, 6000, fl(4800)), paidNote{Paid: 5400, Floor: fl(5000)}); *f != 4800 {
+		t.Fatalf("inside: %v", *f)
+	}
+	// a note with no floor, and an entry with none, are as before
+	if f := mergeFloor(e(2, 6000, fl(4800)), paidNote{Paid: 2400}); *f != 4800 {
+		t.Fatalf("no floor on the note, not higher: %v", *f)
+	}
+	if mergeFloor(e(2, 6000, nil), paidNote{Paid: 2400, Floor: fl(0)}) != nil {
+		t.Fatal("an entry with no floor gained one")
+	}
+}
+
+// The case of the review, end to end on Kenola (tiers 1,200 Solari, 2,400 Schematic.K, 3,600, 4,800 Schematic.L): the record holds one faction's raise to 1,200 from 0 and the
+// character's own from 3,600 to 4,800; the game wrote Schematic.K (2,400, in the gap) and the character collected Schematic.L. Removing everything takes the Solari row (tier 1,200) and
+// leaves K; the note that goes with it must not make the character's entry reach down to 0, or after a raise that pays nothing the second removal would delete the game's K row.
+func TestTakeBackNoteOfAnotherFactionsStretchNeverMakesTheGapVouchedForAcrossRemoveAndRaiseCycles(t *testing.T) {
+	o, path := paidOps(t, "")
+	setup(t, o, `update landsraad_task_player_contributions set amount=4800 where player_id=1 and task_id=175`)
+	setup(t, o, `insert into landsraad_house_rewards(player_id, house_name, amount, template_id, last_updated) values
+		(1, 'DA_HouseKenola', 10000, 'SolarisCoin', 150), (1, 'DA_HouseKenola', 1, 'Schematic.K', 150), (1, 'DA_HouseKenola', 0, 'Schematic.L', 150)`)
+	f1 := paidNote{Player: 1, Term: 7, House: "DA_HouseKenola", Faction: 1, Paid: 1200, Floor: fl(0)}
+	f2 := paidNote{Player: 1, Term: 7, House: "DA_HouseKenola", Faction: 2, Paid: 4800, Floor: fl(3600)}
+	writeRecord(t, o, path, f1, f2)
+	for cycle := 1; cycle <= 3; cycle++ {
+		m := removeKenola(t, o, 4800, 0)
+		if got := rowOf(t, o, "Schematic.K"); got == "" {
+			t.Fatalf("cycle %d: the game's Schematic.K row (tier 2,400, in the gap) was deleted: %v", cycle, m)
+		}
+		if cycle == 1 && rowOf(t, o, "SolarisCoin") != "" {
+			t.Fatalf("the Solari row (tier 1,200, the other faction's stretch) was not taken back: %v", m)
+		}
+		flush(t, o)
+		for _, e := range readPaid(t, path).Entries {
+			if e.Faction == 2 && (e.Floor == nil || *e.Floor != 3600 || e.Paid != 4800) {
+				t.Fatalf("cycle %d: the entry of the character's faction was widened: %+v", cycle, e)
+			}
+		}
+		fillKenolaDoubled(t, o, 0, 4800)
+		flush(t, o)
+	}
+}
+
+// No sequence of raises and take-backs, under either faction, ever makes the record vouch for a tier no raise of the editor paid (#1002). The notes are the ones the editor writes (a raise
+// carries the floor it began from, a take-back the floor of the stretch that vouched for its highest tier), merged in order the way the record merges them.
+func TestPaidNoSequenceOfRaisesAndTakeBacksVouchesForGroundNoRaisePaid(t *testing.T) {
+	tiers := []float64{0, 1200, 2400, 3600, 4800, 6000}
+	r := newSeededRand(7)
+	for run := 0; run < 3000; run++ {
+		var rec []paidNote
+		paid := map[int]bool{} // tier index paid by some raise: lo < th <= hi
+		for step := 0; step < 14; step++ {
+			faction := int64(1 + r.Intn(2))
+			if r.Intn(2) == 0 { // a raise from lo to hi
+				lo, hi := r.Intn(5), 1+r.Intn(5)
+				if hi <= lo {
+					lo, hi = hi-1, lo+1
+					if lo < 0 || hi > 5 {
+						continue
+					}
+				}
+				fl := tiers[lo]
+				rec = mergePaid(rec, []paidNote{{Player: 1, Term: 7, House: "A", Faction: faction, Paid: tiers[hi], Floor: &fl}})
+				for k := lo + 1; k <= hi; k++ {
+					paid[k] = true
+				}
+			} else { // a take-back of the highest vouched tier at or below a random one
+				k := 1 + r.Intn(5)
+				spans, _ := spansOf(rec, 1, 7, "A", 6000)
+				g := groundPaid{spans: spans, known: true}
+				if !g.vouches(tiers[k], tiers[k]) {
+					continue
+				}
+				sp, _ := g.spanOf(tiers[k], tiers[k])
+				lo := sp.lo
+				rec = mergePaid(rec, []paidNote{{Player: 1, Term: 7, House: "A", Faction: faction, Paid: tiers[k], Back: tiers[k], Floor: &lo}})
+			}
+			spans, _ := spansOf(rec, 1, 7, "A", 6000)
+			g := groundPaid{spans: spans, known: true}
+			for k := 1; k <= 5; k++ {
+				if g.vouches(tiers[k], tiers[k]) && !paid[k] {
+					t.Fatalf("run %d step %d: tier %v is vouched for but no raise paid it: record %+v spans %v", run, step, tiers[k], rec, spans)
+				}
+			}
+		}
+	}
+}
+
+func newSeededRand(seed int64) *rand.Rand { return rand.New(rand.NewSource(seed)) }
