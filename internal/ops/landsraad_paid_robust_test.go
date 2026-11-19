@@ -373,6 +373,82 @@ func TestPaidTheOldestCopiesMovedAsideAreRemoved(t *testing.T) {
 	}
 }
 
+// #1010: the copy just made is never removed and the count after a prune is exactly paidKeepAside, also when the clock stepped back and the new name is the oldest of all. The older loop took
+// the new copy out of the count as it passed it over and left paidKeepAside+1 copies; a loop without the guard removes the copy it just made.
+func TestPaidPruneKeepsTheNewCopyAndExactlyTheNewestWhenTheClockStepsBack(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "p.json")
+	var older []string
+	for i := 0; i < paidKeepAside; i++ { // ten copies from later than the clock will say
+		f := fmt.Sprintf("%s.damaged-2026112%d", path, i)
+		if err := os.WriteFile(f, []byte(fmt.Sprintf("old %d", i)), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		older = append(older, f)
+	}
+	old := paidClock
+	defer func() { paidClock = old }()
+	paidClock = func() time.Time { return time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC) }
+	if err := os.WriteFile(path, []byte("{broken now"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	l := NewPaidLedger(path, `C:\X\game.db`)
+	if err := l.Record([]save.Note{keptNote("New", 1200)}); err != nil {
+		t.Fatal(err)
+	}
+	got := asideFiles(t, path)
+	if len(got) != paidKeepAside {
+		t.Fatalf("%d copies kept, want exactly %d: %v", len(got), paidKeepAside, got)
+	}
+	var haveNew bool
+	for _, g := range got {
+		if b, _ := os.ReadFile(g); string(b) == "{broken now" {
+			haveNew = true
+		}
+	}
+	if !haveNew {
+		t.Fatal("the copy just made was removed")
+	}
+	if _, err := os.Stat(older[0]); err == nil {
+		t.Fatal("the oldest of the other copies stays, one too many")
+	}
+}
+
+// #1010: the folder is flushed through the hook of the options when there is one.
+func TestPaidMoveAsideFlushesTheFolderThroughTheHook(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "p.json")
+	if err := os.WriteFile(path, []byte("{broken"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	l := NewPaidLedger(path, `C:\X\game.db`)
+	var flushed []string
+	l.opts.SyncDir = true
+	l.opts.Hooks.SyncDir = func(d string) error { flushed = append(flushed, d); return nil }
+	if _, err := l.moveAside(); err != nil {
+		t.Fatal(err)
+	}
+	if len(flushed) != 1 || flushed[0] != dir {
+		t.Fatalf("the folder was flushed through the hook: %v", flushed)
+	}
+}
+
+// #1010: a file that is gone is not waited for: one try of the rename, not the six of a held file (counted, so that the test does not depend on the time it takes).
+func TestPaidMoveAsideDoesNotRetryAFileThatIsGone(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "p.json")
+	l := NewPaidLedger(path, `C:\X\game.db`)
+	tries := 0
+	l.opts.Hooks.Rename = func(a, b string) error { tries++; return os.Rename(a, b) }
+	kept, err := l.moveAside()
+	if err != nil || kept != "" {
+		t.Fatalf("a file that is gone: %q %v", kept, err)
+	}
+	if tries != 1 {
+		t.Fatalf("%d tries of the rename, want 1", tries)
+	}
+}
+
 // The person is told which file holds the old record, by name and not by folder, and only when one was moved (#838).
 func TestPaidAFileMovedAsideIsNamedToThePerson(t *testing.T) {
 	o, path := paidOps(t, "")

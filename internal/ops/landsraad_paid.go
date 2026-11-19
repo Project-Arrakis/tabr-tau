@@ -380,7 +380,11 @@ func (l *PaidLedger) moveAside() (string, error) {
 		return "", err
 	}
 	if o.SyncDir {
-		_ = durable.SyncDir(filepath.Dir(l.path)) // best effort, as WriteFile does: the rename is done
+		syncDir := durable.SyncDir
+		if o.Hooks.SyncDir != nil { // the hook of the options, as WriteFile uses it (#1010)
+			syncDir = o.Hooks.SyncDir
+		}
+		_ = syncDir(filepath.Dir(l.path)) // best effort, as WriteFile does: the rename is done
 	}
 	l.pruneAside(to)
 	return filepath.Base(to), nil
@@ -401,12 +405,17 @@ func (l *PaidLedger) pruneAside(keep string) {
 		}
 	}
 	sort.Strings(names)
-	for len(names) > paidKeepAside {
-		old := names[0]
-		names = names[1:]
+	// The copy just made is never a candidate, wherever it sorts (a clock that stepped back makes it the oldest name): the oldest of the others go until paidKeepAside copies remain in all. Taking the
+	// copy out of the count as it was passed over ended the loop one copy early, and up to paidKeepAside+1 stayed (#1010).
+	excess := len(names) - paidKeepAside
+	for _, old := range names {
+		if excess <= 0 {
+			break
+		}
 		if old == filepath.Base(keep) {
 			continue
 		}
+		excess--
 		if err := os.Remove(filepath.Join(filepath.Dir(l.path), old)); err != nil {
 			log.Printf("an old copy of the Landsraad paid-ground file could not be removed (%s): %v", old, err)
 		}
