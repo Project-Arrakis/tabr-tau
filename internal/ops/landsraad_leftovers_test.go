@@ -113,7 +113,7 @@ func TestGrantTwoHousesOfOneLineShareTheRoomOfTheTrack(t *testing.T) {
 // ---------------------------------------------------------------- #754: failures at the write steps the first test did not reach
 
 func TestGrantAnInterruptedWriteAtTheOtherStepsLeavesNothingHalfWritten(t *testing.T) {
-	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
+	t.Parallel()
 	const out = `select raise(abort, 'disk full'); end;`
 	clock := `update landsraad_tasks set completion_time=999 where id=174;` // a time outside the term's window, so that the clock repair at the end of the edit writes
 	request := func() Args {

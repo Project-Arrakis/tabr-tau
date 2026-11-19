@@ -166,7 +166,7 @@ func TestSpecsShowsWhatAResetOfTheKnownTracksWouldChange(t *testing.T) {
 }
 
 func TestResetSpecTracksClearsTheKnownTracksOnly(t *testing.T) {
-	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
+	t.Parallel()
 	o := specResetOps(t)
 	before := digest(t, o, map[string]bool{"specialization_tracks": true}, 0)
 	r, err := o.ResetSpecTracks(knownTracks, Args{"expected": 2.0})
@@ -194,7 +194,7 @@ func TestResetSpecTracksClearsTheKnownTracksOnly(t *testing.T) {
 }
 
 func TestResetSpecTracksEqualsResettingEachTrack(t *testing.T) {
-	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
+	t.Parallel()
 	a, b := specResetOps(t), specResetOps(t)
 	if _, err := a.ResetSpecTracks(knownTracks, Args{"expected": 2.0}); err != nil {
 		t.Fatal(err)

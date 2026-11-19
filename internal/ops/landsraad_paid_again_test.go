@@ -21,7 +21,7 @@ func TestPaidAKeptNoteThatComesAgainDoesNotLowerTheRecordForARaise(t *testing.T)
 // The same without the look at the board first: the raise guard stands on its own. The board read and the raise share pendingPaid today; if they ever differ, this one still fails when the
 // raise reads the kept note as a replace (#834).
 func TestPaidAKeptNoteThatComesAgainDoesNotLowerTheRecordForARaiseAlone(t *testing.T) {
-	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
+	t.Parallel()
 	keptNoteComesAgain(t, false)
 }
 

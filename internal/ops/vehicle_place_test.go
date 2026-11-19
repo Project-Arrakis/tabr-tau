@@ -259,7 +259,7 @@ func TestPlaceWhenTheClaimIsTooBigTheVehicleStaysInItButOutsideTheBase(t *testin
 }
 
 func TestPlaceWithNoClearPointIsRefusedAndNothingIsWritten(t *testing.T) {
-	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
+	t.Parallel()
 	// foundations everywhere within 95 m
 	var ps []testPiece
 	for x := -9500.0; x <= 9700; x += 512 {
@@ -379,7 +379,7 @@ func TestPlaceSynthBaseTheOldPointWasInsideTheBase(t *testing.T) {
 }
 
 func TestPlaceSynthBaseEveryClassGoesOutsideAtTheFoundationLevel(t *testing.T) {
-	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
+	t.Parallel()
 	var gaps []float64
 	w, err := loadPlaceWorld(synthBaseOps(t).S.Query, "HaggaBasin", 0, synthCharX, synthCharY, 0)
 	if err != nil {

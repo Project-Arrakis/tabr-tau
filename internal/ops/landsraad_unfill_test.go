@@ -274,7 +274,7 @@ func TestUnfillAfterAnUnfillTakesBackNothingMoreAndAStaleRequestIsRefused(t *tes
 
 // What the board says an unfill does is what the write does, in every state the rule tells apart.
 func TestUnfillThePreviewIsTheRuleOfTheWrite(t *testing.T) {
-	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
+	t.Parallel()
 	cases := map[string]func(t *testing.T, o *Ops){
 		"all waiting and vouched": func(t *testing.T, o *Ops) {},
 		"some collected": func(t *testing.T, o *Ops) {
@@ -382,7 +382,7 @@ func TestUnfillThenFillAgainPaysNoMissionTwice(t *testing.T) {
 //   - no wallet, XP or faction progress ever goes down, and
 //   - the missions are paid once: the Solari at the end is the missions of the highest ground ever reached, however many removals and fills came between.
 func TestUnfillSequencesAfterFillsKeepTheRuleAndPayOnce(t *testing.T) {
-	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
+	t.Parallel()
 	ths := []float64{1200, 2400, 3600, 4800, 6000}
 	var unfills, withTakes, withCollected, afterRaise int // what the sequences covered, so that the property is not vacuous
 	for seed := int64(1); seed <= 40; seed++ {

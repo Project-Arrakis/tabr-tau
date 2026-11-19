@@ -26,7 +26,7 @@ func withoutRowidTables(t *testing.T, o *Ops) map[string]bool {
 }
 
 func TestTablesViewWorksOnAllRealSchemaTables(t *testing.T) {
-	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
+	t.Parallel()
 	o := &Ops{S: testsave.Filled(t)} // one row in every table
 	names := testsave.TableNames(t)
 	// the game's newer layout (#588) has three more tables, one of them WITHOUT ROWID (map_names)

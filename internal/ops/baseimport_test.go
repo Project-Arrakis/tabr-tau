@@ -571,7 +571,7 @@ func TestRoundTripExportImportExportGivesTheSameTablesModuloIDs(t *testing.T) {
 }
 
 func TestEveryRefusalLeavesTheSaveAsItWas(t *testing.T) {
-	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
+	t.Parallel()
 	good := exportedFile(t)
 	cases := []struct {
 		name string
