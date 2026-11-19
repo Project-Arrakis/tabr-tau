@@ -318,7 +318,7 @@
     const r = vm.rows.find((x) => x.key === state.sel);
     add(rootEl, heroOf(vm));
     const head = el('div', 'lcc-sp-headrow');
-    add(head, add(el('div'), el('p', 'lcc-sp-eyebrow', 'CHOOSE A PATH'), el('h3', 'lcc-sp-h3', 'Specialization Lanes')), el('span', 'lcc-sp-src', 'FROM YOUR SAVE · READ WHEN THIS PAGE WAS DRAWN'));
+    add(head, add(el('div'), el('p', 'lcc-sp-eyebrow', 'CHOOSE A PATH'), el('h3', 'lcc-sp-h3', 'Specialization Lanes')));
     add(rootEl, head);
     const lanes = el('div', 'lcc-sp-lanes', '', { role: 'group', 'aria-label': 'Five specialization lanes' });
     for (const x of vm.rows) lanes.appendChild(laneOf(vm, x));

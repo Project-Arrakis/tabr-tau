@@ -36,7 +36,7 @@ Method: the design reference and the editor page were drawn side by side in a he
 | H2 | Shield with a cross mark on the left | Drawn with the same shape, decorative, hidden from assistive technology | matches | |
 | H3 | Lead sentence "...The controls below mirror TABR Tau's current save-editor operations." | "Five disciplines. One progression dossier. The buttons below are the editor's own save operations." | differs (wording) | The design reference names the product and calls itself a mirror; the editor says what the buttons are. |
 | H4 | Three totals: tracks at XP cap, keystones purchased, maximum XP per track | Same three, from the answer: counts of tracks at the cap, owned keystones over the total, and `maxXp` | matches | |
-| H5 | "Sample save data, local demonstration" pill | "From your save, read when this page was drawn" | differs (wording) | The design reference's pill labels demonstration data; ours says where the numbers come from and when. |
+| H5 | "Sample save data, local demonstration" pill | None. The label "From your save, read when this page was drawn" was dropped (#1029) | differs (dropped) | The design reference's pill labels demonstration data; ours first said where the numbers come from and when, and the operator decided on 2026-11-19 that the label is not wanted. The header is the eyebrow and the title only. |
 | H6 | Totals when a track is unidentified | Tracks at XP cap counts identified tracks only; the keystone total carries a star and its label says that a track is not identified yet (or that a track's total is not in the save) | matches (added) | The design reference has no unidentified track. |
 
 ### Lanes
