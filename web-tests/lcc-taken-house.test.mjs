@@ -56,7 +56,7 @@ test('taken with no tier record in the save: the card says so, not 0/5 and not a
   assert.equal(c.querySelectorAll('.lcc-hc-q').length, 0, 'no collected and waiting ticks');
   assert.match(label(ui, 'Mutelli'), /favor won by Atreides, .*favor won, no tier record in the save/);
   assert.doesNotMatch(label(ui, 'Mutelli'), /tiers earned|no tiers in the save/);
-  assert.match(c.querySelector('button.lcc-hc-select').getAttribute('title'), /favor is won, and the save holds no reward tiers for it/);
+  assert.match(c.querySelector('button.lcc-hc-select').getAttribute('data-says'), /favor is won, and the save holds no reward tiers for it/);
   assert.match(c.querySelector('.lcc-hc-count b').getAttribute('title'), /no reward tiers/);
 });
 

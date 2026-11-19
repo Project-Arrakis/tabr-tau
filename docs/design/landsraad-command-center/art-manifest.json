@@ -9,6 +9,7 @@
     "emblem": "96 x 96 PNG with alpha (only the emblem of a path, cut from the 256 x 256 banner picture by scripts/lcc-emblems.mjs: the soft shadow and the two faded side copies are dropped, the emblem is trimmed, padded to a square and scaled down); the House card draws it at 28 px (24 px on a phone) in one tint. Game artwork derived from the extracted banner art: the same terms as the banners",
     "decree": "128 x 128 (down from the 256 x 256 reference; shown at 96 px at most)",
     "faction-mark": "256 x 256 (down from the 512 x 512 reference; shown at 150 px at most): the white faction crest on the header shields, the cloth standards and the claimed 13th seat",
+    "item": "64 x 64 WebP with alpha, one per reward item the Landsraad tiers give (the item id of the save is the file name), scaled down from the 256 x 256 item pictures of the Dune Docker console, which the editor reads as a read-only local source; shown at 48 px in the reward mouse-over and 28 px in its rows. Game artwork: the same terms as the other pictures (docs/art-notice.md). The 25 House swatches have no console picture and show no picture (the name only)",
     "standard-tip": "320 x 111 and 319 x 111 PNG, the exact pixels of the approved plaque (no re-drawing, no re-encoding to a lossy format): the gold-edged V point of each cloth standard with its wheat ornament, rows 16 to 126 of the 150-row crop so that no baked-in text is in the picture; the files are design artwork supplied by the project owner, not game artwork",
     "faction-medal": "the reference size (100 x 100 Atreides, 104 x 104 Harkonnen): the round medallion of a claimed seat"
   },
@@ -629,6 +630,870 @@
       "width": 319,
       "height": 111,
       "source": "approved design art: the V-edged gold trim of the Harkonnen cloth, rows 16 to 126 of the 319 x 150 crop at 1818,448 of the approved 2172 x 724 plaque (design artwork supplied by the project owner)"
+    },
+    {
+      "role": "item",
+      "file": "items/Bloodsack_Unique_Durable_06_Schematic.webp",
+      "bytes": 2658,
+      "sha256": "b0f7915e8153732ff5f838691209c581a0d77a39ff660d5c1c0979182ef9ba54",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Bloodsack_Unique_Durable_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/BodyFluidExtractor_Unique_Water_05_Schematic.webp",
+      "bytes": 2586,
+      "sha256": "fe5613082957a464637f2d2344591053afb0f92a734bccbb26008c665a7164ec",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/BodyFluidExtractor_Unique_Water_05_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/BuggyEngine_Unique_Accelerate_06_Schematic.webp",
+      "bytes": 2264,
+      "sha256": "fa5feab380f406b812c679b90256502e300219d012657ebd175f7bdaec6829ad",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/BuggyEngine_Unique_Accelerate_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/BuggyInventory_Unique_Capacity_05_Schematic.webp",
+      "bytes": 2324,
+      "sha256": "c51faa525f8e8e8199284bcf57ba49ea3c927fc86f1e271d19c1e3d5acc4bb97",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/BuggyInventory_Unique_Capacity_05_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/BuggyMining_Unique_YieldIncrease_05_Schematic.webp",
+      "bytes": 2142,
+      "sha256": "cb23e94056faae7bd57fb95da4633942b13f791e16376b8ba168b9a8b97c5fa3",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/BuggyMining_Unique_YieldIncrease_05_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/BuggyMining_Unique_YieldIncrease_06_Schematic.webp",
+      "bytes": 2142,
+      "sha256": "cb23e94056faae7bd57fb95da4633942b13f791e16376b8ba168b9a8b97c5fa3",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/BuggyMining_Unique_YieldIncrease_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Combat_Heavy_Unique_PowerEfficient_Gloves_06_Schematic.webp",
+      "bytes": 2182,
+      "sha256": "cf3ed927f967548716219a9b5fa3c070add558906f1fe1918c55d3dd1e4811a1",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Combat_Heavy_Unique_PowerEfficient_Gloves_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Combat_Heavy_Unique_PowerIncrease_Top_06_Schematic.webp",
+      "bytes": 3682,
+      "sha256": "640545c8573b4acc7dfd7285d3a1c92c9ba9a2e6219128181a826585b57a2af0",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Combat_Heavy_Unique_PowerIncrease_Top_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Combat_Light_Unique_DewReap_Gloves_06_Schematic.webp",
+      "bytes": 1972,
+      "sha256": "4dab2e21c8311e58c24f6d4f303ae3eed101644fb49fd11367eea04fb97855c3",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Combat_Light_Unique_DewReap_Gloves_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Combat_Light_Unique_ReduceSuspensor_Top_06_Schematic.webp",
+      "bytes": 3224,
+      "sha256": "300b5dd2a6d029ef8f7c03560a0b29ca4002d37b439c7285e8b1a776c3868e41",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Combat_Light_Unique_ReduceSuspensor_Top_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Combat_Light_Unique_WormThreat_Boots_06_Schematic.webp",
+      "bytes": 2548,
+      "sha256": "4ccbdcf2c294f382e11f25d6409998c644a4fe1d2cf185c71589acfb19a219c2",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Combat_Light_Unique_WormThreat_Boots_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Combat_Neut_AtreidesDeserterUnique04_Boots_Schematic.webp",
+      "bytes": 2762,
+      "sha256": "a8ea5a29adf0f5f81eb9168777c2bb383ab951d4efc48488c3c38a6ea0bfea35",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Combat_Neut_AtreidesDeserterUnique04_Boots_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Combat_Neut_AtreidesDeserterUnique04_Bottom_Schematic.webp",
+      "bytes": 2354,
+      "sha256": "401d65ace06f5b2616f39eab2456989e1c50c57ba1715616e5eaa1e2f91382d0",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Combat_Neut_AtreidesDeserterUnique04_Bottom_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Combat_Neut_AtreidesDeserterUnique04_Gloves_Schematic.webp",
+      "bytes": 2036,
+      "sha256": "abd1593279f698674226df179541ec6e6eeaabbae7843ea870b860f8e49deab5",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Combat_Neut_AtreidesDeserterUnique04_Gloves_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Combat_Neut_AtreidesDeserterUnique04_Helmet_Schematic.webp",
+      "bytes": 2694,
+      "sha256": "0355692c163936853dd86c7f0e409a83f2db4feabbec09965cdc694df8aa8165",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Combat_Neut_AtreidesDeserterUnique04_Helmet_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Combat_Neut_AtreidesDeserterUnique04_Top_Schematic.webp",
+      "bytes": 3512,
+      "sha256": "0fb0f6813414d080fe3189196e8916da3294e7f810578192b4b44c68c8843f34",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Combat_Neut_AtreidesDeserterUnique04_Top_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Combat_Neut_SmugglerDeserterUnique06_Boots_Schematic.webp",
+      "bytes": 2596,
+      "sha256": "ae0817e6118e5f791498fdc5ecf72b09fbdde969fe888792934ff0b156d76183",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Combat_Neut_SmugglerDeserterUnique06_Boots_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Combat_Neut_SmugglerDeserterUnique06_Bottom_Schematic.webp",
+      "bytes": 2336,
+      "sha256": "46a113fa7c69019b672d3a495ea6874fa625103961c7c032c4cd5815471e0d4f",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Combat_Neut_SmugglerDeserterUnique06_Bottom_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Combat_Neut_SmugglerDeserterUnique06_Gloves_Schematic.webp",
+      "bytes": 2010,
+      "sha256": "303823902c4edc104f9853666839ec1e62032591aa4c9d72edddb9111b3b3c35",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Combat_Neut_SmugglerDeserterUnique06_Gloves_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Combat_Neut_SmugglerDeserterUnique06_Helmet_Schematic.webp",
+      "bytes": 2396,
+      "sha256": "99bfdb110f13ecce1331edff1fde11ff665468d6fedb1570bc107563320d1598",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Combat_Neut_SmugglerDeserterUnique06_Helmet_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Combat_Neut_SmugglerDeserterUnique06_Top_Schematic.webp",
+      "bytes": 3262,
+      "sha256": "f9ecf0e89e39f2bf4c5edb9bebcece4a940edbf027e29a7da0a7139eb9aa9800",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Combat_Neut_SmugglerDeserterUnique06_Top_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/DewReaper_1h_Unique_Compact_06_Schematic.webp",
+      "bytes": 1934,
+      "sha256": "714292fc638c353e0250bd5210ef48c0dee1ba7fab999af89db08513353b340b",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/DewReaper_1h_Unique_Compact_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/DewReaper_2h_Unique_YieldIncrease_06_Schematic.webp",
+      "bytes": 2386,
+      "sha256": "b18a417c291ff05dc432a9e85337b95ba918b407433472720b5a3fe7e03a8d9f",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/DewReaper_2h_Unique_YieldIncrease_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/DewReaper_Unique_04_Schematic.webp",
+      "bytes": 1828,
+      "sha256": "2fa935eadc2b1a97342065dd57483fa6a0d7aa1148a664ceffa697befb6fdf9b",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/DewReaper_Unique_04_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/DewReaper_Unique_05_Schematic.webp",
+      "bytes": 1886,
+      "sha256": "eb93e1deadb1e333a014656c913c52c25f0d8dae7b1e361a2f513aa38c056b95",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/DewReaper_Unique_05_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/GlidePartialStabilizationBelt_05_Schematic.webp",
+      "bytes": 2644,
+      "sha256": "5431b3e24bca4062be4af857ce987a44b4850c52b5dd51b624229c1b841c3684",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/GlidePartialStabilizationBelt_05_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/HeavyPistol_Unique_Headshot_05_Schematic.webp",
+      "bytes": 2024,
+      "sha256": "ef46854d7cd8ebd45022ecd7cbc87fe51e6103469b9812a50507cbd0a3ba8540",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/HeavyPistol_Unique_Headshot_05_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/HighCapacityLiterjon_05_Schematic.webp",
+      "bytes": 1644,
+      "sha256": "c0ba9e5f3232580355b924deda4b77c1e633e938a75d98c756322dc17538b06f",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/HighCapacityLiterjon_05_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/HighCapacityLiterjon_06_Schematic.webp",
+      "bytes": 2396,
+      "sha256": "b800a4dedc278a81ddc5bd91dcd29d23b42c3ff9445f4eba990bd1e75bb0e931",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/HighCapacityLiterjon_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Kindjal_Unique_Blood_05_Schematic.webp",
+      "bytes": 1240,
+      "sha256": "88f12d01a48e74086fba8640f51b40be552e2c0be8485ae9c7eb5c35806522ad",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Kindjal_Unique_Blood_05_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Kindjal_Unique_Stamina_05_Schematic.webp",
+      "bytes": 1324,
+      "sha256": "349ab61ef82b280e46689a941d1f57ae1b9e89f266dde07d55efbeedf1646dac",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Kindjal_Unique_Stamina_05_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/LMG_Unique_Power_06_Schematic.webp",
+      "bytes": 2152,
+      "sha256": "c7bcc6c270267c8fc41e668fc085fdc6d6be8202acaaaa37c7bb89e92b37823d",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/LMG_Unique_Power_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/LMG_Unique_RapidFire_05_Schematic.webp",
+      "bytes": 2182,
+      "sha256": "dd3609948ed1672952a78b50a3920ac966993233ea1a1237275b613783e1ccb2",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/LMG_Unique_RapidFire_05_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/LongRifle_Unique_LargeMag_05_Schematic.webp",
+      "bytes": 1518,
+      "sha256": "3a572d817ce1f0c98fec504e630bd8e303afbb061c1f5dc0cbdca0d84139e1cf",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/LongRifle_Unique_LargeMag_05_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/MiningTool_2h_Unique_04_Schematic.webp",
+      "bytes": 2226,
+      "sha256": "7f4320bc557c17303e4281f81f827d656e36e8b27fe059f21892eba65b8ba7db",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/MiningTool_2h_Unique_04_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/OrnithopterLightLocomotion_Unique_Speed_6_Schematic.webp",
+      "bytes": 1468,
+      "sha256": "8c37e009bc600bfdb9d42d4e29c7908fabe0b5e5d299a81d9f18ffcc5fde0d7f",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/OrnithopterLightLocomotion_Unique_Speed_6_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/OrnithopterMediumBoost_Unique_LessHeat_5_Schematic.webp",
+      "bytes": 1876,
+      "sha256": "21d60f69c699f553202868573a04cdc6fe2641b96d7ca1ba90bcac44d0706369",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/OrnithopterMediumBoost_Unique_LessHeat_5_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/OrnithopterMediumBoost_Unique_LessHeat_6_Schematic.webp",
+      "bytes": 1876,
+      "sha256": "21d60f69c699f553202868573a04cdc6fe2641b96d7ca1ba90bcac44d0706369",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/OrnithopterMediumBoost_Unique_LessHeat_6_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/OrnithopterMediumLocomotion_Unique_Strafe_5_Schematic.webp",
+      "bytes": 1402,
+      "sha256": "e1d91f08f00f10220c5943fa2417e05a5cc2703fb0c3f9e7b592d3e71b5cb42a",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/OrnithopterMediumLocomotion_Unique_Strafe_5_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/OrnithopterMediumLocomotion_Unique_Strafe_6_Schematic.webp",
+      "bytes": 1402,
+      "sha256": "e1d91f08f00f10220c5943fa2417e05a5cc2703fb0c3f9e7b592d3e71b5cb42a",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/OrnithopterMediumLocomotion_Unique_Strafe_6_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/PowerPack_Unique_Regen_05_Schematic.webp",
+      "bytes": 1970,
+      "sha256": "fa696679ff1585e1d12e4592f6e464ed7facad57202a69922c0b4a93cedb7045",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/PowerPack_Unique_Regen_05_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/PowerPack_Unique_Regen_06_Schematic.webp",
+      "bytes": 1970,
+      "sha256": "fa696679ff1585e1d12e4592f6e464ed7facad57202a69922c0b4a93cedb7045",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/PowerPack_Unique_Regen_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/SMG_Unique_LargeMag_06_Schematic.webp",
+      "bytes": 2158,
+      "sha256": "cfb71e52bae69d7bd6f7e3b9e00b6ead5ccecfc8404703019fd61cb60bd65ba4",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/SMG_Unique_LargeMag_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/SandbikeEngine_Unique_Speed_5_Schematic.webp",
+      "bytes": 2208,
+      "sha256": "30a78146eb0d4b7a6d70078dcd9a9c331dbfb4ece94e6d334dc0c8e943cf03c8",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/SandbikeEngine_Unique_Speed_5_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/SandcrawlerEngine_Unique_Speed_06_Schematic.webp",
+      "bytes": 2428,
+      "sha256": "ad4e20edf32b3596e89d1c9b8d8f14450ca339569272f2ca185ccc5a55f0de5d",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/SandcrawlerEngine_Unique_Speed_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/SandcrawlerLocomotion_Unique_WormThreat_06_Schematic.webp",
+      "bytes": 2276,
+      "sha256": "473dec0c985002a2f8beb5bb6cbea634fb8ac8ed803c7842eb61b0d173443ef0",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/SandcrawlerLocomotion_Unique_WormThreat_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Schematic_UniqueCutteray5.webp",
+      "bytes": 2186,
+      "sha256": "1d9bdeb2342826a1612c7aa192b8a3dde02f9d5b901175d99ad30f5086888672",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Schematic_UniqueCutteray5.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Schematic_UniqueFlamethrower.webp",
+      "bytes": 2060,
+      "sha256": "63b9fbcb3464f9d9ef858f872b565119e266ad34c8ed3615681c94e111bd2842",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Schematic_UniqueFlamethrower.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Schematic_UniqueForgeChest.webp",
+      "bytes": 3196,
+      "sha256": "f5d694f6a3550b7ffd435931de68082b3f37fe6ea7560a6aaf1011d99640315d",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Schematic_UniqueForgeChest.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Schematic_UniqueForgeFeet.webp",
+      "bytes": 2588,
+      "sha256": "07f23f603193e80ab5516bc8a55989e57148c097833335562acc24d692f7881a",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Schematic_UniqueForgeFeet.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Schematic_UniqueForgeHands.webp",
+      "bytes": 2080,
+      "sha256": "bca182d810f12367433bac29579ffa8ccdf4aa46ec120e22aa3df044395259e0",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Schematic_UniqueForgeHands.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Schematic_UniqueForgeHead.webp",
+      "bytes": 2200,
+      "sha256": "073a8a1a2d3c098a8ff81d8a7ed076e3455438ec94bc57d0b5483df82a3a42c7",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Schematic_UniqueForgeHead.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Schematic_UniqueForgeLegs.webp",
+      "bytes": 2412,
+      "sha256": "0e8157fa7171527c4036e962c7838e24c14202e1fb64e8324e225a3e8a853bee",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Schematic_UniqueForgeLegs.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Shotgun_Unique_Blood_06_Schematic.webp",
+      "bytes": 1740,
+      "sha256": "db3459ae123d7549d9b4354d17a4713c3b9b5fa7a7c34b7da5e4f7993e7cd446",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Shotgun_Unique_Blood_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Shotgun_Unique_Explosive_06_Schematic.webp",
+      "bytes": 1660,
+      "sha256": "7a9a553d1db491873ff7f127238988fe9d5bf939c797650fe125196d041e58fe",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Shotgun_Unique_Explosive_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/StaticCompactor_Unique_Compact_06_Schematic.webp",
+      "bytes": 1866,
+      "sha256": "951b5c60b989c9d1a147f4b4184de0f94e85b29ed009eebc00032a5d3a451f8a",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/StaticCompactor_Unique_Compact_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Stillsuit_Unique_Efficient_05_Boots_Schematic.webp",
+      "bytes": 2070,
+      "sha256": "d7ee886990bb64fe4ff5101ee64fda77e01b1885b43232e060c97f40c14ec164",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Stillsuit_Unique_Efficient_05_Boots_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Stillsuit_Unique_Efficient_05_Gloves_Schematic.webp",
+      "bytes": 2080,
+      "sha256": "d17302a89e164d3f3e457af96f8412a87eacb6d526cd64c681ae8ce1058fd021",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Stillsuit_Unique_Efficient_05_Gloves_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Stillsuit_Unique_Efficient_05_Mask_Schematic.webp",
+      "bytes": 1902,
+      "sha256": "ebe2c25e849478fc37360b385323eb8a38d28405311d80a19cffa384935767ae",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Stillsuit_Unique_Efficient_05_Mask_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Stillsuit_Unique_Efficient_05_Top_Schematic.webp",
+      "bytes": 3086,
+      "sha256": "1520208f391b75d14eabfa71bd5227f51a1d9b5031bd9a8c1055481cebef24cf",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Stillsuit_Unique_Efficient_05_Top_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Stillsuit_Unique_Efficient_06_Boots_Schematic.webp",
+      "bytes": 2064,
+      "sha256": "eea154a0fca7e1ad3c592c7776e2fd6779ee79bf421bcee5370f098ad8c5794f",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Stillsuit_Unique_Efficient_06_Boots_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Stillsuit_Unique_Efficient_06_Gloves_Schematic.webp",
+      "bytes": 2178,
+      "sha256": "788a252a2c253101af2faf78d1ca92073e655c3dc278fbfb8f5c8b9c837e5252",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Stillsuit_Unique_Efficient_06_Gloves_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Stillsuit_Unique_Efficient_06_Mask_Schematic.webp",
+      "bytes": 2072,
+      "sha256": "d80b1a6a2135e9e74158d9032002b6d44aa8bf2b08b85a53bfafbe6f1f1e663d",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Stillsuit_Unique_Efficient_06_Mask_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/Stillsuit_Unique_Efficient_06_Top_Schematic.webp",
+      "bytes": 2992,
+      "sha256": "8b3830195bdb8dd48541e28f0f37761ff738530c30d4c40ba77ce175cd5afd19",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/Stillsuit_Unique_Efficient_06_Top_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/T6ArmorPlating.webp",
+      "bytes": 3030,
+      "sha256": "2e39b50b074663f16a0f2e2da48e72078539fcb3fe98015267a966468d1526bf",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/T6ArmorPlating.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/T6BalisticWeave.webp",
+      "bytes": 2036,
+      "sha256": "191fdeb2e74c43b26a7ccbd30f2485dbba5265d86b9d5bae795a2ba3c9514b55",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/T6BalisticWeave.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/T6BladePart.webp",
+      "bytes": 2914,
+      "sha256": "a5454ce64aab70c726ed6ae53f271bc80632c51c2d4c1bc79d6f0807b2b67aef",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/T6BladePart.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/T6CarbidePladeParts.webp",
+      "bytes": 2680,
+      "sha256": "29b6a774763c1a853d03d80a1249fbcd75d88ff441a947afb18c80d9f203da53",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/T6CarbidePladeParts.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/T6DiamodineBladeParts.webp",
+      "bytes": 2856,
+      "sha256": "02dd68d97ddb10dd8b958e7213148dbdad7ae73225d11ef3faf5a9db0e99edad",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/T6DiamodineBladeParts.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/T6FilteredFabric.webp",
+      "bytes": 1798,
+      "sha256": "29540f9113036877523f5cd647f3e7870e4a7784f6893f515ada21ce585b3727",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/T6FilteredFabric.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/T6GunPart.webp",
+      "bytes": 3400,
+      "sha256": "08d083fb3bdba625dd4421cc688c0c2b16e043be94d54ff29b4cb67748e6f08c",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/T6GunPart.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/T6HeavyCalliberCompressor.webp",
+      "bytes": 3118,
+      "sha256": "f0b877178404b52fc6fa819794e72a84a72de9eb474c846a22e53bbad19bc096",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/T6HeavyCalliberCompressor.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/T6HoltzmanActuator.webp",
+      "bytes": 2426,
+      "sha256": "251f5570f468899372eccb71b5c94ab0caf7a6bb980b107d9faa7293898cf4d6",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/T6HoltzmanActuator.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/T6HydraulicPiston.webp",
+      "bytes": 1944,
+      "sha256": "f4fb15beae50331eaf271d4e6111216fed1e434a725675420dbacf8d848a5398",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/T6HydraulicPiston.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/T6IndustrialPump.webp",
+      "bytes": 3250,
+      "sha256": "a651d324e14c2f5071c3d55f4e26250fcd8e8a7172eced26808cf98e61603aff",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/T6IndustrialPump.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/T6IrradiatedCore.webp",
+      "bytes": 3340,
+      "sha256": "3f6b0e1ee92b05888536e3f4fef21603ade3e95653bd1220daa3bc8b3a05a062",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/T6IrradiatedCore.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/T6LightCalliberCompressor.webp",
+      "bytes": 2616,
+      "sha256": "1d74c861bba99b8dfecf3c28a038b09338796c1239117171122af5535b3f7c40",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/T6LightCalliberCompressor.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/T6Machinery.webp",
+      "bytes": 3356,
+      "sha256": "bd108253f1270737b032878d07385650799fbb30108ec4a6149c7a06da027a5d",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/T6Machinery.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/T6PowerRegulator.webp",
+      "bytes": 2808,
+      "sha256": "cb5aaa822f3d392800dc9b9a0ac16baecd7617210a7032336a7ce5d2aaa3c1f1",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/T6PowerRegulator.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/T6RangeFinder.webp",
+      "bytes": 2564,
+      "sha256": "538ed894d521e6d9f0cb090d58e1f8ca79637a5a2316a09423484692d2af7f12",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/T6RangeFinder.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/T6RayAmplifier.webp",
+      "bytes": 2518,
+      "sha256": "c596cca08f918cf0005b59933675b5a52e1745d6c2847247ff4e21ffb6f12285",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/T6RayAmplifier.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/T6Watertube.webp",
+      "bytes": 2152,
+      "sha256": "81e6d05c876911c4fe990efa362c686fab40d9c5c317c6e9f18721832e21c3f3",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/T6Watertube.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/UniqueAr_Burst_05_Schematic.webp",
+      "bytes": 1884,
+      "sha256": "a680e1cbb6bd8fcb700c026643a3af23ca5140c9795006da5051c1a3ef4cd9de",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/UniqueAr_Burst_05_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/UniqueAr_Burst_06_Schematic.webp",
+      "bytes": 2054,
+      "sha256": "4db7e96a9c762a3924844129fcca0fcd5fbd2f9eb52a1a2e7b352f185a94d27e",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/UniqueAr_Burst_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/UniqueDirk_03_Schematic.webp",
+      "bytes": 1510,
+      "sha256": "d8ab5b237b3914b2df05d471452e39b70b672fd6237b3d2f041fb3b419b1f822",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/UniqueDirk_03_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/UniqueDirk_04_Schematic.webp",
+      "bytes": 1566,
+      "sha256": "f07fdf02c4dc7a0b9f0f89391ddfbc210c51b562c51ac820ef30a721c1613387",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/UniqueDirk_04_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/UniqueRapier_02_Schematic.webp",
+      "bytes": 1514,
+      "sha256": "d32efda8128d2c49a83bf94bab28fe0a3f2b2374cc43ed51ba2697cd774a61e8",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/UniqueRapier_02_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/UniqueRapier_03_Schematic.webp",
+      "bytes": 1678,
+      "sha256": "accc740e199cf0fa0f92ed73483bac7822464aa960c118d953ac74860883a946",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/UniqueRapier_03_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/UniqueScattergun5_Schematic.webp",
+      "bytes": 1940,
+      "sha256": "1aa404c02eb5621d5af056e245faa526dfc95c826f397218982b0aeccc4a08bc",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/UniqueScattergun5_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/UniqueScattergun_Fire_05_Schematic.webp",
+      "bytes": 1826,
+      "sha256": "2e8ef40611f33fc350306ae3ee0e7cb82d6f798e0212716f06b14fa59bc714d5",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/UniqueScattergun_Fire_05_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/UniqueSda5_Schematic.webp",
+      "bytes": 1968,
+      "sha256": "4a68c27b299ed1d0fe9812477fea53996ca40eb10b8de2c17c6b2d568e347eda",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/UniqueSda5_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/UniqueSda6_Schematic.webp",
+      "bytes": 1992,
+      "sha256": "cf924957f0044a628a0406bc95a516a1caabb2b4bf04fc6a5355b6f1e34c30fd",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/UniqueSda6_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/UniqueSda_Doubleshot_06_Schematic.webp",
+      "bytes": 1928,
+      "sha256": "394b0ae30fdc2b12bb8da7f6eead345c09b935738e742f5891a5a4f9c7501333",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/UniqueSda_Doubleshot_06_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/UniqueSmg2_Schematic.webp",
+      "bytes": 1998,
+      "sha256": "90624f5537dd2ff934587683401bd06bc662d9b689ae9b5e146a2552aae48e31",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/UniqueSmg2_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/UniqueSword_04_Schematic.webp",
+      "bytes": 1088,
+      "sha256": "cff044a2242237e2f734e934c6640dbb21bb29260612c595247a579b92f68333",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/UniqueSword_04_Schematic.png (256 x 256), read from the local checkout and scaled down"
+    },
+    {
+      "role": "item",
+      "file": "items/UniqueSword_05_Schematic.webp",
+      "bytes": 1168,
+      "sha256": "df8180c0468c9ee1e7ef53a056e845bb5dfe55d24f4803a2f15545e21b33aafb",
+      "width": 64,
+      "height": 64,
+      "source": "the Dune Docker console item picture web/public/images/items/UniqueSword_05_Schematic.png (256 x 256), read from the local checkout and scaled down"
     }
   ],
   "factionArt": {

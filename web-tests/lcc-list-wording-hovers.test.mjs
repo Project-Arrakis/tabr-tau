@@ -114,7 +114,7 @@ test('#951: the House name of a row carries the Classic hover card, and the cell
   const c = await open('list', 'classic');
   assert.equal(text(c.doc.querySelector('#lsrow-' + idOf(synthetic(), 'Alexin') + ' .hcard')), t, 'the Classic card and the board card say the same');
   // the cells
-  const tip = (cls) => r.querySelector('.' + cls).getAttribute('title');
+  const tip = (cls) => { const n = r.querySelector('.' + cls); return n.getAttribute('title') || ui.w.LCCB.tipOf(n).title; }; // the reward cells carry the picture mouse-over (#977), which keeps the sentence
   assert.match(tip('lcc-bd-c-state'), /^(Your contribution: [\d,]+\. |No contribution of yours recorded\. )\d+ of 5 tiers earned.$/);
   assert.match(tip('lcc-bd-c-tiers'), /^Tier 1, [\d,]+: .+ \((not reached|earned, .+)\)(\nTier \d, .+)+$/);
   assert.match(tip('lcc-bd-c-next'), /^Next reward: |top tier reached/);
@@ -196,14 +196,21 @@ test('#937: each reward of the inspector has the item in its mouse-over and on f
   look(ui, a, 'Alexin');
   const tiers = [...ui.doc.querySelectorAll('.lcc-bd-insp .lcc-bd-tier')];
   assert.equal(tiers.length, 5);
-  assert.equal(tiers[0].getAttribute('data-info'), null, 'tier 1 of the fixture is Solari: no mouse-over');
+  assert.equal(tiers[0].hasAttribute('data-rtip'), false, 'tier 1 of the fixture is Solari: no reward mouse-over');
+  assert.equal(ui.w.LCCB.tipOf(tiers[0]), null);
   assert.doesNotMatch(tiers[0].getAttribute('aria-label'), /Game id/);
   const t2 = tiers[1];
-  assert.match(t2.getAttribute('data-info'), /^Reward of tier 2: .+\nGame id: SYNTH_SCHEMATIC_1\nTier 2 needs [\d,]+: (not reached|earned, .+)$/);
-  assert.match(t2.getAttribute('aria-label'), /Game id: SYNTH_SCHEMATIC_1/, 'the same words for a screen reader on focus');
-  assert.doesNotMatch(t2.getAttribute('data-info'), /schematic, resource|a schematic|a resource|vehicle part|placeable/i, 'what the editor does not know is not said');
-  // the style sheet draws it on hover and on focus
-  assert.match(src('lcc', 'lcc-board.css'), /\.lcc-bd-tier\[data-info\]:hover::after, \.lcc-bd-tier\[data-info\]:focus::after \{ content: attr\(data-info\);/);
-  // the click tip stays the button's title
-  assert.match(t2.getAttribute('title'), /Give tier 2|Remove tier 2|Tier 2 is reached|Off while/);
+  const d2 = ui.w.LCCB.tipOf(t2);
+  assert.ok(d2, 'tier 2 has the reward mouse-over');
+  assert.equal(d2.rows.length, 1);
+  assert.equal(d2.rows[0].item, 'SYNTH_SCHEMATIC_1', 'the item id only finds the picture');
+  assert.equal(t2.getAttribute('data-item'), 'SYNTH_SCHEMATIC_1', 'and is kept as a data attribute only');
+  assert.match(d2.rows[0].name, /\S/, 'the display name');
+  assert.doesNotMatch(d2.rows[0].name, /SYNTH_SCHEMATIC/, 'the internal name is not the display name');
+  assert.doesNotMatch(t2.getAttribute('aria-label'), /Game id/, 'no "Game id" in the words a screen reader says (#977; an item the editor has no name for is called by its id, as everywhere on the page)');
+  assert.equal(t2.getAttribute('data-info'), null, 'the text drawn by the style sheet is gone');
+  assert.doesNotMatch(src('lcc', 'lcc-board.css'), /data-info/);
+  // the click sentence rides in the mouse-over card, no longer in a native title
+  assert.equal(t2.getAttribute('title'), null);
+  assert.match(d2.note, /Give tier 2|Remove tier 2|Tier 2 is reached|Off while/);
 });

@@ -2003,7 +2003,7 @@ function lbTierTip(h, t, i, can, l, withGrant, F, board) {
 }
 // The mouse-over text of one tier box, built once for the Classic list and for the cards of the board (#938): the reward, and what a click does or why the box is off. tip is what lbTierTip said.
 function lbTierTitle(h, t, i, tip, off) {
-  const rid = 'Reward: ' + lbRText(t) + (t.swatch ? ' (the house swatch, as the character does not hold it yet)' : '') + '. Game id: ' + t.tmpl + '.';
+  const rid = 'Reward: ' + lbRText(t) + (t.swatch ? ' (the house swatch, as the character does not hold it yet)' : '') + '.'; // the display name only: the game's internal name is shown nowhere (#977)
   return off ? tip : rid + ' ' + tip;
 }
 // the row's meter is a picture of the state: the tier clicks are the boxes of the opened row, where each box shows its reward and what it grants before the click
@@ -2032,12 +2032,19 @@ function lbNode(safe) {
   lbStyles(n);
   return n.childElementCount === 1 ? n.firstElementChild : n;
 }
-// The mouse-over of the item a reward tier gives (#937): what the editor holds about it, in the words of the Classic tier box (the reward, its game id, the state), and nothing it does not know: what kind of item it is
+// The mouse-over of the item a reward tier gives (#937, #977): what the editor holds about it, in the words of the Classic tier box (the reward and the state; never the game's internal name), and nothing it does not know: what kind of item it is
 // (a schematic, a resource, a part) is not in the save or the editor's item list, so it is not said. Solari has none (the amount is the whole story).
 const LB_SOLARI = 'SolarisCoin';
 function lbItemInfo(h, t, i) {
   if (!t || t.tmpl === LB_SOLARI) return '';
-  return ['Reward of tier ' + i + ': ' + lbRText(t) + (t.swatch ? ' (the house swatch)' : ''), 'Game id: ' + t.tmpl, 'Tier ' + i + ' needs ' + lbF(t.th) + ': ' + lbTierWord(t)].join('\n');
+  return ['Reward of tier ' + i + ': ' + lbRText(t) + (t.swatch ? ' (the house swatch)' : ''), 'Tier ' + i + ' needs ' + lbF(t.th) + ': ' + lbTierWord(t)].join('\n');
+}
+// One reward of a tier as the picture mouse-over of the Command Center draws it (#977): the display name the game shows (never the internal name), the quantity, the tier and its state. `item` is the item id, handed
+// over only so the board can look the picture up in its own fixed list (a data attribute, never text); the board draws no picture for an id it has none for. Solari (the amount is the whole reward) has no picture.
+function lbRewardRow(h, t, i) {
+  if (!t) return null;
+  const solari = t.tmpl === LB_SOLARI;
+  return { item: solari ? '' : String(t.tmpl), name: (CATALOG && CATALOG.byId.get(t.tmpl)) || (solari ? 'Solari' : 'Item not in the editor’s list'), qty: lbF(t.amount), swatch: !!t.swatch, tier: i, need: lbF(t.th), state: lbTierWord(t) };
 }
 // The mouse-overs of the cells of the Command Center list, in the words of the Classic list (one source): your progress, the tiers, the next tier and the rewards waiting.
 function lbListTips(h) {
@@ -2047,6 +2054,12 @@ function lbListTips(h) {
     tiers: n ? h.tiers.map((t, k) => 'Tier ' + (k + 1) + ', ' + lbF(t.th) + ': ' + lbRText(t) + ' (' + lbTierWord(t) + ')').join('\n') : 'No tiers in the save.',
     next: 'Next reward: ' + lbNextReward(h) + (h.tiers.some((t) => h.mine < t.th) ? ', ' + lbNextParts(h)[1] : '') + '.',
     waiting: h.tiers.some((t) => t.state === 'waiting') ? 'Not collected: ' + h.tiers.filter((t) => t.state === 'waiting').map(lbRText).join('; ') : 'Nothing waiting at the house representative.',
+    // the same mouse-overs with the item pictures (#977): the rows of the reward mouse-over of the Command Center list, one per tier; a cell with no rows keeps its sentence
+    rows: {
+      tiers: h.tiers.map((t, k) => lbRewardRow(h, t, k + 1)),
+      next: h.tiers.map((t, k) => (h.mine < t.th ? lbRewardRow(h, t, k + 1) : null)).filter(Boolean).slice(0, 1),
+      waiting: h.tiers.map((t, k) => (t.state === 'waiting' ? lbRewardRow(h, t, k + 1) : null)).filter(Boolean),
+    },
   };
 }
 // the distance from the character to the house representative: the save holds the character's place in centimetres, and the house representative's marker its place, as a fraction of its map
@@ -2746,7 +2759,7 @@ function lbCtl(id) {
     fillgoal: { off: q.goalOff, tip: q.goalTip },
     complete: { off: q.doneF, tip: q.doneF ? 'Already complete for ' + q.fn + ': nothing to change' : crTipC(q.fn) },
     reopen: { off: !h.taken, tip: h.taken ? LB_REOPEN_TIP : 'The house is open: nothing to change' },
-    tiers: h.tiers.map((t, k) => { const gr = q.ownF && k + 1 > h.reached ? lbGrantOf(h, l, h.mine, t.th) : null, tip = lbTierTip(h, t, k + 1, q.can, l, true, F, true); return { reward: lbRText(t), off: !q.ownF, tip, title: lbTierTitle(h, t, k + 1, tip, !q.ownF), item: lbItemInfo(h, t, k + 1), grant: gr ? lbGrantShort(gr) : '' }; }),
+    tiers: h.tiers.map((t, k) => { const gr = q.ownF && k + 1 > h.reached ? lbGrantOf(h, l, h.mine, t.th) : null, tip = lbTierTip(h, t, k + 1, q.can, l, true, F, true); return { reward: lbRText(t), off: !q.ownF, tip, title: lbTierTitle(h, t, k + 1, tip, !q.ownF), item: lbItemInfo(h, t, k + 1), rw: t.tmpl === LB_SOLARI ? null : lbRewardRow(h, t, k + 1), grant: gr ? lbGrantShort(gr) : '' }; }),
     loc: lbLocModel(h),
     caption: lbGrantCaption(q.fillGr, q.nextGr, h, q.can && !q.ownF ? [q.fn, lbFacName(l, l.character.faction_id)] : null),
   };

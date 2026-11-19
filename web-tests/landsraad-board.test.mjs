@@ -146,7 +146,8 @@ test('a tier says what it gives, by the game’s name, and where it stands: not 
   assert.equal(t.length, 5);
   assert.deepEqual(t.map((x) => text(x.querySelector('.pl'))), ['Collected', 'Collected', 'Not collected', 'Not collected', 'Not collected']);
   assert.ok(text(t[0].querySelector('.rw')).startsWith('10,000 '), text(t[0].querySelector('.rw')));
-  assert.ok(t[0].title.includes('Game id: SolarisCoin'), 'the internal id is only in the tooltip');
+  assert.ok(!t[0].title.includes('SolarisCoin') && !t[0].title.includes('Game id'), 'the internal name is shown nowhere, not even in the tooltip (#977)');
+  assert.ok(t[0].title.startsWith('Reward: '), 'the tooltip keeps the display name of the reward');
   assert.ok(!text(t[0]).includes('SolarisCoin'));
   assert.ok(t[2].classList.contains('wt') && t[0].classList.contains('dv'));
   assert.ok(text(t[4].querySelector('.rw')).includes('Placeables Swatch'), 'the top tier shows the swatch while it is not held');

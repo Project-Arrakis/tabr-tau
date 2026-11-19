@@ -4,7 +4,7 @@
    (--lcc-serif, --lcc-sans, --lcc-mono: system fonts, nothing is fetched). Layout follows the box the board is in (a container query), not the window: the approved design's window breakpoints are
    its container breakpoints here. */
 
-.lcc-bd { container-type: inline-size; display: block; box-sizing: border-box; padding: 12px; color: var(--lcc-text); background: var(--lcc-ground); border: 1px solid var(--lcc-hair); font: 14px/1.45 var(--lcc-sans); }
+.lcc-bd { position: relative; container-type: inline-size; display: block; box-sizing: border-box; padding: 12px; color: var(--lcc-text); background: var(--lcc-ground); border: 1px solid var(--lcc-hair); font: 14px/1.45 var(--lcc-sans); }
 .lcc-bd h3, .lcc-bd h4, .lcc-bd h5 { margin: 0; }
 .lcc-bd p { margin: 0; }
 .lcc-bd .lcc-plaque-host { margin: 0 0 0; }
@@ -199,8 +199,8 @@
    which the 0.5 dial of the plaque does not scale), the optional moving border and the slow glow (Motion Full, no reduced-motion request), and a still outline in every other case. The way it was won is
    said by the words of the plaque and the panel. */
 .lcc-bd-victory[data-state="line"] { border-color: var(--lcc-gold); box-shadow: inset 0 0 22px color-mix(in srgb, var(--lcc-gold) calc(16% * var(--lcc-glow-win)), transparent); }
-.lcc-bd-victory[data-state="line"] .lcc-bd-vtag { border-color: var(--lcc-gold); color: var(--lcc-gold-text); }
-.lcc-bd-victory[data-state="count"] .lcc-bd-vtag { border-style: dashed; border-color: var(--lcc-gold); color: var(--lcc-gold-text); }
+/* the SYSSELRAAD WON tag (#978): the one win outline of lcc.css (its selector list names the tag), a solid line because a win is a settled fact (a dashed line is for what is not settled); the colour of its text is the gold of text */
+.lcc-bd-victory[data-state="line"] .lcc-bd-vtag, .lcc-bd-victory[data-state="count"] .lcc-bd-vtag { color: var(--lcc-gold-text); }
 .lcc-bd-victory[data-state="conflict"] .lcc-bd-vtag { border-style: dashed; border-color: var(--lcc-violet); color: var(--lcc-text); }
 .lcc-bd-vcount { margin: 10px 0 0; font: 11px/1.45 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-bd-vlines { margin: 6px 0 0; font: 11px/1.45 var(--lcc-sans); color: var(--lcc-dim); }
@@ -208,6 +208,7 @@
 @media (forced-colors: active) {
   .lcc-hc[data-victory="win"] { border: 5px double CanvasText; outline: 3px solid CanvasText; box-shadow: none; }
   .lcc-bd-victory[data-state="line"], .lcc-bd-victory[data-state="count"], .lcc-bd-victory[data-state="conflict"] { border: 3px double CanvasText; box-shadow: none; }
+  .lcc-bd-victory[data-state="line"] .lcc-bd-vtag, .lcc-bd-victory[data-state="count"] .lcc-bd-vtag { border: 3px double CanvasText; outline: 2px solid CanvasText; outline-offset: 3px; box-shadow: none; }
   .lcc-bd-key-g { border-color: CanvasText; }
   .lcc-bd-line { border-left-color: CanvasText; }
 }
@@ -282,8 +283,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-tier-s.not_reached { color: var(--lcc-dim); }
 .lcc-bd-tier-s.no_row, .lcc-bd-tier-s.unknown { color: var(--lcc-red-t); }
 /* the plain words of the state stay for a screen reader, beside the mark */
-.lcc-bd-tier[data-info] { position: relative; }
-.lcc-bd-tier[data-info]:hover::after, .lcc-bd-tier[data-info]:focus::after { content: attr(data-info); position: absolute; z-index: 6; left: 8px; right: 8px; top: 100%; margin-top: 2px; padding: 8px 10px; white-space: pre-line; overflow-wrap: anywhere; font: 500 12px/1.4 var(--lcc-sans); text-transform: none; letter-spacing: 0; text-align: left; color: var(--lcc-text); background: var(--lcc-panel); border: 1px solid var(--lcc-stroke-faint); box-shadow: 0 6px 18px rgba(0, 0, 0, .35); pointer-events: none; } /* the item of a reward, on hover and on focus (#937) */
+.lcc-bd-tier[data-rtip] { position: relative; } /* its reward mouse-over is the picture card at the end of this file (#977; it was text drawn here, #937) */
 .lcc-bd-tier-st { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .lcc-bd-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 12px; color: var(--lcc-dim); font-size: 9px; }
 .lcc-bd-note { margin-top: 16px; font: 12px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
@@ -516,4 +516,26 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 }
 @media (max-width: 900px), (pointer: coarse) {
   .lcc-bd-gopath, .lcc-bd-loc { min-height: 44px; }
+}
+
+/* ==== the House hover card on a square of the board (#975) ====
+   The cell of a square is the card's wrapper (.hw): the page's own rules (app.css) open the card under the square while the pointer or the keyboard focus is on it, and its Escape handling closes it. The
+   square's tier boxes keep their own reward mouse-over, so the House card steps aside while the pointer is on them. */
+.lcc-bd .lcc-bd-cell.hw { display: grid; }
+.lcc-bd .lcc-bd-cell.hw:has(.lcc-hc-tiers:hover) > .hcard { display: none !important; }
+
+/* ==== the reward mouse-over: the item picture, its display name, the quantity and the tier (#977) ==== */
+.lcc-rtip { position: absolute; z-index: 30; box-sizing: border-box; width: max-content; max-width: min(320px, calc(100% - 8px)); display: grid; gap: 8px; padding: 9px 11px; pointer-events: none; text-align: left; text-transform: none; letter-spacing: 0;
+  color: var(--lcc-text); background: var(--lcc-panel); border: 1px solid var(--lcc-gold-text); box-shadow: 0 6px 18px rgba(0, 0, 0, .35); font: 500 12px/1.4 var(--lcc-sans); }
+.lcc-rtip[hidden] { display: none; }
+.lcc-rtip-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.lcc-rtip-img { flex: none; display: block; object-fit: contain; background: color-mix(in srgb, var(--lcc-text) 16%, var(--lcc-panel)); border: 1px solid var(--lcc-stroke-faint); }
+.lcc-rtip-tx { display: grid; gap: 1px; min-width: 0; }
+.lcc-rtip-name { font: 700 13px/1.3 var(--lcc-sans); color: var(--lcc-text); overflow-wrap: anywhere; }
+.lcc-rtip-sub { color: var(--lcc-dim); overflow-wrap: anywhere; }
+.lcc-rtip-note { margin: 0; padding-top: 6px; border-top: 1px solid var(--lcc-stroke-faint); color: var(--lcc-dim); overflow-wrap: anywhere; }
+@media (forced-colors: active) {
+  .lcc-rtip { background: Canvas; color: CanvasText; border: 1px solid CanvasText; box-shadow: none; }
+  .lcc-rtip-name, .lcc-rtip-sub, .lcc-rtip-note { color: CanvasText; }
+  .lcc-rtip-img { border-color: CanvasText; background: Canvas; }
 }

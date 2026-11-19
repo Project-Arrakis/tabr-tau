@@ -252,11 +252,13 @@
 .lcc-house[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--lcc-gold); background: var(--lcc-raised); }
 /* The one win outline: the double outline with a clear gap (the look the majority outline had), a stronger gold glow than before, and a slow pulse of that glow with Motion Full and no reduced-motion
    request (below). The five Houses of a line and the 13 or more Houses of a winner look the same: the way it was won is in the words of the plaque and the panel. */
-.lcc-house[data-victory="win"], .lcc-sp-lane[data-victory="win"] { outline: var(--lcc-outline-win); outline-offset: 3px; box-shadow: 0 0 0 2px var(--lcc-panel), 0 0 20px 6px color-mix(in srgb, var(--lcc-gold) calc(80% * var(--lcc-glow-win)), transparent); border-color: var(--lcc-gold); animation: lcc-reveal var(--lcc-mo) var(--mo-ease, ease-out) 1 both; }
+.lcc-house[data-victory="win"], .lcc-sp-lane[data-victory="win"], .lcc-bd-victory[data-state="line"] .lcc-bd-vtag, .lcc-bd-victory[data-state="count"] .lcc-bd-vtag { outline: var(--lcc-outline-win); outline-offset: 3px; box-shadow: 0 0 0 2px var(--lcc-panel), 0 0 20px 6px color-mix(in srgb, var(--lcc-gold) calc(80% * var(--lcc-glow-win)), transparent); border-color: var(--lcc-gold); animation: lcc-reveal var(--lcc-mo) var(--mo-ease, ease-out) 1 both; }
 /* the outline of a winning House sits on the keyboard focus ring's place, so the ring is drawn again, outside it */
 .lcc-house[data-victory]:focus-visible, .lcc-sp-lane[data-victory]:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 5px; }
 /* a path lane at level 100 (Specializations, #988) is drawn again with each choice of a path, and lifts on hover: it takes the outline and the pulse of a winning House, not the reveal that ends in transform: none */
 .lcc-sp-lane[data-victory="win"] { animation: none; }
+/* the WON tag is drawn again with every redraw of the board: no reveal for it either (its pulse is below, under Motion Full only) */
+.lcc-bd-victory[data-state="line"] .lcc-bd-vtag, .lcc-bd-victory[data-state="count"] .lcc-bd-vtag { animation: none; }
 /* The optional animated border of a winning House: a soft gold arc that travels round the outline. The arc is a rotating square under a ring-shaped mask, moved by transform only: no layout and
    no script per frame. It is drawn only when Motion is Full AND the system has not asked for reduced motion; in Calm, in Off and under reduced motion only the still outline above shows. The
    script adds the class only in the same case (lcc.js, winAnimOn), and this rule checks it again, so a change of the Motion setting while the page is open is honoured at once. */
@@ -277,6 +279,10 @@
 @media (prefers-reduced-motion: no-preference) {
   html[data-motion="full"] .lcc-house[data-victory="win"], html[data-motion="full"] .lcc-hc[data-victory="win"] { animation: lcc-reveal var(--lcc-mo) var(--mo-ease, ease-out) 1 both, lcc-win-pulse 5s ease-in-out var(--lcc-mo) infinite; }
   html[data-motion="full"] .lcc-sp-lane[data-victory="win"] { animation: lcc-win-pulse 5s ease-in-out infinite; }
+}
+/* the SYSSELRAAD WON tag of the victory panel (#978) takes the one win outline above (it is in that selector list) and breathes with the Houses that won: the same pulse, the same two gates, a still glow in every other case */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-motion="full"] .lcc-bd-victory[data-state="line"] .lcc-bd-vtag, html[data-motion="full"] .lcc-bd-victory[data-state="count"] .lcc-bd-vtag { animation: lcc-win-pulse 5s ease-in-out infinite; }
 }
 @keyframes lcc-win-pulse { 0%, 100% { box-shadow: 0 0 0 2px var(--lcc-panel), 0 0 16px 4px color-mix(in srgb, var(--lcc-gold) calc(55% * var(--lcc-glow-win)), transparent); } 50% { box-shadow: 0 0 0 2px var(--lcc-panel), 0 0 28px 9px color-mix(in srgb, var(--lcc-gold) calc(95% * var(--lcc-glow-win)), transparent); } }
 @keyframes lcc-reveal { from { opacity: .35; transform: scale(.97); } to { opacity: 1; transform: none; } }

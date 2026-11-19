@@ -19,7 +19,7 @@ test('the two win tokens exist, the glow has its own dial, and the winning House
   // the light of a win is not the plaque's softer dial: --lcc-glow-win is defined as a plain number and --lcc-glow-win is not derived from --lcc-glow
   assert.doesNotMatch(bare.match(/--lcc-glow-win:[^;]*;/)[0], /--lcc-glow\b(?!-win)/);
   for (const kind of ['win']) { // one win outline for every House that makes up a win (2026-11-18)
-    const rule = bare.match(new RegExp('\\.lcc-house\\[data-victory="' + kind + '"\\](?:, \\.lcc-sp-lane\\[data-victory="' + kind + '"\\])?\\s*\\{[^}]*\\}'))[0];
+    const rule = bare.match(new RegExp('\\.lcc-house\\[data-victory="' + kind + '"\\](?:, \\.lcc-sp-lane\\[data-victory="' + kind + '"\\])?(?:, \\.lcc-bd-victory[^{]*)?\\s*\\{[^}]*\\}'))[0]; // the WON tag of the victory panel joins the list (#978)
     assert.match(rule, /outline:\s*var\(--lcc-outline-win\)/, kind);
     assert.match(rule, /var\(--lcc-glow-win\)/, kind);
     assert.doesNotMatch(rule, /var\(--lcc-glow\)/, kind);
@@ -103,7 +103,7 @@ test('the winning count: a faction with more than half of the Houses gets the ou
   // 13 Houses is a win by the game's rule (the operator's decision of 2026-11-18): the words say it, the card carries the outline and no text flag (#961), and the save is said not to hold the vote
   for (const c of won) {
     const pick = c.querySelector('button.lcc-hc-select');
-    assert.match(pick.getAttribute('title'), /who hold 13 or more Houses\. Sysselraad won by Atreides, by 13 Houses\. The save does not record the vote/);
+    assert.match(pick.getAttribute('title') || pick.getAttribute('data-says'), /who hold 13 or more Houses\. Sysselraad won by Atreides, by 13 Houses\. The save does not record the vote/);
     assert.equal(c.querySelector('.lcc-flag'), null, 'no text flag on a winning House, a 13-House win included (the way it was won is in the plaque and the panel)');
   }
   // Calm: the still outline stays, the animation class does not

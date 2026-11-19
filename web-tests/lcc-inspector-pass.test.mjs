@@ -15,6 +15,8 @@ const text = (el) => el.textContent.replace(/\s+/g, ' ').trim();
 const click = (ui, el) => { if (typeof el === 'string') el = ui.doc.querySelector(el); assert.ok(el, 'no element'); el.focus(); el.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
 const select = (ui, sel, v) => { const el = ui.doc.querySelector(sel); el.value = String(v); el.dispatchEvent(new ui.w.Event('change', { bubbles: true })); };
 const idOf = (a, name) => a.tasks.find((t) => t.house_name === 'DA_House' + name).id;
+// the mouse-over sentence of a tier box: its native title, or, for a reward with a picture mouse-over (#977), the sentence that mouse-over keeps
+const ttl = (ui, b) => b.getAttribute('title') || ui.w.LCCB.tipOf(b).title;
 const toasts = (ui) => [...ui.doc.querySelectorAll('#toast .d-toast')];
 const last = (ui) => toasts(ui).pop();
 async function open(view = 'board', post = { '/api/landsraad/apply': OK }, answer = synthetic()) {
@@ -83,7 +85,7 @@ test('#943: the stale wording is gone from the board: the tooltips and names of 
   look(ui, a, 'Thorvald');
   for (const b of [card(ui, a, 'Thorvald', 2), row(ui, 2)]) {
     assert.ok((b.getAttribute('aria-label') || '').includes('To remove tiers, choose tier 4 in Set tier and press Apply tier'), b.getAttribute('aria-label'));
-    assert.ok(b.getAttribute('title').includes('choose tier 4 in Set tier'), b.getAttribute('title'));
+    assert.ok(ttl(ui, b).includes('choose tier 4 in Set tier'), ttl(ui, b));
   }
   const board = text(ui.doc.querySelector('#lsb'));
   const labels = [...ui.doc.querySelectorAll('#lsb [aria-label], #lsb [title]')].map((e) => (e.getAttribute('aria-label') || '') + ' ' + (e.getAttribute('title') || '')).join(' ');
@@ -206,18 +208,18 @@ test('#938: every tier square of a card has the Classic list\'s mouse-over text 
       // the one difference is the way to remove a lower reached tier: the board names Set tier and Apply tier, the Classic list says to click the highest reached tier
       // and the board says earned where Classic says reached (#962: the one pair of words, earned and collected)
       const cut = (s) => s.split(' To remove tiers, ')[0].replace(/ is reached/g, ' is earned').replace(/ are reached/g, ' are earned');
-      assert.equal(cut(board.getAttribute('title')), cut(old.getAttribute('title')), name + ' tier ' + n + ': the mouse-over is the Classic text');
-      if (old.getAttribute('title').includes('click the highest reached tier')) assert.match(board.getAttribute('title'), /To remove tiers, choose tier \d in Set tier and press Apply tier/);
-      else assert.equal(board.getAttribute('title'), cut(old.getAttribute('title')));
-      assert.ok(board.getAttribute('title').length > 20);
+      assert.equal(cut(ttl(ui, board)), cut(old.getAttribute('title')), name + ' tier ' + n + ': the mouse-over is the Classic text');
+      if (old.getAttribute('title').includes('click the highest reached tier')) assert.match(ttl(ui, board), /To remove tiers, choose tier \d in Set tier and press Apply tier/);
+      else assert.equal(ttl(ui, board), cut(old.getAttribute('title')));
+      assert.ok(ttl(ui, board).length > 20);
       assert.ok(board.getAttribute('aria-label').startsWith('House ' + name + ', tier ' + n), board.getAttribute('aria-label'));
       assert.ok(board.getAttribute('data-fk').startsWith('ct:'), 'the focus path stays');
       assert.equal(board.tagName, 'BUTTON', 'a button: the keyboard and touch reach it, not only the pointer');
     }
   }
-  assert.ok(card(ui, a, 'Thorvald', 3).getAttribute('title').startsWith('Reward: '), 'the reward is in the text');
+  assert.ok(ttl(ui, card(ui, a, 'Thorvald', 3)).startsWith('Reward: '), 'the reward is in the text');
   select(ui, '#lsb-fac', 2); await ui.settle();
-  assert.equal(card(ui, a, 'Thorvald', 3).getAttribute('title'), card(ui, a, 'Thorvald', 3).getAttribute('data-why'), 'a box that is off says why');
+  assert.equal(ttl(ui, card(ui, a, 'Thorvald', 3)), card(ui, a, 'Thorvald', 3).getAttribute('data-why'), 'a box that is off says why');
 });
 
 // ---- #939: the place line and the specialization ------------------------------------------------------------------------------------------------------------------------

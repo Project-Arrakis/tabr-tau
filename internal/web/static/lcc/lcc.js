@@ -63,6 +63,37 @@
   const bannerAsset = (track) => trackAsset('banners', track); // the path banner icon: the Landsraad view, beside a House
   // emblemAsset(track): the clean emblem of a path (96 x 96 PNG, only the emblem, no shadow and no faded side copies: cut from the banner picture by scripts/lcc-emblems.mjs), which the House card draws small and in one tint (#963, #976)
   const emblemAsset = (track) => { const k = norm(track); return KEY_OK.test(k) && TRACKS.indexOf(k) >= 0 ? Object.freeze({ key: k, file: 'emblems/' + k + '.png', src: artBase + 'emblems/' + k + '.png', fallback: false }) : null; };
+  // itemAsset(id): the picture of a reward item (64 x 64 WebP, art/items/<id>.webp, #977), by the item id the save gives, from the fixed list of the pictures that were embedded: an id that is not on the
+  // list (or is not shaped like an id) has no picture and answers null, so no request is ever made for a file that does not exist; the id is never turned into a path by anything but this list.
+  const ITEM_PICS = new Set([
+    'Bloodsack_Unique_Durable_06_Schematic', 'BodyFluidExtractor_Unique_Water_05_Schematic', 'BuggyEngine_Unique_Accelerate_06_Schematic',
+    'BuggyInventory_Unique_Capacity_05_Schematic', 'BuggyMining_Unique_YieldIncrease_05_Schematic', 'BuggyMining_Unique_YieldIncrease_06_Schematic',
+    'Combat_Heavy_Unique_PowerEfficient_Gloves_06_Schematic', 'Combat_Heavy_Unique_PowerIncrease_Top_06_Schematic', 'Combat_Light_Unique_DewReap_Gloves_06_Schematic',
+    'Combat_Light_Unique_ReduceSuspensor_Top_06_Schematic', 'Combat_Light_Unique_WormThreat_Boots_06_Schematic', 'Combat_Neut_AtreidesDeserterUnique04_Boots_Schematic',
+    'Combat_Neut_AtreidesDeserterUnique04_Bottom_Schematic', 'Combat_Neut_AtreidesDeserterUnique04_Gloves_Schematic',
+    'Combat_Neut_AtreidesDeserterUnique04_Helmet_Schematic', 'Combat_Neut_AtreidesDeserterUnique04_Top_Schematic', 'Combat_Neut_SmugglerDeserterUnique06_Boots_Schematic',
+    'Combat_Neut_SmugglerDeserterUnique06_Bottom_Schematic', 'Combat_Neut_SmugglerDeserterUnique06_Gloves_Schematic',
+    'Combat_Neut_SmugglerDeserterUnique06_Helmet_Schematic', 'Combat_Neut_SmugglerDeserterUnique06_Top_Schematic', 'DewReaper_1h_Unique_Compact_06_Schematic',
+    'DewReaper_2h_Unique_YieldIncrease_06_Schematic', 'DewReaper_Unique_04_Schematic', 'DewReaper_Unique_05_Schematic', 'GlidePartialStabilizationBelt_05_Schematic',
+    'HeavyPistol_Unique_Headshot_05_Schematic', 'HighCapacityLiterjon_05_Schematic', 'HighCapacityLiterjon_06_Schematic', 'Kindjal_Unique_Blood_05_Schematic',
+    'Kindjal_Unique_Stamina_05_Schematic', 'LMG_Unique_Power_06_Schematic', 'LMG_Unique_RapidFire_05_Schematic', 'LongRifle_Unique_LargeMag_05_Schematic',
+    'MiningTool_2h_Unique_04_Schematic', 'OrnithopterLightLocomotion_Unique_Speed_6_Schematic', 'OrnithopterMediumBoost_Unique_LessHeat_5_Schematic',
+    'OrnithopterMediumBoost_Unique_LessHeat_6_Schematic', 'OrnithopterMediumLocomotion_Unique_Strafe_5_Schematic', 'OrnithopterMediumLocomotion_Unique_Strafe_6_Schematic',
+    'PowerPack_Unique_Regen_05_Schematic', 'PowerPack_Unique_Regen_06_Schematic', 'SMG_Unique_LargeMag_06_Schematic', 'SandbikeEngine_Unique_Speed_5_Schematic',
+    'SandcrawlerEngine_Unique_Speed_06_Schematic', 'SandcrawlerLocomotion_Unique_WormThreat_06_Schematic', 'Schematic_UniqueCutteray5', 'Schematic_UniqueFlamethrower',
+    'Schematic_UniqueForgeChest', 'Schematic_UniqueForgeFeet', 'Schematic_UniqueForgeHands', 'Schematic_UniqueForgeHead', 'Schematic_UniqueForgeLegs',
+    'Shotgun_Unique_Blood_06_Schematic', 'Shotgun_Unique_Explosive_06_Schematic', 'StaticCompactor_Unique_Compact_06_Schematic',
+    'Stillsuit_Unique_Efficient_05_Boots_Schematic', 'Stillsuit_Unique_Efficient_05_Gloves_Schematic', 'Stillsuit_Unique_Efficient_05_Mask_Schematic',
+    'Stillsuit_Unique_Efficient_05_Top_Schematic', 'Stillsuit_Unique_Efficient_06_Boots_Schematic', 'Stillsuit_Unique_Efficient_06_Gloves_Schematic',
+    'Stillsuit_Unique_Efficient_06_Mask_Schematic', 'Stillsuit_Unique_Efficient_06_Top_Schematic', 'T6ArmorPlating', 'T6BalisticWeave', 'T6BladePart', 'T6CarbidePladeParts',
+    'T6DiamodineBladeParts', 'T6FilteredFabric', 'T6GunPart', 'T6HeavyCalliberCompressor', 'T6HoltzmanActuator', 'T6HydraulicPiston', 'T6IndustrialPump', 'T6IrradiatedCore',
+    'T6LightCalliberCompressor', 'T6Machinery', 'T6PowerRegulator', 'T6RangeFinder', 'T6RayAmplifier', 'T6Watertube', 'UniqueAr_Burst_05_Schematic',
+    'UniqueAr_Burst_06_Schematic', 'UniqueDirk_03_Schematic', 'UniqueDirk_04_Schematic', 'UniqueRapier_02_Schematic', 'UniqueRapier_03_Schematic',
+    'UniqueScattergun5_Schematic', 'UniqueScattergun_Fire_05_Schematic', 'UniqueSda5_Schematic', 'UniqueSda6_Schematic', 'UniqueSda_Doubleshot_06_Schematic',
+    'UniqueSmg2_Schematic', 'UniqueSword_04_Schematic', 'UniqueSword_05_Schematic',
+  ]);
+  const ITEM_OK = /^[A-Za-z][A-Za-z0-9_]{1,80}$/;
+  const itemAsset = (id) => (typeof id === 'string' && ITEM_OK.test(id) && ITEM_PICS.has(id) ? Object.freeze({ key: id, file: 'items/' + id + '.webp', src: artBase + 'items/' + id + '.webp', fallback: false, width: 64, height: 64 }) : null);
   // decreeAsset(id) always answers: the picture of a known decree, or the neutral picture marked fallback: true.
   function decreeAsset(id) {
     const k = norm(typeof id === 'number' ? '' : id);
@@ -628,7 +659,7 @@
 
   const api = {
     HOUSES, TRACKS, DECREE_FILES, DECREE_FALLBACK, SEATS, CENTER, TRACK, GEOMETRY: Object.freeze({ W, H }),
-    config, houseAsset, laneAsset, bannerAsset, emblemAsset, decreeAsset, factionAsset, standardTipAsset,
+    config, houseAsset, laneAsset, bannerAsset, emblemAsset, itemAsset, ITEM_PICS, decreeAsset, factionAsset, standardTipAsset,
     seatStates, seatLabel, seatX, seatOuter, centreOutline, centreGem, standingLine, summaryText, laneState,
     pill, ruleV, heldBy, standard, badge, richTip, frame, victory, VICTORY, winAnimOn,
     renderPlaque, renderHouseCard, renderLaneCard, el, houseTitle,
