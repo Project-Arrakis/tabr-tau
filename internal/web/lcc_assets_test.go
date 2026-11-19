@@ -93,8 +93,8 @@ func TestLccArtManifestMatchesTheEmbeddedFiles(t *testing.T) {
 		want[f.File] = f
 		counts[f.Role]++
 	}
-	if counts["house"] != 25 || counts["lane"] != 5 || counts["banner"] != 5 || counts["emblem"] != 5 || counts["decree"] != 9 || counts["decree-fallback"] != 1 || counts["faction-mark"] != 2 || counts["faction-medal"] != 2 || counts["standard-tip"] != 2 {
-		t.Errorf("manifest counts %v: want 25 houses, 5 lanes, 5 banners, 5 emblems, 9 decrees, 1 neutral picture, 2 faction crests, 2 faction medallions and 2 cloth standard feet", counts)
+	if counts["house"] != 25 || counts["lane"] != 5 || counts["banner"] != 5 || counts["emblem"] != 5 || counts["decree"] != 9 || counts["decree-fallback"] != 1 || counts["faction-mark"] != 2 || counts["faction-medal"] != 2 || counts["standard-tip"] != 2 || counts["item"] != 96 {
+		t.Errorf("manifest counts %v: want 25 houses, 5 lanes, 5 banners, 5 emblems, 9 decrees, 1 neutral picture, 2 faction crests, 2 faction medallions, 2 cloth standard feet and 96 reward item pictures", counts)
 	}
 	var embedded []string
 	err := fs.WalkDir(static, "static/lcc/art", func(p string, d fs.DirEntry, err error) error {
@@ -128,7 +128,7 @@ func TestLccArtManifestMatchesTheEmbeddedFiles(t *testing.T) {
 			if !ok || w != f.Width || h != f.Height {
 				t.Errorf("%s: picture size %dx%d (ok %v), manifest says %dx%d", file, w, h, ok, f.Width, f.Height)
 			}
-			wantSize := map[string]int{"house": 128, "lane": 256, "banner": 256, "decree": 128, "faction-mark": 256}[f.Role]
+			wantSize := map[string]int{"house": 128, "lane": 256, "banner": 256, "decree": 128, "faction-mark": 256, "item": 64}[f.Role]
 			if f.Role == "faction-medal" {
 				// the round medallions keep the size of their reference pictures (100 and 104 px), so they are checked against the reference file, not a fixed size
 				wantSize = 0
@@ -174,8 +174,8 @@ func TestLccArtManifestMatchesTheEmbeddedFiles(t *testing.T) {
 	for _, f := range m.Files {
 		total += f.Bytes
 	}
-	if total > 640<<10 {
-		t.Errorf("the runtime art is %d bytes together; keep it under 640 KiB", total)
+	if total > 900<<10 {
+		t.Errorf("the runtime art is %d bytes together; keep it under 900 KiB", total)
 	}
 }
 

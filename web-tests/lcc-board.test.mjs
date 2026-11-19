@@ -238,8 +238,8 @@ test('Jump to House selects it, shows it whatever the filters were, and puts the
   const ui = await open();
   click(ui, '[data-fk="bf:hs:taken"]');
   const j = ui.doc.querySelector('#lcc-bd-jump');
-  const sor = [...j.options].find((o) => /Sor$/.test(o.textContent));
-  assert.match(sor.textContent, /^09 · /);
+  const sor = [...j.options].find((o) => o.textContent === 'Sor');
+  assert.ok(sor, 'the entry is the House name only, without the square number (#979)');
   j.value = sor.value; j.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
   assert.equal(text(ui.doc.querySelector('.lcc-bd-insp-name')), 'House Sor');
   assert.equal(ui.doc.querySelector('[data-fk="bf:hs:any"]').getAttribute('aria-pressed'), 'true', 'the filter that would have hidden it is cleared');

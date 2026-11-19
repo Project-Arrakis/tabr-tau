@@ -69,6 +69,61 @@
   };
   const houseWord = (name) => 'House ' + L().houseTitle(name);
 
+  // ---- the reward mouse-over (#977) ---------------------------------------------------------------------------------------------------------------------------------------------
+  // The tier boxes of a House card, the tier rows of the Inspector and the reward cells of the list show the reward as a small picture card: the item's picture (from the board's own fixed list of the
+  // pictures that were embedded, so no request is made for a file that does not exist, and none to any other address), its display name, the quantity and the tier with its state. A reward with no picture
+  // shows the name only. The game's internal item name is never shown or spoken: the item id is only a data attribute that finds the picture. One small element serves the whole board; it is drawn by script
+  // because a native title text cannot hold a picture, it never takes the pointer (so it cannot cover or steal its target), it is hidden from a screen reader (the control's own accessible name says the same
+  // words), and it closes on Escape, on leaving and on a click. It is placed under its target, or above it when there is no room below, inside the board's own box.
+  const RTIP = new WeakMap();
+  let tipEl = null, tipOn = null;
+  function rtipSet(node, d) {
+    node.setAttribute('data-rtip', '');
+    if (d.rows.length === 1 && d.rows[0].item) node.setAttribute('data-item', d.rows[0].item);
+    RTIP.set(node, d);
+  }
+  function rewardRow(r, big) {
+    const row = el('div', 'lcc-rtip-row');
+    const a = r.item ? L().itemAsset(r.item) : null;
+    if (a) {
+      const img = el('img', 'lcc-rtip-img', '', { alt: '', width: big ? 48 : 32, height: big ? 48 : 32, src: a.src, decoding: 'async' });
+      img.addEventListener('error', () => { img.hidden = true; });
+      row.appendChild(img);
+    }
+    const tx = el('div', 'lcc-rtip-tx');
+    tx.appendChild(el('strong', 'lcc-rtip-name', r.name));
+    tx.appendChild(el('span', 'lcc-rtip-sub', 'Quantity ' + r.qty + (r.swatch ? ' · the house swatch' : '')));
+    tx.appendChild(el('span', 'lcc-rtip-sub', earnedWords('Tier ' + r.tier + ' needs ' + r.need + ': ' + r.state)));
+    row.appendChild(tx);
+    return row;
+  }
+  function tipHide() { if (tipEl) tipEl.hidden = true; tipOn = null; }
+  function tipShow(node) {
+    const d = RTIP.get(node);
+    if (!d || !tipEl || !tipEl.parentNode) { tipHide(); return; }
+    if (tipOn === node) return;
+    tipEl.textContent = '';
+    for (const r of d.rows) tipEl.appendChild(rewardRow(r, !!d.big));
+    if (d.note) tipEl.appendChild(el('p', 'lcc-rtip-note', d.note));
+    tipEl.hidden = false;
+    tipOn = node;
+    const wrap = tipEl.parentNode, wr = wrap.getBoundingClientRect(), r = node.getBoundingClientRect(), vh = root.innerHeight || 800, tw = tipEl.offsetWidth, th = tipEl.offsetHeight;
+    let left = r.left - wr.left, top = r.bottom - wr.top + 6;
+    left = Math.max(0, Math.min(left, Math.max(0, wr.width - tw)));
+    if (r.bottom + 6 + th > vh && r.top - 6 - th >= 0) top = r.top - wr.top - th - 6;
+    tipEl.style.left = Math.round(left) + 'px';
+    tipEl.style.top = Math.round(top) + 'px';
+  }
+  // what a control's reward mouse-over holds (rows, the note under them and the sentence the native title used to carry), for the page's tests and for tools; null when it has none
+  const tipOf = (node) => { const d = node && RTIP.get(node); return d ? { rows: d.rows.map((r) => Object.assign({}, r)), note: d.note || '', title: d.title || '' } : null; };
+  const rtipOf = (e) => (e.target && e.target.closest ? e.target.closest('[data-rtip]') : null);
+  // the list's reward cells: with rows from the page the cell takes the picture mouse-over in place of its native title; a cell with no rows keeps its sentence
+  function rtipCell(raw, key, td) {
+    const rows = raw && raw.rows && Array.isArray(raw.rows[key]) ? raw.rows[key].filter(Boolean) : [];
+    if (rows.length) { const title = td.getAttribute('title'); td.removeAttribute('title'); rtipSet(td, { rows, title }); }
+    return td;
+  }
+
   // A figure that cannot be read is never a zero: it is "not known".
   const known = (v) => (v === null || v === undefined ? 'not known' : fmt(v));
 
@@ -139,7 +194,8 @@
       w.appendChild(s);
       return w;
     };
-    const jumpOpts = [['', 'Choose a House…']].concat(board.houses.map((h) => [String(h.id), (h.number ? h.number + ' · ' : '') + h.name]));
+    // the House names only, A to Z (#979): the square number is not in the drop-down (the board and the list show it; the jump is by the House)
+    const jumpOpts = [['', 'Choose a House…']].concat(board.houses.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'en')).map((h) => [String(h.id), h.name]));
     // Jump to House and the buttons that choose Houses are one group: they stay together on a line and wrap together. The page seats its choose buttons in the slot (host.seat); with no page
     // (or a board that did not pass its checks) the slot stays empty and is not drawn.
     const jl = el('span', 'lcc-bd-jumpline');
@@ -189,8 +245,9 @@
     const say = 'House ' + h.name + ', tier ' + t.n + ', ' + (t.threshold !== null ? fmt(t.threshold) + ', ' : '') + TIER_LABEL[kind].toLowerCase();
     if (!ct) return el('span', cls, mark, { role: 'img', 'aria-label': say, title: 'Tier ' + t.n + ': ' + TIER_LABEL[kind] });
     // the mouse-over is the Classic list's own text, built once by the page (ct.title, #938); the accessible name keeps the check against the save (#945)
-    const b = btn(cls, mark, { 'data-lb': 'tier', 'data-id': h.id, 'data-t': t.n, 'data-fk': 'ct:' + h.id + ':' + t.n, 'aria-pressed': t.reached ? 'true' : 'false', 'aria-disabled': ct.off ? 'true' : 'false', 'aria-label': say + (ct.off ? ', off' : '. ' + ct.tip + ' ' + CHECKED), title: ct.title || 'Tier ' + t.n + ': ' + TIER_LABEL[kind] + '. ' + ct.tip });
+    const b = btn(cls, mark, { 'data-lb': 'tier', 'data-id': h.id, 'data-t': t.n, 'data-fk': 'ct:' + h.id + ':' + t.n, 'aria-pressed': t.reached ? 'true' : 'false', 'aria-disabled': ct.off ? 'true' : 'false', 'aria-label': say + (ct.off ? ', off' : '. ' + ct.tip + ' ' + CHECKED) + (ct.rw && ct.reward ? ' Reward: ' + ct.reward + '.' : ''), title: ct.title || 'Tier ' + t.n + ': ' + TIER_LABEL[kind] + '. ' + ct.tip });
     if (ct.off) b.setAttribute('data-why', ct.tip);
+    if (ct.rw) { const title = b.getAttribute('title'); b.removeAttribute('title'); rtipSet(b, { rows: [ct.rw], note: ct.tip, title, big: true }); } // the picture mouse-over in place of the native text (#977); Solari has no rw and keeps its text
     return b;
   }
   // One House card, as the approved design draws it: the number and the specialization emblem on top, the crest, HOUSE NAME, the specialization, the owner, the five tier boxes and the line "N/5 EARNED"
@@ -257,6 +314,16 @@
   function tile(h, matchIds, host, editable, picks, major, ev) {
     const li = el('li', 'lcc-bd-cell', '', { 'data-id': h.id, 'data-index': h.index });
     li.appendChild(houseCard(h, matchIds, host, editable, picks, major, ev));
+    // The square shows the same House hover card as the list rows (#975, #951): built once by the page (host.card), open while the pointer or the keyboard focus is on the square (the page's style sheet
+    // and its Escape handling are the list's own: the cell is the card's .hw). It sits beside the card, not inside it: the card's clip path and filter would cut or move it. The card says what the
+    // native text of the square said, so the square keeps that text as a data attribute only (two overlays would stack); a touch screen has no hover and keeps the Inspector.
+    const card = host && typeof host.card === 'function' ? host.card(h.id) : null;
+    if (card) {
+      li.classList.add('hw');
+      li.appendChild(card);
+      const sel = li.querySelector('.lcc-hc-select');
+      if (sel && sel.hasAttribute('title')) { sel.setAttribute('data-says', sel.getAttribute('title')); sel.removeAttribute('title'); }
+    }
     return li;
   }
   function pickBox(h, picks) {
@@ -318,9 +385,9 @@
     tr.appendChild(el('td', 'lcc-bd-c-path', trackWord(h.track) || '—'));
     tr.appendChild(locCell(h, host));
     tr.appendChild(el('td', 'lcc-bd-c-state', h.takenNoTiers || h.takenNoMine ? W().favorWon + ', none of yours' : ({ new: 'Not started', part: 'In progress', done: 'Top tier' })[h.state], takenWhy(h) ? { title: takenWhy(h) } : tips ? { title: tips.progress } : undefined));
-    tr.appendChild(el('td', 'lcc-bd-c-tiers', h.takenNoTiers ? 'no tier record' : h.takenNoMine ? 'none of yours' : h.tierCount ? h.reached + ' of ' + h.tierCount + ' ' + W().tiersEarned : 'no tiers', tips ? { title: tips.tiers } : undefined));
-    tr.appendChild(el('td', 'lcc-bd-c-next', h.next ? fmt(h.next.threshold) + ' (' + fmt(h.next.remaining) + ' more)' : h.tierCount ? W().topTierEarned : '—', tips ? { title: tips.next } : undefined));
-    tr.appendChild(el('td', 'lcc-bd-c-wait', h.waiting ? String(h.waiting) : '0', tips ? { title: tips.waiting } : undefined));
+    tr.appendChild(rtipCell(raw, 'tiers', el('td', 'lcc-bd-c-tiers', h.takenNoTiers ? 'no tier record' : h.takenNoMine ? 'none of yours' : h.tierCount ? h.reached + ' of ' + h.tierCount + ' ' + W().tiersEarned : 'no tiers', tips ? { title: tips.tiers } : undefined)));
+    tr.appendChild(rtipCell(raw, 'next', el('td', 'lcc-bd-c-next', h.next ? fmt(h.next.threshold) + ' (' + fmt(h.next.remaining) + ' more)' : h.tierCount ? W().topTierEarned : '—', tips ? { title: tips.next } : undefined)));
+    tr.appendChild(rtipCell(raw, 'waiting', el('td', 'lcc-bd-c-wait', h.waiting ? String(h.waiting) : '0', tips ? { title: tips.waiting } : undefined)));
     return tr;
   }
   function list(board, matchIds, host, editable, picks) {
@@ -645,7 +712,7 @@
         const { b, it } = mk('button');
         b.setAttribute('type', 'button');
         for (const [k, v] of Object.entries({ 'data-lb': 'tier', 'data-id': h.id, 'data-t': t.n, 'data-fk': 'tc:' + h.id + ':' + t.n, 'aria-pressed': t.reached ? 'true' : 'false', 'aria-disabled': ct.off ? 'true' : 'false', title: ct.tip, 'aria-label': 'Tier ' + t.n + ', ' + fmt(t.threshold) + ', reward ' + reward + ', ' + t.word + (ct.off ? ', off' : '. ' + ct.tip) + (ct.item ? '. ' + ct.item.split('\n').join('. ') : '') })) b.setAttribute(k, v);
-        if (ct.item) b.setAttribute('data-info', ct.item); // the item of this reward, drawn by the style sheet on hover and on focus; Solari has none
+        if (ct.rw) { b.removeAttribute('title'); rtipSet(b, { rows: [ct.rw], note: ct.tip, title: ct.tip, big: true }); } // the item of this reward as the picture mouse-over (#977, it was text drawn by the style sheet, #937); Solari has none
         if (ct.off) b.setAttribute('data-why', ct.tip);
         if (ct.grant) it.appendChild(el('span', 'lcc-bd-tier-gr', ct.grant));
         else if (c.ownF && t.n === h.reached) it.appendChild(el('span', 'lcc-bd-tier-gr lcc-bd-rm', 'click removes it; takes back nothing it paid'));
@@ -734,9 +801,19 @@
     if (host && host.unseat) host.unseat(); // what the page put into the board goes back to its own place before the board is drawn again
     const board = M().readBoard(answer);
     container.textContent = '';
-    container.appendChild(build(board, host));
+    const built = build(board, host);
+    container.appendChild(built);
+    tipEl = el('div', 'lcc-rtip', '', { 'aria-hidden': 'true', hidden: '' }); // the one reward mouse-over of this board (#977)
+    built.appendChild(tipEl);
+    tipOn = null;
     if (!container.__lccWired) {
       container.__lccWired = true;
+      container.addEventListener('mouseover', (e) => { const n = rtipOf(e); if (n) tipShow(n); else tipHide(); });
+      container.addEventListener('mouseleave', tipHide);
+      container.addEventListener('focusin', (e) => { const n = rtipOf(e); if (n) tipShow(n); else tipHide(); });
+      container.addEventListener('focusout', tipHide);
+      container.addEventListener('keydown', (e) => { if (e.key === 'Escape') tipHide(); });
+      container.addEventListener('click', tipHide, true);
       container.addEventListener('click', onClick); container.addEventListener('change', onChange);
       container.addEventListener('scroll', onScroll, true); container.addEventListener('toggle', onToggle, true); // neither event bubbles
     }
@@ -856,7 +933,7 @@
     }
   }
 
-  const api = { state, mount, redraw, keepInView, visible, build, majorityOf, victoryWords, countLine, plaque, grid, houseCard, list, inspector, victoryPanel, tierKind, NOT_IN_SAVE };
+  const api = { state, mount, redraw, keepInView, visible, build, tipOf, majorityOf, victoryWords, countLine, plaque, grid, houseCard, list, inspector, victoryPanel, tierKind, NOT_IN_SAVE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCB = api;
 })(typeof window !== 'undefined' ? window : globalThis);

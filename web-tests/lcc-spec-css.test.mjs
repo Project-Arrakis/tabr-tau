@@ -114,7 +114,7 @@ test('a path at level 100 takes the one win outline of lcc.css, not a variant of
   assert.doesNotMatch(bare, /\.lcc-sp-lane\[data-victory[^{]*\{[^}]*(outline|box-shadow|animation)/, 'the outline, glow and pulse are lcc.css\'s');
   const lcc = fs.readFileSync(path.join(lccDir, 'lcc.css'), 'utf8').replace(/\r/g, '');
   // the same rule that draws a winning House: one selector list, one outline token, one glow dial
-  assert.match(lcc, /\.lcc-house\[data-victory="win"\], \.lcc-sp-lane\[data-victory="win"\] \{ outline: var\(--lcc-outline-win\); outline-offset: 3px; box-shadow: [^}]*--lcc-glow-win/);
+  assert.match(lcc, /\.lcc-house\[data-victory="win"\], \.lcc-sp-lane\[data-victory="win"\](, [^{]+)? \{ outline: var\(--lcc-outline-win\); outline-offset: 3px; box-shadow: [^}]*--lcc-glow-win/);
   // the pulse: the House's own keyframes, only with Motion Full and no reduced-motion request
   assert.match(lcc, /@media \(prefers-reduced-motion: no-preference\) \{[^]*?\n  html\[data-motion="full"\] \.lcc-sp-lane\[data-victory="win"\] \{ animation: lcc-win-pulse 5s ease-in-out infinite; \}\n\}/);
   assert.equal((lcc.match(/@keyframes lcc-win-pulse/g) || []).length, 1, 'one set of keyframes');

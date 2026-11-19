@@ -145,9 +145,9 @@ for (const st of STATES) {
     if (st.won) {
       const lead = doc.querySelector('.lcc-bd-cell .lcc-hc[data-victory] .lcc-hc-select');
       assert.ok(lead, 'a House of the win');
-      for (const attr of ['aria-label', 'title']) assert.match(lead.getAttribute(attr), /Sysselraad won by (Atreides|Harkonnen), by (five in a line|13 Houses|five in a line and 13 Houses)\. The save does not record the vote; the game works the winner out from the Houses\./, attr);
+      for (const attr of ['aria-label', 'data-says']) assert.match(lead.getAttribute(attr), /Sysselraad won by (Atreides|Harkonnen), by (five in a line|13 Houses|five in a line and 13 Houses)\. The save does not record the vote; the game works the winner out from the Houses\./, attr);
     } else {
-      for (const c of doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-hc-select')) assert.doesNotMatch((c.getAttribute('aria-label') || '') + ' ' + (c.getAttribute('title') || ''), /Sysselraad won/);
+      for (const c of doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-hc-select')) assert.doesNotMatch((c.getAttribute('aria-label') || '') + ' ' + (c.getAttribute('data-says') || c.getAttribute('title') || ''), /Sysselraad won/);
     }
     // the plaque and the panel never disagree with the function the model exports
     const d = M.WIN.decide(owners([...(st.answer().tasks)].sort((x, y) => x.board_index - y.board_index).map((t) => (t.completed && t.winning_faction_id === 1 ? 'A' : t.completed && t.winning_faction_id === 2 ? 'H' : t.completed ? '?' : 'O')).join('')));

@@ -578,7 +578,7 @@ func (s *Server) routes() {
 
 	// The Live Map's marker icons, the Landsraad tab's house symbols and the Command Center's art (house symbols, lane icons, path banners and emblems, decree pictures, faction crests, the cloth standards' feet): the files of the embedded folders, listed once
 	// here. The list comes from the build, never from the request, so a request can only name a file that was embedded (anything else is a 404).
-	for _, folder := range []string{"maps/icons", "houses", "lcc/art/houses", "lcc/art/lanes", "lcc/art/banners", "lcc/art/emblems", "lcc/art/decrees", "lcc/art/factions", "lcc/art/standards"} {
+	for _, folder := range []string{"maps/icons", "houses", "lcc/art/houses", "lcc/art/lanes", "lcc/art/banners", "lcc/art/emblems", "lcc/art/decrees", "lcc/art/factions", "lcc/art/standards", "lcc/art/items"} {
 		icons, err := static.ReadDir("static/" + folder)
 		if err != nil {
 			continue
