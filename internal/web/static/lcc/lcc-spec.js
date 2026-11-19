@@ -107,10 +107,9 @@
   // The words of a track's state, kept apart so XP and keystones are never one word: LEVEL 100 is the XP cap and says nothing about keystones, "full path" needs both numbers.
   function masteryText(r) {
     if (!r.known) return 'TRACK NOT IDENTIFIED';
-    const ks = r.keyKnown ? r.keyOwned + '/' + r.keyTotal : '';
-    if (r.kind === 'full') return 'FULL PATH COMPLETE · LEVEL 100 · KEYSTONES ' + ks;
-    if (r.kind === 'cap') return 'LEVEL 100 · XP CAP REACHED';
-    if (r.kind === 'keys') return 'KEYSTONES COMPLETE · ' + ks;
+    if (r.kind === 'full') return 'FULL PATH COMPLETE'; // the level (the plate above), the XP and the keystone count (the bars below) are not said again here (#1053)
+    if (r.kind === 'cap') return 'XP CAP REACHED';
+    if (r.kind === 'keys') return 'KEYSTONES COMPLETE';
     return 'XP CAP NOT REACHED';
   }
   const laneBadge = (r) => (!r.known ? 'TRACK NOT IDENTIFIED' : r.kind === 'full' ? '✦ FULL PATH COMPLETE' : r.kind === 'cap' ? '✦ XP CAP REACHED' : r.kind === 'keys' ? 'KEYSTONES COMPLETE' : 'PATH IN PROGRESS');
@@ -233,12 +232,7 @@
       row.appendChild(li);
     }
     add(wp, row);
-    add(d, wp);
-
-    const facts = el('div', 'lcc-sp-facts');
-    const fact = (k, v) => add(el('div', 'lcc-sp-fact'), el('span', 'lcc-sp-k', k), el('strong', '', v));
-    add(facts, fact('ASSOCIATED HOUSES', r.houses === null ? NOT_IN_SAVE : String(r.houses.length)), fact('XP CEILING', fmt(vm.maxXp)), fact('KEYSTONES', r.keyKnown ? r.keyOwned + '/' + r.keyTotal : NOT_IN_SAVE));
-    return add(d, facts);
+    return add(d, wp); // no row of three fact tiles (#1053): the Houses are the panel below, the XP ceiling the bar's own end, the keystones the bar above
   }
 
   function opsOf(vm, r) {

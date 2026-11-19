@@ -58,12 +58,12 @@ Method: the design reference and the editor page were drawn side by side in a he
 |---|---|---|---|---|
 | D1 | Chosen path name, icon in a diamond, a description line, a level badge | Name and icon (scroll, square frame); no description line for a path the save identifies (the number behind a path is not shown, #708); a path that is not identified says so | differs (data rule) | The design reference's descriptions ("Fabrication, augmentation and equipment efficiencies") are not in the save. |
 | D2 | Large level "100 /100" with a glow | Same, level from the XP table | matches | |
-| D3 | "XP CAP REACHED" under the level | "FULL PATH COMPLETE", "XP CAP REACHED", or "XP CAP NOT REACHED" with the level and keystone count; the gold line carries a star on each side, drawn only for a track at level 100 (the XP cap), never below it | matches | |
+| D3 | "XP CAP REACHED" under the level | "FULL PATH COMPLETE", "XP CAP REACHED", "KEYSTONES COMPLETE" or "XP CAP NOT REACHED", and nothing else on the line: the level is the plate above it and the keystone count is the bar below (#1053 dropped "LEVEL 100 ·" and "KEYSTONES 41/41" from it); the gold line carries a star on each side, drawn only for a track at level 100 (the XP cap), never below it | matches | |
 | D4 | XP bar with "44,182 / 44,182" and a note | Same, with "n XP to level k and m XP to the cap" under it; the label reads XP (was XP ACQUIRED, #1031) | matches | Operator decision 2026-11-19; the bar keeps its name "Experience of the selected path" for screen readers. |
 | D5 | Keystone bar "41 / 41" with a note | Same, and the note says the cap and the keystones are independent; the label reads KEYSTONES (was KEYSTONES PURCHASED, #1031) | matches | Operator decision 2026-11-19; the bar keeps its name "Keystones purchased on the selected path" for screen readers. |
 | D6 | "LEVEL WAYPOINTS", seven markers (0, 10, 25, 42, 60, 80, 100), "Illustrative markers" | "LEVEL SCALE", five reference marks (0, 25, 50, 75, 100), "Reference marks along the 100 levels. They are not unlock levels." | differs (intentional) | The design reference's seven waypoints are illustrative. The game has no named waypoints at those levels, so the page draws neutral quarter marks. |
 | D7 | The mark at the current level is underlined or lit | The nearest mark at or below the level is underlined (not colour alone) | matches | |
-| D8 | Three fact tiles: associated Houses, XP ceiling, keystones | Same three | matches | |
+| D8 | Three fact tiles: associated Houses, XP ceiling, keystones | Not drawn (#1053) | removed (#1053) | Each tile repeated a figure shown beside it: the Houses are the panel below, the XP ceiling is the end of the XP bar ("44,182 / 44,182"), the keystones are the keystone bar. |
 | D9 | Level mismatch between stored and computed | A warning line with both levels; nothing is corrected | matches (added) | |
 
 ### Operations panel

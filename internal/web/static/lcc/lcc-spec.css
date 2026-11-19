@@ -110,9 +110,6 @@
 .lcc-sp-mark.is-past .lcc-sp-dot { border-color: var(--lcc-gold); }
 .lcc-sp-mark.is-past .lcc-sp-dot::before { background: var(--lcc-gold); }
 .lcc-sp-mark.is-here b { text-decoration: underline; text-underline-offset: 3px; }
-.lcc-sp-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 17px; }
-.lcc-sp-fact { padding: 12px 14px; border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-sunken); min-width: 0; }
-.lcc-sp-fact strong { display: block; margin-top: 8px; font: 700 clamp(20px, 2vw, 25px)/1.2 var(--lcc-serif); color: var(--lcc-strong); overflow-wrap: anywhere; }
 
 .lcc-sp-ops { padding: 0; overflow: hidden; }
 .lcc-sp-ops-top { padding: 24px 24px 18px; background: linear-gradient(135deg, color-mix(in srgb, var(--lcc-gold) 15%, transparent), transparent); }
@@ -200,7 +197,6 @@
   .lcc-sp-level { font-size: 83px; }
   .lcc-sp-hlist { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lcc-sp-houses { padding: 18px 15px; }
-  .lcc-sp-facts { gap: 8px; }
 }
 /* two lanes to a row leave the fifth alone in the last row: it takes the middle, at the width of the others, instead of the left half (one lane to a row below 381 px has no orphan) */
 @media (min-width: 381px) and (max-width: 760px) {
@@ -209,7 +205,6 @@
 @media (max-width: 520px) {
   .lcc-sp-ops-top, .lcc-sp-group { padding-left: 15px; padding-right: 15px; }
   .lcc-sp-grid2 { grid-template-columns: minmax(0, 1fr); }
-  .lcc-sp-facts { grid-template-columns: minmax(0, 1fr); }
   .lcc-sp-marks { flex-wrap: wrap; gap: 10px 0; }
 }
 @media (max-width: 380px) {
@@ -240,7 +235,7 @@ html[data-motion="off"] .lcc-sp-lane:hover, html[data-motion="calm"] .lcc-sp-lan
 }
 :root[data-theme="light"] .lcc-sp-lane-img, :root[data-theme="light"] .lcc-sp-dossier-img { filter: brightness(.93) contrast(1.05); }
 @media (forced-colors: active) {
-  .lcc-sp-surface, .lcc-sp-hero, .lcc-sp-lane, .lcc-sp-house, .lcc-sp-btn, .lcc-sp-input, .lcc-sp-flag, .lcc-sp-fact { border: 1px solid ButtonText; background: Canvas; color: CanvasText; box-shadow: none; }
+  .lcc-sp-surface, .lcc-sp-hero, .lcc-sp-lane, .lcc-sp-house, .lcc-sp-btn, .lcc-sp-input, .lcc-sp-flag { border: 1px solid ButtonText; background: Canvas; color: CanvasText; box-shadow: none; }
   .lcc-sp-surface::after, .lcc-sp-hero::before, .lcc-sp-hero::after { display: none; }
   .lcc-sp-hero-art { background: ButtonText; color: CanvasText; }
   .lcc-sp-hero-art::before { background: Canvas; box-shadow: none; }

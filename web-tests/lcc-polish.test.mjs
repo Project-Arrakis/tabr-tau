@@ -70,7 +70,7 @@ test('level 100 ornament: the gold line is drawn for a track at the XP cap only,
   const m = () => ui.doc.querySelector('#lcs-mastery');
   // Crafting is at level 100: the ornament class and the words
   assert.ok(m().classList.contains('is-on'));
-  assert.match(text(m()), /LEVEL 100/);
+  assert.equal(text(m()), 'FULL PATH COMPLETE');
   ui.click('[data-lcs-lane="combat"]'); await ui.settle();
   assert.equal(m().classList.contains('is-on'), false, 'level 46 has no ornament line');
   assert.equal(text(m()), 'XP CAP NOT REACHED');

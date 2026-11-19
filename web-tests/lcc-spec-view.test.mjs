@@ -58,7 +58,7 @@ test('LEVEL 100 with no keystone: the gold treatment and the words of the XP cap
   const lane = q(d, '[data-lcs-lane="combat"]');
   assert.equal(lane.dataset.kind, 'cap');
   assert.equal(txt(lane.querySelector('.lcc-sp-lane-badge')), '✦ XP CAP REACHED');
-  assert.equal(txt(q(d, '#lcs-mastery')), 'LEVEL 100 · XP CAP REACHED');
+  assert.equal(txt(q(d, '#lcs-mastery')), 'XP CAP REACHED');
   assert.equal(txt(q(d, '#lcs-keys')), '0 / 41');
   assert.equal(txt(q(d, '#lcs-xp')), '44,182 / 44,182');
   assert.equal(txt(q(d, '#lcs-xpremain')), 'XP CAP REACHED — NO FURTHER XP LEVELS');
@@ -68,11 +68,11 @@ test('LEVEL 100 with no keystone: the gold treatment and the words of the XP cap
 
 test('every keystone at level 0, and both complete, are different from the cap', () => {
   const k = draw(byId('xp-0-all-keystones-41-of-41'), HOUSES, {}, 'combat');
-  assert.equal(txt(q(k, '#lcs-mastery')), 'KEYSTONES COMPLETE · 41/41');
+  assert.equal(txt(q(k, '#lcs-mastery')), 'KEYSTONES COMPLETE');
   assert.equal(txt(q(k, '.lcc-sp-level')), '0/100');
   assert.equal(q(k, '[data-lcs-lane="combat"]').dataset.kind, 'keys');
   const b = draw(byId('both-complete'), HOUSES, {}, 'combat');
-  assert.match(txt(q(b, '#lcs-mastery')), /^FULL PATH COMPLETE/);
+  assert.equal(txt(q(b, '#lcs-mastery')), 'FULL PATH COMPLETE', 'the level and the keystone count are not said again in the mastery line (#1053)');
   assert.equal(q(b, '[data-lcs-lane="combat"]').dataset.kind, 'full');
 });
 
@@ -225,7 +225,7 @@ test('with no Landsraad read the Houses are "Not in the save", and a path with n
   const d = draw(byId('mixed-five-tracks'), null);
   assert.match(txt(q(d, '.lcc-sp-houses')), /could not be read, so the Houses of this path are not in the save/);
   assert.equal(qa(d, '.lcc-sp-house').length, 0);
-  assert.equal(txt(qa(d, '.lcc-sp-fact strong')[0]), 'Not in the save');
+  assert.equal(qa(d, '.lcc-sp-fact').length, 0, 'no row of three fact tiles (#1053)');
   const e = draw(byId('mixed-five-tracks'), HOUSES, {}, 'sabotage');
   assert.match(txt(q(e, '.lcc-sp-houses')), /No House of this term is listed under this path/);
 });
