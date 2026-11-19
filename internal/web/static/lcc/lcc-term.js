@@ -49,14 +49,7 @@
   function facts(vm) {
     const t = vm.term;
     const ul = el('ul', 'lcc-tm-facts', '', { role: 'list', 'aria-label': 'The current term' });
-    const simple = (key, label, value, sub) => {
-      const li = el('li', 'lcc-tm-fact', '', { 'data-fact': key });
-      li.appendChild(el('span', 'lcc-tm-k', label));
-      li.appendChild(el('strong', 'lcc-tm-v', value));
-      if (sub) li.appendChild(el('small', 'lcc-tm-sub', sub));
-      ul.appendChild(li);
-    };
-    simple('term', 'TERM', String(t.id));
+    // no TERM tile (#1062): the term is in the board's header ("Term 7") and in the line of the closed list
     // one row: ENDS IN with hours and minutes (#981). The value is worked out by the page (vm.term.endsIn); the tooltip says when it counts down and as of when.
     const ends = el('li', 'lcc-tm-fact', '', { 'data-fact': 'ends' });
     ends.appendChild(el('span', 'lcc-tm-k', 'ENDS IN'));
@@ -93,11 +86,10 @@
     row.appendChild(a);
     const f = el('label', 'lcc-tm-fld');
     f.appendChild(el('span', 'lcc-tm-lbl', 'Reigning faction'));
-    const sf = el('select', 'lcc-tm-select', '', { id: 'lsb-trf', 'data-lb': 'trf' });
+    const sf = el('select', 'lcc-tm-select', '', { id: 'lsb-trf', 'data-lb': 'trf', title: 'Any faction can be chosen.' });
     if (vm.sel.rf === '') { const ph = el('option', '', 'Choose a faction', { value: '', disabled: '' }); ph.defaultSelected = true; sf.appendChild(ph); } // no 'none': a decree needs a faction, and this placeholder cannot be chosen or applied (#960)
     for (const o of vm.factions) { const op = el('option', '', o.label, { value: String(o.id) }); if (String(o.id) === vm.sel.rf) op.defaultSelected = true; sf.appendChild(op); }
-    f.appendChild(sf);
-    f.appendChild(el('small', 'lcc-tm-hint', 'any faction can be chosen'));
+    f.appendChild(sf); // no standing "any faction can be chosen" (#1062): the hover text on the box says it
     row.appendChild(f);
     const ap = el('span', 'lcc-tm-apply');
     ap.appendChild(btn('lcc-tm-btn is-primary', 'Apply', { 'data-lb': 'tapply', 'data-fk': 'tapply' }));
@@ -119,11 +111,12 @@
     if (d.effect) body.appendChild(el('small', 'lcc-tm-de', d.effect));
     else body.appendChild(el('small', 'lcc-tm-de lcc-tm-de-none', 'Effect: —', { title: NOT_IN_SAVE })); // a dash, with the reason in the hover text (#1056)
     if (d.note) body.appendChild(el('small', 'lcc-tm-du', d.note));
-    const tg = el('div', 'lcc-tm-tags', '', { role: 'group', 'aria-label': 'In this term' });
-    tg.appendChild(el('span', 'lcc-tm-k', 'IN THIS TERM'));
-    if (d.tags.length) for (const x of d.tags) tg.appendChild(badge(x, 'is-' + x.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')));
-    else tg.appendChild(el('span', 'lcc-tm-none', 'not in this term'));
-    body.appendChild(tg);
+    if (d.tags.length) { // a decree that is not in this term shows no group at all, not "not in this term" on every row (#1062)
+      const tg = el('div', 'lcc-tm-tags', '', { role: 'group', 'aria-label': 'In this term' });
+      tg.appendChild(el('span', 'lcc-tm-k', 'IN THIS TERM'));
+      for (const x of d.tags) tg.appendChild(badge(x, 'is-' + x.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')));
+      body.appendChild(tg);
+    }
     li.appendChild(body);
     const side = el('div', 'lcc-tm-rside');
     if (d.makeOn) side.appendChild(el('span', 'lcc-tm-mkon', '✓ Active', { title: d.makeTip }));
@@ -195,7 +188,6 @@
       s.appendChild(el('span', 'lcc-tm-sum', t.summary));
       d.appendChild(s);
       const wrap = el('div', 'lcc-tm-tablewrap', '', { role: 'region', 'aria-label': 'Term ' + t.id + ', the table of Houses: scrolls sideways when the window is narrow' });
-      d.appendChild(el('p', 'lcc-tm-scrollhint', 'Scroll the table sideways for House status and Last payout.'));
       const tb = el('table', 'lcc-tm-table');
       tb.appendChild(el('caption', 'lcc-tm-sr', 'Term ' + t.id + ': the Houses with a contribution of yours'));
       const hr = el('tr');

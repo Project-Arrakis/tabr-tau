@@ -2330,14 +2330,14 @@ function lbTerm(l) {
       ? html`<span class="mk-on" title="This decree is already the active decree of the term for ${fname}"><span aria-hidden="true">✓</span> Active</span>`
       : html`<button type="button" class="qa mk" data-lb="tmk" data-id="${d.id}" data-fk="tm:${d.id}" aria-disabled="${sel.rf === '' ? 'true' : 'false'}" aria-label="${sel.rf !== '' ? 'Make active for ' + fname : 'Make active (choose a faction)'}: ${lab}" title="${mkTip}">${sel.rf !== '' ? 'Make active for ' + fname : 'Make active (choose a faction)'}</button>`;
     // no raw row number (#1054); the pool flag and its button sit behind the one Advanced switch of the pool (data-flagbox, hidden until it is pressed)
-    return html`<li><span class="dc">${decreeNameEl(d)}${decreeEffect(d)}${decreeUnsure(d)}</span><span class="tg">${tg.length ? tg.map((x) => html`<span class="tag">${x}</span> `) : html`<span class="mut">not in this term</span>`}</span><span class="mkc">${mk}</span><span class="fgb" data-flagbox ${LT.flags ? '' : 'hidden'}><span class="mut">Pool flag</span><span class="fl mut" title="A switch the save keeps on this decree, shown as stored. It does not say whether the decree is in effect.">${d.disabled ? 1 : 0}</span><button type="button" class="qa" data-lb="tflag" data-id="${d.id}" data-d="${n}" data-fk="tf:${d.id}" aria-label="Set flag to ${n}: ${lab}" title="Sets the pool flag of this one row to ${n}. It does not make the decree active; Make active on the row or the Active decree above does.">Set flag to ${n}</button></span></li>`;
+    return html`<li><span class="dc">${decreeNameEl(d)}${decreeEffect(d)}${decreeUnsure(d)}</span><span class="tg">${tg.length ? tg.map((x) => html`<span class="tag">${x}</span> `) : ''}</span><span class="mkc">${mk}</span><span class="fgb" data-flagbox ${LT.flags ? '' : 'hidden'}><span class="mut">Pool flag</span><span class="fl mut" title="A switch the save keeps on this decree, shown as stored. It does not say whether the decree is in effect.">${d.disabled ? 1 : 0}</span><button type="button" class="qa" data-lb="tflag" data-id="${d.id}" data-d="${n}" data-fk="tf:${d.id}" aria-label="Set flag to ${n}: ${lab}" title="Sets the pool flag of this one row to ${n}. It does not make the decree active; Make active on the row or the Active decree above does.">Set flag to ${n}</button></span></li>`;
   };
   return html`<section class="card d-panel" aria-labelledby="lsb-term-h"><details class="tdp" id="lsb-tdp" ${LT.open ? 'open' : ''}><summary><h2 class="d-head" id="lsb-term-h">Term and decrees <span class="cnt">Term ${t.term_id} · ${rfName} · ${a ? nm(a) : 'no active decree'}</span></h2></summary>
   <div class="tbody">
   <div class="tkv"><div><span class="mut">Term</span><b>${t.term_id}</b>${lbMark('save', 'Read from the save: landsraad_decree_term')}</div><div><span class="mut">Ends in</span><b title="${LB_ENDS_TIP}">${lbEndsIn(l)}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.end_time and the play clock of the save')}</div><div><span class="mut">Reigning faction</span><b>${rfName}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.reigning_faction_id')}</div><div><span class="mut">Active decree</span>${a ? decreeNameEl(a) : html`<span class="dn">—</span>`}${decreeUnsure(a)}</div><div><span class="mut">Next term's decree</span>${e ? decreeNameEl(e) : html`<span class="dn">none yet</span>`}${decreeUnsure(e)}</div></div>
   <div class="tctl" role="group" aria-label="Set the term's active decree and reigning faction">
     <label class="fld"><span class="lbl">Active decree</span><select id="lsb-tad" data-lb="tad"><option value="">none</option>${lbDecreeOptions(l, sel).map((d) => html`<option value="${d.id}" ${String(d.id) === sel.ad ? 'selected' : ''}>${decreeFull(d)}</option>`)}</select>${decreeSelInfo(by(sel.ad))}</label>
-    <label class="fld"><span class="lbl">Reigning faction</span><select id="lsb-trf" data-lb="trf">${sel.rf === '' ? html`<option value="" disabled selected>Choose a faction</option>` : ''}${(l.factions || []).map((f) => html`<option value="${f.id}" ${String(f.id) === sel.rf ? 'selected' : ''}>${f.name}${own != null && f.id == own ? ' (your faction)' : ''}</option>`)}</select><small class="mut">any faction can be chosen</small></label>
+    <label class="fld"><span class="lbl">Reigning faction</span><select id="lsb-trf" data-lb="trf" title="Any faction can be chosen.">${sel.rf === '' ? html`<option value="" disabled selected>Choose a faction</option>` : ''}${(l.factions || []).map((f) => html`<option value="${f.id}" ${String(f.id) === sel.rf ? 'selected' : ''}>${f.name}${own != null && f.id == own ? ' (your faction)' : ''}</option>`)}</select></label>
     <span class="tapply"><button type="button" class="qa btnp" data-lb="tapply" data-fk="tapply">Apply</button></span>
   </div>
   <p id="lsb-tresult" role="status" ${LT.bad ? html`class="bad"` : ''}>${LT.say}</p>
@@ -2446,7 +2446,6 @@ function lbInner(l) {
     <span class="f"><label class="lbl" for="lsb-jump">Jump to house</label><select id="lsb-jump" data-lb="jump"><option value="">Choose a house</option>${hs.map((h) => html`<option value="${h.id}" ${String(LB.jump) === String(h.id) ? 'selected' : ''}>${h.name}</option>`)}</select></span>
     <span class="shown" id="lsb-shown" aria-live="polite">${N} of ${N} houses shown</span>
   </div>
-  <p class="line1">Click a row to open it.</p>
   ${noLocs ? html`<p class="line1" id="lsb-nolocs">No house has a place in the editor yet, so the Location column says “not mapped yet” and the houses cannot be grouped by region.</p>` : ''}
   ${lbActbar(hs, l)}
   <p class="onlybar" id="lsb-only" hidden>Showing only House <b id="lsb-onlyname"></b>, opened. The filters are ignored while this is on. <a href="#lsb-board" data-lb="showall">Show all houses</a></p>
@@ -2461,7 +2460,7 @@ function lbInner(l) {
 const lbPage = (l) => html`<div class="lsb" id="lsb" data-sort="${LB.sort}" data-dir="${LB.dir}">${lbInner(l)}</div>`;
 function lbSumText(hs, l) {
   const ch = hs.filter((h) => LP.pick.has(h.id)), F = lbFacId(l);
-  if (!ch.length) return 'Nothing is chosen.';
+  if (!ch.length) return ''; // no standing "Nothing is chosen." (#1062); the live region speaks when something is chosen
   return `Chosen: ${nn(ch.length, 'house', 'houses')}. Fill chosen changes ${ch.filter((h) => !lbFillOffF(h, l, F)).length}, Complete chosen changes ${ch.filter((h) => !lbDoneFor(h, F)).length} for ${lbFacName(l, F)}, Complete and fill chosen changes ${ch.filter((h) => lbOwnF(l, F) && (!lbFillOffF(h, l, F) || !lbDoneFor(h, F))).length}, Reopen chosen changes ${ch.filter((h) => h.taken).length}, Unfill chosen changes ${ch.filter((h) => lbOwnF(l, F) && h.mine > 0 && h.unfill).length}.`;
 }
 function lbActbar(hs, l, split) {

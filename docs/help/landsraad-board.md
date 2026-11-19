@@ -42,7 +42,8 @@ A tier with no delivery record is counted as neither collected nor not collected
 - Jump to House opens one House and clears the filters that would hide it.
 - A button that does nothing right now (there is nothing to change, or another faction is chosen) has a dashed edge and quiet text instead of a faded look; pressing it says why.
 - The Grid and List buttons switch between the board and a sortable list of the same Houses.
-- A House's place opens the Saved map at that House. The line above the map names it, and **Back to House** returns to it on the Landsraad tab, in the view you are in (the board, or the Classic list with only that House shown).
+- In the Classic list, click a row to open it.
+- A House's place opens the Saved map at that House. A yellow ring on the map marks its place, and the line above the map names it, and **Back to House** returns to it on the Landsraad tab, in the view you are in (the board, or the Classic list with only that House shown).
 
 ## The plaque and the victory panel
 

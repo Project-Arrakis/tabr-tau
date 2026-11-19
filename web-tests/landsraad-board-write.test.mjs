@@ -180,7 +180,7 @@ test('a refused write shows the error text unchanged, writes nothing, and leaves
 
 test('a bulk button for more than one house asks first with the count; Cancel and Escape write nothing and put the focus back; Yes writes the houses in one edit', async () => {
   const ui = await open(board(), { '/api/landsraad/apply': { ...OK, changed: 3, houses: 3, contribution_raised: 0, completed: 3, reward_rows: 0 } });
-  assert.equal(text(ui.doc.querySelector('#lsb-sum')), 'Nothing is chosen.');
+  assert.equal(text(ui.doc.querySelector('#lsb-sum')), '', 'no standing sentence when nothing is chosen (#1062)');
   click(ui, '[data-lb=pickall]');
   assert.equal(text(ui.doc.querySelector('#lsb-sum')), 'Chosen: 4 houses. Fill chosen changes 3, Complete chosen changes 3 for Atreides, Complete and fill chosen changes 3, Reopen chosen changes 2, Unfill chosen changes 0.'); // this read has no unfill plan (#1013): Unfill refuses on such a read, so it counts no House
   click(ui, '[data-lb=bulk][data-do=complete]'); await ui.settle();

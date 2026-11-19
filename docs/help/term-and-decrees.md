@@ -6,7 +6,7 @@ On a phone (a window 640 px wide or less) the section comes after the board, so 
 
 ## The facts of the term
 
-- **Term**: the number of the current term.
+- **Term**: the number of the current term is in the header of the board (and in the line of the closed list on a phone).
 - **Ends in**: the hours and minutes the term has left, for example 18 h 37 m. It counts down only while the game is running and is the value as of the last save. Under an hour it shows minutes, under a minute it says less than a minute, and once the end has passed it says ended (the game starts the next term when it runs). If the save does not give the clock it shows a dash.
 - **Reigning faction**: the faction whose decree is in force.
 - **Active decree**: the decree in force this term.
@@ -15,13 +15,13 @@ On a phone (a window 640 px wide or less) the section comes after the board, so 
 ## Set the active decree and the reigning faction
 
 - Apply sets both together, for the current term only. None for the decree clears the decree.
-- A decree is only in force because a faction won the term, so the faction cannot be left empty. Atreides and Harkonnen can both be chosen. The box starts on your own faction and asks you to choose when you are in neither and the term has no winner.
+- A decree is only in force because a faction won the term, so the faction cannot be left empty. Atreides and Harkonnen can both be chosen, and any faction the box offers can be. The box starts on your own faction and asks you to choose when you are in neither and the term has no winner.
 - Apply needs no choice in two cases: the save holds a faction the list does not offer and you leave the box alone (the decree changes and that faction stays), and none for the decree on a term with no faction (the decree is cleared and no faction is written).
 - Nothing changes until you press Apply, Make active or Set flag. A choice you have not applied is marked as not applied yet.
 
 ## The decree pool
 
-Each row is one decree, with what it is in this term:
+Each row is one decree. A decree that is in this term carries a badge for what it is; a decree that is not in this term carries none:
 
 - **Active**: the term's active decree.
 - **Next term's decree**: the decree chosen for the next term.

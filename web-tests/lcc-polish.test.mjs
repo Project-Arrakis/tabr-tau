@@ -124,18 +124,15 @@ test('the order chips are 36 px or more at every width and the board\'s selects 
   assert.match(board, /\.lcc-bd-select \{[^}]*min-height: 37px;/, 'the select is at the 36 px floor on a wide window');
 });
 
-test('the earlier terms: the table is a keyboard-reachable region and a line above it says it scrolls on a phone', async () => {
+test('the earlier terms: the table is a keyboard-reachable region that is named as scrolling sideways, with no standing line above it (#1062)', async () => {
   const ui = await openBoard();
   const w = ui.doc.querySelector('.lcc-tm-tablewrap');
   assert.ok(w, 'a table of an earlier term');
   assert.equal(w.getAttribute('tabindex'), '0');
   assert.equal(w.getAttribute('role'), 'region');
   assert.match(w.getAttribute('aria-label'), /^Term \d+, the table of Houses: scrolls sideways/);
-  const hint = w.previousElementSibling;
-  assert.ok(hint && hint.classList.contains('lcc-tm-scrollhint'));
-  assert.match(text(hint), /Scroll the table sideways/);
-  assert.match(term, /\.lcc-tm-scrollhint \{ display: none;/);
-  assert.match(term, /@media \(max-width: 640px\) \{ \.lcc-tm \.lcc-tm-scrollhint \{ display: block; \} \}/);
+  assert.equal(w.previousElementSibling.tagName, 'SUMMARY', 'no standing line between the heading of the term and the table (#1062): the region name says it scrolls');
+  assert.doesNotMatch(term, /scrollhint/);
   assert.match(term, /\.lcc-tm-tablewrap:focus-visible \{ outline: 3px solid var\(--lcc-focus\)/);
 });
 

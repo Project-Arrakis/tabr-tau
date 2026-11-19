@@ -289,7 +289,7 @@ test('Choose all houses chooses what the board shows, not what a filter dims; Cl
   assert.match(text(ui.doc.querySelector('#lsb-sum')), /^Chosen: 9 houses\./);
   click(ui, '[data-fk="b-none"]');
   assert.equal([...ui.doc.querySelectorAll('.lcc-bd-pick')].filter((b) => b.checked).length, 0);
-  assert.equal(text(ui.doc.querySelector('#lsb-sum')), 'Nothing is chosen.');
+  assert.equal(text(ui.doc.querySelector('#lsb-sum')), '');
 });
 
 test('the grant before the click: the Inspector says what a raise would write, and a raise over the limit is shown as refused', async () => {
@@ -406,7 +406,7 @@ test('a dimmed card has its choose box off, says why, and a box turned on by a s
   tick(ui, vid);
   assert.equal(box().checked, false, 'the tick is taken back');
   assert.equal(ui.w.LCC_HOST.picks().has(vid), false);
-  assert.match(text(ui.doc.querySelector('#lsb-sum')), /^Nothing is chosen\./);
+  assert.equal(text(ui.doc.querySelector('#lsb-sum')), '');
   click(ui, '[data-fk="b-fill"]');
   assert.equal(ui.doc.querySelector('#lsb-confirm'), null);
   assert.equal(writes(ui).length, 0);
