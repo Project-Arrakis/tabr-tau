@@ -64,6 +64,21 @@ for (const kind of ['fill', 'complete', 'reopen']) {
   SCENARIOS['one house chosen, ' + kind + ' chosen, no question'] = async (ui, a) => { pick(ui, a, [ONE_OF_TWO[kind][0]]); click(ui, bulkBtn(kind, 'bar')); };
 }
 SCENARIOS['several houses, nothing chosen'] = async (ui) => { click(ui, '[data-fk="b-fill"]'); };
+// #932: Unfill chosen and Complete and fill chosen. New scenarios only: the request items of the routes are the old ones (Unfill is a removal to 0 that also carries was_taken; Complete and fill is Fill faction goal on each House).
+const NEW_PICK = { unfill: ['Alexin', 'Wallach', 'Moritani', 'Sor'], cfill: ['Sor', 'Lindaren', 'Kenola', 'Vernius'] }; // Sor has no contribution of yours: Unfill leaves it out
+for (const kind of ['unfill', 'cfill']) {
+  for (const via of ['bar', 'phone']) {
+    SCENARIOS['several houses, ' + kind + ' chosen, asked, then Yes' + (via === 'phone' ? ' (the phone bar)' : '')] = async (ui, a) => {
+      pick(ui, a, NEW_PICK[kind]);
+      click(ui, bulkBtn(kind, via));
+      await ui.settle();
+      click(ui, '[data-fk="c-yes"]');
+    };
+  }
+  SCENARIOS['another faction chosen, ' + kind + ' chosen is off'] = async (ui, a) => { select(ui, '#lsb-fac', 2); await ui.settle(); pick(ui, a, ['Alexin', 'Sor']); click(ui, bulkBtn(kind, 'bar')); };
+}
+SCENARIOS['one house chosen, unfill chosen, asked, then Yes'] = async (ui, a) => { pick(ui, a, ['Alexin']); click(ui, bulkBtn('unfill', 'bar')); await ui.settle(); click(ui, '[data-fk="c-yes"]'); };
+SCENARIOS['one house chosen, cfill chosen, no question'] = async (ui, a) => { pick(ui, a, ['Lindaren']); click(ui, bulkBtn('cfill', 'bar')); };
 
 // The board says its results as a toast, one result per line, not as a line kept on the page (#943). What is said is compared with the recorded sentence without the punctuation that joins the parts.
 const toastSaid = (ui) => { const t = [...ui.doc.querySelectorAll('#toast .d-toast')].pop(); return t ? text(t.querySelector('span')) : ''; };
@@ -92,7 +107,7 @@ for (const name of Object.keys(SCENARIOS)) {
     const { said, ...rest } = got, { said: was, ...wasRest } = golden[key];
     assert.deepEqual(rest, wasRest, 'the request, the others and the question are as recorded');
     assert.equal(same(said), same(was), 'the board says the same things as recorded, in lines');
-    if (!/nothing chosen/.test(name)) assert.ok(got.sent.length === 1 || got.asked !== null, 'a write was made or a question was asked');
+    if (!/nothing chosen| is off$/.test(name)) assert.ok(got.sent.length === 1 || got.asked !== null, 'a write was made or a question was asked');
   });
 }
 

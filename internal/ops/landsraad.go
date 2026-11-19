@@ -228,6 +228,8 @@ func (o *Ops) Landsraad() (any, error) {
 		boardTask(t, tiers, delivered, one, termID, termStart, places, here)
 		// what removing a reached tier would do to its reward, by the rule of the write (landsraad_takeback.go): the page says it before the click
 		boardTakeBack(tiers, house, delivered, one, termID, termStart, my, math.Max(events[id], elsewhere), pg)
+		// what Unfill chosen would do to the rewards of every reached tier of this house at once (the same rule, to 0): the page words its question from it and sends the number of rewards taken back as was_taken (#932)
+		t["unfill"] = boardUnfill(tiers, house, delivered, one, termID, termStart, my, math.Max(events[id], elsewhere), pg)
 	}
 	decrees, err := o.S.Query(`select id, decree_name, disabled, weight from landsraad_decrees order by id`)
 	if err != nil {

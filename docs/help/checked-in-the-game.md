@@ -6,6 +6,7 @@ Every write has automated tests on a synthetic save built from the game's real s
 |---|---|
 | Landsraad: Fill to a tier, Fill chosen | Tests, and run on a copy of a real save. Not in the game. Whether the game hands out the tier after it is not known |
 | Landsraad: Complete and Reopen | Tests only |
+| Landsraad: Complete and fill chosen, Unfill chosen (#932) | Tests only, on copies of a test save; not in the game |
 | Landsraad: the completion time written by Complete | Tests only. Based on the game's play clock inside the term's window |
 | Landsraad: what a mission pays (Solari, House Scrip, specialization XP, rewards) | Not checked in the game yet |
 | Landsraad: whether the game keeps a contribution raised here at its next progress step | Not checked in the game |

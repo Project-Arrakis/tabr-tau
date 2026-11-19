@@ -42,6 +42,8 @@ type applyItem struct {
 	// what the page showed as the two other grounds a raise is worked out from (#805): what the editor itself paid before (missions, and the ground whose reward rows are delivered) and what
 	// the character reached under another faction. Each is compared when a contribution is raised and only when sent: a request without it is not refused.
 	wasPaid, wasPaidRows, wasElsewhere *float64
+	// what the page said an Unfill would take back on this house, in rewards (#932): compared when a contribution is lowered and only when sent, so a removal of one tier is not refused for lack of it
+	wasTaken *float64
 }
 
 // optFloat reads a number that may be left out (or null): nil when it is not there.
@@ -111,6 +113,12 @@ func parseApplyItems(a Args) ([]applyItem, error) {
 		}
 		if r.wasElsewhere, err = optFloat(it, "was_elsewhere"); err != nil {
 			return nil, err
+		}
+		if r.wasTaken, err = optFloat(it, "was_taken"); err != nil {
+			return nil, err
+		}
+		if r.wasTaken != nil && (*r.wasTaken < 0 || *r.wasTaken != float64(int64(*r.wasTaken))) {
+			return nil, apierr.New(apierr.ErrBadArgument, "was_taken is not a number of rewards")
 		}
 		if _, has := it["mine_to"]; has {
 			v, err := it.Float("mine_to")
@@ -381,7 +389,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 					did = true
 					what = append(what, fmt.Sprintf("your contribution %g -> %g", s.cur, to))
 					// the rewards of the removed tiers that wait at the house representative go with them (landsraad_takeback.go: the one rule); collected ones stay
-					rr, err := takeBackTierRewards(m, me, s.t, s.cur, to, paidNow)
+					rr, err := takeBackTierRewards(m, me, s.t, s.cur, to, paidNow, it.wasTaken)
 					if err != nil {
 						return err
 					}

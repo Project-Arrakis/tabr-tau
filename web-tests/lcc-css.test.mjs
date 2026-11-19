@@ -293,7 +293,7 @@ test('phones: the bar of the chosen houses is sticky at the bottom, clear of the
   assert.match(appBare, /\.lsb \.phonebar \{ display: none; \}/);
   const phone = parse(appBare).find((r) => /@media \(max-width: 640px\), \(pointer: coarse\) and \(max-width: 900px\)/.test(r.at) && r.sel === '.lsb .phonebar:not([hidden])');
   assert.ok(phone && /position: sticky; bottom: 0/.test(phone.body) && /env\(safe-area-inset-bottom/.test(phone.body), 'sticky at the bottom with the safe-area inset');
-  assert.match(appBare, /html:has\(\.phonebar:not\(\[hidden\]\)\) \{ scroll-padding-bottom: 110px; \}/);
+  assert.match(appBare, /html:has\(\.phonebar:not\(\[hidden\]\)\) \{ scroll-padding-bottom: 170px; \}/);
   assert.match(appBare, /\.lsb \.phonebar \.qa \{[^}]*min-height: 44px/, 'a touch target');
   assert.match(bare, /@media \(max-width: 640px\), \(pointer: coarse\) and \(max-width: 900px\) \{\s*\.lcc-hc \{ min-height: 0; \}\s*\.lcc-hc-crest \{ display: none; \}/);
   assert.match(appBare, /@container lsbv \(max-width: 1079px\) \{\s*\.lsb #lsb-board \.lcc-bd-back \{ display: inline-flex; \}/);
