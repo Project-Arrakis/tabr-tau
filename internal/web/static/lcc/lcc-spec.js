@@ -170,11 +170,10 @@
     h2.appendChild(el('em', '', 'COMMAND'));
     add(t, h2); // no lead sentence (#980): what the view is and how its operations work are in the Help tab
     const s = el('div', 'lcc-sp-hero-stats', '', { role: 'group', 'aria-label': 'Progression overview' });
-    const stat = (v, k, id) => add(el('div', 'lcc-sp-stat'), el('b', '', v, { id }), el('small', '', k));
+    const stat = (v, k, id, title) => add(el('div', 'lcc-sp-stat'), el('b', '', v, { id }), el('small', '', k, title ? { title } : undefined));
     const T = vm.totals;
-    add(s, stat(T.tracks ? T.atCap + ' / ' + T.tracks : NOT_IN_SAVE, 'TRACKS AT XP CAP', 'lcs-capcount'),
-      stat(T.total > 0 ? T.owned + ' / ' + T.total + (T.keysPartial ? '*' : '') : NOT_IN_SAVE, T.keysPartial && T.total > 0 ? 'KEYSTONES (* ' + (T.keysWhy === 'total' ? 'A TRACK’S TOTAL IS NOT IN THE SAVE' : 'A TRACK IS NOT IDENTIFIED YET') + ')' : 'KEYSTONES', 'lcs-keycount'),
-      stat(fmt(vm.maxXp), 'MAXIMUM XP / TRACK', 'lcs-maxxp'));
+    add(s, stat(T.tracks ? T.atCap + ' / ' + T.tracks : NOT_IN_SAVE, 'SPECIALIZATIONS COMPLETED', 'lcs-capcount', 'Paths whose XP has reached the cap (level 100). Keystones are counted apart.'), // renamed from TRACKS AT XP CAP (#1042): the count is the same
+      stat(T.total > 0 ? T.owned + ' / ' + T.total + (T.keysPartial ? '*' : '') : NOT_IN_SAVE, T.keysPartial && T.total > 0 ? 'KEYSTONES (* ' + (T.keysWhy === 'total' ? 'A TRACK’S TOTAL IS NOT IN THE SAVE' : 'A TRACK IS NOT IDENTIFIED YET') + ')' : 'KEYSTONES', 'lcs-keycount')); // two totals: the third, the largest XP of a track, is dropped (#1042); the XP ceiling is still on the dossier
     return add(h, t, s);
   }
 

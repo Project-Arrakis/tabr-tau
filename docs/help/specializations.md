@@ -4,7 +4,7 @@ The Specialization view shows the five paths of the game: Combat, Crafting, Expl
 
 ## What you see
 
-- The overview counts the tracks at the XP cap and the keystones bought.
+- The overview counts the specializations completed (the paths whose XP has reached the cap, level 100) and the keystones bought.
 - Choose a path to open its dossier: level, XP against the cap, keystones and the Houses of that path.
 - The level scale marks (LV 10, 25 and so on) are reference marks along the 100 levels. They are not unlock levels.
 
