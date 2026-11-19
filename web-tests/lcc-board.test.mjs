@@ -450,3 +450,29 @@ test('#1048: a faction with no contribution row in the save reads 0 / goal in th
   const other = [...i.querySelectorAll('.lcc-bd-fc-v')][1];
   assert.equal(other.getAttribute('title'), null, 'a faction with a row has no such hover');
 });
+
+test('#1059: list cells stay short: an em dash for a House with no place, "N of 5" with the words for a screen reader, and no "no map picture" text on the page', async () => {
+  const a = synthetic();
+  const ui = await open(a, { view: 'board', layout: 'list' });
+  const rows = [...ui.doc.querySelectorAll('.lcc-bd-row')];
+  assert.equal(rows.length, 25);
+  const css = (el) => [...el.querySelectorAll('.lcc-bd-sr')].map(text);
+  for (const r of rows) {
+    const t = r.querySelector('.lcc-bd-c-tiers');
+    const visible = text(t).replace(/ tiers earned$/, '');
+    assert.match(visible, /^(\d of \d|no tier record|no tiers)$/, 'the cell shows "N of 5": ' + text(t));
+    if (/\d of \d/.test(text(t))) assert.deepEqual(css(t), ['tiers earned'], 'the words for a screen reader are kept');
+    assert.match(text(t), /^(\d of \d tiers earned|no tier record|no tiers)$/, 'the cell still says the whole thing as text: ' + text(t));
+  }
+  for (const r of rows) {
+    const l = r.querySelector('.lcc-bd-loc');
+    const mut = l.querySelector('.lcc-bd-dash');
+    if (mut) {
+      assert.equal(mut.firstChild.textContent, '—', 'no place is an em dash');
+      assert.deepEqual(css(mut), ['not mapped yet']);
+      assert.match(mut.getAttribute('title'), /^Not mapped yet/);
+    }
+    const np = l.querySelector('.lcc-bd-nopic');
+    if (np) { assert.deepEqual(css(np), ['· no map picture']); assert.match(np.getAttribute('title'), /no picture of/); }
+  }
+});
