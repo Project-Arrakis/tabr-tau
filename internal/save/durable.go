@@ -49,12 +49,24 @@ func writeDurable(path string, data []byte, mode os.FileMode) error {
 // the tries with nothing renamed (the caller removes the temp file). The window that is left is the time between the last compare and the rename call.
 func renameRetry(from, to string, want [32]byte) error {
 	var refused error
+	var held error // the error of the last try of the rename, kept to say what was being retried when the compare could not be made
 	o := durableOpts()
+	hook := o.Hooks.Rename
+	o.Hooks.Rename = func(a, b string) error {
+		err := hook(a, b)
+		held = err
+		return err
+	}
 	o.BeforeRetry = func(int) error {
-		cur, err := savefile.ReadCapped(to)
+		cur, err := readCompareRetry(to)
 		switch {
 		case err != nil:
-			refused = apierr.Wrap(apierr.ErrWriteFailed, "the save could not be read again to check that it is unchanged ("+shortErr(err)+"), so nothing was replaced; the edits stay queued", err)
+			msg := "could not replace " + filepath.Base(to) + " (is another program holding it?)"
+			if held != nil {
+				msg += ": " + shortErr(held)
+			}
+			msg += "; the save then could not be read again to check that it is unchanged (" + shortErr(err) + "), so nothing was replaced; the edits stay queued"
+			refused = apierr.Wrap(apierr.ErrWriteFailed, msg, err)
 		case hashOf(cur) != want:
 			refused = ErrChangedOnDisk
 		default:
@@ -70,6 +82,24 @@ func renameRetry(from, to string, want [32]byte) error {
 		return apierr.Wrap(apierr.ErrWriteFailed, fmt.Sprintf("could not replace %s (is another program holding it?): %v", filepath.Base(to), err), err)
 	}
 	return nil
+}
+
+// readCompareTries is how often the compare before a retry reads the file: a scanner or the game that holds the file for the rename can hold it against a read for a moment too, and
+// one failed read must not end a write that the next read would have allowed. The pause is the rename's own, so a test that sets it to zero is not slowed.
+const readCompareTries = 3
+
+func readCompareRetry(path string) ([]byte, error) {
+	var b []byte
+	var err error
+	for i := 0; i < readCompareTries; i++ {
+		if i > 0 {
+			time.Sleep(renameBackoff * time.Duration(i))
+		}
+		if b, err = savefile.ReadCapped(path); err == nil {
+			return b, nil
+		}
+	}
+	return nil, err
 }
 
 // tmpPath is a unique sibling name; the ".tabr-*.tmp" pattern is what cleanStaleTemps removes.
