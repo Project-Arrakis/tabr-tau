@@ -381,3 +381,114 @@ func TestCommitReloadFailureBlocksFurtherEdits(t *testing.T) {
 		t.Fatalf("after a failed reload the stale baseline must not be edited further, got %v", err)
 	}
 }
+
+// #794: a game save that lands while a held rename is being retried is not replaced: the file is read and compared again before every retry, and a changed file ends the tries with nothing renamed.
+func TestAHeldRenameIsNotRetriedOverAFileThatChangedMeanwhile(t *testing.T) {
+	defer NoGameRunningForTests()()
+	s, p := openToy(t)
+	s.ExecScript(`insert into t values (2)`)
+	other := makeSave(t, `create table t(a integer); insert into t values (9);`)
+	game, _ := os.ReadFile(other)
+	calls := 0
+	old, oldWait := fsRename, renameBackoff
+	fsRename = func(a, b string) error {
+		calls++
+		if calls == 1 { // the game saves while the first try is held
+			if err := os.WriteFile(p, game, 0o600); err != nil {
+				t.Error(err)
+			}
+		}
+		return errors.New("sharing violation")
+	}
+	renameBackoff = 0
+	t.Cleanup(func() { fsRename = old; renameBackoff = oldWait })
+	_, err := s.CommitForTests()
+	if !errors.Is(err, ErrChangedOnDisk) {
+		t.Fatalf("a file that changed between the tries must end them with ErrChangedOnDisk, got %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("no second try of the rename after the file changed: %d calls", calls)
+	}
+	if got, _ := os.ReadFile(p); !bytes.Equal(got, game) {
+		t.Fatal("the game's file must be left as it is")
+	}
+	for _, n := range dirNames(t, filepath.Dir(p)) {
+		if strings.HasSuffix(n, ".tmp") {
+			t.Fatalf("temp file left behind: %s", n)
+		}
+	}
+	if !s.Dirty() {
+		t.Fatal("the edits must still be pending after the refused write")
+	}
+}
+
+// The file is looked at before each retry, not only once: it changes after the second try here.
+func TestTheFileIsComparedBeforeEveryRetryNotOnlyTheFirst(t *testing.T) {
+	defer NoGameRunningForTests()()
+	s, p := openToy(t)
+	s.ExecScript(`insert into t values (2)`)
+	other := makeSave(t, `create table t(a integer); insert into t values (9);`)
+	game, _ := os.ReadFile(other)
+	calls := 0
+	old, oldWait := fsRename, renameBackoff
+	fsRename = func(a, b string) error {
+		calls++
+		if calls == 2 {
+			os.WriteFile(p, game, 0o600)
+		}
+		return errors.New("sharing violation")
+	}
+	renameBackoff = 0
+	t.Cleanup(func() { fsRename = old; renameBackoff = oldWait })
+	if _, err := s.CommitForTests(); !errors.Is(err, ErrChangedOnDisk) {
+		t.Fatalf("got %v", err)
+	}
+	if calls != 2 {
+		t.Fatalf("the third try must not be made: %d calls", calls)
+	}
+}
+
+// A file that cannot be read to be compared is not renamed over: the write fails closed, the edits stay queued and the file is as it was.
+func TestAHeldRenameIsNotRetriedWhenTheFileCannotBeReadToCompare(t *testing.T) {
+	defer NoGameRunningForTests()()
+	s, p := openToy(t)
+	s.ExecScript(`insert into t values (2)`)
+	calls := 0
+	old, oldWait := fsRename, renameBackoff
+	fsRename = func(a, b string) error {
+		calls++
+		if calls == 1 {
+			os.Remove(p) // gone: the compare cannot read it
+		}
+		return errors.New("sharing violation")
+	}
+	renameBackoff = 0
+	t.Cleanup(func() { fsRename = old; renameBackoff = oldWait })
+	_, err := s.CommitForTests()
+	if err == nil || calls != 1 {
+		t.Fatalf("expected a refusal after one try, got %v after %d calls", err, calls)
+	}
+	if !s.Dirty() {
+		t.Fatal("the edits must still be pending")
+	}
+}
+
+// A held rename over a file that did not change still retries and succeeds (the compare costs nothing in the ordinary case).
+func TestAHeldRenameOverAnUnchangedFileStillRetriesAndSucceeds(t *testing.T) {
+	s, _ := openToy(t)
+	calls := 0
+	old, oldWait := fsRename, renameBackoff
+	fsRename = func(a, b string) error {
+		calls++
+		if calls < 4 {
+			return errors.New("sharing violation")
+		}
+		return os.Rename(a, b)
+	}
+	renameBackoff = 0
+	t.Cleanup(func() { fsRename = old; renameBackoff = oldWait })
+	s.ExecScript(`insert into t values (2)`)
+	if r, err := s.CommitForTests(); err != nil || r["saved"] != true || calls != 4 {
+		t.Fatalf("commit should survive: %v %v after %d calls", r, err, calls)
+	}
+}

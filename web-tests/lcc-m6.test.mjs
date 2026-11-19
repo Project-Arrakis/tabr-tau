@@ -118,3 +118,12 @@ test('the term script and stylesheet are linked by the page', () => {
   assert.match(idx, /lcc\/lcc-term\.css/);
   assert.match(idx, /lcc\/lcc-term\.js/);
 });
+
+// #904: the tags row of the term section is a group with a name, so its aria-label is announced
+test('the tags row of the term section has a role for its name (#904)', async () => {
+  const ui = await open();
+  const tags = ui.doc.querySelector('#lcc-term .lcc-tm-tags');
+  assert.ok(tags, 'the tags row is drawn');
+  assert.equal(tags.getAttribute('role'), 'group');
+  assert.ok(tags.getAttribute('aria-label'));
+});

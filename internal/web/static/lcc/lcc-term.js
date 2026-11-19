@@ -123,7 +123,7 @@
     else body.appendChild(el('small', 'lcc-tm-de lcc-tm-de-none', 'Effect: ' + NOT_IN_SAVE));
     if (d.note) body.appendChild(el('small', 'lcc-tm-du', d.note));
     body.appendChild(el('small', 'lcc-tm-did', d.key, { title: 'The game\'s internal id, kept for support' }));
-    const tg = el('div', 'lcc-tm-tags', '', { 'aria-label': 'In this term' });
+    const tg = el('div', 'lcc-tm-tags', '', { role: 'group', 'aria-label': 'In this term' });
     tg.appendChild(el('span', 'lcc-tm-k', 'IN THIS TERM'));
     if (d.tags.length) for (const x of d.tags) tg.appendChild(badge(x, 'is-' + x.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')));
     else tg.appendChild(el('span', 'lcc-tm-none', 'not in this term'));

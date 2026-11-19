@@ -2713,9 +2713,30 @@ function lbGo(b, act_, items, hs, F, i, label, backFk, one) {
   const c = $('#lsb-confirm');
   if (c) intoView(c);
 }
+// The ids of the houses the page shows now (the board's filters, or the classic list's visible rows), or null when the page cannot say. The actions on several houses write only houses that are in it (#881): what
+// is not shown is never written, whatever the choice list holds (a box ticked by a script or left over from an earlier view is dropped here, at the write, not only when a filter changes).
+function lbShownIds() {
+  if (lbBoardOn()) return window.LCCB.visible(LD);
+  const rows = document.querySelectorAll('#lsb-rows > li.hr');
+  if (!rows.length) return null;
+  const s = new Set();
+  rows.forEach((li) => { if (!li.hidden) s.add(+li.dataset.id); });
+  return s;
+}
+// Takes the houses that are not shown out of the choice (and its boxes); how many went.
+function lbDropHidden() {
+  const shown = lbShownIds();
+  if (!shown) return 0;
+  let n = 0;
+  for (const id of [...LP.pick]) if (!shown.has(id)) { LP.pick.delete(id); n++; }
+  if (n) { document.querySelectorAll('#lsb .pick, #lsb .lcc-bd-pick').forEach((pk) => { const o = pk.closest('[data-id]'); if (o && !LP.pick.has(+o.dataset.id)) pk.checked = false; }); lbSumNow(); }
+  return n;
+}
 function lbBulk(b, act_) {
-  const F = lbFacId(LD), ids = new Set(LP.pick), off = lbBulkOff(act_, LD, F);
+  const F = lbFacId(LD), off = lbBulkOff(act_, LD, F);
   if (off) { lbSay(off); return; }
+  const gone = lbDropHidden(), ids = new Set(LP.pick);
+  if (!ids.size && gone) { lbSay('The chosen houses are not in the current filter, so nothing is chosen and nothing was written.'); return; }
   if (!ids.size) { lbSay('Nothing is chosen, so there is nothing to ' + (act_ === 'cfill' ? 'complete and fill' : act_) + '.'); return; }
   const { hs, items } = lbBulkItems(act_, ids, F);
   // the read must say what an unfill would do to the rewards of every House it lowers: without it the question could not be honest, so nothing is asked and nothing is written
@@ -2727,6 +2748,7 @@ function lbConfirmYes() {
   const c = LP.confirm;
   if (!c) return;
   // a bulk question writes only houses that are chosen now: a filter or a jump unticks the rows it hides, and a house shown as not chosen is not written (#818). A click on one house names itself.
+  if (!c.one) lbDropHidden(); // a house the page does not show is not written, even when the choice still holds it (#881)
   const ids = c.one ? c.ids : c.ids.filter((id) => LP.pick.has(id));
   const { hs, items } = lbBulkItems(c.act, new Set(ids), c.F, c.i);
   if (!items.length) { LP.confirm = null; lbSay('Nothing to change any more.'); lbRedraw(); lbFocusFk(c.back); return; }
@@ -2978,6 +3000,7 @@ function lbClick(e) {
   if (k === 'tapply' || k === 'tmk') {
     e.preventDefault();
     if (b.getAttribute('aria-disabled') === 'true') { LT.say = b.title; const r = $('#lsb-tresult'); if (r) r.textContent = b.title; return; }
+    if (LP.busy) { lbTSay(LB_WAIT); return; } // before the choice is stored: a click on another row during a write changes nothing, so the drop-downs keep showing what the save holds (#904)
     const sel = lbTermSel(LD), ad = k === 'tmk' ? String(b.dataset.id) : sel.ad, rf = sel.rf, dn = (id) => { const d = (LD.decrees || []).find((x) => String(x.id) === id); return d ? decreeFull(d) : 'none'; };
     // the save holds a reigning faction the list does not offer and the drop-down was left alone: the request leaves the faction as it is (the server refuses to set such a faction)
     // The same when the decree is cleared (none) on a term that has no faction: the request names the decree only, so a save the game wrote with a decree and no faction can still have its decree cleared (#960).
@@ -3006,7 +3029,7 @@ function lbClick(e) {
 function lbChange(e) {
   const t = e.target, k = t.dataset ? t.dataset.lb : '';
   if (t.classList && t.classList.contains('xc')) { const id = +t.id.replace('lsx-', ''); if (t.checked) LB.open.add(id); else LB.open.delete(id); lbSyncOpen(); return; }
-  if (k === 'pick') { const id = +t.dataset.id; lbCancelConfirm(); if (t.checked) LP.pick.add(id); else LP.pick.delete(id); lbApply(); return; }
+  if (k === 'pick') { const id = +t.dataset.id; lbCancelConfirm(); if (t.checked) { const shown = lbShownIds(); if (t.disabled || (shown && !shown.has(id))) { t.checked = false; LP.pick.delete(id); lbApply(); lbSay('That House is not in the current filter, so it cannot be chosen.'); return; } } if (t.checked) LP.pick.add(id); else LP.pick.delete(id); lbApply(); return; }
   if (k === 'fac') { lbCancelConfirm(); LP.fac = +t.value; lbRedraw(); return; }
   if (k === 'tad') { LT.ad = t.value; const pn = $('#lcc-tm-pending'); if (pn && LD) pn.textContent = lbPendingText(LD, t.value); const d = (LD.decrees || []).find((x) => String(x.id) === t.value), l = t.closest('label'), s = l && l.querySelector('.did'); if (s) { s.textContent = d ? d.decree_name : ''; const e2 = l.querySelector('.de'), u = l.querySelector('.du'); if (e2) e2.textContent = d && d.effect ? d.effect : ''; if (u) u.textContent = decreeNote(d); } return; }
   if (k === 'trf') { LT.rf = t.value; lbRedraw(); return; }
