@@ -682,7 +682,7 @@
     else s3.appendChild(sum);
     if (h.unknownDelivery) s3.appendChild(el('p', 'lcc-bd-alert', '“Delivery unknown” means the tier is earned and the save has no delivery row for it this term: it is not counted as collected or as not collected.'));
     const heading = el('div', 'lcc-bd-tier-heading', '', { 'aria-hidden': 'true' });
-    for (const t of ['TIER & THRESHOLD', 'REWARD', 'STATE']) heading.appendChild(el('span', '', t));
+    for (const t of ['TIER', 'REWARD', 'STATE']) heading.appendChild(el('span', '', t));
     s3.appendChild(heading);
     const ol = el('ol', 'lcc-bd-tiers', '', { role: 'list' });
     h.tiers.forEach((t) => {

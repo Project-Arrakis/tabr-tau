@@ -393,3 +393,19 @@ test('#943 review: a toast that something else raises while a write is running (
   assert.ok(t.some((x) => /House Kenola: your contribution/.test(x.textContent)));
   assert.equal(ui.w.eval('typeof toastOneKey'), 'undefined', 'no global key is held across the await');
 });
+
+// ---- #1047: the ledger header ------------------------------------------------------------------------------------------------------------------------------------------------
+test('#1047: the ledger header is TIER, REWARD, STATE on one line each, at the 12 px label floor, and lines up with the rows', async () => {
+  const a = synthetic();
+  const ui = await open();
+  look(ui, a, 'Wallach');
+  const heading = ui.doc.querySelector('.lcc-bd-insp .lcc-bd-tier-heading');
+  assert.deepEqual([...heading.querySelectorAll('span')].map(text), ['TIER', 'REWARD', 'STATE'], 'each row already shows its tier and threshold under T1, so the header says TIER');
+  const css = fs.readFileSync(new URL('../internal/web/static/lcc/lcc-board.css', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(css, /\.lcc-bd-tier-heading \{ font-size: 12px; \}/, 'the label floor');
+  assert.match(css, /\.lcc-bd-tier-heading span \{ white-space: nowrap; \}/, 'never two lines');
+  const head = css.match(/\.lcc-bd-tier-heading \{[^}]*\}/)[0], row = css.match(/\.lcc-bd-tier \{[^}]*\}/)[0];
+  assert.match(head, /padding: 5px 7px; border: 1px solid transparent; border-left-width: 3px;/, 'the header has the border of a row (1 px, 3 px on the left) so REWARD starts where the reward text starts');
+  assert.match(row, /padding: 8px 7px;/);
+  assert.match(row, /border: 1px solid var\(--lcc-stroke-faint\); border-left: 3px solid/);
+});
