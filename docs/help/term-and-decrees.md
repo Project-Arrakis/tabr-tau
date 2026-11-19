@@ -29,7 +29,7 @@ Each row is one decree, with what it is in this term:
 - **Pool flag**: the save's own disabled column, shown as stored. It does not say whether a decree is in effect. Set flag changes the flag of that one row and never makes a decree active.
 - **Make active** does the same as the Active decree box and Apply for that row, for the faction in the Reigning faction box. A decree belongs to a faction, not to a House.
 
-The pool is in id order. Names are the game's own names, with the effect line the game gives. The small line under a name is the id the save holds, kept for support.
+The pool is in id order. Names are the game's own names, with the effect line the game gives. The game's own id for a decree is not shown.
 
 The special vendor decree is five separate rows. The four Exclusive Import Rights decrees (Vehicle, Weapon, Armor and Tool) are in the list. The fifth, the plain one, does nothing in the game, so the editor does not show it anywhere: not in the pool, not in a closed list and not in the Active decree box. It stays in the save as it is and the editor never changes or deletes it. If a term should hold it as its active or next decree, the page says Another decree and nothing more, and Apply writes it back unchanged.
 
@@ -40,5 +40,5 @@ Read-only. Each earlier term with a row of yours opens to show its Houses, your 
 ## What the save does not hold
 
 - Active Landsraad missions are not recorded in this local save.
-- A ranking of contributors is not recorded: the save holds the amount each contributor gave to each House, and the banners show the biggest, worked out by the editor from those amounts.
+- A ranking of contributors is not recorded: the save holds the amount each contributor gave to each House, and the banners list the biggest by name, in the order the editor works out from those amounts; the banners do not show the amounts.
 - No calendar date for the start or the end of a term. The term is on the game's play clock, which stops while the game is closed.

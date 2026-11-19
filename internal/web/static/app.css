@@ -642,7 +642,6 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .tkv>div{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
 .lsb .tkv .mut{font:600 var(--t-xs) var(--t-display);letter-spacing:.08em;text-transform:uppercase}
 .lsb .dn{font-weight:600}
-.lsb .did{display:block;font:var(--t-xs) var(--t-mono);color:var(--c-dim);overflow-wrap:anywhere}
 .lsb .de{display:block;font-size:var(--t-xs);color:var(--c-dim)}
 .lsb .de:empty,.lsb .du:empty{display:none}
 .lsb .dec{list-style:none;margin:0;padding:0}
@@ -690,7 +689,6 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .tctl .lbl{font:600 var(--t-xs) var(--t-display);letter-spacing:.1em;text-transform:uppercase;color:var(--c-dim)}
 .lsb .tctl select{min-height:var(--hit);min-width:12rem;max-width:100%;padding:0 10px;border:1px solid var(--c-rule);border-radius:var(--r-2);background:var(--c-sunken);color:var(--c-text);font:var(--t-md) var(--t-body)}
 .lsb .tctl select:focus-visible{outline:2px solid var(--c-focus);outline-offset:1px}
-.lsb .tctl .did{min-height:1.3em}
 .lsb .tapply{display:inline-flex;align-items:center;gap:var(--s-2)}
 .lsb #lsb-tresult{margin:0 0 var(--s-2);font-size:var(--t-sm);color:var(--c-ok);min-height:1.2em}
 .lsb .dp{list-style:none;margin:0;padding:0}

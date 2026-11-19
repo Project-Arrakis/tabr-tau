@@ -47,8 +47,7 @@
 .lcc-tm-de { display: block; margin-top: 3px; font: 400 12px/1.45 var(--lcc-sans); color: var(--lcc-text); }
 .lcc-tm-de-none { color: var(--lcc-dim); font-style: italic; }
 .lcc-tm-du { display: block; margin-top: 3px; font: 500 12px/1.4 var(--lcc-sans); color: var(--lcc-gold-text); }
-.lcc-tm-did { display: block; margin-top: 3px; font: 400 11px/1.4 var(--lcc-mono); color: var(--lcc-dim); overflow-wrap: anywhere; }
-.lcc-tm-du:empty, .lcc-tm-de:empty, .lcc-tm-did:empty { display: none; }
+.lcc-tm-du:empty, .lcc-tm-de:empty { display: none; }
 
 /* ---- the controls ---- */
 .lcc-tm-ctl { margin: 0 0 16px; padding: 14px 15px 12px; border: 1px solid var(--lcc-stroke); background: var(--lcc-sunken); }

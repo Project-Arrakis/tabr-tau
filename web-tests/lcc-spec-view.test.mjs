@@ -286,7 +286,18 @@ test('the hero keystone total is marked partial for a track that is not identifi
 test('the hero counts come from the save', () => {
   const d = draw(byId('both-complete'));
   assert.equal(txt(q(d, '#lcs-capcount')), '1 / 5');
-  assert.equal(txt(q(d, '#lcs-maxxp')), '44,182');
+  assert.equal(q(d, '#lcs-maxxp'), null, 'the largest XP of a track is not a tile of the header any more (#1042)');
+});
+
+test('the header has two totals: SPECIALIZATIONS COMPLETED (renamed from TRACKS AT XP CAP) and KEYSTONES, and nothing about the largest XP (#1042)', () => {
+  const d = draw(byId('both-complete'));
+  const tiles = qa(d, '.lcc-sp-hero-stats .lcc-sp-stat');
+  assert.deepEqual(tiles.map((x) => txt(x.querySelector('small'))), ['SPECIALIZATIONS COMPLETED', 'KEYSTONES']);
+  assert.deepEqual(tiles.map((x) => txt(x.querySelector('b'))), ['1 / 5', txt(q(d, '#lcs-keycount'))]);
+  assert.match(q(d, '#lcs-capcount').parentNode.querySelector('small').title, /level 100/, 'the tooltip says what completed means here');
+  const hero = txt(q(d, '.lcc-sp-hero'));
+  assert.doesNotMatch(hero, /TRACKS AT XP CAP|MAXIMUM XP|44,182/, 'the old label, the dropped tile and its number are not in the header');
+  assert.equal(q(d, '.lcc-sp-hero-stats').getAttribute('aria-label'), 'Progression overview');
 });
 
 test('the XP amount rule and the reset rule are tips, not standing text (#1030)', () => {

@@ -1,5 +1,5 @@
 // The term and decrees panel of the Landsraad tab (part 4 of the tab rework; refs #448, #608, #634): the decree pool tells the decree in effect apart from the pool flag and the five
-// special vendor decrees apart from each other, decrees are shown by a readable name with the game's internal id as a small second line, and the controls write what they say.
+// special vendor decrees apart from each other, decrees are shown by a readable name and the effect line, never by the game's id (#1040), and the controls write what they say.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -43,24 +43,25 @@ test('the panel is closed, its heading line names the term, the reigning faction
   assert.ok(d && !d.open, 'closed by default');
   assert.equal(text(d.querySelector('summary')), 'Term and decrees Term 10 · Harkonnen · Exclusive Vehicle Import Rights');
   const kv = text(d.querySelector('.tkv'));
-  assert.ok(kv.includes('Term10') && kv.includes('Reigning factionHarkonnen') && kv.includes('Active decreeExclusive Vehicle Import RightsSpecialVendorActive_Vehicles') && kv.includes('Next term\'s decreeThe Right of SalvageDropInventoryOnDefeatActive'), kv);
+  assert.ok(kv.includes('Term10') && kv.includes('Reigning factionHarkonnen') && kv.includes('Active decreeExclusive Vehicle Import Rights') && kv.includes(`Next term's decreeThe Right of Salvage`), kv);
+  assert.ok(!kv.includes('SpecialVendorActive') && !kv.includes('DropInventoryOnDefeatActive'), 'the facts show no game id (#1040)');
   assert.ok(!ui.doc.querySelector('.lsb-prev'), 'the old section of previous controls is gone');
   // the term's time is one value, Ends in, never seconds (#981); with no play clock in this answer it is not known
   assert.ok(kv.includes('Ends innot known'), kv);
   assert.ok(!/\d\s?s\b|Start|End\b/.test(kv.replace('Reigning factionHarkonnen', '')), kv);
 });
 
-test('decrees are shown by the name the game shows with the internal id as a small second line', async () => {
+test('decrees are shown by the name the game shows and its effect line, with no game id (#1040)', async () => {
   const ui = await open();
   const got = (id) => parts(poolRow(ui, id).querySelector('.dc'));
-  assert.equal(got(1), 'Scholarly Collaboration Experience gain is increased by 50% ExperienceRateIncrease');
-  assert.equal(got(5), 'The Right of Salvage ' + GAME.DropInventoryOnDefeatActive.effect + ' DropInventoryOnDefeatActive');
-  assert.equal(got(6), 'CHOAM Refining Contract Repair costs and refining times are reduced by 75% RepairAndRefiningTimes');
-  assert.equal(got(8), 'Exclusive Vehicle Import Rights Access to a Landsraad Vehicle Vendor SpecialVendorActive_Vehicles');
+  assert.equal(got(1), 'Scholarly Collaboration Experience gain is increased by 50%');
+  assert.equal(got(5), 'The Right of Salvage ' + GAME.DropInventoryOnDefeatActive.effect);
+  assert.equal(got(6), 'CHOAM Refining Contract Repair costs and refining times are reduced by 75%');
+  assert.equal(got(8), 'Exclusive Vehicle Import Rights Access to a Landsraad Vehicle Vendor');
   assert.ok(poolRow(ui, 6).querySelector('.dn').title.includes('75%'));
   assert.ok(poolRow(ui, 1).querySelector('.dn').title.includes('50%'), 'the effect line is the tooltip');
   assert.equal(poolRow(ui, 1).querySelector('.du'), null, 'a name the game shows carries no unconfirmed note');
-  assert.equal(poolRow(ui, 8).querySelector('.did').title, "The game's internal id, kept for support");
+  assert.equal(poolRow(ui, 8).querySelector('.did'), null, 'no line for the game id');
 });
 
 test('every decree the editor knows shows its game name on the page, in the pool, the drop-down and the term, and the two Honor of the Fallen decrees are told apart', async () => {
@@ -73,7 +74,9 @@ test('every decree the editor knows shows its game name on the page, in the pool
     assert.equal(optionText(id), want + (named(n).name_known ? '' : " (not the game's name)"), `the drop-down names decree ${id}`);
     const row = poolRow(ui, id);
     assert.equal(text(row.querySelector('.dn')), want, `the pool names decree ${id}`);
-    assert.equal(text(row.querySelector('.did')), n, `the id stays as the second line of decree ${id}`);
+    assert.equal(row.querySelector('.did'), null, `decree ${id} has no line for the game id`);
+    assert.ok(!text(row).includes(n), `the game id ${n} is not in the text of decree ${id}`);
+    assert.ok(!row.outerHTML.includes(n), `nor in a title or label of decree ${id}`);
   });
   assert.notEqual(optionText(2), optionText(3), 'Ranged and Melee share one game name and show a qualifier');
   assert.equal(optionText(2), 'In Honor of the Fallen (Ranged)');
@@ -86,7 +89,8 @@ test('a name that is only the editors wording, and an id the editor has never se
   const ui = await open(landsraad({ decrees: [...decrees(), extra] }));
   const row = poolRow(ui, 99);
   assert.equal(text(row.querySelector('.dn')), 'Brand New Decree: FromAPatch', 'a readable form of the id');
-  assert.equal(text(row.querySelector('.did')), 'BrandNewDecree_FromAPatch');
+  assert.equal(row.querySelector('.did'), null);
+  assert.ok(!text(row).includes('BrandNewDecree_FromAPatch'), 'an id with no game name shows its readable form, not the id');
   assert.equal(text(row.querySelector('.du')), 'no game name for this id');
   assert.ok(row.querySelector('.dn').title.includes('No game name is known'));
   assert.ok(row.querySelector('[data-lb="tflag"]'), 'its controls still draw');
@@ -148,10 +152,11 @@ test('the pool flag is shown as the stored number, never as enabled or disabled,
   assert.ok(ui.doc.querySelector('#lsdecnote').closest('details.about'), 'the long text is in an About disclosure');
 });
 
-test('the four category vendors are listed under their own names with their own ids; the plain fifth row is not shown', async () => {
+test('the four category vendors are listed under their own names and effects, not their ids; the plain fifth row is not shown', async () => {
   const ui = await open();
-  const got = [8, 9, 10, 11].map((id) => text(poolRow(ui, id).querySelector('.did')));
-  assert.deepEqual(got, ['SpecialVendorActive_Vehicles', 'SpecialVendorActive_Weapons', 'SpecialVendorActive_Armor', 'SpecialVendorActive_Utilities']);
+  const got = [8, 9, 10, 11].map((id) => parts(poolRow(ui, id).querySelector('.dc')));
+  assert.deepEqual(got, ['Exclusive Vehicle Import Rights Access to a Landsraad Vehicle Vendor', 'Exclusive Weapon Import Rights Access to a Landsraad Weapon Vendor', 'Exclusive Armor Import Rights Access to a Landsraad Armor Vendor', 'Exclusive Tool Import Rights Access to a Landsraad Tool Vendor']);
+  assert.ok(!/SpecialVendorActive/.test(text(ui.doc.querySelector('#lsb-tdp'))), 'no game id anywhere in the panel');
 });
 
 test('the flag button of one row sends that row only', async () => {
@@ -172,7 +177,9 @@ test('the reigning faction drop-down starts on the character\'s own faction; App
   assert.equal(ui.doc.querySelector('#lsb-tad').value, '8');
   const panel = ui.doc.querySelector('#lsb-tdp'); panel.open = true; panel.dispatchEvent(new ui.w.Event('toggle'));
   select(ui, '#lsb-tad', 6);
-  assert.equal(text(ui.doc.querySelector('#lsb-tad').closest('label').querySelector('.did')), 'RepairAndRefiningTimes', 'the id line follows the choice');
+  const info = ui.doc.querySelector('#lsb-tad').closest('label');
+  assert.equal(info.querySelector('.did'), null, 'no game id under the drop-down');
+  assert.equal(text(info.querySelector('.de')), 'Repair costs and refining times are reduced by 75%', 'the effect line follows the choice');
   select(ui, '#lsb-trf', 2);
   ui.click('#lsb-tdp [data-lb="tapply"]'); await ui.settle();
   const sent = posted(ui, '/api/landsraad/term');
@@ -273,7 +280,7 @@ test('a save with a decree and no faction can still have its decree cleared: non
 test('a save without a term says so, and a hostile decree name is shown as text', async () => {
   let ui = await open(landsraad({ term: null }));
   assert.ok(text(ui.doc.querySelector('#lsb-term-h')).includes('no Landsraad term'));
-  const evil = decrees(); evil[0].decree_name = '<img src=x onerror=alert(1)>';
+  const evil = decrees(); evil[0].decree_name = '<img src=x onerror=alert(1)>'; evil[0].display_name = '<img src=x onerror=alert(1)>'; // the page shows the game name, so the hostile text is the name too
   ui = await open(landsraad({ decrees: evil }));
   assert.ok(!ui.doc.querySelector('#lsb-tdp img'), 'no element was made from the name');
   assert.ok(text(poolRow(ui, 1)).includes('<img src=x onerror=alert(1)>'));
@@ -290,7 +297,8 @@ test('the plain SpecialVendorActive row is shown nowhere on the page: not in the
   assert.ok(!/Special Vendor/.test(all), 'no "Special Vendor" wording');
   assert.ok(!/SpecialVendorActive/.test(all), 'no plain SpecialVendorActive id');
   assert.ok(!/Hidden: the plain/.test(all), 'no hidden-row heading');
-  assert.ok(/Exclusive Vehicle Import Rights/.test(ui.doc.body.textContent) && /SpecialVendorActive_Vehicles/.test(ui.doc.body.textContent), 'the category vendors still show');
+  assert.ok(/Exclusive Vehicle Import Rights/.test(ui.doc.body.textContent) && /Access to a Landsraad Vehicle Vendor/.test(ui.doc.body.textContent), 'the category vendors still show, by name and effect');
+  assert.ok(!/SpecialVendorActive_/.test(ui.doc.body.textContent), 'and their ids do not (#1040)');
 });
 
 test('a term whose active decree is the plain row says "Another decree" with no id; the drop-down keeps that one value, and Apply writes it back unchanged', async () => {

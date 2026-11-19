@@ -125,7 +125,7 @@ test('the contributors the save records are shown: on the banners and for the Ho
   const ui = await open(a);
   const lists = [...ui.doc.querySelectorAll('.lcc-standard')].map((s) => [...s.querySelectorAll('.lcc-standard-list > li')].map((n) => text(n)));
   assert.equal(ui.doc.querySelectorAll('.lcc-standard-none').length, 0, 'both banners have lists');
-  assert.ok(lists.some((l) => l.includes('Fortune Hunters Inc 2,500')), 'the Harkonnen banner names a guild and its amount: ' + JSON.stringify(lists));
+  assert.ok(lists.some((l) => l.includes('Fortune Hunters Inc')), 'the Harkonnen banner names a guild, without its amount: ' + JSON.stringify(lists));
   assert.match([...ui.doc.querySelectorAll('.lcc-standard-h')].map((h) => h.getAttribute('title')).join(' | '), /worked out here: the save holds amounts, not a ranking/);
   click(ui, tileOf(ui, 'Vernius').querySelector('button'));
   const i = ui.doc.querySelector('.lcc-bd-insp');

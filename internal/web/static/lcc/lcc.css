@@ -104,9 +104,8 @@
 .lcc-standard-h { margin: 0 0 8px; font: 700 11px/1.2 var(--t-display, sans-serif); letter-spacing: .12em; color: #ffd98a; }
 .lcc-standard-list { list-style: none; margin: 0 auto; padding: 0; width: fit-content; max-width: 100%; font: 500 13px/1.5 var(--t-body, sans-serif); text-align: left; }
 .lcc-standard-list > li { display: block; }
-.lcc-standard-list > li + li { margin-top: .25em; }  /* with no number, a short gap is what tells where one entry ends and the next begins when a long name wraps */  /* no rank number (#992): a line is the name and then the amount, run on as text, so the amount follows the last word of the name and a long name wraps instead of being cut (#972); the order is still the biggest first */
+.lcc-standard-list > li + li { margin-top: .25em; }  /* with no number, a short gap is what tells where one entry ends and the next begins when a long name wraps */  /* no rank number is drawn (#992): a line is the name only (the amount of #972 is gone, #1043), a long name wraps instead of being cut, and the order is still the biggest first */
 .lcc-standard-name { overflow-wrap: anywhere; }  /* a long name wraps here (it is text from a save), in both layouts: no name is cut off, the full name is also its mouse-over text */
-.lcc-standard-amt { margin-left: .3em; white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 700; color: #ffd98a; }  /* the amount is never split and never cut */
 .lcc-standard-none { margin: 0; font: italic 500 13px/1.4 var(--t-body, sans-serif); color: var(--lcc-cream); }
 /* the reachable tooltip */
 .lcc-tt { position: relative; display: inline-block; }
@@ -331,7 +330,6 @@ html[data-motion="calm"] .lcc [data-victory], html[data-motion="off"] .lcc [data
   .lcc-standard-cloth, .lcc-pl-std-a, .lcc-pl-std-h { background: Canvas; color: CanvasText; border: 2px solid CanvasText; clip-path: none; }
   .lcc-standard { color: CanvasText; }
   .lcc-standard-foot { display: none; }
-  .lcc-standard-amt { color: CanvasText; }
   .lcc-seat-rim { display: none; }  /* the flat ring that evens the picture's rim goes with the picture */
   .lcc-seat-art, .lcc-standard-img { display: none; }  /* pictures are dropped here: the factions differ by the drawn mark, the fill and the shape */
   .lcc-seat-has-art .lcc-seat-mark { display: inline; }

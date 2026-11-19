@@ -798,7 +798,7 @@ async function playerView() {
 }
 // The Specialization tab has two views of the same save: the classic list (the default, and the fallback when the Command Center scripts are not there) and the Command Center view
 // (lcc/lcc-spec.js). The view only changes how the tracks are drawn: the buttons of both carry the same data-act and run the same handlers below, so the requests and the questions are the same.
-const SPV = { view: browserStore.get('spec.view') === 'cc' ? 'cc' : 'classic', vm: null };
+const SPV = { view: browserStore.get('spec.view') === 'cc' ? 'cc' : 'classic', vm: null, reveal: false }; // reveal: a link opened the page for one path (#1041), so the page scrolls to the lanes once it is drawn
 const specCCOn = () => SPV.view === 'cc' && !!(window.LCCS && window.LCC);
 const specViewSwitch = () => (window.LCCS && window.LCC ? html`<div class="lcc lcc-sp-viewsw" role="group" aria-label="View of the Specialization tab" title="Both views read and write the same save in the same way, with the same questions and checks."><span class="lcc-sp-vlbl">View</span><button type="button" class="lcc-sp-vbtn" data-spview="classic" aria-pressed="${specCCOn() ? 'false' : 'true'}">Classic list</button><button type="button" class="lcc-sp-vbtn" data-spview="cc" aria-pressed="${specCCOn() ? 'true' : 'false'}">Command Center</button></div>` : '');
 // Opening a House of a path on the Landsraad board only moves between pages: the board shows it selected, with its filters cleared, and nothing is written.
@@ -810,11 +810,18 @@ function specGoHouse(id) {
 // And back: the specialization of a House opens that path in the Specialization tab's Command Center view. It only moves between pages (the chosen path is the view's own state) and writes nothing.
 function specGoPath(track) {
   if (!(window.LCCS && window.LCC) || !Array.isArray(window.LCCS.ORDER) || !window.LCCS.ORDER.includes(track)) return;
-  window.LCCS.state.sel = track; SPV.view = 'cc'; browserStore.set('spec.view', 'cc');
+  window.LCCS.state.sel = track; SPV.view = 'cc'; SPV.reveal = true; browserStore.set('spec.view', 'cc');
   sub.player = 'specialization'; tab = 'player'; browserStore.set('tab', tab); render();
 }
 const SPV_HOST = { goHouse: specGoHouse };
-function specMount() { const m = $('#lcs-mount'); if (m && SPV.vm && window.LCCS) window.LCCS.mount(m, SPV.vm, SPV_HOST); }
+// The lanes and the chosen path's dossier are below the page's header and totals. A link that opens a path (specGoPath) brings them into view once the page is drawn: render() has already moved a
+// tab change to the top (#1025), so this has to come after the draw, never before it. The sticky header is cleared by the page's scroll-padding-top.
+function specReveal() { const t = $('#lcs-root .lcc-sp-headrow'); if (t && typeof t.scrollIntoView === 'function') t.scrollIntoView({ block: 'start' }); }
+function specMount() {
+  const m = $('#lcs-mount');
+  if (m && SPV.vm && window.LCCS) window.LCCS.mount(m, SPV.vm, SPV_HOST);
+  if (SPV.reveal && m) { SPV.reveal = false; specReveal(); }
+}
 const NO_TRACK_NUMBER = 'Number not known yet: see Track numbers below.';
 // The numbers the game uses for the five tracks (measuredTrackNumbers of internal/ops/landsraad_grant.go; a test compares the two). A track shown with another number was assigned by hand: the Track numbers card is drawn then, so it can be set right.
 const MEASURED_TRACK_NUMBERS = { Crafting: 1, Gathering: 2, Exploration: 3, Combat: 4, Sabotage: 5 };
@@ -2268,8 +2275,8 @@ function decreeTip(d) {
 const decreeNameEl = (d) => html`<span class="dn" ${decreeTip(d) ? html`title="${decreeTip(d)}"` : ''}>${decreeLabel(d)}</span>`;
 const decreeUnsure = (d) => (d && d.name_known === false ? html` <small class="mut du">${decreeNote(d)}</small>` : '');
 const decreeEffect = (d) => (d && d.effect ? html`<small class="de">${d.effect}</small>` : '');
-// the three small lines under the Active decree drop-down: the id, the effect and the note of the chosen decree (always drawn, so a change of the choice only sets their text)
-const decreeSelInfo = (d) => html`<small class="did" title="The game's internal id, kept for support">${d ? d.decree_name : ''}</small><small class="de">${d && d.effect ? d.effect : ''}</small><small class="mut du">${decreeNote(d)}</small>`;
+// the two small lines under the Active decree drop-down: the effect and the note of the chosen decree (always drawn, so a change of the choice only sets their text). The game's id is not shown (#1040).
+const decreeSelInfo = (d) => html`<small class="de">${d && d.effect ? d.effect : ''}</small><small class="mut du">${decreeNote(d)}</small>`;
 // the drop-down's order: by the name a player knows, a name that is not the game's (and an unknown id) last
 const decreeSorted = (dec) => [...dec].sort((x, y) => (x.name_known === false) - (y.name_known === false) || decreeLabel(x).localeCompare(decreeLabel(y)) || x.id - y.id);
 // The plain SpecialVendorActive decree does nothing in the game and is not shown anywhere on the page (operator order, after #634 had put it in a closed list). Its row stays in the data and is
@@ -2303,7 +2310,6 @@ function lbTerm(l) {
   const dec = lbShownDecrees(l), by = (i) => lbDecreeById(l, i), a = by(t.active_decree_id), e = by(t.elected_decree_id), sel = lbTermSel(l);
   const own = lbCan(l) ? l.character.faction_id : null, rfName = t.reigning_faction_id != null ? lbFacName(l, t.reigning_faction_id) : 'none';
   const fname = sel.rf !== '' ? lbFacName(l, +sel.rf) : '';
-  const idLine = (d) => (d ? html`<small class="did" title="The game's internal id, kept for support">${d.decree_name}</small>` : '');
   const nm = (d) => (d ? decreeFull(d) : '—');
   const row = (d) => {
     const tg = [d.active && 'Active', d.elected && "Next term's decree", d.in_rotation && 'In rotation'].filter(Boolean), n = d.disabled ? 0 : 1, lab = decreeLabel(d);
@@ -2312,11 +2318,11 @@ function lbTerm(l) {
     const mk = on
       ? html`<span class="mk-on" title="This decree is already the active decree of the term for ${fname}"><span aria-hidden="true">✓</span> Active</span>`
       : html`<button type="button" class="qa mk" data-lb="tmk" data-id="${d.id}" data-fk="tm:${d.id}" aria-disabled="${sel.rf === '' ? 'true' : 'false'}" aria-label="${sel.rf !== '' ? 'Make active for ' + fname : 'Make active (choose a faction)'}: ${lab}" title="${mkTip}">${sel.rf !== '' ? 'Make active for ' + fname : 'Make active (choose a faction)'}</button>`;
-    return html`<li><span class="mut">${d.id}</span><span class="dc">${decreeNameEl(d)}${decreeEffect(d)}${idLine(d)}${decreeUnsure(d)}</span><span>${tg.length ? tg.map((x) => html`<span class="tag">${x}</span> `) : html`<span class="mut">not in this term</span>`}</span><span class="fl mut">${d.disabled ? 1 : 0}</span><button type="button" class="qa" data-lb="tflag" data-id="${d.id}" data-d="${n}" data-fk="tf:${d.id}" aria-label="Set flag to ${n}: ${lab}" title="Sets the pool flag of this one row to ${n}. It does not make the decree active; Make active on the row or the Active decree above does.">Set flag to ${n}</button><span class="mkc">${mk}</span></li>`;
+    return html`<li><span class="mut">${d.id}</span><span class="dc">${decreeNameEl(d)}${decreeEffect(d)}${decreeUnsure(d)}</span><span>${tg.length ? tg.map((x) => html`<span class="tag">${x}</span> `) : html`<span class="mut">not in this term</span>`}</span><span class="fl mut">${d.disabled ? 1 : 0}</span><button type="button" class="qa" data-lb="tflag" data-id="${d.id}" data-d="${n}" data-fk="tf:${d.id}" aria-label="Set flag to ${n}: ${lab}" title="Sets the pool flag of this one row to ${n}. It does not make the decree active; Make active on the row or the Active decree above does.">Set flag to ${n}</button><span class="mkc">${mk}</span></li>`;
   };
   return html`<section class="card d-panel" aria-labelledby="lsb-term-h"><details class="tdp" id="lsb-tdp" ${LT.open ? 'open' : ''}><summary><h2 class="d-head" id="lsb-term-h">Term and decrees <span class="cnt">Term ${t.term_id} · ${rfName} · ${a ? nm(a) : 'no active decree'}</span></h2></summary>
   <div class="tbody">
-  <div class="tkv"><div><span class="mut">Term</span><b>${t.term_id}</b>${lbMark('save', 'Read from the save: landsraad_decree_term')}</div><div><span class="mut">Ends in</span><b title="${LB_ENDS_TIP}">${lbEndsIn(l)}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.end_time and the play clock of the save')}</div><div><span class="mut">Reigning faction</span><b>${rfName}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.reigning_faction_id')}</div><div><span class="mut">Active decree</span>${a ? decreeNameEl(a) : html`<span class="dn">—</span>`}${idLine(a)}${decreeUnsure(a)}</div><div><span class="mut">Next term's decree</span>${e ? decreeNameEl(e) : html`<span class="dn">none yet</span>`}${idLine(e)}${decreeUnsure(e)}</div></div>
+  <div class="tkv"><div><span class="mut">Term</span><b>${t.term_id}</b>${lbMark('save', 'Read from the save: landsraad_decree_term')}</div><div><span class="mut">Ends in</span><b title="${LB_ENDS_TIP}">${lbEndsIn(l)}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.end_time and the play clock of the save')}</div><div><span class="mut">Reigning faction</span><b>${rfName}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.reigning_faction_id')}</div><div><span class="mut">Active decree</span>${a ? decreeNameEl(a) : html`<span class="dn">—</span>`}${decreeUnsure(a)}</div><div><span class="mut">Next term's decree</span>${e ? decreeNameEl(e) : html`<span class="dn">none yet</span>`}${decreeUnsure(e)}</div></div>
   <div class="tctl" role="group" aria-label="Set the term's active decree and reigning faction">
     <label class="fld"><span class="lbl">Active decree</span><select id="lsb-tad" data-lb="tad"><option value="">none</option>${lbDecreeOptions(l, sel).map((d) => html`<option value="${d.id}" ${String(d.id) === sel.ad ? 'selected' : ''}>${decreeFull(d)}</option>`)}</select>${decreeSelInfo(by(sel.ad))}</label>
     <label class="fld"><span class="lbl">Reigning faction</span><select id="lsb-trf" data-lb="trf">${sel.rf === '' ? html`<option value="" disabled selected>Choose a faction</option>` : ''}${(l.factions || []).map((f) => html`<option value="${f.id}" ${String(f.id) === sel.rf ? 'selected' : ''}>${f.name}${own != null && f.id == own ? ' (your faction)' : ''}</option>`)}</select><small class="mut">any faction can be chosen</small></label>
@@ -3043,7 +3049,7 @@ function lbChange(e) {
   if (t.classList && t.classList.contains('xc')) { const id = +t.id.replace('lsx-', ''); if (t.checked) LB.open.add(id); else LB.open.delete(id); lbSyncOpen(); return; }
   if (k === 'pick') { const id = +t.dataset.id; lbCancelConfirm(); if (t.checked) { const shown = lbShownIds(); if (t.disabled || (shown && !shown.has(id))) { t.checked = false; LP.pick.delete(id); lbApply(); lbSay('That House is not in the current filter, so it cannot be chosen.'); return; } } if (t.checked) LP.pick.add(id); else LP.pick.delete(id); lbApply(); return; }
   if (k === 'fac') { lbCancelConfirm(); LP.fac = +t.value; lbRedraw(); return; }
-  if (k === 'tad') { LT.ad = t.value; const pn = $('#lcc-tm-pending'); if (pn && LD) pn.textContent = lbPendingText(LD, t.value); const d = lbDecreeById(LD, t.value), l = t.closest('label'), s = l && l.querySelector('.did'); if (s) { s.textContent = d ? d.decree_name : ''; const e2 = l.querySelector('.de'), u = l.querySelector('.du'); if (e2) e2.textContent = d && d.effect ? d.effect : ''; if (u) u.textContent = decreeNote(d); } return; }
+  if (k === 'tad') { LT.ad = t.value; const pn = $('#lcc-tm-pending'); if (pn && LD) pn.textContent = lbPendingText(LD, t.value); const d = lbDecreeById(LD, t.value), l = t.closest('label'); if (l) { const e2 = l.querySelector('.de'), u = l.querySelector('.du'); if (e2) e2.textContent = d && d.effect ? d.effect : ''; if (u) u.textContent = decreeNote(d); } return; }
   if (k === 'trf') { LT.rf = t.value; lbRedraw(); return; }
   if (k === 'hs') { LB.hs = t.value; lbApply(); }
   else if (k === 'group') { LB.group = t.checked; lbApply(); }
@@ -3369,6 +3375,7 @@ async function render(keepPlace, auto, from) {
   } catch (e) {
     setHTML($('#main'), html`<div class="card d-panel bad">${e.message}</div><div class="row mt12"><button class="b d-btn primary" data-act="retry">Try again</button></div>`);
   }
+  SPV.reveal = false; // a request to scroll to a path is for this one draw only
   viewApply(place);
   tmapSync();
   goSync();

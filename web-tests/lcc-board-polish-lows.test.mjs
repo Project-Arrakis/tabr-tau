@@ -123,7 +123,8 @@ test('#919: a contributor the save names no guild for is "Unnamed contributor", 
   assert.doesNotMatch(text(std), /\b73\b/, 'the save number is not drawn');
   const tip = std.querySelector('.lcc-standard-h').getAttribute('title');
   assert.match(tip, /Unnamed contributor: the save gives no player or guild name for it \(save number 73\)\./);
-  assert.match(tip, /Top 2: 1\. Unnamed contributor 900/);
+  assert.match(tip, /Top 2: 1\. Unnamed contributor; 2\. House Of Fortune Hunters Incorporated\./);
+  assert.doesNotMatch(tip, /900/, 'the amount is not in the mouse-over (#1043)');
 });
 
 test('#919: the House panel says a guild is shown by its identifier with capitals added', async () => {

@@ -185,7 +185,7 @@
     return w;
   }
   // The cloth standard of a faction: a gold-edged banner with the faction's crest picture, a heading and an honest list (or the empty state). lines is an array of entries or null; an entry is a string
-  // (shown as it is) or { name, amount } (#972: the name wraps when the cloth is narrow and the amount stays whole beside it, so a line is never cut and the amount is always there).
+  // (shown as it is) or { name } (#1043: the banner lists the names only; a { name, amount } entry is drawn as its name, the amount is never shown, so the #972 always-visible amount is gone).
   function standard(faction, lines, heading, emptyText) {
     const f = faction === 'h' ? 'h' : 'a';
     const w = el('div', 'lcc-standard lcc-f-' + f);
@@ -201,10 +201,8 @@
       for (const s of lines.slice(0, 5)) {
         const li = el('li');
         if (s && typeof s === 'object') {
-          const name = String(s.name), amount = String(s.amount);
-          li.appendChild(el('span', 'lcc-standard-name', name, { title: name + ' · ' + amount }));
-          li.appendChild(doc().createTextNode(' '));
-          li.appendChild(el('span', 'lcc-standard-amt', amount));
+          const name = String(s.name);
+          li.appendChild(el('span', 'lcc-standard-name', name, { title: name }));
         } else { const name = String(s); li.appendChild(el('span', 'lcc-standard-name', name, { title: name })); }
         ol.appendChild(li);
       }
