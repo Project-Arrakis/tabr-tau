@@ -43,15 +43,16 @@
   // XP still needed for the next level (0 at the last level)
   const xpToNext = (xp) => { const l = levelOf(xp); return l >= MAX_LEVEL ? 0 : LEVEL_XP[l + 1] - Math.max(0, xp); };
 
-  // What the editor refuses before it sends, said before it is sent: a whole number, not 0, not past the largest XP of a track either way.
+  // What the editor refuses before it sends, said before it is sent: a whole number from 1 to the largest XP of a track. XP is added here and never removed (#1032): a minus sign, 0 and
+  // anything that is not a whole number are refused, and so is a number past the largest XP. The Go write path refuses the same amounts (internal/ops specialization.go, AddSpecXP).
   // It judges the number the page will send (the classic list sends +value, so 1e3 and 1.0 are 1000 and 1 there), not the spelling: any decimal spelling of a whole number passes (#899).
   function amountProblem(text, maxXp) {
     const lim = isInt(maxXp) && maxXp > 0 ? maxXp : LEVEL_XP[MAX_LEVEL];
-    const msg = 'Type a whole number of XP, not 0, from -' + fmt(lim) + ' to ' + fmt(lim) + '. Nothing was sent.';
+    const msg = 'Type a whole number of XP from 1 to ' + fmt(lim) + '. XP is added here, never removed (use Reset to take it back). Nothing was sent.';
     const s = typeof text === 'string' ? text.trim() : '';
-    if (!/^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(s)) return msg;
+    if (!/^\+?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(s)) return msg;
     const n = Number(s);
-    if (!Number.isSafeInteger(n) || n === 0 || n < -lim || n > lim) return msg;
+    if (!Number.isSafeInteger(n) || n < 1 || n > lim) return msg;
     return '';
   }
 
@@ -252,11 +253,14 @@
     const g1 = el('div', 'lcc-sp-group');
     add(g1, add(el('div', 'lcc-sp-glabel'), el('strong', '', r.label.toUpperCase() + (off ? ' · NOT IDENTIFIED' : '')), el('span', '', 'INDIVIDUAL TRACK')));
     if (off) add(g1, el('p', 'lcc-sp-note lcc-sp-note-warn', 'No track number of the save is tied to this path, so XP editing is off.', { id: 'lcs-nonum' }));
-    add(g1, el('label', 'lcc-sp-lbl', 'Add or remove XP ', { for: 'spx' + r.track }));
-    g1.lastChild.appendChild(el('small', '', '(a negative number removes)'));
-    const inp = el('input', 'lcc-sp-input', '', { id: 'spx' + r.track, type: 'number', step: 1, min: -vm.maxXp, max: vm.maxXp, value: Object.prototype.hasOwnProperty.call(state.xp, r.track) ? state.xp[r.track] : 1000, 'aria-describedby': 'lcs-xphint' + (why ? ' ' + why : ''), disabled: off });
-    const xt = tipOf('lcs-xphint', 'About the XP amount', 'Whole number from −' + fmt(vm.maxXp) + ' to +' + fmt(vm.maxXp) + '; zero is not allowed. The total stays between 0 and ' + fmt(vm.maxXp) + '. The editor shows the XP before and after.');
+    add(g1, el('label', 'lcc-sp-lbl', 'Add XP', { for: 'spx' + r.track }));
+    const inp = el('input', 'lcc-sp-input', '', { id: 'spx' + r.track, type: 'number', step: 1, min: 1, max: vm.maxXp, value: Object.prototype.hasOwnProperty.call(state.xp, r.track) ? state.xp[r.track] : 1000, 'aria-describedby': 'lcs-xphint lcs-xperr' + (why ? ' ' + why : ''), disabled: off });
+    inp.addEventListener('keydown', (e) => { if (e.key === '-' || e.key === 'Subtract') e.preventDefault(); }); // no minus sign: XP is not removed here (#1032)
+    const xt = tipOf('lcs-xphint', 'About the XP amount', 'Whole number from 1 to ' + fmt(vm.maxXp) + '; zero and negative numbers are not accepted (to take XP back, use Reset). The total stays at most ' + fmt(vm.maxXp) + '. The editor shows the XP before and after.');
     add(g1, wireTip(add(el('div', 'lcc-sp-inline lcc-tt'), inp, btn('Apply XP', 'is-primary', { 'data-act': 'spAddCC', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-xphint' + (why ? ' ' + why : '') }), xt.mark, xt.tip)));
+    add(g1, el('p', 'lcc-sp-note lcc-sp-note-warn', off ? '' : amountProblem(String(inp.value), vm.maxXp), { id: 'lcs-xperr', 'aria-live': 'polite' }));
+    g1.lastChild.hidden = !g1.lastChild.textContent; // an empty note takes no room
+    inp.setAttribute('aria-invalid', g1.lastChild.hidden ? 'false' : 'true');
     add(g1, add(el('div', 'lcc-sp-grid2'),
       btn('✦ Grant LV 100', '', { 'data-act': 'spMax', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-trkhint' + (why ? ' ' + why : '') }),
       btn('Reset Track XP', 'is-danger', { 'data-act': 'spReset', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-trkhint' + (why ? ' ' + why : '') })));
@@ -350,7 +354,13 @@
     add(rootEl, two, housesOf(vm, r), unknownRowOf(vm));
     rootEl.addEventListener('input', (e) => {
       const t = e.target;
-      if (t && t.classList && t.classList.contains('lcc-sp-input') && typeof t.id === 'string' && t.id.indexOf('spx') === 0) state.xp[t.id.slice(3)] = t.value;
+      if (t && t.classList && t.classList.contains('lcc-sp-input') && typeof t.id === 'string' && t.id.indexOf('spx') === 0) {
+        state.xp[t.id.slice(3)] = t.value;
+        const bad = amountProblem(String(t.value), vm.maxXp); // the same refusal as the one on Apply, said where the number is typed
+        const p = rootEl.querySelector('#lcs-xperr');
+        if (p) { p.textContent = bad; p.hidden = !bad; }
+        t.setAttribute('aria-invalid', bad ? 'true' : 'false');
+      }
     });
     rootEl.addEventListener('click', (e) => {
       const t = e.target && e.target.closest ? e.target : null;

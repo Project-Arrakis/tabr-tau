@@ -180,17 +180,18 @@ func upsertSpecInTx(m *save.Mut, controller, number, xp int64, level float64) er
 	return e
 }
 
-// AddSpecXP adds XP to a track (args track, amount from -44182 to 44182, not 0) and sets the level to match; a track never goes below 0
-// or above the XP of its last level.
+// AddSpecXP adds XP to a track (args track, amount a whole number from 1 to 44182) and sets the level to match; a track never goes above the XP of
+// its last level. It never removes XP: zero, a negative number and anything that is not a whole number are refused and nothing is written (#1032);
+// the XP of a track goes down only through ResetSpec.
 func (o *Ops) AddSpecXP(nums map[string]int64, a Args) (any, error) {
 	track := a.Str("track")
 	n, err := trackNumber(nums, track)
 	if err != nil {
 		return nil, err
 	}
-	amount, err := a.IntRange("amount", -maxSpecXP, maxSpecXP)
-	if err != nil || amount == 0 {
-		return nil, apierr.New(apierr.ErrBadArgument, "amount must be a whole number from -44182 to 44182, not 0")
+	amount, err := a.IntRange("amount", 1, maxSpecXP)
+	if err != nil {
+		return nil, apierr.Newf(apierr.ErrBadArgument, "amount must be a whole number from 1 to %d; XP is added here, never removed (use Reset to take it back)", maxSpecXP)
 	}
 	p, err := o.player()
 	if err != nil {

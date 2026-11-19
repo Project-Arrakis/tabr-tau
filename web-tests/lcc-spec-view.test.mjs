@@ -291,7 +291,7 @@ test('the hero counts come from the save', () => {
 
 test('the XP amount rule and the reset rule are tips, not standing text (#1030)', () => {
   const d = draw(byId('unassigned-row-number-9'));
-  for (const [id, mark, says] of [['lcs-xphint', 'About the XP amount', /zero is not allowed.*The editor shows the XP before and after/], ['lcs-resetnote', 'About resetting all tracks', /Keystones are not touched/]]) {
+  for (const [id, mark, says] of [['lcs-xphint', 'About the XP amount', /Whole number from 1 to 44,182; zero and negative numbers are not accepted.*The editor shows the XP before and after/], ['lcs-resetnote', 'About resetting all tracks', /Keystones are not touched/]]) {
     const tip = q(d, '#' + id);
     assert.equal(tip.getAttribute('role'), 'tooltip', id + ' is a tooltip');
     assert.ok(tip.classList.contains('lcc-tip'), id + ' uses the shared tip pattern');
@@ -309,4 +309,30 @@ test('the XP amount rule and the reset rule are tips, not standing text (#1030)'
     assert.equal(w.classList.contains('dismissed'), false);
   }
   assert.equal(q(d, '[data-act="spAddCC"]').getAttribute('aria-describedby').split(' ')[0], 'lcs-xphint');
+});
+
+test('Add XP takes whole numbers from 1 up: the label, the box, the minus key and the message where the number is typed (#1032)', () => {
+  const d = draw(byId('mixed-five-tracks'), HOUSES, {}, 'combat');
+  assert.equal(txt(q(d, 'label[for="spxCombat"]')), 'Add XP', 'no "or remove", no "negative number removes"');
+  const inp = q(d, '#spxCombat');
+  assert.equal(inp.getAttribute('min'), '1');
+  assert.equal(inp.getAttribute('max'), '44182');
+  assert.match(inp.getAttribute('aria-describedby'), /lcs-xperr/);
+  const err = q(d, '#lcs-xperr');
+  assert.equal(txt(err), '', 'a fine number says nothing'); assert.equal(err.hidden, true, 'and takes no room');
+  assert.equal(inp.getAttribute('aria-invalid'), 'false');
+  const type = (v) => { inp.value = v; inp.dispatchEvent(new d.w.Event('input', { bubbles: true })); };
+  for (const v of ['-5', '0', '', '-0', '1.5', '44183']) {
+    type(v);
+    assert.match(txt(err), /^Type a whole number of XP from 1 to 44,182\. XP is added here, never removed \(use Reset to take it back\)\. Nothing was sent\.$/, JSON.stringify(v));
+    assert.equal(inp.getAttribute('aria-invalid'), 'true'); assert.equal(err.hidden, false);
+  }
+  for (const v of ['1', '44182', '1e3']) { type(v); assert.equal(txt(err), '', v); assert.equal(inp.getAttribute('aria-invalid'), 'false'); }
+  // the minus key is not accepted at all
+  const k = new d.w.KeyboardEvent('keydown', { key: '-', bubbles: true, cancelable: true });
+  inp.dispatchEvent(k);
+  assert.equal(k.defaultPrevented, true);
+  const ok = new d.w.KeyboardEvent('keydown', { key: '5', bubbles: true, cancelable: true });
+  inp.dispatchEvent(ok);
+  assert.equal(ok.defaultPrevented, false);
 });

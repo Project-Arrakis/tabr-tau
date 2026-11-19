@@ -31,7 +31,7 @@ const ROUTE = /^\/api\/player\/specs/;
 const CLASSIC_ONLY = new Set(['Assign number 1 to Combat', 'Assign by hand, Combat 9', 'Assign by hand with no number', 'Raw row: Sabotage 500 XP level 2, asked then Yes', 'Raw row: XP 44182 and level 10, mismatch kept as typed']);
 
 // the scenario where the controls are off and nothing is pressed
-const SENDS_NOTHING = new Set(['Add XP on a track that is not identified: nothing is sent']);
+const SENDS_NOTHING = new Set(['Add XP on a track that is not identified: nothing is sent', 'Remove XP -1000: refused, nothing is sent']);
 
 // a scenario is [what is pressed in the classic list, what is pressed in the Command Center view]; both are steps run against the page
 const ctl = (ui, sel) => { const e = ui.doc.querySelector(sel); assert.ok(e, 'no element for ' + sel); return e; };
@@ -42,7 +42,7 @@ const no = async (ui) => { await ui.settle(); seen(ui); ui.click('[data-act="ask
 const lane = (ui, v, key) => { if (v === 'cc') { ui.click('[data-lcs-lane="' + key + '"]'); } };
 const SCENARIOS = {
   'Add XP 1000': async (ui, v) => { lane(ui, v, 'combat'); set(ui, '#spxCombat', 1000); ui.click(v === 'cc' ? '[data-act="spAddCC"][data-t="Combat"]' : '[data-act="spAdd"][data-t="Combat"]'); },
-  'Remove XP -1000': async (ui, v) => { lane(ui, v, 'combat'); set(ui, '#spxCombat', -1000); ui.click(v === 'cc' ? '[data-act="spAddCC"][data-t="Combat"]' : '[data-act="spAdd"][data-t="Combat"]'); },
+  'Remove XP -1000: refused, nothing is sent': async (ui, v) => { lane(ui, v, 'combat'); set(ui, '#spxCombat', -1000); ui.click(v === 'cc' ? '[data-act="spAddCC"][data-t="Combat"]' : '[data-act="spAdd"][data-t="Combat"]'); },
   'Add XP on another track': async (ui, v) => { lane(ui, v, 'gathering'); set(ui, '#spxGathering', 250); ui.click(v === 'cc' ? '[data-act="spAddCC"][data-t="Gathering"]' : '[data-act="spAdd"][data-t="Gathering"]'); },
   'Grant max, asked then Yes': async (ui, v) => { lane(ui, v, 'combat'); ui.click('[data-act="spMax"][data-t="Combat"]'); await yes(ui); },
   'Grant max, asked then No': async (ui, v) => { lane(ui, v, 'combat'); ui.click('[data-act="spMax"][data-t="Combat"]'); await no(ui); },
@@ -100,7 +100,7 @@ for (const name of Object.keys(SCENARIOS)) {
 }
 
 // ---- what the Command Center view adds: a number the editor would refuse is stopped before it is sent ----
-const BAD = [['blank', ''], ['zero', '0'], ['a fraction', '1.5'], ['not a number', 'abc'], ['over the limit', '44183'], ['under the limit', '-44183'], ['an exponent past the limit', '1e5'], ['a fraction as an exponent', '1e-1']];
+const BAD = [['blank', ''], ['zero', '0'], ['a fraction', '1.5'], ['not a number', 'abc'], ['over the limit', '44183'], ['under the limit', '-44183'], ['a minus sign', '-1000'], ['minus one', '-1'], ['the negative limit', '-44182'], ['minus zero', '-0'], ['a negative exponent form', '-1e3'], ['an exponent past the limit', '1e5'], ['a fraction as an exponent', '1e-1']];
 for (const [what, v] of BAD) {
   test('Command Center, Apply XP with ' + what + ': nothing is sent and the reason is shown', async () => {
     const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': synthetic() }, post: POSTS, local: { tab: 'player', 'spec.view': 'cc' } });
@@ -109,12 +109,12 @@ for (const [what, v] of BAD) {
     set(ui, '#spxCombat', v);
     ui.click('[data-act="spAddCC"][data-t="Combat"]'); await ui.settle();
     assert.equal(ui.posted.filter((p) => ROUTE.test(p.path)).length, 0, 'no request');
-    assert.match(text(ui.doc.querySelector('#toast')), /whole number of XP, not 0, from -44,182 to 44,182\. Nothing was sent\./);
+    assert.match(text(ui.doc.querySelector('#toast')), /whole number of XP from 1 to 44,182\. XP is added here, never removed \(use Reset to take it back\)\. Nothing was sent\./);
     closeAll();
   });
 }
 test('Command Center, Apply XP at the two limits is sent as typed', async () => {
-  for (const v of ['44182', '-44182']) {
+  for (const v of ['44182', '1']) {
     const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': synthetic() }, post: POSTS, local: { tab: 'player', 'spec.view': 'cc' } });
     ui.click('[data-sub="player:specialization"]'); await ui.settle();
     ui.click('[data-lcs-lane="combat"]');
@@ -126,7 +126,7 @@ test('Command Center, Apply XP at the two limits is sent as typed', async () => 
 });
 
 // 1e3 and 1.0 are whole numbers: the classic list sends them (as 1000 and 1) and so does this view, the same request for the same typing (#899)
-for (const [typed, sent] of [['1e3', 1000], ['1.0', 1], ['-2E2', -200]]) {
+for (const [typed, sent] of [['1e3', 1000], ['1.0', 1], ['2E2', 200]]) {
   for (const view of ['classic', 'cc']) {
     test('Apply XP typed as ' + typed + ' is sent as ' + sent + ' in the ' + view + ' view', async () => {
       const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': synthetic() }, post: POSTS, local: { tab: 'player', 'spec.view': view } });
