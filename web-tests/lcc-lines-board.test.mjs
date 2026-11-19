@@ -54,14 +54,15 @@ const letters = (n, ...marks) => { const a = Array(n).fill('O'); for (const [i, 
 
 test('no line held: the figure is the number of lines still possible, no House is outlined, and the panel says contested', async () => {
   const ui = await open(synthetic());
-  assert.equal(linesLeft(ui), 'Lines still open: 4 · Atreides 4 · Harkonnen 0');
+  assert.equal(linesLeft(ui), 'Lines of five still possible: Atreides 4 · Harkonnen 0');
   assert.equal(ui.doc.querySelector('.lcc-bd-metrics'), null, 'the row of four figures is gone (#935)');
   assert.equal(outlined(ui).length, 0);
   assert.equal(panel(ui).getAttribute('data-state'), 'contested');
   assert.match(text(panel(ui)), /^IMPERIAL VICTORY ANALYSISSYSSELRAAD CONTESTEDATREIDES LEAD 12 TO 4 · 9 HOUSES OPENSysselraad contested: no faction holds a line of five or 13 Houses\./);
   assert.equal(panel(ui).querySelector('.lcc-bd-emblem'), null, 'no winner: no icon, not even an empty diamond');
   assert.doesNotMatch(text(panel(ui)), /Dominion|DOMINION|not verified/);
-  assert.match(text(panel(ui).querySelector('.lcc-bd-vcount')), /^House count: Atreides ahead 12 to 4\.$/);
+  assert.equal(panel(ui).querySelector('.lcc-bd-vcount'), null, 'no second House count line (#1052)');
+  assert.equal(panel(ui).querySelector('.lcc-bd-well'), null, 'no second row of the three counts (#1052)');
   assert.equal(panel(ui).querySelectorAll('details, .lcc-bd-lines, .lcc-bd-line').length, 0, 'the folded list of the twelve lines is no longer in the victory panel (#931)');
   assert.doesNotMatch(honest(words(ui)), BANNED);
   noConfirm(words(ui));
@@ -86,7 +87,7 @@ test('one held row: its five Houses, and only those, have the win outline and no
   assert.match(text(p), /SYSSELRAAD WON.*SYSSELRAAD WON · ATREIDES.*Sysselraad won by Atreides, by five in a line\. The save does not record the vote; the game works the winner out from the Houses\. Atreides hold five Houses in one line: row 3\./);
   assert.equal(text(p.querySelector('.lcc-bd-vcount')), 'BY FIVE IN A LINE');
   assert.equal(p.querySelector('.lcc-bd-emblem').getAttribute('data-faction'), 'a', 'the winner\'s crest');
-  assert.match(linesLeft(ui), /^Lines still open: \d+ · Atreides \d+ · Harkonnen \d+ · 1 held, not counted$/);
+  assert.match(linesLeft(ui), /^Lines of five still possible: Atreides \d+ · Harkonnen \d+$/);
   assert.doesNotMatch(honest(words(ui)), BANNED);
   noConfirm(words(ui));
 });
@@ -124,7 +125,8 @@ test('12 Houses held is a lead and nothing more', async () => {
   const ui = await open(board('HAHAHAHAHAHAOAHAHAHAHAHAH')); // 12 each, one open
   assert.equal(outlined(ui).length, 0);
   assert.equal(panel(ui).getAttribute('data-state'), 'contested');
-  assert.match(text(panel(ui).querySelector('.lcc-bd-vcount')), /^House count: even at 12 each\.$/);
+  assert.equal(panel(ui).querySelector('.lcc-bd-vcount'), null, 'the tie is in the headline only (#1052)');
+  assert.match(text(panel(ui).querySelector('.lcc-bd-vhead')), /^HOUSE COUNT EVEN AT 12/);
   assert.doesNotMatch(text(panel(ui)), /DOMINION/);
 });
 
@@ -155,16 +157,15 @@ test('a line for each faction is a conflict: both lines are outlined, nobody is 
 
 test('an unreadable House: the count of potential lines says it is incomplete and shows no number; a line held elsewhere is still outlined', async () => {
   let ui = await open(board(letters(25, [12, '?'])));
-  assert.equal(linesLeft(ui), 'Lines still open: count incomplete · 1 House unreadable');
-  assert.equal(ui.doc.querySelector('.lcc-bd-vlines').getAttribute('data-lines'), 'incomplete');
+  assert.equal(linesLeft(ui), null, 'a count that cannot be made shows no line (#1052)');
   assert.equal(panel(ui).getAttribute('data-state'), 'unreadable');
   assert.match(text(panel(ui)), /SYSSELRAAD UNDECIDABLE.*COUNT INCOMPLETE · 1 HOUSE UNREADABLE/);
-  assert.match(text(panel(ui).querySelector('.lcc-bd-vcount')), /^House count incomplete: 1 House could not be read, so no comparison is made\.$/);
+  assert.equal(panel(ui).querySelector('.lcc-bd-vcount'), null, 'the headline says it, once');
   assert.equal(outlined(ui).length, 0);
   closeAll();
   ui = await open(board(letters(25, [12, '?'], ...[20, 21, 22, 23, 24].map((i) => [i, 'H']))));
   assert.deepEqual(outlined(ui, 'win'), [20, 21, 22, 23, 24]);
-  assert.match(linesLeft(ui), /count incomplete/);
+  assert.equal(linesLeft(ui), null);
   assert.equal(panel(ui).getAttribute('data-state'), 'line');
 });
 
@@ -183,7 +184,7 @@ test('the list layout keeps the figure and the panel, and the table shows the sa
   const list = ui.doc.querySelector('.lcc-bd-list') ? true : false;
   assert.ok(list || ui.doc.querySelector('.lcc-bd-listwrap'), 'the list is drawn');
   assert.equal(panel(ui).getAttribute('data-state'), 'line');
-  assert.match(linesLeft(ui), /1 held, not counted/);
+  assert.match(linesLeft(ui), /^Lines of five still possible: Atreides \d+ · Harkonnen \d+$/);
 });
 
 test('the animated border follows the Motion setting: Full adds it to the Houses of a line, Calm and Off leave the still outline', async () => {

@@ -451,16 +451,8 @@
       return { state: d.routes.includes('line') ? 'line' : 'count', faction: f, tag, head: W.headline(d), foot: W.how(d) + (d.conflictPossible ? ' · ' + T.tallyMaybe : ''), say: say + ' ' + how.join(' ') };
     }
     if (d.why === 'both') return { state: 'conflict', faction: '', tag, head: W.tally(d), foot: '', say };
-    if (d.why === 'unreadable') return { state: 'unreadable', faction: '', tag, head: W.tally(d), foot: countLine(board, ev), say: say + ' A House that cannot be read is counted for neither faction.' };
-    return { state: 'contested', faction: '', tag, head: W.tally(d), foot: countLine(board, ev), say: say + ' ' + T.rule };
-  }
-  // The House count, in one line (the foot of a panel with no winner).
-  function countLine(board, ev) {
-    const c = board.counts;
-    if (!board.ready) return '';
-    if (!board.countComplete) return 'House count incomplete: ' + c.unknown + (c.unknown === 1 ? ' House' : ' Houses') + ' could not be read, so no comparison is made.';
-    if (!ev.leader) return 'House count: even at ' + c.a + ' each.';
-    return 'House count: ' + FACTION_WORD[ev.leader] + ' ahead ' + c[ev.leader] + ' to ' + c[ev.leader === 'a' ? 'h' : 'a'] + '.';
+    if (d.why === 'unreadable') return { state: 'unreadable', faction: '', tag, head: W.tally(d), foot: '', say: say + ' A House that cannot be read is counted for neither faction.' };
+    return { state: 'contested', faction: '', tag, head: W.tally(d), foot: '', say: say + ' ' + T.rule };
   }
   // The faction's own crest, filled, in the faction's colour: drawn only when a faction has won. With no picture (a failed load) the same place shows a filled diamond in the same colour.
   function winnerEmblem(f) {
@@ -475,10 +467,11 @@
   }
   // How many of the twelve lines each faction can still make (the unblocked lines that nobody holds yet; a line with nothing won on it counts for both). With a House that cannot be read the count is
   // incomplete and no number is given: a figure is never guessed. This is the figure that the row of four figures under the plaque used to show as POTENTIAL LINES (#935).
-  function linesLeft(board, ev) {
+  // Said plainly (#1052): "Lines of five still possible: Atreides 4 · Harkonnen 0". The total, the lines held and a count that cannot be given are not said again: the headline and the plaque say what is known, and a count that
+  // cannot be made (a House cannot be read) shows no line at all.
+  function linesLeft(ev) {
     const p = ev.potential;
-    if (!p.exact) return 'Lines still open: count incomplete · ' + board.counts.unknown + (board.counts.unknown === 1 ? ' House' : ' Houses') + ' unreadable';
-    return 'Lines still open: ' + p.total + ' · Atreides ' + p.a + ' · Harkonnen ' + p.h + (ev.held.length ? ' · ' + ev.held.length + ' held, not counted' : '');
+    return p.exact ? 'Lines of five still possible: Atreides ' + p.a + ' · Harkonnen ' + p.h : '';
   }
   function victoryPanel(board, ev) {
     ev = ev || M().evaluate(board, null);
@@ -489,10 +482,10 @@
     if (v.faction) s.appendChild(winnerEmblem(v.faction)); // a faction has won: its crest; no winner: no icon at all
     s.appendChild(el('h3', 'lcc-bd-vhead', v.head));
     s.appendChild(el('p', 'lcc-bd-sr', v.say)); // the sentence for a screen reader, in the same words
-    const c = board.counts;
-    s.appendChild(el('div', 'lcc-bd-well', board.ready ? 'Atreides ' + c.a + ' · Harkonnen ' + c.h + ' · Open ' + c.open + (c.unknown ? ' · Unreadable ' + c.unknown : '') : 'Houses read: ' + board.houses.length));
+    // the House count is said once, in the headline above (and on the plaque): no second row of the same three figures and no "House count" sentence (#1052). Only a board that is not a board says how many Houses were read.
+    if (!board.ready) s.appendChild(el('div', 'lcc-bd-well', 'Houses read: ' + board.houses.length));
     if (v.foot) s.appendChild(el('p', 'lcc-bd-vcount', v.foot));
-    if (board.ready) s.appendChild(el('p', 'lcc-bd-vlines', linesLeft(board, ev), { 'data-lines': ev.potential.exact ? 'exact' : 'incomplete' }));
+    if (board.ready && linesLeft(ev)) s.appendChild(el('p', 'lcc-bd-vlines', linesLeft(ev), { 'data-lines': 'exact' }));
     return s;
   }
 
@@ -942,7 +935,7 @@
     }
   }
 
-  const api = { state, mount, redraw, keepInView, visible, build, tipOf, majorityOf, victoryWords, countLine, plaque, grid, houseCard, list, inspector, victoryPanel, tierKind, NOT_IN_SAVE };
+  const api = { state, mount, redraw, keepInView, visible, build, tipOf, majorityOf, victoryWords, plaque, grid, houseCard, list, inspector, victoryPanel, tierKind, NOT_IN_SAVE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCB = api;
 })(typeof window !== 'undefined' ? window : globalThis);

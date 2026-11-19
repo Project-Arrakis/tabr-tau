@@ -78,7 +78,8 @@ test('the plaque and the figures are the counts of the same Houses: 12 and 4, ni
   assert.equal(ui.doc.querySelector('.lcc-bd-metrics'), null, 'no row of four figures');
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-metric, [data-metric]').length, 0, 'none of the four figures');
   assert.doesNotMatch(text(ui.doc.querySelector('.lcc-bd')), /TERM STATUS|OPEN HOUSES|POTENTIAL LINES|SPECIALIZATION CAP/);
-  assert.match(text(ui.doc.querySelector('.lcc-bd-victory')), /SYSSELRAAD CONTESTED.*ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN.*Atreides 12 · Harkonnen 4 · Open 9/);
+  assert.match(text(ui.doc.querySelector('.lcc-bd-victory')), /SYSSELRAAD CONTESTED.*ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN/);
+  assert.doesNotMatch(text(ui.doc.querySelector('.lcc-bd-victory')), /Atreides 12 · Harkonnen 4 · Open 9|House count:/, 'the count is said once, in the headline (#1052)');
   assert.equal(text(p.querySelector('.lcc-pl-session')), 'SYSSELRAAD CONTESTED');
   assert.match(text(p.querySelector('.lcc-pl-held')), /^HELD BY\s*HOUSE ATREIDES$/);
   assert.equal(text(p.querySelector('.lcc-pl-title')), 'Exclusive Vehicle Import Rights');
@@ -94,7 +95,7 @@ test('a House whose owner cannot be read is counted for neither side and the pla
   assert.match(text(p.querySelector('.lcc-pl-standing')), /COUNT INCOMPLETE · 1 HOUSE UNREADABLE/);
   assert.equal(text(tiles(ui)[10].querySelector('.lcc-hc-owner')), '? Favor unreadable');
   assert.match(text(ui.doc.querySelector('.lcc-bd-headlines')), /FAVOR UNREADABLE/);
-  assert.match(text(ui.doc.querySelector('.lcc-bd-vlines')), /^Lines still open: count incomplete · 1 House unreadable$/, 'with a House that cannot be read the count of lines is said to be incomplete, with no number');
+  assert.equal(ui.doc.querySelector('.lcc-bd-vlines'), null, 'with a House that cannot be read there is no count of lines and no line about it (#1052)');
 });
 
 test('a board that is not a board (24 Houses) is not drawn as one: a read-only list, the reasons, and nothing that writes', async () => {
@@ -360,7 +361,7 @@ test('the board panel has the approved head, filters, legend, totals and the two
   assert.deepEqual([...b.querySelectorAll('.lcc-bd-headlines li')].map((x) => text(x)), ['ATREIDES FAVOR WON', 'HARKONNEN FAVOR WON', 'FAVOR NOT WON', 'WINNING HOUSES · SYSSELRAAD WON']);
   assert.deepEqual([...b.querySelectorAll('[data-lcb="filter"][data-key="hs"]')].map((x) => text(x)), ['Any', 'Not won', 'Favor won']);
   assert.match(text(b.querySelector('.lcc-bd-totals')), /Your rewards on this board: 26 of 120 tiers earned/);
-  assert.equal(text(b.querySelector('.lcc-bd-victory .lcc-bd-vlines')), 'Lines still open: 4 · Atreides 4 · Harkonnen 0', 'the unblocked lines of the twelve, counted by the evaluator (M4), in the Imperial Victory Analysis (#935)');
+  assert.equal(text(b.querySelector('.lcc-bd-victory .lcc-bd-vlines')), 'Lines of five still possible: Atreides 4 · Harkonnen 0', 'the unblocked lines of the twelve, counted by the evaluator (M4), in the Imperial Victory Analysis (#935)');
 });
 
 test('the House cards use the approved system fonts only (nothing is fetched), and the reward boxes use the approved colours', () => {
