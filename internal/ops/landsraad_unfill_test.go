@@ -276,14 +276,22 @@ func TestUnfillAfterAnUnfillTakesBackNothingMoreAndAStaleRequestIsRefused(t *tes
 func TestUnfillThePreviewIsTheRuleOfTheWrite(t *testing.T) {
 	cases := map[string]func(t *testing.T, o *Ops){
 		"all waiting and vouched": func(t *testing.T, o *Ops) {},
-		"some collected":          func(t *testing.T, o *Ops) { setup(t, o, `update landsraad_house_rewards set amount=0 where player_id=1 and template_id in ('Schematic.K', 'T6RangeFinder')`) },
-		"all collected":           func(t *testing.T, o *Ops) { collectRewards(t, o) },
-		"a row gone":              func(t *testing.T, o *Ops) { setup(t, o, `delete from landsraad_house_rewards where player_id=1 and template_id='SolarisCoin'`) },
+		"some collected": func(t *testing.T, o *Ops) {
+			setup(t, o, `update landsraad_house_rewards set amount=0 where player_id=1 and template_id in ('Schematic.K', 'T6RangeFinder')`)
+		},
+		"all collected": func(t *testing.T, o *Ops) { collectRewards(t, o) },
+		"a row gone": func(t *testing.T, o *Ops) {
+			setup(t, o, `delete from landsraad_house_rewards where player_id=1 and template_id='SolarisCoin'`)
+		},
 		"the swatch not the editor's": func(t *testing.T, o *Ops) {
 			setup(t, o, `delete from landsraad_player_one_time_house_rewards where player_id=1`)
 		},
-		"less waits than the tier paid": func(t *testing.T, o *Ops) { setup(t, o, `update landsraad_house_rewards set amount=1 where player_id=1 and template_id='T6RangeFinder'`) },
-		"a row of an earlier term":      func(t *testing.T, o *Ops) { setup(t, o, `update landsraad_house_rewards set last_updated=50 where player_id=1 and template_id='Schematic.K'`) },
+		"less waits than the tier paid": func(t *testing.T, o *Ops) {
+			setup(t, o, `update landsraad_house_rewards set amount=1 where player_id=1 and template_id='T6RangeFinder'`)
+		},
+		"a row of an earlier term": func(t *testing.T, o *Ops) {
+			setup(t, o, `update landsraad_house_rewards set last_updated=50 where player_id=1 and template_id='Schematic.K'`)
+		},
 		"the character's own missions cover the tiers": func(t *testing.T, o *Ops) {
 			setup(t, o, `insert into landsraad_task_progress(id, faction_id, task_id, faction_progress, guild_progress, player_progress, timestamp) values (9, 2, 175, 0, 0, 3600, 120);
 				insert into landsraad_task_progress_player(progress_id, player_id) values (9, 1)`)
