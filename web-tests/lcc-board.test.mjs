@@ -431,3 +431,21 @@ test('earned and collected are the one pair of words on the list, the inspector,
   assert.doesNotMatch(said.replace(/not reached|NOT REACHED|Not reached/g, ''), /\breached\b/i, 'the inspector says earned, never reached (the state word Not reached stays)');
   assert.equal(i.querySelector('.lcc-bd-legend'), null, 'the legend of the marks is in the Help tab (#980)');
 });
+
+test('#1048: a faction with no contribution row in the save reads 0 / goal in the Inspector, never "not known / goal"; the difference is only in the hover text', async () => {
+  const a = synthetic();
+  const t = a.tasks[7];
+  t.contributions = (t.contributions || []).filter((c) => c.faction_id !== 1);
+  const ui = await open(a);
+  click(ui, tileOf(ui, 'Wallach').querySelector('button'));
+  const i = ui.doc.querySelector('.lcc-bd-insp');
+  const bars = [...i.querySelectorAll('.lcc-bd-fc')].map((b) => [text(b.querySelector('.lcc-bd-fc-l')), text(b.querySelector('.lcc-bd-fc-v'))]);
+  const atreides = bars.find((b) => b[0] === 'HOUSE ATREIDES');
+  assert.match(atreides[1], /^0 \/ [\d,]+$/, JSON.stringify(bars));
+  assert.doesNotMatch(text(i), /not known \//);
+  const v = [...i.querySelectorAll('.lcc-bd-fc-v')][0];
+  assert.equal(v.getAttribute('title'), 'No record of this faction in the save for this House.');
+  assert.match(v.getAttribute('aria-label'), /^HOUSE ATREIDES 0 of [\d,]+$/);
+  const other = [...i.querySelectorAll('.lcc-bd-fc-v')][1];
+  assert.equal(other.getAttribute('title'), null, 'a faction with a row has no such hover');
+});

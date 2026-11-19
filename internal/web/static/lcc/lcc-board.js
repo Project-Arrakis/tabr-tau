@@ -501,7 +501,9 @@
     const w = el('div', 'lcc-bd-fc');
     const head = el('div', 'lcc-bd-fc-head');
     head.appendChild(el('span', 'lcc-bd-fc-l lcc-bd-fc-' + key, label));
-    head.appendChild(el('b', 'lcc-bd-fc-v', (v === null ? 'not known' : fmt(v)) + ' / ' + (goal === null ? 'not known' : fmt(goal)), { 'aria-label': label + ' ' + (v === null ? 'not known' : fmt(v)) + ' of ' + (goal === null ? 'not known' : fmt(goal)) }));
+    // a faction with no contribution row in the save reads 0, like a House with no contribution of yours (#1048); the difference is only in the hover text
+    const at = v === null ? 0 : v, gl = goal === null ? 'not known' : fmt(goal);
+    head.appendChild(el('b', 'lcc-bd-fc-v', fmt(at) + ' / ' + gl, Object.assign({ 'aria-label': label + ' ' + fmt(at) + ' of ' + gl }, v === null ? { title: 'No record of this faction in the save for this House.' } : {})));
     w.appendChild(head);
     const track = el('div', 'lcc-bd-track', '', { role: 'img', 'aria-label': label + ' progress ' + pct(v, goal) + ' percent' });
     const i = el('i', 'lcc-bd-fill lcc-bd-fill-' + key); i.style.setProperty('--lcc-v', pct(v, goal) + '%');
