@@ -37,18 +37,19 @@ func TestPaidARaiseAfterAFailedWriteOfTheRecordDoesNotPayTheSameGroundAgain(t *t
 	flushWithWarning(t, o) // the game's file is written, the record is not
 	removeTo(t, o, 6000, 0)
 	flushWithWarning(t, o) // still failing
-	solari, scrip, rewards := wallet(t, o, 0), wallet(t, o, 1), houseRewards(t, o, "DA_HouseKenola")
+	solari, scrip := wallet(t, o, 0), wallet(t, o, 1)
 	facBefore, _ := progress(t, o, 2, 175)
 	// the board counts the ground the record has not taken yet
 	if got := taskByID(t, o, 175)["my_paid"]; got != 6000.0 {
 		t.Fatalf("my_paid of a note the record could not take: %v", got)
 	}
 	m := fillKenolaDoubled(t, o, 0, 6000)
-	if m["missions"].(int64) != 0 || m["reward_rows"].(int64) != 0 || m["solari"].(int64) != 0 || m["ground_paid_before"].(float64) != 6000 {
+	// no mission is paid again (the record the file could not take is still counted); the five rewards the removal took back are written again
+	if m["missions"].(int64) != 0 || m["reward_rows"].(int64) != 5 || m["solari"].(int64) != 0 || m["ground_paid_before"].(float64) != 6000 {
 		t.Fatalf("the same raise paid again: %v", m)
 	}
-	if wallet(t, o, 0) != solari || wallet(t, o, 1) != scrip || houseRewards(t, o, "DA_HouseKenola") != rewards {
-		t.Fatal("wallets or reward rows changed")
+	if wallet(t, o, 0) != solari || wallet(t, o, 1) != scrip {
+		t.Fatal("a wallet changed")
 	}
 	if v, _ := progress(t, o, 2, 175); v != facBefore {
 		t.Fatalf("faction progress: %v, was %v", v, facBefore)
@@ -60,7 +61,7 @@ func TestPaidARaiseAfterAFailedWriteOfTheRecordDoesNotPayTheSameGroundAgain(t *t
 		t.Fatalf("the kept note was not recorded: %+v, %q", f, o.S.NotesProblem())
 	}
 	removeTo(t, o, 6000, 0)
-	if m := fillKenolaDoubled(t, o, 0, 6000); m["missions"].(int64) != 0 || m["reward_rows"].(int64) != 0 {
+	if m := fillKenolaDoubled(t, o, 0, 6000); m["missions"].(int64) != 0 || m["solari"].(int64) != 0 {
 		t.Fatalf("a raise after the record was written paid again: %v", m)
 	}
 }
@@ -76,7 +77,7 @@ func TestPaidAHigherRaiseAfterAFailedWriteOfTheRecordPaysOnlyTheNewTiers(t *test
 	flushWithWarning(t, o)
 	solari := wallet(t, o, 0)
 	m := fillKenolaDoubled(t, o, 0, 4800)
-	if m["missions"].(int64) != 1 || m["reward_rows"].(int64) != 2 || m["missions_paid_before"].(int64) != 2 || m["ground_paid_before"].(float64) != 2400 {
+	if m["missions"].(int64) != 1 || m["reward_rows"].(int64) != 4 || m["missions_paid_before"].(int64) != 2 || m["ground_paid_before"].(float64) != 2400 {
 		t.Fatalf("answer: %v", m)
 	}
 	if wallet(t, o, 0) != solari+6000 {

@@ -3,7 +3,6 @@ package ops
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -145,17 +144,17 @@ func TestApplyTierGiveCreatesTheRowAndRaisesIt(t *testing.T) {
 	}
 }
 
-// A removal of the top tier of Maros (the game wrote its five rows, none collected) takes back the one waiting row of that tier and nothing else.
-func TestApplyTierRemovalTakesBackOnlyTheWaitingRowOfTheRemovedTier(t *testing.T) {
+// A removal of the top tier of Maros: the game wrote its five rows (none collected) and the editor has no record of having paid that ground, so the waiting row of the removed tier is
+// not known to be the editor's and stays (#944): nothing is written to the rewards, and the answer says one reward was left alone.
+func TestApplyTierRemovalLeavesAWaitingRowTheEditorHasNoRecordOf(t *testing.T) {
 	o := goalOps(t)
 	before := rewardRows(t, o)
 	m := mustApply(t, o, applyArgs(house(174, Args{"was_mine": 7850.0, "mine_to": 4800.0, "lower": true})))
-	if m["rewards_taken_back"].(int64) != 1 {
+	if m["rewards_taken_back"].(int64) != 0 || m["rewards_kept_unsure"].(int64) != 1 || m["contribution_lowered"].(int64) != 1 {
 		t.Fatalf("answer: %v", m)
 	}
-	want := strings.Replace(before, "map[amount:1 house_name:DA_HouseMaros last_updated:150 player_id:1 template_id:Swatch.Maros] ", "", 1)
-	if after := rewardRows(t, o); after != want || after == before {
-		t.Fatalf("rows: %s want %s", after, want)
+	if after := rewardRows(t, o); after != before {
+		t.Fatalf("rows changed: %s want %s", after, before)
 	}
 }
 

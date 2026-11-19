@@ -34,23 +34,23 @@ A mission is 1,000 contribution times the setting `LandsraadContributionMultipli
 
 - Your character's own XP and your faction standing.
 - No progress event. The editor leaves the game's progress cursor where it is. Whether the game keeps a contribution raised here at its next step is not checked in the game.
-- Removing a tier does not take back the Solari, House Scrip and XP that its missions paid, and it never touches the progress of your faction or the House's win.
+- Removing a tier does not take back the Solari, House Scrip and XP that its missions paid, and it never touches the progress of your faction or the House's win. Raising the tier again does not pay them a second time either.
 
 ## What removing a tier takes back
 
 Removing a tier lowers your contribution and takes back the reward of each removed tier that **still waits** at the House representative: the row the raise wrote for that tier. In detail:
 
 - A reward you **already collected** stays. The result says how many.
-- A waiting reward is taken back only when the editor can tie it to the removed tier with certainty. It stays, and the result says so, when the same item is also the reward of a tier that stays, when less waits than the tier paid, when the waiting reward was written in an earlier term, or when your own missions in the game cover the tier.
+- A waiting reward is taken back only when the editor's own record says the editor paid that tier and the editor can tie the reward to the removed tier with certainty. It stays, and the result says so, when the same item is also the reward of a tier that stays, when less waits than the tier paid, when the waiting reward was written in an earlier term, or when the editor has no record of paying that tier (for example a reward the game wrote, or one an older version of the editor wrote). A waiting reward that your own missions in the game cover stays too, and the result counts it apart. A tier with nothing waiting is not counted at all. The result counts rewards, not tiers: two tiers that give the same item are one reward.
 - The House swatch (the reward of the top tier) is taken back only when the editor's own record says the editor wrote it. Taking it back also removes your one-time swatch row of this term, so the swatch can be won again.
 - Only your own rows for that House are looked at. Other Houses, other players and the rest of the save are not touched, and a backup is made first.
 - A reward that is not collected and is not tied to a removed tier (for example one left by an earlier removal) is not touched.
 
-Raising the tier again pays it again: the reward is written again, together with its missions (their Solari, House Scrip and XP were not taken back, so they are paid a second time).
+Raising the tier again writes the reward that was taken back once more, and pays nothing else: no Solari, House Scrip or XP and no progress for your faction, however often you remove the tier and raise it again. A reward you collected is not written again. The result and the question before a click say how many missions were not paid because that ground was paid before.
 
 ## Paid once
 
-The editor remembers the ground it paid in a small file of its own, next to its other files (never in the game's save). Raising a removed tier again pays nothing again while the save still shows its reward (a reward you collected), and a raise above what was paid pays only the new tiers. A second Fill with nothing above your contribution writes nothing. If the file is missing or belongs to another save, nothing is taken as paid.
+The editor remembers the ground it paid in a small file of its own, next to its other files (never in the game's save). A removal that takes rewards back also writes into that file the tier it took them back up to, so the missions stay paid while the rewards are gone. Raising a removed tier again pays no mission a second time, and a raise above what was paid pays only the new tiers. A second Fill with nothing above your contribution writes nothing. The editor counts the file only as far as the save agrees (the highest tier whose reward the save shows from this term, or the tier a removal took rewards back up to): if you put an older backup back, ground the backup does not show is paid as if the file did not say so, except that a removal's tier stays counted, so such a raise pays less rather than more. If the file is missing, damaged or belongs to another save, nothing is taken as paid, and no waiting reward is taken back by a removal, because nothing says the editor paid it.
 
 ## Going back
 

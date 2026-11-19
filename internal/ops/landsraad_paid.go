@@ -80,13 +80,17 @@ type paidNote struct {
 	House   string  `json:"house"`
 	Faction int64   `json:"faction"`
 	Paid    float64 `json:"paid"`
+	// Back is the highest tier whose waiting reward rows the editor took back on purpose with a tier removal (#944): the ground below it was paid and the rows are gone on purpose, so the cap of
+	// trustedPaid does not cut the record there. It is 0 (and left out of the file) when no take-back happened. Only ever raised: the highest value recorded for the house counts, whatever the faction.
+	Back float64 `json:"back,omitempty"`
 	// Replace, on a note, says that what was recorded for the character on the house in the term is of a save that is gone and is dropped before this is recorded. It is not stored.
 	Replace bool `json:"replace,omitempty"`
 }
 
 // valid says whether an entry is plausible: a term, a character, a house and a ground that is a number from above 0 to the largest tier a request may name.
 func (e paidNote) valid() bool {
-	return e.Term > 0 && e.Player > 0 && e.House != "" && len(e.House) <= paidMaxHouseLen && !math.IsNaN(e.Paid) && e.Paid > 0 && e.Paid <= maxTier
+	return e.Term > 0 && e.Player > 0 && e.House != "" && len(e.House) <= paidMaxHouseLen && !math.IsNaN(e.Paid) && e.Paid > 0 && e.Paid <= maxTier &&
+		!math.IsNaN(e.Back) && e.Back >= 0 && e.Back <= maxTier
 }
 
 type paidFile struct {
@@ -279,6 +283,17 @@ func highestPaid(es []paidNote, player, term int64, house string) float64 {
 	return best
 }
 
+// highestBack is the highest tier whose rows a take-back removed on purpose for the character on the house in the term, under any faction, or 0.
+func highestBack(es []paidNote, player, term int64, house string) float64 {
+	best := 0.0
+	for _, e := range es {
+		if e.Player == player && e.Term == term && e.House == house && e.Back > best {
+			best = e.Back
+		}
+	}
+	return best
+}
+
 // mergePaid puts notes, in order, into entries: the highest ground per character, term, house and faction; a note that replaces drops everything recorded for the character on the
 // house in the term (under every faction) first. Invalid notes are left out.
 func mergePaid(entries, notes []paidNote) []paidNote {
@@ -301,6 +316,7 @@ func mergePaid(entries, notes []paidNote) []paidNote {
 		for i := range out {
 			if e := &out[i]; e.Player == n.Player && e.Term == n.Term && e.House == n.House && e.Faction == n.Faction {
 				e.Paid = max(e.Paid, n.Paid)
+				e.Back = max(e.Back, n.Back)
 				found = true
 				break
 			}
@@ -471,36 +487,47 @@ func standingTierRows(tiers []any, swatch save.Row, delivered map[string]save.Ro
 	return best
 }
 
-// trustedPaid is what counts of the record: the ground the file and the notes it has not taken yet (kept after a write, or queued) record for the character on the house, held to the highest tier the save shows a reward row
-// for. untrusted says that the cap cut the record, so a raise that pays under it replaces it.
-func trustedPaid(file []paidNote, pending []paidNote, player, term int64, house string, standing float64) (paid float64, untrusted bool) {
-	rec := highestPaid(mergePaid(file, pending), player, term, house)
+// groundPaid is what counts of the editor's record for a house, as the save shows it.
+//
+//	ground      the ground whose missions and faction progress count as paid: the record, cut at the highest tier whose reward row stands, or at the tier a take-back removed rows up to (back),
+//	            whichever is higher. A take-back removes the rows on purpose and leaves the missions paid, so the rows missing there are not a sign of a restored save (#944).
+//	rows        the ground whose reward rows count as delivered: the record cut at the highest tier whose reward row stands, and nothing more. The rows a take-back removed are written again by the next raise.
+//	back        the take-back ceiling the record carries (never above what was paid)
+//	untrusted   the cut took something off the record, so a raise that pays under it replaces it
+type groundPaid struct {
+	ground, rows, back float64
+	untrusted          bool
+}
+
+// trustedPaid is what counts of the record: the ground the file and the notes it has not taken yet (kept after a write, or queued) record for the character on the house, held to the highest
+// tier the save shows a reward row for or the tier a take-back removed rows up to (see groundPaid).
+func trustedPaid(file []paidNote, pending []paidNote, player, term int64, house string, standing float64) groundPaid {
+	all := mergePaid(file, pending)
+	rec := highestPaid(all, player, term, house)
 	if rec <= 0 {
-		return 0, false
+		return groundPaid{}
 	}
-	if rec > standing {
-		return standing, true
-	}
-	return rec, false
+	back := min(highestBack(all, player, term, house), rec)
+	limit := max(standing, back)
+	return groundPaid{ground: min(rec, limit), rows: min(rec, standing), back: back, untrusted: rec > limit}
 }
 
 // paidGround is what the editor paid before for the character on the house, inside a raise's edit (see trustedPaid). The save is asked for its reward rows only when something is
 // recorded, so a save with no record is read as before.
-func paidGround(m *save.Mut, file []paidNote, me myLandsraad, taskID, termID int64, house string, clock termClock) (paid float64, untrusted bool, err error) {
+func paidGround(m *save.Mut, file []paidNote, me myLandsraad, taskID, termID int64, house string, clock termClock) (groundPaid, error) {
 	// a failing sink dropped notes of written edits (past its bound): the ground they stood for is counted nowhere, so a raise is refused rather than paid on a short record (#810)
 	if m.NotesDropped() {
-		return 0, false, apierr.Wrap(apierr.ErrWriteFailed, errPaidNotesDropped.Error(), errPaidNotesDropped)
+		return groundPaid{}, apierr.Wrap(apierr.ErrWriteFailed, errPaidNotesDropped.Error(), errPaidNotesDropped)
 	}
 	pending := pendingPaid(m.Pending(paidNoteKind))
 	if highestPaid(mergePaid(file, pending), me.player, termID, house) <= 0 {
-		return 0, false, nil
+		return groundPaid{}, nil
 	}
 	standing, err := standingTierSQL(m.One, me.player, taskID, house, clock.start)
 	if err != nil {
-		return 0, false, err
+		return groundPaid{}, err
 	}
-	paid, untrusted = trustedPaid(file, pending, me.player, termID, house, standing)
-	return paid, untrusted, nil
+	return trustedPaid(file, pending, me.player, termID, house, standing), nil
 }
 
 // notePaidBefore says what part of a raise was not paid because the editor paid it before: lo0 is the ground the game's own events and the other factions cover, lo the same with

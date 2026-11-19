@@ -68,7 +68,7 @@ func TestPaidAKeptNoteThatComesAgainDoesNotLowerTheRecordForARaise(t *testing.T)
 	solari := wallet(t, o2, 0)
 	removeTo(t, o2, 6000, 0)
 	m := fillKenolaDoubled(t, o2, 0, 6000)
-	if m["missions"].(int64) != 0 || m["reward_rows"].(int64) != 0 || wallet(t, o2, 0) != solari {
+	if m["missions"].(int64) != 0 || m["reward_rows"].(int64) != 5 || wallet(t, o2, 0) != solari {
 		t.Fatalf("the same raise paid again: %v, wallet %d -> %d", m, solari, wallet(t, o2, 0))
 	}
 }

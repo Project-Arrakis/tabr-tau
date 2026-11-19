@@ -94,8 +94,19 @@ func TestATierRemovalTakesBackTheWaitingRewardsAndSaysSo(t *testing.T) {
 }
 
 // The editor remembers the Landsraad ground it paid in a file of its own next to the journal (#777): the route writes it once the game's file is written, and a tier removal followed
-// by the same raise pays nothing again and says so.
+// by the same raise pays nothing again and says so. With the rewards still waiting (#944) the removal takes them back, the record says so, and the raise writes the two reward rows again
+// and pays no mission.
 func TestARaiseIsRememberedInTheEditorsFileAndARepeatAfterARemovalPaysNothing(t *testing.T) {
+	repeatAfterARemoval(t, false)
+}
+
+// The same with the rewards collected before the removal: nothing is taken back, no row is written again, and nothing is paid.
+func TestARepeatAfterARemovalOverCollectedRewardsPaysNothingAndWritesNoRow(t *testing.T) {
+	repeatAfterARemoval(t, true)
+}
+
+func repeatAfterARemoval(t *testing.T, collected bool) {
+	t.Helper()
 	s := New(testsave.PlayerWithSQL(t, landsraadChosenWorld), config.Dir{Path: t.TempDir()})
 	dir := t.TempDir()
 	s.KeepPendingEdits(dir)
@@ -113,13 +124,23 @@ func TestARaiseIsRememberedInTheEditorsFileAndARepeatAfterARemovalPaysNothing(t 
 		t.Fatalf("the record: %s", b)
 	}
 	solari, scrip, _ := grantTotals(t, s.Save.Path)
-	collectLandsraadRewards(t, s) // a removal takes back the rewards that still wait (#944); this test is about collected ones, whose ground stays paid
+	if collected {
+		collectLandsraadRewards(t, s)
+	}
 	if w = postEdit(t, s, "/api/landsraad/apply", `{"term_id":7,"houses":[{"task_id":175,"was_mine":6000,"mine_to":0,"lower":true}]}`); w.Code != 200 {
 		t.Fatalf("a tier removal: %d %s", w.Code, w.Body.String())
 	}
+	b, _ = os.ReadFile(files[0])
+	if hasBack := strings.Contains(string(b), `"back":6000`); hasBack == collected {
+		t.Fatalf("the ceiling of a take-back is in the record exactly when rewards were taken back (collected %v): %s", collected, b)
+	}
 	w = postEdit(t, s, "/api/landsraad/apply", `{"term_id":7,"houses":[{"task_id":175,"was_mine":0,"mine_to":6000}]}`)
 	m = decodeBody(t, w)
-	if w.Code != 200 || m["missions"] != float64(0) || m["reward_rows"] != float64(0) || m["ground_paid_before"] != float64(6000) || m["missions_paid_before"] == float64(0) {
+	rows := float64(2) // the two rewards the removal took back are written again
+	if collected {
+		rows = 0
+	}
+	if w.Code != 200 || m["missions"] != float64(0) || m["reward_rows"] != rows || m["ground_paid_before"] != float64(6000) || m["missions_paid_before"] == float64(0) {
 		t.Fatalf("the same raise after a removal: %d %s", w.Code, w.Body.String())
 	}
 	if solari2, scrip2, _ := grantTotals(t, s.Save.Path); solari2 != solari || scrip2 != scrip {

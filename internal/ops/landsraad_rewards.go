@@ -35,8 +35,8 @@ type rewardResult struct {
 	paidGround   float64
 	paidMissions int64
 	// what a tier removal did to the rewards of the removed tiers (landsraad_takeback.go): tiers whose waiting reward was taken back, tiers whose reward was already collected and stays, tiers whose
-	// reward stays because it cannot be tied to the tier with certainty, and the house swatches among those taken back
-	takenBack, keptCollected, keptUnsure, swatchesBack int64
+	// reward stays because it cannot be tied to the tier with certainty, rows that wait for a tier the character's own missions cover (they stay), and the house swatches among those taken back
+	takenBack, keptCollected, keptUnsure, keptEarned, swatchesBack int64
 }
 
 func (r *rewardResult) add(o rewardResult) {
@@ -51,6 +51,7 @@ func (r *rewardResult) add(o rewardResult) {
 	r.takenBack += o.takenBack
 	r.keptCollected += o.keptCollected
 	r.keptUnsure += o.keptUnsure
+	r.keptEarned += o.keptEarned
 	r.swatchesBack += o.swatchesBack
 	for l, x := range o.spec {
 		if r.spec == nil {

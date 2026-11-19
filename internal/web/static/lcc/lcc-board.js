@@ -691,7 +691,7 @@
         if (ct.rw) { b.removeAttribute('title'); rtipSet(b, { rows: [ct.rw], note: ct.tip, title: ct.tip, big: true }); } // the item of this reward as the picture mouse-over (#977, it was text drawn by the style sheet, #937); Solari has none
         if (ct.off) b.setAttribute('data-why', ct.tip);
         if (ct.grant) it.appendChild(el('span', 'lcc-bd-tier-gr', ct.grant));
-        else if (c.ownF && t.n === h.reached) it.appendChild(el('span', 'lcc-bd-tier-gr lcc-bd-rm', 'click removes it; takes back a waiting reward'));
+        else if (c.ownF && t.n === h.reached && ct.rm) it.appendChild(el('span', 'lcc-bd-tier-gr lcc-bd-rm', ct.rm)); // what a click does to this reward, from the server's outcome for the tier (the page builds it)
         li.appendChild(b);
       } else li.appendChild(mk('div').b);
       ol.appendChild(li);

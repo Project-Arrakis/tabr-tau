@@ -204,7 +204,8 @@ func (o *Ops) Landsraad() (any, error) {
 		if hasSw {
 			swRow = sw
 		}
-		t["my_paid"], _ = trustedPaid(filePaid, unrecordedPaid, mineID, termID, house, standingTierRows(rw[id], swRow, delivered, house, termStart))
+		pg := trustedPaid(filePaid, unrecordedPaid, mineID, termID, house, standingTierRows(rw[id], swRow, delivered, house, termStart))
+		t["my_paid"], t["my_paid_rows"] = pg.ground, pg.rows // the ground whose missions are paid, and the ground whose reward rows are delivered (they differ after a take-back, #944)
 		// a tier is reached when the contribution is at least its threshold; whether it is delivered (and what stands at the house representative) is decided per tier by
 		// tierState in landsraad_board.go: the reward row of this term (#656, #655)
 		tiers := rw[id]
@@ -216,8 +217,7 @@ func (o *Ops) Landsraad() (any, error) {
 		t["rewards"] = tiers
 		boardTask(t, tiers, delivered, one, termID, termStart, places, here)
 		// what removing a reached tier would do to its reward, by the rule of the write (landsraad_takeback.go): the page says it before the click
-		myPaid, _ := toFloat(t["my_paid"])
-		boardTakeBack(tiers, house, delivered, one, termID, termStart, my, math.Max(events[id], elsewhere), myPaid)
+		boardTakeBack(tiers, house, delivered, one, termID, termStart, my, math.Max(events[id], elsewhere), pg.rows)
 	}
 	decrees, err := o.S.Query(`select id, decree_name, disabled, weight from landsraad_decrees order by id`)
 	if err != nil {

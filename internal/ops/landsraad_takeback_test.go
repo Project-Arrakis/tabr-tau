@@ -1,6 +1,8 @@
 package ops
 
 import (
+	"github.com/Project-Arrakis/tabr-tau/internal/save"
+	"math"
 	"os"
 	"strings"
 	"testing"
@@ -42,6 +44,9 @@ func removeKenola(t *testing.T, o *Ops, was, to float64) map[string]any {
 	t.Helper()
 	return applyWith(t, o, doubled(), house(175, Args{"was_mine": was, "mine_to": to, "lower": true}))
 }
+
+// earnedOf is the number of waiting rewards that stay because the character's own missions cover their tier.
+func earnedOf(m map[string]any) int64 { return m["rewards_kept_earned"].(int64) }
 
 func counts(m map[string]any) [4]int64 {
 	return [4]int64{m["rewards_taken_back"].(int64), m["rewards_kept_collected"].(int64), m["rewards_kept_unsure"].(int64), m["swatches_taken_back"].(int64)}
@@ -222,8 +227,11 @@ func TestTakeBackLeavesTiersTheCharactersOwnMissionsCover(t *testing.T) {
 	// the game wrote the row of the first tier for those missions, and it waits
 	setup(t, o, `insert into landsraad_house_rewards(player_id, house_name, amount, template_id, last_updated) values (1, 'DA_HouseKenola', 10000, 'SolarisCoin', 150)`)
 	m := removeKenola(t, o, 3600, 0)
-	if got := counts(m); got != [4]int64{2, 0, 1, 0} { // 2,400 and 3,600 are taken back; the first tier (SolarisCoin) is covered by the events
+	if got := counts(m); got != [4]int64{2, 0, 0, 0} || earnedOf(m) != 1 { // 2,400 and 3,600 are taken back; the waiting row of the first tier (SolarisCoin) is covered by the events and stays, said apart from "not certain"
 		t.Fatalf("answer: %v", m)
+	}
+	if d := lastEdit(t, o); !strings.Contains(d, "1 waiting reward stays (your own missions cover the tier)") || strings.Contains(d, "not certain") {
+		t.Fatalf("the description: %s", d)
 	}
 	if rowOf(t, o, "SolarisCoin") == "" {
 		t.Fatal("the row of a tier the character's own events cover was taken back")
@@ -233,8 +241,21 @@ func TestTakeBackLeavesTiersTheCharactersOwnMissionsCover(t *testing.T) {
 	kenolaFromZero(t, o, 3600)
 	setup(t, o, `insert into landsraad_task_player_contributions(player_id, faction_id, task_id, amount) values (1, 1, 175, 2400)`)
 	m = removeKenola(t, o, 3600, 0)
-	if got := counts(m); got != [4]int64{1, 0, 2, 0} { // only the 3,600 tier is above what the other faction's row covers
+	if got := counts(m); got != [4]int64{1, 0, 0, 0} || earnedOf(m) != 2 { // only the 3,600 tier is above what the other faction's row covers
 		t.Fatalf("answer: %v", m)
+	}
+	// a covered tier with no waiting row (or a collected one) is nothing at all: it is not counted as left alone, and it is not "not certain"
+	o = rewardOps(t, "")
+	kenolaFromZero(t, o, 3600)
+	setup(t, o, `insert into landsraad_task_player_contributions(player_id, faction_id, task_id, amount) values (1, 1, 175, 2400)`)
+	setup(t, o, `delete from landsraad_house_rewards where player_id=1 and template_id='SolarisCoin'`)
+	setup(t, o, `update landsraad_house_rewards set amount=0 where player_id=1 and template_id='Schematic.K'`)
+	m = removeKenola(t, o, 3600, 0)
+	if got := counts(m); got != [4]int64{1, 0, 0, 0} || earnedOf(m) != 0 {
+		t.Fatalf("answer: %v", m)
+	}
+	if d := lastEdit(t, o); strings.Contains(d, "left alone") || strings.Contains(d, "stay") {
+		t.Fatalf("the description names rewards that were not there: %s", d)
 	}
 }
 
@@ -260,18 +281,22 @@ func TestTakeBackLeavesASwatchTheEditorDidNotWrite(t *testing.T) {
 	}
 }
 
-// A damaged record does not stop a removal; it only keeps the swatch.
-func TestTakeBackWithAnUnreadableRecordStillRemovesAndKeepsTheSwatch(t *testing.T) {
+// A damaged record does not stop a removal; nothing vouches for the waiting rewards then, so they all stay and the answer says so.
+func TestTakeBackWithAnUnreadableRecordStillRemovesAndKeepsTheRewards(t *testing.T) {
 	o, path := paidOps(t, "")
 	fillKenolaDoubled(t, o, 1300, 6000)
 	flush(t, o)
 	damageRecord(t, path)
 	m := removeKenola(t, o, 6000, 3600)
-	if got := counts(m); got != [4]int64{1, 0, 1, 0} || m["contribution_lowered"].(int64) != 1 {
+	if got := counts(m); got != [4]int64{0, 0, 2, 0} || m["contribution_lowered"].(int64) != 1 {
 		t.Fatalf("answer: %v", m)
 	}
-	if rowOf(t, o, "Schematic.L") != "" || rowOf(t, o, "Kenola_Placeables_Swatch") == "" {
-		t.Fatal("Schematic.L should go and the swatch stay")
+	if rowOf(t, o, "Schematic.L") == "" || rowOf(t, o, "Kenola_Placeables_Swatch") == "" {
+		t.Fatal("a reward was taken back although nothing vouches that the editor wrote it")
+	}
+	// the damaged file is left as it is by a removal: no note is written for it
+	if b, _ := os.ReadFile(path); string(b) != "not json" {
+		t.Fatalf("the record was touched: %q", b)
 	}
 }
 
@@ -304,32 +329,291 @@ func TestTakeBackTheBoardSaysWhatARemovalWouldDo(t *testing.T) {
 	o = rewardOps(t, `insert into landsraad_player_one_time_house_rewards(player_id, house_name, template_id, term_id) values (1, 'DA_HouseKenola', 'Kenola_Placeables_Swatch', 7);
 		insert into landsraad_house_rewards(player_id, house_name, amount, template_id, last_updated) values (1, 'DA_HouseKenola', 1, 'Kenola_Placeables_Swatch', 150);
 		update landsraad_task_player_contributions set amount=6000 where player_id=1 and task_id=175;`)
-	if got, why := say(6000); got != tbUnsure || why != tbWhyUnproven {
+	if got, why := say(6000); got != tbUnsure || why != tbWhySwatch {
 		t.Fatalf("the swatch: %q %q", got, why)
 	}
 }
 
-// A raise after a take-back pays the taken-back tiers again: the reward rows and, with them, the missions (their Solari, House Scrip and XP were not taken back). This is the
-// consequence of the one rule (the record is trusted as far as the save shows reward rows), and it is the reason the question before a removal says the pay-out of the missions stays.
-func TestTakeBackARaiseAfterATakeBackPaysTheTiersAgain(t *testing.T) {
+// A raise after a take-back writes the reward rows again and pays NOTHING else (#944): the removal took back the rewards, not the missions, so the Solari, House Scrip, XP and the faction's
+// progress of the removed tiers stay paid. The same is true however often the tier is removed and raised, with the record in the queue, in the file, and with the edit's note kept.
+func TestTakeBackARaiseAfterATakeBackWritesTheRowsAgainAndPaysNothingElse(t *testing.T) {
 	o := rewardOps(t, "")
 	kenolaFromZero(t, o, 6000)
+	after := rewardRows(t, o)
+	solari, scrip := wallet(t, o, 0), wallet(t, o, 1)
+	spec, _, _ := track(t, o, 2)
+	facBefore, _ := progress(t, o, 2, 175)
+	for cycle := 1; cycle <= 3; cycle++ {
+		removeKenola(t, o, 6000, 0)
+		if rowOf(t, o, "Kenola_Placeables_Swatch") != "" || wallet(t, o, 0) != solari {
+			t.Fatalf("cycle %d: the removal left a row or took back Solari", cycle)
+		}
+		m := applyWith(t, o, doubled(), house(175, Args{"mine_to": 6000.0}))
+		if m["reward_rows"].(int64) != 5 || m["swatches"].(int64) != 1 || m["missions"].(int64) != 0 || m["solari"].(int64) != 0 || m["house_scrip"].(int64) != 0 || m["missions_paid_before"].(int64) != 3 {
+			t.Fatalf("cycle %d: answer %v", cycle, m)
+		}
+		if wallet(t, o, 0) != solari || wallet(t, o, 1) != scrip {
+			t.Fatalf("cycle %d: wallets %d %d, were %d %d", cycle, wallet(t, o, 0), wallet(t, o, 1), solari, scrip)
+		}
+		if xp, _, _ := track(t, o, 2); xp != spec {
+			t.Fatalf("cycle %d: specialization XP %d, was %d", cycle, xp, spec)
+		}
+		if v, _ := progress(t, o, 2, 175); v != facBefore {
+			t.Fatalf("cycle %d: the faction's progress %v, was %v", cycle, v, facBefore)
+		}
+		if got := rewardRows(t, o); got != after {
+			t.Fatalf("cycle %d: the rows are not what they were:\n%s\n%s", cycle, after, got)
+		}
+	}
+}
+
+// The same with the record in its file (written after each edit), with the note the file could not take kept for the next write, and over a restart of the editor's own state: the
+// take-back ceiling lives in the record, so what the record says is what a raise believes.
+func TestTakeBackTheCeilingIsKeptInTheRecordAndCountsWhereverTheRecordIs(t *testing.T) {
+	o, path := paidOps(t, "")
+	fillKenolaDoubled(t, o, 1300, 6000)
+	flush(t, o)
+	if f := readPaid(t, path); len(f.Entries) != 1 || f.Entries[0].Back != 0 || f.Version != 1 {
+		t.Fatalf("a record with no take-back carries one: %+v", f)
+	}
 	solari := wallet(t, o, 0)
-	removeKenola(t, o, 6000, 0)
-	if wallet(t, o, 0) != solari {
-		t.Fatal("the removal took back Solari")
+	removeTo(t, o, 6000, 2400)
+	// queued, not written: the board and the raise read the note the removal attached
+	pg := taskByID(t, o, 175)
+	if pg["my_paid"] != 6000.0 || pg["my_paid_rows"] != 2400.0 {
+		t.Fatalf("the board after a queued removal: paid %v, rows %v", pg["my_paid"], pg["my_paid_rows"])
 	}
-	m := applyWith(t, o, doubled(), house(175, Args{"mine_to": 6000.0}))
-	if m["reward_rows"].(int64) != 5 || m["missions"].(int64) != 3 || wallet(t, o, 0) != solari+18000 {
-		t.Fatalf("answer: %v, Solari %d -> %d", m, solari, wallet(t, o, 0))
+	flush(t, o)
+	f := readPaid(t, path)
+	if len(f.Entries) != 1 || f.Entries[0].Paid != 6000 || f.Entries[0].Back != 6000 || f.Version != 1 {
+		t.Fatalf("the record after the removal: %+v", f)
 	}
-	// with the rewards collected the same raise pays nothing again (#777)
-	o = rewardOps(t, "")
+	// the rows of the tiers above 2,400 are gone; the raise writes the three of them again and nothing else
+	m := fillKenolaDoubled(t, o, 2400, 6000)
+	if m["reward_rows"].(int64) != 3 || m["missions"].(int64) != 0 || wallet(t, o, 0) != solari || m["missions_paid_before"].(int64) != 1 || m["ground_paid_before"].(float64) != 3600 {
+		t.Fatalf("answer: %v", m)
+	}
+	flush(t, o)
+	// a higher ground than ever paid pays only the new missions: raise to the top after the record only reached 4,800
+	o2, _ := paidOps(t, "")
+	fillKenolaDoubled(t, o2, 1300, 4800)
+	flush(t, o2)
+	removeTo(t, o2, 4800, 0)
+	flush(t, o2)
+	s2 := wallet(t, o2, 0)
+	m = fillKenolaDoubled(t, o2, 0, 6000)
+	// step 2,000: ceil(6000/2000) - ceil(4800/2000) = 0 new missions; the five rewards of 1,200 to 6,000 are written, nothing is paid for 1,200 to 4,800
+	if m["reward_rows"].(int64) != 5 || m["missions"].(int64) != 0 || m["ground_paid_before"].(float64) != 4800 || wallet(t, o2, 0) != s2 {
+		t.Fatalf("answer: %v", m)
+	}
+}
+
+// A higher raise after a take-back pays only the ground above what was paid before, and writes every row below it again.
+func TestTakeBackAHigherRaiseAfterATakeBackPaysOnlyTheNewGround(t *testing.T) {
+	o := rewardOps(t, "")
+	kenolaFromZero(t, o, 2400) // paid: 1,200 and 2,400 (step 2,000: 2 missions)
+	solari := wallet(t, o, 0)
+	removeKenola(t, o, 2400, 0)
+	m := applyWith(t, o, doubled(), house(175, Args{"mine_to": 4800.0}))
+	// 4,800 is 3 missions at the step 2,000, 2,400 was 2: one mission is new; the rows of the four tiers are written (the two taken back and the two new ones)
+	if m["missions"].(int64) != 1 || m["reward_rows"].(int64) != 4 || m["missions_paid_before"].(int64) != 2 || m["ground_paid_before"].(float64) != 2400 || wallet(t, o, 0) != solari+6000 {
+		t.Fatalf("answer: %v", m)
+	}
+}
+
+// With the rewards collected the same raise writes no row and pays nothing (#777): the take-back is not involved.
+func TestTakeBackARaiseOverCollectedRewardsPaysNothingAndWritesNoRow(t *testing.T) {
+	o := rewardOps(t, "")
 	kenolaFromZero(t, o, 6000)
 	collectRewards(t, o)
 	removeKenola(t, o, 6000, 0)
-	if m := applyWith(t, o, doubled(), house(175, Args{"mine_to": 6000.0})); m["reward_rows"].(int64) != 0 || m["missions"].(int64) != 0 {
-		t.Fatalf("a raise over collected rewards paid again: %v", m)
+	if m := applyWith(t, o, doubled(), house(175, Args{"mine_to": 6000.0})); m["reward_rows"].(int64) != 0 || m["missions"].(int64) != 0 || m["rewards_already_given"].(int64) != 5 {
+		t.Fatalf("a raise over collected rewards: %v", m)
+	}
+}
+
+// The trusted ground of the record, in numbers: the cut at the rows that stand, the take-back ceiling that lifts it for the missions only, and what it never lifts.
+func TestTakeBackTheCeilingLiftsTheGroundForMissionsAndNeverForRows(t *testing.T) {
+	rec := func(paid, back float64) []paidNote {
+		return []paidNote{{Player: 1, Term: 7, House: "A", Faction: 2, Paid: paid, Back: back}}
+	}
+	cases := []struct {
+		name               string
+		rec                []paidNote
+		standing           float64
+		ground, rows, back float64
+		untrusted          bool
+	}{
+		{"no take-back, all rows stand", rec(6000, 0), 6000, 6000, 6000, 0, false},
+		{"no take-back, rows missing: the record is cut", rec(6000, 0), 2400, 2400, 2400, 0, true},
+		{"rows taken back on purpose: the missions stay paid, the rows are written again", rec(6000, 6000), 2400, 6000, 2400, 6000, false},
+		{"a ceiling below the paid ground lifts only to the ceiling", rec(6000, 3600), 1200, 3600, 1200, 3600, true},
+		{"a ceiling above the paid ground is cut to what was paid", rec(3600, 6000), 0, 3600, 0, 3600, false},
+		{"no record", nil, 6000, 0, 0, 0, false},
+	}
+	for _, c := range cases {
+		g := trustedPaid(c.rec, nil, 1, 7, "A", c.standing)
+		if g.ground != c.ground || g.rows != c.rows || g.back != c.back || g.untrusted != c.untrusted {
+			t.Errorf("%s: %+v, want ground %v rows %v back %v untrusted %v", c.name, g, c.ground, c.rows, c.back, c.untrusted)
+		}
+	}
+	// another house, another term and another character never share it
+	if g := trustedPaid(rec(6000, 6000), nil, 1, 7, "B", 0); g.ground != 0 {
+		t.Errorf("another house: %+v", g)
+	}
+	if g := trustedPaid(rec(6000, 6000), nil, 2, 7, "A", 0); g.ground != 0 {
+		t.Errorf("another character: %+v", g)
+	}
+	if g := trustedPaid(rec(6000, 6000), nil, 1, 8, "A", 0); g.ground != 0 {
+		t.Errorf("another term: %+v", g)
+	}
+}
+
+// The note's Back is only ever raised, it counts under any faction, a note that replaces carries it, and an entry whose ceiling is not a number from 0 to the largest tier is left out.
+func TestTakeBackTheCeilingMergesOnlyUpwardAndAnImplausibleOneIsLeftOut(t *testing.T) {
+	es := mergePaid([]paidNote{{Player: 1, Term: 7, House: "A", Faction: 1, Paid: 6000, Back: 3600}}, []paidNote{
+		{Player: 1, Term: 7, House: "A", Faction: 1, Paid: 6000, Back: 2400}, // lower: does not lower
+		{Player: 1, Term: 7, House: "A", Faction: 2, Paid: 4800, Back: 4800},
+	})
+	if got := highestBack(es, 1, 7, "A"); got != 4800 || es[0].Back != 3600 {
+		t.Fatalf("back %v, first entry %+v", got, es[0])
+	}
+	es = mergePaid(es, []paidNote{{Player: 1, Term: 7, House: "A", Faction: 2, Paid: 6000, Back: 4800, Replace: true}})
+	if len(es) != 1 || es[0].Back != 4800 || es[0].Paid != 6000 {
+		t.Fatalf("a note that replaces: %+v", es)
+	}
+	for name, e := range map[string]paidNote{
+		"negative":     {Player: 1, Term: 7, House: "A", Paid: 6000, Back: -1},
+		"above a tier": {Player: 1, Term: 7, House: "A", Paid: 6000, Back: maxTier + 1},
+		"not a number": {Player: 1, Term: 7, House: "A", Paid: 6000, Back: math.NaN()},
+	} {
+		if e.valid() {
+			t.Errorf("%s: an entry with this ceiling is taken", name)
+		}
+	}
+	if (paidNote{Player: 1, Term: 7, House: "A", Paid: 6000, Back: 6000}).valid() == false {
+		t.Error("a plausible ceiling is refused")
+	}
+}
+
+// The ceiling is attached to the removal's own edit: a refused or failed removal leaves no note.
+func TestTakeBackNoNoteWhenNothingIsTakenBack(t *testing.T) {
+	o, path := paidOps(t, "")
+	fillKenolaDoubled(t, o, 1300, 6000)
+	collectRewards(t, o)
+	flush(t, o)
+	removeTo(t, o, 6000, 0)
+	flush(t, o)
+	if f := readPaid(t, path); len(f.Entries) != 1 || f.Entries[0].Back != 0 {
+		t.Fatalf("a removal of collected rewards recorded a ceiling: %+v", f)
+	}
+}
+
+// Rows, not tiers (#944): two removed tiers that give one item are one row, and the answer counts it once.
+func TestTakeBackCountsRowsNotTiers(t *testing.T) {
+	o := rewardOps(t, "")
+	setup(t, o, `update landsraad_task_rewards set template_id='Schematic.K' where task_id=175 and threshold=3600`) // the tiers 2,400 and 3,600 now give one item
+	kenolaFromZero(t, o, 6000)
+	if got := rows(t, o, `select amount from landsraad_house_rewards where player_id=1 and template_id='Schematic.K'`); got != "map[amount:51]\n" {
+		t.Fatalf("the two tiers are one row: %s", got)
+	}
+	m := removeKenola(t, o, 6000, 1200) // removes the tiers 2,400, 3,600, 4,800 and the swatch: four tiers, three rows
+	if got := counts(m); got != [4]int64{3, 0, 0, 1} {
+		t.Fatalf("answer: %v", m)
+	}
+	if d := lastEdit(t, o); !strings.Contains(d, "took back 3 waiting rewards") {
+		t.Fatalf("the description: %s", d)
+	}
+}
+
+// The same item at two removed tiers, one of them collected: one row, one collected, nothing taken for it.
+func TestTakeBackCountsACollectedSharedRowOnce(t *testing.T) {
+	o := rewardOps(t, "")
+	setup(t, o, `update landsraad_task_rewards set template_id='Schematic.K' where task_id=175 and threshold=3600`)
+	kenolaFromZero(t, o, 6000)
+	setup(t, o, `update landsraad_house_rewards set amount=0 where player_id=1 and template_id='Schematic.K'`)
+	m := removeKenola(t, o, 6000, 1200)
+	if got := counts(m); got != [4]int64{2, 1, 0, 1} {
+		t.Fatalf("answer: %v", m)
+	}
+}
+
+// Only a row the editor's own record vouches for is taken back (#944): the record says up to which ground the editor paid, and a waiting row above it (the game wrote it, or an earlier
+// build did) is not known to be the editor's and stays, with the reason on the board and in the answer.
+func TestTakeBackOnlyTheRowsTheEditorsRecordVouchesFor(t *testing.T) {
+	o := rewardOps(t, "")
+	kenolaFromZero(t, o, 2400) // the editor paid 1,200 and 2,400
+	// the character stands at 4,800 and the game wrote the rows of 3,600 and 4,800 itself: no event, no record of those tiers
+	setup(t, o, `update landsraad_task_player_contributions set amount=4800 where player_id=1 and task_id=175`)
+	setup(t, o, `insert into landsraad_house_rewards(player_id, house_name, amount, template_id, last_updated) values (1, 'DA_HouseKenola', 50, 'T6RangeFinder', 150), (1, 'DA_HouseKenola', 1, 'Schematic.L', 150)`)
+	r := func(th int64) (string, string) {
+		x := tierOf(t, taskByID(t, o, 175), th)
+		a, _ := x["takeback"].(string)
+		b, _ := x["takeback_why"].(string)
+		return a, b
+	}
+	if a, w := r(4800); a != tbUnsure || w != tbWhyUnproven {
+		t.Fatalf("the board, tier 4,800: %q %q", a, w)
+	}
+	if a, w := r(2400); a != tbTake || w != "" {
+		t.Fatalf("the board, tier 2,400: %q %q", a, w)
+	}
+	m := removeKenola(t, o, 4800, 0)
+	if got := counts(m); got != [4]int64{2, 0, 2, 0} {
+		t.Fatalf("answer: %v", m)
+	}
+	if rowOf(t, o, "T6RangeFinder") == "" || rowOf(t, o, "Schematic.L") == "" || rowOf(t, o, "SolarisCoin") != "" || rowOf(t, o, "Schematic.K") != "" {
+		t.Fatal("the rows the record does not vouch for must stay and the others go")
+	}
+}
+
+// The part of a row that is not the removed tier's stays: a row of 6 of which the removed tier paid 1 goes down to 5, and its time is not touched.
+func TestTakeBackTheRemainderOfARowStaysAndKeepsItsTime(t *testing.T) {
+	o := rewardOps(t, "")
+	kenolaFromZero(t, o, 6000)
+	setup(t, o, `update landsraad_house_rewards set amount=6, last_updated=160 where player_id=1 and template_id='Schematic.L'`) // 1 of the tier 4,800 and 5 of another origin
+	m := removeKenola(t, o, 6000, 3600)
+	if got := counts(m); got != [4]int64{2, 0, 0, 1} {
+		t.Fatalf("answer: %v", m)
+	}
+	if got := rowOf(t, o, "Schematic.L"); got != "map[amount:5 last_updated:160]\n" {
+		t.Fatalf("the row after the removal: %s", got)
+	}
+	// the next removal finds 5 waiting for a tier that paid 1 and nothing below: it is the same item, no other tier, so it goes down to 4 and is never deleted by a tier of 1
+	m = removeKenola(t, o, 3600, 0)
+	if rowOf(t, o, "Schematic.L") != "map[amount:5 last_updated:160]\n" || counts(m)[0] != 3 {
+		t.Fatalf("a tier below must not touch the row of an item it does not give: %v %s", m, rowOf(t, o, "Schematic.L"))
+	}
+}
+
+// A write that fails halfway leaves nothing behind: the contribution, the rows and the one-time row are what they were (one transaction), and the removal is refused with the error.
+func TestTakeBackAFailingWriteRollsEverythingBack(t *testing.T) {
+	cases := []struct {
+		name, trigger, prep string
+	}{
+		{"the update of a row that keeps a remainder", `create trigger boom before update on landsraad_house_rewards begin select raise(abort, 'boom'); end`,
+			`update landsraad_house_rewards set amount=6 where player_id=1 and template_id='Schematic.L'`},
+		{"the delete of a row", `create trigger boom before delete on landsraad_house_rewards begin select raise(abort, 'boom'); end`, ``},
+		{"the delete of the one-time swatch row, after the swatch row was deleted", `create trigger boom before delete on landsraad_player_one_time_house_rewards begin select raise(abort, 'boom'); end`, ``},
+	}
+	for _, c := range cases {
+		o := rewardOps(t, "")
+		kenolaFromZero(t, o, 6000)
+		if c.prep != "" {
+			setup(t, o, c.prep)
+		}
+		setup(t, o, c.trigger)
+		rowsBefore, oneBefore, edits := rewardRows(t, o), oneTimeRows(t, o), len(o.S.Pending())
+		_, err := o.LandsraadApplyWith(doubled(), applyArgs(house(175, Args{"was_mine": 6000.0, "mine_to": 3600.0, "lower": true})))
+		if err == nil || !strings.Contains(err.Error(), "boom") {
+			t.Fatalf("%s: the write did not fail with the error: %v", c.name, err)
+		}
+		if got := contribution(t, o, 1, 175); got != 6000 {
+			t.Fatalf("%s: the contribution went down although the write failed: %v", c.name, got)
+		}
+		if rewardRows(t, o) != rowsBefore || oneTimeRows(t, o) != oneBefore || len(o.S.Pending()) != edits {
+			t.Fatalf("%s: something was written by a failed removal", c.name)
+		}
 	}
 }
 
@@ -352,4 +636,34 @@ func TestTakeBackARefusedRemovalTakesNothingBack(t *testing.T) {
 	kenolaFromZero(t, o, 6000)
 	wantApplyError(t, o, applyArgs(house(175, Args{"was_mine": 6000.0, "mine_to": 3600.0})), apierr.ErrBadArgument)
 	wantApplyError(t, o, applyArgs(house(175, Args{"was_mine": 5000.0, "mine_to": 3600.0, "lower": true})), apierr.ErrConflict)
+}
+
+// A record that lost notes of ground it paid (a failing sink past its bound) does not say what it vouches for: a raise is refused, a removal still goes through and no waiting reward is taken back.
+func TestTakeBackWithADroppedNoteStillRemovesAndKeepsTheRewards(t *testing.T) {
+	o, _ := paidOps(t, "")
+	fillKenolaDoubled(t, o, 1300, 6000)
+	flush(t, o)
+	fail := true
+	failingRecord(o, &fail)
+	for i := 0; i < 1001; i++ {
+		if _, err := o.S.Mutate("note", func(m *save.Mut) error {
+			if _, err := m.Exec(`update player_virtual_currency_balances set balance=balance+1 where player_controller_id=1 and currency_id=0`); err != nil {
+				return err
+			}
+			return m.Note(paidNoteKind, paidNote{Player: 1, Term: 7, House: "DA_HouseOther", Faction: 2, Paid: 100})
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	flushWithWarning(t, o)
+	if !o.S.NotesDropped() {
+		t.Fatal("the save does not say that notes were dropped")
+	}
+	m := removeKenola(t, o, 6000, 3600)
+	if got := counts(m); got != [4]int64{0, 0, 2, 0} || m["contribution_lowered"].(int64) != 1 {
+		t.Fatalf("answer: %v", m)
+	}
+	if rowOf(t, o, "Schematic.L") == "" || rowOf(t, o, "Kenola_Placeables_Swatch") == "" {
+		t.Fatal("a reward was taken back although the record cannot say what it vouches for")
+	}
 }
