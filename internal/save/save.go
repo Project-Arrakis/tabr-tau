@@ -626,6 +626,15 @@ func (s *Save) DiscardReport() (dropped bool, err error) {
 	defer s.flushMu.Unlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// A write that could not be read back is waiting to be settled (settle.go): its edits are in the game's file and their notes have not gone to the sink. Reading the file again would
+	// drop them with the queue, and the record of the ground a Landsraad raise paid would lose that raise (#799). So the file is looked at first: if it is the one that was written the edits
+	// are settled and their notes handed over; if it cannot be read yet nothing is thrown away and the person is told to try again.
+	if s.writing != "" {
+		s.settleWrittenLocked()
+		if s.writing != "" {
+			return false, errors.New(unverifiedDiscardWhy)
+		}
+	}
 	queued := s.dirty || s.held != nil
 	if err := s.load(); err != nil {
 		return false, err

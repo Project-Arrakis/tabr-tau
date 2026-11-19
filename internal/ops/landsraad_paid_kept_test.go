@@ -143,6 +143,10 @@ func TestPaidAnUnusableFileIsMovedAsideBeforeTheNewOneIsWritten(t *testing.T) {
 		"no version":                  `{"save":"` + mine + `",` + entry + `}`,
 		"negative version":            `{"version":-1,"save":"` + mine + `",` + entry + `}`,
 		"too large, version past cap": `{"pad":"` + strings.Repeat("x", paidMaxBytes) + `","version":2,"save":"` + mine + `",` + entry + `}`,
+		// an over-cap file whose readable version is at or below 1 is moved aside too (#841): the version is whole before the cap and says nothing newer
+		"too large, version 0":        `{"version":0,"save":"` + mine + `",` + entry + `,"pad":"` + strings.Repeat("x", paidMaxBytes) + `"}`,
+		"too large, negative version": `{"version":-1,"save":"` + mine + `",` + entry + `,"pad":"` + strings.Repeat("x", paidMaxBytes) + `"}`,
+		"too large, another save":     `{"version":1,"save":"c:\\other\\game.db",` + entry + `,"pad":"` + strings.Repeat("x", paidMaxBytes) + `"}`,
 		"byte order mark":             "\ufeff" + `{"version":1,"save":"` + mine + `",` + entry + `}`,
 		"trailing garbage":            `{"version":1,"save":"` + mine + `",` + entry + `}x`,
 		"newer with trailing garbage": `{"version":2,"save":"` + mine + `",` + entry + `}x`,
@@ -154,12 +158,15 @@ func TestPaidAnUnusableFileIsMovedAsideBeforeTheNewOneIsWritten(t *testing.T) {
 			t.Fatal(err)
 		}
 		l := NewPaidLedger(path, `C:\X\game.db`)
+		// every row reports, so a failing one does not hide the rest (#841)
 		if err := l.Record([]save.Note{keptNote("New", 1200)}); err != nil {
-			t.Fatalf("%s: %v", name, err)
+			t.Errorf("%s: %v", name, err)
+			continue
 		}
 		a := asideFiles(t, path)
 		if len(a) != 1 {
-			t.Fatalf("%s: the old file was not kept: %v", name, a)
+			t.Errorf("%s: the old file was not kept: %v", name, a)
+			continue
 		}
 		if got, _ := os.ReadFile(a[0]); string(got) != content {
 			t.Errorf("%s: the copy kept aside is not the old file", name)

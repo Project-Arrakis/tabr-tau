@@ -15,6 +15,17 @@ import (
 // record holds for the house. The sink only merges such a note, so the board and a raise must not read it as a replace either: the 6,000 already in the file stands, and a removal
 // followed by the same raise pays nothing (#810).
 func TestPaidAKeptNoteThatComesAgainDoesNotLowerTheRecordForARaise(t *testing.T) {
+	keptNoteComesAgain(t, true)
+}
+
+// The same without the look at the board first: the raise guard stands on its own. The board read and the raise share pendingPaid today; if they ever differ, this one still fails when the
+// raise reads the kept note as a replace (#834).
+func TestPaidAKeptNoteThatComesAgainDoesNotLowerTheRecordForARaiseAlone(t *testing.T) {
+	keptNoteComesAgain(t, false)
+}
+
+func keptNoteComesAgain(t *testing.T, lookAtTheBoard bool) {
+	t.Helper()
 	o, path := paidOps(t, "")
 	jp := filepath.Join(t.TempDir(), "pending.json")
 	o.S.EnableJournal(jp)
@@ -62,8 +73,10 @@ func TestPaidAKeptNoteThatComesAgainDoesNotLowerTheRecordForARaise(t *testing.T)
 	if s2.NotesProblem() == "" || len(kept) != 1 || !kept[0].Again {
 		t.Fatalf("the note must be kept, and marked as one that comes again: %+v, %q", kept, s2.NotesProblem())
 	}
-	if got := taskByID(t, o2, 175)["my_paid"]; got != 6000.0 {
-		t.Fatalf("the board must show the 6000 of the file, not the replace of the note that comes again: %v", got)
+	if lookAtTheBoard {
+		if got := taskByID(t, o2, 175)["my_paid"]; got != 6000.0 {
+			t.Fatalf("the board must show the 6000 of the file, not the replace of the note that comes again: %v", got)
+		}
 	}
 	solari := wallet(t, o2, 0)
 	removeTo(t, o2, 6000, 0)
