@@ -440,7 +440,7 @@
       const how = [];
       if (d.routes.includes('line')) how.push(FACTION_WORD[f] + ' hold five Houses in ' + (n === 1 ? 'one line' : n + ' lines') + ': ' + listWords(d.lines.map((id) => lineWord(ev.lines.find((l) => l.id === id)))) + '.');
       if (d.routes.includes('houses')) how.push(FACTION_WORD[f] + ' hold ' + c[f] + ' of the 25 Houses.');
-      return { state: d.routes.includes('line') ? 'line' : 'count', faction: f, tag, head: W.headline(d), foot: W.how(d), say: say + ' ' + how.join(' ') };
+      return { state: d.routes.includes('line') ? 'line' : 'count', faction: f, tag, head: W.headline(d), foot: W.how(d) + (d.conflictPossible ? ' · ' + T.tallyMaybe : ''), say: say + ' ' + how.join(' ') };
     }
     if (d.why === 'both') return { state: 'conflict', faction: '', tag, head: W.tally(d), foot: '', say };
     if (d.why === 'unreadable') return { state: 'unreadable', faction: '', tag, head: W.tally(d), foot: countLine(board, ev), say: say + ' A House that cannot be read is counted for neither faction.' };
