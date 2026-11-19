@@ -80,8 +80,10 @@ test('the seats share one size, sit on one line, step by one pitch, and the two 
   assert.equal(xs[13] - xs[12], T.mid);
   assert.equal(xs[12], L.GEOMETRY.W / 2, 'the 13th seat is on the middle of the plaque and of the track');
   assert.ok(g.every((x) => cy(x) === T.cy));
-  const radii = new Set(g.map((x) => x.querySelector('.lcc-seat-base').getAttribute('r')));
-  assert.deepEqual([...radii], [String(T.r)], 'every seat has the same diameter');
+  const radii = new Set(g.filter((x) => !x.classList.contains('lcc-seat-center')).map((x) => x.querySelector('.lcc-seat-base').getAttribute('r')));
+  assert.deepEqual([...radii], [String(T.r)], 'every seat but the 13th has the same diameter');
+  // the 13th seat is a ring about twice as wide as a seat (#983): 1.8 to 2 times the outer diameter of an ordinary seat
+  assert.ok(T.halo / T.seat >= 1.8 && T.halo / T.seat <= 2, 'ring is ' + T.halo / T.seat + ' times a seat');
   // the field of the seats is measured between the inner walls, not from the picture
   const first = xs[0] - T.seat, last = xs[24] + T.seat;
   assert.equal(first - T.wallL, T.wallR - last, 'Atreides and Harkonnen start the same distance from their own wall');

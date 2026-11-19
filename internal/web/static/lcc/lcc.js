@@ -234,10 +234,14 @@
   // above them. Nothing here is a picture with text in it.
   const W = 2172, H = 724;
   // The seats are spaced by the gap between their OUTER edges, so that all 24 gaps are equal (#965): seat is the outer radius of an ordinary seat (its circle and its 2 unit outline), halo the outer
-  // radius of the gold ring of the 13th seat (the ring and its stroke, still or won, so the same size in every state), gap the clear space between any two neighbouring outer edges. pitch is the
-  // distance between the centres of two ordinary neighbours, and mid the distance from the 13th seat's centre to the centre of its two neighbours: both follow from the three.
-  const SEAT_OUT = 20, HALO_OUT = 33, SEAT_GAP = 11, HALO_W = 5, HALO_W_WIN = 6;
-  const TRACK = Object.freeze({ cx: W / 2, cy: 396, r: 19, seat: SEAT_OUT, halo: HALO_OUT, gap: SEAT_GAP, pitch: 2 * SEAT_OUT + SEAT_GAP, mid: HALO_OUT + SEAT_GAP + SEAT_OUT, tipL: 334, tipR: 1838, wallL: 410, wallR: 1762, top: 330, bottom: 462 });
+  // radius of the ring of the 13th seat (the ring and its stroke, still or won, so the same size in every state; 40 against 20 is a ring twice as wide as a seat, #983), gap the clear space
+  // between any two neighbouring outer edges. pitch is the distance between the centres of two ordinary neighbours, and mid the distance from the 13th seat's centre to the centre of its two
+  // neighbours: both follow from the three. The two wedges of the 13th seat (an upward one on the top of the ring, a downward one on the bottom) run up and down, not sideways: their base corners
+  // are on the ring (wedge is the distance of a tip from the centre, wedgeHalf the half width of the base), so they never take room from the gap to a neighbour.
+  const SEAT_OUT = 20, HALO_OUT = 40, SEAT_GAP = 11, HALO_W = 5, HALO_W_WIN = 6, WEDGE_TIP = 72, WEDGE_HALF = 24;
+  // the faceted diamond above the upward wedge: half width and half height, and the clear space between the outer edge of the wedge's tip and the gem's lower point (#983: 1 to 2 px)
+  const GEM_HALF_W = 16, GEM_HALF_H = 23, GEM_GAP = 2, GEM_STROKE = 2;
+  const TRACK = Object.freeze({ cx: W / 2, cy: 396, r: 19, seat: SEAT_OUT, halo: HALO_OUT, wedge: WEDGE_TIP, wedgeHalf: WEDGE_HALF, gap: SEAT_GAP, pitch: 2 * SEAT_OUT + SEAT_GAP, mid: HALO_OUT + SEAT_GAP + SEAT_OUT, tipL: 334, tipR: 1838, wallL: 410, wallR: 1762, top: 330, bottom: 462 });
   // x of a seat's centre. The 13th sits on the middle of the track and the others step away from it by TRACK.pitch, the first one by TRACK.mid (the gold ring is wider than a seat), so every gap between two
   // neighbouring outer edges is TRACK.gap and the two ends are inset by the same amount.
   const seatX = (i) => { const k = i - CENTER; return k === 0 ? TRACK.cx : TRACK.cx + Math.sign(k) * (TRACK.mid + (Math.abs(k) - 1) * TRACK.pitch); };
@@ -255,13 +259,29 @@
     // centred on the seat, so the edge of the circle is the same colour all the way round (#971): a gradient lit from the upper left made the right edge of every seat darker than the left
     return sv('radialGradient', { id, cx: '50%', cy: '50%', r: '50%' }, stops.map((s) => sv('stop', { offset: s[0], 'stop-color': s[1] })));
   }
-  function glow(id, dev) {
-    return sv('filter', { id, x: '-10%', y: '-10%', width: '120%', height: '120%' }, [sv('feGaussianBlur', { stdDeviation: dev })]);
+  function glow(id, dev, pad) {
+    const m = pad == null ? 10 : pad; // percent of the box on every side: the glow of a small shape needs more than the 10 that a long rail does
+    return sv('filter', { id, x: '-' + m + '%', y: '-' + m + '%', width: (100 + 2 * m) + '%', height: (100 + 2 * m) + '%' }, [sv('feGaussianBlur', { stdDeviation: dev })]);
+  }
+  // The 13th seat's outline (#983): the ring and its two wedges as ONE closed path, so the rim runs from the ring into the wedge sides without a seam. r is the radius of the ring's centre line,
+  // hw the stroke; the base corners of a wedge are on the ring (WEDGE_HALF either side of the axis), the tips are WEDGE_TIP from the centre up and down, mirror images. Coordinates are relative
+  // to the seat's centre. ty is the height of the base corners, tip the distance of a tip.
+  function centreOutline(hw) {
+    const r = HALO_OUT - hw / 2, c = WEDGE_HALF, ty = Math.sqrt(r * r - c * c), t = WEDGE_TIP;
+    const n = (v) => Math.round(v * 1000) / 1000;
+    return { r, ty: n(ty), tip: t, d: 'M' + c + ',' + n(-ty) + ' A' + n(r) + ',' + n(r) + ' 0 0 1 ' + c + ',' + n(ty) + ' L0,' + t + ' L' + -c + ',' + n(ty) + ' A' + n(r) + ',' + n(r) + ' 0 0 1 ' + -c + ',' + n(-ty) + ' L0,' + -t + ' Z', bottom: 'M' + -c + ',' + n(ty) + ' L' + c + ',' + n(ty) + ' L0,' + t + ' Z', top: 'M' + -c + ',' + n(-ty) + ' L' + c + ',' + n(-ty) + ' L0,' + -t + ' Z' };
+  }
+  // the faceted gem above the 13th seat, relative to the seat's centre: its lower point is GEM_GAP above the outer edge of the upward wedge's tip (the tip's own stroke counted), four facets
+  function centreGem(hw) {
+    const bottom = -(WEDGE_TIP + hw / 2 + GEM_GAP + GEM_STROKE / 2), mid = bottom - GEM_HALF_H * 2 * 0.58, top = bottom - GEM_HALF_H * 2, w = GEM_HALF_W;
+    const P = (x, y) => x + ',' + y;
+    return { top, bottom, mid, outline: 'M' + P(0, top) + ' L' + P(w, mid) + ' L' + P(0, bottom) + ' L' + P(-w, mid) + ' Z',
+      facets: ['M' + P(0, top) + ' L' + P(-w, mid) + ' L' + P(0, mid) + ' Z', 'M' + P(0, top) + ' L' + P(w, mid) + ' L' + P(0, mid) + ' Z', 'M' + P(-w, mid) + ' L' + P(0, bottom) + ' L' + P(0, mid) + ' Z', 'M' + P(w, mid) + ' L' + P(0, bottom) + ' L' + P(0, mid) + ' Z'] };
   }
   const strokePath = (d, stroke, w, extra) => sv('path', Object.assign({ d, fill: 'none', stroke, 'stroke-width': w, 'stroke-linejoin': 'miter' }, extra || {}));
   const mirror = (x) => W - x;
   // The size of the crest pictures in the 2172 x 724 drawing (the picture is a 256 square with its margin: the visible crest is about three quarters of it), as the approved V20 plaque shows them.
-  const SHIELD_MARK = 120, STANDARD_MARK = 88, SEAT_MEDAL = 2 * TRACK.r + 2, SEAT_MARK = 44;
+  const SHIELD_MARK = 120, STANDARD_MARK = 88, SEAT_MEDAL = 2 * TRACK.r + 2, SEAT_MARK = 50;
   // The medallion pictures carry their own lighting: the rim of the Atreides medallion is bright on its left and dull on its right (about 20 percent), the Harkonnen one the other way round. A flat ring of the
   // faction's colour is drawn over that rim, centred on the rim's own middle, so a claimed seat is the same all the way round (#971). RIM_R is the middle of the picture's rim, RIM_W its width, both in the
   // drawing's units; the ring stays inside the seat's outer edge (RIM_R + RIM_W / 2 is below SEAT_OUT).
@@ -372,8 +392,12 @@
       rgrad(p + 'sa', [[0, '#5ff0c8'], [0.6, '#14a07c'], [1, '#0b6a52']]),
       rgrad(p + 'sh', [[0, '#ff7b6e'], [0.6, '#c4242a'], [1, '#8a1218']]),
       rgrad(p + 'so', [[0, '#f1dcb4'], [0.7, '#c9aa70'], [1, '#a08450']]),
-      rgrad(p + 'sc', [[0, '#fff3c4'], [0.6, '#e8b84e'], [1, '#b07a24']]),
+      rgrad(p + 'sc', [[0, '#0a0805'], [0.55, '#15100a'], [0.85, '#2c1f0c'], [1, '#6b4a14']]), // the dark interior of the 13th seat's ring, a warm light at its rim
+      grad(p + 'rg', 0, 0, 0, 1, [[0, GOLD.mid], [0.5, GOLD.hi], [1, GOLD.mid]]), // the ring's rim: the same at the top and the bottom, brightest across the middle
+      grad(p + 'wd', 0, 0, 0, 1, [[0, '#c48a2e'], [0.55, GOLD.mid], [1, '#fff6cf']]), // the downward wedge: deeper gold at the base corners, pale at the tip
+      grad(p + 'wu', 0, 1, 0, 0, [[0, '#c48a2e'], [0.55, GOLD.mid], [1, '#fff6cf']]), // the upward wedge, the same flipped
       glow(p + 'tblur', 4),
+      glow(p + 'cblur', 6, 30),
     ]);
     const body = 'M' + T.tipL + ',' + T.cy + ' L' + T.wallL + ',' + T.top + ' H' + T.wallR + ' L' + T.tipR + ',' + T.cy + ' L' + T.wallR + ',' + T.bottom + ' H' + T.wallL + ' Z';
     const inner = 'M' + (T.tipL + 24) + ',' + T.cy + ' L' + (T.wallL + 6) + ',' + (T.top + 12) + ' H' + (T.wallR - 6) + ' L' + (T.tipR - 24) + ',' + T.cy + ' L' + (T.wallR - 6) + ',' + (T.bottom - 12) + ' H' + (T.wallL + 6) + ' Z';
@@ -384,11 +408,7 @@
       sv('path', { d: body, fill: 'none', stroke: g('tg'), 'stroke-width': 7, 'stroke-linejoin': 'miter' }),
       sv('path', { class: 'lcc-glow-line', d: inner, fill: 'none', stroke: g('rail'), 'stroke-width': 3, 'stroke-linejoin': 'miter' }),
     ];
-    // the middle gem above the hub and the point below it
-    const gx = T.cx;
-    kids.push(sv('path', { d: 'M' + gx + ',226 L' + (gx + 34) + ',270 L' + gx + ',312 L' + (gx - 34) + ',270 Z', class: 'lcc-glow-edge', fill: g('sc'), stroke: GOLD.lo, 'stroke-width': 3, 'stroke-linejoin': 'round' }));
-    kids.push(sv('path', { d: 'M' + gx + ',226 L' + (gx + 34) + ',270 L' + gx + ',286 L' + (gx - 34) + ',270 Z', fill: '#fff6cf', opacity: 0.35 }));
-    kids.push(sv('path', { d: 'M' + (gx - 16) + ',462 L' + gx + ',488 L' + (gx + 16) + ',462 Z', class: 'lcc-glow-edge', fill: g('tg'), stroke: GOLD.lo, 'stroke-width': 2 }));
+    // the middle gem above the hub and the two wedges are part of the 13th seat now (drawn in its group, #983)
     // seats
     const states = seatStates(a, h) || seatStates(0, 0);
     const seats = sv('g', { class: 'lcc-seats' });
@@ -399,14 +419,30 @@
       if (s.center) {
         // the ring's outer edge is T.halo in both states: a bolder stroke (a won seat) is drawn inward
         const hw = win13 ? HALO_W_WIN : HALO_W;
-        sg.appendChild(sv('circle', { class: 'lcc-seat-halo', r: T.halo - hw / 2, fill: 'none', stroke: g('tg'), 'stroke-width': hw }));
+        const o = centreOutline(hw), gem = centreGem(hw);
+        // behind: the glow of the outline, then the dark interior, the two wedges and the ring with its wedges as one outline, then the separate faceted gem
+        sg.appendChild(sv('path', { class: 'lcc-glow lcc-glow-seat', d: o.d, fill: 'none', stroke: GOLD.mid, 'stroke-width': hw + 5, 'stroke-linejoin': 'round', filter: g('cblur'), 'aria-hidden': 'true' }));
+        sg.appendChild(sv('circle', { class: 'lcc-seat-base', r: o.r, fill: g('sc'), stroke: GOLD.hi, 'stroke-width': 1.5, 'stroke-opacity': 0.5 }));
+        sg.appendChild(sv('path', { class: 'lcc-seat-wedge lcc-seat-wedge-top', d: o.top, fill: g('wu') }));
+        sg.appendChild(sv('path', { class: 'lcc-seat-wedge lcc-seat-wedge-bottom', d: o.bottom, fill: g('wd') }));
+        sg.appendChild(sv('path', { class: 'lcc-seat-halo', d: o.d, fill: 'none', stroke: g('rg'), 'stroke-width': hw, 'stroke-linejoin': 'round' }));
+        const gm = sv('g', { class: 'lcc-seat-gem', 'aria-hidden': 'true' });
+        gm.appendChild(sv('path', { class: 'lcc-glow lcc-glow-seat', d: gem.outline, fill: GOLD.mid, stroke: 'none', filter: g('tblur') }));
+        const tones = ['#fff3c4', '#ffe08a', '#d9a23e', '#b9822a']; // upper left, upper right, lower left, lower right: pale at the top, deeper at the sides and below
+        gem.facets.forEach((d, i) => gm.appendChild(sv('path', { class: 'lcc-seat-facet', d, fill: tones[i] })));
+        gm.appendChild(sv('path', { class: 'lcc-glow-edge', d: gem.outline, fill: 'none', stroke: GOLD.lo, 'stroke-width': GEM_STROKE, 'stroke-linejoin': 'round' }));
+        sg.appendChild(gm);
         if (win13) {
           sg.setAttribute('data-win13', win13);
           sg.setAttribute('class', sg.getAttribute('class') + ' lcc-seat-win13');
-          sg.appendChild(sv('circle', { class: 'lcc-seat-win-sweep', r: T.halo - HALO_W_WIN / 2, fill: 'none', 'stroke-width': HALO_W_WIN, 'stroke-linecap': 'round', 'stroke-dasharray': '42 147', 'aria-hidden': 'true' }));
+          // the travelling arc runs round the ring only: the two wedges are cut out of its clip, so it never crosses a wedge
+          sg.appendChild(sv('clipPath', { id: p + 'ringclip' }, [sv('path', { d: 'M-90,-130 H90 V130 H-90 Z ' + o.top + ' ' + o.bottom, 'clip-rule': 'evenodd' })]));
+          const sweepG = sv('g', { 'clip-path': g('ringclip') });
+          sweepG.appendChild(sv('circle', { class: 'lcc-seat-win-sweep', r: T.halo - HALO_W_WIN / 2, fill: 'none', 'stroke-width': HALO_W_WIN, 'stroke-linecap': 'round', 'stroke-dasharray': '42 147', 'aria-hidden': 'true' }));
+          sg.appendChild(sweepG);
         }
       }
-      sg.appendChild(sv('circle', { class: 'lcc-seat-base', r: T.r, fill: g(s.state === 'a' ? 'sa' : s.state === 'h' ? 'sh' : s.center ? 'sc' : 'so'), stroke: s.center ? GOLD.hi : '#2a2112', 'stroke-width': s.center ? 3.5 : 2 }));
+      if (!s.center) sg.appendChild(sv('circle', { class: 'lcc-seat-base', r: T.r, fill: g(s.state === 'a' ? 'sa' : s.state === 'h' ? 'sh' : 'so'), stroke: '#2a2112', 'stroke-width': 2 }));
       // a mark inside a claimed seat tells the two factions apart without colour: a V for Atreides, a ring for Harkonnen. It is the drawn fallback: the faction's picture covers it once the picture
       // has loaded (the round medallion on a claimed seat, the white crest on the gold 13th seat, as in the approved plaque), and a forced-colours view shows it instead of the picture.
       if (s.state === 'a') sg.appendChild(sv('path', { class: 'lcc-seat-mark', d: 'M-9,-6 L0,10 L9,-6 L0,-1 Z', fill: '#f4efe0' }));
@@ -593,7 +629,7 @@
   const api = {
     HOUSES, TRACKS, DECREE_FILES, DECREE_FALLBACK, SEATS, CENTER, TRACK, GEOMETRY: Object.freeze({ W, H }),
     config, houseAsset, laneAsset, bannerAsset, emblemAsset, decreeAsset, factionAsset, standardTipAsset,
-    seatStates, seatLabel, seatX, seatOuter, standingLine, summaryText, laneState,
+    seatStates, seatLabel, seatX, seatOuter, centreOutline, centreGem, standingLine, summaryText, laneState,
     pill, ruleV, heldBy, standard, badge, richTip, frame, victory, VICTORY, winAnimOn,
     renderPlaque, renderHouseCard, renderLaneCard, el, houseTitle,
   };
