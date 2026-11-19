@@ -182,7 +182,8 @@ test('each card carries the specialization emblem of its mapped path in the uppe
   const un = await open(a);
   const c = tileOf(un, 'Wallach');
   assert.equal(c.querySelector('.lcc-hc-spec'), null, 'no emblem when the save gives no path');
-  assert.equal(text(c.querySelector('.lcc-hc-track')), 'Specialization not in the save');
+  assert.equal(text(c.querySelector('.lcc-hc-track')), '—', 'a dash; the reason is the hover text (#1056)');
+  assert.equal(c.querySelector('.lcc-hc-track').getAttribute('title'), 'Specialization not in the save');
   assert.match(c.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /specialization not in the save/);
 });
 

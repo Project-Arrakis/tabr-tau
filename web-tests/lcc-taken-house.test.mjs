@@ -146,7 +146,8 @@ test('a taken House with no contributor row keeps "Not in the save" and says why
   assert.match([...ui.doc.querySelectorAll('.lcc-standard-h')].map((h) => h.getAttribute('title')).join(' | '), /holds no contribution rows under Atreides/);
   click(ui, tileOf(ui, 'Mutelli').querySelector('button'));
   const n = text(ui.doc.querySelector('.lcc-bd-insp .lcc-bd-nosave'));
-  assert.match(n, /^Top contributors: not in the save\. The favor of this House is won but the save holds no contributor row for it/);
+  assert.equal(n, '—', 'a dash under TOP CONTRIBUTORS, as the banner shows it (#1056)');
+  assert.match(ui.doc.querySelector('.lcc-bd-insp .lcc-bd-nosave').getAttribute('title'), /^Top contributors: not in the save\. The favor of this House is won but the save holds no contributor row for it/);
   assert.match(ui.doc.querySelector('.lcc-bd-insp #lcc-bd-s1').getAttribute('title'), /Top contributors: Not in the save \(the save has no contributor row for this House, whose favor is won\)\. Missions: Not in the save\./);
   // an open House says no more than before
   click(ui, tileOf(ui, 'Sor').querySelector('button'));
