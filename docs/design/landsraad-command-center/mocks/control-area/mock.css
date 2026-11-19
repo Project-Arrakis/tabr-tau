@@ -1,0 +1,95 @@
+/* Control area mock (tau #974). Static design mock, synthetic data, no save is read and nothing is written. Built from the real tokens of the design module (design/assets/tokens-fremen.css) and the
+   Command Center aliases (internal/web/static/lcc/lcc.css, lcc-board.css); everything new is scoped to .cam- so it cannot leak into the editor. Rules of the mock: one control height (36 px,
+   44 px at phone widths and for a coarse pointer, #954), one control font (13 px, 12 px in a narrow box), labels 12 px, regular and dim, spacing on an 8 px step, one accent colour (the gold), square edges. */
+body { margin: 0; padding: 16px 0 40px; background: var(--c-ground); color: var(--c-text); font: var(--t-md)/1.45 var(--t-body); }
+.cam-note { max-width: 858px; margin: 0 auto 8px; padding: 0 8px; font: 12px/1.4 var(--lcc-sans, sans-serif); color: var(--c-dim); }
+.cam-wrap { width: min(858px, 100%); margin: 0 auto; padding: 0; border: 0; background: none; }
+.cam-frame { position: relative; overflow: hidden; }
+
+.cam-page { --cam-h: 36px; --cam-gap: 8px; --cam-fs: 13px; }
+@media (max-width: 640px), (pointer: coarse) { .cam-page { --cam-h: 44px; } }
+@container (max-width: 520px) { .cam-page { --cam-fs: 12px; } }
+
+/* ---- the pieces ---- */
+.cam-lbl { font: 500 12px/1.2 var(--lcc-sans); color: var(--lcc-dim); white-space: nowrap; }
+.cam-field { display: inline-flex; align-items: center; gap: var(--cam-gap); min-width: 0; }
+.cam-seg { display: inline-flex; box-sizing: border-box; }
+.cam-seg button { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; min-height: var(--cam-h); padding: 0 12px; font: 500 var(--cam-fs)/1.2 var(--lcc-sans); color: var(--lcc-dim); background: var(--lcc-raised); border: 1px solid var(--lcc-stroke); cursor: pointer; white-space: nowrap; }
+.cam-seg button + button { margin-left: -1px; }
+.cam-seg button[aria-pressed="true"] { position: relative; z-index: 1; }
+.cam-seg button:hover { color: var(--lcc-text); }
+.cam-seg button[aria-pressed="true"] { color: var(--lcc-text); font-weight: 600; background: color-mix(in srgb, var(--lcc-gold) 12%, var(--lcc-raised)); box-shadow: inset 0 -2px 0 var(--lcc-gold-text); }
+.cam-select { box-sizing: border-box; min-height: var(--cam-h); max-width: 100%; padding: 0 12px; font: 500 var(--cam-fs)/1.2 var(--lcc-sans); color: var(--lcc-text); background: var(--lcc-raised); border: 1px solid var(--lcc-stroke); border-radius: 0; }
+.cam-btn { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: var(--cam-h); padding: 0 16px; font: 600 var(--cam-fs)/1.2 var(--lcc-sans); color: var(--lcc-text); background: var(--lcc-raised); border: 1px solid var(--lcc-stroke); cursor: pointer; white-space: nowrap; }
+.cam-btn:hover { border-color: var(--lcc-gold-text); }
+.cam-btn.cam-primary { color: var(--lcc-on-gold); background: var(--lcc-gold); border-color: var(--lcc-gold); }
+.cam-btn.cam-primary:hover { background: var(--lcc-gold-hi); border-color: var(--lcc-gold-hi); }
+:root[data-theme="light"] .cam-btn.cam-primary:hover { background: var(--lcc-gold-lo); border-color: var(--lcc-gold-lo); }
+.cam-btn[aria-disabled="true"] { opacity: .5; cursor: not-allowed; border-style: dashed; }
+.cam-btn[aria-disabled="true"].cam-primary { background: transparent; color: var(--lcc-text); border-color: var(--lcc-gold-text); }
+.cam-chg { font: 700 11px/1 var(--lcc-sans); padding: 2px 5px; border: 1px solid currentColor; }
+.cam-link { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; min-height: var(--cam-h); padding: 0 8px; font: 500 var(--cam-fs)/1.2 var(--lcc-sans); color: var(--lcc-text); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.cam-link:hover { color: var(--lcc-gold-text); }
+.cam-link[aria-disabled="true"] { opacity: .5; cursor: not-allowed; text-decoration: none; }
+.cam-seg button:focus-visible, .cam-select:focus-visible, .cam-btn:focus-visible, .cam-link:focus-visible, .cam-confirm:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 2px; }
+.cam-count { font: 600 12px/1.2 var(--lcc-sans); color: var(--lcc-dim); white-space: nowrap; }
+
+/* ---- the view bar: read-only, flat, no box of its own ---- */
+.cam-view { display: grid; gap: var(--cam-gap); margin-top: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--lcc-stroke-faint); }
+.cam-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cam-gap) 24px; min-width: 0; }
+.cam-end { margin-left: auto; }
+.cam-row .cam-count { margin-left: auto; }
+.cam-row .cam-count + .cam-link, .cam-row .cam-link + .cam-count { margin-left: 0; }
+
+/* ---- option A: the action bar is its own sunken strip under the view bar ---- */
+.cam-act { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cam-gap) 24px; margin-top: 16px; padding: 8px 16px; background: var(--lcc-sunken); border: 1px solid var(--lcc-stroke); }
+.cam-sum { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 0 4px; margin-right: auto; }
+.cam-sum [data-cam="sum"] { font: 600 var(--cam-fs)/1.2 var(--lcc-sans); color: var(--lcc-text); margin-right: 8px; }
+.cam-do { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--cam-gap) 16px; }
+.cam-btns { display: inline-flex; flex-wrap: wrap; gap: var(--cam-gap); }
+.cam-confirm { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--cam-gap); margin: 0; padding-top: 8px; border-top: 1px solid var(--lcc-stroke-faint); font: 600 var(--cam-fs)/1.3 var(--lcc-sans); }
+.cam-confirm[hidden] { display: none; }
+.cam-q { flex: 1 1 320px; min-width: 0; font: 500 12px/1.5 var(--lcc-sans); color: var(--lcc-text); }
+.cam-qb { display: inline-flex; flex-wrap: wrap; gap: var(--cam-gap); margin-left: auto; }
+
+/* ---- option B: the action bar floats at the foot of the board while Houses are chosen ---- */
+.cam-float { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: var(--cam-gap) 24px; padding: 8px 24px calc(8px + env(safe-area-inset-bottom, 0px)); background: var(--lcc-sunken); border-top: 1px solid var(--lcc-gold-text); box-shadow: 0 -8px 20px rgba(0, 0, 0, .3); animation: cam-up .16s ease-out; }
+.cam-page[data-state="idle"] .cam-float { display: none; }
+@keyframes cam-up { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .cam-float { animation: none; } }
+
+/* ---- the board stub: a stand-in so the mock shows what sits under the control area (not part of the design) ---- */
+.cam-stub { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 16px 0 0; padding-bottom: 24px; }
+.cam-stub i { display: block; height: 72px; background: linear-gradient(var(--lcc-card-a), var(--lcc-card-b)); border: 1px solid var(--lcc-stroke-faint); }
+.cam-page[data-option="b"] .cam-stub { padding-bottom: 104px; }
+
+/* ---- narrow box: stack, full width, segments share the width ---- */
+@container (max-width: 520px) {
+  .cam-row { gap: var(--cam-gap); }
+  .cam-field { display: grid; gap: 4px; flex: 1 1 150px; }
+  .cam-field:has(> .cam-seg) { flex-basis: 100%; }
+  .cam-row > .cam-seg { flex: 1 1 40%; width: auto; }
+  .cam-field > .cam-select { width: 100%; }
+  .cam-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; }
+  .cam-field > .cam-seg { width: 100%; }
+  .cam-seg button { padding: 0 4px; text-align: center; }
+  .cam-end { margin-left: 0; }
+  .cam-row .cam-count { margin-left: 0; }
+  .cam-act { padding: 8px; }
+  .cam-sum { width: 100%; }
+  .cam-do { display: grid; width: 100%; gap: var(--cam-gap); }
+  .cam-btns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cam-btn { padding: 0 4px; }
+  .cam-float { padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .cam-stub { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cam-qb { display: grid; grid-template-columns: 1fr 1fr; width: 100%; margin-left: 0; }
+}
+
+@media (forced-colors: active) {
+  .cam-seg button, .cam-select, .cam-btn, .cam-act, .cam-float { background: Canvas; color: CanvasText; border: 1px solid CanvasText; box-shadow: none; }
+  .cam-seg button { color: ButtonText; }
+  .cam-seg button[aria-pressed="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; box-shadow: none; }
+  .cam-btn.cam-primary { background: ButtonFace; color: ButtonText; border: 2px solid ButtonText; }
+  .cam-btn[aria-disabled="true"] { color: GrayText; border-color: GrayText; }
+  .cam-link { color: LinkText; }
+}

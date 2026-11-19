@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'">
+<meta name="robots" content="noindex">
+<title>Control area, option B: view bar and a floating action bar (fixture data)</title>
+<!-- Design mock for tau #974, option B. Serve the repository folder with any static file server on a loopback address and open this file (?state=idle|chosen|confirm). Paths are relative to the repository. -->
+<link rel="stylesheet" href="../../../../../design/assets/tokens-fremen.css">
+<link rel="stylesheet" href="../../../../../design/assets/components-fremen.css">
+<link rel="stylesheet" href="../../../../../design/assets/components.css">
+<link rel="stylesheet" href="../../../../../internal/web/static/lcc/lcc.css">
+<link rel="stylesheet" href="../../../../../internal/web/static/lcc/lcc-board.css">
+<link rel="stylesheet" href="mock.css">
+<script src="mock.js" defer></script>
+</head>
+<body>
+<p class="cam-note" role="note"><strong>Design mock, option B.</strong> Fixture data. Nothing here reads a save or writes one; the board under the controls is a stand-in. The action bar shows only while Houses are chosen.</p>
+<div class="lcc lcc-bd cam-wrap cam-page" data-option="b" data-state="idle">
+<section class="lcc-bd-surface lcc-bd-panel cam-frame" aria-labelledby="lcc-bd-h">
+  <div class="lcc-bd-panel-title">
+    <p class="lcc-bd-eyebrow">THE GREAT HOUSES</p>
+    <h3 class="lcc-bd-h" id="lcc-bd-h">The Landsraad</h3>
+    <p class="lcc-bd-subline">Term 7 · Fixed 5 × 5 board · game positions read from board_index</p>
+  </div>
+
+  <!-- VIEW: read-only. Two rows. The only thing that touches the choice is the Choose all link at the end of row two. -->
+  <div class="cam-view" role="group" aria-label="View">
+    <div class="cam-row">
+      <div class="cam-field"><span class="cam-lbl" id="cam-l-show">Show</span>
+        <div class="cam-seg" role="group" aria-labelledby="cam-l-show">
+          <button type="button" aria-pressed="true">All</button><button type="button" aria-pressed="false">What is left</button><button type="button" aria-pressed="false">Not started</button><button type="button" aria-pressed="false">In progress</button><button type="button" aria-pressed="false">Top tier</button>
+        </div></div>
+      <div class="cam-field"><span class="cam-lbl" id="cam-l-house">House</span>
+        <div class="cam-seg" role="group" aria-labelledby="cam-l-house">
+          <button type="button" aria-pressed="true">Any</button><button type="button" aria-pressed="false">Not won</button><button type="button" aria-pressed="false">Favor won</button>
+        </div></div>
+    </div>
+    <div class="cam-row">
+      <label class="cam-field"><span class="cam-lbl">Specialization</span>
+        <select class="cam-select"><option>All</option><option>Crafting</option><option>Gathering</option><option>Exploration</option><option>Combat</option><option>Sabotage</option></select></label>
+      <label class="cam-field"><span class="cam-lbl">Jump to House</span>
+        <select class="cam-select"><option>Choose a House…</option><option>Alexin</option><option>Argosaz</option><option>Dyvetz</option><option>Ecaz</option><option>Hagal</option></select></label>
+      <div class="cam-seg" role="group" aria-label="Board layout"><button type="button" aria-pressed="true">Grid</button><button type="button" aria-pressed="false">List</button></div>
+      <span class="cam-count" role="status">25 of 25 Houses shown</span>
+      <button type="button" class="cam-link" data-cam="choose">Choose all</button>
+    </div>
+  </div>
+
+  <div class="cam-stub" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+  <!-- ACTIONS: write the save. A bar at the foot of the board that exists only while Houses are chosen (the page's phone bar, at every width). In the page it sits right after the view bar in
+       the focus order and is fixed to the bottom of the window; here it is held to the foot of the frame. -->
+  <div class="cam-float" role="group" aria-label="Actions on the chosen Houses">
+    <div class="cam-sum">
+      <span data-cam="sum" id="cam-sum" role="status">25 Houses chosen</span>
+      <button type="button" class="cam-link" data-cam="clear">Clear</button>
+    </div>
+    <div class="cam-do">
+      <label class="cam-field"><span class="cam-lbl">Faction</span>
+        <select class="cam-select" data-cam="faction" title="The faction Fill and Complete act for. It starts on your own faction. Choosing it writes nothing."><option value="1">Atreides (your faction)</option><option value="2">Harkonnen</option></select></label>
+      <div class="cam-btns">
+        <button type="button" class="cam-btn cam-primary" data-cam="act" data-do="fill">Fill <span class="cam-chg"></span></button>
+        <button type="button" class="cam-btn cam-primary" data-cam="act" data-do="complete">Complete <span class="cam-chg"></span></button>
+        <button type="button" class="cam-btn" data-cam="act" data-do="reopen">Reopen <span class="cam-chg"></span></button>
+      </div>
+    </div>
+    <p class="cam-confirm" data-cam="confirm" role="group" tabindex="-1" aria-label="Confirm" hidden><span class="cam-q" data-cam="q"></span><span class="cam-qb"><button type="button" class="cam-btn cam-primary" data-cam="yes">Fill 21 Houses</button><button type="button" class="cam-btn" data-cam="cancel">Cancel</button></span></p>
+  </div>
+  <p class="cam-count" data-cam="say" role="status" aria-live="polite"></p>
+</section>
+</div>
+</body>
+</html>
