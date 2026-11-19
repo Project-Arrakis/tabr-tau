@@ -816,6 +816,13 @@
     if (t.open) memo.open.add(k); else memo.open.delete(k);
   }
   function redraw() { if (last) return mount(last.container, last.answer, last.host); return null; }
+  // Choose a House and bring its panel into view: a click on the card's name button chooses it or, when it is the chosen one, lets it go (toggle); a tap of a tier box on a touch screen only chooses it.
+  function chooseHouse(id, toggle) {
+    state.sel = toggle && state.sel === id ? null : id; memo.insp = null;
+    redraw();
+    const insp = last.container.querySelector('.lcc-bd-insp');
+    if (state.sel !== null && insp && insp.scrollIntoView) insp.scrollIntoView({ block: 'nearest' });
+  }
   // After a filter changes, a House the filter leaves out is no longer chosen for a bulk action (the same rule as the classic list: what is not shown is never written).
   // visible(answer): the ids of the Houses the filters let through now (the page asks for them when it chooses "all Houses": only what the board shows is chosen).
   function visible(answer) { return new Set(M().readBoard(answer).houses.filter((h) => M().matches(h, state)).map((h) => h.id)); }
@@ -823,17 +830,25 @@
     if (!last) return;
     if (last.host && last.host.filtered) last.host.filtered(visible(last.answer));
   }
+  // A touch screen (a coarse pointer, #880): a tap on a tier box of a House card cannot show what it would pay (the mouse-over text is never shown), so it only chooses the House and opens it in the House
+  // Intelligence panel, whose tier rows say what each tier grants and write through the panel's own buttons (the same questions and requests as before). Nothing is written by the tap. A mouse still writes
+  // on a click, as before, with the mouse-over card as the preview; the keyboard (Enter or Space on a box, a click with detail 0) and a click sent by script keep writing on every device.
+  function coarsePointer() {
+    try { return !!(root.matchMedia && root.matchMedia('(pointer: coarse)').matches); } catch (err) { return false; }
+  }
   function onClick(e) {
+    const box = e.target && e.target.closest ? e.target.closest('.lcc-hc-t[data-lb="tier"]') : null;
+    if (box && last && e.detail > 0 && coarsePointer()) {
+      e.preventDefault(); e.stopPropagation(); // the page's own click handler (the one that writes) never sees this tap
+      chooseHouse(Number(box.getAttribute('data-id')), false);
+      return;
+    }
     const t = e.target && e.target.closest ? e.target.closest('[data-lcb]') : null;
     if (!t || !last) return;
     const k = t.getAttribute('data-lcb');
     if (k === 'sel') {
       e.preventDefault();
-      const id = Number(t.getAttribute('data-id'));
-      state.sel = state.sel === id ? null : id; memo.insp = null;
-      redraw();
-      const insp = last.container.querySelector('.lcc-bd-insp');
-      if (state.sel !== null && insp && insp.scrollIntoView) insp.scrollIntoView({ block: 'nearest' });
+      chooseHouse(Number(t.getAttribute('data-id')), true);
       return;
     }
     if (k === 'back') {

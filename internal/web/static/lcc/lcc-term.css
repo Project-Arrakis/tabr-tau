@@ -4,6 +4,8 @@
    reflows the parts, it never shrinks the text. */
 
 .lcc-tm { display: block; box-sizing: border-box; margin: 18px 0 0; color: var(--lcc-text); font-family: var(--lcc-sans); }
+/* a jump to the section (the #lcc-term anchor) or the focus given to its heading stops below the sticky header of the page, and below the warning bar when one is shown (#905); --hdr-h is the header's measured height */
+.lcc-tm, .lcc-tm .lcc-tm-h { scroll-margin-top: calc(var(--hdr-h, 56px) + 12px + var(--lsb-warn-room, 0px)); }
 .lcc-tm *, .lcc-tm *::before, .lcc-tm *::after { box-sizing: border-box; }
 .lcc-tm button, .lcc-tm select { font-family: var(--lcc-sans); }
 .lcc-tm-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
