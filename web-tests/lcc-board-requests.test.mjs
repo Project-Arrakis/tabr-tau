@@ -16,6 +16,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const GOLDEN = path.join(here, 'lcc-board-requests.golden.json');
 const RECORD = process.env.LCC_RECORD_REQUESTS === '1';
 const OK = { ok: true, changed: 1, houses: 1, skipped: 0, contribution_raised: 1, contribution_lowered: 0, completed: 0, reopened: 0, reward_rows: 0, outcome: 'written' };
+// What the server answers to an Unfill: a lowering (#1013). The canned raise-shaped answer above made the recorded sentence of the several-Houses Unfill say "raised", which no Unfill says.
+const LOWERED = { ...OK, contribution_raised: 0, contribution_lowered: 1 };
 const text = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null);
 const click = (ui, el) => { if (typeof el === 'string') el = ui.doc.querySelector(el); assert.ok(el, 'no element'); el.focus(); el.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
 const select = (ui, sel, v) => { const el = ui.doc.querySelector(sel); el.value = String(v); el.dispatchEvent(new ui.w.Event('change', { bubbles: true })); };
@@ -85,7 +87,7 @@ const toastSaid = (ui) => { const t = [...ui.doc.querySelectorAll('#toast .d-toa
 const same = (s) => String(s).replace(/[.;,:]/g, '').replace(/\s+/g, ' ').trim();
 async function play(name) {
   const a = synthetic();
-  const ui = await boot({ get: { '/api/landsraad': a }, post: { '/api/landsraad/apply': OK }, local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' } });
+  const ui = await boot({ get: { '/api/landsraad': a }, post: { '/api/landsraad/apply': / unfill chosen, asked/.test(name) ? LOWERED : OK }, local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' } });
   await ui.settle();
   await SCENARIOS[name](ui, a);
   await ui.settle();

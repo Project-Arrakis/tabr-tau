@@ -117,6 +117,25 @@ func TestGrantAtTheStockSettingsAMissionIsOneThousandAndFifteenHundred(t *testin
 	}
 }
 
+// #1006: the settings the page really passes are EffectiveTrackNumbers of what was learned, and a track that map leaves out falls back to its measured number in the grant. With only Combat
+// learned as 1 the map has no Crafting, so Crafting reads 1 as well: the raise is refused, with nothing changed, and not written to one row for two lines.
+func TestGrantRefusesWhenTheEffectiveMapLeavesATrackOutAndItsMeasuredNumberIsTaken(t *testing.T) {
+	o := rewardOps(t, "")
+	before := grantRows(t, o)
+	g := doubled()
+	g.TrackNumbers = EffectiveTrackNumbers(map[string]int64{"Combat": 1})
+	if _, has := g.TrackNumbers["Crafting"]; has {
+		t.Fatalf("the premise: Crafting is left out of the map: %v", g.TrackNumbers)
+	}
+	_, err := o.LandsraadApplyWith(g, applyArgs(house(175, Args{"was_mine": 1300.0, "mine_to": 6000.0})))
+	if err == nil || !strings.Contains(err.Error(), "Crafting and Combat both use number 1") || !strings.Contains(err.Error(), "Nothing was changed") {
+		t.Fatalf("a track left out by the map and read as its measured number: %v", err)
+	}
+	if grantRows(t, o) != before {
+		t.Fatal("a refused request changed the save")
+	}
+}
+
 // A second Fill grants nothing while the contribution stands, and a removal followed by the same raise grants nothing either: the editor remembers the ground it paid (#777), so
 // the missions, the reward rows and the wallets are not paid again.
 func TestGrantASecondFillAndARaiseAfterARemovalGrantNothingTwice(t *testing.T) {

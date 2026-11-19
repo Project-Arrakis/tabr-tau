@@ -373,7 +373,7 @@ func takeBackTierRewards(m *save.Mut, me myLandsraad, t save.Row, cur, to float6
 		// faction's entries would claim the ground between two stretches for this faction's entry (#1002)
 		span, _ := vouched.spanOf(back, back)
 		floor := span.lo
-		if err := m.Note(paidNoteKind, paidNote{Player: me.player, Term: termID, House: house, Faction: me.faction, Paid: back, Back: back, Floor: &floor}); err != nil {
+		if err := m.Note(paidNoteKind, paidNote{Player: me.player, Term: termID, House: house, Faction: me.faction, Paid: back, Back: back, Floor: &floor, BackOnly: true}); err != nil {
 			return res, err
 		}
 	}

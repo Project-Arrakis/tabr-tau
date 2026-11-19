@@ -329,3 +329,21 @@ test('Make active on another row during a pending Apply sends nothing and leaves
   assert.deepEqual(posted(ui, '/api/landsraad/term').map((p) => p.body.active_decree_id), ['2'], 'one request, for the decree that was applied');
   assert.equal(ui.doc.querySelector('#lsb-tad').value, '2', 'the drop-down shows the decree of the write that ran, not the row that was clicked meanwhile');
 });
+
+// #1019: the running Apply is drawn aria-disabled; a second click on it says a write is running (the busy check comes first), it does not replace that line with the button's own title.
+test('a second click on the running Apply says a write is running, not the title of the button (#1019)', async () => {
+  const ui = await open();
+  const orig = ui.w.fetch; let release = null;
+  ui.w.fetch = (p, opt = {}) => (opt.method === 'POST' && String(p).includes('/api/landsraad/term') ? new Promise((res) => { release = () => res(orig(p, opt)); }) : orig(p, opt));
+  select(ui, '#lsb-tad', 2);
+  const b = ui.doc.querySelector('[data-lb="tapply"]');
+  ui.click('[data-lb="tapply"]'); await ui.settle();
+  assert.ok(release, 'the Apply request is held');
+  assert.equal(b.getAttribute('aria-disabled'), 'true', 'the running button is drawn off');
+  b.title = 'THE BUTTON TITLE'; // what the old order would have shown instead of the wait line
+  ui.click('[data-lb="tapply"]'); await ui.settle();
+  const said = text(ui.doc.querySelector('#lsb-tresult'));
+  assert.ok(said.includes('A write is still running') && !said.includes('THE BUTTON TITLE'), said);
+  release(); await ui.settle();
+  assert.equal(posted(ui, '/api/landsraad/term').length, 1, 'one request');
+});

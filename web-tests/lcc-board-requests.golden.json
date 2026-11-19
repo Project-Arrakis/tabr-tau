@@ -350,7 +350,7 @@
   ],
   "others": [],
   "asked": null,
-  "said": "Unfill chosen: your contribution 2,500 → 0 (tiers 1 to 2 removed). No missions written: your own earlier progress on this house already counts for this ground."
+  "said": "Unfill chosen: your contribution 2,500 → 0 (tiers 1 to 2 removed). No reward waited for the removed tier, so there was nothing to take back. Rewards already collected stay, and so do the Solari, House Scrip and XP the missions of the tier paid, and raising the tier again pays no mission a second time. To go back, restore the backup (Database tab, Save backups); the editor does not restore its own record with it, so a raise after that may pay less than before."
  },
  "several houses, cfill chosen, asked, then Yes": {
   "sent": [
@@ -587,7 +587,7 @@
   ],
   "others": [],
   "asked": null,
-  "said": "Unfill chosen: your contribution raised on 1 house. No missions written: your own earlier progress on this house already counts for this ground."
+  "said": "Unfill chosen: your contribution set to 0 on 1 house (every tier removed). No reward waited for the removed tier, so there was nothing to take back. Rewards already collected stay, and so do the Solari, House Scrip and XP the missions of the tier paid, and raising the tier again pays no mission a second time. To go back, restore the backup (Database tab, Save backups); the editor does not restore its own record with it, so a raise after that may pay less than before."
  },
  "two houses chosen, only one would change, complete chosen, asked, then Yes": {
   "sent": [

@@ -195,6 +195,71 @@ func TestMergePaidANoteBelowTheEntrysStretchDoesNotWidenTheEntry(t *testing.T) {
 	}
 }
 
+// #1011: a take-back note is merged as a take-back: where the faction has an entry it only raises that entry's Back. The note carries the ground and the floor of the stretch that vouched for the
+// row, and that stretch can be another faction's; merged as a raise it replaced the faction's own lower stretch, and a row the editor wrote there later read as unsure.
+func TestMergePaidATakeBackNoteDoesNotReplaceTheEntrysOwnLowerStretch(t *testing.T) {
+	e := func(faction int64, paid float64, floor *float64) paidNote {
+		return paidNote{Player: 1, Term: 7, House: "A", Faction: faction, Paid: paid, Floor: floor}
+	}
+	rec := []paidNote{e(1, 1200, fl(0)), e(2, 4800, fl(3600))}
+	note := paidNote{Player: 1, Term: 7, House: "A", Faction: 1, Paid: 4800, Back: 4800, Floor: fl(3600), BackOnly: true}
+	got := mergePaid(rec, []paidNote{note})
+	if len(got) != 2 {
+		t.Fatalf("entries: %+v", got)
+	}
+	if f1 := got[0]; f1.Paid != 1200 || f1.Floor == nil || *f1.Floor != 0 || f1.Back != 4800 || f1.BackOnly {
+		t.Fatalf("the faction's own stretch was replaced or the ceiling is missing: %+v", f1)
+	}
+	if got[1] != rec[1] && (got[1].Paid != 4800 || *got[1].Floor != 3600) {
+		t.Fatalf("the other entry changed: %+v", got[1])
+	}
+	spans, _ := spansOf(got, 1, 7, "A", 6000)
+	if want := []paidSpan{{0, 1200}, {3600, 4800}}; len(spans) != 2 || spans[0] != want[0] || spans[1] != want[1] {
+		t.Fatalf("spans: %v, want %v", spans, want)
+	}
+	if !(groundPaid{spans: spans, known: true}).vouches(1200, 1200) {
+		t.Fatal("a row the editor wrote at tier 1,200 is no longer vouched for")
+	}
+	// the same note as a raise (what an older build does, and what a note without the flag is) shows what the flag prevents
+	old := note
+	old.BackOnly = false
+	if f1 := mergePaid(rec, []paidNote{old})[0]; f1.Paid != 4800 || *f1.Floor != 3600 {
+		t.Fatalf("the unflagged note is merged as before: %+v", f1)
+	}
+	// with no entry of the faction the note is recorded as it was, and the flag is not stored
+	only := mergePaid([]paidNote{e(2, 4800, fl(3600))}, []paidNote{note})
+	if len(only) != 2 || only[1].Faction != 1 || only[1].Paid != 4800 || only[1].Back != 4800 || only[1].BackOnly {
+		t.Fatalf("no entry of the faction: %+v", only)
+	}
+}
+
+// The same end to end on Kenola: the character's own entry holds [0, 1,200], the other faction's [4,000, 6,000]; the row of tier 4,800 that the other stretch vouched for is taken back, and
+// the character's entry keeps its own stretch and gains only the ceiling.
+func TestTakeBackNoteOfAnotherFactionsStretchKeepsTheCharactersOwnLowerStretch(t *testing.T) {
+	o, path := paidOps(t, "")
+	setup(t, o, `update landsraad_task_player_contributions set amount=6000 where player_id=1 and task_id=175`)
+	setup(t, o, `insert into landsraad_house_rewards(player_id, house_name, amount, template_id, last_updated) values (1, 'DA_HouseKenola', 1, 'Schematic.L', 150)`)
+	other := paidNote{Player: 1, Term: 7, House: "DA_HouseKenola", Faction: 1, Paid: 6000, Floor: fl(4000)}
+	mine := paidNote{Player: 1, Term: 7, House: "DA_HouseKenola", Faction: 2, Paid: 1200, Floor: fl(0)}
+	writeRecord(t, o, path, other, mine)
+	if m := removeKenola(t, o, 6000, 3600); counts(m) != [4]int64{1, 0, 0, 0} {
+		t.Fatalf("the answer: %v", m)
+	}
+	flush(t, o)
+	for _, e := range readPaid(t, path).Entries {
+		switch e.Faction {
+		case 1:
+			if e.Floor == nil || *e.Floor != 4000 || e.Paid != 6000 {
+				t.Errorf("the other faction's entry changed: %+v", e)
+			}
+		case 2:
+			if e.Floor == nil || *e.Floor != 0 || e.Paid != 1200 || e.Back != 4800 {
+				t.Errorf("the character's own stretch was replaced, or the ceiling is missing: %+v", e)
+			}
+		}
+	}
+}
+
 // The case of the review, end to end on Kenola (tiers 1,200 Solari, 2,400 Schematic.K, 3,600, 4,800 Schematic.L): the record holds one faction's raise to 1,200 from 0 and the
 // character's own from 3,600 to 4,800; the game wrote Schematic.K (2,400, in the gap) and the character collected Schematic.L. Removing everything takes the Solari row (tier 1,200) and
 // leaves K; the note that goes with it must not make the character's entry reach down to 0, or after a raise that pays nothing the second removal would delete the game's K row.
@@ -257,7 +322,7 @@ func TestPaidNoSequenceOfRaisesAndTakeBacksVouchesForGroundNoRaisePaid(t *testin
 				}
 				sp, _ := g.spanOf(tiers[k], tiers[k])
 				lo := sp.lo
-				rec = mergePaid(rec, []paidNote{{Player: 1, Term: 7, House: "A", Faction: faction, Paid: tiers[k], Back: tiers[k], Floor: &lo}})
+				rec = mergePaid(rec, []paidNote{{Player: 1, Term: 7, House: "A", Faction: faction, Paid: tiers[k], Back: tiers[k], Floor: &lo, BackOnly: true}})
 			}
 			spans, _ := spansOf(rec, 1, 7, "A", 6000)
 			g := groundPaid{spans: spans, known: true}

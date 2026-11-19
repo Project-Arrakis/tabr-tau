@@ -182,7 +182,7 @@ test('a bulk button for more than one house asks first with the count; Cancel an
   const ui = await open(board(), { '/api/landsraad/apply': { ...OK, changed: 3, houses: 3, contribution_raised: 0, completed: 3, reward_rows: 0 } });
   assert.equal(text(ui.doc.querySelector('#lsb-sum')), 'Nothing is chosen.');
   click(ui, '[data-lb=pickall]');
-  assert.equal(text(ui.doc.querySelector('#lsb-sum')), 'Chosen: 4 houses. Fill chosen changes 3, Complete chosen changes 3 for Atreides, Complete and fill chosen changes 3, Reopen chosen changes 2, Unfill chosen changes 3.');
+  assert.equal(text(ui.doc.querySelector('#lsb-sum')), 'Chosen: 4 houses. Fill chosen changes 3, Complete chosen changes 3 for Atreides, Complete and fill chosen changes 3, Reopen chosen changes 2, Unfill chosen changes 0.'); // this read has no unfill plan (#1013): Unfill refuses on such a read, so it counts no House
   click(ui, '[data-lb=bulk][data-do=complete]'); await ui.settle();
   const q = ui.doc.querySelector('#lsb-confirm');
   assert.ok(q, 'the question is shown');
@@ -935,4 +935,11 @@ test('Yes does not write a House whose row was hidden after the question was ask
   ui.doc.querySelector('#lsrow-900').hidden = true; // hidden without a filter change: the page's choice list is not told
   click(ui, '[data-lb=cyes]'); await ui.settle();
   assert.ok(!sentIds(ui).includes(900), 'Alexin is hidden, so it is not written: ' + sentIds(ui));
+  // #1019: the test must not pass just because nothing was sent: the question is asked again, with the count as it is now, and nothing is written until it is answered
+  assert.equal(sentIds(ui).length, 0, 'nothing is written by the first Yes: ' + sentIds(ui));
+  assert.ok(result(ui).includes('The houses changed since the question was asked'), result(ui));
+  assert.ok(ui.doc.querySelector('#lsb-confirm'), 'the question is open again');
+  assert.ok(!text(ui.doc.querySelector('#lsb-confirm b')).includes('Alexin'), text(ui.doc.querySelector('#lsb-confirm b')));
+  click(ui, '[data-lb=cyes]'); await ui.settle();
+  assert.ok(sentIds(ui).length > 0 && !sentIds(ui).includes(900), 'the second Yes writes the others only: ' + sentIds(ui));
 });

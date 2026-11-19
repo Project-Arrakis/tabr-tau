@@ -102,6 +102,11 @@ type paidNote struct {
 	Floor *float64 `json:"floor,omitempty"`
 	// Replace, on a note, says that what was recorded for the character on the house in the term is of a save that is gone and is dropped before this is recorded. It is not stored.
 	Replace bool `json:"replace,omitempty"`
+	// BackOnly, on a note, says that the note only records a take-back: where an entry of its faction exists, only that entry's Back is raised, and its ground paid and its floor stay as they are (#1011).
+	// A take-back note carries the ground and the floor of the stretch that vouched for the row, and that stretch can belong to another faction's entry; merged as a raise it replaced this
+	// faction's own lower stretch (for example [0, 1,200]) by the other's ([3,600, 4,800]), and a row the editor wrote in the lost stretch then read as unsure. Where no entry of the faction
+	// exists the note is recorded as before. It is not stored: an older build that does not know it merges the note as a raise, which only ever loses ground (the safe direction).
+	BackOnly bool `json:"backOnly,omitempty"`
 }
 
 // valid says whether an entry is plausible: a term, a character, a house and a ground that is a number from above 0 to the largest tier a request may name.
@@ -242,7 +247,7 @@ func (l *PaidLedger) read() ([]paidNote, error) {
 	out := pf.Entries[:0:0]
 	for _, e := range pf.Entries {
 		if e.valid() {
-			e.Replace = false
+			e.Replace, e.BackOnly = false, false
 			out = append(out, e.norm())
 		}
 	}
@@ -375,7 +380,11 @@ func (l *PaidLedger) moveAside() (string, error) {
 		return "", err
 	}
 	if o.SyncDir {
-		_ = durable.SyncDir(filepath.Dir(l.path)) // best effort, as WriteFile does: the rename is done
+		syncDir := durable.SyncDir
+		if o.Hooks.SyncDir != nil { // the hook of the options, as WriteFile uses it (#1010)
+			syncDir = o.Hooks.SyncDir
+		}
+		_ = syncDir(filepath.Dir(l.path)) // best effort, as WriteFile does: the rename is done
 	}
 	l.pruneAside(to)
 	return filepath.Base(to), nil
@@ -396,12 +405,17 @@ func (l *PaidLedger) pruneAside(keep string) {
 		}
 	}
 	sort.Strings(names)
-	for len(names) > paidKeepAside {
-		old := names[0]
-		names = names[1:]
+	// The copy just made is never a candidate, wherever it sorts (a clock that stepped back makes it the oldest name): the oldest of the others go until paidKeepAside copies remain in all. Taking the
+	// copy out of the count as it was passed over ended the loop one copy early, and up to paidKeepAside+1 stayed (#1010).
+	excess := len(names) - paidKeepAside
+	for _, old := range names {
+		if excess <= 0 {
+			break
+		}
 		if old == filepath.Base(keep) {
 			continue
 		}
+		excess--
 		if err := os.Remove(filepath.Join(filepath.Dir(l.path), old)); err != nil {
 			log.Printf("an old copy of the Landsraad paid-ground file could not be removed (%s): %v", old, err)
 		}
@@ -533,10 +547,17 @@ func mergePaid(entries, notes []paidNote) []paidNote {
 			out = kept
 		}
 		n.Replace = false
+		backOnly := n.BackOnly
+		n.BackOnly = false
 		n = n.norm()
 		found := false
 		for i := range out {
 			if e := &out[i]; e.Player == n.Player && e.Term == n.Term && e.House == n.House && e.Faction == n.Faction {
+				if backOnly { // a take-back: the ceiling only; the entry's own stretch is not replaced by the stretch of the faction that vouched (#1011)
+					e.Back = max(e.Back, n.Back)
+					found = true
+					break
+				}
 				e.Floor = mergeFloor(*e, n)
 				e.Paid = max(e.Paid, n.Paid)
 				e.Back = max(e.Back, n.Back)

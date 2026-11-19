@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 )
 
 // Durable Commit / Restore (audit F-07): unique verified backups, fsync, rename with retry, no truncate-in-place,
@@ -467,6 +469,20 @@ func TestAHeldRenameIsNotRetriedWhenTheFileCannotBeReadToCompare(t *testing.T) {
 	_, err := s.CommitForTests()
 	if err == nil || calls != 1 {
 		t.Fatalf("expected a refusal after one try, got %v after %d calls", err, calls)
+	}
+	// #1019: the refusal keeps the rename's own error and the hint, says what could not be read, and is a write failure (not a change on disk).
+	if !errors.Is(err, apierr.ErrWriteFailed) || errors.Is(err, ErrChangedOnDisk) {
+		t.Fatalf("want a write_failed refusal, got %v", err)
+	}
+	for _, want := range []string{"sharing violation", "is another program holding it?", "could not be read again", "edits stay queued"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("the message lost %q: %v", want, err)
+		}
+	}
+	for _, n := range dirNames(t, filepath.Dir(p)) {
+		if strings.HasSuffix(n, ".tmp") {
+			t.Fatalf("temp file left behind: %s", n)
+		}
 	}
 	if !s.Dirty() {
 		t.Fatal("the edits must still be pending")

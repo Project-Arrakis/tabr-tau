@@ -453,4 +453,25 @@ test('Yes does not write a House that the board stopped showing after the questi
   await ui.settle();
   const sent = writes(ui).flatMap((w) => w.body.houses.map((h) => h.task_id));
   assert.ok(!sent.includes(ver), 'the House the board does not show is not written: ' + sent);
+  // #1019: not a pass by sending nothing: the first Yes only asks again (count as it is now) and writes nothing; the second Yes writes the House that is shown
+  assert.equal(sent.length, 0, 'the first Yes writes nothing: ' + sent);
+  assert.match(toastText(ui), /The houses changed since the question was asked/);
+  assert.match(text(ui.doc.querySelector('#lsb-confirm b')), /^Complete 1 house/);
+  click(ui, '[data-fk="c-yes"]');
+  await ui.settle();
+  const sent2 = writes(ui).flatMap((w) => w.body.houses.map((h) => h.task_id));
+  assert.deepEqual(sent2, [sor], 'the second Yes writes the House that is shown, and only it');
+});
+
+// #1019: after a write and the re-read the choice is pruned against what the board shows, so "N chosen" and the phone bar never count a dimmed House.
+test('after a re-read the choice drops a House the board does not show, and the count follows (#1019)', async () => {
+  const ui = await open('board');
+  const a = synthetic();
+  const sor = idOf(a, 'Sor'), ver = idOf(a, 'Vernius');
+  tick(ui, sor); tick(ui, ver);
+  assert.equal(ui.w.LCC_HOST.picks().size, 2);
+  ui.w.LCCB.state.hs = 'open'; // the filter changed without the page being told (what a write that takes Vernius out of the open Houses amounts to)
+  await ui.w.landsraadView(); await ui.settle();
+  assert.deepEqual([...ui.w.LCC_HOST.picks()], [sor], 'Vernius is not shown now, so it is not chosen');
+  assert.match(text(ui.doc.querySelector('#lsb-phonebar .pn')), /^1 chosen/);
 });
