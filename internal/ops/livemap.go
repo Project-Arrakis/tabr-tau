@@ -2,6 +2,7 @@ package ops
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -29,6 +30,63 @@ var liveMaps = []mapConfig{
 		MinX: -1268450, MaxX: 1158400, MinY: -1261434, MaxY: 1165416},
 }
 
+// hubMaps are the social hubs the Saved map can open besides the two maps of liveMaps (#758): they are for looking at the save (the markers of the hub, the house representatives that stand there), never a
+// place the editor moves the character to, so travel (teleport.go) keeps reading liveMaps and its two maps only.
+//
+// The frames are the ones of the hub pictures the owner of the project holds as private files (Arrakeen: x -27190 to 17043.26, y -12790 to 12501.58, a picture of 4096 x 2342 at 10.8 centimetres to the pixel
+// in both directions, not turned; Harko Village: x -24900 to 34800, y -22360 to 37340, a square of 4096 pixels, not turned; the same formula as the other maps, no flip). No picture is shipped with the editor yet
+// (Image is empty: the Saved map draws the frame as a plain grid and says so), because the only pictures known to fit these frames are a third party's map tiles, which the owner has not cleared for
+// redistribution (docs/art-notice.md). When a picture that may be shipped exists, it goes in internal/web/static/maps/ and its path in Image, and the notice and the art manifest list it (the tests of
+// internal/web keep the three in step). The Harko Village frame was fitted by eye on the lit rooms of its picture, so a position on it is right to about a room, not to the centimetre.
+var hubMaps = []mapConfig{
+	{Key: "Arrakeen", Label: "Arrakeen", Image: "", Width: 4096, Height: 2342,
+		MinX: -27190, MaxX: 17043.26, MinY: -12790, MaxY: 12501.58},
+	{Key: "HarkoVillage", Label: "Harko Village", Image: "", Width: 4096, Height: 4096,
+		MinX: -24900, MaxX: 34800, MinY: -22360, MaxY: 37340},
+}
+
+// savedMaps are the maps the Saved map offers, in order: the two of liveMaps, then the hubs.
+func savedMaps() []mapConfig {
+	return append(append(make([]mapConfig, 0, len(liveMaps)+len(hubMaps)), liveMaps...), hubMaps...)
+}
+
+// isHubMap says whether key names one of hubMaps.
+func isHubMap(key string) bool {
+	for _, m := range hubMaps {
+		if m.Key == key {
+			return true
+		}
+	}
+	return false
+}
+
+// withFixedRepresentatives adds to the markers of a hub the house representatives that stand there by the editor's table of fixed places (landsraad_fixed_places.go) and that the save holds no marker
+// for on this map: a representative the character has not found has no marker in the save, but it stands at its place all the same. They are given as undiscovered (d 0), so the page draws them faded
+// like any marker the character has not found. A marker in the save always wins, as on the Landsraad board; only a hub gets these (the other maps show the save's markers as before).
+func withFixedRepresentatives(markers []map[string]any, cfg mapConfig) []map[string]any {
+	if !isHubMap(cfg.Key) {
+		return markers
+	}
+	have := map[string]bool{}
+	for _, m := range markers {
+		if t, _ := m["t"].(string); strings.HasPrefix(t, houseMarkerPrefix) {
+			have[canonicalHouse(strings.TrimPrefix(t, houseMarkerPrefix))] = true
+		}
+	}
+	names := make([]string, 0, len(fixedHousePlaces))
+	for name, f := range fixedHousePlaces {
+		if f.Map == cfg.Key && !have[name] {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		f := fixedHousePlaces[name]
+		markers = append(markers, map[string]any{"t": houseMarkerPrefix + name, "x": f.X, "y": f.Y, "d": int64(0)})
+	}
+	return markers
+}
+
 // storageTypes is the "Storage" group of containers: the plain storage containers the map shows as storage markers.
 var storageTypes = containerGroupTypes("storage")
 
@@ -42,8 +100,9 @@ func containerGroupTypes(id string) map[string]string {
 	panic("no container group " + id) // a programming error, caught by every test that loads the package
 }
 
+// findMap is the map of the Saved map named key (a hub too); an unknown key gives the Hagga Basin.
 func findMap(key string) mapConfig {
-	for _, m := range liveMaps {
+	for _, m := range savedMaps() {
 		if m.Key == key {
 			return m
 		}
@@ -60,8 +119,8 @@ func (o *Ops) LiveMap(key string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	maps := make([]map[string]any, 0, len(liveMaps))
-	for _, m := range liveMaps {
+	maps := make([]map[string]any, 0, len(liveMaps)+len(hubMaps))
+	for _, m := range savedMaps() {
 		maps = append(maps, map[string]any{"key": m.Key, "label": m.Label})
 	}
 	out := map[string]any{"config": cfg, "maps": maps}
@@ -146,9 +205,10 @@ func (o *Ops) LiveMap(key string) (any, error) {
 
 	// The game's own map markers; d is the discovery level for this character (0 when never discovered).
 	// the markers of the map, from either layout of the save (#588): the discovery rows are matched on the marker's own map name, which both layouts give as map_name
-	out["markers"], _ = o.S.Query(`select m.marker_type t, m.x, m.y, coalesce(pm.discovery_level,0) d from `+o.S.MarkersTable()+` m
+	markers, _ := o.S.Query(`select m.marker_type t, m.x, m.y, coalesce(pm.discovery_level,0) d from `+o.S.MarkersTable()+` m
 		left join `+o.S.PlayerMarkersTable()+` pm on pm.marker_hash_id=m.marker_hash_id and pm.dimension_index=m.dimension_index and pm.map_name=m.map_name and pm.player_id=?
 		where m.map_name=? and m.x is not null and m.y is not null order by m.marker_type, m.marker_hash_id`, p.Controller, cfg.Key)
+	out["markers"] = withFixedRepresentatives(markers, cfg) // a hub also shows the representatives its table of fixed places puts there (#758)
 	out["resourceFields"] = o.resourceFields(cfg)
 	return out, nil
 }

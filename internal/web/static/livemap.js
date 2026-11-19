@@ -237,7 +237,7 @@
     ctx.fillRect(0, 0, c.width, c.height);
     ctx.setTransform(lm.dpr * lm.scale, 0, 0, lm.dpr * lm.scale, lm.dpr * lm.ox, lm.dpr * lm.oy);
     if (lm.img && lm.img.complete && lm.img.naturalWidth) ctx.drawImage(lm.img, 0, 0, cfg.width, cfg.height);
-    else { ctx.strokeStyle = '#2a2f36'; ctx.lineWidth = 2 / lm.scale; ctx.strokeRect(0, 0, cfg.width, cfg.height); }
+    else { ctx.fillStyle = '#14181d'; ctx.fillRect(0, 0, cfg.width, cfg.height); ctx.strokeStyle = '#3a414a'; ctx.lineWidth = 2 / lm.scale; ctx.strokeRect(0, 0, cfg.width, cfg.height); }
     const r = Math.max(2.5, 4 / lm.scale * 1.0);
     // Your own things are drawn last so the thousands of markers never cover them.
     const MINE = { bases: 1, storage: 2, vehicles: 3, character: 4 }; // draw order among your own things; the big base ring is the bottom layer, its storage sits on it
@@ -294,7 +294,7 @@
     const cfg = lm.data.config;
     lm.img = new Image();
     lm.img.onload = lmDraw;
-    lm.img.src = cfg.image;
+    if (cfg.image) lm.img.src = cfg.image; // a hub the editor has no picture of yet has none: its frame is drawn as a plain outline (#758)
     const rect = (e) => { const b = c.getBoundingClientRect(); return { x: (e.clientX - b.left) * (lm.w / (b.width || lm.w)), y: (e.clientY - b.top) * (lm.h / (b.height || lm.h)) }; };
     let drag = null;
     c.addEventListener('mousedown', (e) => { drag = { x: e.clientX, y: e.clientY, ox: lm.ox, oy: lm.oy }; });
@@ -369,6 +369,7 @@
           ${tip('lmundtip', 'Markers you have not discovered yet are shown faded.', html`<button class="b sec d-btn" data-lmund="1" aria-describedby="lmundtip">${lm.showUndiscovered ? 'Hide' : 'Show'} undiscovered markers</button>`)}
           <button class="b sec d-btn" data-lmz="in" aria-label="Zoom in">+</button><button class="b sec d-btn" data-lmz="out" aria-label="Zoom out">&minus;</button><button class="b sec d-btn" data-lmz="fit">Fit</button></div>
         <p class="mut">The save as of its last write, not the running game.</p>
+        ${d.config.image ? '' : html`<p class="mut" id="lmnopic">The editor has no picture of ${d.config.label} yet, so its markers are drawn on the outline of the map.</p>`}
         ${d.storedVehicles ? html`<p class="mut">${d.storedVehicles} of your ${d.storedVehicles == 1 ? 'vehicles is' : 'vehicles are'} stored (in the vehicle backup or waiting for recovery) and not shown.</p>` : ''}
         <div class="lm-wrap"><canvas id="lmc" class="lm" tabindex="0" role="img" aria-label="${'Saved map of ' + d.config.label + (boardHouse && lm.focus.key === lm.map ? ', centred on House ' + boardHouse : '') + '. Press plus and minus to zoom, 0 to show the whole map, the arrow keys to move.'}"></canvas></div>
         <p class="mut" id="lminfo"></p>
@@ -393,5 +394,6 @@
 
   window.liveMapView = liveMapView;
   window.liveMapShow = (key, fx, fy, label) => { lm.map = key; lm.view = null; lm.focus = { key, fx, fy, label, fresh: true }; }; // the Landsraad board opens the Saved map at a house
+  window.liveMapPixel = (cfg, x, y) => lmToPixel(cfg, x, y); // read-only, for the tests: where a world position is on a map's picture
   window.liveMapState = () => ({ scale: lm.scale, ox: lm.ox, oy: lm.oy, w: lm.w, h: lm.h, dpr: lm.dpr, view: lm.view && { ...lm.view } }); // read-only, for the tests
 })();
