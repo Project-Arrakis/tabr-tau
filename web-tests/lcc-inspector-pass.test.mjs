@@ -182,8 +182,7 @@ test('#936: Not reached / Not collected / Collected on the cards, in the panel a
   const states = [...i.querySelectorAll('.lcc-bd-tier-s')].map(text);
   assert.ok(states.some((s) => s.endsWith('NOT COLLECTED')) && states.some((s) => s.endsWith('NOT REACHED')), states.join('|'));
   assert.deepEqual([...i.querySelectorAll('.lcc-bd-stat span')].map(text), ['Tiers earned', 'Collected', 'Not collected', 'Not reached']);
-  const legend = [...i.querySelectorAll('.lcc-bd-legend span')].map(text);
-  assert.deepEqual(legend, ['✓ Collected', '◆ Not collected', '○ Not reached', '? No delivery record']);
+  assert.equal(i.querySelector('.lcc-bd-legend'), null, 'the legend of the marks is in the Help tab (#980); each tier row names its own state');
   const all = text(ui.doc.querySelector('#lsb')) + ' ' + [...ui.doc.querySelectorAll('#lsb [aria-label], #lsb [title]')].map((e) => (e.getAttribute('aria-label') || '') + ' ' + (e.getAttribute('title') || '')).join(' ');
   assert.doesNotMatch(all, /to collect|Waiting at representative|Waiting to collect/i);
   const classic = await open('classic');

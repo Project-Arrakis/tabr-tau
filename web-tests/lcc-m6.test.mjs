@@ -22,7 +22,7 @@ test('the term section tells where each fact comes from: the save, and what the 
   const s = ui.doc.querySelector('#lcc-term');
   assert.ok(s);
   assert.match(text(s), /FROM THE SAVE/);
-  assert.match(text(s), /NOT IN THE SAVE/i);
+  assert.doesNotMatch(text(s), /NOT IN THE SAVE/, 'the box of what the save does not hold is gone (#973): the Help tab says it');
   assert.doesNotMatch(text(s), /\bwins?\b|Dominion/i, 'no claim of a result');
   assert.equal(s.querySelector('h3#lcc-tm-h').getAttribute('tabindex'), '-1');
   assert.ok(s.querySelector('#lsb-tresult[role="status"]'));

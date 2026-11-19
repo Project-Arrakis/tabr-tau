@@ -412,12 +412,12 @@ test('before any click the board says what Fill, Fill faction goal and each tier
   const ui = await open(withGrant({}, { 901: 4700 }), {});
   const al = by(ui, 'Alexin');
   assert.equal(text(al.querySelector('.qg')), '6 missions: +36,000 Solari', 'a visible line under the quick buttons');
-  assert.equal(quick(ui, 'Alexin', 'qa-fill').getAttribute('aria-describedby'), 'qg-900 lsb-legend');
+  assert.equal(quick(ui, 'Alexin', 'qa-fill').getAttribute('aria-describedby'), 'qg-900');
   const cap = text(al.querySelector('#lsg-900'));
   assert.ok(cap.includes('Fill and Fill faction goal: Writes 6 missions: +36,000 Solari, +6,000 House Scrip, +9,000 Crafting XP, 5 rewards waiting at the house representative.'), cap);
   assert.ok(cap.includes('Next tier (tier 1): Writes 2 missions: +12,000 Solari, +2,000 House Scrip, +3,000 Crafting XP, 1 reward waiting at the house representative.'), cap);
   assert.ok(cap.includes('Written at once.') && cap.includes('not been checked in the game yet'), cap);
-  assert.equal(al.querySelector('.act-fill').getAttribute('aria-describedby'), 'lsg-900 lsb-legend');
+  assert.equal(al.querySelector('.act-fill').getAttribute('aria-describedby'), 'lsg-900');
   // each tier box that would grant shows it as text, and its accessible name carries it
   assert.equal(text(tier(ui, 'Alexin', 5).querySelector('.gr')), '6 missions: +36,000 Solari');
   assert.ok(tier(ui, 'Alexin', 5).getAttribute('aria-label').includes('Writes 6 missions: +36,000 Solari'));
@@ -425,9 +425,8 @@ test('before any click the board says what Fill, Fill faction goal and each tier
   // the highest reached tier says what a click does; a tier the character's own events already cover grants no missions
   assert.equal(text(tier(ui, 'Thorvald', 3).querySelector('.gr')), 'click removes it; takes back nothing it paid');
   assert.equal(text(tier(ui, 'Thorvald', 4).querySelector('.gr')), 'no missions');
-  // the standing line is text, not a tooltip
-  const legend = text(ui.doc.querySelector('#lsb-legend'));
-  assert.ok(legend.includes('Writes at once, with a backup first') && legend.includes('a raise also pays its missions') && legend.includes('Not checked in the game yet'), legend);
+  // the standing line about writes is gone (#980): the Help tab says it, and the question before a write says what it writes
+  assert.equal(ui.doc.querySelector('#lsb-legend'), null);
   assert.ok(ui.doc.querySelector('[data-lb=bulk][data-do=fill]').title.includes('The question shows the totals'));
   // the closed row's meter is a picture, not five small buttons
   assert.equal(ui.doc.querySelector('.meter button'), null);
@@ -512,10 +511,10 @@ test('the About text says what a raise writes and what it does not, names both s
   const ui = await open();
   const about = text(ui.doc.querySelector('[data-about="lsb.tiers"] .abt'));
   for (const s of ['A tier click pays what its missions pay', '6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization line of the house', 'LandsraadContributionMultiplier', 'LandsraadSpecializationXpMultiplier',
-    'The daily and weekly mission limits of the game are not applied', 'No progress event is written', 'A second Fill with nothing above your contribution writes nothing', 'raising a removed tier again pays nothing again', 'your character\'s own XP and your faction standing', 'takes back nothing the tier paid', 'Not checked in the game yet',
-    'Restore on the Database tab (Save backups) puts it back']) assert.ok(about.includes(s), s);
+    'The daily and weekly mission limits of the game are not applied', 'No progress event is written', 'A second Fill with nothing above your contribution writes nothing', 'raising a removed tier again pays nothing again', 'your character\'s own XP and your faction standing', 'takes back nothing the tier paid']) assert.ok(about.includes(s), s);
   assert.ok(ui.doc.querySelectorAll('[data-about="lsb.tiers"] .abt p').length >= 4 && ui.doc.querySelector('[data-about="lsb.tiers"] .abt ul'), 'the long paragraph is split into a list and short paragraphs');
   assert.ok(text(ui.doc.querySelector('[data-about="lsb.fill"] .abt')).includes('asks first'));
+  assert.ok(!about.includes('Not checked in the game yet') && !about.includes('Restore on the Database tab'), 'the standing "not checked" and "going back" paragraph is in the Help tab (#980)');
 });
 
 test('the bulk question says it will be refused when the houses together stand for more missions than one change may write', async () => {

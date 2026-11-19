@@ -60,7 +60,7 @@ func TestEveryEmbeddedAssetIsServedWithItsOwnBytes(t *testing.T) {
 	if w.Code != 401 || !bytes.Equal(w.Body.Bytes(), locked) {
 		t.Errorf("/ without a session: %d, locked.html served = %v", w.Code, bytes.Equal(w.Body.Bytes(), locked))
 	}
-	for _, src := range []string{"/html.js", "/livemap.js", "/app.js"} {
+	for _, src := range []string{"/html.js", "/livemap.js", "/help.js", "/app.js"} {
 		if !strings.Contains(string(index), `src="`+src+`"`) {
 			t.Errorf("index.html does not load %s", src)
 		}

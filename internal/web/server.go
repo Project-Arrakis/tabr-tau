@@ -554,7 +554,7 @@ func (s *Server) routes() {
 	// Static UI: a fixed list of asset paths, nothing else from the embedded folder is reachable.
 	for path, ct := range map[string]string{
 		"/app.css": "text/css; charset=utf-8", "/app.js": "text/javascript; charset=utf-8", "/html.js": "text/javascript; charset=utf-8", "/motion-boot.js": "text/javascript; charset=utf-8", "/look-boot.js": "text/javascript; charset=utf-8", "/theme-menu.js": "text/javascript; charset=utf-8",
-		"/livemap.js": "text/javascript; charset=utf-8", "/favicon.svg": "image/svg+xml", "/maps/hagga-basin.png": "image/png", "/maps/deep-desert.png": "image/png",
+		"/livemap.js": "text/javascript; charset=utf-8", "/help.js": "text/javascript; charset=utf-8", "/favicon.svg": "image/svg+xml", "/maps/hagga-basin.png": "image/png", "/maps/deep-desert.png": "image/png",
 		// the Command Center's styles and scripts: the Landsraad tab's board view (and its Term and Decrees section) uses them and the Specialization tab's Command Center view
 		"/lcc/lcc.css": "text/css; charset=utf-8", "/lcc/lcc.js": "text/javascript; charset=utf-8", "/lcc/lcc-model.js": "text/javascript; charset=utf-8",
 		"/lcc/lcc-board.css": "text/css; charset=utf-8", "/lcc/lcc-board.js": "text/javascript; charset=utf-8",
@@ -627,6 +627,7 @@ func (s *Server) routes() {
 	})
 
 	s.get("/api/about", s.about)
+	s.get("/api/help", s.helpAnswer)
 	s.get("/api/overview", func(r *http.Request) (any, error) { return o.Overview() })
 	s.get("/api/settings", func(r *http.Request) (any, error) {
 		cur, note, perr := settings.LoadNote(s.SettingsPath)

@@ -228,7 +228,7 @@ test('earlier terms: the terms with a contribution of the character, each with i
   assert.ok(text(term.querySelector('summary')).startsWith('Term 6') && text(term.querySelector('summary')).includes('2 houses with your contribution'), text(term.querySelector('summary')));
   assert.ok(text(term.querySelector('summary')).includes('1 top tier') && text(term.querySelector('summary')).includes('1 taken by your faction'));
   assert.deepEqual([...term.querySelectorAll('tbody tr')].map((r) => text(r.cells[0])), ['Maros', 'Kenola']);
-  assert.ok(text(term).includes('Open at term end') && text(term).includes('Play clock 0 to 36,000 s (10 h of play time)'));
+  assert.ok(text(term).includes('Open at term end') && !text(term).includes('Play clock') && !text(term).includes('36,000 s'), 'no play-clock line under an earlier term (#981)');
   const one = await open(board());
   assert.ok(text(one.doc.querySelector('.hist')).includes('only the current term'));
 });

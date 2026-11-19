@@ -292,7 +292,7 @@ const augSlots = (prefix, fit, applied) => html`${Array.from({ length: fit.limit
 const augPicked = (prefix, n) => Array.from({ length: n }, (_, i) => { const e = $('#' + prefix + i); return e ? e.value : ''; }).filter(Boolean);
 const augGradeSel = (id) => html`<label>Grade of added augments <select id="${id}">${[1, 2, 3, 4, 5].map((n) => html`<option ${n == 5 ? 'selected' : ''}>${n}</option>`)}</select></label>`;
 // ---------- tabs
-const TABS = { player: 'Player', livemap: 'Saved map', landsraad: 'Landsraad', config: 'Config', db: 'Database' };
+const TABS = { player: 'Player', livemap: 'Saved map', landsraad: 'Landsraad', config: 'Config', db: 'Database', help: 'Help' };
 // The Player tab mirrors the Dune Docker console's Players > Player Name view: the same tabs in the same order (#96). Bases and
 // Vehicles used to be top-level tabs and are two of these.
 const PTABS = [['character', 'Character'], ['crafting', 'Crafting'], ['research', 'Research'], ['buildingsets', 'Building sets'], ['customizations', 'Customizations'],
@@ -1839,7 +1839,6 @@ const LB_GLYPH = { new: '○', part: '◐', done: '✓' }, LB_WORD = { new: 'Not
 const LB_STW = { not_reached: 'Not reached', waiting: 'Not collected', delivered: 'Collected', no_row: 'Reached, no delivery recorded' };
 const LB_STL = { not_reached: 'not reached', waiting: 'reached, not collected (waiting at the house representative)', delivered: 'reached, collected', no_row: 'reached, no delivery recorded' };
 const lbF = (n) => Number(n).toLocaleString('en-US');
-const lbClock = (v) => (v == null || v === '' ? '—' : Number(v) < 1e8 ? lbF(v) + ' s' : fmtEpoch(v)); // the term window is on the play clock, in seconds: 360,000 s
 const lbNameOf = (r) => String(r.house_name || '').replace(/^DA_House/, '');
 // House symbols (#645): the game's own picture of each house (64 px, shown at 32), one file per house in /houses. The file is looked up in this fixed list by the
 // lower-cased house name and is never built from the name, so a strange name can only miss the list; a house that is not listed keeps the two letters.
@@ -2129,14 +2128,14 @@ function lbRow(h, l, hue, noLocs, pos) {
       <span class="c-loc">${noLocs ? html`<span class="mut">not mapped yet</span>` : html`<span class="loc"><button type="button" class="loc-t${lbOnMap(h) ? '' : ' off'}" data-lb="map" data-id="${h.id}" ${lbOnMap(h) ? '' : html`aria-disabled="true" data-why="${lbLocWhy(h)}"`} aria-label="${lbLocAria(h)}" title="${lbOnMap(h) ? 'Open ' + lbAreaFull(h) + ' in the Saved map. Hover for a quick peek.' : lbLocWhy(h)}"><svg viewBox="0 0 12 14" aria-hidden="true" focusable="false"><path d="M6 0C2.7 0 0 2.6 0 5.8 0 10 6 14 6 14s6-4 6-8.2C12 2.6 9.3 0 6 0Zm0 8a2.2 2.2 0 1 1 0-4.4A2.2 2.2 0 0 1 6 8Z" fill="currentColor"/></svg><span>${locText}</span></button>${lbOnMap(h) ? '' : html`<span class="lnote" role="status"></span>`}${lbPeek(h)}</span>`}</span>
       <span class="c-my"><span class="line"><span class="st st-${h.state}"><span aria-hidden="true">${LB_GLYPH[h.state]}</span> ${LB_WORD[h.state]}</span>${lbMeter(h, can)}<span class="mut">${h.reached} of ${h.tiers.length} tiers</span></span><span class="amt"><b class="js-mine${h.mine > 0 ? '' : ' mut'}">${h.mine > 0 ? lbF(h.mine) : 'none recorded'}</b>${h.mine > 0 ? html` <span class="mut js-next">· ${lbNextParts(h).map((p, k) => html`${k ? ' ' : ''}<span class="nx">${p}</span>`)}</span>` : ''}</span></span>
       <span class="c-hs"><span class="tag">${hs}</span></span>
-      <span class="c-qa"><button type="button" class="qa qa-fill" data-lb="qa" data-do="fill" data-id="${h.id}" data-fk="qf:${h.id}" aria-disabled="${off(fillOff)}" aria-describedby="qg-${h.id} lsb-legend" title="${fillTip}">${LB_ICON.fill}<span class="ql">Fill</span></button><button type="button" class="qa qa-cr" data-lb="qa" data-do="${h.taken ? 'reopen' : 'complete'}" data-id="${h.id}" data-fk="qc:${h.id}" aria-disabled="${off(false)}" title="${crTip}">${h.taken ? LB_ICON.reopen : LB_ICON.complete}<span class="ql">${h.taken ? 'Reopen' : 'Complete'}</span></button><span class="qg" id="qg-${h.id}">${fillGr ? lbGrantShort(fillGr) : ''}</span></span>
+      <span class="c-qa"><button type="button" class="qa qa-fill" data-lb="qa" data-do="fill" data-id="${h.id}" data-fk="qf:${h.id}" aria-disabled="${off(fillOff)}" aria-describedby="qg-${h.id}" title="${fillTip}">${LB_ICON.fill}<span class="ql">Fill</span></button><button type="button" class="qa qa-cr" data-lb="qa" data-do="${h.taken ? 'reopen' : 'complete'}" data-id="${h.id}" data-fk="qc:${h.id}" aria-disabled="${off(false)}" title="${crTip}">${h.taken ? LB_ICON.reopen : LB_ICON.complete}<span class="ql">${h.taken ? 'Reopen' : 'Complete'}</span></button><span class="qg" id="qg-${h.id}">${fillGr ? lbGrantShort(fillGr) : ''}</span></span>
       <span class="chev" aria-hidden="true"></span>
     </label>
     <div class="more" ${open ? '' : 'hidden'}>
       <div><h4>Tiers and rewards ${lbMark('derived', 'Worked out by the editor from fields the save holds: reached = contribution at least the threshold')} ${lbMark('save', 'Read from the save: landsraad_task_rewards (the reward item and amount of each tier)')}</h4><div class="tiers">${tierBoxes}</div><p class="cap"><i class="lg lg-dl" aria-hidden="true"></i> collected · <i class="lg lg-wt" aria-hidden="true"></i> not collected ${lbMark('save', 'Read from the save: landsraad_house_rewards. An amount above 0 is a reward waiting at the house representative; amount 0 is collected.')} · ✓ reached</p><p class="cap swl">${swl}</p><p class="cap grantcap" id="lsg-${h.id}">${lbGrantCaption(fillGr, nextGr, h, can && !ownF ? [fn, lbFacName(l, l.character.faction_id)] : null)}</p></div>
       <div><h4>House status and faction progress ${lbMark('save', 'Read from the save: completed, winning_faction_id, faction contributions')}</h4><span class="tag">${hs}</span><div class="fbs">${fbs}</div><p class="cap">of the house goal, ${lbF(h.goal)}</p></div>
       ${noLocs ? '' : html`<div><h4>Where</h4>${lbPlaceDetails(h)}</div>`}
-      <div class="acts"><button type="button" class="qa act-fill" data-lb="qa" data-do="fillgoal" data-id="${h.id}" data-fk="af:${h.id}" aria-disabled="${off(goalOff)}" aria-describedby="lsg-${h.id} lsb-legend" title="${goalTip}">${LB_ICON.fill}<span class="ql">Fill faction goal</span></button><button type="button" class="qa act-complete" data-lb="qa" data-do="complete" data-id="${h.id}" data-fk="ac:${h.id}" aria-disabled="${off(doneF)}" title="${doneF ? 'Already complete for ' + fn + ': nothing to change' : crTipC(fn)}">${LB_ICON.complete}<span class="ql">Complete</span></button><button type="button" class="qa act-reopen" data-lb="qa" data-do="reopen" data-id="${h.id}" data-fk="ar:${h.id}" aria-disabled="${off(!h.taken)}" title="${h.taken ? LB_REOPEN_TIP : 'The house is open: nothing to change'}">${LB_ICON.reopen}<span class="ql">Reopen</span></button><span class="mut fine">for the faction chosen above the list</span></div>
+      <div class="acts"><button type="button" class="qa act-fill" data-lb="qa" data-do="fillgoal" data-id="${h.id}" data-fk="af:${h.id}" aria-disabled="${off(goalOff)}" aria-describedby="lsg-${h.id}" title="${goalTip}">${LB_ICON.fill}<span class="ql">Fill faction goal</span></button><button type="button" class="qa act-complete" data-lb="qa" data-do="complete" data-id="${h.id}" data-fk="ac:${h.id}" aria-disabled="${off(doneF)}" title="${doneF ? 'Already complete for ' + fn + ': nothing to change' : crTipC(fn)}">${LB_ICON.complete}<span class="ql">Complete</span></button><button type="button" class="qa act-reopen" data-lb="qa" data-do="reopen" data-id="${h.id}" data-fk="ar:${h.id}" aria-disabled="${off(!h.taken)}" title="${h.taken ? LB_REOPEN_TIP : 'The house is open: nothing to change'}">${LB_ICON.reopen}<span class="ql">Reopen</span></button><span class="mut fine">for the faction chosen above the list</span></div>
     </div>
   </div></li>`;
 }
@@ -2165,10 +2164,8 @@ function lbHistory(l) {
   const e = l.earlier_terms || [], tm = l.terms || [];
   const rows = e.map((t) => {
     const hs = t.houses, done = hs.filter((x) => x.tier_count && x.tiers_reached === x.tier_count).length, mineF = l.character ? l.character.faction_id : null;
-    const hours = Math.round((Number(t.end_time) - Number(t.start_time)) / 3600);
     return html`<details class="term"><summary><b>Term ${t.term_id}</b><span class="sum2"><span><b>${hs.length}</b> ${hs.length === 1 ? 'house' : 'houses'} with your contribution</span><span><b>${done}</b> top tier</span><span><b>${hs.length - done}</b> in progress</span><span><b>${hs.filter((x) => x.winning_faction_id != null && x.winning_faction_id == mineF).length}</b> taken by your faction</span><span><b>${hs.filter((x) => x.paid_in_term).length}</b> last paid out in this term</span></span></summary>
-      <table><thead><tr><th>House</th><th>Your contribution</th><th>Tiers</th><th>House status</th><th>Last payout</th></tr></thead><tbody>${hs.map((x) => html`<tr><td>${lbNameOf(x)}</td><td class="n">${lbF(x.my_contribution)}</td><td><span class="meter${x.tier_count && x.tiers_reached === x.tier_count ? ' full' : ''}" role="img" aria-label="${x.tiers_reached} of ${x.tier_count} tiers reached">${Array.from({ length: x.tier_count }, (_, i) => html`<i class="${i < x.tiers_reached ? 'on' : ''}${i === x.tier_count - 1 ? ' top' : ''}"></i>`)}</span> <span class="mut">${x.tiers_reached} of ${x.tier_count}</span></td><td>${x.completed || x.winning_faction_id != null ? 'Taken' + (x.winning_faction_id != null ? ' · ' + lbFacName(l, x.winning_faction_id) : '') : 'Open at term end'}</td><td>${x.paid_in_term ? 'in this term' : html`<span class="mut">not in this term</span>`}</td></tr>`)}</tbody></table>
-      <p class="mut plc">Play clock ${lbF(t.start_time)} to ${lbF(t.end_time)} s (${hours} h of play time) ${lbMark('save', 'Read from the save: landsraad_decree_term')}. No calendar date is stored.</p></details>`;
+      <table><thead><tr><th>House</th><th>Your contribution</th><th>Tiers</th><th>House status</th><th>Last payout</th></tr></thead><tbody>${hs.map((x) => html`<tr><td>${lbNameOf(x)}</td><td class="n">${lbF(x.my_contribution)}</td><td><span class="meter${x.tier_count && x.tiers_reached === x.tier_count ? ' full' : ''}" role="img" aria-label="${x.tiers_reached} of ${x.tier_count} tiers reached">${Array.from({ length: x.tier_count }, (_, i) => html`<i class="${i < x.tiers_reached ? 'on' : ''}${i === x.tier_count - 1 ? ' top' : ''}"></i>`)}</span> <span class="mut">${x.tiers_reached} of ${x.tier_count}</span></td><td>${x.completed || x.winning_faction_id != null ? 'Taken' + (x.winning_faction_id != null ? ' · ' + lbFacName(l, x.winning_faction_id) : '') : 'Open at term end'}</td><td>${x.paid_in_term ? 'in this term' : html`<span class="mut">not in this term</span>`}</td></tr>`)}</tbody></table></details>`;
   });
   return html`<section class="card d-panel hist" aria-labelledby="lsb-hist"><h2 class="d-head" id="lsb-hist">Earlier terms <span class="cnt">opens on demand ${lbMark('save', 'Read from the save: landsraad_decree_term and contributions of earlier terms')}</span></h2>
   <p class="line1 mb8">${tm.length < 2 ? 'This save holds only the current term.' : e.length ? 'Terms with a row of yours; open one for its houses.' : 'No earlier term has a row of yours.'}</p>
@@ -2236,7 +2233,7 @@ function lbTerm(l) {
   const nm = (d) => (d ? decreeFull(d) : '—');
   const hidden = dec.filter((d) => d.decree_name === LB_HIDDEN_DECREE), shown = dec.filter((d) => d.decree_name !== LB_HIDDEN_DECREE); // the plain vendor decree is only in the closed list under the pool (#634)
   const row = (d) => {
-    const tg = [d.active && 'Active', d.elected && 'Elected', d.in_rotation && 'In rotation'].filter(Boolean), n = d.disabled ? 0 : 1, lab = decreeLabel(d);
+    const tg = [d.active && 'Active', d.elected && "Next term's decree", d.in_rotation && 'In rotation'].filter(Boolean), n = d.disabled ? 0 : 1, lab = decreeLabel(d);
     const on = d.id == t.active_decree_id && sel.rf !== '' && sel.rf === String(t.reigning_faction_id == null ? '' : t.reigning_faction_id);
     const mkTip = sel.rf !== '' ? `Makes ${lab} the active decree of the term for ${fname}, the same as the Active decree drop-down and Apply` : 'Choose a reigning faction above first';
     const mk = on
@@ -2246,7 +2243,7 @@ function lbTerm(l) {
   };
   return html`<section class="card d-panel" aria-labelledby="lsb-term-h"><details class="tdp" id="lsb-tdp" ${LT.open ? 'open' : ''}><summary><h2 class="d-head" id="lsb-term-h">Term and decrees <span class="cnt">Term ${t.term_id} · ${rfName} · ${a ? nm(a) : 'no active decree'}</span></h2></summary>
   <div class="tbody">
-  <div class="tkv"><div><span class="mut">Term</span><b>${t.term_id}</b>${lbMark('save', 'Read from the save: landsraad_decree_term')}</div><div><span class="mut">Start</span><b>${lbClock(t.start_time)}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.start_time (play clock)')}</div><div><span class="mut">End</span><b>${lbClock(t.end_time)}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.end_time (play clock)')}</div><div><span class="mut">Reigning faction</span><b>${rfName}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.reigning_faction_id')}</div><div><span class="mut">Active decree</span>${a ? decreeNameEl(a) : html`<span class="dn">—</span>`}${idLine(a)}${decreeUnsure(a)}</div><div><span class="mut">Elected decree</span>${e ? decreeNameEl(e) : html`<span class="dn">—</span>`}${idLine(e)}${decreeUnsure(e)}</div></div>
+  <div class="tkv"><div><span class="mut">Term</span><b>${t.term_id}</b>${lbMark('save', 'Read from the save: landsraad_decree_term')}</div><div><span class="mut">Ends in</span><b title="${LB_ENDS_TIP}">${lbEndsIn(l)}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.end_time and the play clock of the save')}</div><div><span class="mut">Reigning faction</span><b>${rfName}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.reigning_faction_id')}</div><div><span class="mut">Active decree</span>${a ? decreeNameEl(a) : html`<span class="dn">—</span>`}${idLine(a)}${decreeUnsure(a)}</div><div><span class="mut">Next term's decree</span>${e ? decreeNameEl(e) : html`<span class="dn">none yet</span>`}${idLine(e)}${decreeUnsure(e)}</div></div>
   <div class="tctl" role="group" aria-label="Set the term's active decree and reigning faction">
     <label class="fld"><span class="lbl">Active decree</span><select id="lsb-tad" data-lb="tad"><option value="">none</option>${decreeSorted(dec).map((d) => html`<option value="${d.id}" ${String(d.id) === sel.ad ? 'selected' : ''}>${decreeFull(d)}</option>`)}</select>${decreeSelInfo(by(sel.ad))}</label>
     <label class="fld"><span class="lbl">Reigning faction</span><select id="lsb-trf" data-lb="trf">${sel.rf === '' ? html`<option value="" disabled selected>Choose a faction</option>` : ''}${(l.factions || []).map((f) => html`<option value="${f.id}" ${String(f.id) === sel.rf ? 'selected' : ''}>${f.name}${own != null && f.id == own ? ' (your faction)' : ''}</option>`)}</select><small class="mut">any faction can be chosen</small></label>
@@ -2257,7 +2254,7 @@ function lbTerm(l) {
   <ul class="dp" role="list"><li class="dh" aria-hidden="true"><span>ID</span><span>Decree ${lbMark('save', 'Read from the save: landsraad_decrees.decree_name')}</span><span>In this term ${lbMark('save', 'Read from the save: active, elected, rotation')}</span><span>Pool flag ${lbMark('save', 'Read from the save: the disabled column, as stored')}</span><span>Change</span><span>Make active</span></li>${shown.map(row)}</ul>
   ${hidden.length ? html`<details class="dphid" id="lsb-dphid" ${LT.hidOpen ? 'open' : ''}><summary>Hidden: the plain SpecialVendorActive row (no game name, no category, effect unverified)</summary><ul class="dp" role="list">${hidden.map(row)}</ul></details>` : ''}
   ${dec.length ? '' : html`<p class="mut">This save has no decrees.</p>`}
-  ${lbAbout('lsb.term', 'term and decrees', html`<p><b>Apply</b> sets the term's active decree and its reigning faction together: one row, the current term in <code>landsraad_decree_term</code>, and none in the Active decree drop-down clears the decree. A decree is only in force because a faction won the term, so the faction cannot be left empty: the Reigning faction drop-down offers Atreides and Harkonnen, starts on your own faction, and asks you to choose when you are in neither and the term has no winner. Apply needs no choice in two cases: when the save holds a faction this list does not offer and you leave the drop-down alone, Apply changes the decree and leaves that faction as it is; and none for the decree on a term that has no faction clears the decree and writes no faction.</p><p><b>Make active for ...</b> on a pool row does the same as the Active decree drop-down and Apply for that row's decree, for the faction in the Reigning faction drop-down; a decree belongs to a faction (the reigning faction), not to a house.</p><p id="lsdecnote"><b>In this term</b> is read from the current term: <b>Active</b> is the term's active decree, <b>Elected</b> its elected decree, <b>In rotation</b> a decree in the save's decree rotation. <b>Pool flag</b> is the save's own <code>disabled</code> column, shown as stored; it does not say whether a decree is in effect. A <b>Set flag</b> button changes the flag of its own row only; it does not make the decree active, the Active decree above does. The special vendor decree is five separate rows: the four Exclusive Import Rights decrees (Vehicle, Weapon, Armor and Tool) are in the list; the plain SpecialVendorActive row is the one the game's decree table has no name for (the page calls it "Special Vendor" and says the name is the editor's), it has no category and an effect that is not verified, so it is kept in the closed list under the pool, with the same controls, in case the game uses it.</p><p><b>Names</b> are the ones the game shows, with the effect line the game gives under each; the id the save holds is the small line below, kept for support. The game gives the Ranged and Melee decrees of In Honor of the Fallen one name, so the page adds the word in brackets. The pool is in id order; the Active decree drop-down is sorted by name, with a name that is not the game's last.</p>`)}
+  ${lbAbout('lsb.term', 'term and decrees', html`<p><b>Apply</b> sets the term's active decree and its reigning faction together: one row, the current term in <code>landsraad_decree_term</code>, and none in the Active decree drop-down clears the decree. A decree is only in force because a faction won the term, so the faction cannot be left empty: the Reigning faction drop-down offers Atreides and Harkonnen, starts on your own faction, and asks you to choose when you are in neither and the term has no winner. Apply needs no choice in two cases: when the save holds a faction this list does not offer and you leave the drop-down alone, Apply changes the decree and leaves that faction as it is; and none for the decree on a term that has no faction clears the decree and writes no faction.</p><p><b>Make active for ...</b> on a pool row does the same as the Active decree drop-down and Apply for that row's decree, for the faction in the Reigning faction drop-down; a decree belongs to a faction (the reigning faction), not to a house.</p><p id="lsdecnote"><b>In this term</b> is read from the current term: <b>Active</b> is the term's active decree, <b>Next term's decree</b> the decree elected during this term, which takes effect in the next term, <b>In rotation</b> a decree in the save's decree rotation. <b>Pool flag</b> is the save's own <code>disabled</code> column, shown as stored; it does not say whether a decree is in effect. A <b>Set flag</b> button changes the flag of its own row only; it does not make the decree active, the Active decree above does. The special vendor decree is five separate rows: the four Exclusive Import Rights decrees (Vehicle, Weapon, Armor and Tool) are in the list; the plain SpecialVendorActive row is the one the game's decree table has no name for (the page calls it "Special Vendor" and says the name is the editor's), it has no category and an effect that is not verified, so it is kept in the closed list under the pool, with the same controls, in case the game uses it.</p><p><b>Names</b> are the ones the game shows, with the effect line the game gives under each; the id the save holds is the small line below, kept for support. The game gives the Ranged and Melee decrees of In Honor of the Fallen one name, so the page adds the word in brackets. The pool is in id order; the Active decree drop-down is sorted by name, with a name that is not the game's last.</p>`)}
   </div></details></section>`;
 }
 // The Command Center's Term and Decrees section (lcc/lcc-term.js) is drawn from this plain model of the same answer, with the same words and the same states as lbTerm above: the section
@@ -2280,39 +2277,49 @@ function lbTermModel(l) {
   const row = (d) => {
     const lab = decreeLabel(d), on = d.id == t.active_decree_id && sel.rf !== '' && sel.rf === String(t.reigning_faction_id == null ? '' : t.reigning_faction_id);
     return Object.assign(one(d), {
-      tags: [d.active && 'Active', d.elected && 'Elected', d.in_rotation && 'In rotation'].filter(Boolean), disabled: d.disabled ? 1 : 0, hidden: d.decree_name === LB_HIDDEN_DECREE, makeOn: on, makeOff: sel.rf === '',
+      tags: [d.active && 'Active', d.elected && "Next term's decree", d.in_rotation && 'In rotation'].filter(Boolean), disabled: d.disabled ? 1 : 0, hidden: d.decree_name === LB_HIDDEN_DECREE, makeOn: on, makeOff: sel.rf === '',
       makeLabel: sel.rf !== '' ? 'Make active for ' + fname : 'Make active (choose a faction)',
       makeTip: on ? 'This decree is already the active decree of the term for ' + fname : sel.rf !== '' ? 'Makes ' + lab + ' the active decree of the term for ' + fname + ', the same as the Active decree drop-down and Apply' : 'Choose a reigning faction above first',
     });
   };
   const e = l.earlier_terms || [], tm = l.terms || [], mineF = l.character ? l.character.faction_id : null;
   const terms = e.map((x) => {
-    const hs = x.houses, done = hs.filter((y) => y.tier_count && y.tiers_reached === y.tier_count).length, hours = Math.round((Number(x.end_time) - Number(x.start_time)) / 3600);
+    const hs = x.houses, done = hs.filter((y) => y.tier_count && y.tiers_reached === y.tier_count).length;
     return {
       id: x.term_id,
       summary: hs.length + (hs.length === 1 ? ' house' : ' houses') + ' with your contribution · ' + done + ' top tier · ' + (hs.length - done) + ' in progress · ' + hs.filter((y) => y.winning_faction_id != null && y.winning_faction_id == mineF).length + ' taken by your faction · ' + hs.filter((y) => y.paid_in_term).length + ' last paid out in this term',
       rows: hs.map((y) => ({ name: lbNameOf(y), mine: lbF(y.my_contribution), reached: y.tiers_reached, count: y.tier_count, full: !!(y.tier_count && y.tiers_reached === y.tier_count),
         status: y.completed || y.winning_faction_id != null ? 'Taken' + (y.winning_faction_id != null ? ' · ' + lbFacName(l, y.winning_faction_id) : '') : 'Open at term end', paid: y.paid_in_term ? 'in this term' : 'not in this term' })),
-      clock: 'Play clock ' + lbF(x.start_time) + ' to ' + lbF(x.end_time) + ' s (' + hours + ' h of play time). No calendar date is stored.',
     };
   });
   return {
     none: false,
-    term: { id: t.term_id, start: lbClock(t.start_time), end: lbClock(t.end_time), startSec: lbPlay(t.start_time), endSec: lbPlay(t.end_time), reigning: t.reigning_faction_id != null ? lbFacName(l, t.reigning_faction_id) : '' },
-    clock: lbSaveClock(l),
+    term: { id: t.term_id, endsIn: lbEndsIn(l), endsTip: LB_ENDS_TIP, reigning: t.reigning_faction_id != null ? lbFacName(l, t.reigning_faction_id) : '' },
     active: one(by(t.active_decree_id)), elected: one(by(t.elected_decree_id)),
     pool: dec.map(row), options: decreeSorted(dec).map((d) => ({ id: d.id, label: decreeFull(d) })),
     factions: (l.factions || []).map((f) => ({ id: f.id, label: f.name + (own != null && f.id == own ? ' (your faction)' : '') })),
     sel, selD: one(by(sel.ad)), pending: lbPendingText(l, sel.ad), say: LT.say, bad: LT.bad, open: LT.open, hidOpen: LT.hidOpen, histOpen: LT.histOpen,
-    history: { note: tm.length < 2 ? 'This save holds only the current term.' : e.length ? 'Terms with a row of yours; open one for its houses. The rows of a term say what the contribution was; they do not say which terms paid out.' : 'No earlier term has a row of yours.', terms },
+    history: { note: tm.length < 2 ? 'This save holds only the current term.' : e.length ? '' : 'No earlier term has a row of yours.', terms },
   };
 }
-// A play-clock second as a number (null when the save holds none, or a value that is a real time, not the play clock: the same rule as lbClock), and where the play clock stood when the save was written, with
+// A play-clock second as a number (null when the save holds none, or a value that is a real time, not the play clock: the same rule as lbEndsIn), and where the play clock stood when the save was written, with
 // the real time of that write in ms (null when the read does not give it). Display only (#922).
 const lbPlay = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) || Number(v) < 0 || Number(v) >= 1e8 ? null : Number(v));
 function lbSaveClock(l) {
   const c = l && l.clock;
   return c && Number.isFinite(Number(c.play_seconds)) && Number.isFinite(Number(c.saved_at)) ? { play: Number(c.play_seconds), savedAt: Number(c.saved_at) * 1000 } : null;
+}
+// How long the term has left, as the one value of the row ENDS IN: hours and minutes (#981). The term end and the play clock are both in play-clock seconds; the clock stops while the game is closed, so this is
+// the value as of the last save. No seconds are shown, no start, no date. Edge cases in words: under an hour "37 m", under a minute "less than a minute", at or past the end "ended", unreadable "not known".
+const LB_ENDS_TIP = 'Counts down only while the game is running; as of the last save.';
+function lbEndsIn(l) {
+  const t = l && l.term, end = t ? lbPlay(t.end_time) : null, c = lbSaveClock(l);
+  if (end === null || !c) return 'not known';
+  const left = end - c.play;
+  if (!(left > 0)) return 'ended';
+  const m = Math.floor(left / 60), h = Math.floor(m / 60);
+  if (m < 1) return 'less than a minute';
+  return (h ? h + ' h ' : '') + (m % 60) + ' m';
 }
 const lbTermOn = () => !!window.LCCT;
 function lbTSay(t, kind) { LT.say = t; LT.bad = kind === true; const r = $('#lsb-tresult'); if (r) { r.textContent = t; r.classList.toggle('bad', LT.bad); } }
@@ -2372,17 +2379,16 @@ function lbActbar(hs, l, split) {
   // the choose buttons next to Jump to House, the actions with the faction box and the count of the chosen houses as the next line of that bar, and the question, the result line and the note on a write
   // directly under it. The same elements, the same data-lb, data-do and data-fk, so one handler serves both places (#914).
   const choose = html`<button type="button" class="qa" data-lb="pickall" data-fk="b-all">Choose all houses</button><button type="button" class="qa" data-lb="pickno" data-fk="b-none">Clear the choice</button>`;
-  const bulks = html`<button type="button" class="qa btnp" data-lb="bulk" data-do="fill" data-fk="b-fill" aria-describedby="lsb-legend" title="Raises your contribution on every chosen house to its highest reward tier (never lowered) and writes what the missions pay: Solari, House Scrip and specialization XP. The question shows the totals before anything is written. Does nothing while another faction is chosen.">Fill chosen</button><button type="button" class="qa btnp" data-lb="bulk" data-do="complete" data-fk="b-complete" title="Marks every chosen house complete for the faction below and sets that faction's progress on it to the house goal (never lowered).">Complete chosen</button><button type="button" class="qa" data-lb="bulk" data-do="reopen" data-fk="b-reopen" title="Reopens the chosen houses: clears the completion and the winner. Progress and contributions stay as they are, so this does not set back what Complete wrote.">Reopen chosen</button>`;
+  const bulks = html`<button type="button" class="qa btnp" data-lb="bulk" data-do="fill" data-fk="b-fill" title="Raises your contribution on every chosen house to its highest reward tier (never lowered) and writes what the missions pay: Solari, House Scrip and specialization XP. The question shows the totals before anything is written. Does nothing while another faction is chosen.">Fill chosen</button><button type="button" class="qa btnp" data-lb="bulk" data-do="complete" data-fk="b-complete" title="Marks every chosen house complete for the faction below and sets that faction's progress on it to the house goal (never lowered).">Complete chosen</button><button type="button" class="qa" data-lb="bulk" data-do="reopen" data-fk="b-reopen" title="Reopens the chosen houses: clears the completion and the winner. Progress and contributions stay as they are, so this does not set back what Complete wrote.">Reopen chosen</button>`;
   const ask = !cf ? '' : html`<p id="lsb-confirm" class="confirm" role="group" aria-label="Confirm: ${cf.q}"><b>${cf.q}</b> <button type="button" class="qa btnp" data-lb="cyes" data-fk="c-yes">${cf.yes}</button><button type="button" class="qa" data-lb="cno" data-fk="c-no">Cancel</button></p>`;
   const fac = html`<label for="lsb-fac">Faction for Fill and Complete</label><select id="lsb-fac" data-lb="fac" data-fk="fac">${(l.factions || []).map((f) => html`<option value="${f.id}" ${f.id == F ? 'selected' : ''}>${f.name}${f.id == mineF ? ' (your faction)' : ''}</option>`)}</select><span class="note" title="The faction of the next Fill faction goal, Complete or bulk click. Choosing it writes nothing.">starts on your own faction</span>`;
   const sum = html`<p id="lsb-sum" aria-live="polite">${lbSumText(hs, l)}</p>`;
   const res = html`<p id="lsb-result" role="status" tabindex="-1" ${LP.bad ? html`class="bad"` : LP.warn ? html`class="warn"` : ''}>${LP.say}</p>`;
-  const legend = html`<p class="legend2" id="lsb-legend"><b>Writes at once</b>, with a backup first; a raise also pays its missions. Not checked in the game yet.</p>`;
   if (split) {
     return html`<div class="actbar">
       <div class="barpart bp-choose" data-bar="choose" role="group" aria-label="Choose houses for the actions on several houses">${choose}</div>
       <div class="barpart bp-act" data-bar="act" role="group" aria-label="Act on the chosen houses"><div class="actrow" role="group" aria-label="Act on several houses at once">${bulks}</div><div class="actrow facrow">${fac}</div>${sum}</div>
-      <div class="barpart bp-ask" data-bar="ask">${ask}${legend}</div>
+      <div class="barpart bp-ask" data-bar="ask">${ask}</div>
     </div>`;
   }
   return html`<div class="actbar" role="group" aria-label="Actions on the board">
@@ -2391,13 +2397,11 @@ function lbActbar(hs, l, split) {
     <div class="actrow">${fac}</div>
     ${sum}
     ${res}
-    ${legend}
     ${lbAbout('lsb.tiers', 'tiers', html`<p><b>A tier click pays what its missions pay.</b> Click a tier (the boxes in the opened row) to give your character that tier: your contribution is raised to the tier's threshold, and contribution is cumulative, so <b>click tier 3 and tiers 1 to 3 are reached</b>. Click the highest reached tier again to remove it (the contribution drops to the tier below, or to none for tier 1). The Choose box on each row picks houses for the bulk buttons. Each tier box shows what the click grants before you press it.</p>
       <p><b>What a raise writes</b>, in one edit with a backup first:</p>
       <ul><li>your contribution, raised to the tier;</li><li>the same ground added to your faction's progress while the house is open (the house is taken when that reaches the goal);</li><li>one reward for each tier crossed, waiting at the house representative (the 6,000 tier follows the swatch rule);</li><li>for each mission, as a mission with a Recollection turned in pays it: 6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization line of the house (whether a mission without a Recollection pays the House Scrip and the XP is not known).</li></ul>
       <p>A mission is 1,000 contribution times <code>LandsraadContributionMultiplier</code>, and the XP is scaled by <code>LandsraadSpecializationXpMultiplier</code>; both are read from the ServerCustomSettings.ini on this computer (1 when the key is absent; the file of the game folder you use here, not necessarily the one a save from another setup was played with), and a click is refused with the reason when a value cannot be used or the file cannot be read. A change counts only the ground you raise from now on: a house raised by an earlier version of the editor already has events that cover its tiers, so a new Fill pays nothing for them, and tiers that version left out stay unpaid. The daily and weekly mission limits of the game are not applied.</p>
-      <p><b>What it does not write:</b> your character's own XP and your faction standing. <b>No progress event is written</b>: the editor adds no event and leaves the game's progress cursor where it is, so the game should find only events of its own at its next cursor step. Whether the game keeps a contribution raised here at that step is not checked in the game. Events an earlier build of the editor wrote stay in the save and still count as ground paid. A second Fill with nothing above your contribution writes nothing, and ground the game's own progress events for the house cover, or that you reached under another faction (a change of faction does not make the old contribution pay again), is never paid again. <b>Removing a tier</b> lowers the contribution only, writes no reward and takes back nothing the tier paid. Because the editor leaves no event of its own, it remembers the ground it paid in a small file of its own next to its other files (written once the save is written, never in the game's save): <b>raising a removed tier again pays nothing again</b>, and a raise above what was paid pays only the new tiers. The result and the line before a click say how many missions were not paid because that ground was paid before. The same holds for the rewards of the tiers crossed and for your faction's progress. The tier box is a toggle, so clicking the highest reached tier twice pays once. The editor counts that file only as far as the save agrees: ground above the highest tier of the house whose reward the save shows from this term (for example after a backup was put back) is not counted, and a restored backup counts only as far as its own rewards go (undoing a restore keeps what that file already paid, unless a raise was made on the older file in between: the record then follows that raise, and going back to the later file can pay some of its ground again). If the file is missing, damaged or of another save, nothing is taken as paid, and a raise pays as it did before.</p>
-      <p><b>Not checked in the game yet.</b> ${GRANT_UNCHECKED} <b>Going back:</b> ${undoNote()}</p>`)}
+      <p><b>What it does not write:</b> your character's own XP and your faction standing. <b>No progress event is written</b>: the editor adds no event and leaves the game's progress cursor where it is, so the game should find only events of its own at its next cursor step. Whether the game keeps a contribution raised here at that step is not checked in the game. Events an earlier build of the editor wrote stay in the save and still count as ground paid. A second Fill with nothing above your contribution writes nothing, and ground the game's own progress events for the house cover, or that you reached under another faction (a change of faction does not make the old contribution pay again), is never paid again. <b>Removing a tier</b> lowers the contribution only, writes no reward and takes back nothing the tier paid. Because the editor leaves no event of its own, it remembers the ground it paid in a small file of its own next to its other files (written once the save is written, never in the game's save): <b>raising a removed tier again pays nothing again</b>, and a raise above what was paid pays only the new tiers. The result and the line before a click say how many missions were not paid because that ground was paid before. The same holds for the rewards of the tiers crossed and for your faction's progress. The tier box is a toggle, so clicking the highest reached tier twice pays once. The editor counts that file only as far as the save agrees: ground above the highest tier of the house whose reward the save shows from this term (for example after a backup was put back) is not counted, and a restored backup counts only as far as its own rewards go (undoing a restore keeps what that file already paid, unless a raise was made on the older file in between: the record then follows that raise, and going back to the later file can pay some of its ground again). If the file is missing, damaged or of another save, nothing is taken as paid, and a raise pays as it did before.</p>`)}
     ${lbAbout('lsb.fill', 'Fill and Complete', html`<p>Fill, Complete and Reopen act for the faction chosen above. It starts on your character's own faction.</p>
       <p><b>Fill</b> and <b>Fill chosen</b> raise your own contribution to the top tier (never lowered) and write what the missions that reach it pay (see Tiers). They change nothing while another faction is chosen: your contribution counts for your own faction, so no contribution and no reward is written for another.</p>
       <p><b>Complete</b> and <b>Complete chosen</b> take the house for the chosen faction: its progress goes to the goal, and the winner and the completion are set. For another faction this records that faction's win and progress and skips your own contribution row. <b>Fill faction goal</b> on one house does both in one click: your faction ends at its progress plus what you gained, and at least at the goal.</p>
@@ -2761,7 +2765,6 @@ function lbCtl(id) {
     reopen: { off: !h.taken, tip: h.taken ? LB_REOPEN_TIP : 'The house is open: nothing to change' },
     tiers: h.tiers.map((t, k) => { const gr = q.ownF && k + 1 > h.reached ? lbGrantOf(h, l, h.mine, t.th) : null, tip = lbTierTip(h, t, k + 1, q.can, l, true, F, true); return { reward: lbRText(t), off: !q.ownF, tip, title: lbTierTitle(h, t, k + 1, tip, !q.ownF), item: lbItemInfo(h, t, k + 1), rw: t.tmpl === LB_SOLARI ? null : lbRewardRow(h, t, k + 1), grant: gr ? lbGrantShort(gr) : '' }; }),
     loc: lbLocModel(h),
-    caption: lbGrantCaption(q.fillGr, q.nextGr, h, q.can && !q.ownF ? [q.fn, lbFacName(l, l.character.faction_id)] : null),
   };
 }
 function lbDecreeNow() {
@@ -2939,6 +2942,35 @@ function resetAllRow(rc) {
   const n = rc.change || 0, left = (rc.noDefault || 0) + (rc.otherParts || 0);
   return html`<div class="row"><button class="b bad d-btn danger" data-act="cfgResetAll" data-n="${n}" aria-describedby="rstnote" ${n ? '' : 'disabled'}>Reset all to defaults</button><span class="mut" id="rstnote">${n ? `${nn(n, 'value differs', 'values differ')} from the default and would change.` : 'Every setting that has a known default is already at it.'} ${nn(rc.atDefault || 0, 'value is', 'values are')} already at the default${left ? `; ${nn(left, 'entry has', 'entries have')} no known default (or is not a game setting) and ${left == 1 ? 'is' : 'are'} left as ${left == 1 ? 'it is' : 'they are'}` : ''}.</span></div>`;
 }
+// ---------- the Help tab (#980): the pages of docs/help, embedded in the program and read from its own /api/help, drawn by help.js with createElement and textContent only. It works with no network;
+// the optional "Also on GitHub" link is the same page in the repository and is the only thing here that needs one. The page last read is remembered in the browser's storage.
+let HELP = null;
+const HELP_REPO = /^https:\/\/github\.com\/Project-Arrakis\/tabr-tau\//;
+function helpPageNow() {
+  const pages = (HELP && HELP.pages) || [];
+  const want = browserStore.get('help.page');
+  return pages.find((p) => p.id === want) || pages[0] || null;
+}
+function helpDraw() {
+  const cur = helpPageNow(), host = $('#helpbody');
+  if (!cur || !host || !window.TabrHelp) return;
+  const files = {};
+  for (const p of HELP.pages) files[p.file] = p.id;
+  host.textContent = '';
+  host.appendChild(window.TabrHelp.render(cur.body, { files, base: 3 }));
+}
+async function helpView() {
+  if (!HELP) HELP = await api('/api/help');
+  const pages = (HELP && HELP.pages) || [], cur = helpPageNow();
+  if (!cur || !window.TabrHelp) { setHTML($('#main'), html`<div class="card d-panel"><h2 class="d-head">Help</h2><p class="mut">The Help pages could not be read.</p></div>`); return; }
+  const gh = typeof HELP.repo === 'string' && HELP_REPO.test(HELP.repo) ? HELP.repo + cur.file : '';
+  setHTML($('#main'), html`<div class="card d-panel helpbox"><h2 class="d-head" id="help-h">Help</h2>
+    <div class="sub helpnav" role="group" aria-label="Help pages">${pages.map((p) => html`<button type="button" data-help="${p.id}" class="${p.id === cur.id ? 'on' : ''}" aria-current="${p.id === cur.id ? 'page' : 'false'}">${p.id === 'index' ? 'Contents' : p.title}</button>`)}</div>
+    <article class="helpbody" id="helpbody" aria-labelledby="help-h"></article>
+    ${gh ? html`<p class="helpgh"><a href="${gh}" target="_blank" rel="noopener noreferrer" title="The same page in the repository. It needs a network; the Help here does not.">Also on GitHub</a></p>` : ''}</div>`);
+  helpDraw();
+}
+
 async function configView() {
   const val_ = await api('/api/config/validate');
   if (!val_.dirExists) {
@@ -3154,7 +3186,7 @@ async function render(keepPlace, auto, from) {
   document.title = pageTitle();
   drawNav();
   try {
-    await ({ player: playerView, livemap: liveMapView, landsraad: landsraadView, config: configView, db: dbView })[tab]();
+    await ({ player: playerView, livemap: liveMapView, landsraad: landsraadView, config: configView, db: dbView, help: helpView })[tab]();
   } catch (e) {
     setHTML($('#main'), html`<div class="card d-panel bad">${e.message}</div><div class="row mt12"><button class="b d-btn primary" data-act="retry">Try again</button></div>`);
   }
@@ -3569,6 +3601,8 @@ document.addEventListener('click', (e) => {
   if (keep && Object.hasOwn(KEEP, keep.dataset.keep)) KEEP[keep.dataset.keep] = !keep.parentElement.open; // the toggle is about to flip
   const hth = e.target.closest('thead th');
   if (hth && !e.target.closest('button, a, input, select') && headerClick(hth)) return;
+  const hp = e.target.closest('[data-help]');
+  if (hp && HELP && HELP.pages.some((p) => p.id === hp.dataset.help)) { browserStore.set('help.page', hp.dataset.help); if (tab === 'help') render(); return; }
   const t = e.target.closest('[data-tab]');
   if (t) { if (Object.hasOwn(TABS, t.dataset.tab)) { tab = t.dataset.tab; browserStore.set('tab', tab); render(); } return; }
   const rv = e.target.closest('[data-reveal]');

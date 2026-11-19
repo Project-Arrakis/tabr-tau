@@ -249,15 +249,18 @@ test('the grant before the click: the Inspector says what a raise would write, a
   const ui = await open('board', a);
   click(ui, ui.doc.querySelector('[data-fk="ht:' + idOf(a, 'Lindaren') + '"]'));
   const t = text(ui.doc.querySelector('.lcc-bd-insp'));
-  assert.match(t, /Fill and Fill faction goal: Writes 6 missions: \+36,000 Solari, \+6,000 House Scrip/);
-  assert.match(t, /Written at once\. The pay-out of a mission \(Solari, House Scrip, specialization XP and rewards\) has not been checked in the game yet\./);
-  assert.equal(ui.doc.querySelector('.lcc-bd-insp .lcc-badge-unverified'), null, 'no badge in the Actions block (#948): the fact is the heading tooltip and a screen-reader text');
-  assert.match(ui.doc.querySelector('.lcc-bd-insp #lcc-bd-s4').getAttribute('title'), /^Not checked in the game yet./);
+  // the caption under the ledger is gone (#980): what a click grants is in the tooltip of the button and of the tier box, before the click
+  assert.match(ui.doc.querySelector('.lcc-bd-insp .lcc-bd-act[data-do="fill"]').getAttribute('title'), /Writes 6 missions: \+36,000 Solari, \+6,000 House Scrip/);
+  assert.doesNotMatch(t, /Written at once\. The pay-out of a mission|has not been checked in the game yet/);
+  assert.equal(ui.doc.querySelector('.lcc-bd-insp .lcc-badge-unverified'), null, 'no badge in the Actions block (#948)');
+  assert.equal(ui.doc.querySelector('.lcc-bd-insp #lcc-bd-s4').getAttribute('title'), null, 'no heading tooltip: the facts text is in the Help tab (#980)');
   const b = synthetic();
   b.grant.max_missions = 3;
   const over = await open('board', b);
   click(over, over.doc.querySelector('[data-fk="ht:' + idOf(b, 'Lindaren') + '"]'));
-  assert.match(text(over.doc.querySelector('.lcc-bd-insp')), /Will be refused: House Lindaren: this click stands for 6 missions, more than the 3 one change may grant/);
+  // the reason is said before the click, in the tooltip of the button and of the tier boxes, and each tier row says it will be refused (the caption line under the ledger is gone, #980)
+  assert.match(over.doc.querySelector('.lcc-bd-insp .lcc-bd-act[data-do="fill"]').getAttribute('title'), /Will be refused: House Lindaren: this click stands for 6 missions, more than the 3 one change may grant/);
+  assert.match(text(over.doc.querySelector('.lcc-bd-insp')), /will be refused/);
 });
 
 test('the actions block has the approved layout: Faction and Fill 5 tiers, the House actions with Reopen marked red, Set tier and Apply tier', async () => {
@@ -272,13 +275,12 @@ test('the actions block has the approved layout: Faction and Fill 5 tiers, the H
   assert.ok(rows[0].querySelector('.lcc-bd-act[data-do="reopen"]').classList.contains('lcc-bd-act-danger'));
   assert.deepEqual([...rows[1].querySelectorAll('label, button')].map((x) => text(x).replace(/ 0.*$/, '')), ['Set tier', 'Apply tier']);
   assert.deepEqual([...ed.querySelectorAll('#lcc-bd-tierset option')].map((o) => text(o)), ['0 — none', '1 / 5', '2 / 5', '3 / 5', '4 / 5', '5 / 5']);
-  // #948: no visible badge and no visible note; what they said is the tooltip of the heading and a text for a screen reader that the section is described by
+  // #948, #980: no badge, no note, no tooltip and no screen-reader sentence in the block: the facts it carried are in the Help tab
   assert.equal(ed.querySelector('.lcc-badge, .lcc-badge-unverified'), null);
-  const facts = ed.querySelector('#lcc-bd-s4d');
-  assert.ok(facts.classList.contains('lcc-bd-sr') && ed.getAttribute('aria-describedby') === 'lcc-bd-s4d');
-  assert.equal(facts.textContent, 'Not checked in the game yet. The numbered tier boxes of the board and of the ledger are the same controls as Set tier. Choosing a faction writes nothing.');
-  assert.deepEqual([...ed.querySelectorAll('p')].filter((p) => !p.classList.contains('lcc-bd-sr') && !p.closest('details')).map((p) => p.className), [], 'no visible note paragraph is left in the block');
-  assert.match(text(ed), /written at once with a backup first/);
+  assert.equal(ed.querySelector('#lcc-bd-s4d'), null);
+  assert.equal(ed.getAttribute('aria-describedby'), null);
+  assert.deepEqual([...ed.querySelectorAll('p')].map((p) => p.className), [], 'no paragraph is left in the block');
+  assert.doesNotMatch(text(ed), /written at once with a backup first|Each click is written at once/);
   assert.equal(ed.querySelector('#lcc-bd-fac').value, '1', 'it starts on the faction of the character');
 });
 

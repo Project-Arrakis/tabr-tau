@@ -5,8 +5,8 @@
 // logic. Every control that changes the save is a plain button or select that carries the same data-lb attributes and the same focus key as the classic panel's control (data-lb="tapply", "tmk",
 // "tflag", "tad", "trf"), so the page's one click handler, one request builder, one write function and one result line (#lsb-tresult) serve both views. Choosing a decree in a select or pressing a
 // button here changes nothing by itself: only Apply, Make active and Set flag write, exactly as before.
-// Time: the save holds the term's start and end as play-clock seconds, and where the play clock stood when the save was written (with the real time of that write). The section says how far the start and the end are from that point, in days, hours and minutes of play, and the real time of the save in the viewer's local time; it never works out a calendar date for the start or the end, because the save does not hold what that needs (#922).
-// What it does not know: which missions are on offer, and any ranking of the contributors (the save holds the amounts each gave; the board works the order out). The section says so in words.
+// Time (#981): one row, ENDS IN, in hours and minutes (the page works the value out: the term's end on the play clock minus where the play clock stood when the save was written; the clock stops while the game is closed).
+// No start, no date, no seconds are shown. What the save does not hold (missions on offer, a ranking of the contributors) and how each control works are in the Help tab, not in standing text here (#980).
 (function (root) {
   'use strict';
 
@@ -14,10 +14,9 @@
   const el = (tag, cls, text, attrs) => L().el(tag, cls, text, attrs);
   const btn = (cls, text, attrs) => el('button', cls, text, Object.assign({ type: 'button' }, attrs || {}));
   const NOT_IN_SAVE = 'Not in the save';
+  const NEXT = 'Next term\'s decree'; // the decree elected during a term, which takes effect in the next term (#980)
   const SRC = 'FROM THE SAVE';
   const TIERS_EARNED = () => (root.LCCM && root.LCCM.WORDS ? root.LCCM.WORDS.tiersEarned : 'tiers earned'); // the one pair of words, earned and collected, is in WORDS (lcc-model.js, #962)
-  const MISSIONS = 'Active Landsraad missions are not recorded in this local save.';
-  const CONTRIBUTORS = 'A ranking of contributors is not recorded: the save holds the amount each contributor gave to each House, and the banners show the biggest, worked out here from those amounts.';
   const FLAG_TIP = 'The save\'s own disabled column, shown as stored. It does not say whether a decree is in effect.';
 
   // The picture of a decree: from the fixed list of the helpers (matched to the decree's id, never to a name), or the neutral picture. The name and the effect are always text beside it, so a picture
@@ -33,10 +32,10 @@
   const src = (title) => el('span', 'lcc-tm-src', SRC, { title: title || 'Read from the save' });
 
   // ---- the facts of the term ---------------------------------------------------------------------------------------------------------------------------------------------------
-  function decreeFact(label, d, key) {
+  function decreeFact(label, d, key, none) {
     const li = el('li', 'lcc-tm-fact lcc-tm-fact-decree', '', { 'data-fact': key });
     li.appendChild(el('span', 'lcc-tm-k', label));
-    if (!d) { li.appendChild(el('strong', 'lcc-tm-v', 'None')); return li; }
+    if (!d) { li.appendChild(el('strong', 'lcc-tm-v', none || 'None')); return li; }
     const row = el('div', 'lcc-tm-dref');
     row.appendChild(art(d, 44));
     const t = el('div', 'lcc-tm-dtext');
@@ -48,36 +47,8 @@
     li.appendChild(row);
     return li;
   }
-  // ---- time: days, hours and minutes on the play clock (#922) ----------------------------------------------------------------------------------------------------------------------
-  // span(s): whole seconds as "2 d 4 h 15 min" (days only when there are some, hours when there are days or hours, minutes always); under a minute it is "less than a minute".
-  function span(sec) {
-    const m = Math.floor(Math.abs(Number(sec)) / 60);
-    if (!(m >= 1)) return 'less than a minute';
-    const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60);
-    return (d ? d + ' d ' : '') + (d || h ? h + ' h ' : '') + (m % 60) + ' min';
-  }
-  // away(sec, now): where a play-clock second lies against the play clock at the save, in words. Both are whole play-clock seconds; null when either is not a number.
-  function away(sec, now) {
-    if (!Number.isFinite(sec) || !Number.isFinite(now)) return null;
-    const d = sec - now;
-    if (Math.abs(d) < 60) return 'at the save (less than a minute away)';
-    return span(d) + ' of play ' + (d > 0 ? 'after' : 'before') + ' the save';
-  }
-  // the real time of the save, in the viewer's own time zone
-  function localTime(ms) {
-    const d = new Date(Number(ms));
-    return Number.isNaN(d.getTime()) ? '' : d.toLocaleString();
-  }
-  const secs = (n) => Number(n).toLocaleString('en-US') + ' s';
-  function clockNote(t, c) {
-    const len = Number.isFinite(t.startSec) && Number.isFinite(t.endSec) && t.endSec >= t.startSec ? ' The term is ' + span(t.endSec - t.startSec) + ' long on the play clock.' : '';
-    if (!c) return 'The save does not hold where the play clock stood when it was written, so the start and the end are shown as play-clock seconds.' + len + ' No calendar date is stored.';
-    const when = localTime(c.savedAt);
-    return (when ? 'Saved ' + when + ' (your local time), with the play clock at ' + secs(c.play) + '.' : 'The play clock stood at ' + secs(c.play) + ' when the save was written.') + len
-      + ' The start and the end are shown as play time before or after that point. The save holds no calendar date for them: the play clock stops while the game is closed, and the save does not say when.';
-  }
   function facts(vm) {
-    const t = vm.term, c = vm.clock || null;
+    const t = vm.term;
     const ul = el('ul', 'lcc-tm-facts', '', { role: 'list', 'aria-label': 'The current term' });
     const simple = (key, label, value, sub) => {
       const li = el('li', 'lcc-tm-fact', '', { 'data-fact': key });
@@ -87,17 +58,11 @@
       ul.appendChild(li);
     };
     simple('term', 'TERM', String(t.id));
-    // a start or end the save does not hold is "Not in the save"; with the position of the save on the play clock it is play time before or after the save, else the play-clock seconds as stored
-    const timed = (key, label, text, sec) => {
-      const a = c ? away(sec, c.play) : null;
-      if (text === '' || text === null || text === undefined || text === '—') simple(key, label, NOT_IN_SAVE);
-      else if (a) simple(key, label, a, 'play clock ' + text);
-      else simple(key, label, text, 'play clock, in seconds');
-      const li = ul.lastChild;
-      if (a) li.querySelector('.lcc-tm-v').setAttribute('title', 'Play clock ' + text + (c ? '; the save was written at ' + secs(c.play) : ''));
-    };
-    timed('start', 'STARTS', t.start, t.startSec);
-    timed('end', 'ENDS', t.end, t.endSec);
+    // one row: ENDS IN with hours and minutes (#981). The value is worked out by the page (vm.term.endsIn); the tooltip says when it counts down and as of when.
+    const ends = el('li', 'lcc-tm-fact', '', { 'data-fact': 'ends' });
+    ends.appendChild(el('span', 'lcc-tm-k', 'ENDS IN'));
+    ends.appendChild(el('strong', 'lcc-tm-v', t.endsIn, { title: t.endsTip || null }));
+    ul.appendChild(ends);
     const rf = el('li', 'lcc-tm-fact', '', { 'data-fact': 'reigning' });
     rf.appendChild(el('span', 'lcc-tm-k', 'REIGNING FACTION'));
     const r = el('div', 'lcc-tm-faction');
@@ -107,11 +72,8 @@
     rf.appendChild(r);
     ul.appendChild(rf);
     ul.appendChild(decreeFact('ACTIVE DECREE', vm.active, 'active'));
-    ul.appendChild(decreeFact('ELECTED DECREE', vm.elected, 'elected'));
+    ul.appendChild(decreeFact(NEXT, vm.elected, 'elected', 'none yet'));
     return ul;
-  }
-  function clockLine(vm) {
-    return el('p', 'lcc-tm-clock', clockNote(vm.term, vm.clock || null), { id: 'lcc-tm-clock' });
   }
 
   // ---- the two controls and Apply ----------------------------------------------------------------------------------------------------------------------------------------------
@@ -119,7 +81,6 @@
   function controls(vm) {
     const g = el('div', 'lcc-tm-ctl', '', { role: 'group', 'aria-labelledby': 'lcc-tm-ctl-h' });
     g.appendChild(el('h4', 'lcc-tm-h4', 'Set the active decree and the reigning faction', { id: 'lcc-tm-ctl-h' }));
-    g.appendChild(el('p', 'lcc-tm-scope', 'Current term only. Apply sets both together; none for the decree clears the decree. A decree needs a reigning faction, so the faction cannot be left empty (Apply needs no choice only when the save holds a faction this list does not offer, which then stays as it is, or when the decree is cleared on a term with no faction). Nothing changes until you press Apply, Make active or Set flag.'));
     const row = el('div', 'lcc-tm-ctlrow');
     const a = el('label', 'lcc-tm-fld');
     a.appendChild(el('span', 'lcc-tm-lbl', 'Active decree'));
@@ -164,7 +125,7 @@
     body.appendChild(el('small', 'lcc-tm-did', d.key, { title: 'The game\'s internal id, kept for support' }));
     const tg = el('div', 'lcc-tm-tags', '', { 'aria-label': 'In this term' });
     tg.appendChild(el('span', 'lcc-tm-k', 'IN THIS TERM'));
-    if (d.tags.length) for (const x of d.tags) tg.appendChild(badge(x, 'is-' + x.toLowerCase().replace(/\s+/g, '-')));
+    if (d.tags.length) for (const x of d.tags) tg.appendChild(badge(x, 'is-' + x.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')));
     else tg.appendChild(el('span', 'lcc-tm-none', 'not in this term'));
     body.appendChild(tg);
     li.appendChild(body);
@@ -198,7 +159,6 @@
     if (vm.open) dt.open = true;
     shut(dt, 'Decree pool', vm.pool.length + (vm.pool.length === 1 ? ' decree' : ' decrees'));
     const inner = el('div', 'lcc-tm-disc-in');
-    inner.appendChild(el('p', 'lcc-tm-note', 'Active, Elected and In rotation are read from the current term. The pool flag is the save\'s own disabled column, shown as stored: a Set flag button changes that one row only and never makes a decree active.'));
     if (!vm.pool.length) inner.appendChild(el('p', 'lcc-tm-none', 'This save has no decrees.'));
     const ul = el('ul', 'lcc-tm-rows', '', { role: 'list', 'aria-label': 'Decree pool' });
     for (const d of shown) ul.appendChild(poolRow(d));
@@ -208,7 +168,6 @@
       if (vm.hidOpen) h.open = true;
       h.appendChild(el('summary', '', 'Hidden: the plain SpecialVendorActive row (no game name, no category, effect unverified)'));
       const hin = el('div', 'lcc-tm-disc-in');
-      hin.appendChild(el('p', 'lcc-tm-note lcc-tm-warn', 'The game\'s decree table has no row for this decree, so its name is the editor\'s and its effect is not verified. It is kept with the same controls in case the game uses it.'));
       const hu = el('ul', 'lcc-tm-rows', '', { role: 'list', 'aria-label': 'Hidden decree' });
       for (const d of hidden) hu.appendChild(poolRow(d));
       hin.appendChild(hu);
@@ -220,14 +179,6 @@
     return sec;
   }
 
-  // ---- what the save does not hold -------------------------------------------------------------------------------------------------------------------------------------------
-  function notHeld() {
-    const w = el('div', 'lcc-tm-nosave', '', { role: 'group', 'aria-label': 'What this save does not hold' });
-    w.appendChild(el('span', 'lcc-tm-src lcc-tm-src-no', 'NOT IN THE SAVE'));
-    w.appendChild(el('p', '', MISSIONS + ' ' + CONTRIBUTORS));
-    return w;
-  }
-
   // ---- earlier terms: read-only -----------------------------------------------------------------------------------------------------------------------------------------------
   function history(vm) {
     const h = vm.history;
@@ -235,7 +186,7 @@
     if (vm.histOpen) dt.open = true;
     shut(dt, 'Earlier terms', 'read-only');
     const inner = el('div', 'lcc-tm-disc-in');
-    inner.appendChild(el('p', 'lcc-tm-note', h.note));
+    if (h.note) inner.appendChild(el('p', 'lcc-tm-note', h.note));
     for (const t of h.terms) {
       const d = el('details', 'lcc-tm-term');
       const s = el('summary');
@@ -267,7 +218,6 @@
       tb.appendChild(bd);
       wrap.appendChild(tb);
       d.appendChild(wrap);
-      d.appendChild(el('p', 'lcc-tm-note', t.clock));
       inner.appendChild(d);
     }
     dt.appendChild(inner);
@@ -282,16 +232,14 @@
     const t = el('div');
     t.appendChild(el('p', 'lcc-tm-eyebrow', 'THE REIGNING COURT'));
     t.appendChild(el('h3', 'lcc-tm-h', 'Term and Decrees', { id: 'lcc-tm-h', tabindex: '-1' }));
-    t.appendChild(el('p', 'lcc-tm-lead', vm.none ? 'This save has no Landsraad term, so there is no decree to show or change.' : 'The decree in force, who reigns, and the decree pool. This is the editor\'s own term control: the plaque above only shows what these hold.'));
+    if (vm.none) t.appendChild(el('p', 'lcc-tm-lead', 'This save has no Landsraad term, so there is no decree to show or change.')); // the intro line of a save that has a term is gone (#985): the Help tab says what this section is
     head.appendChild(t);
     head.appendChild(src('Read from the save: landsraad_decree_term and landsraad_decrees'));
     surf.appendChild(head);
     if (vm.none) { w.appendChild(surf); return w; }
     surf.appendChild(facts(vm));
-    surf.appendChild(clockLine(vm));
     surf.appendChild(controls(vm));
     surf.appendChild(pool(vm));
-    surf.appendChild(notHeld());
     surf.appendChild(history(vm));
     w.appendChild(surf);
     return w;
@@ -303,7 +251,7 @@
     container.appendChild(n);
     return n;
   }
-  const api = { build, mount, art, span, away, MISSIONS, CONTRIBUTORS, NOT_IN_SAVE };
+  const api = { build, mount, art, NOT_IN_SAVE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCT = api;
 })(typeof window !== 'undefined' ? window : globalThis);
