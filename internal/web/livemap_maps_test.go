@@ -13,7 +13,7 @@ import (
 )
 
 // The map pictures of the Saved map (#758): every picture in static/maps/ is listed in the art manifest (mapArt) with the size, the picture size and the hash it has, every listed picture is
-// embedded, the notice names the pictures and says which maps have none, and a map without a picture is one the manifest says has none. The route list that serves the pictures is held by
+// embedded, the notice names the pictures and says where the hub pictures come from, and a map without a picture is one the manifest says has none. The route list that serves the pictures is held by
 // TestEveryEmbeddedAssetIsServedWithItsOwnBytes (a picture embedded without a route fails there). The tie between the manifest and the map configurations (Image empty or not) is in
 // internal/ops/livemap_hub_test.go.
 
@@ -99,12 +99,19 @@ func TestMapPicturesMatchTheArtManifestAndTheNotice(t *testing.T) {
 			t.Errorf("docs/art-notice.md does not name %s", file)
 		}
 	}
-	// a map without a picture is said so by the manifest, and the notice says that the hubs have none while the manifest says they have none
-	sort.Strings(without)
-	if strings.Join(without, ",") != "Arrakeen,HarkoVillage" {
-		t.Errorf("withoutPicture is %v: Arrakeen and Harko Village have no picture yet; when one is added, move the map from withoutPicture to files, list the picture and extend the notice", without)
+	// every map of the Saved map has a picture now (the two hubs came with #758's pictures): the manifest lists no map without one
+	if len(without) > 0 {
+		t.Errorf("withoutPicture is %v: every map has a picture; a map added without one is listed there and drawn as an outline", without)
 	}
-	if len(without) > 0 && !strings.Contains(string(notice), "no picture of either hub") {
-		t.Error("docs/art-notice.md does not say that the hubs have no picture")
+	// the notice says where the two hub pictures come from, plainly: the companion app's tiles, not Funcom's render, shipped on the owner's decision, not affiliated, removable on request
+	for _, must := range []string{"map tiles of the gaming.tools companion app", "not** from the same source", "shipped on the decision of the project owner", "not affiliated with gaming.tools", "open an issue on this repository and they will be taken out"} {
+		if !strings.Contains(string(notice), must) {
+			t.Errorf("docs/art-notice.md does not say %q about the hub pictures", must)
+		}
+	}
+	for _, f := range []string{"arrakeen.png", "harko-village.png"} {
+		if !strings.Contains(want[f].Source, "gaming.tools companion") || strings.Contains(want[f].Source, "Dune Docker console map picture") {
+			t.Errorf("%s: the manifest source must name the gaming.tools companion tiles, got %q", f, want[f].Source)
+		}
 	}
 }

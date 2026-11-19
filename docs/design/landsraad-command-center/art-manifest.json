@@ -1504,7 +1504,7 @@
     ]
   },
   "mapArt": {
-    "note": "The map pictures of the Saved map (internal/web/static/maps/, served from this program's own address, listed in docs/art-notice.md). Every picture there is listed here with its size and hash, and the tests compare this list with the embedded files byte for byte (internal/web/livemap_maps_test.go). A map that has no picture (Image empty in internal/ops/livemap.go) is listed under withoutPicture: the Saved map draws its frame as a plain outline. A picture is added only as game artwork under docs/art-notice.md, with its source, size and hash here.",
+    "note": "The map pictures of the Saved map (internal/web/static/maps/, served from this program's own address, listed in docs/art-notice.md). Every picture there is listed here with its size and hash, and the tests compare this list with the embedded files byte for byte (internal/web/livemap_maps_test.go). A map that has no picture (Image empty in internal/ops/livemap.go) is listed under withoutPicture: the Saved map draws its frame as a plain outline; every map has one now, so the list is empty. The two console pictures are Dune: Awakening game artwork; the two hub pictures are map tiles of the gaming.tools companion app (docs/art-notice.md says which is which). A picture is added only with its source, size and hash here and its terms in the notice.",
     "runtimeRoot": "internal/web/static/maps/",
     "files": [
       {
@@ -1526,11 +1526,28 @@
         "width": 1408,
         "height": 1408,
         "source": "the Dune Docker console map picture (see internal/notices/THIRD-PARTY-NOTICES.md); shown in the map space of 4096 x 4096 of the console's bounds"
+      },
+      {
+        "role": "map",
+        "map": "Arrakeen",
+        "file": "arrakeen.png",
+        "bytes": 1996045,
+        "sha256": "2e2373758ba04c687da9c51b35ff3b10931e092072a77d33b5651ede0a8d3ed6",
+        "width": 1920,
+        "height": 1097,
+        "source": "the map tiles of the gaming.tools companion app (not Funcom's own render and not the Dune Docker console), assembled by the project owner from the 4096 x 4096 tile pack and cropped to the 2,342 rows the pack fills (4096 x 2342), then scaled down 2.13 times to this file; shipped on the project owner's decision, unofficial and not affiliated with gaming.tools or Funcom (docs/art-notice.md); shown in the map space of 4096 x 2342 of the frame x -27190 to 17043.26, y -12790 to 12501.58, not turned"
+      },
+      {
+        "role": "map",
+        "map": "HarkoVillage",
+        "file": "harko-village.png",
+        "bytes": 1396204,
+        "sha256": "3b0c25bfe58c5a387d4accd2cded0314803140591d11b4e425e39a9b8f019820",
+        "width": 2048,
+        "height": 2048,
+        "source": "the map tiles of the gaming.tools companion app (not Funcom's own render and not the Dune Docker console), assembled by the project owner from the 4096 x 4096 tile pack (zoom 4), then scaled down 2 times to this file; shipped on the project owner's decision, unofficial and not affiliated with gaming.tools or Funcom (docs/art-notice.md); shown in the map space of 4096 x 4096 of the frame x -24900 to 34800, y -22360 to 37340, not turned (the frame was fitted by eye on the lit rooms)"
       }
     ],
-    "withoutPicture": [
-      "Arrakeen",
-      "HarkoVillage"
-    ]
+    "withoutPicture": []
   }
 }

@@ -219,8 +219,8 @@ func TestBoardLocationOfAMarkerBeatsTheFixedPlace(t *testing.T) {
 }
 
 // The operator's rule: no house may lack a place or a way to its map. A save with no marker at all must give all 25 houses a place from the table alone, and each place must be one the
-// editor can open: a map, and on a map with a picture the pin (a fraction inside the picture) and the map link, and the grid tile on the Deep Desert. The only places that cannot be opened
-// on a picture are the two hubs, which the Saved map has no picture of yet (#758); the test names them so that adding a hub map makes it fail until the list is shortened.
+// editor can open: a map, and on a map with a picture the pin (a fraction inside the picture) and the map link, and the grid tile on the Deep Desert. Every map has a picture
+// since the two hubs got theirs (#758), so every house must have a pin inside its map.
 func TestEveryHouseHasAPlaceAndAWayToItsMap(t *testing.T) {
 	eachLayout(t, func(t *testing.T, l testsave.Layout) {
 		var ids = map[string]int64{"Maros": 174, "Kenola": 175} // the two houses mineWorld already has

@@ -2,6 +2,8 @@ package ops
 
 import (
 	"encoding/json"
+	"image"
+	_ "image/png"
 	"math"
 	"os"
 	"sort"
@@ -209,6 +211,26 @@ func TestEveryMapPictureIsInTheManifestAndEveryMapWithoutOneIsSaidSo(t *testing.
 	for k := range without {
 		if findMap(k).Key != k {
 			t.Errorf("withoutPicture names %s, which is not a map of the Saved map", k)
+		}
+	}
+}
+
+// A picture has the shape of the map space it is shown in: the page scales it to Width x Height of the map's configuration, so a picture of another shape would be stretched and every pin would sit off.
+func TestEveryMapPictureHasTheShapeOfItsMapSpace(t *testing.T) {
+	for _, m := range savedMaps() {
+		f, err := os.Open("../web/static" + m.Image)
+		if err != nil {
+			t.Errorf("%s: %v", m.Key, err)
+			continue
+		}
+		c, _, err := image.DecodeConfig(f)
+		f.Close()
+		if err != nil {
+			t.Errorf("%s: %v", m.Key, err)
+			continue
+		}
+		if got, want := float64(c.Width)/float64(c.Height), float64(m.Width)/float64(m.Height); math.Abs(got-want) > 0.002 {
+			t.Errorf("%s: the picture is %dx%d (shape %.4f) but its map space is %dx%d (shape %.4f)", m.Key, c.Width, c.Height, got, m.Width, m.Height, want)
 		}
 	}
 }

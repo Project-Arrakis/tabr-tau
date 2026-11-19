@@ -54,3 +54,4 @@ The victory panel counts the Houses and says whether a faction has won, by 13 Ho
 - Active Landsraad missions are not recorded in a single-player save.
 - A ranking of the contributors is not recorded. The save holds the amount each contributor gave to each House.
 - Some Houses have no place on the Saved map. The editor does not guess a place.
+- Five Houses stand in the two social hubs, which the Saved map shows with their own pictures: Mutelli, Varota and Wallach in Arrakeen, Alexin and Spinette in Harko Village. Their place opens the hub on the Saved map, centred on the House. The Harko Village frame was fitted by eye on the picture, so a pin there is right to about a room.
