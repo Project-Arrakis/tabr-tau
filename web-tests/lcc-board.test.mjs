@@ -56,7 +56,7 @@ test('the board is 25 tiles in board order, numbered 01 to 25, each a button wit
     const b = c.querySelector('button.lcc-hc-select');
     assert.equal(b.getAttribute('type'), 'button');
     assert.match(b.getAttribute('aria-label'), /^Square \d\d, /);
-    assert.match(c.querySelector('.lcc-hc-owner').textContent, /Atreides|Harkonnen|Not won|Unreadable/);
+    assert.match(c.querySelector('.lcc-hc-owner').textContent, /Atreides|Harkonnen|No favor|Unreadable/);
   }
   assert.equal(text(tiles(ui)[0].querySelector('.lcc-hc-owner')), '● Harkonnen', 'position 01 is Vernius, taken by Harkonnen in the fixture');
   assert.equal(ui.doc.querySelector('.lcc-bd-tiles').getAttribute('role'), 'list');

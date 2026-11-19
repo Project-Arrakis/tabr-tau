@@ -426,7 +426,8 @@
   const WORDS = Object.freeze({
     wonBy: 'Favor won by', // the list column header
     favorWon: 'Favor won', favorNotWon: 'Favor not won', favorUnreadable: 'Favor unreadable',
-    notWon: 'Not won', unreadable: 'Unreadable', // the cell of the list and the line of a card
+    notWon: 'Not won', unreadable: 'Unreadable', // the cell of the list
+    noFavor: 'No favor', // the line of an unclaimed House card: the same slot as the faction line of a won card (#1070); the list, the filter and the Inspector keep Not won / Favor not won
     square: 'Square', specialization: 'Specialization', bySpecialization: 'By specialization', noSpecialization: 'No specialization',
     // The reward tiers of the character: a tier is earned (the contribution reaches its threshold) and then collected (the reward is taken at the house representative); #962. "Not reached" is the state word
     // of a tier that is not earned yet and stays as it is (it changes Classic too: an open question). Classic keeps its own words.
