@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -313,10 +314,6 @@ func (o *Ops) SetTerm(a Args) (any, error) {
 	if len(edits) == 0 {
 		return ok(), nil
 	}
-	var parts []string
-	for _, e := range edits {
-		parts = append(parts, fmt.Sprintf("%s = %v", e.col, e.val))
-	}
 	// The term is looked up inside the edit, through its own query, so it is kept with the edit: put back onto a newer file with another term, the edit is not applied to the
 	// old term's id.
 	_, err = o.S.Mutate("landsraad term", func(m *save.Mut) error {
@@ -350,6 +347,17 @@ func (o *Ops) SetTerm(a Args) (any, error) {
 				}
 			}
 		}
+		// a reigning faction the request only repeats (the page sends the held one back when the save holds a faction the list does not offer, or a script sets what is there) changes
+		// nothing: the edit is dropped, so no no-op rewrite is queued and the desc does not say it was written (#846). The checks above have already judged it.
+		// (a new list for this run of the edit: it is run again when put back onto a newer file, and the request's own list is what it starts from)
+		edits := slices.DeleteFunc(slices.Clone(edits), func(e edit) bool {
+			held, isHeld := term["reigning_faction_id"].(int64)
+			id, isInt := e.val.(int64)
+			return isHeld && isInt && e.col == "reigning_faction_id" && id == held
+		})
+		if len(edits) == 0 {
+			return nil
+		}
 		// a term that ends before it starts has no window: the completion times and the clock repair are worked out from it (D1-4, #611)
 		if start, ok := toFloat(term["start_time"]); ok {
 			for _, e := range edits {
@@ -357,6 +365,10 @@ func (o *Ops) SetTerm(a Args) (any, error) {
 					return apierr.Newf(apierr.ErrBadArgument, "end_time %d is before the term's start_time %d: the term would end before it starts", end, int64(start))
 				}
 			}
+		}
+		parts := make([]string, 0, len(edits))
+		for _, e := range edits {
+			parts = append(parts, fmt.Sprintf("%s = %v", e.col, e.val))
 		}
 		m.Desc = fmt.Sprintf("landsraad term %v: %s", term["term_id"], strings.Join(parts, ", "))
 		for _, e := range edits {
