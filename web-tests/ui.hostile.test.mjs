@@ -29,7 +29,7 @@ const read = (n) => fs.readFileSync(path.join(static_, n), 'utf8');
 
 // Allowlists: anything else appearing in the rendered DOM is an injection.
 const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h2 h3 h4 ul li code small table thead tbody tr th td input select option datalist button details summary textarea br label canvas svg g rect text path defs clippath section i em dl dt dd dialog'.split(' '));
-const SCRIPTS = new Set(['/motion-boot.js', '/look-boot.js', '/theme-menu.js', '/html.js', '/livemap.js', '/lcc/lcc.js', '/lcc/lcc-model.js', '/lcc/lcc-board.js', '/lcc/lcc-spec.js', '/lcc/lcc-term.js', '/app.js']); // the only scripts the page may contain, all same-origin files (the Motion and Look scripts are in the head, the Theme menu's before the page's)
+const SCRIPTS = new Set(['/motion-boot.js', '/look-boot.js', '/theme-menu.js', '/html.js', '/livemap.js', '/help.js', '/lcc/lcc.js', '/lcc/lcc-model.js', '/lcc/lcc-board.js', '/lcc/lcc-spec.js', '/lcc/lcc-term.js', '/app.js']); // the only scripts the page may contain, all same-origin files (the Motion and Look scripts are in the head, the Theme menu's before the page's)
 const ATTRS = new Set('aria-disabled stroke stroke-width stroke-linecap stroke-linejoin for aria-expanded aria-haspopup focusable fill lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live aria-label aria-labelledby aria-describedby aria-sort aria-current aria-pressed inert tabindex label checked open viewbox x y rx transform d hidden aria-hidden clip-path'.split(' '));
 
 export function assertClean(doc, label) {
@@ -86,6 +86,7 @@ async function boot({ post = {}, get = {}, confused = false, noStorage = false }
   w.confirm = () => true; w.prompt = () => '1';
   w.eval(read('html.js'));
   w.eval(read('livemap.js'));
+  w.eval(read('help.js'));
   w.eval(read('app.js'));
   const settle = async () => { for (let i = 0; i < 40; i++) { await new Promise((r) => w.setTimeout(r, 0)); if (inflight === 0 && i > 4) return; } };
   await settle();
@@ -1951,7 +1952,7 @@ test('Landsraad shows the term as dates and a reward as the item\'s name; Admin 
   const ui = await boot({ get: { '/api/landsraad': l, '/api/catalog/items': catalog, '/api/vendors': { stock: [{ vendor_id: 'V1', template_id: 'SolarisCoin', amount_bought: 3 }], cycles: [{ vendor_id: 'V1', last_interacted_timestamp: 1790000000 }] } } });
   await goTo(ui, 'landsraad');
   const t = ui.doc.querySelector('#main').textContent;
-  assert.ok(!t.includes('1790000000') && /2026|2027/.test(t), 'Start and End are dates: ' + t.slice(0, 200));
+  assert.ok(!t.includes('1790000000') && !t.includes('1,790,000,000') && !t.includes('1790604800'), 'no raw number of the term window is shown (#981): ' + t.slice(0, 200));
   assert.ok(t.includes('5 Solari') && !t.includes('SolarisCoin'), 'the reward is named, not an id');
   await goTo(ui, 'player', 'player:admin');
   const a = ui.doc.querySelector('#main').textContent;

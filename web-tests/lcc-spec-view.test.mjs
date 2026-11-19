@@ -196,7 +196,8 @@ test('the Houses of a path are buttons that open the House on the Landsraad boar
   assert.match(hs[0].querySelector('img').getAttribute('src'), /^\/lcc\/art\/houses\/alexin\.webp$/);
   hs[1].dispatchEvent(new d.w.MouseEvent('click', { bubbles: true }));
   assert.deepEqual(got, [12]);
-  assert.match(txt(q(d, '.lcc-sp-houses')), /public community tracker, not from the game or the save/);
+  assert.match(q(d, '.lcc-sp-houses #lcs-hs-h').getAttribute('title'), /public community tracker, not from the game or the save/, 'the source is the tooltip of the heading (#980)');
+  assert.doesNotMatch(txt(q(d, '.lcc-sp-houses')), /public community tracker/);
 });
 
 test('with no Landsraad read the Houses are "Not in the save", and a path with no House says so', () => {
@@ -240,7 +241,8 @@ test('the bars are exact and the labelled ones carry their numbers', () => {
 
 test('the level scale is labelled as reference marks and marks where the level stands', () => {
   const d = draw(byId('xp-44181-near-cap-keystones-20-of-41'), HOUSES, {}, 'combat');
-  assert.match(txt(q(d, '.lcc-sp-scale')), /Reference marks along the 100 levels\. They are not unlock levels\./);
+  assert.match(q(d, '.lcc-sp-scale .lcc-sp-k').getAttribute('title'), /Reference marks along the 100 levels\. They are not unlock levels\./, 'said in the tooltip of the label, not as a line (#980)');
+  assert.doesNotMatch(txt(q(d, '.lcc-sp-scale')), /not unlock levels/);
   const marks = qa(d, '.lcc-sp-mark');
   assert.deepEqual(marks.map((m) => txt(m.querySelector('b'))), ['LV 0', 'LV 25', 'LV 50', 'LV 75', 'LV 100']);
   assert.deepEqual(marks.map((m) => m.classList.contains('is-past')), [true, true, true, true, false]);

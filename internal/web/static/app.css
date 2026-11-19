@@ -908,3 +908,19 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
     .lsb #lsb-board .lcc-bd-back { display: inline-flex; }
   }
 }
+/* ---- the Help tab (issue 980): the pages of docs/help, drawn by help.js ---- */
+.helpbox .helpnav{margin-top:8px}
+.helpbody{max-width:78ch;line-height:1.55;overflow-wrap:anywhere}
+.helpbody .helph{margin:20px 0 8px;font-weight:700}
+.helpbody h3.helph{margin-top:4px;font-size:var(--t-lg,1.25rem)}
+.helpbody h4.helph{font-size:var(--t-md,1.05rem)}
+.helpbody p{margin:0 0 10px}
+.helpbody .helplist{margin:0 0 12px;padding-left:22px}
+.helpbody .helplist li{margin:0 0 5px}
+.helpbody code{font-family:var(--t-mono);font-size:.92em;padding:1px 5px;border:1px solid var(--line);border-radius:var(--r-1,3px);background:var(--panel2)}
+.helpbody .helptable{max-height:none;margin:0 0 14px}
+.helpbody .helptable th{cursor:default;position:static}
+.helpbody .helplink{background:none;border:0;padding:0;font:inherit;text-align:left;color:var(--acc);text-decoration:underline;cursor:pointer}
+.helpbody .helplink:focus-visible,.helpgh a:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.helpgh{margin:16px 0 0;font-size:var(--t-sm)}
+.helpgh a{color:var(--acc)}

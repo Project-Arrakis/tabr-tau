@@ -42,12 +42,11 @@ test('the panel is closed, its heading line names the term, the reigning faction
   assert.ok(d && !d.open, 'closed by default');
   assert.equal(text(d.querySelector('summary')), 'Term and decrees Term 10 · Harkonnen · Exclusive Vehicle Import Rights');
   const kv = text(d.querySelector('.tkv'));
-  assert.ok(kv.includes('Term10') && kv.includes('Reigning factionHarkonnen') && kv.includes('Active decreeExclusive Vehicle Import RightsSpecialVendorActive_Vehicles') && kv.includes('Elected decreeThe Right of SalvageDropInventoryOnDefeatActive'), kv);
+  assert.ok(kv.includes('Term10') && kv.includes('Reigning factionHarkonnen') && kv.includes('Active decreeExclusive Vehicle Import RightsSpecialVendorActive_Vehicles') && kv.includes('Next term\'s decreeThe Right of SalvageDropInventoryOnDefeatActive'), kv);
   assert.ok(!ui.doc.querySelector('.lsb-prev'), 'the old section of previous controls is gone');
-  // the window is on the play clock, drawn in seconds with a thousands separator as the mock-up does
-  const ui2 = await open(landsraad({ term: { term_id: 10, start_time: 360000, end_time: 396000, reigning_faction_id: 2, active_decree_id: 8, elected_decree_id: 5 } }));
-  const kv2 = text(ui2.doc.querySelector('.tkv'));
-  assert.ok(kv2.includes('Start360,000 s') && kv2.includes('End396,000 s'), kv2);
+  // the term's time is one value, Ends in, never seconds (#981); with no play clock in this answer it is not known
+  assert.ok(kv.includes('Ends innot known'), kv);
+  assert.ok(!/\d\s?s\b|Start|End\b/.test(kv.replace('Reigning factionHarkonnen', '')), kv);
 });
 
 test('decrees are shown by the name the game shows with the internal id as a small second line', async () => {
@@ -139,7 +138,7 @@ test('only the decree the term has active is marked Active in the pool, and it i
   const ui = await open();
   const tags = (id) => [...poolRow(ui, id).querySelectorAll('.tag')].map((t) => t.textContent.trim());
   assert.deepEqual(tags(8), ['Active']);
-  assert.deepEqual(tags(5), ['Elected']);
+  assert.deepEqual(tags(5), ['Next term\'s decree']);
   assert.deepEqual(tags(10), ['In rotation']);
   assert.deepEqual(tags(7), [], 'the base row SpecialVendorActive is not in this term: ' + text(poolRow(ui, 7)));
   assert.ok(text(poolRow(ui, 7)).includes('not in this term'));

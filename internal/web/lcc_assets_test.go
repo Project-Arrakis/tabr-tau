@@ -349,7 +349,7 @@ func TestLccFilesReachNothingAndTheGalleryStaysOutOfTheEditor(t *testing.T) {
 			t.Errorf("static/index.html does not link %s", want)
 		}
 	}
-	for _, f := range []string{"static/index.html", "static/app.js", "static/html.js", "static/livemap.js", "static/theme-menu.js", "static/look-boot.js", "static/motion-boot.js", "static/app.css"} {
+	for _, f := range []string{"static/index.html", "static/app.js", "static/html.js", "static/livemap.js", "static/help.js", "static/theme-menu.js", "static/look-boot.js", "static/motion-boot.js", "static/app.css"} {
 		src := read(t, f)
 		if strings.Contains(src, "gallery") {
 			t.Errorf("%s mentions the preview gallery: it is not part of the editor", f)

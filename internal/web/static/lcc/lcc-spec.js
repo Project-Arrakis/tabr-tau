@@ -164,7 +164,7 @@
     add(t, el('p', 'lcc-sp-eyebrow', 'THE FIVE PATHS OF ARRAKIS · IMPERIAL ARCHIVE'));
     const h2 = el('h2', 'lcc-sp-h2', 'SPECIALIZATION ', { id: 'lcs-title' });
     h2.appendChild(el('em', '', 'COMMAND'));
-    add(t, h2, el('p', 'lcc-sp-lead', 'Five disciplines. One progression dossier. The buttons below are the editor’s own save operations.'));
+    add(t, h2); // no lead sentence (#980): what the view is and how its operations work are in the Help tab
     const s = el('div', 'lcc-sp-hero-stats', '', { role: 'group', 'aria-label': 'Progression overview' });
     const stat = (v, k, id) => add(el('div', 'lcc-sp-stat'), el('b', '', v, { id }), el('small', '', k));
     const T = vm.totals;
@@ -215,13 +215,12 @@
     if (r.levelMismatch) add(st, el('p', 'lcc-sp-note lcc-sp-note-warn', 'The save stores level ' + (Math.round(r.storedLevel * 100) / 100) + ' for this track, but its XP is level ' + r.level + ' on the XP table. Nothing was changed; the level the save stores is left as it is.', { id: 'lcs-mismatch' }));
     if (!vm.levelsTrusted) add(st, el('p', 'lcc-sp-note lcc-sp-note-warn', 'The save’s largest XP (' + fmt(vm.maxXp) + ') is not the one this page’s level table ends on, so the level shown is the one the save stores.', { id: 'lcs-table-note' }));
     add(st, line('KEYSTONES PURCHASED', keysText(r), 'lcs-keys'),
-      bar('lcc-sp-keybar', r.keyKnown ? pctOf(r.keyOwned, r.keyTotal) : 0, 'Keystones purchased on the selected path', r.keyOwned, r.keyKnown ? r.keyTotal : 0),
-      el('p', 'lcc-sp-small', 'XP cap and keystones are independent. Level 100 does not give keystones, and all keystones do not give level 100.'));
+      bar('lcc-sp-keybar', r.keyKnown ? pctOf(r.keyOwned, r.keyTotal) : 0, 'Keystones purchased on the selected path', r.keyOwned, r.keyKnown ? r.keyTotal : 0)); // "XP cap and keystones are independent" is in the Help tab (#980)
     add(g, plate, st);
     add(d, g);
 
     const wp = el('div', 'lcc-sp-scale');
-    add(wp, add(el('div', 'lcc-sp-scale-h'), el('span', 'lcc-sp-k', 'LEVEL SCALE'), el('span', 'lcc-sp-small', 'Reference marks along the 100 levels. They are not unlock levels.')));
+    add(wp, add(el('div', 'lcc-sp-scale-h'), el('span', 'lcc-sp-k', 'LEVEL SCALE', { title: 'Reference marks along the 100 levels. They are not unlock levels.' })));
     const row = el('ol', 'lcc-sp-marks', '', { 'aria-label': 'Reference marks along the 100 levels' });
     for (const n of SCALE) {
       const li = el('li', 'lcc-sp-mark' + (r.level !== null && r.level >= n ? ' is-past' : '') + (r.level !== null && (n === 100 ? r.level === 100 : r.level >= n && r.level < SCALE[SCALE.indexOf(n) + 1]) ? ' is-here' : ''));
@@ -240,8 +239,7 @@
   function opsOf(vm, r) {
     const a = el('aside', 'lcc-sp-ops lcc-sp-surface', '', { 'aria-labelledby': 'lcs-ops-h' });
     const top = el('div', 'lcc-sp-ops-top');
-    add(top, el('p', 'lcc-sp-eyebrow', 'THE EDITOR’S OWN OPERATIONS'), el('h3', 'lcc-sp-h3', 'Specialization Operations', { id: 'lcs-ops-h' }),
-      el('p', 'lcc-sp-small', 'Every change asks first, is written after a backup, and says whether it was saved or is queued until the game closes.'));
+    add(top, el('p', 'lcc-sp-eyebrow', 'THE EDITOR’S OWN OPERATIONS'), el('h3', 'lcc-sp-h3', 'Specialization Operations', { id: 'lcs-ops-h' })); // every change asks first and is written after a backup: the question and the result say so, and the Help tab explains it (#980)
     add(a, top);
 
     const off = !r.known;
@@ -277,8 +275,7 @@
 
   function housesOf(vm, r) {
     const s = el('section', 'lcc-sp-houses lcc-sp-surface', '', { 'aria-labelledby': 'lcs-hs-h' });
-    add(s, el('p', 'lcc-sp-eyebrow', 'LANDSRAAD INTELLIGENCE'), el('h3', 'lcc-sp-h3', 'Associated Houses · ' + r.label, { id: 'lcs-hs-h' }),
-      el('p', 'lcc-sp-small', 'The Houses of this path, from a public community tracker, not from the game or the save: treat it as a reference. Choosing a House opens it on the Landsraad board; nothing is written.'));
+    add(s, el('p', 'lcc-sp-eyebrow', 'LANDSRAAD INTELLIGENCE'), el('h3', 'lcc-sp-h3', 'Associated Houses · ' + r.label, { id: 'lcs-hs-h', title: 'The Houses of this path, from a public community tracker, not from the game or the save: treat it as a reference. Choosing a House opens it on the Landsraad board; nothing is written.' }));
     const list = el('ul', 'lcc-sp-hlist', '', { role: 'list' });
     if (r.houses === null) add(s, el('p', 'lcc-sp-note', 'The Landsraad of this save could not be read, so the Houses of this path are ' + NOT_IN_SAVE.toLowerCase() + '.'));
     else if (!r.houses.length) add(s, el('p', 'lcc-sp-note', 'No House of this term is listed under this path.'));

@@ -46,14 +46,6 @@
 
   // ---- small helpers -------------------------------------------------------------------------------------------------------------------------------------------------------------
   function btn(cls, text, attrs) { return el('button', cls, text, Object.assign({ type: 'button' }, attrs || {})); }
-  // A long explanation behind a plain summary: a native disclosure, so the keyboard opens it and a screen reader says whether it is open. What was opened stays open over a redraw.
-  function disc(key, summary, ...nodes) {
-    const d = el('details', 'lcc-bd-disc', '', { 'data-key': key });
-    d.appendChild(el('summary', '', summary));
-    for (const n of nodes) d.appendChild(n);
-    if (memo.open.has(key)) d.open = true;
-    return d;
-  }
   const trackWord = (t) => TRACK_WORD[t] || '';
   const pct = (v, goal) => (goal > 0 && v !== null ? Math.max(0, Math.min(100, Math.round((v / goal) * 100))) : 0);
   // The list cell of who won a House's favor: ONE mark, the faction's name in the faction's colour (#950). A letter before the name read as a second H (H over HARKONNEN) once the cell wrapped, so there is none;
@@ -210,7 +202,7 @@
   }
   function legend(board, ev) {
     ev = ev || M().evaluate(board, null);
-    const w = el('ul', 'lcc-bd-headlines', '', { role: 'list', 'aria-label': 'What the colours of a House mean' });
+    const w = el('ul', 'lcc-bd-headlines', '', { role: 'list', 'aria-label': 'Key to the board' });
     const k = (cls, text, title) => { const li = el('li', '', '', { title }); li.appendChild(el('i', 'lcc-bd-key lcc-bd-key-' + cls, '', { 'aria-hidden': 'true' })); li.appendChild(root.document.createTextNode(text)); return li; };
     w.appendChild(k('a', 'ATREIDES ' + W().favorWon.toUpperCase()));
     w.appendChild(k('h', 'HARKONNEN ' + W().favorWon.toUpperCase()));
@@ -521,28 +513,14 @@
     if (src) h.appendChild(tag(src));
     return h;
   }
-  // The note of the approved design, in our words: what the save says, and the rule for a tier with no delivery record.
-  function importantNote() {
-    const n = el('div', 'lcc-bd-note');
-    n.appendChild(el('strong', '', 'Important:'));
-    n.appendChild(root.document.createTextNode(' A House whose favor a faction has won, a personal reward tier earned, and a reward collected are '));
-    n.appendChild(el('em', '', 'three separate states'));
-    n.appendChild(root.document.createTextNode('. Thresholds and reward records are read from the save; a tier with no delivery record is counted as neither collected nor not collected.'));
-    return n;
-  }
   // The actions block. Presentation only: every button is the same control as before (data-lb="qa", same ids and keys), the faction box drives the board's own faction box, and
   // Apply tier presses the tier box of the ledger that the choice means, so a tier set here goes through the same checks, question and backup as a click on that box.
   function editor(h, c) {
     const s4 = el('section', 'lcc-bd-sec lcc-bd-editor', '', { 'aria-labelledby': 'lcc-bd-s4' });
-    // no visible badge or note here (#948): what they said stays as the tooltip of the heading and as text for a screen reader
-    const facts = 'Not checked in the game yet. The numbered tier boxes of the board and of the ledger are the same controls as Set tier. Choosing a faction writes nothing.';
+    // no badge, note or standing sentence here (#948, #980): what the tier boxes, Set tier and the faction box do is in the Help tab, and what a click would write is in its tooltip and its question
     const head = el('div', 'lcc-bd-editor-head');
-    const hh = secHead('ACTIONS', 'lcc-bd-s4');
-    hh.setAttribute('title', facts);
-    head.appendChild(hh);
+    head.appendChild(secHead('ACTIONS', 'lcc-bd-s4'));
     s4.appendChild(head);
-    s4.appendChild(el('p', 'lcc-bd-sr', facts, { id: 'lcc-bd-s4d' }));
-    s4.setAttribute('aria-describedby', 'lcc-bd-s4d');
     const r1 = el('div', 'lcc-bd-erow', '', { role: 'group', 'aria-label': 'Actions on House ' + h.name });
     if (c.factions && c.factions.length) {
       const lab = el('label', 'lcc-bd-elab', 'Faction', { for: 'lcc-bd-fac' });
@@ -568,7 +546,6 @@
     r2.appendChild(btn('lcc-bd-act', 'Apply tier', { 'data-lcb': 'settier', 'data-id': h.id, 'data-r': h.reached, 'data-fk': 'at:' + h.id, title: 'Sets your contribution to the chosen tier, exactly as a click on that numbered box does: raises to a higher tier, or removes the highest earned tier.' }));
     r2.appendChild(el('span', 'lcc-bd-etip', W().favorWon + ' ≠ earned ≠ collected'));
     s4.appendChild(r2);
-    s4.appendChild(disc('tip', 'How each click is written', el('p', 'lcc-bd-tip', 'Each click is written at once with a backup first, and refused if this House is no longer as shown. Complete on a House another faction took replaces that win; the question says so first.')));
     return s4;
   }
 
@@ -655,8 +632,7 @@
     s1.appendChild(el('span', 'lcc-bd-sr', s1note));
     if (h.contributors.length) {
       s1.appendChild(el('p', 'lcc-bd-mut lcc-bd-contrib', 'Contributors to this House, from the save, the biggest first: ' + contribLine(h.contributors, 5) + '.', { title: 'The order is worked out here: the save holds the amounts, not a ranking. A guild is shown by the name the save gives it.' }));
-      s1.appendChild(el('p', 'lcc-bd-mut lcc-bd-nosave', 'Active Landsraad missions are not recorded in this local save.'));
-    } else s1.appendChild(el('p', 'lcc-bd-mut lcc-bd-nosave', 'Top contributors: not in the save. ' + (h.owner === 'a' || h.owner === 'h' ? 'The favor of this House is won but the save holds no contributor row for it (for example when it was completed from this editor). ' : '') + 'Active Landsraad missions are not recorded in this local save.'));
+    } else s1.appendChild(el('p', 'lcc-bd-mut lcc-bd-nosave', 'Top contributors: not in the save.' + (h.owner === 'a' || h.owner === 'h' ? ' The favor of this House is won but the save holds no contributor row for it (for example when it was completed from this editor).' : '')));
     side.appendChild(s1);
 
     const top = h.tierCount ? h.top : null;
@@ -723,12 +699,7 @@
     if (!h.tiers.length) s3.appendChild(el('p', 'lcc-bd-none', 'This House has no tiers in the save.'));
     s3.appendChild(ol);
     if (!h.tiersOrdered && h.tiers.length) s3.appendChild(el('p', 'lcc-bd-warn', 'The tier amounts are not in rising order in the save; the earned count is taken as the save states it.'));
-    if (c && c.caption) s3.appendChild(disc('caption', 'About Fill and the tiers', el('p', 'lcc-bd-cap', c.caption)));
-    const lg = el('div', 'lcc-bd-legend');
-    for (const t of ['✓ Collected', '◆ Not collected', '○ Not reached', '? No delivery record']) lg.appendChild(el('span', '', t));
-    s3.appendChild(disc('legend', 'What the marks mean', lg));
-    side.appendChild(s3);
-    side.appendChild(disc('note', 'Important: three separate states', importantNote()));
+    side.appendChild(s3); // no caption, mark legend or note under the ledger (#980): every tier row names its own state, and the Help tab explains the marks, Fill and the three separate states
 
     // where it is
     const s5 = el('section', 'lcc-bd-sec', '', { 'aria-labelledby': 'lcc-bd-s5' });

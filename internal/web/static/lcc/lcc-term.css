@@ -18,9 +18,7 @@
 .lcc-tm-k { display: block; font: 700 11px/1.3 var(--lcc-sans); letter-spacing: .1em; color: var(--lcc-dim); text-transform: uppercase; }
 .lcc-tm-sub, .lcc-tm-hint, .lcc-tm-none { font: 400 12px/1.4 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-tm .lcc-tm-note { margin: 0 0 10px; padding: 9px 11px; font: 500 12px/1.5 var(--lcc-sans); color: var(--lcc-text); border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-sunken); }
-.lcc-tm-warn::before { content: '\26A0\00a0'; color: var(--lcc-gold-text); }
 .lcc-tm-src { display: inline-block; padding: 5px 9px; border: 1px solid var(--lcc-stroke); font: 700 11px/1.3 var(--lcc-sans); letter-spacing: .1em; color: var(--lcc-dim); white-space: nowrap; }
-.lcc-tm-src-no { border-style: dashed; color: var(--lcc-gold-text); }
 
 /* ---- the surface: a bordered panel with a hairline set in from its edge, as the board's panels ---- */
 .lcc-tm-surface { position: relative; padding: 22px 24px 24px; border: 1px solid var(--lcc-stroke); background: linear-gradient(145deg, var(--lcc-s1), var(--lcc-s2)); box-shadow: 0 15px 45px rgba(0, 0, 0, .36); min-width: 0; }
@@ -52,7 +50,6 @@
 
 /* ---- the controls ---- */
 .lcc-tm-ctl { margin: 0 0 16px; padding: 14px 15px 12px; border: 1px solid var(--lcc-stroke); background: var(--lcc-sunken); }
-.lcc-tm .lcc-tm-scope { margin: 5px 0 11px; font: 400 12px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-tm-ctlrow { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 14px; align-items: start; }
 .lcc-tm-fld { display: block; min-width: 0; }
 .lcc-tm-lbl { display: block; margin: 0 0 5px; font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .06em; color: var(--lcc-gold-text); }
@@ -93,16 +90,13 @@
 .lcc-tm-tags .lcc-tm-k { margin-right: 2px; }
 .lcc-tm-badge { display: inline-block; padding: 3px 8px; border: 1px solid var(--lcc-stroke); font: 700 11px/1.3 var(--lcc-sans); letter-spacing: .06em; text-transform: uppercase; color: var(--lcc-text); }
 .lcc-tm-badge.is-active { border: 2px solid var(--lcc-gold); color: var(--lcc-gold-text); }
-.lcc-tm-badge.is-elected { border-style: double; border-width: 3px; }
+.lcc-tm-badge.is-next-term-s-decree { border-style: double; border-width: 3px; }
 .lcc-tm-badge.is-in-rotation { border-style: dashed; }
 .lcc-tm-rside { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px 10px; max-width: 360px; }
 .lcc-tm-flag { display: flex; align-items: baseline; gap: 8px; margin-right: 4px; }
 .lcc-tm-flag b { font: 700 16px/1 var(--lcc-mono); color: var(--lcc-strong); }
 .lcc-tm-mkon { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 9px 13px; font: 700 12px/1.3 var(--lcc-sans); color: var(--lcc-gold-text); border: 2px solid var(--lcc-gold); }
 
-/* ---- what the save does not hold ---- */
-.lcc-tm-nosave { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 14px; margin: 0 0 14px; padding: 11px 13px; border: 1px dashed var(--lcc-stroke); background: var(--lcc-sunken); }
-.lcc-tm-nosave p { margin: 0; flex: 1 1 280px; min-width: 0; font: 400 12px/1.5 var(--lcc-sans); color: var(--lcc-text); }
 
 /* ---- earlier terms ---- */
 .lcc-tm-hist { margin-bottom: 0; }
@@ -151,21 +145,19 @@
   .lcc-tm-surface, .lcc-tm-fact, .lcc-tm-row, .lcc-tm-btn, .lcc-tm-select, .lcc-tm-disc, .lcc-tm-ctl { border-color: var(--lcc-text); }
 }
 @media (forced-colors: active) {
-  .lcc-tm-surface, .lcc-tm-fact, .lcc-tm-row, .lcc-tm-disc, .lcc-tm-ctl, .lcc-tm-btn, .lcc-tm-select, .lcc-tm-nosave { border: 1px solid ButtonText; background: Canvas; color: CanvasText; box-shadow: none; }
+  .lcc-tm-surface, .lcc-tm-fact, .lcc-tm-row, .lcc-tm-disc, .lcc-tm-ctl, .lcc-tm-btn, .lcc-tm-select { border: 1px solid ButtonText; background: Canvas; color: CanvasText; box-shadow: none; }
   .lcc-tm-surface::after { display: none; }
   .lcc-tm-row[data-active="true"] { outline: 3px solid Highlight; border-color: Highlight; box-shadow: none; }
   .lcc-tm-badge.is-active { border: 3px solid Highlight; }
   .lcc-tm-btn[aria-disabled="true"] { opacity: 1; color: GrayText; border-color: GrayText; }
   .lcc-tm-btn.is-primary { background: ButtonFace; color: ButtonText; border: 2px solid ButtonText; }
-  .lcc-tm-nosave { border-style: dashed; }
   .lcc-tm-art-fb { border-style: dashed; }
   .lcc-tm-meter i.on { background: Highlight; border-color: Highlight; }
 }
 .lcc-tm-pending { display: block; font: 600 12px/1.4 var(--lcc-sans); color: var(--lcc-strong); }
 .lcc-tm-pending:empty { display: none; }
 
-/* ---- the clock line under the facts (#922) and the small Show / Hide control of the closed blocks (#923) ---- */
-.lcc-tm .lcc-tm-clock { margin: 0 0 18px; padding: 0 2px; max-width: 110ch; font: 400 12px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
+/* ---- the small Show / Hide control of the closed blocks (#923) ---- */
 .lcc-tm .lcc-tm-disc > summary.lcc-tm-sum2 { justify-content: space-between; gap: 12px; }
 .lcc-tm-sumt { min-width: 0; overflow-wrap: anywhere; }
 .lcc-tm-showhide { flex: none; display: inline-block; padding: 3px 10px; border: 1px solid var(--lcc-gold-lo); font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .06em; color: var(--lcc-gold-text); background: var(--lcc-sunken); }

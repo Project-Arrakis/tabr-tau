@@ -52,7 +52,7 @@ test('the whole action bar is in the control bar above the 5 by 5: the choose bu
   const slot = ui.doc.querySelector('.lcc-bd-panel > .lcc-bd-slot');
   assert.ok(slot && bar.nextElementSibling === slot, 'directly under the bar');
   assert.equal(slot.querySelector('#lsb-result'), null, 'the board keeps no result line: a result is a toast of the page (#943)');
-  assert.equal(text(slot.querySelector('#lsb-legend')), 'Writes at once, with a backup first; a raise also pays its missions. Not checked in the game yet.');
+  assert.equal(slot.querySelector('#lsb-legend'), null, 'the standing line about writes is gone (#980): the question before a write and the Help tab say it');
   assert.ok(slot.compareDocumentPosition(ui.doc.querySelector('.lcc-bd-stage')) & ui.w.Node.DOCUMENT_POSITION_FOLLOWING, 'before the cards');
   // only the collapsed About sections of the bar are dropped
   assert.equal(ui.doc.querySelectorAll('#lsb-board details.about').length, 0, 'no About section of the action bar is drawn on the board');
@@ -78,7 +78,8 @@ test('the classic list keeps its action bar as it was (one bar, the About sectio
   const bar = ui.doc.querySelector('#lsb-board > .actbar');
   assert.ok(bar, 'the bar is in the classic board');
   assert.deepEqual([...bar.querySelectorAll('button')].map((b) => b.dataset.fk), ['b-all', 'b-none', 'b-fill', 'b-complete', 'b-reopen']);
-  assert.ok(bar.querySelector('#lsb-fac') && bar.querySelector('#lsb-sum') && bar.querySelector('#lsb-legend'));
+  assert.ok(bar.querySelector('#lsb-fac') && bar.querySelector('#lsb-sum'));
+  assert.equal(bar.querySelector('#lsb-legend'), null);
   assert.deepEqual([...bar.querySelectorAll('details.about > summary')].map((s) => text(s)), ['About tiers', 'About Fill and Complete']);
   assert.equal(bar.querySelector('[data-bar]'), null, 'it is not drawn in parts');
   assert.equal(bar.hidden, false, 'the classic bar is shown');
@@ -141,24 +142,14 @@ test('the bar and what is chosen survive a redraw of the board (a select, a filt
   assert.match(text(ui.doc.querySelector('#lsb-sum')), /^Chosen: /);
 });
 
-test('the Actions block is first under the name, the notes are disclosures with a plain summary, and what is opened stays open over a redraw', async () => {
+test('the Actions block is first under the name and the House panel holds no disclosure or note (#980)', async () => {
   const a = synthetic();
   const ui = await open(a);
   look(ui, a, 'Lindaren');
   const kids = [...ui.doc.querySelector('.lcc-bd-insp').children].map((c) => c.getAttribute('aria-labelledby') || c.className.split(' ')[0]);
   assert.deepEqual(kids.slice(0, 5), ['lcc-bd-insp-top', 'lcc-bd-back', 'lcc-bd-identity', 'lcc-bd-s4', 'lcc-bd-pin']);
-  const ds = [...ui.doc.querySelectorAll('.lcc-bd-insp details.lcc-bd-disc')];
-  assert.deepEqual(ds.map((d) => d.querySelector('summary').textContent), ['How each click is written', 'About Fill and the tiers', 'What the marks mean', 'Important: three separate states']);
-  assert.ok(ds.every((d) => !d.open), 'closed until asked for');
-  assert.match(text(ds[0]), /Each click is written at once with a backup first, and refused if this House is no longer as shown\./, 'the words are the ones that were drawn open before');
-  assert.match(text(ds[3]), /^Important: three separate statesImportant: A House whose favor a faction has won/);
-  assert.match(text(ds[1]), /Fill and Fill faction goal: Writes 6 missions/);
-  assert.match(text(ds[2]), /✓ Collected.*◆ Not collected.*○ Not reached.*\? No delivery record/);
-  ds[2].open = true;
-  ds[2].dispatchEvent(new ui.w.Event('toggle'));
-  look(ui, a, 'Kenola');
-  const now = [...ui.doc.querySelectorAll('.lcc-bd-insp details.lcc-bd-disc')];
-  assert.deepEqual(now.map((d) => d.open), [false, false, true, false], 'the one that was opened is still open for the next House');
+  assert.equal(ui.doc.querySelectorAll('.lcc-bd-insp details').length, 0, 'no disclosure: How each click is written, About Fill and the tiers, What the marks mean and Important: three separate states are in the Help tab');
+  assert.doesNotMatch(text(ui.doc.querySelector('.lcc-bd-insp')), /Each click is written at once|three separate states|What the marks mean|About Fill/);
 });
 
 test('the panel keeps its scroll position for the House it is on over a redraw, and starts at the top for another House', async () => {

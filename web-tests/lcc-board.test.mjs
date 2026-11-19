@@ -267,9 +267,8 @@ test('choosing a House opens the Inspector: both scales apart, the contributors 
   assert.match(i.querySelector('.lcc-bd-track-me').getAttribute('aria-label'), /^Your contribution: 3,600 of 6,000 · next tier 4,800, 1,200 more\./);
   assert.equal(i.querySelector('#lcc-bd-s2').parentNode.querySelector('.lcc-bd-line'), null, 'no line under the contribution bar');
   const order = [...i.children].map((c) => c.getAttribute('aria-labelledby') || c.className.split(' ')[0]);
-  assert.deepEqual(order, ['lcc-bd-insp-top', 'lcc-bd-back', 'lcc-bd-identity', 'lcc-bd-s4', 'lcc-bd-pin', 'lcc-bd-banner', 'lcc-bd-s1', 'lcc-bd-s2', 'lcc-bd-s3', 'lcc-bd-disc', 'lcc-bd-s5'], 'the order of the approved design, except that the actions block comes directly under the name (and the way back to the board is before it); the note is a disclosure');
-  assert.equal(i.querySelector('.lcc-bd-disc[data-key="note"] > summary').textContent, 'Important: three separate states');
-  assert.match(text(i.querySelector('.lcc-bd-note')), /^Important: A House whose favor a faction has won/);
+  assert.deepEqual(order, ['lcc-bd-insp-top', 'lcc-bd-back', 'lcc-bd-identity', 'lcc-bd-s4', 'lcc-bd-pin', 'lcc-bd-banner', 'lcc-bd-s1', 'lcc-bd-s2', 'lcc-bd-s3', 'lcc-bd-s5'], 'the order of the approved design, except that the actions block comes directly under the name (and the way back to the board is before it); no note or disclosure under the ledger (#980)');
+  assert.equal(i.querySelector('.lcc-bd-disc, .lcc-bd-note'), null, 'the note of the three separate states is in the Help tab');
   assert.doesNotMatch(text(i), /sysselraad/i, 'the Inspector holds no sysselraad data');
   const tiers = [...i.querySelectorAll('.lcc-bd-tier')];
   assert.equal(tiers.length, 5);
@@ -423,8 +422,8 @@ test('earned and collected are the one pair of words on the list, the inspector,
   const i = ui.doc.querySelector('.lcc-bd-insp');
   assert.equal(text(i.querySelector('.lcc-bd-ledger-n')), '3 OF 5 EARNED');
   assert.deepEqual([...i.querySelectorAll('.lcc-bd-stat span')].map(text)[0], 'Tiers earned');
-  assert.match(text(i.querySelector('.lcc-bd-note')), /a personal reward tier earned, and a reward collected are three separate states/);
+  assert.equal(i.querySelector('.lcc-bd-note'), null, 'the note of the three separate states is in the Help tab (#980)');
   const said = [text(i), ...[...i.querySelectorAll('[title], [aria-label]')].map((e) => (e.getAttribute('title') || '') + ' ' + (e.getAttribute('aria-label') || ''))].join(' ');
   assert.doesNotMatch(said.replace(/not reached|NOT REACHED|Not reached/g, ''), /\breached\b/i, 'the inspector says earned, never reached (the state word Not reached stays)');
-  for (const s of i.querySelectorAll('.lcc-bd-legend span')) assert.ok(!/reached/i.test(text(s)) || /^○ Not reached$/.test(text(s)), text(s));
+  assert.equal(i.querySelector('.lcc-bd-legend'), null, 'the legend of the marks is in the Help tab (#980)');
 });
