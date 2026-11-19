@@ -173,7 +173,7 @@
     const stat = (v, k, id, title) => add(el('div', 'lcc-sp-stat'), el('b', '', v, { id, title: v === NONE ? NOT_IN_SAVE : null }), el('small', '', k, title ? { title } : undefined));
     const T = vm.totals;
     add(s, stat(T.tracks ? T.atCap + ' / ' + T.tracks : NONE, 'SPECIALIZATIONS COMPLETED', 'lcs-capcount', 'Paths whose XP has reached the cap (level 100). Keystones are counted apart.'), // renamed from TRACKS AT XP CAP (#1042): the count is the same
-      stat(T.total > 0 ? T.owned + ' / ' + T.total + (T.keysPartial ? '*' : '') : NONE, T.keysPartial && T.total > 0 ? 'KEYSTONES (* ' + (T.keysWhy === 'total' ? 'A TRACK’S TOTAL IS NOT IN THE SAVE' : 'A TRACK IS NOT IDENTIFIED YET') + ')' : 'KEYSTONES', 'lcs-keycount')); // two totals: the third, the largest XP of a track, is dropped (#1042); the XP ceiling is still on the dossier
+      stat(T.total > 0 ? T.owned + ' / ' + T.total + (T.keysPartial ? '*' : '') : NONE, T.keysPartial && T.total > 0 ? 'KEYSTONES (* ' + (T.keysWhy === 'total' ? 'SOME PATHS SHOW NO TOTAL' : 'ONE PATH IS NOT MATCHED YET') + ')' : 'KEYSTONES', 'lcs-keycount')); // two totals: the third, the largest XP of a track, is dropped (#1042); the XP ceiling is still on the dossier
     return add(h, t, s);
   }
 
@@ -200,12 +200,12 @@
     const ic = add(el('div', 'lcc-sp-dossier-ic', '', { 'aria-hidden': 'true' }), pic('lcc-sp-dossier-img', r.key, 96));
     const hd = el('div', 'lcc-sp-dheading');
     add(hd, el('p', 'lcc-sp-eyebrow', 'PROGRESSION DOSSIER · SELECTED PATH'), el('h2', 'lcc-sp-h2s', r.label.toUpperCase(), { id: 'lcs-dos-h' }),
-      r.known ? null : el('p', 'lcc-sp-small', 'This save has XP in a track number that is not tied to this path yet.')); // a path is picked by its name: the number behind a known path is not shown (#708)
+      r.known ? null : el('p', 'lcc-sp-small', 'This save has XP in a track the editor cannot match to this path yet.')); // a path is picked by its name: the number behind a known path is not shown (#708)
     add(head, ic, hd, el('span', 'lcc-sp-flag' + (r.capped ? ' is-cap' : ''), !r.known ? 'TRACK NOT IDENTIFIED' : r.capped ? 'LEVEL 100 · XP CAP REACHED' : 'LEVEL ' + (r.level === null ? '—' : r.level)));
     add(d, head);
 
     if (!r.known) {
-      add(d, el('p', 'lcc-sp-note lcc-sp-note-warn', 'XP editing is off for this path: no track number of the save is tied to it. The keystone buttons still work: keystones need no track numbers.', { id: 'lcs-unres-note' }));
+      add(d, el('p', 'lcc-sp-note lcc-sp-note-warn', 'XP editing is off for this path: the editor cannot match it to a track in this save yet. The keystone buttons still work.', { id: 'lcs-unres-note' }));
     }
     const g = el('div', 'lcc-sp-prog');
     const plate = el('div', 'lcc-sp-plate');
@@ -246,7 +246,7 @@
     const why = off ? 'lcs-nonum' : null;
     const g1 = el('div', 'lcc-sp-group');
     add(g1, add(el('div', 'lcc-sp-glabel'), el('strong', '', r.label.toUpperCase() + (off ? ' · NOT IDENTIFIED' : '')), el('span', '', 'INDIVIDUAL TRACK')));
-    if (off) add(g1, el('p', 'lcc-sp-note lcc-sp-note-warn', 'No track number of the save is tied to this path, so XP editing is off.', { id: 'lcs-nonum' }));
+    if (off) add(g1, el('p', 'lcc-sp-note lcc-sp-note-warn', 'The editor cannot match this path to a track in this save, so XP editing is off.', { id: 'lcs-nonum' }));
     add(g1, el('label', 'lcc-sp-lbl', 'Add XP', { for: 'spx' + r.track }));
     const inp = el('input', 'lcc-sp-input', '', { id: 'spx' + r.track, type: 'number', step: 1, min: 1, max: vm.maxXp, value: Object.prototype.hasOwnProperty.call(state.xp, r.track) ? state.xp[r.track] : 1000, 'aria-describedby': 'lcs-xphint lcs-xperr' + (why ? ' ' + why : ''), disabled: off });
     inp.addEventListener('keydown', (e) => { if (e.key === '-' || e.key === 'Subtract') e.preventDefault(); }); // no minus sign: XP is not removed here (#1032)
@@ -271,8 +271,8 @@
     const left = vm.unassigned.length;
     const resetOff = !vm.resetCount;
     const resetBtn = btn('Reset XP of All Known Tracks (' + vm.resetCount + ')', 'is-danger lcc-sp-wide', { 'data-act': 'spResetAll', 'data-n': vm.resetCount, 'data-left': left, disabled: resetOff, 'aria-describedby': 'lcs-resetnote' });
-    const resetSay = (resetOff ? 'Nothing to reset: no track whose number is known has XP.' + (left ? ' ' + left + (left === 1 ? ' row of the save whose track is not known yet is left alone.' : ' rows of the save whose track is not known yet are left alone.') : '')
-      : 'Resets the XP and level of ' + vm.resetCount + (vm.resetCount === 1 ? ' track' : ' tracks') + ' whose number is known, after you type a confirmation. Keystones are not touched.' + (left ? ' ' + left + (left === 1 ? ' row whose track is not known yet is left alone.' : ' rows whose track is not known yet are left alone.') : ''));
+    const resetSay = (resetOff ? 'Nothing to reset: none of the paths the editor can match has XP.' + (left ? ' ' + left + (left === 1 ? ' track the editor cannot match yet is left alone.' : ' tracks the editor cannot match yet are left alone.') : '')
+      : 'Resets the XP and level of ' + vm.resetCount + (vm.resetCount === 1 ? ' track' : ' tracks') + ' the editor can match to a path, after you type a confirmation. Keystones are not touched.' + (left ? ' ' + left + (left === 1 ? ' track the editor cannot match yet is left alone.' : ' tracks the editor cannot match yet are left alone.') : ''));
     if (resetOff) add(g2, resetBtn, el('p', 'lcc-sp-hint', resetSay, { id: 'lcs-resetnote' }));
     else {
       const rt = tipOf('lcs-resetnote', 'About resetting all tracks', resetSay);
@@ -320,7 +320,7 @@
   function unknownRowOf(vm) {
     if (!vm.unassigned.length) return null;
     const nums = vm.unassigned.map((u) => u.number);
-    return el('p', 'lcc-sp-note lcc-sp-note-warn', (nums.length === 1 ? 'Unknown specialization row in the save (not edited): number ' : 'Unknown specialization rows in the save (not edited): numbers ') + nums.join(', ') + '.', { id: 'lcs-unknown-row' });
+    return el('p', 'lcc-sp-note lcc-sp-note-warn', (nums.length === 1 ? 'The save holds XP in a track the editor does not know (left as it is): track ' : 'The save holds XP in tracks the editor does not know (left as they are): tracks ') + nums.join(', ') + '.', { id: 'lcs-unknown-row' });
   }
 
   function emptyOf(msg) {

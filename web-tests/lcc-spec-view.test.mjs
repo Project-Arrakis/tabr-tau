@@ -118,11 +118,11 @@ test('a track that is not identified: no XP, no level, XP controls off with the 
     const e = q(d, sel); assert.ok(e, sel); assert.equal(e.disabled, true, sel);
     assert.match(e.getAttribute('aria-describedby'), /lcs-nonum/, sel + ' says why');
   }
-  assert.match(txt(q(d, '#lcs-nonum')), /No track number of the save is tied to this path, so XP editing is off/);
+  assert.match(txt(q(d, '#lcs-nonum')), /The editor cannot match this path to a track in this save, so XP editing is off/);
   assert.doesNotMatch(d.box.textContent, /Track mapping|advanced editor/i, 'no pointer to the removed section');
   assert.equal(q(d, '[data-act="spKeyAll"]').disabled, false);
   assert.equal(q(d, '[data-act="spKeyReset"]').disabled, false);
-  assert.match(txt(q(d, '#lcs-unknown-row')), /^Unknown specialization row in the save \(not edited\): number \d+\.$/);
+  assert.match(txt(q(d, '#lcs-unknown-row')), /^The save holds XP in a track the editor does not know \(left as it is\): track \d+\.$/);
   assert.equal(q(d, '#lcs-unknown-row').querySelector('button, input, select, a'), null, 'the line is read-only');
 });
 
@@ -131,7 +131,7 @@ test('a path is picked by its name: the dossier does not show the track number b
   assert.equal(q(d, '.lcc-sp-dheading .lcc-sp-small'), null);
   assert.doesNotMatch(d.box.textContent, /Track number d/);
   const u = draw(byId('conflicting-learned-number-leaves-combat-unresolved'), HOUSES, {}, 'combat');
-  assert.match(txt(q(u, '.lcc-sp-dheading .lcc-sp-small')), /not tied to this path yet/);
+  assert.match(txt(q(u, '.lcc-sp-dheading .lcc-sp-small')), /cannot match to this path yet/);
 });
 
 test('the track mapping and advanced editor section is gone (#986): no heading, no eyebrow, no disclosure, no track numbers, no assign, no hand entry, no raw row; the XP field keeps the id the handlers read', () => {
@@ -151,10 +151,10 @@ test('a save where every row belongs to a path has no line about an unknown row;
   assert.equal(q(draw(byId('xp-0-keystones-0-of-41')), '#lcs-unknown-row'), null);
   const d = draw(byId('unassigned-row-number-9'));
   assert.equal(qa(d, '#lcs-unknown-row').length, 1);
-  assert.equal(txt(q(d, '#lcs-unknown-row')), 'Unknown specialization row in the save (not edited): number 9.');
+  assert.equal(txt(q(d, '#lcs-unknown-row')), 'The save holds XP in a track the editor does not know (left as it is): track 9.');
   const two = byId('unassigned-row-number-9');
   two.unassigned.push({ number: 12, xp: 5, level: 0 });
-  assert.equal(txt(q(draw(two), '#lcs-unknown-row')), 'Unknown specialization rows in the save (not edited): numbers 9, 12.');
+  assert.equal(txt(q(draw(two), '#lcs-unknown-row')), 'The save holds XP in tracks the editor does not know (left as they are): tracks 9, 12.');
 });
 
 test('a path at level 100 (the XP cap or the full path) is marked for the one win outline of lcc.css; a path below 100 is not (#988)', () => {
@@ -201,11 +201,11 @@ test('Reset XP of all known tracks: the count and the rows left alone come from 
   assert.equal(b.dataset.n, String(d.vm.resetCount));
   assert.equal(b.dataset.left, '1');
   assert.match(txt(b), new RegExp('\\(' + d.vm.resetCount + '\\)'));
-  assert.match(txt(q(d, '#lcs-resetnote')), /row whose track is not known yet is left alone/);
+  assert.match(txt(q(d, '#lcs-resetnote')), /track the editor cannot match yet is left alone/);
   const none = draw(byId('xp-0-keystones-0-of-41'));
   const nb = q(none, '[data-act="spResetAll"]');
   assert.equal(nb.disabled, true); assert.equal(nb.dataset.n, '0');
-  assert.match(txt(q(none, '#lcs-resetnote')), /Nothing to reset: no track whose number is known has XP/);
+  assert.match(txt(q(none, '#lcs-resetnote')), /Nothing to reset: none of the paths the editor can match has XP/);
   assert.equal(nb.getAttribute('aria-describedby'), 'lcs-resetnote');
 });
 
@@ -281,7 +281,7 @@ test('a read that cannot be used draws one honest message and no control', () =>
 test('the hero keystone total is marked partial for a track that is not identified, with its reason, and not otherwise (#902)', () => {
   const d = draw(byId('conflicting-learned-number-leaves-combat-unresolved'), HOUSES, {}, 'combat');
   assert.match(txt(q(d, '#lcs-keycount')), /^0 \/ 205\*$/);
-  assert.match(txt(q(d, '#lcs-keycount').parentNode.querySelector('small')), /^KEYSTONES \(\* A TRACK IS NOT IDENTIFIED YET\)$/);
+  assert.match(txt(q(d, '#lcs-keycount').parentNode.querySelector('small')), /^KEYSTONES \(\* ONE PATH IS NOT MATCHED YET\)$/);
   assert.doesNotMatch(txt(q(draw(byId('mixed-five-tracks')), '#lcs-keycount')), /\*/);
 });
 

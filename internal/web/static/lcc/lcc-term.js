@@ -252,7 +252,7 @@
     t.appendChild(el('h3', 'lcc-tm-h', 'Term and Decrees', { id: 'lcc-tm-h', tabindex: '-1' }));
     if (vm.none) t.appendChild(el('p', 'lcc-tm-lead', 'This save has no Landsraad term, so there is no decree to show or change.')); // the intro line of a save that has a term is gone (#985): the Help tab says what this section is
     head.appendChild(t);
-    head.appendChild(src('Read from the save: landsraad_decree_term and landsraad_decrees'));
+    head.appendChild(src('Read from the save'));
     surf.appendChild(head);
     if (vm.none) { w.appendChild(surf); return w; }
     const all = el('details', 'lcc-tm-all', '', { id: 'lcc-tm-all' });

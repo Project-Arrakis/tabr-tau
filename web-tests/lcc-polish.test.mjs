@@ -103,7 +103,7 @@ test('the keystone total is marked partial when a track is not identified, and s
   const ui = await openSpec('conflicting-learned-number-leaves-combat-unresolved');
   const stat = ui.doc.querySelector('#lcs-keycount').parentNode;
   assert.match(text(ui.doc.querySelector('#lcs-keycount')), /\/ 205\*$/);
-  assert.match(text(stat.querySelector('small')), /\* A TRACK IS NOT IDENTIFIED YET/);
+  assert.match(text(stat.querySelector('small')), /\* ONE PATH IS NOT MATCHED YET/);
   closeAll();
   const none = await openSpec('keystone-total-zero-no-map');
   assert.doesNotMatch(text(none.doc.querySelector('#lcs-keycount').parentNode.querySelector('small')), /NOT IDENTIFIED/);
@@ -165,5 +165,5 @@ test('the matrix says what the section does: the pool follows the save\'s order,
   assert.doesNotMatch(t8, /Same sort as the classic panel/);
   const m5 = read('docs', 'design', 'landsraad-command-center', '08-m5-specializations.md');
   const h6 = m5.split('\n').find((l) => l.startsWith('| H6 '));
-  assert.match(h6, /not identified/i);
+  assert.match(h6, /not (identified|matched)/i);
 });
