@@ -455,20 +455,38 @@ func highestBack(es []paidNote, player, term int64, house string) float64 {
 	return best
 }
 
-// floorOf is the lowest ground the editor started paying from for the character on the house in the term, under any faction, and whether it is known: it is not when nothing is
-// recorded or when any entry carries no floor (a record of an older build). Tiers at or below it are not vouched for.
-func floorOf(es []paidNote, player, term int64, house string) (float64, bool) {
-	lo, any := math.Inf(1), false
+// paidSpan is a stretch of ground, from lo (not included) up to hi (included), that the editor's own record vouches for: the editor paid it, so a reward row of a tier in it is the editor's.
+type paidSpan struct{ lo, hi float64 }
+
+// spansOf is the ground the record vouches for for the character on the house in the term: each entry (one per faction) vouches for the stretch from where its first raise began (its
+// floor) up to the ground it paid, cut at top, the highest tier whose reward row stands. Stretches of different entries that touch or overlap are one stretch; what lies between two that
+// do not is vouched for by nobody, so a reward row there stays (#1002: one lowest floor over every faction's entry had vouched for the gap between a faction's low stretch and another's high
+// one). The second result is false when nothing is recorded or when any entry carries no floor (a record of an older build): then no tier is vouched for at all. The stretches are sorted.
+func spansOf(es []paidNote, player, term int64, house string, top float64) ([]paidSpan, bool) {
+	var spans []paidSpan
+	any := false
 	for _, e := range es {
-		if e.Player == player && e.Term == term && e.House == house && e.Paid > 0 {
-			if e.Floor == nil {
-				return 0, false
-			}
-			any = true
-			lo = math.Min(lo, *e.Floor)
+		if e.Player != player || e.Term != term || e.House != house || e.Paid <= 0 {
+			continue
+		}
+		if e.Floor == nil {
+			return nil, false
+		}
+		any = true
+		if hi := math.Min(e.Paid, top); hi > *e.Floor {
+			spans = append(spans, paidSpan{lo: *e.Floor, hi: hi})
 		}
 	}
-	return lo, any
+	sort.Slice(spans, func(i, j int) bool { return spans[i].lo < spans[j].lo })
+	var out []paidSpan
+	for _, s := range spans {
+		if n := len(out); n > 0 && s.lo <= out[n-1].hi {
+			out[n-1].hi = math.Max(out[n-1].hi, s.hi)
+			continue
+		}
+		out = append(out, s)
+	}
+	return out, any
 }
 
 // mergeFloor is the floor of an entry after a note is merged into it: the lowest of the two when the note continues the ground (begins at or below what the entry paid), the note's when it
@@ -667,11 +685,30 @@ func standingTier(rows []save.Row, stands func(template any) bool) float64 {
 //	rows        the ground whose reward rows count as delivered: the record cut at the highest tier whose reward row stands, and nothing more. The rows a take-back removed are written again by the next raise.
 //	back        the take-back ceiling the record carries (never above what was paid)
 //	untrusted   the cut took something off the record, so a raise that pays under it replaces it
-//	floor       the ground the editor started paying from, when known (floorKnown): only the tiers above it are vouched for as its own (#944)
+//	spans       the stretches of ground the editor paid itself (from where each entry's first raise began up to what it paid, cut at the highest tier whose row stands, see spansOf), and
+//	            known: whether every entry knows its start. Only a tier inside a stretch is vouched for as the editor's own (#944, #1002)
 type groundPaid struct {
-	ground, rows, back, floor float64
-	floorKnown                bool
-	untrusted                 bool
+	ground, rows, back float64
+	spans              []paidSpan
+	known              bool
+	untrusted          bool
+}
+
+// vouches says whether the record vouches for the tiers from low to top (a reward row that stands for tiers between them): both lie inside one stretch of ground the editor paid, with low
+// above where that stretch began.
+func (g groundPaid) vouches(low, top float64) bool {
+	_, ok := g.spanOf(low, top)
+	return ok && g.known
+}
+
+// spanOf is the stretch that holds the tiers from low to top, if there is one.
+func (g groundPaid) spanOf(low, top float64) (paidSpan, bool) {
+	for _, s := range g.spans {
+		if s.lo < low && top <= s.hi {
+			return s, true
+		}
+	}
+	return paidSpan{}, false
 }
 
 // deliveredKey keys the character's rows of landsraad_house_rewards by house and item.
@@ -728,8 +765,8 @@ func trustedPaid(recorded []paidNote, player, term int64, house string, standing
 	}
 	back := min(highestBack(recorded, player, term, house), rec)
 	limit := max(standing, back)
-	floor, known := floorOf(recorded, player, term, house)
-	return groundPaid{ground: min(rec, limit), rows: min(rec, standing), back: back, floor: floor, floorKnown: known, untrusted: rec > limit}
+	spans, known := spansOf(recorded, player, term, house, standing)
+	return groundPaid{ground: min(rec, limit), rows: min(rec, standing), back: back, spans: spans, known: known, untrusted: rec > limit}
 }
 
 // paidGround is what the editor paid before for the character on the house, inside a raise's edit (see trustedPaid). The save is asked for its reward rows only when something is

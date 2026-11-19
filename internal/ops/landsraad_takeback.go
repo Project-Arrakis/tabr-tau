@@ -166,13 +166,13 @@ func planTakeBack(c takeBackCtx, to, cur float64) takeBackPlan {
 		if c.paid != nil {
 			g = c.paid()
 		}
-		if !g.floorKnown || g.rows < topOf[tmpl] {
+		if !g.known || g.rows < topOf[tmpl] {
 			if swatchOf[tmpl] {
 				return tbUnsure, tbWhySwatch
 			}
 			return tbUnsure, tbWhyUnproven
 		}
-		if lowOf[tmpl] <= g.floor { // the lowest tier of the row is at or below where the editor started paying: the game may have written it
+		if !g.vouches(lowOf[tmpl], topOf[tmpl]) { // a tier of the row is at or below where the editor started paying, or in ground between two of its stretches: the game may have written it
 			return tbUnsure, tbWhyBelow
 		}
 		if row.amount < sums[tmpl] {
@@ -358,7 +358,10 @@ func takeBackTierRewards(m *save.Mut, me myLandsraad, t save.Row, cur, to float6
 	}
 	// the missions the removed tiers paid stay paid, and the record must say so: the rows are gone on purpose, so the next raise to this ground writes them again and pays nothing else
 	if back := p.backTo(); back > 0 {
-		floor := vouched.floor // known: a row is taken only when the record vouches for it
+		// the floor the note carries is where the stretch that vouched for the highest row began (a row is taken only when the record vouches for it, so there is one): the lowest of every
+		// faction's entries would claim the ground between two stretches for this faction's entry (#1002)
+		span, _ := vouched.spanOf(back, back)
+		floor := span.lo
 		if err := m.Note(paidNoteKind, paidNote{Player: me.player, Term: termID, House: house, Faction: me.faction, Paid: back, Back: back, Floor: &floor}); err != nil {
 			return res, err
 		}

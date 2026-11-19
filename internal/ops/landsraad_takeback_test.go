@@ -810,17 +810,17 @@ func TestTakeBackTheFloorMerge(t *testing.T) {
 			t.Errorf("%s: floor %v, want %v", c.name, got, c.want)
 		}
 	}
-	// the lowest across factions; unknown when any entry does not know it
+	// the stretches across factions: ones that touch are one; unknown when any entry does not know its start
 	es := []paidNote{{Player: 1, Term: 7, House: "A", Faction: 1, Paid: 2400, Floor: f(0)}, {Player: 1, Term: 7, House: "A", Faction: 2, Paid: 4800, Floor: f(2400)}}
-	if fl, ok := floorOf(es, 1, 7, "A"); !ok || fl != 0 {
-		t.Errorf("across factions: %v %v", fl, ok)
+	if sp, ok := spansOf(es, 1, 7, "A", 6000); !ok || len(sp) != 1 || sp[0] != (paidSpan{0, 4800}) {
+		t.Errorf("across factions: %v %v", sp, ok)
 	}
 	es[1].Floor = nil
-	if _, ok := floorOf(es, 1, 7, "A"); ok {
-		t.Error("an entry without a floor made the floor known")
+	if _, ok := spansOf(es, 1, 7, "A", 6000); ok {
+		t.Error("an entry without a floor made the start known")
 	}
-	if _, ok := floorOf(nil, 1, 7, "A"); ok {
-		t.Error("no record has a floor")
+	if _, ok := spansOf(nil, 1, 7, "A", 6000); ok {
+		t.Error("no record has a start")
 	}
 	// an implausible floor leaves the entry out, as an implausible ceiling does
 	for name, x := range map[string]float64{"negative": -1, "above a tier": maxTier + 1, "not a number": math.NaN()} {
