@@ -249,6 +249,9 @@
   //   evidence  null (the save holds no record of the start of the Voting Session: this is what the page always passes) or { verified: true, owners: [25 values of a, h or open] }, the
   //             Houses as they stood at a verified cutoff. A snapshot that is not exactly that is no evidence. The page has no source for it; it exists so the rule is fixed and tested.
   //   meta      { termId, why }: the term the answer belongs to, and the reasons a board is not a board (when it is not)
+  // verdictSide is the faction the verdict NAMES ('a', 'h' or null): the side of the held line (line_held) or of the cutoff majority. It is not a result and never was one (it was called winner until #893;
+  // the winner of the Sysselraad is WIN.decide(...).winner, nowhere else). conflictPossible is true when a faction holds a line of five or 13 Houses but a House that cannot be read could still give the
+  // other faction a line (or 13 Houses), so the answer may not be final; the display says so in one sentence (WIN_TEXT.maybe).
   // Facts, never a merged yes or no: counts, lines (each with its status, its held Houses and its missing Houses), the lines held by one faction, the lines one House away, the lines still
   // possible, the count leader, whether a faction has 13 or more Houses, the cutoff reading, and a verdict that names which of these decides. A count lead is never a result without a
   // verified cutoff (D05), two factions with a line each is a conflict and nobody is chosen (D04), an unreadable House is neither side's and never an open one (D10a).
@@ -259,7 +262,7 @@
       valid, termId: meta.termId == null ? null : meta.termId, why: valid ? [] : (Array.isArray(meta.why) && meta.why.length ? meta.why.slice() : ['The board is not 25 Houses that can be read.']), key: '',
       counts: null, countComplete: false, lines: [], held: [], oneAway: [], potential: { total: null, a: null, h: null, exact: false }, blockedLines: null, unknownLines: null,
       leader: null, margin: 0, majority: null, thresholdReached: false, vote: { phase: 'cutoff_unknown', verified: false, counts: null, winner: null, reason: 'The save holds no record of the start of the Voting Session.' },
-      verdict: 'unknown', winner: null, conflict: false, conflictReason: '', majorityAlsoRecorded: false, win: decide(null),
+      verdict: 'unknown', verdictSide: null, conflict: false, conflictReason: '', conflictPossible: false, majorityAlsoRecorded: false, win: decide(null),
     };
     if (!valid) { base.lines = LINES.map((l) => ({ ...l, status: 'unknown', side: null, held: false, by: { a: [], h: [], open: [], unknown: [] }, missing: [] })); return base; }
     const own = owners.map((v) => (OWNER_KEYS.includes(v) ? v : 'unknown'));
@@ -267,6 +270,7 @@
     for (const v of own) counts[v]++;
     base.counts = counts;
     base.win = decide(own); // who has won by the game's rule (a line of five or 13 Houses): the one winner function, WIN above
+    base.conflictPossible = base.win.conflictPossible; // a win that unreadable Houses could still turn into a conflict (#893)
     base.countComplete = counts.unknown === 0;
     base.key = (base.termId == null ? 'no-term' : String(base.termId)) + ':' + own.map((v) => ({ a: 'A', h: 'H', open: 'O', unknown: '?' })[v]).join('');
     base.lines = LINES.map((l) => {
@@ -299,10 +303,10 @@
     const lineSide = heldBy.a > 0 ? 'a' : heldBy.h > 0 ? 'h' : null;
     if (lineSide) {
       if (base.vote.verified && base.vote.winner && base.vote.winner !== lineSide) { base.verdict = 'conflict'; base.conflict = true; base.conflictReason = 'One faction holds a line of five and the other had more Houses at the verified start of the Voting Session.'; return base; }
-      base.verdict = 'line_held'; base.winner = lineSide; base.majorityAlsoRecorded = base.vote.verified && base.vote.winner === lineSide;
+      base.verdict = 'line_held'; base.verdictSide = lineSide; base.majorityAlsoRecorded = base.vote.verified && base.vote.winner === lineSide;
       return base;
     }
-    if (base.vote.verified) { if (base.vote.winner) { base.verdict = 'majority_at_cutoff'; base.winner = base.vote.winner; } else base.verdict = 'none'; return base; }
+    if (base.vote.verified) { if (base.vote.winner) { base.verdict = 'majority_at_cutoff'; base.verdictSide = base.vote.winner; } else base.verdict = 'none'; return base; }
     if (counts.unknown > 0) { base.verdict = 'unknown'; return base; }
     base.verdict = base.leader ? 'pending_vote' : base.oneAway.length ? 'possible' : 'none';
     return base;
@@ -330,6 +334,9 @@
     rule: 'A faction wins with a line of five or with 13 or more Houses.',
     bothWhy: 'Both factions qualify, so it cannot be decided from this save',
     countUnavailable: 'HOUSE COUNT UNAVAILABLE · BOARD NOT COMPLETE',
+    // a win while Houses cannot be read (#893): 'Harkonnen may also qualify' + the unreadable count; one sentence for the tooltip and the screen reader, never a standing paragraph
+    maybe: ' may also qualify, so this may not be final.', tallyMaybe: 'MAY NOT BE FINAL',
+    unreadableOne: '1 House could not be read, so ', unreadableMany: ' Houses could not be read, so ',
   });
   const houseTail = (open) => open + (open === 1 ? ' HOUSE OPEN' : ' HOUSES OPEN');
   // decide(owners): { state, winner, routes, reason, counts, lines, why }
@@ -337,7 +344,7 @@
   //   winner    'a' | 'h' | null     routes: ['line'], ['houses'] or both, for the winner     reason: those routes in words ('five in a line', '13 Houses', or both)
   //   lines     the ids of the lines the winner holds      why: 'both' | 'unreadable' | 'board' | '' (what makes a state undecidable)
   function decide(owners) {
-    const out = { state: 'undecidable', winner: null, routes: [], reason: '', counts: null, lines: [], why: 'board', qualifiers: [] };
+    const out = { state: 'undecidable', winner: null, routes: [], reason: '', counts: null, lines: [], why: 'board', qualifiers: [], conflictPossible: false };
     if (!Array.isArray(owners) || owners.length !== SIZE) return out;
     const own = owners.map((v) => (OWNER_KEYS.includes(v) ? v : 'unknown'));
     const counts = { a: 0, h: 0, open: 0, unknown: 0 };
@@ -349,19 +356,28 @@
     const q = ['a', 'h'].filter((k) => routes[k].length);
     out.qualifiers = q.map((k) => ({ faction: k, routes: routes[k].slice(), reason: reasonWords(routes[k]) }));
     if (q.length === 2) { out.why = 'both'; return out; }
-    if (q.length === 1) { const k = q[0]; return { ...out, state: 'won', winner: k, routes: routes[k].slice(), reason: reasonWords(routes[k]), lines: held[k].slice(), why: '' }; }
+    if (q.length === 1) { const k = q[0]; return { ...out, state: 'won', winner: k, routes: routes[k].slice(), reason: reasonWords(routes[k]), lines: held[k].slice(), why: '', conflictPossible: otherCouldQualify(own, k, counts) }; }
     if (counts.unknown > 0) { out.why = 'unreadable'; return out; }
     out.state = 'contested'; out.why = '';
     return out;
+  }
+  // otherCouldQualify(own, k, counts): true when faction k qualifies and Houses that cannot be read could still give the OTHER faction a line of five or 13 Houses. A line counts only when every House
+  // of it is the other faction's or unreadable (an open House is not that faction's, and the save says it is not taken), and at least one is unreadable; 13 Houses needs the other's Houses plus the
+  // unreadable ones to reach 13. With every House readable it is false: a qualifying faction is then the whole answer. Pure, no wording.
+  function otherCouldQualify(own, k, counts) {
+    if (counts.unknown === 0) return false;
+    const o = k === 'a' ? 'h' : 'a';
+    if (counts[o] + counts.unknown >= MAJORITY) return true;
+    return LINES.some((l) => { let u = 0; for (const i of l.indexes) { if (own[i] === 'unknown') u++; else if (own[i] !== o) return false; } return u > 0; });
   }
   function reasonWords(routes) { return routes.map((r) => (r === 'line' ? WIN_TEXT.byLine : WIN_TEXT.byHouses)).join(WIN_TEXT.and); }
   // decideCounts(a, h): the reading of two House counts alone, for a caller that has no board (a sample plaque): the 13 rule only, since a line cannot be seen from two numbers. Never a winner by line.
   function decideCounts(a, h) {
     const ok = (n) => Number.isInteger(n) && n >= 0 && n <= SIZE;
-    if (!ok(a) || !ok(h) || a + h > SIZE) return { state: 'undecidable', winner: null, routes: [], reason: '', counts: null, lines: [], why: 'board', qualifiers: [] };
+    if (!ok(a) || !ok(h) || a + h > SIZE) return { state: 'undecidable', winner: null, routes: [], reason: '', counts: null, lines: [], why: 'board', qualifiers: [], conflictPossible: false };
     const counts = { a, h, open: SIZE - a - h, unknown: 0 };
     const k = a >= MAJORITY ? 'a' : h >= MAJORITY ? 'h' : null;
-    return k ? { state: 'won', winner: k, routes: ['houses'], reason: WIN_TEXT.byHouses, counts, lines: [], why: '', qualifiers: [{ faction: k, routes: ['houses'], reason: WIN_TEXT.byHouses }] } : { state: 'contested', winner: null, routes: [], reason: '', counts, lines: [], why: '', qualifiers: [] };
+    return k ? { state: 'won', winner: k, routes: ['houses'], reason: WIN_TEXT.byHouses, counts, lines: [], why: '', qualifiers: [{ faction: k, routes: ['houses'], reason: WIN_TEXT.byHouses }], conflictPossible: false } : { state: 'contested', winner: null, routes: [], reason: '', counts, lines: [], why: '', qualifiers: [], conflictPossible: false };
   }
   const up = (s) => String(s).toUpperCase();
   // headline: 'SYSSELRAAD WON · HARKONNEN', 'SYSSELRAAD CONTESTED', 'SYSSELRAAD UNDECIDABLE'
@@ -369,6 +385,12 @@
   // how: 'BY 13 HOUSES', 'BY FIVE IN A LINE' (a won state only; empty otherwise). who: the faction and how, 'HARKONNEN · BY 13 HOUSES'
   function how(d) { return d.state === 'won' ? 'BY ' + up(d.reason) : ''; }
   function who(d) { return d.state === 'won' ? up(FACTION_NAME[d.winner]) + ' · ' + how(d) : ''; }
+  // maybeNote(d): the one sentence of a win that unreadable Houses could still turn into a conflict ('1 House could not be read, so Harkonnen may also qualify, so this may not be final.'), or ''.
+  function maybeNote(d) {
+    if (d.state !== 'won' || !d.conflictPossible) return '';
+    const n = d.counts.unknown, other = FACTION_NAME[d.winner === 'a' ? 'h' : 'a'];
+    return (n === 1 ? WIN_TEXT.unreadableOne : n + WIN_TEXT.unreadableMany) + other + WIN_TEXT.maybe;
+  }
   // standing(a, h): the count line of a state with no winner, as it always read: 'HARKONNEN LEAD 11 TO 4 · 10 HOUSES OPEN'
   function standing(a, h) {
     const ok = (n) => Number.isInteger(n) && n >= 0 && n <= SIZE;
@@ -380,7 +402,7 @@
   // tally: the line under the headline. Won: 'HARKONNEN · BY 13 HOUSES · 13 TO 0 · 12 HOUSES OPEN'. Contested: the count line. Undecidable: why, in words.
   function tally(d) {
     const c = d.counts;
-    if (d.state === 'won') { const o = d.winner === 'a' ? 'h' : 'a'; return who(d) + ' · ' + c[d.winner] + ' TO ' + c[o] + ' · ' + houseTail(c.open); }
+    if (d.state === 'won') { const o = d.winner === 'a' ? 'h' : 'a'; return who(d) + ' · ' + c[d.winner] + ' TO ' + c[o] + ' · ' + houseTail(c.open) + (d.conflictPossible ? ' · ' + WIN_TEXT.tallyMaybe : ''); }
     if (d.state === 'contested') return standing(c.a, c.h);
     if (d.why === 'both') return up(FACTION_NAME[d.qualifiers[0].faction]) + ' BY ' + up(d.qualifiers[0].reason) + ' · ' + up(FACTION_NAME[d.qualifiers[1].faction]) + ' BY ' + up(d.qualifiers[1].reason) + ' · CANNOT BE DECIDED FROM THIS SAVE';
     if (d.why === 'unreadable') return 'COUNT INCOMPLETE · ' + d.counts.unknown + (d.counts.unknown === 1 ? ' HOUSE' : ' HOUSES') + ' UNREADABLE';
@@ -388,13 +410,13 @@
   }
   // say: one sentence for a screen reader and a tooltip
   function say(d) {
-    if (d.state === 'won') return 'Sysselraad won by ' + FACTION_NAME[d.winner] + ', by ' + d.reason + '. ' + WIN_TEXT.facts;
+    if (d.state === 'won') return 'Sysselraad won by ' + FACTION_NAME[d.winner] + ', by ' + d.reason + '. ' + WIN_TEXT.facts + (d.conflictPossible ? ' ' + maybeNote(d) : '');
     if (d.state === 'contested') return 'Sysselraad contested: no faction holds a line of five or 13 Houses.';
     if (d.why === 'both') return 'Sysselraad undecidable: ' + WIN_TEXT.bothWhy.toLowerCase() + '.';
     if (d.why === 'unreadable') return 'Sysselraad undecidable: ' + d.counts.unknown + (d.counts.unknown === 1 ? ' House' : ' Houses') + ' could not be read.';
     return 'Sysselraad undecidable: the board could not be checked.';
   }
-  const WIN = Object.freeze({ TEXT: WIN_TEXT, decide, decideCounts, headline, how, who, tally, standing, say, factionName: FACTION_NAME });
+  const WIN = Object.freeze({ TEXT: WIN_TEXT, decide, decideCounts, headline, how, who, tally, standing, say, maybeNote, factionName: FACTION_NAME });
 
   // ---- the words for who won a House's favor, a House's square and its specialization (the operator's decisions of 2026-11-18, #952) ----------------------------------------------------
   // A faction does not own or claim a House: it wins the House's favor. The board says "favor won", never "owner", "claimed" or "taken", and calls the House's place on the 5 by 5 its square and

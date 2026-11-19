@@ -43,6 +43,8 @@ The verdict names which fact decides, in this order:
 5. A lead in the House count without a verified cutoff: `pending_vote`, even at 13 or more (D05).
 6. A line one House away: `possible`. Otherwise `none`.
 
+`verdictSide` (called `winner` until #893) is the side the verdict names, not a result; the winner of the Sysselraad is `WIN.decide(...).winner`. `conflictPossible` is true when a faction holds a line of five or 13 Houses but Houses that cannot be read could still give the other faction a line (every House of it theirs or unreadable, at least one unreadable) or 13 Houses; the display then says so in one sentence and the tag MAY NOT BE FINAL.
+
 The cutoff evidence is `null` or `{ verified: true, owners: [25 values of a, h or open] }`. Anything else (a snapshot of 24, one with an unreadable owner, `verified: "yes"`) is no evidence. **The page always passes `null`**: the save holds no record of the start of the Voting Session (D03), and the `sysselraad` column of a task is carried and never read (D02). Rule 3 and the cutoff half of rule 2 are specified and tested so that a source, if one is ever found, does not change the evaluator; they cannot fire in the product today.
 
 The evaluator is checked against all 40 board cases of M1 (`fixtures/board-victory-cases.json`): the status of every line, the held and one-away lines, the leader, the margin, the 13-House flag and the verdict, for the valid boards, and the "no counts, no lines, verdict unknown" result for the four that are not boards.

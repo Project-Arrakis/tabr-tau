@@ -46,7 +46,7 @@ test('each of the twelve lines is held when one faction has all five Houses of i
       assert.equal(r.held[0].side, f.toLowerCase());
       assert.equal(r.lines[li].status, 'complete-' + f.toLowerCase());
       assert.equal(r.verdict, 'line_held', line.id);
-      assert.equal(r.winner, f.toLowerCase());
+      assert.equal(r.verdictSide, f.toLowerCase());
       assert.equal(r.counts[f.toLowerCase()], 5);
       assert.equal(r.conflict, false);
     }
@@ -72,7 +72,7 @@ test('every board case of M1: the status of each line, the held and one-away lin
     assert.equal(r.thresholdReached, e.thresholdReached, c.id + ': 13 Houses or more');
     // the fixture file names the two results line_confirmed and majority_confirmed; the page's own names say less (a line is held, a count is read at a cutoff)
     assert.equal(r.verdict, { line_confirmed: 'line_held', majority_confirmed: 'majority_at_cutoff' }[e.verdict] || e.verdict, c.id + ': verdict');
-    assert.equal(r.winner, e.winner === null ? null : e.winner.toLowerCase(), c.id + ': the faction the verdict names');
+    assert.equal(r.verdictSide, e.winner === null ? null : e.winner.toLowerCase(), c.id + ': the faction the verdict names');
     assert.equal(r.vote.verified, e.majorityAtCutoff.verified, c.id);
     assert.equal(r.vote.winner, e.majorityAtCutoff.winner === null ? null : e.majorityAtCutoff.winner.toLowerCase(), c.id + ': the cutoff majority');
     if (e.majorityAtCutoff.verified) assert.deepEqual(r.vote.counts, { a: e.majorityAtCutoff.cutoffCounts.A, h: e.majorityAtCutoff.cutoffCounts.H, open: e.majorityAtCutoff.cutoffCounts.O }, c.id + ': counts at the cutoff');
@@ -93,7 +93,7 @@ test('the boards of M1 that are not boards have no counts, no lines and the verd
     assert.equal(r.valid, false, c.id);
     assert.equal(r.counts, null, c.id);
     assert.equal(r.verdict, 'unknown', c.id);
-    assert.equal(r.winner, null);
+    assert.equal(r.verdictSide, null);
     assert.equal(r.held.length, 0);
     assert.equal(r.potential.total, null, c.id + ': no number of potential lines is made up');
     assert.equal(r.majority, null);
@@ -181,7 +181,7 @@ test('the 12 and 13 boundary: 13 Houses is the count that cannot be overtaken, 1
   assert.equal(scattered.verdict, 'pending_vote');
   assert.equal(scattered.vote.verified, false);
   assert.equal(scattered.vote.winner, null);
-  assert.equal(scattered.winner, null);
+  assert.equal(scattered.verdictSide, null);
   // 12 Houses of one faction and 12 of the other, one open: nobody leads, nobody has the threshold
   assert.equal(ev('HAHAHAHAHAHAOAHAHAHAHAHAH').majority, null);
 });
@@ -191,17 +191,17 @@ test('a verified cutoff decides the count, below 13 as well, and a tie decides n
   assert.equal(ev(cur).verdict, 'pending_vote');
   const ok = ev(cur, { verified: true, owners: owners(cur) });
   assert.equal(ok.verdict, 'majority_at_cutoff');
-  assert.equal(ok.winner, 'a');
+  assert.equal(ok.verdictSide, 'a');
   assert.equal(ok.vote.phase, 'cutoff_verified');
   assert.deepEqual(ok.vote.counts, { a: 8, h: 6, open: 11 });
   const tie = ev(cur, { verified: true, owners: owners('AAAAHHHHOOOOOOOOOOOOOOOOO') });
   assert.equal(tie.verdict, 'none');
-  assert.equal(tie.winner, null);
+  assert.equal(tie.verdictSide, null);
   for (const bad of [{ verified: false, owners: owners(cur) }, { owners: owners(cur) }, { verified: true }, { verified: true, owners: owners(cur).slice(1) }, { verified: true, owners: [...owners(cur).slice(1), 'unknown'] }, { verified: 'yes', owners: owners(cur) }, 'AOAH', 7, {}]) {
     const r = ev(cur, bad);
     assert.equal(r.vote.verified, false, JSON.stringify(bad));
     assert.equal(r.verdict, 'pending_vote');
-    assert.equal(r.winner, null);
+    assert.equal(r.verdictSide, null);
   }
 });
 
@@ -209,19 +209,19 @@ test('both factions with a line is a conflict and nobody is chosen; a line again
   const both = ev('AAAAA' + 'O'.repeat(15) + 'HHHHH');
   assert.equal(both.verdict, 'conflict');
   assert.equal(both.conflict, true);
-  assert.equal(both.winner, null);
+  assert.equal(both.verdictSide, null);
   assert.deepEqual(ids(both.held), ['row0', 'row4']);
   assert.match(both.conflictReason, /Both factions hold a line/);
   const reversed = ev('HHHHH' + 'O'.repeat(15) + 'AAAAA');
   assert.equal(reversed.verdict, 'conflict');
-  assert.equal(reversed.winner, null, 'the order of the lines never decides');
+  assert.equal(reversed.verdictSide, null, 'the order of the lines never decides');
   const line = 'AAAAAOHOOOOOHOOOOOOOHOOOO';
   const other = ev(line, { verified: true, owners: owners('OOOOOHHOHOOHHOOHOOOOHOOOO') });
   assert.equal(other.verdict, 'conflict');
-  assert.equal(other.winner, null);
+  assert.equal(other.verdictSide, null);
   const same = ev(line, { verified: true, owners: owners(line) });
   assert.equal(same.verdict, 'line_held');
-  assert.equal(same.winner, 'a');
+  assert.equal(same.verdictSide, 'a');
   assert.equal(same.majorityAlsoRecorded, true);
   assert.equal(ev(line).majorityAlsoRecorded, false);
 });
@@ -230,7 +230,7 @@ test('two lines of one faction are both kept, and a board of 25 of one faction h
   const r = ev('AAAAAAOOOOAOOOOAOOOOAOOHH');
   assert.deepEqual(ids(r.held), ['row0', 'col0']);
   assert.equal(r.verdict, 'line_held');
-  assert.equal(r.winner, 'a');
+  assert.equal(r.verdictSide, 'a');
   const all = ev('A'.repeat(25));
   assert.equal(all.held.length, 12);
   assert.equal(all.potential.total, 0);
@@ -253,7 +253,7 @@ test('an unreadable House fails closed: it is neither side\'s nor open, the coun
   // a line held away from the unreadable House stands, and is the verdict
   const held = ev(letters(25, [12, '?'], ...[20, 21, 22, 23, 24].map((i) => [i, 'H'])));
   assert.equal(held.verdict, 'line_held');
-  assert.equal(held.winner, 'h');
+  assert.equal(held.verdictSide, 'h');
   assert.equal(held.countComplete, false);
   assert.equal(held.potential.exact, false);
   // an unreadable House is never read as an open House that could complete a line
