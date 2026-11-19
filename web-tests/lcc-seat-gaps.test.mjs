@@ -107,56 +107,74 @@ test('the seats stay inside the track and the two ends are inset by the same amo
   assert.equal(first - T.wallL, T.wallR - last);
 });
 
-// ---- the 13th seat: a ring about twice a seat with an upward wedge on its top and a downward one on its bottom, one outline, and a separate faceted gem above (#983, #982) ----
-// the points of a path of M, L, A and Z commands (the end point of an arc), in order
+// ---- the 13th seat: a ring 112 units across, measured from the approved artwork, with an upward wedge on its top and a bigger downward one on its bottom, one outline, and a separate faceted gem above (#983, #982) ----
+// the points of a path of M, L and A commands (the end point of an arc), in order
 const pts = (d) => [...d.matchAll(/([MLA])([^MLAZ]*)/g)].map((m) => { const n = m[2].trim().split(/[\s,]+/).map(Number); return m[1] === 'A' ? [n[5], n[6]] : [n[0], n[1]]; });
 const centre = (a, h) => seats(plaque(a, h))[12];
+const near = (u, v, e) => Math.abs(u - v) <= (e || 0.002);
 
-test('the 13th seat is a ring between 1.8 and 2 times the width of an ordinary seat, drawn in every state with the same outer edge', () => {
+test('the 13th seat is a ring 112 units across, 2.8 times the width of an ordinary seat (2.6 to 3, measured in the approved artwork), drawn in every state with the same outer edge', () => {
   for (const [a, h] of [[0, 0], [5, 5], [13, 0], [0, 13]]) {
     const g = centre(a, h);
     const ratio = outerR(g) / L.TRACK.seat;
-    assert.ok(ratio >= 1.8 && ratio <= 2, a + '/' + h + ': ratio ' + ratio);
+    assert.ok(ratio >= 2.6 && ratio <= 3, a + '/' + h + ': ratio ' + ratio);
     assert.equal(outerR(g), L.TRACK.halo);
+    assert.equal(L.TRACK.halo, 56, 'the 112 unit ring of the approved artwork');
   }
 });
 
-test('the ring and its two wedges are ONE closed outline: a single path, one subpath, whose wedges are mirror images of each other', () => {
+test('the ring and its two wedges are ONE outline: a single path whose ring is a whole circle and whose wedge sides start on the ring, so the rim runs on into the wedge sides', () => {
   for (const [a, h] of [[0, 0], [13, 0]]) {
     const g = centre(a, h);
     const halos = g.querySelectorAll('.lcc-seat-halo');
     assert.equal(halos.length, 1, 'one outline, not a ring with a triangle placed on it');
     const d = halos[0].getAttribute('d');
-    assert.equal((d.match(/M/g) || []).length, 1, 'one subpath');
-    assert.equal((d.match(/Z/g) || []).length, 1, 'closed');
+    const subs = d.split('M').filter(Boolean);
+    assert.equal(subs.length, 3, 'the ring and the two wedge sides');
     assert.equal(halos[0].getAttribute('fill'), 'none');
-    const p = pts(d);
-    const has = (x, y) => p.some((q) => Math.abs(q[0] - x) < 0.002 && Math.abs(q[1] - y) < 0.002);
-    // symmetric left to right and top to bottom: every corner has its mirror images
-    for (const [x, y] of p) { assert.ok(has(-x, y), 'left-right mirror of ' + x + ',' + y); assert.ok(has(x, -y), 'top-bottom mirror of ' + x + ',' + y); }
-    const tips = p.filter(([x]) => x === 0);
-    assert.equal(tips.length, 2, 'two tips');
-    assert.deepEqual(tips.map((t) => t[1]).sort((u, v) => u - v), [-L.TRACK.wedge, L.TRACK.wedge], 'one pointing up, one pointing down, the same distance from the centre');
-    // the wedges are filled and are mirror images too: the same base corners and the same tip distance
-    const up = g.querySelector('.lcc-seat-wedge-top'), down = g.querySelector('.lcc-seat-wedge-bottom');
-    const pu = pts(up.getAttribute('d')), pd = pts(down.getAttribute('d'));
-    pu.forEach(([x, y], i) => { assert.ok(pd.some((q) => Math.abs(q[0] - x) < 0.002 && Math.abs(q[1] + y) < 0.002), 'wedge corner ' + i + ' is mirrored'); });
-    // the corners of a wedge's base are on the ring, so the rim runs on into the wedge sides without a seam
     const rr = arcR(halos[0]);
-    for (const [x, y] of pu.filter(([x]) => x !== 0)) assert.ok(Math.abs(Math.hypot(x, y) - rr) < 0.01, 'base corner is on the ring: ' + Math.hypot(x, y) + ' against ' + rr);
+    assert.equal((d.match(/A/g) || []).length, 2, 'the ring is two half circles: whole, with no gap under the wedges');
+    const hw = strokeOf(halos[0], g);
+    const [side1, side2] = subs.slice(1).map((x) => pts('M' + x));
+    for (const side of [side1, side2]) {
+      assert.equal(side.length, 3, 'corner, tip, corner');
+      assert.ok(near(side[0][1], side[2][1]) && near(side[0][0], -side[2][0]), 'the two corners of a wedge are level and either side of the axis');
+      for (const c of [side[0], side[2]]) assert.ok(near(Math.hypot(c[0], c[1]), rr, 0.01), 'a base corner is on the ring: ' + Math.hypot(c[0], c[1]) + ' against ' + rr);
+      assert.equal(side[1][0], 0, 'the tip is on the axis');
+    }
+    const up = [side1, side2].find((s) => s[1][1] < 0), down = [side1, side2].find((s) => s[1][1] > 0);
+    // the outer edge of a tip (its stroke's round join counted) is where the picture puts it
+    assert.ok(near(-up[1][1] + hw / 2, L.TRACK.wedgeUp), 'upward tip');
+    assert.ok(near(down[1][1] + hw / 2, L.TRACK.wedgeDown), 'downward tip');
+    // the filled wedges have the same base corners and tips as the outline's sides
+    const pu = pts(g.querySelector('.lcc-seat-wedge-top').getAttribute('d')), pd = pts(g.querySelector('.lcc-seat-wedge-bottom').getAttribute('d'));
+    for (const [side, fill] of [[up, pu], [down, pd]]) for (const q of side) assert.ok(fill.some((f) => near(f[0], q[0]) && near(f[1], q[1])), 'the filled wedge has the outline\'s point ' + q);
   }
 });
 
-test('the wedges reach the rails of the track and hang past them, the rails stay where they were, and the tips stay clear of the plaque below (#982)', () => {
+test('the two wedges are the proportions the approved artwork has: about 1.7 to 1 and 1.5 to 1 wide to tall (30 by 18 and 43 by 28 units), not shallow, and the bottom one is bigger than the top one', () => {
+  const g = centre(0, 0);
+  const sides = (cls) => pts(g.querySelector(cls).getAttribute('d'));
+  const size = (p) => { const base = p.find(([x]) => x !== 0), tip = p.find(([x]) => x === 0); return { w: 2 * Math.abs(base[0]), h: Math.abs(tip[1] - base[1]) }; };
+  const up = size(sides('.lcc-seat-wedge-top')), down = size(sides('.lcc-seat-wedge-bottom'));
+  assert.ok(up.w / up.h > 1.4 && up.w / up.h < 1.9, 'the top wedge is ' + up.w + ' wide and ' + up.h + ' tall');
+  assert.ok(down.w / down.h > 1.3 && down.w / down.h < 1.8, 'the bottom wedge is ' + down.w + ' wide and ' + down.h + ' tall');
+  assert.ok(down.h > up.h * 1.3 && down.w > up.w * 1.3, 'the downward wedge is the bigger one (about 1.5 times)');
+});
+
+test('the ring reaches the rails of the track, the top wedge ends on the upper rail, the bottom wedge hangs past the lower rail, the rails stay where they were, and the tip stays clear of the plaque below (#982)', () => {
   const T = L.TRACK;
-  const half = T.bottom - T.cy; // the distance of a rail from the centre line of the seats
+  const half = T.bottom - T.cy; // the distance of the outer rail from the centre line of the seats
   assert.equal(T.cy - T.top, half);
-  assert.ok(T.wedge > half, 'the tip is past the rail');
-  assert.ok(T.wedge - half < 12, 'no more than a short point beyond the rail');
-  assert.ok(Math.hypot(T.wedgeHalf, 0) < T.halo, 'the base of a wedge is inside the ring');
+  const inner = half - 12; // the thin inner line of the rail: the track's inner outline is 12 units in
+  assert.ok(T.halo >= inner - 1.5 && T.halo <= half, 'the ring reaches the inner line of the rail: ' + T.halo + ' against ' + inner);
+  assert.ok(T.wedgeUp >= half && T.wedgeUp - half <= 12, 'the top tip ends on the upper rail, a little above its centre line: ' + T.wedgeUp + ' against ' + half);
+  assert.ok(T.wedgeDown > half + 4 && T.wedgeDown - half < 20, 'the bottom tip hangs a short way past the lower rail: ' + (T.wedgeDown - half));
+  assert.ok(T.cy + T.wedgeDown < 500, 'inside the window the phone layout shows of the track');
+  assert.ok(T.wedgeHalfUp < T.halo && T.wedgeHalfDown < T.halo, 'the base of a wedge is inside the ring');
   const d = centre(0, 0).querySelector('.lcc-seat-halo').getAttribute('d');
-  const baseY = Math.max(...pts(d).map((q) => Math.abs(q[1])).filter((v) => v < T.wedge));
-  assert.ok(baseY < half, 'the corners of the base are inside the rails: the rail runs behind the wedge');
+  const baseY = Math.max(...pts(d).map((q) => Math.abs(q[1])).filter((v) => v < T.wedgeUp - 3));
+  assert.ok(baseY <= T.halo, 'the corners of the base are on the ring');
 });
 
 test('a faceted diamond gem floats above the upward wedge, a 1 to 2 unit gap between the outer edge of the wedge tip and the gem, and it is separate from the outline', () => {
@@ -165,17 +183,19 @@ test('a faceted diamond gem floats above the upward wedge, a 1 to 2 unit gap bet
     const gem = g.querySelector('.lcc-seat-gem');
     assert.ok(gem, 'the gem is drawn');
     assert.equal(gem.querySelectorAll('.lcc-seat-facet').length, 4, 'four facets');
-    const outline = [...gem.querySelectorAll('path')].find((x) => x.getAttribute('fill') === 'none');
+    const outline = gem.querySelector('.lcc-glow-edge');
     const ys = pts(outline.getAttribute('d')).map((q) => q[1]);
     const gemBottomEdge = Math.max(...ys) + Number(outline.getAttribute('stroke-width')) / 2; // outer edge of its lower point (round join)
     const halo = g.querySelector('.lcc-seat-halo');
-    const tipTopEdge = -(L.TRACK.wedge + strokeOf(halo, g) / 2); // outer edge of the upward wedge's tip
+    const tipTopEdge = -L.TRACK.wedgeUp; // outer edge of the upward wedge's tip
     const gap = tipTopEdge - gemBottomEdge;
     assert.ok(gap >= 1 - 1e-9 && gap <= 2 + 1e-9, a + '/' + h + ': gap ' + gap);
-    // about 40 percent of the ring's diameter in width; centred on the seat; not joined to the outline
+    // 70 by 94 units against a 112 unit ring in the approved artwork: about 0.62 of the ring's diameter wide and 0.84 tall; centred on the seat; not joined to the outline
     const xs = pts(outline.getAttribute('d')).map((q) => q[0]);
-    const w = Math.max(...xs) - Math.min(...xs);
-    assert.ok(w / (2 * L.TRACK.halo) > 0.35 && w / (2 * L.TRACK.halo) < 0.45, 'gem width ' + w);
+    const w = Math.max(...xs) - Math.min(...xs), hh = Math.max(...ys) - Math.min(...ys);
+    assert.ok(w / (2 * L.TRACK.halo) > 0.55 && w / (2 * L.TRACK.halo) < 0.7, 'gem width ' + w);
+    assert.ok(hh / (2 * L.TRACK.halo) > 0.78 && hh / (2 * L.TRACK.halo) < 0.9, 'gem height ' + hh);
+    assert.ok(L.TRACK.cy + Math.min(...ys) - Number(outline.getAttribute('stroke-width')) / 2 >= 215, 'the whole gem is inside the window the phone layout shows of the track');
     assert.equal(Math.max(...xs) + Math.min(...xs), 0);
     assert.ok(!halo.contains(gem) && !gem.contains(halo));
     assert.equal(gem.getAttribute('aria-hidden'), 'true');
