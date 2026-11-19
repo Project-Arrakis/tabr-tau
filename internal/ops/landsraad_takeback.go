@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
@@ -244,7 +245,7 @@ func (p takeBackPlan) backTo() float64 {
 
 // takeBackTierRewards is the write of the rule, inside the edit, for one house whose contribution goes from cur down to to (landsraad_apply.go). paidNow reads the editor's record, as the
 // raise does; a record that cannot be read does not stop a removal: no row is then provably the editor's and every waiting reward stays.
-func takeBackTierRewards(m *save.Mut, me myLandsraad, t save.Row, cur, to float64, paidNow func() ([]paidNote, error)) (rewardResult, error) {
+func takeBackTierRewards(m *save.Mut, me myLandsraad, t save.Row, cur, to float64, paidNow func() ([]paidNote, error), wasTaken *float64) (rewardResult, error) {
 	var res rewardResult
 	taskID, _ := t["id"].(int64)
 	house := fmt.Sprint(t["house_name"])
@@ -254,6 +255,9 @@ func takeBackTierRewards(m *save.Mut, me myLandsraad, t save.Row, cur, to float6
 		return res, err
 	}
 	if len(tierRows) == 0 {
+		if wasTaken != nil && *wasTaken != 0 { // a house with no tiers takes nothing back: a question that said otherwise was about another house
+			return res, apierr.Newf(apierr.ErrConflict, "what removing the tiers on %v would take back is not what you were shown (0 waiting rewards now), so nothing was changed. The board was read again; check it and click again", houseOf(t))
+		}
 		return res, nil
 	}
 	top := 0.0
@@ -338,6 +342,13 @@ func takeBackTierRewards(m *save.Mut, me myLandsraad, t save.Row, cur, to float6
 	if refused != nil {
 		return res, refused // a read of the save failed: nothing was changed yet
 	}
+	// the question before an Unfill said how many waiting rewards it would take back (the board's read, boardUnfill, worked it out by this same plan): when this plan takes back another number
+	// of rows now, the page is stale and nothing is written (the whole request is refused, one edit), #932
+	if wasTaken != nil {
+		if taken, _, _, _, _ := p.count(); math.Abs(float64(taken)-*wasTaken) > 1e-6 {
+			return res, apierr.Newf(apierr.ErrConflict, "what removing the tiers on %v would take back is not what you were shown (%d waiting rewards now), so nothing was changed. The board was read again; check it and click again", houseOf(t), taken)
+		}
+	}
 	for _, r := range p.rows { // the plan is made, and read what it needs, before the first row changes
 		if r.outcome != tbTake {
 			continue
@@ -381,20 +392,7 @@ func countRewards(n int64, adj string) string {
 // boardTakeBack tells the board, for each reached tier of a house (the others carry empty strings), what removing that tier (and every tier above it) would do to its reward: r["takeback"] is take,
 // collected, none, earned or unsure (r["takeback_why"] says why), worked out by planTakeBack from the rows the board's read already holds. paid is what the editor's record vouches for: the ground as far as the save shows reward rows (groundPaid.rows) and the floor it started paying from. The page's question before a removal and the tier's mouse-over say it.
 func boardTakeBack(tiers []any, house string, delivered map[string]save.Row, one oneTime, termID int64, termStart, mine, earned float64, paid groundPaid) {
-	c := takeBackCtx{termStart: termStart, earned: earned, paid: func() groundPaid { return paid }, rows: map[string]rewardRow{}}
-	if held, ok := one.held[house]; ok && held == termID {
-		c.held = true
-	}
-	for _, x := range tiers {
-		r := x.(save.Row)
-		th, _ := toFloat(r["threshold"])
-		it := tierItem{th: th, tmpl: fmt.Sprint(r["shown_template_id"]), own: fmt.Sprint(r["template_id"]), amount: asInt(r["shown_amount"]), swatch: r["swatch"] == true}
-		c.items = append(c.items, it)
-		if d, ok := delivered[house+"\x00"+it.tmpl]; ok {
-			upd, _ := toFloat(d["last_updated"])
-			c.rows[it.tmpl] = rewardRow{amount: asInt(d["amount"]), updated: upd}
-		}
-	}
+	c := boardTakeBackCtx(tiers, house, delivered, one, termID, termStart, earned, paid)
 	prev := 0.0
 	for _, x := range tiers {
 		r := x.(save.Row)
@@ -409,4 +407,44 @@ func boardTakeBack(tiers []any, house string, delivered map[string]save.Row, one
 		}
 		prev = th
 	}
+}
+
+// boardTakeBackCtx is the context planTakeBack reads, built from the rows the board's read already holds (the one place the board builds it, so the per-tier outcome and the unfill preview cannot differ).
+func boardTakeBackCtx(tiers []any, house string, delivered map[string]save.Row, one oneTime, termID int64, termStart, earned float64, paid groundPaid) takeBackCtx {
+	c := takeBackCtx{termStart: termStart, earned: earned, paid: func() groundPaid { return paid }, rows: map[string]rewardRow{}}
+	if held, ok := one.held[house]; ok && held == termID {
+		c.held = true
+	}
+	for _, x := range tiers {
+		r := x.(save.Row)
+		th, _ := toFloat(r["threshold"])
+		it := tierItem{th: th, tmpl: fmt.Sprint(r["shown_template_id"]), own: fmt.Sprint(r["template_id"]), amount: asInt(r["shown_amount"]), swatch: r["swatch"] == true}
+		c.items = append(c.items, it)
+		if d, ok := delivered[house+"\x00"+it.tmpl]; ok {
+			upd, _ := toFloat(d["last_updated"])
+			c.rows[it.tmpl] = rewardRow{amount: asInt(d["amount"]), updated: upd}
+		}
+	}
+	return c
+}
+
+// boardUnfill tells the board what "Unfill chosen" would do to the rewards of one house whose contribution is mine: every reached tier is removed at once (to 0), so it is planTakeBack(c, 0, mine),
+// the same rule and the same inputs as the write (takeBackTierRewards). tiers is the number of tiers removed; take, collected, earned and unsure count ROWS (two tiers that give one item are one
+// row), as the answer of the write does; rows lists each row with the amount the removed tiers gave, the outcome and the reason. The page words the question from it and sends take back as
+// was_taken, so the write is refused when it would take back another number of rows than the question said.
+func boardUnfill(tiers []any, house string, delivered map[string]save.Row, one oneTime, termID int64, termStart, mine, earned float64, paid groundPaid) map[string]any {
+	c := boardTakeBackCtx(tiers, house, delivered, one, termID, termStart, earned, paid)
+	p := planTakeBack(c, 0, mine)
+	taken, collected, unsure, earnedN, swatches := p.count()
+	rows := make([]any, 0, len(p.rows))
+	for _, r := range p.rows {
+		var amount int64
+		for _, t := range p.tiers {
+			if t.tmpl == r.tmpl && t.outcome == r.outcome {
+				amount += t.amount
+			}
+		}
+		rows = append(rows, map[string]any{"template_id": r.tmpl, "amount": amount, "outcome": r.outcome, "why": r.why, "swatch": r.swatch})
+	}
+	return map[string]any{"tiers": int64(len(p.tiers)), "take": taken, "collected": collected, "earned": earnedN, "unsure": unsure, "swatches": swatches, "rows": rows}
 }
