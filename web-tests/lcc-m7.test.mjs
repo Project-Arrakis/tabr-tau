@@ -220,7 +220,9 @@ function reference(letters) {
   const circuit = [...new Set(LINES.filter((_, i) => lines[i].startsWith('held')).flat())].sort((a, b) => a - b);
   const dominion = count && !(heldA && heldH) ? [...letters].map((c, i) => [c, i]).filter(([c, i]) => c === count && !circuit.includes(i)).map(([, i]) => i) : [];
   const potential = lines.filter((l) => l === 'open' || l.startsWith('one-away')).length;
-  return { n, lines, verdict, state, circuit, dominion, potential, unreadable: n['?'] > 0 };
+  // the lines each faction can still make (#1052: the panel says these two, not the total): no piece of the other faction on it and not yet five
+  const can = (me, other) => LINES.filter((idx) => { const k = { A: 0, H: 0, O: 0, '?': 0 }; for (const i of idx) k[letters[i]]++; return !k['?'] && k[other] === 0 && k[me] < 5; }).length;
+  return { n, lines, verdict, state, circuit, dominion, potential, potA: can('A', 'H'), potH: can('H', 'A'), unreadable: n['?'] > 0 };
 }
 function boards(count) {
   const rnd = lcg(20261118), out = [];
@@ -269,8 +271,9 @@ test('the cards and the panel on the page agree with the independent reading on 
     const at = (kind) => cards.map((c, i) => [i, c.getAttribute('data-victory')]).filter((x) => x[1] === kind).map((x) => x[0]);
     assert.deepEqual(at('win'), [...new Set([...ref.circuit, ...ref.dominion])].sort((x, y) => x - y), 'the Houses of a held line and the Houses of the faction with 13 or more: one outline ' + b);
     assert.equal(ui.doc.querySelector('.lcc-bd-victory').getAttribute('data-state'), ref.state, 'panel ' + b);
-    const lines = text(ui.doc.querySelector('.lcc-bd-vlines'));
-    if (ref.unreadable) assert.match(lines, /count incomplete/i, b); else assert.match(lines, new RegExp('^Lines still open: ' + ref.potential + ' ·'), b + ' ' + lines);
+    const vl = ui.doc.querySelector('.lcc-bd-vlines');
+    if (ref.unreadable) assert.equal(vl, null, 'no number of lines is guessed when a House cannot be read ' + b); else assert.equal(text(vl), 'Lines of five still possible: Atreides ' + ref.potA + ' · Harkonnen ' + ref.potH, b);
+    assert.equal(ui.doc.querySelector('.lcc-bd-well'), null, 'the House count is not said a second time in the panel (#1052) ' + b);
     assert.deepEqual(ui.posted, [], 'looking sends nothing');
     closeAll();
   }

@@ -78,7 +78,8 @@ test('the plaque and the figures are the counts of the same Houses: 12 and 4, ni
   assert.equal(ui.doc.querySelector('.lcc-bd-metrics'), null, 'no row of four figures');
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-metric, [data-metric]').length, 0, 'none of the four figures');
   assert.doesNotMatch(text(ui.doc.querySelector('.lcc-bd')), /TERM STATUS|OPEN HOUSES|POTENTIAL LINES|SPECIALIZATION CAP/);
-  assert.match(text(ui.doc.querySelector('.lcc-bd-victory')), /SYSSELRAAD CONTESTED.*ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN.*Atreides 12 · Harkonnen 4 · Open 9/);
+  assert.match(text(ui.doc.querySelector('.lcc-bd-victory')), /SYSSELRAAD CONTESTED.*ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN/);
+  assert.doesNotMatch(text(ui.doc.querySelector('.lcc-bd-victory')), /Atreides 12 · Harkonnen 4 · Open 9|House count:/, 'the count is said once, in the headline (#1052)');
   assert.equal(text(p.querySelector('.lcc-pl-session')), 'SYSSELRAAD CONTESTED');
   assert.match(text(p.querySelector('.lcc-pl-held')), /^HELD BY\s*HOUSE ATREIDES$/);
   assert.equal(text(p.querySelector('.lcc-pl-title')), 'Exclusive Vehicle Import Rights');
@@ -94,7 +95,7 @@ test('a House whose owner cannot be read is counted for neither side and the pla
   assert.match(text(p.querySelector('.lcc-pl-standing')), /COUNT INCOMPLETE · 1 HOUSE UNREADABLE/);
   assert.equal(text(tiles(ui)[10].querySelector('.lcc-hc-owner')), '? Favor unreadable');
   assert.match(text(ui.doc.querySelector('.lcc-bd-headlines')), /FAVOR UNREADABLE/);
-  assert.match(text(ui.doc.querySelector('.lcc-bd-vlines')), /^Lines still open: count incomplete · 1 House unreadable$/, 'with a House that cannot be read the count of lines is said to be incomplete, with no number');
+  assert.equal(ui.doc.querySelector('.lcc-bd-vlines'), null, 'with a House that cannot be read there is no count of lines and no line about it (#1052)');
 });
 
 test('a board that is not a board (24 Houses) is not drawn as one: a read-only list, the reasons, and nothing that writes', async () => {
@@ -219,7 +220,8 @@ test('names and paths from a save are only text on the board, the list and the I
 
 test('Show, House and Path dim the Houses they leave out and keep the board fixed; the count says how many are shown', async () => {
   const ui = await open();
-  assert.equal(text(ui.doc.querySelector('#lcc-bd-shown')), '25 of 25 Houses shown');
+  assert.equal(text(ui.doc.querySelector('#lcc-bd-shown')), '', 'with no filter the count is not said (#1044)');
+  assert.equal(ui.doc.querySelector('#lcc-bd-shown').getAttribute('role'), 'status', 'the live region stays');
   click(ui, '[data-fk="bf:hs:open"]');
   assert.equal(text(ui.doc.querySelector('#lcc-bd-shown')), '9 of 25 Houses shown');
   const dim = tiles(ui).filter((c) => c.querySelector('.lcc-hc').dataset.dim === 'true');
@@ -261,8 +263,10 @@ test('choosing a House opens the Inspector: both scales apart, the contributors 
   const bars = [...i.querySelectorAll('.lcc-bd-fc')].map((b) => [text(b.querySelector('.lcc-bd-fc-l')), text(b.querySelector('.lcc-bd-fc-v'))]);
   assert.deepEqual(bars, [['HOUSE ATREIDES', '4,000 / 4,000'], ['HOUSE HARKONNEN', '900 / 4,000']]);
   const s1 = i.querySelector('#lcc-bd-s1');
-  assert.match(s1.getAttribute('title'), /House goal: 4,000\..*Top contributors: SYNTHETIC_CHARACTER 3,600 · Unnamed contributor 1,000\. Missions: Not in the save\./, 'what the three removed lines said stays as a tooltip');
-  assert.match(text(s1.parentNode.querySelector('.lcc-bd-sr')), /Top contributors: SYNTHETIC_CHARACTER 3,600 · Unnamed contributor 1,000\. Missions: Not in the save\./);
+  assert.match(s1.getAttribute('title'), /House goal: 4,000\..*Top contributors: SYNTHETIC_CHARACTER\. Missions: Not in the save\./, 'what the three removed lines said stays as a tooltip, names only (#1058)');
+  assert.match(text(s1.parentNode.querySelector('.lcc-bd-sr')), /Top contributors: SYNTHETIC_CHARACTER\. Missions: Not in the save\./);
+  assert.deepEqual([...i.querySelectorAll('.lcc-bd-contrib-l > li')].map(text), ['SYNTHETIC_CHARACTER'], 'the Inspector lists names only: no amount, and no Unnamed contributor row (#1058)');
+  assert.doesNotMatch(text(i.querySelector('.lcc-bd-contrib')), /\d|Unnamed/);
   assert.equal(s1.parentNode.querySelectorAll('.lcc-bd-cap, .lcc-bd-none').length, 0, 'no visible note lines under the two bars');
   assert.match(i.querySelector('.lcc-bd-track-me').getAttribute('aria-label'), /^Your contribution: 3,600 of 6,000 · next tier 4,800, 1,200 more\./);
   assert.equal(i.querySelector('#lcc-bd-s2').parentNode.querySelector('.lcc-bd-line'), null, 'no line under the contribution bar');
@@ -289,7 +293,7 @@ test('the reward ledger tells waiting, collected and delivery unknown apart, and
   click(ui, tileOf(ui, 'Wallach').querySelector('button'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
   assert.equal(i.querySelector('.lcc-bd-ledger .lcc-bd-line'), null, 'no sentence under the four counts');
-  assert.match(i.querySelector('.lcc-bd-stats').getAttribute('aria-label'), /3 of 5 tiers earned · 1 collected · 1 not collected \(waiting at the house representative\) · 1 delivery unknown · 2 not reached\./, 'the counts stay for a screen reader and as a tooltip');
+  assert.match(i.querySelector('.lcc-bd-stats').getAttribute('aria-label'), /3 of 5 tiers earned · 1 of 3 earned tiers collected, 1 waiting at the house representative, 1 with no delivery record\./, 'the counts stay for a screen reader and as a tooltip');
   assert.match(text(i), /Delivery unknown.{1,20}means the tier is earned and the save has no delivery row/);
   const st = [...i.querySelectorAll('.lcc-bd-tier-st')].map((s) => text(s));
   assert.deepEqual(st.slice(0, 3), ['Earned, collected', 'Earned, delivery unknown', 'Earned, not collected']);
@@ -357,7 +361,7 @@ test('the board panel has the approved head, filters, legend, totals and the two
   assert.deepEqual([...b.querySelectorAll('.lcc-bd-headlines li')].map((x) => text(x)), ['ATREIDES FAVOR WON', 'HARKONNEN FAVOR WON', 'FAVOR NOT WON', 'WINNING HOUSES · SYSSELRAAD WON']);
   assert.deepEqual([...b.querySelectorAll('[data-lcb="filter"][data-key="hs"]')].map((x) => text(x)), ['Any', 'Not won', 'Favor won']);
   assert.match(text(b.querySelector('.lcc-bd-totals')), /Your rewards on this board: 26 of 120 tiers earned/);
-  assert.equal(text(b.querySelector('.lcc-bd-victory .lcc-bd-vlines')), 'Lines still open: 4 · Atreides 4 · Harkonnen 0', 'the unblocked lines of the twelve, counted by the evaluator (M4), in the Imperial Victory Analysis (#935)');
+  assert.equal(text(b.querySelector('.lcc-bd-victory .lcc-bd-vlines')), 'Lines of five still possible: Atreides 4 · Harkonnen 0', 'the unblocked lines of the twelve, counted by the evaluator (M4), in the Imperial Victory Analysis (#935)');
 });
 
 test('the House cards use the approved system fonts only (nothing is fetched), and the reward boxes use the approved colours', () => {
@@ -421,10 +425,54 @@ test('earned and collected are the one pair of words on the list, the inspector,
   const ui = await open();
   click(ui, tileOf(ui, 'Wallach').querySelector('button'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
-  assert.equal(text(i.querySelector('.lcc-bd-ledger-n')), '3 OF 5 EARNED');
+  assert.equal(i.querySelector('.lcc-bd-ledger-n'), null, 'no N OF 5 EARNED tag: the Tiers earned tile says it (#1059)');
   assert.deepEqual([...i.querySelectorAll('.lcc-bd-stat span')].map(text)[0], 'Tiers earned');
   assert.equal(i.querySelector('.lcc-bd-note'), null, 'the note of the three separate states is in the Help tab (#980)');
   const said = [text(i), ...[...i.querySelectorAll('[title], [aria-label]')].map((e) => (e.getAttribute('title') || '') + ' ' + (e.getAttribute('aria-label') || ''))].join(' ');
   assert.doesNotMatch(said.replace(/not reached|NOT REACHED|Not reached/g, ''), /\breached\b/i, 'the inspector says earned, never reached (the state word Not reached stays)');
   assert.equal(i.querySelector('.lcc-bd-legend'), null, 'the legend of the marks is in the Help tab (#980)');
+});
+
+test('#1048: a faction with no contribution row in the save reads 0 / goal in the Inspector, never "not known / goal"; the difference is only in the hover text', async () => {
+  const a = synthetic();
+  const t = a.tasks[7];
+  t.contributions = (t.contributions || []).filter((c) => c.faction_id !== 1);
+  const ui = await open(a);
+  click(ui, tileOf(ui, 'Wallach').querySelector('button'));
+  const i = ui.doc.querySelector('.lcc-bd-insp');
+  const bars = [...i.querySelectorAll('.lcc-bd-fc')].map((b) => [text(b.querySelector('.lcc-bd-fc-l')), text(b.querySelector('.lcc-bd-fc-v'))]);
+  const atreides = bars.find((b) => b[0] === 'HOUSE ATREIDES');
+  assert.match(atreides[1], /^0 \/ [\d,]+$/, JSON.stringify(bars));
+  assert.doesNotMatch(text(i), /not known \//);
+  const v = [...i.querySelectorAll('.lcc-bd-fc-v')][0];
+  assert.equal(v.getAttribute('title'), 'No record of this faction in the save for this House.');
+  assert.match(v.getAttribute('aria-label'), /^HOUSE ATREIDES 0 of [\d,]+$/);
+  const other = [...i.querySelectorAll('.lcc-bd-fc-v')][1];
+  assert.equal(other.getAttribute('title'), null, 'a faction with a row has no such hover');
+});
+
+test('#1059: list cells stay short: an em dash for a House with no place, "N of 5" with the words for a screen reader, and no "no map picture" text on the page', async () => {
+  const a = synthetic();
+  const ui = await open(a, { view: 'board', layout: 'list' });
+  const rows = [...ui.doc.querySelectorAll('.lcc-bd-row')];
+  assert.equal(rows.length, 25);
+  const css = (el) => [...el.querySelectorAll('.lcc-bd-sr')].map(text);
+  for (const r of rows) {
+    const t = r.querySelector('.lcc-bd-c-tiers');
+    const visible = text(t).replace(/ tiers earned$/, '');
+    assert.match(visible, /^(\d of \d|no tier record|no tiers)$/, 'the cell shows "N of 5": ' + text(t));
+    if (/\d of \d/.test(text(t))) assert.deepEqual(css(t), ['tiers earned'], 'the words for a screen reader are kept');
+    assert.match(text(t), /^(\d of \d tiers earned|no tier record|no tiers)$/, 'the cell still says the whole thing as text: ' + text(t));
+  }
+  for (const r of rows) {
+    const l = r.querySelector('.lcc-bd-loc');
+    const mut = l.querySelector('.lcc-bd-dash');
+    if (mut) {
+      assert.equal(mut.firstChild.textContent, '—', 'no place is an em dash');
+      assert.deepEqual(css(mut), ['not mapped yet']);
+      assert.match(mut.getAttribute('title'), /^Not mapped yet/);
+    }
+    const np = l.querySelector('.lcc-bd-nopic');
+    if (np) { assert.deepEqual(css(np), ['· no map picture']); assert.match(np.getAttribute('title'), /no picture of/); }
+  }
 });

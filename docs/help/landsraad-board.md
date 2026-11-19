@@ -9,7 +9,7 @@ The board shows the 25 Houses of the current term, five rows of five, numbered 0
 - Who won the favor: Atreides, Harkonnen, or not won.
 - Five tier boxes and a line such as 3/5 EARNED, with the number collected and the number not collected. A House whose favor a faction has won shows the same line as any other House: if you have no contribution to it, it reads 0/5 EARNED.
 
-Click a card to open the House in the panel beside the board (House Intelligence). Click it again to close it.
+Click a card to open the House in the panel beside the board (House Intelligence). Click it again to close it. In that panel, TOP CONTRIBUTORS lists the names of the biggest contributors to the House, the biggest first and numbered, with no amounts; a contributor the save gives no name for is left out. The reward ledger there has two figures: Tiers earned (for example 3 / 5) and Collected (for example 1 / 3, the tiers collected out of the tiers you have earned); hover them to see how many are waiting at the House representative.
 
 ## Favor won, earned, collected
 
@@ -38,7 +38,7 @@ A tier with no delivery record is counted as neither collected nor not collected
 
 ## Filters and the list
 
-- Show, House and Specialization filters narrow what the board shows. A House the filters leave out is dimmed.
+- Show, House and Specialization filters narrow what the board shows. A House the filters leave out is dimmed, and while a filter is on a line says how many Houses are shown (it is not there when nothing is filtered).
 - Jump to House opens one House and clears the filters that would hide it.
 - A button that does nothing right now (there is nothing to change, or another faction is chosen) has a dashed edge and quiet text instead of a faded look; pressing it says why.
 - The Grid and List buttons switch between the board and a sortable list of the same Houses.
@@ -47,11 +47,12 @@ A tier with no delivery record is counted as neither collected nor not collected
 
 The plaque above the board shows the active decree of the term and the biggest contributors under each faction, by name only: the banner shows no amounts. The contributors are worked out by the editor from the amounts in the save: the save holds the amounts, not a ranking. A contributor is shown by the name of its guild, written from the identifier the save gives (the save holds no display name, so the editor adds the capital letters). A contributor the save gives no name or guild for is shown as "Unnamed contributor"; its number in the save is in the mouse-over text.
 
-The victory panel counts the Houses and says whether a faction has won, by 13 Houses or by five in a line. The game works the winner out from the Houses, and so does the editor.
+The victory panel says whether a faction has won, by 13 Houses or by five in a line. Its headline carries the House count once (the plaque above shows the same figures), and a line under it says how many lines of five each faction can still make. The game works the winner out from the Houses, and so does the editor.
 
 ## What the save does not hold
 
 - Active Landsraad missions are not recorded in a single-player save.
 - A ranking of the contributors is not recorded. The save holds the amount each contributor gave to each House.
 - Some Houses have no place on the Saved map. The editor does not guess a place.
+- A reward item that the editor's item list has no name for is called "Unlisted item". The game's internal item name is never shown as a name. In the list, a House with no place shows a dash, and the Tiers column shows for example "2 of 5" (earned tiers of five).
 - Five Houses stand in the two social hubs, which the Saved map shows with their own pictures: Mutelli, Varota and Wallach in Arrakeen, Alexin and Spinette in Harko Village. Their place opens the hub on the Saved map, centred on the House. The Harko Village frame was fitted by eye on the picture, so a pin there is right to about a room.

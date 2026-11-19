@@ -27,8 +27,6 @@
   const TAKEN = { get noTiers() { return W().favorWon + ' - no tier record in the save'; },
     get noTiersWhy() { return 'This House’s favor is won, and the save holds no reward tiers for it.'; } };
   const takenWhy = (h) => (h.takenNoTiers ? TAKEN.noTiersWhy : '');
-  // the contributors of a list, as the text of one line: the biggest first, "name amount"
-  const contribLine = (list, n) => list.slice(0, n).map((c) => c.label + ' ' + fmt(c.amount)).join(' · ');
   // the banner's three, whole, for its mouse-over text: a narrow cloth may show fewer of them, never a part of one (#972)
   // A contributor the save names no guild for is shown as "Unnamed contributor"; the save's own number for it (which means nothing as a rank) is only said in the mouse-over text, so two of them can be told apart (#919)
   const unnamedNote = (list, n) => { const u = list.slice(0, n).filter((c) => c.unnamed).map((c) => c.id); return u.length ? ' Unnamed contributor: the save gives no player or guild name for it (save number' + (u.length > 1 ? 's ' : ' ') + u.join(', ') + ').' : ''; };
@@ -200,7 +198,9 @@
     jl.appendChild(el('span', 'lcc-bd-barslot lcc-bd-chooseslot', '', { 'data-lcc-slot': 'choose' }));
     bar.appendChild(jl);
     if (state.layout === 'list' || !board.ready) bar.appendChild(sel('Group', 'lcc-bd-group', [['', 'No groups'], ['region', 'By region'], ['spec', W().bySpecialization]], state.group, 'group'));
-    bar.appendChild(el('span', 'lcc-bd-shown', matchIds.size + ' of ' + board.houses.length + ' Houses shown', { role: 'status', id: 'lcc-bd-shown' }));
+    // The count of the Houses shown is said only while a filter narrows the board (#1044): with nothing chosen it would say "25 of 25" and tell nothing. The node stays, empty, as the polite live region.
+    const narrowed = state.show !== 'all' || state.hs !== 'any' || state.spec !== 'all';
+    bar.appendChild(el('span', 'lcc-bd-shown', narrowed ? matchIds.size + ' of ' + board.houses.length + ' Houses shown' : '', { role: 'status', id: 'lcc-bd-shown' }));
     // the line of the actions on the chosen Houses (Fill, Complete, Reopen, the faction for them and the count of the chosen Houses), seated by the page
     bar.appendChild(el('div', 'lcc-bd-barslot lcc-bd-actslot', '', { 'data-lcc-slot': 'act' }));
     return bar;
@@ -221,7 +221,7 @@
     const r = board.rollup;
     const p = el('p', 'lcc-bd-totals');
     p.appendChild(el('b', '', 'Your rewards on this board: '));
-    p.appendChild(root.document.createTextNode((r.tiers ? r.reached + ' of ' + r.tiers + ' ' + W().tiersEarned : 'tiers not known') + ' · ' + r.waiting + ' not collected (waiting at the house representatives) · ' + r.collected + ' collected · ' + r.unknownDelivery + ' earned with no delivery record · ' + fmt(r.mine) + ' contributed in all Houses.'));
+    p.appendChild(root.document.createTextNode((r.tiers ? r.reached + ' of ' + r.tiers + ' ' + W().tiersEarned : 'tiers not known') + ' · ' + r.collected + ' of ' + r.reached + ' collected' + (r.waiting ? ' (' + r.waiting + ' waiting at the house representatives)' : '') + (r.unknownDelivery ? ' · ' + r.unknownDelivery + ' earned with no delivery record' : '') + ' · ' + fmt(r.mine) + ' contributed in all Houses.'));
     return p;
   }
 
@@ -354,12 +354,13 @@
   ];
   function locCell(h, host) {
     const td = el('td', 'lcc-bd-loc');
-    if (!h.loc.known) { td.appendChild(el('span', 'lcc-bd-mut', 'not mapped yet')); return td; }
+    // a House with no place is an em dash, not three wrapped words (#1059); the words stay for a screen reader and in the mouse-over
+    if (!h.loc.known) { const d = el('span', 'lcc-bd-mut lcc-bd-dash', '—', { title: 'Not mapped yet: the save holds no map marker for this House’s representative' }); d.appendChild(el('span', 'lcc-bd-sr', ' not mapped yet')); td.appendChild(d); return td; }
     const text = [h.loc.area, h.loc.cell ? 'cell ' + h.loc.cell : ''].filter(Boolean).join(' · ');
     const peek = host && typeof host.peek === 'function' ? host.peek(h.id) : null; // the Classic quick peek (the map picture), shown in the mouse-over only
     const wrap = el('span', 'loc');
     if (h.loc.map_key) wrap.appendChild(btn('lcc-bd-linkb', text, { 'data-lb': 'map', 'data-id': h.id, 'data-fk': 'lm:' + h.id, title: 'Open ' + (h.loc.area || h.loc.map) + ' in the Saved map' + (peek ? '. Hover for a quick peek.' : ''), 'aria-label': 'House ' + h.name + ': ' + text + '. Open in the Saved map' }));
-    else { wrap.appendChild(el('span', '', text)); wrap.appendChild(el('span', 'lcc-bd-mut', ' · no map picture')); }
+    else { const t = el('span', 'lcc-bd-nopic', text, { title: 'The Saved map has no picture of ' + (h.loc.map || h.loc.area || 'this place') + ' yet' }); t.appendChild(el('span', 'lcc-bd-sr', ' · no map picture')); wrap.appendChild(t); } // the words "no map picture" are for a screen reader and the mouse-over; they wrapped the cell to three lines (#1059)
     if (peek) wrap.appendChild(peek);
     td.appendChild(wrap);
     return td;
@@ -383,7 +384,10 @@
     tr.appendChild(el('td', 'lcc-bd-c-path', trackWord(h.track) || '—'));
     tr.appendChild(locCell(h, host));
     tr.appendChild(el('td', 'lcc-bd-c-state', h.takenNoTiers ? W().favorWon + ', none of yours' : ({ new: 'Not started', part: 'In progress', done: 'Top tier' })[h.state], takenWhy(h) ? { title: takenWhy(h) } : tips ? { title: tips.progress } : undefined));
-    tr.appendChild(rtipCell(raw, 'tiers', el('td', 'lcc-bd-c-tiers', h.takenNoTiers ? 'no tier record' : h.tierCount ? h.reached + ' of ' + h.tierCount + ' ' + W().tiersEarned : 'no tiers', tips ? { title: tips.tiers } : undefined)));
+    // "2 of 5" on the page, " tiers earned" for a screen reader (the column heading says Tiers): "2 of 5 tiers earned" wrapped to three lines (#1059)
+    const tiersTd = el('td', 'lcc-bd-c-tiers', h.takenNoTiers ? 'no tier record' : h.tierCount ? h.reached + ' of ' + h.tierCount : 'no tiers', tips ? { title: tips.tiers } : undefined);
+    if (!h.takenNoTiers && h.tierCount) tiersTd.appendChild(el('span', 'lcc-bd-sr', ' ' + W().tiersEarned));
+    tr.appendChild(rtipCell(raw, 'tiers', tiersTd));
     tr.appendChild(rtipCell(raw, 'next', el('td', 'lcc-bd-c-next', h.next ? fmt(h.next.threshold) + ' (' + fmt(h.next.remaining) + ' more)' : h.tierCount ? W().topTierEarned : '—', tips ? { title: tips.next } : undefined)));
     tr.appendChild(rtipCell(raw, 'waiting', el('td', 'lcc-bd-c-wait', h.waiting ? String(h.waiting) : '0', tips ? { title: tips.waiting } : undefined)));
     return tr;
@@ -449,16 +453,8 @@
       return { state: d.routes.includes('line') ? 'line' : 'count', faction: f, tag, head: W.headline(d), foot: W.how(d) + (d.conflictPossible ? ' · ' + T.tallyMaybe : ''), say: say + ' ' + how.join(' ') };
     }
     if (d.why === 'both') return { state: 'conflict', faction: '', tag, head: W.tally(d), foot: '', say };
-    if (d.why === 'unreadable') return { state: 'unreadable', faction: '', tag, head: W.tally(d), foot: countLine(board, ev), say: say + ' A House that cannot be read is counted for neither faction.' };
-    return { state: 'contested', faction: '', tag, head: W.tally(d), foot: countLine(board, ev), say: say + ' ' + T.rule };
-  }
-  // The House count, in one line (the foot of a panel with no winner).
-  function countLine(board, ev) {
-    const c = board.counts;
-    if (!board.ready) return '';
-    if (!board.countComplete) return 'House count incomplete: ' + c.unknown + (c.unknown === 1 ? ' House' : ' Houses') + ' could not be read, so no comparison is made.';
-    if (!ev.leader) return 'House count: even at ' + c.a + ' each.';
-    return 'House count: ' + FACTION_WORD[ev.leader] + ' ahead ' + c[ev.leader] + ' to ' + c[ev.leader === 'a' ? 'h' : 'a'] + '.';
+    if (d.why === 'unreadable') return { state: 'unreadable', faction: '', tag, head: W.tally(d), foot: '', say: say + ' A House that cannot be read is counted for neither faction.' };
+    return { state: 'contested', faction: '', tag, head: W.tally(d), foot: '', say: say + ' ' + T.rule };
   }
   // The faction's own crest, filled, in the faction's colour: drawn only when a faction has won. With no picture (a failed load) the same place shows a filled diamond in the same colour.
   function winnerEmblem(f) {
@@ -473,10 +469,11 @@
   }
   // How many of the twelve lines each faction can still make (the unblocked lines that nobody holds yet; a line with nothing won on it counts for both). With a House that cannot be read the count is
   // incomplete and no number is given: a figure is never guessed. This is the figure that the row of four figures under the plaque used to show as POTENTIAL LINES (#935).
-  function linesLeft(board, ev) {
+  // Said plainly (#1052): "Lines of five still possible: Atreides 4 · Harkonnen 0". The total, the lines held and a count that cannot be given are not said again: the headline and the plaque say what is known, and a count that
+  // cannot be made (a House cannot be read) shows no line at all.
+  function linesLeft(ev) {
     const p = ev.potential;
-    if (!p.exact) return 'Lines still open: count incomplete · ' + board.counts.unknown + (board.counts.unknown === 1 ? ' House' : ' Houses') + ' unreadable';
-    return 'Lines still open: ' + p.total + ' · Atreides ' + p.a + ' · Harkonnen ' + p.h + (ev.held.length ? ' · ' + ev.held.length + ' held, not counted' : '');
+    return p.exact ? 'Lines of five still possible: Atreides ' + p.a + ' · Harkonnen ' + p.h : '';
   }
   function victoryPanel(board, ev) {
     ev = ev || M().evaluate(board, null);
@@ -487,10 +484,10 @@
     if (v.faction) s.appendChild(winnerEmblem(v.faction)); // a faction has won: its crest; no winner: no icon at all
     s.appendChild(el('h3', 'lcc-bd-vhead', v.head));
     s.appendChild(el('p', 'lcc-bd-sr', v.say)); // the sentence for a screen reader, in the same words
-    const c = board.counts;
-    s.appendChild(el('div', 'lcc-bd-well', board.ready ? 'Atreides ' + c.a + ' · Harkonnen ' + c.h + ' · Open ' + c.open + (c.unknown ? ' · Unreadable ' + c.unknown : '') : 'Houses read: ' + board.houses.length));
+    // the House count is said once, in the headline above (and on the plaque): no second row of the same three figures and no "House count" sentence (#1052). Only a board that is not a board says how many Houses were read.
+    if (!board.ready) s.appendChild(el('div', 'lcc-bd-well', 'Houses read: ' + board.houses.length));
     if (v.foot) s.appendChild(el('p', 'lcc-bd-vcount', v.foot));
-    if (board.ready) s.appendChild(el('p', 'lcc-bd-vlines', linesLeft(board, ev), { 'data-lines': ev.potential.exact ? 'exact' : 'incomplete' }));
+    if (board.ready && linesLeft(ev)) s.appendChild(el('p', 'lcc-bd-vlines', linesLeft(ev), { 'data-lines': 'exact' }));
     return s;
   }
 
@@ -499,7 +496,9 @@
     const w = el('div', 'lcc-bd-fc');
     const head = el('div', 'lcc-bd-fc-head');
     head.appendChild(el('span', 'lcc-bd-fc-l lcc-bd-fc-' + key, label));
-    head.appendChild(el('b', 'lcc-bd-fc-v', (v === null ? 'not known' : fmt(v)) + ' / ' + (goal === null ? 'not known' : fmt(goal)), { 'aria-label': label + ' ' + (v === null ? 'not known' : fmt(v)) + ' of ' + (goal === null ? 'not known' : fmt(goal)) }));
+    // a faction with no contribution row in the save reads 0, like a House with no contribution of yours (#1048); the difference is only in the hover text
+    const at = v === null ? 0 : v, gl = goal === null ? 'not known' : fmt(goal);
+    head.appendChild(el('b', 'lcc-bd-fc-v', fmt(at) + ' / ' + gl, Object.assign({ 'aria-label': label + ' ' + fmt(at) + ' of ' + gl }, v === null ? { title: 'No record of this faction in the save for this House.' } : {})));
     w.appendChild(head);
     const track = el('div', 'lcc-bd-track', '', { role: 'img', 'aria-label': label + ' progress ' + pct(v, goal) + ' percent' });
     const i = el('i', 'lcc-bd-fill lcc-bd-fill-' + key); i.style.setProperty('--lcc-v', pct(v, goal) + '%');
@@ -630,16 +629,23 @@
 
     // the two scales, kept apart: the factions' progress against the house goal, then the character's own tiers
     const s1 = el('section', 'lcc-bd-sec', '', { 'aria-labelledby': 'lcc-bd-s1' });
-    const s1note = 'House goal: ' + known(h.goal) + '. A faction’s progress is the sum of its contributions to this House. Top contributors: ' + (h.contributors.length ? contribLine(h.contributors, 5) : NOT_IN_SAVE + (h.owner === 'a' || h.owner === 'h' ? ' (the save has no contributor row for this House, whose favor is won)' : '')) + '. Missions: ' + NOT_IN_SAVE + '.';
+    // the names of the contributors, the biggest first, with no amounts and no placeholder for one the save gives no name for (#1058); the amounts stay in the save and in the plaque's tooltip only
+    const named = h.contributors.filter((c) => !c.unnamed).slice(0, 5).map((c) => c.label);
+    const s1note = 'House goal: ' + known(h.goal) + '. A faction’s progress is the sum of its contributions to this House. Top contributors: ' + (named.length ? named.join(', ') : h.contributors.length ? 'no names in the save' : NOT_IN_SAVE + (h.owner === 'a' || h.owner === 'h' ? ' (the save has no contributor row for this House, whose favor is won)' : '')) + '. Missions: ' + NOT_IN_SAVE + '.';
     const s1h = secHead('FACTION HOUSE CONTROL', 'lcc-bd-s1', 'SAVE');
     s1h.setAttribute('title', s1note);
     s1.appendChild(s1h);
     s1.appendChild(fcRow('a', 'HOUSE ATREIDES', h.prog.a, h.goal));
     s1.appendChild(fcRow('h', 'HOUSE HARKONNEN', h.prog.h, h.goal));
     s1.appendChild(el('span', 'lcc-bd-sr', s1note));
-    if (h.contributors.length) {
-      s1.appendChild(el('p', 'lcc-bd-mut lcc-bd-contrib', 'Contributors to this House, from the save, the biggest first: ' + contribLine(h.contributors, 5) + '.', { title: 'The order is worked out here: the save holds the amounts, not a ranking. A guild is shown by the identifier the save gives it, with capital letters added here (the save holds no display name).' + unnamedNote(h.contributors, 5) }));
-    } else s1.appendChild(el('p', 'lcc-bd-mut lcc-bd-nosave', 'Top contributors: not in the save.' + (h.owner === 'a' || h.owner === 'h' ? ' The favor of this House is won but the save holds no contributor row for it (for example when it was completed from this editor).' : '')));
+    if (named.length) {
+      const cb = el('div', 'lcc-bd-contrib', '', { title: 'The order is worked out here: the save holds the amounts, not a ranking. A guild is shown by the identifier the save gives it, with capital letters added here (the save holds no display name). A contributor the save gives no name for is left out.' });
+      cb.appendChild(el('p', 'lcc-bd-contrib-h', 'TOP CONTRIBUTORS'));
+      const cl = el('ol', 'lcc-bd-contrib-l', '', { role: 'list' });
+      for (const n of named) cl.appendChild(el('li', '', n));
+      cb.appendChild(cl);
+      s1.appendChild(cb);
+    } else if (!h.contributors.length) s1.appendChild(el('p', 'lcc-bd-mut lcc-bd-nosave', 'Top contributors: not in the save.' + (h.owner === 'a' || h.owner === 'h' ? ' The favor of this House is won but the save holds no contributor row for it (for example when it was completed from this editor).' : '')));
     side.appendChild(s1);
 
     const top = h.tierCount ? h.top : null;
@@ -660,20 +666,20 @@
     const s3 = el('section', 'lcc-bd-sec lcc-bd-ledger', '', { 'aria-labelledby': 'lcc-bd-s3' });
     const lh = el('div', 'lcc-bd-ledger-head');
     lh.appendChild(secHead('PERSONAL REWARD LEDGER', 'lcc-bd-s3', 'SAVE + DERIVED'));
-    lh.appendChild(el('span', 'lcc-bd-ledger-n', h.takenNoTiers ? W().favorWon.toUpperCase() + ' · NO TIER RECORD IN THE SAVE' : h.reached + ' OF ' + h.tierCount + ' ' + W().earned.toUpperCase(), takenWhy(h) ? { title: takenWhy(h) } : undefined));
+    // the "N OF 5 EARNED" tag is gone (#1059): the Tiers earned tile below says it. Only a House with no tier record keeps a tag, since it has no tiles.
+    if (h.takenNoTiers) lh.appendChild(el('span', 'lcc-bd-ledger-n', W().favorWon.toUpperCase() + ' · NO TIER RECORD', { title: takenWhy(h) }));
     s3.appendChild(lh);
-    const sumSaid = h.reached + ' of ' + h.tierCount + ' ' + W().tiersEarned + ' · ' + h.collected + ' collected · ' + h.waiting + ' not collected (waiting at the house representative) · ' + h.unknownDelivery + ' delivery unknown · ' + h.notReached + ' not reached.';
+    // two figures (#1046): the tiers earned of the five, and how many of the earned tiers are collected. What is not collected is the difference, said in the tooltip and for a screen reader.
+    const sumSaid = h.reached + ' of ' + h.tierCount + ' ' + W().tiersEarned + ' · ' + h.collected + ' of ' + h.reached + ' earned ' + (h.reached === 1 ? 'tier' : 'tiers') + ' collected' + (h.waiting ? ', ' + h.waiting + ' waiting at the house representative' : '') + (h.unknownDelivery ? ', ' + h.unknownDelivery + ' with no delivery record' : '') + '.';
     const sum = el('div', 'lcc-bd-stats', '', { role: 'group', 'aria-label': 'House rewards summary: ' + sumSaid, title: sumSaid });
     const stat = (cls, v, l) => { const d = el('div', 'lcc-bd-stat' + (cls ? ' ' + cls : '')); d.appendChild(el('strong', '', v)); d.appendChild(el('span', '', l)); return d; };
-    sum.appendChild(stat('', h.reached + '/' + h.tierCount, W().tiersEarnedHead));
-    sum.appendChild(stat('ok', String(h.collected), 'Collected'));
-    sum.appendChild(stat('wait', String(h.waiting), 'Not collected'));
-    sum.appendChild(stat('rest', String(h.notReached), 'Not reached'));
+    sum.appendChild(stat('', h.reached + ' / ' + h.tierCount, W().tiersEarnedHead));
+    sum.appendChild(stat('ok', h.collected + ' / ' + h.reached, 'Collected'));
     if (h.takenNoTiers) s3.appendChild(el('p', 'lcc-bd-mut lcc-bd-taken-note', takenWhy(h)));
     else s3.appendChild(sum);
     if (h.unknownDelivery) s3.appendChild(el('p', 'lcc-bd-alert', '“Delivery unknown” means the tier is earned and the save has no delivery row for it this term: it is not counted as collected or as not collected.'));
     const heading = el('div', 'lcc-bd-tier-heading', '', { 'aria-hidden': 'true' });
-    for (const t of ['TIER & THRESHOLD', 'REWARD', 'STATE']) heading.appendChild(el('span', '', t));
+    for (const t of ['TIER', 'REWARD', 'STATE']) heading.appendChild(el('span', '', t));
     s3.appendChild(heading);
     const ol = el('ol', 'lcc-bd-tiers', '', { role: 'list' });
     h.tiers.forEach((t) => {
@@ -931,7 +937,7 @@
     }
   }
 
-  const api = { state, mount, redraw, keepInView, visible, build, tipOf, majorityOf, victoryWords, countLine, plaque, grid, houseCard, list, inspector, victoryPanel, tierKind, NOT_IN_SAVE };
+  const api = { state, mount, redraw, keepInView, visible, build, tipOf, majorityOf, victoryWords, plaque, grid, houseCard, list, inspector, victoryPanel, tierKind, NOT_IN_SAVE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCB = api;
 })(typeof window !== 'undefined' ? window : globalThis);

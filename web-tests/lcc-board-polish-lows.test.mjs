@@ -129,8 +129,10 @@ test('#919: a contributor the save names no guild for is "Unnamed contributor", 
 
 test('#919: the House panel says a guild is shown by its identifier with capitals added', async () => {
   const a = synthetic();
+  const t0 = a.tasks.find((t) => (t.player_contributions || []).length);
+  t0.player_contributions.push({ player_id: 91, faction_id: 1, amount: 50, mine: false, guild: 'red_hawk_corps' }); // the Inspector lists named contributors only (#1058)
   const ui = await open('board', a);
-  const id = a.tasks.find((t) => (t.player_contributions || []).length).id;
+  const id = t0.id;
   click(ui, '[data-fk="ht:' + id + '"]');
   const p = ui.doc.querySelector('.lcc-bd-insp .lcc-bd-contrib');
   assert.ok(p, 'the House has contributors');

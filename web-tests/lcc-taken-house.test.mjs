@@ -94,8 +94,8 @@ test('the list and the inspector say the same of a taken House with none of the 
   assert.equal(text(row('Wallach').querySelector('.lcc-bd-c-tiers')), '3 of 5 tiers earned');
   click(ui, row('Vernius').querySelector('.lcc-bd-namebtn'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
-  assert.equal(text(i.querySelector('.lcc-bd-ledger-n')), '0 OF 5 EARNED');
-  assert.equal(text(i.querySelector('.lcc-bd-stats strong')), '0/5', 'the summary tiles of any House');
+  assert.equal(i.querySelector('.lcc-bd-ledger-n'), null, 'no N OF 5 EARNED tag (#1059)');
+  assert.equal(text(i.querySelector('.lcc-bd-stats strong')), '0 / 5', 'the summary tiles of any House');
   assert.equal(i.querySelector('.lcc-bd-taken-note'), null);
   assert.equal(i.querySelectorAll('.lcc-bd-tier').length, 5, 'the ladder rows stay, with their controls');
 });
@@ -106,7 +106,7 @@ test('a taken House with no tier rows: the inspector says no tier record', async
   const ui = await open(a);
   click(ui, tileOf(ui, 'Mutelli').querySelector('button'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
-  assert.equal(text(i.querySelector('.lcc-bd-ledger-n')), 'FAVOR WON · NO TIER RECORD IN THE SAVE');
+  assert.equal(text(i.querySelector('.lcc-bd-ledger-n')), 'FAVOR WON · NO TIER RECORD');
   assert.match(text(i.querySelector('.lcc-bd-taken-note')), /favor is won, and the save holds no reward tiers for it/);
 });
 
@@ -129,8 +129,8 @@ test('the contributors the save records are shown: on the banners and for the Ho
   assert.match([...ui.doc.querySelectorAll('.lcc-standard-h')].map((h) => h.getAttribute('title')).join(' | '), /worked out here: the save holds amounts, not a ranking/);
   click(ui, tileOf(ui, 'Vernius').querySelector('button'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
-  assert.match(text(i.querySelector('.lcc-bd-contrib')), /^Contributors to this House, from the save, the biggest first: Fortune Hunters Inc 2,500 · Red Hawk Corps 1,000 · Unnamed contributor 1,000.$/);
-  assert.match(i.querySelector('#lcc-bd-s1').getAttribute('title'), /Top contributors: Fortune Hunters Inc 2,500 · Red Hawk Corps 1,000 · Unnamed contributor 1,000/);
+  assert.deepEqual([...i.querySelectorAll('.lcc-bd-contrib-l > li')].map(text), ['Fortune Hunters Inc', 'Red Hawk Corps'], 'the Inspector lists the names, the biggest first, with no amount and no Unnamed contributor row (#1058)');
+  assert.match(i.querySelector('#lcc-bd-s1').getAttribute('title'), /Top contributors: Fortune Hunters Inc, Red Hawk Corps\./);
 });
 
 test('a taken House with no contributor row keeps "Not in the save" and says why; a banner with no rows says so', async () => {

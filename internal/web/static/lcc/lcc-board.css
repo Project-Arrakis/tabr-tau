@@ -66,6 +66,7 @@
 .lcc-bd-chip[aria-pressed="true"] { border-color: var(--lcc-gold-text); background: color-mix(in srgb, var(--lcc-gold) 9%, transparent); color: var(--lcc-text); box-shadow: inset 0 -2px 0 var(--lcc-gold-text); }
 .lcc-bd-chip[aria-disabled="true"] { border-style: dashed; box-shadow: none; cursor: not-allowed; }
 .lcc-bd-shown { margin-left: auto; font: 600 11px/1.2 var(--lcc-sans); color: var(--lcc-dim); }
+.lcc-bd-shown:empty { display: none; }
 /* The control bar also holds the buttons that choose Houses, in the line of Jump to House (the two are one group: they stay together and wrap together), and the actions on the chosen Houses on the
    line after (Fill, Complete, Reopen, the faction for them, the count of the chosen Houses). The page seats those controls in the slots; a slot with nothing in it is not drawn. */
 .lcc-bd-jumpline { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 9px 18px; min-width: 0; max-width: 100%; }
@@ -179,11 +180,11 @@
 .lcc-bd-totals b { color: var(--lcc-text); }
 
 /* the list */
-.lcc-bd-listwrap { overflow-x: auto; border: 1px solid var(--lcc-hair); background: var(--lcc-panel); }
-.lcc-bd-list { width: 100%; border-collapse: collapse; font: 500 13px/1.3 var(--lcc-sans); }
+.lcc-bd-listwrap { position: relative; overflow-x: auto; border: 1px solid var(--lcc-hair); background: var(--lcc-panel); }
+.lcc-bd-list { width: 100%; border-collapse: collapse; font: 500 12px/1.3 var(--lcc-sans); }
 .lcc-bd-cap { caption-side: top; text-align: left; padding: 8px 10px; font: 600 12px/1.3 var(--lcc-sans); color: var(--lcc-dim); }
-.lcc-bd-list th, .lcc-bd-list td { padding: 6px 8px; text-align: left; border-top: 1px solid var(--lcc-hair); vertical-align: middle; }
-.lcc-bd-list thead th { font: 700 11px/1.2 var(--lcc-sans); letter-spacing: .06em; text-transform: uppercase; color: var(--lcc-dim); white-space: nowrap; }
+.lcc-bd-list th, .lcc-bd-list td { padding: 6px 6px; text-align: left; border-top: 1px solid var(--lcc-hair); vertical-align: middle; }
+.lcc-bd-list thead th { font: 700 11px/1.2 var(--lcc-sans); letter-spacing: .03em; text-transform: uppercase; color: var(--lcc-dim); white-space: nowrap; }
 .lcc-bd-list th[aria-sort="ascending"]::after { content: ' \25B2'; }
 .lcc-bd-list th[aria-sort="descending"]::after { content: ' \25BC'; }
 .lcc-bd-c-owner .lcc-owner { white-space: nowrap; } /* one mark on one line: a wrapped cell once read as a second H over HARKONNEN (#950) */
@@ -191,6 +192,7 @@
 .lcc-bd-linkb { color: var(--lcc-gold-text); }
 .lcc-bd-namebtn { font-weight: 700; }
 .lcc-bd-c-no { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--lcc-gold-text); }
+.lcc-bd-c-no, .lcc-bd-c-tiers, .lcc-bd-c-wait { white-space: nowrap; } /* "2 of 5" and the count stay on one line; the Not collected column is no longer pushed past the table edge (#1059) */
 .lcc-bd-row[aria-current="true"] td { background: var(--lcc-raised); }
 .lcc-bd-row[aria-current="true"] .lcc-bd-c-no { box-shadow: inset 4px 0 0 var(--lcc-gold); }
 .lcc-bd-grouprow th { background: var(--lcc-tier-bg); font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .08em; text-transform: uppercase; color: var(--lcc-gold-text); }
@@ -273,17 +275,16 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-ledger-head .lcc-bd-sec-h { margin: 0; }
 .lcc-bd-ledger-n { font: 800 10px/1.3 var(--lcc-sans); letter-spacing: .04em; color: var(--lcc-gold-text); white-space: normal; text-align: right; overflow-wrap: anywhere; }
 /* The four counts are read-only figures, not controls and not tabs (#942): no box of their own, a hairline between them, the number larger than its caption, the caption with room on every side. Nothing here takes a click or a tab stop. */
-.lcc-bd-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin-top: 12px; border-top: 1px solid var(--lcc-stroke-faint); border-bottom: 1px solid var(--lcc-stroke-faint); }
+.lcc-bd-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; margin-top: 12px; border-top: 1px solid var(--lcc-stroke-faint); border-bottom: 1px solid var(--lcc-stroke-faint); }
 .lcc-bd-stat { min-height: 67px; box-sizing: border-box; border: 0; border-left: 1px solid var(--lcc-stroke-faint); background: none; padding: 10px 8px; text-align: center; display: flex; flex-direction: column; gap: 4px; justify-content: center; cursor: default; overflow-wrap: anywhere; }
 .lcc-bd-stat:first-child { border-left: 0; }
 .lcc-bd-stat strong { font: 700 22px/1.2 var(--lcc-serif); color: var(--lcc-text); font-variant-numeric: tabular-nums; }
 .lcc-bd-stat span { font-size: 9px; color: var(--lcc-dim); line-height: 1.2; }
 .lcc-bd-stat.ok strong { color: var(--lcc-teal-t); }
-.lcc-bd-stat.wait strong { color: var(--lcc-gold-text); }
-.lcc-bd-stat.rest strong { color: var(--lcc-dim); }
 .lcc-bd-alert { margin: 11px 0 0; border-left: 3px solid var(--lcc-gold-text); background: var(--lcc-tier-bg); padding: 10px; color: var(--lcc-text); font: 11px/1.4 var(--lcc-sans); }
-.lcc-bd-tier-heading { display: grid; grid-template-columns: 68px minmax(0, 1fr) 92px; gap: 7px; margin-top: 16px; padding: 5px 7px; font: 800 8px/1.3 var(--lcc-sans); letter-spacing: .06em; color: var(--lcc-dim); }
+.lcc-bd-tier-heading { display: grid; grid-template-columns: 68px minmax(0, 1fr) 92px; gap: 7px; margin-top: 16px; padding: 5px 7px; border: 1px solid transparent; border-left-width: 3px; font: 800 12px/1.3 var(--lcc-sans); letter-spacing: .06em; color: var(--lcc-dim); }
 .lcc-bd-tier-heading span:last-child { text-align: right; }
+.lcc-bd-tier-heading span { white-space: nowrap; }
 .lcc-bd-tiers { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
 .lcc-bd-tier { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 68px minmax(0, 1fr) 92px; gap: 7px; align-items: center; width: 100%; min-height: 45px; padding: 8px 7px; cursor: pointer; background: var(--lcc-tier-bg); border: 1px solid var(--lcc-stroke-faint); border-left: 3px solid var(--lcc-stroke-faint); color: var(--lcc-text); font: 11px/1.35 var(--lcc-sans); }
 .lcc-bd-tier:not([data-lb]) { cursor: default; }
@@ -371,7 +372,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-pc small { font-size: 11px; }
 .lcc-bd-ledger-n { font-size: 11px; }
 .lcc-bd-stat span { font-size: 11px; }
-.lcc-bd-tier-heading { font-size: 11px; }
+.lcc-bd-tier-heading { font-size: 12px; }
 .lcc-bd-tier { font-size: 12px; }
 .lcc-bd-tier-n { font-size: 12px; }
 .lcc-bd-tier-th, .lcc-bd-tier-gr { font-size: 11px; }
@@ -432,7 +433,6 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
     .lcc-bd-tier-heading span:last-child { display: none; }
     .lcc-bd-tier > .lcc-bd-tier-s { grid-column: 2; text-align: left; }
   }
-  @container (max-width: 300px) { .lcc-bd-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .lcc-bd-stat:nth-child(odd) { border-left: 0; } .lcc-bd-stat:nth-child(n+3) { border-top: 1px solid var(--lcc-stroke-faint); } }
   /* the panel head and the cards follow the width of the board panel itself */
   @container (max-width: 640px) {
     .lcc-bd-panel-head { display: block; }
@@ -522,6 +522,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-gopath { margin: 4px 0 0; min-height: 36px; font: 600 12px/1.3 var(--lcc-sans); text-align: left; }
 /* the place line under the House name (#939): the place is a link, the sub-line says the cell, the place and the area */
 .lcc-bd-loc { all: unset; box-sizing: border-box; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; margin-top: 3px; min-height: 36px; justify-content: center; cursor: pointer; color: var(--lcc-gold-text); text-align: left; overflow-wrap: anywhere; max-width: 100%; }
+.lcc-bd-list td.lcc-bd-loc { display: table-cell; margin: 0; min-height: 0; cursor: auto; } /* the list cell is not the Inspector's place button: it stays a table cell, so its row lines and centring are the other cells' (#1059) */
 .lcc-bd-loc:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 2px; }
 .lcc-bd-loc-a { font: 600 12px/1.3 var(--lcc-sans); text-decoration: underline; text-underline-offset: 3px; }
 .lcc-bd-loc-s { font: 11px/1.3 var(--lcc-sans); color: var(--lcc-dim); }
@@ -529,6 +530,11 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-loc.off .lcc-bd-loc-a { text-decoration: none; font-weight: 500; }
 .lcc-bd-locline { margin-top: 3px; }
 .lcc-bd-nosave { margin: 8px 0 0; font-size: 12px; }
+/* Top contributors in the Inspector: the names, the biggest first, numbered, no amounts (#1058) */
+.lcc-bd-contrib { margin: 10px 0 0; }
+.lcc-bd-contrib-h { margin: 0 0 3px; font: 800 12px/1.2 var(--lcc-sans); letter-spacing: .12em; color: var(--lcc-dim); }
+.lcc-bd-contrib-l { margin: 0; padding: 0 0 0 1.6em; list-style: decimal; font: 500 13px/1.4 var(--lcc-sans); color: var(--lcc-text); }
+.lcc-bd-contrib-l li { overflow-wrap: anywhere; }
 @media (max-width: 640px), (pointer: coarse) {
   .lcc-bd-select { min-height: 44px; }
   .lcc-bd-filters .lcc-bd-chip { min-height: 44px; }

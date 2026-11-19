@@ -106,16 +106,16 @@ async function open(answer, local = {}) {
 const click = (ui, el) => { if (typeof el === 'string') el = ui.doc.querySelector(el); assert.ok(el, 'no element'); el.focus(); el.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
 
 // each state: the phrase every surface must show. `panelTag`/`panelHead`: the panel.
-// panelHead: the title slot of the panel; panelFoot: the how-line (a won state) or the count lead (contested) under the counts
+// panelHead: the title slot of the panel; panelFoot: the how-line of a won state (a state with no winner has none: the count is said once, in the headline, #1052)
 const STATES = [
   { name: 'won by a line of five', answer: () => board(ROW3_A), won: true, tag: 'SYSSELRAAD WON', head: 'SYSSELRAAD WON · ATREIDES', tally: 'ATREIDES · BY FIVE IN A LINE · 5 TO 0 · 20 HOUSES OPEN', panelHead: 'SYSSELRAAD WON · ATREIDES', panelFoot: 'BY FIVE IN A LINE', icon: 'a' },
   { name: 'won by 13 Houses', answer: () => board(A13), won: true, tag: 'SYSSELRAAD WON', head: 'SYSSELRAAD WON · ATREIDES', tally: 'ATREIDES · BY 13 HOUSES · 13 TO 12 · 0 HOUSES OPEN', panelHead: 'SYSSELRAAD WON · ATREIDES', panelFoot: 'BY 13 HOUSES', icon: 'a' },
   { name: 'won by a line and by 13 Houses', answer: () => board(A_BOTH), won: true, tag: 'SYSSELRAAD WON', head: 'SYSSELRAAD WON · ATREIDES', tally: 'ATREIDES · BY FIVE IN A LINE AND 13 HOUSES · 13 TO 6 · 6 HOUSES OPEN', panelHead: 'SYSSELRAAD WON · ATREIDES', panelFoot: 'BY FIVE IN A LINE AND 13 HOUSES', icon: 'a' },
-  { name: 'contested, a lead', answer: () => synthetic(), tag: 'SYSSELRAAD CONTESTED', head: 'SYSSELRAAD CONTESTED', tally: 'ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN', panelHead: 'ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN', panelFoot: 'House count: Atreides ahead 12 to 4.' },
-  { name: 'contested, a tie', answer: () => board(TIE), tag: 'SYSSELRAAD CONTESTED', head: 'SYSSELRAAD CONTESTED', tally: 'HOUSE COUNT EVEN AT 12 · 1 HOUSE OPEN', panelHead: 'HOUSE COUNT EVEN AT 12 · 1 HOUSE OPEN', panelFoot: 'House count: even at 12 each.' },
-  { name: 'contested, nothing taken', answer: () => board(NOTHING), tag: 'SYSSELRAAD CONTESTED', head: 'SYSSELRAAD CONTESTED', tally: 'HOUSE COUNT EVEN AT 0 · 25 HOUSES OPEN', panelHead: 'HOUSE COUNT EVEN AT 0 · 25 HOUSES OPEN', panelFoot: 'House count: even at 0 each.' },
+  { name: 'contested, a lead', answer: () => synthetic(), tag: 'SYSSELRAAD CONTESTED', head: 'SYSSELRAAD CONTESTED', tally: 'ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN', panelHead: 'ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN' },
+  { name: 'contested, a tie', answer: () => board(TIE), tag: 'SYSSELRAAD CONTESTED', head: 'SYSSELRAAD CONTESTED', tally: 'HOUSE COUNT EVEN AT 12 · 1 HOUSE OPEN', panelHead: 'HOUSE COUNT EVEN AT 12 · 1 HOUSE OPEN' },
+  { name: 'contested, nothing taken', answer: () => board(NOTHING), tag: 'SYSSELRAAD CONTESTED', head: 'SYSSELRAAD CONTESTED', tally: 'HOUSE COUNT EVEN AT 0 · 25 HOUSES OPEN', panelHead: 'HOUSE COUNT EVEN AT 0 · 25 HOUSES OPEN' },
   { name: 'undecidable, both factions qualify', answer: () => board(BOTH_LINES), tag: 'SYSSELRAAD UNDECIDABLE', head: 'SYSSELRAAD UNDECIDABLE', tally: 'ATREIDES BY FIVE IN A LINE · HARKONNEN BY FIVE IN A LINE · CANNOT BE DECIDED FROM THIS SAVE', panelHead: 'ATREIDES BY FIVE IN A LINE · HARKONNEN BY FIVE IN A LINE · CANNOT BE DECIDED FROM THIS SAVE' },
-  { name: 'unreadable owners, nobody qualifies', answer: () => board(UNREADABLE), tag: 'SYSSELRAAD UNDECIDABLE', head: 'SYSSELRAAD UNDECIDABLE', tally: 'COUNT INCOMPLETE · 1 HOUSE UNREADABLE', panelHead: 'COUNT INCOMPLETE · 1 HOUSE UNREADABLE', panelFoot: 'House count incomplete: 1 House could not be read, so no comparison is made.' },
+  { name: 'unreadable owners, nobody qualifies', answer: () => board(UNREADABLE), tag: 'SYSSELRAAD UNDECIDABLE', head: 'SYSSELRAAD UNDECIDABLE', tally: 'COUNT INCOMPLETE · 1 HOUSE UNREADABLE', panelHead: 'COUNT INCOMPLETE · 1 HOUSE UNREADABLE' },
   { name: 'unreadable owners, a line elsewhere', answer: () => board(UNREADABLE_LINE), won: true, tag: 'SYSSELRAAD WON', head: 'SYSSELRAAD WON · HARKONNEN', tally: 'HARKONNEN · BY FIVE IN A LINE · 5 TO 0 · 19 HOUSES OPEN', panelHead: 'SYSSELRAAD WON · HARKONNEN', panelFoot: 'BY FIVE IN A LINE', icon: 'h' },
   { name: 'a board that is not a board', answer: () => { const a = board(ROW3_A); a.tasks.pop(); return a; }, tag: 'SYSSELRAAD UNDECIDABLE', head: 'SYSSELRAAD UNDECIDABLE', tally: 'HOUSE COUNT UNAVAILABLE · BOARD NOT COMPLETE', panelHead: 'HOUSE COUNT UNAVAILABLE · BOARD NOT COMPLETE' },
 ];
@@ -132,7 +132,8 @@ for (const st of STATES) {
     const p = doc.querySelector('.lcc-bd-victory');
     assert.equal(text(p.querySelector('.lcc-bd-vtag')), st.tag);
     assert.equal(text(p.querySelector('.lcc-bd-vhead')), st.panelHead);
-    assert.equal(text(p.querySelector('.lcc-bd-vcount')), st.panelFoot || '', 'the how-line of a win, or the count lead');
+    const foot = p.querySelector('.lcc-bd-vcount');
+    assert.equal(foot ? text(foot) : '', st.panelFoot || '', 'the how-line of a win; a state with no winner has none, the count is in the headline only (#1052)');
     const emblem = p.querySelector('.lcc-bd-emblem');
     if (st.icon) assert.equal(emblem.getAttribute('data-faction'), st.icon, 'the winner\'s crest'); else assert.equal(emblem, null, 'no winner: no icon');
     assert.equal(p.querySelector('.lcc-bd-vbody'), null, 'the explanatory paragraph is gone');

@@ -46,7 +46,7 @@ for (const view of ['board', 'classic']) {
     const q = ask(ui);
     assert.ok(q, 'a question is asked');
     assert.match(q, /^Unfill 1 house\? Your contribution goes to 0 on 1 house: every tier you have reached there comes off\./);
-    assert.match(q, /Takes back 1 waiting reward: 1 SYNTH_SCHEMATIC_1 on House Alexin\./);
+    assert.match(q, /Takes back 1 waiting reward: 1 Unlisted item on House Alexin\./);
     assert.match(q, /1 reward already collected stays: 10,000 Solari on House Alexin\./);
     assert.match(q, /A House that is taken stays taken, and so does your faction.s progress\./);
     assert.match(q, /Solari, House Scrip and XP the missions of the tier paid, and raising the tier again pays no mission a second time/);
