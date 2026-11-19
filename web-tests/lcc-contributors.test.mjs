@@ -2,8 +2,8 @@
 // guild_identifier values, the rows are the rows of landsraad_task_player_contributions of a term):
 //   data     the ranking of a faction is the sum of each contributor's rows over all the Houses of the term, the biggest first, equal amounts by name; the character is named by the save ("You" only when no name can be read). It was right, and is
 //            checked here against an independent sum of the raw rows.
-//   layout   each line showed "name · amount" in one cut-off piece, so the amount was lost behind an ellipsis. A line is now a name and an amount of its own: the name wraps, the amount is whole,
-//            and an entry that does not fit in the height of the cloth is not drawn at all (a second column that is out of sight), never cut through.
+//   layout   each line showed "name · amount" in one cut-off piece (#972 then gave the amount a piece of its own). The operator wants the names only (#1043), so a line is the name: it wraps, and an entry that does not fit
+//            in the height of the cloth is not drawn at all (a second column that is out of sight), never cut through. The amounts are still in the data and in the Inspector of a House, never on the banner.
 //   wording  the heading's mouse-over text says how the ranking is made (summed over the term, ties by name, progress without a contributor not named) and gives the three whole.
 // The page code is the real app.js with the real lcc scripts (no game save is read).
 import test, { afterEach } from 'node:test';
@@ -73,31 +73,35 @@ test('data: a contributor with no amount, a zero amount or another faction is no
   assert.deepEqual(b.contributors.h.map((c) => c.id).filter((id) => id >= 77), []);
 });
 
-test('layout: each banner line is a name and an amount of its own, the whole line in the name\'s mouse-over, nothing else on the line', async () => {
+test('layout: each banner line is the name only (#1043), no amount on the line or in its mouse-over, nothing else on the line', async () => {
   const ui = await open(answer());
-  for (const [cls, want] of [['.lcc-f-a', [['Bravo Squad', '1,500'], ['Dune Divers', '1,000'], ['Fortune Hunters Inc', '1,000']]], ['.lcc-f-h', [[NAME, '36,600'], ['The Wraiths Of Ginaz', '31,900'], ['Tears Of Shaitan', '1,000']]]]) {
+  for (const [cls, want] of [['.lcc-f-a', ['Bravo Squad', 'Dune Divers', 'Fortune Hunters Inc']], ['.lcc-f-h', [NAME, 'The Wraiths Of Ginaz', 'Tears Of Shaitan']]]) {
     const items = [...ui.doc.querySelectorAll('.lcc-plaque ' + cls + ' .lcc-standard-list > li')];
-    assert.deepEqual(items.map((li) => [text(li.querySelector('.lcc-standard-name')), text(li.querySelector('.lcc-standard-amt'))]), want);
+    assert.deepEqual(items.map((li) => text(li)), want, 'the line is the name and nothing else (the order is the biggest first)');
     for (const li of items) {
-      assert.deepEqual([...li.children].map((c) => c.className), ['lcc-standard-name', 'lcc-standard-amt']);
-      assert.equal(li.querySelector('.lcc-standard-name').getAttribute('title'), text(li.querySelector('.lcc-standard-name')) + ' · ' + text(li.querySelector('.lcc-standard-amt')));
+      assert.deepEqual([...li.children].map((c) => c.className), ['lcc-standard-name']);
+      assert.equal(li.querySelector('.lcc-standard-name').getAttribute('title'), text(li.querySelector('.lcc-standard-name')), 'the mouse-over is the whole name, with no amount');
+      assert.doesNotMatch(li.outerHTML, /\d[\d,]{2,}/, 'no number on the line');
     }
+    assert.equal(ui.doc.querySelectorAll('.lcc-plaque ' + cls + ' .lcc-standard-amt').length, 0);
   }
 });
 
-test('layout: a long name and a hostile one stay text and the amount stays its own whole piece', () => {
+test('layout: a long name and a hostile one stay text; an entry that still carries an amount is drawn as its name only (#1043)', () => {
   const { L } = load();
   const std = L.standard('a', [{ name: '<img src=x onerror=alert(1)>' + 'x'.repeat(120), amount: '1,000' }, { name: 'Short', amount: '999' }]);
   assert.equal(std.querySelectorAll('img:not(.lcc-standard-img):not(.lcc-standard-tip)').length, 0);
-  assert.deepEqual([...std.querySelectorAll('.lcc-standard-amt')].map((e) => e.textContent), ['1,000', '999']);
+  assert.equal(std.querySelectorAll('.lcc-standard-amt').length, 0);
+  assert.doesNotMatch(std.textContent, /1,000|999/, 'the amount is not drawn');
+  assert.doesNotMatch(std.outerHTML, /1,000|999/, 'nor in a mouse-over');
   assert.equal(std.querySelectorAll('li').length, 2);
 });
 
-test('layout: no line is cut with an ellipsis; the amount never breaks; the wide list is a column that wraps so a whole entry that does not fit is out of sight, not cut through', () => {
+test('layout: no line is cut with an ellipsis; the wide list is a column that wraps so a whole entry that does not fit is out of sight, not cut through', () => {
   for (const m of css.matchAll(/([^{}]*lcc-standard-(?:name|amt|list)[^{}]*)\{([^}]*)\}/g)) assert.doesNotMatch(m[2], /text-overflow\s*:\s*ellipsis/, m[1].trim());
-  assert.match(css, /\.lcc-standard-amt \{[^}]*white-space: nowrap/);
+  assert.doesNotMatch(css, /lcc-standard-amt/, 'no rule is left for an amount (#1043)');
   assert.match(css, /\.lcc-standard-name \{[^}]*overflow-wrap: anywhere/);
-  assert.match(css, /\.lcc-standard-list > li \{[^}]*display: block;/, 'the name and the amount run on as text: the amount follows the last word of a wrapped name');
+  assert.match(css, /\.lcc-standard-list > li \{[^}]*display: block;/, 'a line is a block with the name in it');
   assert.doesNotMatch(css, /counter-(?:reset|increment)\s*:\s*lcc-n|counter\(lcc-n\)/, 'no rank number before a name (#992): the order is the ranking, and a tie of equal amounts is not 1, 2, 3');
   assert.doesNotMatch(/\.lcc-standard-list > li \{([^}]*)\}/.exec(css)[1], /padding-left|text-indent/, 'no hanging indent is left over for a number');
   assert.doesNotMatch(css, /\.lcc-standard-list > li::(?:before|after)/, 'nothing is drawn before or after a line');
@@ -109,7 +113,6 @@ test('layout: no line is cut with an ellipsis; the amount never breaks; the wide
   assert.match(wide[1], /font-size: clamp\(12px,/, 'the names are never under 12 px (#918): a whole entry that does not fit is out of sight (#972), the text is not made smaller');
   assert.match(css, /\.lcc-pl-std-a \.lcc-standard-h, \.lcc-pl-std-h \.lcc-standard-h \{[^}]*font-size: clamp\(11px,/, 'the heading TOP CONTRIBUTORS is other text and keeps its 11 px floor');
   assert.match(css, /\.lcc-pl-std-a \.lcc-standard-list > li, \.lcc-pl-std-h \.lcc-standard-list > li \{[^}]*width: 100%/);
-  assert.ok(css.includes('.lcc-standard-amt { color: CanvasText; }'), 'forced colours: the amount takes the text colour');
 });
 
 test('wording: the heading says how the ranking is made, gives the three whole, and an empty faction says the save holds no rows', async () => {
@@ -122,8 +125,8 @@ test('wording: the heading says how the ranking is made, gives the three whole, 
     assert.match(t, /equal amounts are listed by name, A to Z/);
     assert.match(t, /Progress that the save records without a contributor is not named here/);
   }
-  assert.match(titles[0], /Top 3: 1\. Bravo Squad 1,500; 2\. Dune Divers 1,000; 3\. Fortune Hunters Inc 1,000\.$/);
-  assert.match(titles[1], /Top 3: 1\. Ahsan Quill 36,600; 2\. The Wraiths Of Ginaz 31,900; 3\. Tears Of Shaitan 1,000\.$/);
+  assert.match(titles[0], /Top 3: 1\. Bravo Squad; 2\. Dune Divers; 3\. Fortune Hunters Inc\.$/);
+  assert.match(titles[1], /Top 3: 1\. Ahsan Quill; 2\. The Wraiths Of Ginaz; 3\. Tears Of Shaitan\.$/);
   const empty = answer();
   for (const t of empty.tasks) t.player_contributions = t.player_contributions.filter((r) => r.faction_id !== 1);
   const ui2 = await open(empty);
@@ -135,17 +138,17 @@ test('wording: the heading says how the ranking is made, gives the three whole, 
 // the longest simulated guild names of a real save (landsraad_simulated_guilds, 60 guilds): the full name is always on the banner, as its own text, never cut
 const LONGEST = ['salvagers_association', 'the_teeth_in_the_dark', 'celestial_privateers', 'confederation_of_woe'];
 const LONGEST_WORDS = ['Salvagers Association', 'The Teeth In The Dark', 'Celestial Privateers', 'Confederation Of Woe'];
-test('the longest guild names of a save are on the banner whole, each with its amount, and whole in their mouse-over text', async () => {
+test('the longest guild names of a save are on the banner whole, by name only, and whole in their mouse-over text (#1043)', async () => {
   const a = answer();
   for (const t of a.tasks) t.player_contributions = [];
   LONGEST.forEach((g, i) => a.tasks[i].player_contributions.push({ player_id: 40 + i, faction_id: 1, amount: 4000 - i, mine: false, guild: g }));
   const ui = await open(a);
   const items = [...ui.doc.querySelectorAll('.lcc-plaque .lcc-f-a .lcc-standard-list > li')];
   assert.deepEqual(items.map((li) => li.querySelector('.lcc-standard-name').textContent), LONGEST_WORDS.slice(0, 3), 'the banner holds three, each name exactly as the save gives it');
-  assert.deepEqual(items.map((li) => li.querySelector('.lcc-standard-amt').textContent), ['4,000', '3,999', '3,998']);
-  assert.deepEqual(items.map((li) => li.querySelector('.lcc-standard-name').getAttribute('title')), ['Salvagers Association · 4,000', 'The Teeth In The Dark · 3,999', 'Celestial Privateers · 3,998']);
+  assert.equal(ui.doc.querySelectorAll('.lcc-plaque .lcc-standard-amt').length, 0, 'no amount');
+  assert.deepEqual(items.map((li) => li.querySelector('.lcc-standard-name').getAttribute('title')), ['Salvagers Association', 'The Teeth In The Dark', 'Celestial Privateers']);
   const title = ui.doc.querySelector('.lcc-plaque .lcc-f-a .lcc-standard-h').getAttribute('title');
-  assert.match(title, /Top 3: 1\. Salvagers Association 4,000; 2\. The Teeth In The Dark 3,999; 3\. Celestial Privateers 3,998\.$/);
+  assert.match(title, /Top 3: 1\. Salvagers Association; 2\. The Teeth In The Dark; 3\. Celestial Privateers\.$/);
 });
 
 test('the character is listed by the name in the save, on the banner, in the House panel and in the inspector; "You" only when the name cannot be read', async () => {

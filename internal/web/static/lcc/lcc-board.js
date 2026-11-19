@@ -32,7 +32,7 @@
   // the banner's three, whole, for its mouse-over text: a narrow cloth may show fewer of them, never a part of one (#972)
   // A contributor the save names no guild for is shown as "Unnamed contributor"; the save's own number for it (which means nothing as a rank) is only said in the mouse-over text, so two of them can be told apart (#919)
   const unnamedNote = (list, n) => { const u = list.slice(0, n).filter((c) => c.unnamed).map((c) => c.id); return u.length ? ' Unnamed contributor: the save gives no player or guild name for it (save number' + (u.length > 1 ? 's ' : ' ') + u.join(', ') + ').' : ''; };
-  const contribRank = (list) => 'Top ' + Math.min(3, list.length) + ': ' + list.slice(0, 3).map((c, i) => (i + 1) + '. ' + c.label + ' ' + fmt(c.amount)).join('; ') + '.';
+  const contribRank = (list) => 'Top ' + Math.min(3, list.length) + ': ' + list.slice(0, 3).map((c, i) => (i + 1) + '. ' + c.label).join('; ') + '.';
   // The five states of one reward tier, as the approved design shows them: the class of the box, its mark, and the words. A tier the character has not reached is always "not reached", whatever the
   // reward row says; a reached tier with no delivery record (or a record that disagrees with the contribution) is a question mark and is never counted as collected.
   const TIER_CLASS = Object.freeze({ delivered: 'delivered', waiting: 'waiting', no_row: 'uncertain', unknown: 'uncertain' });
@@ -134,7 +134,7 @@
     const win = M().evaluate(board, null).win; // the headline and the tally line are the winner function's words (lcc-model.js, WIN), the same on every surface
     // the contributors the save records under each faction, the biggest first (worked out here from the rows of the term: the save holds amounts, not a ranking); none is "Not in the save"
     const cs = board.contributors || { a: [], h: [] };
-    const lines = (k) => (cs[k].length ? cs[k].slice(0, 3).map((c) => ({ name: c.label, amount: fmt(c.amount) })) : null);
+    const lines = (k) => (cs[k].length ? cs[k].slice(0, 3).map((c) => ({ name: c.label })) : null);
     const node = L().renderPlaque({ a, h, decree: shownDecree(host), holder: board.term ? board.term.reigning : null, contributors: { a: lines('a'), h: lines('h') }, win });
     for (const st of node.querySelectorAll ? node.querySelectorAll('.lcc-standard') : []) {
       const k = st.classList.contains('lcc-f-h') ? 'h' : 'a', hd = st.querySelector('.lcc-standard-h');

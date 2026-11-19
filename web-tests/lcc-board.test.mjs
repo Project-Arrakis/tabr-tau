@@ -83,7 +83,7 @@ test('the plaque and the figures are the counts of the same Houses: 12 and 4, ni
   assert.match(text(p.querySelector('.lcc-pl-held')), /^HELD BY\s*HOUSE ATREIDES$/);
   assert.equal(text(p.querySelector('.lcc-pl-title')), 'Exclusive Vehicle Import Rights');
   assert.equal(p.querySelectorAll('.lcc-standard-none').length, 0, 'the save holds contribution rows under both factions, so both banners list them');
-  assert.match(text(p.querySelector('.lcc-f-a .lcc-standard-list > li')), /^SYNTHETIC_CHARACTER [\d,]+$/, 'the character is the biggest contributor under Atreides in the fixture, named by the character name of the save');
+  assert.match(text(p.querySelector('.lcc-f-a .lcc-standard-list > li')), /^SYNTHETIC_CHARACTER$/, 'the character is the biggest contributor under Atreides in the fixture, named by the character name of the save, with no amount (#1043)');
 });
 
 test('a House whose owner cannot be read is counted for neither side and the plaque says so', async () => {
