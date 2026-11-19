@@ -70,5 +70,5 @@ test('the new rules keep the text floor: nothing under 11 px, names and key labe
   const sizes = [...m4.matchAll(/font:\s*(?:\d{3}\s+)?(\d+(?:\.\d+)?)px/g)].map((x) => Number(x[1]));
   assert.ok(sizes.length >= 1, 'the rules of the board outlines carry a font size');
   for (const s of sizes) assert.ok(s >= 11, 'a font of ' + s + ' px');
-  assert.match(rule(board, '.lcc-bd-vcount'), /font:\s*11px/); // the list of the twelve lines is no longer in the victory panel (#931)
+  assert.match(rule(board, '.lcc-bd-vcount'), /font:\s*12px/); // 12 px since #947; the list of the twelve lines is no longer in the victory panel (#931)
 });

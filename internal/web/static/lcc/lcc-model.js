@@ -94,7 +94,7 @@
   }
 
   // The contributors the save records for one House (the rows of the personal contributions, one per contributor and faction): [{ id, label, faction, amount, mine }], the biggest first.
-  // The label is the character's name for the character's own row ("You" only when the save's name cannot be read; #972), the guild's own name when the read gives it (a simulated guild), else "Contributor <id>". The order is worked out here: the save holds
+  // The label is the character's name for the character's own row ("You" only when the save's name cannot be read; #972), the guild's own name when the read gives it (a simulated guild), else "Unnamed contributor" (#919: the save's own number is kept in `id`, and is only said in a tooltip). The order is worked out here: the save holds
   // amounts, not a ranking. A row with no readable amount is left out, and so is one of zero.
   function guildWord(id) { return String(id).split(/[_\s]+/).filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '); }
   function readContributors(t, F, myName) {
@@ -106,7 +106,7 @@
       if (id === null || a === null || a <= 0) continue;
       const mine = r.mine === true;
       const named = typeof r.guild === 'string' && r.guild.trim() !== '' ? guildWord(r.guild.trim()) : '';
-      out.push({ id, label: mine ? (typeof myName === 'string' && myName.trim() !== '' ? myName.trim() : 'You') : named || 'Contributor ' + id, faction: F.byId.get(int(r.faction_id)) || null, amount: a, mine });
+      out.push({ id, label: mine ? (typeof myName === 'string' && myName.trim() !== '' ? myName.trim() : 'You') : named || 'Unnamed contributor', unnamed: !mine && !named, faction: F.byId.get(int(r.faction_id)) || null, amount: a, mine });
     }
     return out.sort((x, y) => y.amount - x.amount || x.label.localeCompare(y.label) || x.id - y.id);
   }
@@ -156,7 +156,8 @@
     const loc = obj(t.location) || { known: false };
     const line = typeof t.line === 'string' ? t.line.trim().toLowerCase() : '';
     return {
-      id: t.id, raw: t, name: houseName(t.house_name), key: nameKey(t.house_name), index: pos ? pos.index : null, pos,
+      // a House id is a whole number (the server sends integers; a digit string is taken as one, #883)
+      id: typeof t.id === 'string' && /^[0-9]+$/.test(t.id) ? Number(t.id) : t.id, raw: t, name: houseName(t.house_name), key: nameKey(t.house_name), index: pos ? pos.index : null, pos,
       number: pos ? pos.number : '', owner, leader, taken: !!t.completed || t.winning_faction_id != null,
       goal, prog, progOther, mine, recorded: !!t.my_recorded, canGive: me.factionId !== null,
       contributors, takenNoTiers, takenNoMine,
@@ -197,7 +198,7 @@
     const contributors = { a: [], h: [] };
     for (const k of ['a', 'h']) {
       const by = new Map();
-      for (const h of houses) for (const c of h.contributors) if (c.faction === k) { const e = by.get(c.id) || { id: c.id, label: c.label, faction: k, amount: 0, mine: c.mine }; e.amount += c.amount; by.set(c.id, e); }
+      for (const h of houses) for (const c of h.contributors) if (c.faction === k) { const e = by.get(c.id) || { id: c.id, label: c.label, unnamed: !!c.unnamed, faction: k, amount: 0, mine: c.mine }; e.amount += c.amount; by.set(c.id, e); }
       contributors[k] = [...by.values()].sort((x, y) => y.amount - x.amount || x.label.localeCompare(y.label) || x.id - y.id);
     }
     const reigning = term && term.reigning_faction_id != null ? F.byId.get(int(term.reigning_faction_id)) || null : null;

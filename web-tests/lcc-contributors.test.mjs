@@ -43,7 +43,7 @@ function independent(a, faction) {
   const label = (id) => {
     if (id === ME) return NAME;
     for (const t of a.tasks) for (const r of t.player_contributions) if (r.player_id === id && r.guild) return r.guild.split('_').map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
-    return 'Contributor ' + id;
+    return 'Unnamed contributor';
   };
   return [...by].map(([id, amount]) => [label(id), amount]).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]));
 }

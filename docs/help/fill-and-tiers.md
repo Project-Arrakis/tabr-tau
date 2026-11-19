@@ -7,7 +7,7 @@
 - **Fill** raises your own contribution to the top tier (it is never lowered) and writes what the missions that reach it pay.
 - **Fill faction goal** does Fill and also takes your faction to its goal in one click.
 - **Complete House** records the favor of the House as won by the chosen faction and sets that faction's progress to the House goal.
-- **Reopen** clears the win and the completion. Progress and contribution stay as they are, so it does not fully undo a Complete: the progress that Complete raised stays, and a House another faction won is left open, not given back.
+- **Reopen** clears the completion and the faction that holds the House's favor. Progress and contribution stay as they are, so it does not fully undo a Complete: the progress that Complete raised stays, and a House another faction won is left open, not given back.
 - **Choose** boxes pick Houses for **Fill chosen**, **Complete chosen**, **Complete and fill chosen**, **Reopen chosen** and **Unfill chosen**. Several Houses are one edit: either every House changes or none.
 - **Complete and fill chosen** completes the chosen Houses for the chosen faction and fills your own contribution to the top tier, in one write with one backup and one result line. It pays the missions like Fill does, so the question names them. It is off, with the reason shown, while a faction other than your own is chosen: your contribution counts for your own faction, and **Complete chosen** is the button for another faction.
 - **Unfill chosen** sets your own contribution to 0 on each chosen House, so its tiers go back to 0 of 5. It never changes whether a House is taken: a House that is won stays won. It takes back the waiting rewards of the removed tiers by the rule below, and the question names how many it takes back and how many collected rewards stay. It always asks first. It is off, with the reason shown, while another faction is chosen. **Reopen** and **Unfill** are the way back from Complete and fill.
@@ -20,7 +20,7 @@
 - A click that writes ten missions or more on one House asks first, and so does every button for several Houses. The question says what it writes.
 - Unfill chosen always asks first, and it is refused as a conflict, with nothing changed, when the number of waiting rewards it would take back is no longer the number the question named.
 - Removing a tier asks first when it takes back a reward, or when the reward of the tier stays and the question has something to say about it. The question names the reward.
-- Complete on a House another faction won replaces that win. The question says so first.
+- Complete on a House whose favor another faction holds replaces that faction. The question says so first.
 
 ## What a raise writes
 

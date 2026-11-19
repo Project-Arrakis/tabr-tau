@@ -29,6 +29,8 @@
   // the contributors of a list, as the text of one line: the biggest first, "name amount"
   const contribLine = (list, n) => list.slice(0, n).map((c) => c.label + ' ' + fmt(c.amount)).join(' · ');
   // the banner's three, whole, for its mouse-over text: a narrow cloth may show fewer of them, never a part of one (#972)
+  // A contributor the save names no guild for is shown as "Unnamed contributor"; the save's own number for it (which means nothing as a rank) is only said in the mouse-over text, so two of them can be told apart (#919)
+  const unnamedNote = (list, n) => { const u = list.slice(0, n).filter((c) => c.unnamed).map((c) => c.id); return u.length ? ' Unnamed contributor: the save gives no player or guild name for it (save number' + (u.length > 1 ? 's ' : ' ') + u.join(', ') + ').' : ''; };
   const contribRank = (list) => 'Top ' + Math.min(3, list.length) + ': ' + list.slice(0, 3).map((c, i) => (i + 1) + '. ' + c.label + ' ' + fmt(c.amount)).join('; ') + '.';
   // The five states of one reward tier, as the approved design shows them: the class of the box, its mark, and the words. A tier the character has not reached is always "not reached", whatever the
   // reward row says; a reached tier with no delivery record (or a record that disagrees with the contribution) is a question mark and is never counted as collected.
@@ -135,7 +137,7 @@
     const node = L().renderPlaque({ a, h, decree: shownDecree(host), holder: board.term ? board.term.reigning : null, contributors: { a: lines('a'), h: lines('h') }, win });
     for (const st of node.querySelectorAll ? node.querySelectorAll('.lcc-standard') : []) {
       const k = st.classList.contains('lcc-f-h') ? 'h' : 'a', hd = st.querySelector('.lcc-standard-h');
-      if (hd) hd.setAttribute('title', cs[k].length ? 'The biggest contributors under ' + FACTION_WORD[k] + ' in the contribution rows of this term in the save, worked out here: the save holds amounts, not a ranking. The amounts are added up over all the Houses of the term, and equal amounts are listed by name, A to Z. Progress that the save records without a contributor is not named here. ' + contribRank(cs[k]) : 'The save holds no contribution rows under ' + FACTION_WORD[k] + ' for the Houses of this term.');
+      if (hd) hd.setAttribute('title', cs[k].length ? 'The biggest contributors under ' + FACTION_WORD[k] + ' in the contribution rows of this term in the save, worked out here: the save holds amounts, not a ranking. The amounts are added up over all the Houses of the term, and equal amounts are listed by name, A to Z. Progress that the save records without a contributor is not named here. ' + contribRank(cs[k]) + unnamedNote(cs[k], 3) : 'The save holds no contribution rows under ' + FACTION_WORD[k] + ' for the Houses of this term.');
     }
     return node;
   }
@@ -320,7 +322,7 @@
   }
   function pickBox(h, picks) {
     const l = el('label', 'lcc-bd-pickl');
-    const i = el('input', 'lcc-bd-pick', '', { type: 'checkbox', 'data-lb': 'pick', 'data-id': h.id, 'data-fk': 'pk:' + h.id, 'aria-label': 'Choose House ' + h.name + ' for the actions on several Houses' });
+    const i = el('input', 'lcc-bd-pick', '', { type: 'checkbox', 'data-lb': 'pick', 'data-id': h.id, 'data-fk': 'pk:' + h.id, autocomplete: 'off', 'aria-label': 'Choose House ' + h.name + ' for the actions on several Houses' }); // autocomplete off: the page draws the box from its own list, never from the browser's saved form state (#921)
     if (picks && picks.has(h.id)) i.checked = true;
     l.appendChild(i);
     return l;
@@ -524,8 +526,9 @@
     const r1 = el('div', 'lcc-bd-erow', '', { role: 'group', 'aria-label': 'Actions on House ' + h.name });
     if (c.factions && c.factions.length) {
       const lab = el('label', 'lcc-bd-elab', 'Faction', { for: 'lcc-bd-fac' });
-      const fs = el('select', 'lcc-bd-select lcc-bd-eselect', '', { id: 'lcc-bd-fac', 'data-lcb': 'fac', 'data-fk': 'fac-i', title: 'Acting for ' + c.facName + (c.ownF ? ' (your faction)' : '') });
+      const fs = el('select', 'lcc-bd-select lcc-bd-eselect', '', { id: 'lcc-bd-fac', 'data-lcb': 'fac', 'data-fk': 'fac-i', 'data-was': String(c.F), title: 'Acting for ' + c.facName + (c.ownF ? ' (your faction)' : '') });
       for (const f of c.factions) { const o = el('option', '', f.name, { value: String(f.id) }); if (String(f.id) === String(c.F)) o.selected = true; fs.appendChild(o); }
+      if (c.busy) fs.disabled = true; // a redraw during a write: the box is built off, as lbRunning turned it off (#882)
       lab.appendChild(root.document.createTextNode(' '));
       lab.appendChild(fs);
       r1.appendChild(lab);
@@ -539,7 +542,7 @@
     const tl = el('label', 'lcc-bd-elab', 'Set tier', { for: 'lcc-bd-tierset' });
     const ts = el('select', 'lcc-bd-select lcc-bd-eselect', '', { id: 'lcc-bd-tierset', 'data-fk': 'ts:' + h.id });
     for (let n = 0; n <= h.tierCount; n++) { const o = el('option', '', n === 0 ? '0 — none' : n + ' / ' + h.tierCount, { value: String(n) }); if (n === h.reached) o.selected = true; ts.appendChild(o); }
-    if (!h.tierCount) ts.disabled = true;
+    if (!h.tierCount || c.busy) ts.disabled = true;
     tl.appendChild(root.document.createTextNode(' '));
     tl.appendChild(ts);
     r2.appendChild(tl);
@@ -631,7 +634,7 @@
     s1.appendChild(fcRow('h', 'HOUSE HARKONNEN', h.prog.h, h.goal));
     s1.appendChild(el('span', 'lcc-bd-sr', s1note));
     if (h.contributors.length) {
-      s1.appendChild(el('p', 'lcc-bd-mut lcc-bd-contrib', 'Contributors to this House, from the save, the biggest first: ' + contribLine(h.contributors, 5) + '.', { title: 'The order is worked out here: the save holds the amounts, not a ranking. A guild is shown by the name the save gives it.' }));
+      s1.appendChild(el('p', 'lcc-bd-mut lcc-bd-contrib', 'Contributors to this House, from the save, the biggest first: ' + contribLine(h.contributors, 5) + '.', { title: 'The order is worked out here: the save holds the amounts, not a ranking. A guild is shown by the identifier the save gives it, with capital letters added here (the save holds no display name).' + unnamedNote(h.contributors, 5) }));
     } else s1.appendChild(el('p', 'lcc-bd-mut lcc-bd-nosave', 'Top contributors: not in the save.' + (h.owner === 'a' || h.owner === 'h' ? ' The favor of this House is won but the save holds no contributor row for it (for example when it was completed from this editor).' : '')));
     side.appendChild(s1);
 
@@ -896,7 +899,8 @@
       const box = insp.querySelector('.lcc-bd-tier[data-lb="tier"][data-t="' + want + '"]');
       if (!box) { tell('The tier boxes cannot be used here.'); return; }
       tell('');
-      box.click();
+      box.setAttribute('data-focusfk', t.getAttribute('data-fk') || ''); // after the write the focus stays on Apply tier, not on the ledger row it pressed (#883)
+      try { box.click(); } finally { box.removeAttribute('data-focusfk'); }
     }
   }
   function onChange(e) {
@@ -904,7 +908,11 @@
     if (!k) return;
     if (k === 'spec') { state.spec = M().TRACKS.includes(t.value) ? t.value : 'all'; filtered(); redraw(); return; }
     if (k === 'group') { state.group = t.value === 'region' || t.value === 'spec' ? t.value : ''; redraw(); return; }
-    if (k === 'fac') { if (last && last.host && last.host.setFac) last.host.setFac(t.value); return; }
+    if (k === 'fac') { // the board's own faction box takes the choice; when it does not (it is off during a write) the panel's box goes back to the faction that is used, so it never shows one that was not applied (#882)
+      const took = last && last.host && last.host.setFac ? last.host.setFac(t.value) : false;
+      if (took === false) { const was = t.getAttribute('data-was'); if (was !== null) t.value = was; }
+      return;
+    }
     if (k === 'jump') {
       state.sel = t.value === '' ? null : Number(t.value);
       memo.insp = null;

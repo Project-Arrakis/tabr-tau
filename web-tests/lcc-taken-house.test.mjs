@@ -121,7 +121,7 @@ test('the contributors the save records are shown: on the banners and for the Ho
   ];
   const b = M.readBoard(a);
   const v = b.houses.find((x) => x.name === 'Vernius');
-  assert.deepEqual(v.contributors.map((c) => [c.label, c.amount]), [['Fortune Hunters Inc', 2500], ['Contributor 28', 1000], ['Red Hawk Corps', 1000]], 'the biggest first (a tie by name), a guild by its name, any other by its id');
+  assert.deepEqual(v.contributors.map((c) => [c.label, c.amount]), [['Fortune Hunters Inc', 2500], ['Red Hawk Corps', 1000], ['Unnamed contributor', 1000]], 'the biggest first (a tie by name), a guild by its name, a contributor with no guild as Unnamed contributor (#919)');
   assert.deepEqual(b.contributors.h.find((c) => c.id === 24 && c.label === 'Fortune Hunters Inc').amount, 2500, 'the faction list sums each contributor over the Houses of the board');
   const ui = await open(a);
   const lists = [...ui.doc.querySelectorAll('.lcc-standard')].map((s) => [...s.querySelectorAll('.lcc-standard-list > li')].map((n) => text(n)));
@@ -130,8 +130,8 @@ test('the contributors the save records are shown: on the banners and for the Ho
   assert.match([...ui.doc.querySelectorAll('.lcc-standard-h')].map((h) => h.getAttribute('title')).join(' | '), /worked out here: the save holds amounts, not a ranking/);
   click(ui, tileOf(ui, 'Vernius').querySelector('button'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
-  assert.match(text(i.querySelector('.lcc-bd-contrib')), /^Contributors to this House, from the save, the biggest first: Fortune Hunters Inc 2,500 · Contributor 28 1,000 · Red Hawk Corps 1,000.$/);
-  assert.match(i.querySelector('#lcc-bd-s1').getAttribute('title'), /Top contributors: Fortune Hunters Inc 2,500 · Contributor 28 1,000/);
+  assert.match(text(i.querySelector('.lcc-bd-contrib')), /^Contributors to this House, from the save, the biggest first: Fortune Hunters Inc 2,500 · Red Hawk Corps 1,000 · Unnamed contributor 1,000.$/);
+  assert.match(i.querySelector('#lcc-bd-s1').getAttribute('title'), /Top contributors: Fortune Hunters Inc 2,500 · Red Hawk Corps 1,000 · Unnamed contributor 1,000/);
 });
 
 test('a taken House with no contributor row keeps "Not in the save" and says why; a banner with no rows says so', async () => {
