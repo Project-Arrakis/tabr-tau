@@ -54,4 +54,5 @@ The victory panel says whether a faction has won, by 13 Houses or by five in a l
 - Active Landsraad missions are not recorded in a single-player save.
 - A ranking of the contributors is not recorded. The save holds the amount each contributor gave to each House.
 - Some Houses have no place on the Saved map. The editor does not guess a place.
+- A reward item that the editor's item list has no name for is called "Unlisted item". The game's internal item name is never shown as a name. In the list, a House with no place shows a dash, and the Tiers column shows for example "2 of 5" (earned tiers of five).
 - Five Houses stand in the two social hubs, which the Saved map shows with their own pictures: Mutelli, Varota and Wallach in Arrakeen, Alexin and Spinette in Harko Village. Their place opens the hub on the Saved map, centred on the House. The Harko Village frame was fitted by eye on the picture, so a pin there is right to about a room.

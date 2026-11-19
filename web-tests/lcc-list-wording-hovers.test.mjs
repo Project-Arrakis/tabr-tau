@@ -207,10 +207,32 @@ test('#937: each reward of the inspector has the item in its mouse-over and on f
   assert.equal(t2.getAttribute('data-item'), 'SYNTH_SCHEMATIC_1', 'and is kept as a data attribute only');
   assert.match(d2.rows[0].name, /\S/, 'the display name');
   assert.doesNotMatch(d2.rows[0].name, /SYNTH_SCHEMATIC/, 'the internal name is not the display name');
+  assert.equal(d2.rows[0].name, 'Unlisted item', 'an item the editor has no name for has one plain fallback, never its id (#1055)');
   assert.doesNotMatch(t2.getAttribute('aria-label'), /Game id/, 'no "Game id" in the words a screen reader says (#977; an item the editor has no name for is called by its id, as everywhere on the page)');
   assert.equal(t2.getAttribute('data-info'), null, 'the text drawn by the style sheet is gone');
   assert.doesNotMatch(src('lcc', 'lcc-board.css'), /data-info/);
   // the click sentence rides in the mouse-over card, no longer in a native title
   assert.equal(t2.getAttribute('title'), null);
   assert.match(d2.note, /Give tier 2|Remove tier 2|Tier 2 is reached|Off while/);
+});
+
+// ---- #1055: no raw item id as a reward name ---------------------------------------------------------------------------------------------------------------------------------
+test('#1055: a reward item the editor has no name for is "Unlisted item" in the ledger, the list cells and the tier hovers, never its id', async () => {
+  const a = synthetic();
+  for (const layout of ['grid', 'list']) {
+    const ui = await open(layout);
+    look(ui, a, 'Alexin');
+    const all = said(ui.doc.querySelector('#lsb'));
+    assert.doesNotMatch(all, /SYNTH_(SCHEMATIC|PART|SWATCH|OWN)/, layout + ': the id is nowhere in what is read or heard');
+    assert.match(all, /Unlisted item/, layout + ': the one fallback is said');
+    assert.doesNotMatch(all, /Item not in the editor/, 'and there is only one fallback wording');
+    for (const n of ui.doc.querySelectorAll('#lsb [data-rtip]')) {
+      const d = ui.w.LCCB.tipOf(n);
+      for (const r of d.rows) assert.doesNotMatch(r.name, /SYNTH_/, layout + ': the picture mouse-over names no id');
+    }
+  }
+  // Solari keeps its name, and an item the list does know keeps its own
+  const ui = await open('grid');
+  look(ui, a, 'Alexin');
+  assert.match(text(ui.doc.querySelector('.lcc-bd-insp .lcc-bd-ledger')), /Solari/);
 });

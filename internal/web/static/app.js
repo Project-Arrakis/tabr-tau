@@ -1890,7 +1890,10 @@ function lbHouse(r, l) {
     loc, region: loc.known ? loc.map : '', area: loc.known ? loc.area : '', held: !!r.swatch_held,
     unfill: r.unfill || null }; // what Unfill chosen would do to the rewards of every reached tier of this house at once (the server's rule, landsraad_takeback.go: boardUnfill), said before the click (#932)
 }
-const lbRText = (t) => lbF(t.amount) + ' ' + itemName(t.tmpl);
+// The name of a Landsraad reward item. An item the editor's list has no name for is "Unlisted item" everywhere on the Landsraad page (the board, the ledger, the list cells, the hovers and the results), never its internal id (#1055).
+const LB_UNLISTED = 'Unlisted item';
+const lbItemName = (id) => (id === LB_SOLARI ? 'Solari' : (CATALOG && CATALOG.byId.get(id)) || LB_UNLISTED);
+const lbRText = (t) => lbF(t.amount) + ' ' + lbItemName(t.tmpl);
 // the next-tier text is two pieces that never break inside: on a wide row they sit on one line, on a phone the second piece moves down
 function lbNextParts(h) {
   for (const t of h.tiers) if (h.mine < t.th) return ['next ' + lbF(t.th) + ' · ' + lbRText(t) + ',', lbF(t.th - h.mine) + ' more'];
@@ -2110,7 +2113,7 @@ function lbItemInfo(h, t, i) {
 function lbRewardRow(h, t, i) {
   if (!t) return null;
   const solari = t.tmpl === LB_SOLARI;
-  return { item: solari ? '' : String(t.tmpl), name: (CATALOG && CATALOG.byId.get(t.tmpl)) || (solari ? 'Solari' : 'Item not in the editor’s list'), qty: lbF(t.amount), swatch: !!t.swatch, tier: i, need: lbF(t.th), state: lbTierWord(t) };
+  return { item: solari ? '' : String(t.tmpl), name: lbItemName(t.tmpl), qty: lbF(t.amount), swatch: !!t.swatch, tier: i, need: lbF(t.th), state: lbTierWord(t) };
 }
 // The mouse-overs of the cells of the Command Center list, in the words of the Classic list (one source): your progress, the tiers, the next tier and the rewards waiting.
 function lbListTips(h) {
@@ -2647,7 +2650,7 @@ function lbUnfillSay(items, hs) {
   const hl = items.map((it) => hs.get(it.task_id)), by = { take: [], collected: [], earned: [], unsure: [] }, why = new Set();
   for (const h of hl) for (const r of (h.unfill && h.unfill.rows) || []) {
     if (!by[r.outcome]) continue;
-    by[r.outcome].push(lbF(r.amount) + ' ' + itemName(r.template_id) + (r.swatch ? ' (the house swatch)' : '') + ' on House ' + h.name);
+    by[r.outcome].push(lbF(r.amount) + ' ' + lbItemName(r.template_id) + (r.swatch ? ' (the house swatch)' : '') + ' on House ' + h.name);
     if (r.outcome === 'unsure' && r.why) why.add(r.why);
   }
   const list = (a) => (a.length > 6 ? a.slice(0, 6).join(', ') + ' and ' + (a.length - 6) + ' more' : a.join(', '));
