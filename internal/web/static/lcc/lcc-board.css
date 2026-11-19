@@ -202,7 +202,7 @@
 /* the SYSSELRAAD WON tag (#978): the one win outline of lcc.css (its selector list names the tag), a solid line because a win is a settled fact (a dashed line is for what is not settled); the colour of its text is the gold of text */
 .lcc-bd-victory[data-state="line"] .lcc-bd-vtag, .lcc-bd-victory[data-state="count"] .lcc-bd-vtag { color: var(--lcc-gold-text); }
 .lcc-bd-victory[data-state="conflict"] .lcc-bd-vtag { border-style: dashed; border-color: var(--lcc-violet); color: var(--lcc-text); }
-.lcc-bd-vcount { margin: 10px 0 0; font: 11px/1.45 var(--lcc-sans); color: var(--lcc-dim); }
+.lcc-bd-vcount { margin: 10px 0 0; font: 12px/1.45 var(--lcc-sans); color: var(--lcc-text); }  /* the how of a win is the key fact of the panel: 12 px in the normal text colour (#947) */
 .lcc-bd-vlines { margin: 6px 0 0; font: 11px/1.45 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-bd-line { display: grid; gap: 1px; padding: 5px 8px; border-left: 3px solid var(--lcc-stroke-faint); font: 11px/1.4 var(--lcc-sans); color: var(--lcc-dim); }
 @media (forced-colors: active) {
@@ -285,7 +285,6 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 /* the plain words of the state stay for a screen reader, beside the mark */
 .lcc-bd-tier[data-rtip] { position: relative; } /* its reward mouse-over is the picture card at the end of this file (#977; it was text drawn here, #937) */
 .lcc-bd-tier-st { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.lcc-bd-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 12px; color: var(--lcc-dim); font-size: 9px; }
 .lcc-bd-note { margin-top: 16px; font: 12px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-bd-note strong { color: var(--lcc-text); }
 .lcc-bd-editor { padding: 13px 12px; border: 1px solid var(--lcc-stroke); background: var(--lcc-tier-bg); }
@@ -314,7 +313,8 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 @media (forced-colors: active) {
   .lcc-bd, .lcc-bd-surface, .lcc-bd-listwrap { background: Canvas; color: CanvasText; border: 1px solid CanvasText; box-shadow: none; }
   .lcc-bd-chip, .lcc-bd-select, .lcc-bd-tier, .lcc-bd-act, .lcc-bd-btn, .lcc-bd-layout button { background: ButtonFace; color: ButtonText; border: 1px solid ButtonText; }
-  .lcc-bd-chip[aria-pressed="true"], .lcc-bd-layout button[aria-pressed="true"] { background: Highlight; color: HighlightText; }
+  /* a selected chip or layout button: the browser lays a Canvas-coloured backplate behind the label of a control that is filled with Highlight, which hid a HighlightText label (black on black, #998). Taking the control out of the automatic adjustment with explicit system colours keeps the label readable, and the inner outline in the text colour marks the selection by shape, not by the fill alone. */
+  .lcc-bd-chip[aria-pressed="true"], .lcc-bd-layout button[aria-pressed="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; border: 1px solid ButtonText; outline: 2px solid HighlightText; outline-offset: -4px; font-weight: 800; }
   .lcc-hc { background: Canvas; color: CanvasText; border: 2px solid CanvasText; box-shadow: none; clip-path: none; }
   .lcc-hc-a { border-left-width: 8px; border-left-style: solid; }
   .lcc-hc-h { border-left-width: 8px; border-left-style: double; }
@@ -343,7 +343,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-lbl { font-size: 12px; }
 .lcc-bd-chip { font-size: 12px; }
 .lcc-bd-layout button { font-size: 12px; }
-.lcc-bd-headlines li { font-size: 11px; letter-spacing: .08em; }
+.lcc-bd-headlines li { font-size: 12px; letter-spacing: .06em; }  /* the key to the board: key labels are 12 px (#896) */
 .lcc-bd-subline { font-size: 11px; }
 .lcc-bd-vtag { font-size: 12px; letter-spacing: .12em; }
 .lcc-bd-control { font-size: 12px; }
@@ -360,7 +360,6 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-tier-heading, .lcc-bd-tier { grid-template-columns: 68px minmax(0, 1fr) 96px; gap: 6px; }
 .lcc-bd-tier-rw { overflow-wrap: break-word; }
 .lcc-bd-tier-gr { overflow-wrap: anywhere; }
-.lcc-bd-legend { font-size: 11px; }
 .lcc-bd-elab { font-size: 12px; }
 .lcc-bd-etip { font-size: 11px; }
 .lcc-bd-tip { font-size: 11px; margin-top: 8px; padding-top: 8px; }
@@ -415,7 +414,6 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
     .lcc-bd-tier > .lcc-bd-tier-s { grid-column: 2; text-align: left; }
   }
   @container (max-width: 300px) { .lcc-bd-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .lcc-bd-stat:nth-child(odd) { border-left: 0; } .lcc-bd-stat:nth-child(n+3) { border-top: 1px solid var(--lcc-stroke-faint); } }
-  @container (max-width: 300px) { .lcc-bd-legend { grid-template-columns: 1fr; } }
   /* the panel head and the cards follow the width of the board panel itself */
   @container (max-width: 640px) {
     .lcc-bd-panel-head { display: block; }
@@ -473,7 +471,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd .lcc-bd-disc[open] > summary { color: var(--lcc-text); }
 .lcc-bd .lcc-bd-disc > summary:hover { text-decoration: underline; }
 .lcc-bd .lcc-bd-disc > summary:focus-visible { outline: 2px solid var(--lcc-focus); outline-offset: 2px; }
-.lcc-bd-disc > .lcc-bd-note, .lcc-bd-disc > .lcc-bd-tip, .lcc-bd-disc > .lcc-bd-cap, .lcc-bd-disc > .lcc-bd-legend { margin-top: 2px; }
+.lcc-bd-disc > .lcc-bd-note, .lcc-bd-disc > .lcc-bd-tip, .lcc-bd-disc > .lcc-bd-cap { margin-top: 2px; }
 .lcc-bd-disc > .lcc-bd-tip { padding-top: 0; border-top: 0; }
 .lcc-bd-ledger .lcc-bd-disc { margin-top: 6px; }
 .lcc-bd-pin { display: flex; flex-direction: column; background: var(--lcc-s1); }

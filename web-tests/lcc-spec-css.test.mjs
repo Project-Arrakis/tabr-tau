@@ -100,7 +100,7 @@ test('the variants the design asks for exist: forced colours with system colours
   assert.match(body, /\.lcc-sp-lane\[data-kind="unresolved"\]\s*\{\s*border-style: dashed/);
   assert.match(body, /\.lcc-sp-btn\.is-danger\s*\{[^}]*double/);
   const named = [...body.matchAll(/(?:color|fill|stroke|background(?:-color)?|border(?:-color)?|outline):\s*([^;}]+)/g)].map((m) => m[1].trim());
-  for (const v of named) assert.match(v, /^(Canvas|CanvasText|ButtonText|ButtonFace|Highlight|HighlightText|GrayText|none|\d+px (solid|double|dashed|dotted) (Canvas|CanvasText|ButtonText|Highlight)|solid|double|dashed|dotted|Highlight)\b/, 'not a system colour in forced colours: ' + v);
+  for (const v of named) assert.match(v, /^(Canvas|CanvasText|ButtonText|ButtonFace|Highlight|HighlightText|GrayText|none|\d+px (solid|double|dashed|dotted) (Canvas|CanvasText|ButtonText|HighlightText|Highlight)|solid|double|dashed|dotted|Highlight)\b/, 'not a system colour in forced colours: ' + v);
 });
 
 test('the states do not rely on colour alone: the cap, the unresolved track and the pressed lane differ by shape, border or words', () => {

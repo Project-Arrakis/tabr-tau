@@ -156,10 +156,13 @@ const MEASURE = `(() => {
   const standardsShown = [...document.querySelectorAll('#lsb-lcc .lcc-standard-list')].map((ol) => { const o = ol.getBoundingClientRect(); return [...ol.children].filter((li) => li.getBoundingClientRect().left < o.right - 1).length; });
   const trk = document.querySelector('#lsb-lcc .lcc-track'); const tr = trk && trk.getBoundingClientRect();
   const seatsInTrack = tr ? [...document.querySelectorAll('#lsb-lcc .lcc-seat')].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.left >= tr.left - 1 && r.right <= tr.right + 1 && r.top >= tr.top - 1 && r.bottom <= tr.bottom + 1; }).length : null;
+  // a selected switch (a chip, the Grid / List and view buttons) in forced colours must keep a label that differs from its plate: the browser lays a Canvas plate behind the label of a control it adjusts, so a HighlightText label on a Highlight fill was black on black (#998)
+  const selected = [];
+  for (const root of roots) for (const el of root.querySelectorAll('.lcc-bd-chip[aria-pressed="true"], .lcc-bd-layout button[aria-pressed="true"], .lcc-sp-vbtn[aria-pressed="true"]')) { if (!vis(el)) continue; const cs = getComputedStyle(el); selected.push({ at: label(el), text: (el.textContent || '').trim().slice(0, 16), adjust: cs.forcedColorAdjust, color: cs.color, bg: cs.backgroundColor }); }
   const count = (sel) => document.querySelectorAll(sel).length;
   return {
     innerWidth, scrollWidth: document.documentElement.scrollWidth, roots: roots.map((r) => r.id), textNodes: nodes.n,
-    small, tiny: tiny.slice(0, 8), between, targets, tierOverlap, tierGapMin, clipped: clipped.slice(0, 12), over: over.slice(0, 8), cutEntries, standardsShown,
+    small, tiny: tiny.slice(0, 8), between, selected, targets, tierOverlap, tierGapMin, clipped: clipped.slice(0, 12), over: over.slice(0, 8), cutEntries, standardsShown,
     seatsInTrack, houses: count('#lsb-lcc [data-fk^="ht:"]'), seats: count('#lsb-lcc .lcc-seat'), centerSeats: count('#lsb-lcc .lcc-seat-center'), lanes: count('#lcs-root [data-lcs-lane]'),
     injected: !!window.__pwned || document.querySelectorAll('img[src=x]').length,
     broken: [...document.images].filter((i) => i.complete && i.naturalWidth === 0 && vis(i)).map((i) => i.getAttribute('src')),
@@ -223,6 +226,7 @@ async function main() {
       Object.assign(row, { innerWidth: m.innerWidth, pageWiderBy: Math.max(0, m.scrollWidth - m.innerWidth), textNodes: m.textNodes, under11: m.small, tiny: m.tiny, nameBand11to12: m.between, controls: m.targets.length, under36: m.targets.filter((t) => t.h < 36).length, under44: m.targets.filter((t) => t.h < 44).length, floor, smallBySel, tierOverlap: m.tierOverlap, tierGapMin: m.tierGapMin, tierHit: (() => { const t = m.targets.filter((x) => x.tier); return t.length ? { n: t.length, hitW: Math.min(...t.map((x) => x.w)), hitH: Math.min(...t.map((x) => x.h)), visW: Math.min(...t.map((x) => x.vw)), visH: Math.min(...t.map((x) => x.vh)) } : null; })(), seatsInTrack: m.seatsInTrack, clipped: m.clipped, cutEntries: m.cutEntries, standardsShown: m.standardsShown, over: m.over, houses: m.houses, seats: m.seats, centerSeats: m.centerSeats, lanes: m.lanes, injected: m.injected, broken: m.broken });
       if (m.scrollWidth > m.innerWidth + 1) report.hard.push(c.name + ': the page is wider than the window by ' + (m.scrollWidth - m.innerWidth) + ' px');
       if (Object.keys(m.small).length) report.hard.push(c.name + ': text under 11 px in ' + Object.keys(m.small).join(', '));
+      if ((c.media || []).some((x) => x.name === 'forced-colors')) for (const x of m.selected) if (x.adjust !== 'none') report.hard.push(c.name + ': a selected control is left to the automatic forced-colours adjustment (' + x.at + ' ' + x.text + ')'); else if (x.color === x.bg) report.hard.push(c.name + ': a selected control has the same label and plate colour (' + x.at + ' ' + x.text + ')');
       if (touch && Object.keys(smallBySel).length) report.hard.push(c.name + ': controls under the touch floor (' + floor + ' px high, 24 px wide): ' + Object.entries(smallBySel).map(([k, v]) => k + ' x' + v.n + ' ' + v.minW + 'x' + v.minH).join(', '));
       if (m.tierOverlap) report.hard.push(c.name + ': ' + m.tierOverlap + ' tier boxes whose hit areas overlap their neighbour');
       if (m.cutEntries.length) report.hard.push(c.name + ': a contributor line of a banner is cut: ' + m.cutEntries.join(' | '));

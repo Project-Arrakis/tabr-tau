@@ -252,5 +252,5 @@ html[data-motion="off"] .lcc-sp-lane:hover, html[data-motion="calm"] .lcc-sp-lan
 @media (pointer: coarse), (max-width: 760px) { .lcc-sp-vbtn { min-height: 44px; } }
 @media (forced-colors: active) {
   .lcc-sp-vbtn { border: 1px solid ButtonText; background: ButtonFace; color: ButtonText; }
-  .lcc-sp-vbtn[aria-pressed="true"] { background: Highlight; color: HighlightText; border-color: Highlight; }
+  .lcc-sp-vbtn[aria-pressed="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; border-color: ButtonText; outline: 2px solid HighlightText; outline-offset: -4px; font-weight: 800; }  /* out of the automatic adjustment so the label is not black on a black backplate (#998) */
 }
