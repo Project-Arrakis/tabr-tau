@@ -52,6 +52,7 @@ export async function boot({ post = {}, get = {}, session = {}, local = {}, pre 
   };
   for (const [k, v] of Object.entries(session)) w.sessionStorage.setItem(k, v); // what an earlier page left behind (a refresh keeps the session storage)
   for (const [k, v] of Object.entries(local)) w.localStorage.setItem(k, v);
+  w.scrollTo = () => {}; // jsdom has no layout and logs "not implemented" for a scroll; a test that wants to see the scrolls puts its own here
   if (pre) pre(w); // runs before the page's code does
   w.eval(read('html.js'));
   w.eval(read('livemap.js'));

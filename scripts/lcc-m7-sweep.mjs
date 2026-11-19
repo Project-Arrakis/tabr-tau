@@ -307,6 +307,43 @@ async function main() {
       process.stdout.write('r');
     }
   }
+  // A place link of a House opens the Saved map scrolled to the map, with the House named, whatever offset the board had (#1025). The board is scrolled to its end, the link of a mapped House is pressed with a
+  // real mouse press, and the Saved map must have its canvas inside the window (not scrolled past) and the line that names the House in view.
+  if (!only || only.includes('maplink')) {
+    const GRID_PRE = `(() => { const id = document.querySelector(".lcc-bd-cell .hcard-place:not(.off)").dataset.id; document.querySelector('[data-fk="ht:' + id + '"]').click(); return id; })()`; // the grid: a mapped House is chosen, and its inspector has the link
+    for (const [view, layout, link, w, h, pre] of [['classic', 'grid', '#lsb-rows .loc-t[data-lb=map]:not(.off)', 1280, 800], ['board', 'list', 'td.lcc-bd-loc .lcc-bd-linkb[data-lb=map]', 1280, 800], ['board', 'grid', '.lcc-bd-insp .lcc-bd-act[data-lb=map]', 1280, 800, GRID_PRE], ['board', 'list', 'td.lcc-bd-loc .lcc-bd-linkb[data-lb=map]', 390, 800]]) {
+      current = `maplink-${view}-${layout}-${w}`;
+      await b.send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: false });
+      await b.send('Emulation.setTouchEmulationEnabled', { enabled: false, maxTouchPoints: 1 });
+      await b.send('Page.navigate', { url: base + '/design/tokens.css' });
+      await sleep(150);
+      await evalIn(`localStorage.clear(); const s = ${JSON.stringify({ tab: 'landsraad', 'lsb.view': view, 'lsb.layout': layout, tauTheme: 'dark' })}; for (const k in s) localStorage.setItem(k, s[k]); true`);
+      await b.send('Page.navigate', { url: base + '/?c=' + current });
+      let ok = false;
+      for (let i = 0; i < 100 && !ok; i++) { await sleep(150); ok = await evalIn('!!document.querySelector(' + JSON.stringify(pre ? '.lcc-bd-cell .hcard-place:not(.off)' : link) + ') && !document.querySelector("#loading")').catch(() => false); }
+      if (!ok) { report.hard.push(current + ': no place link on the page'); continue; }
+      await sleep(400);
+      if (pre) { await evalIn(pre); await sleep(500); }
+      const pt = await evalIn(`(() => { window.scrollTo(0, 1e6); const n = document.querySelector(${JSON.stringify(link)}); n.scrollIntoView({ block: 'center' }); const r = n.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, y0: Math.round(scrollY) }; })()`);
+      await sleep(200);
+      await b.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: pt.x, y: pt.y });
+      await sleep(150);
+      await b.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pt.x, y: pt.y, button: 'left', clickCount: 1 });
+      await b.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pt.x, y: pt.y, button: 'left', clickCount: 1 });
+      let drawn = false;
+      for (let i = 0; i < 60 && !drawn; i++) { await sleep(150); drawn = await evalIn('!!document.querySelector("#lmc")').catch(() => false); }
+      await sleep(500);
+      const r = await evalIn(`(() => { const c = document.querySelector('#lmc'), l = document.querySelector('#lmhouse'); const cb = c && c.getBoundingClientRect(), lb = l && l.getBoundingClientRect(); const hd = document.querySelector('header'); const top = Math.max(hd ? hd.getBoundingClientRect().bottom : 0, 0);
+        return { scrollY: Math.round(scrollY), docH: document.documentElement.scrollHeight, canvasTop: cb && Math.round(cb.top), canvasBottom: cb && Math.round(cb.bottom), vh: innerHeight, headerBottom: Math.round(top), line: lb ? l.textContent.trim().slice(0, 40) : null, lineTop: lb && Math.round(lb.top), focus: document.activeElement && document.activeElement.id }; })()`);
+      report.cases.push({ name: current, from: pt.y0, ...r });
+      if (!drawn) report.hard.push(current + ': the Saved map did not open');
+      else if (!r.line) report.hard.push(current + ': the Saved map does not name the House: ' + JSON.stringify(r));
+      else if (r.canvasTop < r.headerBottom - 1 || r.canvasTop > r.vh - 100) report.hard.push(current + ': the map is not in view (it starts at ' + r.canvasTop + ' of a window ' + r.vh + ' high, the header ends at ' + r.headerBottom + '): ' + JSON.stringify(r));
+      else if (r.focus !== 'lmc') report.hard.push(current + ': the keyboard focus is not on the map: ' + r.focus);
+      if (/(classic|board)-(grid|list)-1280/.test(current) && !allShots) { const shot = await b.send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(path.join(out, current + '.png'), Buffer.from(shot.data, 'base64')); }
+      process.stdout.write('m');
+    }
+  }
   await b.close(); srv.close();
   if (report.pageErrors.length) report.hard.push(report.pageErrors.length + ' page errors');
   if (report.notLocal.length) report.hard.push(report.notLocal.length + ' requests to an address that is not this one');

@@ -269,6 +269,13 @@
     if (lm.focus && lm.focus.key === lm.map) { // the place chosen on the Landsraad board: a ring that keeps its size on screen
       ctx.beginPath(); ctx.arc(lm.focus.fx * cfg.width, lm.focus.fy * cfg.height, 14 / lm.scale, 0, Math.PI * 2);
       ctx.lineWidth = 3 / lm.scale; ctx.strokeStyle = '#ffd54a'; ctx.stroke();
+      ctx.beginPath(); ctx.arc(lm.focus.fx * cfg.width, lm.focus.fy * cfg.height, 3.5 / lm.scale, 0, Math.PI * 2); ctx.fillStyle = '#ffd54a'; ctx.fill();
+      // the House's name beside the ring, in screen pixels so it keeps its size at any zoom
+      ctx.save(); ctx.setTransform(lm.dpr, 0, 0, lm.dpr, 0, 0);
+      const flabel = 'House ' + lm.focus.label, lx = lm.focus.fx * cfg.width * lm.scale + lm.ox + 20, ly = lm.focus.fy * cfg.height * lm.scale + lm.oy;
+      ctx.font = '600 13px system-ui, sans-serif'; ctx.textBaseline = 'middle';
+      const tw = ctx.measureText(flabel).width; ctx.fillStyle = 'rgba(13,15,18,0.85)'; ctx.fillRect(lx - 4, ly - 10, tw + 8, 20); ctx.fillStyle = '#ffd54a'; ctx.fillText(flabel, lx, ly);
+      ctx.restore();
     }
   }
 
@@ -364,13 +371,14 @@
     const types = [...byType.values()].sort((a, b) => b.n - a.n);
     const groups = LM_GROUPS.filter((g) => counts[g.id]);
     setHTML($('#main'), html`
-      <div class="card d-panel"><h3>Saved map</h3>
+      <div class="card d-panel" id="lmcard"><h3>Saved map</h3>
         <div class="row">${(d.maps || []).map((m) => html`<button class="b ${m.key == d.config.key ? '' : 'sec'} d-btn ${m.key == d.config.key ? 'primary' : ''}" data-lmmap="${m.key}">${m.label}</button>`)}
           ${tip('lmundtip', 'Markers you have not discovered yet are shown faded.', html`<button class="b sec d-btn" data-lmund="1" aria-describedby="lmundtip">${lm.showUndiscovered ? 'Hide' : 'Show'} undiscovered markers</button>`)}
           <button class="b sec d-btn" data-lmz="in" aria-label="Zoom in">+</button><button class="b sec d-btn" data-lmz="out" aria-label="Zoom out">&minus;</button><button class="b sec d-btn" data-lmz="fit">Fit</button></div>
         <p class="mut">The save as of its last write, not the running game.</p>
         ${d.config.image ? '' : html`<p class="mut" id="lmnopic">The editor has no picture of ${d.config.label} yet, so its markers are drawn on the outline of the map.</p>`}
         ${d.storedVehicles ? html`<p class="mut">${d.storedVehicles} of your ${d.storedVehicles == 1 ? 'vehicles is' : 'vehicles are'} stored (in the vehicle backup or waiting for recovery) and not shown.</p>` : ''}
+        ${boardHouse && lm.focus.key === lm.map ? html`<p class="lm-house" id="lmhouse"><b>Showing House ${boardHouse}</b> on ${d.config.label}. The yellow ring on the map marks its place. <button class="b sec d-btn" data-lmclear="1">Stop showing it</button></p>` : ''}
         <div class="lm-wrap"><canvas id="lmc" class="lm" tabindex="0" role="img" aria-label="${'Saved map of ' + d.config.label + (boardHouse && lm.focus.key === lm.map ? ', centred on House ' + boardHouse : '') + '. Press plus and minus to zoom, 0 to show the whole map, the arrow keys to move.'}"></canvas></div>
         <p class="mut" id="lminfo"></p>
         <div class="row">${groups.map((g) => (g.id == 'spice' || g.id == 'flour' ? (b) => tip('lmtip-' + g.id, LM_SAND_NOTE, b) : (b) => b)(html`<button class="lm-layer ${lm.hidden.has(g.id) ? 'off' : 'on'}" data-lmg="${g.id}" ${g.id == 'spice' || g.id == 'flour' ? html`aria-describedby="lmtip-${g.id}"` : ''} aria-pressed="${lm.hidden.has(g.id) ? 'false' : 'true'}">${LM_GROUP_ICON[g.id] ? html`<span class="lm-ic lm-i-${LM_GROUP_ICON[g.id].replace(/\.[a-z]+$/, '').toLowerCase()}"></span>` : html`<span class="lm-sw lm-c-${g.id}"></span>`}${g.label} (${counts[g.id]})</button>`))}</div>
@@ -378,7 +386,12 @@
       ${lmRegionsCard(d)}
       <div class="card d-panel"><h3>Markers on this map (${types.length} types)</h3>${tbl([{ k: 'type', label: 'Marker', f: (r) => { const f = lmIconByType(r.type); const name = html`<span title="${r.type}">${lmTypeName(r.type)}</span>`; return f ? html`<span class="lm-ic lm-i-${f.replace(/\.[a-z]+$/, '').toLowerCase()}"></span>${name}` : name; } }, { k: 'group', label: 'Group', f: (r) => (LM_GROUPS.find((g) => g.id == r.group) || {}).label || r.group }, { k: 'n', label: 'Markers' }, { k: 'found', label: 'Discovered' }], types)}</div>`);
     lmMount();
-    if (fromBoard) { const c = $('#lmc'); if (c) c.focus({ preventScroll: true }); } // opened from the Landsraad board: the keyboard lands on the map, not on the page body
+    if (fromBoard) { // opened from the Landsraad board (#1025): the map is brought into view, clear of the sticky header (the page's scroll-padding), and the keyboard lands on the map, not on the page body
+      const card = $('#lmcard'), c = $('#lmc'), line = $('#lmhouse');
+      if (card && card.scrollIntoView) card.scrollIntoView({ block: 'start' });
+      if (c && line && line.scrollIntoView && c.getBoundingClientRect().bottom > window.innerHeight) line.scrollIntoView({ block: 'start' }); // the whole card does not fit: start at the line that names the House, so the map under it is whole
+      if (c) c.focus({ preventScroll: true });
+    }
   }
 
   document.addEventListener('click', (e) => {
@@ -388,6 +401,7 @@
     if (z) { if (z.dataset.lmz === 'in') lmZoom(1.2); else if (z.dataset.lmz === 'out') lmZoom(1 / 1.2); else lmReset(); return; }
     const g = e.target.closest('[data-lmg]');
     if (g) { const id = g.dataset.lmg; if (lm.hidden.has(id)) lm.hidden.delete(id); else lm.hidden.add(id); g.classList.toggle('off'); g.classList.toggle('on'); g.setAttribute('aria-pressed', lm.hidden.has(id) ? 'false' : 'true'); lmDraw(); return; }
+    if (e.target.closest('[data-lmclear]')) { lm.focus = null; render('scroll'); return; } // stops marking the House (display only); the view stays where it is
     const u = e.target.closest('[data-lmund]'); // only a redraw: the data is not fetched again and the view stays
     if (u) { lm.showUndiscovered = !lm.showUndiscovered; u.textContent = (lm.showUndiscovered ? 'Hide' : 'Show') + ' undiscovered markers'; lmDraw(); }
   });
@@ -395,5 +409,5 @@
   window.liveMapView = liveMapView;
   window.liveMapShow = (key, fx, fy, label) => { lm.map = key; lm.view = null; lm.focus = { key, fx, fy, label, fresh: true }; }; // the Landsraad board opens the Saved map at a house
   window.liveMapPixel = (cfg, x, y) => lmToPixel(cfg, x, y); // read-only, for the tests: where a world position is on a map's picture
-  window.liveMapState = () => ({ scale: lm.scale, ox: lm.ox, oy: lm.oy, w: lm.w, h: lm.h, dpr: lm.dpr, view: lm.view && { ...lm.view } }); // read-only, for the tests
+  window.liveMapState = () => ({ scale: lm.scale, ox: lm.ox, oy: lm.oy, w: lm.w, h: lm.h, dpr: lm.dpr, map: lm.map, view: lm.view && { ...lm.view }, focus: lm.focus && { key: lm.focus.key, fx: lm.focus.fx, fy: lm.focus.fy, label: lm.focus.label } }); // read-only, for the tests
 })();

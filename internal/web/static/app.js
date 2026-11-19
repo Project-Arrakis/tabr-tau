@@ -2978,7 +2978,9 @@ function lbClick(e) {
   const t = e.target.closest ? e.target : null;
   if (!t) return;
   if (!t.closest('.hw.open')) lbCloseCards();
-  const b = t.closest('[data-lb], .hn, .hcl');
+  // the quick peek (the small map under a place) says "Click the place to open the Saved map": at a narrow window it is a sheet over the place link, and a click on the picture is a click on the place (#1025)
+  const peek = t.closest('.loc > .pop'), pl = peek && peek.parentElement.querySelector('[data-lb="map"]');
+  const b = pl || t.closest('[data-lb], .hn, .hcl');
   if (t.closest('.hcard') ) { e.preventDefault(); }
   if (!b) return;
   if (b.classList.contains('hn')) { e.preventDefault(); const hw = b.closest('.hw'), was = hw.classList.contains('open'); lbCloseCards(); if (!was) { hw.removeAttribute('data-esc'); hw.classList.add('open'); b.setAttribute('aria-expanded', 'true'); } return; }
@@ -3350,6 +3352,7 @@ function tmapSync() {
 }
 // render(true) is the redraw after an action (or the page's own refresh from the file): it keeps the place; render('scroll') keeps only the scroll offsets; render('rows') keeps the page offset and the offset of the table box that holds the control pressed (from, or the focused control), for a change that shows other rows in another table box (the old offset of that box is not put back onto them, #697; a list the person scrolled and pressed a button in stays where it is, #824). Any other call is a move to another page, which starts at the top.
 // auto is the page's own refresh from the file: it keeps the place the same way, but the page is never scrolled to the refocused control (#696).
+let shownTab = null; // the tab the page was last drawn for
 async function render(keepPlace, auto, from) {
   const keep = focusSpec(document.activeElement);
   const place = keepPlace === true || keepPlace === 'scroll' || keepPlace === 'rows' ? viewSnapshot() : reloaded;
@@ -3357,6 +3360,8 @@ async function render(keepPlace, auto, from) {
   if (place && (keepPlace === 'scroll' || keepPlace === 'rows')) place.ctl = {}; // a redraw to show what the save holds (a refused change): the boxes go back to it, only the place is kept
   reloaded = null;
   if (keepPlace !== true && keepPlace !== 'scroll' && keepPlace !== 'rows') bsInvOpen = null; // a move to another page: no base container is open there (#731)
+  if (!place && shownTab !== null && shownTab !== tab) window.scrollTo(0, 0); // a move to another page starts at the top (the browser would keep the offset of the page just left, and a shorter page would end up scrolled to its bottom, #1025); done before the page draws, so a page that scrolls to its own part (the board to a chosen House) still does
+  shownTab = tab;
   document.title = pageTitle();
   drawNav();
   try {
