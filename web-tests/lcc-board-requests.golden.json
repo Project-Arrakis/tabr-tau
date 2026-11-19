@@ -10,7 +10,10 @@
       "was_done": false,
       "was_win": null,
       "mine_to": 3600,
-      "was_events": 0
+      "was_events": 0,
+      "was_paid": 0,
+      "was_paid_rows": 0,
+      "was_elsewhere": 0
      }
     ]
    }
@@ -89,7 +92,10 @@
       "was_done": false,
       "was_win": null,
       "mine_to": 6000,
-      "was_events": 0
+      "was_events": 0,
+      "was_paid": 0,
+      "was_paid_rows": 0,
+      "was_elsewhere": 0
      }
     ]
    }
@@ -110,6 +116,9 @@
       "was_win": null,
       "mine_to": 6000,
       "was_events": 0,
+      "was_paid": 0,
+      "was_paid_rows": 0,
+      "was_elsewhere": 0,
       "complete_for": 1
      }
     ]
@@ -149,7 +158,10 @@
       "was_done": false,
       "was_win": null,
       "mine_to": 3600,
-      "was_events": 0
+      "was_events": 0,
+      "was_paid": 0,
+      "was_paid_rows": 0,
+      "was_elsewhere": 0
      }
     ]
    }
@@ -190,7 +202,10 @@
       "was_done": false,
       "was_win": null,
       "mine_to": 3600,
-      "was_events": 0
+      "was_events": 0,
+      "was_paid": 0,
+      "was_paid_rows": 0,
+      "was_elsewhere": 0
      }
     ]
    }
@@ -248,7 +263,10 @@
       "was_done": false,
       "was_win": null,
       "mine_to": 6000,
-      "was_events": 0
+      "was_events": 0,
+      "was_paid": 0,
+      "was_paid_rows": 0,
+      "was_elsewhere": 2400
      }
     ]
    }
@@ -327,7 +345,10 @@
       "was_done": true,
       "was_win": 2,
       "mine_to": 6000,
-      "was_events": 0
+      "was_events": 0,
+      "was_paid": 0,
+      "was_paid_rows": 0,
+      "was_elsewhere": 0
      },
      {
       "task_id": 9003,
@@ -335,7 +356,10 @@
       "was_done": false,
       "was_win": null,
       "mine_to": 6000,
-      "was_events": 0
+      "was_events": 0,
+      "was_paid": 0,
+      "was_paid_rows": 0,
+      "was_elsewhere": 0
      },
      {
       "task_id": 9009,
@@ -343,7 +367,10 @@
       "was_done": false,
       "was_win": null,
       "mine_to": 6000,
-      "was_events": 0
+      "was_events": 0,
+      "was_paid": 0,
+      "was_paid_rows": 0,
+      "was_elsewhere": 2400
      },
      {
       "task_id": 9010,
@@ -351,7 +378,10 @@
       "was_done": false,
       "was_win": null,
       "mine_to": 6000,
-      "was_events": 0
+      "was_events": 0,
+      "was_paid": 0,
+      "was_paid_rows": 0,
+      "was_elsewhere": 0
      }
     ]
    }
@@ -429,7 +459,10 @@
       "was_done": false,
       "was_win": null,
       "mine_to": 6000,
-      "was_events": 0
+      "was_events": 0,
+      "was_paid": 0,
+      "was_paid_rows": 0,
+      "was_elsewhere": 2400
      }
     ]
    }
