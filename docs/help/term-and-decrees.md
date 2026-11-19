@@ -40,7 +40,7 @@ Read-only. Each earlier term with a row of yours opens to show its Houses, your 
 ## What the save does not hold
 
 - Active Landsraad missions are not recorded in this local save.
-- A ranking of contributors is not recorded: the save holds the amount each contributor gave to each House, and the banners list the biggest by name, in the order the editor works out from those amounts; the banners do not show the amounts.
+- A ranking of contributors is not recorded: the save holds the amount each contributor gave to each House, and the banners list the biggest by name, numbered 1. to 5. in the order the editor works out from those amounts; the banners do not show the amounts.
 - No calendar date for the start or the end of a term. The term is on the game's play clock, which stops while the game is closed.
 
 ## Technical notes

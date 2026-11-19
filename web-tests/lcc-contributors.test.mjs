@@ -101,10 +101,7 @@ test('layout: no line is cut with an ellipsis; the wide list is a column that wr
   for (const m of css.matchAll(/([^{}]*lcc-standard-(?:name|amt|list)[^{}]*)\{([^}]*)\}/g)) assert.doesNotMatch(m[2], /text-overflow\s*:\s*ellipsis/, m[1].trim());
   assert.doesNotMatch(css, /lcc-standard-amt/, 'no rule is left for an amount (#1043)');
   assert.match(css, /\.lcc-standard-name \{[^}]*overflow-wrap: anywhere/);
-  assert.match(css, /\.lcc-standard-list > li \{[^}]*display: block;/, 'a line is a block with the name in it');
-  assert.doesNotMatch(css, /counter-(?:reset|increment)\s*:\s*lcc-n|counter\(lcc-n\)/, 'no rank number before a name (#992): the order is the ranking, and a tie of equal amounts is not 1, 2, 3');
-  assert.doesNotMatch(/\.lcc-standard-list > li \{([^}]*)\}/.exec(css)[1], /padding-left|text-indent/, 'no hanging indent is left over for a number');
-  assert.doesNotMatch(css, /\.lcc-standard-list > li::(?:before|after)/, 'nothing is drawn before or after a line');
+  assert.match(css, /\.lcc-standard-list > li \{[^}]*display: flex;/, 'a line is a row: the number, then the name in a column of its own, so they stay side by side');
   const wide = /\.lcc-pl-std-a \.lcc-standard-list, \.lcc-pl-std-h \.lcc-standard-list \{([^}]*)\}/.exec(css);
   assert.ok(wide, 'the wide list rule exists for both standards');
   assert.match(wide[1], /flex-flow: column wrap/);
@@ -113,6 +110,44 @@ test('layout: no line is cut with an ellipsis; the wide list is a column that wr
   assert.match(wide[1], /font-size: clamp\(12px,/, 'the names are never under 12 px (#918): a whole entry that does not fit is out of sight (#972), the text is not made smaller');
   assert.match(css, /\.lcc-pl-std-a \.lcc-standard-h, \.lcc-pl-std-h \.lcc-standard-h \{[^}]*font-size: clamp\(11px,/, 'the heading TOP CONTRIBUTORS is other text and keeps its 11 px floor');
   assert.match(css, /\.lcc-pl-std-a \.lcc-standard-list > li, \.lcc-pl-std-h \.lcc-standard-list > li \{[^}]*width: 100%/);
+});
+
+test('layout: the rank numerals 1. to 5. are drawn before each name, beside it, in both layouts, at the size of the name, and the list stays an ordered list (#1066, restoring what #992 removed, by the operator decision)', () => {
+  const { L } = load();
+  const std = L.standard('h', ['a', 'b', 'c', 'd', 'e', 'f', 'g']);
+  const ol = std.querySelector('.lcc-standard-list');
+  assert.equal(ol.tagName, 'OL', 'the order is announced: it stays an ordered list');
+  assert.equal(ol.getAttribute('role'), 'list', 'a list with no marker of its own keeps its list role');
+  assert.equal(ol.children.length, 5, 'up to five names');
+  assert.deepEqual([...ol.children].map((li) => li.tagName), ['LI', 'LI', 'LI', 'LI', 'LI']);
+  assert.doesNotMatch(std.textContent, /\d/, 'the numeral is drawn by the stylesheet, so a name is never changed by it and no amount or number is in the text');
+  const list = /\.lcc-standard-list \{([^}]*)\}/.exec(css)[1];
+  assert.match(list, /counter-reset: lcc-n/, 'the ordered list starts the rank counter');
+  const li = /\.lcc-standard-list > li \{([^}]*)\}/.exec(css)[1];
+  assert.match(li, /counter-increment: lcc-n/, 'each line counts one');
+  assert.match(li, /display: flex/, 'the number and the name are side by side whatever the name does (a long unbroken name breaks inside its own column, it is never pushed under the number)');
+  assert.doesNotMatch(li, /flex-(?:wrap|flow)|padding|text-indent|flex-direction: column/, 'the line is one row');
+  const before = /\.lcc-standard-list > li::before \{([^}]*)\}/.exec(css);
+  assert.ok(before, 'the numeral rule exists');
+  assert.match(before[1], /content: counter\(lcc-n\) '\.'/, 'the numeral is 1. 2. 3. 4. 5.');
+  assert.match(before[1], /flex: none/, 'the number never shrinks');
+  assert.match(before[1], /width: 1\.5em/, 'as wide as the room the line leaves');
+  assert.match(css, /\.lcc-standard-name \{[^}]*min-width: 0[^}]*\}/, 'the name column may shrink to the room that is left and breaks inside itself');
+  assert.doesNotMatch(before[1], /font-size|display: none|visibility|opacity|position: absolute|float/, 'the numeral is the size of the name (12 px or more) and sits in the line');
+  // nothing in the wide or the narrow layout hides it, shrinks it or takes its room away: every rule for the list and its lines is looked at
+  for (const m of css.matchAll(/([^{}]*lcc-standard-list[^{}]*)\{([^}]*)\}/g)) {
+    const sel = m[1].trim();
+    if (/::(?:before|after)/.test(sel)) assert.ok(sel === '.lcc-standard-list > li::before' || /^\.lcc-pl-decree-l,.*\.lcc-standard-list > li::before$/.test(sel), 'a rule for the numeral that is neither its own nor the forced-colours colour: ' + sel);
+    if (/\bli\b/.test(sel) && !/::before/.test(sel)) assert.doesNotMatch(m[2], /padding(?:-left)?\s*:|text-indent|display: *(?:block|inline)/, 'a rule that would take the room of the number: ' + sel);
+    assert.doesNotMatch(m[2], /display: none|visibility: hidden|list-style\s*:\s*[^n;\s]/, sel);
+  }
+  // the names are never under 12 px (wide and narrow) and the numeral takes the same size, being text of the line
+  assert.match(/\.lcc-pl-std-a \.lcc-standard-list, \.lcc-pl-std-h \.lcc-standard-list \{([^}]*)\}/.exec(css)[1], /font-size: clamp\(12px,/);
+  assert.match(css, /\.lcc-standard-list \{ font-size: 12px;/, 'narrow: 12 px');
+  // the wide line is a full-width block; box-sizing keeps the room of the number inside the 100%
+  assert.match(css, /\.lcc-pl-std-a \.lcc-standard-list > li, \.lcc-pl-std-h \.lcc-standard-list > li \{[^}]*box-sizing: border-box/);
+  // forced colours: the numeral takes the system text colour like the name (it is gold on the cloth otherwise)
+  assert.match(css, /\.lcc-standard-list, \.lcc-standard-list > li::before \{ color: CanvasText;/);
 });
 
 test('wording: the heading says how the ranking is made, gives the three whole, and an empty faction says the save holds no rows', async () => {
