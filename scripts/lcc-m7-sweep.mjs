@@ -278,6 +278,29 @@ async function main() {
       process.stdout.write('t');
     }
   }
+  // The result line and the question of a click scroll into view clear of the sticky header and of the banner under it, however tall that banner is (#823). The Classic list is scrolled to its last House,
+  // the banner is made 220 px tall (a long list of queued changes does that), and lbReveal brings the result line back: it must land below the bottom of the banner, not under it.
+  if (!only || only.includes('reveal')) {
+    current = 'reveal-tall-banner';
+    await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+    await b.send('Emulation.setTouchEmulationEnabled', { enabled: false, maxTouchPoints: 1 });
+    await b.send('Page.navigate', { url: base + '/design/tokens.css' });
+    await sleep(150);
+    await evalIn(`localStorage.clear(); const s = ${JSON.stringify({ tab: 'landsraad', 'lsb.view': 'classic', tauTheme: 'dark' })}; for (const k in s) localStorage.setItem(k, s[k]); true`);
+    await b.send('Page.navigate', { url: base + '/?c=reveal' });
+    let ok = false;
+    for (let i = 0; i < 100 && !ok; i++) { await sleep(150); ok = await evalIn('!!document.querySelector("#lsb-rows .hr") && !document.querySelector("#loading")').catch(() => false); }
+    if (!ok) report.hard.push(current + ': the Classic list did not draw');
+    else {
+      const r = await evalIn(`(() => { const gw = document.querySelector('#gamewarn'); gw.style.minHeight = '220px'; document.querySelector('#lsb-rows .hr:last-child').scrollIntoView({ block: 'end' });
+        lbReveal(document.querySelector('#lsb-result')); const bottom = (s) => { const e = document.querySelector(s); return e ? Math.round(e.getBoundingClientRect().bottom) : null; };
+        const gs = getComputedStyle(gw); return new Promise((res) => setTimeout(() => res({ banner: bottom('#gamewarn'), sticky: gs.position === 'sticky', result: Math.round(document.querySelector('#lsb-result').getBoundingClientRect().top) }), 600)); })()`);
+      report.cases.push({ name: current, ...r });
+      if (!r.sticky) report.hard.push(current + ': the banner is not sticky here, so the check proves nothing: ' + JSON.stringify(r));
+      else if (r.result < r.banner - 1) report.hard.push(current + ': the result line is under the banner: ' + JSON.stringify(r));
+      process.stdout.write('r');
+    }
+  }
   await b.close(); srv.close();
   if (report.pageErrors.length) report.hard.push(report.pageErrors.length + ' page errors');
   if (report.notLocal.length) report.hard.push(report.notLocal.length + ' requests to an address that is not this one');

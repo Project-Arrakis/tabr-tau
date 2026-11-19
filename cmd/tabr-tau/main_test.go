@@ -157,8 +157,8 @@ func TestWindowTitleSaysWhenTheSaveIsNotLive(t *testing.T) {
 	}
 	copyPath := filepath.Join(t.TempDir(), "game.db")
 	got := windowTitle(copyPath)
-	if !strings.HasPrefix(got, "TABR TAU - NOT LIVE: a copy - "+copyPath) {
-		t.Fatalf("a copy is named in the title, with its path: %q", got)
+	if !strings.HasPrefix(got, "TABR TAU - NOT LIVE: a copy - game.db") || strings.Contains(got, filepath.Dir(copyPath)) {
+		t.Fatalf("a copy is named in the title by its file name only, never with its folder (the Windows user name): %q", got)
 	}
 	b, err := os.ReadFile(filepath.Join("..", "..", "internal", "web", "static", "app.js"))
 	if err != nil {

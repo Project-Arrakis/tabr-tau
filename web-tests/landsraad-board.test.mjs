@@ -443,5 +443,5 @@ test('the glance line says what its numbers count: houses taken by each faction,
 test('the current-term glance cards come before the Term and decrees panel, then the board and the earlier terms (#668)', async () => {
   const ui = await open();
   const order = [...ui.doc.querySelectorAll('#lsb > section')].map((e) => e.getAttribute('aria-labelledby'));
-  assert.deepEqual(order.slice(0, 4), ['lsb-glance', 'lsb-term-h', 'lsb-board', 'lsb-hist']);
+  assert.deepEqual(order.slice(0, 4), ['lsb-glance', 'lsb-term-h', 'lsb-board-h', 'lsb-hist']);
 });

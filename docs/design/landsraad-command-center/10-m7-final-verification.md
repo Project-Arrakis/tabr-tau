@@ -85,7 +85,7 @@ No P0 and no P1 is open. Medium-severity items are the ones to see first.
 | p3-later, low | #883, #888, #889, #890, #894, #895, #896 board leftovers (focus, order, palette, contrast, wording, glow, legend size) | board |
 | p3-later, low | #899, #902 Specializations leftovers | Specializations |
 | p3-later, low | #904 Term and decrees leftovers | Term |
-| p3-later | #887 (needs the operator) victory panel stacks full width at 1100 px | board |
+| p3-later | #887 decided on 2026-11-19: the victory panel stacks full width below 1080 px of the tab, kept as an agreed deviation (DECISIONS.md section L) | board |
 | p3-later | #884 (needs the operator) five game-art images in the public repo | notices |
 | p4-parked, low | #907 a 10 px rule in lcc.css that only the gallery reaches | style |
 

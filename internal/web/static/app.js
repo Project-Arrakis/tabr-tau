@@ -608,7 +608,7 @@ async function status() {
   const unlisted = !!o.dirty && !q && !o.held;
   gw.className = saveBlocked || q || unlisted || changed || restored || o.writeLogProblem || o.notesProblem ? 'warn' : schemaNote || notLive ? 'info' : 'hide';
   const gameFile = notLive ? 'the file' : 'the game file';
-  const notLiveMsg = notLive ? html`<div><b>This is a copy, not the game's save:</b> edits are written at once and do not reach the game unless this file is installed as its game.db. <span class="mono">${o.path}</span></div>` : html``;
+  const notLiveMsg = notLive ? html`<div><b>This is a copy, not the game's save:</b> edits are written at once and do not reach the game unless this file is installed as its game.db. <span class="mono" title="${o.path}">${String(o.path || '').split(/[\\/]/).pop()}</span></div>` : html``;
   const changedMsg = changed ? html`<div><b>The game saved since this editor opened.</b> What you see here is out of date. <button class="b sm d-btn primary sm" data-act="reload">Reload now</button></div>` : html``;
   // One banner for the whole state. The reason is said once, as a sentence; the tool's own text, when the sentence replaces it, sits under Details.
   // An edit is written as it is made. While the file cannot be written (a single-player session is running, the location is not confirmed) edits are queued, and the queue is
@@ -645,6 +645,7 @@ async function status() {
   const key = String(banner).replace(/ ?open>/g, '>').replace(/ >/g, '>'); // a toggle the person opened is already open in the page: that alone is no reason to redraw
   if (key !== gwKey) { gwKey = key; setHTML(gw, banner); }
   $('#pending').textContent = q ? `${q} queued` : '';
+  $('#pending').setAttribute('aria-label', q ? `${q} queued, show the queued changes` : 'Show the queued changes'); // starts with the visible words and carries the count (#619 D9-2)
   $('#pending').title = q ? lines.join('\n') + '\n(click to open the list)' : '';
   if (lastQueued !== null && q > lastQueued) playMark($('#pending'), 'x-bump', 450); // a change joined the queue: the count bumps once (Full only)
   lastQueued = q;
@@ -1301,9 +1302,9 @@ async function goPlaces(asked) {
   } catch (e) { if (asked) toast(e.message, true); }
 }
 function goSync() { tdDraw(); goNote(); }
-const TRAVEL_NOTE = 'A move to another map writes the character\'s controller, body and player state on the new map. A move to the Deep Desert was checked in the game once (2026-10-27, one character, a throwaway save): the game loaded the character there. No other move was checked, so try it on a copy first. A position typed for the Deep Desert is not accepted for Hagga Basin.';
+const TRAVEL_NOTE = 'A move to another map writes the character\'s controller, body and player state on the new map. A move to the Deep Desert was checked in the game once, on a test save: the game loaded the character there. No other move was checked, so try it on a copy first. A position typed for the Deep Desert is not accepted for Hagga Basin.';
 // What is drawn under Teleport while another map is chosen: the one thing that can hurt, in two sentences. The whole note (what is written, the position rule) is TRAVEL_NOTE, in the Movement card's About this (#426).
-const PLACE_NOTE = "For trading posts and hubs the boxes are filled with the point where the game's own ornithopter trip would put you; for other places, with the place's own position. The distance shown is to the point that is used. Two of the trading-post points (Griffin's Reach and Crossroads) are computed from the game's level data and have not been seen in use; the other trading posts and the hubs match trips that were seen. A Deep Desert taxi is the spot beside it in the game's level data and nobody has stood there yet. Whether a save edit moves the character into another map is not proven; do it on a copy first, with the game closed, and expect to need the in-game taxi if it does not work.";
+const PLACE_NOTE = "For trading posts and hubs the boxes are filled with the point where the game's own ornithopter trip would put you; for other places, with the place's own position. The distance shown is to the point that is used. Two of the trading-post points (Griffin's Reach and Crossroads) are computed from the game's level data and have not been seen in use; the other trading posts and the hubs match trips that were seen. A Deep Desert taxi is the spot beside it in the game's level data and has not been tried in the game yet. Whether a save edit moves the character into another map is not proven; do it on a copy first, with the game closed, and expect to need the in-game taxi if it does not work.";
 const TRAVEL_WARN = 'Only one move between maps was checked in the game: to the Deep Desert (2026-10-27, one character, a throwaway save). No other move was checked, so try it on a copy first.';
 const TRAVEL_MAPS = [['HaggaBasin', 'Hagga Basin'], ['DeepDesert', 'The Deep Desert']]; // the maps the editor moves the character to (the console offers the same two for an offline player)
 const lcKey = (x, y) => `${x},${y}`;
@@ -1852,7 +1853,10 @@ const lbCrest = (name, hue) => { const f = lbSym(name); return html`<span class=
 const LB_WAIT = 'A write is still running. Wait for it to finish, then click again.';
 const LB_REOPEN_TIP = 'Reopen this house: clears the completion and the winner. Progress and your contribution stay as they are, so the faction’s progress stays at the goal and a house that was taken by another faction is not given back to it.';
 const crTipC = (fn) => `Complete for ${fn}: taken by ${fn}, progress to the goal`;
-const lbMark = (kind, tip) => html`<span class="src src-${kind}" title="${tip}">${kind}</span>`;
+// The small mark beside a heading says where a figure comes from. Its words are not read out in the heading's name (aria-hidden): the page says what the two marks mean in the About texts of the
+// counts and of the board (the page's text budget keeps it out of the open text), and the mouse-over text names the fields (#659 G-039).
+const lbMark = (kind, tip) => html`<span class="src src-${kind}" title="${tip}" aria-hidden="true">${kind}</span>`;
+const LB_MARKS_SAY = 'The small marks beside a heading say where a figure comes from: save is read from the save, derived is worked out by the editor from fields the save holds.';
 function lbAbout(id, title, content) { return html`<details class="about" data-about="${id}" ${browserStore.get(aboutKey(id)) === '1' ? 'open' : ''}><summary>About ${title}</summary><div class="abt">${content}</div></details>`; }
 // One house as the board needs it, from the task the server returned.
 const lbTaken = (c) => !!c.done || c.win != null;
@@ -2149,18 +2153,18 @@ function lbRow(h, l, hue, noLocs, pos) {
     return html`<div class="fb ${k === 0 ? 'a' : k === 1 ? 'h' : 's'}${ld == f.id ? ' lead' : ''}"><span class="fl">${f.name}</span><span class="trk"><i data-w="${h.goal ? Math.min(100, Math.round(p / h.goal * 100)) : 0}"></i></span><span class="fv">${lbF(p)}</span></div>`;
   });
   const locText = h.loc.known ? html`<span class="ln">${h.loc.area}</span>${lbSub(h) ? html`<span class="lm">${lbSub(h)}</span>` : ''}${lbHub(h) ? html`<span class="lm cue">no map picture</span>` : ''}` : html`<span class="ln mut">not mapped yet</span>`;
-  return html`<li class="hr" id="lsrow-${h.id}" data-id="${h.id}" data-my="${h.state}" data-hs="${h.taken ? 'taken' : 'open'}"><div class="cw">
+  return html`<li class="hr" role="row" id="lsrow-${h.id}" data-id="${h.id}" data-my="${h.state}" data-hs="${h.taken ? 'taken' : 'open'}"><div class="cw">
     <input type="checkbox" class="pick" data-lb="pick" data-id="${h.id}" data-fk="pk:${h.id}" aria-label="Choose House ${h.name}" ${LP.pick.has(h.id) ? 'checked' : ''}>
     <input type="checkbox" class="xc vh" id="lsx-${h.id}" aria-label="Show details of House ${h.name}" ${open ? 'checked' : ''}>
     <label for="lsx-${h.id}" class="sum">
-      <span class="c-house"><span class="hw"><button type="button" class="hn" aria-expanded="false" title="Details: next reward, not collected, faction race, place (experimental)">${pos ? html`<span class="hno" title="${pos.words}"><span class="vh">Square </span>${pos.number}</span>` : ''}${lbCrest(h.name, hue)}<b>${h.name}</b></button>${lbHouseCard(h, l, noLocs)}</span></span>
-      <span class="c-loc">${noLocs ? html`<span class="mut">not mapped yet</span>` : html`<span class="loc"><button type="button" class="loc-t${lbOnMap(h) ? '' : ' off'}" data-lb="map" data-id="${h.id}" ${lbOnMap(h) ? '' : html`aria-disabled="true" data-why="${lbLocWhy(h)}"`} aria-label="${lbLocAria(h)}" title="${lbOnMap(h) ? 'Open ' + lbAreaFull(h) + ' in the Saved map. Hover for a quick peek.' : lbLocWhy(h)}"><svg viewBox="0 0 12 14" aria-hidden="true" focusable="false"><path d="M6 0C2.7 0 0 2.6 0 5.8 0 10 6 14 6 14s6-4 6-8.2C12 2.6 9.3 0 6 0Zm0 8a2.2 2.2 0 1 1 0-4.4A2.2 2.2 0 0 1 6 8Z" fill="currentColor"/></svg><span>${locText}</span></button>${lbOnMap(h) ? '' : html`<span class="lnote" role="status"></span>`}${lbPeek(h)}</span>`}</span>
-      <span class="c-my"><span class="line"><span class="st st-${h.state}"><span aria-hidden="true">${LB_GLYPH[h.state]}</span> ${LB_WORD[h.state]}</span>${lbMeter(h, can)}<span class="mut">${h.reached} of ${h.tiers.length} tiers</span></span><span class="amt"><b class="js-mine${h.mine > 0 ? '' : ' mut'}">${h.mine > 0 ? lbF(h.mine) : 'none recorded'}</b>${h.mine > 0 ? html` <span class="mut js-next">· ${lbNextParts(h).map((p, k) => html`${k ? ' ' : ''}<span class="nx">${p}</span>`)}</span>` : ''}</span></span>
-      <span class="c-hs"><span class="tag">${hs}</span></span>
-      <span class="c-qa"><button type="button" class="qa qa-fill" data-lb="qa" data-do="fill" data-id="${h.id}" data-fk="qf:${h.id}" aria-disabled="${off(fillOff)}" aria-describedby="qg-${h.id}" title="${fillTip}">${LB_ICON.fill}<span class="ql">Fill</span></button><button type="button" class="qa qa-cr" data-lb="qa" data-do="${h.taken ? 'reopen' : 'complete'}" data-id="${h.id}" data-fk="qc:${h.id}" aria-disabled="${off(false)}" title="${crTip}">${h.taken ? LB_ICON.reopen : LB_ICON.complete}<span class="ql">${h.taken ? 'Reopen' : 'Complete'}</span></button><span class="qg" id="qg-${h.id}">${fillGr ? lbGrantShort(fillGr) : ''}</span></span>
+      <span class="c-house" role="rowheader"><span class="hw"><button type="button" class="hn" aria-expanded="false" title="Details: next reward, not collected, faction race, place (experimental)">${pos ? html`<span class="hno" title="${pos.words}"><span class="vh">Square </span>${pos.number}</span>` : ''}${lbCrest(h.name, hue)}<b>${h.name}</b></button>${lbHouseCard(h, l, noLocs)}</span></span>
+      <span class="c-loc" role="cell">${noLocs ? html`<span class="mut">not mapped yet</span>` : html`<span class="loc"><button type="button" class="loc-t${lbOnMap(h) ? '' : ' off'}" data-lb="map" data-id="${h.id}" ${lbOnMap(h) ? '' : html`aria-disabled="true" data-why="${lbLocWhy(h)}"`} aria-label="${lbLocAria(h)}" title="${lbOnMap(h) ? 'Open ' + lbAreaFull(h) + ' in the Saved map. Hover for a quick peek.' : lbLocWhy(h)}"><svg viewBox="0 0 12 14" aria-hidden="true" focusable="false"><path d="M6 0C2.7 0 0 2.6 0 5.8 0 10 6 14 6 14s6-4 6-8.2C12 2.6 9.3 0 6 0Zm0 8a2.2 2.2 0 1 1 0-4.4A2.2 2.2 0 0 1 6 8Z" fill="currentColor"/></svg><span>${locText}</span></button>${lbOnMap(h) ? '' : html`<span class="lnote" role="status"></span>`}${lbPeek(h)}</span>`}</span>
+      <span class="c-my" role="cell"><span class="line"><span class="st st-${h.state}"><span aria-hidden="true">${LB_GLYPH[h.state]}</span> ${LB_WORD[h.state]}</span>${lbMeter(h, can)}<span class="mut">${h.reached} of ${h.tiers.length} tiers</span></span><span class="amt"><b class="js-mine${h.mine > 0 ? '' : ' mut'}">${h.mine > 0 ? lbF(h.mine) : 'none recorded'}</b>${h.mine > 0 ? html` <span class="mut js-next">· ${lbNextParts(h).map((p, k) => html`${k ? ' ' : ''}<span class="nx">${p}</span>`)}</span>` : ''}</span></span>
+      <span class="c-hs" role="cell"><span class="tag">${hs}</span></span>
+      <span class="c-qa" role="cell"><button type="button" class="qa qa-fill" data-lb="qa" data-do="fill" data-id="${h.id}" data-fk="qf:${h.id}" aria-disabled="${off(fillOff)}" aria-describedby="qg-${h.id}" title="${fillTip}">${LB_ICON.fill}<span class="ql">Fill</span></button><button type="button" class="qa qa-cr" data-lb="qa" data-do="${h.taken ? 'reopen' : 'complete'}" data-id="${h.id}" data-fk="qc:${h.id}" aria-disabled="${off(false)}" title="${crTip}">${h.taken ? LB_ICON.reopen : LB_ICON.complete}<span class="ql">${h.taken ? 'Reopen' : 'Complete'}</span></button><span class="qg" id="qg-${h.id}">${fillGr ? lbGrantShort(fillGr) : ''}</span></span>
       <span class="chev" aria-hidden="true"></span>
     </label>
-    <div class="more" ${open ? '' : 'hidden'}>
+    <div class="more" role="cell" ${open ? '' : 'hidden'}>
       <div><h4>Tiers and rewards ${lbMark('derived', 'Worked out by the editor from fields the save holds: reached = contribution at least the threshold')} ${lbMark('save', 'Read from the save: landsraad_task_rewards (the reward item and amount of each tier)')}</h4><div class="tiers">${tierBoxes}</div><p class="cap"><i class="lg lg-dl" aria-hidden="true"></i> collected · <i class="lg lg-wt" aria-hidden="true"></i> not collected ${lbMark('save', 'Read from the save: landsraad_house_rewards. An amount above 0 is a reward waiting at the house representative; amount 0 is collected.')} · ✓ reached</p><p class="cap swl">${swl}</p><p class="cap grantcap" id="lsg-${h.id}">${lbGrantCaption(fillGr, nextGr, h, can && !ownF ? [fn, lbFacName(l, l.character.faction_id)] : null)}</p></div>
       <div><h4>House status and faction progress ${lbMark('save', 'Read from the save: completed, winning_faction_id, faction contributions')}</h4><span class="tag">${hs}</span><div class="fbs">${fbs}</div><p class="cap">of the house goal, ${lbF(h.goal)}</p></div>
       ${noLocs ? '' : html`<div><h4>Where</h4>${lbPlaceDetails(h)}</div>`}
@@ -2176,7 +2180,7 @@ const lbCounts = (hs) => {
 const lbShowOf = (hs, k) => hs.filter((h) => (k === 'all' ? true : k === 'left' ? h.state !== 'done' : h.state === k));
 function lbGlance(hs, l, c) {
   const n = hs.length || 1, mineF = l.character ? l.character.faction_id : null;
-  const tile = (k, cls, n_, glyph, word) => html`<a class="tile ${cls}" href="#lsb-board" data-lb="show" data-show="${k}" title="${k === 'done' ? 'Top tier (all tiers) reached by your contribution' : ''}" aria-label="Show the ${n_} ${word.toLowerCase()} houses in the list"><span class="now">showing</span><div class="n">${n_}</div><div class="l"><span aria-hidden="true">${glyph}</span> ${k === 'done' ? 'Top tier reached' : word}</div></a>`;
+  const tile = (k, cls, n_, glyph, word) => html`<a class="tile ${cls}" href="#lsb-board" data-lb="show" data-show="${k}" title="${k === 'done' ? 'Top tier (all tiers) reached by your contribution' : ''}" aria-label="${n_} ${k === 'done' ? 'top tier reached' : word.toLowerCase()}: show these houses in the list"><span class="now">showing</span><div class="n">${n_}</div><div class="l"><span aria-hidden="true">${glyph}</span> ${k === 'done' ? 'Top tier reached' : word}</div></a>`;
   const seg = (k, cls, n_, word) => html`<a class="${cls}" href="#lsb-board" data-lb="show" data-show="${k}" data-w="${n_ / n * 100}" data-tip="${n_} ${word.toLowerCase()}" aria-label="Show the ${n_} ${word.toLowerCase()} houses in the list"></a>`;
   const facItems = (l.factions || []).map((f) => html`${f.name} <b>${c.byFac[f.id] || 0}</b>${mineF != null && f.id == mineF ? ' (your faction)' : ''}`).concat([html`<b>${c.open}</b> still open`]);
   // each item stays whole when the line wraps (a narrow screen), with its separator at its end
@@ -2186,7 +2190,7 @@ function lbGlance(hs, l, c) {
   <div class="stack mt12" role="group" aria-label="${c.done} top tier, ${c.part} in progress, ${c.new} not started. Click a segment to list those houses">${seg('done', 'd', c.done, 'Top tier')}${seg('part', 'p', c.part, 'In progress')}${seg('new', 'u', c.new, 'Not started')}</div>
   <p class="sleg" aria-hidden="true"><span><i class="sw d"></i>Top tier</span><span><i class="sw p"></i>In progress</span><span><i class="sw u"></i>Not started</span></p>
   <p class="explain">Your contribution, <b>${nn(hs.length, 'house', 'houses')}</b> (${c.done} + ${c.part} + ${c.new}). Click a card or the bar to list them. ${lbMark('derived', 'Worked out by the editor from fields the save holds: tiers reached from your contribution')}<span class="back"><a href="#lsb-board" data-lb="show" data-show="all">Show all ${hs.length} houses again</a></span></p>
-  ${lbAbout('lsb.counts', 'the counts', html`<p>The three numbers count the ${hs.length} houses by <b>your contribution in the current term</b>: <b>top tier reached</b> = every tier reached by your contribution, <b>in progress</b> = some contribution but below the top tier, <b>not started</b> = nothing recorded. They add up to ${hs.length}. “Open” is used only for a house no faction has taken, in the “Houses taken by each faction” line below.</p>`)}
+  ${lbAbout('lsb.counts', 'the counts', html`<p>${LB_MARKS_SAY}</p><p>The three numbers count the ${hs.length} houses by <b>your contribution in the current term</b>: <b>top tier reached</b> = every tier reached by your contribution, <b>in progress</b> = some contribution but below the top tier, <b>not started</b> = nothing recorded. They add up to ${hs.length}. “Open” is used only for a house no faction has taken, in the “Houses taken by each faction” line below.</p>`)}
   <div class="facts grid"><span>Houses taken by each faction: ${byFac}${lbMark('save', 'Read from the save: landsraad_tasks.completed, winning_faction_id')}</span><span>Tiers reached: <b>${c.tiers}</b> of <b>${c.tierTotal}</b> ${lbMark('derived', 'Worked out by the editor from fields the save holds: tiers per house')}</span><span>Contributed in all: <b>${lbF(c.total)}</b> ${lbMark('save', 'Read from the save: landsraad_task_player_contributions')}</span></div></section>`;
 }
 function lbHistory(l) {
@@ -2375,7 +2379,7 @@ function lbInner(l) {
   const hue = (h) => { let x = 0; for (const ch of h.name) x = (x * 31 + ch.charCodeAt(0)) % 360; return x; };
   const col = (k, label, mark, off) => html`<div role="columnheader" data-col="${k}" aria-sort="${LB.sort === k ? (LB.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button type="button" class="sorth" data-lb="sort" data-col="${k}" ${off ? 'disabled' : ''}>${label} <span class="ar" aria-hidden="true"></span></button>${mark || ''}</div>`;
   const seg = (k, label, n_) => html`<a href="#lsb-board" data-lb="show" data-show="${k}" ${LB.show === k ? html`aria-current="true"` : ''}><span>${label} <em>${n_}</em></span></a>`;
-  const board = html`<section class="card d-panel" aria-labelledby="lsb-board" id="lsb-board"><h2 class="d-head" id="lsb-board-h">Task board <span class="cnt">${nn(N, 'house', 'houses')}</span></h2>
+  const board = html`<section class="card d-panel" aria-labelledby="lsb-board-h" id="lsb-board"><h2 class="d-head" id="lsb-board-h">Task board <span class="cnt">${nn(N, 'house', 'houses')}</span></h2>
   <div class="ctl grid" role="group" aria-label="Filter and sort the board">
     <span><span class="lbl">Show</span><span class="seg">${LB_SHOWS.map(([k, t]) => seg(k, t, lbShowOf(hs, k).length))}</span></span>
     <span><span class="lbl">House</span><span class="seg">${[['any', 'Any', N], ['open', 'Open', c.open], ['taken', 'Taken', c.taken]].map(([k, t, n_]) => html`<label><input type="radio" name="lbhs" data-lb="hs" value="${k}" ${LB.hs === k ? 'checked' : ''}><span>${t} <em>${n_}</em></span></label>`)}</span></span>
@@ -2391,7 +2395,7 @@ function lbInner(l) {
   <p class="nolist" id="lsb-nomatch" hidden>No house matches the filters. <button type="button" class="linkb" data-lb="showall">Show all houses</button></p>
   <div role="table" aria-label="Houses, current term"><div role="rowgroup"><div class="rowhead" role="row"><span class="pickh" aria-hidden="true">Choose</span><span class="sortlbl">Sort by</span>${col('house', 'House', lbMark('save', 'Read from the save: landsraad_tasks.house_name'))}${col('location', 'Location', '', noLocs)}<div class="hc3">${col('state', 'State')}${col('tiers', 'Tiers', lbMark('derived', 'Worked out by the editor from fields the save holds: tiers reached from your contribution'))}${col('next', 'Next tier')}</div>${col('status', 'Faction status', lbMark('save', 'Read from the save: completed, winning_faction_id, faction contributions'))}<span class="hend">Quick actions</span></div></div>
   <ul class="rows" role="rowgroup" id="lsb-rows">${hs.map((h) => lbRow(h, l, hue(h), noLocs, nums.get(h.id)))}</ul></div>
-  ${lbAbout('lsb.board', 'the board', html`<p>Every row starts collapsed. Click a row (or press Space on it) to open it; Expand all opens every row, Collapse all closes them again. A <b>tier</b> is reached when your contribution is at least its amount; contribution is cumulative. A reached tier counts as paid when the delivery rows hold its item from this term. <b>Collected</b> then means the save holds the reward as collected (amount 0 in the delivery rows), <b>Not collected</b> that it waits at the house representative (an amount above 0). <b>Reached, no delivery recorded</b> means no such row of this term, so an earlier term's reward is not taken for this tier's. The row is of the item, not of the tier: where two tiers give the same item one row shows both as paid, and a contribution raised by a route that writes no reward (an older build, or the plain Fill routes of the editor's API) can show a tier as delivered when the game or another tier left a row of this term. The top tier shows the house swatch while the character does not hold it, and the house's own item once it is held. A click on a place opens the Saved map at the house, where the Saved map has a picture of it; a place with no picture is shown dimmed and says why. With a mouse, hover a place for a quick look at where the house is; the open row shows the same on touch and keyboard.</p>`)}
+  ${lbAbout('lsb.board', 'the board', html`<p>${LB_MARKS_SAY}</p><p>Every row starts collapsed. Click a row (or press Space on it) to open it; Expand all opens every row, Collapse all closes them again. A <b>tier</b> is reached when your contribution is at least its amount; contribution is cumulative. A reached tier counts as paid when the delivery rows hold its item from this term. <b>Collected</b> then means the save holds the reward as collected (amount 0 in the delivery rows), <b>Not collected</b> that it waits at the house representative (an amount above 0). <b>Reached, no delivery recorded</b> means no such row of this term, so an earlier term's reward is not taken for this tier's. The row is of the item, not of the tier: where two tiers give the same item one row shows both as paid, and a contribution raised by a route that writes no reward (an older build, or the plain Fill routes of the editor's API) can show a tier as delivered when the game or another tier left a row of this term. The top tier shows the house swatch while the character does not hold it, and the house's own item once it is held. A click on a place opens the Saved map at the house, where the Saved map has a picture of it; a place with no picture is shown dimmed and says why. With a mouse, hover a place for a quick look at where the house is; the open row shows the same on touch and keyboard.</p>`)}
   </section>`;
   const boardOrNone = N ? board : html`<section class="card d-panel" aria-labelledby="lsb-board-h" id="lsb-board"><h2 class="d-head" id="lsb-board-h">Task board <span class="cnt">0 houses</span></h2><p class="nodata">This save has no Landsraad houses in the current term, so there is nothing to show or change here.</p></section>`;
   return html`${lbViewSwitch()}${lbGlance(hs, l, c)}${lbTerm(l)}${boardOrNone}${lbHistory(l)}`;
@@ -2615,6 +2619,15 @@ function lbBoardAsk(items, hs, F, one) {
   return p.length ? ' ' + p.join(' ') : '';
 }
 function lbCancelConfirm() { if (!LP.confirm) return; LP.confirm = null; const c = $('#lsb-confirm'); if (c) c.remove(); }
+
+// A question that named a house the board no longer shows is closed with a line that says nothing was written (#818). If Yes or Cancel of that question had the focus, it goes back to the bulk
+// button that asked, not to the top of the page (#832).
+function lbCloseStale() {
+  const a = document.activeElement, held = !!(LP.confirm && a && a.closest && a.closest('#lsb-confirm')), back = LP.confirm ? LP.confirm.back : '';
+  lbCancelConfirm();
+  if (held && back) lbFocusFk(back);
+  lbSay('The chosen houses changed, so the question was closed. Nothing was written.');
+}
 function lbFocusFk(fk) { const n = $('#lsb [data-fk="' + fk + '"]'); if (n && n.focus) { n.focus({ preventScroll: true }); if (window.LCCB) window.LCCB.keepInView(n); } }
 // One click, or a bulk button: write it, or ask first. Several houses always ask; one house asks when its click would write LB_ASK_MISSIONS missions or more. The question is drawn in the
 // action bar; the answer sends the request again, worked out from the board as it is then.
@@ -2627,7 +2640,7 @@ function lbGo(b, act_, items, hs, F, i, label, backFk, one) {
   lbRedraw();
   lbFocusFk('c-no'); // the safe answer has the focus, so a stray Enter does not write
   const c = $('#lsb-confirm');
-  if (c && c.scrollIntoView) c.scrollIntoView({ block: 'nearest' });
+  if (c) intoView(c);
 }
 function lbBulk(b, act_) {
   const F = lbFacId(LD), ids = new Set(LP.pick);
@@ -2692,7 +2705,7 @@ function lbApply() {
       if (LP.confirm && !LP.confirm.one && LP.confirm.ids.includes(h.id)) dropped = true; // the open bulk question named this house
     }
   }
-  if (dropped) { lbCancelConfirm(); lbSay('The chosen houses changed, so the question was closed. Nothing was written.'); }
+  if (dropped) lbCloseStale();
   if (LB.group) { // one heading per region, with the number of houses shown in it
     const count = new Map();
     for (const h of list) if (!$('#lsrow-' + h.id).hidden) count.set(h.region, (count.get(h.region) || 0) + 1);
@@ -2760,7 +2773,9 @@ function lbSeat(container) {
   if (c && ask && q && q.one && q.ids.length === 1 && insp.getAttribute('data-id') === String(q.ids[0])) ask.appendChild(c);
 }
 // after a write the Classic list's page is brought to its result line (the board says its results as toasts, #943)
-function lbReveal(res) { if (res && res.scrollIntoView) res.scrollIntoView({ block: 'nearest' }); }
+// Bring the result line or the question into view, clear of the sticky header and of the banner under it however tall that banner is now (intoView measures them; a fixed scroll offset is only
+// right for a banner of one height, #823).
+function lbReveal(res) { if (res) intoView(res); }
 // the bar of the chosen houses on a phone: the same three buttons as the action bar, and a press is a press of that button
 const lbPhoneBar = () => html`<div class="phonebar" id="lsb-phonebar" role="group" aria-label="The chosen houses" ${LP.pick.size ? '' : 'hidden'}><span class="pn">${LP.pick.size} chosen</span><button type="button" class="qa btnp" data-pb="fill" data-fk="pb-fill">Fill chosen</button><button type="button" class="qa btnp" data-pb="complete" data-fk="pb-complete">Complete chosen</button><button type="button" class="qa" data-pb="reopen" data-fk="pb-reopen">Reopen chosen</button></div>`;
 function lbPhoneSync() {
@@ -2789,7 +2804,7 @@ function lbMountBoard() {
 function lbBoardFiltered(ids) {
   let dropped = false;
   for (const id of [...LP.pick]) if (!ids.has(id)) { LP.pick.delete(id); if (LP.confirm && !LP.confirm.one && LP.confirm.ids.includes(id)) dropped = true; }
-  if (dropped) { lbCancelConfirm(); lbSay('The chosen houses changed, so the question was closed. Nothing was written.'); }
+  if (dropped) lbCloseStale();
   lbSumNow();
 }
 // What the Inspector of the board shows and says for one house: the same words and the same on/off as the opened row of the classic list (lbQa, lbTierTip, lbGrantOf), for the faction chosen.
@@ -2963,9 +2978,13 @@ async function landsraadView() {
   const onBoard = new Set(l.tasks.map((x) => x.id));
   LD = l;
   for (const id of [...LP.pick]) if (!onBoard.has(id)) LP.pick.delete(id);
+  // a re-read draws the page again, which takes the focus from Yes or Cancel of an open question; if the board then closes that question (a house it named is hidden now, #818), the focus
+  // goes back to the bulk button that asked it, not to the top of the page (#832)
+  const a0 = document.activeElement, heldAsk = !!(LP.confirm && a0 && a0.closest && a0.closest('#lsb-confirm')), askBack = heldAsk ? LP.confirm.back : '';
   setHTML($('#main'), lbPage(l));
   lbMountBoard();
   lbWire();
+  if (heldAsk && !LP.confirm && askBack) lbFocusFk(askBack);
 }
 
 // ---------- CONFIG (.ini)
@@ -3124,7 +3143,10 @@ function intoView(n) {
   if (!r.width && !r.height) return; // not laid out (hidden, or no layout at all)
   let top = 0;
   document.querySelectorAll('header, #gamewarn, #launchpass').forEach((b) => { top = Math.max(top, b.getBoundingClientRect().bottom); });
-  const by = r.top < top ? r.top - top - 8 : r.bottom > window.innerHeight ? r.bottom - window.innerHeight + 8 : 0;
+  let bottom = window.innerHeight; // the bar of the chosen houses on a phone sticks to the bottom: what it covers is not the window either
+  const pb = document.querySelector('.phonebar:not([hidden])');
+  if (pb && getComputedStyle(pb).display !== 'none') bottom = Math.min(bottom, pb.getBoundingClientRect().top);
+  const by = r.top < top ? r.top - top - 8 : r.bottom > bottom ? r.bottom - bottom + 8 : 0;
   if (by) window.scrollTo(window.scrollX, Math.max(0, window.scrollY + by));
 }
 // The page is drawn again after an action, and that must not cost the person their place (#365): the scroll offset of the page and of every scrolling table, the

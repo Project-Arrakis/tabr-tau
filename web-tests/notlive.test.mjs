@@ -43,13 +43,15 @@ test('a copy: the header says NOT LIVE: a copy, next to TABR TAU and before the 
   p.close();
 });
 
-test('a copy: the banner is there with nothing queued, says the file is a copy, that edits are written at once, and gives the path', async () => {
+test('a copy: the banner is there with nothing queued, says the file is a copy, that edits are written at once, and gives the file name, not the folder (#619 D9-1)', async () => {
   const p = await page({ live: false, path: 'C:\\reports\\import-test\\game.db' });
   const gw = p.doc.querySelector('#gamewarn');
   assert.ok(!gw.classList.contains('hide'), 'the banner is shown');
   const t = p.text('#gamewarn');
   assert.ok(t.includes("This is a copy, not the game's save: edits are written at once and do not reach the game unless this file is installed as its game.db."), t);
-  assert.ok(t.includes('C:\\reports\\import-test\\game.db'), 'the path');
+  assert.ok(t.endsWith('game.db'), 'the file name ends the banner: ' + t);
+  assert.ok(!t.includes('C:\\reports') && !t.includes('import-test'), 'no folder in the page text, so a copied banner carries no user name: ' + t);
+  assert.equal(gw.querySelector('.mono').title, 'C:\\reports\\import-test\\game.db', 'the full path stays in the tooltip');
   p.close();
 });
 

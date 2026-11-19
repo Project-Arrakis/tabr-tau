@@ -245,13 +245,13 @@ func main() {
 // notLiveLabel is what the header, the tab title, the window title and the banner call a save that is not the game's own (the page has the same words).
 const notLiveLabel = "NOT LIVE: a copy"
 
-// windowTitle is the title of the native window. For a save that is not the game's own it says so, with the path, ahead of the product name (#498); for the game's own save it is
-// what it always was.
+// windowTitle is the title of the native window. For a save that is not the game's own it says so, with the file name only, ahead of the product name (#498); the full path would
+// show the Windows user name in the taskbar, Alt+Tab and every screenshot (#619, as the header and the banner do). For the game's own save it is what it always was.
 func windowTitle(savePath string) string {
 	if save.IsGamesOwnSave(savePath) {
 		return "TABR TAU - Dune: Awakening save editor"
 	}
-	return "TABR TAU - " + notLiveLabel + " - " + savePath + " - Dune: Awakening save editor"
+	return "TABR TAU - " + notLiveLabel + " - " + filepath.Base(savePath) + " - Dune: Awakening save editor"
 }
 
 // newWebServer builds the editor's server and sets up what the settings ask for when the editor opens (the optional refill): the pass does not start at once but after

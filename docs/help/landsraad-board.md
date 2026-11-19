@@ -40,6 +40,7 @@ A tier with no delivery record is counted as neither collected nor not collected
 
 - Show, House and Specialization filters narrow what the board shows. A House the filters leave out is dimmed.
 - Jump to House opens one House and clears the filters that would hide it.
+- A button that does nothing right now (there is nothing to change, or another faction is chosen) has a dashed edge and quiet text instead of a faded look; pressing it says why.
 - The Grid and List buttons switch between the board and a sortable list of the same Houses.
 
 ## The plaque and the victory panel
