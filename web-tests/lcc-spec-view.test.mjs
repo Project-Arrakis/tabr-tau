@@ -349,3 +349,18 @@ test('Add XP takes whole numbers from 1 up: the label, the box, the minus key an
   inp.dispatchEvent(ok);
   assert.equal(ok.defaultPrevented, false);
 });
+
+test('the lines under Grant LV 100 / Reset Track XP and under the two keystone buttons are hover or focus tips, not standing text (#1062)', () => {
+  const d = draw(byId('unassigned-row-number-9'));
+  for (const [id, mark, says] of [['lcs-trkhint', 'About Grant LV 100 and Reset Track XP', /Grant LV 100 sets this track to level 100.*Neither changes any keystone/], ['lcs-keyscope', 'About the two keystone buttons', /change every track, not the selected one/]]) {
+    const tip = q(d, '#' + id);
+    assert.equal(tip.getAttribute('role'), 'tooltip', id + ' is a tooltip');
+    assert.ok(tip.classList.contains('lcc-tip'));
+    assert.match(txt(tip), says);
+    assert.equal(q(d, '.lcc-sp-info[aria-describedby="' + id + '"]').getAttribute('aria-label'), mark);
+    assert.ok(tip.parentNode.classList.contains('lcc-tt'));
+    assert.equal(tip.classList.contains('lcc-sp-hint') || tip.classList.contains('lcc-sp-scope'), false, 'no always-visible sentence');
+  }
+  for (const b of qa(d, '[data-act="spMax"], [data-act="spReset"]')) assert.match(b.getAttribute('aria-describedby'), /lcs-trkhint/);
+  for (const b of qa(d, '[data-act="spKeyAll"], [data-act="spKeyReset"]')) assert.equal(b.getAttribute('aria-describedby'), 'lcs-keyscope');
+});

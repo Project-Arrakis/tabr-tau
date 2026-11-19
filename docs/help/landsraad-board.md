@@ -7,7 +7,7 @@ The board shows the 25 Houses of the current term, five rows of five, numbered 0
 - The number, the specialization emblem and the House crest.
 - The House name and its specialization.
 - Who won the favor: Atreides, Harkonnen, or No favor (nobody has won it; the screen-reader text says "favor not won").
-- Five tier boxes and a line such as 3/5 EARNED, with the number collected and the number not collected. A House whose favor a faction has won shows the same line as any other House: if you have no contribution to it, it reads 0/5 EARNED.
+- Five tier boxes and a line such as 3/5 EARNED, with the number collected and the number not collected once a tier is earned. A House whose favor a faction has won shows the same line as any other House: if you have no contribution to it, it reads 0/5 EARNED.
 
 Click a card to open the House in the panel beside the board (House Intelligence). Click it again to close it. In that panel, TOP CONTRIBUTORS lists the names of the biggest contributors to the House, the biggest first and numbered, with no amounts; a contributor the save gives no name for is left out. The reward ledger there has two figures: Tiers earned (for example 3 / 5) and Collected (for example 1 / 3, the tiers collected out of the tiers you have earned); hover them to see how many are waiting at the House representative.
 

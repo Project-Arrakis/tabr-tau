@@ -361,7 +361,9 @@ test('the board panel has the approved head, filters, legend, totals and the two
   assert.deepEqual([...ui.doc.querySelectorAll('#lcc-bd-spec option')].map((o) => text(o)), ['All specializations', 'Crafting', 'Gathering', 'Exploration', 'Combat', 'Sabotage']);
   assert.deepEqual([...b.querySelectorAll('.lcc-bd-headlines li')].map((x) => text(x)), ['ATREIDES FAVOR WON', 'HARKONNEN FAVOR WON', 'FAVOR NOT WON', 'WINNING HOUSES · SYSSELRAAD WON']);
   assert.deepEqual([...b.querySelectorAll('[data-lcb="filter"][data-key="hs"]')].map((x) => text(x)), ['Any', 'Not won', 'Favor won']);
-  assert.match(text(b.querySelector('.lcc-bd-totals')), /Your rewards on this board: 26 of 120 tiers earned/);
+  assert.equal(b.querySelector('.lcc-bd-totals'), null, 'no standing line under the board (#1062)');
+  assert.equal(b.querySelector('.lcc-bd-foot'), null);
+  assert.match(b.querySelector('#lcc-bd-h').getAttribute('title'), /Your rewards on this board: 26 of 120 tiers earned/, 'the sentence is the hover text of the heading');
   assert.equal(text(b.querySelector('.lcc-bd-victory .lcc-bd-vlines')), 'Lines of five still possible: Atreides 4 · Harkonnen 0', 'the unblocked lines of the twelve, counted by the evaluator (M4), in the Imperial Victory Analysis (#935)');
 });
 
@@ -410,7 +412,7 @@ test('the card count reads N/5 EARNED with a tooltip, and no card or board count
     const said = (c.querySelector('.lcc-hc-select').getAttribute('aria-label') || '') + ' ' + [...c.querySelectorAll('.lcc-hc-count [title]')].map((x) => x.getAttribute('title')).join(' ');
     assert.doesNotMatch(said, /tiers? (is |are )?reached|reached with no delivery/, 'card screen-reader text and count tooltips');
   }
-  assert.doesNotMatch(text(ui.doc.querySelector('.lcc-bd-totals')), /reached/, 'the line under the board');
+  assert.doesNotMatch(ui.doc.querySelector('#lcc-bd-h').getAttribute('title'), /reached/, 'the hover text of the heading');
 });
 
 test('earned and collected are the one pair of words on the list, the inspector, the note and the hovers; only the state word Not reached stays (#962)', async () => {

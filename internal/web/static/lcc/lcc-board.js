@@ -151,7 +151,7 @@
     const head = el('div', 'lcc-bd-panel-head');
     const t = el('div', 'lcc-bd-panel-title');
     t.appendChild(el('p', 'lcc-bd-eyebrow', 'THE GREAT HOUSES'));
-    t.appendChild(el('h3', 'lcc-bd-h', board.ready ? 'The Landsraad' : 'The Houses', { id: 'lcc-bd-h' }));
+    t.appendChild(el('h3', 'lcc-bd-h', board.ready ? 'The Landsraad' : 'The Houses', { id: 'lcc-bd-h', title: totals(board) }));
     // just "Term N" (#1033): that the board is a fixed 5 by 5 read from board_index is in Help (The Landsraad board), not in the header
     const subline = board.ready ? (board.term ? 'Term ' + board.term.id : '') : (board.term ? 'Term ' + board.term.id + ' · ' : '') + 'The save gives no 5 by 5 board, so the Houses are listed';
     if (subline) t.appendChild(el('p', 'lcc-bd-subline', subline));
@@ -217,12 +217,10 @@
     return w;
   }
   // what the character has done on this board, in one line under it (the figures the first version of the board kept above it)
+  // The line under the board is gone (#1062: it repeated the Inspector's tiles); its sentence is the hover text of the heading "The Landsraad".
   function totals(board) {
     const r = board.rollup;
-    const p = el('p', 'lcc-bd-totals');
-    p.appendChild(el('b', '', 'Your rewards on this board: '));
-    p.appendChild(root.document.createTextNode((r.tiers ? r.reached + ' of ' + r.tiers + ' ' + W().tiersEarned : 'tiers not known') + ' · ' + r.collected + ' of ' + r.reached + ' collected' + (r.waiting ? ' (' + r.waiting + ' waiting at the house representatives)' : '') + (r.unknownDelivery ? ' · ' + r.unknownDelivery + ' earned with no delivery record' : '') + ' · ' + fmt(r.mine) + ' contributed in all Houses.'));
-    return p;
+    return 'Your rewards on this board: ' + ((r.tiers ? r.reached + ' of ' + r.tiers + ' ' + W().tiersEarned : 'tiers not known') + ' · ' + r.collected + ' of ' + r.reached + ' collected' + (r.waiting ? ' (' + r.waiting + ' waiting at the house representatives)' : '') + (r.unknownDelivery ? ' · ' + r.unknownDelivery + ' earned with no delivery record' : '') + ' · ' + fmt(r.mine) + ' contributed in all Houses.');
   }
 
   // ---- the board: five by five ---------------------------------------------------------------------------------------------------------------------------------------------------
@@ -297,11 +295,13 @@
     else if (h.tierCount) {
       const sp = () => count.appendChild(root.document.createTextNode(' '));
       count.appendChild(el('b', '', h.reached + '/' + h.tierCount + ' EARNED', { title: 'Reward tiers of yours earned in this House: ' + h.reached + ' of ' + h.tierCount + '. Earned is not collected: the counts beside it say how many of them you have collected.' }));
+      if (h.reached > 0) { // the collected and not collected counts under the figure are for a House with something earned; under 0/5 EARNED they only said 0 and 0 (#1062)
       sp();
       count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-ok', '✓ ' + h.collected, { title: h.collected + ' collected' }));
       sp();
       count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-wait', '○ ' + h.waiting, { title: h.waiting + ' not collected (waiting at the representative)' }));
       if (h.unknownDelivery) { sp(); count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-unk', '? ' + h.unknownDelivery, { title: h.unknownDelivery + ' earned with no delivery record: not counted as collected or waiting' })); }
+      }
     } else count.appendChild(el('b', '', 'NO TIERS IN THE SAVE'));
     card.appendChild(count);
     if (editable) card.appendChild(pickBox(h, picks, dim));
@@ -395,7 +395,7 @@
   function list(board, matchIds, host, editable, picks) {
     const wrap = el('div', 'lcc-bd-listwrap');
     const t = el('table', 'lcc-bd-list');
-    t.appendChild(el('caption', 'lcc-bd-cap', 'The Houses of the term' + (board.ready ? ', by default by House name, A to Z' : ', by name: the board could not be checked, so no square is given')));
+    t.appendChild(el('caption', 'lcc-bd-cap' + (board.ready ? ' lcc-bd-sr' : ''), 'The Houses of the term' + (board.ready ? ', by default by House name, A to Z' : ', by name: the board could not be checked, so no square is given'))); // read out, not drawn, while the board is a board (#1062)
     const th = el('thead'), hr = el('tr');
     if (editable) hr.appendChild(el('th', 'lcc-bd-c-pick', 'Choose', { scope: 'col' }));
     const cols0 = COLS();
@@ -542,7 +542,7 @@
     r1.appendChild(actionBtn('Reopen', 'reopen', h, c.reopen, 'ar:' + h.id, { class: 'lcc-bd-act lcc-bd-act-danger' }));
     s4.appendChild(r1);
     const r2 = el('div', 'lcc-bd-erow');
-    const tl = el('label', 'lcc-bd-elab', 'Set tier', { for: 'lcc-bd-tierset' });
+    const tl = el('label', 'lcc-bd-elab', 'Set tier', { for: 'lcc-bd-tierset', title: W().favorWon + ' ≠ earned ≠ collected: favor won is a faction, earned is your tier, collected is the reward taken. Help, The Landsraad board, explains the three.' }); // the standing line is a hover text (#1062)
     const ts = el('select', 'lcc-bd-select lcc-bd-eselect', '', { id: 'lcc-bd-tierset', 'data-fk': 'ts:' + h.id });
     for (let n = 0; n <= h.tierCount; n++) { const o = el('option', '', n === 0 ? '0 — none' : n + ' / ' + h.tierCount, { value: String(n) }); if (n === h.reached) o.selected = true; ts.appendChild(o); }
     if (!h.tierCount || c.busy) ts.disabled = true;
@@ -550,7 +550,6 @@
     tl.appendChild(ts);
     r2.appendChild(tl);
     r2.appendChild(btn('lcc-bd-act', 'Apply tier', { 'data-lcb': 'settier', 'data-id': h.id, 'data-r': h.reached, 'data-fk': 'at:' + h.id, title: 'Sets your contribution to the chosen tier, exactly as a click on that numbered box does: raises to a higher tier, or removes the highest earned tier.' }));
-    r2.appendChild(el('span', 'lcc-bd-etip', W().favorWon + ' ≠ earned ≠ collected'));
     s4.appendChild(r2);
     return s4;
   }
@@ -767,9 +766,6 @@
     if (board.ready && state.layout === 'grid') stage.appendChild(grid(board, matchIds, host, editable, picks, ev));
     else stage.appendChild(list(board, matchIds, host, editable, picks));
     panel.appendChild(stage);
-    const foot = el('div', 'lcc-bd-foot');
-    foot.appendChild(totals(board));
-    panel.appendChild(foot);
     grid_.appendChild(panel);
     const side = el('div', 'lcc-bd-side');
     side.appendChild(victoryPanel(board, ev));

@@ -255,19 +255,21 @@
     add(g1, el('p', 'lcc-sp-note lcc-sp-note-warn', off ? '' : amountProblem(String(inp.value), vm.maxXp), { id: 'lcs-xperr', 'aria-live': 'polite' }));
     g1.lastChild.hidden = !g1.lastChild.textContent; // an empty note takes no room
     inp.setAttribute('aria-invalid', g1.lastChild.hidden ? 'false' : 'true');
-    add(g1, add(el('div', 'lcc-sp-grid2'),
+    // what the two buttons do is a hover or focus tip, no longer a standing line under them (#1062)
+    const tk = tipOf('lcs-trkhint', 'About Grant LV 100 and Reset Track XP', 'Grant LV 100 sets this track to level 100 and its XP cap. Reset Track XP sets its XP and level back to 0. Neither changes any keystone.');
+    add(g1, wireTip(add(el('div', 'lcc-sp-resetrow lcc-tt'), add(el('div', 'lcc-sp-grid2'),
       btn('✦ Grant LV 100', '', { 'data-act': 'spMax', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-trkhint' + (why ? ' ' + why : '') }),
-      btn('Reset Track XP', 'is-danger', { 'data-act': 'spReset', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-trkhint' + (why ? ' ' + why : '') })));
-    add(g1, el('p', 'lcc-sp-hint', 'Grant LV 100 sets this track to level 100 and its XP cap. Reset Track XP sets its XP and level back to 0. Neither changes any keystone.', { id: 'lcs-trkhint' }));
+      btn('Reset Track XP', 'is-danger', { 'data-act': 'spReset', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-trkhint' + (why ? ' ' + why : '') })), tk.mark, tk.tip)));
     add(a, g1);
 
     const g2 = el('div', 'lcc-sp-group lcc-sp-global', '', { role: 'group', 'aria-labelledby': 'lcs-glob-h' });
     add(g2, add(el('div', 'lcc-sp-glabel'), el('strong', '', 'All Five Tracks', { id: 'lcs-glob-h' }), el('span', '', 'GLOBAL OPERATIONS')));
     const T = vm.totals;
-    add(g2, el('p', 'lcc-sp-scope', T.total > 0 ? 'Keystones now: ' + T.owned + ' of ' + T.total + ' purchased across all ' + T.tracks + ' tracks. The two keystone buttons change every track, not the selected one.' : 'The two keystone buttons change every track, not the selected one. The save does not say how many keystones there are.', { id: 'lcs-keyscope' }));
-    add(g2, add(el('div', 'lcc-sp-grid2'),
+    // the scope of the two keystone buttons is a hover or focus tip (#1062); the count is the KEYSTONES tile of the header
+    const ks = tipOf('lcs-keyscope', 'About the two keystone buttons', T.total > 0 ? 'Keystones now: ' + T.owned + ' of ' + T.total + ' purchased across all ' + T.tracks + ' tracks. The two keystone buttons change every track, not the selected one.' : 'The two keystone buttons change every track, not the selected one. The save does not say how many keystones there are.');
+    add(g2, wireTip(add(el('div', 'lcc-sp-resetrow lcc-tt'), add(el('div', 'lcc-sp-grid2'),
       btn('Grant All Keystones', '', { 'data-act': 'spKeyAll', 'aria-describedby': 'lcs-keyscope' }),
-      btn('Reset All Keystones', 'is-danger', { 'data-act': 'spKeyReset', 'aria-describedby': 'lcs-keyscope' })));
+      btn('Reset All Keystones', 'is-danger', { 'data-act': 'spKeyReset', 'aria-describedby': 'lcs-keyscope' })), ks.mark, ks.tip)));
     const left = vm.unassigned.length;
     const resetOff = !vm.resetCount;
     const resetBtn = btn('Reset XP of All Known Tracks (' + vm.resetCount + ')', 'is-danger lcc-sp-wide', { 'data-act': 'spResetAll', 'data-n': vm.resetCount, 'data-left': left, disabled: resetOff, 'aria-describedby': 'lcs-resetnote' });

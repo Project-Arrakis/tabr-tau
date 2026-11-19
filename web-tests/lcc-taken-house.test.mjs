@@ -55,13 +55,13 @@ test('taken with no tier record in the save: the card says so, not 0/5 and not a
   assert.match(c.querySelector('.lcc-hc-count b').getAttribute('title'), /no reward tiers/);
 });
 
-test('taken with tiers in the save but none of the character: the card shows what an open House shows, 0/5 EARNED and the check and diamond counts (#1022)', async () => {
+test('taken with tiers in the save but none of the character: the card shows what an open House shows, 0/5 EARNED and nothing under it (#1022, #1062)', async () => {
   const ui = await open(synthetic());
   assert.equal(count(ui, 'Vernius'), count(ui, 'Sor'), 'the same text as the open House Sor, which has nothing either');
-  assert.match(count(ui, 'Vernius'), /^0\/5 EARNED ✓ 0 ○ 0$/);
+  assert.match(count(ui, 'Vernius'), /^0\/5 EARNED$/);
   assert.doesNotMatch(count(ui, 'Vernius'), /Favor won|no contribution/i);
   assert.equal(tileOf(ui, 'Vernius').querySelector('.lcc-hc-count [data-taken]'), null);
-  assert.equal(tileOf(ui, 'Vernius').querySelectorAll('.lcc-hc-q').length, 2, 'the collected and waiting counts');
+  assert.equal(tileOf(ui, 'Vernius').querySelectorAll('.lcc-hc-q').length, 0, 'no collected and not collected counts under 0/5 EARNED (#1062); they show once a tier is earned');
   assert.equal(tileOf(ui, 'Vernius').querySelectorAll('.lcc-hc-tiers .lcc-hc-t').length, 5, 'the five tiers of the ladder are still drawn, not reached');
   assert.match(tileOf(ui, 'Vernius').querySelector('.lcc-hc-owner').textContent, /Harkonnen/, 'the faction line stays');
   // still announced as won by the faction, with the plain earned count
