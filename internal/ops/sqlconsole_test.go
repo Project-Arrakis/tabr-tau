@@ -145,6 +145,7 @@ func TestReadConsoleBoundsRowsAndTime(t *testing.T) {
 // ---- write console (ARCH-7)
 
 func TestWriteConsoleAllowlist(t *testing.T) {
+	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
 	ok := []string{
 		"update items set stack_size=101 where id=10",
 		"update items set stack_size=102 where id=10; update items set stack_size=103 where id=10;",

@@ -684,6 +684,7 @@ func previewPartIn(t *testing.T, r any, slot string) string {
 }
 
 func TestEveryPartTheCatalogOffersForASlotIsAcceptedByThePreviewAndShowsInItsRows(t *testing.T) {
+	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
 	o := spawnOps(t)
 	cat, err := o.VehicleCatalog()
 	if err != nil {

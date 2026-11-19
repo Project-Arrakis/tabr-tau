@@ -1071,6 +1071,7 @@ type ccSpecCase struct {
 }
 
 func TestCommandCenterSpecFixturesAreWhatSpecsAnswers(t *testing.T) {
+	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
 	var f struct {
 		Cases []ccSpecCase `json:"cases"`
 	}

@@ -10,6 +10,7 @@ import (
 // D1-2: every read of the Landsraad page returns its error; a failed read is not an empty board. (The character's faction read joins the factions table, so a save without it fails
 // there first; the read of the factions list itself has the same code path.)
 func TestLandsraadReturnsTheErrorOfEveryReadThatFails(t *testing.T) {
+	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
 	for _, c := range []struct{ what, table string }{
 		{"the Landsraad term", "landsraad_decree_term"},
 		{"the Landsraad tasks", "landsraad_tasks"},

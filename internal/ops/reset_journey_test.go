@@ -139,6 +139,7 @@ func TestResetJourneyTwiceIsANoOp(t *testing.T) {
 }
 
 func TestResetJourneyRefusesAStaleOrMissingCount(t *testing.T) {
+	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
 	o := journeyResetOps(t)
 	was := digest(t, o, nil, 0)
 	for _, n := range []float64{0, 4, 5, 7} {

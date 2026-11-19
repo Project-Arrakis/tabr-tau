@@ -589,6 +589,7 @@ func TestTakeBackTheRemainderOfARowStaysAndKeepsItsTime(t *testing.T) {
 
 // A write that fails halfway leaves nothing behind: the contribution, the rows and the one-time row are what they were (one transaction), and the removal is refused with the error.
 func TestTakeBackAFailingWriteRollsEverythingBack(t *testing.T) {
+	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
 	cases := []struct {
 		name, trigger, prep string
 	}{
@@ -641,6 +642,7 @@ func TestTakeBackARefusedRemovalTakesNothingBack(t *testing.T) {
 
 // A record that lost notes of ground it paid (a failing sink past its bound) does not say what it vouches for: a raise is refused, a removal still goes through and no waiting reward is taken back.
 func TestTakeBackWithADroppedNoteStillRemovesAndKeepsTheRewards(t *testing.T) {
+	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
 	o, _ := paidOps(t, "")
 	fillKenolaDoubled(t, o, 1300, 6000)
 	flush(t, o)

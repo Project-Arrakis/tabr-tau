@@ -831,3 +831,73 @@ test('a pick whose redraw fails still puts the typed text back, shows the failur
   assert.equal(ui.doc.querySelector('#vcQty').value, '7');
   ui.dom.window.close();
 });
+
+// ---------- A pick answered after the page was left (#739) and a redraw in flight when a pick is refused (#742)
+// holds the first GET of a path until release() is called; the ones after it go through
+function holdFirstGet(ui, path) {
+  const real = ui.w.fetch;
+  let release, held = false;
+  const gate = new Promise((r) => { release = r; });
+  ui.w.fetch = (p, o) => (String(p) === path && !(o && o.method) && !held && (held = true) ? gate.then(() => real(p, o)) : real(p, o));
+  return release;
+}
+
+test('a pick answered after another page was opened leaves that page alone: what was typed there stays, no toast, and the table is there when the person comes back (#739)', async () => {
+  for (const answered of ['an answer', 'a refusal']) {
+    const post = { '/api/vehicles/spawn-preview': ANSWER({ dryRun: true }) };
+    const ui = await boot({ get: GET, post });
+    await openPreview(ui);
+    post['/api/vehicles/spawn-preview'] = answered === 'an answer' ? SWAPPED() : { __fail: 'no cargo hold', __code: 'bad_argument' };
+    const release = gatePreview(ui);
+    fire(ui, '#vcpreview [data-vcprev="Engine"]', 'BuggyEngine_Unique_Accelerate_06');
+    await ui.wait(WAIT); // the request is out and held
+    ui.click('[data-tab="db"]'); await ui.settle(); // the person opens another page
+    const box = ui.doc.querySelector('#dbq');
+    assert.ok(box && !ui.doc.querySelector('#vcpreview'), 'the other page is open');
+    box.value = 'select 1'; box.dispatchEvent(new ui.w.Event('input', { bubbles: true }));
+    const toastBefore = ui.doc.querySelector('#toast').textContent;
+    const fetchedBefore = ui.fetched.length;
+    release(); await ui.settle();
+    assert.equal(ui.doc.querySelector('#dbq'), box, answered + ': the other page was not drawn again');
+    assert.equal(box.value, 'select 1', answered + ': what was typed there is still there');
+    assert.equal(ui.doc.querySelector('#toast').textContent, toastBefore, answered + ': no toast for a table that is not on the screen');
+    assert.equal(ui.fetched.length, fetchedBefore, answered + ': nothing was fetched for a redraw');
+    // back on the vehicles page the card is drawn from the state the answer left
+    ui.click('[data-tab="player"]'); await ui.settle();
+    ui.click('[data-sub="player:vehicles"]'); await ui.settle();
+    assert.ok(ui.doc.querySelector('#vcpreview'), answered + ': the preview card is there');
+    assert.equal(ui.doc.querySelector('[data-act="vcCreate"]').disabled, false, answered + ': Create is not left waiting');
+    if (answered === 'an answer') {
+      assert.equal(tableParts(ui).Engine, 'BuggyEngine_Unique_Accelerate_06', 'the table shows the part that was picked');
+      assert.ok(ui.doc.querySelector('#vcpreview').textContent.includes('2,100'), 'and the answer\'s figures');
+    } else {
+      assert.equal(tableParts(ui).Engine, 'BuggyEngine_6', 'the refused part is back to the old one');
+    }
+    ui.dom.window.close();
+  }
+});
+
+test('a redraw that was started before a pick was refused does not put the refused part back into the part boxes (#742)', async () => {
+  const post = { '/api/vehicles/spawn-preview': ANSWER({ dryRun: true }) };
+  const ui = await boot({ get: GET, post });
+  await openPreview(ui);
+  const was = ui.doc.querySelector('[data-vcprev="Engine"]').value;
+  assert.equal(was, 'BuggyEngine_6');
+  post['/api/vehicles/spawn-preview'] = { __fail: 'this part does not fit', __code: 'bad_argument' };
+  const releasePick = gatePreview(ui);
+  fire(ui, '#vcpreview [data-vcprev="Engine"]', 'BuggyEngine_Unique_Accelerate_06');
+  await ui.wait(WAIT); // the pick's request is out and held; both boxes show the new part
+  assert.equal(ui.doc.querySelector('[data-vcslot="Engine"]').value, 'BuggyEngine_Unique_Accelerate_06');
+  const releaseRedraw = holdFirstGet(ui, '/api/player/summary'); // the first thing a redraw of the page asks for
+  const redraw = ui.w.render(true); // the page's own refresh: it notes the boxes now (the picked part) and draws when its data is in
+  await ui.wait(20);
+  releasePick(); await ui.settle(); // the refusal is handled first: the draft goes back to the old part and the page is drawn
+  assert.equal(ui.doc.querySelector('[data-vcprev="Engine"]').value, was, 'the refusal put the old part back');
+  assert.ok(ui.doc.querySelector('#vcpartnote'), 'and said why');
+  releaseRedraw(); await redraw; await ui.settle(); // the redraw that was in flight finishes
+  assert.equal(ui.doc.querySelector('[data-vcprev="Engine"]').value, was, 'the table box still shows the old part');
+  assert.equal(ui.doc.querySelector('[data-vcslot="Engine"]').value, was, 'and so does the box under Change parts');
+  assert.ok(ui.doc.querySelector('#vcpartnote'), 'the reason is still said');
+  assert.equal(posts(ui, '/api/vehicles/spawn').length, 0, 'nothing is written');
+  ui.dom.window.close();
+});

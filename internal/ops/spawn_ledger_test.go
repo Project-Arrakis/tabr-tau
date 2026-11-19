@@ -178,37 +178,78 @@ func TestPruneSpawnAnswersKeepsTheAnswersOfVehiclesThatAreThere(t *testing.T) {
 	}
 }
 
-// gameTakesTheId is the game writing a vehicle of its own under an id: a row in actors and in vehicles, of the class given.
-func gameTakesTheId(t *testing.T, o *Ops, id int64, class string) {
+// gameTakesTheId is the game writing a vehicle of its own under an id: a row in actors and in vehicles, of the class given, and the two entities every vehicle has linked to it
+// (Actor and VehicleInventory) under the entity ids given (#793: a check that looked at the slot names only, or not at the class, would take the game's vehicle for the Create's).
+func gameTakesTheId(t *testing.T, o *Ops, id int64, class string, links map[string]int64) {
 	t.Helper()
 	if _, err := o.S.Mutate("a vehicle of the game's", func(m *save.Mut) error {
 		if _, err := m.Exec(`insert into actors(id,class,map,state) values (?,?,'HaggaBasin',0)`, id, class); err != nil {
 			return err
 		}
-		_, err := m.Exec(`insert into vehicles(id) values (?)`, id)
-		return err
+		if _, err := m.Exec(`insert into vehicles(id) values (?)`, id); err != nil {
+			return err
+		}
+		for slot, ent := range links {
+			if _, err := m.Exec(`insert into fgl_entities(entity_id,components) values (?, jsonb('{}'))`, ent); err != nil {
+				return err
+			}
+			if _, err := m.Exec(`insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (?,?,?)`, id, ent, slot); err != nil {
+				return err
+			}
+		}
+		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
 }
 
-// A vehicle the game made under the id of a Create that was dropped is not that Create's vehicle: the answer is dropped by a prune and a retry writes the Create again (#760). It
-// is the case with another class and the worst case, the same class (the entities tell them apart).
+// The slots and entity ids the Create's own answer names.
+func createsLinks(t *testing.T, ans map[string]any) map[string]int64 {
+	t.Helper()
+	ents, _ := ans["rows"].(map[string]any)["entities"].([]save.Row)
+	links := map[string]int64{}
+	for _, e := range ents {
+		slot, _ := e["slot_name"].(string)
+		id, ok := e["entity_id"].(int64)
+		if slot == "" || !ok {
+			t.Fatalf("the Create's answer names its entity links: %v", e)
+		}
+		links[slot] = id
+	}
+	if len(links) != 2 || links["Actor"] == 0 || links["VehicleInventory"] == 0 {
+		t.Fatalf("a Create links an Actor and a VehicleInventory entity: %v", links)
+	}
+	return links
+}
+
+// A vehicle the game made under the id of a Create that was dropped is not that Create's vehicle: the answer is dropped by a prune and a retry writes the Create again (#760). The
+// game's vehicle is told apart by its class and by the entity ids linked to it, each on its own (#793): another class under other entities, the same class under other entities
+// (the worst case: the slot names are the same, so only the ids tell them apart), and another class that carries the very links of the Create.
 func TestAVehicleOfTheGameUnderTheIdOfADroppedCreateIsNotTakenForIt(t *testing.T) {
-	for name, class := range map[string]string{"another class": "/Game/Dune/Systems/Vehicles/Blueprints/GroundVehicles/BP_Sandbike.BP_Sandbike_C", "the same class": ""} {
-		t.Run(name, func(t *testing.T) {
+	const sandbike = "/Game/Dune/Systems/Vehicles/Blueprints/GroundVehicles/BP_Sandbike.BP_Sandbike_C"
+	for _, tc := range []struct {
+		name     string
+		sameCls  bool // the class of the Create's own vehicle
+		ownLinks bool // the entity ids of the Create's own vehicle
+	}{{"another class, other entities", false, false}, {"the same class, other entities", true, false}, {"another class, the Create's own entities", false, true}} {
+		t.Run(tc.name, func(t *testing.T) {
 			for _, how := range []string{"prune", "retry"} {
 				t.Run(how, func(t *testing.T) {
 					o := spawnOps(t)
 					a := Args{"class": "Buggy", "template": "T0", "requestId": "form-1"}
 					first, ans := spawn(t, o, a)
-					if class == "" {
+					class, own := sandbike, createsLinks(t, ans)
+					if tc.sameCls {
 						class = ans["rows"].(map[string]any)["actors"].([]save.Row)[0]["class"].(string)
+					}
+					links := map[string]int64{"Actor": 8300000000000201, "VehicleInventory": 8300000000000202} // ids no entity of the Create has
+					if tc.ownLinks {
+						links = own
 					}
 					if err := o.S.Discard(); err != nil { // the Create is dropped
 						t.Fatal(err)
 					}
-					gameTakesTheId(t, o, first, class)
+					gameTakesTheId(t, o, first, class, links)
 					if how == "prune" {
 						PruneSpawnAnswers(o.S)
 						if ledgerHas(o.S, "form-1") {

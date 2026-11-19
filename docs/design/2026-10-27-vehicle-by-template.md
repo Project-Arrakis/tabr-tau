@@ -210,6 +210,8 @@ The explanation is in the card's About this and in the tooltips of Preview and C
 No vehicle composed from the tables has been loaded in the game. What is proven is the row shapes (a copy written by Duplicate loaded and flew), the derived rules (against real vehicles) and the template contents (against real vehicles). Open: the entity ids (the
 `Actor` entity's component base words are written as 0), the weapon stats of a launcher or a dart module (seen only on a mining laser and a scanner), the height of the ground outside a base (#480), and what the next game update changes in the tables.
 
+Also an assumption, not a finding (#793): the repeat check of Create (`vehicleThere`, see Request) takes a vehicle for the one a Create made when its id, its class and the ids of its two entity links (Actor and VehicleInventory) are as the Create wrote them. That holds only if the game keeps a vehicle's class and its two entity links unchanged across a load and a save. If the game renumbers one of them, a retry of a form whose answer was lost finds no such vehicle and writes a second one. Entity ids are given by a rule, so a vehicle the editor re-creates with the same class gets the same ids: such a vehicle is not told apart from the first by this check, and the guard against it is that a vehicle written by Create a vehicle or Duplicate vehicle drops every answer that names its id. Check once in the game (item 9 below).
+
 ## Checks in the game
 
 With a backup of the save and the game closed while the editor writes, for each class in turn:
@@ -223,3 +225,4 @@ With a backup of the save and the game closed while the editor writes, for each 
 6. A unique swap changes the cargo hold (the Mk6 buggy above: 35 slots, 3,500 volume), and the items put in are in it.
 7. T0 vehicles are accepted as the character's own.
 8. If a vehicle does not appear, look for the rows in the save (they should still be there) and the game's log line.
+9. (#793) Create a vehicle (with the page open, so that its form has a request id), then note the rows `select slot_name, entity_id from actor_fgl_entities where actor_id=<its id> order by slot_name` and the `class` of its `actors` row. Save in the game, quit to the menu, and read the same two things from the saved file: they must be the same. If one differs, the repeat check treats the vehicle as gone after a game save, and a retry of an unanswered form writes a second vehicle: file it.

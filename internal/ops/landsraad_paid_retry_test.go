@@ -87,6 +87,7 @@ func TestPaidAHigherRaiseAfterAFailedWriteOfTheRecordPaysOnlyTheNewTiers(t *test
 
 // When a failing record has dropped notes of written edits (past the save's bound), a raise is refused with nothing written, and a removal is not.
 func TestPaidARaiseIsRefusedWhenAFailingRecordDroppedNotes(t *testing.T) {
+	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
 	o, _ := paidOps(t, `insert into player_virtual_currency_balances(player_controller_id, currency_id, balance) values (1, 0, 1000);`)
 	fail := true
 	failingRecord(o, &fail)

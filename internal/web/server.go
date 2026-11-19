@@ -953,7 +953,7 @@ func (s *Server) routes() {
 		// An error leaves the answers as they are, on purpose (#760). A refused restore (edits queued, game running, no such backup) read nothing. One that reloaded the file and
 		// failed blocks the editor until it is restarted, which empties the memory. One that replaced the file and could not read it back does not reload the working copy; the
 		// next refresh loads the restored file with the answers intact, and each answer is then checked against the vehicle it made (same id, class and entities, not just the
-		// same id), so a different vehicle under a remembered id is never taken for it.
+		// same id), so a different vehicle under a remembered id is not taken for it unless it has the same class and the same entity ids (entity ids follow a rule, so a vehicle the editor re-creates with the same class has the same ids; the guard for that case is that a vehicle written by Create a vehicle or Duplicate vehicle drops every answer that names its id, #760, #793).
 		return map[string]any{"ok": true}, err
 	})
 

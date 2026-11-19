@@ -112,6 +112,7 @@ func TestPaidAVersionThatTheReadCapCutsIsNewerAtEveryByte(t *testing.T) {
 // End to end through the file: a record larger than the cap whose version is cut by it is never replaced and never moved aside, wherever in the key or the value the cap falls; one whose
 // version lies wholly before the cap, or wholly after it, is read as it was before.
 func TestPaidAnOverCapFileWithACutVersionIsKeptAsItIs(t *testing.T) {
+	t.Parallel() // #767: state-free and slow, so it runs beside the others (its save, its record file and its ops are its own)
 	fill := func(n int) string { return strings.Repeat("x", n) }
 	build := func(tail string, into int) string { // the cap falls `into` bytes into `"version":<tail>`
 		head, key := `{"pad":"`, `"version":`
