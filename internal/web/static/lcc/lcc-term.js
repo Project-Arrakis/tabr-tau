@@ -109,13 +109,12 @@
 
   // ---- the decree pool -------------------------------------------------------------------------------------------------------------------------------------------------------------
   // One row per decree. The three states of the term (Active, Elected, In rotation) and the save's own pool flag are shown apart: the flag is not a state of the term.
-  function poolRow(d) {
+  function poolRow(d, flags) {
     const li = el('li', 'lcc-tm-row', '', { 'data-decree': d.id, 'data-active': d.active ? 'true' : null });
     li.appendChild(art(d, 56));
     const body = el('div', 'lcc-tm-rbody');
     const nm = el('div', 'lcc-tm-rname');
-    nm.appendChild(el('strong', 'lcc-tm-dn', d.name, d.tip ? { title: d.tip } : undefined));
-    nm.appendChild(el('span', 'lcc-tm-id', 'id ' + d.id));
+    nm.appendChild(el('strong', 'lcc-tm-dn', d.name, d.tip ? { title: d.tip } : undefined)); // no raw row number beside the name (#1054)
     body.appendChild(nm);
     if (d.effect) body.appendChild(el('small', 'lcc-tm-de', d.effect));
     else body.appendChild(el('small', 'lcc-tm-de lcc-tm-de-none', 'Effect: ' + NOT_IN_SAVE));
@@ -127,16 +126,19 @@
     body.appendChild(tg);
     li.appendChild(body);
     const side = el('div', 'lcc-tm-rside');
-    const fl = el('div', 'lcc-tm-flag');
-    fl.appendChild(el('span', 'lcc-tm-k', 'POOL FLAG'));
-    fl.appendChild(el('b', 'fl', String(d.disabled ? 1 : 0), { title: FLAG_TIP }));
-    side.appendChild(fl);
-    const n = d.disabled ? 0 : 1;
-    side.appendChild(btn('lcc-tm-btn', 'Set flag to ' + n, { 'data-lb': 'tflag', 'data-id': d.id, 'data-d': n, 'data-fk': 'tf:' + d.id, 'aria-label': 'Set flag to ' + n + ': ' + d.name,
-      title: 'Sets the pool flag of this one row to ' + n + '. It does not make the decree active; Make active on the row or the Active decree above does.' }));
     if (d.makeOn) side.appendChild(el('span', 'lcc-tm-mkon', '✓ Active', { title: d.makeTip }));
     else side.appendChild(btn('lcc-tm-btn is-make', d.makeLabel, { 'data-lb': 'tmk', 'data-id': d.id, 'data-fk': 'tm:' + d.id, 'aria-disabled': d.makeOff ? 'true' : 'false', 'aria-label': d.makeLabel + ': ' + d.name, title: d.makeTip }));
     li.appendChild(side);
+    // The save's pool flag of this decree and its Set flag button: behind the one "Advanced: pool flags" switch of the pool, hidden until it is pressed (#1054). The state is kept over a redraw (vm.flags).
+    const fb = el('div', 'lcc-tm-flagbox', '', { 'data-flagbox': true, hidden: !flags });
+    const fl = el('div', 'lcc-tm-flag');
+    fl.appendChild(el('span', 'lcc-tm-k', 'POOL FLAG'));
+    fl.appendChild(el('b', 'fl', String(d.disabled ? 1 : 0), { title: FLAG_TIP }));
+    fb.appendChild(fl);
+    const n = d.disabled ? 0 : 1;
+    fb.appendChild(btn('lcc-tm-btn', 'Set flag to ' + n, { 'data-lb': 'tflag', 'data-id': d.id, 'data-d': n, 'data-fk': 'tf:' + d.id, 'aria-label': 'Set flag to ' + n + ': ' + d.name,
+      title: 'Sets the pool flag of this one row to ' + n + '. It does not make the decree active; Make active on the row or the Active decree above does.' }));
+    li.appendChild(fb);
     return li;
   }
   // a disclosure that is closed until it is asked for: the summary names the block and carries a small Show / Hide control; the content is kept in the page (closed) and its state survives a redraw
@@ -156,8 +158,13 @@
     shut(dt, 'Decree pool', vm.pool.length + (vm.pool.length === 1 ? ' decree' : ' decrees'));
     const inner = el('div', 'lcc-tm-disc-in');
     if (!vm.pool.length) inner.appendChild(el('p', 'lcc-tm-none', 'This save has no decrees.'));
-    const ul = el('ul', 'lcc-tm-rows', '', { role: 'list', 'aria-label': 'Decree pool' });
-    for (const d of vm.pool) ul.appendChild(poolRow(d));
+    const ul = el('ul', 'lcc-tm-rows', '', { role: 'list', 'aria-label': 'Decree pool', id: 'lcc-tm-rows' });
+    if (vm.pool.length) { // the one switch for the pool flags of every row (#1054): the page's click handler (data-lb="tflags") shows or hides them
+      const adv = el('p', 'lcc-tm-advrow');
+      adv.appendChild(btn('lcc-tm-btn', vm.flags ? 'Advanced: hide pool flags' : 'Advanced: show pool flags', { 'data-lb': 'tflags', 'data-fk': 'tflags', 'aria-expanded': vm.flags ? 'true' : 'false' }));
+      inner.appendChild(adv);
+    }
+    for (const d of vm.pool) ul.appendChild(poolRow(d, !!vm.flags));
     inner.appendChild(ul);
     dt.appendChild(inner);
     sec.appendChild(dt);

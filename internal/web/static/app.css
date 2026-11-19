@@ -692,35 +692,26 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .tapply{display:inline-flex;align-items:center;gap:var(--s-2)}
 .lsb #lsb-tresult{margin:0 0 var(--s-2);font-size:var(--t-sm);color:var(--c-ok);min-height:1.2em}
 .lsb .dp{list-style:none;margin:0;padding:0}
-.lsb .dp li{display:grid;grid-template-columns:2.2rem minmax(0,2fr) minmax(0,1.2fr) 6rem 8.5rem 14rem;gap:var(--s-2) var(--s-4);align-items:center;padding:6px 8px;border-bottom:1px solid var(--c-hair)}
-.lsb .dp .mkc{display:flex;align-items:center;gap:8px;min-width:0}
+.lsb .dp li{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.2fr) 14rem;grid-template-areas:"d t m" "f f f";gap:var(--s-2) var(--s-4);align-items:center;padding:6px 8px;border-bottom:1px solid var(--c-hair)}
+.lsb .dp .dc{grid-area:d;min-width:0}
+.lsb .dp .tg{grid-area:t}
+.lsb .dp .mkc{grid-area:m;display:flex;align-items:center;gap:8px;min-width:0}
 .lsb .dp .mkc .src{display:none}
 .lsb .dp .mk{white-space:normal;text-align:left}
 .lsb .dp .mk-on{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 10px;color:var(--c-ok);font:600 var(--t-sm) var(--t-display)}
+.lsb .dp .fgb{grid-area:f;display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2) var(--s-4);padding-top:6px;border-top:1px dashed var(--c-hair)}
+.lsb .dp .fgb[hidden]{display:none}
+.lsb .advrow{margin:0 0 var(--s-2)}
 @media (max-width:1100px){
-.lsb .dp li{grid-template-columns:2.2rem minmax(0,2fr) minmax(0,1.2fr) 6rem 8.5rem;grid-template-areas:"i d t f b" ". m m m m"}
-.lsb .dp li>:nth-child(1){grid-area:i}
-.lsb .dp li>:nth-child(2){grid-area:d}
-.lsb .dp li>:nth-child(3){grid-area:t}
-.lsb .dp li>:nth-child(4){grid-area:f}
-.lsb .dp li>:nth-child(5){grid-area:b}
-.lsb .dp li>:nth-child(6){grid-area:m}
-.lsb .dp .dh>span:nth-child(6){display:none}
-.lsb .dp .mkc .src{display:inline-block}
+.lsb .dp li{grid-template-columns:minmax(0,2fr) minmax(0,1.2fr);grid-template-areas:"d t" "m m" "f f"}
+.lsb .dp .dh .mkc{display:none}
 }
 .lsb .dp .dh{font:600 var(--t-xs) var(--t-display);letter-spacing:.08em;text-transform:uppercase;color:var(--c-dim);border-bottom:1px solid var(--c-rule)}
 .lsb .dp .dh .src{margin-left:4px}
 .lsb .dp .fl{font-variant-numeric:tabular-nums}
 @media (max-width:640px){
 .lsb .dp .dh{display:none}
-.lsb .dp li{grid-template-columns:2rem minmax(0,1fr) auto;grid-template-areas:"i d b" ". t f" ". m m"}
-.lsb .dp li>:nth-child(1){grid-area:i}
-.lsb .dp li>:nth-child(2){grid-area:d}
-.lsb .dp li>:nth-child(3){grid-area:t}
-.lsb .dp li>:nth-child(4){grid-area:f;white-space:nowrap}
-.lsb .dp li>:nth-child(5){grid-area:b}
-.lsb .dp li>:nth-child(6){grid-area:m}
-.lsb .dp li>:nth-child(4)::before{content:"Pool flag "}
+.lsb .dp li{grid-template-columns:minmax(0,1fr);grid-template-areas:"d" "t" "m" "f"}
 .lsb .qa{min-height:44px}
 .lsb .tdp .tkv{grid-template-columns:repeat(2,minmax(0,1fr))}
 .lsb .tctl select{min-width:0;width:100%}
@@ -740,14 +731,6 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .meter i.top.on::after{inset:-1px 0 0;line-height:14px}
 }
 .lsb .hend{font:600 var(--t-xs) var(--t-display);letter-spacing:.08em;text-transform:uppercase;color:var(--c-dim)}
-.lsb .dp li{grid-template-columns:2.2rem minmax(0,2fr) minmax(0,1.2fr) 7.5rem 8.5rem 14rem}
-@media (max-width:1100px){
-.lsb .dp li{grid-template-columns:2.2rem minmax(0,2fr) minmax(0,1.2fr) 7.5rem 8.5rem}
-}
-.lsb .dp .dh>span:nth-child(4){white-space:nowrap}
-@media (max-width:640px){
-.lsb .dp li{grid-template-columns:2rem minmax(0,1fr) auto}
-}
 @media (max-width:640px){
 .lsb .hist details>table,.lsb .hist table{display:block;overflow:visible}
 .lsb .hist table thead{display:none}

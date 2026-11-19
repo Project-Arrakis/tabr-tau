@@ -26,10 +26,10 @@ Each row is one decree, with what it is in this term:
 - **Active**: the term's active decree.
 - **Next term's decree**: the decree chosen for the next term.
 - **In rotation**: a decree in the save's decree rotation.
-- **Pool flag**: the save's own disabled column, shown as stored. It does not say whether a decree is in effect. Set flag changes the flag of that one row and never makes a decree active.
+- **Advanced: show pool flags** (the button above the list) adds a pool flag and a **Set flag** button to every row. The pool flag is a switch the save keeps on each decree, shown as stored. Nobody has confirmed what the game does with it, so it does not say whether a decree is in effect. Set flag changes the flag of that one row and never makes a decree active. The flags stay hidden until you ask for them.
 - **Make active** does the same as the Active decree box and Apply for that row, for the faction in the Reigning faction box. A decree belongs to a faction, not to a House.
 
-The pool is in id order. Names are the game's own names, with the effect line the game gives. The game's own id for a decree is not shown.
+The pool keeps the order of the save. Names are the game's own names, with the effect line the game gives. The game's own id for a decree is not shown.
 
 The special vendor decree is five separate rows. The four Exclusive Import Rights decrees (Vehicle, Weapon, Armor and Tool) are in the list. The fifth, the plain one, does nothing in the game, so the editor does not show it anywhere: not in the pool, not in a closed list and not in the Active decree box. It stays in the save as it is and the editor never changes or deletes it. If a term should hold it as its active or next decree, the page says Another decree and nothing more, and Apply writes it back unchanged.
 

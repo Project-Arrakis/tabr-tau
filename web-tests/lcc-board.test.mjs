@@ -338,7 +338,7 @@ test('every control that changes the save carries the classic list\'s own data-l
   click(ui, tileOf(ui, 'Wallach').querySelector('button'));
   const writes = [...ui.doc.querySelectorAll('.lcc-bd [data-lb]')].filter((e) => !e.closest('[data-bar]') && !e.closest('#lcc-term')).map((e) => e.dataset.lb); // the parts of the action bar the page seats in the control bar are the page's own (#914)
   assert.deepEqual([...new Set(writes)].sort(), ['map', 'pick', 'qa', 'tier']); // map: the place line of the panel is the Classic click that opens the Saved map (#939)
-  assert.deepEqual([...new Set([...ui.doc.querySelectorAll('#lcc-term [data-lb]')].map((e) => e.dataset.lb))].sort(), ['tad', 'tapply', 'tflag', 'tmk', 'trf'], 'the Term and Decrees section keeps the classic panel own controls');
+  assert.deepEqual([...new Set([...ui.doc.querySelectorAll('#lcc-term [data-lb]')].map((e) => e.dataset.lb))].sort(), ['tad', 'tapply', 'tflag', 'tflags', 'tmk', 'trf'], 'the Term and Decrees section keeps the classic panel own controls');
   assert.equal(ui.doc.querySelectorAll('.lcc-bd [data-lcb="sel"]').length, 25);
   assert.equal(ui.doc.querySelectorAll('.lcc-bd .lcc-bd-act[data-lb="qa"]').length, 4);
   assert.deepEqual([...ui.doc.querySelectorAll('.lcc-bd .lcc-bd-act[data-lb="qa"]')].map((b) => b.dataset.do), ['fill', 'fillgoal', 'complete', 'reopen']);

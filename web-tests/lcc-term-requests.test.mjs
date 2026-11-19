@@ -31,10 +31,10 @@ const SCENARIOS = {
   'Make active on a row': async (ui) => { click(ui, '[data-lb="tmk"][data-id="4"]'); },
   'Make active on a row for the other faction': async (ui) => { select(ui, '#lsb-trf', 2); await ui.settle(); click(ui, '[data-lb="tmk"][data-id="6"]'); },
   'Make active with no faction chosen': async (ui) => { select(ui, '#lsb-trf', ''); await ui.settle(); click(ui, '[data-lb="tmk"][data-id="4"]'); },
-  'Set the pool flag to 1': async (ui) => { click(ui, '[data-lb="tflag"][data-id="4"]'); },
-  'Set the pool flag to 0': async (ui) => { click(ui, '[data-lb="tflag"][data-id="7"]'); },
+  'Set the pool flag to 1': async (ui) => { click(ui, '[data-lb="tflags"]'); click(ui, '[data-lb="tflag"][data-id="4"]'); },
+  'Set the pool flag to 0': async (ui) => { click(ui, '[data-lb="tflags"]'); click(ui, '[data-lb="tflag"][data-id="7"]'); },
   'Apply, refused by the save': async (ui) => { select(ui, '#lsb-tad', 5); click(ui, '[data-lb="tapply"]'); },
-  'Set the pool flag, refused by the save': async (ui) => { click(ui, '[data-lb="tflag"][data-id="2"]'); },
+  'Set the pool flag, refused by the save': async (ui) => { click(ui, '[data-lb="tflags"]'); click(ui, '[data-lb="tflag"][data-id="2"]'); },
 };
 const REFUSED = { 'Apply, refused by the save': '/api/landsraad/term', 'Set the pool flag, refused by the save': '/api/landsraad/decree' };
 
