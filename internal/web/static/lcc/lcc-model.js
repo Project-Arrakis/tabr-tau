@@ -146,10 +146,10 @@
     const owner = ownerOf(t, F);
     const contributors = readContributors(t, F, me && me.name);
     // A House the save says is taken (completed, with a winner the Landsraad has) can have no record of the character's own: the tiers are the character's own ladder, so with no row of the
-    // character the House shows no tier reached, which is true, and is said as "taken, nothing of yours in the save" instead of "0 of 5 reached" (#911). With no tier rows at all it is "no tier record".
+    // character the House shows no tier reached, which is true, and it shows the count of any other House (0/5 EARNED, #1022; it was "taken, nothing of yours in the save", #911). With no tier rows
+    // at all it is "no tier record".
     const claimed = owner === 'a' || owner === 'h';
     const takenNoTiers = claimed && tiers.length === 0;
-    const takenNoMine = claimed && tiers.length > 0 && !(t.my_recorded && mine > 0);
     // who is ahead on the faction goal: one side with more than the other; equal or empty is nobody
     const pa = prog.a || 0, ph = prog.h || 0;
     const leader = pa > ph ? 'a' : ph > pa ? 'h' : null;
@@ -160,7 +160,7 @@
       id: typeof t.id === 'string' && /^[0-9]+$/.test(t.id) ? Number(t.id) : t.id, raw: t, name: houseName(t.house_name), key: nameKey(t.house_name), index: pos ? pos.index : null, pos,
       number: pos ? pos.number : '', owner, leader, taken: !!t.completed || t.winning_faction_id != null,
       goal, prog, progOther, mine, recorded: !!t.my_recorded, canGive: me.factionId !== null,
-      contributors, takenNoTiers, takenNoMine,
+      contributors, takenNoTiers,
       tiers, tiersOrdered: ordered, reached, collected, waiting, unknownDelivery, notReached: tiers.length - reached, tierCount: tiers.length, top, next: nextT ? { n: nextT.n, threshold: nextT.threshold, remaining: Math.max(0, nextT.threshold - mine) } : null,
       state: mine <= 0 ? 'new' : tiers.length && reached === tiers.length ? 'done' : 'part',
       track: TRACKS.includes(line) ? line : '', loc, held: !!t.swatch_held, sysselraad: t.sysselraad === undefined ? null : t.sysselraad,

@@ -27,23 +27,18 @@ const click = (ui, el) => { el.focus(); el.dispatchEvent(new ui.w.MouseEvent('cl
 const count = (ui, name) => text(tileOf(ui, name).querySelector('.lcc-hc-count'));
 const label = (ui, name) => tileOf(ui, name).querySelector('button.lcc-hc-select').getAttribute('aria-label');
 
-test('the model: taken with no tier rows, taken with a ladder and none of the character, taken with the character, open', () => {
+test('the model: taken with no tier rows, taken with a ladder, open (a taken House with none of the character is no case of its own, #1022)', () => {
   const a = synthetic();
   task(a, 'Mutelli').rewards = [];
   const b = M.readBoard(a);
   const h = (n) => b.houses.find((x) => x.name === n);
   assert.equal(h('Mutelli').owner, 'a');
   assert.equal(h('Mutelli').takenNoTiers, true);
-  assert.equal(h('Mutelli').takenNoMine, false, 'with no tiers it is the no-tier case, not the other');
-  assert.equal(h('Vernius').takenNoMine, true);
   assert.equal(h('Vernius').takenNoTiers, false);
-  assert.equal(h('Wallach').takenNoMine, false);
+  assert.equal(h('Vernius').tierCount, 5);
   assert.equal(h('Wallach').takenNoTiers, false);
-  assert.equal(h('Sor').takenNoMine, false, 'an open House is not taken');
-  assert.equal(h('Sor').takenNoTiers, false);
-  task(a, 'Wallach').my_recorded = false;
-  task(a, 'Wallach').my_contribution = 0;
-  assert.equal(M.readBoard(a).houses.find((x) => x.name === 'Wallach').takenNoMine, true, 'no row of the character is no contribution of the character');
+  assert.equal(h('Sor').takenNoTiers, false, 'an open House is not taken');
+  assert.equal('takenNoMine' in h('Vernius'), false, 'the flag of the removed case (taken, none of yours) is gone, #1022');
 });
 
 test('taken with no tier record in the save: the card says so, not 0/5 and not as if unreached', async () => {
@@ -60,15 +55,19 @@ test('taken with no tier record in the save: the card says so, not 0/5 and not a
   assert.match(c.querySelector('.lcc-hc-count b').getAttribute('title'), /no reward tiers/);
 });
 
-test('taken with tiers in the save but none of the character: the card says so, not 0/5 EARNED', async () => {
+test('taken with tiers in the save but none of the character: the card shows what an open House shows, 0/5 EARNED and the check and diamond counts (#1022)', async () => {
   const ui = await open(synthetic());
-  assert.equal(count(ui, 'Vernius'), 'Favor won - no contribution of yours');
-  assert.doesNotMatch(count(ui, 'Vernius'), /EARNED/);
-  assert.equal(tileOf(ui, 'Vernius').querySelectorAll('.lcc-hc-q').length, 0);
+  assert.equal(count(ui, 'Vernius'), count(ui, 'Sor'), 'the same text as the open House Sor, which has nothing either');
+  assert.match(count(ui, 'Vernius'), /^0\/5 EARNED ✓ 0 ◆ 0$/);
+  assert.doesNotMatch(count(ui, 'Vernius'), /Favor won|no contribution/i);
+  assert.equal(tileOf(ui, 'Vernius').querySelector('.lcc-hc-count [data-taken]'), null);
+  assert.equal(tileOf(ui, 'Vernius').querySelectorAll('.lcc-hc-q').length, 2, 'the collected and waiting counts');
   assert.equal(tileOf(ui, 'Vernius').querySelectorAll('.lcc-hc-tiers .lcc-hc-t').length, 5, 'the five tiers of the ladder are still drawn, not reached');
-  assert.match(label(ui, 'Vernius'), /favor won by Harkonnen, .*favor won, no contribution of yours in the save, so none of your tiers is earned/);
-  assert.doesNotMatch(label(ui, 'Vernius'), /0 of 5 tiers earned/);
-  assert.match(tileOf(ui, 'Vernius').querySelector('.lcc-hc-count b').getAttribute('title'), /holds no contribution of yours to it/);
+  assert.match(tileOf(ui, 'Vernius').querySelector('.lcc-hc-owner').textContent, /Harkonnen/, 'the faction line stays');
+  // still announced as won by the faction, with the plain earned count
+  assert.match(label(ui, 'Vernius'), /favor won by Harkonnen, .*0 of 5 tiers earned, 0 collected/);
+  assert.doesNotMatch(label(ui, 'Vernius'), /no contribution of yours|none of your/);
+  assert.doesNotMatch(tileOf(ui, 'Vernius').querySelector('button.lcc-hc-select').getAttribute('data-says') || '', /no contribution of yours/);
   // the write controls and their attributes are the ones of any other card
   const t = tileOf(ui, 'Vernius').querySelector('.lcc-hc-t');
   assert.equal(t.dataset.lb, 'tier');
@@ -84,20 +83,20 @@ test('taken with tiers and a contribution of the character, and an open House: u
   assert.match(label(ui, 'Sor'), /favor not won, .*0 of 5 tiers earned/);
 });
 
-test('the list and the inspector say the same of a taken House with none of the character', async () => {
+test('the list and the inspector say the same of a taken House with none of the character as of an open one (#1022)', async () => {
   const ui = await open(synthetic(), 'list');
   const rows = [...ui.doc.querySelectorAll('.lcc-bd-row')];
   const row = (n) => rows.find((r) => text(r.querySelector('.lcc-bd-namebtn')) === n);
-  assert.equal(text(row('Vernius').querySelector('.lcc-bd-c-state')), 'Favor won, none of yours');
-  assert.equal(text(row('Vernius').querySelector('.lcc-bd-c-tiers')), 'none of yours');
+  assert.equal(text(row('Vernius').querySelector('.lcc-bd-c-state')), 'Not started');
+  assert.equal(text(row('Vernius').querySelector('.lcc-bd-c-tiers')), '0 of 5 tiers earned');
   assert.equal(text(row('Sor').querySelector('.lcc-bd-c-tiers')), '0 of 5 tiers earned');
   assert.equal(text(row('Sor').querySelector('.lcc-bd-c-state')), 'Not started');
   assert.equal(text(row('Wallach').querySelector('.lcc-bd-c-tiers')), '3 of 5 tiers earned');
   click(ui, row('Vernius').querySelector('.lcc-bd-namebtn'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
-  assert.equal(text(i.querySelector('.lcc-bd-ledger-n')), 'FAVOR WON · NO CONTRIBUTION OF YOURS');
-  assert.equal(i.querySelector('.lcc-bd-stats'), null, 'no 0/5 summary tiles');
-  assert.match(text(i.querySelector('.lcc-bd-taken-note')), /This House’s favor is won\. The save holds no contribution of yours/);
+  assert.equal(text(i.querySelector('.lcc-bd-ledger-n')), '0 OF 5 EARNED');
+  assert.equal(text(i.querySelector('.lcc-bd-stats strong')), '0/5', 'the summary tiles of any House');
+  assert.equal(i.querySelector('.lcc-bd-taken-note'), null);
   assert.equal(i.querySelectorAll('.lcc-bd-tier').length, 5, 'the ladder rows stay, with their controls');
 });
 
