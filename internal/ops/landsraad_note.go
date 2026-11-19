@@ -30,7 +30,7 @@ func replacedWinner(m *save.Mut, t save.Row, faction int64) (string, error) {
 	if f == nil {
 		return fmt.Sprintf("faction %d", w), nil
 	}
-	return fmt.Sprint(f["name"]), nil
+	return clipName(fmt.Sprint(f["name"])), nil
 }
 
 // replacedText is the part of a description that names the wins taken away, "" for none. One win is named with its house; several are grouped by the faction that held

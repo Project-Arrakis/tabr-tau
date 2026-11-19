@@ -634,6 +634,21 @@ test('a write that changed no house but moved other completion times does not sa
   const r = result(ui);
   assert.ok(r.includes('already in that state'), r);
   assert.ok(r.includes("; 1 other completion time put back inside the term's window"), r);
+  assert.ok(!r.includes('nothing to change'), 'a write that moved times does not say there was nothing to change: ' + r); // #775
+  // with no time moved it still says so
+  const none = await open(board(), { '/api/landsraad/apply': { ...OK, changed: 0, noop: true, contribution_raised: 0, reward_rows: 0, replaced: [], repaired: 0 } });
+  click(none, quick(none, 'Thorvald', 'qa-cr')); await none.settle();
+  assert.ok(result(none).includes('nothing to change, the house was already in that state'), result(none));
+});
+
+// the notes of a write (a win taken away, other times moved) come before the warning, not inside its sentence (#775)
+test('the notes of a write stand before the warning, not inside it', async () => {
+  const one = await open(board(), { '/api/landsraad/apply': { ...OK, reward_rows: 0, missions: 0, rewards_already_given: 1, replaced: [{ house: 'Alexin', previous_winner: 'Harkonnen' }], repaired: 2 } });
+  click(one, quick(one, 'Alexin', 'qa-fill')); await one.settle();
+  const r = result(one), warn = r.indexOf('Warning: 1 reward was left out'), note = r.indexOf('; replaces the win of Harkonnen on Alexin');
+  assert.ok(note > -1 && warn > -1 && note < warn, r);
+  assert.ok(r.indexOf("; 2 other completion times put back inside the term's window") < warn, r);
+  assert.ok(/Nothing to do[.;]?s*$|Nothing to do.?/.test(r.slice(warn)) && !r.slice(warn).includes('replaces'), r.slice(warn));
 });
 
 // The ground the editor paid before (#777): the board read carries it (my_paid), the line before a click names the missions that would not be paid, and the result says so.

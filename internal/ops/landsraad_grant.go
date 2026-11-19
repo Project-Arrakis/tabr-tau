@@ -171,7 +171,7 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 	if after <= before {
 		return res, false, nil
 	}
-	// what the character's own events already cover: the tiers up to there are delivered (#656)
+	// what the character's own events already cover: the ground their missions paid (the board reads a tier from its reward row, not from the events, #655)
 	cover, err := eventsOf(m, me.player, taskID)
 	if err != nil {
 		return res, false, err
@@ -271,7 +271,7 @@ func grantRaise(m *save.Mut, me myLandsraad, t save.Row, before, after float64, 
 	// does with one is not known, so the contribution and the reward rows below are the whole write. The game's own events are only read (eventsOf), as the ground the character's
 	// own missions already paid.
 
-	// 3. the reward rows of the tiers the events did not cover
+	// 3. the reward rows of the tiers above the ground already paid (own events, another faction, the editor's own record)
 	rr, err := writeTierRewards(m, me, taskID, house, termID, before, loRows, after, clock)
 	if err != nil {
 		return res, false, err

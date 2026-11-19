@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -26,7 +27,7 @@ import (
 // mine_to = that tier's threshold, and the removal of the highest tier is mine_to = the tier below it, or 0, with lower: true.
 //
 // Before anything is written the term and every house are compared with what the page showed (was_mine, was_done, was_win, and for a raise was_events, was_paid, was_paid_rows and was_elsewhere:
-// the grounds its sentence was worked out from, each compared only when sent, #762 #805); a difference is a conflict and nothing is written. It is one edit: either every house is done or none is. A contribution that is raised also grants what the missions it stands for grant (landsraad_grant.go): the faction's share and the completion it brings, the reward rows of the tiers the character's own events had not crossed, the wallets and the specialization XP; one transaction, so a failure at any step leaves nothing behind.
+// the grounds its sentence was worked out from, each compared only when sent, #762 #805); a difference is a conflict and nothing is written. It is one edit: either every house is done or none is. A contribution that is raised also grants what the missions it stands for grant (landsraad_grant.go): the faction's share and the completion it brings, the reward rows of the tiers above the ground already paid (own events, another faction, the editor's own record), the wallets and the specialization XP; one transaction, so a failure at any step leaves nothing behind.
 
 type applyItem struct {
 	task        int64
@@ -188,7 +189,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 	var houses, changed, raised, lowered, completed, reopened, repaired int64
 	var replaced []replacedWin
 	var names []string // the houses that changed, and what was done to each, for the description (D1-6, #611)
-	var done []string
+	var done []string // what was done to each of them, in the same order
 	var rw rewardResult
 	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
 		houses, changed, raised, lowered, completed, reopened, repaired = 0, 0, 0, 0, 0, 0, 0
@@ -226,7 +227,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 			if err != nil {
 				return err
 			}
-			facName[*it.completeFor] = name
+			facName[*it.completeFor] = clipName(name) // a name from a save built by hand must not fill a description
 		}
 		type step struct {
 			it  applyItem
@@ -241,8 +242,8 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 			}
 			s := step{it: it, t: t}
 			if it.completeFor != nil || it.reopen || it.stateShown { // a raise or a tier removal on a house taken or reopened since the page was drawn is refused too (#762)
-				done := t["completed"] == int64(1)
-				if done != it.wasDone || t["winning_faction_id"] != it.wasWin {
+				isDone := t["completed"] == int64(1)
+				if isDone != it.wasDone || t["winning_faction_id"] != it.wasWin {
 					return apierr.Newf(apierr.ErrConflict, "house %v was taken or reopened since you looked, so nothing was changed. The board was read again; check it and click again", houseOf(t))
 				}
 			}
@@ -312,11 +313,11 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 						return err
 					}
 					if r == nil {
-						return apierr.Newf(apierr.ErrBadArgument, "%v has no reward tier at %g", houseOf(t), to)
+						return apierr.Newf(apierr.ErrBadArgument, "%v has no reward tier at %s", houseOf(t), numText(to))
 					}
 				}
 				if to < s.cur && !it.lower {
-					return apierr.Newf(apierr.ErrBadArgument, "%v: the contribution would go down from %g to %g; only a tier removal may do that", houseOf(t), s.cur, to)
+					return apierr.Newf(apierr.ErrBadArgument, "%v: the contribution would go down from %s to %s; only a tier removal may do that", houseOf(t), numText(s.cur), numText(to))
 				}
 			}
 			steps = append(steps, s)
@@ -352,16 +353,16 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 					}
 					raised++
 					did = true
-					what = append(what, fmt.Sprintf("your contribution %g -> %g", s.cur, to))
+					what = append(what, fmt.Sprintf("your contribution %s -> %s", numText(s.cur), numText(to)))
 					clock := clockOfTerm(m, termID)
 					if !clock.ok {
 						return apierr.New(apierr.ErrBadArgument, "the save has no record of this term, so the rewards cannot be timed: nothing was changed")
 					}
-					rr, done, err := grantRaise(m, me, s.t, s.cur, to, it.completeFor != nil && *it.completeFor == me.faction, clock, g, recordedNow)
+					rr, took, err := grantRaise(m, me, s.t, s.cur, to, it.completeFor != nil && *it.completeFor == me.faction, clock, g, recordedNow)
 					if err != nil {
 						return err
 					}
-					if done {
+					if took {
 						completed++
 						doneByRaise = true
 						if it.completeFor != nil {
@@ -387,7 +388,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 					}
 					lowered++
 					did = true
-					what = append(what, fmt.Sprintf("your contribution %g -> %g", s.cur, to))
+					what = append(what, fmt.Sprintf("your contribution %s -> %s", numText(s.cur), numText(to)))
 					// the rewards of the removed tiers that wait at the house representative go with them (landsraad_takeback.go: the one rule); collected ones stay
 					rr, err := takeBackTierRewards(m, me, s.t, s.cur, to, paidNow, it.wasTaken)
 					if err != nil {
@@ -431,7 +432,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 		case changed == 1: // one house: what was done to it
 			m.Desc = landsraadDescG(fmt.Sprintf("landsraad %s: %s", names[0], done[0]), grantDesc(rw, false), replaced, repaired, nil)
 		case changed > 1:
-			m.Desc = landsraadDescG(fmt.Sprintf("landsraad: %d houses changed from the board", changed), grantDesc(rw, true), replaced, repaired, names)
+			m.Desc = landsraadDescG(severalHead(changed, done), grantDesc(rw, true), replaced, repaired, names)
 		case repaired > 0:
 			m.Desc = landsraadDesc("landsraad", nil, repaired, nil)
 		}
@@ -441,6 +442,27 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 	}
 	return resetAnswer(changed, map[string]any{"houses": houses, "skipped": houses - changed, "contribution_raised": raised, "contribution_lowered": lowered, "completed": completed, "reopened": reopened, "repaired": repaired, "replaced": replacedAnswer(replaced), "reward_rows": rw.rewardRows, "swatches": rw.swatches, "rewards_taken_back": rw.takenBack, "rewards_kept_collected": rw.keptCollected, "rewards_kept_unsure": rw.keptUnsure, "rewards_kept_earned": rw.keptEarned, "swatches_taken_back": rw.swatchesBack, "rewards_already_given": rw.skipped, "ground_paid_before": rw.paidGround, "missions_paid_before": rw.paidMissions,
 		"missions": rw.missions, "solari": rw.solari, "house_scrip": rw.scrip, "specialization_xp": specAnswer(rw.spec), "specialization_xp_not_added": specAnswer(rw.specLeft)}), nil
+}
+
+// severalHead is the head of the description of an edit that changed several houses. When every house had the same plain thing done to it (completed for one faction, or reopened) the
+// head says it ("landsraad: 3 houses completed for Atreides"), so the list of queued changes names the action and the faction; otherwise it says only that the houses were changed from the board.
+func severalHead(n int64, done []string) string {
+	generic := fmt.Sprintf("landsraad: %d houses changed from the board", n)
+	if len(done) == 0 {
+		return generic
+	}
+	for _, d := range done {
+		if d != done[0] {
+			return generic
+		}
+	}
+	switch {
+	case done[0] == "reopened":
+		return fmt.Sprintf("landsraad: %d houses reopened", n)
+	case strings.HasPrefix(done[0], "completed for ") && !strings.ContainsAny(done[0], ",;"):
+		return fmt.Sprintf("landsraad: %d houses %s", n, done[0])
+	}
+	return generic
 }
 
 // specAnswer is the specialization XP that was added, by line, as the answer carries it (never nil, so the page can read it).
@@ -453,12 +475,19 @@ func specAnswer(m map[string]int64) map[string]int64 {
 
 // houseOf names a task row's house for a message.
 func houseOf(t save.Row) string {
-	s := houseShort(fmt.Sprint(t["house_name"]))
-	if r := []rune(s); len(r) > maxHouseName { // a name from a save built by hand must not fill a description
+	return clipName(houseShort(fmt.Sprint(t["house_name"])))
+}
+
+// clipName bounds a house or faction name in a message or a description: a name from a save built by hand must not fill it.
+func clipName(s string) string {
+	if r := []rune(s); len(r) > maxHouseName {
 		s = string(r[:maxHouseName]) + "..."
 	}
 	return s
 }
 
-// maxHouseName bounds a house name in a message or a description.
+// numText writes a number of a message or a description in full: %g would print 1000000 as 1e+06.
+func numText(f float64) string { return strconv.FormatFloat(f, 'f', -1, 64) }
+
+// maxHouseName bounds a house or faction name in a message or a description.
 const maxHouseName = 40

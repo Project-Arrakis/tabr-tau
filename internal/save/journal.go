@@ -518,7 +518,7 @@ func (s *Save) RestoreJournal() (*Restored, error) {
 	}
 	switch {
 	case j.Version != journalVersion:
-		return s.skipJournal("it was kept by a different version of the editor"), nil
+		return s.otherVersionJournal(j), nil
 	case len(j.Ops) == 0:
 		return nil, nil // nothing was kept in it
 	case !samePath(j.Path, s.Path):

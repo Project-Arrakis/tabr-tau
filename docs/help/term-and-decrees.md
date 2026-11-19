@@ -33,7 +33,7 @@ The special vendor decree is five separate rows. The four Exclusive Import Right
 
 ## Earlier terms
 
-Read-only. Each earlier term with a row of yours opens to show its Houses, your contribution, your tiers, the House status and the last payout. Terms with no row of yours are not listed. The rows say what the contribution was; they do not say which terms paid out.
+Read-only. Each earlier term with a row of yours opens to show its Houses, your contribution, your tiers, the House status and the last payout. Terms with no row of yours are not listed. The rows say what the contribution was; they do not say which terms paid out. The last payout is the time of the last reward row written for the House, kept as one time per House: a reward collected in a later term moves it out of the earlier term, so "not in this term" does not always mean nothing was paid then.
 
 ## What the save does not hold
 

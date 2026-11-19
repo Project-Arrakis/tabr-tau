@@ -31,6 +31,8 @@ In one edit:
 - One reward for each tier crossed, waiting at the House representative.
 - For each mission, what a mission with a Recollection turned in pays: 6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization of the House. Whether a mission without a Recollection pays the House Scrip and the XP is not known.
 
+After a change of faction, what you reached under your earlier faction counts as already paid. A raise up to that ground writes no mission, no reward and no progress for your new faction, so its tiers can read "Reached, no delivery recorded" although nothing was delivered under the new faction; only the ground above it is paid.
+
 A mission is 1,000 contribution times the setting `LandsraadContributionMultiplier`, and the XP is scaled by `LandsraadSpecializationXpMultiplier`. Both are read from `ServerCustomSettings.ini` on this computer (1 when the key is absent). A click is refused, with the reason, when a value cannot be used or the file cannot be read. The daily and weekly mission limits of the game are not applied.
 
 ## What it does not write

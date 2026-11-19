@@ -166,7 +166,7 @@ func TestBoardApplyDescribesOneHouseByWhatWasDoneToIt(t *testing.T) {
 func TestBoardApplyDescribesSeveralHousesByTheirNames(t *testing.T) {
 	o := goalOps(t)
 	mustApply(t, o, applyArgs(house(175, Args{"complete_for": 2.0}), house(176, Args{"complete_for": 2.0})))
-	if d := lastEdit(t, o); d != "landsraad: 2 houses changed from the board; houses: Kenola, Vernius" {
+	if d := lastEdit(t, o); d != "landsraad: 2 houses completed for Harkonnen; houses: Kenola, Vernius" {
 		t.Fatalf("write log: %q", d)
 	}
 }
