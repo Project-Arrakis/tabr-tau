@@ -632,16 +632,23 @@
 
     // the two scales, kept apart: the factions' progress against the house goal, then the character's own tiers
     const s1 = el('section', 'lcc-bd-sec', '', { 'aria-labelledby': 'lcc-bd-s1' });
-    const s1note = 'House goal: ' + known(h.goal) + '. A faction’s progress is the sum of its contributions to this House. Top contributors: ' + (h.contributors.length ? contribLine(h.contributors, 5) : NOT_IN_SAVE + (h.owner === 'a' || h.owner === 'h' ? ' (the save has no contributor row for this House, whose favor is won)' : '')) + '. Missions: ' + NOT_IN_SAVE + '.';
+    // the names of the contributors, the biggest first, with no amounts and no placeholder for one the save gives no name for (#1058); the amounts stay in the save and in the plaque's tooltip only
+    const named = h.contributors.filter((c) => !c.unnamed).slice(0, 5).map((c) => c.label);
+    const s1note = 'House goal: ' + known(h.goal) + '. A faction’s progress is the sum of its contributions to this House. Top contributors: ' + (named.length ? named.join(', ') : h.contributors.length ? 'no names in the save' : NOT_IN_SAVE + (h.owner === 'a' || h.owner === 'h' ? ' (the save has no contributor row for this House, whose favor is won)' : '')) + '. Missions: ' + NOT_IN_SAVE + '.';
     const s1h = secHead('FACTION HOUSE CONTROL', 'lcc-bd-s1', 'SAVE');
     s1h.setAttribute('title', s1note);
     s1.appendChild(s1h);
     s1.appendChild(fcRow('a', 'HOUSE ATREIDES', h.prog.a, h.goal));
     s1.appendChild(fcRow('h', 'HOUSE HARKONNEN', h.prog.h, h.goal));
     s1.appendChild(el('span', 'lcc-bd-sr', s1note));
-    if (h.contributors.length) {
-      s1.appendChild(el('p', 'lcc-bd-mut lcc-bd-contrib', 'Contributors to this House, from the save, the biggest first: ' + contribLine(h.contributors, 5) + '.', { title: 'The order is worked out here: the save holds the amounts, not a ranking. A guild is shown by the identifier the save gives it, with capital letters added here (the save holds no display name).' + unnamedNote(h.contributors, 5) }));
-    } else s1.appendChild(el('p', 'lcc-bd-mut lcc-bd-nosave', 'Top contributors: not in the save.' + (h.owner === 'a' || h.owner === 'h' ? ' The favor of this House is won but the save holds no contributor row for it (for example when it was completed from this editor).' : '')));
+    if (named.length) {
+      const cb = el('div', 'lcc-bd-contrib', '', { title: 'The order is worked out here: the save holds the amounts, not a ranking. A guild is shown by the identifier the save gives it, with capital letters added here (the save holds no display name). A contributor the save gives no name for is left out.' });
+      cb.appendChild(el('p', 'lcc-bd-contrib-h', 'TOP CONTRIBUTORS'));
+      const cl = el('ol', 'lcc-bd-contrib-l', '', { role: 'list' });
+      for (const n of named) cl.appendChild(el('li', '', n));
+      cb.appendChild(cl);
+      s1.appendChild(cb);
+    } else if (!h.contributors.length) s1.appendChild(el('p', 'lcc-bd-mut lcc-bd-nosave', 'Top contributors: not in the save.' + (h.owner === 'a' || h.owner === 'h' ? ' The favor of this House is won but the save holds no contributor row for it (for example when it was completed from this editor).' : '')));
     side.appendChild(s1);
 
     const top = h.tierCount ? h.top : null;

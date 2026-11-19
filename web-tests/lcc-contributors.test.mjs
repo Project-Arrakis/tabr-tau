@@ -163,8 +163,9 @@ test('the character is listed by the name in the save, on the banner, in the Hou
   tile.querySelector('button').focus();
   tile.querySelector('button').dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true }));
   const insp = ui.doc.querySelector('.lcc-bd-insp');
-  assert.match(text(insp.querySelector('.lcc-bd-contrib')), new RegExp('^Contributors to this House, from the save, the biggest first: ' + NAME + ' 33,600'));
-  assert.match(insp.querySelector('#lcc-bd-s1').getAttribute('title'), new RegExp('Top contributors: ' + NAME + ' 33,600'));
+  assert.equal(text(insp.querySelector('.lcc-bd-contrib-l > li')), NAME, 'the first name of the Inspector list, with no amount (#1058)');
+  assert.doesNotMatch(text(insp.querySelector('.lcc-bd-contrib')), /33,600/);
+  assert.match(insp.querySelector('#lcc-bd-s1').getAttribute('title'), new RegExp('Top contributors: ' + NAME + '[,.]'));
   assert.doesNotMatch(text(insp), /\bYou\b/, 'no "You" next to the character name in the panel');
   for (const missing of [undefined, null, '', '   ']) {
     const c = answer();

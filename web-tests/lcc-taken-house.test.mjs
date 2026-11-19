@@ -129,8 +129,8 @@ test('the contributors the save records are shown: on the banners and for the Ho
   assert.match([...ui.doc.querySelectorAll('.lcc-standard-h')].map((h) => h.getAttribute('title')).join(' | '), /worked out here: the save holds amounts, not a ranking/);
   click(ui, tileOf(ui, 'Vernius').querySelector('button'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
-  assert.match(text(i.querySelector('.lcc-bd-contrib')), /^Contributors to this House, from the save, the biggest first: Fortune Hunters Inc 2,500 · Red Hawk Corps 1,000 · Unnamed contributor 1,000.$/);
-  assert.match(i.querySelector('#lcc-bd-s1').getAttribute('title'), /Top contributors: Fortune Hunters Inc 2,500 · Red Hawk Corps 1,000 · Unnamed contributor 1,000/);
+  assert.deepEqual([...i.querySelectorAll('.lcc-bd-contrib-l > li')].map(text), ['Fortune Hunters Inc', 'Red Hawk Corps'], 'the Inspector lists the names, the biggest first, with no amount and no Unnamed contributor row (#1058)');
+  assert.match(i.querySelector('#lcc-bd-s1').getAttribute('title'), /Top contributors: Fortune Hunters Inc, Red Hawk Corps\./);
 });
 
 test('a taken House with no contributor row keeps "Not in the save" and says why; a banner with no rows says so', async () => {
