@@ -172,6 +172,8 @@
 .lcc-glow-rail { opacity: calc(.35 * var(--lcc-glow)); }
 .lcc-glow-line, .lcc-seat-halo { opacity: calc(.45 + .55 * var(--lcc-glow)); }
 .lcc-glow-edge { stroke-opacity: calc(.45 + .55 * var(--lcc-glow)); }
+/* the soft light round the 13th seat's ring and wedges and round its gem (#983): a blurred copy of the outline behind them */
+.lcc-glow-seat { opacity: calc(.35 + .5 * var(--lcc-glow)); }
 
 /* the seats. Fill and stroke come from the artwork's own attributes; the classes below are what a forced-colours view and a state can override. */
 .lcc-seat-base { transition: none; }
@@ -317,6 +319,7 @@ html[data-motion="calm"] .lcc [data-victory], html[data-motion="off"] .lcc [data
   .lcc-seat-h .lcc-seat-mark { stroke: Canvas; fill: none; }
   .lcc-seat-center .lcc-seat-base { stroke-width: 6; }
   .lcc-seat-halo { stroke: CanvasText; }
+  .lcc-glow-seat { display: none; }
   .lcc-standard-cloth, .lcc-pl-std-a, .lcc-pl-std-h { background: Canvas; color: CanvasText; border: 2px solid CanvasText; clip-path: none; }
   .lcc-standard { color: CanvasText; }
   .lcc-standard-foot { display: none; }
