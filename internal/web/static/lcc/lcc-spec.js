@@ -172,7 +172,7 @@
     const stat = (v, k, id) => add(el('div', 'lcc-sp-stat'), el('b', '', v, { id }), el('small', '', k));
     const T = vm.totals;
     add(s, stat(T.tracks ? T.atCap + ' / ' + T.tracks : NOT_IN_SAVE, 'TRACKS AT XP CAP', 'lcs-capcount'),
-      stat(T.total > 0 ? T.owned + ' / ' + T.total + (T.keysPartial ? '*' : '') : NOT_IN_SAVE, T.keysPartial && T.total > 0 ? 'KEYSTONES PURCHASED (* ' + (T.keysWhy === 'total' ? 'A TRACK’S TOTAL IS NOT IN THE SAVE' : 'A TRACK IS NOT IDENTIFIED YET') + ')' : 'KEYSTONES PURCHASED', 'lcs-keycount'),
+      stat(T.total > 0 ? T.owned + ' / ' + T.total + (T.keysPartial ? '*' : '') : NOT_IN_SAVE, T.keysPartial && T.total > 0 ? 'KEYSTONES (* ' + (T.keysWhy === 'total' ? 'A TRACK’S TOTAL IS NOT IN THE SAVE' : 'A TRACK IS NOT IDENTIFIED YET') + ')' : 'KEYSTONES', 'lcs-keycount'),
       stat(fmt(vm.maxXp), 'MAXIMUM XP / TRACK', 'lcs-maxxp'));
     return add(h, t, s);
   }
@@ -214,12 +214,12 @@
     add(plate, el('span', 'lcc-sp-k', 'SPECIALIZATION LEVEL'), lvl, el('div', 'lcc-sp-mastery' + (r.kind === 'full' || r.kind === 'cap' ? ' is-on' : ''), masteryText(r), { id: 'lcs-mastery' }));
     const st = el('div', 'lcc-sp-status');
     const line = (k, v, id) => add(el('div', 'lcc-sp-line'), el('span', '', k), el('strong', '', v, { id }));
-    add(st, line('XP ACQUIRED', r.xp === null ? NOT_IN_SAVE : fmt(r.xp) + ' / ' + fmt(vm.maxXp), 'lcs-xp'),
+    add(st, line('XP', r.xp === null ? NOT_IN_SAVE : fmt(r.xp) + ' / ' + fmt(vm.maxXp), 'lcs-xp'),
       bar('lcc-sp-xpbar', pctOf(r.xp, vm.maxXp), 'Experience of the selected path', r.xp === null ? 0 : r.xp, vm.maxXp),
       el('div', 'lcc-sp-sub', xpRemainText(vm, r), { id: 'lcs-xpremain' }));
     if (r.levelMismatch) add(st, el('p', 'lcc-sp-note lcc-sp-note-warn', 'The save stores level ' + (Math.round(r.storedLevel * 100) / 100) + ' for this track, but its XP is level ' + r.level + ' on the XP table. Nothing was changed; the level the save stores is left as it is.', { id: 'lcs-mismatch' }));
     if (!vm.levelsTrusted) add(st, el('p', 'lcc-sp-note lcc-sp-note-warn', 'The save’s largest XP (' + fmt(vm.maxXp) + ') is not the one this page’s level table ends on, so the level shown is the one the save stores.', { id: 'lcs-table-note' }));
-    add(st, line('KEYSTONES PURCHASED', keysText(r), 'lcs-keys'),
+    add(st, line('KEYSTONES', keysText(r), 'lcs-keys'),
       bar('lcc-sp-keybar', r.keyKnown ? pctOf(r.keyOwned, r.keyTotal) : 0, 'Keystones purchased on the selected path', r.keyOwned, r.keyKnown ? r.keyTotal : 0)); // "XP cap and keystones are independent" is in the Help tab (#980)
     add(g, plate, st);
     add(d, g);

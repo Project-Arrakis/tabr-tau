@@ -279,7 +279,7 @@ test('a read that cannot be used draws one honest message and no control', () =>
 test('the hero keystone total is marked partial for a track that is not identified, with its reason, and not otherwise (#902)', () => {
   const d = draw(byId('conflicting-learned-number-leaves-combat-unresolved'), HOUSES, {}, 'combat');
   assert.match(txt(q(d, '#lcs-keycount')), /^0 \/ 205\*$/);
-  assert.match(txt(q(d, '#lcs-keycount').parentNode.querySelector('small')), /^KEYSTONES PURCHASED \(\* A TRACK IS NOT IDENTIFIED YET\)$/);
+  assert.match(txt(q(d, '#lcs-keycount').parentNode.querySelector('small')), /^KEYSTONES \(\* A TRACK IS NOT IDENTIFIED YET\)$/);
   assert.doesNotMatch(txt(q(draw(byId('mixed-five-tracks')), '#lcs-keycount')), /\*/);
 });
 
