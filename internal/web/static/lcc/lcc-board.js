@@ -27,8 +27,6 @@
   const TAKEN = { get noTiers() { return W().favorWon + ' - no tier record in the save'; },
     get noTiersWhy() { return 'This House’s favor is won, and the save holds no reward tiers for it.'; } };
   const takenWhy = (h) => (h.takenNoTiers ? TAKEN.noTiersWhy : '');
-  // the contributors of a list, as the text of one line: the biggest first, "name amount"
-  const contribLine = (list, n) => list.slice(0, n).map((c) => c.label + ' ' + fmt(c.amount)).join(' · ');
   // the banner's three, whole, for its mouse-over text: a narrow cloth may show fewer of them, never a part of one (#972)
   // A contributor the save names no guild for is shown as "Unnamed contributor"; the save's own number for it (which means nothing as a rank) is only said in the mouse-over text, so two of them can be told apart (#919)
   const unnamedNote = (list, n) => { const u = list.slice(0, n).filter((c) => c.unnamed).map((c) => c.id); return u.length ? ' Unnamed contributor: the save gives no player or guild name for it (save number' + (u.length > 1 ? 's ' : ' ') + u.join(', ') + ').' : ''; };
