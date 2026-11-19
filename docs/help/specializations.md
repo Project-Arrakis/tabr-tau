@@ -14,10 +14,10 @@ Level 100 does not give keystones, and all keystones do not give level 100.
 
 ## The operations
 
-- **Apply XP** adds or removes XP on one track. The editor shows the XP before and after.
+- **Apply XP** adds or removes XP on one track. Type a whole number from -44,182 to +44,182; zero is not allowed (a negative number removes XP). The total stays between 0 and 44,182. The editor shows the XP before and after. On the page this sentence is the hover or focus tip of the XP box (and of the small **i** mark beside it, which a touch screen can tap).
 - **Grant LV 100** sets a track to level 100 and its XP cap. **Reset Track XP** sets its XP and level back to 0. Neither changes a keystone.
 - **Grant All Keystones** and **Reset All Keystones** change every track, not the selected one.
-- **Reset XP of All Known Tracks** resets every track whose number is known, after you type a confirmation. Keystones are not touched.
+- **Reset XP of All Known Tracks** resets the XP and level of every track whose number is known, after you type a confirmation. Keystones are not touched. A row of the save whose track is not known yet is left alone. The page shows this as the hover or focus tip of the button and of its **i** mark.
 
 Every change asks first, is written after a backup, and says whether it was saved or is queued until the game closes.
 

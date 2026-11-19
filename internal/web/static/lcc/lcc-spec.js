@@ -255,8 +255,8 @@
     add(g1, el('label', 'lcc-sp-lbl', 'Add or remove XP ', { for: 'spx' + r.track }));
     g1.lastChild.appendChild(el('small', '', '(a negative number removes)'));
     const inp = el('input', 'lcc-sp-input', '', { id: 'spx' + r.track, type: 'number', step: 1, min: -vm.maxXp, max: vm.maxXp, value: Object.prototype.hasOwnProperty.call(state.xp, r.track) ? state.xp[r.track] : 1000, 'aria-describedby': 'lcs-xphint' + (why ? ' ' + why : ''), disabled: off });
-    add(g1, add(el('div', 'lcc-sp-inline'), inp, btn('Apply XP', 'is-primary', { 'data-act': 'spAddCC', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-xphint' + (why ? ' ' + why : '') })));
-    add(g1, el('p', 'lcc-sp-hint', 'Whole number from −' + fmt(vm.maxXp) + ' to +' + fmt(vm.maxXp) + '; zero is not allowed. The total stays between 0 and ' + fmt(vm.maxXp) + '. The editor shows the XP before and after.', { id: 'lcs-xphint' }));
+    const xt = tipOf('lcs-xphint', 'About the XP amount', 'Whole number from −' + fmt(vm.maxXp) + ' to +' + fmt(vm.maxXp) + '; zero is not allowed. The total stays between 0 and ' + fmt(vm.maxXp) + '. The editor shows the XP before and after.');
+    add(g1, wireTip(add(el('div', 'lcc-sp-inline lcc-tt'), inp, btn('Apply XP', 'is-primary', { 'data-act': 'spAddCC', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-xphint' + (why ? ' ' + why : '') }), xt.mark, xt.tip)));
     add(g1, add(el('div', 'lcc-sp-grid2'),
       btn('✦ Grant LV 100', '', { 'data-act': 'spMax', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-trkhint' + (why ? ' ' + why : '') }),
       btn('Reset Track XP', 'is-danger', { 'data-act': 'spReset', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-trkhint' + (why ? ' ' + why : '') })));
@@ -272,10 +272,32 @@
       btn('Reset All Keystones', 'is-danger', { 'data-act': 'spKeyReset', 'aria-describedby': 'lcs-keyscope' })));
     const left = vm.unassigned.length;
     const resetOff = !vm.resetCount;
-    add(g2, btn('Reset XP of All Known Tracks (' + vm.resetCount + ')', 'is-danger lcc-sp-wide', { 'data-act': 'spResetAll', 'data-n': vm.resetCount, 'data-left': left, disabled: resetOff, 'aria-describedby': 'lcs-resetnote' }));
-    add(g2, el('p', 'lcc-sp-hint', resetOff ? 'Nothing to reset: no track whose number is known has XP.' + (left ? ' ' + left + (left === 1 ? ' row of the save whose track is not known yet is left alone.' : ' rows of the save whose track is not known yet are left alone.') : '')
-      : 'Resets the XP and level of ' + vm.resetCount + (vm.resetCount === 1 ? ' track' : ' tracks') + ' whose number is known, after you type a confirmation. Keystones are not touched.' + (left ? ' ' + left + (left === 1 ? ' row whose track is not known yet is left alone.' : ' rows whose track is not known yet are left alone.') : ''), { id: 'lcs-resetnote' }));
+    const resetBtn = btn('Reset XP of All Known Tracks (' + vm.resetCount + ')', 'is-danger lcc-sp-wide', { 'data-act': 'spResetAll', 'data-n': vm.resetCount, 'data-left': left, disabled: resetOff, 'aria-describedby': 'lcs-resetnote' });
+    const resetSay = (resetOff ? 'Nothing to reset: no track whose number is known has XP.' + (left ? ' ' + left + (left === 1 ? ' row of the save whose track is not known yet is left alone.' : ' rows of the save whose track is not known yet are left alone.') : '')
+      : 'Resets the XP and level of ' + vm.resetCount + (vm.resetCount === 1 ? ' track' : ' tracks') + ' whose number is known, after you type a confirmation. Keystones are not touched.' + (left ? ' ' + left + (left === 1 ? ' row whose track is not known yet is left alone.' : ' rows whose track is not known yet are left alone.') : ''));
+    if (resetOff) add(g2, resetBtn, el('p', 'lcc-sp-hint', resetSay, { id: 'lcs-resetnote' }));
+    else {
+      const rt = tipOf('lcs-resetnote', 'About resetting all tracks', resetSay);
+      add(g2, wireTip(add(el('div', 'lcc-sp-resetrow lcc-tt'), resetBtn, rt.mark, rt.tip)));
+    }
     return add(a, g2);
+  }
+
+  // A hover/focus tip for a long explanation (#1030): the page keeps no always-visible sentence for it. The tip is the existing .lcc-tt/.lcc-tip pattern of lcc.js (real text, role tooltip, shown on hover and on keyboard focus by lcc.css);
+  // the controls and the info mark point to it with aria-describedby, and the info mark is a focusable button so a touch screen can open it. Escape closes it while the mouse or the focus stays.
+  function tipOf(id, name, text) {
+    const mark = el('button', 'lcc-sp-info', '', { type: 'button', 'aria-label': name, 'aria-describedby': id });
+    add(mark, el('span', 'lcc-sp-info-i', 'i', { 'aria-hidden': 'true' })); // the circle is smaller than the 44 px target around it
+    mark.addEventListener('click', () => mark.focus());
+    const tip = el('span', 'lcc-tip', text, { role: 'tooltip', id });
+    return { mark, tip };
+  }
+  function wireTip(w) {
+    w.addEventListener('keydown', (e) => { if (e.key === 'Escape') w.classList.add('dismissed'); });
+    const back = () => w.classList.remove('dismissed');
+    w.addEventListener('mouseleave', back);
+    w.addEventListener('focusout', back);
+    return w;
   }
 
   function housesOf(vm, r) {

@@ -126,6 +126,16 @@
 .lcc-sp-lbl small { color: var(--lcc-dim); font-weight: 400; font-size: 12px; }
 .lcc-sp-inline { display: flex; gap: 8px; margin-top: 9px; align-items: center; flex-wrap: wrap; }
 .lcc-sp-inline .lcc-sp-input { flex: 1 1 120px; }
+/* the info mark and the hover/focus tip that replace the always-visible XP amount rule and reset rule (#1030); the tip itself is the shared .lcc-tip */
+.lcc-sp-inline.lcc-tt { display: flex; }
+.lcc-sp-resetrow { position: relative; display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.lcc-sp-resetrow .lcc-sp-wide { width: auto; flex: 1 1 auto; margin-top: 0; }
+.lcc-sp-info { flex: 0 0 auto; display: inline-grid; place-items: center; width: 44px; height: 44px; margin: -6px 0; padding: 0; border: 0; background: none; color: var(--lcc-dim); cursor: help; }
+.lcc-sp-info-i { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--lcc-stroke); border-radius: 50%; font: italic 700 13px/1 var(--lcc-serif); }
+.lcc-sp-info:hover { color: var(--lcc-strong); }
+.lcc-sp-info:hover .lcc-sp-info-i, .lcc-sp-info:focus-visible .lcc-sp-info-i { border-color: var(--lcc-sp-gold); }
+.lcc-sp-info:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: -4px; }
+.lcc-sp .lcc-tip { max-width: min(320px, 100%); }
 .lcc-sp-input { min-height: 40px; min-width: 0; width: 100%; padding: 8px 10px; background: var(--lcc-sunken); color: var(--lcc-strong); border: 1px solid var(--lcc-stroke); font-size: 14px; }
 .lcc-sp input.lcc-sp-input { min-height: 40px; }
 .lcc-sp-input:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 1px; }

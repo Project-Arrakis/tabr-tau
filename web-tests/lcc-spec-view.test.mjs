@@ -288,3 +288,25 @@ test('the hero counts come from the save', () => {
   assert.equal(txt(q(d, '#lcs-capcount')), '1 / 5');
   assert.equal(txt(q(d, '#lcs-maxxp')), '44,182');
 });
+
+test('the XP amount rule and the reset rule are tips, not standing text (#1030)', () => {
+  const d = draw(byId('unassigned-row-number-9'));
+  for (const [id, mark, says] of [['lcs-xphint', 'About the XP amount', /zero is not allowed.*The editor shows the XP before and after/], ['lcs-resetnote', 'About resetting all tracks', /Keystones are not touched/]]) {
+    const tip = q(d, '#' + id);
+    assert.equal(tip.getAttribute('role'), 'tooltip', id + ' is a tooltip');
+    assert.ok(tip.classList.contains('lcc-tip'), id + ' uses the shared tip pattern');
+    assert.match(txt(tip), says);
+    const m = q(d, '.lcc-sp-info[aria-describedby="' + id + '"]');
+    assert.equal(m.tagName, 'BUTTON', 'a focusable info mark for touch');
+    assert.equal(m.getAttribute('aria-label'), mark);
+    assert.ok(tip.parentNode.classList.contains('lcc-tt'), 'the hover and focus rule of the pattern applies');
+    assert.equal(tip.classList.contains('lcc-sp-hint'), false, 'no always-visible sentence');
+    // Escape closes the tip while the pointer or focus stays (WCAG 1.4.13)
+    const w = tip.parentNode;
+    w.dispatchEvent(new d.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert.ok(w.classList.contains('dismissed'));
+    w.dispatchEvent(new d.w.Event('mouseleave'));
+    assert.equal(w.classList.contains('dismissed'), false);
+  }
+  assert.equal(q(d, '[data-act="spAddCC"]').getAttribute('aria-describedby').split(' ')[0], 'lcs-xphint');
+});
