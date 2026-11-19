@@ -219,7 +219,8 @@ test('names and paths from a save are only text on the board, the list and the I
 
 test('Show, House and Path dim the Houses they leave out and keep the board fixed; the count says how many are shown', async () => {
   const ui = await open();
-  assert.equal(text(ui.doc.querySelector('#lcc-bd-shown')), '25 of 25 Houses shown');
+  assert.equal(text(ui.doc.querySelector('#lcc-bd-shown')), '', 'with no filter the count is not said (#1044)');
+  assert.equal(ui.doc.querySelector('#lcc-bd-shown').getAttribute('role'), 'status', 'the live region stays');
   click(ui, '[data-fk="bf:hs:open"]');
   assert.equal(text(ui.doc.querySelector('#lcc-bd-shown')), '9 of 25 Houses shown');
   const dim = tiles(ui).filter((c) => c.querySelector('.lcc-hc').dataset.dim === 'true');

@@ -66,6 +66,7 @@
 .lcc-bd-chip[aria-pressed="true"] { border-color: var(--lcc-gold-text); background: color-mix(in srgb, var(--lcc-gold) 9%, transparent); color: var(--lcc-text); box-shadow: inset 0 -2px 0 var(--lcc-gold-text); }
 .lcc-bd-chip[aria-disabled="true"] { border-style: dashed; box-shadow: none; cursor: not-allowed; }
 .lcc-bd-shown { margin-left: auto; font: 600 11px/1.2 var(--lcc-sans); color: var(--lcc-dim); }
+.lcc-bd-shown:empty { display: none; }
 /* The control bar also holds the buttons that choose Houses, in the line of Jump to House (the two are one group: they stay together and wrap together), and the actions on the chosen Houses on the
    line after (Fill, Complete, Reopen, the faction for them, the count of the chosen Houses). The page seats those controls in the slots; a slot with nothing in it is not drawn. */
 .lcc-bd-jumpline { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 9px 18px; min-width: 0; max-width: 100%; }

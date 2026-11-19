@@ -200,7 +200,9 @@
     jl.appendChild(el('span', 'lcc-bd-barslot lcc-bd-chooseslot', '', { 'data-lcc-slot': 'choose' }));
     bar.appendChild(jl);
     if (state.layout === 'list' || !board.ready) bar.appendChild(sel('Group', 'lcc-bd-group', [['', 'No groups'], ['region', 'By region'], ['spec', W().bySpecialization]], state.group, 'group'));
-    bar.appendChild(el('span', 'lcc-bd-shown', matchIds.size + ' of ' + board.houses.length + ' Houses shown', { role: 'status', id: 'lcc-bd-shown' }));
+    // The count of the Houses shown is said only while a filter narrows the board (#1044): with nothing chosen it would say "25 of 25" and tell nothing. The node stays, empty, as the polite live region.
+    const narrowed = state.show !== 'all' || state.hs !== 'any' || state.spec !== 'all';
+    bar.appendChild(el('span', 'lcc-bd-shown', narrowed ? matchIds.size + ' of ' + board.houses.length + ' Houses shown' : '', { role: 'status', id: 'lcc-bd-shown' }));
     // the line of the actions on the chosen Houses (Fill, Complete, Reopen, the faction for them and the count of the chosen Houses), seated by the page
     bar.appendChild(el('div', 'lcc-bd-barslot lcc-bd-actslot', '', { 'data-lcc-slot': 'act' }));
     return bar;

@@ -74,7 +74,7 @@ The row "After the follow-up of the final check" moves four rows: S9 and S10 (th
 | H4 | Clear highlight button | missing | removed on purpose (2026-11-18, #958) | The button only let go of the House being looked at; the win outlines stayed, so it did nothing useful. Choosing another House, choosing the same House again or Escape already moves or drops the selection. |
 | H5 | SHOW chips: All, Not started, In progress, Top tier | differs | differs | Ours has one more chip, "What is left", kept from the classic list. Not removed: it is a working filter. |
 | H6 | HOUSE chips: Any, Open, Claimed | differs | differs (approved) | Any, Not won, Favor won (#952): a faction does not claim a House, it wins its favor. The data key of the chips is unchanged. |
-| H7 | JUMP TO HOUSE chooser on the same row | differs | differs | It wraps to a second row at 1280 px because the board column inside the app is narrower than the prototype's; "25 of 25 Houses shown" is an extra status line for screen readers. |
+| H7 | JUMP TO HOUSE chooser on the same row | differs | differs | It wraps to a second row at 1280 px because the board column inside the app is narrower than the prototype's; "N of 25 Houses shown" is an extra status line for screen readers, said only while a filter narrows the board (#1044). |
 | H8 | Legend: Atreides claimed, Harkonnen claimed, Open, Victory line | missing | differs (approved) | Atreides favor won, Harkonnen favor won, Favor not won, Winning Houses (#952). "Favor unreadable" appears only when a House needs it. |
 
 ### Board
