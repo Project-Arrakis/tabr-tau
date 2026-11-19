@@ -265,14 +265,17 @@
   // above them. Nothing here is a picture with text in it.
   const W = 2172, H = 724;
   // The seats are spaced by the gap between their OUTER edges, so that all 24 gaps are equal (#965): seat is the outer radius of an ordinary seat (its circle and its 2 unit outline), halo the outer
-  // radius of the ring of the 13th seat (the ring and its stroke, still or won, so the same size in every state; 40 against 20 is a ring twice as wide as a seat, #983), gap the clear space
-  // between any two neighbouring outer edges. pitch is the distance between the centres of two ordinary neighbours, and mid the distance from the 13th seat's centre to the centre of its two
-  // neighbours: both follow from the three. The two wedges of the 13th seat (an upward one on the top of the ring, a downward one on the bottom) run up and down, not sideways: their base corners
-  // are on the ring (wedge is the distance of a tip from the centre, wedgeHalf the half width of the base), so they never take room from the gap to a neighbour.
-  const SEAT_OUT = 20, HALO_OUT = 40, SEAT_GAP = 11, HALO_W = 5, HALO_W_WIN = 6, WEDGE_TIP = 72, WEDGE_HALF = 24;
-  // the faceted diamond above the upward wedge: half width and half height, and the clear space between the outer edge of the wedge's tip and the gem's lower point (#983: 1 to 2 px)
-  const GEM_HALF_W = 16, GEM_HALF_H = 23, GEM_GAP = 2, GEM_STROKE = 2;
-  const TRACK = Object.freeze({ cx: W / 2, cy: 396, r: 19, seat: SEAT_OUT, halo: HALO_OUT, wedge: WEDGE_TIP, wedgeHalf: WEDGE_HALF, gap: SEAT_GAP, pitch: 2 * SEAT_OUT + SEAT_GAP, mid: HALO_OUT + SEAT_GAP + SEAT_OUT, tipL: 334, tipR: 1838, wallL: 410, wallR: 1762, top: 330, bottom: 462 });
+  // radius of the ring of the 13th seat (the ring and its stroke, still or won, so the same size in every state), gap the clear space between any two neighbouring outer edges. pitch is the distance
+  // between the centres of two ordinary neighbours, and mid the distance from the 13th seat's centre to the centre of its two neighbours: both follow from the three.
+  // The 13th seat is measured from the approved artwork itself (#983, #982), which is in this same 2172 by 724 coordinate system, not from the operator's words: its ring is 112 units across (the rim 5.5)
+  // and touches the rail on both sides. Its two wedges are NOT the same: the upward one on the ring's top is the smaller (30 wide, 18 above the ring, about 1.7 : 1) and its tip ends just above the rail,
+  // the downward one on the bottom is bigger (43 wide, 28 below the ring, about 1.5 : 1) and hangs past the rail. wedgeUp and wedgeDown are the distance of a tip's OUTER edge from the centre, wedgeHalfUp
+  // and wedgeHalfDown the half width of the base, whose corners are on the ring, so the wedges run up and down and never take room from the gap to a neighbour.
+  const SEAT_OUT = 20, HALO_OUT = 56, SEAT_GAP = 11, HALO_W = 5, HALO_W_WIN = 6, WEDGE_UP = 74, WEDGE_UP_HALF = 15, WEDGE_DOWN = 84, WEDGE_DOWN_HALF = 21.5;
+  // the faceted diamond above the upward wedge: half width and half height of its outer bevel (70 by 94 units in the artwork), the share of the height where it is widest, the share of the bevel that the
+  // inner diamond of the four facets takes, the clear space between the outer edge of the wedge's tip and the gem's lower point (#983: 1 to 2 px, 2 to 3 units in the artwork), and the stroke of the gem's pale edge
+  const GEM_HALF_W = 35, GEM_HALF_H = 47, GEM_MID = 0.52, GEM_BEVEL = 0.72, GEM_GAP = 2, GEM_STROKE = 2;
+  const TRACK = Object.freeze({ cx: W / 2, cy: 396, r: 19, seat: SEAT_OUT, halo: HALO_OUT, wedgeUp: WEDGE_UP, wedgeDown: WEDGE_DOWN, wedgeHalfUp: WEDGE_UP_HALF, wedgeHalfDown: WEDGE_DOWN_HALF, gap: SEAT_GAP, pitch: 2 * SEAT_OUT + SEAT_GAP, mid: HALO_OUT + SEAT_GAP + SEAT_OUT, tipL: 334, tipR: 1838, wallL: 410, wallR: 1762, top: 330, bottom: 462 });
   // x of a seat's centre. The 13th sits on the middle of the track and the others step away from it by TRACK.pitch, the first one by TRACK.mid (the gold ring is wider than a seat), so every gap between two
   // neighbouring outer edges is TRACK.gap and the two ends are inset by the same amount.
   const seatX = (i) => { const k = i - CENTER; return k === 0 ? TRACK.cx : TRACK.cx + Math.sign(k) * (TRACK.mid + (Math.abs(k) - 1) * TRACK.pitch); };
@@ -294,25 +297,29 @@
     const m = pad == null ? 10 : pad; // percent of the box on every side: the glow of a small shape needs more than the 10 that a long rail does
     return sv('filter', { id, x: '-' + m + '%', y: '-' + m + '%', width: (100 + 2 * m) + '%', height: (100 + 2 * m) + '%' }, [sv('feGaussianBlur', { stdDeviation: dev })]);
   }
-  // The 13th seat's outline (#983): the ring and its two wedges as ONE closed path, so the rim runs from the ring into the wedge sides without a seam. r is the radius of the ring's centre line,
-  // hw the stroke; the base corners of a wedge are on the ring (WEDGE_HALF either side of the axis), the tips are WEDGE_TIP from the centre up and down, mirror images. Coordinates are relative
-  // to the seat's centre. ty is the height of the base corners, tip the distance of a tip.
+  // The 13th seat's outline (#983): the whole ring as a circle and the sides of the two wedges, as ONE path, so the rim runs from the ring into the wedge sides without a seam. r is the radius of the ring's
+  // centre line, hw the stroke; the base corners of a wedge are on the ring, the tips are WEDGE_UP and WEDGE_DOWN from the centre (outer edge, the stroke's round join counted). Coordinates are relative to
+  // the seat's centre. top and bottom are the filled triangles of the two wedges (their base is the chord between the two corners; the ring is drawn over it).
   function centreOutline(hw) {
-    const r = HALO_OUT - hw / 2, c = WEDGE_HALF, ty = Math.sqrt(r * r - c * c), t = WEDGE_TIP;
-    const n = (v) => Math.round(v * 1000) / 1000;
-    return { r, ty: n(ty), tip: t, d: 'M' + c + ',' + n(-ty) + ' A' + n(r) + ',' + n(r) + ' 0 0 1 ' + c + ',' + n(ty) + ' L0,' + t + ' L' + -c + ',' + n(ty) + ' A' + n(r) + ',' + n(r) + ' 0 0 1 ' + -c + ',' + n(-ty) + ' L0,' + -t + ' Z', bottom: 'M' + -c + ',' + n(ty) + ' L' + c + ',' + n(ty) + ' L0,' + t + ' Z', top: 'M' + -c + ',' + n(-ty) + ' L' + c + ',' + n(-ty) + ' L0,' + -t + ' Z' };
+    const r = HALO_OUT - hw / 2, n = (v) => Math.round(v * 1000) / 1000;
+    const wedge = (half, out, sign) => { const ty = Math.sqrt(r * r - half * half), tip = out - hw / 2; return { half, ty: n(ty), tip: n(tip), sides: 'M' + half + ',' + n(sign * ty) + ' L0,' + n(sign * tip) + ' L' + -half + ',' + n(sign * ty), fill: 'M' + -half + ',' + n(sign * ty) + ' L' + half + ',' + n(sign * ty) + ' L0,' + n(sign * tip) + ' Z' }; };
+    const up = wedge(WEDGE_UP_HALF, WEDGE_UP, -1), down = wedge(WEDGE_DOWN_HALF, WEDGE_DOWN, 1);
+    const ring = 'M' + n(r) + ',0 A' + n(r) + ',' + n(r) + ' 0 1 1 ' + n(-r) + ',0 A' + n(r) + ',' + n(r) + ' 0 1 1 ' + n(r) + ',0 Z';
+    return { r, up, down, d: ring + ' ' + up.sides + ' ' + down.sides, top: up.fill, bottom: down.fill };
   }
-  // the faceted gem above the 13th seat, relative to the seat's centre: its lower point is GEM_GAP above the outer edge of the upward wedge's tip (the tip's own stroke counted), four facets
-  function centreGem(hw) {
-    const bottom = -(WEDGE_TIP + hw / 2 + GEM_GAP + GEM_STROKE / 2), mid = bottom - GEM_HALF_H * 2 * 0.58, top = bottom - GEM_HALF_H * 2, w = GEM_HALF_W;
-    const P = (x, y) => x + ',' + y;
-    return { top, bottom, mid, outline: 'M' + P(0, top) + ' L' + P(w, mid) + ' L' + P(0, bottom) + ' L' + P(-w, mid) + ' Z',
-      facets: ['M' + P(0, top) + ' L' + P(-w, mid) + ' L' + P(0, mid) + ' Z', 'M' + P(0, top) + ' L' + P(w, mid) + ' L' + P(0, mid) + ' Z', 'M' + P(-w, mid) + ' L' + P(0, bottom) + ' L' + P(0, mid) + ' Z', 'M' + P(w, mid) + ' L' + P(0, bottom) + ' L' + P(0, mid) + ' Z'] };
+  // the faceted gem above the 13th seat, relative to the seat's centre: its lower point is GEM_GAP above the outer edge of the upward wedge's tip, a pale bevel round four facets that meet in the middle
+  function centreGem() {
+    const bottom = -(WEDGE_UP + GEM_GAP + GEM_STROKE / 2), top = bottom - GEM_HALF_H * 2, mid = top + (bottom - top) * GEM_MID, w = GEM_HALF_W;
+    const n = (v) => Math.round(v * 100) / 100, P = (x, y) => n(x) + ',' + n(y);
+    const iw = w * GEM_BEVEL, it = mid + (top - mid) * GEM_BEVEL, ib = mid + (bottom - mid) * GEM_BEVEL; // the inner diamond the facets fill
+    return { top, bottom, mid, outline: 'M' + P(0, top) + ' L' + P(w, mid) + ' L' + P(0, bottom) + ' L' + P(-w, mid) + ' Z', inner: 'M' + P(0, it) + ' L' + P(iw, mid) + ' L' + P(0, ib) + ' L' + P(-iw, mid) + ' Z',
+      cross: 'M' + P(0, it) + ' V' + n(ib) + ' M' + P(-iw, mid) + ' H' + n(iw),
+      facets: ['M' + P(0, it) + ' L' + P(-iw, mid) + ' L' + P(0, mid) + ' Z', 'M' + P(0, it) + ' L' + P(iw, mid) + ' L' + P(0, mid) + ' Z', 'M' + P(-iw, mid) + ' L' + P(0, ib) + ' L' + P(0, mid) + ' Z', 'M' + P(iw, mid) + ' L' + P(0, ib) + ' L' + P(0, mid) + ' Z'] };
   }
   const strokePath = (d, stroke, w, extra) => sv('path', Object.assign({ d, fill: 'none', stroke, 'stroke-width': w, 'stroke-linejoin': 'miter' }, extra || {}));
   const mirror = (x) => W - x;
   // The size of the crest pictures in the 2172 x 724 drawing (the picture is a 256 square with its margin: the visible crest is about three quarters of it), as the approved V20 plaque shows them.
-  const SHIELD_MARK = 120, STANDARD_MARK = 88, SEAT_MEDAL = 2 * TRACK.r + 2, SEAT_MARK = 50;
+  const SHIELD_MARK = 120, STANDARD_MARK = 88, SEAT_MEDAL = 2 * TRACK.r + 2, SEAT_MARK = 64;
   // The medallion pictures carry their own lighting: the rim of the Atreides medallion is bright on its left and dull on its right (about 20 percent), the Harkonnen one the other way round. A flat ring of the
   // faction's colour is drawn over that rim, centred on the rim's own middle, so a claimed seat is the same all the way round (#971). RIM_R is the middle of the picture's rim, RIM_W its width, both in the
   // drawing's units; the ring stays inside the seat's outer edge (RIM_R + RIM_W / 2 is below SEAT_OUT).
@@ -423,10 +430,11 @@
       rgrad(p + 'sa', [[0, '#5ff0c8'], [0.6, '#14a07c'], [1, '#0b6a52']]),
       rgrad(p + 'sh', [[0, '#ff7b6e'], [0.6, '#c4242a'], [1, '#8a1218']]),
       rgrad(p + 'so', [[0, '#f1dcb4'], [0.7, '#c9aa70'], [1, '#a08450']]),
-      rgrad(p + 'sc', [[0, '#0a0805'], [0.55, '#15100a'], [0.85, '#2c1f0c'], [1, '#6b4a14']]), // the dark interior of the 13th seat's ring, a warm light at its rim
-      grad(p + 'rg', 0, 0, 0, 1, [[0, GOLD.mid], [0.5, GOLD.hi], [1, GOLD.mid]]), // the ring's rim: the same at the top and the bottom, brightest across the middle
-      grad(p + 'wd', 0, 0, 0, 1, [[0, '#c48a2e'], [0.55, GOLD.mid], [1, '#fff6cf']]), // the downward wedge: deeper gold at the base corners, pale at the tip
-      grad(p + 'wu', 0, 1, 0, 0, [[0, '#c48a2e'], [0.55, GOLD.mid], [1, '#fff6cf']]), // the upward wedge, the same flipped
+      rgrad(p + 'sc', [[0, '#3a1a02'], [0.5, '#3e1d02'], [0.66, '#5a2a03'], [0.8, '#9a4e07'], [0.92, '#e08a0c'], [1, '#ffa514']]), // the dark brown interior of the 13th seat's ring with a warm orange light inside its rim (measured from the approved picture)
+      grad(p + 'rg', 0, 0, 0, 1, [[0, '#ffd84a'], [0.114, '#fff6c8'], [0.2, '#ffd84a'], [0.5, '#f2b81c'], [0.8, '#ffd84a'], [0.823, '#fff6c8'], [1, '#ffd84a']]), // the ring's rim and wedge sides: white-hot where the ring is topmost and lowest (the gradient runs over the whole outline, tip to tip), deeper gold at the sides, gold along the wedge sides
+      grad(p + 'wd', 0, 0, 0, 1, [[0, '#fff6b0'], [0.5, '#ffd641'], [1, '#e09f14']]), // the downward wedge: pale next to the ring, deeper gold towards the tip
+      grad(p + 'wu', 0, 1, 0, 0, [[0, '#fff6b0'], [0.5, '#ffd641'], [1, '#e09f14']]), // the upward wedge, the same flipped
+      grad(p + 'gb', 0, 0, 0, 1, [[0, '#ffe98a'], [0.5, '#f7c630'], [1, '#e8a213']]), // the bevel of the gem
       glow(p + 'tblur', 4),
       glow(p + 'cblur', 6, 30),
     ]);
@@ -450,18 +458,23 @@
       if (s.center) {
         // the ring's outer edge is T.halo in both states: a bolder stroke (a won seat) is drawn inward
         const hw = win13 ? HALO_W_WIN : HALO_W;
-        const o = centreOutline(hw), gem = centreGem(hw);
-        // behind: the glow of the outline, then the dark interior, the two wedges and the ring with its wedges as one outline, then the separate faceted gem
-        sg.appendChild(sv('path', { class: 'lcc-glow lcc-glow-seat', d: o.d, fill: 'none', stroke: GOLD.mid, 'stroke-width': hw + 5, 'stroke-linejoin': 'round', filter: g('cblur'), 'aria-hidden': 'true' }));
-        sg.appendChild(sv('circle', { class: 'lcc-seat-base', r: o.r, fill: g('sc'), stroke: GOLD.hi, 'stroke-width': 1.5, 'stroke-opacity': 0.5 }));
+        const o = centreOutline(hw), gem = centreGem();
+        // behind: the glow of the outline; then the two wedges, the dark interior with the warm light inside its rim, the ring and the wedge sides as one outline (the ring runs over the wedge bases),
+        // the creases of the wedges, then the separate faceted gem
+        sg.appendChild(sv('path', { class: 'lcc-glow lcc-glow-seat', d: o.d, fill: 'none', stroke: GOLD.mid, 'stroke-width': hw + 2.5, 'stroke-linejoin': 'round', filter: g('cblur'), 'aria-hidden': 'true' }));
         sg.appendChild(sv('path', { class: 'lcc-seat-wedge lcc-seat-wedge-top', d: o.top, fill: g('wu') }));
         sg.appendChild(sv('path', { class: 'lcc-seat-wedge lcc-seat-wedge-bottom', d: o.bottom, fill: g('wd') }));
+        sg.appendChild(sv('circle', { class: 'lcc-seat-base', r: o.r, fill: g('sc'), stroke: GOLD.hi, 'stroke-width': 1.5, 'stroke-opacity': 0.5 }));
         sg.appendChild(sv('path', { class: 'lcc-seat-halo', d: o.d, fill: 'none', stroke: g('rg'), 'stroke-width': hw, 'stroke-linejoin': 'round' }));
+        for (const w of [o.up, o.down]) sg.appendChild(sv('path', { class: 'lcc-seat-crease', d: 'M0,' + (w === o.up ? -w.ty : w.ty) + ' V' + (w === o.up ? -w.tip : w.tip), fill: 'none', stroke: '#fff8d0', 'stroke-width': 1.2, opacity: 0.8, 'aria-hidden': 'true' }));
         const gm = sv('g', { class: 'lcc-seat-gem', 'aria-hidden': 'true' });
-        gm.appendChild(sv('path', { class: 'lcc-glow lcc-glow-seat', d: gem.outline, fill: GOLD.mid, stroke: 'none', filter: g('tblur') }));
-        const tones = ['#fff3c4', '#ffe08a', '#d9a23e', '#b9822a']; // upper left, upper right, lower left, lower right: pale at the top, deeper at the sides and below
+        gm.appendChild(sv('path', { class: 'lcc-glow lcc-glow-seat', d: gem.outline, fill: GOLD.mid, stroke: 'none', filter: g('cblur') }));
+        gm.appendChild(sv('path', { class: 'lcc-seat-bevel', d: gem.outline, fill: g('gb') }));
+        const tones = ['#ffee7a', '#ffdc3c', '#fcc41c', '#f2a50c']; // upper left, upper right, lower left, lower right: pale at the top, deeper gold below
         gem.facets.forEach((d, i) => gm.appendChild(sv('path', { class: 'lcc-seat-facet', d, fill: tones[i] })));
-        gm.appendChild(sv('path', { class: 'lcc-glow-edge', d: gem.outline, fill: 'none', stroke: GOLD.lo, 'stroke-width': GEM_STROKE, 'stroke-linejoin': 'round' }));
+        gm.appendChild(sv('path', { class: 'lcc-seat-cross', d: gem.cross, fill: 'none', stroke: '#fffbe0', 'stroke-width': 1.2, opacity: 0.75 }));
+        gm.appendChild(sv('path', { class: 'lcc-seat-inner', d: gem.inner, fill: 'none', stroke: '#b87a0c', 'stroke-width': 0.9, 'stroke-linejoin': 'round' }));
+        gm.appendChild(sv('path', { class: 'lcc-glow-edge', d: gem.outline, fill: 'none', stroke: '#fbe39a', 'stroke-width': GEM_STROKE, 'stroke-linejoin': 'round' }));
         sg.appendChild(gm);
         if (win13) {
           sg.setAttribute('data-win13', win13);
@@ -469,7 +482,7 @@
           // the travelling arc runs round the ring only: the two wedges are cut out of its clip, so it never crosses a wedge
           sg.appendChild(sv('clipPath', { id: p + 'ringclip' }, [sv('path', { d: 'M-90,-130 H90 V130 H-90 Z ' + o.top + ' ' + o.bottom, 'clip-rule': 'evenodd' })]));
           const sweepG = sv('g', { 'clip-path': g('ringclip') });
-          sweepG.appendChild(sv('circle', { class: 'lcc-seat-win-sweep', r: T.halo - HALO_W_WIN / 2, fill: 'none', 'stroke-width': HALO_W_WIN, 'stroke-linecap': 'round', 'stroke-dasharray': '42 147', 'aria-hidden': 'true' }));
+          sweepG.appendChild(sv('circle', { class: 'lcc-seat-win-sweep', r: T.halo - HALO_W_WIN / 2, fill: 'none', 'stroke-width': HALO_W_WIN, 'stroke-linecap': 'round', 'stroke-dasharray': Math.round(0.36 * 2 * Math.PI * (T.halo - HALO_W_WIN / 2)) + ' ' + Math.round(0.64 * 2 * Math.PI * (T.halo - HALO_W_WIN / 2)), 'aria-hidden': 'true' }));
           sg.appendChild(sweepG);
         }
       }

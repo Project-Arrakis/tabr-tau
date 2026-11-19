@@ -202,6 +202,10 @@
 .lcc-bd-emblem { margin: 8px 0 5px; font: 700 68px/1 var(--lcc-serif); color: var(--lcc-gold); }
 .lcc-bd-vtag + .lcc-bd-vhead { margin-top: 16px; } /* no winner, no icon: the tag keeps a clear gap above the title */
 .lcc-bd-emblem-a, .lcc-bd-emblem-h { display: flex; align-items: center; justify-content: center; width: 84px; height: 84px; margin: 8px auto 5px; box-sizing: border-box; border-radius: 50%; border: 2px solid var(--lcc-gold); font-size: 40px; color: var(--lcc-on-faction); }
+/* the winner's circle sits under the SYSSELRAAD WON tag, whose win outline (3 px, 3 px off the box: 6 px) and glow reach into the 8 px between the two boxes, so the circle nearly touched the outline (#1021).
+   The circle's top margin takes that reach on top of the 8 px of the approved panel: 15 px from the box, about 9 px clear of the outline, the same clear space as between the heading and the tag and
+   between the circle and the title */
+.lcc-bd-vtag + .lcc-bd-emblem { margin-top: 15px; }
 .lcc-bd-emblem-a { background: radial-gradient(circle at 50% 35%, var(--lcc-atreides), var(--lcc-atreides-deep)); }
 .lcc-bd-emblem-h { background: radial-gradient(circle at 50% 35%, var(--lcc-harkonnen), var(--lcc-harkonnen-deep)); }
 .lcc-bd-emblem-img { display: block; width: 52px; height: 52px; object-fit: contain; }
@@ -507,6 +511,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
   .lcc-bd-victory { min-height: 0; padding-top: 14px; padding-bottom: 14px; }
   .lcc-bd-emblem { margin: 6px 0 4px; font-size: 34px; }  /* a smaller emblem, not none: it also keeps the status tag a clear gap above the heading */
   .lcc-bd-emblem-a, .lcc-bd-emblem-h { width: 56px; height: 56px; margin: 6px auto 4px; font-size: 26px; }
+  .lcc-bd-vtag + .lcc-bd-emblem { margin-top: 13px; }  /* the outline's reach again (#1021): 13 px from the box, about 7 px clear of the outline */
   .lcc-bd-emblem-img { width: 34px; height: 34px; }
 }
 @media (forced-colors: active) {
