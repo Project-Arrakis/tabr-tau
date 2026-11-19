@@ -367,7 +367,7 @@
     if (editable) { const td = el('td', 'lcc-bd-c-pick'); td.appendChild(pickBox(h, picks)); tr.appendChild(td); }
     tr.appendChild(el('td', 'lcc-bd-c-no', h.number || '—'));
     const nameTd = el('td', 'lcc-bd-c-house');
-    // the House name carries the Classic hover card (next reward, not collected, faction race, the place as a link), built once by the page (host.card) and open while the pointer or the focus is on it (#951)
+    // the House name carries the Classic hover card (next reward, not collected, faction standing, the place as a link), built once by the page (host.card) and open while the pointer or the focus is on it (#951)
     const hw = el('span', 'hw');
     hw.appendChild(btn('lcc-bd-linkb lcc-bd-namebtn', h.name, { 'data-lcb': 'sel', 'data-id': h.id, 'data-fk': 'ht:' + h.id, 'aria-label': 'House ' + h.name + ': look at its tiers and actions' }));
     const card = host && typeof host.card === 'function' ? host.card(h.id) : null;

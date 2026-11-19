@@ -179,11 +179,11 @@ test('the place: a house with no position says so and does not open anything; on
   assert.ok(text(ui.doc.querySelector('#lsrow-901 .more')).includes('north rim'));
 });
 
-test('the house name card names the next reward, what waits, the faction race and the place, and opens on a click', async () => {
+test('the house name card names the next reward, what waits, the faction standing and the place, and opens on a click', async () => {
   const ui = await open();
   const hw = ui.doc.querySelector('#lsrow-903 .hw');
   const card = text(hw.querySelector('.hcard'));
-  assert.ok(card.includes('Not collected') && card.includes('Faction race') && card.includes('Atreides 4,000 of 4,000') && card.includes('Finished by Atreides'), card);
+  assert.ok(card.includes('Not collected') && card.includes('Faction standing') && card.includes('Atreides 4,000 of 4,000') && card.includes('Finished by Atreides'), card);
   assert.ok(text(hw.querySelector('.hcard')).includes('top tier reached'));
   click(ui, '#lsrow-903 .hn');
   assert.ok(hw.classList.contains('open'));

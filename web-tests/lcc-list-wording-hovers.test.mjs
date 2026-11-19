@@ -107,7 +107,7 @@ test('#951: the House name of a row carries the Classic hover card, and the cell
   const card = r.querySelector('.hw > .hcard');
   assert.ok(card, 'the card is in the name cell');
   const t = text(card);
-  for (const w of ['House Alexin', 'Next reward', 'Not collected', 'Faction race', 'Place']) assert.ok(t.includes(w), w + ' in ' + t);
+  for (const w of ['House Alexin', 'Next reward', 'Not collected', 'Faction standing', 'Place']) assert.ok(t.includes(w), w + ' in ' + t);
   assert.ok(r.querySelector('.hw > .lcc-bd-namebtn'), 'the name stays the button that looks at the House');
   assert.equal(r.querySelector('.hw .hn'), null);
   // the same card as the Classic list's, from one builder
