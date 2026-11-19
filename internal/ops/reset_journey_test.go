@@ -139,6 +139,7 @@ func TestResetJourneyTwiceIsANoOp(t *testing.T) {
 }
 
 func TestResetJourneyRefusesAStaleOrMissingCount(t *testing.T) {
+	t.Parallel()
 	o := journeyResetOps(t)
 	was := digest(t, o, nil, 0)
 	for _, n := range []float64{0, 4, 5, 7} {

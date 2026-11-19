@@ -684,6 +684,7 @@ func previewPartIn(t *testing.T, r any, slot string) string {
 }
 
 func TestEveryPartTheCatalogOffersForASlotIsAcceptedByThePreviewAndShowsInItsRows(t *testing.T) {
+	t.Parallel()
 	o := spawnOps(t)
 	cat, err := o.VehicleCatalog()
 	if err != nil {

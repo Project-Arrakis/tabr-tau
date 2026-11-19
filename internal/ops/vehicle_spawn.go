@@ -429,7 +429,7 @@ func (l *spawnLedger) forget(key spawnAsked) {
 	}
 }
 
-// ForgetSpawnAnswers empties the ledger of a save. It is called when edits that were made are dropped (Discard, Restore), so that an id whose vehicle is gone is not answered as a repeat.
+// ForgetSpawnAnswers empties the ledger of a save. It is called when Restore has replaced the file, so that an id whose vehicle is gone from it is not answered as a repeat. A Discard or a reload that dropped edits does not empty the ledger: it calls PruneSpawnAnswers, which drops only the answers whose vehicle is not in the working copy.
 func ForgetSpawnAnswers(s *save.Save) {
 	spawnAnswers.Lock()
 	defer spawnAnswers.Unlock()

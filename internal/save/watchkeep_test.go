@@ -14,9 +14,10 @@ import (
 // unbroken, and the write goes through.
 //
 // The clock of the test is its own: it moves only by the steps the test makes by hand, never with the real time, so how fast the runner is cannot change the outcome (#898: with
-// a clock that ran 300 times faster than the real one, a tick that came 100 ms late on a busy runner was a gap in the watch). The stalled preparation steps the clock 10 s at a
-// time, and only after the ticker has evaluated the gate once more; so with the ticker, no two evaluations are ever more than one step apart, however late a tick comes, and
-// without it nothing evaluates the gate while the clock moves.
+// a clock that ran 300 times faster than the real one, a tick that came 100 ms late on a busy runner was a gap in the watch). The ticks are the test's own too (#875): the stalled
+// preparation steps the clock 10 s, then sends one tick, which is taken only when the evaluation before it has finished. So with the ticker the evaluations run one after the
+// other, each reads the clock as it is when it starts, none is late enough to read a time before the one recorded, and no two are more than one step apart; without it nothing
+// evaluates the gate while the clock moves.
 func TestAWriteWhosePreparationOutlastsTheWatchKeepsTheWatch(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
@@ -32,17 +33,22 @@ func TestAWriteWhosePreparationOutlastsTheWatchKeepsTheWatch(t *testing.T) {
 			defer s.Close()
 			orig, _ := os.ReadFile(p)
 			gateStubs(t)
-			oldObs, oldEvery, oldPrepared := observeQuietFor, watchEvery, prepared
+			oldObs, oldEvery, oldTicks, oldPrepared := observeQuietFor, watchEvery, watchTicks, prepared
 			observeQuietFor = menuQuietAfterWrite
 			t.Cleanup(func() {
-				observeQuietFor, watchEvery, prepared = oldObs, oldEvery, oldPrepared
+				observeQuietFor, watchEvery, watchTicks, prepared = oldObs, oldEvery, oldTicks, oldPrepared
 				forgetObserved(p)
 				forgetOwnWrite(p)
 			})
 			forgetObserved(p)
-			watchEvery = time.Millisecond
+			// The ticks are the test's own (#875): an unbuffered channel, so a send is taken only when the keepWatching goroutine is back at its select, that is, when the evaluation
+			// before has finished. With a ticker that ran on the real time, an evaluation could read the clock, be held up before it recorded the observation (a busy runner), and
+			// arrive after the write's own evaluation at the later time: a reading 10 s before the last one is a clock that went backward, the watch started over and the write was refused.
+			ticks := make(chan time.Time)
+			watchTicks = func(time.Duration) (<-chan time.Time, func()) { return ticks, func() {} }
 			if !tc.ticker {
 				watchEvery = time.Hour
+				watchTicks = oldTicks // nothing is sent; the hour is never reached
 			}
 			base := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
 			var stepped atomic.Int64 // the steps the test makes by hand, in nanoseconds of the test's clock
@@ -66,26 +72,32 @@ func TestAWriteWhosePreparationOutlastsTheWatchKeepsTheWatch(t *testing.T) {
 				t.Fatalf("the warm-up should have passed the watch: %+v", g)
 			}
 			setA(t, s, 2)
-			// The preparation takes 120 s of the test's clock, four gaps. With the ticker each step waits for one more evaluation of the gate (the real time it takes does not matter;
-			// the limit only keeps a ticker that never comes from hanging the test); without it the clock moves at once.
+			// The preparation takes 120 s of the test's clock, four gaps. With the ticker each step is followed by one tick, taken when the evaluation before it is done; without it
+			// the clock moves at once.
+			before := asked.Load()
 			prepared = func() {
 				for i := 0; i < 12; i++ {
+					stepped.Add(int64(10 * time.Second))
 					if tc.ticker {
-						want := asked.Load() + 1
-						for deadline := time.Now().Add(30 * time.Second); asked.Load() < want; time.Sleep(time.Millisecond) {
-							if time.Now().After(deadline) {
-								t.Error("keepWatching did not evaluate the gate while the write was prepared")
-								return
-							}
+						// The clock has moved; the tick is taken only after the evaluation before it has finished, and the evaluation it starts reads the clock as it now is, because the
+						// clock moves again only after the next tick is taken. So the evaluations are one after the other, none of them reads a time before the one recorded, and no
+						// two are more than one step apart. (The real time limit only keeps a goroutine that never comes from hanging the test.)
+						select {
+						case ticks <- time.Time{}:
+						case <-time.After(30 * time.Second):
+							t.Error("keepWatching did not take a tick while the write was prepared")
+							return
 						}
 					}
-					stepped.Add(int64(10 * time.Second))
 				}
 			}
 			f := s.Flush()
 			if tc.ticker {
 				if !f.Saved {
 					t.Fatalf("a slow preparation broke the watch, and the write was refused: %+v", f)
+				}
+				if n := asked.Load() - before; n < 12 {
+					t.Fatalf("keepWatching evaluated the gate %d times for 12 ticks", n)
 				}
 				return
 			}

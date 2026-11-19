@@ -341,6 +341,7 @@ func TestBoardLocationGivesTheDistanceFromYouOnlyOnTheSameMapWithAMapping(t *tes
 
 // The places are optional (#820): a save whose markers cannot be read still gives the board, the term and the decrees, with every house at its fixed place, and says so.
 func TestBoardReadSurvivesMarkersThatCannotBeRead(t *testing.T) {
+	t.Parallel()
 	cases := map[string]string{
 		"no markers table":    `drop table markers;`,
 		"a missing column":    `alter table markers rename column area_id to area_gone;`,

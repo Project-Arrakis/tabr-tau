@@ -14,6 +14,7 @@ import (
 // import and checks that the save is exactly as it was, nothing queued and nothing dirty, after each. The fixture is the made-up pick-up of baseexport_test.go: inventory 7001 has 20
 // slots and holds items 9001 (slot 0) and 9002 (slot 1); inventory 7002 has 5.
 func TestImportRefusesValuesOutOfRange(t *testing.T) {
+	t.Parallel()
 	good := exportedFile(t)
 	if n, known := catalog.MaxStack("SteelBar"); !known || n != 500 {
 		t.Fatalf("the test needs SteelBar to be known with a stack of 500: %d %v", n, known)

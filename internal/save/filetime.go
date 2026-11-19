@@ -135,6 +135,13 @@ func forgetObserved(savePath string) {
 // so the tests can run it faster than the clock they stand in for.
 var watchEvery = observeGap / 3
 
+// watchTicks gives keepWatching the ticks that tell it to evaluate the gate, and the function that stops them. As shipped it is a time.Ticker of the given period; a variable so a
+// test can send the ticks itself, one at a time, and know that an evaluation has finished before it moves its clock (#875).
+var watchTicks = func(every time.Duration) (<-chan time.Time, func()) {
+	t := time.NewTicker(every)
+	return t.C, t.Stop
+}
+
 // keepWatching evaluates the gate every watchEvery until the returned function is called, which stops it and waits for it to finish. A write holds the save's lock across the hash
 // of the file, the integrity check, the encode and its round trip, the backup and the temp file, and on a large save any one of these can by itself take longer than observeGap;
 // a gate asked once after them would be the first evaluation after a gap, start the watch again and refuse every time, so the edits would never be written while a game process
@@ -145,13 +152,13 @@ func (s *Save) keepWatching(passOnly bool) (stop func()) {
 	every := watchEvery
 	go func() {
 		defer close(done)
-		t := time.NewTicker(every)
-		defer t.Stop()
+		ticks, stopTicks := watchTicks(every)
+		defer stopTicks()
 		for {
 			select {
 			case <-quit:
 				return
-			case <-t.C:
+			case <-ticks:
 				s.gateFor(passOnly)
 			}
 		}

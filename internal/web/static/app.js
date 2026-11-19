@@ -1728,12 +1728,17 @@ async function vcAskPick(seq) {
   if (answer) {
     vcPreview = answer;
     vcPreviewKey = JSON.stringify(asked);
-    const d = answer.derived, what = picked.length === 1 ? slotWord(picked[0]) + ' is now ' + vcPartName(picked[0]) : 'The parts are changed';
-    toast(`${what}. Health ${Number(d.maxHealth).toLocaleString()}, ${d.cargoSlots ? 'cargo hold of ' + nn(d.cargoSlots, 'slot', 'slots') : 'no cargo hold'}.`);
   } else {
     const shown = Object.fromEntries(vcPreview.rows.vehicle_modules.map((m) => [m.slot, m.template_id]));
     for (const s of vcClass().slots) draft.mods[s.slot] = shown[s.slot] || '';
     vcPartNote = { slots: picked, text: err.message };
+  }
+  // The state is up to date either way, and the card is drawn from it when the person comes back. If the preview card is not on the page (another tab or sub-page was opened while the
+  // answer was on its way), there is no table to say a toast about, and a redraw would drop what was typed on the page that is open now (#739).
+  if (!$('#vcpreview')) return;
+  if (answer) {
+    const d = answer.derived, what = picked.length === 1 ? slotWord(picked[0]) + ' is now ' + vcPartName(picked[0]) : 'The parts are changed';
+    toast(`${what}. Health ${Number(d.maxHealth).toLocaleString()}, ${d.cargoSlots ? 'cargo hold of ' + nn(d.cargoSlots, 'slot', 'slots') : 'no cargo hold'}.`);
   }
   await vcRedraw(typed, vcTypedWatch(typed));
 }
@@ -3238,7 +3243,9 @@ function eachViewPart(fn) {
   const count = new Map();
   const nth = (k) => { const n = count.get(k) || 0; count.set(k, n + 1); return k + '|' + n; };
   main.querySelectorAll('.scroll').forEach((e) => { const h = e.closest('.card') && e.closest('.card').querySelector('h3'); fn('scroll', e, nth('S:' + (h ? h.textContent.trim().slice(0, 40) : ''))); });
-  main.querySelectorAll('input, select, textarea').forEach((e) => { if (!VIEW_SKIP.has(e.type)) fn('ctl', e, nth(ctlKey(e))); });
+  // The part boxes of Create a vehicle belong to its draft, which takes a change in the change event and draws the boxes from itself: a snapshot taken before a refused pick would put
+  // the refused part back into them after a redraw that was already on its way (#742).
+  main.querySelectorAll('input, select, textarea').forEach((e) => { if (!VIEW_SKIP.has(e.type) && !e.hasAttribute('data-vcprev') && !e.hasAttribute('data-vcslot')) fn('ctl', e, nth(ctlKey(e))); });
   main.querySelectorAll('details').forEach((e) => { const s = e.querySelector('summary'); fn('det', e, nth('D:' + (s ? s.textContent.trim().slice(0, 40) : ''))); });
 }
 const selDefault = (s) => { const o = [...s.options].find((x) => x.defaultSelected) || s.options[0]; return o ? o.value : ''; };

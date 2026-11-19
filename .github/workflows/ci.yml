@@ -19,7 +19,7 @@ jobs:
   go:
     name: go
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -44,8 +44,18 @@ jobs:
           GOOS=windows GOARCH=386 CGO_ENABLED=0 go vet ./internal/gui/ ./cmd/...
       - name: go test (race, coverage)
         # The limit is per test binary. internal/ops alone took 412 to 592 s here under -race with coverage (31 s without), so go's default of 10 minutes failed the job on a slow runner (#756).
-        # 20 minutes is about twice the slowest run seen and the job's timeout-minutes above still covers all its steps; if a runner ever needs more, raise this number first, then that one.
-        run: go test -race -count=1 -timeout 20m -covermode=atomic -coverprofile=coverage.out ./...
+        # 20 minutes is about twice the slowest run seen. Binaries run side by side, and one that starts late on a slow runner still has its whole 20 minutes, so the job's timeout-minutes
+        # above is 40: a hang then ends with go's stacks (the limit reports first), not with a job cancelled without a word. If a runner ever needs more, raise this number first, then that
+        # one, and keep the job limit at least twice this one.
+        # The output goes to race.log as well (the step still fails with go's exit code: pipefail) for the next step, which lists the slowest packages (#767).
+        shell: bash
+        run: |
+          set -o pipefail
+          go test -race -count=1 -timeout 20m -covermode=atomic -coverprofile=coverage.out ./... 2>&1 | tee race.log
+      - name: slowest packages
+        # Only reports: a package that took more than half of the 20 minute limit above gets a warning annotation, long before it fails a job. Keep the 20 here in step with the limit above.
+        if: always()
+        run: bash scripts/slowest-packages.sh race.log 20 10
       - name: coverage summary
         run: go tool cover -func=coverage.out | tail -1
       - name: go test (the game's newer save layout, #588)

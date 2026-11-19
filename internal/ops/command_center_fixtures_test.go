@@ -1071,6 +1071,7 @@ type ccSpecCase struct {
 }
 
 func TestCommandCenterSpecFixturesAreWhatSpecsAnswers(t *testing.T) {
+	t.Parallel()
 	var f struct {
 		Cases []ccSpecCase `json:"cases"`
 	}

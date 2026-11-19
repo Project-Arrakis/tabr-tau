@@ -497,46 +497,78 @@ func TestADiscardKeepsTheAnswersOfWrittenCreatesAndDropsThoseOfQueuedOnes(t *tes
 }
 
 // A vehicle the game wrote under the id of a Create that was dropped is not that Create's vehicle (#760): after Discard and after Reload now the answer is dropped, and a retry
-// writes the Create again instead of being answered with the game's vehicle.
+// writes the Create again instead of being answered with the game's vehicle. The game's vehicle carries the Actor and VehicleInventory entities every vehicle has, and is told apart
+// by its class and by the ids of those entities, each on its own (#793): the same class under other entity ids, and another class under the very ids of the Create's entities.
 func TestAVehicleOfTheGameUnderTheIdOfADroppedCreateIsNotTakenForIt(t *testing.T) {
-	for _, how := range []string{"discard", "reload"} {
-		t.Run(how, func(t *testing.T) {
-			restore := save.ActiveSessionForTests()
-			s := ledgerServer(t)
-			a := create(t, s, ledgerForm1) // queued
-			class := a["rows"].(map[string]any)["actors"].([]any)[0].(map[string]any)["class"].(string)
-			restore() // the game closes, having written a vehicle of its own under the id of the queued one
-			other, err := save.Open(s.Save.Path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, err := other.Mutate("the game's vehicle", func(m *save.Mut) error {
-				if _, err := m.Exec(`insert into actors(id,class,map,state) values (?,?,'HaggaBasin',0)`, a["id"], class); err != nil {
-					return err
+	for _, tc := range []struct {
+		name     string
+		sameCls  bool
+		ownLinks bool
+	}{{"the same class, other entities", true, false}, {"another class, the Create's own entities", false, true}} {
+		for _, how := range []string{"discard", "reload"} {
+			t.Run(tc.name+"/"+how, func(t *testing.T) {
+				restore := save.ActiveSessionForTests()
+				s := ledgerServer(t)
+				a := create(t, s, ledgerForm1) // queued
+				rows := a["rows"].(map[string]any)
+				class := "/Game/Dune/Systems/Vehicles/Blueprints/GroundVehicles/BP_Sandbike.BP_Sandbike_C"
+				if tc.sameCls {
+					class = rows["actors"].([]any)[0].(map[string]any)["class"].(string)
 				}
-				_, err := m.Exec(`insert into vehicles(id) values (?)`, a["id"])
-				return err
-			}); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := other.CommitForTests(); err != nil {
-				t.Fatal(err)
-			}
-			other.Close()
-			route := "/api/save/discard"
-			if how == "reload" {
-				route = "/api/save/rebase"
-			}
-			if w := postEdit(t, s, route, `{}`); w.Code != 200 {
-				t.Fatalf("%s: %d %s", route, w.Code, w.Body.String())
-			}
-			if n := ops.SpawnAnswerCount(s.Save); n != 0 {
-				t.Fatalf("the answer names the game's vehicle, not the Create's: it is dropped, %d answers", n)
-			}
-			b := create(t, s, ledgerForm1)
-			if b["repeat"] == true || b["id"] == a["id"] || vehiclesInFile(t, s.Save.Path) != 2 {
-				t.Fatalf("the retry writes the Create again next to the game's vehicle: %v, %d vehicles", b, vehiclesInFile(t, s.Save.Path))
-			}
-		})
+				links := map[string]int64{"Actor": 8300000000000201, "VehicleInventory": 8300000000000202} // ids no entity of the Create has
+				if tc.ownLinks {
+					links = map[string]int64{}
+					for _, e := range rows["entities"].([]any) {
+						e := e.(map[string]any)
+						links[e["slot_name"].(string)] = int64(e["entity_id"].(float64)) // test ids stay below 2^53, so the JSON number is exact
+					}
+				}
+				if len(links) != 2 {
+					t.Fatalf("a Create links an Actor and a VehicleInventory entity: %v", links)
+				}
+				restore() // the game closes, having written a vehicle of its own under the id of the queued one
+				other, err := save.Open(s.Save.Path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := other.Mutate("the game's vehicle", func(m *save.Mut) error {
+					if _, err := m.Exec(`insert into actors(id,class,map,state) values (?,?,'HaggaBasin',0)`, a["id"], class); err != nil {
+						return err
+					}
+					if _, err := m.Exec(`insert into vehicles(id) values (?)`, a["id"]); err != nil {
+						return err
+					}
+					for slot, ent := range links {
+						if _, err := m.Exec(`insert into fgl_entities(entity_id,components) values (?, jsonb('{}'))`, ent); err != nil {
+							return err
+						}
+						if _, err := m.Exec(`insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (?,?,?)`, a["id"], ent, slot); err != nil {
+							return err
+						}
+					}
+					return nil
+				}); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := other.CommitForTests(); err != nil {
+					t.Fatal(err)
+				}
+				other.Close()
+				route := "/api/save/discard"
+				if how == "reload" {
+					route = "/api/save/rebase"
+				}
+				if w := postEdit(t, s, route, `{}`); w.Code != 200 {
+					t.Fatalf("%s: %d %s", route, w.Code, w.Body.String())
+				}
+				if n := ops.SpawnAnswerCount(s.Save); n != 0 {
+					t.Fatalf("the answer names the game's vehicle, not the Create's: it is dropped, %d answers", n)
+				}
+				b := create(t, s, ledgerForm1)
+				if b["repeat"] == true || b["id"] == a["id"] || vehiclesInFile(t, s.Save.Path) != 2 {
+					t.Fatalf("the retry writes the Create again next to the game's vehicle: %v, %d vehicles", b, vehiclesInFile(t, s.Save.Path))
+				}
+			})
+		}
 	}
 }

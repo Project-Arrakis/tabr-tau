@@ -9,6 +9,7 @@ import (
 // The fixture is that of vehicle_place_test.go.
 
 func TestPlaceGroundVehicleIsTenMetresAheadWhateverTheFacing(t *testing.T) {
+	t.Parallel()
 	words := map[float64]string{0: "10 m east of you", 90: "10 m south of you", 180: "10 m west of you", 270: "10 m north of you", 45: "10 m south-east of you"}
 	for _, deg := range []float64{0, 45, 90, 180, 270, -30} {
 		for _, key := range groundKeys {

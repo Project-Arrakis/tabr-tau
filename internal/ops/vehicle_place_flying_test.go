@@ -101,6 +101,7 @@ func TestFlyingFacingFollowsTheConsolesMaths(t *testing.T) {
 }
 
 func TestFlyingVehicleIsThirtyMetresAheadAndSevenUpWhateverTheFacing(t *testing.T) {
+	t.Parallel()
 	for _, deg := range []float64{0, 45, 90, 135, 180, 270, -30} {
 		for _, key := range flyingKeys {
 			o := placeOps(t, turnTo(deg))
@@ -191,6 +192,7 @@ func TestFlyingRoofCheckIsMadeAtTheAircraftsHeight(t *testing.T) {
 }
 
 func TestFlyingWithNoClearSpotIsRefusedAsBefore(t *testing.T) {
+	t.Parallel()
 	var ps []testPiece
 	for x := -9500.0; x <= 9700; x += 512 {
 		for y := -9300.0; y <= 9900; y += 512 {
@@ -245,6 +247,7 @@ func TestFlyingBringAndDuplicateFollowTheSameRule(t *testing.T) {
 }
 
 func TestFlyingGroundVehiclesAreNeverBelowTheCharacter(t *testing.T) {
+	t.Parallel()
 	for _, cz := range []float64{-20000, 0, 300, 52000} {
 		for _, key := range groundKeys {
 			o := placeOps(t, fmt.Sprintf("update actors set location_z=%v where id=2;", cz))
