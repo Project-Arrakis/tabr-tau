@@ -311,6 +311,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_VERNIUS",
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [], "swatches": 0, "take": 0, "tiers": 0, "unsure": 0 },
       "winning_faction_id": 2
     },
     {
@@ -411,6 +412,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_RICHESE",
       "sysselraad": 0,
+      "unfill": { "collected": 1, "earned": 0, "rows": [ { "amount": 10000, "outcome": "collected", "swatch": false, "template_id": "SolarisCoin", "why": "" } ], "swatches": 0, "take": 0, "tiers": 1, "unsure": 0 },
       "winning_faction_id": 1
     },
     {
@@ -522,6 +524,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_KENOLA",
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [], "swatches": 0, "take": 0, "tiers": 1, "unsure": 0 },
       "winning_faction_id": null
     },
     {
@@ -622,6 +625,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_ALEXIN",
       "sysselraad": 0,
+      "unfill": { "collected": 1, "earned": 0, "rows": [ { "amount": 10000, "outcome": "collected", "swatch": false, "template_id": "SolarisCoin", "why": "" }, { "amount": 1, "outcome": "take", "swatch": false, "template_id": "SYNTH_SCHEMATIC_1", "why": "" } ], "swatches": 0, "take": 1, "tiers": 2, "unsure": 0 },
       "winning_faction_id": 1
     },
     {
@@ -722,6 +726,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_THORVALD",
       "sysselraad": 0,
+      "unfill": { "collected": 4, "earned": 0, "rows": [ { "amount": 10000, "outcome": "collected", "swatch": false, "template_id": "SolarisCoin", "why": "" }, { "amount": 1, "outcome": "collected", "swatch": false, "template_id": "SYNTH_SCHEMATIC_1", "why": "" }, { "amount": 50, "outcome": "collected", "swatch": false, "template_id": "SYNTH_PART_1", "why": "" }, { "amount": 1, "outcome": "collected", "swatch": false, "template_id": "SYNTH_SCHEMATIC_2", "why": "" }, { "amount": 1, "outcome": "take", "swatch": true, "template_id": "SYNTH_SWATCH_THORVALD", "why": "" } ], "swatches": 1, "take": 1, "tiers": 5, "unsure": 0 },
       "winning_faction_id": 1
     },
     {
@@ -822,6 +827,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_MORITANI",
       "sysselraad": 0,
+      "unfill": { "collected": 2, "earned": 0, "rows": [ { "amount": 10000, "outcome": "collected", "swatch": false, "template_id": "SolarisCoin", "why": "" }, { "amount": 1, "outcome": "take", "swatch": false, "template_id": "SYNTH_SCHEMATIC_1", "why": "" }, { "amount": 50, "outcome": "collected", "swatch": false, "template_id": "SYNTH_PART_1", "why": "" } ], "swatches": 0, "take": 1, "tiers": 4, "unsure": 0 },
       "winning_faction_id": 2
     },
     {
@@ -922,6 +928,7 @@
       "swatch_held": true,
       "swatch_template_id": "SYNTH_SWATCH_HAGAL",
       "sysselraad": 0,
+      "unfill": { "collected": 5, "earned": 0, "rows": [ { "amount": 10000, "outcome": "collected", "swatch": false, "template_id": "SolarisCoin", "why": "" }, { "amount": 1, "outcome": "collected", "swatch": false, "template_id": "SYNTH_SCHEMATIC_1", "why": "" }, { "amount": 50, "outcome": "collected", "swatch": false, "template_id": "SYNTH_PART_1", "why": "" }, { "amount": 1, "outcome": "collected", "swatch": false, "template_id": "SYNTH_SCHEMATIC_2", "why": "" }, { "amount": 1, "outcome": "collected", "swatch": true, "template_id": "SYNTH_SWATCH_HAGAL", "why": "" } ], "swatches": 0, "take": 0, "tiers": 5, "unsure": 0 },
       "winning_faction_id": 1
     },
     {
@@ -1022,6 +1029,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_WALLACH",
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [ { "amount": 10000, "outcome": "take", "swatch": false, "template_id": "SolarisCoin", "why": "" }, { "amount": 1, "outcome": "take", "swatch": false, "template_id": "SYNTH_SCHEMATIC_1", "why": "" }, { "amount": 50, "outcome": "take", "swatch": false, "template_id": "SYNTH_PART_1", "why": "" } ], "swatches": 0, "take": 3, "tiers": 3, "unsure": 0 },
       "winning_faction_id": 1
     },
     {
@@ -1119,6 +1127,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_SOR",
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [], "swatches": 0, "take": 0, "tiers": 0, "unsure": 0 },
       "winning_faction_id": null
     },
     {
@@ -1226,6 +1235,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_LINDAREN",
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [], "swatches": 0, "take": 0, "tiers": 0, "unsure": 0 },
       "winning_faction_id": null
     },
     {
@@ -1326,6 +1336,7 @@
       "swatch_held": true,
       "swatch_template_id": "SYNTH_SWATCH_ARGOSAZ",
       "sysselraad": 0,
+      "unfill": { "collected": 4, "earned": 0, "rows": [ { "amount": 10000, "outcome": "collected", "swatch": false, "template_id": "SolarisCoin", "why": "" }, { "amount": 1, "outcome": "collected", "swatch": false, "template_id": "SYNTH_SCHEMATIC_1", "why": "" }, { "amount": 50, "outcome": "collected", "swatch": false, "template_id": "SYNTH_PART_1", "why": "" }, { "amount": 1, "outcome": "collected", "swatch": false, "template_id": "SYNTH_SCHEMATIC_2", "why": "" }, { "amount": 75, "outcome": "take", "swatch": false, "template_id": "SYNTH_OWN_TOP", "why": "" } ], "swatches": 0, "take": 1, "tiers": 5, "unsure": 0 },
       "winning_faction_id": null
     },
     {
@@ -1425,6 +1436,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_TSEIDA",
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [], "swatches": 0, "take": 0, "tiers": 0, "unsure": 0 },
       "winning_faction_id": 1
     },
     {
@@ -1519,6 +1531,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_MUTELLI",
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [], "swatches": 0, "take": 0, "tiers": 0, "unsure": 0 },
       "winning_faction_id": 1
     },
     {
@@ -1618,6 +1631,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_HURATA",
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [], "swatches": 0, "take": 0, "tiers": 0, "unsure": 0 },
       "winning_faction_id": 2
     },
     {
@@ -1715,6 +1729,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_WAYKU",
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [], "swatches": 0, "take": 0, "tiers": 0, "unsure": 0 },
       "winning_faction_id": null
     },
     {
@@ -1814,6 +1829,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_SPINETTE",
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [], "swatches": 0, "take": 0, "tiers": 0, "unsure": 0 },
       "winning_faction_id": 1
     },
     {
@@ -1911,6 +1927,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_MAROS",
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [], "swatches": 0, "take": 0, "tiers": 0, "unsure": 0 },
       "winning_faction_id": null
     },
     {
@@ -2008,6 +2025,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_DYVETZ",
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [], "swatches": 0, "take": 0, "tiers": 0, "unsure": 0 },
       "winning_faction_id": null
     },
     {
@@ -2107,6 +2125,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_VAROTA",
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [], "swatches": 0, "take": 0, "tiers": 0, "unsure": 0 },
       "winning_faction_id": 1
     },
     {
@@ -2206,6 +2225,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_NOVEBRUNS",
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [], "swatches": 0, "take": 0, "tiers": 0, "unsure": 0 },
       "winning_faction_id": 2
     },
     {
@@ -2305,6 +2325,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_IMOTA",
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [], "swatches": 0, "take": 0, "tiers": 0, "unsure": 0 },
       "winning_faction_id": 1
     },
     {
@@ -2404,6 +2425,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_WYDRAS",
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [], "swatches": 0, "take": 0, "tiers": 0, "unsure": 0 },
       "winning_faction_id": 1
     },
     {
@@ -2503,6 +2525,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_TALIGARI",
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [], "swatches": 0, "take": 0, "tiers": 0, "unsure": 0 },
       "winning_faction_id": 1
     },
     {
@@ -2600,6 +2623,7 @@
       "swatch_held": false,
       "swatch_template_id": "SYNTH_SWATCH_MIKKAROL",
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [], "swatches": 0, "take": 0, "tiers": 0, "unsure": 0 },
       "winning_faction_id": null
     },
     {
@@ -2625,6 +2649,7 @@
       "rewards": null,
       "swatch_held": false,
       "sysselraad": 0,
+      "unfill": { "collected": 0, "earned": 0, "rows": [], "swatches": 0, "take": 0, "tiers": 0, "unsure": 0 },
       "winning_faction_id": null
     }
   ],

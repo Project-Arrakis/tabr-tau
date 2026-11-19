@@ -182,7 +182,7 @@ test('a bulk button for more than one house asks first with the count; Cancel an
   const ui = await open(board(), { '/api/landsraad/apply': { ...OK, changed: 3, houses: 3, contribution_raised: 0, completed: 3, reward_rows: 0 } });
   assert.equal(text(ui.doc.querySelector('#lsb-sum')), 'Nothing is chosen.');
   click(ui, '[data-lb=pickall]');
-  assert.equal(text(ui.doc.querySelector('#lsb-sum')), 'Chosen: 4 houses. Fill chosen changes 3, Complete chosen changes 3 for Atreides, Reopen chosen changes 2.');
+  assert.equal(text(ui.doc.querySelector('#lsb-sum')), 'Chosen: 4 houses. Fill chosen changes 3, Complete chosen changes 3 for Atreides, Complete and fill chosen changes 3, Reopen chosen changes 2, Unfill chosen changes 3.');
   click(ui, '[data-lb=bulk][data-do=complete]'); await ui.settle();
   const q = ui.doc.querySelector('#lsb-confirm');
   assert.ok(q, 'the question is shown');

@@ -38,7 +38,7 @@ test('the whole action bar is in the control bar above the 5 by 5: the choose bu
   // act: Fill, Complete, Reopen, the faction with its note, the count
   const act = bar.querySelector('[data-lcc-slot="act"] .barpart[data-bar="act"]');
   assert.ok(act, 'the actions are in the control bar');
-  assert.deepEqual([...act.querySelectorAll('button')].map((b) => [text(b), b.dataset.lb, b.dataset.do, b.dataset.fk]), [['Fill chosen', 'bulk', 'fill', 'b-fill'], ['Complete chosen', 'bulk', 'complete', 'b-complete'], ['Reopen chosen', 'bulk', 'reopen', 'b-reopen']]);
+  assert.deepEqual([...act.querySelectorAll('button')].map((b) => [text(b), b.dataset.lb, b.dataset.do, b.dataset.fk]), [['Fill chosen', 'bulk', 'fill', 'b-fill'], ['Complete chosen', 'bulk', 'complete', 'b-complete'], ['Complete and fill chosen', 'bulk', 'cfill', 'b-cfill'], ['Reopen chosen', 'bulk', 'reopen', 'b-reopen'], ['Unfill chosen', 'bulk', 'unfill', 'b-unfill']]);
   assert.equal(text(act.querySelector('label[for="lsb-fac"]')), 'Faction for Fill and Complete');
   const fac = act.querySelector('select#lsb-fac');
   assert.ok(fac && fac.dataset.lb === 'fac' && fac.dataset.fk === 'fac');
@@ -77,7 +77,7 @@ test('the classic list keeps its action bar as it was (one bar, the About sectio
   await ui.settle();
   const bar = ui.doc.querySelector('#lsb-board > .actbar');
   assert.ok(bar, 'the bar is in the classic board');
-  assert.deepEqual([...bar.querySelectorAll('button')].map((b) => b.dataset.fk), ['b-all', 'b-none', 'b-fill', 'b-complete', 'b-reopen']);
+  assert.deepEqual([...bar.querySelectorAll('button')].map((b) => b.dataset.fk), ['b-all', 'b-none', 'b-fill', 'b-complete', 'b-cfill', 'b-reopen', 'b-unfill']);
   assert.ok(bar.querySelector('#lsb-fac') && bar.querySelector('#lsb-sum'));
   assert.equal(bar.querySelector('#lsb-legend'), null);
   assert.deepEqual([...bar.querySelectorAll('details.about > summary')].map((s) => text(s)), ['About tiers', 'About Fill and Complete']);
@@ -218,7 +218,7 @@ test('the bar of the chosen houses for a phone follows the choice and presses th
   const bar = ui.doc.querySelector('#lsb-phonebar');
   assert.ok(bar.hidden, 'nothing is chosen: no bar');
   assert.equal(bar.getAttribute('aria-label'), 'The chosen houses');
-  assert.deepEqual([...bar.querySelectorAll('button')].map((b) => text(b)), ['Fill chosen', 'Complete chosen', 'Reopen chosen']);
+  assert.deepEqual([...bar.querySelectorAll('button')].map((b) => text(b)), ['Fill chosen', 'Complete chosen', 'Complete and fill chosen', 'Reopen chosen', 'Unfill chosen']);
   pick(ui, a, ['Sor', 'Lindaren']);
   assert.equal(bar.hidden, false);
   assert.equal(text(bar.querySelector('.pn')), '2 chosen');

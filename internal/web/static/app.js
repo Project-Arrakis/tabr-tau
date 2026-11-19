@@ -1874,7 +1874,8 @@ function lbHouse(r, l) {
   const loc = r.location || { known: false };
   const state = mine <= 0 ? 'new' : tiers.length && reached === tiers.length ? 'done' : 'part';
   return { id: r.id, name: lbNameOf(r), task: r, mine, tiers, reached, state, goal, prog, win, done, taken: lbTaken({ done, win }),
-    loc, region: loc.known ? loc.map : '', area: loc.known ? loc.area : '', held: !!r.swatch_held };
+    loc, region: loc.known ? loc.map : '', area: loc.known ? loc.area : '', held: !!r.swatch_held,
+    unfill: r.unfill || null }; // what Unfill chosen would do to the rewards of every reached tier of this house at once (the server's rule, landsraad_takeback.go: boardUnfill), said before the click (#932)
 }
 const lbRText = (t) => lbF(t.amount) + ' ' + itemName(t.tmpl);
 // the next-tier text is two pieces that never break inside: on a wide row they sit on one line, on a phone the second piece moves down
@@ -1906,6 +1907,15 @@ const lbFillOffF = (h, l, F) => lbFillOff(h, l) || !lbOwnF(l, F);
 // tier number). Returns null when the click would change nothing. Nothing is ever lowered except by the removal of the highest tier (lower: true).
 function lbItem(h, l, kind, F, i) {
   const it = { task_id: h.id, was_mine: h.mine, was_done: h.done, was_win: h.win };
+  // Complete and fill chosen is Fill faction goal on each chosen house, and only for the character's own faction: the fill is the character's own contribution, so with another faction chosen it is off
+  // (a House is never completed alone by this button; Complete chosen is the button for that), #932
+  if (kind === 'cfill') { if (!lbOwnF(l, F)) return null; kind = 'fillgoal'; }
+  // Unfill chosen sets the character's own contribution to 0 (every reached tier comes off at once) and carries the number of waiting rewards the question said it would take back (was_taken), so the
+  // server refuses it when it would take back another number now. A House with no contribution of yours is left out, and so is a read that does not say what an unfill would do (#932).
+  if (kind === 'unfill') {
+    if (!lbOwnF(l, F) || !(h.mine > 0) || !h.unfill) return null;
+    it.mine_to = 0; it.lower = true; it.was_taken = (h.unfill.rows || []).filter((r) => r.outcome === 'take').length; // counted from the rows the question names, so the number sent is the number said
+  }
   if (kind === 'tier') {
     if (!lbOwnF(l, F)) return null; // a tier sets your own contribution, which counts for your own faction only (#667)
     const ths = h.tiers.map((t) => t.th), n = h.reached;
@@ -2381,7 +2391,7 @@ function lbBoardInner(l) {
   return html`${lbViewSwitch()}<section class="card d-panel" aria-labelledby="lsb-board-h" id="lsb-board"><h2 class="d-head" id="lsb-board-h" tabindex="-1">Command Center board <span class="cnt">${nn(hs.length, 'house', 'houses')}</span></h2>
   ${who ? html`<p class="line1">${who}</p>` : ''}
   <div id="lsb-lcc"></div>
-  ${hs.length && ready ? lbActbar(hs, l, true) : ''}${hs.length && ready ? lbPhoneBar() : ''}</section>${lbTermOn() ? html`<div id="lsb-lcc-term"></div>` : html`${lbTerm(l)}${lbHistory(l)}`}`; // with the Command Center scripts the term section is seated in the board under the plaque (lbSeat), drawn once (#923)
+  ${hs.length && ready ? lbActbar(hs, l, true) : ''}${hs.length && ready ? lbPhoneBar(l) : ''}</section>${lbTermOn() ? html`<div id="lsb-lcc-term"></div>` : html`${lbTerm(l)}${lbHistory(l)}`}`; // with the Command Center scripts the term section is seated in the board under the plaque (lbSeat), drawn once (#923)
 }
 function lbInner(l) {
   if (lbBoardOn()) return lbBoardInner(l);
@@ -2417,7 +2427,7 @@ const lbPage = (l) => html`<div class="lsb" id="lsb" data-sort="${LB.sort}" data
 function lbSumText(hs, l) {
   const ch = hs.filter((h) => LP.pick.has(h.id)), F = lbFacId(l);
   if (!ch.length) return 'Nothing is chosen.';
-  return `Chosen: ${nn(ch.length, 'house', 'houses')}. Fill chosen changes ${ch.filter((h) => !lbFillOffF(h, l, F)).length}, Complete chosen changes ${ch.filter((h) => !lbDoneFor(h, F)).length} for ${lbFacName(l, F)}, Reopen chosen changes ${ch.filter((h) => h.taken).length}.`;
+  return `Chosen: ${nn(ch.length, 'house', 'houses')}. Fill chosen changes ${ch.filter((h) => !lbFillOffF(h, l, F)).length}, Complete chosen changes ${ch.filter((h) => !lbDoneFor(h, F)).length} for ${lbFacName(l, F)}, Complete and fill chosen changes ${ch.filter((h) => lbOwnF(l, F) && (!lbFillOffF(h, l, F) || !lbDoneFor(h, F))).length}, Reopen chosen changes ${ch.filter((h) => h.taken).length}, Unfill chosen changes ${ch.filter((h) => lbOwnF(l, F) && h.mine > 0).length}.`;
 }
 function lbActbar(hs, l, split) {
   const F = lbFacId(l), mineF = lbCan(l) ? l.character.faction_id : null, cf = LP.confirm;
@@ -2425,7 +2435,8 @@ function lbActbar(hs, l, split) {
   // the choose buttons next to Jump to House, the actions with the faction box and the count of the chosen houses as the next line of that bar, and the question, the result line and the note on a write
   // directly under it. The same elements, the same data-lb, data-do and data-fk, so one handler serves both places (#914).
   const choose = html`<button type="button" class="qa" data-lb="pickall" data-fk="b-all">Choose all houses</button><button type="button" class="qa" data-lb="pickno" data-fk="b-none">Clear the choice</button>`;
-  const bulks = html`<button type="button" class="qa btnp" data-lb="bulk" data-do="fill" data-fk="b-fill" title="Raises your contribution on every chosen house to its highest reward tier (never lowered) and writes what the missions pay: Solari, House Scrip and specialization XP. The question shows the totals before anything is written. Does nothing while another faction is chosen.">Fill chosen</button><button type="button" class="qa btnp" data-lb="bulk" data-do="complete" data-fk="b-complete" title="Marks every chosen house complete for the faction below and sets that faction's progress on it to the house goal (never lowered).">Complete chosen</button><button type="button" class="qa" data-lb="bulk" data-do="reopen" data-fk="b-reopen" title="Reopens the chosen houses: clears the completion and the winner. Progress and contributions stay as they are, so this does not set back what Complete wrote.">Reopen chosen</button>`;
+  const bulkWhy = (act) => lbBulkOff(act, l, F), bulkOff = (act) => (bulkWhy(act) ? html`aria-disabled="true" data-why="${bulkWhy(act)}"` : ''), bulkTip = (act, text) => bulkWhy(act) || text;
+  const bulks = html`<button type="button" class="qa btnp" data-lb="bulk" data-do="fill" data-fk="b-fill" title="Raises your contribution on every chosen house to its highest reward tier (never lowered) and writes what the missions pay: Solari, House Scrip and specialization XP. The question shows the totals before anything is written. Does nothing while another faction is chosen.">Fill chosen</button><button type="button" class="qa btnp" data-lb="bulk" data-do="complete" data-fk="b-complete" title="Marks every chosen house complete for the faction below and sets that faction's progress on it to the house goal (never lowered).">Complete chosen</button><button type="button" class="qa btnp" data-lb="bulk" data-do="cfill" data-fk="b-cfill" ${bulkOff('cfill')} title="${bulkTip('cfill', 'Does Fill chosen and Complete chosen in one write, with one backup and one result line: raises your contribution on every chosen house to its highest reward tier (never lowered, and the missions it pays are written as for Fill chosen) and marks the house complete for the faction below with its progress at the goal. Does nothing while another faction is chosen: use Complete chosen for that.')}">Complete and fill chosen</button><button type="button" class="qa" data-lb="bulk" data-do="reopen" data-fk="b-reopen" title="Reopens the chosen houses: clears the completion and the winner. Progress and contributions stay as they are, so this does not set back what Complete wrote.">Reopen chosen</button><button type="button" class="qa" data-lb="bulk" data-do="unfill" data-fk="b-unfill" ${bulkOff('unfill')} title="${bulkTip('unfill', 'Sets your contribution to 0 on every chosen house you have a contribution on, so its tiers go back to 0 of 5. Takes back the rewards of those tiers that still wait at the house representative and that the editor wrote; a reward already collected stays. Takes back no Solari, House Scrip or XP, and does not change whether a house is taken. The question shows what it would take back before anything is written.')}">Unfill chosen</button>`;
   const ask = !cf ? '' : html`<p id="lsb-confirm" class="confirm" role="group" aria-label="Confirm: ${cf.q}"><b>${cf.q}</b> <button type="button" class="qa btnp" data-lb="cyes" data-fk="c-yes">${cf.yes}</button><button type="button" class="qa" data-lb="cno" data-fk="c-no">Cancel</button></p>`;
   const fac = html`<label for="lsb-fac">Faction for Fill and Complete</label><select id="lsb-fac" data-lb="fac" data-fk="fac">${(l.factions || []).map((f) => html`<option value="${f.id}" ${f.id == F ? 'selected' : ''}>${f.name}${f.id == mineF ? ' (your faction)' : ''}</option>`)}</select><span class="note" title="The faction of the next Fill faction goal, Complete or bulk click. Choosing it writes nothing.">starts on your own faction</span>`;
   const sum = html`<p id="lsb-sum" aria-live="polite">${lbSumText(hs, l)}</p>`;
@@ -2451,6 +2462,8 @@ function lbActbar(hs, l, split) {
     ${lbAbout('lsb.fill', 'Fill and Complete', html`<p>Fill, Complete and Reopen act for the faction chosen above. It starts on your character's own faction.</p>
       <p><b>Fill</b> and <b>Fill chosen</b> raise your own contribution to the top tier (never lowered) and write what the missions that reach it pay (see Tiers). They change nothing while another faction is chosen: your contribution counts for your own faction, so no contribution and no reward is written for another.</p>
       <p><b>Complete</b> and <b>Complete chosen</b> take the house for the chosen faction: its progress goes to the goal, and the winner and the completion are set. For another faction this records that faction's win and progress and skips your own contribution row. <b>Fill faction goal</b> on one house does both in one click: your faction ends at its progress plus what you gained, and at least at the goal.</p>
+      <p><b>Complete and fill chosen</b> does Fill chosen and Complete chosen in one write, with one backup and one result line: your contribution goes to the top tier on every chosen house and each house is taken for the faction chosen. It acts only for your own faction (your contribution counts for it), so it is off while another faction is chosen; Complete chosen is the button for another faction. The missions the fill pays are the same as for Fill chosen, and a request that stands for more than the limit is refused with the reason.</p>
+      <p><b>Unfill chosen</b> sets your own contribution to 0 on every chosen house you have one on: every tier you reached there comes off, and each house is back to 0 of 5. It takes back the rewards of those tiers that still wait at the house representative and that the editor wrote, by the rule of a tier removal (see Tiers); a reward already collected stays. It takes back no Solari, House Scrip or XP and does not change whether a house is taken or its faction's progress. The question names what it takes back and what stays, and the write is refused if that is not what the save says now.</p>
       <p><b>Reopen</b> clears the completion and the winner and leaves progress and contribution as they are. It does not undo a Complete completely: the faction's progress that Complete raised to the goal stays there, and a house that was taken by another faction is left open rather than given back to it. Reopen writes or removes no reward.</p>
       <p>Each click is written at once, and it is refused if the house is no longer what you were shown. A click that would write ${LB_ASK_MISSIONS} missions or more on one house asks first, and so does every button for several houses ("Complete 7 houses?"); the question says what it writes. Several houses are one edit: either every house is changed or none is.</p>`)}
   </div>`;
@@ -2558,13 +2571,15 @@ async function lbSend(b, items, label, hs, focusFk) {
     const queued = String(NOT_SAVED) !== ''; // the game is running: the change is queued, so nothing here may say it is in the save
     const rows = r.reward_rows ? nn(r.reward_rows, 'reward', 'rewards') + (queued ? ' to leave' : ' now') + ' waiting at the house representative' : '';
     // what the missions of a raise write (landsraad_grant.go), and the warning when rewards were left out because the character's own events already crossed them (#656)
+    // an unfill sets the contribution to 0 on every House it changes: it says so, not "a tier removed" (#932)
+    const lowered = (n_) => (label === LB_BULK.unfill[0] ? 'your contribution set to 0 on ' + nn(n_, 'house', 'houses') + ' (every tier removed)' : 'lowered on ' + nn(n_, 'house', 'houses') + ' (a tier removed)');
     const grant = lbGrantText(r, queued), left = r.rewards_already_given, back = r.contribution_lowered ? lbBackText(r, queued) : '';
     const warn = left ? 'Warning: ' + nn(left, 'reward', 'rewards') + (left === 1 ? ' was' : ' were') + ' left out: earlier progress on this house already counted for ' + (left === 1 ? 'it' : 'them') + '. Nothing to do' : '';
     const tail = (r.contribution_lowered ? ' ' + LB_REMOVE_NOTE : '') + (r.missions ? ' ' + GRANT_UNCHECKED : '');
     let text;
     if (items.length === 1 && hs.get(items[0].task_id)) text = label + ': ' + lbChangeText(hs.get(items[0].task_id), l, items[0]) + (r.completed && items[0].complete_for == null ? '; house taken, its faction reached the goal' : '') + (rows ? '; ' + rows : '') + (back ? '; ' + back : '') + (grant ? '; ' + grant : '') + (warn ? '; ' + warn : '') + extra + '.' + tail;
     else {
-      const parts = [r.contribution_raised ? 'your contribution raised on ' + nn(r.contribution_raised, 'house', 'houses') : '', r.contribution_lowered ? 'lowered on ' + nn(r.contribution_lowered, 'house', 'houses') + ' (a tier removed)' : '',
+      const parts = [r.contribution_raised ? 'your contribution raised on ' + nn(r.contribution_raised, 'house', 'houses') : '', r.contribution_lowered ? lowered(r.contribution_lowered) : '',
         rows, back, grant, r.completed ? nn(r.completed, 'house', 'houses') + ' completed' : '', r.reopened ? nn(r.reopened, 'house', 'houses') + ' reopened' : '', warn].filter(Boolean);
       text = label + ': ' + parts.join(', ') + extra + '.' + tail;
     }
@@ -2573,7 +2588,7 @@ async function lbSend(b, items, label, hs, focusFk) {
     const h1 = items.length === 1 ? hs.get(items[0].task_id) : null;
     const lines = [h1
       ? dot(label + ': ' + lbChangeText(h1, l, items[0]) + (r.completed && items[0].complete_for == null ? '; house taken, its faction reached the goal' : '') + (rows ? '; ' + rows : '') + extra)
-      : dot(label + ': ' + ([r.contribution_raised ? 'your contribution raised on ' + nn(r.contribution_raised, 'house', 'houses') : '', r.contribution_lowered ? 'lowered on ' + nn(r.contribution_lowered, 'house', 'houses') + ' (a tier removed)' : '', rows, r.completed ? nn(r.completed, 'house', 'houses') + ' completed' : '', r.reopened ? nn(r.reopened, 'house', 'houses') + ' reopened' : ''].filter(Boolean).join(', ') || 'written') + extra)];
+      : dot(label + ': ' + ([r.contribution_raised ? 'your contribution raised on ' + nn(r.contribution_raised, 'house', 'houses') : '', r.contribution_lowered ? lowered(r.contribution_lowered) : '', rows, r.completed ? nn(r.completed, 'house', 'houses') + ' completed' : '', r.reopened ? nn(r.reopened, 'house', 'houses') + ' reopened' : ''].filter(Boolean).join(', ') || 'written') + extra)];
     if (back) lines.push(dot(back.charAt(0).toUpperCase() + back.slice(1)));
     if (grant) lines.push(dot(grant));
     if (left) lines.push('Warning: ' + nn(left, 'reward', 'rewards') + (left === 1 ? ' was' : ' were') + ' left out: earlier progress on this house already counted for ' + (left === 1 ? 'it' : 'them') + '.');
@@ -2591,7 +2606,40 @@ async function lbSend(b, items, label, hs, focusFk) {
   } else if (lost && lbBoardOn()) { const hd = $('#lsb-board-h'); if (hd) hd.focus({ preventScroll: true }); } // the board has no result line: the focus goes to the heading of the board, not to the top of the page
   return ok;
 }
-const LB_BULK = { fill: ['Fill chosen', 'Fill'], complete: ['Complete chosen', 'Complete'], reopen: ['Reopen chosen', 'Reopen'] };
+const LB_BULK = { fill: ['Fill chosen', 'Fill'], complete: ['Complete chosen', 'Complete'], reopen: ['Reopen chosen', 'Reopen'], unfill: ['Unfill chosen', 'Unfill'], cfill: ['Complete and fill chosen', 'Complete and fill'] };
+// Why Unfill chosen and Complete and fill chosen are off, or '' when they are on. Both change the character's own contribution, which counts for the character's own faction: with another faction chosen
+// they do nothing, and the page says why instead of leaving the House out without a word (#932). Complete chosen is the button that acts for another faction.
+function lbBulkOff(act_, l, F) {
+  if (act_ !== 'unfill' && act_ !== 'cfill') return '';
+  if (!lbCan(l)) return 'Your character is in no faction, so there is no contribution of yours to change.';
+  if (lbOwnF(l, F)) return '';
+  const own = lbFacName(l, l.character.faction_id), fn = lbFacName(l, F);
+  return LB_BULK[act_][0] + ' is off while ' + fn + ' is chosen: it changes your own contribution, which counts for ' + own + '. Choose ' + own + ' above' + (act_ === 'cfill' ? ', or use Complete chosen for ' + fn : '') + '.';
+}
+// What Unfill chosen says before it writes (#932), from what the board's read says each House would do (h.unfill, the server's rule): how many Houses go to 0, the waiting rewards it takes back, the ones that
+// stay and why. The numbers are the server's; the request carries the count of rewards taken back, so the write is refused when it differs.
+function lbUnfillSay(items, hs) {
+  const hl = items.map((it) => hs.get(it.task_id)), by = { take: [], collected: [], earned: [], unsure: [] }, why = new Set();
+  for (const h of hl) for (const r of (h.unfill && h.unfill.rows) || []) {
+    if (!by[r.outcome]) continue;
+    by[r.outcome].push(lbF(r.amount) + ' ' + itemName(r.template_id) + (r.swatch ? ' (the house swatch)' : '') + ' on House ' + h.name);
+    if (r.outcome === 'unsure' && r.why) why.add(r.why);
+  }
+  const list = (a) => (a.length > 6 ? a.slice(0, 6).join(', ') + ' and ' + (a.length - 6) + ' more' : a.join(', '));
+  const p = ['Your contribution goes to 0 on ' + nn(hl.length, 'house', 'houses') + ': every tier you have reached there comes off.'];
+  if (by.take.length) p.push('Takes back ' + nn(by.take.length, 'waiting reward', 'waiting rewards') + ': ' + list(by.take) + '.');
+  if (by.collected.length) p.push(nn(by.collected.length, 'reward', 'rewards') + ' already collected ' + (by.collected.length === 1 ? 'stays' : 'stay') + ': ' + list(by.collected) + '.');
+  if (by.earned.length) p.push(nn(by.earned.length, 'waiting reward', 'waiting rewards') + (by.earned.length === 1 ? ' stays' : ' stay') + ' (your own missions in the game cover ' + (by.earned.length === 1 ? 'its tier' : 'their tiers') + '): ' + list(by.earned) + '.');
+  if (by.unsure.length) p.push(nn(by.unsure.length, 'reward', 'rewards') + (by.unsure.length === 1 ? ' stays' : ' stay') + ' (' + [...why].join('; ') + '): ' + list(by.unsure) + '.');
+  if (!by.take.length && !by.collected.length && !by.earned.length && !by.unsure.length) p.push('No reward waits for the removed tiers, so nothing is taken back.');
+  p.push('A House that is taken stays taken, and so does your faction’s progress.');
+  return p.join(' ');
+}
+// What Complete and fill chosen says before it writes: how many Houses get your contribution raised and how many are taken, for the faction chosen (the missions the fill pays are said by lbGrantSay, as for Fill chosen).
+function lbCfillSay(items, F) {
+  const fill = items.filter((it) => it.mine_to !== undefined).length, done = items.filter((it) => it.complete_for != null).length;
+  return 'Raises your contribution to the top tier on ' + nn(fill, 'house', 'houses') + ' (never lowered) and takes ' + nn(done, 'house', 'houses') + ' for ' + lbFacName(LD, F) + ': its progress goes to the goal.';
+}
 function lbBulkItems(act_, ids, F, i) {
   const hs = new Map(LD.tasks.filter((r) => ids.has(r.id)).map((r) => [r.id, lbHouse(r, LD)]));
   return { hs, items: [...hs.values()].map((h) => lbItem(h, LD, act_, F, i)).filter(Boolean) };
@@ -2613,8 +2661,9 @@ function lbAskOf(act_, items, hs, F, i, one) {
   const removal = act_ === 'tier' && !!items[0].lower, rt = removal ? h1.tiers[h1.reached - 1] : null; // a removal removes the highest reached tier
   const what = one ? (act_ === 'tier' ? (removal ? 'Remove tier ' + i + ' on House ' + h1.name : 'Give tier ' + i + ' on House ' + h1.name) : act_ === 'fillgoal' ? 'Fill faction goal on House ' + h1.name : LB_BULK[act_][1] + ' House ' + h1.name) : LB_BULK[act_][1] + ' ' + nn(n, 'house', 'houses');
   const g = lbGrantOfItems(items, hs), raises = !!LD.grant && items.some((it) => it.mine_to !== undefined);
-  const q = what + (act_ === 'complete' || act_ === 'fillgoal' ? ' for ' + lbFacName(LD, F) : '') + '?' + (removal && rt ? ' ' + lbBackSay(rt) + ' ' + LB_REMOVE_NOTE : '') + (raises ? ' ' + lbGrantSay(g) : '') + (lbBoardOn() ? lbBoardAsk(items, hs, F, one) : '') + ' Written at once, with a backup first.';
-  return { yes: what, q, missions: g.problem ? 0 : g.missions, removal: removal && lbBackAsks(rt) };
+  const unf = act_ === 'unfill', cf = act_ === 'cfill';
+  const q = what + (act_ === 'complete' || act_ === 'fillgoal' || cf ? ' for ' + lbFacName(LD, F) : '') + '?' + (removal && rt ? ' ' + lbBackSay(rt) + ' ' + LB_REMOVE_NOTE : '') + (unf ? ' ' + lbUnfillSay(items, hs) + ' ' + LB_REMOVE_NOTE : '') + (cf ? ' ' + lbCfillSay(items, F) : '') + (raises && !unf ? ' ' + lbGrantSay(g) : '') + (lbBoardOn() || unf || cf ? lbBoardAsk(items, hs, F, one) : '') + ' Written at once, with a backup first.';
+  return { yes: what, q, missions: g.problem ? 0 : g.missions, removal: unf || (removal && lbBackAsks(rt)) }; // an unfill always asks: it takes rewards back
 }
 // The houses of a request whose win is taken from another faction: Complete (or Fill faction goal) for F on a house that another faction took.
 const lbReplaced = (items, hs, F) => items.filter((it) => it.complete_for != null).map((it) => hs.get(it.task_id)).filter((h) => h && h.win != null && h.win != F);
@@ -2656,9 +2705,12 @@ function lbGo(b, act_, items, hs, F, i, label, backFk, one) {
   if (c) intoView(c);
 }
 function lbBulk(b, act_) {
-  const F = lbFacId(LD), ids = new Set(LP.pick);
-  if (!ids.size) { lbSay('Nothing is chosen, so there is nothing to ' + act_ + '.'); return; }
+  const F = lbFacId(LD), ids = new Set(LP.pick), off = lbBulkOff(act_, LD, F);
+  if (off) { lbSay(off); return; }
+  if (!ids.size) { lbSay('Nothing is chosen, so there is nothing to ' + (act_ === 'cfill' ? 'complete and fill' : act_) + '.'); return; }
   const { hs, items } = lbBulkItems(act_, ids, F);
+  // the read must say what an unfill would do to the rewards of every House it lowers: without it the question could not be honest, so nothing is asked and nothing is written
+  if (act_ === 'unfill' && [...hs.values()].some((h) => h.mine > 0 && !h.unfill)) { lbSay('Unfill chosen cannot say what it would do to the rewards, so nothing was changed. Reload the page and try again.', true); return; }
   if (!items.length) { lbSay(LB_BULK[act_][0] + ': nothing to change on the chosen houses.'); return; }
   lbGo(b, act_, items, hs, F, undefined, LB_BULK[act_][0], 'b-' + act_, false);
 }
@@ -2790,7 +2842,7 @@ function lbSeat(container) {
 // right for a banner of one height, #823).
 function lbReveal(res) { if (res) intoView(res); }
 // the bar of the chosen houses on a phone: the same three buttons as the action bar, and a press is a press of that button
-const lbPhoneBar = () => html`<div class="phonebar" id="lsb-phonebar" role="group" aria-label="The chosen houses" ${LP.pick.size ? '' : 'hidden'}><span class="pn">${LP.pick.size} chosen</span><button type="button" class="qa btnp" data-pb="fill" data-fk="pb-fill">Fill chosen</button><button type="button" class="qa btnp" data-pb="complete" data-fk="pb-complete">Complete chosen</button><button type="button" class="qa" data-pb="reopen" data-fk="pb-reopen">Reopen chosen</button></div>`;
+const lbPhoneBar = (l) => { const F = lbFacId(l), off = (act) => (lbBulkOff(act, l, F) ? html`aria-disabled="true"` : ''); return html`<div class="phonebar" id="lsb-phonebar" role="group" aria-label="The chosen houses" ${LP.pick.size ? '' : 'hidden'}><span class="pn">${LP.pick.size} chosen</span><button type="button" class="qa btnp" data-pb="fill" data-fk="pb-fill">Fill chosen</button><button type="button" class="qa btnp" data-pb="complete" data-fk="pb-complete">Complete chosen</button><button type="button" class="qa btnp" data-pb="cfill" data-fk="pb-cfill" ${off('cfill')}>Complete and fill chosen</button><button type="button" class="qa" data-pb="reopen" data-fk="pb-reopen">Reopen chosen</button><button type="button" class="qa" data-pb="unfill" data-fk="pb-unfill" ${off('unfill')}>Unfill chosen</button></div>`; };
 function lbPhoneSync() {
   const p = $('#lsb-phonebar');
   if (!p) return;
@@ -2911,7 +2963,7 @@ function lbClick(e) {
     lbApply(); return;
   }
   if (k === 'pickno') { lbCancelConfirm(); LP.pick.clear(); document.querySelectorAll('#lsb .pick, #lsb .lcc-bd-pick').forEach((pk) => { pk.checked = false; }); lbApply(); return; }
-  if (k === 'bulk') { e.preventDefault(); if (LP.busy) { lbSay(LB_WAIT); return; } lbBulk(b, b.dataset.do); return; }
+  if (k === 'bulk') { e.preventDefault(); if (LP.busy) { lbSay(LB_WAIT); return; } if (b.getAttribute('aria-disabled') === 'true') { lbSay(b.dataset.why || b.title || 'Nothing to change'); return; } lbBulk(b, b.dataset.do); return; }
   if (k === 'cyes') { e.preventDefault(); if (LP.busy) { lbSay(LB_WAIT); return; } lbConfirmYes(); return; }
   if (k === 'cno') { e.preventDefault(); if (LP.busy) { lbSay(LB_WAIT); return; } const a = LP.confirm && LP.confirm.back; lbCancelConfirm(); lbSay('Cancelled. Nothing was written.'); if (a) lbFocusFk(a); return; }
   if (k === 'tapply' || k === 'tmk') {
