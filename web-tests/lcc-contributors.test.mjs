@@ -106,7 +106,8 @@ test('layout: no line is cut with an ellipsis; the amount never breaks; the wide
   assert.match(wide[1], /flex-flow: column wrap/);
   assert.match(wide[1], /overflow: hidden/);
   assert.match(wide[1], /min-height: 0/);
-  assert.match(wide[1], /font-size: clamp\(11px,/, 'the 11 px text floor: the operator chose smaller text over a cut name (#972)');
+  assert.match(wide[1], /font-size: clamp\(12px,/, 'the names are never under 12 px (#918): a whole entry that does not fit is out of sight (#972), the text is not made smaller');
+  assert.match(css, /\.lcc-pl-std-a \.lcc-standard-h, \.lcc-pl-std-h \.lcc-standard-h \{[^}]*font-size: clamp\(11px,/, 'the heading TOP CONTRIBUTORS is other text and keeps its 11 px floor');
   assert.match(css, /\.lcc-pl-std-a \.lcc-standard-list > li, \.lcc-pl-std-h \.lcc-standard-list > li \{[^}]*width: 100%/);
   assert.ok(css.includes('.lcc-standard-amt { color: CanvasText; }'), 'forced colours: the amount takes the text colour');
 });

@@ -20,6 +20,7 @@ const click = (ui, sel) => { const el = typeof sel === 'string' ? ui.doc.querySe
 const select = (ui, sel, v) => { const el = ui.doc.querySelector(sel); assert.ok(el, 'no element ' + sel); el.value = String(v); el.dispatchEvent(new ui.w.Event('change', { bubbles: true })); };
 const WRITES = ['/api/landsraad/term', '/api/landsraad/decree'];
 
+// The two scenarios about the plain SpecialVendorActive row (Make active and Set flag on a hidden row) are gone: the row is not shown on the page any more (operator order), so there is no control to press.
 const SCENARIOS = {
   'Apply as it stands': async (ui) => { click(ui, '[data-lb="tapply"]'); },
   'Apply with another active decree': async (ui) => { select(ui, '#lsb-tad', 3); click(ui, '[data-lb="tapply"]'); },
@@ -29,11 +30,9 @@ const SCENARIOS = {
   'Apply with no decree and the faction kept': async (ui) => { select(ui, '#lsb-tad', ''); await ui.settle(); click(ui, '[data-lb="tapply"]'); },
   'Make active on a row': async (ui) => { click(ui, '[data-lb="tmk"][data-id="4"]'); },
   'Make active on a row for the other faction': async (ui) => { select(ui, '#lsb-trf', 2); await ui.settle(); click(ui, '[data-lb="tmk"][data-id="6"]'); },
-  'Make active on the hidden vendor row': async (ui) => { click(ui, '[data-lb="tmk"][data-id="11"]'); },
   'Make active with no faction chosen': async (ui) => { select(ui, '#lsb-trf', ''); await ui.settle(); click(ui, '[data-lb="tmk"][data-id="4"]'); },
   'Set the pool flag to 1': async (ui) => { click(ui, '[data-lb="tflag"][data-id="4"]'); },
   'Set the pool flag to 0': async (ui) => { click(ui, '[data-lb="tflag"][data-id="7"]'); },
-  'Set the pool flag of the hidden row': async (ui) => { click(ui, '[data-lb="tflag"][data-id="11"]'); },
   'Apply, refused by the save': async (ui) => { select(ui, '#lsb-tad', 5); click(ui, '[data-lb="tapply"]'); },
   'Set the pool flag, refused by the save': async (ui) => { click(ui, '[data-lb="tflag"][data-id="2"]'); },
 };

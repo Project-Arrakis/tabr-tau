@@ -154,29 +154,26 @@
   }
   function pool(vm) {
     const sec = el('div', 'lcc-tm-pool');
-    const shown = vm.pool.filter((d) => !d.hidden), hidden = vm.pool.filter((d) => d.hidden);
     const dt = el('details', 'lcc-tm-disc', '', { id: 'lsb-tdp' });
     if (vm.open) dt.open = true;
     shut(dt, 'Decree pool', vm.pool.length + (vm.pool.length === 1 ? ' decree' : ' decrees'));
     const inner = el('div', 'lcc-tm-disc-in');
     if (!vm.pool.length) inner.appendChild(el('p', 'lcc-tm-none', 'This save has no decrees.'));
     const ul = el('ul', 'lcc-tm-rows', '', { role: 'list', 'aria-label': 'Decree pool' });
-    for (const d of shown) ul.appendChild(poolRow(d));
+    for (const d of vm.pool) ul.appendChild(poolRow(d));
     inner.appendChild(ul);
-    if (hidden.length) {
-      const h = el('details', 'lcc-tm-disc lcc-tm-disc-hid', '', { id: 'lsb-dphid' });
-      if (vm.hidOpen) h.open = true;
-      h.appendChild(el('summary', '', 'Hidden: the plain SpecialVendorActive row (no game name, no category, effect unverified)'));
-      const hin = el('div', 'lcc-tm-disc-in');
-      const hu = el('ul', 'lcc-tm-rows', '', { role: 'list', 'aria-label': 'Hidden decree' });
-      for (const d of hidden) hu.appendChild(poolRow(d));
-      hin.appendChild(hu);
-      h.appendChild(hin);
-      inner.appendChild(h);
-    }
     dt.appendChild(inner);
     sec.appendChild(dt);
     return sec;
+  }
+
+  // The table of an earlier term is a tab stop only while it scrolls sideways (#910): a keyboard user can then reach it to scroll, and where it fits there is no stop that does nothing. A table that is
+  // not drawn yet (a closed disclosure) has no width, so it is checked again when it is resized or opened. Where no ResizeObserver exists (a test engine) the stop is there, as it was before.
+  function tabStop(wrap, table) {
+    const sync = () => { if (!wrap.clientWidth) return; if (wrap.scrollWidth > wrap.clientWidth) wrap.setAttribute('tabindex', '0'); else wrap.removeAttribute('tabindex'); };
+    if (typeof root.ResizeObserver !== 'function') { wrap.setAttribute('tabindex', '0'); return; }
+    const ro = new root.ResizeObserver(sync);
+    ro.observe(wrap); ro.observe(table);
   }
 
   // ---- earlier terms: read-only -----------------------------------------------------------------------------------------------------------------------------------------------
@@ -193,7 +190,7 @@
       s.appendChild(el('b', '', 'Term ' + t.id));
       s.appendChild(el('span', 'lcc-tm-sum', t.summary));
       d.appendChild(s);
-      const wrap = el('div', 'lcc-tm-tablewrap', '', { tabindex: '0', role: 'region', 'aria-label': 'Term ' + t.id + ', the table of Houses: scrolls sideways when the window is narrow' });
+      const wrap = el('div', 'lcc-tm-tablewrap', '', { role: 'region', 'aria-label': 'Term ' + t.id + ', the table of Houses: scrolls sideways when the window is narrow' });
       d.appendChild(el('p', 'lcc-tm-scrollhint', 'Scroll the table sideways for House status and Last payout.'));
       const tb = el('table', 'lcc-tm-table');
       tb.appendChild(el('caption', 'lcc-tm-sr', 'Term ' + t.id + ': the Houses with a contribution of yours'));
@@ -218,6 +215,7 @@
       tb.appendChild(bd);
       wrap.appendChild(tb);
       d.appendChild(wrap);
+      tabStop(wrap, tb);
       inner.appendChild(d);
     }
     dt.appendChild(inner);
@@ -225,6 +223,22 @@
   }
 
   // ---- the section ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  // On a phone (a window of 640 px or less) the section sits after the board (lcc-board.css) and everything under its heading is in one disclosure that is closed until it is asked for (#933), so
+  // the Houses come before the term. On a wider window the disclosure is open and its summary is not drawn (lcc-term.css), so nothing changes there. The choice a person makes on a phone
+  // (kept below) lasts over a redraw; without one the disclosure is closed on a phone and open otherwise. The summary line is the same one the classic panel shows.
+  const PHONE = '(max-width: 640px)';
+  let phoneWatch = null, kept = false; // kept: the person opened the disclosure on a phone
+  const phone = () => !!(root.matchMedia && root.matchMedia(PHONE).matches);
+  function watchPhone() { // one listener for the page: the window crosses 640 px, the disclosure follows (open when wide, the person's choice or closed on a phone)
+    if (phoneWatch || !root.matchMedia) return;
+    phoneWatch = root.matchMedia(PHONE);
+    const follow = () => { const d = root.document && root.document.getElementById('lcc-tm-all'); if (d) d.open = !phoneWatch.matches || kept; };
+    if (phoneWatch.addEventListener) phoneWatch.addEventListener('change', follow); else if (phoneWatch.addListener) phoneWatch.addListener(follow);
+  }
+  function summaryLine(vm) {
+    const t = vm.term || {}, a = vm.active;
+    return 'Term ' + t.id + ' · ' + (t.reigning || 'no reigning faction') + ' · ' + (a ? a.name : 'no active decree');
+  }
   function build(vm) {
     const w = el('section', 'lcc lcc-tm', '', { id: 'lcc-term', 'aria-labelledby': 'lcc-tm-h' });
     const surf = el('div', 'lcc-tm-surface');
@@ -237,10 +251,18 @@
     head.appendChild(src('Read from the save: landsraad_decree_term and landsraad_decrees'));
     surf.appendChild(head);
     if (vm.none) { w.appendChild(surf); return w; }
-    surf.appendChild(facts(vm));
-    surf.appendChild(controls(vm));
-    surf.appendChild(pool(vm));
-    surf.appendChild(history(vm));
+    const all = el('details', 'lcc-tm-all', '', { id: 'lcc-tm-all' });
+    all.open = !phone() || kept;
+    shut(all, summaryLine(vm)).classList.add('lcc-tm-allsum');
+    all.addEventListener('toggle', () => { if (phone()) kept = all.open; });
+    const allIn = el('div', 'lcc-tm-all-in');
+    allIn.appendChild(facts(vm));
+    allIn.appendChild(controls(vm));
+    allIn.appendChild(pool(vm));
+    allIn.appendChild(history(vm));
+    all.appendChild(allIn);
+    surf.appendChild(all);
+    watchPhone();
     w.appendChild(surf);
     return w;
   }

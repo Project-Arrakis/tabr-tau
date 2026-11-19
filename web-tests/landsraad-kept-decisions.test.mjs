@@ -30,7 +30,7 @@ const DECISIONS = [
   // new with #641 and #634
   '**Every click writes at once**',
   '**Reopen does not undo a Complete completely.**',
-  '**The plain Special Vendor decree is hidden from the pool list**',
+  '**The plain Special Vendor decree is not shown anywhere on the page**',
 ];
 
 test('every Kept decision of the Landsraad mock-up is still in the README', () => {
@@ -44,10 +44,10 @@ test('the staging decisions are replaced by "every click writes at once": no pen
   for (const stale of ['a pending state with Undo', 'stages its changes', 'with the Write button', 'A pending change shows as a row tint', 'and writes marks']) assert.ok(!kept.includes(stale), 'a staging decision is still listed: ' + stale);
 });
 
-test('the hidden Special Vendor decision names the label, the four vendors that stay and that the row is never changed', () => {
-  const h = bullets.find((b) => b.includes('**The plain Special Vendor decree is hidden'));
+test('the Special Vendor decision says the row is shown nowhere, names the four vendors that stay, what a term that holds it shows, and that the row is never changed', () => {
+  const h = bullets.find((b) => b.includes('**The plain Special Vendor decree is not shown anywhere'));
   assert.ok(h);
-  for (const s of ['Hidden: the plain SpecialVendorActive row (no game name, no category, effect unverified)', 'Vehicles, Weapons, Armor, Utilities', 'never changed or deleted', 'same Make active and Set flag controls']) assert.ok(h.includes(s), s);
+  for (const s of ['not in a closed list under it', 'not in the Active decree drop-down', 'Vehicles, Weapons, Armor, Utilities', 'never changed or deleted', 'Another decree']) assert.ok(h.includes(s), s);
 });
 
 test('Reopen does not promise an undo: the README, and the table of what it writes, say what it leaves', () => {

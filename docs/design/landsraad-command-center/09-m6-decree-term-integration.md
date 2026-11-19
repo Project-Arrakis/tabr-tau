@@ -44,7 +44,7 @@ Method: the approved prototype (its Sysselraad Strategy view, and the plaque, wh
 | T4 | Make active per row for the chosen faction via the term route | Same button, same request; off with the reason while no faction is chosen; "Active" mark on the row that is | matches | |
 | T5 | Set flag to 0/1 per row via the decree route, only the disabled column | Same | matches | |
 | T6 | Active, elected, in rotation apart from the pool flag | "IN THIS TERM" badges and a separate "POOL FLAG" value | matches | |
-| T7 | Hidden SpecialVendorActive row in a collapsed disclosure with a warning | Same | matches | |
+| T7 | Hidden SpecialVendorActive row in a collapsed disclosure with a warning | Same | matches | Superseded after M7 by an operator order: the plain row is shown nowhere (no row, no disclosure, not in the Active decree drop-down); the CHANGELOG has the details |
 | T8 | Readable sort, variant hints for duplicate display names | The pool keeps the order of the save (by id), as the classic panel's list does; the two drop-downs are sorted by name, as the classic ones; the variant is in the name | matches | |
 | T9 | Earlier terms, read-only, with house contribution, tiers, completion faction, payment record | The classic list's content in a disclosure per term, still read-only, with its disclaimers | matches | |
 | T10 | Source badge, queued notice, focus restoration, disabled while writing, no duplicate write, conflict recovery | All through the classic handler (the same `lbRun`) | matches | |

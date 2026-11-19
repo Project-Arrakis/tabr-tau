@@ -2272,11 +2272,23 @@ const decreeEffect = (d) => (d && d.effect ? html`<small class="de">${d.effect}<
 const decreeSelInfo = (d) => html`<small class="did" title="The game's internal id, kept for support">${d ? d.decree_name : ''}</small><small class="de">${d && d.effect ? d.effect : ''}</small><small class="mut du">${decreeNote(d)}</small>`;
 // the drop-down's order: by the name a player knows, a name that is not the game's (and an unknown id) last
 const decreeSorted = (dec) => [...dec].sort((x, y) => (x.name_known === false) - (y.name_known === false) || decreeLabel(x).localeCompare(decreeLabel(y)) || x.id - y.id);
-// The plain SpecialVendorActive decree has no category and an effect nobody has checked (#634). Its row stays in the data and in the Active decree drop-down and is never changed or deleted;
-// the pool list shows it only inside a closed disclosure, with the same buttons. The four category vendors stay in the list.
+// The plain SpecialVendorActive decree does nothing in the game and is not shown anywhere on the page (operator order, after #634 had put it in a closed list). Its row stays in the data and is
+// never changed or deleted; only the page leaves it out: not in the pool, not in the Active decree drop-down, not by name. The five SpecialVendorActive rows are five ids; the four category vendors
+// (Vehicles, Weapons, Armor, Utilities) stay. The one case the page cannot leave out is a term that holds this row as its active or elected decree: the page then says "Another decree" with no id
+// and no effect, so the term never reads as having none, and the drop-down keeps that one value so that Apply cannot clear the decree by accident.
 const LB_HIDDEN_DECREE = 'SpecialVendorActive';
+const LB_HIDDEN_NAME = 'Another decree';
+const lbIsHidden = (d) => !!d && d.decree_name === LB_HIDDEN_DECREE;
+const lbMasked = (d) => (lbIsHidden(d) ? { id: d.id, decree_name: '', display_name: LB_HIDDEN_NAME, name_known: true, effect: '', active: d.active, elected: d.elected, in_rotation: d.in_rotation, disabled: d.disabled } : d);
+const lbDecreeById = (l, id) => lbMasked(((l && l.decrees) || []).find((x) => String(x.id) === String(id)));
+const lbShownDecrees = (l) => ((l && l.decrees) || []).filter((d) => !lbIsHidden(d));
+// the Active decree drop-down's rows: the shown decrees, and the masked one only while the choice or the saved term holds it
+const lbDecreeOptions = (l, sel) => {
+  const hid = ((l && l.decrees) || []).filter((d) => lbIsHidden(d) && (String(d.id) === sel.ad || (l.term && l.term.active_decree_id != null && String(d.id) === String(l.term.active_decree_id))));
+  return [...decreeSorted(lbShownDecrees(l)), ...hid.map(lbMasked)];
+};
 const LB_NEED_FACTION = 'Choose a reigning faction first: a decree is only in force because a faction won the term. Nothing was changed.';
-const LT = { ad: undefined, rf: undefined, say: '', bad: false, open: false, hidOpen: false, histOpen: false }; // what the two drop-downs were set to (kept over a redraw), and the line that says what was written
+const LT = { ad: undefined, rf: undefined, say: '', bad: false, open: false, histOpen: false }; // what the two drop-downs were set to (kept over a redraw), and the line that says what was written
 // the two drop-downs: what was chosen, else the term's active decree and the character's own faction (the term's reigning faction when the character has none); a faction the list does not offer is shown as none
 function lbTermSel(l) {
   const t = l.term || {}, facs = (l.factions || []).map((f) => String(f.id)), decs = (l.decrees || []).map((d) => String(d.id));
@@ -2288,12 +2300,11 @@ function lbTermSel(l) {
 function lbTerm(l) {
   const t = l.term;
   if (!t) return html`<section class="card d-panel" aria-labelledby="lsb-term-h"><h2 class="d-head" id="lsb-term-h">Term and decrees <span class="cnt">this save has no Landsraad term</span></h2></section>`;
-  const dec = l.decrees || [], by = (i) => dec.find((d) => d.id == i), a = by(t.active_decree_id), e = by(t.elected_decree_id), sel = lbTermSel(l);
+  const dec = lbShownDecrees(l), by = (i) => lbDecreeById(l, i), a = by(t.active_decree_id), e = by(t.elected_decree_id), sel = lbTermSel(l);
   const own = lbCan(l) ? l.character.faction_id : null, rfName = t.reigning_faction_id != null ? lbFacName(l, t.reigning_faction_id) : 'none';
   const fname = sel.rf !== '' ? lbFacName(l, +sel.rf) : '';
   const idLine = (d) => (d ? html`<small class="did" title="The game's internal id, kept for support">${d.decree_name}</small>` : '');
   const nm = (d) => (d ? decreeFull(d) : '—');
-  const hidden = dec.filter((d) => d.decree_name === LB_HIDDEN_DECREE), shown = dec.filter((d) => d.decree_name !== LB_HIDDEN_DECREE); // the plain vendor decree is only in the closed list under the pool (#634)
   const row = (d) => {
     const tg = [d.active && 'Active', d.elected && "Next term's decree", d.in_rotation && 'In rotation'].filter(Boolean), n = d.disabled ? 0 : 1, lab = decreeLabel(d);
     const on = d.id == t.active_decree_id && sel.rf !== '' && sel.rf === String(t.reigning_faction_id == null ? '' : t.reigning_faction_id);
@@ -2307,16 +2318,15 @@ function lbTerm(l) {
   <div class="tbody">
   <div class="tkv"><div><span class="mut">Term</span><b>${t.term_id}</b>${lbMark('save', 'Read from the save: landsraad_decree_term')}</div><div><span class="mut">Ends in</span><b title="${LB_ENDS_TIP}">${lbEndsIn(l)}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.end_time and the play clock of the save')}</div><div><span class="mut">Reigning faction</span><b>${rfName}</b>${lbMark('save', 'Read from the save: landsraad_decree_term.reigning_faction_id')}</div><div><span class="mut">Active decree</span>${a ? decreeNameEl(a) : html`<span class="dn">—</span>`}${idLine(a)}${decreeUnsure(a)}</div><div><span class="mut">Next term's decree</span>${e ? decreeNameEl(e) : html`<span class="dn">none yet</span>`}${idLine(e)}${decreeUnsure(e)}</div></div>
   <div class="tctl" role="group" aria-label="Set the term's active decree and reigning faction">
-    <label class="fld"><span class="lbl">Active decree</span><select id="lsb-tad" data-lb="tad"><option value="">none</option>${decreeSorted(dec).map((d) => html`<option value="${d.id}" ${String(d.id) === sel.ad ? 'selected' : ''}>${decreeFull(d)}</option>`)}</select>${decreeSelInfo(by(sel.ad))}</label>
+    <label class="fld"><span class="lbl">Active decree</span><select id="lsb-tad" data-lb="tad"><option value="">none</option>${lbDecreeOptions(l, sel).map((d) => html`<option value="${d.id}" ${String(d.id) === sel.ad ? 'selected' : ''}>${decreeFull(d)}</option>`)}</select>${decreeSelInfo(by(sel.ad))}</label>
     <label class="fld"><span class="lbl">Reigning faction</span><select id="lsb-trf" data-lb="trf">${sel.rf === '' ? html`<option value="" disabled selected>Choose a faction</option>` : ''}${(l.factions || []).map((f) => html`<option value="${f.id}" ${String(f.id) === sel.rf ? 'selected' : ''}>${f.name}${own != null && f.id == own ? ' (your faction)' : ''}</option>`)}</select><small class="mut">any faction can be chosen</small></label>
     <span class="tapply"><button type="button" class="qa btnp" data-lb="tapply" data-fk="tapply">Apply</button></span>
   </div>
   <p id="lsb-tresult" role="status" ${LT.bad ? html`class="bad"` : ''}>${LT.say}</p>
   <h3 class="d-head">Decree pool</h3>
-  <ul class="dp" role="list"><li class="dh" aria-hidden="true"><span>ID</span><span>Decree ${lbMark('save', 'Read from the save: landsraad_decrees.decree_name')}</span><span>In this term ${lbMark('save', 'Read from the save: active, elected, rotation')}</span><span>Pool flag ${lbMark('save', 'Read from the save: the disabled column, as stored')}</span><span>Change</span><span>Make active</span></li>${shown.map(row)}</ul>
-  ${hidden.length ? html`<details class="dphid" id="lsb-dphid" ${LT.hidOpen ? 'open' : ''}><summary>Hidden: the plain SpecialVendorActive row (no game name, no category, effect unverified)</summary><ul class="dp" role="list">${hidden.map(row)}</ul></details>` : ''}
+  <ul class="dp" role="list"><li class="dh" aria-hidden="true"><span>ID</span><span>Decree ${lbMark('save', 'Read from the save: landsraad_decrees.decree_name')}</span><span>In this term ${lbMark('save', 'Read from the save: active, elected, rotation')}</span><span>Pool flag ${lbMark('save', 'Read from the save: the disabled column, as stored')}</span><span>Change</span><span>Make active</span></li>${dec.map(row)}</ul>
   ${dec.length ? '' : html`<p class="mut">This save has no decrees.</p>`}
-  ${lbAbout('lsb.term', 'term and decrees', html`<p><b>Apply</b> sets the term's active decree and its reigning faction together: one row, the current term in <code>landsraad_decree_term</code>, and none in the Active decree drop-down clears the decree. A decree is only in force because a faction won the term, so the faction cannot be left empty: the Reigning faction drop-down offers Atreides and Harkonnen, starts on your own faction, and asks you to choose when you are in neither and the term has no winner. Apply needs no choice in two cases: when the save holds a faction this list does not offer and you leave the drop-down alone, Apply changes the decree and leaves that faction as it is; and none for the decree on a term that has no faction clears the decree and writes no faction.</p><p><b>Make active for ...</b> on a pool row does the same as the Active decree drop-down and Apply for that row's decree, for the faction in the Reigning faction drop-down; a decree belongs to a faction (the reigning faction), not to a house.</p><p id="lsdecnote"><b>In this term</b> is read from the current term: <b>Active</b> is the term's active decree, <b>Next term's decree</b> the decree elected during this term, which takes effect in the next term, <b>In rotation</b> a decree in the save's decree rotation. <b>Pool flag</b> is the save's own <code>disabled</code> column, shown as stored; it does not say whether a decree is in effect. A <b>Set flag</b> button changes the flag of its own row only; it does not make the decree active, the Active decree above does. The special vendor decree is five separate rows: the four Exclusive Import Rights decrees (Vehicle, Weapon, Armor and Tool) are in the list; the plain SpecialVendorActive row is the one the game's decree table has no name for (the page calls it "Special Vendor" and says the name is the editor's), it has no category and an effect that is not verified, so it is kept in the closed list under the pool, with the same controls, in case the game uses it.</p><p><b>Names</b> are the ones the game shows, with the effect line the game gives under each; the id the save holds is the small line below, kept for support. The game gives the Ranged and Melee decrees of In Honor of the Fallen one name, so the page adds the word in brackets. The pool is in id order; the Active decree drop-down is sorted by name, with a name that is not the game's last.</p>`)}
+  ${lbAbout('lsb.term', 'term and decrees', html`<p><b>Apply</b> sets the term's active decree and its reigning faction together: one row, the current term in <code>landsraad_decree_term</code>, and none in the Active decree drop-down clears the decree. A decree is only in force because a faction won the term, so the faction cannot be left empty: the Reigning faction drop-down offers Atreides and Harkonnen, starts on your own faction, and asks you to choose when you are in neither and the term has no winner. Apply needs no choice in two cases: when the save holds a faction this list does not offer and you leave the drop-down alone, Apply changes the decree and leaves that faction as it is; and none for the decree on a term that has no faction clears the decree and writes no faction.</p><p><b>Make active for ...</b> on a pool row does the same as the Active decree drop-down and Apply for that row's decree, for the faction in the Reigning faction drop-down; a decree belongs to a faction (the reigning faction), not to a house.</p><p id="lsdecnote"><b>In this term</b> is read from the current term: <b>Active</b> is the term's active decree, <b>Next term's decree</b> the decree elected during this term, which takes effect in the next term, <b>In rotation</b> a decree in the save's decree rotation. <b>Pool flag</b> is the save's own <code>disabled</code> column, shown as stored; it does not say whether a decree is in effect. A <b>Set flag</b> button changes the flag of its own row only; it does not make the decree active, the Active decree above does. The special vendor decree is five separate rows: the four Exclusive Import Rights decrees (Vehicle, Weapon, Armor and Tool) are in the list; the fifth, the plain one, does nothing in the game, so the page does not show it. It stays in the save as it is.</p><p><b>Names</b> are the ones the game shows, with the effect line the game gives under each; the id the save holds is the small line below, kept for support. The game gives the Ranged and Melee decrees of In Honor of the Fallen one name, so the page adds the word in brackets. The pool is in id order; the Active decree drop-down is sorted by name, with a name that is not the game's last.</p>`)}
   </div></details></section>`;
 }
 // The Command Center's Term and Decrees section (lcc/lcc-term.js) is drawn from this plain model of the same answer, with the same words and the same states as lbTerm above: the section
@@ -2327,19 +2337,19 @@ function lbPendingText(l, ad) {
   if (!t) return '';
   const saved = t.active_decree_id != null ? String(t.active_decree_id) : '';
   if (ad === saved) return '';
-  const dec = l.decrees || [], by = (i) => dec.find((d) => String(d.id) === i), n = (i) => (i === '' || !by(i) ? 'none' : decreeLabel(by(i)));
+  const by = (i) => lbDecreeById(l, i), n = (i) => (i === '' || !by(i) ? 'none' : decreeLabel(by(i)));
   return 'Not applied yet: the term still has ' + n(saved) + ' as its active decree. Press Apply to set ' + n(ad) + '.';
 }
 function lbTermModel(l) {
   const t = l.term;
   if (!t) return { none: true };
-  const dec = l.decrees || [], by = (i) => dec.find((d) => d.id == i), sel = lbTermSel(l), own = lbCan(l) ? l.character.faction_id : null;
+  const dec = lbShownDecrees(l), by = (i) => lbDecreeById(l, i), sel = lbTermSel(l), own = lbCan(l) ? l.character.faction_id : null;
   const fname = sel.rf !== '' ? lbFacName(l, +sel.rf) : '';
   const one = (d) => (d ? { id: d.id, key: d.decree_name, name: decreeLabel(d), effect: d.effect || '', note: decreeNote(d), tip: decreeTip(d) } : null);
   const row = (d) => {
     const lab = decreeLabel(d), on = d.id == t.active_decree_id && sel.rf !== '' && sel.rf === String(t.reigning_faction_id == null ? '' : t.reigning_faction_id);
     return Object.assign(one(d), {
-      tags: [d.active && 'Active', d.elected && "Next term's decree", d.in_rotation && 'In rotation'].filter(Boolean), disabled: d.disabled ? 1 : 0, hidden: d.decree_name === LB_HIDDEN_DECREE, makeOn: on, makeOff: sel.rf === '',
+      tags: [d.active && 'Active', d.elected && "Next term's decree", d.in_rotation && 'In rotation'].filter(Boolean), disabled: d.disabled ? 1 : 0, makeOn: on, makeOff: sel.rf === '',
       makeLabel: sel.rf !== '' ? 'Make active for ' + fname : 'Make active (choose a faction)',
       makeTip: on ? 'This decree is already the active decree of the term for ' + fname : sel.rf !== '' ? 'Makes ' + lab + ' the active decree of the term for ' + fname + ', the same as the Active decree drop-down and Apply' : 'Choose a reigning faction above first',
     });
@@ -2358,9 +2368,9 @@ function lbTermModel(l) {
     none: false,
     term: { id: t.term_id, endsIn: lbEndsIn(l), endsTip: LB_ENDS_TIP, reigning: t.reigning_faction_id != null ? lbFacName(l, t.reigning_faction_id) : '' },
     active: one(by(t.active_decree_id)), elected: one(by(t.elected_decree_id)),
-    pool: dec.map(row), options: decreeSorted(dec).map((d) => ({ id: d.id, label: decreeFull(d) })),
+    pool: dec.map(row), options: lbDecreeOptions(l, sel).map((d) => ({ id: d.id, label: decreeFull(d) })),
     factions: (l.factions || []).map((f) => ({ id: f.id, label: f.name + (own != null && f.id == own ? ' (your faction)' : '') })),
-    sel, selD: one(by(sel.ad)), pending: lbPendingText(l, sel.ad), say: LT.say, bad: LT.bad, open: LT.open, hidOpen: LT.hidOpen, histOpen: LT.histOpen,
+    sel, selD: one(by(sel.ad)), pending: lbPendingText(l, sel.ad), say: LT.say, bad: LT.bad, open: LT.open, histOpen: LT.histOpen,
     history: { note: tm.length < 2 ? 'This save holds only the current term.' : e.length ? '' : 'No earlier term has a row of yours.', terms },
   };
 }
@@ -2920,7 +2930,7 @@ function lbCtl(id) {
   };
 }
 function lbDecreeNow() {
-  const t = LD && LD.term, d = t && t.active_decree_id != null ? (LD.decrees || []).find((x) => x.id == t.active_decree_id) : null;
+  const t = LD && LD.term, d = t && t.active_decree_id != null ? lbDecreeById(LD, t.active_decree_id) : null;
   return d ? { name: decreeLabel(d), effect: d.effect || '' } : null;
 }
 window.LCC_HOST = {
@@ -3001,7 +3011,7 @@ function lbClick(e) {
     e.preventDefault();
     if (b.getAttribute('aria-disabled') === 'true') { LT.say = b.title; const r = $('#lsb-tresult'); if (r) r.textContent = b.title; return; }
     if (LP.busy) { lbTSay(LB_WAIT); return; } // before the choice is stored: a click on another row during a write changes nothing, so the drop-downs keep showing what the save holds (#904)
-    const sel = lbTermSel(LD), ad = k === 'tmk' ? String(b.dataset.id) : sel.ad, rf = sel.rf, dn = (id) => { const d = (LD.decrees || []).find((x) => String(x.id) === id); return d ? decreeFull(d) : 'none'; };
+    const sel = lbTermSel(LD), ad = k === 'tmk' ? String(b.dataset.id) : sel.ad, rf = sel.rf, dn = (id) => { const d = lbDecreeById(LD, id); return d ? decreeFull(d) : 'none'; };
     // the save holds a reigning faction the list does not offer and the drop-down was left alone: the request leaves the faction as it is (the server refuses to set such a faction)
     // The same when the decree is cleared (none) on a term that has no faction: the request names the decree only, so a save the game wrote with a decree and no faction can still have its decree cleared (#960).
     const keepRf = rf === '' && ((LT.rf === undefined && LD.term && LD.term.reigning_faction_id != null) || (ad === '' && LD.term && LD.term.reigning_faction_id == null));
@@ -3031,7 +3041,7 @@ function lbChange(e) {
   if (t.classList && t.classList.contains('xc')) { const id = +t.id.replace('lsx-', ''); if (t.checked) LB.open.add(id); else LB.open.delete(id); lbSyncOpen(); return; }
   if (k === 'pick') { const id = +t.dataset.id; lbCancelConfirm(); if (t.checked) { const shown = lbShownIds(); if (t.disabled || (shown && !shown.has(id))) { t.checked = false; LP.pick.delete(id); lbApply(); lbSay('That House is not in the current filter, so it cannot be chosen.'); return; } } if (t.checked) LP.pick.add(id); else LP.pick.delete(id); lbApply(); return; }
   if (k === 'fac') { lbCancelConfirm(); LP.fac = +t.value; lbRedraw(); return; }
-  if (k === 'tad') { LT.ad = t.value; const pn = $('#lcc-tm-pending'); if (pn && LD) pn.textContent = lbPendingText(LD, t.value); const d = (LD.decrees || []).find((x) => String(x.id) === t.value), l = t.closest('label'), s = l && l.querySelector('.did'); if (s) { s.textContent = d ? d.decree_name : ''; const e2 = l.querySelector('.de'), u = l.querySelector('.du'); if (e2) e2.textContent = d && d.effect ? d.effect : ''; if (u) u.textContent = decreeNote(d); } return; }
+  if (k === 'tad') { LT.ad = t.value; const pn = $('#lcc-tm-pending'); if (pn && LD) pn.textContent = lbPendingText(LD, t.value); const d = lbDecreeById(LD, t.value), l = t.closest('label'), s = l && l.querySelector('.did'); if (s) { s.textContent = d ? d.decree_name : ''; const e2 = l.querySelector('.de'), u = l.querySelector('.du'); if (e2) e2.textContent = d && d.effect ? d.effect : ''; if (u) u.textContent = decreeNote(d); } return; }
   if (k === 'trf') { LT.rf = t.value; lbRedraw(); return; }
   if (k === 'hs') { LB.hs = t.value; lbApply(); }
   else if (k === 'group') { LB.group = t.checked; lbApply(); }
@@ -3055,7 +3065,7 @@ function lbWire() {
   root.addEventListener('click', lbClick);
   root.addEventListener('change', lbChange);
   root.addEventListener('click', lbPhoneClick);
-  root.addEventListener('toggle', (e) => { if (e.target && e.target.id === 'lsb-tdp') LT.open = e.target.open; else if (e.target && e.target.id === 'lsb-dphid') LT.hidOpen = e.target.open; else if (e.target && e.target.getAttribute && e.target.getAttribute('data-key') === 'tm-hist') LT.histOpen = e.target.open; }, true); // the panel stays open over a write
+  root.addEventListener('toggle', (e) => { if (e.target && e.target.id === 'lsb-tdp') LT.open = e.target.open; else if (e.target && e.target.getAttribute && e.target.getAttribute('data-key') === 'tm-hist') LT.histOpen = e.target.open; }, true); // the panel stays open over a write
   root.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (LP.confirm && !LP.busy) { const a = LP.confirm.back; lbCancelConfirm(); lbSay('Cancelled. Nothing was written.'); lbFocusFk(a); return; }
@@ -3851,6 +3861,11 @@ document.addEventListener('change', (e) => {
 const hdrEl = $('header');
 const setHdrH = () => document.documentElement.style.setProperty('--hdr-h', hdrEl.offsetHeight + 'px');
 if (hdrEl) { setHdrH(); if (window.ResizeObserver) new ResizeObserver(setHdrH).observe(hdrEl); else window.addEventListener('resize', setHdrH); }
+// The room that the bars under the header take (--warn-h, #910): the warning bar can grow to 45 vh when many writes are queued, so a fixed 76 px let a jump or a focus land under it. The height is
+// measured, as the header's is; 76 px stays as the value until a bar has been measured, and when no bar is shown the CSS rules that use it do not apply.
+const warnBars = ['#gamewarn', '#launchpass'].map((s) => $(s)).filter(Boolean);
+const setWarnH = () => { const h = warnBars.reduce((n, b) => n + (b.classList.contains('warn') || b.classList.contains('info') ? b.offsetHeight : 0), 0); document.documentElement.style.setProperty('--warn-h', (h || 76) + 'px'); };
+if (warnBars.length) { setWarnH(); if (window.ResizeObserver) { const ro = new ResizeObserver(setWarnH); warnBars.forEach((b) => ro.observe(b)); } else window.addEventListener('resize', setWarnH); }
 const autoBox = $('#autorefresh');
 autoBox.checked = autoRefreshOn();
 autoBox.addEventListener('change', () => { try { localStorage.autoRefresh = autoBox.checked ? '1' : '0'; } catch (e) { /* the choice lasts until the page is closed */ } status(); });

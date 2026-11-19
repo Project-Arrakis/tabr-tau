@@ -1,13 +1,13 @@
 /* The look comes from the shared design module: /design/tokens-LOOK.css, components-LOOK.css, components.css and motion.css are linked before this file (#570). This file adds LAYOUT and the page's own parts;
    every colour, radius, shadow, type size and time below is a module token. The names in the next block are this page's own and stay (its scripts and tests use them); each one is an alias of a module
    token, so a look, or Dayside, changes the whole page at once. --acc is the accent as text and border, --acc2 the sand of headings and links, --fill and --on-fill an accent fill and its label. */
-:root{--bg:var(--c-ground);--panel:var(--c-panel);--panel2:var(--c-raised);--in:var(--c-sunken);--line:var(--c-hair);--line-strong:var(--c-rule);--fg:var(--c-text);--mut:var(--c-dim);--mut-tint:var(--c-dim);--acc:var(--c-spice);--acc2:var(--c-gold);--fill:var(--c-switch);--on-fill:var(--c-on-switch);--ok:var(--c-ok);--bad:var(--c-bad);--warn:var(--c-warn);--focus:var(--c-focus);--hdr-h:56px;--r:var(--r-3);--sh:var(--e-2)}
+:root{--warn-h:76px;--bg:var(--c-ground);--panel:var(--c-panel);--panel2:var(--c-raised);--in:var(--c-sunken);--line:var(--c-hair);--line-strong:var(--c-rule);--fg:var(--c-text);--mut:var(--c-dim);--mut-tint:var(--c-dim);--acc:var(--c-spice);--acc2:var(--c-gold);--fill:var(--c-switch);--on-fill:var(--c-on-switch);--ok:var(--c-ok);--bad:var(--c-bad);--warn:var(--c-warn);--focus:var(--c-focus);--hdr-h:56px;--r:var(--r-3);--sh:var(--e-2)}
 *{box-sizing:border-box}
 html,body{height:auto;min-height:100%}
 body{margin:0;background-color:var(--bg);color:var(--fg);font:var(--t-base)/1.5 var(--t-body);-webkit-font-smoothing:antialiased}
 /* the sticky header (and the warning bar under it, when one is shown) must not cover what a link, a jump or a focus scrolls into view: --hdr-h is the measured height of the header */
 html{scroll-padding-top:calc(var(--hdr-h,56px) + 12px)}
-html:has(#gamewarn.warn,#launchpass.info){scroll-padding-top:calc(var(--hdr-h,56px) + 12px + 76px)}
+html:has(#gamewarn.warn,#launchpass.info){scroll-padding-top:calc(var(--hdr-h,56px) + 12px + var(--warn-h,76px))}
 header.d-bar{display:flex;gap:14px;align-items:center;padding:0 20px;min-height:var(--hdr-h);position:sticky;top:0;z-index:5;flex-wrap:wrap}
 header .mark{width:24px;height:24px;color:var(--c-gold);flex:none}
 header h1{margin:0;font:700 var(--t-base)/1.2 var(--t-display);letter-spacing:.16em;text-transform:uppercase;color:var(--c-gold)}
@@ -206,7 +206,8 @@ th[tabindex]:hover{color:var(--fg)}
 header .path:empty{display:none}
 @media (max-width:720px){
   header.d-bar{position:static;padding:6px 12px;gap:8px}
-  html,html:has(#gamewarn.warn,#launchpass.info){scroll-padding-top:12px}
+  html{scroll-padding-top:12px}
+  html:has(#gamewarn.warn,#launchpass.info){scroll-padding-top:12px}
   header h1{font-size:var(--t-md);letter-spacing:.12em}
   header .savename{flex:1 1 140px;order:3}
   header #pending{margin-left:auto}
@@ -852,7 +853,7 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
       overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
   }
   @media (min-width: 721px) {
-    body:has(#gamewarn.warn, #gamewarn.info, #launchpass.info) { --lsb-warn-room: 76px; }
+    body:has(#gamewarn.warn, #gamewarn.info, #launchpass.info) { --lsb-warn-room: var(--warn-h, 76px); }
   }
   /* stacked (under 1080 px of the tab): the victory analysis is a full-width band and the House Intelligence panel spans the full width under it, so no tall empty space is left beside a short panel;
      from 860 px the panel runs the head, the identity, the actions and the banner across its width and then the personal reward ledger beside the two scales, the note and the place, so the long

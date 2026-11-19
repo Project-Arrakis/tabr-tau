@@ -52,10 +52,10 @@ test('every selector is scoped to a lcc class: loading the file changes nothing 
 
 test('the keyframes are the feature\'s own, and one-shot: nothing loops', () => {
   const kf = [...bare.matchAll(/@keyframes\s+([a-z0-9-]+)/g)].map((m) => m[1]);
-  assert.deepEqual([...kf].sort(), ['lcc-reveal', 'lcc-win-pulse', 'lcc-win-sweep']);
+  assert.deepEqual([...kf].sort(), ['lcc-reveal', 'lcc-win-pulse', 'lcc-win-pulse-card', 'lcc-win-sweep']); // lcc-win-pulse-card: the same pulse with a reach that stays inside the gap between the cards of the board (#895)
   // the exceptions to one-shot are the optional animated border of a winning House (lcc-win-sweep: on the House, and on the centre seat of a win by 13 Houses) and the slow glow of a winning House
   // (lcc-win-pulse; on the House and, since #988, on a Specializations lane at level 100): each loops and sits in the no-preference block under Motion Full
-  assert.equal((bare.match(/infinite/g) || []).length, 5); // the fifth is the pulse of the SYSSELRAAD WON tag of the victory panel (#978)
+  assert.equal((bare.match(/infinite/g) || []).length, 6); // the fifth is the pulse of the SYSSELRAAD WON tag of the victory panel (#978), the sixth the board card's own pulse (#895)
   assert.match(bare, /@media \(prefers-reduced-motion: no-preference\)\s*\{[^]*html\[data-motion="full"\][^]*animation: lcc-win-sweep 9s linear infinite/);
   for (const m of bare.matchAll(/animation:\s*([^;}]+)/g)) if (!/^none/.test(m[1].trim()) && !/^lcc-win-sweep /.test(m[1].trim()) && !/^lcc-win-pulse /.test(m[1].trim())) assert.match(m[1], /\b1\b/, 'an animation that is not one-shot: ' + m[1]);
 });
@@ -177,8 +177,7 @@ function finalSizes() {
 
 test('text floor: no rule of the board leaves text under 11 px, and names and key labels are 12 px or more', () => {
   const sizes = finalSizes();
-  // .lcc-flag is the foundation's own flag (the gallery); the board draws no flag on a card since #961
-  const low = [...sizes].filter(([sel, px]) => px < 11 && sel !== '.lcc-flag');
+  const low = [...sizes].filter(([sel, px]) => px < 11);
   assert.deepEqual(low, [], 'selectors under 11 px: ' + low.map(([s, px]) => s + ' ' + px).join(' | '));
   for (const s of ['.lcc-hc-owner', '.lcc-hc-count', '.lcc-bd-chip', '.lcc-bd-lbl', '.lcc-bd-sec-h', '.lcc-bd-control', '.lcc-bd-vtag', '.lcc-bd-tier', '.lcc-bd-tier-n', '.lcc-bd-tier-s', '.lcc-bd-elab', '.lcc-bd-fc-head']) assert.ok(sizes.get(s) >= 12, s + ' is a key label: ' + sizes.get(s));
   assert.match(bare, /\.lcc-hc-name \{ font: 700 12px\//, 'a card name is 12 px at its smallest');
@@ -255,7 +254,8 @@ test('layout: the page cap, the side-by-side switch and the sticky House Intelli
   assert.match(appBare, /position: sticky; top: calc\(var\(--hdr-h\) \+ 12px \+ var\(--lsb-warn-room, 0px\)\)/);
   assert.match(appBare, /max-height: calc\(100vh - var\(--hdr-h\) - var\(--lsb-warn-room, 0px\) - 24px\); max-height: calc\(100dvh - var\(--hdr-h\) - var\(--lsb-warn-room, 0px\) - 24px\);/);
   assert.match(appBare, /overscroll-behavior: contain/);
-  assert.match(appBare, /body:has\(#gamewarn\.warn, #gamewarn\.info, #launchpass\.info\) \{ --lsb-warn-room: 76px; \}/);
+  assert.match(appBare, /body:has\(#gamewarn\.warn, #gamewarn\.info, #launchpass\.info\) \{ --lsb-warn-room: var\(--warn-h, 76px\); \}/, 'the room of the warning bars is measured (--warn-h, #910); 76 px is only its start value');
+  assert.match(appBare, /:root\{--warn-h:76px;/);
   const ring = rules.filter((r) => /\.lcc-bd-insp \.lcc-bd-tier:focus-visible/.test(r.sel));
   assert.ok(ring.length && /outline-offset: -3px/.test(ring[0].body), 'a focus ring on a full-width row is drawn inside the row');
 });

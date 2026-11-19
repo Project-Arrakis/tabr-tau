@@ -25,8 +25,11 @@ test('the one win outline of a House of the board uses the win outline and the f
   assert.match(base, /--lcc-glow-win:\s*1;/);
   assert.doesNotMatch(base.match(/--lcc-glow-win:[^;]*;/)[0], /--lcc-glow\b(?!-win)/);
   assert.match(base, /--lcc-glow:\s*0?\.5/, 'the dial for the rest of the page is still 0.5');
-  // a stronger glow than before (it was 14px 4px at 55 percent)
-  assert.match(r, /0 0 20px 6px/);
+  // the glow reaches no further than the gap between the cards (#895): a reach variable, 5 px by default, 2 px at the 4 px gap and 8 px at the 10 px gap (the card's 2 px ring comes first)
+  assert.match(r, /0 0 0 2px var\(--lcc-panel\), 0 0 var\(--lcc-reach\) 0 /);
+  assert.match(r, /--lcc-reach:\s*5px/);
+  assert.match(board, /@container \(min-width: 696px\) \{ \.lcc-hc\[data-victory="win"\] \{ --lcc-reach: 2px; \} \}/);
+  assert.match(board, /@container \(min-width: 760px\) \{ \.lcc-hc\[data-victory="win"\] \{ --lcc-reach: 8px; \} \}/);
 });
 
 test('the moving border exists once, moves by transform only, and is drawn only with Motion Full and no reduced-motion request', () => {

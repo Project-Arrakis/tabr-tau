@@ -41,7 +41,7 @@ export function assertClean(doc, label) {
     for (const a of el.attributes) {
       const n = a.name.toLowerCase();
       if (n.startsWith('on')) bad.push(`event handler attribute ${n}`);
-      if (n === 'style' && tag === 'html' && /^--hdr-h:\s*\d+(\.\d+)?px;?$/.test(a.value)) continue; // the header height the sticky banner sits below, set by the page itself
+      if (n === 'style' && tag === 'html' && /^(--(?:hdr|warn)-h:\s*\d+(\.\d+)?px;?\s*)+$/.test(a.value)) continue; // the header height the sticky banner sits below, and the room of the warning bars under it (#910), set by the page itself
       if (n === 'style' && /^(width:\s*\d+(\.\d+)?%;|--h:\s*\d+;|left:\s*\d+(\.\d+)?%;\s*top:\s*\d+(\.\d+)?%;)$/.test(a.value)) continue; // the Landsraad board's measured values (a bar's width, a house symbol's hue, a pin), set through the style object from numbers
       if (!(ATTRS.has(n) || n.startsWith('data-'))) bad.push(`unexpected attribute ${n} on <${tag}>`);
       if (/[<>"'=\s]/.test(n)) bad.push(`malformed attribute name ${JSON.stringify(n)}`);

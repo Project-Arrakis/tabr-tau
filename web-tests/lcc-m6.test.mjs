@@ -32,7 +32,7 @@ test('every decree of the pool has a text alternative for its picture, its effec
   const a = synthetic();
   const ui = await open(a);
   const rows = [...ui.doc.querySelectorAll('#lcc-term .lcc-tm-row')];
-  assert.equal(rows.length, (a.decrees || []).length);
+  assert.equal(rows.length, (a.decrees || []).filter((d) => d.decree_name !== 'SpecialVendorActive').length, 'every decree but the plain SpecialVendorActive row, which the page shows nowhere');
   for (const r of rows) {
     const img = r.querySelector('img');
     if (img) assert.ok(img.getAttribute('alt') !== null, 'an image without alt');

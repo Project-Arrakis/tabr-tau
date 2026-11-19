@@ -147,7 +147,7 @@ test('the layout reflows at the widths asked for: five lanes, three, two, one; s
   assert.match(at('@media (max-width: 380px)', '.lcc-sp-lanes').body, /minmax\(0, 1fr\)\)?;?\s*$/);
   assert.match(at('@media (max-width: 1180px)', '.lcc-sp-two').body, /minmax\(0, 1fr\)/);
   assert.match(at('@media (max-width: 520px)', '.lcc-sp-grid2').body, /minmax\(0, 1fr\)/);
-  assert.match(at('@media (pointer: coarse)', '.lcc-sp-btn, .lcc-sp-input').body, /min-height: 44px/);
+  assert.match(at('@media (pointer: coarse), (max-width: 640px)', '.lcc-sp-btn, .lcc-sp-input').body, /min-height: 44px/);
   assert.match(bare, /\.lcc-sp-btn \{ min-height: 40px;/);
   // no sideways page scroll: the long words wrap
   assert.match(bare, /\.lcc-sp-btn \{[^}]*overflow-wrap: anywhere/);

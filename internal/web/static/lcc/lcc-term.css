@@ -78,7 +78,6 @@
 .lcc-tm .lcc-tm-disc > summary { cursor: pointer; padding: 10px 13px; min-height: 40px; display: flex; align-items: center; font: 700 13px/1.35 var(--lcc-sans); letter-spacing: .04em; color: var(--lcc-gold-text); }
 .lcc-tm .lcc-tm-disc > summary:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: -3px; }
 .lcc-tm-disc-in { padding: 4px 13px 13px; }
-.lcc-tm-disc-hid { margin: 12px 0 0; border-style: dashed; }
 
 /* ---- the decree pool ---- */
 .lcc-tm-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
@@ -167,3 +166,18 @@
   .lcc-tm-showhide { border-color: ButtonText; color: ButtonText; background: ButtonFace; }
 }
 .lcc-tm .lcc-tm-v { text-wrap: balance; }
+
+/* ---- the whole section as one disclosure on a phone (#933) ----
+   Wide: it is always open and its summary is not drawn, so the section looks as it did. The ::details-content rule keeps the content visible even if a script has not opened it. */
+.lcc-tm-all { margin: 0; }
+.lcc-tm .lcc-tm-all > summary { display: none; }
+.lcc-tm .lcc-tm-all:not([open])::details-content { content-visibility: visible; }
+@media (max-width: 640px) {
+  .lcc-tm .lcc-tm-all > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; padding: 10px 13px; min-height: 44px; font: 700 13px/1.35 var(--lcc-sans); letter-spacing: .04em; color: var(--lcc-gold-text); border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-tier-bg); }
+  .lcc-tm .lcc-tm-all > summary:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: -3px; }
+  .lcc-tm .lcc-tm-all[open] > summary { margin-bottom: 14px; }
+  .lcc-tm .lcc-tm-all:not([open])::details-content { content-visibility: hidden; }
+}
+@media (forced-colors: active) {
+  .lcc-tm .lcc-tm-all > summary { border-color: ButtonText; background: Canvas; color: CanvasText; }
+}

@@ -151,8 +151,8 @@ test('the pool lists the decrees in the order of the save, as the classic panel 
 
 test('the sticky header does not cover what is scrolled to: the page keeps the measured header height as scroll padding, and none on a phone where the header scrolls away', () => {
   assert.match(app, /html\{scroll-padding-top:calc\(var\(--hdr-h,56px\) \+ 12px\)\}/);
-  assert.match(app, /html:has\(#gamewarn\.warn,#launchpass\.info\)\{scroll-padding-top:calc\(var\(--hdr-h,56px\) \+ 12px \+ 76px\)\}/);
-  assert.match(app, /@media \(max-width:720px\)\{[^]*?header\.d-bar\{position:static[^}]*\}\s*html,html:has\(#gamewarn\.warn,#launchpass\.info\)\{scroll-padding-top:12px\}/);
+  assert.match(app, /html:has\(#gamewarn\.warn,#launchpass\.info\)\{scroll-padding-top:calc\(var\(--hdr-h,56px\) \+ 12px \+ var\(--warn-h,76px\)\)\}/);
+  assert.match(app, /@media \(max-width:720px\)\{[^]*?header\.d-bar\{position:static[^}]*\}\s*html\{scroll-padding-top:12px\}\s*html:has\(#gamewarn\.warn,#launchpass\.info\)\{scroll-padding-top:12px\}/, 'two rules, so a browser without :has() keeps the plain one (#910)');
   assert.match(app, /header\.d-bar\{[^}]*position:sticky/);
   assert.match(app, /@media \(max-width:720px\)\{\s*header\.d-bar\{position:static/);
 });

@@ -170,6 +170,13 @@
   .lcc-sp-lanes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .lcc-sp-lane { min-height: 208px; }
 }
+/* three lanes to a row (761 to 1000 px) leave the last two alone in the second row: they sit under the gaps between the three, at the width of the others (#910); the same six-column trick keeps one gap size */
+@media (min-width: 761px) and (max-width: 1000px) {
+  .lcc-sp-lanes { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .lcc-sp-lane { grid-column: span 2; }
+  .lcc-sp-lane:nth-child(4) { grid-column: 2 / span 2; }
+  .lcc-sp-lane:nth-child(5) { grid-column: 4 / span 2; }
+}
 @media (max-width: 760px) {
   .lcc-sp-hero { padding: 22px 18px; grid-template-columns: 57px minmax(0, 1fr); }
   .lcc-sp-hero-art { width: 55px; height: 68px; font-size: 35px; }
@@ -206,7 +213,7 @@
   .lcc-sp-hero { grid-template-columns: minmax(0, 1fr); }
   .lcc-sp-hero-art { display: none; }
 }
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 640px) { /* a phone-width window is 44 px as well as a touch screen (#910) */
   .lcc-sp-btn, .lcc-sp-input { min-height: 44px; }
   .lcc-sp input.lcc-sp-input { min-height: 44px; }
 }

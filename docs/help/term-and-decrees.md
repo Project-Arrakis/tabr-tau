@@ -2,6 +2,8 @@
 
 The Term and Decrees section sits under the plaque. It shows the current term and holds the editor's own controls for the active decree and the reigning faction. The plaque above only shows what these hold.
 
+On a phone (a window 640 px wide or less) the section comes after the board, so the Houses come first, and everything under its heading is one closed list: its line says the term, the reigning faction and the active decree, and Show opens it. A wide window shows it open, as always.
+
 ## The facts of the term
 
 - **Term**: the number of the current term.
@@ -29,7 +31,7 @@ Each row is one decree, with what it is in this term:
 
 The pool is in id order. Names are the game's own names, with the effect line the game gives. The small line under a name is the id the save holds, kept for support.
 
-The special vendor decree is five separate rows. The four Exclusive Import Rights decrees (Vehicle, Weapon, Armor and Tool) are in the list. The plain SpecialVendorActive row has no name in the game's decree table, no category and an effect that is not verified, so it is kept in a closed list under the pool with the same controls, in case the game uses it.
+The special vendor decree is five separate rows. The four Exclusive Import Rights decrees (Vehicle, Weapon, Armor and Tool) are in the list. The fifth, the plain one, does nothing in the game, so the editor does not show it anywhere: not in the pool, not in a closed list and not in the Active decree box. It stays in the save as it is and the editor never changes or deletes it. If a term should hold it as its active or next decree, the page says Another decree and nothing more, and Apply writes it back unchanged.
 
 ## Earlier terms
 
