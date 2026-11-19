@@ -1,6 +1,6 @@
 # The Landsraad board
 
-The board shows the 25 Houses of the current term, five rows of five, numbered 01 to 25 from the top left. The numbers are the game's own positions. If the save does not give a clean 5 by 5 board, the Houses are shown as a list and nothing can be written from the board.
+The board shows the 25 Houses of the current term, five rows of five, numbered 01 to 25 from the top left. The numbers are the game's own positions, read from the save's board_index. If the save does not give a clean 5 by 5 board, the Houses are shown as a list and nothing can be written from the board.
 
 ## What a card shows
 

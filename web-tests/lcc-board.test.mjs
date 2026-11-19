@@ -349,7 +349,8 @@ test('the board panel has the approved head, filters, legend, totals and the two
   const head = b.querySelector('.lcc-bd-panel-head');
   assert.equal(text(head.querySelector('.lcc-bd-eyebrow')), 'THE GREAT HOUSES');
   assert.equal(text(head.querySelector('.lcc-bd-h')), 'The Landsraad');
-  assert.match(text(head.querySelector('.lcc-bd-subline')), /Fixed 5 × 5 board · game positions read from board_index/);
+  assert.match(text(head.querySelector('.lcc-bd-subline')), /^Term [0-9]+$/, 'only the term (#1033)');
+  assert.doesNotMatch(text(head), /Fixed 5 × 5|board_index/);
   assert.deepEqual([...head.querySelectorAll('.lcc-bd-layout button')].map((x) => text(x)), ['Grid', 'List']);
   assert.ok(![...head.querySelectorAll('button')].some((x) => /Clear highlight|Strategy/.test(text(x))), 'no Clear highlight and no Sysselraad Strategy button (#958)');
   assert.deepEqual([...ui.doc.querySelectorAll('#lcc-bd-spec option')].map((o) => text(o)), ['All specializations', 'Crafting', 'Gathering', 'Exploration', 'Combat', 'Sabotage']);
