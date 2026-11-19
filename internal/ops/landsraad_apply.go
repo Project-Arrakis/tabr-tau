@@ -189,7 +189,7 @@ func (o *Ops) LandsraadApplyWith(g GrantSettings, a Args) (any, error) {
 	var houses, changed, raised, lowered, completed, reopened, repaired int64
 	var replaced []replacedWin
 	var names []string // the houses that changed, and what was done to each, for the description (D1-6, #611)
-	var done []string // what was done to each of them, in the same order
+	var done []string  // what was done to each of them, in the same order
 	var rw rewardResult
 	if _, err := o.S.Mutate("landsraad", func(m *save.Mut) error {
 		houses, changed, raised, lowered, completed, reopened, repaired = 0, 0, 0, 0, 0, 0, 0

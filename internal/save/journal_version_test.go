@@ -80,4 +80,3 @@ func TestAnOldJournalIsSetAsideWhenItsWriteDidNotLandOrEditsFollowedIt(t *testin
 		}
 	}
 }
-
