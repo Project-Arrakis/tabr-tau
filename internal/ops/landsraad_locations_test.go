@@ -58,10 +58,14 @@ func TestBoardLocationComesFromTheHouseRepresentativeMarker(t *testing.T) {
 		if loc := taskByID(t, o, 176)["location"].(map[string]any); loc["known"] != true || loc["area"] != "Jabal Eifrit Al-janub" {
 			t.Fatalf("Mikkarol = %v", loc)
 		}
-		// a hub has no picture: its name and map, no pin and no distance
+		// a hub is a map of the Saved map too (#758): its name and map, the pin as a fraction of the hub's frame and the map link; the character is on the Hagga Basin, so no distance
 		hub := taskByID(t, o, 177)["location"].(map[string]any)
-		if hub["known"] != true || hub["map"] != "Arrakeen" || hub["area"] != "Arrakeen" || hub["map_key"] != "" || hub["x"] != nil || hub["y"] != nil || hub["from_you_cm"] != nil {
+		ar := findMap("Arrakeen")
+		if hub["known"] != true || hub["map"] != "Arrakeen" || hub["area"] != "Arrakeen" || hub["map_key"] != "Arrakeen" || hub["from_you_cm"] != nil {
 			t.Fatalf("Varota = %v", hub)
+		}
+		if x, y := hub["x"].(float64), hub["y"].(float64); math.Abs(x-(3622-ar.MinX)/(ar.MaxX-ar.MinX)) > 1e-9 || math.Abs(y-(-3222-ar.MinY)/(ar.MaxY-ar.MinY)) > 1e-9 {
+			t.Fatalf("the hub pin is not where the marker is: %v", hub)
 		}
 		// the Deep Desert has a picture but no area names: the row says the grid cell the marker is in (a marker of the save wins over the fixed place of the house)
 		if dd := taskByID(t, o, 178)["location"].(map[string]any); dd["known"] != true || dd["map"] != "Deep Desert" || dd["area"] != "Deep Desert" || dd["map_key"] != "DeepDesert" || dd["x"] == nil || dd["cell"] != "E5" {
@@ -173,15 +177,33 @@ func TestBoardLocationOfAHubOrDeepDesertHouseWithoutAMarker(t *testing.T) {
 			if loc["unconfirmed"] != (id == 304) {
 				t.Fatalf("task %d: unconfirmed = %v", id, loc["unconfirmed"])
 			}
-			hub := want[0] == "Arrakeen" || want[0] == "Harko Village"
-			if hub && (loc["map_key"] != "" || loc["x"] != nil || loc["from_you_cm"] != nil) {
-				t.Fatalf("task %d: a hub has no picture, so no pin, link or distance: %v", id, loc)
+			// every one of these maps is a map of the Saved map (the hubs since #758): a pin and the map link
+			if loc["map_key"] == "" || loc["x"] == nil {
+				t.Fatalf("task %d: a place on a map of the Saved map gets a pin and the map link: %v", id, loc)
 			}
-			if !hub && (loc["map_key"] == "" || loc["x"] == nil) {
-				t.Fatalf("task %d: a place on a map with a picture gets a pin and the map link: %v", id, loc)
+			if hub := want[0] == "Arrakeen" || want[0] == "Harko Village"; hub && loc["map_key"] != map[string]string{"Arrakeen": "Arrakeen", "Harko Village": "HarkoVillage"}[want[0]] {
+				t.Fatalf("task %d: the hub's map link names the hub's own map: %v", id, loc)
 			}
 		}
 	})
+}
+
+// The distance of a house at a hub (#758): worked out from the character's place on the same hub, none from another map.
+func TestDistanceToAHubHouseIsWorkedOutOnlyWhenTheCharacterIsInThatHub(t *testing.T) {
+	f := fixedHousePlaces["Mutelli"]
+	l := placeAt(f.Map, f.X, f.Y, f.Area, f.Place)
+	if !l.Pinned || l.Map != "Arrakeen" {
+		t.Fatalf("Mutelli = %+v", l)
+	}
+	d, ok := distanceFromYou(l, &charPlace{Map: "Arrakeen", X: f.X + 300, Y: f.Y - 400})
+	if !ok || math.Abs(d-500) > 1e-6 {
+		t.Fatalf("distance = %v, %v: want 500 centimetres", d, ok)
+	}
+	for _, here := range []*charPlace{{Map: "HarkoVillage", X: f.X, Y: f.Y}, {Map: "HaggaBasin", X: f.X, Y: f.Y}, nil} {
+		if _, ok := distanceFromYou(l, here); ok {
+			t.Errorf("a character at %+v is not at Arrakeen: no distance", here)
+		}
+	}
 }
 
 func TestBoardLocationOfAMarkerBeatsTheFixedPlace(t *testing.T) {
@@ -200,7 +222,6 @@ func TestBoardLocationOfAMarkerBeatsTheFixedPlace(t *testing.T) {
 // editor can open: a map, and on a map with a picture the pin (a fraction inside the picture) and the map link, and the grid tile on the Deep Desert. The only places that cannot be opened
 // on a picture are the two hubs, which the Saved map has no picture of yet (#758); the test names them so that adding a hub map makes it fail until the list is shortened.
 func TestEveryHouseHasAPlaceAndAWayToItsMap(t *testing.T) {
-	hubsWithoutPicture := map[string]bool{"Arrakeen": true, "Harko Village": true}
 	eachLayout(t, func(t *testing.T, l testsave.Layout) {
 		var ids = map[string]int64{"Maros": 174, "Kenola": 175} // the two houses mineWorld already has
 		var insert []string
@@ -232,12 +253,6 @@ func TestEveryHouseHasAPlaceAndAWayToItsMap(t *testing.T) {
 			label, _ := loc["map"].(string)
 			if label == "" || loc["area"] == "" {
 				t.Errorf("House %s: no map or area: %v", name, loc)
-			}
-			if hubsWithoutPicture[label] {
-				if loc["map_key"] != "" || loc["x"] != nil {
-					t.Errorf("House %s: a hub has no picture to pin on: %v", name, loc)
-				}
-				continue
 			}
 			x, okx := loc["x"].(float64)
 			y, oky := loc["y"].(float64)
@@ -280,9 +295,9 @@ func TestFixedHousePlacesHoldEveryHouse(t *testing.T) {
 			if !l.Pinned || l.Cell == "" {
 				t.Errorf("%s: a Deep Desert place has a pin and a grid cell: %+v", name, l)
 			}
-		default:
-			if l.Pinned || l.Area != l.Map {
-				t.Errorf("%s: a hub has no picture: %+v", name, l)
+		default: // a hub (#758): a pin inside its frame, and the map's name for the area
+			if !l.Pinned || l.Area != l.Map {
+				t.Errorf("%s: a hub place has a pin inside the hub's frame and the hub's name: %+v", name, l)
 			}
 		}
 	}
@@ -316,7 +331,7 @@ func TestBoardLocationGivesTheDistanceFromYouOnlyOnTheSameMapWithAMapping(t *tes
 		if !ok || d < 49999 || d > 50001 {
 			t.Fatalf("distance = %v", taskByID(t, o, 174)["location"])
 		}
-		for _, id := range []int64{177, 178} { // a hub has no mapping; the Deep Desert is another map than the character's
+		for _, id := range []int64{177, 178} { // a hub and the Deep Desert are other maps than the character's
 			if loc := taskByID(t, o, id)["location"].(map[string]any); loc["known"] != true || loc["from_you_cm"] != nil {
 				t.Fatalf("task %d: another map or a hub has no distance: %v", id, loc)
 			}

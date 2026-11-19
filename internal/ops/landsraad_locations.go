@@ -18,13 +18,13 @@ import (
 
 // houseLocation is where the representative of one house is: the map ("Hagga Basin", "Deep Desert", "Harko Village", "Arrakeen"), the named area of the map (the main text of the row: the
 // area on the Hagga Basin, the map's name elsewhere), the finer place (the tradepost a representative stands in, from public guides; empty otherwise; the Deep Desert's grid cell is Cell), and the position as a fraction of the schematic map (0 to 1,
-// from the left and from the top; only on a map the editor has a picture for, see houseMapKey).
+// from the left and from the top; only on a map the Saved map has a mapping for, see houseMapKey).
 type houseLocation struct {
 	Map, Area, Place string
 	Cell             string // the Deep Desert's lettered grid cell ("B8"), the editor's own words for it; empty elsewhere
 	Unconfirmed      bool   // Place is from public guides and not confirmed in the game
 	X, Y             float64
-	Pinned           bool // X and Y are inside the picture of a map the editor has one for: only then are the pin, the distance and the map link given
+	Pinned           bool // X and Y are inside the frame of a map the Saved map has a mapping for: only then are the pin, the distance and the map link given
 }
 
 // houseMarkerPrefix is the start of the type of the marker of a house representative.
@@ -36,8 +36,8 @@ var houseMarkerName = map[string]string{"Mikkarol": "Mikarrol"}
 // houseMapLabel is the words for the maps a house representative stands on, by the save's map name. A marker on another map gives no place: it is not where a house representative is.
 var houseMapLabel = map[string]string{"HaggaBasin": "Hagga Basin", "DeepDesert": "Deep Desert", "HarkoVillage": "Harko Village", "Arrakeen": "Arrakeen"}
 
-// houseMapKey names the save's map key for the maps the editor has a world-to-picture mapping for (liveMaps). A hub (Harko Village, Arrakeen) has none, so no pin and no distance are given there.
-var houseMapKey = map[string]string{"Hagga Basin": "HaggaBasin", "Deep Desert": "DeepDesert"}
+// houseMapKey names the save's map key for the maps the Saved map has a world-to-picture mapping for (savedMaps: the two maps of liveMaps and the hubs, #758). A position on one of them gets a pin, a distance and the link to the Saved map.
+var houseMapKey = map[string]string{"Hagga Basin": "HaggaBasin", "Deep Desert": "DeepDesert", "Arrakeen": "Arrakeen", "Harko Village": "HarkoVillage"}
 
 // charPlace is where the character stands: the save's map key (for example "HaggaBasin") and the world position in centimetres.
 type charPlace struct {
@@ -122,7 +122,7 @@ func placeAt(mapName string, x, y float64, areaID int64, place string) houseLoca
 	if key, ok := houseMapKey[label]; ok {
 		if m := findMap(key); m.Key == key {
 			fx, fy := (x-m.MinX)/(m.MaxX-m.MinX), (y-m.MinY)/(m.MaxY-m.MinY)
-			// a position beyond the edge of the picture gets no pin, no distance and no map link: the row still gives its area
+			// a position beyond the edge of the frame gets no pin, no distance and no map link: the row still gives its area
 			if fx >= 0 && fx <= 1 && fy >= 0 && fy <= 1 {
 				l.X, l.Y, l.Pinned = fx, fy, true
 			}

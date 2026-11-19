@@ -1502,5 +1502,35 @@
       "atreides",
       "harkonnen"
     ]
+  },
+  "mapArt": {
+    "note": "The map pictures of the Saved map (internal/web/static/maps/, served from this program's own address, listed in docs/art-notice.md). Every picture there is listed here with its size and hash, and the tests compare this list with the embedded files byte for byte (internal/web/livemap_maps_test.go). A map that has no picture (Image empty in internal/ops/livemap.go) is listed under withoutPicture: the Saved map draws its frame as a plain outline. A picture is added only as game artwork under docs/art-notice.md, with its source, size and hash here.",
+    "runtimeRoot": "internal/web/static/maps/",
+    "files": [
+      {
+        "role": "map",
+        "map": "HaggaBasin",
+        "file": "hagga-basin.png",
+        "bytes": 2153285,
+        "sha256": "b349c900013213df6cceea75f6f20329b57646ff778134eb69c9f75d315b86a1",
+        "width": 1152,
+        "height": 1152,
+        "source": "the Dune Docker console map picture (see internal/notices/THIRD-PARTY-NOTICES.md); shown in the map space of 4096 x 4096 of the console's bounds"
+      },
+      {
+        "role": "map",
+        "map": "DeepDesert",
+        "file": "deep-desert.png",
+        "bytes": 1494203,
+        "sha256": "48d4f34892fbcd8027dc44c07c1e65b975063d108529d5e97acfd997a0530708",
+        "width": 1408,
+        "height": 1408,
+        "source": "the Dune Docker console map picture (see internal/notices/THIRD-PARTY-NOTICES.md); shown in the map space of 4096 x 4096 of the console's bounds"
+      }
+    ],
+    "withoutPicture": [
+      "Arrakeen",
+      "HarkoVillage"
+    ]
   }
 }
