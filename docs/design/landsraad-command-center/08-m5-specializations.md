@@ -94,9 +94,9 @@ Method: the design reference and the editor page were drawn side by side in a he
 
 | Row | Approved element | Now | Status | Why |
 |---|---|---|---|---|
-| A1 | "Existing Tau features, retained", "Track Mapping and Advanced Editor", a disclosure | Same section and title, "Existing editor features, retained" | matches | |
-| A2 | Closed unless a track cannot be tied to a path | Closed; opens by itself when a row is unidentified | matches | |
-| A3 | Track numbers, Assign by number, Assign by hand, Exact raw row | All four, with the existing ids and handlers; the raw-row warning says nothing checks that XP and level agree | matches | |
+| A1 | "Existing Tau features, retained", "Track Mapping and Advanced Editor", a disclosure | Not drawn in this view (taken out in #986); the classic list keeps the section | removed (#986) | The mapping and the raw-row writer stay in the classic list, which the switch above the tab still offers. |
+| A2 | Closed unless a track cannot be tied to a path | One read-only line, "Unknown specialization row in the save (not edited): number n", shown only when the save holds a row of XP that no path owns | differs (intentional, #986) | The only part of the old section that the lanes cannot show; nothing in it writes. |
+| A3 | Track numbers, Assign by number, Assign by hand, Exact raw row | Not drawn in this view; all four stay in the classic list with their ids and handlers, and the raw-row warning says nothing checks that XP and level agree | removed from this view (#986) | Same reason as A1. |
 | A4 | Footer "Source of truth: GET /api/player/specs ..." | Not built | not built | Chrome of the design reference only. |
 
 ### Page-level behaviour
