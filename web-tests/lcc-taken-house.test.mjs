@@ -133,8 +133,8 @@ test('the contributors the save records are shown: on the banners and for the Ho
   assert.match([...ui.doc.querySelectorAll('.lcc-standard-h')].map((h) => h.getAttribute('title')).join(' | '), /worked out here: the save holds amounts, not a ranking/);
   click(ui, tileOf(ui, 'Vernius').querySelector('button'));
   const i = ui.doc.querySelector('.lcc-bd-insp');
-  assert.deepEqual([...i.querySelectorAll('.lcc-bd-contrib-l > li')].map(text), ['Fortune Hunters Inc', 'Red Hawk Corps'], 'the Inspector lists the names, the biggest first, with no amount and no Unnamed contributor row (#1058)');
-  assert.match(i.querySelector('#lcc-bd-s1').getAttribute('title'), /Top contributors: Fortune Hunters Inc, Red Hawk Corps\./);
+  assert.equal(i.querySelector('.lcc-bd-contrib'), null, 'the Inspector lists no contributors (#1077)');
+  assert.doesNotMatch(i.querySelector('#lcc-bd-s1').getAttribute('title'), /contributors/i);
 });
 
 test('a taken House with no contributor row keeps "Not in the save" and says why; a banner with no rows says so', async () => {
@@ -145,12 +145,11 @@ test('a taken House with no contributor row keeps "Not in the save" and says why
   assert.ok([...ui.doc.querySelectorAll('.lcc-standard-none')].every((n) => text(n) === '—'));
   assert.match([...ui.doc.querySelectorAll('.lcc-standard-h')].map((h) => h.getAttribute('title')).join(' | '), /holds no contribution rows under Atreides/);
   click(ui, tileOf(ui, 'Mutelli').querySelector('button'));
-  const n = text(ui.doc.querySelector('.lcc-bd-insp .lcc-bd-nosave'));
-  assert.equal(n, '—', 'a dash under TOP CONTRIBUTORS, as the banner shows it (#1056)');
-  assert.match(ui.doc.querySelector('.lcc-bd-insp .lcc-bd-nosave').getAttribute('title'), /^Top contributors: not in the save\. This House is pledged to a faction but the save holds no contributor row for it/);
-  assert.match(ui.doc.querySelector('.lcc-bd-insp #lcc-bd-s1').getAttribute('title'), /Top contributors: Not in the save \(the save has no contributor row for this House, which is pledged to a faction\)\. Missions: Not in the save\./);
+  assert.equal(ui.doc.querySelector('.lcc-bd-insp .lcc-bd-nosave'), null, 'no contributors block in the Inspector, not even a dash (#1077)');
+  assert.match(ui.doc.querySelector('.lcc-bd-insp #lcc-bd-s1').getAttribute('title'), /Missions: Not in the save\./);
+  assert.doesNotMatch(ui.doc.querySelector('.lcc-bd-insp #lcc-bd-s1').getAttribute('title'), /contributor/i);
   // an open House says no more than before
   click(ui, tileOf(ui, 'Sor').querySelector('button'));
-  assert.match(ui.doc.querySelector('.lcc-bd-insp #lcc-bd-s1').getAttribute('title'), /Top contributors: Not in the save\. Missions: Not in the save\./);
-  assert.doesNotMatch(text(ui.doc.querySelector('.lcc-bd-insp .lcc-bd-nosave')), /taken/);
+  assert.match(ui.doc.querySelector('.lcc-bd-insp #lcc-bd-s1').getAttribute('title'), /Missions: Not in the save\./);
+  assert.doesNotMatch(text(ui.doc.querySelector('.lcc-bd-insp')), /taken/);
 });

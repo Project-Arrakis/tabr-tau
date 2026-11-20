@@ -128,16 +128,17 @@ test('#919: a contributor the save names no guild for is "Unnamed contributor", 
   assert.doesNotMatch(tip, /900/, 'the amount is not in the mouse-over (#1043)');
 });
 
-test('#919: the House panel says a guild is shown by its identifier with capitals added', async () => {
+test('#1077: the House panel has no TOP CONTRIBUTORS block, with or without contributors in the save (the plaque keeps its two lists)', async () => {
   const a = synthetic();
   const t0 = a.tasks.find((t) => (t.player_contributions || []).length);
   t0.player_contributions.push({ player_id: 91, faction_id: 1, amount: 50, mine: false, guild: 'red_hawk_corps' }); // the Inspector lists named contributors only (#1058)
   const ui = await open('board', a);
   const id = t0.id;
   click(ui, '[data-fk="ht:' + id + '"]');
-  const p = ui.doc.querySelector('.lcc-bd-insp .lcc-bd-contrib');
-  assert.ok(p, 'the House has contributors');
-  assert.match(p.getAttribute('title'), /A guild is shown by the name the save gives it, with capital letters added/);
+  assert.ok(ui.doc.querySelectorAll('.lcc-standard-list > li').length, 'the plaque still lists contributors');
+  const insp = ui.doc.querySelector('.lcc-bd-insp');
+  assert.equal(insp.querySelector('.lcc-bd-contrib, .lcc-bd-contrib-l, .lcc-bd-nosave'), null, 'no contributor block in the Inspector');
+  assert.doesNotMatch(text(insp) + ' ' + insp.innerHTML, /TOP CONTRIBUTORS|Top contributors/i);
 });
 
 // ---- #921: the Choose boxes ignore the browser's saved form state ----------------------------------------------------------------------------------------------------------

@@ -264,10 +264,11 @@ test('choosing a House opens the Inspector: both scales apart, the contributors 
   const bars = [...i.querySelectorAll('.lcc-bd-fc')].map((b) => [text(b.querySelector('.lcc-bd-fc-l')), text(b.querySelector('.lcc-bd-fc-v'))]);
   assert.deepEqual(bars, [['HOUSE ATREIDES', '4,000 / 4,000'], ['HOUSE HARKONNEN', '900 / 4,000']]);
   const s1 = i.querySelector('#lcc-bd-s1');
-  assert.match(s1.getAttribute('title'), /House goal: 4,000\..*Top contributors: SYNTHETIC_CHARACTER\. Missions: Not in the save\./, 'what the three removed lines said stays as a tooltip, names only (#1058)');
-  assert.match(text(s1.parentNode.querySelector('.lcc-bd-sr')), /Top contributors: SYNTHETIC_CHARACTER\. Missions: Not in the save\./);
-  assert.deepEqual([...i.querySelectorAll('.lcc-bd-contrib-l > li')].map(text), ['SYNTHETIC_CHARACTER'], 'the Inspector lists names only: no amount, and no Unnamed contributor row (#1058)');
-  assert.doesNotMatch(text(i.querySelector('.lcc-bd-contrib')), /\d|Unnamed/);
+  assert.match(s1.getAttribute('title'), /House goal: 4,000\..*Missions: Not in the save\./, 'what the three removed lines said stays as a tooltip, with no contributor names (#1077)');
+  assert.doesNotMatch(s1.getAttribute('title'), /contributors/i);
+  assert.match(text(s1.parentNode.querySelector('.lcc-bd-sr')), /Missions: Not in the save\./);
+  assert.equal(i.querySelector('.lcc-bd-contrib'), null, 'the Inspector has no contributors block (#1077)');
+  assert.doesNotMatch(text(i), /TOP CONTRIBUTORS/);
   assert.equal(s1.parentNode.querySelectorAll('.lcc-bd-cap, .lcc-bd-none').length, 0, 'no visible note lines under the two bars');
   assert.match(i.querySelector('.lcc-bd-track-me').getAttribute('aria-label'), /^Your contribution: 3,600 of 6,000 · next tier 4,800, 1,200 more\./);
   assert.equal(i.querySelector('#lcc-bd-s2').parentNode.querySelector('.lcc-bd-line'), null, 'no line under the contribution bar');

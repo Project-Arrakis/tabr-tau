@@ -527,12 +527,6 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-loc.off { cursor: default; color: var(--lcc-dim); }
 .lcc-bd-loc.off .lcc-bd-loc-a { text-decoration: none; font-weight: 500; }
 .lcc-bd-locline { margin-top: 3px; }
-.lcc-bd-nosave { margin: 8px 0 0; font-size: 12px; }
-/* Top contributors in the Inspector: the names, the biggest first, numbered, no amounts (#1058) */
-.lcc-bd-contrib { margin: 10px 0 0; }
-.lcc-bd-contrib-h { margin: 0 0 3px; font: 800 12px/1.2 var(--lcc-sans); letter-spacing: .12em; color: var(--lcc-dim); }
-.lcc-bd-contrib-l { margin: 0; padding: 0 0 0 1.6em; list-style: decimal; font: 500 13px/1.4 var(--lcc-sans); color: var(--lcc-text); }
-.lcc-bd-contrib-l li { overflow-wrap: anywhere; }
 @media (max-width: 640px), (pointer: coarse) {
   .lcc-bd-select { min-height: 44px; }
   .lcc-bd-filters .lcc-bd-chip { min-height: 44px; }

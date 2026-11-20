@@ -9,7 +9,7 @@ The board shows the 25 Houses of the current term, five rows of five, numbered 0
 - Which faction the House is pledged to: "Pledged to Atreides", "Pledged to Harkonnen", "Undecided" (no faction has the favor of the House yet) or "Wavering" (no faction has it yet, and both factions have progress on it). The screen-reader text says the same words. A House the save cannot settle says "Favor unreadable".
 - Five tier boxes and a line such as 3/5 EARNED, with the number collected and the number not collected once a tier is earned. A House that is pledged to a faction shows the same line as any other House: if you have no contribution to it, it reads 0/5 EARNED.
 
-Click a card to open the House in the panel beside the board (House Intelligence). Click it again to close it. In that panel, TOP CONTRIBUTORS lists the names of the biggest contributors to the House, the biggest first and numbered, with no amounts; a contributor the save gives no name for is left out. The reward ledger there has two figures: Tiers earned (for example 3 / 5) and Collected (for example 1 / 3, the tiers collected out of the tiers you have earned); hover them to see how many are waiting at the House representative.
+Click a card to open the House in the panel beside the board (House Intelligence). Click it again to close it. The panel does not list contributors: the biggest ones of each faction are on the plaque above the board. The reward ledger there has two figures: Tiers earned (for example 3 / 5) and Collected (for example 1 / 3, the tiers collected out of the tiers you have earned); hover them to see how many are waiting at the House representative.
 
 ## Pledged, earned, collected
 

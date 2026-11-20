@@ -626,28 +626,14 @@
 
     // the two scales, kept apart: the factions' progress against the house goal, then the character's own tiers
     const s1 = el('section', 'lcc-bd-sec', '', { 'aria-labelledby': 'lcc-bd-s1' });
-    // the names of the contributors, the biggest first, with no amounts and no placeholder for one the save gives no name for (#1058); the amounts stay in the save and in the plaque's tooltip only
-    const named = h.contributors.filter((c) => !c.unnamed).slice(0, 5).map((c) => c.label);
-    const s1note = 'House goal: ' + known(h.goal) + '. A faction’s progress is the sum of its contributions to this House. Top contributors: ' + (named.length ? named.join(', ') : h.contributors.length ? 'no names in the save' : NOT_IN_SAVE + (h.owner === 'a' || h.owner === 'h' ? ' (the save has no contributor row for this House, which is pledged to a faction)' : '')) + '. Missions: ' + NOT_IN_SAVE + '.';
+    // the Inspector names no contributors (#1077): the biggest ones of each faction are on the plaque
+    const s1note = 'House goal: ' + known(h.goal) + '. A faction’s progress is the sum of its contributions to this House. Missions: ' + NOT_IN_SAVE + '.';
     const s1h = secHead('FACTION HOUSE CONTROL', 'lcc-bd-s1');
     s1h.setAttribute('title', s1note);
     s1.appendChild(s1h);
     s1.appendChild(fcRow('a', 'HOUSE ATREIDES', h.prog.a, h.goal));
     s1.appendChild(fcRow('h', 'HOUSE HARKONNEN', h.prog.h, h.goal));
     s1.appendChild(el('span', 'lcc-bd-sr', s1note));
-    if (named.length) {
-      const cb = el('div', 'lcc-bd-contrib', '', { title: 'The biggest contributors first. The save holds amounts, not a ranking, so the order is worked out here. A guild is shown by the name the save gives it, with capital letters added. A contributor the save gives no name for is left out.' });
-      cb.appendChild(el('p', 'lcc-bd-contrib-h', 'TOP CONTRIBUTORS'));
-      const cl = el('ol', 'lcc-bd-contrib-l', '', { role: 'list' });
-      for (const n of named) cl.appendChild(el('li', '', n));
-      cb.appendChild(cl);
-      s1.appendChild(cb);
-    } else if (!h.contributors.length) { // a dash under the heading, as the banner shows it; the reason is the hover text (#1056)
-      const cb = el('div', 'lcc-bd-contrib');
-      cb.appendChild(el('p', 'lcc-bd-contrib-h', 'TOP CONTRIBUTORS'));
-      cb.appendChild(el('p', 'lcc-bd-mut lcc-bd-nosave', '—', { title: 'Top contributors: not in the save.' + (h.owner === 'a' || h.owner === 'h' ? ' This House is pledged to a faction but the save holds no contributor row for it (for example when it was completed from this editor).' : '') }));
-      s1.appendChild(cb);
-    }
     side.appendChild(s1);
 
     const top = h.tierCount ? h.top : null;
