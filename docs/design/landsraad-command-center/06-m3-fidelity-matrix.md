@@ -272,3 +272,15 @@ Display only: nothing a click sends and no request or save field changed; the pi
 | P3 | Hover and focus | #1069 | The peek opens on mouse hover as before and now on keyboard focus of the place link too (`:has(:focus-visible)`); Escape puts it away while the focus stays and it returns when the focus moves. At 640 px and narrower it is the same bottom sheet over the page as before (#1025). |
 | P4 | House hover card | #1069 | The card starts with the large House symbol (the 128 px picture of `lcc/art/houses`, shown at 64 px, lazy, decoration with an empty alt), the House name and its region (12 px), in both views and in the list and grid of the board; a House with no symbol in the fixed list has the name and the region alone. The Next reward, Not collected, Faction standing and Place lines are unchanged. |
 | P5 | Swatch hover | #1069 | Not built: the editor owns no picture of the 25 House swatches (`docs/art-notice.md`), so there is nothing to show; a reward with no picture keeps its name-only hover. |
+
+## Links that open the Landsraad tab at a House (#1072)
+
+Navigation only: nothing a click sends and no request or save field changed; checked in a headless browser at 1280 and 390 px, not in the game.
+
+| Row | Element | Issue | What it is now |
+| --- | --- | --- | --- |
+| R1 | "Back to House X" on the Saved map, Command Center board (grid) | #1072 | Opens the board with the House chosen in the Inspector and its card scrolled into view below the sticky header (centred in the window), the focus on the card, like Jump to House. It opened at the top of the page, with a long board's House far below. |
+| R2 | The same, board list layout | #1072 | The House's line of the list is scrolled into view the same way. |
+| R3 | The same, Classic list | #1072 | Only that House is shown and open, as before; its row is scrolled to the top of the window below the sticky header. |
+| R4 | "Open House" of a path on the Specializations page | #1072 | Same scroll to the House's card on the board. |
+| R5 | Specialization links of the House Inspector (#1041), Jump to House, the place links to the Saved map | #1041, #1025 | Unchanged: they still open at the lanes, scroll to the card, and open the Saved map at the map. The scroll after a draw is one shared request (`askReveal`) that `render()` runs once, after the page is drawn. |
