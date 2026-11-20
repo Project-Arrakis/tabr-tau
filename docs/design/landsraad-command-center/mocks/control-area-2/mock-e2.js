@@ -56,8 +56,14 @@
     page.setAttribute('data-state', confirmOpen ? 'confirm' : (on ? 'chosen' : 'idle'));
     plate.classList.toggle('k-lit', on);
     if (E3) { page.setAttribute('data-mode', on && !menuOpen ? 'action' : 'filters'); } else plate.classList.toggle('k-slim', !on && params.get('plate') !== 'full');
+    var hidN = IDS.filter(function (id) { return chosen[id] && !vis[id]; }).length, hidTxt = V === 'e6' ? ' (' + hidN + ' not shown)' : '';
     q('[data-k="n"]').textContent = String(cv.length);
-    q('[data-k="nsr"]').textContent = on ? plural(cv.length, 'House') + ' chosen' : 'No Houses chosen';
+    q('[data-k="nsr"]').textContent = on ? plural(cv.length, 'House') + ' chosen' + (hidN ? hidTxt : '') : 'No Houses chosen';
+    if (V === 'e6') {
+      var h1 = q('[data-k="hid"]'), h2 = q('[data-k="hid2"]'); h1.textContent = hidN + ' chosen, not shown'; h1.hidden = !hidN; h2.textContent = hidN + ' not shown'; h2.hidden = !hidN;
+      var pc = q('[data-k="pcnt"]'); pc.textContent = cv.length + ' chosen' + (hidN ? ', ' + hidN + ' not shown' : '');
+      var qc = q('[data-k="qcrest"]'); if (qc) qc.setAttribute('data-f', faction() === 'Harkonnen' ? 'h' : 'a');
+    }
     q('[data-k="shown"]').textContent = String(vc.length);
     var shownSr = q('.k-count .k-sr'); if (shownSr) shownSr.textContent = vc.length + ' of 25 Houses shown';
     var shownTip = q('.k-count .k-tip'); if (shownTip) shownTip.textContent = vc.length + ' of 25 Houses shown';
@@ -70,9 +76,10 @@
       if (n > 0) b.removeAttribute('aria-disabled'); else b.setAttribute('aria-disabled', 'true');
       if (tip) tip.textContent = !on ? 'Choose at least one House first' : n > 0 ? WORD[k] + ' changes ' + n + ' of the ' + cv.length + ' chosen Houses that are shown. A question shows the totals before anything is written.' : 'Nothing to change among the chosen Houses that are shown';
       c.textContent = n > 0 ? String(n) : ''; c.hidden = !(n > 0);
+      if (V === 'e6' && k !== 'reopen') b.setAttribute('aria-label', WORD[k] + ' for ' + faction());
       b.classList.toggle('k-asking', confirmOpen && k === pending);
     });
-    stubs.forEach(function (li, k) { var id = k + 1; li.classList.toggle('k-dim', !vis[id]); li.classList.toggle('k-on', !!(chosen[id] && vis[id])); });
+    stubs.forEach(function (li, k) { var id = k + 1; li.classList.toggle('k-dim', !vis[id]); li.classList.toggle('k-on', !!(chosen[id] && vis[id])); if (V === 'e6') { li.setAttribute('aria-checked', String(!!(chosen[id] && vis[id]))); if (vis[id]) li.removeAttribute('aria-disabled'); else li.setAttribute('aria-disabled', 'true'); } });
     var c = q('[data-k="confirm"]'); c.hidden = !confirmOpen;
     if (confirmOpen) {
       var n2 = counts[pending];
@@ -89,12 +96,12 @@
 
   // ---- E5 and E6: the Filter menu (a popover; a bottom sheet at 700 px and under) ----
   function isPhone() { return phoneMq.matches; }
-  function listLayout() { var c = q('[data-k="cat"][data-cat="group"]'); return !!c && !c.hidden; }
+  function listLayout() { var c = q('[data-k="cat"][data-cat="group"]'); return !!c && (V === 'e6' ? c.getAttribute('aria-disabled') !== 'true' : !c.hidden); }
   function renderMenu() {
     var chips = [], pl = radioIndex('House'), gb = listLayout() ? radioIndex('Group by') : 0, nsp0 = Object.keys(specPick).length;
     if (V === 'e6') { // one chip per category, never per item: Pledge, Specialization, Group. A House has no chip (picking one ticks its square).
-      if (pl > 0) chips.push(['pledge', PLN[pl], 'Pledge: ' + PLN[pl]]);
-      if (nsp0) { var sn = []; for (var k0 = 1; k0 <= 5; k0++) if (specPick[k0]) sn.push(SPECN[k0]); chips.push(['spec', nsp0 >= 3 ? 'Specialization: ' + nsp0 + ' chosen' : sn.join(' + '), 'Specialization: ' + sn.join(', ')]); }
+      if (pl > 0) chips.push(['pledge', PLN[pl], 'House: ' + PLN[pl]]);
+      if (nsp0) { var sn = []; for (var k0 = 1; k0 <= 5; k0++) if (specPick[k0]) sn.push(SPECN[k0]); chips.push(['spec', nsp0 >= 3 ? 'Specialization (' + nsp0 + ')' : sn.join(' + '), 'Specialization: ' + sn.join(', ')]); }
       if (gb > 0) chips.push(['group', GBN[gb], 'Group: ' + GBN[gb]]);
     } else {
       if (pl > 0) chips.push(['pledge', 'House: ' + PLN[pl], 'House: ' + PLN[pl]]);
@@ -103,7 +110,10 @@
       if (gb > 0) chips.push(['group', 'Group: ' + GBN[gb], 'Group: ' + GBN[gb]]);
     }
     var box = q('[data-k="chips"]'); box.textContent = '';
-    chips.forEach(function (c) { var b = doc.createElement('button'); b.type = 'button'; b.className = 'k-chip'; b.setAttribute('data-k', 'chip'); b.setAttribute('data-chip', c[0]); b.setAttribute('aria-label', 'Remove ' + c[2]); b.title = 'Remove ' + c[2];
+    if (V === 'e6') chips.forEach(function (c) { var w = doc.createElement('span'); w.className = 'k-chip'; w.title = c[2]; var t = doc.createElement('span'); t.textContent = c[1]; w.appendChild(t);
+      var b = doc.createElement('button'); b.type = 'button'; b.className = 'k-chipx'; b.setAttribute('data-k', 'chip'); b.setAttribute('data-chip', c[0]); b.setAttribute('aria-label', 'Remove ' + c[2]); b.title = 'Remove ' + c[2];
+      var ns6 = 'http://www.w3.org/2000/svg', sv6 = doc.createElementNS(ns6, 'svg'), u6 = doc.createElementNS(ns6, 'use'); sv6.setAttribute('class', 'k-ic'); sv6.setAttribute('aria-hidden', 'true'); u6.setAttribute('href', '#k-x'); sv6.appendChild(u6); b.appendChild(sv6); w.appendChild(b); box.appendChild(w); });
+    else chips.forEach(function (c) { var b = doc.createElement('button'); b.type = 'button'; b.className = 'k-chip'; b.setAttribute('data-k', 'chip'); b.setAttribute('data-chip', c[0]); b.setAttribute('aria-label', 'Remove ' + c[2]); b.title = 'Remove ' + c[2];
       var s = doc.createElement('span'); s.textContent = c[1]; b.appendChild(s); var ns = 'http://www.w3.org/2000/svg', sv = doc.createElementNS(ns, 'svg'), u = doc.createElementNS(ns, 'use'); sv.setAttribute('class', 'k-ic'); sv.setAttribute('aria-hidden', 'true'); u.setAttribute('href', '#k-x'); sv.appendChild(u); b.appendChild(sv); box.appendChild(b); });
     q('[data-k="clearf"]').hidden = !chips.length;
     var nsp = Object.keys(specPick).length, nh = V === 'e6' ? 0 : Object.keys(housePick).length, vis6 = V === 'e6' ? visible() : null, nt = V === 'e6' ? IDS.filter(function (id) { return chosen[id] && vis6[id]; }).length : 0;
@@ -114,13 +124,7 @@
     q('[data-k="hn"]').textContent = !needle ? '25 Houses' + (nh + nt ? ', ' + (nh + nt) + ' chosen' : '') : shownN ? shownN + ' of 25 Houses match' : 'No House matches the search.';
     qa('[data-k="cat"]').forEach(function (b) { var c = b.getAttribute('data-cat'), n = c === 'house' ? (pl > 0 ? 1 : 0) + nh : c === 'spec' ? nsp : gb > 0 ? 1 : 0; q('[data-k="cc"]', b).textContent = n ? String(n) : ''; });
     rove(q('[data-list="h"]')); rove(q('[data-list="s"]'));
-    if (V === 'e6') fitChips();
     if (menuOpen) place();
-  }
-  function fitChips() { // E6: the strip stays one line; if the chips would be cut, Find House shows its icon only (its name stays as the accessible name and in the tooltip)
-    var lens = q('[data-part="lens"]'); lens.removeAttribute('data-tight');
-    var cut = qa('.k-chip > span', lens).some(function (e) { return e.scrollWidth > e.clientWidth + 0.5; });
-    if (cut) lens.setAttribute('data-tight', '1');
   }
   function rove(list) { var o = qa('.k-opt:not([hidden])', list); if (!o.length) return; var cur = o.filter(function (b) { return b.tabIndex === 0; })[0] || o.filter(function (b) { return b.getAttribute('aria-checked') === 'true'; })[0] || o[0]; qa('.k-opt', list).forEach(function (b) { b.tabIndex = b === cur ? 0 : -1; }); }
   function showCat(name, focusIt) {
@@ -131,7 +135,7 @@
   }
   function placeAt(el, btn) { // E6: the popovers are fixed under their key so the sticky strip and the popover stay together while the page scrolls
     if (isPhone()) { el.style.left = ''; el.style.top = ''; return; }
-    var br = btn.getBoundingClientRect(); el.style.left = Math.max(8, Math.min(br.left, window.innerWidth - el.offsetWidth - 8)) + 'px'; el.style.top = Math.round(br.bottom + 6) + 'px';
+    var br = btn.getBoundingClientRect(), pr = page.getBoundingClientRect(); el.style.left = Math.max(pr.left, Math.min(br.left, pr.right - el.offsetWidth)) + 'px'; el.style.top = Math.round(br.bottom + 6) + 'px';
   }
   function place() {
     if (V === 'e6') { placeAt(pop, fbtn); return; }
@@ -157,7 +161,7 @@
     if (role === 'fclose') { closeFind(true); return true; }
     if (role === 'fpick') { var fid = +t.getAttribute('data-id'); closeFind(true); flash(fid); return true; }
     if (role === 'fbtn') { if (menuOpen) closeMenu(true); else openMenu(true); return true; }
-    if (role === 'cat') { showCat(t.getAttribute('data-cat'), true); return true; }
+    if (role === 'cat') { if (t.getAttribute('aria-disabled') === 'true') return true; showCat(t.getAttribute('data-cat'), true); return true; }
     if (role === 'back') { pop.setAttribute('data-view', 'cats'); var c = q('[data-k="cat"][aria-selected="true"]', pop); if (c) c.focus(); return true; }
     if (role === 'popclose') { closeMenu(true); return true; }
     if (role === 'spick') { var k = +t.getAttribute('data-i'); if (k === 0) specPick = {}; else if (specPick[k]) delete specPick[k]; else specPick[k] = true; update(false); return true; }
@@ -171,7 +175,7 @@
     var t = e.target, key = e.key;
     if (key === 'Escape') { e.stopPropagation(); e.preventDefault(); if (t.getAttribute && t.getAttribute('data-k') === 'search' && t.value) { t.value = ''; searchQ = ''; update(false); } else closeMenu(true); return; }
     var cat = t.closest ? t.closest('[data-k="cat"]') : null, opt = t.closest ? t.closest('.k-opt') : null, vis = function (r) { return qa(r, pop).filter(function (b) { return !b.hidden; }); };
-    if (cat && (key === 'ArrowDown' || key === 'ArrowUp' || key === 'Home' || key === 'End')) { var cs = vis('[data-k="cat"]'), k = cs.indexOf(cat), nk = key === 'Home' ? 0 : key === 'End' ? cs.length - 1 : (k + (key === 'ArrowDown' ? 1 : -1) + cs.length) % cs.length; showCat(cs[nk].getAttribute('data-cat')); if (isPhone()) pop.setAttribute('data-view', 'cats'); cs[nk].focus(); e.preventDefault(); return; }
+    if (cat && (key === 'ArrowDown' || key === 'ArrowUp' || key === 'Home' || key === 'End')) { var cs = vis('[data-k="cat"]'), k = cs.indexOf(cat), nk = key === 'Home' ? 0 : key === 'End' ? cs.length - 1 : (k + (key === 'ArrowDown' ? 1 : -1) + cs.length) % cs.length; if (cs[nk].getAttribute('aria-disabled') !== 'true') showCat(cs[nk].getAttribute('data-cat')); if (isPhone()) pop.setAttribute('data-view', 'cats'); cs[nk].focus(); e.preventDefault(); return; }
     if (cat && key === 'ArrowRight') { var f = q('.k-p5-panel:not([hidden]) [role="radio"][aria-checked="true"], .k-p5-panel:not([hidden]) .k-opt[tabindex="0"]', pop); if (f) { f.focus(); e.preventDefault(); } return; }
     if (opt && (key === 'ArrowDown' || key === 'ArrowUp' || key === 'Home' || key === 'End')) { var list = opt.closest('[data-list]'), os = qa('.k-opt:not([hidden])', list), i = os.indexOf(opt);
       if (key === 'ArrowUp' && i === 0 && list.getAttribute('data-list') === 'h') { q('[data-k="search"]').focus(); e.preventDefault(); return; }
@@ -215,7 +219,7 @@
   function choose(btn, focus) {
     var g = btn.closest('[role="radiogroup"]');
     qa('[role="radio"]', g).forEach(function (b) { var on = b === btn; b.setAttribute('aria-checked', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
-    if (g.getAttribute('aria-label') === 'Board layout') { var list = btn.getAttribute('aria-label') === 'List'; qa('[data-group]').forEach(function (e) { e.hidden = !list; }); }
+    if (g.getAttribute('aria-label') === 'Board layout') { var list = btn.getAttribute('aria-label') === 'List'; qa('[data-group]').forEach(function (e) { if (V === 'e6' && e.getAttribute('data-k') === 'cat') e.setAttribute('aria-disabled', list ? 'false' : 'true'); else e.hidden = !list; }); }
     if (focus) btn.focus();
   }
   function closeAsk(refocus) { confirmOpen = false; update(false); if (refocus) { var a = q('[data-k="act"][data-do="' + pending + '"]'); if (a) a.focus(); } }
@@ -241,7 +245,7 @@
     pop.addEventListener('focusin', function (e) { var o = e.target.closest && e.target.closest('.k-opt'); if (o) { var l = o.closest('[data-list]'); qa('.k-opt', l).forEach(function (b) { b.tabIndex = b === o ? 0 : -1; }); } });
     doc.addEventListener('focusout', function (e) { if (menuOpen && e.relatedTarget && !pop.contains(e.relatedTarget) && !q('[data-k="fwrap"]').contains(e.relatedTarget)) closeMenu(false); });
     doc.addEventListener('input', function (e) { if (e.target && e.target.getAttribute && e.target.getAttribute('data-k') === 'search') { searchQ = e.target.value; update(false); } });
-    window.addEventListener('resize', function () { if (V === 'e6') fitChips(); if (menuOpen) { scrim.hidden = !isPhone(); place(); } });
+    window.addEventListener('resize', function () { if (menuOpen) { scrim.hidden = !isPhone(); place(); } });
   }
   doc.addEventListener('change', function (e) { if (e.target && e.target.matches && e.target.matches('select')) update(false); });
   doc.addEventListener('keydown', function (e) {
@@ -315,6 +319,17 @@
   ['touchend', 'touchcancel'].forEach(function (n) { doc.addEventListener(n, function () { clearTimeout(holdTimer); dropTimer = setTimeout(dropHeld, 2600); }, { passive: true }); });
   doc.addEventListener('contextmenu', function (e) { if (e.target.closest && e.target.closest('.k-held, .k-tipped') && window.matchMedia('(hover: none)').matches) e.preventDefault(); });
 
+  // ---- E6: the strip's shadow while it is stuck, the Show tray leaving the sticky part on a phone, board squares as checkboxes ----
+  if (V === 'e6') {
+    var strip6 = q('[data-part="strip"]'), tray6 = q('.k-lens-tray'), lens6 = q('[data-part="lens"]');
+    var stuck = function () { page.setAttribute('data-stuck', strip6.getBoundingClientRect().top <= 0.5 && window.pageYOffset > 4 ? '1' : '0'); };
+    window.addEventListener('scroll', stuck, { passive: true }); window.addEventListener('resize', stuck);
+    var placeTray = function () { if (phoneMq.matches) { if (tray6.parentNode !== strip6.parentNode) { strip6.parentNode.insertBefore(tray6, strip6); tray6.classList.add('k-tray-out'); } } else if (tray6.parentNode !== lens6) { lens6.insertBefore(tray6, lens6.firstChild); tray6.classList.remove('k-tray-out'); } stuck(); layoutNotes(); };
+    phoneMq.addEventListener('change', placeTray); placeTray();
+    stubs.forEach(function (li, k) { li.setAttribute('role', 'checkbox'); li.tabIndex = 0; li.setAttribute('aria-label', 'House ' + (k + 1) + ' on the board'); var hit = doc.createElement('b'); hit.className = 'k-hit'; hit.setAttribute('aria-hidden', 'true'); li.insertBefore(hit, li.firstChild); });
+    doc.addEventListener('keydown', function (e) { var li = e.target.closest && e.target.closest('.k-stub li'); if (li && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); li.click(); } });
+  }
+
   // ---- start ----
   var want = params.get('state');
   if (want === 'chosen' || want === 'confirm') IDS.forEach(function (id) { if (!E3 || [6, 10, 14, 18].indexOf(id) < 0) chosen[id] = true; }); // E3 opens with 21 ticked, as the brief's example
@@ -335,7 +350,6 @@
     if (params.get('q')) { searchQ = params.get('q'); q('[data-k="search"]').value = searchQ; }
   }
   update(true);
-  if (V === 'e6' && doc.fonts && doc.fonts.ready) doc.fonts.ready.then(function () { fitChips(); });
   if (V === 'e6' && params.get('find') === 'open') openFind(page.getAttribute('data-mode') === 'action' ? q('.k-findbar') : q('.k-lens [data-k="findbtn"]'));
   if (MENU && params.get('menu') === 'open') { openMenu(false); var cw = params.get('cat'); if (cw === 'house' || cw === 'spec' || (cw === 'group' && listLayout())) showCat(cw); }
   if (params.get('annotate')) {

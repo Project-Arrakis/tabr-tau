@@ -326,97 +326,111 @@ So E4 is 8 px taller than E2 closed at 1280 (the row is always there) and 56 px 
 - **Desktop:** the popover sits under the Filter key, 640 px wide (clamped to the panel), over the board, not pushing it. **Phone (700 px and under):** a bottom sheet with a dimmed page behind it: first the category list (House, Specialization, Group, with their numbers), then the items of the one tapped, with a Back key; Done closes it. The same opens by keyboard.
 - **Keyboard** (checked in headless Edge): Enter or Space on Filter opens it and the focus lands on the selected category; Arrow Down / Up move between categories (and show their items), Arrow Right enters the items, Arrow Down / Up walk a list (Arrow Up from the first House goes to the search box, Arrow Down from the box to the first House), Arrow Left goes back to the categories, Space or Enter picks, the pledge and Group keys are radios (arrows move and choose). **Escape** closes the menu and puts the focus back on Filter (in the search box it clears the box first, as the Theme menu does); a click outside closes it; Tab out of it closes it. Order with nothing chosen: Grid, All, Filter, Choose shown (4 stops).
 
-## Option E6 (one sticky strip in two modes, the E5 Filter menu, ticks instead of House names, Find House)
+## Option E6 (one sticky strip in two modes, the E5 Filter menu with a Done footer, ticks instead of House names, Find House)
 
-`option-e6.html`, behaviour in `mock-e2.js` (variant e6). This is the second version of E6, written from the operator's decisions after the first look (the first version is in git history, commit 41bb4295; its pictures `e6-*.png` stay as they were). E2, E3, E4 and E5 are untouched.
+`option-e6.html`, behaviour in `mock-e2.js` (variant e6). This is the second version of E6 after the UX review (the first version is in git history, commit 41bb4295; its pictures `e6-*.png` stay as they were; the first round of the second version is commit 6f46e2d3). E2, E3, E4 and E5 are untouched.
 
-**One strip, two modes, same place, same height.** The strip is `position: sticky` at the top of the board panel (`top: env(safe-area-inset-top)`), so it is on screen while the page scrolls. Nothing is docked at the bottom.
+**One strip, two modes.** The strip is `position: sticky` at the top of the board panel (`top: env(safe-area-inset-top)`), so it is on screen while the page scrolls. Nothing is docked at the bottom. While it is stuck it gets a hairline and a soft shadow under it (dark and light).
 
-- **Nothing chosen (filter mode):** Show tabs (All, What is left, Not started, In progress, Top tier), the **Filter** key, the **Find House** key, the filter chips, the count '25 / 25' and the link **Choose shown (N)**.
-- **At least one House ticked (action mode):** the strip swaps to the action bar: a small **Find House** key at its left, the count with 'chosen', the two faction crests, Fill, Complete, Reopen, Clear. The Filter key and the chips are away. **Clear or Escape** swaps back and puts the focus on Choose shown. The question ('Fill 21 Houses for Harkonnen?', Yes, Cancel) is one line inside the bar; Escape closes it and returns the focus to Fill.
-- **When the strip swaps.** Ticking a square on the board swaps it at once. Ticking Houses in the Filter menu does not: the menu stays open so several Houses can be ticked in one visit, and the strip swaps when the menu closes (Done, Escape, a click outside, Tab out) with at least one visible House ticked. After a close by Escape or Done the focus goes to Fill.
+- **Nothing chosen (filter mode):** row 1 is the base row: Show tabs, **Filter**, **Find House**. Row 2 holds the filter chips (only when a filter is on) and, at the right, the count group: '25 / 25' and **Choose shown (N)**. When the panel is wide (a container of 960 px or more) the count group moves up to row 1 and the chips get their own row below it.
+- **At least one House ticked (action mode):** the action bar: a small **Find House** key at its left, the count with 'chosen', the two faction crests, Fill, Complete, Reopen, Clear. The Filter key and the chips are away. **Clear or Escape** swaps back and puts the focus on Choose shown. Filters that were on stay applied and come back exactly as they were.
+- **The question** ('Fill 21 Houses for Harkonnen?', Yes, Cancel): while it is open Find House, the count and Clear are away; the question takes the whole bar with the **crest of the faction that is selected** in front of it (Atreides teal, Harkonnen red), and Yes and Cancel are one 44 px row beside it (below it on a phone). The run-on 'chosen Fill 21 ...' is gone. Escape closes it and returns the focus to Fill.
+- **A phone (700 px and under):** the sticky part in filter mode is **one 56 px row**: Filter (with its count badge), Find House (icon only; aria-label and tooltip carry the name), the count and Choose shown. The Show tabs and the title are not part of it and scroll away (the tray sits just above the sticky row). In action mode the sticky part is the action bar, **104 px**: row 1 count, crests (their names are not drawn on a phone; aria-label, tooltip, colour and the ring tell them apart), Find House (icon), Clear (icon); row 2 Fill, Complete, Reopen at 44 px. The question bar is 100 px.
+- **When the strip swaps.** Ticking a square on the board swaps it at once. Ticking Houses in the Filter menu does not: the menu stays open so several can be ticked, and the strip swaps when the menu closes (**Done**, Escape, a click outside, Tab out) with at least one visible House ticked. After Done or Escape the focus goes to Fill.
 
-**A House has no name chip anywhere.** The House list in the Filter menu (Pledge: Any / Undecided / Pledged, a search box 'Search Houses', then the 25 Houses with a box each) only **ticks the square** on the board, the same tick the board's own box gives. The board always shows all 25 squares. Squares that the real filters leave out (Show, Pledge, Specialization) keep today's quiet look (`k-dim`, unchanged); a House that is filtered out is shown disabled in the list and ticking it says 'Not shown, so it cannot be chosen', the same text as on the board. The count and the action numbers still count only Houses that are chosen and shown.
+**A House has no name chip anywhere.** The House list in the Filter menu (the pledge row Any / Undecided / Pledged, a search box 'Search Houses', then the 25 Houses with a box each) only **ticks the square**, the same tick the board gives. The board always shows all 25 squares; squares that Show, Pledge or Specialization leave out keep the stub's quiet look (unchanged), and a filtered-out House is disabled in the list ('Not shown, so it cannot be chosen').
 
-**Filter chips: one per category, never per item.** Pledge ('Undecided' or 'Pledged'; none for Any), Specialization (the name when one, 'Combat + Sabotage' for two, 'Specialization: 3 chosen' for three or more), Group ('By region' or 'By specialization', list layout only). The House list produces no chip and Find House produces none. Each chip has a cross and a tooltip with its full name ('Remove Pledge: Undecided'). **Clear filters** moved into the Filter menu (under the category list), because the strip has no room for it beside three chips. At 700 px and under the chips are gone and the **Filter key carries a count badge** (the number of chips); the bottom sheet is as in E5.
+**Count and hidden chosen Houses.** When some chosen Houses are not shown by the filters, the action bar says '3 not shown' under 'chosen'; the filter-mode count group says 'N chosen, not shown'; the Done footer says '3 chosen, 2 not shown'; the medallion's accessible name says '(2 not shown)'. The counts on the keys still count only Houses that are chosen and shown.
 
-**Find House (new, a separate key).** A small single-pick list of the 25 Houses with a search box 'Search Houses'. Picking one **scrolls the board to that House and outlines it for 1.8 s**, closes the list, changes no filter and ticks nothing. Under reduced motion the scroll is instant and only the outline shows. It is a popover under its key on a desktop width and a bottom sheet on a phone (the same pattern as Filter). In the action bar the key is small, at the left of the bar, and the bar keeps its height. Tooltip: 'Find House: scrolls the board to one House'. When three chips would be cut, the key in filter mode shows its icon only (`data-tight`; its name stays as the accessible name and in the tooltip); this is the one place where a label gives way.
+**Filter menu.** Categories on the left (House, Specialization, **Group**), items on the right. Group is always listed: in the Grid layout it is a disabled row with its condition, 'List layout only'. The menu has a **sticky footer**: **Clear filters** (a link, only while any filter is on) at the left, then '3 chosen' and a primary **Done** key; Done is the clear way to close the menu so the strip swaps. On a phone the sheet has the same footer (the title row has no Done any more). The 'Pledge' caption is gone: the row uses the approved words Any, Undecided, Pledged under the House category.
 
-**Wording** is unchanged (Show, House, Pledged, Undecided, Specialization, Group, Choose shown, Fill, Complete, Reopen, Clear) plus the two new names Find House and the existing Clear filters. No explanatory sentence was added to the control area. Tooltips changed in two places: **Clear** ('Clears the choice and brings the Filter key back. The Filter menu is not available while Houses are chosen.') and the **Houses list** heading ('Ticks the House on the board. A ticked House is chosen. It does not hide the others.'); the Filter key's tooltip now says 'What is filtered shows as chips beside this key.'. `help-snippet.md` was not changed: it describes E2 and E3 and no sentence in it is wrong for them.
+**Filter chips: one pattern.** A chip is its label plus a 36 px (44 px on a phone) cross target with a 16 px glyph, as tall as the Filter key. One item: no category word ('Undecided', 'Combat', 'By region'); two Specializations: 'Combat + Sabotage'; three or more: 'Specialization (3)'. The full name is the tooltip and the accessible name ('Remove House: Undecided', 'Remove Specialization: Combat, Sabotage, Gathering'). The House list produces no chip; Find House produces none. On a phone the chips are gone and the Filter key carries a count badge.
+
+**Find House** (a separate key and list) keeps its label on a desktop width, always. Picking a House scrolls the board to it and outlines it for 1.8 s, closes the list, changes no filter and ticks nothing; bottom sheet on a phone; reduced motion: instant scroll, outline only. On a phone the key is icon only (aria-label, tooltip).
+
+**Ticks, crests, badges.** The unticked box is 18 px with a 2 px border (contrast 8.4:1 dark, 5.6:1 light against the card), inside a 36 px hit area (44 px on a phone); hover rings the whole card and so does keyboard focus; the squares are checkboxes (Space or Enter). Both crests are drawn at full contrast; the selected one has a gold ring and its lamp; the crest names are 12 px. Fill and Complete are named 'Fill for Atreides', 'Complete for Harkonnen'. The count badge on Reopen has a dark face in both themes (it was pale in light).
+
+**Wording** is unchanged (Show, House, Pledged, Undecided, Specialization, Group, Choose shown, Fill, Complete, Reopen, Clear, Clear filters) plus the approved Done and the new Find House. No explanatory sentence was added to the control area. Tooltips changed: Clear, the Houses list heading, the Filter key, Find House. `help-snippet.md` is unchanged (it describes E2 and E3).
 
 ### Element matrix, delta against E5
 
 | Control | E5 | E6 (second version) |
 |---|---|---|
-| Strip | lens row; the docked plate is separate | one sticky strip, two modes, same height |
+| Strip | lens row; the docked plate is separate | one sticky strip, two modes |
 | Docked plate | yes | none |
-| House list in the Filter menu | picks a House: chip per House, scrolls, shows only the picked Houses | **ticks the square**, no chip, no scroll, hides nothing |
+| House list in the Filter menu | picks a House: chip, scroll, shows only the picked | **ticks the square**, no chip, no scroll, hides nothing |
 | House chips | one per House | none |
-| Filter chips | per item | **one per category** (Pledge, Specialization, Group) |
-| Jump | inside the House list | **Find House**, a separate key and list |
-| Clear filters | link beside the chips | inside the Filter menu |
-| Filter key | no number | no number on a desktop width; count badge at 700 px and under |
-| Choose shown (N) | text link on the lens row | same, filter mode only |
-| Clear (the choice) | plate | action bar |
-| Filters while Houses are chosen | available (the choice stays) | **not available** (Clear first); they stay applied |
-| Panel width in the mock | 858 px | 1260 px at 1280 (see weakest points, first item) |
+| Filter chips | per item | **one per category**, one pattern, 36 px cross target |
+| Jump | inside the House list | **Find House**, separate key and list |
+| Clear filters | link beside the chips | **footer of the Filter menu**, beside Done |
+| Closing the menu | Done on a phone only | **Done footer** on desktop and phone, with the chosen count |
+| Group category | hidden in Grid | **disabled row 'List layout only'** in Grid |
+| Filter key | no number | count badge at 700 px and under |
+| Filters while Houses are chosen | available | not available (Clear first); they stay applied |
+| Panel width in the mock | 858 px | 858 px (the real board panel is about the same, see below) |
 
-### Measured (headless Edge over CDP, first card = top of the first card from the top of the board panel)
+### Real panel width and measured heights
 
-| | Strip, nothing chosen | 1 chosen | 10 chosen | 25 chosen | First card (idle) |
+**Real width.** From the app CSS (`main { max-width: 1300px; padding: 20px }`, `.lcc-bd-grid` with a side column of `clamp(300px, 28.5%, 480px)` and an 18 px gap from a 760 px container up, `.lcc-bd-panel { padding: 24px }`): at a 1280 window the board panel is about 1240 - 353 - 18 = **869 px**, about **821 px inside its padding**. This is computed from the CSS, not measured in a running app. The mock's 858 px frame matches it within about 10 px, and the E6 frame is back to 858 px (the 1260 px frame of the first round is gone).
+
+Measured in headless Edge (strip height, 'mode'):
+
+| | nothing chosen | 1 chosen | 10 chosen | 25 chosen | with 3 chips, nothing chosen |
 |---|---|---|---|---|---|
-| 1280 | **81 px** | **81 px** | **81 px** | **81 px** | 203 px |
-| 390 | **194 px** | **194 px** | **194 px** | **194 px** | 303 px |
+| 1280 window, 858 px panel | **94 px** | **94 px** | **94 px** | **94 px** | **94 px** |
+| Wide panel (1260 px, emulated) | 81 px | 81 px | 81 px | 81 px | 86 px |
+| 390 phone | **56 px** | 104 px | 104 px | 104 px | 56 px |
 
-The old E6 was 81 px at 1280 (858 px panel; first card 188) and 144 px at 390 (first card 253). The first card is 15 px lower at 1280 because the panel is wider and the board's own title block grows with it (69 px instead of 60); the strip itself is unchanged. At 390 the strip is 50 px taller than before because Find House no longer fits beside Filter and the count, so Choose shown (N) drops to a third row. The strip is the same height with a chip row at 1280 (81 px, one line, three chips). With the old 858 px panel the same row would wrap to two lines (86 px) as soon as Find House is added, and more with chips: the single line needs a panel of about 1200 px or more at this size of text.
+At the real panel width the base row (Show tabs 447 px, Filter, Find House) leaves no room for the count group, so the strip is two rows (94 px) in filter mode and the bar is held to the same 94 px by tightening it below a 960 px container (smaller side padding, no ornament, a smaller medallion). Three chips on row 2 do not change the height (they sit beside the count group). With a wide panel the base row fits on one line (81 px) and the chips take their own 36 px row (86 px). On a phone the height deliberately differs by mode: 56 px for the filter row, 104 px for the action bar (the first card starts at 223 px in filter mode); the question bar is 100 px. Old E6 for comparison: 81 px at 1280 (858 px panel, first card 188), 144 px at 390 (first card 253); now 94 px (first card 201) and 56 px (first card 223) in filter mode.
 
-Measured at 1280 with all three chips present (Pledge: Undecided, Specialization: 3 chosen, Group: By region): one line, 81 px, no chip cut, Find House shows its icon only. With Pledged, one specialization and By region the label stays. At 1024 the strip wraps to two lines (86 px), at 768 127 px, at 640 143 px, 320 202 px: it is one line only when the panel is 1100 px or wider. No horizontal overflow at 1280, 1024, 768, 640, 390 and 320 px.
+No horizontal overflow at 1280, 1024, 768, 640, 390 and 320 px.
 
 ### Keyboard (checked by keys in headless Edge)
 
-- **Nothing chosen:** Grid, All, Filter, Find House, Choose shown (5 stops). **Houses chosen:** Grid, Find House, Atreides, Fill, Complete, Reopen, Clear (7 stops).
-- **Filter:** Enter or Space opens it, the focus lands on the selected category; Arrow Right enters the items; from the pledge row Tab goes to the search box, Arrow Down walks into the Houses, Space or Enter ticks (the menu stays open); **Escape closes the menu**, the strip swaps if a House is ticked and the focus goes to Fill (to Filter if nothing is ticked). In the search box Escape clears the box first.
-- **Find House:** Enter or Space opens it with the focus in the search box; Arrow Down walks the list, Arrow Up from the first House returns to the box; Enter on a House (or Enter in the box, which picks the first match) scrolls and outlines, closes the list and returns the focus to the key; **Escape closes the list** and returns the focus to the key; the board is not touched. Opened from the action bar, the bar stays.
-- **Action bar:** Escape closes the question first (focus to Fill) and clears the choice on the next press (focus to Choose shown). With the Filter menu or the Find list open, Escape belongs to that list.
+- **Nothing chosen:** Grid, All, Filter, Find House, Choose shown (5 stops), then the 25 board squares (the squares are checkboxes now). **Houses chosen:** Grid, Find House, Atreides, Fill, Complete, Reopen, Clear.
+- **Filter:** Enter or Space opens it, the focus lands on the selected category; Arrow Right enters the items; from the pledge row Tab goes to the search box, Arrow Down walks into the Houses, Space or Enter ticks (the menu stays open); Tab past the list reaches Clear filters (when on) and **Done**. **Done or Escape closes the menu**, the strip swaps if a House is ticked, and the focus goes to Fill (to Filter if nothing is ticked). In the search box Escape clears the box first. The disabled Group row is focusable and does nothing.
+- **Find House:** Enter or Space opens it with the focus in the search box; Arrow Down walks the list, Arrow Up from the first House returns to the box; Enter on a House (or in the box: the first match) scrolls and outlines, closes the list, focus back to the key; **Escape closes the list**, focus back to the key; the board is not touched. Opened from the action bar, the bar stays.
+- **Action bar:** Escape closes the question first (focus to Fill) and clears the choice on the next press (focus to Choose shown).
 
 ### Weakest points
 
-1. **The single line needs a wide panel.** At the old mock panel of 858 px the strip wraps to two lines as soon as Find House is on it, and with chips to three. The pictures use a panel of 1260 px at 1280 (the mock's frame is widened for E6 only); the real panel width at 1280 has to be measured in the app before this can be called solved. Between 700 and 1100 px the row wraps (86 to 143 px) and the strip is no longer the same height as at 1280.
-2. **At 390 the sticky strip is 194 px**, about a quarter of an 780 px screen, and it stays there while the page scrolls. The Show tabs wrap to two lines, and Find House pushes Choose shown to a third row. This is the largest cost of making the strip always visible; a phone may want a shorter sticky part.
-3. **Filters are unavailable while Houses are chosen.** The Filter key and the chips are away in action mode, so the user cannot see which filters still limit 'chosen and shown', and has to Clear first, which loses the choice.
-4. **The menu must close before the strip swaps.** Ticking Houses in the menu changes the count only after Done or Escape; on the board itself the count and the ticks update at once. Someone who ticks a House in the menu and never closes it sees no Fill key.
-5. **Chips without a category word** ('Undecided', 'Combat', 'By region') are short enough to fit but are read by position; the full name is in the tooltip and the accessible name only. The three-or-more form names its category.
-6. **Find House gives way to an icon** when three long chips are on; the key's label then depends on the filters. Clear filters is behind the Filter key now, one more click.
-7. **A House that a filter hides is disabled in the menu list** and ticking it gives a toast; the board does the same. A user who picks a House first and filters afterwards loses the tick from the count without a visible reason (the same as E3).
-8. Escape does several jobs depending on where the focus is (close menu, close list, close question, clear the choice); each is one step, in a fixed order.
+1. **At the real panel width the strip is two rows (94 px)**, not one: the base row alone is about 690 px and the count group needs about 210 px more than the 820 px inside the panel. With no chips the left of row 2 is empty. The 81 px strip needs a container of about 960 px or more.
+2. **The bar is squeezed at 858 px** (smaller side padding, no ornament, a 46 px medallion) to stay on one row with Find House and the '3 not shown' text; a wider real Fill, Complete or Reopen key would wrap it to two rows.
+3. **On a phone the Show tabs are not sticky**: to change Show while scrolled the user scrolls up. The action bar is 104 px, still about a seventh of the screen; Find House and Clear are icon only and the crest names are not drawn there.
+4. **Filters are unavailable while Houses are chosen** (Clear first, the choice is lost); the filters stay applied but are invisible while the bar shows, except for the '3 not shown' hint.
+5. **The strip swaps only after the menu closes**; the Done footer says '3 chosen' so the user can see the choice is made, but someone who ticks in the menu and clicks nowhere sees no Fill key.
+6. **Chips carry no category word for one item**; the tooltip and the accessible name carry it. 'Specialization (3)' and 'Combat + Sabotage' are the two shapes of one chip.
+7. **The 25 board squares are 25 tab stops** in the mock (the real board's own checkboxes were not looked at).
+8. **Not-shown text on a phone** is only in the action bar, the Done footer and the accessible name; the 56 px filter row has no room for it.
+9. Escape does several jobs depending on where the focus is (menu, list, question, choice); each is one step in a fixed order.
 
 ### Pictures (second version, in `docs/design/mock-pictures/landsraad-control-area-2/`, `e6v2-` prefix)
 
-`e6v2-1280-dark.png`, `e6v2-1280-light.png` (nothing chosen; menu open with three Houses ticked, the strip still showing the filters; menu closed with 1 chosen; 10 chosen; 25 chosen; the question open) and `e6v2-390-dark.png`, `e6v2-390-light.png` (the same six); `e6v2-scrolled-1280-*.png` and `e6v2-scrolled-390-*.png` (the board scrolled down, the strip stuck at the top); `e6v2-chips-1280-*.png` (Pledge, Specialization and Group chips on one line) and `e6v2-chips-390-*.png` (the chips gone, the Filter key's count badge); `e6v2-sheet-390-*.png` (the phone bottom sheet open on House, with three Houses ticked); `e6v2-find-1280-*.png` and `e6v2-find-390-*.png` (the Find House list open); `e6v2-strip-before-after.png` (the top strip of the first E6 against this one, same crop and scale, dark, 1280 and 390). Dark and light for every picture except the before and after.
+`e6v2-1280-dark.png`, `e6v2-1280-light.png` (nothing chosen; menu open with three Houses ticked; menu closed with 1 chosen; 10 chosen; 25 chosen; the question open with Harkonnen selected) and `e6v2-390-dark.png`, `e6v2-390-light.png` (the same six); `e6v2-scrolled-1280-*` (action bar stuck at the top), `e6v2-scrolled-chips-1280-*` (the filter strip with chips stuck at the top), `e6v2-scrolled-390-*` (the 56 px filter row stuck) and `e6v2-scrolled-390-bar-*` (the action bar stuck), all with the shadow; `e6v2-chips-1280-*` and `e6v2-chips-390-*` (chips; the badge on a phone); `e6v2-menu-filter-on-1280-*` (menu open with a filter on: Clear filters, '3 chosen' and Done in the footer, the Group row disabled with 'List layout only'); `e6v2-sheet-390-*` (the phone sheet on House with the footer) and `e6v2-sheet-cats-390-*` (the sheet's category list); `e6v2-find-1280-*` and `e6v2-find-390-*`; `e6v2-strip-before-after.png` (the first E6 against this one, dark, 1280 and 390). Dark and light for every picture except the before and after.
 
 ### Not verified (E6, second version)
 
-- Not tried on a real phone or touch screen; the on-screen keyboard with the search boxes is not known; the sticky strip on a phone with a browser bar that hides and shows is not known.
+- Not tried on a real phone or touch screen; the on-screen keyboard with the search boxes; safe-area insets on a device that has them; a browser bar that hides and shows with a sticky strip.
 - No screen reader. Roles (dialog, tab list, checkbox, listbox and option for Find House) are set; only keys were driven.
-- Contrast and target sizes were not re-measured for the new parts. The chips, Find House keys and list rows use the kit's 36 px (44 px on a phone) rule; the heights of the keys were read from the layout, nothing more.
-- Forced colours were not rendered. Reduced motion was emulated once: Find House scrolls and outlines at once.
-- Safe-area insets (`env(safe-area-inset-top)`) were not tried on a device that has them.
-- The real panel width at a 1280 window and the real strip colour behind the sticky bar are not known (the mock uses a flat mix of the panel's two gradient colours).
-- A House the filters hide is greyed in the mock by the stub's own dim rule; the real board's quiet disabled look (`data-dim`) was not drawn and was not changed.
+- Contrast was measured only for the tick box border. Not re-measured: chip text, the Done footer, the 'not shown' text, the disabled Group row. Targets: the heights of the keys come from the layout (36 px, 44 px on a phone), nothing more.
+- Forced colours were not rendered. Reduced motion was emulated once (Find House scrolls at once).
+- The real panel width is computed from the CSS, not measured in a running app; the real strip colour behind the sticky bar is the panel gradient in the mock.
+- The wide-panel numbers (81 and 86 px) come from the same page with its frame widened by a script, not from a picture.
+- A House the filters hide is greyed by the stub's own dim rule; the real board's quiet disabled look was not drawn and was not changed.
 
 ## C, E2, E3, E4, E5 and E6 side by side (picture `compare-e2-e3-e4-e5-e6.png`, same fixture, same crop and size as `compare-c-e2-e3.png`, two rows)
 
 | | C | E2 | E3 | E4 | E5 | E6 |
 |---|---|---|---|---|---|---|
 | First card at 1280, idle | 293 px | 193 px (257 drawer open) | 193 px (257 drawer open) | **201 px** | **149 px** (193 with a chip row; the menu floats, 0 added) | **203 px** at 1280 in the second version (1260 px panel; 81 px strip, one line with chips) |
-| First card at 390, idle | 459 px | 259 px (319 drawer open) | 259 px (319 drawer open) | **213 px** (437 with Filters open) | **213 px** | **253 px** first version; **303 px** second version |
+| First card at 390, idle | 459 px | 259 px (319 drawer open) | 259 px (319 drawer open) | **213 px** (437 with Filters open) | **213 px** | **253 px** first version; **223 px** second version (56 px sticky row) |
 | Control places | 3 | 4 (head switch, lens row, drawer, docked plate) | 3 (head switch, strip in two modes, drawer) | 4 (head switch, lens row, filter row, docked plate); phone: Filters (n) pane | 3 (head switch, lens row with the menu, docked plate) | 2 plus the menu (head switch, strip in two modes, popover) |
 | Hidden behind a click | nothing | Specialization, Jump, Group (drawer) | same | nothing on desktop; phone: all four sections | pledge state, Houses, Specialization, Group (menu) | same as E5 |
 | Clicks to Fill all (own faction) | 3 | 3 | 3 | 3 | 3 | 3 |
 | Clicks to Fill one specialization | 5 | 6 | 6 | 5 (select, Combat, Choose shown, Fill, Yes) | 6 (Filter, Specialization, Combat, Choose shown, Fill, Yes) | 6 |
 | Clicks to show only Pledged Houses | 1 | 1 | 1 | 1 | 2 (Filter, Pledged) | 2 |
 | Change a filter while Houses are chosen | 1 or 2 | 1 or 2 (the choice stays) | Clear first (the choice is lost) | 1 or 2 (the choice stays) | 2 or 3 (the choice stays) | Clear first |
-| Cut-off risk | none | docked plate covers 81 px (142 on a phone) while scrolling | none docked; the bar scrolls away | as E2 | as E2, plus the menu covers the board while open | second version: the strip is sticky (covers 81 px, 194 px at 390 phone); the menu covers the board while open |
+| Cut-off risk | none | docked plate covers 81 px (142 on a phone) while scrolling | none docked; the bar scrolls away | as E2 | as E2, plus the menu covers the board while open | second version: the strip is sticky (covers 94 px; 56 px or 104 px on a phone); the menu covers the board while open |
 | Words / tooltips | | | | the same words, fewer places for them | one new word (Filter), one new link (Clear filters), chips | as E5 |
 
 ### Review of E4, E5 and E6 (headless Edge over CDP, short and honest)
