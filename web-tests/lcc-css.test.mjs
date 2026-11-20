@@ -208,7 +208,10 @@ test('the cards of a row line up: the footer is two lines tall, the counts stand
   assert.doesNotMatch(bare, /lcc-hc-q/, 'the count line under N/5 EARNED is gone (#1078)');
   assert.match(bare, /\.lcc-hc-count b \{ flex: 0 0 100%; text-align: center;/);
   assert.match(bare, /\.lcc-hc-count > b:only-child \{[^}]*text-transform: uppercase/);
-  assert.match(bare, /\.lcc-hc-owner \{[^}]*white-space: nowrap/, 'the bullet and the faction name do not part');
+  assert.match(bare, /\.lcc-hc-owner \{[^}]*padding: 0 6px/, 'the owner line keeps off the card edge (#1083)');
+  assert.match(bare, /\.lcc-hc-owner \{[^}]*white-space: normal/, 'a card too narrow for the line breaks it between words (#1083)');
+  const lastOwner = [...bare.matchAll(/\.lcc-hc-owner \{([^}]*)\}/g)].pop()[1]; // the rule that wins (the first is the base the later one overrides)
+  assert.doesNotMatch(lastOwner, /text-overflow:\s*(clip|ellipsis)|overflow:\s*hidden|white-space:\s*nowrap/, 'the owner line never clips (#1083)');
   for (const m of bare.matchAll(/\.lcc-hc-owner \{([^}]*)\}/g)) assert.doesNotMatch(m[1], /text-transform:\s*uppercase/, 'PLEDGED TO HARKONNEN in capitals does not fit a card (#1073)');
 });
 

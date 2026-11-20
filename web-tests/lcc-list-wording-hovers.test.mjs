@@ -44,11 +44,11 @@ test('#950, #1073: the pledge cell shows ONE mark: the faction name alone, or th
   const pills = [...ui.doc.querySelectorAll('.lcc-bd-row .lcc-bd-c-owner .lcc-owner')];
   assert.equal(pills.length, 25);
   const seen = new Set(pills.map((p) => text(p)));
-  assert.deepEqual([...seen].sort(), ['Atreides', 'Harkonnen', '○ Wavering'].sort());
+  assert.deepEqual([...seen].sort(), ['Atreides', 'Harkonnen', 'Wavering'].sort());
   for (const p of pills) assert.doesNotMatch(text(p), /^[AH] /, 'no letter before the name: it read as a second H over HARKONNEN');
   assert.equal(text(rowOf(ui, 'Vernius').querySelector('.lcc-owner')), 'Harkonnen', 'Vernius: pledged to Harkonnen');
   assert.equal(text(rowOf(ui, 'Richese').querySelector('.lcc-owner')), 'Atreides');
-  assert.equal(text(rowOf(ui, 'Kenola').querySelector('.lcc-owner')), '○ Wavering', 'Kenola: both factions have progress on it and neither has pledged it');
+  assert.equal(text(rowOf(ui, 'Kenola').querySelector('.lcc-owner')), 'Wavering', 'Kenola: both factions have progress on it and neither has pledged it');
   assert.match(src('lcc', 'lcc-board.css'), /\.lcc-bd-c-owner \.lcc-owner \{ white-space: nowrap; \}/, 'one line, so a narrow cell cannot stack a letter over the name');
   void a;
 });
@@ -73,8 +73,8 @@ test('#952: the board and the inspector never say owner, claimed or taken, and n
     look(ui, a, 'Kenola'); // both factions have progress, none has pledged it
     assert.match(text(ui.doc.querySelector('.lcc-bd-banner')), /WAVERING/);
     look(ui, a, 'Vernius');
-    assert.match(text(ui.doc.querySelector('.lcc-bd-banner')), /PLEDGED TO HARKONNEN/);
-    assert.match(ui.doc.querySelector('.lcc-bd-control').getAttribute('title'), /^Pledged to Harkonnen/);
+    assert.match(text(ui.doc.querySelector('.lcc-bd-banner')), /PLEDGED TO HOUSE HARKONNEN/);
+    assert.match(ui.doc.querySelector('.lcc-bd-control').getAttribute('title'), /^Pledged to House Harkonnen/);
   }
 });
 
@@ -165,7 +165,7 @@ test('#940: the Place line of the House card is a link that opens the Saved map,
   const ui = await open('list', 'board');
   const hub = rowOf(ui, 'Alexin').querySelector('.hcard .hcard-place');
   assert.equal(hub.getAttribute('aria-disabled'), 'true');
-  assert.equal(hub.getAttribute('title'), 'The Saved map has no picture of Arrakeen yet.');
+  assert.equal(hub.getAttribute('title'), 'This place is outside the picture of Arrakeen.');
   // not mapped: plain words, no link
   assert.equal(rowOf(ui, 'Thorvald').querySelector('.hcard .hcard-place'), null);
   assert.match(text(rowOf(ui, 'Thorvald').querySelector('.hcard')), /Placenot mapped yet/);

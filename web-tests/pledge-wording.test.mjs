@@ -74,10 +74,10 @@ test('a House card says Pledged to <Faction> when a faction has it, Undecided wh
   });
   const own = (h) => text(card(ui, h.house_name.replace('DA_House', ''))?.querySelector('.lcc-hc-owner'));
   const find = (n) => a.tasks.find((t) => t.house_name === n);
-  assert.equal(own(find('DA_HouseRichese')), '● Pledged to Atreides');
-  assert.equal(own(find('DA_HouseVernius')), '● Pledged to Harkonnen');
-  assert.equal(own(find(KEN)), '○ Wavering');
-  assert.equal(own(a.tasks.find((t) => t.__undecided)), '○ Undecided');
+  assert.equal(own(find('DA_HouseRichese')), 'Pledged to Atreides');
+  assert.equal(own(find('DA_HouseVernius')), 'Pledged to Harkonnen');
+  assert.equal(own(find(KEN)), 'Wavering');
+  assert.equal(own(a.tasks.find((t) => t.__undecided)), 'Undecided');
 });
 
 test('the legend, the House filter and the list column use the same words (#1073)', async () => {
@@ -95,7 +95,7 @@ test('the legend, the House filter and the list column use the same words (#1073
 test('the Inspector heading says what the House is: Pledged to X, Undecided or Wavering, never "favor not won" (#1073)', async () => {
   const { ui, a } = await open();
   const pick = async (name) => { ui.doc.querySelector('[data-fk="ht:' + a.tasks.find((t) => t.house_name === name).id + '"]').click(); await ui.settle(); return text(ui.doc.querySelector('.lcc-bd-insp .lcc-bd-banner')); };
-  assert.match(await pick('DA_HouseRichese'), /PLEDGED TO ATREIDES/);
+  assert.match(await pick('DA_HouseRichese'), /PLEDGED TO HOUSE ATREIDES/);
   assert.match(await pick(KEN), /WAVERING/);
   assert.doesNotMatch(text(ui.doc.querySelector('.lcc-bd-insp')), /\bwon\b|NOT WON|NO FAVOR/i);
 });

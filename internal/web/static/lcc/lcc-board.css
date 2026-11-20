@@ -394,7 +394,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-hc-name { font: 700 12px/1.2 var(--lcc-serif); letter-spacing: .02em; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; text-align: center; text-wrap: balance; max-width: 100%; min-height: 2.4em; display: flex; align-items: center; justify-content: center; }
 .lcc-hc-track, .lcc-hc-track-unk { font-size: 11px; line-height: 1.25; text-align: center; letter-spacing: .02em; }
 /* in capitals "PLEDGED TO HARKONNEN" is wider than a card (#1073): the owner line is in the case of the words */
-.lcc-hc-owner { font-size: 12px; letter-spacing: .03em; white-space: nowrap; text-align: center; }
+.lcc-hc-owner { box-sizing: border-box; max-width: 100%; padding: 0 6px; font-size: 12px; letter-spacing: .01em; white-space: normal; text-wrap: balance; overflow-wrap: anywhere; text-align: center; } /* side padding: the line never touches the card edge (#1083); a card too narrow for "Pledged to Harkonnen" on one line breaks it between the words, it never clips or overflows */
 .lcc-hc-owner[data-g="?"] { white-space: normal; overflow-wrap: anywhere; }
 .lcc-hc-select:focus-visible { outline-offset: -2px; }
 /* the five tier boxes: 24 by 24 px with 2 px between them, and an invisible extension of the button makes the target 36 px high without changing how it looks */

@@ -58,7 +58,7 @@ test('the board is 25 tiles in board order, numbered 01 to 25, each a button wit
     assert.match(b.getAttribute('aria-label'), /^Square \d\d, /);
     assert.match(c.querySelector('.lcc-hc-owner').textContent, /Pledged to Atreides|Pledged to Harkonnen|Undecided|Wavering|Favor unreadable/);
   }
-  assert.equal(text(tiles(ui)[0].querySelector('.lcc-hc-owner')), '● Pledged to Harkonnen', 'position 01 is Vernius, pledged to Harkonnen in the fixture');
+  assert.equal(text(tiles(ui)[0].querySelector('.lcc-hc-owner')), 'Pledged to Harkonnen', 'position 01 is Vernius, pledged to Harkonnen in the fixture');
   assert.equal(ui.doc.querySelector('.lcc-bd-tiles').getAttribute('role'), 'list');
   const ev = ui.doc.querySelector('.lcc-bd-tiles').getAttribute('aria-label');
   assert.match(ev, /five rows of five/);
@@ -262,8 +262,8 @@ test('choosing a House opens the Inspector: both scales apart, the contributors 
   assert.equal(i.querySelector('.lcc-bd-status'), null, 'no sentence under the band: the approved design has none');
   assert.equal(text(i.querySelector('.lcc-bd-gopath')), 'Exploration Specialization', 'the specialization is one line, and it is the button that opens its track (#939)');
   assert.equal(i.querySelector('.lcc-bd-bloc'), null, 'no separate caption and no repeated words');
-  assert.match(i.querySelector('.lcc-bd-control').getAttribute('title'), /^Pledged to Atreides \(completed, with a faction the save records\)\./);
-  assert.match(text(i.querySelector('.lcc-bd-banner .lcc-bd-sr')), /^Pledged to Atreides/, 'and the words stay for a screen reader');
+  assert.match(i.querySelector('.lcc-bd-control').getAttribute('title'), /^Pledged to House Atreides \(completed, with a faction the save records\)\./);
+  assert.match(text(i.querySelector('.lcc-bd-banner .lcc-bd-sr')), /^Pledged to House Atreides/, 'and the words stay for a screen reader');
   const bars = [...i.querySelectorAll('.lcc-bd-fc')].map((b) => [text(b.querySelector('.lcc-bd-fc-l')), text(b.querySelector('.lcc-bd-fc-v'))]);
   assert.deepEqual(bars, [['HOUSE ATREIDES', '4,000 / 4,000'], ['HOUSE HARKONNEN', '900 / 4,000']]);
   const s1 = i.querySelector('#lcc-bd-s1');
@@ -484,7 +484,7 @@ test('#1059: list cells stay short: an em dash for a House with no place, "N of 
       assert.match(mut.getAttribute('title'), /^Not mapped yet/);
     }
     const np = l.querySelector('.lcc-bd-nopic');
-    if (np) { assert.deepEqual(css(np), ['· no map picture']); assert.match(np.getAttribute('title'), /no picture of/); }
+    if (np) { assert.deepEqual(css(np), ['· no map picture']); assert.match(np.getAttribute('title'), /no picture of|outside the picture of/); }
   }
 });
 
