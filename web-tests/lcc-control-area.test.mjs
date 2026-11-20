@@ -1,0 +1,208 @@
+// The Command Center control area of the 5x5 board (tau #974, "E6 v2"): one sticky strip with two modes in the same place. Nothing chosen: the Show tabs, the Filter key, the Find House key, one chip per
+// active filter category, the count and Choose shown. Houses chosen: the action bar (count, the two crests, Fill, Complete, Reopen, Clear). Real page code and the synthetic answer of M1; layout is not
+// measured here (jsdom has none), the sizes are read from the style file and the headless pictures in the pull request.
+import test, { afterEach } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { boot, closeAll } from './boot.mjs';
+import { synthetic } from './lcc-fixture.mjs';
+
+afterEach(closeAll);
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const CSS = fs.readFileSync(path.join(here, '..', 'internal', 'web', 'static', 'lcc', 'lcc-board.css'), 'utf8');
+const text = (el) => el.textContent.replace(/\s+/g, ' ').trim();
+const click = (ui, el) => { if (typeof el === 'string') el = ui.doc.querySelector(el); assert.ok(el, 'no element'); el.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
+const key = (ui, el, k) => { el.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true })); };
+const panel = (ui) => ui.doc.querySelector('.lcc-bd-panel');
+const picks = (ui) => [...ui.doc.querySelectorAll('.lcc-bd-pick')];
+const ticked = (ui) => picks(ui).filter((p) => p.checked).length;
+const chips = (ui) => [...ui.doc.querySelectorAll('.lcc-k-strip [data-lk="chips"] .lcc-k-chip')].map((c) => text(c).trim());
+async function open(layout = 'grid') {
+  const ui = await boot({ get: { '/api/landsraad': synthetic() }, post: {}, local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': layout } });
+  await ui.settle();
+  return ui;
+}
+const tick = (ui, n) => { for (let i = 0; i < n; i++) { const b = picks(ui).filter((p) => !p.disabled && !p.checked)[0]; assert.ok(b, 'no box to tick'); click(ui, b); } };
+const openMenu = (ui) => click(ui, '[data-lk="fbtn"]');
+const done = (ui) => click(ui, '[data-lk="popclose"]');
+
+test('nothing chosen: the strip shows Show tabs, Filter, Find House, the count and Choose shown, and no action bar', async () => {
+  const ui = await open();
+  const p = panel(ui);
+  assert.equal(p.dataset.mode, 'filters');
+  assert.equal(p.dataset.state, 'idle');
+  const strip = p.querySelector('.lcc-k-strip');
+  assert.ok(strip, 'no strip');
+  assert.deepEqual([...strip.querySelectorAll('[role="radio"][data-key="show"]')].map((b) => text(b)), ['All', 'What is left', 'Not started', 'In progress', 'Top tier']);
+  assert.ok(strip.querySelector('[data-lk="fbtn"]'), 'no Filter key');
+  assert.ok(strip.querySelector('[data-lk="findbtn"]'), 'no Find House key');
+  assert.match(text(strip.querySelector('#lcc-bd-shown')), /25\s*\/\s*25/);
+  assert.match(text(strip), /Choose shown \(25\)/);
+  assert.equal(ui.doc.querySelectorAll('.lcc-k-strip [data-lk="chips"] .lcc-k-chip').length, 0, 'a chip with nothing filtered');
+});
+
+test('one square ticked: the strip becomes the action bar; Clear swaps back with the filters exactly as they were', async () => {
+  const ui = await open();
+  openMenu(ui);
+  click(ui, '[data-lcb="filter"][data-key="hs"][data-val="open"]');
+  done(ui);
+  const before = chips(ui);
+  assert.deepEqual(before, ['House: Undecided']);
+  tick(ui, 1);
+  const p = panel(ui);
+  assert.equal(p.dataset.mode, 'action');
+  assert.equal(p.dataset.state, 'chosen');
+  const bar = p.querySelector('.lcc-k-cmd');
+  assert.equal(text(bar.querySelector('[data-lk="n"]')), '1');
+  assert.match(text(bar.querySelector('.lcc-k-chosen')), /chosen/);
+  assert.equal(bar.querySelectorAll('.lcc-k-seats [role="radio"]').length, 2, 'two faction crests');
+  for (const d of ['fill', 'complete', 'reopen']) assert.ok(bar.querySelector('[data-lb="bulk"][data-do="' + d + '"]'), 'no ' + d + ' key');
+  assert.ok(bar.querySelector('[data-lb="pickno"]'), 'no Clear key');
+  assert.ok(p.querySelector('.lcc-k-strip [data-lk="findbtn"]') || p.querySelector('.lcc-k-cmd [data-lk="findbtn"]'), 'Find House stays as a small key');
+  click(ui, bar.querySelector('[data-lb="pickno"]'));
+  assert.equal(p.dataset.mode, 'filters');
+  assert.equal(ticked(ui), 0);
+  assert.deepEqual(chips(ui), before, 'the filters are as they were');
+});
+
+test('Escape on the action bar clears the choice and swaps back', async () => {
+  const ui = await open();
+  tick(ui, 2);
+  assert.equal(panel(ui).dataset.mode, 'action');
+  key(ui, picks(ui)[0], 'Escape');
+  assert.equal(panel(ui).dataset.mode, 'filters');
+  assert.equal(ticked(ui), 0);
+});
+
+test('one chip per active filter category, each with its category word', async () => {
+  const ui = await open();
+  openMenu(ui);
+  click(ui, '[data-lcb="filter"][data-key="hs"][data-val="open"]');
+  assert.deepEqual(chips(ui), ['House: Undecided']);
+  click(ui, '[data-lcb="filter"][data-key="hs"][data-val="taken"]');
+  assert.deepEqual(chips(ui), ['House: Pledged']);
+  click(ui, '[data-lk="cat"][data-cat="spec"]');
+  click(ui, '[data-lk="spick"][data-val="combat"]');
+  assert.deepEqual(chips(ui), ['House: Pledged', 'Specialization: Combat']);
+  click(ui, '[data-lk="spick"][data-val="crafting"]');
+  assert.equal(chips(ui)[1], 'Specialization: Crafting + Combat');
+  click(ui, '[data-lk="spick"][data-val="exploration"]');
+  assert.equal(chips(ui)[1], 'Specialization: 3 chosen', 'three or more say how many');
+  assert.equal(chips(ui).length, 2, 'one chip per category, not one per item');
+  click(ui, '[data-lk="spick"][data-val="all"]');
+  assert.deepEqual(chips(ui), ['House: Pledged']);
+});
+
+test('Group is off in the grid and says why; in the list layout it gives a chip', async () => {
+  const ui = await open();
+  openMenu(ui);
+  click(ui, '[data-lk="cat"][data-cat="group"]');
+  assert.match(text(ui.doc.querySelector('#lcc-bd-menu')), /List layout only/);
+  closeAll();
+  const lu = await open('list');
+  openMenu(lu);
+  click(lu, '[data-lk="cat"][data-cat="group"]');
+  click(lu, '[data-lk="gpick"][data-val="region"]');
+  assert.deepEqual(chips(lu), ['Group: By region']);
+});
+
+test('the Houses in the Filter menu tick squares and make no chip', async () => {
+  const ui = await open();
+  openMenu(ui);
+  const items = [...ui.doc.querySelectorAll('#lcc-bd-menu [data-lk="hpick"]')];
+  assert.equal(items.length, 25, '25 Houses as tickable items');
+  click(ui, items[0]);
+  click(ui, items[1]);
+  assert.equal(ticked(ui), 2, 'two squares ticked on the board');
+  assert.equal(chips(ui).length, 0, 'no chip for a House');
+  assert.equal(ui.doc.querySelector('[data-lk="fcnt"]').hidden, true, 'the Filter key counts no filter');
+  const p = panel(ui);
+  assert.equal(p.dataset.mode, 'filters', 'the strip swaps when the menu closes, not before');
+  done(ui);
+  assert.equal(p.dataset.mode, 'action');
+  assert.equal(text(p.querySelector('.lcc-k-cmd [data-lk="n"]')), '2');
+});
+
+test('Find House scrolls to a House and outlines it; it ticks nothing and changes no filter', async () => {
+  const ui = await open();
+  let scrolled = 0;
+  ui.w.HTMLElement.prototype.scrollIntoView = function () { scrolled++; };
+  click(ui, '[data-lk="findbtn"]');
+  const pick = ui.doc.querySelector('[data-lk="fpick"]');
+  assert.ok(pick, 'no list');
+  const id = pick.getAttribute('data-id');
+  click(ui, pick);
+  assert.equal(ticked(ui), 0, 'nothing ticked');
+  assert.equal(chips(ui).length, 0, 'no filter');
+  assert.equal(panel(ui).dataset.mode, 'filters');
+  assert.ok(scrolled >= 1, 'the board scrolled to the House');
+  const cell = ui.doc.querySelector('.lcc-bd-pick[data-id="' + id + '"]').closest('.lcc-bd-cell');
+  assert.ok(cell.classList.contains('lcc-k-flash'), 'the House is outlined');
+});
+
+test('the outline of Find House is an outline only (no motion) and goes after 1.8 s', () => {
+  assert.match(CSS, /\.lcc-bd-cell\.lcc-k-flash > \.lcc-hc[^{]*\{[^}]*outline: 3px solid/);
+  assert.doesNotMatch(CSS.match(/\.lcc-bd-cell\.lcc-k-flash[^{]*\{[^}]*\}/g).join(''), /animation|transition/);
+});
+
+test('the count says how many chosen Houses are not shown, and they are not acted on', async () => {
+  const ui = await open();
+  tick(ui, 3);
+  const p = panel(ui);
+  assert.equal(text(p.querySelector('.lcc-k-cmd [data-lk="n"]')), '3');
+  // a filter that hides some of the chosen Houses: the chosen and shown count drops, the rest is said as not shown
+  click(ui, '[data-lk="fbtn"]');
+  click(ui, '[data-lcb="filter"][data-key="hs"][data-val="taken"]');
+  done(ui);
+  const label = text(p.querySelector('.lcc-k-strip'));
+  const hidden = 3 - [...ui.doc.querySelectorAll('.lcc-bd-pick:checked:not(:disabled)')].length;
+  assert.ok(hidden > 0, 'the filter hid none of the chosen Houses; the test needs a filter that does');
+  assert.match(label + ' ' + text(ui.doc.querySelector('.lcc-k-cmd')), new RegExp(hidden + ' (chosen, )?not shown'));
+});
+
+test('25 squares are one tab stop; the arrow keys move it', async () => {
+  const ui = await open();
+  const boxes = picks(ui).filter((b) => !b.disabled);
+  assert.ok(boxes.length >= 5);
+  assert.equal(boxes.filter((b) => b.tabIndex === 0).length, 1, 'exactly one box in the tab order');
+  assert.equal(picks(ui).filter((b) => b.tabIndex !== 0 && b.getAttribute('tabindex') !== '-1').length, 0, 'every other box is -1');
+  const first = boxes.find((b) => b.tabIndex === 0);
+  key(ui, first, 'ArrowRight');
+  const now = boxes.find((b) => b.tabIndex === 0);
+  assert.notEqual(now, first, 'the stop moved');
+  assert.equal(boxes.filter((b) => b.tabIndex === 0).length, 1);
+  key(ui, now, 'ArrowLeft');
+  assert.equal(boxes.find((b) => b.tabIndex === 0), first);
+});
+
+test('the words of the control area are the agreed ones', async () => {
+  const ui = await open();
+  openMenu(ui);
+  const menu = text(ui.doc.querySelector('#lcc-bd-menu'));
+  for (const w of ['House', 'Pledge', 'Any', 'Undecided', 'Pledged', 'Specialization', 'Group', 'Done']) assert.ok(menu.includes(w), 'the menu lacks ' + w);
+  assert.ok(ui.doc.querySelector('#lcc-bd-menu input[type="search"]'), 'no Search Houses box');
+});
+
+test('style: tick boxes are 16-18 px in a 36 px hit area (44 px on a phone) and have a 2 px border of the text colour', () => {
+  assert.match(CSS, /\.lcc-bd-pick \{[^}]*width: 18px; height: 18px[^}]*border: 2px solid var\(--lcc-gold-text\)/);
+  assert.match(CSS, /\.lcc-bd-tiles \.lcc-bd-pickl[^{]*\{[^}]*width: 36px; height: 36px/);
+  assert.match(CSS, /@media \(max-width: 640px\), \(pointer: coarse\) \{ \.lcc-bd-tiles \.lcc-bd-pickl[^{]*\{[^}]*width: 44px; height: 44px/);
+});
+
+test('style: the control area sets no text under 11 px (12 px for names), in the kit rules or the app rules', () => {
+  const kit = CSS.slice(CSS.indexOf('.lcc-k-'));
+  const sizes = [];
+  for (const m of kit.matchAll(/(?:font-size:\s*|font:\s*(?:\d{3}\s+|italic\s+|normal\s+)*)(\d+(?:\.\d+)?)px/g)) sizes.push(Number(m[1]));
+  assert.ok(sizes.length > 20, 'the sizes were not read');
+  assert.ok(Math.min(...sizes) >= 11, 'a text under 11 px: ' + Math.min(...sizes));
+  for (const m of kit.matchAll(/\.lcc-k-(?:chip|tab|opt|btn|fbtn|bl)\b[^{,]*\{[^}]*?(?:font-size:\s*|font:\s*(?:\d{3}\s+)?)(\d+(?:\.\d+)?)px/g)) assert.ok(Number(m[1]) >= 12, 'a name under 12 px: ' + m[0].slice(0, 80));
+});
+
+test('style: the phone has a sticky filter row of about 56 px and an action bar of about 104 px, and the Show tabs scroll away', () => {
+  assert.match(CSS, /a phone: the sticky part is one 56 px row/);
+  assert.match(CSS, /\.lcc-k-e6 \.lcc-k-tray-out \{[^}]*margin-top/);
+  assert.match(CSS, /\.lcc-k-e6 \.lcc-k-strip \{ top: calc\(var\(--hdr-h, 56px\)/);
+});
