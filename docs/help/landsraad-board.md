@@ -42,7 +42,7 @@ In the House Intelligence panel the ledger rows show the same three states witho
 
 - Show, House and Specialization filters narrow what the board shows. A House the filters leave out is dimmed, and while a filter is on a line says how many Houses are shown (it is not there when nothing is filtered).
 - Jump to House opens one House and clears the filters that would hide it.
-- A button that does nothing right now (there is nothing to change, or another faction is chosen) has a dashed edge and quiet text instead of a faded look; pressing it says why.
+- A button that does nothing right now (there is nothing to change, or another faction is chosen) looks the same as every other control that is off, on every page of the editor: quiet text, a quiet edge, no fill and a not-allowed pointer (never a dashed edge and never faded); pressing it says why.
 - The Grid and List buttons switch between the board and a sortable list of the same Houses.
 - In the Classic list, click a row to open it.
 - A House's place opens the Saved map at that House. A yellow ring on the map marks its place, and the line above the map names it, and **Back to House** returns to it on the Landsraad tab, in the view you are in (the board, or the Classic list with only that House shown).

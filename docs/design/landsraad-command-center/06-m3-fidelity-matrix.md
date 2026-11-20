@@ -91,7 +91,7 @@ The row "After the follow-up of the final check" moves four rows: S9 and S10 (th
 | B8 | Owner line: ● ATREIDES, ● HARKONNEN, ○ OPEN | differs | differs (approved) | ● Atreides, ● Harkonnen, ○ No favor (#1070: was ○ Not won; the same slot and size as the faction line of a won card, so the squares stay aligned; muted; the accessible name and the hover card say "favor not won"; the list cell, the House filter and the Inspector keep Not won / Favor not won), plus "? Favor unreadable" when the save does not agree with itself; the accessible name says "favor won by <faction>". |
 | B9 | Dominion card: glow and "DOMINION" badge | differs | differs | Every House that makes up a win (the five of a line, or the 13 or more of the winner) has the one win outline (double outline, stronger gold glow, slow pulse with Motion Full) and no text flag (2026-11-18, #961: the flag was dropped, the outline carries the win; the words are the plaque's, the victory panel's, the legend's and the card's tooltip and screen-reader text). No card says dominion (DECISIONS section H, 2026-11-18, supersedes "VICTORY LINE" and "no card says win"). |
 | B10 | Selected card: violet double outline | differs | matches | Same violet outline. |
-| B11 | Dimmed card when a filter leaves it out | matches | matches | Kept (opacity .38, dashed). |
+| B11 | Dimmed card when a filter leaves it out | matches | matches | Kept, in the one disabled look (#1049): the quiet text and edge of app.css, a solid edge and no fade over the label; the pictures stay faded. |
 | B12 | Hover and keyboard focus | differs | matches | Brightness on hover; a 3 px focus ring on every control; arrow keys move between cards (kept). |
 | B13 | Choose box for the actions on several Houses | not built | built (ours alone) | **Follow-up:** the row said "not built" in the Now column although the box was built in the fidelity pass (a checkbox with the name "Choose House N for the actions on several Houses", the same bulk bar as the classic list, and the phone bar from remediation B); the status is corrected. Not in the prototype: ours alone (the bulk actions of the classic list). A small box at the top of the card, shown fainter until hovered, focused or checked. |
 | B14 | Narrow layout (390 px): five columns, smaller boxes | differs | differs | Same five columns and the same boxes, but the cards are narrower (about 54 px against 63 px) because the app's own page padding takes width. The name drops to 6 px under 410 px. **Display remediation A:** no longer true: the text never drops under 11 px, and a narrow board has two columns of larger cards (see B1 and N2). |
@@ -288,3 +288,16 @@ Navigation only: nothing a click sends and no request or save field changed; che
 | R3 | The same, Classic list | #1072 | Only that House is shown and open, as before; its row is scrolled to the top of the window below the sticky header. |
 | R4 | "Open House" of a path on the Specializations page | #1072 | Same scroll to the House's card on the board. |
 | R5 | Specialization links of the House Inspector (#1041), Jump to House, the place links to the Saved map | #1041, #1025 | Unchanged: they still open at the lanes, scroll to the card, and open the Saved map at the map. The scroll after a draw is one shared request (`askReveal`) that `render()` runs once, after the page is drawn. |
+
+## One look for every control that is off (#1049)
+
+Style only: no request, save field, count or behaviour changed; checked in headless Edge at 1280 and 390 px, dark and light, not in the game. The three tokens `--dis-fg`, `--dis-bg` and `--dis-edge` and the one rule that uses them are at the top of `app.css`; the other style files do not define their own.
+
+| Row | Element | Issue | What it is now |
+| --- | --- | --- | --- |
+| D1 | Buttons that are off (Reopen, Complete, Fill, Apply, Make active, Set flag, Write, the sort headers, the layout switch, the filter chips, the Specializations buttons) | #1049 | Quiet text, a quiet solid edge, no fill, no shadow, the not-allowed pointer. No dashed edge and no fade. |
+| D2 | Drop-downs, text fields and number fields that are off (Set tier, the term drop-downs, the XP field) | #1049 | The same look; the arrow and the text keep their contrast. |
+| D3 | Boxes and switches that are off (Group by region, the choose box, a design switch) | #1049 | The same quiet colours on the box, its label and the switch knob; the not-allowed pointer. |
+| D4 | Tier boxes that do nothing now (another faction chosen), in the Inspector, on the cards and in the Classic list | #1049 | They keep their state colours (collected, waiting, no record) and take the quiet edge and the pointer; the dashed edge and the fade are gone. |
+| D5 | A House card that the filters leave out | #1049 | The quiet colours and a solid quiet edge; no fade over the name (the pictures stay faded). |
+| D6 | Forced colours | #1049 | The same controls use GrayText for text and edge, as before. |
