@@ -21,10 +21,10 @@ test('a lane at level 100 shows the XP cap and says nothing about keystones; all
   assert.equal(ks.getAttribute('data-xpcap'), null);
   assert.equal(ks.getAttribute('data-ks-complete'), 'true');
   const both = lane({ level: 100, xp: 44182, keystonesOwned: 41 });
-  assert.deepEqual(tags(both), ['✦ FULL PATH COMPLETE']);
+  assert.deepEqual(tags(both), ['✦ COMPLETE']);
   assert.equal(both.getAttribute('data-full'), 'true');
   const mid = lane({ level: 60, xp: 21000, keystonesOwned: 0 });
-  assert.deepEqual(tags(mid), ['PATH IN PROGRESS']);
+  assert.deepEqual(tags(mid), ['IN PROGRESS']);
 });
 
 test('level 0, 60 and 100 with keystones 0 of 41 and 41 of 41: six cards, each with the right numbers and tags', () => {
@@ -40,7 +40,7 @@ test('an unknown keystone total is never complete, and an unidentified track say
   assert.match(u.querySelector('.lcc-lane-nums').textContent, /keystones unknown/);
   assert.equal(u.getAttribute('data-ks-complete'), null);
   assert.equal(u.getAttribute('data-full'), null);
-  assert.deepEqual(tags(lane({ unresolved: true })), ['TRACK NOT IDENTIFIED']);
+  assert.deepEqual(tags(lane({ unresolved: true })), ['NOT IDENTIFIED']);
   assert.equal(L.laneState({ xp: 5, maxXp: 0, keystonesOwned: 1, keystonesTotal: 0 }).capped, false, 'a cap of 0 is unknown, not reached');
 });
 
@@ -129,7 +129,7 @@ test('names from a save are only text on both cards', () => {
   assert.equal(c.querySelector('.lcc-house-name').textContent.toLowerCase(), hostile.toLowerCase().replace(/^./, (x) => x.toUpperCase()).toLowerCase());
   const l = L.renderLaneCard({ track: hostile, level: hostile, xp: hostile, keystonesOwned: hostile, keystonesTotal: hostile });
   assert.equal(l.querySelectorAll('img, script, a').length, 0);
-  assert.match(l.querySelector('.lcc-lane-name').textContent, /Unknown path/);
+  assert.match(l.querySelector('.lcc-lane-name').textContent, /Unknown specialization/);
   assert.doesNotMatch(l.textContent, /onerror/);
   assert.ok([...c.querySelectorAll('*'), ...l.querySelectorAll('*')].every((e) => ![...e.attributes].some((a) => /^on/i.test(a.name))));
 });

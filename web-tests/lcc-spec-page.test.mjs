@@ -116,7 +116,7 @@ test('a House of a path opens the Landsraad board with that House chosen; nothin
 test('a Landsraad that cannot be read leaves the Houses "Not in the save" and the rest of the page working', async () => {
   const ui = await open({ 'spec.view': 'cc' }, { '/api/landsraad': { __fail: 'no term', __status: 400 } });
   assert.ok(ui.doc.querySelector('#lcs-root'));
-  assert.match(text(ui.doc.querySelector('.lcc-sp-houses')), /could not be read, so the Houses of this path are not in the save/);
+  assert.match(text(ui.doc.querySelector('.lcc-sp-houses')), /could not be read, so the Houses of this specialization are not in the save/);
   assert.equal(ui.doc.querySelectorAll('[data-lcs-lane]').length, 5);
   assert.ok(ui.doc.querySelector('[data-act="spKeyAll"]'));
 });
@@ -124,12 +124,12 @@ test('a Landsraad that cannot be read leaves the Houses "Not in the save" and th
 test('a Landsraad that answers without a task list leaves the Houses "Not in the save", not "no House is listed" (#899)', async () => {
   for (const answer of [{}, { tasks: null }, { tasks: 'x' }, { term: 3 }]) {
     const ui = await open({ 'spec.view': 'cc' }, { '/api/landsraad': answer });
-    assert.match(text(ui.doc.querySelector('.lcc-sp-houses')), /could not be read, so the Houses of this path are not in the save/, JSON.stringify(answer));
+    assert.match(text(ui.doc.querySelector('.lcc-sp-houses')), /could not be read, so the Houses of this specialization are not in the save/, JSON.stringify(answer));
     assert.doesNotMatch(text(ui.doc.querySelector('.lcc-sp-houses')), /No House of this term is listed/);
     closeAll();
   }
   const empty = await open({ 'spec.view': 'cc' }, { '/api/landsraad': { tasks: [] } });
-  assert.match(text(empty.doc.querySelector('.lcc-sp-houses')), /No House of this term is listed under this path/, 'a list that is there and empty is still "none listed"');
+  assert.match(text(empty.doc.querySelector('.lcc-sp-houses')), /No House of this term is listed under this specialization/, 'a list that is there and empty is still "none listed"');
 });
 
 test('choosing another lane keeps what was typed in the XP fields, and drawing the view again does too (#899)', async () => {
@@ -147,9 +147,9 @@ test('choosing another lane keeps what was typed in the XP fields, and drawing t
   assert.equal(ui.posted.length, 0, 'choosing a lane sends nothing');
 });
 
-test('a save with no specialization tracks shows one message and no control', async () => {
+test('a save with no specializations shows one message and no control', async () => {
   const ui = await open({ 'spec.view': 'cc' }, { '/api/player/specs': { rows: [], unassigned: [], maxXp: 44182, tracks: [], resetCount: 0 } });
-  assert.match(text(ui.doc.querySelector('.lcc-sp-empty')), /This save has no specialization tracks\./);
+  assert.match(text(ui.doc.querySelector('.lcc-sp-empty')), /This save has no specializations\./);
   assert.equal(ui.doc.querySelectorAll('#lcs-root [data-act]').length, 0);
 });
 

@@ -271,7 +271,7 @@ test('#939: a place the Saved map has no picture of, and a House not mapped, say
   assert.equal(text(last(ui)), 'The Saved map has no picture of Arrakeen yet.');
   look(ui, a, 'Thorvald'); // not mapped
   loc = ui.doc.querySelector('.lcc-bd-insp .lcc-bd-loc');
-  assert.equal(text(loc), 'Representative location not mapped yet');
+  assert.equal(text(loc), 'Representative place not mapped yet');
   assert.equal(loc.getAttribute('title'), 'This house is not mapped yet: the save holds no map marker for its representative and the editor has no fixed place for it.');
   click(ui, loc);
   assert.match(text(last(ui)), /^This house is not mapped yet/);

@@ -124,7 +124,7 @@ test('#951: the House name of a row carries the Classic hover card, and the cell
   assert.match(tip('lcc-bd-c-wait'), /^Not collected: /, 'Alexin has a reward waiting in the fixture');
 });
 
-test('#951: the Location cell is the Classic place link with the quick peek (the map picture) in the mouse-over, and the peek is for the mouse only', async () => {
+test('#951: the Place cell is the Classic place link with the quick peek (the map picture) in the mouse-over, and the peek is for the mouse only', async () => {
   const a = synthetic();
   const ui = await open();
   const r = rowOf(ui, 'Kenola');

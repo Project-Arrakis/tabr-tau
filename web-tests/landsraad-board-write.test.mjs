@@ -706,7 +706,7 @@ test('a track at its last level is said in the result line and the toast: the ex
   click(ui, quick(ui, 'Alexin', 'qa-fill')); await ui.settle();
   const r = result(ui);
   assert.ok(r.includes('3 missions written: +18,000 Solari, +3,000 House Scrip; Exploration is at its last level, +9,000 XP not added'), r);
-  assert.deepEqual(toasts(ui), ['House Alexin: 3 missions written. Some XP not added: a track is at its last level.']);
+  assert.deepEqual(toasts(ui), ['House Alexin: 3 missions written. Some XP not added: a specialization is at its last level.']);
   const q = await open(board(), { '/api/landsraad/apply': { ...GRANTED, outcome: 'queued', specialization_xp: { Exploration: 1500 }, specialization_xp_not_added: { Exploration: 7500 } } });
   click(q, quick(q, 'Alexin', 'qa-fill')); await q.settle();
   assert.ok(result(q).includes('+1,500 Exploration XP; Exploration is at its last level, +7,500 XP will not be added'), result(q));

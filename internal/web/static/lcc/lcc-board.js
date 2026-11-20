@@ -345,7 +345,7 @@
   // ---- the list ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const COLS = () => [
     { k: 'position', t: W().square, sort: 'position' }, { k: 'house', t: 'House', sort: 'house' }, { k: 'owner', t: W().pledgeBy, sort: 'status' }, { k: 'path', t: W().specialization },
-    { k: 'location', t: 'Location', sort: 'location' }, { k: 'state', t: 'Your progress', sort: 'state' }, { k: 'tiers', t: 'Tiers', sort: 'tiers' }, { k: 'next', t: 'Next tier', sort: 'next' }, { k: 'waiting', t: 'Not collected' },
+    { k: 'location', t: 'Place', sort: 'location' }, { k: 'state', t: 'Your progress', sort: 'state' }, { k: 'tiers', t: 'Tiers', sort: 'tiers' }, { k: 'next', t: 'Next tier', sort: 'next' }, { k: 'waiting', t: 'Not collected' },
   ];
   function locCell(h, host) {
     const td = el('td', 'lcc-bd-loc');
@@ -415,7 +415,7 @@
       for (const g of groups) {
         const tb = el('tbody', 'lcc-bd-group');
         const tr = el('tr', 'lcc-bd-grouprow'), td = el('th', '', '', { scope: 'rowgroup', colspan: cols });
-        td.textContent = (g.g ? (state.group === 'spec' ? trackWord(g.g) || g.g : g.g) : state.group === 'region' ? 'Location unknown' : W().noSpecialization) + ' · ' + g.rows.length;
+        td.textContent = (g.g ? (state.group === 'spec' ? trackWord(g.g) || g.g : g.g) : state.group === 'region' ? 'Region unknown' : W().noSpecialization) + ' · ' + g.rows.length;
         tr.appendChild(td); tb.appendChild(tr);
         for (const h of g.rows) tb.appendChild(row(h, host, editable, picks, cols));
         t.appendChild(tb);
@@ -699,7 +699,7 @@
 
     // where it is
     const s5 = el('section', 'lcc-bd-sec', '', { 'aria-labelledby': 'lcc-bd-s5' });
-    s5.appendChild(secHead('WHERE', 'lcc-bd-s5'));
+    s5.appendChild(secHead('PLACE', 'lcc-bd-s5'));
     if (!h.loc.known) s5.appendChild(el('p', 'lcc-bd-none', 'Not mapped yet: the save holds no map marker for this House’s representative, and the editor does not guess a place.'));
     else {
       s5.appendChild(el('p', 'lcc-bd-line', [h.loc.area, h.loc.cell ? 'grid cell ' + h.loc.cell : '', h.loc.place, h.loc.map && h.loc.map !== h.loc.area ? h.loc.map : ''].filter(Boolean).join(' · ')));

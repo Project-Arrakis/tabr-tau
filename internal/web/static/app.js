@@ -797,11 +797,11 @@ async function playerView() {
   return playerSection(sub.player);
 }
 // The Specialization tab has two views of the same save: the classic list (the default, and the fallback when the Command Center scripts are not there) and the Command Center view
-// (lcc/lcc-spec.js). The view only changes how the tracks are drawn: the buttons of both carry the same data-act and run the same handlers below, so the requests and the questions are the same.
+// (lcc/lcc-spec.js). The view only changes how the specializations are drawn: the buttons of both carry the same data-act and run the same handlers below, so the requests and the questions are the same.
 const SPV = { view: browserStore.get('spec.view') === 'cc' ? 'cc' : 'classic', vm: null };
 const specCCOn = () => SPV.view === 'cc' && !!(window.LCCS && window.LCC);
 const specViewSwitch = () => (window.LCCS && window.LCC ? html`<div class="lcc lcc-sp-viewsw" role="group" aria-label="View of the Specialization tab" title="Both views read and write the same save in the same way, with the same questions and checks."><span class="lcc-sp-vlbl">View</span><button type="button" class="lcc-sp-vbtn" data-spview="classic" aria-pressed="${specCCOn() ? 'false' : 'true'}">Classic list</button><button type="button" class="lcc-sp-vbtn" data-spview="cc" aria-pressed="${specCCOn() ? 'true' : 'false'}">Command Center</button></div>` : '');
-// Opening a House of a path on the Landsraad board only moves between pages: the board shows it selected, with its filters cleared, and nothing is written.
+// Opening a House of a specialization on the Landsraad board only moves between pages: the board shows it selected, with its filters cleared, and nothing is written.
 function specGoHouse(id) {
   if (!Number.isInteger(id)) return;
   // The board is shown for this visit only: the view the person chose (saved under lsb.view) is not rewritten (#1060), so a Classic user is back on the Classic list the next time the page is opened, and the View switch is there to stay.
@@ -815,20 +815,20 @@ function lbOpenHouseHere(id) {
   else { LB.show = 'all'; LB.hs = 'any'; LB.jump = String(id); LB.open.add(id); }
   tab = 'landsraad'; browserStore.set('tab', tab); askReveal(() => lbRevealHouse(id)); render();
 }
-// And back: the specialization of a House opens that path in the Specialization tab's Command Center view. It only moves between pages (the chosen path is the view's own state) and writes nothing.
+// And back: the specialization of a House opens that specialization in the Specialization tab's Command Center view. It only moves between pages (the chosen specialization is the view's own state) and writes nothing.
 function specGoPath(track) {
   if (!(window.LCCS && window.LCC) || !Array.isArray(window.LCCS.ORDER) || !window.LCCS.ORDER.includes(track)) return;
   window.LCCS.state.sel = track; SPV.view = 'cc'; // shown for this visit only: the saved choice (spec.view) is not rewritten (#1060)
   sub.player = 'specialization'; tab = 'player'; browserStore.set('tab', tab); askReveal(specReveal); render();
 }
 const SPV_HOST = { goHouse: specGoHouse };
-// The lanes and the chosen path's dossier are below the page's header and totals. A link that opens a path (specGoPath) brings them into view once the page is drawn (askReveal). The sticky header is cleared by the page's scroll-padding-top.
+// The lanes and the chosen specialization's dossier are below the page's header and totals. A link that opens a specialization (specGoPath) brings them into view once the page is drawn (askReveal). The sticky header is cleared by the page's scroll-padding-top.
 function specReveal() { const t = $('#lcs-root .lcc-sp-headrow'); if (t && typeof t.scrollIntoView === 'function') t.scrollIntoView({ block: 'start' }); }
 function specMount() {
   const m = $('#lcs-mount');
   if (m && SPV.vm && window.LCCS) window.LCCS.mount(m, SPV.vm, SPV_HOST);
 }
-const NO_TRACK_NUMBER = 'Number not known yet: see Track numbers below.';
+const NO_TRACK_NUMBER = 'Number not known yet: set it under Advanced below.';
 // The numbers the game uses for the five tracks (measuredTrackNumbers of internal/ops/landsraad_grant.go; a test compares the two). A track shown with another number was assigned by hand: the Track numbers card is drawn then, so it can be set right.
 const MEASURED_TRACK_NUMBERS = { Crafting: 1, Gathering: 2, Exploration: 3, Combat: 4, Sabotage: 5 };
 // The reset of the character's level and XP (#339): on Character > Overview, beside Give XP. The number it asks the person to confirm is the XP the summary above shows.
@@ -1011,32 +1011,32 @@ async function playerSection(s) {
   } else if (s == 'specialization') {
     const sp = await api('/api/player/specs');
     const known = (r) => r.number != null;
-    // Every track has a number (the ones the game uses, or the ones assigned earlier): a person picks tracks by name and the numbers stay out of sight. Only a save whose numbers cannot be told gets the assignment card.
+    // Every specialization has a number (the ones the game uses, or the ones assigned earlier): a person picks one by name and the numbers stay out of sight. Only a save whose numbers cannot be told gets the assignment card.
     const allKnown = sp.rows.length > 0 && sp.rows.every(known);
     const asMeasured = sp.rows.every((r) => !known(r) || MEASURED_TRACK_NUMBERS[r.track] === r.number); // a number assigned by hand that is not the game's own leaves no way back, so the card stays
     const rawTracks = sp.rows.filter(known);
     const keystone = (r) => (r.granted ? html`<span class="ok" title="${r.keystoneOwned} of ${r.keystoneTotal} keystones">Granted</span>` : r.keystoneOwned > 0 ? html`<span title="${r.keystoneOwned} of ${r.keystoneTotal} keystones bought">${r.keystoneOwned}/${r.keystoneTotal}</span>` : html`<span class="mut">-</span>`);
     h.push(specViewSwitch());
-    h.push(html`<div class="card d-panel"><h3 class="d-head">Specialization tracks</h3>
+    h.push(html`<div class="card d-panel"><h3 class="d-head">Specializations</h3>
       <div class="row"><button class="b d-btn primary" data-act="spKeyAll">Grant all keystones</button><button class="b bad d-btn danger" data-act="spKeyReset">Reset all keystones</button></div>
       <div class="row">${(() => {
-        const left = sp.unassigned.length ? html`<span class="mut" id="spresetleft">${nn(sp.unassigned.length, 'row', 'rows')} of the save whose track is not known yet ${sp.unassigned.length === 1 ? 'is' : 'are'} left alone.</span>` : '';
+        const left = sp.unassigned.length ? html`<span class="mut" id="spresetleft">${nn(sp.unassigned.length, 'specialization', 'specializations')} the editor cannot match yet ${sp.unassigned.length === 1 ? 'is' : 'are'} left alone.</span>` : '';
         const desc = (id) => (sp.unassigned.length ? id + ' spresetleft' : id);
-        if (!sp.resetCount) return html`<button class="b bad d-btn danger" data-act="spResetAll" data-n="0" data-left="${sp.unassigned.length}" aria-describedby="${desc('spresetnote')}" disabled>Reset XP of all known tracks (0)</button><span class="mut" id="spresetnote">Nothing to reset: no track whose number is known has XP.</span>${left}`;
-        return html`${tip('spresettip', 'Removes the XP of every track whose number is known (the rows the table below shows XP for), in one edit, after you type a confirmation. Keystones are not touched.', html`<button class="b bad d-btn danger" data-act="spResetAll" data-n="${sp.resetCount}" data-left="${sp.unassigned.length}" aria-describedby="${desc('spresettip')}">Reset XP of all known tracks (${sp.resetCount})</button>`)}${left}`;
+        if (!sp.resetCount) return html`<button class="b bad d-btn danger" data-act="spResetAll" data-n="0" data-left="${sp.unassigned.length}" aria-describedby="${desc('spresetnote')}" disabled>Reset XP of all known specializations (0)</button><span class="mut" id="spresetnote">Nothing to reset: none of the specializations the editor can match has XP.</span>${left}`;
+        return html`${tip('spresettip', 'Removes the XP of every specialization whose number is known (the rows the table below shows XP for), in one edit, after you type a confirmation. Keystones are not touched.', html`<button class="b bad d-btn danger" data-act="spResetAll" data-n="${sp.resetCount}" data-left="${sp.unassigned.length}" aria-describedby="${desc('spresettip')}">Reset XP of all known specializations (${sp.resetCount})</button>`)}${left}`;
       })()}</div>
-      ${sp.rows.some(known) ? '' : html`<div class="info" id="spnone"><b>No track has a number in this save yet</b>, so the XP controls below are off. Earn a little XP in a track in the game, let it save, reload this tab and assign the track under Track numbers. Keystones work now.</div>`}
-      ${tbl([{ k: 'track', label: 'Track' }, { k: 'xp', label: 'XP', f: (r) => (known(r) ? Number(r.xp).toLocaleString() : html`<span class="mut" title="The editor cannot match this track to a path in your save yet; see below">—</span>`) },
+      ${sp.rows.some(known) ? '' : html`<div class="info" id="spnone"><b>No specialization has a number in this save yet</b>, so the XP controls below are off. Earn a little XP in a specialization in the game, let it save, reload this tab and assign its number under Advanced below. Keystones work now.</div>`}
+      ${tbl([{ k: 'track', label: 'Specialization' }, { k: 'xp', label: 'XP', f: (r) => (known(r) ? Number(r.xp).toLocaleString() : html`<span class="mut" title="The editor cannot match this specialization in your save yet; see below">—</span>`) },
         { k: 'level', label: 'Level', f: (r) => (known(r) ? Math.floor(r.level) : html`<span class="mut">—</span>`) }, { k: 'keystoneOwned', label: 'Keystone', f: keystone },
         { k: 'add', label: 'Add XP', f: (r) => html`<input id="spx${r.track}" type="number" min="1" step="1" value="1000" class="w90" aria-label="XP to add to ${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'}><button class="b sm d-btn primary sm" data-act="spAdd" data-t="${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'} title="${known(r) ? '' : NO_TRACK_NUMBER}">Add XP</button>${known(r) ? '' : html` <span class="mut" id="spnum${r.track}">${NO_TRACK_NUMBER}</span>`}` }],
-        sp.rows, { empty: 'This save has no specialization tracks.', actions: (r) => html`<button class="b sec sm d-btn sm" data-act="spMax" data-t="${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'} title="${known(r) ? 'The most XP a track holds is ' + Number(sp.maxXp).toLocaleString() : NO_TRACK_NUMBER}">Grant max</button><button class="b bad sm d-btn danger sm" data-act="spReset" data-t="${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'} title="${known(r) ? '' : NO_TRACK_NUMBER}">Reset</button>` })}</div>
-    ${allKnown && asMeasured ? '' : html`<div class="card d-panel"><h3 class="d-head">Track numbers</h3>
+        sp.rows, { empty: 'This save has no specializations.', actions: (r) => html`<button class="b sec sm d-btn sm" data-act="spMax" data-t="${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'} title="${known(r) ? 'The most XP a specialization holds is ' + Number(sp.maxXp).toLocaleString() : NO_TRACK_NUMBER}">Grant max</button><button class="b bad sm d-btn danger sm" data-act="spReset" data-t="${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'} title="${known(r) ? '' : NO_TRACK_NUMBER}">Reset</button>` })}</div>
+    ${allKnown && asMeasured ? '' : html`<div class="card d-panel" data-advanced="true"><h3 class="d-head">Advanced: track numbers</h3>
       ${sp.unassigned.length ? html`${sp.unassigned.map((u) => html`<div class="row"><span>Track number <b>${u.number}</b>: ${Number(u.xp).toLocaleString()} XP, level ${Math.floor(u.level)}</span> is
         <select id="spa${u.number}" aria-label="Which specialization track is number ${u.number}">${sp.tracks.map((t) => html`<option>${t}</option>`)}</select><button class="b d-btn primary" data-act="spAssign" data-n="${u.number}">Assign</button></div>`)}` : html`<p class="mut">No specialization XP in your save is waiting to be assigned.</p>`}
       <div class="row"><span class="mut">Known a track's number already?</span><select id="spmt" aria-label="Specialization track">${sp.tracks.map((t) => html`<option>${t}</option>`)}</select> number <input id="spmn" aria-label="Track number" type="number" min="0" max="255" class="w70"><button class="b sec d-btn" data-act="spAssignHand">Set</button></div>
       <p class="mut">Assigned: ${sp.rows.filter(known).map((r) => `${r.track} = ${r.number}`).join(', ') || 'none yet'}.</p>
       ${about('specialization.numbers', 'Track numbers', html`<p class="mut">Your save stores only a number for each specialization track and does not say which number is which. The editor knows the numbers the game uses (Crafting 1, Gathering 2, Exploration 3, Combat 4, Sabotage 5), so this card is normally not on the page. It is here because a track has no number, or a number assigned earlier is not the game's own. If the XP of one track shows under another track's name, the other track holds its number: set that track again to its own number in the box above. If the game changes a number, earn a little XP in that track, save, reload this tab, and assign the new row. Keystones need no numbers.</p>`)}</div>`}
-    <div class="card d-panel"><details><summary>Advanced: set a raw row</summary>${rawTracks.length ? html`<p class="mut">Writes the XP and level you type for the track you pick as they are. Nothing checks that the two match.</p><div class="row"><span class="mut">Track</span><select id="st" aria-label="Specialization track of the row">${rawTracks.map((r) => html`<option value="${r.number}">${r.track}</option>`)}</select>XP<input id="sx" aria-label="XP of the track" type="number" value="0">Level<input id="sl" aria-label="Level of the track" type="number" step="0.1" value="1" class="w80"><button class="b sec d-btn" data-act="specSet">Set</button></div>` : html`<p class="mut">No track has a number in this save yet, so there is no row to pick. Assign a track under Track numbers first.</p>`}</details></div>`);
+    <div class="card d-panel" data-advanced="true"><details><summary>Advanced: set a raw row</summary>${rawTracks.length ? html`<p class="mut">Writes the XP and level you type for the track you pick as they are. Nothing checks that the two match.</p><div class="row"><span class="mut">Track</span><select id="st" aria-label="Specialization track of the row">${rawTracks.map((r) => html`<option value="${r.number}">${r.track}</option>`)}</select>XP<input id="sx" aria-label="XP of the track" type="number" value="0">Level<input id="sl" aria-label="Level of the track" type="number" step="0.1" value="1" class="w80"><button class="b sec d-btn" data-act="specSet">Set</button></div>` : html`<p class="mut">No track has a number in this save yet, so there is no row to pick. Assign a track under Advanced: track numbers first.</p>`}</details></div>`);
   } else if (s == 'journey') {
     JB = await api('/api/player/journey/browse');
     const tg = await api('/api/player/tags');
@@ -2189,7 +2189,7 @@ const lbFromYou = (h) => (h.loc.from_you_cm == null ? html`<span class="mut">${l
 // "Click the place to open the Saved map." or the reason the place cannot be opened.
 const lbLocAria = (h) => 'House ' + h.name + ': ' + (h.loc.known ? lbAreaFull(h) + (lbSub(h) ? ', ' + lbSub(h) : '') + '. ' + (lbOnMap(h) ? 'Open in the Saved map' : lbLocWhy(h)) : 'not mapped yet. ' + lbNoMark);
 function lbLocModel(h) {
-  if (!h.loc.known) return { known: false, onMap: false, area: 'Representative location not mapped yet', sub: '', hub: false, hint: lbNoMark, why: lbNoMark, aria: lbLocAria(h), from: '' };
+  if (!h.loc.known) return { known: false, onMap: false, area: 'Representative place not mapped yet', sub: '', hub: false, hint: lbNoMark, why: lbNoMark, aria: lbLocAria(h), from: '' };
   return { known: true, onMap: lbOnMap(h), area: h.loc.area, sub: lbSub(h), hub: lbHub(h), hint: lbLocHint(h), why: lbLocWhy(h), aria: lbLocAria(h), from: lbHub(h) ? '' : lbFromYouText(h) };
 }
 function lbPlaceDetails(h) {
@@ -2250,7 +2250,7 @@ function lbRow(h, l, hue, noLocs, pos) {
     <div class="more" role="cell" ${open ? '' : 'hidden'}>
       <div><h4>Tiers and rewards</h4><div class="tiers">${tierBoxes}</div><p class="cap"><i class="lg lg-dl" aria-hidden="true"></i> collected · <i class="lg lg-wt" aria-hidden="true"></i> not collected · ✓ reached</p><p class="cap swl">${swl}</p><p class="cap grantcap" id="lsg-${h.id}">${lbGrantCaption(fillGr, nextGr, h, can && !ownF ? [fn, lbFacName(l, l.character.faction_id)] : null)}</p></div>
       <div><h4>House status and faction progress</h4><span class="tag">${hs}</span><div class="fbs">${fbs}</div><p class="cap">of the house goal, ${lbF(h.goal)}</p></div>
-      ${noLocs ? '' : html`<div><h4>Where</h4>${lbPlaceDetails(h)}</div>`}
+      ${noLocs ? '' : html`<div><h4>Place</h4>${lbPlaceDetails(h)}</div>`}
       <div class="acts"><button type="button" class="qa act-fill" data-lb="qa" data-do="fillgoal" data-id="${h.id}" data-fk="af:${h.id}" aria-disabled="${off(goalOff)}" aria-describedby="lsg-${h.id}" title="${goalTip}">${LB_ICON.fill}<span class="ql">Fill faction goal</span></button><button type="button" class="qa act-complete" data-lb="qa" data-do="complete" data-id="${h.id}" data-fk="ac:${h.id}" aria-disabled="${off(doneF)}" title="${doneF ? 'Already complete for ' + fn + ': nothing to change' : crTipC(fn)}">${LB_ICON.complete}<span class="ql">Complete</span></button><button type="button" class="qa act-reopen" data-lb="qa" data-do="reopen" data-id="${h.id}" data-fk="ar:${h.id}" aria-disabled="${off(!h.taken)}" title="${h.taken ? LB_REOPEN_TIP : 'The house is open: nothing to change'}">${LB_ICON.reopen}<span class="ql">Reopen</span></button><span class="mut fine">for the faction chosen above the list</span></div>
     </div>
   </div></li>`;
@@ -2495,11 +2495,11 @@ function lbInner(l) {
     <span class="f"><label class="lbl" for="lsb-jump">Jump to house</label><select id="lsb-jump" data-lb="jump"><option value="">Choose a house</option>${hs.map((h) => html`<option value="${h.id}" ${String(LB.jump) === String(h.id) ? 'selected' : ''}>${h.name}</option>`)}</select></span>
     <span class="shown" id="lsb-shown" aria-live="polite">${N} of ${N} houses shown</span>
   </div>
-  ${noLocs ? html`<p class="line1" id="lsb-nolocs">No house has a place in the editor yet, so the Location column says “not mapped yet” and the houses cannot be grouped by region.</p>` : ''}
+  ${noLocs ? html`<p class="line1" id="lsb-nolocs">No house has a place in the editor yet, so the Place column says “not mapped yet” and the houses cannot be grouped by region.</p>` : ''}
   ${lbActbar(hs, l)}
   <p class="onlybar" id="lsb-only" hidden>Showing only House <b id="lsb-onlyname"></b>, opened. The filters are ignored while this is on. <a href="#lsb-board" data-lb="showall">Show all houses</a></p>
   <p class="nolist" id="lsb-nomatch" hidden>No house matches the filters. <button type="button" class="linkb" data-lb="showall">Show all houses</button></p>
-  <div role="table" aria-label="Houses, current term"><div role="rowgroup"><div class="rowhead" role="row"><span class="pickh" aria-hidden="true">Choose</span><span class="sortlbl">Sort by</span>${col('house', 'House')}${col('location', 'Location', noLocs)}<div class="hc3">${col('state', 'State')}${col('tiers', 'Tiers')}${col('next', 'Next tier')}</div>${col('status', 'Faction status')}<span class="hend">Quick actions</span></div></div>
+  <div role="table" aria-label="Houses, current term"><div role="rowgroup"><div class="rowhead" role="row"><span class="pickh" aria-hidden="true">Choose</span><span class="sortlbl">Sort by</span>${col('house', 'House')}${col('location', 'Place', noLocs)}<div class="hc3">${col('state', 'State')}${col('tiers', 'Tiers')}${col('next', 'Next tier')}</div>${col('status', 'Faction status')}<span class="hend">Quick actions</span></div></div>
   <ul class="rows" role="rowgroup" id="lsb-rows">${hs.map((h) => lbRow(h, l, hue(h), noLocs, nums.get(h.id)))}</ul></div>
   ${lbAbout('lsb.board', 'the board', html`<p>Every row starts collapsed. Click a row (or press Space on it) to open it; Expand all opens every row, Collapse all closes them again. A <b>tier</b> is reached when your contribution is at least its amount; contribution is cumulative. A reached tier counts as paid when the delivery rows hold its item from this term. <b>Collected</b> then means the save holds the reward as collected (amount 0 in the delivery rows), <b>Not collected</b> that it waits at the house representative (an amount above 0). <b>Reached, no delivery recorded</b> means no such row of this term, so an earlier term's reward is not taken for this tier's. The row is of the item, not of the tier: where two tiers give the same item one row shows both as paid, and a contribution raised by a route that writes no reward (an older build, or the plain Fill routes of the editor's API) can show a tier as delivered when the game or another tier left a row of this term. The top tier shows the house swatch while the character does not hold it, and the house's own item once it is held. A click on a place opens the Saved map at the house, where the Saved map has a picture of it; a place with no picture is shown dimmed and says why. With a mouse, hover a place for a quick look at where the house is; the open row shows the same on touch and keyboard.</p>`)}
   </section>`;
@@ -2636,7 +2636,7 @@ function lbBackText(r, queued) {
   if (u) p.push(nn(u, 'reward', 'rewards') + ' left alone (not certain ' + (u === 1 ? 'it belongs' : 'they belong') + ' to the removed tier)');
   return p.length ? p.join('; ') : 'no reward waited for the removed tier, so there was nothing to take back';
 }
-// the experience that did not fit because a track is at its last level, by line (#752): a raise that filled a house to level a line must not read as a success with no word about it
+// the experience that did not fit because a specialization is at its last level, by line (#752): a raise that filled a house to level a line must not read as a success with no word about it
 function lbXpLeft(r, queued) {
   const left = r && r.specialization_xp_not_added || {}, ks = Object.keys(left).filter((k) => left[k] > 0).sort();
   return ks.map((k) => '; ' + k + ' is at its last level, +' + lbF(left[k]) + ' XP ' + (queued ? 'will not be added' : 'not added')).join('');
@@ -2681,7 +2681,7 @@ async function lbSend(b, items, label, hs, focusFk) {
     if (r.contribution_lowered) lines.push(LB_REMOVE_NOTE);
     if (r.missions) lines.push(GRANT_UNCHECKED);
     // the toast of the Classic list is one short line; the whole sentence stays in its result line
-    const short = r.missions ? label + ': ' + nn(r.missions, 'mission', 'missions') + (queued ? ' queued.' : ' written.') + (lbXpLeft(r, queued) ? ' Some XP ' + (queued ? 'will not be added' : 'not added') + ': a track is at its last level.' : '') : r.contribution_lowered ? label + ': tier removed; ' + back + '.' : '';
+    const short = r.missions ? label + ': ' + nn(r.missions, 'mission', 'missions') + (queued ? ' queued.' : ' written.') + (lbXpLeft(r, queued) ? ' Some XP ' + (queued ? 'will not be added' : 'not added') + ': a specialization is at its last level.' : '') : r.contribution_lowered ? label + ': tier removed; ' + back + '.' : '';
     return { text, short, warn: !!left, lines };
   }, lbSay, focusFk);
   // the result line is at the top of the board and the click may be far below it: bring it into view, and give it the focus when the control that was pressed is no longer there to take it
@@ -2890,7 +2890,7 @@ function lbApply() {
       const g = document.createElement('li');
       g.className = 'grp';
       const t = document.createElement('h4');
-      t.textContent = (h.region || 'Location unknown') + ' ';
+      t.textContent = (h.region || 'Region unknown') + ' ';
       const n = document.createElement('em');
       n.textContent = String(count.get(h.region));
       t.appendChild(n);
@@ -3432,7 +3432,7 @@ function tmapSync() {
 // render(true) is the redraw after an action (or the page's own refresh from the file): it keeps the place; render('scroll') keeps only the scroll offsets; render('rows') keeps the page offset and the offset of the table box that holds the control pressed (from, or the focused control), for a change that shows other rows in another table box (the old offset of that box is not put back onto them, #697; a list the person scrolled and pressed a button in stays where it is, #824). Any other call is a move to another page, which starts at the top.
 // auto is the page's own refresh from the file: it keeps the place the same way, but the page is never scrolled to the refocused control (#696).
 let shownTab = null; // the tab the page was last drawn for
-// A link that opens a page at one of its parts (a House on the Landsraad tab, a path on the Specialization tab) cannot scroll there itself: the page is not drawn yet, and the move to another page starts at the top (#1025).
+// A link that opens a page at one of its parts (a House on the Landsraad tab, a specialization on the Specialization tab) cannot scroll there itself: the page is not drawn yet, and the move to another page starts at the top (#1025).
 // It asks with askReveal(fn) before it calls render(); render() runs fn once, after the page is drawn and the view is put back, so the scroll to the part is the last scroll and nothing undoes it (#1041, #1072).
 let revealOnce = null;
 const askReveal = (fn) => { revealOnce = fn; };
@@ -3672,10 +3672,10 @@ const A = {
   },
   spResetAll: (d) => {
     const n = +d.n || 0, left = +d.left || 0;
-    if (!n) { toast('No track whose number is known has XP, so there is nothing to reset.'); return; }
+    if (!n) { toast('No specialization whose number is known has XP, so there is nothing to reset.'); return; }
     return resetArea({ count: n, title: `Reset the XP of ${nn(n, 'track', 'tracks')}?`, ok: 'Reset XP', typed: `reset ${n} ${n === 1 ? 'track' : 'tracks'}`,
       body: `The XP and level of every specialization track whose number the editor knows go back to 0, the same as the Reset button of each track. Keystones are not touched.${left ? ` ${nn(left, 'row', 'rows')} of the save whose track is not known yet ${left === 1 ? 'is' : 'are'} left alone, since removing ${left === 1 ? 'it' : 'them'} could clear the wrong track.` : ''} One edit.`,
-      path: '/api/player/specs/reset-all', done: (r) => `${nn(r.changed, 'track', 'tracks')} reset to 0 XP`, none: 'No track whose number is known has XP, so there was nothing to reset.' });
+      path: '/api/player/specs/reset-all', done: (r) => `${nn(r.changed, 'track', 'tracks')} reset to 0 XP`, none: 'No specialization whose number is known has XP, so there was nothing to reset.' });
   },
   rsReset: () => {
     const n = RSRESET.entries, rc = RSRESET.recipes, bs = RSRESET.sets;
