@@ -50,8 +50,8 @@
   const trackWord = (t) => TRACK_WORD[t] || '';
   const pct = (v, goal) => (goal > 0 && v !== null ? Math.max(0, Math.min(100, Math.round((v / goal) * 100))) : 0);
   // The list cell of the faction a House is pledged to: ONE mark, the faction's name in the faction's colour (#950). A letter before the name read as a second H (H over HARKONNEN) once the cell wrapped, so there is none;
-  // a House no faction has claimed says Undecided (or Wavering) with the open circle, and a House that cannot be read the question mark, each on one line (#1073).
-  const ownerPill = (h) => { const owner = OWNER_WORD[h.owner] ? h.owner : 'unknown', p = M().pledgeOf(h); return el('span', 'lcc-owner lcc-owner-' + owner, owner === 'a' || owner === 'h' ? p.word : owner === 'open' ? '○ ' + p.word : '? ' + p.word, { title: p.line }); };
+  // a House no faction has claimed says Undecided (or Wavering) in words only (the open circle before it went in #1083), and a House that cannot be read the question mark, each on one line (#1073).
+  const ownerPill = (h) => { const owner = OWNER_WORD[h.owner] ? h.owner : 'unknown', p = M().pledgeOf(h); return el('span', 'lcc-owner lcc-owner-' + owner, owner === 'a' || owner === 'h' || owner === 'open' ? p.word : '? ' + p.word, { title: p.line }); };
   // Classic words a tier "reached"; the board says "earned" (the one pair of words, earned and collected: WORDS in lcc-model.js). "not reached" is the state word of a tier not earned yet and stays.
   const earnedWords = (s) => (typeof s === 'string' ? s.replace(/ tiers reached\./g, ' ' + W().tiersEarned + '.').replace(/\(reached, /g, '(' + W().earned + ', ').replace(/top tier reached/g, W().topTierEarned).replace(/\b(is|are) reached\b/g, '$1 ' + W().earned).replace(/: reached, /g, ': ' + W().earned + ', ').replace(/highest reached tier/g, 'highest ' + W().earned + ' tier') : s);
   // The sentences of what a click on a tier does come from the page, in Classic's words; the tier boxes of the board get them with "earned" for "reached" (#962).
@@ -281,11 +281,11 @@
     sel.appendChild(el('strong', 'lcc-hc-name', houseWord(h.name)));
     sel.appendChild(el('small', 'lcc-hc-track' + (h.track ? '' : ' lcc-hc-track-unk'), h.track ? trackWord(h.track) : '—', h.track ? undefined : { title: 'Specialization not in the save' }));
     const pl = M().pledgeOf(h);
-    sel.appendChild(el('span', 'lcc-hc-owner', owner === 'a' || owner === 'h' ? '● ' + pl.line : owner === 'open' ? '○ ' + pl.line : '? ' + pl.line, { 'data-g': ({ a: 'A', h: 'H', open: '○', unknown: '?' })[owner] }));
+    sel.appendChild(el('span', 'lcc-hc-owner', owner === 'a' || owner === 'h' || owner === 'open' ? pl.line : '? ' + pl.line, { 'data-g': ({ a: 'A', h: 'H', open: '○', unknown: '?' })[owner] }));
     const notes = [];
     if (h.waiting > 0) notes.push(h.waiting + ' reward' + (h.waiting === 1 ? '' : 's') + ' not collected');
     sel.setAttribute('aria-label', [(h.number ? W().square + ' ' + h.number + ', ' : '') + h.name + ', ' + pl.line.charAt(0).toLowerCase() + pl.line.slice(1)].concat(h.track ? [W().specialization.toLowerCase() + ' ' + trackWord(h.track)] : ['specialization not in the save'], h.takenNoTiers ? [W().pledged.toLowerCase() + ', no tier record in the save'] : h.tierCount ? [h.reached + ' of ' + h.tierCount + ' ' + W().tiersEarned, h.collected + ' collected'] : ['no tiers in the save'], notes, h.unknownDelivery ? [h.unknownDelivery + ' with no delivery record'] : [], inLine ? ['part of a line of five held by ' + FACTION_WORD[h.owner] + ': ' + listWords(lines.map(lineWord)), winSays] : [], dom ? ['one of the 13 or more Houses of ' + FACTION_WORD[major], winSays] : [], dim ? ['not in the current filter'] : []).join(', '));
-    sel.setAttribute('title', 'House ' + h.name + ', ' + (h.pos ? h.pos.words + '. ' : '') + (inLine ? lineSays + '. ' + winSays + ' ' : '') + (dom ? 'One of the ' + FACTION_WORD[major] + ' Houses, who hold 13 or more Houses. ' + winSays + ' ' : '') + (takenWhy(h) ? takenWhy(h) + ' ' : '') + 'Click to see its tiers and actions.');
+    sel.setAttribute('title', 'House ' + h.name + ', ' + pl.house.charAt(0).toLowerCase() + pl.house.slice(1) + '. ' + (h.pos ? h.pos.words + '. ' : '') + (inLine ? lineSays + '. ' + winSays + ' ' : '') + (dom ? 'One of the ' + FACTION_WORD[major] + ' Houses, who hold 13 or more Houses. ' + winSays + ' ' : '') + (takenWhy(h) ? takenWhy(h) + ' ' : '') + 'Click to see its tiers and actions.');
     card.appendChild(sel);
     const ctl = editable ? ctlOf(host, h.id) : null;
     const tiers = el('div', 'lcc-hc-tiers', '', { role: 'group', 'aria-label': 'House ' + h.name + ' reward tiers' + (ctl && ctl.tiers ? '. ' + CHECKED : '') });
@@ -355,7 +355,7 @@
     const peek = host && typeof host.peek === 'function' ? host.peek(h.id) : null; // the Classic quick peek (the map picture), shown in the mouse-over only
     const wrap = el('span', 'loc');
     if (h.loc.map_key) wrap.appendChild(btn('lcc-bd-linkb', text, { 'data-lb': 'map', 'data-id': h.id, 'data-fk': 'lm:' + h.id, title: 'Open ' + (h.loc.area || h.loc.map) + ' in the Saved map' + (peek ? '. Hover for a quick peek.' : ''), 'aria-label': 'House ' + h.name + ': ' + text + '. Open in the Saved map' }));
-    else { const t = el('span', 'lcc-bd-nopic', text, { title: 'The Saved map has no picture of ' + (h.loc.map || h.loc.area || 'this place') + ' yet' }); t.appendChild(el('span', 'lcc-bd-sr', ' · no map picture')); wrap.appendChild(t); } // the words "no map picture" are for a screen reader and the mouse-over; they wrapped the cell to three lines (#1059)
+    else { const t = el('span', 'lcc-bd-nopic', text, { title: M().noPictureSays(h.loc).replace(/\.$/, '') }); t.appendChild(el('span', 'lcc-bd-sr', ' · no map picture')); wrap.appendChild(t); } // the words "no map picture" are for a screen reader and the mouse-over; they wrapped the cell to three lines (#1059)
     if (peek) wrap.appendChild(peek);
     td.appendChild(wrap);
     return td;
@@ -569,7 +569,7 @@
     head.appendChild(el('h3', 'lcc-bd-eyebrow lcc-bd-insp-h', 'HOUSE INTELLIGENCE', { id: 'lcc-bd-insp-h' }));
     side.appendChild(head);
     if (!h) {
-      side.appendChild(el('p', 'lcc-bd-mut', 'Choose a House on the board or in the list to see its tiers, its progress and what each action would do.'));
+      side.appendChild(el('p', 'lcc-bd-mut', board.ready && state.layout === 'grid' ? 'Choose a House on the board to see its tiers and progress.' : 'Choose a House in the list to see its tiers and progress.'));
       return side;
     }
     side.setAttribute('data-id', h.id);
@@ -607,9 +607,9 @@
 
     // who it is pledged to: only what the save's own two fields say; a lead on the faction goal is a lead and never a pledge
     const ban = el('div', 'lcc-bd-banner');
-    ban.appendChild(el('span', 'lcc-bd-control lcc-bd-control-' + (OWNER_WORD[h.owner] ? h.owner : 'unknown'), (h.owner === 'a' || h.owner === 'h' ? M().pledgeOf(h).line : h.owner === 'open' ? M().pledgeOf(h).word : W().favorUnreadable).toUpperCase()));
+    ban.appendChild(el('span', 'lcc-bd-control lcc-bd-control-' + (OWNER_WORD[h.owner] ? h.owner : 'unknown'), (h.owner === 'a' || h.owner === 'h' ? M().pledgeOf(h).house : h.owner === 'open' ? M().pledgeOf(h).word : W().favorUnreadable).toUpperCase()));
     // The approved design has no sentence under the band. What the sentence said stays reachable: as a tooltip and as text for a screen reader. Only a favor the save cannot settle keeps a visible sentence.
-    const said = h.owner === 'a' || h.owner === 'h' ? M().pledgeOf(h).line + ' (completed, with a faction the save records).'
+    const said = h.owner === 'a' || h.owner === 'h' ? M().pledgeOf(h).house + ' (completed, with a faction the save records).'
       : h.owner === 'open' ? M().pledgeOf(h).word + ': no faction has the favor of this House yet.' + (M().pledgeOf(h).kind === 'wavering' ? ' Both factions have progress on it.' : '') + (h.leader ? ' ' + FACTION_WORD[h.leader] + ' is ahead on the faction goal: a lead, not a pledge.' : '')
         : 'Which faction this House is pledged to cannot be read from the save (the completed flag and the faction do not agree), so this House is counted for neither side.';
     ban.firstChild.setAttribute('title', said);
@@ -707,7 +707,7 @@
       const lm = host && typeof host.loc === 'function' ? host.loc(h.id) : null;
       if (lm && lm.from) s5.appendChild(el('p', 'lcc-bd-line', 'From you: ' + lm.from + '.'));
       if (h.loc.map_key) s5.appendChild(btn('lcc-bd-act', 'Open in the Saved map', { 'data-lb': 'map', 'data-id': h.id, 'data-fk': 'lw:' + h.id }));
-      else s5.appendChild(el('p', 'lcc-bd-cap', 'The Saved map has no picture of ' + h.loc.map + ' yet.'));
+      else s5.appendChild(el('p', 'lcc-bd-cap', M().noPictureSays(h.loc)));
     }
     side.appendChild(s5);
     return side;

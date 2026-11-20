@@ -141,6 +141,9 @@ const MEASURE = `(() => {
     const cs = getComputedStyle(el);
     if (el.scrollWidth > el.clientWidth + 2 && el.clientWidth > 0 && !/(auto|scroll)/.test(cs.overflowX) && (cs.overflowX === 'hidden' || cs.overflowX === 'clip')) clipped.push({ at: label(el), sw: el.scrollWidth, cw: el.clientWidth, text: (el.textContent || '').trim().slice(0, 24) });
   }
+  // the owner line of a House card ("Pledged to Harkonnen") keeps 4 px or more from both card edges and is not wider than its box (#1083)
+  const ownerBad = [];
+  for (const o of document.querySelectorAll('#lsb-lcc .lcc-hc-owner')) { const c = o.closest('.lcc-hc'); if (!c || !vis(o)) continue; const cr = c.getBoundingClientRect(), rg = document.createRange(); rg.selectNodeContents(o); const t = rg.getBoundingClientRect(); if (o.scrollWidth > o.clientWidth + 1 || t.left < cr.left + 4 || t.right > cr.right - 4) ownerBad.push({ text: o.textContent, card: Math.round(cr.width), left: Math.round(t.left - cr.left), right: Math.round(cr.right - t.right) }); }
   const over = [];
   for (const root of roots) for (const el of root.querySelectorAll('*')) { if (!vis(el) || el.closest('svg')) continue; const r = el.getBoundingClientRect(); if (r.right > innerWidth + 1 && !el.closest('[class*=scroll], .lcc-bd-listwrap, table')) over.push({ at: label(el), right: Math.round(r.right) }); }
   // a contributor line of a banner (#972) is shown whole or not at all: it is inside its list, or out of sight in the list's second column (the wide layout), never cut through; its amount is inside the banner
@@ -175,7 +178,7 @@ const MEASURE = `(() => {
   const count = (sel) => document.querySelectorAll(sel).length;
   return {
     innerWidth, scrollWidth: document.documentElement.scrollWidth, roots: roots.map((r) => r.id), textNodes: nodes.n,
-    small, tiny: tiny.slice(0, 8), between, selected, targets, tierOverlap, tierGapMin, clipped: clipped.slice(0, 12), over: over.slice(0, 8), cutEntries, numeralProblems, standardsShown,
+    small, tiny: tiny.slice(0, 8), between, selected, targets, tierOverlap, tierGapMin, clipped: clipped.slice(0, 12), ownerBad: ownerBad.slice(0, 4), over: over.slice(0, 8), cutEntries, numeralProblems, standardsShown,
     seatsInTrack, firstHouseTop: (() => { const h = document.querySelector('#lsb-lcc .lcc-hc'); return h ? Math.round(h.getBoundingClientRect().top + scrollY) : null; })(), // how far down the page the first House starts (#933)
     layout: (() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { top: Math.round(b.top + scrollY), h: Math.round(b.height) }; }; return { plaque: r('#lsb-lcc .lcc-plaque'), term: r('#lcc-term'), grid: r('#lsb-lcc .lcc-bd-grid'), termOpen: !!(document.querySelector('#lcc-tm-all') || {}).open }; })(),
     houses: count('#lsb-lcc [data-fk^="ht:"]'), seats: count('#lsb-lcc .lcc-seat'), centerSeats: count('#lsb-lcc .lcc-seat-center'), lanes: count('#lcs-root [data-lcs-lane]'),
@@ -243,6 +246,7 @@ async function main() {
       if (Object.keys(m.small).length) report.hard.push(c.name + ': text under 11 px in ' + Object.keys(m.small).join(', '));
       if ((c.media || []).some((x) => x.name === 'forced-colors')) for (const x of m.selected) if (x.adjust !== 'none') report.hard.push(c.name + ': a selected control is left to the automatic forced-colours adjustment (' + x.at + ' ' + x.text + ')'); else if (x.color === x.bg) report.hard.push(c.name + ': a selected control has the same label and plate colour (' + x.at + ' ' + x.text + ')');
       if (touch && Object.keys(smallBySel).length) report.hard.push(c.name + ': controls under the touch floor (' + floor + ' px high, 24 px wide): ' + Object.entries(smallBySel).map(([k, v]) => k + ' x' + v.n + ' ' + v.minW + 'x' + v.minH).join(', '));
+      if (m.ownerBad.length) report.hard.push(c.name + ': the owner line of a House card touches or crosses the card edge: ' + JSON.stringify(m.ownerBad));
       if (m.tierOverlap) report.hard.push(c.name + ': ' + m.tierOverlap + ' tier boxes whose hit areas overlap their neighbour');
       if (m.cutEntries.length) report.hard.push(c.name + ': a contributor line of a banner is cut: ' + m.cutEntries.join(' | '));
       if (m.numeralProblems.length) report.hard.push(c.name + ': a banner rank numeral is wrong: ' + m.numeralProblems.join(' | '));

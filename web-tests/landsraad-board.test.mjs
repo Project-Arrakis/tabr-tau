@@ -334,7 +334,7 @@ test('a hub (a place the Saved map has no picture of) is muted, says why in its 
   const hub = { known: true, map: 'Harko Village', map_key: '', area: 'Harko Village', place: '', cell: '', unconfirmed: false };
   const ui = await open(board({ tasks: [house(900, 'Alexin', 0, { location: hub })] }));
   const btn = ui.doc.querySelector('#lsrow-900 .loc-t');
-  const why = 'The Saved map has no picture of Harko Village yet.';
+  const why = 'This place is outside the picture of Harko Village.';
   assert.ok(btn.classList.contains('off'), 'muted, not link-styled');
   assert.equal(btn.getAttribute('aria-disabled'), 'true');
   assert.equal(btn.title, why);

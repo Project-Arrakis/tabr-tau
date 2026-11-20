@@ -82,7 +82,7 @@ test('taken with tiers and a contribution of the character, and an open House: u
   assert.doesNotMatch(count(ui, 'Sor'), /Pledged -/);
   assert.match(label(ui, 'Sor'), /wavering, .*0 of 5 tiers earned/);
   // #1073: an unclaimed card shows Undecided (or Wavering, when both factions have progress) in the slot of the faction line
-  assert.equal(text(tileOf(ui, 'Sor').querySelector('.lcc-hc-owner')), '○ Wavering');
+  assert.equal(text(tileOf(ui, 'Sor').querySelector('.lcc-hc-owner')), 'Wavering');
   assert.doesNotMatch(tileOf(ui, 'Sor').textContent, /Not won|No favor/i);
   assert.equal(tileOf(ui, 'Sor').querySelector('.lcc-hc-owner').getAttribute('data-g'), '○');
 });

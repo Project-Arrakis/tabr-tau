@@ -2034,7 +2034,8 @@ const lbOpenWord = (h, l) => ((l.factions || []).length >= 2 && (l.factions || [
 const lbHub = (h) => h.loc.known && !h.loc.map_key;
 // a click on the place goes to the Saved map only where the Saved map has a picture of the place; the other places say why they cannot
 const lbOnMap = (h) => !!(h.loc.known && h.loc.map_key);
-const lbNoPic = (h) => 'The Saved map has no picture of ' + h.loc.map + ' yet.';
+// two cases, each said truly (#1083): a map the editor has no picture of at all, and a place outside the frame of the picture of a map the editor has. A test holds this together with noPictureSays of lcc-model.js.
+const lbNoPic = (h) => (LB_PIC_LABELS.includes(h.loc.map) ? (h.loc.area && h.loc.area !== h.loc.map ? h.loc.area : 'This place') + ' is outside the picture of ' + h.loc.map + '.' : 'The Saved map has no picture of ' + (h.loc.map || h.loc.area || 'this place') + ' yet.');
 const lbNoMark = 'This house is not mapped yet: the save holds no map marker for its representative and the editor has no fixed place for it.';
 const lbLocWhy = (h) => (!h.loc.known ? lbNoMark : lbHub(h) ? lbNoPic(h) : '');
 // what a click on the place does, in words: used by the peek and the name card

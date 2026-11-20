@@ -445,9 +445,17 @@
   //   a House the save cannot settle                                       kind 'unknown'    word 'Unreadable'     line 'Favor unreadable'
   function pledgeOf(h) {
     const o = h && h.owner;
-    if (o === 'a' || o === 'h') return { kind: o, word: FACTION_NAME[o], line: WORDS.pledgedTo + ' ' + FACTION_NAME[o] };
-    if (o === 'open') return (h.prog && h.prog.a > 0 && h.prog.h > 0) ? { kind: 'wavering', word: WORDS.wavering, line: WORDS.wavering } : { kind: 'undecided', word: WORDS.undecided, line: WORDS.undecided };
-    return { kind: 'unknown', word: WORDS.unreadable, line: WORDS.favorUnreadable };
+    if (o === 'a' || o === 'h') return { kind: o, word: FACTION_NAME[o], line: WORDS.pledgedTo + ' ' + FACTION_NAME[o], house: WORDS.pledgedTo + ' House ' + FACTION_NAME[o] }; // house: the longer line of the card's hover and the Inspector (#1083); the card has no room for "House"
+    if (o === 'open') return (h.prog && h.prog.a > 0 && h.prog.h > 0) ? { kind: 'wavering', word: WORDS.wavering, line: WORDS.wavering, house: WORDS.wavering } : { kind: 'undecided', word: WORDS.undecided, line: WORDS.undecided, house: WORDS.undecided };
+    return { kind: 'unknown', word: WORDS.unreadable, line: WORDS.favorUnreadable, house: WORDS.favorUnreadable };
+  }
+  // The maps the editor has a picture of (the same four as internal/ops houseMapKey and LB_PIC_LABELS in app.js; a test holds them together). A place on one of them with no pin lies outside the frame of its picture; a place on any
+  // other map has no picture at all (#1069, #1083). loc is a House's location: { map, area }.
+  const PIC_MAPS = Object.freeze(['Hagga Basin', 'Deep Desert', 'Arrakeen', 'Harko Village']);
+  function noPictureSays(loc) {
+    const l = loc || {}, map = l.map || l.area || '';
+    if (PIC_MAPS.includes(l.map)) return (l.area && l.area !== l.map ? l.area : 'This place') + ' is outside the picture of ' + l.map + '.';
+    return 'The Saved map has no picture of ' + (map || 'this place') + ' yet.';
   }
   const showMatch = (h, k) => (k === 'all' ? true : k === 'left' ? h.state !== 'done' : h.state === k);
   const houseMatch = (h, k) => (k === 'any' ? true : (k === 'taken') === h.taken);
@@ -485,7 +493,7 @@
     });
   }
 
-  const api = { WORDS, pledgeOf, SIZE, COLS, MAJORITY, LINES, TRACKS, KNOWN_STATES, TIER_WORD, SHOWS, HOUSE_FILTERS, SORTS, position, positions, checkTasks, readFactions, readBoard, lineStatus, evaluateOwners, evaluate, WIN, matches, sortKey, sortHouses, groupOf };
+  const api = { WORDS, pledgeOf, PIC_MAPS, noPictureSays, SIZE, COLS, MAJORITY, LINES, TRACKS, KNOWN_STATES, TIER_WORD, SHOWS, HOUSE_FILTERS, SORTS, position, positions, checkTasks, readFactions, readBoard, lineStatus, evaluateOwners, evaluate, WIN, matches, sortKey, sortHouses, groupOf };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCM = api;
 })(typeof window !== 'undefined' ? window : globalThis);

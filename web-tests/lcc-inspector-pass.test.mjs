@@ -265,10 +265,10 @@ test('#939: a place the Saved map has no picture of, and a House not mapped, say
   look(ui, a, 'Alexin'); // Arrakeen: a name with no picture
   let loc = ui.doc.querySelector('.lcc-bd-insp .lcc-bd-loc');
   assert.equal(loc.getAttribute('aria-disabled'), 'true');
-  assert.equal(loc.getAttribute('title'), 'The Saved map has no picture of Arrakeen yet.');
+  assert.equal(loc.getAttribute('title'), 'This place is outside the picture of Arrakeen.');
   assert.match(text(loc), /Arrakeen.*no map picture/);
   click(ui, loc);
-  assert.equal(text(last(ui)), 'The Saved map has no picture of Arrakeen yet.');
+  assert.equal(text(last(ui)), 'This place is outside the picture of Arrakeen.');
   look(ui, a, 'Thorvald'); // not mapped
   loc = ui.doc.querySelector('.lcc-bd-insp .lcc-bd-loc');
   assert.equal(text(loc), 'Representative place not mapped yet');
