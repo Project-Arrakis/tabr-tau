@@ -16,8 +16,6 @@
 .lcc-bd-warn { margin: 6px 0; font: 600 13px/1.4 var(--lcc-sans); color: var(--lcc-text); }
 .lcc-bd-warn::before { content: '\26A0\00a0'; color: var(--lcc-gold-text); }
 .lcc-bd-none, .lcc-bd-mut { margin: 4px 0; font: italic 500 13px/1.4 var(--lcc-sans); color: var(--lcc-dim); }
-.lcc-bd-src, .lcc-bd-source { display: inline-block; margin-left: 6px; padding: 2px 4px; border: 1px solid var(--lcc-stroke-faint); font: 700 8px/1.2 var(--lcc-sans); letter-spacing: .08em; color: var(--lcc-dim); white-space: nowrap; vertical-align: middle; }
-.lcc-bd-source { margin-left: 0; padding: 4px 7px; font-size: 9px; }
 
 /* the approved design's surface: a bordered panel with a second hairline set in from its edge */
 .lcc-bd-surface { position: relative; box-sizing: border-box; border: 1px solid var(--lcc-stroke); background: linear-gradient(145deg, var(--lcc-s1), var(--lcc-s2)); box-shadow: 0 15px 45px rgba(0, 0, 0, .36); }
@@ -365,7 +363,6 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
    of panels), which is what a browser without container queries shows; the container queries then widen it, so the layout can never half-apply. */
 .lcc-bd-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .lcc-bd .lcc-bd-eyebrow { font-size: 11px; }
-.lcc-bd-src, .lcc-bd-source { font-size: 11px; padding: 2px 5px; }
 .lcc-bd-lbl { font-size: 12px; }
 .lcc-bd-chip { font-size: 12px; }
 .lcc-bd-layout button { font-size: 12px; }

@@ -17,11 +17,11 @@ async function open(answer = synthetic(), local = {}) {
 }
 const click = (ui, el) => { if (typeof el === 'string') el = ui.doc.querySelector(el); assert.ok(el, 'no element'); el.focus(); el.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
 
-test('the term section tells where each fact comes from: the save, and what the save does not hold', async () => {
+test('the term section has no source label (#1057), and says nothing of what the save does not hold', async () => {
   const ui = await open();
   const s = ui.doc.querySelector('#lcc-term');
   assert.ok(s);
-  assert.match(text(s), /FROM THE SAVE/);
+  assert.doesNotMatch(text(s), /FROM THE SAVE/, 'the label is gone (#1057): Help says where the figures come from');
   assert.doesNotMatch(text(s), /NOT IN THE SAVE/, 'the box of what the save does not hold is gone (#973): the Help tab says it');
   assert.doesNotMatch(text(s), /\bwins?\b|Dominion/i, 'no claim of a result');
   assert.equal(s.querySelector('h3#lcc-tm-h').getAttribute('tabindex'), '-1');

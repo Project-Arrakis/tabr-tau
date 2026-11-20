@@ -64,12 +64,13 @@ test('a glance tile is named by its visible words first, and the source marks ar
     const label = t.getAttribute('aria-label').toLowerCase();
     assert.ok(label.startsWith(n + ' ' + visible), `the name starts with the visible words: "${label}" vs "${n} ${visible}"`);
   }
-  const marks = [...ui.doc.querySelectorAll('.lsb .src')];
-  assert.ok(marks.length >= 6, 'the marks are drawn');
-  for (const m of marks) { assert.equal(m.getAttribute('aria-hidden'), 'true'); assert.ok(m.title, 'the mouse-over text stays'); }
+  // the source labels (save, derived) and the table and field names in their tooltips are gone (#1057); Help says where the figures come from
+  assert.equal(ui.doc.querySelectorAll('.lsb .src').length, 0, 'no source mark is drawn');
   const text = ui.doc.querySelector('#lsb').textContent.replace(/\s+/g, ' ');
-  assert.ok(text.includes('The small marks beside a heading say where a figure comes from: save is read from the save, derived is worked out by the editor'), 'the meaning is said in the About texts');
-  assert.ok(ui.doc.querySelector('details.about[data-about="lsb.counts"] .abt').textContent.includes('The small marks beside a heading'), 'and it is reachable by the About summary');
+  assert.ok(!text.includes('The small marks beside a heading'), 'no sentence about marks that are not there');
+  const tips = [...ui.doc.querySelectorAll('#lsb [title]')].map((e) => e.getAttribute('title')).join(' | ');
+  assert.doesNotMatch(tips, /landsraad_|Read from the save|Worked out by the editor from fields|winning_faction_id/, 'no table or field name in a tooltip');
+  assert.ok(ui.doc.querySelector('details.about[data-about="lsb.counts"] .abt'), 'the About text of the counts stays');
 });
 
 test('the queue chip and the Theme button are named by their visible words first (#619 D9-2, D9-3)', async () => {

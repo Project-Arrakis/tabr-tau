@@ -63,6 +63,10 @@ The victory panel says whether a faction has won, by 13 Houses or by five in a l
 - A reward item that the editor's item list has no name for is called "Unlisted item". The game's internal item name is never shown as a name. In the list, a House with no place shows a dash, and the Tiers column shows for example "2 of 5" (earned tiers of five).
 - Five Houses stand in the two social hubs, which the Saved map shows with their own pictures: Mutelli, Varota and Wallach in Arrakeen, Alexin and Spinette in Harko Village. Their place opens the hub on the Saved map, centred on the House. The Harko Village frame was fitted by eye on the picture, so a pin there is right to about a room.
 
+## Where the figures come from
+
+Everything on the Landsraad pages is read from your save. A few figures are worked out by the editor from what the save holds: which reward tiers you have earned (your contribution reaches the amount of the tier), who has won the favor of a House and the Sysselraad, and the order of the biggest contributors (the save holds the amounts, not a ranking). Where the save holds nothing, the page shows 0 or a dash and never guesses. The pages carry no label that says so, since it is true of every figure.
+
 ## Technical notes
 
-For support: the board positions are read from the `board_index` column of `landsraad_tasks` in the save.
+For support: the board positions are read from the `board_index` column of `landsraad_tasks` in the save. The Houses, their tiers and the contributions come from `landsraad_tasks`, `landsraad_task_rewards` and the contribution rows of the same term; the term and the decrees from `landsraad_decree_term` and `landsraad_decrees`.

@@ -20,7 +20,6 @@
 .lcc-tm-k { display: block; font: 700 11px/1.3 var(--lcc-sans); letter-spacing: .1em; color: var(--lcc-dim); text-transform: uppercase; }
 .lcc-tm-sub, .lcc-tm-hint, .lcc-tm-none { font: 400 12px/1.4 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-tm .lcc-tm-note { margin: 0 0 10px; padding: 9px 11px; font: 500 12px/1.5 var(--lcc-sans); color: var(--lcc-text); border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-sunken); }
-.lcc-tm-src { display: inline-block; padding: 5px 9px; border: 1px solid var(--lcc-stroke); font: 700 11px/1.3 var(--lcc-sans); letter-spacing: .1em; color: var(--lcc-dim); white-space: nowrap; }
 
 /* ---- the surface: a bordered panel with a hairline set in from its edge, as the board's panels ---- */
 .lcc-tm-surface { position: relative; padding: 22px 24px 24px; border: 1px solid var(--lcc-stroke); background: linear-gradient(145deg, var(--lcc-s1), var(--lcc-s2)); box-shadow: 0 15px 45px rgba(0, 0, 0, .36); min-width: 0; }

@@ -29,7 +29,7 @@
   const takenWhy = (h) => (h.takenNoTiers ? TAKEN.noTiersWhy : '');
   // the banner's three, whole, for its mouse-over text: a narrow cloth may show fewer of them, never a part of one (#972)
   // A contributor the save names no guild for is shown as "Unnamed contributor"; the save's own number for it (which means nothing as a rank) is only said in the mouse-over text, so two of them can be told apart (#919)
-  const unnamedNote = (list, n) => { const u = list.slice(0, n).filter((c) => c.unnamed).map((c) => c.id); return u.length ? ' Unnamed contributor: the save gives no player or guild name for it (save number' + (u.length > 1 ? 's ' : ' ') + u.join(', ') + ').' : ''; };
+  const unnamedNote = (list, n) => (list.slice(0, n).some((c) => c.unnamed) ? ' Unnamed contributor: the save gives no player or guild name for it.' : ''); // no save number or field name in a tooltip (#1057)
   const contribRank = (list) => 'Top ' + Math.min(3, list.length) + ': ' + list.slice(0, 3).map((c, i) => (i + 1) + '. ' + c.label).join('; ') + '.';
   // The five states of one reward tier, as the approved design shows them: the class of the box, its mark, and the words. A tier the character has not reached is always "not reached", whatever the
   // reward row says; a reached tier with no delivery record (or a record that disagrees with the contribution) is a question mark and is never counted as collected.
@@ -512,11 +512,9 @@
     if (extra) for (const k of Object.keys(extra)) b.setAttribute(k, extra[k]);
     return b;
   }
-  const tag = (t) => el('span', 'lcc-bd-src', t);
-  function secHead(text, id, src) {
-    const h = el('h5', 'lcc-bd-sec-h', text, { id });
-    if (src) h.appendChild(tag(src));
-    return h;
+  // a section heading is only its words: the labels FROM THE SAVE, SAVE and SAVE + DERIVED are gone (#1057); Help (The Landsraad board) says where the figures come from, once
+  function secHead(text, id) {
+    return el('h5', 'lcc-bd-sec-h', text, { id });
   }
   // The actions block. Presentation only: every button is the same control as before (data-lb="qa", same ids and keys), the faction box drives the board's own faction box, and
   // Apply tier presses the tier box of the ledger that the choice means, so a tier set here goes through the same checks, question and backup as a click on that box.
@@ -574,7 +572,6 @@
     const side = el('section', 'lcc-bd-surface lcc-bd-insp', '', { 'aria-label': 'House Intelligence' });
     const head = el('div', 'lcc-bd-insp-top');
     head.appendChild(el('h3', 'lcc-bd-eyebrow lcc-bd-insp-h', 'HOUSE INTELLIGENCE', { id: 'lcc-bd-insp-h' }));
-    head.appendChild(el('span', 'lcc-bd-source', 'FROM THE SAVE'));
     side.appendChild(head);
     if (!h) {
       side.appendChild(el('p', 'lcc-bd-mut', 'Choose a House on the board or in the list to see its tiers, its progress and what each action would do.'));
@@ -631,14 +628,14 @@
     // the names of the contributors, the biggest first, with no amounts and no placeholder for one the save gives no name for (#1058); the amounts stay in the save and in the plaque's tooltip only
     const named = h.contributors.filter((c) => !c.unnamed).slice(0, 5).map((c) => c.label);
     const s1note = 'House goal: ' + known(h.goal) + '. A faction’s progress is the sum of its contributions to this House. Top contributors: ' + (named.length ? named.join(', ') : h.contributors.length ? 'no names in the save' : NOT_IN_SAVE + (h.owner === 'a' || h.owner === 'h' ? ' (the save has no contributor row for this House, whose favor is won)' : '')) + '. Missions: ' + NOT_IN_SAVE + '.';
-    const s1h = secHead('FACTION HOUSE CONTROL', 'lcc-bd-s1', 'SAVE');
+    const s1h = secHead('FACTION HOUSE CONTROL', 'lcc-bd-s1');
     s1h.setAttribute('title', s1note);
     s1.appendChild(s1h);
     s1.appendChild(fcRow('a', 'HOUSE ATREIDES', h.prog.a, h.goal));
     s1.appendChild(fcRow('h', 'HOUSE HARKONNEN', h.prog.h, h.goal));
     s1.appendChild(el('span', 'lcc-bd-sr', s1note));
     if (named.length) {
-      const cb = el('div', 'lcc-bd-contrib', '', { title: 'The order is worked out here: the save holds the amounts, not a ranking. A guild is shown by the identifier the save gives it, with capital letters added here (the save holds no display name). A contributor the save gives no name for is left out.' });
+      const cb = el('div', 'lcc-bd-contrib', '', { title: 'The biggest contributors first. The save holds amounts, not a ranking, so the order is worked out here. A guild is shown by the name the save gives it, with capital letters added. A contributor the save gives no name for is left out.' });
       cb.appendChild(el('p', 'lcc-bd-contrib-h', 'TOP CONTRIBUTORS'));
       const cl = el('ol', 'lcc-bd-contrib-l', '', { role: 'list' });
       for (const n of named) cl.appendChild(el('li', '', n));
@@ -654,7 +651,7 @@
 
     const top = h.tierCount ? h.top : null;
     const s2 = el('section', 'lcc-bd-sec', '', { 'aria-labelledby': 'lcc-bd-s2' });
-    s2.appendChild(secHead('YOUR CONTRIBUTION', 'lcc-bd-s2', 'SAVE'));
+    s2.appendChild(secHead('YOUR CONTRIBUTION', 'lcc-bd-s2'));
     const nums = el('div', 'lcc-bd-pc');
     nums.appendChild(el('strong', '', h.mine > 0 || top !== null ? fmt(h.mine) + (top !== null ? ' / ' + fmt(top) : '') : '0'));
     nums.appendChild(el('small', '', h.next ? fmt(h.next.remaining) + ' to T' + h.next.n : h.tierCount ? W().topPersonalTierEarned.toUpperCase() : 'no tiers in the save'));
@@ -669,7 +666,7 @@
     // the ledger: the tiers of the character (cumulative), their rewards and what became of them. The rows are the same controls as the tier boxes of the card.
     const s3 = el('section', 'lcc-bd-sec lcc-bd-ledger', '', { 'aria-labelledby': 'lcc-bd-s3' });
     const lh = el('div', 'lcc-bd-ledger-head');
-    lh.appendChild(secHead('PERSONAL REWARD LEDGER', 'lcc-bd-s3', 'SAVE + DERIVED'));
+    lh.appendChild(secHead('PERSONAL REWARD LEDGER', 'lcc-bd-s3'));
     // the "N OF 5 EARNED" tag is gone (#1059): the Tiers earned tile below says it. Only a House with no tier record keeps a tag, since it has no tiles.
     if (h.takenNoTiers) lh.appendChild(el('span', 'lcc-bd-ledger-n', W().favorWon.toUpperCase() + ' · NO TIER RECORD', { title: takenWhy(h) }));
     s3.appendChild(lh);

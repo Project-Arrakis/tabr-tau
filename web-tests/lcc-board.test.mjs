@@ -479,3 +479,19 @@ test('#1059: list cells stay short: an em dash for a House with no place, "N of 
     if (np) { assert.deepEqual(css(np), ['· no map picture']); assert.match(np.getAttribute('title'), /no picture of/); }
   }
 });
+
+test('#1057: no source labels (FROM THE SAVE, SAVE, SAVE + DERIVED) on the board, the empty or opened Inspector and the Term section, and no table, field or save-number words in their tooltips', async () => {
+  const ui = await open();
+  const check = (what) => {
+    const root = ui.doc.querySelector('#lsb');
+    assert.equal(root.querySelectorAll('.lcc-bd-src, .lcc-bd-source, .lcc-tm-src, .lcc-badge').length, 0, what + ': no label chip');
+    assert.doesNotMatch(text(root), /FROM THE SAVE|SAVE [+] DERIVED|WORKED OUT HERE/, what + ': no source words');
+    const said = [...root.querySelectorAll('[title], [aria-label], .lcc-bd-sr')].map((e) => (e.getAttribute('title') || '') + ' ' + (e.getAttribute('aria-label') || '') + ' ' + (e.classList.contains('lcc-bd-sr') ? e.textContent : '')).join(' | ');
+    assert.doesNotMatch(said, /landsraad_|Read from the save|save number|identifier the save|winning_faction_id|board_index|player_contributions/, what + ': no table, field or save-number words in a tooltip');
+  };
+  check('the empty Inspector');
+  click(ui, tileOf(ui, 'Wallach').querySelector('button'));
+  assert.ok(ui.doc.querySelector('.lcc-bd-insp .lcc-bd-sec-h'));
+  check('an opened Inspector');
+  for (const h of ui.doc.querySelectorAll('.lcc-bd-insp .lcc-bd-sec-h')) assert.equal(h.children.length, 0, 'a section heading is only its words: ' + text(h));
+});
