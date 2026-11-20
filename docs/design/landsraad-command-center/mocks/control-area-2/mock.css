@@ -565,3 +565,29 @@ body { margin: 0; padding: 16px 0 40px; background: var(--c-ground); color: var(
   .k-p5-panel .k-tab { min-height: 44px; }
 }
 @container kA (max-width: 520px) { .k-m5 .k-fbtn, .k-e4 .k-f4btn { flex-direction: row; flex: 0 0 auto; min-height: var(--k-h); gap: 8px; padding: 0 14px; } .k-m5 .k-chip { min-height: var(--k-h); } }
+
+/* ---- E6, second version (tau #974): sticky strip, one line, Find House, ticks instead of House chips. Only .k-e6 and new class names; E2 to E5 are untouched. ---- */
+.k-e6.k-wrap { width: min(1260px, 100%); }
+.k-e6 .k-strip { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30; background: color-mix(in srgb, var(--lcc-s1) 55%, var(--lcc-s2)); box-shadow: 0 6px 0 0 color-mix(in srgb, var(--lcc-s1) 55%, var(--lcc-s2)); }
+.k-e6 .k-stub li { scroll-margin-top: 150px; scroll-margin-bottom: 24px; }
+.k-e6 .k-pop5 { position: fixed; }
+.k-e6 .k-popf { width: min(360px, 100%); }
+.k-e6 .k-popf .k-p5-body { display: none; }
+.k-e6 .k-fl { max-height: calc(var(--k-h) * 7 + 12px); }
+.k-e6 .k-opt-find::before { display: none; }
+.k-e6 .k-opt-find:hover, .k-e6 .k-opt-find:focus-visible { background: color-mix(in srgb, var(--lcc-gold) 12%, transparent); color: var(--lcc-strong); }
+.k-e6 .k-fcnt { display: none; box-sizing: border-box; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--lcc-gold); color: var(--k-ink); font: 700 12px/20px var(--lcc-sans); text-align: center; }
+.k-e6 .k-chips { display: flex; flex-wrap: nowrap; gap: 6px; min-width: 0; flex: 0 1 auto; }
+.k-e6 .k-chip { flex: 0 1 auto; min-width: 0; padding: 0 6px 0 9px; gap: 5px; }
+.k-e6 .k-chip > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.k-e6 .k-findbar { min-height: var(--k-h); padding: 0 12px; gap: 8px; flex: none; }
+@container kA (min-width: 1100px) { .k-e6 .k-lens { flex-wrap: nowrap; gap: 8px; } .k-e6 .k-lens > .k-lens-tray { flex: 0 0 auto; } .k-e6 .k-lens > * { flex-shrink: 0; } .k-e6 .k-lens > .k-chips { flex-shrink: 1; } }
+@media (max-width: 700px) {
+  .k-e6 .k-chips { display: none; }
+  .k-e6 .k-fcnt:not([hidden]) { display: inline-block; }
+  .k-e6 .k-popf { width: auto; }
+  .k-e6 .k-fl { max-height: 46vh; }
+}
+.k-e6 .k-p5-cats .k-clearf { justify-self: start; margin-top: 6px; }
+@container kA (max-width: 520px) { .k-e6 .k-findbar { flex-direction: row; min-height: var(--k-h); padding: 0 12px; gap: 8px; } }
+@container kA (min-width: 1100px) { .k-e6 .k-lens[data-tight] .k-findwrap .k-bl { display: none; } .k-e6 .k-lens[data-tight] .k-findwrap .k-fbtn { padding: 0 12px; } }

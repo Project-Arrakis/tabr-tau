@@ -4,7 +4,8 @@
 // hides is never counted and never acted on. Fixture data only, nothing is read or written.
 // Query: ?state=idle|chosen|confirm, ?theme=dark|light, ?bare=1, ?drawer=open, ?layout=list, ?plate=full (keep the full plate when nothing is chosen), ?annotate=1|phone (callouts for the
 // three parts, for the annotated pictures only), ?show=left|notstarted|progress|top, ?house=undecided|pledged (open with a filter on).
-// E4: ?filters=open (the phone disclosure open). E5 and E6: ?menu=open, ?cat=house|spec|group, ?spec=4,5 (specializations 1 to 5), ?pick=Alexin,Hagal (Houses), ?q=text (the search box).
+// E4: ?filters=open (the phone disclosure open). E5 and E6: ?menu=open, ?cat=house|spec|group, ?spec=4,5 (specializations 1 to 5), ?pick=Alexin,Hagal (E5: Houses to show), ?q=text (the search box).
+// E6 only: ?tick=1,2,3 or ?tick=all (Houses ticked), ?find=open (the Find House list), ?group=region|spec (list layout, a Group chip). E6: the Filter menu's House list TICKS squares (it never hides one); Find House scrolls to one House and ticks nothing.
 (function () {
   'use strict';
   var doc = document, root = doc.documentElement, page = doc.querySelector('.k-page');
@@ -54,7 +55,7 @@
     var on = cv.length > 0;
     page.setAttribute('data-state', confirmOpen ? 'confirm' : (on ? 'chosen' : 'idle'));
     plate.classList.toggle('k-lit', on);
-    if (E3) { page.setAttribute('data-mode', on ? 'action' : 'filters'); if (on) closeMenu(false); } else plate.classList.toggle('k-slim', !on && params.get('plate') !== 'full');
+    if (E3) { page.setAttribute('data-mode', on && !menuOpen ? 'action' : 'filters'); } else plate.classList.toggle('k-slim', !on && params.get('plate') !== 'full');
     q('[data-k="n"]').textContent = String(cv.length);
     q('[data-k="nsr"]').textContent = on ? plural(cv.length, 'House') + ' chosen' : 'No Houses chosen';
     q('[data-k="shown"]').textContent = String(vc.length);
@@ -90,23 +91,36 @@
   function isPhone() { return phoneMq.matches; }
   function listLayout() { var c = q('[data-k="cat"][data-cat="group"]'); return !!c && !c.hidden; }
   function renderMenu() {
-    var chips = [], pl = radioIndex('House'), gb = listLayout() ? radioIndex('Group by') : 0;
-    if (pl > 0) chips.push(['pledge', 'House: ' + PLN[pl]]);
-    IDS.forEach(function (id) { if (housePick[id]) chips.push(['house:' + id, 'House: ' + q('[data-k="hpick"][data-id="' + id + '"]').getAttribute('data-name')]); });
-    for (var k = 1; k <= 5; k++) if (specPick[k]) chips.push(['spec:' + k, 'Specialization: ' + SPECN[k]]);
-    if (gb > 0) chips.push(['group', 'Group: ' + GBN[gb]]);
+    var chips = [], pl = radioIndex('House'), gb = listLayout() ? radioIndex('Group by') : 0, nsp0 = Object.keys(specPick).length;
+    if (V === 'e6') { // one chip per category, never per item: Pledge, Specialization, Group. A House has no chip (picking one ticks its square).
+      if (pl > 0) chips.push(['pledge', PLN[pl], 'Pledge: ' + PLN[pl]]);
+      if (nsp0) { var sn = []; for (var k0 = 1; k0 <= 5; k0++) if (specPick[k0]) sn.push(SPECN[k0]); chips.push(['spec', nsp0 >= 3 ? 'Specialization: ' + nsp0 + ' chosen' : sn.join(' + '), 'Specialization: ' + sn.join(', ')]); }
+      if (gb > 0) chips.push(['group', GBN[gb], 'Group: ' + GBN[gb]]);
+    } else {
+      if (pl > 0) chips.push(['pledge', 'House: ' + PLN[pl], 'House: ' + PLN[pl]]);
+      IDS.forEach(function (id) { if (housePick[id]) { var t5 = 'House: ' + q('[data-k="hpick"][data-id="' + id + '"]').getAttribute('data-name'); chips.push(['house:' + id, t5, t5]); } });
+      for (var k = 1; k <= 5; k++) if (specPick[k]) { var t6 = 'Specialization: ' + SPECN[k]; chips.push(['spec:' + k, t6, t6]); }
+      if (gb > 0) chips.push(['group', 'Group: ' + GBN[gb], 'Group: ' + GBN[gb]]);
+    }
     var box = q('[data-k="chips"]'); box.textContent = '';
-    chips.forEach(function (c) { var b = doc.createElement('button'); b.type = 'button'; b.className = 'k-chip'; b.setAttribute('data-k', 'chip'); b.setAttribute('data-chip', c[0]); b.setAttribute('aria-label', 'Remove ' + c[1]);
+    chips.forEach(function (c) { var b = doc.createElement('button'); b.type = 'button'; b.className = 'k-chip'; b.setAttribute('data-k', 'chip'); b.setAttribute('data-chip', c[0]); b.setAttribute('aria-label', 'Remove ' + c[2]); b.title = 'Remove ' + c[2];
       var s = doc.createElement('span'); s.textContent = c[1]; b.appendChild(s); var ns = 'http://www.w3.org/2000/svg', sv = doc.createElementNS(ns, 'svg'), u = doc.createElementNS(ns, 'use'); sv.setAttribute('class', 'k-ic'); sv.setAttribute('aria-hidden', 'true'); u.setAttribute('href', '#k-x'); sv.appendChild(u); b.appendChild(sv); box.appendChild(b); });
     q('[data-k="clearf"]').hidden = !chips.length;
-    var nsp = Object.keys(specPick).length, nh = Object.keys(housePick).length;
+    var nsp = Object.keys(specPick).length, nh = V === 'e6' ? 0 : Object.keys(housePick).length, vis6 = V === 'e6' ? visible() : null, nt = V === 'e6' ? IDS.filter(function (id) { return chosen[id] && vis6[id]; }).length : 0;
+    var fc = q('[data-k="fcnt"]'); if (fc) { fc.textContent = String(chips.length); fc.hidden = !chips.length; }
     qa('[data-k="spick"]').forEach(function (b) { var i = +b.getAttribute('data-i'); b.setAttribute('aria-checked', i === 0 ? String(!nsp) : String(!!specPick[i])); });
     var shownN = 0, needle = searchQ.trim().toLowerCase();
-    qa('[data-k="hpick"]').forEach(function (b) { var id = +b.getAttribute('data-id'), hit = !needle || b.getAttribute('data-name').toLowerCase().indexOf(needle) >= 0; b.hidden = !hit; if (hit) shownN++; b.setAttribute('aria-checked', String(!!housePick[id])); });
-    q('[data-k="hn"]').textContent = !needle ? '25 Houses' + (nh ? ', ' + nh + ' chosen' : '') : shownN ? shownN + ' of 25 Houses match' : 'No House matches the search.';
+    qa('[data-k="hpick"]').forEach(function (b) { var id = +b.getAttribute('data-id'), hit = !needle || b.getAttribute('data-name').toLowerCase().indexOf(needle) >= 0; b.hidden = !hit; if (hit) shownN++; if (V === 'e6') { b.setAttribute('aria-checked', String(!!chosen[id] && !!vis6[id])); if (vis6[id]) b.removeAttribute('aria-disabled'); else b.setAttribute('aria-disabled', 'true'); } else b.setAttribute('aria-checked', String(!!housePick[id])); });
+    q('[data-k="hn"]').textContent = !needle ? '25 Houses' + (nh + nt ? ', ' + (nh + nt) + ' chosen' : '') : shownN ? shownN + ' of 25 Houses match' : 'No House matches the search.';
     qa('[data-k="cat"]').forEach(function (b) { var c = b.getAttribute('data-cat'), n = c === 'house' ? (pl > 0 ? 1 : 0) + nh : c === 'spec' ? nsp : gb > 0 ? 1 : 0; q('[data-k="cc"]', b).textContent = n ? String(n) : ''; });
     rove(q('[data-list="h"]')); rove(q('[data-list="s"]'));
+    if (V === 'e6') fitChips();
     if (menuOpen) place();
+  }
+  function fitChips() { // E6: the strip stays one line; if the chips would be cut, Find House shows its icon only (its name stays as the accessible name and in the tooltip)
+    var lens = q('[data-part="lens"]'); lens.removeAttribute('data-tight');
+    var cut = qa('.k-chip > span', lens).some(function (e) { return e.scrollWidth > e.clientWidth + 0.5; });
+    if (cut) lens.setAttribute('data-tight', '1');
   }
   function rove(list) { var o = qa('.k-opt:not([hidden])', list); if (!o.length) return; var cur = o.filter(function (b) { return b.tabIndex === 0; })[0] || o.filter(function (b) { return b.getAttribute('aria-checked') === 'true'; })[0] || o[0]; qa('.k-opt', list).forEach(function (b) { b.tabIndex = b === cur ? 0 : -1; }); }
   function showCat(name, focusIt) {
@@ -115,29 +129,41 @@
     pop.setAttribute('data-view', 'items'); 
     if (menuOpen) place();
   }
+  function placeAt(el, btn) { // E6: the popovers are fixed under their key so the sticky strip and the popover stay together while the page scrolls
+    if (isPhone()) { el.style.left = ''; el.style.top = ''; return; }
+    var br = btn.getBoundingClientRect(); el.style.left = Math.max(8, Math.min(br.left, window.innerWidth - el.offsetWidth - 8)) + 'px'; el.style.top = Math.round(br.bottom + 6) + 'px';
+  }
   function place() {
+    if (V === 'e6') { placeAt(pop, fbtn); return; }
     if (!isPhone()) { var pr = page.getBoundingClientRect(), br = fbtn.getBoundingClientRect(); pop.style.left = Math.max(0, Math.min(br.left - pr.left, pr.width - pop.offsetWidth)) + 'px'; pop.style.top = Math.round(br.bottom - pr.top + 6) + 'px'; }
     else { pop.style.left = ''; pop.style.top = ''; }
   }
   function openMenu(focusIt) {
     if (menuOpen) return; menuOpen = true; pop.hidden = false; scrim.hidden = !isPhone(); fbtn.setAttribute('aria-expanded', 'true');
     if (isPhone()) pop.setAttribute('data-view', 'cats'); else { var sel = q('[data-k="cat"][aria-selected="true"]'); showCat(sel ? sel.getAttribute('data-cat') : 'house'); }
+    if (E3) update(true);
     place(); layoutNotes(); if (focusIt !== false) { var t = isPhone() ? q('[data-k="cat"]:not([hidden])', pop) : q('[data-k="cat"][aria-selected="true"]', pop); if (t) t.focus(); }
   }
   function closeMenu(refocus) {
-    if (!MENU || !menuOpen) return; menuOpen = false; pop.hidden = true; scrim.hidden = true; fbtn.setAttribute('aria-expanded', 'false'); layoutNotes(); if (refocus) fbtn.focus();
+    if (!MENU || !menuOpen) return; menuOpen = false; pop.hidden = true; scrim.hidden = true; fbtn.setAttribute('aria-expanded', 'false');
+    if (E3) { update(true); if (refocus) { if (page.getAttribute('data-mode') === 'action') { var fl0 = q('[data-k="act"][data-do="fill"]'); if (fl0) fl0.focus(); } else fbtn.focus(); } return; }
+    layoutNotes(); if (refocus) fbtn.focus();
   }
-  function flash(id) { var li = stubs[id - 1]; if (!li) return; li.classList.add('k-flash'); if (li.scrollIntoView) li.scrollIntoView({ block: 'nearest' }); clearTimeout(flashTimer); flashTimer = setTimeout(function () { qa('.k-flash').forEach(function (e) { e.classList.remove('k-flash'); }); }, 1800); }
+  function flash(id) { var li = stubs[id - 1]; if (!li) return; li.classList.add('k-flash'); if (li.scrollIntoView) li.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); clearTimeout(flashTimer); flashTimer = setTimeout(function () { qa('.k-flash').forEach(function (e) { e.classList.remove('k-flash'); }); }, 1800); }
   function resetRadio(label) { var all = qa('[role="radio"]', q('[role="radiogroup"][aria-label="' + label + '"]')); choose(all[0], false); }
   function clearFilters() { resetRadio('House'); if (q('[role="radiogroup"][aria-label="Group by"]')) resetRadio('Group by'); specPick = {}; housePick = {}; searchQ = ''; var s = q('[data-k="search"]'); if (s) s.value = ''; update(false); fbtn.focus(); }
   function menuClick(t, role) {
+    if (role === 'findbtn') { if (findOpen) closeFind(true); else openFind(t); return true; }
+    if (role === 'fclose') { closeFind(true); return true; }
+    if (role === 'fpick') { var fid = +t.getAttribute('data-id'); closeFind(true); flash(fid); return true; }
     if (role === 'fbtn') { if (menuOpen) closeMenu(true); else openMenu(true); return true; }
     if (role === 'cat') { showCat(t.getAttribute('data-cat'), true); return true; }
     if (role === 'back') { pop.setAttribute('data-view', 'cats'); var c = q('[data-k="cat"][aria-selected="true"]', pop); if (c) c.focus(); return true; }
     if (role === 'popclose') { closeMenu(true); return true; }
     if (role === 'spick') { var k = +t.getAttribute('data-i'); if (k === 0) specPick = {}; else if (specPick[k]) delete specPick[k]; else specPick[k] = true; update(false); return true; }
+    if (role === 'hpick' && V === 'e6') { var id6 = +t.getAttribute('data-id'); if (!visible()[id6]) { toast('Not shown, so it cannot be chosen'); return true; } if (chosen[id6]) delete chosen[id6]; else chosen[id6] = true; update(false); return true; } // E6: ticks the square, nothing else (no scroll, no outline)
     if (role === 'hpick') { var id = +t.getAttribute('data-id'), added = !housePick[id]; if (added) housePick[id] = true; else delete housePick[id]; update(false); if (added) flash(id); return true; }
-    if (role === 'chip') { var key = t.getAttribute('data-chip'), p = key.split(':'); if (key === 'pledge') resetRadio('House'); else if (key === 'group') resetRadio('Group by'); else if (p[0] === 'house') delete housePick[+p[1]]; else if (p[0] === 'spec') delete specPick[+p[1]]; update(false); fbtn.focus(); return true; }
+    if (role === 'chip') { var key = t.getAttribute('data-chip'), p = key.split(':'); if (key === 'pledge') resetRadio('House'); else if (key === 'group') resetRadio('Group by'); else if (key === 'spec') specPick = {}; else if (p[0] === 'house') delete housePick[+p[1]]; else if (p[0] === 'spec') delete specPick[+p[1]]; update(false); fbtn.focus(); return true; }
     if (role === 'clearf') { clearFilters(); return true; }
     return false;
   }
@@ -152,6 +178,37 @@
       var ni = key === 'Home' ? 0 : key === 'End' ? os.length - 1 : Math.max(0, Math.min(os.length - 1, i + (key === 'ArrowDown' ? 1 : -1))); os.forEach(function (b) { b.tabIndex = b === os[ni] ? 0 : -1; }); os[ni].focus(); e.preventDefault(); return; }
     if (t.getAttribute && t.getAttribute('data-k') === 'search' && (key === 'ArrowDown')) { var o1 = qa('.k-opt:not([hidden])', q('[data-list="h"]'))[0]; if (o1) { o1.focus(); e.preventDefault(); } return; }
     if ((opt || (t.getAttribute && t.getAttribute('data-k') === 'search')) && key === 'ArrowLeft' && !(t.getAttribute && t.getAttribute('data-k') === 'search')) { var sc = q('[data-k="cat"][aria-selected="true"]', pop); if (sc) { sc.focus(); e.preventDefault(); } }
+  }
+
+  // ---- E6: Find House (a small single-pick list; scrolls to one House and outlines it; it changes no filter and ticks nothing) ----
+  var fpop = q('[data-k="fpop"]'), findOpen = false, findBtn = null;
+  if (fpop) { var fl = q('[data-list="f"]', fpop); qa('[data-k="hpick"]').forEach(function (h) { var o = doc.createElement('button'); o.type = 'button'; o.className = 'k-opt k-opt-find'; o.setAttribute('role', 'option'); o.tabIndex = -1; o.setAttribute('data-k', 'fpick'); o.setAttribute('data-id', h.getAttribute('data-id')); o.textContent = h.getAttribute('data-name'); fl.appendChild(o); }); }
+  function findRender() { var needle = q('[data-k="fsearch"]').value.trim().toLowerCase(), n = 0; qa('.k-opt', fpop).forEach(function (b) { var hit = !needle || b.textContent.toLowerCase().indexOf(needle) >= 0; b.hidden = !hit; if (hit) n++; }); q('[data-k="fn"]').textContent = !needle ? '25 Houses' : n ? n + ' of 25 Houses match' : 'No House matches the search.'; var vo = qa('.k-opt:not([hidden])', fpop); qa('.k-opt', fpop).forEach(function (b) { b.tabIndex = vo[0] === b ? 0 : -1; }); }
+  function openFind(btn) {
+    if (findOpen) return; if (menuOpen) closeMenu(false); findOpen = true; findBtn = btn; q('[data-k="fsearch"]').value = ''; findRender(); fpop.hidden = false; scrim.hidden = !isPhone(); qa('[data-k="findbtn"]').forEach(function (b) { b.setAttribute('aria-expanded', 'true'); });
+    placeAt(fpop, btn); layoutNotes(); q('[data-k="fsearch"]').focus();
+  }
+  function closeFind(refocus) {
+    if (!findOpen) return; findOpen = false; fpop.hidden = true; scrim.hidden = true; qa('[data-k="findbtn"]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
+    layoutNotes(); if (refocus && findBtn) findBtn.focus();
+  }
+  function findKey(e) {
+    var t = e.target, key = e.key, opts = qa('.k-opt:not([hidden])', fpop), isBox = t.getAttribute && t.getAttribute('data-k') === 'fsearch', i = opts.indexOf(t);
+    if (key === 'Escape') { e.stopPropagation(); e.preventDefault(); closeFind(true); return; }
+    if (isBox && key === 'ArrowDown') { if (opts[0]) { opts[0].focus(); e.preventDefault(); } return; }
+    if (isBox && key === 'Enter') { if (opts[0]) { e.preventDefault(); opts[0].click(); } return; }
+    if (i >= 0 && (key === 'ArrowDown' || key === 'ArrowUp' || key === 'Home' || key === 'End')) {
+      if (key === 'ArrowUp' && i === 0) { q('[data-k="fsearch"]').focus(); e.preventDefault(); return; }
+      var ni = key === 'Home' ? 0 : key === 'End' ? opts.length - 1 : Math.max(0, Math.min(opts.length - 1, i + (key === 'ArrowDown' ? 1 : -1))); opts.forEach(function (b) { b.tabIndex = b === opts[ni] ? 0 : -1; }); opts[ni].focus(); e.preventDefault();
+    }
+  }
+  if (fpop) {
+    fpop.addEventListener('keydown', findKey);
+    fpop.addEventListener('input', function (e) { if (e.target.getAttribute('data-k') === 'fsearch') findRender(); });
+    doc.addEventListener('click', function (e) { if (findOpen && e.target.closest && !e.target.closest('[data-k="fpop"]') && !e.target.closest('[data-k="findbtn"]')) closeFind(false); });
+    doc.addEventListener('focusout', function (e) { if (findOpen && e.relatedTarget && !fpop.contains(e.relatedTarget) && !(e.relatedTarget.closest && e.relatedTarget.closest('[data-k="findbtn"]'))) closeFind(false); });
+    window.addEventListener('resize', function () { if (findOpen) { scrim.hidden = !isPhone(); placeAt(fpop, findBtn); } });
+    window.addEventListener('scroll', function () { if (findOpen) placeAt(fpop, findBtn); if (menuOpen && V === 'e6') place(); }, { passive: true });
   }
 
   // radio groups: one tab stop, arrows move and choose
@@ -184,7 +241,7 @@
     pop.addEventListener('focusin', function (e) { var o = e.target.closest && e.target.closest('.k-opt'); if (o) { var l = o.closest('[data-list]'); qa('.k-opt', l).forEach(function (b) { b.tabIndex = b === o ? 0 : -1; }); } });
     doc.addEventListener('focusout', function (e) { if (menuOpen && e.relatedTarget && !pop.contains(e.relatedTarget) && !q('[data-k="fwrap"]').contains(e.relatedTarget)) closeMenu(false); });
     doc.addEventListener('input', function (e) { if (e.target && e.target.getAttribute && e.target.getAttribute('data-k') === 'search') { searchQ = e.target.value; update(false); } });
-    window.addEventListener('resize', function () { if (menuOpen) { scrim.hidden = !isPhone(); place(); } });
+    window.addEventListener('resize', function () { if (V === 'e6') fitChips(); if (menuOpen) { scrim.hidden = !isPhone(); place(); } });
   }
   doc.addEventListener('change', function (e) { if (e.target && e.target.matches && e.target.matches('select')) update(false); });
   doc.addEventListener('keydown', function (e) {
@@ -219,8 +276,8 @@
       { sel: '[data-part="menu"]', n: '2', t: 'Filter menu', l: ['Categories: House, Specialization, Group', 'House: pledge, search, the 25 Houses', 'Specialization (several)', 'Group (list layout only)'] },
       DOCK
     ] : V === 'e6' ? [
-      { sel: '[data-part="lens"]', n: '1', t: 'Lens row (nothing chosen)', l: ['Show tabs', 'Filter key', 'Chips, Clear filters', 'Count of Houses shown', 'Choose shown (N) link'], on: 'filters' },
-      { sel: '[data-part="menu"]', n: '2', t: 'Filter menu', l: ['Categories: House, Specialization, Group', 'House: pledge, search, the 25 Houses', 'Specialization (several)'], on: 'filters' },
+      { sel: '[data-part="lens"]', n: '1', t: 'Strip, filter mode (nothing chosen)', l: ['Show tabs', 'Filter key, Find House key', 'Chips (Pledge, Specialization, Group), Clear filters', 'Count of Houses shown', 'Choose shown (N) link'], on: 'filters' },
+      { sel: '[data-part="menu"]', n: '2', t: 'Filter menu', l: ['Categories: House, Specialization, Group', 'House: pledge, search, a tick per House', 'Specialization (several)'], on: 'filters' },
       { sel: '[data-part="action"]', n: '3', t: 'Action bar (Houses chosen)', l: ['Count medallion, chosen', 'Faction crests', 'Fill, Complete, Reopen (counts)', 'Clear (the menu is away)'], on: 'action' }
     ] : [
       { sel: '[data-part="lens"]', n: '1', t: 'Lens row', l: ['Show tabs', 'House chips', 'Filters button (badge: drawer filters that are on)', 'Count of Houses shown'] },
@@ -261,11 +318,13 @@
   // ---- start ----
   var want = params.get('state');
   if (want === 'chosen' || want === 'confirm') IDS.forEach(function (id) { if (!E3 || [6, 10, 14, 18].indexOf(id) < 0) chosen[id] = true; }); // E3 opens with 21 ticked, as the brief's example
+  if (V === 'e6' && params.get('tick')) { (params.get('tick') === 'all' ? IDS : params.get('tick').split(',').map(Number)).forEach(function (n) { if (n >= 1 && n <= 25) chosen[n] = true; }); }
   if (params.get('faction') === 'h') choose(q('[data-k="seat"][data-f="h"]'), false);
   var SHOWKEY = { left: 1, notstarted: 2, progress: 3, top: 4 }, HOUSEKEY = { undecided: 1, pledged: 2 };
   if (SHOWKEY[params.get('show')]) choose(qa('[role="radio"]', q('[role="radiogroup"][aria-label="Show"]'))[SHOWKEY[params.get('show')]], false);
   if (HOUSEKEY[params.get('house')]) choose(qa('[role="radio"]', q('[role="radiogroup"][aria-label="House"]'))[HOUSEKEY[params.get('house')]], false);
   if (params.get('layout') === 'list') { var lb = q('.k-view [aria-label="List"]'); if (lb) choose(lb, false); }
+  if (V === 'e6' && (params.get('group') === 'region' || params.get('group') === 'spec')) { var lb2 = q('.k-view [aria-label="List"]'); if (lb2) choose(lb2, false); var gr = qa('[role="radio"]', q('[role="radiogroup"][aria-label="Group by"]')); choose(gr[params.get('group') === 'region' ? 1 : 2], false); }
   if (params.get('drawer') === 'open') { var db = q('[data-k="drawerbtn"]'); q('[data-k="drawer"]').hidden = false; db.setAttribute('aria-expanded', 'true'); }
   if (want === 'confirm') confirmOpen = true;
   if (E4) { var hg = qa('.k-lens-tray .k-grp')[1], slot = q('[data-k="houseslot"]'), tray4 = q('.k-lens-tray'); var place4 = function () { if (phoneMq.matches) slot.appendChild(hg); else tray4.appendChild(hg); layoutNotes(); }; phoneMq.addEventListener('change', place4); place4(); // on a phone the House chips sit under the House heading of the disclosure
@@ -276,6 +335,8 @@
     if (params.get('q')) { searchQ = params.get('q'); q('[data-k="search"]').value = searchQ; }
   }
   update(true);
+  if (V === 'e6' && doc.fonts && doc.fonts.ready) doc.fonts.ready.then(function () { fitChips(); });
+  if (V === 'e6' && params.get('find') === 'open') openFind(page.getAttribute('data-mode') === 'action' ? q('.k-findbar') : q('.k-lens [data-k="findbtn"]'));
   if (MENU && params.get('menu') === 'open') { openMenu(false); var cw = params.get('cat'); if (cw === 'house' || cw === 'spec' || (cw === 'group' && listLayout())) showCat(cw); }
   if (params.get('annotate')) {
     root.classList.add('k-annot'); if (params.get('annotate') === 'phone') root.classList.add('k-annot-phone');
