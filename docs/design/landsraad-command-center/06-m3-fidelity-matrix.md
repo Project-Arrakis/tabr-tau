@@ -327,3 +327,18 @@ Wording only: no request, save field, count or behaviour changed (the recorded-r
 | N3 | Landsraad Inspector link, cards, list column | #1061 | Already said "Specialization" (for example "Gathering Specialization"); a test now keeps path and track out of them. The XP that did not fit is "a specialization is at its last level" in the result toast. |
 | N4 | Where a House is | #1061 | One word, Place: the list column (was Location, in both the Command Center list and the Classic list), the Inspector section (was WHERE) and the Classic opened row (was Where) say Place, like the hover card. Region stays for the map region (the Region line, Group by region, and the group "Region unknown", was "Location unknown"); Grid cell stays for the cell. |
 | N5 | Not changed | #1061 | The words of the Landsraad page headings, the view switch, reached and earned and Open and Taken were not part of the operator's decision of 2026-11-19 and stay as they are. |
+
+## Calm headings: text colours of headings and labels (#1051, first slice)
+
+Colours only: no layout, size, wording, request, save field or behaviour changed (the recorded-request golden files are unchanged); checked in headless Edge at 1280 px, dark and light, in 24 looks and palettes (3 looks in dark and Dayside, 18 palettes in their own theme), not in the game. Decided by the operator on 2026-11-19. Two tokens in `lcc.css`: `--lcc-heading` (the look's text colour) and `--lcc-heading-quiet` (half a step from the quiet colour towards the text colour). Lowest contrast of a moved text: 5.03:1 (11 px letters, needs 4.5:1).
+
+| Row | Element | Issue | What it is now |
+| --- | --- | --- | --- |
+| G1 | Term and Decrees: eyebrow (THE REIGNING COURT), field labels (Active decree, Reigning faction) | #1051 | --lcc-heading-quiet (was gold). |
+| G2 | Term and Decrees: heading of the controls, titles of the closed sections (Decree pool, Earlier terms), their Show / Hide buttons, the phone's one section title | #1051 | --lcc-heading (was gold). |
+| G3 | Landsraad board: eyebrows (THE GREAT HOUSES, IMPERIAL VICTORY ANALYSIS, HOUSE INTELLIGENCE) | #1051 | --lcc-heading-quiet (was gold). |
+| G4 | Inspector: section heading of the actions, disclosure titles; list: region group rows | #1051 | --lcc-heading (was gold). |
+| G5 | Specialization page: eyebrows and the group label line (THIS SPECIALIZATION, GLOBAL OPERATIONS) | #1051 | --lcc-heading-quiet (was gold). |
+| G6 | Specialization page: the page title | #1051 | --lcc-heading (was the approved title gold). |
+| G7 | Kept gold | #1051 | The plaque and banners, the win outline and its animation, icons and emblems (including the Inspector sigil, the arrow and the warning marks), the active decree marker (Active badge and mark), the figures (levels, stats), the flags (ONE AWAY, WAITING, XP CAP) and the primary gold buttons. |
+| G8 | Not changed, listed for a decision | #1051 | Links and buttons that read as gold text (the House names and Place links of the list, the Specialization link of the Inspector, Back to board, the House number, the selected Grid / List), the notes under a decree, the lane badges and the sub-lines of the Specialization page. They are not headings, eyebrows, labels, disclosure titles or Show buttons, so they stay for now. |

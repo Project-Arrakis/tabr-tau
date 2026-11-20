@@ -12,10 +12,10 @@
 
 /* ---- type ---- */
 /* The text rules below name the section first (.lcc-tm .lcc-tm-x): the section is drawn inside the board (#923), where `.lcc-bd p` and the page's `.card h3` would otherwise win by specificity. */
-.lcc-tm .lcc-tm-eyebrow { margin: 0; font: 700 11px/1.4 var(--lcc-sans); letter-spacing: .16em; text-transform: uppercase; color: var(--lcc-gold-text); }
+.lcc-tm .lcc-tm-eyebrow { margin: 0; font: 700 11px/1.4 var(--lcc-sans); letter-spacing: .16em; text-transform: uppercase; color: var(--lcc-heading-quiet); }
 .lcc-tm .lcc-tm-h { margin: 4px 0 0; font: 700 clamp(24px, 2.6vw, 34px)/1.15 var(--lcc-serif); letter-spacing: .03em; color: var(--lcc-strong); text-transform: none; overflow-wrap: anywhere; }
 .lcc-tm .lcc-tm-h:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 4px; }
-.lcc-tm .lcc-tm-h4 { margin: 0; font: 700 14px/1.3 var(--lcc-serif); letter-spacing: .04em; color: var(--lcc-gold-text); }
+.lcc-tm .lcc-tm-h4 { margin: 0; font: 700 14px/1.3 var(--lcc-serif); letter-spacing: .04em; color: var(--lcc-heading); }
 .lcc-tm .lcc-tm-lead { margin: 8px 0 0; max-width: 640px; font: 400 13px/1.5 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-tm-k { display: block; font: 700 11px/1.3 var(--lcc-sans); letter-spacing: .1em; color: var(--lcc-dim); text-transform: uppercase; }
 .lcc-tm-sub, .lcc-tm-hint, .lcc-tm-none { font: 400 12px/1.4 var(--lcc-sans); color: var(--lcc-dim); }
@@ -52,7 +52,7 @@
 .lcc-tm-ctl { margin: 0 0 16px; padding: 14px 15px 12px; border: 1px solid var(--lcc-stroke); background: var(--lcc-sunken); }
 .lcc-tm-ctlrow { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 14px; align-items: start; }
 .lcc-tm-fld { display: block; min-width: 0; }
-.lcc-tm-lbl { display: block; margin: 0 0 5px; font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .06em; color: var(--lcc-gold-text); }
+.lcc-tm-lbl { display: block; margin: 0 0 5px; font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .06em; color: var(--lcc-heading-quiet); }
 .lcc-tm-select { display: block; width: 100%; min-height: 40px; min-width: 0; padding: 8px 10px; background: var(--lcc-sunken); color: var(--lcc-strong); border: 1px solid var(--lcc-stroke); font-size: 14px; }
 .lcc-tm-select:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 1px; }
 .lcc-tm-fld small { display: block; margin-top: 4px; }
@@ -72,7 +72,7 @@
 /* ---- disclosures ---- */
 .lcc-tm-disc { margin: 0 0 14px; border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-tier-bg); }
 /* the page's own rule for a summary (.lsb details > summary) paints it in the app's link colour: inside the section it takes the section's palette, so the rules name the section twice */
-.lcc-tm .lcc-tm-disc > summary { cursor: pointer; padding: 10px 13px; min-height: 40px; display: flex; align-items: center; font: 700 13px/1.35 var(--lcc-sans); letter-spacing: .04em; color: var(--lcc-gold-text); }
+.lcc-tm .lcc-tm-disc > summary { cursor: pointer; padding: 10px 13px; min-height: 40px; display: flex; align-items: center; font: 700 13px/1.35 var(--lcc-sans); letter-spacing: .04em; color: var(--lcc-heading); }
 .lcc-tm .lcc-tm-disc > summary:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: -3px; }
 .lcc-tm-disc-in { padding: 4px 13px 13px; }
 
@@ -158,7 +158,7 @@
 /* ---- the small Show / Hide control of the closed blocks (#923) ---- */
 .lcc-tm .lcc-tm-disc > summary.lcc-tm-sum2 { justify-content: space-between; gap: 12px; }
 .lcc-tm-sumt { min-width: 0; overflow-wrap: anywhere; }
-.lcc-tm-showhide { flex: none; display: inline-block; padding: 3px 10px; border: 1px solid var(--lcc-gold-lo); font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .06em; color: var(--lcc-gold-text); background: var(--lcc-sunken); }
+.lcc-tm-showhide { flex: none; display: inline-block; padding: 3px 10px; border: 1px solid var(--lcc-gold-lo); font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .06em; color: var(--lcc-heading); background: var(--lcc-sunken); }
 @media (forced-colors: active) {
   .lcc-tm-showhide { border-color: ButtonText; color: ButtonText; background: ButtonFace; }
 }
@@ -170,7 +170,7 @@
 .lcc-tm .lcc-tm-all > summary { display: none; }
 .lcc-tm .lcc-tm-all:not([open])::details-content { content-visibility: visible; }
 @media (max-width: 640px) {
-  .lcc-tm .lcc-tm-all > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; padding: 10px 13px; min-height: 44px; font: 700 13px/1.35 var(--lcc-sans); letter-spacing: .04em; color: var(--lcc-gold-text); border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-tier-bg); }
+  .lcc-tm .lcc-tm-all > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; padding: 10px 13px; min-height: 44px; font: 700 13px/1.35 var(--lcc-sans); letter-spacing: .04em; color: var(--lcc-heading); border: 1px solid var(--lcc-stroke-faint); background: var(--lcc-tier-bg); }
   .lcc-tm .lcc-tm-all > summary:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: -3px; }
   .lcc-tm .lcc-tm-all[open] > summary { margin-bottom: 14px; }
   .lcc-tm .lcc-tm-all:not([open])::details-content { content-visibility: hidden; }
