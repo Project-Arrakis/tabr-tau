@@ -18,7 +18,9 @@
   --lcc-gold: #e3b24d;          /* the gold of a frame, a rule or a ring */
   --lcc-gold-hi: #ffe9a8;
   --lcc-gold-lo: #8e5f1c;
-  --lcc-gold-text: var(--c-gold);   /* gold as text: the look's own heading sand, so it passes contrast in every theme */
+  --lcc-gold-text: var(--c-gold);   /* gold as text: the look's own heading sand, so it passes contrast in every theme. Kept for the gold that stays (borders, rings, flags, links, figures); headings no longer use it (#1051) */
+  --lcc-heading: var(--lcc-text);        /* a heading, a disclosure title, a Show / Hide button: the look's own text colour, so it follows the chosen look, Dark / Dayside and palette (#1051) */
+  --lcc-heading-quiet: color-mix(in srgb, var(--lcc-dim) 50%, var(--lcc-text));   /* an eyebrow or a small label: the look's quiet text colour, half a step towards its text colour so that 11 px letters pass 4.5:1 on every surface of every look and palette (#1051) */
   --lcc-atreides: #12a381;      /* faction identity only */
   --lcc-atreides-deep: #0b5a47;
   --lcc-harkonnen: #d23a40;

@@ -368,7 +368,7 @@ test('contrast: 12 px text on the cards and in the Actions panel passes 4.5:1 ag
 test('contrast: the rules that paint that text use the text tokens, and the strokes keep the accents', () => {
   const use = (sel, tok) => assert.ok(rules.some((r) => r.at === '' && r.sel.split(',').map((s) => s.trim()).includes(sel) && r.body.includes('color: var(--lcc-' + tok + ')')), sel + ' takes color from --lcc-' + tok);
   use('.lcc-hc-a .lcc-hc-owner', 'teal-t'); use('.lcc-hc-h .lcc-hc-owner', 'red-t');
-  use('.lcc-bd-editor .lcc-bd-sec-h', 'gold-t'); use('.lcc-bd-fc-h', 'red-t'); use('.lcc-bd-fc-a', 'teal-t');
+  use('.lcc-bd-editor .lcc-bd-sec-h', 'heading'); use('.lcc-bd-fc-h', 'red-t'); use('.lcc-bd-fc-a', 'teal-t');
   use('.lcc-bd-tier-s.mk.delivered', 'tier-bg'); use('.lcc-bd-act.lcc-bd-act-danger', 'red-t');
   assert.match(bare, /\.lcc-bd-act\.lcc-bd-act-danger \{ border-color: var\(--lcc-red\);/, 'the danger button keeps the accent for its stroke');
   assert.match(bare, /\.lcc-hc-a \{ border-color: var\(--lcc-teal\);/, 'the card stroke keeps the accent');
@@ -388,7 +388,7 @@ test('the phone victory panel keeps a smaller emblem, so the status tag has a cl
 test('the folded notes use the board palette, not the page link blue: a visible marker, a focus ring, and forced colours', () => {
   const sum = rules.find((r) => r.at === '' && r.sel === '.lcc-bd .lcc-bd-disc > summary');
   assert.ok(sum, 'a summary rule that outranks the page rule (.lsb details > summary)');
-  assert.match(sum.body, /color: var\(--lcc-gold-text\)/);
+  assert.match(sum.body, /color: var\(--lcc-heading\)/);
   assert.match(sum.body, /list-style: none/);
   assert.ok(!/#[0-9a-f]{3,8}\b|--acc|--c-spice|--c-link/i.test(sum.body), 'no literal colour and no app accent in it');
   const marker = rules.find((r) => r.at === '' && r.sel === '.lcc-bd .lcc-bd-disc > summary::before');

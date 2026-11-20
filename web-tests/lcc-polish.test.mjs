@@ -42,10 +42,10 @@ test('gold: the Specializations view takes the approved design\'s dark golds, Da
   assert.equal(light.length, 2, 'the two Dayside blocks');
   // the view reads them through its own property, and the headings and figures name the tokens
   assert.match(spec, /\.lcc-sp \{[^}]*--lcc-sp-gold: var\(--lcc-ap-gold\)/);
-  assert.match(spec, /\.lcc-sp-eyebrow \{[^}]*color: var\(--lcc-sp-gold\)/);
+  assert.match(spec, /\.lcc-sp-eyebrow \{[^}]*color: var\(--lcc-heading-quiet\)/);
   assert.match(spec, /\.lcc-sp-level \{[^}]*color: var\(--lcc-sp-gold\)/);
   assert.match(spec, /\.lcc-sp-lane-lv b \{[^}]*color: var\(--lcc-sp-gold\)/);
-  assert.match(spec, /\.lcc-sp-h2 \{[^}]*color: var\(--lcc-ap-title\)/);
+  assert.match(spec, /\.lcc-sp-h2 \{[^}]*color: var\(--lcc-heading\)/);
   assert.match(spec, /\.lcc-sp-stat b \{[^}]*color: var\(--lcc-ap-stat\)/);
   assert.doesNotMatch(spec, /var\(--lcc-gold-text\)/, 'the view no longer takes the look\'s sand for its gold');
   // contrast: the dark golds on the darkest and the lightest end of the surfaces they stand on
